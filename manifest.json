@@ -1,0 +1,30 @@
+{
+	"format_version": 2,
+	"header": {
+		"name": "Scripts for minecraft server",
+		"uuid": "e8a14889-982c-48bf-ad5d-2a0edab900b2",
+		"version": [ 1, 0, 0 ],
+		"description": "Author: ENIAC_Jushi",
+		"min_engine_version": [ 1, 20, 30 ]
+	},
+	"modules": [
+		{
+			"type": "script",
+			"language": "javascript",
+			"uuid": "68d6d7eb-a68e-40f6-b57d-7f0d200a35cf",
+			"entry": "scripts/index.js",
+			"version": [ 1, 0, 0 ]
+		},
+		{
+			"type": "data",
+			"uuid": "2c8e00bb-8ce4-41b7-b7cb-7c9d9762da96",
+			"version": [ 1, 0, 0 ]
+		}
+	],
+	"dependencies": [
+		{
+			"module_name": "@minecraft/server",
+			"version": "1.9.0-beta"
+		}
+	]
+}
