@@ -1,5 +1,6 @@
-import { Player } from "@minecraft/server";
+import { Player, system, world, GameMode} from "@minecraft/server";
 import { Config } from "../data/Config";
+import * as Tool from "../libs/Tools"
 
 /**
  * 玩家加入事件
@@ -67,16 +68,19 @@ function enableFly(player){
     player.runCommand("ability @s mayfly true");
     player.runCommand("gamerule sendcommandfeedback true");
 }
-
+/**
+ * 
+ * @param {Player} player 
+ */
 function disableFly(player){
-    let res = player.dimension.getBlockFromRay(player.location, {x:0, y:-1, z:0}, {"includeLiquidBlocks":false, "includePassableBlocks": false});
-                
-    player.teleport({x: res.block.location.x, y: res.block.location.y+1, z: res.block.location.z});
-    
+    let res = player.dimension.getBlockFromRay(player.location, {x:0, y:-1, z:0}, {"includeLiquidBlocks":true, "includePassableBlocks": false});
+    if(res !== undefined){
+        player.teleport({x: res.block.location.x, y: res.block.location.y+1, z: res.block.location.z});
+    }
+
     player.runCommand("gamerule sendcommandfeedback false");
     player.runCommand("ability @s mayfly false");
     player.runCommand("gamemode adventure");
     player.runCommand("gamemode survival");
     player.runCommand("gamerule sendcommandfeedback true");
-
 }

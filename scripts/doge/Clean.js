@@ -4,12 +4,13 @@
 import { system, world, ScriptEventCommandMessageAfterEvent } from "@minecraft/server";
 import { Config } from "../data/Config";
 
+var isCleaning = false;
 /**
  * 初始化
  * /scoreboard objectives add item_amount dummy item_amount
  * /scoreboard players set target_value item_amount 100
  */
-var isCleaning = false;
+world.getDimension("overworld").runCommand(`scoreboard objectives add item_amount dummy item_amount`);
 world.getDimension("overworld").runCommand(`scoreboard players set target_value item_amount ${Config.ITEMMAX}`);
 
 // 扫描 一分钟一次
