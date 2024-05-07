@@ -1,3 +1,12 @@
+// ==================== Title ====================
+
+  /* ---------------------------------------- *\
+   *  Name        :  DogeLake AFK             *
+   *  Description :  AFK                      *
+   *  Version     :  1.0.0                    *
+   *  Author      :  ENIAC_Jushi              *
+  \* ---------------------------------------- */
+
 import { Player, system, world } from "@minecraft/server";
 import { Config } from "../data/Config";
 
@@ -80,7 +89,7 @@ system.runInterval(()=>{
 
 // 5秒一次AFK玩家的位置扫描
 var intervalId = undefined;
-var playerList = []; // [{pl:Player, location:{x,y,z}}]
+var playerList = {}; // [{pl:Player, location:{x,y,z}}]
 function startAFKScan(){
     if(intervalId === undefined){
         intervalId = system.runInterval(()=>{
@@ -96,6 +105,7 @@ function startAFKScan(){
                         player.removeTag("AFK");
                         player.setDynamicProperty("afk:last_location", player.location);
                         player.setDynamicProperty("afk:step", 0);
+                        delete playerList[id]
                     }
                     else{
                         count ++;
