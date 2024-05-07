@@ -1,6 +1,12 @@
-/**
- * 清理垃圾 传送到最近的玩家
- */
+// ==================== Title ====================
+
+  /* ---------------------------------------- *\
+   *  Name        :  DogeLake Cleaner         *
+   *  Description :  清理垃圾 传送到最近的玩家. *
+   *  Version     :  1.0.0                    *
+   *  Author      :  ENIAC_Jushi              *
+  \* ---------------------------------------- */
+
 import { system, world, ScriptEventCommandMessageAfterEvent } from "@minecraft/server";
 import { Config } from "../data/Config";
 

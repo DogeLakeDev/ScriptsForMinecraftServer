@@ -76,3 +76,13 @@ export function logger(str){
         pl.sendMessage({rawtext:[{"text": `${str}`}]})
     }
 }
+
+/**
+ * 获取随机整数 两边都是闭区间
+ * @param {number} min 
+ * @param {number} max 
+ * @returns 
+ */
+export function getRandomInteger(min=0, max=1){
+    return min + Math.floor(Math.random() * (max + 1))
+}

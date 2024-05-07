@@ -1,4 +1,13 @@
-import { Player, system, world, GameMode} from "@minecraft/server";
+// ==================== Title ====================
+
+  /* ---------------------------------------- *\
+   *  Name        :  DogeLake fly             *
+   *  Description :  FLY.                     *
+   *  Version     :  1.0.0                    *
+   *  Author      :  ENIAC_Jushi              *
+  \* ---------------------------------------- */
+
+import { Player, system, world, GameMode, Entity} from "@minecraft/server";
 import { Config } from "../data/Config";
 import * as Tool from "../libs/Tools"
 
@@ -48,14 +57,14 @@ system.runInterval(()=>{
 }, 400);
 
 /**
- * 玩家是否在飞行区域内
- * @param {Player} player
+ * 实体是否在飞行区域内
+ * @param {Entity} entity
  * @returns {String|undefined}
  */
-function inFlyArea(player){
+function inFlyArea(entity){
     for(let area of Config.flyArea){
-        if(player.dimension.id === area.dimension){
-            if(Tool.pointInArea_2D(player.location.x, player.location.z, area.start[0], area.start[1], area.end[0], area.end[1])){
+        if(entity.dimension.id === area.dimension){
+            if(Tool.pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])){
                 return area.name;
             }
         }
