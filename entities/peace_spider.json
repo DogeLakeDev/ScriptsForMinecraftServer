@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "doge:peace_spider",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "component_groups": {
+      "become_spider": {
+        "minecraft:transformation": {
+          "into": "minecraft:spider",
+          "keep_level": false
+        }
+      }
+    },
+
+    "components": {
+    },
+
+    "events": {
+      "minecraft:entity_spawned": {
+        "add": {
+          "component_groups": [
+            "become_spider"
+          ]
+        }
+      }
+    }
+  }
+}

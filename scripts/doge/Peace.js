@@ -9,7 +9,7 @@ world.afterEvents.entitySpawn.subscribe(event => {
         if(event.cause === EntityInitializationCause.Spawned){
             let entity = event.entity;
             if(inPeaceArea(entity)
-                && entity.matches({families: ["monster"], excludeFamilies: ["zombie_villager"]})
+                && entity.matches({families: ["monster"], excludeFamilies: ["zombie_villager", "wither", "illager"]})
             ){
                 event.entity.remove();
             }
