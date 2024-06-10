@@ -1,0 +1,10 @@
+{
+    "entry": "StartGenshin.js",
+    "name": "[Doge] StartGenshin",
+    "type": "lse-quickjs",
+    "dependencies": [
+        {
+            "name": "legacy-script-engine-quickjs"
+        }
+    ]
+}

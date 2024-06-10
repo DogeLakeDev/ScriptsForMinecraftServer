@@ -1,0 +1,10 @@
+{
+    "entry": "TiMENU.js",
+    "name": "TiMENU",
+    "type": "lse-quickjs",
+    "dependencies": [
+        {
+            "name": "legacy-script-engine-quickjs"
+        }
+    ]
+}

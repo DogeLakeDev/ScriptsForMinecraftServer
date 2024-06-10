@@ -1,0 +1,10 @@
+{
+    "entry": "[ZY] DogeLake.js",
+    "name": "[ZY] DogeLake",
+    "type": "lse-quickjs",
+    "dependencies": [
+        {
+            "name": "legacy-script-engine-quickjs"
+        }
+    ]
+}

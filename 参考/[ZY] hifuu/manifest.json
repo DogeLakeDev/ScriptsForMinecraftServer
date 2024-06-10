@@ -1,0 +1,10 @@
+{
+    "entry": "[ZY] hifuu.js",
+    "name": "[ZY] hifuu",
+    "type": "lse-quickjs",
+    "dependencies": [
+        {
+            "name": "legacy-script-engine-quickjs"
+        }
+    ]
+}
