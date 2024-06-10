@@ -5,6 +5,7 @@ import * as Fly from "./doge/Fly"
 import * as AFK from "./doge/AFK";
 import * as Peace from "./doge/Peace"
 import { QAManager } from "./doge/QA";
+import "./core/index";
 
 // Script Event
 system.afterEvents.scriptEventReceive.subscribe(event => {
