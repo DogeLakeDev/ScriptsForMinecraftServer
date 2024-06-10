@@ -1,4 +1,5 @@
 import { Player, world } from "@minecraft/server";
+import { Command } from "./Command";
 
 let MONEY_NAME = "money"
 
@@ -31,5 +32,3 @@ export class Money{
         }
     }
 }
-
-Money.initScoreboard();
