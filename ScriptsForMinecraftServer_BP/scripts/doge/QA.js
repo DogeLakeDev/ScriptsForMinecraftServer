@@ -133,7 +133,7 @@ export class QAManager{
     // 出题记录，避免短时间重复出题
     record = [];             // 最近出的几个题
     recordPtr = 0;          // 下一个记录写入的位置
-    recordLimit = Math.floor(Questions.length / 4); // 最大记录数量
+    recordLimit = Math.floor(Questions.length - 2); // 最大记录数量
     pushRecord(index){
         this.record[this.recordPtr] = index;
         this.recordPtr = this.recordPtr < this.recordLimit ? this.recordPtr + 1 : 0;
