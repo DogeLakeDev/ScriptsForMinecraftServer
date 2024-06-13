@@ -3,7 +3,8 @@ import * as Tool from "./libs/Tools"
 import * as Clean from "./doge/Clean"
 import * as Fly from "./doge/Fly"
 import * as AFK from "./doge/AFK";
-import * as Peace from "./doge/Peace"
+import * as Peace from "./doge/Peace";
+import { Menu } from "./doge/Menu";
 import { QAManager } from "./doge/QA";
 import "./core/index";
 
