@@ -5,6 +5,7 @@ import * as Fly from "./doge/Fly"
 import * as AFK from "./doge/AFK";
 import * as Peace from "./doge/Peace";
 import { Menu } from "./doge/Menu";
+import { FormShop } from "./doge/FormShop";
 import { QAManager } from "./doge/QA";
 import "./core/index";
 

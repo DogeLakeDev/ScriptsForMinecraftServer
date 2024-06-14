@@ -1,0 +1,32 @@
+{
+    "format_version": "1.18.10",
+    "minecraft:entity": {
+      "description": {
+        "identifier": "doge:shop_aux_item",
+        "is_spawnable": false,
+        "is_summonable": true
+      },
+      "component_groups": {
+        "despawn":{ "minecraft:instant_despawn":{ "remove_child_entities": false } }
+      },
+      "components": {
+        "minecraft:inventory":{"container_type": "inventory", "inventory_size": 1, "private": true },
+        "minecraft:physics": {"has_collision": false,"has_gravity": false},
+        "minecraft:collision_box": { "width": 0, "height": 0 },
+        "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+        "minecraft:persistent": {},
+        "minecraft:knockback_resistance": { "value": 1.0 },
+        "minecraft:damage_sensor": { "triggers": [ { "cause": "all", "deals_damage": false } ] },
+        "minecraft:ageable": {
+            "duration": 5,
+            "grow_up": {
+              "event": "despawn",
+              "target": "self"
+            }
+        }
+      },
+      "events": {
+        "despawn":{ "add": { "component_groups": [ "despawn" ] } }
+      }
+    }
+}

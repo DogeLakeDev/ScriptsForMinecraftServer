@@ -8,7 +8,7 @@ export const main = {
             "title": "商店",
             "image": "",
             "onClick": {
-                "type": "playerCmd",
+                "type": "scriptCmd",
                 "run": "shop"
             }
         },
