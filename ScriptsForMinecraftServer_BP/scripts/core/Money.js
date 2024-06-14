@@ -10,9 +10,12 @@ export class Money{
      * @returns 
      */
     static get(player){
-        let scoreboard = world.scoreboard.getObjective(MONEY_NAME)
-        let score = scoreboard.getScore(player);
-        if(score !== undefined) return score;
+        let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
+        try{
+            let score = scoreboard.getScore(player);
+            if(score !== undefined) return score;
+        }
+        catch{ }
 
         world.scoreboard.getObjective(MONEY_NAME).setScore(player, 0);
         return 0;

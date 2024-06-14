@@ -3,6 +3,7 @@ import { Permission } from "../core/Permission";
 import { Player, world } from "@minecraft/server";
 import * as MCUI from "@minecraft/server-ui";
 import { logger } from "../libs/Tools";
+import { Command } from "../core/Command";
 
 export class Menu{
     /**
@@ -49,6 +50,7 @@ export class Menu{
     static clickButton(player, data){
         switch(data.type){
             case "playerCmd": player.runCommand(data.run); break;
+            case "scriptCmd": Command.trigger(player, data.run); break;
             case "form": this.show(player, data.run); break;
             default: break;
         }

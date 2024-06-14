@@ -1,8 +1,7 @@
-import { Player } from "@minecraft/server";
+import { Player, system } from "@minecraft/server";
 import { Permission } from "./Permission";
 
 export class Command{
-
     static list = {
     };
 
@@ -32,11 +31,13 @@ export class Command{
         let commandInfo = this.list[message];
         if(commandInfo !== undefined){
             if(Permission.getPermission(player) >= commandInfo.permission){
-                let result = commandInfo.callback(player);
-                if(result !== undefined){
-                    player.sendMessage(`${result}`);
-                    return;
-                }
+                system.run(()=>{
+                    let result = commandInfo.callback(player);
+                    if(result !== undefined){
+                        player.sendMessage(`${result}`);
+                    }
+                });
+                return;
             }
             else{
                 player.sendMessage(`§c你没有执行此条指令的权限。`);
