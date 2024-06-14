@@ -1,5 +1,6 @@
 import { Player, system } from "@minecraft/server";
 import { Permission } from "./Permission";
+import { logger } from "../libs/Tools";
 
 export class Command{
     static list = {
@@ -66,5 +67,14 @@ export class Command{
             "获取所有指令"
         );
     }
+
+    static registerScriptEvent(){
+        system.afterEvents.scriptEventReceive.subscribe((event)=>{
+            if(event.sourceEntity===undefined) return;
+            this.trigger(event.sourceEntity, event.id.substring(5));
+        }, {"namespaces": ["doge"]})
+    }
 }
+
+Command.registerScriptEvent();
 

@@ -9,6 +9,8 @@
 
 import { Player, system, world } from "@minecraft/server";
 import { Config } from "../data/Config";
+import { Command } from "../core/Command";
+import { Permission } from "../core/Permission";
 
 // 初始化
 for(let player of world.getAllPlayers()){
@@ -29,6 +31,7 @@ export function reset(player){
  * @param {Player} player 
  */
 export function setAFK(player){
+    player.removeTag("NOAFK");
     startAFKScan();
     playerList[player.id] = player.location;
     world.sendMessage(`§7* ${player.nameTag} is now AFK. *`);
@@ -121,3 +124,12 @@ function stopAFKScan(){
     system.clearRun(intervalId);
     intervalId = undefined;
 }
+
+function registerCommand(){
+    Command.register("afk", Permission.Any, setAFK, "进入AFK状态");
+    Command.register("noafk", Permission.OP, (pl)=>{
+        pl.addTag("NOAFK");
+    }, "令玩家不会进入AFK状态");
+}
+
+registerCommand();
