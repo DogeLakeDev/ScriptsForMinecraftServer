@@ -9,6 +9,8 @@
 
 import { system, world, ScriptEventCommandMessageAfterEvent } from "@minecraft/server";
 import { Config } from "../data/Config";
+import { Command } from "../core/Command";
+import { Permission } from "../core/Permission";
 
 var isCleaning = false;
 /**
@@ -61,3 +63,8 @@ export function startClean(event){
     }, 600);
 }
 
+function registerCommand(){
+    Command.register("clean", Permission.OP, startClean, "开始扫地");
+}
+
+registerCommand();

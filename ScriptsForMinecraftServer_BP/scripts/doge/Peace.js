@@ -1,6 +1,8 @@
 import { world, Entity, EntityInitializationCause} from "@minecraft/server";
 import { Config } from "../data/Config";
 import * as Tool from "../libs/Tools"
+import { Command } from "../core/Command";
+import { Permission } from "../core/Permission";
 
 var enable = true;
 world.afterEvents.entitySpawn.subscribe(event => {
@@ -40,3 +42,11 @@ function inPeaceArea(entity){
 export function switchPeace(){
     return enable = enable ? false : true;
 }
+
+function registerCommand(){
+    Command.register("peace", Permission.OP, ()=>{
+        return switchPeace() ? "开启区域和平": "关闭区域和平";
+    }, "切换区域和平")
+}
+
+registerCommand();
