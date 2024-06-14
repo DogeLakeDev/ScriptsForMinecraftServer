@@ -7,7 +7,7 @@
 
 ### 核心
 
-- !命令
+- 命令： `!<command>` 和 `/scriptevent doge:<command>`
 - 计分板金钱
 - 权限管理
 
