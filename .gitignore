@@ -1,2 +1,19 @@
+# 产物
+out/
+scriptsforminecraftserver/out/
+scriptsforminecraftserver/dist/
+
+# 依赖
+node_modules/
+
+# Minecraft 资源包/行为包构建产物
+*.mcpack
+*.mcaddon
+*.mcworld
+*.mctemplate
+
+# 参考资料
+# 参考/
+
 .AddCompLib/*
 *.zip
