@@ -1,3 +1,7 @@
+/*推荐的扩展*/
+/*Prettier - Code formatter*/
+/*Blockception - Minecraft Bedrock Development Extension*/
+/*Minecraft Debugger*/
 {
   "recommendations": [
     "esbenp.prettier-vscode",

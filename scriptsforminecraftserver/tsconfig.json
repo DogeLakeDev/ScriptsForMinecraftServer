@@ -1,3 +1,4 @@
+/*TypeScript编译器配置*/
 {
   "compilerOptions": {
     "target": "es6",

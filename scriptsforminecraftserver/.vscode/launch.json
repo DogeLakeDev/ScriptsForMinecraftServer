@@ -1,3 +1,5 @@
+/*调试配置*/
+/*Minecraft Debugger*/
 {
   "version": "0.3.0",
   "configurations": [

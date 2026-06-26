@@ -1,4 +1,4 @@
-import { system, world } from "@minecraft/server";
+import { system, world, GameMode } from "@minecraft/server";
 import { Config } from "../data/Config";
 import * as Tool from "../libs/Tools";
 export function playerJoinEvent(player) {
@@ -47,19 +47,15 @@ function inFlyArea(entity) {
     return undefined;
 }
 function enableFly(player) {
-    player.runCommand("gamerule sendcommandfeedback false");
     player.runCommand("ability @s mayfly true");
-    player.runCommand("gamerule sendcommandfeedback true");
 }
 function disableFly(player) {
     const res = player.dimension.getBlockFromRay(player.location, { x: 0, y: -1, z: 0 }, { includeLiquidBlocks: true, includePassableBlocks: false });
     if (res !== undefined) {
         player.teleport({ x: res.block.location.x, y: res.block.location.y + 1, z: res.block.location.z });
     }
-    player.runCommand("gamerule sendcommandfeedback false");
     player.runCommand("ability @s mayfly false");
-    player.runCommand("gamemode adventure");
-    player.runCommand("gamemode survival");
-    player.runCommand("gamerule sendcommandfeedback true");
+    player.setGameMode(GameMode.Adventure);
+    player.setGameMode(GameMode.Survival);
 }
 //# sourceMappingURL=Fly.js.map

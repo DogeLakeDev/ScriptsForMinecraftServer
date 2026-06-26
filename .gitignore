@@ -1,19 +1,23 @@
 # 产物
-out/
-scriptsforminecraftserver/out/
-scriptsforminecraftserver/dist/
+# scriptsforminecraftserver/out/
+# scriptsforminecraftserver/dist/
+# scriptsforminecraftserver/lib/
 
 # 依赖
-node_modules/
-
-# Minecraft 资源包/行为包构建产物
-*.mcpack
-*.mcaddon
-*.mcworld
-*.mctemplate
+scriptsforminecraftserver/node_modules/
 
 # 参考资料
 # 参考/
+
+# 本地化配置 已设置推荐配置
+# scriptsforminecraftserver/.vscode/extensions.json/
+# scriptsforminecraftserver/.vscode/settings.json/
+# scriptsforminecraftserver/.vscode/launch.json/
+# scriptsforminecraftserver/.vscode/task.json/
+# scriptsforminecraftserver/eslint.config.mjs/
+# scriptsforminecraftserver/just.config.ts/
+# scriptsforminecraftserver/.prettierrc.json/
+# scriptsforminecraftserver/.env/
 
 .AddCompLib/*
 *.zip

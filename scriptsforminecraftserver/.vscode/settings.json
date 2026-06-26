@@ -1,3 +1,4 @@
+/*工作区配置*/
 {
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"

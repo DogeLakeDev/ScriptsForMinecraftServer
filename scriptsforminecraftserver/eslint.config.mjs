@@ -12,6 +12,10 @@ export default [
       ts,
       "minecraft-linting": minecraftLinting,
     },
+    /*- avoid-unnecessary-command — 
+    如果在 API 中有对应方法（如 player.teleport() ），
+    就禁止使用命令（如 /tp ）。
+    */
     rules: {
       "minecraft-linting/avoid-unnecessary-command": "error",
     },

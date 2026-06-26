@@ -49,9 +49,7 @@ function inFlyArea(entity: Player): string | undefined {
 }
 
 function enableFly(player: Player): void {
-    player.runCommand("gamerule sendcommandfeedback false");
     player.runCommand("ability @s mayfly true");
-    player.runCommand("gamerule sendcommandfeedback true");
 }
 
 function disableFly(player: Player): void {
@@ -60,9 +58,7 @@ function disableFly(player: Player): void {
         player.teleport({ x: res.block.location.x, y: res.block.location.y + 1, z: res.block.location.z });
     }
 
-    player.runCommand("gamerule sendcommandfeedback false");
     player.runCommand("ability @s mayfly false");
-    player.runCommand("gamemode adventure");
-    player.runCommand("gamemode survival");
-    player.runCommand("gamerule sendcommandfeedback true");
+    player.setGameMode(GameMode.Adventure);
+    player.setGameMode(GameMode.Survival);
 }
