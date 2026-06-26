@@ -1,8 +1,11 @@
+/**
+ * 表单商店数据
+ */
 export const shopData = [
     {
         "name": "买入",
         "type": "root",
-        "sell": false,
+        "sell": false, // 由根节点指定买入还是售出
         "image": "",
         "data": [
             {
@@ -332,27 +335,237 @@ export const shopData = [
                 "type": "group",
                 "image": "textures/items/pamobile/pa_karp_bucket.png",
                 "data": [
-                    { "name": "月鱼", "type": "exam", "image": "", "data": { "type": "pa:raw_moon_fish", "aux": 0, "remark": "太懒了没有写简介~", "money": 200 } },
-                    { "name": "卡普鱼", "type": "exam", "image": "", "data": { "type": "pa:raw_karp", "aux": 0, "remark": "太懒了没有写简介~", "money": 20 } },
-                    { "name": "小龙虾", "type": "exam", "image": "", "data": { "type": "pa:raw_crab", "aux": 0, "remark": "太懒了没有写简介~", "money": 50 } },
-                    { "name": "沙丁鱼", "type": "exam", "image": "", "data": { "type": "pa:raw_sardine", "aux": 0, "remark": "太懒了没有写简介~", "money": 100 } },
-                    { "name": "生蛤", "type": "exam", "image": "", "data": { "type": "pa:raw_clam", "aux": 0, "remark": "太懒了没有写简介~", "money": 90 } },
-                    { "name": "珍珠", "type": "exam", "image": "", "data": { "type": "pa:pearl", "aux": 0, "remark": "太懒了没有写简介~", "money": 300 } },
-                    { "name": "壳", "type": "exam", "image": "", "data": { "type": "pa:shell", "aux": 0, "remark": "太懒了没有写简介~", "money": 100 } },
-                    { "name": "方鱼", "type": "exam", "image": "", "data": { "type": "pa:raw_fang_fish", "aux": 0, "remark": "太懒了没有写简介~", "money": 90 } },
-                    { "name": "硬鱼鳞", "type": "exam", "image": "", "data": { "type": "pa:hard_scale", "aux": 0, "remark": "太懒了没有写简介~", "money": 400 } },
-                    { "name": "油", "type": "exam", "image": "", "data": { "type": "pa:oil", "aux": 0, "remark": "太懒了没有写简介~", "money": 200 } },
-                    { "name": "浮萍", "type": "exam", "image": "", "data": { "type": "pa:duckweed", "aux": 0, "remark": "太懒了没有写简介~", "money": 20 } },
-                    { "name": "蟹甲碎片", "type": "exam", "image": "", "data": { "type": "pa:crab_armor_shard", "aux": 0, "remark": "太懒了没有写简介~", "money": 400 } },
-                    { "name": "虾", "type": "exam", "image": "", "data": { "type": "pa:raw_shrimp", "aux": 0, "remark": "太懒了没有写简介~", "money": 10 } },
-                    { "name": "鸭帽", "type": "exam", "image": "", "data": { "type": "pa:duck_fresade", "aux": 0, "remark": "太懒了没有写简介~", "money": 30 } },
-                    { "name": "海带帽", "type": "exam", "image": "", "data": { "type": "pa:kelp_fresade", "aux": 0, "remark": "太懒了没有写简介~", "money": 30 } },
-                    { "name": "冰鱼皮", "type": "exam", "image": "", "data": { "type": "pa:icefish_skin", "aux": 0, "remark": "太懒了没有写简介~", "money": 250 } },
-                    { "name": "海蘑菇", "type": "exam", "image": "", "data": { "type": "pa:sea_shroom", "aux": 0, "remark": "太懒了没有写简介~", "money": 10 } },
-                    { "name": "海胆", "type": "exam", "image": "", "data": { "type": "enj:raw_urchin", "aux": 0, "remark": "太懒了没有写简介~", "money": 70 } },
-                    { "name": "热带花", "type": "exam", "image": "", "data": { "type": "pa:beach_flower", "aux": 0, "remark": "太懒了没有写简介~", "money": 40 } },
-                    { "name": "胶状物", "type": "exam", "image": "", "data": { "type": "pa:jelly", "aux": 0, "remark": "太懒了没有写简介~", "money": 50 } },
-                    { "name": "浮游生物块", "type": "exam", "image": "", "data": { "type": "pa:plankton_block", "aux": 0, "remark": "太懒了没有写简介~", "money": 200 } }
+                    {
+                        "name": "月鱼",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_moon_fish",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 200
+                        }
+                    },
+                    {
+                        "name": "卡普鱼",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_karp",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 20
+                        }
+                    },
+                    {
+                        "name": "小龙虾",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_crab",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 50
+                        }
+                    },
+                    {
+                        "name": "沙丁鱼",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_sardine",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 100
+                        }
+                    },
+                    {
+                        "name": "生蛤",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_clam",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 90
+                        }
+                    },
+                    {
+                        "name": "珍珠",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:pearl",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 300
+                        }
+                    },
+                    {
+                        "name": "壳",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:shell",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 100
+                        }
+                    },
+                    {
+                        "name": "方鱼",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_fang_fish",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 90
+                        }
+                    },
+                    {
+                        "name": "硬鱼鳞",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:hard_scale",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 400
+                        }
+                    },
+                    {
+                        "name": "油",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:oil",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 200
+                        }
+                    },
+                    {
+                        "name": "浮萍",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:duckweed",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 20
+                        }
+                    },
+                    {
+                        "name": "蟹甲碎片",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:crab_armor_shard",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 400
+                        }
+                    },
+                    {
+                        "name": "虾",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:raw_shrimp",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 10
+                        }
+                    },
+                    {
+                        "name": "鸭帽",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:duck_fresade",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 30
+                        }
+                    },
+                    {
+                        "name": "海带帽",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:kelp_fresade",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 30
+                        }
+                    },
+                    {
+                        "name": "冰鱼皮",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:icefish_skin",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 250
+                        }
+                    },
+                    {
+                        "name": "海蘑菇",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:sea_shroom",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 10
+                        }
+                    },
+                    {
+                        "name": "海胆",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "enj:raw_urchin",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 70
+                        }
+                    },
+                    {
+                        "name": "热带花",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:beach_flower",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 40
+                        }
+                    },
+                    {
+                        "name": "胶状物",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:jelly",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 50
+                        }
+                    },
+                    {
+                        "name": "浮游生物块",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:plankton_block",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 200
+                        }
+                    }
                 ]
             },
             {
@@ -360,12 +573,72 @@ export const shopData = [
                 "type": "group",
                 "image": "",
                 "data": [
-                    { "name": "下界之星", "type": "exam", "image": "", "data": { "type": "minecraft:nether_star", "aux": 0, "remark": "太懒了没有写简介~", "money": 5000 } },
-                    { "name": "烈焰棒", "type": "exam", "image": "", "data": { "type": "minecraft:blaze_rod", "aux": 0, "remark": "太懒了没有写简介~", "money": 137 } },
-                    { "name": "恶魂之泪", "type": "exam", "image": "", "data": { "type": "minecraft:ghast_tear", "aux": 0, "remark": "太懒了没有写简介~", "money": 120 } },
-                    { "name": "龙息", "type": "exam", "image": "", "data": { "type": "minecraft:dragon_breath", "aux": 0, "remark": "太懒了没有写简介~", "money": 160 } },
-                    { "name": "腐肉", "type": "exam", "image": "", "data": { "type": "minecraft:rotten_flesh", "aux": 0, "remark": "太懒了没有写简介~", "money": 2 } },
-                    { "name": "紫水晶块", "type": "exam", "image": "", "data": { "type": "pa:amethystenite", "aux": 0, "remark": "生物掉落", "money": 20 } }
+                    {
+                        "name": "下界之星",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "minecraft:nether_star",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 5000
+                        }
+                    },
+                    {
+                        "name": "烈焰棒",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "minecraft:blaze_rod",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 137
+                        }
+                    },
+                    {
+                        "name": "恶魂之泪",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "minecraft:ghast_tear",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 120
+                        }
+                    },
+                    {
+                        "name": "龙息",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "minecraft:dragon_breath",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 160
+                        }
+                    },
+                    {
+                        "name": "腐肉",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "minecraft:rotten_flesh",
+                            "aux": 0,
+                            "remark": "太懒了没有写简介~",
+                            "money": 2
+                        }
+                    },
+                    {
+                        "name": "紫水晶块",
+                        "type": "exam",
+                        "image": "",
+                        "data": {
+                            "type": "pa:amethystenite",
+                            "aux": 0,
+                            "remark": "生物掉落",
+                            "money": 20
+                        }
+                    }
                 ]
             },
             {
