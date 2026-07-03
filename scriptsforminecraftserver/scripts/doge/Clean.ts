@@ -13,10 +13,12 @@ import {
   BlockComponentTypes, BlockPermutation, Block,
 } from "@minecraft/server";
 import { Config } from "../data/Config";
-import { Command } from "../core/Command";
-import { Permission } from "../core/Permission";
+import { Command } from "../libs/Command";
+import { Permission } from "../libs/Permission";
+import * as Tool from "../libs/Tools";
+import { Storage } from "../libs/Storage";
 
-const DYNAMIC_PROPERTY_KEY = 'DOGE_CLEAN_INDEX';
+const STORAGE_KEY = "DOGE_CLEAN_INDEX";
 
 /**
  * [重要]
@@ -55,16 +57,11 @@ export class Clean {
   }
 
   getCleanIndex() {
-    let res = world.getDynamicProperty(DYNAMIC_PROPERTY_KEY);
-    if (!res || typeof res !== 'number') {
-      world.setDynamicProperty(DYNAMIC_PROPERTY_KEY, 0);
-      return 0;
-    }
-    return res;
+    return Storage.get<number>(STORAGE_KEY, 0);
   }
 
   setCleanIndex(index: number) {
-    world.setDynamicProperty(DYNAMIC_PROPERTY_KEY, index);
+    Storage.set(STORAGE_KEY, index);
   }
 
   /**
@@ -74,25 +71,11 @@ export class Clean {
    */
   placeItem(itemProvider: () => ItemStack | undefined, isFirstCall: boolean = true) {
     // 确定面的增长方向
-    let base = [1, 0];
-    switch (this.direction) {
-      case 1: base = [1, 0]; break;
-      case -1: base = [-1, 0]; break;
-      case 2: base = [0, 1]; break;
-      case -2: base = [0, -1]; break;
-      default: break;
-    }
+    let base = Tool.getBase(this.direction);
 
     // 确定箱子朝向
-    let cardinalDirection = 'north';
-    let facingDirection = 2;
-    if (this.direction === -1 || this.direction === 1) {
-      cardinalDirection = this.face > 0 ? 'south' : 'north';
-      facingDirection = this.face > 0 ? 3 : 2;
-    } else {
-      cardinalDirection = this.face > 0 ? 'east' : 'west';
-      facingDirection = this.face > 0 ? 5 : 4;
-    }
+    let cardinalDirection = Tool.getChestCardinal(this.direction, this.face);
+    let facingDirection = Tool.getSignFacing(this.direction, this.face);
 
     let index = 0;
     let currentIndex = this.getCleanIndex(); // 当前箱子的索引，仅在跳过阶段使用
@@ -119,16 +102,7 @@ export class Clean {
         let block = dimension.getBlock(coordinate);
         let block2 = dimension.getBlock(coordinate2);
         // 方块应该是箱子 不是则放置
-        if (!block || block.typeId !== 'minecraft:chest') {
-          dimension.setBlockPermutation(coordinate, BlockPermutation.resolve('chest', {
-            'minecraft:cardinal_direction': cardinalDirection,
-          }));
-        }
-        if (!block2 || block2.typeId !== 'minecraft:chest') {
-          dimension.setBlockPermutation(coordinate2, BlockPermutation.resolve('chest', {
-            'minecraft:cardinal_direction': cardinalDirection,
-          }));
-        }
+        Tool.ensureDoubleChest(dimension, coordinate, cardinalDirection, this.direction);
 
         // 获取主箱子的容器（可以获取到连体的容器）
         let inventory = block!.getComponent(BlockComponentTypes.Inventory) as any;
@@ -157,11 +131,7 @@ export class Clean {
           y: coordinate2.y,
           z: coordinate2.z + (base[1] !== 0 ? 0 : this.face),
         };
-        dimension.setBlockPermutation(signCoordinate, BlockPermutation.resolve('pale_oak_wall_sign', {
-          'facing_direction': facingDirection,
-        }));
-        let sign = dimension.getBlock(signCoordinate);
-        (sign!.getComponent(BlockComponentTypes.Sign) as any).setText(this.getTimeStr());
+        Tool.placeSign(dimension, signCoordinate, facingDirection, this.getTimeStr());
       }
     }
     // 一轮循环后，任务仍然没有结束，归零，进行新一轮循环
@@ -236,20 +206,14 @@ export class Clean {
   }
 
   getTimeStr() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-
-    return `\n${year}-${month}-${day}\n${hours}:${minutes}:${seconds}`;
+    const { date, time } = Tool.getShanghaiTime();
+    return `\n${date}\n${time}`;
   }
 }
 
 function registerCommand() {
-  Command.register("clean", (Permission as any).OP, () => {
+  Permission.register('clean.admin', Permission.OP);
+  Command.register("clean", 'clean.admin', () => {
     Clean.getInstance()!.startClean(undefined);
   }, "开始扫地");
 }

@@ -57,6 +57,6 @@ export class ChatSoundsHelper {
           return;
         }
       }
-    })
+    });
   }
 }

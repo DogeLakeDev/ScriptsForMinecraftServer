@@ -1,15 +1,14 @@
 /* ---------------------------------------- *\
 *  Name        :  生物数量控制                *
-*  Description :  分类统计生物数量并清理        *
+*  Description :  分类统计生物数量并清理       *
 *  Version     :  1.0.0                     *
 *  Author      :  ENIAC_Jushi               *
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { Command } from "../core/Command";
-import { Permission } from "../core/Permission";
-import * as MCUI from "@minecraft/server-ui";
-
+import { Command } from "../libs/Command";
+import { Permission } from "../libs/Permission";
+import { Gui } from "../libs/Gui";
 
 /**
  * 开始统计和清理任务
@@ -36,7 +35,7 @@ export function entityClean(player: Player) {
   });
 
   // 发送表单
-  const form = new MCUI.ActionFormData();
+  const form = Gui.simpleForm("实体列表");
   form.title("实体列表");
   for (let data of arr) {
     form.button(`${data[1]} | ${data[0]}`);
@@ -46,8 +45,7 @@ export function entityClean(player: Player) {
       if (response.canceled || response.selection === undefined) return;
       const selectionIndex = response.selection;
 
-      const form2 = new MCUI.ActionFormData();
-      form2.title("处理方式");
+      const form2 = Gui.simpleForm("处理方式");
       form2.button(`remove`);
       form2.button(`kill`);
       form2.button("tp")
@@ -113,20 +111,21 @@ export function temp(player: Player) {
   }
 }
 function registerCommand() {
-  Command.register("en", Permission.OP, (player: Player | undefined) => entityClean(player!), "清理实体");
+  Permission.register('entity_control.clear', Permission.OP);
+  Command.register("en", 'entity_control.clear', (player: Player | undefined) => entityClean(player!), "清理实体");
 }
 
 registerCommand();
 
 /**
- * 处死统计 铁傀儡
- */
+ * 处死统计 铁傀儡 */
 
 var iron_start: number = 0;
 var iron_amount = 0;
 var ironSubscription: (() => void) | undefined;
 function killStatistics() {
-  Command.register("en_i", Permission.OP,
+  Permission.register('entity_control.inspect', Permission.OP);
+  Command.register("en_i", 'entity_control.inspect',
     (player: Player | undefined) => {
       iron_start = new Date().getTime();
       iron_amount = 0;

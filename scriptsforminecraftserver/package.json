@@ -23,8 +23,9 @@
   },
   "dependencies": {
     "@minecraft/math": "^2.4.0",
-    "@minecraft/server": "^2.8.0",
+    "@minecraft/server": "2.10.0-beta.1.26.40-preview.29",
+    "@minecraft/server-net": "^1.0.0-beta.release.1.19.50",
     "@minecraft/server-ui": "^2.1.0",
-    "@minecraft/vanilla-data": "^1.26.21"
+    "@minecraft/vanilla-data": "^1.26.32"
   }
 }

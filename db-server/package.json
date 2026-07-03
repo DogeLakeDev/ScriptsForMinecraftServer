@@ -1,0 +1,13 @@
+{
+  "name": "doge-db-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DogeChat 外部数据库 — WebSocket + SQLite",
+  "scripts": {
+    "start": "node index.js",
+    "start:pm2": "pm2 start index.js --name doge-db"
+  },
+  "dependencies": {
+    "sql.js": "^1.11.0"
+  }
+}

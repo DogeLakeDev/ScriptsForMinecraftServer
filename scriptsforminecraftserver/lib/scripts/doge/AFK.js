@@ -6,7 +6,9 @@
 \* ---------------------------------------- */
 import { system, world } from "@minecraft/server";
 import { Config } from "../data/Config";
-import { Command, Permission, } from "../core/main";
+import { Permission } from "../libs/Permission";
+import { Command } from "../libs/Command";
+import { Storage } from "../libs/Storage";
 export function init() {
     // 初始化
     for (let player of world.getAllPlayers()) {
@@ -14,11 +16,11 @@ export function init() {
     }
 }
 /**
- * 清除相关动态属性和标签
+ * 清除相关属性和标签
  */
 export function reset(player) {
-    player.setDynamicProperty("afk:last_location", undefined);
-    player.setDynamicProperty("afk:step", undefined);
+    Storage.playerDelete(player, "afk:last_location");
+    Storage.playerDelete(player, "afk:step");
     player.removeTag("AFK");
     player.removeTag("NOAFK");
 }
@@ -30,7 +32,7 @@ export function setAFK(player) {
     startAFKScan();
     playerList[player.id] = player.location;
     world.sendMessage(`§7* ${player.nameTag} is now AFK. *`);
-    player.setDynamicProperty("afk:step", 0);
+    Storage.playerSet(player, "afk:step", 0);
     player.addTag("AFK");
 }
 function locationMoved(lastLocation, nowLocation) {
@@ -50,10 +52,10 @@ function locationMoved(lastLocation, nowLocation) {
 const STEP_TIME = 15;
 system.runInterval(() => {
     for (let player of world.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
-        let lastLoaction = player.getDynamicProperty("afk:last_location");
+        let lastLoaction = Storage.playerGet(player, "afk:last_location", undefined);
         let nowLocation = player.location;
         if (lastLoaction !== undefined) {
-            let nowStep = player.getDynamicProperty("afk:step");
+            let nowStep = Storage.playerGet(player, "afk:step", undefined);
             if (!locationMoved(lastLoaction, nowLocation)) {
                 // 位置没有改变，步数增加
                 if (nowStep === undefined) {
@@ -68,14 +70,14 @@ system.runInterval(() => {
                     setAFK(player);
                 }
                 else {
-                    player.setDynamicProperty("afk:step", nowStep);
+                    Storage.playerSet(player, "afk:step", nowStep);
                 }
             }
             else {
-                player.setDynamicProperty("afk:step", 0);
+                Storage.playerSet(player, "afk:step", 0);
             }
         }
-        player.setDynamicProperty("afk:last_location", nowLocation);
+        Storage.playerSet(player, "afk:last_location", nowLocation);
     }
 }, STEP_TIME * 20);
 // 5秒一次AFK玩家的位置扫描
@@ -96,8 +98,8 @@ function startAFKScan() {
                 if (locationMoved(playerList[id], player.location)) {
                     world.sendMessage(`§7* ${player.nameTag} is no longer AFK. *`);
                     player.removeTag("AFK");
-                    player.setDynamicProperty("afk:last_location", player.location);
-                    player.setDynamicProperty("afk:step", 0);
+                    Storage.playerSet(player, "afk:last_location", player.location);
+                    Storage.playerSet(player, "afk:step", 0);
                     delete playerList[id];
                 }
                 else {
@@ -115,8 +117,10 @@ function stopAFKScan() {
     intervalId = undefined;
 }
 function registerCommand() {
-    Command.register("afk", Permission.Any, setAFK, "进入AFK状态");
-    Command.register("noafk", Permission.OP, (pl) => {
+    Permission.register('afk.use', Permission.Any);
+    Permission.register('afk.clear.other', Permission.OP);
+    Command.register("afk", 'afk.use', setAFK, "进入AFK状态");
+    Command.register("noafk", 'afk.clear.other', (pl) => {
         if (pl)
             pl.addTag("NOAFK");
     }, "令玩家不会进入AFK状态");

@@ -7,9 +7,9 @@
 
 import { Player, system, world } from "@minecraft/server";
 import { Questions } from "../data/Questions"
-import { getRandomInteger } from "../libs/Tools";
+import { getRandomInteger, Msg } from "../libs/Tools";
 import { Config } from "../data/Config";
-import { Money } from "../core/Money";
+import { Money } from "../libs/Money";
 
 export class QAManager {
   static _instance: QAManager;
@@ -116,19 +116,19 @@ export class QAManager {
             this.playerList[pl.nameTag] = true;
             QAManager.giveBonus(pl, this.rightAmount, question.bonus);
             if (question["msg_right"] !== undefined) {
-              pl.sendMessage(question["msg_right"]);
+              Msg.tips(question["msg_right"], pl);
             }
             else {
-              pl.sendMessage("§a回答正确！§r");
+              Msg.success("§a回答正确！§r",pl);
             }
             return 1;
           }
         }
         if (question["msg_wrong"] !== undefined) {
-          pl.sendMessage(question["msg_wrong"]);
+          Msg.tips(question["msg_wrong"], pl);
         }
         else {
-          pl.sendMessage("§c回答错误！§r");
+          Msg.error("§c回答错误！§r",pl);
         }
         this.wrongAmount++;
         if (question.punish !== undefined) {
@@ -137,10 +137,10 @@ export class QAManager {
         this.playerList[pl.nameTag] = false;
         return 0;
       }
-      pl.sendMessage("§h已经答过这题了^ ^§r");
+      Msg.tips("已经答过这题了^ ^§r",pl);
       return -1;
     }
-    pl.sendMessage("§h当前没有正在进行的答题^ ^§r");
+    Msg.tips("当前没有正在进行的答题^ ^§r",pl);
     return -2;
   }
   // 出题记录，避免短时间重复出题
@@ -182,7 +182,7 @@ export class QAManager {
               pl.runCommand(b["cmd"]);
               break;
             default:
-              pl.sendMessage(`Unknown bonus type: ${b["type"]}`);
+              Msg.error(`Unknown bonus type: ${b["type"]}`,pl);
               break;
           }
         });

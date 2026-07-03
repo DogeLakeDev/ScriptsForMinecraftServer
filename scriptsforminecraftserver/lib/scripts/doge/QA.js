@@ -8,7 +8,7 @@ import { system, world } from "@minecraft/server";
 import { Questions } from "../data/Questions";
 import { getRandomInteger } from "../libs/Tools";
 import { Config } from "../data/Config";
-import { Money } from "../core/Money";
+import { Money } from "../libs/Money";
 export class QAManager {
     constructor() {
         // 记录玩家答题信息

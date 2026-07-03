@@ -1,28 +1,54 @@
 import { Player, world } from "@minecraft/server";
 
-if (world.scoreboard.getObjective("money") == null) {
-    world.getDimension("overworld").runCommand("scoreboard objectives add money dummy money");
-}
+const MONEY_NAME = 'money';
 
 export class Money {
-    static get(player: Player): number {
-        const scores = world.scoreboard.getObjective("money")!.getScores();
-        const name = player.nameTag;
-
-        for (const s of scores) {
-            if (s.participant.displayName === name) {
-                return s.score;
-            }
-        }
-        player.runCommand("scoreboard players add @s money 0");
-        return 0;
+  /** 货币单位名称 */
+  static readonly UNIT = '节操';
+  /**
+   * 获取玩家金钱数量
+   */
+  static get(player: Player): number {
+    let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
+    if (!scoreboard) return 0;
+    try {
+      let score = scoreboard.getScore(player);
+      if (score !== undefined) {
+        return score;
+      }
+    } catch (_) { }
+    if (scoreboard) {
+      scoreboard.setScore(player, 0);
     }
+    return 0;
+  }
 
-    static set(player: Player, money: number): void {
-        player.runCommand(`scoreboard players set @s money ${money}`);
+  /**
+   * 设置玩家金钱数量
+   */
+  static set(player: Player, money: number) {
+    let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
+    if (!scoreboard) {
+      world.getDimension('overworld').runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+      scoreboard = world.scoreboard.getObjective(MONEY_NAME)!;
     }
+    return scoreboard.setScore(player, money);
+  }
 
-    static add(pl: Player, money: number): void {
-        return this.set(pl, this.get(pl) + money);
+  /**
+   * 给予玩家金钱
+   */
+  static add(player: Player, money: number) {
+    return this.set(player, this.get(player) + money);
+  }
+
+  /**
+   * 初始化计分板
+   */
+  static initScoreboard() {
+    if (!world.scoreboard.getObjective(MONEY_NAME)) {
+      world.getDimension("overworld")
+        .runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
     }
+  }
 }

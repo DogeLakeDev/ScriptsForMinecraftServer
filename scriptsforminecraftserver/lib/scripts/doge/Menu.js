@@ -5,10 +5,12 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 import { forms, menuItems } from "../data/menu/index";
-import { Permission } from "../core/Permission";
+import { Permission } from "../libs/Permission";
 import { world } from "@minecraft/server";
-import * as MCUI from "@minecraft/server-ui";
-import { Command } from "../core/Command";
+import { Gui } from "../libs/Gui";
+import { Command } from "../libs/Command";
+// 注册权限
+Permission.register('menu.use', Permission.Any);
 export class Menu {
     /**
      * @param player
@@ -29,9 +31,7 @@ export class Menu {
             return;
         }
         // 构建菜单
-        const form = new MCUI.ActionFormData();
-        form.title(formData["title"]);
-        form.body(formData["content"]);
+        const form = Gui.simpleForm(formData["title"], formData["content"]);
         for (let button of formData["buttons"]) {
             form.button(button["title"], button["image"] === "" ? undefined : button["image"]);
         }

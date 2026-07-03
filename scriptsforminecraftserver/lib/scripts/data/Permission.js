@@ -1,11 +1,14 @@
 /**
  * 权限数据
+ *   等级值参考 Permission 类：
+ *   -1 脚本指定的无权限访客（Guest）
+ *    0 访客 / 普通权限（Any / Visitor）
+ *    1 普通玩家（Member）
+ *    2 管理员（OP / Operator）
+ *    3 自定义管理员（Admin / Custom）
  */
-// -1 脚本指定的无权限访客
-// 0  普通玩家
-// 1  服务器原生 OP
-// 2  脚本指定的 OP
 export const data = {
-    "CommetWind": 2
+    "CommetWind": 2,
+    "Shiroha7z": 3
 };
 //# sourceMappingURL=Permission.js.map
