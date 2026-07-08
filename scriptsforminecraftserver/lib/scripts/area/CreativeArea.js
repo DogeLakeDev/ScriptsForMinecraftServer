@@ -10,8 +10,6 @@ import * as Tool from "../libs/Tools";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { SurvivalArea } from "./SurvivalArea";
-import { Msg } from "../libs/Tools";
-import { Storage } from "../libs/Storage";
 export class CreativeArea {
     constructor() {
         this.BORDER_THRESHOLD = 10;
@@ -24,12 +22,99 @@ export class CreativeArea {
         }
         return CreativeArea._instance;
     }
+    /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+    registerCommandsAndPermissions() {
+        Permission.register("creativearea.toggle", Permission.OP);
+        Permission.register("creativearea.place_banned", Permission.Admin);
+        Command.register("creativearea", "creativearea.toggle", () => {
+            CreativeArea.enable = !CreativeArea.enable;
+            SurvivalArea.getInstance().enable = CreativeArea.enable;
+            return CreativeArea.enable ? "区域系统已开启" : "区域系统已关闭";
+        }, "开关区域系统");
+    }
+    /** 注册事件（由 entry.ts 统一调用） */
+    registerEvents() {
+        world.afterEvents.playerSpawn.subscribe((event) => {
+            if (!event.initialSpawn)
+                return;
+            system.runTimeout(() => {
+                const areaName = this.inArea(event.player);
+                if (areaName !== undefined) {
+                    this.enterArea(event.player, areaName);
+                }
+                else if (event.player.getGameMode() === GameMode.Creative ||
+                    event.player.getGameMode() === GameMode.Spectator) {
+                    event.player.setGameMode(GameMode.Survival);
+                }
+            }, 60);
+        });
+        world.afterEvents.playerDimensionChange.subscribe((event) => {
+            if (!CreativeArea.enable)
+                return;
+            system.runTimeout(() => {
+                const areaName = this.inArea(event.player);
+                const currentArea = event.player.getDynamicProperty("hpbe:creative_area");
+                if (currentArea === undefined && areaName !== undefined) {
+                    this.enterArea(event.player, areaName);
+                }
+                else if (currentArea !== undefined && areaName === undefined) {
+                    this.leaveArea(event.player, currentArea);
+                }
+            }, 10);
+        });
+        world.afterEvents.entitySpawn.subscribe((event) => {
+            if (!CreativeArea.enable)
+                return;
+            if (!event.entity)
+                return;
+            if (event.entity.typeId === "minecraft:player")
+                return;
+            if (!this.creativeDims.has(event.entity.dimension.id))
+                return;
+            try {
+                if (event.cause === EntityInitializationCause.Spawned) {
+                    if (this.inArea(event.entity) !== undefined || this.inBufferZone(event.entity)) {
+                        event.entity.remove();
+                    }
+                }
+            }
+            catch { }
+        });
+        world.beforeEvents.playerPlaceBlock.subscribe((event) => {
+            if (!CreativeArea.enable)
+                return;
+            const player = event.player;
+            if (player.getGameMode() !== GameMode.Creative)
+                return;
+            // 阻止在区外放置（所有人生效）
+            if (!this.inAreaByPos(event.block.location.x, event.block.location.z, player.dimension.id)) {
+                event.cancel = true;
+                Tool.Msg.error(`你只能在创造区域内放置方块。`, player);
+                return;
+            }
+            // 阻止放置禁止方块（拥有 creativearea.place_banned 可绕过）
+            if (Config.creativeBannedItems.indexOf(event.permutationToPlace.type.id) !== -1) {
+                if (!Permission.check(player, "creativearea.place_banned")) {
+                    event.cancel = true;
+                    Tool.Msg.error(`创造区域内禁止放置 ${event.permutationToPlace.type.id}。`, player);
+                }
+            }
+        });
+        world.beforeEvents.playerBreakBlock.subscribe((event) => {
+            if (!CreativeArea.enable)
+                return;
+            if (event.player.getGameMode() !== GameMode.Creative)
+                return;
+            if (!this.inAreaByPos(event.block.location.x, event.block.location.z, event.player.dimension.id)) {
+                event.cancel = true;
+                Tool.Msg.error(`你只能破坏创造区域内的方块。`, event.player);
+            }
+        });
+    }
     init() {
-        this.registerEvents();
         this.startTick();
         this.startBorderFastCheck();
         this.startBorderWarning();
-        this.registerCommands();
     }
     // ==========================================
     //  区域判定
@@ -62,8 +147,10 @@ export class CreativeArea {
             const maxX = Math.max(area.start[0], area.end[0]) + threshold;
             const minZ = Math.min(area.start[1], area.end[1]) - threshold;
             const maxZ = Math.max(area.start[1], area.end[1]) + threshold;
-            if (entity.location.x >= minX && entity.location.x <= maxX &&
-                entity.location.z >= minZ && entity.location.z <= maxZ)
+            if (entity.location.x >= minX &&
+                entity.location.x <= maxX &&
+                entity.location.z >= minZ &&
+                entity.location.z <= maxZ)
                 return true;
         }
         return false;
@@ -77,8 +164,10 @@ export class CreativeArea {
             const minZ = Math.min(area.start[1], area.end[1]);
             const maxZ = Math.max(area.start[1], area.end[1]);
             const x = entity.location.x, z = entity.location.z;
-            const inExpanded = x >= minX - this.BUFFER_ZONE && x <= maxX + this.BUFFER_ZONE &&
-                z >= minZ - this.BUFFER_ZONE && z <= maxZ + this.BUFFER_ZONE;
+            const inExpanded = x >= minX - this.BUFFER_ZONE &&
+                x <= maxX + this.BUFFER_ZONE &&
+                z >= minZ - this.BUFFER_ZONE &&
+                z <= maxZ + this.BUFFER_ZONE;
             if (!inExpanded)
                 continue;
             if (x >= minX && x <= maxX && z >= minZ && z <= maxZ)
@@ -99,14 +188,14 @@ export class CreativeArea {
     enterArea(player, areaName) {
         this.saveScores(player);
         player.setGameMode(GameMode.Creative);
-        Storage.playerSet(player, "creative:area_name", areaName);
-        Msg.info(`进入 §a${areaName}创造区域§r ，切换为创造模式。`, player);
+        player.setDynamicProperty("hpbe:creative_area", areaName);
+        Tool.Msg.info(`进入 §a${areaName}创造区域§r ，切换为创造模式。`, player);
     }
     leaveArea(player, areaName) {
         this.restoreScores(player);
         player.setGameMode(GameMode.Survival);
-        Storage.playerDelete(player, "creative:area_name");
-        Msg.info(`离开 §a${areaName}创造区域§r ，恢复生存模式。`, player);
+        player.setDynamicProperty("hpbe:creative_area", undefined);
+        Tool.Msg.info(`离开 §a${areaName}创造区域§r ，恢复生存模式。`, player);
     }
     // ==========================================
     //  计分项保存 / 恢复
@@ -122,14 +211,15 @@ export class CreativeArea {
                 if (score !== undefined)
                     scores[obj.id] = score;
             }
-            catch (_a) { }
+            catch { }
         }
         if (Object.keys(scores).length > 0) {
-            Storage.playerSet(player, "creative:scores", scores);
+            player.setDynamicProperty("hpbe:creative_scores", JSON.stringify(scores));
         }
     }
     restoreScores(player) {
-        const scores = Storage.playerGet(player, "creative:scores", undefined);
+        const raw = player.getDynamicProperty("hpbe:creative_scores");
+        const scores = raw ? JSON.parse(raw) : undefined;
         if (!scores)
             return;
         const identity = player.scoreboardIdentity;
@@ -140,90 +230,10 @@ export class CreativeArea {
                 try {
                     obj.setScore(identity, scores[obj.id]);
                 }
-                catch (_a) { }
+                catch { }
             }
         }
-        Storage.playerDelete(player, "creative:scores");
-    }
-    // ==========================================
-    //  事件注册
-    // ==========================================
-    registerEvents() {
-        world.afterEvents.playerSpawn.subscribe((event) => {
-            if (!event.initialSpawn)
-                return;
-            system.runTimeout(() => {
-                const areaName = this.inArea(event.player);
-                if (areaName !== undefined) {
-                    this.enterArea(event.player, areaName);
-                }
-                else if (event.player.getGameMode() === GameMode.Creative || event.player.getGameMode() === GameMode.Spectator) {
-                    event.player.setGameMode(GameMode.Survival);
-                }
-            }, 60);
-        });
-        world.afterEvents.playerDimensionChange.subscribe((event) => {
-            if (!CreativeArea.enable)
-                return;
-            system.runTimeout(() => {
-                const areaName = this.inArea(event.player);
-                const currentArea = Storage.playerGet(event.player, "creative:area_name", undefined);
-                if (currentArea === undefined && areaName !== undefined) {
-                    this.enterArea(event.player, areaName);
-                }
-                else if (currentArea !== undefined && areaName === undefined) {
-                    this.leaveArea(event.player, currentArea);
-                }
-            }, 10);
-        });
-        world.afterEvents.entitySpawn.subscribe((event) => {
-            if (!CreativeArea.enable)
-                return;
-            if (!event.entity)
-                return;
-            if (event.entity.typeId === "minecraft:player")
-                return;
-            if (!this.creativeDims.has(event.entity.dimension.id))
-                return;
-            try {
-                if (event.cause === EntityInitializationCause.Spawned) {
-                    if (this.inArea(event.entity) !== undefined || this.inBufferZone(event.entity)) {
-                        event.entity.remove();
-                    }
-                }
-            }
-            catch (_a) { }
-        });
-        world.beforeEvents.playerPlaceBlock.subscribe((event) => {
-            if (!CreativeArea.enable)
-                return;
-            const player = event.player;
-            if (player.getGameMode() !== GameMode.Creative)
-                return;
-            // 阻止在区外放置（所有人生效）
-            if (!this.inAreaByPos(event.block.location.x, event.block.location.z, player.dimension.id)) {
-                event.cancel = true;
-                Msg.error(`你只能在创造区域内放置方块。`, player);
-                return;
-            }
-            // 阻止放置禁止方块（拥有 creativearea.place_banned 可绕过）
-            if (Config.creativeBannedItems.indexOf(event.permutationToPlace.type.id) !== -1) {
-                if (!Permission.check(player, 'creativearea.place_banned')) {
-                    event.cancel = true;
-                    Msg.error(`创造区域内禁止放置 ${event.permutationToPlace.type.id}。`, player);
-                }
-            }
-        });
-        world.beforeEvents.playerBreakBlock.subscribe((event) => {
-            if (!CreativeArea.enable)
-                return;
-            if (event.player.getGameMode() !== GameMode.Creative)
-                return;
-            if (!this.inAreaByPos(event.block.location.x, event.block.location.z, event.player.dimension.id)) {
-                event.cancel = true;
-                Msg.error(`你只能破坏创造区域内的方块。`, event.player);
-            }
-        });
+        player.setDynamicProperty("hpbe:creative_scores", undefined);
     }
     // ==========================================
     //  定时扫描（进出检测）
@@ -235,7 +245,7 @@ export class CreativeArea {
             for (const player of world.getPlayers()) {
                 if (player.getGameMode() === GameMode.Spectator)
                     continue;
-                const currentArea = Storage.playerGet(player, "creative:area_name", undefined);
+                const currentArea = player.getDynamicProperty("hpbe:creative_area");
                 if (currentArea === undefined) {
                     const areaName = this.inArea(player);
                     if (areaName !== undefined)
@@ -260,7 +270,7 @@ export class CreativeArea {
                     continue;
                 if (!this.isNearBorder(player))
                     continue;
-                const currentArea = Storage.playerGet(player, "creative:area_name", undefined);
+                const currentArea = player.getDynamicProperty("hpbe:creative_area");
                 if (currentArea !== undefined && this.inArea(player) === undefined) {
                     this.leaveArea(player, currentArea);
                 }
@@ -293,9 +303,9 @@ export class CreativeArea {
                         const dx = Math.min(pos.x - minX, maxX - pos.x);
                         const dz = Math.min(pos.z - minZ, maxZ - pos.z);
                         if (dx < dz)
-                            bx = (pos.x - minX < maxX - pos.x) ? minX : maxX;
+                            bx = pos.x - minX < maxX - pos.x ? minX : maxX;
                         else
-                            bz = (pos.z - minZ < maxZ - pos.z) ? minZ : maxZ;
+                            bz = pos.z - minZ < maxZ - pos.z ? minZ : maxZ;
                     }
                     const y = Math.floor(pos.y);
                     try {
@@ -303,25 +313,11 @@ export class CreativeArea {
                             player.dimension.spawnParticle("minecraft:colored_flame_particle", { x: bx, y: y + dy, z: bz });
                         }
                     }
-                    catch (_a) { }
+                    catch { }
                     break;
                 }
             }
         }, 20);
-    }
-    // ==========================================
-    //  指令
-    // ==========================================
-    registerCommands() {
-        Permission.register('creativearea.toggle', Permission.OP);
-        Permission.register('creativearea.place_banned', Permission.Admin);
-        Command.register("creativearea", 'creativearea.toggle', () => {
-            CreativeArea.enable = !CreativeArea.enable;
-            SurvivalArea.getInstance().enable = CreativeArea.enable;
-            return CreativeArea.enable
-                ? "区域系统已开启"
-                : "区域系统已关闭";
-        }, "开关区域系统");
     }
 }
 /** 连锁开关（同时控制 CreativeArea + SurvivalArea） */

@@ -1,5 +1,5 @@
 // scripts/entry.ts
-import { system as system17, world as world24 } from "@minecraft/server";
+import { system as system18, world as world27 } from "@minecraft/server";
 
 // scripts/libs/Money.ts
 import { world } from "@minecraft/server";
@@ -60,10 +60,10 @@ import { system } from "@minecraft/server";
 // scripts/libs/Permission.ts
 import { PlayerPermissionLevel } from "@minecraft/server";
 
-// scripts/data/Permission.ts
+// scripts/data/PermissionData.ts
 var data = {
-  "CommetWind": 2,
-  "Shiroha7z": 3
+  CommetWind: 2,
+  Shiroha7z: 3
 };
 
 // scripts/libs/Tools.ts
@@ -152,10 +152,7 @@ function ensureDoubleChest(dimension, pos, cardinal, direction) {
   }
 }
 function placeSign(dimension, pos, facing, text) {
-  dimension.setBlockPermutation(
-    pos,
-    BlockPermutation.resolve("pale_oak_wall_sign", { "facing_direction": facing })
-  );
+  dimension.setBlockPermutation(pos, BlockPermutation.resolve("pale_oak_wall_sign", { facing_direction: facing }));
   try {
     const block = dimension.getBlock(pos);
     const sign = block?.getComponent(BlockComponentTypes.Sign);
@@ -173,9 +170,25 @@ function getShanghaiTime() {
     time: `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`
   };
 }
+function formatTimestamp(ts) {
+  const offset = 8 * 60;
+  const d = new Date(ts + offset * 60 * 1e3);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
 var _systemMsgHandler = null;
 function registerSystemMsgHandler(handler) {
   _systemMsgHandler = handler;
+}
+function generateId(type) {
+  return `${type}_${Math.random().toString(36).slice(2, 10)}`;
+}
+function toQueryString(params) {
+  const parts = [];
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== void 0 && v !== "") parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  }
+  return parts.length > 0 ? "?" + parts.join("&") : "";
 }
 var Msg = {
   info: (msg, player) => {
@@ -215,7 +228,7 @@ function ListFormInfo(str) {
 }
 
 // scripts/libs/Permission.ts
-var Permission = class _Permission {
+var Permission = class {
   static {
     this.Guest = -1;
   }
@@ -279,7 +292,6 @@ var Permission = class _Permission {
   }
   /** 注册 permlist 命令 */
   static registerPermlistCommand() {
-    _Permission.register("permlist.see", _Permission.Any);
     Command.register(
       "permlist",
       "permlist.see",
@@ -337,9 +349,9 @@ var Command = class {
   static register(name, permission, callback, description) {
     if (this.list[name] === void 0) {
       this.list[name] = {
-        "callback": callback,
-        "permission": permission,
-        "description": description === void 0 ? name : description
+        callback,
+        permission,
+        description: description === void 0 ? name : description
       };
     }
     return false;
@@ -363,11 +375,9 @@ var Command = class {
     let commandInfo = this.list[message];
     if (commandInfo !== void 0) {
       if (this.canExecute(player, commandInfo.permission)) {
-        system.run(() => {
-          let result = commandInfo.callback(player);
-          if (result !== void 0) {
-            if (player) Msg.success(`${result}`, player);
-          }
+        system.run(async () => {
+          const result = await commandInfo.callback(player);
+          if (result !== void 0 && player) Msg.success(`${result}`, player);
         });
         return;
       }
@@ -381,7 +391,6 @@ var Command = class {
    * 注册帮助指令，在初始化时调用
    */
   static registerHelpCommand() {
-    Permission.register("help.see", Permission.Any);
     this.register(
       "help",
       "help.see",
@@ -402,9 +411,12 @@ var Command = class {
    * 注册脚本事件，在初始化时调用
    */
   static registerScriptEvent() {
-    system.afterEvents.scriptEventReceive.subscribe((event) => {
-      this.trigger(event.sourceEntity, event.id.substring(5));
-    }, { "namespaces": ["doge"] });
+    system.afterEvents.scriptEventReceive.subscribe(
+      (event) => {
+        this.trigger(event.sourceEntity, event.id.substring(5));
+      },
+      { namespaces: ["doge"] }
+    );
   }
 };
 Command.registerScriptEvent();
@@ -415,83 +427,99 @@ import { system as system2, world as world3 } from "@minecraft/server";
 // scripts/data/Questions.ts
 var Questions = [
   {
-    "weight": 1,
+    weight: 1,
     // 出现的权重，权重越大越可能出现
-    "q": "\u5728\u300A\u4E1C\u65B9\u9B3C\u5F62\u517D\u300B\u4E2D, \u516D\u9762BOSS\u662F? (\u4E94\u4E2A\u5B57)",
-    "a": ["\u57F4\u5B89\u795E\u88BF\u59EC"],
-    "bonus": [{
-      "seq": [1, 5],
-      // 1~5名答对者可以获得此奖励，留空则所有排名均可获得
-      "type": "money",
-      // 奖励种类: 节操
-      "amount": 500
-    }]
+    q: "\u5728\u300A\u4E1C\u65B9\u9B3C\u5F62\u517D\u300B\u4E2D, \u516D\u9762BOSS\u662F? (\u4E94\u4E2A\u5B57)",
+    a: ["\u57F4\u5B89\u795E\u88BF\u59EC"],
+    bonus: [
+      {
+        seq: [1, 5],
+        // 1~5名答对者可以获得此奖励，留空则所有排名均可获得
+        type: "money",
+        // 奖励种类: 节操
+        amount: 500
+      }
+    ]
   },
   {
-    "weight": 1,
-    "q": "\u6253\u4E00\u8F66\u4E07\u4EBA\u7269: \u5149\u660E\u725B\u5976\uFF08\u4E94\u4E2A\u5B57\uFF09",
-    "a": ["\u6851\u5C3C\u7C73\u5C14\u514B"],
-    "bonus": [{
-      "type": "item",
-      // 奖励种类: 物品，仅支持give能给予的物品，特殊物品请使用指令给予（dogelake gift）
-      "itemType": "milk_bucket",
-      "amount": 1,
-      "data": 0
-    }]
+    weight: 1,
+    q: "\u6253\u4E00\u8F66\u4E07\u4EBA\u7269: \u5149\u660E\u725B\u5976\uFF08\u4E94\u4E2A\u5B57\uFF09",
+    a: ["\u6851\u5C3C\u7C73\u5C14\u514B"],
+    bonus: [
+      {
+        type: "item",
+        // 奖励种类: 物品，仅支持give能给予的物品，特殊物品请使用指令给予（dogelake gift）
+        itemType: "milk_bucket",
+        amount: 1,
+        data: 0
+      }
+    ]
   },
   {
-    "weight": 1,
-    "q": "\u8C01\u662F BBA ?",
-    "a": ["\u516B\u4E91\u7D2B", "\u7D2B", "\u7D2BBBA"],
-    "msg_right": "8\u8981\u547D\u5566\uFF1F",
+    weight: 1,
+    q: "\u8C01\u662F BBA ?",
+    a: ["\u516B\u4E91\u7D2B", "\u7D2B", "\u7D2BBBA"],
+    msg_right: "8\u8981\u547D\u5566\uFF1F",
     // 回答正确的提示
-    "bonus": [{
-      "type": "cmd",
-      "cmd": "damage @s 10"
-    }]
+    bonus: [
+      {
+        type: "cmd",
+        cmd: "damage @s 10"
+      }
+    ]
   },
   {
-    "weight": 1,
-    "q": "\u6253\u4E00\u8F66\u4E07\u4EBA\u7269: \u9752\u91D1\u77F3",
-    "a": ["\u8D6B\u5361\u63D0\u4E9A", "\u8D6B\u5361\u63D0\u4E9A\xB7\u62C9\u78A7\u65AF\u62C9\u7956\u5229", "\u8D6B\u5361\u63D0\u4E9A\u62C9\u78A7\u65AF\u62C9\u7956\u5229", "\u8D6B\u5361\u63D0\u4E9A \u62C9\u78A7\u65AF\u62C9\u7956\u5229"],
-    "d": "\u8D6B\u5361\u63D0\u4E9A \xB7 \u62C9\u78A7\u65AF\u62C9\u7956\u5229\u7684\u201C\u62C9\u78A7\u65AF\u62C9\u7956\u5229\u201D\uFF08Lapislazuli\uFF09\u5373\u4E3A\u201C\u9752\u91D1\u77F3\u201D",
-    "bonus": [{
-      "type": "money",
-      "amount": 500
-    }]
+    weight: 1,
+    q: "\u6253\u4E00\u8F66\u4E07\u4EBA\u7269: \u9752\u91D1\u77F3",
+    a: ["\u8D6B\u5361\u63D0\u4E9A", "\u8D6B\u5361\u63D0\u4E9A\xB7\u62C9\u78A7\u65AF\u62C9\u7956\u5229", "\u8D6B\u5361\u63D0\u4E9A\u62C9\u78A7\u65AF\u62C9\u7956\u5229", "\u8D6B\u5361\u63D0\u4E9A \u62C9\u78A7\u65AF\u62C9\u7956\u5229"],
+    d: "\u8D6B\u5361\u63D0\u4E9A \xB7 \u62C9\u78A7\u65AF\u62C9\u7956\u5229\u7684\u201C\u62C9\u78A7\u65AF\u62C9\u7956\u5229\u201D\uFF08Lapislazuli\uFF09\u5373\u4E3A\u201C\u9752\u91D1\u77F3\u201D",
+    bonus: [
+      {
+        type: "money",
+        amount: 500
+      }
+    ]
   },
   {
-    "weight": 1,
-    "q": "\u5728\u5C11\u6797\u5BFA\u5341\u516B\u94DC\u4EBA\u9635\u4E2D, \u542C\u58F0\u8FA8\u4F4D\u7684\u8003\u5B98\u662F\u4EC0\u4E48\u505A\u7684\uFF1F",
-    "a": ["\u8089", "\u4EBA\u8089", "\u8840\u8089"],
-    "msg_right": "\u4F60\u8FC7\u5173!",
-    "msg_wrong": "\u8BE5\u7F5A!",
-    "bonus": [{
-      "type": "money",
-      "amount": 500
-    }],
-    "punish": [{
-      "type": "cmd",
-      "cmd": "damage @s 10"
-    }]
+    weight: 1,
+    q: "\u5728\u5C11\u6797\u5BFA\u5341\u516B\u94DC\u4EBA\u9635\u4E2D, \u542C\u58F0\u8FA8\u4F4D\u7684\u8003\u5B98\u662F\u4EC0\u4E48\u505A\u7684\uFF1F",
+    a: ["\u8089", "\u4EBA\u8089", "\u8840\u8089"],
+    msg_right: "\u4F60\u8FC7\u5173!",
+    msg_wrong: "\u8BE5\u7F5A!",
+    bonus: [
+      {
+        type: "money",
+        amount: 500
+      }
+    ],
+    punish: [
+      {
+        type: "cmd",
+        cmd: "damage @s 10"
+      }
+    ]
   },
   {
-    "weight": 1,
-    "q": "\u9053\u5BB6\u5B66\u6D3E\u7684\u521B\u59CB\u4EBA\u662F",
-    "a": ["\u8001\u5B50"],
-    "bonus": [{
-      "type": "money",
-      "amount": 500
-    }]
+    weight: 1,
+    q: "\u9053\u5BB6\u5B66\u6D3E\u7684\u521B\u59CB\u4EBA\u662F",
+    a: ["\u8001\u5B50"],
+    bonus: [
+      {
+        type: "money",
+        amount: 500
+      }
+    ]
   },
   {
-    "weight": 1,
-    "q": "\u4E2D\u534E\u4E09\u7956\u662F \u9EC4\u5E1D\u3001\u708E\u5E1D\u548C____",
-    "a": ["\u86A9\u5C24"],
-    "bonus": [{
-      "type": "money",
-      "amount": 500
-    }]
+    weight: 1,
+    q: "\u4E2D\u534E\u4E09\u7956\u662F \u9EC4\u5E1D\u3001\u708E\u5E1D\u548C____",
+    a: ["\u86A9\u5C24"],
+    bonus: [
+      {
+        type: "money",
+        amount: 500
+      }
+    ]
   }
   //7
 ];
@@ -504,38 +532,38 @@ var Config = {
   // 生存飞行区
   flyArea: [
     {
-      "name": "f1",
-      "dimension": "minecraft:overworld",
-      "start": [-16, 16],
-      "end": [-12, 12]
+      name: "f1",
+      dimension: "minecraft:overworld",
+      start: [-16, 16],
+      end: [-12, 12]
     },
     {
-      "name": "f2",
-      "dimension": "minecraft:overworld",
-      "start": [951, -2715],
-      "end": [4604, 5628]
+      name: "f2",
+      dimension: "minecraft:overworld",
+      start: [951, -2715],
+      end: [4604, 5628]
     }
   ],
   // 创造区域
   creativeArea: [
     {
-      "name": "\u5EFA\u7B51\u533A",
-      "dimension": "minecraft:overworld",
-      "start": [-16, 16],
-      "end": [-12, 12]
+      name: "\u5EFA\u7B51\u533A",
+      dimension: "minecraft:overworld",
+      start: [-16, 16],
+      end: [-12, 12]
     }
   ],
   // 和平区域
   peaceArea: [
     {
-      "dimension": "minecraft:overworld",
-      "start": [-16, 16],
-      "end": [-12, 12]
+      dimension: "minecraft:overworld",
+      start: [-16, 16],
+      end: [-12, 12]
     },
     {
-      "dimension": "minecraft:overworld",
-      "start": [951, -2715],
-      "end": [4604, 5628]
+      dimension: "minecraft:overworld",
+      start: [951, -2715],
+      end: [4604, 5628]
     }
   ],
   peaceAreaEntityQO: { families: ["monster"], excludeFamilies: ["zombie_villager", "wither", "illager"] },
@@ -562,9 +590,7 @@ var Config = {
       face: -1,
       // 箱子面朝的方向，direction为x/z时，[箱子面前的方块的x/z轴坐标] 等于 [箱子的x/z轴坐标]+[face的值]
       // 直接清除的物品种类
-      killList: [
-        "shitcraft:shit"
-      ]
+      killList: ["shitcraft:shit"]
     }
   },
   // 背包切换箱子区域（每名玩家占用 2 个双箱子：survival + creative）
@@ -752,7 +778,7 @@ var Config = {
     // 末地折跃门
     "minecraft:dragon_egg",
     // 龙蛋
-    "minecraft:bedrock,"
+    "minecraft:bedrock"
     //基岩
   ]
 };
@@ -830,7 +856,9 @@ var QAManager = class _QAManager {
   // 结束答题，揭晓答案
   finish() {
     let question = Questions[this.nowQuestion];
-    world3.sendMessage(`\xA7b[Baka Cirno]\xA7r \u6B63\u786E\u7B54\u6848\u662F \xA7e${question.a[0]}\xA7r ! ${question.d !== void 0 ? "\n  " + question.d : ""}`);
+    world3.sendMessage(
+      `\xA7b[Baka Cirno]\xA7r \u6B63\u786E\u7B54\u6848\u662F \xA7e${question.a[0]}\xA7r ! ${question.d !== void 0 ? "\n  " + question.d : ""}`
+    );
     this.nowQuestion = void 0;
     this.playerList = {};
     this.rightAmount = 0;
@@ -853,17 +881,17 @@ var QAManager = class _QAManager {
             this.playerList[pl.nameTag] = true;
             _QAManager.giveBonus(pl, this.rightAmount, question.bonus);
             if (question["msg_right"] !== void 0) {
-              pl.sendMessage(question["msg_right"]);
+              Msg.tips(question["msg_right"], pl);
             } else {
-              pl.sendMessage("\xA7a\u56DE\u7B54\u6B63\u786E\uFF01\xA7r");
+              Msg.success("\xA7a\u56DE\u7B54\u6B63\u786E\uFF01\xA7r", pl);
             }
             return 1;
           }
         }
         if (question["msg_wrong"] !== void 0) {
-          pl.sendMessage(question["msg_wrong"]);
+          Msg.tips(question["msg_wrong"], pl);
         } else {
-          pl.sendMessage("\xA7c\u56DE\u7B54\u9519\u8BEF\uFF01\xA7r");
+          Msg.error("\xA7c\u56DE\u7B54\u9519\u8BEF\uFF01\xA7r", pl);
         }
         this.wrongAmount++;
         if (question.punish !== void 0) {
@@ -872,10 +900,10 @@ var QAManager = class _QAManager {
         this.playerList[pl.nameTag] = false;
         return 0;
       }
-      pl.sendMessage("\xA7h\u5DF2\u7ECF\u7B54\u8FC7\u8FD9\u9898\u4E86^ ^\xA7r");
+      Msg.tips("\u5DF2\u7ECF\u7B54\u8FC7\u8FD9\u9898\u4E86^ ^\xA7r", pl);
       return -1;
     }
-    pl.sendMessage("\xA7h\u5F53\u524D\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u7B54\u9898^ ^\xA7r");
+    Msg.tips("\u5F53\u524D\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u7B54\u9898^ ^\xA7r", pl);
     return -2;
   }
   // 最大记录数量
@@ -911,7 +939,7 @@ var QAManager = class _QAManager {
               pl.runCommand(b["cmd"]);
               break;
             default:
-              pl.sendMessage(`Unknown bonus type: ${b["type"]}`);
+              Msg.error(`Unknown bonus type: ${b["type"]}`, pl);
               break;
           }
         });
@@ -922,344 +950,36 @@ var QAManager = class _QAManager {
 
 // scripts/area/Fly.ts
 import { system as system3, world as world4, GameMode } from "@minecraft/server";
-
-// scripts/libs/HttpDB.ts
-import { http, HttpRequest } from "@minecraft/server-net";
-var BASE_URL = `http://${Config.dbHost}:${Config.dbPort}`;
-var TIMEOUT = 3;
-var HttpDB = class {
-  static {
-    this.available = true;
-  }
-  static isAvailable() {
-    return this.available;
-  }
-  static async checkHealth() {
-    try {
-      const res = await http.get(`${BASE_URL}/api/health`);
-      this.available = res.status === 200;
-      if (this.available) {
-        console.info(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FDE\u63A5\u6210\u529F (${BASE_URL}/api/health)`);
-      } else {
-        console.error(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FD4\u56DE\u5F02\u5E38\u72B6\u6001 ${res.status}`);
-      }
-    } catch (err) {
-      this.available = false;
-      console.error(`[HttpDB] \u8FDE\u63A5\u5931\u8D25 (${BASE_URL}): ${err}`);
-    }
-    return this.available;
-  }
-  // ---- 通用 HTTP 方法 ----
-  static async get(path) {
-    try {
-      const res = await http.get(`${BASE_URL}${path}`);
-      return res.status === 200 ? res.body : null;
-    } catch {
-      this.available = false;
-      return null;
-    }
-  }
-  static async post(path, bodyData) {
-    try {
-      const req = new HttpRequest(`${BASE_URL}${path}`);
-      req.timeout = TIMEOUT;
-      req.method = "Post";
-      req.body = JSON.stringify(bodyData);
-      req.addHeader("Content-Type", "application/json");
-      const res = await http.request(req);
-      if (res.status !== 200) {
-        console.warn(`[HttpDB] POST ${path} \u8FD4\u56DE ${res.status}: ${res.body}`);
-      }
-      return res.status === 200;
-    } catch (err) {
-      this.available = false;
-      console.warn(`[HttpDB] POST ${path} \u5931\u8D25: ${err}`);
-      return false;
-    }
-  }
-  static async del(path) {
-    try {
-      const req = new HttpRequest(`${BASE_URL}${path}`);
-      req.timeout = TIMEOUT;
-      req.method = "Delete";
-      const res = await http.request(req);
-      return res.status === 200;
-    } catch {
-      return false;
-    }
-  }
-  // ---- 消息历史 ----
-  static async saveMessage(channelId, message) {
-    return this.post("/api/messages/save", { channelId, message });
-  }
-  static async loadHistory(channelId, cutoff) {
-    const body = await this.get(`/api/messages/${encodeURIComponent(channelId)}?cutoff=${cutoff}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).messages;
-    } catch {
-      return null;
-    }
-  }
-  static async deleteChannelMessages(channelId) {
-    return this.del(`/api/messages/${encodeURIComponent(channelId)}`);
-  }
-  static async cleanupExpired(channels) {
-    return this.post("/api/messages/cleanup", { channels });
-  }
-  // ---- 红包 ----
-  static async saveRedPacket(redpacket) {
-    return this.post("/api/redpackets/save", { redpacket });
-  }
-  static async updateRedPacket(redpacket) {
-    return this.post("/api/redpackets/update", { redpacket });
-  }
-  static async getRedPackets() {
-    const body = await this.get("/api/redpackets");
-    if (!body) return null;
-    try {
-      return JSON.parse(body).redpackets;
-    } catch {
-      return null;
-    }
-  }
-  static async getRedPacket(packetId) {
-    const body = await this.get(`/api/redpackets/${encodeURIComponent(packetId)}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).redpacket ?? null;
-    } catch {
-      return null;
-    }
-  }
-  static async cleanupExpiredRedPackets() {
-    return this.post("/api/cleanup-expired-rp", {});
-  }
-  // ---- 计分板同步 ----
-  static async syncScoreboards(entries) {
-    return this.post("/api/sfmc/scoreboards/sync", { entries });
-  }
-  static async loadScoreboards(filter) {
-    const params = new URLSearchParams();
-    if (filter?.objective) params.set("objective", filter.objective);
-    if (filter?.name) params.set("name", filter.name);
-    if (filter?.id) params.set("id", filter.id);
-    const qs = params.toString();
-    const body = await this.get(`/api/sfmc/scoreboards${qs ? "?" + qs : ""}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).entries;
-    } catch {
-      return null;
-    }
-  }
-  static async getScoreboardObjectives() {
-    const body = await this.get("/api/sfmc/scoreboards/objectives");
-    if (!body) return null;
-    try {
-      return JSON.parse(body).objectives;
-    } catch {
-      return null;
-    }
-  }
-  static async clearScoreboards() {
-    return this.del("/api/sfmc/scoreboards");
-  }
-  // ---- 行为日志 ----
-  static async batchActivities(entries) {
-    return this.post("/api/sfmc/activities/batch", { entries });
-  }
-  static async queryActivities(filter) {
-    const params = new URLSearchParams();
-    if (filter?.id) params.set("id", filter.id);
-    if (filter?.event) params.set("event", filter.event);
-    if (filter?.from) params.set("from", String(filter.from));
-    if (filter?.to) params.set("to", String(filter.to));
-    if (filter?.name) params.set("name", filter.name);
-    if (filter?.limit) params.set("limit", String(filter.limit));
-    if (filter?.offset) params.set("offset", String(filter.offset));
-    const qs = params.toString();
-    const body = await this.get(`/api/sfmc/activities${qs ? "?" + qs : ""}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).entries;
-    } catch {
-      return null;
-    }
-  }
-  static async getActivityStats(filter) {
-    const params = new URLSearchParams();
-    if (filter?.id) params.set("id", filter.id);
-    if (filter?.from) params.set("from", String(filter.from));
-    if (filter?.to) params.set("to", String(filter.to));
-    const qs = params.toString();
-    const body = await this.get(`/api/sfmc/activities/stats${qs ? "?" + qs : ""}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body);
-    } catch {
-      return null;
-    }
-  }
-  static async cleanupActivities(keepDays = 30, keepAdmin = true) {
-    return this.post("/api/sfmc/activities/cleanup", { keepDays, keepAdmin });
-  }
-  // ---- 通用 KV 存储 ----
-  /** 获取全部 KV 键值对（启动加载用） */
-  static async getAllKV() {
-    const body = await this.get("/api/kv");
-    if (!body) return null;
-    try {
-      return JSON.parse(body).kv;
-    } catch {
-      return null;
-    }
-  }
-  static async getKV(key) {
-    const body = await this.get(`/api/kv/${encodeURIComponent(key)}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).value;
-    } catch {
-      return null;
-    }
-  }
-  static async setKV(key, value) {
-    return this.post("/api/kv/save", { key, value });
-  }
-  static async deleteKV(key) {
-    return this.del(`/api/kv/${encodeURIComponent(key)}`);
-  }
-};
-
-// scripts/libs/Storage.ts
-var cache = /* @__PURE__ */ new Map();
-var dirtyKeys = /* @__PURE__ */ new Set();
-var flushScheduled = false;
-var FLUSH_INTERVAL = 3e4;
-function scheduleFlush() {
-  if (flushScheduled) return;
-  flushScheduled = true;
-  import("@minecraft/server").then(({ system: system19 }) => {
-    system19.runTimeout(() => {
-      flushScheduled = false;
-      flushDirty();
-    }, FLUSH_INTERVAL / 50);
-  }).catch(() => {
-  });
+function init() {
+  Permission.register("fly.use", Permission.Any);
 }
-async function flushDirty() {
-  if (dirtyKeys.size === 0) return;
-  const keys = [...dirtyKeys];
-  dirtyKeys = /* @__PURE__ */ new Set();
-  for (const key of keys) {
-    const val = cache.get(key);
-    if (val !== void 0) {
-      await HttpDB.setKV(key, val).catch(() => {
-      });
-    }
-  }
-}
-var Storage = class {
-  static {
-    this.initialized = false;
-  }
-  /** 初始化：从 HttpDB 加载全部 KV 到缓存 */
-  static async init() {
-    if (this.initialized) return;
-    try {
-      const all = await HttpDB.getAllKV();
-      if (all && all.length > 0) {
-        for (const { key, value } of all) {
-          cache.set(key, value);
-        }
-        console.info(`[Storage] \u4ECE HttpDB \u52A0\u8F7D\u4E86 ${all.length} \u6761\u6570\u636E`);
-      } else {
-        console.info("[Storage] HttpDB \u65E0\u6570\u636E\uFF0C\u4F7F\u7528\u7A7A\u7F13\u5B58");
-      }
-    } catch {
-      console.info("[Storage] HttpDB \u4E0D\u53EF\u7528\uFF0C\u4F7F\u7528\u7A7A\u7F13\u5B58");
-    }
-    this.initialized = true;
-  }
-  // ---- 同步读写 ----
-  /** 读取缓存 */
-  static get(key, fallback) {
-    const raw = cache.get(key);
-    if (raw !== void 0) {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return raw;
-      }
-    }
-    return fallback;
-  }
-  /** 写入缓存 + HttpDB（立即写入） */
-  static set(key, value) {
-    const json = JSON.stringify(value);
-    cache.set(key, json);
-    HttpDB.setKV(key, json).catch(() => {
-    });
-  }
-  /** 删除缓存 + HttpDB */
-  static delete(key) {
-    cache.delete(key);
-    HttpDB.deleteKV(key).catch(() => {
-    });
-  }
-  // ---- 节流写入（高频场景用，30 秒批量 flush） ----
-  /** 写入缓存 + 延迟写入 HttpDB（30 秒内合并） */
-  static setThrottled(key, value) {
-    const json = JSON.stringify(value);
-    cache.set(key, json);
-    dirtyKeys.add(key);
-    scheduleFlush();
-  }
-  // ---- Player 快捷方法 ----
-  static playerGet(player, key, fallback) {
-    return this.get(`player:${player.id}:${key}`, fallback);
-  }
-  static playerSet(player, key, value) {
-    this.set(`player:${player.id}:${key}`, value);
-  }
-  static playerDelete(player, key) {
-    this.delete(`player:${player.id}:${key}`);
-  }
-  static playerSetThrottled(player, key, value) {
-    this.setThrottled(`player:${player.id}:${key}`, value);
-  }
-};
-
-// scripts/area/Fly.ts
-Permission.register("fly.use", Permission.Any);
 function playerJoinEvent(player) {
   system3.runTimeout(() => {
     let areaName = inFlyArea(player);
     if (areaName !== void 0) {
       enableFly(player);
-      player.sendMessage(`[Doge] \u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`);
-      Storage.playerSet(player, "dogefly", areaName);
+      Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+      player.setDynamicProperty("hpbe:dogefly", areaName);
     }
   }, 60);
 }
 system3.runInterval(() => {
-  for (let player of world4.getPlayers({ "gameMode": GameMode.Survival })) {
-    let nowArea = Storage.playerGet(player, "dogefly", void 0);
+  for (let player of world4.getPlayers({ gameMode: GameMode.Survival })) {
+    let nowArea = player.getDynamicProperty("hpbe:dogefly");
     let areaName = inFlyArea(player);
     if (areaName !== void 0) {
       if (nowArea === void 0) {
         enableFly(player);
-        player.sendMessage(`[Doge] \u8FDB\u5165\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`);
-        Storage.playerSet(player, "dogefly", areaName);
+        Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+        player.setDynamicProperty("hpbe:dogefly", areaName);
       } else if (nowArea !== areaName) {
-        Storage.playerSet(player, "dogefly", areaName);
+        player.setDynamicProperty("hpbe:dogefly", areaName);
       }
     } else {
       if (nowArea !== void 0) {
         disableFly(player);
-        player.sendMessage(`[Doge] \u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`);
-        Storage.playerDelete(player, "dogefly");
+        Msg.info(`\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+        player.setDynamicProperty("hpbe:dogefly", void 0);
       }
     }
   }
@@ -1267,7 +987,14 @@ system3.runInterval(() => {
 function inFlyArea(entity) {
   for (let area of Config.flyArea) {
     if (entity.dimension.id === area.dimension) {
-      if (pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
+      if (pointInArea_2D(
+        entity.location.x,
+        entity.location.z,
+        area.start[0],
+        area.start[1],
+        area.end[0],
+        area.end[1]
+      )) {
         return area.name;
       }
     }
@@ -1284,7 +1011,11 @@ function enableFly(player) {
   }
 }
 function disableFly(player) {
-  let res = player.dimension.getBlockFromRay(player.location, { x: 0, y: -1, z: 0 }, { "includeLiquidBlocks": true, "includePassableBlocks": false });
+  let res = player.dimension.getBlockFromRay(
+    player.location,
+    { x: 0, y: -1, z: 0 },
+    { includeLiquidBlocks: true, includePassableBlocks: false }
+  );
   if (res !== void 0) {
     player.teleport({ x: res.block.location.x, y: res.block.location.y + 1, z: res.block.location.z });
   }
@@ -1298,16 +1029,336 @@ function disableFly(player) {
   }
 }
 
+// scripts/data/menu/main.ts
+var main = {
+  type: "button",
+  permission: 0,
+  title: "/D Doge",
+  content: "\u5982\u51FA\u73B0\u6B64\u884C\u6587\u5B57\uFF0C\u8BF7\u68C0\u67E5\u662F\u5426\u5B8C\u6574\u4E0B\u8F7D\u670D\u52A1\u5668\u8D44\u6E90\uFF0C\u662F\u5426\u6709\u8D44\u6E90\u5305\u4E0E\u670D\u52A1\u5668\u8D44\u6E90\u5305\u51B2\u7A81\uFF0C\u5426\u5219\u53EF\u80FD\u4F1A\u5F71\u54CD\u5728\u672C\u670D\u7684\u6B63\u5E38\u6E38\u73A9\uFF01",
+  buttons: [
+    {
+      title: "\u5546\u5E97",
+      image: "",
+      onClick: {
+        type: "scriptCmd",
+        run: "shop"
+      }
+    },
+    {
+      title: "\u6CB3\u7AE5\u7684\u7F57\u76D8",
+      image: "",
+      onClick: {
+        type: "playerCmd",
+        run: "xyz"
+      }
+    },
+    {
+      title: "\u5408\u4F5C\u793E",
+      image: "",
+      onClick: {
+        type: "playerCmd",
+        run: "warp"
+      }
+    },
+    {
+      title: "\u5929\u754C",
+      image: "",
+      onClick: {
+        type: "playerCmd",
+        run: "dogeworld bv"
+      }
+    },
+    {
+      title: "\u9886\u5730",
+      image: "",
+      onClick: {
+        type: "playerCmd",
+        run: "land"
+      }
+    },
+    {
+      title: "\u5BB6",
+      image: "",
+      onClick: {
+        type: "playerCmd",
+        run: "home"
+      }
+    },
+    {
+      title: "\u4EFB\u52A1",
+      image: "",
+      onClick: {
+        type: "playerCmd",
+        run: "tell @s \u6B64\u529F\u80FD\u5C1A\u5728\u5F00\u53D1\uFF0C\u656C\u8BF7\u671F\u5F85..."
+      }
+    },
+    {
+      title: "\u66F4\u591A",
+      image: "",
+      onClick: {
+        type: "form",
+        run: "more"
+      }
+    }
+  ]
+};
+
+// scripts/data/menu/ad1.ts
+var ad1 = {
+  type: "button",
+  op: "false",
+  title: "/A textures/menu/ad_1.png",
+  content: "",
+  buttons: [
+    {
+      title: "",
+      image: "",
+      onClick: {}
+    }
+  ],
+  exit: {
+    type: "",
+    run: ""
+  }
+};
+
+// scripts/data/menu/more.ts
+var more = {
+  type: "button",
+  op: "false",
+  title: "\u66F4\u591A\u529F\u80FD",
+  content: "",
+  buttons: [
+    {
+      title: "\xA7l\u5E7F\u544A",
+      image: "",
+      onClick: {
+        type: "form",
+        run: "ad1"
+      }
+    },
+    {
+      title: "\xA7l\xA7a\u524D\xA73\u5F80\xA7c\u63D0\xA7d\u74E6\xA7e\u7279\xA76\u5927\xA7b\u9646",
+      image: "textures/ui/monkey_god",
+      onClick: {
+        type: "playerCmd",
+        run: "startgenshin"
+      }
+    },
+    {
+      title: "\xA7l\u4F20\u9001",
+      image: "textures/items/hakurei_gohei",
+      onClick: {
+        type: "form",
+        run: "tp"
+      }
+    },
+    {
+      title: "\xA7l\u6295\u7968\u91CD\u542F",
+      image: "textures/ui/recap_glyph_color_2x",
+      onClick: {
+        type: "playerCmd",
+        run: "voter"
+      }
+    },
+    {
+      title: "\xA7l\u266A\u97F3\u4E50\u76D2\u266C",
+      image: "textures/ui/music_rumia_ddr",
+      onClick: {
+        type: "playerCmd",
+        run: "tell @s \u6B64\u529F\u80FD\u6682\u65F6\u4E0B\u7EBF\uFF0C\u656C\u8BF7\u671F\u5F85\u3002"
+      }
+    }
+  ],
+  exit: {
+    type: "",
+    run: ""
+  }
+};
+
+// scripts/data/menu/tp.ts
+var tp = {
+  type: "button",
+  op: "false",
+  title: "\u4F20\u9001\u7CFB\u7EDF",
+  content: "\xA7d\u5FEB\u901F\u524D\u5F80\u4F60\u60F3\u53BB\u7684\u5730\u65B9",
+  buttons: [
+    {
+      title: "\xA7lTPA",
+      image: "textures/ui/FriendsDiversity",
+      onClick: {
+        type: "playerCmd",
+        run: "/tpa"
+      }
+    },
+    {
+      title: "\xA7l\u4F20\u9001\u7535\u8BDD",
+      image: "textures/ui/phone",
+      onClick: {
+        type: "playerCmd",
+        run: "hifuutp"
+      }
+    },
+    {
+      title: "\xA7l\u524D\u5F80\u63D0\u74E6\u7279\u5927\u9646",
+      image: "textures/ui/monkey_god",
+      onClick: {
+        type: "playerCmd",
+        run: "startgenshin"
+      }
+    }
+  ],
+  exit: {
+    type: "",
+    run: ""
+  }
+};
+
+// scripts/data/menu/index.ts
+var forms = {
+  main,
+  ad1,
+  more,
+  tp
+};
+var menuItems = ["minecraft:brush"];
+
+// scripts/doge/Menu.ts
+import { world as world5 } from "@minecraft/server";
+
+// scripts/libs/Gui.ts
+import { system as system4 } from "@minecraft/server";
+import {
+  CustomForm,
+  DataDrivenScreenClosedReason,
+  ObservableBoolean,
+  ObservableNumber,
+  ObservableString
+} from "@minecraft/server-ui";
+var Gui = class {
+  static async showForm(player, form, title, retryInterval = 10, timeoutTicks = 160) {
+    const startTick = system4.currentTick;
+    let notified = false;
+    while (true) {
+      if (system4.currentTick - startTick >= timeoutTicks) {
+        Msg.warning(`\u83DC\u5355 [${title}] \u7B49\u5F85\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002`, player);
+        return DataDrivenScreenClosedReason.ClientClosed;
+      }
+      try {
+        const reason = await form.show();
+        if (reason === DataDrivenScreenClosedReason.UserBusy) {
+          if (!notified) {
+            notified = true;
+            Msg.info(`\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF1A [${title}] \u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09`, player);
+          }
+          await system4.waitTicks(retryInterval);
+          continue;
+        }
+        return reason;
+      } catch {
+        return DataDrivenScreenClosedReason.ClientClosed;
+      }
+    }
+  }
+  static async confirm(player, title, body, onConfirm, onCancel) {
+    let confirmed = false;
+    const form = new CustomForm(player, title).label(body).button("\u786E\u8BA4", () => {
+      confirmed = true;
+      onConfirm();
+    }).closeButton();
+    await this.showForm(player, form, title);
+    if (!confirmed) onCancel?.();
+  }
+};
+
+// scripts/doge/Menu.ts
+import { CustomForm as CustomForm2 } from "@minecraft/server-ui";
+var Menu = class {
+  static show(player, formName) {
+    let formData = forms[formName];
+    if (formData === void 0) {
+      player.sendMessage("\u83DC\u5355\u4E0D\u5B58\u5728");
+      return;
+    }
+    if (formData["permission"] > Permission.getPermission(player)) {
+      player.sendMessage("\u4F60\u6CA1\u6709\u67E5\u770B\u8BE5\u83DC\u5355\u7684\u6743\u9650");
+      return;
+    }
+    if (formData["buttons"] === void 0 || formData["buttons"].length === 0) {
+      player.sendMessage("\u8FD9\u4E2A\u83DC\u5355\u6CA1\u6709\u6309\u94AE^ ^");
+      return;
+    }
+    const form = new CustomForm2(player, formData["title"]);
+    if (formData["content"]) form.label(formData["content"]);
+    for (let btn of formData["buttons"]) {
+      const data2 = btn["onClick"];
+      form.button(btn["title"] || "", () => {
+        this.clickButton(player, data2);
+      });
+    }
+    form.closeButton();
+    Gui.showForm(player, form, formData["title"]);
+  }
+  static clickButton(player, data2) {
+    switch (data2.type) {
+      case "playerCmd":
+        player.runCommand(data2.run);
+        break;
+      case "scriptCmd":
+        Command.trigger(player, data2.run);
+        break;
+      case "form":
+        this.show(player, data2.run);
+        break;
+      default:
+        break;
+    }
+  }
+  static registerMenuItem() {
+    try {
+      world5.afterEvents.itemUseOn?.subscribe((event) => {
+        if (menuItems.includes(event.itemStack.typeId)) {
+          this.show(event.source, "main");
+        }
+      });
+    } catch {
+    }
+  }
+};
+function init2() {
+  Menu.registerMenuItem();
+}
+
 // scripts/doge/AFK.ts
-import { system as system4, world as world5 } from "@minecraft/server";
-function init() {
-  for (let player of world5.getAllPlayers()) {
+import { system as system5, world as world6 } from "@minecraft/server";
+var afkCache = /* @__PURE__ */ new Map();
+function cacheGet(player, key, fallback) {
+  const pc = afkCache.get(player.id);
+  if (!pc || !pc.has(key)) return fallback;
+  return pc.get(key);
+}
+function cacheSet(player, key, value) {
+  let pc = afkCache.get(player.id);
+  if (!pc) {
+    pc = /* @__PURE__ */ new Map();
+    afkCache.set(player.id, pc);
+  }
+  pc.set(key, value);
+}
+function cacheDelete(player, key) {
+  const pc = afkCache.get(player.id);
+  if (pc) pc.delete(key);
+}
+function init3() {
+  console.log(`Initializing AFK...`);
+  for (let player of world6.getAllPlayers()) {
     reset(player);
   }
+  console.log(`AFK initialized successfully.`);
 }
 function reset(player) {
-  Storage.playerDelete(player, "afk:last_location");
-  Storage.playerDelete(player, "afk:step");
+  cacheDelete(player, "afk:last_location");
+  cacheDelete(player, "afk:step");
   player.removeTag("AFK");
   player.removeTag("NOAFK");
 }
@@ -1315,8 +1366,8 @@ function setAFK(player) {
   player.removeTag("NOAFK");
   startAFKScan();
   playerList[player.id] = player.location;
-  world5.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
-  Storage.playerSet(player, "afk:step", 0);
+  world6.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
+  cacheSet(player, "afk:step", 0);
   player.addTag("AFK");
 }
 function locationMoved(lastLocation, nowLocation) {
@@ -1333,12 +1384,16 @@ function locationMoved(lastLocation, nowLocation) {
   return true;
 }
 var STEP_TIME = 15;
-system4.runInterval(() => {
-  for (let player of world5.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
-    let lastLoaction = Storage.playerGet(player, "afk:last_location", void 0);
+system5.runInterval(() => {
+  for (let player of world6.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
+    let lastLoaction = cacheGet(
+      player,
+      "afk:last_location",
+      void 0
+    );
     let nowLocation = player.location;
     if (lastLoaction !== void 0) {
-      let nowStep = Storage.playerGet(player, "afk:step", void 0);
+      let nowStep = cacheGet(player, "afk:step", void 0);
       if (!locationMoved(lastLoaction, nowLocation)) {
         if (nowStep === void 0) {
           nowStep = 1;
@@ -1348,13 +1403,13 @@ system4.runInterval(() => {
         if (nowStep * STEP_TIME >= Config.AFKTime) {
           setAFK(player);
         } else {
-          Storage.playerSet(player, "afk:step", nowStep);
+          cacheSet(player, "afk:step", nowStep);
         }
       } else {
-        Storage.playerSet(player, "afk:step", 0);
+        cacheSet(player, "afk:step", 0);
       }
     }
-    Storage.playerSet(player, "afk:last_location", nowLocation);
+    cacheSet(player, "afk:last_location", nowLocation);
   }
 }, STEP_TIME * 20);
 var intervalId = void 0;
@@ -1363,18 +1418,18 @@ function startAFKScan() {
   if (intervalId !== void 0) {
     return;
   }
-  intervalId = system4.runInterval(() => {
+  intervalId = system5.runInterval(() => {
     let count = 0;
     for (let id in playerList) {
-      let player = world5.getEntity(id);
+      let player = world6.getEntity(id);
       if (player === void 0) {
-        delete playerList.id;
+        delete playerList[id];
       } else {
         if (locationMoved(playerList[id], player.location)) {
-          world5.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
+          world6.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
           player.removeTag("AFK");
-          Storage.playerSet(player, "afk:last_location", player.location);
-          Storage.playerSet(player, "afk:step", 0);
+          cacheSet(player, "afk:last_location", player.location);
+          cacheSet(player, "afk:step", 0);
           delete playerList[id];
         } else {
           count++;
@@ -1387,38 +1442,32 @@ function startAFKScan() {
   }, 100);
 }
 function stopAFKScan() {
-  system4.clearRun(intervalId);
+  system5.clearRun(intervalId);
   intervalId = void 0;
 }
 function registerCommand() {
-  Permission.register("afk.use", Permission.Any);
-  Permission.register("afk.clear.other", Permission.OP);
   Command.register("afk", "afk.use", setAFK, "\u8FDB\u5165AFK\u72B6\u6001");
-  Command.register("noafk", "afk.clear.other", (pl) => {
-    if (pl) pl.addTag("NOAFK");
-  }, "\u4EE4\u73A9\u5BB6\u4E0D\u4F1A\u8FDB\u5165AFK\u72B6\u6001");
+  Command.register(
+    "noafk",
+    "afk.clear.other",
+    (pl) => {
+      if (pl) pl.addTag("NOAFK");
+    },
+    "\u4EE4\u73A9\u5BB6\u4E0D\u4F1A\u8FDB\u5165AFK\u72B6\u6001"
+  );
 }
-registerCommand();
 
 // scripts/doge/SpawnProtect.ts
-import { world as world6 } from "@minecraft/server";
 var SpawnProtect = class {
-  static registerEvents() {
-    world6.afterEvents.playerSpawn.subscribe((ev) => {
-      if (ev.player.getEffect("minecraft:resistance") === void 0) {
-        ev.player.addEffect("minecraft:resistance", 3, { amplifier: 5 });
-      }
-    });
+  static setProtect(player) {
+    if (player.getEffect("minecraft:resistance") === void 0) {
+      player.addEffect("minecraft:resistance", 3, { amplifier: 5 });
+    }
   }
 };
 
 // scripts/doge/Clean.ts
-import {
-  system as system5,
-  world as world7,
-  BlockComponentTypes as BlockComponentTypes2
-} from "@minecraft/server";
-var STORAGE_KEY = "DOGE_CLEAN_INDEX";
+import { system as system6, world as world7, BlockComponentTypes as BlockComponentTypes2 } from "@minecraft/server";
 var Clean = class _Clean {
   constructor() {
     this.startPoint = [0, 0, 0];
@@ -1440,6 +1489,9 @@ var Clean = class _Clean {
     }
     return this._instance;
   }
+  static {
+    this.cleanIndex = 0;
+  }
   init() {
     this.startPoint = Config.clean.recycleBin.start;
     this.size = Config.clean.recycleBin.size;
@@ -1451,10 +1503,10 @@ var Clean = class _Clean {
     this.startCleanInterval();
   }
   getCleanIndex() {
-    return Storage.get(STORAGE_KEY, 0);
+    return _Clean.cleanIndex;
   }
   setCleanIndex(index) {
-    Storage.set(STORAGE_KEY, index);
+    _Clean.cleanIndex = index;
   }
   /**
    * 将物品放入箱子
@@ -1540,17 +1592,17 @@ var Clean = class _Clean {
   }
   startCleanInterval() {
     if (this.intervalId) {
-      system5.clearRun(this.intervalId);
+      system6.clearRun(this.intervalId);
       this.intervalId = void 0;
     }
-    this.intervalId = system5.runInterval(() => {
+    this.intervalId = system6.runInterval(() => {
       let entities = this.getAllItemEntities();
       if (entities.length > this.itemMax) {
-        world7.sendMessage({ "rawtext": [{ "text": "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
-        system5.runTimeout(() => {
+        world7.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
+        system6.runTimeout(() => {
           this.startClean(void 0);
-          system5.runTimeout(() => {
-            world7.sendMessage({ "rawtext": [{ "text": "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
+          system6.runTimeout(() => {
+            world7.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
           }, 5);
         }, 100);
       }
@@ -1558,7 +1610,7 @@ var Clean = class _Clean {
   }
   stopCleanInterval() {
     if (this.intervalId) {
-      system5.clearRun(this.intervalId);
+      system6.clearRun(this.intervalId);
       this.intervalId = void 0;
     }
   }
@@ -1580,11 +1632,15 @@ ${time}`;
 };
 function registerCommand2() {
   Permission.register("clean.admin", Permission.OP);
-  Command.register("clean", "clean.admin", () => {
-    Clean.getInstance().startClean(void 0);
-  }, "\u5F00\u59CB\u626B\u5730");
+  Command.register(
+    "clean",
+    "clean.admin",
+    () => {
+      Clean.getInstance().startClean(void 0);
+    },
+    "\u5F00\u59CB\u626B\u5730"
+  );
 }
-registerCommand2();
 
 // scripts/area/Peace.ts
 import { world as world8, EntityInitializationCause } from "@minecraft/server";
@@ -1625,7 +1681,14 @@ var Peace = class _Peace {
   inPeaceArea(entity) {
     for (let area of Config.peaceArea) {
       if (entity.dimension.id === area.dimension) {
-        if (pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
+        if (pointInArea_2D(
+          entity.location.x,
+          entity.location.z,
+          area.start[0],
+          area.start[1],
+          area.end[0],
+          area.end[1]
+        )) {
           return true;
         }
       }
@@ -1637,9 +1700,14 @@ var Peace = class _Peace {
   }
   registerCommands() {
     Permission.register("peace.toggle", Permission.OP);
-    Command.register("peace", "peace.toggle", () => {
-      return _Peace.getInstance().switchPeace() ? "\u5F00\u542F\u533A\u57DF\u548C\u5E73" : "\u5173\u95ED\u533A\u57DF\u548C\u5E73";
-    }, "\u5207\u6362\u533A\u57DF\u548C\u5E73");
+    Command.register(
+      "peace",
+      "peace.toggle",
+      () => {
+        return _Peace.getInstance().switchPeace() ? "\u5F00\u542F\u533A\u57DF\u548C\u5E73" : "\u5173\u95ED\u533A\u57DF\u548C\u5E73";
+      },
+      "\u5207\u6362\u533A\u57DF\u548C\u5E73"
+    );
   }
 };
 
@@ -1647,8 +1715,11 @@ var Peace = class _Peace {
 var Database = class {
   static {
     // ==========================================
-    //  内部工具
+    //  内部工具 — 内存 KV 存储（会话级持久化）
     // ==========================================
+    this.memoryStore = /* @__PURE__ */ new Map();
+  }
+  static {
     this.KEY_COOP_DATA = "coop:data";
   }
   static {
@@ -1664,10 +1735,12 @@ var Database = class {
     this._config = null;
   }
   static readJSON(key, fallback) {
-    return Storage.get(key, fallback);
+    if (this.memoryStore.has(key)) return this.memoryStore.get(key);
+    this.memoryStore.set(key, fallback);
+    return fallback;
   }
   static writeJSON(key, value) {
-    Storage.set(key, value);
+    this.memoryStore.set(key, value);
   }
   // ==========================================
   //  配置
@@ -1714,7 +1787,10 @@ var Database = class {
     this.writeJSON(this.KEY_COOP_DATA, all);
   }
   static deleteCoop(cid) {
-    this.writeJSON(this.KEY_COOP_DATA, this.getAllCoop().filter((e) => e.cid !== cid));
+    this.writeJSON(
+      this.KEY_COOP_DATA,
+      this.getAllCoop().filter((e) => e.cid !== cid)
+    );
   }
   // ==========================================
   //  商店商品
@@ -1736,10 +1812,16 @@ var Database = class {
     this.writeJSON(this.KEY_SHOP_GOODS, all);
   }
   static deleteGood(id) {
-    this.writeJSON(this.KEY_SHOP_GOODS, this.getAllGoods().filter((e) => e.id !== id));
+    this.writeJSON(
+      this.KEY_SHOP_GOODS,
+      this.getAllGoods().filter((e) => e.id !== id)
+    );
   }
   static deleteGoodsByCid(cid) {
-    this.writeJSON(this.KEY_SHOP_GOODS, this.getAllGoods().filter((e) => e.cid !== cid));
+    this.writeJSON(
+      this.KEY_SHOP_GOODS,
+      this.getAllGoods().filter((e) => e.cid !== cid)
+    );
   }
   // ==========================================
   //  商店分组
@@ -1763,80 +1845,83 @@ var Database = class {
   static initDefaultGroups() {
     if (this.getAllGroups().length > 0) return;
     const defaults = [
-      { groupid: "default_block", displayname: "\u9ED8\u8BA4\u65B9\u5757", displaydescribe: "\u65B9\u5757\u7C7B\u7269\u54C1", icon: "/textures/ui/icon_recipe_construction", type_function: { mode_enum: ["default_block"] } },
-      { groupid: "default_item", displayname: "\u9ED8\u8BA4\u7269\u54C1", displaydescribe: "\u7269\u54C1\u7C7B", icon: "/textures/ui/icon_recipe_item", type_function: { mode_enum: ["default_item"] } },
-      { groupid: "default_equip", displayname: "\u9ED8\u8BA4\u88C5\u5907", displaydescribe: "\u88C5\u5907\u6B66\u5668\u7C7B", icon: "/textures/ui/icon_recipe_equipment", type_function: { type_enum: ["minecraft:bow", "minecraft:arrow", "minecraft:crossbow", "minecraft:trident", "minecraft:shield", "minecraft:mace", "minecraft:elytra", "minecraft:wolf_armor", "minecraft:saddle"], type_reg_enum: ["[a-z].+_shovel", "[a-z].+_axe", "[a-z].+_sword", "[a-z].+_hoe", "[a-z].+_pickaxe", "[a-z].+_horse_armor"] } },
-      { groupid: "default_book", displayname: "\u4E66\u7C4D", displaydescribe: "\u4E0E\u4E66\u76F8\u5173", icon: "/textures/items/book_enchanted", type_function: { type_enum: ["minecraft:book", "minecraft:bookshelf", "minecraft:writable_book", "minecraft:enchanted_book", "minecraft:chiseled_bookshelf"] } },
-      { groupid: "default_shulker_box", displayname: "\u6F5C\u5F71\u76D2", displaydescribe: "\u5404\u79CD\u6F5C\u5F71\u76D2", icon: "/textures/items/shulker_shell", type_function: { type_reg_enum: ["[a-z].+_shulker_box"] } },
-      { groupid: "default_potion", displayname: "\u836F\u6C34", displaydescribe: "\u836F\u6C34\u7C7B", icon: "/textures/items/potion_bottle_heal", type_function: { type_enum: ["minecraft:splash_potion", "minecraft:potion", "minecraft:lingering_potion"] } }
+      {
+        groupid: "default_block",
+        displayname: "\u9ED8\u8BA4\u65B9\u5757",
+        displaydescribe: "\u65B9\u5757\u7C7B\u7269\u54C1",
+        icon: "/textures/ui/icon_recipe_construction",
+        type_function: { mode_enum: ["default_block"] }
+      },
+      {
+        groupid: "default_item",
+        displayname: "\u9ED8\u8BA4\u7269\u54C1",
+        displaydescribe: "\u7269\u54C1\u7C7B",
+        icon: "/textures/ui/icon_recipe_item",
+        type_function: { mode_enum: ["default_item"] }
+      },
+      {
+        groupid: "default_equip",
+        displayname: "\u9ED8\u8BA4\u88C5\u5907",
+        displaydescribe: "\u88C5\u5907\u6B66\u5668\u7C7B",
+        icon: "/textures/ui/icon_recipe_equipment",
+        type_function: {
+          type_enum: [
+            "minecraft:bow",
+            "minecraft:arrow",
+            "minecraft:crossbow",
+            "minecraft:trident",
+            "minecraft:shield",
+            "minecraft:mace",
+            "minecraft:elytra",
+            "minecraft:wolf_armor",
+            "minecraft:saddle"
+          ],
+          type_reg_enum: [
+            "[a-z].+_shovel",
+            "[a-z].+_axe",
+            "[a-z].+_sword",
+            "[a-z].+_hoe",
+            "[a-z].+_pickaxe",
+            "[a-z].+_horse_armor"
+          ]
+        }
+      },
+      {
+        groupid: "default_book",
+        displayname: "\u4E66\u7C4D",
+        displaydescribe: "\u4E0E\u4E66\u76F8\u5173",
+        icon: "/textures/items/book_enchanted",
+        type_function: {
+          type_enum: [
+            "minecraft:book",
+            "minecraft:bookshelf",
+            "minecraft:writable_book",
+            "minecraft:enchanted_book",
+            "minecraft:chiseled_bookshelf"
+          ]
+        }
+      },
+      {
+        groupid: "default_shulker_box",
+        displayname: "\u6F5C\u5F71\u76D2",
+        displaydescribe: "\u5404\u79CD\u6F5C\u5F71\u76D2",
+        icon: "/textures/items/shulker_shell",
+        type_function: { type_reg_enum: ["[a-z].+_shulker_box"] }
+      },
+      {
+        groupid: "default_potion",
+        displayname: "\u836F\u6C34",
+        displaydescribe: "\u836F\u6C34\u7C7B",
+        icon: "/textures/items/potion_bottle_heal",
+        type_function: { type_enum: ["minecraft:splash_potion", "minecraft:potion", "minecraft:lingering_potion"] }
+      }
     ];
     for (const g of defaults) this.saveGroup(g);
   }
 };
 
-// scripts/libs/Gui.ts
-import { system as system6 } from "@minecraft/server";
-import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-var Gui = class {
-  // ── 统一重试逻辑 ──
-  /**
-   * 显示表单并在 UserBusy 时自动轮询重试
-   * @param player 目标玩家
-   * @param form 表单实例
-   * @param title 表单标题（重试提示用）
-   * @param retryInterval 重试间隔（tick）
-   * @param timeoutTicks 超时时间（tick），默认 160 = 8 秒
-   * @returns Promise<ActionFormResponse | ModalFormResponse>
-   */
-  static showForm(player, form, title, retryInterval = 10, timeoutTicks = 160) {
-    const startTick = system6.currentTick;
-    return new Promise((resolve) => {
-      let notified = false;
-      const attempt = () => {
-        if (system6.currentTick - startTick >= timeoutTicks) {
-          Msg.warning(`\u83DC\u5355 [${title}] \u7B49\u5F85\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002`, player);
-          resolve({ canceled: true });
-          return;
-        }
-        form.show(player).then((res) => {
-          if (res.canceled && res.cancelationReason === "UserBusy") {
-            if (!notified) {
-              notified = true;
-              Msg.info(`\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF1A [${title}] \u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09`, player);
-            }
-            system6.waitTicks(retryInterval).then(attempt);
-          } else {
-            resolve(res);
-          }
-        }).catch(() => resolve({ canceled: true }));
-      };
-      attempt();
-    });
-  }
-  // ── confirm ──
-  static async confirm(player, title, body, onConfirm, onCancel) {
-    const form = new ActionFormData().title(title).body(body).button("\u786E\u8BA4").button("\u53D6\u6D88");
-    const res = await this.showForm(player, form, title);
-    if (res.canceled) {
-      onCancel?.();
-      return;
-    }
-    if (res.selection === 0) onConfirm();
-    else onCancel?.();
-  }
-  // ── simpleForm / modalForm ──
-  static simpleForm(title, body) {
-    const form = new ActionFormData();
-    if (title !== void 0) form.title(title);
-    if (body !== void 0) form.body(body);
-    return form;
-  }
-  static modalForm(title) {
-    const form = new ModalFormData();
-    if (title !== void 0) form.title(title);
-    return form;
-  }
-};
+// scripts/gui/CoopGUI.ts
+import { CustomForm as CustomForm3, ObservableString as ObservableString2, ObservableNumber as ObservableNumber2 } from "@minecraft/server-ui";
 
 // scripts/coop/CoopCore.ts
 import { world as world9 } from "@minecraft/server";
@@ -2139,38 +2224,19 @@ var CoopGUI = class {
     this.coopInfoPanel(cid, "menu");
   }
   noCoopPanel() {
-    Gui.simpleForm().title("\u5408\u4F5C\u793E").body(ListFormInfo(["\u4F60\u6CA1\u6709\u52A0\u5165\u4EFB\u4F55\u4E00\u4E2A\u5408\u4F5C\u793E\uFF0C\u8BF7\u9009\u62E9\u64CD\u4F5C\u3002\n\nCiallo\uFF5E(\u2220\u30FB\u03C9\uFF1C)\u2322\u2606"])).button("\u901A\u8FC7 CID \u52A0\u5165\u5408\u4F5C\u793E").button("\u67E5\u770B\u6240\u6709\u5408\u4F5C\u793E").button("\u521B\u5EFA\u5408\u4F5C\u793E").button("\u5408\u4F5C\u793E\u6392\u884C\u699C").button("\u63D2\u4EF6\u66F4\u65B0\u65E5\u5FD7").show(this.player).then((res) => {
-      if (res.canceled) return;
-      switch (res.selection) {
-        case 0:
-          this.joinByCid();
-          break;
-        case 1:
-          this.coopList();
-          break;
-        case 2:
-          this.createCoop();
-          break;
-        case 3:
-          this.rank(1);
-          break;
-        case 4:
-          this.log();
-          break;
-      }
-    }).catch(() => {
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E").label(ListFormInfo(["\u4F60\u6CA1\u6709\u52A0\u5165\u4EFB\u4F55\u4E00\u4E2A\u5408\u4F5C\u793E\uFF0C\u8BF7\u9009\u62E9\u64CD\u4F5C\u3002\n\nCiallo\uFF5E(\u2220\u30FB\u03C9\uFF1C)\u2322\u2606"])).button("\u901A\u8FC7 CID \u52A0\u5165\u5408\u4F5C\u793E", () => this.joinByCid()).button("\u67E5\u770B\u6240\u6709\u5408\u4F5C\u793E", () => this.coopList()).button("\u521B\u5EFA\u5408\u4F5C\u793E", () => this.createCoop()).button("\u5408\u4F5C\u793E\u6392\u884C\u699C", () => this.rank(1)).button("\u63D2\u4EF6\u66F4\u65B0\u65E5\u5FD7", () => this.log()).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E").catch(() => {
     });
   }
   // ==========================================
   //  加入 / 列表 / 创建
   // ==========================================
   joinByCid() {
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u52A0\u5165\u5408\u4F5C\u793E").textField("CID", "\u4EC5\u652F\u6301\u82F1\u6587/\u6570\u5B57").show(this.player).then((res) => {
-      if (res.canceled) {
-        this.mainPanel();
-        return;
-      }
-      const cid = res.formValues[0]?.trim();
+    let clicked = false;
+    const obsCid = new ObservableString2("");
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u52A0\u5165\u5408\u4F5C\u793E").textField("CID", obsCid, { description: "\u4EC5\u652F\u6301\u82F1\u6587/\u6570\u5B57" }).button("\u786E\u8BA4", () => {
+      clicked = true;
+      const cid = obsCid.getData()?.trim();
       if (!cid) {
         this.errorPop("\u8BF7\u586B\u5199CID");
         return;
@@ -2181,6 +2247,9 @@ var CoopGUI = class {
         return;
       }
       this.coopInfoPanel(cid, "join");
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u52A0\u5165\u5408\u4F5C\u793E").then(() => {
+      if (!clicked) this.mainPanel();
     }).catch(() => {
     });
   }
@@ -2190,31 +2259,30 @@ var CoopGUI = class {
       this.errorPop("\u8FD8\u6CA1\u6709\u4EFB\u4F55\u5408\u4F5C\u793E");
       return;
     }
-    const form = Gui.simpleForm().title("\u5408\u4F5C\u793E\u5217\u8868");
-    for (const c of all) form.button(c.name);
-    form.button("\xA7l\u8FD4\u56DE");
-    form.show(this.player).then((res) => {
-      if (res.canceled) {
-        this.mainPanel();
-        return;
-      }
-      if (res.selection === all.length) {
-        this.mainPanel();
-        return;
-      }
-      this.coopInfoPanel(all[res.selection].cid, "info");
+    let clicked = false;
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E\u5217\u8868");
+    for (const c of all) {
+      const coopCid = c.cid;
+      form.button(c.name, () => {
+        clicked = true;
+        this.coopInfoPanel(coopCid, "info");
+      });
+    }
+    form.button("\xA7l\u8FD4\u56DE", () => {
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E\u5217\u8868").then(() => {
+      if (!clicked) this.mainPanel();
     }).catch(() => {
     });
   }
   createCoop() {
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u521B\u5EFA\u5408\u4F5C\u793E").textField("\u5408\u4F5C\u793E\u540D\u79F0", "").textField("CID", "\u4EC5\u652F\u6301\u82F1\u6587/\u6570\u5B57\uFF0C\u7528\u4F5C\u9080\u8BF7\u7801").show(this.player).then((res) => {
-      if (res.canceled) {
-        this.mainPanel();
-        return;
-      }
-      const vals = res.formValues;
-      const name = vals[0];
-      const cid = vals[1];
+    let clicked = false;
+    const obsName = new ObservableString2("");
+    const obsCid = new ObservableString2("");
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u521B\u5EFA\u5408\u4F5C\u793E").textField("\u5408\u4F5C\u793E\u540D\u79F0", obsName).textField("CID", obsCid, { description: "\u4EC5\u652F\u6301\u82F1\u6587/\u6570\u5B57\uFF0C\u7528\u4F5C\u9080\u8BF7\u7801" }).button("\u786E\u8BA4", () => {
+      clicked = true;
+      const name = obsName.getData();
+      const cid = obsCid.getData();
       if (!name || !cid) {
         this.errorPop("\u8BF7\u586B\u5199\u5B8C\u6574\u4FE1\u606F");
         return;
@@ -2224,6 +2292,9 @@ var CoopGUI = class {
       } else {
         this.errorPop(`\u4F60\u7684${Money.UNIT}\u4F3C\u4E4E\u4E0D\u591F\u6216CID\u5DF2\u88AB\u5360\u7528\uFF01`);
       }
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u521B\u5EFA\u5408\u4F5C\u793E").then(() => {
+      if (!clicked) this.mainPanel();
     }).catch(() => {
     });
   }
@@ -2237,44 +2308,17 @@ var CoopGUI = class {
       return;
     }
     if (returnMode === "join") {
-      Gui.simpleForm().title("\u5408\u4F5C\u793E - \u52A0\u5165\u786E\u8BA4").body(ListFormInfo([text])).button("\u52A0\u5165").button("\xA7l\u8FD4\u56DE").show(this.player).then((res) => {
-        if (!res.canceled && res.selection === 0) CoopCore.joinCoop(this.player, cid);
-      }).catch(() => {
+      const form2 = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u52A0\u5165\u786E\u8BA4").label(ListFormInfo([text])).button("\u52A0\u5165", () => CoopCore.joinCoop(this.player, cid)).button("\xA7l\u8FD4\u56DE", () => {
+      }).closeButton();
+      Gui.showForm(this.player, form2, "\u5408\u4F5C\u793E - \u52A0\u5165\u786E\u8BA4").catch(() => {
       });
       return;
     }
     const isOp = CoopCore.isOp(this.player.name, cid);
-    const form = Gui.simpleForm().title("\u5408\u4F5C\u793E").body(ListFormInfo([text])).button("\u96C6\u4F53\u5546\u5E97\u540E\u53F0").button("\u516C\u6709\u94F6\u884C").button("\u6210\u5458\u5217\u8868").button("\u67E5\u770B\u6240\u6709\u5408\u4F5C\u793E").button("\u5408\u4F5C\u793E\u6392\u884C\u699C").button(isOp ? "\u89E3\u6563\u6B64\u5408\u4F5C\u793E" : "\u9000\u51FA\u6B64\u5408\u4F5C\u793E").button("\u63D2\u4EF6\u66F4\u65B0\u65E5\u5FD7");
-    if (isOp) form.button("\u7BA1\u7406\u9762\u677F");
-    form.show(this.player).then((res) => {
-      if (res.canceled) return;
-      switch (res.selection) {
-        case 0:
-          this.shopMgr(cid, 1);
-          break;
-        case 1:
-          this.bankPanel(cid);
-          break;
-        case 2:
-          this.infoPop(CoopCore.getMemberList(cid).join(", "));
-          break;
-        case 3:
-          this.coopList();
-          break;
-        case 4:
-          this.rank(1);
-          break;
-        case 5:
-          this.exitConfirm(cid);
-          break;
-        case 6:
-          this.log();
-          break;
-        case 7:
-          this.adminPanel(cid);
-          break;
-      }
-    }).catch(() => {
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E").label(ListFormInfo([text])).button("\u96C6\u4F53\u5546\u5E97\u540E\u53F0", () => this.shopMgr(cid, 1)).button("\u516C\u6709\u94F6\u884C", () => this.bankPanel(cid)).button("\u6210\u5458\u5217\u8868", () => this.infoPop(CoopCore.getMemberList(cid).join(", "))).button("\u67E5\u770B\u6240\u6709\u5408\u4F5C\u793E", () => this.coopList()).button("\u5408\u4F5C\u793E\u6392\u884C\u699C", () => this.rank(1)).button(isOp ? "\u89E3\u6563\u6B64\u5408\u4F5C\u793E" : "\u9000\u51FA\u6B64\u5408\u4F5C\u793E", () => this.exitConfirm(cid)).button("\u63D2\u4EF6\u66F4\u65B0\u65E5\u5FD7", () => this.log());
+    if (isOp) form.button("\u7BA1\u7406\u9762\u677F", () => this.adminPanel(cid));
+    form.closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E").catch(() => {
     });
   }
   exitConfirm(cid) {
@@ -2298,64 +2342,65 @@ var CoopGUI = class {
   //  管理面板
   // ==========================================
   adminPanel(cid) {
-    Gui.simpleForm().title("\u5408\u4F5C\u793E - \u7BA1\u7406\u9762\u677F").body(ListFormInfo(["\xA76CID:\xA7r " + cid])).button("\u7F16\u8F91\u516C\u544A").button("\u5411\u6240\u6709\u6210\u5458\u558A\u8BDD").button("\u6DFB\u52A0\u7BA1\u7406\u6210\u5458").button("\xA7l\u8FD4\u56DE").show(this.player).then((res) => {
-      if (res.canceled) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      if (res.selection === 3) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      switch (res.selection) {
-        case 0:
-          this.editNotice(cid);
-          break;
-        case 1:
-          this.talkToMembers(cid);
-          break;
-        case 2:
-          this.addAdmin(cid);
-          break;
-      }
+    let clicked = false;
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u7BA1\u7406\u9762\u677F").label(ListFormInfo(["\xA76CID:\xA7r " + cid])).button("\u7F16\u8F91\u516C\u544A", () => {
+      clicked = true;
+      this.editNotice(cid);
+    }).button("\u5411\u6240\u6709\u6210\u5458\u558A\u8BDD", () => {
+      clicked = true;
+      this.talkToMembers(cid);
+    }).button("\u6DFB\u52A0\u7BA1\u7406\u6210\u5458", () => {
+      clicked = true;
+      this.addAdmin(cid);
+    }).button("\xA7l\u8FD4\u56DE", () => {
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u7BA1\u7406\u9762\u677F").then(() => {
+      if (!clicked) this.coopInfoPanel(cid, "menu");
     }).catch(() => {
     });
   }
   editNotice(cid) {
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u7F16\u8F91\u516C\u544A").textField("\u516C\u544A\u5185\u5BB9", "").show(this.player).then((res) => {
-      if (res.canceled) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      CoopCore.setNotice(cid, res.formValues[0] || "");
+    let clicked = false;
+    const obsNotice = new ObservableString2("");
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u7F16\u8F91\u516C\u544A").textField("\u516C\u544A\u5185\u5BB9", obsNotice).button("\u786E\u8BA4", () => {
+      clicked = true;
+      CoopCore.setNotice(cid, obsNotice.getData() || "");
       this.infoPop("\u8BBE\u7F6E\u6210\u529F\u3002");
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u7F16\u8F91\u516C\u544A").then(() => {
+      if (!clicked) this.coopInfoPanel(cid, "menu");
     }).catch(() => {
     });
   }
   talkToMembers(cid) {
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u5411\u6240\u6709\u6210\u5458\u558A\u8BDD").textField("\u558A\u8BDD\u5185\u5BB9", "( \u1D5C \u02F0 \u1D5C )").show(this.player).then((res) => {
-      if (res.canceled) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      CoopCore.sendToMembers(cid, this.player.name + ": " + res.formValues[0]);
+    let clicked = false;
+    const obsMsg = new ObservableString2("");
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u5411\u6240\u6709\u6210\u5458\u558A\u8BDD").textField("\u558A\u8BDD\u5185\u5BB9", obsMsg, { description: "(\u1D5C \u02F0 \u1D5C)" }).button("\u786E\u8BA4", () => {
+      clicked = true;
+      CoopCore.sendToMembers(cid, this.player.name + ": " + obsMsg.getData());
       this.infoPop("\u558A\u8BDD\u6210\u529F\u3002");
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u5411\u6240\u6709\u6210\u5458\u558A\u8BDD").then(() => {
+      if (!clicked) this.coopInfoPanel(cid, "menu");
     }).catch(() => {
     });
   }
   addAdmin(cid) {
     const members = CoopCore.getMemberList(cid);
     if (members.length === 0) return;
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u6DFB\u52A0\u7BA1\u7406").dropdown("\u5C06\u5408\u4F5C\u793E\u4E2D\u7684\u6210\u5458\u6743\u9650\u63D0\u5347\u81F3\u7BA1\u7406\u5458...", members).show(this.player).then((res) => {
-      if (res.canceled) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      const idx = res.formValues[0];
+    const memberItems = members.map((m, i) => ({ label: m, value: i }));
+    let clicked = false;
+    const obsIdx = new ObservableNumber2(0);
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u6DFB\u52A0\u7BA1\u7406").dropdown("\u5C06\u5408\u4F5C\u793E\u4E2D\u7684\u6210\u5458\u6743\u9650\u63D0\u5347\u81F3\u7BA1\u7406\u5458...", obsIdx, memberItems).button("\u786E\u8BA4", () => {
+      clicked = true;
+      const idx = obsIdx.getData();
       this.confirmPop("\u5408\u4F5C\u793E - \u786E\u8BA4", "\u76EE\u6807\u73A9\u5BB6\u4F1A\u83B7\u5F97\u7BA1\u7406\u9762\u677F\u7684\u4F7F\u7528\u6743\uFF0C\u786E\u8BA4\u64CD\u4F5C\u5417\uFF1F", () => {
         CoopCore.setOp(cid, idx);
         this.tipsPop("\u64CD\u4F5C\u6210\u529F\u3002");
       });
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u6DFB\u52A0\u7BA1\u7406").then(() => {
+      if (!clicked) this.coopInfoPanel(cid, "menu");
     }).catch(() => {
     });
   }
@@ -2365,34 +2410,38 @@ var CoopGUI = class {
   bankPanel(cid) {
     const data2 = Database.getCoopByCid(cid);
     if (!data2) return;
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u94F6\u884C").dropdown("\u8BF7\u9009\u62E9\u64CD\u4F5C", ["\u5B58\u5165", "\u53D6\u51FA"]).textField("\xA76\u5408\u4F5C\u793E\u94F6\u884C\u7ECF\u6D4E\uFF1A\xA7r" + data2.money + "\n\xA76\u8D26\u5355\uFF1A\xA7r\n" + data2.moneylist, "").show(this.player).then((res) => {
-      if (res.canceled) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      this.bankControl(cid, res.formValues[0] + 1);
+    let clicked = false;
+    const obsAction = new ObservableNumber2(0);
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u94F6\u884C").dropdown("\u8BF7\u9009\u62E9\u64CD\u4F5C", obsAction, [{ label: "\u5B58\u5165", value: 0 }, { label: "\u53D6\u51FA", value: 1 }]).label("\xA76\u5408\u4F5C\u793E\u94F6\u884C\u7ECF\u6D4E\uFF1A\xA7r" + data2.money + "\n\xA76\u8D26\u5355\uFF1A\xA7r\n" + data2.moneylist).button("\u786E\u8BA4", () => {
+      clicked = true;
+      this.bankControl(cid, obsAction.getData() + 1);
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u94F6\u884C").then(() => {
+      if (!clicked) this.coopInfoPanel(cid, "menu");
     }).catch(() => {
     });
   }
   bankControl(cid, type) {
     const title = type === 1 ? "\u5B58\u5165" + Money.UNIT : "\u53D6\u51FA" + Money.UNIT;
-    const form = Gui.modalForm().title("\u5408\u4F5C\u793E - " + title).textField("\u91D1\u989D", "").textField("\u5907\u6CE8(\u53EF\u9009)", "\u65E0");
-    form.show(this.player).then((res) => {
-      if (res.canceled) {
-        this.coopInfoPanel(cid, "menu");
-        return;
-      }
-      const val = parseInt(res.formValues[0]);
+    let clicked = false;
+    const obsAmount = new ObservableString2("");
+    const obsNote = new ObservableString2("");
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - " + title).textField("\u91D1\u989D", obsAmount).textField("\u5907\u6CE8(\u53EF\u9009)", obsNote, { description: "\u65E0" }).button("\u786E\u8BA4", () => {
+      clicked = true;
+      const val = parseInt(obsAmount.getData());
       if (isNaN(val) || val <= 0) {
         this.errorPop("\u91D1\u989D\u586B\u5199\u4E0D\u6B63\u786E");
         return;
       }
-      if (CoopCore.bankControl(cid, this.player, val, res.formValues[1] || "", type === 1 ? 1 : 2)) {
+      if (CoopCore.bankControl(cid, this.player, val, obsNote.getData() || "", type === 1 ? 1 : 2)) {
         if (type === 1) Msg.success("\u5B58\u5165\u6210\u529F\uFF01" + Money.UNIT + "\uFF1A" + val, this.player);
         else Msg.success("\u53D6\u51FA\u6210\u529F\uFF01" + Money.UNIT + "\uFF1A" + val, this.player);
       } else {
         this.errorPop("\u91D1\u989D\u586B\u5199\u4E0D\u6B63\u786E");
       }
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - " + title).then(() => {
+      if (!clicked) this.coopInfoPanel(cid, "menu");
     }).catch(() => {
     });
   }
@@ -2400,16 +2449,18 @@ var CoopGUI = class {
   //  排行榜
   // ==========================================
   rank(type) {
-    Gui.modalForm().title("\u5408\u4F5C\u793E - \u6392\u884C\u699C").textField(CoopCore.getRankInfo(type), "").dropdown("\u5207\u6362\u6392\u884C\u699C", ["\u94F6\u884C\u7ECF\u6D4E", "\u4EBA\u6570"], { defaultValueIndex: type - 1 }).show(this.player).then((res) => {
-      if (!res.canceled) this.rank(res.formValues[1] + 1);
-    }).catch(() => {
+    const obsType = new ObservableNumber2(type - 1);
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u6392\u884C\u699C").label(CoopCore.getRankInfo(type)).dropdown("\u5207\u6362\u6392\u884C\u699C", obsType, [{ label: "\u94F6\u884C\u7ECF\u6D4E", value: 0 }, { label: "\u4EBA\u6570", value: 1 }]).button("\u786E\u8BA4", () => this.rank(obsType.getData() + 1)).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u6392\u884C\u699C").catch(() => {
     });
   }
   // ==========================================
   //  更新日志
   // ==========================================
   log() {
-    Gui.simpleForm().title("\u5408\u4F5C\u793E - \u66F4\u65B0\u65E5\u5FD7").body(ListFormInfo(["\u6682\u65E0\u66F4\u65B0\u65E5\u5FD7\u3002"])).button("\xA7l\u8FD4\u56DE").show(this.player).catch(() => {
+    const form = new CustomForm3(this.player, "\u5408\u4F5C\u793E - \u66F4\u65B0\u65E5\u5FD7").label(ListFormInfo(["\u6682\u65E0\u66F4\u65B0\u65E5\u5FD7\u3002"])).button("\xA7l\u8FD4\u56DE", () => {
+    }).closeButton();
+    Gui.showForm(this.player, form, "\u5408\u4F5C\u793E - \u66F4\u65B0\u65E5\u5FD7").catch(() => {
     });
   }
   // ==========================================
@@ -2423,38 +2474,25 @@ var CoopGUI = class {
       // ---- step 1: 商店管理后台主菜单 ----
       case 1: {
         const goods = CoopCore.getGoods(1, true, 1, cid);
-        const form = Gui.simpleForm().title("\u5546\u5E97\u7BA1\u7406\u540E\u53F0").body(ListFormInfo(["\u9009\u62E9\u64CD\u4F5C"])).button("\u4E0A\u67B6\u7269\u54C1").button("\u56DE\u6536\u7269\u54C1\u7BA1\u7406").button("\u6DFB\u52A0\u81EA\u5B9A\u4E49\u5206\u7EC4");
-        if (isOp) form.button("\u56DE\u6536\u62DB\u52DF\u5BA1\u6838");
-        for (const g of goods) form.button(_fmtGoodBt(g.name, unit, g.money, g.sv, g.num, true));
-        const goodsCount = goods.length;
-        form.button("\xA7l\u8FD4\u56DE");
-        form.show(this.player).then((res) => {
-          if (res.canceled) return;
-          const idx = res.selection;
-          const offset = isOp ? 4 : 3;
-          const backIdx = offset + goodsCount;
-          if (idx === backIdx) {
-            this.coopInfoPanel(cid, "menu");
-            return;
-          }
-          if (idx === 0) this.shopAdd(cid, 1);
-          else if (idx === 1) this.shopMgr(cid, 6);
-          else if (idx === 2) this.shopAdd(cid, 4);
-          else if (isOp && idx === 3) {
-            if (!this.shopMgr(cid, 8)) this.tipsPop("\u6CA1\u6709\u5F85\u5BA1\u6838\u7684\u56DE\u6536\u62DB\u52DF");
-          } else {
-            this.shopMgr(cid, 2, goods[idx - offset].id);
-          }
-        }).catch(() => {
+        const form = new CustomForm3(this.player, "\u5546\u5E97\u7BA1\u7406\u540E\u53F0").label(ListFormInfo(["\u9009\u62E9\u64CD\u4F5C"])).button("\u4E0A\u67B6\u7269\u54C1", () => this.shopAdd(cid, 1)).button("\u56DE\u6536\u7269\u54C1\u7BA1\u7406", () => this.shopMgr(cid, 6)).button("\u6DFB\u52A0\u81EA\u5B9A\u4E49\u5206\u7EC4", () => this.shopAdd(cid, 4));
+        if (isOp) form.button("\u56DE\u6536\u62DB\u52DF\u5BA1\u6838", () => {
+          if (!this.shopMgr(cid, 8)) this.tipsPop("\u6CA1\u6709\u5F85\u5BA1\u6838\u7684\u56DE\u6536\u62DB\u52DF");
+        });
+        for (const g of goods) {
+          const goodItem = g;
+          form.button(_fmtGoodBt(g.name, unit, g.money, g.sv, g.num, true), () => this.shopMgr(cid, 2, goodItem.id));
+        }
+        form.button("\xA7l\u8FD4\u56DE", () => this.coopInfoPanel(cid, "menu")).closeButton();
+        Gui.showForm(this.player, form, "\u5546\u5E97\u7BA1\u7406\u540E\u53F0").catch(() => {
         });
         break;
       }
       // ---- step 2: 选择操作（补货/下架/编辑） ----
       case 2: {
         if (!good) return;
-        Gui.modalForm().title("\u5546\u5E97\u7BA1\u7406\u540E\u53F0").textField("gid:" + gid, "").dropdown("\u64CD\u4F5C", ["\u8865\u8D27", "\u4E0B\u67B6", "\u7F16\u8F91"]).show(this.player).then((res) => {
-          if (!res.canceled) this.shopMgr(cid, res.formValues[1] + 3, gid);
-        }).catch(() => {
+        const obsAction = new ObservableNumber2(0);
+        const form = new CustomForm3(this.player, "\u5546\u5E97\u7BA1\u7406\u540E\u53F0").label("gid:" + gid).dropdown("\u64CD\u4F5C", obsAction, [{ label: "\u8865\u8D27", value: 0 }, { label: "\u4E0B\u67B6", value: 1 }, { label: "\u7F16\u8F91", value: 2 }]).button("\u786E\u8BA4", () => this.shopMgr(cid, obsAction.getData() + 3, gid)).closeButton();
+        Gui.showForm(this.player, form, "\u5546\u5E97\u7BA1\u7406\u540E\u53F0").catch(() => {
         });
         break;
       }
@@ -2471,21 +2509,25 @@ var CoopGUI = class {
           return;
         }
         const total = countItemInInventory(this.player);
-        Gui.modalForm().title("\u8865\u8D27").textField("\u5F53\u524D\u5E93\u5B58\uFF1A" + good.num, "").slider("\u8865\u8D27\u6570\u91CF", 1, Math.max(total, 1), { valueStep: 1, defaultValue: 1 }).show(this.player).then((res) => {
-          if (res.canceled) {
-            this.shopMgr(cid, 1);
-            return;
-          }
-          const num = res.formValues[1];
+        let clicked = false;
+        const obsNum = new ObservableNumber2(1);
+        const form = new CustomForm3(this.player, "\u8865\u8D27").label("\u5F53\u524D\u5E93\u5B58\uFF1A" + good.num).slider("\u8865\u8D27\u6570\u91CF", obsNum, 1, Math.max(total, 1), { step: 1 }).button("\u786E\u8BA4", () => {
+          clicked = true;
+          const num = obsNum.getData();
           if (num <= 0) {
             this.errorPop("\u8BF7\u586B\u5199\u5B8C\u6574\u4FE1\u606F\uFF01");
             return;
           }
           good.num += num;
           Database.saveGood(good);
-          this.player.runCommand('clear "' + this.player.name + '" ' + good.item.type + " " + good.item.aux + " " + num);
+          this.player.runCommand(
+            'clear "' + this.player.name + '" ' + good.item.type + " " + good.item.aux + " " + num
+          );
           Msg.success("\u8865\u8D27\u6210\u529F\u3002", this.player);
           this.shopMgr(cid, 1);
+        }).closeButton();
+        Gui.showForm(this.player, form, "\u8865\u8D27").then(() => {
+          if (!clicked) this.shopMgr(cid, 1);
         }).catch(() => {
         });
         break;
@@ -2495,7 +2537,9 @@ var CoopGUI = class {
         if (!good) return;
         this.confirmPop("\u4E0B\u67B6\u786E\u8BA4", "\u786E\u8BA4\u4E0B\u67B6 " + good.name + " \uFF1F\n\u4E0B\u67B6\u540E\u5E93\u5B58\u5C06\u8FD4\u8FD8\u7ED9\u4F60\u3002", () => {
           Database.deleteGood(gid);
-          this.player.runCommand('give "' + this.player.name + '" ' + good.item.type + " " + good.num + " " + good.item.aux);
+          this.player.runCommand(
+            'give "' + this.player.name + '" ' + good.item.type + " " + good.num + " " + good.item.aux
+          );
           Msg.success("\u4E0B\u67B6\u6210\u529F\u3002", this.player);
           this.shopMgr(cid, 1);
         });
@@ -2506,16 +2550,18 @@ var CoopGUI = class {
         if (!good) return;
         const customGroups = CoopCore.getGroups(true);
         const cgNames = ["\u65E0", ...customGroups.map((g) => g.displayname)];
-        Gui.modalForm().title("\u7F16\u8F91\u5546\u54C1\u4FE1\u606F").textField("\u5546\u54C1\u540D\u79F0", good.name, { defaultValue: good.name }).textField("\u5546\u54C1\u63CF\u8FF0", good.des, { defaultValue: good.des }).textField("\u4EF7\u683C", String(good.money), { defaultValue: String(good.money) }).dropdown("\u81EA\u5B9A\u4E49\u5206\u7EC4", cgNames).show(this.player).then((res) => {
-          if (res.canceled) {
-            this.shopMgr(cid, 1);
-            return;
-          }
-          const vals = res.formValues;
-          good.name = vals[0];
-          good.des = vals[1];
-          good.money = parseInt(vals[2]) || 0;
-          const cgIdx = vals[3];
+        const cgItems = cgNames.map((n, i) => ({ label: n, value: i }));
+        let clicked = false;
+        const obsName = new ObservableString2(good.name);
+        const obsDes = new ObservableString2(good.des);
+        const obsPrice = new ObservableString2(String(good.money));
+        const obsGroup = new ObservableNumber2(0);
+        const form = new CustomForm3(this.player, "\u7F16\u8F91\u5546\u54C1\u4FE1\u606F").textField("\u5546\u54C1\u540D\u79F0", obsName).textField("\u5546\u54C1\u63CF\u8FF0", obsDes).textField("\u4EF7\u683C", obsPrice).dropdown("\u81EA\u5B9A\u4E49\u5206\u7EC4", obsGroup, cgItems).button("\u786E\u8BA4", () => {
+          clicked = true;
+          good.name = obsName.getData();
+          good.des = obsDes.getData();
+          good.money = parseInt(obsPrice.getData()) || 0;
+          const cgIdx = obsGroup.getData();
           if (cgIdx > 0) {
             const idx = good.groups.findIndex((g) => customGroups.some((cg) => cg.groupid === g));
             if (idx !== -1) good.groups.splice(idx, 1);
@@ -2524,6 +2570,9 @@ var CoopGUI = class {
           Database.saveGood(good);
           Msg.success("\u4FEE\u6539\u6210\u529F\u3002", this.player);
           this.shopMgr(cid, 1);
+        }).closeButton();
+        Gui.showForm(this.player, form, "\u7F16\u8F91\u5546\u54C1\u4FE1\u606F").then(() => {
+          if (!clicked) this.shopMgr(cid, 1);
         }).catch(() => {
         });
         break;
@@ -2531,20 +2580,13 @@ var CoopGUI = class {
       // ---- step 6: 回收物品管理列表 ----
       case 6: {
         const goods2 = CoopCore.getGoods(1, true, 2, cid);
-        const form = Gui.simpleForm().title("\u5546\u5E97\u7BA1\u7406\u540E\u53F0").body(ListFormInfo(["\u56DE\u6536\u7269\u54C1\u7BA1\u7406"]));
-        for (const g of goods2) form.button(_fmtGoodBt(g.name, unit, g.money, g.sv, g.num, false));
-        form.button("\xA7l\u8FD4\u56DE");
-        form.show(this.player).then((res) => {
-          if (res.canceled) {
-            this.shopMgr(cid, 1);
-            return;
-          }
-          if (res.selection === goods2.length) {
-            this.shopMgr(cid, 1);
-            return;
-          }
-          this.shopMgr(cid, 7, goods2[res.selection].id);
-        }).catch(() => {
+        const form = new CustomForm3(this.player, "\u5546\u5E97\u7BA1\u7406\u540E\u53F0").label(ListFormInfo(["\u56DE\u6536\u7269\u54C1\u7BA1\u7406"]));
+        for (const g of goods2) {
+          const goodItem = g;
+          form.button(_fmtGoodBt(g.name, unit, g.money, g.sv, g.num, false), () => this.shopMgr(cid, 7, goodItem.id));
+        }
+        form.button("\xA7l\u8FD4\u56DE", () => this.shopMgr(cid, 1)).closeButton();
+        Gui.showForm(this.player, form, "\u5546\u5E97\u7BA1\u7406\u540E\u53F0").catch(() => {
         });
         break;
       }
@@ -2554,17 +2596,21 @@ var CoopGUI = class {
           this.errorPop("\u6682\u65F6\u6CA1\u6709\u9700\u8981\u53D6\u51FA\u7684\u5E93\u5B58\u3002");
           break;
         }
-        Gui.modalForm().title("\u53D6\u51FA\u56DE\u6536\u5E93\u5B58").slider("\u53D6\u51FA\u6570\u91CF", 1, good.sv, { valueStep: 1, defaultValue: 1 }).show(this.player).then((res) => {
-          if (res.canceled) {
-            this.shopMgr(cid, 1);
-            return;
-          }
-          const num = res.formValues[0];
+        let clicked = false;
+        const obsNum = new ObservableNumber2(1);
+        const form = new CustomForm3(this.player, "\u53D6\u51FA\u56DE\u6536\u5E93\u5B58").slider("\u53D6\u51FA\u6570\u91CF", obsNum, 1, good.sv, { step: 1 }).button("\u786E\u8BA4", () => {
+          clicked = true;
+          const num = obsNum.getData();
           good.sv -= num;
           Database.saveGood(good);
-          this.player.runCommand('give "' + this.player.name + '" ' + good.item.type + " " + num + " " + good.item.aux);
+          this.player.runCommand(
+            'give "' + this.player.name + '" ' + good.item.type + " " + num + " " + good.item.aux
+          );
           Msg.success("\u53D6\u51FA\u6210\u529F\u3002", this.player);
           this.shopMgr(cid, 1);
+        }).closeButton();
+        Gui.showForm(this.player, form, "\u53D6\u51FA\u56DE\u6536\u5E93\u5B58").then(() => {
+          if (!clicked) this.shopMgr(cid, 1);
         }).catch(() => {
         });
         break;
@@ -2573,23 +2619,23 @@ var CoopGUI = class {
       case 8: {
         const goods1 = CoopCore.getGoods(1, true, 2, cid, void 0, false);
         if (goods1.length === 0) return false;
-        const form = Gui.simpleForm().title("\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868");
+        const form = new CustomForm3(this.player, "\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868");
         for (const g of goods1) {
-          form.button(g.name + " " + unit + g.money + "\n\u5F85\u5BA1\u6838");
+          const goodItem = g;
+          form.button(g.name + " " + unit + g.money + "\n\u5F85\u5BA1\u6838", () => {
+            this.confirmPop(
+              "\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868",
+              "\u540D\u79F0: " + goodItem.name + "\n\u63CF\u8FF0: " + (goodItem.des || "") + "\n\u4EF7\u683C: " + goodItem.money + "\n\u5E93\u5B58: " + goodItem.num + "\n\n\u786E\u5B9A\u901A\u8FC7\u5BA1\u6838\uFF1F",
+              () => {
+                goodItem.isTrue = true;
+                Database.saveGood(goodItem);
+                Msg.success("\u64CD\u4F5C\u6210\u529F\u3002", this.player);
+              }
+            );
+          });
         }
-        form.show(this.player).then((res) => {
-          if (res.canceled) return;
-          const g = goods1[res.selection];
-          this.confirmPop(
-            "\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868",
-            "\u540D\u79F0: " + g.name + "\n\u63CF\u8FF0: " + (g.des || "") + "\n\u4EF7\u683C: " + g.money + "\n\u5E93\u5B58: " + g.num + "\n\n\u786E\u5B9A\u901A\u8FC7\u5BA1\u6838\uFF1F",
-            () => {
-              g.isTrue = true;
-              Database.saveGood(g);
-              Msg.success("\u64CD\u4F5C\u6210\u529F\u3002", this.player);
-            }
-          );
-        }).catch(() => {
+        form.closeButton();
+        Gui.showForm(this.player, form, "\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868").catch(() => {
         });
         return true;
       }
@@ -2602,9 +2648,10 @@ var CoopGUI = class {
     switch (step) {
       // ---- step 1: 选择物品栏和操作类型 ----
       case 1: {
-        Gui.modalForm().title("\u4E0A\u67B6\u7269\u54C1").dropdown("\u8BF7\u9009\u62E9\u7269\u54C1\u680F", ["1", "2", "3", "4", "5", "6", "7", "8", "9"]).dropdown("\u8BF7\u9009\u62E9\u64CD\u4F5C\u7C7B\u578B", ["\u6C42\u8D2D", "\u56DE\u6536"]).show(this.player).then((res) => {
-          if (!res.canceled) this.shopAdd(cid, res.formValues[1] + 2, res.formValues[0]);
-        }).catch(() => {
+        const obsSlot = new ObservableNumber2(0);
+        const obsType = new ObservableNumber2(0);
+        const form = new CustomForm3(this.player, "\u4E0A\u67B6\u7269\u54C1").dropdown("\u8BF7\u9009\u62E9\u7269\u54C1\u680F", obsSlot, [{ label: "1", value: 0 }, { label: "2", value: 1 }, { label: "3", value: 2 }, { label: "4", value: 3 }, { label: "5", value: 4 }, { label: "6", value: 5 }, { label: "7", value: 6 }, { label: "8", value: 7 }, { label: "9", value: 8 }]).dropdown("\u8BF7\u9009\u62E9\u64CD\u4F5C\u7C7B\u578B", obsType, [{ label: "\u6C42\u8D2D", value: 0 }, { label: "\u56DE\u6536", value: 1 }]).button("\u786E\u8BA4", () => this.shopAdd(cid, obsType.getData() + 2, obsSlot.getData())).closeButton();
+        Gui.showForm(this.player, form, "\u4E0A\u67B6\u7269\u54C1").catch(() => {
         });
         break;
       }
@@ -2618,21 +2665,25 @@ var CoopGUI = class {
         }
         const customGroups = CoopCore.getGroups(true);
         const cgNames = ["\u65E0", ...customGroups.map((g) => g.displayname)];
-        Gui.modalForm().title("\u5546\u54C1\u4FE1\u606F").textField("type: " + item.typeId, item.typeId, { defaultValue: item.typeId }).textField("\u5546\u54C1\u540D\u79F0", item.typeId, { defaultValue: item.typeId }).textField("\u5546\u54C1\u63CF\u8FF0", "").textField("\u4EF7\u683C", "0").dropdown("\u81EA\u5B9A\u4E49\u5206\u7EC4", cgNames).show(this.player).then((res) => {
-          if (res.canceled) return;
-          const vals = res.formValues;
-          const money = parseInt(vals[3]) || 0;
-          const cgIdx = vals[4];
+        const cgItems = cgNames.map((n, i) => ({ label: n, value: i }));
+        const obsType = new ObservableString2(item.typeId);
+        const obsName = new ObservableString2(item.typeId);
+        const obsDes = new ObservableString2("");
+        const obsPrice = new ObservableString2("0");
+        const obsGroup = new ObservableNumber2(0);
+        const form = new CustomForm3(this.player, "\u5546\u54C1\u4FE1\u606F").textField("type: " + item.typeId, obsType, { description: item.typeId }).textField("\u5546\u54C1\u540D\u79F0", obsName, { description: item.typeId }).textField("\u5546\u54C1\u63CF\u8FF0", obsDes).textField("\u4EF7\u683C", obsPrice, { description: "0" }).dropdown("\u81EA\u5B9A\u4E49\u5206\u7EC4", obsGroup, cgItems).button("\u786E\u8BA4", () => {
+          const money = parseInt(obsPrice.getData()) || 0;
+          const cgIdx = obsGroup.getData();
           const gt = [];
           if (cgIdx > 0) gt.push(customGroups[cgIdx - 1].groupid);
           gt.push(...CoopCore.typeGood(item));
           const newGood = {
-            name: vals[1],
+            name: obsName.getData(),
             id: CoopCore.generateId(),
             time: Date.now(),
             type: 1,
             groups: gt,
-            des: vals[2],
+            des: obsDes.getData(),
             num: 1,
             sv: 0,
             money,
@@ -2642,7 +2693,8 @@ var CoopGUI = class {
           };
           Database.saveGood(newGood);
           Msg.success("\u4E0A\u67B6\u6210\u529F\uFF01", this.player);
-        }).catch(() => {
+        }).closeButton();
+        Gui.showForm(this.player, form, "\u5546\u54C1\u4FE1\u606F").catch(() => {
         });
         break;
       }
@@ -2653,16 +2705,17 @@ var CoopGUI = class {
       }
       // ---- step 4: 添加自定义分组 ----
       case 4: {
-        Gui.modalForm().title("\u6DFB\u52A0\u81EA\u5B9A\u4E49\u5206\u7EC4").textField("\u5206\u7EC4\u540D\u79F0", "").show(this.player).then((res) => {
-          if (res.canceled) return;
-          const name = res.formValues[0]?.trim();
+        const obsName = new ObservableString2("");
+        const form = new CustomForm3(this.player, "\u6DFB\u52A0\u81EA\u5B9A\u4E49\u5206\u7EC4").textField("\u5206\u7EC4\u540D\u79F0", obsName).button("\u786E\u8BA4", () => {
+          const name = obsName.getData()?.trim();
           if (!name) {
             this.errorPop("\u8BF7\u586B\u5199\u5B8C\u6574\u4FE1\u606F\uFF01");
             return;
           }
           Database.saveGroup({ groupid: "custom_" + _genId(), displayname: name });
           Msg.success("\u64CD\u4F5C\u6210\u529F\u3002", this.player);
-        }).catch(() => {
+        }).closeButton();
+        Gui.showForm(this.player, form, "\u6DFB\u52A0\u81EA\u5B9A\u4E49\u5206\u7EC4").catch(() => {
         });
         break;
       }
@@ -2673,24 +2726,33 @@ var CoopGUI = class {
 // scripts/coop/CoopSystem.ts
 var CoopSystem = class {
   static init() {
+    console.log(`Initializing CoopSystem...`);
     Database.initDefaultGroups();
-    this.registerPermissions();
-    this.registerCommands();
-    this.registerEvents();
+    console.log(`CoopSystem initialized successfully.`);
   }
   static registerPermissions() {
-    Permission.register("coop.use", Permission.Any);
+    Permission.register("coop.use", Permission.Member);
     Permission.register("coop.admin", Permission.OP);
-    Permission.register("coopshop.use", Permission.Any);
+    Permission.register("coopshop.use", Permission.Member);
   }
   static registerCommands() {
-    Command.register("coop", "coop.use", (player) => {
-      if (player) new CoopGUI(player).mainPanel();
-    }, "\u5408\u4F5C\u793E");
-    Command.register("coopshop", "coopshop.use", (player) => {
-      if (!player) return;
-      new CoopGUI(player).shopMgr(Database.getPlayerCid(player.name) ?? "", 1);
-    }, "\u5408\u4F5C\u793E\u5546\u5E97");
+    Command.register(
+      "coop",
+      "coop.use",
+      (player) => {
+        if (player) new CoopGUI(player).mainPanel();
+      },
+      "\u5408\u4F5C\u793E"
+    );
+    Command.register(
+      "coopshop",
+      "coopshop.use",
+      (player) => {
+        if (!player) return;
+        new CoopGUI(player).shopMgr(Database.getPlayerCid(player.name) ?? "", 1);
+      },
+      "\u5408\u4F5C\u793E\u5546\u5E97"
+    );
   }
   static registerEvents() {
   }
@@ -2701,33 +2763,289 @@ import { world as world12, system as system8 } from "@minecraft/server";
 
 // scripts/chat/DogeChat.ts
 import { world as world10 } from "@minecraft/server";
-function getData(key, fallback) {
-  return Storage.get(key, fallback);
+
+// scripts/libs/HttpDB.ts
+import { http, HttpRequest } from "@minecraft/server-net";
+var BASE_URL = `http://${Config.dbHost}:${Config.dbPort}`;
+var TIMEOUT = 3;
+var HttpDB = class _HttpDB {
+  static {
+    this.available = true;
+  }
+  static isAvailable() {
+    return this.available;
+  }
+  static async checkHealth() {
+    try {
+      const res = await http.get(`${BASE_URL}/api/health`);
+      this.available = res.status === 200;
+      if (this.available) {
+        console.info(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FDE\u63A5\u6210\u529F (${BASE_URL}/api/health)`);
+      } else {
+        console.error(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FD4\u56DE\u5F02\u5E38\u72B6\u6001 ${res.status}`);
+      }
+    } catch (err) {
+      this.available = false;
+      console.error(`[HttpDB] \u8FDE\u63A5\u5931\u8D25 (${BASE_URL}): ${err}`);
+    }
+    return this.available;
+  }
+  static async fetchJSON(basePath, id, key) {
+    const body = await _HttpDB.get(`${basePath}/${encodeURIComponent(id)}`);
+    if (!body) return null;
+    try {
+      const parsed = JSON.parse(body);
+      return parsed[key] ?? null;
+    } catch {
+      return null;
+    }
+  }
+  // ---- 通用 HTTP 方法 ----
+  static async request(method, path, bodyData) {
+    try {
+      const req = new HttpRequest(`${BASE_URL}${path}`);
+      req.timeout = TIMEOUT;
+      req.method = method;
+      if (bodyData) {
+        req.body = JSON.stringify(bodyData);
+        req.addHeader("Content-Type", "application/json");
+      }
+      const res = await http.request(req);
+      return { status: res.status, body: res.body };
+    } catch (err) {
+      this.available = false;
+      console.error(`[HttpDB] ${method} ${path} \u7F51\u7EDC\u9519\u8BEF: ${err}`);
+      return { status: 0, body: "" };
+    }
+  }
+  static async get(path) {
+    const { status, body } = await this.request("Get", path);
+    if (status !== 200) {
+      console.warn(`[HttpDB] GET ${path} \u8FD4\u56DE ${status} \u2014 ${body?.slice(0, 200)}`);
+    }
+    return status === 200 ? body : null;
+  }
+  static async post(path, bodyData) {
+    const { status, body } = await this.request("Post", path, bodyData);
+    if (status !== 200) {
+      console.warn(`[HttpDB] POST ${path} \u8FD4\u56DE ${status} \u2014 ${body?.slice(0, 200)}`);
+    }
+    return status === 200;
+  }
+  static async put(path, bodyData) {
+    const { status, body } = await this.request("Put", path, bodyData);
+    if (status !== 200) {
+      console.warn(`[HttpDB] PUT ${path} \u8FD4\u56DE ${status} \u2014 ${body?.slice(0, 200)}`);
+    }
+    return status === 200;
+  }
+  static async patch(path, bodyData) {
+    const { status, body } = await this.request("Patch", path, bodyData);
+    if (status !== 200) {
+      console.warn(`[HttpDB] PATCH ${path} \u8FD4\u56DE ${status} \u2014 ${body?.slice(0, 200)}`);
+    }
+    return status === 200;
+  }
+  static async del(path) {
+    const { status, body } = await this.request("Delete", path);
+    if (status !== 200) {
+      console.warn(`[HttpDB] DELETE ${path} \u8FD4\u56DE ${status} \u2014 ${body?.slice(0, 200)}`);
+    }
+    return status === 200;
+  }
+  // ---- Holoprint 投影 ----
+  static async uploadHoloStructure(projection, structureBase64) {
+    return this.post("/api/hpbe/upload", { projection, structure: structureBase64 });
+  }
+  static async getHoloProjections(ownerId, visibility) {
+    const qs = [];
+    if (ownerId) qs.push(`owner_id=${encodeURIComponent(ownerId)}`);
+    if (visibility) qs.push(`visibility=${encodeURIComponent(visibility)}`);
+    const query = qs.length > 0 ? "?" + qs.join("&") : "";
+    const body = await this.get(`/api/hpbe/projections${query}`);
+    if (!body) return null;
+    try {
+      return JSON.parse(body).projections;
+    } catch {
+      return null;
+    }
+  }
+  static async getHoloProjection(id) {
+    const body = await this.get(`/api/hpbe/projections/${encodeURIComponent(id)}`);
+    if (!body) return null;
+    try {
+      return JSON.parse(body).projection;
+    } catch {
+      return null;
+    }
+  }
+  static async updateHoloProjection(id, settings) {
+    return this.post(`/api/hpbe/projections/${encodeURIComponent(id)}`, { settings });
+  }
+  static async deleteHoloProjection(id) {
+    return this.del(`/api/hpbe/projections/${encodeURIComponent(id)}`);
+  }
+  static async getHoloPackVersion() {
+    const body = await this.get("/api/hpbe/pack-version");
+    if (!body) return null;
+    try {
+      return JSON.parse(body).version;
+    } catch {
+      return null;
+    }
+  }
+  static async getHoloMaterials(projectionId) {
+    const body = await this.get(`/api/hpbe/materials/${encodeURIComponent(projectionId)}`);
+    if (!body) return null;
+    try {
+      return JSON.parse(body).materials;
+    } catch {
+      return null;
+    }
+  }
+};
+
+// scripts/api/ChatApi.ts
+var PATH_CHANNELS = "/api/sfmc/channels";
+var PATH_MESSAGES = "/api/sfmc/messages";
+var PATH_REDPACKET = "/api/sfmc/redpacket";
+async function getChannels(filter) {
+  const qs = toQueryString({
+    search: filter?.search,
+    type: filter?.type,
+    ownerId: filter?.ownerId,
+    minCreatedAt: filter?.minCreatedAt,
+    maxCreatedAt: filter?.maxCreatedAt
+  });
+  const path = `${PATH_CHANNELS}${qs}`;
+  const body = await HttpDB.get(path);
+  if (!body) return null;
+  try {
+    const raw = JSON.parse(body).channels;
+    return raw.map(toChannel);
+  } catch {
+    return null;
+  }
 }
-function setData(key, value) {
-  Storage.set(key, value);
+function toChannel(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    prefix: r.prefix,
+    ownerid: r.owner_id || void 0,
+    createdAt: r.created_at,
+    config: {
+      allowChat: !!r.config_allow_chat,
+      slowMode: r.config_slow_mode || 0,
+      isBroadcast: !!r.config_is_broadcast
+    }
+  };
 }
-function formatTimestamp(ts) {
-  const d = new Date(ts);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function toMessage(r) {
+  return {
+    id: r.id,
+    fromid: r.from_id,
+    fromName: r.from_name,
+    channelId: r.channel_id,
+    type: r.type || "text",
+    content: r.content,
+    attachment: r.attachment,
+    showTimestamp: !!r.show_timestamp,
+    timestamp: r.created_at
+  };
 }
-var DogeChat = class {
-  static {
-    this.KEY_CHANNELS = "chat:channels";
+function toRedPacket(r) {
+  return {
+    id: r.id,
+    senderid: r.sender_id,
+    senderName: r.sender_name,
+    totalAmount: r.total_amount,
+    remainingAmount: r.remaining_amount,
+    totalCount: r.total_count,
+    remainingCount: r.remaining_count,
+    receivers: JSON.parse(r.receivers || "[]"),
+    targetType: r.target_type,
+    targetId: r.target_id,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at
+  };
+}
+async function getChannel(channelId) {
+  const raw = await HttpDB.fetchJSON(PATH_CHANNELS, channelId, "channel");
+  if (!raw) return null;
+  return toChannel(raw);
+}
+async function createChannel(channel) {
+  return saveChannels([channel]);
+}
+async function saveChannels(channels) {
+  const flat = channels.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    prefix: c.prefix,
+    ownerId: c.ownerid,
+    createdAt: c.createdAt,
+    configAllowChat: c.config?.allowChat,
+    configSlowMode: c.config?.slowMode,
+    configIsBroadcast: c.config?.isBroadcast
+  }));
+  return HttpDB.post(PATH_CHANNELS, { channels: flat });
+}
+async function patchChannel(channelId, data2) {
+  return HttpDB.patch(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data2);
+}
+async function deleteChannel(channelId) {
+  return HttpDB.del(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`);
+}
+async function getMessages(filter) {
+  const qs = toQueryString({
+    search: filter?.search,
+    type: filter?.type,
+    channelId: filter?.channelId,
+    from: filter?.from,
+    minSentAt: filter?.minSentAt,
+    maxSentAt: filter?.maxSentAt
+  });
+  const path = `${PATH_MESSAGES}${qs}`;
+  const body = await HttpDB.get(path);
+  if (!body) return null;
+  try {
+    const raw = JSON.parse(body).messages;
+    return raw.map(toMessage);
+  } catch {
+    return null;
   }
-  static {
-    this.KEY_PLAYER_SETTINGS = "chat:player_settings";
+}
+async function saveMessages(messages) {
+  return HttpDB.post(PATH_MESSAGES, { messages });
+}
+async function getRedPackets() {
+  const body = await HttpDB.get(PATH_REDPACKET);
+  if (!body) return [];
+  try {
+    const parsed = JSON.parse(body);
+    const raw = parsed.redpackets || parsed.redpacket || [];
+    return raw.map(toRedPacket);
+  } catch {
+    return [];
   }
-  static {
-    this.KEY_CHANNEL_HISTORY = "chat:channel_history";
-  }
-  static {
-    this.KEY_REDPACKETS = "chat:redpackets";
-  }
-  static {
-    this.slowModeTracker = /* @__PURE__ */ new Map();
-  }
+}
+async function getRedPacket(redpacketId) {
+  const raw = await HttpDB.fetchJSON(PATH_REDPACKET, redpacketId, "redpacket");
+  if (!raw) return null;
+  return toRedPacket(raw);
+}
+async function saveRedPacket(redpacket) {
+  return HttpDB.post(PATH_REDPACKET, { redpacket });
+}
+async function updateRedPacket(redpacketId, redpacketModify) {
+  return HttpDB.patch(`${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}`, redpacketModify);
+}
+
+// scripts/chat/DogeChat.ts
+var DogeChat = class _DogeChat {
   static {
     this.DEFAULT_CHANNEL_CONFIG = {
       allowChat: true,
@@ -2735,12 +3053,35 @@ var DogeChat = class {
       isBroadcast: false
     };
   }
-  /** 生成唯一ID */
-  static generateId() {
-    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  static {
+    this.DEFAULT_CHANNELS = [
+      {
+        id: generateId("CH"),
+        name: "\u516C\u5171\u9891\u9053",
+        type: "public",
+        prefix: "PB",
+        createdAt: Date.now(),
+        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+      },
+      {
+        id: generateId("CH"),
+        name: "\u516C\u544A",
+        type: "custom",
+        prefix: "BC",
+        createdAt: Date.now(),
+        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
+      }
+    ];
+  }
+  static {
+    this.slowModeTracker = /* @__PURE__ */ new Map();
+  }
+  static {
+    /** 当前在线玩家活跃频道映射（运行时状态，非缓存，仅用于广播推送给同一频道的其他玩家） */
+    this.activeChannelMap = /* @__PURE__ */ new Map();
   }
   // ---------- 保留期 ----------
-  /** 获取频道消息保留期（毫秒） */
+  /** 拉取消息历史时的频道消息保留期（毫秒） */
   static getRetention(channel) {
     if (channel.config.isBroadcast) return Infinity;
     switch (channel.type) {
@@ -2757,191 +3098,104 @@ var DogeChat = class {
     }
   }
   // ============================================
-  //  频道管理
+  //  频道初始化
   // ============================================
-  /** 初始化默认频道 */
-  static initChannels() {
-    const channels = getData(this.KEY_CHANNELS, []);
-    if (channels.length > 0) return;
-    channels.push({
-      id: this.generateId(),
-      name: "\u516C\u5171\u9891\u9053",
-      type: "public",
-      prefix: "PB",
-      createdAt: Date.now(),
-      config: { ...this.DEFAULT_CHANNEL_CONFIG }
-    });
-    channels.push({
-      id: this.generateId(),
-      name: "\u516C\u544A",
-      type: "custom",
-      prefix: "BC",
-      createdAt: Date.now(),
-      config: { ...this.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
-    });
-    setData(this.KEY_CHANNELS, channels);
-  }
-  /** 获取所有频道 */
-  static getChannels() {
-    return getData(this.KEY_CHANNELS, []);
-  }
-  /** 获取指定频道 */
-  static getChannel(id) {
-    return this.getChannels().find((c) => c.id === id);
+  /** 确保默认频道存在于 DB */
+  static async ensureDefaultChannels() {
+    const existing = await getChannels();
+    if (existing && existing.length > 0) return;
+    await saveChannels(_DogeChat.DEFAULT_CHANNELS).catch(
+      (err) => console.warn(`[DogeChat] \u4FDD\u5B58\u9ED8\u8BA4\u9891\u9053\u5931\u8D25: ${err}`)
+    );
   }
   /** 获取公共频道 */
-  static getPublicChannel() {
-    const channels = this.getChannels();
-    let pub = channels.find((c) => c.type === "public");
-    if (!pub) {
-      this.initChannels();
-      pub = this.getChannels().find((c) => c.type === "public");
+  static async getPublicChannel() {
+    const rows = await getChannels({ type: "public" });
+    if (rows && rows.length > 0) return rows[0];
+    await this.ensureDefaultChannels();
+    const retry = await getChannels({ type: "public" });
+    return retry && retry.length > 0 ? retry[0] : null;
+  }
+  /** 获取活跃频道对象 */
+  static async getActiveChannel(player) {
+    const channelId = _DogeChat.activeChannelMap.get(player.id);
+    if (channelId) {
+      const ch = await getChannel(channelId);
+      if (ch) return ch;
+    }
+    const pub = await this.getPublicChannel();
+    if (pub) {
+      _DogeChat.activeChannelMap.set(player.id, pub.id);
+      HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(() => {
+      });
     }
     return pub;
   }
-  /** 创建新频道 
-   @param name 频道名称 
-   @param prefix 频道前缀 
-   @param type 频道类型 
-   @param config 频道配置 
-   @param owner 频道所有者
-   @returns 频道ID */
-  static createChannel(name, prefix, type, config, owner) {
-    const channels = this.getChannels();
-    if (channels.some((c) => c.name === name)) return "";
+  /** 设置玩家的活跃频道 */
+  static async setActiveChannel(player, channelId) {
+    _DogeChat.activeChannelMap.set(player.id, channelId);
+    await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(() => {
+    });
+  }
+  /** 频道在线人数 */
+  static getOnlineCount(channelId) {
+    let count = 0;
+    for (const p of world10.getPlayers()) {
+      if (_DogeChat.activeChannelMap.get(p.id) === channelId) count++;
+    }
+    return count;
+  }
+  /** 创建新频道 */
+  static async createChannel(name, prefix, type, config, owner) {
     const channel = {
-      id: this.generateId(),
+      id: generateId("CH"),
       name,
       prefix,
       type,
       ownerid: owner?.id,
       createdAt: Date.now(),
-      config: { ...this.DEFAULT_CHANNEL_CONFIG, ...config }
+      config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config }
     };
-    channels.push(channel);
-    setData(this.KEY_CHANNELS, channels);
-    return channel.id;
+    const ok = await createChannel(channel);
+    return ok ? channel.id : "";
   }
-  /** 删除指定频道 
-   @param channelId 频道ID 
-   @returns 是否删除成功 */
-  static deleteChannel(channelId) {
-    const channels = this.getChannels();
-    const idx = channels.findIndex((c) => c.id === channelId);
-    if (idx === -1) return false;
-    if (channels[idx].type === "public") return false;
-    channels.splice(idx, 1);
-    setData(this.KEY_CHANNELS, channels);
-    const history = getData(this.KEY_CHANNEL_HISTORY, {});
-    delete history[channelId];
-    setData(this.KEY_CHANNEL_HISTORY, history);
-    HttpDB.deleteChannelMessages(channelId).catch(() => {
-    });
-    return true;
+  /** 删除指定频道 */
+  static async deleteChannel(channelId) {
+    const ch = await getChannel(channelId);
+    if (!ch) return false;
+    if (ch.type === "public") return false;
+    return deleteChannel(channelId);
   }
-  /** 更新指定频道配置 
-   @param channelId 频道ID 
-   @param config 频道配置 
-   @returns 是否更新成功 */
-  static updateChannelConfig(channelId, config) {
-    const channels = this.getChannels();
-    const channel = channels.find((c) => c.id === channelId);
-    if (!channel) return false;
-    channel.config = { ...channel.config, ...config };
-    setData(this.KEY_CHANNELS, channels);
-    return true;
+  /** 更新频道配置 */
+  static async updateChannelConfig(channelId, config) {
+    const data2 = {};
+    if (config.allowChat !== void 0) data2.configAllowChat = config.allowChat ? 1 : 0;
+    if (config.slowMode !== void 0) data2.configSlowMode = config.slowMode;
+    if (config.isBroadcast !== void 0) data2.configIsBroadcast = config.isBroadcast ? 1 : 0;
+    if (Object.keys(data2).length === 0) return false;
+    return patchChannel(channelId, data2);
   }
-  /** 更新指定频道名称 
-   @param channelId 频道ID 
-   @param newName 新名称 
-   @param newPrefix 新前缀 
-   @returns 是否更新成功 */
-  static updateChannelName(channelId, newName, newPrefix) {
-    const channels = this.getChannels();
-    const channel = channels.find((c) => c.id === channelId);
-    if (!channel) return false;
-    channel.name = newName;
-    channel.prefix = newPrefix;
-    setData(this.KEY_CHANNELS, channels);
-    return true;
+  /** 更新频道名称和前缀 */
+  static async updateChannelName(channelId, newName, newPrefix) {
+    return patchChannel(channelId, { name: newName, prefix: newPrefix });
   }
-  // ============================================
-  //  玩家活跃频道
-  // ============================================
-  /** 获取所有玩家的活跃频道设置 
-  @param player 玩家 
-  @returns 所有玩家的活跃频道设置 */
-  static getPlayerSettings(player) {
-    const all = getData(this.KEY_PLAYER_SETTINGS, {});
-    if (!all[player.id]) {
-      const pub = this.getPublicChannel();
-      all[player.id] = { id: player.id, activeChannel: pub.id };
-      setData(this.KEY_PLAYER_SETTINGS, all);
-    }
-    return all[player.id];
-  }
-  /** 获取玩家的活跃频道 
-  @param player 玩家 
-  @returns 玩家的活跃频道 */
-  static getActiveChannel(player) {
-    const settings = this.getPlayerSettings(player);
-    const channel = this.getChannel(settings.activeChannel);
-    if (channel) return channel;
-    const pub = this.getPublicChannel();
-    settings.activeChannel = pub.id;
-    const all = getData(this.KEY_PLAYER_SETTINGS, {});
-    all[player.id] = settings;
-    setData(this.KEY_PLAYER_SETTINGS, all);
-    return pub;
-  }
-  /** 设置玩家的活跃频道 
-  @param player 玩家 
-  @param channelId 频道ID 
-  @returns 是否设置成功 */
-  static setActiveChannel(player, channelId) {
-    const all = getData(this.KEY_PLAYER_SETTINGS, {});
-    const settings = all[player.id];
-    if (!settings) return false;
-    settings.activeChannel = channelId;
-    setData(this.KEY_PLAYER_SETTINGS, all);
-    return true;
-  }
-  /** 频道在线人数（活跃频道为该频道的在线玩家数） 
-   * @param channelId 频道ID 
-   * @returns 频道在线人数 */
-  static getOnlineCount(channelId) {
-    const all = getData(this.KEY_PLAYER_SETTINGS, {});
-    let count = 0;
-    for (const p of world10.getPlayers()) {
-      if (all[p.id]?.activeChannel === channelId) count++;
-    }
-    return count;
-  }
-  /** 获取玩家的私聊频道 
-  @param player 玩家 
-  @returns 玩家的私聊频道列表 */
-  static getPrivateChannels(player) {
-    return this.getChannels().filter(
-      (c) => c.type === "private" && c.id.includes(player.id)
-    );
+  /** 获取玩家的私聊频道 */
+  static async getPrivateChannels(player) {
+    const rows = await getChannels({ type: "private", ownerId: player.id });
+    return rows ?? [];
   }
   // ============================================
   //  系统消息频道
   // ============================================
-  /** 获取玩家的系统消息频道ID 每个玩家单独分配
-  @param player 玩家 
-  @returns 玩家的系统消息频道ID */
+  /** 玩家的系统频道 ID */
   static getSystemChannelId(player) {
     return `sys_${player.id}`;
   }
-  /** 确保玩家的系统消息频道存在 
-  @param player 玩家 
-  @returns 玩家的系统消息频道 */
-  static ensureSystemChannel(player) {
+  /** 确保系统频道存在 */
+  static async ensureSystemChannel(player) {
     const channelId = this.getSystemChannelId(player);
-    const existing = this.getChannel(channelId);
+    const existing = await getChannel(channelId);
     if (existing) return existing;
-    const channels = getData(this.KEY_CHANNELS, []);
     const channel = {
       id: channelId,
       name: "\u7CFB\u7EDF\u6D88\u606F",
@@ -2949,19 +3203,17 @@ var DogeChat = class {
       prefix: "SYS",
       ownerid: player.id,
       createdAt: Date.now(),
-      config: { ...this.DEFAULT_CHANNEL_CONFIG, allowChat: false }
+      config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false }
     };
-    channels.push(channel);
-    setData(this.KEY_CHANNELS, channels);
+    await createChannel(channel).catch(() => {
+    });
     return channel;
   }
-  /** 发送系统消息到玩家的系统频道 
-  @param player 玩家 
-  @param content 系统消息内容 */
-  static sendSystemMessage(player, content) {
-    const channel = this.ensureSystemChannel(player);
+  /** 发送系统消息到玩家的系统频道 */
+  static async sendSystemMessage(player, content) {
+    const channel = await this.ensureSystemChannel(player);
     const msg = {
-      id: this.generateId(),
+      id: generateId("M"),
       fromid: "system",
       fromName: "SYS",
       channelId: channel.id,
@@ -2970,80 +3222,51 @@ var DogeChat = class {
       timestamp: Date.now(),
       showTimestamp: true
     };
-    this.addToHistory(channel.id, msg);
+    saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
   }
-  /** 判断是否为私聊频道的参与者 
-  @param channelId 频道ID 
-  @param playerId 玩家ID 
-  @returns 是否为私聊频道的参与者 */
+  /** 判断是否为私聊频道参与者 */
   static isPrivateParticipant(channelId, playerId2) {
     if (!channelId.startsWith("priv_")) return false;
     return channelId.includes(playerId2);
   }
-  /** 获取私聊频道中的另一方 id 
-  @param channelId 频道ID 
-  @param myId 玩家ID 
-  @returns 另一方 id 如果是私聊频道的参与者 */
+  /** 获取私聊频道中的另一方 id */
   static getPrivateOther(channelId, myId) {
     if (!channelId.startsWith("priv_")) return void 0;
     const parts = channelId.split("_");
     return parts[1] === myId ? parts[2] : parts[1];
   }
-  /** 循环切换频道（跳过私聊） 
-  @param player 玩家 
-  @returns 切换后的频道 */
-  static cycleChannel(player) {
-    const all = this.getChannels();
+  /** 循环切换频道（跳过私聊） */
+  static async cycleChannel(player) {
+    const all = await getChannels();
+    if (!all) return null;
     const switchable = all.filter((c) => c.type !== "private");
     if (switchable.length === 0) {
-      const pub = this.getPublicChannel();
-      this.setActiveChannel(player, pub.id);
+      const pub = await this.getPublicChannel();
+      if (pub) await this.setActiveChannel(player, pub.id);
       return pub;
     }
-    const current = this.getActiveChannel(player);
-    const idx = switchable.findIndex((c) => c.id === current.id);
+    const currentId = _DogeChat.activeChannelMap.get(player.id);
+    const current = all.find((c) => c.id === currentId);
+    const idx = current ? switchable.findIndex((c) => c.id === current.id) : -1;
     const next = switchable[(idx + 1) % switchable.length];
-    this.setActiveChannel(player, next.id);
-    return next;
+    if (next) await this.setActiveChannel(player, next.id);
+    return next ?? null;
   }
   // ============================================
   //  消息同步
   // ============================================
-  /** 获取频道的历史消息（优先 HttpDB，回退到 Dynamic Property） */
+  /** 获取频道的历史消息 */
   static async getChannelHistory(channelId) {
-    const channel = this.getChannel(channelId);
+    const channel = await getChannel(channelId);
     if (!channel) return [];
     const cutoff = Date.now() - this.getRetention(channel);
-    const rows = await HttpDB.loadHistory(channelId, cutoff);
+    const rows = await getMessages({ channelId, minSentAt: cutoff });
     if (rows !== null) return rows;
-    const history = getData(this.KEY_CHANNEL_HISTORY, {});
-    const msgs = history[channelId] || [];
-    return msgs.filter((m) => m.timestamp >= cutoff);
+    return [];
   }
-  /** 添加至频道历史消息记录 */
-  static addToHistory(channelId, msg) {
-    const channel = this.getChannel(channelId);
-    if (!channel) return;
-    const history = getData(this.KEY_CHANNEL_HISTORY, {});
-    if (!history[channelId]) history[channelId] = [];
-    history[channelId].push(msg);
-    const cutoff = Date.now() - this.getRetention(channel);
-    history[channelId] = history[channelId].filter((m) => m.timestamp >= cutoff);
-    setData(this.KEY_CHANNEL_HISTORY, history);
-    HttpDB.saveMessage(channelId, {
-      id: msg.id,
-      fromid: msg.fromid,
-      fromName: msg.fromName,
-      type: msg.type,
-      content: msg.content,
-      attachment: msg.attachment,
-      showTimestamp: !!msg.showTimestamp,
-      timestamp: msg.timestamp
-    }).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-  }
-  /** 切换频道时加载历史消息 */
+  /** 加载历史消息 */
   static async loadChannelHistory(player, channelId) {
-    const channel = this.getChannel(channelId);
+    const channel = await getChannel(channelId);
     if (!channel) return;
     const history = await this.getChannelHistory(channelId);
     if (history.length === 0) {
@@ -3076,19 +3299,23 @@ var DogeChat = class {
   //  发送消息
   // ============================================
   static async sendChannelMessage(from, channelId, content, type = "text", attachment) {
-    const channel = this.getChannel(channelId);
-    if (!channel) return false;
-    if (!channel.config.allowChat) {
+    const channel = await getChannel(channelId);
+    if (!channel) {
+      Msg.warning("\u9891\u9053\u4E0D\u5B58\u5728\u3002", from);
+      return false;
+    }
+    if (!channel.config?.allowChat) {
       if (channel.type === "system") Msg.warning("\u8BE5\u9891\u9053\u53EA\u8BFB\u3002", from);
       return false;
     }
-    if (channel.config.isBroadcast) {
-      if (!this.isChannelOwner(from, channelId)) {
+    if (channel.config?.isBroadcast) {
+      const owner = await this.isChannelOwner(from, channelId);
+      if (!owner) {
         Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002", from);
         return false;
       }
       const msg2 = {
-        id: this.generateId(),
+        id: generateId("M"),
         fromid: from.id,
         fromName: from.name,
         channelId,
@@ -3097,23 +3324,22 @@ var DogeChat = class {
         attachment,
         timestamp: Date.now(),
         showTimestamp: true
-        // 公告板每条消息都显示时间
       };
-      this.addToHistory(channelId, msg2);
-      const prefix = `\xA7a[${channel.prefix}\u516C\u544A]`;
-      for (const p of world10.getPlayers()) {
-        if (p.id === from.id) continue;
-        p.sendMessage(`\xA77${formatTimestamp(msg2.timestamp)}`);
-        p.sendMessage({ rawtext: [{ text: `${prefix} ${from.name}: ${content}` }] });
-      }
+      await saveMessages([msg2]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+      const prefix = `\xA7a[${channel.prefix}]`;
+      Msg.info(`\xA7r\xA77${formatTimestamp(msg2.timestamp)}`, from);
+      from.sendMessage({ rawtext: [{ text: `${prefix} ${from.name}: ${content}` }] });
       return true;
     }
-    if (channel.config.slowMode > 0) {
+    if (channel.config?.slowMode && channel.config.slowMode > 0) {
       const playerMap = this.slowModeTracker.get(from.id);
       const lastTs = playerMap?.get(channelId) ?? 0;
       const elapsed = (Date.now() - lastTs) / 1e3;
       if (elapsed < channel.config.slowMode) {
-        Msg.warning(`\u9891\u9053 ${channel.prefix} \u6162\u901F\u6A21\u5F0F\u4E2D\uFF0C\u8BF7\u7B49\u5F85 ${Math.ceil(channel.config.slowMode - elapsed)} \u79D2\u3002`, from);
+        Msg.warning(
+          `\u9891\u9053 ${channel.prefix} \u6162\u901F\u6A21\u5F0F\u4E2D\uFF0C\u8BF7\u7B49\u5F85 ${Math.ceil(channel.config.slowMode - elapsed)} \u79D2\u3002`,
+          from
+        );
         return false;
       }
     }
@@ -3121,7 +3347,7 @@ var DogeChat = class {
     const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
     const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
     const msg = {
-      id: this.generateId(),
+      id: generateId("M"),
       fromid: from.id,
       fromName: from.name,
       channelId,
@@ -3131,13 +3357,12 @@ var DogeChat = class {
       timestamp: Date.now(),
       showTimestamp
     };
-    this.addToHistory(channelId, msg);
+    saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
     if (showTimestamp) from.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
     from.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${from.name}: ${content}` }] });
-    const all = getData(this.KEY_PLAYER_SETTINGS, {});
     for (const p of world10.getPlayers()) {
       if (p.id === from.id) continue;
-      if (all[p.id]?.activeChannel !== channelId) continue;
+      if (_DogeChat.activeChannelMap.get(p.id) !== channelId) continue;
       let display = content;
       switch (type) {
         case "location":
@@ -3151,9 +3376,10 @@ var DogeChat = class {
           break;
       }
       if (showTimestamp) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-      p.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${from.name}: ${display}` }] });
+      p.chatNamePrefix = `[${channel.prefix}]`;
+      p.sendMessage(`${display}`);
     }
-    if (channel.config.slowMode > 0) {
+    if (channel.config?.slowMode && channel.config.slowMode > 0) {
       if (!this.slowModeTracker.has(from.id)) this.slowModeTracker.set(from.id, /* @__PURE__ */ new Map());
       this.slowModeTracker.get(from.id).set(channelId, Date.now());
     }
@@ -3161,12 +3387,12 @@ var DogeChat = class {
   }
   /** 发送私聊 */
   static async sendPrivateMessage(from, toPlayer, content, type = "text") {
-    const channel = this.ensurePrivateChannel(from.id, toPlayer.id);
+    const channel = await this.ensurePrivateChannel(from.id, toPlayer.id);
     const history = await this.getChannelHistory(channel.id);
     const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
     const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
     const msg = {
-      id: this.generateId(),
+      id: generateId("M"),
       fromid: from.id,
       fromName: from.name,
       channelId: channel.id,
@@ -3175,10 +3401,9 @@ var DogeChat = class {
       timestamp: Date.now(),
       showTimestamp
     };
-    this.addToHistory(channel.id, msg);
-    const all = getData(this.KEY_PLAYER_SETTINGS, {});
+    saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
     for (const p of [from, toPlayer]) {
-      if (all[p.id]?.activeChannel === channel.id) {
+      if (_DogeChat.activeChannelMap.get(p.id) === channel.id) {
         let display = content;
         switch (type) {
           case "location":
@@ -3201,24 +3426,23 @@ var DogeChat = class {
     return true;
   }
   /** 创建或获取私聊频道 */
-  static ensurePrivateChannel(idA, idB) {
+  static async ensurePrivateChannel(idA, idB) {
     const ids = [idA, idB].sort();
     const channelId = `priv_${ids[0]}_${ids[1]}`;
-    let channel = this.getChannel(channelId);
-    if (channel) return channel;
+    const existing = await getChannel(channelId);
+    if (existing) return existing;
     const nameB = world10.getPlayers().find((p) => p.id === idB)?.name ?? idB;
-    const channels = getData(this.KEY_CHANNELS, []);
-    channel = {
+    const channel = {
       id: channelId,
       name: `\u4E0E ${nameB} \u7684\u79C1\u804A`,
       type: "private",
       prefix: `\u79C1\u804A-${nameB}`,
       ownerid: idA,
       createdAt: Date.now(),
-      config: { ...this.DEFAULT_CHANNEL_CONFIG }
+      config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
     };
-    channels.push(channel);
-    setData(this.KEY_CHANNELS, channels);
+    await createChannel(channel).catch(() => {
+    });
     return channel;
   }
   // ============================================
@@ -3234,9 +3458,9 @@ var DogeChat = class {
     return this.sendPrivateMessage(from, toPlayer, `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`, "teleport_invite");
   }
   // ============================================
-  //  红包
+  //  红包（纯 DB，无缓存）
   // ============================================
-  static sendRedPacket(sender, amount, count, targetType, targetId) {
+  static async sendRedPacket(sender, amount, count, targetType, targetId) {
     if (amount <= 0 || count <= 0 || count > amount) {
       Msg.error("\u7EA2\u5305\u53C2\u6570\u65E0\u6548\u3002", sender);
       return false;
@@ -3246,9 +3470,8 @@ var DogeChat = class {
       Msg.error(`${Money.UNIT}\u4E0D\u8DB3\uFF0C\u9700\u8981 ${amount}\uFF0C\u5F53\u524D ${balance}\u3002`, sender);
       return false;
     }
-    Money.set(sender, balance - amount);
     const packet = {
-      id: this.generateId(),
+      id: generateId("RP"),
       senderid: sender.id,
       senderName: sender.name,
       totalAmount: amount,
@@ -3261,26 +3484,29 @@ var DogeChat = class {
       createdAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1e3
     };
-    const packets = getData(this.KEY_REDPACKETS, []);
-    packets.push(packet);
-    setData(this.KEY_REDPACKETS, packets);
+    const saved = await saveRedPacket(packet);
+    if (!saved) {
+      Msg.error("\u7EA2\u5305\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", sender);
+      return false;
+    }
+    Money.set(sender, balance - amount);
     Msg.success(`${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`, sender);
-    if (targetType === "group" && this.getChannel(targetId)) {
-      this.addToHistory(targetId, {
-        id: this.generateId(),
+    const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
+    saveMessages([
+      {
+        id: generateId("M"),
         fromid: sender.id,
         fromName: sender.name,
-        channelId: targetId,
+        channelId,
         type: "redpacket",
         content: `\u53D1\u9001\u4E86 ${amount} ${Money.UNIT} \u7684\u7EA2\u5305\uFF08\u5171 ${count} \u4EFD\uFF09`,
         timestamp: Date.now()
-      });
-    }
+      }
+    ]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
     return true;
   }
-  static claimRedPacket(player, packetId) {
-    const packets = getData(this.KEY_REDPACKETS, []);
-    const packet = packets.find((p) => p.id === packetId);
+  static async claimRedPacket(player, packetId) {
+    const packet = await getRedPacket(packetId);
     if (!packet) {
       Msg.error("\u7EA2\u5305\u4E0D\u5B58\u5728\u3002", player);
       return 0;
@@ -3305,56 +3531,55 @@ var DogeChat = class {
       amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
       amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
     }
-    packet.remainingAmount -= amount;
-    packet.remainingCount--;
-    packet.receivers.push(player.id);
-    setData(this.KEY_REDPACKETS, packets);
+    const updated = await updateRedPacket(packet.id, {
+      remainingAmount: packet.remainingAmount - amount,
+      remainingCount: packet.remainingCount - 1,
+      receivers: [...packet.receivers, player.id]
+    });
+    if (!updated) {
+      Msg.error("\u9886\u53D6\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", player);
+      return 0;
+    }
     Money.add(player, amount);
     Msg.success(`\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${amount} ${Money.UNIT}\uFF01`, player);
     return amount;
   }
-  static getAvailableRedPackets(player) {
-    const packets = getData(this.KEY_REDPACKETS, []);
+  static async getAvailableRedPackets(player) {
+    const rows = await getRedPackets();
     const now = Date.now();
-    return packets.filter((p) => {
+    return rows.filter((p) => {
       if (p.remainingCount <= 0 || now > p.expiresAt) return false;
       if (p.receivers.includes(player.id)) return false;
       if (p.targetType === "player") return p.targetId === player.id;
       return true;
     });
   }
+  /** DB 层面过期的红包不返回即可，无需显式清理 */
   static cleanupExpiredRedPackets() {
-    const packets = getData(this.KEY_REDPACKETS, []);
-    const valid = packets.filter((p) => Date.now() <= p.expiresAt);
-    if (valid.length < packets.length) setData(this.KEY_REDPACKETS, valid);
   }
   // ============================================
   //  权限判断
   // ============================================
-  static isChannelOwner(player, channelId) {
-    return this.getChannel(channelId)?.ownerid === player.id;
+  static async isChannelOwner(player, channelId) {
+    const ch = await getChannel(channelId);
+    return ch?.ownerid === player.id;
   }
 };
 
 // scripts/gui/ChatGUI.ts
 import { world as world11 } from "@minecraft/server";
+import { CustomForm as CustomForm4 } from "@minecraft/server-ui";
 var ChatGUI = class {
-  // ============== Level 1: 主面板 ==============
-  /** 主面板 — 所有频道列表 */
   static async openChannelPanel(player) {
-    const active = DogeChat.getActiveChannel(player);
-    const allChannels = DogeChat.getChannels();
+    const active = await DogeChat.getActiveChannel(player);
+    const allChannels = await getChannels() ?? [];
     const displayChannels = allChannels.filter((c) => {
       if (c.type === "private") return false;
       if (c.type === "system") return c.ownerid === player.id;
       return true;
     });
     const isAdmin = Permission.check(player, "chat.admin");
-    const form = Gui.simpleForm("DogeChat", ListFormInfo([
-      `\u5F53\u524D\u9891\u9053: ${active.prefix} - ${active.name}`
-    ]));
-    form.button("\u9891\u9053\u7BA1\u7406");
-    form.button("\u79C1\u804A\u9891\u9053");
+    const form = new CustomForm4(player, "DogeChat").label(ListFormInfo([`\u5F53\u524D\u9891\u9053: ${active.prefix} - ${active.name}`])).button("\u9891\u9053\u7BA1\u7406", () => this.openChannelManager(player)).button("\u79C1\u804A\u9891\u9053", () => this.openPrivateChatPanel(player));
     for (const c of displayChannels) {
       const online = DogeChat.getOnlineCount(c.id);
       const mark = c.id === active.id ? "\u25C0 " : "";
@@ -3362,221 +3587,132 @@ var ChatGUI = class {
       if (c.config.isBroadcast) tag = "\xA77[\u516C\u544A]";
       else if (c.type === "system") tag = "\xA79[\u7CFB\u7EDF]";
       form.button(`${mark}${c.prefix} - ${c.name} ${tag}
-\xA7a${online} \u4EBA\u5728\u7EBF`);
+\xA7a${online} \u4EBA\u5728\u7EBF`, async () => {
+        if (c.config.isBroadcast && !isAdmin && !await DogeChat.isChannelOwner(player, c.id)) {
+          Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u53D1\u8A00\u3002\u7BA1\u7406\u5458\u53EF\u5207\u6362\u5230\u8BE5\u9891\u9053\u3002", player);
+          return;
+        }
+        if (c.id !== active.id) {
+          await DogeChat.setActiveChannel(player, c.id);
+          Msg.success(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${c.prefix}`, player);
+          await DogeChat.loadChannelHistory(player, c.id);
+        }
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "DogeChat");
-    if (res.canceled) return;
-    const sel = res.selection;
-    if (sel === 0) {
-      await this.openChannelManager(player);
-      return;
-    }
-    if (sel === 1) {
-      await this.openPrivateChatPanel(player);
-      return;
-    }
-    const channelIdx = sel - 2;
-    if (channelIdx >= 0 && channelIdx < displayChannels.length) {
-      const target = displayChannels[channelIdx];
-      if (target.config.isBroadcast && !isAdmin && !DogeChat.isChannelOwner(player, target.id)) {
-        Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u53D1\u8A00\u3002\u7BA1\u7406\u5458\u53EF\u5207\u6362\u5230\u8BE5\u9891\u9053\u3002", player);
-        await this.openChannelPanel(player);
-        return;
-      }
-      if (target.id !== active.id) {
-        DogeChat.setActiveChannel(player, target.id);
-        Msg.success(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${target.prefix}`, player);
-        await DogeChat.loadChannelHistory(player, target.id);
-      }
-      await this.openChannelPanel(player);
-      return;
-    }
+    form.closeButton();
+    await Gui.showForm(player, form, "DogeChat");
   }
-  // ============== Level 2a: 频道管理 ==============
-  /** 频道管理 — 显示所有频道 */
   static async openChannelManager(player) {
-    const allChannels = DogeChat.getChannels();
+    const allChannels = await getChannels() ?? [];
     const isAdmin = Permission.check(player, "chat.admin");
-    const form = Gui.simpleForm("\u9891\u9053\u7BA1\u7406", ListFormInfo([
-      `\u5171\u6709 ${allChannels.length} \u4E2A\u9891\u9053`
-    ]));
-    form.button("\u521B\u5EFA\u9891\u9053");
+    const form = new CustomForm4(player, "\u9891\u9053\u7BA1\u7406").label(ListFormInfo([`\u5171\u6709 ${allChannels.length} \u4E2A\u9891\u9053`])).button("\u521B\u5EFA\u9891\u9053", () => this.createChannelDialog(player));
     for (const c of allChannels) {
       const online = DogeChat.getOnlineCount(c.id);
       form.button(`${c.prefix} - \xA7f${c.name}
-\xA77${online} \u4EBA\u5728\u7EBF`);
+\xA77${online} \u4EBA\u5728\u7EBF`, async () => {
+        if (c.config.isBroadcast && !isAdmin && !await DogeChat.isChannelOwner(player, c.id)) {
+          Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u5207\u6362\u3002\u7BA1\u7406\u5458\u53EF\u5728\u9891\u9053\u8BBE\u7F6E\u4E2D\u64CD\u4F5C\u3002", player);
+          return;
+        }
+        if (isAdmin || await DogeChat.isChannelOwner(player, c.id)) {
+          await this.openChannelSettings(player, c);
+        } else {
+          await DogeChat.setActiveChannel(player, c.id);
+          Msg.success(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${c.prefix}`, player);
+          await DogeChat.loadChannelHistory(player, c.id);
+          await this.openChannelPanel(player);
+        }
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u9891\u9053\u7BA1\u7406");
-    if (res.canceled) {
-      await this.openChannelPanel(player);
-      return;
-    }
-    const sel = res.selection;
-    if (sel === 0) {
-      await this.createChannelDialog(player);
-      return;
-    }
-    const channelIdx = sel - 1;
-    if (channelIdx >= 0 && channelIdx < allChannels.length) {
-      const channel = allChannels[channelIdx];
-      if (channel.config.isBroadcast && !isAdmin && !DogeChat.isChannelOwner(player, channel.id)) {
-        Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u5207\u6362\u3002\u7BA1\u7406\u5458\u53EF\u5728\u9891\u9053\u8BBE\u7F6E\u4E2D\u64CD\u4F5C\u3002", player);
-        await this.openChannelManager(player);
-        return;
-      }
-      if (isAdmin || DogeChat.isChannelOwner(player, channel.id)) {
-        await this.openChannelSettings(player, channel);
-      } else {
-        DogeChat.setActiveChannel(player, channel.id);
-        Msg.success(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${channel.prefix}`, player);
-        DogeChat.loadChannelHistory(player, channel.id);
-        await this.openChannelPanel(player);
-      }
-      return;
-    }
-    await this.openChannelPanel(player);
+    form.closeButton();
+    await Gui.showForm(player, form, "\u9891\u9053\u7BA1\u7406");
   }
-  // ============== Level 3: 频道设置 ==============
-  /** 频道设置 — 仅管理员/所有者可操作 */
   static async openChannelSettings(player, channel) {
-    const isOwner = DogeChat.isChannelOwner(player, channel.id);
+    const isOwner = await DogeChat.isChannelOwner(player, channel.id);
     const lines = [
       `${channel.prefix} - ${channel.name}`,
       `\u7C7B\u578B: ${channel.type}`,
       `\u5728\u7EBF: ${DogeChat.getOnlineCount(channel.id)} \u4EBA`,
       `\u516C\u544A\u677F: ${channel.config.isBroadcast ? "\xA7a\u5F00\u542F" : "\xA7c\u5173\u95ED"}`
     ];
-    const form = Gui.simpleForm("\u9891\u9053\u8BBE\u7F6E", ListFormInfo(lines));
-    form.button("\u7F16\u8F91\u9891\u9053\u540D");
-    form.button(`\u516C\u544A\u677F\u6A21\u5F0F (${channel.config.isBroadcast ? "\u5F00" : "\u5173"})`);
-    if (isOwner && channel.type !== "public") {
-      form.button("\u5220\u9664\u9891\u9053");
-    }
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u9891\u9053\u8BBE\u7F6E");
-    if (res.canceled) {
-      await this.openChannelManager(player);
-      return;
-    }
-    const sel = res.selection;
-    let idx = 0;
-    if (sel === idx) {
-      await this.renameChannelDialog(player, channel);
-      return;
-    }
-    idx++;
-    if (sel === idx) {
-      DogeChat.updateChannelConfig(channel.id, { isBroadcast: !channel.config.isBroadcast });
+    const form = new CustomForm4(player, "\u9891\u9053\u8BBE\u7F6E").label(ListFormInfo(lines)).button("\u7F16\u8F91\u9891\u9053\u540D", () => this.renameChannelDialog(player, channel)).button(`\u516C\u544A\u677F\u6A21\u5F0F (${channel.config.isBroadcast ? "\u5F00" : "\u5173"})`, async () => {
+      await DogeChat.updateChannelConfig(channel.id, { isBroadcast: !channel.config.isBroadcast });
       Msg.success(`\u516C\u544A\u677F\u6A21\u5F0F\u5DF2${channel.config.isBroadcast ? "\u5173\u95ED" : "\u5F00\u542F"}\u3002`, player);
-      const updated = DogeChat.getChannel(channel.id);
+      const updated = await getChannel(channel.id);
       if (updated) await this.openChannelSettings(player, updated);
       else await this.openChannelManager(player);
-      return;
-    }
-    idx++;
+    });
     if (isOwner && channel.type !== "public") {
-      if (sel === idx) {
-        Gui.confirm(player, "\u5220\u9664\u9891\u9053", `\u786E\u8BA4\u5220\u9664\u9891\u9053 "${channel.name}" \u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002`, () => {
-          DogeChat.deleteChannel(channel.id);
+      form.button("\u5220\u9664\u9891\u9053", () => {
+        Gui.confirm(player, "\u5220\u9664\u9891\u9053", `\u786E\u8BA4\u5220\u9664\u9891\u9053 "${channel.name}" \u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002`, async () => {
+          await DogeChat.deleteChannel(channel.id);
           Msg.success(`\u9891\u9053 "${channel.name}" \u5DF2\u5220\u9664\u3002`, player);
         });
-        await this.openChannelManager(player);
+        this.openChannelManager(player);
+      });
+    }
+    form.closeButton();
+    await Gui.showForm(player, form, "\u9891\u9053\u8BBE\u7F6E");
+  }
+  static async createChannelDialog(player) {
+    const name = new ObservableString("");
+    const prefix = new ObservableString("");
+    const form = new CustomForm4(player, "\u521B\u5EFA\u9891\u9053").textField("\u9891\u9053\u540D\u79F0", name, { description: "\u8F93\u5165\u9891\u9053\u540D\u79F0" }).textField("\u663E\u793A\u524D\u7F00", prefix, { description: "\u804A\u5929\u663E\u793A\u7684\u524D\u7F00\uFF0C\u5EFA\u8BAE\u7B80\u77ED" }).button("\u521B\u5EFA", async () => {
+      const n = name.getData().trim();
+      const p = prefix.getData().trim();
+      if (!n || !p) {
+        Msg.error("\u9891\u9053\u540D\u79F0\u548C\u524D\u7F00\u4E0D\u80FD\u4E3A\u7A7A\u3002", player);
         return;
       }
-      idx++;
-    }
-    await this.openChannelManager(player);
-  }
-  // ============== 创建频道 ==============
-  static async createChannelDialog(player) {
-    const form = Gui.modalForm("\u521B\u5EFA\u9891\u9053");
-    form.textField("\u9891\u9053\u540D\u79F0", "\u8F93\u5165\u9891\u9053\u540D\u79F0");
-    form.textField("\u663E\u793A\u524D\u7F00", "\u804A\u5929\u663E\u793A\u7684\u524D\u7F00\uFF0C\u5EFA\u8BAE\u7B80\u77ED");
-    const res = await Gui.showForm(player, form, "\u521B\u5EFA\u9891\u9053");
-    if (res.canceled) {
-      await this.openChannelManager(player);
-      return;
-    }
-    const vals = res.formValues;
-    const name = vals[0].trim();
-    const prefix = vals[1].trim();
-    if (!name || !prefix) {
-      Msg.error("\u9891\u9053\u540D\u79F0\u548C\u524D\u7F00\u4E0D\u80FD\u4E3A\u7A7A\u3002", player);
-      await this.createChannelDialog(player);
-      return;
-    }
-    const cid = DogeChat.createChannel(name, prefix, "custom", {}, player);
-    if (cid) {
-      DogeChat.setActiveChannel(player, cid);
-      Msg.success(`\u9891\u9053 "${name}" \u521B\u5EFA\u6210\u529F\uFF0C\u5DF2\u81EA\u52A8\u5207\u6362\u3002`, player);
-      DogeChat.loadChannelHistory(player, cid);
-    } else {
-      Msg.error("\u9891\u9053\u540D\u79F0\u5DF2\u5B58\u5728\u3002", player);
-    }
+      const cid = await DogeChat.createChannel(n, p, "custom", {}, player);
+      if (cid) {
+        await DogeChat.setActiveChannel(player, cid);
+        Msg.success(`\u9891\u9053 "${n}" \u521B\u5EFA\u6210\u529F\uFF0C\u5DF2\u81EA\u52A8\u5207\u6362\u3002`, player);
+        await DogeChat.loadChannelHistory(player, cid);
+      } else {
+        Msg.error("\u521B\u5EFA\u5931\u8D25\uFF0C\u53EF\u80FD\u7684\u539F\u56E0\u662F\u9891\u9053\u540D\u79F0\u5DF2\u5B58\u5728\u3002", player);
+      }
+    }).closeButton();
+    await Gui.showForm(player, form, "\u521B\u5EFA\u9891\u9053");
     await this.openChannelPanel(player);
   }
-  // ============== 编辑频道名 ==============
   static async renameChannelDialog(player, channel) {
-    const form = Gui.modalForm("\u7F16\u8F91\u9891\u9053\u540D");
-    form.textField("\u9891\u9053\u540D\u79F0", "\u8F93\u5165\u65B0\u540D\u79F0", { "defaultValue": channel.name });
-    form.textField("\u663E\u793A\u524D\u7F00", "\u8F93\u5165\u65B0\u524D\u7F00", { "defaultValue": channel.prefix });
-    const res = await Gui.showForm(player, form, "\u7F16\u8F91\u9891\u9053\u540D");
-    if (res.canceled) {
-      await this.openChannelSettings(player, channel);
-      return;
-    }
-    const vals = res.formValues;
-    const newName = vals[0].trim();
-    const newPrefix = vals[1].trim();
-    if (!newName || !newPrefix) {
-      Msg.error("\u540D\u79F0\u548C\u524D\u7F00\u4E0D\u80FD\u4E3A\u7A7A\u3002", player);
-      await this.renameChannelDialog(player, channel);
-      return;
-    }
-    DogeChat.updateChannelName(channel.id, newName, newPrefix);
-    Msg.success(`\u9891\u9053\u5DF2\u91CD\u547D\u540D\u4E3A: ${newPrefix} - ${newName}`, player);
-    const updated = DogeChat.getChannel(channel.id);
+    const newName = new ObservableString(channel.name);
+    const newPrefix = new ObservableString(channel.prefix);
+    const form = new CustomForm4(player, "\u7F16\u8F91\u9891\u9053\u540D").textField("\u9891\u9053\u540D\u79F0", newName, { description: "\u8F93\u5165\u65B0\u540D\u79F0" }).textField("\u663E\u793A\u524D\u7F00", newPrefix, { description: "\u8F93\u5165\u65B0\u524D\u7F00" }).button("\u786E\u8BA4", async () => {
+      const nn = newName.getData().trim();
+      const np = newPrefix.getData().trim();
+      if (!nn || !np) {
+        Msg.error("\u540D\u79F0\u548C\u524D\u7F00\u4E0D\u80FD\u4E3A\u7A7A\u3002", player);
+        return;
+      }
+      await DogeChat.updateChannelName(channel.id, nn, np);
+      Msg.success(`\u9891\u9053\u5DF2\u91CD\u547D\u540D\u4E3A: ${np} - ${nn}`, player);
+    }).closeButton();
+    await Gui.showForm(player, form, "\u7F16\u8F91\u9891\u9053\u540D");
+    const updated = await getChannel(channel.id);
     if (updated) await this.openChannelSettings(player, updated);
     else await this.openChannelManager(player);
   }
-  // ============== Level 2b: 私聊频道 ==============
   static async openPrivateChatPanel(player) {
-    const active = DogeChat.getActiveChannel(player);
-    const privateChannels = DogeChat.getPrivateChannels(player);
-    const form = Gui.simpleForm("\u79C1\u804A\u9891\u9053", ListFormInfo([]));
-    form.button("\u65B0\u6D88\u606F");
+    const active = await DogeChat.getActiveChannel(player);
+    const privateChannels = await DogeChat.getPrivateChannels(player);
+    const form = new CustomForm4(player, "\u79C1\u804A\u9891\u9053").label(ListFormInfo([])).button("\u65B0\u6D88\u606F", () => this.selectPlayerForPrivate(player));
     for (const c of privateChannels) {
       const otherName = c.name.replace("\u4E0E ", "").replace(" \u7684\u79C1\u804A", "");
-      const mark = c.id === active.id ? "\u25C0 " : "";
-      form.button(`${mark}${otherName}`);
+      const mark = c.id === (active?.id ?? "") ? "\u25C0 " : "";
+      form.button(`${mark}${otherName}`, async () => {
+        if (c.id !== (active?.id ?? "")) {
+          await DogeChat.setActiveChannel(player, c.id);
+          Msg.success(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${c.prefix}`, player);
+          await DogeChat.loadChannelHistory(player, c.id);
+        }
+        await this.openPrivateChatPanel(player);
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u79C1\u804A\u9891\u9053");
-    if (res.canceled) {
-      await this.openChannelPanel(player);
-      return;
-    }
-    const sel = res.selection;
-    if (sel === 0) {
-      await this.selectPlayerForPrivate(player);
-      return;
-    }
-    const channelIdx = sel - 1;
-    if (channelIdx >= 0 && channelIdx < privateChannels.length) {
-      const target = privateChannels[channelIdx];
-      if (target.id !== active.id) {
-        DogeChat.setActiveChannel(player, target.id);
-        Msg.success(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${target.prefix}`, player);
-        DogeChat.loadChannelHistory(player, target.id);
-      }
-      await this.openPrivateChatPanel(player);
-      return;
-    }
-    await this.openChannelPanel(player);
+    form.closeButton();
+    await Gui.showForm(player, form, "\u79C1\u804A\u9891\u9053");
   }
-  /** 选择在线玩家发起私聊 */
   static async selectPlayerForPrivate(player) {
     const onlinePlayers = player.dimension.getPlayers().filter((p) => p.id !== player.id);
     if (onlinePlayers.length === 0) {
@@ -3584,99 +3720,80 @@ var ChatGUI = class {
       await this.openPrivateChatPanel(player);
       return;
     }
-    const form = Gui.simpleForm("\u9009\u62E9\u73A9\u5BB6", ListFormInfo(["\u9009\u62E9\u8981\u53D1\u9001\u79C1\u804A\u7684\u73A9\u5BB6"]));
+    const form = new CustomForm4(player, "\u9009\u62E9\u73A9\u5BB6").label(ListFormInfo(["\u9009\u62E9\u8981\u53D1\u9001\u79C1\u804A\u7684\u73A9\u5BB6"]));
     for (const p of onlinePlayers) {
-      form.button(p.name);
+      form.button(p.name, async () => {
+        const channel = await DogeChat.ensurePrivateChannel(player.id, p.id);
+        await DogeChat.setActiveChannel(player, channel.id);
+        Msg.success(`\u5DF2\u5207\u6362\u5230\u4E0E ${p.name} \u7684\u79C1\u804A\u9891\u9053\u3002`, player);
+        await DogeChat.loadChannelHistory(player, channel.id);
+        await this.openPrivateChatPanel(player);
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u9009\u62E9\u73A9\u5BB6");
-    if (res.canceled) {
-      await this.openPrivateChatPanel(player);
-      return;
-    }
-    const sel = res.selection;
-    if (sel >= onlinePlayers.length) {
-      await this.openPrivateChatPanel(player);
-      return;
-    }
-    const target = onlinePlayers[sel];
-    const channel = DogeChat.ensurePrivateChannel(player.id, target.id);
-    DogeChat.setActiveChannel(player, channel.id);
-    Msg.success(`\u5DF2\u5207\u6362\u5230\u4E0E ${target.name} \u7684\u79C1\u804A\u9891\u9053\u3002`, player);
-    DogeChat.loadChannelHistory(player, channel.id);
-    await this.openPrivateChatPanel(player);
+    form.closeButton();
+    await Gui.showForm(player, form, "\u9009\u62E9\u73A9\u5BB6");
   }
-  // ============== 红包 ==============
   static async openRedPacketPanel(player) {
-    const available = DogeChat.getAvailableRedPackets(player);
-    const body = ListFormInfo(
-      available.length > 0 ? [`\u6709 ${available.length} \u4E2A\u7EA2\u5305\u53EF\u9886\u53D6`] : ["\u6682\u65E0\u53EF\u7528\u7EA2\u5305"]
-    );
-    const form = Gui.simpleForm("\u7EA2\u5305", body);
-    form.button("\u53D1\u9001\u7EA2\u5305");
-    if (available.length > 0) form.button("\u9886\u53D6\u7EA2\u5305");
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u7EA2\u5305");
-    if (res.canceled) return;
-    const sel = res.selection;
-    if (sel === 0) {
-      await this.sendRedPacketDialog(player);
-    } else if (available.length > 0 && sel === 1) {
-      await this.claimRedPacketDialog(player, available);
+    const available = await DogeChat.getAvailableRedPackets(player);
+    const body = ListFormInfo(available.length > 0 ? [`\u6709 ${available.length} \u4E2A\u7EA2\u5305\u53EF\u9886\u53D6`] : ["\u6682\u65E0\u53EF\u7528\u7EA2\u5305"]);
+    const form = new CustomForm4(player, "\u7EA2\u5305").label(body).button("\u53D1\u9001\u7EA2\u5305", () => this.sendRedPacketDialog(player));
+    if (available.length > 0) {
+      form.button("\u9886\u53D6\u7EA2\u5305", () => this.claimRedPacketDialog(player, available));
     }
+    form.closeButton();
+    await Gui.showForm(player, form, "\u7EA2\u5305");
   }
   static async sendRedPacketDialog(player) {
-    const form = Gui.modalForm("\u53D1\u9001\u7EA2\u5305");
-    form.textField("\u91D1\u989D", "\u8F93\u5165\u7EA2\u5305\u603B\u91D1\u989D");
-    form.textField("\u4EFD\u6570", "\u8F93\u5165\u7EA2\u5305\u4EFD\u6570");
-    form.dropdown("\u76EE\u6807\u7C7B\u578B", ["\u5F53\u524D\u9891\u9053", "\u6307\u5B9A\u73A9\u5BB6"]);
-    form.textField("\u76EE\u6807\u73A9\u5BB6\u540D\uFF08\u6307\u5B9A\u73A9\u5BB6\u65F6\u586B\u5199\uFF09", "\u7559\u7A7A\u5219\u53D1\u5230\u5F53\u524D\u9891\u9053");
-    const res = await Gui.showForm(player, form, "\u53D1\u9001\u7EA2\u5305");
-    if (res.canceled) return;
-    const vals = res.formValues;
-    const amount = parseInt(vals[0]);
-    const count = parseInt(vals[1]);
-    const targetTypeIdx = vals[2];
-    const targetPlayer = vals[3].trim();
-    if (isNaN(amount) || isNaN(count) || amount <= 0 || count <= 0) {
-      Msg.error("\u8BF7\u586B\u5199\u6709\u6548\u7684\u91D1\u989D\u548C\u4EFD\u6570\u3002", player);
-      return;
-    }
-    if (targetTypeIdx === 0) {
-      const active = DogeChat.getActiveChannel(player);
-      DogeChat.sendRedPacket(player, amount, count, "group", active.id);
-    } else {
-      const target = player.dimension.getPlayers().find((p) => p.name === targetPlayer);
-      if (!target) {
-        Msg.error(`\u73A9\u5BB6 "${targetPlayer}" \u4E0D\u5728\u7EBF\u3002`, player);
+    const amount = new ObservableString("");
+    const count = new ObservableString("1");
+    const targetTypeIdx = new ObservableNumber(0);
+    const targetPlayer = new ObservableString("");
+    const form = new CustomForm4(player, "\u53D1\u9001\u7EA2\u5305").textField("\u91D1\u989D", amount, { description: "\u8F93\u5165\u7EA2\u5305\u603B\u91D1\u989D" }).textField("\u4EFD\u6570", count, { description: "\u8F93\u5165\u7EA2\u5305\u4EFD\u6570" }).dropdown("\u76EE\u6807\u7C7B\u578B", targetTypeIdx, [
+      { label: "\u5F53\u524D\u9891\u9053", value: 0 },
+      { label: "\u6307\u5B9A\u73A9\u5BB6", value: 1 }
+    ]).textField("\u76EE\u6807\u73A9\u5BB6\u540D\uFF08\u6307\u5B9A\u73A9\u5BB6\u65F6\u586B\u5199\uFF09", targetPlayer, { description: "\u7559\u7A7A\u5219\u53D1\u5230\u5F53\u524D\u9891\u9053" }).button("\u53D1\u9001", async () => {
+      const amt = parseInt(amount.getData());
+      const cnt = parseInt(count.getData());
+      const targetType = targetTypeIdx.getData();
+      const tp2 = targetPlayer.getData().trim();
+      if (isNaN(amt) || isNaN(cnt) || amt <= 0 || cnt <= 0) {
+        Msg.error("\u8BF7\u586B\u5199\u6709\u6548\u7684\u91D1\u989D\u548C\u4EFD\u6570\u3002", player);
         return;
       }
-      DogeChat.sendRedPacket(player, amount, count, "player", target.id);
-    }
+      if (targetType === 0) {
+        const active = await DogeChat.getActiveChannel(player);
+        if (active) await DogeChat.sendRedPacket(player, amt, cnt, "group", active.id);
+      } else {
+        const target = player.dimension.getPlayers().find((p) => p.name === tp2);
+        if (!target) {
+          Msg.error(`\u73A9\u5BB6 "${tp2}" \u4E0D\u5728\u7EBF\u3002`, player);
+          return;
+        }
+        await DogeChat.sendRedPacket(player, amt, cnt, "player", target.id);
+      }
+    }).closeButton();
+    await Gui.showForm(player, form, "\u53D1\u9001\u7EA2\u5305");
   }
   static async claimRedPacketDialog(player, packets) {
-    const form = Gui.simpleForm("\u9886\u53D6\u7EA2\u5305", ListFormInfo([`\u53EF\u9886\u53D6 ${packets.length} \u4E2A\u7EA2\u5305`]));
+    const form = new CustomForm4(player, "\u9886\u53D6\u7EA2\u5305").label(ListFormInfo([`\u53EF\u9886\u53D6 ${packets.length} \u4E2A\u7EA2\u5305`]));
     for (const p of packets) {
-      form.button(`${p.senderName} \u7684\u7EA2\u5305 \xA77(${p.remainingAmount} \u5269\u4F59)`);
+      form.button(`${p.senderName} \u7684\u7EA2\u5305 \xA77(${p.remainingAmount} \u5269\u4F59)`, () => {
+        DogeChat.claimRedPacket(player, p.id);
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u9886\u53D6\u7EA2\u5305");
-    if (res.canceled) return;
-    const sel = res.selection;
-    if (sel >= packets.length) return;
-    DogeChat.claimRedPacket(player, packets[sel].id);
+    form.closeButton();
+    await Gui.showForm(player, form, "\u9886\u53D6\u7EA2\u5305");
   }
-  // ============== 快捷指令：定位 / 传送 / 红包 ==============
-  /** !lo — 发送定位到当前频道 */
   static async sendLocation(player) {
-    const channel = DogeChat.getActiveChannel(player);
+    const channel = await DogeChat.getActiveChannel(player);
+    if (!channel) return;
     const loc2 = DogeChat.createLocationMessage(player);
     await DogeChat.sendChannelMessage(player, channel.id, loc2, "location");
   }
-  /** !tp — 发送传送邀请 */
   static async sendTeleportInvite(player) {
-    const channel = DogeChat.getActiveChannel(player);
-    if (channel.config.isBroadcast && !DogeChat.isChannelOwner(player, channel.id)) {
+    const channel = await DogeChat.getActiveChannel(player);
+    if (!channel) return;
+    if (channel.config.isBroadcast && !await DogeChat.isChannelOwner(player, channel.id)) {
       Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u53D1\u8A00\u3002", player);
       return;
     }
@@ -3699,52 +3816,49 @@ var ChatGUI = class {
       Msg.info("\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002", player);
       return;
     }
-    const form = Gui.simpleForm("\u4F20\u9001\u9080\u8BF7", ListFormInfo(["\u9009\u62E9\u8981\u9080\u8BF7\u7684\u73A9\u5BB6"]));
-    for (const p of online) form.button(p.name);
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u4F20\u9001\u9080\u8BF7");
-    if (res.canceled) return;
-    const sel = res.selection;
-    if (sel >= online.length) return;
-    DogeChat.sendTeleportInvite(player, online[sel]);
+    const form = new CustomForm4(player, "\u4F20\u9001\u9080\u8BF7").label(ListFormInfo(["\u9009\u62E9\u8981\u9080\u8BF7\u7684\u73A9\u5BB6"]));
+    for (const p of online) {
+      form.button(p.name, () => DogeChat.sendTeleportInvite(player, p));
+    }
+    form.closeButton();
+    await Gui.showForm(player, form, "\u4F20\u9001\u9080\u8BF7");
   }
-  /** !hb — 发送红包（快捷指令，直接打开发送对话框） */
   static async sendRedPacketQuick(player) {
-    const channel = DogeChat.getActiveChannel(player);
-    if (channel.config.isBroadcast && !DogeChat.isChannelOwner(player, channel.id)) {
+    const channel = await DogeChat.getActiveChannel(player);
+    if (!channel) return;
+    if (channel.config.isBroadcast && !await DogeChat.isChannelOwner(player, channel.id)) {
       Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u53D1\u8A00\u3002", player);
       return;
     }
     if (channel.type === "private") {
-      const form = Gui.modalForm("\u53D1\u9001\u7EA2\u5305");
-      form.textField("\u91D1\u989D", "\u8F93\u5165\u7EA2\u5305\u91D1\u989D");
-      const res = await Gui.showForm(player, form, "\u53D1\u9001\u7EA2\u5305");
-      if (res.canceled) return;
-      const amount = parseInt(res.formValues[0]);
-      if (isNaN(amount) || amount <= 0) {
-        Msg.error("\u8BF7\u586B\u5199\u6709\u6548\u7684\u91D1\u989D\u3002", player);
-        return;
-      }
-      const otherid = DogeChat.getPrivateOther(channel.id, player.id);
-      if (!otherid) {
-        Msg.error("\u65E0\u6CD5\u627E\u5230\u79C1\u804A\u5BF9\u8C61\u3002", player);
-        return;
-      }
-      DogeChat.sendRedPacket(player, amount, 1, "player", otherid);
+      const amount = new ObservableString("");
+      const form = new CustomForm4(player, "\u53D1\u9001\u7EA2\u5305").textField("\u91D1\u989D", amount, { description: "\u8F93\u5165\u7EA2\u5305\u91D1\u989D" }).button("\u53D1\u9001", async () => {
+        const amt = parseInt(amount.getData());
+        if (isNaN(amt) || amt <= 0) {
+          Msg.error("\u8BF7\u586B\u5199\u6709\u6548\u7684\u91D1\u989D\u3002", player);
+          return;
+        }
+        const otherid = DogeChat.getPrivateOther(channel.id, player.id);
+        if (!otherid) {
+          Msg.error("\u65E0\u6CD5\u627E\u5230\u79C1\u804A\u5BF9\u8C61\u3002", player);
+          return;
+        }
+        await DogeChat.sendRedPacket(player, amt, 1, "player", otherid);
+      }).closeButton();
+      await Gui.showForm(player, form, "\u53D1\u9001\u7EA2\u5305");
     } else {
-      const form = Gui.modalForm("\u53D1\u9001\u7EA2\u5305");
-      form.textField("\u91D1\u989D", "\u8F93\u5165\u7EA2\u5305\u603B\u91D1\u989D");
-      form.textField("\u4EFD\u6570", "\u8F93\u5165\u7EA2\u5305\u4EFD\u6570");
-      const res = await Gui.showForm(player, form, "\u53D1\u9001\u7EA2\u5305");
-      if (res.canceled) return;
-      const vals = res.formValues;
-      const amount = parseInt(vals[0]);
-      const count = parseInt(vals[1]);
-      if (isNaN(amount) || isNaN(count) || amount <= 0 || count <= 0) {
-        Msg.error("\u8BF7\u586B\u5199\u6709\u6548\u7684\u91D1\u989D\u548C\u4EFD\u6570\u3002", player);
-        return;
-      }
-      DogeChat.sendRedPacket(player, amount, count, "group", channel.id);
+      const amount = new ObservableString("");
+      const count = new ObservableString("1");
+      const form = new CustomForm4(player, "\u53D1\u9001\u7EA2\u5305").textField("\u91D1\u989D", amount, { description: "\u8F93\u5165\u7EA2\u5305\u603B\u91D1\u989D" }).textField("\u4EFD\u6570", count, { description: "\u8F93\u5165\u7EA2\u5305\u4EFD\u6570" }).button("\u53D1\u9001", async () => {
+        const amt = parseInt(amount.getData());
+        const cnt = parseInt(count.getData());
+        if (isNaN(amt) || isNaN(cnt) || amt <= 0 || cnt <= 0) {
+          Msg.error("\u8BF7\u586B\u5199\u6709\u6548\u7684\u91D1\u989D\u548C\u4EFD\u6570\u3002", player);
+          return;
+        }
+        await DogeChat.sendRedPacket(player, amt, cnt, "group", channel.id);
+      }).closeButton();
+      await Gui.showForm(player, form, "\u53D1\u9001\u7EA2\u5305");
     }
   }
 };
@@ -3752,91 +3866,113 @@ var ChatGUI = class {
 // scripts/chat/ChatSystem.ts
 var ChatSystem = class {
   static init() {
-    Permission.register("chat.use", Permission.Any);
-    Permission.register("chat.admin", Permission.OP);
-    DogeChat.initChannels();
+    console.log(`Initializing ChatSystem...`);
+    DogeChat.ensureDefaultChannels();
+    HttpDB.checkHealth().then((ok) => {
+      if (ok) console.info("[DogeChat] \u5916\u90E8\u6570\u636E\u5E93\u5DF2\u8FDE\u63A5\uFF0C\u6D88\u606F\u5C06\u6301\u4E45\u5316\u5B58\u50A8\u3002");
+      else console.warn("[DogeChat] \u5916\u90E8\u6570\u636E\u5E93\u672A\u8FDE\u63A5\u3002");
+    });
     registerSystemMsgHandler((player, text) => {
       DogeChat.sendSystemMessage(player, text);
     });
+    console.log(`ChatSystem initialized successfully.`);
+  }
+  static registerEvents() {
     world12.beforeEvents.chatSend.subscribe(async (event) => {
       const player = event.sender;
       const message = event.message;
       if (message.startsWith("!") || message.startsWith("\uFF01")) return;
       event.cancel = true;
-      const channel = DogeChat.getActiveChannel(player);
-      await DogeChat.sendChannelMessage(player, channel.id, message);
+      const channel = await DogeChat.getActiveChannel(player);
+      if (channel) await DogeChat.sendChannelMessage(player, channel.id, message);
     });
     world12.afterEvents.playerJoin.subscribe((event) => {
       const player = world12.getEntity(event.playerId);
       system8.run(async () => {
-        const channel = DogeChat.getActiveChannel(player);
-        await DogeChat.loadChannelHistory(player, channel.id);
+        const channel = await DogeChat.getActiveChannel(player);
+        if (channel) await DogeChat.loadChannelHistory(player, channel.id);
       });
     });
-    this.registerCommands();
-    system8.runInterval(() => {
-      DogeChat.cleanupExpiredRedPackets();
-    }, 6e3);
   }
   static registerCommands() {
-    Command.register("channel", "chat.use", (player) => {
-      if (player) ChatGUI.openChannelPanel(player);
-    }, "\u9891\u9053\u7BA1\u7406 - \u5207\u6362/\u8BA2\u9605\u9891\u9053");
-    Command.register("ch", "chat.use", async (player) => {
-      if (!player) return;
-      const next = DogeChat.cycleChannel(player);
-      Msg.info(`\u5DF2\u5207\u6362\u5230\u9891\u9053: \xA7e${next.prefix}`, player);
-      await DogeChat.loadChannelHistory(player, next.id);
-    }, "\u5FEB\u901F\u5207\u6362\u9891\u9053");
-    Command.register("msg", "chat.use", (player) => {
-      if (player) ChatGUI.openPrivateChatPanel(player);
-    }, "\u5FEB\u6377\u79C1\u804A");
-    Command.register("lo", "chat.use", (player) => {
-      if (player) ChatGUI.sendLocation(player);
-    }, "\u53D1\u9001\u5F53\u524D\u4F4D\u7F6E\u5230\u5F53\u524D\u9891\u9053");
-    Command.register("tp", "chat.use", (player) => {
-      if (player) ChatGUI.sendTeleportInvite(player);
-    }, "\u53D1\u9001\u4F20\u9001\u9080\u8BF7");
-    Command.register("hongbao", "chat.use", (player) => {
-      if (player) ChatGUI.openRedPacketPanel(player);
-    }, "\u7EA2\u5305 - \u67E5\u770B/\u9886\u53D6\u7EA2\u5305");
-    Command.register("hb", "chat.use", (player) => {
-      if (player) ChatGUI.sendRedPacketQuick(player);
-    }, "\u53D1\u9001\u7EA2\u5305");
+    Command.register(
+      "channel",
+      "chat.use",
+      (player) => {
+        if (player) ChatGUI.openChannelPanel(player);
+      },
+      "\u9891\u9053\u7BA1\u7406 - \u5207\u6362/\u8BA2\u9605\u9891\u9053"
+    );
+    Command.register(
+      "ch",
+      "chat.use",
+      async (player) => {
+        if (!player) return;
+        const next = await DogeChat.cycleChannel(player);
+        if (next) await DogeChat.loadChannelHistory(player, next.id);
+      },
+      "\u5FEB\u901F\u5207\u6362\u9891\u9053"
+    );
+    Command.register(
+      "msg",
+      "chat.use",
+      (player) => {
+        if (player) ChatGUI.openPrivateChatPanel(player);
+      },
+      "\u5FEB\u6377\u79C1\u804A"
+    );
+    Command.register(
+      "lo",
+      "chat.use",
+      (player) => {
+        if (player) ChatGUI.sendLocation(player);
+      },
+      "\u53D1\u9001\u5F53\u524D\u4F4D\u7F6E\u5230\u5F53\u524D\u9891\u9053"
+    );
+    Command.register(
+      "tp",
+      "chat.use",
+      (player) => {
+        if (player) ChatGUI.sendTeleportInvite(player);
+      },
+      "\u53D1\u9001\u4F20\u9001\u9080\u8BF7"
+    );
+    Command.register(
+      "hongbao",
+      "chat.use",
+      (player) => {
+        if (player) ChatGUI.openRedPacketPanel(player);
+      },
+      "\u7EA2\u5305 - \u67E5\u770B/\u9886\u53D6\u7EA2\u5305"
+    );
+    Command.register(
+      "hb",
+      "chat.use",
+      (player) => {
+        if (player) ChatGUI.sendRedPacketQuick(player);
+      },
+      "\u53D1\u9001\u7EA2\u5305"
+    );
   }
 };
 
 // scripts/doge/TPS.ts
 import { system as system9, world as world13 } from "@minecraft/server";
 var TPS = class _TPS {
-  constructor() {
+  static {
     this.tickTimes = [];
+  }
+  static {
     this.MAX_SAMPLES = 100;
   }
-  /**
-   * @returns {TPS}
-   */
-  static getInstance() {
-    if (!_TPS._instance) {
-      _TPS._instance = new _TPS();
-    }
-    return _TPS._instance;
-  }
-  /**
-   * 获取当前 TPS
-   * @returns 保留两位小数的 TPS 值
-   */
-  getTPS() {
-    if (this.tickTimes.length < 10) return 20;
-    const elapsed = (this.tickTimes[this.tickTimes.length - 1] - this.tickTimes[0]) / 1e3;
-    const tickCount = this.tickTimes.length - 1;
+  static getTPS() {
+    if (_TPS.tickTimes.length < 10) return 20;
+    const elapsed = (_TPS.tickTimes[_TPS.tickTimes.length - 1] - _TPS.tickTimes[0]) / 1e3;
+    const tickCount = _TPS.tickTimes.length - 1;
     const tps = tickCount / elapsed;
     return Math.round(Math.min(tps, 20) * 100) / 100;
   }
-  /**
-   * 获取 TPS 状态文本
-   */
-  getTPSStatus() {
+  static getTPSStatus() {
     const tps = this.getTPS();
     let color;
     if (tps >= 19.5) color = "\xA7a";
@@ -3845,27 +3981,25 @@ var TPS = class _TPS {
     else color = "\xA7c";
     return `\xA77[TPS] ${color}${tps} \xA77/ 20.00`;
   }
-  init() {
+  static init() {
     this.startRecord();
-    this.registerCommands();
   }
-  startRecord() {
+  static startRecord() {
     system9.runInterval(() => {
-      this.tickTimes.push(Date.now());
-      if (this.tickTimes.length > this.MAX_SAMPLES) {
-        this.tickTimes.shift();
+      _TPS.tickTimes.push(Date.now());
+      if (_TPS.tickTimes.length > _TPS.MAX_SAMPLES) {
+        _TPS.tickTimes.shift();
       }
     }, 1);
   }
-  registerCommands() {
-    Permission.register("tps.see", Permission.Any);
+  static registerCommands() {
     Command.register(
       "tps",
       "tps.see",
       (player) => {
         const msg = this.getTPSStatus();
         if (player) {
-          player.sendMessage(msg);
+          Msg.info(msg, player);
         } else {
           world13.sendMessage(msg);
         }
@@ -3879,31 +4013,48 @@ var TPS = class _TPS {
 import { system as system10, world as world14 } from "@minecraft/server";
 var OnlineTime = class _OnlineTime {
   constructor() {
-    // 缓存键名
-    this.KEY_SESSION = "onlinetime:session";
-    this.KEY_TODAY = "onlinetime:today";
-    this.KEY_MONTH = "onlinetime:month";
-    this.KEY_TOTAL = "onlinetime:total";
-    this.KEY_LAST_DATE = "onlinetime:last_date";
-    this.KEY_LAST_MONTH = "onlinetime:last_month";
+    this.dataMap = /* @__PURE__ */ new Map();
   }
-  /**
-   * @returns {OnlineTime}
-   */
   static getInstance() {
     if (!_OnlineTime._instance) {
       _OnlineTime._instance = new _OnlineTime();
     }
     return _OnlineTime._instance;
   }
-  init() {
-    this.registerEvents();
-    this.startTick();
-    this.registerCommands();
+  registerCommandsAndPermissions() {
+    Permission.register("onlinetime.see", Permission.Any);
+    Command.register(
+      "onlinetime",
+      "onlinetime.see",
+      async (player) => {
+        if (!player) {
+          world14.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
+          return;
+        }
+        const data2 = await this.load(player);
+        Msg.info(
+          `\u73A9\u5BB6 \xA7a${player.name}\xA7r \u7684\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1:
+\xA7e\u672C\u6B21\u5728\u7EBF \xA7f${this.formatTime(data2.session)}
+\xA7e\u4ECA\u65E5\u5728\u7EBF \xA7f${this.formatTime(data2.today)}
+\xA7e\u672C\u6708\u5728\u7EBF \xA7f${this.formatTime(data2.month)}
+\xA7e\u603B\u5728\u7EBF \xA7f${this.formatTime(data2.total)}
+`,
+          player
+        );
+      },
+      "\u67E5\u770B\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1"
+    );
   }
-  /**
-   * 将秒数格式化为可读文本
-   */
+  registerEvents() {
+    world14.afterEvents.playerSpawn.subscribe((event) => {
+      if (event.initialSpawn) {
+        this.onPlayerJoin(event.player);
+      }
+    });
+  }
+  init() {
+    this.startTick();
+  }
   formatTime(seconds) {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor(seconds % 86400 / 3600);
@@ -3916,79 +4067,84 @@ var OnlineTime = class _OnlineTime {
     parts.push(`${s}\u79D2`);
     return parts.join("");
   }
-  /**
-   * 读取玩家的缓存属性，不存在时返回 0
-   */
-  getProp(player, key) {
-    return Storage.playerGet(player, key, 0);
+  /** 从 DB 加载玩家在线时间数据 */
+  async load(player) {
+    const existing = this.dataMap.get(player.id);
+    if (existing) return existing;
+    const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
+    const def = (val, fallback) => typeof val === "number" ? val : fallback;
+    const data2 = {
+      session: 0,
+      today: def(raw?.onlinetime_today, 0),
+      month: def(raw?.onlinetime_month, 0),
+      total: def(raw?.onlinetime_total, 0),
+      lastDate: def(raw?.onlinetime_last_date, (/* @__PURE__ */ new Date()).getDate()),
+      lastMonth: def(raw?.onlinetime_last_month, (/* @__PURE__ */ new Date()).getMonth())
+    };
+    this.dataMap.set(player.id, data2);
+    return data2;
   }
-  /**
-   * 玩家进服时重置会话计数器
-   */
+  /** 持久化在线时间到 DB（排除 session，仅持久化跨重启字段） */
+  async persist(player, data2) {
+    await HttpDB.patch(`/api/sfmc/players/${player.id}`, {
+      player: {
+        onlinetimeToday: data2.today,
+        onlinetimeMonth: data2.month,
+        onlinetimeTotal: data2.total,
+        onlinetimeLastDate: data2.lastDate,
+        onlinetimeLastMonth: data2.lastMonth
+      }
+    }).catch(() => {
+    });
+  }
   onPlayerJoin(player) {
-    Storage.playerSet(player, this.KEY_SESSION, 0);
+    this.load(player).then((data2) => {
+      data2.session = 0;
+    });
   }
-  /**
-   * 每秒为所有在线玩家增加时间
-   * 使用 setThrottled 避免高频 HttpDB 写入，缓存实时更新
-   */
+  onPlayerLeave(player) {
+    const data2 = this.dataMap.get(player.id);
+    if (data2) {
+      this.persist(player, data2).catch(() => {
+      });
+      this.dataMap.delete(player.id);
+    }
+  }
   tickSecond() {
     const now = /* @__PURE__ */ new Date();
     const currentDate = now.getDate();
     const currentMonth = now.getMonth();
     for (const player of world14.getAllPlayers()) {
-      if (this.getProp(player, this.KEY_LAST_DATE) !== currentDate) {
-        Storage.playerSetThrottled(player, this.KEY_TODAY, 0);
-        Storage.playerSetThrottled(player, this.KEY_LAST_DATE, currentDate);
+      const data2 = this.dataMap.get(player.id);
+      if (!data2) {
+        this.load(player).then((d) => {
+          d.session++;
+          d.today++;
+          d.month++;
+          d.total++;
+        });
+        continue;
       }
-      if (this.getProp(player, this.KEY_LAST_MONTH) !== currentMonth) {
-        Storage.playerSetThrottled(player, this.KEY_MONTH, 0);
-        Storage.playerSetThrottled(player, this.KEY_LAST_MONTH, currentMonth);
+      if (data2.lastDate !== currentDate) {
+        data2.today = 0;
+        data2.lastDate = currentDate;
       }
-      Storage.playerSetThrottled(player, this.KEY_SESSION, this.getProp(player, this.KEY_SESSION) + 1);
-      Storage.playerSetThrottled(player, this.KEY_TODAY, this.getProp(player, this.KEY_TODAY) + 1);
-      Storage.playerSetThrottled(player, this.KEY_MONTH, this.getProp(player, this.KEY_MONTH) + 1);
-      Storage.playerSetThrottled(player, this.KEY_TOTAL, this.getProp(player, this.KEY_TOTAL) + 1);
+      if (data2.lastMonth !== currentMonth) {
+        data2.month = 0;
+        data2.lastMonth = currentMonth;
+      }
+      data2.session++;
+      data2.today++;
+      data2.month++;
+      data2.total++;
+      this.persist(player, data2).catch(() => {
+      });
     }
-  }
-  registerEvents() {
-    world14.afterEvents.playerSpawn.subscribe((event) => {
-      if (event.initialSpawn) {
-        this.onPlayerJoin(event.player);
-      }
-    });
   }
   startTick() {
     system10.runInterval(() => {
       this.tickSecond();
     }, 20);
-  }
-  registerCommands() {
-    Permission.register("onlinetime.see", Permission.Any);
-    Command.register(
-      "onlinetime",
-      "onlinetime.see",
-      (player) => {
-        if (!player) {
-          world14.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
-          return;
-        }
-        const session = this.getProp(player, this.KEY_SESSION);
-        const today = this.getProp(player, this.KEY_TODAY);
-        const month = this.getProp(player, this.KEY_MONTH);
-        const total = this.getProp(player, this.KEY_TOTAL);
-        Msg.info(
-          `\u73A9\u5BB6 \xA7a${player.name}\xA7r \u7684\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1:
-\xA7e\u672C\u6B21\u5728\u7EBF \xA7f${this.formatTime(session)}
-\xA7e\u4ECA\u65E5\u5728\u7EBF \xA7f${this.formatTime(today)}
-\xA7e\u672C\u6708\u5728\u7EBF \xA7f${this.formatTime(month)}
-\xA7e\u603B\u5728\u7EBF \xA7f${this.formatTime(total)}
-`,
-          player
-        );
-      },
-      "\u67E5\u770B\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1"
-    );
   }
 };
 
@@ -4019,24 +4175,11 @@ var SurvivalArea = class _SurvivalArea {
     }
     return _SurvivalArea._instance;
   }
-  init() {
+  /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+  registerCommandsAndPermissions() {
     Permission.register("survivalarea.gamemode.bypass", Permission.OP);
-    this.registerEvents();
   }
-  inCreativeArea(entity) {
-    for (const area of Config.creativeArea) {
-      if (entity.dimension.id === area.dimension) {
-        if (pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  forceSurvival(player) {
-    player.setGameMode(GameMode2.Survival);
-    player.sendMessage("\xA7c\u5DF2\u79BB\u5F00\u521B\u9020\u533A\u57DF\uFF0C\u5F3A\u5236\u5207\u6362\u4E3A\u751F\u5B58\u6A21\u5F0F\u3002");
-  }
+  /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
     world15.afterEvents.playerSpawn.subscribe((event) => {
       if (!event.initialSpawn) return;
@@ -4058,7 +4201,7 @@ var SurvivalArea = class _SurvivalArea {
         if (Permission.check(event.player, "survivalarea.gamemode.bypass")) return;
         if (!this.inCreativeArea(event.player)) {
           event.cancel = true;
-          event.player.sendMessage("\xA7c\u4F60\u5F53\u524D\u4E0D\u5728\u521B\u9020\u533A\u57DF\u5185\uFF0C\u65E0\u6CD5\u5207\u6362\u5230\u8BE5\u6A21\u5F0F\u3002");
+          Msg.error(`\u4F60\u5F53\u524D\u4E0D\u5728\u521B\u9020\u533A\u57DF\u5185\uFF0C\u65E0\u6CD5\u5207\u6362\u5230\u8BE5\u6A21\u5F0F\u3002`, event.player);
         }
       }
     });
@@ -4074,6 +4217,29 @@ var SurvivalArea = class _SurvivalArea {
         }
       }, 10);
     });
+  }
+  init() {
+  }
+  inCreativeArea(entity) {
+    for (const area of Config.creativeArea) {
+      if (entity.dimension.id === area.dimension) {
+        if (pointInArea_2D(
+          entity.location.x,
+          entity.location.z,
+          area.start[0],
+          area.start[1],
+          area.end[0],
+          area.end[1]
+        )) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  forceSurvival(player) {
+    player.setGameMode(GameMode2.Survival);
+    Msg.info(`\u5DF2\u79BB\u5F00\u521B\u9020\u533A\u57DF\uFF0C\u5F3A\u5236\u5207\u6362\u4E3A\u751F\u5B58\u6A21\u5F0F\u3002`, player);
   }
 };
 
@@ -4094,118 +4260,22 @@ var CreativeArea = class _CreativeArea {
     /** 连锁开关（同时控制 CreativeArea + SurvivalArea） */
     this.enable = true;
   }
-  init() {
-    this.registerEvents();
-    this.startTick();
-    this.startBorderFastCheck();
-    this.startBorderWarning();
-    this.registerCommands();
+  /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+  registerCommandsAndPermissions() {
+    Permission.register("creativearea.toggle", Permission.OP);
+    Permission.register("creativearea.place_banned", Permission.Admin);
+    Command.register(
+      "creativearea",
+      "creativearea.toggle",
+      () => {
+        _CreativeArea.enable = !_CreativeArea.enable;
+        SurvivalArea.getInstance().enable = _CreativeArea.enable;
+        return _CreativeArea.enable ? "\u533A\u57DF\u7CFB\u7EDF\u5DF2\u5F00\u542F" : "\u533A\u57DF\u7CFB\u7EDF\u5DF2\u5173\u95ED";
+      },
+      "\u5F00\u5173\u533A\u57DF\u7CFB\u7EDF"
+    );
   }
-  // ==========================================
-  //  区域判定
-  // ==========================================
-  inArea(entity) {
-    for (const area of Config.creativeArea) {
-      if (entity.dimension.id === area.dimension) {
-        if (pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
-          return area.name;
-        }
-      }
-    }
-    return void 0;
-  }
-  inAreaByPos(x, z, dimensionId) {
-    for (const area of Config.creativeArea) {
-      if (dimensionId === area.dimension) {
-        if (pointInArea_2D(x, z, area.start[0], area.start[1], area.end[0], area.end[1])) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  isNearBorder(entity, threshold = this.BORDER_THRESHOLD) {
-    for (const area of Config.creativeArea) {
-      if (entity.dimension.id !== area.dimension) continue;
-      const minX = Math.min(area.start[0], area.end[0]) - threshold;
-      const maxX = Math.max(area.start[0], area.end[0]) + threshold;
-      const minZ = Math.min(area.start[1], area.end[1]) - threshold;
-      const maxZ = Math.max(area.start[1], area.end[1]) + threshold;
-      if (entity.location.x >= minX && entity.location.x <= maxX && entity.location.z >= minZ && entity.location.z <= maxZ) return true;
-    }
-    return false;
-  }
-  inBufferZone(entity) {
-    for (const area of Config.creativeArea) {
-      if (entity.dimension.id !== area.dimension) continue;
-      const minX = Math.min(area.start[0], area.end[0]);
-      const maxX = Math.max(area.start[0], area.end[0]);
-      const minZ = Math.min(area.start[1], area.end[1]);
-      const maxZ = Math.max(area.start[1], area.end[1]);
-      const x = entity.location.x, z = entity.location.z;
-      const inExpanded = x >= minX - this.BUFFER_ZONE && x <= maxX + this.BUFFER_ZONE && z >= minZ - this.BUFFER_ZONE && z <= maxZ + this.BUFFER_ZONE;
-      if (!inExpanded) continue;
-      if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
-      return true;
-    }
-    return false;
-  }
-  get creativeDims() {
-    const dims = /* @__PURE__ */ new Set();
-    for (const area of Config.creativeArea) dims.add(area.dimension);
-    return dims;
-  }
-  // ==========================================
-  //  进入 / 离开 处理（背包由 InventorySwitcher 接管）
-  // ==========================================
-  enterArea(player, areaName) {
-    this.saveScores(player);
-    player.setGameMode(GameMode3.Creative);
-    Storage.playerSet(player, "creative:area_name", areaName);
-    Msg.info(`\u8FDB\u5165 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u5207\u6362\u4E3A\u521B\u9020\u6A21\u5F0F\u3002`, player);
-  }
-  leaveArea(player, areaName) {
-    this.restoreScores(player);
-    player.setGameMode(GameMode3.Survival);
-    Storage.playerDelete(player, "creative:area_name");
-    Msg.info(`\u79BB\u5F00 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u6062\u590D\u751F\u5B58\u6A21\u5F0F\u3002`, player);
-  }
-  // ==========================================
-  //  计分项保存 / 恢复
-  // ==========================================
-  saveScores(player) {
-    const identity = player.scoreboardIdentity;
-    if (!identity) return;
-    const scores = {};
-    for (const obj of world16.scoreboard.getObjectives()) {
-      try {
-        const score = obj.getScore(identity);
-        if (score !== void 0) scores[obj.id] = score;
-      } catch {
-      }
-    }
-    if (Object.keys(scores).length > 0) {
-      Storage.playerSet(player, "creative:scores", scores);
-    }
-  }
-  restoreScores(player) {
-    const scores = Storage.playerGet(player, "creative:scores", void 0);
-    if (!scores) return;
-    const identity = player.scoreboardIdentity;
-    if (!identity) return;
-    for (const obj of world16.scoreboard.getObjectives()) {
-      if (scores[obj.id] !== void 0) {
-        try {
-          obj.setScore(identity, scores[obj.id]);
-        } catch {
-        }
-      }
-    }
-    Storage.playerDelete(player, "creative:scores");
-  }
-  // ==========================================
-  //  事件注册
-  // ==========================================
+  /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
     world16.afterEvents.playerSpawn.subscribe((event) => {
       if (!event.initialSpawn) return;
@@ -4222,7 +4292,7 @@ var CreativeArea = class _CreativeArea {
       if (!_CreativeArea.enable) return;
       system12.runTimeout(() => {
         const areaName = this.inArea(event.player);
-        const currentArea = Storage.playerGet(event.player, "creative:area_name", void 0);
+        const currentArea = event.player.getDynamicProperty("hpbe:creative_area");
         if (currentArea === void 0 && areaName !== void 0) {
           this.enterArea(event.player, areaName);
         } else if (currentArea !== void 0 && areaName === void 0) {
@@ -4269,6 +4339,122 @@ var CreativeArea = class _CreativeArea {
       }
     });
   }
+  init() {
+    this.startTick();
+    this.startBorderFastCheck();
+    this.startBorderWarning();
+  }
+  // ==========================================
+  //  区域判定
+  // ==========================================
+  inArea(entity) {
+    for (const area of Config.creativeArea) {
+      if (entity.dimension.id === area.dimension) {
+        if (pointInArea_2D(
+          entity.location.x,
+          entity.location.z,
+          area.start[0],
+          area.start[1],
+          area.end[0],
+          area.end[1]
+        )) {
+          return area.name;
+        }
+      }
+    }
+    return void 0;
+  }
+  inAreaByPos(x, z, dimensionId) {
+    for (const area of Config.creativeArea) {
+      if (dimensionId === area.dimension) {
+        if (pointInArea_2D(x, z, area.start[0], area.start[1], area.end[0], area.end[1])) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  isNearBorder(entity, threshold = this.BORDER_THRESHOLD) {
+    for (const area of Config.creativeArea) {
+      if (entity.dimension.id !== area.dimension) continue;
+      const minX = Math.min(area.start[0], area.end[0]) - threshold;
+      const maxX = Math.max(area.start[0], area.end[0]) + threshold;
+      const minZ = Math.min(area.start[1], area.end[1]) - threshold;
+      const maxZ = Math.max(area.start[1], area.end[1]) + threshold;
+      if (entity.location.x >= minX && entity.location.x <= maxX && entity.location.z >= minZ && entity.location.z <= maxZ)
+        return true;
+    }
+    return false;
+  }
+  inBufferZone(entity) {
+    for (const area of Config.creativeArea) {
+      if (entity.dimension.id !== area.dimension) continue;
+      const minX = Math.min(area.start[0], area.end[0]);
+      const maxX = Math.max(area.start[0], area.end[0]);
+      const minZ = Math.min(area.start[1], area.end[1]);
+      const maxZ = Math.max(area.start[1], area.end[1]);
+      const x = entity.location.x, z = entity.location.z;
+      const inExpanded = x >= minX - this.BUFFER_ZONE && x <= maxX + this.BUFFER_ZONE && z >= minZ - this.BUFFER_ZONE && z <= maxZ + this.BUFFER_ZONE;
+      if (!inExpanded) continue;
+      if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
+      return true;
+    }
+    return false;
+  }
+  get creativeDims() {
+    const dims = /* @__PURE__ */ new Set();
+    for (const area of Config.creativeArea) dims.add(area.dimension);
+    return dims;
+  }
+  // ==========================================
+  //  进入 / 离开 处理（背包由 InventorySwitcher 接管）
+  // ==========================================
+  enterArea(player, areaName) {
+    this.saveScores(player);
+    player.setGameMode(GameMode3.Creative);
+    player.setDynamicProperty("hpbe:creative_area", areaName);
+    Msg.info(`\u8FDB\u5165 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u5207\u6362\u4E3A\u521B\u9020\u6A21\u5F0F\u3002`, player);
+  }
+  leaveArea(player, areaName) {
+    this.restoreScores(player);
+    player.setGameMode(GameMode3.Survival);
+    player.setDynamicProperty("hpbe:creative_area", void 0);
+    Msg.info(`\u79BB\u5F00 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u6062\u590D\u751F\u5B58\u6A21\u5F0F\u3002`, player);
+  }
+  // ==========================================
+  //  计分项保存 / 恢复
+  // ==========================================
+  saveScores(player) {
+    const identity = player.scoreboardIdentity;
+    if (!identity) return;
+    const scores = {};
+    for (const obj of world16.scoreboard.getObjectives()) {
+      try {
+        const score = obj.getScore(identity);
+        if (score !== void 0) scores[obj.id] = score;
+      } catch {
+      }
+    }
+    if (Object.keys(scores).length > 0) {
+      player.setDynamicProperty("hpbe:creative_scores", JSON.stringify(scores));
+    }
+  }
+  restoreScores(player) {
+    const raw = player.getDynamicProperty("hpbe:creative_scores");
+    const scores = raw ? JSON.parse(raw) : void 0;
+    if (!scores) return;
+    const identity = player.scoreboardIdentity;
+    if (!identity) return;
+    for (const obj of world16.scoreboard.getObjectives()) {
+      if (scores[obj.id] !== void 0) {
+        try {
+          obj.setScore(identity, scores[obj.id]);
+        } catch {
+        }
+      }
+    }
+    player.setDynamicProperty("hpbe:creative_scores", void 0);
+  }
   // ==========================================
   //  定时扫描（进出检测）
   // ==========================================
@@ -4277,7 +4463,7 @@ var CreativeArea = class _CreativeArea {
       if (!_CreativeArea.enable) return;
       for (const player of world16.getPlayers()) {
         if (player.getGameMode() === GameMode3.Spectator) continue;
-        const currentArea = Storage.playerGet(player, "creative:area_name", void 0);
+        const currentArea = player.getDynamicProperty("hpbe:creative_area");
         if (currentArea === void 0) {
           const areaName = this.inArea(player);
           if (areaName !== void 0) this.enterArea(player, areaName);
@@ -4296,7 +4482,7 @@ var CreativeArea = class _CreativeArea {
       for (const player of world16.getPlayers()) {
         if (player.getGameMode() !== GameMode3.Creative) continue;
         if (!this.isNearBorder(player)) continue;
-        const currentArea = Storage.playerGet(player, "creative:area_name", void 0);
+        const currentArea = player.getDynamicProperty("hpbe:creative_area");
         if (currentArea !== void 0 && this.inArea(player) === void 0) {
           this.leaveArea(player, currentArea);
         }
@@ -4340,21 +4526,9 @@ var CreativeArea = class _CreativeArea {
       }
     }, 20);
   }
-  // ==========================================
-  //  指令
-  // ==========================================
-  registerCommands() {
-    Permission.register("creativearea.toggle", Permission.OP);
-    Permission.register("creativearea.place_banned", Permission.Admin);
-    Command.register("creativearea", "creativearea.toggle", () => {
-      _CreativeArea.enable = !_CreativeArea.enable;
-      SurvivalArea.getInstance().enable = _CreativeArea.enable;
-      return _CreativeArea.enable ? "\u533A\u57DF\u7CFB\u7EDF\u5DF2\u5F00\u542F" : "\u533A\u57DF\u7CFB\u7EDF\u5DF2\u5173\u95ED";
-    }, "\u5F00\u5173\u533A\u57DF\u7CFB\u7EDF");
-  }
 };
 
-// scripts/doge/InventorySwitcher.ts
+// scripts/area/InventorySwitcher.ts
 import {
   system as system13,
   world as world17,
@@ -4363,14 +4537,32 @@ import {
   BlockComponentTypes as BlockComponentTypes3
 } from "@minecraft/server";
 var InventorySwitcher = class _InventorySwitcher {
+  static {
+    this.chestMap = /* @__PURE__ */ new Map();
+  }
   static getInstance() {
     if (!_InventorySwitcher._instance) {
       _InventorySwitcher._instance = new _InventorySwitcher();
     }
     return _InventorySwitcher._instance;
   }
+  /** 注册事件（由 entry.ts 统一调用） */
+  registerEvents() {
+    world17.afterEvents.playerGameModeChange.subscribe((event) => {
+      const player = event.player;
+      system13.run(() => {
+        if (player.getGameMode() !== event.toGameMode) return;
+        if (event.fromGameMode === GameMode4.Survival && event.toGameMode === GameMode4.Creative) {
+          this.saveToChest(player, false);
+          this.restoreFromChest(player, true);
+        } else if (event.fromGameMode === GameMode4.Creative && event.toGameMode === GameMode4.Survival) {
+          this.saveToChest(player, true);
+          this.restoreFromChest(player, false);
+        }
+      });
+    });
+  }
   init() {
-    this.registerEvents();
   }
   /**
    * 获取该索引对应的布局（左箱/右箱/告示牌位置），使用 Tools 工具
@@ -4387,14 +4579,15 @@ var InventorySwitcher = class _InventorySwitcher {
    */
   getChestIndex(playerId2, forCreative) {
     const key = `invswitcher:player_${playerId2}`;
-    let base = Storage.get(key, void 0);
+    let base = _InventorySwitcher.chestMap.get(key);
     if (base === void 0) {
-      let next = Storage.get("invswitcher:next_index", 0);
+      let nextIdx = world17.getDynamicProperty("hpbe:invswitcher_next");
+      if (nextIdx === void 0) nextIdx = 0;
       const max = Config.inventoryChest.size[0] - 2;
-      if (next > max) next = 0;
-      base = next;
-      Storage.set(key, base);
-      Storage.set("invswitcher:next_index", base + 2);
+      if (nextIdx > max) nextIdx = 0;
+      base = nextIdx;
+      _InventorySwitcher.chestMap.set(key, base);
+      world17.setDynamicProperty("hpbe:invswitcher_next", base + 2);
     }
     return base * 2 + (forCreative ? 1 : 0);
   }
@@ -4434,7 +4627,12 @@ ${time}`
     }
     const eq = player.getComponent("equippable");
     if (eq) {
-      for (const [ai, slot] of [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet].entries()) {
+      for (const [ai, slot] of [
+        EquipmentSlot.Head,
+        EquipmentSlot.Chest,
+        EquipmentSlot.Legs,
+        EquipmentSlot.Feet
+      ].entries()) {
         const item = eq.getEquipment(slot);
         if (item) {
           eq.setEquipment(slot, void 0);
@@ -4483,7 +4681,12 @@ ${time}`
       }
     }
     if (eq) {
-      for (const [ai, slot] of [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet].entries()) {
+      for (const [ai, slot] of [
+        EquipmentSlot.Head,
+        EquipmentSlot.Chest,
+        EquipmentSlot.Legs,
+        EquipmentSlot.Feet
+      ].entries()) {
         const item = container.getItem(36 + ai);
         if (item) {
           container.setItem(36 + ai, void 0);
@@ -4496,24 +4699,6 @@ ${time}`
         eq.setEquipment(EquipmentSlot.Offhand, offhand);
       }
     }
-  }
-  // ==========================================
-  //  模式切换拦截
-  // ==========================================
-  registerEvents() {
-    world17.afterEvents.playerGameModeChange.subscribe((event) => {
-      const player = event.player;
-      system13.run(() => {
-        if (player.getGameMode() !== event.toGameMode) return;
-        if (event.fromGameMode === GameMode4.Survival && event.toGameMode === GameMode4.Creative) {
-          this.saveToChest(player, false);
-          this.restoreFromChest(player, true);
-        } else if (event.fromGameMode === GameMode4.Creative && event.toGameMode === GameMode4.Survival) {
-          this.saveToChest(player, true);
-          this.restoreFromChest(player, false);
-        }
-      });
-    });
   }
 };
 
@@ -4550,13 +4735,18 @@ var Database2 = class {
     // landId → LandData
     this._ownerIndex = null;
   }
-  // plid → landId[]
-  // ── 内部工具 ──
+  static {
+    // plid → landId[]
+    // ── 内部工具 ──
+    this.memoryStore = /* @__PURE__ */ new Map();
+  }
   static readJSON(key, fallback) {
-    return Storage.get(key, fallback);
+    if (this.memoryStore.has(key)) return this.memoryStore.get(key);
+    this.memoryStore.set(key, fallback);
+    return fallback;
   }
   static writeJSON(key, value) {
-    Storage.set(key, value);
+    this.memoryStore.set(key, value);
   }
   /** 重建 owner 索引 */
   static rebuildOwnerIndex() {
@@ -4826,10 +5016,7 @@ var LandCore = class {
     const allLands = Database2.getAll();
     const candidates = allLands.filter((l) => l.dimid === dimid);
     for (const land of candidates) {
-      if (this.cubesOverlap(
-        this.normalize(posA, posB),
-        { posA: land.posA, posB: land.posB }
-      )) {
+      if (this.cubesOverlap(this.normalize(posA, posB), { posA: land.posA, posB: land.posB })) {
         return { ok: false, msg: "\xA7c\u8BE5\u533A\u57DF\u4E0E\u5176\u4ED6\u571F\u5730\u91CD\u53E0\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9\u571F\u5730\u8303\u56F4\u3002" };
       }
     }
@@ -4840,8 +5027,11 @@ var LandCore = class {
     const price = this.calculatePrice(posA, posB);
     const balance = Money.get(player);
     if (balance < price) {
-      return { ok: false, msg: `\xA7c${Money.UNIT}\u4E0D\u8DB3\uFF01
-\u9700\u8981 \xA7e${price} \xA7c${Money.UNIT}\uFF0C\u800C\u5F53\u524D\u6301\u6709 \xA7e${balance} \xA7c${Money.UNIT}\u3002` };
+      return {
+        ok: false,
+        msg: `\xA7c${Money.UNIT}\u4E0D\u8DB3\uFF01
+\u9700\u8981 \xA7e${price} \xA7c${Money.UNIT}\uFF0C\u800C\u5F53\u524D\u6301\u6709 \xA7e${balance} \xA7c${Money.UNIT}\u3002`
+      };
     }
     return { ok: true };
   }
@@ -4908,7 +5098,7 @@ var LandCore = class {
 
 // scripts/gui/LandGUI.ts
 import { world as world18 } from "@minecraft/server";
-import { ActionFormData as ActionFormData2, ModalFormData as ModalFormData2 } from "@minecraft/server-ui";
+import { CustomForm as CustomForm5 } from "@minecraft/server-ui";
 var LandGUI = class {
   /** !land 入口：按状态分发 */
   static showMainMenu(player) {
@@ -4928,19 +5118,12 @@ var LandGUI = class {
     const lands = LandCore.getPlayerLands(plid);
     const landCount = lands.length;
     const body = [`\u5F53\u524D\u62E5\u6709 \xA7e${landCount}\xA7r \u5757\u571F\u5730\u3002`];
-    const form = new ActionFormData2().title("\u571F\u5730").body(ListFormInfo(body)).button("\u7533\u8BF7\u571F\u5730", "textures/ui/icon_iron_pickaxe");
+    const form = new CustomForm5(player, "\u571F\u5730").label(ListFormInfo(body)).button("\u7533\u8BF7\u571F\u5730", () => this.startApplication(player));
     if (landCount > 0) {
-      form.button("\u6211\u7684\u571F\u5730", "textures/ui/World");
+      form.button("\u6211\u7684\u571F\u5730", () => this.showLandList(player));
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u571F\u5730").then((res) => {
-      if (res.canceled) return;
-      if (res.selection === 0) {
-        this.startApplication(player);
-      } else if (landCount > 0 && res.selection === 1) {
-        this.showLandList(player);
-      }
-    });
+    form.closeButton();
+    Gui.showForm(player, form, "\u571F\u5730");
   }
   // ══════════════════════════════════════
   //  土地列表
@@ -4952,22 +5135,17 @@ var LandGUI = class {
       Msg.info("\u4F60\u8FD8\u6CA1\u6709\u4EFB\u4F55\u571F\u5730\u3002", player);
       return;
     }
-    const form = new ActionFormData2().title("\u6211\u7684\u571F\u5730").body(ListFormInfo([
-      `\u5F53\u524D\u62E5\u6709 \xA7e${lands.length}\xA7r \u5757\u571F\u5730\u3002`
-    ]));
+    const form = new CustomForm5(player, "\u6211\u7684\u571F\u5730").label(ListFormInfo([`\u5F53\u524D\u62E5\u6709 \xA7e${lands.length}\xA7r \u5757\u571F\u5730\u3002`]));
     for (const land of lands) {
       const name = land.nickname || land.id;
       const info = LandCore.getCubeInfo(land.posA, land.posB);
       form.button(`${name}
-${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
+${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`, () => {
+        this.showLandManage(player, land);
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u6211\u7684\u571F\u5730").then((res) => {
-      if (res.canceled) return;
-      if (res.selection < lands.length) {
-        this.showLandManage(player, lands[res.selection]);
-      }
-    });
+    form.closeButton();
+    Gui.showForm(player, form, "\u6211\u7684\u571F\u5730");
   }
   // ══════════════════════════════════════
   //  土地管理面板
@@ -4993,24 +5171,8 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
       Msg.info(body.join("\n"), player);
       return;
     }
-    const form = new ActionFormData2().title("\u571F\u5730\u7BA1\u7406").body(ListFormInfo(body)).button("\u571F\u5730\u4FDD\u62A4", "textures/ui/icon_lock").button("\u7BA1\u7406\u8005\u7BA1\u7406", "textures/ui/icon_multiplayer").button("\u8BBE\u7F6E\u540D\u79F0", "textures/ui/icon_edit").button("\u5220\u9664\u571F\u5730", "textures/ui/icon_trash").button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u571F\u5730\u7BA1\u7406").then((res) => {
-      if (res.canceled) return;
-      switch (res.selection) {
-        case 0:
-          this.showPermEditor(player, land);
-          break;
-        case 1:
-          this.showManagerEditor(player, land);
-          break;
-        case 2:
-          this.showRenameDialog(player, land);
-          break;
-        case 3:
-          this.showDeleteConfirm(player, land);
-          break;
-      }
-    });
+    const form = new CustomForm5(player, "\u571F\u5730\u7BA1\u7406").label(ListFormInfo(body)).button("\u571F\u5730\u4FDD\u62A4", () => this.showPermEditor(player, land)).button("\u7BA1\u7406\u8005\u7BA1\u7406", () => this.showManagerEditor(player, land)).button("\u8BBE\u7F6E\u540D\u79F0", () => this.showRenameDialog(player, land)).button("\u5220\u9664\u571F\u5730", () => this.showDeleteConfirm(player, land)).closeButton();
+    Gui.showForm(player, form, "\u571F\u5730\u7BA1\u7406");
   }
   // ══════════════════════════════════════
   //  权限设置
@@ -5018,17 +5180,19 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
   static showPermEditor(player, land) {
     const cfg = Database2.getDefaultPermissions();
     const perm = land.permissions;
-    const form = new ModalFormData2().title("\u571F\u5730\u4FDD\u62A4\u8BBE\u7F6E").label(ListFormInfo([])).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u653E\u7F6E\u65B9\u5757`, { defaultValue: perm.allow_place }).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u7834\u574F\u65B9\u5757`, { defaultValue: perm.allow_destroy }).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u653B\u51FB\u5B9E\u4F53`, { defaultValue: perm.attack_entity }).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u6253\u5F00\u5BB9\u5668`, { defaultValue: perm.open_container });
-    Gui.showForm(player, form, "\u571F\u5730\u4FDD\u62A4\u8BBE\u7F6E").then((res) => {
-      if (res.canceled) return;
-      const vals = res.formValues;
-      land.permissions.allow_place = vals[0];
-      land.permissions.allow_destroy = vals[1];
-      land.permissions.attack_entity = vals[2];
-      land.permissions.open_container = vals[3];
+    const allowPlace = new ObservableBoolean(perm.allow_place);
+    const allowDestroy = new ObservableBoolean(perm.allow_destroy);
+    const attackEntity = new ObservableBoolean(perm.attack_entity);
+    const openContainer = new ObservableBoolean(perm.open_container);
+    const form = new CustomForm5(player, "\u571F\u5730\u4FDD\u62A4\u8BBE\u7F6E").label(ListFormInfo([])).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u653E\u7F6E\u65B9\u5757`, allowPlace).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u7834\u574F\u65B9\u5757`, allowDestroy).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u653B\u51FB\u5B9E\u4F53`, attackEntity).toggle(`\u5141\u8BB8\u8BBF\u5BA2\xA76\u6253\u5F00\u5BB9\u5668`, openContainer).button("\u786E\u8BA4", () => {
+      land.permissions.allow_place = allowPlace.getData();
+      land.permissions.allow_destroy = allowDestroy.getData();
+      land.permissions.attack_entity = attackEntity.getData();
+      land.permissions.open_container = openContainer.getData();
       Database2.update(land);
       Msg.success("\u571F\u5730\u4FDD\u62A4\u8BBE\u7F6E\u5DF2\u66F4\u65B0\u3002", player);
-    });
+    }).closeButton();
+    Gui.showForm(player, form, "\u571F\u5730\u4FDD\u62A4\u8BBE\u7F6E");
   }
   // ══════════════════════════════════════
   //  管理者管理
@@ -5044,19 +5208,12 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
         return p ? `  - ${p.name}` : `  - ${m.substring(0, 8)}...`;
       })
     ];
-    const form = new ActionFormData2().title("\u7BA1\u7406\u8005\u7BA1\u7406").body(ListFormInfo(body)).button("\u6DFB\u52A0\u7BA1\u7406\u8005");
+    const form = new CustomForm5(player, "\u7BA1\u7406\u8005\u7BA1\u7406").label(ListFormInfo(body)).button("\u6DFB\u52A0\u7BA1\u7406\u8005", () => this.showAddManager(player, land));
     if (isOwner && land.managers.length > 1) {
-      form.button("\u79FB\u9664\u7BA1\u7406\u8005");
+      form.button("\u79FB\u9664\u7BA1\u7406\u8005", () => this.showRemoveManager(player, land));
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u7BA1\u7406\u8005\u7BA1\u7406").then((res) => {
-      if (res.canceled) return;
-      if (res.selection === 0) {
-        this.showAddManager(player, land);
-      } else if (isOwner && land.managers.length > 1 && res.selection === 1) {
-        this.showRemoveManager(player, land);
-      }
-    });
+    form.closeButton();
+    Gui.showForm(player, form, "\u7BA1\u7406\u8005\u7BA1\u7406");
   }
   static showAddManager(player, land) {
     const plid = player.id;
@@ -5065,24 +5222,22 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
       Msg.error("\u6CA1\u6709\u53EF\u6DFB\u52A0\u7684\u5728\u7EBF\u73A9\u5BB6\u3002", player);
       return;
     }
-    const form = new ActionFormData2().title("\u6DFB\u52A0\u7BA1\u7406\u8005").body(ListFormInfo(["\u9009\u62E9\u8981\u6DFB\u52A0\u4E3A\u7BA1\u7406\u8005\u7684\u73A9\u5BB6\u3002"]));
+    const form = new CustomForm5(player, "\u6DFB\u52A0\u7BA1\u7406\u8005").label(ListFormInfo(["\u9009\u62E9\u8981\u6DFB\u52A0\u4E3A\u7BA1\u7406\u8005\u7684\u73A9\u5BB6\u3002"]));
     for (const p of online) {
-      form.button(p.name);
-    }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u6DFB\u52A0\u7BA1\u7406\u8005").then((res) => {
-      if (res.canceled) return;
-      if (res.selection < online.length) {
-        const target = online[res.selection];
-        if (land.managers.includes(target.id)) {
+      const targetId = p.id;
+      const targetName = p.name;
+      form.button(p.name, () => {
+        if (land.managers.includes(targetId)) {
           Msg.error("\u8BE5\u73A9\u5BB6\u5DF2\u7ECF\u662F\u7BA1\u7406\u8005\u3002", player);
           return;
         }
-        land.managers.push(target.id);
+        land.managers.push(targetId);
         Database2.update(land);
-        Msg.success(`\u5DF2\u5C06 ${target.name} \u6DFB\u52A0\u4E3A\u7BA1\u7406\u8005\u3002`, player);
-      }
-    });
+        Msg.success(`\u5DF2\u5C06 ${targetName} \u6DFB\u52A0\u4E3A\u7BA1\u7406\u8005\u3002`, player);
+      });
+    }
+    form.closeButton();
+    Gui.showForm(player, form, "\u6DFB\u52A0\u7BA1\u7406\u8005");
   }
   static showRemoveManager(player, land) {
     const nonOwnerMgrs = land.managers.filter((m) => m !== land.ownerplid);
@@ -5090,37 +5245,34 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
       Msg.error("\u6CA1\u6709\u53EF\u79FB\u9664\u7684\u7BA1\u7406\u8005\u3002", player);
       return;
     }
-    const form = new ActionFormData2().title("\u79FB\u9664\u7BA1\u7406\u8005").body(ListFormInfo(["\u9009\u62E9\u8981\u79FB\u9664\u7684\u7BA1\u7406\u8005\u3002"]));
+    const form = new CustomForm5(player, "\u79FB\u9664\u7BA1\u7406\u8005").label(ListFormInfo(["\u9009\u62E9\u8981\u79FB\u9664\u7684\u7BA1\u7406\u8005\u3002"]));
     for (const m of nonOwnerMgrs) {
+      const targetId = m;
       const p = world18.getPlayers().find((pl) => pl.id === m);
-      form.button(p ? p.name : m.substring(0, 8) + "...");
-    }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u79FB\u9664\u7BA1\u7406\u8005").then((res) => {
-      if (res.canceled) return;
-      if (res.selection < nonOwnerMgrs.length) {
-        const targetId = nonOwnerMgrs[res.selection];
+      form.button(p ? p.name : m.substring(0, 8) + "...", () => {
         const idx = land.managers.indexOf(targetId);
         if (idx !== -1) {
           land.managers.splice(idx, 1);
           Database2.update(land);
           Msg.success("\u5DF2\u79FB\u9664\u8BE5\u7BA1\u7406\u8005\u3002", player);
         }
-      }
-    });
+      });
+    }
+    form.closeButton();
+    Gui.showForm(player, form, "\u79FB\u9664\u7BA1\u7406\u8005");
   }
   // ══════════════════════════════════════
   //  重命名
   // ══════════════════════════════════════
   static showRenameDialog(player, land) {
-    const form = new ModalFormData2().title("\u8BBE\u7F6E\u571F\u5730\u540D\u79F0").textField("\u571F\u5730\u540D\u79F0", "\u8F93\u5165\u65B0\u540D\u79F0\uFF08\u7559\u7A7A\u6062\u590D\u9ED8\u8BA4\uFF09", { defaultValue: land.nickname });
-    Gui.showForm(player, form, "\u8BBE\u7F6E\u571F\u5730\u540D\u79F0").then((res) => {
-      if (res.canceled) return;
-      const name = (res.formValues[0] || "").trim();
-      land.nickname = name;
+    const name = new ObservableString(land.nickname || "");
+    const form = new CustomForm5(player, "\u8BBE\u7F6E\u571F\u5730\u540D\u79F0").textField("\u571F\u5730\u540D\u79F0", name, { description: "\u8F93\u5165\u65B0\u540D\u79F0\uFF08\u7559\u7A7A\u6062\u590D\u9ED8\u8BA4\uFF09" }).button("\u786E\u8BA4", () => {
+      const val = name.getData().trim();
+      land.nickname = val;
       Database2.update(land);
-      Msg.success(name ? `\u571F\u5730\u5DF2\u91CD\u547D\u540D\u4E3A ${name}\u3002` : "\u571F\u5730\u540D\u79F0\u5DF2\u6062\u590D\u9ED8\u8BA4\u3002", player);
-    });
+      Msg.success(val ? `\u571F\u5730\u5DF2\u91CD\u547D\u540D\u4E3A ${val}\u3002` : "\u571F\u5730\u540D\u79F0\u5DF2\u6062\u590D\u9ED8\u8BA4\u3002", player);
+    }).closeButton();
+    Gui.showForm(player, form, "\u8BBE\u7F6E\u571F\u5730\u540D\u79F0");
   }
   // ══════════════════════════════════════
   //  删除土地
@@ -5163,33 +5315,22 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
       const body = ["\u8BF7\u5148\u5B8C\u6574\u9009\u62E9\u571F\u5730\u8303\u56F4\u3002"];
       if (hasPos1 && !hasPos2) body.push("  \xA76!pos2 \xA7r- \u7EE7\u7EED\u8BBE\u7F6E\u7B2C\u4E8C\u70B9");
       if (hasPos2 && !hasPos1) body.push("  \xA76!pos1 \xA7r- \u7EE7\u7EED\u8BBE\u7F6E\u7B2C\u4E00\u70B9");
-      const form = new ActionFormData2().title("\u571F\u5730\u7533\u8BF7").body(ListFormInfo(body)).button("\u53D6\u6D88\u7533\u8BF7").button("\xA7l\u8FD4\u56DE");
-      Gui.showForm(player, form, "\u571F\u5730\u7533\u8BF7").then((res) => {
-        if (res.canceled) return;
-        if (res.selection === 0) {
-          LandCore.clearSession(plid);
-          Msg.warning("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
-        }
-      });
+      const form = new CustomForm5(player, "\u571F\u5730\u7533\u8BF7").label(ListFormInfo(body)).button("\u53D6\u6D88\u7533\u8BF7", () => {
+        LandCore.clearSession(plid);
+        Msg.warning("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
+      }).closeButton();
+      Gui.showForm(player, form, "\u571F\u5730\u7533\u8BF7");
     } else {
       const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
       const info = LandCore.formatLandInfo(session.pos1, session.pos2, dimid).replace(/§[cef6]/g, "");
-      const body = [
-        info,
-        "\xA77\u786E\u8BA4\u7533\u8BF7\u8BE5\u571F\u5730\uFF1F"
-      ];
-      const form = new ActionFormData2().title("\u786E\u8BA4\u571F\u5730\u7533\u8BF7").body(ListFormInfo(body)).button("\u786E\u8BA4\u7533\u8BF7").button("\u53D6\u6D88\u7533\u8BF7");
-      Gui.showForm(player, form, "\u786E\u8BA4\u571F\u5730\u7533\u8BF7").then((res) => {
-        if (res.canceled) return;
-        if (res.selection === 0) {
-          this.handleApply(player, session?.pos1, session?.pos2, dimid);
-        } else {
-          if (LandCore.clearSession(plid))
-            Msg.warning("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
-          else
-            Msg.error("\u571F\u5730\u7533\u8BF7\u53D6\u6D88\u5931\u8D25\u3002", player);
-        }
-      });
+      const body = [info, "\xA77\u786E\u8BA4\u7533\u8BF7\u8BE5\u571F\u5730\uFF1F"];
+      const form = new CustomForm5(player, "\u786E\u8BA4\u571F\u5730\u7533\u8BF7").label(ListFormInfo(body)).button("\u786E\u8BA4\u7533\u8BF7", () => {
+        this.handleApply(player, session?.pos1, session?.pos2, dimid);
+      }).button("\u53D6\u6D88\u7533\u8BF7", () => {
+        if (LandCore.clearSession(plid)) Msg.warning("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
+        else Msg.error("\u571F\u5730\u7533\u8BF7\u53D6\u6D88\u5931\u8D25\u3002", player);
+      }).closeButton();
+      Gui.showForm(player, form, "\u786E\u8BA4\u571F\u5730\u7533\u8BF7");
     }
   }
   // ══════════════════════════════════════
@@ -5198,12 +5339,15 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
   static startApplication(player) {
     const plid = player.id;
     LandCore.initSession(plid);
-    Msg.info([
-      `\u53EF\u5728\u804A\u5929\u6846\u8F93\u5165\u4EE5\u4E0B\u547D\u4EE4\u5B8C\u6210\u571F\u5730\u7533\u8BF7\u6D41\u7A0B\uFF1A`,
-      `  [1] \xA76\xA7l!pos1\xA7r \xA7f- \u8BBE\u7F6E\u7B2C\u4E00\u70B9\uFF08\u7AD9\u5728\u5BF9\u5E94\u4F4D\u7F6E\u8F93\u5165\uFF09`,
-      `  [2] \xA76\xA7l!pos2\xA7r \xA7f- \u8BBE\u7F6E\u7B2C\u4E8C\u70B9`,
-      `  [3] \xA76\xA7l!land\xA7r \xA7f- \u6253\u5F00\u83DC\u5355\u8FDB\u884C\xA7e\u9A8C\u8BC1\u4E0E\u786E\u8BA4\xA7r`
-    ].join("\n"), player);
+    Msg.info(
+      [
+        `\u53EF\u5728\u804A\u5929\u6846\u8F93\u5165\u4EE5\u4E0B\u547D\u4EE4\u5B8C\u6210\u571F\u5730\u7533\u8BF7\u6D41\u7A0B\uFF1A`,
+        `  [1] \xA76\xA7l!pos1\xA7r \xA7f- \u8BBE\u7F6E\u7B2C\u4E00\u70B9\uFF08\u7AD9\u5728\u5BF9\u5E94\u4F4D\u7F6E\u8F93\u5165\uFF09`,
+        `  [2] \xA76\xA7l!pos2\xA7r \xA7f- \u8BBE\u7F6E\u7B2C\u4E8C\u70B9`,
+        `  [3] \xA76\xA7l!land\xA7r \xA7f- \u6253\u5F00\u83DC\u5355\u8FDB\u884C\xA7e\u9A8C\u8BC1\u4E0E\u786E\u8BA4\xA7r`
+      ].join("\n"),
+      player
+    );
     Msg.tips(`\u5728\u786E\u8BA4\u571F\u5730\u524D\uFF0C\u53EF\u91CD\u590D\u8F93\u5165 !pos1 \u548C !pos2 \u547D\u4EE4\uFF0C\u6765\u4FEE\u6539\u5408\u9002\u7684\u571F\u5730\u8303\u56F4\u3002`, player);
   }
   // ══════════════════════════════════════
@@ -5217,96 +5361,62 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`);
     }
     const land = LandCore.createLand(player, pos1, pos2, dimid);
     if (land) {
-      Msg.success(`\u571F\u5730\u521B\u5EFA\u6210\u529F\uFF01
+      Msg.success(
+        `\u571F\u5730\u521B\u5EFA\u6210\u529F\uFF01
 \u571F\u5730\u7F16\u53F7: ${land.id}
-\u9762\u79EF: ${LandCore.getCubeInfo(land.posA, land.posB).square} \u683C`, player);
+\u9762\u79EF: ${LandCore.getCubeInfo(land.posA, land.posB).square} \u683C`,
+        player
+      );
     } else {
       Msg.error("\u571F\u5730\u521B\u5EFA\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002", player);
     }
   }
 };
 
-// scripts/land/LandEvents.ts
-import { world as world19 } from "@minecraft/server";
-var CONTAINER_BLOCKS = /* @__PURE__ */ new Set([
-  "minecraft:chest",
-  "minecraft:trapped_chest",
-  "minecraft:barrel"
-  // 潜影盒用正则匹配
-]);
-function isContainerBlock(typeId) {
-  if (CONTAINER_BLOCKS.has(typeId)) return true;
-  return /^minecraft:.*_shulker_box$/.test(typeId);
-}
-function checkLandPermission(player, pos, dimid, permField) {
-  if (player.hasTag("op") || player.hasTag("admin")) return true;
-  const land = LandCore.getLandByPos(pos, dimid);
-  if (!land) return true;
-  if (LandCore.isOwnerOrManager(land, player.id)) return true;
-  return land.permissions[permField] === true;
-}
-var LandEvents = class {
-  static {
-    this.initialized = false;
-  }
-  static init() {
-    if (this.initialized) return;
-    this.initialized = true;
-    world19.beforeEvents.playerPlaceBlock.subscribe((ev) => {
-      const { player, block } = ev;
-      const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
-      if (!checkLandPermission(player, pos, dimid, "allow_place")) {
-        player.sendMessage("\xA7c\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u653E\u7F6E\u65B9\u5757\uFF01");
-        ev.cancel = true;
-      }
-    });
-    world19.beforeEvents.playerBreakBlock.subscribe((ev) => {
-      const { player, block } = ev;
-      const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
-      if (!checkLandPermission(player, pos, dimid, "allow_destroy")) {
-        player.sendMessage("\xA7c\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u7834\u574F\u65B9\u5757\uFF01");
-        ev.cancel = true;
-      }
-    });
-    world19.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
-      const { player, block } = ev;
-      if (!isContainerBlock(block.typeId)) return;
-      const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
-      if (!checkLandPermission(player, pos, dimid, "open_container")) {
-        player.sendMessage("\xA7c\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u6253\u5F00\u5BB9\u5668\uFF01");
-        ev.cancel = true;
-      }
-    });
-  }
-};
-
 // scripts/land/LandSystem.ts
 var LandSystem = class {
-  static init() {
+  /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+  static registerCommandsAndPermissions() {
     Permission.register("land.use", Permission.Any);
-    Command.register("land", "land.use", (player) => {
-      if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C\u3002";
-      LandGUI.showMainMenu(player);
-    }, "\u571F\u5730\u7BA1\u7406");
-    Command.register("land cancel", "land.use", (player) => {
-      if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C\u3002";
-      if (LandCore.clearSession(player.id))
-        Msg.success("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
-      else
-        Msg.error("\u4F60\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u571F\u5730\u7533\u8BF7\u3002", player);
-    }, "\u53D6\u6D88\u571F\u5730\u7533\u8BF7");
-    Command.register("pos1", "land.use", (player) => {
-      if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C";
-      handlePosCommand(player, 1);
-    }, "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E00\u70B9");
-    Command.register("pos2", "land.use", (player) => {
-      if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C";
-      handlePosCommand(player, 2);
-    }, "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E8C\u70B9");
-    LandEvents.init();
+    Command.register(
+      "land",
+      "land.use",
+      (player) => {
+        if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C\u3002";
+        LandGUI.showMainMenu(player);
+      },
+      "\u571F\u5730\u7BA1\u7406"
+    );
+    Command.register(
+      "land cancel",
+      "land.use",
+      (player) => {
+        if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C\u3002";
+        if (LandCore.clearSession(player.id)) Msg.success("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
+        else Msg.error("\u4F60\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u571F\u5730\u7533\u8BF7\u3002", player);
+      },
+      "\u53D6\u6D88\u571F\u5730\u7533\u8BF7"
+    );
+    Command.register(
+      "pos1",
+      "land.use",
+      (player) => {
+        if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C";
+        handlePosCommand(player, 1);
+      },
+      "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E00\u70B9"
+    );
+    Command.register(
+      "pos2",
+      "land.use",
+      (player) => {
+        if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C";
+        handlePosCommand(player, 2);
+      },
+      "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E8C\u70B9"
+    );
+  }
+  static init() {
   }
 };
 function handlePosCommand(player, which) {
@@ -5332,236 +5442,235 @@ function handlePosCommand(player, which) {
   }
 }
 
-// scripts/gui/MoneyGUI.ts
-import { world as world20 } from "@minecraft/server";
-import { ActionFormData as ActionFormData3, ModalFormData as ModalFormData3 } from "@minecraft/server-ui";
-Permission.register("money.admin", Permission.Admin);
-var MoneyCommand = class {
-  static init() {
-    Command.register("money", "money.admin", (player) => {
-      if (!player) return;
-      this.showMainMenu(player);
-    }, "\u8D27\u5E01\u7BA1\u7406");
+// scripts/land/LandEvents.ts
+import { world as world19 } from "@minecraft/server";
+var CONTAINER_BLOCKS = /* @__PURE__ */ new Set([
+  "minecraft:chest",
+  "minecraft:trapped_chest",
+  "minecraft:barrel"
+  // 潜影盒用正则匹配
+]);
+function isContainerBlock(typeId) {
+  if (CONTAINER_BLOCKS.has(typeId)) return true;
+  return /^minecraft:.*_shulker_box$/.test(typeId);
+}
+function checkLandPermission(player, pos, dimid, permField) {
+  if (player.hasTag("op") || player.hasTag("admin")) return true;
+  const land = LandCore.getLandByPos(pos, dimid);
+  if (!land) return true;
+  if (LandCore.isOwnerOrManager(land, player.id)) return true;
+  return land.permissions[permField] === true;
+}
+var LandEvents = class {
+  static {
+    this.initialized = false;
   }
-  static showMainMenu(player) {
-    const balance = Money.get(player);
-    const body = [
-      `\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}\u3002`
-    ];
-    const form = new ActionFormData3().title("\u8D27\u5E01\u7BA1\u7406").body(ListFormInfo(body)).button("\u7ED9\u4E88\u73A9\u5BB6").button("\u67E5\u8BE2\u73A9\u5BB6").button("\u53D6\u6D88");
-    Gui.showForm(player, form, "\u8D27\u5E01\u7BA1\u7406").then((res) => {
-      if (res.canceled) return;
-      switch (res.selection) {
-        case 0:
-          this.showGiveForm(player);
-          break;
-        case 1:
-          this.showQueryForm(player);
-          break;
+  /** 注册事件（由 entry.ts 统一调用） */
+  static registerEvents() {
+    if (this.initialized) return;
+    this.initialized = true;
+    world19.beforeEvents.playerPlaceBlock.subscribe((ev) => {
+      const { player, block } = ev;
+      const pos = { x: block.x, y: block.y, z: block.z };
+      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      if (!checkLandPermission(player, pos, dimid, "allow_place")) {
+        Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u653E\u7F6E\u65B9\u5757\uFF01", player);
+        ev.cancel = true;
       }
     });
-  }
-  static showGiveForm(player) {
-    const form = new ModalFormData3().title("\u7ED9\u4E88\u73A9\u5BB6").textField("\u73A9\u5BB6\u540D\u79F0", "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0").textField("\u6570\u91CF", "\u8BF7\u8F93\u5165\u8D27\u5E01\u6570\u91CF");
-    Gui.showForm(player, form, "\u7ED9\u4E88\u73A9\u5BB6").then((res) => {
-      if (res.canceled) return;
-      const targetName = res.formValues[0];
-      const amount = parseInt(res.formValues[1]);
-      if (!targetName || isNaN(amount) || amount <= 0) {
-        Msg.error("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002", player);
-        return;
+    world19.beforeEvents.playerBreakBlock.subscribe((ev) => {
+      const { player, block } = ev;
+      const pos = { x: block.x, y: block.y, z: block.z };
+      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      if (!checkLandPermission(player, pos, dimid, "allow_destroy")) {
+        Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u7834\u574F\u65B9\u5757\uFF01", player);
+        ev.cancel = true;
       }
-      const targetPlayer = world20.getPlayers().find((p) => p.name === targetName);
-      if (!targetPlayer) {
-        Msg.error(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${targetName}\u300D\u3002`, player);
-        return;
-      }
-      Money.add(targetPlayer, amount);
-      Msg.success(`\u5DF2\u7ED9\u4E88 ${targetName} ${amount} ${Money.UNIT}\u3002`, player);
     });
-  }
-  static showQueryForm(player) {
-    const form = new ModalFormData3().title("\u67E5\u8BE2\u73A9\u5BB6").textField("\u73A9\u5BB6\u540D\u79F0", "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0");
-    Gui.showForm(player, form, "\u67E5\u8BE2\u73A9\u5BB6").then((res) => {
-      if (res.canceled) return;
-      const targetName = res.formValues[0];
-      if (!targetName) {
-        Msg.error("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u73A9\u5BB6\u540D\u79F0\u3002", player);
-        return;
+    world19.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
+      const { player, block } = ev;
+      if (!isContainerBlock(block.typeId)) return;
+      const pos = { x: block.x, y: block.y, z: block.z };
+      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      if (!checkLandPermission(player, pos, dimid, "open_container")) {
+        Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u6253\u5F00\u5BB9\u5668\uFF01", player);
+        ev.cancel = true;
       }
-      const targetPlayer = world20.getPlayers().find((p) => p.name === targetName);
-      if (!targetPlayer) {
-        Msg.error(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${targetName}\u300D\u3002`, player);
-        return;
-      }
-      const balance = Money.get(targetPlayer);
-      Msg.info(`\u73A9\u5BB6 ${targetName} \u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}\u3002`, player);
     });
   }
 };
 
+// scripts/gui/MoneyGUI.ts
+import { world as world20 } from "@minecraft/server";
+import { CustomForm as CustomForm6 } from "@minecraft/server-ui";
+var MoneyGUI = class {
+  static registerCommand() {
+    Command.register(
+      "money",
+      "money.admin",
+      (player) => {
+        if (!player) return;
+        this.showMainMenu(player);
+      },
+      "\u8D27\u5E01\u7BA1\u7406"
+    );
+  }
+  static showMainMenu(player) {
+    const balance = Money.get(player);
+    const form = new CustomForm6(player, "\u8D27\u5E01\u7BA1\u7406").label(ListFormInfo([`\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}\u3002`])).button("\u7ED9\u4E88\u73A9\u5BB6", () => this.showGiveForm(player)).button("\u67E5\u8BE2\u73A9\u5BB6", () => this.showQueryForm(player)).closeButton();
+    Gui.showForm(player, form, "\u8D27\u5E01\u7BA1\u7406");
+  }
+  static showGiveForm(player) {
+    const targetName = new ObservableString("");
+    const amountStr = new ObservableString("");
+    const form = new CustomForm6(player, "\u7ED9\u4E88\u73A9\u5BB6").textField("\u73A9\u5BB6\u540D\u79F0", targetName, { description: "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0" }).textField("\u6570\u91CF", amountStr, { description: "\u8BF7\u8F93\u5165\u8D27\u5E01\u6570\u91CF" }).button("\u786E\u8BA4", () => {
+      const name = targetName.getData().trim();
+      const val = parseInt(amountStr.getData());
+      if (!name || isNaN(val) || val <= 0) {
+        Msg.error("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002", player);
+        return;
+      }
+      const target = world20.getPlayers().find((p) => p.name === name);
+      if (!target) {
+        Msg.error(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`, player);
+        return;
+      }
+      Money.add(target, val);
+      Msg.success(`\u5DF2\u7ED9\u4E88 ${name} ${val} ${Money.UNIT}\u3002`, player);
+    }).closeButton();
+    Gui.showForm(player, form, "\u7ED9\u4E88\u73A9\u5BB6");
+  }
+  static showQueryForm(player) {
+    const targetName = new ObservableString("");
+    const form = new CustomForm6(player, "\u67E5\u8BE2\u73A9\u5BB6").textField("\u73A9\u5BB6\u540D\u79F0", targetName, { description: "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0" }).button("\u67E5\u8BE2", () => {
+      const name = targetName.getData().trim();
+      if (!name) {
+        Msg.error("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u73A9\u5BB6\u540D\u79F0\u3002", player);
+        return;
+      }
+      const target = world20.getPlayers().find((p) => p.name === name);
+      if (!target) {
+        Msg.error(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`, player);
+        return;
+      }
+      const balance = Money.get(target);
+      Msg.info(`\u73A9\u5BB6 ${name} \u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}\u3002`, player);
+    }).closeButton();
+    Gui.showForm(player, form, "\u67E5\u8BE2\u73A9\u5BB6");
+  }
+};
+
 // scripts/gui/MainMenu.ts
-var MainMenu = class {
+import { CustomForm as CustomForm7 } from "@minecraft/server-ui";
+var MainMenu = class _MainMenu {
+  static registerMenuCommand() {
+    Command.register(
+      "menu",
+      "menu.use",
+      (player) => {
+        if (player) _MainMenu.show(player);
+      },
+      "\u4E3B\u83DC\u5355"
+    );
+  }
   static show(player) {
     this.showMainMenu(player);
   }
   static async showMainMenu(player) {
     const balance = Money.get(player);
-    const body = ListFormInfo([
-      `\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}`
-    ]);
-    const form = Gui.simpleForm("\u4E3B\u83DC\u5355", body);
-    form.button("\u571F\u5730");
-    form.button("\u5408\u4F5C\u793E");
-    form.button("\u9891\u9053");
-    form.button("\u7EA2\u5305");
-    form.button("\u8282\u64CD");
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u4E3B\u83DC\u5355");
-    if (res.canceled) return;
-    const sel = res.selection;
-    switch (sel) {
-      case 0:
-        LandGUI.showMainMenu(player);
-        break;
-      case 1:
-        new CoopGUI(player).mainPanel();
-        break;
-      case 2:
-        await ChatGUI.openChannelPanel(player);
-        break;
-      case 3:
-        await ChatGUI.openRedPacketPanel(player);
-        break;
-      case 4:
-        await this.showEconomyPanel(player);
-        break;
-      case 5:
-        return;
-    }
+    const body = ListFormInfo([`\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}`]);
+    const form = new CustomForm7(player, "\u4E3B\u83DC\u5355").label(body).button("\u571F\u5730", () => LandGUI.showMainMenu(player)).button("\u5408\u4F5C\u793E", () => {
+      new CoopGUI(player).mainPanel();
+    }).button("\u9891\u9053", () => ChatGUI.openChannelPanel(player)).button("\u7EA2\u5305", () => ChatGUI.openRedPacketPanel(player)).button("\u8282\u64CD", () => this.showEconomyPanel(player)).closeButton();
+    await Gui.showForm(player, form, "\u4E3B\u83DC\u5355");
   }
   static async showEconomyPanel(player) {
     const balance = Money.get(player);
-    const body = ListFormInfo([
-      `\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}`
-    ]);
-    const form = Gui.simpleForm("\u7ECF\u6D4E\u7CFB\u7EDF", body);
-    form.button("\u67E5\u8BE2\u4F59\u989D");
-    form.button("\u8F6C\u8D26");
-    form.button("\xA7l\u8FD4\u56DE");
-    const res = await Gui.showForm(player, form, "\u7ECF\u6D4E\u7CFB\u7EDF");
-    if (res.canceled) return;
-    const sel = res.selection;
-    switch (sel) {
-      case 0: {
-        const bal = Money.get(player);
-        Msg.info(`\u5F53\u524D\u4F59\u989D: ${bal} ${Money.UNIT}`, player);
-        await this.showEconomyPanel(player);
-        break;
-      }
-      case 1:
-        await this.showTransferForm(player);
-        break;
-      case 2:
-        await this.showMainMenu(player);
-        break;
-    }
+    const body = ListFormInfo([`\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}`]);
+    const form = new CustomForm7(player, "\u7ECF\u6D4E\u7CFB\u7EDF").label(body).button("\u67E5\u8BE2\u4F59\u989D", async () => {
+      const bal = Money.get(player);
+      Msg.info(`\u5F53\u524D\u4F59\u989D: ${bal} ${Money.UNIT}`, player);
+      await this.showEconomyPanel(player);
+    }).button("\u8F6C\u8D26", () => this.showTransferForm(player)).closeButton();
+    await Gui.showForm(player, form, "\u7ECF\u6D4E\u7CFB\u7EDF");
   }
   static async showTransferForm(player) {
-    const form = Gui.modalForm("\u8F6C\u8D26");
-    form.textField("\u76EE\u6807\u73A9\u5BB6", "\u8F93\u5165\u73A9\u5BB6\u540D\u79F0");
-    form.textField("\u91D1\u989D", "\u8F93\u5165\u8F6C\u8D26\u91D1\u989D");
-    const res = await Gui.showForm(player, form, "\u8F6C\u8D26");
-    if (res.canceled) {
+    const targetName = new ObservableString("");
+    const amountStr = new ObservableString("");
+    const form = new CustomForm7(player, "\u8F6C\u8D26").textField("\u76EE\u6807\u73A9\u5BB6", targetName, { description: "\u8F93\u5165\u73A9\u5BB6\u540D\u79F0" }).textField("\u91D1\u989D", amountStr, { description: "\u8F93\u5165\u8F6C\u8D26\u91D1\u989D" }).button("\u786E\u8BA4\u8F6C\u8D26", async () => {
+      const name = targetName.getData().trim();
+      const amount = parseInt(amountStr.getData());
+      if (!name || isNaN(amount) || amount <= 0) {
+        Msg.error("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u91D1\u989D\u3002", player);
+        return;
+      }
+      const target = player.dimension.getPlayers().find((p) => p.name === name);
+      if (!target) {
+        Msg.error(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`, player);
+        return;
+      }
+      const balance = Money.get(player);
+      if (amount > balance) {
+        Msg.error(`\u4F59\u989D\u4E0D\u8DB3\u3002\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}\uFF0C\u9700\u8981: ${amount} ${Money.UNIT}`, player);
+        return;
+      }
+      Money.add(player, -amount);
+      Money.add(target, amount);
+      Msg.success(`\u6210\u529F\u8F6C\u8D26 ${amount} ${Money.UNIT} \u7ED9 ${name}\u3002`, player);
+    }).closeButton();
+    const reason = await Gui.showForm(player, form, "\u8F6C\u8D26");
+    if (reason === "ClientClosed" || reason === "ServerClosed") {
       await this.showEconomyPanel(player);
-      return;
     }
-    const vals = res.formValues;
-    const targetName = vals[0].trim();
-    const amount = parseInt(vals[1]);
-    if (!targetName || isNaN(amount) || amount <= 0) {
-      Msg.error("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u91D1\u989D\u3002", player);
-      await this.showTransferForm(player);
-      return;
-    }
-    const target = player.dimension.getPlayers().find((p) => p.name === targetName);
-    if (!target) {
-      Msg.error(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${targetName}\u300D\u3002`, player);
-      await this.showTransferForm(player);
-      return;
-    }
-    const balance = Money.get(player);
-    if (amount > balance) {
-      Msg.error(`\u4F59\u989D\u4E0D\u8DB3\u3002\u5F53\u524D\u4F59\u989D: ${balance} ${Money.UNIT}\uFF0C\u9700\u8981: ${amount} ${Money.UNIT}`, player);
-      await this.showTransferForm(player);
-      return;
-    }
-    Money.add(player, -amount);
-    Money.add(target, amount);
-    Msg.success(`\u6210\u529F\u8F6C\u8D26 ${amount} ${Money.UNIT} \u7ED9 ${targetName}\u3002`, player);
-    await this.showEconomyPanel(player);
   }
 };
 
 // scripts/shop/ShopSystem.ts
-import { world as world21, BlockComponentTypes as BlockComponentTypes4 } from "@minecraft/server";
+import {
+  world as world21,
+  BlockComponentTypes as BlockComponentTypes4
+} from "@minecraft/server";
 
 // scripts/gui/ShopGUI.ts
+import { CustomForm as CustomForm8 } from "@minecraft/server-ui";
 var ShopGUI = class {
-  /** 打开商店主菜单 — 列出所有分类 */
   static show(player) {
     const cfg = Config.shopChest;
     const totalShops = cfg.size[0] * cfg.size[1];
-    const form = Gui.simpleForm("\u5546\u5E97", ListFormInfo(["\u9009\u62E9\u8981\u6D4F\u89C8\u7684\u5546\u54C1\u5206\u7C7B"]));
+    const form = new CustomForm8(player, "\u5546\u5E97");
+    form.label(ListFormInfo(["\u9009\u62E9\u8981\u6D4F\u89C8\u7684\u5546\u54C1\u5206\u7C7B"]));
     for (let i = 0; i < totalShops; i++) {
-      form.button(ShopSystem.getShopName(i));
+      const idx = i;
+      form.button(ShopSystem.getShopName(i), () => {
+        this.showShopCategory(player, idx);
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, "\u5546\u5E97").then((res) => {
-      if (res.canceled) return;
-      const sel = res.selection;
-      if (sel >= totalShops) return;
-      this.showShopCategory(player, sel);
-    });
+    form.closeButton();
+    Gui.showForm(player, form, "\u5546\u5E97");
   }
-  /** 显示某个商店分类的物品列表 */
   static showShopCategory(player, catIdx) {
     const items = ShopSystem.getChestItems(catIdx);
     const priceData = ShopSystem.getPriceData();
     const shopName = ShopSystem.getShopName(catIdx);
     const body = [`\u5F53\u524D\u4F59\u989D: ${Money.get(player)} ${Money.UNIT}`];
-    const form = Gui.simpleForm(shopName, ListFormInfo(body));
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    const form = new CustomForm8(player, shopName);
+    form.label(ListFormInfo(body));
+    for (let j = 0; j < items.length; j++) {
+      const item = items[j];
       if (!item) continue;
-      const buyPrice = priceData.prices[`${catIdx}:${i}`];
-      const sellPrice = priceData.sellPrices[`${catIdx}:${i}`];
+      const actualIdx = j;
+      const buyPrice = priceData.prices[`${catIdx}:${j}`];
+      const sellPrice = priceData.sellPrices[`${catIdx}:${j}`];
       const label = `${item.typeId} \xA77x${item.amount}\xA7r`;
       const prices = `${buyPrice ? `\xA7a\u4E70:${buyPrice} ${Money.UNIT}\xA7r` : ""} ${sellPrice ? `\xA76\u5356:${sellPrice} ${Money.UNIT}\xA7r` : ""}`;
       form.button(`${label}
-${prices}`);
+${prices}`, () => {
+        this.showItemDetail(player, catIdx, actualIdx);
+      });
     }
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, shopName).then((res) => {
-      if (res.canceled) return;
-      const sel = res.selection;
-      if (sel >= items.length) return;
-      let actualIdx = -1;
-      let count = 0;
-      for (let j = 0; j < items.length; j++) {
-        if (items[j]) {
-          if (count === sel) {
-            actualIdx = j;
-            break;
-          }
-          count++;
-        }
-      }
-      if (actualIdx === -1) return;
-      this.showItemDetail(player, catIdx, actualIdx);
-    });
+    form.closeButton();
+    Gui.showForm(player, form, shopName);
   }
-  /** 显示某个物品的购买/回收操作界面 */
   static showItemDetail(player, catIdx, slotIdx) {
     const items = ShopSystem.getChestItems(catIdx);
     const item = items[slotIdx];
@@ -5577,23 +5686,21 @@ ${prices}`);
     if (buyPrice) bodyParts.push(`\xA7a\u8D2D\u4E70\u4EF7: ${buyPrice} ${Money.UNIT}/\u4E2A`);
     if (sellPrice) bodyParts.push(`\xA76\u56DE\u6536\u4EF7: ${sellPrice} ${Money.UNIT}/\u4E2A`);
     bodyParts.push(`\xA77\u5F53\u524D\u4F59\u989D: ${Money.get(player)} ${Money.UNIT}`);
-    const form = Gui.simpleForm(title, bodyParts.join("\n"));
-    if (buyPrice) form.button(`\xA7a\u8D2D\u4E70 \xA77(${buyPrice} ${Money.UNIT}/\u4E2A)`);
-    if (sellPrice) form.button(`\xA76\u56DE\u6536 \xA77(${sellPrice} ${Money.UNIT}/\u4E2A)`);
-    form.button("\xA7l\u8FD4\u56DE");
-    Gui.showForm(player, form, title).then((res) => {
-      if (res.canceled) return;
-      const sel = res.selection;
-      const hasBuy = !!buyPrice;
-      const hasSell = !!sellPrice;
-      let action = null;
-      if (hasBuy && sel === 0) action = "buy";
-      else if (hasSell && (hasBuy ? sel === 1 : sel === 0)) action = "sell";
-      if (!action) return;
-      this.showQuantityInput(player, catIdx, slotIdx, item, action);
-    });
+    const form = new CustomForm8(player, title);
+    form.label(bodyParts.join("\n"));
+    if (buyPrice) {
+      form.button(`\xA7a\u8D2D\u4E70 \xA77(${buyPrice} ${Money.UNIT}/\u4E2A)`, () => {
+        this.showQuantityInput(player, catIdx, slotIdx, item, "buy");
+      });
+    }
+    if (sellPrice) {
+      form.button(`\xA76\u56DE\u6536 \xA77(${sellPrice} ${Money.UNIT}/\u4E2A)`, () => {
+        this.showQuantityInput(player, catIdx, slotIdx, item, "sell");
+      });
+    }
+    form.closeButton();
+    Gui.showForm(player, form, title);
   }
-  /** 弹出数量输入框 */
   static showQuantityInput(player, catIdx, slotIdx, item, action) {
     const priceData = ShopSystem.getPriceData();
     const buyPrice = priceData.prices[`${catIdx}:${slotIdx}`];
@@ -5604,17 +5711,14 @@ ${prices}`);
     const shopItems = ShopSystem.getChestItems(catIdx);
     const shopItem = shopItems[slotIdx];
     const buyMax = shopItem ? shopItem.amount : 0;
-    const form = Gui.modalForm(`\xA7l${label} ${item.typeId}`);
-    form.textField(
-      `\xA77\u5355\u4EF7: ${unitPrice} ${Money.UNIT}/\u4E2A
+    const amountObs = new ObservableString("");
+    const form = new CustomForm8(player, `\xA7l${label} ${item.typeId}`);
+    form.label(`\xA77\u5355\u4EF7: ${unitPrice} ${Money.UNIT}/\u4E2A
 \xA77\u5E93\u5B58: ${action === "buy" ? buyMax : "\u4E0D\u9650"}
-\xA77\u8F93\u5165${label}\u6570\u91CF\uFF1A`,
-      `\u8F93\u5165\u6570\u91CF (1-${action === "buy" ? buyMax : 64})`
-    );
-    form.submitButton(`\u786E\u8BA4${label}`);
-    Gui.showForm(player, form, `${label} ${item.typeId}`).then((res) => {
-      if (res.canceled) return;
-      const amountStr = res.formValues[0];
+\xA77\u8F93\u5165${label}\u6570\u91CF\uFF1A`);
+    form.textField(`\u8F93\u5165\u6570\u91CF (1-${action === "buy" ? buyMax : 64})`, amountObs);
+    form.button(`\u786E\u8BA4${label}`, () => {
+      const amountStr = amountObs.getData();
       const amount = parseInt(amountStr);
       if (isNaN(amount) || amount <= 0) {
         Msg.error("\u65E0\u6548\u7684\u6570\u91CF\u3002", player);
@@ -5649,22 +5753,25 @@ ${prices}`);
         ShopSystem.sell(player, catIdx, slotIdx, item.typeId, amount);
       }
     });
+    form.closeButton();
+    Gui.showForm(player, form, `${label} ${item.typeId}`);
   }
 };
 
 // scripts/shop/ShopSystem.ts
-var KEY_PRICES = "shop:prices";
-var KEY_STOCKS = "shop:stocks";
-var ShopSystem = class _ShopSystem {
-  static getInstance() {
-    if (!_ShopSystem._instance) _ShopSystem._instance = new _ShopSystem();
-    return _ShopSystem._instance;
-  }
-  init() {
-    Permission.register("shop.use", Permission.Any);
+var ShopSystem = class {
+  static registerCommand() {
+    Command.register(
+      "shop",
+      "shop.use",
+      (player) => {
+        if (player) this.showShop(player);
+      },
+      "\u5546\u5E97"
+    );
   }
   /** 委托给 ShopGUI 打开商店主菜单 */
-  showShop(player) {
+  static showShop(player) {
     ShopGUI.show(player);
   }
   // ── 布局工具 ──
@@ -5697,7 +5804,12 @@ var ShopSystem = class _ShopSystem {
     const { left } = this.getChestLayout(catIdx);
     const block = dim.getBlock(left);
     if (!block) return [];
-    ensureDoubleChest(dim, left, getChestCardinal(Config.shopChest.direction, Config.shopChest.face), Config.shopChest.direction);
+    ensureDoubleChest(
+      dim,
+      left,
+      getChestCardinal(Config.shopChest.direction, Config.shopChest.face),
+      Config.shopChest.direction
+    );
     const invComp = block.getComponent(BlockComponentTypes4.Inventory);
     if (!invComp?.container) return [];
     const items = [];
@@ -5708,9 +5820,15 @@ var ShopSystem = class _ShopSystem {
   }
   // ── 价格管理 ──
   static getPriceData() {
+    let pricesData = world21.getDynamicProperty("hpbe:shop_prices");
+    let prices = {};
+    if (typeof pricesData === "string") prices = JSON.parse(pricesData);
+    let stocksData = world21.getDynamicProperty("hpbe:shop_stocks");
+    let sellPrices = {};
+    if (typeof stocksData === "string") sellPrices = JSON.parse(stocksData);
     return {
-      prices: Storage.get(KEY_PRICES, {}),
-      sellPrices: Storage.get(KEY_STOCKS, {})
+      prices,
+      sellPrices
     };
   }
   static setPrice(catIdx, slotIdx, buyPrice, sellPrice) {
@@ -5720,8 +5838,8 @@ var ShopSystem = class _ShopSystem {
     else delete data2.prices[key];
     if (sellPrice > 0) data2.sellPrices[key] = sellPrice;
     else delete data2.sellPrices[key];
-    Storage.set(KEY_PRICES, data2.prices);
-    Storage.set(KEY_STOCKS, data2.sellPrices);
+    world21.setDynamicProperty("hpbe:shop_prices", JSON.stringify(data2.prices));
+    world21.setDynamicProperty("hpbe:shop_stocks", JSON.stringify(data2.sellPrices));
   }
   // ── 购买 ──
   static buy(player, catIdx, slotIdx, amount) {
@@ -5734,7 +5852,12 @@ var ShopSystem = class _ShopSystem {
     }
     const dim = world21.getDimension("minecraft:overworld");
     const { left } = this.getChestLayout(catIdx);
-    ensureDoubleChest(dim, left, getChestCardinal(Config.shopChest.direction, Config.shopChest.face), Config.shopChest.direction);
+    ensureDoubleChest(
+      dim,
+      left,
+      getChestCardinal(Config.shopChest.direction, Config.shopChest.face),
+      Config.shopChest.direction
+    );
     const block = dim.getBlock(left);
     if (!block) return false;
     const invComp = block.getComponent(BlockComponentTypes4.Inventory);
@@ -5833,93 +5956,59 @@ var ShopSystem = class _ShopSystem {
   }
 };
 
-// scripts/backup/ScoreboardSync.ts
-import { world as world22, system as system15, ScoreboardIdentityType } from "@minecraft/server";
-var AUTO_SYNC_INTERVAL = 3e5;
-var ScoreboardSync = class {
-  static {
-    this.initialized = false;
+// scripts/data/Scoreboards.ts
+import { world as world22 } from "@minecraft/server";
+
+// scripts/api/ScoreboardsSyncApi.ts
+async function backupScoreboards(entries) {
+  return HttpDB.post("/api/sfmc/scoreboards", { entries });
+}
+async function loadScoreboards(filter) {
+  const qs = toQueryString({
+    objective: filter?.objective,
+    name: filter?.name,
+    id: filter?.id
+  });
+  const body = await HttpDB.get(`/api/sfmc/scoreboards${qs}`);
+  if (!body) return null;
+  try {
+    return JSON.parse(body).entries;
+  } catch {
+    return null;
   }
-  /** 初始化：注册权限、命令、定时同步 */
-  static init() {
-    if (this.initialized) return;
-    this.initialized = true;
-    Permission.register("scoreboard.sync", Permission.OP);
-    Permission.register("scoreboard.load", Permission.OP);
-    Command.register(
-      "sbs",
-      "scoreboard.sync",
-      (player) => {
-        if (!player) return;
-        this.sync().then(() => {
-          Msg.success("\u8BA1\u5206\u677F\u5DF2\u540C\u6B65\u5230\u6570\u636E\u5E93", player);
-        });
-      },
-      "\u540C\u6B65\u8BA1\u5206\u677F\u5230\u6570\u636E\u5E93"
-    );
-    Command.register(
-      "sbs_load",
-      "scoreboard.load",
-      (player) => {
-        if (!player) return;
-        this.load().then((result) => {
-          Msg.success(`\u8BA1\u5206\u677F\u6062\u590D\u5B8C\u6210\uFF1A\u6210\u529F ${result.success}\uFF0C\u5931\u8D25 ${result.fail}`, player);
-        });
-      },
-      "\u4ECE\u6570\u636E\u5E93\u6062\u590D\u8BA1\u5206\u677F"
-    );
-    system15.runInterval(() => {
-      this.sync();
-    }, AUTO_SYNC_INTERVAL / 50);
-    console.info("[ScoreboardSync] \u5DF2\u521D\u59CB\u5316\uFF0C\u81EA\u52A8\u540C\u6B65\u95F4\u9694 5 \u5206\u949F");
-  }
-  /** 同步：游戏 → db-server */
-  static async sync() {
-    try {
-      const entries = [];
-      for (const obj of world22.scoreboard.getObjectives()) {
-        const scores = obj.getScores();
-        for (const info of scores) {
-          const identity = info.participant;
-          let id = "";
-          if (identity.type === ScoreboardIdentityType.Player) {
-            try {
-              const entity = identity.getEntity();
-              if (entity && "id" in entity) {
-                id = entity.id || "";
-              }
-            } catch {
-            }
-          }
-          entries.push({
-            objectiveId: obj.id,
-            objectiveDisplay: obj.displayName,
-            participantId: identity.id,
-            participantType: identity.type,
-            participantName: identity.displayName,
-            id,
-            score: info.score
-          });
-        }
-      }
-      if (entries.length === 0) {
-        console.warn("[ScoreboardSync] \u8BA1\u5206\u677F\u65E0\u6570\u636E\uFF0C\u8DF3\u8FC7\u540C\u6B65");
-        return;
-      }
-      const ok = await HttpDB.syncScoreboards(entries);
-      if (ok) {
-        console.info(`[ScoreboardSync] \u540C\u6B65\u5B8C\u6210\uFF1A${entries.length} \u6761\u6570\u636E`);
-      } else {
-        console.warn("[ScoreboardSync] \u540C\u6B65\u5931\u8D25\uFF1Adb-server \u4E0D\u53EF\u7528");
-      }
-    } catch (err) {
-      console.error(`[ScoreboardSync] \u540C\u6B65\u51FA\u9519\uFF1A${err}`);
+}
+
+// scripts/data/Scoreboards.ts
+function ScoreboardsBackup() {
+  let entries = [];
+  world22.scoreboard.getObjectives().forEach((obj, index) => {
+    const scores = obj.getScores();
+    entries.push({
+      id: obj.id,
+      displayName: obj.displayName,
+      participants: []
+    });
+    for (const info of scores) {
+      const identity = info.participant;
+      entries[index].participants?.push({
+        id: identity.id,
+        type: identity.type,
+        name: identity.displayName,
+        score: info.score
+      });
     }
+  });
+  backupScoreboards(entries);
+}
+var ScoreboardSync = class {
+  static init() {
+    ScoreboardsBackup();
+    console.info("[ScoreboardSync] \u8BA1\u5206\u677F\u540C\u6B65\u5DF2\u521D\u59CB\u5316");
   }
   /** 恢复：db-server → 游戏 */
   static async load() {
     try {
-      const entries = await HttpDB.loadScoreboards();
+      const entries = await loadScoreboards();
       if (!entries || entries.length === 0) {
         console.info("[ScoreboardSync] \u6570\u636E\u5E93\u65E0\u8BA1\u5206\u677F\u6570\u636E");
         return { success: 0, fail: 0 };
@@ -5969,8 +6058,8 @@ var ScoreboardSync = class {
   }
 };
 
-// scripts/doge/ActivityLog.ts
-import { world as world23, system as system16 } from "@minecraft/server";
+// scripts/data/ActivityLog.ts
+import { world as world23, system as system15 } from "@minecraft/server";
 var ENABLED_EVENTS = /* @__PURE__ */ new Set([
   "player.join",
   "player.leave",
@@ -5992,7 +6081,7 @@ var ENABLED_EVENTS = /* @__PURE__ */ new Set([
   "container.close",
   "world.explosion"
 ]);
-var FLUSH_INTERVAL2 = 2e3;
+var FLUSH_INTERVAL = 2e3;
 var CLEANUP_INTERVAL = 6 * 36e5;
 var KEEP_DAYS = 30;
 var queue = [];
@@ -6001,7 +6090,7 @@ var initialized = false;
 function enqueue(entry) {
   queue.push(entry);
   if (!flushTimer) {
-    flushTimer = system16.runTimeout(flush, FLUSH_INTERVAL2 / 50);
+    flushTimer = system15.runTimeout(flush, FLUSH_INTERVAL / 50);
   }
 }
 async function flush() {
@@ -6010,7 +6099,7 @@ async function flush() {
   const batch = queue;
   queue = [];
   try {
-    await HttpDB.batchActivities(batch);
+    await HttpDB.post("/api/sfmc/activities/batch", { entries: batch });
   } catch {
   }
 }
@@ -6071,12 +6160,18 @@ function getTargetPlayerName(entity) {
   }
 }
 function subscribe() {
-  world23.afterEvents.playerSpawn.subscribe((event) => {
+  function safeSubscribe(signal, cb) {
+    if (signal && typeof signal.subscribe === "function") {
+      signal.subscribe(cb);
+    }
+  }
+  const AE = world23.afterEvents;
+  safeSubscribe(AE.playerSpawn, (event) => {
     if (!event.initialSpawn) return;
     if (!ENABLED_EVENTS.has("player.join")) return;
     enqueue(playerEntry(event.player, "player.join"));
   });
-  world23.afterEvents.playerLeave.subscribe((event) => {
+  safeSubscribe(AE.playerLeave, (event) => {
     if (!ENABLED_EVENTS.has("player.leave")) return;
     enqueue({
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -6098,74 +6193,84 @@ function subscribe() {
       detail: { playerId: event.playerId }
     });
   });
-  world23.afterEvents.playerSpawn.subscribe((event) => {
+  safeSubscribe(AE.playerSpawn, (event) => {
     if (event.initialSpawn) return;
     if (!ENABLED_EVENTS.has("player.spawn")) return;
     enqueue(playerEntry(event.player, "player.spawn"));
   });
-  world23.afterEvents.playerDimensionChange.subscribe((event) => {
+  safeSubscribe(AE.playerDimensionChange, (event) => {
     if (!ENABLED_EVENTS.has("player.dimension")) return;
     const [fx, fy, fz] = loc(event.fromLocation);
     const [tx, ty, tz] = loc(event.toLocation);
-    enqueue(playerEntry(event.player, "player.dimension", {
-      targetX: tx,
-      targetY: ty,
-      targetZ: tz,
-      detail: {
-        from: event.fromDimension.id.replace("minecraft:", ""),
-        to: event.toDimension.id.replace("minecraft:", ""),
-        fromLoc: { x: fx, y: fy, z: fz },
-        toLoc: { x: tx, y: ty, z: tz }
-      }
-    }));
+    enqueue(
+      playerEntry(event.player, "player.dimension", {
+        targetX: tx,
+        targetY: ty,
+        targetZ: tz,
+        detail: {
+          from: event.fromDimension.id.replace("minecraft:", ""),
+          to: event.toDimension.id.replace("minecraft:", ""),
+          fromLoc: { x: fx, y: fy, z: fz },
+          toLoc: { x: tx, y: ty, z: tz }
+        }
+      })
+    );
   });
-  world23.afterEvents.playerGameModeChange.subscribe((event) => {
+  safeSubscribe(AE.playerGameModeChange, (event) => {
     if (!ENABLED_EVENTS.has("player.gamemode")) return;
-    enqueue(playerEntry(event.player, "player.gamemode", {
-      detail: {
-        from: event.fromGameMode,
-        to: event.toGameMode
-      }
-    }));
+    enqueue(
+      playerEntry(event.player, "player.gamemode", {
+        detail: {
+          from: event.fromGameMode,
+          to: event.toGameMode
+        }
+      })
+    );
   });
-  world23.afterEvents.chatSend.subscribe((event) => {
+  safeSubscribe(AE.chatSend, (event) => {
     if (!ENABLED_EVENTS.has("player.chat")) return;
     const targets = event.targets?.map((p) => p.name) || [];
-    enqueue(playerEntry(event.sender, "player.chat", {
-      detail: {
-        message: event.message,
-        targets: targets.length > 0 ? targets : void 0
-      }
-    }));
+    enqueue(
+      playerEntry(event.sender, "player.chat", {
+        detail: {
+          message: event.message,
+          targets: targets.length > 0 ? targets : void 0
+        }
+      })
+    );
   });
-  world23.afterEvents.playerBreakBlock.subscribe((event) => {
+  safeSubscribe(AE.playerBreakBlock, (event) => {
     if (!ENABLED_EVENTS.has("block.break")) return;
     const [bx, by, bz] = loc(event.block.location);
-    enqueue(playerEntry(event.player, "block.break", {
-      targetType: "block",
-      targetName: event.brokenBlockPermutation.type.id,
-      targetX: bx,
-      targetY: by,
-      targetZ: bz,
-      detail: {
-        itemBefore: event.itemStackBeforeBreak?.type?.id || null,
-        itemAfter: event.itemStackAfterBreak?.type?.id || null
-      }
-    }));
+    enqueue(
+      playerEntry(event.player, "block.break", {
+        targetType: "block",
+        targetName: event.brokenBlockPermutation.type.id,
+        targetX: bx,
+        targetY: by,
+        targetZ: bz,
+        detail: {
+          itemBefore: event.itemStackBeforeBreak?.type?.id || null,
+          itemAfter: event.itemStackAfterBreak?.type?.id || null
+        }
+      })
+    );
   });
-  world23.afterEvents.playerPlaceBlock.subscribe((event) => {
+  safeSubscribe(AE.playerPlaceBlock, (event) => {
     if (!ENABLED_EVENTS.has("block.place")) return;
     const [bx, by, bz] = loc(event.block.location);
-    enqueue(playerEntry(event.player, "block.place", {
-      targetType: "block",
-      targetName: event.block.typeId,
-      targetX: bx,
-      targetY: by,
-      targetZ: bz,
-      detail: {}
-    }));
+    enqueue(
+      playerEntry(event.player, "block.place", {
+        targetType: "block",
+        targetName: event.block.typeId,
+        targetX: bx,
+        targetY: by,
+        targetZ: bz,
+        detail: {}
+      })
+    );
   });
-  world23.afterEvents.entityDie.subscribe((event) => {
+  safeSubscribe(AE.entityDie, (event) => {
     if (!ENABLED_EVENTS.has("entity.death")) return;
     const dead = event.deadEntity;
     const [dx, dy, dz] = loc(dead.location);
@@ -6178,15 +6283,17 @@ function subscribe() {
     if (killer && killer.typeId === "minecraft:player") {
       const player = killer;
       const proj = ds.damagingProjectile;
-      enqueue(playerEntry(player, "entity.death", {
-        targetType,
-        targetid,
-        targetName,
-        targetX: dx,
-        targetY: dy,
-        targetZ: dz,
-        detail: { cause, projectile: proj?.typeId || null }
-      }));
+      enqueue(
+        playerEntry(player, "entity.death", {
+          targetType,
+          targetid,
+          targetName,
+          targetX: dx,
+          targetY: dy,
+          targetZ: dz,
+          detail: { cause, projectile: proj?.typeId || null }
+        })
+      );
     } else {
       enqueue({
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -6209,21 +6316,23 @@ function subscribe() {
       });
     }
   });
-  world23.afterEvents.entityHitEntity.subscribe((event) => {
+  safeSubscribe(AE.entityHitEntity, (event) => {
     if (!ENABLED_EVENTS.has("entity.hit")) return;
     const attacker = event.damagingEntity;
     const victim = event.hitEntity;
     const [ax, ay, az] = loc(attacker.location);
     const [vx, vy, vz] = loc(victim.location);
     if (attacker.typeId === "minecraft:player") {
-      enqueue(playerEntry(attacker, "entity.hit", {
-        targetType: victim.typeId === "minecraft:player" ? "player" : "entity",
-        targetid: getTargetPlayerId(victim),
-        targetName: getTargetPlayerName(victim),
-        targetX: vx,
-        targetY: vy,
-        targetZ: vz
-      }));
+      enqueue(
+        playerEntry(attacker, "entity.hit", {
+          targetType: victim.typeId === "minecraft:player" ? "player" : "entity",
+          targetid: getTargetPlayerId(victim),
+          targetName: getTargetPlayerName(victim),
+          targetX: vx,
+          targetY: vy,
+          targetZ: vz
+        })
+      );
     }
     if (victim.typeId === "minecraft:player" && attacker.typeId !== "minecraft:player") {
       enqueue({
@@ -6247,53 +6356,59 @@ function subscribe() {
       });
     }
   });
-  world23.afterEvents.entityHurt.subscribe((event) => {
+  safeSubscribe(AE.entityHurt, (event) => {
     if (!ENABLED_EVENTS.has("entity.hurt")) return;
     const hurt = event.hurtEntity;
     const ds = event.damageSource;
     if (hurt.typeId !== "minecraft:player") return;
     const player = hurt;
-    enqueue(playerEntry(player, "entity.hurt", {
-      detail: {
-        damage: event.damage,
-        cause: ds.cause,
-        damager: ds.damagingEntity?.typeId || null,
-        projectile: ds.damagingProjectile?.typeId || null
-      }
-    }));
+    enqueue(
+      playerEntry(player, "entity.hurt", {
+        detail: {
+          damage: event.damage,
+          cause: ds.cause,
+          damager: ds.damagingEntity?.typeId || null,
+          projectile: ds.damagingProjectile?.typeId || null
+        }
+      })
+    );
   });
-  world23.afterEvents.playerInteractWithEntity.subscribe((event) => {
+  safeSubscribe(AE.playerInteractWithEntity, (event) => {
     if (!ENABLED_EVENTS.has("entity.interact")) return;
     const target = event.target;
     const [tx, ty, tz] = loc(target.location);
-    enqueue(playerEntry(event.player, "entity.interact", {
-      targetType: target.typeId === "minecraft:player" ? "player" : "entity",
-      targetid: getTargetPlayerId(target),
-      targetName: getTargetPlayerName(target),
-      targetX: tx,
-      targetY: ty,
-      targetZ: tz,
-      detail: {
-        item: event.itemStack?.type?.id || null,
-        itemBefore: event.beforeItemStack?.type?.id || null
-      }
-    }));
+    enqueue(
+      playerEntry(event.player, "entity.interact", {
+        targetType: target.typeId === "minecraft:player" ? "player" : "entity",
+        targetid: getTargetPlayerId(target),
+        targetName: getTargetPlayerName(target),
+        targetX: tx,
+        targetY: ty,
+        targetZ: tz,
+        detail: {
+          item: event.itemStack?.type?.id || null,
+          itemBefore: event.beforeItemStack?.type?.id || null
+        }
+      })
+    );
   });
-  world23.afterEvents.entityTamed.subscribe((event) => {
+  safeSubscribe(AE.entityTamed, (event) => {
     if (!ENABLED_EVENTS.has("entity.tame")) return;
     const tamer = event.tamingEntity;
     if (!tamer || tamer.typeId !== "minecraft:player") return;
     const target = event.entity;
     const [tx, ty, tz] = loc(target.location);
-    enqueue(playerEntry(tamer, "entity.tame", {
-      targetType: "entity",
-      targetName: target.typeId,
-      targetX: tx,
-      targetY: ty,
-      targetZ: tz
-    }));
+    enqueue(
+      playerEntry(tamer, "entity.tame", {
+        targetType: "entity",
+        targetName: target.typeId,
+        targetX: tx,
+        targetY: ty,
+        targetZ: tz
+      })
+    );
   });
-  world23.afterEvents.entitySpawn.subscribe((event) => {
+  safeSubscribe(AE.entitySpawn, (event) => {
     if (!ENABLED_EVENTS.has("entity.spawn")) return;
     const e = event.entity;
     if (e.typeId === "minecraft:player") return;
@@ -6318,18 +6433,18 @@ function subscribe() {
       detail: { cause: event.cause }
     });
   });
-  world23.afterEvents.entityItemDrop.subscribe((event) => {
+  safeSubscribe(AE.entityItemDrop, (event) => {
     if (!ENABLED_EVENTS.has("item.drop")) return;
     const e = event.entity;
     const [ex, ey, ez] = loc(e.location);
     if (e.typeId === "minecraft:player") {
-      enqueue(playerEntry(e, "item.drop", {
-        detail: {
-          items: event.items.map(
-            (item) => typeof item === "string" ? item : item?.typeId
-          ).filter(Boolean)
-        }
-      }));
+      enqueue(
+        playerEntry(e, "item.drop", {
+          detail: {
+            items: event.items.map((item) => item.typeId).filter(Boolean)
+          }
+        })
+      );
     } else {
       enqueue({
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -6349,52 +6464,56 @@ function subscribe() {
         targetY: null,
         targetZ: null,
         detail: {
-          items: event.items.map(
-            (item) => typeof item === "string" ? item : item?.typeId
-          ).filter(Boolean)
+          items: event.items.map((item) => item.typeId).filter(Boolean)
         }
       });
     }
   });
-  world23.afterEvents.entityItemPickup.subscribe((event) => {
+  safeSubscribe(AE.entityItemPickup, (event) => {
     if (!ENABLED_EVENTS.has("item.pickup")) return;
     const e = event.entity;
     const [ex, ey, ez] = loc(e.location);
     if (e.typeId === "minecraft:player") {
-      enqueue(playerEntry(e, "item.pickup", {
-        detail: {
-          items: event.items.map((item) => item.type.id)
-        }
-      }));
+      enqueue(
+        playerEntry(e, "item.pickup", {
+          detail: {
+            items: event.items.map((item) => item.type.id)
+          }
+        })
+      );
     }
   });
-  world23.afterEvents.blockContainerOpened.subscribe((event) => {
+  safeSubscribe(AE.blockContainerOpened, (event) => {
     if (!ENABLED_EVENTS.has("container.open")) return;
     const source = event.openSource.entity;
     if (!source || source.typeId !== "minecraft:player") return;
     const [bx, by, bz] = loc(event.block.location);
-    enqueue(playerEntry(source, "container.open", {
-      targetType: "block",
-      targetName: event.block.typeId,
-      targetX: bx,
-      targetY: by,
-      targetZ: bz
-    }));
+    enqueue(
+      playerEntry(source, "container.open", {
+        targetType: "block",
+        targetName: event.block.typeId,
+        targetX: bx,
+        targetY: by,
+        targetZ: bz
+      })
+    );
   });
-  world23.afterEvents.blockContainerClosed.subscribe((event) => {
+  safeSubscribe(AE.blockContainerClosed, (event) => {
     if (!ENABLED_EVENTS.has("container.close")) return;
     const source = event.closeSource.entity;
     if (!source || source.typeId !== "minecraft:player") return;
     const [bx, by, bz] = loc(event.block.location);
-    enqueue(playerEntry(source, "container.close", {
-      targetType: "block",
-      targetName: event.block.typeId,
-      targetX: bx,
-      targetY: by,
-      targetZ: bz
-    }));
+    enqueue(
+      playerEntry(source, "container.close", {
+        targetType: "block",
+        targetName: event.block.typeId,
+        targetX: bx,
+        targetY: by,
+        targetZ: bz
+      })
+    );
   });
-  world23.afterEvents.explosion.subscribe((event) => {
+  safeSubscribe(AE.explosion, (event) => {
     if (!ENABLED_EVENTS.has("world.explosion")) return;
     const source = event.source;
     const dimension = event.dimension.id.replace("minecraft:", "");
@@ -6422,21 +6541,932 @@ function subscribe() {
 }
 async function doCleanup() {
   try {
-    await HttpDB.cleanupActivities(KEEP_DAYS, true);
+    await HttpDB.post("/api/sfmc/activities/cleanup", { keepDays: KEEP_DAYS, keepAdmin: true });
   } catch {
   }
 }
 var ActivityLog = class {
+  /** 注册事件（由 entry.ts 统一调用） */
+  static registerEvents() {
+    subscribe();
+  }
   static init() {
     if (initialized) return;
     initialized = true;
-    subscribe();
     console.info("[ActivityLog] \u4E8B\u4EF6\u8BA2\u9605\u5B8C\u6210");
-    system16.runInterval(flush, FLUSH_INTERVAL2 / 50);
-    system16.runTimeout(() => {
+    system15.runInterval(flush, FLUSH_INTERVAL / 50);
+    system15.runTimeout(() => {
       doCleanup();
-      system16.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
+      system15.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
     }, 72e3 / 50);
+  }
+};
+
+// scripts/data/World.ts
+import { world as world24 } from "@minecraft/server";
+
+// scripts/api/WorldDataApi.ts
+async function saveWorldData(data2) {
+  return HttpDB.post("/api/sfmc/world", { data: data2 });
+}
+
+// scripts/data/World.ts
+function serializeGameRules() {
+  const g = world24.gameRules;
+  const rules = {};
+  const props = [
+    "commandBlockOutput",
+    "doDayLightCycle",
+    "doEntityDrops",
+    "doFireTick",
+    "doImmediateRespawn",
+    "doInsomnia",
+    "doLimitedCrafting",
+    "doMobLoot",
+    "doMobSpawning",
+    "doTileDrops",
+    "doWeatherCycle",
+    "drowningDamage",
+    "fallDamage",
+    "fireDamage",
+    "freezeDamage",
+    "functionCommandLimit",
+    "keepInventory",
+    "maxCommandChainLength",
+    "mobGriefing",
+    "naturalRegeneration",
+    "randomTickSpeed",
+    "sendCommandFeedback",
+    "showBorderEffect",
+    "showCoordinates",
+    "showDeathMessage",
+    "showRecipeMessages",
+    "showTags",
+    "spawnRadius",
+    "tntExplodes"
+  ];
+  for (const key of props) {
+    try {
+      rules[key] = g[key];
+    } catch {
+    }
+  }
+  return JSON.stringify(rules);
+}
+async function getWorldData() {
+  const data2 = {
+    allowCheats: world24.allowCheats,
+    gameRules: serializeGameRules(),
+    seed: world24.seed,
+    defaultSpawnLocation: JSON.stringify(world24.getDefaultSpawnLocation()),
+    difficulty: world24.getDifficulty(),
+    day: world24.getDay(),
+    tickingAreasCount: world24.tickingAreaManager.chunkCount,
+    absoluteTime: world24.getAbsoluteTime(),
+    structuresFromAddon: world24.structureManager.getPackStructureIds().toString(),
+    structuresFromWorld: world24.structureManager.getWorldStructureIds().toString(),
+    MoonPhase: world24.getMoonPhase(),
+    dynamicPropertyTotalByteCount: world24.getDynamicPropertyTotalByteCount(),
+    updatedAt: getShanghaiTime().date + getShanghaiTime().time
+  };
+  return data2;
+}
+async function syncWorldData() {
+  const data2 = await getWorldData();
+  saveWorldData(data2);
+}
+
+// scripts/api/PlayersDataApi.ts
+var PATH_PLAYERS = "/api/sfmc/players";
+async function savePlayers(players) {
+  return HttpDB.post(PATH_PLAYERS, { players });
+}
+
+// scripts/data/Player.ts
+async function getPlayerData(player) {
+  const data2 = {
+    id: player.id,
+    name: player.name,
+    clientSystemInfoLocal: player.clientSystemInfo?.locale,
+    clientSystemInfoMaxRenderDistance: player.clientSystemInfo?.maxRenderDistance,
+    clientSystemInfoMemoryTierLevel: player.clientSystemInfo?.memoryTier,
+    clientSystemInfoPlatformType: player.clientSystemInfo?.platformType,
+    graphicsMode: player.graphicsMode,
+    dynamicPropertyTotalByteCount: player.getDynamicPropertyTotalByteCount(),
+    ping: player.getPing(),
+    level: player.level,
+    spawnPoint: JSON.stringify(player.getSpawnPoint()),
+    tags: player.getTags().toString(),
+    totalXp: player.getTotalXp(),
+    updatedAt: formatTimestamp(Date.now())
+  };
+  return data2;
+}
+
+// scripts/holo/HoloEntity.ts
+import { world as world25, Player as Player23 } from "@minecraft/server";
+var HOLOGRAM_ENTITY_ID = "sfmc:hologram";
+var DP_PROJECTION_ID = "hpbe_projection_id";
+var DP_OWNER_ID = "hpbe_owner_id";
+var DP_SCALE = "hpbe_scale";
+var DP_OPACITY = "hpbe_opacity";
+var DP_ROTATION = "hpbe_rotation";
+var DP_VISIBLE = "hpbe_visible";
+var DP_LAYER = "hpbe_layer";
+var DP_OFFSET_X = "hpbe_offset_x";
+var DP_OFFSET_Y = "hpbe_offset_y";
+var DP_OFFSET_Z = "hpbe_offset_z";
+var HoloEntity = class {
+  static {
+    /** projectionId → ActiveHologram */
+    this.activeHolograms = /* @__PURE__ */ new Map();
+  }
+  // ──────── 公开方法 ────────
+  /**
+   * 在世界中生成全息实体
+   * @param player    所属玩家
+   * @param projectionId  投影 ID
+   * @param location  生成位置
+   * @returns 生成的 Entity，失败返回 null
+   */
+  static spawnProjection(player, projectionId, location) {
+    try {
+      const dimension = player.dimension;
+      const entity = dimension.spawnEntity(HOLOGRAM_ENTITY_ID, location);
+      entity.setDynamicProperty(DP_PROJECTION_ID, projectionId);
+      entity.setDynamicProperty(DP_OWNER_ID, player.id);
+      this.activeHolograms.set(projectionId, {
+        entity,
+        projectionId,
+        ownerId: player.id
+      });
+      console.info(`[HoloEntity] \u5DF2\u751F\u6210\u6295\u5F71 ${projectionId} \u4E8E ${location.x},${location.y},${location.z}`);
+      return entity;
+    } catch (err) {
+      console.error(`[HoloEntity] \u751F\u6210\u6295\u5F71\u5931\u8D25 ${projectionId}: ${err}`);
+      return null;
+    }
+  }
+  /**
+   * 移除指定投影实体
+   * @param projectionId  投影 ID
+   * @returns 是否成功移除
+   */
+  static removeProjection(projectionId) {
+    const entry = this.activeHolograms.get(projectionId);
+    if (!entry) {
+      console.warn(`[HoloEntity] \u6295\u5F71 ${projectionId} \u4E0D\u5B58\u5728\u4E8E\u6D3B\u8DC3\u6620\u5C04\u4E2D`);
+      return false;
+    }
+    try {
+      entry.entity.remove();
+      this.activeHolograms.delete(projectionId);
+      console.info(`[HoloEntity] \u5DF2\u79FB\u9664\u6295\u5F71 ${projectionId}`);
+      return true;
+    } catch (err) {
+      console.error(`[HoloEntity] \u79FB\u9664\u6295\u5F71\u5931\u8D25 ${projectionId}: ${err}`);
+      this.activeHolograms.delete(projectionId);
+      return false;
+    }
+  }
+  /**
+   * 更新实体属性（透明度、比例等）
+   *
+   * 实体的几何体由资源包渲染控制器驱动，此处仅更新动态属性，
+   * 渲染控制器通过 Molang 查询这些属性来调节视觉效果。
+   *
+   * @param projectionId  投影 ID
+   * @param settings      要更新的设置字段
+   * @returns 是否成功更新
+   */
+  static updateProjection(projectionId, settings) {
+    const entry = this.activeHolograms.get(projectionId);
+    if (!entry) {
+      console.warn(`[HoloEntity] \u6295\u5F71 ${projectionId} \u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u66F4\u65B0`);
+      return false;
+    }
+    try {
+      const entity = entry.entity;
+      if (settings.scale !== void 0) entity.setDynamicProperty(DP_SCALE, settings.scale);
+      if (settings.opacity !== void 0) entity.setDynamicProperty(DP_OPACITY, settings.opacity);
+      if (settings.rotation !== void 0) entity.setDynamicProperty(DP_ROTATION, settings.rotation);
+      if (settings.visible !== void 0) entity.setDynamicProperty(DP_VISIBLE, settings.visible);
+      if (settings.layer !== void 0) entity.setDynamicProperty(DP_LAYER, settings.layer);
+      if (settings.offsetX !== void 0) entity.setDynamicProperty(DP_OFFSET_X, settings.offsetX);
+      if (settings.offsetY !== void 0) entity.setDynamicProperty(DP_OFFSET_Y, settings.offsetY);
+      if (settings.offsetZ !== void 0) entity.setDynamicProperty(DP_OFFSET_Z, settings.offsetZ);
+      return true;
+    } catch (err) {
+      console.error(`[HoloEntity] \u66F4\u65B0\u6295\u5F71\u5931\u8D25 ${projectionId}: ${err}`);
+      return false;
+    }
+  }
+  /**
+   * 获取玩家操作的投影 ID
+   * @param entity  全息实体实例
+   * @returns 投影 ID 或 null
+   */
+  static getProjectionForEntity(entity) {
+    const projectionId = entity.getDynamicProperty(DP_PROJECTION_ID);
+    return projectionId ?? null;
+  }
+  /**
+   * 注册事件（由 entry.ts 统一调用）
+   */
+  static registerEvents() {
+    world25.afterEvents.entityHitEntity.subscribe((event) => {
+      const { damagingEntity, hitEntity } = event;
+      if (hitEntity.typeId !== HOLOGRAM_ENTITY_ID) return;
+      if (!(damagingEntity instanceof Player23)) return;
+      const projectionId = hitEntity.getDynamicProperty(DP_PROJECTION_ID);
+      if (!projectionId) return;
+      console.info(`[HoloEntity] \u73A9\u5BB6 ${damagingEntity.name} \u70B9\u51FB\u4E86\u5168\u606F\u6295\u5F71 ${projectionId}`);
+    });
+  }
+  /**
+   * 初始化所有活跃全息实体
+   *
+   * 在 worldLoad 时调用，扫描所有已存在的 sfmc:hologram 实体并重新注册
+   */
+  static init() {
+    try {
+      const dimensions = ["overworld", "nether", "the_end"];
+      let count = 0;
+      for (const dimId2 of dimensions) {
+        const dim = world25.getDimension(dimId2);
+        const entities = dim.getEntities({ type: HOLOGRAM_ENTITY_ID });
+        for (const entity of entities) {
+          const projectionId = entity.getDynamicProperty(DP_PROJECTION_ID);
+          const ownerId = entity.getDynamicProperty(DP_OWNER_ID);
+          if (projectionId && ownerId) {
+            this.activeHolograms.set(projectionId, { entity, projectionId, ownerId });
+            count++;
+          }
+        }
+      }
+      console.info(`[HoloEntity] \u521D\u59CB\u5316\u5B8C\u6210\uFF0C\u5DF2\u6CE8\u518C ${count} \u4E2A\u6D3B\u8DC3\u5168\u606F\u5B9E\u4F53`);
+    } catch (err) {
+      console.error(`[HoloEntity] \u521D\u59CB\u5316\u626B\u63CF\u5931\u8D25: ${err}`);
+    }
+  }
+};
+
+// scripts/holo/HoloGUI.ts
+import { CustomForm as CustomForm9 } from "@minecraft/server-ui";
+
+// scripts/holo/HoloCore.ts
+import { world as world26 } from "@minecraft/server";
+
+// scripts/data/HoloPrint.ts
+var COLOR_PRESETS = [
+  { name: "\u767D\u8272", value: "255 255 255", hex: "#FFFFFF" },
+  { name: "\u7EA2\u8272", value: "255 85 85", hex: "#FF5555" },
+  { name: "\u6A59\u8272", value: "255 170 0", hex: "#FFAA00" },
+  { name: "\u9EC4\u8272", value: "255 255 85", hex: "#FFFF55" },
+  { name: "\u7EFF\u8272", value: "85 255 85", hex: "#55FF55" },
+  { name: "\u9752\u8272", value: "85 255 255", hex: "#55FFFF" },
+  { name: "\u84DD\u8272", value: "85 85 255", hex: "#5555FF" },
+  { name: "\u7D2B\u8272", value: "170 0 170", hex: "#AA00AA" },
+  { name: "\u7C89\u8272", value: "255 85 255", hex: "#FF55FF" },
+  { name: "\u7070\u8272", value: "170 170 170", hex: "#AAAAAA" }
+];
+var DEFAULT_HOLO_SETTINGS = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  offsetZ: 0,
+  rotation: 0,
+  opacity: 1,
+  layer: 0,
+  visible: true,
+  spawnAnimation: false,
+  blockInspect: false,
+  overlayTint: "",
+  overlayTintOpacity: 0,
+  textureOutlineWidth: 0,
+  textureOutlineColor: "",
+  textureOutlineOpacity: 0,
+  layerMode: "all"
+};
+
+// scripts/api/HoloprintApi.ts
+import { http as http2, HttpRequest as HttpRequest2 } from "@minecraft/server-net";
+var BASE_URL2 = `http://${Config.dbHost}:${Config.dbPort}`;
+var TIMEOUT2 = 3;
+var HoloprintApi = class {
+  static async request(method, path, bodyData) {
+    try {
+      const req = new HttpRequest2(`${BASE_URL2}${path}`);
+      req.timeout = TIMEOUT2;
+      req.method = method;
+      if (bodyData) {
+        req.body = JSON.stringify(bodyData);
+        req.addHeader("Content-Type", "application/json");
+      }
+      const res = await http2.request(req);
+      return { status: res.status, body: res.body };
+    } catch (err) {
+      console.warn(`[HoloprintApi] ${method} ${path} \u5931\u8D25: ${err}`);
+      return { status: 0, body: "" };
+    }
+  }
+  // ---- Holoprint 投影 ----
+  static async uploadHoloStructure(projectionData, structureBase64) {
+    const { status } = await this.request("Post", "/api/hpbe/upload", {
+      projection: projectionData,
+      structure: structureBase64
+    });
+    return status === 200;
+  }
+  static async getHoloProjections(ownerId, visibility) {
+    const qs = [];
+    if (ownerId) qs.push(`owner_id=${encodeURIComponent(ownerId)}`);
+    if (visibility) qs.push(`visibility=${encodeURIComponent(visibility)}`);
+    const query = qs.length > 0 ? "?" + qs.join("&") : "";
+    const { status, body } = await this.request("Get", `/api/hpbe/projections${query}`);
+    if (status !== 200 || !body) return null;
+    try {
+      const parsed = JSON.parse(body);
+      return parsed.projections ?? null;
+    } catch {
+      return null;
+    }
+  }
+  static async getHoloProjection(id) {
+    const { status, body } = await this.request("Get", `/api/hpbe/projections/${encodeURIComponent(id)}`);
+    if (status !== 200 || !body) return null;
+    try {
+      const parsed = JSON.parse(body);
+      return parsed.projection ?? null;
+    } catch {
+      return null;
+    }
+  }
+  static async updateHoloProjection(id, settings) {
+    const { status } = await this.request("Put", `/api/hpbe/projections/${encodeURIComponent(id)}`, { settings });
+    return status === 200;
+  }
+  static async deleteHoloProjection(id) {
+    const { status } = await this.request("Delete", `/api/hpbe/projections/${encodeURIComponent(id)}`);
+    return status === 200;
+  }
+  static async getHoloPackVersion() {
+    const { status, body } = await this.request("Get", "/api/hpbe/pack-version");
+    if (status !== 200 || !body) return null;
+    try {
+      const parsed = JSON.parse(body);
+      return parsed.version ?? null;
+    } catch {
+      return null;
+    }
+  }
+  static async getHoloMaterials(projectionId) {
+    const { status, body } = await this.request("Get", `/api/hpbe/materials/${encodeURIComponent(projectionId)}`);
+    if (status !== 200 || !body) return null;
+    try {
+      const parsed = JSON.parse(body);
+      return parsed.materials ?? null;
+    } catch {
+      return null;
+    }
+  }
+};
+
+// scripts/holo/HoloCore.ts
+var STRUCTURE_ID_PREFIX = "hpbe_";
+var HoloCore = class {
+  static {
+    /**
+     * 玩家选区状态
+     * key: player.id
+     */
+    this.playerSelections = /* @__PURE__ */ new Map();
+  }
+  // ──────── 选区操作 ────────
+  /**
+   * 设置玩家选区点
+   * @param player    当前玩家
+   * @param posNumber 1 = pos1, 2 = pos2
+   */
+  static setPos(player, posNumber) {
+    const loc2 = player.location;
+    const point = { x: Math.floor(loc2.x), y: Math.floor(loc2.y), z: Math.floor(loc2.z) };
+    let sel = this.playerSelections.get(player.id);
+    if (!sel) {
+      sel = { pos1: null, pos2: null };
+      this.playerSelections.set(player.id, sel);
+    }
+    if (posNumber === 1) {
+      sel.pos1 = point;
+      player.sendMessage(`\xA7a[HPBE] \u5DF2\u8BBE\u7F6E\u4F4D\u7F6E1: ${point.x}, ${point.y}, ${point.z}`);
+    } else {
+      sel.pos2 = point;
+      player.sendMessage(`\xA7a[HPBE] \u5DF2\u8BBE\u7F6E\u4F4D\u7F6E2: ${point.x}, ${point.y}, ${point.z}`);
+    }
+  }
+  // ──────── 上传流程 ────────
+  /**
+   * 执行上传流程
+   *
+   * 1. 检查选区完整性
+   * 2. 使用 StructureManager 保存方块区域为临时结构
+   * 3. 通过 HoloprintApi 上传结构元数据到 db-server
+   * 4. 清理临时结构
+   *
+   * @param player  当前玩家
+   * @param config  上传配置（名称、作者、描述、可见性）
+   */
+  static async startUpload(player, config) {
+    try {
+      const sel = this.playerSelections.get(player.id);
+      if (!sel || !sel.pos1 || !sel.pos2) {
+        player.sendMessage("\xA7c[HPBE] \u8BF7\u5148\u4F7F\u7528 !hpbe pos1 \u548C !hpbe pos2 \u8BBE\u7F6E\u9009\u533A");
+        return;
+      }
+      const min = {
+        x: Math.min(sel.pos1.x, sel.pos2.x),
+        y: Math.min(sel.pos1.y, sel.pos2.y),
+        z: Math.min(sel.pos1.z, sel.pos2.z)
+      };
+      const max = {
+        x: Math.max(sel.pos1.x, sel.pos2.x),
+        y: Math.max(sel.pos1.y, sel.pos2.y),
+        z: Math.max(sel.pos1.z, sel.pos2.z)
+      };
+      const sizeX = max.x - min.x + 1;
+      const sizeY = max.y - min.y + 1;
+      const sizeZ = max.z - min.z + 1;
+      if (sizeX <= 0 || sizeY <= 0 || sizeZ <= 0) {
+        player.sendMessage("\xA7c[HPBE] \u9009\u533A\u65E0\u6548\uFF0C\u8BF7\u91CD\u65B0\u8BBE\u7F6E");
+        return;
+      }
+      const timestamp = Date.now();
+      const structureId = `${STRUCTURE_ID_PREFIX}${player.id}_${timestamp}`;
+      try {
+        world26.structureManager.createFromWorld(structureId, player.dimension, min, max);
+      } catch (err) {
+        player.sendMessage("\xA7c[HPBE] \u4FDD\u5B58\u7ED3\u6784\u5931\u8D25\uFF0C\u9009\u533A\u53EF\u80FD\u5305\u542B\u672A\u52A0\u8F7D\u533A\u5757");
+        console.error(`[HoloCore] createFromWorld \u5931\u8D25: ${err}`);
+        return;
+      }
+      const projectionData = {
+        name: config.name,
+        author: config.author,
+        description: config.description,
+        ownerId: player.id,
+        visibility: config.visibility,
+        scale: DEFAULT_HOLO_SETTINGS.scale,
+        opacity: DEFAULT_HOLO_SETTINGS.opacity,
+        sizeX,
+        sizeY,
+        sizeZ,
+        blockCount: 0
+      };
+      const success = await HoloprintApi.uploadHoloStructure(projectionData, "");
+      this.playerSelections.delete(player.id);
+      if (success) {
+        player.sendMessage(`\xA7a[HPBE] \u6295\u5F71 "${config.name}" \u4E0A\u4F20\u6210\u529F\uFF01`);
+        console.info(`[HoloCore] \u73A9\u5BB6 ${player.name} \u4E0A\u4F20\u4E86\u6295\u5F71 ${config.name}`);
+      } else {
+        player.sendMessage("\xA7c[HPBE] \u4E0A\u4F20\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u670D\u52A1\u5668\u8FDE\u63A5");
+      }
+    } catch (err) {
+      player.sendMessage("\xA7c[HPBE] \u4E0A\u4F20\u8FC7\u7A0B\u4E2D\u53D1\u751F\u5F02\u5E38");
+      console.error(`[HoloCore] startUpload \u5F02\u5E38: ${err}`);
+    }
+  }
+  // ──────── 加载流程 ────────
+  /**
+   * 获取并返回投影列表数据（公共 + 玩家私有）
+   *
+   * @param player  当前玩家
+   * @returns 投影数据数组，用于 GUI 展示
+   */
+  static async loadProjectionList(player) {
+    try {
+      const [privateProjections, publicProjections] = await Promise.all([
+        HoloprintApi.getHoloProjections(player.id, "private"),
+        HoloprintApi.getHoloProjections(void 0, "public")
+      ]);
+      const all = [];
+      if (privateProjections && Array.isArray(privateProjections)) {
+        all.push(...privateProjections.map(this.normalizeProjection));
+      }
+      const privateIds = new Set(privateProjections?.map((p) => p.id) ?? []);
+      if (publicProjections && Array.isArray(publicProjections)) {
+        for (const proj of publicProjections) {
+          if (!privateIds.has(proj.id)) {
+            all.push(this.normalizeProjection(proj));
+          }
+        }
+      }
+      if (all.length === 0) {
+        player.sendMessage("\xA7e[HPBE] \u6CA1\u6709\u53EF\u7528\u7684\u6295\u5F71");
+        return [];
+      }
+      return all;
+    } catch (err) {
+      console.error(`[HoloCore] \u52A0\u8F7D\u6295\u5F71\u5217\u8868\u5931\u8D25: ${err}`);
+      player.sendMessage("\xA7c[HPBE] \u83B7\u53D6\u6295\u5F71\u5217\u8868\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u670D\u52A1\u5668\u8FDE\u63A5");
+      return null;
+    }
+  }
+  // ──────── 操作执行 ────────
+  /**
+   * 执行投影操作
+   *
+   * @param player        操作玩家
+   * @param projectionId  投影 ID
+   * @param operation     操作名
+   * @param value         操作参数（可选）
+   */
+  static async executeOperation(player, projectionId, operation, value) {
+    try {
+      switch (operation) {
+        case "materials":
+          await this.handleMaterials(player, projectionId);
+          break;
+        case "toggle_visibility":
+          await this.handleToggle(player, projectionId, "visible", value);
+          break;
+        case "set_scale":
+          await this.handleSet(player, projectionId, "scale", value);
+          break;
+        case "set_opacity":
+          await this.handleSet(player, projectionId, "opacity", value);
+          break;
+        case "set_rotation":
+          await this.handleSet(player, projectionId, "rotation", value);
+          break;
+        case "move":
+          await this.handleMove(player, projectionId, value);
+          break;
+        case "set_layer":
+          await this.handleSet(player, projectionId, "layer", value);
+          break;
+        case "toggle_inspect":
+          await this.handleToggle(player, projectionId, "blockInspect", value);
+          break;
+        case "delete":
+          await this.handleDelete(player, projectionId);
+          break;
+        default:
+          player.sendMessage(`\xA7c[HPBE] \u672A\u77E5\u64CD\u4F5C: ${operation}`);
+      }
+    } catch (err) {
+      console.error(`[HoloCore] \u6267\u884C\u64CD\u4F5C ${operation} \u5931\u8D25: ${err}`);
+      player.sendMessage(`\xA7c[HPBE] \u64CD\u4F5C\u6267\u884C\u5931\u8D25: ${err}`);
+    }
+  }
+  // ──────── 内部操作方法 ────────
+  /** 获取并显示方块清单 */
+  static async handleMaterials(player, projectionId) {
+    const materials = await HoloprintApi.getHoloMaterials(projectionId);
+    if (!materials || materials.length === 0) {
+      player.sendMessage("\xA7e[HPBE] \u8BE5\u6295\u5F71\u6CA1\u6709\u65B9\u5757\u6E05\u5355\u6570\u636E");
+      return;
+    }
+    player.sendMessage(`\xA7a[HPBE] \u5171 ${materials.length} \u79CD\u65B9\u5757`);
+  }
+  /** 切换布尔属性 */
+  static async handleToggle(player, projectionId, field, value) {
+    const currentValue = typeof value === "boolean" ? value : value === true;
+    const newValue = !currentValue;
+    const success = await HoloprintApi.updateHoloProjection(projectionId, { [field]: newValue });
+    if (!success) {
+      player.sendMessage("\xA7c[HPBE] \u66F4\u65B0\u5931\u8D25");
+      return;
+    }
+    HoloEntity.updateProjection(projectionId, { [field]: newValue });
+    player.sendMessage(`\xA7a[HPBE] ${field} \u5DF2\u5207\u6362\u4E3A ${newValue}`);
+  }
+  /** 设置数值属性 */
+  static async handleSet(player, projectionId, field, value) {
+    if (value === void 0) {
+      player.sendMessage("\xA7c[HPBE] \u8BF7\u63D0\u4F9B\u6709\u6548\u7684\u6570\u503C\u53C2\u6570");
+      return;
+    }
+    const settings = { [field]: value };
+    const success = await HoloprintApi.updateHoloProjection(projectionId, settings);
+    if (!success) {
+      player.sendMessage("\xA7c[HPBE] \u66F4\u65B0\u5931\u8D25");
+      return;
+    }
+    HoloEntity.updateProjection(projectionId, settings);
+    player.sendMessage(`\xA7a[HPBE] ${field} \u5DF2\u66F4\u65B0\u4E3A ${value}`);
+  }
+  /** 移动投影（偏移量） */
+  static async handleMove(player, projectionId, value) {
+    if (!value || typeof value.x !== "number" || typeof value.y !== "number" || typeof value.z !== "number") {
+      player.sendMessage("\xA7c[HPBE] \u8BF7\u63D0\u4F9B\u6709\u6548\u7684\u504F\u79FB\u91CF (x, y, z)");
+      return;
+    }
+    const success = await HoloprintApi.updateHoloProjection(projectionId, {
+      offsetX: value.x,
+      offsetY: value.y,
+      offsetZ: value.z
+    });
+    if (!success) {
+      player.sendMessage("\xA7c[HPBE] \u66F4\u65B0\u504F\u79FB\u5931\u8D25");
+      return;
+    }
+    HoloEntity.updateProjection(projectionId, {
+      offsetX: value.x,
+      offsetY: value.y,
+      offsetZ: value.z
+    });
+    player.sendMessage(`\xA7a[HPBE] \u5DF2\u79FB\u52A8\u6295\u5F71\u5230\u504F\u79FB ${value.x}, ${value.y}, ${value.z}`);
+  }
+  /** 删除投影 */
+  static async handleDelete(player, projectionId) {
+    const success = await HoloprintApi.deleteHoloProjection(projectionId);
+    if (!success) {
+      player.sendMessage("\xA7c[HPBE] \u5220\u9664\u6295\u5F71\u5931\u8D25");
+      return;
+    }
+    HoloEntity.removeProjection(projectionId);
+    player.sendMessage(`\xA7a[HPBE] \u6295\u5F71\u5DF2\u5220\u9664`);
+    console.info(`[HoloCore] \u73A9\u5BB6 ${player.name} \u5220\u9664\u4E86\u6295\u5F71 ${projectionId}`);
+  }
+  // ──────── 工具 ────────
+  /**
+   * 将 API 返回的原始数据规整为 ProjectionData
+   */
+  static normalizeProjection(raw) {
+    if (raw.settings && raw.ownerId !== void 0) {
+      return raw;
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      author: raw.author ?? "",
+      description: raw.description ?? "",
+      ownerId: raw.owner_id ?? raw.ownerId ?? "",
+      isPublic: !!(raw.is_public ?? raw.isPublic ?? false),
+      visibility: raw.visibility ?? (raw.isPublic ? "public" : "private"),
+      settings: {
+        scale: raw.scale ?? raw.settings?.scale ?? 1,
+        offsetX: raw.offset_x ?? raw.settings?.offsetX ?? 0,
+        offsetY: raw.offset_y ?? raw.settings?.offsetY ?? 0,
+        offsetZ: raw.offset_z ?? raw.settings?.offsetZ ?? 0,
+        rotation: raw.rotation ?? raw.settings?.rotation ?? 0,
+        opacity: raw.opacity ?? raw.settings?.opacity ?? 1,
+        layer: raw.layer ?? raw.settings?.layer ?? 0,
+        visible: !!(raw.visible ?? raw.settings?.visible ?? true),
+        spawnAnimation: !!(raw.spawn_animation ?? raw.settings?.spawnAnimation ?? false),
+        blockInspect: !!(raw.block_inspect ?? raw.settings?.blockInspect ?? false),
+        overlayTint: raw.overlay_tint ?? raw.settings?.overlayTint ?? "",
+        overlayTintOpacity: raw.overlay_tint_opacity ?? raw.settings?.overlayTintOpacity ?? 0,
+        textureOutlineWidth: raw.texture_outline_width ?? raw.settings?.textureOutlineWidth ?? 0,
+        textureOutlineColor: raw.texture_outline_color ?? raw.settings?.textureOutlineColor ?? "",
+        textureOutlineOpacity: raw.texture_outline_opacity ?? raw.settings?.textureOutlineOpacity ?? 0,
+        layerMode: raw.layer_mode ?? raw.settings?.layerMode ?? "all"
+      },
+      dbVersion: raw.db_version ?? raw.dbVersion ?? 1,
+      geometryFile: raw.geometry_file ?? raw.geometryFile ?? "",
+      blockCount: raw.block_count ?? raw.blockCount ?? 0,
+      sizeX: raw.size_x ?? raw.sizeX ?? 0,
+      sizeY: raw.size_y ?? raw.sizeY ?? 0,
+      sizeZ: raw.size_z ?? raw.sizeZ ?? 0,
+      materials: raw.materials ?? [],
+      createdAt: raw.created_at ?? raw.createdAt ?? 0,
+      updatedAt: raw.updated_at ?? raw.updatedAt ?? 0
+    };
+  }
+};
+
+// scripts/holo/HoloGUI.ts
+var HoloGUI = class _HoloGUI {
+  static registerCommand() {
+    Command.register(
+      "holorint",
+      "holorint.menu",
+      (player) => {
+        if (player) _HoloGUI.showMainMenu(player);
+      },
+      "\u5168\u606F\u6295\u5F71"
+    );
+    Command.register(
+      "hpbe pos1",
+      "holorint.pos1",
+      (player) => {
+        if (player) HoloCore.setPos(player, 1);
+      },
+      "\u8BBE\u7F6E\u9009\u533A\u70B91"
+    );
+    Command.register(
+      "hpbe pos2",
+      "holorint.pos2",
+      (player) => {
+        if (player) HoloCore.setPos(player, 2);
+      },
+      "\u8BBE\u7F6E\u9009\u533A\u70B92"
+    );
+  }
+  // ══════════════════════════════════════
+  //  1. 主菜单
+  // ══════════════════════════════════════
+  static showMainMenu(player) {
+    const form = new CustomForm9(player, "\u5168\u606F\u6295\u5F71").label("\u9009\u62E9\u4E00\u4E2A\u64CD\u4F5C\uFF1A").button("\u{1F4E4} \u4E0A\u4F20\u6295\u5F71", () => {
+      player.sendMessage(
+        "\xA7a[HPBE] \u8BF7\u4F7F\u7528 \xA7e!hpbe pos1 \xA7a\u548C \xA7e!hpbe pos2 \xA7a\u8BBE\u7F6E\u9009\u533A\uFF0C\u7136\u540E\u4F7F\u7528 \xA7e!hpbe\xA7a \u6253\u5F00\u83DC\u5355\u9009\u62E9\u4E0A\u4F20"
+      );
+      _HoloGUI.showUploadConfig(player);
+    }).button("\u{1F4E5} \u52A0\u8F7D\u6295\u5F71", () => {
+      HoloCore.loadProjectionList(player);
+    }).closeButton();
+    Gui.showForm(player, form, "\u5168\u606F\u6295\u5F71");
+  }
+  // ══════════════════════════════════════
+  //  2. 上传配置
+  // ══════════════════════════════════════
+  static async showUploadConfig(player) {
+    const name = new ObservableString("");
+    const author = new ObservableString(player.name);
+    const description = new ObservableString("");
+    const visibilityIndex = new ObservableNumber(0);
+    const form = new CustomForm9(player, "\u4E0A\u4F20\u6295\u5F71").textField("\xA7a\u6295\u5F71\u540D\u79F0", name, { description: "\u8BF7\u8F93\u5165\u6295\u5F71\u540D\u79F0\u2026" }).textField("\xA7a\u4F5C\u8005", author, { description: "\u4F5C\u8005\u540D" }).textField("\xA77\u63CF\u8FF0\uFF08\u53EF\u9009\uFF09", description, { description: "\u8BF7\u8F93\u5165\u63CF\u8FF0\u2026" }).dropdown("\xA7a\u53EF\u89C1\u6027", visibilityIndex, [
+      { label: "\u516C\u5171", value: 0 },
+      { label: "\u79C1\u4EBA", value: 1 }
+    ]).button("\u786E\u8BA4\u4E0A\u4F20", () => {
+      HoloCore.startUpload(player, {
+        name: name.getData(),
+        author: author.getData(),
+        description: description.getData(),
+        visibility: visibilityIndex.getData() === 0 ? "public" : "private"
+      });
+    }).closeButton();
+    await Gui.showForm(player, form, "\u4E0A\u4F20\u6295\u5F71");
+  }
+  // ══════════════════════════════════════
+  //  3. 投影列表
+  // ══════════════════════════════════════
+  static async showProjectionList(player, privateList, publicList) {
+    const form = new CustomForm9(player, "\u52A0\u8F7D\u6295\u5F71").button("\xA7l=== \u6211\u7684\u6295\u5F71 ===", () => {
+      this.showProjectionList(player, privateList, publicList);
+    });
+    for (const p of privateList) {
+      form.button(`${p.name} - ${p.sizeX}x${p.sizeY}x${p.sizeZ} [${p.blockCount}\u65B9\u5757]`, () => {
+        Gui.confirm(player, "\u653E\u7F6E\u6295\u5F71", "\u662F\u5426\u5C06\u6295\u5F71\u653E\u7F6E\u5728\u5F53\u524D\u4F4D\u7F6E\uFF1F", () => {
+          HoloEntity.spawnProjection(player, p.id, player.location);
+        });
+      });
+    }
+    form.button("\xA7l=== \u516C\u5171\u6295\u5F71 ===", () => {
+      this.showProjectionList(player, privateList, publicList);
+    });
+    for (const p of publicList) {
+      form.button(`${p.name} - ${p.sizeX}x${p.sizeY}x${p.sizeZ} [${p.blockCount}\u65B9\u5757]`, () => {
+        Gui.confirm(player, "\u653E\u7F6E\u6295\u5F71", "\u662F\u5426\u5C06\u6295\u5F71\u653E\u7F6E\u5728\u5F53\u524D\u4F4D\u7F6E\uFF1F", () => {
+          HoloEntity.spawnProjection(player, p.id, player.location);
+        });
+      });
+    }
+    form.closeButton();
+    await Gui.showForm(player, form, "\u52A0\u8F7D\u6295\u5F71");
+  }
+  // ══════════════════════════════════════
+  //  4. 操作菜单
+  // ══════════════════════════════════════
+  static async showOperationMenu(player, projection) {
+    const s = projection.settings;
+    const form = new CustomForm9(player, `\u64CD\u4F5C - ${projection.name}`).button("\u{1F9F1} \u7269\u54C1\u6E05\u5355", () => {
+      HoloCore.executeOperation(player, projection.id, "materials");
+    }).button(`\u{1F441} \u663E\u793A/\u9690\u85CF (\u5F53\u524D: ${s.visible ? "\u663E\u793A" : "\u9690\u85CF"})`, () => {
+      HoloCore.executeOperation(player, projection.id, "toggle_visibility");
+    }).button(`\u{1F4D0} \u6BD4\u4F8B (\u5F53\u524D: ${s.scale})`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u6BD4\u4F8B", s.scale, 0.1, 10);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_scale", val);
+    }).button(`\u{1F3A8} \u7EB9\u7406\u8F6E\u5ED3\u5BBD\u5EA6 (\u5F53\u524D: ${s.textureOutlineWidth})`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u7EB9\u7406\u8F6E\u5ED3\u5BBD\u5EA6", s.textureOutlineWidth, 0, 10);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_texture_outline_width", val);
+    }).button("\u{1F3A8} \u7EB9\u7406\u8F6E\u5ED3\u989C\u8272", async () => {
+      const color = await _HoloGUI.showColorPicker(player, "\u9009\u62E9\u7EB9\u7406\u8F6E\u5ED3\u989C\u8272");
+      if (color !== null) HoloCore.executeOperation(player, projection.id, "set_texture_outline_color", color);
+    }).button(`\u{1F3A8} \u7EB9\u7406\u8F6E\u5ED3\u900F\u660E\u5EA6 (\u5F53\u524D: ${s.textureOutlineOpacity})`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u7EB9\u7406\u8F6E\u5ED3\u900F\u660E\u5EA6", s.textureOutlineOpacity, 0, 1);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_texture_outline_opacity", val);
+    }).button("\u{1F308} \u53E0\u52A0\u67D3\u8272", async () => {
+      const color = await _HoloGUI.showColorPicker(player, "\u9009\u62E9\u53E0\u52A0\u67D3\u8272\u989C\u8272");
+      if (color !== null) HoloCore.executeOperation(player, projection.id, "set_overlay_tint", color);
+    }).button(`\u{1F308} \u53E0\u52A0\u67D3\u8272\u900F\u660E\u5EA6 (\u5F53\u524D: ${s.overlayTintOpacity})`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u53E0\u52A0\u67D3\u8272\u900F\u660E\u5EA6", s.overlayTintOpacity, 0, 1);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_overlay_tint_opacity", val);
+    }).button(`\u25B6 \u751F\u6210\u52A8\u753B (\u5F53\u524D: ${s.spawnAnimation ? "\u5F00" : "\u5173"})`, () => {
+      HoloCore.executeOperation(player, projection.id, "toggle_spawn_animation");
+    }).button(`\u{1F506} \u900F\u660E\u5EA6 (\u5F53\u524D: ${s.opacity})`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u900F\u660E\u5EA6", s.opacity, 0, 1);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_opacity", val);
+    }).button(`\u{1F4CA} \u5C42\u7EA7 (\u5F53\u524D: ${s.layer})`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u5C42\u7EA7", s.layer, -64, 320);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_layer", val);
+    }).button("\u{1F4CF} \u79FB\u52A8", async () => {
+      await _HoloGUI.showMoveInput(player, projection);
+    }).button(`\u{1F504} \u65CB\u8F6C (\u5F53\u524D: ${s.rotation}\xB0)`, async () => {
+      const val = await _HoloGUI.showNumberInput(player, "\u8BBE\u7F6E\u65CB\u8F6C\u89D2\u5EA6", s.rotation, 0, 360);
+      if (val !== null) HoloCore.executeOperation(player, projection.id, "set_rotation", val);
+    }).button(`\u{1F50D} \u65B9\u5757\u68C0\u67E5 (\u5F53\u524D: ${s.blockInspect ? "\u5F00" : "\u5173"})`, () => {
+      HoloCore.executeOperation(player, projection.id, "toggle_block_inspect");
+    }).button(`\u{1F3A8} \u53E0\u52A0\u67D3\u8272\u5F00\u5173 (\u5F53\u524D: ${s.overlayTint ? "\u5F00" : "\u5173"})`, () => {
+      HoloCore.executeOperation(player, projection.id, "toggle_overlay_tint");
+    }).button(`\u{1F4CB} \u5C42\u6A21\u5F0F (\u5F53\u524D: ${s.layerMode === "all" ? "\u5168\u90E8" : s.layerMode === "single" ? "\u5355\u5C42" : "\u8303\u56F4"})`, async () => {
+      await _HoloGUI.showLayerModePicker(player, projection);
+    }).button("\u274C \u5220\u9664\u6295\u5F71", () => {
+      Gui.confirm(player, "\u5220\u9664\u6295\u5F71", "\u786E\u5B9A\u8981\u5220\u9664\u6B64\u6295\u5F71\u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002", () => {
+        HoloCore.executeOperation(player, projection.id, "delete");
+      });
+    }).button("\u{1F504} \u66F4\u6362\u6295\u5F71", () => {
+      HoloCore.loadProjectionList(player);
+    }).closeButton();
+    await Gui.showForm(player, form, "\u64CD\u4F5C\u83DC\u5355");
+  }
+  // ══════════════════════════════════════
+  //  5. 物品清单
+  // ══════════════════════════════════════
+  static async showMaterialList(player, materials) {
+    const sorted = [...materials].sort((a, b) => b.count - a.count);
+    const form = new CustomForm9(player, "\u7269\u54C1\u6E05\u5355").label(`\u5171 \xA7e${sorted.length}\xA7r \u79CD\u6750\u6599`);
+    const maxDisplay = 50;
+    const displayItems = sorted.slice(0, maxDisplay);
+    for (const m of displayItems) {
+      form.label(`\xA77${m.count}\xA7r x ${m.name}`);
+    }
+    if (sorted.length > maxDisplay) {
+      form.label(`\xA78... \u8FD8\u6709 ${sorted.length - maxDisplay} \u79CD\u6750\u6599`);
+    }
+    form.closeButton();
+    await Gui.showForm(player, form, "\u7269\u54C1\u6E05\u5355");
+  }
+  // ══════════════════════════════════════
+  //  6. 颜色选择器
+  // ══════════════════════════════════════
+  static async showColorPicker(player, title) {
+    let result = null;
+    const form = new CustomForm9(player, title).label("\u9009\u62E9\u4E00\u4E2A\u989C\u8272\u9884\u8BBE\uFF1A");
+    for (const preset of COLOR_PRESETS) {
+      form.button(`\xA7l${preset.name}\xA7r  ${preset.hex}`, () => {
+        result = preset.value;
+      });
+    }
+    form.closeButton();
+    await Gui.showForm(player, form, title);
+    return result;
+  }
+  // ══════════════════════════════════════
+  //  7. 数字输入
+  // ══════════════════════════════════════
+  static async showNumberInput(player, title, defaultValue, min, max) {
+    let result = null;
+    const val = new ObservableNumber(defaultValue);
+    const form = new CustomForm9(player, title).slider("\u6570\u503C", val, min ?? 0, max ?? 100, { step: 1 }).button("\u786E\u8BA4", () => {
+      result = val.getData();
+    }).closeButton();
+    await Gui.showForm(player, form, title);
+    return result;
+  }
+  // ══════════════════════════════════════
+  //  8. 版本警告
+  // ══════════════════════════════════════
+  static showVersionWarning(player) {
+    Gui.confirm(
+      player,
+      "\u7248\u672C\u4E0D\u5339\u914D",
+      "\u68C0\u6D4B\u5230\u63D2\u4EF6\u7248\u672C\u4E0E\u670D\u52A1\u5668\u7AEF\u4E0D\u5339\u914D\uFF0C\u90E8\u5206\u6295\u5F71\u53EF\u80FD\u65E0\u6CD5\u6B63\u5E38\u663E\u793A\u3002\n\n\u8BF7\u91CD\u65B0\u52A0\u5165\u6E38\u620F\u4EE5\u83B7\u53D6\u66F4\u65B0\u540E\u7684\u6295\u5F71\u3002",
+      () => {
+      }
+    );
+  }
+  // ══════════════════════════════════════
+  //  内部辅助 - 移动输入
+  // ══════════════════════════════════════
+  static async showMoveInput(player, projection) {
+    const s = projection.settings;
+    const offsetX = new ObservableNumber(s.offsetX);
+    const offsetY = new ObservableNumber(s.offsetY);
+    const offsetZ = new ObservableNumber(s.offsetZ);
+    const form = new CustomForm9(player, "\u79FB\u52A8\u6295\u5F71").slider("X \u504F\u79FB", offsetX, -64, 64).slider("Y \u504F\u79FB", offsetY, -64, 64).slider("Z \u504F\u79FB", offsetZ, -64, 64).button("\u786E\u8BA4", () => {
+      const x = offsetX.getData();
+      const y = offsetY.getData();
+      const z = offsetZ.getData();
+      if (x === s.offsetX && y === s.offsetY && z === s.offsetZ) return;
+      HoloCore.executeOperation(player, projection.id, "move", { x, y, z });
+    }).closeButton();
+    await Gui.showForm(player, form, "\u79FB\u52A8\u6295\u5F71");
+  }
+  // ══════════════════════════════════════
+  //  内部辅助 - 层模式选择
+  // ══════════════════════════════════════
+  static async showLayerModePicker(player, projection) {
+    const index = new ObservableNumber(0);
+    const form = new CustomForm9(player, "\u5C42\u6A21\u5F0F").dropdown("\u9009\u62E9\u5C42\u6A21\u5F0F", index, [
+      { label: "\u5168\u90E8", value: 0 },
+      { label: "\u5355\u5C42", value: 1 },
+      { label: "\u8303\u56F4", value: 2 }
+    ]).button("\u786E\u8BA4", () => {
+      const mode = index.getData() === 0 ? "all" : index.getData() === 1 ? "single" : "range";
+      HoloCore.executeOperation(player, projection.id, "set_layer_mode", mode);
+    }).closeButton();
+    await Gui.showForm(player, form, "\u5C42\u6A21\u5F0F");
   }
 };
 
@@ -6445,76 +7475,125 @@ var AddOnInit = class {
   static init() {
     this.registerEvents();
     this.createTasks();
-    Peace.getInstance().init();
   }
   static registerEvents() {
-    SpawnProtect.registerEvents();
-    world24.beforeEvents.chatSend.subscribe((event) => {
+    system18.beforeEvents.startup.subscribe(async (e) => {
+      system18.run(() => {
+        Permission.register("permlist.see", Permission.Member);
+        Permission.register("help.see", Permission.Member);
+        Permission.register("menu.use", Permission.Member);
+        Permission.register("shop.use", Permission.Member);
+        Permission.register("money.admin", Permission.OP);
+        Permission.register("holorint.menu", Permission.Member);
+        Permission.register("holorint.pos1", Permission.Member);
+        Permission.register("holorint.pos2", Permission.Member);
+        Permission.register("afk.use", Permission.Member);
+        Permission.register("afk.clear.other", Permission.OP);
+        CoopSystem.registerPermissions();
+        Permission.register("chat.use", Permission.Member);
+        Permission.register("chat.admin", Permission.OP);
+        Permission.register("tps.see", Permission.Any);
+        init();
+        init2();
+        OnlineTime.getInstance().registerCommandsAndPermissions();
+        CreativeArea.getInstance().registerCommandsAndPermissions();
+        SurvivalArea.getInstance().registerCommandsAndPermissions();
+        LandSystem.registerCommandsAndPermissions();
+        Permission.registerPermlistCommand();
+        Command.registerHelpCommand();
+        MainMenu.registerMenuCommand();
+        MoneyGUI.registerCommand();
+        ShopSystem.registerCommand();
+        HoloGUI.registerCommand();
+        registerCommand();
+        CoopSystem.registerCommands();
+        ChatSystem.registerCommands();
+        TPS.registerCommands();
+        registerCommand2();
+      });
+    });
+    world27.afterEvents.worldLoad.subscribe(() => {
+      init3();
+      CoopSystem.init();
+      ChatSystem.init();
+      Clean.getInstance().init();
+      TPS.init();
+      OnlineTime.getInstance().init();
+      CreativeArea.getInstance().init();
+      SurvivalArea.getInstance().init();
+      InventorySwitcher.getInstance().init();
+      LandSystem.init();
+      ActivityLog.init();
+      Money.initScoreboard();
+      ScoreboardSync.init();
+      syncWorldData();
+      HoloEntity.init();
+    });
+    OnlineTime.getInstance().registerEvents();
+    CreativeArea.getInstance().registerEvents();
+    SurvivalArea.getInstance().registerEvents();
+    InventorySwitcher.getInstance().registerEvents();
+    LandEvents.registerEvents();
+    ActivityLog.registerEvents();
+    HoloEntity.registerEvents();
+    ChatSystem.registerEvents();
+    world27.afterEvents.playerSpawn.subscribe((event) => {
+      if (event.initialSpawn) {
+        Peace.getInstance().init();
+        playerJoinEvent(event.player);
+        reset(event.player);
+        getPlayerData(event.player).then((data2) => {
+          savePlayers([data2]).catch(() => {
+          });
+        });
+      }
+    });
+    world27.afterEvents.playerLeave.subscribe((event) => {
+      const player = world27.getEntity(event.playerId);
+      if (player) {
+        getPlayerData(player).then((data2) => {
+          savePlayers([data2]).catch(() => {
+          });
+        });
+        OnlineTime.getInstance().onPlayerLeave(player);
+      }
+    });
+    world27.afterEvents.playerSpawn.subscribe((ev) => {
+      SpawnProtect.setProtect(ev.player);
+    });
+    world27.beforeEvents.chatSend.subscribe((event) => {
       let firstChar = event.message.substring(0, 1);
       if (firstChar === "!" || firstChar === "\uFF01") {
         Command.trigger(event.sender, event.message.substring(1));
         event.cancel = true;
       }
     });
-    system17.beforeEvents.startup.subscribe(async (e) => {
-      await Storage.init();
-      system17.run(() => {
-        Money.initScoreboard();
-        Command.registerHelpCommand();
-        Permission.registerPermlistCommand();
-        Command.register("menu", "menu.use", (player) => {
-          if (player) MainMenu.show(player);
-        }, "\u4E3B\u83DC\u5355");
-        CoopSystem.init();
-        ChatSystem.init();
-        Clean.getInstance().init();
-        init();
-        TPS.getInstance().init();
-        OnlineTime.getInstance().init();
-        CreativeArea.getInstance().init();
-        SurvivalArea.getInstance().init();
-        InventorySwitcher.getInstance().init();
-        LandSystem.init();
-        MoneyCommand.init();
-        ShopSystem.getInstance().init();
-        ScoreboardSync.init();
-        ActivityLog.init();
-        Command.register("shop", "shop.use", (player) => {
-          if (player) ShopSystem.getInstance().showShop(player);
-        }, "\u5546\u5E97");
-      });
-    });
-    world24.afterEvents.playerSpawn.subscribe((event) => {
-      if (event.initialSpawn) {
-        playerJoinEvent(event.player);
-        reset(event.player);
-      }
+    system18.beforeEvents.shutdown.subscribe(() => {
+      syncWorldData();
+      ScoreboardsBackup();
     });
   }
-  /**
-   * 创建定时任务
-   */
   static createTasks() {
     QAManager.getInstance().start();
   }
 };
 
 // scripts/temp/ChatSoundsHelper.ts
-import { system as system18, world as world25 } from "@minecraft/server";
+import { system as system19, world as world28 } from "@minecraft/server";
 var KEYWORDS = {
-  "ciallo": "cs.ciallo",
+  ciallo: "cs.ciallo",
   // Ciallo~
-  "\u5495\u5495\u560E\u560E": "cs.gugugaga",
+  \u5495\u5495\u560E\u560E: "cs.gugugaga",
   // 咕咕嘎嘎！
-  "\u6C69\u6C69\u5495": "cs.gugugu",
+  \u6C69\u6C69\u5495: "cs.gugugu",
   // 汩汩咕
-  "baka": "cs.baka",
+  baka: "cs.baka",
   // BAKA!
-  "yee": "cs.yee",
+  yee: "cs.yee",
   // yee
-  "\u5E72\u561B": "mob.chicken.hurt",
+  \u5E72\u561B: "mob.chicken.hurt",
   // 鸡叫，不装神金资源包就是普通鸡叫
-  "huh": "cs.huh"
+  huh: "cs.huh"
   // huh 不安装神金资源包就没声音
 };
 var ChatSoundsHelper = class _ChatSoundsHelper {
@@ -6531,7 +7610,7 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
     return _ChatSoundsHelper.instance;
   }
   registerEvent() {
-    world25.beforeEvents.chatSend.subscribe((event) => {
+    world28.beforeEvents.chatSend.subscribe((event) => {
       for (let keyWord in this.keyWords) {
         if (event.message.toLowerCase().includes(keyWord.toLowerCase())) {
           if (event.sender.getGameMode() !== "Creative") {
@@ -6540,12 +7619,12 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
               return;
             }
             this.playerCooldown[id] = true;
-            system18.runTimeout(() => {
+            system19.runTimeout(() => {
               delete this.playerCooldown[id];
             }, this.COOLDOWN);
           }
-          system18.run(() => {
-            world25.getAllPlayers().forEach((player) => {
+          system19.run(() => {
+            world28.getAllPlayers().forEach((player) => {
               player.playSound(this.keyWords[keyWord]);
             });
           });

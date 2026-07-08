@@ -1,10 +1,10 @@
 import { Player, world } from "@minecraft/server";
 
-const MONEY_NAME = 'money';
+const MONEY_NAME = "money";
 
 export class Money {
   /** 货币单位名称 */
-  static readonly UNIT = '节操';
+  static readonly UNIT = "节操";
   /**
    * 获取玩家金钱数量
    */
@@ -16,7 +16,7 @@ export class Money {
       if (score !== undefined) {
         return score;
       }
-    } catch (_) { }
+    } catch (_) {}
     if (scoreboard) {
       scoreboard.setScore(player, 0);
     }
@@ -29,7 +29,7 @@ export class Money {
   static set(player: Player, money: number) {
     let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
     if (!scoreboard) {
-      world.getDimension('overworld').runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+      world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
       scoreboard = world.scoreboard.getObjective(MONEY_NAME)!;
     }
     return scoreboard.setScore(player, money);
@@ -47,8 +47,7 @@ export class Money {
    */
   static initScoreboard() {
     if (!world.scoreboard.getObjective(MONEY_NAME)) {
-      world.getDimension("overworld")
-        .runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+      world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
     }
   }
 }

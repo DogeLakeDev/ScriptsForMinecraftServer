@@ -6,7 +6,7 @@
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { Questions } from "../data/Questions"
+import { Questions } from "../data/Questions";
 import { getRandomInteger, Msg } from "../libs/Tools";
 import { Config } from "../data/Config";
 import { Money } from "../libs/Money";
@@ -37,14 +37,14 @@ export class QAManager {
     (world.beforeEvents as any).chatSend.subscribe((event: any) => {
       if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "！") {
         let answer = event.message.substring(1);
-        answer = answer.replaceAll(' '); // 去除空格
+        answer = answer.replaceAll(" "); // 去除空格
         if (this.nowQuestion !== undefined) {
           this.answer(event.sender, answer);
           event.cancel = true;
           return;
         }
       }
-    })
+    });
     system.runTimeout(() => {
       this.nextQuestion();
     }, QAManager.getNextTimeout());
@@ -86,7 +86,9 @@ export class QAManager {
   finish() {
     // 宣布答案
     let question = Questions[this.nowQuestion!];
-    world.sendMessage(`§b[Baka Cirno]§r 正确答案是 §e${question.a[0]}§r ! ${question.d !== undefined ? "\n  " + question.d : ''}`);
+    world.sendMessage(
+      `§b[Baka Cirno]§r 正确答案是 §e${question.a[0]}§r ! ${question.d !== undefined ? "\n  " + question.d : ""}`
+    );
 
     // 重置变量
     this.nowQuestion = undefined;
@@ -108,7 +110,7 @@ export class QAManager {
     if (this.nowQuestion !== undefined) {
       // 玩家未答题
       if (this.playerList[pl.nameTag] === undefined) {
-        let question = Questions[this.nowQuestion]
+        let question = Questions[this.nowQuestion];
         for (let a of question.a) {
           if (str === a) {
             // 回答正确
@@ -117,18 +119,16 @@ export class QAManager {
             QAManager.giveBonus(pl, this.rightAmount, question.bonus);
             if (question["msg_right"] !== undefined) {
               Msg.tips(question["msg_right"], pl);
-            }
-            else {
-              Msg.success("§a回答正确！§r",pl);
+            } else {
+              Msg.success("§a回答正确！§r", pl);
             }
             return 1;
           }
         }
         if (question["msg_wrong"] !== undefined) {
           Msg.tips(question["msg_wrong"], pl);
-        }
-        else {
-          Msg.error("§c回答错误！§r",pl);
+        } else {
+          Msg.error("§c回答错误！§r", pl);
         }
         this.wrongAmount++;
         if (question.punish !== undefined) {
@@ -137,15 +137,15 @@ export class QAManager {
         this.playerList[pl.nameTag] = false;
         return 0;
       }
-      Msg.tips("已经答过这题了^ ^§r",pl);
+      Msg.tips("已经答过这题了^ ^§r", pl);
       return -1;
     }
-    Msg.tips("当前没有正在进行的答题^ ^§r",pl);
+    Msg.tips("当前没有正在进行的答题^ ^§r", pl);
     return -2;
   }
   // 出题记录，避免短时间重复出题
-  record: number[] = [];             // 最近出的几个题
-  recordPtr = 0;          // 下一个记录写入的位置
+  record: number[] = []; // 最近出的几个题
+  recordPtr = 0; // 下一个记录写入的位置
   recordLimit = Math.floor(Questions.length - 2); // 最大记录数量
   pushRecord(index: number) {
     this.record[this.recordPtr] = index;
@@ -182,11 +182,10 @@ export class QAManager {
               pl.runCommand(b["cmd"]);
               break;
             default:
-              Msg.error(`Unknown bonus type: ${b["type"]}`,pl);
+              Msg.error(`Unknown bonus type: ${b["type"]}`, pl);
               break;
           }
         });
-
       }
     }
   }

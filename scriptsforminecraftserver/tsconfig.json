@@ -1,8 +1,8 @@
 /*TypeScript编译器配置*/
 {
   "compilerOptions": {
-    "target": "es6",
-    "moduleResolution": "Node",
+    "target": "es2020",
+    "moduleResolution": "Bundler",
     "module": "ES2020",
     "declaration": false,
     "noLib": false,
@@ -12,14 +12,13 @@
     "pretty": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "allowUnreachableCode": true,
+    "allowUnreachableCode": false,
     "allowUnusedLabels": true,
     "noImplicitAny": true,
     "noImplicitReturns": false,
     "noImplicitUseStrict": false,
     "outDir": "lib",
     "rootDir": ".",
-    "baseUrl": "behavior_packs/",
     "listFiles": false,
     "noEmitHelpers": true,
     "skipLibCheck": true

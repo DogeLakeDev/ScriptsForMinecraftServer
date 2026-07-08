@@ -1,5 +1,5 @@
 import { Player, PlayerPermissionLevel } from "@minecraft/server";
-import { data } from "../data/Permission";
+import { data } from "../data/PermissionData";
 import { Command } from "./Command";
 import { Msg } from "./Tools";
 
@@ -11,11 +11,11 @@ import { Msg } from "./Tools";
  *   3 Custom   自定义（脚本指定）
  */
 export class Permission {
-  static Guest = -1;  // 脚本指定的无权限访客
-  static Any = 0;     // 等同于原生 Visitor
-  static Member = 1;  // 等同于原生 Member
-  static OP = 2;      // 等同于原生 Operator
-  static Admin = 3;   // 等同于原生 Custom
+  static Guest = -1; // 脚本指定的无权限访客
+  static Any = 0; // 等同于原生 Visitor
+  static Member = 1; // 等同于原生 Member
+  static OP = 2; // 等同于原生 Operator
+  static Admin = 3; // 等同于原生 Custom
 
   /** 权限注册表：权限名 → 所需最低等级 */
   private static registry: Map<string, number> = new Map();
@@ -38,9 +38,7 @@ export class Permission {
   static check(player: Player | string, permissionName: string): boolean {
     const required = this.registry.get(permissionName);
     if (required === undefined) return true; // 未注册的权限默认放行
-    const playerLevel = typeof player === "string"
-      ? (data[player] ?? this.Member)
-      : this.getPermission(player);
+    const playerLevel = typeof player === "string" ? (data[player] ?? this.Member) : this.getPermission(player);
     return playerLevel >= required;
   }
 
@@ -49,18 +47,24 @@ export class Permission {
       return data[player.name];
     }
     switch (player.playerPermissionLevel) {
-      case PlayerPermissionLevel.Visitor: return this.Any;
-      case PlayerPermissionLevel.Member: return this.Member;
-      case PlayerPermissionLevel.Operator: return this.OP;
-      case PlayerPermissionLevel.Custom: return this.Admin;
-      default: return this.Member;
+      case PlayerPermissionLevel.Visitor:
+        return this.Any;
+      case PlayerPermissionLevel.Member:
+        return this.Member;
+      case PlayerPermissionLevel.Operator:
+        return this.OP;
+      case PlayerPermissionLevel.Custom:
+        return this.Admin;
+      default:
+        return this.Member;
     }
   }
 
   /** 注册 permlist 命令 */
   static registerPermlistCommand() {
-    Permission.register('permlist.see', Permission.Any);
-    Command.register("permlist", 'permlist.see',
+    Command.register(
+      "permlist",
+      "permlist.see",
       (player: Player | undefined) => {
         if (!player) return;
         const lines: string[] = [];

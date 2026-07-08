@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§dHoloprint Projection Pack",
+    "description": "Auto-generated hologram resource pack for Holoprint-SFMC (v1)",
+    "uuid": "274f4f3c-274f-474f-84f4-3ade1104",
+    "version": [
+      1,
+      0,
+      1
+    ],
+    "min_engine_version": [
+      1,
+      19,
+      70
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "657ed7c5-657e-457e-87ed-3ade1104",
+      "version": [
+        1,
+        0,
+        1
+      ]
+    }
+  ]
+}

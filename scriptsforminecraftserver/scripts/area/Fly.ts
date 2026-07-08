@@ -7,13 +7,13 @@
 
 import { Player, system, world, GameMode, Entity } from "@minecraft/server";
 import { Config } from "../data/Config";
-import * as Tool from "../libs/Tools"
+import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
-import { Storage } from "../libs/Storage";
 import { Msg } from "../libs/Tools";
 
-// 注册权限
-Permission.register('fly.use', Permission.Any);
+export function init() {
+  Permission.register("fly.use", Permission.Any);
+}
 
 /**
  * 玩家加入事件
@@ -24,15 +24,15 @@ export function playerJoinEvent(player: Player) {
     if (areaName !== undefined) {
       enableFly(player);
       Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
-      Storage.playerSet(player, "dogefly", areaName);
+      player.setDynamicProperty("hpbe:dogefly", areaName);
     }
     // 不在飞行区则什么都不做，不强制改模式不发多余消息
   }, 60);
 }
 
 system.runInterval(() => {
-  for (let player of world.getPlayers({ "gameMode": GameMode.Survival })) {
-    let nowArea = Storage.playerGet<string | undefined>(player, "dogefly", undefined);
+  for (let player of world.getPlayers({ gameMode: GameMode.Survival })) {
+    let nowArea = player.getDynamicProperty("hpbe:dogefly") as string | undefined;
     let areaName = inFlyArea(player);
 
     if (areaName !== undefined) {
@@ -41,10 +41,10 @@ system.runInterval(() => {
         // 从非飞行区进入
         enableFly(player);
         Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
-        Storage.playerSet(player, "dogefly", areaName);
+        player.setDynamicProperty("hpbe:dogefly", areaName);
       } else if (nowArea !== areaName) {
         // 从一个飞行区进入另一个飞行区，更新区域名
-        Storage.playerSet(player, "dogefly", areaName);
+        player.setDynamicProperty("hpbe:dogefly", areaName);
       }
     } else {
       // 玩家当前不在任何飞行区
@@ -52,7 +52,7 @@ system.runInterval(() => {
         // 离开飞行区
         disableFly(player);
         Msg.info(`离开飞行区 ${nowArea}, 已关闭飞行模式。`, player);
-        Storage.playerDelete(player, "dogefly");
+        player.setDynamicProperty("hpbe:dogefly", undefined);
       }
     }
   }
@@ -64,7 +64,16 @@ system.runInterval(() => {
 function inFlyArea(entity: Entity): string | undefined {
   for (let area of Config.flyArea) {
     if (entity.dimension.id === area.dimension) {
-      if (Tool.pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
+      if (
+        Tool.pointInArea_2D(
+          entity.location.x,
+          entity.location.z,
+          area.start[0],
+          area.start[1],
+          area.end[0],
+          area.end[1]
+        )
+      ) {
         return area.name;
       }
     }
@@ -78,12 +87,16 @@ function enableFly(player: Player) {
     player.runCommand("ability @s mayfly true");
     player.runCommand("gamerule sendcommandfeedback true");
   } catch (_) {
-    console.warn('§c由于新版移除了相关指令，请在世界中开启教育模式。');
+    console.warn("§c由于新版移除了相关指令，请在世界中开启教育模式。");
   }
 }
 
 function disableFly(player: Player) {
-  let res = player.dimension.getBlockFromRay(player.location, { x: 0, y: -1, z: 0 }, { "includeLiquidBlocks": true, "includePassableBlocks": false });
+  let res = player.dimension.getBlockFromRay(
+    player.location,
+    { x: 0, y: -1, z: 0 },
+    { includeLiquidBlocks: true, includePassableBlocks: false }
+  );
   if (res !== undefined) {
     player.teleport({ x: res.block.location.x, y: res.block.location.y + 1, z: res.block.location.z });
   }
@@ -94,5 +107,5 @@ function disableFly(player: Player) {
     player.runCommand("gamemode adventure");
     player.runCommand("gamemode survival");
     player.runCommand("gamerule sendcommandfeedback true");
-  } catch (_) { }
+  } catch (_) {}
 }

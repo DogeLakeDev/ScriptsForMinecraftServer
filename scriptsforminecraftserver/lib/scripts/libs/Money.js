@@ -1,5 +1,5 @@
 import { world } from "@minecraft/server";
-const MONEY_NAME = 'money';
+const MONEY_NAME = "money";
 export class Money {
     /**
      * 获取玩家金钱数量
@@ -26,7 +26,7 @@ export class Money {
     static set(player, money) {
         let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
         if (!scoreboard) {
-            world.getDimension('overworld').runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+            world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
             scoreboard = world.scoreboard.getObjective(MONEY_NAME);
         }
         return scoreboard.setScore(player, money);
@@ -42,11 +42,10 @@ export class Money {
      */
     static initScoreboard() {
         if (!world.scoreboard.getObjective(MONEY_NAME)) {
-            world.getDimension("overworld")
-                .runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+            world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
         }
     }
 }
 /** 货币单位名称 */
-Money.UNIT = '节操';
+Money.UNIT = "节操";
 //# sourceMappingURL=Money.js.map

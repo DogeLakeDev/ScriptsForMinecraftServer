@@ -58,8 +58,8 @@ export class LandCore {
    * @returns 玩家会话或 undefined
    */
   static setPos1(plid: string, pos: LandPos): PlayerSession | undefined {
-     let s = this.getSession(plid);
-     if (s) {
+    let s = this.getSession(plid);
+    if (s) {
       s.pos1 = pos;
       this.sessions.set(plid, s);
     }
@@ -73,8 +73,8 @@ export class LandCore {
    * @returns 玩家会话或 undefined
    */
   static setPos2(plid: string, pos: LandPos): PlayerSession | undefined {
-     let s = this.getSession(plid);
-     if (s) {
+    let s = this.getSession(plid);
+    if (s) {
       s.pos2 = pos;
       this.sessions.set(plid, s);
     }
@@ -169,9 +169,12 @@ export class LandCore {
     if (land.dimid !== dimid) return false;
     const n = this.normalize(land.posA, land.posB);
     return (
-      pos.x >= n.posA.x && pos.x <= n.posB.x &&
-      pos.y >= n.posA.y && pos.y <= n.posB.y &&
-      pos.z >= n.posA.z && pos.z <= n.posB.z
+      pos.x >= n.posA.x &&
+      pos.x <= n.posB.x &&
+      pos.y >= n.posA.y &&
+      pos.y <= n.posB.y &&
+      pos.z >= n.posA.z &&
+      pos.z <= n.posB.z
     );
   }
 
@@ -212,10 +215,7 @@ export class LandCore {
     const allLands = Database.getAll();
     const candidates = allLands.filter((l) => l.dimid === dimid);
     for (const land of candidates) {
-      if (this.cubesOverlap(
-        this.normalize(posA, posB),
-        { posA: land.posA, posB: land.posB },
-      )) {
+      if (this.cubesOverlap(this.normalize(posA, posB), { posA: land.posA, posB: land.posB })) {
         return { ok: false, msg: "§c该区域与其他土地重叠，请重新选择土地范围。" };
       }
     }
@@ -230,21 +230,24 @@ export class LandCore {
     const price = this.calculatePrice(posA, posB);
     const balance = Money.get(player);
     if (balance < price) {
-      return { ok: false, msg: `§c${Money.UNIT}不足！\n需要 §e${price} §c${Money.UNIT}，而当前持有 §e${balance} §c${Money.UNIT}。` };
+      return {
+        ok: false,
+        msg: `§c${Money.UNIT}不足！\n需要 §e${price} §c${Money.UNIT}，而当前持有 §e${balance} §c${Money.UNIT}。`,
+      };
     }
 
     return { ok: true };
   }
 
   /** 判断两个立方体是否重叠 */
-  static cubesOverlap(
-    a: { posA: LandPos; posB: LandPos },
-    b: { posA: LandPos; posB: LandPos },
-  ): boolean {
+  static cubesOverlap(a: { posA: LandPos; posB: LandPos }, b: { posA: LandPos; posB: LandPos }): boolean {
     return (
-      a.posA.x <= b.posB.x && a.posB.x >= b.posA.x &&
-      a.posA.y <= b.posB.y && a.posB.y >= b.posA.y &&
-      a.posA.z <= b.posB.z && a.posB.z >= b.posA.z
+      a.posA.x <= b.posB.x &&
+      a.posB.x >= b.posA.x &&
+      a.posA.y <= b.posB.y &&
+      a.posB.y >= b.posA.y &&
+      a.posA.z <= b.posB.z &&
+      a.posB.z >= b.posA.z
     );
   }
 

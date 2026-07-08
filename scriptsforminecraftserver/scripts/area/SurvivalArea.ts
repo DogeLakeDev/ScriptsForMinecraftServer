@@ -6,8 +6,12 @@
 \* ---------------------------------------- */
 
 import {
-  system, world, GameMode, Entity,
-  PlayerSpawnAfterEvent, PlayerGameModeChangeBeforeEvent,
+  system,
+  world,
+  GameMode,
+  Entity,
+  PlayerSpawnAfterEvent,
+  PlayerGameModeChangeBeforeEvent,
   PlayerDimensionChangeAfterEvent,
 } from "@minecraft/server";
 import { Config } from "../data/Config";
@@ -30,28 +34,13 @@ export class SurvivalArea {
 
   enable = true;
 
-  init() {
-    Permission.register('survivalarea.gamemode.bypass', Permission.OP);
-    this.registerEvents();
+  /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+  registerCommandsAndPermissions() {
+    Permission.register("survivalarea.gamemode.bypass", Permission.OP);
   }
 
-  private inCreativeArea(entity: Entity): boolean {
-    for (const area of Config.creativeArea) {
-      if (entity.dimension.id === area.dimension) {
-        if (Tool.pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  private forceSurvival(player: any) {
-    player.setGameMode(GameMode.Survival);
-    Msg.info(`已离开创造区域，强制切换为生存模式。`, player);
-  }
-
-  private registerEvents() {
+  /** 注册事件（由 entry.ts 统一调用） */
+  registerEvents() {
     // 进服时检测
     world.afterEvents.playerSpawn.subscribe((event: PlayerSpawnAfterEvent) => {
       if (!event.initialSpawn) return;
@@ -74,7 +63,7 @@ export class SurvivalArea {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       if (event.toGameMode === GameMode.Creative || event.toGameMode === GameMode.Spectator) {
-        if (Permission.check(event.player, 'survivalarea.gamemode.bypass')) return;
+        if (Permission.check(event.player, "survivalarea.gamemode.bypass")) return;
         if (!this.inCreativeArea(event.player)) {
           event.cancel = true;
           Msg.error(`你当前不在创造区域内，无法切换到该模式。`, event.player);
@@ -98,4 +87,32 @@ export class SurvivalArea {
     });
   }
 
+  init() {
+    // 核心逻辑已在 registerEvents 中订阅事件
+  }
+
+  private inCreativeArea(entity: Entity): boolean {
+    for (const area of Config.creativeArea) {
+      if (entity.dimension.id === area.dimension) {
+        if (
+          Tool.pointInArea_2D(
+            entity.location.x,
+            entity.location.z,
+            area.start[0],
+            area.start[1],
+            area.end[0],
+            area.end[1]
+          )
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private forceSurvival(player: any) {
+    player.setGameMode(GameMode.Survival);
+    Msg.info(`已离开创造区域，强制切换为生存模式。`, player);
+  }
 }

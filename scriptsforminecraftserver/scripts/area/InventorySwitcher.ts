@@ -5,16 +5,23 @@
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
 
-import { Player, system, world, GameMode, EquipmentSlot,
-  EntityInventoryComponent, EntityEquippableComponent,
+import {
+  Player,
+  system,
+  world,
+  GameMode,
+  EquipmentSlot,
+  EntityInventoryComponent,
+  EntityEquippableComponent,
   BlockComponentTypes,
-  PlayerGameModeChangeAfterEvent } from "@minecraft/server";
+  PlayerGameModeChangeAfterEvent,
+} from "@minecraft/server";
 import { Config } from "../data/Config";
 import * as Tool from "../libs/Tools";
-import { Storage } from "../libs/Storage";
 
 export class InventorySwitcher {
   static _instance: InventorySwitcher;
+  private static chestMap: Map<string, number> = new Map();
   static getInstance() {
     if (!InventorySwitcher._instance) {
       InventorySwitcher._instance = new InventorySwitcher();
@@ -22,8 +29,27 @@ export class InventorySwitcher {
     return InventorySwitcher._instance;
   }
 
+  /** 注册事件（由 entry.ts 统一调用） */
+  registerEvents() {
+    world.afterEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeAfterEvent) => {
+      const player = event.player;
+      system.run(() => {
+        // 延迟执行时检查：如果玩家又切了一次模式，跳过本次
+        if (player.getGameMode() !== event.toGameMode) return;
+
+        if (event.fromGameMode === GameMode.Survival && event.toGameMode === GameMode.Creative) {
+          this.saveToChest(player, false);
+          this.restoreFromChest(player, true);
+        } else if (event.fromGameMode === GameMode.Creative && event.toGameMode === GameMode.Survival) {
+          this.saveToChest(player, true);
+          this.restoreFromChest(player, false);
+        }
+      });
+    });
+  }
+
   init() {
-    this.registerEvents();
+    // 核心逻辑已在 registerEvents 中订阅事件
   }
 
   /**
@@ -42,14 +68,15 @@ export class InventorySwitcher {
    */
   private getChestIndex(playerId: string, forCreative: boolean): number {
     const key = `invswitcher:player_${playerId}`;
-    let base = Storage.get<number | undefined>(key, undefined);
+    let base = InventorySwitcher.chestMap.get(key);
     if (base === undefined) {
-      let next = Storage.get<number>("invswitcher:next_index", 0);
+      let nextIdx = world.getDynamicProperty("hpbe:invswitcher_next") as number | undefined;
+      if (nextIdx === undefined) nextIdx = 0;
       const max = Config.inventoryChest.size[0] - 2;
-      if (next > max) next = 0;
-      base = next;
-      Storage.set(key, base);
-      Storage.set("invswitcher:next_index", base + 2);
+      if (nextIdx > max) nextIdx = 0;
+      base = nextIdx;
+      InventorySwitcher.chestMap.set(key, base);
+      world.setDynamicProperty("hpbe:invswitcher_next", base + 2);
     }
     return base * 2 + (forCreative ? 1 : 0);
   }
@@ -65,8 +92,12 @@ export class InventorySwitcher {
     Tool.ensureDoubleChest(dim, left, Tool.getChestCardinal(cfg.direction, cfg.face), cfg.direction);
 
     const { date, time } = Tool.getShanghaiTime();
-    Tool.placeSign(dim, sign, Tool.getSignFacing(cfg.direction, cfg.face),
-      `${player.nameTag}\n${forCreative ? "Creative" : "Survival"}\n${date}\n${time}`);
+    Tool.placeSign(
+      dim,
+      sign,
+      Tool.getSignFacing(cfg.direction, cfg.face),
+      `${player.nameTag}\n${forCreative ? "Creative" : "Survival"}\n${date}\n${time}`
+    );
 
     const block = dim.getBlock(left);
     if (!block) return;
@@ -90,7 +121,12 @@ export class InventorySwitcher {
 
     const eq = player.getComponent("equippable") as EntityEquippableComponent | undefined;
     if (eq) {
-      for (const [ai, slot] of [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet].entries()) {
+      for (const [ai, slot] of [
+        EquipmentSlot.Head,
+        EquipmentSlot.Chest,
+        EquipmentSlot.Legs,
+        EquipmentSlot.Feet,
+      ].entries()) {
         const item = eq.getEquipment(slot);
         if (item) {
           eq.setEquipment(slot, undefined);
@@ -146,7 +182,12 @@ export class InventorySwitcher {
     }
 
     if (eq) {
-      for (const [ai, slot] of [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet].entries()) {
+      for (const [ai, slot] of [
+        EquipmentSlot.Head,
+        EquipmentSlot.Chest,
+        EquipmentSlot.Legs,
+        EquipmentSlot.Feet,
+      ].entries()) {
         const item = container.getItem(36 + ai);
         if (item) {
           container.setItem(36 + ai, undefined);
@@ -160,27 +201,4 @@ export class InventorySwitcher {
       }
     }
   }
-
-  // ==========================================
-  //  模式切换拦截
-  // ==========================================
-
-  private registerEvents() {
-    world.afterEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeAfterEvent) => {
-      const player = event.player;
-      system.run(() => {
-        // 延迟执行时检查：如果玩家又切了一次模式，跳过本次
-        if (player.getGameMode() !== event.toGameMode) return;
-
-        if (event.fromGameMode === GameMode.Survival && event.toGameMode === GameMode.Creative) {
-          this.saveToChest(player, false);
-          this.restoreFromChest(player, true);
-        } else if (event.fromGameMode === GameMode.Creative && event.toGameMode === GameMode.Survival) {
-          this.saveToChest(player, true);
-          this.restoreFromChest(player, false);
-        }
-      });
-    });
-  }
 }
-

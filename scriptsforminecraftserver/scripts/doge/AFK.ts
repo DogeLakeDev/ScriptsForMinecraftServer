@@ -7,22 +7,44 @@
 
 import { Player, system, world } from "@minecraft/server";
 import { Config } from "../data/Config";
-import { Permission } from "../libs/Permission";
 import { Command } from "../libs/Command";
-import { Storage } from "../libs/Storage";
+
+// 内存缓存：玩家 ID → (键 → 值)
+const afkCache = new Map<string, Map<string, any>>();
+
+function cacheGet<T>(player: Player, key: string, fallback: T): T {
+  const pc = afkCache.get(player.id);
+  if (!pc || !pc.has(key)) return fallback;
+  return pc.get(key) as T;
+}
+
+function cacheSet(player: Player, key: string, value: any) {
+  let pc = afkCache.get(player.id);
+  if (!pc) {
+    pc = new Map();
+    afkCache.set(player.id, pc);
+  }
+  pc.set(key, value);
+}
+
+function cacheDelete(player: Player, key: string) {
+  const pc = afkCache.get(player.id);
+  if (pc) pc.delete(key);
+}
 
 export function init() {
-  // 初始化
+  console.log(`Initializing AFK...`);
   for (let player of world.getAllPlayers()) {
     reset(player);
   }
+  console.log(`AFK initialized successfully.`);
 }
 /**
  * 清除相关属性和标签
  */
 export function reset(player: Player) {
-  Storage.playerDelete(player, "afk:last_location");
-  Storage.playerDelete(player, "afk:step");
+  cacheDelete(player, "afk:last_location");
+  cacheDelete(player, "afk:step");
   player.removeTag("AFK");
   player.removeTag("NOAFK");
 }
@@ -34,11 +56,14 @@ export function setAFK(player: Player) {
   startAFKScan();
   playerList[player.id] = player.location;
   world.sendMessage(`§7* ${player.nameTag} is now AFK. *`);
-  Storage.playerSet(player, "afk:step", 0);
+  cacheSet(player, "afk:step", 0);
   player.addTag("AFK");
 }
 
-function locationMoved(lastLocation: { x: number; y: number; z: number }, nowLocation: { x: number; y: number; z: number }) {
+function locationMoved(
+  lastLocation: { x: number; y: number; z: number },
+  nowLocation: { x: number; y: number; z: number }
+) {
   let deltaX = lastLocation.x - nowLocation.x;
   if (-1 < deltaX && deltaX < 1) {
     let deltaY = lastLocation.y - nowLocation.y;
@@ -56,11 +81,15 @@ function locationMoved(lastLocation: { x: number; y: number; z: number }, nowLoc
 const STEP_TIME = 15;
 system.runInterval(() => {
   for (let player of world.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
-    let lastLoaction = Storage.playerGet<{ x: number; y: number; z: number } | undefined>(player, "afk:last_location", undefined);
+    let lastLoaction = cacheGet<{ x: number; y: number; z: number } | undefined>(
+      player,
+      "afk:last_location",
+      undefined
+    );
     let nowLocation = player.location;
 
     if (lastLoaction !== undefined) {
-      let nowStep = Storage.playerGet<number | undefined>(player, "afk:step", undefined);
+      let nowStep = cacheGet<number | undefined>(player, "afk:step", undefined);
       if (!locationMoved(lastLoaction, nowLocation)) {
         // 位置没有改变，步数增加
         if (nowStep === undefined) {
@@ -72,15 +101,15 @@ system.runInterval(() => {
         // 判断是否满足AFK条件
         if (nowStep * STEP_TIME >= Config.AFKTime) {
           // 满足
-          setAFK(player)
+          setAFK(player);
         } else {
-          Storage.playerSet(player, "afk:step", nowStep);
+          cacheSet(player, "afk:step", nowStep);
         }
       } else {
-        Storage.playerSet(player, "afk:step", 0);
+        cacheSet(player, "afk:step", 0);
       }
     }
-    Storage.playerSet(player, "afk:last_location", nowLocation);
+    cacheSet(player, "afk:last_location", nowLocation);
   }
 }, STEP_TIME * 20);
 
@@ -96,13 +125,13 @@ function startAFKScan() {
     for (let id in playerList) {
       let player = world.getEntity(id);
       if (player === undefined) {
-        delete playerList.id;
+        delete playerList[id];
       } else {
         if (locationMoved(playerList[id], player.location)) {
           world.sendMessage(`§7* ${player.nameTag} is no longer AFK. *`);
           player.removeTag("AFK");
-          Storage.playerSet(player as Player, "afk:last_location", player.location);
-          Storage.playerSet(player as Player, "afk:step", 0);
+          cacheSet(player as Player, "afk:last_location", player.location);
+          cacheSet(player as Player, "afk:step", 0);
           delete playerList[id];
         } else {
           count++;
@@ -120,13 +149,14 @@ function stopAFKScan() {
   intervalId = undefined;
 }
 
-function registerCommand() {
-  Permission.register('afk.use', Permission.Any);
-  Permission.register('afk.clear.other', Permission.OP);
-  Command.register("afk", 'afk.use', setAFK as (player: Player | undefined) => any, "进入AFK状态");
-  Command.register("noafk", 'afk.clear.other', (pl: Player | undefined) => {
-    if (pl) pl.addTag("NOAFK");
-  }, "令玩家不会进入AFK状态");
+export function registerCommand() {
+  Command.register("afk", "afk.use", setAFK as (player: Player | undefined) => any, "进入AFK状态");
+  Command.register(
+    "noafk",
+    "afk.clear.other",
+    (pl: Player | undefined) => {
+      if (pl) pl.addTag("NOAFK");
+    },
+    "令玩家不会进入AFK状态"
+  );
 }
-
-registerCommand();

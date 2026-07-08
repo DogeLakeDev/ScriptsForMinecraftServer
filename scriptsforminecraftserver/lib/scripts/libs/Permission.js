@@ -1,5 +1,5 @@
 import { PlayerPermissionLevel } from "@minecraft/server";
-import { data } from "../data/Permission";
+import { data } from "../data/PermissionData";
 import { Command } from "./Command";
 import { Msg } from "./Tools";
 /**
@@ -25,13 +25,10 @@ export class Permission {
      * @returns 是否满足权限要求
      */
     static check(player, permissionName) {
-        var _a;
         const required = this.registry.get(permissionName);
         if (required === undefined)
             return true; // 未注册的权限默认放行
-        const playerLevel = typeof player === "string"
-            ? ((_a = data[player]) !== null && _a !== void 0 ? _a : this.Member)
-            : this.getPermission(player);
+        const playerLevel = typeof player === "string" ? (data[player] ?? this.Member) : this.getPermission(player);
         return playerLevel >= required;
     }
     static getPermission(player) {
@@ -39,18 +36,21 @@ export class Permission {
             return data[player.name];
         }
         switch (player.playerPermissionLevel) {
-            case PlayerPermissionLevel.Visitor: return this.Any;
-            case PlayerPermissionLevel.Member: return this.Member;
-            case PlayerPermissionLevel.Operator: return this.OP;
-            case PlayerPermissionLevel.Custom: return this.Admin;
-            default: return this.Member;
+            case PlayerPermissionLevel.Visitor:
+                return this.Any;
+            case PlayerPermissionLevel.Member:
+                return this.Member;
+            case PlayerPermissionLevel.Operator:
+                return this.OP;
+            case PlayerPermissionLevel.Custom:
+                return this.Admin;
+            default:
+                return this.Member;
         }
     }
     /** 注册 permlist 命令 */
     static registerPermlistCommand() {
-        Permission.register('permlist.see', Permission.Any);
-        Command.register("permlist", 'permlist.see', (player) => {
-            var _a, _b;
+        Command.register("permlist", "permlist.see", (player) => {
             if (!player)
                 return;
             const lines = [];
@@ -69,7 +69,7 @@ export class Permission {
                 if (bucket)
                     bucket.push(name);
                 else
-                    ((_a = levelMap.get(-1)) !== null && _a !== void 0 ? _a : []).push(name);
+                    (levelMap.get(-1) ?? []).push(name);
             }
             const label = {
                 [-1]: "未知",
@@ -81,7 +81,7 @@ export class Permission {
             for (const [level, perms] of byLevel) {
                 if (perms.length === 0)
                     continue;
-                lines.push(`\n${(_b = label[level]) !== null && _b !== void 0 ? _b : "§7其他"} (${level}+):`);
+                lines.push(`\n${label[level] ?? "§7其他"} (${level}+):`);
                 for (const p of perms) {
                     lines.push(`  §f${p}`);
                 }

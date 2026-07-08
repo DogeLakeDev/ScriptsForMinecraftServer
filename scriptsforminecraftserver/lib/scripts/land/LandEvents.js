@@ -3,6 +3,7 @@
 \* ---------------------------------------- */
 import { world } from "@minecraft/server";
 import { LandCore } from "./LandCore";
+import { Msg } from "../libs/Tools";
 // 容器方块类型（箱子/木桶/潜影盒）
 const CONTAINER_BLOCKS = new Set([
     "minecraft:chest",
@@ -34,7 +35,8 @@ function checkLandPermission(player, pos, dimid, permField) {
 }
 // ===== 注册事件 =====
 export class LandEvents {
-    static init() {
+    /** 注册事件（由 entry.ts 统一调用） */
+    static registerEvents() {
         if (this.initialized)
             return;
         this.initialized = true;
@@ -42,10 +44,9 @@ export class LandEvents {
         world.beforeEvents.playerPlaceBlock.subscribe((ev) => {
             const { player, block } = ev;
             const pos = { x: block.x, y: block.y, z: block.z };
-            const dimid = block.dimension.id === "minecraft:overworld" ? 0
-                : block.dimension.id === "minecraft:nether" ? 1 : 2;
+            const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
             if (!checkLandPermission(player, pos, dimid, "allow_place")) {
-                player.sendMessage("§c你没有权限在此土地放置方块！");
+                Msg.error("你没有权限在此土地放置方块！", player);
                 ev.cancel = true;
             }
         });
@@ -53,10 +54,9 @@ export class LandEvents {
         world.beforeEvents.playerBreakBlock.subscribe((ev) => {
             const { player, block } = ev;
             const pos = { x: block.x, y: block.y, z: block.z };
-            const dimid = block.dimension.id === "minecraft:overworld" ? 0
-                : block.dimension.id === "minecraft:nether" ? 1 : 2;
+            const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
             if (!checkLandPermission(player, pos, dimid, "allow_destroy")) {
-                player.sendMessage("§c你没有权限在此土地破坏方块！");
+                Msg.error("你没有权限在此土地破坏方块！", player);
                 ev.cancel = true;
             }
         });
@@ -66,10 +66,9 @@ export class LandEvents {
             if (!isContainerBlock(block.typeId))
                 return; // 只拦截容器
             const pos = { x: block.x, y: block.y, z: block.z };
-            const dimid = block.dimension.id === "minecraft:overworld" ? 0
-                : block.dimension.id === "minecraft:nether" ? 1 : 2;
+            const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
             if (!checkLandPermission(player, pos, dimid, "open_container")) {
-                player.sendMessage("§c你没有权限在此土地打开容器！");
+                Msg.error("你没有权限在此土地打开容器！", player);
                 ev.cancel = true;
             }
         });

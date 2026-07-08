@@ -5,10 +5,10 @@ import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { LandCore } from "./LandCore";
 import { LandGUI } from "../gui/LandGUI";
-import { LandEvents } from "./LandEvents";
 import { Msg } from "../libs/Tools";
 export class LandSystem {
-    static init() {
+    /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+    static registerCommandsAndPermissions() {
         Permission.register("land.use", Permission.Any);
         Command.register("land", "land.use", (player) => {
             if (!player)
@@ -33,14 +33,15 @@ export class LandSystem {
                 return "§c该指令只能由玩家执行";
             handlePosCommand(player, 2);
         }, "设置土地第二点");
-        LandEvents.init();
+    }
+    static init() {
+        // 核心逻辑由 LandEvents 的事件订阅和命令处理
     }
 }
 function handlePosCommand(player, which) {
     const plid = player.id;
     const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
-    const dimid = player.dimension.id === "minecraft:overworld" ? 0
-        : player.dimension.id === "minecraft:nether" ? 1 : 2;
+    const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
     const session = LandCore.getSession(plid);
     if (!session)
         return Msg.error("你没有正在进行的土地申请。", player);

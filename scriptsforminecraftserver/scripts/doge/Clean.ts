@@ -5,20 +5,11 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 
-import {
-  system,
-  world,
-  Entity,
-  ItemStack,
-  BlockComponentTypes, BlockPermutation, Block,
-} from "@minecraft/server";
+import { system, world, Entity, ItemStack, BlockComponentTypes, BlockPermutation, Block } from "@minecraft/server";
 import { Config } from "../data/Config";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import * as Tool from "../libs/Tools";
-import { Storage } from "../libs/Storage";
-
-const STORAGE_KEY = "DOGE_CLEAN_INDEX";
 
 /**
  * [重要]
@@ -33,6 +24,8 @@ export class Clean {
     }
     return this._instance;
   }
+
+  private static cleanIndex = 0;
 
   startPoint = [0, 0, 0];
   size = [5, 5];
@@ -57,11 +50,11 @@ export class Clean {
   }
 
   getCleanIndex() {
-    return Storage.get<number>(STORAGE_KEY, 0);
+    return Clean.cleanIndex;
   }
 
   setCleanIndex(index: number) {
-    Storage.set(STORAGE_KEY, index);
+    Clean.cleanIndex = index;
   }
 
   /**
@@ -79,7 +72,7 @@ export class Clean {
 
     let index = 0;
     let currentIndex = this.getCleanIndex(); // 当前箱子的索引，仅在跳过阶段使用
-    const dimension = world.getDimension('overworld');
+    const dimension = world.getDimension("overworld");
     for (let mainAxis = 0; mainAxis < this.size[0]; mainAxis++) {
       for (let y = 0; y < this.size[1]; y++) {
         // 若还未到达当前空箱子的索引，则跳过
@@ -156,7 +149,7 @@ export class Clean {
           continue;
         }
         // 在直接清除列表中的物品实体 直接清除
-        if (this.killList.some(value => value === stack.typeId)) {
+        if (this.killList.some((value) => value === stack.typeId)) {
           itemEntity.kill();
           continue;
         }
@@ -177,11 +170,11 @@ export class Clean {
     this.intervalId = system.runInterval(() => {
       let entities = this.getAllItemEntities();
       if (entities.length > this.itemMax) {
-        world.sendMessage({ "rawtext": [{ "text": "「§6読経するヤマビコ ~ 幽谷 響子§f」 距离清理掉落物还有§c 5 §fs" }] });
+        world.sendMessage({ rawtext: [{ text: "「§6読経するヤマビコ ~ 幽谷 響子§f」 距离清理掉落物还有§c 5 §fs" }] });
         system.runTimeout(() => {
           this.startClean(undefined);
           system.runTimeout(() => {
-            world.sendMessage({ "rawtext": [{ "text": "§a* 已清理掉落物 *" }] });
+            world.sendMessage({ rawtext: [{ text: "§a* 已清理掉落物 *" }] });
           }, 5);
         }, 100);
       }
@@ -199,9 +192,9 @@ export class Clean {
    * 获取世界的所有物品
    */
   getAllItemEntities() {
-    let itemEntities = world.getDimension('overworld').getEntities({ type: 'item' });
-    itemEntities.push(...world.getDimension('nether').getEntities({ type: 'item' }));
-    itemEntities.push(...world.getDimension('the_end').getEntities({ type: 'item' }));
+    let itemEntities = world.getDimension("overworld").getEntities({ type: "item" });
+    itemEntities.push(...world.getDimension("nether").getEntities({ type: "item" }));
+    itemEntities.push(...world.getDimension("the_end").getEntities({ type: "item" }));
     return itemEntities;
   }
 
@@ -211,11 +204,14 @@ export class Clean {
   }
 }
 
-function registerCommand() {
-  Permission.register('clean.admin', Permission.OP);
-  Command.register("clean", 'clean.admin', () => {
-    Clean.getInstance()!.startClean(undefined);
-  }, "开始扫地");
+export function registerCommand() {
+  Permission.register("clean.admin", Permission.OP);
+  Command.register(
+    "clean",
+    "clean.admin",
+    () => {
+      Clean.getInstance()!.startClean(undefined);
+    },
+    "开始扫地"
+  );
 }
-
-registerCommand();

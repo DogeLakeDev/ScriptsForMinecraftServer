@@ -11,12 +11,12 @@ export class CoopCore {
     }
     static _countItemInInventory(player, typeId) {
         const inv = player.getComponent("inventory");
-        if (!(inv === null || inv === void 0 ? void 0 : inv.container))
+        if (!inv?.container)
             return 0;
         let total = 0;
         for (let i = 0; i < inv.container.size; i++) {
             const item = inv.container.getItem(i);
-            if ((item === null || item === void 0 ? void 0 : item.typeId) === typeId && item.amount)
+            if (item?.typeId === typeId && item.amount)
                 total += item.amount;
         }
         return total;
@@ -34,10 +34,31 @@ export class CoopCore {
         return false;
     }
     static _isBlockType(typeId) {
-        const nonBlock = ["_sword", "_axe", "_shovel", "_hoe", "_pickaxe", "bow", "arrow",
-            "helmet", "chestplate", "leggings", "boots", "potion", "splash_potion",
-            "lingering_potion", "spawn_egg", "writable_book", "enchanted_book", "shield",
-            "trident", "mace", "elytra", "saddle", "horse_armor"];
+        const nonBlock = [
+            "_sword",
+            "_axe",
+            "_shovel",
+            "_hoe",
+            "_pickaxe",
+            "bow",
+            "arrow",
+            "helmet",
+            "chestplate",
+            "leggings",
+            "boots",
+            "potion",
+            "splash_potion",
+            "lingering_potion",
+            "spawn_egg",
+            "writable_book",
+            "enchanted_book",
+            "shield",
+            "trident",
+            "mace",
+            "elytra",
+            "saddle",
+            "horse_armor",
+        ];
         for (const suffix of nonBlock) {
             if (typeId.endsWith(suffix))
                 return false;
@@ -79,9 +100,12 @@ export class CoopCore {
         if (Money.get(player) < 1000)
             return false;
         const coop = {
-            cid, name,
+            cid,
+            name,
             members: [{ name: player.name, isop: true }],
-            notice: "社长很懒，没有写公告～", money: 0, moneylist: "",
+            notice: "社长很懒，没有写公告～",
+            money: 0,
+            moneylist: "",
         };
         Money.set(player, Money.get(player) - 1000);
         Database.saveCoop(coop);
@@ -120,7 +144,10 @@ export class CoopCore {
         const data = Database.getCoopByCid(cid);
         if (!data)
             return "合作社不存在";
-        const ops = data.members.filter((m) => m.isop).map((m) => m.name).join(", ");
+        const ops = data.members
+            .filter((m) => m.isop)
+            .map((m) => m.name)
+            .join(", ");
         return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${data.members.length}\n银行经济: ${data.money}`;
     }
     static getMemberList(cid) {
@@ -128,9 +155,8 @@ export class CoopCore {
         return data ? data.members.map((m) => m.name) : [];
     }
     static isOp(playerName, cid) {
-        var _a, _b;
         const data = Database.getCoopByCid(cid);
-        return (_b = (_a = data === null || data === void 0 ? void 0 : data.members.find((m) => m.name === playerName)) === null || _a === void 0 ? void 0 : _a.isop) !== null && _b !== void 0 ? _b : false;
+        return data?.members.find((m) => m.name === playerName)?.isop ?? false;
     }
     static setOp(cid, index) {
         const data = Database.getCoopByCid(cid);
@@ -179,14 +205,18 @@ export class CoopCore {
     static getRankInfo(type) {
         const all = Database.getAllCoop();
         if (type === 1) {
-            return all.map((e) => ({ m: e.money, n: e.name }))
+            return all
+                .map((e) => ({ m: e.money, n: e.name }))
                 .sort((a, b) => b.m - a.m)
-                .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`).join("");
+                .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`)
+                .join("");
         }
         if (type === 2) {
-            return all.map((e) => ({ m: e.members.length, n: e.name }))
+            return all
+                .map((e) => ({ m: e.members.length, n: e.name }))
                 .sort((a, b) => b.m - a.m)
-                .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} 人`).join("");
+                .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} 人`)
+                .join("");
         }
         return "";
     }

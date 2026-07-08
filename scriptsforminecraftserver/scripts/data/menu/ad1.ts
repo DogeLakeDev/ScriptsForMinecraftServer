@@ -1,17 +1,17 @@
 export const ad1 = {
-  "type": "button",
-  "op": "false",
-  "title": "/A textures/menu/ad_1.png",
-  "content": "",
-  "buttons": [
+  type: "button",
+  op: "false",
+  title: "/A textures/menu/ad_1.png",
+  content: "",
+  buttons: [
     {
-      "title": "",
-      "image": "",
-      "onClick": {}
-    }
+      title: "",
+      image: "",
+      onClick: {},
+    },
   ],
-  "exit": {
-    "type": "",
-    "run": ""
-  }
-}
+  exit: {
+    type: "",
+    run: "",
+  },
+};

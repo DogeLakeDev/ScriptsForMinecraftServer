@@ -40,10 +40,31 @@ export class CoopCore {
   }
 
   private static _isBlockType(typeId: string): boolean {
-    const nonBlock = ["_sword", "_axe", "_shovel", "_hoe", "_pickaxe", "bow", "arrow",
-      "helmet", "chestplate", "leggings", "boots", "potion", "splash_potion",
-      "lingering_potion", "spawn_egg", "writable_book", "enchanted_book", "shield",
-      "trident", "mace", "elytra", "saddle", "horse_armor"];
+    const nonBlock = [
+      "_sword",
+      "_axe",
+      "_shovel",
+      "_hoe",
+      "_pickaxe",
+      "bow",
+      "arrow",
+      "helmet",
+      "chestplate",
+      "leggings",
+      "boots",
+      "potion",
+      "splash_potion",
+      "lingering_potion",
+      "spawn_egg",
+      "writable_book",
+      "enchanted_book",
+      "shield",
+      "trident",
+      "mace",
+      "elytra",
+      "saddle",
+      "horse_armor",
+    ];
     for (const suffix of nonBlock) {
       if (typeId.endsWith(suffix)) return false;
     }
@@ -55,7 +76,10 @@ export class CoopCore {
     const groups = Database.getAllGroups().filter((g) => g.type_function);
     for (const g of groups) {
       const tf = g.type_function!;
-      if (tf.type_enum && tf.type_enum.indexOf(item.typeId) !== -1) { rtv.push(g.groupid); continue; }
+      if (tf.type_enum && tf.type_enum.indexOf(item.typeId) !== -1) {
+        rtv.push(g.groupid);
+        continue;
+      }
       if (tf.mode_enum) {
         for (const mode of tf.mode_enum) {
           if (mode === "default_block" && this._isBlockType(item.typeId)) rtv.push(g.groupid);
@@ -80,9 +104,12 @@ export class CoopCore {
     if (Money.get(player) < 1000) return false;
 
     const coop: CoopData = {
-      cid, name,
+      cid,
+      name,
       members: [{ name: player.name, isop: true }],
-      notice: "社长很懒，没有写公告～", money: 0, moneylist: "",
+      notice: "社长很懒，没有写公告～",
+      money: 0,
+      moneylist: "",
     };
     Money.set(player, Money.get(player) - 1000);
     Database.saveCoop(coop);
@@ -124,7 +151,10 @@ export class CoopCore {
   static getInfo(cid: string): string {
     const data = Database.getCoopByCid(cid);
     if (!data) return "合作社不存在";
-    const ops = data.members.filter((m) => m.isop).map((m) => m.name).join(", ");
+    const ops = data.members
+      .filter((m) => m.isop)
+      .map((m) => m.name)
+      .join(", ");
     return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${data.members.length}\n银行经济: ${data.money}`;
   }
 
@@ -184,14 +214,18 @@ export class CoopCore {
   static getRankInfo(type: number): string {
     const all = Database.getAllCoop();
     if (type === 1) {
-      return all.map((e) => ({ m: e.money, n: e.name }))
+      return all
+        .map((e) => ({ m: e.money, n: e.name }))
         .sort((a, b) => b.m - a.m)
-        .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`).join("");
+        .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`)
+        .join("");
     }
     if (type === 2) {
-      return all.map((e) => ({ m: e.members.length, n: e.name }))
+      return all
+        .map((e) => ({ m: e.members.length, n: e.name }))
         .sort((a, b) => b.m - a.m)
-        .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} 人`).join("");
+        .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} 人`)
+        .join("");
     }
     return "";
   }
@@ -208,10 +242,18 @@ export class CoopCore {
     if (groupid) data = data.filter((e) => e.groups.indexOf(groupid) !== -1);
 
     switch (list) {
-      case 1: data.sort((a, b) => a.time - b.time); break;
-      case 2: data.sort((a, b) => a.name.localeCompare(b.name, Database.getConfig().main.compare_language)); break;
-      case 3: data.sort((a, b) => a.sv - b.sv); break;
-      case 4: data.sort((a, b) => a.money - b.money); break;
+      case 1:
+        data.sort((a, b) => a.time - b.time);
+        break;
+      case 2:
+        data.sort((a, b) => a.name.localeCompare(b.name, Database.getConfig().main.compare_language));
+        break;
+      case 3:
+        data.sort((a, b) => a.sv - b.sv);
+        break;
+      case 4:
+        data.sort((a, b) => a.money - b.money);
+        break;
     }
     if (reverse) data.reverse();
     return data;

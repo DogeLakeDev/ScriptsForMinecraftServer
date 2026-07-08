@@ -8,6 +8,9 @@
     "start:pm2": "pm2 start index.js --name doge-db"
   },
   "dependencies": {
-    "sql.js": "^1.11.0"
+    "better-sqlite3": "^12.11.1"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
   }
 }

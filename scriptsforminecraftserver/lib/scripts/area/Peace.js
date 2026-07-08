@@ -27,19 +27,18 @@ export class Peace {
         this.registerCommands();
     }
     registerEvents() {
-        world.afterEvents.entitySpawn.subscribe(event => {
+        world.afterEvents.entitySpawn.subscribe((event) => {
             if (!this.enable)
                 return;
             try {
                 if (event.cause === EntityInitializationCause.Spawned) {
                     let entity = event.entity;
-                    if (this.inPeaceArea(entity)
-                        && entity.matches(Config.peaceAreaEntityQO)) {
+                    if (this.inPeaceArea(entity) && entity.matches(Config.peaceAreaEntityQO)) {
                         event.entity.remove();
                     }
                 }
             }
-            catch (_a) { }
+            catch { }
         });
     }
     /**
@@ -56,11 +55,11 @@ export class Peace {
         return false;
     }
     switchPeace() {
-        return this.enable = !this.enable;
+        return (this.enable = !this.enable);
     }
     registerCommands() {
-        Permission.register('peace.toggle', Permission.OP);
-        Command.register("peace", 'peace.toggle', () => {
+        Permission.register("peace.toggle", Permission.OP);
+        Command.register("peace", "peace.toggle", () => {
             return Peace.getInstance().switchPeace() ? "开启区域和平" : "关闭区域和平";
         }, "切换区域和平");
     }

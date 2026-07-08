@@ -1,6 +1,6 @@
-import { Player, system } from '@minecraft/server';
-import { Permission } from './Permission';
-import { Msg } from './Tools';
+import { Player, system } from "@minecraft/server";
+import { Permission } from "./Permission";
+import { Msg } from "./Tools";
 
 export class Command {
   static list: Record<string, { callback: Function; permission: number | string; description: string }> = {};
@@ -12,12 +12,17 @@ export class Command {
    * @param callback 回调
    * @param description 指令描述
    */
-  static register(name: string, permission: number | string, callback: (player: Player | undefined) => any, description?: string) {
+  static register(
+    name: string,
+    permission: number | string,
+    callback: (player: Player | undefined) => any,
+    description?: string
+  ) {
     if (this.list[name] === undefined) {
       this.list[name] = {
-        'callback': callback,
-        'permission': permission,
-        'description': description === undefined ? name : description
+        callback: callback,
+        permission: permission,
+        description: description === undefined ? name : description,
       };
     }
     return false;
@@ -28,7 +33,7 @@ export class Command {
    */
   private static canExecute(player: Player | undefined, permission: number | string): boolean {
     if (player === undefined) return true;
-    if (typeof permission === 'string') {
+    if (typeof permission === "string") {
       return Permission.check(player, permission);
     }
     return Permission.getPermission(player) >= permission;
@@ -43,11 +48,9 @@ export class Command {
     let commandInfo = this.list[message];
     if (commandInfo !== undefined) {
       if (this.canExecute(player, commandInfo.permission)) {
-        system.run(() => {
-          let result = (commandInfo.callback as (player: Player | undefined) => any)(player);
-          if (result !== undefined ) {
-            if (player) Msg.success(`${result}`, player);
-          }
+        system.run(async () => {
+          const result = await (commandInfo.callback as (player: Player | undefined) => any)(player);
+          if (result !== undefined && player) Msg.success(`${result}`, player);
         });
         return;
       }
@@ -62,10 +65,11 @@ export class Command {
    * 注册帮助指令，在初始化时调用
    */
   static registerHelpCommand() {
-    Permission.register('help.see', Permission.Any);
-    this.register('help', 'help.see',
+    this.register(
+      "help",
+      "help.see",
       (player: Player | undefined) => {
-        let result = '当前可用指令列表如下：§r\n';
+        let result = "当前可用指令列表如下：§r\n";
         for (let command in this.list) {
           if (this.canExecute(player, this.list[command].permission)) {
             result += `  ${command} - ${this.list[command].description}\n`;
@@ -73,7 +77,7 @@ export class Command {
         }
         return result;
       },
-      '获取所有指令'
+      "获取所有指令"
     );
   }
 
@@ -81,9 +85,12 @@ export class Command {
    * 注册脚本事件，在初始化时调用
    */
   static registerScriptEvent() {
-    system.afterEvents.scriptEventReceive.subscribe((event) => {
-      this.trigger(event.sourceEntity as Player | undefined, event.id.substring(5));
-    }, { 'namespaces': ['doge'] })
+    system.afterEvents.scriptEventReceive.subscribe(
+      (event) => {
+        this.trigger(event.sourceEntity as Player | undefined, event.id.substring(5));
+      },
+      { namespaces: ["doge"] }
+    );
   }
 }
 

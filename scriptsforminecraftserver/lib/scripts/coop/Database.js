@@ -2,13 +2,15 @@
  *  合作社数据存储层
  *  使用 Storage 缓存 + HttpDB 持久化
 \* ---------------------------------------- */
-import { Storage } from "../libs/Storage";
 export class Database {
     static readJSON(key, fallback) {
-        return Storage.get(key, fallback);
+        if (this.memoryStore.has(key))
+            return this.memoryStore.get(key);
+        this.memoryStore.set(key, fallback);
+        return fallback;
     }
     static writeJSON(key, value) {
-        Storage.set(key, value);
+        this.memoryStore.set(key, value);
     }
     // ==========================================
     //  配置
@@ -112,20 +114,85 @@ export class Database {
         if (this.getAllGroups().length > 0)
             return;
         const defaults = [
-            { groupid: "default_block", displayname: "默认方块", displaydescribe: "方块类物品", icon: "/textures/ui/icon_recipe_construction", type_function: { mode_enum: ["default_block"] } },
-            { groupid: "default_item", displayname: "默认物品", displaydescribe: "物品类", icon: "/textures/ui/icon_recipe_item", type_function: { mode_enum: ["default_item"] } },
-            { groupid: "default_equip", displayname: "默认装备", displaydescribe: "装备武器类", icon: "/textures/ui/icon_recipe_equipment", type_function: { type_enum: ["minecraft:bow", "minecraft:arrow", "minecraft:crossbow", "minecraft:trident", "minecraft:shield", "minecraft:mace", "minecraft:elytra", "minecraft:wolf_armor", "minecraft:saddle"], type_reg_enum: ["[a-z].+_shovel", "[a-z].+_axe", "[a-z].+_sword", "[a-z].+_hoe", "[a-z].+_pickaxe", "[a-z].+_horse_armor"] } },
-            { groupid: "default_book", displayname: "书籍", displaydescribe: "与书相关", icon: "/textures/items/book_enchanted", type_function: { type_enum: ["minecraft:book", "minecraft:bookshelf", "minecraft:writable_book", "minecraft:enchanted_book", "minecraft:chiseled_bookshelf"] } },
-            { groupid: "default_shulker_box", displayname: "潜影盒", displaydescribe: "各种潜影盒", icon: "/textures/items/shulker_shell", type_function: { type_reg_enum: ["[a-z].+_shulker_box"] } },
-            { groupid: "default_potion", displayname: "药水", displaydescribe: "药水类", icon: "/textures/items/potion_bottle_heal", type_function: { type_enum: ["minecraft:splash_potion", "minecraft:potion", "minecraft:lingering_potion"] } },
+            {
+                groupid: "default_block",
+                displayname: "默认方块",
+                displaydescribe: "方块类物品",
+                icon: "/textures/ui/icon_recipe_construction",
+                type_function: { mode_enum: ["default_block"] },
+            },
+            {
+                groupid: "default_item",
+                displayname: "默认物品",
+                displaydescribe: "物品类",
+                icon: "/textures/ui/icon_recipe_item",
+                type_function: { mode_enum: ["default_item"] },
+            },
+            {
+                groupid: "default_equip",
+                displayname: "默认装备",
+                displaydescribe: "装备武器类",
+                icon: "/textures/ui/icon_recipe_equipment",
+                type_function: {
+                    type_enum: [
+                        "minecraft:bow",
+                        "minecraft:arrow",
+                        "minecraft:crossbow",
+                        "minecraft:trident",
+                        "minecraft:shield",
+                        "minecraft:mace",
+                        "minecraft:elytra",
+                        "minecraft:wolf_armor",
+                        "minecraft:saddle",
+                    ],
+                    type_reg_enum: [
+                        "[a-z].+_shovel",
+                        "[a-z].+_axe",
+                        "[a-z].+_sword",
+                        "[a-z].+_hoe",
+                        "[a-z].+_pickaxe",
+                        "[a-z].+_horse_armor",
+                    ],
+                },
+            },
+            {
+                groupid: "default_book",
+                displayname: "书籍",
+                displaydescribe: "与书相关",
+                icon: "/textures/items/book_enchanted",
+                type_function: {
+                    type_enum: [
+                        "minecraft:book",
+                        "minecraft:bookshelf",
+                        "minecraft:writable_book",
+                        "minecraft:enchanted_book",
+                        "minecraft:chiseled_bookshelf",
+                    ],
+                },
+            },
+            {
+                groupid: "default_shulker_box",
+                displayname: "潜影盒",
+                displaydescribe: "各种潜影盒",
+                icon: "/textures/items/shulker_shell",
+                type_function: { type_reg_enum: ["[a-z].+_shulker_box"] },
+            },
+            {
+                groupid: "default_potion",
+                displayname: "药水",
+                displaydescribe: "药水类",
+                icon: "/textures/items/potion_bottle_heal",
+                type_function: { type_enum: ["minecraft:splash_potion", "minecraft:potion", "minecraft:lingering_potion"] },
+            },
         ];
         for (const g of defaults)
             this.saveGroup(g);
     }
 }
 // ==========================================
-//  内部工具
+//  内部工具 — 内存 KV 存储（会话级持久化）
 // ==========================================
+Database.memoryStore = new Map();
 Database.KEY_COOP_DATA = "coop:data";
 Database.KEY_COOP_CONFIG = "coop:config";
 Database.KEY_SHOP_GOODS = "coop:shopgoods";

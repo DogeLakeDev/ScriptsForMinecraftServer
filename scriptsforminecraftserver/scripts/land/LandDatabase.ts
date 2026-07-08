@@ -4,7 +4,6 @@
 \* ---------------------------------------- */
 
 import { Vector3 } from "@minecraft/server";
-import { Storage } from "../libs/Storage";
 
 // ===== 类型定义 =====
 
@@ -94,12 +93,16 @@ export class Database {
 
   // ── 内部工具 ──
 
+  private static memoryStore = new Map<string, any>();
+
   private static readJSON<T>(key: string, fallback: T): T {
-    return Storage.get<T>(key, fallback);
+    if (this.memoryStore.has(key)) return this.memoryStore.get(key) as T;
+    this.memoryStore.set(key, fallback);
+    return fallback;
   }
 
   private static writeJSON(key: string, value: any) {
-    Storage.set(key, value);
+    this.memoryStore.set(key, value);
   }
 
   /** 重建 owner 索引 */
@@ -209,13 +212,7 @@ export class Database {
   // ── 辅助工具 ──
 
   /** 创建新的土地数据对象（不含 id 和创建时间） */
-  static createLandData(
-    ownerplid: string,
-    ownerName: string,
-    dimid: number,
-    posA: LandPos,
-    posB: LandPos,
-  ): LandData {
+  static createLandData(ownerplid: string, ownerName: string, dimid: number, posA: LandPos, posB: LandPos): LandData {
     return {
       id: this.generateId(),
       ownerplid,

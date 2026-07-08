@@ -2,7 +2,6 @@
  *  土地插件 — 数据存储层
  *  使用 Storage 缓存 + HttpDB 持久化
 \* ---------------------------------------- */
-import { Storage } from "../libs/Storage";
 /** 默认配置 */
 const DEFAULT_CONFIG = {
     priceFormula: "{square}*8+{height}*20",
@@ -21,12 +20,14 @@ const DEFAULT_PERMISSIONS = {
 };
 // ===== 数据库类 =====
 export class Database {
-    // ── 内部工具 ──
     static readJSON(key, fallback) {
-        return Storage.get(key, fallback);
+        if (this.memoryStore.has(key))
+            return this.memoryStore.get(key);
+        this.memoryStore.set(key, fallback);
+        return fallback;
     }
     static writeJSON(key, value) {
-        Storage.set(key, value);
+        this.memoryStore.set(key, value);
     }
     /** 重建 owner 索引 */
     static rebuildOwnerIndex() {
@@ -43,7 +44,7 @@ export class Database {
     static getConfig() {
         if (this._config)
             return this._config;
-        this._config = this.readJSON(this.KEY_CONFIG, Object.assign({}, DEFAULT_CONFIG));
+        this._config = this.readJSON(this.KEY_CONFIG, { ...DEFAULT_CONFIG });
         return this._config;
     }
     static saveConfig(cfg) {
@@ -134,18 +135,18 @@ export class Database {
             dimid,
             posA,
             posB,
-            permissions: Object.assign({}, DEFAULT_PERMISSIONS),
+            permissions: { ...DEFAULT_PERMISSIONS },
             nickname: "",
             createdAt: Date.now(),
         };
     }
     /** 默认权限对象 */
     static getDefaultPermissions() {
-        return Object.assign({}, DEFAULT_PERMISSIONS);
+        return { ...DEFAULT_PERMISSIONS };
     }
     /** 默认配置对象 */
     static getDefaultConfig() {
-        return Object.assign({}, DEFAULT_CONFIG);
+        return { ...DEFAULT_CONFIG };
     }
 }
 Database.KEY_CONFIG = "land:config";
@@ -154,4 +155,6 @@ Database.KEY_REGISTRY = "land:registry";
 Database._config = null;
 Database._registry = null; // landId → LandData
 Database._ownerIndex = null; // plid → landId[]
+// ── 内部工具 ──
+Database.memoryStore = new Map();
 //# sourceMappingURL=LandDatabase.js.map

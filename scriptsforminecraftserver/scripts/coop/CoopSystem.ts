@@ -7,36 +7,43 @@ import { world, Player } from "@minecraft/server";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { Database } from "./Database";
-import { CoopCore } from "./CoopCore";
 import { CoopGUI } from "../gui/CoopGUI";
 
 export class CoopSystem {
-
   static init() {
+    console.log(`Initializing CoopSystem...`);
     Database.initDefaultGroups();
-    this.registerPermissions();
-    this.registerCommands();
-    this.registerEvents();
+    console.log(`CoopSystem initialized successfully.`);
   }
 
-  private static registerPermissions() {
-    Permission.register("coop.use", Permission.Any);
+  static registerPermissions() {
+    Permission.register("coop.use", Permission.Member);
     Permission.register("coop.admin", Permission.OP);
-    Permission.register("coopshop.use", Permission.Any);
+    Permission.register("coopshop.use", Permission.Member);
   }
 
-  private static registerCommands() {
-    Command.register("coop", "coop.use", (player: Player | undefined) => {
-      if (player) new CoopGUI(player).mainPanel();
-    }, "合作社");
+  static registerCommands() {
+    Command.register(
+      "coop",
+      "coop.use",
+      (player: Player | undefined) => {
+        if (player) new CoopGUI(player).mainPanel();
+      },
+      "合作社"
+    );
 
-    Command.register("coopshop", "coopshop.use", (player: Player | undefined) => {
-      if (!player) return;
-      new CoopGUI(player).shopMgr(Database.getPlayerCid(player.name) ?? "", 1);
-    }, "合作社商店");
+    Command.register(
+      "coopshop",
+      "coopshop.use",
+      (player: Player | undefined) => {
+        if (!player) return;
+        new CoopGUI(player).shopMgr(Database.getPlayerCid(player.name) ?? "", 1);
+      },
+      "合作社商店"
+    );
   }
 
-  private static registerEvents() {
-    // 预留事件处理
+  static registerEvents() {
+    // 预留事件处理函数
   }
 }

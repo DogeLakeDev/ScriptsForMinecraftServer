@@ -8,15 +8,14 @@ import { Database } from "./Database";
 import { CoopGUI } from "../gui/CoopGUI";
 export class CoopSystem {
     static init() {
+        console.log(`Initializing CoopSystem...`);
         Database.initDefaultGroups();
-        this.registerPermissions();
-        this.registerCommands();
-        this.registerEvents();
+        console.log(`CoopSystem initialized successfully.`);
     }
     static registerPermissions() {
-        Permission.register("coop.use", Permission.Any);
+        Permission.register("coop.use", Permission.Member);
         Permission.register("coop.admin", Permission.OP);
-        Permission.register("coopshop.use", Permission.Any);
+        Permission.register("coopshop.use", Permission.Member);
     }
     static registerCommands() {
         Command.register("coop", "coop.use", (player) => {
@@ -24,14 +23,13 @@ export class CoopSystem {
                 new CoopGUI(player).mainPanel();
         }, "合作社");
         Command.register("coopshop", "coopshop.use", (player) => {
-            var _a;
             if (!player)
                 return;
-            new CoopGUI(player).shopMgr((_a = Database.getPlayerCid(player.name)) !== null && _a !== void 0 ? _a : "", 1);
+            new CoopGUI(player).shopMgr(Database.getPlayerCid(player.name) ?? "", 1);
         }, "合作社商店");
     }
     static registerEvents() {
-        // 预留事件处理
+        // 预留事件处理函数
     }
 }
 //# sourceMappingURL=CoopSystem.js.map

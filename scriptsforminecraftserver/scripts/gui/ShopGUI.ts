@@ -3,70 +3,59 @@
 \* ---------------------------------------- */
 
 import { Player, EntityInventoryComponent } from "@minecraft/server";
-import { Gui } from "../libs/Gui";
+import { CustomForm } from "@minecraft/server-ui";
+import { Gui, ObservableString } from "../libs/Gui";
 import { Msg, ListFormInfo } from "../libs/Tools";
 import { Money } from "../libs/Money";
 import { ShopSystem } from "../shop/ShopSystem";
 import { Config } from "../data/Config";
 
 export class ShopGUI {
-  /** 打开商店主菜单 — 列出所有分类 */
   static show(player: Player) {
     const cfg = Config.shopChest;
     const totalShops = cfg.size[0] * cfg.size[1];
-    const form = Gui.simpleForm("商店", ListFormInfo(["选择要浏览的商品分类"]));
+    const form = new CustomForm(player, "商店");
+    form.label(ListFormInfo(["选择要浏览的商品分类"]));
     for (let i = 0; i < totalShops; i++) {
-      form.button(ShopSystem.getShopName(i));
+      const idx = i;
+      form.button(ShopSystem.getShopName(i), () => {
+        this.showShopCategory(player, idx);
+      });
     }
-    form.button("§l返回");
-    Gui.showForm(player, form, "商店").then((res: any) => {
-      if (res.canceled) return;
-      const sel = res.selection;
-      if (sel >= totalShops) return; // 返回按钮
-      this.showShopCategory(player, sel);
-    });
+    form.closeButton();
+    Gui.showForm(player, form, "商店");
   }
 
-  /** 显示某个商店分类的物品列表 */
   static showShopCategory(player: Player, catIdx: number) {
     const items = ShopSystem.getChestItems(catIdx);
     const priceData = ShopSystem.getPriceData();
     const shopName = ShopSystem.getShopName(catIdx);
     const body = [`当前余额: ${Money.get(player)} ${Money.UNIT}`];
-    const form = Gui.simpleForm(shopName, ListFormInfo(body));
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    const form = new CustomForm(player, shopName);
+    form.label(ListFormInfo(body));
+    for (let j = 0; j < items.length; j++) {
+      const item = items[j];
       if (!item) continue;
-      const buyPrice = priceData.prices[`${catIdx}:${i}`];
-      const sellPrice = priceData.sellPrices[`${catIdx}:${i}`];
+      const actualIdx = j;
+      const buyPrice = priceData.prices[`${catIdx}:${j}`];
+      const sellPrice = priceData.sellPrices[`${catIdx}:${j}`];
       const label = `${item.typeId} §7x${item.amount}§r`;
       const prices = `${buyPrice ? `§a买:${buyPrice} ${Money.UNIT}§r` : ""} ${sellPrice ? `§6卖:${sellPrice} ${Money.UNIT}§r` : ""}`;
-      form.button(`${label}\n${prices}`);
+      form.button(`${label}\n${prices}`, () => {
+        this.showItemDetail(player, catIdx, actualIdx);
+      });
     }
-    form.button("§l返回");
-    Gui.showForm(player, form, shopName).then((res: any) => {
-      if (res.canceled) return;
-      const sel = res.selection;
-      if (sel >= items.length) return; // 返回按钮
-      // 过滤掉空槽位得到实际的物品索引
-      let actualIdx = -1;
-      let count = 0;
-      for (let j = 0; j < items.length; j++) {
-        if (items[j]) {
-          if (count === sel) { actualIdx = j; break; }
-          count++;
-        }
-      }
-      if (actualIdx === -1) return;
-      this.showItemDetail(player, catIdx, actualIdx);
-    });
+    form.closeButton();
+    Gui.showForm(player, form, shopName);
   }
 
-  /** 显示某个物品的购买/回收操作界面 */
   static showItemDetail(player: Player, catIdx: number, slotIdx: number) {
     const items = ShopSystem.getChestItems(catIdx);
     const item = items[slotIdx];
-    if (!item) { Msg.error("该物品已不存在。", player); return; }
+    if (!item) {
+      Msg.error("该物品已不存在。", player);
+      return;
+    }
     const priceData = ShopSystem.getPriceData();
     const buyPrice = priceData.prices[`${catIdx}:${slotIdx}`];
     const sellPrice = priceData.sellPrices[`${catIdx}:${slotIdx}`];
@@ -77,26 +66,29 @@ export class ShopGUI {
     if (sellPrice) bodyParts.push(`§6回收价: ${sellPrice} ${Money.UNIT}/个`);
     bodyParts.push(`§7当前余额: ${Money.get(player)} ${Money.UNIT}`);
 
-    const form = Gui.simpleForm(title, bodyParts.join("\n"));
-    if (buyPrice) form.button(`§a购买 §7(${buyPrice} ${Money.UNIT}/个)`);
-    if (sellPrice) form.button(`§6回收 §7(${sellPrice} ${Money.UNIT}/个)`);
-    form.button("§l返回");
-    Gui.showForm(player, form, title).then((res: any) => {
-      if (res.canceled) return;
-      const sel = res.selection;
-      const hasBuy = !!buyPrice;
-      const hasSell = !!sellPrice;
-      let action: "buy" | "sell" | null = null;
-      if (hasBuy && sel === 0) action = "buy";
-      else if (hasSell && (hasBuy ? sel === 1 : sel === 0)) action = "sell";
-      if (!action) return; // 返回
-
-      this.showQuantityInput(player, catIdx, slotIdx, item, action);
-    });
+    const form = new CustomForm(player, title);
+    form.label(bodyParts.join("\n"));
+    if (buyPrice) {
+      form.button(`§a购买 §7(${buyPrice} ${Money.UNIT}/个)`, () => {
+        this.showQuantityInput(player, catIdx, slotIdx, item, "buy");
+      });
+    }
+    if (sellPrice) {
+      form.button(`§6回收 §7(${sellPrice} ${Money.UNIT}/个)`, () => {
+        this.showQuantityInput(player, catIdx, slotIdx, item, "sell");
+      });
+    }
+    form.closeButton();
+    Gui.showForm(player, form, title);
   }
 
-  /** 弹出数量输入框 */
-  private static showQuantityInput(player: Player, catIdx: number, slotIdx: number, item: import("@minecraft/server").ItemStack, action: "buy" | "sell") {
+  private static showQuantityInput(
+    player: Player,
+    catIdx: number,
+    slotIdx: number,
+    item: import("@minecraft/server").ItemStack,
+    action: "buy" | "sell"
+  ) {
     const priceData = ShopSystem.getPriceData();
     const buyPrice = priceData.prices[`${catIdx}:${slotIdx}`];
     const sellPrice = priceData.sellPrices[`${catIdx}:${slotIdx}`];
@@ -107,15 +99,15 @@ export class ShopGUI {
     const shopItem = shopItems[slotIdx];
     const buyMax = shopItem ? shopItem.amount : 0;
 
-    const form = Gui.modalForm(`§l${label} ${item.typeId}`);
-    form.textField(
-      `§7单价: ${unitPrice} ${Money.UNIT}/个\n§7库存: ${action === "buy" ? buyMax : "不限"}\n§7输入${label}数量：`,
-      `输入数量 (1-${action === "buy" ? buyMax : 64})`
+    const amountObs = new ObservableString("");
+
+    const form = new CustomForm(player, `§l${label} ${item.typeId}`);
+    form.label(
+      `§7单价: ${unitPrice} ${Money.UNIT}/个\n§7库存: ${action === "buy" ? buyMax : "不限"}\n§7输入${label}数量：`
     );
-    form.submitButton(`确认${label}`);
-    Gui.showForm(player, form, `${label} ${item.typeId}`).then((res: any) => {
-      if (res.canceled) return;
-      const amountStr = (res.formValues as any[])[0] as string;
+    form.textField(`输入数量 (1-${action === "buy" ? buyMax : 64})`, amountObs);
+    form.button(`确认${label}`, () => {
+      const amountStr = amountObs.getData();
       const amount = parseInt(amountStr);
       if (isNaN(amount) || amount <= 0) {
         Msg.error("无效的数量。", player);
@@ -133,9 +125,11 @@ export class ShopGUI {
         }
         ShopSystem.buy(player, catIdx, slotIdx, amount);
       } else {
-        // 检查玩家背包
         const playerInv = player.getComponent("inventory") as EntityInventoryComponent | undefined;
-        if (!playerInv?.container) { Msg.error("无法获取背包信息。", player); return; }
+        if (!playerInv?.container) {
+          Msg.error("无法获取背包信息。", player);
+          return;
+        }
         let totalFound = 0;
         for (let i = 0; i < playerInv.container.size; i++) {
           const invItem = playerInv.container.getItem(i);
@@ -148,5 +142,7 @@ export class ShopGUI {
         ShopSystem.sell(player, catIdx, slotIdx, item.typeId, amount);
       }
     });
+    form.closeButton();
+    Gui.showForm(player, form, `${label} ${item.typeId}`);
   }
 }

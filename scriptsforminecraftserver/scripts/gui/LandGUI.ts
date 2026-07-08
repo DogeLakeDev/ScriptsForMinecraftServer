@@ -3,17 +3,14 @@
 \* ---------------------------------------- */
 
 import { Player, world } from "@minecraft/server";
-import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
+import { CustomForm } from "@minecraft/server-ui";
+import { Gui, ObservableString, ObservableBoolean } from "../libs/Gui";
 import { LandCore, ValidationResult } from "../land/LandCore";
-import { Database, LandData, LandPos } from "../land/LandDatabase";  
-import { Gui } from "../libs/Gui";
+import { Database, LandData, LandPos } from "../land/LandDatabase";
 import { Msg, ListFormInfo } from "../libs/Tools";
 import { Money } from "../libs/Money";
 
-
-
 export class LandGUI {
-
   /** !land 入口：按状态分发 */
   static showMainMenu(player: Player) {
     const id = player.id;
@@ -37,24 +34,16 @@ export class LandGUI {
 
     const body = [`当前拥有 §e${landCount}§r 块土地。`];
 
-    const form = new ActionFormData()
-      .title("土地")
-      .body(ListFormInfo(body))
-      .button("申请土地", "textures/ui/icon_iron_pickaxe");
+    const form = new CustomForm(player, "土地")
+      .label(ListFormInfo(body))
+      .button("申请土地", () => this.startApplication(player));
 
     if (landCount > 0) {
-      form.button("我的土地", "textures/ui/World");
+      form.button("我的土地", () => this.showLandList(player));
     }
-    form.button("§l返回");
+    form.closeButton();
 
-    Gui.showForm(player, form, "土地").then((res: any) => {
-      if (res.canceled) return;
-      if (res.selection === 0) {
-        this.startApplication(player);
-      } else if (landCount > 0 && res.selection === 1) {
-        this.showLandList(player);
-      }
-    });
+    Gui.showForm(player, form, "土地");
   }
 
   // ══════════════════════════════════════
@@ -69,25 +58,18 @@ export class LandGUI {
       return;
     }
 
-    const form = new ActionFormData()
-      .title("我的土地")
-      .body(ListFormInfo([
-      `当前拥有 §e${lands.length}§r 块土地。`,
-    ]));
+    const form = new CustomForm(player, "我的土地").label(ListFormInfo([`当前拥有 §e${lands.length}§r 块土地。`]));
 
     for (const land of lands) {
       const name = land.nickname || land.id;
       const info = LandCore.getCubeInfo(land.posA, land.posB);
-      form.button(`${name}\n${info.square} 格 | ${LandCore.getDimensionName(land.dimid)}`);
+      form.button(`${name}\n${info.square} 格 | ${LandCore.getDimensionName(land.dimid)}`, () => {
+        this.showLandManage(player, land);
+      });
     }
-    form.button("§l返回");
+    form.closeButton();
 
-    Gui.showForm(player, form, "我的土地").then((res: any) => {
-      if (res.canceled) return;
-      if (res.selection < lands.length) {
-        this.showLandManage(player, lands[res.selection]);
-      }
-    });
+    Gui.showForm(player, form, "我的土地");
   }
 
   // ══════════════════════════════════════
@@ -103,7 +85,7 @@ export class LandGUI {
     const name = land.nickname || land.id;
     const info = LandCore.getCubeInfo(land.posA, land.posB);
     const ownerName = land.ownerName || "§7未知§r";
-    
+
     let body = [
       `土地信息：`,
       `  §7- 土地名称: §r${name}§7(${land.id})`,
@@ -119,24 +101,15 @@ export class LandGUI {
       return;
     }
 
-    const form = new ActionFormData()
-      .title("土地管理")
-      .body(ListFormInfo(body))
-      .button("土地保护", "textures/ui/icon_lock")
-      .button("管理者管理", "textures/ui/icon_multiplayer")
-      .button("设置名称", "textures/ui/icon_edit")
-      .button("删除土地", "textures/ui/icon_trash")
-      .button("§l返回");
+    const form = new CustomForm(player, "土地管理")
+      .label(ListFormInfo(body))
+      .button("土地保护", () => this.showPermEditor(player, land))
+      .button("管理者管理", () => this.showManagerEditor(player, land))
+      .button("设置名称", () => this.showRenameDialog(player, land))
+      .button("删除土地", () => this.showDeleteConfirm(player, land))
+      .closeButton();
 
-    Gui.showForm(player, form, "土地管理").then((res: any) => {
-      if (res.canceled) return;
-      switch (res.selection) {
-        case 0: this.showPermEditor(player, land); break;
-        case 1: this.showManagerEditor(player, land); break;
-        case 2: this.showRenameDialog(player, land); break;
-        case 3: this.showDeleteConfirm(player, land); break;
-      }
-    });
+    Gui.showForm(player, form, "土地管理");
   }
 
   // ══════════════════════════════════════
@@ -147,24 +120,28 @@ export class LandGUI {
     const cfg = Database.getDefaultPermissions();
     const perm = land.permissions;
 
-    const form = new ModalFormData()
-      .title("土地保护设置")
-      .label(ListFormInfo([]))
-      .toggle(`允许访客§6放置方块`, { defaultValue: perm.allow_place })
-      .toggle(`允许访客§6破坏方块`, { defaultValue: perm.allow_destroy }) 
-      .toggle(`允许访客§6攻击实体`, { defaultValue: perm.attack_entity })
-      .toggle(`允许访客§6打开容器`, { defaultValue: perm.open_container });
+    const allowPlace = new ObservableBoolean(perm.allow_place);
+    const allowDestroy = new ObservableBoolean(perm.allow_destroy);
+    const attackEntity = new ObservableBoolean(perm.attack_entity);
+    const openContainer = new ObservableBoolean(perm.open_container);
 
-    Gui.showForm(player, form, "土地保护设置").then((res: any) => {
-      if (res.canceled) return;
-      const vals = res.formValues;
-      land.permissions.allow_place = vals[0] as boolean;
-      land.permissions.allow_destroy = vals[1] as boolean;
-      land.permissions.attack_entity = vals[2] as boolean;
-      land.permissions.open_container = vals[3] as boolean;
-      Database.update(land);
-      Msg.success("土地保护设置已更新。", player);
-    });
+    const form = new CustomForm(player, "土地保护设置")
+      .label(ListFormInfo([]))
+      .toggle(`允许访客§6放置方块`, allowPlace)
+      .toggle(`允许访客§6破坏方块`, allowDestroy)
+      .toggle(`允许访客§6攻击实体`, attackEntity)
+      .toggle(`允许访客§6打开容器`, openContainer)
+      .button("确认", () => {
+        land.permissions.allow_place = allowPlace.getData();
+        land.permissions.allow_destroy = allowDestroy.getData();
+        land.permissions.attack_entity = attackEntity.getData();
+        land.permissions.open_container = openContainer.getData();
+        Database.update(land);
+        Msg.success("土地保护设置已更新。", player);
+      })
+      .closeButton();
+
+    Gui.showForm(player, form, "土地保护设置");
   }
 
   // ══════════════════════════════════════
@@ -184,24 +161,16 @@ export class LandGUI {
       }),
     ];
 
-    const form = new ActionFormData()
-      .title("管理者管理")
-      .body(ListFormInfo(body))
-      .button("添加管理者");
+    const form = new CustomForm(player, "管理者管理")
+      .label(ListFormInfo(body))
+      .button("添加管理者", () => this.showAddManager(player, land));
 
     if (isOwner && land.managers.length > 1) {
-      form.button("移除管理者");
+      form.button("移除管理者", () => this.showRemoveManager(player, land));
     }
-    form.button("§l返回");
+    form.closeButton();
 
-    Gui.showForm(player, form, "管理者管理").then((res: any) => {
-      if (res.canceled) return;
-      if (res.selection === 0) {
-        this.showAddManager(player, land);
-      } else if (isOwner && land.managers.length > 1 && res.selection === 1) {
-        this.showRemoveManager(player, land);
-      }
-    });
+    Gui.showForm(player, form, "管理者管理");
   }
 
   private static showAddManager(player: Player, land: LandData) {
@@ -212,28 +181,24 @@ export class LandGUI {
       return;
     }
 
-    const form = new ActionFormData()
-      .title("添加管理者")
-      .body(ListFormInfo(["选择要添加为管理者的玩家。"]));
+    const form = new CustomForm(player, "添加管理者").label(ListFormInfo(["选择要添加为管理者的玩家。"]));
 
     for (const p of online) {
-      form.button(p.name);
-    }
-    form.button("§l返回");
-
-    Gui.showForm(player, form, "添加管理者").then((res: any) => {
-      if (res.canceled) return;
-      if (res.selection < online.length) {
-        const target = online[res.selection];
-        if (land.managers.includes(target.id)) {
+      const targetId = p.id;
+      const targetName = p.name;
+      form.button(p.name, () => {
+        if (land.managers.includes(targetId)) {
           Msg.error("该玩家已经是管理者。", player);
           return;
         }
-        land.managers.push(target.id);
+        land.managers.push(targetId);
         Database.update(land);
-        Msg.success(`已将 ${target.name} 添加为管理者。`, player);
-      }
-    });
+        Msg.success(`已将 ${targetName} 添加为管理者。`, player);
+      });
+    }
+    form.closeButton();
+
+    Gui.showForm(player, form, "添加管理者");
   }
 
   private static showRemoveManager(player: Player, land: LandData) {
@@ -243,28 +208,23 @@ export class LandGUI {
       return;
     }
 
-    const form = new ActionFormData()
-      .title("移除管理者")
-      .body(ListFormInfo(["选择要移除的管理者。"]));
+    const form = new CustomForm(player, "移除管理者").label(ListFormInfo(["选择要移除的管理者。"]));
 
     for (const m of nonOwnerMgrs) {
+      const targetId = m;
       const p = world.getPlayers().find((pl) => pl.id === m);
-      form.button(p ? p.name : m.substring(0, 8) + "...");
-    }
-    form.button("§l返回");
-
-    Gui.showForm(player, form, "移除管理者").then((res: any) => {
-      if (res.canceled) return;
-      if (res.selection < nonOwnerMgrs.length) {
-        const targetId = nonOwnerMgrs[res.selection];
+      form.button(p ? p.name : m.substring(0, 8) + "...", () => {
         const idx = land.managers.indexOf(targetId);
         if (idx !== -1) {
           land.managers.splice(idx, 1);
           Database.update(land);
           Msg.success("已移除该管理者。", player);
         }
-      }
-    });
+      });
+    }
+    form.closeButton();
+
+    Gui.showForm(player, form, "移除管理者");
   }
 
   // ══════════════════════════════════════
@@ -272,17 +232,19 @@ export class LandGUI {
   // ══════════════════════════════════════
 
   private static showRenameDialog(player: Player, land: LandData) {
-    const form = new ModalFormData()
-      .title("设置土地名称")
-      .textField("土地名称", "输入新名称（留空恢复默认）", { defaultValue: land.nickname });
+    const name = new ObservableString(land.nickname || "");
 
-    Gui.showForm(player, form, "设置土地名称").then((res: any) => {
-      if (res.canceled) return;
-      const name = (res.formValues![0] as string || "").trim();
-      land.nickname = name;
-      Database.update(land);
-      Msg.success(name ? `土地已重命名为 ${name}。` : "土地名称已恢复默认。", player);
-    });
+    const form = new CustomForm(player, "设置土地名称")
+      .textField("土地名称", name, { description: "输入新名称（留空恢复默认）" })
+      .button("确认", () => {
+        const val = name.getData().trim();
+        land.nickname = val;
+        Database.update(land);
+        Msg.success(val ? `土地已重命名为 ${val}。` : "土地名称已恢复默认。", player);
+      })
+      .closeButton();
+
+    Gui.showForm(player, form, "设置土地名称");
   }
 
   // ══════════════════════════════════════
@@ -330,49 +292,37 @@ export class LandGUI {
     const bothSet = hasPos1 && hasPos2;
 
     if (!bothSet) {
-      const body = [ "请先完整选择土地范围。"];
+      const body = ["请先完整选择土地范围。"];
       if (hasPos1 && !hasPos2) body.push("  §6!pos2 §r- 继续设置第二点");
       if (hasPos2 && !hasPos1) body.push("  §6!pos1 §r- 继续设置第一点");
 
-      const form = new ActionFormData()
-        .title("土地申请")
-        .body(ListFormInfo(body))
-        .button("取消申请")
-        .button("§l返回");
-
-      Gui.showForm(player, form, "土地申请").then((res: any) => {
-        if (res.canceled) return;
-        if (res.selection === 0) {
+      const form = new CustomForm(player, "土地申请")
+        .label(ListFormInfo(body))
+        .button("取消申请", () => {
           LandCore.clearSession(plid);
           Msg.warning("土地申请已取消。", player);
-        }
-      });
+        })
+        .closeButton();
+
+      Gui.showForm(player, form, "土地申请");
     } else {
-      const dimid = player.dimension.id === "minecraft:overworld" ? 0
-        : player.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
       const info = LandCore.formatLandInfo(session.pos1!, session.pos2!, dimid).replace(/§[cef6]/g, "");
-      const body = [
-        info,
-        "§7确认申请该土地？",
-      ];
+      const body = [info, "§7确认申请该土地？"];
 
-      const form = new ActionFormData()
-        .title("确认土地申请")
-        .body(ListFormInfo(body))
-        .button("确认申请")
-        .button("取消申请");
-
-      Gui.showForm(player, form, "确认土地申请").then((res: any) => {
-        if (res.canceled) return;
-        if (res.selection === 0) {
+      const form = new CustomForm(player, "确认土地申请")
+        .label(ListFormInfo(body))
+        .button("确认申请", () => {
           this.handleApply(player, session?.pos1!, session?.pos2!, dimid);
-        } else {
-          if(LandCore.clearSession(plid))
-          Msg.warning("土地申请已取消。", player);
-          else
-            Msg.error("土地申请取消失败。", player);
-        }
-      });
+        })
+        .button("取消申请", () => {
+          if (LandCore.clearSession(plid)) Msg.warning("土地申请已取消。", player);
+          else Msg.error("土地申请取消失败。", player);
+        })
+        .closeButton();
+
+      Gui.showForm(player, form, "确认土地申请");
     }
   }
 
@@ -384,12 +334,15 @@ export class LandGUI {
     const plid = player.id;
     LandCore.initSession(plid);
 
-    Msg.info([
-      `可在聊天框输入以下命令完成土地申请流程：`,
-      `  [1] §6§l!pos1§r §f- 设置第一点（站在对应位置输入）`,
-      `  [2] §6§l!pos2§r §f- 设置第二点`,
-      `  [3] §6§l!land§r §f- 打开菜单进行§e验证与确认§r`,
-    ].join("\n"), player);
+    Msg.info(
+      [
+        `可在聊天框输入以下命令完成土地申请流程：`,
+        `  [1] §6§l!pos1§r §f- 设置第一点（站在对应位置输入）`,
+        `  [2] §6§l!pos2§r §f- 设置第二点`,
+        `  [3] §6§l!land§r §f- 打开菜单进行§e验证与确认§r`,
+      ].join("\n"),
+      player
+    );
     Msg.tips(`在确认土地前，可重复输入 !pos1 和 !pos2 命令，来修改合适的土地范围。`, player);
   }
 
@@ -406,7 +359,10 @@ export class LandGUI {
 
     const land = LandCore.createLand(player, pos1, pos2, dimid);
     if (land) {
-      Msg.success(`土地创建成功！\n土地编号: ${land.id}\n面积: ${LandCore.getCubeInfo(land.posA, land.posB).square} 格`, player);
+      Msg.success(
+        `土地创建成功！\n土地编号: ${land.id}\n面积: ${LandCore.getCubeInfo(land.posA, land.posB).square} 格`,
+        player
+      );
     } else {
       Msg.error("土地创建失败，请重试。", player);
     }

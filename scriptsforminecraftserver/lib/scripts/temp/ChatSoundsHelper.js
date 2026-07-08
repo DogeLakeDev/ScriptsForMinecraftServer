@@ -3,13 +3,13 @@
  */
 import { system, world } from "@minecraft/server";
 export const KEYWORDS = {
-    'ciallo': 'cs.ciallo', // Ciallo~
-    '咕咕嘎嘎': 'cs.gugugaga', // 咕咕嘎嘎！
-    '汩汩咕': 'cs.gugugu', // 汩汩咕
-    'baka': 'cs.baka', // BAKA!
-    'yee': 'cs.yee', // yee
-    '干嘛': 'mob.chicken.hurt', // 鸡叫，不装神金资源包就是普通鸡叫
-    'huh': 'cs.huh', // huh 不安装神金资源包就没声音
+    ciallo: "cs.ciallo", // Ciallo~
+    咕咕嘎嘎: "cs.gugugaga", // 咕咕嘎嘎！
+    汩汩咕: "cs.gugugu", // 汩汩咕
+    baka: "cs.baka", // BAKA!
+    yee: "cs.yee", // yee
+    干嘛: "mob.chicken.hurt", // 鸡叫，不装神金资源包就是普通鸡叫
+    huh: "cs.huh", // huh 不安装神金资源包就没声音
 };
 export class ChatSoundsHelper {
     static getInstance() {
@@ -29,7 +29,7 @@ export class ChatSoundsHelper {
             for (let keyWord in this.keyWords) {
                 if (event.message.toLowerCase().includes(keyWord.toLowerCase())) {
                     // 匹配成功，先检查冷却状态
-                    if (event.sender.getGameMode() !== 'Creative') {
+                    if (event.sender.getGameMode() !== "Creative") {
                         let id = event.sender.id;
                         if (this.playerCooldown[id]) {
                             return;

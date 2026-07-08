@@ -1,7 +1,7 @@
 /* ---------------------------------------- *\
  *  Name        :  OnlineTime               *
- *  Description :  玩家在线时间统计           *
- *  Version     :  1.0.0                    *
+ *  Description :  玩家在线时间统计（纯 DB）   *
+ *  Version     :  2.0.0                    *
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
 
@@ -9,43 +9,69 @@ import { Player, system, world } from "@minecraft/server";
 import { Permission } from "../libs/Permission";
 import { Command } from "../libs/Command";
 import { Msg } from "../libs/Tools";
-import { Storage } from "../libs/Storage";
+import { HttpDB } from "../libs/HttpDB";
+
+interface OnlineTimeData {
+  session: number;
+  today: number;
+  month: number;
+  total: number;
+  lastDate: number;
+  lastMonth: number;
+}
 
 export class OnlineTime {
   static _instance: OnlineTime;
-  /**
-   * @returns {OnlineTime}
-   */
-  static getInstance() {
+  static getInstance(): OnlineTime {
     if (!OnlineTime._instance) {
       OnlineTime._instance = new OnlineTime();
     }
     return OnlineTime._instance;
   }
 
-  // 缓存键名
-  readonly KEY_SESSION = "onlinetime:session";
-  readonly KEY_TODAY = "onlinetime:today";
-  readonly KEY_MONTH = "onlinetime:month";
-  readonly KEY_TOTAL = "onlinetime:total";
-  readonly KEY_LAST_DATE = "onlinetime:last_date";
-  readonly KEY_LAST_MONTH = "onlinetime:last_month";
+  private dataMap = new Map<string, OnlineTimeData>();
 
-  init() {
-    this.registerEvents();
-    this.startTick();
-    this.registerCommands();
+  registerCommandsAndPermissions() {
+    Permission.register("onlinetime.see", Permission.Any);
+    Command.register(
+      "onlinetime",
+      "onlinetime.see",
+      async (player: Player | undefined) => {
+        if (!player) {
+          world.sendMessage("§c该指令必须由玩家执行。");
+          return;
+        }
+        const data = await this.load(player);
+        Msg.info(
+          `玩家 §a${player.name}§r 的在线时间统计:\n` +
+            `§e本次在线 §f${this.formatTime(data.session)}\n` +
+            `§e今日在线 §f${this.formatTime(data.today)}\n` +
+            `§e本月在线 §f${this.formatTime(data.month)}\n` +
+            `§e总在线 §f${this.formatTime(data.total)}\n`,
+          player
+        );
+      },
+      "查看在线时间统计"
+    );
   }
 
-  /**
-   * 将秒数格式化为可读文本
-   */
+  registerEvents() {
+    world.afterEvents.playerSpawn.subscribe((event) => {
+      if (event.initialSpawn) {
+        this.onPlayerJoin(event.player);
+      }
+    });
+  }
+
+  init() {
+    this.startTick();
+  }
+
   formatTime(seconds: number): string {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-
     const parts: string[] = [];
     if (d > 0) parts.push(`${d}天`);
     if (h > 0) parts.push(`${h}时`);
@@ -54,88 +80,91 @@ export class OnlineTime {
     return parts.join("");
   }
 
-  /**
-   * 读取玩家的缓存属性，不存在时返回 0
-   */
-  getProp(player: Player, key: string): number {
-    return Storage.playerGet<number>(player, key, 0);
+  /** 从 DB 加载玩家在线时间数据 */
+  private async load(player: Player): Promise<OnlineTimeData> {
+    const existing = this.dataMap.get(player.id);
+    if (existing) return existing;
+
+    const raw = await HttpDB.fetchJSON<Record<string, unknown>>("/api/sfmc/players", player.id, "player");
+    const def = (val: unknown, fallback: number) => (typeof val === "number" ? val : fallback);
+    const data: OnlineTimeData = {
+      session: 0,
+      today: def(raw?.onlinetime_today, 0),
+      month: def(raw?.onlinetime_month, 0),
+      total: def(raw?.onlinetime_total, 0),
+      lastDate: def(raw?.onlinetime_last_date, new Date().getDate()),
+      lastMonth: def(raw?.onlinetime_last_month, new Date().getMonth()),
+    };
+    this.dataMap.set(player.id, data);
+    return data;
   }
 
-  /**
-   * 玩家进服时重置会话计数器
-   */
+  /** 持久化在线时间到 DB（排除 session，仅持久化跨重启字段） */
+  private async persist(player: Player, data: OnlineTimeData): Promise<void> {
+    await HttpDB.patch(`/api/sfmc/players/${player.id}`, {
+      player: {
+        onlinetimeToday: data.today,
+        onlinetimeMonth: data.month,
+        onlinetimeTotal: data.total,
+        onlinetimeLastDate: data.lastDate,
+        onlinetimeLastMonth: data.lastMonth,
+      },
+    }).catch(() => {});
+  }
+
   private onPlayerJoin(player: Player) {
-    Storage.playerSet(player, this.KEY_SESSION, 0);
+    this.load(player).then((data) => {
+      data.session = 0;
+    });
   }
 
-  /**
-   * 每秒为所有在线玩家增加时间
-   * 使用 setThrottled 避免高频 HttpDB 写入，缓存实时更新
-   */
+  onPlayerLeave(player: Player) {
+    const data = this.dataMap.get(player.id);
+    if (data) {
+      this.persist(player, data).catch(() => {});
+      this.dataMap.delete(player.id);
+    }
+  }
+
   private tickSecond() {
     const now = new Date();
     const currentDate = now.getDate();
     const currentMonth = now.getMonth();
 
     for (const player of world.getAllPlayers()) {
-      // 检查日期变更 -> 重置今日和会话
-      if (this.getProp(player, this.KEY_LAST_DATE) !== currentDate) {
-        Storage.playerSetThrottled(player, this.KEY_TODAY, 0);
-        Storage.playerSetThrottled(player, this.KEY_LAST_DATE, currentDate);
+      const data = this.dataMap.get(player.id);
+      if (!data) {
+        this.load(player).then((d) => {
+          d.session++;
+          d.today++;
+          d.month++;
+          d.total++;
+        });
+        continue;
       }
 
-      // 检查月份变更 -> 重置本月
-      if (this.getProp(player, this.KEY_LAST_MONTH) !== currentMonth) {
-        Storage.playerSetThrottled(player, this.KEY_MONTH, 0);
-        Storage.playerSetThrottled(player, this.KEY_LAST_MONTH, currentMonth);
+      if (data.lastDate !== currentDate) {
+        data.today = 0;
+        data.lastDate = currentDate;
+      }
+      if (data.lastMonth !== currentMonth) {
+        data.month = 0;
+        data.lastMonth = currentMonth;
       }
 
-      // 所有计数器 +1 秒（节流写入 HttpDB）
-      Storage.playerSetThrottled(player, this.KEY_SESSION, this.getProp(player, this.KEY_SESSION) + 1);
-      Storage.playerSetThrottled(player, this.KEY_TODAY, this.getProp(player, this.KEY_TODAY) + 1);
-      Storage.playerSetThrottled(player, this.KEY_MONTH, this.getProp(player, this.KEY_MONTH) + 1);
-      Storage.playerSetThrottled(player, this.KEY_TOTAL, this.getProp(player, this.KEY_TOTAL) + 1);
+      data.session++;
+      data.today++;
+      data.month++;
+      data.total++;
+
+      // 每秒持久化到 DB
+      this.persist(player, data).catch(() => {});
     }
-  }
-
-  private registerEvents() {
-    world.afterEvents.playerSpawn.subscribe(event => {
-      if (event.initialSpawn) {
-        this.onPlayerJoin(event.player);
-      }
-    });
   }
 
   private startTick() {
     system.runInterval(() => {
       this.tickSecond();
     }, 20);
-  }
-
-  private registerCommands() {
-    Permission.register('onlinetime.see', Permission.Any);
-    Command.register("onlinetime", 'onlinetime.see',
-      (player: Player | undefined) => {
-        if (!player) {
-          world.sendMessage("§c该指令必须由玩家执行。");
-          return;
-        }
-
-        const session = this.getProp(player, this.KEY_SESSION);
-        const today = this.getProp(player, this.KEY_TODAY);
-        const month = this.getProp(player, this.KEY_MONTH);
-        const total = this.getProp(player, this.KEY_TOTAL);
-
-        Msg.info(
-          `玩家 §a${player.name}§r 的在线时间统计:\n` +
-          `§e本次在线 §f${this.formatTime(session)}\n` +
-          `§e今日在线 §f${this.formatTime(today)}\n` +
-          `§e本月在线 §f${this.formatTime(month)}\n` +
-          `§e总在线 §f${this.formatTime(total)}\n`,
-          player
-        );
-      },
-      "查看在线时间统计"
-    );
   }
 }

@@ -1,24 +1,11 @@
-/* ---------------------------------------- *\
- *  Name        :  菜单                      *
- *  Description :  菜单                      *
- *  Version     :  1.0.0                    *
- *  Author      :  ENIAC_Jushi              *
-\* ---------------------------------------- */
-
 import { forms, menuItems } from "../data/menu/index";
 import { Permission } from "../libs/Permission";
 import { Player, world } from "@minecraft/server";
 import { Gui } from "../libs/Gui";
+import { CustomForm } from "@minecraft/server-ui";
 import { Command } from "../libs/Command";
 
-// 注册权限
-Permission.register('menu.use', Permission.Any);
-
 export class Menu {
-  /**
-   * @param player
-   * @param formName
-   */
   static show(player: Player, formName: string) {
     let formData = (forms as any)[formName];
     if (formData === undefined) {
@@ -34,38 +21,46 @@ export class Menu {
       return;
     }
 
-    // 构建菜单
-    const form = Gui.simpleForm(formData["title"], formData["content"]);
+    const form = new CustomForm(player, formData["title"]);
+    if (formData["content"]) form.label(formData["content"]);
 
-    for (let button of formData["buttons"]) {
-      form.button(button["title"], button["image"] === "" ? undefined : button["image"]);
+    for (let btn of formData["buttons"]) {
+      const data = btn["onClick"];
+      form.button(btn["title"] || "", () => {
+        this.clickButton(player, data);
+      });
     }
-
-    form.show(player).then((response) => {
-      if (response.canceled || response.selection === undefined) return;
-      if (response.selection! >= formData.length) return;
-      this.clickButton(player, formData["buttons"][response.selection!]["onClick"])
-    });
+    form.closeButton();
+    Gui.showForm(player, form, formData["title"]);
   }
 
-  /**
-   * 按下某个按钮
-   */
   static clickButton(player: Player, data: { type: string; run: string }) {
     switch (data.type) {
-      case "playerCmd": player.runCommand(data.run); break;
-      case "scriptCmd": Command.trigger(player, data.run); break;
-      case "form": this.show(player, data.run); break;
-      default: break;
+      case "playerCmd":
+        player.runCommand(data.run);
+        break;
+      case "scriptCmd":
+        Command.trigger(player, data.run);
+        break;
+      case "form":
+        this.show(player, data.run);
+        break;
+      default:
+        break;
     }
   }
+
   static registerMenuItem() {
-    (world.afterEvents as any).itemUseOn.subscribe((event: any) => {
-      if (menuItems.includes(event.itemStack!.typeId)) {
-        this.show(event.source, "main");
-      }
-    })
+    try {
+      (world.afterEvents as any).itemUseOn?.subscribe((event: any) => {
+        if (menuItems.includes(event.itemStack!.typeId)) {
+          this.show(event.source, "main");
+        }
+      });
+    } catch {}
   }
 }
 
-Menu.registerMenuItem();
+export function init() {
+  Menu.registerMenuItem();
+}

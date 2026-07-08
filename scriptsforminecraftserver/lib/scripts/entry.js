@@ -6,9 +6,10 @@ import { Money } from "./libs/Money";
 import { Command } from "./libs/Command";
 import { QAManager } from "./doge/QA";
 import * as Fly from "./area/Fly";
+import { init as initDogeMenu } from "./doge/Menu";
 import * as AFK from "./doge/AFK";
 import { SpawnProtect } from "./doge/SpawnProtect";
-import { Clean } from "./doge/Clean";
+import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean";
 import { Peace } from "./area/Peace";
 import { Permission } from "./libs/Permission";
 import { CoopSystem } from "./coop/CoopSystem";
@@ -17,22 +18,109 @@ import { TPS } from "./doge/TPS";
 import { OnlineTime } from "./doge/OnlineTime";
 import { CreativeArea } from "./area/CreativeArea";
 import { SurvivalArea } from "./area/SurvivalArea";
-import { InventorySwitcher } from "./doge/InventorySwitcher";
+import { InventorySwitcher } from "./area/InventorySwitcher";
 import { LandSystem } from "./land/LandSystem";
-import { MoneyCommand } from "./gui/MoneyGUI";
+import { LandEvents } from "./land/LandEvents";
+import { MoneyGUI } from "./gui/MoneyGUI";
 import { MainMenu } from "./gui/MainMenu";
 import { ShopSystem } from "./shop/ShopSystem";
-import { Storage } from "./libs/Storage";
-import { ScoreboardSync } from "./backup/ScoreboardSync";
-import { ActivityLog } from "./doge/ActivityLog";
+import { ScoreboardSync, ScoreboardsBackup } from "./data/Scoreboards";
+import { ActivityLog } from "./data/ActivityLog";
+import { syncWorldData } from "./data/World";
+import { getPlayerData } from "./data/Player";
+import { savePlayers } from "./api/PlayersDataApi";
+import { HoloEntity } from "./holo/HoloEntity";
+import { HoloGUI } from "./holo/HoloGUI";
 export class AddOnInit {
     static init() {
         this.registerEvents();
         this.createTasks();
-        Peace.getInstance().init();
     }
     static registerEvents() {
-        SpawnProtect.registerEvents();
+        system.beforeEvents.startup.subscribe(async (e) => {
+            system.run(() => {
+                Permission.register("permlist.see", Permission.Member);
+                Permission.register("help.see", Permission.Member);
+                Permission.register("menu.use", Permission.Member);
+                Permission.register("shop.use", Permission.Member);
+                Permission.register("money.admin", Permission.OP);
+                Permission.register("holorint.menu", Permission.Member);
+                Permission.register("holorint.pos1", Permission.Member);
+                Permission.register("holorint.pos2", Permission.Member);
+                Permission.register("afk.use", Permission.Member);
+                Permission.register("afk.clear.other", Permission.OP);
+                CoopSystem.registerPermissions();
+                Permission.register("chat.use", Permission.Member);
+                Permission.register("chat.admin", Permission.OP);
+                Permission.register("tps.see", Permission.Any);
+                Fly.init();
+                initDogeMenu();
+                OnlineTime.getInstance().registerCommandsAndPermissions();
+                CreativeArea.getInstance().registerCommandsAndPermissions();
+                SurvivalArea.getInstance().registerCommandsAndPermissions();
+                LandSystem.registerCommandsAndPermissions();
+                Permission.registerPermlistCommand();
+                Command.registerHelpCommand();
+                MainMenu.registerMenuCommand();
+                MoneyGUI.registerCommand();
+                ShopSystem.registerCommand();
+                HoloGUI.registerCommand();
+                AFK.registerCommand();
+                CoopSystem.registerCommands();
+                ChatSystem.registerCommands();
+                TPS.registerCommands();
+                registerCleanCommand();
+            });
+        });
+        world.afterEvents.worldLoad.subscribe(() => {
+            AFK.init();
+            CoopSystem.init();
+            ChatSystem.init();
+            Clean.getInstance().init();
+            TPS.init();
+            OnlineTime.getInstance().init();
+            CreativeArea.getInstance().init();
+            SurvivalArea.getInstance().init();
+            InventorySwitcher.getInstance().init();
+            LandSystem.init();
+            ActivityLog.init();
+            Money.initScoreboard();
+            ScoreboardSync.init();
+            syncWorldData();
+            HoloEntity.init();
+        });
+        OnlineTime.getInstance().registerEvents();
+        CreativeArea.getInstance().registerEvents();
+        SurvivalArea.getInstance().registerEvents();
+        InventorySwitcher.getInstance().registerEvents();
+        LandEvents.registerEvents();
+        ActivityLog.registerEvents();
+        HoloEntity.registerEvents();
+        ChatSystem.registerEvents();
+        world.afterEvents.playerSpawn.subscribe((event) => {
+            if (event.initialSpawn) {
+                Peace.getInstance().init();
+                Fly.playerJoinEvent(event.player);
+                AFK.reset(event.player);
+                // 玩家进服时保存玩家数据
+                getPlayerData(event.player).then((data) => {
+                    savePlayers([data]).catch(() => { });
+                });
+            }
+        });
+        // 玩家退出时保存玩家数据和在线时间
+        world.afterEvents.playerLeave.subscribe((event) => {
+            const player = world.getEntity(event.playerId);
+            if (player) {
+                getPlayerData(player).then((data) => {
+                    savePlayers([data]).catch(() => { });
+                });
+                OnlineTime.getInstance().onPlayerLeave(player);
+            }
+        });
+        world.afterEvents.playerSpawn.subscribe((ev) => {
+            SpawnProtect.setProtect(ev.player);
+        });
         world.beforeEvents.chatSend.subscribe((event) => {
             let firstChar = event.message.substring(0, 1);
             if (firstChar === "!" || firstChar === "！") {
@@ -40,48 +128,12 @@ export class AddOnInit {
                 event.cancel = true;
             }
         });
-        system.beforeEvents.startup.subscribe((e) => __awaiter(this, void 0, void 0, function* () {
-            // 先初始化存储层（从 HttpDB 加载数据到缓存）
-            yield Storage.init();
-            system.run(() => {
-                Money.initScoreboard();
-                Command.registerHelpCommand();
-                Permission.registerPermlistCommand();
-                Command.register("menu", "menu.use", (player) => {
-                    if (player)
-                        MainMenu.show(player);
-                }, "主菜单");
-                CoopSystem.init();
-                ChatSystem.init();
-                Clean.getInstance().init();
-                AFK.init();
-                TPS.getInstance().init();
-                OnlineTime.getInstance().init();
-                CreativeArea.getInstance().init();
-                SurvivalArea.getInstance().init();
-                InventorySwitcher.getInstance().init();
-                LandSystem.init();
-                MoneyCommand.init();
-                ShopSystem.getInstance().init();
-                ScoreboardSync.init();
-                ActivityLog.init();
-                Command.register("shop", "shop.use", (player) => {
-                    if (player)
-                        ShopSystem.getInstance().showShop(player);
-                }, "商店");
-            });
-        }));
-        world.afterEvents.playerSpawn.subscribe(event => {
-            // 进服事件
-            if (event.initialSpawn) {
-                Fly.playerJoinEvent(event.player);
-                AFK.reset(event.player);
-            }
+        // 服务器停止时保存世界数据和计分板
+        system.beforeEvents.shutdown.subscribe(() => {
+            syncWorldData();
+            ScoreboardsBackup();
         });
     }
-    /**
-     * 创建定时任务
-     */
     static createTasks() {
         QAManager.getInstance().start();
     }

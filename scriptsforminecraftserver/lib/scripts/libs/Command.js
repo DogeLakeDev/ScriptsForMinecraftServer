@@ -1,6 +1,6 @@
-import { system } from '@minecraft/server';
-import { Permission } from './Permission';
-import { Msg } from './Tools';
+import { system } from "@minecraft/server";
+import { Permission } from "./Permission";
+import { Msg } from "./Tools";
 export class Command {
     /**
      * 注册指令
@@ -12,9 +12,9 @@ export class Command {
     static register(name, permission, callback, description) {
         if (this.list[name] === undefined) {
             this.list[name] = {
-                'callback': callback,
-                'permission': permission,
-                'description': description === undefined ? name : description
+                callback: callback,
+                permission: permission,
+                description: description === undefined ? name : description,
             };
         }
         return false;
@@ -25,7 +25,7 @@ export class Command {
     static canExecute(player, permission) {
         if (player === undefined)
             return true;
-        if (typeof permission === 'string') {
+        if (typeof permission === "string") {
             return Permission.check(player, permission);
         }
         return Permission.getPermission(player) >= permission;
@@ -39,12 +39,10 @@ export class Command {
         let commandInfo = this.list[message];
         if (commandInfo !== undefined) {
             if (this.canExecute(player, commandInfo.permission)) {
-                system.run(() => {
-                    let result = commandInfo.callback(player);
-                    if (result !== undefined) {
-                        if (player)
-                            Msg.success(`${result}`, player);
-                    }
+                system.run(async () => {
+                    const result = await commandInfo.callback(player);
+                    if (result !== undefined && player)
+                        Msg.success(`${result}`, player);
                 });
                 return;
             }
@@ -60,16 +58,15 @@ export class Command {
      * 注册帮助指令，在初始化时调用
      */
     static registerHelpCommand() {
-        Permission.register('help.see', Permission.Any);
-        this.register('help', 'help.see', (player) => {
-            let result = '当前可用指令列表如下：§r\n';
+        this.register("help", "help.see", (player) => {
+            let result = "当前可用指令列表如下：§r\n";
             for (let command in this.list) {
                 if (this.canExecute(player, this.list[command].permission)) {
                     result += `  ${command} - ${this.list[command].description}\n`;
                 }
             }
             return result;
-        }, '获取所有指令');
+        }, "获取所有指令");
     }
     /**
      * 注册脚本事件，在初始化时调用
@@ -77,7 +74,7 @@ export class Command {
     static registerScriptEvent() {
         system.afterEvents.scriptEventReceive.subscribe((event) => {
             this.trigger(event.sourceEntity, event.id.substring(5));
-        }, { 'namespaces': ['doge'] });
+        }, { namespaces: ["doge"] });
     }
 }
 Command.list = {};

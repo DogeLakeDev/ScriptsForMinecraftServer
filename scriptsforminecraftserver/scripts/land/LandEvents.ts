@@ -24,12 +24,7 @@ function isContainerBlock(typeId: string): boolean {
  * 检查玩家在土地上的权限
  * @returns true = 允许继续，false = 拦截
  */
-function checkLandPermission(
-  player: Player,
-  pos: LandPos,
-  dimid: number,
-  permField: keyof LandPermissions,
-): boolean {
+function checkLandPermission(player: Player, pos: LandPos, dimid: number, permField: keyof LandPermissions): boolean {
   // 管理员/OP 跳过检查
   if (player.hasTag("op") || player.hasTag("admin")) return true;
 
@@ -48,7 +43,8 @@ function checkLandPermission(
 export class LandEvents {
   private static initialized = false;
 
-  static init() {
+  /** 注册事件（由 entry.ts 统一调用） */
+  static registerEvents() {
     if (this.initialized) return;
     this.initialized = true;
 
@@ -56,8 +52,8 @@ export class LandEvents {
     world.beforeEvents.playerPlaceBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0
-        : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
 
       if (!checkLandPermission(player, pos, dimid, "allow_place")) {
         Msg.error("你没有权限在此土地放置方块！", player);
@@ -69,8 +65,8 @@ export class LandEvents {
     world.beforeEvents.playerBreakBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0
-        : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
 
       if (!checkLandPermission(player, pos, dimid, "allow_destroy")) {
         Msg.error("你没有权限在此土地破坏方块！", player);
@@ -84,8 +80,8 @@ export class LandEvents {
       if (!isContainerBlock(block.typeId)) return; // 只拦截容器
 
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0
-        : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
 
       if (!checkLandPermission(player, pos, dimid, "open_container")) {
         Msg.error("你没有权限在此土地打开容器！", player);

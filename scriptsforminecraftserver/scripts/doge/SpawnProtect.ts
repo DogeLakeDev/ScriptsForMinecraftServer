@@ -5,14 +5,12 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 
-import { world } from "@minecraft/server";
+import { Player } from "@minecraft/server";
 
 export class SpawnProtect {
-  static registerEvents() {
-    world.afterEvents.playerSpawn.subscribe((ev) => {
-      if (ev.player.getEffect("minecraft:resistance") === undefined) {
-        ev.player.addEffect("minecraft:resistance", 3, { amplifier: 5 });
-      }
-    });
+  static setProtect(player: Player) {
+    if (player.getEffect("minecraft:resistance") === undefined) {
+      player.addEffect("minecraft:resistance", 3, { amplifier: 5 });
+    }
   }
 }

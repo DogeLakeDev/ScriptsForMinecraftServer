@@ -1,20 +1,11 @@
-/* ---------------------------------------- *\
-*  Name        :  生物数量控制                *
-*  Description :  分类统计生物数量并清理       *
-*  Version     :  1.0.0                     *
-*  Author      :  ENIAC_Jushi               *
-\* ---------------------------------------- */
 import { system, world } from "@minecraft/server";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { Gui } from "../libs/Gui";
-/**
- * 开始统计和清理任务
- */
+import { CustomForm } from "@minecraft/server-ui";
 export function entityClean(player) {
     let m = new Map();
-    // 统计数量
-    for (let entity of player.dimension.getEntities({ "excludeTypes": ["player"] })) {
+    for (let entity of player.dimension.getEntities({ excludeTypes: ["player"] })) {
         let amount = m.get(entity.typeId);
         if (amount === undefined) {
             m.set(entity.typeId, 1);
@@ -23,58 +14,37 @@ export function entityClean(player) {
             m.set(entity.typeId, amount + 1);
         }
     }
-    if (m.size === 0) {
+    if (m.size === 0)
         return;
-    }
-    // 排序
     let arr = Array.from(m);
-    arr.sort((a, b) => {
-        return b[1] - a[1];
-    });
-    // 发送表单
-    const form = Gui.simpleForm("实体列表");
-    form.title("实体列表");
+    arr.sort((a, b) => b[1] - a[1]);
+    const form = new CustomForm(player, "实体列表");
     for (let data of arr) {
-        form.button(`${data[1]} | ${data[0]}`);
-    }
-    // 清除
-    form.show(player).then((response) => {
-        if (response.canceled || response.selection === undefined)
-            return;
-        const selectionIndex = response.selection;
-        const form2 = Gui.simpleForm("处理方式");
-        form2.button(`remove`);
-        form2.button(`kill`);
-        form2.button("tp");
-        form2.show(player).then((response2) => {
-            player.sendMessage(`${response2.selection}`);
-            if (response2.canceled || response2.selection === undefined)
-                return;
-            switch (response2.selection) {
-                case 0:
-                    {
-                        let entities = player.dimension.getEntities({ "type": arr[selectionIndex][0] });
-                        for (let en of entities) {
-                            en.remove();
-                        }
-                    }
-                    ;
-                    break;
-                case 1:
-                    player.runCommand(`kill @e[type=${arr[selectionIndex][0]}]`);
-                    break;
-                case 2:
-                    player.runCommand(`tp @s @e[c=1,type=${arr[selectionIndex][0]}]`);
-                    break;
-            }
+        form.button(`${data[1]} | ${data[0]}`, () => {
+            showActionForm(player, arr, arr.indexOf(data));
         });
-    });
+    }
+    form.closeButton();
+    Gui.showForm(player, form, "实体列表");
 }
-/**
- * @param player
- */
+function showActionForm(player, arr, selectionIndex) {
+    const form = new CustomForm(player, "处理方式");
+    form.button("remove", () => {
+        let entities = player.dimension.getEntities({ type: arr[selectionIndex][0] });
+        for (let en of entities)
+            en.remove();
+    });
+    form.button("kill", () => {
+        player.runCommand(`kill @e[type=${arr[selectionIndex][0]}]`);
+    });
+    form.button("tp", () => {
+        player.runCommand(`tp @s @e[c=1,type=${arr[selectionIndex][0]}]`);
+    });
+    form.closeButton();
+    Gui.showForm(player, form, "处理方式");
+}
 export function temp(player) {
-    let ens = player.dimension.getEntities({ "type": "dogelake:grid_blue" });
+    let ens = player.dimension.getEntities({ type: "dogelake:grid_blue" });
     for (let en of ens) {
         let res = `${en.typeId} (${en.location.x}, ${en.location.y}, ${en.location.z})\n`;
         res += `doge:depth | ${en.getProperty("doge:depth")}\n`;
@@ -82,7 +52,7 @@ export function temp(player) {
         res += `doge:alpha | ${en.getProperty("doge:alpha")}\n`;
         player.sendMessage(res);
     }
-    ens = player.dimension.getEntities({ "type": "dogelake:grid_red" });
+    ens = player.dimension.getEntities({ type: "dogelake:grid_red" });
     for (let en of ens) {
         let res = `${en.typeId} (${en.location.x}, ${en.location.y}, ${en.location.z})\n`;
         res += `doge:depth | ${en.getProperty("doge:depth")}\n`;
@@ -90,7 +60,7 @@ export function temp(player) {
         res += `doge:alpha | ${en.getProperty("doge:alpha")}\n`;
         player.sendMessage(res);
     }
-    ens = player.dimension.getEntities({ "type": "dogelake:moon_blue" });
+    ens = player.dimension.getEntities({ type: "dogelake:moon_blue" });
     for (let en of ens) {
         let res = `${en.typeId} (${en.location.x}, ${en.location.y}, ${en.location.z})\n`;
         res += `doge:depth | ${en.getProperty("doge:depth")}\n`;
@@ -101,7 +71,7 @@ export function temp(player) {
         res += `doge:scale | ${en.getProperty("doge:scale")}\n`;
         player.sendMessage(res);
     }
-    ens = player.dimension.getEntities({ "type": "dogelake:galaxy_blue" });
+    ens = player.dimension.getEntities({ type: "dogelake:galaxy_blue" });
     for (let en of ens) {
         let res = `${en.typeId} (${en.location.x}, ${en.location.y}, ${en.location.z})\n`;
         res += `doge:depth | ${en.getProperty("doge:depth")}\n`;
@@ -111,21 +81,18 @@ export function temp(player) {
     }
 }
 function registerCommand() {
-    Permission.register('entity_control.clear', Permission.OP);
-    Command.register("en", 'entity_control.clear', (player) => entityClean(player), "清理实体");
+    Permission.register("entity_control.clear", Permission.OP);
+    Command.register("en", "entity_control.clear", (player) => entityClean(player), "清理实体");
 }
 registerCommand();
-/**
- * 处死统计 铁傀儡 */
 var iron_start = 0;
 var iron_amount = 0;
 var ironSubscription;
 function killStatistics() {
-    Permission.register('entity_control.inspect', Permission.OP);
-    Command.register("en_i", 'entity_control.inspect', (player) => {
+    Permission.register("entity_control.inspect", Permission.OP);
+    Command.register("en_i", "entity_control.inspect", (player) => {
         iron_start = new Date().getTime();
         iron_amount = 0;
-        // 取消旧订阅，避免重复订阅导致内存泄漏
         if (ironSubscription) {
             ironSubscription();
             ironSubscription = undefined;
@@ -133,11 +100,10 @@ function killStatistics() {
         const callback = (ev) => {
             iron_amount++;
         };
-        world.afterEvents.entityDie.subscribe(callback, { "entityTypes": ["minecraft:iron_golem"] });
+        world.afterEvents.entityDie.subscribe(callback, { entityTypes: ["minecraft:iron_golem"] });
         ironSubscription = () => world.afterEvents.entityDie.unsubscribe(callback);
-        // 每分钟计算速度
         system.runInterval(() => {
-            let time = ((new Date().getTime() - iron_start) / 60000);
+            let time = (new Date().getTime() - iron_start) / 60000;
             if (player)
                 player.sendMessage(`Total: ${iron_amount} | Time: ${time.toFixed(1)}(min) | Avg: ${(iron_amount / time).toFixed(1)}`);
         }, 200);

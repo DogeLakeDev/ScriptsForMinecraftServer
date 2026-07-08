@@ -99,8 +99,7 @@ export class LandCore {
     }
     /** 计算维度名 */
     static getDimensionName(dimid) {
-        var _a;
-        return (_a = ["主世界", "地狱", "末地"][dimid]) !== null && _a !== void 0 ? _a : "未知";
+        return ["主世界", "地狱", "末地"][dimid] ?? "未知";
     }
     // ── 价格计算 ──
     /** 解析公式并计算价格 */
@@ -119,7 +118,7 @@ export class LandCore {
         try {
             price = Function(`"use strict"; return (${expr});`)();
         }
-        catch (_a) {
+        catch {
             price = info.square * 8 + info.height * 20; // fallback
         }
         price = Math.max(0, Math.floor(price * cfg.discount)); // 计算折扣
@@ -131,9 +130,12 @@ export class LandCore {
         if (land.dimid !== dimid)
             return false;
         const n = this.normalize(land.posA, land.posB);
-        return (pos.x >= n.posA.x && pos.x <= n.posB.x &&
-            pos.y >= n.posA.y && pos.y <= n.posB.y &&
-            pos.z >= n.posA.z && pos.z <= n.posB.z);
+        return (pos.x >= n.posA.x &&
+            pos.x <= n.posB.x &&
+            pos.y >= n.posA.y &&
+            pos.y <= n.posB.y &&
+            pos.z >= n.posA.z &&
+            pos.z <= n.posB.z);
     }
     /** 获取某位置所在的土地 */
     static getLandByPos(pos, dimid) {
@@ -180,15 +182,21 @@ export class LandCore {
         const price = this.calculatePrice(posA, posB);
         const balance = Money.get(player);
         if (balance < price) {
-            return { ok: false, msg: `§c${Money.UNIT}不足！\n需要 §e${price} §c${Money.UNIT}，而当前持有 §e${balance} §c${Money.UNIT}。` };
+            return {
+                ok: false,
+                msg: `§c${Money.UNIT}不足！\n需要 §e${price} §c${Money.UNIT}，而当前持有 §e${balance} §c${Money.UNIT}。`,
+            };
         }
         return { ok: true };
     }
     /** 判断两个立方体是否重叠 */
     static cubesOverlap(a, b) {
-        return (a.posA.x <= b.posB.x && a.posB.x >= b.posA.x &&
-            a.posA.y <= b.posB.y && a.posB.y >= b.posA.y &&
-            a.posA.z <= b.posB.z && a.posB.z >= b.posA.z);
+        return (a.posA.x <= b.posB.x &&
+            a.posB.x >= b.posA.x &&
+            a.posA.y <= b.posB.y &&
+            a.posB.y >= b.posA.y &&
+            a.posA.z <= b.posB.z &&
+            a.posB.z >= b.posA.z);
     }
     // ── 创建/删除 ──
     /** 创建土地（已通过验证后调用） */

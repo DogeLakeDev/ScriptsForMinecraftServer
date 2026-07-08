@@ -20,19 +20,18 @@ export class LandAPI {
     }
     /** 获取土地拥有者 plid */
     static getLandOwner(landId) {
-        var _a;
         const land = Database.getById(landId);
-        return (_a = land === null || land === void 0 ? void 0 : land.ownerplid) !== null && _a !== void 0 ? _a : null;
+        return land?.ownerplid ?? null;
     }
     /** 获取土地名称（昵称） */
     static getLandName(landId) {
         const land = Database.getById(landId);
-        return (land === null || land === void 0 ? void 0 : land.nickname) || landId;
+        return land?.nickname || landId;
     }
     /** 获取土地描述 */
     static getLandDescribe(landId) {
         const land = Database.getById(landId);
-        return (land === null || land === void 0 ? void 0 : land.nickname) || "";
+        return land?.nickname || "";
     }
     /** 添加信任（将玩家添加为管理者） */
     static addTrust(landId, plid) {

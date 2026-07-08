@@ -1,21 +1,10 @@
-/* ---------------------------------------- *\
- *  Name        :  菜单                      *
- *  Description :  菜单                      *
- *  Version     :  1.0.0                    *
- *  Author      :  ENIAC_Jushi              *
-\* ---------------------------------------- */
 import { forms, menuItems } from "../data/menu/index";
 import { Permission } from "../libs/Permission";
 import { world } from "@minecraft/server";
 import { Gui } from "../libs/Gui";
+import { CustomForm } from "@minecraft/server-ui";
 import { Command } from "../libs/Command";
-// 注册权限
-Permission.register('menu.use', Permission.Any);
 export class Menu {
-    /**
-     * @param player
-     * @param formName
-     */
     static show(player, formName) {
         let formData = forms[formName];
         if (formData === undefined) {
@@ -30,22 +19,18 @@ export class Menu {
             player.sendMessage("这个菜单没有按钮^ ^");
             return;
         }
-        // 构建菜单
-        const form = Gui.simpleForm(formData["title"], formData["content"]);
-        for (let button of formData["buttons"]) {
-            form.button(button["title"], button["image"] === "" ? undefined : button["image"]);
+        const form = new CustomForm(player, formData["title"]);
+        if (formData["content"])
+            form.label(formData["content"]);
+        for (let btn of formData["buttons"]) {
+            const data = btn["onClick"];
+            form.button(btn["title"] || "", () => {
+                this.clickButton(player, data);
+            });
         }
-        form.show(player).then((response) => {
-            if (response.canceled || response.selection === undefined)
-                return;
-            if (response.selection >= formData.length)
-                return;
-            this.clickButton(player, formData["buttons"][response.selection]["onClick"]);
-        });
+        form.closeButton();
+        Gui.showForm(player, form, formData["title"]);
     }
-    /**
-     * 按下某个按钮
-     */
     static clickButton(player, data) {
         switch (data.type) {
             case "playerCmd":
@@ -57,16 +42,22 @@ export class Menu {
             case "form":
                 this.show(player, data.run);
                 break;
-            default: break;
+            default:
+                break;
         }
     }
     static registerMenuItem() {
-        world.afterEvents.itemUseOn.subscribe((event) => {
-            if (menuItems.includes(event.itemStack.typeId)) {
-                this.show(event.source, "main");
-            }
-        });
+        try {
+            world.afterEvents.itemUseOn?.subscribe((event) => {
+                if (menuItems.includes(event.itemStack.typeId)) {
+                    this.show(event.source, "main");
+                }
+            });
+        }
+        catch { }
     }
 }
-Menu.registerMenuItem();
+export function init() {
+    Menu.registerMenuItem();
+}
 //# sourceMappingURL=Menu.js.map

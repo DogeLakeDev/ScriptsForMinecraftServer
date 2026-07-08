@@ -57,14 +57,14 @@ export function pointInArea_3D(x, y, z, areaStart_x, areaStart_y, areaStart_z, a
     return true;
 }
 export function playerCMDName(name) {
-    if (name.indexOf(' ') !== -1) {
+    if (name.indexOf(" ") !== -1) {
         return '"' + name + '"';
     }
     return name;
 }
 export function logger(str) {
     for (let player of world.getPlayers()) {
-        player.sendMessage({ rawtext: [{ "text": `${str}` }] });
+        player.sendMessage({ rawtext: [{ text: `${str}` }] });
     }
 }
 /**
@@ -79,19 +79,24 @@ export function getRandomInteger(min = 0, max = 1) {
 /** 根据 direction 获取增长方向基向量 */
 export function getBase(direction) {
     switch (direction) {
-        case 1: return [1, 0];
-        case -1: return [-1, 0];
-        case 2: return [0, 1];
-        case -2: return [0, -1];
-        default: return [1, 0];
+        case 1:
+            return [1, 0];
+        case -1:
+            return [-1, 0];
+        case 2:
+            return [0, 1];
+        case -2:
+            return [0, -1];
+        default:
+            return [1, 0];
     }
 }
 /** 获取箱子面朝方向（与 Clean 一致） */
 export function getChestCardinal(direction, face) {
     if (direction === -1 || direction === 1) {
-        return face > 0 ? 'south' : 'north';
+        return face > 0 ? "south" : "north";
     }
-    return face > 0 ? 'east' : 'west';
+    return face > 0 ? "east" : "west";
 }
 /** 获取墙上告示牌的面朝方向（与 Clean 一致） */
 export function getSignFacing(direction, face) {
@@ -133,63 +138,86 @@ export function ensureDoubleChest(dimension, pos, cardinal, direction) {
             z: pos.z + (base[1] !== 0 ? d * base[1] : 0),
         };
         const block = dimension.getBlock(p);
-        if (!block || block.typeId !== 'minecraft:chest') {
-            dimension.setBlockPermutation(p, BlockPermutation.resolve('chest', { 'minecraft:cardinal_direction': cardinal }));
+        if (!block || block.typeId !== "minecraft:chest") {
+            dimension.setBlockPermutation(p, BlockPermutation.resolve("chest", { "minecraft:cardinal_direction": cardinal }));
         }
     }
 }
 /** 放置墙上告示牌并设置文字 */
 export function placeSign(dimension, pos, facing, text) {
-    dimension.setBlockPermutation(pos, BlockPermutation.resolve('pale_oak_wall_sign', { 'facing_direction': facing }));
+    dimension.setBlockPermutation(pos, BlockPermutation.resolve("pale_oak_wall_sign", { facing_direction: facing }));
     try {
         const block = dimension.getBlock(pos);
-        const sign = block === null || block === void 0 ? void 0 : block.getComponent(BlockComponentTypes.Sign);
+        const sign = block?.getComponent(BlockComponentTypes.Sign);
         if (sign)
             sign.setText(text);
     }
-    catch (_a) { }
+    catch { }
 }
 /** 获取 Asia/Shanghai 时区的日期时间字符串 */
 export function getShanghaiTime() {
     const now = new Date();
     const offset = 8 * 60; // UTC+8 in minutes
     const local = new Date(now.getTime() + offset * 60 * 1000);
-    const pad = (n) => String(n).padStart(2, '0');
+    const pad = (n) => String(n).padStart(2, "0");
     return {
         date: `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`,
         time: `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`,
     };
+}
+/** 当前 UTC 时间戳（毫秒） */
+export function now() {
+    return Date.now();
+}
+/** 格式化时间戳为 Asia/Shanghai 时区的 YYYY-MM-DD HH:mm */
+export function formatTimestamp(ts) {
+    const offset = 8 * 60;
+    const d = new Date(ts + offset * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 /** 系统消息回调（由 DogeChat 注册，用于将 Msg 消息写入系统频道） */
 let _systemMsgHandler = null;
 export function registerSystemMsgHandler(handler) {
     _systemMsgHandler = handler;
 }
+export function generateId(type) {
+    return `${type}_${Math.random().toString(36).slice(2, 10)}`;
+}
+/** 构建 URL 查询字符串（替代 SAPI 中不可用的 URLSearchParams） */
+export function toQueryString(params) {
+    const parts = [];
+    for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== "")
+            parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+    }
+    return parts.length > 0 ? "?" + parts.join("&") : "";
+}
 export const Msg = {
     info: (msg, player) => {
         player.sendMessage(`§f[*] ${msg}`);
-        _systemMsgHandler === null || _systemMsgHandler === void 0 ? void 0 : _systemMsgHandler(player, msg);
+        _systemMsgHandler?.(player, msg);
     },
     error: (msg, player) => {
         player.sendMessage(`§c[x] ${msg}`);
-        _systemMsgHandler === null || _systemMsgHandler === void 0 ? void 0 : _systemMsgHandler(player, msg);
+        _systemMsgHandler?.(player, msg);
     },
     success: (msg, player) => {
         player.sendMessage(`§a[√] ${msg}`);
-        _systemMsgHandler === null || _systemMsgHandler === void 0 ? void 0 : _systemMsgHandler(player, msg);
+        _systemMsgHandler?.(player, msg);
     },
     warning: (msg, player) => {
         player.sendMessage(`§e[!] ${msg}`);
-        _systemMsgHandler === null || _systemMsgHandler === void 0 ? void 0 : _systemMsgHandler(player, msg);
+        _systemMsgHandler?.(player, msg);
     },
     tips: (msg, player) => {
         player.sendMessage(`§7[!] ${msg}`);
-        _systemMsgHandler === null || _systemMsgHandler === void 0 ? void 0 : _systemMsgHandler(player, msg);
-    }
+        _systemMsgHandler?.(player, msg);
+    },
 };
 export function ListFormInfo(str) {
     if (str.length === 0)
-        return '§7请选择操作：';
+        return "§7请选择操作：";
     let lines = [];
     lines.push(`[*] ${str[0]}`);
     if (str.length > 1) {
@@ -198,9 +226,8 @@ export function ListFormInfo(str) {
             lines.push(`${line}`);
         }
     }
-    lines.push('');
+    lines.push("");
     lines.push(`§7请选择操作：`);
     return lines.join("\n");
 }
-;
 //# sourceMappingURL=Tools.js.map
