@@ -621,6 +621,119 @@ SQLite transaction batch INSERT
 
 ## UI Conventions
 
+### MenuNavigator — 模块内导航框架
+
+所有表单界面统一使用 `libs/MenuNavigator.ts` 构建。每个模块创建一个 `MenuNavigator` 实例，预注册所有页面（section），然后一次性构建到**同一个表单**中，通过 `ObservableBoolean` 控制可见性实现页面切换——**不关闭/重开表单**。
+
+### 基本用法
+
+```typescript
+const nav = new MenuNavigator(player);
+
+// 注册所有页面
+nav.section("main", "主菜单", (page) => {
+  page.label("内容");
+  page.button("子菜单", () => nav.go("sub"));
+  page.button("跨模块", () => nav.leave(() => OtherModule.show(player)));
+});
+
+nav.section("sub", "子菜单", (page) => {
+  page.textField("输入", obs);
+  page.button("确认", () => { /* ... */ });
+});
+
+// 启动（构建并显示表单，从 main 页开始）
+nav.start("main");
+```
+
+### API
+
+| 方法 | 用途 | 行为 |
+|------|------|------|
+| `nav.section(id, title, builder)` | 注册一个页面 | `title` 用于面包屑导航 |
+| `nav.start(id)` | 打开表单 | 构建所有页面 → 显示 `id` 页 → UserBusy 自动重试 8 秒 |
+| `nav.go(id)` | 同模块导航 | **只翻转可见性**，不关表单，标题自动更新为面包屑 |
+| `nav.rebuild(id)` | 带数据刷新导航 | 关表单 → 重建所有页面（此时 `nav.state` 已设好） → 显示 `id` 页 |
+| `nav.back()` | 返回上一级 | 弹出历史栈，翻转可见性（由全局置顶按钮触发） |
+| `nav.leave(callback)` | 跨模块跳转 | `form.close()` → 执行 `callback`（回调里创建目标模块的 navigator） |
+
+### 页面构建器（Page）
+
+`page` 是 `PageBuilder` 实例，自动给每个组件绑定所属页面的 `ObservableBoolean` 来控制可见性：
+
+```typescript
+page.button(label, onClick)           // ✅ 带 visible 控制
+page.label(text)                      // ✅ 带 visible 控制
+page.divider()                        // ✅ 带 visible 控制
+page.header(text)                     // ✅ 带 visible 控制
+page.textField(label, obs, opts?)     // ❌ 不带 visible（交互组件）
+page.toggle(label, obs, opts?)        // ❌ 不带 visible（交互组件）
+page.dropdown(label, obs, items, o?)  // ❌ 不带 visible（交互组件）
+page.slider(label, obs, min, max, o?) // ❌ 不带 visible（交互组件）
+```
+
+非交互组件（button/label/header/divider）会随页面切换动态显隐。交互组件（textField/toggle/dropdown/slider）始终存在，但在非活跃页面中没有关联的标签和按钮，玩家不会注意到。
+
+### 全局返回按钮
+
+`MenuNavigator.start()` 会在表单最上方注入一个 `§l← 回到上一级` 按钮，其可见性由 `backVis: ObservableBoolean` 控制。在根页面（`history.length === 1`）时隐藏，进入子页面后自动显示。
+
+### 页面间传参
+
+```typescript
+// 页面 A — 设置数据并导航
+page.button(land.name, () => {
+  nav.state.land = land;          // 存数据
+  nav.state.someObs.setData(val); // 或更新 Observable
+  nav.rebuild("detail");          // 重建并导航
+});
+
+// 页面 B — 读取数据（守卫模式）
+nav.section("detail", "详情", (page) => {
+  const land = nav.state.land as LandData;
+  if (!land) { page.label("§7请先选择"); return; }  // ← 必须守卫
+  page.label(land.name);
+  page.button("删除", () => { /* ... */ });
+});
+```
+
+所有依赖 `nav.state.xxx` 的页面**必须加守卫**（`if (!xxx) return`），因为构建发生在 `start()` 时，此时状态还未设置。导航到这类页面时必须用 `nav.rebuild("id")` 而非 `nav.go("id")`，以确保重建时状态已就绪。
+
+### 完整示例
+
+```typescript
+import { MenuNavigator } from "../libs/MenuNavigator";
+import { ObservableString } from "../libs/Gui";
+import { Msg } from "../libs/Tools";
+
+function showMyMenu(player: Player) {
+  const nav = new MenuNavigator(player);
+
+  nav.section("main", "首页", (page) => {
+    page.label("欢迎");
+    page.button("设置", () => nav.go("settings"));
+    page.button("关于", () => nav.leave(() => showAbout(player)));
+  });
+
+  nav.section("settings", "设置", (page) => {
+    const name = new ObservableString("");
+    page.textField("昵称", name);
+    page.button("保存", () => {
+      Msg.success(`已保存: ${name.getData()}`, player);
+    });
+  });
+
+  nav.start("main");
+}
+```
+
+### 注意事项
+
+- 不要手动调用 `.closeButton()` — navigator 自动添加
+- 不要手动添加返回按钮 — navigator 全局注入
+- 不要在 `start()` 之后调用 `section()` — 所有页面必须在 `start()` 前注册
+- `nav.state` 是跨页面共享的，子页面修改后会影响到父页面下次显示
+
 ### Message Display (Msg)
 
 All chat messages use `libs/Tools.ts` `Msg` helpers:

@@ -18,9 +18,8 @@ import {
   PlayerSpawnAfterEvent,
   EntitySpawnAfterEvent,
 } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
-import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { SurvivalArea } from "./SurvivalArea";
 
@@ -42,18 +41,7 @@ export class CreativeArea {
 
   /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
   registerCommandsAndPermissions() {
-    Permission.register("creativearea.toggle", Permission.OP);
     Permission.register("creativearea.place_banned", Permission.Admin);
-    Command.register(
-      "creativearea",
-      "creativearea.toggle",
-      () => {
-        CreativeArea.enable = !CreativeArea.enable;
-        SurvivalArea.getInstance().enable = CreativeArea.enable;
-        return CreativeArea.enable ? "区域系统已开启" : "区域系统已关闭";
-      },
-      "开关区域系统"
-    );
   }
 
   /** 注册事件（由 entry.ts 统一调用） */
@@ -111,7 +99,7 @@ export class CreativeArea {
         return;
       }
       // 阻止放置禁止方块（拥有 creativearea.place_banned 可绕过）
-      if (Config.creativeBannedItems.indexOf(event.permutationToPlace.type.id) !== -1) {
+      if (ConfigManager.getBannedItems().indexOf(event.permutationToPlace.type.id) !== -1) {
         if (!Permission.check(player, "creativearea.place_banned")) {
           event.cancel = true;
           Tool.Msg.error(`创造区域内禁止放置 ${event.permutationToPlace.type.id}。`, player);
@@ -132,7 +120,7 @@ export class CreativeArea {
   init() {
     this.startTick();
     this.startBorderFastCheck();
-    this.startBorderWarning();
+    //this.startBorderWarning();
   }
 
   // ==========================================
@@ -140,7 +128,7 @@ export class CreativeArea {
   // ==========================================
 
   private inArea(entity: Entity): string | undefined {
-    for (const area of Config.creativeArea) {
+    for (const area of ConfigManager.getAreas("creative")) {
       if (entity.dimension.id === area.dimension) {
         if (
           Tool.pointInArea_2D(
@@ -160,7 +148,7 @@ export class CreativeArea {
   }
 
   private inAreaByPos(x: number, z: number, dimensionId: string): boolean {
-    for (const area of Config.creativeArea) {
+    for (const area of ConfigManager.getAreas("creative")) {
       if (dimensionId === area.dimension) {
         if (Tool.pointInArea_2D(x, z, area.start[0], area.start[1], area.end[0], area.end[1])) {
           return true;
@@ -171,7 +159,7 @@ export class CreativeArea {
   }
 
   private isNearBorder(entity: Entity, threshold: number = this.BORDER_THRESHOLD): boolean {
-    for (const area of Config.creativeArea) {
+    for (const area of ConfigManager.getAreas("creative")) {
       if (entity.dimension.id !== area.dimension) continue;
       const minX = Math.min(area.start[0], area.end[0]) - threshold;
       const maxX = Math.max(area.start[0], area.end[0]) + threshold;
@@ -189,7 +177,7 @@ export class CreativeArea {
   }
 
   private inBufferZone(entity: Entity): boolean {
-    for (const area of Config.creativeArea) {
+    for (const area of ConfigManager.getAreas("creative")) {
       if (entity.dimension.id !== area.dimension) continue;
       const minX = Math.min(area.start[0], area.end[0]);
       const maxX = Math.max(area.start[0], area.end[0]);
@@ -211,7 +199,7 @@ export class CreativeArea {
 
   private get creativeDims(): Set<string> {
     const dims = new Set<string>();
-    for (const area of Config.creativeArea) dims.add(area.dimension);
+    for (const area of ConfigManager.getAreas("creative")) dims.add(area.dimension);
     return dims;
   }
 
@@ -314,7 +302,7 @@ export class CreativeArea {
     system.runInterval(() => {
       if (!CreativeArea.enable) return;
       for (const player of world.getPlayers()) {
-        for (const area of Config.creativeArea) {
+        for (const area of ConfigManager.getAreas("creative")) {
           if (player.dimension.id !== area.dimension) continue;
           const pos = player.location;
           const minX = Math.min(area.start[0], area.end[0]);

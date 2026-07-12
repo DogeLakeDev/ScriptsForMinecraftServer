@@ -2,7 +2,7 @@
  * ScoreboardSync — 计分板备份与快速恢复
  */
 import { world } from "@minecraft/server";
-import { loadScoreboards, backupScoreboards } from "../api/ScoreboardsSyncApi";
+import { loadScoreboards, backupScoreboards } from "../api";
 export function ScoreboardsBackup() {
     let entries = [];
     world.scoreboard.getObjectives().forEach((obj, index) => {

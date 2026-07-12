@@ -1,22 +1,27 @@
-/* ---------------------------------------- *\
- *  Holoprint — GUI 界面
-\* ---------------------------------------- */
-
 import { Player } from "@minecraft/server";
-import { CustomForm } from "@minecraft/server-ui";
-import { Gui, ObservableString, ObservableNumber } from "../libs/Gui";
+import { MenuNavigator, ObservableString, ObservableNumber, obsStr, obsNum } from "../libs/MenuNavigator";
 import { HoloCore } from "./HoloCore";
 import { HoloEntity } from "./HoloEntity";
-import { ProjectionData, ColorPreset, COLOR_PRESETS } from "../data/HoloPrint";
+import { ProjectionData, COLOR_PRESETS } from "../data/HoloPrint";
 import { Command } from "../libs/Command";
+import { ListFormInfo } from "../libs/Tools";
 
 export class HoloGUI {
+  private nav: MenuNavigator;
+  private player: Player;
+
+  private constructor(player: Player) {
+    this.player = player;
+    this.nav = new MenuNavigator(player);
+    this.registerSections();
+  }
+
   static registerCommand() {
     Command.register(
       "holorint",
       "holorint.menu",
       (player: Player | undefined) => {
-        if (player) HoloGUI.showMainMenu(player);
+        if (player) new HoloGUI(player).nav.start("main");
       },
       "全息投影"
     );
@@ -38,284 +43,288 @@ export class HoloGUI {
     );
   }
 
-  // ══════════════════════════════════════
-  //  1. 主菜单
-  // ══════════════════════════════════════
-
-  static showMainMenu(player: Player): void {
-    const form = new CustomForm(player, "全息投影")
-      .label("选择一个操作：")
-      .button("📤 上传投影", () => {
-        player.sendMessage(
-          "§a[HPBE] 请使用 §e!hpbe pos1 §a和 §e!hpbe pos2 §a设置选区，然后使用 §e!hpbe§a 打开菜单选择上传"
-        );
-        HoloGUI.showUploadConfig(player);
-      })
-      .button("📥 加载投影", () => {
-        HoloCore.loadProjectionList(player);
-      })
-      .closeButton();
-    Gui.showForm(player, form, "全息投影");
-  }
-
-  // ══════════════════════════════════════
-  //  2. 上传配置
-  // ══════════════════════════════════════
-
-  static async showUploadConfig(player: Player): Promise<void> {
-    const name = new ObservableString("");
-    const author = new ObservableString(player.name);
-    const description = new ObservableString("");
-    const visibilityIndex = new ObservableNumber(0);
-
-    const form = new CustomForm(player, "上传投影")
-      .textField("§a投影名称", name, { description: "请输入投影名称…" })
-      .textField("§a作者", author, { description: "作者名" })
-      .textField("§7描述（可选）", description, { description: "请输入描述…" })
-      .dropdown("§a可见性", visibilityIndex, [
-        { label: "公共", value: 0 },
-        { label: "私人", value: 1 },
-      ])
-      .button("确认上传", () => {
-        HoloCore.startUpload(player, {
-          name: name.getData(),
-          author: author.getData(),
-          description: description.getData(),
-          visibility: visibilityIndex.getData() === 0 ? "public" : "private",
-        });
-      })
-      .closeButton();
-    await Gui.showForm(player, form, "上传投影");
-  }
-
-  // ══════════════════════════════════════
-  //  3. 投影列表
-  // ══════════════════════════════════════
+  // ── 外部调用入口 ──
 
   static async showProjectionList(
     player: Player,
     privateList: ProjectionData[],
     publicList: ProjectionData[]
   ): Promise<void> {
-    const form = new CustomForm(player, "加载投影").button("§l=== 我的投影 ===", () => {
-      this.showProjectionList(player, privateList, publicList);
-    });
-    for (const p of privateList) {
-      form.button(`${p.name} - ${p.sizeX}x${p.sizeY}x${p.sizeZ} [${p.blockCount}方块]`, () => {
-        Gui.confirm(player, "放置投影", "是否将投影放置在当前位置？", () => {
-          HoloEntity.spawnProjection(player, p.id, player.location);
-        });
-      });
-    }
-    form.button("§l=== 公共投影 ===", () => {
-      this.showProjectionList(player, privateList, publicList);
-    });
-    for (const p of publicList) {
-      form.button(`${p.name} - ${p.sizeX}x${p.sizeY}x${p.sizeZ} [${p.blockCount}方块]`, () => {
-        Gui.confirm(player, "放置投影", "是否将投影放置在当前位置？", () => {
-          HoloEntity.spawnProjection(player, p.id, player.location);
-        });
-      });
-    }
-    form.closeButton();
-    await Gui.showForm(player, form, "加载投影");
+    const gui = new HoloGUI(player);
+    gui.nav.state.privateList = privateList;
+    gui.nav.state.publicList = publicList;
+    await gui.nav.start("load");
   }
-
-  // ══════════════════════════════════════
-  //  4. 操作菜单
-  // ══════════════════════════════════════
 
   static async showOperationMenu(player: Player, projection: ProjectionData): Promise<void> {
-    const s = projection.settings;
-    const form = new CustomForm(player, `操作 - ${projection.name}`)
-      .button("🧱 物品清单", () => {
-        HoloCore.executeOperation(player, projection.id, "materials");
-      })
-      .button(`👁 显示/隐藏 (当前: ${s.visible ? "显示" : "隐藏"})`, () => {
-        HoloCore.executeOperation(player, projection.id, "toggle_visibility");
-      })
-      .button(`📐 比例 (当前: ${s.scale})`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置比例", s.scale, 0.1, 10);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_scale", val);
-      })
-      .button(`🎨 纹理轮廓宽度 (当前: ${s.textureOutlineWidth})`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置纹理轮廓宽度", s.textureOutlineWidth, 0, 10);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_texture_outline_width", val);
-      })
-      .button("🎨 纹理轮廓颜色", async () => {
-        const color = await HoloGUI.showColorPicker(player, "选择纹理轮廓颜色");
-        if (color !== null) HoloCore.executeOperation(player, projection.id, "set_texture_outline_color", color);
-      })
-      .button(`🎨 纹理轮廓透明度 (当前: ${s.textureOutlineOpacity})`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置纹理轮廓透明度", s.textureOutlineOpacity, 0, 1);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_texture_outline_opacity", val);
-      })
-      .button("🌈 叠加染色", async () => {
-        const color = await HoloGUI.showColorPicker(player, "选择叠加染色颜色");
-        if (color !== null) HoloCore.executeOperation(player, projection.id, "set_overlay_tint", color);
-      })
-      .button(`🌈 叠加染色透明度 (当前: ${s.overlayTintOpacity})`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置叠加染色透明度", s.overlayTintOpacity, 0, 1);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_overlay_tint_opacity", val);
-      })
-      .button(`▶ 生成动画 (当前: ${s.spawnAnimation ? "开" : "关"})`, () => {
-        HoloCore.executeOperation(player, projection.id, "toggle_spawn_animation");
-      })
-      .button(`🔆 透明度 (当前: ${s.opacity})`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置透明度", s.opacity, 0, 1);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_opacity", val);
-      })
-      .button(`📊 层级 (当前: ${s.layer})`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置层级", s.layer, -64, 320);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_layer", val);
-      })
-      .button("📏 移动", async () => {
-        await HoloGUI.showMoveInput(player, projection);
-      })
-      .button(`🔄 旋转 (当前: ${s.rotation}°)`, async () => {
-        const val = await HoloGUI.showNumberInput(player, "设置旋转角度", s.rotation, 0, 360);
-        if (val !== null) HoloCore.executeOperation(player, projection.id, "set_rotation", val);
-      })
-      .button(`🔍 方块检查 (当前: ${s.blockInspect ? "开" : "关"})`, () => {
-        HoloCore.executeOperation(player, projection.id, "toggle_block_inspect");
-      })
-      .button(`🎨 叠加染色开关 (当前: ${s.overlayTint ? "开" : "关"})`, () => {
-        HoloCore.executeOperation(player, projection.id, "toggle_overlay_tint");
-      })
-      .button(
-        `📋 层模式 (当前: ${s.layerMode === "all" ? "全部" : s.layerMode === "single" ? "单层" : "范围"})`,
-        async () => {
-          await HoloGUI.showLayerModePicker(player, projection);
-        }
-      )
-      .button("❌ 删除投影", () => {
-        Gui.confirm(player, "删除投影", "确定要删除此投影吗？此操作不可撤销。", () => {
-          HoloCore.executeOperation(player, projection.id, "delete");
-        });
-      })
-      .button("🔄 更换投影", () => {
-        HoloCore.loadProjectionList(player);
-      })
-      .closeButton();
-    await Gui.showForm(player, form, "操作菜单");
+    const gui = new HoloGUI(player);
+    gui.nav.state.projection = projection;
+    await gui.nav.start("operation");
   }
-
-  // ══════════════════════════════════════
-  //  5. 物品清单
-  // ══════════════════════════════════════
 
   static async showMaterialList(player: Player, materials: { name: string; count: number }[]): Promise<void> {
-    const sorted = [...materials].sort((a, b) => b.count - a.count);
-    const form = new CustomForm(player, "物品清单").label(`共 §e${sorted.length}§r 种材料`);
-
-    const maxDisplay = 50;
-    const displayItems = sorted.slice(0, maxDisplay);
-    for (const m of displayItems) {
-      form.label(`§7${m.count}§r x ${m.name}`);
-    }
-    if (sorted.length > maxDisplay) {
-      form.label(`§8... 还有 ${sorted.length - maxDisplay} 种材料`);
-    }
-    form.closeButton();
-    await Gui.showForm(player, form, "物品清单");
+    const gui = new HoloGUI(player);
+    gui.nav.state.materials = materials;
+    await gui.nav.start("materials");
   }
-
-  // ══════════════════════════════════════
-  //  6. 颜色选择器
-  // ══════════════════════════════════════
-
-  static async showColorPicker(player: Player, title: string): Promise<string | null> {
-    let result: string | null = null;
-    const form = new CustomForm(player, title).label("选择一个颜色预设：");
-    for (const preset of COLOR_PRESETS) {
-      form.button(`§l${preset.name}§r  ${preset.hex}`, () => {
-        result = preset.value;
-      });
-    }
-    form.closeButton();
-    await Gui.showForm(player, form, title);
-    return result;
-  }
-
-  // ══════════════════════════════════════
-  //  7. 数字输入
-  // ══════════════════════════════════════
-
-  static async showNumberInput(
-    player: Player,
-    title: string,
-    defaultValue: number,
-    min?: number,
-    max?: number
-  ): Promise<number | null> {
-    let result: number | null = null;
-    const val = new ObservableNumber(defaultValue);
-    const form = new CustomForm(player, title)
-      .slider("数值", val, min ?? 0, max ?? 100, { step: 1 })
-      .button("确认", () => {
-        result = val.getData();
-      })
-      .closeButton();
-    await Gui.showForm(player, form, title);
-    return result;
-  }
-
-  // ══════════════════════════════════════
-  //  8. 版本警告
-  // ══════════════════════════════════════
 
   static showVersionWarning(player: Player): void {
-    Gui.confirm(
-      player,
+    const gui = new HoloGUI(player);
+    gui.nav.state._title = "版本不匹配";
+    gui.nav.confirm(
       "版本不匹配",
       "检测到插件版本与服务器端不匹配，部分投影可能无法正常显示。\n\n请重新加入游戏以获取更新后的投影。",
-      () => {
-        /* 确认关闭 */
-      }
+      () => {}
     );
   }
 
-  // ══════════════════════════════════════
-  //  内部辅助 - 移动输入
-  // ══════════════════════════════════════
+  // ── Sections ──
 
-  private static async showMoveInput(player: Player, projection: ProjectionData): Promise<void> {
-    const s = projection.settings;
-    const offsetX = new ObservableNumber(s.offsetX);
-    const offsetY = new ObservableNumber(s.offsetY);
-    const offsetZ = new ObservableNumber(s.offsetZ);
-    const form = new CustomForm(player, "移动投影")
-      .slider("X 偏移", offsetX, -64, 64)
-      .slider("Y 偏移", offsetY, -64, 64)
-      .slider("Z 偏移", offsetZ, -64, 64)
-      .button("确认", () => {
-        const x = offsetX.getData();
-        const y = offsetY.getData();
-        const z = offsetZ.getData();
-        if (x === s.offsetX && y === s.offsetY && z === s.offsetZ) return;
-        HoloCore.executeOperation(player, projection.id, "move", { x, y, z });
-      })
-      .closeButton();
-    await Gui.showForm(player, form, "移动投影");
+  private registerSections(): void {
+    this.nav.section("main", "全息投影", (p) => this.buildMain(p));
+    this.nav.section("upload", "上传投影", (p) => this.buildUpload(p));
+    this.nav.section("load", "加载投影", (p) => this.buildLoad(p));
+    this.nav.section("operation", "操作菜单", (p) => this.buildOperation(p));
+    this.nav.section("materials", "物品清单", (p) => this.buildMaterials(p));
+    this.nav.section("numInput", "数值", (p) => this.buildNumInput(p));
+    this.nav.section("colorPicker", "颜色选择", (p) => this.buildColorPicker(p));
+    this.nav.section("moveInput", "移动投影", (p) => this.buildMoveInput(p));
+    this.nav.section("layerMode", "层模式", (p) => this.buildLayerMode(p));
   }
 
-  // ══════════════════════════════════════
-  //  内部辅助 - 层模式选择
-  // ══════════════════════════════════════
+  private buildMain(page: any): void {
+    page.label("选择一个操作：");
+    page.button("📤 上传投影", () => {
+      this.player.sendMessage(
+        "§a[HPBE] 请使用 §e!hpbe pos1 §a和 §e!hpbe pos2 §a设置选区，然后使用 §e!hpbe§a 打开菜单选择上传"
+      );
+      this.nav.go("upload");
+    });
+    page.button("📥 加载投影", () => HoloCore.loadProjectionList(this.player));
+  }
 
-  private static async showLayerModePicker(player: Player, projection: ProjectionData): Promise<void> {
-    const index = new ObservableNumber(0);
-    const form = new CustomForm(player, "层模式")
-      .dropdown("选择层模式", index, [
-        { label: "全部", value: 0 },
-        { label: "单层", value: 1 },
-        { label: "范围", value: 2 },
-      ])
-      .button("确认", () => {
-        const mode = index.getData() === 0 ? "all" : index.getData() === 1 ? "single" : "range";
-        HoloCore.executeOperation(player, projection.id, "set_layer_mode", mode);
-      })
-      .closeButton();
-    await Gui.showForm(player, form, "层模式");
+  private buildUpload(page: any): void {
+    const name = obsStr("");
+    const author = obsStr(this.player.name);
+    const description = obsStr("");
+    const visibilityIndex = obsNum(0);
+    page.textField("§a投影名称", name, { description: "请输入投影名称…" });
+    page.textField("§a作者", author, { description: "作者名" });
+    page.textField("§7描述（可选）", description, { description: "请输入描述…" });
+    page.dropdown("§a可见性", visibilityIndex, [
+      { label: "公共", value: 0 },
+      { label: "私人", value: 1 },
+    ]);
+    page.button("确认上传", () => {
+      HoloCore.startUpload(this.player, {
+        name: name.getData(),
+        author: author.getData(),
+        description: description.getData(),
+        visibility: visibilityIndex.getData() === 0 ? "public" : "private",
+      });
+    });
+  }
+
+  private buildLoad(page: any): void {
+    const privateList = this.nav.state.privateList as ProjectionData[] | undefined;
+    const publicList = this.nav.state.publicList as ProjectionData[] | undefined;
+    page.label(ListFormInfo([`我的投影: ${privateList?.length ?? 0} | 公共投影: ${publicList?.length ?? 0}`]));
+    for (const p of privateList ?? []) {
+      page.button(`${p.name}`, () => {
+        this.nav.confirm(
+          "放置投影",
+          "是否将投影放置在当前位置？",
+          () => HoloEntity.spawnProjection(this.player, p.id, this.player.location),
+          () => this.nav.rebuild("load")
+        );
+      });
+    }
+    for (const p of publicList ?? []) {
+      page.button(`${p.name}`, () => {
+        this.nav.confirm(
+          "放置投影",
+          "是否将投影放置在当前位置？",
+          () => HoloEntity.spawnProjection(this.player, p.id, this.player.location),
+          () => this.nav.rebuild("load")
+        );
+      });
+    }
+  }
+
+  private buildOperation(page: any): void {
+    const p = this.nav.state.projection as ProjectionData;
+    if (!p) {
+      page.label("投影数据丢失。");
+      return;
+    }
+    const s = p.settings;
+
+    page.label(`操作 - ${p.name}`);
+    page.button("🧱 物品清单", () => HoloCore.executeOperation(this.player, p.id, "materials"));
+    page.button(`👁 显示/隐藏 (当前: ${s.visible ? "显示" : "隐藏"})`, () =>
+      HoloCore.executeOperation(this.player, p.id, "toggle_visibility")
+    );
+
+    page.button(`📐 比例 (当前: ${s.scale})`, () => {
+      this.nav.state.op = "set_scale";
+      this.nav.state.defaultValue = s.scale;
+      this.nav.state.min = 0.1;
+      this.nav.state.max = 10;
+      this.nav.go("numInput");
+    });
+    page.button(`🎨 纹理轮廓宽度 (当前: ${s.textureOutlineWidth})`, () => {
+      this.nav.state.op = "set_texture_outline_width";
+      this.nav.state.defaultValue = s.textureOutlineWidth;
+      this.nav.state.min = 0;
+      this.nav.state.max = 10;
+      this.nav.go("numInput");
+    });
+    page.button(`🎨 纹理轮廓透明度 (当前: ${s.textureOutlineOpacity})`, () => {
+      this.nav.state.op = "set_texture_outline_opacity";
+      this.nav.state.defaultValue = s.textureOutlineOpacity;
+      this.nav.state.min = 0;
+      this.nav.state.max = 1;
+      this.nav.go("numInput");
+    });
+    page.button("🎨 纹理轮廓颜色", () => {
+      this.nav.state.op = "set_texture_outline_color";
+      this.nav.go("colorPicker");
+    });
+    page.button(`🌈 叠加染色透明度 (当前: ${s.overlayTintOpacity})`, () => {
+      this.nav.state.op = "set_overlay_tint_opacity";
+      this.nav.state.defaultValue = s.overlayTintOpacity;
+      this.nav.state.min = 0;
+      this.nav.state.max = 1;
+      this.nav.go("numInput");
+    });
+    page.button("🌈 叠加染色", () => {
+      this.nav.state.op = "set_overlay_tint";
+      this.nav.go("colorPicker");
+    });
+    page.button(`▶ 生成动画 (当前: ${s.spawnAnimation ? "开" : "关"})`, () =>
+      HoloCore.executeOperation(this.player, p.id, "toggle_spawn_animation")
+    );
+    page.button(`🔆 透明度 (当前: ${s.opacity})`, () => {
+      this.nav.state.op = "set_opacity";
+      this.nav.state.defaultValue = s.opacity;
+      this.nav.state.min = 0;
+      this.nav.state.max = 1;
+      this.nav.go("numInput");
+    });
+    page.button(`📊 层级 (当前: ${s.layer})`, () => {
+      this.nav.state.op = "set_layer";
+      this.nav.state.defaultValue = s.layer;
+      this.nav.state.min = -64;
+      this.nav.state.max = 320;
+      this.nav.go("numInput");
+    });
+    page.button(`📏 移动`, () => this.nav.go("moveInput"));
+    page.button(`🔄 旋转 (当前: ${s.rotation}°)`, () => {
+      this.nav.state.op = "set_rotation";
+      this.nav.state.defaultValue = s.rotation;
+      this.nav.state.min = 0;
+      this.nav.state.max = 360;
+      this.nav.go("numInput");
+    });
+    page.button(`🔍 方块检查 (当前: ${s.blockInspect ? "开" : "关"})`, () =>
+      HoloCore.executeOperation(this.player, p.id, "toggle_block_inspect")
+    );
+    page.button(`🎨 叠加染色开关 (当前: ${s.overlayTint ? "开" : "关"})`, () =>
+      HoloCore.executeOperation(this.player, p.id, "toggle_overlay_tint")
+    );
+    page.button(
+      `📋 层模式 (当前: ${s.layerMode === "all" ? "全部" : s.layerMode === "single" ? "单层" : "范围"})`,
+      () => this.nav.go("layerMode")
+    );
+    page.button("❌ 删除投影", () => {
+      this.nav.confirm(
+        "删除投影",
+        "确定要删除此投影吗？此操作不可撤销。",
+        () => HoloCore.executeOperation(this.player, p.id, "delete"),
+        () => this.nav.rebuild("main")
+      );
+    });
+    page.button("🔄 更换投影", () => HoloCore.loadProjectionList(this.player));
+  }
+
+  private buildMaterials(page: any): void {
+    const materials = this.nav.state.materials as { name: string; count: number }[] | undefined;
+    if (!materials) {
+      page.label("无数据");
+      return;
+    }
+    const sorted = [...materials].sort((a, b) => b.count - a.count);
+    const maxDisplay = 50;
+    const displayItems = sorted.slice(0, maxDisplay);
+    page.label(`共 §e${sorted.length}§r 种材料`);
+    for (const m of displayItems) page.label(`§7${m.count}§r x ${m.name}`);
+    if (sorted.length > maxDisplay) page.label(`§8... 还有 ${sorted.length - maxDisplay} 种材料`);
+  }
+
+  private buildNumInput(page: any): void {
+    const val = obsNum((this.nav.state.defaultValue as number) ?? 0);
+    page.slider("数值", val, (this.nav.state.min as number) ?? 0, (this.nav.state.max as number) ?? 100, { step: 1 });
+    page.button("确认", () => {
+      HoloCore.executeOperation(
+        this.player,
+        (this.nav.state.projection as ProjectionData)?.id,
+        this.nav.state.op as string,
+        val.getData()
+      );
+      this.nav.rebuild("operation");
+    });
+  }
+
+  private buildColorPicker(page: any): void {
+    page.label("选择一个颜色预设：");
+    for (const preset of COLOR_PRESETS) {
+      page.button(`§l${preset.name}§r  ${preset.hex}`, () => {
+        HoloCore.executeOperation(
+          this.player,
+          (this.nav.state.projection as ProjectionData)?.id,
+          this.nav.state.op as string,
+          preset.value
+        );
+        this.nav.rebuild("operation");
+      });
+    }
+  }
+
+  private buildMoveInput(page: any): void {
+    const p = this.nav.state.projection as ProjectionData;
+    if (!p) {
+      page.label("数据丢失");
+      return;
+    }
+    const s = p.settings;
+    const offsetX = obsNum(s.offsetX);
+    const offsetY = obsNum(s.offsetY);
+    const offsetZ = obsNum(s.offsetZ);
+    page.slider("X 偏移", offsetX, -64, 64);
+    page.slider("Y 偏移", offsetY, -64, 64);
+    page.slider("Z 偏移", offsetZ, -64, 64);
+    page.button("确认", () => {
+      const x = offsetX.getData(),
+        y = offsetY.getData(),
+        z = offsetZ.getData();
+      if (x !== s.offsetX || y !== s.offsetY || z !== s.offsetZ)
+        HoloCore.executeOperation(this.player, p.id, "move", { x, y, z });
+      this.nav.rebuild("operation");
+    });
+  }
+
+  private buildLayerMode(page: any): void {
+    const p = this.nav.state.projection as ProjectionData;
+    const index = obsNum(0);
+    page.dropdown("选择层模式", index, [
+      { label: "全部", value: 0 },
+      { label: "单层", value: 1 },
+      { label: "范围", value: 2 },
+    ]);
+    page.button("确认", () => {
+      const mode = index.getData() === 0 ? "all" : index.getData() === 1 ? "single" : "range";
+      HoloCore.executeOperation(this.player, p?.id, "set_layer_mode", mode);
+      this.nav.rebuild("operation");
+    });
   }
 }

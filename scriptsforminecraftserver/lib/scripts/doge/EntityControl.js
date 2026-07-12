@@ -1,47 +1,39 @@
 import { system, world } from "@minecraft/server";
+import { MenuNavigator } from "../libs/MenuNavigator";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
-import { Gui } from "../libs/Gui";
-import { CustomForm } from "@minecraft/server-ui";
 export function entityClean(player) {
-    let m = new Map();
-    for (let entity of player.dimension.getEntities({ excludeTypes: ["player"] })) {
-        let amount = m.get(entity.typeId);
-        if (amount === undefined) {
-            m.set(entity.typeId, 1);
-        }
-        else {
-            m.set(entity.typeId, amount + 1);
-        }
+    const m = new Map();
+    for (const entity of player.dimension.getEntities({ excludeTypes: ["player"] })) {
+        m.set(entity.typeId, (m.get(entity.typeId) ?? 0) + 1);
     }
     if (m.size === 0)
         return;
-    let arr = Array.from(m);
-    arr.sort((a, b) => b[1] - a[1]);
-    const form = new CustomForm(player, "实体列表");
-    for (let data of arr) {
-        form.button(`${data[1]} | ${data[0]}`, () => {
-            showActionForm(player, arr, arr.indexOf(data));
+    const arr = Array.from(m).sort((a, b) => b[1] - a[1]);
+    const nav = new MenuNavigator(player);
+    nav.section("entityList", "实体列表", (page) => {
+        for (const data of arr) {
+            page.button(`${data[1]} | ${data[0]}`, () => {
+                nav.state.entityType = data[0];
+                nav.state.arr = arr;
+                nav.go("actionForm");
+            });
+        }
+    });
+    nav.section("actionForm", "处理方式", (page) => {
+        const entityType = nav.state.entityType;
+        page.button("remove", () => {
+            for (const en of player.dimension.getEntities({ type: entityType }))
+                en.remove();
         });
-    }
-    form.closeButton();
-    Gui.showForm(player, form, "实体列表");
-}
-function showActionForm(player, arr, selectionIndex) {
-    const form = new CustomForm(player, "处理方式");
-    form.button("remove", () => {
-        let entities = player.dimension.getEntities({ type: arr[selectionIndex][0] });
-        for (let en of entities)
-            en.remove();
+        page.button("kill", () => {
+            player.runCommand(`kill @e[type=${entityType}]`);
+        });
+        page.button("tp", () => {
+            player.runCommand(`tp @s @e[c=1,type=${entityType}]`);
+        });
     });
-    form.button("kill", () => {
-        player.runCommand(`kill @e[type=${arr[selectionIndex][0]}]`);
-    });
-    form.button("tp", () => {
-        player.runCommand(`tp @s @e[c=1,type=${arr[selectionIndex][0]}]`);
-    });
-    form.closeButton();
-    Gui.showForm(player, form, "处理方式");
+    nav.start("entityList");
 }
 export function temp(player) {
     let ens = player.dimension.getEntities({ type: "dogelake:grid_blue" });

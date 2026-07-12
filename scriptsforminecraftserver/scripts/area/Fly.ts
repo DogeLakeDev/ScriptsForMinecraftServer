@@ -6,19 +6,19 @@
 \* ---------------------------------------- */
 
 import { Player, system, world, GameMode, Entity } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
 import { Msg } from "../libs/Tools";
 
-export function init() {
+export function init(): void {
   Permission.register("fly.use", Permission.Any);
 }
 
 /**
  * 玩家加入事件
  */
-export function playerJoinEvent(player: Player) {
+export function playerJoinEvent(player: Player): void {
   system.runTimeout(() => {
     let areaName = inFlyArea(player);
     if (areaName !== undefined) {
@@ -62,7 +62,7 @@ system.runInterval(() => {
  * 实体是否在飞行区域内
  */
 function inFlyArea(entity: Entity): string | undefined {
-  for (let area of Config.flyArea) {
+  for (let area of ConfigManager.getAreas("fly")) {
     if (entity.dimension.id === area.dimension) {
       if (
         Tool.pointInArea_2D(

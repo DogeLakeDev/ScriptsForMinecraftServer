@@ -1,36 +1,53 @@
 /**
  * DogeChat 数据库服务 — HTTP REST API
- * SQLite (better-sqlite3) + Node.js http
+ * SQLite (bun:sqlite) + Node.js http
  */
 
 const http = require('http');
 const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
-const Database = require('better-sqlite3');
+const { Database } = require('bun:sqlite');
+
+// 加载外部配置 JSON（覆盖 process.env）
+try {
+  const cfgPath = path.join(__dirname, '..', 'configs', 'db_config.json');
+  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+  for (const [k, v] of Object.entries(cfg)) {
+    const envKey = k.replace(/([A-Z])/g, '_$1').toUpperCase();
+    process.env[envKey] = String(v);
+    console.info(`[DogeDB] 配置 ${k} -> process.env.${envKey} = ${v}`);
+  }
+} catch (e) {
+  console.warn('[DogeDB] 未找到 configs/db_config.json，使用默认值');
+}
 
 const PORT = parseInt(process.env.DB_PORT || '3001', 10);
 const DB_PATH = path.join(__dirname, 'sfmc_data.db');
+const QQ_BRIDGE_HOST = '127.0.0.1';
+const QQ_BRIDGE_PORT = parseInt(process.env.QQ_BRIDGE_PORT || '3003', 10);
 
 let db;
+
+// 监控面板内存存储（SAPI 上报，Panel 拉取）
+let _monitorMetrics = null;
+let _monitorPlayers = [];
 
 // ---------- 数据库初始化 ----------
 
 async function initDB() {
   db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  db.pragma('journal_mode = WAL'); // 并发补丁
-  db.pragma('busy_timeout = 5000');
+  db.run('PRAGMA foreign_keys = ON');
+  db.run('PRAGMA journal_mode = WAL');
+  db.run('PRAGMA busy_timeout = 5000');
 
-  // 迁移：旧版 sfmc_chat_messages 有 FK 约束引用 channels(id)，
-  // 但 channels 的 PK 是 (id, name)，导致 FK 不合法。移除约束。
-  const fkList = db.pragma('foreign_key_list(sfmc_chat_messages)');
+  const fkList = db.prepare("PRAGMA foreign_key_list('sfmc_chat_messages')").all();
   if (fkList.length > 0) {
-    db.exec('DROP TABLE IF EXISTS sfmc_chat_messages');
+    db.run('DROP TABLE IF EXISTS sfmc_chat_messages');
     console.log('[DogeDB] 已迁移 sfmc_chat_messages（移除无效 FK）');
   }
 
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS sfmc_world (
       allow_cheats INTEGER NOT NULL DEFAULT 0,
       game_rules TEXT NOT NULL DEFAULT '',
@@ -90,6 +107,7 @@ async function initDB() {
         onlinetime_last_date INTEGER DEFAULT 0,
         onlinetime_last_month INTEGER DEFAULT 0,
         active_channel TEXT NOT NULL DEFAULT '',
+        subscribed_channels TEXT DEFAULT '',
         
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (id, name)
@@ -110,7 +128,7 @@ async function initDB() {
       );
       CREATE INDEX IF NOT EXISTS idx_messages_channel ON sfmc_chat_messages(channel_id, created_at ASC);
 
-      CREATE TABLE IF NOT EXISTS sfmc_chat_redpacket (
+      CREATE TABLE IF NOT EXISTS sfmc_chat_redpackets (
         id TEXT PRIMARY KEY,
         sender_id TEXT NOT NULL,
         sender_name TEXT NOT NULL,
@@ -158,16 +176,269 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_sfmc_act_event ON sfmc_activities(event_type, timestamp);
       CREATE INDEX IF NOT EXISTS idx_sfmc_act_target ON sfmc_activities(target_id, timestamp);
 
-      CREATE TABLE IF NOT EXISTS sfmc_coop_data (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
+      DROP TABLE IF EXISTS sfmc_coop_data;
+      `);
+  // 配置表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS sfmc_config_modules (
+      name TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_areas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      module TEXT NOT NULL,
+      name TEXT DEFAULT '',
+      dimension TEXT NOT NULL,
+      start_x REAL NOT NULL, start_z REAL NOT NULL,
+      end_x REAL NOT NULL, end_z REAL NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_peace_filters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      family TEXT NOT NULL,
+      exclude_family TEXT DEFAULT '',
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_grids (
+      name TEXT PRIMARY KEY,
+      start_x INTEGER, start_y INTEGER, start_z INTEGER,
+      size_h INTEGER, size_v INTEGER,
+      direction INTEGER, face INTEGER,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_banned_items (
+      item_id TEXT PRIMARY KEY,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_clean (
+      id INTEGER PRIMARY KEY CHECK(id=1),
+      item_max INTEGER NOT NULL DEFAULT 192,
+      poll_interval INTEGER NOT NULL DEFAULT 60,
+      updated_at INTEGER NOT NULL
+    );
   `);
+  db.run("INSERT OR IGNORE INTO sfmc_config_clean(id, item_max, poll_interval, updated_at) VALUES(1, 192, 60, 0)");
+  db.run(`
+
+    CREATE TABLE IF NOT EXISTS sfmc_config_permissions (
+      player_name TEXT PRIMARY KEY,
+      level INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_qa_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      weight INTEGER NOT NULL DEFAULT 1,
+      question TEXT NOT NULL,
+      answers TEXT NOT NULL,
+      msg_right TEXT DEFAULT '',
+      msg_wrong TEXT DEFAULT '',
+      explanation TEXT DEFAULT '',
+      min_rank INTEGER DEFAULT NULL,
+      max_rank INTEGER DEFAULT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_qa_rewards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question_id INTEGER NOT NULL,
+      min_rank INTEGER DEFAULT NULL, max_rank INTEGER DEFAULT NULL,
+      type TEXT NOT NULL, amount INTEGER DEFAULT 0,
+      item_type TEXT DEFAULT '', item_aux INTEGER DEFAULT 0,
+      cmd TEXT DEFAULT '',
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (question_id) REFERENCES sfmc_config_qa_questions(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_qa_punishments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question_id INTEGER NOT NULL,
+      type TEXT NOT NULL DEFAULT 'cmd', cmd TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (question_id) REFERENCES sfmc_config_qa_questions(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_shop_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      parent_id INTEGER DEFAULT NULL,
+      name TEXT NOT NULL, type TEXT NOT NULL,
+      image TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (parent_id) REFERENCES sfmc_config_shop_categories(id)
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_config_shop_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id INTEGER NOT NULL,
+      item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
+      price INTEGER NOT NULL, remark TEXT DEFAULT '',
+      sell_flag INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (category_id) REFERENCES sfmc_config_shop_categories(id)
+    );
+    -- Coop 表
+    CREATE TABLE IF NOT EXISTS sfmc_coops (
+      cid TEXT PRIMARY KEY,
+      name TEXT NOT NULL, owner_name TEXT NOT NULL,
+      notice TEXT DEFAULT '', money INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_coop_members (
+      cid TEXT NOT NULL, player_name TEXT NOT NULL,
+      is_op INTEGER DEFAULT 0, joined_at INTEGER NOT NULL,
+      PRIMARY KEY (cid, player_name),
+      FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_coop_shop_items (
+      id TEXT PRIMARY KEY,
+      cid TEXT NOT NULL, name TEXT NOT NULL,
+      item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
+      item_nbt TEXT DEFAULT '', type INTEGER NOT NULL,
+      groups TEXT DEFAULT '[]', des TEXT DEFAULT '',
+      num INTEGER DEFAULT 0, sv INTEGER DEFAULT 0,
+      money INTEGER DEFAULT 0, is_true INTEGER DEFAULT 1,
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_coop_bank_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cid TEXT NOT NULL, player_name TEXT NOT NULL,
+      type INTEGER NOT NULL, amount INTEGER NOT NULL,
+      note TEXT DEFAULT '', created_at INTEGER NOT NULL,
+      FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_coop_shop_groups (
+      groupid TEXT PRIMARY KEY,
+      displayname TEXT NOT NULL,
+      displaydescribe TEXT DEFAULT '',
+      icon TEXT DEFAULT '', type_function TEXT DEFAULT ''
+    );
+  `);
+  // 从 /configs/ JSON 文件导入初始配置（仅空表时执行）
+  const tables = query("SELECT name FROM sqlite_master WHERE type='table' AND name='sfmc_config_modules'");
+  if (tables.length > 0) {
+    const cnt = query('SELECT COUNT(*) as c FROM sfmc_config_modules');
+    if (cnt[0].c === 0) {
+      const cfgDir = path.join(__dirname, '..', 'configs');
+      const now = Date.now();
+      const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[DogeDB] config:', e.message); } };
+      try {
+        const m = JSON.parse(fs.readFileSync(path.join(cfgDir, 'modules.json'), 'utf-8'));
+        for (const [k, v] of Object.entries(m.modules)) _( 'INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?,?,?)', [k, v ? 1 : 0, now]);
+      } catch (e) {}
+      try {
+        const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
+        for (const [k, v] of Object.entries(s)) _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]);
+      } catch (e) {}
+      try {
+        const a = JSON.parse(fs.readFileSync(path.join(cfgDir, 'areas.json'), 'utf-8'));
+        for (const r of a) _('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?,?,?,?,?,?,?,?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]);
+      } catch (e) {}
+      try {
+        const p = JSON.parse(fs.readFileSync(path.join(cfgDir, 'peace_filters.json'), 'utf-8'));
+        for (const r of p) _('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?,?,?)', [r.family, r.exclude_family || '', now]);
+      } catch (e) {}
+      try {
+        const g = JSON.parse(fs.readFileSync(path.join(cfgDir, 'grids.json'), 'utf-8'));
+        for (const r of g) _('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]);
+      } catch (e) {}
+      try {
+        const b = JSON.parse(fs.readFileSync(path.join(cfgDir, 'banned_items.json'), 'utf-8'));
+        for (const i of b) _('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?,?)', [i, now]);
+      } catch (e) {}
+      try {
+        const c = JSON.parse(fs.readFileSync(path.join(cfgDir, 'clean.json'), 'utf-8'));
+        _('INSERT OR REPLACE INTO sfmc_config_clean (id, item_max, poll_interval, updated_at) VALUES (1,?,?,?)', [c.item_max ?? 192, c.poll_interval ?? 60, now]);
+      } catch (e) {}
+      try {
+        const perm = JSON.parse(fs.readFileSync(path.join(cfgDir, 'permissions.json'), 'utf-8'));
+        for (const r of perm) _('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?,?,?)', [r.player_name, r.level, now]);
+      } catch (e) {}
+      try {
+        const q = JSON.parse(fs.readFileSync(path.join(cfgDir, 'questions.json'), 'utf-8'));
+        for (const r of q) {
+          const res2 = query('INSERT INTO sfmc_config_qa_questions (weight, question, answers, msg_right, msg_wrong, explanation, min_rank, max_rank, updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id', [r.weight ?? 1, r.question, JSON.stringify(r.answers || []), r.msg_right || '', r.msg_wrong || '', r.explanation || '', r.min_rank ?? null, r.max_rank ?? null, now]);
+          const qid = res2[0]?.id;
+          if (qid && r.rewards) { for (const rw of r.rewards) _('INSERT INTO sfmc_config_qa_rewards (question_id, min_rank, max_rank, type, amount, item_type, item_aux, cmd, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [qid, rw.min_rank ?? null, rw.max_rank ?? null, rw.type, rw.amount ?? 0, rw.item_type || '', rw.item_aux ?? 0, rw.cmd || '', now]); }
+          if (qid && r.punishments) { for (const pw of r.punishments) _('INSERT INTO sfmc_config_qa_punishments (question_id, type, cmd, updated_at) VALUES (?,?,?,?)', [qid, pw.type || 'cmd', pw.cmd, now]); }
+        }
+      } catch (e) {}
+      try {
+        const sh = JSON.parse(fs.readFileSync(path.join(cfgDir, 'shop.json'), 'utf-8'));
+        if (sh.categories) { for (const r of sh.categories) _('INSERT INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?,?,?,?,?,?,?)', [r.id, r.parent_id ?? null, r.name, r.type, r.image || '', r.sort_order ?? 0, now]); }
+      } catch (e) {}
+      console.log('[DogeDB] 初始配置已从 /configs/ 导入');
+    }
+  }
   console.log('[DogeDB] 数据库已就绪');
 }
 
-// ---- Holoprint ----
+/**
+ * 从 /configs/ JSON 文件重新导入所有配置到 SQLite（控制台 reload 命令使用）
+ * 每次都会重新导入（不检查表是否为空），并更新 updated_at 触发 SAPI 轮询
+ */
+function reloadConfigsFromJson() {
+  const cfgDir = path.join(__dirname, '..', 'configs');
+  const now = Date.now();
+  const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[ConfigReload]', e.message); } };
+  const log = (table, count) => console.log(`[ConfigReload] ${table}: ${count}个`);
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(cfgDir, 'modules.json'), 'utf-8'));
+    let c = 0; for (const [k, v] of Object.entries(m.modules)) { _( 'INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?,?,?)', [k, v ? 1 : 0, now]); c++; } log('modules', c);
+  } catch (e) { console.warn('[ConfigReload] modules.json 失败:', e.message); }
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
+    let c = 0; for (const [k, v] of Object.entries(s)) { _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]); c++; } log('settings', c);
+  } catch (e) { console.warn('[ConfigReload] settings.json 失败:', e.message); }
+  try {
+    const a = JSON.parse(fs.readFileSync(path.join(cfgDir, 'areas.json'), 'utf-8'));
+    let c = 0; for (const r of a) { _('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?,?,?,?,?,?,?,?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]); c++; } log('areas', c);
+  } catch (e) { console.warn('[ConfigReload] areas.json 失败:', e.message); }
+  try {
+    const p = JSON.parse(fs.readFileSync(path.join(cfgDir, 'peace_filters.json'), 'utf-8'));
+    let c = 0; for (const r of p) { _('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?,?,?)', [r.family, r.exclude_family || '', now]); c++; } log('peace_filters', c);
+  } catch (e) { console.warn('[ConfigReload] peace_filters.json 失败:', e.message); }
+  try {
+    const g = JSON.parse(fs.readFileSync(path.join(cfgDir, 'grids.json'), 'utf-8'));
+    let c = 0; for (const r of g) { _('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]); c++; } log('grids', c);
+  } catch (e) { console.warn('[ConfigReload] grids.json 失败:', e.message); }
+  try {
+    const b = JSON.parse(fs.readFileSync(path.join(cfgDir, 'banned_items.json'), 'utf-8'));
+    let c = 0; for (const i of b) { _('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?,?)', [i, now]); c++; } log('banned_items', c);
+  } catch (e) { console.warn('[ConfigReload] banned_items.json 失败:', e.message); }
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(cfgDir, 'clean.json'), 'utf-8'));
+    _('INSERT OR REPLACE INTO sfmc_config_clean (id, item_max, poll_interval, updated_at) VALUES (1,?,?,?)', [c.item_max ?? 192, c.poll_interval ?? 60, now]);
+    log('clean', 1);
+  } catch (e) { console.warn('[ConfigReload] clean.json 失败:', e.message); }
+  try {
+    const perm = JSON.parse(fs.readFileSync(path.join(cfgDir, 'permissions.json'), 'utf-8'));
+    let c = 0; for (const r of perm) { _('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?,?,?)', [r.player_name, r.level, now]); c++; } log('permissions', c);
+  } catch (e) { console.warn('[ConfigReload] permissions.json 失败:', e.message); }
+  try {
+    const q = JSON.parse(fs.readFileSync(path.join(cfgDir, 'questions.json'), 'utf-8'));
+    let c = 0; for (const r of q) {
+      const res2 = query('INSERT INTO sfmc_config_qa_questions (weight, question, answers, msg_right, msg_wrong, explanation, min_rank, max_rank, updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id', [r.weight ?? 1, r.question, JSON.stringify(r.answers || []), r.msg_right || '', r.msg_wrong || '', r.explanation || '', r.min_rank ?? null, r.max_rank ?? null, now]);
+      const qid = res2[0]?.id;
+      if (qid && r.rewards) { for (const rw of r.rewards) _('INSERT INTO sfmc_config_qa_rewards (question_id, min_rank, max_rank, type, amount, item_type, item_aux, cmd, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [qid, rw.min_rank ?? null, rw.max_rank ?? null, rw.type, rw.amount ?? 0, rw.item_type || '', rw.item_aux ?? 0, rw.cmd || '', now]); }
+      if (qid && r.punishments) { for (const pw of r.punishments) _('INSERT INTO sfmc_config_qa_punishments (question_id, type, cmd, updated_at) VALUES (?,?,?,?)', [qid, pw.type || 'cmd', pw.cmd, now]); }
+      c++;
+    }
+    log('questions', c);
+  } catch (e) { console.warn('[ConfigReload] questions.json 失败:', e.message); }
+  try {
+    const sh = JSON.parse(fs.readFileSync(path.join(cfgDir, 'shop.json'), 'utf-8'));
+    let c = 0;
+    if (sh.categories) { for (const r of sh.categories) { _('INSERT INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?,?,?,?,?,?,?)', [r.id, r.parent_id ?? null, r.name, r.type, r.image || '', r.sort_order ?? 0, now]); c++; } }
+    if (sh.items) { for (const r of sh.items) { _('INSERT INTO sfmc_config_shop_items (category_id, item_type, item_aux, price, remark, sell_flag, updated_at) VALUES (?,?,?,?,?,?,?)', [r.category_id, r.item_type, r.item_aux ?? 0, r.price, r.remark || '', r.sell_flag ?? 0, now]); c++; } }
+    log('shop', c);
+  } catch (e) { console.warn('[ConfigReload] shop.json 失败:', e.message); }
+  // 发送热重载信号，SAPI 端 fastPoll 每 2 秒检查此值
+  query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', ['_reload_signal', String(now), now]);
+  console.log(`[ConfigReload] 已发送热重载信号 (${now})，SAPI 将在 2 秒内生效`);
+}
 const { registerHoloprintRoutes, getHoloprintDDL } = require('./holoprint/router');
 
 // ---------- 工具 ----------
@@ -188,8 +459,45 @@ function body(req) {
   });
 }
 
+/** 转发消息到 QQ Bridge 独立进程 */
+function forwardToQQBridge(channelId, fromName, content, fromId) {
+  const payload = JSON.stringify({ channelId, fromName, content, fromId });
+  const options = {
+    hostname: QQ_BRIDGE_HOST,
+    port: QQ_BRIDGE_PORT,
+    path: '/forward',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload),
+    },
+  };
+  const req = http.request(options, (res) => {
+    if (res.statusCode !== 200) {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => console.warn(`[DogeDB] QQ Bridge forward → ${res.statusCode}: ${body.slice(0, 100)}`));
+    }
+  });
+  req.on('error', (err) => console.warn(`[DogeDB] QQ Bridge 不可达: ${err.message}`));
+  req.write(payload);
+  req.end();
+}
+
+// 预编译语句缓存
+const _stmtCache = new Map();
+const _STMT_CACHE_MAX = 200;
+
 function query(sql, params = []) {
-  const stmt = db.prepare(sql);
+  let stmt = _stmtCache.get(sql);
+  if (!stmt) {
+    stmt = db.prepare(sql);
+    if (_stmtCache.size >= _STMT_CACHE_MAX) {
+      const first = _stmtCache.keys().next().value;
+      _stmtCache.delete(first);
+    }
+    _stmtCache.set(sql, stmt);
+  }
   // 判断是否为查询操作（SELECT / WITH）
   const trimmed = sql.trim().toUpperCase();
   if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH')) {
@@ -296,8 +604,9 @@ async function handle(req, res) {
         const rows = query('SELECT * FROM sfmc_chat_channels WHERE id = ?', [id]);
         if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
         json(res, { channel: rows[0] });
-      } else if (method === 'PATCH') {
-        const data = (await body(req)).channel || (await body(req));
+      } else if (method === 'PATCH' || method === 'PUT') {
+        const raw = await body(req);
+        const data = raw.channel || raw;
         if (!data || typeof data !== 'object') { json(res, { success: false, error: 'invalid' }, 400); return; }
         const sets = ['updated_at=?'];
         const vals = [Date.now()];
@@ -332,6 +641,7 @@ async function handle(req, res) {
           { key: 'channelId', sql: ' AND channel_id = ?', transform: v => v, repeat: 1 },
           { key: 'from', sql: ' AND from_id = ?', transform: v => v, repeat: 1 },
           { key: 'minCreatedAt', sql: ' AND created_at >= ?', transform: v => Number(v), repeat: 1 },
+          { key: 'minSentAt', sql: ' AND created_at >= ?', transform: v => Number(v), repeat: 1 },
           { key: 'maxCreatedAt', sql: ' AND created_at <= ?', transform: v => Number(v), repeat: 1 },
         ];
         for (const rule of filterMap) {
@@ -357,6 +667,10 @@ async function handle(req, res) {
             m.type || 'text', m.content, m.attachment || null,
             m.showTimestamp ? 1 : 0, m.timestamp
           ]));
+        // Forward to QQ bridge if enabled
+        for (const m of messages) {
+          forwardToQQBridge(m.channelId, m.fromName, m.content, m.fromid);
+        }
         json(res, { success: true });
       } else { json(res, { success: false, error: 'not_found' }, 404); }
       return;
@@ -390,7 +704,7 @@ async function handle(req, res) {
         const rows = query('SELECT * FROM sfmc_chat_redpackets WHERE id = ?', [id]);
         if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
         json(res, { redpacket: rows[0] });
-      } else if (method === 'PATCH') {
+      } else if (method === 'PATCH' || method === 'PUT') {
         const { remainingAmount, remainingCount, receivers } = await body(req);
         query('UPDATE sfmc_chat_redpackets SET remaining_amount=?, remaining_count=?, receivers=? WHERE id=?',
           [remainingAmount, remainingCount, JSON.stringify(receivers || []), id]);
@@ -462,8 +776,8 @@ async function handle(req, res) {
           spawnPoint, tags, level, totalXp,
           afk_step, afk_last_location,
           onlinetime_session, onlinetime_today, onlinetime_month, onlinetime_total,
-          onlinetime_last_date, onlinetime_last_month, active_channel, updated_at
-        ) VALUES ${players.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
+          onlinetime_last_date, onlinetime_last_month, active_channel, subscribed_channels, updated_at
+        ) VALUES ${players.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
           players.flatMap(p => [
             p.id, p.name, p.permission,
             p.clientSystemInfoLocal || '', p.clientSystemInfoMaxRenderDistance || 0,
@@ -473,7 +787,7 @@ async function handle(req, res) {
             p.afkStep || 0, p.afkLastLocation || '',
             p.onlinetimeSession || 0, p.onlinetimeToday || 0, p.onlinetimeMonth || 0, p.onlinetimeTotal || 0,
             p.onlinetimeLastDate || '', p.onlinetimeLastMonth || '', p.activeChannel || '',
-            Date.now()
+            p.subscribedChannels || '', Date.now()
           ]));
         json(res, { success: true });
       } else { json(res, { success: false, error: 'not_found' }, 404); }
@@ -487,7 +801,7 @@ async function handle(req, res) {
         const rows = query('SELECT * FROM sfmc_players WHERE id = ?', [id]);
         if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
         json(res, { player: rows[0] });
-      } else if (method === 'PATCH') {
+      } else if (method === 'PATCH' || method === 'PUT') {
         const { player } = await body(req);
         if (!player || typeof player !== 'object') { json(res, { success: false, error: 'invalid' }, 400); return; }
         const FIELD_MAP = {
@@ -505,6 +819,7 @@ async function handle(req, res) {
           onlinetimeMonth: 'onlinetime_month', onlinetimeTotal: 'onlinetime_total',
           onlinetimeLastDate: 'onlinetime_last_date', onlinetimeLastMonth: 'onlinetime_last_month',
           activeChannel: 'active_channel',
+          subscribedChannels: 'subscribed_channels',
         };
         const sets = ['updated_at=?'];
         const vals = [Date.now()];
@@ -619,13 +934,360 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/coop/:key ──────
-    if (path.startsWith('/api/sfmc/coop/')) {
-      if (method === 'GET') {
-        const key = path.slice('/api/sfmc/coop/'.length);
-        const rows = query('SELECT value FROM sfmc_coop_data WHERE key = ?', [key]);
-        json(res, { value: rows.length > 0 ? rows[0].value : null });
+    // ────── /api/sfmc/configs/import ──────
+    if (path === '/api/sfmc/configs/import') {
+      if (method === 'POST') {
+        const { table, rows } = await body(req);
+        if (!table || !Array.isArray(rows) || rows.length === 0) { json(res, { success: false, error: 'invalid' }, 400); return; }
+        const now = Date.now();
+        for (const r of rows) { r.updated_at = now; }
+        if (table === 'modules') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [r.name, r.enabled ? 1 : 0, now]); }
+        } else if (table === 'settings') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', [r.key, String(r.value), now]); }
+        } else if (table === 'areas') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]); }
+        } else if (table === 'peace_filters') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?, ?, ?)', [r.family, r.exclude_family || '', now]); }
+        } else if (table === 'grids') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]); }
+        } else if (table === 'banned_items') {
+          for (const r of rows) { query('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?, ?)', [r.item_id, now]); }
+        } else if (table === 'clean') {
+          if (rows.length > 0) { query('INSERT OR REPLACE INTO sfmc_config_clean (id, item_max, poll_interval, updated_at) VALUES (1, ?, ?, ?)', [rows[0].item_max ?? 192, rows[0].poll_interval ?? 60, now]); }
+        } else if (table === 'permissions') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?, ?, ?)', [r.player_name, r.level, now]); }
+        } else if (table === 'qa_questions') {
+          for (const r of rows) {
+            const qi = r.id || null;
+            const res2 = query('INSERT INTO sfmc_config_qa_questions (weight, question, answers, msg_right, msg_wrong, explanation, min_rank, max_rank, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id', [r.weight ?? 1, r.question, JSON.stringify(r.answers || []), r.msg_right || '', r.msg_wrong || '', r.explanation || '', r.min_rank ?? null, r.max_rank ?? null, now]);
+            const qid = res2[0]?.id;
+            if (qid && r.rewards) {
+              for (const rw of r.rewards) { query('INSERT INTO sfmc_config_qa_rewards (question_id, min_rank, max_rank, type, amount, item_type, item_aux, cmd, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [qid, rw.min_rank ?? null, rw.max_rank ?? null, rw.type, rw.amount ?? 0, rw.item_type || '', rw.item_aux ?? 0, rw.cmd || '', now]); }
+            }
+            if (qid && r.punishments) {
+              for (const p of r.punishments) { query('INSERT INTO sfmc_config_qa_punishments (question_id, type, cmd, updated_at) VALUES (?, ?, ?, ?)', [qid, p.type || 'cmd', p.cmd, now]); }
+            }
+          }
+        } else if (table === 'shop_categories') {
+          for (const r of rows) { query('INSERT INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [r.id, r.parent_id ?? null, r.name, r.type, r.image || '', r.sort_order ?? 0, now]); }
+        } else if (table === 'shop_items') {
+          for (const r of rows) { query('INSERT INTO sfmc_config_shop_items (category_id, item_type, item_aux, price, remark, sell_flag, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [r.category_id, r.item_type, r.item_aux ?? 0, r.price, r.remark || '', r.sell_flag ?? 0, now]); }
+        } else if (table === 'coop_shop_groups') {
+          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_coop_shop_groups (groupid, displayname, displaydescribe, icon, type_function, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [r.groupid, r.displayname, r.displaydescribe || '', r.icon || '', r.type_function || '', now]); }
+        } else { json(res, { success: false, error: 'unknown_table' }, 400); return; }
+        json(res, { success: true, count: rows.length });
       } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/configs/updated-since/:ts ──────
+    if (path.startsWith('/api/sfmc/configs/updated-since/')) {
+      if (method === 'GET') {
+        const ts = parseInt(path.slice('/api/sfmc/configs/updated-since/'.length), 10);
+        if (isNaN(ts)) { json(res, { success: false, error: 'invalid_ts' }, 400); return; }
+        const result = {};
+        const configTables = ['sfmc_config_modules', 'sfmc_config_settings', 'sfmc_config_areas', 'sfmc_config_permissions', 'sfmc_config_qa_questions', 'sfmc_config_shop_categories', 'sfmc_config_shop_items', 'sfmc_config_clean', 'sfmc_config_banned_items', 'sfmc_config_grids', 'sfmc_config_peace_filters'];
+        for (const tbl of configTables) {
+          const rows = query(`SELECT * FROM ${tbl} WHERE updated_at > ?`, [ts]);
+          if (rows.length > 0) result[tbl.replace('sfmc_config_', '')] = rows;
+        }
+        json(res, { updated: result, timestamp: Date.now() });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/settings ──────
+    if (path === '/api/sfmc/settings') {
+      if (method === 'GET') { json(res, { settings: query('SELECT * FROM sfmc_config_settings') }); return; }
+      else { json(res, { success: false, error: 'not_found' }, 404); return; }
+    }
+    if (path.startsWith('/api/sfmc/settings/')) {
+      const key = path.slice('/api/sfmc/settings/'.length);
+      if (method === 'GET') {
+        const rows = query('SELECT value FROM sfmc_config_settings WHERE key = ?', [key]);
+        json(res, { value: rows.length > 0 ? rows[0].value : null });
+      } else if (method === 'PATCH' || method === 'PUT') {
+        const { value } = await body(req);
+        query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', [key, String(value ?? ''), Date.now()]);
+        try {
+          const sPath = require('path').join(__dirname, '..', 'configs', 'settings.json');
+          const sData = JSON.parse(fs.readFileSync(sPath, 'utf-8'));
+          sData[key] = value;
+          fs.writeFileSync(sPath, JSON.stringify(sData, null, 2) + '\n');
+          console.log(`[ConfigSync] settings.json: ${key} = ${JSON.stringify(value)}`);
+        } catch (e) { console.warn(`[ConfigSync] settings.json 同步失败: ${e.message}`); }
+        json(res, { success: true });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/modules ──────
+    if (path === '/api/sfmc/modules') {
+      if (method === 'GET') { json(res, { modules: query('SELECT * FROM sfmc_config_modules') }); return; }
+      else { json(res, { success: false, error: 'not_found' }, 404); return; }
+    }
+    if (path.startsWith('/api/sfmc/modules/')) {
+      const name = path.slice('/api/sfmc/modules/'.length);
+      if (method === 'PATCH' || method === 'PUT') {
+        const { enabled } = await body(req);
+        query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [name, enabled ? 1 : 0, Date.now()]);
+        try {
+          const mPath = require('path').join(__dirname, '..', 'configs', 'modules.json');
+          const mData = JSON.parse(fs.readFileSync(mPath, 'utf-8'));
+          mData.modules[name] = !!enabled;
+          fs.writeFileSync(mPath, JSON.stringify(mData, null, 2) + '\n');
+          console.log(`[ConfigSync] modules.json: ${name} = ${!!enabled}`);
+        } catch (e) { console.warn(`[ConfigSync] modules.json 同步失败: ${e.message}`); }
+        json(res, { success: true });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/areas ──────
+    if (path === '/api/sfmc/areas') {
+      if (method === 'GET') {
+        const module = params.get('module') || '';
+        let sql = 'SELECT * FROM sfmc_config_areas WHERE 1=1';
+        const vals = [];
+        if (module) { sql += ' AND module = ?'; vals.push(module); }
+        json(res, { areas: query(sql, vals) });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/coops ──────
+    if (path === '/api/sfmc/coops') {
+      if (method === 'GET') {
+        const all = query('SELECT * FROM sfmc_coops ORDER BY updated_at DESC');
+        json(res, { coops: all });
+      } else if (method === 'POST') {
+        const { coop } = await body(req);
+        if (!coop?.cid) { json(res, { success: false, error: 'cid required' }, 400); return; }
+        const now = Date.now();
+        query('INSERT OR REPLACE INTO sfmc_coops (cid, name, owner_name, notice, money, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [coop.cid, coop.name || '', coop.owner_name || '', coop.notice || '', coop.money ?? 0, coop.created_at || now, now]);
+        if (coop.members) {
+          for (const m of coop.members) {
+            query('INSERT OR REPLACE INTO sfmc_coop_members (cid, player_name, is_op, joined_at) VALUES (?, ?, ?, ?)',
+              [coop.cid, m.player_name, m.is_op ? 1 : 0, m.joined_at || now]);
+          }
+        }
+        json(res, { success: true });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    if (path.startsWith('/api/sfmc/coops/')) {
+      const rest = path.slice('/api/sfmc/coops/'.length);
+      const parts = rest.split('/');
+      const cid = parts[0];
+      const sub = parts[1]; // 'members', 'shop_items', 'bank_log' etc
+      const subId = parts[2];
+      if (!cid) { json(res, { success: false, error: 'invalid' }, 400); return; }
+
+      // GET/PATCH/DELETE /api/sfmc/coops/:cid
+      if (!sub) {
+        if (method === 'GET') {
+          const rows = query('SELECT * FROM sfmc_coops WHERE cid = ?', [cid]);
+          if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
+          const coop = rows[0];
+          coop.members = query('SELECT * FROM sfmc_coop_members WHERE cid = ?', [cid]);
+          coop.shop_items = query('SELECT * FROM sfmc_coop_shop_items WHERE cid = ?', [cid]);
+          json(res, { coop });
+        } else if (method === 'PATCH' || method === 'PUT') {
+          const data = await body(req);
+          const sets = ['updated_at=?']; const vals = [Date.now()];
+          if (data.name !== undefined) { sets.push('name=?'); vals.push(data.name); }
+          if (data.notice !== undefined) { sets.push('notice=?'); vals.push(data.notice); }
+          if (data.money !== undefined) { sets.push('money=?'); vals.push(data.money); }
+          if (sets.length > 1) { vals.push(cid); query(`UPDATE sfmc_coops SET ${sets.join(', ')} WHERE cid=?`, vals); }
+          json(res, { success: true });
+        } else if (method === 'DELETE') {
+          query('DELETE FROM sfmc_coop_members WHERE cid=?', [cid]);
+          query('DELETE FROM sfmc_coop_shop_items WHERE cid=?', [cid]);
+          query('DELETE FROM sfmc_coop_bank_log WHERE cid=?', [cid]);
+          query('DELETE FROM sfmc_coops WHERE cid=?', [cid]);
+          json(res, { success: true });
+        } else { json(res, { success: false, error: 'not_found' }, 404); }
+        return;
+      }
+
+      // /api/sfmc/coops/:cid/members
+      if (sub === 'members') {
+        if (method === 'GET') {
+          json(res, { members: query('SELECT * FROM sfmc_coop_members WHERE cid = ?', [cid]) });
+        } else if (method === 'POST') {
+          const { player_name, is_op } = await body(req);
+          if (!player_name) { json(res, { success: false, error: 'player_name required' }, 400); return; }
+          query('INSERT OR REPLACE INTO sfmc_coop_members (cid, player_name, is_op, joined_at) VALUES (?, ?, ?, ?)', [cid, player_name, is_op ? 1 : 0, Date.now()]);
+          json(res, { success: true });
+        } else if (method === 'DELETE' && subId) {
+          query('DELETE FROM sfmc_coop_members WHERE cid=? AND player_name=?', [cid, decodeURIComponent(subId)]);
+          json(res, { success: true });
+        } else { json(res, { success: false, error: 'not_found' }, 404); }
+        return;
+      }
+
+      // /api/sfmc/coops/:cid/shop_items
+      if (sub === 'shop_items') {
+        if (method === 'GET') {
+          const type = params.get('type') || '';
+          let sql = 'SELECT * FROM sfmc_coop_shop_items WHERE cid=?';
+          const vals = [cid];
+          if (type) { sql += ' AND type=?'; vals.push(parseInt(type)); }
+          json(res, { items: query(sql, vals) });
+        } else if (method === 'POST') {
+          const item = await body(req);
+          if (!item.id) { json(res, { success: false, error: 'id required' }, 400); return; }
+          query('INSERT OR REPLACE INTO sfmc_coop_shop_items (id, cid, name, item_type, item_aux, item_nbt, type, groups, des, num, sv, money, is_true, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [item.id, cid, item.name, item.item_type, item.item_aux ?? 0, item.item_nbt || '', item.type, item.groups || '[]', item.des || '', item.num ?? 0, item.sv ?? 0, item.money ?? 0, item.is_true ?? 1, item.created_at || Date.now(), Date.now()]);
+          json(res, { success: true });
+        } else { json(res, { success: false, error: 'not_found' }, 404); }
+        return;
+      }
+
+      // /api/sfmc/coops/:cid/bank_log
+      if (sub === 'bank_log') {
+        if (method === 'GET') {
+          json(res, { log: query('SELECT * FROM sfmc_coop_bank_log WHERE cid=? ORDER BY created_at DESC LIMIT 100', [cid]) });
+        } else if (method === 'POST') {
+          const { player_name, type, amount, note } = await body(req);
+          if (!player_name || !amount) { json(res, { success: false, error: 'invalid' }, 400); return; }
+          query('INSERT INTO sfmc_coop_bank_log (cid, player_name, type, amount, note, created_at) VALUES (?, ?, ?, ?, ?, ?)', [cid, player_name, type, amount, note || '', Date.now()]);
+          json(res, { success: true });
+        } else { json(res, { success: false, error: 'not_found' }, 404); }
+        return;
+      }
+
+      json(res, { success: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/coop_shop_groups ──────
+    if (path === '/api/sfmc/coop_shop_groups') {
+      if (method === 'GET') { json(res, { groups: query('SELECT * FROM sfmc_coop_shop_groups') }); return; }
+      if (method === 'POST') {
+        const { group } = await body(req);
+        if (!group?.groupid) { json(res, { success: false, error: 'groupid required' }, 400); return; }
+        query('INSERT OR REPLACE INTO sfmc_coop_shop_groups (groupid, displayname, displaydescribe, icon, type_function) VALUES (?, ?, ?, ?, ?)',
+          [group.groupid, group.displayname, group.displaydescribe || '', group.icon || '', group.type_function || '']);
+        json(res, { success: true }); return;
+      }
+      json(res, { success: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/areas (GET with module filter) ──────
+    // ────── /api/sfmc/permissions ──────
+    if (path === '/api/sfmc/permissions') {
+      if (method === 'GET') { json(res, { permissions: query('SELECT * FROM sfmc_config_permissions') }); return; }
+      json(res, { success: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/qa ──────
+    if (path === '/api/sfmc/qa') {
+      if (method === 'GET') {
+        const questions = query(`SELECT q.*, 
+          (SELECT json_group_array(json_object('id', r.id, 'type', r.type, 'amount', r.amount, 'item_type', r.item_type, 'item_aux', r.item_aux, 'cmd', r.cmd, 'min_rank', r.min_rank, 'max_rank', r.max_rank)) FROM sfmc_config_qa_rewards r WHERE r.question_id = q.id) as rewards,
+          (SELECT json_group_array(json_object('id', p.id, 'type', p.type, 'cmd', p.cmd)) FROM sfmc_config_qa_punishments p WHERE p.question_id = q.id) as punishments
+          FROM sfmc_config_qa_questions q ORDER BY q.id`);
+        json(res, { questions });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/shop ──────
+    if (path === '/api/sfmc/shop') {
+      if (method === 'GET') {
+        const categories = query('SELECT * FROM sfmc_config_shop_categories ORDER BY sort_order, id');
+        const items = query('SELECT * FROM sfmc_config_shop_items');
+        json(res, { categories, items });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/clean ──────
+    if (path === '/api/sfmc/clean') {
+      if (method === 'GET') {
+        const rows = query('SELECT * FROM sfmc_config_clean WHERE id=1');
+        json(res, { clean: rows.length > 0 ? rows[0] : null });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/banned_items ──────
+    if (path === '/api/sfmc/banned_items') {
+      if (method === 'GET') { json(res, { items: query('SELECT item_id FROM sfmc_config_banned_items') }); return; }
+      json(res, { success: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/grids ──────
+    if (path === '/api/sfmc/grids') {
+      if (method === 'GET') { json(res, { grids: query('SELECT * FROM sfmc_config_grids') }); return; }
+      json(res, { success: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/peace_filters ──────
+    if (path === '/api/sfmc/peace_filters') {
+      if (method === 'GET') { json(res, { filters: query('SELECT * FROM sfmc_config_peace_filters') }); return; }
+      json(res, { success: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/monitor/* ──────
+    // 内存存储，SAPI 按 30 秒间隔上报，Panel 按 3 秒拉取
+    if (path === '/api/sfmc/monitor/metrics') {
+      if (method === 'POST') {
+        const data = await body(req);
+        _monitorMetrics = { tps: data.tps || 0, entities: data.entities || {}, timestamp: Date.now() };
+        json(res, { success: true });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+    if (path === '/api/sfmc/monitor/player-chunks') {
+      if (method === 'POST') {
+        const data = await body(req);
+        _monitorPlayers = (data.players || []).map(p => ({ ...p, timestamp: Date.now() }));
+        json(res, { success: true });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+    if (path === '/api/sfmc/monitor/summary') {
+      if (method === 'GET') {
+        const now = Date.now();
+        const stale = now - 60000; // 60 秒过期
+        const metrics = _monitorMetrics && _monitorMetrics.timestamp > stale ? _monitorMetrics : null;
+        const players = _monitorPlayers ? _monitorPlayers.filter(p => p.timestamp > stale) : [];
+        const totalChunks = players.reduce((s, p) => s + (p.chunkEstimate || 0), 0);
+        json(res, {
+          tps: metrics ? metrics.tps : 0,
+          entities: metrics ? metrics.entities : {},
+          players,
+          totalChunks,
+          updatedAt: now,
+        });
+      } else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/db/* — DB 浏览（Panel 数据查看）──────
+    if (path === '/api/sfmc/db/tables') {
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
+      const result = tables.map(t => {
+        const count = db.prepare(`SELECT COUNT(*) AS cnt FROM "${t.name}"`).get();
+        return { name: t.name, rows: count.cnt };
+      });
+      json(res, { tables: result });
+      return;
+    }
+    if (path.startsWith('/api/sfmc/db/table/')) {
+      const tname = path.slice('/api/sfmc/db/table/'.length);
+      if (!tname || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tname)) {
+        json(res, { success: false, error: 'invalid table name' }, 400); return;
+      }
+      try {
+        const columns = db.prepare(`PRAGMA table_info("${tname}")`).all();
+        const rows = db.prepare(`SELECT * FROM "${tname}" LIMIT 20`).all();
+        json(res, { columns, rows });
+      } catch (e) { json(res, { success: false, error: e.message }, 500); }
       return;
     }
 
@@ -645,7 +1307,7 @@ async function start() {
   // 执行 Holoprint DDL
   const holoDDL = getHoloprintDDL();
   for (const sql of holoDDL) {
-    try { db.exec(sql); } catch (err) { console.error('[Holoprint] 建表失败:', err.message); }
+    try { db.run(sql); } catch (err) { console.error('[Holoprint] 建表失败:', err.message); }
   }
   // 确保 hpbe_pack_meta 有初始行
   const hpbeExisting = query('SELECT id FROM hpbe_pack_meta WHERE id = 1');
@@ -660,7 +1322,43 @@ async function start() {
   server.listen(PORT, () => {
     console.log(`[DogeDB] HTTP 服务已启动，端口 ${PORT}`);
     console.log(`[DogeDB] API 健康检查: http://127.0.0.1:${PORT}/api/health`);
+    console.log(`[DogeDB] 控制台输入 reload 重新导入 /configs/ JSON 配置`);
   });
+
+  const readline = require('readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  rl.on('line', (line) => {
+    const cmd = line.trim().toLowerCase();
+    if (cmd === 'help') {
+      console.log('DB Server 可用命令:');
+      console.log('  help    — 显示本帮助');
+      console.log('  status  — 显示服务状态');
+      console.log('  reload  — 重新导入配置文件');
+      console.log('  stop    — 停止服务');
+    } else if (cmd === 'status') {
+      const info = db ? db.prepare("PRAGMA database_list").all() : [];
+      console.log(`[DogeDB] 状态: 运行中`);
+      console.log(`  HTTP 端口: ${PORT}`);
+      console.log(`  数据库: ${DB_PATH}`);
+      console.log(`  QQ Bridge: ${QQ_BRIDGE_HOST}:${QQ_BRIDGE_PORT}`);
+      if (_monitorMetrics) {
+        console.log(`  TPS: ${_monitorMetrics.tps ?? '-'}`);
+        console.log(`  实体数: ${_monitorMetrics.entityCount ?? '-'}`);
+        console.log(`  在线玩家: ${_monitorPlayers?.length ?? '-'}`);
+      }
+    } else if (cmd === 'reload') {
+      reloadConfigsFromJson();
+    } else if (cmd === 'stop') {
+      console.log('[DogeDB] 正在停止服务...');
+      rl.close();
+      server.close();
+      if (db) db.close();
+      process.exit(0);
+    } else {
+      console.log(`[DogeDB] 未知命令: ${cmd}，输入 help 查看帮助`);
+    }
+  });
+  rl.on('SIGINT', () => process.exit());
 
   process.on('exit', () => {
     if (db) db.close();

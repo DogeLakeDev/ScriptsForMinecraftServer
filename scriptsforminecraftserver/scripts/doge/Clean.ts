@@ -6,7 +6,7 @@
 \* ---------------------------------------- */
 
 import { system, world, Entity, ItemStack, BlockComponentTypes, BlockPermutation, Block } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import * as Tool from "../libs/Tools";
@@ -38,13 +38,17 @@ export class Clean {
 
   init() {
     // 初始化设置
-    this.startPoint = Config.clean.recycleBin.start;
-    this.size = Config.clean.recycleBin.size;
-    this.direction = Config.clean.recycleBin.direction;
-    this.face = Config.clean.recycleBin.face;
-    this.killList = Config.clean.recycleBin.killList;
-    this.itemMax = Config.clean.itemMax;
-    this.timeout = Config.clean.timeout;
+    const cleanCfg = ConfigManager.getClean();
+    const recycleBin = ConfigManager.getGrid("clean_recycle_bin");
+    if (recycleBin) {
+      this.startPoint = [recycleBin.start[0], recycleBin.start[1], recycleBin.start[2]];
+      this.size = [recycleBin.size[0], recycleBin.size[1]];
+      this.direction = recycleBin.direction;
+      this.face = recycleBin.face;
+    }
+    this.killList = JSON.parse(ConfigManager.getSetting("clean_kill_list", "[]"));
+    this.itemMax = cleanCfg.itemMax;
+    this.timeout = cleanCfg.pollInterval;
 
     this.startCleanInterval();
   }
@@ -204,7 +208,7 @@ export class Clean {
   }
 }
 
-export function registerCommand() {
+export function registerCommand(): void {
   Permission.register("clean.admin", Permission.OP);
   Command.register(
     "clean",

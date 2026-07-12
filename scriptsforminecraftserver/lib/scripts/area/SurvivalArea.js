@@ -5,7 +5,7 @@
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
 import { system, world, GameMode, } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
 import { CreativeArea } from "./CreativeArea";
@@ -83,7 +83,7 @@ export class SurvivalArea {
         // 核心逻辑已在 registerEvents 中订阅事件
     }
     inCreativeArea(entity) {
-        for (const area of Config.creativeArea) {
+        for (const area of ConfigManager.getAreas("creative")) {
             if (entity.dimension.id === area.dimension) {
                 if (Tool.pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
                     return true;

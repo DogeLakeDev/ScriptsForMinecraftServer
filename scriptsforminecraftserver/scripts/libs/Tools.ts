@@ -8,7 +8,7 @@ export function pointInArea_2D(
   areaStart_z: number,
   areaEnd_x: number,
   areaEnd_z: number
-) {
+): boolean {
   if (areaStart_x < areaEnd_x) {
     if (x < areaStart_x || areaEnd_x < x) {
       return false;
@@ -39,7 +39,7 @@ export function pointInArea_3D(
   areaEnd_x: number,
   areaEnd_y: number,
   areaEnd_z: number
-) {
+): boolean {
   if (areaStart_x < areaEnd_x) {
     if (x < areaStart_x || areaEnd_x < x) {
       return false;
@@ -70,14 +70,14 @@ export function pointInArea_3D(
   return true;
 }
 
-export function playerCMDName(name: string) {
+export function playerCMDName(name: string): string {
   if (name.indexOf(" ") !== -1) {
     return '"' + name + '"';
   }
   return name;
 }
 
-export function logger(str: string) {
+export function logger(str: string): void {
   for (let player of world.getPlayers()) {
     player.sendMessage({ rawtext: [{ text: `${str}` }] });
   }
@@ -86,7 +86,7 @@ export function logger(str: string) {
 /**
  * 获取随机整数 两边都是闭区间
  */
-export function getRandomInteger(min: number = 0, max: number = 1) {
+export function getRandomInteger(min: number = 0, max: number = 1): number {
   return min + Math.floor(Math.random() * (max + 1));
 }
 
@@ -136,7 +136,11 @@ export function getLayout(
   mainAxis: number,
   yOffset: number,
   face: number
-) {
+): {
+  left: { x: number; y: number; z: number };
+  right: { x: number; y: number; z: number };
+  sign: { x: number; y: number; z: number };
+} {
   const base = getBase(direction);
   const left = {
     x: start[0] + mainAxis * base[0] * 2,
@@ -162,7 +166,7 @@ export function ensureDoubleChest(
   pos: { x: number; y: number; z: number },
   cardinal: string,
   direction: number
-) {
+): void {
   const base = getBase(direction);
   for (const d of [0, 1]) {
     const p = {
@@ -183,7 +187,7 @@ export function placeSign(
   pos: { x: number; y: number; z: number },
   facing: number,
   text: string
-) {
+): void {
   dimension.setBlockPermutation(pos, BlockPermutation.resolve("pale_oak_wall_sign", { facing_direction: facing }));
   try {
     const block = dimension.getBlock(pos);
@@ -193,7 +197,7 @@ export function placeSign(
 }
 
 /** 获取 Asia/Shanghai 时区的日期时间字符串 */
-export function getShanghaiTime() {
+export function getShanghaiTime(): { date: string; time: string } {
   const now = new Date();
   const offset = 8 * 60; // UTC+8 in minutes
   const local = new Date(now.getTime() + offset * 60 * 1000);
@@ -219,7 +223,7 @@ export function formatTimestamp(ts: number): string {
 
 /** 系统消息回调（由 DogeChat 注册，用于将 Msg 消息写入系统频道） */
 let _systemMsgHandler: ((player: Player, text: string) => void) | null = null;
-export function registerSystemMsgHandler(handler: (player: Player, text: string) => void) {
+export function registerSystemMsgHandler(handler: (player: Player, text: string) => void): void {
   _systemMsgHandler = handler;
 }
 
@@ -260,7 +264,7 @@ export const Msg = {
   },
 };
 
-export function ListFormInfo(str: string[]) {
+export function ListFormInfo(str: string[]): string {
   if (str.length === 0) return "§7请选择操作：";
   let lines = [];
   lines.push(`[*] ${str[0]}`);

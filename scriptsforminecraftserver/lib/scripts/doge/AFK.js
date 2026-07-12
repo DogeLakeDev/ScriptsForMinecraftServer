@@ -5,7 +5,7 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 import { system, world } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "../libs/Command";
 // 内存缓存：玩家 ID → (键 → 值)
 const afkCache = new Map();
@@ -85,7 +85,7 @@ system.runInterval(() => {
                     nowStep++;
                 }
                 // 判断是否满足AFK条件
-                if (nowStep * STEP_TIME >= Config.AFKTime) {
+                if (nowStep * STEP_TIME >= ConfigManager.getSetting("afk_time", 120)) {
                     // 满足
                     setAFK(player);
                 }

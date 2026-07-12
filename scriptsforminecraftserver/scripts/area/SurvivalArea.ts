@@ -14,7 +14,7 @@ import {
   PlayerGameModeChangeBeforeEvent,
   PlayerDimensionChangeAfterEvent,
 } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
 import { CreativeArea } from "./CreativeArea";
@@ -92,7 +92,7 @@ export class SurvivalArea {
   }
 
   private inCreativeArea(entity: Entity): boolean {
-    for (const area of Config.creativeArea) {
+    for (const area of ConfigManager.getAreas("creative")) {
       if (entity.dimension.id === area.dimension) {
         if (
           Tool.pointInArea_2D(

@@ -75,6 +75,13 @@ function toRedPacket(r) {
         expiresAt: r.expires_at,
     };
 }
+/**
+ *
+ *
+ * @export
+ * @param {string} channelId
+ * @return {*}  {(Promise<Channel | null>)}
+ */
 export async function getChannel(channelId) {
     const raw = await HttpDB.fetchJSON(PATH_CHANNELS, channelId, "channel");
     if (!raw)

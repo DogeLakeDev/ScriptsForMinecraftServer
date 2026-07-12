@@ -5,7 +5,7 @@
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
 import { system, world, GameMode, EquipmentSlot, BlockComponentTypes, } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 export class InventorySwitcher {
     static getInstance() {
@@ -40,7 +40,9 @@ export class InventorySwitcher {
      * 获取该索引对应的布局（左箱/右箱/告示牌位置），使用 Tools 工具
      */
     getLayout(index) {
-        const cfg = Config.inventoryChest;
+        const cfg = ConfigManager.getGrid("inventory_chest");
+        if (!cfg)
+            return { left: { x: 0, y: 0, z: 0 }, sign: { x: 0, y: 0, z: 0 } };
         const mainAxis = Math.floor(index / cfg.size[1]);
         const yOffset = index % cfg.size[1];
         return Tool.getLayout(cfg.start, cfg.direction, mainAxis, yOffset, cfg.face);
@@ -56,7 +58,10 @@ export class InventorySwitcher {
             let nextIdx = world.getDynamicProperty("hpbe:invswitcher_next");
             if (nextIdx === undefined)
                 nextIdx = 0;
-            const max = Config.inventoryChest.size[0] - 2;
+            const grid = ConfigManager.getGrid("inventory_chest");
+            if (!grid)
+                return 0;
+            const max = grid.size[0] - 2;
             if (nextIdx > max)
                 nextIdx = 0;
             base = nextIdx;
@@ -69,7 +74,9 @@ export class InventorySwitcher {
      * 将玩家背包存入指定箱子
      */
     saveToChest(player, forCreative) {
-        const cfg = Config.inventoryChest;
+        const cfg = ConfigManager.getGrid("inventory_chest");
+        if (!cfg)
+            return;
         const dim = world.getDimension("minecraft:overworld");
         const { left, sign } = this.getLayout(this.getChestIndex(player.id, forCreative));
         Tool.ensureDoubleChest(dim, left, Tool.getChestCardinal(cfg.direction, cfg.face), cfg.direction);
@@ -119,7 +126,9 @@ export class InventorySwitcher {
      * 从指定箱子恢复玩家背包
      */
     restoreFromChest(player, forCreative) {
-        const cfg = Config.inventoryChest;
+        const cfg = ConfigManager.getGrid("inventory_chest");
+        if (!cfg)
+            return;
         const dim = world.getDimension("minecraft:overworld");
         const { left } = this.getLayout(this.getChestIndex(player.id, forCreative));
         Tool.ensureDoubleChest(dim, left, Tool.getChestCardinal(cfg.direction, cfg.face), cfg.direction);

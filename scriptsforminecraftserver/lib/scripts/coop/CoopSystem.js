@@ -4,12 +4,10 @@
 \* ---------------------------------------- */
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
-import { Database } from "./Database";
 import { CoopGUI } from "../gui/CoopGUI";
 export class CoopSystem {
     static init() {
         console.log(`Initializing CoopSystem...`);
-        Database.initDefaultGroups();
         console.log(`CoopSystem initialized successfully.`);
     }
     static registerPermissions() {
@@ -25,7 +23,7 @@ export class CoopSystem {
         Command.register("coopshop", "coopshop.use", (player) => {
             if (!player)
                 return;
-            new CoopGUI(player).shopMgr(Database.getPlayerCid(player.name) ?? "", 1);
+            CoopGUI.openShopMgr(player);
         }, "合作社商店");
     }
     static registerEvents() {

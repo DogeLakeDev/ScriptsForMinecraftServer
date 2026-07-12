@@ -8,9 +8,9 @@
  */
 
 import { http, HttpRequest } from "@minecraft/server-net";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 
-const BASE_URL = `http://${Config.dbHost}:${Config.dbPort}`;
+const BASE_URL = `http://${ConfigManager.getSetting("db_host", "localhost")}:${ConfigManager.getSetting("db_port", "3000")}`;
 const TIMEOUT = 3; // HTTP 请求超时（秒）
 
 export class HoloprintApi {
@@ -39,6 +39,15 @@ export class HoloprintApi {
 
   // ---- Holoprint 投影 ----
 
+  /**
+   *
+   *
+   * @static
+   * @param {*} projectionData
+   * @param {string} structureBase64
+   * @return {*}  {Promise<boolean>}
+   * @memberof HoloprintApi
+   */
   static async uploadHoloStructure(projectionData: any, structureBase64: string): Promise<boolean> {
     const { status } = await this.request("Post", "/api/hpbe/upload", {
       projection: projectionData,
@@ -47,6 +56,15 @@ export class HoloprintApi {
     return status === 200;
   }
 
+  /**
+   *
+   *
+   * @static
+   * @param {string} [ownerId]
+   * @param {string} [visibility]
+   * @return {*}  {(Promise<any[] | null>)}
+   * @memberof HoloprintApi
+   */
   static async getHoloProjections(ownerId?: string, visibility?: string): Promise<any[] | null> {
     const qs = [];
     if (ownerId) qs.push(`owner_id=${encodeURIComponent(ownerId)}`);
@@ -62,6 +80,14 @@ export class HoloprintApi {
     }
   }
 
+  /**
+   *
+   *
+   * @static
+   * @param {string} id
+   * @return {*}  {(Promise<any | null>)}
+   * @memberof HoloprintApi
+   */
   static async getHoloProjection(id: string): Promise<any | null> {
     const { status, body } = await this.request("Get", `/api/hpbe/projections/${encodeURIComponent(id)}`);
     if (status !== 200 || !body) return null;
@@ -73,16 +99,40 @@ export class HoloprintApi {
     }
   }
 
+  /**
+   *
+   *
+   * @static
+   * @param {string} id
+   * @param {*} settings
+   * @return {*}  {Promise<boolean>}
+   * @memberof HoloprintApi
+   */
   static async updateHoloProjection(id: string, settings: any): Promise<boolean> {
     const { status } = await this.request("Put", `/api/hpbe/projections/${encodeURIComponent(id)}`, { settings });
     return status === 200;
   }
 
+  /**
+   *
+   *
+   * @static
+   * @param {string} id
+   * @return {*}  {Promise<boolean>}
+   * @memberof HoloprintApi
+   */
   static async deleteHoloProjection(id: string): Promise<boolean> {
     const { status } = await this.request("Delete", `/api/hpbe/projections/${encodeURIComponent(id)}`);
     return status === 200;
   }
 
+  /**
+   *
+   *
+   * @static
+   * @return {*}  {(Promise<number | null>)}
+   * @memberof HoloprintApi
+   */
   static async getHoloPackVersion(): Promise<number | null> {
     const { status, body } = await this.request("Get", "/api/hpbe/pack-version");
     if (status !== 200 || !body) return null;

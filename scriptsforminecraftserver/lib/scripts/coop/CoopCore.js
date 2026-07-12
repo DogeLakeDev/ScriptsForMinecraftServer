@@ -4,10 +4,13 @@
 import { world } from "@minecraft/server";
 import { Money } from "../libs/Money";
 import { Msg } from "../libs/Tools";
-import { Database } from "./Database";
+import { getCoop, getAllCoops, createCoop, updateCoop, deleteCoop, addMember, removeMember, getShopItems, saveShopItem, getAllShopGroups, addBankLog, } from "../api";
 export class CoopCore {
     static generateId() {
         return `${Date.now().toString(36)}_${(++this._guidCounter).toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+    static getConfig() {
+        return this.cooperativeConfig;
     }
     static _countItemInInventory(player, typeId) {
         const inv = player.getComponent("inventory");
@@ -22,7 +25,7 @@ export class CoopCore {
         return total;
     }
     static isNbtItem(item) {
-        const cfg = Database.getConfig().shop_setting.nbtgoods_condition;
+        const cfg = this.cooperativeConfig.shop_setting.nbtgoods_condition;
         if (cfg.type_enum.indexOf(item.typeId) !== -1)
             return true;
         if (item.getComponent("minecraft:enchantments"))
@@ -65,11 +68,14 @@ export class CoopCore {
         }
         return true;
     }
-    static typeGood(item) {
+    static async typeGood(item) {
         const rtv = [];
-        const groups = Database.getAllGroups().filter((g) => g.type_function);
+        const groups = (await getAllShopGroups()).filter((g) => g.type_function);
         for (const g of groups) {
-            const tf = g.type_function;
+            const tfRaw = g.type_function;
+            if (!tfRaw)
+                continue;
+            const tf = typeof tfRaw === "string" ? JSON.parse(tfRaw) : tfRaw;
             if (tf.type_enum && tf.type_enum.indexOf(item.typeId) !== -1) {
                 rtv.push(g.groupid);
                 continue;
@@ -94,89 +100,88 @@ export class CoopCore {
     // ==========================================
     //  合作社操作
     // ==========================================
-    static registerCoop(name, cid, player) {
-        if (Database.getAllCoop().some((e) => e.cid === cid))
+    static async registerCoop(name, cid, player) {
+        const all = await getAllCoops();
+        if (all.some((e) => e.cid === cid))
             return false;
         if (Money.get(player) < 1000)
             return false;
         const coop = {
             cid,
             name,
-            members: [{ name: player.name, isop: true }],
+            owner_name: player.name,
+            members: [{ player_name: player.name, is_op: true, joined_at: Date.now() }],
             notice: "社长很懒，没有写公告～",
             money: 0,
-            moneylist: "",
+            created_at: Date.now(),
+            updated_at: Date.now(),
         };
         Money.set(player, Money.get(player) - 1000);
-        Database.saveCoop(coop);
+        await createCoop(coop);
         return true;
     }
-    static releaseCoop(cid) {
-        Database.deleteCoop(cid);
-        Database.deleteGoodsByCid(cid);
+    static async releaseCoop(cid) {
+        await deleteCoop(cid);
     }
-    static joinCoop(player, cid) {
-        const data = Database.getCoopByCid(cid);
-        if (!data || data.members.some((m) => m.name === player.name))
+    static async joinCoop(player, cid) {
+        const data = await getCoop(cid);
+        if (!data || (data.members || []).some((m) => m.player_name === player.name))
             return;
-        data.members.push({ name: player.name, isop: false });
-        Database.saveCoop(data);
+        await addMember(cid, player.name, false);
         this.sendToMembers(cid, `欢迎 ${player.name} 加入合作社！`);
     }
-    static exitCoop(playerName, cid) {
-        const data = Database.getCoopByCid(cid);
+    static async exitCoop(playerName, cid) {
+        const data = await getCoop(cid);
         if (!data)
             return;
-        data.members = data.members.filter((m) => m.name !== playerName);
-        Database.saveCoop(data);
+        await removeMember(cid, playerName);
     }
-    static sendToMembers(cid, text) {
-        const data = Database.getCoopByCid(cid);
+    static async sendToMembers(cid, text) {
+        const data = await getCoop(cid);
         if (!data)
             return;
-        for (const member of data.members) {
-            for (const p of world.getPlayers({ name: member.name })) {
+        for (const member of data.members || []) {
+            for (const p of world.getPlayers({ name: member.player_name })) {
                 Msg.info(`[${data.name}] ${text}`, p);
             }
         }
     }
-    static getInfo(cid) {
-        const data = Database.getCoopByCid(cid);
+    static async getInfo(cid) {
+        const data = await getCoop(cid);
         if (!data)
             return "合作社不存在";
-        const ops = data.members
-            .filter((m) => m.isop)
-            .map((m) => m.name)
+        const ops = (data.members || [])
+            .filter((m) => m.is_op)
+            .map((m) => m.player_name)
             .join(", ");
-        return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${data.members.length}\n银行经济: ${data.money}`;
+        return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${(data.members || []).length}\n银行经济: ${data.money}`;
     }
-    static getMemberList(cid) {
-        const data = Database.getCoopByCid(cid);
-        return data ? data.members.map((m) => m.name) : [];
+    static async getMemberList(cid) {
+        const data = await getCoop(cid);
+        return data ? (data.members || []).map((m) => m.player_name) : [];
     }
-    static isOp(playerName, cid) {
-        const data = Database.getCoopByCid(cid);
-        return data?.members.find((m) => m.name === playerName)?.isop ?? false;
+    static async isOp(playerName, cid) {
+        const data = await getCoop(cid);
+        return (data?.members || []).find((m) => m.player_name === playerName)?.is_op ?? false;
     }
-    static setOp(cid, index) {
-        const data = Database.getCoopByCid(cid);
-        if (!data || index >= data.members.length)
+    static async setOp(cid, index) {
+        const data = await getCoop(cid);
+        if (!data || !data.members || index >= data.members.length)
             return;
-        data.members[index].isop = true;
-        Database.saveCoop(data);
+        const members = data.members.map((m, i) => (i === index ? { ...m, is_op: true } : m));
+        await updateCoop(cid, { members });
     }
-    static setNotice(cid, text) {
-        const data = Database.getCoopByCid(cid);
+    static async setNotice(cid, text) {
+        const data = await getCoop(cid);
         if (!data)
             return;
-        data.notice = text;
-        Database.saveCoop(data);
+        await updateCoop(cid, { notice: text });
     }
     // ==========================================
     //  银行操作
     // ==========================================
-    static bankControl(cid, player, val, note, type) {
-        const data = Database.getCoopByCid(cid);
+    static async bankControl(cid, player, val, note, type) {
+        const data = await getCoop(cid);
         if (!data)
             return false;
         if (type === 1) {
@@ -184,36 +189,35 @@ export class CoopCore {
             if (plMoney < val)
                 return false;
             Money.set(player, plMoney - val);
-            data.money += val;
-            data.moneylist = `【+】${val} ${player.name} ${note}\n${data.moneylist}`;
+            await updateCoop(cid, { money: (data.money || 0) + val });
+            await addBankLog(cid, player.name, 1, val, note);
         }
         else if (type === 2) {
-            if (data.money < val)
+            if ((data.money || 0) < val)
                 return false;
             Money.set(player, Money.get(player) + val);
-            data.money -= val;
-            data.moneylist = `【-】${val} ${player.name} ${note}\n${data.moneylist}`;
+            await updateCoop(cid, { money: (data.money || 0) - val });
+            await addBankLog(cid, player.name, 2, val, note);
         }
         else
             return false;
-        Database.saveCoop(data);
         return true;
     }
     // ==========================================
     //  排行榜
     // ==========================================
-    static getRankInfo(type) {
-        const all = Database.getAllCoop();
+    static async getRankInfo(type) {
+        const all = await getAllCoops();
         if (type === 1) {
             return all
-                .map((e) => ({ m: e.money, n: e.name }))
+                .map((e) => ({ m: e.money || 0, n: e.name }))
                 .sort((a, b) => b.m - a.m)
                 .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`)
                 .join("");
         }
         if (type === 2) {
             return all
-                .map((e) => ({ m: e.members.length, n: e.name }))
+                .map((e) => ({ m: (e.members || []).length, n: e.name }))
                 .sort((a, b) => b.m - a.m)
                 .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} 人`)
                 .join("");
@@ -223,21 +227,30 @@ export class CoopCore {
     // ==========================================
     //  商店系统
     // ==========================================
-    static getGoods(list, reverse, type, cid, groupid, onlyTrue = true) {
-        let data = Database.getAllGoods();
+    static async _getAllShopItems() {
+        const allCoops = await getAllCoops();
+        const items = [];
+        for (const c of allCoops) {
+            const shopItems = await getShopItems(c.cid);
+            items.push(...shopItems);
+        }
+        return items;
+    }
+    static async getGoods(list, reverse, type, cid, groupid, onlyTrue = true) {
+        let data = await this._getAllShopItems();
         if (onlyTrue)
-            data = data.filter((e) => e.isTrue);
+            data = data.filter((e) => e.is_true !== false);
         data = data.filter((e) => e.type === type);
         if (cid)
             data = data.filter((e) => e.cid === cid);
         if (groupid)
-            data = data.filter((e) => e.groups.indexOf(groupid) !== -1);
+            data = data.filter((e) => e.groups && e.groups.indexOf(groupid) !== -1);
         switch (list) {
             case 1:
-                data.sort((a, b) => a.time - b.time);
+                data.sort((a, b) => a.created_at - b.created_at);
                 break;
             case 2:
-                data.sort((a, b) => a.name.localeCompare(b.name, Database.getConfig().main.compare_language));
+                data.sort((a, b) => a.name.localeCompare(b.name, this.cooperativeConfig.main.compare_language));
                 break;
             case 3:
                 data.sort((a, b) => a.sv - b.sv);
@@ -250,36 +263,38 @@ export class CoopCore {
             data.reverse();
         return data;
     }
-    static getGroups(customOnly = false) {
-        const groups = Database.getAllGroups();
+    static async getGroups(customOnly = false) {
+        const groups = await getAllShopGroups();
         return customOnly ? groups.filter((g) => g.groupid.indexOf("default") === -1) : groups;
     }
-    static buy(gid, num, player) {
-        const good = Database.getGoodById(gid);
+    static async buy(gid, num, player) {
+        const all = await this._getAllShopItems();
+        const good = all.find((e) => e.id === gid);
         if (!good || good.num < num)
             return false;
         const total = good.money * num;
-        if (!this.bankControl(good.cid, player, total, `购买 ${good.name}*${num}`, 1))
+        if (!(await this.bankControl(good.cid, player, total, `购买 ${good.name}*${num}`, 1)))
             return false;
-        player.runCommand(`give "${player.name}" ${good.item.type} ${num} ${good.item.aux}`);
+        player.runCommand(`give "${player.name}" ${good.item_type} ${num} ${good.item_aux ?? 0}`);
         good.sv += num;
         good.num -= num;
-        Database.saveGood(good);
+        await saveShopItem(good);
         return true;
     }
-    static sell(gid, num, player) {
-        const good = Database.getGoodById(gid);
+    static async sell(gid, num, player) {
+        const all = await this._getAllShopItems();
+        const good = all.find((e) => e.id === gid);
         if (!good || good.num - good.sv < num)
             return false;
-        const has = this._countItemInInventory(player, good.item.type);
+        const has = this._countItemInInventory(player, good.item_type);
         if (has < num)
             return false;
         const total = good.money * num;
-        if (!this.bankControl(good.cid, player, total, `出售 ${good.name}*${num}`, 2))
+        if (!(await this.bankControl(good.cid, player, total, `出售 ${good.name}*${num}`, 2)))
             return false;
-        player.runCommand(`clear "${player.name}" ${good.item.type} ${good.item.aux} ${num}`);
+        player.runCommand(`clear "${player.name}" ${good.item_type} ${good.item_aux ?? 0} ${num}`);
         good.sv += num;
-        Database.saveGood(good);
+        await saveShopItem(good);
         return true;
     }
 }
@@ -287,4 +302,15 @@ export class CoopCore {
 //  内部工具
 // ==========================================
 CoopCore._guidCounter = 0;
+CoopCore.cooperativeConfig = {
+    main: { language: "zh_CN", compare_language: "zh" },
+    shop_setting: {
+        monetary_unit: "¥",
+        nbtgoods_condition: {
+            type_enum: ["minecraft:writable_book", "minecraft:field_masoned_banner_pattern", "minecraft:filled_map"],
+            mode_enum: ["it.isEnchanted"],
+            type_reg_enum: ["[a-z].+_shulker_box"],
+        },
+    },
+};
 //# sourceMappingURL=CoopCore.js.map

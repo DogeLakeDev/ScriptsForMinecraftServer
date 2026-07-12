@@ -2,15 +2,10 @@
   "name": "doge-db-server",
   "version": "1.0.0",
   "private": true,
-  "description": "DogeChat 外部数据库 — WebSocket + SQLite",
+  "description": "DogeChat 外部数据库 — SQLite HTTP REST",
   "scripts": {
-    "start": "node index.js",
+    "start": "bun index.js",
     "start:pm2": "pm2 start index.js --name doge-db"
   },
-  "dependencies": {
-    "better-sqlite3": "^12.11.1"
-  },
-  "allowScripts": {
-    "better-sqlite3@12.11.1": true
-  }
+  "dependencies": {}
 }

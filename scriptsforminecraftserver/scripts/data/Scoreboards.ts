@@ -3,9 +3,9 @@
  */
 
 import { world } from "@minecraft/server";
-import { ScoreboardEntry, loadScoreboards, backupScoreboards } from "../api/ScoreboardsSyncApi";
+import { ScoreboardEntry, loadScoreboards, backupScoreboards } from "../api";
 
-export function ScoreboardsBackup() {
+export function ScoreboardsBackup(): void {
   let entries: ScoreboardEntry[] = [];
   world.scoreboard.getObjectives().forEach((obj, index) => {
     const scores = obj.getScores();

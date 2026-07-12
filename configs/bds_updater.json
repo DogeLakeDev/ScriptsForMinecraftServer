@@ -1,0 +1,31 @@
+{
+  "bds_path": "D:\\Minecraft\\BEServer",
+  "channel": "release",
+  "backup_dir": "D:\\Minecraft\\BEServer_backups",
+  "auto_restart": true,
+  "preserve": [
+    "server.properties",
+    "whitelist.json",
+    "permissions.json",
+    "allowlist.json",
+    "worlds",
+    "config\\68d6d7eb-a68e-40f6-b57d-7f0d200a35cf"
+  ],
+  "qq_notify": true,
+  "qq_config": "../configs/qq_config.json",
+  "version_mode": "bedrock-oss",
+  "version_versions": "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json",
+  "version_versions_mirror": "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json",
+  "version_details": "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/{platform}/{version}.json",
+  "version_details_mirror": "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/{platform}/{version}.json",
+  "download_mirror": "",
+  "download_timeout": 120,
+  "crash_restart": true,
+  "crash_restart_delay": 5,
+  "scheduled_restart": "",
+  "scheduled_restart_announce": 60,
+  "auto_check": true,
+  "auto_check_interval": 60,
+  "auto_update": true,
+  "auto_update_time": "03:00"
+}

@@ -5,9 +5,8 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 import { system, world } from "@minecraft/server";
-import { Questions } from "../data/Questions";
 import { getRandomInteger, Msg } from "../libs/Tools";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import { Money } from "../libs/Money";
 export class QAManager {
     constructor() {
@@ -20,7 +19,7 @@ export class QAManager {
         // 出题记录，避免短时间重复出题
         this.record = []; // 最近出的几个题
         this.recordPtr = 0; // 下一个记录写入的位置
-        this.recordLimit = Math.floor(Questions.length - 2); // 最大记录数量
+        this.recordLimit = Math.floor(ConfigManager.getQuestions().length - 2); // 最大记录数量
     }
     /**
      * @returns {QAManager}
@@ -56,10 +55,10 @@ export class QAManager {
         let questionList = []; // 记录题目编号
         let totalWeight = 0;
         let startPoints = [];
-        for (let i = 0; i < Questions.length; i++) {
+        for (let i = 0; i < ConfigManager.getQuestions().length; i++) {
             if (!this.record.includes(i)) {
                 questionList.push(i);
-                totalWeight += Questions[i].weight;
+                totalWeight += ConfigManager.getQuestions()[i].weight;
                 startPoints.push(totalWeight);
             }
         }
@@ -74,16 +73,16 @@ export class QAManager {
             }
         }
         //// 开始答题 ////
-        world.sendMessage(`§b[Baka Cirno]§r §g${Questions[this.nowQuestion].q}§r\n  §h发送 §e!答案§r §h来答题`);
+        world.sendMessage(`§b[Baka Cirno]§r §g${ConfigManager.getQuestions()[this.nowQuestion].q}§r\n  §h发送 §e!答案§r §h来答题`);
         //// 结束答题 ////
         system.runTimeout(() => {
             this.finish();
-        }, Config.QATimeout * 20);
+        }, ConfigManager.getSetting("qa_timeout", 60) * 20);
     }
     // 结束答题，揭晓答案
     finish() {
         // 宣布答案
-        let question = Questions[this.nowQuestion];
+        let question = ConfigManager.getQuestions()[this.nowQuestion];
         world.sendMessage(`§b[Baka Cirno]§r 正确答案是 §e${question.a[0]}§r ! ${question.d !== undefined ? "\n  " + question.d : ""}`);
         // 重置变量
         this.nowQuestion = undefined;
@@ -104,7 +103,7 @@ export class QAManager {
         if (this.nowQuestion !== undefined) {
             // 玩家未答题
             if (this.playerList[pl.nameTag] === undefined) {
-                let question = Questions[this.nowQuestion];
+                let question = ConfigManager.getQuestions()[this.nowQuestion];
                 for (let a of question.a) {
                     if (str === a) {
                         // 回答正确
@@ -145,8 +144,8 @@ export class QAManager {
     }
     // 距离下一个问题的时间(秒)
     static getNextTimeout() {
-        let min = Config.QAInterval[0] * 20;
-        let max = Config.QAInterval[1] * 20;
+        let min = ConfigManager.getSetting("qa_interval_min", 600) * 20;
+        let max = ConfigManager.getSetting("qa_interval_max", 720) * 20;
         return min + Math.floor(Math.random() * max);
     }
     /**

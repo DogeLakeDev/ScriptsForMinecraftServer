@@ -1,6 +1,5 @@
-import { Player } from "@minecraft/server";
-import { Gui, ObservableString } from "../libs/Gui";
-import { CustomForm } from "@minecraft/server-ui";
+import { Player, system } from "@minecraft/server";
+import { MenuNavigator, ObservableString, obsStr } from "../libs/MenuNavigator";
 import { Msg, ListFormInfo } from "../libs/Tools";
 import { Money } from "../libs/Money";
 import { LandGUI } from "./LandGUI";
@@ -21,78 +20,60 @@ export class MainMenu {
   }
 
   static show(player: Player): void {
-    this.showMainMenu(player);
+    new MainMenu().showMainMenu(player);
   }
 
-  private static async showMainMenu(player: Player): Promise<void> {
+  private showMainMenu(player: Player): void {
+    const nav = new MenuNavigator(player);
     const balance = Money.get(player);
-    const body = ListFormInfo([`当前余额: ${balance} ${Money.UNIT}`]);
 
-    const form = new CustomForm(player, "主菜单")
-      .label(body)
-      .button("土地", () => LandGUI.showMainMenu(player))
-      .button("合作社", () => {
-        new CoopGUI(player).mainPanel();
-      })
-      .button("频道", () => ChatGUI.openChannelPanel(player))
-      .button("红包", () => ChatGUI.openRedPacketPanel(player))
-      .button("节操", () => this.showEconomyPanel(player))
-      .closeButton();
-    await Gui.showForm(player, form, "主菜单");
-  }
+    nav.section("main", "主菜单", (page) => {
+      page.label(ListFormInfo([`当前余额: ${balance} ${Money.UNIT}`]));
+      page.button("土地", () => nav.leave(() => LandGUI.showMainMenu(player)));
+      page.button("合作社", () => nav.leave(() => new CoopGUI(player).mainPanel()));
+      page.button("频道", () => nav.leave(() => ChatGUI.openChannelPanel(player)));
+      page.button("红包", () => nav.leave(() => ChatGUI.openRedPacketPanel(player)));
+      page.button("节操", () => nav.go("economy"));
+    });
 
-  private static async showEconomyPanel(player: Player): Promise<void> {
-    const balance = Money.get(player);
-    const body = ListFormInfo([`当前余额: ${balance} ${Money.UNIT}`]);
+    nav.section("economy", "经济系统", (page) => {
+      const balLabel = obsStr(`§f[*] 当前余额: ${Money.get(player)} ${Money.UNIT}`);
+      page.label(balLabel);
+      page.button("转账", () => nav.go("transfer"));
+    });
 
-    const form = new CustomForm(player, "经济系统")
-      .label(body)
-      .button("查询余额", async () => {
-        const bal = Money.get(player);
-        Msg.info(`当前余额: ${bal} ${Money.UNIT}`, player);
-        await this.showEconomyPanel(player);
-      })
-      .button("转账", () => this.showTransferForm(player))
-      .closeButton();
-    await Gui.showForm(player, form, "经济系统");
-  }
-
-  private static async showTransferForm(player: Player): Promise<void> {
-    const targetName = new ObservableString("");
-    const amountStr = new ObservableString("");
-
-    const form = new CustomForm(player, "转账")
-      .textField("目标玩家", targetName, { description: "输入玩家名称" })
-      .textField("金额", amountStr, { description: "输入转账金额" })
-      .button("确认转账", async () => {
+    nav.section("transfer", "转账", (page) => {
+      const status = obsStr("");
+      const targetName = obsStr("");
+      const amountStr = obsStr("");
+      page.label(status);
+      page.label(ListFormInfo([`当前余额: ${Money.get(player)} ${Money.UNIT}`]));
+      page.textField("目标玩家", targetName, { description: "输入玩家名称" });
+      page.textField("金额", amountStr, { description: "输入转账金额" });
+      page.button("确认转账", () => {
         const name = targetName.getData().trim();
         const amount = parseInt(amountStr.getData());
-
         if (!name || isNaN(amount) || amount <= 0) {
-          Msg.error("输入无效，请检查玩家名称和金额。", player);
+          status.setData("§c输入无效，请检查玩家名称和金额。");
           return;
         }
-
         const target = player.dimension.getPlayers().find((p) => p.name === name);
         if (!target) {
-          Msg.error(`未找到玩家「${name}」。`, player);
+          status.setData(`§c未找到玩家「${name}」。`);
           return;
         }
-
-        const balance = Money.get(player);
-        if (amount > balance) {
-          Msg.error(`余额不足。当前余额: ${balance} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`, player);
+        const bal = Money.get(player);
+        if (amount > bal) {
+          status.setData(`§c余额不足。当前余额: ${bal} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`);
           return;
         }
-
         Money.add(player, -amount);
         Money.add(target, amount);
-        Msg.success(`成功转账 ${amount} ${Money.UNIT} 给 ${name}。`, player);
-      })
-      .closeButton();
-    const reason = await Gui.showForm(player, form, "转账");
-    if (reason === "ClientClosed" || reason === "ServerClosed") {
-      await this.showEconomyPanel(player);
-    }
+        status.setData(`§a成功转账 ${amount} ${Money.UNIT} 给 ${name}。`);
+        system.runTimeout(() => nav.rebuild("economy"), 40);
+      });
+    });
+
+    nav.start("main");
   }
 }

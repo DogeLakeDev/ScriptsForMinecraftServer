@@ -16,7 +16,7 @@ import {
   BlockComponentTypes,
   PlayerGameModeChangeAfterEvent,
 } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 
 export class InventorySwitcher {
@@ -56,7 +56,8 @@ export class InventorySwitcher {
    * 获取该索引对应的布局（左箱/右箱/告示牌位置），使用 Tools 工具
    */
   private getLayout(index: number) {
-    const cfg = Config.inventoryChest;
+    const cfg = ConfigManager.getGrid("inventory_chest");
+    if (!cfg) return { left: { x: 0, y: 0, z: 0 }, sign: { x: 0, y: 0, z: 0 } };
     const mainAxis = Math.floor(index / cfg.size[1]);
     const yOffset = index % cfg.size[1];
     return Tool.getLayout(cfg.start, cfg.direction, mainAxis, yOffset, cfg.face);
@@ -72,7 +73,9 @@ export class InventorySwitcher {
     if (base === undefined) {
       let nextIdx = world.getDynamicProperty("hpbe:invswitcher_next") as number | undefined;
       if (nextIdx === undefined) nextIdx = 0;
-      const max = Config.inventoryChest.size[0] - 2;
+      const grid = ConfigManager.getGrid("inventory_chest");
+      if (!grid) return 0;
+      const max = grid.size[0] - 2;
       if (nextIdx > max) nextIdx = 0;
       base = nextIdx;
       InventorySwitcher.chestMap.set(key, base);
@@ -85,7 +88,8 @@ export class InventorySwitcher {
    * 将玩家背包存入指定箱子
    */
   private saveToChest(player: Player, forCreative: boolean) {
-    const cfg = Config.inventoryChest;
+    const cfg = ConfigManager.getGrid("inventory_chest");
+    if (!cfg) return;
     const dim = world.getDimension("minecraft:overworld");
     const { left, sign } = this.getLayout(this.getChestIndex(player.id, forCreative));
 
@@ -145,7 +149,8 @@ export class InventorySwitcher {
    * 从指定箱子恢复玩家背包
    */
   private restoreFromChest(player: Player, forCreative: boolean) {
-    const cfg = Config.inventoryChest;
+    const cfg = ConfigManager.getGrid("inventory_chest");
+    if (!cfg) return;
     const dim = world.getDimension("minecraft:overworld");
     const { left } = this.getLayout(this.getChestIndex(player.id, forCreative));
 

@@ -1,0 +1,10 @@
+{
+  "name": "bds-tools",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "adm-zip": "^0.5.14",
+    "blessed": "^0.1.81",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

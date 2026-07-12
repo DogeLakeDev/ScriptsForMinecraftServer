@@ -6,16 +6,11 @@
 \* ---------------------------------------- */
 
 import { world, Entity, EntityInitializationCause } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
-import { Command } from "../libs/Command";
-import { Permission } from "../libs/Permission";
 
 export class Peace {
   static _instance: Peace;
-  /**
-   * @returns {Peace}
-   */
   static getInstance() {
     if (!Peace._instance) {
       Peace._instance = new Peace();
@@ -26,7 +21,6 @@ export class Peace {
   enable = true;
   init() {
     this.registerEvents();
-    this.registerCommands();
   }
 
   registerEvents() {
@@ -35,7 +29,7 @@ export class Peace {
       try {
         if (event.cause === EntityInitializationCause.Spawned) {
           let entity = event.entity;
-          if (this.inPeaceArea(entity) && entity.matches(Config.peaceAreaEntityQO)) {
+          if (this.inPeaceArea(entity) && entity.matches(this.getPeaceEntityQO())) {
             event.entity.remove();
           }
         }
@@ -47,7 +41,7 @@ export class Peace {
    * 实体是否在和平区域内
    */
   inPeaceArea(entity: Entity) {
-    for (let area of Config.peaceArea) {
+    for (let area of ConfigManager.getAreas("peace")) {
       if (entity.dimension.id === area.dimension) {
         if (
           Tool.pointInArea_2D(
@@ -70,15 +64,20 @@ export class Peace {
     return (this.enable = !this.enable);
   }
 
-  registerCommands() {
-    Permission.register("peace.toggle", Permission.OP);
-    Command.register(
-      "peace",
-      "peace.toggle",
-      () => {
-        return Peace.getInstance().switchPeace() ? "开启区域和平" : "关闭区域和平";
-      },
-      "切换区域和平"
-    );
+  private getPeaceEntityQO(): any {
+    const filters = ConfigManager.getPeaceFilters();
+    const qo: any = {};
+    for (const f of filters) {
+      if (f.family) {
+        if (!qo.families) qo.families = [];
+        qo.families.push(f.family);
+      }
+      if (f.exclude_family) {
+        if (!qo.excludeFamilies) qo.excludeFamilies = [];
+        qo.excludeFamilies.push(f.exclude_family);
+      }
+    }
+    return qo;
   }
+
 }

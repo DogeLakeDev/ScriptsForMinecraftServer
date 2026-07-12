@@ -14,7 +14,7 @@ import {
   EntityEquippableComponent,
   EquipmentSlot,
 } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import { Money } from "../libs/Money";
 import * as Tool from "../libs/Tools";
 import { ShopGUI } from "../gui/ShopGUI";
@@ -47,7 +47,7 @@ export class ShopSystem {
 
   /** 获取第 catIdx 个商店箱子的 { left, right, sign } 布局 */
   static getChestLayout(catIdx: number) {
-    const cfg = Config.shopChest;
+    const cfg = ConfigManager.getGrid("shop_chest");
     const mainAxis = Math.floor(catIdx / cfg.size[1]);
     const yOffset = catIdx % cfg.size[1];
     return Tool.getLayout(cfg.start, cfg.direction, mainAxis, yOffset, cfg.face);
@@ -75,12 +75,8 @@ export class ShopSystem {
     const { left } = this.getChestLayout(catIdx);
     const block = dim.getBlock(left);
     if (!block) return [];
-    Tool.ensureDoubleChest(
-      dim,
-      left,
-      Tool.getChestCardinal(Config.shopChest.direction, Config.shopChest.face),
-      Config.shopChest.direction
-    );
+    const cfg = ConfigManager.getGrid("shop_chest");
+    Tool.ensureDoubleChest(dim, left, Tool.getChestCardinal(cfg.direction, cfg.face), cfg.direction);
     const invComp = block.getComponent(BlockComponentTypes.Inventory) as any;
     if (!invComp?.container) return [];
     const items: (ItemStack | undefined)[] = [];
@@ -131,12 +127,8 @@ export class ShopSystem {
 
     const dim = world.getDimension("minecraft:overworld");
     const { left } = this.getChestLayout(catIdx);
-    Tool.ensureDoubleChest(
-      dim,
-      left,
-      Tool.getChestCardinal(Config.shopChest.direction, Config.shopChest.face),
-      Config.shopChest.direction
-    );
+    const cfg = ConfigManager.getGrid("shop_chest");
+    Tool.ensureDoubleChest(dim, left, Tool.getChestCardinal(cfg.direction, cfg.face), cfg.direction);
     const block = dim.getBlock(left);
     if (!block) return false;
     const invComp = block.getComponent(BlockComponentTypes.Inventory) as any;
@@ -242,7 +234,7 @@ export class ShopSystem {
 
   /** 检测某个坐标是否为商店箱子区域，返回 catIdx，否则返回 -1 */
   static detectShopChest(location: { x: number; y: number; z: number }): number {
-    const cfg = Config.shopChest;
+    const cfg = ConfigManager.getGrid("shop_chest");
     for (let catIdx = 0; catIdx < cfg.size[0] * cfg.size[1]; catIdx++) {
       const { left, right } = this.getChestLayout(catIdx);
       for (const pos of [left, right]) {

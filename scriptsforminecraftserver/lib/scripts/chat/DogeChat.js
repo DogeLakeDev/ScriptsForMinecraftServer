@@ -1,45 +1,46 @@
-/* ---------------------------------------- *\
- *  Name        :  DogeChat 消息系统         *
- *  Description :  频道化聊天 + 消息同步      *
- *  Version     :  1.0.0                    *
- *  Author      :  Shiroha7z               *
-\* ---------------------------------------- */
-import { world } from "@minecraft/server";
+import { world, system } from "@minecraft/server";
 import { Msg, formatTimestamp, generateId } from "../libs/Tools";
 import { Money } from "../libs/Money";
 import { HttpDB } from "../libs/HttpDB";
-import * as ChatApi from "../api/ChatApi";
-// ============================================
-//  DogeChat 核心类
-// ============================================
+import { Permission } from "../libs/Permission";
+import * as ChatApi from "../api";
 export class DogeChat {
     // ---------- 保留期 ----------
-    /** 拉取消息历史时的频道消息保留期（毫秒） */
     static getRetention(channel) {
         if (channel.config.isBroadcast)
             return Infinity;
         switch (channel.type) {
             case "private":
-                return 30 * 24 * 60 * 60 * 1000; // 30 天
+                return 30 * 24 * 60 * 60 * 1000;
             case "system":
-                return 24 * 60 * 60 * 1000; // 1 天
+                return 24 * 60 * 60 * 1000;
             case "public":
             case "custom":
             default:
-                return 7 * 24 * 60 * 60 * 1000; // 7 天
+                return 7 * 24 * 60 * 60 * 1000;
         }
     }
     // ============================================
     //  频道初始化
     // ============================================
-    /** 确保默认频道存在于 DB */
     static async ensureDefaultChannels() {
-        const existing = await ChatApi.getChannels();
-        if (existing && existing.length > 0)
-            return;
-        await ChatApi.saveChannels(DogeChat.DEFAULT_CHANNELS).catch((err) => console.warn(`[DogeChat] 保存默认频道失败: ${err}`));
+        for (let i = 0; i < 5; i++) {
+            const existing = await ChatApi.getChannels();
+            if (existing && existing.length > 0)
+                return;
+            if (i < 4) {
+                await system.waitTicks(40);
+                continue;
+            }
+            const ok = await ChatApi.saveChannels(DogeChat.DEFAULT_CHANNELS).catch((err) => {
+                console.warn(`[DogeChat] 保存默认频道失败: ${err}`);
+                return false;
+            });
+            if (ok)
+                return;
+            await system.waitTicks(40);
+        }
     }
-    /** 获取公共频道 */
     static async getPublicChannel() {
         const rows = await ChatApi.getChannels({ type: "public" });
         if (rows && rows.length > 0)
@@ -48,7 +49,9 @@ export class DogeChat {
         const retry = await ChatApi.getChannels({ type: "public" });
         return retry && retry.length > 0 ? retry[0] : null;
     }
-    /** 获取活跃频道对象 */
+    // ============================================
+    //  发送频道（!ch 用）
+    // ============================================
     static async getActiveChannel(player) {
         const channelId = DogeChat.activeChannelMap.get(player.id);
         if (channelId) {
@@ -59,20 +62,96 @@ export class DogeChat {
         const pub = await this.getPublicChannel();
         if (pub) {
             DogeChat.activeChannelMap.set(player.id, pub.id);
-            HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(() => { });
+            this._ensureSubscribed(player.id, pub.id);
+            HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e) => console.warn("[DogeChat] error:", e));
         }
         return pub;
     }
-    /** 设置玩家的活跃频道 */
     static async setActiveChannel(player, channelId) {
         DogeChat.activeChannelMap.set(player.id, channelId);
-        await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(() => { });
+        this._ensureSubscribed(player.id, channelId);
+        await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e) => console.warn("[DogeChat] error:", e));
     }
-    /** 频道在线人数 */
+    // ============================================
+    //  频道订阅系统
+    // ============================================
+    static isSubscribed(playerId, channelId) {
+        return this.subscribedChannelsMap.get(playerId)?.has(channelId) ?? false;
+    }
+    static getSubscribedChannelIds(playerId) {
+        return Array.from(this.subscribedChannelsMap.get(playerId) ?? []);
+    }
+    static async getSubscribedChannels(player) {
+        const ids = this.getSubscribedChannelIds(player.id);
+        const all = await ChatApi.getChannels();
+        if (!all)
+            return [];
+        return all.filter((c) => ids.includes(c.id));
+    }
+    static async toggleSubscription(player, channelId) {
+        const subs = this.subscribedChannelsMap.get(player.id);
+        if (!subs) {
+            this.subscribedChannelsMap.set(player.id, new Set([channelId]));
+            this._saveSubscriptions(player.id);
+            return true;
+        }
+        if (subs.has(channelId)) {
+            subs.delete(channelId);
+            if (subs.size === 0) {
+                const pub = await this.getPublicChannel();
+                if (pub)
+                    subs.add(pub.id);
+            }
+            this._saveSubscriptions(player.id);
+            return false;
+        }
+        subs.add(channelId);
+        this._saveSubscriptions(player.id);
+        return true;
+    }
+    static async setSubscriptions(player, channelIds) {
+        this.subscribedChannelsMap.set(player.id, new Set(channelIds));
+        this._saveSubscriptions(player.id);
+    }
+    static _ensureSubscribed(playerId, channelId) {
+        if (!this.subscribedChannelsMap.has(playerId)) {
+            this.subscribedChannelsMap.set(playerId, new Set());
+        }
+        this.subscribedChannelsMap.get(playerId).add(channelId);
+    }
+    static _saveSubscriptions(playerId) {
+        const ids = Array.from(this.subscribedChannelsMap.get(playerId) ?? []);
+        HttpDB.patch(`/api/sfmc/players/${playerId}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch((e) => console.warn("[DogeChat] error:", e));
+    }
+    static async loadSubscriptions(player) {
+        const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
+        if (raw?.subscribed_channels) {
+            try {
+                const ids = JSON.parse(raw.subscribed_channels);
+                this.subscribedChannelsMap.set(player.id, new Set(ids));
+            }
+            catch {
+                /* ignore */
+            }
+        }
+        // ensure at least one subscription
+        if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id).size === 0) {
+            const pub = await this.getPublicChannel();
+            if (pub)
+                this.subscribedChannelsMap.set(player.id, new Set([pub.id]));
+        }
+        // ensure sending channel is set
+        if (!this.activeChannelMap.has(player.id)) {
+            const pub = await this.getPublicChannel();
+            if (pub)
+                this.activeChannelMap.set(player.id, pub.id);
+        }
+    }
+    /** 频道在线人数（按订阅统计） */
     static getOnlineCount(channelId) {
         let count = 0;
         for (const p of world.getPlayers()) {
-            if (DogeChat.activeChannelMap.get(p.id) === channelId)
+            if (this.subscribedChannelsMap.get(p.id)?.has(channelId))
                 count++;
         }
         return count;
@@ -91,7 +170,6 @@ export class DogeChat {
         const ok = await ChatApi.createChannel(channel);
         return ok ? channel.id : "";
     }
-    /** 删除指定频道 */
     static async deleteChannel(channelId) {
         const ch = await ChatApi.getChannel(channelId);
         if (!ch)
@@ -100,7 +178,6 @@ export class DogeChat {
             return false;
         return ChatApi.deleteChannel(channelId);
     }
-    /** 更新频道配置 */
     static async updateChannelConfig(channelId, config) {
         const data = {};
         if (config.allowChat !== undefined)
@@ -113,11 +190,9 @@ export class DogeChat {
             return false;
         return ChatApi.patchChannel(channelId, data);
     }
-    /** 更新频道名称和前缀 */
     static async updateChannelName(channelId, newName, newPrefix) {
         return ChatApi.patchChannel(channelId, { name: newName, prefix: newPrefix });
     }
-    /** 获取玩家的私聊频道 */
     static async getPrivateChannels(player) {
         const rows = await ChatApi.getChannels({ type: "private", ownerId: player.id });
         return rows ?? [];
@@ -125,11 +200,9 @@ export class DogeChat {
     // ============================================
     //  系统消息频道
     // ============================================
-    /** 玩家的系统频道 ID */
     static getSystemChannelId(player) {
         return `sys_${player.id}`;
     }
-    /** 确保系统频道存在 */
     static async ensureSystemChannel(player) {
         const channelId = this.getSystemChannelId(player);
         const existing = await ChatApi.getChannel(channelId);
@@ -144,10 +217,9 @@ export class DogeChat {
             createdAt: Date.now(),
             config: { ...DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false },
         };
-        await ChatApi.createChannel(channel).catch(() => { });
+        await ChatApi.createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
         return channel;
     }
-    /** 发送系统消息到玩家的系统频道 */
     static async sendSystemMessage(player, content) {
         const channel = await this.ensureSystemChannel(player);
         const msg = {
@@ -162,20 +234,18 @@ export class DogeChat {
         };
         ChatApi.saveMessages([msg]).catch((err) => console.warn(`[DogeChat] 保存消息失败: ${err}`));
     }
-    /** 判断是否为私聊频道参与者 */
     static isPrivateParticipant(channelId, playerId) {
         if (!channelId.startsWith("priv_"))
             return false;
         return channelId.includes(playerId);
     }
-    /** 获取私聊频道中的另一方 id */
     static getPrivateOther(channelId, myId) {
         if (!channelId.startsWith("priv_"))
             return undefined;
         const parts = channelId.split("_");
         return parts[1] === myId ? parts[2] : parts[1];
     }
-    /** 循环切换频道（跳过私聊） */
+    /** 循环切换发送频道（!ch 用），同时订阅目标频道 */
     static async cycleChannel(player) {
         const all = await ChatApi.getChannels();
         if (!all)
@@ -198,7 +268,6 @@ export class DogeChat {
     // ============================================
     //  消息同步
     // ============================================
-    /** 获取频道的历史消息 */
     static async getChannelHistory(channelId) {
         const channel = await ChatApi.getChannel(channelId);
         if (!channel)
@@ -209,7 +278,6 @@ export class DogeChat {
             return rows;
         return [];
     }
-    /** 加载历史消息 */
     static async loadChannelHistory(player, channelId) {
         const channel = await ChatApi.getChannel(channelId);
         if (!channel)
@@ -221,7 +289,8 @@ export class DogeChat {
         }
         player.sendMessage(`§7--- §f${channel.prefix} §7频道历史消息 ---`);
         for (const msg of history) {
-            if (msg.showTimestamp) {
+            const isBroadcast = channel.config.isBroadcast;
+            if (msg.showTimestamp && !isBroadcast) {
                 player.sendMessage(`§7${formatTimestamp(msg.timestamp)}`);
             }
             let display = msg.content;
@@ -255,10 +324,10 @@ export class DogeChat {
                 Msg.warning("该频道只读。", from);
             return false;
         }
-        // 公告板模式
         if (channel.config?.isBroadcast) {
             const owner = await this.isChannelOwner(from, channelId);
-            if (!owner) {
+            const isAdmin = Permission.check(from, "chat.admin");
+            if (!owner && !isAdmin) {
                 Msg.warning("此频道为公告板模式，只有管理员才能发言。", from);
                 return false;
             }
@@ -274,12 +343,9 @@ export class DogeChat {
                 showTimestamp: true,
             };
             await ChatApi.saveMessages([msg]).catch((err) => console.warn(`[DogeChat] 保存消息失败: ${err}`));
-            const prefix = `§a[${channel.prefix}]`;
-            Msg.info(`§r§7${formatTimestamp(msg.timestamp)}`, from);
-            from.sendMessage({ rawtext: [{ text: `${prefix} ${from.name}: ${content}` }] });
+            from.sendMessage({ rawtext: [{ text: `§a[${channel.prefix}] ${from.name}: ${content}` }] });
             return true;
         }
-        // slowMode
         if (channel.config?.slowMode && channel.config.slowMode > 0) {
             const playerMap = this.slowModeTracker.get(from.id);
             const lastTs = playerMap?.get(channelId) ?? 0;
@@ -289,7 +355,6 @@ export class DogeChat {
                 return false;
             }
         }
-        // showTimestamp
         const history = await this.getChannelHistory(channelId);
         const lastMsg = history.length > 0 ? history[history.length - 1] : undefined;
         const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1000;
@@ -308,14 +373,24 @@ export class DogeChat {
         if (showTimestamp)
             from.sendMessage(`§7${formatTimestamp(msg.timestamp)}`);
         from.sendMessage({ rawtext: [{ text: `§b[${channel.prefix}] §f${from.name}: ${content}` }] });
-        // 广播给同一频道的其他在线玩家
+        this._broadcastToSubscribers(channel, msg, showTimestamp, from.id);
+        if (channel.config?.slowMode && channel.config.slowMode > 0) {
+            if (!this.slowModeTracker.has(from.id))
+                this.slowModeTracker.set(from.id, new Map());
+            this.slowModeTracker.get(from.id).set(channelId, Date.now());
+        }
+        return true;
+    }
+    /** 广播消息给所有订阅了该频道的玩家 */
+    static _broadcastToSubscribers(channel, msg, showTimestamp, excludeId) {
+        const isBroadcast = channel.config.isBroadcast;
         for (const p of world.getPlayers()) {
-            if (p.id === from.id)
+            if (p.id === excludeId)
                 continue;
-            if (DogeChat.activeChannelMap.get(p.id) !== channelId)
+            if (!this.isSubscribed(p.id, channel.id))
                 continue;
-            let display = content;
-            switch (type) {
+            let display = msg.content;
+            switch (msg.type) {
                 case "location":
                     display = `§a[定位] ${display}`;
                     break;
@@ -326,19 +401,12 @@ export class DogeChat {
                     display = `§6[红包] ${display}`;
                     break;
             }
-            if (showTimestamp)
+            if (showTimestamp && !isBroadcast)
                 p.sendMessage(`§7${formatTimestamp(msg.timestamp)}`);
             p.chatNamePrefix = `[${channel.prefix}]`;
             p.sendMessage(`${display}`);
         }
-        if (channel.config?.slowMode && channel.config.slowMode > 0) {
-            if (!this.slowModeTracker.has(from.id))
-                this.slowModeTracker.set(from.id, new Map());
-            this.slowModeTracker.get(from.id).set(channelId, Date.now());
-        }
-        return true;
     }
-    /** 发送私聊 */
     static async sendPrivateMessage(from, toPlayer, content, type = "text") {
         const channel = await this.ensurePrivateChannel(from.id, toPlayer.id);
         const history = await this.getChannelHistory(channel.id);
@@ -356,7 +424,7 @@ export class DogeChat {
         };
         ChatApi.saveMessages([msg]).catch((err) => console.warn(`[DogeChat] 保存消息失败: ${err}`));
         for (const p of [from, toPlayer]) {
-            if (DogeChat.activeChannelMap.get(p.id) === channel.id) {
+            if (this.isSubscribed(p.id, channel.id)) {
                 let display = content;
                 switch (type) {
                     case "location":
@@ -380,7 +448,6 @@ export class DogeChat {
         }
         return true;
     }
-    /** 创建或获取私聊频道 */
     static async ensurePrivateChannel(idA, idB) {
         const ids = [idA, idB].sort();
         const channelId = `priv_${ids[0]}_${ids[1]}`;
@@ -397,7 +464,7 @@ export class DogeChat {
             createdAt: Date.now(),
             config: { ...DogeChat.DEFAULT_CHANNEL_CONFIG },
         };
-        await ChatApi.createChannel(channel).catch(() => { });
+        await ChatApi.createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
         return channel;
     }
     // ============================================
@@ -413,7 +480,7 @@ export class DogeChat {
         return this.sendPrivateMessage(from, toPlayer, `${from.name} 邀请你传送到他的位置！(${locStr})`, "teleport_invite");
     }
     // ============================================
-    //  红包（纯 DB，无缓存）
+    //  红包
     // ============================================
     static async sendRedPacket(sender, amount, count, targetType, targetId) {
         if (amount <= 0 || count <= 0 || count > amount) {
@@ -506,14 +573,11 @@ export class DogeChat {
         return rows.filter((p) => {
             if (p.remainingCount <= 0 || now > p.expiresAt)
                 return false;
-            if (p.receivers.includes(player.id))
-                return false;
             if (p.targetType === "player")
                 return p.targetId === player.id;
             return true;
         });
     }
-    /** DB 层面过期的红包不返回即可，无需显式清理 */
     static cleanupExpiredRedPackets() {
         /* no-op */
     }
@@ -523,6 +587,44 @@ export class DogeChat {
     static async isChannelOwner(player, channelId) {
         const ch = await ChatApi.getChannel(channelId);
         return ch?.ownerid === player.id;
+    }
+    // ============================================
+    //  QQ 桥接轮询
+    // ============================================
+    static startBridgePolling(bridgeChannelId) {
+        if (this._bridgePollStarted)
+            return;
+        this._bridgePollStarted = true;
+        this._lastBridgeFetch = Date.now();
+        system.runInterval(async () => {
+            try {
+                const since = this._lastBridgeFetch;
+                this._lastBridgeFetch = Date.now();
+                const msgs = await ChatApi.getMessages({ channelId: bridgeChannelId, minSentAt: since });
+                if (!msgs || msgs.length === 0)
+                    return;
+                const channel = await ChatApi.getChannel(bridgeChannelId);
+                if (!channel)
+                    return;
+                for (const msg of msgs) {
+                    if (msg.fromid.startsWith("qq_")) {
+                        const isBroadcast = channel.config.isBroadcast;
+                        for (const p of world.getPlayers()) {
+                            if (!this.isSubscribed(p.id, bridgeChannelId))
+                                continue;
+                            if (!isBroadcast && msg.timestamp - this._lastBridgeTimestamp > 300000) {
+                                this._lastBridgeTimestamp = msg.timestamp;
+                                p.sendMessage(`§7${formatTimestamp(msg.timestamp)}`);
+                            }
+                            p.sendMessage({ rawtext: [{ text: `§b[${channel.prefix}] §f${msg.fromName}: §r${msg.content}` }] });
+                        }
+                    }
+                }
+            }
+            catch {
+                /* ignore */
+            }
+        }, 20);
     }
 }
 DogeChat.DEFAULT_CHANNEL_CONFIG = {
@@ -549,6 +651,12 @@ DogeChat.DEFAULT_CHANNELS = [
     },
 ];
 DogeChat.slowModeTracker = new Map();
-/** 当前在线玩家活跃频道映射（运行时状态，非缓存，仅用于广播推送给同一频道的其他玩家） */
+/** 发送频道（玩家输入的消息发送到此频道） */
 DogeChat.activeChannelMap = new Map();
+/** 订阅频道（接收消息的频道列表） */
+DogeChat.subscribedChannelsMap = new Map();
+/** QQ 桥接轮询 */
+DogeChat._bridgePollStarted = false;
+DogeChat._lastBridgeFetch = Date.now();
+DogeChat._lastBridgeTimestamp = 0;
 //# sourceMappingURL=DogeChat.js.map

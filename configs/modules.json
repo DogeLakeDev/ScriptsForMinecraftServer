@@ -1,0 +1,25 @@
+{
+  "modules": {
+    "fly": false,
+    "creative": false,
+    "survival": false,
+    "peace": true,
+    "inventory_switcher": false,
+    "afk": true,
+    "clean": true,
+    "qa": true,
+    "chat": true,
+    "coop": false,
+    "shop": true,
+    "land": true,
+    "holoprint": true,
+    "money": true,
+    "tps": true,
+    "online_time": true,
+    "activity_log": true,
+    "scoreboard_sync": true,
+    "spawn_protect": true,
+    "chat_sounds": true,
+    "qq_bridge": true
+  }
+}

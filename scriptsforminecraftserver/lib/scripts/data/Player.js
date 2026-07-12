@@ -1,4 +1,4 @@
-import { getPlayers } from "../api/PlayersDataApi";
+import { getPlayers } from "../api";
 import { formatTimestamp } from "../libs/Tools";
 export async function getPlayerData(player) {
     const data = {
@@ -6,7 +6,7 @@ export async function getPlayerData(player) {
         name: player.name,
         clientSystemInfoLocal: player.clientSystemInfo?.locale,
         clientSystemInfoMaxRenderDistance: player.clientSystemInfo?.maxRenderDistance,
-        clientSystemInfoMemoryTierLevel: player.clientSystemInfo?.memoryTier,
+        clientSystemInfoMemoryTierLevel: String(player.clientSystemInfo?.memoryTier ?? ""),
         clientSystemInfoPlatformType: player.clientSystemInfo?.platformType,
         graphicsMode: player.graphicsMode,
         dynamicPropertyTotalByteCount: player.getDynamicPropertyTotalByteCount(),

@@ -5,7 +5,7 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 import { system, world, GameMode } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
 import { Msg } from "../libs/Tools";
@@ -58,7 +58,7 @@ system.runInterval(() => {
  * 实体是否在飞行区域内
  */
 function inFlyArea(entity) {
-    for (let area of Config.flyArea) {
+    for (let area of ConfigManager.getAreas("fly")) {
         if (entity.dimension.id === area.dimension) {
             if (Tool.pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])) {
                 return area.name;

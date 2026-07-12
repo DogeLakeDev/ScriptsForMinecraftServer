@@ -1,19 +1,7 @@
 import { HttpDB } from "../libs/HttpDB";
 import { toQueryString } from "../libs/Tools";
-import { ScoreboardIdentityType } from "@minecraft/server";
-
-export interface ScoreboardEntry {
-  id: string;
-  displayName: string;
-  participants?: Participant[];
-}
-
-export interface Participant {
-  id: number;
-  type: ScoreboardIdentityType;
-  name: string;
-  score: number;
-}
+import type { ScoreboardEntry } from "../types";
+export type { ScoreboardEntry };
 
 export async function backupScoreboards(entries: ScoreboardEntry[]): Promise<boolean> {
   return HttpDB.post("/api/sfmc/scoreboards", { entries });

@@ -2,17 +2,17 @@
  * HoloCore — Holoprint 核心逻辑编排器
  *
  * 管理上传、加载、操作执行的完整流程。
- * 依赖 HoloprintApi（网络层）和 HoloEntity（实体层）。
+ * 依赖 HttpDB（网络层）和 HoloEntity（实体层）。
  */
 import { Player, world, Vector3, system } from "@minecraft/server";
 import { PlayerSelection, SelectionPoint, ProjectionData, DEFAULT_HOLO_SETTINGS } from "../data/HoloPrint";
-import { HoloprintApi } from "../api/HoloprintApi";
+import { HttpDB } from "../libs/HttpDB";
 import { HoloEntity } from "./HoloEntity";
 
 // ── 常量 ──────────────────────────────────────────────
 
 /** 结构管理器标识前缀 */
-const STRUCTURE_ID_PREFIX = "hpbe_";
+const STRUCTURE_ID_PREFIX = "hpbe:";
 
 // ── 工具类型 ──────────────────────────────────────────
 
@@ -66,7 +66,7 @@ export class HoloCore {
    *
    * 1. 检查选区完整性
    * 2. 使用 StructureManager 保存方块区域为临时结构
-   * 3. 通过 HoloprintApi 上传结构元数据到 db-server
+   * 3. 通过 HttpDB 上传结构元数据到 db-server
    * 4. 清理临时结构
    *
    * @param player  当前玩家
@@ -128,7 +128,7 @@ export class HoloCore {
         sizeZ,
         blockCount: 0,
       };
-      const success = await HoloprintApi.uploadHoloStructure(projectionData, "");
+      const success = await HttpDB.uploadHoloStructure(projectionData, "");
 
       // 4. 清理选区状态
       this.playerSelections.delete(player.id);
@@ -157,8 +157,8 @@ export class HoloCore {
     try {
       // 并行获取私有和公共投影
       const [privateProjections, publicProjections] = await Promise.all([
-        HoloprintApi.getHoloProjections(player.id, "private"),
-        HoloprintApi.getHoloProjections(undefined, "public"),
+        HttpDB.getHoloProjections(player.id, "private"),
+        HttpDB.getHoloProjections(undefined, "public"),
       ]);
 
       const all: ProjectionData[] = [];
@@ -244,7 +244,7 @@ export class HoloCore {
 
   /** 获取并显示方块清单 */
   private static async handleMaterials(player: Player, projectionId: string): Promise<void> {
-    const materials = await HoloprintApi.getHoloMaterials(projectionId);
+    const materials = await HttpDB.getHoloMaterials(projectionId);
     if (!materials || materials.length === 0) {
       player.sendMessage("§e[HPBE] 该投影没有方块清单数据");
       return;
@@ -259,7 +259,7 @@ export class HoloCore {
     const currentValue = typeof value === "boolean" ? value : value === true;
     const newValue = !currentValue;
 
-    const success = await HoloprintApi.updateHoloProjection(projectionId, { [field]: newValue });
+    const success = await HttpDB.updateHoloProjection(projectionId, { [field]: newValue });
     if (!success) {
       player.sendMessage("§c[HPBE] 更新失败");
       return;
@@ -277,7 +277,7 @@ export class HoloCore {
     }
 
     const settings: Record<string, any> = { [field]: value };
-    const success = await HoloprintApi.updateHoloProjection(projectionId, settings);
+    const success = await HttpDB.updateHoloProjection(projectionId, settings);
     if (!success) {
       player.sendMessage("§c[HPBE] 更新失败");
       return;
@@ -298,7 +298,7 @@ export class HoloCore {
       return;
     }
 
-    const success = await HoloprintApi.updateHoloProjection(projectionId, {
+    const success = await HttpDB.updateHoloProjection(projectionId, {
       offsetX: value.x,
       offsetY: value.y,
       offsetZ: value.z,
@@ -318,7 +318,7 @@ export class HoloCore {
 
   /** 删除投影 */
   private static async handleDelete(player: Player, projectionId: string): Promise<void> {
-    const success = await HoloprintApi.deleteHoloProjection(projectionId);
+    const success = await HttpDB.deleteHoloProjection(projectionId);
     if (!success) {
       player.sendMessage("§c[HPBE] 删除投影失败");
       return;
@@ -359,8 +359,9 @@ export class HoloCore {
         visible: !!(raw.visible ?? raw.settings?.visible ?? true),
         spawnAnimation: !!(raw.spawn_animation ?? raw.settings?.spawnAnimation ?? false),
         blockInspect: !!(raw.block_inspect ?? raw.settings?.blockInspect ?? false),
-        overlayTint: raw.overlay_tint ?? raw.settings?.overlayTint ?? "",
+        overlayTint: !!(raw.overlay_tint ?? raw.settings?.overlayTint ?? false),
         overlayTintOpacity: raw.overlay_tint_opacity ?? raw.settings?.overlayTintOpacity ?? 0,
+        overlayTintColor: raw.overlay_tint_color ?? raw.settings?.overlayTintColor ?? "",
         textureOutlineWidth: raw.texture_outline_width ?? raw.settings?.textureOutlineWidth ?? 0,
         textureOutlineColor: raw.texture_outline_color ?? raw.settings?.textureOutlineColor ?? "",
         textureOutlineOpacity: raw.texture_outline_opacity ?? raw.settings?.textureOutlineOpacity ?? 0,
@@ -372,6 +373,11 @@ export class HoloCore {
       sizeX: raw.size_x ?? raw.sizeX ?? 0,
       sizeY: raw.size_y ?? raw.sizeY ?? 0,
       sizeZ: raw.size_z ?? raw.sizeZ ?? 0,
+      structureData: raw.structure_data ?? raw.structureData ?? "",
+      palette: raw.palette ?? "",
+      blocks: "",
+      blockEntities: raw.block_entities ?? "",
+      fromWorld: !!(raw.from_world ?? raw.fromWorld ?? false),
       materials: raw.materials ?? [],
       createdAt: raw.created_at ?? raw.createdAt ?? 0,
       updatedAt: raw.updated_at ?? raw.updatedAt ?? 0,

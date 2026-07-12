@@ -6,7 +6,7 @@
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { Config } from "../data/Config";
+import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "../libs/Command";
 
 // 内存缓存：玩家 ID → (键 → 值)
@@ -32,7 +32,7 @@ function cacheDelete(player: Player, key: string) {
   if (pc) pc.delete(key);
 }
 
-export function init() {
+export function init(): void {
   console.log(`Initializing AFK...`);
   for (let player of world.getAllPlayers()) {
     reset(player);
@@ -42,7 +42,7 @@ export function init() {
 /**
  * 清除相关属性和标签
  */
-export function reset(player: Player) {
+export function reset(player: Player): void {
   cacheDelete(player, "afk:last_location");
   cacheDelete(player, "afk:step");
   player.removeTag("AFK");
@@ -51,7 +51,7 @@ export function reset(player: Player) {
 /**
  * 即刻进入AFK状态
  */
-export function setAFK(player: Player) {
+export function setAFK(player: Player): void {
   player.removeTag("NOAFK");
   startAFKScan();
   playerList[player.id] = player.location;
@@ -99,7 +99,7 @@ system.runInterval(() => {
         }
 
         // 判断是否满足AFK条件
-        if (nowStep * STEP_TIME >= Config.AFKTime) {
+        if (nowStep * STEP_TIME >= ConfigManager.getSetting("afk_time", 120)) {
           // 满足
           setAFK(player);
         } else {
@@ -149,7 +149,7 @@ function stopAFKScan() {
   intervalId = undefined;
 }
 
-export function registerCommand() {
+export function registerCommand(): void {
   Command.register("afk", "afk.use", setAFK as (player: Player | undefined) => any, "进入AFK状态");
   Command.register(
     "noafk",

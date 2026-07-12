@@ -1,5 +1,5 @@
 import { PlayerPermissionLevel } from "@minecraft/server";
-import { data } from "../data/PermissionData";
+import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "./Command";
 import { Msg } from "./Tools";
 /**
@@ -28,12 +28,14 @@ export class Permission {
         const required = this.registry.get(permissionName);
         if (required === undefined)
             return true; // 未注册的权限默认放行
-        const playerLevel = typeof player === "string" ? (data[player] ?? this.Member) : this.getPermission(player);
+        const perms = ConfigManager.getPermissions();
+        const playerLevel = typeof player === "string" ? (perms[player] ?? this.Member) : this.getPermission(player);
         return playerLevel >= required;
     }
     static getPermission(player) {
-        if (data[player.name] !== undefined) {
-            return data[player.name];
+        const perms = ConfigManager.getPermissions();
+        if (perms[player.name] !== undefined) {
+            return perms[player.name];
         }
         switch (player.playerPermissionLevel) {
             case PlayerPermissionLevel.Visitor:

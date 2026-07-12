@@ -1,6 +1,6 @@
 import { HttpDB } from "../libs/HttpDB";
 import { toQueryString } from "../libs/Tools";
-import { Channel, ChatMessage, RedPacket } from "../chat/DogeTypes";
+import type { Channel, ChatMessage, RedPacket } from "../types/chat";
 
 const PATH_CHANNELS = "/api/sfmc/channels";
 const PATH_MESSAGES = "/api/sfmc/messages";
@@ -86,6 +86,13 @@ function toRedPacket(r: Record<string, unknown>): RedPacket {
   };
 }
 
+/**
+ *
+ *
+ * @export
+ * @param {string} channelId
+ * @return {*}  {(Promise<Channel | null>)}
+ */
 export async function getChannel(channelId: string): Promise<Channel | null> {
   const raw = await HttpDB.fetchJSON<Record<string, unknown>>(PATH_CHANNELS, channelId, "channel");
   if (!raw) return null;

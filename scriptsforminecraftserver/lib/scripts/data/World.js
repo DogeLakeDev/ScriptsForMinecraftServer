@@ -1,6 +1,6 @@
 import { world } from "@minecraft/server";
 import { getShanghaiTime } from "../libs/Tools";
-import { saveWorldData } from "../api/WorldDataApi";
+import { saveWorldData } from "../api";
 /** GameRules 属性是原型 getter，JSON.stringify 会输出空对象。手动枚举。 */
 function serializeGameRules() {
     const g = world.gameRules;
@@ -66,6 +66,6 @@ export async function getWorldData() {
 }
 export async function syncWorldData() {
     const data = await getWorldData();
-    saveWorldData(data);
+    await saveWorldData(data);
 }
 //# sourceMappingURL=World.js.map
