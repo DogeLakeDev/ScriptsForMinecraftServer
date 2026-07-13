@@ -57,52 +57,15 @@ MC Bedrock (SAPI TypeScript)
 
 ## 二、现存问题与修复方案
 
-### 🔴 P0 — 运行时崩溃
-
-#### 2.1 `adm-zip` / `cheerio` 未声明依赖
-
-**问题**：`BDSTools/check-update.js` 动态 `require('adm-zip')` 和 `require('cheerio')`，均不在 `BDSTools/package.json` 中。若全局未安装则会直接崩溃。
-
-**修复**：
-```json
-// BDSTools/package.json
-"dependencies": {
-  "adm-zip": "^0.5.16",
-  "cheerio": "^1.0.0",
-  "extract-zip": "^2.0.1",
-  "node-html-parser": "^6.1.13"
-}
-```
-
-同时将顶层 `require` 改为懒加载并给出友好提示，或将 `adm-zip` 替换为已有的 `extract-zip`。
-
-#### 2.2 `node:sqlite` 运行时要求不匹配
-
-**问题**：`db-server/index.js` 使用 `node:sqlite`（Node 22.5+ 实验性 / Node 23+ 稳定），但 README 标注最低 Node 18，且 `engines` 字段未设置。Node 18-22 用户会在启动时静默崩溃。
-
-**修复**：
-```json
-// db-server/package.json
-"engines": { "node": ">=22.5.0" }
-// 或加上 --experimental-sqlite 的检测与提示
-```
-
-#### 2.3 `panel/index.js` ESM + `.js` 后缀陷阱
-
-**问题**：Panel 使用 ESM (`"type": "module"`)，但 `package.json` 中依赖的本地模块 `scriptsforminecraft/db-server` 指向 CommonJS 格式的 `db-server/index.js`，Node 在 ESM 中 `require()` CJS 模块可能因路径解析失败而抛错。
-
-**修复**：确保 db-server 也声明 `"type": "commonjs"`，或 Panel 改用 `createRequire()` 导入。
-
----
-
 ### 🟠 P1 — 架构与维护性
 
-#### 2.4 `db-server/index.js` 单一文件 ~2000 行
+#### 2.1 `db-server/index.js` 单一文件 ~2000 行
 
 **问题**：路由、数据库初始化、配置管理、QQ 转发、监控指标全部耦合在一个文件中。无中间件模式，URL 匹配用 `if/else if` 链。
 
 **建议拆分结构**：
-```
+
+```files
 db-server/
 ├── index.js            # 入口：启动服务器
 ├── app.js              # HTTP 框架层：路由注册 + 中间件
@@ -128,9 +91,10 @@ db-server/
     └── metrics.js      # 监控指标
 ```
 
-#### 2.5 SQL 注入风险
+#### 2.2 SQL 注入风险
 
 **问题**：多处直接拼接标识符/值到 SQL：
+
 ```js
 // line ~1517
 const rows = db.prepare(`SELECT * FROM ${tbl} WHERE ...`).all(...values)
@@ -141,11 +105,12 @@ const stmt = db.prepare(`SELECT COUNT(*) AS cnt FROM "${t.name}"`)
 虽然 `t.name` 来自 `sqlite_master` 并有正则校验，但 `tbl` 由请求参数传入时风险较高。
 
 **修复**：
+
 - 动态表名统一通过白名单校验
 - 值绑定始终用 `?` 占位符
 - 引入参数化查询 lint 规则
 
-#### 2.6 三/四源模块状态冗余
+#### 2.3 三/四源模块状态冗余
 
 **问题**：
 - `modules/catalog.json` -- 元数据（唯一正确）
