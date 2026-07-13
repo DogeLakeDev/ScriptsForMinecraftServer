@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "adm-zip": "^0.5.16",
+    "cheerio": "^1.0.0",
     "extract-zip": "^2.0.1",
-    "node-html-parser": "^9.0.0"
+    "node-html-parser": "^6.1.13"
   }
 }
