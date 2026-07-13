@@ -1,6 +1,22 @@
 {
   "version": 1,
   "modules": {
+    "core-config": {
+      "installed": true,
+      "enabled": true
+    },
+    "core-command": {
+      "installed": true,
+      "enabled": true
+    },
+    "core-permission": {
+      "installed": true,
+      "enabled": true
+    },
+    "core-httpdb": {
+      "installed": true,
+      "enabled": true
+    },
     "tool-bds-updater": {
       "installed": true,
       "installedAt": 1783905480982,

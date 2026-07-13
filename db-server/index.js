@@ -13,6 +13,7 @@ const { loadModuleLock: readModuleLock, saveModuleLock: writeModuleLock, getModu
 if (!assertNodeVersion(22, 5)) process.exit(2);
 const { openDatabase, createQuery } = require('./lib/sqlite');
 const { readJsonFile, writeJsonFile } = require('./lib/json');
+const { createModuleRoutes } = require('./routes/modules');
 
 // 加载外部配置 JSON（覆盖 process.env）
 const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
@@ -36,6 +37,8 @@ const AUTH_TOKEN = process.env.DB_AUTH_TOKEN || '';
 const MODULES_DIR = process.env.SFMC_MODULES_DIR || path.join(PROJECT_ROOT, 'modules');
 const MODULE_CATALOG_PATH = path.join(MODULES_DIR, 'catalog.json');
 const MODULE_LOCK_PATH = path.join(MODULES_DIR, 'module-lock.json');
+
+let moduleRoutes;
 
 let db;
 
@@ -257,7 +260,6 @@ function applyInitPayload(payload) {
   for (const f of ['db_config.json', 'bds_updater.json', 'qq_config.json']) {
     backupConfigFile(path.join(CFG_DIR, f));
   }
-  backupConfigFile(MODULE_LOCK_PATH);
 
   // 2. 写 panel-state.json
   if (payload.state) {
@@ -343,10 +345,6 @@ function applyInitReset(payload) {
         fs.copyFileSync(path.join(dir, name), target);
         restored.push(`configs/${name}`);
       }
-    }
-    if (fs.existsSync(path.join(dir, 'module-lock.json'))) {
-      fs.copyFileSync(path.join(dir, 'module-lock.json'), MODULE_LOCK_PATH);
-      restored.push('modules/module-lock.json');
     }
   }
   // 重置 panel-state.json
@@ -1432,66 +1430,7 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/modules ──────
-    if (path === '/api/sfmc/modules/catalog') {
-      if (method === 'GET') { json(res, { modules: loadModuleCatalog() }); return; }
-      else { json(res, { success: false, error: 'not_found' }, 404); return; }
-    }
-    if (path === '/api/sfmc/modules') {
-      if (method === 'GET') {
-        const catalog = loadModuleCatalog();
-         json(res, { modules: buildModuleList() });
-        return;
-      }
-      else { json(res, { success: false, error: 'not_found' }, 404); return; }
-    }
-    if (path.startsWith('/api/sfmc/modules/')) {
-      const rest = path.slice('/api/sfmc/modules/'.length);
-      const [rawKey, action] = rest.split('/');
-      const key = decodeURIComponent(rawKey || '');
-      const module = resolveModuleByKey(key);
-      if (!module) { json(res, { success: false, error: 'module_not_found' }, 404); return; }
-
-      if (!action && method === 'GET') {
-        const found = buildModuleList().find((m) => m.id === module.id);
-        json(res, { module: found || null });
-      } else if (!action && (method === 'PATCH' || method === 'PUT')) {
-        const { enabled } = await body(req);
-        if (!enabled && !module.canDisable) { json(res, { success: false, error: 'module_cannot_disable' }, 400); return; }
-        try { setModuleEnabled(module, !!enabled); }
-        catch (e) {
-          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
-          throw e;
-        }
-        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
-      } else if (action === 'enable' && method === 'POST') {
-        try { setModuleEnabled(module, true); }
-        catch (e) {
-          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
-          throw e;
-        }
-        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
-      } else if (action === 'disable' && method === 'POST') {
-        if (!module.canDisable) { json(res, { success: false, error: 'module_cannot_disable' }, 400); return; }
-        setModuleEnabled(module, false);
-        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
-      } else if (action === 'install' && method === 'POST') {
-        try { setModuleInstalled(module, true); }
-        catch (e) {
-          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
-          throw e;
-        }
-        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
-      } else if (action === 'uninstall' && method === 'POST') {
-        if (!module.canUninstall) { json(res, { success: false, error: 'module_cannot_uninstall' }, 400); return; }
-        try { setModuleInstalled(module, false); }
-        catch (e) {
-          if (e.code === 'dependency_required') { json(res, { success: false, error: 'dependency_required', requiredBy: e.requiredBy }, 409); return; }
-          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
-          throw e;
-        }
-        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
-      } else { json(res, { success: false, error: 'not_found' }, 404); }
+    if (await moduleRoutes({ path, method, req, res })) {
       return;
     }
 
@@ -1790,6 +1729,16 @@ async function start() {
   if (hpbeExisting.length === 0) {
     query('INSERT INTO hpbe_pack_meta (id, pack_version, last_generated_at) VALUES (1, 1, NULL)');
   }
+
+  moduleRoutes = createModuleRoutes({
+    loadModuleCatalog,
+    buildModuleList,
+    resolveModuleByKey,
+    setModuleEnabled,
+    setModuleInstalled,
+    body,
+    json,
+  });
 
   // 用 Holoprint 路由包装原始 handler
   const holoHandler = registerHoloprintRoutes(handle, db, query, body, json);
