@@ -924,6 +924,19 @@ function canManageLand(landId, actorId) {
   return !!member;
 }
 
+function landMemberRole(landId, actorId) {
+  const land = query('SELECT owner_player_id FROM sfmc_lands WHERE id=?', [landId])[0];
+  if (!land || !actorId) return null;
+  if (land.owner_player_id === String(actorId)) return 'owner';
+  return query("SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=? AND expires_at IS NULL", [landId, String(actorId)])[0]?.role || null;
+}
+
+function canManageMember(landId, actorId, targetRole = null) {
+  const actorRole = landMemberRole(landId, actorId);
+  if (actorRole === 'owner') return true;
+  return actorRole === 'admin' && targetRole !== 'owner' && targetRole !== 'admin';
+}
+
 function ensureEconomyAccount(playerId, playerName = '') {
   const now = Date.now();
   query('INSERT OR IGNORE INTO sfmc_economy_accounts (player_id, player_name_snapshot, created_at, updated_at) VALUES (?,?,?,?)', [String(playerId), String(playerName), now, now]);
@@ -1127,7 +1140,17 @@ async function handle(req, res) {
     }
 
     if (path.startsWith('/api/sfmc/lands/invites/')) {
-      const inviteeId = decodeURIComponent(path.slice('/api/sfmc/lands/invites/'.length));
+      const invitePath = path.slice('/api/sfmc/lands/invites/'.length).split('/');
+      const inviteeId = decodeURIComponent(invitePath[0]);
+      if (invitePath[1] === 'decline' && method === 'POST') {
+        const data = await body(req);
+        const invite = query("SELECT * FROM sfmc_land_invites WHERE id=? AND invitee_id=? AND status='pending'", [data.inviteId, inviteeId])[0];
+        if (!invite) { json(res, { success: false, error: 'invite_not_found' }, 404); return; }
+        query("UPDATE sfmc_land_invites SET status='declined' WHERE id=?", [invite.id]);
+        auditLand(invite.land_id, inviteeId, 'invite.decline', { inviteId: invite.id });
+        json(res, { success: true });
+        return;
+      }
       if (method === 'GET') {
         const now = Date.now();
         query("UPDATE sfmc_land_invites SET status='expired' WHERE invitee_id=? AND status='pending' AND expires_at<=?", [inviteeId, now]);
@@ -1156,7 +1179,9 @@ async function handle(req, res) {
       const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [id])[0];
       if (!land) { json(res, { success: false, error: 'not_found' }, 404); return; }
       if (method === 'POST') {
-        if (!data.actorId || !data.playerId || land.owner_player_id !== data.actorId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        if (!data.actorId || !data.playerId || !canManageMember(id, data.actorId, data.role)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        if (!['builder', 'container', 'visitor', 'redstone', 'entity', 'admin'].includes(String(data.role || 'builder'))) { json(res, { success: false, error: 'invalid_role' }, 400); return; }
+        if (String(data.role) === 'admin' && landMemberRole(id, data.actorId) !== 'owner') { json(res, { success: false, error: 'forbidden' }, 403); return; }
         const inviteId = `I${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
         const expiresAt = Date.now() + Math.min(Math.max(Number(data.ttlMs) || 86400000, 60000), 604800000);
         query('INSERT INTO sfmc_land_invites (id, land_id, inviter_id, invitee_id, role, expires_at, created_at) VALUES (?,?,?,?,?,?,?)', [inviteId, id, data.actorId, String(data.playerId), String(data.role || 'builder'), expiresAt, Date.now()]);
@@ -1165,13 +1190,32 @@ async function handle(req, res) {
         return;
       }
       if (method === 'DELETE') {
-        if (!data.actorId || land.owner_player_id !== data.actorId || !data.playerId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        const targetRole = query('SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=?', [id, String(data.playerId)])[0]?.role;
+        if (!data.actorId || !data.playerId || !canManageMember(id, data.actorId, targetRole)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
         query('DELETE FROM sfmc_land_members WHERE land_id=? AND player_id=? AND player_id<>?', [id, String(data.playerId), land.owner_player_id]);
         query('UPDATE sfmc_lands SET updated_at=?, version=version+1 WHERE id=?', [Date.now(), id]);
         auditLand(id, data.actorId, 'member.remove', { playerId: String(data.playerId) });
         json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
         return;
       }
+    }
+
+    if (path.startsWith('/api/sfmc/lands/') && path.includes('/members/')) {
+      const tail = path.slice('/api/sfmc/lands/'.length).split('/');
+      const id = decodeURIComponent(tail[0]);
+      const playerId = decodeURIComponent(tail[2] || '');
+      if (tail.length !== 3 || tail[1] !== 'members' || method !== 'PATCH') { json(res, { success: false, error: 'not_found' }, 404); return; }
+      const data = await body(req);
+      const currentRole = query('SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=?', [id, playerId])[0]?.role;
+      if (!currentRole || !data.actorId || !canManageMember(id, data.actorId, currentRole)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+      const nextRole = String(data.role || '');
+      if (!['builder', 'container', 'visitor', 'redstone', 'entity', 'admin'].includes(nextRole)) { json(res, { success: false, error: 'invalid_role' }, 400); return; }
+      if (nextRole === 'admin' && landMemberRole(id, data.actorId) !== 'owner') { json(res, { success: false, error: 'forbidden' }, 403); return; }
+      query('UPDATE sfmc_land_members SET role=? WHERE land_id=? AND player_id=?', [nextRole, id, playerId]);
+      query('UPDATE sfmc_lands SET updated_at=?, version=version+1 WHERE id=?', [Date.now(), id]);
+      auditLand(id, data.actorId, 'member.role_change', { playerId, from: currentRole, to: nextRole });
+      json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
+      return;
     }
 
     if (path.startsWith('/api/sfmc/lands/') && path.endsWith('/transfer')) {
@@ -1189,6 +1233,20 @@ async function handle(req, res) {
         db.exec('COMMIT');
         json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
       } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'transfer_failed' }, 500); }
+      return;
+    }
+
+    if (path.startsWith('/api/sfmc/lands/') && path.includes('/invites/')) {
+      const tail = path.slice('/api/sfmc/lands/'.length).split('/');
+      const id = decodeURIComponent(tail[0]);
+      const inviteId = decodeURIComponent(tail[2] || '');
+      if (tail.length !== 3 || tail[1] !== 'invites' || method !== 'DELETE') { json(res, { success: false, error: 'not_found' }, 404); return; }
+      const data = await body(req);
+      const invite = query("SELECT * FROM sfmc_land_invites WHERE id=? AND land_id=? AND status='pending'", [inviteId, id])[0];
+      if (!invite || !canManageLand(id, data.actorId)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+      query("UPDATE sfmc_land_invites SET status='revoked' WHERE id=?", [inviteId]);
+      auditLand(id, data.actorId, 'invite.revoke', { inviteId });
+      json(res, { success: true });
       return;
     }
 

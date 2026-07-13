@@ -126,6 +126,12 @@ async function main() {
     assert(pending.status === 200 && pending.body.invites.length === 1, '玩家可以查询待处理邀请');
     const accepted = await request('POST', '/api/sfmc/lands/invites/player-2', { inviteId: invite.body.inviteId });
     assert(accepted.status === 200 && accepted.body.land.members.some((member) => member.player_id === 'player-2' && member.role === 'builder'), '玩家接受土地邀请');
+    const adminInvite = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members`, { actorId: 'player-2', playerId: 'player-3', role: 'admin' });
+    assert(adminInvite.status === 403, '普通管理员不能邀请管理员');
+    const memberRole = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members/player-2`, { actorId: 'player-1', role: 'container' });
+    assert(memberRole.status === 200 && memberRole.body.land.members.some((member) => member.player_id === 'player-2' && member.role === 'container'), '所有者可以调整普通成员角色');
+    const adminRole = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members/player-2`, { actorId: 'player-2', role: 'admin' });
+    assert(adminRole.status === 403, '普通管理员不能提升成员为管理员');
     const transferred = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, { actorId: 'player-1', targetId: 'player-2', targetName: 'PlayerTwo' });
     assert(transferred.status === 200 && transferred.body.land.ownerplid === 'player-2', '土地转让更新所有者和角色');
     const audit = await request('GET', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/audit`);

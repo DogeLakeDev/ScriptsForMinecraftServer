@@ -246,6 +246,14 @@ export class Database {
     this.flush();
   }
 
+  static upsert(land: LandData): void {
+    this.ensureLoaded();
+    const current = this._registry!.get(land.id);
+    if (current && (land.version || 0) < (current.version || 0)) return;
+    this._registry!.set(land.id, land);
+    this.rebuildOwnerIndex();
+  }
+
   /** 更新土地 */
   static async update(land: LandData, actorId = land.ownerplid): Promise<boolean> {
     const { updateLand } = await import("../api/LandApi");

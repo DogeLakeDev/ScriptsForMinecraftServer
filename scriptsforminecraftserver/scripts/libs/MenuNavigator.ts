@@ -60,6 +60,7 @@ export class MenuNavigator {
   private backVis: ObservableBoolean = new ObservableBoolean(false);
   state: Record<string, any> = {};
   private _confirmIdx = 0;
+  private taskRunning = false;
 
   constructor(player: Player) {
     this.player = player;
@@ -88,6 +89,50 @@ export class MenuNavigator {
       this.applySection(targetSection);
     }
     await this.buildAndShow();
+  }
+
+  async refresh(): Promise<void> {
+    await this.rebuild();
+  }
+
+  async replace(targetSection: string): Promise<void> {
+    if (this.history.length > 0) this.history[this.history.length - 1] = targetSection;
+    else this.history = [targetSection];
+    this.applySection(targetSection);
+    await this.buildAndShow();
+  }
+
+  async runTask(status: FormStatus, task: () => Promise<void>, onError = "操作失败，请稍后重试。"): Promise<void> {
+    if (this.taskRunning) return;
+    this.taskRunning = true;
+    status.info("正在处理，请稍候...");
+    try {
+      await task();
+    } catch (error) {
+      console.warn(`[MenuNavigator] task failed: ${(error as Error).message || error}`);
+      status.fail(onError);
+    } finally {
+      this.taskRunning = false;
+    }
+  }
+
+  async confirmMessage(title: string, body: string, confirm = "确认", cancel = "取消"): Promise<boolean> {
+    if (this.form?.isShowing()) this.form.close();
+    const box = new MessageBox(this.player, title);
+    box.body(body).button1(confirm).button2(cancel);
+    for (let i = 0; i < 20; i++) {
+      try {
+        const result = await box.show();
+        if (result.closeReason === DataDrivenScreenClosedReason.UserBusy) {
+          await system.waitTicks(10);
+          continue;
+        }
+        return result.closeReason === DataDrivenScreenClosedReason.ClientClosed && result.selection === 0;
+      } catch {
+        await system.waitTicks(2);
+      }
+    }
+    return false;
   }
 
   go(sectionId: string): void {

@@ -87,6 +87,11 @@ export async function removeLandMember(id: string, actorId: string, playerId: st
   return result.status === 200 ? parseLand(result.body) : null;
 }
 
+export async function updateLandMember(id: string, actorId: string, playerId: string, role: string): Promise<LandData | null> {
+  const result = await HttpDB.requestJSON("Patch", `${PATH}/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId)}`, { actorId, role });
+  return result.status === 200 ? parseLand(result.body) : null;
+}
+
 export async function getInvites(playerId: string): Promise<any[]> {
   const body = await HttpDB.get(`${PATH}/invites/${encodeURIComponent(playerId)}`);
   if (!body) return [];
@@ -96,6 +101,16 @@ export async function getInvites(playerId: string): Promise<any[]> {
 export async function acceptInvite(playerId: string, inviteId: string): Promise<LandData | null> {
   const result = await HttpDB.requestJSON("Post", `${PATH}/invites/${encodeURIComponent(playerId)}`, { inviteId });
   return result.status === 200 ? parseLand(result.body) : null;
+}
+
+export async function declineInvite(playerId: string, inviteId: string): Promise<boolean> {
+  const result = await HttpDB.requestJSON("Post", `${PATH}/invites/${encodeURIComponent(playerId)}/decline`, { inviteId });
+  return result.status === 200;
+}
+
+export async function revokeInvite(id: string, actorId: string, inviteId: string): Promise<boolean> {
+  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`, { actorId });
+  return result.status === 200;
 }
 
 export async function transferLand(id: string, actorId: string, targetId: string, targetName: string): Promise<LandData | null> {
