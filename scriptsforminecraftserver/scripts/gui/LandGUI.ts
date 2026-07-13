@@ -253,6 +253,8 @@ export class LandGUI {
         if (!land) throw new Error("purchase failed");
         this.state.application = undefined; this.state.selectedLandId = land.id;
         await this.nav.replace("landDetail");
+        const balance = await Money.load(this.player);
+        Msg.success(`土地购买成功，已扣除费用。当前余额：${balance} ${Money.UNIT}`, this.player);
       }));
     } else {
       page.label("请在游戏内使用 !pos1 和 !pos2 设置两个角点。");

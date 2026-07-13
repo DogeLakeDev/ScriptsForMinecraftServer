@@ -259,6 +259,7 @@ export class LandCore {
     const land = result.land;
     Database.add(land);
     if (result.balance !== undefined) Money.setCached(player, result.balance);
+    else await Money.load(player);
     this.clearSession(plid);
     return land;
   }

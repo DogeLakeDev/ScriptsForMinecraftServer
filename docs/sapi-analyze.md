@@ -25,11 +25,11 @@
 * 并发购买、出售、存款、取款会发生 read-modify-write 竞争，可能丢失资金更新；请求失败也会留下“玩家已扣款、合作社未入账”或“玩家已收款、合作社未扣款”的不一致。
 * 建议：将合作社银行和商品交易移动到 db-server 的单个事务 endpoint，由 SQLite 原子校验余额、更新库存、写流水；SAPI 仅在事务成功后发放/扣除游戏内物品和货币，并定义补偿策略。
 
-4. 土地与旧合作社 Database 类并不持久化
+4. ~~土地~~与~~旧合作社 Database 类并不持久化
 * LandDatabase.ts (/D:/#WorkPlace/#MCBEProjects/ScriptsForMinecraftServer/scriptsforminecraftserver/scripts/land/LandDatabase.ts:89) 和 coop/Database.ts (/D:/#WorkPlace/#MCBEProjects/ScriptsForMinecraftServer/scriptsforminecraftserver/scripts/coop/Database.ts:62) 都使用进程内 Map。
-* LandCore 仍直接使用该 LandDatabase，意味着领地数据在脚本/BDS 重启后会丢失。
+* ~~LandCore 仍直接使用该 LandDatabase，意味着领地数据在脚本/BDS 重启后会丢失。~~
 * 合作社生产逻辑目前主要使用 API，但同目录保留的旧内存 Database 容易被误用，造成两套数据源。
-* 建议：阶段 D 首先迁移领地到 db-server；删除或明确隔离废弃的 coop/Database.ts，避免未来回归到内存存储。
+* 建议：阶段 D 首先~~迁移领地到 db-server；~~删除或明确隔离废弃的 coop/Database.ts，避免未来回归到内存存储。
 
 ~~5. ActivityLog 禁用后仍保留后台计时器~~
 * ActivityLog.ts (/D:/#WorkPlace/#MCBEProjects/ScriptsForMinecraftServer/scriptsforminecraftserver/scripts/data/ActivityLog.ts:617) 创建 flush interval 和 cleanup interval，但未保存 run ID。
