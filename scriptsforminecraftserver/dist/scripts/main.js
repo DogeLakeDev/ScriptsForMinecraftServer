@@ -2154,6 +2154,12 @@ var init_ConfigManager = __esm({
       static {
         this._ready = false;
       }
+      static {
+        this._configStale = false;
+      }
+      static {
+        this._lastErrors = /* @__PURE__ */ new Map();
+      }
       static async init() {
         if (this._initialized) return;
         this._initialized = true;
@@ -2165,6 +2171,12 @@ var init_ConfigManager = __esm({
       }
       static isReady() {
         return this._ready;
+      }
+      static isStale() {
+        return this._configStale;
+      }
+      static getLastErrors() {
+        return Object.fromEntries(this._lastErrors);
       }
       static startPolling(intervalTicks = 72e3) {
         system6.runInterval(() => this._poll(), intervalTicks);
@@ -2231,6 +2243,7 @@ var init_ConfigManager = __esm({
         ];
         await Promise.allSettled(promises);
         this.cache._lastFetch = now;
+        this._configStale = this._lastErrors.size > 0;
       }
       static async reloadModule(module) {
         await this._fetchSettings();
@@ -2256,7 +2269,8 @@ var init_ConfigManager = __esm({
           if (upd.peace_filters) await this._fetchPeaceFilters();
           if (upd.qa_questions) await this._fetchQA();
           if (upd.shop_categories || upd.shop_items) await this._fetchShop();
-        } catch {
+        } catch (e) {
+          this._recordError("poll", e);
         }
       }
       static async _fastPoll() {
@@ -2311,8 +2325,9 @@ var init_ConfigManager = __esm({
             const key = m.config_key || m.configKey || m.name;
             if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
           }
+          this._clearError("modules");
         } catch (e) {
-          console.warn(`[ConfigManager] \u83B7\u53D6\u6A21\u5757\u914D\u7F6E\u5931\u8D25: ${e.message || e}`);
+          this._recordError("modules", e);
         }
       }
       static async _fetchSettings() {
@@ -2322,7 +2337,9 @@ var init_ConfigManager = __esm({
           const { settings } = JSON.parse(body);
           this.cache.settings.clear();
           for (const s of settings) this.cache.settings.set(s.key, s.value);
-        } catch {
+          this._clearError("settings");
+        } catch (e) {
+          this._recordError("settings", e);
         }
       }
       static async _fetchAreas() {
@@ -2336,7 +2353,9 @@ var init_ConfigManager = __esm({
             start: [a.start_x, a.start_z],
             end: [a.end_x, a.end_z]
           }));
-        } catch {
+          this._clearError("areas");
+        } catch (e) {
+          this._recordError("areas", e);
         }
       }
       static async _fetchPermissions() {
@@ -2346,7 +2365,9 @@ var init_ConfigManager = __esm({
           const { permissions } = JSON.parse(body);
           this.cache.permissions = {};
           for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
-        } catch {
+          this._clearError("permissions");
+        } catch (e) {
+          this._recordError("permissions", e);
         }
       }
       static async _fetchBannedItems() {
@@ -2354,7 +2375,9 @@ var init_ConfigManager = __esm({
           const body = await HttpDB.get("/api/sfmc/banned_items");
           if (!body) return;
           this.cache.bannedItems = (JSON.parse(body).items || []).map((i) => i.item_id);
-        } catch {
+          this._clearError("banned_items");
+        } catch (e) {
+          this._recordError("banned_items", e);
         }
       }
       static async _fetchClean() {
@@ -2363,7 +2386,9 @@ var init_ConfigManager = __esm({
           if (!body) return;
           const { clean } = JSON.parse(body);
           if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
-        } catch {
+          this._clearError("clean");
+        } catch (e) {
+          this._recordError("clean", e);
         }
       }
       static async _fetchGrids() {
@@ -2379,7 +2404,9 @@ var init_ConfigManager = __esm({
               start: [g.start_x, g.start_y, g.start_z]
             };
           }
-        } catch {
+          this._clearError("grids");
+        } catch (e) {
+          this._recordError("grids", e);
         }
       }
       static async _fetchPeaceFilters() {
@@ -2387,7 +2414,9 @@ var init_ConfigManager = __esm({
           const body = await HttpDB.get("/api/sfmc/peace_filters");
           if (!body) return;
           this.cache.peaceFilters = JSON.parse(body).filters || [];
-        } catch {
+          this._clearError("peace_filters");
+        } catch (e) {
+          this._recordError("peace_filters", e);
         }
       }
       static async _fetchQA() {
@@ -2406,7 +2435,9 @@ var init_ConfigManager = __esm({
             bonus: this._parseQAItems(q.rewards),
             punish: this._parseQAItems(q.punishments)
           }));
-        } catch {
+          this._clearError("qa");
+        } catch (e) {
+          this._recordError("qa", e);
         }
       }
       static _parseQAItems(jsonStr) {
@@ -2427,8 +2458,21 @@ var init_ConfigManager = __esm({
           const { categories, items } = JSON.parse(body);
           this.cache.shopCategories = categories || [];
           this.cache.shopItems = items || [];
-        } catch {
+          this._clearError("shop");
+        } catch (e) {
+          this._recordError("shop", e);
         }
+      }
+      static _recordError(source, error) {
+        const message = error?.message || String(error);
+        const previous = this._lastErrors.get(source);
+        this._lastErrors.set(source, message);
+        this._configStale = true;
+        if (previous !== message) console.warn(`[ConfigManager] ${source} \u914D\u7F6E\u83B7\u53D6\u5931\u8D25: ${message}`);
+      }
+      static _clearError(source) {
+        this._lastErrors.delete(source);
+        this._configStale = this._lastErrors.size > 0;
       }
     };
   }

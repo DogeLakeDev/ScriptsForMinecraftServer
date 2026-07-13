@@ -38,6 +38,8 @@ export class ConfigManager {
 
   private static _initialized = false;
   private static _ready = false;
+  private static _configStale = false;
+  private static _lastErrors = new Map<string, string>();
 
   static async init(): Promise<void> {
     if (this._initialized) return;
@@ -51,6 +53,14 @@ export class ConfigManager {
 
   static isReady(): boolean {
     return this._ready;
+  }
+
+  static isStale(): boolean {
+    return this._configStale;
+  }
+
+  static getLastErrors(): Record<string, string> {
+    return Object.fromEntries(this._lastErrors);
   }
 
   static startPolling(intervalTicks = 72000): void {
@@ -131,6 +141,7 @@ export class ConfigManager {
     ];
     await Promise.allSettled(promises);
     this.cache._lastFetch = now;
+    this._configStale = this._lastErrors.size > 0;
   }
 
   static async reloadModule(module: string): Promise<void> {
@@ -160,8 +171,8 @@ export class ConfigManager {
       if (upd.peace_filters) await this._fetchPeaceFilters();
       if (upd.qa_questions) await this._fetchQA();
       if (upd.shop_categories || upd.shop_items) await this._fetchShop();
-    } catch {
-      /* ignore */
+    } catch (e) {
+      this._recordError("poll", e);
     }
   }
 
@@ -223,8 +234,9 @@ export class ConfigManager {
         const key = m.config_key || m.configKey || m.name;
         if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
       }
+      this._clearError("modules");
     } catch (e) {
-      console.warn(`[ConfigManager] 获取模块配置失败: ${(e as Error).message || e}`);
+      this._recordError("modules", e);
     }
   }
 
@@ -235,8 +247,9 @@ export class ConfigManager {
       const { settings } = JSON.parse(body);
       this.cache.settings.clear();
       for (const s of settings) this.cache.settings.set(s.key, s.value);
-    } catch {
-      /* ignore */
+      this._clearError("settings");
+    } catch (e) {
+      this._recordError("settings", e);
     }
   }
 
@@ -251,8 +264,9 @@ export class ConfigManager {
         start: [a.start_x, a.start_z],
         end: [a.end_x, a.end_z],
       }));
-    } catch {
-      /* ignore */
+      this._clearError("areas");
+    } catch (e) {
+      this._recordError("areas", e);
     }
   }
 
@@ -263,8 +277,9 @@ export class ConfigManager {
       const { permissions } = JSON.parse(body);
       this.cache.permissions = {};
       for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
-    } catch {
-      /* ignore */
+      this._clearError("permissions");
+    } catch (e) {
+      this._recordError("permissions", e);
     }
   }
 
@@ -273,8 +288,9 @@ export class ConfigManager {
       const body = await HttpDB.get("/api/sfmc/banned_items");
       if (!body) return;
       this.cache.bannedItems = (JSON.parse(body).items || []).map((i: any) => i.item_id);
-    } catch {
-      /* ignore */
+      this._clearError("banned_items");
+    } catch (e) {
+      this._recordError("banned_items", e);
     }
   }
 
@@ -284,8 +300,9 @@ export class ConfigManager {
       if (!body) return;
       const { clean } = JSON.parse(body);
       if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
-    } catch {
-      /* ignore */
+      this._clearError("clean");
+    } catch (e) {
+      this._recordError("clean", e);
     }
   }
 
@@ -302,8 +319,9 @@ export class ConfigManager {
           start: [g.start_x, g.start_y, g.start_z],
         };
       }
-    } catch {
-      /* ignore */
+      this._clearError("grids");
+    } catch (e) {
+      this._recordError("grids", e);
     }
   }
 
@@ -312,8 +330,9 @@ export class ConfigManager {
       const body = await HttpDB.get("/api/sfmc/peace_filters");
       if (!body) return;
       this.cache.peaceFilters = JSON.parse(body).filters || [];
-    } catch {
-      /* ignore */
+      this._clearError("peace_filters");
+    } catch (e) {
+      this._recordError("peace_filters", e);
     }
   }
 
@@ -333,8 +352,9 @@ export class ConfigManager {
         bonus: this._parseQAItems(q.rewards),
         punish: this._parseQAItems(q.punishments),
       }));
-    } catch {
-      /* ignore */
+      this._clearError("qa");
+    } catch (e) {
+      this._recordError("qa", e);
     }
   }
 
@@ -357,8 +377,22 @@ export class ConfigManager {
       const { categories, items } = JSON.parse(body);
       this.cache.shopCategories = categories || [];
       this.cache.shopItems = items || [];
-    } catch {
-      /* ignore */
+      this._clearError("shop");
+    } catch (e) {
+      this._recordError("shop", e);
     }
+  }
+
+  private static _recordError(source: string, error: unknown): void {
+    const message = (error as Error)?.message || String(error);
+    const previous = this._lastErrors.get(source);
+    this._lastErrors.set(source, message);
+    this._configStale = true;
+    if (previous !== message) console.warn(`[ConfigManager] ${source} 配置获取失败: ${message}`);
+  }
+
+  private static _clearError(source: string): void {
+    this._lastErrors.delete(source);
+    this._configStale = this._lastErrors.size > 0;
   }
 }

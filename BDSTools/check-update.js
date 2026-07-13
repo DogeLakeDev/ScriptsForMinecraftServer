@@ -17,7 +17,15 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const AdmZip = require('adm-zip');
+const { assertNodeVersion } = require('../db-server/lib/runtime');
+if (!assertNodeVersion(18, 0)) process.exit(2);
+let AdmZip;
+try {
+  AdmZip = require('adm-zip');
+} catch (error) {
+  console.error(`[BDSUpdater] 缺少依赖 adm-zip，请在 BDSTools 目录执行 npm install: ${error.message}`);
+  process.exit(1);
+}
 const bds = require('./bds-manager');
 
 // ────────── 配置 ──────────

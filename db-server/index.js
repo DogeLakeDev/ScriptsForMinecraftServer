@@ -7,6 +7,9 @@ const http = require('http');
 const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
+const { assertNodeVersion } = require('./lib/runtime');
+const { quoteIdentifier } = require('./lib/identifiers');
+if (!assertNodeVersion(22, 5)) process.exit(2);
 const { DatabaseSync } = require('node:sqlite');
 
 // 加载外部配置 JSON（覆盖 process.env）
@@ -1533,7 +1536,7 @@ async function handle(req, res) {
         const result = {};
         const configTables = ['sfmc_config_modules', 'sfmc_config_settings', 'sfmc_config_areas', 'sfmc_config_permissions', 'sfmc_config_qa_questions', 'sfmc_config_shop_categories', 'sfmc_config_shop_items', 'sfmc_config_clean', 'sfmc_config_banned_items', 'sfmc_config_grids', 'sfmc_config_peace_filters'];
         for (const tbl of configTables) {
-          const rows = query(`SELECT * FROM ${tbl} WHERE updated_at > ?`, [ts]);
+           const rows = query(`SELECT * FROM ${quoteIdentifier(tbl, 'table')} WHERE updated_at > ?`, [ts]);
           if (rows.length > 0) result[tbl.replace('sfmc_config_', '')] = rows;
         }
         json(res, { updated: result, timestamp: Date.now() });
@@ -1882,7 +1885,7 @@ async function handle(req, res) {
     if (path === '/api/sfmc/db/tables') {
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
       const result = tables.map(t => {
-        const count = db.prepare(`SELECT COUNT(*) AS cnt FROM "${t.name}"`).get();
+         const count = db.prepare(`SELECT COUNT(*) AS cnt FROM ${quoteIdentifier(t.name, 'table')}`).get();
         return { name: t.name, rows: count.cnt };
       });
       json(res, { tables: result });
@@ -1894,8 +1897,9 @@ async function handle(req, res) {
         json(res, { success: false, error: 'invalid table name' }, 400); return;
       }
       try {
-        const columns = db.prepare(`PRAGMA table_info("${tname}")`).all();
-        const rows = db.prepare(`SELECT * FROM "${tname}" LIMIT 20`).all();
+         const safeTable = quoteIdentifier(tname, 'table');
+         const columns = db.prepare(`PRAGMA table_info(${safeTable})`).all();
+         const rows = db.prepare(`SELECT * FROM ${safeTable} LIMIT 20`).all();
         json(res, { columns, rows });
       } catch (e) { json(res, { success: false, error: e.message }, 500); }
       return;
@@ -1951,7 +1955,13 @@ async function start() {
 
   // 用 Holoprint 路由包装原始 handler
   const holoHandler = registerHoloprintRoutes(handle, db, query, body, json);
-  const server = http.createServer(holoHandler);
+  const server = http.createServer((req, res) => {
+    const startedAt = Date.now();
+    res.once('finish', () => {
+      console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms`);
+    });
+    return holoHandler(req, res);
+  });
 
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`[DogeDB] HTTP 服务已启动，端口 ${PORT} (loopback only)`);

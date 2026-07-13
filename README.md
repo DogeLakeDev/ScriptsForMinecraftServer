@@ -12,7 +12,7 @@
 
 | 工具 | 版本 | 说明 |
 |---|---|---|
-| Node.js | 18+ (推荐 20/22) | SAPI 编译 + db-server + qq-bridge + panel |
+| Node.js | 18+；db-server 需要 22.5+ | SAPI 编译 + db-server + qq-bridge + panel |
 | Minecraft Bedrock | 1.21.60+ | 推荐开启 Beta APIs |
 | PowerShell | 5.1+ (Windows) | 部署脚本依赖 |
 | BDS | 任意版本 | 默认放 `D:\Minecraft\BEServer`，可改 |
