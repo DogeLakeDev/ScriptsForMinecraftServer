@@ -90,13 +90,13 @@ function fileContains(p, needle) {
 {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "scriptsforminecraftserver", "behavior_packs", "ScriptsForMinecraftServer", "manifest.json"), "utf-8"));
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "scriptsforminecraftserver", "package.json"), "utf-8"));
-  const manifestModules = new Set((manifest.dependencies || []).map((d) => d.module_name));
-  const pkgDeps = Object.keys(pkg.dependencies || {});
-  // 关键模块必须在 manifest 与 package.json 中都存在
-  const critical = ["@minecraft/server"];
-  const missing = critical.filter((m) => !manifestModules.has(m) || !pkgDeps.includes(m));
-  if (missing.length === 0) pass("manifest 关键依赖 @minecraft/server 一致");
-  else fail("manifest 关键依赖一致", `缺失: ${missing.join(", ")}`);
+  const manifestDeps = new Map((manifest.dependencies || []).map((d) => [d.module_name, d.version]));
+  const pkgDeps = pkg.dependencies || {};
+  const critical = ["@minecraft/server", "@minecraft/server-ui", "@minecraft/server-net"];
+  const missing = critical.filter((m) => !manifestDeps.has(m) || !pkgDeps[m]);
+  const versionDrift = critical.filter((m) => String(manifestDeps.get(m)) !== String(pkgDeps[m]).replace(/^[~^=]/, ""));
+  if (missing.length === 0 && versionDrift.length === 0) pass("manifest 与 package.json SAPI 依赖一致");
+  else fail("manifest 与 package.json SAPI 依赖一致", `缺失: ${missing.join(", ")}; 版本漂移: ${versionDrift.join(", ")}`);
 }
 
 // 6) db-server 启动 + 模块接口

@@ -40,6 +40,9 @@ export class ConfigManager {
   private static _ready = false;
   private static _configStale = false;
   private static _lastErrors = new Map<string, string>();
+  private static _pollInFlight = false;
+  private static _fastPollInFlight = false;
+  private static _reloadInFlight: Promise<void> | null = null;
 
   static async init(): Promise<void> {
     if (this._initialized) return;
@@ -126,22 +129,30 @@ export class ConfigManager {
   }
 
   static async reloadAll(): Promise<void> {
+    if (this._reloadInFlight) return this._reloadInFlight;
     const now = Date.now();
-    const promises = [
-      this._fetchModules(),
-      this._fetchSettings(),
-      this._fetchAreas(),
-      this._fetchPermissions(),
-      this._fetchBannedItems(),
-      this._fetchClean(),
-      this._fetchGrids(),
-      this._fetchPeaceFilters(),
-      this._fetchQA(),
-      this._fetchShop(),
-    ];
-    await Promise.allSettled(promises);
-    this.cache._lastFetch = now;
-    this._configStale = this._lastErrors.size > 0;
+    this._reloadInFlight = (async () => {
+      const promises = [
+        this._fetchModules(),
+        this._fetchSettings(),
+        this._fetchAreas(),
+        this._fetchPermissions(),
+        this._fetchBannedItems(),
+        this._fetchClean(),
+        this._fetchGrids(),
+        this._fetchPeaceFilters(),
+        this._fetchQA(),
+        this._fetchShop(),
+      ];
+      await Promise.allSettled(promises);
+      this.cache._lastFetch = now;
+      this._configStale = this._lastErrors.size > 0;
+    })();
+    try {
+      await this._reloadInFlight;
+    } finally {
+      this._reloadInFlight = null;
+    }
   }
 
   static async reloadModule(module: string): Promise<void> {
@@ -153,8 +164,10 @@ export class ConfigManager {
   // ── Internal fetchers ──
 
   private static async _poll(): Promise<void> {
-    if (!this.cache._lastFetch) return;
+    if (this._pollInFlight) return;
+    this._pollInFlight = true;
     try {
+      if (!this.cache._lastFetch) return;
       const body = await HttpDB.get(`/api/sfmc/configs/updated-since/${this.cache._lastFetch}`);
       if (!body) return;
       const data = JSON.parse(body);
@@ -173,10 +186,14 @@ export class ConfigManager {
       if (upd.shop_categories || upd.shop_items) await this._fetchShop();
     } catch (e) {
       this._recordError("poll", e);
+    } finally {
+      this._pollInFlight = false;
     }
   }
 
   private static async _fastPoll(): Promise<void> {
+    if (this._fastPollInFlight) return;
+    this._fastPollInFlight = true;
     try {
       // 数据库断线时尝试重连
       if (!HttpDB.isAvailable()) {
@@ -215,6 +232,8 @@ export class ConfigManager {
       }
     } catch (e) {
       console.warn(`[ConfigManager] 热重载信号检查失败: ${(e as Error).message || e}`);
+    } finally {
+      this._fastPollInFlight = false;
     }
   }
 

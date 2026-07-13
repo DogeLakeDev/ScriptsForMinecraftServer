@@ -28,11 +28,13 @@ export class QAManager {
   rightAmount = 0;
   wrongAmount = 0;
   timeoutId: number | undefined = undefined;
+  private finishTimeoutId: number | undefined = undefined;
 
   /**
    * 开始答题循环
    */
   start() {
+    if (this.chatSub) return;
     this.chatSub = (world.beforeEvents as any).chatSend.subscribe((event: any) => {
       if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "！") {
         let answer = event.message.substring(1);
@@ -58,16 +60,27 @@ export class QAManager {
       try { system.clearRun(this.timeoutId); } catch {}
       this.timeoutId = undefined;
     }
+    if (this.finishTimeoutId !== undefined) {
+      try { system.clearRun(this.finishTimeoutId); } catch {}
+      this.finishTimeoutId = undefined;
+    }
     this.nowQuestion = undefined;
   }
 
   // 下一个问题
   nextQuestion() {
+    const questions = ConfigManager.getQuestions();
+    this.recordLimit = Math.max(0, questions.length - 2);
+    if (questions.length === 0) {
+      console.warn("[QA] 没有可用题目，稍后重试");
+      this.timeoutId = system.runTimeout(() => this.nextQuestion(), 20 * 60);
+      return;
+    }
     //// 计算权重 准备列表 ////
     let questionList: number[] = []; // 记录题目编号
     let totalWeight = 0;
     let startPoints: number[] = [];
-    for (let i = 0; i < ConfigManager.getQuestions().length; i++) {
+    for (let i = 0; i < questions.length; i++) {
       if (!this.record.includes(i)) {
         questionList.push(i);
         totalWeight += ConfigManager.getQuestions()[i].weight;
@@ -76,12 +89,18 @@ export class QAManager {
     }
 
     //// 取出题目 ////
+    if (questionList.length === 0 || totalWeight <= 0) {
+      this.record = [];
+      this.recordPtr = 0;
+      this.timeoutId = system.runTimeout(() => this.nextQuestion(), 20 * 60);
+      return;
+    }
     let randomNum = getRandomInteger(0, totalWeight - 1);
     for (let i = 0; i < startPoints.length; i++) {
       if (randomNum < startPoints[i]) {
         this.nowQuestion = questionList[i];
         // 记录
-        this.pushRecord(i);
+        this.pushRecord(this.nowQuestion);
         break;
       }
     }
@@ -91,8 +110,9 @@ export class QAManager {
     );
 
     //// 结束答题 ////
-    system.runTimeout(
+    this.finishTimeoutId = system.runTimeout(
       () => {
+        this.finishTimeoutId = undefined;
         this.finish();
       },
       ConfigManager.getSetting("qa_timeout", 60) * 20
@@ -100,6 +120,7 @@ export class QAManager {
   }
   // 结束答题，揭晓答案
   finish() {
+    if (this.nowQuestion === undefined) return;
     // 宣布答案
     let question = ConfigManager.getQuestions()[this.nowQuestion!];
     world.sendMessage(
@@ -114,6 +135,7 @@ export class QAManager {
 
     // 下一题
     this.timeoutId = system.runTimeout(() => {
+      this.timeoutId = undefined;
       this.nextQuestion();
     }, QAManager.getNextTimeout());
   }
@@ -162,7 +184,7 @@ export class QAManager {
   // 出题记录，避免短时间重复出题
   record: number[] = []; // 最近出的几个题
   recordPtr = 0; // 下一个记录写入的位置
-  recordLimit = Math.floor(ConfigManager.getQuestions().length - 2); // 最大记录数量
+  recordLimit = Math.max(0, Math.floor(ConfigManager.getQuestions().length - 2)); // 最大记录数量
   pushRecord(index: number) {
     this.record[this.recordPtr] = index;
     this.recordPtr = this.recordPtr < this.recordLimit ? this.recordPtr + 1 : 0;
@@ -172,7 +194,8 @@ export class QAManager {
   static getNextTimeout() {
     let min = ConfigManager.getSetting("qa_interval_min", 600) * 20;
     let max = ConfigManager.getSetting("qa_interval_max", 720) * 20;
-    return min + Math.floor(Math.random() * max);
+    if (max <= min) return min;
+    return min + Math.floor(Math.random() * (max - min));
   }
 
   /**

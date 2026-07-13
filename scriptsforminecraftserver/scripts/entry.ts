@@ -193,6 +193,7 @@ ModuleRegistry.register({
   id: "scoreboardSync",
   afterWorldLoad: true,
   lifecycle: {
+    registerCommands: () => ScoreboardSync.registerCommands(),
     init: () => ScoreboardSync.init(),
     cleanup: () => ScoreboardsBackup(),
   },

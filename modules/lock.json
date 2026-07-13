@@ -1,17 +1,17 @@
 {
   "version": 1,
-  "generatedAt": 1783939616863,
+  "generatedAt": 1783947162151,
   "modules": {
     "core-config": {
       "version": "1.0.0",
-      "hash": "a54806623f0264cb",
+      "hash": "bb754297efee8987",
       "files": [
         {
           "path": "scriptsforminecraftserver/scripts/libs/ConfigManager.ts",
-          "hash": "e835becaddba6c15"
+          "hash": "b9d99e48b5930598"
         }
       ],
-      "updatedAt": 1783939616864
+      "updatedAt": 1783947162152
     },
     "core-command": {
       "version": "1.0.0",
@@ -22,18 +22,18 @@
           "hash": "4ec22ad9873e3fb8"
         }
       ],
-      "updatedAt": 1783939616865
+      "updatedAt": 1783947162152
     },
     "core-permission": {
       "version": "1.0.0",
-      "hash": "ab843086e809ab1f",
+      "hash": "5ff729a2db9b17d3",
       "files": [
         {
           "path": "scriptsforminecraftserver/scripts/libs/Permission.ts",
-          "hash": "91a4d00b668b4f22"
+          "hash": "90b37bc296171af8"
         }
       ],
-      "updatedAt": 1783939616865
+      "updatedAt": 1783947162153
     },
     "core-httpdb": {
       "version": "1.0.0",
@@ -44,7 +44,7 @@
           "hash": "b473f42d76313b1e"
         }
       ],
-      "updatedAt": 1783939616865
+      "updatedAt": 1783947162153
     },
     "feature-money": {
       "version": "1.0.0",
@@ -55,7 +55,7 @@
           "hash": "e301cc0e633e29a0"
         }
       ],
-      "updatedAt": 1783939616865
+      "updatedAt": 1783947162153
     },
     "feature-chat": {
       "version": "1.0.0",
@@ -66,7 +66,7 @@
           "hash": "b75f9815c90b1f6a"
         }
       ],
-      "updatedAt": 1783939616866
+      "updatedAt": 1783947162153
     },
     "feature-coop": {
       "version": "1.0.0",
@@ -77,7 +77,7 @@
           "hash": "9b0ac526567e6f51"
         }
       ],
-      "updatedAt": 1783939616866
+      "updatedAt": 1783947162153
     },
     "feature-shop": {
       "version": "1.0.0",
@@ -88,7 +88,7 @@
           "hash": "c849e3328110bdca"
         }
       ],
-      "updatedAt": 1783939616866
+      "updatedAt": 1783947162153
     },
     "feature-land": {
       "version": "1.0.0",
@@ -99,7 +99,7 @@
           "hash": "8ddcc5e6176c1012"
         }
       ],
-      "updatedAt": 1783939616866
+      "updatedAt": 1783947162153
     },
     "feature-holoprint": {
       "version": "1.0.0",
@@ -110,7 +110,7 @@
           "hash": "ef52aee2d81f14e2"
         }
       ],
-      "updatedAt": 1783939616866
+      "updatedAt": 1783947162154
     },
     "feature-afk": {
       "version": "1.0.0",
@@ -121,7 +121,7 @@
           "hash": "9b83647cca3cb171"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162154
     },
     "feature-clean": {
       "version": "1.0.0",
@@ -132,7 +132,7 @@
           "hash": "2698e3ea5572314a"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162154
     },
     "feature-tps": {
       "version": "1.0.0",
@@ -143,40 +143,40 @@
           "hash": "d965c3977997049f"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162154
     },
     "feature-online-time": {
       "version": "1.0.0",
-      "hash": "11a8bc24dd3e2325",
+      "hash": "afad421f4abc0e91",
       "files": [
         {
           "path": "scriptsforminecraftserver/scripts/doge/OnlineTime.ts",
-          "hash": "25360ec9aad31d3d"
+          "hash": "55bd25ff2ea6656b"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162154
     },
     "feature-activity-log": {
       "version": "1.0.0",
-      "hash": "d41978bcb51ec527",
+      "hash": "d61eacf4dbcaf00e",
       "files": [
         {
           "path": "scriptsforminecraftserver/scripts/data/ActivityLog.ts",
-          "hash": "70745498c023cc4d"
+          "hash": "4ab9f7e0ea4351a5"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162154
     },
     "feature-scoreboard-sync": {
       "version": "1.0.0",
-      "hash": "85cf03d522a0a71b",
+      "hash": "cc33abd66b1195d3",
       "files": [
         {
           "path": "scriptsforminecraftserver/scripts/data/Scoreboards.ts",
-          "hash": "cf18984ef31c6859"
+          "hash": "e86555f79fa06d67"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162154
     },
     "feature-spawn-protect": {
       "version": "1.0.0",
@@ -187,7 +187,7 @@
           "hash": "cdce3bcf88ec8874"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162155
     },
     "feature-chat-sounds": {
       "version": "1.0.0",
@@ -198,7 +198,7 @@
           "hash": "81e0d7bc9afceaec"
         }
       ],
-      "updatedAt": 1783939616867
+      "updatedAt": 1783947162155
     },
     "feature-inventory-switcher": {
       "version": "1.0.0",
@@ -209,7 +209,7 @@
           "hash": "0d83c1359ee2e923"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162155
     },
     "feature-area-fly": {
       "version": "1.0.0",
@@ -220,7 +220,7 @@
           "hash": "92187553130fc229"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162155
     },
     "feature-area-creative": {
       "version": "1.0.0",
@@ -231,7 +231,7 @@
           "hash": "e8e45f221ceedffc"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162155
     },
     "feature-area-survival": {
       "version": "1.0.0",
@@ -242,7 +242,7 @@
           "hash": "dcc44c57d9c067ab"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162155
     },
     "feature-area-peace": {
       "version": "1.0.0",
@@ -253,29 +253,29 @@
           "hash": "9d343d6e0a8c3a65"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162155
     },
     "feature-qa": {
       "version": "1.0.0",
-      "hash": "d376a7dd6e1bed58",
+      "hash": "cf5af505aa895c0a",
       "files": [
         {
           "path": "scriptsforminecraftserver/scripts/doge/QA.ts",
-          "hash": "debc258f6ab61178"
+          "hash": "e6c4d0a23c5feb2b"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162156
     },
     "service-db": {
       "version": "1.0.0",
-      "hash": "45895540a590fe4e",
+      "hash": "8fd1bab84d78c441",
       "files": [
         {
           "path": "db-server/index.js",
-          "hash": "d7af7cbb64d7cfb8"
+          "hash": "4331aae9f74b6d01"
         }
       ],
-      "updatedAt": 1783939616868
+      "updatedAt": 1783947162156
     },
     "service-qq-bridge": {
       "version": "1.0.0",
@@ -286,7 +286,7 @@
           "hash": "2939644bdc2ea43b"
         }
       ],
-      "updatedAt": 1783939616869
+      "updatedAt": 1783947162157
     },
     "service-panel": {
       "version": "1.0.0",
@@ -297,15 +297,15 @@
           "hash": "796e56d45a424d74"
         }
       ],
-      "updatedAt": 1783939616869
+      "updatedAt": 1783947162157
     },
     "tool-bds-updater": {
       "version": "1.0.0",
-      "hash": "6e368ddb0b701c1c",
+      "hash": "cb26d5f4cf772947",
       "files": [
         {
           "path": "BDSTools/check-update.js",
-          "hash": "e4e531d13314df20"
+          "hash": "7e24b6f1c68433d7"
         },
         {
           "path": "BDSTools/package.json",
@@ -316,7 +316,7 @@
           "hash": "f449a9a36b765942"
         }
       ],
-      "updatedAt": 1783939616870
+      "updatedAt": 1783947162157
     },
     "asset-holoprint-rp": {
       "version": "1.0.0",
@@ -327,7 +327,7 @@
           "hash": "62efa1ed52184fd6"
         }
       ],
-      "updatedAt": 1783939616870
+      "updatedAt": 1783947162158
     }
   }
 }

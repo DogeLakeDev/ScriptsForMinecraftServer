@@ -37,7 +37,10 @@ export class Permission {
    */
   static check(player: Player | string, permissionName: string): boolean {
     const required = this.registry.get(permissionName);
-    if (required === undefined) return true; // 未注册的权限默认放行
+    if (required === undefined) {
+      console.warn(`[Permission] 未注册的权限被拒绝: ${permissionName}`);
+      return false;
+    }
     const perms = ConfigManager.getPermissions();
     const playerLevel = typeof player === "string" ? (perms[player] ?? this.Member) : this.getPermission(player);
     return playerLevel >= required;

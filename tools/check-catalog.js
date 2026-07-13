@@ -16,6 +16,8 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
 const CATALOG = path.join(ROOT, "modules", "catalog.json");
+const SAPI_ENTRY = path.join(ROOT, "scriptsforminecraftserver", "scripts", "entry.ts");
+const MODULE_KEYS = path.join(ROOT, "scriptsforminecraftserver", "scripts", "libs", "ModuleKeys.ts");
 
 function fail(msg) {
   console.error(`[check-catalog] ${msg}`);
@@ -46,6 +48,19 @@ function main() {
     if (byKey.has(m.configKey)) fail(`重复 configKey: ${m.configKey}`);
     byId.set(m.id, m);
     byKey.set(m.configKey, m);
+  }
+
+  const sapiCatalog = modules.filter((m) => m.type === "feature" && m.entry?.kind === "sapi");
+  const source = fs.readFileSync(SAPI_ENTRY, "utf-8");
+  const keysSource = fs.readFileSync(MODULE_KEYS, "utf-8");
+  const configKeys = new Set([...keysSource.matchAll(/\n\s*\w+:\s*["']([^"']+)["']/g)].map((match) => match[1]));
+  const registeredIds = new Set([...source.matchAll(/ModuleRegistry\.register\(\{\s*\n\s*id:\s*["']([^"']+)["']/g)].map((match) => match[1]));
+  for (const m of sapiCatalog) {
+    if (!configKeys.has(m.configKey)) fail(`${m.id} 的 configKey 未在 ModuleKeys.ts 注册: ${m.configKey}`);
+    const moduleId = [...configKeys].find((key) => key === m.configKey);
+    if (moduleId && !registeredIds.has(moduleId === "online_time" ? "onlineTime" : moduleId === "scoreboard_sync" ? "scoreboardSync" : moduleId === "activity_log" ? "activityLog" : moduleId === "spawn_protect" ? "spawnProtect" : moduleId === "chat_sounds" ? "chatSounds" : moduleId === "inventory_switcher" ? "inventorySwitcher" : moduleId === "holoprint" ? "holoprint" : moduleId)) {
+      fail(`${m.id} 未在 entry.ts 注册 ModuleRegistry 生命周期: ${m.configKey}`);
+    }
   }
 
   for (const m of modules) {

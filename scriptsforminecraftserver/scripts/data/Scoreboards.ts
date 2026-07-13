@@ -2,8 +2,11 @@
  * ScoreboardSync — 计分板备份与快速恢复
  */
 
-import { world } from "@minecraft/server";
+import { world, Player } from "@minecraft/server";
 import { ScoreboardEntry, loadScoreboards, backupScoreboards } from "../api";
+import { Command } from "../libs/Command";
+import { Permission } from "../libs/Permission";
+import { Msg } from "../libs/Tools";
 
 export function ScoreboardsBackup(): void {
   let entries: ScoreboardEntry[] = [];
@@ -28,8 +31,24 @@ export function ScoreboardsBackup(): void {
 }
 
 export class ScoreboardSync {
+  static registerCommands(): void {
+    Permission.register("scoreboard.restore", Permission.Admin);
+    Command.register(
+      "scoreboard restore",
+      "scoreboard.restore",
+      async (player: Player | undefined) => {
+        const result = await this.load();
+        const message = `计分板恢复完成：成功 ${result.success}，失败 ${result.fail}`;
+        if (player) Msg.info(message, player);
+        else world.sendMessage(message);
+      },
+      "从数据库恢复计分板",
+      "scoreboardSync"
+    );
+  }
+
   static init(): void {
-    // Auto-backup on server start
+    // 启动时只备份当前世界；恢复必须由管理员显式触发。
     ScoreboardsBackup();
     console.info("[ScoreboardSync] 计分板同步已初始化");
   }
