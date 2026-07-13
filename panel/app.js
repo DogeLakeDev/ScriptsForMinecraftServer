@@ -23,6 +23,7 @@ import { getJson, putJson } from './api/client.js';
 import { Header, Sidebar, Footer } from './ui/Shell.js';
 import { canSwitchTab, canUseTabShortcut, getLayout, requiresConfirmation } from './navigation/rules.js';
 import { updateProperties } from './config/properties.js';
+import { createGlobalInputHandler } from './navigation/global-handler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -554,89 +555,31 @@ function App() {
     const isEnter = key.return || key.name === 'return' || key.name === 'enter';
     const isBksp = key.backspace || key.name === 'backspace';
 
-    // Confirm overlays always have priority, including while Setup is visible.
-    if (confirm) {
-      if (input === 'y') { const c = confirm; setConfirm(null); c.onConfirm(); }
-      else if (input === 'n' || key.escape) { const c = confirm; setConfirm(null); c.onCancel(); }
-      return;
-    }
-
-    // 当 SetupView 激活时，App 不拦截任何键（让 SetupView 完全独占）
     const isSetupActive = activeTab === 'setup' && view === 'setup';
-    if (isSetupActive) {
-      // 但全局快捷键仍生效
-      if (input === 'q' && !inputVal) {
-        if (quitPending) {
+    const handled = createGlobalInputHandler({ input, key, confirm, helpOpen, editing, inputVal, isSetupActive, setupRequired, activeTab, tabs: TABS, quitPending, callbacks: {
+      confirm: (current, accepted) => { setConfirm(null); (accepted ? current.onConfirm : current.onCancel)(); },
+      quit: (pending) => {
+        if (pending) {
           clearTimeout(quitTimerRef.current);
           pushLog('正在停止所有服务...', 'info');
-          stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)～'); });
+          stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣～)'); });
         } else {
           setQuitPending(true);
           pushLog('再按一次 q 确认退出', 'warning');
           clearTimeout(quitTimerRef.current);
           quitTimerRef.current = setTimeout(() => setQuitPending(false), 3000);
         }
-        return;
-      }
-      if (quitPending) { setQuitPending(false); clearTimeout(quitTimerRef.current); }
-      if (key.ctrl && input === 'c') {
-        pushLog('正在停止所有服务...', 'info');
-        stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)～'); });
-        return;
-      }
-      // Tab 切换：数字键
-      if (setupRequired !== true && !inputVal && input && '123456789'.includes(input)) {
-        const idx = parseInt(input, 10) - 1;
-        if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
-      }
-      // Tab 循环：Tab 键
-      if (setupRequired !== true && key.tab) {
-        const idx = TABS.findIndex((t) => t.k === activeTab);
-        const next = (idx + 1) % TABS.length;
-        switchTab(TABS[next].k);
-        setMenuFocus(-1);
-        return;
-      }
-      return; // 其余键全部交给 SetupView
-    }
-
-    // Mouse activity guard: SGR sequences leak individual chars into useInput
-    if (isMouseActive()) { return; }
-
-    // Help overlay (works in any zone except confirm/editing)
-    if ((input === '?' || input === 'h' || input === 'F1') && !confirm && editing === null && !inputVal) {
-      if (!helpOpen) { setHelpOpen(true); return; }
-    }
-    if (helpOpen && (key.escape || input === '?' || input === 'h')) {
-      setHelpOpen(false);
-      return;
-    }
-    if (helpOpen) return;
+      },
+      clearQuitPending: () => { setQuitPending(false); clearTimeout(quitTimerRef.current); },
+      forceQuit: () => { pushLog('正在停止所有服务...', 'info'); stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)'); }); },
+      switchTab: (tab) => { switchTab(tab); setMenuFocus(-1); },
+      setHelpOpen,
+      mouseActive: isMouseActive,
+    } });
+    if (handled) return;
 
     if (isEnter && !inputVal.trim() && editing === null && menuFocus >= 0) {
       doAct(menuItems[menuFocus]?.k); setMenuFocus(-1); return;
-    }
-
-    // Quit double-press guard
-    if (input === 'q' && !inputVal) {
-      if (quitPending) {
-        clearTimeout(quitTimerRef.current);
-        pushLog('正在停止所有服务...', 'info');
-        stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)～'); });
-      } else {
-        setQuitPending(true);
-        pushLog('再按一次 q 确认退出', 'warning');
-        clearTimeout(quitTimerRef.current);
-        quitTimerRef.current = setTimeout(() => setQuitPending(false), 3000);
-      }
-      return;
-    }
-    if (quitPending) { setQuitPending(false); clearTimeout(quitTimerRef.current); }
-
-    if (key.ctrl && input === 'c') {
-      pushLog('正在停止所有服务...', 'info');
-      stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)～'); });
-      return;
     }
 
     // Tab key cycles tabs (disabled in cfg_edit to avoid accidental switch)
