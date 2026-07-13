@@ -11,6 +11,7 @@ db-server/package-lock.json
 db-server/sfmc_data.db
 db-server/sfmc_data.db-shm
 db-server/sfmc_data.db-wal
+db-server/*.log
 
 qq-bridge/node_modules
 qq-bridge/package-lock.json
@@ -22,6 +23,16 @@ BDSTools/.version_cache.json
 
 panel/node_modules
 panel/package-lock.json
+panel/*.log
+
+# Local setup, test and runtime artifacts
+configs/.backup/
+configs/.trash/
+tools/.sim-workspace/
+tools/.sim-workspace.bak/
+*.tmp
+*.tmp.*
+*.log
 
 AGENTS.md
 .AddCompLib/*
