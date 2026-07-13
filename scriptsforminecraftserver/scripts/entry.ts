@@ -308,14 +308,14 @@ export class AddOnInit {
 
     world.afterEvents.playerLeave.subscribe((event) => {
       if (!guardEvent()) return;
+      if (ModuleRegistry.isActive("onlineTime")) {
+        OnlineTime.getInstance().onPlayerLeave({ id: event.playerId });
+      }
       const player = world.getEntity(event.playerId) as Player;
       if (player) {
         getPlayerData(player).then((data) => {
           savePlayers([data]).catch(() => {});
         });
-        if (ModuleRegistry.isActive("onlineTime")) {
-          OnlineTime.getInstance().onPlayerLeave(player);
-        }
       }
     });
 

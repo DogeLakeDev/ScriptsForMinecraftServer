@@ -20,6 +20,8 @@ interface OnlineTimeData {
   lastMonth: number;
 }
 
+const FLUSH_INTERVAL_TICKS = 1200;
+
 export class OnlineTime {
   static _instance: OnlineTime;
   static getInstance(): OnlineTime {
@@ -30,6 +32,11 @@ export class OnlineTime {
   }
 
   private dataMap = new Map<string, OnlineTimeData>();
+  private loading = new Map<string, Promise<OnlineTimeData>>();
+  private playerNames = new Map<string, string>();
+  private playerLeaveSub: any = undefined;
+  private flushRunId: number | undefined;
+  private flushInFlight = false;
 
   registerCommandsAndPermissions() {
     Permission.register("onlinetime.see", Permission.Any);
@@ -57,7 +64,8 @@ export class OnlineTime {
   }
 
   registerEvents() {
-    world.afterEvents.playerSpawn.subscribe((event) => {
+    if (this.playerLeaveSub) return;
+    this.playerLeaveSub = world.afterEvents.playerSpawn.subscribe((event) => {
       if (event.initialSpawn) {
         this.onPlayerJoin(event.player);
       }
@@ -66,6 +74,7 @@ export class OnlineTime {
 
   init() {
     this.startTick();
+    this.flushRunId = system.runInterval(() => this.flushAll(), FLUSH_INTERVAL_TICKS);
   }
 
   formatTime(seconds: number): string {
@@ -83,26 +92,34 @@ export class OnlineTime {
 
   /** 从 DB 加载玩家在线时间数据 */
   private async load(player: Player): Promise<OnlineTimeData> {
+    this.playerNames.set(player.id, player.name);
     const existing = this.dataMap.get(player.id);
     if (existing) return existing;
 
-    const raw = await HttpDB.fetchJSON<Record<string, unknown>>("/api/sfmc/players", player.id, "player");
-    const def = (val: unknown, fallback: number) => (typeof val === "number" ? val : fallback);
-    const data: OnlineTimeData = {
-      session: 0,
-      today: def(raw?.onlinetime_today, 0),
-      month: def(raw?.onlinetime_month, 0),
-      total: def(raw?.onlinetime_total, 0),
-      lastDate: def(raw?.onlinetime_last_date, new Date().getDate()),
-      lastMonth: def(raw?.onlinetime_last_month, new Date().getMonth()),
-    };
-    this.dataMap.set(player.id, data);
-    return data;
+    const pending = this.loading.get(player.id);
+    if (pending) return pending;
+
+    const promise = (async () => {
+      const raw = await HttpDB.fetchJSON<Record<string, unknown>>("/api/sfmc/players", player.id, "player");
+      const def = (val: unknown, fallback: number) => (typeof val === "number" ? val : fallback);
+      const data: OnlineTimeData = {
+        session: 0,
+        today: def(raw?.onlinetime_today, 0),
+        month: def(raw?.onlinetime_month, 0),
+        total: def(raw?.onlinetime_total, 0),
+        lastDate: def(raw?.onlinetime_last_date, new Date().getDate()),
+        lastMonth: def(raw?.onlinetime_last_month, new Date().getMonth()),
+      };
+      this.dataMap.set(player.id, data);
+      return data;
+    })();
+    this.loading.set(player.id, promise);
+    try { return await promise; } finally { this.loading.delete(player.id); }
   }
 
   /** 持久化在线时间到 DB（排除 session，仅持久化跨重启字段） */
-  private async persist(player: Player, data: OnlineTimeData): Promise<void> {
-    await HttpDB.patch(`/api/sfmc/players/${player.id}`, {
+  private async persist(playerId: string, data: OnlineTimeData): Promise<void> {
+    await HttpDB.patch(`/api/sfmc/players/${playerId}`, {
       player: {
         onlinetimeToday: data.today,
         onlinetimeMonth: data.month,
@@ -119,12 +136,15 @@ export class OnlineTime {
     });
   }
 
-  onPlayerLeave(player: Player) {
-    const data = this.dataMap.get(player.id);
+  onPlayerLeave(player: Player | { id: string; name?: string }) {
+    const playerId = player.id;
+    if (player.name) this.playerNames.set(playerId, player.name);
+    const data = this.dataMap.get(playerId);
     if (data) {
-      this.persist(player, data).catch(() => {});
-      this.dataMap.delete(player.id);
+      this.persist(playerId, data).catch(() => {});
+      this.dataMap.delete(playerId);
     }
+    this.playerNames.delete(playerId);
   }
 
   private tickSecond() {
@@ -135,12 +155,7 @@ export class OnlineTime {
     for (const player of world.getAllPlayers()) {
       const data = this.dataMap.get(player.id);
       if (!data) {
-        this.load(player).then((d) => {
-          d.session++;
-          d.today++;
-          d.month++;
-          d.total++;
-        });
+        this.load(player).then((d) => this.increment(d));
         continue;
       }
 
@@ -157,9 +172,23 @@ export class OnlineTime {
       data.today++;
       data.month++;
       data.total++;
+    }
+  }
 
-      // 每秒持久化到 DB
-      this.persist(player, data).catch(() => {});
+  private increment(data: OnlineTimeData): void {
+    data.session++;
+    data.today++;
+    data.month++;
+    data.total++;
+  }
+
+  private async flushAll(): Promise<void> {
+    if (this.flushInFlight) return;
+    this.flushInFlight = true;
+    try {
+      await Promise.all([...this.dataMap.entries()].map(([id, data]) => this.persist(id, data)));
+    } finally {
+      this.flushInFlight = false;
     }
   }
 
@@ -176,5 +205,14 @@ export class OnlineTime {
       try { system.clearRun(this.tickRunId); } catch {}
       this.tickRunId = undefined;
     }
+    if (this.flushRunId !== undefined) {
+      try { system.clearRun(this.flushRunId); } catch {}
+      this.flushRunId = undefined;
+    }
+    if (this.playerLeaveSub?.unsubscribe) {
+      try { this.playerLeaveSub.unsubscribe(); } catch {}
+      this.playerLeaveSub = undefined;
+    }
+    void this.flushAll();
   }
 }

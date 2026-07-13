@@ -23,6 +23,7 @@ const descriptors: ModuleDescriptor[] = [];
 const cleanups = new Map<ModuleId, CleanUpFn[]>();
 const booted = new Set<ModuleId>();
 const lastEnabled = new Map<string, boolean>();
+let worldLoaded = false;
 
 export class ModuleRegistry {
   static register(descriptor: ModuleDescriptor): void {
@@ -104,6 +105,7 @@ export class ModuleRegistry {
 
   static bootAfterWorldLoad(): void {
     if (!ConfigManager.isReady()) return;
+    worldLoaded = true;
     for (const d of descriptors) {
       if (!d.afterWorldLoad) continue;
       if (!ModuleRegistry.isActive(d.id)) continue;
@@ -133,7 +135,7 @@ export class ModuleRegistry {
       d.lifecycle.registerPermissions?.();
       d.lifecycle.registerCommands?.();
       d.lifecycle.registerEvents?.();
-      if (!d.afterWorldLoad) {
+      if (!d.afterWorldLoad || worldLoaded) {
         d.lifecycle.init?.();
       }
       booted.add(id);

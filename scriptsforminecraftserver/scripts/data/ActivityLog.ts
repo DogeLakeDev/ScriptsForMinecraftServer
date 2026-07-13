@@ -51,6 +51,9 @@ const KEEP_DAYS = 30;
 let queue: any[] = [];
 let flushTimer: number | null = null;
 let initialized = false;
+let flushIntervalId: number | undefined;
+let cleanupIntervalId: number | undefined;
+let cleanupStartTimeoutId: number | undefined;
 
 function enqueue(entry: any) {
   queue.push(entry);
@@ -65,9 +68,10 @@ async function flush() {
   const batch = queue;
   queue = [];
   try {
-    await HttpDB.post("/api/sfmc/activities/batch", { entries: batch });
+    const sent = await HttpDB.post("/api/sfmc/activities/batch", { entries: batch });
+    if (!sent) queue = batch.concat(queue);
   } catch {
-    // flush 失败不重试，避免堆积
+    queue = batch.concat(queue);
   }
 }
 
@@ -597,6 +601,7 @@ async function doCleanup() {
 export class ActivityLog {
   /** 注册事件（由 entry.ts 统一调用） */
   static registerEvents(): void {
+    if (subscriptions.length > 0) return;
     subscribe();
   }
 
@@ -605,6 +610,23 @@ export class ActivityLog {
       try { s.unsubscribe(); } catch {}
     }
     subscriptions.length = 0;
+    if (flushTimer !== null) {
+      try { system.clearRun(flushTimer); } catch {}
+      flushTimer = null;
+    }
+    if (flushIntervalId !== undefined) {
+      try { system.clearRun(flushIntervalId); } catch {}
+      flushIntervalId = undefined;
+    }
+    if (cleanupStartTimeoutId !== undefined) {
+      try { system.clearRun(cleanupStartTimeoutId); } catch {}
+      cleanupStartTimeoutId = undefined;
+    }
+    if (cleanupIntervalId !== undefined) {
+      try { system.clearRun(cleanupIntervalId); } catch {}
+      cleanupIntervalId = undefined;
+    }
+    initialized = false;
   }
 
   static init(): void {
@@ -614,12 +636,13 @@ export class ActivityLog {
     console.info("[ActivityLog] 事件订阅完成");
 
     // 定时 flush 队列
-    system.runInterval(flush, FLUSH_INTERVAL / 50);
+    flushIntervalId = system.runInterval(flush, FLUSH_INTERVAL / 50);
 
     // 定时清理（首次 1 小时后，之后每 6 小时）
-    system.runTimeout(() => {
+    cleanupStartTimeoutId = system.runTimeout(() => {
+      cleanupStartTimeoutId = undefined;
       doCleanup();
-      system.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
+      cleanupIntervalId = system.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
     }, 72000 / 50); // 1 小时后
   }
 }
