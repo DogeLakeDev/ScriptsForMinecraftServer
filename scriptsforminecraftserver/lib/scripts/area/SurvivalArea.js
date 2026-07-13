@@ -13,6 +13,7 @@ import { Msg } from "../libs/Tools";
 export class SurvivalArea {
     constructor() {
         this.enable = true;
+        this.subscriptions = [];
     }
     /**
      * @returns {SurvivalArea}
@@ -29,8 +30,10 @@ export class SurvivalArea {
     }
     /** 注册事件（由 entry.ts 统一调用） */
     registerEvents() {
+        if (this.subscriptions.length > 0)
+            return;
         // 进服时检测
-        world.afterEvents.playerSpawn.subscribe((event) => {
+        this.subscriptions.push(world.afterEvents.playerSpawn.subscribe((event) => {
             if (!event.initialSpawn)
                 return;
             if (!CreativeArea.enable)
@@ -46,9 +49,9 @@ export class SurvivalArea {
                     this.forceSurvival(player);
                 }
             }, 60);
-        });
+        }));
         // 阻止手动切换到创造/旁观（区外）
-        world.beforeEvents.playerGameModeChange.subscribe((event) => {
+        this.subscriptions.push(world.beforeEvents.playerGameModeChange.subscribe((event) => {
             if (!CreativeArea.enable)
                 return;
             if (!this.enable)
@@ -61,9 +64,9 @@ export class SurvivalArea {
                     Msg.error(`你当前不在创造区域内，无法切换到该模式。`, event.player);
                 }
             }
-        });
+        }));
         // 跨维度传送后检测
-        world.afterEvents.playerDimensionChange.subscribe((event) => {
+        this.subscriptions.push(world.afterEvents.playerDimensionChange.subscribe((event) => {
             if (!CreativeArea.enable)
                 return;
             if (!this.enable)
@@ -77,10 +80,19 @@ export class SurvivalArea {
                     this.forceSurvival(player);
                 }
             }, 10);
-        });
+        }));
     }
     init() {
         // 核心逻辑已在 registerEvents 中订阅事件
+    }
+    cleanup() {
+        for (const s of this.subscriptions) {
+            try {
+                s.unsubscribe();
+            }
+            catch { }
+        }
+        this.subscriptions = [];
     }
     inCreativeArea(entity) {
         for (const area of ConfigManager.getAreas("creative")) {

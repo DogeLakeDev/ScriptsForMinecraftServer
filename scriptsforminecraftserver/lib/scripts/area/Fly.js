@@ -23,37 +23,49 @@ export function playerJoinEvent(player) {
             Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
             player.setDynamicProperty("hpbe:dogefly", areaName);
         }
-        // 不在飞行区则什么都不做，不强制改模式不发多余消息
     }, 60);
 }
-system.runInterval(() => {
-    for (let player of world.getPlayers({ gameMode: GameMode.Survival })) {
-        let nowArea = player.getDynamicProperty("hpbe:dogefly");
-        let areaName = inFlyArea(player);
-        if (areaName !== undefined) {
-            // 玩家当前在飞行区内
-            if (nowArea === undefined) {
-                // 从非飞行区进入
-                enableFly(player);
-                Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
-                player.setDynamicProperty("hpbe:dogefly", areaName);
+let scanRunId;
+function startScan() {
+    if (scanRunId !== undefined)
+        return;
+    scanRunId = system.runInterval(() => {
+        for (let player of world.getPlayers({ gameMode: GameMode.Survival })) {
+            let nowArea = player.getDynamicProperty("hpbe:dogefly");
+            let areaName = inFlyArea(player);
+            if (areaName !== undefined) {
+                if (nowArea === undefined) {
+                    enableFly(player);
+                    Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
+                    player.setDynamicProperty("hpbe:dogefly", areaName);
+                }
+                else if (nowArea !== areaName) {
+                    player.setDynamicProperty("hpbe:dogefly", areaName);
+                }
             }
-            else if (nowArea !== areaName) {
-                // 从一个飞行区进入另一个飞行区，更新区域名
-                player.setDynamicProperty("hpbe:dogefly", areaName);
+            else {
+                if (nowArea !== undefined) {
+                    disableFly(player);
+                    Msg.info(`离开飞行区 ${nowArea}, 已关闭飞行模式。`, player);
+                    player.setDynamicProperty("hpbe:dogefly", undefined);
+                }
             }
         }
-        else {
-            // 玩家当前不在任何飞行区
-            if (nowArea !== undefined) {
-                // 离开飞行区
-                disableFly(player);
-                Msg.info(`离开飞行区 ${nowArea}, 已关闭飞行模式。`, player);
-                player.setDynamicProperty("hpbe:dogefly", undefined);
-            }
+    }, 40);
+}
+export function stop() {
+    if (scanRunId !== undefined) {
+        try {
+            system.clearRun(scanRunId);
         }
+        catch { }
+        scanRunId = undefined;
     }
-}, 40); // 2 秒扫一次
+}
+export function boot() {
+    if (scanRunId === undefined)
+        startScan();
+}
 /**
  * 实体是否在飞行区域内
  */

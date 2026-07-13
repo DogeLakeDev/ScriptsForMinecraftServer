@@ -192,6 +192,10 @@ export class Clean {
     }
   }
 
+  stop() {
+    this.stopCleanInterval();
+  }
+
   /**
    * 获取世界的所有物品
    */
@@ -216,6 +220,7 @@ export function registerCommand(): void {
     () => {
       Clean.getInstance()!.startClean(undefined);
     },
-    "开始扫地"
+    "开始扫地",
+    "clean"
   );
 }

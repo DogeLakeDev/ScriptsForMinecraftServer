@@ -33,7 +33,7 @@ export class QAManager {
    * 开始答题循环
    */
   start() {
-    (world.beforeEvents as any).chatSend.subscribe((event: any) => {
+    this.chatSub = (world.beforeEvents as any).chatSend.subscribe((event: any) => {
       if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "！") {
         let answer = event.message.substring(1);
         answer = answer.replaceAll(" "); // 去除空格
@@ -44,9 +44,21 @@ export class QAManager {
         }
       }
     });
-    system.runTimeout(() => {
+    this.timeoutId = system.runTimeout(() => {
       this.nextQuestion();
     }, QAManager.getNextTimeout());
+  }
+
+  private chatSub: any = undefined;
+
+  stop() {
+    try { if (this.chatSub && typeof this.chatSub.unsubscribe === 'function') this.chatSub.unsubscribe(); } catch {}
+    this.chatSub = undefined;
+    if (this.timeoutId !== undefined) {
+      try { system.clearRun(this.timeoutId); } catch {}
+      this.timeoutId = undefined;
+    }
+    this.nowQuestion = undefined;
   }
 
   // 下一个问题

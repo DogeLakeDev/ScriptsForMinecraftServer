@@ -34,6 +34,8 @@ export class SurvivalArea {
 
   enable = true;
 
+  private subscriptions: Array<any> = [];
+
   /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
   registerCommandsAndPermissions() {
     Permission.register("survivalarea.gamemode.bypass", Permission.OP);
@@ -41,8 +43,9 @@ export class SurvivalArea {
 
   /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
+    if (this.subscriptions.length > 0) return;
     // 进服时检测
-    world.afterEvents.playerSpawn.subscribe((event: PlayerSpawnAfterEvent) => {
+    this.subscriptions.push(world.afterEvents.playerSpawn.subscribe((event: PlayerSpawnAfterEvent) => {
       if (!event.initialSpawn) return;
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
@@ -56,10 +59,10 @@ export class SurvivalArea {
           this.forceSurvival(player);
         }
       }, 60);
-    });
+    }));
 
     // 阻止手动切换到创造/旁观（区外）
-    world.beforeEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeBeforeEvent) => {
+    this.subscriptions.push(world.beforeEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeBeforeEvent) => {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       if (event.toGameMode === GameMode.Creative || event.toGameMode === GameMode.Spectator) {
@@ -69,10 +72,10 @@ export class SurvivalArea {
           Msg.error(`你当前不在创造区域内，无法切换到该模式。`, event.player);
         }
       }
-    });
+    }));
 
     // 跨维度传送后检测
-    world.afterEvents.playerDimensionChange.subscribe((event: PlayerDimensionChangeAfterEvent) => {
+    this.subscriptions.push(world.afterEvents.playerDimensionChange.subscribe((event: PlayerDimensionChangeAfterEvent) => {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       const player = event.player;
@@ -84,11 +87,18 @@ export class SurvivalArea {
           this.forceSurvival(player);
         }
       }, 10);
-    });
+    }));
   }
 
   init() {
     // 核心逻辑已在 registerEvents 中订阅事件
+  }
+
+  cleanup() {
+    for (const s of this.subscriptions) {
+      try { s.unsubscribe(); } catch {}
+    }
+    this.subscriptions = [];
   }
 
   private inCreativeArea(entity: Entity): boolean {

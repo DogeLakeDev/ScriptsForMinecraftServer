@@ -14,7 +14,7 @@ export class LandSystem {
             if (!player)
                 return "§c该指令只能由玩家执行。";
             LandGUI.showMainMenu(player);
-        }, "土地管理");
+        }, "土地管理", "land");
         Command.register("land cancel", "land.use", (player) => {
             if (!player)
                 return "§c该指令只能由玩家执行。";
@@ -22,17 +22,17 @@ export class LandSystem {
                 Msg.success("土地申请已取消。", player);
             else
                 Msg.error("你没有正在进行的土地申请。", player);
-        }, "取消土地申请");
+        }, "取消土地申请", "land");
         Command.register("pos1", "land.use", (player) => {
             if (!player)
                 return "§c该指令只能由玩家执行";
             handlePosCommand(player, 1);
-        }, "设置土地第一点");
+        }, "设置土地第一点", "land");
         Command.register("pos2", "land.use", (player) => {
             if (!player)
                 return "§c该指令只能由玩家执行";
             handlePosCommand(player, 2);
-        }, "设置土地第二点");
+        }, "设置土地第二点", "land");
     }
     static init() {
         // 核心逻辑由 LandEvents 的事件订阅和命令处理

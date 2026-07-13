@@ -131,12 +131,16 @@ function getTargetPlayerName(entity) {
 // ============================================
 //  事件订阅
 // ============================================
+const subscriptions = [];
 function subscribe() {
     // ---- 玩家加入 ----
     // 辅助：安全订阅事件，若事件不存在则静默跳过
     function safeSubscribe(signal, cb) {
         if (signal && typeof signal.subscribe === "function") {
-            signal.subscribe(cb);
+            const sub = signal.subscribe(cb);
+            if (sub && typeof sub.unsubscribe === "function") {
+                subscriptions.push(sub);
+            }
         }
     }
     const AE = world.afterEvents;
@@ -556,6 +560,15 @@ export class ActivityLog {
     /** 注册事件（由 entry.ts 统一调用） */
     static registerEvents() {
         subscribe();
+    }
+    static cleanup() {
+        for (const s of subscriptions) {
+            try {
+                s.unsubscribe();
+            }
+            catch { }
+        }
+        subscriptions.length = 0;
     }
     static init() {
         if (initialized)

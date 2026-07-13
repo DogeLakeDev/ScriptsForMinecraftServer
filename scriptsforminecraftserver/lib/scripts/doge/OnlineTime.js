@@ -32,7 +32,7 @@ export class OnlineTime {
                 `§e今日在线 §f${this.formatTime(data.today)}\n` +
                 `§e本月在线 §f${this.formatTime(data.month)}\n` +
                 `§e总在线 §f${this.formatTime(data.total)}\n`, player);
-        }, "查看在线时间统计");
+        }, "查看在线时间统计", "onlineTime");
     }
     registerEvents() {
         world.afterEvents.playerSpawn.subscribe((event) => {
@@ -133,9 +133,18 @@ export class OnlineTime {
         }
     }
     startTick() {
-        system.runInterval(() => {
+        this.tickRunId = system.runInterval(() => {
             this.tickSecond();
         }, 20);
+    }
+    stop() {
+        if (this.tickRunId !== undefined) {
+            try {
+                system.clearRun(this.tickRunId);
+            }
+            catch { }
+            this.tickRunId = undefined;
+        }
     }
 }
 //# sourceMappingURL=OnlineTime.js.map

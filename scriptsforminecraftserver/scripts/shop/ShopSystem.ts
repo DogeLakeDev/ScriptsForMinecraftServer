@@ -34,7 +34,8 @@ export class ShopSystem {
       (player: Player | undefined) => {
         if (player) this.showShop(player);
       },
-      "商店"
+      "商店",
+      "shop"
     );
   }
 

@@ -41,7 +41,7 @@ function resolveName(m) {
   return m.fromName || '?';
 }
 
-function ChatView({ logH, logW, tick }) {
+function ChatView({ logH, logW }) {
   const [channels, setChannels] = useState([]);
   const [selIdx, setSelIdx] = useState(0);
   const [messages, setMessages] = useState([]);
@@ -49,32 +49,47 @@ function ChatView({ logH, logW, tick }) {
 
   const sel = channels[selIdx];
 
+  // 内部轮询频道列表（5s）
   useEffect(() => {
-    fetch(`http://${DB_HOST}:${DB_PORT}/api/sfmc/channels`)
-      .then(r => r.json())
-      .then(d => {
-        const list = (d.channels || []).filter(ch => !ch.id.startsWith('sys_'));
-        setChannels(list);
-        setSelIdx(i => Math.min(i, list.length - 1));
-      })
-      .catch(e => setError(e.message));
-  }, [tick]);
+    let cancelled = false;
+    const load = () => {
+      fetch(`http://${DB_HOST}:${DB_PORT}/api/sfmc/channels`)
+        .then(r => r.json())
+        .then(d => {
+          if (cancelled) return;
+          const list = (d.channels || []).filter(ch => !ch.id.startsWith('sys_'));
+          setChannels(list);
+          setSelIdx(i => Math.min(i, list.length - 1));
+        })
+        .catch(e => { if (!cancelled) setError(e.message); });
+    };
+    load();
+    const h = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(h); };
+  }, []);
 
+  // 内部轮询消息（选中频道变化时重置）
   useEffect(() => {
     if (!sel) { setMessages([]); return; }
-    fetch(`http://${DB_HOST}:${DB_PORT}/api/sfmc/messages?channelId=${encodeURIComponent(sel.id)}`)
-      .then(r => r.json())
-      .then(async d => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await fetch(`http://${DB_HOST}:${DB_PORT}/api/sfmc/messages?channelId=${encodeURIComponent(sel.id)}`);
+        if (cancelled) return;
+        const d = await r.json();
         const msgs = (d.messages || []).slice(-(logH + 5));
         const todo = msgs.filter(m => {
           const id = m.fromId || m.fromid || '';
           return id.startsWith('-') && !_nameCache.has(id);
         });
         await Promise.all(todo.map(m => fetchPlayerName(m.fromId || m.fromid)));
-        setMessages(msgs);
-      })
-      .catch(() => {});
-  }, [tick, sel?.id]);
+        if (!cancelled) setMessages(msgs);
+      } catch { /* ignore */ }
+    };
+    load();
+    const h = setInterval(load, 3000);
+    return () => { cancelled = true; clearInterval(h); };
+  }, [sel?.id]);
 
   useInput((input, key) => {
     if (key.upArrow) { setSelIdx(i => Math.max(0, i - 1)); }

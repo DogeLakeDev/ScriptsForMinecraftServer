@@ -14,15 +14,15 @@ export class HoloGUI {
         Command.register("holorint", "holorint.menu", (player) => {
             if (player)
                 new HoloGUI(player).nav.start("main");
-        }, "全息投影");
+        }, "全息投影", "holoprint");
         Command.register("hpbe pos1", "holorint.pos1", (player) => {
             if (player)
                 HoloCore.setPos(player, 1);
-        }, "设置选区点1");
+        }, "设置选区点1", "holoprint");
         Command.register("hpbe pos2", "holorint.pos2", (player) => {
             if (player)
                 HoloCore.setPos(player, 2);
-        }, "设置选区点2");
+        }, "设置选区点2", "holoprint");
     }
     // ── 外部调用入口 ──
     static async showProjectionList(player, privateList, publicList) {

@@ -2,7 +2,7 @@
 
 ## Repo anatomy
 
-Four components in one repo:
+Five components in one repo:
 
 | Path | What | Runtime |
 |------|------|---------|
@@ -10,19 +10,35 @@ Four components in one repo:
 | `db-server/` | SQLite HTTP REST backend | Node.js |
 | `qq-bridge/` | QQ bridge (LLBot OneBot 11) independent process | Node.js |
 | `BDSTools/` | BDS auto updater + tools | Node.js |
-| `panel/` | TUI management panel | Node.js (Ink, semi-deprecated) |
-| `rust-panel/` | TUI management panel (rewrite) | Rust + Ratatui |
+| `panel/` | TUI management panel | Node.js (Ink) |
+
 
 ## Plugin entry & init order
 
 `scripts/main.ts` → `scripts/entry.ts` (`AddOnInit.init()`)
 
 Init phases in `entry.ts`:
-1. `system.beforeEvents.startup` — register permissions & commands
-2. `world.afterEvents.worldLoad` — init modules (AFK, Coop, Chat, Clean, TPS, OnlineTime, CreativeArea, SurvivalArea, InventorySwitcher, LandSystem, ActivityLog, Money, ScoreboardSync, WorldData, HoloEntity)
+1. `system.beforeEvents.startup` — `await ConfigManager.init()` → register permissions & commands via `ModuleRegistry`
+2. `world.afterEvents.worldLoad` — `ModuleRegistry.bootAfterWorldLoad()` + `MonitorReporter` + `syncWorldData()`
 3. `world.afterEvents.playerSpawn` (initialSpawn) — Peace, Fly, AFK reset
 4. `world.afterEvents.playerSpawn` — SpawnProtect
 5. `world.beforeEvents.chatSend` — intercept `!` / `！` commands
+
+## Module system
+
+The project uses a single source of truth for module metadata: `modules/catalog.json` (catalog) + `modules/module-lock.json` (install state). `configs/modules.json` is kept only as a legacy import seed.
+
+- `tools/check-catalog.js` runs at build time, validates unique IDs, dependency closure, and entry-path existence.
+- `tools/install-module.js install|uninstall <id>` updates logical install state in `module-lock.json`.
+- `tools/lock.js rebuild|drift` rebuilds `modules/lock.json` file fingerprint snapshots.
+- `tools/smoke-modules.js` runs regression against a live `db-server`.
+
+Runtime wiring goes through `scripts/libs/ModuleRegistry.ts`. To add a module:
+
+1. Add an entry to `modules/catalog.json` (id, configKey, type, requires, entry).
+2. In `scripts/entry.ts`, call `ModuleRegistry.register({ id, afterWorldLoad, lifecycle: { registerPermissions, registerCommands, registerEvents, init, cleanup } })`.
+3. Build with `npm run build` (runs `check-catalog` first).
+4. Restart BDS or Panel to take effect.
 
 ## Build & deploy
 
@@ -190,48 +206,45 @@ trailingComma es5, tabWidth 2, semicolons, double quotes, bracketSpacing, arrowP
 - https://learn.microsoft.com/zh-cn/minecraft/creator/
 - https://holoprint-mc.github.io/
 
-## rust-panel — Rust+Ratatui 管理面板 (WIP)
+## Panel — TUI 管理面板
 
-`rust-panel/` — 正在用 Rust+Ratatui 重写面板。服务管理、性能监控、日志浏览。
+`panel/index.js` 入口：
+- 默认 TUI 模式（要求 stdin/stdout TTY）
+- `--cli`：只打印状态后退出（管道友好）
+- `--no-tui`：启动服务后保持进程存活
+- `--setup` / `--reset`：强制重开初始化向导
+- `--help`：打印帮助
 
-### 构建
+启动顺序（`panel/index.js`）：
+1. 启动 db-server + qq-bridge 子进程（通过 SFMC_ROOT 环境变量隔离工作根）
+2. 等待 `/api/health` 200
+3. 调 `/api/sfmc/setup/state` 检测 `_initialized`
+4. 若未初始化，进入主 TUI 第一屏渲染 `SetupWizard`（5 步表单）
+5. 用户提交后写入 `panel-state.json` + `configs/*.json` + `modules/module-lock.json`
+6. 进入主 TUI（模块管理 / 服务控制 / 数据查看）
 
-```powershell
-cd rust-panel
-.\build.ps1          # build with MSVC onecore CRT workaround
-```
+主 App 状态机（`panel/app.js`）：
+- `view`：`'dashboard' | 'monitor' | 'modules' | 'chat' | 'data' | 'svc' | 'cfg_list' | 'cfg_edit' | 'setup'`
+- `activeTab`：当前 Tab
+- `setupRequired`：从 `/api/sfmc/setup/state` 周期拉取（5s），true 时强制 `view='setup'`
 
-`build.ps1` 设置 `LIB` 环境变量（VS onecore CRT lib 路径）后调用 `cargo build`。直接 `cargo build` 会报 `LNK1104: msvcrt.lib`。
+### Setup Wizard
 
-### Toolchain
+文件：`panel/setup/wizard.js`（注意：不是 `.jsx`，Node 23+ 不支持 `.jsx` 直接 import）。
+- `panel/setup/state.js`：读写 `panel-state.json`
+- `panel/setup/orchestrator.js`：封装 `detect / runChecks / submit / reset / importState`
+- `panel/setup/service-install.js`：路径依赖检测
 
-- Rust `stable-x86_64-pc-windows-msvc` (default)
-- VS 2025 Community `18\VC\Tools\MSVC\14.51.36231` (only onecore CRT available)
-- 需要 `LIB` 指向 `lib\onecore\x64`
+## 常见坑
 
-### 标签页
+1. **`wizard.jsx` 不能直接被 Node import** → 已统一用 `.js` 后缀 + `React.createElement`。
+2. **`mount().then(process.exit(0))` 会把 SIGINT 清理流程吃掉** → 已删。
+3. **两套 Ink 进程抢 stdout** → 改用主 TUI 内 `view='setup'` 单进程。
+4. **disable 模块后命令仍能触发** → `Command.trigger` 内置 `moduleGuard`。
+5. **`process.stdin.isTTY=false` 会让 Ink 报错** → 入口已加 TTY 检测并 fallback 到 `--cli` / `--no-tui`。
+6. **db-server 端口被占用** → 启动时 `checkPortConflict()` 直接退出码 2 并给出提示。
+7. **`SFMC_ROOT` 环境变量** → 让 db-server 从指定根读 configs/modules；`sim-new-user.js` 用它实现隔离。
 
-| Tab | 功能 |
-|-----|------|
-| 总览 | 日志列表 + 命令输入 (占位) |
-| 监控 | CPU/内存/进程信息 (sysinfo) |
-| 服务 | 管理 BDS/DB/QQ/LLBot 启动停止重启 |
+## CI
 
-### 快捷键
-
-| 按键 | 功能 |
-|------|------|
-| `Tab` | 切换标签页 |
-| `q` | 退出 |
-| `↑↓` | 选择服务 |
-| `s` | 启动选中服务 |
-| `x` | 停止选中服务 |
-| `r` | 重启选中服务 |
-
-### 依赖
-
-ratatui, crossterm, ureq (native-tls), serde, sysinfo, anyhow.
-
-## Panel — TUI 管理面板 (旧的 JS 版)
-
-`panel/index.js` — 旧版 Ink 面板，已半废弃，功能将被 rust-panel 替代。
+`.github/workflows/ootb.yml` 在每次 push / PR 时跑 `tools/check-ootb.js` + `tools/smoke-modules.js`。

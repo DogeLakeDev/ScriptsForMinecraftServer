@@ -174,6 +174,9 @@ export class Clean {
             this.intervalId = undefined;
         }
     }
+    stop() {
+        this.stopCleanInterval();
+    }
     /**
      * 获取世界的所有物品
      */
@@ -194,6 +197,6 @@ export function registerCommand() {
     Permission.register("clean.admin", Permission.OP);
     Command.register("clean", "clean.admin", () => {
         Clean.getInstance().startClean(undefined);
-    }, "开始扫地");
+    }, "开始扫地", "clean");
 }
 //# sourceMappingURL=Clean.js.map

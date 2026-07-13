@@ -45,13 +45,30 @@ export function getState() {
   return clone(_state);
 }
 
-export function poll(tick) {
-  _state.tick = tick;
+let _tick = 0;
+
+function poll() {
+  _state.tick = _tick++;
   collectSystem();
   collectSystemCPU();
   collectProcs();
   fetchMonitorSummary();
   notify();
+}
+
+let _pollTimer = null;
+
+function startPolling() {
+  if (_pollTimer) return;
+  poll(); // 立即采一次
+  _pollTimer = setInterval(poll, 3000);
+}
+
+function stopPolling() {
+  if (_pollTimer) {
+    clearInterval(_pollTimer);
+    _pollTimer = null;
+  }
 }
 
 // ── 系统内存 ──
@@ -179,8 +196,12 @@ export function useMonitor() {
   const [data, setData] = useState(null);
   useEffect(() => {
     _listeners.push(setData);
+    if (_listeners.length === 1) startPolling();
     setData(clone(_state));
-    return () => { _listeners = _listeners.filter(fn => fn !== setData); };
+    return () => {
+      _listeners = _listeners.filter(fn => fn !== setData);
+      if (_listeners.length === 0) stopPolling();
+    };
   }, []);
   return data;
 }

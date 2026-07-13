@@ -22,7 +22,8 @@ export class LandSystem {
         if (!player) return "§c该指令只能由玩家执行。";
         LandGUI.showMainMenu(player);
       },
-      "土地管理"
+      "土地管理",
+      "land"
     );
 
     Command.register(
@@ -33,7 +34,8 @@ export class LandSystem {
         if (LandCore.clearSession(player.id)) Msg.success("土地申请已取消。", player);
         else Msg.error("你没有正在进行的土地申请。", player);
       },
-      "取消土地申请"
+      "取消土地申请",
+      "land"
     );
 
     Command.register(
@@ -43,7 +45,8 @@ export class LandSystem {
         if (!player) return "§c该指令只能由玩家执行";
         handlePosCommand(player, 1);
       },
-      "设置土地第一点"
+      "设置土地第一点",
+      "land"
     );
 
     Command.register(
@@ -53,7 +56,8 @@ export class LandSystem {
         if (!player) return "§c该指令只能由玩家执行";
         handlePosCommand(player, 2);
       },
-      "设置土地第二点"
+      "设置土地第二点",
+      "land"
     );
   }
 

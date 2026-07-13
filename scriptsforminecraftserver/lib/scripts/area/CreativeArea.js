@@ -13,6 +13,8 @@ export class CreativeArea {
         this.BORDER_THRESHOLD = 10;
         this.BORDER_WARNING_DISTANCE = 5;
         this.BUFFER_ZONE = 3;
+        this.subscriptions = [];
+        this.tickRunIds = [];
     }
     static getInstance() {
         if (!CreativeArea._instance) {
@@ -26,7 +28,9 @@ export class CreativeArea {
     }
     /** 注册事件（由 entry.ts 统一调用） */
     registerEvents() {
-        world.afterEvents.playerSpawn.subscribe((event) => {
+        if (this.subscriptions.length > 0)
+            return;
+        this.subscriptions.push(world.afterEvents.playerSpawn.subscribe((event) => {
             if (!event.initialSpawn)
                 return;
             system.runTimeout(() => {
@@ -39,8 +43,8 @@ export class CreativeArea {
                     event.player.setGameMode(GameMode.Survival);
                 }
             }, 60);
-        });
-        world.afterEvents.playerDimensionChange.subscribe((event) => {
+        }));
+        this.subscriptions.push(world.afterEvents.playerDimensionChange.subscribe((event) => {
             if (!CreativeArea.enable)
                 return;
             system.runTimeout(() => {
@@ -53,8 +57,8 @@ export class CreativeArea {
                     this.leaveArea(event.player, currentArea);
                 }
             }, 10);
-        });
-        world.afterEvents.entitySpawn.subscribe((event) => {
+        }));
+        this.subscriptions.push(world.afterEvents.entitySpawn.subscribe((event) => {
             if (!CreativeArea.enable)
                 return;
             if (!event.entity)
@@ -71,28 +75,26 @@ export class CreativeArea {
                 }
             }
             catch { }
-        });
-        world.beforeEvents.playerPlaceBlock.subscribe((event) => {
+        }));
+        this.subscriptions.push(world.beforeEvents.playerPlaceBlock.subscribe((event) => {
             if (!CreativeArea.enable)
                 return;
             const player = event.player;
             if (player.getGameMode() !== GameMode.Creative)
                 return;
-            // 阻止在区外放置（所有人生效）
             if (!this.inAreaByPos(event.block.location.x, event.block.location.z, player.dimension.id)) {
                 event.cancel = true;
                 Tool.Msg.error(`你只能在创造区域内放置方块。`, player);
                 return;
             }
-            // 阻止放置禁止方块（拥有 creativearea.place_banned 可绕过）
             if (ConfigManager.getBannedItems().indexOf(event.permutationToPlace.type.id) !== -1) {
                 if (!Permission.check(player, "creativearea.place_banned")) {
                     event.cancel = true;
                     Tool.Msg.error(`创造区域内禁止放置 ${event.permutationToPlace.type.id}。`, player);
                 }
             }
-        });
-        world.beforeEvents.playerBreakBlock.subscribe((event) => {
+        }));
+        this.subscriptions.push(world.beforeEvents.playerBreakBlock.subscribe((event) => {
             if (!CreativeArea.enable)
                 return;
             if (event.player.getGameMode() !== GameMode.Creative)
@@ -101,7 +103,23 @@ export class CreativeArea {
                 event.cancel = true;
                 Tool.Msg.error(`你只能破坏创造区域内的方块。`, event.player);
             }
-        });
+        }));
+    }
+    cleanup() {
+        for (const s of this.subscriptions) {
+            try {
+                s.unsubscribe();
+            }
+            catch { }
+        }
+        this.subscriptions = [];
+        for (const id of this.tickRunIds) {
+            try {
+                system.clearRun(id);
+            }
+            catch { }
+        }
+        this.tickRunIds = [];
     }
     init() {
         this.startTick();
@@ -231,7 +249,7 @@ export class CreativeArea {
     //  定时扫描（进出检测）
     // ==========================================
     startTick() {
-        system.runInterval(() => {
+        this.tickRunIds.push(system.runInterval(() => {
             if (!CreativeArea.enable)
                 return;
             for (const player of world.getPlayers()) {
@@ -248,13 +266,13 @@ export class CreativeArea {
                         this.leaveArea(player, currentArea);
                 }
             }
-        }, 10);
+        }, 10));
     }
     // ==========================================
     //  边界快速检测
     // ==========================================
     startBorderFastCheck() {
-        system.runInterval(() => {
+        this.tickRunIds.push(system.runInterval(() => {
             if (!CreativeArea.enable)
                 return;
             for (const player of world.getPlayers()) {
@@ -267,13 +285,13 @@ export class CreativeArea {
                     this.leaveArea(player, currentArea);
                 }
             }
-        }, 2);
+        }, 2));
     }
     // ==========================================
     //  边界视觉警告
     // ==========================================
     startBorderWarning() {
-        system.runInterval(() => {
+        this.tickRunIds.push(system.runInterval(() => {
             if (!CreativeArea.enable)
                 return;
             for (const player of world.getPlayers()) {
@@ -309,7 +327,7 @@ export class CreativeArea {
                     break;
                 }
             }
-        }, 20);
+        }, 20));
     }
 }
 /** 连锁开关（同时控制 CreativeArea + SurvivalArea） */

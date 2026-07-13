@@ -19,12 +19,12 @@ export class CoopSystem {
         Command.register("coop", "coop.use", (player) => {
             if (player)
                 new CoopGUI(player).mainPanel();
-        }, "合作社");
+        }, "合作社", "coop");
         Command.register("coopshop", "coopshop.use", (player) => {
             if (!player)
                 return;
             CoopGUI.openShopMgr(player);
-        }, "合作社商店");
+        }, "合作社商店", "coop");
     }
     static registerEvents() {
         // 预留事件处理函数

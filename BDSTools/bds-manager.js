@@ -7,7 +7,7 @@
  *
  * 用法:
  *   node bds-manager.js start          启动 BDS
- *   node bds-manager.js stop           优雅停止（发送 stop 命令）
+ *   node bds-manager.js stop           停止（发送 stop 命令）
  *   node bds-manager.js restart        重启
  *   node bds-manager.js status         检查状态
  *   node bds-manager.js send <cmd>     发送命令到 BDS
@@ -88,7 +88,7 @@ function sendCommand(cmd) {
   return false;
 }
 
-// ────────── stop（优雅关闭） ──────────
+// ────────── stop ──────────
 
 async function stop() {
   const pid = readPid();
@@ -101,7 +101,7 @@ async function stop() {
   // 如果是本进程启动的 BDS，通过 stdin 发 stop
   if (bdsProcess && bdsProcess.pid === pid && bdsProcess.stdin) {
     isManualStop = true;
-    log('正在优雅关闭 BDS...');
+    log('正在关闭 BDS...');
     bdsProcess.stdin.write('stop\n');
 
     // 等待最多 30s
@@ -237,7 +237,7 @@ if (require.main === module) {
     default:
       console.log(`用法:
   start         启动 BDS
-  stop          优雅停止
+  stop          停止
   restart       重启
   status        检查状态
   send <cmd>    发送命令

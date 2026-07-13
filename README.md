@@ -1,786 +1,329 @@
 # ScriptsForMinecraftServer
 
-![Minecraft](https://img.shields.io/badge/Minecraft-1.21.60-blue?logo=minecraft)
-![SAPI](https://img.shields.io/badge/SAPI-2.10.0--beta-orange)
-![Node](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)
-![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
-![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
+基于 Minecraft Bedrock Script API (SAPI) 的服务器插件 + SQLite 后端 + QQ 桥接 + TUI 管理面板。
 
-A Minecraft Bedrock behavior pack plugin built on **Script API (SAPI)**, with an external **SQLite-backed HTTP backend** for persistent data storage. Features include a channel-based chat system, land management, co-op teams, shop, activity logging, and more.
-
-基于 SAPI 的 Minecraft Bedrock 行为包插件，配合独立 SQLite HTTP 后端实现持久化存储。包含频道聊天、领土管理、合作社、商店、行为日志等功能。
+整个项目从 0 用户视角设计：**克隆下来能在几分钟内跑起来**。
 
 ---
 
-## Table of Contents
+## 1. 一分钟上手
 
-- [System Architecture](#system-architecture)
-- [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
-- [Features](#features)
-- [db-server (External Database)](#db-server-external-database)
-- [Module Details](#module-details)
-- [Initialization Flow](#initialization-flow)
-- [Environment Variables](#environment-variables)
-- [UI Conventions](#ui-conventions)
-- [TODO](#todo)
-- [Contributing](#contributing)
+### 1.1 系统要求
 
----
+| 工具 | 版本 | 说明 |
+|---|---|---|
+| Node.js | 18+ (推荐 20/22) | SAPI 编译 + db-server + qq-bridge + panel |
+| Minecraft Bedrock | 1.21.60+ | 推荐开启 Beta APIs |
+| PowerShell | 5.1+ (Windows) | 部署脚本依赖 |
+| BDS | 任意版本 | 默认放 `D:\Minecraft\BEServer`，可改 |
 
-## System Architecture
-
-```
-┌─────────────────────────┐      HTTP REST API       ┌──────────────────────────┐
-│  Minecraft BDS / Client │ ◄──────────────────────► │    db-server (Node.js)    │
-│                         │    POST / GET / PATCH    │                          │
-│  ┌───────────────────┐  │                          │  ┌────────────────────┐  │
-│  │  SAPI Runtime     │  │                          │  │  HTTP Server       │  │
-│  │  @minecraft/server│  │                          │  │  port 3001         │  │
-│  │  v2.10.0-beta     │  │                          │  └────────┬───────────┘  │
-│  │                   │  │                          │           │               │
-│  │  entry.ts init    │  │                          │  ┌────────▼───────────┐  │
-│  │  all modules      │  │                          │  │  better-sqlite3    │  │
-│  └───────────────────┘  │                          │  │  sfmc_data.db      │  │
-│                         │                          │  └────────────────────┘  │
-└─────────────────────────┘                          │                          │
-                                                     │  ┌────────────────────┐  │
-                                                     │  │  Holoprint Engine  │  │
-                                                     │  └────────────────────┘  │
-                                                     └──────────────────────────┘
-```
-
-**Two disjoint components, one repo:** the behavior pack (TypeScript, SAPI) and the database server (Node.js, better-sqlite3). They communicate exclusively via HTTP.
-
-两个独立组件在同一个仓库：行为包（TypeScript / SAPI）和数据库服务（Node.js / better-sqlite3），通过 HTTP 通信。
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- **Node.js** 18+ (for building the behavior pack and running db-server)
-- **Minecraft Bedrock** 1.21.60+ (Preview or Release with Beta APIs enabled)
-
-### Install & Build
+### 1.2 克隆与初始化
 
 ```powershell
-# Install dependencies for the behavior pack
+git clone <repo-url>
+cd ScriptsForMinecraftServer
+
+# 安装 SAPI 依赖（必须）
 cd scriptsforminecraftserver
 npm install
+Copy-Item .env.example .env -ErrorAction SilentlyContinue
+# 编辑 .env 填 PROJECT_NAME / CUSTOM_DEPLOYMENT_PATH
+cd ..
 
-# Build (TypeScript + esbuild bundle → dist/scripts/main.js)
-npm run build
-
-# Lint
-npm run lint
-
-# Local deploy to Minecraft dev folder
-npm run local-deploy
-
-# Watch mode (auto rebuild & deploy on changes)
-npm run local-deploy -- --watch
+# 一键自检（不污染工作区，会自动备份还原）
+node tools/check-ootb.js
 ```
 
-### Start the Database Server
+如果 `check-ootb.js` 全部 PASS，说明环境正常。
 
-```powershell
-# In a separate terminal
-cd db-server
-node index.js
-# Default: http://127.0.0.1:3001
-# Override port: $env:DB_PORT=4000; node index.js
+### 1.3 启动服务（三选一）
+
+```bash
+# A. 启动面板 (推荐：UI 引导初始化 + 模块管理)
+node panel/index.js
+
+# B. 不进 UI，只起 db-server + qq-bridge（保持进程）
+node panel/index.js --no-tui
+
+# C. CLI 模式（管道友好，打印当前模块状态）
+node panel/index.js --cli
 ```
 
-### Configure Deployment
+**第一次启动会自动进入 setup 向导**：5 步填写 DB 端口 / BDS 路径 / LLBot 路径 / 默认模块，确认后写入 `panel-state.json` + `configs/*.json` + `modules/module-lock.json`。
 
-Edit `scriptsforminecraftserver/.env`:
+### 1.4 部署到 BDS
 
-```
-PROJECT_NAME="ScriptsForMinecraftServer"
-MINECRAFT_PRODUCT="Custom"
-CUSTOM_DEPLOYMENT_PATH="D:\Minecraft\BEServer\worlds\sptest2(ed)"
+```bash
+cd scriptsforminecraftserver
+npm run build              # tsc + esbuild bundle
+npm run local-deploy       # 复制到 .env 里配置的 BDS 路径
+# 或：node scriptsforminecraftserver/just.config.js local-deploy
 ```
 
 ---
 
-## Project Structure
+## 2. 模块系统
+
+### 2.1 概念
+
+每个模块是"项目级能力单元"，不是单个源码文件。元数据存在 `modules/catalog.json`，运行时启用状态存在 `db-server` + `modules/module-lock.json`，控制入口在面板「模块」Tab。
+
+模块按类型分：
+
+```text
+core-*      必需基础模块（不能禁用/卸载）
+feature-*   游戏功能模块
+service-*   外部 Node 进程（db / qq-bridge / panel）
+tool-*      维护工具
+asset-*     资源包/资产
+```
+
+### 2.2 配置文件
+
+| 文件 | 作用 |
+|---|---|
+| `modules/catalog.json` | 模块目录真理源（29 个模块，类型/依赖/权限/默认状态） |
+| `modules/module-lock.json` | 模块安装状态（运行时维护） |
+| `modules/lock.json` | 文件指纹快照，由 `tools/lock.js` 生成 |
+| `configs/modules.json` | 旧版启用/禁用平面表（兼容层，仍由 setup 向导生成） |
+| `panel-state.json` | 项目级初始化状态（`~/.sim-workspace.bak/` 备份在 setup 重置时使用） |
+
+### 2.3 模块管理命令
+
+```bash
+# 安装 / 卸载（逻辑态 + 文件级 trash）
+node tools/install-module.js install <id>
+node tools/install-module.js uninstall <id> --dry-run
+node tools/install-module.js uninstall <id> --no-files   # 只改 lock
+
+# 状态
+node tools/install-module.js status
+
+# 依赖闭环 / 文件漂移
+node tools/lock.js rebuild
+node tools/lock.js drift
+```
+
+### 2.4 模块 API
+
+```
+GET    /api/sfmc/modules
+GET    /api/sfmc/modules/catalog
+GET    /api/sfmc/modules/:id
+PATCH  /api/sfmc/modules/:id        { enabled }
+POST   /api/sfmc/modules/:id/enable
+POST   /api/sfmc/modules/:id/disable
+POST   /api/sfmc/modules/:id/install
+POST   /api/sfmc/modules/:id/uninstall
+```
+
+错误码：
+
+| code | 含义 |
+|---|---|
+| `module_cannot_disable` | 模块 `canDisable=false` |
+| `module_cannot_uninstall` | 模块 `canUninstall=false` |
+| `dependency_unmet` (409) | 启用 / 安装时 requires 不满足 |
+| `dependency_required` (409) | 卸载时仍被其他 installed 模块引用 |
+
+---
+
+## 3. 数据库服务（db-server）
+
+SQLite + Node.js HTTP REST。监听 127.0.0.1:3001（默认）。
+
+```bash
+# 启动（独立）
+node db-server/index.js
+
+# 端口冲突检测已内置；如被占用会直接报错退出
+$env:DB_PORT=4000; node db-server/index.js
+```
+
+### 3.1 环境变量
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `SFMC_ROOT` | `<db-server>` 的父目录 | 让 db-server 从指定根读 configs/modules |
+| `SFMC_DB_PATH` | `<db-server>/sfmc_data.db` | SQLite 文件路径 |
+| `SFMC_MODULES_DIR` | `<SFMC_ROOT>/modules` | modules 目录 |
+| `DB_PORT` | `3001` | 监听端口 |
+| `DB_AUTH_TOKEN` | 空 | 写接口 token（留空=loopback 仅） |
+| `DB_MAX_BODY` | `1048576` | 请求体字节上限 |
+
+### 3.2 初始化向导接口
+
+```
+GET  /api/sfmc/setup/state
+POST /api/sfmc/setup/init     { paths, tokens, ui, locale }
+POST /api/sfmc/setup/reset
+POST /api/sfmc/setup/check    { db, bds, qq }
+```
+
+完整 payload 示例：
+
+```json
+{
+  "paths": {
+    "bdsPath": "D:\\Minecraft\\BEServer",
+    "llbotPath": "D:\\LLBot-CLI-win-x64\\llbot.exe",
+    "llbotCwd": "D:\\LLBot-CLI-win-x64",
+    "dbPort": 3001
+  },
+  "tokens": { "dbAuthToken": "", "bridgeAuthToken": "" },
+  "ui": {
+    "defaultModules": ["money", "chat", "afk", "shop", "land", "tps"],
+    "defaultServices": ["db", "qq"],
+    "skipGuidedSetup": false
+  },
+  "locale": "zh-CN"
+}
+```
+
+---
+
+## 4. QQ 桥接（qq-bridge）
+
+独立 Node 进程，监听 127.0.0.1:3002 (WebSocket, LLBot) + 127.0.0.1:3003 (HTTP, db-server/面板)。
+
+```bash
+node qq-bridge/index.js
+```
+
+配置在 `configs/qq_config.json`。鉴权 token 推荐设置 `bridge_auth_token`。
+
+---
+
+## 5. 管理面板（panel）
+
+```bash
+node panel/index.js                  # 默认 TUI 模式
+node panel/index.js --cli            # CLI 模式
+node panel/index.js --no-tui         # 启动服务不进入 TUI
+node panel/index.js --setup          # 强制重开 setup
+node panel/index.js --help
+```
+
+### 5.1 Tab 列表
+
+- **总览**：日志流、服务状态
+- **监控**：TPS / 在线人数 / 实体数
+- **模块**：29 个模块的启用/禁用/安装/卸载
+- **频道**：频道聊天历史
+- **数据**：数据库表查看（HTTP 或直连）
+- **BDS**：BDS 进程控制 + 日志
+- **LLBot**：LLBot 控制
+- **QQ-Bridge**：QQ Bridge 控制
+- **DB-Server**：db-server 控制
+
+### 5.2 面板内命令
+
+进入输入栏后：
+
+```
+start / stop / restart  控制当前 Tab 服务
+help                    服务帮助
+clear                   清屏
+back / 0                返回总览
+```
+
+### 5.3 第一次启动
+
+如果 `panel-state.json._initialized=false`，会自动进入 setup 向导（首屏）。完成后才能用模块面板。
+
+---
+
+## 6. 开发工具
+
+| 命令 | 作用 |
+|---|---|
+| `node tools/check-ootb.js` | 开箱即用自检（推荐 CI 跑） |
+| `node tools/check-catalog.js` | catalog.json 静态校验 |
+| `node tools/smoke-modules.js` | 模块系统冒烟（需 db-server） |
+| `node tools/sim-new-user.js` | 模拟新用户从 0 到 init 全流程（自动备份/还原） |
+| `node tools/install-module.js` | 安装/卸载/状态 |
+| `node tools/lock.js rebuild` | 生成文件指纹快照 |
+| `node tools/lock.js drift` | 检测文件漂移 |
+
+---
+
+## 7. 项目结构
 
 ```
 ScriptsForMinecraftServer/
-├── db-server/                          # SQLite HTTP backend (Node.js)
-│   ├── index.js                        #   REST API server (all routes)
-│   ├── holoprint/                      #   Holoprint engine integration
-│   └── sfmc_data.db                    #   SQLite database (auto-created)
-│
-├── scriptsforminecraftserver/          # Behavior pack (SAPI / TypeScript)
+├── modules/                      模块目录真理源
+│   ├── catalog.json              29 个模块元数据
+│   ├── module-lock.json          安装状态
+│   └── lock.json                 文件指纹快照
+├── configs/                      运行时配置
+├── scriptsforminecraftserver/    SAPI 行为包
 │   ├── scripts/
-│   │   ├── api/                        # REST API wrappers
-│   │   │   ├── ActivityLogsApi.ts
-│   │   │   ├── ChatApi.ts              #   Channels / Messages / RedPackets
-│   │   │   ├── HoloprintApi.ts
-│   │   │   ├── KVApi.ts
-│   │   │   ├── PlayersDataApi.ts
-│   │   │   ├── ScoreboardsSyncApi.ts
-│   │   │   └── WorldDataApi.ts
-│   │   ├── area/                       # Area-based gameplay control
-│   │   │   ├── CreativeArea.ts
-│   │   │   ├── Fly.ts
-│   │   │   ├── InventorySwitcher.ts
-│   │   │   ├── Peace.ts
-│   │   │   └── SurvivalArea.ts
-│   │   ├── chat/                       # Channel chat system (DogeChat)
-│   │   │   ├── ChatSystem.ts           #   Init, events, commands
-│   │   │   ├── DogeChat.ts             #   Core logic (pure DB, no cache)
-│   │   │   └── DogeTypes.ts            #   Type definitions
-│   │   ├── coop/                       # Co-op / team system
-│   │   │   ├── CoopCore.ts
-│   │   │   ├── CoopSystem.ts
-│   │   │   └── Database.ts
-│   │   ├── data/                       # Data / configuration
-│   │   │   ├── ActivityLog.ts
-│   │   │   ├── Config.ts
-│   │   │   ├── PermissionData.ts
-│   │   │   ├── Player.ts
-│   │   │   ├── Questions.ts
-│   │   │   ├── Scoreboards.ts
-│   │   │   ├── Shop.ts
-│   │   │   ├── World.ts
-│   │   │   └── menu/                   # Menu configuration
-│   │   ├── doge/                       # General utilities
-│   │   │   ├── AFK.ts
-│   │   │   ├── Clean.ts
-│   │   │   ├── EntityControl.ts
-│   │   │   ├── Menu.ts
-│   │   │   ├── OnlineTime.ts
-│   │   │   ├── QA.ts
-│   │   │   ├── SpawnProtect.ts
-│   │   │   └── TPS.ts
-│   │   ├── gui/                        # UI forms (modal / action)
-│   │   │   ├── ChatGUI.ts
-│   │   │   ├── CoopGUI.ts
-│   │   │   ├── DpEditor.ts
-│   │   │   ├── FormShop.ts
-│   │   │   ├── LandGUI.ts
-│   │   │   ├── MainMenu.ts
-│   │   │   ├── MoneyGUI.ts
-│   │   │   └── ShopGUI.ts
-│   │   ├── holo/                       # Holographic display
-│   │   │   ├── HoloCore.ts
-│   │   │   ├── HoloEntity.ts
-│   │   │   └── HoloGUI.ts
-│   │   ├── land/                       # Land / territory system
-│   │   │   ├── LandAPI.ts
-│   │   │   ├── LandCore.ts
-│   │   │   ├── LandDatabase.ts
-│   │   │   ├── LandEvents.ts
-│   │   │   └── LandSystem.ts
-│   │   ├── libs/                       # Core libraries
-│   │   │   ├── Command.ts              #   Command registration & dispatch
-│   │   │   ├── Gui.ts                  #   UI form helpers
-│   │   │   ├── HttpDB.ts               #   HTTP client for db-server
-│   │   │   ├── Money.ts                #   Scoreboard-based currency
-│   │   │   ├── Permission.ts           #   Permission system
-│   │   │   └── Tools.ts                #   Utilities (Msg, format, ID gen)
-│   │   ├── shop/                       # Chest shop
-│   │   │   └── ShopSystem.ts
-│   │   ├── shit/                       # Fun / entertainment
-│   │   │   └── ShitMountain.ts
-│   │   ├── temp/                       # Temporary / experimental
-│   │   │   └── ChatSoundsHelper.ts
-│   │   ├── entry.ts                    # Module initialization entry
-│   │   └── main.ts                     # Bootstrap
-│   ├── behavior_packs/                 # Pack manifest & resources
-│   ├── resource_packs/
-│   ├── just.config.ts
-│   ├── tsconfig.json
-│   ├── eslint.config.mjs
-│   ├── .prettierrc.json
-│   ├── .env
+│   │   ├── entry.ts              模块启动入口
+│   │   ├── libs/                 Command / ConfigManager / ModuleRegistry / MenuNavigator
+│   │   ├── chat/ coop/ land/ holo/ area/ data/ doge/ gui/ shop/ shit/ temp/
+│   ├── behavior_packs/
+│   ├── tsconfig.json + just.config.ts
 │   └── package.json
+├── db-server/                    SQLite HTTP REST (127.0.0.1:3001)
+├── qq-bridge/                    QQ Bridge (3002/3003)
+├── panel/                        TUI 管理面板
+│   ├── index.js                  入口
+│   ├── app.js                    主 App
+│   ├── views/                    各 Tab 内容组件
+│   ├── services/manager.js       服务依赖图编排
+│   └── setup/                    初始化向导
+├── BDSTools/                     BDS 自动更新器
+├── tools/                        工程工具（check / smoke / sim / lock / install）
+├── holoprint/                    全息投影资源（迁移后位置）
+├── .github/workflows/ootb.yml    GitHub Actions CI
 └── README.md
 ```
 
 ---
 
-## Features
+## 8. 常见问题（FAQ）
 
-### Core
-
-| Module | Description |
-|--------|-------------|
-| **Command System** | `!<command>` prefix in chat, with string-based permission nodes |
-| **Scoreboard Money** | `Money.UNIT` currency backed by a scoreboard objective |
-| **Permission System** | Granular `Permission.register(name, level)`, levels: Any / Member / OP / Admin |
-| **Configuration** | Centralized `Config.ts` for areas, chest layouts, cleanup params |
-
-### DogeChat — Channel Chat System
-
-A channel-based messaging system. All channels are visible to everyone; players switch their active channel to send/receive messages.
-
-| Type | Auto-created | Description |
-|------|-------------|-------------|
-| Public | ✓ | Default server-wide channel, 7-day retention |
-| Broadcast | ✓ | Announcement board, admin-only posting, permanent retention |
-| System | On player join | Per-player system message channel, 1-day retention, read-only |
-| Private | On first DM | Two-party direct message, 30-day retention |
-| Custom | By player/admin | Configurable broadcast / slow-mode, 7-day retention |
-
-Channel properties: `allowChat`, `slowMode` (seconds), `isBroadcast` (admin-only posting).
-
-**Data flow (pure DB, no in-memory cache):**
-
-```
-Player types !ch
-       │
-       ▼
-world.beforeEvents.chatSend
-       │
-       ▼
-Command.trigger("ch")
-       │
-       ▼
-DogeChat.cycleChannel(player) ──► GET /api/sfmc/channels?type=public (raw data from SQLite)
-       │
-       ▼
-DogeChat.setActiveChannel(player, newId) ──► PATCH /api/sfmc/players/{id}
-       │
-       ▼
-DogeChat.loadChannelHistory(player, newId) ──► GET /api/sfmc/messages?channelId=...
-       │
-       ▼
-player.sendMessage() — display history
-```
-
-The only runtime state kept in memory is `activeChannelMap: Map<playerId, channelId>` for real-time message broadcast — this is session state, not a data cache.
-
-### Chat Commands
-
-| Command | Function |
-|---------|----------|
-| `!channel` | Open channel management panel |
-| `!ch` | Quick-cycle active channel (skip private) |
-| `!msg` | Quick DM panel |
-| `!lo` | Send current location to active channel |
-| `!tp` | Send teleport invite (DM directly, multi-player shows picker) |
-| `!hongbao` | Red packet panel (send + claim) |
-| `!hb` | Quick red packet send |
-
-### Red Packets
-
-All operations go directly to the database — no in-memory cache.
-
-```
-Send: HTTP POST /api/sfmc/redpacket → deduct money → done
-Claim: PATCH /api/sfmc/redpacket/{id} → add money → done
-List:  GET /api/sfmc/redpacket → filter by receiver & expiry
-```
-
-### Shop (Chest Shop)
-
-Double-chest based shop using `Config.shopChest` layout configuration.
-
-- `!shop` opens shop GUI
-- Buy & sell items (prices stored via Dynamic Properties)
-- `Money.UNIT` unified currency
-
-### Land / Territory
-
-Full land management:
-
-- Create / delete claims
-- Permission management (break, place, interact, container, etc.)
-- Member management
-- Land teleport
-- Toggle protection
-
-### Co-op / Team System
-
-- Create, join, leave teams
-- Member & permission management
-
-### Area Control
-
-| Module | Description |
-|--------|-------------|
-| **Area Flight** | Allow flight in survival within defined zones |
-| **Area Peace** | Prevent mob spawning in defined zones |
-| **Creative Area** | Auto-switch to creative on entry |
-| **Survival Area** | Auto-switch to survival on entry |
-| **Creative Block List** | Configurable block blacklist for creative zones |
-
-### Utilities
-
-| Module | Description |
-|--------|-------------|
-| **AFK Detection** | Auto-mark AFK after timeout, kick configurable |
-| **Item Cleaner** | Auto-clean excess ground items with whitelist |
-| **Entity Control** | Manual kill / clear nearby entities |
-| **Inventory Switcher** | Save & restore independent inventories per game mode |
-| **Spawn Protection** | Brief invulnerability on join |
-| **QA Quiz** | Timed random quiz questions with rewards |
-| **Online Time** | Per-second tracking, persisted to DB every tick |
-| **TPS Monitor** | Server ticks-per-second monitoring |
-| **Scoreboard Sync** | Backup scoreboard to SQLite on startup & shutdown |
-| **Activity Log** | Log player actions to SQLite with 2s batch flush |
-| **World Data Sync** | Sync world metadata to SQLite on startup & shutdown |
-
-### Money Commands
-
-| Command | Function |
-|---------|----------|
-| `!money` | Check balance |
-| `!pay <player> <amount>` | Transfer |
-| `!setmoney <player> <amount>` | Set balance (admin) |
-| `!addmoney <player> <amount>` | Add balance (admin) |
-| `!reduce <player> <amount>` | Reduce balance (admin) |
-
----
-
-## db-server (External Database)
-
-A standalone **Node.js HTTP service** using **better-sqlite3** (WAL mode) that provides a REST API for all persistent data.
-
-### Start
-
+### 8.1 启动报 `Raw mode is not supported`
+你在非交互终端跑（如 PowerShell 管道 / IDE / 子进程）。改用：
 ```bash
-cd db-server
-node index.js
-# Default: http://127.0.0.1:3001
-# Override: DB_PORT=4000 node index.js
+node panel/index.js --cli    # 打印状态
+node panel/index.js --no-tui # 启服务但不进 TUI
+```
+或在真正的终端窗口中运行（PowerShell ISE 不行，需 conhost / Windows Terminal / cmd）。
+
+### 8.2 db-server 启动报 `unable to open database file`
+检查 `SFMC_DB_PATH` 指向的目录是否存在，或权限不足。默认 `<db-server>/sfmc_data.db` 由 Node 创建，父目录会自动 mkdir。
+
+### 8.3 db-server 报 `port 3001 in use`
+```bash
+$env:DB_PORT=4000; node db-server/index.js
+$env:DB_PORT=4000; node panel/index.js  # panel 自动跟随
 ```
 
-### Database Tables
+### 8.4 npm run build 报 `Cannot find module .env`
+```bash
+cd scriptsforminecraftserver
+Copy-Item .env.example .env
+# 编辑 .env 填 PROJECT_NAME="ScriptsForMinecraftServer" 和你的 BDS 路径
+```
 
-| Table | Stores | Source Module |
-|-------|--------|---------------|
-| `sfmc_world` | World metadata (seed, gamerules, difficulty, time, etc.) | World Sync |
-| `sfmc_players` | Player data, online time, active channel, permissions | Player / OnlineTime / Chat |
-| `sfmc_chat_channels` | Channel definitions & config | DogeChat |
-| `sfmc_chat_messages` | Chat message history | DogeChat |
-| `sfmc_chat_redpackets` | Red packet data | DogeChat |
-| `sfmc_scoreboards` | Scoreboard objective snapshots | Scoreboard Sync |
-| `sfmc_activities` | Player activity event log | Activity Log |
-| `sfmc_coop_data` | Key-value store for co-op data | Co-op System |
-| (Holoprint tables) | Holographic display data | Holoprint |
+### 8.5 模块 disable 后命令还能用？
+默认行为已修：禁用模块的命令会被 `Command.trigger` 守卫拦截。若仍能执行，请确认面板模块页显示状态已切到「禁用」，并查看 SAPI 是否已加载新版（重启 BDS）。
 
-### REST API
-
-All endpoints under `/api/sfmc/*`. The server uses path-based routing (grouped by resource).
-
-#### Channels
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/channels` | List channels (filters: `search`, `type`, `ownerId`, `minCreatedAt`, `maxCreatedAt`) |
-| `POST` | `/api/sfmc/channels` | Create/replace channels (batch) |
-| `GET` | `/api/sfmc/channels/:id` | Get single channel |
-| `PATCH` | `/api/sfmc/channels/:id` | Update channel fields |
-| `DELETE` | `/api/sfmc/channels/:id` | Delete channel |
-
-#### Messages
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/messages` | List messages (filters: `channelId`, `from`, `type`, `minSentAt`, `maxSentAt`) |
-| `POST` | `/api/sfmc/messages` | Save messages (batch, max 100) |
-
-#### Red Packets
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/redpacket` | List all red packets |
-| `POST` | `/api/sfmc/redpacket` | Create red packet |
-| `GET` | `/api/sfmc/redpacket/:id` | Get single red packet |
-| `PATCH` | `/api/sfmc/redpacket/:id` | Update red packet (remaining amount/count, receivers) |
-| `DELETE` | `/api/sfmc/redpacket/:id` | Delete red packet |
-
-#### Players
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/players` | List players (filters: `search`, `name`, `id`, `active_channel`) |
-| `POST` | `/api/sfmc/players` | Create/replace players (batch) |
-| `GET` | `/api/sfmc/players/:id` | Get single player |
-| `PATCH` | `/api/sfmc/players/:id` | Update player fields |
-
-#### Scoreboards
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/scoreboards` | List scoreboard entries |
-| `POST` | `/api/sfmc/scoreboards` | Backup scoreboard entries |
-
-#### World
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/world` | Get world metadata |
-| `POST` | `/api/sfmc/world` | Save world metadata |
-
-#### Activity Logs
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/sfmc/activities/batch` | Batch insert activity entries |
-| `GET` | `/api/sfmc/activities` | Query logs (filters: `id`, `event`, `from`, `to`, `name`, `limit`, `offset`) |
-| `GET` | `/api/sfmc/activities/stats` | Activity statistics (`id`, `from`, `to`) |
-| `POST` | `/api/sfmc/activities/cleanup` | Purge old entries (params: `keepDays`, `keepAdmin`) |
-
-#### Co-op
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/sfmc/coop/:key` | Read co-op data by key |
-
-#### System
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/health` | Health check (returns uptime) |
+### 8.6 sim-new-user 失败
+`sim-new-user.js` 自动备份/还原。如果中途崩溃留下 `.sim-workspace.bak/`，下次运行会覆盖。可以手动删除 `tools/.sim-workspace/` 和 `tools/.sim-workspace.bak/`。
 
 ---
 
-## Module Details
+## 9. Roadmap
 
-### Initialization Flow
-
-```
-entry.ts
-  │
-  ├─ system.beforeEvents.startup
-  │     ├─ Permission.register() — declare all permission nodes
-  │     ├─ Command.register() — register all !commands
-  │     ├─ Fly.init(), Menu.init()
-  │     ├─ OnlineTime, CreativeArea, etc. registerCommands()
-  │     └─ ...
-  │
-  ├─ world.afterEvents.worldLoad
-  │     ├─ AFK.init()
-  │     ├─ CoopSystem.init()
-  │     ├─ ChatSystem.init() → DogeChat.ensureDefaultChannels()
-  │     ├─ OnlineTime.getInstance().init() → start per-second tick
-  │     ├─ ScoreboardSync.init() → backup scoreboard to DB
-  │     ├─ syncWorldData() → save world metadata to DB
-  │     ├─ ActivityLog.init()
-  │     └─ ...
-  │
-  ├─ world.afterEvents.playerSpawn (initialSpawn)
-  │     ├─ Peace.getInstance().init()
-  │     ├─ Fly.playerJoinEvent()
-  │     ├─ AFK.reset()
-  │     └─ savePlayers() — persist player data on join
-  │
-  ├─ world.afterEvents.playerLeave
-  │     ├─ savePlayers() — persist player data on leave
-  │     └─ OnlineTime.onPlayerLeave() — persist final online time
-  │
-  ├─ world.beforeEvents.chatSend
-  │     └─ intercept "!" / "！" → Command.trigger()
-  │
-  └─ system.beforeEvents.shutdown
-        ├─ syncWorldData()
-        └─ ScoreboardsBackup()
-```
-
-### Command Processing
-
-```
-Player sends "!help"
-       │
-       ▼
-world.beforeEvents.chatSend
-  ┌─ firstChar === "!" → cancel original message
-  │
-  ├─ Command.trigger(player, "help")
-  │     ├─ Command.canExecute(player, permission)
-  │     │     └─ Permission.check(player, "help.see")
-  │     ├─ system.run(async () => {
-  │     │     const result = await callback(player);
-  │     │     if (result !== undefined) Msg.success(result, player);
-  │     │   })
-  │     └─ return
-  │
-  └─ (if not "!") → DogeChat.sendChannelMessage() — redirect to active channel
-```
-
-### DogeChat Message Delivery
-
-```
-Player sends message in active channel
-       │
-       ▼
-world.beforeEvents.chatSend (message doesn't start with "!")
-       │
-       ▼
-ChatSystem → DogeChat.sendChannelMessage(player, channelId, content)
-       │
-       ├─ 1. ChatApi.getChannel(channelId) — GET /api/sfmc/channels/:id
-       │     └─ check config.allowChat, config.slowMode, config.isBroadcast
-       │
-       ├─ 2. ChatApi.saveMessages([msg]) — POST /api/sfmc/messages
-       │
-       ├─ 3. Broadcast to activeChannelMap:
-       │     for each online player:
-       │       if activeChannelMap[player.id] === channelId:
-       │         player.sendMessage(display)
-       │
-       └─ 4. Update slowModeTracker
-```
-
-### Online Time
-
-Per-second tick, pure DB persistence:
-
-```
-system.runInterval(every 20 ticks = 1 second)
-       │
-       ▼
-OnlineTime.tickSecond()
-       │
-       ├─ for each online player:
-       │     ├─ load data from Map (loaded from DB on join)
-       │     ├─ check date/month reset
-       │     ├─ increment session/today/month/total
-       │     └─ PATCH /api/sfmc/players/{id} — persist to DB
-       │
-       └─ onPlayerLeave → final persist → delete from Map
-```
-
-### Activity Log
-
-```
-Event triggers (block break, chat, death, etc.)
-       │
-       ▼
-Enqueue to in-memory batch queue
-       │
-       ▼
-Every 2 seconds: flush
-       │
-       ▼
-POST /api/sfmc/activities/batch
-       │
-       ▼
-SQLite transaction batch INSERT
-```
-
-**Retention:** 30 days for regular events, permanent for `admin.*` events. Auto-cleanup every 6 hours.
-
-### Scoreboard Sync
-
-| Event | Action |
-|-------|--------|
-| Server start | `ScoreboardsBackup()` → POST `/api/sfmc/scoreboards` |
-| Server stop | `ScoreboardsBackup()` via `system.beforeEvents.shutdown` |
-| Manual | `!sbs` (backup), `!sbs_load` (restore from DB) |
-
-### World Data Sync
-
-| Event | Action |
-|-------|--------|
-| Server start | `syncWorldData()` → POST `/api/sfmc/world` |
-| Server stop | `syncWorldData()` via `system.beforeEvents.shutdown` |
-
-### Player Data Sync
-
-| Event | Action |
-|-------|--------|
-| Player join | `getPlayerData()` → POST `/api/sfmc/players` |
-| Player leave | `getPlayerData()` → POST `/api/sfmc/players` |
+- 模块可热卸载（已实现 cleanup 钩子）
+- 服务安装引导（已集成 setup step 3 路径检测）
+- Holoprint 投影 UI 闭环（按需推进）
+- 远程部署面板（按需推进）
 
 ---
 
-## Environment Variables
+## 10. 许可
 
-### Behavior Pack (`scriptsforminecraftserver/.env`)
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PROJECT_NAME` | Behavior pack folder name | `ScriptsForMinecraftServer` |
-| `MINECRAFT_PRODUCT` | Deploy target (`BedrockGDK`, `PreviewGDK`, `Custom`) | `Custom` |
-| `CUSTOM_DEPLOYMENT_PATH` | Custom deploy path (when `MINECRAFT_PRODUCT=Custom`) | — |
-
-### db-server
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DB_PORT` | HTTP server port | `3001` |
-
-### Runtime (SAPI)
-
-| Config | Description | Source |
-|--------|-------------|--------|
-| `Config.dbHost` | db-server hostname | `Config.ts` |
-| `Config.dbPort` | db-server port | `Config.ts` |
-
----
-
-## UI Conventions
-
-### MenuNavigator — 模块内导航框架
-
-所有表单界面统一使用 `libs/MenuNavigator.ts` 构建。每个模块创建一个 `MenuNavigator` 实例，预注册所有页面（section），然后一次性构建到**同一个表单**中，通过 `ObservableBoolean` 控制可见性实现页面切换——**不关闭/重开表单**。
-
-### 基本用法
-
-```typescript
-const nav = new MenuNavigator(player);
-
-// 注册所有页面
-nav.section("main", "主菜单", (page) => {
-  page.label("内容");
-  page.button("子菜单", () => nav.go("sub"));
-  page.button("跨模块", () => nav.leave(() => OtherModule.show(player)));
-});
-
-nav.section("sub", "子菜单", (page) => {
-  page.textField("输入", obs);
-  page.button("确认", () => { /* ... */ });
-});
-
-// 启动（构建并显示表单，从 main 页开始）
-nav.start("main");
-```
-
-### API
-
-| 方法 | 用途 | 行为 |
-|------|------|------|
-| `nav.section(id, title, builder)` | 注册一个页面 | `title` 用于面包屑导航 |
-| `nav.start(id)` | 打开表单 | 构建所有页面 → 显示 `id` 页 → UserBusy 自动重试 8 秒 |
-| `nav.go(id)` | 同模块导航 | **只翻转可见性**，不关表单，标题自动更新为面包屑 |
-| `nav.rebuild(id)` | 带数据刷新导航 | 关表单 → 重建所有页面（此时 `nav.state` 已设好） → 显示 `id` 页 |
-| `nav.back()` | 返回上一级 | 弹出历史栈，翻转可见性（由全局置顶按钮触发） |
-| `nav.leave(callback)` | 跨模块跳转 | `form.close()` → 执行 `callback`（回调里创建目标模块的 navigator） |
-
-### 页面构建器（Page）
-
-`page` 是 `PageBuilder` 实例，自动给每个组件绑定所属页面的 `ObservableBoolean` 来控制可见性：
-
-```typescript
-page.button(label, onClick)           // ✅ 带 visible 控制
-page.label(text)                      // ✅ 带 visible 控制
-page.divider()                        // ✅ 带 visible 控制
-page.header(text)                     // ✅ 带 visible 控制
-page.textField(label, obs, opts?)     // ❌ 不带 visible（交互组件）
-page.toggle(label, obs, opts?)        // ❌ 不带 visible（交互组件）
-page.dropdown(label, obs, items, o?)  // ❌ 不带 visible（交互组件）
-page.slider(label, obs, min, max, o?) // ❌ 不带 visible（交互组件）
-```
-
-非交互组件（button/label/header/divider）会随页面切换动态显隐。交互组件（textField/toggle/dropdown/slider）始终存在，但在非活跃页面中没有关联的标签和按钮，玩家不会注意到。
-
-### 全局返回按钮
-
-`MenuNavigator.start()` 会在表单最上方注入一个 `§l← 回到上一级` 按钮，其可见性由 `backVis: ObservableBoolean` 控制。在根页面（`history.length === 1`）时隐藏，进入子页面后自动显示。
-
-### 页面间传参
-
-```typescript
-// 页面 A — 设置数据并导航
-page.button(land.name, () => {
-  nav.state.land = land;          // 存数据
-  nav.state.someObs.setData(val); // 或更新 Observable
-  nav.rebuild("detail");          // 重建并导航
-});
-
-// 页面 B — 读取数据（守卫模式）
-nav.section("detail", "详情", (page) => {
-  const land = nav.state.land as LandData;
-  if (!land) { page.label("§7请先选择"); return; }  // ← 必须守卫
-  page.label(land.name);
-  page.button("删除", () => { /* ... */ });
-});
-```
-
-所有依赖 `nav.state.xxx` 的页面**必须加守卫**（`if (!xxx) return`），因为构建发生在 `start()` 时，此时状态还未设置。导航到这类页面时必须用 `nav.rebuild("id")` 而非 `nav.go("id")`，以确保重建时状态已就绪。
-
-### 完整示例
-
-```typescript
-import { MenuNavigator } from "../libs/MenuNavigator";
-import { ObservableString } from "../libs/Gui";
-import { Msg } from "../libs/Tools";
-
-function showMyMenu(player: Player) {
-  const nav = new MenuNavigator(player);
-
-  nav.section("main", "首页", (page) => {
-    page.label("欢迎");
-    page.button("设置", () => nav.go("settings"));
-    page.button("关于", () => nav.leave(() => showAbout(player)));
-  });
-
-  nav.section("settings", "设置", (page) => {
-    const name = new ObservableString("");
-    page.textField("昵称", name);
-    page.button("保存", () => {
-      Msg.success(`已保存: ${name.getData()}`, player);
-    });
-  });
-
-  nav.start("main");
-}
-```
-
-### 注意事项
-
-- 不要手动调用 `.closeButton()` — navigator 自动添加
-- 不要手动添加返回按钮 — navigator 全局注入
-- 不要在 `start()` 之后调用 `section()` — 所有页面必须在 `start()` 前注册
-- `nav.state` 是跨页面共享的，子页面修改后会影响到父页面下次显示
-
-### Message Display (Msg)
-
-All chat messages use `libs/Tools.ts` `Msg` helpers:
-
-| Function | Prefix | Usage |
-|----------|--------|-------|
-| `Msg.info(text, player)` | `§f[*]` | General info |
-| `Msg.success(text, player)` | `§a[√]` | Success |
-| `Msg.error(text, player)` | `§c[x]` | Error |
-| `Msg.warning(text, player)` | `§e[!]` | Warning |
-| `Msg.tips(text, player)` | `§7[!]` | Tip |
-
-### Form Body (ListFormInfo)
-
-```typescript
-ListFormInfo([
-  `First line (gets [*] prefix)`,
-  `  Indented line (plain)`,
-])
-```
-
-### Button Format
-
-- No formatting codes except `§l返回` for back buttons
-- No formatting codes in form titles
-
----
-
-## TODO
-
-- [ ] Sit / crawl mechanics
-- [ ] Addon removal helper
-- [ ] Auto chunk loading
-- [ ] Ender chest interaction override
-- [ ] Player permission management via script
-- [ ] Web dashboard for log viewing
-- [ ] Discord bot integration (server status, chat bridge)
-
----
-
-## Contributing
-
-PRs are welcome! Please follow the existing code conventions:
-
-- **TypeScript**: `trailingComma: es5`, `tabWidth: 2`, double quotes, semicolons
-- **Message display**: Always use `Msg.*()` helpers
-- **Form body**: Always use `ListFormInfo()`
-- **Commands**: Register via `Command.register()` in `startup` phase
-- **Permissions**: Register via `Permission.register()` in `startup` phase
-- **Storage**: New features should use db-server HTTP API, not `world.setDynamicProperty`
+MIT

@@ -44,6 +44,7 @@ export class DogeChat {
 
   /** QQ 桥接轮询 */
   private static _bridgePollStarted = false;
+  private static _bridgePollId: number | undefined = undefined;
   private static _lastBridgeFetch = Date.now();
   private static _lastBridgeTimestamp = 0;
 
@@ -691,7 +692,7 @@ export class DogeChat {
     if (this._bridgePollStarted) return;
     this._bridgePollStarted = true;
     this._lastBridgeFetch = Date.now();
-    system.runInterval(async () => {
+    this._bridgePollId = system.runInterval(async () => {
       try {
         const since = this._lastBridgeFetch;
         this._lastBridgeFetch = Date.now();
@@ -716,5 +717,13 @@ export class DogeChat {
         /* ignore */
       }
     }, 20);
+  }
+
+  static stopBridgePolling(): void {
+    if (this._bridgePollId !== undefined) {
+      try { system.clearRun(this._bridgePollId); } catch {}
+      this._bridgePollId = undefined;
+    }
+    this._bridgePollStarted = false;
   }
 }

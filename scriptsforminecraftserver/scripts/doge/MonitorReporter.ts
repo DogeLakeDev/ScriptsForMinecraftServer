@@ -10,11 +10,20 @@ const REPORT_INTERVAL = 600; // 30 秒
 const DIMENSIONS = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"];
 
 export class MonitorReporter {
+  private static runId: number | undefined;
 
   static init() {
-    system.runInterval(() => {
+    if (this.runId !== undefined) return;
+    this.runId = system.runInterval(() => {
       this.report();
     }, REPORT_INTERVAL);
+  }
+
+  static stop() {
+    if (this.runId !== undefined) {
+      try { system.clearRun(this.runId); } catch {}
+      this.runId = undefined;
+    }
   }
 
   private static async report() {

@@ -42,6 +42,7 @@ function checkLandPermission(player: Player, pos: LandPos, dimid: number, permFi
 
 export class LandEvents {
   private static initialized = false;
+  private static subscriptions: Array<any> = [];
 
   /** 注册事件（由 entry.ts 统一调用） */
   static registerEvents() {
@@ -49,7 +50,7 @@ export class LandEvents {
     this.initialized = true;
 
     // 1. 放置方块拦截
-    world.beforeEvents.playerPlaceBlock.subscribe((ev) => {
+    this.subscriptions.push(world.beforeEvents.playerPlaceBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid =
@@ -59,10 +60,10 @@ export class LandEvents {
         Msg.error("你没有权限在此土地放置方块！", player);
         ev.cancel = true;
       }
-    });
+    }));
 
     // 2. 破坏方块拦截
-    world.beforeEvents.playerBreakBlock.subscribe((ev) => {
+    this.subscriptions.push(world.beforeEvents.playerBreakBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid =
@@ -72,12 +73,12 @@ export class LandEvents {
         Msg.error("你没有权限在此土地破坏方块！", player);
         ev.cancel = true;
       }
-    });
+    }));
 
     // 3. 交互方块拦截（容器）
-    world.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
+    this.subscriptions.push(world.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
       const { player, block } = ev;
-      if (!isContainerBlock(block.typeId)) return; // 只拦截容器
+      if (!isContainerBlock(block.typeId)) return;
 
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid =
@@ -87,6 +88,14 @@ export class LandEvents {
         Msg.error("你没有权限在此土地打开容器！", player);
         ev.cancel = true;
       }
-    });
+    }));
+  }
+
+  static cleanup() {
+    for (const s of this.subscriptions) {
+      try { s.unsubscribe(); } catch {}
+    }
+    this.subscriptions = [];
+    this.initialized = false;
   }
 }

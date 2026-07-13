@@ -8,6 +8,9 @@ import { system, world, GameMode, EquipmentSlot, BlockComponentTypes, } from "@m
 import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 export class InventorySwitcher {
+    constructor() {
+        this.gameModeSub = undefined;
+    }
     static getInstance() {
         if (!InventorySwitcher._instance) {
             InventorySwitcher._instance = new InventorySwitcher();
@@ -16,10 +19,11 @@ export class InventorySwitcher {
     }
     /** 注册事件（由 entry.ts 统一调用） */
     registerEvents() {
-        world.afterEvents.playerGameModeChange.subscribe((event) => {
+        if (this.gameModeSub)
+            return;
+        this.gameModeSub = world.afterEvents.playerGameModeChange.subscribe((event) => {
             const player = event.player;
             system.run(() => {
-                // 延迟执行时检查：如果玩家又切了一次模式，跳过本次
                 if (player.getGameMode() !== event.toGameMode)
                     return;
                 if (event.fromGameMode === GameMode.Survival && event.toGameMode === GameMode.Creative) {
@@ -32,6 +36,15 @@ export class InventorySwitcher {
                 }
             });
         });
+    }
+    cleanup() {
+        if (this.gameModeSub?.unsubscribe) {
+            try {
+                this.gameModeSub.unsubscribe();
+            }
+            catch { }
+        }
+        this.gameModeSub = undefined;
     }
     init() {
         // 核心逻辑已在 registerEvents 中订阅事件

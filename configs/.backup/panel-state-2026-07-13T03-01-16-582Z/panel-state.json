@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "_initialized": true,
+  "ui": {
+    "defaultModules": [
+      "chat",
+      "money"
+    ],
+    "defaultServices": [
+      "db",
+      "qq"
+    ],
+    "skipGuidedSetup": false
+  },
+  "tokens": {
+    "dbAuthToken": "",
+    "bridgeAuthToken": ""
+  },
+  "paths": {
+    "bdsPath": ".",
+    "llbotPath": ".",
+    "llbotCwd": ".",
+    "dbPort": 3001
+  },
+  "locale": "zh-CN",
+  "_initializedAt": 1783911676566
+}

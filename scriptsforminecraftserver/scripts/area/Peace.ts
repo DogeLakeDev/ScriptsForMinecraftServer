@@ -19,12 +19,15 @@ export class Peace {
   }
 
   enable = true;
+  private entitySpawnSub: any = undefined;
+
   init() {
     this.registerEvents();
   }
 
   registerEvents() {
-    world.afterEvents.entitySpawn.subscribe((event) => {
+    if (this.entitySpawnSub) return;
+    this.entitySpawnSub = world.afterEvents.entitySpawn.subscribe((event) => {
       if (!this.enable) return;
       try {
         if (event.cause === EntityInitializationCause.Spawned) {
@@ -35,6 +38,13 @@ export class Peace {
         }
       } catch {}
     });
+  }
+
+  cleanup() {
+    if (this.entitySpawnSub?.unsubscribe) {
+      try { this.entitySpawnSub.unsubscribe(); } catch {}
+    }
+    this.entitySpawnSub = undefined;
   }
 
   /**

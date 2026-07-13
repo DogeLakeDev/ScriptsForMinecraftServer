@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "modules": {
+    "tool-bds-updater": {
+      "installed": false,
+      "installedAt": 1783905480982,
+      "updatedAt": 1783910755825,
+      "lastUninstalledAt": 1783910755825,
+      "trashDir": null
+    }
+  }
+}

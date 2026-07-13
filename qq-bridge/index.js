@@ -191,6 +191,7 @@ function startWsServer() {
 // ────────── HTTP 服务（供 db-server / BDSTools 调用） ──────────
 
 function startHttpServer() {
+  const AUTH_TOKEN = cfg.bridge_auth_token || '';
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const path = url.pathname;
@@ -209,11 +210,39 @@ function startHttpServer() {
       r.on('error', rj);
     });
 
+    // 强制 loopback 绑定，仅允许本机访问
+    const remote = req.socket.remoteAddress || '';
+    if (remote && !remote.startsWith('127.') && remote !== '::1' && remote !== '::ffff:127.') {
+      json({ success: false, error: 'forbidden' }, 403);
+      return;
+    }
+
     // ── GET /health ──
     if (path === '/health' && method === 'GET') {
       json({ status: 'ok', uptime: process.uptime() });
       return;
     }
+
+    // 鉴权（除 /health 外的所有写接口）
+    if (AUTH_TOKEN) {
+      const auth = req.headers['authorization'] || '';
+      const provided = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-bridge-token'] || '');
+      if (provided !== AUTH_TOKEN) {
+        json({ success: false, error: 'unauthorized' }, 401);
+        return;
+      }
+    }
+
+    // 请求体大小限制（默认 256KB）
+    const MAX_BODY = parseInt(cfg.bridge_max_body || '262144', 10);
+    let received = 0;
+    req.on('data', (chunk) => {
+      received += chunk.length;
+      if (received > MAX_BODY) {
+        req.destroy();
+        json({ success: false, error: 'payload_too_large' }, 413);
+      }
+    });
 
     // ── POST /forward — 来自 db-server 的消息转发到 QQ ──
     if (path === '/forward' && method === 'POST') {
@@ -260,9 +289,10 @@ function startHttpServer() {
     json({ success: false, error: 'not_found' }, 404);
   });
 
-  server.listen(HTTP_PORT, () => {
+  server.listen(HTTP_PORT, '127.0.0.1', () => {
     log(`[QQBridge] HTTP 服务启动 http://127.0.0.1:${HTTP_PORT}`);
     log(`[QQBridge] 可用接口: POST /forward, POST /send, GET /health`);
+    log(`[QQBridge] 鉴权: ${AUTH_TOKEN ? '已启用 token' : '未启用'}`);
   });
 }
 

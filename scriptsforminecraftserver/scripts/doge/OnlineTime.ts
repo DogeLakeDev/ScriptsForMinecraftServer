@@ -51,7 +51,8 @@ export class OnlineTime {
           player
         );
       },
-      "查看在线时间统计"
+      "查看在线时间统计",
+      "onlineTime"
     );
   }
 
@@ -163,8 +164,17 @@ export class OnlineTime {
   }
 
   private startTick() {
-    system.runInterval(() => {
+    this.tickRunId = system.runInterval(() => {
       this.tickSecond();
     }, 20);
+  }
+
+  private tickRunId: number | undefined;
+
+  stop() {
+    if (this.tickRunId !== undefined) {
+      try { system.clearRun(this.tickRunId); } catch {}
+      this.tickRunId = undefined;
+    }
   }
 }

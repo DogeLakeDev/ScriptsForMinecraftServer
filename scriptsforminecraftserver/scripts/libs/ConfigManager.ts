@@ -37,6 +37,7 @@ export class ConfigManager {
   };
 
   private static _initialized = false;
+  private static _ready = false;
 
   static async init(): Promise<void> {
     if (this._initialized) return;
@@ -44,7 +45,12 @@ export class ConfigManager {
     await HttpDB.checkHealth();
     await this.reloadAll();
     this._syncRuntimeFlags();
+    this._ready = true;
     console.log("[ConfigManager] 配置已加载");
+  }
+
+  static isReady(): boolean {
+    return this._ready;
   }
 
   static startPolling(intervalTicks = 72000): void {
@@ -59,7 +65,8 @@ export class ConfigManager {
   }
 
   static isEnabled(module: string): boolean {
-    return this.cache.modules.get(module) ?? true;
+    if (!this._ready) return false;
+    return this.cache.modules.get(module) ?? false;
   }
 
   static getSetting<T>(key: string, defaultVal?: T): T {
@@ -180,6 +187,15 @@ export class ConfigManager {
         console.warn("[ConfigManager] 收到热重载信号，重新加载配置");
         await this.reloadAll();
         this._syncRuntimeFlags();
+        // 模块启用/禁用变更触发 cleanup/boot
+        const { ModuleRegistry } = await import("./ModuleRegistry");
+        const changes = ModuleRegistry.reconcile();
+        if (changes.length > 0) {
+          for (const p of world.getPlayers()) {
+            const list = changes.map((c) => `${c.id} ${c.action === 'disable' ? '已禁用' : '已启用'}`).join(', ');
+            Msg.info(`模块变更: ${list}`, p);
+          }
+        }
         const bridgeId = this.getSetting("bridge_channel_id", "");
         if (bridgeId) DogeChat.startBridgePolling(bridgeId);
         for (const p of world.getPlayers()) {
@@ -203,7 +219,10 @@ export class ConfigManager {
       if (!body) return;
       const { modules } = JSON.parse(body);
       this.cache.modules.clear();
-      for (const m of modules) this.cache.modules.set(m.name, !!m.enabled);
+      for (const m of modules) {
+        const key = m.config_key || m.configKey || m.name;
+        if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
+      }
     } catch (e) {
       console.warn(`[ConfigManager] 获取模块配置失败: ${(e as Error).message || e}`);
     }

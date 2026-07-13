@@ -15,7 +15,10 @@
   },
   "scripts": {
     "lint": "just-scripts lint",
-    "build": "just-scripts build",
+    "build": "node ../tools/check-catalog.js && just-scripts build",
+    "build:noscript": "just-scripts build",
+    "check:catalog": "node ../tools/check-catalog.js",
+    "build:legacy": "just-scripts build",
     "clean": "just-scripts clean",
     "local-deploy": "just-scripts local-deploy",
     "mcaddon": "just-scripts mcaddon",

@@ -16,6 +16,7 @@ export class QAManager {
         this.rightAmount = 0;
         this.wrongAmount = 0;
         this.timeoutId = undefined;
+        this.chatSub = undefined;
         // 出题记录，避免短时间重复出题
         this.record = []; // 最近出的几个题
         this.recordPtr = 0; // 下一个记录写入的位置
@@ -34,7 +35,7 @@ export class QAManager {
      * 开始答题循环
      */
     start() {
-        world.beforeEvents.chatSend.subscribe((event) => {
+        this.chatSub = world.beforeEvents.chatSend.subscribe((event) => {
             if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "！") {
                 let answer = event.message.substring(1);
                 answer = answer.replaceAll(" "); // 去除空格
@@ -45,9 +46,25 @@ export class QAManager {
                 }
             }
         });
-        system.runTimeout(() => {
+        this.timeoutId = system.runTimeout(() => {
             this.nextQuestion();
         }, QAManager.getNextTimeout());
+    }
+    stop() {
+        try {
+            if (this.chatSub && typeof this.chatSub.unsubscribe === 'function')
+                this.chatSub.unsubscribe();
+        }
+        catch { }
+        this.chatSub = undefined;
+        if (this.timeoutId !== undefined) {
+            try {
+                system.clearRun(this.timeoutId);
+            }
+            catch { }
+            this.timeoutId = undefined;
+        }
+        this.nowQuestion = undefined;
     }
     // 下一个问题
     nextQuestion() {

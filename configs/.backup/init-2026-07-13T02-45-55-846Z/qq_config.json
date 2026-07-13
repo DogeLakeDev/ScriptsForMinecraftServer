@@ -1,0 +1,13 @@
+{
+  "qq_group_id": 688524595,
+  "bridge_channel_id": "CH_9g2n3erc",
+  "qq_ws_port": 3002,
+  "qq_bridge_port": 3003,
+  "llbot_http": "http://127.0.0.1:6322",
+  "llbot_enabled": true,
+  "llbot_path": "D:\\LLBot-CLI-win-x64\\llbot.exe",
+  "llbot_cwd": "D:\\LLBot-CLI-win-x64",
+  "mctoqq_prefix": "[OW]",
+  "db_host": "127.0.0.1",
+  "db_port": 3001
+}

@@ -1,17 +1,18 @@
 /**
  * DogeChat 数据库服务 — HTTP REST API
- * SQLite (bun:sqlite) + Node.js http
+ * SQLite + Node.js http
  */
 
 const http = require('http');
 const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
-const { Database } = require('bun:sqlite');
+const { DatabaseSync } = require('node:sqlite');
 
 // 加载外部配置 JSON（覆盖 process.env）
+const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
 try {
-  const cfgPath = path.join(__dirname, '..', 'configs', 'db_config.json');
+  const cfgPath = path.join(PROJECT_ROOT, 'configs', 'db_config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
   for (const [k, v] of Object.entries(cfg)) {
     const envKey = k.replace(/([A-Z])/g, '_$1').toUpperCase();
@@ -23,9 +24,13 @@ try {
 }
 
 const PORT = parseInt(process.env.DB_PORT || '3001', 10);
-const DB_PATH = path.join(__dirname, 'sfmc_data.db');
+const DB_PATH = process.env.SFMC_DB_PATH || path.join(__dirname, 'sfmc_data.db');
 const QQ_BRIDGE_HOST = '127.0.0.1';
 const QQ_BRIDGE_PORT = parseInt(process.env.QQ_BRIDGE_PORT || '3003', 10);
+const AUTH_TOKEN = process.env.DB_AUTH_TOKEN || '';
+const MODULES_DIR = process.env.SFMC_MODULES_DIR || path.join(PROJECT_ROOT, 'modules');
+const MODULE_CATALOG_PATH = path.join(MODULES_DIR, 'catalog.json');
+const MODULE_LOCK_PATH = path.join(MODULES_DIR, 'module-lock.json');
 
 let db;
 
@@ -33,21 +38,499 @@ let db;
 let _monitorMetrics = null;
 let _monitorPlayers = [];
 
+function readJsonFile(filePath, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonFile(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n');
+}
+
+function normalizeModuleEntry(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw.entry && typeof raw.entry === 'object' ? raw.entry : {};
+  const id = String(raw.id || '').trim();
+  const configKey = String(raw.configKey || raw.config_key || '').trim();
+  const name = String(raw.name || '').trim();
+  if (!id || !configKey) return null;
+  return {
+    id,
+    configKey,
+    name: name || configKey,
+    type: String(raw.type || 'feature'),
+    description: String(raw.description || ''),
+    defaultEnabled: raw.defaultEnabled !== false,
+    defaultInstalled: raw.defaultInstalled !== false,
+    canDisable: raw.canDisable !== false,
+    canUninstall: raw.canUninstall !== false,
+    requires: Array.isArray(raw.requires) ? raw.requires.filter(Boolean).map((s) => String(s)) : [],
+    optional: Array.isArray(raw.optional) ? raw.optional.filter(Boolean).map((s) => String(s)) : [],
+    commands: Array.isArray(raw.commands) ? raw.commands.filter(Boolean).map((s) => String(s)) : [],
+    entry: {
+      kind: String(entry.kind || ''),
+      path: String(entry.path || ''),
+      init: String(entry.init || ''),
+    },
+  };
+}
+
+function loadModuleCatalog() {
+  const data = readJsonFile(MODULE_CATALOG_PATH, { version: 1, modules: [] });
+  const modules = Array.isArray(data.modules) ? data.modules : [];
+  return modules.map(normalizeModuleEntry).filter(Boolean);
+}
+
+function loadModuleLock() {
+  const data = readJsonFile(MODULE_LOCK_PATH, { version: 1, modules: {} });
+  const modules = data && typeof data.modules === 'object' && data.modules ? data.modules : {};
+  return { version: 1, modules };
+}
+
+function saveModuleLock(lock) {
+  writeJsonFile(MODULE_LOCK_PATH, lock);
+}
+
+function getEnabledModuleMap() {
+  const rows = query('SELECT name, enabled FROM sfmc_config_modules');
+  const map = new Map();
+  for (const row of rows) map.set(row.name, !!row.enabled);
+  return map;
+}
+
+function ensureModuleConfigRows(now = Date.now()) {
+  const existing = new Set(query('SELECT name FROM sfmc_config_modules').map((row) => row.name));
+  for (const module of loadModuleCatalog()) {
+    if (!module.configKey || existing.has(module.configKey)) continue;
+    query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [
+      module.configKey,
+      module.defaultEnabled ? 1 : 0,
+      now,
+    ]);
+  }
+}
+
+function buildModuleList() {
+  const catalog = loadModuleCatalog();
+  const lock = loadModuleLock();
+  const enabledMap = getEnabledModuleMap();
+  const seenKeys = new Set();
+  const rows = catalog.map((module) => {
+    seenKeys.add(module.configKey);
+    const state = lock.modules[module.id] || {};
+    const enabled = enabledMap.has(module.configKey) ? enabledMap.get(module.configKey) : module.defaultEnabled;
+    return {
+      id: module.id,
+      module_id: module.id,
+      name: module.configKey,
+      config_key: module.configKey,
+      display_name: module.name,
+      type: module.type,
+      description: module.description,
+      default_enabled: module.defaultEnabled,
+      default_installed: module.defaultInstalled,
+      can_disable: module.canDisable,
+      can_uninstall: module.canUninstall,
+      requires: module.requires,
+      optional: module.optional,
+      commands: module.commands,
+      entry: module.entry,
+      installed: state.installed !== undefined ? !!state.installed : module.defaultInstalled,
+      installed_at: state.installedAt || null,
+      updated_at: state.updatedAt || null,
+      enabled: !!enabled,
+    };
+  });
+  for (const [key, enabled] of enabledMap.entries()) {
+    if (seenKeys.has(key)) continue;
+    rows.push({
+      id: key,
+      module_id: key,
+      name: key,
+      config_key: key,
+      display_name: key,
+      type: 'legacy',
+      description: '',
+      default_enabled: !!enabled,
+      default_installed: true,
+      can_disable: true,
+      can_uninstall: false,
+      requires: [],
+      optional: [],
+      commands: [],
+      entry: { kind: '', path: '', init: '' },
+      installed: true,
+      installed_at: null,
+      updated_at: null,
+      enabled: !!enabled,
+    });
+  }
+  return rows;
+}
+
+function resolveModuleByKey(key) {
+  const normalized = String(key || '').trim();
+  if (!normalized) return null;
+  const catalog = loadModuleCatalog();
+  const found = catalog.find((module) => module.id === normalized || module.configKey === normalized);
+  if (found) return found;
+  const enabledMap = getEnabledModuleMap();
+  if (!enabledMap.has(normalized)) return null;
+  return {
+    id: normalized,
+    configKey: normalized,
+    name: normalized,
+    type: 'legacy',
+    description: '',
+    defaultEnabled: !!enabledMap.get(normalized),
+    defaultInstalled: true,
+    canDisable: true,
+    canUninstall: false,
+    requires: [],
+    optional: [],
+    commands: [],
+    entry: { kind: '', path: '', init: '' },
+  };
+}
+
+function getModuleInstalled(module) {
+  if (!module) return true;
+  const lock = loadModuleLock();
+  const state = lock.modules[module.id];
+  if (!state) return module.defaultInstalled !== false;
+  return state.installed !== false;
+}
+
+function getModuleEnabled(module) {
+  if (!module) return true;
+  const rows = query('SELECT enabled FROM sfmc_config_modules WHERE name = ?', [module.configKey]);
+  if (rows.length === 0) return module.defaultEnabled !== false;
+  return !!rows[0].enabled;
+}
+
+function checkEnableDeps(module) {
+  const catalog = loadModuleCatalog();
+  const depModules = (module.requires || []).map((id) => catalog.find((m) => m.id === id)).filter(Boolean);
+  const missing = [];
+  for (const dep of depModules) {
+    if (!getModuleInstalled(dep)) missing.push({ id: dep.id, reason: 'not_installed' });
+    else if (!getModuleEnabled(dep)) missing.push({ id: dep.id, reason: 'disabled' });
+  }
+  return missing;
+}
+
+function checkInstallDeps(module) {
+  const catalog = loadModuleCatalog();
+  const depModules = (module.requires || []).map((id) => catalog.find((m) => m.id === id)).filter(Boolean);
+  const missing = [];
+  for (const dep of depModules) {
+    if (!getModuleInstalled(dep)) missing.push({ id: dep.id, reason: 'not_installed' });
+  }
+  return missing;
+}
+
+function checkReverseDeps(module) {
+  const catalog = loadModuleCatalog();
+  const dependents = catalog.filter((m) => (m.requires || []).includes(module.id));
+  const installedDependents = [];
+  for (const dep of dependents) {
+    if (getModuleInstalled(dep)) installedDependents.push(dep.id);
+  }
+  return installedDependents;
+}
+
+// ============================================================
+//  初始化向导 — 首次安装配置
+// ============================================================
+
+const ROOT_DIR = PROJECT_ROOT;
+const STATE_PATH = path.join(PROJECT_ROOT, 'panel-state.json');
+const CFG_DIR = path.join(PROJECT_ROOT, 'configs');
+const BACKUP_DIR = path.join(CFG_DIR, '.backup');
+
+function loadPanelState() {
+  try {
+    return JSON.parse(fs.readFileSync(STATE_PATH, 'utf-8'));
+  } catch {
+    return {
+      version: 1,
+      _initialized: false,
+      ui: { defaultModules: ['money', 'chat', 'afk', 'shop', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
+      tokens: { dbAuthToken: '', bridgeAuthToken: '' },
+      paths: { bdsPath: 'D:\\Minecraft\\BEServer', llbotPath: 'D:\\LLBot-CLI-win-x64\\llbot.exe', llbotCwd: 'D:\\LLBot-CLI-win-x64', dbPort: 3001 },
+      locale: 'zh-CN',
+    };
+  }
+}
+
+function saveJsonAtomic(filePath, value) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n');
+  fs.renameSync(tmp, filePath);
+}
+
+function backupConfigFile(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const dest = path.join(BACKUP_DIR, `init-${stamp}`, path.basename(filePath));
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(filePath, dest);
+  return dest;
+}
+
+function loadJsonConfig(filePath, fallback) {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); }
+  catch { return fallback; }
+}
+
+function runSetupChecks(payload) {
+  const checks = [];
+  const db = payload.db || {};
+  const bds = payload.bds || {};
+  const qq = payload.qq || {};
+
+  if (db.port) {
+    const port = parseInt(db.port, 10);
+    checks.push({ id: 'db.port', ok: port > 0 && port < 65536, label: `DB 端口 ${port} 合法` });
+  }
+  if (bds.path) {
+    const exists = fs.existsSync(path.join(bds.path, 'bedrock_server.exe'));
+    checks.push({ id: 'bds.path', ok: exists, label: `BDS 可执行文件 ${exists ? '存在' : '缺失: ' + path.join(bds.path, 'bedrock_server.exe')}` });
+  }
+  if (qq.llbot_path) {
+    const exists = fs.existsSync(qq.llbot_path);
+    checks.push({ id: 'qq.llbot_path', ok: exists, label: `LLBot 可执行文件 ${exists ? '存在' : '缺失: ' + qq.llbot_path}` });
+  }
+  if (qq.llbot_cwd) {
+    const exists = fs.existsSync(qq.llbot_cwd);
+    checks.push({ id: 'qq.llbot_cwd', ok: exists, label: `LLBot 工作目录 ${exists ? '存在' : '缺失: ' + qq.llbot_cwd}` });
+  }
+  if (qq.bridge_auth_token) {
+    checks.push({ id: 'qq.bridge_auth_token', ok: qq.bridge_auth_token.length >= 8, label: `Bridge Token 长度合法 (${qq.bridge_auth_token.length})` });
+  }
+  return checks;
+}
+
+function applyInitPayload(payload) {
+  const written = [];
+  const state = loadPanelState();
+
+  // 1. 备份现有 configs
+  for (const f of ['db_config.json', 'bds_updater.json', 'qq_config.json', 'modules.json']) {
+    backupConfigFile(path.join(CFG_DIR, f));
+  }
+  backupConfigFile(MODULE_LOCK_PATH);
+
+  // 2. 写 panel-state.json
+  if (payload.state) {
+    Object.assign(state, payload.state);
+  }
+  if (payload.paths) state.paths = { ...state.paths, ...payload.paths };
+  if (payload.tokens) state.tokens = { ...state.tokens, ...payload.tokens };
+  if (payload.ui) state.ui = { ...state.ui, ...payload.ui };
+  if (payload.locale) state.locale = payload.locale;
+  state._initialized = true;
+  state._initializedAt = Date.now();
+  saveJsonAtomic(STATE_PATH, state);
+  written.push('panel-state.json');
+
+  // 3. 写 configs/db_config.json
+  if (payload.db) {
+    const cfg = loadJsonConfig(path.join(CFG_DIR, 'db_config.json'), {});
+    Object.assign(cfg, payload.db);
+    saveJsonAtomic(path.join(CFG_DIR, 'db_config.json'), cfg);
+    written.push('configs/db_config.json');
+  }
+
+  // 4. 写 configs/bds_updater.json
+  if (payload.bds) {
+    const cfg = loadJsonConfig(path.join(CFG_DIR, 'bds_updater.json'), {});
+    if (payload.bds.path) cfg.bds_path = payload.bds.path;
+    if (payload.bds.backup_dir) cfg.backup_dir = payload.bds.backup_dir;
+    saveJsonAtomic(path.join(CFG_DIR, 'bds_updater.json'), cfg);
+    written.push('configs/bds_updater.json');
+  }
+
+  // 5. 写 configs/qq_config.json
+  if (payload.qq) {
+    const cfg = loadJsonConfig(path.join(CFG_DIR, 'qq_config.json'), {});
+    Object.assign(cfg, payload.qq);
+    saveJsonAtomic(path.join(CFG_DIR, 'qq_config.json'), cfg);
+    written.push('configs/qq_config.json');
+  }
+
+  // 6. 写 configs/modules.json (按 ui.defaultModules + ui.defaultServices)
+  if (payload.modules || payload.ui?.defaultModules) {
+    const enabled = new Set([
+      ...(payload.ui?.defaultModules || state.ui?.defaultModules || []),
+      ...(payload.ui?.defaultServices || state.ui?.defaultServices || []),
+    ]);
+    const modCfg = { modules: {} };
+    for (const k of enabled) modCfg.modules[k] = true;
+    saveJsonAtomic(path.join(CFG_DIR, 'modules.json'), modCfg);
+    written.push('configs/modules.json');
+
+    // 同步写入 sfmc_config_modules 表
+    const cat = loadModuleCatalog();
+    const now = Date.now();
+    for (const m of cat) {
+      const enabledForCat = enabled.has(m.configKey);
+      query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [
+        m.configKey,
+        enabledForCat ? 1 : 0,
+        now,
+      ]);
+    }
+  }
+
+  // 7. 写 modules/module-lock.json（默认 installed=true）
+  //    根据 defaultModules / defaultServices 同步 catalog 中匹配模块的 installed
+  {
+    const lock = loadModuleLock();
+    const now = Date.now();
+    const cat = loadModuleCatalog();
+    const catByKey = new Map(cat.map((m) => [m.configKey, m]));
+    const requested = new Set([
+      ...(payload.installedModules || []),
+      ...(payload.ui?.defaultModules || []),
+      ...(payload.ui?.defaultServices || []),
+    ]);
+    for (const key of requested) {
+      const mod = catByKey.get(key);
+      if (!mod) continue;
+      const prev = lock.modules[mod.id];
+      lock.modules[mod.id] = {
+        installed: true,
+        installedAt: prev?.installedAt || now,
+        updatedAt: now,
+      };
+    }
+    if (requested.size > 0 || Object.keys(lock.modules).length > 0) {
+      saveModuleLock(lock);
+      written.push('modules/module-lock.json');
+    }
+  }
+
+  // 8. 触发 reload 信号
+  query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', ['_reload_signal', String(Date.now()), Date.now()]);
+
+  return { state, written };
+}
+
+function applyInitReset(payload) {
+  const restored = [];
+  // 同时清掉 sfmc_config_modules 里所有记录（让模块回到默认 + catalog-only 状态）
+  try { query('DELETE FROM sfmc_config_modules'); } catch {}
+  // 重新同步 catalog 里的默认状态
+  ensureModuleConfigRows(Date.now());
+
+  const stamps = fs.existsSync(BACKUP_DIR) ? fs.readdirSync(BACKUP_DIR).filter((d) => d.startsWith('init-')).sort().reverse() : [];
+  if (stamps.length > 0) {
+    const latest = stamps[0];
+    const dir = path.join(BACKUP_DIR, latest);
+    for (const name of fs.readdirSync(dir)) {
+      const target = path.join(CFG_DIR, name);
+      if (name === 'modules.json' || name.endsWith('.json')) {
+        fs.copyFileSync(path.join(dir, name), target);
+        restored.push(`configs/${name}`);
+      }
+    }
+    if (fs.existsSync(path.join(dir, 'module-lock.json'))) {
+      fs.copyFileSync(path.join(dir, 'module-lock.json'), MODULE_LOCK_PATH);
+      restored.push('modules/module-lock.json');
+    }
+  }
+  // 重置 panel-state.json
+  const state = loadPanelState();
+  state._initialized = false;
+  state._initializedAt = null;
+  saveJsonAtomic(STATE_PATH, state);
+  query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', ['_reload_signal', String(Date.now()), Date.now()]);
+  return { state, restored };
+}
+
+function setModuleEnabled(module, enabled) {
+  if (enabled && module.requires && module.requires.length > 0) {
+    const unmet = checkEnableDeps(module);
+    if (unmet.length > 0) {
+      const err = new Error('dependency_unmet');
+      err.code = 'dependency_unmet';
+      err.unmet = unmet;
+      throw err;
+    }
+  }
+  const now = Date.now();
+  query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [
+    module.configKey,
+    enabled ? 1 : 0,
+    now,
+  ]);
+  try {
+    const mPath = path.join(PROJECT_ROOT, 'configs', 'modules.json');
+    const mData = readJsonFile(mPath, { modules: {} });
+    if (!mData.modules || typeof mData.modules !== 'object') mData.modules = {};
+    mData.modules[module.configKey] = !!enabled;
+    writeJsonFile(mPath, mData);
+    console.log(`[ConfigSync] modules.json: ${module.configKey} = ${!!enabled}`);
+  } catch (e) {
+    console.warn(`[ConfigSync] modules.json 同步失败: ${e.message}`);
+  }
+}
+
+function setModuleInstalled(module, installed) {
+  if (installed && module.requires && module.requires.length > 0) {
+    const unmet = checkInstallDeps(module);
+    if (unmet.length > 0) {
+      const err = new Error('dependency_unmet');
+      err.code = 'dependency_unmet';
+      err.unmet = unmet;
+      throw err;
+    }
+  }
+  if (!installed) {
+    const dependents = checkReverseDeps(module);
+    if (dependents.length > 0) {
+      const err = new Error('dependency_required');
+      err.code = 'dependency_required';
+      err.requiredBy = dependents;
+      throw err;
+    }
+  }
+  const now = Date.now();
+  const lock = loadModuleLock();
+  const prev = lock.modules[module.id] || {};
+  lock.modules[module.id] = {
+    installed: !!installed,
+    installedAt: prev.installedAt || now,
+    updatedAt: now,
+  };
+  saveModuleLock(lock);
+  if (!installed) {
+    setModuleEnabled(module, false);
+  }
+}
+
 // ---------- 数据库初始化 ----------
 
 async function initDB() {
-  db = new Database(DB_PATH);
-  db.run('PRAGMA foreign_keys = ON');
-  db.run('PRAGMA journal_mode = WAL');
-  db.run('PRAGMA busy_timeout = 5000');
+  db = new DatabaseSync(DB_PATH);
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA busy_timeout = 5000');
 
   const fkList = db.prepare("PRAGMA foreign_key_list('sfmc_chat_messages')").all();
   if (fkList.length > 0) {
-    db.run('DROP TABLE IF EXISTS sfmc_chat_messages');
+    db.exec('DROP TABLE IF EXISTS sfmc_chat_messages');
     console.log('[DogeDB] 已迁移 sfmc_chat_messages（移除无效 FK）');
   }
 
-  db.run(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS sfmc_world (
       allow_cheats INTEGER NOT NULL DEFAULT 0,
       game_rules TEXT NOT NULL DEFAULT '',
@@ -179,7 +662,7 @@ async function initDB() {
       DROP TABLE IF EXISTS sfmc_coop_data;
       `);
   // 配置表
-  db.run(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS sfmc_config_modules (
       name TEXT PRIMARY KEY,
       enabled INTEGER NOT NULL DEFAULT 1,
@@ -223,8 +706,8 @@ async function initDB() {
       updated_at INTEGER NOT NULL
     );
   `);
-  db.run("INSERT OR IGNORE INTO sfmc_config_clean(id, item_max, poll_interval, updated_at) VALUES(1, 192, 60, 0)");
-  db.run(`
+  db.exec("INSERT OR IGNORE INTO sfmc_config_clean(id, item_max, poll_interval, updated_at) VALUES(1, 192, 60, 0)");
+  db.exec(`
 
     CREATE TABLE IF NOT EXISTS sfmc_config_permissions (
       player_name TEXT PRIMARY KEY,
@@ -321,13 +804,14 @@ async function initDB() {
   if (tables.length > 0) {
     const cnt = query('SELECT COUNT(*) as c FROM sfmc_config_modules');
     if (cnt[0].c === 0) {
-      const cfgDir = path.join(__dirname, '..', 'configs');
+const cfgDir = path.join(PROJECT_ROOT, 'configs');
       const now = Date.now();
       const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[DogeDB] config:', e.message); } };
       try {
         const m = JSON.parse(fs.readFileSync(path.join(cfgDir, 'modules.json'), 'utf-8'));
         for (const [k, v] of Object.entries(m.modules)) _( 'INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?,?,?)', [k, v ? 1 : 0, now]);
       } catch (e) {}
+      ensureModuleConfigRows(now);
       try {
         const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
         for (const [k, v] of Object.entries(s)) _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]);
@@ -371,6 +855,7 @@ async function initDB() {
       } catch (e) {}
       console.log('[DogeDB] 初始配置已从 /configs/ 导入');
     }
+    ensureModuleConfigRows(Date.now());
   }
   console.log('[DogeDB] 数据库已就绪');
 }
@@ -388,6 +873,7 @@ function reloadConfigsFromJson() {
     const m = JSON.parse(fs.readFileSync(path.join(cfgDir, 'modules.json'), 'utf-8'));
     let c = 0; for (const [k, v] of Object.entries(m.modules)) { _( 'INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?,?,?)', [k, v ? 1 : 0, now]); c++; } log('modules', c);
   } catch (e) { console.warn('[ConfigReload] modules.json 失败:', e.message); }
+  ensureModuleConfigRows(now);
   try {
     const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
     let c = 0; for (const [k, v] of Object.entries(s)) { _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]); c++; } log('settings', c);
@@ -439,7 +925,7 @@ function reloadConfigsFromJson() {
   query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', ['_reload_signal', String(now), now]);
   console.log(`[ConfigReload] 已发送热重载信号 (${now})，SAPI 将在 2 秒内生效`);
 }
-const { registerHoloprintRoutes, getHoloprintDDL } = require('./holoprint/router');
+const { registerHoloprintRoutes, getHoloprintDDL } = require('../holoprint/router');
 
 // ---------- 工具 ----------
 
@@ -502,20 +988,59 @@ function query(sql, params = []) {
   const trimmed = sql.trim().toUpperCase();
   if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH')) {
     // .all() 直接返回所有行数组
-    return stmt.all(params);
+    return stmt.all(...params);
   } else {
-    const info = stmt.run(params);
+    const info = stmt.run(...params);
     return { changes: info.changes };
   }
 }
 
 // ---------- 路由（按资源路径分组） ----------
 
+const MAX_BODY_BYTES = parseInt(process.env.DB_MAX_BODY || '1048576', 10); // 默认 1MB
+
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const path = url.pathname;
   const method = req.method;
   const params = url.searchParams;
+
+  // loopback 绑定（仅允许本机访问）
+  const remote = req.socket.remoteAddress || '';
+  if (remote && !remote.startsWith('127.') && remote !== '::1' && remote !== '::ffff:127.') {
+    json(res, { success: false, error: 'forbidden' }, 403);
+    return;
+  }
+
+  // token 鉴权（仅写接口 + 模块安装类接口）
+  const PUBLIC_GET = path === '/api/health' || (method === 'GET' && (
+    path === '/api/sfmc/modules' ||
+    path === '/api/sfmc/modules/catalog' ||
+    path.startsWith('/api/sfmc/modules/') ||
+    path === '/api/sfmc/setup/state'
+  ));
+  const PUBLIC_POST = path === '/api/sfmc/setup/init' || path === '/api/sfmc/setup/reset';
+  const NEEDS_AUTH = !PUBLIC_GET && !PUBLIC_POST && method !== 'GET';
+  if (AUTH_TOKEN && NEEDS_AUTH) {
+    const auth = req.headers['authorization'] || '';
+    const provided = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-db-token'] || '');
+    if (provided !== AUTH_TOKEN) {
+      json(res, { success: false, error: 'unauthorized' }, 401);
+      return;
+    }
+  }
+
+  // 请求体大小限制
+  let received = 0;
+  let bodyTooLarge = false;
+  req.on('data', (chunk) => {
+    received += chunk.length;
+    if (received > MAX_BODY_BYTES && !bodyTooLarge) {
+      bodyTooLarge = true;
+      req.destroy();
+      try { json(res, { success: false, error: 'payload_too_large' }, 413); } catch {}
+    }
+  });
 
   try {
     // ────── /api/health ──────
@@ -1011,7 +1536,7 @@ async function handle(req, res) {
         const { value } = await body(req);
         query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', [key, String(value ?? ''), Date.now()]);
         try {
-          const sPath = require('path').join(__dirname, '..', 'configs', 'settings.json');
+          const sPath = require('path').join(PROJECT_ROOT, 'configs', 'settings.json');
           const sData = JSON.parse(fs.readFileSync(sPath, 'utf-8'));
           sData[key] = value;
           fs.writeFileSync(sPath, JSON.stringify(sData, null, 2) + '\n');
@@ -1022,24 +1547,90 @@ async function handle(req, res) {
       return;
     }
 
+    // ────── /api/sfmc/setup/* ──────
+    if (path === '/api/sfmc/setup/state' && method === 'GET') {
+      const st = loadPanelState();
+      json(res, { state: st, initialized: !!st._initialized });
+      return;
+    }
+    if (path === '/api/sfmc/setup/init' && method === 'POST') {
+      const data = await body(req);
+      const result = applyInitPayload(data || {});
+      json(res, { success: true, state: result.state, written: result.written });
+      return;
+    }
+    if (path === '/api/sfmc/setup/reset' && method === 'POST') {
+      const data = await body(req);
+      const result = applyInitReset(data || {});
+      json(res, { success: true, state: result.state, restored: result.restored });
+      return;
+    }
+    if (path === '/api/sfmc/setup/check' && method === 'POST') {
+      const data = await body(req);
+      const checks = runSetupChecks(data || {});
+      json(res, { checks });
+      return;
+    }
+
     // ────── /api/sfmc/modules ──────
+    if (path === '/api/sfmc/modules/catalog') {
+      if (method === 'GET') { json(res, { modules: loadModuleCatalog() }); return; }
+      else { json(res, { success: false, error: 'not_found' }, 404); return; }
+    }
     if (path === '/api/sfmc/modules') {
-      if (method === 'GET') { json(res, { modules: query('SELECT * FROM sfmc_config_modules') }); return; }
+      if (method === 'GET') {
+        const catalog = loadModuleCatalog();
+        json(res, { modules: catalog.length > 0 ? buildModuleList() : query('SELECT * FROM sfmc_config_modules') });
+        return;
+      }
       else { json(res, { success: false, error: 'not_found' }, 404); return; }
     }
     if (path.startsWith('/api/sfmc/modules/')) {
-      const name = path.slice('/api/sfmc/modules/'.length);
-      if (method === 'PATCH' || method === 'PUT') {
+      const rest = path.slice('/api/sfmc/modules/'.length);
+      const [rawKey, action] = rest.split('/');
+      const key = decodeURIComponent(rawKey || '');
+      const module = resolveModuleByKey(key);
+      if (!module) { json(res, { success: false, error: 'module_not_found' }, 404); return; }
+
+      if (!action && method === 'GET') {
+        const found = buildModuleList().find((m) => m.id === module.id);
+        json(res, { module: found || null });
+      } else if (!action && (method === 'PATCH' || method === 'PUT')) {
         const { enabled } = await body(req);
-        query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [name, enabled ? 1 : 0, Date.now()]);
-        try {
-          const mPath = require('path').join(__dirname, '..', 'configs', 'modules.json');
-          const mData = JSON.parse(fs.readFileSync(mPath, 'utf-8'));
-          mData.modules[name] = !!enabled;
-          fs.writeFileSync(mPath, JSON.stringify(mData, null, 2) + '\n');
-          console.log(`[ConfigSync] modules.json: ${name} = ${!!enabled}`);
-        } catch (e) { console.warn(`[ConfigSync] modules.json 同步失败: ${e.message}`); }
-        json(res, { success: true });
+        if (!enabled && !module.canDisable) { json(res, { success: false, error: 'module_cannot_disable' }, 400); return; }
+        try { setModuleEnabled(module, !!enabled); }
+        catch (e) {
+          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
+          throw e;
+        }
+        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
+      } else if (action === 'enable' && method === 'POST') {
+        try { setModuleEnabled(module, true); }
+        catch (e) {
+          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
+          throw e;
+        }
+        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
+      } else if (action === 'disable' && method === 'POST') {
+        if (!module.canDisable) { json(res, { success: false, error: 'module_cannot_disable' }, 400); return; }
+        setModuleEnabled(module, false);
+        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
+      } else if (action === 'install' && method === 'POST') {
+        try { setModuleInstalled(module, true); }
+        catch (e) {
+          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
+          throw e;
+        }
+        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
+      } else if (action === 'uninstall' && method === 'POST') {
+        if (!module.canUninstall) { json(res, { success: false, error: 'module_cannot_uninstall' }, 400); return; }
+        try { setModuleInstalled(module, false); }
+        catch (e) {
+          if (e.code === 'dependency_required') { json(res, { success: false, error: 'dependency_required', requiredBy: e.requiredBy }, 409); return; }
+          if (e.code === 'dependency_unmet') { json(res, { success: false, error: 'dependency_unmet', unmet: e.unmet }, 409); return; }
+          throw e;
+        }
+        json(res, { success: true, module: buildModuleList().find((m) => m.id === module.id) });
       } else { json(res, { success: false, error: 'not_found' }, 404); }
       return;
     }
@@ -1301,13 +1892,37 @@ async function handle(req, res) {
 
 // ---------- 启动 ----------
 
+function checkPortConflict(port) {
+  return new Promise((resolve) => {
+    const net = require('net');
+    const tester = net.createServer()
+      .once('error', (err) => resolve({ ok: false, port, error: err.code }))
+      .once('listening', () => tester.once('close', () => resolve({ ok: true, port })).close())
+      .listen(port, '127.0.0.1');
+  });
+}
+
 async function start() {
+  const portCheck = await checkPortConflict(PORT);
+  if (!portCheck.ok) {
+    console.error(`[DogeDB] 端口 ${PORT} 被占用 (${portCheck.error}). 请设置环境变量 DB_PORT`);
+    console.error(`[DogeDB] 例如: $env:DB_PORT=4000; node db-server/index.js`);
+    process.exit(2);
+  }
+
+  // 配置文件缺失字段警告
+  try {
+    const dbCfgPath = path.join(PROJECT_ROOT, 'configs', 'db_config.json');
+    const dbCfg = JSON.parse(fs.readFileSync(dbCfgPath, 'utf-8'));
+    if (dbCfg.db_port === undefined) console.warn('[DogeDB] 警告: configs/db_config.json 缺少 db_port，使用默认 3001');
+  } catch {}
+
   await initDB();
 
   // 执行 Holoprint DDL
   const holoDDL = getHoloprintDDL();
   for (const sql of holoDDL) {
-    try { db.run(sql); } catch (err) { console.error('[Holoprint] 建表失败:', err.message); }
+    try { db.exec(sql); } catch (err) { console.error('[Holoprint] 建表失败:', err.message); }
   }
   // 确保 hpbe_pack_meta 有初始行
   const hpbeExisting = query('SELECT id FROM hpbe_pack_meta WHERE id = 1');
@@ -1319,9 +1934,10 @@ async function start() {
   const holoHandler = registerHoloprintRoutes(handle, db, query, body, json);
   const server = http.createServer(holoHandler);
 
-  server.listen(PORT, () => {
-    console.log(`[DogeDB] HTTP 服务已启动，端口 ${PORT}`);
+  server.listen(PORT, '127.0.0.1', () => {
+    console.log(`[DogeDB] HTTP 服务已启动，端口 ${PORT} (loopback only)`);
     console.log(`[DogeDB] API 健康检查: http://127.0.0.1:${PORT}/api/health`);
+    console.log(`[DogeDB] 鉴权: ${AUTH_TOKEN ? '已启用 token' : '未启用'}`);
     console.log(`[DogeDB] 控制台输入 reload 重新导入 /configs/ JSON 配置`);
   });
 

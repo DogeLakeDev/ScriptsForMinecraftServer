@@ -27,7 +27,8 @@ export class CoopSystem {
       (player: Player | undefined) => {
         if (player) new CoopGUI(player).mainPanel();
       },
-      "合作社"
+      "合作社",
+      "coop"
     );
 
     Command.register(
@@ -37,7 +38,8 @@ export class CoopSystem {
         if (!player) return;
         CoopGUI.openShopMgr(player);
       },
-      "合作社商店"
+      "合作社商店",
+      "coop"
     );
   }
 

@@ -99,7 +99,7 @@ function MonitorView({ logH, logW }) {
   const mspt = tps > 0 ? (1000 / tps).toFixed(1) : 'N/A';
 
   const svcOrder = ['bds', 'panel', 'db', 'qq', 'llbot'];
-  const svcLabel = { bds: 'BDS  ', panel: '面板 ', db: 'DB   ', qq: 'QQ   ', llbot: 'LLBot' };
+  const svcLabel = { bds: 'BDS     ', panel: '面板    ', db: 'DB      ', qq: 'QQ      ', llbot: 'LLBot   ' };
 
   return h(Box, { flexDirection: 'column', flexGrow: 1 },
     h(Text, { bold: true, color: T.primary }, ' 📊 性能监控'),
@@ -137,7 +137,7 @@ function MonitorView({ logH, logW }) {
 
     h(Box, { marginTop: 1 },
       h(Text, { color: T.text },
-        ` TPS  ${'█'.repeat(Math.min(BAR_W, Math.round(tpsPct / 100 * BAR_W)))}${'░'.repeat(Math.max(0, BAR_W - Math.round(tpsPct / 100 * BAR_W)))} `),
+        ` TPS     ${'█'.repeat(Math.min(BAR_W, Math.round(tpsPct / 100 * BAR_W)))}${'░'.repeat(Math.max(0, BAR_W - Math.round(tpsPct / 100 * BAR_W)))} `),
       h(Text, { color: fmtTpsColor(tps) }, `${tps > 0 ? tps.toFixed(1) : 'N/A'}/20 (${tpsPct}%)`),
       h(Text, { color: T.muted }, `  MSPT ${mspt}ms`),
     ),

@@ -15,7 +15,8 @@ export class MainMenu {
       (player: Player | undefined) => {
         if (player) MainMenu.show(player);
       },
-      "主菜单"
+      "主菜单",
+      "money"
     );
   }
 

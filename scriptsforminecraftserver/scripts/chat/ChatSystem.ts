@@ -7,6 +7,9 @@ import { HttpDB } from "../libs/HttpDB";
 import { ConfigManager } from "../libs/ConfigManager";
 
 export class ChatSystem {
+  private static chatSendSub: any = undefined;
+  private static playerJoinSub: any = undefined;
+
   static init() {
     console.log(`Initializing ChatSystem...`);
     DogeChat.ensureDefaultChannels();
@@ -20,7 +23,6 @@ export class ChatSystem {
       DogeChat.sendSystemMessage(player, text);
     });
 
-    // 启动 QQ 桥接轮询
     const bridgeChannelId = ConfigManager.getSetting("bridge_channel_id", "");
     if (bridgeChannelId) {
       DogeChat.startBridgePolling(bridgeChannelId);
@@ -30,7 +32,7 @@ export class ChatSystem {
   }
 
   static registerEvents() {
-    world.beforeEvents.chatSend.subscribe(async (event) => {
+    ChatSystem.chatSendSub = world.beforeEvents.chatSend.subscribe(async (event) => {
       const player = event.sender;
       const message = event.message;
       if (message.startsWith("!") || message.startsWith("！")) return;
@@ -40,7 +42,7 @@ export class ChatSystem {
       if (channel) await DogeChat.sendChannelMessage(player, channel.id, message);
     });
 
-    world.afterEvents.playerJoin.subscribe((event) => {
+    ChatSystem.playerJoinSub = world.afterEvents.playerJoin.subscribe((event) => {
       const player = world.getEntity(event.playerId) as Player;
       system.run(async () => {
         await DogeChat.loadSubscriptions(player);
@@ -50,6 +52,14 @@ export class ChatSystem {
     });
   }
 
+  static cleanup() {
+    try { if (ChatSystem.chatSendSub?.unsubscribe) ChatSystem.chatSendSub.unsubscribe(); } catch {}
+    try { if (ChatSystem.playerJoinSub?.unsubscribe) ChatSystem.playerJoinSub.unsubscribe(); } catch {}
+    ChatSystem.chatSendSub = undefined;
+    ChatSystem.playerJoinSub = undefined;
+    try { DogeChat.stopBridgePolling?.(); } catch {}
+  }
+
   static registerCommands() {
     Command.register(
       "channel",
@@ -57,7 +67,8 @@ export class ChatSystem {
       (player: Player | undefined) => {
         if (player) ChatGUI.openChannelPanel(player);
       },
-      "频道管理 - 订阅/切换频道"
+      "频道管理 - 订阅/切换频道",
+      "chat"
     );
 
     Command.register(
@@ -68,7 +79,8 @@ export class ChatSystem {
         const next = await DogeChat.cycleChannel(player);
         if (next) await DogeChat.loadChannelHistory(player, next.id);
       },
-      "快速切换频道"
+      "快速切换频道",
+      "chat"
     );
 
     Command.register(
@@ -77,7 +89,8 @@ export class ChatSystem {
       (player: Player | undefined) => {
         if (player) ChatGUI.openPrivateChatPanel(player);
       },
-      "快捷私聊"
+      "快捷私聊",
+      "chat"
     );
 
     Command.register(
@@ -86,7 +99,8 @@ export class ChatSystem {
       (player: Player | undefined) => {
         if (player) ChatGUI.sendLocation(player);
       },
-      "发送当前位置到当前频道"
+      "发送当前位置到当前频道",
+      "chat"
     );
 
     Command.register(
@@ -95,7 +109,8 @@ export class ChatSystem {
       (player: Player | undefined) => {
         if (player) ChatGUI.sendTeleportInvite(player);
       },
-      "发送传送邀请"
+      "发送传送邀请",
+      "chat"
     );
 
     Command.register(
@@ -104,7 +119,8 @@ export class ChatSystem {
       (player: Player | undefined) => {
         if (player) ChatGUI.openRedPacketPanel(player);
       },
-      "红包 - 查看/领取红包"
+      "红包 - 查看/领取红包",
+      "chat"
     );
 
     Command.register(
@@ -113,7 +129,8 @@ export class ChatSystem {
       (player: Player | undefined) => {
         if (player) ChatGUI.sendRedPacketQuick(player);
       },
-      "发送红包"
+      "发送红包",
+      "chat"
     );
   }
 }

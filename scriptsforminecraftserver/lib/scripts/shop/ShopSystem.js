@@ -13,7 +13,7 @@ export class ShopSystem {
         Command.register("shop", "shop.use", (player) => {
             if (player)
                 this.showShop(player);
-        }, "商店");
+        }, "商店", "shop");
     }
     /** 委托给 ShopGUI 打开商店主菜单 */
     static showShop(player) {

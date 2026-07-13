@@ -27,8 +27,11 @@ export class ChatSoundsHelper {
     return ChatSoundsHelper.instance;
   }
 
+  private chatSub: any = undefined;
+
   registerEvent(): void {
-    world.beforeEvents.chatSend.subscribe((event) => {
+    if (this.chatSub) return;
+    this.chatSub = world.beforeEvents.chatSend.subscribe((event) => {
       const msg = event.message;
       for (const keyWord in this.keywords) {
         if (!msg.toLowerCase().includes(keyWord.toLowerCase())) continue;
@@ -57,5 +60,12 @@ export class ChatSoundsHelper {
         return;
       }
     });
+  }
+
+  stop(): void {
+    if (this.chatSub?.unsubscribe) {
+      try { this.chatSub.unsubscribe(); } catch {}
+    }
+    this.chatSub = undefined;
   }
 }

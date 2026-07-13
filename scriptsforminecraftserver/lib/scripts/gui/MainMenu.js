@@ -11,7 +11,7 @@ export class MainMenu {
         Command.register("menu", "menu.use", (player) => {
             if (player)
                 MainMenu.show(player);
-        }, "主菜单");
+        }, "主菜单", "money");
     }
     static show(player) {
         new MainMenu().showMainMenu(player);

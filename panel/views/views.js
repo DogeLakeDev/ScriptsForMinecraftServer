@@ -1,47 +1,46 @@
 /**
  * views/index.js — 四个视图组件: Dashboard / SvcView / CfgList / CfgEdit
  */
-import React from 'react';
+import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 const h = React.createElement;
 import { T, LEVEL_COLOR } from '../theme.js';
 import { useLogs } from '../log-buffer-hooks.js';
 import { services } from '../services/manager.js';
 
-function LogBlock({ maxLogs, logScroll, total, all, startIdx, logW }) {
-  return h(Box, { height: maxLogs, flexDirection: 'column' },
+const LogBlock = memo(function LogBlock({ all, startIdx, logW, height }) {
+  return h(Box, { height, flexDirection: 'column' },
     ...all.map((line, i) =>
       h(Text, { key: startIdx + i, color: LEVEL_COLOR[line.level] || T.text },
         logW ? line.text.slice(0, logW) : line.text),
     ),
   );
-}
+});
 
 function Dashboard({ logH, logScroll, logW }) {
   const { total, all } = useLogs();
-  const maxLogs = Math.max(1, logH + 6); // fill to 1 above input
+  const maxLogs = Math.max(1, logH + 6);
   const s = Math.min(logScroll, Math.max(0, total - maxLogs));
   const startIdx = Math.max(0, total - maxLogs - s);
-  const visible = all.slice(startIdx, total - s);
+  const visible = React.useMemo(() => all.slice(startIdx, total - s), [all, startIdx, total, s]);
   return h(Box, { flexDirection: 'column' },
-    h(LogBlock, { maxLogs, logScroll, total, all: visible, startIdx, logW }),
+    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs }),
   );
 }
 
 function SvcView({ name, logH, logScroll, logW }) {
   const svc = services[name];
-  const maxLogs = Math.max(1, logH + 4); // fill to 1 above input, minus status line
+  const maxLogs = Math.max(1, logH + 4);
   const { total, all } = useLogs(name);
   const s = Math.min(logScroll, Math.max(0, total - maxLogs));
   const startIdx = Math.max(0, total - maxLogs - s);
-  const visible = all.slice(startIdx, total - s);
+  const visible = React.useMemo(() => all.slice(startIdx, total - s), [all, startIdx, total, s]);
   return h(Box, { flexDirection: 'column' },
     h(Box, {},
       h(Text, { color: svc?.running ? T.success : T.error },
         `${svc?.running ? '● 运行中' : '○ 已停止'}  PID ${svc?.pid || '-'}`),
     ),
-    //h(Box, {}, h(Text, { color: T.muted }, `── ${name} 日志 ──`)),
-    h(LogBlock, { maxLogs, logScroll, total, all: visible, startIdx, logW }),
+    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs }),
   );
 }
 
@@ -159,5 +158,7 @@ function ConfirmOverlay({ title, body }) {
 import { MonitorView } from './MonitorView.js';
 import { ChatView } from './ChatView.js';
 import { DbView } from './DbView.js';
+import { ModulesView } from './ModulesView.js';
+import { SetupView } from './SetupView.js';
 
-export { Dashboard, SvcView, CfgList, CfgEdit, ConfirmOverlay, MonitorView, ChatView, DbView };
+export { Dashboard, SvcView, CfgList, CfgEdit, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, SetupView };

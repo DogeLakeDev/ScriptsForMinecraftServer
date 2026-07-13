@@ -141,12 +141,17 @@ function getTargetPlayerName(entity: Entity): string {
 //  事件订阅
 // ============================================
 
+const subscriptions: Array<any> = [];
+
 function subscribe() {
   // ---- 玩家加入 ----
   // 辅助：安全订阅事件，若事件不存在则静默跳过
   function safeSubscribe(signal: any, cb: (arg: any) => void) {
     if (signal && typeof signal.subscribe === "function") {
-      signal.subscribe(cb);
+      const sub = signal.subscribe(cb);
+      if (sub && typeof sub.unsubscribe === "function") {
+        subscriptions.push(sub);
+      }
     }
   }
 
@@ -593,6 +598,13 @@ export class ActivityLog {
   /** 注册事件（由 entry.ts 统一调用） */
   static registerEvents(): void {
     subscribe();
+  }
+
+  static cleanup(): void {
+    for (const s of subscriptions) {
+      try { s.unsubscribe(); } catch {}
+    }
+    subscriptions.length = 0;
   }
 
   static init(): void {

@@ -29,12 +29,14 @@ export class InventorySwitcher {
     return InventorySwitcher._instance;
   }
 
+  private gameModeSub: any = undefined;
+
   /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
-    world.afterEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeAfterEvent) => {
+    if (this.gameModeSub) return;
+    this.gameModeSub = world.afterEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeAfterEvent) => {
       const player = event.player;
       system.run(() => {
-        // 延迟执行时检查：如果玩家又切了一次模式，跳过本次
         if (player.getGameMode() !== event.toGameMode) return;
 
         if (event.fromGameMode === GameMode.Survival && event.toGameMode === GameMode.Creative) {
@@ -46,6 +48,13 @@ export class InventorySwitcher {
         }
       });
     });
+  }
+
+  cleanup() {
+    if (this.gameModeSub?.unsubscribe) {
+      try { this.gameModeSub.unsubscribe(); } catch {}
+    }
+    this.gameModeSub = undefined;
   }
 
   init() {

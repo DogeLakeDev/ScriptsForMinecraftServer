@@ -141,18 +141,19 @@ export class HoloEntity {
     return (projectionId as string) ?? null;
   }
 
+  private static hitSubscription: any = undefined;
+
   /**
    * 注册事件（由 entry.ts 统一调用）
    */
   static registerEvents(): void {
-    // 订阅实体击打事件 -> 打开操作菜单
-    world.afterEvents.entityHitEntity.subscribe((event) => {
+    if (HoloEntity.hitSubscription) return;
+    HoloEntity.hitSubscription = world.afterEvents.entityHitEntity.subscribe((event) => {
       const { damagingEntity, hitEntity } = event;
 
       if (hitEntity.typeId !== HOLOGRAM_ENTITY_ID) return;
       if (!(damagingEntity instanceof Player)) return;
 
-      // 通过 dynamic property 获取对应的 projectionId
       const projectionId = hitEntity.getDynamicProperty(DP_PROJECTION_ID) as string | undefined;
       if (!projectionId) return;
 
@@ -161,6 +162,13 @@ export class HoloEntity {
       // TODO: 后续由 HoloGUI 打开操作菜单
       // HoloGUI.showOperationMenu(damagingEntity, projectionId);
     });
+  }
+
+  static cleanup(): void {
+    if (HoloEntity.hitSubscription) {
+      try { HoloEntity.hitSubscription.unsubscribe(); } catch {}
+      HoloEntity.hitSubscription = undefined;
+    }
   }
 
   /**

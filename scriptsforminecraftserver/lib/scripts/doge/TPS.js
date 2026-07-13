@@ -27,12 +27,21 @@ export class TPS {
         this.startRecord();
     }
     static startRecord() {
-        system.runInterval(() => {
+        this.recordRunId = system.runInterval(() => {
             TPS.tickTimes.push(Date.now());
             if (TPS.tickTimes.length > TPS.MAX_SAMPLES) {
                 TPS.tickTimes.shift();
             }
         }, 1);
+    }
+    static stop() {
+        if (this.recordRunId !== undefined) {
+            try {
+                system.clearRun(this.recordRunId);
+            }
+            catch { }
+            this.recordRunId = undefined;
+        }
     }
     static registerCommands() {
         Command.register("tps", "tps.see", (player) => {
@@ -43,7 +52,7 @@ export class TPS {
             else {
                 world.sendMessage(msg);
             }
-        }, "查看服务器 TPS");
+        }, "查看服务器 TPS", "tps");
     }
 }
 TPS.tickTimes = [];

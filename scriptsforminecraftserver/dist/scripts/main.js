@@ -1,237 +1,247 @@
-// scripts/entry.ts
-import { system as system24, world as world29 } from "@minecraft/server";
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 
 // scripts/libs/Money.ts
 import { world } from "@minecraft/server";
-var MONEY_NAME = "money";
-var Money = class {
-  static {
-    /** 货币单位名称 */
-    this.UNIT = "\u8282\u64CD";
-  }
-  /**
-   * 获取玩家金钱数量
-   */
-  static get(player) {
-    let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
-    if (!scoreboard) return 0;
-    try {
-      let score = scoreboard.getScore(player);
-      if (score !== void 0) {
-        return score;
+var MONEY_NAME, Money;
+var init_Money = __esm({
+  "scripts/libs/Money.ts"() {
+    "use strict";
+    MONEY_NAME = "money";
+    Money = class {
+      static {
+        /** 货币单位名称 */
+        this.UNIT = "\u8282\u64CD";
       }
-    } catch (_) {
-    }
-    if (scoreboard) {
-      scoreboard.setScore(player, 0);
-    }
-    return 0;
+      /**
+       * 获取玩家金钱数量
+       */
+      static get(player) {
+        let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
+        if (!scoreboard) return 0;
+        try {
+          let score = scoreboard.getScore(player);
+          if (score !== void 0) {
+            return score;
+          }
+        } catch (_) {
+        }
+        if (scoreboard) {
+          scoreboard.setScore(player, 0);
+        }
+        return 0;
+      }
+      /**
+       * 设置玩家金钱数量
+       */
+      static set(player, money) {
+        let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
+        if (!scoreboard) {
+          world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+          scoreboard = world.scoreboard.getObjective(MONEY_NAME);
+        }
+        return scoreboard.setScore(player, money);
+      }
+      /**
+       * 给予玩家金钱
+       */
+      static add(player, money) {
+        return this.set(player, this.get(player) + money);
+      }
+      /**
+       * 初始化计分板
+       */
+      static initScoreboard() {
+        if (!world.scoreboard.getObjective(MONEY_NAME)) {
+          world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
+        }
+      }
+    };
   }
-  /**
-   * 设置玩家金钱数量
-   */
-  static set(player, money) {
-    let scoreboard = world.scoreboard.getObjective(MONEY_NAME);
-    if (!scoreboard) {
-      world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
-      scoreboard = world.scoreboard.getObjective(MONEY_NAME);
-    }
-    return scoreboard.setScore(player, money);
-  }
-  /**
-   * 给予玩家金钱
-   */
-  static add(player, money) {
-    return this.set(player, this.get(player) + money);
-  }
-  /**
-   * 初始化计分板
-   */
-  static initScoreboard() {
-    if (!world.scoreboard.getObjective(MONEY_NAME)) {
-      world.getDimension("overworld").runCommand(`scoreboard objectives add ${MONEY_NAME} dummy ${MONEY_NAME}`);
-    }
-  }
-};
-
-// scripts/libs/Command.ts
-import { system as system5 } from "@minecraft/server";
-
-// scripts/libs/Permission.ts
-import { PlayerPermissionLevel } from "@minecraft/server";
-
-// scripts/libs/ConfigManager.ts
-import { system as system4, world as world6 } from "@minecraft/server";
+});
 
 // scripts/libs/HttpDB.ts
 import { http, HttpRequest } from "@minecraft/server-net";
 import { system } from "@minecraft/server";
-var HOST = "127.0.0.1";
-var PORT = 3001;
-var BASE_URL = `http://${HOST}:${PORT}`;
-var TIMEOUT = 3;
-var HttpDB = class _HttpDB {
-  static {
-    this.available = true;
-  }
-  static {
-    this._lastErrorLog = 0;
-  }
-  static isAvailable() {
-    return this.available;
-  }
-  static _shouldLogError() {
-    const now = Date.now();
-    if (now - this._lastErrorLog >= 5e3) {
-      this._lastErrorLog = now;
-      return true;
-    }
-    return false;
-  }
-  static async checkHealth() {
-    for (let i = 0; i < 5; i++) {
-      try {
-        const res = await http.get(`${BASE_URL}/api/health`);
-        this.available = res.status === 200;
-        if (this.available) {
-          console.info(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FDE\u63A5\u6210\u529F (${BASE_URL}/api/health)`);
+var HOST, PORT, BASE_URL, TIMEOUT, HttpDB;
+var init_HttpDB = __esm({
+  "scripts/libs/HttpDB.ts"() {
+    "use strict";
+    HOST = "127.0.0.1";
+    PORT = 3001;
+    BASE_URL = `http://${HOST}:${PORT}`;
+    TIMEOUT = 3;
+    HttpDB = class _HttpDB {
+      static {
+        this.available = true;
+      }
+      static {
+        this._lastErrorLog = 0;
+      }
+      static isAvailable() {
+        return this.available;
+      }
+      static _shouldLogError() {
+        const now = Date.now();
+        if (now - this._lastErrorLog >= 5e3) {
+          this._lastErrorLog = now;
           return true;
         }
-        console.error(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FD4\u56DE\u5F02\u5E38\u72B6\u6001 ${res.status}`);
-      } catch (err) {
-        this.available = false;
-        if (i < 4) {
-          console.info(`[HttpDB] \u8FDE\u63A5\u5931\u8D25\uFF0C2s \u540E\u91CD\u8BD5 (${i + 1}/5)...`);
-          await system.waitTicks(40);
-        } else {
-          console.error(`[HttpDB] \u8FDE\u63A5\u5931\u8D25 (${BASE_URL}): ${err}`);
+        return false;
+      }
+      static async checkHealth() {
+        for (let i = 0; i < 5; i++) {
+          try {
+            const res = await http.get(`${BASE_URL}/api/health`);
+            this.available = res.status === 200;
+            if (this.available) {
+              console.info(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FDE\u63A5\u6210\u529F (${BASE_URL}/api/health)`);
+              return true;
+            }
+            console.error(`[HttpDB] \u6570\u636E\u5E93\u670D\u52A1\u8FD4\u56DE\u5F02\u5E38\u72B6\u6001 ${res.status}`);
+          } catch (err) {
+            this.available = false;
+            if (i < 4) {
+              console.info(`[HttpDB] \u8FDE\u63A5\u5931\u8D25\uFF0C2s \u540E\u91CD\u8BD5 (${i + 1}/5)...`);
+              await system.waitTicks(40);
+            } else {
+              console.error(`[HttpDB] \u8FDE\u63A5\u5931\u8D25 (${BASE_URL}): ${err}`);
+            }
+          }
+        }
+        return this.available;
+      }
+      static async fetchJSON(basePath, id, key) {
+        const body = await _HttpDB.get(`${basePath}/${encodeURIComponent(id)}`);
+        if (!body) return null;
+        try {
+          const parsed = JSON.parse(body);
+          return parsed[key] ?? null;
+        } catch (e) {
+          console.warn("[HttpDB] error:", e);
+          return null;
         }
       }
-    }
-    return this.available;
-  }
-  static async fetchJSON(basePath, id, key) {
-    const body = await _HttpDB.get(`${basePath}/${encodeURIComponent(id)}`);
-    if (!body) return null;
-    try {
-      const parsed = JSON.parse(body);
-      return parsed[key] ?? null;
-    } catch (e) {
-      console.warn("[HttpDB] error:", e);
-      return null;
-    }
-  }
-  // ---- 通用 HTTP 方法 ----
-  static async request(method, path, bodyData) {
-    try {
-      const req = new HttpRequest(`${BASE_URL}${path}`);
-      req.timeout = TIMEOUT;
-      req.method = method;
-      if (bodyData) {
-        req.body = JSON.stringify(bodyData);
-        req.addHeader("Content-Type", "application/json");
+      // ---- 通用 HTTP 方法 ----
+      static async request(method, path, bodyData) {
+        try {
+          const req = new HttpRequest(`${BASE_URL}${path}`);
+          req.timeout = TIMEOUT;
+          req.method = method;
+          if (bodyData) {
+            req.body = JSON.stringify(bodyData);
+            req.addHeader("Content-Type", "application/json");
+          }
+          const res = await http.request(req);
+          this.available = true;
+          return { status: res.status, body: res.body };
+        } catch (err) {
+          this.available = false;
+          if (this._shouldLogError()) {
+            console.error(`[HttpDB] ${method} ${path} \u7F51\u7EDC\u9519\u8BEF: ${err}`);
+          }
+          return { status: 0, body: "" };
+        }
       }
-      const res = await http.request(req);
-      this.available = true;
-      return { status: res.status, body: res.body };
-    } catch (err) {
-      this.available = false;
-      if (this._shouldLogError()) {
-        console.error(`[HttpDB] ${method} ${path} \u7F51\u7EDC\u9519\u8BEF: ${err}`);
+      static async get(path) {
+        const { status, body } = await this.request("Get", path);
+        if (status !== 200) {
+          console.info(`[HttpDB] GET ${path} \u2192 ${status}`);
+        }
+        return status === 200 ? body : null;
       }
-      return { status: 0, body: "" };
-    }
+      static async post(path, bodyData) {
+        const { status, body } = await this.request("Post", path, bodyData);
+        if (status !== 200) {
+          console.info(`[HttpDB] POST ${path} \u2192 ${status}`);
+        }
+        return status === 200;
+      }
+      static async put(path, bodyData) {
+        const { status, body } = await this.request("Put", path, bodyData);
+        if (status !== 200) {
+          console.info(`[HttpDB] PUT ${path} \u2192 ${status}`);
+        }
+        return status === 200;
+      }
+      static async patch(path, bodyData) {
+        const { status, body } = await this.request("Patch", path, bodyData);
+        if (status !== 200) {
+          console.info(`[HttpDB] PATCH ${path} \u2192 ${status}`);
+        }
+        return status === 200;
+      }
+      static async del(path) {
+        const { status, body } = await this.request("Delete", path);
+        if (status !== 200) {
+          console.info(`[HttpDB] DELETE ${path} \u2192 ${status}`);
+        }
+        return status === 200;
+      }
+      // ---- Holoprint 投影 ----
+      static async uploadHoloStructure(projection, structureBase64) {
+        return this.post("/api/hpbe/upload", { projection, structure: structureBase64 });
+      }
+      static async getHoloProjections(ownerId, visibility) {
+        const qs = [];
+        if (ownerId) qs.push(`owner_id=${encodeURIComponent(ownerId)}`);
+        if (visibility) qs.push(`visibility=${encodeURIComponent(visibility)}`);
+        const query = qs.length > 0 ? "?" + qs.join("&") : "";
+        const body = await this.get(`/api/hpbe/projections${query}`);
+        if (!body) return null;
+        try {
+          return JSON.parse(body).projections;
+        } catch (e) {
+          console.warn("[HttpDB] error:", e);
+          return null;
+        }
+      }
+      static async getHoloProjection(id) {
+        const body = await this.get(`/api/hpbe/projections/${encodeURIComponent(id)}`);
+        if (!body) return null;
+        try {
+          return JSON.parse(body).projection;
+        } catch (e) {
+          console.warn("[HttpDB] error:", e);
+          return null;
+        }
+      }
+      static async updateHoloProjection(id, settings) {
+        return this.post(`/api/hpbe/projections/${encodeURIComponent(id)}`, { settings });
+      }
+      static async deleteHoloProjection(id) {
+        return this.del(`/api/hpbe/projections/${encodeURIComponent(id)}`);
+      }
+      static async getHoloPackVersion() {
+        const body = await this.get("/api/hpbe/pack-version");
+        if (!body) return null;
+        try {
+          return JSON.parse(body).version;
+        } catch (e) {
+          console.warn("[HttpDB] error:", e);
+          return null;
+        }
+      }
+      static async getHoloMaterials(projectionId) {
+        const body = await this.get(`/api/hpbe/materials/${encodeURIComponent(projectionId)}`);
+        if (!body) return null;
+        try {
+          return JSON.parse(body).materials;
+        } catch (e) {
+          console.warn("[HttpDB] error:", e);
+          return null;
+        }
+      }
+    };
   }
-  static async get(path) {
-    const { status, body } = await this.request("Get", path);
-    if (status !== 200) {
-      console.info(`[HttpDB] GET ${path} \u2192 ${status}`);
-    }
-    return status === 200 ? body : null;
-  }
-  static async post(path, bodyData) {
-    const { status, body } = await this.request("Post", path, bodyData);
-    if (status !== 200) {
-      console.info(`[HttpDB] POST ${path} \u2192 ${status}`);
-    }
-    return status === 200;
-  }
-  static async put(path, bodyData) {
-    const { status, body } = await this.request("Put", path, bodyData);
-    if (status !== 200) {
-      console.info(`[HttpDB] PUT ${path} \u2192 ${status}`);
-    }
-    return status === 200;
-  }
-  static async patch(path, bodyData) {
-    const { status, body } = await this.request("Patch", path, bodyData);
-    if (status !== 200) {
-      console.info(`[HttpDB] PATCH ${path} \u2192 ${status}`);
-    }
-    return status === 200;
-  }
-  static async del(path) {
-    const { status, body } = await this.request("Delete", path);
-    if (status !== 200) {
-      console.info(`[HttpDB] DELETE ${path} \u2192 ${status}`);
-    }
-    return status === 200;
-  }
-  // ---- Holoprint 投影 ----
-  static async uploadHoloStructure(projection, structureBase64) {
-    return this.post("/api/hpbe/upload", { projection, structure: structureBase64 });
-  }
-  static async getHoloProjections(ownerId, visibility) {
-    const qs = [];
-    if (ownerId) qs.push(`owner_id=${encodeURIComponent(ownerId)}`);
-    if (visibility) qs.push(`visibility=${encodeURIComponent(visibility)}`);
-    const query = qs.length > 0 ? "?" + qs.join("&") : "";
-    const body = await this.get(`/api/hpbe/projections${query}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).projections;
-    } catch (e) {
-      console.warn("[HttpDB] error:", e);
-      return null;
-    }
-  }
-  static async getHoloProjection(id) {
-    const body = await this.get(`/api/hpbe/projections/${encodeURIComponent(id)}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).projection;
-    } catch (e) {
-      console.warn("[HttpDB] error:", e);
-      return null;
-    }
-  }
-  static async updateHoloProjection(id, settings) {
-    return this.post(`/api/hpbe/projections/${encodeURIComponent(id)}`, { settings });
-  }
-  static async deleteHoloProjection(id) {
-    return this.del(`/api/hpbe/projections/${encodeURIComponent(id)}`);
-  }
-  static async getHoloPackVersion() {
-    const body = await this.get("/api/hpbe/pack-version");
-    if (!body) return null;
-    try {
-      return JSON.parse(body).version;
-    } catch (e) {
-      console.warn("[HttpDB] error:", e);
-      return null;
-    }
-  }
-  static async getHoloMaterials(projectionId) {
-    const body = await this.get(`/api/hpbe/materials/${encodeURIComponent(projectionId)}`);
-    if (!body) return null;
-    try {
-      return JSON.parse(body).materials;
-    } catch (e) {
-      console.warn("[HttpDB] error:", e);
-      return null;
-    }
-  }
-};
+});
 
 // scripts/libs/Tools.ts
 import { world as world2, BlockPermutation, BlockComponentTypes } from "@minecraft/server";
@@ -343,7 +353,6 @@ function formatTimestamp(ts) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
-var _systemMsgHandler = null;
 function registerSystemMsgHandler(handler) {
   _systemMsgHandler = handler;
 }
@@ -357,28 +366,6 @@ function toQueryString(params) {
   }
   return parts.length > 0 ? "?" + parts.join("&") : "";
 }
-var Msg = {
-  info: (msg, player) => {
-    player.sendMessage(`\xA7f[*] ${msg}`);
-    _systemMsgHandler?.(player, msg);
-  },
-  error: (msg, player) => {
-    player.sendMessage(`\xA7c[x] ${msg}`);
-    _systemMsgHandler?.(player, msg);
-  },
-  success: (msg, player) => {
-    player.sendMessage(`\xA7a[\u221A] ${msg}`);
-    _systemMsgHandler?.(player, msg);
-  },
-  warning: (msg, player) => {
-    player.sendMessage(`\xA7e[!] ${msg}`);
-    _systemMsgHandler?.(player, msg);
-  },
-  tips: (msg, player) => {
-    player.sendMessage(`\xA77[!] ${msg}`);
-    _systemMsgHandler?.(player, msg);
-  }
-};
 function ListFormInfo(str) {
   if (str.length === 0) return "\xA77\u8BF7\u9009\u62E9\u64CD\u4F5C\uFF1A";
   let lines = [];
@@ -393,6 +380,35 @@ function ListFormInfo(str) {
   lines.push(`\xA77\u8BF7\u9009\u62E9\u64CD\u4F5C\uFF1A`);
   return lines.join("\n");
 }
+var _systemMsgHandler, Msg;
+var init_Tools = __esm({
+  "scripts/libs/Tools.ts"() {
+    "use strict";
+    _systemMsgHandler = null;
+    Msg = {
+      info: (msg, player) => {
+        player.sendMessage(`\xA7f[*] ${msg}`);
+        _systemMsgHandler?.(player, msg);
+      },
+      error: (msg, player) => {
+        player.sendMessage(`\xA7c[x] ${msg}`);
+        _systemMsgHandler?.(player, msg);
+      },
+      success: (msg, player) => {
+        player.sendMessage(`\xA7a[\u221A] ${msg}`);
+        _systemMsgHandler?.(player, msg);
+      },
+      warning: (msg, player) => {
+        player.sendMessage(`\xA7e[!] ${msg}`);
+        _systemMsgHandler?.(player, msg);
+      },
+      tips: (msg, player) => {
+        player.sendMessage(`\xA77[!] ${msg}`);
+        _systemMsgHandler?.(player, msg);
+      }
+    };
+  }
+});
 
 // scripts/area/CreativeArea.ts
 import {
@@ -401,354 +417,395 @@ import {
   GameMode,
   EntityInitializationCause
 } from "@minecraft/server";
-var CreativeArea = class _CreativeArea {
-  constructor() {
-    this.BORDER_THRESHOLD = 10;
-    this.BORDER_WARNING_DISTANCE = 5;
-    this.BUFFER_ZONE = 3;
-  }
-  static getInstance() {
-    if (!_CreativeArea._instance) {
-      _CreativeArea._instance = new _CreativeArea();
-    }
-    return _CreativeArea._instance;
-  }
-  static {
-    /** 连锁开关（同时控制 CreativeArea + SurvivalArea） */
-    this.enable = true;
-  }
-  /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
-  registerCommandsAndPermissions() {
-    Permission.register("creativearea.place_banned", Permission.Admin);
-  }
-  /** 注册事件（由 entry.ts 统一调用） */
-  registerEvents() {
-    world3.afterEvents.playerSpawn.subscribe((event) => {
-      if (!event.initialSpawn) return;
-      system2.runTimeout(() => {
-        const areaName = this.inArea(event.player);
-        if (areaName !== void 0) {
-          this.enterArea(event.player, areaName);
-        } else if (event.player.getGameMode() === GameMode.Creative || event.player.getGameMode() === GameMode.Spectator) {
-          event.player.setGameMode(GameMode.Survival);
+var CreativeArea;
+var init_CreativeArea = __esm({
+  "scripts/area/CreativeArea.ts"() {
+    "use strict";
+    init_ConfigManager();
+    init_Tools();
+    init_Permission();
+    CreativeArea = class _CreativeArea {
+      constructor() {
+        this.BORDER_THRESHOLD = 10;
+        this.BORDER_WARNING_DISTANCE = 5;
+        this.BUFFER_ZONE = 3;
+        this.subscriptions = [];
+        this.tickRunIds = [];
+      }
+      static getInstance() {
+        if (!_CreativeArea._instance) {
+          _CreativeArea._instance = new _CreativeArea();
         }
-      }, 60);
-    });
-    world3.afterEvents.playerDimensionChange.subscribe((event) => {
-      if (!_CreativeArea.enable) return;
-      system2.runTimeout(() => {
-        const areaName = this.inArea(event.player);
-        const currentArea = event.player.getDynamicProperty("hpbe:creative_area");
-        if (currentArea === void 0 && areaName !== void 0) {
-          this.enterArea(event.player, areaName);
-        } else if (currentArea !== void 0 && areaName === void 0) {
-          this.leaveArea(event.player, currentArea);
-        }
-      }, 10);
-    });
-    world3.afterEvents.entitySpawn.subscribe((event) => {
-      if (!_CreativeArea.enable) return;
-      if (!event.entity) return;
-      if (event.entity.typeId === "minecraft:player") return;
-      if (!this.creativeDims.has(event.entity.dimension.id)) return;
-      try {
-        if (event.cause === EntityInitializationCause.Spawned) {
-          if (this.inArea(event.entity) !== void 0 || this.inBufferZone(event.entity)) {
-            event.entity.remove();
+        return _CreativeArea._instance;
+      }
+      static {
+        /** 连锁开关（同时控制 CreativeArea + SurvivalArea） */
+        this.enable = true;
+      }
+      /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
+      registerCommandsAndPermissions() {
+        Permission.register("creativearea.place_banned", Permission.Admin);
+      }
+      /** 注册事件（由 entry.ts 统一调用） */
+      registerEvents() {
+        if (this.subscriptions.length > 0) return;
+        this.subscriptions.push(world3.afterEvents.playerSpawn.subscribe((event) => {
+          if (!event.initialSpawn) return;
+          system2.runTimeout(() => {
+            const areaName = this.inArea(event.player);
+            if (areaName !== void 0) {
+              this.enterArea(event.player, areaName);
+            } else if (event.player.getGameMode() === GameMode.Creative || event.player.getGameMode() === GameMode.Spectator) {
+              event.player.setGameMode(GameMode.Survival);
+            }
+          }, 60);
+        }));
+        this.subscriptions.push(world3.afterEvents.playerDimensionChange.subscribe((event) => {
+          if (!_CreativeArea.enable) return;
+          system2.runTimeout(() => {
+            const areaName = this.inArea(event.player);
+            const currentArea = event.player.getDynamicProperty("hpbe:creative_area");
+            if (currentArea === void 0 && areaName !== void 0) {
+              this.enterArea(event.player, areaName);
+            } else if (currentArea !== void 0 && areaName === void 0) {
+              this.leaveArea(event.player, currentArea);
+            }
+          }, 10);
+        }));
+        this.subscriptions.push(world3.afterEvents.entitySpawn.subscribe((event) => {
+          if (!_CreativeArea.enable) return;
+          if (!event.entity) return;
+          if (event.entity.typeId === "minecraft:player") return;
+          if (!this.creativeDims.has(event.entity.dimension.id)) return;
+          try {
+            if (event.cause === EntityInitializationCause.Spawned) {
+              if (this.inArea(event.entity) !== void 0 || this.inBufferZone(event.entity)) {
+                event.entity.remove();
+              }
+            }
+          } catch {
+          }
+        }));
+        this.subscriptions.push(world3.beforeEvents.playerPlaceBlock.subscribe((event) => {
+          if (!_CreativeArea.enable) return;
+          const player = event.player;
+          if (player.getGameMode() !== GameMode.Creative) return;
+          if (!this.inAreaByPos(event.block.location.x, event.block.location.z, player.dimension.id)) {
+            event.cancel = true;
+            Msg.error(`\u4F60\u53EA\u80FD\u5728\u521B\u9020\u533A\u57DF\u5185\u653E\u7F6E\u65B9\u5757\u3002`, player);
+            return;
+          }
+          if (ConfigManager.getBannedItems().indexOf(event.permutationToPlace.type.id) !== -1) {
+            if (!Permission.check(player, "creativearea.place_banned")) {
+              event.cancel = true;
+              Msg.error(`\u521B\u9020\u533A\u57DF\u5185\u7981\u6B62\u653E\u7F6E ${event.permutationToPlace.type.id}\u3002`, player);
+            }
+          }
+        }));
+        this.subscriptions.push(world3.beforeEvents.playerBreakBlock.subscribe((event) => {
+          if (!_CreativeArea.enable) return;
+          if (event.player.getGameMode() !== GameMode.Creative) return;
+          if (!this.inAreaByPos(event.block.location.x, event.block.location.z, event.player.dimension.id)) {
+            event.cancel = true;
+            Msg.error(`\u4F60\u53EA\u80FD\u7834\u574F\u521B\u9020\u533A\u57DF\u5185\u7684\u65B9\u5757\u3002`, event.player);
+          }
+        }));
+      }
+      cleanup() {
+        for (const s of this.subscriptions) {
+          try {
+            s.unsubscribe();
+          } catch {
           }
         }
-      } catch {
-      }
-    });
-    world3.beforeEvents.playerPlaceBlock.subscribe((event) => {
-      if (!_CreativeArea.enable) return;
-      const player = event.player;
-      if (player.getGameMode() !== GameMode.Creative) return;
-      if (!this.inAreaByPos(event.block.location.x, event.block.location.z, player.dimension.id)) {
-        event.cancel = true;
-        Msg.error(`\u4F60\u53EA\u80FD\u5728\u521B\u9020\u533A\u57DF\u5185\u653E\u7F6E\u65B9\u5757\u3002`, player);
-        return;
-      }
-      if (ConfigManager.getBannedItems().indexOf(event.permutationToPlace.type.id) !== -1) {
-        if (!Permission.check(player, "creativearea.place_banned")) {
-          event.cancel = true;
-          Msg.error(`\u521B\u9020\u533A\u57DF\u5185\u7981\u6B62\u653E\u7F6E ${event.permutationToPlace.type.id}\u3002`, player);
+        this.subscriptions = [];
+        for (const id of this.tickRunIds) {
+          try {
+            system2.clearRun(id);
+          } catch {
+          }
         }
+        this.tickRunIds = [];
       }
-    });
-    world3.beforeEvents.playerBreakBlock.subscribe((event) => {
-      if (!_CreativeArea.enable) return;
-      if (event.player.getGameMode() !== GameMode.Creative) return;
-      if (!this.inAreaByPos(event.block.location.x, event.block.location.z, event.player.dimension.id)) {
-        event.cancel = true;
-        Msg.error(`\u4F60\u53EA\u80FD\u7834\u574F\u521B\u9020\u533A\u57DF\u5185\u7684\u65B9\u5757\u3002`, event.player);
+      init() {
+        this.startTick();
+        this.startBorderFastCheck();
       }
-    });
-  }
-  init() {
-    this.startTick();
-    this.startBorderFastCheck();
-  }
-  // ==========================================
-  //  区域判定
-  // ==========================================
-  inArea(entity) {
-    for (const area of ConfigManager.getAreas("creative")) {
-      if (entity.dimension.id === area.dimension) {
-        if (pointInArea_2D(
-          entity.location.x,
-          entity.location.z,
-          area.start[0],
-          area.start[1],
-          area.end[0],
-          area.end[1]
-        )) {
-          return area.name;
-        }
-      }
-    }
-    return void 0;
-  }
-  inAreaByPos(x, z, dimensionId) {
-    for (const area of ConfigManager.getAreas("creative")) {
-      if (dimensionId === area.dimension) {
-        if (pointInArea_2D(x, z, area.start[0], area.start[1], area.end[0], area.end[1])) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  isNearBorder(entity, threshold = this.BORDER_THRESHOLD) {
-    for (const area of ConfigManager.getAreas("creative")) {
-      if (entity.dimension.id !== area.dimension) continue;
-      const minX = Math.min(area.start[0], area.end[0]) - threshold;
-      const maxX = Math.max(area.start[0], area.end[0]) + threshold;
-      const minZ = Math.min(area.start[1], area.end[1]) - threshold;
-      const maxZ = Math.max(area.start[1], area.end[1]) + threshold;
-      if (entity.location.x >= minX && entity.location.x <= maxX && entity.location.z >= minZ && entity.location.z <= maxZ)
-        return true;
-    }
-    return false;
-  }
-  inBufferZone(entity) {
-    for (const area of ConfigManager.getAreas("creative")) {
-      if (entity.dimension.id !== area.dimension) continue;
-      const minX = Math.min(area.start[0], area.end[0]);
-      const maxX = Math.max(area.start[0], area.end[0]);
-      const minZ = Math.min(area.start[1], area.end[1]);
-      const maxZ = Math.max(area.start[1], area.end[1]);
-      const x = entity.location.x, z = entity.location.z;
-      const inExpanded = x >= minX - this.BUFFER_ZONE && x <= maxX + this.BUFFER_ZONE && z >= minZ - this.BUFFER_ZONE && z <= maxZ + this.BUFFER_ZONE;
-      if (!inExpanded) continue;
-      if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
-      return true;
-    }
-    return false;
-  }
-  get creativeDims() {
-    const dims = /* @__PURE__ */ new Set();
-    for (const area of ConfigManager.getAreas("creative")) dims.add(area.dimension);
-    return dims;
-  }
-  // ==========================================
-  //  进入 / 离开 处理（背包由 InventorySwitcher 接管）
-  // ==========================================
-  enterArea(player, areaName) {
-    this.saveScores(player);
-    player.setGameMode(GameMode.Creative);
-    player.setDynamicProperty("hpbe:creative_area", areaName);
-    Msg.info(`\u8FDB\u5165 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u5207\u6362\u4E3A\u521B\u9020\u6A21\u5F0F\u3002`, player);
-  }
-  leaveArea(player, areaName) {
-    this.restoreScores(player);
-    player.setGameMode(GameMode.Survival);
-    player.setDynamicProperty("hpbe:creative_area", void 0);
-    Msg.info(`\u79BB\u5F00 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u6062\u590D\u751F\u5B58\u6A21\u5F0F\u3002`, player);
-  }
-  // ==========================================
-  //  计分项保存 / 恢复
-  // ==========================================
-  saveScores(player) {
-    const identity = player.scoreboardIdentity;
-    if (!identity) return;
-    const scores = {};
-    for (const obj of world3.scoreboard.getObjectives()) {
-      try {
-        const score = obj.getScore(identity);
-        if (score !== void 0) scores[obj.id] = score;
-      } catch {
-      }
-    }
-    if (Object.keys(scores).length > 0) {
-      player.setDynamicProperty("hpbe:creative_scores", JSON.stringify(scores));
-    }
-  }
-  restoreScores(player) {
-    const raw = player.getDynamicProperty("hpbe:creative_scores");
-    const scores = raw ? JSON.parse(raw) : void 0;
-    if (!scores) return;
-    const identity = player.scoreboardIdentity;
-    if (!identity) return;
-    for (const obj of world3.scoreboard.getObjectives()) {
-      if (scores[obj.id] !== void 0) {
-        try {
-          obj.setScore(identity, scores[obj.id]);
-        } catch {
-        }
-      }
-    }
-    player.setDynamicProperty("hpbe:creative_scores", void 0);
-  }
-  // ==========================================
-  //  定时扫描（进出检测）
-  // ==========================================
-  startTick() {
-    system2.runInterval(() => {
-      if (!_CreativeArea.enable) return;
-      for (const player of world3.getPlayers()) {
-        if (player.getGameMode() === GameMode.Spectator) continue;
-        const currentArea = player.getDynamicProperty("hpbe:creative_area");
-        if (currentArea === void 0) {
-          const areaName = this.inArea(player);
-          if (areaName !== void 0) this.enterArea(player, areaName);
-        } else {
-          if (this.inArea(player) === void 0) this.leaveArea(player, currentArea);
-        }
-      }
-    }, 10);
-  }
-  // ==========================================
-  //  边界快速检测
-  // ==========================================
-  startBorderFastCheck() {
-    system2.runInterval(() => {
-      if (!_CreativeArea.enable) return;
-      for (const player of world3.getPlayers()) {
-        if (player.getGameMode() !== GameMode.Creative) continue;
-        if (!this.isNearBorder(player)) continue;
-        const currentArea = player.getDynamicProperty("hpbe:creative_area");
-        if (currentArea !== void 0 && this.inArea(player) === void 0) {
-          this.leaveArea(player, currentArea);
-        }
-      }
-    }, 2);
-  }
-  // ==========================================
-  //  边界视觉警告
-  // ==========================================
-  startBorderWarning() {
-    system2.runInterval(() => {
-      if (!_CreativeArea.enable) return;
-      for (const player of world3.getPlayers()) {
+      // ==========================================
+      //  区域判定
+      // ==========================================
+      inArea(entity) {
         for (const area of ConfigManager.getAreas("creative")) {
-          if (player.dimension.id !== area.dimension) continue;
-          const pos = player.location;
+          if (entity.dimension.id === area.dimension) {
+            if (pointInArea_2D(
+              entity.location.x,
+              entity.location.z,
+              area.start[0],
+              area.start[1],
+              area.end[0],
+              area.end[1]
+            )) {
+              return area.name;
+            }
+          }
+        }
+        return void 0;
+      }
+      inAreaByPos(x, z, dimensionId) {
+        for (const area of ConfigManager.getAreas("creative")) {
+          if (dimensionId === area.dimension) {
+            if (pointInArea_2D(x, z, area.start[0], area.start[1], area.end[0], area.end[1])) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+      isNearBorder(entity, threshold = this.BORDER_THRESHOLD) {
+        for (const area of ConfigManager.getAreas("creative")) {
+          if (entity.dimension.id !== area.dimension) continue;
+          const minX = Math.min(area.start[0], area.end[0]) - threshold;
+          const maxX = Math.max(area.start[0], area.end[0]) + threshold;
+          const minZ = Math.min(area.start[1], area.end[1]) - threshold;
+          const maxZ = Math.max(area.start[1], area.end[1]) + threshold;
+          if (entity.location.x >= minX && entity.location.x <= maxX && entity.location.z >= minZ && entity.location.z <= maxZ)
+            return true;
+        }
+        return false;
+      }
+      inBufferZone(entity) {
+        for (const area of ConfigManager.getAreas("creative")) {
+          if (entity.dimension.id !== area.dimension) continue;
           const minX = Math.min(area.start[0], area.end[0]);
           const maxX = Math.max(area.start[0], area.end[0]);
           const minZ = Math.min(area.start[1], area.end[1]);
           const maxZ = Math.max(area.start[1], area.end[1]);
-          const d = this.BORDER_WARNING_DISTANCE;
-          if (pos.x < minX - d || pos.x > maxX + d || pos.z < minZ - d || pos.z > maxZ + d) continue;
-          const cx = Math.max(minX, Math.min(maxX, pos.x));
-          const cz = Math.max(minZ, Math.min(maxZ, pos.z));
-          let bx = cx, bz = cz;
-          if (cx === pos.x && cz === pos.z) {
-            const dx = Math.min(pos.x - minX, maxX - pos.x);
-            const dz = Math.min(pos.z - minZ, maxZ - pos.z);
-            if (dx < dz) bx = pos.x - minX < maxX - pos.x ? minX : maxX;
-            else bz = pos.z - minZ < maxZ - pos.z ? minZ : maxZ;
-          }
-          const y = Math.floor(pos.y);
+          const x = entity.location.x, z = entity.location.z;
+          const inExpanded = x >= minX - this.BUFFER_ZONE && x <= maxX + this.BUFFER_ZONE && z >= minZ - this.BUFFER_ZONE && z <= maxZ + this.BUFFER_ZONE;
+          if (!inExpanded) continue;
+          if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
+          return true;
+        }
+        return false;
+      }
+      get creativeDims() {
+        const dims = /* @__PURE__ */ new Set();
+        for (const area of ConfigManager.getAreas("creative")) dims.add(area.dimension);
+        return dims;
+      }
+      // ==========================================
+      //  进入 / 离开 处理（背包由 InventorySwitcher 接管）
+      // ==========================================
+      enterArea(player, areaName) {
+        this.saveScores(player);
+        player.setGameMode(GameMode.Creative);
+        player.setDynamicProperty("hpbe:creative_area", areaName);
+        Msg.info(`\u8FDB\u5165 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u5207\u6362\u4E3A\u521B\u9020\u6A21\u5F0F\u3002`, player);
+      }
+      leaveArea(player, areaName) {
+        this.restoreScores(player);
+        player.setGameMode(GameMode.Survival);
+        player.setDynamicProperty("hpbe:creative_area", void 0);
+        Msg.info(`\u79BB\u5F00 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u6062\u590D\u751F\u5B58\u6A21\u5F0F\u3002`, player);
+      }
+      // ==========================================
+      //  计分项保存 / 恢复
+      // ==========================================
+      saveScores(player) {
+        const identity = player.scoreboardIdentity;
+        if (!identity) return;
+        const scores = {};
+        for (const obj of world3.scoreboard.getObjectives()) {
           try {
-            for (let dy = -1; dy <= 2; dy++) {
-              player.dimension.spawnParticle("minecraft:colored_flame_particle", { x: bx, y: y + dy, z: bz });
-            }
+            const score = obj.getScore(identity);
+            if (score !== void 0) scores[obj.id] = score;
           } catch {
           }
-          break;
+        }
+        if (Object.keys(scores).length > 0) {
+          player.setDynamicProperty("hpbe:creative_scores", JSON.stringify(scores));
         }
       }
-    }, 20);
+      restoreScores(player) {
+        const raw = player.getDynamicProperty("hpbe:creative_scores");
+        const scores = raw ? JSON.parse(raw) : void 0;
+        if (!scores) return;
+        const identity = player.scoreboardIdentity;
+        if (!identity) return;
+        for (const obj of world3.scoreboard.getObjectives()) {
+          if (scores[obj.id] !== void 0) {
+            try {
+              obj.setScore(identity, scores[obj.id]);
+            } catch {
+            }
+          }
+        }
+        player.setDynamicProperty("hpbe:creative_scores", void 0);
+      }
+      // ==========================================
+      //  定时扫描（进出检测）
+      // ==========================================
+      startTick() {
+        this.tickRunIds.push(system2.runInterval(() => {
+          if (!_CreativeArea.enable) return;
+          for (const player of world3.getPlayers()) {
+            if (player.getGameMode() === GameMode.Spectator) continue;
+            const currentArea = player.getDynamicProperty("hpbe:creative_area");
+            if (currentArea === void 0) {
+              const areaName = this.inArea(player);
+              if (areaName !== void 0) this.enterArea(player, areaName);
+            } else {
+              if (this.inArea(player) === void 0) this.leaveArea(player, currentArea);
+            }
+          }
+        }, 10));
+      }
+      // ==========================================
+      //  边界快速检测
+      // ==========================================
+      startBorderFastCheck() {
+        this.tickRunIds.push(system2.runInterval(() => {
+          if (!_CreativeArea.enable) return;
+          for (const player of world3.getPlayers()) {
+            if (player.getGameMode() !== GameMode.Creative) continue;
+            if (!this.isNearBorder(player)) continue;
+            const currentArea = player.getDynamicProperty("hpbe:creative_area");
+            if (currentArea !== void 0 && this.inArea(player) === void 0) {
+              this.leaveArea(player, currentArea);
+            }
+          }
+        }, 2));
+      }
+      // ==========================================
+      //  边界视觉警告
+      // ==========================================
+      startBorderWarning() {
+        this.tickRunIds.push(system2.runInterval(() => {
+          if (!_CreativeArea.enable) return;
+          for (const player of world3.getPlayers()) {
+            for (const area of ConfigManager.getAreas("creative")) {
+              if (player.dimension.id !== area.dimension) continue;
+              const pos = player.location;
+              const minX = Math.min(area.start[0], area.end[0]);
+              const maxX = Math.max(area.start[0], area.end[0]);
+              const minZ = Math.min(area.start[1], area.end[1]);
+              const maxZ = Math.max(area.start[1], area.end[1]);
+              const d = this.BORDER_WARNING_DISTANCE;
+              if (pos.x < minX - d || pos.x > maxX + d || pos.z < minZ - d || pos.z > maxZ + d) continue;
+              const cx = Math.max(minX, Math.min(maxX, pos.x));
+              const cz = Math.max(minZ, Math.min(maxZ, pos.z));
+              let bx = cx, bz = cz;
+              if (cx === pos.x && cz === pos.z) {
+                const dx = Math.min(pos.x - minX, maxX - pos.x);
+                const dz = Math.min(pos.z - minZ, maxZ - pos.z);
+                if (dx < dz) bx = pos.x - minX < maxX - pos.x ? minX : maxX;
+                else bz = pos.z - minZ < maxZ - pos.z ? minZ : maxZ;
+              }
+              const y = Math.floor(pos.y);
+              try {
+                for (let dy = -1; dy <= 2; dy++) {
+                  player.dimension.spawnParticle("minecraft:colored_flame_particle", { x: bx, y: y + dy, z: bz });
+                }
+              } catch {
+              }
+              break;
+            }
+          }
+        }, 20));
+      }
+    };
   }
-};
+});
 
 // scripts/area/Peace.ts
 import { world as world4, EntityInitializationCause as EntityInitializationCause2 } from "@minecraft/server";
-var Peace = class _Peace {
-  constructor() {
-    this.enable = true;
-  }
-  static getInstance() {
-    if (!_Peace._instance) {
-      _Peace._instance = new _Peace();
-    }
-    return _Peace._instance;
-  }
-  init() {
-    this.registerEvents();
-  }
-  registerEvents() {
-    world4.afterEvents.entitySpawn.subscribe((event) => {
-      if (!this.enable) return;
-      try {
-        if (event.cause === EntityInitializationCause2.Spawned) {
-          let entity = event.entity;
-          if (this.inPeaceArea(entity) && entity.matches(this.getPeaceEntityQO())) {
-            event.entity.remove();
+var Peace;
+var init_Peace = __esm({
+  "scripts/area/Peace.ts"() {
+    "use strict";
+    init_ConfigManager();
+    init_Tools();
+    Peace = class _Peace {
+      constructor() {
+        this.enable = true;
+        this.entitySpawnSub = void 0;
+      }
+      static getInstance() {
+        if (!_Peace._instance) {
+          _Peace._instance = new _Peace();
+        }
+        return _Peace._instance;
+      }
+      init() {
+        this.registerEvents();
+      }
+      registerEvents() {
+        if (this.entitySpawnSub) return;
+        this.entitySpawnSub = world4.afterEvents.entitySpawn.subscribe((event) => {
+          if (!this.enable) return;
+          try {
+            if (event.cause === EntityInitializationCause2.Spawned) {
+              let entity = event.entity;
+              if (this.inPeaceArea(entity) && entity.matches(this.getPeaceEntityQO())) {
+                event.entity.remove();
+              }
+            }
+          } catch {
+          }
+        });
+      }
+      cleanup() {
+        if (this.entitySpawnSub?.unsubscribe) {
+          try {
+            this.entitySpawnSub.unsubscribe();
+          } catch {
           }
         }
-      } catch {
+        this.entitySpawnSub = void 0;
       }
-    });
-  }
-  /**
-   * 实体是否在和平区域内
-   */
-  inPeaceArea(entity) {
-    for (let area of ConfigManager.getAreas("peace")) {
-      if (entity.dimension.id === area.dimension) {
-        if (pointInArea_2D(
-          entity.location.x,
-          entity.location.z,
-          area.start[0],
-          area.start[1],
-          area.end[0],
-          area.end[1]
-        )) {
-          return true;
+      /**
+       * 实体是否在和平区域内
+       */
+      inPeaceArea(entity) {
+        for (let area of ConfigManager.getAreas("peace")) {
+          if (entity.dimension.id === area.dimension) {
+            if (pointInArea_2D(
+              entity.location.x,
+              entity.location.z,
+              area.start[0],
+              area.start[1],
+              area.end[0],
+              area.end[1]
+            )) {
+              return true;
+            }
+          }
         }
+        return false;
       }
-    }
-    return false;
-  }
-  switchPeace() {
-    return this.enable = !this.enable;
-  }
-  getPeaceEntityQO() {
-    const filters = ConfigManager.getPeaceFilters();
-    const qo = {};
-    for (const f of filters) {
-      if (f.family) {
-        if (!qo.families) qo.families = [];
-        qo.families.push(f.family);
+      switchPeace() {
+        return this.enable = !this.enable;
       }
-      if (f.exclude_family) {
-        if (!qo.excludeFamilies) qo.excludeFamilies = [];
-        qo.excludeFamilies.push(f.exclude_family);
+      getPeaceEntityQO() {
+        const filters = ConfigManager.getPeaceFilters();
+        const qo = {};
+        for (const f of filters) {
+          if (f.family) {
+            if (!qo.families) qo.families = [];
+            qo.families.push(f.family);
+          }
+          if (f.exclude_family) {
+            if (!qo.excludeFamilies) qo.excludeFamilies = [];
+            qo.excludeFamilies.push(f.exclude_family);
+          }
+        }
+        return qo;
       }
-    }
-    return qo;
+    };
   }
-};
-
-// scripts/chat/DogeChat.ts
-import { world as world5, system as system3 } from "@minecraft/server";
+});
 
 // scripts/api/ChatApi.ts
-var PATH_CHANNELS = "/api/sfmc/channels";
-var PATH_MESSAGES = "/api/sfmc/messages";
-var PATH_REDPACKET = "/api/sfmc/redpacket";
 async function getChannels(filter) {
   const qs = toQueryString({
     search: filter?.search,
@@ -883,9 +940,19 @@ async function saveRedPacket(redpacket) {
 async function updateRedPacket(redpacketId, redpacketModify) {
   return HttpDB.patch(`${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}`, redpacketModify);
 }
+var PATH_CHANNELS, PATH_MESSAGES, PATH_REDPACKET;
+var init_ChatApi = __esm({
+  "scripts/api/ChatApi.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+    PATH_CHANNELS = "/api/sfmc/channels";
+    PATH_MESSAGES = "/api/sfmc/messages";
+    PATH_REDPACKET = "/api/sfmc/redpacket";
+  }
+});
 
 // scripts/api/CoopAPI.ts
-var PATH = "/api/sfmc/coops";
 async function getAllCoops() {
   const body = await HttpDB.get(PATH);
   if (!body) return [];
@@ -976,17 +1043,39 @@ async function findPlayerCoop(playerName) {
   }
   return null;
 }
+var PATH;
+var init_CoopAPI = __esm({
+  "scripts/api/CoopAPI.ts"() {
+    "use strict";
+    init_HttpDB();
+    PATH = "/api/sfmc/coops";
+  }
+});
 
 // scripts/api/PlayersDataApi.ts
-var PATH_PLAYERS = "/api/sfmc/players";
 async function savePlayers(players) {
   return HttpDB.post(PATH_PLAYERS, { players });
 }
+var PATH_PLAYERS;
+var init_PlayersDataApi = __esm({
+  "scripts/api/PlayersDataApi.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+    PATH_PLAYERS = "/api/sfmc/players";
+  }
+});
 
 // scripts/api/WorldDataApi.ts
 async function saveWorldData(data) {
   return HttpDB.post("/api/sfmc/world", { data });
 }
+var init_WorldDataApi = __esm({
+  "scripts/api/WorldDataApi.ts"() {
+    "use strict";
+    init_HttpDB();
+  }
+});
 
 // scripts/api/ScoreboardsSyncApi.ts
 async function backupScoreboards(entries) {
@@ -1006,1122 +1095,1474 @@ async function loadScoreboards(filter) {
     return null;
   }
 }
+var init_ScoreboardsSyncApi = __esm({
+  "scripts/api/ScoreboardsSyncApi.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+  }
+});
+
+// scripts/api/index.ts
+var init_api = __esm({
+  "scripts/api/index.ts"() {
+    "use strict";
+    init_ChatApi();
+    init_CoopAPI();
+    init_PlayersDataApi();
+    init_WorldDataApi();
+    init_ScoreboardsSyncApi();
+  }
+});
 
 // scripts/chat/DogeChat.ts
-var DogeChat = class _DogeChat {
-  static {
-    this.DEFAULT_CHANNEL_CONFIG = {
-      allowChat: true,
-      slowMode: 0,
-      isBroadcast: false
-    };
-  }
-  static {
-    this.DEFAULT_CHANNELS = [
-      {
-        id: generateId("CH"),
-        name: "\u516C\u5171\u9891\u9053",
-        type: "public",
-        prefix: "PB",
-        createdAt: Date.now(),
-        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
-      },
-      {
-        id: generateId("CH"),
-        name: "\u516C\u544A",
-        type: "custom",
-        prefix: "BC",
-        createdAt: Date.now(),
-        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
+import { world as world5, system as system3 } from "@minecraft/server";
+var DogeChat;
+var init_DogeChat = __esm({
+  "scripts/chat/DogeChat.ts"() {
+    "use strict";
+    init_Tools();
+    init_Money();
+    init_HttpDB();
+    init_Permission();
+    init_api();
+    DogeChat = class _DogeChat {
+      static {
+        this.DEFAULT_CHANNEL_CONFIG = {
+          allowChat: true,
+          slowMode: 0,
+          isBroadcast: false
+        };
       }
-    ];
-  }
-  static {
-    this.slowModeTracker = /* @__PURE__ */ new Map();
-  }
-  static {
-    /** 发送频道（玩家输入的消息发送到此频道） */
-    this.activeChannelMap = /* @__PURE__ */ new Map();
-  }
-  static {
-    /** 订阅频道（接收消息的频道列表） */
-    this.subscribedChannelsMap = /* @__PURE__ */ new Map();
-  }
-  static {
-    /** QQ 桥接轮询 */
-    this._bridgePollStarted = false;
-  }
-  static {
-    this._lastBridgeFetch = Date.now();
-  }
-  static {
-    this._lastBridgeTimestamp = 0;
-  }
-  // ---------- 保留期 ----------
-  static getRetention(channel) {
-    if (channel.config.isBroadcast) return Infinity;
-    switch (channel.type) {
-      case "private":
-        return 30 * 24 * 60 * 60 * 1e3;
-      case "system":
-        return 24 * 60 * 60 * 1e3;
-      case "public":
-      case "custom":
-      default:
-        return 7 * 24 * 60 * 60 * 1e3;
-    }
-  }
-  // ============================================
-  //  频道初始化
-  // ============================================
-  static async ensureDefaultChannels() {
-    for (let i = 0; i < 5; i++) {
-      const existing = await getChannels();
-      if (existing && existing.length > 0) return;
-      if (i < 4) {
-        await system3.waitTicks(40);
-        continue;
+      static {
+        this.DEFAULT_CHANNELS = [
+          {
+            id: generateId("CH"),
+            name: "\u516C\u5171\u9891\u9053",
+            type: "public",
+            prefix: "PB",
+            createdAt: Date.now(),
+            config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+          },
+          {
+            id: generateId("CH"),
+            name: "\u516C\u544A",
+            type: "custom",
+            prefix: "BC",
+            createdAt: Date.now(),
+            config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
+          }
+        ];
       }
-      const ok = await saveChannels(_DogeChat.DEFAULT_CHANNELS).catch((err) => {
-        console.warn(`[DogeChat] \u4FDD\u5B58\u9ED8\u8BA4\u9891\u9053\u5931\u8D25: ${err}`);
-        return false;
-      });
-      if (ok) return;
-      await system3.waitTicks(40);
-    }
-  }
-  static async getPublicChannel() {
-    const rows = await getChannels({ type: "public" });
-    if (rows && rows.length > 0) return rows[0];
-    await this.ensureDefaultChannels();
-    const retry = await getChannels({ type: "public" });
-    return retry && retry.length > 0 ? retry[0] : null;
-  }
-  // ============================================
-  //  发送频道（!ch 用）
-  // ============================================
-  static async getActiveChannel(player) {
-    const channelId = _DogeChat.activeChannelMap.get(player.id);
-    if (channelId) {
-      const ch = await getChannel(channelId);
-      if (ch) return ch;
-    }
-    const pub = await this.getPublicChannel();
-    if (pub) {
-      _DogeChat.activeChannelMap.set(player.id, pub.id);
-      this._ensureSubscribed(player.id, pub.id);
-      HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
-        (e) => console.warn("[DogeChat] error:", e)
-      );
-    }
-    return pub;
-  }
-  static async setActiveChannel(player, channelId) {
-    _DogeChat.activeChannelMap.set(player.id, channelId);
-    this._ensureSubscribed(player.id, channelId);
-    await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
-      (e) => console.warn("[DogeChat] error:", e)
-    );
-  }
-  // ============================================
-  //  频道订阅系统
-  // ============================================
-  static isSubscribed(playerId2, channelId) {
-    return this.subscribedChannelsMap.get(playerId2)?.has(channelId) ?? false;
-  }
-  static getSubscribedChannelIds(playerId2) {
-    return Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
-  }
-  static async getSubscribedChannels(player) {
-    const ids = this.getSubscribedChannelIds(player.id);
-    const all = await getChannels();
-    if (!all) return [];
-    return all.filter((c) => ids.includes(c.id));
-  }
-  static async toggleSubscription(player, channelId) {
-    const subs = this.subscribedChannelsMap.get(player.id);
-    if (!subs) {
-      this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([channelId]));
-      this._saveSubscriptions(player.id);
-      return true;
-    }
-    if (subs.has(channelId)) {
-      subs.delete(channelId);
-      if (subs.size === 0) {
-        const pub = await this.getPublicChannel();
-        if (pub) subs.add(pub.id);
+      static {
+        this.slowModeTracker = /* @__PURE__ */ new Map();
       }
-      this._saveSubscriptions(player.id);
-      return false;
-    }
-    subs.add(channelId);
-    this._saveSubscriptions(player.id);
-    return true;
-  }
-  static async setSubscriptions(player, channelIds) {
-    this.subscribedChannelsMap.set(player.id, new Set(channelIds));
-    this._saveSubscriptions(player.id);
-  }
-  static _ensureSubscribed(playerId2, channelId) {
-    if (!this.subscribedChannelsMap.has(playerId2)) {
-      this.subscribedChannelsMap.set(playerId2, /* @__PURE__ */ new Set());
-    }
-    this.subscribedChannelsMap.get(playerId2).add(channelId);
-  }
-  static _saveSubscriptions(playerId2) {
-    const ids = Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
-    HttpDB.patch(`/api/sfmc/players/${playerId2}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch(
-      (e) => console.warn("[DogeChat] error:", e)
-    );
-  }
-  static async loadSubscriptions(player) {
-    const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
-    if (raw?.subscribed_channels) {
-      try {
-        const ids = JSON.parse(raw.subscribed_channels);
-        this.subscribedChannelsMap.set(player.id, new Set(ids));
-      } catch {
+      static {
+        /** 发送频道（玩家输入的消息发送到此频道） */
+        this.activeChannelMap = /* @__PURE__ */ new Map();
       }
-    }
-    if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id).size === 0) {
-      const pub = await this.getPublicChannel();
-      if (pub) this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([pub.id]));
-    }
-    if (!this.activeChannelMap.has(player.id)) {
-      const pub = await this.getPublicChannel();
-      if (pub) this.activeChannelMap.set(player.id, pub.id);
-    }
-  }
-  /** 频道在线人数（按订阅统计） */
-  static getOnlineCount(channelId) {
-    let count = 0;
-    for (const p of world5.getPlayers()) {
-      if (this.subscribedChannelsMap.get(p.id)?.has(channelId)) count++;
-    }
-    return count;
-  }
-  /** 创建新频道 */
-  static async createChannel(name, prefix, type, config, owner) {
-    const channel = {
-      id: generateId("CH"),
-      name,
-      prefix,
-      type,
-      ownerid: owner?.id,
-      createdAt: Date.now(),
-      config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config }
-    };
-    const ok = await createChannel(channel);
-    return ok ? channel.id : "";
-  }
-  static async deleteChannel(channelId) {
-    const ch = await getChannel(channelId);
-    if (!ch) return false;
-    if (ch.type === "public") return false;
-    return deleteChannel(channelId);
-  }
-  static async updateChannelConfig(channelId, config) {
-    const data = {};
-    if (config.allowChat !== void 0) data.configAllowChat = config.allowChat ? 1 : 0;
-    if (config.slowMode !== void 0) data.configSlowMode = config.slowMode;
-    if (config.isBroadcast !== void 0) data.configIsBroadcast = config.isBroadcast ? 1 : 0;
-    if (Object.keys(data).length === 0) return false;
-    return patchChannel(channelId, data);
-  }
-  static async updateChannelName(channelId, newName, newPrefix) {
-    return patchChannel(channelId, { name: newName, prefix: newPrefix });
-  }
-  static async getPrivateChannels(player) {
-    const rows = await getChannels({ type: "private", ownerId: player.id });
-    return rows ?? [];
-  }
-  // ============================================
-  //  系统消息频道
-  // ============================================
-  static getSystemChannelId(player) {
-    return `sys_${player.id}`;
-  }
-  static async ensureSystemChannel(player) {
-    const channelId = this.getSystemChannelId(player);
-    const existing = await getChannel(channelId);
-    if (existing) return existing;
-    const channel = {
-      id: channelId,
-      name: "\u7CFB\u7EDF\u6D88\u606F",
-      type: "system",
-      prefix: "SYS",
-      ownerid: player.id,
-      createdAt: Date.now(),
-      config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false }
-    };
-    await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
-    return channel;
-  }
-  static async sendSystemMessage(player, content) {
-    const channel = await this.ensureSystemChannel(player);
-    const msg = {
-      id: generateId("M"),
-      fromid: "system",
-      fromName: "SYS",
-      channelId: channel.id,
-      type: "text",
-      content,
-      timestamp: Date.now(),
-      showTimestamp: true
-    };
-    saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-  }
-  static isPrivateParticipant(channelId, playerId2) {
-    if (!channelId.startsWith("priv_")) return false;
-    return channelId.includes(playerId2);
-  }
-  static getPrivateOther(channelId, myId) {
-    if (!channelId.startsWith("priv_")) return void 0;
-    const parts = channelId.split("_");
-    return parts[1] === myId ? parts[2] : parts[1];
-  }
-  /** 循环切换发送频道（!ch 用），同时订阅目标频道 */
-  static async cycleChannel(player) {
-    const all = await getChannels();
-    if (!all) return null;
-    const switchable = all.filter((c) => c.type !== "private");
-    if (switchable.length === 0) {
-      const pub = await this.getPublicChannel();
-      if (pub) await this.setActiveChannel(player, pub.id);
-      return pub;
-    }
-    const currentId = _DogeChat.activeChannelMap.get(player.id);
-    const current = all.find((c) => c.id === currentId);
-    const idx = current ? switchable.findIndex((c) => c.id === current.id) : -1;
-    const next = switchable[(idx + 1) % switchable.length];
-    if (next) await this.setActiveChannel(player, next.id);
-    return next ?? null;
-  }
-  // ============================================
-  //  消息同步
-  // ============================================
-  static async getChannelHistory(channelId) {
-    const channel = await getChannel(channelId);
-    if (!channel) return [];
-    const cutoff = Date.now() - this.getRetention(channel);
-    const rows = await getMessages({ channelId, minSentAt: cutoff });
-    if (rows !== null) return rows;
-    return [];
-  }
-  static async loadChannelHistory(player, channelId) {
-    const channel = await getChannel(channelId);
-    if (!channel) return;
-    const history = await this.getChannelHistory(channelId);
-    if (history.length === 0) {
-      player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u6682\u65E0\u5386\u53F2\u6D88\u606F ---`);
-      return;
-    }
-    player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u5386\u53F2\u6D88\u606F ---`);
-    for (const msg of history) {
-      const isBroadcast = channel.config.isBroadcast;
-      if (msg.showTimestamp && !isBroadcast) {
-        player.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+      static {
+        /** 订阅频道（接收消息的频道列表） */
+        this.subscribedChannelsMap = /* @__PURE__ */ new Map();
       }
-      let display = msg.content;
-      switch (msg.type) {
-        case "location":
-          display = `\xA7a[\u5B9A\u4F4D] ${display}`;
-          break;
-        case "teleport_invite":
-          display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
-          break;
-        case "redpacket":
-          display = `\xA76[\u7EA2\u5305] ${display}`;
-          break;
+      static {
+        /** QQ 桥接轮询 */
+        this._bridgePollStarted = false;
       }
-      player.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: ${display}` }] });
-    }
-    player.sendMessage(`\xA77--- \u4EE5\u4E0A\u4E3A\u5386\u53F2\u6D88\u606F\uFF0C\u5171 ${history.length} \u6761 ---`);
-    player.sendMessage("\xA77!lo \xA78\u53D1\u9001\u5B9A\u4F4D \xA77| !tp \xA78\u4F20\u9001\u9080\u8BF7 \xA77| !hb \xA78\u53D1\u9001\u7EA2\u5305");
-  }
-  // ============================================
-  //  发送消息
-  // ============================================
-  static async sendChannelMessage(from, channelId, content, type = "text", attachment) {
-    const channel = await getChannel(channelId);
-    if (!channel) {
-      Msg.warning("\u9891\u9053\u4E0D\u5B58\u5728\u3002", from);
-      return false;
-    }
-    if (!channel.config?.allowChat) {
-      if (channel.type === "system") Msg.warning("\u8BE5\u9891\u9053\u53EA\u8BFB\u3002", from);
-      return false;
-    }
-    if (channel.config?.isBroadcast) {
-      const owner = await this.isChannelOwner(from, channelId);
-      const isAdmin = Permission.check(from, "chat.admin");
-      if (!owner && !isAdmin) {
-        Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002", from);
-        return false;
+      static {
+        this._bridgePollId = void 0;
       }
-      const msg2 = {
-        id: generateId("M"),
-        fromid: from.id,
-        fromName: from.name,
-        channelId,
-        type,
-        content,
-        attachment,
-        timestamp: Date.now(),
-        showTimestamp: true
-      };
-      await saveMessages([msg2]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-      from.sendMessage({ rawtext: [{ text: `\xA7a[${channel.prefix}] ${from.name}: ${content}` }] });
-      return true;
-    }
-    if (channel.config?.slowMode && channel.config.slowMode > 0) {
-      const playerMap = this.slowModeTracker.get(from.id);
-      const lastTs = playerMap?.get(channelId) ?? 0;
-      const elapsed = (Date.now() - lastTs) / 1e3;
-      if (elapsed < channel.config.slowMode) {
-        Msg.warning(
-          `\u9891\u9053 ${channel.prefix} \u6162\u901F\u6A21\u5F0F\u4E2D\uFF0C\u8BF7\u7B49\u5F85 ${Math.ceil(channel.config.slowMode - elapsed)} \u79D2\u3002`,
-          from
-        );
-        return false;
-      }
-    }
-    const history = await this.getChannelHistory(channelId);
-    const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
-    const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
-    const msg = {
-      id: generateId("M"),
-      fromid: from.id,
-      fromName: from.name,
-      channelId,
-      type,
-      content,
-      attachment,
-      timestamp: Date.now(),
-      showTimestamp
-    };
-    saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-    if (showTimestamp) from.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-    from.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${from.name}: ${content}` }] });
-    this._broadcastToSubscribers(channel, msg, showTimestamp, from.id);
-    if (channel.config?.slowMode && channel.config.slowMode > 0) {
-      if (!this.slowModeTracker.has(from.id)) this.slowModeTracker.set(from.id, /* @__PURE__ */ new Map());
-      this.slowModeTracker.get(from.id).set(channelId, Date.now());
-    }
-    return true;
-  }
-  /** 广播消息给所有订阅了该频道的玩家 */
-  static _broadcastToSubscribers(channel, msg, showTimestamp, excludeId) {
-    const isBroadcast = channel.config.isBroadcast;
-    for (const p of world5.getPlayers()) {
-      if (p.id === excludeId) continue;
-      if (!this.isSubscribed(p.id, channel.id)) continue;
-      let display = msg.content;
-      switch (msg.type) {
-        case "location":
-          display = `\xA7a[\u5B9A\u4F4D] ${display}`;
-          break;
-        case "teleport_invite":
-          display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
-          break;
-        case "redpacket":
-          display = `\xA76[\u7EA2\u5305] ${display}`;
-          break;
-      }
-      if (showTimestamp && !isBroadcast) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-      p.chatNamePrefix = `[${channel.prefix}]`;
-      p.sendMessage(`${display}`);
-    }
-  }
-  static async sendPrivateMessage(from, toPlayer, content, type = "text") {
-    const channel = await this.ensurePrivateChannel(from.id, toPlayer.id);
-    const history = await this.getChannelHistory(channel.id);
-    const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
-    const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
-    const msg = {
-      id: generateId("M"),
-      fromid: from.id,
-      fromName: from.name,
-      channelId: channel.id,
-      type,
-      content,
-      timestamp: Date.now(),
-      showTimestamp
-    };
-    saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-    for (const p of [from, toPlayer]) {
-      if (this.isSubscribed(p.id, channel.id)) {
-        let display = content;
-        switch (type) {
-          case "location":
-            display = `\xA7a[\u5B9A\u4F4D] ${display}`;
-            break;
-          case "teleport_invite":
-            display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
-            break;
-          case "redpacket":
-            display = `\xA76[\u7EA2\u5305] ${display}`;
-            break;
-        }
-        if (showTimestamp) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-        const sender = p.id === from.id ? toPlayer.name : from.name;
-        p.sendMessage({ rawtext: [{ text: `\xA7d[\u79C1\u4FE1] \xA7f${sender}: ${display}` }] });
-      } else if (p.id !== from.id) {
-        Msg.info(`\xA7b${from.name} \u53D1\u6765\u4E00\u6761\u79C1\u4FE1\u3002\u4F7F\u7528 !channel \u5207\u6362\u5230\u79C1\u804A\u9891\u9053\u67E5\u770B\u3002`, p);
-      }
-    }
-    return true;
-  }
-  static async ensurePrivateChannel(idA, idB) {
-    const ids = [idA, idB].sort();
-    const channelId = `priv_${ids[0]}_${ids[1]}`;
-    const existing = await getChannel(channelId);
-    if (existing) return existing;
-    const nameB = world5.getPlayers().find((p) => p.id === idB)?.name ?? idB;
-    const channel = {
-      id: channelId,
-      name: `\u4E0E ${nameB} \u7684\u79C1\u804A`,
-      type: "private",
-      prefix: `\u79C1\u804A-${nameB}`,
-      ownerid: idA,
-      createdAt: Date.now(),
-      config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
-    };
-    await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
-    return channel;
-  }
-  // ============================================
-  //  定位 & 传送
-  // ============================================
-  static createLocationMessage(player) {
-    const loc2 = player.location;
-    return `${player.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
-  }
-  static sendTeleportInvite(from, toPlayer) {
-    const loc2 = from.location;
-    const locStr = `${from.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
-    return this.sendPrivateMessage(from, toPlayer, `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`, "teleport_invite");
-  }
-  // ============================================
-  //  红包
-  // ============================================
-  static async sendRedPacket(sender, amount, count, targetType, targetId) {
-    if (amount <= 0 || count <= 0 || count > amount) {
-      Msg.error("\u7EA2\u5305\u53C2\u6570\u65E0\u6548\u3002", sender);
-      return false;
-    }
-    const balance = Money.get(sender);
-    if (balance < amount) {
-      Msg.error(`${Money.UNIT}\u4E0D\u8DB3\uFF0C\u9700\u8981 ${amount}\uFF0C\u5F53\u524D ${balance}\u3002`, sender);
-      return false;
-    }
-    const packet = {
-      id: generateId("RP"),
-      senderid: sender.id,
-      senderName: sender.name,
-      totalAmount: amount,
-      remainingAmount: amount,
-      totalCount: count,
-      remainingCount: count,
-      receivers: [],
-      targetType,
-      targetId,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + 24 * 60 * 60 * 1e3
-    };
-    const saved = await saveRedPacket(packet);
-    if (!saved) {
-      Msg.error("\u7EA2\u5305\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", sender);
-      return false;
-    }
-    Money.set(sender, balance - amount);
-    Msg.success(`${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`, sender);
-    const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
-    saveMessages([
-      {
-        id: generateId("M"),
-        fromid: sender.id,
-        fromName: sender.name,
-        channelId,
-        type: "redpacket",
-        content: `\u53D1\u9001\u4E86 ${amount} ${Money.UNIT} \u7684\u7EA2\u5305\uFF08\u5171 ${count} \u4EFD\uFF09`,
-        timestamp: Date.now()
-      }
-    ]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-    return true;
-  }
-  static async claimRedPacket(player, packetId) {
-    const packet = await getRedPacket(packetId);
-    if (!packet) {
-      Msg.error("\u7EA2\u5305\u4E0D\u5B58\u5728\u3002", player);
-      return 0;
-    }
-    if (packet.remainingCount <= 0) {
-      Msg.error("\u7EA2\u5305\u5DF2\u88AB\u9886\u5B8C\u3002", player);
-      return 0;
-    }
-    if (packet.receivers.includes(player.id)) {
-      Msg.warning("\u4F60\u5DF2\u7ECF\u9886\u53D6\u8FC7\u8FD9\u4E2A\u7EA2\u5305\u4E86\u3002", player);
-      return 0;
-    }
-    if (Date.now() > packet.expiresAt) {
-      Msg.error("\u7EA2\u5305\u5DF2\u8FC7\u671F\u3002", player);
-      return 0;
-    }
-    let amount;
-    if (packet.remainingCount === 1) {
-      amount = packet.remainingAmount;
-    } else {
-      const max = Math.floor(packet.remainingAmount / packet.remainingCount * 2);
-      amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
-      amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
-    }
-    const updated = await updateRedPacket(packet.id, {
-      remainingAmount: packet.remainingAmount - amount,
-      remainingCount: packet.remainingCount - 1,
-      receivers: [...packet.receivers, player.id]
-    });
-    if (!updated) {
-      Msg.error("\u9886\u53D6\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", player);
-      return 0;
-    }
-    Money.add(player, amount);
-    Msg.success(`\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${amount} ${Money.UNIT}\uFF01`, player);
-    return amount;
-  }
-  static async getAvailableRedPackets(player) {
-    const rows = await getRedPackets();
-    const now = Date.now();
-    return rows.filter((p) => {
-      if (p.remainingCount <= 0 || now > p.expiresAt) return false;
-      if (p.targetType === "player") return p.targetId === player.id;
-      return true;
-    });
-  }
-  static cleanupExpiredRedPackets() {
-  }
-  // ============================================
-  //  权限判断
-  // ============================================
-  static async isChannelOwner(player, channelId) {
-    const ch = await getChannel(channelId);
-    return ch?.ownerid === player.id;
-  }
-  // ============================================
-  //  QQ 桥接轮询
-  // ============================================
-  static startBridgePolling(bridgeChannelId) {
-    if (this._bridgePollStarted) return;
-    this._bridgePollStarted = true;
-    this._lastBridgeFetch = Date.now();
-    system3.runInterval(async () => {
-      try {
-        const since = this._lastBridgeFetch;
+      static {
         this._lastBridgeFetch = Date.now();
-        const msgs = await getMessages({ channelId: bridgeChannelId, minSentAt: since });
-        if (!msgs || msgs.length === 0) return;
-        const channel = await getChannel(bridgeChannelId);
+      }
+      static {
+        this._lastBridgeTimestamp = 0;
+      }
+      // ---------- 保留期 ----------
+      static getRetention(channel) {
+        if (channel.config.isBroadcast) return Infinity;
+        switch (channel.type) {
+          case "private":
+            return 30 * 24 * 60 * 60 * 1e3;
+          case "system":
+            return 24 * 60 * 60 * 1e3;
+          case "public":
+          case "custom":
+          default:
+            return 7 * 24 * 60 * 60 * 1e3;
+        }
+      }
+      // ============================================
+      //  频道初始化
+      // ============================================
+      static async ensureDefaultChannels() {
+        for (let i = 0; i < 5; i++) {
+          const existing = await getChannels();
+          if (existing && existing.length > 0) return;
+          if (i < 4) {
+            await system3.waitTicks(40);
+            continue;
+          }
+          const ok = await saveChannels(_DogeChat.DEFAULT_CHANNELS).catch((err) => {
+            console.warn(`[DogeChat] \u4FDD\u5B58\u9ED8\u8BA4\u9891\u9053\u5931\u8D25: ${err}`);
+            return false;
+          });
+          if (ok) return;
+          await system3.waitTicks(40);
+        }
+      }
+      static async getPublicChannel() {
+        const rows = await getChannels({ type: "public" });
+        if (rows && rows.length > 0) return rows[0];
+        await this.ensureDefaultChannels();
+        const retry = await getChannels({ type: "public" });
+        return retry && retry.length > 0 ? retry[0] : null;
+      }
+      // ============================================
+      //  发送频道（!ch 用）
+      // ============================================
+      static async getActiveChannel(player) {
+        const channelId = _DogeChat.activeChannelMap.get(player.id);
+        if (channelId) {
+          const ch = await getChannel(channelId);
+          if (ch) return ch;
+        }
+        const pub = await this.getPublicChannel();
+        if (pub) {
+          _DogeChat.activeChannelMap.set(player.id, pub.id);
+          this._ensureSubscribed(player.id, pub.id);
+          HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
+            (e) => console.warn("[DogeChat] error:", e)
+          );
+        }
+        return pub;
+      }
+      static async setActiveChannel(player, channelId) {
+        _DogeChat.activeChannelMap.set(player.id, channelId);
+        this._ensureSubscribed(player.id, channelId);
+        await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
+          (e) => console.warn("[DogeChat] error:", e)
+        );
+      }
+      // ============================================
+      //  频道订阅系统
+      // ============================================
+      static isSubscribed(playerId2, channelId) {
+        return this.subscribedChannelsMap.get(playerId2)?.has(channelId) ?? false;
+      }
+      static getSubscribedChannelIds(playerId2) {
+        return Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
+      }
+      static async getSubscribedChannels(player) {
+        const ids = this.getSubscribedChannelIds(player.id);
+        const all = await getChannels();
+        if (!all) return [];
+        return all.filter((c) => ids.includes(c.id));
+      }
+      static async toggleSubscription(player, channelId) {
+        const subs = this.subscribedChannelsMap.get(player.id);
+        if (!subs) {
+          this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([channelId]));
+          this._saveSubscriptions(player.id);
+          return true;
+        }
+        if (subs.has(channelId)) {
+          subs.delete(channelId);
+          if (subs.size === 0) {
+            const pub = await this.getPublicChannel();
+            if (pub) subs.add(pub.id);
+          }
+          this._saveSubscriptions(player.id);
+          return false;
+        }
+        subs.add(channelId);
+        this._saveSubscriptions(player.id);
+        return true;
+      }
+      static async setSubscriptions(player, channelIds) {
+        this.subscribedChannelsMap.set(player.id, new Set(channelIds));
+        this._saveSubscriptions(player.id);
+      }
+      static _ensureSubscribed(playerId2, channelId) {
+        if (!this.subscribedChannelsMap.has(playerId2)) {
+          this.subscribedChannelsMap.set(playerId2, /* @__PURE__ */ new Set());
+        }
+        this.subscribedChannelsMap.get(playerId2).add(channelId);
+      }
+      static _saveSubscriptions(playerId2) {
+        const ids = Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
+        HttpDB.patch(`/api/sfmc/players/${playerId2}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch(
+          (e) => console.warn("[DogeChat] error:", e)
+        );
+      }
+      static async loadSubscriptions(player) {
+        const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
+        if (raw?.subscribed_channels) {
+          try {
+            const ids = JSON.parse(raw.subscribed_channels);
+            this.subscribedChannelsMap.set(player.id, new Set(ids));
+          } catch {
+          }
+        }
+        if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id).size === 0) {
+          const pub = await this.getPublicChannel();
+          if (pub) this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([pub.id]));
+        }
+        if (!this.activeChannelMap.has(player.id)) {
+          const pub = await this.getPublicChannel();
+          if (pub) this.activeChannelMap.set(player.id, pub.id);
+        }
+      }
+      /** 频道在线人数（按订阅统计） */
+      static getOnlineCount(channelId) {
+        let count = 0;
+        for (const p of world5.getPlayers()) {
+          if (this.subscribedChannelsMap.get(p.id)?.has(channelId)) count++;
+        }
+        return count;
+      }
+      /** 创建新频道 */
+      static async createChannel(name, prefix, type, config, owner) {
+        const channel = {
+          id: generateId("CH"),
+          name,
+          prefix,
+          type,
+          ownerid: owner?.id,
+          createdAt: Date.now(),
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config }
+        };
+        const ok = await createChannel(channel);
+        return ok ? channel.id : "";
+      }
+      static async deleteChannel(channelId) {
+        const ch = await getChannel(channelId);
+        if (!ch) return false;
+        if (ch.type === "public") return false;
+        return deleteChannel(channelId);
+      }
+      static async updateChannelConfig(channelId, config) {
+        const data = {};
+        if (config.allowChat !== void 0) data.configAllowChat = config.allowChat ? 1 : 0;
+        if (config.slowMode !== void 0) data.configSlowMode = config.slowMode;
+        if (config.isBroadcast !== void 0) data.configIsBroadcast = config.isBroadcast ? 1 : 0;
+        if (Object.keys(data).length === 0) return false;
+        return patchChannel(channelId, data);
+      }
+      static async updateChannelName(channelId, newName, newPrefix) {
+        return patchChannel(channelId, { name: newName, prefix: newPrefix });
+      }
+      static async getPrivateChannels(player) {
+        const rows = await getChannels({ type: "private", ownerId: player.id });
+        return rows ?? [];
+      }
+      // ============================================
+      //  系统消息频道
+      // ============================================
+      static getSystemChannelId(player) {
+        return `sys_${player.id}`;
+      }
+      static async ensureSystemChannel(player) {
+        const channelId = this.getSystemChannelId(player);
+        const existing = await getChannel(channelId);
+        if (existing) return existing;
+        const channel = {
+          id: channelId,
+          name: "\u7CFB\u7EDF\u6D88\u606F",
+          type: "system",
+          prefix: "SYS",
+          ownerid: player.id,
+          createdAt: Date.now(),
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false }
+        };
+        await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
+        return channel;
+      }
+      static async sendSystemMessage(player, content) {
+        const channel = await this.ensureSystemChannel(player);
+        const msg = {
+          id: generateId("M"),
+          fromid: "system",
+          fromName: "SYS",
+          channelId: channel.id,
+          type: "text",
+          content,
+          timestamp: Date.now(),
+          showTimestamp: true
+        };
+        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+      }
+      static isPrivateParticipant(channelId, playerId2) {
+        if (!channelId.startsWith("priv_")) return false;
+        return channelId.includes(playerId2);
+      }
+      static getPrivateOther(channelId, myId) {
+        if (!channelId.startsWith("priv_")) return void 0;
+        const parts = channelId.split("_");
+        return parts[1] === myId ? parts[2] : parts[1];
+      }
+      /** 循环切换发送频道（!ch 用），同时订阅目标频道 */
+      static async cycleChannel(player) {
+        const all = await getChannels();
+        if (!all) return null;
+        const switchable = all.filter((c) => c.type !== "private");
+        if (switchable.length === 0) {
+          const pub = await this.getPublicChannel();
+          if (pub) await this.setActiveChannel(player, pub.id);
+          return pub;
+        }
+        const currentId = _DogeChat.activeChannelMap.get(player.id);
+        const current = all.find((c) => c.id === currentId);
+        const idx = current ? switchable.findIndex((c) => c.id === current.id) : -1;
+        const next = switchable[(idx + 1) % switchable.length];
+        if (next) await this.setActiveChannel(player, next.id);
+        return next ?? null;
+      }
+      // ============================================
+      //  消息同步
+      // ============================================
+      static async getChannelHistory(channelId) {
+        const channel = await getChannel(channelId);
+        if (!channel) return [];
+        const cutoff = Date.now() - this.getRetention(channel);
+        const rows = await getMessages({ channelId, minSentAt: cutoff });
+        if (rows !== null) return rows;
+        return [];
+      }
+      static async loadChannelHistory(player, channelId) {
+        const channel = await getChannel(channelId);
         if (!channel) return;
-        for (const msg of msgs) {
-          if (msg.fromid.startsWith("qq_")) {
-            const isBroadcast = channel.config.isBroadcast;
-            for (const p of world5.getPlayers()) {
-              if (!this.isSubscribed(p.id, bridgeChannelId)) continue;
-              if (!isBroadcast && msg.timestamp - this._lastBridgeTimestamp > 3e5) {
-                this._lastBridgeTimestamp = msg.timestamp;
-                p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+        const history = await this.getChannelHistory(channelId);
+        if (history.length === 0) {
+          player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u6682\u65E0\u5386\u53F2\u6D88\u606F ---`);
+          return;
+        }
+        player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u5386\u53F2\u6D88\u606F ---`);
+        for (const msg of history) {
+          const isBroadcast = channel.config.isBroadcast;
+          if (msg.showTimestamp && !isBroadcast) {
+            player.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+          }
+          let display = msg.content;
+          switch (msg.type) {
+            case "location":
+              display = `\xA7a[\u5B9A\u4F4D] ${display}`;
+              break;
+            case "teleport_invite":
+              display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
+              break;
+            case "redpacket":
+              display = `\xA76[\u7EA2\u5305] ${display}`;
+              break;
+          }
+          player.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: ${display}` }] });
+        }
+        player.sendMessage(`\xA77--- \u4EE5\u4E0A\u4E3A\u5386\u53F2\u6D88\u606F\uFF0C\u5171 ${history.length} \u6761 ---`);
+        player.sendMessage("\xA77!lo \xA78\u53D1\u9001\u5B9A\u4F4D \xA77| !tp \xA78\u4F20\u9001\u9080\u8BF7 \xA77| !hb \xA78\u53D1\u9001\u7EA2\u5305");
+      }
+      // ============================================
+      //  发送消息
+      // ============================================
+      static async sendChannelMessage(from, channelId, content, type = "text", attachment) {
+        const channel = await getChannel(channelId);
+        if (!channel) {
+          Msg.warning("\u9891\u9053\u4E0D\u5B58\u5728\u3002", from);
+          return false;
+        }
+        if (!channel.config?.allowChat) {
+          if (channel.type === "system") Msg.warning("\u8BE5\u9891\u9053\u53EA\u8BFB\u3002", from);
+          return false;
+        }
+        if (channel.config?.isBroadcast) {
+          const owner = await this.isChannelOwner(from, channelId);
+          const isAdmin = Permission.check(from, "chat.admin");
+          if (!owner && !isAdmin) {
+            Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002", from);
+            return false;
+          }
+          const msg2 = {
+            id: generateId("M"),
+            fromid: from.id,
+            fromName: from.name,
+            channelId,
+            type,
+            content,
+            attachment,
+            timestamp: Date.now(),
+            showTimestamp: true
+          };
+          await saveMessages([msg2]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+          from.sendMessage({ rawtext: [{ text: `\xA7a[${channel.prefix}] ${from.name}: ${content}` }] });
+          return true;
+        }
+        if (channel.config?.slowMode && channel.config.slowMode > 0) {
+          const playerMap = this.slowModeTracker.get(from.id);
+          const lastTs = playerMap?.get(channelId) ?? 0;
+          const elapsed = (Date.now() - lastTs) / 1e3;
+          if (elapsed < channel.config.slowMode) {
+            Msg.warning(
+              `\u9891\u9053 ${channel.prefix} \u6162\u901F\u6A21\u5F0F\u4E2D\uFF0C\u8BF7\u7B49\u5F85 ${Math.ceil(channel.config.slowMode - elapsed)} \u79D2\u3002`,
+              from
+            );
+            return false;
+          }
+        }
+        const history = await this.getChannelHistory(channelId);
+        const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
+        const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
+        const msg = {
+          id: generateId("M"),
+          fromid: from.id,
+          fromName: from.name,
+          channelId,
+          type,
+          content,
+          attachment,
+          timestamp: Date.now(),
+          showTimestamp
+        };
+        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+        if (showTimestamp) from.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+        from.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${from.name}: ${content}` }] });
+        this._broadcastToSubscribers(channel, msg, showTimestamp, from.id);
+        if (channel.config?.slowMode && channel.config.slowMode > 0) {
+          if (!this.slowModeTracker.has(from.id)) this.slowModeTracker.set(from.id, /* @__PURE__ */ new Map());
+          this.slowModeTracker.get(from.id).set(channelId, Date.now());
+        }
+        return true;
+      }
+      /** 广播消息给所有订阅了该频道的玩家 */
+      static _broadcastToSubscribers(channel, msg, showTimestamp, excludeId) {
+        const isBroadcast = channel.config.isBroadcast;
+        for (const p of world5.getPlayers()) {
+          if (p.id === excludeId) continue;
+          if (!this.isSubscribed(p.id, channel.id)) continue;
+          let display = msg.content;
+          switch (msg.type) {
+            case "location":
+              display = `\xA7a[\u5B9A\u4F4D] ${display}`;
+              break;
+            case "teleport_invite":
+              display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
+              break;
+            case "redpacket":
+              display = `\xA76[\u7EA2\u5305] ${display}`;
+              break;
+          }
+          if (showTimestamp && !isBroadcast) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+          p.chatNamePrefix = `[${channel.prefix}]`;
+          p.sendMessage(`${display}`);
+        }
+      }
+      static async sendPrivateMessage(from, toPlayer, content, type = "text") {
+        const channel = await this.ensurePrivateChannel(from.id, toPlayer.id);
+        const history = await this.getChannelHistory(channel.id);
+        const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
+        const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
+        const msg = {
+          id: generateId("M"),
+          fromid: from.id,
+          fromName: from.name,
+          channelId: channel.id,
+          type,
+          content,
+          timestamp: Date.now(),
+          showTimestamp
+        };
+        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+        for (const p of [from, toPlayer]) {
+          if (this.isSubscribed(p.id, channel.id)) {
+            let display = content;
+            switch (type) {
+              case "location":
+                display = `\xA7a[\u5B9A\u4F4D] ${display}`;
+                break;
+              case "teleport_invite":
+                display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
+                break;
+              case "redpacket":
+                display = `\xA76[\u7EA2\u5305] ${display}`;
+                break;
+            }
+            if (showTimestamp) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+            const sender = p.id === from.id ? toPlayer.name : from.name;
+            p.sendMessage({ rawtext: [{ text: `\xA7d[\u79C1\u4FE1] \xA7f${sender}: ${display}` }] });
+          } else if (p.id !== from.id) {
+            Msg.info(`\xA7b${from.name} \u53D1\u6765\u4E00\u6761\u79C1\u4FE1\u3002\u4F7F\u7528 !channel \u5207\u6362\u5230\u79C1\u804A\u9891\u9053\u67E5\u770B\u3002`, p);
+          }
+        }
+        return true;
+      }
+      static async ensurePrivateChannel(idA, idB) {
+        const ids = [idA, idB].sort();
+        const channelId = `priv_${ids[0]}_${ids[1]}`;
+        const existing = await getChannel(channelId);
+        if (existing) return existing;
+        const nameB = world5.getPlayers().find((p) => p.id === idB)?.name ?? idB;
+        const channel = {
+          id: channelId,
+          name: `\u4E0E ${nameB} \u7684\u79C1\u804A`,
+          type: "private",
+          prefix: `\u79C1\u804A-${nameB}`,
+          ownerid: idA,
+          createdAt: Date.now(),
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+        };
+        await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
+        return channel;
+      }
+      // ============================================
+      //  定位 & 传送
+      // ============================================
+      static createLocationMessage(player) {
+        const loc2 = player.location;
+        return `${player.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
+      }
+      static sendTeleportInvite(from, toPlayer) {
+        const loc2 = from.location;
+        const locStr = `${from.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
+        return this.sendPrivateMessage(from, toPlayer, `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`, "teleport_invite");
+      }
+      // ============================================
+      //  红包
+      // ============================================
+      static async sendRedPacket(sender, amount, count, targetType, targetId) {
+        if (amount <= 0 || count <= 0 || count > amount) {
+          Msg.error("\u7EA2\u5305\u53C2\u6570\u65E0\u6548\u3002", sender);
+          return false;
+        }
+        const balance = Money.get(sender);
+        if (balance < amount) {
+          Msg.error(`${Money.UNIT}\u4E0D\u8DB3\uFF0C\u9700\u8981 ${amount}\uFF0C\u5F53\u524D ${balance}\u3002`, sender);
+          return false;
+        }
+        const packet = {
+          id: generateId("RP"),
+          senderid: sender.id,
+          senderName: sender.name,
+          totalAmount: amount,
+          remainingAmount: amount,
+          totalCount: count,
+          remainingCount: count,
+          receivers: [],
+          targetType,
+          targetId,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 24 * 60 * 60 * 1e3
+        };
+        const saved = await saveRedPacket(packet);
+        if (!saved) {
+          Msg.error("\u7EA2\u5305\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", sender);
+          return false;
+        }
+        Money.set(sender, balance - amount);
+        Msg.success(`${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`, sender);
+        const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
+        saveMessages([
+          {
+            id: generateId("M"),
+            fromid: sender.id,
+            fromName: sender.name,
+            channelId,
+            type: "redpacket",
+            content: `\u53D1\u9001\u4E86 ${amount} ${Money.UNIT} \u7684\u7EA2\u5305\uFF08\u5171 ${count} \u4EFD\uFF09`,
+            timestamp: Date.now()
+          }
+        ]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+        return true;
+      }
+      static async claimRedPacket(player, packetId) {
+        const packet = await getRedPacket(packetId);
+        if (!packet) {
+          Msg.error("\u7EA2\u5305\u4E0D\u5B58\u5728\u3002", player);
+          return 0;
+        }
+        if (packet.remainingCount <= 0) {
+          Msg.error("\u7EA2\u5305\u5DF2\u88AB\u9886\u5B8C\u3002", player);
+          return 0;
+        }
+        if (packet.receivers.includes(player.id)) {
+          Msg.warning("\u4F60\u5DF2\u7ECF\u9886\u53D6\u8FC7\u8FD9\u4E2A\u7EA2\u5305\u4E86\u3002", player);
+          return 0;
+        }
+        if (Date.now() > packet.expiresAt) {
+          Msg.error("\u7EA2\u5305\u5DF2\u8FC7\u671F\u3002", player);
+          return 0;
+        }
+        let amount;
+        if (packet.remainingCount === 1) {
+          amount = packet.remainingAmount;
+        } else {
+          const max = Math.floor(packet.remainingAmount / packet.remainingCount * 2);
+          amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
+          amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
+        }
+        const updated = await updateRedPacket(packet.id, {
+          remainingAmount: packet.remainingAmount - amount,
+          remainingCount: packet.remainingCount - 1,
+          receivers: [...packet.receivers, player.id]
+        });
+        if (!updated) {
+          Msg.error("\u9886\u53D6\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", player);
+          return 0;
+        }
+        Money.add(player, amount);
+        Msg.success(`\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${amount} ${Money.UNIT}\uFF01`, player);
+        return amount;
+      }
+      static async getAvailableRedPackets(player) {
+        const rows = await getRedPackets();
+        const now = Date.now();
+        return rows.filter((p) => {
+          if (p.remainingCount <= 0 || now > p.expiresAt) return false;
+          if (p.targetType === "player") return p.targetId === player.id;
+          return true;
+        });
+      }
+      static cleanupExpiredRedPackets() {
+      }
+      // ============================================
+      //  权限判断
+      // ============================================
+      static async isChannelOwner(player, channelId) {
+        const ch = await getChannel(channelId);
+        return ch?.ownerid === player.id;
+      }
+      // ============================================
+      //  QQ 桥接轮询
+      // ============================================
+      static startBridgePolling(bridgeChannelId) {
+        if (this._bridgePollStarted) return;
+        this._bridgePollStarted = true;
+        this._lastBridgeFetch = Date.now();
+        this._bridgePollId = system3.runInterval(async () => {
+          try {
+            const since = this._lastBridgeFetch;
+            this._lastBridgeFetch = Date.now();
+            const msgs = await getMessages({ channelId: bridgeChannelId, minSentAt: since });
+            if (!msgs || msgs.length === 0) return;
+            const channel = await getChannel(bridgeChannelId);
+            if (!channel) return;
+            for (const msg of msgs) {
+              if (msg.fromid.startsWith("qq_")) {
+                const isBroadcast = channel.config.isBroadcast;
+                for (const p of world5.getPlayers()) {
+                  if (!this.isSubscribed(p.id, bridgeChannelId)) continue;
+                  if (!isBroadcast && msg.timestamp - this._lastBridgeTimestamp > 3e5) {
+                    this._lastBridgeTimestamp = msg.timestamp;
+                    p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+                  }
+                  p.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: \xA7r${msg.content}` }] });
+                }
               }
-              p.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: \xA7r${msg.content}` }] });
+            }
+          } catch {
+          }
+        }, 20);
+      }
+      static stopBridgePolling() {
+        if (this._bridgePollId !== void 0) {
+          try {
+            system3.clearRun(this._bridgePollId);
+          } catch {
+          }
+          this._bridgePollId = void 0;
+        }
+        this._bridgePollStarted = false;
+      }
+    };
+  }
+});
+
+// scripts/libs/ModuleKeys.ts
+var Modules;
+var init_ModuleKeys = __esm({
+  "scripts/libs/ModuleKeys.ts"() {
+    "use strict";
+    Modules = {
+      config: "config",
+      command: "command",
+      permission: "permission",
+      httpdb: "httpdb",
+      money: "money",
+      chat: "chat",
+      coop: "coop",
+      shop: "shop",
+      land: "land",
+      holoprint: "holoprint",
+      afk: "afk",
+      clean: "clean",
+      tps: "tps",
+      onlineTime: "online_time",
+      activityLog: "activity_log",
+      scoreboardSync: "scoreboard_sync",
+      spawnProtect: "spawn_protect",
+      chatSounds: "chat_sounds",
+      inventorySwitcher: "inventory_switcher",
+      fly: "fly",
+      creative: "creative",
+      survival: "survival",
+      peace: "peace",
+      qa: "qa",
+      monitor: "monitor"
+    };
+  }
+});
+
+// scripts/libs/ModuleRegistry.ts
+var ModuleRegistry_exports = {};
+__export(ModuleRegistry_exports, {
+  ModuleRegistry: () => ModuleRegistry,
+  announceLoaded: () => announceLoaded,
+  guardEvent: () => guardEvent
+});
+import { system as system4 } from "@minecraft/server";
+function guardEvent() {
+  return ConfigManager.isReady();
+}
+function announceLoaded() {
+  const active = descriptors.filter((d) => ModuleRegistry.isActive(d.id)).map((d) => d.id);
+  console.log(`[ModuleRegistry] \u5DF2\u542F\u52A8\u6A21\u5757: ${active.join(", ") || "\u65E0"}`);
+}
+var descriptors, cleanups, booted, lastEnabled, ModuleRegistry;
+var init_ModuleRegistry = __esm({
+  "scripts/libs/ModuleRegistry.ts"() {
+    "use strict";
+    init_ConfigManager();
+    init_ModuleKeys();
+    init_Command();
+    descriptors = [];
+    cleanups = /* @__PURE__ */ new Map();
+    booted = /* @__PURE__ */ new Set();
+    lastEnabled = /* @__PURE__ */ new Map();
+    ModuleRegistry = class _ModuleRegistry {
+      static register(descriptor) {
+        descriptors.push(descriptor);
+      }
+      static list() {
+        return [...descriptors];
+      }
+      static get(id) {
+        return descriptors.find((d) => d.id === id);
+      }
+      static isActive(id) {
+        return ConfigManager.isEnabled(Modules[id]);
+      }
+      static trackCleanup(modId, fn) {
+        if (!cleanups.has(modId)) cleanups.set(modId, []);
+        cleanups.get(modId).push(fn);
+      }
+      static trackCommand(modId, name) {
+        _ModuleRegistry.trackCleanup(modId, () => Command.unregister(name));
+      }
+      static trackSystemRun(modId, runId) {
+        _ModuleRegistry.trackCleanup(modId, () => {
+          try {
+            system4.clearRun(runId);
+          } catch {
+          }
+        });
+      }
+      static clearLastEnabled() {
+        lastEnabled.clear();
+      }
+      static snapshotEnabled() {
+        for (const d of descriptors) {
+          lastEnabled.set(Modules[d.id], _ModuleRegistry.isActive(d.id));
+        }
+      }
+      /**
+       * Compare current enabled state vs last snapshot, call cleanup/boot for changed modules.
+       * Returned array: [{ id, action: 'disable'|'enable' }]
+       */
+      static reconcile() {
+        if (!ConfigManager.isReady()) return [];
+        const changes = [];
+        for (const d of descriptors) {
+          const key = Modules[d.id];
+          const cur = _ModuleRegistry.isActive(d.id);
+          const prev = lastEnabled.has(key) ? lastEnabled.get(key) : cur;
+          if (prev === cur) continue;
+          if (prev && !cur) {
+            try {
+              _ModuleRegistry.cleanupModule(d.id);
+            } catch (e) {
+              console.warn(`[Module:${d.id}] cleanup failed: ${e.message || e}`);
+            }
+            changes.push({ id: d.id, action: "disable" });
+          } else if (!prev && cur) {
+            try {
+              _ModuleRegistry.bootModule(d.id);
+            } catch (e) {
+              console.warn(`[Module:${d.id}] boot failed: ${e.message || e}`);
+            }
+            changes.push({ id: d.id, action: "enable" });
+          }
+          lastEnabled.set(key, cur);
+        }
+        return changes;
+      }
+      static bootAll() {
+        if (!ConfigManager.isReady()) return;
+        for (const d of descriptors) {
+          if (!_ModuleRegistry.isActive(d.id)) continue;
+          _ModuleRegistry.bootModule(d.id);
+        }
+      }
+      static bootAfterWorldLoad() {
+        if (!ConfigManager.isReady()) return;
+        for (const d of descriptors) {
+          if (!d.afterWorldLoad) continue;
+          if (!_ModuleRegistry.isActive(d.id)) continue;
+          try {
+            d.lifecycle.init?.();
+          } catch (e) {
+            console.warn(`[Module:${d.id}] init failed: ${e.message || e}`);
+          }
+        }
+      }
+      static bootTasks() {
+        if (!ConfigManager.isReady()) return;
+        for (const d of descriptors) {
+          if (d.afterWorldLoad) continue;
+          if (!_ModuleRegistry.isActive(d.id)) continue;
+          try {
+            d.lifecycle.init?.();
+          } catch (e) {
+            console.warn(`[Module:${d.id}] task start failed: ${e.message || e}`);
+          }
+        }
+      }
+      static bootModule(id) {
+        const d = _ModuleRegistry.get(id);
+        if (!d) return;
+        if (!_ModuleRegistry.isActive(id)) return;
+        if (booted.has(id)) return;
+        try {
+          d.lifecycle.registerPermissions?.();
+          d.lifecycle.registerCommands?.();
+          d.lifecycle.registerEvents?.();
+          if (!d.afterWorldLoad) {
+            d.lifecycle.init?.();
+          }
+          booted.add(id);
+        } catch (e) {
+          console.warn(`[Module:${id}] boot failed: ${e.message || e}`);
+        }
+      }
+      static cleanupModule(id) {
+        const d = _ModuleRegistry.get(id);
+        if (!d) return;
+        try {
+          d.lifecycle.cleanup?.();
+        } catch (e) {
+          console.warn(`[Module:${id}] cleanup hook failed: ${e.message || e}`);
+        }
+        try {
+          Command.unregisterByModule(Modules[id]);
+        } catch {
+        }
+        const fns = cleanups.get(id);
+        if (fns) {
+          for (const fn of fns) {
+            try {
+              fn();
+            } catch (e) {
+              console.warn(`[Module:${id}] cleanup fn failed: ${e.message || e}`);
             }
           }
+          cleanups.set(id, []);
         }
-      } catch {
+        booted.delete(id);
       }
-    }, 20);
-  }
-};
-
-// scripts/libs/ConfigManager.ts
-var ConfigManager = class {
-  static {
-    this.cache = {
-      modules: /* @__PURE__ */ new Map(),
-      settings: /* @__PURE__ */ new Map(),
-      areas: [],
-      permissions: {},
-      bannedItems: [],
-      clean: { itemMax: 192, pollInterval: 60 },
-      grids: {},
-      peaceFilters: [],
-      questions: [],
-      shopCategories: [],
-      shopItems: [],
-      _lastFetch: 0
+      static teardown() {
+        for (const d of descriptors) {
+          try {
+            _ModuleRegistry.cleanupModule(d.id);
+          } catch {
+          }
+        }
+      }
+      static isBooted(id) {
+        return booted.has(id);
+      }
     };
   }
-  static {
-    this._initialized = false;
-  }
-  static async init() {
-    if (this._initialized) return;
-    this._initialized = true;
-    await HttpDB.checkHealth();
-    await this.reloadAll();
-    this._syncRuntimeFlags();
-    console.log("[ConfigManager] \u914D\u7F6E\u5DF2\u52A0\u8F7D");
-  }
-  static startPolling(intervalTicks = 72e3) {
-    system4.runInterval(() => this._poll(), intervalTicks);
-  }
-  /**
-   * 快速信号检查（每 2 秒），检测 _reload_signal → 立即全量重载
-   */
-  static startFastPoll(intervalTicks = 40) {
-    system4.runInterval(() => this._fastPoll(), intervalTicks);
-  }
-  static isEnabled(module) {
-    return this.cache.modules.get(module) ?? true;
-  }
-  static getSetting(key, defaultVal) {
-    const val = this.cache.settings.get(key);
-    if (val === void 0) return defaultVal;
-    try {
-      return JSON.parse(val);
-    } catch {
-      return val;
-    }
-  }
-  static getAreas(module) {
-    return this.cache.areas.filter((a) => a.module === module);
-  }
-  static getPermissions() {
-    return { ...this.cache.permissions };
-  }
-  static getBannedItems() {
-    return [...this.cache.bannedItems];
-  }
-  static getClean() {
-    return { ...this.cache.clean };
-  }
-  static getGrid(name) {
-    return this.cache.grids[name] ?? null;
-  }
-  static getPeaceFilters() {
-    return [...this.cache.peaceFilters];
-  }
-  static getQuestions() {
-    return [...this.cache.questions];
-  }
-  static getShopCategories() {
-    return [...this.cache.shopCategories];
-  }
-  static getShopItems() {
-    return [...this.cache.shopItems];
-  }
-  static async reloadAll() {
-    const now = Date.now();
-    const promises = [
-      this._fetchModules(),
-      this._fetchSettings(),
-      this._fetchAreas(),
-      this._fetchPermissions(),
-      this._fetchBannedItems(),
-      this._fetchClean(),
-      this._fetchGrids(),
-      this._fetchPeaceFilters(),
-      this._fetchQA(),
-      this._fetchShop()
-    ];
-    await Promise.allSettled(promises);
-    this.cache._lastFetch = now;
-  }
-  static async reloadModule(module) {
-    await this._fetchSettings();
-    await this._fetchAreas();
-  }
-  // ── Internal fetchers ──
-  static async _poll() {
-    if (!this.cache._lastFetch) return;
-    try {
-      const body = await HttpDB.get(`/api/sfmc/configs/updated-since/${this.cache._lastFetch}`);
-      if (!body) return;
-      const data = JSON.parse(body);
-      const upd = data.updated;
-      if (!upd) return;
-      this.cache._lastFetch = data.timestamp || Date.now();
-      if (upd.modules) await this._fetchModules();
-      if (upd.settings) await this._fetchSettings();
-      if (upd.areas) await this._fetchAreas();
-      if (upd.permissions) await this._fetchPermissions();
-      if (upd.banned_items) await this._fetchBannedItems();
-      if (upd.clean) await this._fetchClean();
-      if (upd.grids) await this._fetchGrids();
-      if (upd.peace_filters) await this._fetchPeaceFilters();
-      if (upd.qa_questions) await this._fetchQA();
-      if (upd.shop_categories || upd.shop_items) await this._fetchShop();
-    } catch {
-    }
-  }
-  static async _fastPoll() {
-    try {
-      if (!HttpDB.isAvailable()) {
-        const ok = await HttpDB.checkHealth();
-        if (!ok) return;
-        console.warn("[ConfigManager] \u6570\u636E\u5E93\u5DF2\u91CD\u8FDE\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
-        await this.reloadAll();
-        this._syncRuntimeFlags();
-        const bridgeId = this.getSetting("bridge_channel_id", "");
-        if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-        return;
-      }
-      const body = await HttpDB.get("/api/sfmc/settings/_reload_signal");
-      if (!body) return;
-      const { value } = JSON.parse(body);
-      if (parseInt(value, 10) > this.cache._lastFetch) {
-        console.warn("[ConfigManager] \u6536\u5230\u70ED\u91CD\u8F7D\u4FE1\u53F7\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
-        await this.reloadAll();
-        this._syncRuntimeFlags();
-        const bridgeId = this.getSetting("bridge_channel_id", "");
-        if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-        for (const p of world6.getPlayers()) {
-          Msg.info("\u914D\u7F6E\u5DF2\u70ED\u91CD\u8F7D", p);
-        }
-      }
-    } catch (e) {
-      console.warn(`[ConfigManager] \u70ED\u91CD\u8F7D\u4FE1\u53F7\u68C0\u67E5\u5931\u8D25: ${e.message || e}`);
-    }
-  }
-  /** 将缓存中的模块开关同步到运行时的模块标志 */
-  static _syncRuntimeFlags() {
-    CreativeArea.enable = this.isEnabled("creative");
-    Peace.getInstance().enable = this.isEnabled("peace");
-  }
-  static async _fetchModules() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/modules");
-      if (!body) return;
-      const { modules } = JSON.parse(body);
-      this.cache.modules.clear();
-      for (const m of modules) this.cache.modules.set(m.name, !!m.enabled);
-    } catch (e) {
-      console.warn(`[ConfigManager] \u83B7\u53D6\u6A21\u5757\u914D\u7F6E\u5931\u8D25: ${e.message || e}`);
-    }
-  }
-  static async _fetchSettings() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/settings");
-      if (!body) return;
-      const { settings } = JSON.parse(body);
-      this.cache.settings.clear();
-      for (const s of settings) this.cache.settings.set(s.key, s.value);
-    } catch {
-    }
-  }
-  static async _fetchAreas() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/areas");
-      if (!body) return;
-      this.cache.areas = (JSON.parse(body).areas || []).map((a) => ({
-        name: a.name || "",
-        dimension: a.dimension,
-        module: a.module,
-        start: [a.start_x, a.start_z],
-        end: [a.end_x, a.end_z]
-      }));
-    } catch {
-    }
-  }
-  static async _fetchPermissions() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/permissions");
-      if (!body) return;
-      const { permissions } = JSON.parse(body);
-      this.cache.permissions = {};
-      for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
-    } catch {
-    }
-  }
-  static async _fetchBannedItems() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/banned_items");
-      if (!body) return;
-      this.cache.bannedItems = (JSON.parse(body).items || []).map((i) => i.item_id);
-    } catch {
-    }
-  }
-  static async _fetchClean() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/clean");
-      if (!body) return;
-      const { clean } = JSON.parse(body);
-      if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
-    } catch {
-    }
-  }
-  static async _fetchGrids() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/grids");
-      if (!body) return;
-      const { grids } = JSON.parse(body);
-      this.cache.grids = {};
-      for (const g of grids) {
-        this.cache.grids[g.name] = {
-          ...g,
-          size: [g.size_h, g.size_v],
-          start: [g.start_x, g.start_y, g.start_z]
+});
+
+// scripts/libs/ConfigManager.ts
+import { system as system5, world as world6 } from "@minecraft/server";
+var ConfigManager;
+var init_ConfigManager = __esm({
+  "scripts/libs/ConfigManager.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+    init_CreativeArea();
+    init_Peace();
+    init_DogeChat();
+    ConfigManager = class {
+      static {
+        this.cache = {
+          modules: /* @__PURE__ */ new Map(),
+          settings: /* @__PURE__ */ new Map(),
+          areas: [],
+          permissions: {},
+          bannedItems: [],
+          clean: { itemMax: 192, pollInterval: 60 },
+          grids: {},
+          peaceFilters: [],
+          questions: [],
+          shopCategories: [],
+          shopItems: [],
+          _lastFetch: 0
         };
       }
-    } catch {
-    }
+      static {
+        this._initialized = false;
+      }
+      static {
+        this._ready = false;
+      }
+      static async init() {
+        if (this._initialized) return;
+        this._initialized = true;
+        await HttpDB.checkHealth();
+        await this.reloadAll();
+        this._syncRuntimeFlags();
+        this._ready = true;
+        console.log("[ConfigManager] \u914D\u7F6E\u5DF2\u52A0\u8F7D");
+      }
+      static isReady() {
+        return this._ready;
+      }
+      static startPolling(intervalTicks = 72e3) {
+        system5.runInterval(() => this._poll(), intervalTicks);
+      }
+      /**
+       * 快速信号检查（每 2 秒），检测 _reload_signal → 立即全量重载
+       */
+      static startFastPoll(intervalTicks = 40) {
+        system5.runInterval(() => this._fastPoll(), intervalTicks);
+      }
+      static isEnabled(module) {
+        if (!this._ready) return false;
+        return this.cache.modules.get(module) ?? false;
+      }
+      static getSetting(key, defaultVal) {
+        const val = this.cache.settings.get(key);
+        if (val === void 0) return defaultVal;
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      static getAreas(module) {
+        return this.cache.areas.filter((a) => a.module === module);
+      }
+      static getPermissions() {
+        return { ...this.cache.permissions };
+      }
+      static getBannedItems() {
+        return [...this.cache.bannedItems];
+      }
+      static getClean() {
+        return { ...this.cache.clean };
+      }
+      static getGrid(name) {
+        return this.cache.grids[name] ?? null;
+      }
+      static getPeaceFilters() {
+        return [...this.cache.peaceFilters];
+      }
+      static getQuestions() {
+        return [...this.cache.questions];
+      }
+      static getShopCategories() {
+        return [...this.cache.shopCategories];
+      }
+      static getShopItems() {
+        return [...this.cache.shopItems];
+      }
+      static async reloadAll() {
+        const now = Date.now();
+        const promises = [
+          this._fetchModules(),
+          this._fetchSettings(),
+          this._fetchAreas(),
+          this._fetchPermissions(),
+          this._fetchBannedItems(),
+          this._fetchClean(),
+          this._fetchGrids(),
+          this._fetchPeaceFilters(),
+          this._fetchQA(),
+          this._fetchShop()
+        ];
+        await Promise.allSettled(promises);
+        this.cache._lastFetch = now;
+      }
+      static async reloadModule(module) {
+        await this._fetchSettings();
+        await this._fetchAreas();
+      }
+      // ── Internal fetchers ──
+      static async _poll() {
+        if (!this.cache._lastFetch) return;
+        try {
+          const body = await HttpDB.get(`/api/sfmc/configs/updated-since/${this.cache._lastFetch}`);
+          if (!body) return;
+          const data = JSON.parse(body);
+          const upd = data.updated;
+          if (!upd) return;
+          this.cache._lastFetch = data.timestamp || Date.now();
+          if (upd.modules) await this._fetchModules();
+          if (upd.settings) await this._fetchSettings();
+          if (upd.areas) await this._fetchAreas();
+          if (upd.permissions) await this._fetchPermissions();
+          if (upd.banned_items) await this._fetchBannedItems();
+          if (upd.clean) await this._fetchClean();
+          if (upd.grids) await this._fetchGrids();
+          if (upd.peace_filters) await this._fetchPeaceFilters();
+          if (upd.qa_questions) await this._fetchQA();
+          if (upd.shop_categories || upd.shop_items) await this._fetchShop();
+        } catch {
+        }
+      }
+      static async _fastPoll() {
+        try {
+          if (!HttpDB.isAvailable()) {
+            const ok = await HttpDB.checkHealth();
+            if (!ok) return;
+            console.warn("[ConfigManager] \u6570\u636E\u5E93\u5DF2\u91CD\u8FDE\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
+            await this.reloadAll();
+            this._syncRuntimeFlags();
+            const bridgeId = this.getSetting("bridge_channel_id", "");
+            if (bridgeId) DogeChat.startBridgePolling(bridgeId);
+            return;
+          }
+          const body = await HttpDB.get("/api/sfmc/settings/_reload_signal");
+          if (!body) return;
+          const { value } = JSON.parse(body);
+          if (parseInt(value, 10) > this.cache._lastFetch) {
+            console.warn("[ConfigManager] \u6536\u5230\u70ED\u91CD\u8F7D\u4FE1\u53F7\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
+            await this.reloadAll();
+            this._syncRuntimeFlags();
+            const { ModuleRegistry: ModuleRegistry2 } = await Promise.resolve().then(() => (init_ModuleRegistry(), ModuleRegistry_exports));
+            const changes = ModuleRegistry2.reconcile();
+            if (changes.length > 0) {
+              for (const p of world6.getPlayers()) {
+                const list = changes.map((c) => `${c.id} ${c.action === "disable" ? "\u5DF2\u7981\u7528" : "\u5DF2\u542F\u7528"}`).join(", ");
+                Msg.info(`\u6A21\u5757\u53D8\u66F4: ${list}`, p);
+              }
+            }
+            const bridgeId = this.getSetting("bridge_channel_id", "");
+            if (bridgeId) DogeChat.startBridgePolling(bridgeId);
+            for (const p of world6.getPlayers()) {
+              Msg.info("\u914D\u7F6E\u5DF2\u70ED\u91CD\u8F7D", p);
+            }
+          }
+        } catch (e) {
+          console.warn(`[ConfigManager] \u70ED\u91CD\u8F7D\u4FE1\u53F7\u68C0\u67E5\u5931\u8D25: ${e.message || e}`);
+        }
+      }
+      /** 将缓存中的模块开关同步到运行时的模块标志 */
+      static _syncRuntimeFlags() {
+        CreativeArea.enable = this.isEnabled("creative");
+        Peace.getInstance().enable = this.isEnabled("peace");
+      }
+      static async _fetchModules() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/modules");
+          if (!body) return;
+          const { modules } = JSON.parse(body);
+          this.cache.modules.clear();
+          for (const m of modules) {
+            const key = m.config_key || m.configKey || m.name;
+            if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
+          }
+        } catch (e) {
+          console.warn(`[ConfigManager] \u83B7\u53D6\u6A21\u5757\u914D\u7F6E\u5931\u8D25: ${e.message || e}`);
+        }
+      }
+      static async _fetchSettings() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/settings");
+          if (!body) return;
+          const { settings } = JSON.parse(body);
+          this.cache.settings.clear();
+          for (const s of settings) this.cache.settings.set(s.key, s.value);
+        } catch {
+        }
+      }
+      static async _fetchAreas() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/areas");
+          if (!body) return;
+          this.cache.areas = (JSON.parse(body).areas || []).map((a) => ({
+            name: a.name || "",
+            dimension: a.dimension,
+            module: a.module,
+            start: [a.start_x, a.start_z],
+            end: [a.end_x, a.end_z]
+          }));
+        } catch {
+        }
+      }
+      static async _fetchPermissions() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/permissions");
+          if (!body) return;
+          const { permissions } = JSON.parse(body);
+          this.cache.permissions = {};
+          for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
+        } catch {
+        }
+      }
+      static async _fetchBannedItems() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/banned_items");
+          if (!body) return;
+          this.cache.bannedItems = (JSON.parse(body).items || []).map((i) => i.item_id);
+        } catch {
+        }
+      }
+      static async _fetchClean() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/clean");
+          if (!body) return;
+          const { clean } = JSON.parse(body);
+          if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
+        } catch {
+        }
+      }
+      static async _fetchGrids() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/grids");
+          if (!body) return;
+          const { grids } = JSON.parse(body);
+          this.cache.grids = {};
+          for (const g of grids) {
+            this.cache.grids[g.name] = {
+              ...g,
+              size: [g.size_h, g.size_v],
+              start: [g.start_x, g.start_y, g.start_z]
+            };
+          }
+        } catch {
+        }
+      }
+      static async _fetchPeaceFilters() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/peace_filters");
+          if (!body) return;
+          this.cache.peaceFilters = JSON.parse(body).filters || [];
+        } catch {
+        }
+      }
+      static async _fetchQA() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/qa");
+          if (!body) return;
+          const { questions } = JSON.parse(body);
+          this.cache.questions = questions.map((q) => ({
+            weight: q.weight,
+            q: q.question,
+            a: JSON.parse(q.answers || "[]"),
+            msg_right: q.msg_right || "",
+            msg_wrong: q.msg_wrong || "",
+            d: q.explanation || "",
+            seq: [q.min_rank, q.max_rank].filter((v) => v !== null),
+            bonus: this._parseQAItems(q.rewards),
+            punish: this._parseQAItems(q.punishments)
+          }));
+        } catch {
+        }
+      }
+      static _parseQAItems(jsonStr) {
+        if (!jsonStr) return [];
+        try {
+          const items = JSON.parse(jsonStr);
+          if (!items || items.length === 0) return [];
+          if (typeof items[0] === "object" && items[0] !== null) return items;
+          return [];
+        } catch {
+          return [];
+        }
+      }
+      static async _fetchShop() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/shop");
+          if (!body) return;
+          const { categories, items } = JSON.parse(body);
+          this.cache.shopCategories = categories || [];
+          this.cache.shopItems = items || [];
+        } catch {
+        }
+      }
+    };
   }
-  static async _fetchPeaceFilters() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/peace_filters");
-      if (!body) return;
-      this.cache.peaceFilters = JSON.parse(body).filters || [];
-    } catch {
-    }
-  }
-  static async _fetchQA() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/qa");
-      if (!body) return;
-      const { questions } = JSON.parse(body);
-      this.cache.questions = questions.map((q) => ({
-        weight: q.weight,
-        q: q.question,
-        a: JSON.parse(q.answers || "[]"),
-        msg_right: q.msg_right || "",
-        msg_wrong: q.msg_wrong || "",
-        d: q.explanation || "",
-        seq: [q.min_rank, q.max_rank].filter((v) => v !== null),
-        bonus: this._parseQAItems(q.rewards),
-        punish: this._parseQAItems(q.punishments)
-      }));
-    } catch {
-    }
-  }
-  static _parseQAItems(jsonStr) {
-    if (!jsonStr) return [];
-    try {
-      const items = JSON.parse(jsonStr);
-      if (!items || items.length === 0) return [];
-      if (typeof items[0] === "object" && items[0] !== null) return items;
-      return [];
-    } catch {
-      return [];
-    }
-  }
-  static async _fetchShop() {
-    try {
-      const body = await HttpDB.get("/api/sfmc/shop");
-      if (!body) return;
-      const { categories, items } = JSON.parse(body);
-      this.cache.shopCategories = categories || [];
-      this.cache.shopItems = items || [];
-    } catch {
-    }
-  }
-};
+});
 
 // scripts/libs/Permission.ts
-var Permission = class {
-  static {
-    this.Guest = -1;
-  }
-  static {
-    // 脚本指定的无权限访客
-    this.Any = 0;
-  }
-  static {
-    // 等同于原生 Visitor
-    this.Member = 1;
-  }
-  static {
-    // 等同于原生 Member
-    this.OP = 2;
-  }
-  static {
-    // 等同于原生 Operator
-    this.Admin = 3;
-  }
-  static {
-    // 等同于原生 Custom
-    /** 权限注册表：权限名 → 所需最低等级 */
-    this.registry = /* @__PURE__ */ new Map();
-  }
-  /**
-   * 注册一个权限项
-   * @param name 权限名（如 "creativearea.toggle"）
-   * @param level 所需最低权限等级
-   */
-  static register(name, level) {
-    this.registry.set(name, level);
-  }
-  /**
-   * 检查玩家是否拥有指定权限
-   * @param player 玩家对象或玩家名
-   * @param permissionName 权限名
-   * @returns 是否满足权限要求
-   */
-  static check(player, permissionName) {
-    const required = this.registry.get(permissionName);
-    if (required === void 0) return true;
-    const perms = ConfigManager.getPermissions();
-    const playerLevel = typeof player === "string" ? perms[player] ?? this.Member : this.getPermission(player);
-    return playerLevel >= required;
-  }
-  static getPermission(player) {
-    const perms = ConfigManager.getPermissions();
-    if (perms[player.name] !== void 0) {
-      return perms[player.name];
-    }
-    switch (player.playerPermissionLevel) {
-      case PlayerPermissionLevel.Visitor:
-        return this.Any;
-      case PlayerPermissionLevel.Member:
-        return this.Member;
-      case PlayerPermissionLevel.Operator:
-        return this.OP;
-      case PlayerPermissionLevel.Custom:
-        return this.Admin;
-      default:
-        return this.Member;
-    }
-  }
-  /** 注册 permlist 命令 */
-  static registerPermlistCommand() {
-    Command.register(
-      "permlist",
-      "permlist.see",
-      (player) => {
-        if (!player) return;
-        const lines = [];
-        lines.push(`\u83B7\u53D6\u5230\u5982\u4E0B\u6743\u9650\u9879\uFF1A\xA7r`);
-        const byLevel = [
-          [this.Any, []],
-          [this.Member, []],
-          [this.OP, []],
-          [this.Admin, []],
-          [-1, []]
-        ];
-        const levelMap = new Map(byLevel);
-        for (const [name, level] of this.registry) {
-          const bucket = levelMap.get(level);
-          if (bucket) bucket.push(name);
-          else (levelMap.get(-1) ?? []).push(name);
+import { PlayerPermissionLevel } from "@minecraft/server";
+var Permission;
+var init_Permission = __esm({
+  "scripts/libs/Permission.ts"() {
+    "use strict";
+    init_ConfigManager();
+    init_Command();
+    init_Tools();
+    Permission = class {
+      static {
+        this.Guest = -1;
+      }
+      static {
+        // 脚本指定的无权限访客
+        this.Any = 0;
+      }
+      static {
+        // 等同于原生 Visitor
+        this.Member = 1;
+      }
+      static {
+        // 等同于原生 Member
+        this.OP = 2;
+      }
+      static {
+        // 等同于原生 Operator
+        this.Admin = 3;
+      }
+      static {
+        // 等同于原生 Custom
+        /** 权限注册表：权限名 → 所需最低等级 */
+        this.registry = /* @__PURE__ */ new Map();
+      }
+      /**
+       * 注册一个权限项
+       * @param name 权限名（如 "creativearea.toggle"）
+       * @param level 所需最低权限等级
+       */
+      static register(name, level) {
+        this.registry.set(name, level);
+      }
+      /**
+       * 检查玩家是否拥有指定权限
+       * @param player 玩家对象或玩家名
+       * @param permissionName 权限名
+       * @returns 是否满足权限要求
+       */
+      static check(player, permissionName) {
+        const required = this.registry.get(permissionName);
+        if (required === void 0) return true;
+        const perms = ConfigManager.getPermissions();
+        const playerLevel = typeof player === "string" ? perms[player] ?? this.Member : this.getPermission(player);
+        return playerLevel >= required;
+      }
+      static getPermission(player) {
+        const perms = ConfigManager.getPermissions();
+        if (perms[player.name] !== void 0) {
+          return perms[player.name];
         }
-        const label = {
-          [-1]: "\u672A\u77E5",
-          [this.Any]: "\xA7a\u8BBF\u5BA2",
-          [this.Member]: "\xA7e\u6210\u5458",
-          [this.OP]: "\xA76\u7BA1\u7406",
-          [this.Admin]: "\xA7c\u81EA\u5B9A\u4E49"
-        };
-        for (const [level, perms] of byLevel) {
-          if (perms.length === 0) continue;
-          lines.push(`
+        switch (player.playerPermissionLevel) {
+          case PlayerPermissionLevel.Visitor:
+            return this.Any;
+          case PlayerPermissionLevel.Member:
+            return this.Member;
+          case PlayerPermissionLevel.Operator:
+            return this.OP;
+          case PlayerPermissionLevel.Custom:
+            return this.Admin;
+          default:
+            return this.Member;
+        }
+      }
+      /** 注册 permlist 命令 */
+      static registerPermlistCommand() {
+        Command.register(
+          "permlist",
+          "permlist.see",
+          (player) => {
+            if (!player) return;
+            const lines = [];
+            lines.push(`\u83B7\u53D6\u5230\u5982\u4E0B\u6743\u9650\u9879\uFF1A\xA7r`);
+            const byLevel = [
+              [this.Any, []],
+              [this.Member, []],
+              [this.OP, []],
+              [this.Admin, []],
+              [-1, []]
+            ];
+            const levelMap = new Map(byLevel);
+            for (const [name, level] of this.registry) {
+              const bucket = levelMap.get(level);
+              if (bucket) bucket.push(name);
+              else (levelMap.get(-1) ?? []).push(name);
+            }
+            const label = {
+              [-1]: "\u672A\u77E5",
+              [this.Any]: "\xA7a\u8BBF\u5BA2",
+              [this.Member]: "\xA7e\u6210\u5458",
+              [this.OP]: "\xA76\u7BA1\u7406",
+              [this.Admin]: "\xA7c\u81EA\u5B9A\u4E49"
+            };
+            for (const [level, perms] of byLevel) {
+              if (perms.length === 0) continue;
+              lines.push(`
 ${label[level] ?? "\xA77\u5176\u4ED6"} (${level}+):`);
-          for (const p of perms) {
-            lines.push(`  \xA7f${p}`);
-          }
-        }
-        Msg.success(lines.join("\n"), player);
-      },
-      "\u67E5\u770B\u6240\u6709\u6743\u9650\u5217\u8868"
-    );
+              for (const p of perms) {
+                lines.push(`  \xA7f${p}`);
+              }
+            }
+            Msg.success(lines.join("\n"), player);
+          },
+          "\u67E5\u770B\u6240\u6709\u6743\u9650\u5217\u8868"
+        );
+      }
+    };
   }
-};
+});
 
 // scripts/libs/Command.ts
-var Command = class {
-  static {
-    this.list = {};
-  }
-  /**
-   * 注册指令
-   * @param name 指令名称
-   * @param permission 权限等级(数字) 或 权限名(字符串)
-   * @param callback 回调
-   * @param description 指令描述
-   */
-  static register(name, permission, callback, description) {
-    if (this.list[name] === void 0) {
-      this.list[name] = {
-        callback,
-        permission,
-        description: description === void 0 ? name : description
-      };
-    }
-    return false;
-  }
-  /**
-   * 检查玩家是否有权限执行该命令
-   */
-  static canExecute(player, permission) {
-    if (player === void 0) return true;
-    if (typeof permission === "string") {
-      return Permission.check(player, permission);
-    }
-    return Permission.getPermission(player) >= permission;
-  }
-  /**
-   * 触发指令
-   * @param player 触发指令的玩家，不指定时使用最高权限执行
-   * @param message
-   */
-  static trigger(player, message) {
-    let commandInfo = this.list[message];
-    if (commandInfo !== void 0) {
-      if (this.canExecute(player, commandInfo.permission)) {
-        system5.run(async () => {
-          const result = await commandInfo.callback(player);
-          if (result !== void 0 && player) Msg.success(`${result}`, player);
-        });
-        return;
+import { system as system6 } from "@minecraft/server";
+function setModuleGuard(guard) {
+  moduleGuard = guard;
+}
+var moduleGuard, Command;
+var init_Command = __esm({
+  "scripts/libs/Command.ts"() {
+    "use strict";
+    init_Permission();
+    init_Tools();
+    moduleGuard = () => true;
+    Command = class {
+      static {
+        this.list = {};
       }
-      if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
-      return;
-    }
-    if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
-    return;
-  }
-  /**
-   * 注册帮助指令，在初始化时调用
-   */
-  static registerHelpCommand() {
-    this.register(
-      "help",
-      "help.see",
-      (player) => {
-        let result = "\u5F53\u524D\u53EF\u7528\u6307\u4EE4\u5217\u8868\u5982\u4E0B\uFF1A\xA7r\n";
-        for (let command in this.list) {
-          if (this.canExecute(player, this.list[command].permission)) {
-            result += `  ${command} - ${this.list[command].description}
-`;
+      /**
+       * 注册指令
+       * @param name 指令名称
+       * @param permission 权限等级(数字) 或 权限名(字符串)
+       * @param callback 回调
+       * @param description 指令描述
+       * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
+       */
+      static register(name, permission, callback, description, moduleId) {
+        this.list[name] = {
+          callback,
+          permission,
+          description: description === void 0 ? name : description,
+          moduleId
+        };
+        return true;
+      }
+      static unregister(name) {
+        if (this.list[name] !== void 0) {
+          delete this.list[name];
+          return true;
+        }
+        return false;
+      }
+      static unregisterByModule(moduleId) {
+        let n = 0;
+        for (const k of Object.keys(this.list)) {
+          if (this.list[k].moduleId === moduleId) {
+            delete this.list[k];
+            n++;
           }
         }
-        return result;
-      },
-      "\u83B7\u53D6\u6240\u6709\u6307\u4EE4"
-    );
+        return n;
+      }
+      static has(name) {
+        return this.list[name] !== void 0;
+      }
+      static names() {
+        return Object.keys(this.list);
+      }
+      static getModuleId(name) {
+        return this.list[name]?.moduleId;
+      }
+      /**
+       * 检查玩家是否有权限执行该命令
+       */
+      static canExecute(player, permission) {
+        if (player === void 0) return true;
+        if (typeof permission === "string") {
+          return Permission.check(player, permission);
+        }
+        return Permission.getPermission(player) >= permission;
+      }
+      /**
+       * 触发指令
+       * @param player 触发指令的玩家，不指定时使用最高权限执行
+       * @param message
+       */
+      static trigger(player, message) {
+        let commandInfo = this.list[message];
+        if (commandInfo !== void 0) {
+          if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
+            if (player) Msg.error(`\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`, player);
+            return;
+          }
+          if (this.canExecute(player, commandInfo.permission)) {
+            system6.run(async () => {
+              const result = await commandInfo.callback(player);
+              if (result !== void 0 && player) Msg.success(`${result}`, player);
+            });
+            return;
+          }
+          if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
+          return;
+        }
+        if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
+        return;
+      }
+      /**
+       * 注册帮助指令，在初始化时调用
+       */
+      static registerHelpCommand() {
+        this.register(
+          "help",
+          "help.see",
+          (player) => {
+            let result = "\u5F53\u524D\u53EF\u7528\u6307\u4EE4\u5217\u8868\u5982\u4E0B\uFF1A\xA7r\n";
+            for (let command in this.list) {
+              if (this.canExecute(player, this.list[command].permission)) {
+                result += `  ${command} - ${this.list[command].description}
+`;
+              }
+            }
+            return result;
+          },
+          "\u83B7\u53D6\u6240\u6709\u6307\u4EE4"
+        );
+      }
+      /**
+       * 注册脚本事件，在初始化时调用
+       */
+      static registerScriptEvent() {
+        system6.afterEvents.scriptEventReceive.subscribe(
+          (event) => {
+            this.trigger(event.sourceEntity, event.id.substring(5));
+          },
+          { namespaces: ["doge"] }
+        );
+      }
+    };
+    Command.registerScriptEvent();
   }
-  /**
-   * 注册脚本事件，在初始化时调用
-   */
-  static registerScriptEvent() {
-    system5.afterEvents.scriptEventReceive.subscribe(
-      (event) => {
-        this.trigger(event.sourceEntity, event.id.substring(5));
-      },
-      { namespaces: ["doge"] }
-    );
-  }
-};
-Command.registerScriptEvent();
+});
+
+// scripts/entry.ts
+init_Money();
+init_Command();
+import { system as system25, world as world29 } from "@minecraft/server";
 
 // scripts/doge/QA.ts
-import { system as system6, world as world7 } from "@minecraft/server";
+init_Tools();
+init_ConfigManager();
+init_Money();
+import { system as system7, world as world7 } from "@minecraft/server";
 var QAManager = class _QAManager {
   constructor() {
     // 记录玩家答题信息
@@ -2130,6 +2571,7 @@ var QAManager = class _QAManager {
     this.rightAmount = 0;
     this.wrongAmount = 0;
     this.timeoutId = void 0;
+    this.chatSub = void 0;
     // 出题记录，避免短时间重复出题
     this.record = [];
     // 最近出的几个题
@@ -2150,7 +2592,7 @@ var QAManager = class _QAManager {
    * 开始答题循环
    */
   start() {
-    world7.beforeEvents.chatSend.subscribe((event) => {
+    this.chatSub = world7.beforeEvents.chatSend.subscribe((event) => {
       if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "\uFF01") {
         let answer = event.message.substring(1);
         answer = answer.replaceAll(" ");
@@ -2161,9 +2603,24 @@ var QAManager = class _QAManager {
         }
       }
     });
-    system6.runTimeout(() => {
+    this.timeoutId = system7.runTimeout(() => {
       this.nextQuestion();
     }, _QAManager.getNextTimeout());
+  }
+  stop() {
+    try {
+      if (this.chatSub && typeof this.chatSub.unsubscribe === "function") this.chatSub.unsubscribe();
+    } catch {
+    }
+    this.chatSub = void 0;
+    if (this.timeoutId !== void 0) {
+      try {
+        system7.clearRun(this.timeoutId);
+      } catch {
+      }
+      this.timeoutId = void 0;
+    }
+    this.nowQuestion = void 0;
   }
   // 下一个问题
   nextQuestion() {
@@ -2189,7 +2646,7 @@ var QAManager = class _QAManager {
       `\xA7b[Baka Cirno]\xA7r \xA7g${ConfigManager.getQuestions()[this.nowQuestion].q}\xA7r
   \xA7h\u53D1\u9001 \xA7e!\u7B54\u6848\xA7r \xA7h\u6765\u7B54\u9898`
     );
-    system6.runTimeout(
+    system7.runTimeout(
       () => {
         this.finish();
       },
@@ -2206,7 +2663,7 @@ var QAManager = class _QAManager {
     this.playerList = {};
     this.rightAmount = 0;
     this.wrongAmount = 0;
-    this.timeoutId = system6.runTimeout(() => {
+    this.timeoutId = system7.runTimeout(() => {
       this.nextQuestion();
     }, _QAManager.getNextTimeout());
   }
@@ -2270,7 +2727,7 @@ var QAManager = class _QAManager {
     if (!bonus) return;
     for (let b of bonus) {
       if (b["seq"] === void 0 || b["seq"][0] <= seq && seq <= b["seq"][1]) {
-        system6.run(() => {
+        system7.run(() => {
           switch (b["type"]) {
             case "money":
               Money.add(pl, b["amount"]);
@@ -2292,12 +2749,16 @@ var QAManager = class _QAManager {
 };
 
 // scripts/area/Fly.ts
-import { system as system7, world as world8, GameMode as GameMode2 } from "@minecraft/server";
+init_ConfigManager();
+init_Tools();
+init_Permission();
+init_Tools();
+import { system as system8, world as world8, GameMode as GameMode2 } from "@minecraft/server";
 function init() {
   Permission.register("fly.use", Permission.Any);
 }
 function playerJoinEvent(player) {
-  system7.runTimeout(() => {
+  system8.runTimeout(() => {
     let areaName = inFlyArea(player);
     if (areaName !== void 0) {
       enableFly(player);
@@ -2306,27 +2767,43 @@ function playerJoinEvent(player) {
     }
   }, 60);
 }
-system7.runInterval(() => {
-  for (let player of world8.getPlayers({ gameMode: GameMode2.Survival })) {
-    let nowArea = player.getDynamicProperty("hpbe:dogefly");
-    let areaName = inFlyArea(player);
-    if (areaName !== void 0) {
-      if (nowArea === void 0) {
-        enableFly(player);
-        Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
-        player.setDynamicProperty("hpbe:dogefly", areaName);
-      } else if (nowArea !== areaName) {
-        player.setDynamicProperty("hpbe:dogefly", areaName);
-      }
-    } else {
-      if (nowArea !== void 0) {
-        disableFly(player);
-        Msg.info(`\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`, player);
-        player.setDynamicProperty("hpbe:dogefly", void 0);
+var scanRunId;
+function startScan() {
+  if (scanRunId !== void 0) return;
+  scanRunId = system8.runInterval(() => {
+    for (let player of world8.getPlayers({ gameMode: GameMode2.Survival })) {
+      let nowArea = player.getDynamicProperty("hpbe:dogefly");
+      let areaName = inFlyArea(player);
+      if (areaName !== void 0) {
+        if (nowArea === void 0) {
+          enableFly(player);
+          Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+          player.setDynamicProperty("hpbe:dogefly", areaName);
+        } else if (nowArea !== areaName) {
+          player.setDynamicProperty("hpbe:dogefly", areaName);
+        }
+      } else {
+        if (nowArea !== void 0) {
+          disableFly(player);
+          Msg.info(`\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+          player.setDynamicProperty("hpbe:dogefly", void 0);
+        }
       }
     }
+  }, 40);
+}
+function stop() {
+  if (scanRunId !== void 0) {
+    try {
+      system8.clearRun(scanRunId);
+    } catch {
+    }
+    scanRunId = void 0;
   }
-}, 40);
+}
+function boot() {
+  if (scanRunId === void 0) startScan();
+}
 function inFlyArea(entity) {
   for (let area of ConfigManager.getAreas("fly")) {
     if (entity.dimension.id === area.dimension) {
@@ -2373,7 +2850,9 @@ function disableFly(player) {
 }
 
 // scripts/doge/AFK.ts
-import { system as system8, world as world9 } from "@minecraft/server";
+init_ConfigManager();
+init_Command();
+import { system as system9, world as world9 } from "@minecraft/server";
 var afkCache = /* @__PURE__ */ new Map();
 function cacheGet(player, key, fallback) {
   const pc = afkCache.get(player.id);
@@ -2391,13 +2870,6 @@ function cacheSet(player, key, value) {
 function cacheDelete(player, key) {
   const pc = afkCache.get(player.id);
   if (pc) pc.delete(key);
-}
-function init2() {
-  console.log(`Initializing AFK...`);
-  for (let player of world9.getAllPlayers()) {
-    reset(player);
-  }
-  console.log(`AFK initialized successfully.`);
 }
 function reset(player) {
   cacheDelete(player, "afk:last_location");
@@ -2427,41 +2899,47 @@ function locationMoved(lastLocation, nowLocation) {
   return true;
 }
 var STEP_TIME = 15;
-system8.runInterval(() => {
-  for (let player of world9.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
-    let lastLoaction = cacheGet(
-      player,
-      "afk:last_location",
-      void 0
-    );
-    let nowLocation = player.location;
-    if (lastLoaction !== void 0) {
-      let nowStep = cacheGet(player, "afk:step", void 0);
-      if (!locationMoved(lastLoaction, nowLocation)) {
-        if (nowStep === void 0) {
-          nowStep = 1;
+var scanRunId2;
+var scanActive = false;
+function startScan2() {
+  if (scanActive || scanRunId2 !== void 0) return;
+  scanActive = true;
+  scanRunId2 = system9.runInterval(() => {
+    for (let player of world9.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
+      let lastLoaction = cacheGet(
+        player,
+        "afk:last_location",
+        void 0
+      );
+      let nowLocation = player.location;
+      if (lastLoaction !== void 0) {
+        let nowStep = cacheGet(player, "afk:step", void 0);
+        if (!locationMoved(lastLoaction, nowLocation)) {
+          if (nowStep === void 0) {
+            nowStep = 1;
+          } else {
+            nowStep++;
+          }
+          if (nowStep * STEP_TIME >= ConfigManager.getSetting("afk_time", 120)) {
+            setAFK(player);
+          } else {
+            cacheSet(player, "afk:step", nowStep);
+          }
         } else {
-          nowStep++;
+          cacheSet(player, "afk:step", 0);
         }
-        if (nowStep * STEP_TIME >= ConfigManager.getSetting("afk_time", 120)) {
-          setAFK(player);
-        } else {
-          cacheSet(player, "afk:step", nowStep);
-        }
-      } else {
-        cacheSet(player, "afk:step", 0);
       }
+      cacheSet(player, "afk:last_location", nowLocation);
     }
-    cacheSet(player, "afk:last_location", nowLocation);
-  }
-}, STEP_TIME * 20);
+  }, STEP_TIME * 20);
+}
 var intervalId = void 0;
 var playerList = {};
 function startAFKScan() {
   if (intervalId !== void 0) {
     return;
   }
-  intervalId = system8.runInterval(() => {
+  intervalId = system9.runInterval(() => {
     let count = 0;
     for (let id in playerList) {
       let player = world9.getEntity(id);
@@ -2485,18 +2963,44 @@ function startAFKScan() {
   }, 100);
 }
 function stopAFKScan() {
-  system8.clearRun(intervalId);
-  intervalId = void 0;
+  if (intervalId !== void 0) {
+    try {
+      system9.clearRun(intervalId);
+    } catch {
+    }
+    intervalId = void 0;
+  }
+}
+function stop2() {
+  if (scanRunId2 !== void 0) {
+    try {
+      system9.clearRun(scanRunId2);
+    } catch {
+    }
+    scanRunId2 = void 0;
+  }
+  scanActive = false;
+  stopAFKScan();
+  playerList = {};
+}
+function init2() {
+  console.log(`Initializing AFK...`);
+  if (!scanActive) startScan2();
+  for (let player of world9.getAllPlayers()) {
+    reset(player);
+  }
+  console.log(`AFK initialized successfully.`);
 }
 function registerCommand() {
-  Command.register("afk", "afk.use", setAFK, "\u8FDB\u5165AFK\u72B6\u6001");
+  Command.register("afk", "afk.use", setAFK, "\u8FDB\u5165AFK\u72B6\u6001", "afk");
   Command.register(
     "noafk",
     "afk.clear.other",
     (pl) => {
       if (pl) pl.addTag("NOAFK");
     },
-    "\u4EE4\u73A9\u5BB6\u4E0D\u4F1A\u8FDB\u5165AFK\u72B6\u6001"
+    "\u4EE4\u73A9\u5BB6\u4E0D\u4F1A\u8FDB\u5165AFK\u72B6\u6001",
+    "afk"
   );
 }
 
@@ -2510,7 +3014,11 @@ var SpawnProtect = class {
 };
 
 // scripts/doge/Clean.ts
-import { system as system9, world as world10, BlockComponentTypes as BlockComponentTypes2 } from "@minecraft/server";
+init_ConfigManager();
+init_Command();
+init_Permission();
+init_Tools();
+import { system as system10, world as world10, BlockComponentTypes as BlockComponentTypes2 } from "@minecraft/server";
 var Clean = class _Clean {
   constructor() {
     this.startPoint = [0, 0, 0];
@@ -2639,16 +3147,16 @@ var Clean = class _Clean {
   }
   startCleanInterval() {
     if (this.intervalId) {
-      system9.clearRun(this.intervalId);
+      system10.clearRun(this.intervalId);
       this.intervalId = void 0;
     }
-    this.intervalId = system9.runInterval(() => {
+    this.intervalId = system10.runInterval(() => {
       let entities = this.getAllItemEntities();
       if (entities.length > this.itemMax) {
         world10.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
-        system9.runTimeout(() => {
+        system10.runTimeout(() => {
           this.startClean(void 0);
-          system9.runTimeout(() => {
+          system10.runTimeout(() => {
             world10.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
           }, 5);
         }, 100);
@@ -2657,9 +3165,12 @@ var Clean = class _Clean {
   }
   stopCleanInterval() {
     if (this.intervalId) {
-      system9.clearRun(this.intervalId);
+      system10.clearRun(this.intervalId);
       this.intervalId = void 0;
     }
+  }
+  stop() {
+    this.stopCleanInterval();
   }
   /**
    * 获取世界的所有物品
@@ -2685,12 +3196,22 @@ function registerCommand2() {
     () => {
       Clean.getInstance().startClean(void 0);
     },
-    "\u5F00\u59CB\u626B\u5730"
+    "\u5F00\u59CB\u626B\u5730",
+    "clean"
   );
 }
 
+// scripts/entry.ts
+init_Peace();
+init_Permission();
+
+// scripts/coop/CoopSystem.ts
+init_Command();
+init_Permission();
+
 // scripts/libs/MenuNavigator.ts
-import { system as system10 } from "@minecraft/server";
+init_Tools();
+import { system as system11 } from "@minecraft/server";
 import {
   CustomForm,
   MessageBox,
@@ -2783,7 +3304,7 @@ var MenuNavigator = class {
         result = await box.show();
         break;
       } catch {
-        await system10.waitTicks(10);
+        await system11.waitTicks(10);
       }
     }
     if (formWasOpen && result?.selection === 0) {
@@ -2800,10 +3321,10 @@ var MenuNavigator = class {
       await def.build(page, this);
     }
     this.form.closeButton();
-    const startTick = system10.currentTick;
+    const startTick = system11.currentTick;
     let notified = false;
     while (true) {
-      if (system10.currentTick - startTick >= 160) {
+      if (system11.currentTick - startTick >= 160) {
         if (notified) Msg.warning("\u83DC\u5355\u5904\u7406\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002", this.player);
         break;
       }
@@ -2814,7 +3335,7 @@ var MenuNavigator = class {
             notified = true;
             Msg.info("\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF0C\u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09", this.player);
           }
-          await system10.waitTicks(10);
+          await system11.waitTicks(10);
           continue;
         }
         break;
@@ -2890,7 +3411,15 @@ var FormStatus = class {
   }
 };
 
+// scripts/gui/CoopGUI.ts
+init_Tools();
+init_Money();
+init_api();
+
 // scripts/coop/CoopCore.ts
+init_Money();
+init_Tools();
+init_api();
 import { world as world11 } from "@minecraft/server";
 var CoopCore = class {
   static {
@@ -3822,7 +4351,8 @@ var CoopSystem = class {
       (player) => {
         if (player) new CoopGUI(player).mainPanel();
       },
-      "\u5408\u4F5C\u793E"
+      "\u5408\u4F5C\u793E",
+      "coop"
     );
     Command.register(
       "coopshop",
@@ -3831,7 +4361,8 @@ var CoopSystem = class {
         if (!player) return;
         CoopGUI.openShopMgr(player);
       },
-      "\u5408\u4F5C\u793E\u5546\u5E97"
+      "\u5408\u4F5C\u793E\u5546\u5E97",
+      "coop"
     );
   }
   static registerEvents() {
@@ -3839,10 +4370,18 @@ var CoopSystem = class {
 };
 
 // scripts/chat/ChatSystem.ts
-import { world as world13, system as system12 } from "@minecraft/server";
+init_Command();
+init_Tools();
+init_DogeChat();
+import { world as world13, system as system13 } from "@minecraft/server";
 
 // scripts/gui/ChatGUI.ts
 import { world as world12 } from "@minecraft/server";
+init_Tools();
+init_Permission();
+init_DogeChat();
+init_Money();
+init_api();
 var ChatGUI = class _ChatGUI {
   constructor(player) {
     this.player = player;
@@ -4259,7 +4798,15 @@ var ChatGUI = class _ChatGUI {
 };
 
 // scripts/chat/ChatSystem.ts
-var ChatSystem = class {
+init_HttpDB();
+init_ConfigManager();
+var ChatSystem = class _ChatSystem {
+  static {
+    this.chatSendSub = void 0;
+  }
+  static {
+    this.playerJoinSub = void 0;
+  }
   static init() {
     console.log(`Initializing ChatSystem...`);
     DogeChat.ensureDefaultChannels();
@@ -4277,7 +4824,7 @@ var ChatSystem = class {
     console.log(`ChatSystem initialized successfully.`);
   }
   static registerEvents() {
-    world13.beforeEvents.chatSend.subscribe(async (event) => {
+    _ChatSystem.chatSendSub = world13.beforeEvents.chatSend.subscribe(async (event) => {
       const player = event.sender;
       const message = event.message;
       if (message.startsWith("!") || message.startsWith("\uFF01")) return;
@@ -4285,14 +4832,30 @@ var ChatSystem = class {
       const channel = await DogeChat.getActiveChannel(player);
       if (channel) await DogeChat.sendChannelMessage(player, channel.id, message);
     });
-    world13.afterEvents.playerJoin.subscribe((event) => {
+    _ChatSystem.playerJoinSub = world13.afterEvents.playerJoin.subscribe((event) => {
       const player = world13.getEntity(event.playerId);
-      system12.run(async () => {
+      system13.run(async () => {
         await DogeChat.loadSubscriptions(player);
         const channel = await DogeChat.getActiveChannel(player);
         if (channel) await DogeChat.loadChannelHistory(player, channel.id);
       });
     });
+  }
+  static cleanup() {
+    try {
+      if (_ChatSystem.chatSendSub?.unsubscribe) _ChatSystem.chatSendSub.unsubscribe();
+    } catch {
+    }
+    try {
+      if (_ChatSystem.playerJoinSub?.unsubscribe) _ChatSystem.playerJoinSub.unsubscribe();
+    } catch {
+    }
+    _ChatSystem.chatSendSub = void 0;
+    _ChatSystem.playerJoinSub = void 0;
+    try {
+      DogeChat.stopBridgePolling?.();
+    } catch {
+    }
   }
   static registerCommands() {
     Command.register(
@@ -4301,7 +4864,8 @@ var ChatSystem = class {
       (player) => {
         if (player) ChatGUI.openChannelPanel(player);
       },
-      "\u9891\u9053\u7BA1\u7406 - \u8BA2\u9605/\u5207\u6362\u9891\u9053"
+      "\u9891\u9053\u7BA1\u7406 - \u8BA2\u9605/\u5207\u6362\u9891\u9053",
+      "chat"
     );
     Command.register(
       "ch",
@@ -4311,7 +4875,8 @@ var ChatSystem = class {
         const next = await DogeChat.cycleChannel(player);
         if (next) await DogeChat.loadChannelHistory(player, next.id);
       },
-      "\u5FEB\u901F\u5207\u6362\u9891\u9053"
+      "\u5FEB\u901F\u5207\u6362\u9891\u9053",
+      "chat"
     );
     Command.register(
       "msg",
@@ -4319,7 +4884,8 @@ var ChatSystem = class {
       (player) => {
         if (player) ChatGUI.openPrivateChatPanel(player);
       },
-      "\u5FEB\u6377\u79C1\u804A"
+      "\u5FEB\u6377\u79C1\u804A",
+      "chat"
     );
     Command.register(
       "lo",
@@ -4327,7 +4893,8 @@ var ChatSystem = class {
       (player) => {
         if (player) ChatGUI.sendLocation(player);
       },
-      "\u53D1\u9001\u5F53\u524D\u4F4D\u7F6E\u5230\u5F53\u524D\u9891\u9053"
+      "\u53D1\u9001\u5F53\u524D\u4F4D\u7F6E\u5230\u5F53\u524D\u9891\u9053",
+      "chat"
     );
     Command.register(
       "tp",
@@ -4335,7 +4902,8 @@ var ChatSystem = class {
       (player) => {
         if (player) ChatGUI.sendTeleportInvite(player);
       },
-      "\u53D1\u9001\u4F20\u9001\u9080\u8BF7"
+      "\u53D1\u9001\u4F20\u9001\u9080\u8BF7",
+      "chat"
     );
     Command.register(
       "hongbao",
@@ -4343,7 +4911,8 @@ var ChatSystem = class {
       (player) => {
         if (player) ChatGUI.openRedPacketPanel(player);
       },
-      "\u7EA2\u5305 - \u67E5\u770B/\u9886\u53D6\u7EA2\u5305"
+      "\u7EA2\u5305 - \u67E5\u770B/\u9886\u53D6\u7EA2\u5305",
+      "chat"
     );
     Command.register(
       "hb",
@@ -4351,13 +4920,16 @@ var ChatSystem = class {
       (player) => {
         if (player) ChatGUI.sendRedPacketQuick(player);
       },
-      "\u53D1\u9001\u7EA2\u5305"
+      "\u53D1\u9001\u7EA2\u5305",
+      "chat"
     );
   }
 };
 
 // scripts/doge/TPS.ts
-import { system as system13, world as world14 } from "@minecraft/server";
+init_Command();
+init_Tools();
+import { system as system14, world as world14 } from "@minecraft/server";
 var TPS = class _TPS {
   static {
     this.tickTimes = [];
@@ -4385,12 +4957,21 @@ var TPS = class _TPS {
     this.startRecord();
   }
   static startRecord() {
-    system13.runInterval(() => {
+    this.recordRunId = system14.runInterval(() => {
       _TPS.tickTimes.push(Date.now());
       if (_TPS.tickTimes.length > _TPS.MAX_SAMPLES) {
         _TPS.tickTimes.shift();
       }
     }, 1);
+  }
+  static stop() {
+    if (this.recordRunId !== void 0) {
+      try {
+        system14.clearRun(this.recordRunId);
+      } catch {
+      }
+      this.recordRunId = void 0;
+    }
   }
   static registerCommands() {
     Command.register(
@@ -4404,13 +4985,18 @@ var TPS = class _TPS {
           world14.sendMessage(msg);
         }
       },
-      "\u67E5\u770B\u670D\u52A1\u5668 TPS"
+      "\u67E5\u770B\u670D\u52A1\u5668 TPS",
+      "tps"
     );
   }
 };
 
 // scripts/doge/OnlineTime.ts
-import { system as system14, world as world15 } from "@minecraft/server";
+init_Permission();
+init_Command();
+init_Tools();
+init_HttpDB();
+import { system as system15, world as world15 } from "@minecraft/server";
 var OnlineTime = class _OnlineTime {
   constructor() {
     this.dataMap = /* @__PURE__ */ new Map();
@@ -4442,7 +5028,8 @@ var OnlineTime = class _OnlineTime {
           player
         );
       },
-      "\u67E5\u770B\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1"
+      "\u67E5\u770B\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1",
+      "onlineTime"
     );
   }
   registerEvents() {
@@ -4542,21 +5129,39 @@ var OnlineTime = class _OnlineTime {
     }
   }
   startTick() {
-    system14.runInterval(() => {
+    this.tickRunId = system15.runInterval(() => {
       this.tickSecond();
     }, 20);
   }
+  stop() {
+    if (this.tickRunId !== void 0) {
+      try {
+        system15.clearRun(this.tickRunId);
+      } catch {
+      }
+      this.tickRunId = void 0;
+    }
+  }
 };
 
+// scripts/entry.ts
+init_CreativeArea();
+
 // scripts/area/SurvivalArea.ts
+init_ConfigManager();
+init_Tools();
+init_Permission();
+init_CreativeArea();
+init_Tools();
 import {
-  system as system15,
+  system as system16,
   world as world16,
   GameMode as GameMode3
 } from "@minecraft/server";
 var SurvivalArea = class _SurvivalArea {
   constructor() {
     this.enable = true;
+    this.subscriptions = [];
   }
   /**
    * @returns {SurvivalArea}
@@ -4573,20 +5178,21 @@ var SurvivalArea = class _SurvivalArea {
   }
   /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
-    world16.afterEvents.playerSpawn.subscribe((event) => {
+    if (this.subscriptions.length > 0) return;
+    this.subscriptions.push(world16.afterEvents.playerSpawn.subscribe((event) => {
       if (!event.initialSpawn) return;
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       const player = event.player;
       const mode = player.getGameMode();
       if (mode === GameMode3.Survival || mode === GameMode3.Adventure) return;
-      system15.runTimeout(() => {
+      system16.runTimeout(() => {
         if (!this.inCreativeArea(player)) {
           this.forceSurvival(player);
         }
       }, 60);
-    });
-    world16.beforeEvents.playerGameModeChange.subscribe((event) => {
+    }));
+    this.subscriptions.push(world16.beforeEvents.playerGameModeChange.subscribe((event) => {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       if (event.toGameMode === GameMode3.Creative || event.toGameMode === GameMode3.Spectator) {
@@ -4596,21 +5202,30 @@ var SurvivalArea = class _SurvivalArea {
           Msg.error(`\u4F60\u5F53\u524D\u4E0D\u5728\u521B\u9020\u533A\u57DF\u5185\uFF0C\u65E0\u6CD5\u5207\u6362\u5230\u8BE5\u6A21\u5F0F\u3002`, event.player);
         }
       }
-    });
-    world16.afterEvents.playerDimensionChange.subscribe((event) => {
+    }));
+    this.subscriptions.push(world16.afterEvents.playerDimensionChange.subscribe((event) => {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       const player = event.player;
       const mode = player.getGameMode();
       if (mode === GameMode3.Survival || mode === GameMode3.Adventure) return;
-      system15.runTimeout(() => {
+      system16.runTimeout(() => {
         if (!this.inCreativeArea(player)) {
           this.forceSurvival(player);
         }
       }, 10);
-    });
+    }));
   }
   init() {
+  }
+  cleanup() {
+    for (const s of this.subscriptions) {
+      try {
+        s.unsubscribe();
+      } catch {
+      }
+    }
+    this.subscriptions = [];
   }
   inCreativeArea(entity) {
     for (const area of ConfigManager.getAreas("creative")) {
@@ -4636,14 +5251,19 @@ var SurvivalArea = class _SurvivalArea {
 };
 
 // scripts/area/InventorySwitcher.ts
+init_ConfigManager();
+init_Tools();
 import {
-  system as system16,
+  system as system17,
   world as world17,
   GameMode as GameMode4,
   EquipmentSlot,
   BlockComponentTypes as BlockComponentTypes3
 } from "@minecraft/server";
 var InventorySwitcher = class _InventorySwitcher {
+  constructor() {
+    this.gameModeSub = void 0;
+  }
   static {
     this.chestMap = /* @__PURE__ */ new Map();
   }
@@ -4655,9 +5275,10 @@ var InventorySwitcher = class _InventorySwitcher {
   }
   /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
-    world17.afterEvents.playerGameModeChange.subscribe((event) => {
+    if (this.gameModeSub) return;
+    this.gameModeSub = world17.afterEvents.playerGameModeChange.subscribe((event) => {
       const player = event.player;
-      system16.run(() => {
+      system17.run(() => {
         if (player.getGameMode() !== event.toGameMode) return;
         if (event.fromGameMode === GameMode4.Survival && event.toGameMode === GameMode4.Creative) {
           this.saveToChest(player, false);
@@ -4668,6 +5289,15 @@ var InventorySwitcher = class _InventorySwitcher {
         }
       });
     });
+  }
+  cleanup() {
+    if (this.gameModeSub?.unsubscribe) {
+      try {
+        this.gameModeSub.unsubscribe();
+      } catch {
+      }
+    }
+    this.gameModeSub = void 0;
   }
   init() {
   }
@@ -4813,6 +5443,10 @@ ${time}`
     }
   }
 };
+
+// scripts/land/LandSystem.ts
+init_Command();
+init_Permission();
 
 // scripts/land/LandDatabase.ts
 var DEFAULT_CONFIG = {
@@ -4974,6 +5608,7 @@ var Database = class {
 };
 
 // scripts/land/LandCore.ts
+init_Money();
 var LandCore = class {
   static {
     /** 玩家会话：plid → { pos1, pos2 } */
@@ -5210,6 +5845,8 @@ var LandCore = class {
 
 // scripts/gui/LandGUI.ts
 import { world as world18 } from "@minecraft/server";
+init_Tools();
+init_Money();
 var LandGUI = class _LandGUI {
   constructor(player) {
     this.player = player;
@@ -5514,6 +6151,7 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`, () => {
 };
 
 // scripts/land/LandSystem.ts
+init_Tools();
 var LandSystem = class {
   /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
   static registerCommandsAndPermissions() {
@@ -5525,7 +6163,8 @@ var LandSystem = class {
         if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C\u3002";
         LandGUI.showMainMenu(player);
       },
-      "\u571F\u5730\u7BA1\u7406"
+      "\u571F\u5730\u7BA1\u7406",
+      "land"
     );
     Command.register(
       "land cancel",
@@ -5535,7 +6174,8 @@ var LandSystem = class {
         if (LandCore.clearSession(player.id)) Msg.success("\u571F\u5730\u7533\u8BF7\u5DF2\u53D6\u6D88\u3002", player);
         else Msg.error("\u4F60\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u571F\u5730\u7533\u8BF7\u3002", player);
       },
-      "\u53D6\u6D88\u571F\u5730\u7533\u8BF7"
+      "\u53D6\u6D88\u571F\u5730\u7533\u8BF7",
+      "land"
     );
     Command.register(
       "pos1",
@@ -5544,7 +6184,8 @@ var LandSystem = class {
         if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C";
         handlePosCommand(player, 1);
       },
-      "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E00\u70B9"
+      "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E00\u70B9",
+      "land"
     );
     Command.register(
       "pos2",
@@ -5553,7 +6194,8 @@ var LandSystem = class {
         if (!player) return "\xA7c\u8BE5\u6307\u4EE4\u53EA\u80FD\u7531\u73A9\u5BB6\u6267\u884C";
         handlePosCommand(player, 2);
       },
-      "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E8C\u70B9"
+      "\u8BBE\u7F6E\u571F\u5730\u7B2C\u4E8C\u70B9",
+      "land"
     );
   }
   static init() {
@@ -5584,6 +6226,7 @@ function handlePosCommand(player, which) {
 
 // scripts/land/LandEvents.ts
 import { world as world19 } from "@minecraft/server";
+init_Tools();
 var CONTAINER_BLOCKS = /* @__PURE__ */ new Set([
   "minecraft:chest",
   "minecraft:trapped_chest",
@@ -5605,11 +6248,14 @@ var LandEvents = class {
   static {
     this.initialized = false;
   }
+  static {
+    this.subscriptions = [];
+  }
   /** 注册事件（由 entry.ts 统一调用） */
   static registerEvents() {
     if (this.initialized) return;
     this.initialized = true;
-    world19.beforeEvents.playerPlaceBlock.subscribe((ev) => {
+    this.subscriptions.push(world19.beforeEvents.playerPlaceBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
@@ -5617,8 +6263,8 @@ var LandEvents = class {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u653E\u7F6E\u65B9\u5757\uFF01", player);
         ev.cancel = true;
       }
-    });
-    world19.beforeEvents.playerBreakBlock.subscribe((ev) => {
+    }));
+    this.subscriptions.push(world19.beforeEvents.playerBreakBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
@@ -5626,8 +6272,8 @@ var LandEvents = class {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u7834\u574F\u65B9\u5757\uFF01", player);
         ev.cancel = true;
       }
-    });
-    world19.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
+    }));
+    this.subscriptions.push(world19.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
       const { player, block } = ev;
       if (!isContainerBlock(block.typeId)) return;
       const pos = { x: block.x, y: block.y, z: block.z };
@@ -5636,12 +6282,25 @@ var LandEvents = class {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u6253\u5F00\u5BB9\u5668\uFF01", player);
         ev.cancel = true;
       }
-    });
+    }));
+  }
+  static cleanup() {
+    for (const s of this.subscriptions) {
+      try {
+        s.unsubscribe();
+      } catch {
+      }
+    }
+    this.subscriptions = [];
+    this.initialized = false;
   }
 };
 
 // scripts/gui/MoneyGUI.ts
 import { world as world20 } from "@minecraft/server";
+init_Money();
+init_Command();
+init_Tools();
 var MoneyGUI = class _MoneyGUI {
   static registerCommand() {
     Command.register(
@@ -5651,7 +6310,8 @@ var MoneyGUI = class _MoneyGUI {
         if (!player) return;
         new _MoneyGUI().show(player);
       },
-      "\u8D27\u5E01\u7BA1\u7406"
+      "\u8D27\u5E01\u7BA1\u7406",
+      "money"
     );
   }
   show(player) {
@@ -5709,7 +6369,10 @@ var MoneyGUI = class _MoneyGUI {
 };
 
 // scripts/gui/MainMenu.ts
-import { system as system17 } from "@minecraft/server";
+import { system as system18 } from "@minecraft/server";
+init_Tools();
+init_Money();
+init_Command();
 var MainMenu = class _MainMenu {
   static registerMenuCommand() {
     Command.register(
@@ -5718,7 +6381,8 @@ var MainMenu = class _MainMenu {
       (player) => {
         if (player) _MainMenu.show(player);
       },
-      "\u4E3B\u83DC\u5355"
+      "\u4E3B\u83DC\u5355",
+      "money"
     );
   }
   static show(player) {
@@ -5768,7 +6432,7 @@ var MainMenu = class _MainMenu {
         Money.add(player, -amount);
         Money.add(target, amount);
         status.setData(`\xA7a\u6210\u529F\u8F6C\u8D26 ${amount} ${Money.UNIT} \u7ED9 ${name}\u3002`);
-        system17.runTimeout(() => nav.rebuild("economy"), 40);
+        system18.runTimeout(() => nav.rebuild("economy"), 40);
       });
     });
     nav.start("main");
@@ -5776,6 +6440,11 @@ var MainMenu = class _MainMenu {
 };
 
 // scripts/gui/AdminGUI.ts
+init_ConfigManager();
+init_HttpDB();
+init_Tools();
+init_CreativeArea();
+init_Peace();
 var MODULES = [
   "fly",
   "creative",
@@ -5788,7 +6457,6 @@ var MODULES = [
   "chat",
   "coop",
   "shop",
-  "form_shop",
   "land",
   "holoprint",
   "money",
@@ -5835,12 +6503,18 @@ var AdminGUI = class _AdminGUI {
 };
 
 // scripts/shop/ShopSystem.ts
+init_ConfigManager();
+init_Money();
+init_Tools();
 import {
   world as world21,
   BlockComponentTypes as BlockComponentTypes4
 } from "@minecraft/server";
 
 // scripts/gui/ShopGUI.ts
+init_Tools();
+init_Money();
+init_ConfigManager();
 var ShopGUI = class _ShopGUI {
   constructor(player) {
     this.player = player;
@@ -5963,6 +6637,7 @@ ${prices}`, () => {
 };
 
 // scripts/shop/ShopSystem.ts
+init_Command();
 var ShopSystem = class {
   static registerCommand() {
     Command.register(
@@ -5971,7 +6646,8 @@ var ShopSystem = class {
       (player) => {
         if (player) this.showShop(player);
       },
-      "\u5546\u5E97"
+      "\u5546\u5E97",
+      "shop"
     );
   }
   /** 委托给 ShopGUI 打开商店主菜单 */
@@ -6153,6 +6829,7 @@ var ShopSystem = class {
 };
 
 // scripts/data/Scoreboards.ts
+init_api();
 import { world as world22 } from "@minecraft/server";
 function ScoreboardsBackup() {
   let entries = [];
@@ -6234,7 +6911,8 @@ var ScoreboardSync = class {
 };
 
 // scripts/data/ActivityLog.ts
-import { world as world23, system as system19 } from "@minecraft/server";
+init_HttpDB();
+import { world as world23, system as system20 } from "@minecraft/server";
 var ENABLED_EVENTS = /* @__PURE__ */ new Set([
   "player.join",
   "player.leave",
@@ -6265,7 +6943,7 @@ var initialized = false;
 function enqueue(entry) {
   queue.push(entry);
   if (!flushTimer) {
-    flushTimer = system19.runTimeout(flush, FLUSH_INTERVAL / 50);
+    flushTimer = system20.runTimeout(flush, FLUSH_INTERVAL / 50);
   }
 }
 async function flush() {
@@ -6334,10 +7012,14 @@ function getTargetPlayerName(entity) {
     return entity.typeId;
   }
 }
+var subscriptions = [];
 function subscribe() {
   function safeSubscribe(signal, cb) {
     if (signal && typeof signal.subscribe === "function") {
-      signal.subscribe(cb);
+      const sub = signal.subscribe(cb);
+      if (sub && typeof sub.unsubscribe === "function") {
+        subscriptions.push(sub);
+      }
     }
   }
   const AE = world23.afterEvents;
@@ -6725,19 +7407,30 @@ var ActivityLog = class {
   static registerEvents() {
     subscribe();
   }
+  static cleanup() {
+    for (const s of subscriptions) {
+      try {
+        s.unsubscribe();
+      } catch {
+      }
+    }
+    subscriptions.length = 0;
+  }
   static init() {
     if (initialized) return;
     initialized = true;
     console.info("[ActivityLog] \u4E8B\u4EF6\u8BA2\u9605\u5B8C\u6210");
-    system19.runInterval(flush, FLUSH_INTERVAL / 50);
-    system19.runTimeout(() => {
+    system20.runInterval(flush, FLUSH_INTERVAL / 50);
+    system20.runTimeout(() => {
       doCleanup();
-      system19.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
+      system20.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
     }, 72e3 / 50);
   }
 };
 
 // scripts/data/World.ts
+init_Tools();
+init_api();
 import { world as world24 } from "@minecraft/server";
 function serializeGameRules() {
   const g = world24.gameRules;
@@ -6805,6 +7498,8 @@ async function syncWorldData() {
 }
 
 // scripts/data/Player.ts
+init_api();
+init_Tools();
 async function getPlayerData(player) {
   const data = {
     id: player.id,
@@ -6825,6 +7520,9 @@ async function getPlayerData(player) {
   return data;
 }
 
+// scripts/entry.ts
+init_api();
+
 // scripts/holo/HoloEntity.ts
 import { world as world25, Player as Player23 } from "@minecraft/server";
 var HOLOGRAM_ENTITY_ID = "sfmc:hologram";
@@ -6838,7 +7536,7 @@ var DP_LAYER = "hpbe_layer";
 var DP_OFFSET_X = "hpbe_offset_x";
 var DP_OFFSET_Y = "hpbe_offset_y";
 var DP_OFFSET_Z = "hpbe_offset_z";
-var HoloEntity = class {
+var HoloEntity = class _HoloEntity {
   static {
     /** projectionId → ActiveHologram */
     this.activeHolograms = /* @__PURE__ */ new Map();
@@ -6932,11 +7630,15 @@ var HoloEntity = class {
     const projectionId = entity.getDynamicProperty(DP_PROJECTION_ID);
     return projectionId ?? null;
   }
+  static {
+    this.hitSubscription = void 0;
+  }
   /**
    * 注册事件（由 entry.ts 统一调用）
    */
   static registerEvents() {
-    world25.afterEvents.entityHitEntity.subscribe((event) => {
+    if (_HoloEntity.hitSubscription) return;
+    _HoloEntity.hitSubscription = world25.afterEvents.entityHitEntity.subscribe((event) => {
       const { damagingEntity, hitEntity } = event;
       if (hitEntity.typeId !== HOLOGRAM_ENTITY_ID) return;
       if (!(damagingEntity instanceof Player23)) return;
@@ -6944,6 +7646,15 @@ var HoloEntity = class {
       if (!projectionId) return;
       console.info(`[HoloEntity] \u73A9\u5BB6 ${damagingEntity.name} \u70B9\u51FB\u4E86\u5168\u606F\u6295\u5F71 ${projectionId}`);
     });
+  }
+  static cleanup() {
+    if (_HoloEntity.hitSubscription) {
+      try {
+        _HoloEntity.hitSubscription.unsubscribe();
+      } catch {
+      }
+      _HoloEntity.hitSubscription = void 0;
+    }
   }
   /**
    * 初始化所有活跃全息实体
@@ -7010,6 +7721,7 @@ var DEFAULT_HOLO_SETTINGS = {
 };
 
 // scripts/holo/HoloCore.ts
+init_HttpDB();
 var STRUCTURE_ID_PREFIX = "hpbe:";
 var HoloCore = class {
   static {
@@ -7319,6 +8031,8 @@ var HoloCore = class {
 };
 
 // scripts/holo/HoloGUI.ts
+init_Command();
+init_Tools();
 var HoloGUI = class _HoloGUI {
   constructor(player) {
     this.player = player;
@@ -7332,7 +8046,8 @@ var HoloGUI = class _HoloGUI {
       (player) => {
         if (player) new _HoloGUI(player).nav.start("main");
       },
-      "\u5168\u606F\u6295\u5F71"
+      "\u5168\u606F\u6295\u5F71",
+      "holoprint"
     );
     Command.register(
       "hpbe pos1",
@@ -7340,7 +8055,8 @@ var HoloGUI = class _HoloGUI {
       (player) => {
         if (player) HoloCore.setPos(player, 1);
       },
-      "\u8BBE\u7F6E\u9009\u533A\u70B91"
+      "\u8BBE\u7F6E\u9009\u533A\u70B91",
+      "holoprint"
     );
     Command.register(
       "hpbe pos2",
@@ -7348,7 +8064,8 @@ var HoloGUI = class _HoloGUI {
       (player) => {
         if (player) HoloCore.setPos(player, 2);
       },
-      "\u8BBE\u7F6E\u9009\u533A\u70B92"
+      "\u8BBE\u7F6E\u9009\u533A\u70B92",
+      "holoprint"
     );
   }
   // ── 外部调用入口 ──
@@ -7619,8 +8336,12 @@ var HoloGUI = class _HoloGUI {
   }
 };
 
+// scripts/entry.ts
+init_ConfigManager();
+init_ModuleRegistry();
+
 // scripts/doge/ChatSoundsHelper.ts
-import { system as system22, world as world27 } from "@minecraft/server";
+import { system as system23, world as world27 } from "@minecraft/server";
 var KEYWORDS = {
   ciallo: "cs.ciallo",
   \u5495\u5495\u560E\u560E: "cs.gugugaga",
@@ -7634,6 +8355,7 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
   constructor(keywords) {
     this.cooldownTicks = 200;
     this.cooldownMap = {};
+    this.chatSub = void 0;
     this.keywords = keywords;
   }
   static getInstance() {
@@ -7643,7 +8365,8 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
     return _ChatSoundsHelper.instance;
   }
   registerEvent() {
-    world27.beforeEvents.chatSend.subscribe((event) => {
+    if (this.chatSub) return;
+    this.chatSub = world27.beforeEvents.chatSend.subscribe((event) => {
       const msg = event.message;
       for (const keyWord in this.keywords) {
         if (!msg.toLowerCase().includes(keyWord.toLowerCase())) continue;
@@ -7652,12 +8375,12 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
           const id = sender.id;
           if (this.cooldownMap[id]) return;
           this.cooldownMap[id] = true;
-          system22.runTimeout(() => {
+          system23.runTimeout(() => {
             delete this.cooldownMap[id];
           }, this.cooldownTicks);
         }
         const soundId = this.keywords[keyWord];
-        system22.run(() => {
+        system23.run(() => {
           for (const p of world27.getAllPlayers()) {
             try {
               p.playSound(soundId);
@@ -7669,17 +8392,37 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
       }
     });
   }
+  stop() {
+    if (this.chatSub?.unsubscribe) {
+      try {
+        this.chatSub.unsubscribe();
+      } catch {
+      }
+    }
+    this.chatSub = void 0;
+  }
 };
 
 // scripts/doge/MonitorReporter.ts
-import { world as world28, system as system23 } from "@minecraft/server";
+init_HttpDB();
+import { world as world28, system as system24 } from "@minecraft/server";
 var REPORT_INTERVAL = 600;
 var DIMENSIONS = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"];
 var MonitorReporter = class {
   static init() {
-    system23.runInterval(() => {
+    if (this.runId !== void 0) return;
+    this.runId = system24.runInterval(() => {
       this.report();
     }, REPORT_INTERVAL);
+  }
+  static stop() {
+    if (this.runId !== void 0) {
+      try {
+        system24.clearRun(this.runId);
+      } catch {
+      }
+      this.runId = void 0;
+    }
   }
   static async report() {
     try {
@@ -7718,14 +8461,192 @@ var MonitorReporter = class {
 };
 
 // scripts/entry.ts
+ModuleRegistry.register({
+  id: "fly",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions: () => init(),
+    init: () => boot(),
+    cleanup: () => stop()
+  }
+});
+ModuleRegistry.register({
+  id: "onlineTime",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerPermissions: () => OnlineTime.getInstance().registerCommandsAndPermissions(),
+    registerEvents: () => OnlineTime.getInstance().registerEvents(),
+    init: () => OnlineTime.getInstance().init(),
+    cleanup: () => OnlineTime.getInstance().stop()
+  }
+});
+ModuleRegistry.register({
+  id: "creative",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerPermissions: () => CreativeArea.getInstance().registerCommandsAndPermissions(),
+    registerEvents: () => CreativeArea.getInstance().registerEvents(),
+    init: () => CreativeArea.getInstance().init(),
+    cleanup: () => CreativeArea.getInstance().cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "survival",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerPermissions: () => SurvivalArea.getInstance().registerCommandsAndPermissions(),
+    registerEvents: () => SurvivalArea.getInstance().registerEvents(),
+    init: () => SurvivalArea.getInstance().init(),
+    cleanup: () => SurvivalArea.getInstance().cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "land",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerPermissions: () => LandSystem.registerCommandsAndPermissions(),
+    registerEvents: () => LandEvents.registerEvents(),
+    init: () => LandSystem.init(),
+    cleanup: () => LandEvents.cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "money",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => MoneyGUI.registerCommand(),
+    init: () => Money.initScoreboard()
+  }
+});
+ModuleRegistry.register({
+  id: "shop",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerCommands: () => ShopSystem.registerCommand()
+  }
+});
+ModuleRegistry.register({
+  id: "holoprint",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => HoloGUI.registerCommand(),
+    registerEvents: () => HoloEntity.registerEvents(),
+    init: () => HoloEntity.init(),
+    cleanup: () => HoloEntity.cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "afk",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => registerCommand(),
+    init: () => init2(),
+    cleanup: () => stop2()
+  }
+});
+ModuleRegistry.register({
+  id: "coop",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => CoopSystem.registerCommands(),
+    init: () => CoopSystem.init()
+  }
+});
+ModuleRegistry.register({
+  id: "chat",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => ChatSystem.registerCommands(),
+    registerEvents: () => ChatSystem.registerEvents(),
+    init: () => ChatSystem.init(),
+    cleanup: () => ChatSystem.cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "tps",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => TPS.registerCommands(),
+    init: () => TPS.init(),
+    cleanup: () => TPS.stop()
+  }
+});
+ModuleRegistry.register({
+  id: "clean",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerCommands: () => registerCommand2(),
+    init: () => Clean.getInstance().init(),
+    cleanup: () => Clean.getInstance().stop()
+  }
+});
+ModuleRegistry.register({
+  id: "inventorySwitcher",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerEvents: () => InventorySwitcher.getInstance().registerEvents(),
+    init: () => InventorySwitcher.getInstance().init(),
+    cleanup: () => InventorySwitcher.getInstance().cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "activityLog",
+  afterWorldLoad: true,
+  lifecycle: {
+    registerEvents: () => ActivityLog.registerEvents(),
+    init: () => ActivityLog.init(),
+    cleanup: () => ActivityLog.cleanup()
+  }
+});
+ModuleRegistry.register({
+  id: "scoreboardSync",
+  afterWorldLoad: true,
+  lifecycle: {
+    init: () => ScoreboardSync.init(),
+    cleanup: () => ScoreboardsBackup()
+  }
+});
+ModuleRegistry.register({
+  id: "chatSounds",
+  afterWorldLoad: true,
+  lifecycle: {
+    init: () => ChatSoundsHelper.getInstance().registerEvent(),
+    cleanup: () => ChatSoundsHelper.getInstance().stop()
+  }
+});
+ModuleRegistry.register({
+  id: "monitor",
+  afterWorldLoad: false,
+  lifecycle: {
+    init: () => MonitorReporter.init(),
+    cleanup: () => MonitorReporter.stop()
+  }
+});
+ModuleRegistry.register({
+  id: "peace",
+  afterWorldLoad: false,
+  lifecycle: {}
+});
+ModuleRegistry.register({
+  id: "qa",
+  afterWorldLoad: false,
+  lifecycle: {
+    init: () => QAManager.getInstance().start(),
+    cleanup: () => QAManager.getInstance().stop()
+  }
+});
+ModuleRegistry.register({
+  id: "spawnProtect",
+  afterWorldLoad: false,
+  lifecycle: {}
+});
 var AddOnInit = class {
   static init() {
     this.registerEvents();
-    this.createTasks();
   }
   static registerEvents() {
-    system24.beforeEvents.startup.subscribe(async (e) => {
-      system24.run(async () => {
+    system25.beforeEvents.startup.subscribe(async () => {
+      system25.run(async () => {
         await ConfigManager.init();
         ConfigManager.startPolling();
         ConfigManager.startFastPoll();
@@ -7743,92 +8664,72 @@ var AddOnInit = class {
         Permission.register("chat.use", Permission.Member);
         Permission.register("chat.admin", Permission.OP);
         Permission.register("tps.see", Permission.Any);
-        if (ConfigManager.isEnabled("fly")) init();
-        if (ConfigManager.isEnabled("online_time")) OnlineTime.getInstance().registerCommandsAndPermissions();
-        if (ConfigManager.isEnabled("creative")) CreativeArea.getInstance().registerCommandsAndPermissions();
-        if (ConfigManager.isEnabled("survival")) SurvivalArea.getInstance().registerCommandsAndPermissions();
-        if (ConfigManager.isEnabled("land")) LandSystem.registerCommandsAndPermissions();
         Permission.registerPermlistCommand();
         Command.registerHelpCommand();
         MainMenu.registerMenuCommand();
-        if (ConfigManager.isEnabled("money")) MoneyGUI.registerCommand();
-        if (ConfigManager.isEnabled("shop")) ShopSystem.registerCommand();
-        if (ConfigManager.isEnabled("holoprint")) HoloGUI.registerCommand();
-        if (ConfigManager.isEnabled("afk")) registerCommand();
-        if (ConfigManager.isEnabled("coop")) CoopSystem.registerCommands();
-        if (ConfigManager.isEnabled("chat")) ChatSystem.registerCommands();
-        if (ConfigManager.isEnabled("tps")) TPS.registerCommands();
-        if (ConfigManager.isEnabled("clean")) registerCommand2();
         Command.register("admin", "chat.admin", (player) => {
           if (player) AdminGUI.show(player);
         }, "\u7BA1\u7406\u9762\u677F");
+        setModuleGuard((moduleId) => {
+          const idKey = moduleId;
+          return ModuleRegistry.isActive(idKey);
+        });
+        ModuleRegistry.bootAll();
+        ModuleRegistry.snapshotEnabled();
+        announceLoaded();
       });
     });
     world29.afterEvents.worldLoad.subscribe(() => {
-      if (ConfigManager.isEnabled("afk")) init2();
-      if (ConfigManager.isEnabled("coop")) CoopSystem.init();
-      if (ConfigManager.isEnabled("chat")) ChatSystem.init();
-      if (ConfigManager.isEnabled("clean")) Clean.getInstance().init();
-      if (ConfigManager.isEnabled("tps")) TPS.init();
+      if (!guardEvent()) return;
+      ModuleRegistry.bootAfterWorldLoad();
       MonitorReporter.init();
-      if (ConfigManager.isEnabled("online_time")) OnlineTime.getInstance().init();
-      if (ConfigManager.isEnabled("creative")) CreativeArea.getInstance().init();
-      if (ConfigManager.isEnabled("survival")) SurvivalArea.getInstance().init();
-      if (ConfigManager.isEnabled("inventory_switcher")) InventorySwitcher.getInstance().init();
-      if (ConfigManager.isEnabled("land")) LandSystem.init();
-      if (ConfigManager.isEnabled("activity_log")) ActivityLog.init();
-      Money.initScoreboard();
-      ScoreboardSync.init();
       syncWorldData();
-      HoloEntity.init();
-      if (ConfigManager.isEnabled("chat_sounds")) ChatSoundsHelper.getInstance().registerEvent();
     });
-    if (ConfigManager.isEnabled("online_time")) OnlineTime.getInstance().registerEvents();
-    if (ConfigManager.isEnabled("creative")) CreativeArea.getInstance().registerEvents();
-    if (ConfigManager.isEnabled("survival")) SurvivalArea.getInstance().registerEvents();
-    if (ConfigManager.isEnabled("inventory_switcher")) InventorySwitcher.getInstance().registerEvents();
-    if (ConfigManager.isEnabled("land")) LandEvents.registerEvents();
-    if (ConfigManager.isEnabled("activity_log")) ActivityLog.registerEvents();
-    if (ConfigManager.isEnabled("holoprint")) HoloEntity.registerEvents();
-    if (ConfigManager.isEnabled("chat")) ChatSystem.registerEvents();
     world29.afterEvents.playerSpawn.subscribe((event) => {
+      if (!guardEvent()) return;
       if (event.initialSpawn) {
-        if (ConfigManager.isEnabled("peace")) Peace.getInstance().init();
-        if (ConfigManager.isEnabled("fly")) playerJoinEvent(event.player);
-        if (ConfigManager.isEnabled("afk")) reset(event.player);
+        if (ModuleRegistry.isActive("peace")) Peace.getInstance().init();
+        if (ModuleRegistry.isActive("fly")) playerJoinEvent(event.player);
+        if (ModuleRegistry.isActive("afk")) reset(event.player);
         getPlayerData(event.player).then((data) => {
           savePlayers([data]).catch(() => {
           });
         });
       }
+      if (ModuleRegistry.isActive("spawnProtect")) {
+        SpawnProtect.setProtect(event.player);
+      }
     });
     world29.afterEvents.playerLeave.subscribe((event) => {
+      if (!guardEvent()) return;
       const player = world29.getEntity(event.playerId);
       if (player) {
         getPlayerData(player).then((data) => {
           savePlayers([data]).catch(() => {
           });
         });
-        if (ConfigManager.isEnabled("online_time")) OnlineTime.getInstance().onPlayerLeave(player);
+        if (ModuleRegistry.isActive("onlineTime")) {
+          OnlineTime.getInstance().onPlayerLeave(player);
+        }
       }
     });
-    world29.afterEvents.playerSpawn.subscribe((ev) => {
-      if (ConfigManager.isEnabled("spawn_protect")) SpawnProtect.setProtect(ev.player);
-    });
     world29.beforeEvents.chatSend.subscribe((event) => {
+      if (!guardEvent()) return;
       let firstChar = event.message.substring(0, 1);
       if (firstChar === "!" || firstChar === "\uFF01") {
         Command.trigger(event.sender, event.message.substring(1));
         event.cancel = true;
       }
     });
-    system24.beforeEvents.shutdown.subscribe(() => {
+    system25.beforeEvents.shutdown.subscribe(() => {
+      if (!guardEvent()) return;
+      ModuleRegistry.teardown();
       syncWorldData();
-      ScoreboardsBackup();
     });
   }
   static createTasks() {
-    if (ConfigManager.isEnabled("qa")) QAManager.getInstance().start();
+    if (!ConfigManager.isReady()) return;
+    ModuleRegistry.bootTasks();
   }
 };
 

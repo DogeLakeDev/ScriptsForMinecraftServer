@@ -2,8 +2,20 @@ import { Player, system } from "@minecraft/server";
 import { Permission } from "./Permission";
 import { Msg } from "./Tools";
 
+let moduleGuard: (moduleId: string) => boolean = () => true;
+export function setModuleGuard(guard: (moduleId: string) => boolean): void {
+  moduleGuard = guard;
+}
+
+export type CommandEntry = {
+  callback: Function;
+  permission: number | string;
+  description: string;
+  moduleId?: string;
+};
+
 export class Command {
-  static list: Record<string, { callback: Function; permission: number | string; description: string }> = {};
+  static list: Record<string, CommandEntry> = {};
 
   /**
    * 注册指令
@@ -11,21 +23,53 @@ export class Command {
    * @param permission 权限等级(数字) 或 权限名(字符串)
    * @param callback 回调
    * @param description 指令描述
+   * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
    */
   static register(
     name: string,
     permission: number | string,
     callback: (player: Player | undefined) => any,
-    description?: string
+    description?: string,
+    moduleId?: string
   ) {
-    if (this.list[name] === undefined) {
-      this.list[name] = {
-        callback: callback,
-        permission: permission,
-        description: description === undefined ? name : description,
-      };
+    this.list[name] = {
+      callback: callback,
+      permission: permission,
+      description: description === undefined ? name : description,
+      moduleId: moduleId,
+    };
+    return true;
+  }
+
+  static unregister(name: string): boolean {
+    if (this.list[name] !== undefined) {
+      delete this.list[name];
+      return true;
     }
     return false;
+  }
+
+  static unregisterByModule(moduleId: string): number {
+    let n = 0;
+    for (const k of Object.keys(this.list)) {
+      if (this.list[k].moduleId === moduleId) {
+        delete this.list[k];
+        n++;
+      }
+    }
+    return n;
+  }
+
+  static has(name: string): boolean {
+    return this.list[name] !== undefined;
+  }
+
+  static names(): string[] {
+    return Object.keys(this.list);
+  }
+
+  static getModuleId(name: string): string | undefined {
+    return this.list[name]?.moduleId;
   }
 
   /**
@@ -47,6 +91,10 @@ export class Command {
   static trigger(player: Player | undefined, message: string) {
     let commandInfo = this.list[message];
     if (commandInfo !== undefined) {
+      if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
+        if (player) Msg.error(`该命令所属模块已禁用: ${commandInfo.moduleId}`, player);
+        return;
+      }
       if (this.canExecute(player, commandInfo.permission)) {
         system.run(async () => {
           const result = await (commandInfo.callback as (player: Player | undefined) => any)(player);

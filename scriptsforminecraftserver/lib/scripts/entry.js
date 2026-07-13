@@ -1,6 +1,6 @@
 import { system, world } from "@minecraft/server";
 import { Money } from "./libs/Money";
-import { Command } from "./libs/Command";
+import { Command, setModuleGuard } from "./libs/Command";
 import { QAManager } from "./doge/QA";
 import * as Fly from "./area/Fly";
 import * as AFK from "./doge/AFK";
@@ -29,15 +29,194 @@ import { savePlayers } from "./api";
 import { HoloEntity } from "./holo/HoloEntity";
 import { HoloGUI } from "./holo/HoloGUI";
 import { ConfigManager } from "./libs/ConfigManager";
+import { ModuleRegistry, guardEvent, announceLoaded } from "./libs/ModuleRegistry";
 import { ChatSoundsHelper } from "./doge/ChatSoundsHelper";
 import { MonitorReporter } from "./doge/MonitorReporter";
+ModuleRegistry.register({
+    id: "fly",
+    afterWorldLoad: false,
+    lifecycle: {
+        registerPermissions: () => Fly.init(),
+        init: () => Fly.boot(),
+        cleanup: () => Fly.stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "onlineTime",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerPermissions: () => OnlineTime.getInstance().registerCommandsAndPermissions(),
+        registerEvents: () => OnlineTime.getInstance().registerEvents(),
+        init: () => OnlineTime.getInstance().init(),
+        cleanup: () => OnlineTime.getInstance().stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "creative",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerPermissions: () => CreativeArea.getInstance().registerCommandsAndPermissions(),
+        registerEvents: () => CreativeArea.getInstance().registerEvents(),
+        init: () => CreativeArea.getInstance().init(),
+        cleanup: () => CreativeArea.getInstance().cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "survival",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerPermissions: () => SurvivalArea.getInstance().registerCommandsAndPermissions(),
+        registerEvents: () => SurvivalArea.getInstance().registerEvents(),
+        init: () => SurvivalArea.getInstance().init(),
+        cleanup: () => SurvivalArea.getInstance().cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "land",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerPermissions: () => LandSystem.registerCommandsAndPermissions(),
+        registerEvents: () => LandEvents.registerEvents(),
+        init: () => LandSystem.init(),
+        cleanup: () => LandEvents.cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "money",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => MoneyGUI.registerCommand(),
+        init: () => Money.initScoreboard(),
+    },
+});
+ModuleRegistry.register({
+    id: "shop",
+    afterWorldLoad: false,
+    lifecycle: {
+        registerCommands: () => ShopSystem.registerCommand(),
+    },
+});
+ModuleRegistry.register({
+    id: "holoprint",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => HoloGUI.registerCommand(),
+        registerEvents: () => HoloEntity.registerEvents(),
+        init: () => HoloEntity.init(),
+        cleanup: () => HoloEntity.cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "afk",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => AFK.registerCommand(),
+        init: () => AFK.init(),
+        cleanup: () => AFK.stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "coop",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => CoopSystem.registerCommands(),
+        init: () => CoopSystem.init(),
+    },
+});
+ModuleRegistry.register({
+    id: "chat",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => ChatSystem.registerCommands(),
+        registerEvents: () => ChatSystem.registerEvents(),
+        init: () => ChatSystem.init(),
+        cleanup: () => ChatSystem.cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "tps",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => TPS.registerCommands(),
+        init: () => TPS.init(),
+        cleanup: () => TPS.stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "clean",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerCommands: () => registerCleanCommand(),
+        init: () => Clean.getInstance().init(),
+        cleanup: () => Clean.getInstance().stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "inventorySwitcher",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerEvents: () => InventorySwitcher.getInstance().registerEvents(),
+        init: () => InventorySwitcher.getInstance().init(),
+        cleanup: () => InventorySwitcher.getInstance().cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "activityLog",
+    afterWorldLoad: true,
+    lifecycle: {
+        registerEvents: () => ActivityLog.registerEvents(),
+        init: () => ActivityLog.init(),
+        cleanup: () => ActivityLog.cleanup(),
+    },
+});
+ModuleRegistry.register({
+    id: "scoreboardSync",
+    afterWorldLoad: true,
+    lifecycle: {
+        init: () => ScoreboardSync.init(),
+        cleanup: () => ScoreboardsBackup(),
+    },
+});
+ModuleRegistry.register({
+    id: "chatSounds",
+    afterWorldLoad: true,
+    lifecycle: {
+        init: () => ChatSoundsHelper.getInstance().registerEvent(),
+        cleanup: () => ChatSoundsHelper.getInstance().stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "monitor",
+    afterWorldLoad: false,
+    lifecycle: {
+        init: () => MonitorReporter.init(),
+        cleanup: () => MonitorReporter.stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "peace",
+    afterWorldLoad: false,
+    lifecycle: {},
+});
+ModuleRegistry.register({
+    id: "qa",
+    afterWorldLoad: false,
+    lifecycle: {
+        init: () => QAManager.getInstance().start(),
+        cleanup: () => QAManager.getInstance().stop(),
+    },
+});
+ModuleRegistry.register({
+    id: "spawnProtect",
+    afterWorldLoad: false,
+    lifecycle: {},
+});
 export class AddOnInit {
     static init() {
         this.registerEvents();
-        this.createTasks();
     }
     static registerEvents() {
-        system.beforeEvents.startup.subscribe(async (e) => {
+        system.beforeEvents.startup.subscribe(async () => {
             system.run(async () => {
                 await ConfigManager.init();
                 ConfigManager.startPolling();
@@ -56,116 +235,64 @@ export class AddOnInit {
                 Permission.register("chat.use", Permission.Member);
                 Permission.register("chat.admin", Permission.OP);
                 Permission.register("tps.see", Permission.Any);
-                if (ConfigManager.isEnabled("fly"))
-                    Fly.init();
-                if (ConfigManager.isEnabled("online_time"))
-                    OnlineTime.getInstance().registerCommandsAndPermissions();
-                if (ConfigManager.isEnabled("creative"))
-                    CreativeArea.getInstance().registerCommandsAndPermissions();
-                if (ConfigManager.isEnabled("survival"))
-                    SurvivalArea.getInstance().registerCommandsAndPermissions();
-                if (ConfigManager.isEnabled("land"))
-                    LandSystem.registerCommandsAndPermissions();
                 Permission.registerPermlistCommand();
                 Command.registerHelpCommand();
                 MainMenu.registerMenuCommand();
-                if (ConfigManager.isEnabled("money"))
-                    MoneyGUI.registerCommand();
-                if (ConfigManager.isEnabled("shop"))
-                    ShopSystem.registerCommand();
-                if (ConfigManager.isEnabled("holoprint"))
-                    HoloGUI.registerCommand();
-                if (ConfigManager.isEnabled("afk"))
-                    AFK.registerCommand();
-                if (ConfigManager.isEnabled("coop"))
-                    CoopSystem.registerCommands();
-                if (ConfigManager.isEnabled("chat"))
-                    ChatSystem.registerCommands();
-                if (ConfigManager.isEnabled("tps"))
-                    TPS.registerCommands();
-                if (ConfigManager.isEnabled("clean"))
-                    registerCleanCommand();
                 Command.register("admin", "chat.admin", (player) => {
                     if (player)
                         AdminGUI.show(player);
                 }, "管理面板");
+                // 命令守卫：模块禁用时拦截该模块下的命令
+                setModuleGuard((moduleId) => {
+                    const idKey = moduleId;
+                    return ModuleRegistry.isActive(idKey);
+                });
+                ModuleRegistry.bootAll();
+                ModuleRegistry.snapshotEnabled();
+                announceLoaded();
             });
         });
         world.afterEvents.worldLoad.subscribe(() => {
-            if (ConfigManager.isEnabled("afk"))
-                AFK.init();
-            if (ConfigManager.isEnabled("coop"))
-                CoopSystem.init();
-            if (ConfigManager.isEnabled("chat"))
-                ChatSystem.init();
-            if (ConfigManager.isEnabled("clean"))
-                Clean.getInstance().init();
-            if (ConfigManager.isEnabled("tps"))
-                TPS.init();
+            if (!guardEvent())
+                return;
+            ModuleRegistry.bootAfterWorldLoad();
             MonitorReporter.init();
-            if (ConfigManager.isEnabled("online_time"))
-                OnlineTime.getInstance().init();
-            if (ConfigManager.isEnabled("creative"))
-                CreativeArea.getInstance().init();
-            if (ConfigManager.isEnabled("survival"))
-                SurvivalArea.getInstance().init();
-            if (ConfigManager.isEnabled("inventory_switcher"))
-                InventorySwitcher.getInstance().init();
-            if (ConfigManager.isEnabled("land"))
-                LandSystem.init();
-            if (ConfigManager.isEnabled("activity_log"))
-                ActivityLog.init();
-            Money.initScoreboard();
-            ScoreboardSync.init();
             syncWorldData();
-            HoloEntity.init();
-            if (ConfigManager.isEnabled("chat_sounds"))
-                ChatSoundsHelper.getInstance().registerEvent();
         });
-        if (ConfigManager.isEnabled("online_time"))
-            OnlineTime.getInstance().registerEvents();
-        if (ConfigManager.isEnabled("creative"))
-            CreativeArea.getInstance().registerEvents();
-        if (ConfigManager.isEnabled("survival"))
-            SurvivalArea.getInstance().registerEvents();
-        if (ConfigManager.isEnabled("inventory_switcher"))
-            InventorySwitcher.getInstance().registerEvents();
-        if (ConfigManager.isEnabled("land"))
-            LandEvents.registerEvents();
-        if (ConfigManager.isEnabled("activity_log"))
-            ActivityLog.registerEvents();
-        if (ConfigManager.isEnabled("holoprint"))
-            HoloEntity.registerEvents();
-        if (ConfigManager.isEnabled("chat"))
-            ChatSystem.registerEvents();
         world.afterEvents.playerSpawn.subscribe((event) => {
+            if (!guardEvent())
+                return;
             if (event.initialSpawn) {
-                if (ConfigManager.isEnabled("peace"))
+                if (ModuleRegistry.isActive("peace"))
                     Peace.getInstance().init();
-                if (ConfigManager.isEnabled("fly"))
+                if (ModuleRegistry.isActive("fly"))
                     Fly.playerJoinEvent(event.player);
-                if (ConfigManager.isEnabled("afk"))
+                if (ModuleRegistry.isActive("afk"))
                     AFK.reset(event.player);
                 getPlayerData(event.player).then((data) => {
                     savePlayers([data]).catch(() => { });
                 });
             }
+            if (ModuleRegistry.isActive("spawnProtect")) {
+                SpawnProtect.setProtect(event.player);
+            }
         });
         world.afterEvents.playerLeave.subscribe((event) => {
+            if (!guardEvent())
+                return;
             const player = world.getEntity(event.playerId);
             if (player) {
                 getPlayerData(player).then((data) => {
                     savePlayers([data]).catch(() => { });
                 });
-                if (ConfigManager.isEnabled("online_time"))
+                if (ModuleRegistry.isActive("onlineTime")) {
                     OnlineTime.getInstance().onPlayerLeave(player);
+                }
             }
         });
-        world.afterEvents.playerSpawn.subscribe((ev) => {
-            if (ConfigManager.isEnabled("spawn_protect"))
-                SpawnProtect.setProtect(ev.player);
-        });
         world.beforeEvents.chatSend.subscribe((event) => {
+            if (!guardEvent())
+                return;
             let firstChar = event.message.substring(0, 1);
             if (firstChar === "!" || firstChar === "！") {
                 Command.trigger(event.sender, event.message.substring(1));
@@ -173,13 +300,16 @@ export class AddOnInit {
             }
         });
         system.beforeEvents.shutdown.subscribe(() => {
+            if (!guardEvent())
+                return;
+            ModuleRegistry.teardown();
             syncWorldData();
-            ScoreboardsBackup();
         });
     }
     static createTasks() {
-        if (ConfigManager.isEnabled("qa"))
-            QAManager.getInstance().start();
+        if (!ConfigManager.isReady())
+            return;
+        ModuleRegistry.bootTasks();
     }
 }
 //# sourceMappingURL=entry.js.map

@@ -10,6 +10,7 @@ import * as Tool from "../libs/Tools";
 export class Peace {
     constructor() {
         this.enable = true;
+        this.entitySpawnSub = undefined;
     }
     static getInstance() {
         if (!Peace._instance) {
@@ -21,7 +22,9 @@ export class Peace {
         this.registerEvents();
     }
     registerEvents() {
-        world.afterEvents.entitySpawn.subscribe((event) => {
+        if (this.entitySpawnSub)
+            return;
+        this.entitySpawnSub = world.afterEvents.entitySpawn.subscribe((event) => {
             if (!this.enable)
                 return;
             try {
@@ -34,6 +37,15 @@ export class Peace {
             }
             catch { }
         });
+    }
+    cleanup() {
+        if (this.entitySpawnSub?.unsubscribe) {
+            try {
+                this.entitySpawnSub.unsubscribe();
+            }
+            catch { }
+        }
+        this.entitySpawnSub = undefined;
     }
     /**
      * 实体是否在和平区域内

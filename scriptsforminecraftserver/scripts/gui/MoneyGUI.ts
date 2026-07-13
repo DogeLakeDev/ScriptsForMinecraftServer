@@ -14,7 +14,8 @@ export class MoneyGUI {
         if (!player) return;
         new MoneyGUI().show(player);
       },
-      "货币管理"
+      "货币管理",
+      "money"
     );
   }
 

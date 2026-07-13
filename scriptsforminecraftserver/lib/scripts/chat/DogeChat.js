@@ -596,7 +596,7 @@ export class DogeChat {
             return;
         this._bridgePollStarted = true;
         this._lastBridgeFetch = Date.now();
-        system.runInterval(async () => {
+        this._bridgePollId = system.runInterval(async () => {
             try {
                 const since = this._lastBridgeFetch;
                 this._lastBridgeFetch = Date.now();
@@ -625,6 +625,16 @@ export class DogeChat {
                 /* ignore */
             }
         }, 20);
+    }
+    static stopBridgePolling() {
+        if (this._bridgePollId !== undefined) {
+            try {
+                system.clearRun(this._bridgePollId);
+            }
+            catch { }
+            this._bridgePollId = undefined;
+        }
+        this._bridgePollStarted = false;
     }
 }
 DogeChat.DEFAULT_CHANNEL_CONFIG = {
@@ -657,6 +667,7 @@ DogeChat.activeChannelMap = new Map();
 DogeChat.subscribedChannelsMap = new Map();
 /** QQ 桥接轮询 */
 DogeChat._bridgePollStarted = false;
+DogeChat._bridgePollId = undefined;
 DogeChat._lastBridgeFetch = Date.now();
 DogeChat._lastBridgeTimestamp = 0;
 //# sourceMappingURL=DogeChat.js.map
