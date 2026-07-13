@@ -9,7 +9,7 @@
  *  4. 启动 db-server 指向 .sim-workspace（通过 SFMC_ROOT 环境变量）
  *  5. 验证 /setup/state 返回 initialized=false
  *  6. 调用 /setup/init 模拟新用户提交
- *  7. 验证 panel-state.json / configs/ / sfmc_config_modules 全部落地
+ *  7. 验证 panel-state.json / configs/ / module-lock.json 全部落地
  *  8. 调用 /setup/reset 验证回滚
  *  9. 退出后自动还原用户真实配置
  *
@@ -31,7 +31,6 @@ const KEEP = process.argv.includes("--keep");
 const NO_RESTORE = process.argv.includes("--no-restore");
 
 const FILES_TO_BACKUP = [
-  "configs/modules.json",
   "configs/db_config.json",
   "configs/bds_updater.json",
   "configs/qq_config.json",
@@ -136,8 +135,6 @@ function buildSimWorkspace() {
   // 干净 modules/module-lock.json
   fs.writeFileSync(path.join(SIM_DIR, "modules", "module-lock.json"), JSON.stringify({ version: 1, modules: {} }, null, 2) + "\n");
 
-  // 干净 configs/modules.json（默认不启用任何 feature）
-  fs.writeFileSync(path.join(SIM_DIR, "configs", "modules.json"), JSON.stringify({ modules: {} }, null, 2) + "\n");
 
   return { fakeBdsPath, fakeLlbotDir, fakeLlbotPath: path.join(fakeLlbotDir, "llbot.exe") };
 }
@@ -267,7 +264,6 @@ async function main() {
     expect(init.status === 200 && init.body.success === true, "/setup/init 成功");
     expect(init.body.state._initialized === true, "init 后 state._initialized=true");
     expect(init.body.written.includes("panel-state.json"), "panel-state.json 已写入");
-    expect(init.body.written.includes("configs/modules.json"), "configs/modules.json 已写入");
 
     // 4) 检查落盘内容
     const statePath = path.join(SIM_DIR, "panel-state.json");
@@ -275,9 +271,10 @@ async function main() {
     expect(stateOnDisk._initialized === true, "盘上 panel-state.json._initialized=true");
     expect(stateOnDisk.paths.bdsPath === fakeBdsPath, "盘上 bdsPath 与提交一致");
 
-    const modulesCfg = JSON.parse(fs.readFileSync(path.join(SIM_DIR, "configs", "modules.json"), "utf-8"));
+    const moduleLock = JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "module-lock.json"), "utf-8"));
     for (const k of initPayload.ui.defaultModules) {
-      expect(modulesCfg.modules[k] === true, `modules.json.${k} = true`);
+      const module = JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "catalog.json"), "utf-8")).modules.find((m) => m.configKey === k);
+      expect(module && moduleLock.modules[module.id]?.enabled === true, `module-lock.${k}.enabled = true`);
     }
 
     // 5) /setup/state2

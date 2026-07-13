@@ -16,6 +16,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const {
+  loadModuleLock: readModuleLock,
+  saveModuleLock: writeModuleLock,
+  isInstalled,
+  updateModuleState,
+} = require("../db-server/lib/module-state");
 
 const ROOT = path.resolve(__dirname, "..");
 const CATALOG = path.join(ROOT, "modules", "catalog.json");
@@ -28,13 +34,11 @@ function loadCatalog() {
 }
 
 function loadModuleLock() {
-  if (!fs.existsSync(MODULE_LOCK)) return { version: 1, modules: {} };
-  return JSON.parse(fs.readFileSync(MODULE_LOCK, "utf-8"));
+  return readModuleLock(MODULE_LOCK);
 }
 
 function saveModuleLock(lock) {
-  fs.mkdirSync(path.dirname(MODULE_LOCK), { recursive: true });
-  fs.writeFileSync(MODULE_LOCK, JSON.stringify(lock, null, 2) + "\n");
+  writeModuleLock(MODULE_LOCK, lock);
 }
 
 function loadFileLock() {
@@ -124,8 +128,7 @@ function install(id, opts) {
   for (const depId of mod.requires || []) {
     const dep = findModule(cat, depId);
     if (!dep) continue;
-    const depState = lock.modules[dep.id];
-    const depInstalled = depState ? depState.installed !== false : dep.defaultInstalled !== false;
+    const depInstalled = isInstalled(lock, dep.id, false);
     if (!depInstalled) {
       console.error(`[install] 依赖未安装: ${dep.id}`);
       process.exit(2);
@@ -159,11 +162,7 @@ function install(id, opts) {
     }
   }
 
-  lock.modules[mod.id] = {
-    installed: true,
-    installedAt: prev.installedAt || Date.now(),
-    updatedAt: Date.now(),
-  };
+  updateModuleState(lock, mod.id, { installed: true });
   saveModuleLock(lock);
   console.log(`[install] ${mod.id} 已安装`);
   console.log(`提示: 请执行 npm run build 并重启 BDS 生效`);
@@ -180,8 +179,7 @@ function uninstall(id, opts) {
   for (const other of cat.modules) {
     if (other.id === mod.id) continue;
     if (!(other.requires || []).includes(mod.id)) continue;
-    const otherState = lock.modules[other.id];
-    const otherInstalled = otherState ? otherState.installed !== false : other.defaultInstalled !== false;
+    const otherInstalled = isInstalled(lock, other.id, false);
     if (otherInstalled) {
       console.error(`[uninstall] 被已安装模块引用: ${other.id}`);
       process.exit(2);
@@ -191,13 +189,12 @@ function uninstall(id, opts) {
   const prev = lock.modules[mod.id] || {};
   const result = opts.noFiles ? { moved: [], missing: [] } : moveToTrash(mod, opts.dryRun);
 
-  lock.modules[mod.id] = {
+  updateModuleState(lock, mod.id, {
     installed: false,
-    installedAt: prev.installedAt || Date.now(),
-    updatedAt: Date.now(),
+    enabled: false,
     lastUninstalledAt: Date.now(),
     trashDir: opts.dryRun || opts.noFiles ? null : (result.trashDir ? path.relative(ROOT, result.trashDir) : null),
-  };
+  });
   saveModuleLock(lock);
 
   if (opts.dryRun) {
@@ -216,7 +213,7 @@ function status() {
   const lock = loadModuleLock();
   for (const m of cat.modules) {
     const s = lock.modules?.[m.id] || {};
-    const installed = s.installed !== undefined ? s.installed : m.defaultInstalled;
+    const installed = s.installed === true;
     console.log(`${installed ? "[√]" : "[ ]"} ${m.id.padEnd(28)} type=${m.type.padEnd(8)} installed=${installed}`);
   }
 }

@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { assertNodeVersion } = require('./lib/runtime');
 const { quoteIdentifier } = require('./lib/identifiers');
+const { loadModuleLock: readModuleLock, saveModuleLock: writeModuleLock, getModuleState, isInstalled, isEnabled, updateModuleState } = require('./lib/module-state');
 if (!assertNodeVersion(22, 5)) process.exit(2);
 const { DatabaseSync } = require('node:sqlite');
 
@@ -89,45 +90,24 @@ function loadModuleCatalog() {
 }
 
 function loadModuleLock() {
-  const data = readJsonFile(MODULE_LOCK_PATH, { version: 1, modules: {} });
-  const modules = data && typeof data.modules === 'object' && data.modules ? data.modules : {};
-  return { version: 1, modules };
+  return readModuleLock(MODULE_LOCK_PATH);
 }
 
 function saveModuleLock(lock) {
-  writeJsonFile(MODULE_LOCK_PATH, lock);
-}
-
-function getEnabledModuleMap() {
-  const rows = query('SELECT name, enabled FROM sfmc_config_modules');
-  const map = new Map();
-  for (const row of rows) map.set(row.name, !!row.enabled);
-  return map;
-}
-
-function ensureModuleConfigRows(now = Date.now()) {
-  const existing = new Set(query('SELECT name FROM sfmc_config_modules').map((row) => row.name));
-  for (const module of loadModuleCatalog()) {
-    if (!module.configKey || existing.has(module.configKey)) continue;
-    query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [
-      module.configKey,
-      module.defaultEnabled ? 1 : 0,
-      now,
-    ]);
-  }
+  writeModuleLock(MODULE_LOCK_PATH, lock);
 }
 
 function buildModuleList() {
   const catalog = loadModuleCatalog();
   const lock = loadModuleLock();
-  const enabledMap = getEnabledModuleMap();
+  const enabledMap = new Map();
   const seenKeys = new Set();
   const rows = catalog.map((module) => {
     seenKeys.add(module.configKey);
     const state = lock.modules[module.id] || {};
     const moduleFiles = [module.entry?.path, ...(Array.isArray(module.files) ? module.files : [])].filter(Boolean);
     const filesPresent = moduleFiles.length === 0 || moduleFiles.every((file) => fs.existsSync(path.join(PROJECT_ROOT, file)));
-    const enabled = enabledMap.has(module.configKey) ? enabledMap.get(module.configKey) : module.defaultEnabled;
+    const enabled = isEnabled(lock, module.id, module.defaultEnabled);
     return {
       id: module.id,
       module_id: module.id,
@@ -144,38 +124,14 @@ function buildModuleList() {
       optional: module.optional,
       commands: module.commands,
       entry: module.entry,
-      installed: state.installed !== undefined ? !!state.installed : (module.defaultInstalled !== false && filesPresent),
-      install_source: state.installed !== undefined ? 'module-lock' : (filesPresent ? 'filesystem' : 'missing-files'),
+       installed: state.installed !== undefined ? !!state.installed : false,
+       install_source: state.installed !== undefined ? 'module-lock' : 'missing-lock-state',
       files_present: filesPresent,
       installed_at: state.installedAt || null,
       updated_at: state.updatedAt || null,
-      enabled: !!enabled,
+       enabled: !!enabled,
     };
   });
-  for (const [key, enabled] of enabledMap.entries()) {
-    if (seenKeys.has(key)) continue;
-    rows.push({
-      id: key,
-      module_id: key,
-      name: key,
-      config_key: key,
-      display_name: key,
-      type: 'legacy',
-      description: '',
-      default_enabled: !!enabled,
-      default_installed: true,
-      can_disable: true,
-      can_uninstall: false,
-      requires: [],
-      optional: [],
-      commands: [],
-      entry: { kind: '', path: '', init: '' },
-      installed: true,
-      installed_at: null,
-      updated_at: null,
-      enabled: !!enabled,
-    });
-  }
   return rows;
 }
 
@@ -185,38 +141,19 @@ function resolveModuleByKey(key) {
   const catalog = loadModuleCatalog();
   const found = catalog.find((module) => module.id === normalized || module.configKey === normalized);
   if (found) return found;
-  const enabledMap = getEnabledModuleMap();
-  if (!enabledMap.has(normalized)) return null;
-  return {
-    id: normalized,
-    configKey: normalized,
-    name: normalized,
-    type: 'legacy',
-    description: '',
-    defaultEnabled: !!enabledMap.get(normalized),
-    defaultInstalled: true,
-    canDisable: true,
-    canUninstall: false,
-    requires: [],
-    optional: [],
-    commands: [],
-    entry: { kind: '', path: '', init: '' },
-  };
+  return null;
 }
 
 function getModuleInstalled(module) {
   if (!module) return true;
   const lock = loadModuleLock();
   const state = lock.modules[module.id];
-  if (!state) return module.defaultInstalled !== false;
-  return state.installed !== false;
+  return isInstalled(lock, module.id, false);
 }
 
 function getModuleEnabled(module) {
   if (!module) return true;
-  const rows = query('SELECT enabled FROM sfmc_config_modules WHERE name = ?', [module.configKey]);
-  if (rows.length === 0) return module.defaultEnabled !== false;
-  return !!rows[0].enabled;
+  return isEnabled(loadModuleLock(), module.id, module.defaultEnabled !== false);
 }
 
 function checkEnableDeps(module) {
@@ -329,7 +266,7 @@ function applyInitPayload(payload) {
   const state = loadPanelState();
 
   // 1. 备份现有 configs
-  for (const f of ['db_config.json', 'bds_updater.json', 'qq_config.json', 'modules.json']) {
+  for (const f of ['db_config.json', 'bds_updater.json', 'qq_config.json']) {
     backupConfigFile(path.join(CFG_DIR, f));
   }
   backupConfigFile(MODULE_LOCK_PATH);
@@ -372,32 +309,7 @@ function applyInitPayload(payload) {
     written.push('configs/qq_config.json');
   }
 
-  // 6. 写 configs/modules.json (按 ui.defaultModules + ui.defaultServices)
-  if (payload.modules || payload.ui?.defaultModules) {
-    const enabled = new Set([
-      ...(payload.ui?.defaultModules || state.ui?.defaultModules || []),
-      ...(payload.ui?.defaultServices || state.ui?.defaultServices || []),
-    ]);
-    const modCfg = { modules: {} };
-    for (const k of enabled) modCfg.modules[k] = true;
-    saveJsonAtomic(path.join(CFG_DIR, 'modules.json'), modCfg);
-    written.push('configs/modules.json');
-
-    // 同步写入 sfmc_config_modules 表
-    const cat = loadModuleCatalog();
-    const now = Date.now();
-    for (const m of cat) {
-      const enabledForCat = enabled.has(m.configKey);
-      query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [
-        m.configKey,
-        enabledForCat ? 1 : 0,
-        now,
-      ]);
-    }
-  }
-
-  // 7. 写 modules/module-lock.json（默认 installed=true）
-  //    根据 defaultModules / defaultServices 同步 catalog 中匹配模块的 installed
+  // 6. 写 modules/module-lock.json
   {
     const lock = loadModuleLock();
     const now = Date.now();
@@ -408,20 +320,20 @@ function applyInitPayload(payload) {
       ...(payload.ui?.defaultModules || []),
       ...(payload.ui?.defaultServices || []),
     ]);
-    for (const key of requested) {
-      const mod = catByKey.get(key);
-      if (!mod) continue;
-      const prev = lock.modules[mod.id];
-      lock.modules[mod.id] = {
-        installed: true,
-        installedAt: prev?.installedAt || now,
-        updatedAt: now,
-      };
+    const enabled = new Set([
+      ...(payload.ui?.defaultModules || state.ui?.defaultModules || []),
+      ...(payload.ui?.defaultServices || state.ui?.defaultServices || []),
+    ]);
+    for (const mod of cat) {
+      const key = mod.configKey;
+      const previous = getModuleState(lock, mod.id);
+      updateModuleState(lock, mod.id, {
+        installed: requested.has(key) || previous.installed === true,
+        enabled: enabled.has(key),
+      });
     }
-    if (requested.size > 0 || Object.keys(lock.modules).length > 0) {
-      saveModuleLock(lock);
-      written.push('modules/module-lock.json');
-    }
+    saveModuleLock(lock);
+    written.push('modules/module-lock.json');
   }
 
   // 8. 触发 reload 信号
@@ -432,10 +344,6 @@ function applyInitPayload(payload) {
 
 function applyInitReset(payload) {
   const restored = [];
-  // 同时清掉 sfmc_config_modules 里所有记录（让模块回到默认 + catalog-only 状态）
-  try { query('DELETE FROM sfmc_config_modules'); } catch {}
-  // 重新同步 catalog 里的默认状态
-  ensureModuleConfigRows(Date.now());
 
   const stamps = fs.existsSync(BACKUP_DIR) ? fs.readdirSync(BACKUP_DIR).filter((d) => d.startsWith('init-')).sort().reverse() : [];
   if (stamps.length > 0) {
@@ -443,7 +351,7 @@ function applyInitReset(payload) {
     const dir = path.join(BACKUP_DIR, latest);
     for (const name of fs.readdirSync(dir)) {
       const target = path.join(CFG_DIR, name);
-      if (name === 'modules.json' || name.endsWith('.json')) {
+      if (name.endsWith('.json')) {
         fs.copyFileSync(path.join(dir, name), target);
         restored.push(`configs/${name}`);
       }
@@ -472,22 +380,9 @@ function setModuleEnabled(module, enabled) {
       throw err;
     }
   }
-  const now = Date.now();
-  query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [
-    module.configKey,
-    enabled ? 1 : 0,
-    now,
-  ]);
-  try {
-    const mPath = path.join(PROJECT_ROOT, 'configs', 'modules.json');
-    const mData = readJsonFile(mPath, { modules: {} });
-    if (!mData.modules || typeof mData.modules !== 'object') mData.modules = {};
-    mData.modules[module.configKey] = !!enabled;
-    writeJsonFile(mPath, mData);
-    console.log(`[ConfigSync] modules.json: ${module.configKey} = ${!!enabled}`);
-  } catch (e) {
-    console.warn(`[ConfigSync] modules.json 同步失败: ${e.message}`);
-  }
+  const lock = loadModuleLock();
+  updateModuleState(lock, module.id, { enabled: !!enabled });
+  saveModuleLock(lock);
 }
 
 function setModuleInstalled(module, installed) {
@@ -509,14 +404,8 @@ function setModuleInstalled(module, installed) {
       throw err;
     }
   }
-  const now = Date.now();
   const lock = loadModuleLock();
-  const prev = lock.modules[module.id] || {};
-  lock.modules[module.id] = {
-    installed: !!installed,
-    installedAt: prev.installedAt || now,
-    updatedAt: now,
-  };
+  updateModuleState(lock, module.id, { installed: !!installed });
   saveModuleLock(lock);
   if (!installed) {
     setModuleEnabled(module, false);
@@ -670,11 +559,6 @@ async function initDB() {
       `);
   // 配置表
   db.exec(`
-    CREATE TABLE IF NOT EXISTS sfmc_config_modules (
-      name TEXT PRIMARY KEY,
-      enabled INTEGER NOT NULL DEFAULT 1,
-      updated_at INTEGER NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS sfmc_config_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL DEFAULT '',
@@ -807,18 +691,10 @@ async function initDB() {
     );
   `);
   // 从 /configs/ JSON 文件导入初始配置（仅空表时执行）
-  const tables = query("SELECT name FROM sqlite_master WHERE type='table' AND name='sfmc_config_modules'");
-  if (tables.length > 0) {
-    const cnt = query('SELECT COUNT(*) as c FROM sfmc_config_modules');
-    if (cnt[0].c === 0) {
-const cfgDir = path.join(PROJECT_ROOT, 'configs');
+  {
+      const cfgDir = path.join(PROJECT_ROOT, 'configs');
       const now = Date.now();
       const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[DogeDB] config:', e.message); } };
-      try {
-        const m = JSON.parse(fs.readFileSync(path.join(cfgDir, 'modules.json'), 'utf-8'));
-        for (const [k, v] of Object.entries(m.modules)) _( 'INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?,?,?)', [k, v ? 1 : 0, now]);
-      } catch (e) {}
-      ensureModuleConfigRows(now);
       try {
         const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
         for (const [k, v] of Object.entries(s)) _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]);
@@ -861,8 +737,6 @@ const cfgDir = path.join(PROJECT_ROOT, 'configs');
         if (sh.categories) { for (const r of sh.categories) _('INSERT INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?,?,?,?,?,?,?)', [r.id, r.parent_id ?? null, r.name, r.type, r.image || '', r.sort_order ?? 0, now]); }
       } catch (e) {}
       console.log('[DogeDB] 初始配置已从 /configs/ 导入');
-    }
-    ensureModuleConfigRows(Date.now());
   }
   console.log('[DogeDB] 数据库已就绪');
 }
@@ -876,11 +750,6 @@ function reloadConfigsFromJson() {
   const now = Date.now();
   const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[ConfigReload]', e.message); } };
   const log = (table, count) => console.log(`[ConfigReload] ${table}: ${count}个`);
-  try {
-    const m = JSON.parse(fs.readFileSync(path.join(cfgDir, 'modules.json'), 'utf-8'));
-    let c = 0; for (const [k, v] of Object.entries(m.modules)) { _( 'INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?,?,?)', [k, v ? 1 : 0, now]); c++; } log('modules', c);
-  } catch (e) { console.warn('[ConfigReload] modules.json 失败:', e.message); }
-  ensureModuleConfigRows(now);
   try {
     const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
     let c = 0; for (const [k, v] of Object.entries(s)) { _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]); c++; } log('settings', c);
@@ -1489,7 +1358,13 @@ async function handle(req, res) {
         const now = Date.now();
         for (const r of rows) { r.updated_at = now; }
         if (table === 'modules') {
-          for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_modules (name, enabled, updated_at) VALUES (?, ?, ?)', [r.name, r.enabled ? 1 : 0, now]); }
+          const lock = loadModuleLock();
+          const catalog = loadModuleCatalog();
+          for (const r of rows) {
+            const module = catalog.find((m) => m.id === r.id || m.configKey === r.name);
+            if (module) updateModuleState(lock, module.id, { enabled: !!r.enabled });
+          }
+          saveModuleLock(lock);
         } else if (table === 'settings') {
           for (const r of rows) { query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', [r.key, String(r.value), now]); }
         } else if (table === 'areas') {
@@ -1534,7 +1409,7 @@ async function handle(req, res) {
         const ts = parseInt(path.slice('/api/sfmc/configs/updated-since/'.length), 10);
         if (isNaN(ts)) { json(res, { success: false, error: 'invalid_ts' }, 400); return; }
         const result = {};
-        const configTables = ['sfmc_config_modules', 'sfmc_config_settings', 'sfmc_config_areas', 'sfmc_config_permissions', 'sfmc_config_qa_questions', 'sfmc_config_shop_categories', 'sfmc_config_shop_items', 'sfmc_config_clean', 'sfmc_config_banned_items', 'sfmc_config_grids', 'sfmc_config_peace_filters'];
+         const configTables = ['sfmc_config_settings', 'sfmc_config_areas', 'sfmc_config_permissions', 'sfmc_config_qa_questions', 'sfmc_config_shop_categories', 'sfmc_config_shop_items', 'sfmc_config_clean', 'sfmc_config_banned_items', 'sfmc_config_grids', 'sfmc_config_peace_filters'];
         for (const tbl of configTables) {
            const rows = query(`SELECT * FROM ${quoteIdentifier(tbl, 'table')} WHERE updated_at > ?`, [ts]);
           if (rows.length > 0) result[tbl.replace('sfmc_config_', '')] = rows;
@@ -1602,7 +1477,7 @@ async function handle(req, res) {
     if (path === '/api/sfmc/modules') {
       if (method === 'GET') {
         const catalog = loadModuleCatalog();
-        json(res, { modules: catalog.length > 0 ? buildModuleList() : query('SELECT * FROM sfmc_config_modules') });
+         json(res, { modules: buildModuleList() });
         return;
       }
       else { json(res, { success: false, error: 'not_found' }, 404); return; }

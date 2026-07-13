@@ -97,7 +97,7 @@ async function main() {
   // 重新拉取（可能因 legacy 记录导致 modules > catalog）
   let list2 = await fetchJson("/api/sfmc/modules");
   if (list2.body.modules.length !== cat.body.modules.length) {
-    // 通过 /setup/reset 重置 panel-state + sfmc_config_modules
+    // 通过 /setup/reset 重置 setup 状态和 module-lock
     const rst = await postJson("/api/sfmc/setup/reset", {});
     expect(rst.status === 200, `setup reset 清理状态`);
     list2 = await fetchJson("/api/sfmc/modules");

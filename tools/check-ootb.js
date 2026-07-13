@@ -41,7 +41,6 @@ function fileContains(p, needle) {
     "modules/catalog.json",
     "modules/module-lock.json",
     "modules/README.md",
-    "configs/modules.json",
     "configs/db_config.json",
     "configs/bds_updater.json",
     "configs/qq_config.json",

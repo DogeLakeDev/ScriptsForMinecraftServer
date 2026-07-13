@@ -3,7 +3,7 @@
  *
  * 读取 configs/qq_config.json，通过 LLBot HTTP API 发送群消息。
  * 供 check-update.js 和外部工具使用。
- * 模块开关由 configs/modules.json 的 qq_bridge 控制。
+ * 模块开关由 modules/module-lock.json 的 qq-bridge 控制。
  */
 
 const http = require('http');
@@ -21,9 +21,10 @@ function loadConfig() {
 
 function isModuleEnabled() {
   try {
-    const raw = fs.readFileSync(path.join(__dirname, '..', 'configs', 'modules.json'), 'utf-8');
-    const d = JSON.parse(raw);
-    return d.modules?.qq_bridge !== false;
+    const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'modules', 'catalog.json'), 'utf-8'));
+    const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'modules', 'module-lock.json'), 'utf-8'));
+    const module = catalog.modules?.find((entry) => entry.id === 'qq-bridge' || entry.configKey === 'qq_bridge');
+    return module ? lock.modules?.[module.id]?.enabled === true : false;
   } catch { return true; }
 }
 

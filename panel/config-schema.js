@@ -80,12 +80,6 @@ const SCHEMA = {
     ],
   },
 
-  'modules.json': {
-    name: '功能模块开关（已弃用）',
-    desc: '模块开关请通过面板「模块」Tab 或 /api/sfmc/modules/:id 修改，此文件保留以兼容旧版本',
-    fields: [],
-  },
-
   'settings.json': {
     name: '杂项设置',
     desc: 'AFK/问答/清理等通用参数',
