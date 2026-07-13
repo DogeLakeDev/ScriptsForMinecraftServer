@@ -2,27 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 const h = React.createElement;
 import { T } from '../theme.js';
-
-const DB_HOST = '127.0.0.1';
-const DB_PORT = 3001;
-
-function postJson(url, payload) {
-  return fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload || {}),
-  }).then(async (r) => {
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const err = new Error(data.error || `HTTP ${r.status}`);
-      err.code = data.error;
-      err.detail = data;
-      err.status = r.status;
-      throw err;
-    }
-    return data;
-  });
-}
+import { getJson, postJson as postRequest } from '../api/client.js';
+import { SectionTitle, StatusLine } from '../ui/Feedback.js';
+import { ScrollBar } from '../ui/ScrollBar.js';
 
 const ACTION_LABEL = {
   enable: { success: '已启用', busy: '正在启用', level: 'success' },
@@ -44,24 +26,23 @@ function describeError(err) {
   return err.message || '操作失败';
 }
 
-function ModulesView({ logH, logW, showToast, pushLog }) {
+function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, requestConfirm }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modules, setModules] = useState([]);
   const [focus, setFocus] = useState(0);
   const [busy, setBusy] = useState(false);
   const [detail, setDetail] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
 
   const maxRows = Math.max(5, logH + 4);
 
   function load() {
     setLoading(true);
     setError(null);
-    fetch(`http://${DB_HOST}:${DB_PORT}/api/sfmc/modules`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
+    getJson('/api/sfmc/modules')
       .then((d) => {
         const list = Array.isArray(d.modules) ? d.modules : [];
         setModules(list);
@@ -94,18 +75,29 @@ function ModulesView({ logH, logW, showToast, pushLog }) {
     return out;
   }
 
-  const selected = modules[focus] || null;
+  const filteredModules = useMemo(() => modules.filter((module) => {
+    const matchesFilter = filter === 'all' ||
+      (filter === 'enabled' && module.enabled && module.installed !== false) ||
+      (filter === 'disabled' && !module.enabled && module.installed !== false) ||
+      (filter === 'uninstalled' && module.installed === false);
+    const needle = query.trim().toLowerCase();
+    return matchesFilter && (!needle || `${module.id} ${module.display_name || ''} ${module.description || ''}`.toLowerCase().includes(needle));
+  }), [modules, filter, query]);
+  useEffect(() => {
+    setFocus((current) => Math.min(current, Math.max(0, filteredModules.length - 1)));
+  }, [filteredModules.length]);
+  const selected = filteredModules[focus] || null;
   const missing = unmetDeps(selected);
-  const canToggle = !!selected && selected.installed !== false && selected.can_disable && missing.length === 0 && selected.enabled;
+  const canToggle = !!selected && selected.installed !== false && selected.can_disable && selected.enabled;
   const canEnable = !!selected && selected.installed !== false && selected.can_disable && missing.length === 0 && !selected.enabled;
   const canInstall = !!selected && selected.installed === false;
   const canUninstall = !!selected && selected.can_uninstall && selected.installed !== false;
   const isBdsUpdater = selected?.id === 'tool-bds-updater';
 
   const visible = useMemo(() => {
-    const start = Math.max(0, Math.min(focus - Math.floor(maxRows / 2), Math.max(0, modules.length - maxRows)));
-    return { start, rows: modules.slice(start, start + maxRows) };
-  }, [modules, focus, maxRows]);
+    const start = Math.max(0, Math.min(focus - Math.floor(maxRows / 2), Math.max(0, filteredModules.length - maxRows)));
+    return { start, rows: filteredModules.slice(start, start + maxRows) };
+  }, [filteredModules, focus, maxRows]);
 
   function notify(level, msg) {
     if (showToast) showToast(msg, level);
@@ -117,7 +109,7 @@ function ModulesView({ logH, logW, showToast, pushLog }) {
 
     if (isBdsUpdater && action === 'uninstall') {
       notify('warning', `${selected.display_name || selected.id}: 卸载前请先停止 BDS 进程`);
-      if (pushLog) pushLog('可通过 BDS Tab 输入 stop 或面板菜单停止', 'warning');
+      if (pushLog) pushLog('请在服务页停止 BDS 后再卸载', 'warning');
       return;
     }
 
@@ -126,7 +118,7 @@ function ModulesView({ logH, logW, showToast, pushLog }) {
 
     setBusy(true);
     notify('info,success,error,warning,info'.split(',')[0], `${selected.display_name || selected.id} ${meta.busy}`);
-    postJson(`http://${DB_HOST}:${DB_PORT}/api/sfmc/modules/${encodeURIComponent(selected.id)}/${action}`)
+    postRequest(`/api/sfmc/modules/${encodeURIComponent(selected.id)}/${action}`)
       .then((d) => {
         const next = d.module || null;
         if (next) {
@@ -145,24 +137,37 @@ function ModulesView({ logH, logW, showToast, pushLog }) {
 
   useInput((input, key) => {
     if (loading || busy) return;
+    if (searching) {
+      if (key.escape || key.return) { setSearching(false); return; }
+      if (key.backspace) { setQuery((value) => value.slice(0, -1)); return; }
+      if (input && !key.ctrl && !key.meta) setQuery((value) => value + input);
+      return;
+    }
     if (key.upArrow) {
-      setFocus((f) => (modules.length === 0 ? 0 : (f <= 0 ? modules.length - 1 : f - 1)));
+      setFocus((f) => (filteredModules.length === 0 ? 0 : (f <= 0 ? filteredModules.length - 1 : f - 1)));
       return;
     }
     if (key.downArrow) {
-      setFocus((f) => (modules.length === 0 ? 0 : (f >= modules.length - 1 ? 0 : f + 1)));
+      setFocus((f) => (filteredModules.length === 0 ? 0 : (f >= filteredModules.length - 1 ? 0 : f + 1)));
       return;
     }
     if (key.home) { setFocus(0); return; }
-    if (key.end) { setFocus(Math.max(0, modules.length - 1)); return; }
+    if (key.end) { setFocus(Math.max(0, filteredModules.length - 1)); return; }
     if (input === 'r') { load(); return; }
-    if (input === 'e' || key.return || key.enter) {
-      if (canToggle) run('disable');
-      else if (canEnable) run('enable');
+    if (input === 'f') {
+      const order = ['all', 'enabled', 'disabled', 'uninstalled'];
+      setFilter((value) => order[(order.indexOf(value) + 1) % order.length]);
+      setFocus(0);
       return;
     }
-    if (input === 'i') { if (canInstall) run('install'); return; }
-    if (input === 'u') { if (canUninstall) run('uninstall'); return; }
+    if (input === '/') { setSearching(true); return; }
+    if (input === 'e' || key.return || key.enter) {
+      if (canToggle) (requestConfirm || ((title, body, action) => action()))('禁用模块', [`${selected.display_name || selected.id} 将被禁用`, '确定继续?'], () => run('disable'));
+      else if (canEnable) (requestConfirm || ((title, body, action) => action()))('启用模块', [`${selected.display_name || selected.id} 将被启用`, '确定继续?'], () => run('enable'));
+      return;
+    }
+    if (input === 'i') { if (canInstall) (requestConfirm || ((title, body, action) => action()))('安装模块', [`${selected.display_name || selected.id} 将被安装`, '确定继续?'], () => run('install')); return; }
+    if (input === 'u') { if (canUninstall) (requestConfirm || ((title, body, action) => action()))('卸载模块', [`${selected.display_name || selected.id} 将被卸载`, '确定继续?'], () => run('uninstall')); return; }
     if (input === 'd') {
       setDetail(detail && detail.id === selected?.id ? null : selected ? {
         id: selected.id,
@@ -173,25 +178,27 @@ function ModulesView({ logH, logW, showToast, pushLog }) {
       } : null);
       return;
     }
-  });
+  }, { isActive: inputActive });
 
   if (loading) {
     return h(Box, { flexDirection: 'column', flexGrow: 1 },
-      h(Text, { color: T.muted }, '正在加载模块目录...'),
+      h(StatusLine, { kind: 'loading' }, '正在加载模块目录...'),
     );
   }
 
   if (error) {
     return h(Box, { flexDirection: 'column', flexGrow: 1 },
-      h(Text, { color: T.error }, `错误: ${error}`),
+      h(StatusLine, { kind: 'error' }, `无法加载模块目录: ${error}`),
       h(Text, { color: T.muted }, '按 r 重新加载'),
     );
   }
 
-  return h(Box, { flexDirection: 'column', flexGrow: 1 },
-    h(Text, { bold: true, color: T.primary }, `模块目录 (${modules.length})`),
-    h(Text, { color: T.muted }, '↑↓ 选择  Enter/e 启用/禁用  i 安装  u 卸载  d 依赖  r 刷新'),
+  return h(Box, { flexDirection: 'row', flexGrow: 1 },
+    h(Box, { flexDirection: 'column', flexGrow: 1 },
+    h(SectionTitle, { detail: `${filteredModules.length}/${modules.length}` }, '模块目录'),
+    h(Text, { color: T.muted }, searching ? `搜索: ${query}█  Enter/Esc完成` : `筛选: ${filter}  ↑↓选择 Enter/e切换 i安装 u卸载 d依赖 f筛选 /搜索 r刷新`),
     h(Text, { color: T.separator }, ` ${'─'.repeat(Math.max(10, logW - 1))}`),
+    filteredModules.length === 0 && h(StatusLine, { kind: 'empty' }, '没有匹配当前筛选条件的模块'),
     ...visible.rows.map((m, i) => {
       const idx = visible.start + i;
       const state = m.installed === false ? '未安装' : (m.enabled ? '启用' : '禁用');
@@ -225,6 +232,8 @@ function ModulesView({ logH, logW, showToast, pushLog }) {
         (detail.commands || []).length > 0 && h(Text, { color: T.muted }, `命令: ${detail.commands.join(', ')}`),
       ),
     ),
+    ),
+    h(ScrollBar, { total: filteredModules.length, viewport: maxRows, offset: visible.start, height: maxRows }),
   );
 }
 

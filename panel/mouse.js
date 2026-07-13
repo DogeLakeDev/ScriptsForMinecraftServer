@@ -1,5 +1,5 @@
 /**
- * mouse.js — SGR 鼠标滚轮支持 + 右键检测
+ * mouse.js — SGR 鼠标滚轮支持
  *
  * 原理: 覆写 process.stdin.push 在数据进入可读流之前拦截 SGR 鼠标序列,
  *       剥离字节使其永远不会到达 Ink/useInput。
@@ -8,14 +8,11 @@ import { logBuf } from './log-buffer.js';
 
 let _scrollSetter = null;
 let _mouseActive = false;
-let _rightClickFn = null;
 
 // SGR 分片缓冲（跨 chunk 的不完整序列）
 let _sgrBuf = '';
 
 function isMouseActive() { return false; } // 不再需要，stdin 层已剥离
-
-function onRightClick(fn) { _rightClickFn = fn; }
 
 /**
  * 处理一条完整的 SGR 鼠标序列
@@ -27,7 +24,6 @@ function _handleSequence(seq) {
   const btn = parseInt(m[1]);
   if (btn === 64 && _scrollSetter) { _scrollSetter((s) => Math.min(logBuf.length, s + 3)); }
   else if (btn === 65 && _scrollSetter) { _scrollSetter((s) => Math.max(0, s - 3)); }
-  else if (btn === 2 && _rightClickFn) { _rightClickFn(); }
 }
 
 /**
@@ -78,7 +74,6 @@ let _origPush = null;
 function _installFilter() {
   if (_origPush) return; // 只安装一次
   _origPush = process.stdin.push.bind(process.stdin);
-  const self = this;
 
   process.stdin.push = function (data, encoding) {
     // 只处理 Buffer 数据
@@ -128,4 +123,4 @@ function disableMouse() {
   _uninstallFilter();
 }
 
-export { hookMouse, enableMouse, disableMouse, isMouseActive, onRightClick };
+export { hookMouse, enableMouse, disableMouse, isMouseActive };

@@ -4,9 +4,8 @@ import http from 'node:http';
 import { exec } from 'node:child_process';
 import pidusage from 'pidusage';
 import { services } from './services/manager.js';
+import { getDbBaseUrl } from './api/client.js';
 
-const DB_HOST = '127.0.0.1';
-const DB_PORT = 3001;
 
 let _state = {
   systemMem: { total: 0, free: 0, used: 0, percent: 0 },
@@ -22,6 +21,7 @@ let _state = {
   entities: {},
   players: [],
   totalChunks: 0,
+  summaryAt: 0,
   tick: 0,
 };
 let _listeners = [];
@@ -33,6 +33,7 @@ function clone(s) {
     svc: Object.fromEntries(Object.entries(s.svc).map(([k, v]) => [k, { ...v }])),
     entities: { ...s.entities },
     players: s.players.map(p => ({ ...p })),
+    summaryAt: s.summaryAt,
   };
 }
 
@@ -132,6 +133,10 @@ function collectProcs() {
     const svc = services[key];
     if (svc?.pid) jobs.push({ key, pid: svc.pid });
   }
+  const active = new Set(jobs.map((job) => job.key));
+  for (const key of ['bds', 'db', 'qq', 'llbot']) {
+    if (!active.has(key)) _state.svc[key] = { mem: null, cpu: 0 };
+  }
   if (jobs.length === 0) return;
 
   const pids = jobs.map(j => j.pid);
@@ -171,7 +176,7 @@ function _queryTasklistMem(pid, key) {
 
 function fetchMonitorSummary() {
   http.get(
-    `http://${DB_HOST}:${DB_PORT}/api/sfmc/monitor/summary`,
+    `${getDbBaseUrl()}/api/sfmc/monitor/summary`,
     { timeout: 2000 },
     (res) => {
       let data = '';
@@ -183,6 +188,7 @@ function fetchMonitorSummary() {
           _state.entities = d.entities || {};
           _state.players = d.players || [];
           _state.totalChunks = d.totalChunks || 0;
+          _state.summaryAt = Date.now();
           notify();
         } catch (e) { /* endpoint not available yet */ }
       });

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 const h = React.createElement;
 import { T } from '../theme.js';
 import { useMonitor } from '../monitor.js';
+import { SectionTitle, StatusLine } from '../ui/Feedback.js';
 
 const BAR_W = 20;
 
@@ -57,8 +58,10 @@ function dimLabel(dim) {
   return '主世界';
 }
 
-function PlayerTable({ players, logH }) {
-  const rows = players.slice(0, Math.max(3, logH));
+function PlayerTable({ players, logH, scroll }) {
+  const maxRows = Math.max(3, logH - 5);
+  const start = Math.min(scroll, Math.max(0, players.length - maxRows));
+  const rows = players.slice(start, start + maxRows);
   const has = rows.length > 0;
 
   const top = tblRow('┌', '┬', '┐',
@@ -77,22 +80,31 @@ function PlayerTable({ players, logH }) {
     T_('─', COL.玩家), T_('─', COL.维度), T_('─', COL.区块), T_('─', COL.实体));
 
   const lines = has
-    ? [top, header, sep, ...data, bot]
+    ? [top, header, sep, ...data, bot, ` ${start + 1}-${Math.min(players.length, start + maxRows)}/${players.length}  ↑↓滚动`]
     : [h(Text, { color: T.muted }, ' 无在线玩家')];
 
   return h(Box, { flexDirection: 'column' }, ...lines.map((l, i) =>
     typeof l === 'string' ? h(Text, { key: i, color: T.text }, l) : l));
 }
 
-function MonitorView({ logH, logW }) {
+function MonitorView({ logH, logW, inputActive = true }) {
   const data = useMonitor();
+  const [playerScroll, setPlayerScroll] = React.useState(0);
+  useInput((input, key) => {
+    const maxRows = Math.max(3, logH - 5);
+    if (key.upArrow) setPlayerScroll((scroll) => Math.max(0, scroll - 1));
+    if (key.downArrow) setPlayerScroll((scroll) => Math.min(Math.max(0, (data?.players.length || 0) - maxRows), scroll + 1));
+    if (key.pageUp) setPlayerScroll((scroll) => Math.max(0, scroll - maxRows));
+    if (key.pageDown) setPlayerScroll((scroll) => Math.min(Math.max(0, (data?.players.length || 0) - maxRows), scroll + maxRows));
+  }, { isActive: inputActive });
   if (!data) {
     return h(Box, { flexDirection: 'column' },
-      h(Text, { color: T.muted }, ' 等待数据...'),
+      h(StatusLine, { kind: 'loading' }, '等待监控数据...'),
     );
   }
 
-  const { systemMem, systemCpu, svc, tps, entities, players, totalChunks } = data;
+  const { systemMem, systemCpu, svc, tps, entities, players, totalChunks, summaryAt } = data;
+  const stale = !summaryAt || Date.now() - summaryAt > 7000;
   const entityTotal = Object.values(entities).reduce((a, b) => a + (b || 0), 0);
   const playerCount = players.length;
   const tpsPct = Math.min(100, Math.round(tps / 20 * 100));
@@ -102,7 +114,8 @@ function MonitorView({ logH, logW }) {
   const svcLabel = { bds: 'BDS     ', panel: '面板    ', db: 'DB      ', qq: 'QQ      ', llbot: 'LLBot   ' };
 
   return h(Box, { flexDirection: 'column', flexGrow: 1 },
-    h(Text, { bold: true, color: T.primary }, ' 📊 性能监控'),
+    h(SectionTitle, { detail: stale ? '数据已过期' : '实时数据' }, '性能监控'),
+    stale && h(StatusLine, { kind: 'stale' }, 'db-server 监控摘要暂不可达，显示最后一次有效数据'),
 
     h(Box, { marginTop: 1 },
       h(Bar, {
@@ -149,7 +162,7 @@ function MonitorView({ logH, logW }) {
 
     h(Text, { color: T.separator, marginTop: 1 }, ` ${'─'.repeat(Math.max(10, logW))}`),
 
-    h(PlayerTable, { players, logH }),
+    h(PlayerTable, { players, logH, scroll: playerScroll }),
   );
 }
 

@@ -7,24 +7,38 @@ const h = React.createElement;
 import { T, LEVEL_COLOR } from '../theme.js';
 import { useLogs } from '../log-buffer-hooks.js';
 import { services } from '../services/manager.js';
+import { SectionTitle } from '../ui/Feedback.js';
+import { ScrollBar } from '../ui/ScrollBar.js';
 
-const LogBlock = memo(function LogBlock({ all, startIdx, logW, height }) {
-  return h(Box, { height, flexDirection: 'column' },
-    ...all.map((line, i) =>
-      h(Text, { key: startIdx + i, color: LEVEL_COLOR[line.level] || T.text },
-        logW ? line.text.slice(0, logW) : line.text),
+const LogBlock = memo(function LogBlock({ all, startIdx, logW, height, total, offset }) {
+  return h(Box, { height, flexDirection: 'row' },
+    h(Box, { flexDirection: 'column', width: Math.max(1, logW - 2) },
+      ...all.map((line, i) => h(Text, { key: startIdx + i, color: LEVEL_COLOR[line.level] || T.text },
+        logW ? line.text.slice(0, logW - 2) : line.text)),
     ),
+    h(Box, { width: 1, flexDirection: 'column' }, h(ScrollBar, { total, viewport: height, offset, height })),
   );
 });
 
 function Dashboard({ logH, logScroll, logW }) {
   const { total, all } = useLogs();
-  const maxLogs = Math.max(1, logH + 6);
+  const serviceRows = Object.values(services);
+  const running = serviceRows.filter((service) => service.running).length;
+  const errors = all.filter((line) => line.level === 'error').length;
+  const maxLogs = Math.max(1, logH);
   const s = Math.min(logScroll, Math.max(0, total - maxLogs));
   const startIdx = Math.max(0, total - maxLogs - s);
   const visible = React.useMemo(() => all.slice(startIdx, total - s), [all, startIdx, total, s]);
   return h(Box, { flexDirection: 'column' },
-    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs }),
+    h(Text, { color: T.primary, bold: true }, '总览'),
+    h(Box, { marginTop: 1 },
+      h(Text, { color: T.success }, `服务 ${running}/${serviceRows.length} 运行`),
+      h(Text, { color: errors > 0 ? T.warning : T.muted }, `   错误日志 ${errors}`),
+      h(Text, { color: T.muted }, `   记录 ${total}`),
+    ),
+    h(Text, { color: T.separator }, '─'.repeat(Math.max(10, logW))),
+    h(SectionTitle, { detail: `${total} 条` }, '最近日志'),
+    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs, total, offset: s }),
   );
 }
 
@@ -39,8 +53,10 @@ function SvcView({ name, logH, logScroll, logW }) {
     h(Box, {},
       h(Text, { color: svc?.running ? T.success : T.error },
         `${svc?.running ? '● 运行中' : '○ 已停止'}  PID ${svc?.pid || '-'}`),
+      h(Text, { color: T.muted }, `  ${total} 条日志`),
     ),
-    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs }),
+    h(Text, { color: T.muted }, `滚动位置: ${s > 0 ? '历史' : '最新'}  PgUp/PgDn 翻页`),
+    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs, total, offset: s }),
   );
 }
 
@@ -49,9 +65,12 @@ function CfgList({ files, logH, logScroll, logW }) {
   const total = files.length;
   const startIdx = Math.max(0, total - maxFiles - logScroll);
   const visible = files.slice(startIdx, total - logScroll);
-  return h(Box, { flexDirection: 'column', flexGrow: 1 },
+  return h(Box, { flexDirection: 'row', flexGrow: 1 },
+    h(Box, { flexDirection: 'column', flexGrow: 1 },
     h(Text, { color: T.muted }, '选择配置文件（输入编号）'),
     ...visible.map((f, i) => h(Text, { key: startIdx + i }, `  ${startIdx + i + 1}. ${f}`)),
+    ),
+    h(Text, { color: T.muted }, total > maxFiles ? `█ ${startIdx + 1}-${Math.min(total, startIdx + maxFiles)}/${total}` : ' '),
   );
 }
 
@@ -160,5 +179,7 @@ import { ChatView } from './ChatView.js';
 import { DbView } from './DbView.js';
 import { ModulesView } from './ModulesView.js';
 import { SetupView } from './SetupView.js';
+import { ServicesView, SERVICE_ORDER } from './ServicesView.js';
+import { SettingsView } from './SettingsView.js';
 
-export { Dashboard, SvcView, CfgList, CfgEdit, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, SetupView };
+export { Dashboard, SvcView, CfgList, CfgEdit, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, SetupView, ServicesView, SettingsView, SERVICE_ORDER };

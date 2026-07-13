@@ -1,21 +1,21 @@
 const T = {
-  bg: '#000000',
-  panel: '#141414',
-  element: '#8076a3',
-  text: '#d4d4d4',
-  muted: '#d4d4d4',
-  primary: '#d4d4d4',
-  secondary: '#d4d4d4',
-  accent: '#8076a3',
+  bg: '#0d0f12',
+  panel: '#171b22',
+  element: '#273244',
+  text: '#d9e1ec',
+  muted: '#8d9aae',
+  primary: '#8ec5ff',
+  secondary: '#b8a5ff',
+  accent: '#7aa2f7',
   error: '#e06c75',
   warning: '#f5a742',
   success: '#7fd88f',
-  info: '#d4d4d4',
-  border: '#484848',
-  borderFocus: '#606060',
-  borderSoft: '#3c3c3c',
-  focusBg: '#8076a3',
-  separator: '#3c3c3c',
+  info: '#79c0ff',
+  border: '#3b4658',
+  borderFocus: '#8ec5ff',
+  borderSoft: '#283342',
+  focusBg: '#273244',
+  separator: '#283342',
 };
 
 const LEVEL_PREFIX = {
@@ -31,4 +31,3 @@ const LEVEL_COLOR = {
 };
 
 export { T, LEVEL_PREFIX, LEVEL_COLOR };
-

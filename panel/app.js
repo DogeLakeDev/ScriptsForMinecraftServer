@@ -10,16 +10,19 @@ import { T } from './theme.js';
 import { services, stopAll } from './services/manager.js';
 import { logBuf, flushLogs } from './log-buffer.js';
 import { useLogs } from './log-buffer-hooks.js';
-import { hookMouse, isMouseActive, onRightClick } from './mouse.js';
+import { hookMouse, isMouseActive } from './mouse.js';
 import { pushLog } from './log-buffer.js';
-import { Dashboard, SvcView, CfgList, CfgEdit, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, SetupView } from './views/views.js';
+import { Dashboard, SvcView, CfgList, CfgEdit, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, SetupView, ServicesView, SettingsView, SERVICE_ORDER } from './views/views.js';
 import { SCHEMA } from './config-schema.js';
 import { PROP_SCHEMA } from './server-prop-schema.js';
 import path from 'node:path';
 import fs from 'node:fs';
-import http from 'node:http';
 import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { getJson, putJson } from './api/client.js';
+import { Header, Sidebar, Footer } from './ui/Shell.js';
+import { canSwitchTab, canUseTabShortcut, getLayout, requiresConfirmation } from './navigation/rules.js';
+import { updateProperties } from './config/properties.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -55,27 +58,6 @@ function parseProperties(text, schema) {
     result[key] = field.type === 'boolean' ? val === 'true' : field.type === 'number' ? parseFloat(val) : val;
   }
   return result;
-}
-
-function stringifyProperties(data, schema) {
-  const lines = [];
-  let group = '';
-  for (const f of schema.fields) {
-    if (f.key === 'level-type' && data[f.key] == null) continue;
-    if (f.comment) {
-      const firstRe = /^.{0,40}[?？;；]/;
-      const short = f.comment.length > 60 ? f.comment.replace(firstRe, '$&').slice(0, 60) + '…' : f.comment;
-      lines.push('# ' + short);
-    }
-    const raw = data[f.key];
-    let strVal;
-    if (f.type === 'boolean') strVal = raw ? 'true' : 'false';
-    else if (f.type === 'number') strVal = String(raw ?? '');
-    else strVal = String(raw ?? '');
-    lines.push(f.key + '=' + strVal);
-    lines.push('');
-  }
-  return lines.join('\r\n');
 }
 
 // ── Helper ──
@@ -130,89 +112,13 @@ function getByPath(obj, keyPath) {
 
 const TABS = [
   { k: 'dashboard', l: '总览' },
+  { k: 'services', l: '服务' },
   { k: 'monitor', l: '监控' },
   { k: 'modules', l: '模块' },
-  { k: 'setup', l: '设置' },
   { k: 'chat', l: '频道' },
   { k: 'data', l: '数据' },
-  { k: 'bds', l: 'BDS' },
-  { k: 'llbot', l: 'LLBot' },
-  { k: 'qq', l: 'QQ-Bridge' },
-  { k: 'db', l: 'DB-Server' },
+  { k: 'settings', l: '设置' },
 ];
-
-function TabBar({ activeTab, onTab }) {
-  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  return h(Box, { height: 1, backgroundColor: T.panel, flexDirection: 'row' },
-    h(Box, { flexDirection: 'row', paddingLeft: 1 },
-      TABS.map((t) =>
-        h(Box, {
-          key: t.k,
-          backgroundColor: activeTab === t.k ? T.element : T.panel,
-          paddingLeft: 2, paddingRight: 2,
-        },
-          h(Text, {
-            color: activeTab === t.k ? T.primary : T.muted,
-            bold: activeTab === t.k,
-          }, t.l),
-        ),
-      ),
-    ),
-    h(Box, { flexGrow: 1 }),
-    h(Text, { color: T.muted, paddingRight: 2 }, now),
-  );
-}
-
-// ── Sidebar ──
-
-function Sidebar({ menuItems, menuFocus, svcStatus, schema, active }) {
-  const schemaInfo = schema ? (schema.desc || schema.name) : null;
-  // Sidebar 仅展示；↑↓/Enter 由 App 在 zone='sidebar' 时统一处理
-  return h(Box, { width: 20, flexDirection: 'column', backgroundColor: T.panel, margin: 1, paddingTop: 1 },
-    active && h(Text, { color: T.primary, bold: true }, '◀ 焦点'),
-    // Service status indicators
-    ...Object.entries(svcStatus).map(([name, s]) =>
-      h(Box, { key: name , paddingLeft: 1 },
-        h(Text, { color: s.running ? T.success : T.error }, s.running ? '●' : '○'),
-        h(Text, { color: T.text }, ` ${name.padEnd(8)} ${s.running ? '运行' : '停止'}`),
-      ),
-    ),
-    h(Box, { key: `sep` , marginTop: 1, marginBottom: 1 },
-      h(Text, { color: T.separator, paddingRight: 1, paddingLeft: 1}, ` ${'─'.repeat(18)}`)),
-
-    // Menu items
-    menuItems.map((item, i) => {
-      if (item.act === 'separator') {
-        return h(Box, { key: `sep${i}` },
-          h(Text, { color: T.separator }, ` ${'─'.repeat(18)}`),
-        );
-      }
-      return h(Box, {
-        key: item.k,
-        backgroundColor: i === menuFocus ? T.focusBg : T.panel,
-      },
-        h(Text, { color: i === menuFocus ? T.primary : (active ? T.text : T.muted), bold: i === menuFocus && active },
-          ` ${i === menuFocus && active ? '▶' : ' '} ${item.l}`),
-      );
-    }),
-
-    // Schema description at the bottom (multi-line wrap)
-    schemaInfo && (() => {
-      const maxW = 18;
-      const lines = [];
-      for (let s = schemaInfo; s.length > 0;) {
-        if (s.length <= maxW) { lines.push(s); break; }
-        let idx = s.lastIndexOf(' ', maxW);
-        if (idx < 1) idx = maxW - 1;
-        lines.push(s.slice(0, idx));
-        s = s.slice(idx).trimStart();
-      }
-      return h(Box, { key: 'schema-info', flexGrow: 1, flexDirection: 'column', justifyContent: 'flex-end', paddingLeft: 1, paddingBottom: 1 },
-        ...lines.map((line, i) => h(Text, { key: i, color: T.muted }, line)),
-      );
-    })(),
-  );
-}
 
 // ── App ──
 
@@ -221,13 +127,13 @@ function App() {
   const { stdout } = useStdout();
   const cols = stdout?.columns || 80;
   const rows = stdout?.rows || 24;
-  const viewH = rows - 6; // TabBar(1) + Input(4) + marginBottom(1)
-  const logH = viewH - 6;
-  const logW = Math.max(10, cols - 24); // sidebar(20) + padding(2) + safety(2)
+  const { compact, narrow, footerHeight: footerH, viewHeight: viewH, logHeight: logH, logWidth: logW } = getLayout(cols, rows);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [view, setView] = useState('dashboard');
   const [svcName, setSvcName] = useState(null);
+  const [serviceFocus, setServiceFocus] = useState(0);
+  const [settingsFocus, setSettingsFocus] = useState(0);
   const [setupRequired, setSetupRequired] = useState(null);
   const [focusZone, setFocusZone] = useState('main'); // 'main' | 'sidebar' (SetupView 自带 'setup' zone)
 
@@ -236,9 +142,7 @@ function App() {
     let cancelled = false;
     async function check() {
       try {
-        const r = await fetch('http://127.0.0.1:3001/api/sfmc/setup/state');
-        if (!r.ok) return;
-        const d = await r.json();
+        const d = await getJson('/api/sfmc/setup/state');
         if (!cancelled) setSetupRequired(!d.initialized);
       } catch {}
     }
@@ -252,6 +156,7 @@ function App() {
   const [cfgIdx, setCfgIdx] = useState(-1);
   const [cfgData, setCfgData] = useState({});
   const [cfgOrig, setCfgOrig] = useState({});
+  const [cfgRawText, setCfgRawText] = useState('');
   const [cfgDirty, setCfgDirty] = useState(false);
   const [cfgSchema, setCfgSchema] = useState(null);
   const [cfgFocus, setCfgFocus] = useState(0);
@@ -289,7 +194,7 @@ function App() {
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => { hookMouse(setLogScroll); onRightClick(() => showToast('已复制 ✓')); return () => { }; }, []);
+  useEffect(() => { hookMouse(setLogScroll); }, []);
 
   // 仅窗口 resize 触发重渲染
   const [, resizeTick] = useState(0);
@@ -367,11 +272,11 @@ function App() {
   const menuItems = useMemo(() => {
     if (view === 'cfg_edit') {
       const items = [
-        { k: 0, l: '❎ 退出', act: 'exit_cfg' },
+        { k: 0, l: '退出', act: 'exit_cfg' },
       ];
       if (cfgDirty) {
-        items.push({ k: 1, l: '💾 保存', act: 'save_cfg' });
-        items.push({ k: 2, l: '↩️ 撤销', act: 'cancel_cfg' });
+        items.push({ k: 1, l: '保存', act: 'save_cfg' });
+        items.push({ k: 2, l: '撤销', act: 'cancel_cfg' });
       }
       items.push({ k: -1, l: '', act: 'separator' });
       return items;
@@ -379,43 +284,44 @@ function App() {
 
     if (activeTab === 'setup') {
       return [
-        { k: 0, l: '❎ 退出', act: 'exit' },
-        { k: 1, l: 'ℹ️ 总览', act: 'home' },
-        { k: -1, l: '', act: 'separator' },
-        { k: 5, l: '❇️ 检测更新', act: 'check_update' },
-        { k: 6, l: '📋 复制日志', act: 'copy_logs' },
+        { k: 0, l: '退出', act: 'exit' },
+        { k: 6, l: '复制日志', act: 'copy_logs' },
       ];
     }
 
-    const items = [
-      { k: 0, l: '❎ 退出', act: 'exit' },
-      { k: 1, l: 'ℹ️ 总览', act: 'home' },
-    ];
+    if (activeTab === 'settings') {
+      return [
+        { k: 7, l: '插件配置', act: 'cfg_list' },
+        { k: 8, l: '服务器配置', act: 'edit_server_prop' },
+        { k: 9, l: '面板设置', act: 'edit_panel_cfg' },
+      ];
+    }
+
+    const items = [{ k: 0, l: '退出', act: 'exit' }];
 
     // Service operations when on a service tab
-    if (activeTab !== 'dashboard') {
+    if (view === 'svc' && services[svcName]) {
       items.push(
-        { k: 2, l: '⏺️ 启动', act: 'start' },
-        { k: 3, l: '⏹️ 停止', act: 'stop' },
-        { k: 4, l: '🔄 重启', act: 'restart' },
+        { k: 2, l: '启动', act: 'start' },
+        { k: 3, l: '停止', act: 'stop' },
+        { k: 4, l: '重启', act: 'restart' },
         { k: -1, l: '', act: 'separator' },
       );
     }
 
     items.push(
-      { k: 5, l: '❇️ 检测更新', act: 'check_update' },
-      { k: 6, l: '📋 复制日志', act: 'copy_logs' },
-      { k: 7, l: '⚛️ 插件配置', act: 'cfg_list' },
-      { k: 8, l: '⚙️ 服务器配置', act: 'edit_server_prop' },
-      { k: 9, l: '🔧 面板设置', act: 'edit_panel_cfg' },
+      ...(svcName === 'bds' ? [{ k: 5, l: '检测更新', act: 'check_update' }] : []),
+      { k: 6, l: '复制日志', act: 'copy_logs' },
+      { k: 7, l: '插件配置', act: 'cfg_list' },
     );
 
     return items;
-  }, [view, activeTab, cfgDirty]);
+  }, [view, activeTab, svcName, cfgDirty]);
 
   // ── Tab switch ──
 
   function switchTab(tab) {
+    if (!canSwitchTab(setupRequired, tab)) return;
     if (view === 'cfg_edit' && cfgDirty) {
       setConfirm({
         title: '未保存的修改',
@@ -429,16 +335,18 @@ function App() {
   }
 
   function doSwitchTab(tab) {
+    if (!canSwitchTab(setupRequired, tab)) return;
     setActiveTab(tab);
     setFocusZone('main');
     setMenuFocus(-1);
     if (tab === 'dashboard') { setView('dashboard'); setSvcName(null); }
+    else if (tab === 'services') { setView('services'); setSvcName(null); }
     else if (tab === 'monitor') { setView('monitor'); setSvcName(null); }
     else if (tab === 'modules') { setView('modules'); setSvcName(null); }
     else if (tab === 'setup') { setView('setup'); setSvcName(null); }
+    else if (tab === 'settings') { setView('settings'); setSvcName(null); }
     else if (tab === 'chat') { setView('chat'); setSvcName(null); }
     else if (tab === 'data') { setView('data'); setSvcName(null); }
-    else { setView('svc'); setSvcName(tab); }
   }
 
   // ── Actions ──
@@ -449,13 +357,23 @@ function App() {
     if (item.act === 'exit') { stopAll().finally(() => { exit(); console.clear(); }); }
     else if (item.act === 'home') { switchTab('dashboard'); }
     else if (item.act === 'start' || item.act === 'stop' || item.act === 'restart') {
-      if (activeTab && activeTab !== 'dashboard' && services[activeTab]) {
-        services[activeTab][item.act]();
+      if (svcName && services[svcName]) {
+        const run = () => services[svcName][item.act]();
+        if (requiresConfirmation(item.act)) {
+          setConfirm({
+            title: item.act === 'stop' ? '停止服务' : '重启服务',
+            body: [`${services[svcName].title} 将${item.act === 'stop' ? '停止' : '重启'}`, '确定继续?'],
+            onConfirm: run,
+            onCancel: () => {},
+          });
+        } else {
+          run();
+        }
       } else pushLog(`未选择服务`, 'warning');
     }
     else if (item.act === 'check_update') { checkForUpdate(); }
     else if (item.act === 'copy_logs') {
-      const source = activeTab === 'dashboard' ? undefined : activeTab;
+      const source = view === 'svc' ? svcName : undefined;
       const entries = source ? logBuf.filter(l => l.source === source) : logBuf;
       const text = entries.map(l => l.text).join('\n');
       const proc = exec('clip', { shell: true });
@@ -470,7 +388,7 @@ function App() {
       try {
         const raw = fs.readFileSync(path.join(CFG_DIR, f), 'utf-8');
         const d = JSON.parse(raw);
-        setCfgData(d); setCfgOrig(clone(d));
+        setCfgData(d); setCfgOrig(clone(d)); setCfgRawText(raw);
         setCfgIdx(-1); setCfgDirty(false);
         setCfgSchema(SCHEMA[f] || null);
         setCfgFocus(0); setCfgArrayIdx(-1);
@@ -514,7 +432,7 @@ function App() {
     try {
       const raw = fs.readFileSync(path.join(CFG_DIR, f), 'utf-8');
       const d = JSON.parse(raw);
-      setCfgData(d); setCfgOrig(clone(d));
+      setCfgData(d); setCfgOrig(clone(d)); setCfgRawText(raw);
       setCfgIdx(idx); setCfgDirty(false);
       setCfgSchema(SCHEMA[f] || null);
       setCfgFocus(0); setCfgArrayIdx(-1);
@@ -528,7 +446,7 @@ function App() {
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       const d = parseProperties(raw, PROP_SCHEMA);
-      setCfgData(d); setCfgOrig(clone(d));
+      setCfgData(d); setCfgOrig(clone(d)); setCfgRawText(raw);
       setCfgIdx(-1); setCfgDirty(false);
       setCfgSchema(PROP_SCHEMA);
       setCfgFocus(0); setCfgArrayIdx(-1);
@@ -571,12 +489,13 @@ function App() {
   function saveCfg() {
     if (cfgSchema === PROP_SCHEMA) {
       try {
-        const text = stringifyProperties(cfgData, PROP_SCHEMA);
+        const text = updateProperties(cfgRawText, cfgData, PROP_SCHEMA);
         const backup = getPropPath() + '.bak';
         try { fs.copyFileSync(getPropPath(), backup); } catch {}
         fs.writeFileSync(getPropPath(), text, 'utf-8');
         setCfgDirty(false); setCfgOrig(clone(cfgData));
-        pushLog('已保存 server.properties（请重启 BDS 生效）', 'success');
+        setCfgRawText(text);
+        pushLog('已保存 server.properties（已保留未知字段和注释，请重启 BDS 生效）', 'success');
       } catch (e) { pushLog(`保存 server.properties 失败: ${e.message}`, 'error'); }
       return;
     }
@@ -585,14 +504,8 @@ function App() {
       fs.writeFileSync(path.join(CFG_DIR, f), JSON.stringify(cfgData, null, 2) + '\n');
       setCfgDirty(false); setCfgOrig(clone(cfgData));
       pushLog(`已保存 ${f}`, 'success');
-      const payload = JSON.stringify({ key: '_reload_signal', value: String(Date.now()) });
-      const req = http.request({
-        hostname: '127.0.0.1', port: 3001, path: '/api/sfmc/settings/_reload_signal',
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-      });
-      req.on('error', (e) => pushLog(`db-server: ${e.message}`, 'warning'));
-      req.write(payload); req.end();
+      putJson('/api/sfmc/settings/_reload_signal', { key: '_reload_signal', value: String(Date.now()) })
+        .catch((e) => pushLog(`db-server: ${e.message}`, 'warning'));
     } catch (e) { pushLog(`保存失败: ${e.message}`, 'error'); }
   }
 
@@ -638,6 +551,16 @@ function App() {
   // ── Keyboard ──
 
   useInput((input, key) => {
+    const isEnter = key.return || key.name === 'return' || key.name === 'enter';
+    const isBksp = key.backspace || key.name === 'backspace';
+
+    // Confirm overlays always have priority, including while Setup is visible.
+    if (confirm) {
+      if (input === 'y') { const c = confirm; setConfirm(null); c.onConfirm(); }
+      else if (input === 'n' || key.escape) { const c = confirm; setConfirm(null); c.onCancel(); }
+      return;
+    }
+
     // 当 SetupView 激活时，App 不拦截任何键（让 SetupView 完全独占）
     const isSetupActive = activeTab === 'setup' && view === 'setup';
     if (isSetupActive) {
@@ -662,12 +585,12 @@ function App() {
         return;
       }
       // Tab 切换：数字键
-      if (!inputVal && input && '123456789'.includes(input)) {
+      if (setupRequired !== true && !inputVal && input && '123456789'.includes(input)) {
         const idx = parseInt(input, 10) - 1;
         if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
       }
       // Tab 循环：Tab 键
-      if (key.tab) {
+      if (setupRequired !== true && key.tab) {
         const idx = TABS.findIndex((t) => t.k === activeTab);
         const next = (idx + 1) % TABS.length;
         switchTab(TABS[next].k);
@@ -675,16 +598,6 @@ function App() {
         return;
       }
       return; // 其余键全部交给 SetupView
-    }
-
-    const isEnter = key.return || key.name === 'return' || key.name === 'enter';
-    const isBksp = key.backspace || key.name === 'backspace';
-
-    // Confirm overlay: intercept y/n/escape before everything
-    if (confirm) {
-      if (input === 'y') { const c = confirm; setConfirm(null); c.onConfirm(); }
-      else if (input === 'n' || key.escape) { const c = confirm; setConfirm(null); c.onCancel(); }
-      return;
     }
 
     // Mouse activity guard: SGR sequences leak individual chars into useInput
@@ -698,6 +611,7 @@ function App() {
       setHelpOpen(false);
       return;
     }
+    if (helpOpen) return;
 
     if (isEnter && !inputVal.trim() && editing === null && menuFocus >= 0) {
       doAct(menuItems[menuFocus]?.k); setMenuFocus(-1); return;
@@ -735,13 +649,30 @@ function App() {
     }
 
     // Tab shortcuts: 1-9 switch tabs (only when input is empty, disabled in cfg_edit/cfg_list)
-    if (!inputVal && input && '123456789'.includes(input) && view !== 'cfg_edit' && view !== 'cfg_list') {
+    if (canUseTabShortcut(inputVal, view) && input && '123456789'.includes(input)) {
       const idx = parseInt(input, 10) - 1;
       if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
     }
 
+    if (view === 'services' && focusZone !== 'sidebar') {
+      if (!compact && key.rightArrow) { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); return; }
+      if (key.upArrow) { setServiceFocus((index) => Math.max(0, index - 1)); return; }
+      if (key.downArrow) { setServiceFocus((index) => Math.min(SERVICE_ORDER.length - 1, index + 1)); return; }
+      if (key.home) { setServiceFocus(0); return; }
+      if (key.end) { setServiceFocus(SERVICE_ORDER.length - 1); return; }
+      if (isEnter) { setSvcName(SERVICE_ORDER[serviceFocus]); setView('svc'); return; }
+      return;
+    }
+
+    // These screens provide their own focus and keyboard navigation.
+    if (view === 'monitor' || view === 'chat' || view === 'data' || view === 'modules') {
+      if (key.escape) { setView('dashboard'); setActiveTab('dashboard'); setLogScroll(0); }
+      return;
+    }
+    if (view === 'settings') return;
+
     // ←/→ 在 main Tab 内切换 sidebar / main 焦点（除 setup / cfg_edit / cfg_list）
-    if (!isSetupActive && !inputVal && view !== 'cfg_edit' && view !== 'cfg_list') {
+    if (!compact && !isSetupActive && !inputVal && view !== 'cfg_edit' && view !== 'cfg_list') {
       if (key.rightArrow) { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); return; }
       if (key.leftArrow && focusZone === 'sidebar') { setFocusZone('main'); setMenuFocus(-1); return; }
     }
@@ -919,7 +850,12 @@ function App() {
     }
 
     if (key.escape) {
-      setView('dashboard');
+      if (view === 'svc' && activeTab === 'services') {
+        setView('services');
+      } else {
+        setView('dashboard');
+        setActiveTab('dashboard');
+      }
       setLogScroll(0);
       return;
     }
@@ -945,29 +881,40 @@ function App() {
       setInputVal(''); setCursorPos(0);
 
       if (cmd === 'start' || cmd === 'stop' || cmd === 'restart') {
-        if (activeTab && activeTab !== 'dashboard' && services[activeTab]) services[activeTab][cmd]();
-        else pushLog(`需先通过 Tab 选择服务`, 'warning');
+        if (view === 'svc' && svcName && services[svcName]) {
+          const run = () => services[svcName][cmd]();
+          if (requiresConfirmation(cmd)) {
+            setConfirm({
+              title: cmd === 'stop' ? '停止服务' : '重启服务',
+              body: [`${services[svcName].title} 将${cmd === 'stop' ? '停止' : '重启'}`, '确定继续?'],
+              onConfirm: run,
+              onCancel: () => {},
+            });
+          } else {
+            run();
+          }
+        } else pushLog(`需先通过服务页选择服务`, 'warning');
       } else if (cmd === 'back' || cmd === '0') { switchTab('dashboard'); }
       else if (cmd === 'clear') { logBuf.length = 0; flushLogs(); }
       else if (cmd === 'help') {
-        if (activeTab === 'bds') {
-          services[activeTab].send(cmd);
+        if (view === 'svc' && svcName === 'bds') {
+          services[svcName].send(cmd);
         }
         if (activeTab === 'dashboard') {
           pushLog('内置命令: help, start, stop, restart, clear', 'info');
-        } else if (activeTab === 'llbot') {
-          services[activeTab].send(cmd);
-        } else if (activeTab === 'qq') {
+        } else if (view === 'svc' && svcName === 'llbot') {
+          services[svcName].send(cmd);
+        } else if (view === 'svc' && svcName === 'qq') {
           pushLog('QQ Bridge 命令: help - 本帮助 | reload - 重载配置 | status - 连接状态', 'info','qq');
-        } else if (activeTab === 'db') {
+        } else if (view === 'svc' && svcName === 'db') {
           pushLog('DB Server 命令: help - 本帮助 | reload - 重载配置 | status - 连接状态', 'info','db');
         } else {
           pushLog('请先通过 Tab 选择一个服务', 'warning');
         }
       }
       // Send to process stdin if on a service tab and service is running
-      else if (activeTab && activeTab !== 'dashboard' && services[activeTab]?.running) {
-        services[activeTab].send(raw);
+      else if (view === 'svc' && svcName && services[svcName]?.running) {
+        services[svcName].send(raw);
       }
       else {
         pushLog(`未知命令: ${cmd}`, 'warning');
@@ -995,38 +942,56 @@ function App() {
 
   // ── Render ──
 
+  const localInputActive = !confirm && !helpOpen;
+  const requestConfirm = (title, body, onConfirm) => setConfirm({ title, body, onConfirm, onCancel: () => {} });
   const mainContent = confirm
     ? h(ConfirmOverlay, { title: confirm.title, body: confirm.body })
     : (activeTab === 'setup'
-      ? h(SetupView, { showToast, pushLog, onComplete: () => { setSetupRequired(false); setActiveTab('dashboard'); setView('dashboard'); pushLog('setup 完成', 'success'); } })
+      ? h(SetupView, { showToast, pushLog, inputActive: localInputActive, onComplete: () => { setSetupRequired(false); setActiveTab('dashboard'); setView('dashboard'); pushLog('setup 完成', 'success'); } })
       : view === 'dashboard'
         ? h(Dashboard, { logH, logScroll, logW })
-        : view === 'monitor'
-          ? h(MonitorView, { logH, logW })
+        : view === 'services'
+          ? h(ServicesView, { focus: serviceFocus, logW })
+          : view === 'monitor'
+          ? h(MonitorView, { logH, logW, inputActive: localInputActive })
           : view === 'modules'
-            ? h(ModulesView, { logH, logW, showToast, pushLog })
+            ? h(ModulesView, { logH, logW, showToast, pushLog, inputActive: localInputActive, requestConfirm })
             : view === 'chat'
-              ? h(ChatView, { logH, logW })
+              ? h(ChatView, { logH, logW, inputActive: localInputActive })
               : view === 'data'
-                ? h(DbView, { logH, logW })
-                : view === 'svc' && svcName
-                  ? h(SvcView, { name: svcName, logH, logScroll, logW })
+                ? h(DbView, { logH, logW, inputActive: localInputActive })
+                : view === 'settings'
+                  ? h(SettingsView, { focus: settingsFocus, onFocus: setSettingsFocus, onAction: (action) => doAct(menuItems.find((item) => item.act === action)?.k), inputActive: localInputActive })
+              : view === 'svc' && svcName
+                ? h(SvcView, { name: svcName, logH, logScroll, logW })
                   : view === 'cfg_list'
                 ? h(CfgList, { files: cfgFiles, logH, logScroll, logW })
                 : view === 'cfg_edit'
                   ? h(CfgEdit, { schema: cfgSchema, items: cfgItems, focus: cfgFocus, arrayIdx: cfgArrayIdx, enumPicker: cfgEnumPicker, dirty: cfgDirty, editing, editBuf, editCursor, cfgData, logH, logScroll, logW, editVer: cfgEditVer })
                   : null);
 
+  const footerHint = confirm ? '[y] 确认  [n] 取消' :
+    view === 'cfg_edit' ? (editing ? '←→移动光标 输入文字 Enter确认 Esc取消' :
+      cfgEnumPicker ? '↑↓选择 Enter确认 Esc取消' :
+        '↑↓选择 Enter编辑 Delete删除 Esc退出 ← 切到侧栏') :
+      view === 'cfg_list' ? 'b:返回 ↑↓滚动 输入编号+Enter:选择' :
+        activeTab === 'setup' ? '↑↓ 字段  Enter 编辑  n/p 步骤  c 检查  r 重置  i 导入' :
+          view === 'services' ? '↑↓ 选择服务  Enter 查看日志与操作' :
+            view === 'svc' ? 'Esc 返回服务列表  输入命令后 Enter 发送  PgUp/Dn 翻页' :
+              focusZone === 'sidebar' ? '侧栏  ↑↓ 选择  Enter 确认  Esc/← 切回主区' :
+                (logScroll > 0 ? '→ 切到侧栏  ↑ 可滚动  PgUp/Dn 翻页  Home/End 首尾' :
+                  quitPending ? '再按 q 确认退出' : '→ 切到侧栏  ↑↓ 菜单  Tab:切换顶栏 PgUp/Dn:日志 q:退出');
+
   return h(Box, { width: cols, height: rows, flexDirection: 'column', position: 'relative' },
 
     // Tab bar
-    h(TabBar, { activeTab, onTab: switchTab }),
+    h(Header, { tabs: TABS, activeTab, compact }),
 
     // Body
     h(Box, { height: viewH, flexDirection: 'row' },
 
       // Sidebar
-      h(Sidebar, { menuItems, menuFocus, svcStatus, schema: cfgSchema, active: focusZone === 'sidebar' }),
+      !compact && h(Sidebar, { menuItems, menuFocus, svcStatus, schema: cfgSchema, active: focusZone === 'sidebar' }),
 
       // Main content (transparent, no background set)
       h(Box, { flexGrow: 1, flexDirection: 'column', paddingLeft: 1, paddingRight: 1 },
@@ -1034,28 +999,7 @@ function App() {
       ),
     ),
 
-    // Input area
-    h(Box, { height: 4, backgroundColor: inputFocus ? T.element : T.panel, flexDirection: 'column', paddingLeft: 2, paddingRight: 2, paddingTop: 1, marginBottom: 1, marginLeft: 1, marginRight: 1},
-      h(Box, { flexDirection: 'row' },
-        h(Text, { bold: true, color: T.text },
-          !inputVal ? '█' :
-            cursorVisible
-              ? inputVal.slice(0, cursorPos) + '█' + inputVal.slice(cursorPos)
-              : inputVal),
-      ),
-      h(Text, { color: T.muted },
-        confirm ? '[y] 确认  [n] 取消' :
-          view === 'cfg_edit' ? (editing ? '←→移动光标 输入文字 Enter确认 Esc取消' :
-            cfgEnumPicker ? '↑↓选择 Enter确认 Esc取消' :
-              '↑↓选择 Enter编辑 Delete删除 Esc退出 ← 切到侧栏') :
-            view === 'cfg_list' ? 'b:返回 ↑↓滚动 输入编号+Enter:选择' :
-              activeTab === 'setup' ? '↑↓ 字段  Enter 编辑  n/p 步骤  c 检查  r 重置  i 导入' :
-              focusZone === 'sidebar'
-                ? '侧栏  ↑↓ 选择  Enter 确认  Esc/← 切回主区'
-                : (logScroll > 0 ? '→ 切到侧栏  ↑ 可滚动  PgUp/Dn 翻页  Home/End 首尾' :
-              quitPending ? '再按 q 确认退出' :
-                `→ 切到侧栏  ↑↓ 菜单  Tab:切换顶栏 PgUp/Dn:日志 q:退出`)),
-    ),
+    h(Footer, { height: footerH, narrow, inputFocus, inputVal, cursorPos, cursorVisible, hint: footerHint }),
 
     // Toast overlay (top-right corner)
     toast && h(Box, {
@@ -1096,7 +1040,10 @@ function HelpOverlay({ activeTab, focusZone }) {
     '',
     '按 Esc / ? / h 关闭',
   ];
-  return h(Box, { flexDirection: 'column', paddingX: 2, paddingY: 1 },
+  return h(Box, {
+    position: 'absolute', top: 2, left: 2, flexDirection: 'column', paddingX: 2, paddingY: 1,
+    backgroundColor: T.panel, borderStyle: 'round', borderColor: T.borderFocus,
+  },
     ...lines.map((l, i) => h(Text, { key: i, color: T.text }, l)),
   );
 }

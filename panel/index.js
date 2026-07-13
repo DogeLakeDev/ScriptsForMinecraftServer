@@ -185,30 +185,26 @@ async function runTui() {
     process.exit(2);
   }
 
-  console.log('[panel] 启动 db-server / qq-bridge');
-  startProc('db', path.join(ROOT_DIR, 'db-server', 'index.js'));
-  startProc('qq', path.join(ROOT_DIR, 'qq-bridge', 'index.js'));
-
-  const ok = await waitForDb();
-  if (!ok) {
-    console.error('[panel] db-server 启动超时');
-    shutdownAll();
-    process.exit(1);
-  }
-
-  // 加载 TUI 模块（必须在 db-server 就绪后）
+  console.log('[panel] 载入 TUI 与服务管理器');
+  // TUI must own child services through services/manager.js. Starting detached
+  // copies here would occupy their ports and make the service page inaccurate.
   const { pushLog, mount } = await import('./tui-react.js');
   const { services } = await import('./services/manager.js');
 
   if (FORCE_SETUP) {
-    try {
-      await httpJson('/api/sfmc/setup/reset', 'POST', {});
-      pushLog('已重置 panel-state，进入 setup', 'warning');
-    } catch {}
+    pushLog('已请求重置 panel-state，进入 setup', 'warning');
   }
 
   pushLog('Panel 启动完成');
-  await mount();
+  await mount({
+    onReady: async () => {
+      await services.db.start();
+      await services.qq.start();
+      if (FORCE_SETUP) {
+        try { await httpJson('/api/sfmc/setup/reset', 'POST', {}); } catch {}
+      }
+    },
+  });
   // mount() resolve 后 (用户按 quit) 才退出
   shutdownAll();
   process.exit(0);

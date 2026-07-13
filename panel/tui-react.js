@@ -19,7 +19,6 @@ const h = React.createElement;
 
 import { services } from './services/manager.js';
 import { pushLog, closeLogFile } from './log-buffer.js';
-import { enableMouse, disableMouse } from './mouse.js';
 import { T } from './theme.js';
 import { App } from './app.js';
 
@@ -36,19 +35,20 @@ function bindServiceOutput() {
   }
 }
 
-function mount() {
+function mount({ onReady } = {}) {
   if (_mounted) throw new Error('tui-react already mounted');
   _mounted = true;
 
   bindServiceOutput();
-  enableMouse();
-
-  const cleanup = () => { disableMouse(); closeLogFile(); };
+  // Do not enable terminal mouse reporting: it intercepts native click-drag
+  // selection in common terminals. Logs remain keyboard-scrollable and copyable.
+  const cleanup = () => { closeLogFile(); };
   process.on('exit', cleanup);
   process.once('SIGINT', () => { cleanup(); process.exit(0); });
   process.once('SIGTERM', () => { cleanup(); process.exit(0); });
 
+  if (onReady) Promise.resolve().then(onReady);
   return render(h(App)).waitUntilExit();
 }
 
-export { mount, pushLog, T, enableMouse, disableMouse, services };
+export { mount, pushLog, T, services };

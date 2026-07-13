@@ -121,7 +121,7 @@ function defaultPayload() {
   };
 }
 
-export function SetupView({ showToast, pushLog, onComplete }) {
+export function SetupView({ showToast, pushLog, onComplete, inputActive = true }) {
   const [step, setStep] = useState(0);
   const [focus, setFocus] = useState(0);
   const [editing, setEditing] = useState(null);
@@ -133,6 +133,7 @@ export function SetupView({ showToast, pushLog, onComplete }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
   const [result, setResult] = useState(null);
+  const [multiPicker, setMultiPicker] = useState(null);
 
   const t = I18N[payload.locale] || I18N['zh-CN'];
 
@@ -238,7 +239,7 @@ export function SetupView({ showToast, pushLog, onComplete }) {
       return;
     }
     if (key.escape) {
-      setEditBuf(getValue(payload, editing));
+      setEditBuf(editing === 'importPath' ? importPath : getValue(payload, editing));
       setEditCursor((editBuf || '').length);
       setEditing(null);
       return;
@@ -259,7 +260,7 @@ export function SetupView({ showToast, pushLog, onComplete }) {
       setEditBuf(next);
       setEditCursor((c) => c + input.length);
     }
-  }, { isActive: editing !== null });
+  }, { isActive: inputActive && editing !== null });
 
   function commitEdit() {
     if (!editing) return;
@@ -268,6 +269,11 @@ export function SetupView({ showToast, pushLog, onComplete }) {
     if (field?.kind === 'number') {
       const n = parseInt(val, 10);
       val = isNaN(n) ? 3001 : n;
+    }
+    if (editing === 'importPath') {
+      setImportPath(String(val));
+      setEditing(null);
+      return;
     }
     setPayload((p) => {
       const next = JSON.parse(JSON.stringify(p));
@@ -281,6 +287,25 @@ export function SetupView({ showToast, pushLog, onComplete }) {
   useInput((input, key) => {
     if (editing) return;
     if (busy) return;
+    if (multiPicker) {
+      const choices = multiPicker.choices;
+      if (key.upArrow) { setMultiPicker((p) => ({ ...p, focus: Math.max(0, p.focus - 1) })); return; }
+      if (key.downArrow) { setMultiPicker((p) => ({ ...p, focus: Math.min(choices.length - 1, p.focus + 1) })); return; }
+      if (key.escape) { setMultiPicker(null); return; }
+      if (key.return) {
+        const choice = choices[multiPicker.focus];
+        setPayload((p) => {
+          const next = JSON.parse(JSON.stringify(p));
+          const selected = new Set(getValue(next, multiPicker.id) || []);
+          if (selected.has(choice)) selected.delete(choice); else selected.add(choice);
+          setValue(next, multiPicker.id, [...selected]);
+          return next;
+        });
+        return;
+      }
+      if (input === ' ') { return; }
+      return;
+    }
     if (key.upArrow) { nav(-1); return; }
     if (key.downArrow) { nav(1); return; }
     if (key.home) { setFocus(0); return; }
@@ -306,26 +331,10 @@ export function SetupView({ showToast, pushLog, onComplete }) {
           return np;
         });
       } else if (f.kind === 'multi') {
-        // 切换 multi 选项（弹二级菜单）
-        const cur = (getValue(payload, f.id) || []);
-        const ch = f.choices;
-        setPayload((p) => {
-          const set = new Set(getValue(p, f.id) || []);
-          const next = [...set];
-          // 轮转：每次按 Enter 把第 focus%len 个切换
-          const idx = focus % ch.length;
-          if (set.has(ch[idx])) {
-            const i = next.indexOf(ch[idx]); if (i >= 0) next.splice(i, 1);
-          } else {
-            next.push(ch[idx]);
-          }
-          const np = JSON.parse(JSON.stringify(p));
-          setValue(np, f.id, next);
-          return np;
-        });
+        setMultiPicker({ id: f.id, label: f.label, choices: f.choices, focus: 0 });
       } else {
         // text/number → 进入编辑
-        const cur = getValue(payload, f.id);
+        const cur = f.id === 'importPath' ? importPath : getValue(payload, f.id);
         const s = cur == null ? '' : String(cur);
         setEditBuf(s);
         setEditCursor(s.length);
@@ -333,7 +342,7 @@ export function SetupView({ showToast, pushLog, onComplete }) {
       }
       return;
     }
-  });
+  }, { isActive: inputActive && editing === null });
 
   // ── 渲染 ──
   const stepBars = STEP_FIELDS.map((_, i) => i === step ? '●' : '○').join(' ');
@@ -342,7 +351,16 @@ export function SetupView({ showToast, pushLog, onComplete }) {
     h(Text, { bold: true, color: T.primary }, `${t.title}  [${payload.locale}]  步骤 ${step + 1}/${STEP_FIELDS.length}: ${t.steps[step]}`),
     h(Text, { color: T.muted }, stepBars),
     h(Text, { color: T.muted }, '─'.repeat(w)),
-    ...fields.map((f, i) => renderField(f, i, focus, editing, editBuf, editCursor, payload, importPath, setImportPath, t)),
+    multiPicker
+      ? h(Box, { flexDirection: 'column' },
+          h(Text, { color: T.primary, bold: true }, `选择 ${multiPicker.label}（Enter 勾选，Esc 返回）`),
+          ...multiPicker.choices.map((choice, i) => {
+            const selected = (getValue(payload, multiPicker.id) || []).includes(choice);
+            return h(Text, { key: choice, color: i === multiPicker.focus ? T.primary : T.text },
+              `${i === multiPicker.focus ? '▶' : ' '} ${selected ? '[x]' : '[ ]'} ${choice}`);
+          }),
+        )
+      : fields.map((f, i) => renderField(f, i, focus, editing, editBuf, editCursor, payload, importPath, setImportPath, t)),
     h(Text, { color: T.muted }, '─'.repeat(w)),
     h(Text, { color: T.muted }, '快捷键: ↑↓ 滚动  Enter 选择/编辑  n/p 步骤  c 检查  r 重置  i 导入'),
     status?.reason === 'db_offline' && h(Text, { color: T.warning }, '⚠ db-server 未可达，健康检查可能失败'),
