@@ -117,7 +117,7 @@ export class ShopSystem {
 
   // ── 购买 ──
 
-  static buy(player: Player, catIdx: number, slotIdx: number, amount: number): boolean {
+  static async buy(player: Player, catIdx: number, slotIdx: number, amount: number): Promise<boolean> {
     const data = this.getPriceData();
     const key = `${catIdx}:${slotIdx}`;
     const price = data.prices[key];
@@ -147,14 +147,14 @@ export class ShopSystem {
     }
 
     const total = price * amount;
-    const bal = Money.get(player);
+    const bal = await Money.load(player);
     if (bal < total) {
       Tool.Msg.error(`${Money.UNIT}不足，需要 ${total}，当前 ${bal}`, player);
       return false;
     }
 
     // 扣除金钱
-    Money.set(player, bal - total);
+    if (!(await Money.add(player, -total))) return false;
 
     // 处理物品：扣除箱子中的数量
     if (item.amount === amount) {
@@ -180,7 +180,7 @@ export class ShopSystem {
 
   // ── 出售 ──
 
-  static sell(player: Player, catIdx: number, slotIdx: number, itemTypeId: string, amount: number): boolean {
+  static async sell(player: Player, catIdx: number, slotIdx: number, itemTypeId: string, amount: number): Promise<boolean> {
     const data = this.getPriceData();
     const key = `${catIdx}:${slotIdx}`;
     const price = data.sellPrices[key];
@@ -226,7 +226,7 @@ export class ShopSystem {
     }
 
     const total = price * amount;
-    Money.add(player, total);
+    if (!(await Money.add(player, total))) return false;
     Tool.Msg.success(`回收成功！获得 ${total} ${Money.UNIT}`, player);
     return true;
   }

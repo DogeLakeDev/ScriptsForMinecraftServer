@@ -209,10 +209,10 @@ export class QAManager {
     for (let b of bonus) {
       // 符合顺序
       if (b["seq"] === undefined || (b["seq"][0] <= seq && seq <= b["seq"][1])) {
-        system.run(() => {
+        system.run(async () => {
           switch (b["type"]) {
             case "money":
-              Money.add(pl, b["amount"]);
+              await Money.add(pl, b["amount"]);
               break;
             case "item":
               pl.runCommand(`give @s ${b["itemType"]} ${b["amount"]} ${b["data"] === undefined ? "" : b["data"]}`);

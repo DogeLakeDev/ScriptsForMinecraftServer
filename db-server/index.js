@@ -686,6 +686,30 @@ async function initDB() {
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, expires_at INTEGER,
       protection_profile TEXT NOT NULL DEFAULT '{}', version INTEGER NOT NULL DEFAULT 1
     );
+    CREATE TABLE IF NOT EXISTS sfmc_economy_accounts (
+      player_id TEXT PRIMARY KEY,
+      player_name_snapshot TEXT NOT NULL DEFAULT '',
+      balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0),
+      version INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_economy_transactions (
+      id TEXT PRIMARY KEY,
+      transaction_type TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      source_player_id TEXT,
+      target_player_id TEXT,
+      amount INTEGER NOT NULL CHECK(amount > 0),
+      balance_before INTEGER,
+      balance_after INTEGER,
+      reference_type TEXT NOT NULL DEFAULT '',
+      reference_id TEXT NOT NULL DEFAULT '',
+      reason TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_economy_transactions_player ON sfmc_economy_transactions(source_player_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_economy_transactions_target ON sfmc_economy_transactions(target_player_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_sfmc_lands_owner ON sfmc_lands(owner_player_id, status);
     CREATE INDEX IF NOT EXISTS idx_sfmc_lands_location ON sfmc_lands(dimension, min_x, max_x, min_z, max_z, status);
     CREATE TABLE IF NOT EXISTS sfmc_land_members (
@@ -900,6 +924,37 @@ function canManageLand(landId, actorId) {
   return !!member;
 }
 
+function ensureEconomyAccount(playerId, playerName = '') {
+  const now = Date.now();
+  query('INSERT OR IGNORE INTO sfmc_economy_accounts (player_id, player_name_snapshot, created_at, updated_at) VALUES (?,?,?,?)', [String(playerId), String(playerName), now, now]);
+  if (playerName) query('UPDATE sfmc_economy_accounts SET player_name_snapshot=?, updated_at=? WHERE player_id=?', [String(playerName), now, String(playerId)]);
+  return query('SELECT * FROM sfmc_economy_accounts WHERE player_id=?', [String(playerId)])[0];
+}
+
+function economyResult(row) { return { playerId: row.player_id, playerName: row.player_name_snapshot, balance: row.balance, version: row.version }; }
+
+function applyEconomyTransaction(data) {
+  const amount = Number(data.amount);
+  if (!data.actorId || !Number.isSafeInteger(amount) || amount <= 0) return { ok: false, error: 'invalid_amount', status: 400 };
+  const sourceId = data.sourcePlayerId ? String(data.sourcePlayerId) : null;
+  const targetId = data.targetPlayerId ? String(data.targetPlayerId) : null;
+  if (!sourceId && !targetId) return { ok: false, error: 'missing_account', status: 400 };
+  if (sourceId && targetId && sourceId === targetId) return { ok: false, error: 'same_account', status: 400 };
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const source = sourceId ? ensureEconomyAccount(sourceId, data.sourcePlayerName) : null;
+    const target = targetId ? ensureEconomyAccount(targetId, data.targetPlayerName) : null;
+    if (source && source.balance < amount) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: source.balance, status: 409 }; }
+    const now = Date.now();
+    if (source) query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [amount, now, source.player_id, amount]);
+    if (target) query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [amount, now, target.player_id]);
+    const id = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.type || 'adjustment'), String(data.actorId), sourceId, targetId, amount, source?.balance ?? null, source ? source.balance - amount : target?.balance - amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    db.exec('COMMIT');
+    return { ok: true, transactionId: id, source: source ? economyResult(ensureEconomyAccount(source.player_id)) : null, target: target ? economyResult(ensureEconomyAccount(target.player_id)) : null };
+  } catch (error) { try { db.exec('ROLLBACK'); } catch {} return { ok: false, error: error.message || 'economy_transaction_failed', status: 500 }; }
+}
+
 function normalizeLandInput(data) {
   const a = data.posA || {}, b = data.posB || {};
   const values = [data.dimid, a.x, a.y, a.z, b.x, b.y, b.z];
@@ -946,8 +1001,12 @@ function createLandTransaction(data) {
   try {
     const locked = validateLandInput(data);
     if (!locked.ok) { db.exec('ROLLBACK'); return locked; }
+    const account = ensureEconomyAccount(String(data.ownerId), String(data.ownerName || ''));
+    if (account.balance < check.price) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: account.balance, price: check.price, status: 409 }; }
+    query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [check.price, now, account.player_id, check.price]);
     query('INSERT INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), n.dimid, n.minX, n.minY, n.minZ, n.maxX, n.maxY, n.maxZ, now, now]);
     query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), 'owner', now]);
+    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.purchase', String(data.ownerId), String(data.ownerId), null, check.price, account.balance, account.balance - check.price, 'land', id, '购买土地', now]);
     auditLand(id, String(data.ownerId), 'land.create', { price: check.price });
     const row = query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0];
     db.exec('COMMIT');
@@ -1010,6 +1069,35 @@ async function handle(req, res) {
     if (path === '/api/health') {
       if (method === 'GET') { json(res, { status: 'ok', uptime: process.uptime() }); }
       else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    if (path === '/api/sfmc/economy/account') {
+      if (method === 'GET') {
+        const playerId = params.get('playerId');
+        if (!playerId) { json(res, { success: false, error: 'missing_player_id' }, 400); return; }
+        json(res, { account: economyResult(ensureEconomyAccount(playerId, params.get('playerName') || '')) });
+      } else if (method === 'POST') {
+        const data = await body(req);
+        const result = applyEconomyTransaction(data);
+        json(res, result, result.ok ? 200 : (result.status || 400));
+      } else json(res, { success: false, error: 'not_found' }, 404);
+      return;
+    }
+
+    if (path === '/api/sfmc/economy/transfer') {
+      if (method !== 'POST') { json(res, { success: false, error: 'not_found' }, 404); return; }
+      const data = await body(req);
+      const result = applyEconomyTransaction({ ...data, type: 'transfer', sourcePlayerId: data.actorId, targetPlayerId: data.targetPlayerId });
+      json(res, result, result.ok ? 200 : (result.status || 400));
+      return;
+    }
+
+    if (path === '/api/sfmc/economy/transactions') {
+      if (method !== 'GET') { json(res, { success: false, error: 'not_found' }, 404); return; }
+      const playerId = params.get('playerId');
+      if (!playerId) { json(res, { success: false, error: 'missing_player_id' }, 400); return; }
+      json(res, { transactions: query('SELECT * FROM sfmc_economy_transactions WHERE source_player_id=? OR target_player_id=? ORDER BY created_at DESC LIMIT 100', [playerId, playerId]) });
       return;
     }
 
@@ -1161,10 +1249,19 @@ async function handle(req, res) {
       if (method === 'DELETE') {
         const data = await body(req);
         if (data.actorId !== rows[0].owner_player_id) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        db.exec('BEGIN IMMEDIATE');
+        try {
         const refund = landPrice(rows[0]);
+        const account = ensureEconomyAccount(rows[0].owner_player_id, rows[0].owner_name_snapshot);
         query("UPDATE sfmc_lands SET status='deleted', updated_at=?, version=version+1 WHERE id=? AND status='active'", [Date.now(), id]);
+        if (refund > 0) {
+          query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [refund, Date.now(), rows[0].owner_player_id]);
+          query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.refund', data.actorId, null, rows[0].owner_player_id, refund, account.balance, account.balance + refund, 'land', id, '删除土地退款', Date.now()]);
+        }
         auditLand(id, data.actorId, 'land.delete', { refund });
+        db.exec('COMMIT');
         json(res, { success: true, refund });
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'delete_failed' }, 500); }
         return;
       }
       json(res, { success: false, error: 'not_found' }, 404);

@@ -51,7 +51,7 @@ export class MainMenu {
       page.label(ListFormInfo([`当前余额: ${Money.get(player)} ${Money.UNIT}`]));
       page.textField("目标玩家", targetName, { description: "输入玩家名称" });
       page.textField("金额", amountStr, { description: "输入转账金额" });
-      page.button("确认转账", () => {
+      page.button("确认转账", async () => {
         const name = targetName.getData().trim();
         const amount = parseInt(amountStr.getData());
         if (!name || isNaN(amount) || amount <= 0) {
@@ -63,13 +63,18 @@ export class MainMenu {
           status.setData(`§c未找到玩家「${name}」。`);
           return;
         }
-        const bal = Money.get(player);
+        const bal = await Money.load(player);
         if (amount > bal) {
           status.setData(`§c余额不足。当前余额: ${bal} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`);
           return;
         }
-        Money.add(player, -amount);
-        Money.add(target, amount);
+        const transferred = await import("../api/EconomyApi").then(({ transferEconomy }) => transferEconomy(player.id, target.id, amount, target.name));
+        if (!transferred) {
+          status.setData("§c转账失败，余额可能已变化，请重试。");
+          return;
+        }
+        await Money.load(player);
+        await Money.load(target);
         status.setData(`§a成功转账 ${amount} ${Money.UNIT} 给 ${name}。`);
         system.runTimeout(() => nav.rebuild("economy"), 40);
       });

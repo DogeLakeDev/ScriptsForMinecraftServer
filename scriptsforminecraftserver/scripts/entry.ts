@@ -292,6 +292,7 @@ export class AddOnInit {
     });
 
     world.afterEvents.playerSpawn.subscribe((event) => {
+      void Money.load(event.player);
       if (!guardEvent()) return;
       if (event.initialSpawn) {
         if (ModuleRegistry.isActive("peace")) Peace.getInstance().init();

@@ -4,3 +4,4 @@ export * from "./PlayersDataApi";
 export * from "./WorldDataApi";
 export * from "./ScoreboardsSyncApi";
 export * from "./LandApi";
+export * from "./EconomyApi";

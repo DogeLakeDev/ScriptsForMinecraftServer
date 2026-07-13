@@ -133,7 +133,7 @@ export class CoopCore {
   static async registerCoop(name: string, cid: string, player: Player): Promise<boolean> {
     const all = await getAllCoops();
     if (all.some((e) => e.cid === cid)) return false;
-    if (Money.get(player) < 1000) return false;
+    if ((await Money.load(player)) < 1000) return false;
 
     const coop: CoopData = {
       cid,
@@ -145,7 +145,7 @@ export class CoopCore {
       created_at: Date.now(),
       updated_at: Date.now(),
     };
-    Money.set(player, Money.get(player) - 1000);
+    if (!(await Money.add(player, -1000))) return false;
     await createCoop(coop);
     return true;
   }
@@ -221,14 +221,14 @@ export class CoopCore {
     if (!data) return false;
 
     if (type === 1) {
-      const plMoney = Money.get(player);
+      const plMoney = await Money.load(player);
       if (plMoney < val) return false;
-      Money.set(player, plMoney - val);
+      if (!(await Money.add(player, -val))) return false;
       await updateCoop(cid, { money: (data.money || 0) + val });
       await addBankLog(cid, player.name, 1, val, note);
     } else if (type === 2) {
       if ((data.money || 0) < val) return false;
-      Money.set(player, Money.get(player) + val);
+      if (!(await Money.add(player, val))) return false;
       await updateCoop(cid, { money: (data.money || 0) - val });
       await addBankLog(cid, player.name, 2, val, note);
     } else return false;

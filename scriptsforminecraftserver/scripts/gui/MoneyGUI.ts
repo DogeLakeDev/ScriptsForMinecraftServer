@@ -35,7 +35,7 @@ export class MoneyGUI {
       const amountStr = obsStr("");
       page.textField("玩家名称", targetName, { description: "请输入玩家名称" });
       page.textField("数量", amountStr, { description: "请输入货币数量" });
-      page.button("确认", () => {
+      page.button("确认", async () => {
         const name = targetName.getData().trim();
         const val = parseInt(amountStr.getData());
         if (!name || isNaN(val) || val <= 0) {
@@ -47,7 +47,7 @@ export class MoneyGUI {
           status.fail(`未找到玩家「${name}」。`);
           return;
         }
-        Money.add(target, val);
+        if (!(await Money.add(target, val))) { status.fail("发放失败，请稍后重试。"); return; }
         status.ok(`已给予 ${name} ${val} ${Money.UNIT}。`);
         nav.rebuild("main");
       });

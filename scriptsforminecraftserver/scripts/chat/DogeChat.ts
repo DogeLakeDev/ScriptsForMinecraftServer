@@ -580,7 +580,7 @@ export class DogeChat {
       Msg.error("红包参数无效。", sender);
       return false;
     }
-    const balance = Money.get(sender);
+    const balance = await Money.load(sender);
     if (balance < amount) {
       Msg.error(`${Money.UNIT}不足，需要 ${amount}，当前 ${balance}。`, sender);
       return false;
@@ -604,7 +604,10 @@ export class DogeChat {
       Msg.error("红包发送失败，请稍后重试。", sender);
       return false;
     }
-    Money.set(sender, balance - amount);
+    if (!(await Money.add(sender, -amount))) {
+      Msg.error("扣款失败，请稍后重试。", sender);
+      return false;
+    }
     Msg.success(`${sender.name} 发送了红包：${amount} ${Money.UNIT}（共 ${count} 份）。`, sender);
     const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
     ChatApi.saveMessages([
@@ -656,7 +659,7 @@ export class DogeChat {
       Msg.error("领取失败，请稍后重试。", player);
       return 0;
     }
-    Money.add(player, amount);
+    if (!(await Money.add(player, amount))) return 0;
     Msg.success(`你领取了 ${packet.senderName} 的红包，获得 ${amount} ${Money.UNIT}！`, player);
     return amount;
   }

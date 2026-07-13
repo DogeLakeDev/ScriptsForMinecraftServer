@@ -99,7 +99,7 @@ export class ShopGUI {
     const amountObs = obsStr("");
     page.textField("数量", amountObs);
 
-    page.button("确认", () => {
+      page.button("确认", async () => {
       const action = this.nav.state.action as string;
       const amountStr = amountObs.getData();
       const amount = parseInt(amountStr);
@@ -115,11 +115,11 @@ export class ShopGUI {
           return;
         }
         const total = amount * buyPrice!;
-        if (Money.get(this.player) < total) {
+        if ((await Money.load(this.player)) < total) {
           status.fail(`${Money.UNIT}不足，需要 ${total}，当前 ${Money.get(this.player)}`);
           return;
         }
-        ShopSystem.buy(this.player, catIdx, slotIdx, amount);
+        if (await ShopSystem.buy(this.player, catIdx, slotIdx, amount)) status.ok("购买成功。");
       } else {
         const playerInv = this.player.getComponent("inventory") as EntityInventoryComponent | undefined;
         if (!playerInv?.container) {
@@ -135,7 +135,7 @@ export class ShopGUI {
           status.fail(`背包中不足，仅有 ${totalFound} 个。`);
           return;
         }
-        ShopSystem.sell(this.player, catIdx, slotIdx, item.typeId, amount);
+        if (await ShopSystem.sell(this.player, catIdx, slotIdx, item.typeId, amount)) status.ok("回收成功。");
       }
     });
   }

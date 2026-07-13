@@ -206,7 +206,7 @@ export class LandCore {
 
     // 余额检查
     const price = this.calculatePrice(posA, posB);
-    const balance = Money.get(player);
+    const balance = await Money.load(player);
     if (balance < price) {
       return {
         ok: false,
@@ -236,12 +236,9 @@ export class LandCore {
     const plid = player.id;
     const n = this.normalize(posA, posB);
     const price = this.calculatePrice(n.posA, n.posB);
-    const balance = Money.get(player);
-
     const result = await createLandOnServer({ ownerId: plid, ownerName: player.name, dimid, posA: n.posA, posB: n.posB });
     if (!result.land) return null;
     const land = result.land;
-    Money.set(player, balance - (result.price ?? price));
     Database.add(land);
     this.clearSession(plid);
     return land;
@@ -257,7 +254,6 @@ export class LandCore {
 
     const deleted = await Database.delete(landId, player.id);
     if (deleted === false) return false;
-    Money.add(player, deleted);
     return deleted;
   }
 

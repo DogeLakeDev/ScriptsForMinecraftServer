@@ -98,8 +98,18 @@ async function main() {
     assert(missing.status === 404 && missing.body.error === 'not_found', '未知路由返回 404');
 
     const land = { ownerId: 'player-1', ownerName: 'PlayerOne', dimid: 0, posA: { x: 0, y: 60, z: 0 }, posB: { x: 4, y: 70, z: 4 } };
+    const funded = await request('POST', '/api/sfmc/economy/account', { actorId: 'admin', targetPlayerId: 'player-1', targetPlayerName: 'PlayerOne', amount: 10000, type: 'grant', reason: 'test setup' });
+    assert(funded.status === 200 && funded.body.target?.balance === 10000, `经济账户可以原子发放余额 (${funded.status} ${JSON.stringify(funded.body)})`);
+    const account = await request('GET', '/api/sfmc/economy/account?playerId=player-1');
+    assert(account.status === 200 && account.body.account.balance === 10000, '经济账户查询返回余额');
+    const insufficient = await request('POST', '/api/sfmc/economy/transfer', { actorId: 'player-1', targetPlayerId: 'player-2', amount: 20000 });
+    assert(insufficient.status === 409 && insufficient.body.error === 'insufficient_funds', '经济事务拒绝透支');
+    const transfer = await request('POST', '/api/sfmc/economy/transfer', { actorId: 'player-1', targetPlayerId: 'player-2', amount: 1000 });
+    assert(transfer.status === 200 && transfer.body.source.balance === 9000 && transfer.body.target.balance === 1000, '经济转账原子更新双方余额');
     const created = await request('POST', '/api/sfmc/lands', land);
-    assert(created.status === 200 && created.body.land?.ownerplid === 'player-1', '土地创建并持久化');
+    assert(created.status === 200 && created.body.land?.ownerplid === 'player-1' && created.body.price > 0, '土地创建并持久化');
+    const afterPurchase = await request('GET', '/api/sfmc/economy/account?playerId=player-1');
+    assert(afterPurchase.body.account.balance === 9000 - created.body.price, '土地购买在同一事务中扣款');
     const overlap = await request('POST', '/api/sfmc/lands', { ...land, ownerId: 'player-2', ownerName: 'PlayerTwo' });
     assert(overlap.status === 409 && overlap.body.error === 'overlap', '土地重叠检查拒绝冲突范围');
     const at = await request('GET', '/api/sfmc/lands/at/0/2/65/2');
@@ -124,6 +134,10 @@ async function main() {
     assert(deleted.status === 403, '转让后原所有者不能删除土地');
     const deletedOwner = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-2' });
     assert(deletedOwner.status === 200 && deletedOwner.body.refund > 0, '土地软删除并返回退款');
+    const afterRefund = await request('GET', '/api/sfmc/economy/account?playerId=player-2');
+    assert(afterRefund.body.account.balance === 1000 + deletedOwner.body.refund, '土地删除退款写入所有者经济账户');
+    const transactions = await request('GET', '/api/sfmc/economy/transactions?playerId=player-1');
+    assert(transactions.status === 200 && transactions.body.transactions.some((tx) => tx.transaction_type === 'land.purchase'), '经济流水记录土地购买');
     console.log('[db-api] 全部通过');
   } finally {
     child.kill();
