@@ -52,6 +52,7 @@ export interface LandData {
   nickname: string;
   /** 创建时间戳 */
   createdAt: number;
+  version?: number;
 }
 
 export interface LandConfig {
@@ -98,6 +99,7 @@ export class Database {
   private static _registry: Map<string, LandData> | null = null; // landId → LandData
   private static _ownerIndex: Map<string, string[]> | null = null; // plid → landId[]
   private static _loading: Promise<void> | null = null;
+  private static _chunkIndex = new Map<string, Set<string>>();
 
   // ── 内部工具 ──
 
@@ -121,6 +123,27 @@ export class Database {
       const list = this._ownerIndex.get(land.ownerplid) || [];
       list.push(land.id);
       this._ownerIndex.set(land.ownerplid, list);
+    }
+    this.rebuildChunkIndex();
+  }
+
+  private static chunkKey(dimid: number, x: number, z: number): string {
+    return `${dimid}:${Math.floor(x / 16)}:${Math.floor(z / 16)}`;
+  }
+
+  private static rebuildChunkIndex() {
+    this._chunkIndex.clear();
+    if (!this._registry) return;
+    for (const land of this._registry.values()) {
+      const minX = Math.floor(Math.min(land.posA.x, land.posB.x) / 16);
+      const maxX = Math.floor(Math.max(land.posA.x, land.posB.x) / 16);
+      const minZ = Math.floor(Math.min(land.posA.z, land.posB.z) / 16);
+      const maxZ = Math.floor(Math.max(land.posA.z, land.posB.z) / 16);
+      for (let x = minX; x <= maxX; x++) for (let z = minZ; z <= maxZ; z++) {
+        const key = `${land.dimid}:${x}:${z}`;
+        if (!this._chunkIndex.has(key)) this._chunkIndex.set(key, new Set());
+        this._chunkIndex.get(key)!.add(land.id);
+      }
     }
   }
 
@@ -161,6 +184,21 @@ export class Database {
   static getAll(): LandData[] {
     this.ensureLoaded();
     return Array.from(this._registry!.values());
+  }
+
+  static getAt(pos: LandPos, dimid: number): LandData | undefined {
+    this.ensureLoaded();
+    const candidates = this._chunkIndex.get(this.chunkKey(dimid, pos.x, pos.z));
+    if (!candidates) return undefined;
+    for (const id of candidates) {
+      const land = this._registry!.get(id);
+      if (!land) continue;
+      const minX = Math.min(land.posA.x, land.posB.x), maxX = Math.max(land.posA.x, land.posB.x);
+      const minY = Math.min(land.posA.y, land.posB.y), maxY = Math.max(land.posA.y, land.posB.y);
+      const minZ = Math.min(land.posA.z, land.posB.z), maxZ = Math.max(land.posA.z, land.posB.z);
+      if (pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY && pos.z >= minZ && pos.z <= maxZ) return land;
+    }
+    return undefined;
   }
 
   static async loadFromServer(): Promise<void> {
@@ -204,6 +242,7 @@ export class Database {
     const list = this._ownerIndex!.get(land.ownerplid) || [];
     list.push(land.id);
     this._ownerIndex!.set(land.ownerplid, list);
+    this.rebuildChunkIndex();
     this.flush();
   }
 
@@ -213,6 +252,8 @@ export class Database {
     const updated = await updateLand(land.id, { nickname: land.nickname, permissions: land.permissions, managers: land.managers, actorId });
     if (!updated) return false;
     this.ensureLoaded();
+    const current = this._registry!.get(updated.id);
+    if (current && (updated.version || 0) < (current.version || 0)) return true;
     this._registry!.set(updated.id, updated);
     this.rebuildOwnerIndex();
     return true;
@@ -232,6 +273,7 @@ export class Database {
     const idx = list.indexOf(landId);
     if (idx !== -1) list.splice(idx, 1);
     this._ownerIndex!.set(land.ownerplid, list);
+    this.rebuildChunkIndex();
     return result.refund ?? 0;
   }
 

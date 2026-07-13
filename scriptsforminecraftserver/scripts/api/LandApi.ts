@@ -46,6 +46,12 @@ export async function getLandAt(dimid: number, pos: LandPos): Promise<LandData |
   return parseLand(await HttpDB.get(`${PATH}/at/${dimid}/${pos.x}/${pos.y}/${pos.z}`));
 }
 
+export async function getLandsAtBatch(points: Array<{ dimid: number; x: number; y: number; z: number }>): Promise<Array<LandData | null>> {
+  const result = await HttpDB.requestJSON("Post", `${PATH}/at-batch`, { points });
+  if (result.status !== 200) return points.map(() => null);
+  try { return JSON.parse(result.body).lands || points.map(() => null); } catch { return points.map(() => null); }
+}
+
 export async function validateLand(request: CreateLandRequest): Promise<LandValidation> {
   const result = await HttpDB.requestJSON("Post", `${PATH}/validate`, request as unknown as Record<string, unknown>);
   if (result.status === 0) return { ok: false, error: "数据库服务不可用。" };

@@ -1121,6 +1121,20 @@ async function handle(req, res) {
       return;
     }
 
+    if (path === '/api/sfmc/lands/at-batch') {
+      if (method !== 'POST') { json(res, { success: false, error: 'not_found' }, 404); return; }
+      const data = await body(req);
+      if (!Array.isArray(data.points) || data.points.length > 200) { json(res, { success: false, error: 'invalid_points' }, 400); return; }
+      const results = data.points.map((point) => {
+        const dimension = Number(point.dimid), x = Number(point.x), y = Number(point.y), z = Number(point.z);
+        if (![dimension, x, y, z].every(Number.isFinite)) return null;
+        const rows = query("SELECT * FROM sfmc_lands WHERE dimension=? AND status='active' AND min_x<=? AND max_x>=? AND min_y<=? AND max_y>=? AND min_z<=? AND max_z>=? LIMIT 1", [dimension, x, x, y, y, z, z]);
+        return rows[0] ? mapLandRow(rows[0]) : null;
+      });
+      json(res, { lands: results });
+      return;
+    }
+
     if (path.startsWith('/api/sfmc/lands/')) {
       const id = decodeURIComponent(path.slice('/api/sfmc/lands/'.length));
       const rows = query('SELECT * FROM sfmc_lands WHERE id=?', [id]);

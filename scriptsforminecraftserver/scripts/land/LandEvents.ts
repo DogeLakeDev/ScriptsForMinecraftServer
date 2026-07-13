@@ -2,7 +2,7 @@
  *  土地插件 — 事件监听层
 \* ---------------------------------------- */
 
-import { world, Player } from "@minecraft/server";
+import { world, Player, system } from "@minecraft/server";
 import { LandCore } from "./LandCore";
 import { LandPos } from "./LandDatabase";
 import { Msg } from "../libs/Tools";
@@ -26,10 +26,17 @@ function isContainerBlock(typeId: string): boolean {
  * @returns true = 允许继续，false = 拦截
  */
 function checkLandPermission(player: Player, pos: LandPos, dimid: number, capability: Parameters<typeof canUseAt>[3]): boolean {
+  const started = Date.now();
   // 管理员/OP 跳过检查
-  if (player.hasTag("op") || player.hasTag("admin")) return true;
+  if (player.hasTag("op") || player.hasTag("admin")) { recordMetric(Date.now() - started); return true; }
 
-  return canUseAt(player, pos, dimid, capability);
+  const result = canUseAt(player, pos, dimid, capability);
+  recordMetric(Date.now() - started);
+  return result;
+}
+
+function recordMetric(durationMs: number) {
+  LandEvents.recordPermissionMetric(durationMs);
 }
 
 // ===== 注册事件 =====
@@ -37,11 +44,15 @@ function checkLandPermission(player: Player, pos: LandPos, dimid: number, capabi
 export class LandEvents {
   private static initialized = false;
   private static subscriptions: Array<any> = [];
+  private static scanRunId: number | undefined;
+  private static lastLandByPlayer = new Map<string, string | null>();
+  private static metrics = { count: 0, totalMs: 0, slowestMs: 0 };
 
   /** 注册事件（由 entry.ts 统一调用） */
   static registerEvents() {
     if (this.initialized) return;
     this.initialized = true;
+    this.scanRunId = system.runInterval(() => this.scanPlayerBoundaries(), 20);
 
     // 1. 放置方块拦截
     this.subscriptions.push(world.beforeEvents.playerPlaceBlock.subscribe((ev) => {
@@ -110,7 +121,33 @@ export class LandEvents {
     }));
   }
 
+  private static scanPlayerBoundaries() {
+    for (const player of world.getPlayers()) {
+      const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
+      const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+      const land = LandCore.getLandByPos(pos, dimid);
+      const current = land?.id || null;
+      const previous = this.lastLandByPlayer.get(player.id);
+      if (current !== previous) {
+        if (land) Msg.tips(`进入土地：${land.nickname || land.id}（所有者：${land.ownerName}）`, player);
+        else if (previous) Msg.tips("你已离开土地保护范围。", player);
+        this.lastLandByPlayer.set(player.id, current);
+      }
+    }
+  }
+
+  static getMetrics() { return { ...this.metrics, averageMs: this.metrics.count ? this.metrics.totalMs / this.metrics.count : 0 }; }
+
+  static recordPermissionMetric(durationMs: number) {
+    this.metrics.count++;
+    this.metrics.totalMs += durationMs;
+    this.metrics.slowestMs = Math.max(this.metrics.slowestMs, durationMs);
+  }
+
   static cleanup() {
+    if (this.scanRunId !== undefined) system.clearRun(this.scanRunId);
+    this.scanRunId = undefined;
+    this.lastLandByPlayer.clear();
     for (const s of this.subscriptions) {
       try { s.unsubscribe(); } catch {}
     }

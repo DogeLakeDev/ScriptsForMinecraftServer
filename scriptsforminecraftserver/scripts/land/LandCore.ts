@@ -168,7 +168,7 @@ export class LandCore {
   /** 获取某位置所在的土地 */
   static getLandByPos(pos: LandPos, dimid: number): LandData | undefined {
     if (!pos || dimid === undefined) return undefined;
-    return Database.getAll().find((land) => this.isPosInLand(pos, dimid, land));
+    return Database.getAt(pos, dimid);
   }
 
   /** 获取玩家拥有的所有土地 */

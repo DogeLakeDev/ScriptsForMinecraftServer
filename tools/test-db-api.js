@@ -104,6 +104,8 @@ async function main() {
     assert(overlap.status === 409 && overlap.body.error === 'overlap', '土地重叠检查拒绝冲突范围');
     const at = await request('GET', '/api/sfmc/lands/at/0/2/65/2');
     assert(at.status === 200 && at.body.land.id === created.body.land.id, '按坐标查询土地');
+    const batch = await request('POST', '/api/sfmc/lands/at-batch', { points: [{ dimid: 0, x: 2, y: 65, z: 2 }, { dimid: 0, x: 99, y: 65, z: 99 }] });
+    assert(batch.status === 200 && batch.body.lands[0]?.id === created.body.land.id && batch.body.lands[1] === null, '批量按坐标查询土地');
     const changed = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { nickname: 'Home' });
     assert(changed.status === 403, '土地更新拒绝缺少操作者身份');
     const changedOwner = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-1', nickname: 'Home' });

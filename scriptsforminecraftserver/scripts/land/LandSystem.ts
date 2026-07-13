@@ -7,9 +7,9 @@ import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { LandCore } from "./LandCore";
 import { LandGUI } from "../gui/LandGUI";
-import { LandEvents } from "./LandEvents";
 import { Msg } from "../libs/Tools";
 import { Database } from "./LandDatabase";
+import { LandEvents } from "./LandEvents";
 
 export class LandSystem {
   /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
@@ -26,6 +26,15 @@ export class LandSystem {
       "土地管理",
       "land"
     );
+
+    Command.register("land here", "land.use", (player: Player | undefined) => {
+      if (!player) return "§c该指令只能由玩家执行。";
+      const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
+      const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+      const land = LandCore.getLandByPos(pos, dimid);
+      if (!land) return "当前位置不在任何土地内。";
+      return `土地：${land.nickname || land.id}，所有者：${land.ownerName}，版本：${land.version || 1}`;
+    }, "查询当前土地", "land");
 
     Command.register(
       "land cancel",
