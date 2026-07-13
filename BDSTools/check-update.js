@@ -502,7 +502,7 @@ async function main() {
       `当前版本: ${currentVer}\n` +
       `最新版本: ${latestVer}\n` +
       `频道: ${CHANNEL === 'preview' ? '预览版' : '正式版'}\n\n` +
-      `服务器即将开始更新，请在线玩家尽快下线！`
+      `服务器即将开始更新~ 请耐心等待^(*￣(oo)￣)^`
     );
 
     // 更新日志
@@ -511,7 +511,7 @@ async function main() {
       const textParts = [
         `📋 更新内容概要\n\n`,
         changelog.text.slice(0, 1500),
-        `\n\n完整日志: https://feedback.minecraft.net/hc/en-us/sections/360001186971`,
+        `\n\n完整日志: ${CHANGELOG_BASE}`,
       ];
       if (changelog.imageBase64) {
         await qqSendImage(textParts.join(''), changelog.imageBase64);
