@@ -2,7 +2,7 @@
  *  土地插件 — 入口 / 命令注册
 \* ---------------------------------------- */
 
-import { Player } from "@minecraft/server";
+import { Player, system } from "@minecraft/server";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { LandCore } from "./LandCore";
@@ -12,6 +12,7 @@ import { Database } from "./LandDatabase";
 import { LandEvents } from "./LandEvents";
 
 export class LandSystem {
+  private static refreshRunId: number | undefined;
   /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
   static registerCommandsAndPermissions() {
     Permission.register("land.use", Permission.Any);
@@ -73,6 +74,15 @@ export class LandSystem {
 
   static init() {
     void Database.loadFromServer();
+    this.refreshRunId = system.runInterval(() => {
+      LandCore.clearExpiredSessions();
+      void Database.refresh();
+    }, 20 * 60);
+  }
+
+  static cleanup(): void {
+    if (this.refreshRunId !== undefined) system.clearRun(this.refreshRunId);
+    this.refreshRunId = undefined;
   }
 }
 
@@ -83,6 +93,8 @@ function handlePosCommand(player: Player, which: 1 | 2) {
 
   const session = LandCore.getSession(plid);
   if (!session) return Msg.error("你没有正在进行的土地申请。", player);
+  if (session.dimensionId !== undefined && session.dimensionId !== dimid) return Msg.error("土地选点不能跨维度，请在同一维度重新选择。", player);
+  if (session.dimensionId === undefined) LandCore.setDimension(plid, dimid);
 
   if (which === 1) {
     LandCore.setPos1(plid, pos);

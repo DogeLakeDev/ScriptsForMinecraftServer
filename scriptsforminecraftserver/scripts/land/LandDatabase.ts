@@ -99,6 +99,7 @@ export class Database {
   private static _registry: Map<string, LandData> | null = null; // landId → LandData
   private static _ownerIndex: Map<string, string[]> | null = null; // plid → landId[]
   private static _loading: Promise<void> | null = null;
+  private static _hasAuthoritativeSnapshot = false;
   private static _chunkIndex = new Map<string, Set<string>>();
 
   // ── 内部工具 ──
@@ -205,15 +206,20 @@ export class Database {
     if (this._loading) return this._loading;
     this._loading = import("../api/LandApi").then(async ({ getAllLands }) => {
       const lands = await getAllLands();
+      if (lands === null) {
+        if (!this._registry) this._registry = new Map();
+        return;
+      }
+      this._hasAuthoritativeSnapshot = true;
       this._registry = new Map(lands.map((land) => [land.id, land]));
       this.rebuildOwnerIndex();
     }).finally(() => { this._loading = null; });
     return this._loading;
   }
 
+  static hasAuthoritativeSnapshot(): boolean { return this._hasAuthoritativeSnapshot; }
+
   static async refresh(): Promise<void> {
-    this._registry = null;
-    this._ownerIndex = null;
     await this.loadFromServer();
   }
 
@@ -257,7 +263,7 @@ export class Database {
   /** 更新土地 */
   static async update(land: LandData, actorId = land.ownerplid): Promise<boolean> {
     const { updateLand } = await import("../api/LandApi");
-    const updated = await updateLand(land.id, { nickname: land.nickname, permissions: land.permissions, managers: land.managers, actorId });
+    const updated = await updateLand(land.id, { nickname: land.nickname, permissions: land.permissions, actorId });
     if (!updated) return false;
     this.ensureLoaded();
     const current = this._registry!.get(updated.id);
@@ -272,6 +278,11 @@ export class Database {
     const { deleteLand } = await import("../api/LandApi");
     const result = await deleteLand(landId, actorId);
     if (!result.ok) return false;
+    if (result.balance !== undefined) {
+      const { Money } = await import("../libs/Money");
+      const player = (await import("@minecraft/server")).world.getPlayers().find((item) => item.id === actorId);
+      if (player) Money.setCached(player, result.balance);
+    }
     this.ensureLoaded();
     const land = this._registry!.get(landId);
     if (!land) return false;

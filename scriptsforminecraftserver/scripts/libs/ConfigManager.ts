@@ -49,6 +49,7 @@ export class ConfigManager {
     this._initialized = true;
     await HttpDB.checkHealth();
     await this.reloadAll();
+    HttpDB.setAuthToken(this.getSetting("db_auth_token", ""));
     this._syncRuntimeFlags();
     this._ready = true;
     console.log("[ConfigManager] 配置已加载");

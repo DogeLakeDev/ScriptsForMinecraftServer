@@ -34,7 +34,7 @@ export class LandGUI {
   static showMainMenu(player: Player): void {
     const gui = new LandGUI(player);
     const session = LandCore.getSession(player.id);
-    if (session) gui.nav.state.gui.application = { ...session, dimensionId: dimensionId(player) };
+    if (session) gui.nav.state.gui.application = { ...session, dimensionId: session.dimensionId ?? dimensionId(player) };
     void getInvites(player.id).then((invites) => {
       gui.state.invites = invites;
       return gui.nav.start("home");
@@ -76,7 +76,7 @@ export class LandGUI {
     ]));
     if (land) page.button("当前土地", () => this.openLand(land, "current"));
     page.button("我的土地", () => void this.nav.rebuild("landList"));
-    page.button(application?.pos1 || application?.pos2 ? "继续申请" : "申请土地", () => void this.nav.rebuild("application"));
+    page.button(application?.pos1 || application?.pos2 ? "继续申请" : "申请土地", () => void this.openApplication());
     page.button(`收到的邀请${this.state.invites.length ? ` (${this.state.invites.length})` : ""}`, () => void this.loadInvites());
   }
 
@@ -90,7 +90,7 @@ export class LandGUI {
   private buildLandList(page: any): void {
     const lands = LandCore.getPlayerLands(this.player.id);
     page.label(ListFormInfo([`拥有 §e${lands.length}§r / ${Database.getConfig().maxLandsPerPlayer} 块土地。`]));
-    if (!lands.length) { page.label("你还没有土地。"); page.button("申请土地", () => void this.nav.rebuild("application")); return; }
+    if (!lands.length) { page.label("你还没有土地。"); page.button("申请土地", () => void this.openApplication()); return; }
     for (const land of lands) {
       const info = LandCore.getCubeInfo(land.posA, land.posB);
       page.button(`${land.nickname || land.id}\n${LandCore.getDimensionName(land.dimid)} · ${info.square} 格 · ${(land.members || []).length} 名成员`, () => this.openLand(land, "landDetail"));
@@ -236,8 +236,9 @@ export class LandGUI {
 
   private buildApplication(page: any): void {
     const status = new FormStatus(page);
-    const session = LandCore.getSession(this.player.id);
-    const application = this.state.application || { ...session, dimensionId: dimensionId(this.player) };
+    // Opening the application page starts the selection session when needed.
+    const session = LandCore.getSession(this.player.id) || (LandCore.initSession(this.player.id), LandCore.getSession(this.player.id));
+    const application = this.state.application || { ...session, dimensionId: session?.dimensionId ?? dimensionId(this.player) };
     this.state.application = application;
     const body = [`第一点：${application.pos1 ? `(${application.pos1.x}, ${application.pos1.y}, ${application.pos1.z})` : "未设置"}`, `第二点：${application.pos2 ? `(${application.pos2.x}, ${application.pos2.y}, ${application.pos2.z})` : "未设置"}`];
     page.label(ListFormInfo(body));
@@ -250,7 +251,7 @@ export class LandGUI {
         if (!result.ok) throw new Error(result.msg || "validation failed");
         const land = await LandCore.createLand(this.player, application.pos1!, application.pos2!, application.dimensionId!);
         if (!land) throw new Error("purchase failed");
-        this.state.application = undefined; this.nav.state.selectedLandId = land.id;
+        this.state.application = undefined; this.state.selectedLandId = land.id;
         await this.nav.replace("landDetail");
       }));
     } else {
@@ -265,8 +266,15 @@ export class LandGUI {
   }
 
   private openLand(land: LandData, section: string): void {
-    this.nav.state.selectedLandId = land.id;
+    this.state.selectedLandId = land.id;
     void this.nav.rebuild(section);
+  }
+
+  private openApplication(): void {
+    if (!LandCore.getSession(this.player.id)) LandCore.initSession(this.player.id);
+    const session = LandCore.getSession(this.player.id);
+    this.state.application = session ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player) } : undefined;
+    void this.nav.rebuild("application");
   }
 
   private async removeMember(land: LandData, memberId: string, status: FormStatus): Promise<void> {

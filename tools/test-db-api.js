@@ -130,6 +130,8 @@ async function main() {
     assert(adminInvite.status === 403, '普通管理员不能邀请管理员');
     const memberRole = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members/player-2`, { actorId: 'player-1', role: 'container' });
     assert(memberRole.status === 200 && memberRole.body.land.members.some((member) => member.player_id === 'player-2' && member.role === 'container'), '所有者可以调整普通成员角色');
+    const renamedWithMember = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-1', nickname: 'Home 2' });
+    assert(renamedWithMember.status === 200 && renamedWithMember.body.land.members.some((member) => member.player_id === 'player-2' && member.role === 'container'), '普通土地更新不会升级成员角色');
     const adminRole = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members/player-2`, { actorId: 'player-2', role: 'admin' });
     assert(adminRole.status === 403, '普通管理员不能提升成员为管理员');
     const transferred = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, { actorId: 'player-1', targetId: 'player-2', targetName: 'PlayerTwo' });

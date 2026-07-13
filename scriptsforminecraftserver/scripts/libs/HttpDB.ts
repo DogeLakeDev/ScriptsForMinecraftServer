@@ -18,6 +18,9 @@ const TIMEOUT = 3; // HTTP 请求超时（秒）
 export class HttpDB {
   private static available = true;
   private static _lastErrorLog = 0;
+  private static authToken = "";
+
+  static setAuthToken(token: string): void { this.authToken = token.trim(); }
 
   static isAvailable(): boolean {
     return this.available;
@@ -83,6 +86,7 @@ export class HttpDB {
         req.body = JSON.stringify(bodyData);
         req.addHeader("Content-Type", "application/json");
       }
+      if (this.authToken) req.addHeader("Authorization", `Bearer ${this.authToken}`);
 
       const res = await http.request(req);
       this.available = true;

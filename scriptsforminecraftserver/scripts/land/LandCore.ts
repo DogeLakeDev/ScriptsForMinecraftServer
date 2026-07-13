@@ -20,6 +20,8 @@ export interface CubeInfo {
 export interface PlayerSession {
   pos1?: LandPos;
   pos2?: LandPos;
+  dimensionId?: number;
+  updatedAt: number;
 }
 
 export interface ValidationResult {
@@ -49,7 +51,8 @@ export class LandCore {
    * @returns 是否成功初始化会话资源
    */
   static initSession(plid: string): boolean {
-    return this.sessions.set(plid, {} as PlayerSession) ? true : false;
+    this.sessions.set(plid, { updatedAt: Date.now() });
+    return true;
   }
 
   /**
@@ -62,6 +65,7 @@ export class LandCore {
     let s = this.getSession(plid);
     if (s) {
       s.pos1 = pos;
+      s.updatedAt = Date.now();
       this.sessions.set(plid, s);
     }
     return s;
@@ -77,6 +81,7 @@ export class LandCore {
     let s = this.getSession(plid);
     if (s) {
       s.pos2 = pos;
+      s.updatedAt = Date.now();
       this.sessions.set(plid, s);
     }
     return s;
@@ -99,6 +104,19 @@ export class LandCore {
   static hasBothPos(plid: string): boolean {
     const s = this.sessions.get(plid);
     return !!s && !!s.pos1 && !!s.pos2;
+  }
+
+  static setDimension(plid: string, dimensionId: number): PlayerSession | undefined {
+    const session = this.getSession(plid);
+    if (!session) return undefined;
+    session.dimensionId = dimensionId;
+    session.updatedAt = Date.now();
+    return session;
+  }
+
+  static clearExpiredSessions(maxAgeMs = 30 * 60 * 1000): void {
+    const now = Date.now();
+    for (const [id, session] of this.sessions) if (now - session.updatedAt > maxAgeMs) this.sessions.delete(id);
   }
 
   // ── 方块信息计算 ──
@@ -237,9 +255,10 @@ export class LandCore {
     const n = this.normalize(posA, posB);
     const price = this.calculatePrice(n.posA, n.posB);
     const result = await createLandOnServer({ ownerId: plid, ownerName: player.name, dimid, posA: n.posA, posB: n.posB });
-    if (!result.land) return null;
+    if (!result.land) throw new Error(formatCreateError(result.error));
     const land = result.land;
     Database.add(land);
+    if (result.balance !== undefined) Money.setCached(player, result.balance);
     this.clearSession(plid);
     return land;
   }
@@ -289,4 +308,15 @@ export class LandCore {
       `  - §l价格: §r${price} ${Money.UNIT}`,
     ].join("\n");
   }
+}
+
+function formatCreateError(error?: string): string {
+  const messages: Record<string, string> = {
+    insufficient_funds: "节操不足，无法购买这块土地。",
+    land_limit: "你已达到土地数量上限。",
+    overlap: "该区域与其他土地重叠。",
+    area_out_of_range: "土地面积不符合限制。",
+    unauthorized: "数据库服务拒绝了本次操作。",
+  };
+  return messages[error || ""] || `土地创建失败：${error || "数据库服务无响应"}`;
 }

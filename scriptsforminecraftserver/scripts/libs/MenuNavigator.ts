@@ -110,7 +110,8 @@ export class MenuNavigator {
       await task();
     } catch (error) {
       console.warn(`[MenuNavigator] task failed: ${(error as Error).message || error}`);
-      status.fail(onError);
+      const message = error instanceof Error && error.message ? error.message : onError;
+      status.fail(message);
     } finally {
       this.taskRunning = false;
     }

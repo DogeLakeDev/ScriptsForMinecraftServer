@@ -735,6 +735,9 @@ async function initDB() {
       FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
     );
   `);
+  const landColumns = db.prepare("PRAGMA table_info('sfmc_lands')").all().map((column) => column.name);
+  if (!landColumns.includes('purchase_price')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN purchase_price INTEGER NOT NULL DEFAULT 0");
+  if (!landColumns.includes('refund_rate')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN refund_rate REAL NOT NULL DEFAULT 0.7");
   // 从 /configs/ JSON 文件导入初始配置（仅空表时执行）
   {
       const cfgDir = path.join(PROJECT_ROOT, 'configs');
@@ -897,11 +900,12 @@ function mapLandRow(row) {
   const members = query('SELECT player_id, player_name_snapshot, role, expires_at FROM sfmc_land_members WHERE land_id=? ORDER BY created_at ASC', [row.id]);
   return {
     id: row.id, ownerplid: row.owner_player_id, ownerName: row.owner_name_snapshot,
-    managers: members.map((m) => m.player_id), members,
+    managers: members.filter((m) => m.role === 'admin').map((m) => m.player_id), members,
     dimid: row.dimension,
     posA: { x: row.min_x, y: row.min_y, z: row.min_z }, posB: { x: row.max_x, y: row.max_y, z: row.max_z },
     permissions: { ...defaultLandPermissions(), ...JSON.parse(row.protection_profile || '{}') }, nickname: row.name,
     createdAt: row.created_at, status: row.status, version: row.version,
+    purchasePrice: row.purchase_price ?? 0, refundRate: row.refund_rate ?? 0.7,
   };
 }
 
@@ -917,10 +921,10 @@ function auditLand(landId, actorId, action, payload = {}) {
 }
 
 function canManageLand(landId, actorId) {
-  const land = query('SELECT owner_player_id FROM sfmc_lands WHERE id=?', [landId])[0];
+  const land = query("SELECT owner_player_id FROM sfmc_lands WHERE id=? AND status='active'", [landId])[0];
   if (!land || !actorId) return false;
   if (land.owner_player_id === String(actorId)) return true;
-  const member = query("SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=? AND role IN ('owner','admin')", [landId, String(actorId)])[0];
+  const member = query("SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=? AND role IN ('owner','admin') AND (expires_at IS NULL OR expires_at>?)", [landId, String(actorId), Date.now()])[0];
   return !!member;
 }
 
@@ -991,17 +995,35 @@ function validateLandInput(data) {
   if (count >= cfg.maxLandsPerPlayer) return { ok: false, error: 'land_limit', status: 409 };
   const overlap = query("SELECT id FROM sfmc_lands WHERE dimension=? AND status='active' AND min_x<=? AND max_x>=? AND min_y<=? AND max_y>=? AND min_z<=? AND max_z>=? LIMIT 1", [n.dimid, n.maxX, n.minX, n.maxY, n.minY, n.maxZ, n.minZ]);
   if (overlap.length) return { ok: false, error: 'overlap', status: 409 };
-  const price = Math.max(0, Math.floor((square * 8 + height * 20) * Number(cfg.discount || 1)));
-  return { ok: true, price, square, volume, normalized: n };
+  const basePrice = evaluateLandFormula(String(cfg.priceFormula || '{square}*8+{height}*20'), { square, volume, height, width, length });
+  const price = Math.max(0, Math.floor(basePrice * Number(cfg.discount || 1)));
+  let refundRate = 0.7;
+  try { if (settings) refundRate = Number(JSON.parse(settings.value).refundRate ?? refundRate); } catch {}
+  return { ok: true, price, square, volume, refundRate, normalized: n };
+}
+
+function evaluateLandFormula(formula, values) {
+  const expression = formula.replace(/\{(square|volume|height|width|length)\}/g, (_, key) => String(Number(values[key]) || 0));
+  if (!/^[0-9+\-*/().\s]+$/.test(expression)) return values.square * 8 + values.height * 20;
+  const tokens = expression.match(/\d+(?:\.\d+)?|[()+\-*/]/g) || [];
+  let index = 0;
+  const primary = () => {
+    const token = tokens[index++];
+    if (token === '(') { const value = additive(); index++; return value; }
+    if (token === '-') return -primary();
+    return Number(token);
+  };
+  const multiplicative = () => { let value = primary(); while (tokens[index] === '*' || tokens[index] === '/') { const op = tokens[index++]; const rhs = primary(); value = op === '*' ? value * rhs : value / rhs; } return value; };
+  const additive = () => { let value = multiplicative(); while (tokens[index] === '+' || tokens[index] === '-') { const op = tokens[index++]; const rhs = multiplicative(); value = op === '+' ? value + rhs : value - rhs; } return value; };
+  try { const result = additive(); return Number.isFinite(result) && result >= 0 ? result : values.square * 8 + values.height * 20; } catch { return values.square * 8 + values.height * 20; }
 }
 
 function landPrice(row) {
+  const purchasePrice = Number(row.purchase_price || 0);
+  if (purchasePrice > 0) return Math.floor(purchasePrice * Math.max(0, Math.min(1, Number(row.refund_rate ?? 0.7))));
   const width = row.max_x - row.min_x + 1, length = row.max_z - row.min_z + 1, height = row.max_y - row.min_y + 1;
-  const settings = query("SELECT value FROM sfmc_config_settings WHERE key='land:config'")[0];
-  let refundRate = 0.7;
-  try { if (settings) refundRate = Number(JSON.parse(settings.value).refundRate ?? refundRate); } catch {}
   const price = Math.max(0, Math.floor(width * length * 8 + height * 20));
-  return Math.floor(price * Math.max(0, Math.min(1, refundRate)));
+  return Math.floor(price * 0.7);
 }
 
 function createLandTransaction(data) {
@@ -1015,15 +1037,16 @@ function createLandTransaction(data) {
     const locked = validateLandInput(data);
     if (!locked.ok) { db.exec('ROLLBACK'); return locked; }
     const account = ensureEconomyAccount(String(data.ownerId), String(data.ownerName || ''));
-    if (account.balance < check.price) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: account.balance, price: check.price, status: 409 }; }
-    query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [check.price, now, account.player_id, check.price]);
-    query('INSERT INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), n.dimid, n.minX, n.minY, n.minZ, n.maxX, n.maxY, n.maxZ, now, now]);
+    if (account.balance < locked.price) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: account.balance, price: locked.price, status: 409 }; }
+    query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [locked.price, now, account.player_id, locked.price]);
+    const refundRate = Math.max(0, Math.min(1, Number(check.refundRate ?? 0.7)));
+    query('INSERT INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, created_at, updated_at, purchase_price, refund_rate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), n.dimid, n.minX, n.minY, n.minZ, n.maxX, n.maxY, n.maxZ, now, now, locked.price, refundRate]);
     query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), 'owner', now]);
-    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.purchase', String(data.ownerId), String(data.ownerId), null, check.price, account.balance, account.balance - check.price, 'land', id, '购买土地', now]);
-    auditLand(id, String(data.ownerId), 'land.create', { price: check.price });
+    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.purchase', String(data.ownerId), String(data.ownerId), null, locked.price, account.balance, account.balance - locked.price, 'land', id, '购买土地', now]);
+    auditLand(id, String(data.ownerId), 'land.create', { price: locked.price });
     const row = query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0];
     db.exec('COMMIT');
-    return { ok: true, row, price: check.price };
+    return { ok: true, row, price: locked.price, balance: account.balance - locked.price };
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch {}
     return { ok: false, error: error.message || 'create_failed', status: 500 };
@@ -1164,7 +1187,7 @@ async function handle(req, res) {
         if (!invite) { json(res, { success: false, error: 'invite_not_found' }, 404); return; }
         const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [invite.land_id])[0];
         if (!land) { json(res, { success: false, error: 'not_found' }, 404); return; }
-        query('INSERT OR REPLACE INTO sfmc_land_members (land_id, player_id, role, created_at, expires_at) VALUES (?,?,?,?,?)', [invite.land_id, inviteeId, invite.role, Date.now(), null]);
+         query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at, expires_at) VALUES (?,?,?,?,?,?) ON CONFLICT(land_id, player_id) DO UPDATE SET player_name_snapshot=excluded.player_name_snapshot, role=excluded.role, expires_at=excluded.expires_at', [invite.land_id, inviteeId, String(data.playerName || inviteeId), invite.role, Date.now(), null]);
         query("UPDATE sfmc_land_invites SET status='accepted' WHERE id=?", [invite.id]);
         query('UPDATE sfmc_lands SET updated_at=?, version=version+1 WHERE id=?', [Date.now(), invite.land_id]);
         auditLand(invite.land_id, inviteeId, 'invite.accept', { inviteId: invite.id, role: invite.role });
@@ -1206,7 +1229,7 @@ async function handle(req, res) {
       const playerId = decodeURIComponent(tail[2] || '');
       if (tail.length !== 3 || tail[1] !== 'members' || method !== 'PATCH') { json(res, { success: false, error: 'not_found' }, 404); return; }
       const data = await body(req);
-      const currentRole = query('SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=?', [id, playerId])[0]?.role;
+      const currentRole = query('SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=? AND (expires_at IS NULL OR expires_at>?)', [id, playerId, Date.now()])[0]?.role;
       if (!currentRole || !data.actorId || !canManageMember(id, data.actorId, currentRole)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
       const nextRole = String(data.role || '');
       if (!['builder', 'container', 'visitor', 'redstone', 'entity', 'admin'].includes(nextRole)) { json(res, { success: false, error: 'invalid_role' }, 400); return; }
@@ -1221,14 +1244,15 @@ async function handle(req, res) {
     if (path.startsWith('/api/sfmc/lands/') && path.endsWith('/transfer')) {
       const id = decodeURIComponent(path.slice('/api/sfmc/lands/'.length, -'/transfer'.length));
       const data = await body(req);
-      const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [id])[0];
-      if (!land) { json(res, { success: false, error: 'not_found' }, 404); return; }
-      if (method !== 'POST' || data.actorId !== land.owner_player_id || !data.targetId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+      if (method !== 'POST' || !data.actorId || !data.targetId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
       db.exec('BEGIN IMMEDIATE');
       try {
-        query('UPDATE sfmc_lands SET owner_player_id=?, owner_name_snapshot=?, updated_at=?, version=version+1 WHERE id=?', [String(data.targetId), String(data.targetName || ''), Date.now(), id]);
-        query('UPDATE sfmc_land_members SET role=\'admin\' WHERE land_id=? AND player_id=?', [id, land.owner_player_id]);
-        query('INSERT OR REPLACE INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)', [id, String(data.targetId), String(data.targetName || ''), 'owner', Date.now()]);
+        const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [id])[0];
+        if (!land) { db.exec('ROLLBACK'); json(res, { success: false, error: 'not_found' }, 404); return; }
+        if (String(data.actorId) !== String(land.owner_player_id)) { db.exec('ROLLBACK'); json(res, { success: false, error: 'forbidden' }, 403); return; }
+        query('UPDATE sfmc_lands SET owner_player_id=?, owner_name_snapshot=?, updated_at=?, version=version+1 WHERE id=? AND status=\'active\' AND owner_player_id=?', [String(data.targetId), String(data.targetName || ''), Date.now(), id, String(data.actorId)]);
+        query('UPDATE sfmc_land_members SET role=\'admin\' WHERE land_id=? AND role=\'owner\'', [id]);
+        query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?) ON CONFLICT(land_id, player_id) DO UPDATE SET player_name_snapshot=excluded.player_name_snapshot, role=excluded.role, expires_at=NULL', [id, String(data.targetId), String(data.targetName || ''), 'owner', Date.now()]);
         auditLand(id, data.actorId, 'land.transfer', { targetId: String(data.targetId) });
         db.exec('COMMIT');
         json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
@@ -1293,32 +1317,29 @@ async function handle(req, res) {
         if (data.nickname !== undefined) { sets.push('name=?'); values.push(String(data.nickname)); }
         if (data.permissions !== undefined) { sets.push('protection_profile=?'); values.push(JSON.stringify(data.permissions || {})); }
         values.push(id); query(`UPDATE sfmc_lands SET ${sets.join(', ')} WHERE id=? AND status='active'`, values);
-        if (Array.isArray(data.managers)) {
-          query('DELETE FROM sfmc_land_members WHERE land_id=? AND player_id<>?', [id, rows[0].owner_player_id]);
-          for (const playerId of data.managers) {
-            if (String(playerId) === rows[0].owner_player_id) continue;
-            query('INSERT OR IGNORE INTO sfmc_land_members (land_id, player_id, role, created_at) VALUES (?,?,?,?)', [id, String(playerId), 'admin', Date.now()]);
-          }
-        }
         auditLand(id, String(data.actorId), 'land.update', { fields: Object.keys(data) });
         json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
         return;
       }
       if (method === 'DELETE') {
         const data = await body(req);
-        if (data.actorId !== rows[0].owner_player_id) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        if (!data.actorId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
         db.exec('BEGIN IMMEDIATE');
         try {
-        const refund = landPrice(rows[0]);
-        const account = ensureEconomyAccount(rows[0].owner_player_id, rows[0].owner_name_snapshot);
-        query("UPDATE sfmc_lands SET status='deleted', updated_at=?, version=version+1 WHERE id=? AND status='active'", [Date.now(), id]);
+        const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [id])[0];
+        if (!land || String(data.actorId) !== String(land.owner_player_id)) { db.exec('ROLLBACK'); json(res, { success: false, error: 'forbidden' }, 403); return; }
+        const refund = landPrice(land);
+        const account = ensureEconomyAccount(land.owner_player_id, land.owner_name_snapshot);
+        const deleted = query("UPDATE sfmc_lands SET status='deleted', updated_at=?, version=version+1 WHERE id=? AND status='active' AND owner_player_id=?", [Date.now(), id, String(data.actorId)]);
+        if (!deleted.changes) { db.exec('ROLLBACK'); json(res, { success: false, error: 'already_deleted' }, 409); return; }
         if (refund > 0) {
-          query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [refund, Date.now(), rows[0].owner_player_id]);
-          query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.refund', data.actorId, null, rows[0].owner_player_id, refund, account.balance, account.balance + refund, 'land', id, '删除土地退款', Date.now()]);
+          query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [refund, Date.now(), land.owner_player_id]);
+          query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.refund', data.actorId, null, land.owner_player_id, refund, account.balance, account.balance + refund, 'land', id, '删除土地退款', Date.now()]);
         }
+        const balance = ensureEconomyAccount(land.owner_player_id).balance;
         auditLand(id, data.actorId, 'land.delete', { refund });
         db.exec('COMMIT');
-        json(res, { success: true, refund });
+        json(res, { success: true, refund, balance });
         } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'delete_failed' }, 500); }
         return;
       }

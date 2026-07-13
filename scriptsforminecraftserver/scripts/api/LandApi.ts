@@ -26,10 +26,13 @@ export interface LandValidation {
   price?: number;
 }
 
-export async function getAllLands(): Promise<LandData[]> {
+export async function getAllLands(): Promise<LandData[] | null> {
   const body = await HttpDB.get(PATH);
-  if (!body) return [];
-  try { return JSON.parse(body).lands || []; } catch { return []; }
+  if (!body) return null;
+  try {
+    const lands = JSON.parse(body).lands;
+    return Array.isArray(lands) ? lands : null;
+  } catch { return null; }
 }
 
 export async function getLand(id: string): Promise<LandData | null> {
@@ -58,12 +61,12 @@ export async function validateLand(request: CreateLandRequest): Promise<LandVali
   try { return JSON.parse(result.body); } catch { return { ok: false, error: "数据库响应无效。" }; }
 }
 
-export async function createLand(request: CreateLandRequest): Promise<{ land: LandData | null; error?: string; price?: number }> {
+export async function createLand(request: CreateLandRequest): Promise<{ land: LandData | null; error?: string; price?: number; balance?: number }> {
   const result = await HttpDB.requestJSON("Post", PATH, request as unknown as Record<string, unknown>);
   if (result.status !== 200) {
-    try { const parsed = JSON.parse(result.body); return { land: null, error: parsed.error, price: parsed.price }; } catch { return { land: null, error: "土地创建失败。" }; }
+    try { const parsed = JSON.parse(result.body); return { land: null, error: parsed.error, price: parsed.price, balance: parsed.balance }; } catch { return { land: null, error: "土地创建失败。" }; }
   }
-  try { const parsed = JSON.parse(result.body); return { land: parsed.land || null, price: parsed.price }; } catch { return { land: null, error: "数据库响应无效。" }; }
+  try { const parsed = JSON.parse(result.body); return { land: parsed.land || null, price: parsed.price, balance: parsed.balance }; } catch { return { land: null, error: "数据库响应无效。" }; }
 }
 
 export async function updateLand(id: string, data: Partial<LandData> & { actorId?: string }): Promise<LandData | null> {
@@ -71,10 +74,10 @@ export async function updateLand(id: string, data: Partial<LandData> & { actorId
   return result.status === 200 ? parseLand(result.body) : null;
 }
 
-export async function deleteLand(id: string, actorId: string): Promise<{ ok: boolean; refund?: number }> {
+export async function deleteLand(id: string, actorId: string): Promise<{ ok: boolean; refund?: number; balance?: number }> {
   const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}`, { actorId });
   if (result.status !== 200) return { ok: false };
-  try { return { ok: true, refund: JSON.parse(result.body).refund || 0 }; } catch { return { ok: true }; }
+  try { const parsed = JSON.parse(result.body); return { ok: true, refund: parsed.refund || 0, balance: parsed.balance }; } catch { return { ok: true }; }
 }
 
 export async function inviteMember(id: string, actorId: string, playerId: string, role: string): Promise<boolean> {

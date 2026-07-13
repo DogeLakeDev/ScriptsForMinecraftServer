@@ -24,6 +24,7 @@ import { CreativeArea } from "./area/CreativeArea";
 import { SurvivalArea } from "./area/SurvivalArea";
 import { InventorySwitcher } from "./area/InventorySwitcher";
 import { LandSystem } from "./land/LandSystem";
+import { LandCore } from "./land/LandCore";
 import { LandEvents } from "./land/LandEvents";
 import { MoneyGUI } from "./gui/MoneyGUI";
 import { MainMenu } from "./gui/MainMenu";
@@ -87,7 +88,7 @@ ModuleRegistry.register({
     registerPermissions: () => LandSystem.registerCommandsAndPermissions(),
     registerEvents: () => LandEvents.registerEvents(),
     init: () => LandSystem.init(),
-    cleanup: () => LandEvents.cleanup(),
+    cleanup: () => { LandEvents.cleanup(); LandSystem.cleanup(); },
   },
 });
 
@@ -310,6 +311,7 @@ export class AddOnInit {
 
     world.afterEvents.playerLeave.subscribe((event) => {
       if (!guardEvent()) return;
+      LandCore.clearSession(event.playerId);
       if (ModuleRegistry.isActive("onlineTime")) {
         OnlineTime.getInstance().onPlayerLeave({ id: event.playerId });
       }

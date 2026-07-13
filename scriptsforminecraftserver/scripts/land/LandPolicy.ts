@@ -1,6 +1,6 @@
 import { Player } from "@minecraft/server";
 import { LandCore } from "./LandCore";
-import { LandData, LandRole, ROLE_PERMISSIONS, LandPermissions, LandPos } from "./LandDatabase";
+import { Database, LandData, LandRole, ROLE_PERMISSIONS, LandPermissions, LandPos } from "./LandDatabase";
 
 export type LandCapability = "place" | "break" | "container" | "door" | "button" | "redstone" | "attack_entity" | "interact_entity" | "pickup_item";
 
@@ -11,7 +11,8 @@ const DEFAULT_FIELD: Record<LandCapability, keyof LandPermissions> = {
 
 export function getPlayerRole(land: LandData, playerId: string): LandRole | null {
   if (land.ownerplid === playerId) return "owner";
-  const member = (land as LandData & { members?: Array<{ player_id: string; role: LandRole }> }).members?.find((m) => m.player_id === playerId);
+  const now = Date.now();
+  const member = (land as LandData & { members?: Array<{ player_id: string; role: LandRole; expires_at?: number | null }> }).members?.find((m) => m.player_id === playerId && (m.expires_at == null || m.expires_at > now));
   return member?.role || (land.managers.includes(playerId) ? "admin" : null);
 }
 
@@ -29,6 +30,7 @@ export function canUse(land: LandData, playerId: string, capability: LandCapabil
 
 export function canUseAt(player: Player, pos: LandPos, dimid: number, capability: LandCapability): boolean {
   if (player.hasTag("op") || player.hasTag("admin")) return true;
+  if (!Database.hasAuthoritativeSnapshot()) return false;
   const land = LandCore.getLandByPos(pos, dimid);
   return !land || canUse(land, player.id, capability);
 }

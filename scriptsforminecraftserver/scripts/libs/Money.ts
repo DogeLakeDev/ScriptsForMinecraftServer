@@ -9,6 +9,7 @@ export class Money {
    */
   private static cache = new Map<string, number>();
   static get(player: Player): number { return this.cache.get(player.id) ?? 0; }
+  static setCached(player: Player, balance: number): void { this.cache.set(player.id, balance); }
   static async load(player: Player): Promise<number> {
     const account = await getEconomyAccount(player.id, player.name);
     const balance = account?.balance ?? 0;
