@@ -5,12 +5,12 @@
 - ~~数据完全存在进程内 `Map`，重启丢失。~~
 - ~~创建土地和扣款不是事务。~~（L1 已将土地创建、重叠检查和土地状态写入 SQLite 事务；Minecraft 计分板经济仍由 SAPI 负责扣款。）
 - 查询土地使用全量遍历，土地数量增加后性能会下降。
-- 权限只有 4 个布尔值，无法覆盖真实管理需求。
-- `managers` 同时承担“成员”和“管理员”概念，模型不清晰。
-- 删除土地时，管理员也可以获得退款，存在经济权限问题。
+- ~~权限只有 4 个布尔值，无法覆盖真实管理需求。~~（L2 已加入角色能力和土地设施权限。）
+- ~~`managers` 同时承担“成员”和“管理员”概念，模型不清晰。~~（`members.role` 为权威模型，`managers` 仅保留为兼容投影。）
+- ~~删除土地时，管理员也可以获得退款，存在经济权限问题。~~
 - ~~价格公式使用 `Function()` 执行，不应保留。~~
 - ~~领地重叠检查、范围检查、土地创建都在 SAPI 本地完成，无法防止并发创建。~~
-- 保护事件只覆盖放置、破坏和容器打开，实体交互、按钮、门、红石、桶、活塞、火焰、流体等仍可能绕过保护。
+- ~~保护事件已扩展到可靠的方块交互、实体交互和爆炸拦截。~~桶、活塞、火焰、流体等仍受当前 SAPI 事件能力限制，待后续专项处理。
 
 **推荐的新结构**
 
@@ -76,7 +76,7 @@ sfmc_land_members
   created_at
   expires_at
 
-sfmc_land_permissions
+  ~~sfmc_land_permissions~~
   land_id
   permission_key
   subject_type
@@ -84,7 +84,7 @@ sfmc_land_permissions
   allowed
   updated_at
 
-sfmc_land_invites
+  ~~sfmc_land_invites~~
   id
   land_id
   inviter_id
@@ -103,7 +103,7 @@ sfmc_land_transactions
   reason
   created_at
 
-sfmc_land_audit_logs
+  ~~sfmc_land_audit_logs~~
   id
   land_id
   actor_id
@@ -349,10 +349,10 @@ DELETE /api/sfmc/lands/:id/members/:playerId
 
 **阶段 L2：权限完整化**
 
-- 角色和权限模型。
-- 邀请、管理者、转让。
-- 扩展容器、门、按钮、实体交互保护。
-- 增加审计日志。
+- ~~角色和权限模型。~~
+- ~~邀请、管理者、转让。~~
+- ~~扩展容器、门、按钮、实体交互保护。~~
+- ~~增加审计日志。~~
 
 **阶段 L3：体验和性能**
 

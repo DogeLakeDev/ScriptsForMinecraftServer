@@ -4,6 +4,7 @@ import { LandCore, ValidationResult } from "../land/LandCore";
 import { Database, LandData, LandPos } from "../land/LandDatabase";
 import { Msg, ListFormInfo } from "../libs/Tools";
 import { Money } from "../libs/Money";
+import { canManage } from "../land/LandPolicy";
 
 export class LandGUI {
   private nav: MenuNavigator;
@@ -90,7 +91,7 @@ export class LandGUI {
     const plid = this.player.id;
     const isOwner = LandCore.isOwner(land, plid);
     const isMgr = LandCore.isManager(land, plid);
-    const canManage = isOwner || isMgr;
+    const canManageLand = canManage(land, plid, "manage_permissions");
     const name = land.nickname || land.id;
     const info = LandCore.getCubeInfo(land.posA, land.posB);
     const ownerName = land.ownerName || "§7未知§r";
@@ -106,7 +107,7 @@ export class LandGUI {
       ])
     );
 
-    if (!canManage) {
+    if (!canManageLand) {
       page.label("你没有权限管理此土地。");
       return;
     }
@@ -140,7 +141,7 @@ export class LandGUI {
       land.permissions.allow_destroy = allowDestroy.getData();
       land.permissions.attack_entity = attackEntity.getData();
       land.permissions.open_container = openContainer.getData();
-       void Database.update(land);
+       void Database.update(land, this.player.id);
       status.ok("土地保护设置已更新。");
       this.nav.rebuild("landManage");
     });
@@ -189,7 +190,7 @@ export class LandGUI {
           return;
         }
         land.managers.push(p.id);
-         void Database.update(land);
+          void Database.update(land, this.player.id);
         status.ok(`已将 ${p.name} 添加为管理者。`);
         this.nav.rebuild("managerEditor");
       });
@@ -215,7 +216,7 @@ export class LandGUI {
         const idx = land.managers.indexOf(m);
         if (idx !== -1) {
           land.managers.splice(idx, 1);
-           void Database.update(land);
+            void Database.update(land, this.player.id);
           status.ok("已移除该管理者。");
         }
         this.nav.rebuild("managerEditor");
@@ -235,7 +236,7 @@ export class LandGUI {
     page.button("确认", () => {
       const val = name.getData().trim();
       land.nickname = val;
-       void Database.update(land);
+       void Database.update(land, this.player.id);
       status.ok(val ? `土地已重命名为 ${val}。` : "土地名称已恢复默认。");
       this.nav.rebuild("landManage");
     });
@@ -281,7 +282,7 @@ export class LandGUI {
 
   private showDeleteConfirm(land: LandData, page: any): void {
     const status = new FormStatus(page);
-    if (!LandCore.isOwner(land, this.player.id) && !LandCore.isManager(land, this.player.id)) {
+    if (!canManage(land, this.player.id, "delete")) {
       status.fail("你没有权限删除此土地。");
       return;
     }

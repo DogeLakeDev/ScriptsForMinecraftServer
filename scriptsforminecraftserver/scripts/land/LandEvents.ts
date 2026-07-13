@@ -4,8 +4,9 @@
 
 import { world, Player } from "@minecraft/server";
 import { LandCore } from "./LandCore";
-import { LandPos, LandPermissions } from "./LandDatabase";
+import { LandPos } from "./LandDatabase";
 import { Msg } from "../libs/Tools";
+import { canUseAt } from "./LandPolicy";
 
 // 容器方块类型（箱子/木桶/潜影盒）
 const CONTAINER_BLOCKS = new Set([
@@ -24,18 +25,11 @@ function isContainerBlock(typeId: string): boolean {
  * 检查玩家在土地上的权限
  * @returns true = 允许继续，false = 拦截
  */
-function checkLandPermission(player: Player, pos: LandPos, dimid: number, permField: keyof LandPermissions): boolean {
+function checkLandPermission(player: Player, pos: LandPos, dimid: number, capability: Parameters<typeof canUseAt>[3]): boolean {
   // 管理员/OP 跳过检查
   if (player.hasTag("op") || player.hasTag("admin")) return true;
 
-  const land = LandCore.getLandByPos(pos, dimid);
-  if (!land) return true; // 不在任何土地上，允许
-
-  // 拥有者/管理者 跳过检查
-  if (LandCore.isOwnerOrManager(land, player.id)) return true;
-
-  // 检查访客权限
-  return land.permissions[permField] === true;
+  return canUseAt(player, pos, dimid, capability);
 }
 
 // ===== 注册事件 =====
@@ -56,7 +50,7 @@ export class LandEvents {
       const dimid =
         block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
 
-      if (!checkLandPermission(player, pos, dimid, "allow_place")) {
+       if (!checkLandPermission(player, pos, dimid, "place")) {
         Msg.error("你没有权限在此土地放置方块！", player);
         ev.cancel = true;
       }
@@ -69,7 +63,7 @@ export class LandEvents {
       const dimid =
         block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
 
-      if (!checkLandPermission(player, pos, dimid, "allow_destroy")) {
+       if (!checkLandPermission(player, pos, dimid, "break")) {
         Msg.error("你没有权限在此土地破坏方块！", player);
         ev.cancel = true;
       }
@@ -84,10 +78,35 @@ export class LandEvents {
       const dimid =
         block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
 
-      if (!checkLandPermission(player, pos, dimid, "open_container")) {
+       if (!checkLandPermission(player, pos, dimid, "container")) {
         Msg.error("你没有权限在此土地打开容器！", player);
         ev.cancel = true;
       }
+    }));
+
+    this.subscriptions.push(world.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
+      if (isContainerBlock(ev.block.typeId)) return;
+      const type = ev.block.typeId;
+      const capability = /door|trapdoor|fence_gate/.test(type) ? "door" : /button|lever|pressure_plate/.test(type) ? "button" : /redstone|repeater|comparator|piston|dispenser|dropper|hopper/.test(type) ? "redstone" : null;
+      if (!capability) return;
+      const pos = { x: ev.block.x, y: ev.block.y, z: ev.block.z };
+      const dimid = ev.block.dimension.id === "minecraft:overworld" ? 0 : ev.block.dimension.id === "minecraft:nether" ? 1 : 2;
+      if (!checkLandPermission(ev.player, pos, dimid, capability)) { Msg.error("你没有权限使用此土地设施！", ev.player); ev.cancel = true; }
+    }));
+
+    this.subscriptions.push(world.beforeEvents.playerInteractWithEntity.subscribe((ev) => {
+      const pos = { x: Math.floor(ev.target.location.x), y: Math.floor(ev.target.location.y), z: Math.floor(ev.target.location.z) };
+      const dimid = ev.target.dimension.id === "minecraft:overworld" ? 0 : ev.target.dimension.id === "minecraft:nether" ? 1 : 2;
+      if (!checkLandPermission(ev.player, pos, dimid, "interact_entity")) { Msg.error("你没有权限与此土地内的实体交互！", ev.player); ev.cancel = true; }
+    }));
+
+    this.subscriptions.push(world.beforeEvents.explosion.subscribe((ev) => {
+      const blocks = ev.getImpactedBlocks();
+      if (blocks.some((block) => {
+        const pos = { x: block.x, y: block.y, z: block.z };
+        const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+        return LandCore.getLandByPos(pos, dimid) !== undefined;
+      })) ev.cancel = true;
     }));
   }
 

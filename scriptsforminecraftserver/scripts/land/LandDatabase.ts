@@ -15,7 +15,20 @@ export interface LandPermissions {
   attack_entity: boolean;
   /** 允许访客打开容器 */
   open_container: boolean;
+  use_door?: boolean;
+  use_button?: boolean;
+  use_redstone?: boolean;
+  interact_entity?: boolean;
+  pickup_item?: boolean;
 }
+
+export type LandRole = "owner" | "admin" | "builder" | "container" | "visitor" | "redstone" | "entity";
+
+export const ROLE_PERMISSIONS: Record<LandRole, string[]> = {
+  owner: ["place", "break", "container", "door", "button", "redstone", "attack_entity", "interact_entity", "pickup_item", "manage_members", "manage_permissions", "rename", "transfer", "delete"],
+  admin: ["place", "break", "container", "door", "button", "redstone", "attack_entity", "interact_entity", "pickup_item", "manage_members", "manage_permissions", "rename"],
+  builder: ["place", "break"], container: ["container"], visitor: [], redstone: ["redstone", "button", "door"], entity: ["attack_entity", "interact_entity"],
+};
 
 export interface LandData {
   /** 土地唯一 ID（自动生成） */
@@ -26,6 +39,7 @@ export interface LandData {
   ownerName: string;
   /** 管理者 id 列表（拥有者自动在内，存于此方便查） */
   managers: string[];
+  members?: Array<{ player_id: string; player_name_snapshot?: string; role: LandRole; expires_at?: number | null }>;
   /** 维度 ID（0=主世界 1=地狱 2=末地） */
   dimid: number;
   /** 起点坐标 */
@@ -194,9 +208,9 @@ export class Database {
   }
 
   /** 更新土地 */
-  static async update(land: LandData): Promise<boolean> {
+  static async update(land: LandData, actorId = land.ownerplid): Promise<boolean> {
     const { updateLand } = await import("../api/LandApi");
-    const updated = await updateLand(land.id, { nickname: land.nickname, permissions: land.permissions, managers: land.managers } as Partial<LandData>);
+    const updated = await updateLand(land.id, { nickname: land.nickname, permissions: land.permissions, managers: land.managers, actorId });
     if (!updated) return false;
     this.ensureLoaded();
     this._registry!.set(updated.id, updated);

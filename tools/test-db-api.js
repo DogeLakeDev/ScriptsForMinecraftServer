@@ -105,9 +105,23 @@ async function main() {
     const at = await request('GET', '/api/sfmc/lands/at/0/2/65/2');
     assert(at.status === 200 && at.body.land.id === created.body.land.id, '按坐标查询土地');
     const changed = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { nickname: 'Home' });
-    assert(changed.status === 200 && changed.body.land.nickname === 'Home' && changed.body.land.version > 1, '土地更新递增版本');
+    assert(changed.status === 403, '土地更新拒绝缺少操作者身份');
+    const changedOwner = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-1', nickname: 'Home' });
+    assert(changedOwner.status === 200 && changedOwner.body.land.nickname === 'Home' && changedOwner.body.land.version > 1, '土地更新递增版本');
+    const invite = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members`, { actorId: 'player-1', playerId: 'player-2', role: 'builder' });
+    assert(invite.status === 200 && invite.body.inviteId, '土地成员邀请创建');
+    const pending = await request('GET', '/api/sfmc/lands/invites/player-2');
+    assert(pending.status === 200 && pending.body.invites.length === 1, '玩家可以查询待处理邀请');
+    const accepted = await request('POST', '/api/sfmc/lands/invites/player-2', { inviteId: invite.body.inviteId });
+    assert(accepted.status === 200 && accepted.body.land.members.some((member) => member.player_id === 'player-2' && member.role === 'builder'), '玩家接受土地邀请');
+    const transferred = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, { actorId: 'player-1', targetId: 'player-2', targetName: 'PlayerTwo' });
+    assert(transferred.status === 200 && transferred.body.land.ownerplid === 'player-2', '土地转让更新所有者和角色');
+    const audit = await request('GET', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/audit`);
+    assert(audit.status === 200 && audit.body.logs.length >= 4, '土地审计日志记录关键操作');
     const deleted = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-1' });
-    assert(deleted.status === 200 && deleted.body.refund > 0, '土地软删除并返回退款');
+    assert(deleted.status === 403, '转让后原所有者不能删除土地');
+    const deletedOwner = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-2' });
+    assert(deletedOwner.status === 200 && deletedOwner.body.refund > 0, '土地软删除并返回退款');
     console.log('[db-api] 全部通过');
   } finally {
     child.kill();

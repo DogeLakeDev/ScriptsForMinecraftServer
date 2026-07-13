@@ -60,7 +60,7 @@ export async function createLand(request: CreateLandRequest): Promise<{ land: La
   try { const parsed = JSON.parse(result.body); return { land: parsed.land || null, price: parsed.price }; } catch { return { land: null, error: "数据库响应无效。" }; }
 }
 
-export async function updateLand(id: string, data: Partial<LandData>): Promise<LandData | null> {
+export async function updateLand(id: string, data: Partial<LandData> & { actorId?: string }): Promise<LandData | null> {
   const result = await HttpDB.requestJSON("Patch", `${PATH}/${encodeURIComponent(id)}`, data as Record<string, unknown>);
   return result.status === 200 ? parseLand(result.body) : null;
 }
@@ -69,4 +69,36 @@ export async function deleteLand(id: string, actorId: string): Promise<{ ok: boo
   const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}`, { actorId });
   if (result.status !== 200) return { ok: false };
   try { return { ok: true, refund: JSON.parse(result.body).refund || 0 }; } catch { return { ok: true }; }
+}
+
+export async function inviteMember(id: string, actorId: string, playerId: string, role: string): Promise<boolean> {
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(id)}/members`, { actorId, playerId, role });
+  return result.status === 200;
+}
+
+export async function removeLandMember(id: string, actorId: string, playerId: string): Promise<LandData | null> {
+  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}/members`, { actorId, playerId });
+  return result.status === 200 ? parseLand(result.body) : null;
+}
+
+export async function getInvites(playerId: string): Promise<any[]> {
+  const body = await HttpDB.get(`${PATH}/invites/${encodeURIComponent(playerId)}`);
+  if (!body) return [];
+  try { return JSON.parse(body).invites || []; } catch { return []; }
+}
+
+export async function acceptInvite(playerId: string, inviteId: string): Promise<LandData | null> {
+  const result = await HttpDB.requestJSON("Post", `${PATH}/invites/${encodeURIComponent(playerId)}`, { inviteId });
+  return result.status === 200 ? parseLand(result.body) : null;
+}
+
+export async function transferLand(id: string, actorId: string, targetId: string, targetName: string): Promise<LandData | null> {
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(id)}/transfer`, { actorId, targetId, targetName });
+  return result.status === 200 ? parseLand(result.body) : null;
+}
+
+export async function getLandAudit(id: string): Promise<any[]> {
+  const body = await HttpDB.get(`${PATH}/${encodeURIComponent(id)}/audit`);
+  if (!body) return [];
+  try { return JSON.parse(body).logs || []; } catch { return []; }
 }
