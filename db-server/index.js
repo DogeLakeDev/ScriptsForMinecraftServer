@@ -14,6 +14,7 @@ if (!assertNodeVersion(22, 5)) process.exit(2);
 const { openDatabase, createQuery } = require('./lib/sqlite');
 const { readJsonFile, writeJsonFile } = require('./lib/json');
 const { createModuleRoutes } = require('./routes/modules');
+const { createConfigRoutes } = require('./routes/config');
 
 // 加载外部配置 JSON（覆盖 process.env）
 const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
@@ -39,6 +40,7 @@ const MODULE_CATALOG_PATH = path.join(MODULES_DIR, 'catalog.json');
 const MODULE_LOCK_PATH = path.join(MODULES_DIR, 'module-lock.json');
 
 let moduleRoutes;
+let configRoutes;
 
 let db;
 
@@ -1311,6 +1313,10 @@ async function handle(req, res) {
       return;
     }
 
+    if (await configRoutes({ path, method, req, res })) {
+      return;
+    }
+
     // ────── /api/sfmc/configs/import ──────
     if (path === '/api/sfmc/configs/import') {
       if (method === 'POST') {
@@ -1738,6 +1744,23 @@ async function start() {
     setModuleInstalled,
     body,
     json,
+  });
+  configRoutes = createConfigRoutes({
+    query,
+    quoteIdentifier,
+    body,
+    json,
+    path,
+    loadPanelState,
+    applyInitPayload,
+    applyInitReset,
+    runSetupChecks,
+    projectRoot: PROJECT_ROOT,
+    fs,
+    loadModuleCatalog,
+    loadModuleLock,
+    saveModuleLock,
+    updateModuleState,
   });
 
   // 用 Holoprint 路由包装原始 handler
