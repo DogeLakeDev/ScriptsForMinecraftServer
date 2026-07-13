@@ -14,6 +14,19 @@
     "permission": true,
     "httpdb": true,
     "coop": true,
-    "holoprint": true
+    "holoprint": true,
+    "clean": true,
+    "online_time": true,
+    "activity_log": true,
+    "scoreboard_sync": true,
+    "spawn_protect": true,
+    "chat_sounds": true,
+    "bds_updater": true,
+    "inventory_switcher": true,
+    "fly": true,
+    "peace": true,
+    "qa": true,
+    "db_server": true,
+    "qq_bridge": true
   }
 }

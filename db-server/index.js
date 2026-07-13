@@ -11,7 +11,8 @@ const { assertNodeVersion } = require('./lib/runtime');
 const { quoteIdentifier } = require('./lib/identifiers');
 const { loadModuleLock: readModuleLock, saveModuleLock: writeModuleLock, getModuleState, isInstalled, isEnabled, updateModuleState } = require('./lib/module-state');
 if (!assertNodeVersion(22, 5)) process.exit(2);
-const { DatabaseSync } = require('node:sqlite');
+const { openDatabase, createQuery } = require('./lib/sqlite');
+const { readJsonFile, writeJsonFile } = require('./lib/json');
 
 // 加载外部配置 JSON（覆盖 process.env）
 const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
@@ -41,19 +42,6 @@ let db;
 // 监控面板内存存储（SAPI 上报，Panel 拉取）
 let _monitorMetrics = null;
 let _monitorPlayers = [];
-
-function readJsonFile(filePath, fallback) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJsonFile(filePath, value) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n');
-}
 
 function normalizeModuleEntry(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -415,10 +403,8 @@ function setModuleInstalled(module, installed) {
 // ---------- 数据库初始化 ----------
 
 async function initDB() {
-  db = new DatabaseSync(DB_PATH);
-  db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA busy_timeout = 5000');
+  db = openDatabase(DB_PATH);
+  query = createQuery(db);
 
   const fkList = db.prepare("PRAGMA foreign_key_list('sfmc_chat_messages')").all();
   if (fkList.length > 0) {
@@ -846,30 +832,7 @@ function forwardToQQBridge(channelId, fromName, content, fromId) {
   req.end();
 }
 
-// 预编译语句缓存
-const _stmtCache = new Map();
-const _STMT_CACHE_MAX = 200;
-
-function query(sql, params = []) {
-  let stmt = _stmtCache.get(sql);
-  if (!stmt) {
-    stmt = db.prepare(sql);
-    if (_stmtCache.size >= _STMT_CACHE_MAX) {
-      const first = _stmtCache.keys().next().value;
-      _stmtCache.delete(first);
-    }
-    _stmtCache.set(sql, stmt);
-  }
-  // 判断是否为查询操作（SELECT / WITH）
-  const trimmed = sql.trim().toUpperCase();
-  if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH')) {
-    // .all() 直接返回所有行数组
-    return stmt.all(...params);
-  } else {
-    const info = stmt.run(...params);
-    return { changes: info.changes };
-  }
-}
+let query;
 
 // ---------- 路由（按资源路径分组） ----------
 
