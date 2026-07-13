@@ -1,14 +1,13 @@
 {
   "version": 1,
-  "_initialized": false,
-  "_initializedAt": null,
+  "_initialized": true,
+  "_initializedAt": 1783950908800,
   "owner": "",
   "ui": {
-    "defaultModules": [
-      "money",
-      "chat"
-    ],
+    "defaultModules": [],
     "defaultServices": [
+      "panel",
+      "bds",
       "db"
     ],
     "skipGuidedSetup": false
@@ -18,9 +17,9 @@
     "bridgeAuthToken": ""
   },
   "paths": {
-    "bdsPath": ".",
-    "llbotPath": ".",
-    "llbotCwd": ".",
+    "bdsPath": "D:\\Minecraft\\BEServer",
+    "llbotPath": "D:\\LLBot-CLI-win-x64\\llbot.exe",
+    "llbotCwd": "D:\\LLBot-CLI-win-x64",
     "dbPort": 3001
   },
   "locale": "zh-CN"
