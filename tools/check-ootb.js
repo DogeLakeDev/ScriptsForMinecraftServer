@@ -63,7 +63,7 @@ function fileContains(p, needle) {
 
 // 2) 工具脚本
 {
-  const tools = ["check-catalog.js", "install-module.js", "lock.js", "smoke-modules.js", "sim-new-user.js"];
+  const tools = ["check-catalog.js", "install-module.js", "lock.js", "smoke-modules.js", "sim-new-user.js", "test-db-api.js"];
   let missing = [];
   for (const f of tools) {
     if (!exists(path.join(ROOT, "tools", f))) missing.push(f);

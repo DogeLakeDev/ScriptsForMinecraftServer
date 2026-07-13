@@ -1317,7 +1317,6 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/configs/import ──────
     if (path === '/api/sfmc/configs/import') {
       if (method === 'POST') {
         const { table, rows } = await body(req);
