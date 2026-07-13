@@ -1,43 +1,27 @@
-# 产物
-scriptsforminecraftserver/out/
-scriptsforminecraftserver/dist/
-scriptsforminecraftserver/lib/
-
-# 依赖
-scriptsforminecraftserver/node_modules/
+scriptsforminecraftserver/out
+scriptsforminecraftserver/dist
+scriptsforminecraftserver/lib
+scriptsforminecraftserver/.vscode
+scriptsforminecraftserver/.env
+scriptsforminecraftserver/node_modules
 scriptsforminecraftserver/package-lock.json
-db-server/node_modules/
+
+db-server/node_modules
 db-server/package-lock.json
-qq-bridge/node_modules/
-qq-bridge/package-lock.json
-BDSTools/node_modules/
-BDSTools/package-lock.json
-panel/node_modules/
-panel/package-lock.json
-
-# 日志
-BDSTools/update.log
-
-# SQLite 数据库（运行时生成）
 db-server/sfmc_data.db
 db-server/sfmc_data.db-shm
 db-server/sfmc_data.db-wal
 
-# 参考资料
-参考/
+qq-bridge/node_modules
+qq-bridge/package-lock.json
 
-# 本地化配置 已设置推荐配置
-scriptsforminecraftserver/.vscode/
-# scriptsforminecraftserver/eslint.config.mjs/
-# scriptsforminecraftserver/just.config.ts/
-# scriptsforminecraftserver/.prettierrc.json/
-scriptsforminecraftserver/.env/
+BDSTools/node_modules
+BDSTools/package-lock.json
+BDSTools/update.log
+BDSTools/.version_cache.json
 
-rust-panel/target/
-rust-panel/debug/
-rust-panel/*.pdb
-# rust-panel/Cargo.lock
-rust-panel/.idea/
+panel/node_modules
+panel/package-lock.json
 
 AGENTS.md
 .AddCompLib/*
