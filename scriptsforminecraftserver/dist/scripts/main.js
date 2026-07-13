@@ -1809,6 +1809,136 @@ var init_ModuleKeys = __esm({
   }
 });
 
+// scripts/libs/Command.ts
+import { system as system4 } from "@minecraft/server";
+function setModuleGuard(guard) {
+  moduleGuard = guard;
+}
+var moduleGuard, Command;
+var init_Command = __esm({
+  "scripts/libs/Command.ts"() {
+    "use strict";
+    init_Permission();
+    init_Tools();
+    moduleGuard = () => true;
+    Command = class {
+      static {
+        this.list = {};
+      }
+      /**
+       * 注册指令
+       * @param name 指令名称
+       * @param permission 权限等级(数字) 或 权限名(字符串)
+       * @param callback 回调
+       * @param description 指令描述
+       * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
+       */
+      static register(name, permission, callback, description, moduleId) {
+        this.list[name] = {
+          callback,
+          permission,
+          description: description === void 0 ? name : description,
+          moduleId
+        };
+        return true;
+      }
+      static unregister(name) {
+        if (this.list[name] !== void 0) {
+          delete this.list[name];
+          return true;
+        }
+        return false;
+      }
+      static unregisterByModule(moduleId) {
+        let n = 0;
+        for (const k of Object.keys(this.list)) {
+          if (this.list[k].moduleId === moduleId) {
+            delete this.list[k];
+            n++;
+          }
+        }
+        return n;
+      }
+      static has(name) {
+        return this.list[name] !== void 0;
+      }
+      static names() {
+        return Object.keys(this.list);
+      }
+      static getModuleId(name) {
+        return this.list[name]?.moduleId;
+      }
+      /**
+       * 检查玩家是否有权限执行该命令
+       */
+      static canExecute(player, permission) {
+        if (player === void 0) return true;
+        if (typeof permission === "string") {
+          return Permission.check(player, permission);
+        }
+        return Permission.getPermission(player) >= permission;
+      }
+      /**
+       * 触发指令
+       * @param player 触发指令的玩家，不指定时使用最高权限执行
+       * @param message
+       */
+      static trigger(player, message) {
+        let commandInfo = this.list[message];
+        if (commandInfo !== void 0) {
+          if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
+            if (player) Msg.error(`\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`, player);
+            return;
+          }
+          if (this.canExecute(player, commandInfo.permission)) {
+            system4.run(async () => {
+              const result = await commandInfo.callback(player);
+              if (result !== void 0 && player) Msg.success(`${result}`, player);
+            });
+            return;
+          }
+          if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
+          return;
+        }
+        if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
+        return;
+      }
+      /**
+       * 注册帮助指令，在初始化时调用
+       */
+      static registerHelpCommand() {
+        this.register(
+          "help",
+          "help.see",
+          (player) => {
+            let result = "\u5F53\u524D\u53EF\u7528\u6307\u4EE4\u5217\u8868\u5982\u4E0B\uFF1A\xA7r\n";
+            for (let command in this.list) {
+              if (this.canExecute(player, this.list[command].permission)) {
+                result += `  ${command} - ${this.list[command].description}
+`;
+              }
+            }
+            return result;
+          },
+          "\u83B7\u53D6\u6240\u6709\u6307\u4EE4"
+        );
+      }
+      /**
+       * 注册脚本事件，在初始化时调用
+       */
+      static registerScriptEvent() {
+        system4.afterEvents.scriptEventReceive.subscribe(
+          (event) => {
+            this.trigger(event.sourceEntity, event.id.substring(5));
+          },
+          { namespaces: ["doge"] }
+        );
+      }
+    };
+    Command.registerScriptEvent();
+  }
+});
+
 // scripts/libs/ModuleRegistry.ts
 var ModuleRegistry_exports = {};
 __export(ModuleRegistry_exports, {
@@ -1816,7 +1946,7 @@ __export(ModuleRegistry_exports, {
   announceLoaded: () => announceLoaded,
   guardEvent: () => guardEvent
 });
-import { system as system4 } from "@minecraft/server";
+import { system as system5 } from "@minecraft/server";
 function guardEvent() {
   return ConfigManager.isReady();
 }
@@ -1858,7 +1988,7 @@ var init_ModuleRegistry = __esm({
       static trackSystemRun(modId, runId) {
         _ModuleRegistry.trackCleanup(modId, () => {
           try {
-            system4.clearRun(runId);
+            system5.clearRun(runId);
           } catch {
           }
         });
@@ -1991,7 +2121,7 @@ var init_ModuleRegistry = __esm({
 });
 
 // scripts/libs/ConfigManager.ts
-import { system as system5, world as world6 } from "@minecraft/server";
+import { system as system6, world as world6 } from "@minecraft/server";
 var ConfigManager;
 var init_ConfigManager = __esm({
   "scripts/libs/ConfigManager.ts"() {
@@ -2037,13 +2167,13 @@ var init_ConfigManager = __esm({
         return this._ready;
       }
       static startPolling(intervalTicks = 72e3) {
-        system5.runInterval(() => this._poll(), intervalTicks);
+        system6.runInterval(() => this._poll(), intervalTicks);
       }
       /**
        * 快速信号检查（每 2 秒），检测 _reload_signal → 立即全量重载
        */
       static startFastPoll(intervalTicks = 40) {
-        system5.runInterval(() => this._fastPoll(), intervalTicks);
+        system6.runInterval(() => this._fastPoll(), intervalTicks);
       }
       static isEnabled(module) {
         if (!this._ready) return false;
@@ -2423,139 +2553,12 @@ ${label[level] ?? "\xA77\u5176\u4ED6"} (${level}+):`);
   }
 });
 
-// scripts/libs/Command.ts
-import { system as system6 } from "@minecraft/server";
-function setModuleGuard(guard) {
-  moduleGuard = guard;
-}
-var moduleGuard, Command;
-var init_Command = __esm({
-  "scripts/libs/Command.ts"() {
-    "use strict";
-    init_Permission();
-    init_Tools();
-    moduleGuard = () => true;
-    Command = class {
-      static {
-        this.list = {};
-      }
-      /**
-       * 注册指令
-       * @param name 指令名称
-       * @param permission 权限等级(数字) 或 权限名(字符串)
-       * @param callback 回调
-       * @param description 指令描述
-       * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
-       */
-      static register(name, permission, callback, description, moduleId) {
-        this.list[name] = {
-          callback,
-          permission,
-          description: description === void 0 ? name : description,
-          moduleId
-        };
-        return true;
-      }
-      static unregister(name) {
-        if (this.list[name] !== void 0) {
-          delete this.list[name];
-          return true;
-        }
-        return false;
-      }
-      static unregisterByModule(moduleId) {
-        let n = 0;
-        for (const k of Object.keys(this.list)) {
-          if (this.list[k].moduleId === moduleId) {
-            delete this.list[k];
-            n++;
-          }
-        }
-        return n;
-      }
-      static has(name) {
-        return this.list[name] !== void 0;
-      }
-      static names() {
-        return Object.keys(this.list);
-      }
-      static getModuleId(name) {
-        return this.list[name]?.moduleId;
-      }
-      /**
-       * 检查玩家是否有权限执行该命令
-       */
-      static canExecute(player, permission) {
-        if (player === void 0) return true;
-        if (typeof permission === "string") {
-          return Permission.check(player, permission);
-        }
-        return Permission.getPermission(player) >= permission;
-      }
-      /**
-       * 触发指令
-       * @param player 触发指令的玩家，不指定时使用最高权限执行
-       * @param message
-       */
-      static trigger(player, message) {
-        let commandInfo = this.list[message];
-        if (commandInfo !== void 0) {
-          if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
-            if (player) Msg.error(`\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`, player);
-            return;
-          }
-          if (this.canExecute(player, commandInfo.permission)) {
-            system6.run(async () => {
-              const result = await commandInfo.callback(player);
-              if (result !== void 0 && player) Msg.success(`${result}`, player);
-            });
-            return;
-          }
-          if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
-          return;
-        }
-        if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
-        return;
-      }
-      /**
-       * 注册帮助指令，在初始化时调用
-       */
-      static registerHelpCommand() {
-        this.register(
-          "help",
-          "help.see",
-          (player) => {
-            let result = "\u5F53\u524D\u53EF\u7528\u6307\u4EE4\u5217\u8868\u5982\u4E0B\uFF1A\xA7r\n";
-            for (let command in this.list) {
-              if (this.canExecute(player, this.list[command].permission)) {
-                result += `  ${command} - ${this.list[command].description}
-`;
-              }
-            }
-            return result;
-          },
-          "\u83B7\u53D6\u6240\u6709\u6307\u4EE4"
-        );
-      }
-      /**
-       * 注册脚本事件，在初始化时调用
-       */
-      static registerScriptEvent() {
-        system6.afterEvents.scriptEventReceive.subscribe(
-          (event) => {
-            this.trigger(event.sourceEntity, event.id.substring(5));
-          },
-          { namespaces: ["doge"] }
-        );
-      }
-    };
-    Command.registerScriptEvent();
-  }
-});
-
 // scripts/entry.ts
 init_Money();
+init_Permission();
 init_Command();
+init_ConfigManager();
+init_ModuleRegistry();
 import { system as system25, world as world29 } from "@minecraft/server";
 
 // scripts/doge/QA.ts
@@ -2748,111 +2751,10 @@ var QAManager = class _QAManager {
   }
 };
 
-// scripts/area/Fly.ts
-init_ConfigManager();
-init_Tools();
-init_Permission();
-init_Tools();
-import { system as system8, world as world8, GameMode as GameMode2 } from "@minecraft/server";
-function init() {
-  Permission.register("fly.use", Permission.Any);
-}
-function playerJoinEvent(player) {
-  system8.runTimeout(() => {
-    let areaName = inFlyArea(player);
-    if (areaName !== void 0) {
-      enableFly(player);
-      Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
-      player.setDynamicProperty("hpbe:dogefly", areaName);
-    }
-  }, 60);
-}
-var scanRunId;
-function startScan() {
-  if (scanRunId !== void 0) return;
-  scanRunId = system8.runInterval(() => {
-    for (let player of world8.getPlayers({ gameMode: GameMode2.Survival })) {
-      let nowArea = player.getDynamicProperty("hpbe:dogefly");
-      let areaName = inFlyArea(player);
-      if (areaName !== void 0) {
-        if (nowArea === void 0) {
-          enableFly(player);
-          Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
-          player.setDynamicProperty("hpbe:dogefly", areaName);
-        } else if (nowArea !== areaName) {
-          player.setDynamicProperty("hpbe:dogefly", areaName);
-        }
-      } else {
-        if (nowArea !== void 0) {
-          disableFly(player);
-          Msg.info(`\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`, player);
-          player.setDynamicProperty("hpbe:dogefly", void 0);
-        }
-      }
-    }
-  }, 40);
-}
-function stop() {
-  if (scanRunId !== void 0) {
-    try {
-      system8.clearRun(scanRunId);
-    } catch {
-    }
-    scanRunId = void 0;
-  }
-}
-function boot() {
-  if (scanRunId === void 0) startScan();
-}
-function inFlyArea(entity) {
-  for (let area of ConfigManager.getAreas("fly")) {
-    if (entity.dimension.id === area.dimension) {
-      if (pointInArea_2D(
-        entity.location.x,
-        entity.location.z,
-        area.start[0],
-        area.start[1],
-        area.end[0],
-        area.end[1]
-      )) {
-        return area.name;
-      }
-    }
-  }
-  return void 0;
-}
-function enableFly(player) {
-  try {
-    player.runCommand("gamerule sendcommandfeedback false");
-    player.runCommand("ability @s mayfly true");
-    player.runCommand("gamerule sendcommandfeedback true");
-  } catch (_) {
-    console.warn("\xA7c\u7531\u4E8E\u65B0\u7248\u79FB\u9664\u4E86\u76F8\u5173\u6307\u4EE4\uFF0C\u8BF7\u5728\u4E16\u754C\u4E2D\u5F00\u542F\u6559\u80B2\u6A21\u5F0F\u3002");
-  }
-}
-function disableFly(player) {
-  let res = player.dimension.getBlockFromRay(
-    player.location,
-    { x: 0, y: -1, z: 0 },
-    { includeLiquidBlocks: true, includePassableBlocks: false }
-  );
-  if (res !== void 0) {
-    player.teleport({ x: res.block.location.x, y: res.block.location.y + 1, z: res.block.location.z });
-  }
-  try {
-    player.runCommand("gamerule sendcommandfeedback false");
-    player.runCommand("ability @s mayfly false");
-    player.runCommand("gamemode adventure");
-    player.runCommand("gamemode survival");
-    player.runCommand("gamerule sendcommandfeedback true");
-  } catch (_) {
-  }
-}
-
 // scripts/doge/AFK.ts
 init_ConfigManager();
 init_Command();
-import { system as system9, world as world9 } from "@minecraft/server";
+import { system as system8, world as world8 } from "@minecraft/server";
 var afkCache = /* @__PURE__ */ new Map();
 function cacheGet(player, key, fallback) {
   const pc = afkCache.get(player.id);
@@ -2881,7 +2783,7 @@ function setAFK(player) {
   player.removeTag("NOAFK");
   startAFKScan();
   playerList[player.id] = player.location;
-  world9.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
+  world8.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
   cacheSet(player, "afk:step", 0);
   player.addTag("AFK");
 }
@@ -2899,13 +2801,13 @@ function locationMoved(lastLocation, nowLocation) {
   return true;
 }
 var STEP_TIME = 15;
-var scanRunId2;
+var scanRunId;
 var scanActive = false;
-function startScan2() {
-  if (scanActive || scanRunId2 !== void 0) return;
+function startScan() {
+  if (scanActive || scanRunId !== void 0) return;
   scanActive = true;
-  scanRunId2 = system9.runInterval(() => {
-    for (let player of world9.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
+  scanRunId = system8.runInterval(() => {
+    for (let player of world8.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
       let lastLoaction = cacheGet(
         player,
         "afk:last_location",
@@ -2939,15 +2841,15 @@ function startAFKScan() {
   if (intervalId !== void 0) {
     return;
   }
-  intervalId = system9.runInterval(() => {
+  intervalId = system8.runInterval(() => {
     let count = 0;
     for (let id in playerList) {
-      let player = world9.getEntity(id);
+      let player = world8.getEntity(id);
       if (player === void 0) {
         delete playerList[id];
       } else {
         if (locationMoved(playerList[id], player.location)) {
-          world9.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
+          world8.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
           player.removeTag("AFK");
           cacheSet(player, "afk:last_location", player.location);
           cacheSet(player, "afk:step", 0);
@@ -2965,28 +2867,28 @@ function startAFKScan() {
 function stopAFKScan() {
   if (intervalId !== void 0) {
     try {
-      system9.clearRun(intervalId);
+      system8.clearRun(intervalId);
     } catch {
     }
     intervalId = void 0;
   }
 }
-function stop2() {
-  if (scanRunId2 !== void 0) {
+function stop() {
+  if (scanRunId !== void 0) {
     try {
-      system9.clearRun(scanRunId2);
+      system8.clearRun(scanRunId);
     } catch {
     }
-    scanRunId2 = void 0;
+    scanRunId = void 0;
   }
   scanActive = false;
   stopAFKScan();
   playerList = {};
 }
-function init2() {
+function init() {
   console.log(`Initializing AFK...`);
-  if (!scanActive) startScan2();
-  for (let player of world9.getAllPlayers()) {
+  if (!scanActive) startScan();
+  for (let player of world8.getAllPlayers()) {
     reset(player);
   }
   console.log(`AFK initialized successfully.`);
@@ -3004,21 +2906,12 @@ function registerCommand() {
   );
 }
 
-// scripts/doge/SpawnProtect.ts
-var SpawnProtect = class {
-  static setProtect(player) {
-    if (player.getEffect("minecraft:resistance") === void 0) {
-      player.addEffect("minecraft:resistance", 3, { amplifier: 5 });
-    }
-  }
-};
-
 // scripts/doge/Clean.ts
 init_ConfigManager();
 init_Command();
 init_Permission();
 init_Tools();
-import { system as system10, world as world10, BlockComponentTypes as BlockComponentTypes2 } from "@minecraft/server";
+import { system as system9, world as world9, BlockComponentTypes as BlockComponentTypes2 } from "@minecraft/server";
 var Clean = class _Clean {
   constructor() {
     this.startPoint = [0, 0, 0];
@@ -3074,7 +2967,7 @@ var Clean = class _Clean {
     let facingDirection = getSignFacing(this.direction, this.face);
     let index = 0;
     let currentIndex = this.getCleanIndex();
-    const dimension = world10.getDimension("overworld");
+    const dimension = world9.getDimension("overworld");
     for (let mainAxis = 0; mainAxis < this.size[0]; mainAxis++) {
       for (let y = 0; y < this.size[1]; y++) {
         index++;
@@ -3147,17 +3040,17 @@ var Clean = class _Clean {
   }
   startCleanInterval() {
     if (this.intervalId) {
-      system10.clearRun(this.intervalId);
+      system9.clearRun(this.intervalId);
       this.intervalId = void 0;
     }
-    this.intervalId = system10.runInterval(() => {
+    this.intervalId = system9.runInterval(() => {
       let entities = this.getAllItemEntities();
       if (entities.length > this.itemMax) {
-        world10.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
-        system10.runTimeout(() => {
+        world9.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
+        system9.runTimeout(() => {
           this.startClean(void 0);
-          system10.runTimeout(() => {
-            world10.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
+          system9.runTimeout(() => {
+            world9.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
           }, 5);
         }, 100);
       }
@@ -3165,7 +3058,7 @@ var Clean = class _Clean {
   }
   stopCleanInterval() {
     if (this.intervalId) {
-      system10.clearRun(this.intervalId);
+      system9.clearRun(this.intervalId);
       this.intervalId = void 0;
     }
   }
@@ -3176,9 +3069,9 @@ var Clean = class _Clean {
    * 获取世界的所有物品
    */
   getAllItemEntities() {
-    let itemEntities = world10.getDimension("overworld").getEntities({ type: "item" });
-    itemEntities.push(...world10.getDimension("nether").getEntities({ type: "item" }));
-    itemEntities.push(...world10.getDimension("the_end").getEntities({ type: "item" }));
+    let itemEntities = world9.getDimension("overworld").getEntities({ type: "item" });
+    itemEntities.push(...world9.getDimension("nether").getEntities({ type: "item" }));
+    itemEntities.push(...world9.getDimension("the_end").getEntities({ type: "item" }));
     return itemEntities;
   }
   getTimeStr() {
@@ -3201,9 +3094,456 @@ function registerCommand2() {
   );
 }
 
+// scripts/doge/TPS.ts
+init_Command();
+init_Tools();
+import { system as system10, world as world10 } from "@minecraft/server";
+var TPS = class _TPS {
+  static {
+    this.tickTimes = [];
+  }
+  static {
+    this.MAX_SAMPLES = 100;
+  }
+  static getTPS() {
+    if (_TPS.tickTimes.length < 10) return 20;
+    const elapsed = (_TPS.tickTimes[_TPS.tickTimes.length - 1] - _TPS.tickTimes[0]) / 1e3;
+    const tickCount = _TPS.tickTimes.length - 1;
+    const tps = tickCount / elapsed;
+    return Math.round(Math.min(tps, 20) * 100) / 100;
+  }
+  static getTPSStatus() {
+    const tps = this.getTPS();
+    let color;
+    if (tps >= 19.5) color = "\xA7a";
+    else if (tps >= 15) color = "\xA7e";
+    else if (tps >= 10) color = "\xA76";
+    else color = "\xA7c";
+    return `\xA77[TPS] ${color}${tps} \xA77/ 20.00`;
+  }
+  static init() {
+    this.startRecord();
+  }
+  static startRecord() {
+    this.recordRunId = system10.runInterval(() => {
+      _TPS.tickTimes.push(Date.now());
+      if (_TPS.tickTimes.length > _TPS.MAX_SAMPLES) {
+        _TPS.tickTimes.shift();
+      }
+    }, 1);
+  }
+  static stop() {
+    if (this.recordRunId !== void 0) {
+      try {
+        system10.clearRun(this.recordRunId);
+      } catch {
+      }
+      this.recordRunId = void 0;
+    }
+  }
+  static registerCommands() {
+    Command.register(
+      "tps",
+      "tps.see",
+      (player) => {
+        const msg = this.getTPSStatus();
+        if (player) {
+          Msg.info(msg, player);
+        } else {
+          world10.sendMessage(msg);
+        }
+      },
+      "\u67E5\u770B\u670D\u52A1\u5668 TPS",
+      "tps"
+    );
+  }
+};
+
+// scripts/doge/OnlineTime.ts
+init_Permission();
+init_Command();
+init_Tools();
+init_HttpDB();
+import { system as system11, world as world11 } from "@minecraft/server";
+var OnlineTime = class _OnlineTime {
+  constructor() {
+    this.dataMap = /* @__PURE__ */ new Map();
+  }
+  static getInstance() {
+    if (!_OnlineTime._instance) {
+      _OnlineTime._instance = new _OnlineTime();
+    }
+    return _OnlineTime._instance;
+  }
+  registerCommandsAndPermissions() {
+    Permission.register("onlinetime.see", Permission.Any);
+    Command.register(
+      "onlinetime",
+      "onlinetime.see",
+      async (player) => {
+        if (!player) {
+          world11.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
+          return;
+        }
+        const data = await this.load(player);
+        Msg.info(
+          `\u73A9\u5BB6 \xA7a${player.name}\xA7r \u7684\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1:
+\xA7e\u672C\u6B21\u5728\u7EBF \xA7f${this.formatTime(data.session)}
+\xA7e\u4ECA\u65E5\u5728\u7EBF \xA7f${this.formatTime(data.today)}
+\xA7e\u672C\u6708\u5728\u7EBF \xA7f${this.formatTime(data.month)}
+\xA7e\u603B\u5728\u7EBF \xA7f${this.formatTime(data.total)}
+`,
+          player
+        );
+      },
+      "\u67E5\u770B\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1",
+      "onlineTime"
+    );
+  }
+  registerEvents() {
+    world11.afterEvents.playerSpawn.subscribe((event) => {
+      if (event.initialSpawn) {
+        this.onPlayerJoin(event.player);
+      }
+    });
+  }
+  init() {
+    this.startTick();
+  }
+  formatTime(seconds) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor(seconds % 86400 / 3600);
+    const m = Math.floor(seconds % 3600 / 60);
+    const s = seconds % 60;
+    const parts = [];
+    if (d > 0) parts.push(`${d}\u5929`);
+    if (h > 0) parts.push(`${h}\u65F6`);
+    if (m > 0) parts.push(`${m}\u5206`);
+    parts.push(`${s}\u79D2`);
+    return parts.join("");
+  }
+  /** 从 DB 加载玩家在线时间数据 */
+  async load(player) {
+    const existing = this.dataMap.get(player.id);
+    if (existing) return existing;
+    const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
+    const def = (val, fallback) => typeof val === "number" ? val : fallback;
+    const data = {
+      session: 0,
+      today: def(raw?.onlinetime_today, 0),
+      month: def(raw?.onlinetime_month, 0),
+      total: def(raw?.onlinetime_total, 0),
+      lastDate: def(raw?.onlinetime_last_date, (/* @__PURE__ */ new Date()).getDate()),
+      lastMonth: def(raw?.onlinetime_last_month, (/* @__PURE__ */ new Date()).getMonth())
+    };
+    this.dataMap.set(player.id, data);
+    return data;
+  }
+  /** 持久化在线时间到 DB（排除 session，仅持久化跨重启字段） */
+  async persist(player, data) {
+    await HttpDB.patch(`/api/sfmc/players/${player.id}`, {
+      player: {
+        onlinetimeToday: data.today,
+        onlinetimeMonth: data.month,
+        onlinetimeTotal: data.total,
+        onlinetimeLastDate: data.lastDate,
+        onlinetimeLastMonth: data.lastMonth
+      }
+    }).catch(() => {
+    });
+  }
+  onPlayerJoin(player) {
+    this.load(player).then((data) => {
+      data.session = 0;
+    });
+  }
+  onPlayerLeave(player) {
+    const data = this.dataMap.get(player.id);
+    if (data) {
+      this.persist(player, data).catch(() => {
+      });
+      this.dataMap.delete(player.id);
+    }
+  }
+  tickSecond() {
+    const now = /* @__PURE__ */ new Date();
+    const currentDate = now.getDate();
+    const currentMonth = now.getMonth();
+    for (const player of world11.getAllPlayers()) {
+      const data = this.dataMap.get(player.id);
+      if (!data) {
+        this.load(player).then((d) => {
+          d.session++;
+          d.today++;
+          d.month++;
+          d.total++;
+        });
+        continue;
+      }
+      if (data.lastDate !== currentDate) {
+        data.today = 0;
+        data.lastDate = currentDate;
+      }
+      if (data.lastMonth !== currentMonth) {
+        data.month = 0;
+        data.lastMonth = currentMonth;
+      }
+      data.session++;
+      data.today++;
+      data.month++;
+      data.total++;
+      this.persist(player, data).catch(() => {
+      });
+    }
+  }
+  startTick() {
+    this.tickRunId = system11.runInterval(() => {
+      this.tickSecond();
+    }, 20);
+  }
+  stop() {
+    if (this.tickRunId !== void 0) {
+      try {
+        system11.clearRun(this.tickRunId);
+      } catch {
+      }
+      this.tickRunId = void 0;
+    }
+  }
+};
+
+// scripts/doge/ChatSoundsHelper.ts
+import { system as system12, world as world12 } from "@minecraft/server";
+var KEYWORDS = {
+  ciallo: "cs.ciallo",
+  \u5495\u5495\u560E\u560E: "cs.gugugaga",
+  \u6C69\u6C69\u5495: "cs.gugugu",
+  baka: "cs.baka",
+  yee: "cs.yee",
+  \u5E72\u561B: "mob.chicken.hurt",
+  huh: "cs.huh"
+};
+var ChatSoundsHelper = class _ChatSoundsHelper {
+  constructor(keywords) {
+    this.cooldownTicks = 200;
+    this.cooldownMap = {};
+    this.chatSub = void 0;
+    this.keywords = keywords;
+  }
+  static getInstance() {
+    if (!_ChatSoundsHelper.instance) {
+      _ChatSoundsHelper.instance = new _ChatSoundsHelper(KEYWORDS);
+    }
+    return _ChatSoundsHelper.instance;
+  }
+  registerEvent() {
+    if (this.chatSub) return;
+    this.chatSub = world12.beforeEvents.chatSend.subscribe((event) => {
+      const msg = event.message;
+      for (const keyWord in this.keywords) {
+        if (!msg.toLowerCase().includes(keyWord.toLowerCase())) continue;
+        const sender = event.sender;
+        if (sender.getGameMode() !== "Creative") {
+          const id = sender.id;
+          if (this.cooldownMap[id]) return;
+          this.cooldownMap[id] = true;
+          system12.runTimeout(() => {
+            delete this.cooldownMap[id];
+          }, this.cooldownTicks);
+        }
+        const soundId = this.keywords[keyWord];
+        system12.run(() => {
+          for (const p of world12.getAllPlayers()) {
+            try {
+              p.playSound(soundId);
+            } catch {
+            }
+          }
+        });
+        return;
+      }
+    });
+  }
+  stop() {
+    if (this.chatSub?.unsubscribe) {
+      try {
+        this.chatSub.unsubscribe();
+      } catch {
+      }
+    }
+    this.chatSub = void 0;
+  }
+};
+
+// scripts/doge/MonitorReporter.ts
+init_HttpDB();
+import { world as world13, system as system13 } from "@minecraft/server";
+var REPORT_INTERVAL = 600;
+var DIMENSIONS = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"];
+var MonitorReporter = class {
+  static init() {
+    if (this.runId !== void 0) return;
+    this.runId = system13.runInterval(() => {
+      this.report();
+    }, REPORT_INTERVAL);
+  }
+  static stop() {
+    if (this.runId !== void 0) {
+      try {
+        system13.clearRun(this.runId);
+      } catch {
+      }
+      this.runId = void 0;
+    }
+  }
+  static async report() {
+    try {
+      const tps = TPS.getTPS();
+      const entities = {};
+      for (const dim of DIMENSIONS) {
+        try {
+          entities[dim] = world13.getDimension(dim).getEntities().length;
+        } catch (e) {
+          entities[dim] = 0;
+        }
+      }
+      await HttpDB.post("/api/sfmc/monitor/metrics", { tps, entities });
+      const players = world13.getAllPlayers();
+      const playerChunks = players.map((p) => {
+        const loc2 = p.location;
+        const dim = p.dimension?.id || "minecraft:overworld";
+        const rd = p.clientSystemInfo?.maxRenderDistance || 8;
+        const chunkX = Math.floor(loc2.x / 16);
+        const chunkZ = Math.floor(loc2.z / 16);
+        const side = rd + 1;
+        const estimate = (1 + side) * (1 + side);
+        return {
+          id: p.id,
+          name: p.name,
+          dimension: dim,
+          pos: { x: Math.round(loc2.x), z: Math.round(loc2.z) },
+          renderDistance: rd,
+          chunkEstimate: estimate
+        };
+      });
+      await HttpDB.post("/api/sfmc/monitor/player-chunks", { players: playerChunks });
+    } catch (e) {
+    }
+  }
+};
+
+// scripts/doge/SpawnProtect.ts
+var SpawnProtect = class {
+  static setProtect(player) {
+    if (player.getEffect("minecraft:resistance") === void 0) {
+      player.addEffect("minecraft:resistance", 3, { amplifier: 5 });
+    }
+  }
+};
+
+// scripts/area/Fly.ts
+init_ConfigManager();
+init_Tools();
+init_Permission();
+init_Tools();
+import { system as system14, world as world14, GameMode as GameMode2 } from "@minecraft/server";
+function init2() {
+  Permission.register("fly.use", Permission.Any);
+}
+function playerJoinEvent(player) {
+  system14.runTimeout(() => {
+    let areaName = inFlyArea(player);
+    if (areaName !== void 0) {
+      enableFly(player);
+      Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+      player.setDynamicProperty("hpbe:dogefly", areaName);
+    }
+  }, 60);
+}
+var scanRunId2;
+function startScan2() {
+  if (scanRunId2 !== void 0) return;
+  scanRunId2 = system14.runInterval(() => {
+    for (let player of world14.getPlayers({ gameMode: GameMode2.Survival })) {
+      let nowArea = player.getDynamicProperty("hpbe:dogefly");
+      let areaName = inFlyArea(player);
+      if (areaName !== void 0) {
+        if (nowArea === void 0) {
+          enableFly(player);
+          Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+          player.setDynamicProperty("hpbe:dogefly", areaName);
+        } else if (nowArea !== areaName) {
+          player.setDynamicProperty("hpbe:dogefly", areaName);
+        }
+      } else {
+        if (nowArea !== void 0) {
+          disableFly(player);
+          Msg.info(`\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+          player.setDynamicProperty("hpbe:dogefly", void 0);
+        }
+      }
+    }
+  }, 40);
+}
+function stop2() {
+  if (scanRunId2 !== void 0) {
+    try {
+      system14.clearRun(scanRunId2);
+    } catch {
+    }
+    scanRunId2 = void 0;
+  }
+}
+function boot() {
+  if (scanRunId2 === void 0) startScan2();
+}
+function inFlyArea(entity) {
+  for (let area of ConfigManager.getAreas("fly")) {
+    if (entity.dimension.id === area.dimension) {
+      if (pointInArea_2D(
+        entity.location.x,
+        entity.location.z,
+        area.start[0],
+        area.start[1],
+        area.end[0],
+        area.end[1]
+      )) {
+        return area.name;
+      }
+    }
+  }
+  return void 0;
+}
+function enableFly(player) {
+  try {
+    player.runCommand("gamerule sendcommandfeedback false");
+    player.runCommand("ability @s mayfly true");
+    player.runCommand("gamerule sendcommandfeedback true");
+  } catch (_) {
+    console.warn("\xA7c\u7531\u4E8E\u65B0\u7248\u79FB\u9664\u4E86\u76F8\u5173\u6307\u4EE4\uFF0C\u8BF7\u5728\u4E16\u754C\u4E2D\u5F00\u542F\u6559\u80B2\u6A21\u5F0F\u3002");
+  }
+}
+function disableFly(player) {
+  let res = player.dimension.getBlockFromRay(
+    player.location,
+    { x: 0, y: -1, z: 0 },
+    { includeLiquidBlocks: true, includePassableBlocks: false }
+  );
+  if (res !== void 0) {
+    player.teleport({ x: res.block.location.x, y: res.block.location.y + 1, z: res.block.location.z });
+  }
+  try {
+    player.runCommand("gamerule sendcommandfeedback false");
+    player.runCommand("ability @s mayfly false");
+    player.runCommand("gamemode adventure");
+    player.runCommand("gamemode survival");
+    player.runCommand("gamerule sendcommandfeedback true");
+  } catch (_) {
+  }
+}
+
 // scripts/entry.ts
 init_Peace();
-init_Permission();
 
 // scripts/coop/CoopSystem.ts
 init_Command();
@@ -3211,7 +3551,7 @@ init_Permission();
 
 // scripts/libs/MenuNavigator.ts
 init_Tools();
-import { system as system11 } from "@minecraft/server";
+import { system as system15 } from "@minecraft/server";
 import {
   CustomForm,
   MessageBox,
@@ -3304,7 +3644,7 @@ var MenuNavigator = class {
         result = await box.show();
         break;
       } catch {
-        await system11.waitTicks(10);
+        await system15.waitTicks(10);
       }
     }
     if (formWasOpen && result?.selection === 0) {
@@ -3321,10 +3661,10 @@ var MenuNavigator = class {
       await def.build(page, this);
     }
     this.form.closeButton();
-    const startTick = system11.currentTick;
+    const startTick = system15.currentTick;
     let notified = false;
     while (true) {
-      if (system11.currentTick - startTick >= 160) {
+      if (system15.currentTick - startTick >= 160) {
         if (notified) Msg.warning("\u83DC\u5355\u5904\u7406\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002", this.player);
         break;
       }
@@ -3335,7 +3675,7 @@ var MenuNavigator = class {
             notified = true;
             Msg.info("\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF0C\u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09", this.player);
           }
-          await system11.waitTicks(10);
+          await system15.waitTicks(10);
           continue;
         }
         break;
@@ -3420,7 +3760,7 @@ init_api();
 init_Money();
 init_Tools();
 init_api();
-import { world as world11 } from "@minecraft/server";
+import { world as world15 } from "@minecraft/server";
 var CoopCore = class {
   static {
     // ==========================================
@@ -3561,7 +3901,7 @@ var CoopCore = class {
     const data = await getCoop(cid);
     if (!data) return;
     for (const member of data.members || []) {
-      for (const p of world11.getPlayers({ name: member.player_name })) {
+      for (const p of world15.getPlayers({ name: member.player_name })) {
         Msg.info(`[${data.name}] ${text}`, p);
       }
     }
@@ -4373,10 +4713,10 @@ var CoopSystem = class {
 init_Command();
 init_Tools();
 init_DogeChat();
-import { world as world13, system as system13 } from "@minecraft/server";
+import { world as world17, system as system17 } from "@minecraft/server";
 
 // scripts/gui/ChatGUI.ts
-import { world as world12 } from "@minecraft/server";
+import { world as world16 } from "@minecraft/server";
 init_Tools();
 init_Permission();
 init_DogeChat();
@@ -4419,7 +4759,7 @@ var ChatGUI = class _ChatGUI {
         Msg.error("\u65E0\u6CD5\u627E\u5230\u79C1\u804A\u5BF9\u8C61\u3002", player);
         return;
       }
-      const target = world12.getPlayers().find((p) => p.id === otherid);
+      const target = world16.getPlayers().find((p) => p.id === otherid);
       if (!target) {
         Msg.error("\u5BF9\u65B9\u4E0D\u5728\u7EBF\u3002", player);
         return;
@@ -4427,7 +4767,7 @@ var ChatGUI = class _ChatGUI {
       DogeChat.sendTeleportInvite(player, target);
       return;
     }
-    const online = world12.getPlayers().filter((p) => p.id !== player.id);
+    const online = world16.getPlayers().filter((p) => p.id !== player.id);
     if (online.length === 0) {
       Msg.info("\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002", player);
       return;
@@ -4741,7 +5081,7 @@ var ChatGUI = class _ChatGUI {
     }
   }
   async buildInvite(page) {
-    const online = world12.getPlayers().filter((p) => p.id !== this.player.id);
+    const online = world16.getPlayers().filter((p) => p.id !== this.player.id);
     if (online.length === 0) {
       page.label(ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002"]));
       return;
@@ -4824,7 +5164,7 @@ var ChatSystem = class _ChatSystem {
     console.log(`ChatSystem initialized successfully.`);
   }
   static registerEvents() {
-    _ChatSystem.chatSendSub = world13.beforeEvents.chatSend.subscribe(async (event) => {
+    _ChatSystem.chatSendSub = world17.beforeEvents.chatSend.subscribe(async (event) => {
       const player = event.sender;
       const message = event.message;
       if (message.startsWith("!") || message.startsWith("\uFF01")) return;
@@ -4832,9 +5172,9 @@ var ChatSystem = class _ChatSystem {
       const channel = await DogeChat.getActiveChannel(player);
       if (channel) await DogeChat.sendChannelMessage(player, channel.id, message);
     });
-    _ChatSystem.playerJoinSub = world13.afterEvents.playerJoin.subscribe((event) => {
-      const player = world13.getEntity(event.playerId);
-      system13.run(async () => {
+    _ChatSystem.playerJoinSub = world17.afterEvents.playerJoin.subscribe((event) => {
+      const player = world17.getEntity(event.playerId);
+      system17.run(async () => {
         await DogeChat.loadSubscriptions(player);
         const channel = await DogeChat.getActiveChannel(player);
         if (channel) await DogeChat.loadChannelHistory(player, channel.id);
@@ -4926,224 +5266,6 @@ var ChatSystem = class _ChatSystem {
   }
 };
 
-// scripts/doge/TPS.ts
-init_Command();
-init_Tools();
-import { system as system14, world as world14 } from "@minecraft/server";
-var TPS = class _TPS {
-  static {
-    this.tickTimes = [];
-  }
-  static {
-    this.MAX_SAMPLES = 100;
-  }
-  static getTPS() {
-    if (_TPS.tickTimes.length < 10) return 20;
-    const elapsed = (_TPS.tickTimes[_TPS.tickTimes.length - 1] - _TPS.tickTimes[0]) / 1e3;
-    const tickCount = _TPS.tickTimes.length - 1;
-    const tps = tickCount / elapsed;
-    return Math.round(Math.min(tps, 20) * 100) / 100;
-  }
-  static getTPSStatus() {
-    const tps = this.getTPS();
-    let color;
-    if (tps >= 19.5) color = "\xA7a";
-    else if (tps >= 15) color = "\xA7e";
-    else if (tps >= 10) color = "\xA76";
-    else color = "\xA7c";
-    return `\xA77[TPS] ${color}${tps} \xA77/ 20.00`;
-  }
-  static init() {
-    this.startRecord();
-  }
-  static startRecord() {
-    this.recordRunId = system14.runInterval(() => {
-      _TPS.tickTimes.push(Date.now());
-      if (_TPS.tickTimes.length > _TPS.MAX_SAMPLES) {
-        _TPS.tickTimes.shift();
-      }
-    }, 1);
-  }
-  static stop() {
-    if (this.recordRunId !== void 0) {
-      try {
-        system14.clearRun(this.recordRunId);
-      } catch {
-      }
-      this.recordRunId = void 0;
-    }
-  }
-  static registerCommands() {
-    Command.register(
-      "tps",
-      "tps.see",
-      (player) => {
-        const msg = this.getTPSStatus();
-        if (player) {
-          Msg.info(msg, player);
-        } else {
-          world14.sendMessage(msg);
-        }
-      },
-      "\u67E5\u770B\u670D\u52A1\u5668 TPS",
-      "tps"
-    );
-  }
-};
-
-// scripts/doge/OnlineTime.ts
-init_Permission();
-init_Command();
-init_Tools();
-init_HttpDB();
-import { system as system15, world as world15 } from "@minecraft/server";
-var OnlineTime = class _OnlineTime {
-  constructor() {
-    this.dataMap = /* @__PURE__ */ new Map();
-  }
-  static getInstance() {
-    if (!_OnlineTime._instance) {
-      _OnlineTime._instance = new _OnlineTime();
-    }
-    return _OnlineTime._instance;
-  }
-  registerCommandsAndPermissions() {
-    Permission.register("onlinetime.see", Permission.Any);
-    Command.register(
-      "onlinetime",
-      "onlinetime.see",
-      async (player) => {
-        if (!player) {
-          world15.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
-          return;
-        }
-        const data = await this.load(player);
-        Msg.info(
-          `\u73A9\u5BB6 \xA7a${player.name}\xA7r \u7684\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1:
-\xA7e\u672C\u6B21\u5728\u7EBF \xA7f${this.formatTime(data.session)}
-\xA7e\u4ECA\u65E5\u5728\u7EBF \xA7f${this.formatTime(data.today)}
-\xA7e\u672C\u6708\u5728\u7EBF \xA7f${this.formatTime(data.month)}
-\xA7e\u603B\u5728\u7EBF \xA7f${this.formatTime(data.total)}
-`,
-          player
-        );
-      },
-      "\u67E5\u770B\u5728\u7EBF\u65F6\u95F4\u7EDF\u8BA1",
-      "onlineTime"
-    );
-  }
-  registerEvents() {
-    world15.afterEvents.playerSpawn.subscribe((event) => {
-      if (event.initialSpawn) {
-        this.onPlayerJoin(event.player);
-      }
-    });
-  }
-  init() {
-    this.startTick();
-  }
-  formatTime(seconds) {
-    const d = Math.floor(seconds / 86400);
-    const h = Math.floor(seconds % 86400 / 3600);
-    const m = Math.floor(seconds % 3600 / 60);
-    const s = seconds % 60;
-    const parts = [];
-    if (d > 0) parts.push(`${d}\u5929`);
-    if (h > 0) parts.push(`${h}\u65F6`);
-    if (m > 0) parts.push(`${m}\u5206`);
-    parts.push(`${s}\u79D2`);
-    return parts.join("");
-  }
-  /** 从 DB 加载玩家在线时间数据 */
-  async load(player) {
-    const existing = this.dataMap.get(player.id);
-    if (existing) return existing;
-    const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
-    const def = (val, fallback) => typeof val === "number" ? val : fallback;
-    const data = {
-      session: 0,
-      today: def(raw?.onlinetime_today, 0),
-      month: def(raw?.onlinetime_month, 0),
-      total: def(raw?.onlinetime_total, 0),
-      lastDate: def(raw?.onlinetime_last_date, (/* @__PURE__ */ new Date()).getDate()),
-      lastMonth: def(raw?.onlinetime_last_month, (/* @__PURE__ */ new Date()).getMonth())
-    };
-    this.dataMap.set(player.id, data);
-    return data;
-  }
-  /** 持久化在线时间到 DB（排除 session，仅持久化跨重启字段） */
-  async persist(player, data) {
-    await HttpDB.patch(`/api/sfmc/players/${player.id}`, {
-      player: {
-        onlinetimeToday: data.today,
-        onlinetimeMonth: data.month,
-        onlinetimeTotal: data.total,
-        onlinetimeLastDate: data.lastDate,
-        onlinetimeLastMonth: data.lastMonth
-      }
-    }).catch(() => {
-    });
-  }
-  onPlayerJoin(player) {
-    this.load(player).then((data) => {
-      data.session = 0;
-    });
-  }
-  onPlayerLeave(player) {
-    const data = this.dataMap.get(player.id);
-    if (data) {
-      this.persist(player, data).catch(() => {
-      });
-      this.dataMap.delete(player.id);
-    }
-  }
-  tickSecond() {
-    const now = /* @__PURE__ */ new Date();
-    const currentDate = now.getDate();
-    const currentMonth = now.getMonth();
-    for (const player of world15.getAllPlayers()) {
-      const data = this.dataMap.get(player.id);
-      if (!data) {
-        this.load(player).then((d) => {
-          d.session++;
-          d.today++;
-          d.month++;
-          d.total++;
-        });
-        continue;
-      }
-      if (data.lastDate !== currentDate) {
-        data.today = 0;
-        data.lastDate = currentDate;
-      }
-      if (data.lastMonth !== currentMonth) {
-        data.month = 0;
-        data.lastMonth = currentMonth;
-      }
-      data.session++;
-      data.today++;
-      data.month++;
-      data.total++;
-      this.persist(player, data).catch(() => {
-      });
-    }
-  }
-  startTick() {
-    this.tickRunId = system15.runInterval(() => {
-      this.tickSecond();
-    }, 20);
-  }
-  stop() {
-    if (this.tickRunId !== void 0) {
-      try {
-        system15.clearRun(this.tickRunId);
-      } catch {
-      }
-      this.tickRunId = void 0;
-    }
-  }
-};
-
 // scripts/entry.ts
 init_CreativeArea();
 
@@ -5154,8 +5276,8 @@ init_Permission();
 init_CreativeArea();
 init_Tools();
 import {
-  system as system16,
-  world as world16,
+  system as system18,
+  world as world18,
   GameMode as GameMode3
 } from "@minecraft/server";
 var SurvivalArea = class _SurvivalArea {
@@ -5179,20 +5301,20 @@ var SurvivalArea = class _SurvivalArea {
   /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
     if (this.subscriptions.length > 0) return;
-    this.subscriptions.push(world16.afterEvents.playerSpawn.subscribe((event) => {
+    this.subscriptions.push(world18.afterEvents.playerSpawn.subscribe((event) => {
       if (!event.initialSpawn) return;
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       const player = event.player;
       const mode = player.getGameMode();
       if (mode === GameMode3.Survival || mode === GameMode3.Adventure) return;
-      system16.runTimeout(() => {
+      system18.runTimeout(() => {
         if (!this.inCreativeArea(player)) {
           this.forceSurvival(player);
         }
       }, 60);
     }));
-    this.subscriptions.push(world16.beforeEvents.playerGameModeChange.subscribe((event) => {
+    this.subscriptions.push(world18.beforeEvents.playerGameModeChange.subscribe((event) => {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       if (event.toGameMode === GameMode3.Creative || event.toGameMode === GameMode3.Spectator) {
@@ -5203,13 +5325,13 @@ var SurvivalArea = class _SurvivalArea {
         }
       }
     }));
-    this.subscriptions.push(world16.afterEvents.playerDimensionChange.subscribe((event) => {
+    this.subscriptions.push(world18.afterEvents.playerDimensionChange.subscribe((event) => {
       if (!CreativeArea.enable) return;
       if (!this.enable) return;
       const player = event.player;
       const mode = player.getGameMode();
       if (mode === GameMode3.Survival || mode === GameMode3.Adventure) return;
-      system16.runTimeout(() => {
+      system18.runTimeout(() => {
         if (!this.inCreativeArea(player)) {
           this.forceSurvival(player);
         }
@@ -5254,8 +5376,8 @@ var SurvivalArea = class _SurvivalArea {
 init_ConfigManager();
 init_Tools();
 import {
-  system as system17,
-  world as world17,
+  system as system19,
+  world as world19,
   GameMode as GameMode4,
   EquipmentSlot,
   BlockComponentTypes as BlockComponentTypes3
@@ -5276,9 +5398,9 @@ var InventorySwitcher = class _InventorySwitcher {
   /** 注册事件（由 entry.ts 统一调用） */
   registerEvents() {
     if (this.gameModeSub) return;
-    this.gameModeSub = world17.afterEvents.playerGameModeChange.subscribe((event) => {
+    this.gameModeSub = world19.afterEvents.playerGameModeChange.subscribe((event) => {
       const player = event.player;
-      system17.run(() => {
+      system19.run(() => {
         if (player.getGameMode() !== event.toGameMode) return;
         if (event.fromGameMode === GameMode4.Survival && event.toGameMode === GameMode4.Creative) {
           this.saveToChest(player, false);
@@ -5319,7 +5441,7 @@ var InventorySwitcher = class _InventorySwitcher {
     const key = `invswitcher:player_${playerId2}`;
     let base = _InventorySwitcher.chestMap.get(key);
     if (base === void 0) {
-      let nextIdx = world17.getDynamicProperty("hpbe:invswitcher_next");
+      let nextIdx = world19.getDynamicProperty("hpbe:invswitcher_next");
       if (nextIdx === void 0) nextIdx = 0;
       const grid = ConfigManager.getGrid("inventory_chest");
       if (!grid) return 0;
@@ -5327,7 +5449,7 @@ var InventorySwitcher = class _InventorySwitcher {
       if (nextIdx > max) nextIdx = 0;
       base = nextIdx;
       _InventorySwitcher.chestMap.set(key, base);
-      world17.setDynamicProperty("hpbe:invswitcher_next", base + 2);
+      world19.setDynamicProperty("hpbe:invswitcher_next", base + 2);
     }
     return base * 2 + (forCreative ? 1 : 0);
   }
@@ -5337,7 +5459,7 @@ var InventorySwitcher = class _InventorySwitcher {
   saveToChest(player, forCreative) {
     const cfg = ConfigManager.getGrid("inventory_chest");
     if (!cfg) return;
-    const dim = world17.getDimension("minecraft:overworld");
+    const dim = world19.getDimension("minecraft:overworld");
     const { left, sign } = this.getLayout(this.getChestIndex(player.id, forCreative));
     ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
     const { date, time } = getShanghaiTime();
@@ -5393,7 +5515,7 @@ ${time}`
   restoreFromChest(player, forCreative) {
     const cfg = ConfigManager.getGrid("inventory_chest");
     if (!cfg) return;
-    const dim = world17.getDimension("minecraft:overworld");
+    const dim = world19.getDimension("minecraft:overworld");
     const { left } = this.getLayout(this.getChestIndex(player.id, forCreative));
     ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
     const block = dim.getBlock(left);
@@ -5844,7 +5966,7 @@ var LandCore = class {
 };
 
 // scripts/gui/LandGUI.ts
-import { world as world18 } from "@minecraft/server";
+import { world as world20 } from "@minecraft/server";
 init_Tools();
 init_Money();
 var LandGUI = class _LandGUI {
@@ -5986,7 +6108,7 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`, () => {
         "\u5F53\u524D\u7BA1\u7406\u8005\uFF1A",
         ...land.managers.map((m) => {
           if (m === land.ownerplid) return `  - ${land.ownerName} (\u62E5\u6709\u8005)`;
-          const p = world18.getPlayers().find((pl) => pl.id === m);
+          const p = world20.getPlayers().find((pl) => pl.id === m);
           return p ? `  - ${p.name}` : `  - ${m.substring(0, 8)}...`;
         })
       ])
@@ -6003,7 +6125,7 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`, () => {
       page.label("\u571F\u5730\u6570\u636E\u4E22\u5931\u3002");
       return;
     }
-    const online = world18.getPlayers().filter((p) => p.id !== this.player.id && !land.managers.includes(p.id));
+    const online = world20.getPlayers().filter((p) => p.id !== this.player.id && !land.managers.includes(p.id));
     if (online.length === 0) {
       page.label(ListFormInfo(["\u6CA1\u6709\u53EF\u6DFB\u52A0\u7684\u5728\u7EBF\u73A9\u5BB6\u3002"]));
       return;
@@ -6036,7 +6158,7 @@ ${info.square} \u683C | ${LandCore.getDimensionName(land.dimid)}`, () => {
     }
     page.label(ListFormInfo(["\u9009\u62E9\u8981\u79FB\u9664\u7684\u7BA1\u7406\u8005\u3002"]));
     for (const m of nonOwnerMgrs) {
-      const p = world18.getPlayers().find((pl) => pl.id === m);
+      const p = world20.getPlayers().find((pl) => pl.id === m);
       page.button(p ? p.name : m.substring(0, 8) + "...", () => {
         const idx = land.managers.indexOf(m);
         if (idx !== -1) {
@@ -6225,7 +6347,7 @@ function handlePosCommand(player, which) {
 }
 
 // scripts/land/LandEvents.ts
-import { world as world19 } from "@minecraft/server";
+import { world as world21 } from "@minecraft/server";
 init_Tools();
 var CONTAINER_BLOCKS = /* @__PURE__ */ new Set([
   "minecraft:chest",
@@ -6255,7 +6377,7 @@ var LandEvents = class {
   static registerEvents() {
     if (this.initialized) return;
     this.initialized = true;
-    this.subscriptions.push(world19.beforeEvents.playerPlaceBlock.subscribe((ev) => {
+    this.subscriptions.push(world21.beforeEvents.playerPlaceBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
@@ -6264,7 +6386,7 @@ var LandEvents = class {
         ev.cancel = true;
       }
     }));
-    this.subscriptions.push(world19.beforeEvents.playerBreakBlock.subscribe((ev) => {
+    this.subscriptions.push(world21.beforeEvents.playerBreakBlock.subscribe((ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
@@ -6273,7 +6395,7 @@ var LandEvents = class {
         ev.cancel = true;
       }
     }));
-    this.subscriptions.push(world19.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
+    this.subscriptions.push(world21.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
       const { player, block } = ev;
       if (!isContainerBlock(block.typeId)) return;
       const pos = { x: block.x, y: block.y, z: block.z };
@@ -6297,7 +6419,7 @@ var LandEvents = class {
 };
 
 // scripts/gui/MoneyGUI.ts
-import { world as world20 } from "@minecraft/server";
+import { world as world22 } from "@minecraft/server";
 init_Money();
 init_Command();
 init_Tools();
@@ -6335,7 +6457,7 @@ var MoneyGUI = class _MoneyGUI {
           status.fail("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002");
           return;
         }
-        const target = world20.getPlayers().find((p) => p.name === name);
+        const target = world22.getPlayers().find((p) => p.name === name);
         if (!target) {
           status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
           return;
@@ -6355,7 +6477,7 @@ var MoneyGUI = class _MoneyGUI {
           status.fail("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u73A9\u5BB6\u540D\u79F0\u3002");
           return;
         }
-        const target = world20.getPlayers().find((p) => p.name === name);
+        const target = world22.getPlayers().find((p) => p.name === name);
         if (!target) {
           status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
           return;
@@ -6369,7 +6491,7 @@ var MoneyGUI = class _MoneyGUI {
 };
 
 // scripts/gui/MainMenu.ts
-import { system as system18 } from "@minecraft/server";
+import { system as system20 } from "@minecraft/server";
 init_Tools();
 init_Money();
 init_Command();
@@ -6432,7 +6554,7 @@ var MainMenu = class _MainMenu {
         Money.add(player, -amount);
         Money.add(target, amount);
         status.setData(`\xA7a\u6210\u529F\u8F6C\u8D26 ${amount} ${Money.UNIT} \u7ED9 ${name}\u3002`);
-        system18.runTimeout(() => nav.rebuild("economy"), 40);
+        system20.runTimeout(() => nav.rebuild("economy"), 40);
       });
     });
     nav.start("main");
@@ -6507,7 +6629,7 @@ init_ConfigManager();
 init_Money();
 init_Tools();
 import {
-  world as world21,
+  world as world23,
   BlockComponentTypes as BlockComponentTypes4
 } from "@minecraft/server";
 
@@ -6665,7 +6787,7 @@ var ShopSystem = class {
   /** 获取第 catIdx 个商店的名称（从告示牌读取） */
   static getShopName(catIdx) {
     const { sign } = this.getChestLayout(catIdx);
-    const dim = world21.getDimension("minecraft:overworld");
+    const dim = world23.getDimension("minecraft:overworld");
     const block = dim.getBlock(sign);
     if (!block) return `\u5546\u5E97 #${catIdx + 1}`;
     try {
@@ -6680,7 +6802,7 @@ var ShopSystem = class {
   }
   /** 获取某个商店箱子里所有物品（实际库存） */
   static getChestItems(catIdx) {
-    const dim = world21.getDimension("minecraft:overworld");
+    const dim = world23.getDimension("minecraft:overworld");
     const { left } = this.getChestLayout(catIdx);
     const block = dim.getBlock(left);
     if (!block) return [];
@@ -6696,10 +6818,10 @@ var ShopSystem = class {
   }
   // ── 价格管理 ──
   static getPriceData() {
-    let pricesData = world21.getDynamicProperty("hpbe:shop_prices");
+    let pricesData = world23.getDynamicProperty("hpbe:shop_prices");
     let prices = {};
     if (typeof pricesData === "string") prices = JSON.parse(pricesData);
-    let stocksData = world21.getDynamicProperty("hpbe:shop_stocks");
+    let stocksData = world23.getDynamicProperty("hpbe:shop_stocks");
     let sellPrices = {};
     if (typeof stocksData === "string") sellPrices = JSON.parse(stocksData);
     return {
@@ -6714,8 +6836,8 @@ var ShopSystem = class {
     else delete data.prices[key];
     if (sellPrice > 0) data.sellPrices[key] = sellPrice;
     else delete data.sellPrices[key];
-    world21.setDynamicProperty("hpbe:shop_prices", JSON.stringify(data.prices));
-    world21.setDynamicProperty("hpbe:shop_stocks", JSON.stringify(data.sellPrices));
+    world23.setDynamicProperty("hpbe:shop_prices", JSON.stringify(data.prices));
+    world23.setDynamicProperty("hpbe:shop_stocks", JSON.stringify(data.sellPrices));
   }
   // ── 购买 ──
   static buy(player, catIdx, slotIdx, amount) {
@@ -6726,7 +6848,7 @@ var ShopSystem = class {
       Msg.error("\u8BE5\u7269\u54C1\u672A\u8BBE\u7F6E\u4EF7\u683C\u3002", player);
       return false;
     }
-    const dim = world21.getDimension("minecraft:overworld");
+    const dim = world23.getDimension("minecraft:overworld");
     const { left } = this.getChestLayout(catIdx);
     const cfg = ConfigManager.getGrid("shop_chest");
     ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
@@ -6830,10 +6952,10 @@ var ShopSystem = class {
 
 // scripts/data/Scoreboards.ts
 init_api();
-import { world as world22 } from "@minecraft/server";
+import { world as world24 } from "@minecraft/server";
 function ScoreboardsBackup() {
   let entries = [];
-  world22.scoreboard.getObjectives().forEach((obj, index) => {
+  world24.scoreboard.getObjectives().forEach((obj, index) => {
     const scores = obj.getScores();
     entries.push({
       id: obj.id,
@@ -6874,10 +6996,10 @@ var ScoreboardSync = class {
         groups.set(e.objective_id, list);
       }
       for (const [objId, objEntries] of groups) {
-        let objective = world22.scoreboard.getObjective(objId);
+        let objective = world24.scoreboard.getObjective(objId);
         if (!objective) {
           try {
-            objective = world22.scoreboard.addObjective(objId, objEntries[0].objective_display || objId);
+            objective = world24.scoreboard.addObjective(objId, objEntries[0].objective_display || objId);
           } catch (err) {
             console.warn(`[ScoreboardSync] \u65E0\u6CD5\u521B\u5EFA\u8BB0\u5206\u9879 "${objId}"\uFF1A${err}`);
             fail += objEntries.length;
@@ -6887,7 +7009,7 @@ var ScoreboardSync = class {
         for (const e of objEntries) {
           try {
             if (e.participant_type === "Player" && e.id) {
-              const player = [...world22.getPlayers()].find((p) => p.id === e.id);
+              const player = [...world24.getPlayers()].find((p) => p.id === e.id);
               if (player?.scoreboardIdentity) {
                 objective.setScore(player.scoreboardIdentity, e.score);
                 success++;
@@ -6912,7 +7034,7 @@ var ScoreboardSync = class {
 
 // scripts/data/ActivityLog.ts
 init_HttpDB();
-import { world as world23, system as system20 } from "@minecraft/server";
+import { world as world25, system as system22 } from "@minecraft/server";
 var ENABLED_EVENTS = /* @__PURE__ */ new Set([
   "player.join",
   "player.leave",
@@ -6943,7 +7065,7 @@ var initialized = false;
 function enqueue(entry) {
   queue.push(entry);
   if (!flushTimer) {
-    flushTimer = system20.runTimeout(flush, FLUSH_INTERVAL / 50);
+    flushTimer = system22.runTimeout(flush, FLUSH_INTERVAL / 50);
   }
 }
 async function flush() {
@@ -7022,7 +7144,7 @@ function subscribe() {
       }
     }
   }
-  const AE = world23.afterEvents;
+  const AE = world25.afterEvents;
   safeSubscribe(AE.playerSpawn, (event) => {
     if (!event.initialSpawn) return;
     if (!ENABLED_EVENTS.has("player.join")) return;
@@ -7420,10 +7542,10 @@ var ActivityLog = class {
     if (initialized) return;
     initialized = true;
     console.info("[ActivityLog] \u4E8B\u4EF6\u8BA2\u9605\u5B8C\u6210");
-    system20.runInterval(flush, FLUSH_INTERVAL / 50);
-    system20.runTimeout(() => {
+    system22.runInterval(flush, FLUSH_INTERVAL / 50);
+    system22.runTimeout(() => {
       doCleanup();
-      system20.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
+      system22.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
     }, 72e3 / 50);
   }
 };
@@ -7431,9 +7553,9 @@ var ActivityLog = class {
 // scripts/data/World.ts
 init_Tools();
 init_api();
-import { world as world24 } from "@minecraft/server";
+import { world as world26 } from "@minecraft/server";
 function serializeGameRules() {
-  const g = world24.gameRules;
+  const g = world26.gameRules;
   const rules = {};
   const props = [
     "commandBlockOutput",
@@ -7476,18 +7598,18 @@ function serializeGameRules() {
 }
 async function getWorldData() {
   const data = {
-    allowCheats: world24.allowCheats,
+    allowCheats: world26.allowCheats,
     gameRules: serializeGameRules(),
-    seed: world24.seed,
-    defaultSpawnLocation: JSON.stringify(world24.getDefaultSpawnLocation()),
-    difficulty: world24.getDifficulty(),
-    day: world24.getDay(),
-    tickingAreasCount: world24.tickingAreaManager.chunkCount,
-    absoluteTime: world24.getAbsoluteTime(),
-    structuresFromAddon: world24.structureManager.getPackStructureIds().toString(),
-    structuresFromWorld: world24.structureManager.getWorldStructureIds().toString(),
-    MoonPhase: world24.getMoonPhase(),
-    dynamicPropertyTotalByteCount: world24.getDynamicPropertyTotalByteCount(),
+    seed: world26.seed,
+    defaultSpawnLocation: JSON.stringify(world26.getDefaultSpawnLocation()),
+    difficulty: world26.getDifficulty(),
+    day: world26.getDay(),
+    tickingAreasCount: world26.tickingAreaManager.chunkCount,
+    absoluteTime: world26.getAbsoluteTime(),
+    structuresFromAddon: world26.structureManager.getPackStructureIds().toString(),
+    structuresFromWorld: world26.structureManager.getWorldStructureIds().toString(),
+    MoonPhase: world26.getMoonPhase(),
+    dynamicPropertyTotalByteCount: world26.getDynamicPropertyTotalByteCount(),
     updatedAt: getShanghaiTime().date + getShanghaiTime().time
   };
   return data;
@@ -7524,7 +7646,7 @@ async function getPlayerData(player) {
 init_api();
 
 // scripts/holo/HoloEntity.ts
-import { world as world25, Player as Player23 } from "@minecraft/server";
+import { world as world27, Player as Player25 } from "@minecraft/server";
 var HOLOGRAM_ENTITY_ID = "sfmc:hologram";
 var DP_PROJECTION_ID = "hpbe_projection_id";
 var DP_OWNER_ID = "hpbe_owner_id";
@@ -7638,10 +7760,10 @@ var HoloEntity = class _HoloEntity {
    */
   static registerEvents() {
     if (_HoloEntity.hitSubscription) return;
-    _HoloEntity.hitSubscription = world25.afterEvents.entityHitEntity.subscribe((event) => {
+    _HoloEntity.hitSubscription = world27.afterEvents.entityHitEntity.subscribe((event) => {
       const { damagingEntity, hitEntity } = event;
       if (hitEntity.typeId !== HOLOGRAM_ENTITY_ID) return;
-      if (!(damagingEntity instanceof Player23)) return;
+      if (!(damagingEntity instanceof Player25)) return;
       const projectionId = hitEntity.getDynamicProperty(DP_PROJECTION_ID);
       if (!projectionId) return;
       console.info(`[HoloEntity] \u73A9\u5BB6 ${damagingEntity.name} \u70B9\u51FB\u4E86\u5168\u606F\u6295\u5F71 ${projectionId}`);
@@ -7666,7 +7788,7 @@ var HoloEntity = class _HoloEntity {
       const dimensions = ["overworld", "nether", "the_end"];
       let count = 0;
       for (const dimId2 of dimensions) {
-        const dim = world25.getDimension(dimId2);
+        const dim = world27.getDimension(dimId2);
         const entities = dim.getEntities({ type: HOLOGRAM_ENTITY_ID });
         for (const entity of entities) {
           const projectionId = entity.getDynamicProperty(DP_PROJECTION_ID);
@@ -7685,7 +7807,7 @@ var HoloEntity = class _HoloEntity {
 };
 
 // scripts/holo/HoloCore.ts
-import { world as world26 } from "@minecraft/server";
+import { world as world28 } from "@minecraft/server";
 
 // scripts/data/HoloPrint.ts
 var COLOR_PRESETS = [
@@ -7792,7 +7914,7 @@ var HoloCore = class {
       const timestamp = Date.now();
       const structureId = `${STRUCTURE_ID_PREFIX}${player.id}_${timestamp}`;
       try {
-        world26.structureManager.createFromWorld(structureId, player.dimension, min, max);
+        world28.structureManager.createFromWorld(structureId, player.dimension, min, max);
       } catch (err) {
         player.sendMessage("\xA7c[HPBE] \u4FDD\u5B58\u7ED3\u6784\u5931\u8D25\uFF0C\u9009\u533A\u53EF\u80FD\u5305\u542B\u672A\u52A0\u8F7D\u533A\u5757");
         console.error(`[HoloCore] createFromWorld \u5931\u8D25: ${err}`);
@@ -8337,137 +8459,13 @@ var HoloGUI = class _HoloGUI {
 };
 
 // scripts/entry.ts
-init_ConfigManager();
-init_ModuleRegistry();
-
-// scripts/doge/ChatSoundsHelper.ts
-import { system as system23, world as world27 } from "@minecraft/server";
-var KEYWORDS = {
-  ciallo: "cs.ciallo",
-  \u5495\u5495\u560E\u560E: "cs.gugugaga",
-  \u6C69\u6C69\u5495: "cs.gugugu",
-  baka: "cs.baka",
-  yee: "cs.yee",
-  \u5E72\u561B: "mob.chicken.hurt",
-  huh: "cs.huh"
-};
-var ChatSoundsHelper = class _ChatSoundsHelper {
-  constructor(keywords) {
-    this.cooldownTicks = 200;
-    this.cooldownMap = {};
-    this.chatSub = void 0;
-    this.keywords = keywords;
-  }
-  static getInstance() {
-    if (!_ChatSoundsHelper.instance) {
-      _ChatSoundsHelper.instance = new _ChatSoundsHelper(KEYWORDS);
-    }
-    return _ChatSoundsHelper.instance;
-  }
-  registerEvent() {
-    if (this.chatSub) return;
-    this.chatSub = world27.beforeEvents.chatSend.subscribe((event) => {
-      const msg = event.message;
-      for (const keyWord in this.keywords) {
-        if (!msg.toLowerCase().includes(keyWord.toLowerCase())) continue;
-        const sender = event.sender;
-        if (sender.getGameMode() !== "Creative") {
-          const id = sender.id;
-          if (this.cooldownMap[id]) return;
-          this.cooldownMap[id] = true;
-          system23.runTimeout(() => {
-            delete this.cooldownMap[id];
-          }, this.cooldownTicks);
-        }
-        const soundId = this.keywords[keyWord];
-        system23.run(() => {
-          for (const p of world27.getAllPlayers()) {
-            try {
-              p.playSound(soundId);
-            } catch {
-            }
-          }
-        });
-        return;
-      }
-    });
-  }
-  stop() {
-    if (this.chatSub?.unsubscribe) {
-      try {
-        this.chatSub.unsubscribe();
-      } catch {
-      }
-    }
-    this.chatSub = void 0;
-  }
-};
-
-// scripts/doge/MonitorReporter.ts
-init_HttpDB();
-import { world as world28, system as system24 } from "@minecraft/server";
-var REPORT_INTERVAL = 600;
-var DIMENSIONS = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"];
-var MonitorReporter = class {
-  static init() {
-    if (this.runId !== void 0) return;
-    this.runId = system24.runInterval(() => {
-      this.report();
-    }, REPORT_INTERVAL);
-  }
-  static stop() {
-    if (this.runId !== void 0) {
-      try {
-        system24.clearRun(this.runId);
-      } catch {
-      }
-      this.runId = void 0;
-    }
-  }
-  static async report() {
-    try {
-      const tps = TPS.getTPS();
-      const entities = {};
-      for (const dim of DIMENSIONS) {
-        try {
-          entities[dim] = world28.getDimension(dim).getEntities().length;
-        } catch (e) {
-          entities[dim] = 0;
-        }
-      }
-      await HttpDB.post("/api/sfmc/monitor/metrics", { tps, entities });
-      const players = world28.getAllPlayers();
-      const playerChunks = players.map((p) => {
-        const loc2 = p.location;
-        const dim = p.dimension?.id || "minecraft:overworld";
-        const rd = p.clientSystemInfo?.maxRenderDistance || 8;
-        const chunkX = Math.floor(loc2.x / 16);
-        const chunkZ = Math.floor(loc2.z / 16);
-        const side = rd + 1;
-        const estimate = (1 + side) * (1 + side);
-        return {
-          id: p.id,
-          name: p.name,
-          dimension: dim,
-          pos: { x: Math.round(loc2.x), z: Math.round(loc2.z) },
-          renderDistance: rd,
-          chunkEstimate: estimate
-        };
-      });
-      await HttpDB.post("/api/sfmc/monitor/player-chunks", { players: playerChunks });
-    } catch (e) {
-    }
-  }
-};
-
-// scripts/entry.ts
 ModuleRegistry.register({
   id: "fly",
   afterWorldLoad: false,
   lifecycle: {
-    registerPermissions: () => init(),
+    registerPermissions: () => init2(),
     init: () => boot(),
-    cleanup: () => stop()
+    cleanup: () => stop2()
   }
 });
 ModuleRegistry.register({
@@ -8540,8 +8538,8 @@ ModuleRegistry.register({
   afterWorldLoad: true,
   lifecycle: {
     registerCommands: () => registerCommand(),
-    init: () => init2(),
-    cleanup: () => stop2()
+    init: () => init(),
+    cleanup: () => stop()
   }
 });
 ModuleRegistry.register({

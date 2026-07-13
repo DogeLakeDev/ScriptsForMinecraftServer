@@ -38,6 +38,7 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
   const [searching, setSearching] = useState(false);
 
   const maxRows = Math.max(5, logH + 4);
+  const listRows = Math.max(3, Math.min(maxRows, logH));
 
   function load() {
     setLoading(true);
@@ -89,15 +90,15 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
   const selected = filteredModules[focus] || null;
   const missing = unmetDeps(selected);
   const canToggle = !!selected && selected.installed !== false && selected.can_disable && selected.enabled;
-  const canEnable = !!selected && selected.installed !== false && selected.can_disable && missing.length === 0 && !selected.enabled;
+  const canEnable = !!selected && selected.installed !== false && missing.length === 0 && !selected.enabled;
   const canInstall = !!selected && selected.installed === false;
   const canUninstall = !!selected && selected.can_uninstall && selected.installed !== false;
   const isBdsUpdater = selected?.id === 'tool-bds-updater';
 
   const visible = useMemo(() => {
-    const start = Math.max(0, Math.min(focus - Math.floor(maxRows / 2), Math.max(0, filteredModules.length - maxRows)));
-    return { start, rows: filteredModules.slice(start, start + maxRows) };
-  }, [filteredModules, focus, maxRows]);
+    const start = Math.max(0, Math.min(focus - Math.floor(listRows / 2), Math.max(0, filteredModules.length - listRows)));
+    return { start, rows: filteredModules.slice(start, start + listRows) };
+  }, [filteredModules, focus, listRows]);
 
   function notify(level, msg) {
     if (showToast) showToast(msg, level);
@@ -193,47 +194,40 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
     );
   }
 
-  return h(Box, { flexDirection: 'row', flexGrow: 1 },
-    h(Box, { flexDirection: 'column', flexGrow: 1 },
+  const listLines = visible.rows.map((m, i) => {
+    const idx = visible.start + i;
+    const state = m.installed === false ? '未安装' : (m.enabled ? '启用' : '禁用');
+    const type = m.type || 'feature';
+    const color = m.installed === false ? T.error : (m.enabled ? T.success : T.muted);
+    return h(Box, { key: m.id, backgroundColor: idx === focus ? T.focusBg : T.panel },
+      h(Text, { color: idx === focus ? T.primary : color }, `${idx === focus ? '→' : ' '} ${m.id} [${type}] ${state}`),
+    );
+  });
+  const details = selected ? h(Box, { flexDirection: 'column', marginTop: 1 },
+    h(Text, { bold: true, color: T.primary }, selected.display_name || selected.name || selected.id),
+    h(Text, { color: T.text }, selected.description || ''),
+    h(Text, { color: T.muted }, `依赖: ${(selected.requires || []).join(', ') || '无'}`),
+    missing.length > 0 && h(Text, { color: T.warning }, `未满足依赖: ${missing.join(', ')}`),
+    h(Text, { color: T.muted }, `可禁用: ${selected.can_disable ? '是' : '否'}  可卸载: ${selected.can_uninstall ? '是' : '否'}  安装来源: ${selected.install_source || 'catalog'}`),
+    h(Text, { color: T.muted }, `入口: ${(selected.entry && selected.entry.path) || '-'}`),
+    isBdsUpdater && h(Text, { color: T.warning }, '卸载前请先在服务页停止 BDS'),
+    busy && h(Text, { color: T.warning }, '正在提交变更...'),
+    detail && detail.id === selected.id && h(Box, { flexDirection: 'column', marginTop: 1 },
+      h(Text, { color: T.muted }, '依赖关系:'),
+      ...(detail.requires || []).map((dep) => {
+        const dependency = moduleMap.get(dep);
+        const ready = dependency && dependency.installed !== false && dependency.enabled;
+        return h(Text, { key: dep, color: ready ? T.success : T.error }, `  - ${dep} [${ready ? '就绪' : '未就绪'}]`);
+      }),
+      ...(detail.optional || []).map((dep) => h(Text, { key: `optional-${dep}`, color: T.muted }, `  ~ ${dep} [可选]`)),
+    ),
+  ) : h(StatusLine, { kind: 'empty' }, '请选择模块');
+  return h(Box, { flexDirection: 'column', flexGrow: 1 },
     h(SectionTitle, { detail: `${filteredModules.length}/${modules.length}` }, '模块目录'),
     h(Text, { color: T.muted }, searching ? `搜索: ${query}█  Enter/Esc完成` : `筛选: ${filter}  ↑↓选择 Enter/e切换 i安装 u卸载 d依赖 f筛选 /搜索 r刷新`),
-    h(Text, { color: T.separator }, ` ${'─'.repeat(Math.max(10, logW - 1))}`),
-    filteredModules.length === 0 && h(StatusLine, { kind: 'empty' }, '没有匹配当前筛选条件的模块'),
-    ...visible.rows.map((m, i) => {
-      const idx = visible.start + i;
-      const state = m.installed === false ? '未安装' : (m.enabled ? '启用' : '禁用');
-      const type = m.type || 'feature';
-      const color = m.installed === false ? T.error : (m.enabled ? T.success : T.muted);
-      return h(Box, { key: m.id, backgroundColor: idx === focus ? T.focusBg : T.panel },
-        h(Text, { color: idx === focus ? T.primary : color },
-          `${idx === focus ? '→' : ' '} ${m.id} [${type}] ${state}`),
-      );
-    }),
-    selected && h(Box, { flexDirection: 'column', marginTop: 1 },
-      h(Text, { bold: true, color: T.primary }, selected.display_name || selected.name || selected.id),
-      h(Text, { color: T.text }, selected.description || ''),
-      h(Text, { color: T.muted }, `依赖: ${(selected.requires || []).join(', ') || '无'}`),
-      missing.length > 0 && h(Text, { color: T.warning }, `未满足依赖: ${missing.join(', ')}`),
-      h(Text, { color: T.muted }, `可禁用: ${selected.can_disable ? '是' : '否'}  可卸载: ${selected.can_uninstall ? '是' : '否'}`),
-      h(Text, { color: T.muted }, `入口: ${(selected.entry && selected.entry.path) || '-'}`),
-      isBdsUpdater && h(Text, { color: T.warning }, '卸载前请先在 BDS Tab 输入 stop'),
-      busy && h(Text, { color: T.warning }, '正在提交变更...'),
-      detail && detail.id === selected.id && h(Box, { flexDirection: 'column', marginTop: 1 },
-        h(Text, { color: T.muted }, '依赖关系:'),
-        ...(detail.requires || []).map((dep) => {
-          const m = moduleMap.get(dep);
-          const ok = m && m.installed !== false && m.enabled;
-          return h(Text, { color: ok ? T.success : T.error }, `  - ${dep} [${ok ? '就绪' : '未就绪'}]`);
-        }),
-        ...(detail.optional || []).map((dep) => {
-          const m = moduleMap.get(dep);
-          return h(Text, { color: m ? T.muted : T.error }, `  ~ ${dep} [可选]`);
-        }),
-        (detail.commands || []).length > 0 && h(Text, { color: T.muted }, `命令: ${detail.commands.join(', ')}`),
-      ),
-    ),
-    ),
-    h(ScrollBar, { total: filteredModules.length, viewport: maxRows, offset: visible.start, height: maxRows }),
+    h(Box, { height: listRows, flexDirection: 'column' }, filteredModules.length ? listLines : h(StatusLine, { kind: 'empty' }, '没有匹配当前筛选条件的模块')),
+    h(ScrollBar, { total: filteredModules.length, viewport: listRows, offset: visible.start, height: listRows }),
+    details,
   );
 }
 

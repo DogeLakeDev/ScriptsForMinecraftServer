@@ -122,6 +122,8 @@ function buildModuleList() {
   const rows = catalog.map((module) => {
     seenKeys.add(module.configKey);
     const state = lock.modules[module.id] || {};
+    const moduleFiles = [module.entry?.path, ...(Array.isArray(module.files) ? module.files : [])].filter(Boolean);
+    const filesPresent = moduleFiles.length === 0 || moduleFiles.every((file) => fs.existsSync(path.join(PROJECT_ROOT, file)));
     const enabled = enabledMap.has(module.configKey) ? enabledMap.get(module.configKey) : module.defaultEnabled;
     return {
       id: module.id,
@@ -139,7 +141,9 @@ function buildModuleList() {
       optional: module.optional,
       commands: module.commands,
       entry: module.entry,
-      installed: state.installed !== undefined ? !!state.installed : module.defaultInstalled,
+      installed: state.installed !== undefined ? !!state.installed : (module.defaultInstalled !== false && filesPresent),
+      install_source: state.installed !== undefined ? 'module-lock' : (filesPresent ? 'filesystem' : 'missing-files'),
+      files_present: filesPresent,
       installed_at: state.installedAt || null,
       updated_at: state.updatedAt || null,
       enabled: !!enabled,
@@ -1058,16 +1062,31 @@ async function handle(req, res) {
       } else if (method === 'POST') {
         const data = (await body(req)).data;
         if (!data) { json(res, { success: false, error: 'invalid' }, 400); return; }
+        const world = {
+          allowCheats: !!data.allowCheats,
+          gameRules: typeof data.gameRules === 'string' ? data.gameRules : JSON.stringify(data.gameRules || {}),
+          seed: String(data.seed ?? ''),
+          defaultSpawnLocation: data.defaultSpawnLocation ?? null,
+          difficulty: String(data.difficulty ?? ''),
+          day: Number.isFinite(Number(data.day)) ? Number(data.day) : 0,
+          tickingAreasCount: Number.isFinite(Number(data.tickingAreasCount)) ? Number(data.tickingAreasCount) : 0,
+          absoluteTime: Number.isFinite(Number(data.absoluteTime)) ? Number(data.absoluteTime) : 0,
+          structuresFromAddon: String(data.structuresFromAddon ?? ''),
+          structuresFromWorld: String(data.structuresFromWorld ?? ''),
+          dynamicPropertyTotalByteCount: Number.isFinite(Number(data.dynamicPropertyTotalByteCount)) ? Number(data.dynamicPropertyTotalByteCount) : 0,
+          moonPhase: Number.isFinite(Number(data.moonPhase)) ? Number(data.moonPhase) : 0,
+          updatedAt: String(data.updatedAt ?? Date.now()),
+        };
         query(`INSERT OR REPLACE INTO sfmc_world (
             allow_cheats, game_rules, seed, default_spawn_location, difficulty,
             day, ticking_areas_count, absolute_time, structures_from_addon,
             structures_from_world, dynamic_property_total_byte_count, moon_phase, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-          data.allowCheats ? 1 : 0, data.gameRules, data.seed || '',
-          JSON.stringify(data.defaultSpawnLocation), data.difficulty, data.day,
-          data.tickingAreasCount ?? 0, data.absoluteTime,
-          data.structuresFromAddon || '', data.structuresFromWorld || '',
-          data.dynamicPropertyTotalByteCount ?? 0, data.moonPhase, data.updatedAt
+          world.allowCheats ? 1 : 0, world.gameRules, world.seed,
+          JSON.stringify(world.defaultSpawnLocation), world.difficulty, world.day,
+          world.tickingAreasCount, world.absoluteTime,
+          world.structuresFromAddon, world.structuresFromWorld,
+          world.dynamicPropertyTotalByteCount, world.moonPhase, world.updatedAt
         ]);
         json(res, { success: true });
       } else { json(res, { success: false, error: 'not_found' }, 404); }

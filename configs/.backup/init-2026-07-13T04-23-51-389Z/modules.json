@@ -1,0 +1,14 @@
+{
+  "modules": {
+    "chat": true,
+    "money": true,
+    "db": true,
+    "qq": true,
+    "holoprint_rp": false,
+    "coop": true,
+    "inventory_switcher": true,
+    "fly": true,
+    "creative": true,
+    "survival": true
+  }
+}

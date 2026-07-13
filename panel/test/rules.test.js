@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getLayout, canSwitchTab, canUseTabShortcut, requiresConfirmation } from '../navigation/rules.js';
+import { appendDigit, removeLastDigit, parseSelection } from '../navigation/input.js';
 
 test('setup lock only permits the setup screen', () => {
   assert.equal(canSwitchTab(true, 'setup'), true);
@@ -38,4 +39,11 @@ test('data table number selection does not trigger a tab shortcut', () => {
   assert.equal(canUseTabShortcut('', 'data'), false);
   assert.equal(canUseTabShortcut('', 'dashboard'), true);
   assert.equal(canUseTabShortcut('1', 'dashboard'), false);
+});
+
+test('data table selection supports multi-digit input', () => {
+  assert.equal(appendDigit(appendDigit('', '1'), '2'), '12');
+  assert.equal(removeLastDigit('120'), '12');
+  assert.equal(parseSelection('12', 20), 11);
+  assert.equal(parseSelection('21', 20), -1);
 });

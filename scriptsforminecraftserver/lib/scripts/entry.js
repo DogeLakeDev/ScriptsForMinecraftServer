@@ -1,17 +1,21 @@
 import { system, world } from "@minecraft/server";
 import { Money } from "./libs/Money";
-import { Command, setModuleGuard } from "./libs/Command";
-import { QAManager } from "./doge/QA";
-import * as Fly from "./area/Fly";
-import * as AFK from "./doge/AFK";
-import { SpawnProtect } from "./doge/SpawnProtect";
-import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean";
-import { Peace } from "./area/Peace";
 import { Permission } from "./libs/Permission";
-import { CoopSystem } from "./coop/CoopSystem";
-import { ChatSystem } from "./chat/ChatSystem";
+import { Command, setModuleGuard } from "./libs/Command";
+import { ConfigManager } from "./libs/ConfigManager";
+import { ModuleRegistry, guardEvent, announceLoaded } from "./libs/ModuleRegistry";
+import { QAManager } from "./doge/QA";
+import * as AFK from "./doge/AFK";
+import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean";
 import { TPS } from "./doge/TPS";
 import { OnlineTime } from "./doge/OnlineTime";
+import { ChatSoundsHelper } from "./doge/ChatSoundsHelper";
+import { MonitorReporter } from "./doge/MonitorReporter";
+import { SpawnProtect } from "./doge/SpawnProtect";
+import * as Fly from "./area/Fly";
+import { Peace } from "./area/Peace";
+import { CoopSystem } from "./coop/CoopSystem";
+import { ChatSystem } from "./chat/ChatSystem";
 import { CreativeArea } from "./area/CreativeArea";
 import { SurvivalArea } from "./area/SurvivalArea";
 import { InventorySwitcher } from "./area/InventorySwitcher";
@@ -28,10 +32,6 @@ import { getPlayerData } from "./data/Player";
 import { savePlayers } from "./api";
 import { HoloEntity } from "./holo/HoloEntity";
 import { HoloGUI } from "./holo/HoloGUI";
-import { ConfigManager } from "./libs/ConfigManager";
-import { ModuleRegistry, guardEvent, announceLoaded } from "./libs/ModuleRegistry";
-import { ChatSoundsHelper } from "./doge/ChatSoundsHelper";
-import { MonitorReporter } from "./doge/MonitorReporter";
 ModuleRegistry.register({
     id: "fly",
     afterWorldLoad: false,

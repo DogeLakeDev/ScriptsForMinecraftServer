@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "_initialized": true,
+  "ui": {
+    "defaultModules": [
+      "money",
+      "chat",
+      "afk",
+      "tps",
+      "online_time",
+      "activity_log",
+      "scoreboard_sync",
+      "spawn_protect",
+      "chat_sounds",
+      "inventory_switcher",
+      "fly",
+      "clean",
+      "qa",
+      "peace"
+    ],
+    "defaultServices": [
+      "db",
+      "bds",
+      "panel",
+      "qq",
+      "llbot"
+    ],
+    "skipGuidedSetup": false
+  },
+  "tokens": {
+    "dbAuthToken": "",
+    "bridgeAuthToken": ""
+  },
+  "paths": {
+    "bdsPath": "",
+    "llbotPath": ".",
+    "llbotCwd": ".",
+    "dbPort": 3001
+  },
+  "locale": "zh-CN",
+  "_initializedAt": 1783916631391
+}

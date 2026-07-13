@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "_initialized": false,
+  "ui": {
+    "defaultModules": [
+      "money",
+      "chat",
+      "afk",
+      "shop",
+      "land",
+      "tps"
+    ],
+    "defaultServices": [
+      "db",
+      "qq"
+    ],
+    "skipGuidedSetup": false
+  },
+  "tokens": {
+    "dbAuthToken": "",
+    "bridgeAuthToken": ""
+  },
+  "paths": {
+    "bdsPath": "D:\\Minecraft\\BEServer",
+    "llbotPath": "D:\\LLBot-CLI-win-x64\\llbot.exe",
+    "llbotCwd": "D:\\LLBot-CLI-win-x64",
+    "dbPort": 3001
+  },
+  "locale": "en",
+  "_initializedAt": null
+}

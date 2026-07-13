@@ -2,11 +2,99 @@
   "version": 1,
   "modules": {
     "tool-bds-updater": {
-      "installed": false,
+      "installed": true,
       "installedAt": 1783905480982,
-      "updatedAt": 1783913623966,
-      "lastUninstalledAt": 1783913623966,
-      "trashDir": null
+      "updatedAt": 1783925287756
+    },
+    "feature-money": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925679262
+    },
+    "feature-chat": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925679262
+    },
+    "feature-afk": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925679262
+    },
+    "feature-tps": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925679262
+    },
+    "feature-online-time": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-activity-log": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-scoreboard-sync": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-spawn-protect": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-chat-sounds": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-inventory-switcher": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-area-fly": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-clean": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-qa": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "feature-area-peace": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783925188133
+    },
+    "service-panel": {
+      "installed": true,
+      "installedAt": 1783916631405,
+      "updatedAt": 1783916631405
+    },
+    "feature-shop": {
+      "installed": true,
+      "installedAt": 1783925188133,
+      "updatedAt": 1783925679262
+    },
+    "feature-land": {
+      "installed": true,
+      "installedAt": 1783925188133,
+      "updatedAt": 1783925679262
+    },
+    "asset-holoprint-rp": {
+      "installed": false,
+      "installedAt": 1783928051762,
+      "updatedAt": 1783928051762
     }
   }
 }

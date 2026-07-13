@@ -1,0 +1,23 @@
+{
+  "modules": {
+    "money": true,
+    "chat": true,
+    "afk": true,
+    "tps": true,
+    "online_time": true,
+    "activity_log": true,
+    "scoreboard_sync": true,
+    "spawn_protect": true,
+    "chat_sounds": true,
+    "inventory_switcher": true,
+    "fly": true,
+    "clean": true,
+    "qa": true,
+    "peace": true,
+    "db": true,
+    "bds": true,
+    "panel": true,
+    "qq": true,
+    "llbot": true
+  }
+}

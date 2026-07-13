@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { getJson } from '../api/client.js';
 import { SectionTitle, StatusLine } from '../ui/Feedback.js';
 import { useMonitor } from '../monitor.js';
+import { appendDigit, removeLastDigit, parseSelection } from '../navigation/input.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
@@ -39,13 +40,14 @@ function DbView({ logH, logW, inputActive = true }) {
   const [tables, setTables] = useState([]);
   const [tableView, setTableView] = useState(null); // { name, columns, rows } or null
   const [scroll, setScroll] = useState(0);
+  const [tableInput, setTableInput] = useState('');
 
   useEffect(() => {
     loadTables();
   }, []);
 
   function loadTables() {
-    setLoading(true); setError(null); setTableView(null); setScroll(0);
+    setLoading(true); setError(null); setTableView(null); setScroll(0); setTableInput('');
     if (mode === 'http') {
       getJson('/api/sfmc/db/tables')
         .then(d => { setTables(d.tables || []); setLoading(false); })
@@ -95,6 +97,7 @@ function DbView({ logH, logW, inputActive = true }) {
     if (loading) return;
     if (key.escape) {
       if (tableView) { setTableView(null); return; }
+      if (tableInput) { setTableInput(''); return; }
       return;
     }
     if (tableView) {
@@ -114,8 +117,15 @@ function DbView({ logH, logW, inputActive = true }) {
     if (key.home) { setScroll(0); return; }
     if (key.end) { setScroll(Math.max(0, tables.length - maxItems)); return; }
     if (input === 'r') { loadTables(); return; }
-    const n = parseInt(input, 10);
-    if (n >= 1 && n <= tables.length) { loadTable(tables[n - 1].name); }
+    if (key.backspace) { setTableInput(removeLastDigit(tableInput)); return; }
+    if (key.return || key.enter) {
+      const index = parseSelection(tableInput, tables.length);
+      if (index >= 0) loadTable(tables[index].name);
+      else if (tableInput) setError(`表编号无效: ${tableInput}`);
+      setTableInput('');
+      return;
+    }
+    if (/^\d$/.test(input)) setTableInput((value) => appendDigit(value, input));
   }, { isActive: inputActive });
 
   if (loading) {
@@ -170,7 +180,9 @@ function DbView({ logH, logW, inputActive = true }) {
     h(SectionTitle, { detail: '运行数据与持久化表' }, '数据中心'),
     monitor && h(Text, { color: T.text }, `在线玩家 ${monitor.players.length}  | TPS ${monitor.tps > 0 ? monitor.tps.toFixed(1) : 'N/A'}  | 实体 ${Object.values(monitor.entities).reduce((sum, value) => sum + (value || 0), 0)}  | 区块 ${monitor.totalChunks}`),
     h(SectionTitle, { detail: `${tables.length} 表 | ${mode === 'http' ? 'HTTP' : '直连'}` }, '数据库表'),
-    h(Text, { color: T.muted }, `输入编号查看表数据  第 ${startIdx + 1}-${Math.min(tables.length, startIdx + maxItems)}/${tables.length}  ↑↓逐行 PgUp/Dn翻页 r刷新`),
+    h(Text, { color: tableInput ? T.primary : T.muted }, tableInput
+      ? `表编号: ${tableInput}█  Enter打开  Backspace删除  Esc清空`
+      : `输入编号后 Enter 查看表数据  第 ${startIdx + 1}-${Math.min(tables.length, startIdx + maxItems)}/${tables.length}  ↑↓逐行 PgUp/Dn翻页 r刷新`),
     ...visible.map((t, i) =>
       h(Text, { key: t.name, color: T.text },
         `  ${startIdx + i + 1}. ${t.name}  (${t.rows} 行)`),

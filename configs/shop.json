@@ -45,13 +45,6 @@
     {
       "id": 7,
       "parent_id": 4,
-      "name": "海产",
-      "type": "group",
-      "sort_order": 3
-    },
-    {
-      "id": 8,
-      "parent_id": 4,
       "name": "生物战利品",
       "type": "group",
       "sort_order": 4
@@ -96,14 +89,6 @@
       "item_aux": 0,
       "price": 10000,
       "remark": "星币",
-      "sell_flag": 0
-    },
-    {
-      "category_id": 1,
-      "item_type": "dogelake:soul_spell",
-      "item_aux": 3,
-      "price": 4998,
-      "remark": "可以抵消一次死亡掉落",
       "sell_flag": 0
     },
     {
@@ -268,174 +253,6 @@
     },
     {
       "category_id": 7,
-      "item_type": "pa:raw_moon_fish",
-      "item_aux": 0,
-      "price": 200,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:raw_karp",
-      "item_aux": 0,
-      "price": 20,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:raw_crab",
-      "item_aux": 0,
-      "price": 50,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:raw_sardine",
-      "item_aux": 0,
-      "price": 100,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:raw_clam",
-      "item_aux": 0,
-      "price": 90,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:pearl",
-      "item_aux": 0,
-      "price": 300,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:shell",
-      "item_aux": 0,
-      "price": 100,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:raw_fang_fish",
-      "item_aux": 0,
-      "price": 90,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:hard_scale",
-      "item_aux": 0,
-      "price": 400,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:oil",
-      "item_aux": 0,
-      "price": 200,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:duckweed",
-      "item_aux": 0,
-      "price": 20,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:crab_armor_shard",
-      "item_aux": 0,
-      "price": 400,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:raw_shrimp",
-      "item_aux": 0,
-      "price": 10,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:duck_fresade",
-      "item_aux": 0,
-      "price": 30,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:kelp_fresade",
-      "item_aux": 0,
-      "price": 30,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:icefish_skin",
-      "item_aux": 0,
-      "price": 250,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:sea_shroom",
-      "item_aux": 0,
-      "price": 10,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "enj:raw_urchin",
-      "item_aux": 0,
-      "price": 70,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:beach_flower",
-      "item_aux": 0,
-      "price": 40,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:jelly",
-      "item_aux": 0,
-      "price": 50,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 7,
-      "item_type": "pa:plankton_block",
-      "item_aux": 0,
-      "price": 200,
-      "remark": "太懒了没有写简介~",
-      "sell_flag": 1
-    },
-    {
-      "category_id": 8,
       "item_type": "minecraft:nether_star",
       "item_aux": 0,
       "price": 5000,
@@ -443,7 +260,7 @@
       "sell_flag": 1
     },
     {
-      "category_id": 8,
+      "category_id": 7,
       "item_type": "minecraft:blaze_rod",
       "item_aux": 0,
       "price": 137,
@@ -451,7 +268,7 @@
       "sell_flag": 1
     },
     {
-      "category_id": 8,
+      "category_id": 7,
       "item_type": "minecraft:ghast_tear",
       "item_aux": 0,
       "price": 120,
@@ -459,7 +276,7 @@
       "sell_flag": 1
     },
     {
-      "category_id": 8,
+      "category_id": 7,
       "item_type": "minecraft:dragon_breath",
       "item_aux": 0,
       "price": 160,
@@ -467,7 +284,7 @@
       "sell_flag": 1
     },
     {
-      "category_id": 8,
+      "category_id": 7,
       "item_type": "minecraft:rotten_flesh",
       "item_aux": 0,
       "price": 2,
@@ -475,7 +292,7 @@
       "sell_flag": 1
     },
     {
-      "category_id": 8,
+      "category_id": 7,
       "item_type": "pa:amethystenite",
       "item_aux": 0,
       "price": 20,

@@ -1,14 +1,19 @@
 {
   "modules": {
-    "chat": true,
     "money": true,
+    "chat": true,
+    "afk": true,
+    "shop": true,
+    "land": true,
+    "tps": true,
     "db": true,
     "qq": true,
     "holoprint_rp": false,
+    "config": true,
+    "command": true,
+    "permission": true,
+    "httpdb": true,
     "coop": true,
-    "inventory_switcher": true,
-    "fly": true,
-    "creative": true,
-    "survival": true
+    "holoprint": true
   }
 }

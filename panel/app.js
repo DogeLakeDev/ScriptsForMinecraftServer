@@ -655,12 +655,6 @@ function App() {
     }
 
     if (view === 'services' && focusZone !== 'sidebar') {
-      if (!compact && key.rightArrow) { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); return; }
-      if (key.upArrow) { setServiceFocus((index) => Math.max(0, index - 1)); return; }
-      if (key.downArrow) { setServiceFocus((index) => Math.min(SERVICE_ORDER.length - 1, index + 1)); return; }
-      if (key.home) { setServiceFocus(0); return; }
-      if (key.end) { setServiceFocus(SERVICE_ORDER.length - 1); return; }
-      if (isEnter) { setSvcName(SERVICE_ORDER[serviceFocus]); setView('svc'); return; }
       return;
     }
 
@@ -669,7 +663,10 @@ function App() {
       if (key.escape) { setView('dashboard'); setActiveTab('dashboard'); setLogScroll(0); }
       return;
     }
-    if (view === 'settings') return;
+    if (view === 'settings') {
+      if (key.escape) { setView('dashboard'); setActiveTab('dashboard'); }
+      return;
+    }
 
     // ←/→ 在 main Tab 内切换 sidebar / main 焦点（除 setup / cfg_edit / cfg_list）
     if (!compact && !isSetupActive && !inputVal && view !== 'cfg_edit' && view !== 'cfg_list') {
@@ -951,7 +948,13 @@ function App() {
       : view === 'dashboard'
         ? h(Dashboard, { logH, logScroll, logW })
         : view === 'services'
-          ? h(ServicesView, { focus: serviceFocus, logW })
+          ? h(ServicesView, {
+            focus: serviceFocus,
+            logW,
+            onOpenService: (name) => { setSvcName(name); setView('svc'); },
+            onSidebar: () => { if (!compact) { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); } },
+            inputActive: localInputActive && focusZone === 'main',
+          })
           : view === 'monitor'
           ? h(MonitorView, { logH, logW, inputActive: localInputActive })
           : view === 'modules'
@@ -976,7 +979,7 @@ function App() {
         '↑↓选择 Enter编辑 Delete删除 Esc退出 ← 切到侧栏') :
       view === 'cfg_list' ? 'b:返回 ↑↓滚动 输入编号+Enter:选择' :
         activeTab === 'setup' ? '↑↓ 字段  Enter 编辑  n/p 步骤  c 检查  r 重置  i 导入' :
-          view === 'services' ? '↑↓ 选择服务  Enter 查看日志与操作' :
+          view === 'services' ? '↑↓ 选择服务或数据  Enter 打开  ←/→ 侧栏' :
             view === 'svc' ? 'Esc 返回服务列表  输入命令后 Enter 发送  PgUp/Dn 翻页' :
               focusZone === 'sidebar' ? '侧栏  ↑↓ 选择  Enter 确认  Esc/← 切回主区' :
                 (logScroll > 0 ? '→ 切到侧栏  ↑ 可滚动  PgUp/Dn 翻页  Home/End 首尾' :
