@@ -1,9 +1,0 @@
-{
-  "textures": {
-    "textures/holo/default": {
-      "overlays": [
-        "textures/holo/default"
-      ]
-    }
-  }
-}
