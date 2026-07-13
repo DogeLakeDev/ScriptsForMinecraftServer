@@ -9,6 +9,7 @@ import { LandCore } from "./LandCore";
 import { LandGUI } from "../gui/LandGUI";
 import { LandEvents } from "./LandEvents";
 import { Msg } from "../libs/Tools";
+import { Database } from "./LandDatabase";
 
 export class LandSystem {
   /** 注册命令和权限（由 entry.ts 在 startup 阶段调用） */
@@ -62,7 +63,7 @@ export class LandSystem {
   }
 
   static init() {
-    // 核心逻辑由 LandEvents 的事件订阅和命令处理
+    void Database.loadFromServer();
   }
 }
 

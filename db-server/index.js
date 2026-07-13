@@ -675,6 +675,24 @@ async function initDB() {
       displaydescribe TEXT DEFAULT '',
       icon TEXT DEFAULT '', type_function TEXT DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS sfmc_lands (
+      id TEXT PRIMARY KEY,
+      owner_player_id TEXT NOT NULL,
+      owner_name_snapshot TEXT NOT NULL DEFAULT '',
+      dimension INTEGER NOT NULL,
+      min_x INTEGER NOT NULL, min_y INTEGER NOT NULL, min_z INTEGER NOT NULL,
+      max_x INTEGER NOT NULL, max_y INTEGER NOT NULL, max_z INTEGER NOT NULL,
+      name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, expires_at INTEGER,
+      protection_profile TEXT NOT NULL DEFAULT '{}', version INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_sfmc_lands_owner ON sfmc_lands(owner_player_id, status);
+    CREATE INDEX IF NOT EXISTS idx_sfmc_lands_location ON sfmc_lands(dimension, min_x, max_x, min_z, max_z, status);
+    CREATE TABLE IF NOT EXISTS sfmc_land_members (
+      land_id TEXT NOT NULL, player_id TEXT NOT NULL, player_name_snapshot TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'admin', created_at INTEGER NOT NULL, expires_at INTEGER,
+      PRIMARY KEY (land_id, player_id), FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
+    );
   `);
   // 从 /configs/ JSON 文件导入初始配置（仅空表时执行）
   {
@@ -834,6 +852,74 @@ function forwardToQQBridge(channelId, fromName, content, fromId) {
 
 let query;
 
+function mapLandRow(row) {
+  return {
+    id: row.id, ownerplid: row.owner_player_id, ownerName: row.owner_name_snapshot,
+    managers: query('SELECT player_id FROM sfmc_land_members WHERE land_id=? ORDER BY created_at ASC', [row.id]).map((m) => m.player_id),
+    dimid: row.dimension,
+    posA: { x: row.min_x, y: row.min_y, z: row.min_z }, posB: { x: row.max_x, y: row.max_y, z: row.max_z },
+    permissions: JSON.parse(row.protection_profile || '{}'), nickname: row.name,
+    createdAt: row.created_at, status: row.status, version: row.version,
+  };
+}
+
+function normalizeLandInput(data) {
+  const a = data.posA || {}, b = data.posB || {};
+  const values = [data.dimid, a.x, a.y, a.z, b.x, b.y, b.z];
+  if (!values.every((v) => Number.isInteger(Number(v)))) return null;
+  return {
+    dimid: Number(data.dimid), minX: Math.min(Number(a.x), Number(b.x)), minY: Math.min(Number(a.y), Number(b.y)), minZ: Math.min(Number(a.z), Number(b.z)),
+    maxX: Math.max(Number(a.x), Number(b.x)), maxY: Math.max(Number(a.y), Number(b.y)), maxZ: Math.max(Number(a.z), Number(b.z)),
+  };
+}
+
+function validateLandInput(data) {
+  const n = normalizeLandInput(data);
+  if (!n || !data.ownerId) return { ok: false, error: 'invalid', status: 400 };
+  const width = n.maxX - n.minX + 1, length = n.maxZ - n.minZ + 1, height = n.maxY - n.minY + 1;
+  const square = width * length, volume = square * height;
+  const settings = query("SELECT value FROM sfmc_config_settings WHERE key='land:config'")[0];
+  let cfg = { priceFormula: '{square}*8+{height}*20', maxLandsPerPlayer: 5, minSquare: 4, maxSquare: 50000, discount: 1, refundRate: 0.7 };
+  try { if (settings) cfg = { ...cfg, ...JSON.parse(settings.value) }; } catch {}
+  if (square < cfg.minSquare || square > cfg.maxSquare) return { ok: false, error: 'area_out_of_range', status: 400 };
+  const count = query("SELECT COUNT(*) AS count FROM sfmc_lands WHERE owner_player_id=? AND status='active'", [String(data.ownerId)])[0].count;
+  if (count >= cfg.maxLandsPerPlayer) return { ok: false, error: 'land_limit', status: 409 };
+  const overlap = query("SELECT id FROM sfmc_lands WHERE dimension=? AND status='active' AND min_x<=? AND max_x>=? AND min_y<=? AND max_y>=? AND min_z<=? AND max_z>=? LIMIT 1", [n.dimid, n.maxX, n.minX, n.maxY, n.minY, n.maxZ, n.minZ]);
+  if (overlap.length) return { ok: false, error: 'overlap', status: 409 };
+  const price = Math.max(0, Math.floor((square * 8 + height * 20) * Number(cfg.discount || 1)));
+  return { ok: true, price, square, volume, normalized: n };
+}
+
+function landPrice(row) {
+  const width = row.max_x - row.min_x + 1, length = row.max_z - row.min_z + 1, height = row.max_y - row.min_y + 1;
+  const settings = query("SELECT value FROM sfmc_config_settings WHERE key='land:config'")[0];
+  let refundRate = 0.7;
+  try { if (settings) refundRate = Number(JSON.parse(settings.value).refundRate ?? refundRate); } catch {}
+  const price = Math.max(0, Math.floor(width * length * 8 + height * 20));
+  return Math.floor(price * Math.max(0, Math.min(1, refundRate)));
+}
+
+function createLandTransaction(data) {
+  const check = validateLandInput(data);
+  if (!check.ok) return check;
+  const now = Date.now();
+  const id = `L${now.toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  const n = check.normalized;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const locked = validateLandInput(data);
+    if (!locked.ok) { db.exec('ROLLBACK'); return locked; }
+    query('INSERT INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), n.dimid, n.minX, n.minY, n.minZ, n.maxX, n.maxY, n.maxZ, now, now]);
+    query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), 'owner', now]);
+    const row = query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0];
+    db.exec('COMMIT');
+    return { ok: true, row, price: check.price };
+  } catch (error) {
+    try { db.exec('ROLLBACK'); } catch {}
+    return { ok: false, error: error.message || 'create_failed', status: 500 };
+  }
+}
+
 // ---------- 路由（按资源路径分组） ----------
 
 const MAX_BODY_BYTES = parseInt(process.env.DB_MAX_BODY || '1048576', 10); // 默认 1MB
@@ -886,6 +972,74 @@ async function handle(req, res) {
     if (path === '/api/health') {
       if (method === 'GET') { json(res, { status: 'ok', uptime: process.uptime() }); }
       else { json(res, { success: false, error: 'not_found' }, 404); }
+      return;
+    }
+
+    // ────── /api/sfmc/lands ──────
+    if (path === '/api/sfmc/lands') {
+      if (method === 'GET') {
+        json(res, { lands: query("SELECT * FROM sfmc_lands WHERE status='active' ORDER BY created_at ASC").map(mapLandRow) });
+      } else if (method === 'POST') {
+        const result = createLandTransaction(await body(req));
+        if (!result.ok) { json(res, result, result.status || 400); return; }
+        json(res, { success: true, land: mapLandRow(result.row), price: result.price });
+      } else json(res, { success: false, error: 'not_found' }, 404);
+      return;
+    }
+
+    if (path === '/api/sfmc/lands/validate') {
+      const data = method === 'GET' ? Object.fromEntries(params.entries()) : await body(req);
+      const result = validateLandInput(data);
+      json(res, result, result.ok ? 200 : (result.status || 400));
+      return;
+    }
+
+    if (path.startsWith('/api/sfmc/lands/by-owner/')) {
+      const ownerId = decodeURIComponent(path.slice('/api/sfmc/lands/by-owner/'.length));
+      json(res, { lands: query("SELECT * FROM sfmc_lands WHERE owner_player_id=? AND status='active' ORDER BY created_at ASC", [ownerId]).map(mapLandRow) });
+      return;
+    }
+
+    if (path.startsWith('/api/sfmc/lands/at/')) {
+      const parts = path.slice('/api/sfmc/lands/at/'.length).split('/');
+      if (parts.length !== 4) { json(res, { success: false, error: 'invalid' }, 400); return; }
+      const [dimension, x, y, z] = parts.map(Number);
+      const rows = query("SELECT * FROM sfmc_lands WHERE dimension=? AND status='active' AND min_x<=? AND max_x>=? AND min_y<=? AND max_y>=? AND min_z<=? AND max_z>=? LIMIT 1", [dimension, x, x, y, y, z, z]);
+      if (!rows.length) { json(res, { success: false, error: 'not_found' }, 404); return; }
+      json(res, { land: mapLandRow(rows[0]) });
+      return;
+    }
+
+    if (path.startsWith('/api/sfmc/lands/')) {
+      const id = decodeURIComponent(path.slice('/api/sfmc/lands/'.length));
+      const rows = query('SELECT * FROM sfmc_lands WHERE id=?', [id]);
+      if (!rows.length) { json(res, { success: false, error: 'not_found' }, 404); return; }
+      if (method === 'GET') { json(res, { land: mapLandRow(rows[0]) }); return; }
+      if (method === 'PATCH' || method === 'PUT') {
+        const data = await body(req);
+        const sets = ['updated_at=?', 'version=version+1'], values = [Date.now()];
+        if (data.nickname !== undefined) { sets.push('name=?'); values.push(String(data.nickname)); }
+        if (data.permissions !== undefined) { sets.push('protection_profile=?'); values.push(JSON.stringify(data.permissions || {})); }
+        values.push(id); query(`UPDATE sfmc_lands SET ${sets.join(', ')} WHERE id=? AND status='active'`, values);
+        if (Array.isArray(data.managers)) {
+          query('DELETE FROM sfmc_land_members WHERE land_id=? AND player_id<>?', [id, rows[0].owner_player_id]);
+          for (const playerId of data.managers) {
+            if (String(playerId) === rows[0].owner_player_id) continue;
+            query('INSERT OR IGNORE INTO sfmc_land_members (land_id, player_id, role, created_at) VALUES (?,?,?,?)', [id, String(playerId), 'admin', Date.now()]);
+          }
+        }
+        json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
+        return;
+      }
+      if (method === 'DELETE') {
+        const data = await body(req);
+        if (data.actorId !== rows[0].owner_player_id) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        const refund = landPrice(rows[0]);
+        query("UPDATE sfmc_lands SET status='deleted', updated_at=?, version=version+1 WHERE id=? AND status='active'", [Date.now(), id]);
+        json(res, { success: true, refund });
+        return;
+      }
+      json(res, { success: false, error: 'not_found' }, 404);
       return;
     }
 

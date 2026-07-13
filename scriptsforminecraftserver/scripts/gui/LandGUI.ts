@@ -140,7 +140,7 @@ export class LandGUI {
       land.permissions.allow_destroy = allowDestroy.getData();
       land.permissions.attack_entity = attackEntity.getData();
       land.permissions.open_container = openContainer.getData();
-      Database.update(land);
+       void Database.update(land);
       status.ok("土地保护设置已更新。");
       this.nav.rebuild("landManage");
     });
@@ -189,7 +189,7 @@ export class LandGUI {
           return;
         }
         land.managers.push(p.id);
-        Database.update(land);
+         void Database.update(land);
         status.ok(`已将 ${p.name} 添加为管理者。`);
         this.nav.rebuild("managerEditor");
       });
@@ -215,7 +215,7 @@ export class LandGUI {
         const idx = land.managers.indexOf(m);
         if (idx !== -1) {
           land.managers.splice(idx, 1);
-          Database.update(land);
+           void Database.update(land);
           status.ok("已移除该管理者。");
         }
         this.nav.rebuild("managerEditor");
@@ -235,7 +235,7 @@ export class LandGUI {
     page.button("确认", () => {
       const val = name.getData().trim();
       land.nickname = val;
-      Database.update(land);
+       void Database.update(land);
       status.ok(val ? `土地已重命名为 ${val}。` : "土地名称已恢复默认。");
       this.nav.rebuild("landManage");
     });
@@ -300,11 +300,13 @@ export class LandGUI {
       "删除土地",
       body,
       () => {
-        if (LandCore.deleteLand(land.id, this.player)) {
-          status.ok(`土地已删除，获得 ${refund} ${Money.UNIT}。`);
-        } else {
+        void LandCore.deleteLand(land.id, this.player).then((deleted) => {
+          if (deleted) {
+          status.ok(`土地已删除，获得 ${deleted} ${Money.UNIT}。`);
+          } else {
           status.fail("删除失败。");
-        }
+          }
+        });
       },
       () => this.nav.rebuild("landList")
     );
@@ -312,12 +314,12 @@ export class LandGUI {
 
   private async handleApply(pos1: LandPos, pos2: LandPos, dimid: number, page: any): Promise<void> {
     const status = new FormStatus(page);
-    const result: ValidationResult = LandCore.validateCreation(this.player, pos1, pos2, dimid);
+    const result: ValidationResult = await LandCore.validateCreation(this.player, pos1, pos2, dimid);
     if (!result.ok) {
       status.fail(result.msg ?? "验证失败。");
       return;
     }
-    const land = LandCore.createLand(this.player, pos1, pos2, dimid);
+    const land = await LandCore.createLand(this.player, pos1, pos2, dimid);
     if (land) {
       status.ok(
         `土地创建成功！\n土地编号: ${land.id}\n面积: ${LandCore.getCubeInfo(land.posA, land.posB).square} 格`

@@ -3,3 +3,4 @@ export * from "./CoopAPI";
 export * from "./PlayersDataApi";
 export * from "./WorldDataApi";
 export * from "./ScoreboardsSyncApi";
+export * from "./LandApi";

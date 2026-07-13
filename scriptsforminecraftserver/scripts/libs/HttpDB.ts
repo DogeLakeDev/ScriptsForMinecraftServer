@@ -96,6 +96,10 @@ export class HttpDB {
     }
   }
 
+  static async requestJSON(method: string, path: string, bodyData?: Record<string, unknown>): Promise<{ status: number; body: string }> {
+    return this.request(method, path, bodyData);
+  }
+
   static async get(path: string): Promise<string | null> {
     const { status, body } = await this.request("Get", path);
     if (status !== 200) {

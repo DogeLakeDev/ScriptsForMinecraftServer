@@ -83,6 +83,7 @@ export class Database {
   private static _config: LandConfig | null = null;
   private static _registry: Map<string, LandData> | null = null; // landId → LandData
   private static _ownerIndex: Map<string, string[]> | null = null; // plid → landId[]
+  private static _loading: Promise<void> | null = null;
 
   // ── 内部工具 ──
 
@@ -148,6 +149,22 @@ export class Database {
     return Array.from(this._registry!.values());
   }
 
+  static async loadFromServer(): Promise<void> {
+    if (this._loading) return this._loading;
+    this._loading = import("../api/LandApi").then(async ({ getAllLands }) => {
+      const lands = await getAllLands();
+      this._registry = new Map(lands.map((land) => [land.id, land]));
+      this.rebuildOwnerIndex();
+    }).finally(() => { this._loading = null; });
+    return this._loading;
+  }
+
+  static async refresh(): Promise<void> {
+    this._registry = null;
+    this._ownerIndex = null;
+    await this.loadFromServer();
+  }
+
   /** 根据 ID 获取土地 */
   static getById(landId: string): LandData | undefined {
     this.ensureLoaded();
@@ -177,24 +194,31 @@ export class Database {
   }
 
   /** 更新土地 */
-  static update(land: LandData) {
+  static async update(land: LandData): Promise<boolean> {
+    const { updateLand } = await import("../api/LandApi");
+    const updated = await updateLand(land.id, { nickname: land.nickname, permissions: land.permissions, managers: land.managers } as Partial<LandData>);
+    if (!updated) return false;
     this.ensureLoaded();
-    this._registry!.set(land.id, land);
-    this.flush();
+    this._registry!.set(updated.id, updated);
+    this.rebuildOwnerIndex();
+    return true;
   }
 
   /** 删除土地 */
-  static delete(landId: string) {
+  static async delete(landId: string, actorId: string): Promise<number | false> {
+    const { deleteLand } = await import("../api/LandApi");
+    const result = await deleteLand(landId, actorId);
+    if (!result.ok) return false;
     this.ensureLoaded();
     const land = this._registry!.get(landId);
-    if (!land) return;
+    if (!land) return false;
     this._registry!.delete(landId);
     // 更新 owner 索引
     const list = this._ownerIndex!.get(land.ownerplid) || [];
     const idx = list.indexOf(landId);
     if (idx !== -1) list.splice(idx, 1);
     this._ownerIndex!.set(land.ownerplid, list);
-    this.flush();
+    return result.refund ?? 0;
   }
 
   /** 获取玩家的土地数量 */

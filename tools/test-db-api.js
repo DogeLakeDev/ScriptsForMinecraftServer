@@ -96,6 +96,18 @@ async function main() {
     assert(invalidImport.status === 400 && invalidImport.body.error === 'unknown_table', 'configs import 拒绝未知表');
     const missing = await request('GET', '/api/does-not-exist');
     assert(missing.status === 404 && missing.body.error === 'not_found', '未知路由返回 404');
+
+    const land = { ownerId: 'player-1', ownerName: 'PlayerOne', dimid: 0, posA: { x: 0, y: 60, z: 0 }, posB: { x: 4, y: 70, z: 4 } };
+    const created = await request('POST', '/api/sfmc/lands', land);
+    assert(created.status === 200 && created.body.land?.ownerplid === 'player-1', '土地创建并持久化');
+    const overlap = await request('POST', '/api/sfmc/lands', { ...land, ownerId: 'player-2', ownerName: 'PlayerTwo' });
+    assert(overlap.status === 409 && overlap.body.error === 'overlap', '土地重叠检查拒绝冲突范围');
+    const at = await request('GET', '/api/sfmc/lands/at/0/2/65/2');
+    assert(at.status === 200 && at.body.land.id === created.body.land.id, '按坐标查询土地');
+    const changed = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { nickname: 'Home' });
+    assert(changed.status === 200 && changed.body.land.nickname === 'Home' && changed.body.land.version > 1, '土地更新递增版本');
+    const deleted = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-1' });
+    assert(deleted.status === 200 && deleted.body.refund > 0, '土地软删除并返回退款');
     console.log('[db-api] 全部通过');
   } finally {
     child.kill();

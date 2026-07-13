@@ -5,6 +5,7 @@
 import { Player, world } from "@minecraft/server";
 import { Database, LandData, LandPos } from "./LandDatabase";
 import { Money } from "../libs/Money";
+import { createLand as createLandOnServer, validateLand } from "../api/LandApi";
 
 // ===== 类型定义 =====
 
@@ -144,22 +145,8 @@ export class LandCore {
   static calculatePrice(posA: LandPos, posB: LandPos): number {
     const cfg = Database.getConfig();
     const info = this.getCubeInfo(posA, posB);
-    const formula = cfg.priceFormula;
-    // 替换变量
-    let expr = formula
-      .replace(/\{square\}/g, String(info.square))
-      .replace(/\{height\}/g, String(info.height))
-      .replace(/\{length\}/g, String(info.length))
-      .replace(/\{width\}/g, String(info.width))
-      .replace(/\{volume\}/g, String(info.volume));
-    let price: number;
-    try {
-      price = Function(`"use strict"; return (${expr});`)();
-    } catch {
-      price = info.square * 8 + info.height * 20; // fallback
-    }
-    price = Math.max(0, Math.floor(price * cfg.discount)); // 计算折扣
-    return price;
+    // The server is authoritative for the final price. This local value is only a UI preview.
+    return Math.max(0, Math.floor((info.square * 8 + info.height * 20) * cfg.discount));
   }
 
   // ── 土地查询 ──
@@ -193,7 +180,7 @@ export class LandCore {
   // ── 验证 ──
 
   /** 验证创建条件 */
-  static validateCreation(player: Player, posA: LandPos, posB: LandPos, dimid: number): ValidationResult {
+  static async validateCreation(player: Player, posA: LandPos, posB: LandPos, dimid: number): Promise<ValidationResult> {
     const plid = player.id;
     const cfg = Database.getConfig();
     const info = this.getCubeInfo(posA, posB);
@@ -211,22 +198,13 @@ export class LandCore {
       return { ok: false, msg: `§c土地面积过大！\n最大面积为 ${cfg.maxSquare} 格。` };
     }
 
-    // 3. 重叠检查
-    const allLands = Database.getAll();
-    const candidates = allLands.filter((l) => l.dimid === dimid);
-    for (const land of candidates) {
-      if (this.cubesOverlap(this.normalize(posA, posB), { posA: land.posA, posB: land.posB })) {
-        return { ok: false, msg: "§c该区域与其他土地重叠，请重新选择土地范围。" };
-      }
+    const remote = await validateLand({ ownerId: plid, ownerName: player.name, dimid, posA, posB });
+    if (!remote.ok) {
+      const messages: Record<string, string> = { overlap: "§c该区域与其他土地重叠，请重新选择土地范围。", land_limit: `§c您已达到持有土地上限（${cfg.maxLandsPerPlayer} 块）！`, area_out_of_range: "§c土地面积不符合限制。" };
+      return { ok: false, msg: messages[remote.error || ""] || `§c${remote.error || "土地验证失败"}` };
     }
 
-    // 4. 土地上限
-    const count = Database.getPlayerLandCount(plid);
-    if (count >= cfg.maxLandsPerPlayer) {
-      return { ok: false, msg: `§c您已达到持有土地上限（${cfg.maxLandsPerPlayer} 块）！` };
-    }
-
-    // 5. 余额检查
+    // 余额检查
     const price = this.calculatePrice(posA, posB);
     const balance = Money.get(player);
     if (balance < price) {
@@ -254,34 +232,33 @@ export class LandCore {
   // ── 创建/删除 ──
 
   /** 创建土地（已通过验证后调用） */
-  static createLand(player: Player, posA: LandPos, posB: LandPos, dimid: number): LandData {
+  static async createLand(player: Player, posA: LandPos, posB: LandPos, dimid: number): Promise<LandData | null> {
     const plid = player.id;
     const n = this.normalize(posA, posB);
     const price = this.calculatePrice(n.posA, n.posB);
     const balance = Money.get(player);
 
-    const land = Database.createLandData(plid, player.name, dimid, n.posA, n.posB);
+    const result = await createLandOnServer({ ownerId: plid, ownerName: player.name, dimid, posA: n.posA, posB: n.posB });
+    if (!result.land) return null;
+    const land = result.land;
+    Money.set(player, balance - (result.price ?? price));
     Database.add(land);
-    Money.set(player, balance - price);
     this.clearSession(plid);
     return land;
   }
 
   /** 删除土地（拥有者/管理员） */
-  static deleteLand(landId: string, player: Player): boolean {
+  static async deleteLand(landId: string, player: Player): Promise<number | false> {
     const land = Database.getById(landId);
     if (!land) return false;
-    if (land.ownerplid !== player.id && !land.managers.includes(player.id)) {
+    if (land.ownerplid !== player.id) {
       return false;
     }
 
-    const cfg = Database.getConfig();
-    const price = this.calculatePrice(land.posA, land.posB);
-    const refund = Math.floor(price * cfg.refundRate);
-
-    Database.delete(landId);
-    Money.add(player, refund);
-    return true;
+    const deleted = await Database.delete(landId, player.id);
+    if (deleted === false) return false;
+    Money.add(player, deleted);
+    return deleted;
   }
 
   /** 检查玩家是否为土地的管理者 */
