@@ -34,8 +34,6 @@ import { ActivityLog } from "./data/ActivityLog";
 import { syncWorldData } from "./data/World";
 import { getPlayerData } from "./data/Player";
 import { savePlayers } from "./api";
-import { HoloEntity } from "./holo/HoloEntity";
-import { HoloGUI } from "./holo/HoloGUI";
 
 ModuleRegistry.register({
   id: "fly",
@@ -97,17 +95,6 @@ ModuleRegistry.register({
   lifecycle: {
     registerCommands: () => MoneyGUI.registerCommand(),
     init: () => Money.initScoreboard(),
-  },
-});
-
-ModuleRegistry.register({
-  id: "holoprint",
-  afterWorldLoad: true,
-  lifecycle: {
-    registerCommands: () => HoloGUI.registerCommand(),
-    registerEvents: () => HoloEntity.registerEvents(),
-    init: () => HoloEntity.init(),
-    cleanup: () => HoloEntity.cleanup(),
   },
 });
 

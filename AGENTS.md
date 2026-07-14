@@ -78,7 +78,7 @@ db-server: `cd db-server && node index.js` (default port 3001, override via `DB_
 | Activity log | `data/ActivityLog.ts` |
 | World data sync | `data/World.ts` |
 | Holographic display | `holo/HoloEntity.ts` + `holo/HoloGUI.ts` |
-| API wrappers | `api/ActivityLogsApi.ts`, `ChatApi.ts`, `HoloprintApi.ts`, `KVApi.ts`, `PlayersDataApi.ts`, `ScoreboardsSyncApi.ts`, `WorldDataApi.ts` |
+| API wrappers | `api/ActivityLogsApi.ts`, `ChatApi.ts`, `KVApi.ts`, `PlayersDataApi.ts`, `ScoreboardsSyncApi.ts`, `WorldDataApi.ts` |
 
 ## Code conventions
 
@@ -204,7 +204,6 @@ trailingComma es5, tabWidth 2, semicolons, double quotes, bracketSpacing, arrowP
 - https://mcbeui.pages.dev/
 - https://wiki.bedrock.dev/
 - https://learn.microsoft.com/zh-cn/minecraft/creator/
-- https://holoprint-mc.github.io/
 
 ## Panel — TUI 管理面板
 

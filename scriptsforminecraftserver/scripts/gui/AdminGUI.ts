@@ -8,8 +8,8 @@ import { Peace } from "../area/Peace";
 
 const MODULES = [
   "fly", "creative", "survival", "peace", "inventory_switcher",
-  "afk", "clean", "qa", "chat", "coop", "shop",
-  "land", "holoprint", "money", "tps", "online_time",
+  "afk", "clean", "qa", "chat", "coop",
+  "land", "money", "tps", "online_time",
   "activity_log", "scoreboard_sync", "spawn_protect", "chat_sounds",
 ];
 

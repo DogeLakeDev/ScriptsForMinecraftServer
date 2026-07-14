@@ -860,8 +860,6 @@ function reloadConfigsFromJson() {
   query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', ['_reload_signal', String(now), now]);
   console.log(`[ConfigReload] 已发送热重载信号 (${now})，SAPI 将在 2 秒内生效`);
 }
-const { registerHoloprintRoutes, getHoloprintDDL } = require('../holoprint/router');
-
 // ---------- 工具 ----------
 
 function json(res, data, status = 200) {
@@ -2246,16 +2244,6 @@ async function start() {
 
   await initDB();
 
-  // 执行 Holoprint DDL
-  const holoDDL = getHoloprintDDL();
-  for (const sql of holoDDL) {
-    try { db.exec(sql); } catch (err) { console.error('[Holoprint] 建表失败:', err.message); }
-  }
-  // 确保 hpbe_pack_meta 有初始行
-  const hpbeExisting = query('SELECT id FROM hpbe_pack_meta WHERE id = 1');
-  if (hpbeExisting.length === 0) {
-    query('INSERT INTO hpbe_pack_meta (id, pack_version, last_generated_at) VALUES (1, 1, NULL)');
-  }
 
   moduleRoutes = createModuleRoutes({
     loadModuleCatalog,
@@ -2284,14 +2272,12 @@ async function start() {
     updateModuleState,
   });
 
-  // 用 Holoprint 路由包装原始 handler
-  const holoHandler = registerHoloprintRoutes(handle, db, query, body, json);
   const server = http.createServer((req, res) => {
     const startedAt = Date.now();
     res.once('finish', () => {
       console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms`);
     });
-    return holoHandler(req, res);
+    return handle(req, res);
   });
 
   server.listen(PORT, '127.0.0.1', () => {

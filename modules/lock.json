@@ -90,17 +90,6 @@
       ],
       "updatedAt": 1783995864841
     },
-    "feature-holoprint": {
-      "version": "1.0.0",
-      "hash": "9a71d0be9d0a5a8d",
-      "files": [
-        {
-          "path": "scriptsforminecraftserver/scripts/holo/HoloEntity.ts",
-          "hash": "ff4d2c9b8d37f825"
-        }
-      ],
-      "updatedAt": 1783995864842
-    },
     "feature-afk": {
       "version": "1.0.0",
       "hash": "f44121f51c5e18b5",
@@ -303,17 +292,6 @@
         {
           "path": "configs/bds_updater.json",
           "hash": "d4d36d9ddf9e6259"
-        }
-      ],
-      "updatedAt": 1783995864845
-    },
-    "asset-holoprint-rp": {
-      "version": "1.0.0",
-      "hash": "a0dea14f5c0d668a",
-      "files": [
-        {
-          "path": "holoprint/resource_packs/holoprint/manifest.json",
-          "hash": "cd42ba56a5969c64"
         }
       ],
       "updatedAt": 1783995864845

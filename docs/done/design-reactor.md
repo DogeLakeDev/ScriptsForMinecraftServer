@@ -73,7 +73,6 @@ module-lock.json
 - QQ 转发
 - 监控
 - Setup
-- Holoprint
 建议分三步：
 第一步：抽纯工具和数据层
 db-server/
@@ -177,7 +176,6 @@ P2：可以随后处理
 - Fly
 - CreativeArea
 - Coop shop system
-- HoloPrint 实体属性
 这里不能简单全部删除。建议按数据类型分组：
 - 临时运行态：保留 DynamicProperty
 - 用户长期数据：迁移 SQLite

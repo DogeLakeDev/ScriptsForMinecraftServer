@@ -7,7 +7,6 @@ export const Modules = {
   chat: "chat",
   coop: "coop",
   land: "land",
-  holoprint: "holoprint",
   afk: "afk",
   clean: "clean",
   tps: "tps",

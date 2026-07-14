@@ -274,7 +274,6 @@ ScriptsForMinecraftServer/
 │   └── setup/                    初始化向导
 ├── BDSTools/                     BDS 自动更新器
 ├── tools/                        工程工具（check / smoke / sim / lock / install）
-├── holoprint/                    全息投影资源（迁移后位置）
 ├── .github/workflows/ootb.yml    GitHub Actions CI
 └── README.md
 ```
@@ -319,7 +318,6 @@ Copy-Item .env.example .env
 
 - 模块可热卸载（已实现 cleanup 钩子）
 - 服务安装引导（已集成 setup step 3 路径检测）
-- Holoprint 投影 UI 闭环（按需推进）
 - 远程部署面板（按需推进）
 
 ---

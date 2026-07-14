@@ -106,20 +106,6 @@
       "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/land/LandSystem.ts" }
     },
     {
-      "id": "feature-holoprint",
-      "configKey": "holoprint",
-      "name": "全息投影",
-      "type": "feature",
-      "description": "投影实体、编辑 GUI 与后端同步",
-      "defaultEnabled": true,
-      "defaultInstalled": true,
-      "canDisable": true,
-      "canUninstall": false,
-      "requires": ["core-httpdb"],
-      "optional": ["asset-holoprint-rp"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/holo/HoloEntity.ts" }
-    },
-    {
       "id": "feature-afk",
       "configKey": "afk",
       "name": "AFK",
@@ -357,19 +343,6 @@
         "configs/bds_updater.json"
       ],
       "entry": { "kind": "node", "path": "BDSTools/check-update.js" }
-    },
-    {
-      "id": "asset-holoprint-rp",
-      "configKey": "holoprint_rp",
-      "name": "全息资源包",
-      "type": "asset",
-      "description": "Holoprint 资源包与客户端资源",
-      "defaultEnabled": true,
-      "defaultInstalled": true,
-      "canDisable": true,
-      "canUninstall": true,
-      "requires": [],
-      "entry": { "kind": "asset", "path": "holoprint/resource_packs/holoprint/manifest.json" }
     }
   ]
 }

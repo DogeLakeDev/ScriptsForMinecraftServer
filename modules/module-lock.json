@@ -129,12 +129,6 @@
       "updatedAt": 1783956289716,
       "enabled": true
     },
-    "asset-holoprint-rp": {
-      "installed": false,
-      "installedAt": 1783928051762,
-      "updatedAt": 1783950908797,
-      "enabled": false
-    },
     "feature-coop": {
       "enabled": false,
       "updatedAt": 1783950908797,
@@ -151,11 +145,6 @@
       "updatedAt": 1783956361262,
       "installed": true,
       "installedAt": 1783956361262
-    },
-    "feature-holoprint": {
-      "installed": false,
-      "enabled": false,
-      "updatedAt": 1783950908797
     },
     "service-db": {
       "installed": true,
