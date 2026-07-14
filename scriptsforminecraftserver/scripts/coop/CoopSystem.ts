@@ -7,14 +7,17 @@ import { world, Player } from "@minecraft/server";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { CoopGUI } from "../gui/CoopGUI";
+import { debug } from "../libs/DebugLog";
 
 export class CoopSystem {
   static init() {
+    debug.i("COOP", "init");
     console.log(`Initializing CoopSystem...`);
     console.log(`CoopSystem initialized successfully.`);
   }
 
   static registerPermissions() {
+    debug.i("COOP", "registerPermissions");
     Permission.register("coop.use", Permission.Member);
     Permission.register("coop.admin", Permission.OP);
     Permission.register("coopshop.use", Permission.Member);

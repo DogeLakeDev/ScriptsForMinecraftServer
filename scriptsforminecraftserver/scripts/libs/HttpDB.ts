@@ -20,7 +20,9 @@ export class HttpDB {
   private static _lastErrorLog = 0;
   private static authToken = "";
 
-  static setAuthToken(token: string): void { this.authToken = token.trim(); }
+  static setAuthToken(token: string): void {
+    this.authToken = token.trim();
+  }
 
   static isAvailable(): boolean {
     return this.available;
@@ -100,8 +102,28 @@ export class HttpDB {
     }
   }
 
-  static async requestJSON(method: string, path: string, bodyData?: Record<string, unknown>): Promise<{ status: number; body: string }> {
+  static async requestJSON(
+    method: string,
+    path: string,
+    bodyData?: Record<string, unknown>
+  ): Promise<{ status: number; body: string }> {
     return this.request(method, path, bodyData);
+  }
+
+  static async typedRequest<T = any>(
+    method: string,
+    path: string,
+    bodyData?: Record<string, unknown>
+  ): Promise<{ ok: boolean; data?: T; error?: string; status: number }> {
+    const { status, body } = await this.request(method, path, bodyData);
+    if (!body) return { ok: false, error: "network_error", status };
+    try {
+      const parsed = JSON.parse(body);
+      if (status === 200 && parsed.ok !== false) return { ok: true, data: parsed as T, status };
+      return { ok: false, error: parsed.error || "request_failed", status, data: parsed as T };
+    } catch {
+      return { ok: false, error: "invalid_response", status };
+    }
   }
 
   static async get(path: string): Promise<string | null> {
@@ -143,5 +165,4 @@ export class HttpDB {
     }
     return status === 200;
   }
-
 }

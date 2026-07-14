@@ -6,9 +6,11 @@ import { LandGUI } from "./LandGUI";
 import { ChatGUI } from "./ChatGUI";
 import { CoopGUI } from "./CoopGUI";
 import { Command } from "../libs/Command";
+import { debug } from "../libs/DebugLog";
 
 export class MainMenu {
   static registerMenuCommand() {
+    debug.i("GUI", "MainMenu.registerMenuCommand");
     Command.register(
       "menu",
       "menu.use",
@@ -21,10 +23,12 @@ export class MainMenu {
   }
 
   static show(player: Player): void {
+    debug.i("GUI", `MainMenu.show: player=${player.name}`);
     new MainMenu().showMainMenu(player);
   }
 
   private showMainMenu(player: Player): void {
+    debug.i("GUI", "MainMenu.showMainMenu");
     const nav = new MenuNavigator(player);
     const balance = Money.get(player);
 
@@ -68,7 +72,9 @@ export class MainMenu {
           status.setData(`§c余额不足。当前余额: ${bal} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`);
           return;
         }
-        const transferred = await import("../api/EconomyApi").then(({ transferEconomy }) => transferEconomy(player.id, target.id, amount, target.name));
+        const transferred = await import("../api/EconomyApi").then(({ transferEconomy }) =>
+          transferEconomy(player.id, target.id, amount, target.name)
+        );
         if (!transferred) {
           status.setData("§c转账失败，余额可能已变化，请重试。");
           return;

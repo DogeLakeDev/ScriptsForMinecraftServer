@@ -170,12 +170,12 @@ export class ChatGUI {
       page.button(`${c.prefix} - §f${c.name}\n§7${DogeChat.getOnlineCount(c.id)} 人在线`, async () => {
         if (isAdmin || (await DogeChat.isChannelOwner(this.player, c.id))) {
           this.nav.state.channel = c;
-          this.nav.rebuild("settings");
+          await this.nav.rebuild("settings");
         } else {
           await DogeChat.setActiveChannel(this.player, c.id);
           status.ok(`已切换到频道: ${c.prefix}`);
           await DogeChat.loadChannelHistory(this.player, c.id);
-          this.nav.rebuild("panel");
+          await this.nav.rebuild("panel");
         }
       });
     }
@@ -213,15 +213,14 @@ export class ChatGUI {
         this.nav.state.channel = updated;
         status.ok(`公告板模式已${updated.config.isBroadcast ? "开启" : "关闭"}。`);
       }
-      this.nav.rebuild("settings");
+      await this.nav.rebuild("settings");
     });
     if (isOwner && channel.type !== "public") {
       page.button("删除频道", () => {
         this.nav.confirm(
           "删除频道",
           `确认删除频道 "${channel.name}" 吗？此操作不可撤销。`,
-          () =>
-            DogeChat.deleteChannel(channel.id).then(() => status.ok(`频道 "${channel.name}" 已删除。`)),
+          () => DogeChat.deleteChannel(channel.id).then(() => status.ok(`频道 "${channel.name}" 已删除。`)),
           () => this.nav.rebuild("manager")
         );
       });
@@ -267,7 +266,7 @@ export class ChatGUI {
         await DogeChat.setActiveChannel(this.player, cid);
         status.ok(`频道 "${n}" 创建成功，已自动切换。`);
         await DogeChat.loadChannelHistory(this.player, cid);
-        this.nav.rebuild("panel");
+        await this.nav.rebuild("panel");
       } else {
         status.fail("创建失败，可能的原因是频道名称已存在。");
       }
@@ -300,7 +299,7 @@ export class ChatGUI {
       status.ok(`频道已重命名为: ${np} - ${nn}`);
       const updated = await ChatApi.getChannel(channel.id);
       if (updated) this.nav.state.channel = updated;
-      this.nav.rebuild("settings");
+      await this.nav.rebuild("settings");
     });
   }
 
@@ -362,7 +361,7 @@ export class ChatGUI {
         const active = await DogeChat.getActiveChannel(this.player);
         if (active) {
           const ok = await DogeChat.sendRedPacket(this.player, amt, cnt, "group", active.id);
-          if (ok) this.nav.leave(() => {});
+          if (ok) await this.nav.leave(() => {});
           else status.fail("发送失败");
         }
       } else {
@@ -372,7 +371,7 @@ export class ChatGUI {
           return;
         }
         const ok = await DogeChat.sendRedPacket(this.player, amt, cnt, "player", target.id);
-        if (ok) this.nav.leave(() => {});
+        if (ok) await this.nav.leave(() => {});
         else status.fail("发送失败");
       }
     });
@@ -425,7 +424,7 @@ export class ChatGUI {
         return;
       }
       const ok = await DogeChat.sendRedPacket(this.player, amt, 1, "player", otherid);
-      if (ok) this.nav.leave(() => {});
+      if (ok) await this.nav.leave(() => {});
       else status.fail("发送失败");
     });
   }
@@ -446,7 +445,7 @@ export class ChatGUI {
       const channel = await DogeChat.getActiveChannel(this.player);
       if (!channel) return;
       const ok = await DogeChat.sendRedPacket(this.player, amt, cnt, "group", channel.id);
-      if (ok) this.nav.leave(() => {});
+      if (ok) await this.nav.leave(() => {});
       else status.fail("发送失败");
     });
   }

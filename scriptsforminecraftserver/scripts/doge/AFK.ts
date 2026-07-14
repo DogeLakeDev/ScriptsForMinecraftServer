@@ -8,6 +8,8 @@
 import { Player, system, world } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "../libs/Command";
+import { Permission } from "../libs/Permission";
+import { debug } from "../libs/DebugLog";
 
 // 内存缓存：玩家 ID → (键 → 值)
 const afkCache = new Map<string, Map<string, any>>();
@@ -36,6 +38,7 @@ function cacheDelete(player: Player, key: string) {
  * 清除相关属性和标签
  */
 export function reset(player: Player): void {
+  debug.i("AFK", `reset: player=${player.name}`);
   cacheDelete(player, "afk:last_location");
   cacheDelete(player, "afk:step");
   player.removeTag("AFK");
@@ -45,6 +48,7 @@ export function reset(player: Player): void {
  * 即刻进入AFK状态
  */
 export function setAFK(player: Player): void {
+  debug.i("AFK", `setAFK: player=${player.name}`);
   player.removeTag("NOAFK");
   startAFKScan();
   playerList[player.id] = player.location;
@@ -143,14 +147,19 @@ function startAFKScan() {
 
 function stopAFKScan() {
   if (intervalId !== undefined) {
-    try { system.clearRun(intervalId); } catch {}
+    try {
+      system.clearRun(intervalId);
+    } catch {}
     intervalId = undefined;
   }
 }
 
 export function stop(): void {
+  debug.i("AFK", "stop");
   if (scanRunId !== undefined) {
-    try { system.clearRun(scanRunId); } catch {}
+    try {
+      system.clearRun(scanRunId);
+    } catch {}
     scanRunId = undefined;
   }
   scanActive = false;
@@ -158,7 +167,19 @@ export function stop(): void {
   playerList = {};
 }
 
+export function registerPermissions(): void {
+  Permission.register("afk.use", Permission.Member);
+  Permission.register("afk.clear.other", Permission.OP);
+}
+
+export function registerEvents(): void {
+  world.afterEvents.playerSpawn.subscribe((event) => {
+    if (event.initialSpawn) reset(event.player);
+  });
+}
+
 export function init(): void {
+  debug.i("AFK", "init");
   console.log(`Initializing AFK...`);
   if (!scanActive) startScan();
   for (let player of world.getAllPlayers()) {
@@ -168,6 +189,7 @@ export function init(): void {
 }
 
 export function registerCommand(): void {
+  debug.i("AFK", "registerCommand");
   Command.register("afk", "afk.use", setAFK as (player: Player | undefined) => any, "进入AFK状态", "afk");
   Command.register(
     "noafk",

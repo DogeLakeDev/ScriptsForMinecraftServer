@@ -1,5 +1,6 @@
 import { HttpDB } from "../libs/HttpDB";
 import type { CoopData, CoopMember, CoopShopItem, CoopBankLog, CoopShopGroup } from "../types";
+import { debug } from "../libs/DebugLog";
 
 const PATH = "/api/sfmc/coops";
 
@@ -12,10 +13,13 @@ const PATH = "/api/sfmc/coops";
  * @return {*}  {Promise<CoopData[]>}
  */
 export async function getAllCoops(): Promise<CoopData[]> {
+  debug.i("API", "getAllCoops");
   const body = await HttpDB.get(PATH);
   if (!body) return [];
   try {
-    return JSON.parse(body).coops || [];
+    const coops = JSON.parse(body).coops || [];
+    debug.i("API", `getAllCoops: ${coops.length} coops`);
+    return coops;
   } catch {
     return [];
   }
@@ -29,6 +33,7 @@ export async function getAllCoops(): Promise<CoopData[]> {
  * @return {*}  {(Promise<CoopData | null>)}
  */
 export async function getCoop(cid: string): Promise<CoopData | null> {
+  debug.i("API", `getCoop: cid=${cid}`);
   const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}`);
   if (!body) return null;
   try {
@@ -54,6 +59,7 @@ export async function getCoop(cid: string): Promise<CoopData | null> {
  * @return {*}  {Promise<boolean>}
  */
 export async function updateCoop(cid: string, data: Partial<CoopData> & { actorId: string }): Promise<boolean> {
+  debug.i("API", `updateCoop: cid=${cid}`);
   return HttpDB.patch(`${PATH}/${encodeURIComponent(cid)}`, data);
 }
 
@@ -65,22 +71,46 @@ export async function updateCoop(cid: string, data: Partial<CoopData> & { actorI
  * @return {*}  {Promise<boolean>}
  */
 export async function deleteCoop(cid: string, actorId: string): Promise<boolean> {
+  debug.i("API", `deleteCoop: cid=${cid} actorId=${actorId}`);
   const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(cid)}`, { actorId });
   return result.status === 200;
 }
 
 export async function updateCoopFee(cid: string, actorId: string, feeBps: number): Promise<boolean> {
+  debug.i("API", `updateCoopFee: cid=${cid} feeBps=${feeBps}`);
   const result = await HttpDB.requestJSON("Patch", `${PATH}/${encodeURIComponent(cid)}/settings`, { actorId, feeBps });
   return result.status === 200;
 }
 
-export async function inviteCoopMember(cid: string, actorId: string, playerId: string, playerName: string, role: "admin" | "member" = "member"): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites`, { actorId, playerId, playerName, role });
+export async function inviteCoopMember(
+  cid: string,
+  actorId: string,
+  playerId: string,
+  playerName: string,
+  role: "admin" | "member" = "member"
+): Promise<boolean> {
+  debug.i("API", `inviteCoopMember: cid=${cid} player=${playerName} role=${role}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites`, {
+    actorId,
+    playerId,
+    playerName,
+    role,
+  });
   return result.status === 200;
 }
 
-export async function acceptCoopInvite(cid: string, inviteId: string, playerId: string, playerName: string): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites/accept`, { actorId: playerId, inviteId, playerName });
+export async function acceptCoopInvite(
+  cid: string,
+  inviteId: string,
+  playerId: string,
+  playerName: string
+): Promise<boolean> {
+  debug.i("API", `acceptCoopInvite: cid=${cid} inviteId=${inviteId} player=${playerName}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites/accept`, {
+    actorId: playerId,
+    inviteId,
+    playerName,
+  });
   return result.status === 200;
 }
 
@@ -94,6 +124,7 @@ export async function acceptCoopInvite(cid: string, inviteId: string, playerId: 
  * @return {*}  {Promise<CoopMember[]>}
  */
 export async function getMembers(cid: string): Promise<CoopMember[]> {
+  debug.i("API", `getMembers: cid=${cid}`);
   const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}/members`);
   if (!body) return [];
   try {
@@ -113,22 +144,45 @@ export async function getMembers(cid: string): Promise<CoopMember[]> {
  * @return {*}  {Promise<boolean>}
  */
 export async function addMember(cid: string, actorId: string, playerId: string, playerName: string): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members`, { actorId, playerId, playerName });
+  debug.i("API", `addMember: cid=${cid} player=${playerName}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members`, {
+    actorId,
+    playerId,
+    playerName,
+  });
   return result.status === 200;
 }
 
 export async function joinCoop(cid: string, playerId: string, playerName: string): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/join`, { actorId: playerId, playerId, playerName });
+  debug.i("API", `joinCoop: cid=${cid} player=${playerName}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/join`, {
+    actorId: playerId,
+    playerId,
+    playerName,
+  });
   return result.status === 200;
 }
 
 export async function leaveCoop(cid: string, playerId: string): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/leave`, { actorId: playerId });
+  debug.i("API", `leaveCoop: cid=${cid} playerId=${playerId}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
+    actorId: playerId,
+  });
   return result.status === 200;
 }
 
-export async function updateMemberRole(cid: string, actorId: string, playerId: string, role: "admin" | "member"): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Patch", `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId)}`, { actorId, role });
+export async function updateMemberRole(
+  cid: string,
+  actorId: string,
+  playerId: string,
+  role: "admin" | "member"
+): Promise<boolean> {
+  debug.i("API", `updateMemberRole: cid=${cid} playerId=${playerId} role=${role}`);
+  const result = await HttpDB.requestJSON(
+    "Patch",
+    `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId)}`,
+    { actorId, role }
+  );
   return result.status === 200;
 }
 
@@ -141,7 +195,12 @@ export async function updateMemberRole(cid: string, actorId: string, playerId: s
  * @return {*}  {Promise<boolean>}
  */
 export async function removeMember(cid: string, actorId: string, playerId: string): Promise<boolean> {
-  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId)}`, { actorId });
+  debug.i("API", `removeMember: cid=${cid} playerId=${playerId}`);
+  const result = await HttpDB.requestJSON(
+    "Delete",
+    `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId)}`,
+    { actorId }
+  );
   return result.status === 200;
 }
 
@@ -156,6 +215,7 @@ export async function removeMember(cid: string, actorId: string, playerId: strin
  * @return {*}  {Promise<CoopShopItem[]>}
  */
 export async function getShopItems(cid: string, type?: number): Promise<CoopShopItem[]> {
+  debug.i("API", `getShopItems: cid=${cid} type=${type}`);
   const qs = type !== undefined ? `?type=${type}` : "";
   const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}/shop_items${qs}`);
   if (!body) return [];
@@ -174,6 +234,7 @@ export async function getShopItems(cid: string, type?: number): Promise<CoopShop
  * @return {*}  {Promise<boolean>}
  */
 export async function saveShopItem(item: CoopShopItem): Promise<boolean> {
+  debug.i("API", `saveShopItem: cid=${item.cid} id=${item.id} name=${item.name}`);
   return HttpDB.post(`${PATH}/${encodeURIComponent(item.cid)}/shop_items`, item as unknown as Record<string, unknown>);
 }
 
@@ -186,6 +247,7 @@ export async function saveShopItem(item: CoopShopItem): Promise<boolean> {
  * @return {*}  {Promise<boolean>}
  */
 export async function deleteShopItem(cid: string, id: string): Promise<boolean> {
+  debug.i("API", `deleteShopItem: cid=${cid} id=${id}`);
   return HttpDB.del(`${PATH}/${encodeURIComponent(cid)}/shop_items/${encodeURIComponent(id)}`);
 }
 
@@ -199,6 +261,7 @@ export async function deleteShopItem(cid: string, id: string): Promise<boolean> 
  * @return {*}  {Promise<CoopBankLog[]>}
  */
 export async function getBankLog(cid: string): Promise<CoopBankLog[]> {
+  debug.i("API", `getBankLog: cid=${cid}`);
   const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}/bank_log`);
   if (!body) return [];
   try {
@@ -226,6 +289,7 @@ export async function addBankLog(
   amount: number,
   note?: string
 ): Promise<boolean> {
+  debug.i("API", `addBankLog: cid=${cid} player=${player_name} type=${type} amount=${amount}`);
   return HttpDB.post(`${PATH}/${encodeURIComponent(cid)}/bank_log`, { player_name, type, amount, note });
 }
 
@@ -238,6 +302,7 @@ export async function addBankLog(
  * @return {*}  {Promise<CoopShopGroup[]>}
  */
 export async function getAllShopGroups(): Promise<CoopShopGroup[]> {
+  debug.i("API", "getAllShopGroups");
   const body = await HttpDB.get("/api/sfmc/coop_shop_groups");
   if (!body) return [];
   try {
@@ -255,6 +320,7 @@ export async function getAllShopGroups(): Promise<CoopShopGroup[]> {
  * @return {*}  {Promise<boolean>}
  */
 export async function saveShopGroup(group: CoopShopGroup): Promise<boolean> {
+  debug.i("API", `saveShopGroup: groupid=${group.groupid} displayname=${group.displayname}`);
   return HttpDB.post("/api/sfmc/coop_shop_groups", { group });
 }
 
@@ -266,17 +332,104 @@ export async function saveShopGroup(group: CoopShopGroup): Promise<boolean> {
  * @return {*}  {(Promise<string | null>)}
  */
 export async function findPlayerCoop(playerId: string): Promise<string | null> {
+  debug.i("API", `findPlayerCoop: playerId=${playerId}`);
   const body = await HttpDB.get(`${PATH}/by-player/${encodeURIComponent(playerId)}`);
   if (!body) return null;
-  try { return JSON.parse(body).coop?.cid || null; } catch { return null; }
+  try {
+    return JSON.parse(body).coop?.cid || null;
+  } catch {
+    return null;
+  }
 }
 
-export async function createCoop(name: string, cid: string, actorId: string, actorName: string): Promise<{ ok: boolean; coop?: CoopData; balance?: number; error?: string }> {
+export async function createCoop(
+  name: string,
+  cid: string,
+  actorId: string,
+  actorName: string
+): Promise<{ ok: boolean; coop?: CoopData; balance?: number; error?: string }> {
+  debug.i("API", `createCoop: name=${name} cid=${cid} actor=${actorName}`);
   const result = await HttpDB.requestJSON("Post", `${PATH}/create`, { name, cid, actorId, actorName });
-  try { const parsed = JSON.parse(result.body); return { ok: result.status === 200 && parsed.ok !== false, coop: parsed.coop, balance: parsed.balance, error: parsed.error }; } catch { return { ok: false, error: "invalid_response" }; }
+  try {
+    const parsed = JSON.parse(result.body);
+    return {
+      ok: result.status === 200 && parsed.ok !== false,
+      coop: parsed.coop,
+      balance: parsed.balance,
+      error: parsed.error,
+    };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
 }
 
-export async function treasury(cid: string, actorId: string, actorName: string, mode: "deposit" | "withdraw", amount: number, note = "") {
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, { actorId, actorName, amount, note });
-  try { const parsed = JSON.parse(result.body); return { ok: result.status === 200 && parsed.ok !== false, ...parsed }; } catch { return { ok: false, error: "invalid_response" }; }
+export async function treasury(
+  cid: string,
+  actorId: string,
+  actorName: string,
+  mode: "deposit" | "withdraw",
+  amount: number,
+  note = ""
+) {
+  debug.i("API", `treasury: cid=${cid} actor=${actorName} mode=${mode} amount=${amount}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
+    actorId,
+    actorName,
+    amount,
+    note,
+  });
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+
+export async function coopShopBuy(
+  cid: string,
+  actorId: string,
+  actorName: string,
+  listingId: string,
+  quantity: number,
+  idempotencyKey?: string
+) {
+  debug.i("API", `coopShopBuy: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/shop/buy`, {
+    actorId,
+    actorName,
+    listingId,
+    quantity,
+    idempotencyKey,
+  });
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+
+export async function coopShopSell(
+  cid: string,
+  actorId: string,
+  actorName: string,
+  listingId: string,
+  quantity: number,
+  idempotencyKey?: string
+) {
+  debug.i("API", `coopShopSell: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
+  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/shop/sell`, {
+    actorId,
+    actorName,
+    listingId,
+    quantity,
+    idempotencyKey,
+  });
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
 }

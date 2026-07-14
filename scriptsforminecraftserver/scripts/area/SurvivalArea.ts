@@ -45,49 +45,55 @@ export class SurvivalArea {
   registerEvents() {
     if (this.subscriptions.length > 0) return;
     // 进服时检测
-    this.subscriptions.push(world.afterEvents.playerSpawn.subscribe((event: PlayerSpawnAfterEvent) => {
-      if (!event.initialSpawn) return;
-      if (!CreativeArea.enable) return;
-      if (!this.enable) return;
+    this.subscriptions.push(
+      world.afterEvents.playerSpawn.subscribe((event: PlayerSpawnAfterEvent) => {
+        if (!event.initialSpawn) return;
+        if (!CreativeArea.enable) return;
+        if (!this.enable) return;
 
-      const player = event.player;
-      const mode = player.getGameMode();
-      if (mode === GameMode.Survival || mode === GameMode.Adventure) return;
+        const player = event.player;
+        const mode = player.getGameMode();
+        if (mode === GameMode.Survival || mode === GameMode.Adventure) return;
 
-      system.runTimeout(() => {
-        if (!this.inCreativeArea(player)) {
-          this.forceSurvival(player);
-        }
-      }, 60);
-    }));
+        system.runTimeout(() => {
+          if (!this.inCreativeArea(player)) {
+            this.forceSurvival(player);
+          }
+        }, 60);
+      })
+    );
 
     // 阻止手动切换到创造/旁观（区外）
-    this.subscriptions.push(world.beforeEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeBeforeEvent) => {
-      if (!CreativeArea.enable) return;
-      if (!this.enable) return;
-      if (event.toGameMode === GameMode.Creative || event.toGameMode === GameMode.Spectator) {
-        if (Permission.check(event.player, "survivalarea.gamemode.bypass")) return;
-        if (!this.inCreativeArea(event.player)) {
-          event.cancel = true;
-          Msg.error(`你当前不在创造区域内，无法切换到该模式。`, event.player);
+    this.subscriptions.push(
+      world.beforeEvents.playerGameModeChange.subscribe((event: PlayerGameModeChangeBeforeEvent) => {
+        if (!CreativeArea.enable) return;
+        if (!this.enable) return;
+        if (event.toGameMode === GameMode.Creative || event.toGameMode === GameMode.Spectator) {
+          if (Permission.check(event.player, "survivalarea.gamemode.bypass")) return;
+          if (!this.inCreativeArea(event.player)) {
+            event.cancel = true;
+            Msg.error(`你当前不在创造区域内，无法切换到该模式。`, event.player);
+          }
         }
-      }
-    }));
+      })
+    );
 
     // 跨维度传送后检测
-    this.subscriptions.push(world.afterEvents.playerDimensionChange.subscribe((event: PlayerDimensionChangeAfterEvent) => {
-      if (!CreativeArea.enable) return;
-      if (!this.enable) return;
-      const player = event.player;
-      const mode = player.getGameMode();
-      if (mode === GameMode.Survival || mode === GameMode.Adventure) return;
+    this.subscriptions.push(
+      world.afterEvents.playerDimensionChange.subscribe((event: PlayerDimensionChangeAfterEvent) => {
+        if (!CreativeArea.enable) return;
+        if (!this.enable) return;
+        const player = event.player;
+        const mode = player.getGameMode();
+        if (mode === GameMode.Survival || mode === GameMode.Adventure) return;
 
-      system.runTimeout(() => {
-        if (!this.inCreativeArea(player)) {
-          this.forceSurvival(player);
-        }
-      }, 10);
-    }));
+        system.runTimeout(() => {
+          if (!this.inCreativeArea(player)) {
+            this.forceSurvival(player);
+          }
+        }, 10);
+      })
+    );
   }
 
   init() {
@@ -96,7 +102,9 @@ export class SurvivalArea {
 
   cleanup() {
     for (const s of this.subscriptions) {
-      try { s.unsubscribe(); } catch {}
+      try {
+        s.unsubscribe();
+      } catch {}
     }
     this.subscriptions = [];
   }

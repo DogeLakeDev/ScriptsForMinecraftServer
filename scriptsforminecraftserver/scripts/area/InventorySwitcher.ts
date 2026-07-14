@@ -52,7 +52,9 @@ export class InventorySwitcher {
 
   cleanup() {
     if (this.gameModeSub?.unsubscribe) {
-      try { this.gameModeSub.unsubscribe(); } catch {}
+      try {
+        this.gameModeSub.unsubscribe();
+      } catch {}
     }
     this.gameModeSub = undefined;
   }

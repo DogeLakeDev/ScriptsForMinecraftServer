@@ -13,23 +13,21 @@ function readJson(file) {
   }
 }
 
-function resolveDbConfig({ env = process.env, state = {}, config = {} } = {}) {
-  const value = env.DB_PORT || state.paths?.dbPort || config.db_port || 3001;
+function resolveDbConfig({ env = process.env, config = {} } = {}) {
+  const value = env.DB_PORT || config.db_port || 3001;
   const port = Number.parseInt(value, 10);
-  const host = env.DB_HOST || state.paths?.dbHost || config.db_host || "127.0.0.1";
+  const host = env.DB_HOST || config.db_host || "127.0.0.1";
   return { host, port: Number.isInteger(port) && port > 0 && port < 65536 ? port : 3001 };
 }
 
 function getDbPort() {
-  const state = readJson("panel-state.json");
   const config = readJson("configs/db_config.json");
-  return resolveDbConfig({ state, config }).port;
+  return resolveDbConfig({ config }).port;
 }
 
 export function getDbBaseUrl() {
-  const state = readJson("panel-state.json");
   const config = readJson("configs/db_config.json");
-  const { host, port } = resolveDbConfig({ state, config });
+  const { host, port } = resolveDbConfig({ config });
   return `http://${host}:${port}`;
 }
 

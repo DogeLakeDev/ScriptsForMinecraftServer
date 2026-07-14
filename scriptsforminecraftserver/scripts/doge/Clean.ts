@@ -10,6 +10,7 @@ import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import * as Tool from "../libs/Tools";
+import { debug } from "../libs/DebugLog";
 
 /**
  * [重要]
@@ -37,6 +38,7 @@ export class Clean {
   timeout = 60;
 
   init() {
+    debug.i("CLEAN", "Clean.init");
     // 初始化设置
     const cleanCfg = ConfigManager.getClean();
     const recycleBin = ConfigManager.getGrid("clean_recycle_bin");
@@ -142,6 +144,7 @@ export class Clean {
    * 开始清理
    */
   startClean(entities?: Entity[]) {
+    debug.i("CLEAN", `startClean: entityCount=${entities?.length || "all"}`);
     // 获取所有物品实体
     let itemEntities = entities ?? this.getAllItemEntities();
 
@@ -166,6 +169,7 @@ export class Clean {
   }
 
   startCleanInterval() {
+    debug.i("CLEAN", "startCleanInterval");
     if (this.intervalId) {
       system.clearRun(this.intervalId);
       this.intervalId = undefined;
@@ -186,6 +190,7 @@ export class Clean {
   }
 
   stopCleanInterval() {
+    debug.i("CLEAN", "stopCleanInterval");
     if (this.intervalId) {
       system.clearRun(this.intervalId);
       this.intervalId = undefined;
@@ -193,6 +198,7 @@ export class Clean {
   }
 
   stop() {
+    debug.i("CLEAN", "Clean.stop");
     this.stopCleanInterval();
   }
 

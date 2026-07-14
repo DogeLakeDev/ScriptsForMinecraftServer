@@ -64,7 +64,9 @@ export class ChatSoundsHelper {
 
   stop(): void {
     if (this.chatSub?.unsubscribe) {
-      try { this.chatSub.unsubscribe(); } catch {}
+      try {
+        this.chatSub.unsubscribe();
+      } catch {}
     }
     this.chatSub = undefined;
   }

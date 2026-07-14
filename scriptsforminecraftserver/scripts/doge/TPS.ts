@@ -2,6 +2,7 @@ import { Player, system, world } from "@minecraft/server";
 import { Permission } from "../libs/Permission";
 import { Command } from "../libs/Command";
 import { Msg } from "../libs/Tools";
+import { debug } from "../libs/DebugLog";
 
 export class TPS {
   private static tickTimes: number[] = [];
@@ -26,6 +27,7 @@ export class TPS {
   }
 
   static init() {
+    debug.i("TPS", "init");
     this.startRecord();
   }
 
@@ -41,13 +43,21 @@ export class TPS {
   private static recordRunId: number | undefined;
 
   static stop() {
+    debug.i("TPS", "stop");
     if (this.recordRunId !== undefined) {
-      try { system.clearRun(this.recordRunId); } catch {}
+      try {
+        system.clearRun(this.recordRunId);
+      } catch {}
       this.recordRunId = undefined;
     }
   }
 
+  static registerPermissions(): void {
+    Permission.register("tps.see", Permission.Any);
+  }
+
   static registerCommands() {
+    debug.i("TPS", "registerCommands");
     Command.register(
       "tps",
       "tps.see",

@@ -2,15 +2,29 @@ import { Player } from "@minecraft/server";
 import { MenuNavigator, obsBool } from "../libs/MenuNavigator";
 import { ConfigManager } from "../libs/ConfigManager";
 import { HttpDB } from "../libs/HttpDB";
-import { ListFormInfo } from "../libs/Tools";
+import { Msg, ListFormInfo } from "../libs/Tools";
 import { CreativeArea } from "../area/CreativeArea";
 import { Peace } from "../area/Peace";
 
 const MODULES = [
-  "fly", "creative", "survival", "peace", "inventory_switcher",
-  "afk", "clean", "qa", "chat", "coop",
-  "land", "money", "tps", "online_time",
-  "activity_log", "scoreboard_sync", "spawn_protect", "chat_sounds",
+  "fly",
+  "creative",
+  "survival",
+  "peace",
+  "inventory_switcher",
+  "afk",
+  "clean",
+  "qa",
+  "chat",
+  "coop",
+  "land",
+  "money",
+  "tps",
+  "online_time",
+  "activity_log",
+  "scoreboard_sync",
+  "spawn_protect",
+  "chat_sounds",
 ];
 
 export class AdminGUI {
@@ -41,12 +55,12 @@ export class AdminGUI {
   private async onToggle(name: string, val: boolean): Promise<void> {
     const ok = await HttpDB.patch(`/api/sfmc/modules/${name}`, { enabled: val });
     if (!ok) {
-      this.nav.message("失败", `§c✘ ${name} 修改失败`);
+      Msg.error(`${name} 修改失败`, this.player);
       return;
     }
     await ConfigManager.reloadAll();
     AdminGUI.applyRuntimeState(name, val);
-    this.nav.message("成功", `§a✔ ${name} 已${val ? "启用" : "禁用"}`);
+    Msg.success(`${name} 已${val ? "启用" : "禁用"}`, this.player);
   }
 
   private static applyRuntimeState(name: string, enabled: boolean): void {

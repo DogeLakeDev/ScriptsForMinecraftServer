@@ -58,7 +58,7 @@ function main() {
   for (const m of sapiCatalog) {
     if (!configKeys.has(m.configKey)) fail(`${m.id} 的 configKey 未在 ModuleKeys.ts 注册: ${m.configKey}`);
     const moduleId = [...configKeys].find((key) => key === m.configKey);
-    if (moduleId && !registeredIds.has(moduleId === "online_time" ? "onlineTime" : moduleId === "scoreboard_sync" ? "scoreboardSync" : moduleId === "activity_log" ? "activityLog" : moduleId === "spawn_protect" ? "spawnProtect" : moduleId === "chat_sounds" ? "chatSounds" : moduleId === "inventory_switcher" ? "inventorySwitcher" : moduleId)) {
+    if (moduleId && !registeredIds.has(moduleId === "online_time" ? "onlineTime" : moduleId === "scoreboard_sync" ? "scoreboardSync" : moduleId === "activity_log" ? "activityLog" : moduleId === "spawn_protect" ? "spawnProtect" : moduleId === "chat_sounds" ? "chatSounds" : moduleId === "inventory_switcher" ? "inventorySwitcher" : moduleId === "price_index" ? "priceIndex" : moduleId === "daily_task" ? "dailyTask" : moduleId)) {
       fail(`${m.id} 未在 entry.ts 注册 ModuleRegistry 生命周期: ${m.configKey}`);
     }
   }

@@ -42,7 +42,9 @@ export class Peace {
 
   cleanup() {
     if (this.entitySpawnSub?.unsubscribe) {
-      try { this.entitySpawnSub.unsubscribe(); } catch {}
+      try {
+        this.entitySpawnSub.unsubscribe();
+      } catch {}
     }
     this.entitySpawnSub = undefined;
   }
@@ -89,5 +91,4 @@ export class Peace {
     }
     return qo;
   }
-
 }

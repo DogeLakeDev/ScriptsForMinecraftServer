@@ -53,7 +53,9 @@ export class ModuleRegistry {
 
   static trackSystemRun(modId: ModuleId, runId: number): void {
     ModuleRegistry.trackCleanup(modId, () => {
-      try { system.clearRun(runId); } catch {}
+      try {
+        system.clearRun(runId);
+      } catch {}
     });
   }
 
@@ -80,12 +82,16 @@ export class ModuleRegistry {
       const prev = lastEnabled.has(key) ? lastEnabled.get(key)! : cur;
       if (prev === cur) continue;
       if (prev && !cur) {
-        try { ModuleRegistry.cleanupModule(d.id); } catch (e) {
+        try {
+          ModuleRegistry.cleanupModule(d.id);
+        } catch (e) {
           console.warn(`[Module:${d.id}] cleanup failed: ${(e as Error).message || e}`);
         }
         changes.push({ id: d.id, action: "disable" });
       } else if (!prev && cur) {
-        try { ModuleRegistry.bootModule(d.id); } catch (e) {
+        try {
+          ModuleRegistry.bootModule(d.id);
+        } catch (e) {
           console.warn(`[Module:${d.id}] boot failed: ${(e as Error).message || e}`);
         }
         changes.push({ id: d.id, action: "enable" });
@@ -109,7 +115,9 @@ export class ModuleRegistry {
     for (const d of descriptors) {
       if (!d.afterWorldLoad) continue;
       if (!ModuleRegistry.isActive(d.id)) continue;
-      try { d.lifecycle.init?.(); } catch (e) {
+      try {
+        d.lifecycle.init?.();
+      } catch (e) {
         console.warn(`[Module:${d.id}] init failed: ${(e as Error).message || e}`);
       }
     }
@@ -120,7 +128,9 @@ export class ModuleRegistry {
     for (const d of descriptors) {
       if (d.afterWorldLoad) continue;
       if (!ModuleRegistry.isActive(d.id)) continue;
-      try { d.lifecycle.init?.(); } catch (e) {
+      try {
+        d.lifecycle.init?.();
+      } catch (e) {
         console.warn(`[Module:${d.id}] task start failed: ${(e as Error).message || e}`);
       }
     }
@@ -148,16 +158,22 @@ export class ModuleRegistry {
     const d = ModuleRegistry.get(id);
     if (!d) return;
     // 1. 调模块自身 cleanup
-    try { d.lifecycle.cleanup?.(); } catch (e) {
+    try {
+      d.lifecycle.cleanup?.();
+    } catch (e) {
       console.warn(`[Module:${id}] cleanup hook failed: ${(e as Error).message || e}`);
     }
     // 2. 注销模块持有的命令
-    try { Command.unregisterByModule(Modules[id]); } catch {}
+    try {
+      Command.unregisterByModule(Modules[id]);
+    } catch {}
     // 3. 注销模块注册的事件订阅 / runInterval
     const fns = cleanups.get(id);
     if (fns) {
       for (const fn of fns) {
-        try { fn(); } catch (e) {
+        try {
+          fn();
+        } catch (e) {
           console.warn(`[Module:${id}] cleanup fn failed: ${(e as Error).message || e}`);
         }
       }
@@ -168,7 +184,9 @@ export class ModuleRegistry {
 
   static teardown(): void {
     for (const d of descriptors) {
-      try { ModuleRegistry.cleanupModule(d.id); } catch {}
+      try {
+        ModuleRegistry.cleanupModule(d.id);
+      } catch {}
     }
   }
 

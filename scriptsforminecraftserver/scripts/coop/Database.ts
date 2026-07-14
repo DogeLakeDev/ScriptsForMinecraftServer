@@ -49,7 +49,6 @@ export interface ShopGroup {
 export interface CooperativeConfig {
   main: { language: string; compare_language: string };
   shop_setting: {
-    monetary_unit: string;
     nbtgoods_condition: { type_enum: string[]; mode_enum: string[]; type_reg_enum: string[] };
   };
 }
@@ -85,7 +84,6 @@ export class Database {
     this._config = this.readJSON(this.KEY_COOP_CONFIG, {
       main: { language: "zh_CN", compare_language: "zh" },
       shop_setting: {
-        monetary_unit: "¥",
         nbtgoods_condition: {
           type_enum: ["minecraft:writable_book", "minecraft:field_masoned_banner_pattern", "minecraft:filled_map"],
           mode_enum: ["it.isEnchanted"],

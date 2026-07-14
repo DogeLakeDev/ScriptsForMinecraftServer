@@ -4,10 +4,6 @@ function createConfigRoutes({
   body,
   json,
   path,
-  loadPanelState,
-  applyInitPayload,
-  applyInitReset,
-  runSetupChecks,
   projectRoot,
   fs,
   loadModuleCatalog,
@@ -100,7 +96,17 @@ function createConfigRoutes({
       const key = requestPath.slice('/api/sfmc/settings/'.length);
       if (method === 'GET') {
         const rows = query('SELECT value FROM sfmc_config_settings WHERE key = ?', [key]);
-        json(res, { value: rows.length > 0 ? rows[0].value : null });
+        const value = rows.length > 0 ? rows[0].value : null;
+        if (value === null && key === 'bridge_channel_id') {
+          try {
+            const qqCfg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'configs', 'qq_config.json'), 'utf-8'));
+            if (qqCfg.bridge_channel_id) {
+              json(res, { value: qqCfg.bridge_channel_id, source: 'qq_config.json' });
+              return true;
+            }
+          } catch {}
+        }
+        json(res, { value });
       } else if (method === 'PATCH' || method === 'PUT') {
         const { value } = await body(req);
         query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', [key, String(value ?? ''), Date.now()]);
@@ -117,26 +123,7 @@ function createConfigRoutes({
       return true;
     }
 
-    if (requestPath === '/api/sfmc/setup/state' && method === 'GET') {
-      const state = loadPanelState();
-      json(res, { state, initialized: !!state._initialized });
-      return true;
-    }
-    if (requestPath === '/api/sfmc/setup/init' && method === 'POST') {
-      const result = applyInitPayload((await body(req)) || {});
-      json(res, { success: true, state: result.state, written: result.written });
-      return true;
-    }
-    if (requestPath === '/api/sfmc/setup/reset' && method === 'POST') {
-      const result = applyInitReset((await body(req)) || {});
-      json(res, { success: true, state: result.state, restored: result.restored });
-      return true;
-    }
-    if (requestPath === '/api/sfmc/setup/check' && method === 'POST') {
-      const checks = runSetupChecks((await body(req)) || {});
-      json(res, { checks });
-      return true;
-    }
+
     return false;
   };
 }

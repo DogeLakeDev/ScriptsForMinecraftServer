@@ -30,7 +30,7 @@ function ServiceDataCards({ logW, focus = -1, detailId }) {
     return () => { cancelled = true; };
   }, []);
 
-  const enabled = (id) => modules.some((module) => module.id === id && module.enabled && module.installed !== false);
+  const enabled = (id) => modules.some((module) => module.id === id && module.enabled);
   const cards = SOURCES.map((source) => ({
     ...source,
     available: source.moduleKeys.length === 0 || source.moduleKeys.some(enabled),

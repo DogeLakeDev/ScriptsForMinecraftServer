@@ -1,7 +1,0 @@
-{
-  "modules": {
-    "money": true,
-    "chat": true,
-    "db": true
-  }
-}

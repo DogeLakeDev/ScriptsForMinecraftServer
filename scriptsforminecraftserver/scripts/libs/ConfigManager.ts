@@ -207,7 +207,7 @@ export class ConfigManager {
         const changes = ModuleRegistry.reconcile();
         if (changes.length > 0) {
           for (const p of world.getPlayers()) {
-            const list = changes.map((c) => `${c.id} ${c.action === 'disable' ? '已禁用' : '已启用'}`).join(', ');
+            const list = changes.map((c) => `${c.id} ${c.action === "disable" ? "已禁用" : "已启用"}`).join(", ");
             Msg.info(`模块变更: ${list}`, p);
           }
         }
@@ -375,7 +375,6 @@ export class ConfigManager {
       return [];
     }
   }
-
 
   private static _recordError(source: string, error: unknown): void {
     const message = (error as Error)?.message || String(error);

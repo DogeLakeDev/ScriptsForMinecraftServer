@@ -1,15 +1,9 @@
-/* ---------------------------------------- *\
- *  Name        :  OnlineTime               *
- *  Description :  玩家在线时间统计（纯 DB）   *
- *  Version     :  2.0.0                    *
- *  Author      :  Shiroha7z                *
-\* ---------------------------------------- */
-
 import { Player, system, world } from "@minecraft/server";
 import { Permission } from "../libs/Permission";
 import { Command } from "../libs/Command";
 import { Msg } from "../libs/Tools";
 import { HttpDB } from "../libs/HttpDB";
+import { debug } from "../libs/DebugLog";
 
 interface OnlineTimeData {
   session: number;
@@ -33,12 +27,12 @@ export class OnlineTime {
 
   private dataMap = new Map<string, OnlineTimeData>();
   private loading = new Map<string, Promise<OnlineTimeData>>();
-  private playerNames = new Map<string, string>();
   private playerLeaveSub: any = undefined;
   private flushRunId: number | undefined;
   private flushInFlight = false;
 
   registerCommandsAndPermissions() {
+    debug.i("ONLINE", "registerCommandsAndPermissions");
     Permission.register("onlinetime.see", Permission.Any);
     Command.register(
       "onlinetime",
@@ -64,6 +58,7 @@ export class OnlineTime {
   }
 
   registerEvents() {
+    debug.i("ONLINE", "registerEvents");
     if (this.playerLeaveSub) return;
     this.playerLeaveSub = world.afterEvents.playerSpawn.subscribe((event) => {
       if (event.initialSpawn) {
@@ -73,6 +68,7 @@ export class OnlineTime {
   }
 
   init() {
+    debug.i("ONLINE", "init");
     this.startTick();
     this.flushRunId = system.runInterval(() => this.flushAll(), FLUSH_INTERVAL_TICKS);
   }
@@ -90,11 +86,9 @@ export class OnlineTime {
     return parts.join("");
   }
 
-  /** 从 DB 加载玩家在线时间数据 */
-  private async load(player: Player): Promise<OnlineTimeData> {
-    this.playerNames.set(player.id, player.name);
+  load(player: Player): Promise<OnlineTimeData> {
     const existing = this.dataMap.get(player.id);
-    if (existing) return existing;
+    if (existing) return Promise.resolve(existing);
 
     const pending = this.loading.get(player.id);
     if (pending) return pending;
@@ -114,10 +108,10 @@ export class OnlineTime {
       return data;
     })();
     this.loading.set(player.id, promise);
-    try { return await promise; } finally { this.loading.delete(player.id); }
+    promise.finally(() => this.loading.delete(player.id));
+    return promise;
   }
 
-  /** 持久化在线时间到 DB（排除 session，仅持久化跨重启字段） */
   private async persist(playerId: string, data: OnlineTimeData): Promise<void> {
     await HttpDB.patch(`/api/sfmc/players/${playerId}`, {
       player: {
@@ -131,20 +125,18 @@ export class OnlineTime {
   }
 
   private onPlayerJoin(player: Player) {
-    this.load(player).then((data) => {
-      data.session = 0;
-    });
+    debug.i("ONLINE", `onPlayerJoin: player=${player.name}`);
+    this.load(player);
   }
 
-  onPlayerLeave(player: Player | { id: string; name?: string }) {
+  async onPlayerLeave(player: Player | { id: string; name?: string }) {
     const playerId = player.id;
-    if (player.name) this.playerNames.set(playerId, player.name);
+    debug.i("ONLINE", `onPlayerLeave: playerId=${playerId}`);
     const data = this.dataMap.get(playerId);
     if (data) {
-      this.persist(playerId, data).catch(() => {});
+      await this.persist(playerId, data);
       this.dataMap.delete(playerId);
     }
-    this.playerNames.delete(playerId);
   }
 
   private tickSecond() {
@@ -155,7 +147,9 @@ export class OnlineTime {
     for (const player of world.getAllPlayers()) {
       const data = this.dataMap.get(player.id);
       if (!data) {
-        this.load(player).then((d) => this.increment(d));
+        if (!this.loading.has(player.id)) {
+          this.load(player);
+        }
         continue;
       }
 
@@ -173,13 +167,6 @@ export class OnlineTime {
       data.month++;
       data.total++;
     }
-  }
-
-  private increment(data: OnlineTimeData): void {
-    data.session++;
-    data.today++;
-    data.month++;
-    data.total++;
   }
 
   private async flushAll(): Promise<void> {
@@ -201,16 +188,23 @@ export class OnlineTime {
   private tickRunId: number | undefined;
 
   stop() {
+    debug.i("ONLINE", "stop");
     if (this.tickRunId !== undefined) {
-      try { system.clearRun(this.tickRunId); } catch {}
+      try {
+        system.clearRun(this.tickRunId);
+      } catch {}
       this.tickRunId = undefined;
     }
     if (this.flushRunId !== undefined) {
-      try { system.clearRun(this.flushRunId); } catch {}
+      try {
+        system.clearRun(this.flushRunId);
+      } catch {}
       this.flushRunId = undefined;
     }
     if (this.playerLeaveSub?.unsubscribe) {
-      try { this.playerLeaveSub.unsubscribe(); } catch {}
+      try {
+        this.playerLeaveSub.unsubscribe();
+      } catch {}
       this.playerLeaveSub = undefined;
     }
     void this.flushAll();

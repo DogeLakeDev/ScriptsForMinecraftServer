@@ -1,18 +1,5 @@
 #!/usr/bin/env node
 
-/**
- *
- * 用法:
- *   node panel/index.js                  # 默认: TUI 模式
- *   node panel/index.js --cli            # CLI 模式: 只打印当前状态
- *   node panel/index.js --setup          # 强制重开 setup
- *   node panel/index.js --no-tui         # 启动服务后不进入 TUI
- *   node panel/index.js --help
- *
- * 启动顺序:
- *   TTY 检测 → 加载模块 → 启动 db-server / qq-bridge → 检测 panel-state → 进入 TUI 或 fallback
- */
-
 process.env.NODE_ENV = 'production';
 
 const { spawn, execSync } = await import('node:child_process');
@@ -32,20 +19,17 @@ if (argv.includes('--help') || argv.includes('-h')) {
   node panel/index.js                  默认 TUI 模式
   node panel/index.js --cli            CLI 模式: 打印当前模块/服务状态并退出
   node panel/index.js --no-tui         启动服务不进入 TUI
-  node panel/index.js --setup          强制重开 setup 向导
   node panel/index.js --help           显示本帮助
 
 环境变量:
   PANEL_CLI=1        等价于 --cli
   PANEL_NO_TUI=1     等价于 --no-tui
-  PANEL_RESET=1      等价于 --reset (清 panel-state.json)
 `);
   process.exit(0);
 }
 
 const CLI_MODE = argv.includes('--cli') || process.env.PANEL_CLI === '1';
 const NO_TUI = argv.includes('--no-tui') || process.env.PANEL_NO_TUI === '1';
-const FORCE_SETUP = argv.includes('--setup') || process.env.PANEL_RESET === '1';
 
 function hasTTY() {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -137,35 +121,14 @@ async function runCli() {
     process.exit(1);
   }
 
-  let st;
-  try {
-    st = await httpJson('/api/sfmc/setup/state');
-  } catch (e) {
-    console.error('[cli] 无法获取 setup state:', e.message);
-    shutdownAll();
-    process.exit(1);
-  }
-
-  console.log(`[cli] panel-state.initialized = ${st.body.initialized}`);
-  if (!st.body.initialized) {
-    console.log('[cli] 提示: 运行 `node panel/index.js` 进入交互式 setup 向导');
-  }
-
   try {
     const mods = await httpJson('/api/sfmc/modules');
     console.log(`[cli] 模块 (${mods.body.modules.length}):`);
     for (const m of mods.body.modules.slice(0, 30)) {
-      const stt = m.installed === false ? '未安装' : (m.enabled ? '启用' : '禁用');
+      const stt = m.enabled ? '启用' : '禁用';
       console.log(`  ${m.id.padEnd(24)} [${m.type}] ${stt}`);
     }
   } catch {}
-
-  if (FORCE_SETUP) {
-    try {
-      await httpJson('/api/sfmc/setup/reset', 'POST', {});
-      console.log('[cli] panel-state 已重置');
-    } catch {}
-  }
 
   shutdownAll();
   process.exit(0);
@@ -176,44 +139,25 @@ async function runCli() {
 // ============================================================
 async function runTui() {
   if (!hasTTY()) {
-    console.error('[panel] 当前环境不是 TTY (例如管道 / IDE / 子进程)');
+    console.error('[panel] 当前环境不是 TTY（例如管道 / IDE / 子进程）');
     console.error('[panel] 解决: 在交互式终端直接运行，或使用 --cli / --no-tui 标志');
     console.error('[panel] 当前 stdin.isTTY=' + Boolean(process.stdin.isTTY) + ', stdout.isTTY=' + Boolean(process.stdout.isTTY));
     process.exit(2);
   }
 
   console.log('[panel] 载入 TUI 与服务管理器');
-  // TUI must own child services through services/manager.js. Starting detached
-  // copies here would occupy their ports and make the service page inaccurate.
   const { pushLog, mount } = await import('./tui-react.js');
   const { services } = await import('./services/manager.js');
-
-  if (FORCE_SETUP) {
-    pushLog('已请求重置 panel-state，进入 setup', 'warning');
-  }
 
   pushLog('Panel 启动完成');
   await mount({
     onReady: async () => {
       await services.db.start();
       await services.qq.start();
-      if (FORCE_SETUP) {
-        try { await httpJson('/api/sfmc/setup/reset', 'POST', {}); } catch {}
-      }
-      pushLog('正在检查初始化状态...');
-      try {
-        const state = await httpJson('/api/sfmc/setup/state');
-        if (state.status !== 200) throw new Error(`HTTP ${state.status}`);
-        const setupRequired = !state.body.initialized;
-        pushLog(setupRequired ? '初始化向导需要运行' : '初始化状态正常', setupRequired ? 'warning' : 'success');
-        return { setupRequired };
-      } catch (e) {
-        pushLog(`初始化状态检查失败: ${e.message}`, 'error');
-        return { setupRequired: true };
-      }
+      pushLog('初始化状态正常', 'success');
+      return { setupRequired: false };
     },
   });
-  // mount() resolve 后 (用户按 quit) 才退出
   shutdownAll();
   process.exit(0);
 }
@@ -231,7 +175,6 @@ async function runNoTui() {
     process.exit(1);
   }
   console.log('[panel] 服务已启动，按 Ctrl+C 退出');
-  // 保持进程存活
   await new Promise(() => {});
 }
 

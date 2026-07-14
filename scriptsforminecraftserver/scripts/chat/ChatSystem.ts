@@ -5,12 +5,14 @@ import { DogeChat } from "./DogeChat";
 import { ChatGUI } from "../gui/ChatGUI";
 import { HttpDB } from "../libs/HttpDB";
 import { ConfigManager } from "../libs/ConfigManager";
+import { debug } from "../libs/DebugLog";
 
 export class ChatSystem {
   private static chatSendSub: any = undefined;
   private static playerJoinSub: any = undefined;
 
   static init() {
+    debug.i("CHAT", "init");
     console.log(`Initializing ChatSystem...`);
     DogeChat.ensureDefaultChannels();
 
@@ -53,11 +55,18 @@ export class ChatSystem {
   }
 
   static cleanup() {
-    try { if (ChatSystem.chatSendSub?.unsubscribe) ChatSystem.chatSendSub.unsubscribe(); } catch {}
-    try { if (ChatSystem.playerJoinSub?.unsubscribe) ChatSystem.playerJoinSub.unsubscribe(); } catch {}
+    debug.i("CHAT", "cleanup");
+    try {
+      if (ChatSystem.chatSendSub?.unsubscribe) ChatSystem.chatSendSub.unsubscribe();
+    } catch {}
+    try {
+      if (ChatSystem.playerJoinSub?.unsubscribe) ChatSystem.playerJoinSub.unsubscribe();
+    } catch {}
     ChatSystem.chatSendSub = undefined;
     ChatSystem.playerJoinSub = undefined;
-    try { DogeChat.stopBridgePolling?.(); } catch {}
+    try {
+      DogeChat.stopBridgePolling?.();
+    } catch {}
   }
 
   static registerCommands() {

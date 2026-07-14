@@ -2,6 +2,7 @@ import { world } from "@minecraft/server";
 import { getShanghaiTime } from "../libs/Tools";
 import { saveWorldData } from "../api";
 import type { WorldData } from "../types";
+import { debug } from "../libs/DebugLog";
 
 /** GameRules 属性是原型 getter，JSON.stringify 会输出空对象。手动枚举。 */
 function serializeGameRules(): string {
@@ -49,6 +50,7 @@ function serializeGameRules(): string {
 }
 
 export async function getWorldData(): Promise<WorldData> {
+  debug.i("DATA", "getWorldData");
   const data: WorldData = {
     allowCheats: world.allowCheats,
     gameRules: serializeGameRules(),
@@ -70,6 +72,7 @@ export async function getWorldData(): Promise<WorldData> {
 }
 
 export async function syncWorldData(): Promise<void> {
+  debug.i("DATA", "syncWorldData");
   const data = await getWorldData();
   await saveWorldData(data);
 }

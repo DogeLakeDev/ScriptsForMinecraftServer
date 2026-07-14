@@ -301,10 +301,18 @@ export class FormStatus {
     this.text = obsStr("");
     page.label(this.text);
   }
-  ok(msg: string): void { this.text.setData("§a✔ " + msg); }
-  fail(msg: string): void { this.text.setData("§c✘ " + msg); }
-  info(msg: string): void { this.text.setData("§7" + msg); }
-  clear(): void { this.text.setData(""); }
+  ok(msg: string): void {
+    this.text.setData("§a✔ " + msg);
+  }
+  fail(msg: string): void {
+    this.text.setData("§c✘ " + msg);
+  }
+  info(msg: string): void {
+    this.text.setData("§7" + msg);
+  }
+  clear(): void {
+    this.text.setData("");
+  }
 }
 
 type PageBuildFn = (page: Page, nav: MenuNavigator) => void | Promise<void>;

@@ -4,9 +4,11 @@ import { Money } from "../libs/Money";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { Msg, ListFormInfo } from "../libs/Tools";
+import { debug } from "../libs/DebugLog";
 
 export class MoneyGUI {
   static registerCommand() {
+    debug.i("GUI", "MoneyGUI.registerCommand");
     Command.register(
       "money",
       "money.admin",
@@ -20,6 +22,7 @@ export class MoneyGUI {
   }
 
   private show(player: Player): void {
+    debug.i("GUI", `MoneyGUI.show: player=${player.name}`);
     const nav = new MenuNavigator(player);
 
     nav.section("main", "货币管理", (page) => {
@@ -47,9 +50,12 @@ export class MoneyGUI {
           status.fail(`未找到玩家「${name}」。`);
           return;
         }
-        if (!(await Money.add(target, val))) { status.fail("发放失败，请稍后重试。"); return; }
+        if (!(await Money.add(target, val))) {
+          status.fail("发放失败，请稍后重试。");
+          return;
+        }
         status.ok(`已给予 ${name} ${val} ${Money.UNIT}。`);
-        nav.rebuild("main");
+        await nav.rebuild("main");
       });
     });
 

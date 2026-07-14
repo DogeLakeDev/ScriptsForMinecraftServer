@@ -5,6 +5,7 @@ import { HttpDB } from "../libs/HttpDB";
 import { Permission } from "../libs/Permission";
 import * as ChatApi from "../api";
 import type { ChannelConfig, Channel, ChatMessage, RedPacket, MessageType } from "../types";
+import { debug } from "../libs/DebugLog";
 
 export type { MessageType, ChannelConfig, Channel, ChatMessage, RedPacket };
 
@@ -68,18 +69,25 @@ export class DogeChat {
   // ============================================
 
   static async ensureDefaultChannels(): Promise<void> {
+    debug.i("CHAT", "ensureDefaultChannels");
     for (let i = 0; i < 5; i++) {
       const existing = await ChatApi.getChannels();
-      if (existing && existing.length > 0) return;
+      if (existing && existing.length > 0) {
+        debug.i("CHAT", `ensureDefaultChannels: ${existing.length} channels exist`);
+        return;
+      }
       if (i < 4) {
         await system.waitTicks(40);
         continue;
       }
       const ok = await ChatApi.saveChannels(DogeChat.DEFAULT_CHANNELS).catch((err) => {
-        console.warn(`[DogeChat] 保存默认频道失败: ${err}`);
+        debug.e("CHAT", `ensureDefaultChannels: save failed: ${err}`);
         return false;
       });
-      if (ok) return;
+      if (ok) {
+        debug.i("CHAT", "ensureDefaultChannels: created default channels");
+        return;
+      }
       await system.waitTicks(40);
     }
   }
@@ -97,6 +105,7 @@ export class DogeChat {
   // ============================================
 
   static async getActiveChannel(player: Player): Promise<Channel | null> {
+    debug.i("CHAT", `getActiveChannel: player=${player.name}`);
     const channelId = DogeChat.activeChannelMap.get(player.id);
     if (channelId) {
       const ch = await ChatApi.getChannel(channelId);
@@ -114,6 +123,7 @@ export class DogeChat {
   }
 
   static async setActiveChannel(player: Player, channelId: string): Promise<void> {
+    debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
     DogeChat.activeChannelMap.set(player.id, channelId);
     this._ensureSubscribed(player.id, channelId);
     await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e) =>
@@ -181,6 +191,7 @@ export class DogeChat {
   }
 
   static async loadSubscriptions(player: Player): Promise<void> {
+    debug.i("CHAT", `loadSubscriptions: player=${player.name}`);
     const raw = await HttpDB.fetchJSON<Record<string, unknown>>("/api/sfmc/players", player.id, "player");
     if (raw?.subscribed_channels) {
       try {
@@ -219,6 +230,7 @@ export class DogeChat {
     config?: Partial<ChannelConfig>,
     owner?: Player
   ): Promise<string> {
+    debug.i("CHAT", `createChannel: name=${name} prefix=${prefix} type=${type}`);
     const channel: Channel = {
       id: generateId("CH"),
       name,
@@ -233,9 +245,16 @@ export class DogeChat {
   }
 
   static async deleteChannel(channelId: string): Promise<boolean> {
+    debug.i("CHAT", `deleteChannel: channelId=${channelId}`);
     const ch = await ChatApi.getChannel(channelId);
-    if (!ch) return false;
-    if (ch.type === "public") return false;
+    if (!ch) {
+      debug.w("CHAT", "deleteChannel: not found");
+      return false;
+    }
+    if (ch.type === "public") {
+      debug.w("CHAT", "deleteChannel: cannot delete public channel");
+      return false;
+    }
     return ChatApi.deleteChannel(channelId);
   }
 
@@ -382,6 +401,7 @@ export class DogeChat {
     type: MessageType = "text",
     attachment?: string
   ): Promise<boolean> {
+    debug.i("CHAT", `sendChannelMessage: from=${from.name} channelId=${channelId} type=${type}`);
     const channel = await ChatApi.getChannel(channelId);
     if (!channel) {
       Msg.warning("频道不存在。", from);
@@ -576,6 +596,10 @@ export class DogeChat {
     targetType: "player" | "group",
     targetId: string
   ): Promise<boolean> {
+    debug.i(
+      "CHAT",
+      `sendRedPacket: sender=${sender.name} amount=${amount} count=${count} type=${targetType} targetId=${targetId}`
+    );
     if (amount <= 0 || count <= 0 || count > amount) {
       Msg.error("红包参数无效。", sender);
       return false;
@@ -622,6 +646,7 @@ export class DogeChat {
   }
 
   static async claimRedPacket(player: Player, packetId: string): Promise<number> {
+    debug.i("CHAT", `claimRedPacket: player=${player.name} packetId=${packetId}`);
     const packet = await ChatApi.getRedPacket(packetId);
     if (!packet) {
       Msg.error("红包不存在。", player);
@@ -686,6 +711,7 @@ export class DogeChat {
   // ============================================
 
   static startBridgePolling(bridgeChannelId: string): void {
+    debug.i("CHAT", `startBridgePolling: channelId=${bridgeChannelId}`);
     if (this._bridgePollStarted) return;
     this._bridgePollStarted = true;
     this._lastBridgeFetch = Date.now();
@@ -717,8 +743,11 @@ export class DogeChat {
   }
 
   static stopBridgePolling(): void {
+    debug.i("CHAT", "stopBridgePolling");
     if (this._bridgePollId !== undefined) {
-      try { system.clearRun(this._bridgePollId); } catch {}
+      try {
+        system.clearRun(this._bridgePollId);
+      } catch {}
       this._bridgePollId = undefined;
     }
     this._bridgePollStarted = false;

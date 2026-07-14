@@ -23,14 +23,6 @@ function loadJson(rel) {
   } catch { return null; }
 }
 
-function isModuleInstalled(id) {
-  const lock = loadJson('modules/module-lock.json');
-  if (!lock) return true;
-  const s = lock.modules?.[id];
-  if (s && s.installed === false) return false;
-  return true;
-}
-
 function isModuleEnabled(id) {
   const dbPort = parseInt(process.env.DB_PORT || loadCfg('db_config.json').db_port || '3001', 10);
   // 直接读 db-server 接口（db 未启动时回退 catalog 默认值）
@@ -170,10 +162,7 @@ const services = {
     cwd: ROOT_DIR,
     autoRestart: true,
     restartDelay: 3000,
-    validate: () => {
-      if (!isModuleInstalled('service-qq-bridge')) return 'QQ Bridge 模块已卸载';
-      return null;
-    },
+    validate: () => null,
   }),
   db: createService('db', {
     title: 'DB Server',
@@ -182,10 +171,7 @@ const services = {
     cwd: ROOT_DIR,
     autoRestart: true,
     restartDelay: 3000,
-    validate: () => {
-      if (!isModuleInstalled('service-db')) return 'DB Server 模块已卸载';
-      return null;
-    },
+    validate: () => null,
   }),
   llbot: createService('llbot', {
     title: 'LLBot',

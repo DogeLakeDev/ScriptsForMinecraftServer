@@ -6,6 +6,7 @@ import { Command, setModuleGuard } from "./libs/Command";
 import { ConfigManager } from "./libs/ConfigManager";
 import { Modules } from "./libs/ModuleKeys";
 import { ModuleRegistry, guardEvent, announceLoaded } from "./libs/ModuleRegistry";
+import { debug } from "./libs/DebugLog";
 
 import { QAManager } from "./doge/QA";
 import * as AFK from "./doge/AFK";
@@ -15,36 +16,150 @@ import { OnlineTime } from "./doge/OnlineTime";
 import { ChatSoundsHelper } from "./doge/ChatSoundsHelper";
 import { MonitorReporter } from "./doge/MonitorReporter";
 import { SpawnProtect } from "./doge/SpawnProtect";
+import { DailyTask } from "./doge/DailyTask";
+import { EconomyReport } from "./EconomyReport";
 
 import * as Fly from "./area/Fly";
 import { Peace } from "./area/Peace";
-import { CoopSystem } from "./coop/CoopSystem";
-import { ChatSystem } from "./chat/ChatSystem";
 import { CreativeArea } from "./area/CreativeArea";
 import { SurvivalArea } from "./area/SurvivalArea";
 import { InventorySwitcher } from "./area/InventorySwitcher";
+
 import { LandSystem } from "./land/LandSystem";
 import { LandCore } from "./land/LandCore";
 import { LandEvents } from "./land/LandEvents";
+
 import { MoneyGUI } from "./gui/MoneyGUI";
 import { MainMenu } from "./gui/MainMenu";
 import { AdminGUI } from "./gui/AdminGUI";
+
+import { CoopSystem } from "./coop/CoopSystem";
+
+import { ChatSystem } from "./chat/ChatSystem";
+
 import { ScoreboardSync, ScoreboardsBackup } from "./data/Scoreboards";
 import { ActivityLog } from "./data/ActivityLog";
 import { syncWorldData } from "./data/World";
 import { getPlayerData } from "./data/Player";
+
 import { savePlayers } from "./api";
 
+// ============================================================
+//  模块注册
+// ============================================================
+
+// ---- core-config（配置中心）----
+debug.i("SYS", "register module: config");
+ModuleRegistry.register({
+  id: "config",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerCommands: () => {
+      Command.register(
+        "admin",
+        "chat.admin",
+        (player: Player | undefined) => {
+          if (player) AdminGUI.show(player);
+        },
+        "管理面板"
+      );
+    },
+    init: () => {
+      ConfigManager.startPolling();
+      ConfigManager.startFastPoll();
+    },
+  },
+});
+
+// ---- core-command（命令系统）----
+debug.i("SYS", "register module: command");
+ModuleRegistry.register({
+  id: "command",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions: () => {
+      Permission.register("help.see", Permission.Member);
+      Permission.register("permlist.see", Permission.Member);
+    },
+    registerCommands: () => {
+      Command.registerHelpCommand();
+      Permission.registerPermlistCommand();
+    },
+    registerEvents: () => {
+      world.beforeEvents.chatSend.subscribe((event: any) => {
+        if (!guardEvent()) return;
+        const firstChar = event.message.substring(0, 1);
+        if (firstChar === "!" || firstChar === "！") {
+          Command.trigger(event.sender, event.message.substring(1));
+          event.cancel = true;
+        }
+      });
+    },
+  },
+});
+
+// ---- data-backup（数据备份）----
+debug.i("SYS", "register module: dataBackup");
+ModuleRegistry.register({
+  id: "dataBackup",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerEvents: () => {
+      world.afterEvents.playerSpawn.subscribe((event) => {
+        if (!guardEvent()) return;
+        if (event.initialSpawn) {
+          getPlayerData(event.player).then((data) => {
+            savePlayers([data]).catch(() => {});
+          });
+        }
+      });
+      world.afterEvents.playerLeave.subscribe(async (event) => {
+        if (!guardEvent()) return;
+        const player = world.getEntity(event.playerId) as Player;
+        if (player) {
+          try {
+            const data = await getPlayerData(player);
+            await savePlayers([data]);
+          } catch {}
+        }
+      });
+    },
+    cleanup: () => {
+      syncWorldData();
+    },
+  },
+});
+
+// ---- gui（主菜单）----
+debug.i("SYS", "register module: gui");
+ModuleRegistry.register({
+  id: "gui",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions: () => {
+      Permission.register("menu.use", Permission.Member);
+    },
+    registerCommands: () => {
+      MainMenu.registerMenuCommand();
+    },
+  },
+});
+
+// ---- fly（区域飞行）----
+debug.i("SYS", "register module: fly");
 ModuleRegistry.register({
   id: "fly",
   afterWorldLoad: false,
   lifecycle: {
-    registerPermissions: () => Fly.init(),
+    registerPermissions: () => Fly.registerPermissions(),
+    registerEvents: () => Fly.registerEvents(),
     init: () => Fly.boot(),
     cleanup: () => Fly.stop(),
   },
 });
 
+// ---- onlineTime（在线时长统计）----
+debug.i("SYS", "register module: onlineTime");
 ModuleRegistry.register({
   id: "onlineTime",
   afterWorldLoad: true,
@@ -56,6 +171,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- creative（创造区域）----
+debug.i("SYS", "register module: creative");
 ModuleRegistry.register({
   id: "creative",
   afterWorldLoad: true,
@@ -67,6 +184,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- survival（生存区域）----
+debug.i("SYS", "register module: survival");
 ModuleRegistry.register({
   id: "survival",
   afterWorldLoad: true,
@@ -78,6 +197,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- land（领地系统）----
+debug.i("SYS", "register module: land");
 ModuleRegistry.register({
   id: "land",
   afterWorldLoad: true,
@@ -85,42 +206,75 @@ ModuleRegistry.register({
     registerPermissions: () => LandSystem.registerCommandsAndPermissions(),
     registerEvents: () => LandEvents.registerEvents(),
     init: () => LandSystem.init(),
-    cleanup: () => { LandEvents.cleanup(); LandSystem.cleanup(); },
+    cleanup: () => {
+      LandEvents.cleanup();
+      LandSystem.cleanup();
+    },
   },
 });
 
+// ---- money（经济系统）----
+debug.i("SYS", "register module: money");
 ModuleRegistry.register({
   id: "money",
   afterWorldLoad: true,
   lifecycle: {
+    registerPermissions: () => Permission.register("money.admin", Permission.OP),
     registerCommands: () => MoneyGUI.registerCommand(),
-    init: () => Money.initScoreboard(),
+    registerEvents: () => {
+      world.afterEvents.playerSpawn.subscribe((event) => {
+        void Money.load(event.player);
+      });
+    },
+    init: () => {
+      Money.initScoreboard();
+      Command.deductCost = async (player, amount, commandName) => {
+        return Money.add(player, -amount);
+      };
+      EconomyReport.start();
+    },
+    cleanup: () => {
+      EconomyReport.stop();
+    },
   },
 });
 
+// ---- afk（挂机判定）----
+debug.i("SYS", "register module: afk");
 ModuleRegistry.register({
   id: "afk",
   afterWorldLoad: true,
   lifecycle: {
+    registerPermissions: () => AFK.registerPermissions(),
     registerCommands: () => AFK.registerCommand(),
+    registerEvents: () => AFK.registerEvents(),
     init: () => AFK.init(),
     cleanup: () => AFK.stop(),
   },
 });
 
+// ---- coop（合作社）----
+debug.i("SYS", "register module: coop");
 ModuleRegistry.register({
   id: "coop",
   afterWorldLoad: true,
   lifecycle: {
+    registerPermissions: () => CoopSystem.registerPermissions(),
     registerCommands: () => CoopSystem.registerCommands(),
     init: () => CoopSystem.init(),
   },
 });
 
+// ---- chat（聊天系统）----
+debug.i("SYS", "register module: chat");
 ModuleRegistry.register({
   id: "chat",
   afterWorldLoad: true,
   lifecycle: {
+    registerPermissions: () => {
+      Permission.register("chat.use", Permission.Member);
+      Permission.register("chat.admin", Permission.OP);
+    },
     registerCommands: () => ChatSystem.registerCommands(),
     registerEvents: () => ChatSystem.registerEvents(),
     init: () => ChatSystem.init(),
@@ -128,16 +282,21 @@ ModuleRegistry.register({
   },
 });
 
+// ---- tps（性能监控）----
+debug.i("SYS", "register module: tps");
 ModuleRegistry.register({
   id: "tps",
   afterWorldLoad: true,
   lifecycle: {
+    registerPermissions: () => TPS.registerPermissions(),
     registerCommands: () => TPS.registerCommands(),
     init: () => TPS.init(),
     cleanup: () => TPS.stop(),
   },
 });
 
+// ---- clean（掉落物清理）----
+debug.i("SYS", "register module: clean");
 ModuleRegistry.register({
   id: "clean",
   afterWorldLoad: true,
@@ -148,6 +307,26 @@ ModuleRegistry.register({
   },
 });
 
+// ---- priceIndex（价格指数）----
+debug.i("SYS", "register module: priceIndex");
+ModuleRegistry.register({
+  id: "priceIndex",
+  afterWorldLoad: false,
+  lifecycle: {},
+});
+
+// ---- dailyTask（每日任务）----
+debug.i("SYS", "register module: dailyTask");
+ModuleRegistry.register({
+  id: "dailyTask",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerCommands: () => DailyTask.registerCommand(),
+  },
+});
+
+// ---- inventorySwitcher（背包切换）----
+debug.i("SYS", "register module: inventorySwitcher");
 ModuleRegistry.register({
   id: "inventorySwitcher",
   afterWorldLoad: true,
@@ -158,6 +337,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- activityLog（行为日志）----
+debug.i("SYS", "register module: activityLog");
 ModuleRegistry.register({
   id: "activityLog",
   afterWorldLoad: true,
@@ -168,6 +349,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- scoreboardSync（计分板同步）----
+debug.i("SYS", "register module: scoreboardSync");
 ModuleRegistry.register({
   id: "scoreboardSync",
   afterWorldLoad: true,
@@ -178,6 +361,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- chatSounds（聊天音效）----
+debug.i("SYS", "register module: chatSounds");
 ModuleRegistry.register({
   id: "chatSounds",
   afterWorldLoad: true,
@@ -187,6 +372,8 @@ ModuleRegistry.register({
   },
 });
 
+// ---- monitor（性能上报）----
+debug.i("SYS", "register module: monitor");
 ModuleRegistry.register({
   id: "monitor",
   afterWorldLoad: false,
@@ -196,12 +383,18 @@ ModuleRegistry.register({
   },
 });
 
+// ---- peace（和平区域）----
+debug.i("SYS", "register module: peace");
 ModuleRegistry.register({
   id: "peace",
   afterWorldLoad: false,
-  lifecycle: {},
+  lifecycle: {
+    registerEvents: () => Peace.getInstance().init(),
+  },
 });
 
+// ---- qa（问答系统）----
+debug.i("SYS", "register module: qa");
 ModuleRegistry.register({
   id: "qa",
   afterWorldLoad: false,
@@ -211,12 +404,19 @@ ModuleRegistry.register({
   },
 });
 
+// ---- spawnProtect（出生保护）----
+debug.i("SYS", "register module: spawnProtect");
 ModuleRegistry.register({
   id: "spawnProtect",
   afterWorldLoad: false,
-  lifecycle: {},
+  lifecycle: {
+    registerEvents: () => SpawnProtect.registerEvents(),
+  },
 });
 
+// ============================================================
+//  初始化入口
+// ============================================================
 export class AddOnInit {
   static init() {
     this.registerEvents();
@@ -226,31 +426,12 @@ export class AddOnInit {
     system.beforeEvents.startup.subscribe(async () => {
       system.run(async () => {
         await ConfigManager.init();
-        ConfigManager.startPolling();
-        ConfigManager.startFastPoll();
 
-        Permission.register("permlist.see", Permission.Member);
-        Permission.register("help.see", Permission.Member);
-        Permission.register("menu.use", Permission.Member);
-        Permission.register("money.admin", Permission.OP);
+        // 孤立权限（无对应模块的遗留项）
         Permission.register("holorint.menu", Permission.Member);
         Permission.register("holorint.pos1", Permission.Member);
         Permission.register("holorint.pos2", Permission.Member);
-        Permission.register("afk.use", Permission.Member);
-        Permission.register("afk.clear.other", Permission.OP);
-        CoopSystem.registerPermissions();
-        Permission.register("chat.use", Permission.Member);
-        Permission.register("chat.admin", Permission.OP);
-        Permission.register("tps.see", Permission.Any);
 
-        Permission.registerPermlistCommand();
-        Command.registerHelpCommand();
-        MainMenu.registerMenuCommand();
-        Command.register("admin", "chat.admin", (player: Player | undefined) => {
-          if (player) AdminGUI.show(player);
-        }, "管理面板");
-
-        // 命令守卫：模块禁用时拦截该模块下的命令
         setModuleGuard((moduleId) => {
           const idKey = moduleId as keyof typeof Modules;
           return ModuleRegistry.isActive(idKey);
@@ -265,54 +446,12 @@ export class AddOnInit {
     world.afterEvents.worldLoad.subscribe(() => {
       if (!guardEvent()) return;
       ModuleRegistry.bootAfterWorldLoad();
-      MonitorReporter.init();
       syncWorldData();
-    });
-
-    world.afterEvents.playerSpawn.subscribe((event) => {
-      void Money.load(event.player);
-      if (!guardEvent()) return;
-      if (event.initialSpawn) {
-        if (ModuleRegistry.isActive("peace")) Peace.getInstance().init();
-        if (ModuleRegistry.isActive("fly")) Fly.playerJoinEvent(event.player);
-        if (ModuleRegistry.isActive("afk")) AFK.reset(event.player);
-
-        getPlayerData(event.player).then((data) => {
-          savePlayers([data]).catch(() => {});
-        });
-      }
-      if (ModuleRegistry.isActive("spawnProtect")) {
-        SpawnProtect.setProtect(event.player);
-      }
-    });
-
-    world.afterEvents.playerLeave.subscribe((event) => {
-      if (!guardEvent()) return;
-      LandCore.clearSession(event.playerId);
-      if (ModuleRegistry.isActive("onlineTime")) {
-        OnlineTime.getInstance().onPlayerLeave({ id: event.playerId });
-      }
-      const player = world.getEntity(event.playerId) as Player;
-      if (player) {
-        getPlayerData(player).then((data) => {
-          savePlayers([data]).catch(() => {});
-        });
-      }
-    });
-
-    world.beforeEvents.chatSend.subscribe((event: any) => {
-      if (!guardEvent()) return;
-      let firstChar = event.message.substring(0, 1);
-      if (firstChar === "!" || firstChar === "！") {
-        Command.trigger(event.sender, event.message.substring(1));
-        event.cancel = true;
-      }
     });
 
     system.beforeEvents.shutdown.subscribe(() => {
       if (!guardEvent()) return;
       ModuleRegistry.teardown();
-      syncWorldData();
     });
   }
 

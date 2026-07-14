@@ -1,163 +1,33 @@
 {
   "version": 1,
   "modules": {
-    "core-config": {
-      "installed": true,
-      "enabled": true,
-      "updatedAt": 1784015048033,
-      "installedAt": 1783938350774
-    },
-    "core-command": {
-      "installed": true,
-      "enabled": true,
-      "updatedAt": 1784015051320,
-      "installedAt": 1783938350774
-    },
-    "core-permission": {
-      "installed": true,
-      "enabled": true,
-      "updatedAt": 1784015052434,
-      "installedAt": 1783938350774
-    },
-    "core-httpdb": {
-      "installed": true,
-      "enabled": true,
-      "updatedAt": 1784015053624,
-      "installedAt": 1783938350774
-    },
-    "tool-bds-updater": {
-      "installed": true,
-      "installedAt": 1783905480982,
-      "updatedAt": 1784015079856,
-      "enabled": true,
-      "lastUninstalledAt": 1783947162218,
-      "trashDir": null
-    },
-    "feature-money": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004386,
-      "enabled": true
-    },
-    "feature-chat": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004386,
-      "enabled": true
-    },
-    "feature-afk": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004386,
-      "enabled": true
-    },
-    "feature-tps": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004386,
-      "enabled": true
-    },
-    "feature-online-time": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004386,
-      "enabled": true
-    },
-    "feature-activity-log": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004387,
-      "enabled": true
-    },
-    "feature-scoreboard-sync": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784017112120,
-      "enabled": false
-    },
-    "feature-spawn-protect": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004387,
-      "enabled": false
-    },
-    "feature-chat-sounds": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004387,
-      "enabled": false
-    },
-    "feature-inventory-switcher": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004387,
-      "enabled": false
-    },
-    "feature-area-fly": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784017057329,
-      "enabled": false
-    },
-    "feature-clean": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004386,
-      "enabled": false
-    },
-    "feature-qa": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015126835,
-      "enabled": true
-    },
-    "feature-area-peace": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004387,
-      "enabled": false
-    },
-    "service-panel": {
-      "installed": true,
-      "installedAt": 1783916631405,
-      "updatedAt": 1784015004387,
-      "enabled": true
-    },
-    "feature-land": {
-      "installed": true,
-      "installedAt": 1783925188133,
-      "updatedAt": 1784018318442,
-      "enabled": true
-    },
-    "feature-coop": {
-      "enabled": true,
-      "updatedAt": 1784015068114,
-      "installed": true,
-      "installedAt": 1784015063709
-    },
-    "feature-area-creative": {
-      "enabled": false,
-      "updatedAt": 1784015004387,
-      "installed": true,
-      "installedAt": 1783956367881
-    },
-    "feature-area-survival": {
-      "enabled": false,
-      "updatedAt": 1784015004387,
-      "installed": true,
-      "installedAt": 1783956361262
-    },
-    "service-db": {
-      "installed": true,
-      "enabled": true,
-      "updatedAt": 1784015111462,
-      "installedAt": 1783950908797
-    },
-    "service-qq-bridge": {
-      "installed": true,
-      "enabled": true,
-      "updatedAt": 1784015117593,
-      "installedAt": 1783951121813
-    }
+    "core-config": { "enabled": true, "updatedAt": 1784027511440 },
+    "core-command": { "enabled": true, "updatedAt": 1784027512646 },
+    "core-permission": { "enabled": true, "updatedAt": 1784027513825 },
+    "core-httpdb": { "enabled": true, "updatedAt": 1784027514879 },
+    "feature-money": { "enabled": true, "updatedAt": 1784027279026 },
+    "feature-chat": { "enabled": true, "updatedAt": 1784027279026 },
+    "feature-coop": { "enabled": true, "updatedAt": 1784027596572 },
+    "feature-land": { "enabled": true, "updatedAt": 1784027598676 },
+    "feature-afk": { "enabled": true, "updatedAt": 1784027521800 },
+    "feature-clean": { "enabled": true, "updatedAt": 1784027524310 },
+    "feature-tps": { "enabled": true, "updatedAt": 1784027526907 },
+    "feature-online-time": { "enabled": true, "updatedAt": 1784027528699 },
+    "feature-activity-log": { "enabled": true, "updatedAt": 1784027530598 },
+    "feature-scoreboard-sync": { "enabled": true, "updatedAt": 1784027533569 },
+    "feature-spawn-protect": { "enabled": true, "updatedAt": 1784027536147 },
+    "feature-chat-sounds": { "enabled": true, "updatedAt": 1784027538719 },
+    "feature-inventory-switcher": { "enabled": true, "updatedAt": 1784027540685 },
+    "feature-area-fly": { "enabled": true, "updatedAt": 1784027543009 },
+    "feature-area-creative": { "enabled": true, "updatedAt": 1784027545318 },
+    "feature-area-survival": { "enabled": true, "updatedAt": 1784027547395 },
+    "feature-area-peace": { "enabled": true, "updatedAt": 1784027549729 },
+    "feature-qa": { "enabled": true, "updatedAt": 1784027551748 },
+    "feature-price-index": { "enabled": true, "updatedAt": 1784027590655 },
+    "feature-daily-task": { "enabled": true, "updatedAt": 1784027594284 },
+    "service-db": { "enabled": true, "updatedAt": 1784027555642 },
+    "service-qq-bridge": { "enabled": true, "updatedAt": 1784027564322 },
+    "service-panel": { "enabled": true, "updatedAt": 1784027579945 },
+    "tool-bds-updater": { "enabled": true, "updatedAt": 1784027586482 }
   }
 }

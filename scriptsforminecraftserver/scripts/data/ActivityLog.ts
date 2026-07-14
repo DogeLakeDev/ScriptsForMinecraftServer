@@ -7,6 +7,7 @@
 
 import { world, system, Player, Entity, Block, Vector3 } from "@minecraft/server";
 import { HttpDB } from "../libs/HttpDB";
+import { debug } from "../libs/DebugLog";
 
 // ============================================
 //  配置
@@ -601,35 +602,48 @@ async function doCleanup() {
 export class ActivityLog {
   /** 注册事件（由 entry.ts 统一调用） */
   static registerEvents(): void {
+    debug.i("DATA", "ActivityLog.registerEvents");
     if (subscriptions.length > 0) return;
     subscribe();
   }
 
   static cleanup(): void {
+    debug.i("DATA", "ActivityLog.cleanup");
     for (const s of subscriptions) {
-      try { s.unsubscribe(); } catch {}
+      try {
+        s.unsubscribe();
+      } catch {}
     }
     subscriptions.length = 0;
     if (flushTimer !== null) {
-      try { system.clearRun(flushTimer); } catch {}
+      try {
+        system.clearRun(flushTimer);
+      } catch {}
       flushTimer = null;
     }
     if (flushIntervalId !== undefined) {
-      try { system.clearRun(flushIntervalId); } catch {}
+      try {
+        system.clearRun(flushIntervalId);
+      } catch {}
       flushIntervalId = undefined;
     }
     if (cleanupStartTimeoutId !== undefined) {
-      try { system.clearRun(cleanupStartTimeoutId); } catch {}
+      try {
+        system.clearRun(cleanupStartTimeoutId);
+      } catch {}
       cleanupStartTimeoutId = undefined;
     }
     if (cleanupIntervalId !== undefined) {
-      try { system.clearRun(cleanupIntervalId); } catch {}
+      try {
+        system.clearRun(cleanupIntervalId);
+      } catch {}
       cleanupIntervalId = undefined;
     }
     initialized = false;
   }
 
   static init(): void {
+    debug.i("DATA", "ActivityLog.init");
     if (initialized) return;
     initialized = true;
 

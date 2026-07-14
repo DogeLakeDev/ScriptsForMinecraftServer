@@ -1,4 +1,4 @@
-function createModuleRoutes({ loadModuleCatalog, buildModuleList, resolveModuleByKey, setModuleEnabled, setModuleInstalled, body, json }) {
+function createModuleRoutes({ loadModuleCatalog, buildModuleList, resolveModuleByKey, setModuleEnabled, body, json }) {
   return async function handleModuleRoute({ path, method, req, res }) {
     if (path === '/api/sfmc/modules/catalog') {
       if (method === 'GET') json(res, { modules: loadModuleCatalog() });
@@ -58,36 +58,6 @@ function createModuleRoutes({ loadModuleCatalog, buildModuleList, resolveModuleB
         return true;
       }
       setModuleEnabled(module, false);
-      json(res, { success: true, module: current() });
-    } else if (action === 'install' && method === 'POST') {
-      try {
-        setModuleInstalled(module, true);
-      } catch (error) {
-        if (error.code === 'dependency_unmet') {
-          json(res, { success: false, error: 'dependency_unmet', unmet: error.unmet }, 409);
-          return true;
-        }
-        throw error;
-      }
-      json(res, { success: true, module: current() });
-    } else if (action === 'uninstall' && method === 'POST') {
-      if (!module.canUninstall) {
-        json(res, { success: false, error: 'module_cannot_uninstall' }, 400);
-        return true;
-      }
-      try {
-        setModuleInstalled(module, false);
-      } catch (error) {
-        if (error.code === 'dependency_required') {
-          json(res, { success: false, error: 'dependency_required', requiredBy: error.requiredBy }, 409);
-          return true;
-        }
-        if (error.code === 'dependency_unmet') {
-          json(res, { success: false, error: 'dependency_unmet', unmet: error.unmet }, 409);
-          return true;
-        }
-        throw error;
-      }
       json(res, { success: true, module: current() });
     } else {
       json(res, { success: false, error: 'not_found' }, 404);

@@ -6,6 +6,8 @@ import { Player, world } from "@minecraft/server";
 import { Database, LandData, LandPos } from "./LandDatabase";
 import { Money } from "../libs/Money";
 import { createLand as createLandOnServer, validateLand } from "../api/LandApi";
+import type { DeleteLandResult } from "../api/LandApi";
+import { debug } from "../libs/DebugLog";
 
 // ===== 类型定义 =====
 
@@ -42,6 +44,7 @@ export class LandCore {
    * @returns 玩家会话或 undefined
    */
   static getSession(plid: string): PlayerSession | undefined {
+    debug.i("LAND", `getSession: plid=${plid}`);
     return this.sessions.get(plid);
   }
 
@@ -51,6 +54,7 @@ export class LandCore {
    * @returns 是否成功初始化会话资源
    */
   static initSession(plid: string): boolean {
+    debug.i("LAND", `initSession: plid=${plid}`);
     this.sessions.set(plid, { updatedAt: Date.now() });
     return true;
   }
@@ -62,6 +66,7 @@ export class LandCore {
    * @returns 玩家会话或 undefined
    */
   static setPos1(plid: string, pos: LandPos): PlayerSession | undefined {
+    debug.i("LAND", `setPos1: plid=${plid} pos=(${pos.x},${pos.y},${pos.z})`);
     let s = this.getSession(plid);
     if (s) {
       s.pos1 = pos;
@@ -78,6 +83,7 @@ export class LandCore {
    * @returns 玩家会话或 undefined
    */
   static setPos2(plid: string, pos: LandPos): PlayerSession | undefined {
+    debug.i("LAND", `setPos2: plid=${plid} pos=(${pos.x},${pos.y},${pos.z})`);
     let s = this.getSession(plid);
     if (s) {
       s.pos2 = pos;
@@ -93,7 +99,9 @@ export class LandCore {
    * @returns 是否成功释放会话资源
    */
   static clearSession(plid: string): boolean {
-    return this.sessions.delete(plid);
+    const result = this.sessions.delete(plid);
+    debug.i("LAND", `clearSession: plid=${plid} result=${result}`);
+    return result;
   }
 
   /**
@@ -107,6 +115,7 @@ export class LandCore {
   }
 
   static setDimension(plid: string, dimensionId: number): PlayerSession | undefined {
+    debug.i("LAND", `setDimension: plid=${plid} dimid=${dimensionId}`);
     const session = this.getSession(plid);
     if (!session) return undefined;
     session.dimensionId = dimensionId;
@@ -116,7 +125,13 @@ export class LandCore {
 
   static clearExpiredSessions(maxAgeMs = 30 * 60 * 1000): void {
     const now = Date.now();
-    for (const [id, session] of this.sessions) if (now - session.updatedAt > maxAgeMs) this.sessions.delete(id);
+    let count = 0;
+    for (const [id, session] of this.sessions)
+      if (now - session.updatedAt > maxAgeMs) {
+        this.sessions.delete(id);
+        count++;
+      }
+    if (count > 0) debug.i("LAND", `clearExpiredSessions: cleared ${count} sessions`);
   }
 
   // ── 方块信息计算 ──
@@ -186,19 +201,30 @@ export class LandCore {
   /** 获取某位置所在的土地 */
   static getLandByPos(pos: LandPos, dimid: number): LandData | undefined {
     if (!pos || dimid === undefined) return undefined;
+    debug.i("LAND", `getLandByPos: pos=(${pos.x},${pos.y},${pos.z}) dimid=${dimid}`);
     return Database.getAt(pos, dimid);
   }
 
   /** 获取玩家拥有的所有土地 */
   static getPlayerLands(plid: string): LandData[] {
     const ids = Database.getByOwner(plid);
+    debug.i("LAND", `getPlayerLands: plid=${plid} count=${ids.length}`);
     return ids.map((id) => Database.getById(id)).filter((l): l is LandData => !!l);
   }
 
   // ── 验证 ──
 
   /** 验证创建条件 */
-  static async validateCreation(player: Player, posA: LandPos, posB: LandPos, dimid: number): Promise<ValidationResult> {
+  static async validateCreation(
+    player: Player,
+    posA: LandPos,
+    posB: LandPos,
+    dimid: number
+  ): Promise<ValidationResult> {
+    debug.i(
+      "LAND",
+      `validateCreation: player=${player.name} posA=(${posA.x},${posA.y},${posA.z}) posB=(${posB.x},${posB.y},${posB.z}) dimid=${dimid}`
+    );
     const plid = player.id;
     const cfg = Database.getConfig();
     const info = this.getCubeInfo(posA, posB);
@@ -218,7 +244,11 @@ export class LandCore {
 
     const remote = await validateLand({ ownerId: plid, ownerName: player.name, dimid, posA, posB });
     if (!remote.ok) {
-      const messages: Record<string, string> = { overlap: "§c该区域与其他土地重叠，请重新选择土地范围。", land_limit: `§c您已达到持有土地上限（${cfg.maxLandsPerPlayer} 块）！`, area_out_of_range: "§c土地面积不符合限制。" };
+      const messages: Record<string, string> = {
+        overlap: "§c该区域与其他土地重叠，请重新选择土地范围。",
+        land_limit: `§c您已达到持有土地上限（${cfg.maxLandsPerPlayer} 块）！`,
+        area_out_of_range: "§c土地面积不符合限制。",
+      };
       return { ok: false, msg: messages[remote.error || ""] || `§c${remote.error || "土地验证失败"}` };
     }
 
@@ -251,45 +281,62 @@ export class LandCore {
 
   /** 创建土地（已通过验证后调用） */
   static async createLand(player: Player, posA: LandPos, posB: LandPos, dimid: number): Promise<LandData | null> {
+    debug.i(
+      "LAND",
+      `createLand: player=${player.name} posA=(${posA.x},${posA.y},${posA.z}) posB=(${posB.x},${posB.y},${posB.z}) dimid=${dimid}`
+    );
     const plid = player.id;
     const n = this.normalize(posA, posB);
     const price = this.calculatePrice(n.posA, n.posB);
-    const result = await createLandOnServer({ ownerId: plid, ownerName: player.name, dimid, posA: n.posA, posB: n.posB });
-    if (!result.land) throw new Error(formatCreateError(result.error));
+    const requestId = `land-create:${plid}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    const result = await createLandOnServer({
+      ownerId: plid,
+      ownerName: player.name,
+      dimid,
+      posA: n.posA,
+      posB: n.posB,
+      requestId,
+    });
+    if (!result.land) throw new Error(result.message || formatCreateError(result.error));
     const land = result.land;
     Database.add(land);
-    if (result.balance !== undefined) Money.setCached(player, result.balance);
+    if (result.balance !== undefined) Money.setCached(player, result.balance, result.balanceVersion || 0);
     else await Money.load(player);
     this.clearSession(plid);
+    debug.i("LAND", `createLand success: landId=${land.id} price=${price}`);
     return land;
   }
 
   /** 删除土地（拥有者/管理员） */
-  static async deleteLand(landId: string, player: Player): Promise<number | false> {
+  static async deleteLand(landId: string, player: Player, requestId?: string): Promise<DeleteLandResult> {
+    debug.i("LAND", `deleteLand: landId=${landId} player=${player.name}`);
     const land = Database.getById(landId);
-    if (!land) return false;
+    if (!land) return { ok: false, error: "not_found", message: "土地不存在或缓存已更新。" };
     if (land.ownerplid !== player.id) {
-      return false;
+      return { ok: false, error: "forbidden", message: "只有土地所有者可以删除土地。" };
     }
-
-    const deleted = await Database.delete(landId, player.id);
-    if (deleted === false) return false;
-    return deleted;
+    return Database.delete(landId, player.id, land.version, requestId);
   }
 
   /** 检查玩家是否为土地的管理者 */
   static isManager(land: LandData, plid: string): boolean {
-    return land.managers.includes(plid);
+    const result = land.managers.includes(plid);
+    debug.i("LAND", `isManager: landId=${land.id} plid=${plid} result=${result}`);
+    return result;
   }
 
   /** 检查玩家是否为土地的拥有者 */
   static isOwner(land: LandData, plid: string): boolean {
-    return land.ownerplid === plid;
+    const result = land.ownerplid === plid;
+    debug.i("LAND", `isOwner: landId=${land.id} plid=${plid} result=${result}`);
+    return result;
   }
 
   /** 检查玩家是否对该土地有完全管理权（拥有者或全局管理员） */
   static isOwnerOrManager(land: LandData, plid: string): boolean {
-    return this.isOwner(land, plid) || this.isManager(land, plid);
+    const result = this.isOwner(land, plid) || this.isManager(land, plid);
+    debug.i("LAND", `isOwnerOrManager: landId=${land.id} plid=${plid} result=${result}`);
+    return result;
   }
 
   // ── 格式化显示 ──

@@ -22,6 +22,10 @@ export const Modules = {
   peace: "peace",
   qa: "qa",
   monitor: "monitor",
+  dailyTask: "daily_task",
+  priceIndex: "price_index",
+  dataBackup: "data_backup",
+  gui: "gui",
 } as const;
 
 export type ModuleKey = (typeof Modules)[keyof typeof Modules];

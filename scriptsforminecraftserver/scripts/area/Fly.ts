@@ -10,9 +10,20 @@ import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
 import { Msg } from "../libs/Tools";
+import { debug } from "../libs/DebugLog";
+
+export function registerPermissions(): void {
+  Permission.register("fly.use", Permission.Any);
+}
+
+export function registerEvents(): void {
+  debug.i("FLY", "registerEvents");
+  world.afterEvents.playerSpawn.subscribe((event) => {
+    if (event.initialSpawn) playerJoinEvent(event.player);
+  });
+}
 
 export function init(): void {
-  Permission.register("fly.use", Permission.Any);
 }
 
 /**
@@ -59,7 +70,9 @@ function startScan() {
 
 export function stop(): void {
   if (scanRunId !== undefined) {
-    try { system.clearRun(scanRunId); } catch {}
+    try {
+      system.clearRun(scanRunId);
+    } catch {}
     scanRunId = undefined;
   }
 }

@@ -1,21 +1,30 @@
 import { Player, system } from "@minecraft/server";
 import { Permission } from "./Permission";
 import { Msg } from "./Tools";
+import { debug } from "./DebugLog";
 
 let moduleGuard: (moduleId: string) => boolean = () => true;
 export function setModuleGuard(guard: (moduleId: string) => boolean): void {
   moduleGuard = guard;
 }
 
+export type CommandCost = {
+  amount: number;
+  perUse?: boolean;
+  dailyFree?: number;
+};
+
 export type CommandEntry = {
   callback: Function;
   permission: number | string;
   description: string;
   moduleId?: string;
+  cost?: CommandCost;
 };
 
 export class Command {
   static list: Record<string, CommandEntry> = {};
+  static deductCost: ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null = null;
 
   /**
    * 注册指令
@@ -24,20 +33,24 @@ export class Command {
    * @param callback 回调
    * @param description 指令描述
    * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
+   * @param cost 指令费用配置
    */
   static register(
     name: string,
     permission: number | string,
     callback: (player: Player | undefined) => any,
     description?: string,
-    moduleId?: string
+    moduleId?: string,
+    cost?: CommandCost
   ) {
     this.list[name] = {
       callback: callback,
       permission: permission,
       description: description === undefined ? name : description,
       moduleId: moduleId,
+      cost,
     };
+    debug.i("CMD", `register "${name}" perm=${permission} mod=${moduleId || "-"} cost=${cost?.amount || 0}`);
     return true;
   }
 
@@ -89,22 +102,39 @@ export class Command {
    * @param message
    */
   static trigger(player: Player | undefined, message: string) {
+    const pname = player?.name || "CONSOLE";
+    const pid = player?.id || "N/A";
+    debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);
     let commandInfo = this.list[message];
     if (commandInfo !== undefined) {
       if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
+        debug.w("CMD", `blocked: module ${commandInfo.moduleId} disabled for ${pname}`);
         if (player) Msg.error(`该命令所属模块已禁用: ${commandInfo.moduleId}`, player);
         return;
       }
-      if (this.canExecute(player, commandInfo.permission)) {
-        system.run(async () => {
-          const result = await (commandInfo.callback as (player: Player | undefined) => any)(player);
-          if (result !== undefined && player) Msg.success(`${result}`, player);
-        });
+      if (!this.canExecute(player, commandInfo.permission)) {
+        debug.w("CMD", `permission denied: ${pname} needs ${commandInfo.permission} for "${message}"`);
+        if (player) Msg.error(`你没有执行此条指令的权限。`, player);
         return;
       }
-      if (player) Msg.error(`你没有执行此条指令的权限。`, player);
+      system.run(async () => {
+        if (player && commandInfo.cost && this.deductCost) {
+          const ok = await this.deductCost(player, commandInfo.cost.amount, message);
+          if (!ok) {
+            debug.w("CMD", `cost deduct failed: ${pname} needs ${commandInfo.cost.amount} for "${message}"`);
+            Msg.error(`余额不足，无法执行该指令（需要 ${commandInfo.cost.amount}）。`, player);
+            return;
+          }
+          debug.i("CMD", `cost deducted ${commandInfo.cost.amount} from ${pname} for "${message}"`);
+        }
+        debug.d("CMD", `executing "${message}" for ${pname}`);
+        const result = await (commandInfo.callback as (player: Player | undefined) => any)(player);
+        if (result !== undefined && player) debug.d("CMD", `result for "${message}": ${result}`);
+        if (result !== undefined && player) Msg.success(`${result}`, player);
+      });
       return;
     }
+    debug.w("CMD", `unknown command "${message}" from ${pname}`);
     if (player) Msg.error(`未知的命令! 发送\'!help\'查询所有指令。`, player);
     return;
   }

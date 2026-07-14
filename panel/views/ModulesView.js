@@ -9,16 +9,11 @@ import { ScrollBar } from '../ui/ScrollBar.js';
 const ACTION_LABEL = {
   enable: { success: '已启用', busy: '正在启用', level: 'success' },
   disable: { success: '已禁用', busy: '正在禁用', level: 'warning' },
-  install: { success: '已安装', busy: '正在安装', level: 'success' },
-  uninstall: { success: '已卸载', busy: '正在卸载', level: 'warning' },
 };
 
 const ERROR_LABEL = {
   dependency_unmet: (d) => `缺少依赖: ${(d.unmet || []).map((u) => u.id).join(', ')}`,
-  dependency_required: (d) => `被依赖中: ${(d.requiredBy || []).join(', ')}`,
   module_cannot_disable: () => '该模块不可禁用',
-  module_cannot_uninstall: () => '该模块不可卸载',
-  bds_running: () => 'BDS 进程仍在运行，请先停止 BDS',
 };
 
 function describeError(err) {
@@ -71,16 +66,15 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
     const out = [];
     for (const dep of selected.requires || []) {
       const m = moduleMap.get(dep);
-      if (!m || m.installed === false || !m.enabled) out.push(dep);
+      if (!m || !m.enabled) out.push(dep);
     }
     return out;
   }
 
   const filteredModules = useMemo(() => modules.filter((module) => {
     const matchesFilter = filter === 'all' ||
-      (filter === 'enabled' && module.enabled && module.installed !== false) ||
-      (filter === 'disabled' && !module.enabled && module.installed !== false) ||
-      (filter === 'uninstalled' && module.installed === false);
+      (filter === 'enabled' && module.enabled) ||
+      (filter === 'disabled' && !module.enabled);
     const needle = query.trim().toLowerCase();
     return matchesFilter && (!needle || `${module.id} ${module.display_name || ''} ${module.description || ''}`.toLowerCase().includes(needle));
   }), [modules, filter, query]);
@@ -89,11 +83,8 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
   }, [filteredModules.length]);
   const selected = filteredModules[focus] || null;
   const missing = unmetDeps(selected);
-  const canToggle = !!selected && selected.installed !== false && selected.can_disable && selected.enabled;
-  const canEnable = !!selected && selected.installed !== false && missing.length === 0 && !selected.enabled;
-  const canInstall = !!selected && selected.installed === false;
-  const canUninstall = !!selected && selected.can_uninstall && selected.installed !== false;
-  const isBdsUpdater = selected?.id === 'tool-bds-updater';
+  const canToggle = !!selected && selected.can_disable && selected.enabled;
+  const canEnable = !!selected && missing.length === 0 && !selected.enabled;
 
   const visible = useMemo(() => {
     const start = Math.max(0, Math.min(focus - Math.floor(listRows / 2), Math.max(0, filteredModules.length - listRows)));
@@ -107,12 +98,6 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
 
   function run(action) {
     if (!selected || busy) return;
-
-    if (isBdsUpdater && action === 'uninstall') {
-      notify('warning', `${selected.display_name || selected.id}: 卸载前请先停止 BDS 进程`);
-      if (pushLog) pushLog('请在服务页停止 BDS 后再卸载', 'warning');
-      return;
-    }
 
     const meta = ACTION_LABEL[action];
     if (!meta) return;
@@ -156,7 +141,7 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
     if (key.end) { setFocus(Math.max(0, filteredModules.length - 1)); return; }
     if (input === 'r') { load(); return; }
     if (input === 'f') {
-      const order = ['all', 'enabled', 'disabled', 'uninstalled'];
+      const order = ['all', 'enabled', 'disabled'];
       setFilter((value) => order[(order.indexOf(value) + 1) % order.length]);
       setFocus(0);
       return;
@@ -167,8 +152,6 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
       else if (canEnable) (requestConfirm || ((title, body, action) => action()))('启用模块', [`${selected.display_name || selected.id} 将被启用`, '确定继续?'], () => run('enable'));
       return;
     }
-    if (input === 'i') { if (canInstall) (requestConfirm || ((title, body, action) => action()))('安装模块', [`${selected.display_name || selected.id} 将被安装`, '确定继续?'], () => run('install')); return; }
-    if (input === 'u') { if (canUninstall) (requestConfirm || ((title, body, action) => action()))('卸载模块', [`${selected.display_name || selected.id} 将被卸载`, '确定继续?'], () => run('uninstall')); return; }
     if (input === 'd') {
       setDetail(detail && detail.id === selected?.id ? null : selected ? {
         id: selected.id,
@@ -196,9 +179,9 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
 
   const listLines = visible.rows.map((m, i) => {
     const idx = visible.start + i;
-    const state = m.installed === false ? '未安装' : (m.enabled ? '启用' : '禁用');
+    const state = m.enabled ? '启用' : '禁用';
     const type = m.type || 'feature';
-    const color = m.installed === false ? T.error : (m.enabled ? T.success : T.muted);
+    const color = m.enabled ? T.success : T.muted;
     return h(Box, { key: m.id, backgroundColor: idx === focus ? T.focusBg : T.panel },
       h(Text, { color: idx === focus ? T.primary : color }, `${idx === focus ? '→' : ' '} ${m.id} [${type}] ${state}`),
     );
@@ -208,15 +191,13 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
     h(Text, { color: T.text }, selected.description || ''),
     h(Text, { color: T.muted }, `依赖: ${(selected.requires || []).join(', ') || '无'}`),
     missing.length > 0 && h(Text, { color: T.warning }, `未满足依赖: ${missing.join(', ')}`),
-    h(Text, { color: T.muted }, `可禁用: ${selected.can_disable ? '是' : '否'}  可卸载: ${selected.can_uninstall ? '是' : '否'}  安装来源: ${selected.install_source || 'catalog'}`),
-    h(Text, { color: T.muted }, `入口: ${(selected.entry && selected.entry.path) || '-'}`),
-    isBdsUpdater && h(Text, { color: T.warning }, '卸载前请先在服务页停止 BDS'),
+    h(Text, { color: T.muted }, `可禁用: ${selected.can_disable ? '是' : '否'}  入口: ${(selected.entry && selected.entry.path) || '-'}`),
     busy && h(Text, { color: T.warning }, '正在提交变更...'),
     detail && detail.id === selected.id && h(Box, { flexDirection: 'column', marginTop: 1 },
       h(Text, { color: T.muted }, '依赖关系:'),
       ...(detail.requires || []).map((dep) => {
         const dependency = moduleMap.get(dep);
-        const ready = dependency && dependency.installed !== false && dependency.enabled;
+        const ready = dependency && dependency.enabled;
         return h(Text, { key: dep, color: ready ? T.success : T.error }, `  - ${dep} [${ready ? '就绪' : '未就绪'}]`);
       }),
       ...(detail.optional || []).map((dep) => h(Text, { key: `optional-${dep}`, color: T.muted }, `  ~ ${dep} [可选]`)),
@@ -224,7 +205,7 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
   ) : h(StatusLine, { kind: 'empty' }, '请选择模块');
   return h(Box, { flexDirection: 'column', flexGrow: 1 },
     h(SectionTitle, { detail: `${filteredModules.length}/${modules.length}` }, '模块目录'),
-    h(Text, { color: T.muted }, searching ? `搜索: ${query}█  Enter/Esc完成` : `筛选: ${filter}  ↑↓选择 Enter/e切换 i安装 u卸载 d依赖 f筛选 /搜索 r刷新`),
+    h(Text, { color: T.muted }, searching ? `搜索: ${query}█  Enter/Esc完成` : `筛选: ${filter}  ↑↓选择 Enter/e切换 d依赖 f筛选 /搜索 r刷新`),
     h(Box, { height: listRows, flexDirection: 'column' }, filteredModules.length ? listLines : h(StatusLine, { kind: 'empty' }, '没有匹配当前筛选条件的模块')),
     h(ScrollBar, { total: filteredModules.length, viewport: listRows, offset: visible.start, height: listRows }),
     details,

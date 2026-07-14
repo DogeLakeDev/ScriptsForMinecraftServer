@@ -260,13 +260,14 @@ function startHttpServer() {
         }
         if (data.channelId !== CHANNEL_ID || !CHANNEL_ID) {
           json({ success: true, skipped: true });
+          return;
         }
         await sendGroupMessage(`${MCTOQQ_PREFIX} ${data.fromName}: ${data.content}`);
         json({ success: true });
         log(`[QQBridge] MC → QQ: ${data.fromName}: ${data.content.slice(0, 60)}`);
       } catch (err) {
         log(`[QQBridge] forward 失败: ${err.message}`);
-        json({ success: false, error: err.message }, 500);
+        if (!res.headersSent) json({ success: false, error: err.message }, 500);
       }
       return;
     }
@@ -286,12 +287,13 @@ function startHttpServer() {
         json({ success: true });
       } catch (err) {
         log(`[QQBridge] send 失败: ${err.message}`);
-        json({ success: false, error: err.message }, 500);
+        if (!res.headersSent) json({ success: false, error: err.message }, 500);
       }
       return;
     }
 
-    json({ success: false, error: 'not_found' }, 404);
+    // ── catch-all ──
+    if (!res.headersSent) json({ success: false, error: 'not_found' }, 404);
   });
 
   server.listen(HTTP_PORT, '127.0.0.1', () => {

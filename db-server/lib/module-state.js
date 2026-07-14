@@ -22,10 +22,6 @@ function getModuleState(lock, id, defaults = {}) {
   return state && typeof state === 'object' ? state : defaults;
 }
 
-function isInstalled(lock, id, defaultInstalled = false) {
-  return getModuleState(lock, id).installed ?? defaultInstalled;
-}
-
 function isEnabled(lock, id, defaultEnabled = false) {
   return getModuleState(lock, id).enabled ?? defaultEnabled;
 }
@@ -38,8 +34,7 @@ function updateModuleState(lock, id, patch) {
     ...patch,
     updatedAt: now,
   };
-  if (patch.installed === true && previous.installedAt === undefined) lock.modules[id].installedAt = now;
   return lock.modules[id];
 }
 
-module.exports = { loadModuleLock, saveModuleLock, getModuleState, isInstalled, isEnabled, updateModuleState };
+module.exports = { loadModuleLock, saveModuleLock, getModuleState, isEnabled, updateModuleState };

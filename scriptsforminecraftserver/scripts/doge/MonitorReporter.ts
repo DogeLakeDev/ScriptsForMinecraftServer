@@ -21,7 +21,9 @@ export class MonitorReporter {
 
   static stop() {
     if (this.runId !== undefined) {
-      try { system.clearRun(this.runId); } catch {}
+      try {
+        system.clearRun(this.runId);
+      } catch {}
       this.runId = undefined;
     }
   }
@@ -61,7 +63,6 @@ export class MonitorReporter {
       });
 
       await HttpDB.post("/api/sfmc/monitor/player-chunks", { players: playerChunks });
-
     } catch (e) {
       // 静默失败 — db-server 可能未运行
     }

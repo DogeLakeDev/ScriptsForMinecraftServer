@@ -5,6 +5,7 @@ import { Money } from "../libs/Money";
 import * as CoopAPI from "../api";
 import type { CoopShopItem, CoopData, CoopMember } from "../types";
 import { CoopCore } from "../coop/CoopCore";
+import { debug } from "../libs/DebugLog";
 
 function countItemInInventory(player: Player): number {
   const inv = player.getComponent("inventory") as EntityInventoryComponent | undefined;
@@ -30,12 +31,14 @@ export class CoopGUI {
   private player: Player;
 
   constructor(player: Player) {
+    debug.i("GUI", `CoopGUI: constructor player=${player.name}`);
     this.player = player;
     this.nav = new MenuNavigator(player);
     this.registerSections();
   }
 
   async mainPanel() {
+    debug.i("GUI", `CoopGUI.mainPanel: player=${this.player.name}`);
     const cid = await CoopAPI.findPlayerCoop(this.player.id);
     if (!cid) {
       this.nav.start("noCoop");
@@ -46,6 +49,7 @@ export class CoopGUI {
   }
 
   static async openShopMgr(player: Player) {
+    debug.i("GUI", `CoopGUI.openShopMgr: player=${player.name}`);
     const gui = new CoopGUI(player);
     gui.nav.state.cid = (await CoopAPI.findPlayerCoop(player.id)) ?? "";
     gui.nav.start("shopMgr");
@@ -83,6 +87,7 @@ export class CoopGUI {
   // ── No Coop ──
 
   private buildNoCoop(page: any): void {
+    debug.i("GUI", "CoopGUI.buildNoCoop");
     page.label(
       ListFormInfo(["你没有加入任何一个合作社，请选择操作。\n\nCiallo～(\u2220\u30fb\u03c9\uff1c)\u2322\u2606"])
     );
@@ -94,6 +99,7 @@ export class CoopGUI {
   }
 
   private async buildJoinByCid(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildJoinByCid");
     const obsCid = obsStr("");
     const status = obsStr("");
     page.label(status);
@@ -110,11 +116,12 @@ export class CoopGUI {
         return;
       }
       this.nav.state.cid = cid;
-      this.nav.rebuild("coopInfo");
+      await this.nav.rebuild("coopInfo");
     });
   }
 
   private async buildCoopList(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildCoopList");
     const all = await CoopAPI.getAllCoops();
     if (all.length === 0) {
       page.label(ListFormInfo(["还没有任何合作社"]));
@@ -129,6 +136,7 @@ export class CoopGUI {
   }
 
   private buildCreateCoop(page: any): void {
+    debug.i("GUI", "CoopGUI.buildCreateCoop");
     const obsName = obsStr("");
     const obsCid = obsStr("");
     const status = obsStr("");
@@ -140,7 +148,7 @@ export class CoopGUI {
         status.setData("§c请填写完整信息");
         return;
       }
-       if (await CoopCore.registerCoop(obsName.getData(), obsCid.getData(), this.player)) {
+      if (await CoopCore.registerCoop(obsName.getData(), obsCid.getData(), this.player)) {
         status.setData("§a合作社创建成功！");
         this.nav.state.cid = obsCid.getData();
         await this.nav.rebuild("coopInfo");
@@ -153,6 +161,7 @@ export class CoopGUI {
   // ── Coop Info ──
 
   private async buildCoopInfo(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildCoopInfo");
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
       page.label("请先加入一个合作社。");
@@ -166,7 +175,7 @@ export class CoopGUI {
     page.label(ListFormInfo([text]));
     if (!isMember) {
       page.button("加入", async () => {
-        if (await CoopCore.joinCoop(this.player, cid)) this.nav.rebuild("coopInfo");
+        if (await CoopCore.joinCoop(this.player, cid)) await this.nav.rebuild("coopInfo");
         else Msg.error("加入合作社失败，请稍后重试。", this.player);
       });
       return;
@@ -209,6 +218,7 @@ export class CoopGUI {
   // ── Admin ──
 
   private buildAdminPanel(page: any): void {
+    debug.i("GUI", "CoopGUI.buildAdminPanel");
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
       page.label("请先加入一个合作社。");
@@ -251,6 +261,7 @@ export class CoopGUI {
   }
 
   private async buildAddAdmin(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildAddAdmin");
     const status = new FormStatus(page);
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
@@ -282,6 +293,7 @@ export class CoopGUI {
   // ── Bank ──
 
   private async buildBankPanel(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildBankPanel");
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
       page.label("请先加入一个合作社。");
@@ -300,7 +312,10 @@ export class CoopGUI {
     const logs = await CoopAPI.getBankLog(cid);
     const moneylist = logs.length
       ? logs
-          .map((l) => `${l.actor_name_snapshot} ${l.type === 1 ? "存入" : "取出"} ${l.amount}${l.note ? ` (${l.note})` : ""}`)
+          .map(
+            (l) =>
+              `${l.actor_name_snapshot} ${l.type === 1 ? "存入" : "取出"} ${l.amount}${l.note ? ` (${l.note})` : ""}`
+          )
           .join("\n")
       : "暂无记录";
     page.label("§6合作社银行经济：§r" + (data.account?.balance || 0) + "\n§6账单：§r\n" + moneylist);
@@ -311,6 +326,7 @@ export class CoopGUI {
   }
 
   private buildBankControl(page: any): void {
+    debug.i("GUI", "CoopGUI.buildBankControl");
     const status = new FormStatus(page);
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
@@ -329,10 +345,11 @@ export class CoopGUI {
         status.fail("金额填写不正确");
         return;
       }
-      if (await CoopCore.bankControl(cid, this.player, val, obsNote.getData() || "", type === 1 ? 1 : 2)) {
+      const bcResult = await CoopCore.bankControl(cid, this.player, val, obsNote.getData() || "", type === 1 ? 1 : 2);
+      if (bcResult.ok) {
         status.ok((type === 1 ? "存入" : "取出") + "成功！" + Money.UNIT + "：" + val);
       } else {
-        status.fail("金额填写不正确");
+        status.fail(bcResult.error || "操作失败");
       }
     });
   }
@@ -340,6 +357,7 @@ export class CoopGUI {
   // ── Rank & Log ──
 
   private async buildRank(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildRank");
     const rankType = (this.nav.state.rankType as number) ?? 1;
     page.label(await CoopCore.getRankInfo(rankType));
     if (rankType === 1) {
@@ -356,18 +374,19 @@ export class CoopGUI {
   }
 
   private buildLog(page: any): void {
+    debug.i("GUI", "CoopGUI.buildLog");
     page.label(ListFormInfo(["暂无更新日志。"]));
   }
   // ── Shop Manager ──
 
   private async buildShopMgr(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildShopMgr");
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
       page.label("请先加入一个合作社。");
       return;
     }
-    const unit = CoopCore.getConfig().shop_setting.monetary_unit;
-    const isOp = await CoopCore.isOp(this.player.name, cid);
+    const isOp = await CoopCore.isOp(this.player.id, cid);
     const goods = await CoopCore.getGoods(1, true, 1, cid);
 
     page.label(ListFormInfo(["选择操作"]));
@@ -378,7 +397,7 @@ export class CoopGUI {
       page.button("回收招募审核", () => this.nav.rebuild("shopRecycleReview"));
     }
     for (const g of goods) {
-      page.button(_fmtGoodBt(g.name, unit, g.money, g.sv, g.num, true), () => {
+      page.button(_fmtGoodBt(g.name, Money.UNIT, g.money, g.sv, g.num, true), () => {
         this.nav.state.gid = g.id;
         this.nav.state.good = g;
         this.nav.go("shopItemOps");
@@ -387,6 +406,7 @@ export class CoopGUI {
   }
 
   private buildShopItemOps(page: any): void {
+    debug.i("GUI", "CoopGUI.buildShopItemOps");
     const gid = this.nav.state.gid as string;
     const good = this.nav.state.good as CoopShopItem;
     const cid = this.nav.state.cid as string | undefined;
@@ -415,6 +435,7 @@ export class CoopGUI {
   }
 
   private buildShopRestock(page: any): void {
+    debug.i("GUI", "CoopGUI.buildShopRestock");
     const status = new FormStatus(page);
     const good = this.nav.state.good as CoopShopItem;
     if (!good) {
@@ -444,11 +465,14 @@ export class CoopGUI {
       }
       good.num += num;
       await CoopAPI.saveShopItem(good);
-      this.player.runCommand(
-        'clear "' + this.player.name + '" ' + good.item_type + " " + (good.item_aux ?? 0) + " " + num
-      );
+      try {
+        this.player.runCommand(`clear @s ${good.item_type} ${good.item_aux ?? 0} ${num}`);
+      } catch {
+        status.fail("补货扣除物品失败，请手动清理背包。");
+        return;
+      }
       status.ok("补货成功。");
-      this.nav.rebuild("shopMgr");
+      await this.nav.rebuild("shopMgr");
     });
   }
 
@@ -458,9 +482,12 @@ export class CoopGUI {
       "确认下架 " + good.name + " ？\n下架后库存将返还给你。",
       async () => {
         await CoopAPI.deleteShopItem(good.cid, gid);
-        this.player.runCommand(
-          'give "' + this.player.name + '" ' + good.item_type + " " + good.num + " " + (good.item_aux ?? 0)
-        );
+        try {
+          this.player.runCommand(`give @s ${good.item_type} ${good.num} ${good.item_aux ?? 0}`);
+        } catch {
+          Msg.error("物品返还失败，请联系管理员。", this.player);
+          return;
+        }
         Msg.success("下架成功。", this.player);
       },
       () => this.nav.rebuild("shopMgr")
@@ -468,6 +495,7 @@ export class CoopGUI {
   }
 
   private async buildShopEdit(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildShopEdit");
     const status = new FormStatus(page);
     const good = this.nav.state.good as CoopShopItem;
     if (!good) {
@@ -500,20 +528,20 @@ export class CoopGUI {
       }
       await CoopAPI.saveShopItem(good);
       status.ok("修改成功。");
-      this.nav.rebuild("shopMgr");
+      await this.nav.rebuild("shopMgr");
     });
   }
 
   private async buildShopRecycleList(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildShopRecycleList");
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
       page.label("请先加入一个合作社。");
       return;
     }
-    const unit = CoopCore.getConfig().shop_setting.monetary_unit;
     const goods2 = await CoopCore.getGoods(1, true, 2, cid);
     for (const g of goods2) {
-      page.button(_fmtGoodBt(g.name, unit, g.money, g.sv, g.num, false), () => {
+      page.button(_fmtGoodBt(g.name, Money.UNIT, g.money, g.sv, g.num, false), () => {
         this.nav.state.good = g;
         this.nav.state.gid = g.id;
         this.nav.go("shopRecycleTake");
@@ -522,6 +550,7 @@ export class CoopGUI {
   }
 
   private buildShopRecycleTake(page: any): void {
+    debug.i("GUI", "CoopGUI.buildShopRecycleTake");
     const status = new FormStatus(page);
     const good = this.nav.state.good as CoopShopItem;
     if (!good || good.sv <= 0) {
@@ -534,15 +563,19 @@ export class CoopGUI {
       const num = sliderVal.getData();
       good.sv -= num;
       await CoopAPI.saveShopItem(good);
-      this.player.runCommand(
-        'give "' + this.player.name + '" ' + good.item_type + " " + num + " " + (good.item_aux ?? 0)
-      );
+      try {
+        this.player.runCommand(`give @s ${good.item_type} ${num} ${good.item_aux ?? 0}`);
+      } catch {
+        status.fail("取出物品失败，请联系管理员。");
+        return;
+      }
       status.ok("取出成功。");
-      this.nav.rebuild("shopRecycleList");
+      await this.nav.rebuild("shopRecycleList");
     });
   }
 
   private async buildShopRecycleReview(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildShopRecycleReview");
     const status = new FormStatus(page);
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
@@ -555,7 +588,7 @@ export class CoopGUI {
       return;
     }
     for (const g of goods1) {
-      page.button(g.name + " " + CoopCore.getConfig().shop_setting.monetary_unit + g.money + "\n待审核", () => {
+      page.button(g.name + " " + Money.UNIT + g.money + "\n待审核", () => {
         this.nav.confirm(
           "回收招募审核",
           `名称: ${g.name}\n描述: ${g.des || ""}\n价格: ${g.money}\n库存: ${g.num}\n\n确定通过审核？`,
@@ -573,6 +606,7 @@ export class CoopGUI {
   // ── Shop Add ──
 
   private buildShopAddSelect(page: any): void {
+    debug.i("GUI", "CoopGUI.buildShopAddSelect");
     const obsSlot = obsNum(0);
     const obsType = obsNum(0);
     page.dropdown("请选择物品栏", obsSlot, [
@@ -603,6 +637,7 @@ export class CoopGUI {
   }
 
   private async buildShopAddItem(page: any): Promise<void> {
+    debug.i("GUI", "CoopGUI.buildShopAddItem");
     const status = new FormStatus(page);
     const cid = this.nav.state.cid as string | undefined;
     if (!cid) {
@@ -657,11 +692,12 @@ export class CoopGUI {
       };
       await CoopAPI.saveShopItem(newGood);
       status.ok("上架成功！");
-      this.nav.rebuild("shopMgr");
+      await this.nav.rebuild("shopMgr");
     });
   }
 
   private buildShopAddGroup(page: any): void {
+    debug.i("GUI", "CoopGUI.buildShopAddGroup");
     const status = new FormStatus(page);
     const obsName = obsStr("");
     page.textField("分组名称", obsName);
@@ -673,7 +709,7 @@ export class CoopGUI {
       }
       await CoopAPI.saveShopGroup({ groupid: "custom_" + _genId(), displayname: name });
       status.ok("操作成功。");
-      this.nav.rebuild("shopMgr");
+      await this.nav.rebuild("shopMgr");
     });
   }
 

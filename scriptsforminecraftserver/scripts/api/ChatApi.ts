@@ -224,12 +224,21 @@ export async function saveRedPacket(redpacket: RedPacket): Promise<boolean> {
   return HttpDB.post(PATH_REDPACKET, { redpacket, actorId: redpacket.senderid });
 }
 
-export async function claimRedPacket(redpacketId: string, actorId: string, actorName: string): Promise<{ ok: boolean; amount?: number; error?: string }> {
-  const result = await HttpDB.requestJSON("Post", `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`, { actorId, actorName });
+export async function claimRedPacket(
+  redpacketId: string,
+  actorId: string,
+  actorName: string
+): Promise<{ ok: boolean; amount?: number; error?: string }> {
+  const result = await HttpDB.requestJSON("Post", `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`, {
+    actorId,
+    actorName,
+  });
   try {
     const parsed = JSON.parse(result.body);
     return { ok: result.status === 200 && parsed.success, amount: parsed.amount, error: parsed.error };
-  } catch { return { ok: false, error: "invalid_response" }; }
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
 }
 
 /**

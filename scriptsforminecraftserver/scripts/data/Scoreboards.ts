@@ -7,8 +7,10 @@ import { ScoreboardEntry, loadScoreboards, backupScoreboards } from "../api";
 import { Command } from "../libs/Command";
 import { Permission } from "../libs/Permission";
 import { Msg } from "../libs/Tools";
+import { debug } from "../libs/DebugLog";
 
 export function ScoreboardsBackup(): void {
+  debug.i("DATA", "ScoreboardsBackup");
   let entries: ScoreboardEntry[] = [];
   world.scoreboard.getObjectives().forEach((obj, index) => {
     const scores = obj.getScores();
@@ -48,6 +50,7 @@ export class ScoreboardSync {
   }
 
   static init(): void {
+    debug.i("DATA", "ScoreboardSync.init");
     // 启动时只备份当前世界；恢复必须由管理员显式触发。
     ScoreboardsBackup();
     console.info("[ScoreboardSync] 计分板同步已初始化");
@@ -55,6 +58,7 @@ export class ScoreboardSync {
 
   /** 恢复：db-server → 游戏 */
   static async load(): Promise<{ success: number; fail: number }> {
+    debug.i("DATA", "ScoreboardSync.load");
     try {
       const entries = await loadScoreboards();
       if (!entries || entries.length === 0) {

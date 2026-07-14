@@ -9,6 +9,7 @@ import { Player, system, world } from "@minecraft/server";
 import { getRandomInteger, Msg } from "../libs/Tools";
 import { ConfigManager } from "../libs/ConfigManager";
 import { Money } from "../libs/Money";
+import { debug } from "../libs/DebugLog";
 
 export class QAManager {
   static _instance: QAManager;
@@ -34,6 +35,7 @@ export class QAManager {
    * 开始答题循环
    */
   start() {
+    debug.i("QA", "start");
     if (this.chatSub) return;
     this.chatSub = (world.beforeEvents as any).chatSend.subscribe((event: any) => {
       if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "！") {
@@ -54,14 +56,21 @@ export class QAManager {
   private chatSub: any = undefined;
 
   stop() {
-    try { if (this.chatSub && typeof this.chatSub.unsubscribe === 'function') this.chatSub.unsubscribe(); } catch {}
+    debug.i("QA", "stop");
+    try {
+      if (this.chatSub && typeof this.chatSub.unsubscribe === "function") this.chatSub.unsubscribe();
+    } catch {}
     this.chatSub = undefined;
     if (this.timeoutId !== undefined) {
-      try { system.clearRun(this.timeoutId); } catch {}
+      try {
+        system.clearRun(this.timeoutId);
+      } catch {}
       this.timeoutId = undefined;
     }
     if (this.finishTimeoutId !== undefined) {
-      try { system.clearRun(this.finishTimeoutId); } catch {}
+      try {
+        system.clearRun(this.finishTimeoutId);
+      } catch {}
       this.finishTimeoutId = undefined;
     }
     this.nowQuestion = undefined;
@@ -69,6 +78,7 @@ export class QAManager {
 
   // 下一个问题
   nextQuestion() {
+    debug.i("QA", `nextQuestion: current=${this.nowQuestion}`);
     const questions = ConfigManager.getQuestions();
     this.recordLimit = Math.max(0, questions.length - 2);
     if (questions.length === 0) {
@@ -120,6 +130,7 @@ export class QAManager {
   }
   // 结束答题，揭晓答案
   finish() {
+    debug.i("QA", "finish");
     if (this.nowQuestion === undefined) return;
     // 宣布答案
     let question = ConfigManager.getQuestions()[this.nowQuestion!];
@@ -144,6 +155,7 @@ export class QAManager {
    * @returns -2答题未在进行 -1玩家已答过题 0错误 1正确
    */
   answer(pl: Player, str: string): number {
+    debug.i("QA", `answer: player=${pl.name} answer=${str}`);
     // 答题正在进行
     if (this.nowQuestion !== undefined) {
       // 玩家未答题
@@ -206,6 +218,7 @@ export class QAManager {
    */
   static giveBonus(pl: Player, seq: number, bonus: any[] | undefined) {
     if (!bonus) return;
+    debug.i("QA", `giveBonus: player=${pl.name} seq=${seq} bonusCount=${bonus.length}`);
     for (let b of bonus) {
       // 符合顺序
       if (b["seq"] === undefined || (b["seq"][0] <= seq && seq <= b["seq"][1])) {

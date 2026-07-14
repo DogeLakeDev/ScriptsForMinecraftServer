@@ -60,8 +60,11 @@ function assert(condition, message) {
 async function main() {
   copy(path.join(ROOT, 'modules', 'catalog.json'), path.join(workspace, 'modules', 'catalog.json'));
   copy(path.join(ROOT, 'modules', 'module-lock.json'), path.join(workspace, 'modules', 'module-lock.json'));
+  fs.mkdirSync(path.join(workspace, 'data'), { recursive: true });
   fs.mkdirSync(path.join(workspace, 'configs'), { recursive: true });
-  fs.writeFileSync(path.join(workspace, 'configs', 'db_config.json'), JSON.stringify({ db_port: PORT }) + '\n');
+  fs.writeFileSync(path.join(workspace, 'configs', 'db_config.json'), JSON.stringify({ db_port: PORT, dbDir: './data/sfmc_data.db', modulesDir: '../modules' }) + '\n');
+  copy(path.join(ROOT, 'configs', 'qq_config.json'), path.join(workspace, 'configs', 'qq_config.json'));
+  copy(path.join(ROOT, 'configs', 'settings.json'), path.join(workspace, 'configs', 'settings.json'));
 
   const child = spawn(process.execPath, [path.join(ROOT, 'db-server', 'index.js')], {
     cwd: ROOT,
@@ -76,14 +79,10 @@ async function main() {
     assert(health.body.status === 'ok', 'health 路由返回 ok');
 
     const catalog = await request('GET', '/api/sfmc/modules/catalog');
-    assert(catalog.status === 200 && catalog.body.modules.length === 28, '模块 catalog 已移除通用商店');
+    assert(catalog.status === 200 && catalog.body.modules.length === 28, '模块 catalog 数量不符（预期28含价格指数和每日任务）');
     const modules = await request('GET', '/api/sfmc/modules');
     assert(modules.status === 200 && modules.body.modules.length === catalog.body.modules.length, '模块列表与 catalog 数量一致');
 
-    const state = await request('GET', '/api/sfmc/setup/state');
-    assert(state.status === 200 && typeof state.body.initialized === 'boolean', 'setup state 路由返回 initialized');
-    const checks = await request('POST', '/api/sfmc/setup/check', { db: { port: PORT } });
-    assert(checks.status === 200 && Array.isArray(checks.body.checks), 'setup check 路由返回 checks');
 
     const setting = await request('PUT', '/api/sfmc/settings/integration_test', { value: 'ok' });
     assert(setting.status === 200 && setting.body.success === true, 'settings PUT 路由成功');
@@ -127,8 +126,11 @@ async function main() {
     assert(idempotentFirst.status === 200 && idempotentReplay.status === 200 && idempotentReplay.body.replayed && idempotentReplay.body.transactionId === idempotentFirst.body.transactionId && idempotentReplay.body.source.balance === idempotentFirst.body.source.balance, '经济交易重试幂等且不重复扣款');
     const beforeLandPurchase = idempotentFirst.body.source.balance;
     const beforePlayerTwo = idempotentFirst.body.target.balance;
-    const created = await request('POST', '/api/sfmc/lands', land);
-    assert(created.status === 200 && created.body.land?.ownerplid === 'player-1' && created.body.price > 0, '土地创建并持久化');
+    const createRequest = { ...land, requestId: 'land-create-test-1' };
+    const created = await request('POST', '/api/sfmc/lands', createRequest);
+    assert(created.status === 200 && created.body.land?.ownerplid === 'player-1' && created.body.price > 0, `土地创建并持久化 (${created.status} ${JSON.stringify(created.body)})`);
+    const createdReplay = await request('POST', '/api/sfmc/lands', createRequest);
+    assert(createdReplay.status === 200 && createdReplay.body.replayed && createdReplay.body.transactionId === created.body.transactionId, `土地创建重试幂等且不重复扣款 (${createdReplay.status} ${JSON.stringify(createdReplay.body)})`);
     const afterPurchase = await request('GET', '/api/sfmc/economy/account?playerId=player-1');
     assert(afterPurchase.body.account.balance === beforeLandPurchase - created.body.price, '土地购买在同一事务中扣款');
     const overlap = await request('POST', '/api/sfmc/lands', { ...land, ownerId: 'player-2', ownerName: 'PlayerTwo' });
@@ -155,14 +157,24 @@ async function main() {
     assert(renamedWithMember.status === 200 && renamedWithMember.body.land.members.some((member) => member.player_id === 'player-2' && member.role === 'container'), '普通土地更新不会升级成员角色');
     const adminRole = await request('PATCH', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/members/player-2`, { actorId: 'player-2', role: 'admin' });
     assert(adminRole.status === 403, '普通管理员不能提升成员为管理员');
-    const transferred = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, { actorId: 'player-1', targetId: 'player-2', targetName: 'PlayerTwo' });
+    const staleTransfer = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, { actorId: 'player-1', targetId: 'player-2', targetName: 'PlayerTwo', expectedVersion: 1 });
+    assert(staleTransfer.status === 409 && staleTransfer.body.error === 'version_conflict', '土地转让拒绝旧版本');
+    const transferPayload = { actorId: 'player-1', targetId: 'player-2', targetName: 'PlayerTwo', expectedVersion: 5, requestId: 'land-transfer-test-1' };
+    const transferred = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, transferPayload);
     assert(transferred.status === 200 && transferred.body.land.ownerplid === 'player-2', '土地转让更新所有者和角色');
+    const transferredReplay = await request('POST', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/transfer`, transferPayload);
+    assert(transferredReplay.status === 200 && transferredReplay.body.replayed && transferredReplay.body.transactionId === transferred.body.transactionId, '土地转让重试幂等');
     const audit = await request('GET', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}/audit`);
     assert(audit.status === 200 && audit.body.logs.length >= 4, '土地审计日志记录关键操作');
     const deleted = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-1' });
     assert(deleted.status === 403, '转让后原所有者不能删除土地');
-    const deletedOwner = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-2' });
+    const staleDelete = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, { actorId: 'player-2', expectedVersion: 1 });
+    assert(staleDelete.status === 409 && staleDelete.body.error === 'version_conflict', '土地删除拒绝旧版本');
+    const deletePayload = { actorId: 'player-2', expectedVersion: 6, requestId: 'land-delete-test-1' };
+    const deletedOwner = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, deletePayload);
     assert(deletedOwner.status === 200 && deletedOwner.body.refund > 0, '土地软删除并返回退款');
+    const deletedReplay = await request('DELETE', `/api/sfmc/lands/${encodeURIComponent(created.body.land.id)}`, deletePayload);
+    assert(deletedReplay.status === 200 && deletedReplay.body.replayed && deletedReplay.body.transactionId === deletedOwner.body.transactionId, '土地删除重试幂等且不重复退款');
     const afterRefund = await request('GET', '/api/sfmc/economy/account?playerId=player-2');
     assert(afterRefund.body.account.balance === beforePlayerTwo + deletedOwner.body.refund, '土地删除退款写入所有者经济账户');
     const transactions = await request('GET', '/api/sfmc/economy/transactions?playerId=player-1');
@@ -207,7 +219,7 @@ async function main() {
       child.once('close', () => { clearTimeout(timer); resolve(); });
     });
     try { fs.rmSync(workspace, { recursive: true, force: true }); } catch {}
-    if (stderr && /启动失败/.test(stderr)) process.stderr.write(stderr);
+    if (stderr) process.stderr.write(stderr);
   }
 }
 

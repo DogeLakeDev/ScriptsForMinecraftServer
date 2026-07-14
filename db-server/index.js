@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { assertNodeVersion } = require('./lib/runtime');
 const { quoteIdentifier } = require('./lib/identifiers');
-const { loadModuleLock: readModuleLock, saveModuleLock: writeModuleLock, getModuleState, isInstalled, isEnabled, updateModuleState } = require('./lib/module-state');
+const { loadModuleLock: readModuleLock, saveModuleLock: writeModuleLock, getModuleState, isEnabled, updateModuleState } = require('./lib/module-state');
 if (!assertNodeVersion(22, 5)) process.exit(2);
 const { openDatabase, createQuery } = require('./lib/sqlite');
 const { readJsonFile, writeJsonFile } = require('./lib/json');
@@ -24,25 +24,30 @@ let dbconfig = {};
 let qqconfig = {};
 try {
   dbconfig = JSON.parse(fs.readFileSync(dbcfgPath, 'utf-8'));
-  qqconfig = JSON.parse(fs.readFileSync(qqcfgPath, 'utf-8'));
   for (const [k, v] of Object.entries(dbconfig)) {
     const envKey = k.replace(/([A-Z])/g, '_$1').toUpperCase();
     process.env[envKey] = String(v);
     console.info(`[DogeDB] 配置 ${k} -> process.env.${envKey} = ${v}`);
   }
 } catch (err) {
-  console.error('[DogeDB] 加载配置文件失败:', err.message);
+  console.error('[DogeDB] 加载 db_config.json 失败:', err.message);
   process.exit(1);
+}
+try {
+  qqconfig = JSON.parse(fs.readFileSync(qqcfgPath, 'utf-8'));
+} catch {
+  console.info('[DogeDB] qq_config.json 未找到，QQ 桥接功能不可用。');
 }
 
 const PORT = parseInt(dbconfig.db_port || '3001', 10);
 const HOST = '127.0.0.1';
-const DB_PATH = path.join(__dirname, dbconfig.dbDir) || path.join(__dirname, './data/sfmc_data.db');
+const configuredDbPath = process.env.SFMC_DB_PATH || dbconfig.dbDir || './data/sfmc_data.db';
+const DB_PATH = path.isAbsolute(configuredDbPath) ? configuredDbPath : path.resolve(PROJECT_ROOT, configuredDbPath);
 console.log(DB_PATH)
 const QQ_BRIDGE_HOST = '127.0.0.1';
 const QQ_BRIDGE_PORT = parseInt(qqconfig.qq_http_port || '3003', 10);
 const AUTH_TOKEN = dbconfig.http_auth || '';
-const MODULES_DIR = path.resolve(__dirname, dbconfig.modulesDir) || path.join(PROJECT_ROOT, 'modules');
+const MODULES_DIR = dbconfig.modulesDir ? path.resolve(__dirname, String(dbconfig.modulesDir)) : path.join(PROJECT_ROOT, 'modules');
 const MODULE_CATALOG_PATH = path.join(MODULES_DIR, 'catalog.json');
 const MODULE_LOCK_PATH = path.join(MODULES_DIR, 'module-lock.json');
 
@@ -68,10 +73,8 @@ function normalizeModuleEntry(raw) {
     name: name || configKey,
     type: String(raw.type || 'feature'),
     description: String(raw.description || ''),
-    defaultEnabled: raw.defaultEnabled !== false,
-    defaultInstalled: raw.defaultInstalled !== false,
+    enabledByDefault: raw.enabledByDefault !== false,
     canDisable: raw.canDisable !== false,
-    canUninstall: raw.canUninstall !== false,
     requires: Array.isArray(raw.requires) ? raw.requires.filter(Boolean).map((s) => String(s)) : [],
     optional: Array.isArray(raw.optional) ? raw.optional.filter(Boolean).map((s) => String(s)) : [],
     commands: Array.isArray(raw.commands) ? raw.commands.filter(Boolean).map((s) => String(s)) : [],
@@ -105,9 +108,7 @@ function buildModuleList() {
   const rows = catalog.map((module) => {
     seenKeys.add(module.configKey);
     const state = lock.modules[module.id] || {};
-    const moduleFiles = [module.entry?.path, ...(Array.isArray(module.files) ? module.files : [])].filter(Boolean);
-    const filesPresent = moduleFiles.length === 0 || moduleFiles.every((file) => fs.existsSync(path.join(PROJECT_ROOT, file)));
-    const enabled = isEnabled(lock, module.id, module.defaultEnabled);
+    const enabled = isEnabled(lock, module.id, module.enabledByDefault);
     return {
       id: module.id,
       module_id: module.id,
@@ -116,18 +117,12 @@ function buildModuleList() {
       display_name: module.name,
       type: module.type,
       description: module.description,
-      default_enabled: module.defaultEnabled,
-      default_installed: module.defaultInstalled,
+      default_enabled: module.enabledByDefault,
       can_disable: module.canDisable,
-      can_uninstall: module.canUninstall,
       requires: module.requires,
       optional: module.optional,
       commands: module.commands,
       entry: module.entry,
-       installed: state.installed !== undefined ? !!state.installed : false,
-       install_source: state.installed !== undefined ? 'module-lock' : 'missing-lock-state',
-      files_present: filesPresent,
-      installed_at: state.installedAt || null,
       updated_at: state.updatedAt || null,
        enabled: !!enabled,
     };
@@ -144,16 +139,9 @@ function resolveModuleByKey(key) {
   return null;
 }
 
-function getModuleInstalled(module) {
+function isModuleReady(module) {
   if (!module) return true;
-  const lock = loadModuleLock();
-  const state = lock.modules[module.id];
-  return isInstalled(lock, module.id, false);
-}
-
-function getModuleEnabled(module) {
-  if (!module) return true;
-  return isEnabled(loadModuleLock(), module.id, module.defaultEnabled !== false);
+  return isEnabled(loadModuleLock(), module.id, module.enabledByDefault !== false);
 }
 
 function checkEnableDeps(module) {
@@ -161,225 +149,9 @@ function checkEnableDeps(module) {
   const depModules = (module.requires || []).map((id) => catalog.find((m) => m.id === id)).filter(Boolean);
   const missing = [];
   for (const dep of depModules) {
-    if (!getModuleInstalled(dep)) missing.push({ id: dep.id, reason: 'not_installed' });
-    else if (!getModuleEnabled(dep)) missing.push({ id: dep.id, reason: 'disabled' });
+    if (!isModuleReady(dep)) missing.push({ id: dep.id, reason: 'disabled' });
   }
   return missing;
-}
-
-function checkInstallDeps(module) {
-  const catalog = loadModuleCatalog();
-  const depModules = (module.requires || []).map((id) => catalog.find((m) => m.id === id)).filter(Boolean);
-  const missing = [];
-  for (const dep of depModules) {
-    if (!getModuleInstalled(dep)) missing.push({ id: dep.id, reason: 'not_installed' });
-  }
-  return missing;
-}
-
-function checkReverseDeps(module) {
-  const catalog = loadModuleCatalog();
-  const dependents = catalog.filter((m) => (m.requires || []).includes(module.id));
-  const installedDependents = [];
-  for (const dep of dependents) {
-    if (getModuleInstalled(dep)) installedDependents.push(dep.id);
-  }
-  return installedDependents;
-}
-
-// ============================================================
-//  初始化向导 — 首次安装配置
-// ============================================================
-
-const ROOT_DIR = PROJECT_ROOT;
-const STATE_PATH = path.join(PROJECT_ROOT, 'panel-state.json');
-const CFG_DIR = path.join(PROJECT_ROOT, 'configs');
-const BACKUP_DIR = path.join(CFG_DIR, '.backup');
-
-/**
- *
- *
- * @return {*} 
- */
-function loadPanelState() {
-  try {
-    return JSON.parse(fs.readFileSync(STATE_PATH, 'utf-8'));
-  } catch {
-    return {
-      version: 1,
-      _initialized: false,
-      ui: { defaultModules: ['money', 'chat', 'afk', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
-      tokens: { dbAuthToken: '', bridgeAuthToken: '' },
-      paths: { bdsPath: 'D:\\BEServer', llbotPath: 'D:\\LLBot-CLI-win-x64\\llbot.exe', llbotCwd: 'D:\\LLBot-CLI-win-x64', dbPort: 3001 },
-      locale: 'zh-CN',
-    };
-  }
-}
-
-/**
- *
- *
- * @param {*} filePath
- * @param {*} value
- */
-function saveJsonAtomic(filePath, value) {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n');
-  fs.renameSync(tmp, filePath);
-}
-
-/**
- *
- *
- * @param {*} filePath
- * @return {*} 
- */
-function backupConfigFile(filePath) {
-  if (!fs.existsSync(filePath)) return null;
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dest = path.join(BACKUP_DIR, `init-${stamp}`, path.basename(filePath));
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(filePath, dest);
-  return dest;
-}
-
-function loadJsonConfig(filePath, fallback) {
-  try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); }
-  catch { return fallback; }
-}
-
-function runSetupChecks(payload) {
-  const checks = [];
-  const db = payload.db || {};
-  const bds = payload.bds || {};
-  const qq = payload.qq || {};
-
-  if (db.port) {
-    const port = parseInt(db.port, 10);
-    checks.push({ id: 'db.port', ok: port > 0 && port < 65536, label: `DB 端口 ${port} 合法` });
-  }
-  if (bds.path) {
-    const exists = fs.existsSync(path.join(bds.path, 'bedrock_server.exe'));
-    checks.push({ id: 'bds.path', ok: exists, label: `BDS 可执行文件 ${exists ? '存在' : '缺失: ' + path.join(bds.path, 'bedrock_server.exe')}` });
-  }
-  if (qq.llbot_path) {
-    const exists = fs.existsSync(qq.llbot_path);
-    checks.push({ id: 'qq.llbot_path', ok: exists, label: `LLBot 可执行文件 ${exists ? '存在' : '缺失: ' + qq.llbot_path}` });
-  }
-  if (qq.llbot_cwd) {
-    const exists = fs.existsSync(qq.llbot_cwd);
-    checks.push({ id: 'qq.llbot_cwd', ok: exists, label: `LLBot 工作目录 ${exists ? '存在' : '缺失: ' + qq.llbot_cwd}` });
-  }
-  if (qq.bridge_auth_token) {
-    checks.push({ id: 'qq.bridge_auth_token', ok: qq.bridge_auth_token.length >= 8, label: `Bridge Token 长度合法 (${qq.bridge_auth_token.length})` });
-  }
-  return checks;
-}
-
-function applyInitPayload(payload) {
-  const written = [];
-  const state = loadPanelState();
-
-  // 1. 备份现有 configs
-  for (const f of ['db_config.json', 'bds_updater.json', 'qq_config.json']) {
-    backupConfigFile(path.join(CFG_DIR, f));
-  }
-
-  // 2. 写 panel-state.json
-  if (payload.state) {
-    Object.assign(state, payload.state);
-  }
-  if (payload.paths) state.paths = { ...state.paths, ...payload.paths };
-  if (payload.tokens) state.tokens = { ...state.tokens, ...payload.tokens };
-  if (payload.ui) state.ui = { ...state.ui, ...payload.ui };
-  if (payload.locale) state.locale = payload.locale;
-  state._initialized = true;
-  state._initializedAt = Date.now();
-  saveJsonAtomic(STATE_PATH, state);
-  written.push('panel-state.json');
-
-  // 3. 写 configs/db_config.json
-  if (payload.db) {
-    const cfg = loadJsonConfig(path.join(CFG_DIR, 'db_config.json'), {});
-    Object.assign(cfg, payload.db);
-    saveJsonAtomic(path.join(CFG_DIR, 'db_config.json'), cfg);
-    written.push('configs/db_config.json');
-  }
-
-  // 4. 写 configs/bds_updater.json
-  if (payload.bds) {
-    const cfg = loadJsonConfig(path.join(CFG_DIR, 'bds_updater.json'), {});
-    if (payload.bds.path) cfg.bds_path = payload.bds.path;
-    if (payload.bds.backup_dir) cfg.backup_dir = payload.bds.backup_dir;
-    saveJsonAtomic(path.join(CFG_DIR, 'bds_updater.json'), cfg);
-    written.push('configs/bds_updater.json');
-  }
-
-  // 5. 写 configs/qq_config.json
-  if (payload.qq) {
-    const cfg = loadJsonConfig(path.join(CFG_DIR, 'qq_config.json'), {});
-    Object.assign(cfg, payload.qq);
-    saveJsonAtomic(path.join(CFG_DIR, 'qq_config.json'), cfg);
-    written.push('configs/qq_config.json');
-  }
-
-  // 6. 写 modules/module-lock.json
-  {
-    const lock = loadModuleLock();
-    const now = Date.now();
-    const cat = loadModuleCatalog();
-    const catByKey = new Map(cat.map((m) => [m.configKey, m]));
-    const requested = new Set([
-      ...(payload.installedModules || []),
-      ...(payload.ui?.defaultModules || []),
-      ...(payload.ui?.defaultServices || []),
-    ]);
-    const enabled = new Set([
-      ...(payload.ui?.defaultModules || state.ui?.defaultModules || []),
-      ...(payload.ui?.defaultServices || state.ui?.defaultServices || []),
-    ]);
-    for (const mod of cat) {
-      const key = mod.configKey;
-      const previous = getModuleState(lock, mod.id);
-      updateModuleState(lock, mod.id, {
-        installed: requested.has(key) || previous.installed === true,
-        enabled: enabled.has(key),
-      });
-    }
-    saveModuleLock(lock);
-    written.push('modules/module-lock.json');
-  }
-
-  // 8. 触发 reload 信号
-  query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', ['_reload_signal', String(Date.now()), Date.now()]);
-
-  return { state, written };
-}
-
-function applyInitReset(payload) {
-  const restored = [];
-
-  const stamps = fs.existsSync(BACKUP_DIR) ? fs.readdirSync(BACKUP_DIR).filter((d) => d.startsWith('init-')).sort().reverse() : [];
-  if (stamps.length > 0) {
-    const latest = stamps[0];
-    const dir = path.join(BACKUP_DIR, latest);
-    for (const name of fs.readdirSync(dir)) {
-      const target = path.join(CFG_DIR, name);
-      if (name.endsWith('.json')) {
-        fs.copyFileSync(path.join(dir, name), target);
-        restored.push(`configs/${name}`);
-      }
-    }
-  }
-  // 重置 panel-state.json
-  const state = loadPanelState();
-  state._initialized = false;
-  state._initializedAt = null;
-  saveJsonAtomic(STATE_PATH, state);
-  query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?, ?, ?)', ['_reload_signal', String(Date.now()), Date.now()]);
-  return { state, restored };
 }
 
 function setModuleEnabled(module, enabled) {
@@ -395,33 +167,6 @@ function setModuleEnabled(module, enabled) {
   const lock = loadModuleLock();
   updateModuleState(lock, module.id, { enabled: !!enabled });
   saveModuleLock(lock);
-}
-
-function setModuleInstalled(module, installed) {
-  if (installed && module.requires && module.requires.length > 0) {
-    const unmet = checkInstallDeps(module);
-    if (unmet.length > 0) {
-      const err = new Error('dependency_unmet');
-      err.code = 'dependency_unmet';
-      err.unmet = unmet;
-      throw err;
-    }
-  }
-  if (!installed) {
-    const dependents = checkReverseDeps(module);
-    if (dependents.length > 0) {
-      const err = new Error('dependency_required');
-      err.code = 'dependency_required';
-      err.requiredBy = dependents;
-      throw err;
-    }
-  }
-  const lock = loadModuleLock();
-  updateModuleState(lock, module.id, { installed: !!installed });
-  saveModuleLock(lock);
-  if (!installed) {
-    setModuleEnabled(module, false);
-  }
 }
 
 // ---------- 数据库初始化 ----------
@@ -773,6 +518,39 @@ async function initDB() {
       action TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL,
       FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
     );
+    CREATE TABLE IF NOT EXISTS sfmc_land_operations (
+      request_id TEXT PRIMARY KEY, operation_type TEXT NOT NULL, actor_id TEXT NOT NULL,
+      land_id TEXT, status TEXT NOT NULL, response_json TEXT NOT NULL, created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_economy_price_index (
+      item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
+      base_buy_price INTEGER NOT NULL DEFAULT 0, base_sell_price INTEGER NOT NULL DEFAULT 0,
+      current_buy_price INTEGER NOT NULL DEFAULT 0, current_sell_price INTEGER NOT NULL DEFAULT 0,
+      elasticity REAL DEFAULT 0.3, weekly_acquisition_cap INTEGER,
+      weekly_acquired INTEGER DEFAULT 0, week_start INTEGER,
+      rarity TEXT DEFAULT 'common', is_renewable INTEGER DEFAULT 1, updated_at INTEGER,
+      PRIMARY KEY (item_type, item_aux)
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_economy_daily_tasks (
+      id TEXT PRIMARY KEY, item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
+      target_qty INTEGER NOT NULL, filled_qty INTEGER DEFAULT 0,
+      unit_reward INTEGER NOT NULL, created_at INTEGER, expires_at INTEGER,
+      status TEXT DEFAULT 'active'
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_player_command_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_id TEXT NOT NULL, command TEXT NOT NULL,
+      date TEXT NOT NULL, count INTEGER DEFAULT 0,
+      UNIQUE(player_id, command, date)
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_economy_stats (
+      id TEXT PRIMARY KEY,
+      total_issued INTEGER DEFAULT 0,
+      total_destroyed INTEGER DEFAULT 0,
+      total_supply INTEGER DEFAULT 0,
+      active_accounts INTEGER DEFAULT 0,
+      computed_at INTEGER
+    );
   `);
   if (!db.prepare("PRAGMA table_info('sfmc_coops')").all().some((column) => column.name === 'fee_bps')) {
     db.exec("ALTER TABLE sfmc_coops ADD COLUMN fee_bps INTEGER NOT NULL DEFAULT 500");
@@ -780,6 +558,9 @@ async function initDB() {
   const landColumns = db.prepare("PRAGMA table_info('sfmc_lands')").all().map((column) => column.name);
   if (!landColumns.includes('purchase_price')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN purchase_price INTEGER NOT NULL DEFAULT 0");
   if (!landColumns.includes('refund_rate')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN refund_rate REAL NOT NULL DEFAULT 0.7");
+  if (!landColumns.includes('tax_rate')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN tax_rate INTEGER NOT NULL DEFAULT 0");
+  if (!landColumns.includes('tax_due_at')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN tax_due_at INTEGER");
+  if (!landColumns.includes('tax_frozen')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN tax_frozen INTEGER NOT NULL DEFAULT 0");
   // 从 /configs/ JSON 文件导入初始配置（仅空表时执行）
   {
       const cfgDir = path.join(PROJECT_ROOT, 'configs');
@@ -1004,8 +785,23 @@ function applyEconomyTransaction(data) {
     if (source) query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [amount, now, source.player_id, amount]);
     if (target) query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [amount, now, target.player_id]);
     const id = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-    const response = { ok: true, transactionId: id, source: source ? economyResult(ensureEconomyAccount(source.player_id)) : null, target: target ? economyResult(ensureEconomyAccount(target.player_id)) : null };
-    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.type || 'adjustment'), String(data.actorId), sourceId, targetId, amount, source?.balance ?? null, source ? source.balance - amount : target?.balance + amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    const txRows = [];
+    if (source) {
+      txRows.push([id + '-dr', String(data.type || 'adjustment') + '.dr', String(data.actorId), sourceId, null, amount, source.balance, source.balance - amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    }
+    if (target) {
+      txRows.push([id + '-cr', String(data.type || 'adjustment') + '.cr', String(data.actorId), null, targetId, amount, target.balance, target.balance + amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    }
+    for (const row of txRows) {
+      query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', row);
+    }
+    const sourceResult = source ? economyResult(ensureEconomyAccount(source.player_id)) : null;
+    const targetResult = target ? economyResult(ensureEconomyAccount(target.player_id)) : null;
+    const response = {
+      ok: true, transactionId: id,
+      source: sourceResult ? { ...sourceResult, balanceBefore: source.balance, balanceAfter: source.balance - amount } : null,
+      target: targetResult ? { ...targetResult, balanceBefore: target.balance, balanceAfter: target.balance + amount } : null
+    };
     if (idempotencyKey) query('INSERT INTO sfmc_economy_idempotency (actor_id,idempotency_key,transaction_id,response_json,created_at) VALUES (?,?,?,?,?)', [String(data.actorId), idempotencyKey, id, JSON.stringify(response), now]);
     db.exec('COMMIT');
     return response;
@@ -1066,14 +862,36 @@ function landPrice(row) {
   return Math.floor(price * 0.7);
 }
 
+function landRequestId(data) {
+  const requestId = data?.requestId ? String(data.requestId).trim() : '';
+  return /^[A-Za-z0-9_.:-]{1,128}$/.test(requestId) ? requestId : '';
+}
+
+function replayLandOperation(requestId, operationType, actorId) {
+  if (!requestId) return null;
+  const previous = query('SELECT operation_type, actor_id, response_json FROM sfmc_land_operations WHERE request_id=?', [requestId])[0];
+  if (!previous) return null;
+  if (previous.operation_type !== operationType || String(previous.actor_id) !== String(actorId)) return { ok: false, error: 'request_id_conflict', message: 'requestId 已用于其他领地操作。', status: 409 };
+  return { ...JSON.parse(previous.response_json), replayed: true };
+}
+
+function saveLandOperation(requestId, operationType, actorId, landId, response) {
+  if (!requestId) return;
+  query('INSERT INTO sfmc_land_operations (request_id, operation_type, actor_id, land_id, status, response_json, created_at) VALUES (?,?,?,?,?,?,?)', [requestId, operationType, String(actorId), landId || null, response.ok ? 'completed' : 'failed', JSON.stringify(response), Date.now()]);
+}
+
 function createLandTransaction(data) {
-  const check = validateLandInput(data);
-  if (!check.ok) return check;
+  const requestId = landRequestId(data);
+  if (data.requestId && !requestId) return { ok: false, error: 'invalid_request', message: 'requestId 格式无效。', status: 400 };
   const now = Date.now();
   const id = `L${now.toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-  const n = check.normalized;
   db.exec('BEGIN IMMEDIATE');
   try {
+    const replay = replayLandOperation(requestId, 'land.create', data.ownerId);
+    if (replay) { db.exec('COMMIT'); return replay; }
+    const check = validateLandInput(data);
+    if (!check.ok) { db.exec('ROLLBACK'); return check; }
+    const n = check.normalized;
     const locked = validateLandInput(data);
     if (!locked.ok) { db.exec('ROLLBACK'); return locked; }
     const account = ensureEconomyAccount(String(data.ownerId), String(data.ownerName || ''));
@@ -1085,8 +903,11 @@ function createLandTransaction(data) {
     query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.purchase', String(data.ownerId), String(data.ownerId), null, locked.price, account.balance, account.balance - locked.price, 'land', id, '购买土地', now]);
     auditLand(id, String(data.ownerId), 'land.create', { price: locked.price });
     const row = query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0];
+    const finalAccount = ensureEconomyAccount(account.player_id);
+    const response = { ok: true, row, price: locked.price, balance: finalAccount.balance, balanceBefore: account.balance, balanceAfter: finalAccount.balance, balanceVersion: finalAccount.version, transactionId: `LTX${now.toString(36)}${Math.random().toString(36).slice(2, 8)}` };
+    saveLandOperation(requestId, 'land.create', data.ownerId, id, response);
     db.exec('COMMIT');
-    return { ok: true, row, price: locked.price, balance: account.balance - locked.price };
+    return response;
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch {}
     return { ok: false, error: error.message || 'create_failed', status: 500 };
@@ -1114,11 +935,9 @@ async function handle(req, res) {
   const PUBLIC_GET = path === '/api/health' || (method === 'GET' && (
     path === '/api/sfmc/modules' ||
     path === '/api/sfmc/modules/catalog' ||
-    path.startsWith('/api/sfmc/modules/') ||
-    path === '/api/sfmc/setup/state'
+    path.startsWith('/api/sfmc/modules/')
   ));
-  const PUBLIC_POST = path === '/api/sfmc/setup/init' || path === '/api/sfmc/setup/reset';
-  const NEEDS_AUTH = !PUBLIC_GET && !PUBLIC_POST && method !== 'GET';
+  const NEEDS_AUTH = !PUBLIC_GET && method !== 'GET';
   if (AUTH_TOKEN && NEEDS_AUTH) {
     const auth = req.headers['authorization'] || '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-db-token'] || '');
@@ -1187,6 +1006,133 @@ async function handle(req, res) {
       return;
     }
 
+    // ────── /api/sfmc/economy/price-index ──────
+    if (path === '/api/sfmc/economy/price-index') {
+      if (method === 'GET') {
+        json(res, { items: query('SELECT * FROM sfmc_economy_price_index ORDER BY rarity, item_type') });
+        return;
+      }
+      if (method === 'POST') {
+        const data = await body(req);
+        if (!data.actorId) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        if (!data.item_type || data.base_buy_price === undefined) { json(res, { ok: false, error: 'invalid_params' }, 400); return; }
+        query('INSERT OR REPLACE INTO sfmc_economy_price_index (item_type, item_aux, base_buy_price, base_sell_price, current_buy_price, current_sell_price, elasticity, weekly_acquisition_cap, rarity, is_renewable, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+          [data.item_type, data.item_aux || 0, data.base_buy_price, data.base_sell_price ?? data.base_buy_price, data.current_buy_price ?? data.base_buy_price, data.current_sell_price ?? data.base_sell_price ?? data.base_buy_price, data.elasticity ?? 0.3, data.weekly_acquisition_cap || null, data.rarity || 'common', data.is_renewable ?? 1, Date.now()]);
+        json(res, { ok: true });
+        return;
+      }
+      json(res, { ok: false, error: 'not_found' }, 404); return;
+    }
+    if (path === '/api/sfmc/economy/price-index/recalc' && method === 'POST') {
+      const data = await body(req);
+      if (!data.actorId) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+      const now = Date.now();
+      const weekStart = now - (now % 604800000);
+      const rows = query('SELECT * FROM sfmc_economy_price_index');
+      for (const row of rows) {
+        const weekStartDb = row.week_start || 0;
+        const acquired = weekStartDb < weekStart ? 0 : (row.weekly_acquired || 0);
+        const ratio = row.weekly_acquisition_cap ? acquired / row.weekly_acquisition_cap : 0;
+        const newBuyPrice = Math.max(1, Math.floor(row.base_buy_price * (1 + (row.elasticity || 0.3) * (1 - ratio))));
+        const newSellPrice = Math.max(1, Math.floor(row.base_sell_price * (1 + (row.elasticity || 0.3) * (1 - ratio))));
+        const resetAcquired = weekStartDb < weekStart ? 0 : acquired;
+        query('UPDATE sfmc_economy_price_index SET current_buy_price=?, current_sell_price=?, weekly_acquired=?, week_start=?, updated_at=? WHERE item_type=? AND item_aux=?',
+          [newBuyPrice, newSellPrice, resetAcquired, weekStart, now, row.item_type, row.item_aux]);
+      }
+      json(res, { ok: true, updated: rows.length });
+      return;
+    }
+
+    // ────── /api/sfmc/economy/daily-tasks ──────
+    if (path === '/api/sfmc/economy/daily-tasks') {
+      if (method === 'GET') {
+        const tasks = query("SELECT * FROM sfmc_economy_daily_tasks WHERE status='active' AND expires_at>? ORDER BY created_at ASC", [Date.now()]);
+        json(res, { tasks });
+        return;
+      }
+      if (method === 'POST') {
+        const data = await body(req);
+        if (!data.actorId) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        if (!data.item_type || !data.target_qty || !data.unit_reward) { json(res, { ok: false, error: 'invalid_params' }, 400); return; }
+        const id = `DT${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        query('INSERT INTO sfmc_economy_daily_tasks (id, item_type, item_aux, target_qty, unit_reward, created_at, expires_at, status) VALUES (?,?,?,?,?,?,?,?)',
+          [id, data.item_type, data.item_aux || 0, data.target_qty, data.unit_reward, Date.now(), data.expires_at || (Date.now() + 86400000), 'active']);
+        json(res, { ok: true, id });
+        return;
+      }
+      json(res, { ok: false, error: 'not_found' }, 404); return;
+    }
+    if (path.startsWith('/api/sfmc/economy/daily-tasks/') && method === 'POST') {
+      const rest = path.slice('/api/sfmc/economy/daily-tasks/'.length);
+      const taskId = rest.replace('/submit', '');
+      if (!rest.endsWith('/submit') || !taskId) { json(res, { ok: false, error: 'not_found' }, 404); return; }
+      const data = await body(req);
+      const actorId = String(data.actorId || '').trim();
+      const quantity = parseInt(data.quantity) || 0;
+      if (!actorId || quantity <= 0) { json(res, { ok: false, error: 'invalid_params' }, 400); return; }
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const task = query("SELECT * FROM sfmc_economy_daily_tasks WHERE id=? AND status='active' AND expires_at>?", [taskId, Date.now()])[0];
+        if (!task) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'task_not_found_or_expired' }, 404); return; }
+        const remaining = task.target_qty - task.filled_qty;
+        if (remaining < quantity) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'task_quota_exceeded', remaining }, 409); return; }
+        const reward = task.unit_reward * quantity;
+        query('UPDATE sfmc_economy_daily_tasks SET filled_qty=filled_qty+? WHERE id=?', [quantity, taskId]);
+
+        // Inline economy operations (no nested transaction)
+        const tgtAccount = ensureEconomyAccount(actorId, data.actorName || '');
+        const now = Date.now();
+        query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [reward, now, actorId]);
+        const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+          [tx + '-cr', 'daily_task.reward.cr', actorId, null, actorId, reward, tgtAccount.balance, tgtAccount.balance + reward, 'daily_task', taskId, `提交任务 ${task.item_type}*${quantity}`, now]);
+        const tgtFinal = economyResult(ensureEconomyAccount(actorId));
+        db.exec('COMMIT');
+        json(res, { ok: true, transactionId: tx, reward, balance: tgtFinal.balance, balanceVersion: tgtFinal.version });
+      } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'task_submit_failed' }, 500); }
+      return;
+    }
+
+    // ────── /api/sfmc/economy/command-usage ──────
+    if (path === '/api/sfmc/economy/command-usage') {
+      if (method === 'GET') {
+        const playerId = params.get('playerId');
+        const command = params.get('command');
+        const date = params.get('date') || new Date().toISOString().slice(0, 10);
+        if (!playerId || !command) { json(res, { ok: false, error: 'missing_params' }, 400); return; }
+        const row = query('SELECT count FROM sfmc_player_command_usage WHERE player_id=? AND command=? AND date=?', [playerId, command, date])[0];
+        json(res, { ok: true, usage: row?.count || 0 });
+        return;
+      }
+      if (method === 'POST') {
+        const data = await body(req);
+        const playerId = String(data.playerId || '').trim();
+        const command = String(data.command || '').trim();
+        const date = data.date || new Date().toISOString().slice(0, 10);
+        if (!playerId || !command) { json(res, { ok: false, error: 'missing_params' }, 400); return; }
+        query('INSERT INTO sfmc_player_command_usage (player_id, command, date, count) VALUES (?,?,?,1) ON CONFLICT(player_id,command,date) DO UPDATE SET count=count+1', [playerId, command, date]);
+        json(res, { ok: true });
+        return;
+      }
+      json(res, { ok: false, error: 'not_found' }, 404); return;
+    }
+
+    // ────── /api/sfmc/economy/stats/monthly ──────
+    if (path === '/api/sfmc/economy/stats/monthly') {
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const existing = query('SELECT * FROM sfmc_economy_stats WHERE id=?', [monthKey])[0];
+      if (existing) { json(res, { ok: true, stats: existing }); return; }
+      const totalIssued = query("SELECT COALESCE(SUM(amount),0) AS total FROM sfmc_economy_transactions WHERE transaction_type NOT LIKE '%.dr' AND transaction_type NOT IN ('land.refund','coop.shop.sell','daily_task.reward') AND source_player_id IS NOT NULL")[0]?.total || 0;
+      const totalDestroyed = query("SELECT COALESCE(SUM(amount),0) AS total FROM sfmc_economy_transactions WHERE transaction_type NOT LIKE '%.cr' AND transaction_type NOT IN ('land.purchase','coop.shop.buy') AND target_player_id IS NULL")[0]?.total || 0;
+      const totalSupply = query("SELECT COALESCE(SUM(balance),0) AS total FROM sfmc_economy_accounts")[0]?.total || 0;
+      const activeAccounts = query("SELECT COUNT(*) AS count FROM sfmc_economy_accounts WHERE balance>0")[0]?.count || 0;
+      const stats = { id: monthKey, total_issued: totalIssued, total_destroyed: totalDestroyed, total_supply: totalSupply, active_accounts: activeAccounts, computed_at: Date.now() };
+      query('INSERT OR REPLACE INTO sfmc_economy_stats (id,total_issued,total_destroyed,total_supply,active_accounts,computed_at) VALUES (?,?,?,?,?,?)', [monthKey, totalIssued, totalDestroyed, totalSupply, activeAccounts, Date.now()]);
+      json(res, { ok: true, stats });
+      return;
+    }
+
     // ────── /api/sfmc/lands ──────
     if (path === '/api/sfmc/lands') {
       if (method === 'GET') {
@@ -1194,7 +1140,7 @@ async function handle(req, res) {
       } else if (method === 'POST') {
         const result = createLandTransaction(await body(req));
         if (!result.ok) { json(res, result, result.status || 400); return; }
-        json(res, { success: true, land: mapLandRow(result.row), price: result.price });
+        json(res, { success: true, land: mapLandRow(result.row), price: result.price, balance: result.balance, balanceVersion: result.balanceVersion, transactionId: result.transactionId, replayed: result.replayed });
       } else json(res, { success: false, error: 'not_found' }, 404);
       return;
     }
@@ -1294,19 +1240,28 @@ async function handle(req, res) {
     if (path.startsWith('/api/sfmc/lands/') && path.endsWith('/transfer')) {
       const id = decodeURIComponent(path.slice('/api/sfmc/lands/'.length, -'/transfer'.length));
       const data = await body(req);
-      if (method !== 'POST' || !data.actorId || !data.targetId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+      if (method !== 'POST' || !data.actorId || !data.targetId) { json(res, { ok: false, error: 'invalid_request', message: '缺少转让参数。' }, 400); return; }
+      const requestId = landRequestId(data);
+      if (data.requestId && !requestId) { json(res, { ok: false, error: 'invalid_request', message: 'requestId 格式无效。' }, 400); return; }
       db.exec('BEGIN IMMEDIATE');
       try {
+        const replay = replayLandOperation(requestId, 'land.transfer', data.actorId);
+        if (replay) { db.exec('COMMIT'); json(res, replay, replay.status || (replay.ok ? 200 : 409)); return; }
         const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [id])[0];
-        if (!land) { db.exec('ROLLBACK'); json(res, { success: false, error: 'not_found' }, 404); return; }
-        if (String(data.actorId) !== String(land.owner_player_id)) { db.exec('ROLLBACK'); json(res, { success: false, error: 'forbidden' }, 403); return; }
-        query('UPDATE sfmc_lands SET owner_player_id=?, owner_name_snapshot=?, updated_at=?, version=version+1 WHERE id=? AND status=\'active\' AND owner_player_id=?', [String(data.targetId), String(data.targetName || ''), Date.now(), id, String(data.actorId)]);
+        if (!land) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'not_found', message: '土地不存在或已被删除。' }, 404); return; }
+        if (String(data.actorId) !== String(land.owner_player_id)) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'forbidden', message: '只有土地所有者可以转让土地。' }, 403); return; }
+        if (String(data.targetId) === String(data.actorId)) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'invalid_target', message: '不能将土地转让给自己。' }, 400); return; }
+        if (data.expectedVersion !== undefined && Number(data.expectedVersion) !== land.version) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'version_conflict', message: '土地数据已更新，请刷新后重试。' }, 409); return; }
+        const updated = query('UPDATE sfmc_lands SET owner_player_id=?, owner_name_snapshot=?, updated_at=?, version=version+1 WHERE id=? AND status=\'active\' AND owner_player_id=? AND version=?', [String(data.targetId), String(data.targetName || ''), Date.now(), id, String(data.actorId), land.version]);
+        if (!updated.changes) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'version_conflict', message: '土地数据已更新，请刷新后重试。' }, 409); return; }
         query('UPDATE sfmc_land_members SET role=\'admin\' WHERE land_id=? AND role=\'owner\'', [id]);
         query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?) ON CONFLICT(land_id, player_id) DO UPDATE SET player_name_snapshot=excluded.player_name_snapshot, role=excluded.role, expires_at=NULL', [id, String(data.targetId), String(data.targetName || ''), 'owner', Date.now()]);
         auditLand(id, data.actorId, 'land.transfer', { targetId: String(data.targetId) });
+        const response = { ok: true, transactionId: `LTX${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) };
+        saveLandOperation(requestId, 'land.transfer', data.actorId, id, response);
         db.exec('COMMIT');
-        json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
-      } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'transfer_failed' }, 500); }
+        json(res, response);
+      } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: 'transaction_failed', message: error.message || '土地转让事务失败。' }, 500); }
       return;
     }
 
@@ -1355,6 +1310,37 @@ async function handle(req, res) {
       return;
     }
 
+    // POST /api/sfmc/lands/:id/tax-collect — 征收地皮税
+    if (path.startsWith('/api/sfmc/lands/') && path.endsWith('/tax-collect') && method === 'POST') {
+      const tid = decodeURIComponent(path.slice('/api/sfmc/lands/'.length, -'/tax-collect'.length));
+      const data = await body(req);
+      if (!data.actorId) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+      const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [tid])[0];
+      if (!land) { json(res, { ok: false, error: 'not_found' }, 404); return; }
+      if (land.tax_rate <= 0) { json(res, { ok: false, error: 'no_tax' }, 400); return; }
+      const taxAmount = Math.floor((land.purchase_price || 100) * land.tax_rate / 10000);
+      if (taxAmount <= 0) { json(res, { ok: true, taxCollected: 0, message: '免税' }); return; }
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const account = ensureEconomyAccount(land.owner_player_id, land.owner_name_snapshot);
+        if (account.balance < taxAmount) {
+          query("UPDATE sfmc_lands SET tax_frozen=1, updated_at=? WHERE id=?", [Date.now(), tid]);
+          db.exec('COMMIT');
+          json(res, { ok: false, error: 'insufficient_funds', frozen: true, taxAmount });
+          return;
+        }
+        query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [taxAmount, Date.now(), land.owner_player_id, taxAmount]);
+        const now = Date.now();
+        query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+          [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.tax', data.actorId, land.owner_player_id, null, taxAmount, account.balance, account.balance - taxAmount, 'land', tid, '地皮税', now]);
+        query("UPDATE sfmc_lands SET tax_due_at=?, tax_frozen=0, updated_at=? WHERE id=?", [now + 604800000, now, tid]);
+        auditLand(tid, String(data.actorId), 'land.tax', { collected: taxAmount });
+        db.exec('COMMIT');
+        json(res, { ok: true, taxCollected: taxAmount, balance: account.balance - taxAmount });
+      } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'tax_collect_failed' }, 500); }
+      return;
+    }
+
     if (path.startsWith('/api/sfmc/lands/')) {
       const id = decodeURIComponent(path.slice('/api/sfmc/lands/'.length));
       const rows = query('SELECT * FROM sfmc_lands WHERE id=?', [id]);
@@ -1363,34 +1349,49 @@ async function handle(req, res) {
       if (method === 'PATCH' || method === 'PUT') {
         const data = await body(req);
         if (!canManageLand(id, data.actorId)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        const current = rows[0];
+        if (data.expectedVersion !== undefined && Number(data.expectedVersion) !== current.version) { json(res, { ok: false, error: 'version_conflict', message: '土地数据已更新，请刷新后重试。' }, 409); return; }
         const sets = ['updated_at=?', 'version=version+1'], values = [Date.now()];
         if (data.nickname !== undefined) { sets.push('name=?'); values.push(String(data.nickname)); }
         if (data.permissions !== undefined) { sets.push('protection_profile=?'); values.push(JSON.stringify(data.permissions || {})); }
-        values.push(id); query(`UPDATE sfmc_lands SET ${sets.join(', ')} WHERE id=? AND status='active'`, values);
+        values.push(id, current.version); const updated = query(`UPDATE sfmc_lands SET ${sets.join(', ')} WHERE id=? AND status='active' AND version=?`, values);
+        if (!updated.changes) { json(res, { ok: false, error: 'version_conflict', message: '土地数据已更新，请刷新后重试。' }, 409); return; }
         auditLand(id, String(data.actorId), 'land.update', { fields: Object.keys(data) });
         json(res, { success: true, land: mapLandRow(query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0]) });
         return;
       }
       if (method === 'DELETE') {
         const data = await body(req);
-        if (!data.actorId) { json(res, { success: false, error: 'forbidden' }, 403); return; }
+        if (!data.actorId) { json(res, { ok: false, error: 'invalid_request', message: '缺少操作者。' }, 400); return; }
+        const requestId = landRequestId(data);
+        if (data.requestId && !requestId) { json(res, { ok: false, error: 'invalid_request', message: 'requestId 格式无效。' }, 400); return; }
         db.exec('BEGIN IMMEDIATE');
         try {
-        const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [id])[0];
-        if (!land || String(data.actorId) !== String(land.owner_player_id)) { db.exec('ROLLBACK'); json(res, { success: false, error: 'forbidden' }, 403); return; }
+        const replay = replayLandOperation(requestId, 'land.delete', data.actorId);
+        if (replay) { db.exec('COMMIT'); json(res, replay, replay.status || (replay.ok ? 200 : 409)); return; }
+        const existing = query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0];
+        if (!existing) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'not_found', message: '土地不存在。' }, 404); return; }
+        if (existing.status !== 'active') { db.exec('ROLLBACK'); json(res, { ok: false, error: 'already_deleted', message: '土地已经被删除。' }, 409); return; }
+        const land = existing;
+        if (String(data.actorId) !== String(land.owner_player_id)) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'forbidden', message: '只有土地所有者可以删除土地。' }, 403); return; }
+        if (data.expectedVersion !== undefined && Number(data.expectedVersion) !== land.version) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'version_conflict', message: '土地数据已更新，请刷新后重试。' }, 409); return; }
         const refund = landPrice(land);
         const account = ensureEconomyAccount(land.owner_player_id, land.owner_name_snapshot);
-        const deleted = query("UPDATE sfmc_lands SET status='deleted', updated_at=?, version=version+1 WHERE id=? AND status='active' AND owner_player_id=?", [Date.now(), id, String(data.actorId)]);
-        if (!deleted.changes) { db.exec('ROLLBACK'); json(res, { success: false, error: 'already_deleted' }, 409); return; }
+        const deleted = query("UPDATE sfmc_lands SET status='deleted', updated_at=?, version=version+1 WHERE id=? AND status='active' AND owner_player_id=? AND version=?", [Date.now(), id, String(data.actorId), land.version]);
+        if (!deleted.changes) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'version_conflict', message: '土地数据已更新，请刷新后重试。' }, 409); return; }
         if (refund > 0) {
           query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [refund, Date.now(), land.owner_player_id]);
           query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.refund', data.actorId, null, land.owner_player_id, refund, account.balance, account.balance + refund, 'land', id, '删除土地退款', Date.now()]);
         }
-        const balance = ensureEconomyAccount(land.owner_player_id).balance;
-        auditLand(id, data.actorId, 'land.delete', { refund });
+        const finalAccount = ensureEconomyAccount(land.owner_player_id);
+        const balance = finalAccount.balance;
+        const transactionId = `LTX${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        auditLand(id, data.actorId, 'land.delete', { refund, transactionId });
+        const response = { ok: true, refund, balance, balanceBefore: account.balance, balanceAfter: balance, balanceVersion: finalAccount.version, transactionId, version: land.version + 1 };
+        saveLandOperation(requestId, 'land.delete', data.actorId, id, response);
         db.exec('COMMIT');
-        json(res, { success: true, refund, balance });
-        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'delete_failed' }, 500); }
+        json(res, response);
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: 'transaction_failed', message: error.message || '土地删除事务失败。' }, 500); }
         return;
       }
       json(res, { success: false, error: 'not_found' }, 404);
@@ -2086,10 +2087,117 @@ async function handle(req, res) {
           const item = await body(req);
           if (!item.id) { json(res, { success: false, error: 'id required' }, 400); return; }
           query('INSERT OR REPLACE INTO sfmc_coop_shop_items (id, cid, name, item_type, item_aux, item_nbt, type, groups, des, num, sv, money, is_true, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [item.id, cid, item.name, item.item_type, item.item_aux ?? 0, item.item_nbt || '', item.type, item.groups || '[]', item.des || '', item.num ?? 0, item.sv ?? 0, item.money ?? 0, item.is_true ?? 1, item.created_at || Date.now(), Date.now()]);
+            [item.id, cid, item.name, item.item_type, item.item_aux ?? 0, item.item_nbt || '', item.type, item.groups || '[]', item.des || '', item.num ?? 0, item.sv ?? 0, item.money ?? 0, (item.is_true ?? true) ? 1 : 0, item.created_at || Date.now(), Date.now()]);
           json(res, { success: true });
         } else { json(res, { success: false, error: 'not_found' }, 404); }
         return;
+      }
+
+      // /api/sfmc/coops/:cid/shop/buy  — 原子购买（type=1）
+      // /api/sfmc/coops/:cid/shop/sell — 原子出售（type=2）
+      if (sub === 'shop') {
+        if (subId === 'buy' && method === 'POST') {
+          const data = await body(req);
+          const actorId = String(data.actorId || '').trim();
+          const actorName = String(data.actorName || '').trim();
+          const listingId = String(data.listingId || '').trim();
+          const quantity = parseInt(data.quantity) || 0;
+          const idempotencyKey = data.idempotencyKey ? String(data.idempotencyKey).trim() : '';
+          if (!actorId || !listingId || quantity <= 0) { json(res, { ok: false, error: 'invalid_params' }, 400); return; }
+          if (idempotencyKey && !/^[A-Za-z0-9_.:-]{1,128}$/.test(idempotencyKey)) { json(res, { ok: false, error: 'invalid_idempotency_key' }, 400); return; }
+
+          const member = query("SELECT role FROM sfmc_coop_members WHERE cid=? AND player_id=? AND status='active'", [cid, actorId])[0];
+          if (!member) { json(res, { ok: false, error: 'not_member' }, 403); return; }
+
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            if (idempotencyKey) {
+              const prev = query('SELECT response_json FROM sfmc_economy_idempotency WHERE actor_id=? AND idempotency_key=?', [actorId, idempotencyKey])[0];
+              if (prev) { const r = JSON.parse(prev.response_json); db.exec('COMMIT'); json(res, { ...r, replayed: true }); return; }
+            }
+            const listing = query('SELECT * FROM sfmc_coop_shop_items WHERE id=? AND cid=? AND type=1', [listingId, cid])[0];
+            if (!listing) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'listing_not_found' }, 404); return; }
+            const available = listing.num - listing.sv;
+            if (available < quantity) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'insufficient_stock', available }, 409); return; }
+            const total = listing.money * quantity;
+            if (total <= 0) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'invalid_price' }, 400); return; }
+
+            // Inline economy operations (no nested transaction)
+            const srcAccount = ensureEconomyAccount(actorId, actorName);
+            if (srcAccount.balance < total) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'insufficient_funds', balance: srcAccount.balance }, 409); return; }
+
+            const now = Date.now();
+            query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [total, now, actorId, total]);
+            query('UPDATE sfmc_coop_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE cid=?', [total, now, cid]);
+            query('UPDATE sfmc_coop_shop_items SET num=num-?, sv=sv+?, updated_at=? WHERE id=? AND cid=?', [quantity, quantity, now, listingId, cid]);
+
+            const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+            query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+              [tx + '-dr', 'coop.shop.buy.dr', actorId, actorId, null, total, srcAccount.balance, srcAccount.balance - total, 'coop.shop', listingId, `购买 ${listing.name}*${quantity}`, now]);
+            query('INSERT INTO sfmc_coop_audit_logs (cid,actor_id,action,before_state,after_state,transaction_id,created_at) VALUES (?,?,?,?,?,?,?)',
+              [cid, actorId, 'shop.buy', JSON.stringify({ listingId, quantity }), JSON.stringify({ num: listing.num - quantity, sv: listing.sv + quantity }), tx, now]);
+
+            const srcFinal = economyResult(ensureEconomyAccount(actorId));
+            const response = { ok: true, transactionId: tx, quantity, itemType: listing.item_type, itemAux: listing.item_aux, itemNbt: listing.item_nbt, total, balance: srcFinal.balance, balanceVersion: srcFinal.version, stockRemaining: listing.num - quantity };
+            if (idempotencyKey) query('INSERT INTO sfmc_economy_idempotency (actor_id,idempotency_key,transaction_id,response_json,created_at) VALUES (?,?,?,?,?)', [actorId, idempotencyKey, tx, JSON.stringify(response), now]);
+            db.exec('COMMIT');
+            json(res, response);
+          } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'shop_buy_failed' }, 500); }
+          return;
+        }
+
+        if (subId === 'sell' && method === 'POST') {
+          const data = await body(req);
+          const actorId = String(data.actorId || '').trim();
+          const actorName = String(data.actorName || '').trim();
+          const listingId = String(data.listingId || '').trim();
+          const quantity = parseInt(data.quantity) || 0;
+          const idempotencyKey = data.idempotencyKey ? String(data.idempotencyKey).trim() : '';
+          if (!actorId || !listingId || quantity <= 0) { json(res, { ok: false, error: 'invalid_params' }, 400); return; }
+          if (idempotencyKey && !/^[A-Za-z0-9_.:-]{1,128}$/.test(idempotencyKey)) { json(res, { ok: false, error: 'invalid_idempotency_key' }, 400); return; }
+
+          const member = query("SELECT role FROM sfmc_coop_members WHERE cid=? AND player_id=? AND status='active'", [cid, actorId])[0];
+          if (!member) { json(res, { ok: false, error: 'not_member' }, 403); return; }
+
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            if (idempotencyKey) {
+              const prev = query('SELECT response_json FROM sfmc_economy_idempotency WHERE actor_id=? AND idempotency_key=?', [actorId, idempotencyKey])[0];
+              if (prev) { const r = JSON.parse(prev.response_json); db.exec('COMMIT'); json(res, { ...r, replayed: true }); return; }
+            }
+            const listing = query('SELECT * FROM sfmc_coop_shop_items WHERE id=? AND cid=? AND type=2', [listingId, cid])[0];
+            if (!listing) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'listing_not_found' }, 404); return; }
+            const remaining = listing.num - listing.sv;
+            if (remaining < quantity) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'capacity_exceeded', remaining }, 409); return; }
+            const total = listing.money * quantity;
+
+            const coopAcc = query('SELECT balance FROM sfmc_coop_accounts WHERE cid=?', [cid])[0];
+            if (!coopAcc || coopAcc.balance < total) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'insufficient_coop_funds', coopBalance: coopAcc?.balance || 0 }, 409); return; }
+
+            // Inline economy operations (no nested transaction)
+            const tgtAccount = ensureEconomyAccount(actorId, actorName);
+
+            const now = Date.now();
+            query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [total, now, actorId]);
+            query('UPDATE sfmc_coop_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE cid=?', [total, now, cid]);
+            query('UPDATE sfmc_coop_shop_items SET sv=sv+?, updated_at=? WHERE id=? AND cid=?', [quantity, now, listingId, cid]);
+
+            const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+            query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+              [tx + '-cr', 'coop.shop.sell.cr', actorId, null, actorId, total, tgtAccount.balance, tgtAccount.balance + total, 'coop.shop', listingId, `出售 ${listing.name}*${quantity}`, now]);
+            query('INSERT INTO sfmc_coop_audit_logs (cid,actor_id,action,before_state,after_state,transaction_id,created_at) VALUES (?,?,?,?,?,?,?)',
+              [cid, actorId, 'shop.sell', JSON.stringify({ listingId, quantity }), JSON.stringify({ sv: listing.sv + quantity }), tx, now]);
+
+            const tgtFinal = economyResult(ensureEconomyAccount(actorId));
+            const response = { ok: true, transactionId: tx, quantity, total, balance: tgtFinal.balance, balanceVersion: tgtFinal.version, stockRemaining: listing.num - (listing.sv + quantity) };
+            if (idempotencyKey) query('INSERT INTO sfmc_economy_idempotency (actor_id,idempotency_key,transaction_id,response_json,created_at) VALUES (?,?,?,?,?)', [actorId, idempotencyKey, tx, JSON.stringify(response), now]);
+            db.exec('COMMIT');
+            json(res, response);
+          } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'shop_sell_failed' }, 500); }
+          return;
+        }
+
+        json(res, { ok: false, error: 'not_found' }, 404); return;
       }
 
       // /api/sfmc/coops/:cid/bank_log
@@ -2269,7 +2377,6 @@ async function start() {
     buildModuleList,
     resolveModuleByKey,
     setModuleEnabled,
-    setModuleInstalled,
     body,
     json,
   });
@@ -2279,10 +2386,6 @@ async function start() {
     body,
     json,
     path,
-    loadPanelState,
-    applyInitPayload,
-    applyInitReset,
-    runSetupChecks,
     projectRoot: PROJECT_ROOT,
     fs,
     loadModuleCatalog,
@@ -2293,9 +2396,17 @@ async function start() {
 
   const server = http.createServer((req, res) => {
     const startedAt = Date.now();
+    let reqBody = '';
+    const chunks = [];
+    req.on('data', (c) => { chunks.push(c); });
+    req.on('end', () => {
+      reqBody = Buffer.concat(chunks).toString('utf-8').slice(0, 300);
+      req.bodyBuffer = reqBody;
+    });
     res.once('finish', () => {
-      const quietPoll = (req.url === '/api/sfmc/setup/state' || req.url === '/api/sfmc/settings/_reload_signal') && res.statusCode < 400;
-      if (!quietPoll) console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms`);
+      const quietPoll = req.url === '/api/sfmc/settings/_reload_signal' && res.statusCode < 400;
+      const bodySnippet = req.method === 'GET' ? '' : ` ${reqBody.slice(0, 200)}`;
+      if (!quietPoll) console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms${bodySnippet}`);
     });
     return handle(req, res);
   });

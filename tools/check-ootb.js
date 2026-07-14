@@ -63,7 +63,7 @@ function fileContains(p, needle) {
 
 // 2) 工具脚本
 {
-  const tools = ["check-catalog.js", "install-module.js", "lock.js", "smoke-modules.js", "sim-new-user.js", "test-db-api.js"];
+  const tools = ["check-catalog.js", "smoke-modules.js", "sim-new-user.js", "test-db-api.js"];
   let missing = [];
   for (const f of tools) {
     if (!exists(path.join(ROOT, "tools", f))) missing.push(f);
@@ -114,10 +114,6 @@ function fileContains(p, needle) {
     if (mods.status !== 200) throw new Error(`modules 接口 ${mods.status}`);
     if (!Array.isArray(mods.body.modules) || mods.body.modules.length === 0) throw new Error("modules 为空");
     pass("db-server 启动 + 模块接口");
-
-    const st = await fetchJson("/api/sfmc/setup/state");
-    if (st.status === 200) pass("/api/sfmc/setup/state 可达");
-    else fail("/api/sfmc/setup/state 可达", `status=${st.status}`);
   } catch (e) {
     fail("db-server 启动 + 模块接口", e.message);
   } finally {
