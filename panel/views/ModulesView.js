@@ -103,7 +103,7 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
     if (!meta) return;
 
     setBusy(true);
-    notify('info,success,error,warning,info'.split(',')[0], `${selected.display_name || selected.id} ${meta.busy}`);
+    notify('info', `${selected.display_name || selected.id} ${meta.busy}`);
     postRequest(`/api/sfmc/modules/${encodeURIComponent(selected.id)}/${action}`)
       .then((d) => {
         const next = d.module || null;
@@ -148,8 +148,15 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
     }
     if (input === '/') { setSearching(true); return; }
     if (input === 'e' || key.return || key.enter) {
-      if (canToggle) (requestConfirm || ((title, body, action) => action()))('禁用模块', [`${selected.display_name || selected.id} 将被禁用`, '确定继续?'], () => run('disable'));
-      else if (canEnable) (requestConfirm || ((title, body, action) => action()))('启用模块', [`${selected.display_name || selected.id} 将被启用`, '确定继续?'], () => run('enable'));
+      if (!requestConfirm) {
+        notify('error', '确认通道未连接，无法切换模块');
+        return;
+      }
+      if (canToggle) requestConfirm('禁用模块', [`${selected.display_name || selected.id} 将被禁用`, '确定继续?'], () => run('disable'));
+      else if (canEnable) {
+        const depWarn = missing.length > 0 ? [`未满足依赖: ${missing.join(', ')}`] : [];
+        requestConfirm('启用模块', [`${selected.display_name || selected.id} 将被启用`, ...depWarn, '确定继续?'], () => run('enable'));
+      }
       return;
     }
     if (input === 'd') {
@@ -205,7 +212,8 @@ function ModulesView({ logH, logW, showToast, pushLog, inputActive = true, reque
   ) : h(StatusLine, { kind: 'empty' }, '请选择模块');
   return h(Box, { flexDirection: 'column', flexGrow: 1 },
     h(SectionTitle, { detail: `${filteredModules.length}/${modules.length}` }, '模块目录'),
-    h(Text, { color: T.muted }, searching ? `搜索: ${query}█  Enter/Esc完成` : `筛选: ${filter}  ↑↓选择 Enter/e切换 d依赖 f筛选 /搜索 r刷新`),
+    h(Text, { color: searching ? T.primary : T.muted },
+      searching ? `搜索: ${query}█  Enter/Esc完成` : `筛选: ${filter}  ↑↓选择 Enter/e切换 d依赖 f筛选 /搜索 r刷新`),
     h(Box, { height: listRows, flexDirection: 'column' }, filteredModules.length ? listLines : h(StatusLine, { kind: 'empty' }, '没有匹配当前筛选条件的模块')),
     h(ScrollBar, { total: filteredModules.length, viewport: listRows, offset: visible.start, height: listRows }),
     details,

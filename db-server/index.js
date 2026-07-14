@@ -904,7 +904,7 @@ function createLandTransaction(data) {
     auditLand(id, String(data.ownerId), 'land.create', { price: locked.price });
     const row = query('SELECT * FROM sfmc_lands WHERE id=?', [id])[0];
     const finalAccount = ensureEconomyAccount(account.player_id);
-    const response = { ok: true, row, price: locked.price, balance: finalAccount.balance, balanceBefore: account.balance, balanceAfter: finalAccount.balance, balanceVersion: finalAccount.version, transactionId: `LTX${now.toString(36)}${Math.random().toString(36).slice(2, 8)}` };
+    const response = { ok: true, land: row ? mapLandRow(row) : null, price: locked.price, balance: finalAccount.balance, balanceBefore: account.balance, balanceAfter: finalAccount.balance, balanceVersion: finalAccount.version, transactionId: `LTX${now.toString(36)}${Math.random().toString(36).slice(2, 8)}` };
     saveLandOperation(requestId, 'land.create', data.ownerId, id, response);
     db.exec('COMMIT');
     return response;
@@ -1140,7 +1140,7 @@ async function handle(req, res) {
       } else if (method === 'POST') {
         const result = createLandTransaction(await body(req));
         if (!result.ok) { json(res, result, result.status || 400); return; }
-        json(res, { success: true, land: mapLandRow(result.row), price: result.price, balance: result.balance, balanceVersion: result.balanceVersion, transactionId: result.transactionId, replayed: result.replayed });
+        json(res, { success: true, land: result.land, price: result.price, balance: result.balance, balanceVersion: result.balanceVersion, transactionId: result.transactionId, replayed: result.replayed });
       } else json(res, { success: false, error: 'not_found' }, 404);
       return;
     }
@@ -2404,7 +2404,7 @@ async function start() {
       req.bodyBuffer = reqBody;
     });
     res.once('finish', () => {
-      const quietPoll = req.url === '/api/sfmc/settings/_reload_signal' && res.statusCode < 400;
+      const quietPoll = (req.url === '/api/sfmc/settings/_reload_signal' || req.url.startsWith('/api/sfmc/messages?')) && res.statusCode < 400;
       const bodySnippet = req.method === 'GET' ? '' : ` ${reqBody.slice(0, 200)}`;
       if (!quietPoll) console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms${bodySnippet}`);
     });

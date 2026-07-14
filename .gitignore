@@ -34,6 +34,9 @@ tools/.sim-workspace.bak/
 *.tmp.*
 *.log
 
+# Proactive-agent credentials (security-audit.sh)
+.credentials/
+
 AGENTS.md
 .AddCompLib/*
 *.zip

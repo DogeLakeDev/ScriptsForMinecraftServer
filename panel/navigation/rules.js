@@ -4,16 +4,21 @@ function canSwitchTab(setupRequired, target) {
 
 function getLayout(columns, rows) {
   const compact = columns < 80;
-  const narrow = columns < 60 || rows < 18;
-  const footerHeight = narrow ? 2 : 4;
-  const viewHeight = Math.max(4, rows - footerHeight - 1);
+  const narrow = columns < 60 || rows < 20;
+  const sidebarWidth = compact ? 0 : 20;
+  const footerHeight = narrow ? 1 : 2;
+  const headerHeight = 1;
+  const viewHeight = Math.max(4, rows - footerHeight - headerHeight);
+  const contentWidth = columns - sidebarWidth - 2;
   return {
     compact,
     narrow,
+    sidebarWidth,
     footerHeight,
+    headerHeight,
     viewHeight,
-    logHeight: Math.max(1, viewHeight - 6),
-    logWidth: Math.max(10, columns - (compact ? 4 : 24)),
+    logHeight: Math.max(3, viewHeight - 5),
+    logWidth: Math.max(10, contentWidth - 2),
   };
 }
 

@@ -12,7 +12,7 @@ let _mouseActive = false;
 // SGR 分片缓冲（跨 chunk 的不完整序列）
 let _sgrBuf = '';
 
-function isMouseActive() { return false; } // 不再需要，stdin 层已剥离
+function isMouseActive() { return false; } // mouse reporting currently disabled — see tui-react.js:43
 
 /**
  * 处理一条完整的 SGR 鼠标序列

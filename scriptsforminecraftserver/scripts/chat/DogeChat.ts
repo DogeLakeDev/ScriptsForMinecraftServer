@@ -739,7 +739,7 @@ export class DogeChat {
       } catch {
         /* ignore */
       }
-    }, 20);
+    }, 600);
   }
 
   static stopBridgePolling(): void {

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "modules": {
+    "core-config": { "enabled": true, "updatedAt": 1784027511440 },
+    "core-command": { "enabled": true, "updatedAt": 1784027512646 },
+    "core-permission": { "enabled": true, "updatedAt": 1784027513825 },
+    "core-httpdb": { "enabled": true, "updatedAt": 1784027514879 },
+    "feature-money": { "enabled": true, "updatedAt": 1784027279026 },
+    "feature-chat": { "enabled": true, "updatedAt": 1784027279026 },
+    "feature-coop": { "enabled": true, "updatedAt": 1784027596572 },
+    "feature-land": { "enabled": true, "updatedAt": 1784027598676 },
+    "feature-afk": { "enabled": true, "updatedAt": 1784027521800 },
+    "feature-clean": { "enabled": true, "updatedAt": 1784027524310 },
+    "feature-tps": { "enabled": true, "updatedAt": 1784027526907 },
+    "feature-online-time": { "enabled": true, "updatedAt": 1784027528699 },
+    "feature-activity-log": { "enabled": true, "updatedAt": 1784027530598 },
+    "feature-scoreboard-sync": { "enabled": true, "updatedAt": 1784027533569 },
+    "feature-spawn-protect": { "enabled": true, "updatedAt": 1784027536147 },
+    "feature-chat-sounds": { "enabled": true, "updatedAt": 1784027538719 },
+    "feature-inventory-switcher": { "enabled": true, "updatedAt": 1784027540685 },
+    "feature-area-fly": { "enabled": true, "updatedAt": 1784027543009 },
+    "feature-area-creative": { "enabled": true, "updatedAt": 1784027545318 },
+    "feature-area-survival": { "enabled": true, "updatedAt": 1784027547395 },
+    "feature-area-peace": { "enabled": true, "updatedAt": 1784027549729 },
+    "feature-qa": { "enabled": true, "updatedAt": 1784027551748 },
+    "feature-price-index": { "enabled": true, "updatedAt": 1784027590655 },
+    "feature-daily-task": { "enabled": true, "updatedAt": 1784027594284 },
+    "service-db": { "enabled": true, "updatedAt": 1784027555642 },
+    "service-qq-bridge": { "enabled": true, "updatedAt": 1784027564322 },
+    "service-panel": { "enabled": true, "updatedAt": 1784027579945 },
+    "tool-bds-updater": { "enabled": true, "updatedAt": 1784027586482 }
+  }
+}

@@ -39,7 +39,7 @@ function resolveName(m) {
   return m.fromName || m.from_name || '?';
 }
 
-function ChatView({ logH, logW, inputActive = true }) {
+function ChatView({ logH, logW, inputActive = true, registerZone }) {
   const [channels, setChannels] = useState([]);
   const [selIdx, setSelIdx] = useState(0);
   const [messages, setMessages] = useState([]);
@@ -49,6 +49,12 @@ function ChatView({ logH, logW, inputActive = true }) {
   const [followLatest, setFollowLatest] = useState(true);
 
   const sel = channels[selIdx];
+
+  useEffect(() => {
+    if (!registerZone) return;
+    registerZone({ consumesDigits: false, consumesEsc: true });
+    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+  }, [registerZone]);
 
   // 内部轮询频道列表（5s）
   useEffect(() => {
@@ -142,6 +148,8 @@ function ChatView({ logH, logW, inputActive = true }) {
     h(Box, { flexDirection: 'column', flexGrow: 1 },
       h(Text, { bold: true, color: focus === 'messages' ? T.primary : T.muted },
         sel ? `#${sel.name}` : '选择频道'),
+      h(Text, { color: followLatest ? T.success : T.warning },
+        ` ${followLatest ? '[● 跟随最新]' : '[○ 已暂停]'}  按 l 切换`),
       h(Text, { color: T.separator }, ` ${'─'.repeat(msgW)}`),
       messageScroll < messages.length - maxMessages && h(Text, { color: T.muted }, ' ↑ 更早消息'),
       ...visibleMessages.map((m, i) =>

@@ -18,7 +18,8 @@ function tblRow(left, sep, right, col1, col2, col3, col4) {
 
 function pad(s, w) {
   s = String(s ?? '');
-  if (s.length >= w) return s.slice(0, w);
+  if (w <= 1) return s.slice(0, w);
+  if (s.length >= w) return s.slice(0, w - 1) + '…';
   return s + ' '.repeat(w - s.length);
 }
 
@@ -87,9 +88,14 @@ function PlayerTable({ players, logH, scroll }) {
     typeof l === 'string' ? h(Text, { key: i, color: T.text }, l) : l));
 }
 
-function MonitorView({ logH, logW, inputActive = true }) {
+function MonitorView({ logH, logW, inputActive = true, registerZone }) {
   const data = useMonitor();
   const [playerScroll, setPlayerScroll] = React.useState(0);
+  React.useEffect(() => {
+    if (!registerZone) return;
+    registerZone({ consumesDigits: false, consumesEsc: true });
+    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+  }, [registerZone]);
   useInput((input, key) => {
     const maxRows = Math.max(3, logH - 5);
     if (key.upArrow) setPlayerScroll((scroll) => Math.max(0, scroll - 1));

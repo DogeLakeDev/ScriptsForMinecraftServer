@@ -2,7 +2,7 @@
 
 > 日期：2026-07-14  
 > 状态：业务规则已确认，技术方案规划中  
-> 关联文档：[economic-reform-plan.md](./economic-reform-plan.md)、[landgui-reactor.md](../landgui-reactor.md)、[lands-reactor.md](../lands-reactor.md)
+> 关联文档：[economic-reform-plan.md](./economic-reform-plan.md)、[land-audit-and-plan.md](./land-audit-and-plan.md)
 
 ## 一、目标
 

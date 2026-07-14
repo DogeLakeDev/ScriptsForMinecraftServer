@@ -383,9 +383,14 @@ export class LandGUI {
     if (!land || !LandCore.isOwner(land, this.player.id)) return;
     const status = new FormStatus(page);
     page.label(
-      ListFormInfo(["这些操作会改变土地所有权或永久删除土地。", "转让后你将成为管理员，删除后土地将进入已删除状态。"])
+      ListFormInfo([
+        "这些操作会改变土地所有权或永久删除土地。",
+        "转让给在线玩家会立刻变更所有者并退你为管理员；",
+        "若目标玩家暂时离线，请改在「成员与邀请」邀请对方为管理员。",
+        "删除后土地将进入已删除状态并按比例退款。",
+      ])
     );
-    page.button("转让土地", () => void this.transferLand(land, status));
+    page.button("转让土地（在线）", () => void this.transferLand(land, status));
     page.button("删除土地", () => void this.deleteLand(land, status));
   }
 

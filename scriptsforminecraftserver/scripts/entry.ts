@@ -252,7 +252,6 @@ ModuleRegistry.register({
     cleanup: () => AFK.stop(),
   },
 });
-
 // ---- coop（合作社）----
 debug.i("SYS", "register module: coop");
 ModuleRegistry.register({

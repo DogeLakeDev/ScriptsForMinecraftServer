@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, useInput, useApp, useStdout } from 'ink';
 const h = React.createElement;
 import { T } from './theme.js';
 import { services, stopAll } from './services/manager.js';
@@ -10,8 +10,7 @@ import { pushLog } from './log-buffer.js';
 import { Dashboard, SvcView, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, ServicesView, SERVICE_ORDER } from './views/views.js';
 import { Header, Sidebar, Footer } from './ui/Shell.js';
 import { getLayout } from './navigation/rules.js';
-import { createGlobalInputHandler } from './navigation/global-handler.js';
-import { exec } from 'node:child_process';
+import { spawn, exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,11 +26,13 @@ const TABS = [
 ];
 
 function App({ initialSetupRequired = null } = {}) {
-  const { exit, stdout } = useApp();
+  const { exit } = useApp();
+  const { stdout } = useStdout();
   const cols = stdout?.columns || 80;
   const rows = stdout?.rows || 24;
-  const { compact, narrow, footerHeight: footerH, viewHeight: viewH, logHeight: logH, logWidth: logW } = getLayout(cols, rows);
+  const { compact, narrow, sidebarWidth, footerHeight: footerH, viewHeight: viewH, logHeight: logH, logWidth: logW } = getLayout(cols, rows);
 
+  const [setupRequired, setSetupRequired] = useState(initialSetupRequired);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [view, setView] = useState('dashboard');
   const [svcName, setSvcName] = useState(null);
@@ -42,17 +43,32 @@ function App({ initialSetupRequired = null } = {}) {
   const [inputVal, setInputVal] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [toast, setToast] = useState(null);
+  const toastTimerRef = React.useRef(null);
+  const quitTimerRef = React.useRef(null);
 
   function showToast(msg, level) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ msg, level: level || 'info' });
-    setTimeout(() => setToast(null), 2500);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2500);
   }
+
+  React.useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    if (quitTimerRef.current) clearTimeout(quitTimerRef.current);
+  }, []);
 
   const [confirm, setConfirm] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
-
   const [quitPending, setQuitPending] = useState(false);
-  const quitTimerRef = React.useRef(null);
+  const [viewZone, setViewZone] = useState({ consumesDigits: false, consumesEsc: true });
+  const [actionBusy, setActionBusy] = useState(false);
+
+  useEffect(() => {
+    if (initialSetupRequired !== null) setSetupRequired(initialSetupRequired);
+  }, [initialSetupRequired]);
 
   const [cursorVisible, setCursorVisible] = useState(true);
   useEffect(() => {
@@ -69,13 +85,13 @@ function App({ initialSetupRequired = null } = {}) {
     return () => process.stdout.removeListener('resize', onResize);
   }, []);
 
-  useEffect(() => { setLogScroll(0); }, [view, svcName, activeTab]);
+  useEffect(() => { setLogScroll(0); }, [view, svcName]);
 
   const svcStatus = {};
   for (const [k, v] of Object.entries(services)) svcStatus[k] = { running: v.running, pid: v.pid };
 
   const menuItems = React.useMemo(() => {
-    const items = [{ k: 0, l: '退出', act: 'exit' }];
+    const items = [];
     if (view === 'svc' && services[svcName]) {
       items.push(
         { k: 2, l: '启动', act: 'start' },
@@ -86,7 +102,10 @@ function App({ initialSetupRequired = null } = {}) {
     }
     items.push(
       ...(svcName === 'bds' ? [{ k: 5, l: '检测更新', act: 'check_update' }] : []),
+      { k: 7, l: '模块管理', act: 'modules' },
+      { k: -1, l: '', act: 'separator' },
       { k: 6, l: '复制日志', act: 'copy_logs' },
+      { k: 0, l: '退出', act: 'exit' },
     );
     return items;
   }, [view, svcName]);
@@ -111,7 +130,15 @@ function App({ initialSetupRequired = null } = {}) {
     else if (item.act === 'home') { switchTab('dashboard'); }
     else if (item.act === 'start' || item.act === 'stop' || item.act === 'restart') {
       if (svcName && services[svcName]) {
-        const run = () => services[svcName][item.act]();
+        const run = () => {
+          if (actionBusy) return;
+          setActionBusy(true);
+          pushLog(`${services[svcName].title}: ${item.act === 'start' ? '启动' : item.act === 'stop' ? '停止' : '重启'}中...`, 'info');
+          Promise.resolve(services[svcName][item.act]())
+            .then(() => pushLog(`${services[svcName].title}: 操作完成`, 'success'))
+            .catch((error) => pushLog(`${services[svcName].title}: ${error.message}`, 'error'))
+            .finally(() => setActionBusy(false));
+        };
         if (item.act === 'stop' || item.act === 'restart') {
           setConfirm({
             title: item.act === 'stop' ? '停止服务' : '重启服务',
@@ -123,11 +150,12 @@ function App({ initialSetupRequired = null } = {}) {
       } else pushLog(`未选择服务`, 'warning');
     }
     else if (item.act === 'check_update') { checkForUpdate(); }
+    else if (item.act === 'modules') { switchTab('modules'); setFocusZone('main'); }
     else if (item.act === 'copy_logs') {
       const source = view === 'svc' ? svcName : undefined;
       const entries = source ? logBuf.filter(l => l.source === source) : logBuf;
       const text = entries.map(l => l.text).join('\n');
-      const proc = exec('clip', { shell: true });
+      const proc = spawn('clip', { shell: true });
       proc.stdin.write(text);
       proc.stdin.end();
       showToast('已复制 ✓');
@@ -136,7 +164,7 @@ function App({ initialSetupRequired = null } = {}) {
 
   function checkForUpdate() {
     pushLog('正在检查 BDS 更新...', 'info');
-    const child = exec('node BDSTools/check-update.js --check-only', { cwd: process.cwd() });
+    const child = exec('node BDSTools/check-update.js --check-only', { cwd: ROOT_DIR });
     child.stdout.on('data', (d) => {
       for (const l of d.toString().split('\n')) { const t = l.trim(); if (t) pushLog(t, 'info'); }
     });
@@ -169,79 +197,109 @@ function App({ initialSetupRequired = null } = {}) {
   useInput((input, key) => {
     const isEnter = key.return || key.name === 'return' || key.name === 'enter';
     const isBksp = key.backspace || key.name === 'backspace';
+    const isEsc = key.escape || key.name === 'escape';
 
-    const handled = createGlobalInputHandler({ input, key, confirm, helpOpen, editing: null, inputVal, isSetupActive: false, setupRequired: false, activeTab, tabs: TABS, quitPending, callbacks: {
-      confirm: (current, accepted) => { setConfirm(null); (accepted ? current.onConfirm : current.onCancel)(); },
-      quit: (pending) => {
-        if (pending) {
-          clearTimeout(quitTimerRef.current);
-          pushLog('正在停止所有服务...', 'info');
-          stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)～'); });
-        } else {
-          setQuitPending(true);
-          pushLog('再按一次 q 确认退出', 'warning');
-          clearTimeout(quitTimerRef.current);
-          quitTimerRef.current = setTimeout(() => setQuitPending(false), 3000);
-        }
-      },
-      clearQuitPending: () => { setQuitPending(false); clearTimeout(quitTimerRef.current); },
-      forceQuit: () => { pushLog('正在停止所有服务...', 'info'); stopAll().finally(() => { exit(); console.clear(); console.log('BDS Panel 已安全退出，感谢使用(～￣▽￣)'); }); },
-      switchTab: (tab) => { switchTab(tab); setMenuFocus(-1); },
-      setHelpOpen,
-    } });
-    if (handled) return;
-
-    if (isEnter && !inputVal.trim() && menuFocus >= 0) {
-      doAct(menuItems[menuFocus]?.k); setMenuFocus(-1); return;
+    // ── 确认框 ──
+    if (confirm) {
+      if (input === 'y') { const c = confirm; setConfirm(null); c.onConfirm(); }
+      else if (input === 'n' || isEsc) { const c = confirm; setConfirm(null); c.onCancel(); }
+      return;
     }
 
+    // ── 帮助 ──
+    if (helpOpen) {
+      if (isEsc || input === '?' || input === 'h') setHelpOpen(false);
+      return;
+    }
+
+    // ── Ctrl+C / q 退出 ──
+    if (key.ctrl && input === 'c') { stopAll().finally(() => { exit(); console.clear(); }); return; }
+    if (input === 'q' && !inputVal) {
+      setConfirm({ title: '退出面板', body: ['确定退出 BDS Panel？所有服务将停止。'], onConfirm: () => { pushLog('正在停止所有服务...', 'info'); stopAll().finally(() => { exit(); console.clear(); }); }, onCancel: () => {} });
+      return;
+    }
+
+    // ── 顶栏 Tab 切换 ──
     if (key.tab) {
       const idx = TABS.findIndex((t) => t.k === activeTab);
-      const next = (idx + 1) % TABS.length;
-      switchTab(TABS[next].k);
+      switchTab(TABS[(idx + 1) % TABS.length].k);
       setMenuFocus(-1);
       return;
     }
-
-    if (input && !key.ctrl && !key.meta && '123456'.includes(input)) {
-      const idx = parseInt(input, 10) - 1;
-      if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
+    if (input && !key.ctrl && !key.meta && '123456789'.includes(input)) {
+      if (viewZone.consumesDigits) {
+        // 让 view 自己接收数字
+      } else {
+        const idx = parseInt(input, 10) - 1;
+        if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
+      }
     }
 
-    if (view === 'services' && focusZone !== 'sidebar') return;
+    // ── 帮助 ──
+    if ((input === '?' || input === 'h' || key.name === 'f1') && !inputVal) { setHelpOpen(true); return; }
 
+    // ── 独立全屏视图：阻挡所有导航快捷键 ──
     if (view === 'monitor' || view === 'chat' || view === 'data' || view === 'modules') {
-      if (key.escape) { setView('dashboard'); setActiveTab('dashboard'); setLogScroll(0); }
+      if (isEsc) { setView('dashboard'); setActiveTab('dashboard'); setLogScroll(0); }
       return;
     }
 
+    // ── ← → 焦点区域切换 ──
     if (!compact && !inputVal) {
-      if (key.rightArrow) { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); return; }
+      if (key.rightArrow && focusZone === 'main') { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); return; }
       if (key.leftArrow && focusZone === 'sidebar') { setFocusZone('main'); setMenuFocus(-1); return; }
     }
 
+    // ── 侧栏焦点 ──
     if (focusZone === 'sidebar' && !inputVal) {
-      if (key.upArrow) { setMenuFocus((f) => { const next = f <= 0 ? menuItems.length - 1 : f - 1; return next < 0 ? 0 : next; }); return; }
-      if (key.downArrow) { setMenuFocus((f) => { const next = f >= menuItems.length - 1 ? 0 : f + 1; return next < 0 ? 0 : next; }); return; }
+      if (key.upArrow) { setMenuFocus((f) => (f <= 0 ? menuItems.length - 1 : f - 1)); return; }
+      if (key.downArrow) { setMenuFocus((f) => (f >= menuItems.length - 1 ? 0 : f + 1)); return; }
       if (key.home) { setMenuFocus(0); return; }
       if (key.end) { setMenuFocus(menuItems.length - 1); return; }
-      if (isEnter && menuFocus >= 0) { const item = menuItems[menuFocus]; if (item) { doAct(item.k); setMenuFocus(-1); return; } }
-      if (key.escape) { setFocusZone('main'); setMenuFocus(-1); return; }
+      if (isEnter && menuFocus >= 0) { const item = menuItems[menuFocus]; if (item) { doAct(item.k); setMenuFocus(-1); } return; }
+      if (isEsc) { setFocusZone('main'); setMenuFocus(-1); return; }
       return;
     }
 
-    if (key.escape) {
-      if (view === 'svc' && activeTab === 'services') { setView('services'); }
-      else { setView('dashboard'); setActiveTab('dashboard'); }
-      setLogScroll(0);
-      return;
-    }
-
-    if (isBksp) {
-      if (inputVal && cursorPos > 0) {
-        setInputVal((v) => v.slice(0, cursorPos - 1) + v.slice(cursorPos));
-        setCursorPos((p) => p - 1);
+    // ── Esc 双击退出（首页按两次 Esc） ──
+    if (isEsc) {
+      if (view === 'svc' && activeTab === 'services') { setView('services'); return; }
+      if (view === 'dashboard' && activeTab === 'dashboard') {
+        if (quitPending) {
+          clearTimeout(quitTimerRef.current);
+          pushLog('正在停止所有服务...', 'info');
+          stopAll().finally(() => { exit(); console.clear(); });
+        } else {
+          setQuitPending(true);
+          pushLog('再按一次 Esc 确认退出', 'warning');
+          clearTimeout(quitTimerRef.current);
+          quitTimerRef.current = setTimeout(() => setQuitPending(false), 3000);
+        }
+        return;
       }
+      setView('dashboard'); setActiveTab('dashboard'); setLogScroll(0);
+      return;
+    }
+
+    // ── 日志滚动 ──
+    if (key.pageUp) { setLogScroll((s) => Math.min(logBuf.length, s + Math.floor(viewH / 2))); return; }
+    if (key.pageDown) { setLogScroll((s) => Math.max(0, s - Math.floor(viewH / 2))); return; }
+    if (key.home) { setLogScroll(logBuf.length); return; }
+    if (key.end) { setLogScroll(0); return; }
+
+    // ── 主区 ↑↓ 导航 ──
+    if (key.upArrow || key.downArrow) {
+      if (view === 'chat' || view === 'data' || view === 'modules' || view === 'services') return;
+      if (key.upArrow) { setMenuFocus((f) => (f <= 0 ? menuItems.length - 1 : f - 1)); return; }
+      if (key.downArrow) { setMenuFocus((f) => (f >= menuItems.length - 1 ? 0 : f + 1)); return; }
+    }
+
+    // ── Enter 确认 ──
+    if (isEnter && !inputVal.trim() && menuFocus >= 0) { doAct(menuItems[menuFocus]?.k); setMenuFocus(-1); return; }
+
+    // ── 输入栏 ──
+    if (isBksp) {
+      if (inputVal && cursorPos > 0) { setInputVal((v) => v.slice(0, cursorPos - 1) + v.slice(cursorPos)); setCursorPos((p) => p - 1); }
       return;
     }
 
@@ -253,42 +311,19 @@ function App({ initialSetupRequired = null } = {}) {
       if (cmd === 'start' || cmd === 'stop' || cmd === 'restart') {
         if (view === 'svc' && svcName && services[svcName]) {
           const run = () => services[svcName][cmd]();
-          if (cmd === 'stop' || cmd === 'restart') {
-            setConfirm({
-              title: cmd === 'stop' ? '停止服务' : '重启服务',
-              body: [`${services[svcName].title} 将${cmd === 'stop' ? '停止' : '重启'}`, '确定继续?'],
-              onConfirm: run,
-              onCancel: () => {},
-            });
-          } else { run(); }
+          if (cmd === 'stop' || cmd === 'restart') setConfirm({ title: cmd === 'stop' ? '停止服务' : '重启服务', body: [`${services[svcName].title} 将${cmd === 'stop' ? '停止' : '重启'}`, '确定继续?'], onConfirm: run, onCancel: () => {} });
+          else run();
         } else pushLog(`需先通过服务页选择服务`, 'warning');
       } else if (cmd === 'back' || cmd === '0') { switchTab('dashboard'); }
       else if (cmd === 'clear') { logBuf.length = 0; flushLogs(); }
-      else if (cmd === 'help') {
-        if (view === 'svc' && svcName === 'bds') { services[svcName].send(cmd); }
-        if (activeTab === 'dashboard') { pushLog('内置命令: help, start, stop, restart, clear', 'info'); }
-        else if (view === 'svc' && svcName === 'llbot') { services[svcName].send(cmd); }
-        else if (view === 'svc' && svcName === 'qq') { pushLog('QQ Bridge 命令: help - 本帮助 | reload - 重载配置 | status - 连接状态', 'info','qq'); }
-        else if (view === 'svc' && svcName === 'db') { pushLog('DB Server 命令: help - 本帮助 | reload - 重载配置 | status - 连接状态', 'info','db'); }
-        else { pushLog('请先通过 Tab 选择一个服务', 'warning'); }
-      } else if (view === 'svc' && svcName && services[svcName]?.running) {
-        services[svcName].send(raw);
-      } else { pushLog(`未知命令: ${cmd}`, 'warning'); }
+      else if (view === 'svc' && svcName && services[svcName]?.running) services[svcName].send(raw);
+      else pushLog(`未知命令: ${cmd}`, 'warning');
       return;
     }
 
-    if (key.pageUp) { setLogScroll((s) => Math.min(logBuf.length, s + Math.floor(viewH / 2))); return; }
-    if (key.pageDown) { setLogScroll((s) => Math.max(0, s - Math.floor(viewH / 2))); return; }
-    if (key.home) { setLogScroll(logBuf.length); return; }
-    if (key.end) { setLogScroll(0); return; }
-    if (key.upArrow || key.downArrow) {
-      if (view === 'chat' || view === 'data' || view === 'modules') { return; }
-      if (key.upArrow) { setMenuFocus((f) => f <= 0 ? menuItems.length - 1 : f - 1); return; }
-      if (key.downArrow) { setMenuFocus((f) => f >= menuItems.length - 1 ? 0 : f + 1); return; }
-    }
-    if (key.leftArrow) { setCursorPos((p) => Math.max(0, p - 1)); return; }
-    if (key.rightArrow) { setCursorPos((p) => Math.min(inputVal.length, p + 1)); return; }
-
+    // ── 输入字符 ──
+    if (key.leftArrow && focusZone === 'main') { setCursorPos((p) => Math.max(0, p - 1)); return; }
+    if (key.rightArrow && focusZone === 'main') { setCursorPos((p) => Math.min(inputVal.length, p + 1)); return; }
     if (input && !key.ctrl && !key.meta && !/^[<>;]$/.test(input)) {
       setInputVal((v) => v.slice(0, cursorPos) + input + v.slice(cursorPos));
       setCursorPos((p) => p + input.length);
@@ -297,9 +332,11 @@ function App({ initialSetupRequired = null } = {}) {
 
   const localInputActive = !confirm && !helpOpen;
   const mainContent = confirm
-    ? h(ConfirmOverlay, { title: confirm.title, body: confirm.body })
+    ? h(Box, { flexGrow: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg },
+        h(ConfirmOverlay, { title: confirm.title, body: confirm.body }),
+      )
     : view === 'dashboard'
-      ? h(Dashboard, { logH, logScroll, logW })
+      ? h(Dashboard, { logH, logScroll, logW, setupRequired })
       : view === 'services'
         ? h(ServicesView, {
             focus: serviceFocus,
@@ -307,48 +344,57 @@ function App({ initialSetupRequired = null } = {}) {
             onOpenService: (name) => { setSvcName(name); setView('svc'); },
             onSidebar: () => { if (!compact) { setFocusZone('sidebar'); setMenuFocus(menuItems.length > 0 ? 0 : -1); } },
             inputActive: localInputActive && focusZone === 'main',
+            registerZone: setViewZone,
           })
         : view === 'monitor'
-          ? h(MonitorView, { logH, logW, inputActive: localInputActive })
+          ? h(MonitorView, { logH, logW, inputActive: localInputActive, registerZone: setViewZone })
           : view === 'modules'
-            ? h(ModulesView, { logH, logW, showToast, pushLog, inputActive: localInputActive })
+            ? h(ModulesView, {
+                logH, logW, showToast, pushLog, inputActive: localInputActive,
+                requestConfirm: (title, body, run) => setConfirm({ title, body, onConfirm: () => run(), onCancel: () => {} }),
+                registerZone: setViewZone,
+              })
             : view === 'chat'
-              ? h(ChatView, { logH, logW, inputActive: localInputActive })
+              ? h(ChatView, { logH, logW, inputActive: localInputActive, registerZone: setViewZone })
               : view === 'data'
-                ? h(DbView, { logH, logW, inputActive: localInputActive })
+                ? h(DbView, { logH, logW, inputActive: localInputActive, registerZone: setViewZone })
                 : view === 'svc' && svcName
                   ? h(SvcView, { name: svcName, logH, logScroll, logW })
                   : null;
 
-  const footerHint = confirm ? '[y] 确认  [n] 取消' :
-    view === 'services' ? '↑↓ 选择服务  Enter 打开  ←/→ 侧栏' :
-      view === 'svc' ? 'Esc 返回服务列表  输入命令后 Enter 发送  PgUp/Dn 翻页' :
-        focusZone === 'sidebar' ? '侧栏  ↑↓ 选择  Enter 确认  Esc/← 切回主区' :
-          (logScroll > 0 ? '→ 切到侧栏  ↑ 可滚动  PgUp/Dn 翻页  Home/End 首尾' :
-            quitPending ? '再按 q 确认退出' : '→ 切到侧栏  ↑↓ 菜单  Tab:切换顶栏 PgUp/Dn:日志 q:退出');
+  const footerHint = confirm ? '[y] 确认  [n/Esc] 取消' :
+    helpOpen ? 'Esc/?/h 关闭帮助' :
+    actionBusy ? '正在执行服务操作，请稍候...' :
+    view === 'services' ? '↑↓ 选择服务  Enter 打开  → 动作  1-6 导航  ? 帮助' :
+      view === 'svc' ? 'Esc 返回  → 侧栏  输入+Enter 发送  PgUp/Dn 翻页' :
+        focusZone === 'sidebar' ? '侧栏  ↑↓ 选择  Enter 确认  ← 回到主区' :
+          quitPending ? '再按 Esc 确认退出' :
+            (logScroll > 0 ? '→ 侧栏  PgUp/Dn 翻页  Home/End 首尾  q 退出  ? 帮助' :
+              '→ 动作  ↑↓ 选择  Enter 执行  Tab/1-6 导航  PgUp/Dn 日志  q 退出  ? 帮助');
 
-  return h(Box, { width: cols, height: rows, flexDirection: 'column', position: 'relative' },
+  return h(Box, { width: cols, height: rows, flexDirection: 'column' },
     h(Header, { tabs: TABS, activeTab, compact }),
     h(Box, { height: viewH, flexDirection: 'row' },
-      !compact && h(Sidebar, { menuItems, menuFocus, svcStatus, active: focusZone === 'sidebar' }),
+      !compact && h(Sidebar, { tabs: TABS, activeTab, menuItems, menuFocus, svcStatus, sidebarWidth }),
       h(Box, { flexGrow: 1, flexDirection: 'column', paddingLeft: 1, paddingRight: 1 },
         mainContent,
       ),
     ),
-    h(Footer, { height: footerH, narrow, inputFocus: false, inputVal, cursorPos, cursorVisible, hint: footerHint }),
+    h(Footer, { height: footerH, narrow, inputFocus: Boolean(inputVal) || view === 'svc', inputVal, cursorPos, cursorVisible, hint: footerHint }),
     toast && h(Box, {
-      position: 'absolute', top: 1, right: 1,
+      position: 'absolute', top: 2, right: 2,
       backgroundColor: ({ success: T.success, warning: T.warning, error: T.error, info: T.primary })[toast.level] || T.success,
       paddingLeft: 1, paddingRight: 1,
     }, h(Text, { color: T.bg, bold: true }, toast.msg)),
-    helpOpen && h(HelpOverlay, { activeTab, focusZone }),
+    helpOpen && h(HelpOverlay, { tabs: TABS, activeTab, focusZone }),
   );
 }
 
-function HelpOverlay({ activeTab, focusZone }) {
+function HelpOverlay({ tabs, activeTab, focusZone }) {
+  const tabHints = tabs.map((tab, i) => `  ${i + 1}            切换到 ${tab.l}`).join('\n');
   const lines = [
     '╭─ 全局快捷键 ─────────────────────────────────╮',
-    '  1-6         切换顶部 Tab',
+    tabHints,
     '  Tab         循环 Tab',
     '  → / ←       主区 ↔ 侧栏焦点切换',
     '  ↑↓          当前 zone 内导航',

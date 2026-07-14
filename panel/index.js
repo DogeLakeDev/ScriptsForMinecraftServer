@@ -154,8 +154,17 @@ async function runTui() {
     onReady: async () => {
       await services.db.start();
       await services.qq.start();
-      pushLog('初始化状态正常', 'success');
-      return { setupRequired: false };
+      pushLog('正在检查初始化状态...', 'info');
+      try {
+        const state = await httpJson('/api/sfmc/setup/state');
+        if (state.status !== 200) throw new Error(`HTTP ${state.status}`);
+        const setupRequired = !state.body.initialized;
+        pushLog(setupRequired ? '需要完成初始化向导' : '初始化状态正常', setupRequired ? 'warning' : 'success');
+        return { setupRequired };
+      } catch (error) {
+        pushLog(`初始化检查失败: ${error.message}`, 'error');
+        return { setupRequired: true };
+      }
     },
   });
   shutdownAll();

@@ -362,11 +362,14 @@ export class Database {
     if (result.balance !== undefined) {
       const { Money } = await import("../libs/Money");
       const player = (await import("@minecraft/server")).world.getPlayers().find((item) => item.id === actorId);
-      if (player) Money.setCached(player, result.balance);
+      if (player) {
+        const version = (result as { balanceVersion?: number }).balanceVersion ?? 0;
+        Money.setCached(player, result.balance, version);
+      }
     }
     this.ensureLoaded();
     const land = this._registry!.get(landId);
-    if (!land) return { ok: false, error: "not_found", message: "本地土地缓存不存在。" };
+    if (!land) return { ok: true, refund: result.refund, balance: result.balance };
     this._registry!.delete(landId);
     // 更新 owner 索引
     const list = this._ownerIndex!.get(land.ownerplid) || [];

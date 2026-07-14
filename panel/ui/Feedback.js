@@ -28,4 +28,12 @@ function SectionTitle({ children, detail }) {
   );
 }
 
-export { StatusLine, SectionTitle };
+function EmptyState({ title, detail, action }) {
+  return h(Box, { flexDirection: 'column', marginTop: 1 },
+    h(Text, { color: T.muted, bold: true }, `[-] ${title}`),
+    detail && h(Text, { color: T.subtle }, `    ${detail}`),
+    action && h(Text, { color: T.info }, `    ${action}`),
+  );
+}
+
+export { StatusLine, SectionTitle, EmptyState };

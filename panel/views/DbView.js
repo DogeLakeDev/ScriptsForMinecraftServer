@@ -32,7 +32,7 @@ function readDbPath() {
   }
 }
 
-function DbView({ logH, logW, inputActive = true }) {
+function DbView({ logH, logW, inputActive = true, registerZone }) {
   const monitor = useMonitor();
   const [mode] = useState(readMode);
   const [loading, setLoading] = useState(true);
@@ -45,6 +45,12 @@ function DbView({ logH, logW, inputActive = true }) {
   useEffect(() => {
     loadTables();
   }, []);
+
+  useEffect(() => {
+    if (!registerZone) return;
+    registerZone({ consumesDigits: !tableView, consumesEsc: true });
+    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+  }, [registerZone, tableView]);
 
   function loadTables() {
     setLoading(true); setError(null); setTableView(null); setScroll(0); setTableInput('');

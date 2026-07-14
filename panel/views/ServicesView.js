@@ -7,9 +7,14 @@ import { ServiceDataCards } from './ServiceDataCards.js';
 const h = React.createElement;
 const SERVICE_ORDER = ['bds', 'db', 'qq', 'llbot'];
 
-function ServicesView({ focus, logW, onOpenService, onSidebar, inputActive = true }) {
+function ServicesView({ focus, logW, onOpenService, onSidebar, inputActive = true, registerZone }) {
   const [selection, setSelection] = useState(focus || 0);
   const [detailId, setDetailId] = useState(null);
+  React.useEffect(() => {
+    if (!registerZone) return;
+    registerZone({ consumesDigits: false, consumesEsc: true });
+    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+  }, [registerZone]);
   const cardCount = 5;
   const totalItems = SERVICE_ORDER.length + cardCount;
   useInput((input, key) => {
@@ -26,8 +31,8 @@ function ServicesView({ focus, logW, onOpenService, onSidebar, inputActive = tru
     if (key.escape && detailId) setDetailId(null);
   }, { isActive: inputActive });
   return h(Box, { flexDirection: 'column', flexGrow: 1 },
-    h(Text, { color: T.primary, bold: true }, '服务'),
-    h(Text, { color: T.muted }, '↑↓ 选择  Enter 查看日志与操作'),
+    h(Text, { color: T.primary, bold: true }, '服务控制台'),
+    h(Text, { color: T.muted }, '↑↓ 选择服务  Enter 查看日志  → 打开动作菜单  Esc 返回'),
     h(Text, { color: T.separator }, '─'.repeat(Math.max(10, logW))),
     ...SERVICE_ORDER.map((name, index) => {
       const service = services[name];
@@ -38,7 +43,7 @@ function ServicesView({ focus, logW, onOpenService, onSidebar, inputActive = tru
           h(Text, { color: selected ? T.primary : (service?.running ? T.success : T.muted), bold: selected },
             `${selected ? '▶' : ' '} ${service?.title || name}`),
           h(Text, { color: service?.running ? T.success : T.muted }, `  ${status}   PID ${service?.pid || '-'}`),
-          h(Text, { color: T.muted }, name === 'bds' ? '  更新检查与服务器配置可从侧栏进入' : '  Enter 查看日志与控制'),
+          h(Text, { color: T.muted }, name === 'bds' ? '  支持更新检查与控制台输入' : '  支持日志查看与启动/停止'),
         ),
       );
     }),

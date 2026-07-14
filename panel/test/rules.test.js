@@ -13,9 +13,11 @@ test('layout is bounded for a standard terminal', () => {
   assert.deepEqual(getLayout(80, 24), {
     compact: false,
     narrow: false,
-    footerHeight: 4,
-    viewHeight: 19,
-    logHeight: 13,
+    sidebarWidth: 20,
+    footerHeight: 2,
+    headerHeight: 1,
+    viewHeight: 21,
+    logHeight: 16,
     logWidth: 56,
   });
 });
