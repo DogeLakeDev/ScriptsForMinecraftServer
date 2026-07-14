@@ -196,7 +196,7 @@ function loadPanelState() {
     return {
       version: 1,
       _initialized: false,
-      ui: { defaultModules: ['money', 'chat', 'afk', 'shop', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
+      ui: { defaultModules: ['money', 'chat', 'afk', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
       tokens: { dbAuthToken: '', bridgeAuthToken: '' },
       paths: { bdsPath: 'D:\\Minecraft\\BEServer', llbotPath: 'D:\\LLBot-CLI-win-x64\\llbot.exe', llbotCwd: 'D:\\LLBot-CLI-win-x64', dbPort: 3001 },
       locale: 'zh-CN',
@@ -624,24 +624,6 @@ async function initDB() {
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (question_id) REFERENCES sfmc_config_qa_questions(id) ON DELETE CASCADE
     );
-    CREATE TABLE IF NOT EXISTS sfmc_config_shop_categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      parent_id INTEGER DEFAULT NULL,
-      name TEXT NOT NULL, type TEXT NOT NULL,
-      image TEXT DEFAULT '',
-      sort_order INTEGER DEFAULT 0,
-      updated_at INTEGER NOT NULL,
-      FOREIGN KEY (parent_id) REFERENCES sfmc_config_shop_categories(id)
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_config_shop_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category_id INTEGER NOT NULL,
-      item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
-      price INTEGER NOT NULL, remark TEXT DEFAULT '',
-      sell_flag INTEGER NOT NULL DEFAULT 0,
-      updated_at INTEGER NOT NULL,
-      FOREIGN KEY (category_id) REFERENCES sfmc_config_shop_categories(id)
-    );
     -- Coop 表
     CREATE TABLE IF NOT EXISTS sfmc_coops (
       cid TEXT PRIMARY KEY,
@@ -820,10 +802,6 @@ async function initDB() {
           if (qid && r.punishments) { for (const pw of r.punishments) _('INSERT INTO sfmc_config_qa_punishments (question_id, type, cmd, updated_at) VALUES (?,?,?,?)', [qid, pw.type || 'cmd', pw.cmd, now]); }
         }
       } catch (e) {}
-      try {
-        const sh = JSON.parse(fs.readFileSync(path.join(cfgDir, 'shop.json'), 'utf-8'));
-        if (sh.categories) { for (const r of sh.categories) _('INSERT INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?,?,?,?,?,?,?)', [r.id, r.parent_id ?? null, r.name, r.type, r.image || '', r.sort_order ?? 0, now]); }
-      } catch (e) {}
       console.log('[DogeDB] 初始配置已从 /configs/ 导入');
   }
   console.log('[DogeDB] 数据库已就绪');
@@ -878,13 +856,6 @@ function reloadConfigsFromJson() {
     }
     log('questions', c);
   } catch (e) { console.warn('[ConfigReload] questions.json 失败:', e.message); }
-  try {
-    const sh = JSON.parse(fs.readFileSync(path.join(cfgDir, 'shop.json'), 'utf-8'));
-    let c = 0;
-    if (sh.categories) { for (const r of sh.categories) { _('INSERT INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?,?,?,?,?,?,?)', [r.id, r.parent_id ?? null, r.name, r.type, r.image || '', r.sort_order ?? 0, now]); c++; } }
-    if (sh.items) { for (const r of sh.items) { _('INSERT INTO sfmc_config_shop_items (category_id, item_type, item_aux, price, remark, sell_flag, updated_at) VALUES (?,?,?,?,?,?,?)', [r.category_id, r.item_type, r.item_aux ?? 0, r.price, r.remark || '', r.sell_flag ?? 0, now]); c++; } }
-    log('shop', c);
-  } catch (e) { console.warn('[ConfigReload] shop.json 失败:', e.message); }
   // 发送热重载信号，SAPI 端 fastPoll 每 2 秒检查此值
   query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', ['_reload_signal', String(now), now]);
   console.log(`[ConfigReload] 已发送热重载信号 (${now})，SAPI 将在 2 秒内生效`);
@@ -2140,16 +2111,6 @@ async function handle(req, res) {
           (SELECT json_group_array(json_object('id', p.id, 'type', p.type, 'cmd', p.cmd)) FROM sfmc_config_qa_punishments p WHERE p.question_id = q.id) as punishments
           FROM sfmc_config_qa_questions q ORDER BY q.id`);
         json(res, { questions });
-      } else { json(res, { success: false, error: 'not_found' }, 404); }
-      return;
-    }
-
-    // ────── /api/sfmc/shop ──────
-    if (path === '/api/sfmc/shop') {
-      if (method === 'GET') {
-        const categories = query('SELECT * FROM sfmc_config_shop_categories ORDER BY sort_order, id');
-        const items = query('SELECT * FROM sfmc_config_shop_items');
-        json(res, { categories, items });
       } else { json(res, { success: false, error: 'not_found' }, 404); }
       return;
     }

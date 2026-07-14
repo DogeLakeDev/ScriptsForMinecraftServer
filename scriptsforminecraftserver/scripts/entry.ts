@@ -29,7 +29,6 @@ import { LandEvents } from "./land/LandEvents";
 import { MoneyGUI } from "./gui/MoneyGUI";
 import { MainMenu } from "./gui/MainMenu";
 import { AdminGUI } from "./gui/AdminGUI";
-import { ShopSystem } from "./shop/ShopSystem";
 import { ScoreboardSync, ScoreboardsBackup } from "./data/Scoreboards";
 import { ActivityLog } from "./data/ActivityLog";
 import { syncWorldData } from "./data/World";
@@ -98,14 +97,6 @@ ModuleRegistry.register({
   lifecycle: {
     registerCommands: () => MoneyGUI.registerCommand(),
     init: () => Money.initScoreboard(),
-  },
-});
-
-ModuleRegistry.register({
-  id: "shop",
-  afterWorldLoad: false,
-  lifecycle: {
-    registerCommands: () => ShopSystem.registerCommand(),
   },
 });
 
@@ -254,7 +245,6 @@ export class AddOnInit {
         Permission.register("permlist.see", Permission.Member);
         Permission.register("help.see", Permission.Member);
         Permission.register("menu.use", Permission.Member);
-        Permission.register("shop.use", Permission.Member);
         Permission.register("money.admin", Permission.OP);
         Permission.register("holorint.menu", Permission.Member);
         Permission.register("holorint.pos1", Permission.Member);

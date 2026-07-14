@@ -71,7 +71,7 @@ const STEP_FIELDS = [
   ],
   // step 3: 模块选择
   [
-    { id: 'ui.defaultModules', label: '默认启用模块', kind: 'multi', choices: ['money', 'chat', 'afk', 'shop', 'land', 'tps', 'online_time', 'activity_log', 'scoreboard_sync', 'spawn_protect', 'chat_sounds', 'holoprint', 'inventory_switcher', 'fly', 'creative', 'survival', 'peace', 'qa', 'clean'] },
+    { id: 'ui.defaultModules', label: '默认启用模块', kind: 'multi', choices: ['money', 'chat', 'afk', 'land', 'tps', 'online_time', 'activity_log', 'scoreboard_sync', 'spawn_protect', 'chat_sounds', 'holoprint', 'inventory_switcher', 'fly', 'creative', 'survival', 'peace', 'qa', 'clean'] },
     { id: 'ui.defaultServices', label: '默认启用服务', kind: 'multi', choices: ['db', 'qq', 'llbot', 'bds', 'panel'] },
     { id: '_next', label: '→ 下一步', kind: 'action' },
   ],
@@ -117,7 +117,7 @@ function defaultPayload() {
     locale: 'zh-CN',
     paths: { bdsPath: 'D:\\Minecraft\\BEServer', llbotPath: 'D:\\LLBot-CLI-win-x64\\llbot.exe', llbotCwd: 'D:\\LLBot-CLI-win-x64', dbPort: 3001 },
     tokens: { dbAuthToken: '', bridgeAuthToken: '' },
-    ui: { defaultModules: ['money', 'chat', 'afk', 'shop', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
+    ui: { defaultModules: ['money', 'chat', 'afk', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
   };
 }
 

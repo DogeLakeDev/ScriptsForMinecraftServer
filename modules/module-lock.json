@@ -123,12 +123,6 @@
       "updatedAt": 1783956398421,
       "enabled": true
     },
-    "feature-shop": {
-      "installed": true,
-      "installedAt": 1783925188133,
-      "updatedAt": 1783950908797,
-      "enabled": false
-    },
     "feature-land": {
       "installed": true,
       "installedAt": 1783925188133,

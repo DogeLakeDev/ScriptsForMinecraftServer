@@ -42,7 +42,6 @@ const FILES_TO_BACKUP = [
   "configs/clean.json",
   "configs/peace_filters.json",
   "configs/questions.json",
-  "configs/shop.json",
   "modules/module-lock.json",
   "modules/lock.json",
   "panel-state.json",

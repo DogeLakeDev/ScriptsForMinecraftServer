@@ -172,7 +172,7 @@ POST /api/sfmc/setup/check    { db, bds, qq }
   },
   "tokens": { "dbAuthToken": "", "bridgeAuthToken": "" },
   "ui": {
-    "defaultModules": ["money", "chat", "afk", "shop", "land", "tps"],
+    "defaultModules": ["money", "chat", "afk", "land", "tps"],
     "defaultServices": ["db", "qq"],
     "skipGuidedSetup": false
   },
@@ -208,7 +208,7 @@ node panel/index.js --help
 
 - **总览**：日志流、服务状态
 - **监控**：TPS / 在线人数 / 实体数
-- **模块**：29 个模块的启用/禁用/安装/卸载
+- **模块**：28 个模块的启用/禁用/安装/卸载
 - **频道**：频道聊天历史
 - **数据**：数据库表查看（HTTP 或直连）
 - **BDS**：BDS 进程控制 + 日志
@@ -252,7 +252,7 @@ back / 0                返回总览
 ```
 ScriptsForMinecraftServer/
 ├── modules/                      模块目录真理源
-│   ├── catalog.json              29 个模块元数据
+│   ├── catalog.json              28 个模块元数据
 │   ├── module-lock.json          安装状态
 │   └── lock.json                 文件指纹快照
 ├── configs/                      运行时配置
@@ -260,7 +260,7 @@ ScriptsForMinecraftServer/
 │   ├── scripts/
 │   │   ├── entry.ts              模块启动入口
 │   │   ├── libs/                 Command / ConfigManager / ModuleRegistry / MenuNavigator
-│   │   ├── chat/ coop/ land/ holo/ area/ data/ doge/ gui/ shop/ shit/ temp/
+│   │   ├── chat/ coop/ land/ holo/ area/ data/ doge/ gui/ shit/ temp/
 │   ├── behavior_packs/
 │   ├── tsconfig.json + just.config.ts
 │   └── package.json

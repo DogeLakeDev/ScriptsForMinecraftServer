@@ -93,19 +93,6 @@
       "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/coop/CoopSystem.ts" }
     },
     {
-      "id": "feature-shop",
-      "configKey": "shop",
-      "name": "商店",
-      "type": "feature",
-      "description": "箱子商店与表单商店入口",
-      "defaultEnabled": true,
-      "defaultInstalled": true,
-      "canDisable": true,
-      "canUninstall": false,
-      "requires": ["core-command", "core-permission", "feature-money"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/shop/ShopSystem.ts" }
-    },
-    {
       "id": "feature-land",
       "configKey": "land",
       "name": "领地系统",

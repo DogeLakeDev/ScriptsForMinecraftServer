@@ -3,7 +3,6 @@
     "money": true,
     "chat": true,
     "afk": true,
-    "shop": true,
     "land": true,
     "tps": true,
     "db": true,

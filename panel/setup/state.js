@@ -28,7 +28,7 @@ export const DEFAULT_STATE = {
   _initializedAt: null,
   owner: '',
   ui: {
-    defaultModules: ['money', 'chat', 'afk', 'shop', 'land', 'tps'],
+    defaultModules: ['money', 'chat', 'afk', 'land', 'tps'],
     defaultServices: ['db', 'qq'],
     skipGuidedSetup: false,
   },

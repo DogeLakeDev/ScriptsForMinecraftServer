@@ -61,10 +61,6 @@ function createConfigRoutes({
             for (const punishment of row.punishments) query('INSERT INTO sfmc_config_qa_punishments (question_id, type, cmd, updated_at) VALUES (?, ?, ?, ?)', [questionId, punishment.type || 'cmd', punishment.cmd, now]);
           }
         }
-      } else if (table === 'shop_categories') {
-        for (const row of rows) query('INSERT OR REPLACE INTO sfmc_config_shop_categories (id, parent_id, name, type, image, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [row.id, row.parent_id ?? null, row.name, row.type, row.image || '', row.sort_order ?? 0, now]);
-      } else if (table === 'shop_items') {
-        for (const row of rows) query('INSERT OR REPLACE INTO sfmc_config_shop_items (category_id, item_type, item_aux, price, remark, sell_flag, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [row.category_id, row.item_type, row.item_aux ?? 0, row.price, row.remark || '', row.sell_flag ?? 0, now]);
       } else if (table === 'coop_shop_groups') {
         for (const row of rows) query('INSERT OR REPLACE INTO sfmc_coop_shop_groups (groupid, displayname, displaydescribe, icon, type_function, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [row.groupid, row.displayname, row.displaydescribe || '', row.icon || '', row.type_function || '', now]);
       } else {
@@ -86,7 +82,7 @@ function createConfigRoutes({
         return true;
       }
       const updated = {};
-      const tables = ['sfmc_config_settings', 'sfmc_config_areas', 'sfmc_config_permissions', 'sfmc_config_qa_questions', 'sfmc_config_shop_categories', 'sfmc_config_shop_items', 'sfmc_config_clean', 'sfmc_config_banned_items', 'sfmc_config_grids', 'sfmc_config_peace_filters'];
+      const tables = ['sfmc_config_settings', 'sfmc_config_areas', 'sfmc_config_permissions', 'sfmc_config_qa_questions', 'sfmc_config_clean', 'sfmc_config_banned_items', 'sfmc_config_grids', 'sfmc_config_peace_filters'];
       for (const table of tables) {
         const rows = query(`SELECT * FROM ${quoteIdentifier(table, 'table')} WHERE updated_at > ?`, [ts]);
         if (rows.length > 0) updated[table.replace('sfmc_config_', '')] = rows;

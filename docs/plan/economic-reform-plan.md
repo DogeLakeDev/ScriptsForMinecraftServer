@@ -30,21 +30,21 @@ Minecraft Bedrock (SAPI scripts)
 |------|------|------|
 | 管理员 `!money` 发放 | MoneyGUI | credit（无源，净增发） |
 | QA 答题奖励 | QA.ts `giveBonus()` | credit（净增发） |
-| 商店回收物品（所有物品均可卖） | ShopSystem.ts `sell()` | credit（净增发） |
+| 合作社求购物品 | Coop shop order settlement | seller credit |
 | 领地删除退款（70%） | LandCore / db-server | credit（净增发，30%被销毁） |
 
 ### 当前货币回收（销毁口）
 
 | 途径 | 模块 | 类型 |
 |------|------|------|
-| 商店购买物品 | ShopSystem.ts `buy()` | debit（净销毁） |
+| 合作社库存出售 | Coop shop order settlement | buyer debit |
 | 购买领地 | LandCore `createLand()` | debit（净销毁） |
 | 创建合作社 | CoopCore `registerCoop()` | debit（净销毁） |
 | 领地删除（30%差额） | db-server | 隐式销毁 |
 
 ### 当前定价机制
 
-- **完全静态**：`configs/shop.json` 硬编码所有回收价与售卖价
+- 合作社商店价格和订单由合作社服务端维护，通用商店已移除。
 - 价格存储在世界 `DynamicProperty` 中（不在数据库），可通过 GUI 调整
 - **物理铸币**：铜/铁/金/钻/星币物品，买入卖出同价（1:1 自由兑换）
 
@@ -71,7 +71,7 @@ Minecraft Bedrock (SAPI scripts)
 **合理性**：高。当前商店回收煤炭、腐肉等于凭空印钞，是最大通胀源。
 
 **建议**：
-- 保留 `configs/shop.json` 结构，语义升级：`price` → `basePrice`，新增 `elasticity` 弹性系数
+- 合作社商店使用托管库存、求购订单和服务端手续费配置，不再维护通用商店配置。
 - 新增 `sfmc_economy_price_index` 表存储每物品的当前收购价/卖出价/收购上限/弹性系数
 - 价格公式：`newPrice = basePrice * (1 + elasticity * (targetStock - currentStock) / targetStock)`
 - 只允许在 GUI 中看到"可回收"的物品出现在商店卖出货架
@@ -80,8 +80,7 @@ Minecraft Bedrock (SAPI scripts)
 |------|------|------|
 | 1.1 | `db-server/index.js` | 新增 `sfmc_economy_price_index` 表 |
 | 1.2 | `db-server/index.js` | 新增 `POST /api/sfmc/economy/price-index/recalc` 端点（周度触发） |
-| 1.3 | `ShopSystem.ts` | `sell()` 改为查询 API 获取当前市价 |
-| 1.4 | `configs/shop.json` | 新增 `rarity`、`weeklyCap` 字段；移除可再生资源回收 |
+| 1.3 | 合作社商店 | 由服务端订单结算卖家收入和合作社手续费 |
 
 #### 1.2 任务制回收（"今日急需 X 个ITEM"）
 
@@ -320,7 +319,7 @@ CREATE TABLE IF NOT EXISTS sfmc_player_certifications (
 | 模块 | 影响程度 | 说明 |
 |------|----------|------|
 | `feature-money` | **重构** | 新增总量控制、统计查询接口 |
-| `feature-shop` | **大改** | 回收逻辑从静态 → 动态查询价格指数 API |
+| `feature-coop` | **持续重构** | 合作社商店托管库存、求购和订单结算 |
 | `feature-land` | **中改** | 新增 LandTax 类和欠税冻结逻辑 |
 | `feature-qa` | **小改** | 改为从任务池发奖或限定每日发放上限 |
 | `feature-coop` | **无** | 合作社仓库独立经济池，不受影响 |

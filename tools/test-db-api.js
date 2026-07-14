@@ -76,7 +76,7 @@ async function main() {
     assert(health.body.status === 'ok', 'health 路由返回 ok');
 
     const catalog = await request('GET', '/api/sfmc/modules/catalog');
-    assert(catalog.status === 200 && catalog.body.modules.length === 29, '模块 catalog 路由返回 29 个模块');
+    assert(catalog.status === 200 && catalog.body.modules.length === 28, '模块 catalog 已移除通用商店');
     const modules = await request('GET', '/api/sfmc/modules');
     assert(modules.status === 200 && modules.body.modules.length === catalog.body.modules.length, '模块列表与 catalog 数量一致');
 

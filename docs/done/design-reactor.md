@@ -176,7 +176,7 @@ P2：可以随后处理
 - InventorySwitcher
 - Fly
 - CreativeArea
-- ShopSystem
+- Coop shop system
 - HoloPrint 实体属性
 这里不能简单全部删除。建议按数据类型分组：
 - 临时运行态：保留 DynamicProperty

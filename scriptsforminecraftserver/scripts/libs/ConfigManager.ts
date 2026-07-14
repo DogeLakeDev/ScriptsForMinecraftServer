@@ -15,8 +15,6 @@ type ConfigCache = {
   grids: Record<string, any>;
   peaceFilters: any[];
   questions: any[];
-  shopCategories: any[];
-  shopItems: any[];
   _lastFetch: number;
 };
 
@@ -31,8 +29,6 @@ export class ConfigManager {
     grids: {},
     peaceFilters: [],
     questions: [],
-    shopCategories: [],
-    shopItems: [],
     _lastFetch: 0,
   };
 
@@ -121,14 +117,6 @@ export class ConfigManager {
     return [...this.cache.questions];
   }
 
-  static getShopCategories(): any[] {
-    return [...this.cache.shopCategories];
-  }
-
-  static getShopItems(): any[] {
-    return [...this.cache.shopItems];
-  }
-
   static async reloadAll(): Promise<void> {
     if (this._reloadInFlight) return this._reloadInFlight;
     const now = Date.now();
@@ -143,7 +131,6 @@ export class ConfigManager {
         this._fetchGrids(),
         this._fetchPeaceFilters(),
         this._fetchQA(),
-        this._fetchShop(),
       ];
       await Promise.allSettled(promises);
       this.cache._lastFetch = now;
@@ -184,7 +171,6 @@ export class ConfigManager {
       if (upd.grids) await this._fetchGrids();
       if (upd.peace_filters) await this._fetchPeaceFilters();
       if (upd.qa_questions) await this._fetchQA();
-      if (upd.shop_categories || upd.shop_items) await this._fetchShop();
     } catch (e) {
       this._recordError("poll", e);
     } finally {
@@ -390,18 +376,6 @@ export class ConfigManager {
     }
   }
 
-  private static async _fetchShop(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/shop");
-      if (!body) return;
-      const { categories, items } = JSON.parse(body);
-      this.cache.shopCategories = categories || [];
-      this.cache.shopItems = items || [];
-      this._clearError("shop");
-    } catch (e) {
-      this._recordError("shop", e);
-    }
-  }
 
   private static _recordError(source: string, error: unknown): void {
     const message = (error as Error)?.message || String(error);

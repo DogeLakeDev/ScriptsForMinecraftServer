@@ -125,14 +125,7 @@ async function main() {
   const lockAfterUninstall = JSON.parse(fs.readFileSync(path.join(ROOT, "modules", "module-lock.json"), "utf-8"));
   expect(lockAfterUninstall.modules[testMod]?.installed === false, `${testMod} 在 lock 中 installed=false`);
 
-  // 7) 依赖硬阻断：禁用 feature-money 后启用 feature-shop 应返回 409 dependency_unmet
-  await postJson(`/api/sfmc/modules/feature-money/disable`);
-  const deny = await postJson(`/api/sfmc/modules/feature-shop/enable`);
-  expect(deny.status === 409, `启用 feature-shop 被 dependency_unmet 拒绝 (409)`);
-  expect(deny.body.error === 'dependency_unmet' && Array.isArray(deny.body.unmet) && deny.body.unmet.some((u) => u.id === 'feature-money'), `unmet 列出 feature-money`);
-  await postJson(`/api/sfmc/modules/feature-money/enable`);
-
-  // 8) Setup state: 未初始化时返回 initialized=false
+  // 7) Setup state: 未初始化时返回 initialized=false
   const st = await fetchJson("/api/sfmc/setup/state");
   expect(st.status === 200, `GET /api/sfmc/setup/state → 200`);
   expect(typeof st.body.initialized === 'boolean', `setup state.initialized 存在`);
