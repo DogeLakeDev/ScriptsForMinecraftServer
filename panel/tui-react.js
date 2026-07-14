@@ -35,7 +35,7 @@ function bindServiceOutput() {
   }
 }
 
-function mount({ onReady } = {}) {
+async function mount({ onReady } = {}) {
   if (_mounted) throw new Error('tui-react already mounted');
   _mounted = true;
 
@@ -47,8 +47,14 @@ function mount({ onReady } = {}) {
   process.once('SIGINT', () => { cleanup(); process.exit(0); });
   process.once('SIGTERM', () => { cleanup(); process.exit(0); });
 
-  if (onReady) Promise.resolve().then(onReady);
-  return render(h(App)).waitUntilExit();
+  const instance = render(h(App));
+  if (onReady) {
+    Promise.resolve().then(async () => {
+      const readyState = await onReady();
+      instance.rerender(h(App, { initialSetupRequired: readyState?.setupRequired ?? null }));
+    });
+  }
+  return instance.waitUntilExit();
 }
 
 export { mount, pushLog, T, services };

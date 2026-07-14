@@ -1,7 +1,7 @@
-# 当前修复清单
-
 > 总体状态：领地基础修复已完成；经济系统和合作社系统仍需按阶段重构。  
 > 详细方案：[docs/coop-reform-plan.md](docs/coop-reform-plan.md)、[docs/economic-reform-plan.md](docs/economic-reform-plan.md)、[landgui-reactor.md](landgui-reactor.md)
+
+# 修复清单
 
 ## 一、领地系统
 
@@ -24,15 +24,26 @@
 - [x] 增强容器方块保护。
 - [x] 购买和退款后同步 Money 缓存。
 - [x] 增加 DB Bearer Token 支持。
+- [x] 为 GUI 增加导航器 session token，防止关闭页面后异步请求重新打开旧 GUI。
 
 ### 待完成
+
+#### 问题
+
+- [ ] 领地无法删除，点击删除后没有效果
+- [ ] 点击转让土地后 没有在线玩家时应弹出对话框 而不是发送MSG（玩家无法及时看到）
+
+#### 验收
 
 - [ ] Bedrock 手动验证启动期间保护是否 fail-closed。
 - [ ] Bedrock 手动验证实体攻击、拾取、投射物、TNT、火焰、流体和自动化装置。
 - [ ] Bedrock 手动验证模块 disable/re-enable 不重复监听。
 - [ ] 为土地 API 增加完整 typed error/result。
 - [ ] 为土地写操作增加幂等键和版本冲突处理。
-- [x] 为 GUI 增加导航器 session token，防止关闭页面后异步请求重新打开旧 GUI。
+
+#### 拓展
+
+- [ ] 尝试为领地增加更多独具特色的功能
 
 ## 二、经济系统
 
@@ -76,24 +87,48 @@
 - [x] 解散后保留历史记录和审计日志。
 - [ ] 修复商品上架、补货、下架和回收库存的复制/丢失风险。
 - [ ] 上架托管库存时立即扣除玩家物品。
-- [ ] 将“回收”功能明确重构为“求购”。
+- [ ] 将“回收”功能明确重构为“求购”,完全移除原来的“回收”。
+- [ ] 上架物品时显示错误:  
+
+```error
+TypeError: Provided value cannot be bound to SQLite
+at query (D:\#WorkPlace\#MCBEProjects\ScriptsForMinecraftServer\db
+at handle (D:\#WorkPlace\#MCBEProjects\ScriptsForMinecraftServer\d
+process.processTicksAndRejections (node:internal/process/task_q
+code: 'ERR_INVALID_ARG_TYPE' }   
+```
+
+- [ ] 合作社在银行取款或存款均显示金额不正确（实际上没问题）
+
+```log
+请求： [*] [HTTP] POST /api/sfmc/coops/111/treasury/withdraw 409 1ms
+```
 
 ### P1 统一架构
 
+#### GUI需要重构
+
+- [ ] 重构gui页面，遵循易用、美观、方便原则，不浪费每一个为此插件而创造的接口
+- [ ] CoopGUI 全面迁移到 `runTask()`、`rebuild()`、`replace()`。
+- [ ] 社长不应该能把自己提升权限 gui问题
+
 - [x] 引入服务端合作社能力矩阵基础。
+- [ ] 与领地、频道、经济系统达成联动，丰富功能
 - [ ] 引入合作社缓存、版本和错误状态。
 - [ ] 合作社 API 改为 typed result。
+- [ ] 删除或隔离旧 `Database.ts` 和 `is_op` 数据模型。
 - [x] 增加合作社审计日志和 transaction ID 关联。
 - [x] 独立合作社账户表，不再直接 PATCH `sfmc_coops.money`。
-- [ ] CoopGUI 全面迁移到 `runTask()`、`rebuild()`、`replace()`。
-- [ ] 删除或隔离旧 `Database.ts` 和 `is_op` 数据模型。
 - [x] 成员加入、邀请和银行入账使用 player_id，支持离线账户。
 
 ### P2 扩展
 
+#### 合作社商店需要重构、增加领地角色等特色功能、强化合作社经济系统、增强玩家关系性与社交属性
+
 - [ ] 实现库存出售订单。
 - [ ] 实现成员求购订单。
 - [ ] 实现支付、交付、退款和失败状态。
+
 - [ ] 支持合作社绑定多块领地。
 - [ ] 支持合作社角色到领地角色的映射。
 - [ ] 增加解散时按贡献比例分配资产的可选方案。
@@ -114,7 +149,7 @@
 - [ ] 合作社库存托管和订单测试。
 - [x] 合作社手续费比例权限测试。
 - [x] DB token 鉴权测试。
-- [ ] Bedrock GUI 关闭、UserBusy、网络失败和快速重复点击测试。
+- [x] Bedrock GUI 关闭、UserBusy、网络失败和快速重复点击测试。
 
 ## 当前验证命令
 

@@ -200,6 +200,17 @@ async function runTui() {
       if (FORCE_SETUP) {
         try { await httpJson('/api/sfmc/setup/reset', 'POST', {}); } catch {}
       }
+      pushLog('正在检查初始化状态...');
+      try {
+        const state = await httpJson('/api/sfmc/setup/state');
+        if (state.status !== 200) throw new Error(`HTTP ${state.status}`);
+        const setupRequired = !state.body.initialized;
+        pushLog(setupRequired ? '初始化向导需要运行' : '初始化状态正常', setupRequired ? 'warning' : 'success');
+        return { setupRequired };
+      } catch (e) {
+        pushLog(`初始化状态检查失败: ${e.message}`, 'error');
+        return { setupRequired: true };
+      }
     },
   });
   // mount() resolve 后 (用户按 quit) 才退出

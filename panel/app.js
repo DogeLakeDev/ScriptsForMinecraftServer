@@ -123,7 +123,7 @@ const TABS = [
 
 // ── App ──
 
-function App() {
+function App({ initialSetupRequired = null } = {}) {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const cols = stdout?.columns || 80;
@@ -135,22 +135,8 @@ function App() {
   const [svcName, setSvcName] = useState(null);
   const [serviceFocus, setServiceFocus] = useState(0);
   const [settingsFocus, setSettingsFocus] = useState(0);
-  const [setupRequired, setSetupRequired] = useState(null);
+  const [setupRequired, setSetupRequired] = useState(initialSetupRequired);
   const [focusZone, setFocusZone] = useState('main'); // 'main' | 'sidebar' (SetupView 自带 'setup' zone)
-
-  // 检测 panel-state 是否完成 setup
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const d = await getJson('/api/sfmc/setup/state');
-        if (!cancelled) setSetupRequired(!d.initialized);
-      } catch {}
-    }
-    check();
-    const t = setInterval(check, 5000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, []);
 
   // Config editing
   const [cfgFiles, setCfgFiles] = useState([]);

@@ -905,7 +905,7 @@ function forwardToQQBridge(channelId, fromName, content, fromId) {
   const payload = JSON.stringify({ channelId, fromName, content, fromId });
   const options = {
     hostname: QQ_BRIDGE_HOST,
-    post: QQ_BRIDGE_PORT,
+    port: QQ_BRIDGE_PORT,
     path: '/forward',
     method: 'POST',
     headers: {
@@ -2294,7 +2294,8 @@ async function start() {
   const server = http.createServer((req, res) => {
     const startedAt = Date.now();
     res.once('finish', () => {
-      console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms`);
+      const quietPoll = (req.url === '/api/sfmc/setup/state' || req.url === '/api/sfmc/settings/_reload_signal') && res.statusCode < 400;
+      if (!quietPoll) console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms`);
     });
     return handle(req, res);
   });
