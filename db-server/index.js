@@ -16,11 +16,11 @@ const { readJsonFile, writeJsonFile } = require('./lib/json');
 const { createModuleRoutes } = require('./routes/modules');
 const { createConfigRoutes } = require('./routes/config');
 
-const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
+const PROJECT_ROOT = path.join(__dirname, '..');
 const dbcfgPath = path.join(PROJECT_ROOT, 'configs', 'db_config.json');
 const qqcfgPath = path.join(PROJECT_ROOT, 'configs', 'qq_config.json');
-const dbconfig = {};
-const qqconfig = {};
+let dbconfig = {};
+let qqconfig = {};
 try {
   dbconfig = require(dbcfgPath);
   qqconfig = require(qqcfgPath);
