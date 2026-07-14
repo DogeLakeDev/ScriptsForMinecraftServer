@@ -82,7 +82,7 @@ const SCHEMA = {
     name: 'DB Server（数据库服务器） 配置',
     desc: 'SQLite HTTP 后端服务',
     fields: [
-      { key: 'http_port', label: 'HTTP服务端口', type: 'number' },
+      { key: 'db_port', label: 'HTTP服务端口', type: 'number' },
       { key: 'http_auth', label: 'HTTP服务鉴权（留空则不启用）', type: 'number' },
       { key: 'dbDir', label: '数据库文件储存地址', type: 'string' },
       { key: 'modulesDir', label: '模块储存目录', type: 'string' },

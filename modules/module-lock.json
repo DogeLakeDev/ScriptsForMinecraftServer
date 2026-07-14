@@ -4,158 +4,159 @@
     "core-config": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783956269421,
+      "updatedAt": 1784015048033,
       "installedAt": 1783938350774
     },
     "core-command": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783956272479,
+      "updatedAt": 1784015051320,
       "installedAt": 1783938350774
     },
     "core-permission": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783956275399,
+      "updatedAt": 1784015052434,
       "installedAt": 1783938350774
     },
     "core-httpdb": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783956278020,
+      "updatedAt": 1784015053624,
       "installedAt": 1783938350774
     },
     "tool-bds-updater": {
       "installed": true,
       "installedAt": 1783905480982,
-      "updatedAt": 1783994562583,
-      "enabled": false,
+      "updatedAt": 1784015079856,
+      "enabled": true,
       "lastUninstalledAt": 1783947162218,
       "trashDir": null
     },
     "feature-money": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956280210,
+      "updatedAt": 1784015004386,
       "enabled": true
     },
     "feature-chat": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994594104,
-      "enabled": false
+      "updatedAt": 1784015004386,
+      "enabled": true
     },
     "feature-afk": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994656865,
-      "enabled": false
+      "updatedAt": 1784015004386,
+      "enabled": true
     },
     "feature-tps": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956317982,
+      "updatedAt": 1784015004386,
       "enabled": true
     },
     "feature-online-time": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994817576,
-      "enabled": false
+      "updatedAt": 1784015004386,
+      "enabled": true
     },
     "feature-activity-log": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994660886,
-      "enabled": false
+      "updatedAt": 1784015004387,
+      "enabled": true
     },
     "feature-scoreboard-sync": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994665234,
+      "updatedAt": 1784015004387,
       "enabled": false
     },
     "feature-spawn-protect": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994668885,
+      "updatedAt": 1784015004387,
       "enabled": false
     },
     "feature-chat-sounds": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994672800,
+      "updatedAt": 1784015004387,
       "enabled": false
     },
     "feature-inventory-switcher": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994574932,
+      "updatedAt": 1784015004387,
       "enabled": false
     },
     "feature-area-fly": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783950908797,
+      "updatedAt": 1784015004387,
       "enabled": false
     },
     "feature-clean": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783950908797,
+      "updatedAt": 1784015004386,
       "enabled": false
     },
     "feature-qa": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783994836563,
-      "enabled": false
+      "updatedAt": 1784015126835,
+      "enabled": true
     },
     "feature-area-peace": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783950908797,
+      "updatedAt": 1784015004387,
       "enabled": false
     },
     "service-panel": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956398421,
+      "updatedAt": 1784015004387,
       "enabled": true
     },
     "feature-land": {
       "installed": true,
       "installedAt": 1783925188133,
-      "updatedAt": 1783956289716,
+      "updatedAt": 1784015004386,
       "enabled": true
     },
     "feature-coop": {
-      "enabled": false,
-      "updatedAt": 1783950908797,
-      "installed": false
+      "enabled": true,
+      "updatedAt": 1784015068114,
+      "installed": true,
+      "installedAt": 1784015063709
     },
     "feature-area-creative": {
       "enabled": false,
-      "updatedAt": 1783956367881,
+      "updatedAt": 1784015004387,
       "installed": true,
       "installedAt": 1783956367881
     },
     "feature-area-survival": {
       "enabled": false,
-      "updatedAt": 1783956361262,
+      "updatedAt": 1784015004387,
       "installed": true,
       "installedAt": 1783956361262
     },
     "service-db": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783956389493,
+      "updatedAt": 1784015111462,
       "installedAt": 1783950908797
     },
     "service-qq-bridge": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783994552140,
+      "updatedAt": 1784015117593,
       "installedAt": 1783951121813
     }
   }

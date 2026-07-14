@@ -16,22 +16,29 @@ const { readJsonFile, writeJsonFile } = require('./lib/json');
 const { createModuleRoutes } = require('./routes/modules');
 const { createConfigRoutes } = require('./routes/config');
 
-const PROJECT_ROOT = path.join(__dirname, '..');
+// 加载外部配置 JSON（覆盖 process.env）
+const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
 const dbcfgPath = path.join(PROJECT_ROOT, 'configs', 'db_config.json');
 const qqcfgPath = path.join(PROJECT_ROOT, 'configs', 'qq_config.json');
 let dbconfig = {};
 let qqconfig = {};
 try {
-  dbconfig = require(dbcfgPath);
-  qqconfig = require(qqcfgPath);
+  dbconfig = JSON.parse(fs.readFileSync(dbcfgPath, 'utf-8'));
+  qqconfig = JSON.parse(fs.readFileSync(qqcfgPath, 'utf-8'));
+  for (const [k, v] of Object.entries(dbconfig)) {
+    const envKey = k.replace(/([A-Z])/g, '_$1').toUpperCase();
+    process.env[envKey] = String(v);
+    console.info(`[DogeDB] 配置 ${k} -> process.env.${envKey} = ${v}`);
+  }
 } catch (err) {
   console.error('[DogeDB] 加载配置文件失败:', err.message);
   process.exit(1);
 }
 
-const PORT = parseInt(dbconfig.http_port || '3001', 10);
+const PORT = parseInt(dbconfig.db_port || '3001', 10);
 const HOST = '127.0.0.1';
-const DB_PATH = path.resolve(__dirname, dbconfig.dataDir) || path.join(__dirname, './data/sfmc_data.db');
+const DB_PATH = path.join(__dirname, dbconfig.dbDir) || path.join(__dirname, './data/sfmc_data.db');
+console.log(DB_PATH)
 const QQ_BRIDGE_HOST = '127.0.0.1';
 const QQ_BRIDGE_PORT = parseInt(qqconfig.qq_http_port || '3003', 10);
 const AUTH_TOKEN = dbconfig.http_auth || '';
@@ -2243,8 +2250,7 @@ function checkPortConflict(port) {
 async function start() {
   const portCheck = await checkPortConflict(PORT);
   if (!portCheck.ok) {
-    console.error(`[DogeDB] 端口 ${PORT} 被占用 (${portCheck.error}). 请设置环境变量 DB_PORT`);
-    console.error(`[DogeDB] 例如: $env:DB_PORT=4000; node db-server/index.js`);
+    console.error(`[DogeDB] 端口 ${PORT} 被占用 (${portCheck.error}). `);
     process.exit(2);
   }
 

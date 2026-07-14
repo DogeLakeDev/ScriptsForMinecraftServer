@@ -1,14 +1,24 @@
 {
   "version": 1,
-  "_initialized": false,
-  "_initializedAt": 1783950908800,
+  "_initialized": true,
+  "_initializedAt": 1784015004389,
   "owner": "",
   "ui": {
-    "defaultModules": [],
+    "defaultModules": [
+      "money",
+      "chat",
+      "afk",
+      "land",
+      "tps",
+      "online_time",
+      "activity_log"
+    ],
     "defaultServices": [
       "panel",
+      "db",
       "bds",
-      "db"
+      "qq",
+      "llbot"
     ],
     "skipGuidedSetup": false
   },
