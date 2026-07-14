@@ -96,6 +96,10 @@ async function main() {
     assert(invalidImport.status === 400 && invalidImport.body.error === 'unknown_table', 'configs import 拒绝未知表');
     const missing = await request('GET', '/api/does-not-exist');
     assert(missing.status === 404 && missing.body.error === 'not_found', '未知路由返回 404');
+    const playerSave = await request('POST', '/api/sfmc/players', { players: [{ id: 'spawn-player', name: 'SpawnPlayer' }] });
+    assert(playerSave.status === 200 && playerSave.body.success === true, '玩家进服数据缺少 permission 时仍可保存');
+    const savedPlayer = await request('GET', '/api/sfmc/players/spawn-player');
+    assert(savedPlayer.status === 200 && savedPlayer.body.player.permission === 0, '玩家默认 permission 正确归一化');
 
     const land = { ownerId: 'player-1', ownerName: 'PlayerOne', dimid: 0, posA: { x: 0, y: 60, z: 0 }, posB: { x: 4, y: 70, z: 4 } };
     const funded = await request('POST', '/api/sfmc/economy/account', { actorId: 'admin', targetPlayerId: 'player-1', targetPlayerName: 'PlayerOne', amount: 10000, type: 'grant', reason: 'test setup' });

@@ -1661,6 +1661,13 @@ async function handle(req, res) {
         const { players } = await body(req);
         if (!Array.isArray(players) || players.length === 0) { json(res, { success: false, error: 'invalid' }, 400); return; }
         if (players.length > 110) { json(res, { success: false, error: 'too many requests' }, 413); return; }
+        const normalizedPlayers = players.map((p) => ({
+          ...p,
+          id: p.id || p.playerId || '',
+          name: p.name || '',
+          permission: p.permission ?? 0,
+        }));
+        if (normalizedPlayers.some((p) => !p.id)) { json(res, { success: false, error: 'player_id_required' }, 400); return; }
         query(`INSERT OR REPLACE INTO sfmc_players (
           id, name, permission,
           client_system_info_local, client_system_info_maxRenderDistance,
@@ -1670,8 +1677,8 @@ async function handle(req, res) {
           afk_step, afk_last_location,
           onlinetime_session, onlinetime_today, onlinetime_month, onlinetime_total,
           onlinetime_last_date, onlinetime_last_month, active_channel, subscribed_channels, updated_at
-        ) VALUES ${players.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
-          players.flatMap(p => [
+        ) VALUES ${normalizedPlayers.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
+          normalizedPlayers.flatMap(p => [
             p.id, p.name, p.permission,
             p.clientSystemInfoLocal || '', p.clientSystemInfoMaxRenderDistance || 0,
             p.clientSystemInfoMemoryTier_level || 0, p.clientSystemInfo_PlatformType || '',
