@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 /**
- * BDS Panel — 统一管理界面（Ink/React 版）
  *
  * 用法:
  *   node panel/index.js                  # 默认: TUI 模式
@@ -37,8 +36,6 @@ if (argv.includes('--help') || argv.includes('-h')) {
   node panel/index.js --help           显示本帮助
 
 环境变量:
-  DB_PORT            db-server 端口 (默认 3001)
-  QQ_BRIDGE_PORT     qq-bridge 端口 (默认 3003)
   PANEL_CLI=1        等价于 --cli
   PANEL_NO_TUI=1     等价于 --no-tui
   PANEL_RESET=1      等价于 --reset (清 panel-state.json)

@@ -26,23 +26,13 @@ const SCHEMA = {
     name: 'BDS 自动更新器',
     desc: 'BDS 版本检查/下载/备份/重启',
     fields: [
-      { key: 'bds_path', label: 'BDS 安装路径', type: 'string' },
-      { key: 'channel', label: '更新通道', type: 'enum', values: ENUMS.channel },
-      { key: 'backup_dir', label: '备份目录', type: 'string' },
-      { key: 'auto_restart', label: '更新后自动重启', type: 'boolean' },
-      { key: 'qq_notify', label: 'QQ 更新通知', type: 'boolean' },
-      { key: 'crash_restart', label: '崩溃后自动重启', type: 'boolean' },
-      { key: 'crash_restart_delay', label: '崩溃重启延迟(秒)', type: 'number' },
-      { key: 'scheduled_restart', label: '定时重启时间(留空=关闭)', type: 'string' },
-      { key: 'scheduled_restart_announce', label: '重启前预告(秒)', type: 'number' },
+      { key: 'bds_path', label: 'BDS 安装路径根目录', type: 'string' },
       { key: 'auto_check', label: '自动检查更新', type: 'boolean' },
       { key: 'auto_check_interval', label: '检查间隔(分钟)', type: 'number' },
-      { key: 'auto_update', label: '自动更新', type: 'boolean' },
+      { key: 'auto_update', label: '自动更新安装', type: 'boolean' },
       { key: 'auto_update_time', label: '自动更新时间', type: 'string' },
-      { key: 'download_timeout', label: '下载超时(秒)', type: 'number' },
-      { key: 'download_mirror', label: '下载镜像(留空=官方)(支持变量{version} {ver3} {platform} {channel})', type: 'string' },
-      { key: 'preserve', label: '保留文件/目录(逗号分隔)', type: 'string', arrayJoin: true },
-      { key: 'qq_config', label: 'QQ 配置路径', type: 'string' },
+      
+      { key: 'channel', label: '检查更新通道', type: 'enum', values: ENUMS.channel },
       { key: 'version_mode', label: '版本源', type: 'enum', values: [
         { label: 'Bedrock-OSS', value: 'bedrock-oss' },
         { label: 'Endstone', value: 'endstone' },
@@ -51,6 +41,18 @@ const SCHEMA = {
       { key: 'version_versions_mirror', label: '版本列表镜像 URL', type: 'string' },
       { key: 'version_details', label: '版本详情 URL', type: 'string' },
       { key: 'version_details_mirror', label: '版本详情镜像 URL', type: 'string' },
+      { key: 'download_mirror', label: '下载镜像(留空=官方) (支持变量{version} {ver3} {platform} {channel})', type: 'string' },
+
+      { key: 'download_timeout', label: '下载超时(秒)', type: 'number' },
+      { key: 'preserve', label: '备份保留文件/目录(逗号分隔)', type: 'string', arrayJoin: true },
+      { key: 'backup_dir', label: '备份目录', type: 'string' },
+      { key: 'qq_notify', label: 'QQ 发送更新通知', type: 'boolean' },
+      { key: 'qq_config', label: 'QQ桥接 配置路径', type: 'string' },
+      { key: 'scheduled_restart_announce', label: '重启前预告(秒)', type: 'number' },
+      { key: 'crash_restart_delay', label: '崩溃重启延迟(秒)', type: 'number' },
+      { key: 'scheduled_restart', label: '定时重启时间(留空=关闭)', type: 'string' },
+      { key: 'auto_restart', label: '更新后自动重启', type: 'boolean' },
+      { key: 'crash_restart', label: '崩溃后自动重启', type: 'boolean' },
     ],
   },
 
@@ -58,25 +60,32 @@ const SCHEMA = {
     name: 'QQ 桥接配置',
     desc: 'OneBot 11 连接与消息格式',
     fields: [
+      { key: 'qq_ws_port', label: 'WebSocket 服务端口', type: 'number' },
+      { key: 'qq_http_port', label: 'HTTP 服务端口', type: 'number' },
       { key: 'qq_group_id', label: 'QQ 群号', type: 'number' },
-      { key: 'bridge_channel_id', label: '桥接频道 ID', type: 'string' },
-      { key: 'qq_ws_port', label: 'WebSocket 端口', type: 'number' },
-      { key: 'qq_bridge_port', label: 'HTTP 端口', type: 'number' },
-      { key: 'llbot_http', label: 'LLBot HTTP 地址', type: 'string' },
-      { key: 'llbot_enabled', label: '启用 LLBot 管理', type: 'boolean' },
-      { key: 'llbot_path', label: 'LLBot 路径', type: 'string' },
+
+      { key: 'llbot_enabled', label: '启用 LLBot 接管', type: 'boolean' },
+      { key: 'llbot_path', label: 'LLBot 启动程序路径', type: 'string' },
       { key: 'llbot_cwd', label: 'LLBot 工作目录', type: 'string' },
-      { key: 'mctoqq_prefix', label: 'MC→QQ 消息前缀', type: 'string' },
+      { key: 'llbot_http', label: 'LLBot HTTP服务 地址', type: 'string' },
+      { key: 'llbot_port', label: 'LLBot HTTP服务 端口', type: 'number'},
+
       { key: 'db_host', label: '数据库主机', type: 'string' },
       { key: 'db_port', label: '数据库端口', type: 'number' },
+
+      { key: 'mctoqq_prefix', label: 'MC to QQ 消息前缀', type: 'string' },
+      { key: 'bridge_channel_id', label: '桥接频道 ID（用于MC to QQ）', type: 'string' },
     ],
   },
 
   'db_config.json': {
-    name: 'DB Server 配置',
+    name: 'DB Server（数据库服务器） 配置',
     desc: 'SQLite HTTP 后端服务',
     fields: [
-      { key: 'db_port', label: 'HTTP 端口', type: 'number' }
+      { key: 'http_port', label: 'HTTP服务端口', type: 'number' },
+      { key: 'http_auth', label: 'HTTP服务鉴权（留空则不启用）', type: 'number' },
+      { key: 'dbDir', label: '数据库文件储存地址', type: 'string' },
+      { key: 'modulesDir', label: '模块储存目录', type: 'string' },
     ],
   },
 
@@ -104,12 +113,12 @@ const SCHEMA = {
 
   'areas.json': {
     name: '功能区域',
-    desc: '飞行/创造/和平等功能的2D范围',
+    desc: '飞行/创造/和平等区域功能的2D范围',
     type: 'array',
     itemLabel: (item) => `${item.module}: ${item.name || item.module}`,
     newItem: { module: 'fly', name: '', dimension: 'minecraft:overworld', start_x: 0, start_z: 0, end_x: 0, end_z: 0 },
     itemFields: [
-      { key: 'module', label: '模块类型', type: 'enum', values: ENUMS.moduleType },
+      { key: 'module', label: '区域类型', type: 'enum', values: ENUMS.moduleType },
       { key: 'name', label: '区域名称', type: 'string' },
       { key: 'dimension', label: '维度', type: 'enum', values: ENUMS.dimension },
       { key: 'start_x', label: '起点 X', type: 'number' },
@@ -121,7 +130,7 @@ const SCHEMA = {
 
   'permissions.json': {
     name: '玩家权限',
-    desc: 'OP 与管理员列表',
+    desc: '管理员列表',
     type: 'array',
     itemLabel: (item) => `${item.player_name} (等级${item.level})`,
     newItem: { player_name: '', level: 1 },
@@ -137,7 +146,7 @@ const SCHEMA = {
   },
 
   'banned_items.json': {
-    name: '禁用物品',
+    name: '创造区域禁用物品',
     desc: '用于在“创造区域”下禁止玩家使用的方块/物品',
     type: 'array',
     itemType: 'string',
@@ -149,8 +158,8 @@ const SCHEMA = {
   },
 
   'peace_filters.json': {
-    name: '和平保留生物',
-    desc: '和平模式下例外的生物族群',
+    name: '和平区域保留生物',
+    desc: '和平区域下例外的生物族群',
     type: 'array',
     itemLabel: (item) => `${item.family} (排除: ${item.exclude_family || '无'})`,
     newItem: { family: '', exclude_family: '' },

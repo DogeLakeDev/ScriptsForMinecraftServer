@@ -16,26 +16,26 @@ const { readJsonFile, writeJsonFile } = require('./lib/json');
 const { createModuleRoutes } = require('./routes/modules');
 const { createConfigRoutes } = require('./routes/config');
 
-// 加载外部配置 JSON（覆盖 process.env）
 const PROJECT_ROOT = process.env.SFMC_ROOT || path.join(__dirname, '..');
+const dbcfgPath = path.join(PROJECT_ROOT, 'configs', 'db_config.json');
+const qqcfgPath = path.join(PROJECT_ROOT, 'configs', 'qq_config.json');
+const dbconfig = {};
+const qqconfig = {};
 try {
-  const cfgPath = path.join(PROJECT_ROOT, 'configs', 'db_config.json');
-  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-  for (const [k, v] of Object.entries(cfg)) {
-    const envKey = k.replace(/([A-Z])/g, '_$1').toUpperCase();
-    process.env[envKey] = String(v);
-    console.info(`[DogeDB] 配置 ${k} -> process.env.${envKey} = ${v}`);
-  }
-} catch (e) {
-  console.warn('[DogeDB] 未找到 configs/db_config.json，使用默认值');
+  dbconfig = require(dbcfgPath);
+  qqconfig = require(qqcfgPath);
+} catch (err) {
+  console.error('[DogeDB] 加载配置文件失败:', err.message);
+  process.exit(1);
 }
 
-const PORT = parseInt(process.env.DB_PORT || '3001', 10);
-const DB_PATH = process.env.SFMC_DB_PATH || path.join(__dirname, 'sfmc_data.db');
+const PORT = parseInt(dbconfig.http_port || '3001', 10);
+const HOST = '127.0.0.1';
+const DB_PATH = path.resolve(__dirname, dbconfig.dataDir) || path.join(__dirname, './data/sfmc_data.db');
 const QQ_BRIDGE_HOST = '127.0.0.1';
-const QQ_BRIDGE_PORT = parseInt(process.env.QQ_BRIDGE_PORT || '3003', 10);
-const AUTH_TOKEN = process.env.DB_AUTH_TOKEN || '';
-const MODULES_DIR = process.env.SFMC_MODULES_DIR || path.join(PROJECT_ROOT, 'modules');
+const QQ_BRIDGE_PORT = parseInt(qqconfig.qq_http_port || '3003', 10);
+const AUTH_TOKEN = dbconfig.http_auth || '';
+const MODULES_DIR = path.resolve(__dirname, dbconfig.modulesDir) || path.join(PROJECT_ROOT, 'modules');
 const MODULE_CATALOG_PATH = path.join(MODULES_DIR, 'catalog.json');
 const MODULE_LOCK_PATH = path.join(MODULES_DIR, 'module-lock.json');
 
@@ -189,6 +189,11 @@ const STATE_PATH = path.join(PROJECT_ROOT, 'panel-state.json');
 const CFG_DIR = path.join(PROJECT_ROOT, 'configs');
 const BACKUP_DIR = path.join(CFG_DIR, '.backup');
 
+/**
+ *
+ *
+ * @return {*} 
+ */
 function loadPanelState() {
   try {
     return JSON.parse(fs.readFileSync(STATE_PATH, 'utf-8'));
@@ -198,12 +203,18 @@ function loadPanelState() {
       _initialized: false,
       ui: { defaultModules: ['money', 'chat', 'afk', 'land', 'tps'], defaultServices: ['db', 'qq'], skipGuidedSetup: false },
       tokens: { dbAuthToken: '', bridgeAuthToken: '' },
-      paths: { bdsPath: 'D:\\Minecraft\\BEServer', llbotPath: 'D:\\LLBot-CLI-win-x64\\llbot.exe', llbotCwd: 'D:\\LLBot-CLI-win-x64', dbPort: 3001 },
+      paths: { bdsPath: 'D:\\BEServer', llbotPath: 'D:\\LLBot-CLI-win-x64\\llbot.exe', llbotCwd: 'D:\\LLBot-CLI-win-x64', dbPort: 3001 },
       locale: 'zh-CN',
     };
   }
 }
 
+/**
+ *
+ *
+ * @param {*} filePath
+ * @param {*} value
+ */
 function saveJsonAtomic(filePath, value) {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
@@ -212,6 +223,12 @@ function saveJsonAtomic(filePath, value) {
   fs.renameSync(tmp, filePath);
 }
 
+/**
+ *
+ *
+ * @param {*} filePath
+ * @return {*} 
+ */
 function backupConfigFile(filePath) {
   if (!fs.existsSync(filePath)) return null;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -406,13 +423,8 @@ async function initDB() {
   db = openDatabase(DB_PATH);
   query = createQuery(db);
 
-  const fkList = db.prepare("PRAGMA foreign_key_list('sfmc_chat_messages')").all();
-  if (fkList.length > 0) {
-    db.exec('DROP TABLE IF EXISTS sfmc_chat_messages');
-    console.log('[DogeDB] 已迁移 sfmc_chat_messages（移除无效 FK）');
-  }
-
   db.exec(`
+    -- 世界数据
     CREATE TABLE IF NOT EXISTS sfmc_world (
       allow_cheats INTEGER NOT NULL DEFAULT 0,
       game_rules TEXT NOT NULL DEFAULT '',
@@ -429,23 +441,7 @@ async function initDB() {
       updated_at TEXT NOT NULL DEFAULT ''
     );
 
-    CREATE TABLE IF NOT EXISTS sfmc_chat_channels (
-      id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      prefix TEXT NOT NULL,
-      owner_id TEXT DEFAULT '',
-      created_at INTEGER NOT NULL,
-      config_allow_chat INTEGER NOT NULL DEFAULT 1,
-      config_slow_mode INTEGER NOT NULL DEFAULT 0,
-      config_is_broadcast INTEGER NOT NULL DEFAULT 0,
-      updated_at INTEGER NOT NULL,
-      PRIMARY KEY (id, name)
-    );
-    
-    CREATE INDEX IF NOT EXISTS idx_channels_id ON sfmc_chat_channels(id);
-    CREATE INDEX IF NOT EXISTS idx_channels_name ON sfmc_chat_channels(name, created_at ASC);
-
+    -- 玩家数据
     CREATE TABLE IF NOT EXISTS sfmc_players (
         id TEXT NOT NULL,
         name TEXT NOT NULL,
@@ -457,12 +453,10 @@ async function initDB() {
         graphicsMode TEXT DEFAULT '',
         dynamicPropertyTotalByteCount INTEGER DEFAULT 0,
         ping INTEGER DEFAULT 0,
-
         spawnPoint TEXT DEFAULT '',
         tags TEXT DEFAULT '',
         level INTEGER DEFAULT 0,
         totalXp INTEGER DEFAULT 0,
-
         afk_step INTEGER DEFAULT 0,
         afk_last_location TEXT DEFAULT '',
         onlinetime_session INTEGER DEFAULT 0,
@@ -473,42 +467,13 @@ async function initDB() {
         onlinetime_last_month INTEGER DEFAULT 0,
         active_channel TEXT NOT NULL DEFAULT '',
         subscribed_channels TEXT DEFAULT '',
-        
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (id, name)
       );
       CREATE INDEX IF NOT EXISTS idx_players_id ON sfmc_players(id);
       CREATE INDEX IF NOT EXISTS idx_players_name ON sfmc_players(name);
 
-    CREATE TABLE IF NOT EXISTS sfmc_chat_messages (
-      id TEXT PRIMARY KEY,
-      channel_id TEXT NOT NULL,
-      from_id TEXT NOT NULL,
-      from_name TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT 'text',
-      content TEXT NOT NULL,
-      attachment TEXT,
-      show_timestamp INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_messages_channel ON sfmc_chat_messages(channel_id, created_at ASC);
-
-      CREATE TABLE IF NOT EXISTS sfmc_chat_redpackets (
-        id TEXT PRIMARY KEY,
-        sender_id TEXT NOT NULL,
-        sender_name TEXT NOT NULL,
-        total_amount REAL NOT NULL,
-        remaining_amount REAL NOT NULL,
-        total_count INTEGER NOT NULL,
-        remaining_count INTEGER NOT NULL,
-        receivers TEXT NOT NULL DEFAULT '[]',
-        target_type TEXT NOT NULL,
-        target_id TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_redpackets_id ON sfmc_chat_redpackets(id);
-
+      -- 计分板数据
       CREATE TABLE IF NOT EXISTS sfmc_scoreboards (
         objective_id      TEXT NOT NULL,
         objective_display TEXT NOT NULL DEFAULT '',
@@ -516,7 +481,10 @@ async function initDB() {
         updated_at        INTEGER NOT NULL,
         PRIMARY KEY (objective_id)
       );
+    `);
 
+    db.exec(`
+      -- 行为日志
       CREATE TABLE IF NOT EXISTS sfmc_activities (
         id              TEXT PRIMARY KEY,
         timestamp       INTEGER NOT NULL,
@@ -540,13 +508,58 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_sfmc_act_source ON sfmc_activities(source_id, timestamp);
       CREATE INDEX IF NOT EXISTS idx_sfmc_act_event ON sfmc_activities(event_type, timestamp);
       CREATE INDEX IF NOT EXISTS idx_sfmc_act_target ON sfmc_activities(target_id, timestamp);
+      `);
 
-      DROP TABLE IF EXISTS sfmc_coop_data;
-    `);
-  const coopColumns = db.prepare("PRAGMA table_info('sfmc_coops')").all().map((column) => column.name);
-  if (coopColumns.length > 0 && !coopColumns.includes('owner_player_id')) {
-    db.exec('DROP TABLE IF EXISTS sfmc_coop_audit_logs; DROP TABLE IF EXISTS sfmc_coop_bank_log; DROP TABLE IF EXISTS sfmc_coop_shop_items; DROP TABLE IF EXISTS sfmc_coop_shop_groups; DROP TABLE IF EXISTS sfmc_coop_accounts; DROP TABLE IF EXISTS sfmc_coop_members; DROP TABLE IF EXISTS sfmc_coops;');
-  }
+    db.exec(`
+    -- 聊天频道
+    CREATE TABLE IF NOT EXISTS sfmc_chat_channels (
+      id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      prefix TEXT NOT NULL,
+      owner_id TEXT DEFAULT '',
+      created_at INTEGER NOT NULL,
+      config_allow_chat INTEGER NOT NULL DEFAULT 1,
+      config_slow_mode INTEGER NOT NULL DEFAULT 0,
+      config_is_broadcast INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (id, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_channels_id ON sfmc_chat_channels(id);
+    CREATE INDEX IF NOT EXISTS idx_channels_name ON sfmc_chat_channels(name, created_at ASC);
+
+    -- 聊天信息数据
+    CREATE TABLE IF NOT EXISTS sfmc_chat_messages (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      from_id TEXT NOT NULL,
+      from_name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'text',
+      content TEXT NOT NULL,
+      attachment TEXT,
+      show_timestamp INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_messages_channel ON sfmc_chat_messages(channel_id, created_at ASC);
+
+      -- 聊天红包
+      CREATE TABLE IF NOT EXISTS sfmc_chat_redpackets (
+        id TEXT PRIMARY KEY,
+        sender_id TEXT NOT NULL,
+        sender_name TEXT NOT NULL,
+        total_amount REAL NOT NULL,
+        remaining_amount REAL NOT NULL,
+        total_count INTEGER NOT NULL,
+        remaining_count INTEGER NOT NULL,
+        receivers TEXT NOT NULL DEFAULT '[]',
+        target_type TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_redpackets_id ON sfmc_chat_redpackets(id);
+      `);
+
   // 配置表
   db.exec(`
     CREATE TABLE IF NOT EXISTS sfmc_config_settings (
@@ -885,7 +898,7 @@ function forwardToQQBridge(channelId, fromName, content, fromId) {
   const payload = JSON.stringify({ channelId, fromName, content, fromId });
   const options = {
     hostname: QQ_BRIDGE_HOST,
-    port: QQ_BRIDGE_PORT,
+    post: QQ_BRIDGE_PORT,
     path: '/forward',
     method: 'POST',
     headers: {
@@ -2280,9 +2293,9 @@ async function start() {
     return handle(req, res);
   });
 
-  server.listen(PORT, '127.0.0.1', () => {
+  server.listen(PORT, HOST, () => {
     console.log(`[DogeDB] HTTP 服务已启动，端口 ${PORT} (loopback only)`);
-    console.log(`[DogeDB] API 健康检查: http://127.0.0.1:${PORT}/api/health`);
+    console.log(`[DogeDB] API 健康检查: http://${HOST}:${PORT}/api/health`);
     console.log(`[DogeDB] 鉴权: ${AUTH_TOKEN ? '已启用 token' : '未启用'}`);
     console.log(`[DogeDB] 控制台输入 reload 重新导入 /configs/ JSON 配置`);
   });
@@ -2302,7 +2315,6 @@ async function start() {
       console.log(`[DogeDB] 状态: 运行中`);
       console.log(`  HTTP 端口: ${PORT}`);
       console.log(`  数据库: ${DB_PATH}`);
-      console.log(`  QQ Bridge: ${QQ_BRIDGE_HOST}:${QQ_BRIDGE_PORT}`);
       if (_monitorMetrics) {
         console.log(`  TPS: ${_monitorMetrics.tps ?? '-'}`);
         console.log(`  实体数: ${_monitorMetrics.entityCount ?? '-'}`);

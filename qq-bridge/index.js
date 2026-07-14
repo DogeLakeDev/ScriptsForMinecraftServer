@@ -24,15 +24,16 @@ try {
 }
 
 const ENABLED = true;
-const QQ_GROUP_ID = String(cfg.qq_group_id || '');
 const WS_PORT = parseInt(cfg.qq_ws_port || '3002', 10);
 const HTTP_PORT = parseInt(cfg.qq_bridge_port || '3003', 10);
-const LLBOT_HTTP = cfg.llbot_http || 'http://127.0.0.1:3000';
+const QQ_GROUP_ID = String(cfg.qq_group_id || '');
+const LLBOT_HTTP = cfg.llbot_http || '127.0.0.1';
+const LLBOT_PORT = cfg.llbot_port || 3004;
 const DB_HOST = cfg.db_host || '127.0.0.1';
 const DB_PORT = parseInt(cfg.db_port || '3001', 10);
 const MCTOQQ_PREFIX = cfg.mctoqq_prefix || '[MC]';
+const CHANNEL_ID = cfg.bridge_channel_id || '';
 
-const llbotUrl = new URL(LLBOT_HTTP);
 const llbotToken = cfg.llbot_token || '';
 
 function log(msg) {
@@ -46,8 +47,8 @@ function sendToLLBot(payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
     const options = {
-      hostname: llbotUrl.hostname,
-      port: llbotUrl.port || 3000,
+      hostname: LLBOT_HTTP,
+      port: LLBOT_PORT || 3000,
       path: '/send_group_msg',
       method: 'POST',
       headers: {
@@ -257,8 +258,12 @@ function startHttpServer() {
           json({ success: true, skipped: true });
           return;
         }
+        if (data.channelId !== CHANNEL_ID || !CHANNEL_ID) {
+          json({ success: true, skipped: true });
+        }
         await sendGroupMessage(`${MCTOQQ_PREFIX} ${data.fromName}: ${data.content}`);
         json({ success: true });
+        log(`[QQBridge] MC → QQ: ${data.fromName}: ${data.content.slice(0, 60)}`);
       } catch (err) {
         log(`[QQBridge] forward 失败: ${err.message}`);
         json({ success: false, error: err.message }, 500);

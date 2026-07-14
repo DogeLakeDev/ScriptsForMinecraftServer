@@ -1,4 +1,4 @@
 [
   { "name": "recycle_bin", "start_x": -89, "start_y": -59, "start_z": -72, "size_h": 5, "size_v": 5, "direction": -1, "face": -1 },
-  { "name": "inventory_chest", "start_x": 14, "start_y": -63, "start_z": -14, "size_h": 5, "size_v": 5, "direction": -1, "face": -1 },
+  { "name": "inventory_chest", "start_x": 14, "start_y": -63, "start_z": -14, "size_h": 5, "size_v": 5, "direction": -1, "face": -1 }
 ]
