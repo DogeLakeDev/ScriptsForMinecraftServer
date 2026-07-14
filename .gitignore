@@ -37,6 +37,18 @@ tools/.sim-workspace.bak/
 # Proactive-agent credentials (security-audit.sh)
 .credentials/
 
-AGENTS.md
+# AGENTS.md was previously committed; keep it tracked
+AGENTS.addon.md
+HEARTBEAT.md
+MEMORY.md
+ONBOARDING.md
+SESSION-STATE.md
+SOUL.md
+TOOLS.md
+USER.md
+land_plan_v1.md
+memory/
+panel-state.json
+data/
 .AddCompLib/*
 *.zip

@@ -26,7 +26,7 @@
 - SAPI API 封装：scriptsforminecraftserver/scripts/api/LandApi.ts
 - db-server SQLite 领域接口：db-server/index.js
 - GUI 导航和异步任务封装：scripts/libs/MenuNavigator.ts
-- GUI 重构约束：docs/done/landgui-reactor.md
+- GUI 重构约束：见 `docs/land-audit-and-plan.md` Iteration 1 步骤 1
 一、删除土地修复
 1. 当前调用链
 删除入口位于：

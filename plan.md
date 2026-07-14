@@ -1,5 +1,5 @@
 > 总体状态：领地基础修复已完成；经济系统和合作社系统仍需按阶段重构。  
-> 详细方案：[docs/coop-reform-plan.md](docs/coop-reform-plan.md)、[docs/economic-reform-plan.md](docs/economic-reform-plan.md)、[landgui-reactor.md](landgui-reactor.md)
+> 详细方案：[docs/coop-reform-plan.md](docs/coop-reform-plan.md)、[docs/economic-reform-plan.md](docs/economic-reform-plan.md)、[docs/land-audit-and-plan.md](docs/land-audit-and-plan.md)
 
 # 修复清单
 
@@ -28,22 +28,39 @@
 
 ### 待完成
 
-#### 问题
+详细方案：[docs/land-audit-and-plan.md](docs/land-audit-and-plan.md)
 
-- [ ] 领地无法删除，点击删除后没有效果
-- [ ] 点击转让土地后 没有在线玩家时应弹出对话框 而不是发送MSG（玩家无法及时看到）
+#### P0
+
+- [ ] GUI 删除失效（plan.md 历史项，仍未解）
+- [ ] GUI 转让离线目标 MSG 不可见（同上）
+- [ ] `LandDatabase.ts` 死字段 `memoryStore/writeJSON/readJSON` 清理
+- [ ] `createLandTransaction` 双 `validateLandInput` 合并
+- [ ] `LandCore.calculatePrice` 改远端报价
+- [ ] `LandApi` typed result（删/转/接受邀请等）
+
+#### P1
+
+- [ ] 角色枚举 / 权限矩阵单源化
+- [ ] `playerInteractWithBlock` 重复订阅合并
+- [ ] 爆炸防护批量查询优化
+- [ ] `_config` 改为定期从服务端刷新
+- [ ] 移除 `land.managers` 冗余字段
+
+#### P2 远见（挑 1-2 落地）
+
+- [ ] **A.** 领地名片（一键邀请 + 离线信箱）
+- [ ] **B.** 领地粒子护盾（彩色边界 + 标题栏）
+- [ ] **C.** 土地二级市场（listings 表 + 撮合）
+- [ ] **D.** 公共广场 + 新人引导
 
 #### 验收
 
 - [ ] Bedrock 手动验证启动期间保护是否 fail-closed。
 - [ ] Bedrock 手动验证实体攻击、拾取、投射物、TNT、火焰、流体和自动化装置。
 - [ ] Bedrock 手动验证模块 disable/re-enable 不重复监听。
-- [ ] 为土地 API 增加完整 typed error/result。
-- [ ] 为土地写操作增加幂等键和版本冲突处理。
-
-#### 拓展
-
-- [ ] 尝试为领地增加更多独具特色的功能
+- [ ] 为土地 API 增加完整 typed error/result。（→ 步骤 5）
+- [ ] 为土地写操作增加幂等键和版本冲突处理。（→ server 已带幂等，client typed 后 6）
 
 ## 二、经济系统
 

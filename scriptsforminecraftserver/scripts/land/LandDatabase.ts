@@ -1,4 +1,20 @@
-// ===== 类型定义 =====
+/* ---------------------------------------- *\
+ *  LandDatabase.ts — 领地 client-side cache
+ *
+ *  本模块是 server 的 client-side 影子：
+ *    - registry 仅在内存（重启即丢，预期行为，server 是权威）
+ *    - 启动时通过 loadFromServer() 拉一次全量
+ *    - 通过 refresh() 定期刷新
+ *    - owner / chunk 索引仅用于本地查询，不写入 world.dynamicProperty
+ *
+ *  历史遗留：早期版本在内存里跑过持久化（memoryStore / writeJSON），
+ *  那套逻辑是死代码，本版本完全移除。所有权威数据走 db-server SQLite。
+\* ---------------------------------------- */
+
+import { debug } from "../libs/DebugLog";
+import { defaultConfig, defaultPermissions, generateLandId } from "./defaults";
+
+// ---------- 类型定义（保持与旧版兼容，仍在本文件） ----------
 
 export interface LandPos {
   x: number;
@@ -62,6 +78,13 @@ export const ROLE_PERMISSIONS: Record<LandRole, string[]> = {
   entity: ["attack_entity", "interact_entity"],
 };
 
+export interface LandMember {
+  player_id: string;
+  player_name_snapshot?: string;
+  role: LandRole;
+  expires_at?: number | null;
+}
+
 export interface LandData {
   /** 土地唯一 ID（自动生成） */
   id: string;
@@ -71,7 +94,7 @@ export interface LandData {
   ownerName: string;
   /** 管理者 id 列表（拥有者自动在内，存于此方便查） */
   managers: string[];
-  members?: Array<{ player_id: string; player_name_snapshot?: string; role: LandRole; expires_at?: number | null }>;
+  members?: LandMember[];
   /** 维度 ID（0=主世界 1=地狱 2=末地） */
   dimid: number;
   /** 起点坐标 */
@@ -103,167 +126,164 @@ export interface LandConfig {
   refundRate: number;
 }
 
-/** 默认配置 */
-const DEFAULT_CONFIG: LandConfig = {
-  priceFormula: "{square}*8+{height}*20",
-  maxLandsPerPlayer: 5,
-  minSquare: 4,
-  maxSquare: 50000,
-  discount: 1,
-  refundRate: 0.7,
-};
+// ---------- chunks / 多边形索引 ----------
 
-/** 默认访客权限（全部关闭） */
-const DEFAULT_PERMISSIONS: LandPermissions = {
-  allow_place: false,
-  allow_destroy: false,
-  attack_entity: false,
-  open_container: false,
-};
+const CHUNK_SIZE = 16;
 
-// ===== 数据库类 =====
-import { debug } from "../libs/DebugLog";
+function chunkKey(dimid: number, x: number, z: number): string {
+  return `${dimid}:${Math.floor(x / CHUNK_SIZE)}:${Math.floor(z / CHUNK_SIZE)}`;
+}
+
+function landChunkSpan(land: LandData): Array<{ dimid: number; cx: number; cz: number }> {
+  const minX = Math.floor(Math.min(land.posA.x, land.posB.x) / CHUNK_SIZE);
+  const maxX = Math.floor(Math.max(land.posA.x, land.posB.x) / CHUNK_SIZE);
+  const minZ = Math.floor(Math.min(land.posA.z, land.posB.z) / CHUNK_SIZE);
+  const maxZ = Math.floor(Math.max(land.posA.z, land.posB.z) / CHUNK_SIZE);
+  const out: Array<{ dimid: number; cx: number; cz: number }> = [];
+  for (let cx = minX; cx <= maxX; cx++) {
+    for (let cz = minZ; cz <= maxZ; cz++) {
+      out.push({ dimid: land.dimid, cx, cz });
+    }
+  }
+  return out;
+}
+
+function isPosInBoundingBox(land: LandData, pos: LandPos): boolean {
+  const minX = Math.min(land.posA.x, land.posB.x);
+  const maxX = Math.max(land.posA.x, land.posB.x);
+  const minY = Math.min(land.posA.y, land.posB.y);
+  const maxY = Math.max(land.posA.y, land.posB.y);
+  const minZ = Math.min(land.posA.z, land.posB.z);
+  const maxZ = Math.max(land.posA.z, land.posB.z);
+  return (
+    pos.x >= minX &&
+    pos.x <= maxX &&
+    pos.y >= minY &&
+    pos.y <= maxY &&
+    pos.z >= minZ &&
+    pos.z <= maxZ
+  );
+}
+
+// ---------- 配置 ----------
+
+const CONFIG_REFRESH_MS = 5 * 60 * 1000;
+let _configLastFetchedAt = 0;
+let _configInFlight: Promise<void> | null = null;
+
+async function fetchServerConfig(): Promise<LandConfig | null> {
+  try {
+    const { HttpDB } = await import("../libs/HttpDB");
+    // 服务端权威配置走 /api/sfmc/settings/land:config —— 通用 settings 接口
+    // （避免新增专用 endpoint，settings 已是 admin 写入通道）
+    const body = await HttpDB.get("/api/sfmc/settings/land:config");
+    if (!body) return null;
+    const parsed = JSON.parse(body);
+    if (!parsed || !parsed.value) return null;
+    try {
+      return JSON.parse(parsed.value) as LandConfig;
+    } catch {
+      return null;
+    }
+  } catch (error) {
+    debug.w("LANDDB", `fetchServerConfig failed: ${(error as Error).message}`);
+    return null;
+  }
+}
+
+// ---------- Database 类 ----------
 
 export class Database {
-  private static KEY_CONFIG = "land:config";
-  private static KEY_REGISTRY = "land:registry";
-
   /** 运行时缓存 */
+  private static _registry: Map<string, LandData> | null = null;
+  private static _ownerIndex: Map<string, string[]> | null = null;
+  private static _chunkIndex: Map<string, Set<string>> = new Map();
   private static _config: LandConfig | null = null;
-  private static _registry: Map<string, LandData> | null = null; // landId → LandData
-  private static _ownerIndex: Map<string, string[]> | null = null; // plid → landId[]
   private static _loading: Promise<void> | null = null;
   private static _hasAuthoritativeSnapshot = false;
-  private static _chunkIndex = new Map<string, Set<string>>();
 
-  // ── 内部工具 ──
+  // ── 重建索引 ──
 
-  private static memoryStore = new Map<string, any>();
-
-  private static readJSON<T>(key: string, fallback: T): T {
-    if (this.memoryStore.has(key)) return this.memoryStore.get(key) as T;
-    this.memoryStore.set(key, fallback);
-    return fallback;
-  }
-
-  private static writeJSON(key: string, value: any) {
-    this.memoryStore.set(key, value);
-  }
-
-  /** 重建 owner 索引 */
-  private static rebuildOwnerIndex() {
-    this._ownerIndex = new Map();
-    if (!this._registry) return;
-    for (const [, land] of this._registry) {
-      const list = this._ownerIndex.get(land.ownerplid) || [];
-      list.push(land.id);
-      this._ownerIndex.set(land.ownerplid, list);
+  private static rebuildOwnerIndex(): void {
+    const idx = new Map<string, string[]>();
+    if (this._registry) {
+      for (const land of this._registry.values()) {
+        const list = idx.get(land.ownerplid) || [];
+        list.push(land.id);
+        idx.set(land.ownerplid, list);
+      }
     }
-    this.rebuildChunkIndex();
+    this._ownerIndex = idx;
   }
 
-  private static chunkKey(dimid: number, x: number, z: number): string {
-    return `${dimid}:${Math.floor(x / 16)}:${Math.floor(z / 16)}`;
-  }
-
-  private static rebuildChunkIndex() {
+  private static rebuildChunkIndex(): void {
     this._chunkIndex.clear();
     if (!this._registry) return;
     for (const land of this._registry.values()) {
-      const minX = Math.floor(Math.min(land.posA.x, land.posB.x) / 16);
-      const maxX = Math.floor(Math.max(land.posA.x, land.posB.x) / 16);
-      const minZ = Math.floor(Math.min(land.posA.z, land.posB.z) / 16);
-      const maxZ = Math.floor(Math.max(land.posA.z, land.posB.z) / 16);
-      for (let x = minX; x <= maxX; x++)
-        for (let z = minZ; z <= maxZ; z++) {
-          const key = `${land.dimid}:${x}:${z}`;
-          if (!this._chunkIndex.has(key)) this._chunkIndex.set(key, new Set());
-          this._chunkIndex.get(key)!.add(land.id);
-        }
+      for (const { dimid, cx, cz } of landChunkSpan(land)) {
+        const key = chunkKey(dimid, cx * CHUNK_SIZE, cz * CHUNK_SIZE);
+        if (!this._chunkIndex.has(key)) this._chunkIndex.set(key, new Set());
+        this._chunkIndex.get(key)!.add(land.id);
+      }
     }
+  }
+
+  private static rebuildAll(): void {
+    this.rebuildOwnerIndex();
+    this.rebuildChunkIndex();
   }
 
   // ── 配置 ──
 
   static getConfig(): LandConfig {
     if (this._config) return this._config;
-    this._config = this.readJSON<LandConfig>(this.KEY_CONFIG, { ...DEFAULT_CONFIG });
+    this._config = defaultConfig();
     return this._config;
   }
 
-  static saveConfig(cfg: LandConfig) {
+  static replaceConfig(cfg: LandConfig): void {
     this._config = cfg;
-    this.writeJSON(this.KEY_CONFIG, cfg);
   }
 
-  // ── 土地数据 ──
-
-  /** 确保 registry 已加载 */
-  private static ensureLoaded() {
-    if (this._registry) return;
-    const raw = this.readJSON<Record<string, LandData>>(this.KEY_REGISTRY, {});
-    this._registry = new Map(Object.entries(raw));
-    this.rebuildOwnerIndex();
-  }
-
-  /** 将 registry 序列化写入数据库中 */
-  private static flush() {
-    if (!this._registry) return;
-    const obj: Record<string, LandData> = {};
-    for (const [id, data] of this._registry) {
-      obj[id] = data;
-    }
-    this.writeJSON(this.KEY_REGISTRY, obj);
-  }
-
-  /** 获取所有土地 */
-  static getAll(): LandData[] {
-    this.ensureLoaded();
-    const all = Array.from(this._registry!.values());
-    debug.i("LANDDB", `getAll: ${all.length} lands`);
-    return all;
-  }
-
-  static getAt(pos: LandPos, dimid: number): LandData | undefined {
-    this.ensureLoaded();
-    const candidates = this._chunkIndex.get(this.chunkKey(dimid, pos.x, pos.z));
-    if (!candidates) return undefined;
-    for (const id of candidates) {
-      const land = this._registry!.get(id);
-      if (!land) continue;
-      const minX = Math.min(land.posA.x, land.posB.x),
-        maxX = Math.max(land.posA.x, land.posB.x);
-      const minY = Math.min(land.posA.y, land.posB.y),
-        maxY = Math.max(land.posA.y, land.posB.y);
-      const minZ = Math.min(land.posA.z, land.posB.z),
-        maxZ = Math.max(land.posA.z, land.posB.z);
-      if (pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY && pos.z >= minZ && pos.z <= maxZ) {
-        debug.i("LANDDB", `getAt: found land ${land.id} at (${pos.x},${pos.y},${pos.z}) dimid=${dimid}`);
-        return land;
+  /**
+   * 5 min 内最多拉一次 server config；失败保留上次缓存/默认。
+   * 仅在 Database.refresh() 调用时被动触发，避免无谓请求。
+   */
+  static async ensureConfigFresh(): Promise<void> {
+    if (Date.now() - _configLastFetchedAt < CONFIG_REFRESH_MS) return;
+    if (_configInFlight) return _configInFlight;
+    _configInFlight = (async () => {
+      const serverCfg = await fetchServerConfig();
+      if (serverCfg) {
+        Database.replaceConfig(serverCfg);
+        _configLastFetchedAt = Date.now();
       }
-    }
-    return undefined;
+    })().finally(() => {
+      _configInFlight = null;
+    });
+    return _configInFlight;
   }
+
+  // ── 加载 ──
 
   static async loadFromServer(): Promise<void> {
     debug.i("LANDDB", "loadFromServer: loading lands from server");
     if (this._loading) return this._loading;
-    this._loading = import("../api/LandApi")
-      .then(async ({ getAllLands }) => {
-        const lands = await getAllLands();
-        if (lands === null) {
-          debug.w("LANDDB", "loadFromServer: getAllLands returned null, keeping local cache");
-          if (!this._registry) this._registry = new Map();
-          return;
-        }
-        this._hasAuthoritativeSnapshot = true;
-        this._registry = new Map(lands.map((land) => [land.id, land]));
-        this.rebuildOwnerIndex();
-        debug.i("LANDDB", `loadFromServer: loaded ${lands.length} lands`);
-      })
-      .finally(() => {
-        this._loading = null;
-      });
+    this._loading = (async () => {
+      const { getAllLands } = await import("../api/LandApi");
+      const lands = await getAllLands();
+      if (lands === null) {
+        debug.w("LANDDB", "loadFromServer: getAllLands returned null, keeping local cache");
+        if (!this._registry) this._registry = new Map();
+        return;
+      }
+      this._hasAuthoritativeSnapshot = true;
+      this._registry = new Map(lands.map((land) => [land.id, land]));
+      this.rebuildAll();
+      debug.i("LANDDB", `loadFromServer: loaded ${lands.length} lands`);
+    })().finally(() => {
+      this._loading = null;
+    });
     return this._loading;
   }
 
@@ -273,10 +293,33 @@ export class Database {
 
   static async refresh(): Promise<void> {
     debug.i("LANDDB", "refresh: refreshing land cache");
-    await this.loadFromServer();
+    await Promise.all([this.loadFromServer(), this.ensureConfigFresh()]);
   }
 
-  /** 根据 ID 获取土地 */
+  // ── 查询 ──
+
+  static getAll(): LandData[] {
+    this.ensureLoaded();
+    const all = Array.from(this._registry!.values());
+    debug.i("LANDDB", `getAll: ${all.length} lands`);
+    return all;
+  }
+
+  static getAt(pos: LandPos, dimid: number): LandData | undefined {
+    this.ensureLoaded();
+    const candidates = this._chunkIndex.get(chunkKey(dimid, pos.x, pos.z));
+    if (!candidates) return undefined;
+    for (const id of candidates) {
+      const land = this._registry!.get(id);
+      if (!land) continue;
+      if (isPosInBoundingBox(land, pos)) {
+        debug.i("LANDDB", `getAt: found land ${land.id} at (${pos.x},${pos.y},${pos.z}) dimid=${dimid}`);
+        return land;
+      }
+    }
+    return undefined;
+  }
+
   static getById(landId: string): LandData | undefined {
     this.ensureLoaded();
     const land = this._registry!.get(landId);
@@ -284,7 +327,6 @@ export class Database {
     return land;
   }
 
-  /** 获取玩家所有土地 ID */
   static getByOwner(plid: string): string[] {
     this.ensureLoaded();
     const list = this._ownerIndex!.get(plid) || [];
@@ -292,22 +334,24 @@ export class Database {
     return list;
   }
 
-  /** 生成唯一土地 ID */
-  static generateId(): string {
-    return "L" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+  static getPlayerLandCount(plid: string): number {
+    return this.getByOwner(plid).length;
   }
 
-  /** 添加土地 */
-  static add(land: LandData) {
+  // ── 写入（先走 server，再更新本地） ──
+
+  static async add(land: LandData): Promise<void> {
     debug.i("LANDDB", `add: landId=${land.id} owner=${land.ownerplid} dimid=${land.dimid}`);
     this.ensureLoaded();
     this._registry!.set(land.id, land);
-    // 更新 owner 索引
-    const list = this._ownerIndex!.get(land.ownerplid) || [];
-    list.push(land.id);
-    this._ownerIndex!.set(land.ownerplid, list);
-    this.rebuildChunkIndex();
-    this.flush();
+    const owners = this._ownerIndex!.get(land.ownerplid) || [];
+    if (!owners.includes(land.id)) owners.push(land.id);
+    this._ownerIndex!.set(land.ownerplid, owners);
+    for (const { dimid, cx, cz } of landChunkSpan(land)) {
+      const key = chunkKey(dimid, cx * CHUNK_SIZE, cz * CHUNK_SIZE);
+      if (!this._chunkIndex.has(key)) this._chunkIndex.set(key, new Set());
+      this._chunkIndex.get(key)!.add(land.id);
+    }
   }
 
   static upsert(land: LandData): void {
@@ -319,10 +363,9 @@ export class Database {
       return;
     }
     this._registry!.set(land.id, land);
-    this.rebuildOwnerIndex();
+    this.rebuildAll();
   }
 
-  /** 更新土地 */
   static async update(land: LandData, actorId = land.ownerplid): Promise<boolean> {
     debug.i("LANDDB", `update: landId=${land.id} actorId=${actorId} version=${land.version}`);
     const { updateLand } = await import("../api/LandApi");
@@ -340,12 +383,11 @@ export class Database {
     const current = this._registry!.get(updated.id);
     if (current && (updated.version || 0) < (current.version || 0)) return true;
     this._registry!.set(updated.id, updated);
-    this.rebuildOwnerIndex();
+    this.rebuildAll();
     debug.i("LANDDB", `update: success landId=${land.id} newVersion=${updated.version}`);
     return true;
   }
 
-  /** 删除土地 */
   static async delete(
     landId: string,
     actorId: string,
@@ -361,7 +403,8 @@ export class Database {
     }
     if (result.balance !== undefined) {
       const { Money } = await import("../libs/Money");
-      const player = (await import("@minecraft/server")).world.getPlayers().find((item) => item.id === actorId);
+      const players = (await import("@minecraft/server")).world.getPlayers();
+      const player = players.find((item) => item.id === actorId);
       if (player) {
         const version = (result as { balanceVersion?: number }).balanceVersion ?? 0;
         Money.setCached(player, result.balance, version);
@@ -371,46 +414,56 @@ export class Database {
     const land = this._registry!.get(landId);
     if (!land) return { ok: true, refund: result.refund, balance: result.balance };
     this._registry!.delete(landId);
-    // 更新 owner 索引
-    const list = this._ownerIndex!.get(land.ownerplid) || [];
-    const idx = list.indexOf(landId);
-    if (idx !== -1) list.splice(idx, 1);
-    this._ownerIndex!.set(land.ownerplid, list);
+    const owners = this._ownerIndex!.get(land.ownerplid);
+    if (owners) {
+      const idx = owners.indexOf(landId);
+      if (idx !== -1) owners.splice(idx, 1);
+    }
     this.rebuildChunkIndex();
     debug.i("LANDDB", `delete: success landId=${landId} refund=${result.refund}`);
     return result;
   }
 
-  /** 获取玩家的土地数量 */
-  static getPlayerLandCount(plid: string): number {
-    return this.getByOwner(plid).length;
-  }
+  // ── 工厂 ──
 
-  // ── 辅助工具 ──
-
-  /** 创建新的土地数据对象（不含 id 和创建时间） */
-  static createLandData(ownerplid: string, ownerName: string, dimid: number, posA: LandPos, posB: LandPos): LandData {
+  /** 客户端生成初始 LandData（创建后立即送 server，server 返回值替换缓存） */
+  static createLandData(
+    ownerplid: string,
+    ownerName: string,
+    dimid: number,
+    posA: LandPos,
+    posB: LandPos
+  ): LandData {
     return {
-      id: this.generateId(),
+      id: generateLandId(),
       ownerplid,
       ownerName,
       managers: [ownerplid],
       dimid,
       posA,
       posB,
-      permissions: { ...DEFAULT_PERMISSIONS },
+      permissions: defaultPermissions(),
       nickname: "",
       createdAt: Date.now(),
     };
   }
 
-  /** 默认权限对象 */
   static getDefaultPermissions(): LandPermissions {
-    return { ...DEFAULT_PERMISSIONS };
+    return defaultPermissions();
   }
 
-  /** 默认配置对象 */
   static getDefaultConfig(): LandConfig {
-    return { ...DEFAULT_CONFIG };
+    return defaultConfig();
+  }
+
+  static generateId(): string {
+    return generateLandId();
+  }
+
+  // ── 内部工具 ──
+
+  private static ensureLoaded(): void {
+    if (!this._registry) this._registry = new Map();
+    if (!this._ownerIndex) this._ownerIndex = new Map();
   }
 }
