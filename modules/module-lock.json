@@ -28,8 +28,8 @@
     "tool-bds-updater": {
       "installed": true,
       "installedAt": 1783905480982,
-      "updatedAt": 1783956384877,
-      "enabled": true,
+      "updatedAt": 1783994562583,
+      "enabled": false,
       "lastUninstalledAt": 1783947162218,
       "trashDir": null
     },
@@ -42,14 +42,14 @@
     "feature-chat": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956282247,
-      "enabled": true
+      "updatedAt": 1783994594104,
+      "enabled": false
     },
     "feature-afk": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956310506,
-      "enabled": true
+      "updatedAt": 1783994656865,
+      "enabled": false
     },
     "feature-tps": {
       "installed": true,
@@ -60,38 +60,38 @@
     "feature-online-time": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956323409,
-      "enabled": true
+      "updatedAt": 1783994817576,
+      "enabled": false
     },
     "feature-activity-log": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956329213,
-      "enabled": true
+      "updatedAt": 1783994660886,
+      "enabled": false
     },
     "feature-scoreboard-sync": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956333343,
-      "enabled": true
+      "updatedAt": 1783994665234,
+      "enabled": false
     },
     "feature-spawn-protect": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956343116,
-      "enabled": true
+      "updatedAt": 1783994668885,
+      "enabled": false
     },
     "feature-chat-sounds": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956346838,
-      "enabled": true
+      "updatedAt": 1783994672800,
+      "enabled": false
     },
     "feature-inventory-switcher": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956350144,
-      "enabled": true
+      "updatedAt": 1783994574932,
+      "enabled": false
     },
     "feature-area-fly": {
       "installed": true,
@@ -108,8 +108,8 @@
     "feature-qa": {
       "installed": true,
       "installedAt": 1783916631405,
-      "updatedAt": 1783956402957,
-      "enabled": true
+      "updatedAt": 1783994836563,
+      "enabled": false
     },
     "feature-area-peace": {
       "installed": true,
@@ -172,7 +172,7 @@
     "service-qq-bridge": {
       "installed": true,
       "enabled": true,
-      "updatedAt": 1783956393252,
+      "updatedAt": 1783994552140,
       "installedAt": 1783951121813
     }
   }

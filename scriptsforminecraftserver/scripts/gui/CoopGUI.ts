@@ -36,7 +36,7 @@ export class CoopGUI {
   }
 
   async mainPanel() {
-    const cid = await CoopAPI.findPlayerCoop(this.player.name);
+    const cid = await CoopAPI.findPlayerCoop(this.player.id);
     if (!cid) {
       this.nav.start("noCoop");
       return;
@@ -47,7 +47,7 @@ export class CoopGUI {
 
   static async openShopMgr(player: Player) {
     const gui = new CoopGUI(player);
-    gui.nav.state.cid = (await CoopAPI.findPlayerCoop(player.name)) ?? "";
+    gui.nav.state.cid = (await CoopAPI.findPlayerCoop(player.id)) ?? "";
     gui.nav.start("shopMgr");
   }
 
@@ -140,7 +140,7 @@ export class CoopGUI {
         status.setData("§c请填写完整信息");
         return;
       }
-      if (await CoopCore.registerCoop(obsName.getData(), obsCid.getData(), this.player)) {
+       if (await CoopCore.registerCoop(obsName.getData(), obsCid.getData(), this.player)) {
         status.setData("§a合作社创建成功！");
         this.nav.state.cid = obsCid.getData();
         await this.nav.rebuild("coopInfo");
@@ -159,15 +159,15 @@ export class CoopGUI {
       return;
     }
     const text = await CoopCore.getInfo(cid);
-    const isOp = await CoopCore.isOp(this.player.name, cid);
+    const isOp = await CoopCore.isOp(this.player.id, cid);
     const members = await CoopAPI.getMembers(cid);
-    const isMember = members.some((m: CoopMember) => m.player_name === this.player.name);
+    const isMember = members.some((m: CoopMember) => m.player_id === this.player.id);
 
     page.label(ListFormInfo([text]));
     if (!isMember) {
       page.button("加入", async () => {
-        await CoopCore.joinCoop(this.player, cid);
-        this.nav.rebuild("coopInfo");
+        if (await CoopCore.joinCoop(this.player, cid)) this.nav.rebuild("coopInfo");
+        else Msg.error("加入合作社失败，请稍后重试。", this.player);
       });
       return;
     }
@@ -188,16 +188,16 @@ export class CoopGUI {
   }
 
   private async exitConfirm(cid: string): Promise<void> {
-    const isOp = await CoopCore.isOp(this.player.name, cid);
+    const isOp = await CoopCore.isOp(this.player.id, cid);
     this.nav.confirm(
       "合作社 - 确认",
       isOp ? "确认解散合作社？所有成员也会被踢出。\n请先清空银行经济、下架商品。" : "你确认退出合作社吗？",
       async () => {
         if (isOp) {
-          await CoopCore.releaseCoop(cid);
+          await CoopCore.releaseCoop(cid, this.player.id);
           this.infoPop("解散成功。");
         } else {
-          await CoopCore.exitCoop(this.player.name, cid);
+          await CoopCore.exitCoop(this.player.id, cid);
           this.infoPop("已退出合作社。");
           await CoopCore.sendToMembers(cid, this.player.name + " 退出了合作社。拜拜～");
         }
@@ -300,10 +300,10 @@ export class CoopGUI {
     const logs = await CoopAPI.getBankLog(cid);
     const moneylist = logs.length
       ? logs
-          .map((l) => `${l.player_name} ${l.type === 1 ? "存入" : "取出"} ${l.amount}${l.note ? ` (${l.note})` : ""}`)
+          .map((l) => `${l.actor_name_snapshot} ${l.type === 1 ? "存入" : "取出"} ${l.amount}${l.note ? ` (${l.note})` : ""}`)
           .join("\n")
       : "暂无记录";
-    page.label("§6合作社银行经济：§r" + data.money + "\n§6账单：§r\n" + moneylist);
+    page.label("§6合作社银行经济：§r" + (data.account?.balance || 0) + "\n§6账单：§r\n" + moneylist);
     page.button("确认", () => {
       this.nav.state.bankType = obsAction.getData() + 1;
       this.nav.go("bankControl");

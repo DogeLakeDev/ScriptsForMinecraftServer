@@ -12,9 +12,13 @@ export async function getEconomyAccount(playerId: string, playerName?: string): 
   return parseAccount(await HttpDB.get(`/api/sfmc/economy/account${query}`));
 }
 
-export async function applyEconomyTransaction(data: Record<string, unknown>): Promise<{ ok: boolean; balance?: number; error?: string }> {
+export async function applyEconomyTransaction(data: Record<string, unknown>): Promise<{ ok: boolean; balance?: number; version?: number; transactionId?: string; error?: string }> {
   const result = await HttpDB.requestJSON("Post", "/api/sfmc/economy/account", data);
-  try { const parsed = JSON.parse(result.body); return { ok: result.status === 200, balance: parsed.source?.balance ?? parsed.target?.balance, error: parsed.error }; } catch { return { ok: false, error: "invalid_response" }; }
+  try {
+    const parsed = JSON.parse(result.body);
+    const account = parsed.source ?? parsed.target;
+    return { ok: result.status === 200, balance: account?.balance, version: account?.version, transactionId: parsed.transactionId, error: parsed.error };
+  } catch { return { ok: false, error: "invalid_response" }; }
 }
 
 export async function transferEconomy(actorId: string, targetPlayerId: string, amount: number, targetPlayerName?: string): Promise<boolean> {

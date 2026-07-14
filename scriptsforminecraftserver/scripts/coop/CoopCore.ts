@@ -9,15 +9,14 @@ import type { CoopData, CoopShopItem } from "../types";
 import {
   getCoop,
   getAllCoops,
-  createCoop,
   updateCoop,
   deleteCoop,
-  addMember,
-  removeMember,
+  joinCoop as joinCoopApi,
+  leaveCoop as leaveCoopApi,
   getShopItems,
   saveShopItem,
   getAllShopGroups,
-  addBankLog,
+  treasury,
 } from "../api";
 
 export class CoopCore {
@@ -131,49 +130,38 @@ export class CoopCore {
   // ==========================================
 
   static async registerCoop(name: string, cid: string, player: Player): Promise<boolean> {
-    const all = await getAllCoops();
-    if (all.some((e) => e.cid === cid)) return false;
-    if ((await Money.load(player)) < 1000) return false;
-
-    const coop: CoopData = {
-      cid,
-      name,
-      owner_name: player.name,
-      members: [{ player_name: player.name, is_op: true, joined_at: Date.now() }],
-      notice: "社长很懒，没有写公告～",
-      money: 0,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    };
-    if (!(await Money.add(player, -1000))) return false;
-    await createCoop(coop);
+    const result = await import("../api/CoopAPI").then((api) => api.createCoop(name.trim(), cid.trim(), player.id, player.name));
+    if (!result.ok) return false;
+    if (result.balance !== undefined) Money.setCached(player, result.balance);
+    else await Money.load(player);
     return true;
   }
 
-  static async releaseCoop(cid: string) {
-    await deleteCoop(cid);
+  static async releaseCoop(cid: string, actorId: string): Promise<boolean> {
+    return deleteCoop(cid, actorId);
   }
 
-  static async joinCoop(player: Player, cid: string) {
+  static async joinCoop(player: Player, cid: string): Promise<boolean> {
     const data = await getCoop(cid);
-    if (!data || (data.members || []).some((m) => m.player_name === player.name)) return;
+    if (!data || (data.members || []).some((m) => m.player_id === player.id)) return false;
 
-    await addMember(cid, player.name, false);
+    if (!(await joinCoopApi(cid, player.id, player.name))) return false;
 
     this.sendToMembers(cid, `欢迎 ${player.name} 加入合作社！`);
+    return true;
   }
 
-  static async exitCoop(playerName: string, cid: string) {
+  static async exitCoop(playerId: string, cid: string) {
     const data = await getCoop(cid);
     if (!data) return;
-    await removeMember(cid, playerName);
+    await leaveCoopApi(cid, playerId);
   }
 
   static async sendToMembers(cid: string, text: string) {
     const data = await getCoop(cid);
     if (!data) return;
     for (const member of data.members || []) {
-      for (const p of world.getPlayers({ name: member.player_name })) {
+      for (const p of world.getPlayers()) if (p.id === member.player_id) {
         Msg.info(`[${data.name}] ${text}`, p);
       }
     }
@@ -183,33 +171,32 @@ export class CoopCore {
     const data = await getCoop(cid);
     if (!data) return "合作社不存在";
     const ops = (data.members || [])
-      .filter((m) => m.is_op)
-      .map((m) => m.player_name)
+      .filter((m) => m.role === "owner" || m.role === "admin")
+      .map((m) => m.player_name_snapshot)
       .join(", ");
-    return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${(data.members || []).length}\n银行经济: ${data.money}`;
+    return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${(data.members || []).length}\n银行经济: ${data.account?.balance || 0}`;
   }
 
   static async getMemberList(cid: string): Promise<string[]> {
     const data = await getCoop(cid);
-    return data ? (data.members || []).map((m) => m.player_name) : [];
+    return data ? (data.members || []).map((m) => m.player_name_snapshot) : [];
   }
 
-  static async isOp(playerName: string, cid: string): Promise<boolean> {
+  static async isOp(playerId: string, cid: string): Promise<boolean> {
     const data = await getCoop(cid);
-    return (data?.members || []).find((m) => m.player_name === playerName)?.is_op ?? false;
+    return (data?.members || []).find((m) => m.player_id === playerId)?.role === "owner" || (data?.members || []).find((m) => m.player_id === playerId)?.role === "admin";
   }
 
   static async setOp(cid: string, index: number) {
     const data = await getCoop(cid);
     if (!data || !data.members || index >= data.members.length) return;
-    const members = data.members.map((m, i) => (i === index ? { ...m, is_op: true } : m));
-    await updateCoop(cid, { members });
+    const member = data.members[index];
+    await import("../api/CoopAPI").then((api) => api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin"));
   }
 
   static async setNotice(cid: string, text: string) {
     const data = await getCoop(cid);
-    if (!data) return;
-    await updateCoop(cid, { notice: text });
+    if (data) await updateCoop(cid, { actorId: data.owner_player_id, notice: text });
   }
 
   // ==========================================
@@ -217,22 +204,9 @@ export class CoopCore {
   // ==========================================
 
   static async bankControl(cid: string, player: Player, val: number, note: string, type: number): Promise<boolean> {
-    const data = await getCoop(cid);
-    if (!data) return false;
-
-    if (type === 1) {
-      const plMoney = await Money.load(player);
-      if (plMoney < val) return false;
-      if (!(await Money.add(player, -val))) return false;
-      await updateCoop(cid, { money: (data.money || 0) + val });
-      await addBankLog(cid, player.name, 1, val, note);
-    } else if (type === 2) {
-      if ((data.money || 0) < val) return false;
-      if (!(await Money.add(player, val))) return false;
-      await updateCoop(cid, { money: (data.money || 0) - val });
-      await addBankLog(cid, player.name, 2, val, note);
-    } else return false;
-
+    const result = await treasury(cid, player.id, player.name, type === 1 ? "deposit" : "withdraw", val, note);
+    if (!result.ok) return false;
+    if (result.playerBalance !== undefined) Money.setCached(player, result.playerBalance);
     return true;
   }
 
@@ -244,7 +218,7 @@ export class CoopCore {
     const all = await getAllCoops();
     if (type === 1) {
       return all
-        .map((e) => ({ m: e.money || 0, n: e.name }))
+        .map((e) => ({ m: e.account?.balance || 0, n: e.name }))
         .sort((a, b) => b.m - a.m)
         .map((e, i) => `\n#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`)
         .join("");

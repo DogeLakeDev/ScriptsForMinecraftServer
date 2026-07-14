@@ -1,14 +1,20 @@
 export interface CoopMember {
-  player_name: string;
-  is_op: boolean;
+  player_id: string;
+  player_name_snapshot: string;
+  role: "owner" | "admin" | "member";
+  status?: string;
+  expires_at?: number | null;
   joined_at: number;
 }
 export interface CoopData {
   cid: string;
   name: string;
-  owner_name: string;
+  owner_player_id: string;
+  owner_name_snapshot: string;
+  status?: string;
   notice?: string;
-  money?: number;
+  fee_bps?: number;
+  account?: { cid: string; balance: number; version: number };
   members?: CoopMember[];
   shop_items?: CoopShopItem[];
   created_at: number;
@@ -33,7 +39,8 @@ export interface CoopShopItem {
 }
 export interface CoopBankLog {
   cid: string;
-  player_name: string;
+  actor_id: string;
+  actor_name_snapshot: string;
   type: number;
   amount: number;
   note?: string;

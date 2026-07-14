@@ -604,10 +604,7 @@ export class DogeChat {
       Msg.error("红包发送失败，请稍后重试。", sender);
       return false;
     }
-    if (!(await Money.add(sender, -amount))) {
-      Msg.error("扣款失败，请稍后重试。", sender);
-      return false;
-    }
+    await Money.load(sender);
     Msg.success(`${sender.name} 发送了红包：${amount} ${Money.UNIT}（共 ${count} 份）。`, sender);
     const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
     ChatApi.saveMessages([
@@ -650,18 +647,15 @@ export class DogeChat {
       amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
       amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
     }
-    const updated = await ChatApi.updateRedPacket(packet.id, {
-      remainingAmount: packet.remainingAmount - amount,
-      remainingCount: packet.remainingCount - 1,
-      receivers: [...packet.receivers, player.id],
-    });
-    if (!updated) {
+    const result = await ChatApi.claimRedPacket(packet.id, player.id, player.name);
+    if (!result.ok) {
       Msg.error("领取失败，请稍后重试。", player);
       return 0;
     }
-    if (!(await Money.add(player, amount))) return 0;
-    Msg.success(`你领取了 ${packet.senderName} 的红包，获得 ${amount} ${Money.UNIT}！`, player);
-    return amount;
+    const claimedAmount = result.amount ?? amount;
+    await Money.load(player);
+    Msg.success(`你领取了 ${packet.senderName} 的红包，获得 ${claimedAmount} ${Money.UNIT}！`, player);
+    return claimedAmount;
   }
 
   static async getAvailableRedPackets(player: Player): Promise<RedPacket[]> {

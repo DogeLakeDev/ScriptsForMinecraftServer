@@ -61,6 +61,7 @@ export class MenuNavigator {
   state: Record<string, any> = {};
   private _confirmIdx = 0;
   private taskRunning = false;
+  private sessionToken = 0;
 
   constructor(player: Player) {
     this.player = player;
@@ -76,19 +77,21 @@ export class MenuNavigator {
   }
 
   async start(sectionId: string): Promise<void> {
+    const token = ++this.sessionToken;
     this.history = [sectionId];
     this.applySection(sectionId);
     this.backVis.setData(false);
-    await this.buildAndShow();
+    await this.buildAndShow(token);
   }
 
   async rebuild(targetSection?: string): Promise<void> {
+    const token = ++this.sessionToken;
     if (this.form?.isShowing()) this.form.close();
     if (targetSection) {
       this.history.push(targetSection);
       this.applySection(targetSection);
     }
-    await this.buildAndShow();
+    await this.buildAndShow(token);
   }
 
   async refresh(): Promise<void> {
@@ -96,10 +99,11 @@ export class MenuNavigator {
   }
 
   async replace(targetSection: string): Promise<void> {
+    const token = ++this.sessionToken;
     if (this.history.length > 0) this.history[this.history.length - 1] = targetSection;
     else this.history = [targetSection];
     this.applySection(targetSection);
-    await this.buildAndShow();
+    await this.buildAndShow(token);
   }
 
   async runTask(status: FormStatus, task: () => Promise<void>, onError = "操作失败，请稍后重试。"): Promise<void> {
@@ -148,6 +152,7 @@ export class MenuNavigator {
   }
 
   leave(target: () => void): void {
+    this.sessionToken++;
     if (this.form?.isShowing()) this.form.close();
     target();
   }
@@ -195,11 +200,13 @@ export class MenuNavigator {
     }
   }
 
-  private async buildAndShow(): Promise<void> {
+  private async buildAndShow(token = this.sessionToken): Promise<void> {
+    if (token !== this.sessionToken) return;
     if (this.form?.isShowing()) this.form.close();
     this.form = new CustomForm(this.player, this.titleObs);
     this.form.button("§l← 回到上一级", () => this.back(), { visible: this.backVis });
     for (const [id, def] of this.sections) {
+      if (token !== this.sessionToken) return;
       const vis = this.sectionVis.get(id)!;
       const page = new PageBuilder(this.form, vis);
       await def.build(page, this);
@@ -215,6 +222,7 @@ export class MenuNavigator {
       }
       try {
         const reason = await this.form.show();
+        if (token !== this.sessionToken) return;
         if (reason === DataDrivenScreenClosedReason.UserBusy) {
           if (!notified) {
             notified = true;

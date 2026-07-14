@@ -542,7 +542,11 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_sfmc_act_target ON sfmc_activities(target_id, timestamp);
 
       DROP TABLE IF EXISTS sfmc_coop_data;
-      `);
+    `);
+  const coopColumns = db.prepare("PRAGMA table_info('sfmc_coops')").all().map((column) => column.name);
+  if (coopColumns.length > 0 && !coopColumns.includes('owner_player_id')) {
+    db.exec('DROP TABLE IF EXISTS sfmc_coop_audit_logs; DROP TABLE IF EXISTS sfmc_coop_bank_log; DROP TABLE IF EXISTS sfmc_coop_shop_items; DROP TABLE IF EXISTS sfmc_coop_shop_groups; DROP TABLE IF EXISTS sfmc_coop_accounts; DROP TABLE IF EXISTS sfmc_coop_members; DROP TABLE IF EXISTS sfmc_coops;');
+  }
   // 配置表
   db.exec(`
     CREATE TABLE IF NOT EXISTS sfmc_config_settings (
@@ -641,14 +645,33 @@ async function initDB() {
     -- Coop 表
     CREATE TABLE IF NOT EXISTS sfmc_coops (
       cid TEXT PRIMARY KEY,
-      name TEXT NOT NULL, owner_name TEXT NOT NULL,
-      notice TEXT DEFAULT '', money INTEGER DEFAULT 0,
-      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      name TEXT NOT NULL, owner_player_id TEXT NOT NULL,
+      owner_name_snapshot TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active', notice TEXT DEFAULT '',
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS sfmc_coop_members (
-      cid TEXT NOT NULL, player_name TEXT NOT NULL,
-      is_op INTEGER DEFAULT 0, joined_at INTEGER NOT NULL,
-      PRIMARY KEY (cid, player_name),
+      cid TEXT NOT NULL, player_id TEXT NOT NULL,
+      player_name_snapshot TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'member', joined_at INTEGER NOT NULL,
+      expires_at INTEGER, status TEXT NOT NULL DEFAULT 'active',
+      version INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (cid, player_id),
+      FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sfmc_one_active_coop_member ON sfmc_coop_members(player_id) WHERE status='active';
+    CREATE TABLE IF NOT EXISTS sfmc_coop_invites (
+      id TEXT PRIMARY KEY, cid TEXT NOT NULL, inviter_id TEXT NOT NULL,
+      invitee_id TEXT NOT NULL, invitee_name_snapshot TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'member', status TEXT NOT NULL DEFAULT 'pending',
+      expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL,
+      FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sfmc_coop_invites_target ON sfmc_coop_invites(invitee_id,status,expires_at);
+    CREATE TABLE IF NOT EXISTS sfmc_coop_accounts (
+      cid TEXT PRIMARY KEY, balance INTEGER NOT NULL DEFAULT 0,
+      version INTEGER NOT NULL DEFAULT 1, updated_at INTEGER NOT NULL,
       FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS sfmc_coop_shop_items (
@@ -664,9 +687,15 @@ async function initDB() {
     );
     CREATE TABLE IF NOT EXISTS sfmc_coop_bank_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      cid TEXT NOT NULL, player_name TEXT NOT NULL,
-      type INTEGER NOT NULL, amount INTEGER NOT NULL,
-      note TEXT DEFAULT '', created_at INTEGER NOT NULL,
+      cid TEXT NOT NULL, actor_id TEXT NOT NULL,
+      actor_name_snapshot TEXT NOT NULL DEFAULT '', type INTEGER NOT NULL, amount INTEGER NOT NULL,
+      note TEXT DEFAULT '', transaction_id TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+      FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_coop_audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, cid TEXT NOT NULL, actor_id TEXT NOT NULL,
+      target_id TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, before_state TEXT NOT NULL DEFAULT '{}',
+      after_state TEXT NOT NULL DEFAULT '{}', transaction_id TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
       FOREIGN KEY (cid) REFERENCES sfmc_coops(cid) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS sfmc_coop_shop_groups (
@@ -708,6 +737,14 @@ async function initDB() {
       reason TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS sfmc_economy_idempotency (
+      actor_id TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      transaction_id TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (actor_id, idempotency_key)
+    );
     CREATE INDEX IF NOT EXISTS idx_economy_transactions_player ON sfmc_economy_transactions(source_player_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_economy_transactions_target ON sfmc_economy_transactions(target_player_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_sfmc_lands_owner ON sfmc_lands(owner_player_id, status);
@@ -735,6 +772,9 @@ async function initDB() {
       FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
     );
   `);
+  if (!db.prepare("PRAGMA table_info('sfmc_coops')").all().some((column) => column.name === 'fee_bps')) {
+    db.exec("ALTER TABLE sfmc_coops ADD COLUMN fee_bps INTEGER NOT NULL DEFAULT 500");
+  }
   const landColumns = db.prepare("PRAGMA table_info('sfmc_lands')").all().map((column) => column.name);
   if (!landColumns.includes('purchase_price')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN purchase_price INTEGER NOT NULL DEFAULT 0");
   if (!landColumns.includes('refund_rate')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN refund_rate REAL NOT NULL DEFAULT 0.7");
@@ -859,14 +899,16 @@ function json(res, data, status = 200) {
 }
 
 function body(req) {
-  return new Promise((resolve) => {
+  if (req._bodyPromise) return req._bodyPromise;
+  req._bodyPromise = new Promise((resolve) => {
     let b = '';
     req.on('data', (chunk) => { b += chunk; });
     req.on('end', () => {
-      try { resolve(JSON.parse(b)); }
+      try { resolve(JSON.parse(b || '{}')); }
       catch { resolve({}); }
     });
   });
+  return req._bodyPromise;
 }
 
 /** 转发消息到 QQ Bridge 独立进程 */
@@ -955,10 +997,17 @@ function applyEconomyTransaction(data) {
   if (!data.actorId || !Number.isSafeInteger(amount) || amount <= 0) return { ok: false, error: 'invalid_amount', status: 400 };
   const sourceId = data.sourcePlayerId ? String(data.sourcePlayerId) : null;
   const targetId = data.targetPlayerId ? String(data.targetPlayerId) : null;
+  const idempotencyKey = data.idempotencyKey ? String(data.idempotencyKey).trim() : '';
+  if (idempotencyKey && !/^[A-Za-z0-9_.:-]{1,128}$/.test(idempotencyKey)) return { ok: false, error: 'invalid_idempotency_key', status: 400 };
   if (!sourceId && !targetId) return { ok: false, error: 'missing_account', status: 400 };
+  if (sourceId && sourceId !== String(data.actorId)) return { ok: false, error: 'forbidden_source', status: 403 };
   if (sourceId && targetId && sourceId === targetId) return { ok: false, error: 'same_account', status: 400 };
   db.exec('BEGIN IMMEDIATE');
   try {
+    if (idempotencyKey) {
+      const previous = query('SELECT response_json FROM sfmc_economy_idempotency WHERE actor_id=? AND idempotency_key=?', [String(data.actorId), idempotencyKey])[0];
+      if (previous) { const response = { ...JSON.parse(previous.response_json), replayed: true }; db.exec('COMMIT'); return response; }
+    }
     const source = sourceId ? ensureEconomyAccount(sourceId, data.sourcePlayerName) : null;
     const target = targetId ? ensureEconomyAccount(targetId, data.targetPlayerName) : null;
     if (source && source.balance < amount) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: source.balance, status: 409 }; }
@@ -966,9 +1015,11 @@ function applyEconomyTransaction(data) {
     if (source) query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [amount, now, source.player_id, amount]);
     if (target) query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [amount, now, target.player_id]);
     const id = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.type || 'adjustment'), String(data.actorId), sourceId, targetId, amount, source?.balance ?? null, source ? source.balance - amount : target?.balance - amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    const response = { ok: true, transactionId: id, source: source ? economyResult(ensureEconomyAccount(source.player_id)) : null, target: target ? economyResult(ensureEconomyAccount(target.player_id)) : null };
+    query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.type || 'adjustment'), String(data.actorId), sourceId, targetId, amount, source?.balance ?? null, source ? source.balance - amount : target?.balance + amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    if (idempotencyKey) query('INSERT INTO sfmc_economy_idempotency (actor_id,idempotency_key,transaction_id,response_json,created_at) VALUES (?,?,?,?,?)', [String(data.actorId), idempotencyKey, id, JSON.stringify(response), now]);
     db.exec('COMMIT');
-    return { ok: true, transactionId: id, source: source ? economyResult(ensureEconomyAccount(source.player_id)) : null, target: target ? economyResult(ensureEconomyAccount(target.player_id)) : null };
+    return response;
   } catch (error) { try { db.exec('ROLLBACK'); } catch {} return { ok: false, error: error.message || 'economy_transaction_failed', status: 500 }; }
 }
 
@@ -1088,16 +1139,26 @@ async function handle(req, res) {
     }
   }
 
-  // 请求体大小限制
+  // Start buffering the request body before route dispatch so async handlers cannot miss data.
   let received = 0;
   let bodyTooLarge = false;
-  req.on('data', (chunk) => {
-    received += chunk.length;
-    if (received > MAX_BODY_BYTES && !bodyTooLarge) {
-      bodyTooLarge = true;
-      req.destroy();
-      try { json(res, { success: false, error: 'payload_too_large' }, 413); } catch {}
-    }
+  req._bodyPromise = new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      received += chunk.length;
+      if (received > MAX_BODY_BYTES && !bodyTooLarge) {
+        bodyTooLarge = true;
+        req.destroy();
+        try { json(res, { success: false, error: 'payload_too_large' }, 413); } catch {}
+        resolve({});
+        return;
+      }
+      if (!bodyTooLarge) raw += chunk;
+    });
+    req.on('end', () => {
+      if (bodyTooLarge) return;
+      try { resolve(JSON.parse(raw || '{}')); } catch { resolve({}); }
+    });
   });
 
   try {
@@ -1514,22 +1575,33 @@ async function handle(req, res) {
     }
 
     // ────── /api/sfmc/redpacket ──────
-    if (path === '/api/sfmc/redpacket') {
+      if (path === '/api/sfmc/redpacket') {
       if (method === 'GET') {
         json(res, { redpackets: query('SELECT * FROM sfmc_chat_redpackets') });
       } else if (method === 'POST') {
-        const rp = (await body(req)).redpacket;
+        const requestData = await body(req), rp = requestData.redpacket;
         if (!rp?.id) { json(res, { success: false, error: 'invalid' }, 400); return; }
-        query(
-          `INSERT OR REPLACE INTO sfmc_chat_redpackets (
+        if (!rp.senderid || String(rp.senderid) !== String(requestData.actorId || rp.senderid) || !Number.isSafeInteger(Number(rp.totalAmount)) || Number(rp.totalAmount) <= 0) { json(res, { success: false, error: 'invalid' }, 400); return; }
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          const account = ensureEconomyAccount(rp.senderid, rp.senderName);
+          if (account.balance < Number(rp.totalAmount)) { db.exec('ROLLBACK'); json(res, { success: false, error: 'insufficient_funds' }, 409); return; }
+          const now = Date.now();
+          query('UPDATE sfmc_economy_accounts SET balance=balance-?,version=version+1,updated_at=? WHERE player_id=? AND balance>=?', [Number(rp.totalAmount), now, rp.senderid, Number(rp.totalAmount)]);
+          query(
+            `INSERT INTO sfmc_chat_redpackets (
             id, sender_id, sender_name, total_amount, remaining_amount,
             total_count, remaining_count, receivers, target_type, target_id, created_at, expires_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
           rp.id, rp.senderid, rp.senderName, rp.totalAmount, rp.remainingAmount,
           rp.totalCount, rp.remainingCount, JSON.stringify(rp.receivers),
           rp.targetType, rp.targetId, rp.createdAt, rp.expiresAt
-        ]);
-        json(res, { success: true });
+          ]);
+          const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+          query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [tx, 'redpacket.create', rp.senderid, rp.senderid, null, Number(rp.totalAmount), account.balance, account.balance - Number(rp.totalAmount), 'redpacket', rp.id, '发送红包', now]);
+          db.exec('COMMIT');
+          json(res, { success: true, transactionId: tx, account: economyResult(ensureEconomyAccount(rp.senderid)) });
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'redpacket_create_failed' }, 500); }
       } else { json(res, { success: false, error: 'not_found' }, 404); }
       return;
     }
@@ -1541,11 +1613,24 @@ async function handle(req, res) {
         const rows = query('SELECT * FROM sfmc_chat_redpackets WHERE id = ?', [id]);
         if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
         json(res, { redpacket: rows[0] });
+      } else if (method === 'POST' && path.endsWith('/claim')) {
+        const data = await body(req), actorId = String(data.actorId || '');
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          const packet = query('SELECT * FROM sfmc_chat_redpackets WHERE id=?', [id.slice(0, -6)])[0];
+          if (!packet || packet.remaining_count <= 0 || Date.now() > packet.expires_at) { db.exec('ROLLBACK'); json(res, { success: false, error: 'unavailable' }, 409); return; }
+          const receivers = JSON.parse(packet.receivers || '[]');
+          if (receivers.includes(actorId)) { db.exec('ROLLBACK'); json(res, { success: false, error: 'already_claimed' }, 409); return; }
+          const amount = packet.remaining_count === 1 ? packet.remaining_amount : Math.max(1, Math.min(packet.remaining_amount - (packet.remaining_count - 1), Math.floor(Math.random() * (Math.floor((packet.remaining_amount / packet.remaining_count) * 2) + 1))));
+          const now = Date.now(), account = ensureEconomyAccount(actorId, String(data.actorName || ''));
+          query('UPDATE sfmc_chat_redpackets SET remaining_amount=?,remaining_count=?,receivers=? WHERE id=? AND remaining_count=?', [packet.remaining_amount - amount, packet.remaining_count - 1, JSON.stringify([...receivers, actorId]), id.slice(0, -6), packet.remaining_count]);
+          query('UPDATE sfmc_economy_accounts SET balance=balance+?,version=version+1,updated_at=? WHERE player_id=?', [amount, now, actorId]);
+          const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+          query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [tx, 'redpacket.claim', actorId, null, actorId, amount, account.balance, account.balance + amount, 'redpacket', id.slice(0, -6), '领取红包', now]);
+          db.exec('COMMIT'); json(res, { success: true, amount, transactionId: tx, account: economyResult(ensureEconomyAccount(actorId)) });
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'redpacket_claim_failed' }, 500); }
       } else if (method === 'PATCH' || method === 'PUT') {
-        const { remainingAmount, remainingCount, receivers } = await body(req);
-        query('UPDATE sfmc_chat_redpackets SET remaining_amount=?, remaining_count=?, receivers=? WHERE id=?',
-          [remainingAmount, remainingCount, JSON.stringify(receivers || []), id]);
-        json(res, { success: true });
+        json(res, { success: false, error: 'legacy_route_disabled' }, 410);
       } else if (method === 'DELETE') {
         query('DELETE FROM sfmc_chat_redpackets WHERE id = ?', [id]);
         json(res, { success: true });
@@ -1791,24 +1876,163 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/coops ──────
+    // ────── /api/sfmc/coops (authoritative organization API) ──────
+    if (path === '/api/sfmc/coops/create' && method === 'POST') {
+      const data = await body(req);
+      const cid = String(data.cid || '').trim(), name = String(data.name || '').trim(), actorId = String(data.actorId || '');
+      if (!actorId || !/^[A-Za-z0-9_-]{3,32}$/.test(cid) || !name || name.length > 64) { json(res, { ok: false, error: 'invalid_input', details: { cid, name, actorId } }, 400); return; }
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (query('SELECT 1 FROM sfmc_coops WHERE cid=?', [cid]).length) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'coop_id_exists' }, 409); return; }
+        if (query("SELECT 1 FROM sfmc_coop_members WHERE player_id=? AND status='active'", [actorId]).length) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'already_member' }, 409); return; }
+        const account = ensureEconomyAccount(actorId, String(data.actorName || ''));
+        if (account.balance < 1000) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'insufficient_funds', balance: account.balance }, 409); return; }
+        const now = Date.now();
+        query('UPDATE sfmc_economy_accounts SET balance=balance-1000, version=version+1, updated_at=? WHERE player_id=? AND balance>=1000', [now, actorId]);
+        query('INSERT INTO sfmc_coops (cid,name,owner_player_id,owner_name_snapshot,notice,created_at,updated_at) VALUES (?,?,?,?,?,?,?)', [cid, name, actorId, String(data.actorName || ''), '社长很懒，没有写公告～', now, now]);
+        query('INSERT INTO sfmc_coop_members (cid,player_id,player_name_snapshot,role,joined_at) VALUES (?,?,?,?,?)', [cid, actorId, String(data.actorName || ''), 'owner', now]);
+        query('INSERT INTO sfmc_coop_accounts (cid,updated_at) VALUES (?,?)', [cid, now]);
+        const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [tx, 'coop.create', actorId, actorId, null, 1000, account.balance, account.balance - 1000, 'coop', cid, '创建合作社', now]);
+        query('INSERT INTO sfmc_coop_audit_logs (cid,actor_id,action,after_state,transaction_id,created_at) VALUES (?,?,?,?,?,?)', [cid, actorId, 'coop.create', JSON.stringify({ name }), tx, now]);
+        const coop = query('SELECT * FROM sfmc_coops WHERE cid=?', [cid])[0];
+        db.exec('COMMIT');
+        json(res, { ok: true, coop, transactionId: tx, balance: account.balance - 1000 });
+      } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'create_failed' }, 500); }
+      return;
+    }
+
+    if (path.startsWith('/api/sfmc/coops/by-player/') && method === 'GET') {
+      const playerId = decodeURIComponent(path.slice('/api/sfmc/coops/by-player/'.length));
+      const row = query("SELECT c.* FROM sfmc_coops c JOIN sfmc_coop_members m ON m.cid=c.cid WHERE m.player_id=? AND m.status='active' AND c.status='active'", [playerId])[0];
+      json(res, { coop: row || null }); return;
+    }
+
+    if (path.startsWith('/api/sfmc/coops/') && !path.includes('/shop_items') && !path.includes('/shop_groups')) {
+      const parts = path.slice('/api/sfmc/coops/'.length).split('/');
+      const cid = decodeURIComponent(parts[0]), sub = parts[1], playerId = parts[2];
+      const coop = query("SELECT * FROM sfmc_coops WHERE cid=?", [cid])[0];
+      if (!coop) { json(res, { ok: false, error: 'not_found' }, 404); return; }
+      const roleOf = (id) => query("SELECT role FROM sfmc_coop_members WHERE cid=? AND player_id=? AND status='active' AND (expires_at IS NULL OR expires_at>?)", [cid, id, Date.now()])[0]?.role || null;
+      const can = (id, capability) => { const role = roleOf(id); return role === 'owner' || (role === 'admin' && ['manage_notice','manage_members','manage_shop','audit'].includes(capability)) || (role === 'member' && ['view','deposit','withdraw'].includes(capability)); };
+      const snapshot = () => ({ ...query("SELECT * FROM sfmc_coops WHERE cid=?", [cid])[0], account: query('SELECT * FROM sfmc_coop_accounts WHERE cid=?', [cid])[0], members: query('SELECT * FROM sfmc_coop_members WHERE cid=?', [cid]) });
+      if (!sub && method === 'GET') { json(res, { ok: true, coop: snapshot() }); return; }
+      if (sub === 'settings' && method === 'PATCH') {
+        const data = await body(req), actorId = String(data.actorId || ''), feeBps = Number(data.feeBps);
+        if (roleOf(actorId) !== 'owner') { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 3000) { json(res, { ok: false, error: 'invalid_fee' }, 400); return; }
+        const now = Date.now(), before = query('SELECT fee_bps FROM sfmc_coops WHERE cid=?', [cid])[0];
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          query('UPDATE sfmc_coops SET fee_bps=?,version=version+1,updated_at=? WHERE cid=? AND status=\'active\'', [feeBps, now, cid]);
+          const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+          query('INSERT INTO sfmc_coop_audit_logs (cid,actor_id,action,before_state,after_state,transaction_id,created_at) VALUES (?,?,?,?,?,?,?)', [cid, actorId, 'coop.fee_change', JSON.stringify(before), JSON.stringify({ fee_bps: feeBps }), tx, now]);
+          db.exec('COMMIT'); json(res, { ok: true, feeBps, transactionId: tx, coop: snapshot() });
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'settings_failed' }, 500); }
+        return;
+      }
+      if (sub === 'members' && method === 'GET') { json(res, { ok: true, members: query('SELECT * FROM sfmc_coop_members WHERE cid=?', [cid]) }); return; }
+      if (sub === 'invites' && method === 'GET') {
+        const inviteeId = String(params.get('playerId') || '');
+        json(res, { ok: true, invites: query("SELECT * FROM sfmc_coop_invites WHERE cid=? AND invitee_id=? AND status='pending' AND expires_at>? ORDER BY created_at DESC", [cid, inviteeId, Date.now()]) }); return;
+      }
+      if (sub === 'invites' && !parts[2] && method === 'POST') {
+        const data = await body(req), actorId = String(data.actorId || ''), inviteeId = String(data.playerId || ''), role = String(data.role || 'member');
+        if (!can(actorId, 'manage_members') || !inviteeId || !['admin', 'member'].includes(role)) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        if (query("SELECT 1 FROM sfmc_coop_members WHERE player_id=? AND status='active'", [inviteeId]).length) { json(res, { ok: false, error: 'already_member' }, 409); return; }
+        const now = Date.now(), id = `I${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        query("UPDATE sfmc_coop_invites SET status='revoked' WHERE cid=? AND invitee_id=? AND status='pending'", [cid, inviteeId]);
+        query('INSERT INTO sfmc_coop_invites (id,cid,inviter_id,invitee_id,invitee_name_snapshot,role,status,expires_at,created_at) VALUES (?,?,?,?,?,?,?,?,?)', [id, cid, actorId, inviteeId, String(data.playerName || ''), role, 'pending', now + 7 * 86400000, now]);
+        json(res, { ok: true, invite: query('SELECT * FROM sfmc_coop_invites WHERE id=?', [id])[0] }); return;
+      }
+      if (sub === 'invites' && parts[2] === 'accept' && method === 'POST') {
+        const data = await body(req), actorId = String(data.actorId || ''), inviteId = String(data.inviteId || '');
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          const invite = query("SELECT * FROM sfmc_coop_invites WHERE id=? AND cid=? AND invitee_id=? AND status='pending' AND expires_at>?", [inviteId, cid, actorId, Date.now()])[0];
+          if (!invite) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'invite_not_found' }, 404); return; }
+          if (query("SELECT 1 FROM sfmc_coop_members WHERE player_id=? AND status='active'", [actorId]).length) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'already_member' }, 409); return; }
+          query('INSERT INTO sfmc_coop_members (cid,player_id,player_name_snapshot,role,joined_at) VALUES (?,?,?,?,?)', [cid, actorId, String(data.playerName || invite.invitee_name_snapshot), invite.role, Date.now()]);
+          query("UPDATE sfmc_coop_invites SET status='accepted' WHERE id=?", [inviteId]); db.exec('COMMIT'); json(res, { ok: true, coop: snapshot() });
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'invite_accept_failed' }, 500); }
+        return;
+      }
+      if (sub === 'audit' && method === 'GET') {
+        const auditActorId = String(params.get('actorId') || '');
+        if (auditActorId !== String(coop.owner_player_id) && !can(auditActorId, 'audit')) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        json(res, { ok: true, logs: query('SELECT * FROM sfmc_coop_audit_logs WHERE cid=? ORDER BY created_at DESC LIMIT 200', [cid]) }); return;
+      }
+      if (sub === 'members' && parts[2] === 'join' && method === 'POST') {
+        const data = await body(req), actorId = String(data.actorId || '');
+        if (!actorId || actorId !== String(data.playerId || '') || query("SELECT 1 FROM sfmc_coop_members WHERE player_id=? AND status='active'", [actorId]).length) { json(res, { ok: false, error: 'already_member' }, 409); return; }
+        query('INSERT INTO sfmc_coop_members (cid,player_id,player_name_snapshot,role,joined_at) VALUES (?,?,?,?,?)', [cid, actorId, String(data.playerName || ''), 'member', Date.now()]);
+        json(res, { ok: true, coop: snapshot() }); return;
+      }
+      if (sub === 'members' && parts[2] === 'leave' && method === 'POST') {
+        const data = await body(req), actorId = String(data.actorId || ''), role = roleOf(actorId);
+        if (!role || role === 'owner') { json(res, { ok: false, error: role === 'owner' ? 'owner_cannot_leave' : 'not_member' }, 409); return; }
+        query("UPDATE sfmc_coop_members SET status='removed',version=version+1 WHERE cid=? AND player_id=?", [cid, actorId]);
+        json(res, { ok: true }); return;
+      }
+      if (sub === 'members' && method === 'POST') {
+        const data = await body(req); const actorId = String(data.actorId || ''), targetId = String(data.playerId || '');
+        if (!can(actorId, 'manage_members')) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        if (!targetId || query("SELECT 1 FROM sfmc_coop_members WHERE player_id=? AND status='active'", [targetId]).length) { json(res, { ok: false, error: 'already_member' }, 409); return; }
+        query('INSERT INTO sfmc_coop_members (cid,player_id,player_name_snapshot,role,joined_at) VALUES (?,?,?,?,?)', [cid, targetId, String(data.playerName || ''), 'member', Date.now()]);
+        json(res, { ok: true, coop: snapshot() }); return;
+      }
+      if (sub === 'members' && method === 'PATCH' && playerId) {
+        const data = await body(req); if (!can(String(data.actorId || ''), 'manage_members') || !['admin','member'].includes(String(data.role))) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        query('UPDATE sfmc_coop_members SET role=?,version=version+1 WHERE cid=? AND player_id=? AND role<>\'owner\'', [String(data.role), cid, decodeURIComponent(playerId)]);
+        json(res, { ok: true, coop: snapshot() }); return;
+      }
+      if (sub === 'treasury' && (parts[2] === 'deposit' || parts[2] === 'withdraw') && method === 'POST') {
+        const data = await body(req), actorId = String(data.actorId || ''), amount = Number(data.amount), mode = parts[2];
+        if (!can(actorId, mode) || !Number.isSafeInteger(amount) || amount <= 0) { json(res, { ok: false, error: 'invalid_transaction' }, 400); return; }
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          const coopAccount = query('SELECT * FROM sfmc_coop_accounts WHERE cid=?', [cid])[0], player = ensureEconomyAccount(actorId, String(data.actorName || ''));
+          if (mode === 'deposit' && player.balance < amount) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'insufficient_funds' }, 409); return; }
+          if (mode === 'withdraw' && coopAccount.balance < amount) { db.exec('ROLLBACK'); json(res, { ok: false, error: 'insufficient_coop_funds' }, 409); return; }
+          const now = Date.now(), tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, delta = mode === 'deposit' ? amount : -amount;
+          query('UPDATE sfmc_economy_accounts SET balance=balance-?,version=version+1,updated_at=? WHERE player_id=?', [delta, now, actorId]);
+          query('UPDATE sfmc_coop_accounts SET balance=balance+?,version=version+1,updated_at=? WHERE cid=?', [delta, now, cid]);
+          query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [tx, `coop.${mode}`, actorId, mode === 'deposit' ? actorId : null, mode === 'deposit' ? null : actorId, amount, player.balance, player.balance - delta, 'coop', cid, `合作社${mode === 'deposit' ? '存款' : '取款'}`, now]);
+          query('INSERT INTO sfmc_coop_bank_log (cid,actor_id,actor_name_snapshot,type,amount,note,transaction_id,created_at) VALUES (?,?,?,?,?,?,?,?)', [cid, actorId, String(data.actorName || ''), mode === 'deposit' ? 1 : 2, amount, String(data.note || ''), tx, now]);
+          db.exec('COMMIT');
+          json(res, { ok: true, transactionId: tx, playerBalance: player.balance - delta, coopBalance: coopAccount.balance + delta });
+        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'treasury_failed' }, 500); }
+        return;
+      }
+      if (!sub && (method === 'PATCH' || method === 'PUT')) {
+        const data = await body(req); if (!can(String(data.actorId || ''), 'manage_notice')) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+        const sets = ['updated_at=?','version=version+1'], values = [Date.now()]; if (data.name !== undefined) { sets.push('name=?'); values.push(String(data.name)); } if (data.notice !== undefined) { sets.push('notice=?'); values.push(String(data.notice)); } values.push(cid); query(`UPDATE sfmc_coops SET ${sets.join(',')} WHERE cid=? AND status='active'`, values); json(res, { ok: true, coop: snapshot() }); return;
+      }
+      if (!sub && method === 'DELETE') {
+         const data = await body(req); if (roleOf(String(data.actorId || '')) !== 'owner') { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+         const account = query('SELECT balance FROM sfmc_coop_accounts WHERE cid=?', [cid])[0]; const stock = query('SELECT SUM(num) AS total FROM sfmc_coop_shop_items WHERE cid=? AND type=1', [cid])[0]?.total || 0;
+         if ((account?.balance || 0) !== 0 || stock !== 0) { json(res, { ok: false, error: 'assets_not_empty' }, 409); return; }
+         const before = { coop, account, stock };
+         const now = Date.now(), tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+         db.exec('BEGIN IMMEDIATE');
+         try {
+           query("UPDATE sfmc_coops SET status='dissolved',updated_at=?,version=version+1 WHERE cid=? AND status='active'", [now, cid]);
+           query("UPDATE sfmc_coop_members SET status='removed',version=version+1 WHERE cid=? AND status='active'", [cid]);
+           query('INSERT INTO sfmc_coop_audit_logs (cid,actor_id,action,before_state,after_state,transaction_id,created_at) VALUES (?,?,?,?,?,?,?)', [cid, String(data.actorId), 'coop.dissolve', JSON.stringify(before), JSON.stringify({ status: 'dissolved' }), tx, now]);
+           db.exec('COMMIT');
+           json(res, { ok: true, transactionId: tx });
+         } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'dissolve_failed' }, 500); }
+         return;
+      }
+    }
+
+    // Legacy organization writes are disabled; authoritative state uses the routes above.
     if (path === '/api/sfmc/coops') {
       if (method === 'GET') {
         const all = query('SELECT * FROM sfmc_coops ORDER BY updated_at DESC');
         json(res, { coops: all });
       } else if (method === 'POST') {
-        const { coop } = await body(req);
-        if (!coop?.cid) { json(res, { success: false, error: 'cid required' }, 400); return; }
-        const now = Date.now();
-        query('INSERT OR REPLACE INTO sfmc_coops (cid, name, owner_name, notice, money, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [coop.cid, coop.name || '', coop.owner_name || '', coop.notice || '', coop.money ?? 0, coop.created_at || now, now]);
-        if (coop.members) {
-          for (const m of coop.members) {
-            query('INSERT OR REPLACE INTO sfmc_coop_members (cid, player_name, is_op, joined_at) VALUES (?, ?, ?, ?)',
-              [coop.cid, m.player_name, m.is_op ? 1 : 0, m.joined_at || now]);
-          }
-        }
-        json(res, { success: true });
+        json(res, { ok: false, error: 'legacy_route_disabled' }, 410);
       } else { json(res, { success: false, error: 'not_found' }, 404); }
       return;
     }
@@ -1831,19 +2055,9 @@ async function handle(req, res) {
           coop.shop_items = query('SELECT * FROM sfmc_coop_shop_items WHERE cid = ?', [cid]);
           json(res, { coop });
         } else if (method === 'PATCH' || method === 'PUT') {
-          const data = await body(req);
-          const sets = ['updated_at=?']; const vals = [Date.now()];
-          if (data.name !== undefined) { sets.push('name=?'); vals.push(data.name); }
-          if (data.notice !== undefined) { sets.push('notice=?'); vals.push(data.notice); }
-          if (data.money !== undefined) { sets.push('money=?'); vals.push(data.money); }
-          if (sets.length > 1) { vals.push(cid); query(`UPDATE sfmc_coops SET ${sets.join(', ')} WHERE cid=?`, vals); }
-          json(res, { success: true });
+          json(res, { ok: false, error: 'legacy_route_disabled' }, 410);
         } else if (method === 'DELETE') {
-          query('DELETE FROM sfmc_coop_members WHERE cid=?', [cid]);
-          query('DELETE FROM sfmc_coop_shop_items WHERE cid=?', [cid]);
-          query('DELETE FROM sfmc_coop_bank_log WHERE cid=?', [cid]);
-          query('DELETE FROM sfmc_coops WHERE cid=?', [cid]);
-          json(res, { success: true });
+          json(res, { ok: false, error: 'legacy_route_disabled' }, 410);
         } else { json(res, { success: false, error: 'not_found' }, 404); }
         return;
       }
