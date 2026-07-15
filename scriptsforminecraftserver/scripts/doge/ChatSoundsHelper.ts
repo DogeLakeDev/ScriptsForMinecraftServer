@@ -1,4 +1,4 @@
-import { system, world, Player } from "@minecraft/server";
+import { system, world } from "@minecraft/server";
 
 const KEYWORDS: Record<string, string> = {
   ciallo: "cs.ciallo",

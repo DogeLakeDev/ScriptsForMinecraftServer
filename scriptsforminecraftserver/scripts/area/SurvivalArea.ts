@@ -6,19 +6,19 @@
 \* ---------------------------------------- */
 
 import {
+  Entity,
+  GameMode,
+  PlayerDimensionChangeAfterEvent,
+  PlayerGameModeChangeBeforeEvent,
+  PlayerSpawnAfterEvent,
   system,
   world,
-  GameMode,
-  Entity,
-  PlayerSpawnAfterEvent,
-  PlayerGameModeChangeBeforeEvent,
-  PlayerDimensionChangeAfterEvent,
 } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager";
-import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
-import { CreativeArea } from "./CreativeArea";
+import * as Tool from "../libs/Tools";
 import { Msg } from "../libs/Tools";
+import { CreativeArea } from "./CreativeArea";
 
 export class SurvivalArea {
   static _instance: SurvivalArea;

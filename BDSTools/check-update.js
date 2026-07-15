@@ -12,33 +12,33 @@
  *   node check-update.js --force              强制重装
  */
 
-const https = require('https');
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { assertNodeVersion } = require('../db-server/lib/runtime');
+const https = require("https");
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const { assertNodeVersion } = require("../db-server/lib/runtime");
 if (!assertNodeVersion(18, 0)) process.exit(2);
 let AdmZip;
 try {
-  AdmZip = require('adm-zip');
+  AdmZip = require("adm-zip");
 } catch (error) {
   console.error(`[BDSUpdater] 缺少依赖 adm-zip，请在 BDSTools 目录执行 npm install: ${error.message}`);
   process.exit(1);
 }
-const bds = require('./bds-manager');
+const bds = require("./bds-manager");
 
 // ────────── 配置 ──────────
 
 const SCRIPT_DIR = __dirname;
-const ROOT_DIR = path.resolve(SCRIPT_DIR, '..');
-const CFG_PATH = path.join(ROOT_DIR, 'configs', 'bds_updater.json');
-const LOG_PATH = path.join(SCRIPT_DIR, 'update.log');
-const QQ_SENDER = path.join(SCRIPT_DIR, 'llbot-sender.js');
+const ROOT_DIR = path.resolve(SCRIPT_DIR, "..");
+const CFG_PATH = path.join(ROOT_DIR, "configs", "bds_updater.json");
+const LOG_PATH = path.join(SCRIPT_DIR, "update.log");
+const QQ_SENDER = path.join(SCRIPT_DIR, "llbot-sender.js");
 
 let cfg;
 try {
-  cfg = JSON.parse(fs.readFileSync(CFG_PATH, 'utf-8'));
+  cfg = JSON.parse(fs.readFileSync(CFG_PATH, "utf-8"));
 } catch (e) {
   console.error(`[BDSUpdater] 无法读取配置: ${e.message}`);
   process.exit(1);
@@ -50,132 +50,163 @@ for (const a of process.argv.slice(2)) {
   const m = a.match(/^--([\w-]+)(?:=(.+))?$/);
   if (m) args[m[1]] = m[2] || true;
 }
-const CHANNEL = args.channel || cfg.channel || 'release';
-const CHECK_ONLY = !!args['check-only'];
+const CHANNEL = args.channel || cfg.channel || "release";
+const CHECK_ONLY = !!args["check-only"];
 const FORCE = !!args.force;
 const BDS_PATH = path.resolve(cfg.bds_path || process.cwd());
-const BACKUP_DIR = path.resolve(cfg.backup_dir || path.join(BDS_PATH, '..', 'backups'));
+const BACKUP_DIR = path.resolve(cfg.backup_dir || path.join(BDS_PATH, "..", "backups"));
 const AUTO_RESTART = cfg.auto_restart !== false;
 
-const RELEASE_URL = 'https://www.minecraft.net/en-us/download/server/bedrock';
-const PREVIEW_URL = 'https://www.minecraft.net/en-us/download/server/bedrock-preview';
-const VERSION_MODE = cfg.version_mode || 'bedrock-oss';
-const VERSIONS_API = cfg.version_versions || 'https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json';
-const VERSIONS_MIRROR = cfg.version_versions_mirror || 'https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json';
-const DETAILS_API = cfg.version_details || 'https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/{platform}/{version}.json';
-const DETAILS_MIRROR = cfg.version_details_mirror || 'https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/{platform}/{version}.json';
-const CHANGELOG_BASE = 'https://feedback.minecraft.net/hc/en-us/sections/360001186971';
+const RELEASE_URL = "https://www.minecraft.net/en-us/download/server/bedrock";
+const PREVIEW_URL = "https://www.minecraft.net/en-us/download/server/bedrock-preview";
+const VERSION_MODE = cfg.version_mode || "bedrock-oss";
+const VERSIONS_API =
+  cfg.version_versions || "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
+const VERSIONS_MIRROR =
+  cfg.version_versions_mirror || "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json";
+const DETAILS_API =
+  cfg.version_details || "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/{platform}/{version}.json";
+const DETAILS_MIRROR =
+  cfg.version_details_mirror || "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/{platform}/{version}.json";
+const CHANGELOG_BASE = "https://feedback.minecraft.net/hc/en-us/sections/360001186971";
 const DOWNLOAD_TIMEOUT = (cfg.download_timeout || 120) * 1000;
 const FETCH_TIMEOUT = 15000;
-const DOWNLOAD_MIRROR = cfg.download_mirror || '';
+const DOWNLOAD_MIRROR = cfg.download_mirror || "";
 
 /** 版本号 4段 → 3段（去尾）: 1.26.33.2 → 1.26.33 */
-function toVer3(v) { return v.split('.').slice(0, 3).join('.'); }
+function toVer3(v) {
+  return v.split(".").slice(0, 3).join(".");
+}
 
 /** 版本号 3段 → 4段（补0）: 1.26.33 → 1.26.33.0 */
-function toVer4(v) { const p = v.split('.'); while (p.length < 4) p.push('0'); return p.join('.'); }
+function toVer4(v) {
+  const p = v.split(".");
+  while (p.length < 4) p.push("0");
+  return p.join(".");
+}
 
 /** 模板替换: {version} {ver3} {platform} {channel} */
 function resolveTemplate(tpl, vars) {
   let s = tpl;
-  for (const [k, v] of Object.entries(vars)) s = s.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+  for (const [k, v] of Object.entries(vars)) s = s.replace(new RegExp(`\\{${k}\\}`, "g"), v);
   return s;
 }
 
 // ────────── 日志 ──────────
 
 function log(msg) {
-  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const ts = new Date().toISOString().replace("T", " ").slice(0, 19);
   const line = `[${ts}] ${msg}`;
   console.log(line);
-  try { fs.appendFileSync(LOG_PATH, line + '\n'); } catch {}
+  try {
+    fs.appendFileSync(LOG_PATH, line + "\n");
+  } catch {}
 }
 
 function logError(msg) {
-  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const ts = new Date().toISOString().replace("T", " ").slice(0, 19);
   const line = `[${ts}] [ERROR] ${msg}`;
   console.error(line);
-  try { fs.appendFileSync(LOG_PATH, line + '\n'); } catch {}
+  try {
+    fs.appendFileSync(LOG_PATH, line + "\n");
+  } catch {}
 }
 
 // ────────── HTTP 工具 ──────────
 
 function httpGet(url, timeout = FETCH_TIMEOUT) {
   return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : http;
+    const mod = url.startsWith("https") ? https : http;
     const u = new URL(url);
-    const req = mod.request({
-      hostname: u.hostname,
-      port: u.port || 443,
-      path: u.pathname + u.search,
-      method: 'GET',
-      headers: { 'User-Agent': 'BDSUpdater/1.0' },
-    }, (res) => {
-      let data = '';
-      res.on('data', (c) => (data += c));
-      res.on('end', () => resolve(data));
+    const req = mod.request(
+      {
+        hostname: u.hostname,
+        port: u.port || 443,
+        path: u.pathname + u.search,
+        method: "GET",
+        headers: { "User-Agent": "BDSUpdater/1.0" },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () => resolve(data));
+      }
+    );
+    req.setTimeout(timeout, () => {
+      req.destroy(new Error("Request timeout"));
     });
-    req.setTimeout(timeout, () => { req.destroy(new Error('Request timeout')); });
-    req.on('error', reject);
+    req.on("error", reject);
     req.end();
   });
 }
 
 function httpDownload(url, destPath, onProgress, timeout = DOWNLOAD_TIMEOUT) {
   return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : http;
+    const mod = url.startsWith("https") ? https : http;
     const u = new URL(url);
-    const req = mod.request({
-      hostname: u.hostname,
-      port: u.port || 443,
-      path: u.pathname + u.search,
-      method: 'GET',
-      headers: { 'User-Agent': 'BDSUpdater/1.0' },
-    }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400) {
-        const loc = res.headers.location;
-        if (!loc) return reject(new Error(`HTTP ${res.statusCode} 无 Location`));
-        const redirectUrl = loc.startsWith('http') ? loc : new URL(loc, url).href;
-        return resolve(httpDownload(redirectUrl, destPath, onProgress, timeout));
-      }
-      if (res.statusCode !== 200) {
-        reject(new Error(`HTTP ${res.statusCode}`));
-        return;
-      }
-      const total = parseInt(res.headers['content-length'] || '0', 10);
-      let downloaded = 0;
-      const file = fs.createWriteStream(destPath);
-      res.on('data', (chunk) => {
-        downloaded += chunk.length;
-        const canContinue = file.write(chunk);
-        if (!canContinue) {
-          res.pause();
-          file.once('drain', () => res.resume());
+    const req = mod.request(
+      {
+        hostname: u.hostname,
+        port: u.port || 443,
+        path: u.pathname + u.search,
+        method: "GET",
+        headers: { "User-Agent": "BDSUpdater/1.0" },
+      },
+      (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400) {
+          const loc = res.headers.location;
+          if (!loc) return reject(new Error(`HTTP ${res.statusCode} 无 Location`));
+          const redirectUrl = loc.startsWith("http") ? loc : new URL(loc, url).href;
+          return resolve(httpDownload(redirectUrl, destPath, onProgress, timeout));
         }
-        if (onProgress && total) onProgress(downloaded, total);
-      });
-      res.on('end', () => { file.end(); resolve(); });
-      res.on('error', (err) => { file.close(); reject(err); });
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        const total = parseInt(res.headers["content-length"] || "0", 10);
+        let downloaded = 0;
+        const file = fs.createWriteStream(destPath);
+        res.on("data", (chunk) => {
+          downloaded += chunk.length;
+          const canContinue = file.write(chunk);
+          if (!canContinue) {
+            res.pause();
+            file.once("drain", () => res.resume());
+          }
+          if (onProgress && total) onProgress(downloaded, total);
+        });
+        res.on("end", () => {
+          file.end();
+          resolve();
+        });
+        res.on("error", (err) => {
+          file.close();
+          reject(err);
+        });
+      }
+    );
+    req.setTimeout(timeout, () => {
+      req.destroy(new Error("Download timeout"));
     });
-    req.setTimeout(timeout, () => { req.destroy(new Error('Download timeout')); });
-    req.on('error', reject);
+    req.on("error", reject);
     req.end();
   });
 }
 
 /** 尝试多个源获取 JSON，谁先成功用谁 */
 async function fetchJsonWithFallback(sources, timeout = FETCH_TIMEOUT) {
-  const results = await Promise.allSettled(
-    sources.map((url) => httpGet(url, timeout))
-  );
+  const results = await Promise.allSettled(sources.map((url) => httpGet(url, timeout)));
   for (const r of results) {
-    if (r.status === 'fulfilled') {
-      try { return JSON.parse(r.value); } catch {}
+    if (r.status === "fulfilled") {
+      try {
+        return JSON.parse(r.value);
+      } catch {}
     }
   }
   const errors = results
-    .filter((r) => r.status === 'rejected')
-    .map((r) => r.reason.message).join('; ');
+    .filter((r) => r.status === "rejected")
+    .map((r) => r.reason.message)
+    .join("; ");
   throw new Error(`所有源均不可用: ${errors}`);
 }
 
@@ -210,10 +241,14 @@ async function qqSendImage(text, base64Img) {
 
 // ────────── 版本获取 ──────────
 
-const CACHE_PATH = path.join(SCRIPT_DIR, '.version_cache.json');
+const CACHE_PATH = path.join(SCRIPT_DIR, ".version_cache.json");
 
 function readCache() {
-  try { return JSON.parse(fs.readFileSync(CACHE_PATH, 'utf-8')); } catch { return {}; }
+  try {
+    return JSON.parse(fs.readFileSync(CACHE_PATH, "utf-8"));
+  } catch {
+    return {};
+  }
 }
 
 function saveCache(ver, sha256) {
@@ -223,31 +258,35 @@ function saveCache(ver, sha256) {
   const keys = Object.keys(cache).sort(compareVersions).slice(-3);
   const trimmed = {};
   for (const k of keys) trimmed[k] = cache[k];
-  try { fs.writeFileSync(CACHE_PATH, JSON.stringify(trimmed, null, 2)); } catch {}
+  try {
+    fs.writeFileSync(CACHE_PATH, JSON.stringify(trimmed, null, 2));
+  } catch {}
 }
 
-function hashFile(filePath, algo = 'sha256') {
+function hashFile(filePath, algo = "sha256") {
   try {
     const h = crypto.createHash(algo);
     h.update(fs.readFileSync(filePath));
-    return h.digest('hex').toLowerCase();
-  } catch { return ''; }
+    return h.digest("hex").toLowerCase();
+  } catch {
+    return "";
+  }
 }
 
 function getCurrentVersion() {
-  const exePath = path.join(BDS_PATH, 'bedrock_server.exe');
-  if (!fs.existsSync(exePath)) return '0.0.0.0';
+  const exePath = path.join(BDS_PATH, "bedrock_server.exe");
+  if (!fs.existsSync(exePath)) return "0.0.0.0";
 
   const actual = hashFile(exePath);
-  if (!actual) return '0.0.0.0';
+  if (!actual) return "0.0.0.0";
 
   const cache = readCache();
   for (const [ver, entry] of Object.entries(cache)) {
     if (entry.sha256 === actual) return ver;
   }
 
-  log('[BDSUpdater] 警告: bedrock_server.exe 哈希与缓存记录不匹配，可能已被修改');
-  return '0.0.0.0';
+  log("[BDSUpdater] 警告: bedrock_server.exe 哈希与缓存记录不匹配，可能已被修改");
+  return "0.0.0.0";
 }
 
 async function getVersionInfo() {
@@ -256,15 +295,15 @@ async function getVersionInfo() {
     try {
       const json = await fetchJsonWithFallback([VERSIONS_API, VERSIONS_MIRROR]);
       let ver;
-      if (VERSION_MODE === 'endstone') {
-        const entry = CHANNEL === 'preview' ? json.preview : json.release;
-        if (!entry || !entry.latest) throw new Error('未找到最新版本号');
+      if (VERSION_MODE === "endstone") {
+        const entry = CHANNEL === "preview" ? json.preview : json.release;
+        if (!entry || !entry.latest) throw new Error("未找到最新版本号");
         ver = entry.latest;
       } else {
         const platform = json.windows || json.linux;
-        if (!platform) throw new Error('未找到平台版本信息');
-        ver = CHANNEL === 'preview' ? platform.preview : platform.stable;
-        if (!ver) throw new Error('未找到最新版本号');
+        if (!platform) throw new Error("未找到平台版本信息");
+        ver = CHANNEL === "preview" ? platform.preview : platform.stable;
+        if (!ver) throw new Error("未找到最新版本号");
       }
       return { version: ver, cdnRoot: json.cdn_root };
     } catch (e) {
@@ -281,28 +320,28 @@ async function getVersionInfo() {
 
 /** 从 per-version JSON 获取下载链接和哈希 */
 async function fetchVersionDetails(version) {
-  const platform = CHANNEL === 'preview' ? 'windows_preview' : 'windows';
-  const channel = CHANNEL === 'preview' ? 'preview' : 'release';
+  const platform = CHANNEL === "preview" ? "windows_preview" : "windows";
+  const channel = CHANNEL === "preview" ? "preview" : "release";
   const vars = { version, ver3: toVer3(version), platform, channel };
   const sources = [
     resolveTemplate(DETAILS_API, vars),
-    DETAILS_MIRROR ? resolveTemplate(DETAILS_MIRROR, vars) : '',
+    DETAILS_MIRROR ? resolveTemplate(DETAILS_MIRROR, vars) : "",
   ].filter(Boolean);
 
   const json = await fetchJsonWithFallback(sources);
-  if (VERSION_MODE === 'endstone') {
+  if (VERSION_MODE === "endstone") {
     const bw = json.binary?.windows;
     return {
-      downloadUrl: bw?.url || '',
-      sha1: '',        // Endstone 用 SHA256
-      sha256: bw?.sha256 || '',
+      downloadUrl: bw?.url || "",
+      sha1: "", // Endstone 用 SHA256
+      sha256: bw?.sha256 || "",
       size: bw?.size_in_bytes || 0,
     };
   }
   return {
-    downloadUrl: json.download_url || '',
-    sha1: json.sha1 || '',
-    sha256: '',
+    downloadUrl: json.download_url || "",
+    sha1: json.sha1 || "",
+    sha256: "",
     size: json.size_in_bytes || 0,
   };
 }
@@ -311,11 +350,11 @@ async function fetchVersionDetails(version) {
 function verifyHash(filePath, sha1, sha256) {
   const expected = sha256 || sha1;
   if (!expected) return true;
-  const algo = sha256 ? 'sha256' : 'sha1';
+  const algo = sha256 ? "sha256" : "sha1";
   const hash = crypto.createHash(algo);
   const data = fs.readFileSync(filePath);
   hash.update(data);
-  const actual = hash.digest('hex').toLowerCase();
+  const actual = hash.digest("hex").toLowerCase();
   return actual === expected.toLowerCase();
 }
 
@@ -323,16 +362,17 @@ function getDownloadUrls(version, details) {
   const urls = [];
   // 1. 镜像（优先）
   if (DOWNLOAD_MIRROR) {
-    const mirrorVer = CHANNEL === 'preview' ? `${version}-preview` : version;
+    const mirrorVer = CHANNEL === "preview" ? `${version}-preview` : version;
     urls.push(resolveTemplate(DOWNLOAD_MIRROR, { version: mirrorVer }));
   }
   // 2. per-version JSON 中的 download_url
   if (details.downloadUrl) urls.push(details.downloadUrl);
   // 3. cdn_root 拼接
-  const cdnRoot = cfg.cdn_root || 'https://www.minecraft.net/bedrockdedicatedserver';
-  const suffix = CHANNEL === 'preview'
-    ? `/bin-win-preview/bedrock-server-${version}-preview.zip`
-    : `/bin-win/bedrock-server-${version}.zip`;
+  const cdnRoot = cfg.cdn_root || "https://www.minecraft.net/bedrockdedicatedserver";
+  const suffix =
+    CHANNEL === "preview"
+      ? `/bin-win-preview/bedrock-server-${version}-preview.zip`
+      : `/bin-win/bedrock-server-${version}.zip`;
   urls.push(cdnRoot + suffix);
   // 4. azureedge fallback
   urls.push(`https://minecraft.azureedge.net${suffix}`);
@@ -340,14 +380,14 @@ function getDownloadUrls(version, details) {
 }
 
 function compareVersions(a, b) {
-  const pa = a.replace('-preview', '').split('.').map(Number);
-  const pb = b.replace('-preview', '').split('.').map(Number);
+  const pa = a.replace("-preview", "").split(".").map(Number);
+  const pb = b.replace("-preview", "").split(".").map(Number);
   for (let i = 0; i < 4; i++) {
     if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
   }
   // preview 低于 release
-  if (a.includes('-preview') && !b.includes('-preview')) return -1;
-  if (!a.includes('-preview') && b.includes('-preview')) return 1;
+  if (a.includes("-preview") && !b.includes("-preview")) return -1;
+  if (!a.includes("-preview") && b.includes("-preview")) return 1;
   return 0;
 }
 
@@ -355,31 +395,33 @@ function compareVersions(a, b) {
 
 async function fetchChangelog() {
   try {
-    const html = await httpGet(`https://www.minecraft.net/en-us/article/${CHANNEL === 'preview' ? 'bedrock-beta' : 'bedrock'}-update`);
-    const cheerio = require('cheerio');
+    const html = await httpGet(
+      `https://www.minecraft.net/en-us/article/${CHANNEL === "preview" ? "bedrock-beta" : "bedrock"}-update`
+    );
+    const cheerio = require("cheerio");
     const $ = cheerio.load(html);
     // 尝试提取文章内容
-    const article = $('article').first() || $('.article-content').first() || $('[class*="content"]').first();
+    const article = $("article").first() || $(".article-content").first() || $('[class*="content"]').first();
     if (!article.length) return null;
 
     // 提取文本
     const paragraphs = [];
-    article.find('p, h2, h3, li').each((i, el) => {
+    article.find("p, h2, h3, li").each((i, el) => {
       const text = $(el).text().trim();
       if (text) paragraphs.push(text);
     });
-    const text = paragraphs.join('\n').slice(0, 2000);
+    const text = paragraphs.join("\n").slice(0, 2000);
 
     // 提取第一张图片
     let imageBase64 = null;
-    const firstImg = article.find('img').first();
+    const firstImg = article.find("img").first();
     if (firstImg.length) {
-      const imgSrc = firstImg.attr('src') || firstImg.attr('data-src');
+      const imgSrc = firstImg.attr("src") || firstImg.attr("data-src");
       if (imgSrc) {
         try {
-          const imgUrl = imgSrc.startsWith('http') ? imgSrc : `https://www.minecraft.net${imgSrc}`;
+          const imgUrl = imgSrc.startsWith("http") ? imgSrc : `https://www.minecraft.net${imgSrc}`;
           const imgData = await httpGet(imgUrl);
-          imageBase64 = Buffer.from(imgData, 'binary').toString('base64');
+          imageBase64 = Buffer.from(imgData, "binary").toString("base64");
         } catch (e) {
           log(`[BDSUpdater] 获取图片失败: ${e.message}`);
         }
@@ -498,33 +540,28 @@ async function main() {
   if (cfg.qq_notify) {
     await qqSend(
       `𝐌𝐢𝐧𝐞𝐜𝐫𝐚𝐟𝐭 𝐁𝐃𝐒 更新通知\n\n` +
-      `检测到新版本！\n\n` +
-      `当前版本: ${currentVer}\n` +
-      `最新版本: ${latestVer}\n` +
-      `频道: ${CHANNEL === 'preview' ? '预览版' : '正式版'}\n\n` +
-      `服务器即将开始更新~ 请耐心等待^(*￣(oo)￣)^`
+        `检测到新版本！\n\n` +
+        `当前版本: ${currentVer}\n` +
+        `最新版本: ${latestVer}\n` +
+        `频道: ${CHANNEL === "preview" ? "预览版" : "正式版"}\n\n` +
+        `服务器即将开始更新~ 请耐心等待^(*￣(oo)￣)^`
     );
 
     // 更新日志
     const changelog = await fetchChangelog();
     if (changelog) {
-      const textParts = [
-        `📋 更新内容概要\n\n`,
-        changelog.text.slice(0, 1500),
-        `\n\n完整日志: ${CHANGELOG_BASE}`,
-      ];
+      const textParts = [`📋 更新内容概要\n\n`, changelog.text.slice(0, 1500), `\n\n完整日志: ${CHANGELOG_BASE}`];
       if (changelog.imageBase64) {
-        await qqSendImage(textParts.join(''), changelog.imageBase64);
+        await qqSendImage(textParts.join(""), changelog.imageBase64);
       } else {
-        await qqSend(textParts.join(''));
+        await qqSend(textParts.join(""));
       }
     } else {
       await qqSend(`📋 更新日志: ${CHANGELOG_BASE}`);
     }
 
     // 备份预告
-    await qqSend(`正在备份服务器文件...\n\n` +
-      (cfg.preserve || []).map((i) => `• ${i}`).join('\n'));
+    await qqSend(`正在备份服务器文件...\n\n` + (cfg.preserve || []).map((i) => `• ${i}`).join("\n"));
   }
 
   // 3. 备份
@@ -535,11 +572,7 @@ async function main() {
     log(`[BDSUpdater] 备份完成: ${backupResult.path} (${sizeMB} MB)`);
 
     if (cfg.qq_notify) {
-      await qqSend(
-        `✅ 备份完成\n\n` +
-        `备份大小: ${sizeMB} MB\n` +
-        `备份位置: ${backupResult.path}`
-      );
+      await qqSend(`✅ 备份完成\n\n` + `备份大小: ${sizeMB} MB\n` + `备份位置: ${backupResult.path}`);
     }
   } catch (e) {
     logError(`[BDSUpdater] 备份失败: ${e.message}`);
@@ -570,7 +603,9 @@ async function main() {
           const pct = Math.floor((downloaded / total) * 100);
           if (pct - lastProgress >= 25 || pct === 100) {
             lastProgress = pct;
-            log(`[BDSUpdater] 下载进度: ${pct}% (${(downloaded / 1024 / 1024).toFixed(1)}MB / ${(total / 1024 / 1024).toFixed(1)}MB)`);
+            log(
+              `[BDSUpdater] 下载进度: ${pct}% (${(downloaded / 1024 / 1024).toFixed(1)}MB / ${(total / 1024 / 1024).toFixed(1)}MB)`
+            );
           }
         });
         lastErr = null;
@@ -588,7 +623,7 @@ async function main() {
     // 哈希校验
     const h = cfg._hash;
     if (h && (h.sha1 || h.sha256)) {
-      const algo = h.sha256 ? 'SHA256' : 'SHA1';
+      const algo = h.sha256 ? "SHA256" : "SHA1";
       log(`[BDSUpdater] 校验文件完整性 (${algo})...`);
       if (!verifyHash(zipPath, h.sha1, h.sha256)) {
         throw new Error(`${algo} 校验不通过，文件可能损坏`);
@@ -626,7 +661,9 @@ async function main() {
     await qqSend(`❌ BDS 更新失败\n\n解压失败: ${e.message}\nBDS 已停止，请手动恢复备份`);
     process.exit(1);
   } finally {
-    try { fs.rmSync(tempDir, { recursive: true }); } catch {}
+    try {
+      fs.rmSync(tempDir, { recursive: true });
+    } catch {}
   }
 
   // 删除 preserves 列表中的内容，准备恢复旧备份
@@ -657,7 +694,7 @@ async function main() {
   }
 
   // 写入版本缓存（hash bedrock_server.exe 用于后续比对）
-  const exePath = path.join(BDS_PATH, 'bedrock_server.exe');
+  const exePath = path.join(BDS_PATH, "bedrock_server.exe");
   const exeHash = hashFile(exePath);
   if (exeHash) {
     saveCache(latestVer, exeHash);
@@ -678,11 +715,11 @@ async function main() {
 
   // 9. QQ 通知结果
   if (cfg.qq_notify) {
-    const totalTime = 'N/A'; // we don't track start time, could add later
+    const totalTime = "N/A"; // we don't track start time, could add later
     await qqSend(
       `✅ BDS 更新完成\n\n` +
-      `从 ${currentVer} → ${latestVer}\n` +
-      `${AUTO_RESTART ? '服务器已重新启动' : '请手动重启服务器'}`
+        `从 ${currentVer} → ${latestVer}\n` +
+        `${AUTO_RESTART ? "服务器已重新启动" : "请手动重启服务器"}`
     );
   }
 

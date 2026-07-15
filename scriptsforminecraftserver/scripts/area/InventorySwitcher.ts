@@ -6,15 +6,15 @@
 \* ---------------------------------------- */
 
 import {
+  BlockComponentTypes,
+  EntityEquippableComponent,
+  EntityInventoryComponent,
+  EquipmentSlot,
+  GameMode,
   Player,
+  PlayerGameModeChangeAfterEvent,
   system,
   world,
-  GameMode,
-  EquipmentSlot,
-  EntityInventoryComponent,
-  EntityEquippableComponent,
-  BlockComponentTypes,
-  PlayerGameModeChangeAfterEvent,
 } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";

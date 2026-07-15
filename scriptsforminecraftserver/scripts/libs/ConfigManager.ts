@@ -1,9 +1,9 @@
 import { system, world } from "@minecraft/server";
-import { HttpDB } from "./HttpDB";
-import { Msg } from "./Tools";
 import { CreativeArea } from "../area/CreativeArea";
 import { Peace } from "../area/Peace";
 import { DogeChat } from "../chat/DogeChat";
+import { HttpDB } from "./HttpDB";
+import { Msg } from "./Tools";
 
 type ConfigCache = {
   modules: Map<string, boolean>;

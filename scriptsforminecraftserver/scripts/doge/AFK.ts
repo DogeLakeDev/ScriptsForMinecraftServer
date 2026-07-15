@@ -6,10 +6,10 @@
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
 import { Command } from "../libs/Command";
-import { Permission } from "../libs/Permission";
+import { ConfigManager } from "../libs/ConfigManager";
 import { debug } from "../libs/DebugLog";
+import { Permission } from "../libs/Permission";
 
 // 内存缓存：玩家 ID → (键 → 值)
 const afkCache = new Map<string, Map<string, any>>();

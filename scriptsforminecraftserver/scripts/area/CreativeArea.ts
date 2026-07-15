@@ -6,22 +6,21 @@
 \* ---------------------------------------- */
 
 import {
-  Player,
-  system,
-  world,
-  GameMode,
   Entity,
   EntityInitializationCause,
-  PlayerPlaceBlockBeforeEvent,
+  EntitySpawnAfterEvent,
+  GameMode,
+  Player,
   PlayerBreakBlockBeforeEvent,
   PlayerDimensionChangeAfterEvent,
+  PlayerPlaceBlockBeforeEvent,
   PlayerSpawnAfterEvent,
-  EntitySpawnAfterEvent,
+  system,
+  world,
 } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager";
-import * as Tool from "../libs/Tools";
 import { Permission } from "../libs/Permission";
-import { SurvivalArea } from "./SurvivalArea";
+import * as Tool from "../libs/Tools";
 
 export class CreativeArea {
   static _instance: CreativeArea;

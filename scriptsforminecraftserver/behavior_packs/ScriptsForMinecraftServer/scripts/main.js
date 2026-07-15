@@ -5,39 +5,45 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __esm = (fn, res, err) => function __init() {
-  if (err) throw err[0];
-  try {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-  } catch (e) {
-    throw err = [e], e;
-  }
-};
+var __esm = (fn, res, err) =>
+  function __init() {
+    if (err) throw err[0];
+    try {
+      return (fn && (res = (0, fn[__getOwnPropNames(fn)[0]])((fn = 0))), res);
+    } catch (e) {
+      throw ((err = [e]), e);
+    }
+  };
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === "object") || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  )
+);
 
 // scripts/libs/HttpDB.ts
 var HttpDB_exports = {};
 __export(HttpDB_exports, {
-  HttpDB: () => HttpDB
+  HttpDB: () => HttpDB,
 });
 var import_server_net, import_server, HOST, PORT, BASE_URL, TIMEOUT, HttpDB;
 var init_HttpDB = __esm({
@@ -178,23 +184,28 @@ var init_HttpDB = __esm({
         return status === 200;
       }
     };
-  }
+  },
 });
 
 // scripts/libs/DebugLog.ts
 function ts() {
-  return (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
+  return /* @__PURE__ */ new Date().toISOString().slice(11, 23);
 }
 function log(level, module2, msg, ...args) {
   if (!ENABLED) return;
   if (LEVELS[level] < minLevel) return;
-  const extra = args.length ? " | " + args.map((a) => {
-    try {
-      return typeof a === "object" ? JSON.stringify(a) : String(a);
-    } catch {
-      return String(a);
-    }
-  }).join(" ") : "";
+  const extra = args.length
+    ? " | " +
+      args
+        .map((a) => {
+          try {
+            return typeof a === "object" ? JSON.stringify(a) : String(a);
+          } catch {
+            return String(a);
+          }
+        })
+        .join(" ")
+    : "";
   console.log(`[${ts()}[${level}][${module2}] ${msg}${extra}`);
 }
 var ENABLED, LEVELS, minLevel, debug;
@@ -208,9 +219,9 @@ var init_DebugLog = __esm({
       d: (m, msg, ...args) => log("DEBUG", m, msg, ...args),
       i: (m, msg, ...args) => log("INFO", m, msg, ...args),
       w: (m, msg, ...args) => log("WARN", m, msg, ...args),
-      e: (m, msg, ...args) => log("ERROR", m, msg, ...args)
+      e: (m, msg, ...args) => log("ERROR", m, msg, ...args),
     };
-  }
+  },
 });
 
 // scripts/api/EconomyApi.ts
@@ -222,7 +233,7 @@ __export(EconomyApi_exports, {
   getPriceIndex: () => getPriceIndex,
   recalcPriceIndex: () => recalcPriceIndex,
   submitDailyTask: () => submitDailyTask,
-  transferEconomy: () => transferEconomy
+  transferEconomy: () => transferEconomy,
 });
 function parseAccount(body) {
   if (!body) return null;
@@ -251,7 +262,7 @@ async function applyEconomyTransaction(data) {
     balanceBefore: account?.balanceBefore,
     balanceAfter: account?.balanceAfter,
     version: account?.version,
-    transactionId: result.data?.transactionId
+    transactionId: result.data?.transactionId,
   };
 }
 async function getPriceIndex() {
@@ -286,7 +297,7 @@ async function transferEconomy(actorId, targetPlayerId, amount, targetPlayerName
     actorId,
     targetPlayerId,
     targetPlayerName,
-    amount
+    amount,
   });
   return { ok: result.ok, error: result.error };
 }
@@ -295,13 +306,13 @@ var init_EconomyApi = __esm({
     "use strict";
     init_HttpDB();
     init_DebugLog();
-  }
+  },
 });
 
 // scripts/libs/Money.ts
 var Money_exports = {};
 __export(Money_exports, {
-  Money: () => Money
+  Money: () => Money,
 });
 var Money;
 var init_Money = __esm({
@@ -374,10 +385,13 @@ var init_Money = __esm({
           sourcePlayerId: money < 0 ? player.id : void 0,
           targetPlayerId: money > 0 ? player.id : void 0,
           amount: Math.abs(money),
-          type: money < 0 ? "debit" : "credit"
+          type: money < 0 ? "debit" : "credit",
         });
         if (result.ok) {
-          debug.i("MNY", `add OK ${player.name}: bal=${result.balance} ver=${result.version} tx=${result.transactionId}`);
+          debug.i(
+            "MNY",
+            `add OK ${player.name}: bal=${result.balance} ver=${result.version} tx=${result.transactionId}`
+          );
           this.setCached(player, result.balance ?? this.get(player) + money, result.version);
         } else {
           debug.e("MNY", `add FAIL ${player.name} ${money}: ${result.error || "unknown"}`);
@@ -387,10 +401,9 @@ var init_Money = __esm({
       /**
        * 初始化计分板
        */
-      static initScoreboard() {
-      }
+      static initScoreboard() {}
     };
-  }
+  },
 });
 
 // scripts/libs/Tools.ts
@@ -449,17 +462,17 @@ function getLayout(start, direction, mainAxis, yOffset, face) {
   const left = {
     x: start[0] + mainAxis * base[0] * 2,
     y: start[1] + yOffset,
-    z: start[2] + mainAxis * base[1] * 2
+    z: start[2] + mainAxis * base[1] * 2,
   };
   const right = {
     x: left.x + base[0],
     y: left.y,
-    z: left.z + base[1]
+    z: left.z + base[1],
   };
   const sign = {
     x: right.x + (base[0] !== 0 ? 0 : face),
     y: right.y,
-    z: right.z + (base[1] !== 0 ? 0 : face)
+    z: right.z + (base[1] !== 0 ? 0 : face),
   };
   return { left, right, sign };
 }
@@ -469,22 +482,27 @@ function ensureDoubleChest(dimension, pos, cardinal, direction) {
     const p = {
       x: pos.x + (base[0] !== 0 ? d * base[0] : 0),
       y: pos.y,
-      z: pos.z + (base[1] !== 0 ? d * base[1] : 0)
+      z: pos.z + (base[1] !== 0 ? d * base[1] : 0),
     };
     const block = dimension.getBlock(p);
     if (!block || block.typeId !== "minecraft:chest") {
-      dimension.setBlockPermutation(p, import_server2.BlockPermutation.resolve("chest", { "minecraft:cardinal_direction": cardinal }));
+      dimension.setBlockPermutation(
+        p,
+        import_server2.BlockPermutation.resolve("chest", { "minecraft:cardinal_direction": cardinal })
+      );
     }
   }
 }
 function placeSign(dimension, pos, facing, text) {
-  dimension.setBlockPermutation(pos, import_server2.BlockPermutation.resolve("pale_oak_wall_sign", { facing_direction: facing }));
+  dimension.setBlockPermutation(
+    pos,
+    import_server2.BlockPermutation.resolve("pale_oak_wall_sign", { facing_direction: facing })
+  );
   try {
     const block = dimension.getBlock(pos);
     const sign = block?.getComponent(import_server2.BlockComponentTypes.Sign);
     if (sign) sign.setText(text);
-  } catch {
-  }
+  } catch {}
 }
 function getShanghaiTime() {
   const now = /* @__PURE__ */ new Date();
@@ -493,7 +511,7 @@ function getShanghaiTime() {
   const pad = (n) => String(n).padStart(2, "0");
   return {
     date: `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`,
-    time: `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`
+    time: `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`,
   };
 }
 function formatTimestamp(ts2) {
@@ -555,9 +573,9 @@ var init_Tools = __esm({
       tips: (msg, player) => {
         player.sendMessage(`\xA77[!] ${msg}`);
         _systemMsgHandler?.(player, msg);
-      }
+      },
     };
-  }
+  },
 });
 
 // scripts/area/CreativeArea.ts
@@ -601,7 +619,10 @@ var init_CreativeArea = __esm({
               const areaName = this.inArea(event.player);
               if (areaName !== void 0) {
                 this.enterArea(event.player, areaName);
-              } else if (event.player.getGameMode() === import_server3.GameMode.Creative || event.player.getGameMode() === import_server3.GameMode.Spectator) {
+              } else if (
+                event.player.getGameMode() === import_server3.GameMode.Creative ||
+                event.player.getGameMode() === import_server3.GameMode.Spectator
+              ) {
                 event.player.setGameMode(import_server3.GameMode.Survival);
               }
             }, 60);
@@ -633,8 +654,7 @@ var init_CreativeArea = __esm({
                   event.entity.remove();
                 }
               }
-            } catch {
-            }
+            } catch {}
           })
         );
         this.subscriptions.push(
@@ -650,7 +670,10 @@ var init_CreativeArea = __esm({
             if (ConfigManager.getBannedItems().indexOf(event.permutationToPlace.type.id) !== -1) {
               if (!Permission.check(player, "creativearea.place_banned")) {
                 event.cancel = true;
-                Msg.error(`\u521B\u9020\u533A\u57DF\u5185\u7981\u6B62\u653E\u7F6E ${event.permutationToPlace.type.id}\u3002`, player);
+                Msg.error(
+                  `\u521B\u9020\u533A\u57DF\u5185\u7981\u6B62\u653E\u7F6E ${event.permutationToPlace.type.id}\u3002`,
+                  player
+                );
               }
             }
           })
@@ -661,7 +684,10 @@ var init_CreativeArea = __esm({
             if (event.player.getGameMode() !== import_server3.GameMode.Creative) return;
             if (!this.inAreaByPos(event.block.location.x, event.block.location.z, event.player.dimension.id)) {
               event.cancel = true;
-              Msg.error(`\u4F60\u53EA\u80FD\u7834\u574F\u521B\u9020\u533A\u57DF\u5185\u7684\u65B9\u5757\u3002`, event.player);
+              Msg.error(
+                `\u4F60\u53EA\u80FD\u7834\u574F\u521B\u9020\u533A\u57DF\u5185\u7684\u65B9\u5757\u3002`,
+                event.player
+              );
             }
           })
         );
@@ -670,15 +696,13 @@ var init_CreativeArea = __esm({
         for (const s of this.subscriptions) {
           try {
             s.unsubscribe();
-          } catch {
-          }
+          } catch {}
         }
         this.subscriptions = [];
         for (const id of this.tickRunIds) {
           try {
             import_server3.system.clearRun(id);
-          } catch {
-          }
+          } catch {}
         }
         this.tickRunIds = [];
       }
@@ -692,14 +716,16 @@ var init_CreativeArea = __esm({
       inArea(entity) {
         for (const area of ConfigManager.getAreas("creative")) {
           if (entity.dimension.id === area.dimension) {
-            if (pointInArea_2D(
-              entity.location.x,
-              entity.location.z,
-              area.start[0],
-              area.start[1],
-              area.end[0],
-              area.end[1]
-            )) {
+            if (
+              pointInArea_2D(
+                entity.location.x,
+                entity.location.z,
+                area.start[0],
+                area.start[1],
+                area.end[0],
+                area.end[1]
+              )
+            ) {
               return area.name;
             }
           }
@@ -723,7 +749,12 @@ var init_CreativeArea = __esm({
           const maxX = Math.max(area.start[0], area.end[0]) + threshold;
           const minZ = Math.min(area.start[1], area.end[1]) - threshold;
           const maxZ = Math.max(area.start[1], area.end[1]) + threshold;
-          if (entity.location.x >= minX && entity.location.x <= maxX && entity.location.z >= minZ && entity.location.z <= maxZ)
+          if (
+            entity.location.x >= minX &&
+            entity.location.x <= maxX &&
+            entity.location.z >= minZ &&
+            entity.location.z <= maxZ
+          )
             return true;
         }
         return false;
@@ -735,8 +766,13 @@ var init_CreativeArea = __esm({
           const maxX = Math.max(area.start[0], area.end[0]);
           const minZ = Math.min(area.start[1], area.end[1]);
           const maxZ = Math.max(area.start[1], area.end[1]);
-          const x = entity.location.x, z = entity.location.z;
-          const inExpanded = x >= minX - this.BUFFER_ZONE && x <= maxX + this.BUFFER_ZONE && z >= minZ - this.BUFFER_ZONE && z <= maxZ + this.BUFFER_ZONE;
+          const x = entity.location.x,
+            z = entity.location.z;
+          const inExpanded =
+            x >= minX - this.BUFFER_ZONE &&
+            x <= maxX + this.BUFFER_ZONE &&
+            z >= minZ - this.BUFFER_ZONE &&
+            z <= maxZ + this.BUFFER_ZONE;
           if (!inExpanded) continue;
           if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) continue;
           return true;
@@ -755,13 +791,19 @@ var init_CreativeArea = __esm({
         this.saveScores(player);
         player.setGameMode(import_server3.GameMode.Creative);
         player.setDynamicProperty("hpbe:creative_area", areaName);
-        Msg.info(`\u8FDB\u5165 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u5207\u6362\u4E3A\u521B\u9020\u6A21\u5F0F\u3002`, player);
+        Msg.info(
+          `\u8FDB\u5165 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u5207\u6362\u4E3A\u521B\u9020\u6A21\u5F0F\u3002`,
+          player
+        );
       }
       leaveArea(player, areaName) {
         this.restoreScores(player);
         player.setGameMode(import_server3.GameMode.Survival);
         player.setDynamicProperty("hpbe:creative_area", void 0);
-        Msg.info(`\u79BB\u5F00 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u6062\u590D\u751F\u5B58\u6A21\u5F0F\u3002`, player);
+        Msg.info(
+          `\u79BB\u5F00 \xA7a${areaName}\u521B\u9020\u533A\u57DF\xA7r \uFF0C\u6062\u590D\u751F\u5B58\u6A21\u5F0F\u3002`,
+          player
+        );
       }
       // ==========================================
       //  计分项保存 / 恢复
@@ -774,8 +816,7 @@ var init_CreativeArea = __esm({
           try {
             const score = obj.getScore(identity);
             if (score !== void 0) scores[obj.id] = score;
-          } catch {
-          }
+          } catch {}
         }
         if (Object.keys(scores).length > 0) {
           player.setDynamicProperty("hpbe:creative_scores", JSON.stringify(scores));
@@ -791,8 +832,7 @@ var init_CreativeArea = __esm({
           if (scores[obj.id] !== void 0) {
             try {
               obj.setScore(identity, scores[obj.id]);
-            } catch {
-            }
+            } catch {}
           }
         }
         player.setDynamicProperty("hpbe:creative_scores", void 0);
@@ -854,7 +894,8 @@ var init_CreativeArea = __esm({
                 if (pos.x < minX - d || pos.x > maxX + d || pos.z < minZ - d || pos.z > maxZ + d) continue;
                 const cx = Math.max(minX, Math.min(maxX, pos.x));
                 const cz = Math.max(minZ, Math.min(maxZ, pos.z));
-                let bx = cx, bz = cz;
+                let bx = cx,
+                  bz = cz;
                 if (cx === pos.x && cz === pos.z) {
                   const dx = Math.min(pos.x - minX, maxX - pos.x);
                   const dz = Math.min(pos.z - minZ, maxZ - pos.z);
@@ -866,8 +907,7 @@ var init_CreativeArea = __esm({
                   for (let dy = -1; dy <= 2; dy++) {
                     player.dimension.spawnParticle("minecraft:colored_flame_particle", { x: bx, y: y + dy, z: bz });
                   }
-                } catch {
-                }
+                } catch {}
                 break;
               }
             }
@@ -875,7 +915,7 @@ var init_CreativeArea = __esm({
         );
       }
     };
-  }
+  },
 });
 
 // scripts/area/Peace.ts
@@ -911,16 +951,14 @@ var init_Peace = __esm({
                 event.entity.remove();
               }
             }
-          } catch {
-          }
+          } catch {}
         });
       }
       cleanup() {
         if (this.entitySpawnSub?.unsubscribe) {
           try {
             this.entitySpawnSub.unsubscribe();
-          } catch {
-          }
+          } catch {}
         }
         this.entitySpawnSub = void 0;
       }
@@ -930,14 +968,16 @@ var init_Peace = __esm({
       inPeaceArea(entity) {
         for (let area of ConfigManager.getAreas("peace")) {
           if (entity.dimension.id === area.dimension) {
-            if (pointInArea_2D(
-              entity.location.x,
-              entity.location.z,
-              area.start[0],
-              area.start[1],
-              area.end[0],
-              area.end[1]
-            )) {
+            if (
+              pointInArea_2D(
+                entity.location.x,
+                entity.location.z,
+                area.start[0],
+                area.start[1],
+                area.end[0],
+                area.end[1]
+              )
+            ) {
               return true;
             }
           }
@@ -945,7 +985,7 @@ var init_Peace = __esm({
         return false;
       }
       switchPeace() {
-        return this.enable = !this.enable;
+        return (this.enable = !this.enable);
       }
       getPeaceEntityQO() {
         const filters = ConfigManager.getPeaceFilters();
@@ -963,7 +1003,7 @@ var init_Peace = __esm({
         return qo;
       }
     };
-  }
+  },
 });
 
 // scripts/api/ChatApi.ts
@@ -973,7 +1013,7 @@ async function getChannels(filter) {
     type: filter?.type,
     ownerId: filter?.ownerId,
     minCreatedAt: filter?.minCreatedAt,
-    maxCreatedAt: filter?.maxCreatedAt
+    maxCreatedAt: filter?.maxCreatedAt,
   });
   const path = `${PATH_CHANNELS}${qs}`;
   const body = await HttpDB.get(path);
@@ -996,8 +1036,8 @@ function toChannel(r) {
     config: {
       allowChat: !!r.config_allow_chat,
       slowMode: r.config_slow_mode || 0,
-      isBroadcast: !!r.config_is_broadcast
-    }
+      isBroadcast: !!r.config_is_broadcast,
+    },
   };
 }
 function toMessage(r) {
@@ -1010,7 +1050,7 @@ function toMessage(r) {
     content: r.content,
     attachment: r.attachment,
     showTimestamp: !!r.show_timestamp,
-    timestamp: r.created_at
+    timestamp: r.created_at,
   };
 }
 function toRedPacket(r) {
@@ -1026,7 +1066,7 @@ function toRedPacket(r) {
     targetType: r.target_type,
     targetId: r.target_id,
     createdAt: r.created_at,
-    expiresAt: r.expires_at
+    expiresAt: r.expires_at,
   };
 }
 async function getChannel(channelId) {
@@ -1047,7 +1087,7 @@ async function saveChannels(channels) {
     createdAt: c.createdAt,
     configAllowChat: c.config?.allowChat,
     configSlowMode: c.config?.slowMode,
-    configIsBroadcast: c.config?.isBroadcast
+    configIsBroadcast: c.config?.isBroadcast,
   }));
   return HttpDB.post(PATH_CHANNELS, { channels: flat });
 }
@@ -1064,7 +1104,7 @@ async function getMessages(filter) {
     channelId: filter?.channelId,
     from: filter?.from,
     minSentAt: filter?.minSentAt,
-    maxSentAt: filter?.maxSentAt
+    maxSentAt: filter?.maxSentAt,
   });
   const path = `${PATH_MESSAGES}${qs}`;
   const body = await HttpDB.get(path);
@@ -1101,7 +1141,7 @@ async function saveRedPacket(redpacket) {
 async function claimRedPacket(redpacketId, actorId, actorName) {
   const result = await HttpDB.requestJSON("Post", `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`, {
     actorId,
-    actorName
+    actorName,
   });
   try {
     const parsed = JSON.parse(result.body);
@@ -1119,7 +1159,7 @@ var init_ChatApi = __esm({
     PATH_CHANNELS = "/api/sfmc/channels";
     PATH_MESSAGES = "/api/sfmc/messages";
     PATH_REDPACKET = "/api/sfmc/redpacket";
-  }
+  },
 });
 
 // scripts/api/CoopAPI.ts
@@ -1149,7 +1189,7 @@ __export(CoopAPI_exports, {
   treasury: () => treasury,
   updateCoop: () => updateCoop,
   updateCoopFee: () => updateCoopFee,
-  updateMemberRole: () => updateMemberRole
+  updateMemberRole: () => updateMemberRole,
 });
 async function getAllCoops() {
   debug.i("API", "getAllCoops");
@@ -1193,7 +1233,7 @@ async function inviteCoopMember(cid, actorId, playerId2, playerName, role = "mem
     actorId,
     playerId: playerId2,
     playerName,
-    role
+    role,
   });
   return result.status === 200;
 }
@@ -1202,7 +1242,7 @@ async function acceptCoopInvite(cid, inviteId, playerId2, playerName) {
   const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites/accept`, {
     actorId: playerId2,
     inviteId,
-    playerName
+    playerName,
   });
   return result.status === 200;
 }
@@ -1221,7 +1261,7 @@ async function addMember(cid, actorId, playerId2, playerName) {
   const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members`, {
     actorId,
     playerId: playerId2,
-    playerName
+    playerName,
   });
   return result.status === 200;
 }
@@ -1230,14 +1270,14 @@ async function joinCoop(cid, playerId2, playerName) {
   const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/join`, {
     actorId: playerId2,
     playerId: playerId2,
-    playerName
+    playerName,
   });
   return result.status === 200;
 }
 async function leaveCoop(cid, playerId2) {
   debug.i("API", `leaveCoop: cid=${cid} playerId=${playerId2}`);
   const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
-    actorId: playerId2
+    actorId: playerId2,
   });
   return result.status === 200;
 }
@@ -1325,7 +1365,7 @@ async function createCoop(name, cid, actorId, actorName) {
       ok: result.status === 200 && parsed.ok !== false,
       coop: parsed.coop,
       balance: parsed.balance,
-      error: parsed.error
+      error: parsed.error,
     };
   } catch {
     return { ok: false, error: "invalid_response" };
@@ -1337,7 +1377,7 @@ async function treasury(cid, actorId, actorName, mode, amount, note = "") {
     actorId,
     actorName,
     amount,
-    note
+    note,
   });
   try {
     const parsed = JSON.parse(result.body);
@@ -1353,7 +1393,7 @@ async function coopShopBuy(cid, actorId, actorName, listingId, quantity, idempot
     actorName,
     listingId,
     quantity,
-    idempotencyKey
+    idempotencyKey,
   });
   try {
     const parsed = JSON.parse(result.body);
@@ -1369,7 +1409,7 @@ async function coopShopSell(cid, actorId, actorName, listingId, quantity, idempo
     actorName,
     listingId,
     quantity,
-    idempotencyKey
+    idempotencyKey,
   });
   try {
     const parsed = JSON.parse(result.body);
@@ -1385,7 +1425,7 @@ var init_CoopAPI = __esm({
     init_HttpDB();
     init_DebugLog();
     PATH = "/api/sfmc/coops";
-  }
+  },
 });
 
 // scripts/api/PlayersDataApi.ts
@@ -1399,7 +1439,7 @@ var init_PlayersDataApi = __esm({
     init_HttpDB();
     init_Tools();
     PATH_PLAYERS = "/api/sfmc/players";
-  }
+  },
 });
 
 // scripts/api/WorldDataApi.ts
@@ -1410,7 +1450,7 @@ var init_WorldDataApi = __esm({
   "scripts/api/WorldDataApi.ts"() {
     "use strict";
     init_HttpDB();
-  }
+  },
 });
 
 // scripts/api/ScoreboardsSyncApi.ts
@@ -1421,7 +1461,7 @@ async function loadScoreboards(filter) {
   const qs = toQueryString({
     objective: filter?.objective,
     name: filter?.name,
-    id: filter?.id
+    id: filter?.id,
   });
   const body = await HttpDB.get(`/api/sfmc/scoreboards${qs}`);
   if (!body) return null;
@@ -1436,7 +1476,7 @@ var init_ScoreboardsSyncApi = __esm({
     "use strict";
     init_HttpDB();
     init_Tools();
-  }
+  },
 });
 
 // scripts/api/LandApi.ts
@@ -1459,7 +1499,7 @@ __export(LandApi_exports, {
   transferLand: () => transferLand,
   updateLand: () => updateLand,
   updateLandMember: () => updateLandMember,
-  validateLand: () => validateLand
+  validateLand: () => validateLand,
 });
 function parseLand(body) {
   if (!body) return null;
@@ -1538,7 +1578,7 @@ async function createLand(request) {
       price: parsed.price,
       balance: parsed.balance,
       balanceVersion: parsed.balanceVersion,
-      transactionId: parsed.transactionId
+      transactionId: parsed.transactionId,
     };
   } catch {
     return { land: null, error: "\u6570\u636E\u5E93\u54CD\u5E94\u65E0\u6548\u3002" };
@@ -1546,11 +1586,7 @@ async function createLand(request) {
 }
 async function updateLand(id, data) {
   debug.i("API", `updateLand: id=${id} actorId=${data.actorId} version=${data.expectedVersion}`);
-  const result = await HttpDB.requestJSON(
-    "Patch",
-    `${PATH2}/${encodeURIComponent(id)}`,
-    data
-  );
+  const result = await HttpDB.requestJSON("Patch", `${PATH2}/${encodeURIComponent(id)}`, data);
   return result.status === 200 ? parseLand(result.body) : null;
 }
 async function deleteLand(id, actorId, expectedVersion, requestId) {
@@ -1558,26 +1594,25 @@ async function deleteLand(id, actorId, expectedVersion, requestId) {
   const result = await HttpDB.requestJSON("Delete", `${PATH2}/${encodeURIComponent(id)}`, {
     actorId,
     expectedVersion,
-    requestId
+    requestId,
   });
   let parsed = {};
   try {
     parsed = JSON.parse(result.body || "{}");
-  } catch {
-  }
+  } catch {}
   if (result.status !== 200)
     return {
       ok: false,
       error: parsed.error || (result.status === 0 ? "database_unavailable" : "transaction_failed"),
       message: parsed.message,
-      status: result.status
+      status: result.status,
     };
   return {
     ok: true,
     refund: parsed.refund || 0,
     balance: parsed.balance,
     balanceVersion: parsed.balanceVersion,
-    transactionId: parsed.transactionId
+    transactionId: parsed.transactionId,
   };
 }
 async function inviteMember(id, actorId, playerId2, role) {
@@ -1585,36 +1620,36 @@ async function inviteMember(id, actorId, playerId2, role) {
   const result = await HttpDB.requestJSON("Post", `${PATH2}/${encodeURIComponent(id)}/members`, {
     actorId,
     playerId: playerId2,
-    role
+    role,
   });
   if (result.status !== 200) {
     let parsed2 = {};
     try {
       parsed2 = JSON.parse(result.body || "{}");
-    } catch {
-    }
+    } catch {}
     return {
       ok: false,
       error: parsed2.error || (result.status === 0 ? "database_unavailable" : "forbidden"),
-      message: parsed2.message
+      message: parsed2.message,
     };
   }
   let parsed = {};
   try {
     parsed = JSON.parse(result.body || "{}");
-  } catch {
-  }
+  } catch {}
   return { ok: true, inviteId: parsed.inviteId, expiresAt: parsed.expiresAt };
 }
 async function removeLandMember(id, actorId, playerId2) {
   debug.i("API", `removeLandMember: landId=${id} playerId=${playerId2}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH2}/${encodeURIComponent(id)}/members`, { actorId, playerId: playerId2 });
+  const result = await HttpDB.requestJSON("Delete", `${PATH2}/${encodeURIComponent(id)}/members`, {
+    actorId,
+    playerId: playerId2,
+  });
   if (result.status !== 200) {
     let parsed = {};
     try {
       parsed = JSON.parse(result.body || "{}");
-    } catch {
-    }
+    } catch {}
     return { ok: false, error: parsed.error || "forbidden", message: parsed.message };
   }
   return { ok: true, land: parseLand(result.body) };
@@ -1630,8 +1665,7 @@ async function updateLandMember(id, actorId, playerId2, role) {
     let parsed = {};
     try {
       parsed = JSON.parse(result.body || "{}");
-    } catch {
-    }
+    } catch {}
     return { ok: false, error: parsed.error || "invalid_role", message: parsed.message };
   }
   return { ok: true, land: parseLand(result.body) };
@@ -1654,7 +1688,7 @@ async function acceptInvite(playerId2, inviteId) {
 async function declineInvite(playerId2, inviteId) {
   debug.i("API", `declineInvite: playerId=${playerId2} inviteId=${inviteId}`);
   const result = await HttpDB.requestJSON("Post", `${PATH2}/invites/${encodeURIComponent(playerId2)}/decline`, {
-    inviteId
+    inviteId,
   });
   return result.status === 200;
 }
@@ -1674,19 +1708,18 @@ async function transferLand(id, actorId, targetId, targetName, expectedVersion, 
     targetId,
     targetName,
     expectedVersion,
-    requestId
+    requestId,
   });
   let parsed = {};
   try {
     parsed = JSON.parse(result.body || "{}");
-  } catch {
-  }
+  } catch {}
   if (result.status !== 200)
     return {
       ok: false,
       error: parsed.error || (result.status === 0 ? "database_unavailable" : "transaction_failed"),
       message: parsed.message,
-      status: result.status
+      status: result.status,
     };
   return { ok: true, land: parsed.land || null, data: parsed.land || void 0, transactionId: parsed.transactionId };
 }
@@ -1707,7 +1740,7 @@ var init_LandApi = __esm({
     init_HttpDB();
     init_DebugLog();
     PATH2 = "/api/sfmc/lands";
-  }
+  },
 });
 
 // scripts/api/index.ts
@@ -1721,7 +1754,7 @@ var init_api = __esm({
     init_ScoreboardsSyncApi();
     init_LandApi();
     init_EconomyApi();
-  }
+  },
 });
 
 // scripts/chat/DogeChat.ts
@@ -1741,7 +1774,7 @@ var init_DogeChat = __esm({
         this.DEFAULT_CHANNEL_CONFIG = {
           allowChat: true,
           slowMode: 0,
-          isBroadcast: false
+          isBroadcast: false,
         };
       }
       static {
@@ -1752,7 +1785,7 @@ var init_DogeChat = __esm({
             type: "public",
             prefix: "PB",
             createdAt: Date.now(),
-            config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+            config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG },
           },
           {
             id: generateId("CH"),
@@ -1760,8 +1793,8 @@ var init_DogeChat = __esm({
             type: "custom",
             prefix: "BC",
             createdAt: Date.now(),
-            config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
-          }
+            config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true },
+          },
         ];
       }
       static {
@@ -1849,8 +1882,8 @@ var init_DogeChat = __esm({
         if (pub) {
           _DogeChat.activeChannelMap.set(player.id, pub.id);
           this._ensureSubscribed(player.id, pub.id);
-          HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
-            (e) => console.warn("[DogeChat] error:", e)
+          HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e) =>
+            console.warn("[DogeChat] error:", e)
           );
         }
         return pub;
@@ -1859,8 +1892,8 @@ var init_DogeChat = __esm({
         debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
         _DogeChat.activeChannelMap.set(player.id, channelId);
         this._ensureSubscribed(player.id, channelId);
-        await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
-          (e) => console.warn("[DogeChat] error:", e)
+        await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e) =>
+          console.warn("[DogeChat] error:", e)
         );
       }
       // ============================================
@@ -1921,8 +1954,7 @@ var init_DogeChat = __esm({
           try {
             const ids = JSON.parse(raw.subscribed_channels);
             this.subscribedChannelsMap.set(player.id, new Set(ids));
-          } catch {
-          }
+          } catch {}
         }
         if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id).size === 0) {
           const pub = await this.getPublicChannel();
@@ -1951,7 +1983,7 @@ var init_DogeChat = __esm({
           type,
           ownerid: owner?.id,
           createdAt: Date.now(),
-          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config }
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config },
         };
         const ok = await createChannel(channel);
         return ok ? channel.id : "";
@@ -2001,7 +2033,7 @@ var init_DogeChat = __esm({
           prefix: "SYS",
           ownerid: player.id,
           createdAt: Date.now(),
-          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false }
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false },
         };
         await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
         return channel;
@@ -2016,7 +2048,7 @@ var init_DogeChat = __esm({
           type: "text",
           content,
           timestamp: Date.now(),
-          showTimestamp: true
+          showTimestamp: true,
         };
         saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
       }
@@ -2062,7 +2094,9 @@ var init_DogeChat = __esm({
         if (!channel) return;
         const history = await this.getChannelHistory(channelId);
         if (history.length === 0) {
-          player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u6682\u65E0\u5386\u53F2\u6D88\u606F ---`);
+          player.sendMessage(
+            `\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u6682\u65E0\u5386\u53F2\u6D88\u606F ---`
+          );
           return;
         }
         player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u5386\u53F2\u6D88\u606F ---`);
@@ -2085,8 +2119,12 @@ var init_DogeChat = __esm({
           }
           player.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: ${display}` }] });
         }
-        player.sendMessage(`\xA77--- \u4EE5\u4E0A\u4E3A\u5386\u53F2\u6D88\u606F\uFF0C\u5171 ${history.length} \u6761 ---`);
-        player.sendMessage("\xA77!lo \xA78\u53D1\u9001\u5B9A\u4F4D \xA77| !tp \xA78\u4F20\u9001\u9080\u8BF7 \xA77| !hb \xA78\u53D1\u9001\u7EA2\u5305");
+        player.sendMessage(
+          `\xA77--- \u4EE5\u4E0A\u4E3A\u5386\u53F2\u6D88\u606F\uFF0C\u5171 ${history.length} \u6761 ---`
+        );
+        player.sendMessage(
+          "\xA77!lo \xA78\u53D1\u9001\u5B9A\u4F4D \xA77| !tp \xA78\u4F20\u9001\u9080\u8BF7 \xA77| !hb \xA78\u53D1\u9001\u7EA2\u5305"
+        );
       }
       // ============================================
       //  发送消息
@@ -2106,7 +2144,10 @@ var init_DogeChat = __esm({
           const owner = await this.isChannelOwner(from, channelId);
           const isAdmin = Permission.check(from, "chat.admin");
           if (!owner && !isAdmin) {
-            Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002", from);
+            Msg.warning(
+              "\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002",
+              from
+            );
             return false;
           }
           const msg2 = {
@@ -2118,9 +2159,11 @@ var init_DogeChat = __esm({
             content,
             attachment,
             timestamp: Date.now(),
-            showTimestamp: true
+            showTimestamp: true,
           };
-          await saveMessages([msg2]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+          await saveMessages([msg2]).catch((err) =>
+            console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`)
+          );
           from.sendMessage({ rawtext: [{ text: `\xA7a[${channel.prefix}] ${from.name}: ${content}` }] });
           return true;
         }
@@ -2148,7 +2191,7 @@ var init_DogeChat = __esm({
           content,
           attachment,
           timestamp: Date.now(),
-          showTimestamp
+          showTimestamp,
         };
         saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
         if (showTimestamp) from.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
@@ -2196,7 +2239,7 @@ var init_DogeChat = __esm({
           type,
           content,
           timestamp: Date.now(),
-          showTimestamp
+          showTimestamp,
         };
         saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
         for (const p of [from, toPlayer]) {
@@ -2217,7 +2260,10 @@ var init_DogeChat = __esm({
             const sender = p.id === from.id ? toPlayer.name : from.name;
             p.sendMessage({ rawtext: [{ text: `\xA7d[\u79C1\u4FE1] \xA7f${sender}: ${display}` }] });
           } else if (p.id !== from.id) {
-            Msg.info(`\xA7b${from.name} \u53D1\u6765\u4E00\u6761\u79C1\u4FE1\u3002\u4F7F\u7528 !channel \u5207\u6362\u5230\u79C1\u804A\u9891\u9053\u67E5\u770B\u3002`, p);
+            Msg.info(
+              `\xA7b${from.name} \u53D1\u6765\u4E00\u6761\u79C1\u4FE1\u3002\u4F7F\u7528 !channel \u5207\u6362\u5230\u79C1\u804A\u9891\u9053\u67E5\u770B\u3002`,
+              p
+            );
           }
         }
         return true;
@@ -2235,7 +2281,7 @@ var init_DogeChat = __esm({
           prefix: `\u79C1\u804A-${nameB}`,
           ownerid: idA,
           createdAt: Date.now(),
-          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG },
         };
         await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
         return channel;
@@ -2250,7 +2296,12 @@ var init_DogeChat = __esm({
       static sendTeleportInvite(from, toPlayer) {
         const loc2 = from.location;
         const locStr = `${from.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
-        return this.sendPrivateMessage(from, toPlayer, `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`, "teleport_invite");
+        return this.sendPrivateMessage(
+          from,
+          toPlayer,
+          `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`,
+          "teleport_invite"
+        );
       }
       // ============================================
       //  红包
@@ -2281,7 +2332,7 @@ var init_DogeChat = __esm({
           targetType,
           targetId,
           createdAt: Date.now(),
-          expiresAt: Date.now() + 24 * 60 * 60 * 1e3
+          expiresAt: Date.now() + 24 * 60 * 60 * 1e3,
         };
         const saved = await saveRedPacket(packet);
         if (!saved) {
@@ -2289,7 +2340,10 @@ var init_DogeChat = __esm({
           return false;
         }
         await Money.load(sender);
-        Msg.success(`${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`, sender);
+        Msg.success(
+          `${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`,
+          sender
+        );
         const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
         saveMessages([
           {
@@ -2299,8 +2353,8 @@ var init_DogeChat = __esm({
             channelId,
             type: "redpacket",
             content: `\u53D1\u9001\u4E86 ${amount} ${Money.UNIT} \u7684\u7EA2\u5305\uFF08\u5171 ${count} \u4EFD\uFF09`,
-            timestamp: Date.now()
-          }
+            timestamp: Date.now(),
+          },
         ]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
         return true;
       }
@@ -2327,7 +2381,7 @@ var init_DogeChat = __esm({
         if (packet.remainingCount === 1) {
           amount = packet.remainingAmount;
         } else {
-          const max = Math.floor(packet.remainingAmount / packet.remainingCount * 2);
+          const max = Math.floor((packet.remainingAmount / packet.remainingCount) * 2);
           amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
           amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
         }
@@ -2338,7 +2392,10 @@ var init_DogeChat = __esm({
         }
         const claimedAmount = result.amount ?? amount;
         await Money.load(player);
-        Msg.success(`\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${claimedAmount} ${Money.UNIT}\uFF01`, player);
+        Msg.success(
+          `\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${claimedAmount} ${Money.UNIT}\uFF01`,
+          player
+        );
         return claimedAmount;
       }
       static async getAvailableRedPackets(player) {
@@ -2350,8 +2407,7 @@ var init_DogeChat = __esm({
           return true;
         });
       }
-      static cleanupExpiredRedPackets() {
-      }
+      static cleanupExpiredRedPackets() {}
       // ============================================
       //  权限判断
       // ============================================
@@ -2384,12 +2440,13 @@ var init_DogeChat = __esm({
                     this._lastBridgeTimestamp = msg.timestamp;
                     p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
                   }
-                  p.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: \xA7r${msg.content}` }] });
+                  p.sendMessage({
+                    rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: \xA7r${msg.content}` }],
+                  });
                 }
               }
             }
-          } catch {
-          }
+          } catch {}
         }, 600);
       }
       static stopBridgePolling() {
@@ -2397,14 +2454,13 @@ var init_DogeChat = __esm({
         if (this._bridgePollId !== void 0) {
           try {
             import_server5.system.clearRun(this._bridgePollId);
-          } catch {
-          }
+          } catch {}
           this._bridgePollId = void 0;
         }
         this._bridgePollStarted = false;
       }
     };
-  }
+  },
 });
 
 // scripts/libs/ModuleKeys.ts
@@ -2439,9 +2495,9 @@ var init_ModuleKeys = __esm({
       dailyTask: "daily_task",
       priceIndex: "price_index",
       dataBackup: "data_backup",
-      gui: "gui"
+      gui: "gui",
     };
-  }
+  },
 });
 
 // scripts/libs/Command.ts
@@ -2479,7 +2535,7 @@ var init_Command = __esm({
           permission,
           description: description === void 0 ? name : description,
           moduleId,
-          cost
+          cost,
         };
         debug.i("CMD", `register "${name}" perm=${permission} mod=${moduleId || "-"} cost=${cost?.amount || 0}`);
         return true;
@@ -2533,12 +2589,17 @@ var init_Command = __esm({
         if (commandInfo !== void 0) {
           if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
             debug.w("CMD", `blocked: module ${commandInfo.moduleId} disabled for ${pname}`);
-            if (player) Msg.error(`\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`, player);
+            if (player)
+              Msg.error(
+                `\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`,
+                player
+              );
             return;
           }
           if (!this.canExecute(player, commandInfo.permission)) {
             debug.w("CMD", `permission denied: ${pname} needs ${commandInfo.permission} for "${message}"`);
-            if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
+            if (player)
+              Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
             return;
           }
           import_server6.system.run(async () => {
@@ -2546,7 +2607,10 @@ var init_Command = __esm({
               const ok = await this.deductCost(player, commandInfo.cost.amount, message);
               if (!ok) {
                 debug.w("CMD", `cost deduct failed: ${pname} needs ${commandInfo.cost.amount} for "${message}"`);
-                Msg.error(`\u4F59\u989D\u4E0D\u8DB3\uFF0C\u65E0\u6CD5\u6267\u884C\u8BE5\u6307\u4EE4\uFF08\u9700\u8981 ${commandInfo.cost.amount}\uFF09\u3002`, player);
+                Msg.error(
+                  `\u4F59\u989D\u4E0D\u8DB3\uFF0C\u65E0\u6CD5\u6267\u884C\u8BE5\u6307\u4EE4\uFF08\u9700\u8981 ${commandInfo.cost.amount}\uFF09\u3002`,
+                  player
+                );
                 return;
               }
               debug.i("CMD", `cost deducted ${commandInfo.cost.amount} from ${pname} for "${message}"`);
@@ -2559,7 +2623,11 @@ var init_Command = __esm({
           return;
         }
         debug.w("CMD", `unknown command "${message}" from ${pname}`);
-        if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
+        if (player)
+          Msg.error(
+            `\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`,
+            player
+          );
         return;
       }
       /**
@@ -2595,7 +2663,7 @@ var init_Command = __esm({
       }
     };
     Command.registerScriptEvent();
-  }
+  },
 });
 
 // scripts/libs/ModuleRegistry.ts
@@ -2603,7 +2671,7 @@ var ModuleRegistry_exports = {};
 __export(ModuleRegistry_exports, {
   ModuleRegistry: () => ModuleRegistry,
   announceLoaded: () => announceLoaded,
-  guardEvent: () => guardEvent
+  guardEvent: () => guardEvent,
 });
 function guardEvent() {
   return ConfigManager.isReady();
@@ -2649,8 +2717,7 @@ var init_ModuleRegistry = __esm({
         _ModuleRegistry.trackCleanup(modId, () => {
           try {
             import_server7.system.clearRun(runId);
-          } catch {
-          }
+          } catch {}
         });
       }
       static clearLastEnabled() {
@@ -2751,8 +2818,7 @@ var init_ModuleRegistry = __esm({
         }
         try {
           Command.unregisterByModule(Modules[id]);
-        } catch {
-        }
+        } catch {}
         const fns = cleanups.get(id);
         if (fns) {
           for (const fn of fns) {
@@ -2770,15 +2836,14 @@ var init_ModuleRegistry = __esm({
         for (const d of descriptors) {
           try {
             _ModuleRegistry.cleanupModule(d.id);
-          } catch {
-          }
+          } catch {}
         }
       }
       static isBooted(id) {
         return booted.has(id);
       }
     };
-  }
+  },
 });
 
 // scripts/libs/ConfigManager.ts
@@ -2804,7 +2869,7 @@ var init_ConfigManager = __esm({
           grids: {},
           peaceFilters: [],
           questions: [],
-          _lastFetch: 0
+          _lastFetch: 0,
         };
       }
       static {
@@ -2903,7 +2968,7 @@ var init_ConfigManager = __esm({
             this._fetchClean(),
             this._fetchGrids(),
             this._fetchPeaceFilters(),
-            this._fetchQA()
+            this._fetchQA(),
           ];
           await Promise.allSettled(promises);
           this.cache._lastFetch = now;
@@ -2953,7 +3018,9 @@ var init_ConfigManager = __esm({
           if (!HttpDB.isAvailable()) {
             const ok = await HttpDB.checkHealth();
             if (!ok) return;
-            console.warn("[ConfigManager] \u6570\u636E\u5E93\u5DF2\u91CD\u8FDE\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
+            console.warn(
+              "[ConfigManager] \u6570\u636E\u5E93\u5DF2\u91CD\u8FDE\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E"
+            );
             await this.reloadAll();
             this._syncRuntimeFlags();
             const bridgeId = this.getSetting("bridge_channel_id", "");
@@ -2964,14 +3031,20 @@ var init_ConfigManager = __esm({
           if (!body) return;
           const { value } = JSON.parse(body);
           if (parseInt(value, 10) > this.cache._lastFetch) {
-            console.warn("[ConfigManager] \u6536\u5230\u70ED\u91CD\u8F7D\u4FE1\u53F7\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
+            console.warn(
+              "[ConfigManager] \u6536\u5230\u70ED\u91CD\u8F7D\u4FE1\u53F7\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E"
+            );
             await this.reloadAll();
             this._syncRuntimeFlags();
-            const { ModuleRegistry: ModuleRegistry2 } = await Promise.resolve().then(() => (init_ModuleRegistry(), ModuleRegistry_exports));
+            const { ModuleRegistry: ModuleRegistry2 } = await Promise.resolve().then(
+              () => (init_ModuleRegistry(), ModuleRegistry_exports)
+            );
             const changes = ModuleRegistry2.reconcile();
             if (changes.length > 0) {
               for (const p of import_server8.world.getPlayers()) {
-                const list = changes.map((c) => `${c.id} ${c.action === "disable" ? "\u5DF2\u7981\u7528" : "\u5DF2\u542F\u7528"}`).join(", ");
+                const list = changes
+                  .map((c) => `${c.id} ${c.action === "disable" ? "\u5DF2\u7981\u7528" : "\u5DF2\u542F\u7528"}`)
+                  .join(", ");
                 Msg.info(`\u6A21\u5757\u53D8\u66F4: ${list}`, p);
               }
             }
@@ -3028,7 +3101,7 @@ var init_ConfigManager = __esm({
             dimension: a.dimension,
             module: a.module,
             start: [a.start_x, a.start_z],
-            end: [a.end_x, a.end_z]
+            end: [a.end_x, a.end_z],
           }));
           this._clearError("areas");
         } catch (e) {
@@ -3078,7 +3151,7 @@ var init_ConfigManager = __esm({
             this.cache.grids[g.name] = {
               ...g,
               size: [g.size_h, g.size_v],
-              start: [g.start_x, g.start_y, g.start_z]
+              start: [g.start_x, g.start_y, g.start_z],
             };
           }
           this._clearError("grids");
@@ -3110,7 +3183,7 @@ var init_ConfigManager = __esm({
             d: q.explanation || "",
             seq: [q.min_rank, q.max_rank].filter((v) => v !== null),
             bonus: this._parseQAItems(q.rewards),
-            punish: this._parseQAItems(q.punishments)
+            punish: this._parseQAItems(q.punishments),
           }));
           this._clearError("qa");
         } catch (e) {
@@ -3133,14 +3206,15 @@ var init_ConfigManager = __esm({
         const previous = this._lastErrors.get(source);
         this._lastErrors.set(source, message);
         this._configStale = true;
-        if (previous !== message) console.warn(`[ConfigManager] ${source} \u914D\u7F6E\u83B7\u53D6\u5931\u8D25: ${message}`);
+        if (previous !== message)
+          console.warn(`[ConfigManager] ${source} \u914D\u7F6E\u83B7\u53D6\u5931\u8D25: ${message}`);
       }
       static _clearError(source) {
         this._lastErrors.delete(source);
         this._configStale = this._lastErrors.size > 0;
       }
     };
-  }
+  },
 });
 
 // scripts/libs/Permission.ts
@@ -3198,7 +3272,7 @@ var init_Permission = __esm({
           return false;
         }
         const perms = ConfigManager.getPermissions();
-        const playerLevel = typeof player === "string" ? perms[player] ?? this.Member : this.getPermission(player);
+        const playerLevel = typeof player === "string" ? (perms[player] ?? this.Member) : this.getPermission(player);
         return playerLevel >= required;
       }
       static getPermission(player) {
@@ -3233,7 +3307,7 @@ var init_Permission = __esm({
               [this.Member, []],
               [this.OP, []],
               [this.Admin, []],
-              [-1, []]
+              [-1, []],
             ];
             const levelMap = new Map(byLevel);
             for (const [name, level] of this.registry) {
@@ -3246,7 +3320,7 @@ var init_Permission = __esm({
               [this.Any]: "\xA7a\u8BBF\u5BA2",
               [this.Member]: "\xA7e\u6210\u5458",
               [this.OP]: "\xA76\u7BA1\u7406",
-              [this.Admin]: "\xA7c\u81EA\u5B9A\u4E49"
+              [this.Admin]: "\xA7c\u81EA\u5B9A\u4E49",
             };
             for (const [level, perms] of byLevel) {
               if (perms.length === 0) continue;
@@ -3262,7 +3336,7 @@ ${label[level] ?? "\xA77\u5176\u4ED6"} (${level}+):`);
         );
       }
     };
-  }
+  },
 });
 
 // scripts/entry.ts
@@ -3331,21 +3405,18 @@ var QAManager = class _QAManager {
     debug.i("QA", "stop");
     try {
       if (this.chatSub && typeof this.chatSub.unsubscribe === "function") this.chatSub.unsubscribe();
-    } catch {
-    }
+    } catch {}
     this.chatSub = void 0;
     if (this.timeoutId !== void 0) {
       try {
         import_server10.system.clearRun(this.timeoutId);
-      } catch {
-      }
+      } catch {}
       this.timeoutId = void 0;
     }
     if (this.finishTimeoutId !== void 0) {
       try {
         import_server10.system.clearRun(this.finishTimeoutId);
-      } catch {
-      }
+      } catch {}
       this.finishTimeoutId = void 0;
     }
     this.nowQuestion = void 0;
@@ -3475,7 +3546,7 @@ var QAManager = class _QAManager {
     if (!bonus) return;
     debug.i("QA", `giveBonus: player=${pl.name} seq=${seq} bonusCount=${bonus.length}`);
     for (let b of bonus) {
-      if (b["seq"] === void 0 || b["seq"][0] <= seq && seq <= b["seq"][1]) {
+      if (b["seq"] === void 0 || (b["seq"][0] <= seq && seq <= b["seq"][1])) {
         import_server10.system.run(async () => {
           switch (b["type"]) {
             case "money":
@@ -3558,11 +3629,7 @@ function startScan() {
   scanActive = true;
   scanRunId = import_server11.system.runInterval(() => {
     for (let player of import_server11.world.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
-      let lastLoaction = cacheGet(
-        player,
-        "afk:last_location",
-        void 0
-      );
+      let lastLoaction = cacheGet(player, "afk:last_location", void 0);
       let nowLocation = player.location;
       if (lastLoaction !== void 0) {
         let nowStep = cacheGet(player, "afk:step", void 0);
@@ -3618,8 +3685,7 @@ function stopAFKScan() {
   if (intervalId !== void 0) {
     try {
       import_server11.system.clearRun(intervalId);
-    } catch {
-    }
+    } catch {}
     intervalId = void 0;
   }
 }
@@ -3628,8 +3694,7 @@ function stop() {
   if (scanRunId !== void 0) {
     try {
       import_server11.system.clearRun(scanRunId);
-    } catch {
-    }
+    } catch {}
     scanRunId = void 0;
   }
   scanActive = false;
@@ -3741,12 +3806,12 @@ var Clean = class _Clean {
         let coordinate = {
           x: this.startPoint[0] + mainAxis * base[0] * 2,
           y: this.startPoint[1] + y,
-          z: this.startPoint[2] + mainAxis * base[1] * 2
+          z: this.startPoint[2] + mainAxis * base[1] * 2,
         };
         let coordinate2 = {
           x: coordinate.x + base[0],
           y: coordinate.y,
-          z: coordinate.z + base[1]
+          z: coordinate.z + base[1],
         };
         let block = dimension.getBlock(coordinate);
         let block2 = dimension.getBlock(coordinate2);
@@ -3770,7 +3835,7 @@ var Clean = class _Clean {
         let signCoordinate = {
           x: coordinate2.x + (base[0] !== 0 ? 0 : this.face),
           y: coordinate2.y,
-          z: coordinate2.z + (base[1] !== 0 ? 0 : this.face)
+          z: coordinate2.z + (base[1] !== 0 ? 0 : this.face),
         };
         placeSign(dimension, signCoordinate, facingDirection, this.getTimeStr());
       }
@@ -3812,7 +3877,13 @@ var Clean = class _Clean {
     this.intervalId = import_server12.system.runInterval(() => {
       let entities = this.getAllItemEntities();
       if (entities.length > this.itemMax) {
-        import_server12.world.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
+        import_server12.world.sendMessage({
+          rawtext: [
+            {
+              text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs",
+            },
+          ],
+        });
         import_server12.system.runTimeout(() => {
           this.startClean(void 0);
           import_server12.system.runTimeout(() => {
@@ -3908,8 +3979,7 @@ var TPS = class _TPS {
     if (this.recordRunId !== void 0) {
       try {
         import_server13.system.clearRun(this.recordRunId);
-      } catch {
-      }
+      } catch {}
       this.recordRunId = void 0;
     }
   }
@@ -3998,8 +4068,8 @@ var OnlineTime = class _OnlineTime {
   }
   formatTime(seconds) {
     const d = Math.floor(seconds / 86400);
-    const h = Math.floor(seconds % 86400 / 3600);
-    const m = Math.floor(seconds % 3600 / 60);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     const parts = [];
     if (d > 0) parts.push(`${d}\u5929`);
@@ -4015,14 +4085,14 @@ var OnlineTime = class _OnlineTime {
     if (pending) return pending;
     const promise = (async () => {
       const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
-      const def = (val, fallback) => typeof val === "number" ? val : fallback;
+      const def = (val, fallback) => (typeof val === "number" ? val : fallback);
       const data = {
         session: 0,
         today: def(raw?.onlinetime_today, 0),
         month: def(raw?.onlinetime_month, 0),
         total: def(raw?.onlinetime_total, 0),
-        lastDate: def(raw?.onlinetime_last_date, (/* @__PURE__ */ new Date()).getDate()),
-        lastMonth: def(raw?.onlinetime_last_month, (/* @__PURE__ */ new Date()).getMonth())
+        lastDate: def(raw?.onlinetime_last_date, /* @__PURE__ */ new Date().getDate()),
+        lastMonth: def(raw?.onlinetime_last_month, /* @__PURE__ */ new Date().getMonth()),
       };
       this.dataMap.set(player.id, data);
       return data;
@@ -4038,10 +4108,9 @@ var OnlineTime = class _OnlineTime {
         onlinetimeMonth: data.month,
         onlinetimeTotal: data.total,
         onlinetimeLastDate: data.lastDate,
-        onlinetimeLastMonth: data.lastMonth
-      }
-    }).catch(() => {
-    });
+        onlinetimeLastMonth: data.lastMonth,
+      },
+    }).catch(() => {});
   }
   onPlayerJoin(player) {
     debug.i("ONLINE", `onPlayerJoin: player=${player.name}`);
@@ -4101,22 +4170,19 @@ var OnlineTime = class _OnlineTime {
     if (this.tickRunId !== void 0) {
       try {
         import_server14.system.clearRun(this.tickRunId);
-      } catch {
-      }
+      } catch {}
       this.tickRunId = void 0;
     }
     if (this.flushRunId !== void 0) {
       try {
         import_server14.system.clearRun(this.flushRunId);
-      } catch {
-      }
+      } catch {}
       this.flushRunId = void 0;
     }
     if (this.playerLeaveSub?.unsubscribe) {
       try {
         this.playerLeaveSub.unsubscribe();
-      } catch {
-      }
+      } catch {}
       this.playerLeaveSub = void 0;
     }
     void this.flushAll();
@@ -4127,12 +4193,12 @@ var OnlineTime = class _OnlineTime {
 var import_server15 = require("@minecraft/server");
 var KEYWORDS = {
   ciallo: "cs.ciallo",
-  \u5495\u5495\u560E\u560E: "cs.gugugaga",
-  \u6C69\u6C69\u5495: "cs.gugugu",
+  咕咕嘎嘎: "cs.gugugaga",
+  汩汩咕: "cs.gugugu",
   baka: "cs.baka",
   yee: "cs.yee",
-  \u5E72\u561B: "mob.chicken.hurt",
-  huh: "cs.huh"
+  干嘛: "mob.chicken.hurt",
+  huh: "cs.huh",
 };
 var ChatSoundsHelper = class _ChatSoundsHelper {
   constructor(keywords) {
@@ -4167,8 +4233,7 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
           for (const p of import_server15.world.getAllPlayers()) {
             try {
               p.playSound(soundId);
-            } catch {
-            }
+            } catch {}
           }
         });
         return;
@@ -4179,8 +4244,7 @@ var ChatSoundsHelper = class _ChatSoundsHelper {
     if (this.chatSub?.unsubscribe) {
       try {
         this.chatSub.unsubscribe();
-      } catch {
-      }
+      } catch {}
     }
     this.chatSub = void 0;
   }
@@ -4202,8 +4266,7 @@ var MonitorReporter = class {
     if (this.runId !== void 0) {
       try {
         import_server16.system.clearRun(this.runId);
-      } catch {
-      }
+      } catch {}
       this.runId = void 0;
     }
   }
@@ -4234,12 +4297,11 @@ var MonitorReporter = class {
           dimension: dim,
           pos: { x: Math.round(loc2.x), z: Math.round(loc2.z) },
           renderDistance: rd,
-          chunkEstimate: estimate
+          chunkEstimate: estimate,
         };
       });
       await HttpDB.post("/api/sfmc/monitor/player-chunks", { players: playerChunks });
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 };
 
@@ -4350,7 +4412,9 @@ var MenuNavigator = class {
           await import_server18.system.waitTicks(10);
           continue;
         }
-        return result.closeReason === import_server_ui.DataDrivenScreenClosedReason.ClientClosed && result.selection === 0;
+        return (
+          result.closeReason === import_server_ui.DataDrivenScreenClosedReason.ClientClosed && result.selection === 0
+        );
       } catch {
         await import_server18.system.waitTicks(2);
       }
@@ -4421,7 +4485,11 @@ var MenuNavigator = class {
     let notified = false;
     while (true) {
       if (import_server18.system.currentTick - startTick >= 160) {
-        if (notified) Msg.warning("\u83DC\u5355\u5904\u7406\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002", this.player);
+        if (notified)
+          Msg.warning(
+            "\u83DC\u5355\u5904\u7406\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002",
+            this.player
+          );
         break;
       }
       try {
@@ -4430,7 +4498,10 @@ var MenuNavigator = class {
         if (reason === import_server_ui.DataDrivenScreenClosedReason.UserBusy) {
           if (!notified) {
             notified = true;
-            Msg.info("\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF0C\u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09", this.player);
+            Msg.info(
+              "\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF0C\u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09",
+              this.player
+            );
           }
           await import_server18.system.waitTicks(10);
           continue;
@@ -4542,15 +4613,18 @@ var DailyTask = class _DailyTask {
         for (const t of tasks) {
           const remaining = t.target_qty - t.filled_qty;
           if (remaining <= 0) continue;
-          page.button(`${t.item_type}
-\u8FDB\u5EA6: ${t.filled_qty}/${t.target_qty}  \u5956\u52B1: ${t.unit_reward}\xA7r/\u4E2A`, () => {
-            nav.state.taskId = t.id;
-            nav.state.taskItemType = t.item_type;
-            nav.state.taskItemAux = t.item_aux || 0;
-            nav.state.maxQty = remaining;
-            nav.state.unitReward = t.unit_reward;
-            nav.go("submit");
-          });
+          page.button(
+            `${t.item_type}
+\u8FDB\u5EA6: ${t.filled_qty}/${t.target_qty}  \u5956\u52B1: ${t.unit_reward}\xA7r/\u4E2A`,
+            () => {
+              nav.state.taskId = t.id;
+              nav.state.taskItemType = t.item_type;
+              nav.state.taskItemAux = t.item_aux || 0;
+              nav.state.maxQty = remaining;
+              nav.state.unitReward = t.unit_reward;
+              nav.go("submit");
+            }
+          );
         }
       }
     });
@@ -4585,8 +4659,7 @@ var DailyTask = class _DailyTask {
         if (!result.ok) {
           try {
             player.runCommand(`give "${player.name}" ${itemType} ${qty} ${nav.state.taskItemAux || 0}`);
-          } catch {
-          }
+          } catch {}
           status.fail(result.error || "\u63D0\u4EA4\u5931\u8D25\uFF0C\u7269\u54C1\u5DF2\u8FD4\u8FD8\u3002");
           return;
         }
@@ -4636,7 +4709,7 @@ var EconomyReport = class {
       `\xA77\u603B\u9500\u6BC1\u91CF: \xA7f${stats.total_destroyed} ${Money.UNIT}`,
       `\xA77\u603B\u6D41\u901A\u91CF: \xA7f${stats.total_supply} ${Money.UNIT}`,
       `\xA77\u6D3B\u8DC3\u8D26\u6237: \xA7f${stats.active_accounts}`,
-      `\xA7e==============================`
+      `\xA7e==============================`,
     ].join("\n");
     import_server19.world.sendMessage(msg);
   }
@@ -4663,7 +4736,10 @@ function playerJoinEvent(player) {
     let areaName = inFlyArea(player);
     if (areaName !== void 0) {
       enableFly(player);
-      Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+      Msg.info(
+        `\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`,
+        player
+      );
       player.setDynamicProperty("hpbe:dogefly", areaName);
     }
   }, 60);
@@ -4678,7 +4754,10 @@ function startScan2() {
       if (areaName !== void 0) {
         if (nowArea === void 0) {
           enableFly(player);
-          Msg.info(`\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+          Msg.info(
+            `\u5F53\u524D\u5904\u4E8E\u98DE\u884C\u533A ${areaName}, \u5DF2\u6253\u5F00\u98DE\u884C\u6A21\u5F0F\u3002`,
+            player
+          );
           player.setDynamicProperty("hpbe:dogefly", areaName);
         } else if (nowArea !== areaName) {
           player.setDynamicProperty("hpbe:dogefly", areaName);
@@ -4686,7 +4765,10 @@ function startScan2() {
       } else {
         if (nowArea !== void 0) {
           disableFly(player);
-          Msg.info(`\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`, player);
+          Msg.info(
+            `\u79BB\u5F00\u98DE\u884C\u533A ${nowArea}, \u5DF2\u5173\u95ED\u98DE\u884C\u6A21\u5F0F\u3002`,
+            player
+          );
           player.setDynamicProperty("hpbe:dogefly", void 0);
         }
       }
@@ -4697,8 +4779,7 @@ function stop2() {
   if (scanRunId2 !== void 0) {
     try {
       import_server20.system.clearRun(scanRunId2);
-    } catch {
-    }
+    } catch {}
     scanRunId2 = void 0;
   }
 }
@@ -4708,14 +4789,9 @@ function boot() {
 function inFlyArea(entity) {
   for (let area of ConfigManager.getAreas("fly")) {
     if (entity.dimension.id === area.dimension) {
-      if (pointInArea_2D(
-        entity.location.x,
-        entity.location.z,
-        area.start[0],
-        area.start[1],
-        area.end[0],
-        area.end[1]
-      )) {
+      if (
+        pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])
+      ) {
         return area.name;
       }
     }
@@ -4728,7 +4804,9 @@ function enableFly(player) {
     player.runCommand("ability @s mayfly true");
     player.runCommand("gamerule sendcommandfeedback true");
   } catch (_) {
-    console.warn("\xA7c\u7531\u4E8E\u65B0\u7248\u79FB\u9664\u4E86\u76F8\u5173\u6307\u4EE4\uFF0C\u8BF7\u5728\u4E16\u754C\u4E2D\u5F00\u542F\u6559\u80B2\u6A21\u5F0F\u3002");
+    console.warn(
+      "\xA7c\u7531\u4E8E\u65B0\u7248\u79FB\u9664\u4E86\u76F8\u5173\u6307\u4EE4\uFF0C\u8BF7\u5728\u4E16\u754C\u4E2D\u5F00\u542F\u6559\u80B2\u6A21\u5F0F\u3002"
+    );
   }
 }
 function disableFly(player) {
@@ -4746,8 +4824,7 @@ function disableFly(player) {
     player.runCommand("gamemode adventure");
     player.runCommand("gamemode survival");
     player.runCommand("gamerule sendcommandfeedback true");
-  } catch (_) {
-  }
+  } catch (_) {}
 }
 
 // scripts/entry.ts
@@ -4801,11 +4878,17 @@ var SurvivalArea = class _SurvivalArea {
       import_server21.world.beforeEvents.playerGameModeChange.subscribe((event) => {
         if (!CreativeArea.enable) return;
         if (!this.enable) return;
-        if (event.toGameMode === import_server21.GameMode.Creative || event.toGameMode === import_server21.GameMode.Spectator) {
+        if (
+          event.toGameMode === import_server21.GameMode.Creative ||
+          event.toGameMode === import_server21.GameMode.Spectator
+        ) {
           if (Permission.check(event.player, "survivalarea.gamemode.bypass")) return;
           if (!this.inCreativeArea(event.player)) {
             event.cancel = true;
-            Msg.error(`\u4F60\u5F53\u524D\u4E0D\u5728\u521B\u9020\u533A\u57DF\u5185\uFF0C\u65E0\u6CD5\u5207\u6362\u5230\u8BE5\u6A21\u5F0F\u3002`, event.player);
+            Msg.error(
+              `\u4F60\u5F53\u524D\u4E0D\u5728\u521B\u9020\u533A\u57DF\u5185\uFF0C\u65E0\u6CD5\u5207\u6362\u5230\u8BE5\u6A21\u5F0F\u3002`,
+              event.player
+            );
           }
         }
       })
@@ -4825,28 +4908,21 @@ var SurvivalArea = class _SurvivalArea {
       })
     );
   }
-  init() {
-  }
+  init() {}
   cleanup() {
     for (const s of this.subscriptions) {
       try {
         s.unsubscribe();
-      } catch {
-      }
+      } catch {}
     }
     this.subscriptions = [];
   }
   inCreativeArea(entity) {
     for (const area of ConfigManager.getAreas("creative")) {
       if (entity.dimension.id === area.dimension) {
-        if (pointInArea_2D(
-          entity.location.x,
-          entity.location.z,
-          area.start[0],
-          area.start[1],
-          area.end[0],
-          area.end[1]
-        )) {
+        if (
+          pointInArea_2D(entity.location.x, entity.location.z, area.start[0], area.start[1], area.end[0], area.end[1])
+        ) {
           return true;
         }
       }
@@ -4855,7 +4931,10 @@ var SurvivalArea = class _SurvivalArea {
   }
   forceSurvival(player) {
     player.setGameMode(import_server21.GameMode.Survival);
-    Msg.info(`\u5DF2\u79BB\u5F00\u521B\u9020\u533A\u57DF\uFF0C\u5F3A\u5236\u5207\u6362\u4E3A\u751F\u5B58\u6A21\u5F0F\u3002`, player);
+    Msg.info(
+      `\u5DF2\u79BB\u5F00\u521B\u9020\u533A\u57DF\uFF0C\u5F3A\u5236\u5207\u6362\u4E3A\u751F\u5B58\u6A21\u5F0F\u3002`,
+      player
+    );
   }
 };
 
@@ -4883,10 +4962,16 @@ var InventorySwitcher = class _InventorySwitcher {
       const player = event.player;
       import_server22.system.run(() => {
         if (player.getGameMode() !== event.toGameMode) return;
-        if (event.fromGameMode === import_server22.GameMode.Survival && event.toGameMode === import_server22.GameMode.Creative) {
+        if (
+          event.fromGameMode === import_server22.GameMode.Survival &&
+          event.toGameMode === import_server22.GameMode.Creative
+        ) {
           this.saveToChest(player, false);
           this.restoreFromChest(player, true);
-        } else if (event.fromGameMode === import_server22.GameMode.Creative && event.toGameMode === import_server22.GameMode.Survival) {
+        } else if (
+          event.fromGameMode === import_server22.GameMode.Creative &&
+          event.toGameMode === import_server22.GameMode.Survival
+        ) {
           this.saveToChest(player, true);
           this.restoreFromChest(player, false);
         }
@@ -4897,13 +4982,11 @@ var InventorySwitcher = class _InventorySwitcher {
     if (this.gameModeSub?.unsubscribe) {
       try {
         this.gameModeSub.unsubscribe();
-      } catch {
-      }
+      } catch {}
     }
     this.gameModeSub = void 0;
   }
-  init() {
-  }
+  init() {}
   /**
    * 获取该索引对应的布局（左箱/右箱/告示牌位置），使用 Tools 工具
    */
@@ -4975,7 +5058,7 @@ ${time}`
         import_server22.EquipmentSlot.Head,
         import_server22.EquipmentSlot.Chest,
         import_server22.EquipmentSlot.Legs,
-        import_server22.EquipmentSlot.Feet
+        import_server22.EquipmentSlot.Feet,
       ].entries()) {
         const item = eq.getEquipment(slot);
         if (item) {
@@ -5030,7 +5113,7 @@ ${time}`
         import_server22.EquipmentSlot.Head,
         import_server22.EquipmentSlot.Chest,
         import_server22.EquipmentSlot.Legs,
-        import_server22.EquipmentSlot.Feet
+        import_server22.EquipmentSlot.Feet,
       ].entries()) {
         const item = container.getItem(36 + ai);
         if (item) {
@@ -5062,13 +5145,13 @@ var DEFAULT_CONFIG = {
   minSquare: 4,
   maxSquare: 5e4,
   discount: 1,
-  refundRate: 0.7
+  refundRate: 0.7,
 };
 var DEFAULT_PERMISSIONS = {
   allow_place: false,
   allow_destroy: false,
   attack_entity: false,
-  open_container: false
+  open_container: false,
 };
 function defaultConfig() {
   return { ...DEFAULT_CONFIG };
@@ -5096,7 +5179,7 @@ var ROLE_CAPABILITIES = {
     "manage_permissions",
     "rename",
     "transfer",
-    "delete"
+    "delete",
   ],
   admin: [
     "place",
@@ -5110,13 +5193,13 @@ var ROLE_CAPABILITIES = {
     "pickup_item",
     "manage_members",
     "manage_permissions",
-    "rename"
+    "rename",
   ],
   builder: ["place", "break"],
   container: ["container"],
   visitor: [],
   redstone: ["redstone", "button", "door"],
-  entity: ["attack_entity", "interact_entity"]
+  entity: ["attack_entity", "interact_entity"],
 };
 
 // scripts/land/LandDatabase.ts
@@ -5336,7 +5419,7 @@ var Database = class _Database {
       nickname: land.nickname,
       permissions: land.permissions,
       actorId,
-      expectedVersion: land.version
+      expectedVersion: land.version,
     });
     if (!updated) {
       debug.e("LANDDB", `update: failed landId=${land.id}`);
@@ -5393,7 +5476,7 @@ var Database = class _Database {
       posB,
       permissions: defaultPermissions(),
       nickname: "",
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
   }
   static getDefaultPermissions() {
@@ -5517,13 +5600,13 @@ var LandCore = class {
       posA: {
         x: Math.min(posA.x, posB.x),
         y: Math.min(posA.y, posB.y),
-        z: Math.min(posA.z, posB.z)
+        z: Math.min(posA.z, posB.z),
       },
       posB: {
         x: Math.max(posA.x, posB.x),
         y: Math.max(posA.y, posB.y),
-        z: Math.max(posA.z, posB.z)
-      }
+        z: Math.max(posA.z, posB.z),
+      },
     };
   }
   /** 获取立方体信息 */
@@ -5537,7 +5620,7 @@ var LandCore = class {
       width: w,
       height: h,
       square: w * l,
-      volume: w * h * l
+      volume: w * h * l,
     };
   }
   /** 计算维度名 */
@@ -5556,7 +5639,14 @@ var LandCore = class {
   static isPosInLand(pos, dimid, land) {
     if (land.dimid !== dimid) return false;
     const n = this.normalize(land.posA, land.posB);
-    return pos.x >= n.posA.x && pos.x <= n.posB.x && pos.y >= n.posA.y && pos.y <= n.posB.y && pos.z >= n.posA.z && pos.z <= n.posB.z;
+    return (
+      pos.x >= n.posA.x &&
+      pos.x <= n.posB.x &&
+      pos.y >= n.posA.y &&
+      pos.y <= n.posB.y &&
+      pos.z >= n.posA.z &&
+      pos.z <= n.posB.z
+    );
   }
   /** 获取某位置所在的土地 */
   static getLandByPos(pos, dimid) {
@@ -5581,24 +5671,37 @@ var LandCore = class {
     const cfg = Database.getConfig();
     const info = this.getCubeInfo(posA, posB);
     if (!posA || !posB) {
-      return { ok: false, msg: "\xA7c\u8BF7\u5148\u4F7F\u7528 !pos1 \u548C !pos2 \u547D\u4EE4\u9009\u62E9\u571F\u5730\u8303\u56F4\u3002" };
+      return {
+        ok: false,
+        msg: "\xA7c\u8BF7\u5148\u4F7F\u7528 !pos1 \u548C !pos2 \u547D\u4EE4\u9009\u62E9\u571F\u5730\u8303\u56F4\u3002",
+      };
     }
     if (info.square < cfg.minSquare) {
-      return { ok: false, msg: `\xA7c\u571F\u5730\u9762\u79EF\u8FC7\u5C0F\uFF01
-\u6700\u5C0F\u9762\u79EF\u4E3A ${cfg.minSquare} \u683C\u3002` };
+      return {
+        ok: false,
+        msg: `\xA7c\u571F\u5730\u9762\u79EF\u8FC7\u5C0F\uFF01
+\u6700\u5C0F\u9762\u79EF\u4E3A ${cfg.minSquare} \u683C\u3002`,
+      };
     }
     if (info.square > cfg.maxSquare) {
-      return { ok: false, msg: `\xA7c\u571F\u5730\u9762\u79EF\u8FC7\u5927\uFF01
-\u6700\u5927\u9762\u79EF\u4E3A ${cfg.maxSquare} \u683C\u3002` };
+      return {
+        ok: false,
+        msg: `\xA7c\u571F\u5730\u9762\u79EF\u8FC7\u5927\uFF01
+\u6700\u5927\u9762\u79EF\u4E3A ${cfg.maxSquare} \u683C\u3002`,
+      };
     }
     const remote = await validateLand({ ownerId: plid, ownerName: player.name, dimid, posA, posB });
     if (!remote.ok) {
       const messages = {
-        overlap: "\xA7c\u8BE5\u533A\u57DF\u4E0E\u5176\u4ED6\u571F\u5730\u91CD\u53E0\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9\u571F\u5730\u8303\u56F4\u3002",
+        overlap:
+          "\xA7c\u8BE5\u533A\u57DF\u4E0E\u5176\u4ED6\u571F\u5730\u91CD\u53E0\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9\u571F\u5730\u8303\u56F4\u3002",
         land_limit: `\xA7c\u60A8\u5DF2\u8FBE\u5230\u6301\u6709\u571F\u5730\u4E0A\u9650\uFF08${cfg.maxLandsPerPlayer} \u5757\uFF09\uFF01`,
-        area_out_of_range: "\xA7c\u571F\u5730\u9762\u79EF\u4E0D\u7B26\u5408\u9650\u5236\u3002"
+        area_out_of_range: "\xA7c\u571F\u5730\u9762\u79EF\u4E0D\u7B26\u5408\u9650\u5236\u3002",
       };
-      return { ok: false, msg: messages[remote.error || ""] || `\xA7c${remote.error || "\u571F\u5730\u9A8C\u8BC1\u5931\u8D25"}` };
+      return {
+        ok: false,
+        msg: messages[remote.error || ""] || `\xA7c${remote.error || "\u571F\u5730\u9A8C\u8BC1\u5931\u8D25"}`,
+      };
     }
     const price = this.calculatePrice(posA, posB);
     const balance = await Money.load(player);
@@ -5606,14 +5709,21 @@ var LandCore = class {
       return {
         ok: false,
         msg: `\xA7c${Money.UNIT}\u4E0D\u8DB3\uFF01
-\u9700\u8981 \xA7e${price} \xA7c${Money.UNIT}\uFF0C\u800C\u5F53\u524D\u6301\u6709 \xA7e${balance} \xA7c${Money.UNIT}\u3002`
+\u9700\u8981 \xA7e${price} \xA7c${Money.UNIT}\uFF0C\u800C\u5F53\u524D\u6301\u6709 \xA7e${balance} \xA7c${Money.UNIT}\u3002`,
       };
     }
     return { ok: true };
   }
   /** 判断两个立方体是否重叠 */
   static cubesOverlap(a, b) {
-    return a.posA.x <= b.posB.x && a.posB.x >= b.posA.x && a.posA.y <= b.posB.y && a.posB.y >= b.posA.y && a.posA.z <= b.posB.z && a.posB.z >= b.posA.z;
+    return (
+      a.posA.x <= b.posB.x &&
+      a.posB.x >= b.posA.x &&
+      a.posA.y <= b.posB.y &&
+      a.posB.y >= b.posA.y &&
+      a.posA.z <= b.posB.z &&
+      a.posB.z >= b.posA.z
+    );
   }
   // ── 创建/删除 ──
   /** 创建土地（已通过验证后调用） */
@@ -5632,7 +5742,7 @@ var LandCore = class {
       dimid,
       posA: n.posA,
       posB: n.posB,
-      requestId
+      requestId,
     });
     if (!result.land) throw new Error(result.message || formatCreateError(result.error));
     const land = result.land;
@@ -5647,9 +5757,18 @@ var LandCore = class {
   static async deleteLand(landId, player, requestId) {
     debug.i("LAND", `deleteLand: landId=${landId} player=${player.name}`);
     const land = Database.getById(landId);
-    if (!land) return { ok: false, error: "not_found", message: "\u571F\u5730\u4E0D\u5B58\u5728\u6216\u7F13\u5B58\u5DF2\u66F4\u65B0\u3002" };
+    if (!land)
+      return {
+        ok: false,
+        error: "not_found",
+        message: "\u571F\u5730\u4E0D\u5B58\u5728\u6216\u7F13\u5B58\u5DF2\u66F4\u65B0\u3002",
+      };
     if (land.ownerplid !== player.id) {
-      return { ok: false, error: "forbidden", message: "\u53EA\u6709\u571F\u5730\u6240\u6709\u8005\u53EF\u4EE5\u5220\u9664\u571F\u5730\u3002" };
+      return {
+        ok: false,
+        error: "forbidden",
+        message: "\u53EA\u6709\u571F\u5730\u6240\u6709\u8005\u53EF\u4EE5\u5220\u9664\u571F\u5730\u3002",
+      };
     }
     return Database.delete(landId, player.id, land.version, requestId);
   }
@@ -5684,7 +5803,7 @@ var LandCore = class {
       `  - \xA7l\u7EC8\u70B9: \xA7r(${n.posB.x}, ${n.posB.y}, ${n.posB.z})`,
       `  - \xA7l\u9762\u79EF: \xA7r${info.square} \u683C`,
       `  - \xA7l\u4F53\u79EF: \xA7r${info.volume} \u683C`,
-      `  - \xA7l\u4EF7\u683C: \xA7r${price} ${Money.UNIT}`
+      `  - \xA7l\u4EF7\u683C: \xA7r${price} ${Money.UNIT}`,
     ].join("\n");
   }
 };
@@ -5694,9 +5813,12 @@ function formatCreateError(error) {
     land_limit: "\u4F60\u5DF2\u8FBE\u5230\u571F\u5730\u6570\u91CF\u4E0A\u9650\u3002",
     overlap: "\u8BE5\u533A\u57DF\u4E0E\u5176\u4ED6\u571F\u5730\u91CD\u53E0\u3002",
     area_out_of_range: "\u571F\u5730\u9762\u79EF\u4E0D\u7B26\u5408\u9650\u5236\u3002",
-    unauthorized: "\u6570\u636E\u5E93\u670D\u52A1\u62D2\u7EDD\u4E86\u672C\u6B21\u64CD\u4F5C\u3002"
+    unauthorized: "\u6570\u636E\u5E93\u670D\u52A1\u62D2\u7EDD\u4E86\u672C\u6B21\u64CD\u4F5C\u3002",
   };
-  return messages[error || ""] || `\u571F\u5730\u521B\u5EFA\u5931\u8D25\uFF1A${error || "\u6570\u636E\u5E93\u670D\u52A1\u65E0\u54CD\u5E94"}`;
+  return (
+    messages[error || ""] ||
+    `\u571F\u5730\u521B\u5EFA\u5931\u8D25\uFF1A${error || "\u6570\u636E\u5E93\u670D\u52A1\u65E0\u54CD\u5E94"}`
+  );
 }
 
 // scripts/gui/LandGUI.ts
@@ -5715,12 +5837,14 @@ var CAPABILITY_TO_PERMISSION_FIELD = {
   redstone: "use_redstone",
   attack_entity: "attack_entity",
   interact_entity: "interact_entity",
-  pickup_item: "pickup_item"
+  pickup_item: "pickup_item",
 };
 function getPlayerRole(land, playerId2) {
   if (land.ownerplid === playerId2) return "owner";
   const now = Date.now();
-  const member = (land.members || []).find((m) => m.player_id === playerId2 && (m.expires_at == null || m.expires_at > now));
+  const member = (land.members || []).find(
+    (m) => m.player_id === playerId2 && (m.expires_at == null || m.expires_at > now)
+  );
   return member?.role || (land.managers.includes(playerId2) ? "admin" : null);
 }
 function canManage(land, playerId2, capability) {
@@ -5757,7 +5881,7 @@ var ROLE_NAMES = {
   container: "\u5BB9\u5668\u8BBF\u95EE",
   visitor: "\u8BBF\u5BA2",
   redstone: "\u7EA2\u77F3",
-  entity: "\u5B9E\u4F53\u4EA4\u4E92"
+  entity: "\u5B9E\u4F53\u4EA4\u4E92",
 };
 var LandGUI = class _LandGUI {
   constructor(player) {
@@ -5773,15 +5897,20 @@ var LandGUI = class _LandGUI {
     const session = LandCore.getSession(player.id);
     if (session)
       gui.nav.state.gui.application = { ...session, dimensionId: session.dimensionId ?? dimensionId(player) };
-    void getInvites(player.id).then((invites) => {
-      gui.state.invites = invites;
-      return gui.nav.start("home");
-    }).catch(() => void gui.nav.start("home"));
+    void getInvites(player.id)
+      .then((invites) => {
+        gui.state.invites = invites;
+        return gui.nav.start("home");
+      })
+      .catch(() => void gui.nav.start("home"));
   }
   static startApplication(player) {
     debug.i("GUI", `LandGUI.startApplication: player=${player.name}`);
     LandCore.initSession(player.id);
-    Msg.info("\u8BF7\u4F7F\u7528 !pos1 \u548C !pos2 \u9009\u62E9\u571F\u5730\u8303\u56F4\uFF0C\u7136\u540E\u91CD\u65B0\u6253\u5F00 !land \u786E\u8BA4\u8D2D\u4E70\u3002", player);
+    Msg.info(
+      "\u8BF7\u4F7F\u7528 !pos1 \u548C !pos2 \u9009\u62E9\u571F\u5730\u8303\u56F4\uFF0C\u7136\u540E\u91CD\u65B0\u6253\u5F00 !land \u786E\u8BA4\u8D2D\u4E70\u3002",
+      player
+    );
   }
   get state() {
     return this.nav.state.gui;
@@ -5810,7 +5939,7 @@ var LandGUI = class _LandGUI {
       {
         x: Math.floor(this.player.location.x),
         y: Math.floor(this.player.location.y),
-        z: Math.floor(this.player.location.z)
+        z: Math.floor(this.player.location.z),
       },
       dimensionId(this.player)
     );
@@ -5818,16 +5947,23 @@ var LandGUI = class _LandGUI {
     const application = this.state.application;
     page.label(
       ListFormInfo([
-        land ? `\u5F53\u524D\u571F\u5730\uFF1A${land.nickname || land.id} \xB7 ${roleText(land, this.player.id)}` : "\u5F53\u524D\u4E0D\u5728\u571F\u5730\u4FDD\u62A4\u8303\u56F4\u5185\u3002",
+        land
+          ? `\u5F53\u524D\u571F\u5730\uFF1A${land.nickname || land.id} \xB7 ${roleText(land, this.player.id)}`
+          : "\u5F53\u524D\u4E0D\u5728\u571F\u5730\u4FDD\u62A4\u8303\u56F4\u5185\u3002",
         `\u62E5\u6709\u571F\u5730\uFF1A${owned.length} \u5757`,
-        application?.pos1 || application?.pos2 ? `\u7533\u8BF7\u72B6\u6001\uFF1A\u5DF2\u9009\u62E9 ${application.pos1 && application.pos2 ? "\u4E24\u70B9\uFF0C\u7B49\u5F85\u786E\u8BA4" : "\u4E00\u70B9"}` : "\u7533\u8BF7\u72B6\u6001\uFF1A\u672A\u5F00\u59CB",
-        `\u5F85\u5904\u7406\u9080\u8BF7\uFF1A${this.state.invites.length} \u9879`
+        application?.pos1 || application?.pos2
+          ? `\u7533\u8BF7\u72B6\u6001\uFF1A\u5DF2\u9009\u62E9 ${application.pos1 && application.pos2 ? "\u4E24\u70B9\uFF0C\u7B49\u5F85\u786E\u8BA4" : "\u4E00\u70B9"}`
+          : "\u7533\u8BF7\u72B6\u6001\uFF1A\u672A\u5F00\u59CB",
+        `\u5F85\u5904\u7406\u9080\u8BF7\uFF1A${this.state.invites.length} \u9879`,
       ])
     );
     if (land) page.button("\u5F53\u524D\u571F\u5730", () => this.openLand(land, "current"));
     page.button("\u6211\u7684\u571F\u5730", () => void this.nav.rebuild("landList"));
     page.button("\u{1F3DB}\uFE0F \u516C\u5171\u5E7F\u573A", () => void this.nav.rebuild("plaza"));
-    page.button(application?.pos1 || application?.pos2 ? "\u7EE7\u7EED\u7533\u8BF7" : "\u7533\u8BF7\u571F\u5730", () => void this.openApplication());
+    page.button(
+      application?.pos1 || application?.pos2 ? "\u7EE7\u7EED\u7533\u8BF7" : "\u7533\u8BF7\u571F\u5730",
+      () => void this.openApplication()
+    );
     page.button(
       `\u6536\u5230\u7684\u9080\u8BF7${this.state.invites.length ? ` (${this.state.invites.length})` : ""}`,
       () => void this.loadInvites()
@@ -5838,10 +5974,12 @@ var LandGUI = class _LandGUI {
     const status = new FormStatus(page);
     const plaza = Database.getById("PUBLIC-PLAZA");
     if (!plaza) {
-      page.label(ListFormInfo([
-        "\xA7c\u516C\u5171\u5E7F\u573A\u5C1A\u672A\u521D\u59CB\u5316\uFF08db-server \u91CD\u542F\u540E\u4F1A\u81EA\u6108\uFF09\u3002",
-        "\u8BF7\u7A0D\u540E\u91CD\u8BD5\u6216\u8054\u7CFB\u7BA1\u7406\u5458\u3002"
-      ]));
+      page.label(
+        ListFormInfo([
+          "\xA7c\u516C\u5171\u5E7F\u573A\u5C1A\u672A\u521D\u59CB\u5316\uFF08db-server \u91CD\u542F\u540E\u4F1A\u81EA\u6108\uFF09\u3002",
+          "\u8BF7\u7A0D\u540E\u91CD\u8BD5\u6216\u8054\u7CFB\u7BA1\u7406\u5458\u3002",
+        ])
+      );
       return;
     }
     const settings = await this.fetchPlazaSettings();
@@ -5858,18 +5996,18 @@ var LandGUI = class _LandGUI {
         `\xA77${settings.welcome}`,
         "",
         "\xA77\u5728\u8FD9\u91CC\u6240\u6709\u73A9\u5BB6\u90FD\u53EF\u4EE5\u653E\u7F6E\u3001\u7834\u574F\u3001\u4E92\u52A8\u3002",
-        "\xA77\u7528\u4F5C\u670D\u52A1\u5668\u8D77\u70B9\u3001\u8BAE\u4E8B\u5385\u3001\u4E34\u65F6\u5EFA\u9020\u3002"
+        "\xA77\u7528\u4F5C\u670D\u52A1\u5668\u8D77\u70B9\u3001\u8BAE\u4E8B\u5385\u3001\u4E34\u65F6\u5EFA\u9020\u3002",
       ])
     );
     page.button(
       "\xA7l\u4F20\u9001\u81F3\u5E7F\u573A\u4E2D\u5FC3",
-      () => void this.nav.runTask(status, async () => {
-        try {
-          await this.player.teleport({ x: 0.5, y: 64, z: 0.5 });
-        } catch {
-        }
-        Msg.success(`\u5DF2\u4F20\u9001\u81F3${settings.name}`, this.player);
-      })
+      () =>
+        void this.nav.runTask(status, async () => {
+          try {
+            await this.player.teleport({ x: 0.5, y: 64, z: 0.5 });
+          } catch {}
+          Msg.success(`\u5DF2\u4F20\u9001\u81F3${settings.name}`, this.player);
+        })
     );
     page.button("\u67E5\u770B\u571F\u5730\u8BE6\u60C5", () => this.openLand(plaza, "current"));
     page.button("\u2190 \u8FD4\u56DE\u4E3B\u9875", () => void this.nav.replace("home"));
@@ -5883,27 +6021,32 @@ var LandGUI = class _LandGUI {
         if (parsed?.value) {
           return {
             name: "\u516C\u5171\u5E7F\u573A",
-            welcome: "\u6B22\u8FCE\u6765\u5230\u670D\u52A1\u5668\uFF01\u8FD9\u91CC\u662F\u516C\u5171\u9886\u5730\uFF0C\u6240\u6709\u4EBA\u90FD\u53EF\u4EE5\u5EFA\u9020\u3002",
+            welcome:
+              "\u6B22\u8FCE\u6765\u5230\u670D\u52A1\u5668\uFF01\u8FD9\u91CC\u662F\u516C\u5171\u9886\u5730\uFF0C\u6240\u6709\u4EBA\u90FD\u53EF\u4EE5\u5EFA\u9020\u3002",
             dimid: 0,
             range: 32,
-            ...JSON.parse(parsed.value)
+            ...JSON.parse(parsed.value),
           };
         }
       }
-    } catch {
-    }
+    } catch {}
     return {
       name: "\u516C\u5171\u5E7F\u573A",
-      welcome: "\u6B22\u8FCE\u6765\u5230\u670D\u52A1\u5668\uFF01\u8FD9\u91CC\u662F\u516C\u5171\u9886\u5730\uFF0C\u6240\u6709\u4EBA\u90FD\u53EF\u4EE5\u5EFA\u9020\u3002",
+      welcome:
+        "\u6B22\u8FCE\u6765\u5230\u670D\u52A1\u5668\uFF01\u8FD9\u91CC\u662F\u516C\u5171\u9886\u5730\uFF0C\u6240\u6709\u4EBA\u90FD\u53EF\u4EE5\u5EFA\u9020\u3002",
       dimid: 0,
-      range: 32
+      range: 32,
     };
   }
   buildCurrent(page) {
     debug.i("GUI", "LandGUI.buildCurrent");
     const land = this.currentLand();
     if (!land) {
-      page.label(ListFormInfo(["\u571F\u5730\u6570\u636E\u5DF2\u66F4\u65B0\uFF0C\u8BF7\u8FD4\u56DE\u571F\u5730\u4E2D\u5FC3\u3002"]));
+      page.label(
+        ListFormInfo([
+          "\u571F\u5730\u6570\u636E\u5DF2\u66F4\u65B0\uFF0C\u8BF7\u8FD4\u56DE\u571F\u5730\u4E2D\u5FC3\u3002",
+        ])
+      );
       return;
     }
     this.buildLandSummary(page, land);
@@ -5912,7 +6055,11 @@ var LandGUI = class _LandGUI {
   buildLandList(page) {
     debug.i("GUI", "LandGUI.buildLandList");
     const lands = LandCore.getPlayerLands(this.player.id);
-    page.label(ListFormInfo([`\u62E5\u6709 \xA7e${lands.length}\xA7r / ${Database.getConfig().maxLandsPerPlayer} \u5757\u571F\u5730\u3002`]));
+    page.label(
+      ListFormInfo([
+        `\u62E5\u6709 \xA7e${lands.length}\xA7r / ${Database.getConfig().maxLandsPerPlayer} \u5757\u571F\u5730\u3002`,
+      ])
+    );
     if (!lands.length) {
       page.label("\u4F60\u8FD8\u6CA1\u6709\u571F\u5730\u3002");
       page.button("\u7533\u8BF7\u571F\u5730", () => void this.openApplication());
@@ -5939,8 +6086,10 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
       page.button("\u6210\u5458\u4E0E\u9080\u8BF7", () => void this.nav.rebuild("members"));
     if (canManage(land, this.player.id, "manage_permissions"))
       page.button("\u8BBF\u5BA2\u4FDD\u62A4", () => void this.nav.rebuild("protection"));
-    if (canManage(land, this.player.id, "rename")) page.button("\u57FA\u672C\u4FE1\u606F", () => void this.nav.rebuild("basic"));
-    if (LandCore.isOwner(land, this.player.id)) page.button("\u6240\u6709\u6743\u4E0E\u98CE\u9669", () => void this.nav.rebuild("risk"));
+    if (canManage(land, this.player.id, "rename"))
+      page.button("\u57FA\u672C\u4FE1\u606F", () => void this.nav.rebuild("basic"));
+    if (LandCore.isOwner(land, this.player.id))
+      page.button("\u6240\u6709\u6743\u4E0E\u98CE\u9669", () => void this.nav.rebuild("risk"));
   }
   buildLandSummary(page, land) {
     const info = LandCore.getCubeInfo(land.posA, land.posB);
@@ -5951,7 +6100,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         `\u4F60\u7684\u89D2\u8272\uFF1A${roleText(land, this.player.id)}`,
         `\u7EF4\u5EA6\uFF1A${LandCore.getDimensionName(land.dimid)}`,
         `\u8303\u56F4\uFF1AX ${land.posA.x}..${land.posB.x} / Y ${land.posA.y}..${land.posB.y} / Z ${land.posA.z}..${land.posB.z}`,
-        `\u9762\u79EF\uFF1A${info.square} \u683C \xB7 \u7248\u672C\uFF1A${land.version || 1}`
+        `\u9762\u79EF\uFF1A${info.square} \u683C \xB7 \u7248\u672C\uFF1A${land.version || 1}`,
       ])
     );
   }
@@ -5964,7 +6113,9 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         "\u6240\u6709\u8005",
         `${land.ownerName}`,
         "\u6210\u5458\u4E0E\u89D2\u8272",
-        ...(land.members || []).filter((m) => m.player_id !== land.ownerplid).map((m) => `${m.player_name_snapshot || m.player_id} \xB7 ${ROLE_NAMES[m.role]}`)
+        ...(land.members || [])
+          .filter((m) => m.player_id !== land.ownerplid)
+          .map((m) => `${m.player_name_snapshot || m.player_id} \xB7 ${ROLE_NAMES[m.role]}`),
       ])
     );
     if (canManage(land, this.player.id, "manage_members"))
@@ -5983,7 +6134,9 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     const land = this.currentLand();
     if (!land) return;
     const status = new FormStatus(page);
-    const online = import_server23.world.getPlayers().filter((p) => p.id !== land.ownerplid && !(land.members || []).some((m) => m.player_id === p.id));
+    const online = import_server23.world
+      .getPlayers()
+      .filter((p) => p.id !== land.ownerplid && !(land.members || []).some((m) => m.player_id === p.id));
     const names = online.map((p) => p.name);
     if (!names.length) {
       page.label("\u6CA1\u6709\u53EF\u9080\u8BF7\u7684\u5728\u7EBF\u73A9\u5BB6\u3002");
@@ -6006,15 +6159,16 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     );
     page.button(
       "\u53D1\u9001\u9080\u8BF7",
-      () => void this.nav.runTask(status, async () => {
-        const player = online[target.getData()];
-        const selectedRole = roleItems[role.getData()]?.value;
-        if (!player || !selectedRole) throw new Error("\u8BF7\u9009\u62E9\u73A9\u5BB6\u548C\u89D2\u8272");
-        const result = await inviteMember(land.id, this.player.id, player.id, selectedRole);
-        if (!result.ok) throw new Error(result.message || result.error || "\u9080\u8BF7\u5931\u8D25");
-        status.ok(`\u5DF2\u5411 ${player.name} \u53D1\u9001${ROLE_NAMES[selectedRole]}\u9080\u8BF7\u3002`);
-        await Database.refresh();
-      })
+      () =>
+        void this.nav.runTask(status, async () => {
+          const player = online[target.getData()];
+          const selectedRole = roleItems[role.getData()]?.value;
+          if (!player || !selectedRole) throw new Error("\u8BF7\u9009\u62E9\u73A9\u5BB6\u548C\u89D2\u8272");
+          const result = await inviteMember(land.id, this.player.id, player.id, selectedRole);
+          if (!result.ok) throw new Error(result.message || result.error || "\u9080\u8BF7\u5931\u8D25");
+          status.ok(`\u5DF2\u5411 ${player.name} \u53D1\u9001${ROLE_NAMES[selectedRole]}\u9080\u8BF7\u3002`);
+          await Database.refresh();
+        })
     );
   }
   buildMemberEdit(page) {
@@ -6028,7 +6182,10 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     const roles = canChangeAdmin ? ROLES : ROLES.filter((r) => r !== "admin");
     const role = obsNum(Math.max(0, roles.indexOf(member.role)));
     page.label(
-      ListFormInfo([`\u73A9\u5BB6\uFF1A${member.player_name_snapshot || member.player_id}`, `\u5F53\u524D\u89D2\u8272\uFF1A${ROLE_NAMES[member.role]}`])
+      ListFormInfo([
+        `\u73A9\u5BB6\uFF1A${member.player_name_snapshot || member.player_id}`,
+        `\u5F53\u524D\u89D2\u8272\uFF1A${ROLE_NAMES[member.role]}`,
+      ])
     );
     page.dropdown(
       "\u65B0\u89D2\u8272",
@@ -6037,13 +6194,14 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     );
     page.button(
       "\u4FDD\u5B58\u89D2\u8272",
-      () => void this.nav.runTask(status, async () => {
-        const next = roles[role.getData()];
-        const result = await updateLandMember(land.id, this.player.id, member.player_id, next);
-        if (!result.ok || !result.land) throw new Error(result.message || result.error || "member update failed");
-        Database.upsert(result.land);
-        status.ok("\u6210\u5458\u89D2\u8272\u5DF2\u66F4\u65B0\u3002");
-      })
+      () =>
+        void this.nav.runTask(status, async () => {
+          const next = roles[role.getData()];
+          const result = await updateLandMember(land.id, this.player.id, member.player_id, next);
+          if (!result.ok || !result.land) throw new Error(result.message || result.error || "member update failed");
+          Database.upsert(result.land);
+          status.ok("\u6210\u5458\u89D2\u8272\u5DF2\u66F4\u65B0\u3002");
+        })
     );
     page.button("\u79FB\u9664\u6210\u5458", () => void this.removeMember(land, member.player_id, status));
   }
@@ -6059,24 +6217,26 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         ListFormInfo([
           `\u571F\u5730\uFF1A${invite.land_id}`,
           `\u89D2\u8272\uFF1A${ROLE_NAMES[invite.role] || invite.role}`,
-          `\u9080\u8BF7\u4EBA\uFF1A${invite.inviter_id}`
+          `\u9080\u8BF7\u4EBA\uFF1A${invite.inviter_id}`,
         ])
       );
       page.button(
         "\u63A5\u53D7",
-        () => void this.nav.runTask(status, async () => {
-          const land = await acceptInvite(this.player.id, invite.id);
-          if (!land) throw new Error("accept failed");
-          Database.upsert(land);
-          await this.loadInvites();
-        })
+        () =>
+          void this.nav.runTask(status, async () => {
+            const land = await acceptInvite(this.player.id, invite.id);
+            if (!land) throw new Error("accept failed");
+            Database.upsert(land);
+            await this.loadInvites();
+          })
       );
       page.button(
         "\u62D2\u7EDD",
-        () => void this.nav.runTask(status, async () => {
-          if (!await declineInvite(this.player.id, invite.id)) throw new Error("decline failed");
-          await this.loadInvites();
-        })
+        () =>
+          void this.nav.runTask(status, async () => {
+            if (!(await declineInvite(this.player.id, invite.id))) throw new Error("decline failed");
+            await this.loadInvites();
+          })
       );
     }
   }
@@ -6088,33 +6248,38 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     const fields = [
       ["\u5141\u8BB8\u5EFA\u9020", "allow_place", land.permissions.allow_place || land.permissions.allow_destroy],
       ["\u5141\u8BB8\u6253\u5F00\u5BB9\u5668", "open_container", land.permissions.open_container],
-      ["\u5141\u8BB8\u4F7F\u7528\u95E8\u548C\u6309\u94AE", "use_door", land.permissions.use_door || land.permissions.use_button],
+      [
+        "\u5141\u8BB8\u4F7F\u7528\u95E8\u548C\u6309\u94AE",
+        "use_door",
+        land.permissions.use_door || land.permissions.use_button,
+      ],
       ["\u5141\u8BB8\u4F7F\u7528\u7EA2\u77F3", "use_redstone", land.permissions.use_redstone],
       ["\u5141\u8BB8\u4EA4\u4E92\u5B9E\u4F53", "interact_entity", land.permissions.interact_entity],
       ["\u5141\u8BB8\u653B\u51FB\u5B9E\u4F53", "attack_entity", land.permissions.attack_entity],
-      ["\u5141\u8BB8\u62FE\u53D6\u7269\u54C1", "pickup_item", land.permissions.pickup_item]
+      ["\u5141\u8BB8\u62FE\u53D6\u7269\u54C1", "pickup_item", land.permissions.pickup_item],
     ];
     const values = fields.map((field) => obsBool(!!field[2]));
     fields.forEach((field, index) => page.toggle(field[0], values[index]));
     page.button(
       "\u4FDD\u5B58\u4FDD\u62A4\u8BBE\u7F6E",
-      () => void this.nav.runTask(status, async () => {
-        const permissions = {
-          ...land.permissions,
-          allow_place: values[0].getData(),
-          allow_destroy: values[0].getData(),
-          open_container: values[1].getData(),
-          use_door: values[2].getData(),
-          use_button: values[2].getData(),
-          use_redstone: values[3].getData(),
-          interact_entity: values[4].getData(),
-          attack_entity: values[5].getData(),
-          pickup_item: values[6].getData()
-        };
-        const updated = await Database.update({ ...land, permissions }, this.player.id);
-        if (!updated) throw new Error("protection update failed");
-        status.ok("\u8BBF\u5BA2\u4FDD\u62A4\u5DF2\u4FDD\u5B58\u3002");
-      })
+      () =>
+        void this.nav.runTask(status, async () => {
+          const permissions = {
+            ...land.permissions,
+            allow_place: values[0].getData(),
+            allow_destroy: values[0].getData(),
+            open_container: values[1].getData(),
+            use_door: values[2].getData(),
+            use_button: values[2].getData(),
+            use_redstone: values[3].getData(),
+            interact_entity: values[4].getData(),
+            attack_entity: values[5].getData(),
+            pickup_item: values[6].getData(),
+          };
+          const updated = await Database.update({ ...land, permissions }, this.player.id);
+          if (!updated) throw new Error("protection update failed");
+          status.ok("\u8BBF\u5BA2\u4FDD\u62A4\u5DF2\u4FDD\u5B58\u3002");
+        })
     );
   }
   buildBasic(page) {
@@ -6123,20 +6288,23 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     if (!land) return;
     const status = new FormStatus(page);
     const name = obsStr(land.nickname || "");
-    page.textField("\u571F\u5730\u540D\u79F0", name, { description: "\u7559\u7A7A\u5219\u4F7F\u7528\u571F\u5730\u7F16\u53F7" });
+    page.textField("\u571F\u5730\u540D\u79F0", name, {
+      description: "\u7559\u7A7A\u5219\u4F7F\u7528\u571F\u5730\u7F16\u53F7",
+    });
     page.label(
       ListFormInfo([
         `\u8303\u56F4\uFF1A${land.posA.x}..${land.posB.x}, ${land.posA.y}..${land.posB.y}, ${land.posA.z}..${land.posB.z}`,
-        `\u521B\u5EFA\u65F6\u95F4\uFF1A${new Date(land.createdAt).toLocaleString()}`
+        `\u521B\u5EFA\u65F6\u95F4\uFF1A${new Date(land.createdAt).toLocaleString()}`,
       ])
     );
     page.button(
       "\u4FDD\u5B58\u540D\u79F0",
-      () => void this.nav.runTask(status, async () => {
-        const updated = await Database.update({ ...land, nickname: name.getData().trim() }, this.player.id);
-        if (!updated) throw new Error("name update failed");
-        status.ok("\u571F\u5730\u540D\u79F0\u5DF2\u4FDD\u5B58\u3002");
-      })
+      () =>
+        void this.nav.runTask(status, async () => {
+          const updated = await Database.update({ ...land, nickname: name.getData().trim() }, this.player.id);
+          if (!updated) throw new Error("name update failed");
+          status.ok("\u571F\u5730\u540D\u79F0\u5DF2\u4FDD\u5B58\u3002");
+        })
     );
   }
   buildRisk(page) {
@@ -6149,7 +6317,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         "\u8FD9\u4E9B\u64CD\u4F5C\u4F1A\u6539\u53D8\u571F\u5730\u6240\u6709\u6743\u6216\u6C38\u4E45\u5220\u9664\u571F\u5730\u3002",
         "\u8F6C\u8BA9\u7ED9\u5728\u7EBF\u73A9\u5BB6\u4F1A\u7ACB\u523B\u53D8\u66F4\u6240\u6709\u8005\u5E76\u9000\u4F60\u4E3A\u7BA1\u7406\u5458\uFF1B",
         "\u82E5\u76EE\u6807\u73A9\u5BB6\u6682\u65F6\u79BB\u7EBF\uFF0C\u8BF7\u6539\u5728\u300C\u6210\u5458\u4E0E\u9080\u8BF7\u300D\u9080\u8BF7\u5BF9\u65B9\u4E3A\u7BA1\u7406\u5458\u3002",
-        "\u5220\u9664\u540E\u571F\u5730\u5C06\u8FDB\u5165\u5DF2\u5220\u9664\u72B6\u6001\u5E76\u6309\u6BD4\u4F8B\u9000\u6B3E\u3002"
+        "\u5220\u9664\u540E\u571F\u5730\u5C06\u8FDB\u5165\u5DF2\u5220\u9664\u72B6\u6001\u5E76\u6309\u6BD4\u4F8B\u9000\u6B3E\u3002",
       ])
     );
     page.button("\u8F6C\u8BA9\u571F\u5730\uFF08\u5728\u7EBF\uFF09", () => void this.transferLand(land, status));
@@ -6158,15 +6326,17 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
   buildApplication(page) {
     debug.i("GUI", "LandGUI.buildApplication");
     const status = new FormStatus(page);
-    const session = LandCore.getSession(this.player.id) || (LandCore.initSession(this.player.id), LandCore.getSession(this.player.id));
+    const session =
+      LandCore.getSession(this.player.id) ||
+      (LandCore.initSession(this.player.id), LandCore.getSession(this.player.id));
     const application = this.state.application || {
       ...session,
-      dimensionId: session?.dimensionId ?? dimensionId(this.player)
+      dimensionId: session?.dimensionId ?? dimensionId(this.player),
     };
     this.state.application = application;
     const body = [
       `\u7B2C\u4E00\u70B9\uFF1A${application.pos1 ? `(${application.pos1.x}, ${application.pos1.y}, ${application.pos1.z})` : "\u672A\u8BBE\u7F6E"}`,
-      `\u7B2C\u4E8C\u70B9\uFF1A${application.pos2 ? `(${application.pos2.x}, ${application.pos2.y}, ${application.pos2.z})` : "\u672A\u8BBE\u7F6E"}`
+      `\u7B2C\u4E8C\u70B9\uFF1A${application.pos2 ? `(${application.pos2.x}, ${application.pos2.y}, ${application.pos2.z})` : "\u672A\u8BBE\u7F6E"}`,
     ];
     page.label(ListFormInfo(body));
     if (application.pos1 && application.pos2) {
@@ -6176,36 +6346,42 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         ListFormInfo([
           `\u9762\u79EF\uFF1A${info.square} \u683C`,
           `\u9884\u4F30\u4EF7\u683C\uFF1A${this.state.previewPrice ?? "-"} ${Money.UNIT}`,
-          `\u5F53\u524D\u4F59\u989D\uFF1A${Money.get(this.player)} ${Money.UNIT}`
+          `\u5F53\u524D\u4F59\u989D\uFF1A${Money.get(this.player)} ${Money.UNIT}`,
         ])
       );
       page.button(
         "\u786E\u8BA4\u8D2D\u4E70",
-        () => void this.nav.runTask(status, async () => {
-          const result = await LandCore.validateCreation(
-            this.player,
-            application.pos1,
-            application.pos2,
-            application.dimensionId
-          );
-          if (!result.ok) throw new Error(result.msg || "validation failed");
-          const land = await LandCore.createLand(
-            this.player,
-            application.pos1,
-            application.pos2,
-            application.dimensionId
-          );
-          if (!land) throw new Error("purchase failed");
-          this.state.application = void 0;
-          this.state.previewPrice = void 0;
-          this.state.selectedLandId = land.id;
-          await this.nav.replace("landDetail");
-          const balance = await Money.load(this.player);
-          Msg.success(`\u571F\u5730\u8D2D\u4E70\u6210\u529F\uFF0C\u5DF2\u6263\u9664\u8D39\u7528\u3002\u5F53\u524D\u4F59\u989D\uFF1A${balance} ${Money.UNIT}`, this.player);
-        })
+        () =>
+          void this.nav.runTask(status, async () => {
+            const result = await LandCore.validateCreation(
+              this.player,
+              application.pos1,
+              application.pos2,
+              application.dimensionId
+            );
+            if (!result.ok) throw new Error(result.msg || "validation failed");
+            const land = await LandCore.createLand(
+              this.player,
+              application.pos1,
+              application.pos2,
+              application.dimensionId
+            );
+            if (!land) throw new Error("purchase failed");
+            this.state.application = void 0;
+            this.state.previewPrice = void 0;
+            this.state.selectedLandId = land.id;
+            await this.nav.replace("landDetail");
+            const balance = await Money.load(this.player);
+            Msg.success(
+              `\u571F\u5730\u8D2D\u4E70\u6210\u529F\uFF0C\u5DF2\u6263\u9664\u8D39\u7528\u3002\u5F53\u524D\u4F59\u989D\uFF1A${balance} ${Money.UNIT}`,
+              this.player
+            );
+          })
       );
     } else {
-      page.label("\u8BF7\u5728\u6E38\u620F\u5185\u4F7F\u7528 !pos1 \u548C !pos2 \u8BBE\u7F6E\u4E24\u4E2A\u89D2\u70B9\u3002");
+      page.label(
+        "\u8BF7\u5728\u6E38\u620F\u5185\u4F7F\u7528 !pos1 \u548C !pos2 \u8BBE\u7F6E\u4E24\u4E2A\u89D2\u70B9\u3002"
+      );
     }
     page.button("\u53D6\u6D88\u7533\u8BF7", () => {
       LandCore.clearSession(this.player.id);
@@ -6251,7 +6427,9 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
   openApplication() {
     if (!LandCore.getSession(this.player.id)) LandCore.initSession(this.player.id);
     const session = LandCore.getSession(this.player.id);
-    this.state.application = session ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player) } : void 0;
+    this.state.application = session
+      ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player) }
+      : void 0;
     void this.nav.rebuild("application");
   }
   async removeMember(land, memberId, status) {
@@ -6273,12 +6451,14 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
       );
       return;
     }
-    if (!await this.nav.confirmMessage(
-      "\u8F6C\u8BA9\u571F\u5730",
-      `\u786E\u5B9A\u5C06 ${land.nickname || land.id} \u8F6C\u8BA9\u7ED9 ${target.name} \u5417\uFF1F\u8F6C\u8BA9\u540E\u4F60\u5C06\u6210\u4E3A\u7BA1\u7406\u5458\u3002`,
-      "\u786E\u8BA4\u8F6C\u8BA9",
-      "\u8FD4\u56DE"
-    ))
+    if (
+      !(await this.nav.confirmMessage(
+        "\u8F6C\u8BA9\u571F\u5730",
+        `\u786E\u5B9A\u5C06 ${land.nickname || land.id} \u8F6C\u8BA9\u7ED9 ${target.name} \u5417\uFF1F\u8F6C\u8BA9\u540E\u4F60\u5C06\u6210\u4E3A\u7BA1\u7406\u5458\u3002`,
+        "\u786E\u8BA4\u8F6C\u8BA9",
+        "\u8FD4\u56DE"
+      ))
+    )
       return;
     const { transferLand: transferLand2 } = await Promise.resolve().then(() => (init_LandApi(), LandApi_exports));
     await this.nav.runTask(status, async () => {
@@ -6299,12 +6479,14 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
     });
   }
   async deleteLand(land, status) {
-    if (!await this.nav.confirmMessage(
-      "\u5220\u9664\u571F\u5730",
-      `\u786E\u5B9A\u5220\u9664 ${land.nickname || land.id} \u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\uFF0C\u9000\u6B3E\u7531\u670D\u52A1\u5668\u6309\u89C4\u5219\u8BA1\u7B97\u3002`,
-      "\u786E\u8BA4\u5220\u9664",
-      "\u8FD4\u56DE"
-    ))
+    if (
+      !(await this.nav.confirmMessage(
+        "\u5220\u9664\u571F\u5730",
+        `\u786E\u5B9A\u5220\u9664 ${land.nickname || land.id} \u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\uFF0C\u9000\u6B3E\u7531\u670D\u52A1\u5668\u6309\u89C4\u5219\u8BA1\u7B97\u3002`,
+        "\u786E\u8BA4\u5220\u9664",
+        "\u8FD4\u56DE"
+      ))
+    )
       return;
     await this.nav.runTask(status, async () => {
       const requestId = `land-delete:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
@@ -6322,13 +6504,19 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
       if (deleted.balance !== void 0) Money.setCached(this.player, deleted.balance, deleted.balanceVersion || 0);
       this.state.selectedLandId = void 0;
       await this.nav.replace("home");
-      Msg.success(`\u571F\u5730\u5DF2\u5220\u9664\uFF0C\u83B7\u5F97 ${deleted.refund || 0} ${Money.UNIT}\u3002`, this.player);
+      Msg.success(
+        `\u571F\u5730\u5DF2\u5220\u9664\uFF0C\u83B7\u5F97 ${deleted.refund || 0} ${Money.UNIT}\u3002`,
+        this.player
+      );
     });
   }
   async refreshAfterConflict() {
     await Database.refresh();
     await this.nav.replace("landDetail");
-    await this.nav.message("\u571F\u5730\u6570\u636E\u5DF2\u66F4\u65B0", "\u571F\u5730\u6570\u636E\u5DF2\u88AB\u5176\u4ED6\u64CD\u4F5C\u66F4\u65B0\u3002\n\u5DF2\u5237\u65B0\u6700\u65B0\u6570\u636E\uFF0C\u8BF7\u91CD\u65B0\u786E\u8BA4\u672C\u6B21\u64CD\u4F5C\u3002");
+    await this.nav.message(
+      "\u571F\u5730\u6570\u636E\u5DF2\u66F4\u65B0",
+      "\u571F\u5730\u6570\u636E\u5DF2\u88AB\u5176\u4ED6\u64CD\u4F5C\u66F4\u65B0\u3002\n\u5DF2\u5237\u65B0\u6700\u65B0\u6570\u636E\uFF0C\u8BF7\u91CD\u65B0\u786E\u8BA4\u672C\u6B21\u64CD\u4F5C\u3002"
+    );
   }
 };
 function dimensionId(player) {
@@ -6343,12 +6531,14 @@ function landErrorMessage(error, message) {
     forbidden: "\u4F60\u6CA1\u6709\u6743\u9650\u6267\u884C\u6B64\u64CD\u4F5C\u3002",
     not_found: "\u571F\u5730\u4E0D\u5B58\u5728\u6216\u5DF2\u88AB\u5220\u9664\u3002",
     already_deleted: "\u571F\u5730\u5DF2\u7ECF\u88AB\u5220\u9664\u3002",
-    version_conflict: "\u571F\u5730\u6570\u636E\u5DF2\u66F4\u65B0\uFF0C\u8BF7\u8FD4\u56DE\u540E\u91CD\u65B0\u786E\u8BA4\u3002",
+    version_conflict:
+      "\u571F\u5730\u6570\u636E\u5DF2\u66F4\u65B0\uFF0C\u8BF7\u8FD4\u56DE\u540E\u91CD\u65B0\u786E\u8BA4\u3002",
     database_unavailable: "\u6570\u636E\u5E93\u6682\u65F6\u4E0D\u53EF\u7528\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002",
-    transaction_failed: "\u670D\u52A1\u5668\u4E8B\u52A1\u5931\u8D25\uFF0C\u571F\u5730\u72B6\u6001\u672A\u6539\u53D8\u3002",
-    invalid_target: "\u4E0D\u80FD\u5C06\u571F\u5730\u8F6C\u8BA9\u7ED9\u81EA\u5DF1\u3002"
+    transaction_failed:
+      "\u670D\u52A1\u5668\u4E8B\u52A1\u5931\u8D25\uFF0C\u571F\u5730\u72B6\u6001\u672A\u6539\u53D8\u3002",
+    invalid_target: "\u4E0D\u80FD\u5C06\u571F\u5730\u8F6C\u8BA9\u7ED9\u81EA\u5DF1\u3002",
   };
-  return error && known[error] || message || "\u64CD\u4F5C\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002";
+  return (error && known[error]) || message || "\u64CD\u4F5C\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002";
 }
 
 // scripts/land/LandTax.ts
@@ -6392,7 +6582,7 @@ var LandTax = class {
         "Post",
         `/api/sfmc/lands/${encodeURIComponent(land.id)}/tax-collect`,
         {
-          actorId: "system"
+          actorId: "system",
         }
       );
       if (!taxResult.ok && taxResult.data?.frozen) {
@@ -6428,9 +6618,10 @@ var LandSystem = class {
         const pos = {
           x: Math.floor(player.location.x),
           y: Math.floor(player.location.y),
-          z: Math.floor(player.location.z)
+          z: Math.floor(player.location.z),
         };
-        const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+        const dimid =
+          player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
         const land = LandCore.getLandByPos(pos, dimid);
         if (!land) return "\u5F53\u524D\u4F4D\u7F6E\u4E0D\u5728\u4EFB\u4F55\u571F\u5730\u5185\u3002";
         return `\u571F\u5730\uFF1A${land.nickname || land.id}\uFF0C\u6240\u6709\u8005\uFF1A${land.ownerName}\uFF0C\u7248\u672C\uFF1A${land.version || 1}`;
@@ -6491,9 +6682,13 @@ function handlePosCommand(player, which) {
   const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
   const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
   const session = LandCore.getSession(plid);
-  if (!session) return Msg.error("\u4F60\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u571F\u5730\u7533\u8BF7\u3002", player);
+  if (!session)
+    return Msg.error("\u4F60\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u571F\u5730\u7533\u8BF7\u3002", player);
   if (session.dimensionId !== void 0 && session.dimensionId !== dimid)
-    return Msg.error("\u571F\u5730\u9009\u70B9\u4E0D\u80FD\u8DE8\u7EF4\u5EA6\uFF0C\u8BF7\u5728\u540C\u4E00\u7EF4\u5EA6\u91CD\u65B0\u9009\u62E9\u3002", player);
+    return Msg.error(
+      "\u571F\u5730\u9009\u70B9\u4E0D\u80FD\u8DE8\u7EF4\u5EA6\uFF0C\u8BF7\u5728\u540C\u4E00\u7EF4\u5EA6\u91CD\u65B0\u9009\u62E9\u3002",
+      player
+    );
   if (session.dimensionId === void 0) LandCore.setDimension(plid, dimid);
   if (which === 1) {
     LandCore.setPos1(plid, pos);
@@ -6505,7 +6700,10 @@ function handlePosCommand(player, which) {
   if (session.pos1 && session.pos2) {
     const info = LandCore.formatLandInfo(session.pos1, session.pos2, dimid);
     Msg.info(info, player);
-    Msg.tips("\u4F7F\u7528 \xA7a!land \xA77\u6253\u5F00\u83DC\u5355\u786E\u8BA4\u7533\u8BF7\uFF0C\u6216\u4F7F\u7528 \xA7a!land cancel \xA77\u53D6\u6D88", player);
+    Msg.tips(
+      "\u4F7F\u7528 \xA7a!land \xA77\u6253\u5F00\u83DC\u5355\u786E\u8BA4\u7533\u8BF7\uFF0C\u6216\u4F7F\u7528 \xA7a!land cancel \xA77\u53D6\u6D88",
+      player
+    );
   } else {
     const next = which === 1 ? "2" : "1";
     Msg.tips(`\u8BF7\u4F7F\u7528 \xA7a!pos${next} \xA77\u8BBE\u7F6E\u7B2C${next}\u70B9`, player);
@@ -6524,7 +6722,7 @@ var CONTAINER_BLOCKS = /* @__PURE__ */ new Set([
   "minecraft:ender_chest",
   "minecraft:hopper",
   "minecraft:dispenser",
-  "minecraft:dropper"
+  "minecraft:dropper",
   // 潜影盒用正则匹配
 ]);
 function isContainerBlock(typeId) {
@@ -6569,7 +6767,8 @@ var LandEvents = class {
     this.subscribe(import_server26.world.beforeEvents.playerPlaceBlock, (ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(player, pos, dimid, "place")) {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u653E\u7F6E\u65B9\u5757\uFF01", player);
         ev.cancel = true;
@@ -6578,7 +6777,8 @@ var LandEvents = class {
     this.subscribe(import_server26.world.beforeEvents.playerBreakBlock, (ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(player, pos, dimid, "break")) {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u7834\u574F\u65B9\u5757\uFF01", player);
         ev.cancel = true;
@@ -6588,7 +6788,8 @@ var LandEvents = class {
       const { player, block } = ev;
       if (!isContainerBlock(block.typeId)) return;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(player, pos, dimid, "container")) {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u6253\u5F00\u5BB9\u5668\uFF01", player);
         ev.cancel = true;
@@ -6597,10 +6798,17 @@ var LandEvents = class {
     this.subscribe(import_server26.world.beforeEvents.playerInteractWithBlock, (ev) => {
       if (isContainerBlock(ev.block.typeId)) return;
       const type = ev.block.typeId;
-      const capability = /door|trapdoor|fence_gate/.test(type) ? "door" : /button|lever|pressure_plate/.test(type) ? "button" : /redstone|repeater|comparator|piston|dispenser|dropper|hopper/.test(type) ? "redstone" : null;
+      const capability = /door|trapdoor|fence_gate/.test(type)
+        ? "door"
+        : /button|lever|pressure_plate/.test(type)
+          ? "button"
+          : /redstone|repeater|comparator|piston|dispenser|dropper|hopper/.test(type)
+            ? "redstone"
+            : null;
       if (!capability) return;
       const pos = { x: ev.block.x, y: ev.block.y, z: ev.block.z };
-      const dimid = ev.block.dimension.id === "minecraft:overworld" ? 0 : ev.block.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        ev.block.dimension.id === "minecraft:overworld" ? 0 : ev.block.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(ev.player, pos, dimid, capability)) {
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u4F7F\u7528\u6B64\u571F\u5730\u8BBE\u65BD\uFF01", ev.player);
         ev.cancel = true;
@@ -6610,11 +6818,15 @@ var LandEvents = class {
       const pos = {
         x: Math.floor(ev.target.location.x),
         y: Math.floor(ev.target.location.y),
-        z: Math.floor(ev.target.location.z)
+        z: Math.floor(ev.target.location.z),
       };
-      const dimid = ev.target.dimension.id === "minecraft:overworld" ? 0 : ev.target.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        ev.target.dimension.id === "minecraft:overworld" ? 0 : ev.target.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(ev.player, pos, dimid, "interact_entity")) {
-        Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u4E0E\u6B64\u571F\u5730\u5185\u7684\u5B9E\u4F53\u4EA4\u4E92\uFF01", ev.player);
+        Msg.error(
+          "\u4F60\u6CA1\u6709\u6743\u9650\u4E0E\u6B64\u571F\u5730\u5185\u7684\u5B9E\u4F53\u4EA4\u4E92\uFF01",
+          ev.player
+        );
         ev.cancel = true;
       }
     });
@@ -6625,9 +6837,10 @@ var LandEvents = class {
       const pos = {
         x: Math.floor(target.location.x),
         y: Math.floor(target.location.y),
-        z: Math.floor(target.location.z)
+        z: Math.floor(target.location.z),
       };
-      const dimid = target.dimension.id === "minecraft:overworld" ? 0 : target.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        target.dimension.id === "minecraft:overworld" ? 0 : target.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(source, pos, dimid, "attack_entity")) {
         ev.cancel = true;
         Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u653B\u51FB\u6B64\u571F\u5730\u5185\u7684\u5B9E\u4F53\uFF01", source);
@@ -6638,21 +6851,28 @@ var LandEvents = class {
       const pos = {
         x: Math.floor(ev.item.location.x),
         y: Math.floor(ev.item.location.y),
-        z: Math.floor(ev.item.location.z)
+        z: Math.floor(ev.item.location.z),
       };
-      const dimid = ev.item.dimension.id === "minecraft:overworld" ? 0 : ev.item.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        ev.item.dimension.id === "minecraft:overworld" ? 0 : ev.item.dimension.id === "minecraft:nether" ? 1 : 2;
       if (!checkLandPermission(ev.entity, pos, dimid, "pickup_item")) {
         ev.cancel = true;
-        Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u62FE\u53D6\u6B64\u571F\u5730\u5185\u7684\u7269\u54C1\uFF01", ev.entity);
+        Msg.error(
+          "\u4F60\u6CA1\u6709\u6743\u9650\u62FE\u53D6\u6B64\u571F\u5730\u5185\u7684\u7269\u54C1\uFF01",
+          ev.entity
+        );
       }
     });
     this.subscribe(import_server26.world.beforeEvents.explosion, (ev) => {
       const blocks = ev.getImpactedBlocks();
-      if (blocks.some((block) => {
-        const pos = { x: block.x, y: block.y, z: block.z };
-        const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
-        return LandCore.getLandByPos(pos, dimid) !== void 0;
-      }))
+      if (
+        blocks.some((block) => {
+          const pos = { x: block.x, y: block.y, z: block.z };
+          const dimid =
+            block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+          return LandCore.getLandByPos(pos, dimid) !== void 0;
+        })
+      )
         ev.cancel = true;
     });
   }
@@ -6664,15 +6884,19 @@ var LandEvents = class {
       const pos = {
         x: Math.floor(player.location.x),
         y: Math.floor(player.location.y),
-        z: Math.floor(player.location.z)
+        z: Math.floor(player.location.z),
       };
-      const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+      const dimid =
+        player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
       const land = LandCore.getLandByPos(pos, dimid);
       const current = land?.id || null;
       const previous = this.lastLandByPlayer.get(player.id);
       if (current !== previous) {
         if (land) {
-          Msg.tips(`\u8FDB\u5165\u571F\u5730\uFF1A${land.nickname || land.id}\uFF08\u6240\u6709\u8005\uFF1A${land.ownerName}\uFF09`, player);
+          Msg.tips(
+            `\u8FDB\u5165\u571F\u5730\uFF1A${land.nickname || land.id}\uFF08\u6240\u6709\u8005\uFF1A${land.ownerName}\uFF09`,
+            player
+          );
           this.spawnShieldParticles(player, land);
         } else if (previous) {
           Msg.tips("\u4F60\u5DF2\u79BB\u5F00\u571F\u5730\u4FDD\u62A4\u8303\u56F4\u3002", player);
@@ -6691,8 +6915,7 @@ var LandEvents = class {
           player.spawnParticle(color.particle, { x: c.x + 0.5, y: c.y + 1 + h, z: c.z + 0.5 });
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
   static computeCorners(land) {
     const minX = Math.min(land.posA.x, land.posB.x);
@@ -6706,7 +6929,7 @@ var LandEvents = class {
       { x: minX, y: midY, z: minZ },
       { x: maxX, y: midY, z: minZ },
       { x: minX, y: midY, z: maxZ },
-      { x: maxX, y: midY, z: maxZ }
+      { x: maxX, y: midY, z: maxZ },
     ];
   }
   /** 简单 hash → 颜色。保证每块地视觉上唯一，又不需要额外存储。 */
@@ -6719,9 +6942,12 @@ var LandEvents = class {
       "minecraft:end_chest",
       "minecraft:sparkler",
       "minecraft:wax_on",
-      "minecraft:wax_off"
+      "minecraft:wax_off",
     ];
-    return { particle: palette[ids % palette.length], hex: "#" + (ids * 2654435761 >>> 0).toString(16).padStart(8, "0").slice(0, 6) };
+    return {
+      particle: palette[ids % palette.length],
+      hex: "#" + ((ids * 2654435761) >>> 0).toString(16).padStart(8, "0").slice(0, 6),
+    };
   }
   static getMetrics() {
     return { ...this.metrics, averageMs: this.metrics.count ? this.metrics.totalMs / this.metrics.count : 0 };
@@ -6739,8 +6965,7 @@ var LandEvents = class {
     for (const s of this.subscriptions) {
       try {
         s.signal.unsubscribe(s.callback);
-      } catch {
-      }
+      } catch {}
     }
     this.subscriptions = [];
     this.initialized = false;
@@ -6780,13 +7005,17 @@ var MoneyGUI = class _MoneyGUI {
       const status = new FormStatus(page);
       const targetName = obsStr("");
       const amountStr = obsStr("");
-      page.textField("\u73A9\u5BB6\u540D\u79F0", targetName, { description: "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0" });
+      page.textField("\u73A9\u5BB6\u540D\u79F0", targetName, {
+        description: "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0",
+      });
       page.textField("\u6570\u91CF", amountStr, { description: "\u8BF7\u8F93\u5165\u8D27\u5E01\u6570\u91CF" });
       page.button("\u786E\u8BA4", async () => {
         const name = targetName.getData().trim();
         const val = parseInt(amountStr.getData());
         if (!name || isNaN(val) || val <= 0) {
-          status.fail("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002");
+          status.fail(
+            "\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002"
+          );
           return;
         }
         const target = import_server27.world.getPlayers().find((p) => p.name === name);
@@ -6794,7 +7023,7 @@ var MoneyGUI = class _MoneyGUI {
           status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
           return;
         }
-        if (!await Money.add(target, val)) {
+        if (!(await Money.add(target, val))) {
           status.fail("\u53D1\u653E\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002");
           return;
         }
@@ -6805,7 +7034,9 @@ var MoneyGUI = class _MoneyGUI {
     nav.section("query", "\u67E5\u8BE2\u73A9\u5BB6", (page) => {
       const status = new FormStatus(page);
       const targetName = obsStr("");
-      page.textField("\u73A9\u5BB6\u540D\u79F0", targetName, { description: "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0" });
+      page.textField("\u73A9\u5BB6\u540D\u79F0", targetName, {
+        description: "\u8BF7\u8F93\u5165\u73A9\u5BB6\u540D\u79F0",
+      });
       page.button("\u67E5\u8BE2", () => {
         const name = targetName.getData().trim();
         if (!name) {
@@ -6864,7 +7095,7 @@ var ChatGUI = class _ChatGUI {
   static async sendTeleportInvite(player) {
     const channel = await DogeChat.getActiveChannel(player);
     if (!channel) return;
-    if (channel.config.isBroadcast && !await DogeChat.isChannelOwner(player, channel.id)) {
+    if (channel.config.isBroadcast && !(await DogeChat.isChannelOwner(player, channel.id))) {
       Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u53D1\u8A00\u3002", player);
       return;
     }
@@ -6892,7 +7123,7 @@ var ChatGUI = class _ChatGUI {
   static async sendRedPacketQuick(player) {
     const channel = await DogeChat.getActiveChannel(player);
     if (!channel) return;
-    if (channel.config.isBroadcast && !await DogeChat.isChannelOwner(player, channel.id)) {
+    if (channel.config.isBroadcast && !(await DogeChat.isChannelOwner(player, channel.id))) {
       Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u9891\u9053\uFF0C\u65E0\u6CD5\u53D1\u8A00\u3002", player);
       return;
     }
@@ -6920,16 +7151,20 @@ var ChatGUI = class _ChatGUI {
   async buildPanel(page) {
     const active = await DogeChat.getActiveChannel(this.player);
     if (!active) {
-      page.label(ListFormInfo(["\u6570\u636E\u5E93\u8FDE\u63A5\u5931\u8D25\uFF0C\u65E0\u6CD5\u52A0\u8F7D\u9891\u9053\u3002"]));
+      page.label(
+        ListFormInfo(["\u6570\u636E\u5E93\u8FDE\u63A5\u5931\u8D25\uFF0C\u65E0\u6CD5\u52A0\u8F7D\u9891\u9053\u3002"])
+      );
       return;
     }
-    const allChannels = await getChannels() ?? [];
+    const allChannels = (await getChannels()) ?? [];
     const displayChannels = allChannels.filter((c) => {
       if (c.type === "private") return false;
       if (c.type === "system") return c.ownerid === this.player.id;
       return true;
     });
-    const activeLabel = obsStr(`\u2192 ${active.prefix} - ${active.name}\uFF08\u53D1\u9001\u5230\u6B64\u9891\u9053\uFF09`);
+    const activeLabel = obsStr(
+      `\u2192 ${active.prefix} - ${active.name}\uFF08\u53D1\u9001\u5230\u6B64\u9891\u9053\uFF09`
+    );
     page.label(activeLabel);
     page.button("\u9891\u9053\u7BA1\u7406", () => this.nav.go("manager"));
     page.button("\u79C1\u804A\u9891\u9053", () => this.nav.go("private"));
@@ -6974,23 +7209,26 @@ var ChatGUI = class _ChatGUI {
   }
   async buildManager(page) {
     const status = new FormStatus(page);
-    const allChannels = await getChannels() ?? [];
+    const allChannels = (await getChannels()) ?? [];
     const isAdmin = Permission.check(this.player, "chat.admin");
     page.label(ListFormInfo([`\u5171\u6709 ${allChannels.length} \u4E2A\u9891\u9053`]));
     page.button("\u521B\u5EFA\u9891\u9053", () => this.nav.go("create"));
     for (const c of allChannels) {
-      page.button(`${c.prefix} - \xA7f${c.name}
-\xA77${DogeChat.getOnlineCount(c.id)} \u4EBA\u5728\u7EBF`, async () => {
-        if (isAdmin || await DogeChat.isChannelOwner(this.player, c.id)) {
-          this.nav.state.channel = c;
-          await this.nav.rebuild("settings");
-        } else {
-          await DogeChat.setActiveChannel(this.player, c.id);
-          status.ok(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${c.prefix}`);
-          await DogeChat.loadChannelHistory(this.player, c.id);
-          await this.nav.rebuild("panel");
+      page.button(
+        `${c.prefix} - \xA7f${c.name}
+\xA77${DogeChat.getOnlineCount(c.id)} \u4EBA\u5728\u7EBF`,
+        async () => {
+          if (isAdmin || (await DogeChat.isChannelOwner(this.player, c.id))) {
+            this.nav.state.channel = c;
+            await this.nav.rebuild("settings");
+          } else {
+            await DogeChat.setActiveChannel(this.player, c.id);
+            status.ok(`\u5DF2\u5207\u6362\u5230\u9891\u9053: ${c.prefix}`);
+            await DogeChat.loadChannelHistory(this.player, c.id);
+            await this.nav.rebuild("panel");
+          }
         }
-      });
+      );
     }
   }
   async buildSettings(page) {
@@ -7006,7 +7244,7 @@ var ChatGUI = class _ChatGUI {
         `${channel.prefix} - ${channel.name}`,
         `\u7C7B\u578B: ${channel.type}`,
         `\u5728\u7EBF: ${DogeChat.getOnlineCount(channel.id)} \u4EBA`,
-        `\u516C\u544A\u677F: ${channel.config.isBroadcast ? "\xA7a\u5F00\u542F" : "\xA7c\u5173\u95ED"}`
+        `\u516C\u544A\u677F: ${channel.config.isBroadcast ? "\xA7a\u5F00\u542F" : "\xA7c\u5173\u95ED"}`,
       ])
     );
     page.button("\u7F16\u8F91\u9891\u9053", () => {
@@ -7022,7 +7260,9 @@ var ChatGUI = class _ChatGUI {
       const updated = await getChannel(channel.id);
       if (updated) {
         this.nav.state.channel = updated;
-        status.ok(`\u516C\u544A\u677F\u6A21\u5F0F\u5DF2${updated.config.isBroadcast ? "\u5F00\u542F" : "\u5173\u95ED"}\u3002`);
+        status.ok(
+          `\u516C\u544A\u677F\u6A21\u5F0F\u5DF2${updated.config.isBroadcast ? "\u5F00\u542F" : "\u5173\u95ED"}\u3002`
+        );
       }
       await this.nav.rebuild("settings");
     });
@@ -7031,7 +7271,10 @@ var ChatGUI = class _ChatGUI {
         this.nav.confirm(
           "\u5220\u9664\u9891\u9053",
           `\u786E\u8BA4\u5220\u9664\u9891\u9053 "${channel.name}" \u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002`,
-          () => DogeChat.deleteChannel(channel.id).then(() => status.ok(`\u9891\u9053 "${channel.name}" \u5DF2\u5220\u9664\u3002`)),
+          () =>
+            DogeChat.deleteChannel(channel.id).then(() =>
+              status.ok(`\u9891\u9053 "${channel.name}" \u5DF2\u5220\u9664\u3002`)
+            ),
           () => this.nav.rebuild("manager")
         );
       });
@@ -7060,7 +7303,9 @@ var ChatGUI = class _ChatGUI {
     const name = obsStr("");
     const prefix = obsStr("");
     page.textField("\u9891\u9053\u540D\u79F0", name, { description: "\u8F93\u5165\u9891\u9053\u540D\u79F0" });
-    page.textField("\u663E\u793A\u524D\u7F00", prefix, { description: "\u804A\u5929\u663E\u793A\u7684\u524D\u7F00\uFF0C\u5EFA\u8BAE\u7B80\u77ED" });
+    page.textField("\u663E\u793A\u524D\u7F00", prefix, {
+      description: "\u804A\u5929\u663E\u793A\u7684\u524D\u7F00\uFF0C\u5EFA\u8BAE\u7B80\u77ED",
+    });
     page.button("\u521B\u5EFA", async () => {
       const n = name.getData().trim();
       const p = prefix.getData().trim();
@@ -7075,7 +7320,9 @@ var ChatGUI = class _ChatGUI {
         await DogeChat.loadChannelHistory(this.player, cid);
         await this.nav.rebuild("panel");
       } else {
-        status.fail("\u521B\u5EFA\u5931\u8D25\uFF0C\u53EF\u80FD\u7684\u539F\u56E0\u662F\u9891\u9053\u540D\u79F0\u5DF2\u5B58\u5728\u3002");
+        status.fail(
+          "\u521B\u5EFA\u5931\u8D25\uFF0C\u53EF\u80FD\u7684\u539F\u56E0\u662F\u9891\u9053\u540D\u79F0\u5DF2\u5B58\u5728\u3002"
+        );
       }
     });
   }
@@ -7128,7 +7375,13 @@ var ChatGUI = class _ChatGUI {
   async buildRedPacket(page) {
     const available = await DogeChat.getAvailableRedPackets(this.player);
     if (available) {
-      page.label(ListFormInfo(available.length > 0 ? [`${available.length} \u4E2A\u7EA2\u5305\u53EF\u9886\u53D6`] : ["\u6682\u65E0\u53EF\u7528\u7EA2\u5305"]));
+      page.label(
+        ListFormInfo(
+          available.length > 0
+            ? [`${available.length} \u4E2A\u7EA2\u5305\u53EF\u9886\u53D6`]
+            : ["\u6682\u65E0\u53EF\u7528\u7EA2\u5305"]
+        )
+      );
       page.button("\u53D1\u9001\u7EA2\u5305", () => this.nav.go("send"));
       this.nav.state.redPackets = available;
       if (available.length > 0) {
@@ -7146,9 +7399,13 @@ var ChatGUI = class _ChatGUI {
     page.textField("\u4EFD\u6570", count, { description: "\u8F93\u5165\u7EA2\u5305\u4EFD\u6570" });
     page.dropdown("\u76EE\u6807\u7C7B\u578B", targetTypeIdx, [
       { label: "\u5F53\u524D\u9891\u9053", value: 0 },
-      { label: "\u6307\u5B9A\u73A9\u5BB6", value: 1 }
+      { label: "\u6307\u5B9A\u73A9\u5BB6", value: 1 },
     ]);
-    page.textField("\u76EE\u6807\u73A9\u5BB6\u540D\uFF08\u6307\u5B9A\u73A9\u5BB6\u65F6\u586B\u5199\uFF09", targetPlayer, { description: "\u7559\u7A7A\u5219\u53D1\u5230\u5F53\u524D\u9891\u9053" });
+    page.textField(
+      "\u76EE\u6807\u73A9\u5BB6\u540D\uFF08\u6307\u5B9A\u73A9\u5BB6\u65F6\u586B\u5199\uFF09",
+      targetPlayer,
+      { description: "\u7559\u7A7A\u5219\u53D1\u5230\u5F53\u524D\u9891\u9053" }
+    );
     page.button("\u53D1\u9001", async () => {
       const amt = parseInt(amount.getData());
       const cnt = parseInt(count.getData());
@@ -7162,8 +7419,7 @@ var ChatGUI = class _ChatGUI {
         const active = await DogeChat.getActiveChannel(this.player);
         if (active) {
           const ok = await DogeChat.sendRedPacket(this.player, amt, cnt, "group", active.id);
-          if (ok) await this.nav.leave(() => {
-          });
+          if (ok) await this.nav.leave(() => {});
           else status.fail("\u53D1\u9001\u5931\u8D25");
         }
       } else {
@@ -7173,8 +7429,7 @@ var ChatGUI = class _ChatGUI {
           return;
         }
         const ok = await DogeChat.sendRedPacket(this.player, amt, cnt, "player", target.id);
-        if (ok) await this.nav.leave(() => {
-        });
+        if (ok) await this.nav.leave(() => {});
         else status.fail("\u53D1\u9001\u5931\u8D25");
       }
     });
@@ -7198,7 +7453,9 @@ var ChatGUI = class _ChatGUI {
   async buildInvite(page) {
     const online = import_server28.world.getPlayers().filter((p) => p.id !== this.player.id);
     if (online.length === 0) {
-      page.label(ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002"]));
+      page.label(
+        ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002"])
+      );
       return;
     }
     page.label(ListFormInfo(["\u9009\u62E9\u8981\u9080\u8BF7\u7684\u73A9\u5BB6"]));
@@ -7224,8 +7481,7 @@ var ChatGUI = class _ChatGUI {
         return;
       }
       const ok = await DogeChat.sendRedPacket(this.player, amt, 1, "player", otherid);
-      if (ok) await this.nav.leave(() => {
-      });
+      if (ok) await this.nav.leave(() => {});
       else status.fail("\u53D1\u9001\u5931\u8D25");
     });
   }
@@ -7245,8 +7501,7 @@ var ChatGUI = class _ChatGUI {
       const channel = await DogeChat.getActiveChannel(this.player);
       if (!channel) return;
       const ok = await DogeChat.sendRedPacket(this.player, amt, cnt, "group", channel.id);
-      if (ok) await this.nav.leave(() => {
-      });
+      if (ok) await this.nav.leave(() => {});
       else status.fail("\u53D1\u9001\u5931\u8D25");
     });
   }
@@ -7277,9 +7532,9 @@ var CoopCore = class {
         nbtgoods_condition: {
           type_enum: ["minecraft:writable_book", "minecraft:field_masoned_banner_pattern", "minecraft:filled_map"],
           mode_enum: ["it.isEnchanted"],
-          type_reg_enum: ["[a-z].+_shulker_box"]
-        }
-      }
+          type_reg_enum: ["[a-z].+_shulker_box"],
+        },
+      },
     };
   }
   static generateId() {
@@ -7331,7 +7586,7 @@ var CoopCore = class {
       "mace",
       "elytra",
       "saddle",
-      "horse_armor"
+      "horse_armor",
     ];
     for (const suffix of nonBlock) {
       if (typeId.endsWith(suffix)) return false;
@@ -7368,9 +7623,9 @@ var CoopCore = class {
   // ==========================================
   static async registerCoop(name, cid, player) {
     debug.i("COOP", `registerCoop: name=${name} cid=${cid} player=${player.name}`);
-    const result = await Promise.resolve().then(() => (init_CoopAPI(), CoopAPI_exports)).then(
-      (api) => api.createCoop(name.trim(), cid.trim(), player.id, player.name)
-    );
+    const result = await Promise.resolve()
+      .then(() => (init_CoopAPI(), CoopAPI_exports))
+      .then((api) => api.createCoop(name.trim(), cid.trim(), player.id, player.name));
     if (!result.ok) {
       debug.w("COOP", `registerCoop: failed name=${name} cid=${cid}`);
       return false;
@@ -7393,7 +7648,7 @@ var CoopCore = class {
       debug.w("COOP", `joinCoop: already member or not found cid=${cid}`);
       return false;
     }
-    if (!await joinCoop(cid, player.id, player.name)) {
+    if (!(await joinCoop(cid, player.id, player.name))) {
       debug.e("COOP", `joinCoop: API failed cid=${cid}`);
       return false;
     }
@@ -7429,7 +7684,10 @@ var CoopCore = class {
       debug.w("COOP", `getInfo: coop not found cid=${cid}`);
       return "\u5408\u4F5C\u793E\u4E0D\u5B58\u5728";
     }
-    const ops = (data.members || []).filter((m) => m.role === "owner" || m.role === "admin").map((m) => m.player_name_snapshot).join(", ");
+    const ops = (data.members || [])
+      .filter((m) => m.role === "owner" || m.role === "admin")
+      .map((m) => m.player_name_snapshot)
+      .join(", ");
     return `\u516C\u544A\uFF1A
 ${data.notice}
 
@@ -7446,7 +7704,9 @@ ${data.notice}
   }
   static async isOp(playerId2, cid) {
     const data = await getCoop(cid);
-    const result = (data?.members || []).find((m) => m.player_id === playerId2)?.role === "owner" || (data?.members || []).find((m) => m.player_id === playerId2)?.role === "admin";
+    const result =
+      (data?.members || []).find((m) => m.player_id === playerId2)?.role === "owner" ||
+      (data?.members || []).find((m) => m.player_id === playerId2)?.role === "admin";
     debug.i("COOP", `isOp: playerId=${playerId2} cid=${cid} result=${result}`);
     return result;
   }
@@ -7458,9 +7718,9 @@ ${data.notice}
       return;
     }
     const member = data.members[index];
-    await Promise.resolve().then(() => (init_CoopAPI(), CoopAPI_exports)).then(
-      (api) => api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin")
-    );
+    await Promise.resolve()
+      .then(() => (init_CoopAPI(), CoopAPI_exports))
+      .then((api) => api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin"));
   }
   static async setNotice(cid, text) {
     debug.i("COOP", `setNotice: cid=${cid} text=${text}`);
@@ -7491,12 +7751,24 @@ ${data.notice}
     debug.i("COOP", `getRankInfo: type=${type}`);
     const all = await getAllCoops();
     if (type === 1) {
-      return all.map((e) => ({ m: e.account?.balance || 0, n: e.name })).sort((a, b) => b.m - a.m).map((e, i) => `
-#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`).join("");
+      return all
+        .map((e) => ({ m: e.account?.balance || 0, n: e.name }))
+        .sort((a, b) => b.m - a.m)
+        .map(
+          (e, i) => `
+#${i + 1} ${e.n} > ${e.m} ${Money.UNIT}`
+        )
+        .join("");
     }
     if (type === 2) {
-      return all.map((e) => ({ m: (e.members || []).length, n: e.name })).sort((a, b) => b.m - a.m).map((e, i) => `
-#${i + 1} ${e.n} > ${e.m} \u4EBA`).join("");
+      return all
+        .map((e) => ({ m: (e.members || []).length, n: e.name }))
+        .sort((a, b) => b.m - a.m)
+        .map(
+          (e, i) => `
+#${i + 1} ${e.n} > ${e.m} \u4EBA`
+        )
+        .join("");
     }
     return "";
   }
@@ -7591,9 +7863,11 @@ ${data.notice}
     if (!result.ok) {
       try {
         player.runCommand(`give "${player.name}" ${good.item_type} ${num} ${good.item_aux ?? 0}`);
-      } catch {
-      }
-      Msg.error(`\u51FA\u552E\u5931\u8D25\uFF1A${result.error || "\u670D\u52A1\u5668\u9519\u8BEF"}\uFF0C\u7269\u54C1\u5DF2\u8FD4\u8FD8\u3002`, player);
+      } catch {}
+      Msg.error(
+        `\u51FA\u552E\u5931\u8D25\uFF1A${result.error || "\u670D\u52A1\u5668\u9519\u8BEF"}\uFF0C\u7269\u54C1\u5DF2\u8FD4\u8FD8\u3002`,
+        player
+      );
       debug.e("COOP", `sell: API failed ${result.error}`);
       return { ok: false, error: result.error || "shop_sell_failed" };
     }
@@ -7620,8 +7894,10 @@ function _genId() {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 function _fmtGoodBt(name, unit, price, sv, num, isBuy) {
-  return isBuy ? `${name} ${unit}${price}
-\u5DF2\u552E\uFF1A${sv} \u5E93\u5B58\uFF1A${num}` : `${name} ${unit}${price}
+  return isBuy
+    ? `${name} ${unit}${price}
+\u5DF2\u552E\uFF1A${sv} \u5E93\u5B58\uFF1A${num}`
+    : `${name} ${unit}${price}
 \u53EF\u56DE\u6536\uFF1A${sv}/${num}`;
 }
 var CoopGUI = class _CoopGUI {
@@ -7644,7 +7920,7 @@ var CoopGUI = class _CoopGUI {
   static async openShopMgr(player) {
     debug.i("GUI", `CoopGUI.openShopMgr: player=${player.name}`);
     const gui = new _CoopGUI(player);
-    gui.nav.state.cid = await findPlayerCoop(player.id) ?? "";
+    gui.nav.state.cid = (await findPlayerCoop(player.id)) ?? "";
     gui.nav.start("shopMgr");
   }
   registerSections() {
@@ -7667,7 +7943,9 @@ var CoopGUI = class _CoopGUI {
     this.nav.section("shopEdit", "\u7F16\u8F91\u5546\u54C1\u4FE1\u606F", (p) => this.buildShopEdit(p));
     this.nav.section("shopRecycleList", "\u5546\u5E97\u7BA1\u7406\u540E\u53F0", (p) => this.buildShopRecycleList(p));
     this.nav.section("shopRecycleTake", "\u53D6\u51FA\u56DE\u6536\u5E93\u5B58", (p) => this.buildShopRecycleTake(p));
-    this.nav.section("shopRecycleReview", "\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868", (p) => this.buildShopRecycleReview(p));
+    this.nav.section("shopRecycleReview", "\u56DE\u6536\u62DB\u52DF\u5BA1\u6838\u5217\u8868", (p) =>
+      this.buildShopRecycleReview(p)
+    );
     this.nav.section("shopAddSelect", "\u4E0A\u67B6\u7269\u54C1", (p) => this.buildShopAddSelect(p));
     this.nav.section("shopAddItem", "\u5546\u54C1\u4FE1\u606F", (p) => this.buildShopAddItem(p));
     this.nav.section("shopAddGroup", "\u6DFB\u52A0\u81EA\u5B9A\u4E49\u5206\u7EC4", (p) => this.buildShopAddGroup(p));
@@ -7676,7 +7954,9 @@ var CoopGUI = class _CoopGUI {
   buildNoCoop(page) {
     debug.i("GUI", "CoopGUI.buildNoCoop");
     page.label(
-      ListFormInfo(["\u4F60\u6CA1\u6709\u52A0\u5165\u4EFB\u4F55\u4E00\u4E2A\u5408\u4F5C\u793E\uFF0C\u8BF7\u9009\u62E9\u64CD\u4F5C\u3002\n\nCiallo\uFF5E(\u2220\u30FB\u03C9\uFF1C)\u2322\u2606"])
+      ListFormInfo([
+        "\u4F60\u6CA1\u6709\u52A0\u5165\u4EFB\u4F55\u4E00\u4E2A\u5408\u4F5C\u793E\uFF0C\u8BF7\u9009\u62E9\u64CD\u4F5C\u3002\n\nCiallo\uFF5E(\u2220\u30FB\u03C9\uFF1C)\u2322\u2606",
+      ])
     );
     page.button("\u901A\u8FC7 CID \u52A0\u5165\u5408\u4F5C\u793E", () => this.nav.go("joinByCid"));
     page.button("\u67E5\u770B\u6240\u6709\u5408\u4F5C\u793E", () => this.nav.rebuild("coopList"));
@@ -7726,7 +8006,9 @@ var CoopGUI = class _CoopGUI {
     const status = obsStr("");
     page.label(status);
     page.textField("\u5408\u4F5C\u793E\u540D\u79F0", obsName);
-    page.textField("CID", obsCid, { description: "\u4EC5\u652F\u6301\u82F1\u6587/\u6570\u5B57\uFF0C\u7528\u4F5C\u9080\u8BF7\u7801" });
+    page.textField("CID", obsCid, {
+      description: "\u4EC5\u652F\u6301\u82F1\u6587/\u6570\u5B57\uFF0C\u7528\u4F5C\u9080\u8BF7\u7801",
+    });
     page.button("\u786E\u8BA4", async () => {
       if (!obsName.getData() || !obsCid.getData()) {
         status.setData("\xA7c\u8BF7\u586B\u5199\u5B8C\u6574\u4FE1\u606F");
@@ -7757,7 +8039,11 @@ var CoopGUI = class _CoopGUI {
     if (!isMember) {
       page.button("\u52A0\u5165", async () => {
         if (await CoopCore.joinCoop(this.player, cid)) await this.nav.rebuild("coopInfo");
-        else Msg.error("\u52A0\u5165\u5408\u4F5C\u793E\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", this.player);
+        else
+          Msg.error(
+            "\u52A0\u5165\u5408\u4F5C\u793E\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002",
+            this.player
+          );
       });
       return;
     }
@@ -7772,7 +8058,9 @@ var CoopGUI = class _CoopGUI {
     page.button("\u6210\u5458\u5217\u8868", async () => this.infoPop((await CoopCore.getMemberList(cid)).join(", ")));
     page.button("\u67E5\u770B\u6240\u6709\u5408\u4F5C\u793E", () => this.nav.rebuild("coopList"));
     page.button("\u5408\u4F5C\u793E\u6392\u884C\u699C", () => this.nav.rebuild("rank"));
-    page.button(isOp ? "\u89E3\u6563\u6B64\u5408\u4F5C\u793E" : "\u9000\u51FA\u6B64\u5408\u4F5C\u793E", () => this.exitConfirm(cid));
+    page.button(isOp ? "\u89E3\u6563\u6B64\u5408\u4F5C\u793E" : "\u9000\u51FA\u6B64\u5408\u4F5C\u793E", () =>
+      this.exitConfirm(cid)
+    );
     page.button("\u63D2\u4EF6\u66F4\u65B0\u65E5\u5FD7", () => this.nav.go("log"));
     if (isOp) page.button("\u7BA1\u7406\u9762\u677F", () => this.nav.rebuild("adminPanel"));
   }
@@ -7780,7 +8068,9 @@ var CoopGUI = class _CoopGUI {
     const isOp = await CoopCore.isOp(this.player.id, cid);
     this.nav.confirm(
       "\u5408\u4F5C\u793E - \u786E\u8BA4",
-      isOp ? "\u786E\u8BA4\u89E3\u6563\u5408\u4F5C\u793E\uFF1F\u6240\u6709\u6210\u5458\u4E5F\u4F1A\u88AB\u8E22\u51FA\u3002\n\u8BF7\u5148\u6E05\u7A7A\u94F6\u884C\u7ECF\u6D4E\u3001\u4E0B\u67B6\u5546\u54C1\u3002" : "\u4F60\u786E\u8BA4\u9000\u51FA\u5408\u4F5C\u793E\u5417\uFF1F",
+      isOp
+        ? "\u786E\u8BA4\u89E3\u6563\u5408\u4F5C\u793E\uFF1F\u6240\u6709\u6210\u5458\u4E5F\u4F1A\u88AB\u8E22\u51FA\u3002\n\u8BF7\u5148\u6E05\u7A7A\u94F6\u884C\u7ECF\u6D4E\u3001\u4E0B\u67B6\u5546\u54C1\u3002"
+        : "\u4F60\u786E\u8BA4\u9000\u51FA\u5408\u4F5C\u793E\u5417\uFF1F",
       async () => {
         if (isOp) {
           await CoopCore.releaseCoop(cid, this.player.id);
@@ -7788,7 +8078,10 @@ var CoopGUI = class _CoopGUI {
         } else {
           await CoopCore.exitCoop(this.player.id, cid);
           this.infoPop("\u5DF2\u9000\u51FA\u5408\u4F5C\u793E\u3002");
-          await CoopCore.sendToMembers(cid, this.player.name + " \u9000\u51FA\u4E86\u5408\u4F5C\u793E\u3002\u62DC\u62DC\uFF5E");
+          await CoopCore.sendToMembers(
+            cid,
+            this.player.name + " \u9000\u51FA\u4E86\u5408\u4F5C\u793E\u3002\u62DC\u62DC\uFF5E"
+          );
         }
       },
       () => this.nav.rebuild("noCoop")
@@ -7880,13 +8173,23 @@ var CoopGUI = class _CoopGUI {
     const obsAction = obsNum(0);
     page.dropdown("\u8BF7\u9009\u62E9\u64CD\u4F5C", obsAction, [
       { label: "\u5B58\u5165", value: 0 },
-      { label: "\u53D6\u51FA", value: 1 }
+      { label: "\u53D6\u51FA", value: 1 },
     ]);
     const logs = await getBankLog(cid);
-    const moneylist = logs.length ? logs.map(
-      (l) => `${l.actor_name_snapshot} ${l.type === 1 ? "\u5B58\u5165" : "\u53D6\u51FA"} ${l.amount}${l.note ? ` (${l.note})` : ""}`
-    ).join("\n") : "\u6682\u65E0\u8BB0\u5F55";
-    page.label("\xA76\u5408\u4F5C\u793E\u94F6\u884C\u7ECF\u6D4E\uFF1A\xA7r" + (data.account?.balance || 0) + "\n\xA76\u8D26\u5355\uFF1A\xA7r\n" + moneylist);
+    const moneylist = logs.length
+      ? logs
+          .map(
+            (l) =>
+              `${l.actor_name_snapshot} ${l.type === 1 ? "\u5B58\u5165" : "\u53D6\u51FA"} ${l.amount}${l.note ? ` (${l.note})` : ""}`
+          )
+          .join("\n")
+      : "\u6682\u65E0\u8BB0\u5F55";
+    page.label(
+      "\xA76\u5408\u4F5C\u793E\u94F6\u884C\u7ECF\u6D4E\uFF1A\xA7r" +
+        (data.account?.balance || 0) +
+        "\n\xA76\u8D26\u5355\uFF1A\xA7r\n" +
+        moneylist
+    );
     page.button("\u786E\u8BA4", () => {
       this.nav.state.bankType = obsAction.getData() + 1;
       this.nav.go("bankControl");
@@ -7984,7 +8287,7 @@ var CoopGUI = class _CoopGUI {
     page.dropdown("\u64CD\u4F5C", obsAction, [
       { label: "\u8865\u8D27", value: 0 },
       { label: "\u4E0B\u67B6", value: 1 },
-      { label: "\u7F16\u8F91", value: 2 }
+      { label: "\u7F16\u8F91", value: 2 },
     ]);
     page.button("\u786E\u8BA4", () => {
       const act = obsAction.getData();
@@ -8026,7 +8329,9 @@ var CoopGUI = class _CoopGUI {
       try {
         this.player.runCommand(`clear @s ${good.item_type} ${good.item_aux ?? 0} ${num}`);
       } catch {
-        status.fail("\u8865\u8D27\u6263\u9664\u7269\u54C1\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u6E05\u7406\u80CC\u5305\u3002");
+        status.fail(
+          "\u8865\u8D27\u6263\u9664\u7269\u54C1\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u6E05\u7406\u80CC\u5305\u3002"
+        );
         return;
       }
       status.ok("\u8865\u8D27\u6210\u529F\u3002");
@@ -8036,13 +8341,18 @@ var CoopGUI = class _CoopGUI {
   doDelist(cid, gid, good) {
     this.nav.confirm(
       "\u4E0B\u67B6\u786E\u8BA4",
-      "\u786E\u8BA4\u4E0B\u67B6 " + good.name + " \uFF1F\n\u4E0B\u67B6\u540E\u5E93\u5B58\u5C06\u8FD4\u8FD8\u7ED9\u4F60\u3002",
+      "\u786E\u8BA4\u4E0B\u67B6 " +
+        good.name +
+        " \uFF1F\n\u4E0B\u67B6\u540E\u5E93\u5B58\u5C06\u8FD4\u8FD8\u7ED9\u4F60\u3002",
       async () => {
         await deleteShopItem(good.cid, gid);
         try {
           this.player.runCommand(`give @s ${good.item_type} ${good.num} ${good.item_aux ?? 0}`);
         } catch {
-          Msg.error("\u7269\u54C1\u8FD4\u8FD8\u5931\u8D25\uFF0C\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u3002", this.player);
+          Msg.error(
+            "\u7269\u54C1\u8FD4\u8FD8\u5931\u8D25\uFF0C\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u3002",
+            this.player
+          );
           return;
         }
         Msg.success("\u4E0B\u67B6\u6210\u529F\u3002", this.player);
@@ -8173,11 +8483,11 @@ var CoopGUI = class _CoopGUI {
       { label: "6", value: 5 },
       { label: "7", value: 6 },
       { label: "8", value: 7 },
-      { label: "9", value: 8 }
+      { label: "9", value: 8 },
     ]);
     page.dropdown("\u8BF7\u9009\u62E9\u64CD\u4F5C\u7C7B\u578B", obsType, [
       { label: "\u6C42\u8D2D", value: 0 },
-      { label: "\u56DE\u6536", value: 1 }
+      { label: "\u56DE\u6536", value: 1 },
     ]);
     page.button("\u786E\u8BA4", () => {
       const selType = obsType.getData();
@@ -8223,7 +8533,7 @@ var CoopGUI = class _CoopGUI {
       const cgIdx = obsGroup.getData();
       const gt = [];
       if (cgIdx > 0) gt.push(customGroups[cgIdx - 1].groupid);
-      gt.push(...await CoopCore.typeGood(item));
+      gt.push(...(await CoopCore.typeGood(item)));
       const newGood = {
         id: CoopCore.generateId(),
         cid,
@@ -8239,7 +8549,7 @@ var CoopGUI = class _CoopGUI {
         money,
         is_true: true,
         created_at: Date.now(),
-        updated_at: Date.now()
+        updated_at: Date.now(),
       };
       await saveShopItem(newGood);
       status.ok("\u4E0A\u67B6\u6210\u529F\uFF01");
@@ -8323,7 +8633,9 @@ var MainMenu = class _MainMenu {
         const name = targetName.getData().trim();
         const amount = parseInt(amountStr.getData());
         if (!name || isNaN(amount) || amount <= 0) {
-          status.setData("\xA7c\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u91D1\u989D\u3002");
+          status.setData(
+            "\xA7c\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u91D1\u989D\u3002"
+          );
           return;
         }
         const target = player.dimension.getPlayers().find((p) => p.name === name);
@@ -8333,14 +8645,18 @@ var MainMenu = class _MainMenu {
         }
         const bal = await Money.load(player);
         if (amount > bal) {
-          status.setData(`\xA7c\u4F59\u989D\u4E0D\u8DB3\u3002\u5F53\u524D\u4F59\u989D: ${bal} ${Money.UNIT}\uFF0C\u9700\u8981: ${amount} ${Money.UNIT}`);
+          status.setData(
+            `\xA7c\u4F59\u989D\u4E0D\u8DB3\u3002\u5F53\u524D\u4F59\u989D: ${bal} ${Money.UNIT}\uFF0C\u9700\u8981: ${amount} ${Money.UNIT}`
+          );
           return;
         }
-        const transferred = await Promise.resolve().then(() => (init_EconomyApi(), EconomyApi_exports)).then(
-          ({ transferEconomy: transferEconomy2 }) => transferEconomy2(player.id, target.id, amount, target.name)
-        );
+        const transferred = await Promise.resolve()
+          .then(() => (init_EconomyApi(), EconomyApi_exports))
+          .then(({ transferEconomy: transferEconomy2 }) => transferEconomy2(player.id, target.id, amount, target.name));
         if (!transferred) {
-          status.setData("\xA7c\u8F6C\u8D26\u5931\u8D25\uFF0C\u4F59\u989D\u53EF\u80FD\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u8BD5\u3002");
+          status.setData(
+            "\xA7c\u8F6C\u8D26\u5931\u8D25\uFF0C\u4F59\u989D\u53EF\u80FD\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u8BD5\u3002"
+          );
           return;
         }
         await Money.load(player);
@@ -8377,7 +8693,7 @@ var MODULES = [
   "activity_log",
   "scoreboard_sync",
   "spawn_protect",
-  "chat_sounds"
+  "chat_sounds",
 ];
 var AdminGUI = class _AdminGUI {
   constructor(player) {
@@ -8451,8 +8767,7 @@ var CoopSystem = class {
       "coop"
     );
   }
-  static registerEvents() {
-  }
+  static registerEvents() {}
 };
 
 // scripts/chat/ChatSystem.ts
@@ -8475,7 +8790,10 @@ var ChatSystem = class _ChatSystem {
     console.log(`Initializing ChatSystem...`);
     DogeChat.ensureDefaultChannels();
     HttpDB.checkHealth().then((ok) => {
-      if (ok) console.info("[DogeChat] \u5916\u90E8\u6570\u636E\u5E93\u5DF2\u8FDE\u63A5\uFF0C\u6D88\u606F\u5C06\u6301\u4E45\u5316\u5B58\u50A8\u3002");
+      if (ok)
+        console.info(
+          "[DogeChat] \u5916\u90E8\u6570\u636E\u5E93\u5DF2\u8FDE\u63A5\uFF0C\u6D88\u606F\u5C06\u6301\u4E45\u5316\u5B58\u50A8\u3002"
+        );
       else console.warn("[DogeChat] \u5916\u90E8\u6570\u636E\u5E93\u672A\u8FDE\u63A5\u3002");
     });
     registerSystemMsgHandler((player, text) => {
@@ -8509,18 +8827,15 @@ var ChatSystem = class _ChatSystem {
     debug.i("CHAT", "cleanup");
     try {
       if (_ChatSystem.chatSendSub?.unsubscribe) _ChatSystem.chatSendSub.unsubscribe();
-    } catch {
-    }
+    } catch {}
     try {
       if (_ChatSystem.playerJoinSub?.unsubscribe) _ChatSystem.playerJoinSub.unsubscribe();
-    } catch {
-    }
+    } catch {}
     _ChatSystem.chatSendSub = void 0;
     _ChatSystem.playerJoinSub = void 0;
     try {
       DogeChat.stopBridgePolling?.();
-    } catch {
-    }
+    } catch {}
   }
   static registerCommands() {
     Command.register(
@@ -8606,7 +8921,7 @@ function ScoreboardsBackup() {
     entries.push({
       id: obj.id,
       displayName: obj.displayName,
-      participants: []
+      participants: [],
     });
     for (const info of scores) {
       const identity = info.participant;
@@ -8614,7 +8929,7 @@ function ScoreboardsBackup() {
         id: identity.id,
         type: identity.type,
         name: identity.displayName,
-        score: info.score
+        score: info.score,
       });
     }
   });
@@ -8718,7 +9033,7 @@ var ENABLED_EVENTS = /* @__PURE__ */ new Set([
   "item.pickup",
   "container.open",
   "container.close",
-  "world.explosion"
+  "world.explosion",
 ]);
 var FLUSH_INTERVAL = 2e3;
 var CLEANUP_INTERVAL = 6 * 36e5;
@@ -8784,7 +9099,7 @@ function playerEntry(player, eventType, extra = {}) {
     targetX: extra.targetX ?? null,
     targetY: extra.targetY ?? null,
     targetZ: extra.targetZ ?? null,
-    detail: extra.detail || {}
+    detail: extra.detail || {},
   };
 }
 function getTargetPlayerId(entity) {
@@ -8838,7 +9153,7 @@ function subscribe() {
       targetX: null,
       targetY: null,
       targetZ: null,
-      detail: { playerId: event.playerId }
+      detail: { playerId: event.playerId },
     });
   });
   safeSubscribe(AE.playerSpawn, (event) => {
@@ -8859,8 +9174,8 @@ function subscribe() {
           from: event.fromDimension.id.replace("minecraft:", ""),
           to: event.toDimension.id.replace("minecraft:", ""),
           fromLoc: { x: fx, y: fy, z: fz },
-          toLoc: { x: tx, y: ty, z: tz }
-        }
+          toLoc: { x: tx, y: ty, z: tz },
+        },
       })
     );
   });
@@ -8870,8 +9185,8 @@ function subscribe() {
       playerEntry(event.player, "player.gamemode", {
         detail: {
           from: event.fromGameMode,
-          to: event.toGameMode
-        }
+          to: event.toGameMode,
+        },
       })
     );
   });
@@ -8882,8 +9197,8 @@ function subscribe() {
       playerEntry(event.sender, "player.chat", {
         detail: {
           message: event.message,
-          targets: targets.length > 0 ? targets : void 0
-        }
+          targets: targets.length > 0 ? targets : void 0,
+        },
       })
     );
   });
@@ -8899,8 +9214,8 @@ function subscribe() {
         targetZ: bz,
         detail: {
           itemBefore: event.itemStackBeforeBreak?.type?.id || null,
-          itemAfter: event.itemStackAfterBreak?.type?.id || null
-        }
+          itemAfter: event.itemStackAfterBreak?.type?.id || null,
+        },
       })
     );
   });
@@ -8914,7 +9229,7 @@ function subscribe() {
         targetX: bx,
         targetY: by,
         targetZ: bz,
-        detail: {}
+        detail: {},
       })
     );
   });
@@ -8939,7 +9254,7 @@ function subscribe() {
           targetX: dx,
           targetY: dy,
           targetZ: dz,
-          detail: { cause, projectile: proj?.typeId || null }
+          detail: { cause, projectile: proj?.typeId || null },
         })
       );
     } else {
@@ -8960,7 +9275,7 @@ function subscribe() {
         targetX: dx,
         targetY: dy,
         targetZ: dz,
-        detail: { cause, projectile: ds.damagingProjectile?.typeId || null }
+        detail: { cause, projectile: ds.damagingProjectile?.typeId || null },
       });
     }
   });
@@ -8978,7 +9293,7 @@ function subscribe() {
           targetName: getTargetPlayerName(victim),
           targetX: vx,
           targetY: vy,
-          targetZ: vz
+          targetZ: vz,
         })
       );
     }
@@ -9000,7 +9315,7 @@ function subscribe() {
         targetX: vx,
         targetY: vy,
         targetZ: vz,
-        detail: {}
+        detail: {},
       });
     }
   });
@@ -9016,8 +9331,8 @@ function subscribe() {
           damage: event.damage,
           cause: ds.cause,
           damager: ds.damagingEntity?.typeId || null,
-          projectile: ds.damagingProjectile?.typeId || null
-        }
+          projectile: ds.damagingProjectile?.typeId || null,
+        },
       })
     );
   });
@@ -9035,8 +9350,8 @@ function subscribe() {
         targetZ: tz,
         detail: {
           item: event.itemStack?.type?.id || null,
-          itemBefore: event.beforeItemStack?.type?.id || null
-        }
+          itemBefore: event.beforeItemStack?.type?.id || null,
+        },
       })
     );
   });
@@ -9052,7 +9367,7 @@ function subscribe() {
         targetName: target.typeId,
         targetX: tx,
         targetY: ty,
-        targetZ: tz
+        targetZ: tz,
       })
     );
   });
@@ -9078,7 +9393,7 @@ function subscribe() {
       targetX: null,
       targetY: null,
       targetZ: null,
-      detail: { cause: event.cause }
+      detail: { cause: event.cause },
     });
   });
   safeSubscribe(AE.entityItemDrop, (event) => {
@@ -9089,8 +9404,8 @@ function subscribe() {
       enqueue(
         playerEntry(e, "item.drop", {
           detail: {
-            items: event.items.map((item) => item.typeId).filter(Boolean)
-          }
+            items: event.items.map((item) => item.typeId).filter(Boolean),
+          },
         })
       );
     } else {
@@ -9112,8 +9427,8 @@ function subscribe() {
         targetY: null,
         targetZ: null,
         detail: {
-          items: event.items.map((item) => item.typeId).filter(Boolean)
-        }
+          items: event.items.map((item) => item.typeId).filter(Boolean),
+        },
       });
     }
   });
@@ -9125,8 +9440,8 @@ function subscribe() {
       enqueue(
         playerEntry(e, "item.pickup", {
           detail: {
-            items: event.items.map((item) => item.type.id)
-          }
+            items: event.items.map((item) => item.type.id),
+          },
         })
       );
     }
@@ -9142,7 +9457,7 @@ function subscribe() {
         targetName: event.block.typeId,
         targetX: bx,
         targetY: by,
-        targetZ: bz
+        targetZ: bz,
       })
     );
   });
@@ -9157,7 +9472,7 @@ function subscribe() {
         targetName: event.block.typeId,
         targetX: bx,
         targetY: by,
-        targetZ: bz
+        targetZ: bz,
       })
     );
   });
@@ -9170,7 +9485,7 @@ function subscribe() {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: Date.now(),
       dimension,
-      sourceType: source ? source.typeId === "minecraft:player" ? "player" : "entity" : "world",
+      sourceType: source ? (source.typeId === "minecraft:player" ? "player" : "entity") : "world",
       sourceid: source?.typeId === "minecraft:player" ? playerId(source) : "",
       sourceName: source?.typeId || "unknown",
       sourceX: sx,
@@ -9183,15 +9498,14 @@ function subscribe() {
       targetX: null,
       targetY: null,
       targetZ: null,
-      detail: { impactedBlocks: event.getImpactedBlocks().length }
+      detail: { impactedBlocks: event.getImpactedBlocks().length },
     });
   });
 }
 async function doCleanup() {
   try {
     await HttpDB.post("/api/sfmc/activities/cleanup", { keepDays: KEEP_DAYS, keepAdmin: true });
-  } catch {
-  }
+  } catch {}
 }
 var ActivityLog = class {
   /** 注册事件（由 entry.ts 统一调用） */
@@ -9205,36 +9519,31 @@ var ActivityLog = class {
     for (const s of subscriptions) {
       try {
         s.unsubscribe();
-      } catch {
-      }
+      } catch {}
     }
     subscriptions.length = 0;
     if (flushTimer !== null) {
       try {
         import_server33.system.clearRun(flushTimer);
-      } catch {
-      }
+      } catch {}
       flushTimer = null;
     }
     if (flushIntervalId !== void 0) {
       try {
         import_server33.system.clearRun(flushIntervalId);
-      } catch {
-      }
+      } catch {}
       flushIntervalId = void 0;
     }
     if (cleanupStartTimeoutId !== void 0) {
       try {
         import_server33.system.clearRun(cleanupStartTimeoutId);
-      } catch {
-      }
+      } catch {}
       cleanupStartTimeoutId = void 0;
     }
     if (cleanupIntervalId !== void 0) {
       try {
         import_server33.system.clearRun(cleanupIntervalId);
-      } catch {
-      }
+      } catch {}
       cleanupIntervalId = void 0;
     }
     initialized = false;
@@ -9290,13 +9599,12 @@ function serializeGameRules() {
     "showRecipeMessages",
     "showTags",
     "spawnRadius",
-    "tntExplodes"
+    "tntExplodes",
   ];
   for (const key of props) {
     try {
       rules[key] = g[key];
-    } catch {
-    }
+    } catch {}
   }
   return JSON.stringify(rules);
 }
@@ -9315,7 +9623,7 @@ async function getWorldData() {
     structuresFromWorld: import_server34.world.structureManager.getWorldStructureIds().toString(),
     MoonPhase: import_server34.world.getMoonPhase(),
     dynamicPropertyTotalByteCount: import_server34.world.getDynamicPropertyTotalByteCount(),
-    updatedAt: getShanghaiTime().date + getShanghaiTime().time
+    updatedAt: getShanghaiTime().date + getShanghaiTime().time,
   };
   return data;
 }
@@ -9343,7 +9651,7 @@ async function getPlayerData(player) {
     spawnPoint: JSON.stringify(player.getSpawnPoint()),
     tags: player.getTags().toString(),
     totalXp: player.getTotalXp(),
-    updatedAt: formatTimestamp(Date.now())
+    updatedAt: formatTimestamp(Date.now()),
   };
   return data;
 }
@@ -9368,8 +9676,8 @@ ModuleRegistry.register({
     init: () => {
       ConfigManager.startPolling();
       ConfigManager.startFastPoll();
-    }
-  }
+    },
+  },
 });
 debug.i("SYS", "register module: command");
 ModuleRegistry.register({
@@ -9393,8 +9701,8 @@ ModuleRegistry.register({
           event.cancel = true;
         }
       });
-    }
-  }
+    },
+  },
 });
 debug.i("SYS", "register module: dataBackup");
 ModuleRegistry.register({
@@ -9406,8 +9714,7 @@ ModuleRegistry.register({
         if (!guardEvent()) return;
         if (event.initialSpawn) {
           getPlayerData(event.player).then((data) => {
-            savePlayers([data]).catch(() => {
-            });
+            savePlayers([data]).catch(() => {});
           });
         }
       });
@@ -9418,15 +9725,14 @@ ModuleRegistry.register({
           try {
             const data = await getPlayerData(player);
             await savePlayers([data]);
-          } catch {
-          }
+          } catch {}
         }
       });
     },
     cleanup: () => {
       syncWorldData();
-    }
-  }
+    },
+  },
 });
 debug.i("SYS", "register module: gui");
 ModuleRegistry.register({
@@ -9438,8 +9744,8 @@ ModuleRegistry.register({
     },
     registerCommands: () => {
       MainMenu.registerMenuCommand();
-    }
-  }
+    },
+  },
 });
 debug.i("SYS", "register module: fly");
 ModuleRegistry.register({
@@ -9449,8 +9755,8 @@ ModuleRegistry.register({
     registerPermissions: () => registerPermissions2(),
     registerEvents: () => registerEvents2(),
     init: () => boot(),
-    cleanup: () => stop2()
-  }
+    cleanup: () => stop2(),
+  },
 });
 debug.i("SYS", "register module: onlineTime");
 ModuleRegistry.register({
@@ -9460,8 +9766,8 @@ ModuleRegistry.register({
     registerPermissions: () => OnlineTime.getInstance().registerCommandsAndPermissions(),
     registerEvents: () => OnlineTime.getInstance().registerEvents(),
     init: () => OnlineTime.getInstance().init(),
-    cleanup: () => OnlineTime.getInstance().stop()
-  }
+    cleanup: () => OnlineTime.getInstance().stop(),
+  },
 });
 debug.i("SYS", "register module: creative");
 ModuleRegistry.register({
@@ -9471,8 +9777,8 @@ ModuleRegistry.register({
     registerPermissions: () => CreativeArea.getInstance().registerCommandsAndPermissions(),
     registerEvents: () => CreativeArea.getInstance().registerEvents(),
     init: () => CreativeArea.getInstance().init(),
-    cleanup: () => CreativeArea.getInstance().cleanup()
-  }
+    cleanup: () => CreativeArea.getInstance().cleanup(),
+  },
 });
 debug.i("SYS", "register module: survival");
 ModuleRegistry.register({
@@ -9482,8 +9788,8 @@ ModuleRegistry.register({
     registerPermissions: () => SurvivalArea.getInstance().registerCommandsAndPermissions(),
     registerEvents: () => SurvivalArea.getInstance().registerEvents(),
     init: () => SurvivalArea.getInstance().init(),
-    cleanup: () => SurvivalArea.getInstance().cleanup()
-  }
+    cleanup: () => SurvivalArea.getInstance().cleanup(),
+  },
 });
 debug.i("SYS", "register module: land");
 ModuleRegistry.register({
@@ -9496,8 +9802,8 @@ ModuleRegistry.register({
     cleanup: () => {
       LandEvents.cleanup();
       LandSystem.cleanup();
-    }
-  }
+    },
+  },
 });
 debug.i("SYS", "register module: money");
 ModuleRegistry.register({
@@ -9520,8 +9826,8 @@ ModuleRegistry.register({
     },
     cleanup: () => {
       EconomyReport.stop();
-    }
-  }
+    },
+  },
 });
 debug.i("SYS", "register module: afk");
 ModuleRegistry.register({
@@ -9532,8 +9838,8 @@ ModuleRegistry.register({
     registerCommands: () => registerCommand(),
     registerEvents: () => registerEvents(),
     init: () => init(),
-    cleanup: () => stop()
-  }
+    cleanup: () => stop(),
+  },
 });
 debug.i("SYS", "register module: coop");
 ModuleRegistry.register({
@@ -9542,8 +9848,8 @@ ModuleRegistry.register({
   lifecycle: {
     registerPermissions: () => CoopSystem.registerPermissions(),
     registerCommands: () => CoopSystem.registerCommands(),
-    init: () => CoopSystem.init()
-  }
+    init: () => CoopSystem.init(),
+  },
 });
 debug.i("SYS", "register module: chat");
 ModuleRegistry.register({
@@ -9557,8 +9863,8 @@ ModuleRegistry.register({
     registerCommands: () => ChatSystem.registerCommands(),
     registerEvents: () => ChatSystem.registerEvents(),
     init: () => ChatSystem.init(),
-    cleanup: () => ChatSystem.cleanup()
-  }
+    cleanup: () => ChatSystem.cleanup(),
+  },
 });
 debug.i("SYS", "register module: tps");
 ModuleRegistry.register({
@@ -9568,8 +9874,8 @@ ModuleRegistry.register({
     registerPermissions: () => TPS.registerPermissions(),
     registerCommands: () => TPS.registerCommands(),
     init: () => TPS.init(),
-    cleanup: () => TPS.stop()
-  }
+    cleanup: () => TPS.stop(),
+  },
 });
 debug.i("SYS", "register module: clean");
 ModuleRegistry.register({
@@ -9578,22 +9884,22 @@ ModuleRegistry.register({
   lifecycle: {
     registerCommands: () => registerCommand2(),
     init: () => Clean.getInstance().init(),
-    cleanup: () => Clean.getInstance().stop()
-  }
+    cleanup: () => Clean.getInstance().stop(),
+  },
 });
 debug.i("SYS", "register module: priceIndex");
 ModuleRegistry.register({
   id: "priceIndex",
   afterWorldLoad: false,
-  lifecycle: {}
+  lifecycle: {},
 });
 debug.i("SYS", "register module: dailyTask");
 ModuleRegistry.register({
   id: "dailyTask",
   afterWorldLoad: false,
   lifecycle: {
-    registerCommands: () => DailyTask.registerCommand()
-  }
+    registerCommands: () => DailyTask.registerCommand(),
+  },
 });
 debug.i("SYS", "register module: inventorySwitcher");
 ModuleRegistry.register({
@@ -9602,8 +9908,8 @@ ModuleRegistry.register({
   lifecycle: {
     registerEvents: () => InventorySwitcher.getInstance().registerEvents(),
     init: () => InventorySwitcher.getInstance().init(),
-    cleanup: () => InventorySwitcher.getInstance().cleanup()
-  }
+    cleanup: () => InventorySwitcher.getInstance().cleanup(),
+  },
 });
 debug.i("SYS", "register module: activityLog");
 ModuleRegistry.register({
@@ -9612,8 +9918,8 @@ ModuleRegistry.register({
   lifecycle: {
     registerEvents: () => ActivityLog.registerEvents(),
     init: () => ActivityLog.init(),
-    cleanup: () => ActivityLog.cleanup()
-  }
+    cleanup: () => ActivityLog.cleanup(),
+  },
 });
 debug.i("SYS", "register module: scoreboardSync");
 ModuleRegistry.register({
@@ -9622,8 +9928,8 @@ ModuleRegistry.register({
   lifecycle: {
     registerCommands: () => ScoreboardSync.registerCommands(),
     init: () => ScoreboardSync.init(),
-    cleanup: () => ScoreboardsBackup()
-  }
+    cleanup: () => ScoreboardsBackup(),
+  },
 });
 debug.i("SYS", "register module: chatSounds");
 ModuleRegistry.register({
@@ -9631,8 +9937,8 @@ ModuleRegistry.register({
   afterWorldLoad: true,
   lifecycle: {
     init: () => ChatSoundsHelper.getInstance().registerEvent(),
-    cleanup: () => ChatSoundsHelper.getInstance().stop()
-  }
+    cleanup: () => ChatSoundsHelper.getInstance().stop(),
+  },
 });
 debug.i("SYS", "register module: monitor");
 ModuleRegistry.register({
@@ -9640,16 +9946,16 @@ ModuleRegistry.register({
   afterWorldLoad: false,
   lifecycle: {
     init: () => MonitorReporter.init(),
-    cleanup: () => MonitorReporter.stop()
-  }
+    cleanup: () => MonitorReporter.stop(),
+  },
 });
 debug.i("SYS", "register module: peace");
 ModuleRegistry.register({
   id: "peace",
   afterWorldLoad: false,
   lifecycle: {
-    registerEvents: () => Peace.getInstance().init()
-  }
+    registerEvents: () => Peace.getInstance().init(),
+  },
 });
 debug.i("SYS", "register module: qa");
 ModuleRegistry.register({
@@ -9657,16 +9963,16 @@ ModuleRegistry.register({
   afterWorldLoad: false,
   lifecycle: {
     init: () => QAManager.getInstance().start(),
-    cleanup: () => QAManager.getInstance().stop()
-  }
+    cleanup: () => QAManager.getInstance().stop(),
+  },
 });
 debug.i("SYS", "register module: spawnProtect");
 ModuleRegistry.register({
   id: "spawnProtect",
   afterWorldLoad: false,
   lifecycle: {
-    registerEvents: () => SpawnProtect.registerEvents()
-  }
+    registerEvents: () => SpawnProtect.registerEvents(),
+  },
 });
 var AddOnInit = class {
   static init() {

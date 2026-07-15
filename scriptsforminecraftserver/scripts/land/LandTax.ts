@@ -1,6 +1,6 @@
 import { system } from "@minecraft/server";
-import { HttpDB } from "../libs/HttpDB";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
 
 export class LandTax {
   private static intervalId: number | null = null;

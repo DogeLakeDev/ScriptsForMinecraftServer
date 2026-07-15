@@ -16,15 +16,12 @@
       }
     },
 
-    "components": {
-    },
+    "components": {},
 
     "events": {
       "minecraft:entity_spawned": {
         "add": {
-          "component_groups": [
-            "become_skeleton"
-          ]
+          "component_groups": ["become_skeleton"]
         }
       }
     }

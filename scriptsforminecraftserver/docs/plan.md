@@ -105,14 +105,14 @@
 - [ ] 修复商品上架、补货、下架和回收库存的复制/丢失风险。
 - [ ] 上架托管库存时立即扣除玩家物品。
 - [ ] 将“回收”功能明确重构为“求购”,完全移除原来的“回收”。
-- [ ] 上架物品时显示错误:  
+- [ ] 上架物品时显示错误:
 
 ```error
 TypeError: Provided value cannot be bound to SQLite
 at query (D:\#WorkPlace\#MCBEProjects\ScriptsForMinecraftServer\db
 at handle (D:\#WorkPlace\#MCBEProjects\ScriptsForMinecraftServer\d
 process.processTicksAndRejections (node:internal/process/task_q
-code: 'ERR_INVALID_ARG_TYPE' }   
+code: 'ERR_INVALID_ARG_TYPE' }
 ```
 
 - [ ] 合作社在银行取款或存款均显示金额不正确（实际上没问题）

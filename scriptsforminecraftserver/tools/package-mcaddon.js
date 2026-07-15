@@ -1,18 +1,18 @@
-const path = require('path');
-const fs = require('fs-extra');
-const AdmZip = require('adm-zip');
-const { getEnv } = require('./utils');
-const cfg = require('../config.json');
+const path = require("path");
+const fs = require("fs-extra");
+const AdmZip = require("adm-zip");
+const { getEnv } = require("./utils");
+const cfg = require("../config.json");
 
 const projectName = cfg.projectName;
 if (!projectName) {
-  console.error('❌ PROJECT_NAME 未设置');
+  console.error("❌ PROJECT_NAME 未设置");
   process.exit(1);
 }
 
 const behaviorDir = path.resolve(__dirname, `../behavior_packs/${projectName}`);
 const resourceDir = path.resolve(__dirname, `../resource_packs/${projectName}`);
-const outputDir = path.resolve(__dirname, '../dist/packages');
+const outputDir = path.resolve(__dirname, "../dist/packages");
 const outputFile = path.join(outputDir, `${projectName}.mcaddon`);
 
 async function packageMcaddon() {
@@ -42,7 +42,7 @@ async function packageMcaddon() {
     zip.writeZip(outputFile);
     console.log(`✅ 已打包为 ${outputFile}`);
   } catch (err) {
-    console.error('❌ 打包失败:', err.message);
+    console.error("❌ 打包失败:", err.message);
     process.exit(1);
   }
 }

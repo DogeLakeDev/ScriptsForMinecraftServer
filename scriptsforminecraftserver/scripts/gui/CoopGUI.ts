@@ -1,11 +1,11 @@
-import { Player, EntityInventoryComponent } from "@minecraft/server";
-import { MenuNavigator, ObservableString, ObservableNumber, obsStr, obsNum, FormStatus } from "../libs/MenuNavigator";
-import { Msg, ListFormInfo } from "../libs/Tools";
-import { Money } from "../libs/Money";
+import { EntityInventoryComponent, Player } from "@minecraft/server";
 import * as CoopAPI from "../api";
-import type { CoopShopItem, CoopData, CoopMember } from "../types";
 import { CoopCore } from "../coop/CoopCore";
 import { debug } from "../libs/DebugLog";
+import { FormStatus, MenuNavigator, obsNum, obsStr } from "../libs/MenuNavigator";
+import { Money } from "../libs/Money";
+import { ListFormInfo, Msg } from "../libs/Tools";
+import type { CoopMember, CoopShopItem } from "../types";
 
 function countItemInInventory(player: Player): number {
   const inv = player.getComponent("inventory") as EntityInventoryComponent | undefined;

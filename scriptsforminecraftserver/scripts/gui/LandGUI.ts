@@ -1,11 +1,4 @@
 import { Player, world } from "@minecraft/server";
-import { MenuNavigator, obsBool, obsNum, obsStr, FormStatus } from "../libs/MenuNavigator";
-import { LandCore } from "../land/LandCore";
-import { Database, LandData, LandPos, LandRole } from "../land/LandDatabase";
-import { ROLE_CAPABILITIES } from "../land/LandRoles";
-import { Msg, ListFormInfo } from "../libs/Tools";
-import { Money } from "../libs/Money";
-import { canManage, getPlayerRole } from "../land/LandPolicy";
 import {
   acceptInvite,
   declineInvite,
@@ -14,7 +7,13 @@ import {
   removeLandMember,
   updateLandMember,
 } from "../api/LandApi";
+import { LandCore } from "../land/LandCore";
+import { Database, LandData, LandPos, LandRole } from "../land/LandDatabase";
+import { canManage, getPlayerRole } from "../land/LandPolicy";
 import { debug } from "../libs/DebugLog";
+import { FormStatus, MenuNavigator, obsBool, obsNum, obsStr } from "../libs/MenuNavigator";
+import { Money } from "../libs/Money";
+import { ListFormInfo, Msg } from "../libs/Tools";
 
 const ROLES: LandRole[] = ["builder", "container", "visitor", "redstone", "entity", "admin"];
 const ROLE_NAMES: Record<LandRole, string> = {
@@ -128,10 +127,7 @@ export class LandGUI {
     const status = new FormStatus(page);
     const plaza = Database.getById("PUBLIC-PLAZA");
     if (!plaza) {
-      page.label(ListFormInfo([
-        "§c公共广场尚未初始化（db-server 重启后会自愈）。",
-        "请稍后重试或联系管理员。",
-      ]));
+      page.label(ListFormInfo(["§c公共广场尚未初始化（db-server 重启后会自愈）。", "请稍后重试或联系管理员。"]));
       return;
     }
     const settings = await this.fetchPlazaSettings();

@@ -1,12 +1,12 @@
 import { Player, system } from "@minecraft/server";
-import { MenuNavigator, ObservableString, obsStr } from "../libs/MenuNavigator";
-import { Msg, ListFormInfo } from "../libs/Tools";
-import { Money } from "../libs/Money";
-import { LandGUI } from "./LandGUI";
-import { ChatGUI } from "./ChatGUI";
-import { CoopGUI } from "./CoopGUI";
 import { Command } from "../libs/Command";
 import { debug } from "../libs/DebugLog";
+import { MenuNavigator, obsStr } from "../libs/MenuNavigator";
+import { Money } from "../libs/Money";
+import { ListFormInfo } from "../libs/Tools";
+import { ChatGUI } from "./ChatGUI";
+import { CoopGUI } from "./CoopGUI";
+import { LandGUI } from "./LandGUI";
 
 export class MainMenu {
   static registerMenuCommand() {

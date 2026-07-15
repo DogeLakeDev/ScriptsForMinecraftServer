@@ -7,8 +7,8 @@
  *   { "module_name": "@minecraft/server-net", "version": "1.0.0-beta" }
  */
 
-import { http, HttpRequest } from "@minecraft/server-net";
 import { system } from "@minecraft/server";
+import { http, HttpRequest } from "@minecraft/server-net";
 
 const HOST = "127.0.0.1";
 const PORT = 3001;

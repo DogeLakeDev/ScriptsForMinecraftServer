@@ -1,7 +1,7 @@
 import { Player, system } from "@minecraft/server";
+import { debug } from "./DebugLog";
 import { Permission } from "./Permission";
 import { Msg } from "./Tools";
-import { debug } from "./DebugLog";
 
 let moduleGuard: (moduleId: string) => boolean = () => true;
 export function setModuleGuard(guard: (moduleId: string) => boolean): void {

@@ -1,5 +1,5 @@
-import { HttpDB } from "../libs/HttpDB";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
 
 export interface EconomyAccount {
   playerId: string;
@@ -23,9 +23,7 @@ export async function getEconomyAccount(playerId: string, playerName?: string): 
   return parseAccount(await HttpDB.get(`/api/sfmc/economy/account${query}`));
 }
 
-export async function applyEconomyTransaction(
-  data: Record<string, unknown>
-): Promise<{
+export async function applyEconomyTransaction(data: Record<string, unknown>): Promise<{
   ok: boolean;
   balance?: number;
   balanceBefore?: number;

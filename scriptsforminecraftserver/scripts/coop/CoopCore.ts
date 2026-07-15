@@ -2,25 +2,24 @@
  *  合作社核心逻辑
 \* ---------------------------------------- */
 
-import { system, world, Player, ItemStack, EntityInventoryComponent } from "@minecraft/server";
-import { Money } from "../libs/Money";
-import { Msg } from "../libs/Tools";
-import type { CoopData, CoopShopItem } from "../types";
+import { EntityInventoryComponent, ItemStack, Player, world } from "@minecraft/server";
 import {
-  getCoop,
-  getAllCoops,
-  updateCoop,
-  deleteCoop,
-  joinCoop as joinCoopApi,
-  leaveCoop as leaveCoopApi,
-  getShopItems,
-  saveShopItem,
-  getAllShopGroups,
-  treasury,
   coopShopBuy,
   coopShopSell,
+  deleteCoop,
+  getAllCoops,
+  getAllShopGroups,
+  getCoop,
+  getShopItems,
+  joinCoop as joinCoopApi,
+  leaveCoop as leaveCoopApi,
+  treasury,
+  updateCoop,
 } from "../api";
 import { debug } from "../libs/DebugLog";
+import { Money } from "../libs/Money";
+import { Msg } from "../libs/Tools";
+import type { CoopShopItem } from "../types";
 
 export class CoopCore {
   // ==========================================

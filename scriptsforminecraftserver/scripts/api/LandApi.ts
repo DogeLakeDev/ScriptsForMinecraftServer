@@ -1,6 +1,6 @@
-import { HttpDB } from "../libs/HttpDB";
 import { LandData, LandPos } from "../land/LandDatabase";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
 
 const PATH = "/api/sfmc/lands";
 
@@ -121,9 +121,7 @@ export async function validateLand(request: CreateLandRequest): Promise<LandVali
   }
 }
 
-export async function createLand(
-  request: CreateLandRequest
-): Promise<{
+export async function createLand(request: CreateLandRequest): Promise<{
   land: LandData | null;
   error?: string;
   message?: string;
@@ -230,7 +228,9 @@ export async function inviteMember(
   });
   if (result.status !== 200) {
     let parsed: any = {};
-    try { parsed = JSON.parse(result.body || "{}"); } catch {}
+    try {
+      parsed = JSON.parse(result.body || "{}");
+    } catch {}
     return {
       ok: false,
       error: parsed.error || (result.status === 0 ? "database_unavailable" : "forbidden"),
@@ -238,7 +238,9 @@ export async function inviteMember(
     };
   }
   let parsed: any = {};
-  try { parsed = JSON.parse(result.body || "{}"); } catch {}
+  try {
+    parsed = JSON.parse(result.body || "{}");
+  } catch {}
   return { ok: true, inviteId: parsed.inviteId, expiresAt: parsed.expiresAt };
 }
 
@@ -247,7 +249,9 @@ export async function removeLandMember(id: string, actorId: string, playerId: st
   const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}/members`, { actorId, playerId });
   if (result.status !== 200) {
     let parsed: any = {};
-    try { parsed = JSON.parse(result.body || "{}"); } catch {}
+    try {
+      parsed = JSON.parse(result.body || "{}");
+    } catch {}
     return { ok: false, error: parsed.error || "forbidden", message: parsed.message };
   }
   return { ok: true, land: parseLand(result.body) };
@@ -267,7 +271,9 @@ export async function updateLandMember(
   );
   if (result.status !== 200) {
     let parsed: any = {};
-    try { parsed = JSON.parse(result.body || "{}"); } catch {}
+    try {
+      parsed = JSON.parse(result.body || "{}");
+    } catch {}
     return { ok: false, error: parsed.error || "invalid_role", message: parsed.message };
   }
   return { ok: true, land: parseLand(result.body) };

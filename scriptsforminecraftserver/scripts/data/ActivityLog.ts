@@ -5,9 +5,9 @@
  * 支持：高频事件节流、可配事件类型、自动清理。
  */
 
-import { world, system, Player, Entity, Block, Vector3 } from "@minecraft/server";
-import { HttpDB } from "../libs/HttpDB";
+import { Block, Entity, Player, system, Vector3, world } from "@minecraft/server";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
 
 // ============================================
 //  配置

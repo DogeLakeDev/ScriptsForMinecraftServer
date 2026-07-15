@@ -1,10 +1,10 @@
 import { Player } from "@minecraft/server";
-import { MenuNavigator, obsBool } from "../libs/MenuNavigator";
-import { ConfigManager } from "../libs/ConfigManager";
-import { HttpDB } from "../libs/HttpDB";
-import { Msg, ListFormInfo } from "../libs/Tools";
 import { CreativeArea } from "../area/CreativeArea";
 import { Peace } from "../area/Peace";
+import { ConfigManager } from "../libs/ConfigManager";
+import { HttpDB } from "../libs/HttpDB";
+import { MenuNavigator, obsBool } from "../libs/MenuNavigator";
+import { ListFormInfo, Msg } from "../libs/Tools";
 
 const MODULES = [
   "fly",

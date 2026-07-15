@@ -1,13 +1,13 @@
-import { world, Player, system } from "@minecraft/server";
-import { Msg, formatTimestamp, generateId } from "../libs/Tools";
-import { Money } from "../libs/Money";
-import { HttpDB } from "../libs/HttpDB";
-import { Permission } from "../libs/Permission";
+import { Player, system, world } from "@minecraft/server";
 import * as ChatApi from "../api";
-import type { ChannelConfig, Channel, ChatMessage, RedPacket, MessageType } from "../types";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
+import { Money } from "../libs/Money";
+import { Permission } from "../libs/Permission";
+import { Msg, formatTimestamp, generateId } from "../libs/Tools";
+import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "../types";
 
-export type { MessageType, ChannelConfig, Channel, ChatMessage, RedPacket };
+export type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket };
 
 export class DogeChat {
   static readonly DEFAULT_CHANNEL_CONFIG: ChannelConfig = {

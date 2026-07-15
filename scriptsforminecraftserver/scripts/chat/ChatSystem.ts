@@ -1,11 +1,11 @@
-import { world, Player, system } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { registerSystemMsgHandler } from "../libs/Tools";
-import { DogeChat } from "./DogeChat";
+import { Player, system, world } from "@minecraft/server";
 import { ChatGUI } from "../gui/ChatGUI";
-import { HttpDB } from "../libs/HttpDB";
+import { Command } from "../libs/Command";
 import { ConfigManager } from "../libs/ConfigManager";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
+import { registerSystemMsgHandler } from "../libs/Tools";
+import { DogeChat } from "./DogeChat";
 
 export class ChatSystem {
   private static chatSendSub: any = undefined;

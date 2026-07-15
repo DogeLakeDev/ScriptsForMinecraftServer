@@ -1,4 +1,4 @@
-import { world, BlockPermutation, BlockComponentTypes, Dimension, Player } from "@minecraft/server";
+import { BlockComponentTypes, BlockPermutation, Dimension, Player, world } from "@minecraft/server";
 
 // 判断坐标是否在某区域内 (2D, 包含边界)
 export function pointInArea_2D(

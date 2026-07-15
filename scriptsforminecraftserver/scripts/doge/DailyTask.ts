@@ -1,11 +1,11 @@
 import { Player } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { Permission } from "../libs/Permission";
-import { Msg, ListFormInfo } from "../libs/Tools";
-import { MenuNavigator, obsStr, obsNum, FormStatus } from "../libs/MenuNavigator";
-import { Money } from "../libs/Money";
 import { getDailyTasks, submitDailyTask } from "../api/EconomyApi";
+import { Command } from "../libs/Command";
 import { debug } from "../libs/DebugLog";
+import { FormStatus, MenuNavigator, obsNum } from "../libs/MenuNavigator";
+import { Money } from "../libs/Money";
+import { Permission } from "../libs/Permission";
+import { ListFormInfo } from "../libs/Tools";
 
 export class DailyTask {
   static registerCommand() {

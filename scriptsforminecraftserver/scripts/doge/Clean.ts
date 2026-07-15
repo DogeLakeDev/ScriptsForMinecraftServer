@@ -5,12 +5,12 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 
-import { system, world, Entity, ItemStack, BlockComponentTypes, BlockPermutation, Block } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
+import { BlockComponentTypes, Entity, ItemStack, system, world } from "@minecraft/server";
 import { Command } from "../libs/Command";
+import { ConfigManager } from "../libs/ConfigManager";
+import { debug } from "../libs/DebugLog";
 import { Permission } from "../libs/Permission";
 import * as Tool from "../libs/Tools";
-import { debug } from "../libs/DebugLog";
 
 /**
  * [重要]

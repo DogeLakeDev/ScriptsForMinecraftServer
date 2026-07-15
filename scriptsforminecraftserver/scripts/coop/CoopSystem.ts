@@ -3,11 +3,11 @@
  *  命令注册、事件监听
 \* ---------------------------------------- */
 
-import { world, Player } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { Permission } from "../libs/Permission";
+import { Player } from "@minecraft/server";
 import { CoopGUI } from "../gui/CoopGUI";
+import { Command } from "../libs/Command";
 import { debug } from "../libs/DebugLog";
+import { Permission } from "../libs/Permission";
 
 export class CoopSystem {
   static init() {

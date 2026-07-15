@@ -1,8 +1,8 @@
 import { Player } from "@minecraft/server";
+import { Permission } from "../libs/Permission";
 import { LandCore } from "./LandCore";
 import { Database, LandData, LandPermissions, LandPos, LandRole } from "./LandDatabase";
 import { ROLE_CAPABILITIES, type LandActionCapability } from "./LandRoles";
-import { Permission } from "../libs/Permission";
 
 // 玩家在土地上能动手的具体动作（用于 canUse）— LandActionCapability 由 LandRoles 提供
 export type { LandActionCapability as LandCapability };
@@ -23,7 +23,9 @@ const CAPABILITY_TO_PERMISSION_FIELD: Record<LandActionCapability, keyof LandPer
 export function getPlayerRole(land: LandData, playerId: string): LandRole | null {
   if (land.ownerplid === playerId) return "owner";
   const now = Date.now();
-  const member = (land.members || []).find((m) => m.player_id === playerId && (m.expires_at == null || m.expires_at > now));
+  const member = (land.members || []).find(
+    (m) => m.player_id === playerId && (m.expires_at == null || m.expires_at > now)
+  );
   return member?.role || (land.managers.includes(playerId) ? "admin" : null);
 }
 

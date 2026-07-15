@@ -1,46 +1,45 @@
-import { system, world, Player } from "@minecraft/server";
+import { Player, system, world } from "@minecraft/server";
 
-import { Money } from "./libs/Money";
-import { Permission } from "./libs/Permission";
 import { Command, setModuleGuard } from "./libs/Command";
 import { ConfigManager } from "./libs/ConfigManager";
-import { Modules } from "./libs/ModuleKeys";
-import { ModuleRegistry, guardEvent, announceLoaded } from "./libs/ModuleRegistry";
 import { debug } from "./libs/DebugLog";
+import { Modules } from "./libs/ModuleKeys";
+import { ModuleRegistry, announceLoaded, guardEvent } from "./libs/ModuleRegistry";
+import { Money } from "./libs/Money";
+import { Permission } from "./libs/Permission";
 
-import { QAManager } from "./doge/QA";
 import * as AFK from "./doge/AFK";
-import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean";
-import { TPS } from "./doge/TPS";
-import { OnlineTime } from "./doge/OnlineTime";
 import { ChatSoundsHelper } from "./doge/ChatSoundsHelper";
-import { MonitorReporter } from "./doge/MonitorReporter";
-import { SpawnProtect } from "./doge/SpawnProtect";
+import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean";
 import { DailyTask } from "./doge/DailyTask";
+import { MonitorReporter } from "./doge/MonitorReporter";
+import { OnlineTime } from "./doge/OnlineTime";
+import { QAManager } from "./doge/QA";
+import { SpawnProtect } from "./doge/SpawnProtect";
+import { TPS } from "./doge/TPS";
 import { EconomyReport } from "./EconomyReport";
 
-import * as Fly from "./area/Fly";
-import { Peace } from "./area/Peace";
 import { CreativeArea } from "./area/CreativeArea";
-import { SurvivalArea } from "./area/SurvivalArea";
+import * as Fly from "./area/Fly";
 import { InventorySwitcher } from "./area/InventorySwitcher";
+import { Peace } from "./area/Peace";
+import { SurvivalArea } from "./area/SurvivalArea";
 
-import { LandSystem } from "./land/LandSystem";
-import { LandCore } from "./land/LandCore";
 import { LandEvents } from "./land/LandEvents";
+import { LandSystem } from "./land/LandSystem";
 
-import { MoneyGUI } from "./gui/MoneyGUI";
-import { MainMenu } from "./gui/MainMenu";
 import { AdminGUI } from "./gui/AdminGUI";
+import { MainMenu } from "./gui/MainMenu";
+import { MoneyGUI } from "./gui/MoneyGUI";
 
 import { CoopSystem } from "./coop/CoopSystem";
 
 import { ChatSystem } from "./chat/ChatSystem";
 
-import { ScoreboardSync, ScoreboardsBackup } from "./data/Scoreboards";
 import { ActivityLog } from "./data/ActivityLog";
-import { syncWorldData } from "./data/World";
 import { getPlayerData } from "./data/Player";
+import { ScoreboardSync, ScoreboardsBackup } from "./data/Scoreboards";
+import { syncWorldData } from "./data/World";
 
 import { savePlayers } from "./api";
 

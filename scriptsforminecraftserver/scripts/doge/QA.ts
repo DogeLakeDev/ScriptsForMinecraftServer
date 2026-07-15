@@ -6,10 +6,10 @@
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { getRandomInteger, Msg } from "../libs/Tools";
 import { ConfigManager } from "../libs/ConfigManager";
-import { Money } from "../libs/Money";
 import { debug } from "../libs/DebugLog";
+import { Money } from "../libs/Money";
+import { getRandomInteger, Msg } from "../libs/Tools";
 
 export class QAManager {
   static _instance: QAManager;

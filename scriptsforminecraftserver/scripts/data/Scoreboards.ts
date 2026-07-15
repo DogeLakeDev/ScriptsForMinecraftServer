@@ -2,12 +2,12 @@
  * ScoreboardSync — 计分板备份与快速恢复
  */
 
-import { world, Player } from "@minecraft/server";
-import { ScoreboardEntry, loadScoreboards, backupScoreboards } from "../api";
+import { Player, world } from "@minecraft/server";
+import { ScoreboardEntry, backupScoreboards, loadScoreboards } from "../api";
 import { Command } from "../libs/Command";
+import { debug } from "../libs/DebugLog";
 import { Permission } from "../libs/Permission";
 import { Msg } from "../libs/Tools";
-import { debug } from "../libs/DebugLog";
 
 export function ScoreboardsBackup(): void {
   debug.i("DATA", "ScoreboardsBackup");

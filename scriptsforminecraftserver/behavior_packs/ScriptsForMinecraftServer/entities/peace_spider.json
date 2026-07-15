@@ -16,15 +16,12 @@
       }
     },
 
-    "components": {
-    },
+    "components": {},
 
     "events": {
       "minecraft:entity_spawned": {
         "add": {
-          "component_groups": [
-            "become_spider"
-          ]
+          "component_groups": ["become_spider"]
         }
       }
     }

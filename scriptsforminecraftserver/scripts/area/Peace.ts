@@ -5,7 +5,7 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 
-import { world, Entity, EntityInitializationCause } from "@minecraft/server";
+import { Entity, EntityInitializationCause, world } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager";
 import * as Tool from "../libs/Tools";
 

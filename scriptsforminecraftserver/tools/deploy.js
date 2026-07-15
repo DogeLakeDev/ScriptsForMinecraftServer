@@ -3,15 +3,15 @@
  *  Version     :  1.0.0                    *
 \* ---------------------------------------- */
 
-const path = require('path');
-const fs = require('fs-extra');
-const { getEnv } = require('./utils');
-const cfg = require('../config.json');
+const path = require("path");
+const fs = require("fs-extra");
+const { getEnv } = require("./utils");
+const cfg = require("../config.json");
 
 const projectName = cfg.projectName;
 const deployPath = cfg.deployPath;
 if (!projectName || !deployPath) {
-  console.error('❌ 请确保 ../config 中设置了 PROJECT_NAME 和 MC_PATH');
+  console.error("❌ 请确保 ../config 中设置了 PROJECT_NAME 和 MC_PATH");
   process.exit(1);
 }
 
@@ -20,8 +20,8 @@ const devBehavior = path.resolve(__dirname, `../behavior_packs/${projectName}`);
 const devResource = path.resolve(__dirname, `../resource_packs/${projectName}`);
 
 // 目标目录
-const prodBehavior = path.join(deployPath, 'behavior_packs', projectName);
-const prodResource = path.join(deployPath, 'resource_packs', projectName);
+const prodBehavior = path.join(deployPath, "behavior_packs", projectName);
+const prodResource = path.join(deployPath, "resource_packs", projectName);
 //const prodBehavior = path.join(deployPath, 'development_behavior_packs', projectName);
 //const prodResource = path.join(deployPath, 'development_resource_packs', projectName);
 
@@ -41,7 +41,7 @@ async function deploy() {
     console.log(`✅ 已同步到 ${prodBehavior}`);
     console.log(`✅ 已同步到 ${prodResource}`);
   } catch (err) {
-    console.error('❌ 部署失败:', err.message);
+    console.error("❌ 部署失败:", err.message);
     process.exit(1);
   }
 }

@@ -1,9 +1,9 @@
 import { Player, system, world } from "@minecraft/server";
-import { Permission } from "../libs/Permission";
 import { Command } from "../libs/Command";
-import { Msg } from "../libs/Tools";
-import { HttpDB } from "../libs/HttpDB";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
+import { Permission } from "../libs/Permission";
+import { Msg } from "../libs/Tools";
 
 interface OnlineTimeData {
   session: number;

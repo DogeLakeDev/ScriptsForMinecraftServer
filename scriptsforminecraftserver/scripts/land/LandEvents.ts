@@ -2,13 +2,13 @@
  *  土地插件 — 事件监听层
 \* ---------------------------------------- */
 
-import { world, Player, system, Entity } from "@minecraft/server";
+import { Player, system, world } from "@minecraft/server";
+import { debug } from "../libs/DebugLog";
 import { Permission } from "../libs/Permission";
+import { Msg } from "../libs/Tools";
 import { LandCore } from "./LandCore";
 import { LandPos } from "./LandDatabase";
-import { Msg } from "../libs/Tools";
 import { canUseAt } from "./LandPolicy";
-import { debug } from "../libs/DebugLog";
 
 // 容器方块类型（箱子/木桶/潜影盒）
 const CONTAINER_BLOCKS = new Set([
@@ -272,7 +272,10 @@ export class LandEvents {
       "minecraft:wax_on",
       "minecraft:wax_off",
     ];
-    return { particle: palette[ids % palette.length], hex: "#" + ((ids * 0x9E3779B1) >>> 0).toString(16).padStart(8, "0").slice(0, 6) };
+    return {
+      particle: palette[ids % palette.length],
+      hex: "#" + ((ids * 0x9e3779b1) >>> 0).toString(16).padStart(8, "0").slice(0, 6),
+    };
   }
 
   static getMetrics() {

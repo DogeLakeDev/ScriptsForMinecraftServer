@@ -1,8 +1,8 @@
 import { world } from "@minecraft/server";
-import { getShanghaiTime } from "../libs/Tools";
 import { saveWorldData } from "../api";
-import type { WorldData } from "../types";
 import { debug } from "../libs/DebugLog";
+import { getShanghaiTime } from "../libs/Tools";
+import type { WorldData } from "../types";
 
 /** GameRules 属性是原型 getter，JSON.stringify 会输出空对象。手动枚举。 */
 function serializeGameRules(): string {

@@ -1,7 +1,7 @@
 import { system } from "@minecraft/server";
-import { ConfigManager } from "./ConfigManager";
-import { Modules, ModuleId } from "./ModuleKeys";
 import { Command } from "./Command";
+import { ConfigManager } from "./ConfigManager";
+import { ModuleId, Modules } from "./ModuleKeys";
 
 export type ModuleLifecycle = {
   registerCommands?(): void;

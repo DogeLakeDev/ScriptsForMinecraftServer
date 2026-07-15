@@ -2,7 +2,7 @@
  * MonitorReporter.ts — 性能数据上报
  * 每 600 tick (30 秒) 向 db-server 汇报一次 TPS / 实体数 / 玩家区块估算
  */
-import { world, system, Player, Entity } from "@minecraft/server";
+import { Player, system, world } from "@minecraft/server";
 import { HttpDB } from "../libs/HttpDB";
 import { TPS } from "./TPS";
 

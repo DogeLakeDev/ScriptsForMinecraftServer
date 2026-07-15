@@ -128,14 +128,7 @@ function isPosInBoundingBox(land: LandData, pos: LandPos): boolean {
   const maxY = Math.max(land.posA.y, land.posB.y);
   const minZ = Math.min(land.posA.z, land.posB.z);
   const maxZ = Math.max(land.posA.z, land.posB.z);
-  return (
-    pos.x >= minX &&
-    pos.x <= maxX &&
-    pos.y >= minY &&
-    pos.y <= maxY &&
-    pos.z >= minZ &&
-    pos.z <= maxZ
-  );
+  return pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY && pos.z >= minZ && pos.z <= maxZ;
 }
 
 // ---------- 配置 ----------
@@ -400,13 +393,7 @@ export class Database {
   // ── 工厂 ──
 
   /** 客户端生成初始 LandData（创建后立即送 server，server 返回值替换缓存） */
-  static createLandData(
-    ownerplid: string,
-    ownerName: string,
-    dimid: number,
-    posA: LandPos,
-    posB: LandPos
-  ): LandData {
+  static createLandData(ownerplid: string, ownerName: string, dimid: number, posA: LandPos, posB: LandPos): LandData {
     return {
       id: generateLandId(),
       ownerplid,

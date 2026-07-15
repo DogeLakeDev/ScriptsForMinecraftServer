@@ -1,6 +1,6 @@
-import { HttpDB } from "../libs/HttpDB";
-import type { CoopData, CoopMember, CoopShopItem, CoopBankLog, CoopShopGroup } from "../types";
 import { debug } from "../libs/DebugLog";
+import { HttpDB } from "../libs/HttpDB";
+import type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "../types";
 
 const PATH = "/api/sfmc/coops";
 

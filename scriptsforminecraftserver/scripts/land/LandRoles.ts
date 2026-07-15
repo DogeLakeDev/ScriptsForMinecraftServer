@@ -5,14 +5,7 @@
  *  lib/db-server 引用。未来 db-server 抽出共享 lib 后直接 import。
 \* ---------------------------------------- */
 
-export type LandRole =
-  | "owner"
-  | "admin"
-  | "builder"
-  | "container"
-  | "visitor"
-  | "redstone"
-  | "entity";
+export type LandRole = "owner" | "admin" | "builder" | "container" | "visitor" | "redstone" | "entity";
 
 export const LAND_ROLES: ReadonlyArray<LandRole> = [
   "builder",

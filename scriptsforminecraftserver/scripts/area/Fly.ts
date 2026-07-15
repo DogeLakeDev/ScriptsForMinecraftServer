@@ -5,12 +5,12 @@
  *  Author      :  ENIAC_Jushi              *
 \* ---------------------------------------- */
 
-import { Player, system, world, GameMode, Entity } from "@minecraft/server";
+import { Entity, GameMode, Player, system, world } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager";
-import * as Tool from "../libs/Tools";
-import { Permission } from "../libs/Permission";
-import { Msg } from "../libs/Tools";
 import { debug } from "../libs/DebugLog";
+import { Permission } from "../libs/Permission";
+import * as Tool from "../libs/Tools";
+import { Msg } from "../libs/Tools";
 
 export function registerPermissions(): void {
   Permission.register("fly.use", Permission.Any);
@@ -23,8 +23,7 @@ export function registerEvents(): void {
   });
 }
 
-export function init(): void {
-}
+export function init(): void {}
 
 /**
  * 玩家加入事件
