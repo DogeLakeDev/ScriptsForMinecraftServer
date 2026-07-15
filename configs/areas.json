@@ -1,29 +1,12 @@
 [
   {
-    "module": "fly",
-    "name": "fly2",
+    "_comment": "Areas —— 在指定坐标范围启用模块 (e.g. flight, peace, build, ...)。每条 { module, name, dimension, start_x, start_z, end_x, end_z }。dimension 是 Minecraft ID (overworld / nether / the_end)。默认空 —— 由 GUI 在线添加。",
+    "module": "build",
+    "name": "示例建造区",
     "dimension": "minecraft:overworld",
-    "start_x": 951,
-    "start_z": -2715,
-    "end_x": 4604,
-    "end_z": 5628
-  },
-  {
-    "module": "peace",
-    "name": "",
-    "dimension": "minecraft:overworld",
-    "start_x": -16,
-    "start_z": 16,
-    "end_x": -12,
-    "end_z": 12
-  },
-  {
-    "module": "peace",
-    "name": "",
-    "dimension": "minecraft:overworld",
-    "start_x": 951,
-    "start_z": -2715,
-    "end_x": 4604,
-    "end_z": 5628
+    "start_x": 0,
+    "start_z": 0,
+    "end_x": 100,
+    "end_z": 100
   }
 ]

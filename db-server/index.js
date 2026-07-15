@@ -591,26 +591,43 @@ async function initDB() {
   {
       const cfgDir = path.join(PROJECT_ROOT, 'configs');
       const now = Date.now();
+      const isMetaKey = (k) => String(k).startsWith('_comment') || k === '_comment';
+      const cfgValue = (v) => (v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''));
       const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[DogeDB] config:', e.message); } };
       try {
         const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
-        for (const [k, v] of Object.entries(s)) _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]);
+        for (const [k, v] of Object.entries(s)) {
+          if (isMetaKey(k)) continue;
+          _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, cfgValue(v), now]);
+        }
       } catch (e) {}
       try {
         const a = JSON.parse(fs.readFileSync(path.join(cfgDir, 'areas.json'), 'utf-8'));
-        for (const r of a) _('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?,?,?,?,?,?,?,?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]);
+        for (const r of a) {
+          if (!r || !r.module || r.dimension == null) continue;
+          _('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?,?,?,?,?,?,?,?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]);
+        }
       } catch (e) {}
       try {
         const p = JSON.parse(fs.readFileSync(path.join(cfgDir, 'peace_filters.json'), 'utf-8'));
-        for (const r of p) _('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?,?,?)', [r.family, r.exclude_family || '', now]);
+        for (const r of p) {
+          if (!r || !r.family) continue;
+          _('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?,?,?)', [r.family, r.exclude_family || '', now]);
+        }
       } catch (e) {}
       try {
         const g = JSON.parse(fs.readFileSync(path.join(cfgDir, 'grids.json'), 'utf-8'));
-        for (const r of g) _('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]);
+        for (const r of g) {
+          if (!r || !r.name) continue;
+          _('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]);
+        }
       } catch (e) {}
       try {
         const b = JSON.parse(fs.readFileSync(path.join(cfgDir, 'banned_items.json'), 'utf-8'));
-        for (const i of b) _('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?,?)', [i, now]);
+        for (const i of b) {
+          if (typeof i !== 'string' || !i || i.startsWith('_')) continue;
+          _('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?,?)', [i, now]);
+        }
       } catch (e) {}
       try {
         const c = JSON.parse(fs.readFileSync(path.join(cfgDir, 'clean.json'), 'utf-8'));
@@ -618,17 +635,21 @@ async function initDB() {
       } catch (e) {}
       try {
         const perm = JSON.parse(fs.readFileSync(path.join(cfgDir, 'permissions.json'), 'utf-8'));
-        for (const r of perm) _('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?,?,?)', [r.player_name, r.level, now]);
+        for (const r of perm) {
+          if (!r || !r.player_name) continue;
+          _('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?,?,?)', [r.player_name, r.level, now]);
+        }
       } catch (e) {}
       try {
         const q = JSON.parse(fs.readFileSync(path.join(cfgDir, 'questions.json'), 'utf-8'));
         for (const r of q) {
+          if (!r || !r.question) continue;
           const res2 = query('INSERT INTO sfmc_config_qa_questions (weight, question, answers, msg_right, msg_wrong, explanation, min_rank, max_rank, updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id', [r.weight ?? 1, r.question, JSON.stringify(r.answers || []), r.msg_right || '', r.msg_wrong || '', r.explanation || '', r.min_rank ?? null, r.max_rank ?? null, now]);
           const qid = res2[0]?.id;
           if (qid && r.rewards) { for (const rw of r.rewards) _('INSERT INTO sfmc_config_qa_rewards (question_id, min_rank, max_rank, type, amount, item_type, item_aux, cmd, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [qid, rw.min_rank ?? null, rw.max_rank ?? null, rw.type, rw.amount ?? 0, rw.item_type || '', rw.item_aux ?? 0, rw.cmd || '', now]); }
           if (qid && r.punishments) { for (const pw of r.punishments) _('INSERT INTO sfmc_config_qa_punishments (question_id, type, cmd, updated_at) VALUES (?,?,?,?)', [qid, pw.type || 'cmd', pw.cmd, now]); }
         }
-      } catch (e) {}
+      } catch (e) { console.warn('[DogeDB] questions.json:', e.message); }
       console.log('[DogeDB] 初始配置已从 /configs/ 导入');
   }
   console.log('[DogeDB] 数据库已就绪');
@@ -639,29 +660,46 @@ async function initDB() {
  * 每次都会重新导入（不检查表是否为空），并更新 updated_at 触发 SAPI 轮询
  */
 function reloadConfigsFromJson() {
-  const cfgDir = path.join(__dirname, '..', 'configs');
+  const cfgDir = path.join(PROJECT_ROOT, 'configs');
   const now = Date.now();
+  const isMetaKey = (k) => String(k).startsWith('_comment') || k === '_comment';
+  const cfgValue = (v) => (v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''));
   const _ = (q, p) => { try { query(q, p); } catch (e) { console.warn('[ConfigReload]', e.message); } };
   const log = (table, count) => console.log(`[ConfigReload] ${table}: ${count}个`);
   try {
     const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
-    let c = 0; for (const [k, v] of Object.entries(s)) { _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, String(v), now]); c++; } log('settings', c);
+    let c = 0; for (const [k, v] of Object.entries(s)) {
+      if (isMetaKey(k)) continue;
+      _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, cfgValue(v), now]); c++;
+    } log('settings', c);
   } catch (e) { console.warn('[ConfigReload] settings.json 失败:', e.message); }
   try {
     const a = JSON.parse(fs.readFileSync(path.join(cfgDir, 'areas.json'), 'utf-8'));
-    let c = 0; for (const r of a) { _('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?,?,?,?,?,?,?,?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]); c++; } log('areas', c);
+    let c = 0; for (const r of a) {
+      if (!r || !r.module || r.dimension == null) continue;
+      _('INSERT OR REPLACE INTO sfmc_config_areas (module, name, dimension, start_x, start_z, end_x, end_z, updated_at) VALUES (?,?,?,?,?,?,?,?)', [r.module, r.name || '', r.dimension, r.start_x, r.start_z, r.end_x, r.end_z, now]); c++;
+    } log('areas', c);
   } catch (e) { console.warn('[ConfigReload] areas.json 失败:', e.message); }
   try {
     const p = JSON.parse(fs.readFileSync(path.join(cfgDir, 'peace_filters.json'), 'utf-8'));
-    let c = 0; for (const r of p) { _('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?,?,?)', [r.family, r.exclude_family || '', now]); c++; } log('peace_filters', c);
+    let c = 0; for (const r of p) {
+      if (!r || !r.family) continue;
+      _('INSERT OR REPLACE INTO sfmc_config_peace_filters (family, exclude_family, updated_at) VALUES (?,?,?)', [r.family, r.exclude_family || '', now]); c++;
+    } log('peace_filters', c);
   } catch (e) { console.warn('[ConfigReload] peace_filters.json 失败:', e.message); }
   try {
     const g = JSON.parse(fs.readFileSync(path.join(cfgDir, 'grids.json'), 'utf-8'));
-    let c = 0; for (const r of g) { _('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]); c++; } log('grids', c);
+    let c = 0; for (const r of g) {
+      if (!r || !r.name) continue;
+      _('INSERT OR REPLACE INTO sfmc_config_grids (name, start_x, start_y, start_z, size_h, size_v, direction, face, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [r.name, r.start_x, r.start_y, r.start_z, r.size_h, r.size_v, r.direction, r.face, now]); c++;
+    } log('grids', c);
   } catch (e) { console.warn('[ConfigReload] grids.json 失败:', e.message); }
   try {
     const b = JSON.parse(fs.readFileSync(path.join(cfgDir, 'banned_items.json'), 'utf-8'));
-    let c = 0; for (const i of b) { _('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?,?)', [i, now]); c++; } log('banned_items', c);
+    let c = 0; for (const i of b) {
+      if (typeof i !== 'string' || !i || i.startsWith('_')) continue;
+      _('INSERT OR IGNORE INTO sfmc_config_banned_items (item_id, updated_at) VALUES (?,?)', [i, now]); c++;
+    } log('banned_items', c);
   } catch (e) { console.warn('[ConfigReload] banned_items.json 失败:', e.message); }
   try {
     const c = JSON.parse(fs.readFileSync(path.join(cfgDir, 'clean.json'), 'utf-8'));
@@ -670,11 +708,19 @@ function reloadConfigsFromJson() {
   } catch (e) { console.warn('[ConfigReload] clean.json 失败:', e.message); }
   try {
     const perm = JSON.parse(fs.readFileSync(path.join(cfgDir, 'permissions.json'), 'utf-8'));
-    let c = 0; for (const r of perm) { _('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?,?,?)', [r.player_name, r.level, now]); c++; } log('permissions', c);
+    let c = 0; for (const r of perm) {
+      if (!r || !r.player_name) continue;
+      _('INSERT OR REPLACE INTO sfmc_config_permissions (player_name, level, updated_at) VALUES (?,?,?)', [r.player_name, r.level, now]); c++;
+    } log('permissions', c);
   } catch (e) { console.warn('[ConfigReload] permissions.json 失败:', e.message); }
   try {
+    // reload 会重复插入题库：先清空再导入
+    _('DELETE FROM sfmc_config_qa_punishments', []);
+    _('DELETE FROM sfmc_config_qa_rewards', []);
+    _('DELETE FROM sfmc_config_qa_questions', []);
     const q = JSON.parse(fs.readFileSync(path.join(cfgDir, 'questions.json'), 'utf-8'));
     let c = 0; for (const r of q) {
+      if (!r || !r.question) continue;
       const res2 = query('INSERT INTO sfmc_config_qa_questions (weight, question, answers, msg_right, msg_wrong, explanation, min_rank, max_rank, updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id', [r.weight ?? 1, r.question, JSON.stringify(r.answers || []), r.msg_right || '', r.msg_wrong || '', r.explanation || '', r.min_rank ?? null, r.max_rank ?? null, now]);
       const qid = res2[0]?.id;
       if (qid && r.rewards) { for (const rw of r.rewards) _('INSERT INTO sfmc_config_qa_rewards (question_id, min_rank, max_rank, type, amount, item_type, item_aux, cmd, updated_at) VALUES (?,?,?,?,?,?,?,?,?)', [qid, rw.min_rank ?? null, rw.max_rank ?? null, rw.type, rw.amount ?? 0, rw.item_type || '', rw.item_aux ?? 0, rw.cmd || '', now]); }

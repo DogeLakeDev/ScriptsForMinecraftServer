@@ -18,7 +18,13 @@ function createQuery(db, maxStatements = 200) {
       statements.set(sql, statement);
     }
     const trimmed = sql.trim().toUpperCase();
-    if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH') || trimmed.startsWith('PRAGMA')) {
+    // RETURNING 需要返回行；INSERT/UPDATE/DELETE + RETURNING 不能用 run()
+    if (
+      trimmed.startsWith('SELECT') ||
+      trimmed.startsWith('WITH') ||
+      trimmed.startsWith('PRAGMA') ||
+      /\bRETURNING\b/.test(trimmed)
+    ) {
       return statement.all(...params);
     }
     return { changes: statement.run(...params).changes };

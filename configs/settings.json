@@ -1,12 +1,27 @@
 {
+  "_comment": "通用运行时配置 —— 启动时由 db-server 同步到 sfmc_config_settings 表。具体可被运行时覆盖。改后 2 秒内 SAPI 自动感知（reload_signal）。",
+  "_comment_afk": "AFK 自动踢出",
   "afk_time": 120,
+
+  "_comment_qa": "答题 / QA 系统",
   "qa_interval_min": 600,
   "qa_interval_max": 720,
   "qa_timeout": 60,
+
+  "_comment_clean": "物品清理 / 红石机等防刷",
   "clean_item_max": 192,
   "clean_poll_interval": 60,
   "clean_kill_list": [
     "shitcraft:shit"
   ],
-  "_reload_signal": "1784034797164"
+
+  "_comment_land_plaza": "公共广场（方向 D）—— 首启由 db-server 自愈插入 'PUBLIC-PLAZA'。GUI 用此处的 name/welcome 覆盖默认。",
+  "land:plaza": {
+    "name": "公共广场",
+    "welcome": "欢迎来到服务器！这里是公共领地，所有人都可以建造。",
+    "dimid": 0,
+    "range": 32
+  },
+
+  "_reload_signal": "0"
 }
