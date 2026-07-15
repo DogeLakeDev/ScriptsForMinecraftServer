@@ -30,7 +30,7 @@
     "watch": "nodemon --watch scripts --watch behavior_packs --watch resource_packs -e ts,json,lang,png --exec \"npm run deploy\"",
     "tsc": "tsc --noEmit",
     "lint": "eslint scripts/**/*.ts",
-    "bundle": "esbuild scripts/index.ts --bundle --platform=node --external:@minecraft/* --outfile=dist/scripts/main.js --sourcemap --target=es2022",
+    "bundle": "esbuild scripts/index.ts --bundle --platform=browser --format=esm --external:@minecraft/server --external:@minecraft/server-net --external:@minecraft/server-ui --external:@minecraft/math --external:@minecraft/vanilla-data --outfile=dist/scripts/main.js --sourcemap --target=es2020",
     "clean": "rimraf dist/",
     "check:catalog": "node ../tools/check-catalog.js",
     "copy": "node ./tools/copy-artifacts.js",
