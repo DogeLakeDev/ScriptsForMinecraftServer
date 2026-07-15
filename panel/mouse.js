@@ -1,5 +1,5 @@
 /**
- * mouse.js — SGR 鼠标滚轮支持
+ * mouse.js — SGR 鼠标滚轮 + 鼠标点击支持
  *
  * 原理: 覆写 process.stdin.push 在数据进入可读流之前拦截 SGR 鼠标序列,
  *       剥离字节使其永远不会到达 Ink/useInput。
@@ -12,7 +12,16 @@ let _mouseActive = false;
 // SGR 分片缓冲（跨 chunk 的不完整序列）
 let _sgrBuf = '';
 
-function isMouseActive() { return false; } // mouse reporting currently disabled — see tui-react.js:43
+// 点击命中区域: { id, x1, y1, x2, y2, onClick }
+const _hitRegions = [];
+let _lastClick = null;
+
+function isMouseActive() { return _mouseActive; }
+
+function emitClick(region, x, y) {
+  _lastClick = { id: region.id, x, y, at: Date.now() };
+  try { region.onClick(x, y); } catch (e) { console.warn('[mouse] onClick error:', e.message); }
+}
 
 /**
  * 处理一条完整的 SGR 鼠标序列
@@ -22,13 +31,25 @@ function _handleSequence(seq) {
   if (!m) return;
   if (m[4] !== 'M') return;
   const btn = parseInt(m[1]);
-  if (btn === 64 && _scrollSetter) { _scrollSetter((s) => Math.min(logBuf.length, s + 3)); }
-  else if (btn === 65 && _scrollSetter) { _scrollSetter((s) => Math.max(0, s - 3)); }
+  const x = parseInt(m[2]);
+  const y = parseInt(m[3]);
+  if (btn === 64 && _scrollSetter) { _scrollSetter((s) => Math.min(logBuf.length, s + 3)); return; }
+  if (btn === 65 && _scrollSetter) { _scrollSetter((s) => Math.max(0, s - 3)); return; }
+  // button=0 是左键释放（MouseRelease），按下时是 btn=32。我们用 m-press + release 来模拟 click
+  // 也支持 button=0 (PRESS=0, RELEASE=0)
+  if (btn === 0 || btn === 32) {
+    // find hit region
+    for (const r of _hitRegions) {
+      if (x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) {
+        emitClick(r, x, y);
+        break;
+      }
+    }
+  }
 }
 
 /**
  * 从字符串中剥离完整/不完整的 SGR 鼠标序列
- * 返回 { cleaned, remain } — cleaned 是过滤后的文本, remain 是跨 chunk 残余
  */
 function _stripSGR(text) {
   let result = '';
@@ -36,30 +57,24 @@ function _stripSGR(text) {
   const len = text.length;
 
   while (i < len) {
-    // 查找 \x1b[<
     const start = text.indexOf('\x1b[<', i);
     if (start < 0) { result += text.slice(i); break; }
-
-    // 复制 \x1b[< 之前的普通文本
     if (start > i) result += text.slice(i, start);
 
-    // 从 start 开始查找完整的序列结束符 M/m
     let seqEnd = -1;
     for (let j = start; j < len; j++) {
       if (text[j] === 'M' || text[j] === 'm') { seqEnd = j; break; }
     }
 
     if (seqEnd >= 0) {
-      // 找到完整序列 → 处理并跳过
       const seq = text.slice(start, seqEnd + 1);
       _handleSequence(seq);
       i = seqEnd + 1;
     } else {
-      // 不完整序列 → 剩余部分作为缓冲
       const remain = text.slice(start);
       _sgrBuf = remain;
-      if (_sgrBuf.length > 50) _sgrBuf = ''; // 防溢出
-      i = len; // 跳过剩余部分
+      if (_sgrBuf.length > 50) _sgrBuf = '';
+      i = len;
     }
   }
 
@@ -67,33 +82,26 @@ function _stripSGR(text) {
 }
 
 /**
- * 覆写 process.stdin.push 以在数据进入可读流之前剥离 SGR 鼠标序列
+ * 覆写 process.stdin.push
  */
 let _origPush = null;
 
 function _installFilter() {
-  if (_origPush) return; // 只安装一次
+  if (_origPush) return;
   _origPush = process.stdin.push.bind(process.stdin);
 
   process.stdin.push = function (data, encoding) {
-    // 只处理 Buffer 数据
     if (!Buffer.isBuffer(data) && typeof data !== 'string') {
       return _origPush(data, encoding);
     }
-
     const str = typeof data === 'string' ? data : data.toString();
-
-    // 拼接上一次的残余
     const full = _sgrBuf + str;
     _sgrBuf = '';
-
     const cleaned = _stripSGR(full);
-
-    // 只在有实际文本时才 push
     if (cleaned) {
       return _origPush(Buffer.from(cleaned), encoding);
     }
-    return true; // 全部被过滤
+    return true;
   };
 }
 
@@ -103,10 +111,30 @@ function _uninstallFilter() {
   _origPush = null;
 }
 
-// ── API ──
-
 function hookMouse(setScroll) {
   _scrollSetter = setScroll;
+}
+
+/**
+ * 注册可点击命中区域。
+ * coordinate 都是 1-based SGR (左上为 1,1)。
+ * 可由多个组件共享同一个 region id（重复 click 都会触发）。
+ */
+function registerHitRegion(region) {
+  if (!region || !region.id) return;
+  _hitRegions.push(region);
+}
+
+function clearHitRegions() {
+  _hitRegions.length = 0;
+}
+
+function consumeLastClick(id) {
+  if (_lastClick && _lastClick.id === id) {
+    _lastClick = null;
+    return true;
+  }
+  return false;
 }
 
 function enableMouse() {
@@ -123,4 +151,4 @@ function disableMouse() {
   _uninstallFilter();
 }
 
-export { hookMouse, enableMouse, disableMouse, isMouseActive };
+export { hookMouse, enableMouse, disableMouse, isMouseActive, registerHitRegion, clearHitRegions, consumeLastClick };

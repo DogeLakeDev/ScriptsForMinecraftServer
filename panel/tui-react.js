@@ -40,8 +40,9 @@ async function mount({ onReady } = {}) {
   _mounted = true;
 
   bindServiceOutput();
-  // Do not enable terminal mouse reporting: it intercepts native click-drag
-  // selection in common terminals. Logs remain keyboard-scrollable and copyable.
+  // Mouse reporting (SGR 1006) 与点击命中区由 App 内 useEffect 启用（panel/app.js）。
+  // 已知代价：终端 native click-drag 选择将被 hot region 拦截。如需文本选择，
+  // 改用 Ctrl+Ins 或 shift-selection；TUI 内可点击区域不会出现在 hot 列表中。
   const cleanup = () => { closeLogFile(); };
   process.on('exit', cleanup);
   process.once('SIGINT', () => { cleanup(); process.exit(0); });

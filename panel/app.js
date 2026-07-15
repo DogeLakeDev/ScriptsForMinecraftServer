@@ -5,7 +5,7 @@ import { T } from './theme.js';
 import { services, stopAll } from './services/manager.js';
 import { logBuf, flushLogs } from './log-buffer.js';
 import { useLogs } from './log-buffer-hooks.js';
-import { hookMouse } from './mouse.js';
+import { hookMouse, enableMouse, disableMouse, registerHitRegion, clearHitRegions, consumeLastClick } from './mouse.js';
 import { pushLog } from './log-buffer.js';
 import { Dashboard, SvcView, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, ServicesView, SERVICE_ORDER } from './views/views.js';
 import { Header, Sidebar, Footer } from './ui/Shell.js';
@@ -77,6 +77,12 @@ function App({ initialSetupRequired = null } = {}) {
   }, []);
 
   useEffect(() => { hookMouse(setLogScroll); }, []);
+  useEffect(() => {
+    enableMouse();
+    return () => { disableMouse(); };
+  }, []);
+  // clear hit regions each frame so transient components re-register
+  useEffect(() => { clearHitRegions(); });
 
   const [, resizeTick] = useState(0);
   useEffect(() => {
@@ -391,9 +397,12 @@ function App({ initialSetupRequired = null } = {}) {
     'Tab/1-6 切页  → 动作  PgUp/Dn 日志  q 退出  ? 帮助';
 
   return h(Box, { width: cols, height: rows, flexDirection: 'column' },
-    h(Header, { tabs: TABS, activeTab, compact, svcStatus }),
+    h(Header, { tabs: TABS, activeTab, compact, svcStatus, onSwitchTab: (k) => switchTab(k) }),
     h(Box, { height: viewH, flexDirection: 'row' },
-      !compact && h(Sidebar, { tabs: TABS, activeTab, menuItems, menuFocus, svcStatus, sidebarWidth }),
+      !compact && h(Sidebar, {
+        tabs: TABS, activeTab, menuItems, menuFocus, sidebarWidth,
+        onSwitchTab: (k) => switchTab(k),
+      }),
       h(Box, { flexGrow: 1, flexDirection: 'column', paddingLeft: 1, paddingRight: 1 },
         mainContent,
       ),
