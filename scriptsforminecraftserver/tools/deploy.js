@@ -6,25 +6,24 @@
 const path = require('path');
 const fs = require('fs-extra');
 const { getEnv } = require('./utils');
+const cfg = require('../config.json');
 
-const projectName = getEnv('PROJECT_NAME');
-const deployPath = getEnv('MC_PATH');
-console.log(`PROJECT_NAME -> ${projectName}`);
-console.log(`MC_PATH -> ${MC_PATH}`);
+const projectName = cfg.projectName;
+const deployPath = cfg.deployPath;
 if (!projectName || !deployPath) {
-  console.error('❌ 请确保 .env 中设置了 PROJECT_NAME 和 MC_PATH');
+  console.error('❌ 请确保 ../config 中设置了 PROJECT_NAME 和 MC_PATH');
   process.exit(1);
 }
 
 // 源目录
 const devBehavior = path.resolve(__dirname, `../behavior_packs/${projectName}`);
-const devResource = path.resolve(__dirname, `../recource_packs/${projectName}`);
+const devResource = path.resolve(__dirname, `../resource_packs/${projectName}`);
 
 // 目标目录
 const prodBehavior = path.join(deployPath, 'behavior_packs', projectName);
 const prodResource = path.join(deployPath, 'resource_packs', projectName);
-const prodBehavior = path.join(deployPath, 'development_behavior_packs', projectName);
-const prodResource = path.join(deployPath, 'development_resource_packs', projectName);
+//const prodBehavior = path.join(deployPath, 'development_behavior_packs', projectName);
+//const prodResource = path.join(deployPath, 'development_resource_packs', projectName);
 
 async function deploy() {
   try {

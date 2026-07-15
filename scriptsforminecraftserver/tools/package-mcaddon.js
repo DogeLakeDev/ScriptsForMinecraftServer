@@ -2,8 +2,9 @@ const path = require('path');
 const fs = require('fs-extra');
 const AdmZip = require('adm-zip');
 const { getEnv } = require('./utils');
+const cfg = require('../config.json');
 
-const projectName = getEnv('PROJECT_NAME');
+const projectName = cfg.projectName;
 if (!projectName) {
   console.error('❌ PROJECT_NAME 未设置');
   process.exit(1);

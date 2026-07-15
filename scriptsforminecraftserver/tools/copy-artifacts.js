@@ -6,10 +6,11 @@
 const path = require('path');
 const fs = require('fs-extra');
 const { getEnv, ensureDir } = require('./utils');
+const cfg = require('../config.json');
 
-const projectName = getEnv('PROJECT_NAME');
+const projectName = cfg.projectName;
 if (!projectName) {
-  console.error('❌ PROJECT_NAME 未设置，请在 .env 中配置');
+  console.error('❌ PROJECT_NAME 未设置，请在 ../config.json 中配置');
   process.exit(1);
 }
 
