@@ -171,6 +171,32 @@ function setModuleEnabled(module, enabled) {
 
 // ---------- 数据库初始化 ----------
 
+function ensurePublicPlaza() {
+  // 公共广场 —— 服务器首次启动时插入一块永久 public 土地，
+  // 玩家第一次进服即可看到 LandGUI 的"公共广场"入口。
+  // 配置可通过 configs/settings.json: { plaza: { dimid, range, name, welcome } } 覆盖。
+  const existing = query("SELECT id FROM sfmc_lands WHERE id='PUBLIC-PLAZA'")[0];
+  if (existing) return;
+  let cfg = { dimid: 0, range: 32, name: "公共广场", welcome: "欢迎来到服务器！这里是公共领地，所有人都可以建造。" };
+  try {
+    const settings = query("SELECT value FROM sfmc_config_settings WHERE key='land:plaza'")[0];
+    if (settings) cfg = { ...cfg, ...JSON.parse(settings.value) };
+  } catch {}
+  const r = cfg.range;
+  const minX = -r, minY = -64, minZ = -r, maxX = r, maxY = 320, maxZ = r;
+  const id = "PUBLIC-PLAZA";
+  const now = Date.now();
+  query(
+    "INSERT OR IGNORE INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, name, status, created_at, updated_at, protection_profile) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    [id, "system", "服务器", cfg.dimid, minX, minY, minZ, maxX, maxY, maxZ, cfg.name, "public", now, now, JSON.stringify({ allow_place: true, allow_destroy: true, open_container: true })]
+  );
+  query(
+    "INSERT OR IGNORE INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)",
+    [id, "system", "服务器", "owner", now]
+  );
+  console.info('[DogeDB] 公共广场已初始化 (PUBLIC-PLAZA)。');
+}
+
 async function initDB() {
   db = openDatabase(DB_PATH);
   query = createQuery(db);
@@ -660,6 +686,8 @@ function reloadConfigsFromJson() {
   // 发送热重载信号，SAPI 端 fastPoll 每 2 秒检查此值
   query('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', ['_reload_signal', String(now), now]);
   console.log(`[ConfigReload] 已发送热重载信号 (${now})，SAPI 将在 2 秒内生效`);
+  // 公共广场 —— 永久公共领地，新玩家引导
+  ensurePublicPlaza();
 }
 // ---------- 工具 ----------
 

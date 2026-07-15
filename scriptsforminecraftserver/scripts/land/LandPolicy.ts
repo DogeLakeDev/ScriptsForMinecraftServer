@@ -36,7 +36,13 @@ export function canManage(
   return !!role && ROLE_CAPABILITIES[role].includes(capability);
 }
 
+export function isPublicLand(land: LandData): boolean {
+  return land.status === "public";
+}
+
 export function canUse(land: LandData, playerId: string, capability: LandActionCapability): boolean {
+  // 公共广场 / 公共领地：所有玩家默认可动手。
+  if (isPublicLand(land)) return true;
   const role = getPlayerRole(land, playerId);
   if (role && ROLE_CAPABILITIES[role].includes(capability)) return true;
   const field = CAPABILITY_TO_PERMISSION_FIELD[capability];
@@ -47,5 +53,7 @@ export function canUseAt(player: Player, pos: LandPos, dimid: number, capability
   if (Permission.getPermission(player) >= Permission.OP) return true;
   if (!Database.hasAuthoritativeSnapshot()) return false;
   const land = LandCore.getLandByPos(pos, dimid);
-  return !land || canUse(land, player.id, capability);
+  if (!land) return true; // 无领地保护 — 默认允许
+  if (isPublicLand(land)) return true;
+  return canUse(land, player.id, capability);
 }

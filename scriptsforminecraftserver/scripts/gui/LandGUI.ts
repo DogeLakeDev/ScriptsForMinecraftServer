@@ -88,6 +88,7 @@ export class LandGUI {
     this.nav.section("basic", "基本信息", (page) => this.buildBasic(page));
     this.nav.section("risk", "所有权与风险", (page) => this.buildRisk(page));
     this.nav.section("application", "土地申请", (page) => this.buildApplication(page));
+    this.nav.section("plaza", "公共广场", (page) => void this.buildPlaza(page));
   }
 
   private buildHome(page: any): void {
@@ -114,11 +115,82 @@ export class LandGUI {
     );
     if (land) page.button("当前土地", () => this.openLand(land, "current"));
     page.button("我的土地", () => void this.nav.rebuild("landList"));
+    page.button("🏛️ 公共广场", () => void this.nav.rebuild("plaza"));
     page.button(application?.pos1 || application?.pos2 ? "继续申请" : "申请土地", () => void this.openApplication());
     page.button(
       `收到的邀请${this.state.invites.length ? ` (${this.state.invites.length})` : ""}`,
       () => void this.loadInvites()
     );
+  }
+
+  private async buildPlaza(page: any): Promise<void> {
+    debug.i("GUI", "LandGUI.buildPlaza");
+    const status = new FormStatus(page);
+    const plaza = Database.getById("PUBLIC-PLAZA");
+    if (!plaza) {
+      page.label(ListFormInfo([
+        "§c公共广场尚未初始化（db-server 重启后会自愈）。",
+        "请稍后重试或联系管理员。",
+      ]));
+      return;
+    }
+    const settings = await this.fetchPlazaSettings();
+    const info = LandCore.getCubeInfo(plaza.posA, plaza.posB);
+    const role = getPlayerRole(plaza, this.player.id);
+    page.label(
+      ListFormInfo([
+        `§e${settings.name} §7· ${LandCore.getDimensionName(plaza.dimid)}`,
+        "",
+        `范围：§f${plaza.posA.x}..${plaza.posB.x} §8| §f${plaza.posA.z}..${plaza.posB.z}`,
+        `覆盖面积：§a${info.square} §7格`,
+        `你的角色：§b${role ? ROLE_NAMES[role] : "访客（默认开放建造）"}`,
+        "",
+        `§7${settings.welcome}`,
+        "",
+        "§7在这里所有玩家都可以放置、破坏、互动。",
+        "§7用作服务器起点、议事厅、临时建造。",
+      ])
+    );
+    // 引导按钮：传送到中心点
+    page.button(
+      "§l传送至广场中心",
+      () =>
+        void this.nav.runTask(status, async () => {
+          try {
+            await this.player.teleport({ x: 0.5, y: 64, z: 0.5 });
+          } catch {
+            // 1.20.0 API：传单个 Vector3 即可
+          }
+          Msg.success(`已传送至${settings.name}`, this.player);
+        })
+    );
+    page.button("查看土地详情", () => this.openLand(plaza, "current"));
+    page.button("← 返回主页", () => void this.nav.replace("home"));
+  }
+
+  private async fetchPlazaSettings(): Promise<{ name: string; welcome: string; dimid: number; range: number }> {
+    try {
+      const { HttpDB } = await import("../libs/HttpDB");
+      const body = await HttpDB.get("/api/sfmc/settings/land:plaza");
+      if (body) {
+        const parsed = JSON.parse(body);
+        if (parsed?.value) {
+          return {
+            name: "公共广场",
+            welcome: "欢迎来到服务器！这里是公共领地，所有人都可以建造。",
+            dimid: 0,
+            range: 32,
+            ...JSON.parse(parsed.value),
+          };
+        }
+      }
+    } catch {}
+    return {
+      name: "公共广场",
+      welcome: "欢迎来到服务器！这里是公共领地，所有人都可以建造。",
+      dimid: 0,
+      range: 32,
+    };
   }
 
   private buildCurrent(page: any): void {
