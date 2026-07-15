@@ -6,5 +6,12 @@
   "bracketSpacing": true,
   "arrowParens": "always",
   "printWidth": 120,
-  "endOfLine": "auto"
+  "endOfLine": "crlf",
+  "plugins": ["prettier-plugin-organize-imports"],
+  "importOrder": [
+    "^@server/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true 
 }

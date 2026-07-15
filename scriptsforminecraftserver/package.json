@@ -1,36 +1,50 @@
 {
-  "name": "out",
+  "name": "scriptsforminecraftserver",
   "version": "1.0.0",
-  "productName": "Minecraft TypeScript Starter Project",
+  "productName": "scriptsforminecraftserver",
   "description": "ScriptsForMinecraftServer",
   "private": true,
+  "type": "commonjs",
   "devDependencies": {
-    "@minecraft/core-build-tasks": "^5.7.0",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "adm-zip": "^0.6.0",
+    "esbuild": "^0.28.1",
     "eslint-plugin-minecraft-linting": "^2.0.12",
-    "source-map": "^0.7.4",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.7.0"
+    "fs-extra": "^11.3.6",
+    "nodemon": "^3.1.14",
+    "npm-run-all2": "^9.0.2",
+    "prettier": "^3.9.5",
+    "source-map": "^0.7.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
   },
   "scripts": {
-    "lint": "just-scripts lint",
-    "build": "node ../tools/check-catalog.js && just-scripts build",
-    "build:noscript": "just-scripts build",
+    "build": "npm-run-all2 check:catalog clean bundle copy",
+    "build:lint": "npm-run-all2 check:catalog lint clean bundle copy",
+    "build:tsc": "npm-run-all2 check:catalog lint tsc clean bundle copy",
+    "build:deploy": "npm-run-all2 build deploy watch",
+    "build:mcaddon": "npm-run-all2 check:catalog lint tsc clean bundle copy && node scripts/package-mcaddon.js",
+
+    "watch": "nodemon --watch scripts --watch behavior_packs --watch resource_packs -e ts,json,lang,png --exec \"npm run deploy\"",
+    "tsc": "tsc --noEmit",
+    "lint": "eslint scripts/**/*.ts",
+    "bundle": "esbuild scripts/index.ts --bundle --platform=node --external:@minecraft/* --outfile=dist/scripts/main.js --sourcemap --target=es2022",
+    "clean": "rimraf dist/",
     "check:catalog": "node ../tools/check-catalog.js",
-    "build:legacy": "just-scripts build",
-    "clean": "just-scripts clean",
-    "local-deploy": "just-scripts local-deploy",
-    "mcaddon": "just-scripts mcaddon",
+    "copy": "node ../tools/copy-artifacts.js",
+    "deploy": "node ../tools/deploy.js",
     "enablemcloopback": "CheckNetIsolation.exe LoopbackExempt -a -p=S-1-15-2-1958404141-86561845-1752920682-3514627264-368642714-62675701-733520436",
-    "enablemcpreviewloopback": "CheckNetIsolation.exe LoopbackExempt -a -p=S-1-15-2-424268864-5579737-879501358-346833251-474568803-887069379-4040235476",
-    "buildsnippets": "just-scripts buildSnippets"
+    "enablemcpreviewloopback": "CheckNetIsolation.exe LoopbackExempt -a -p=S-1-15-2-424268864-5579737-879501358-346833251-474568803-887069379-4040235476"
   },
   "dependencies": {
     "@minecraft/math": "^2.4.0",
     "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
     "@minecraft/server-net": "^1.0.0-beta.release.1.19.50",
     "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
-    "@minecraft/vanilla-data": "^1.26.40-preview.30"
+    "@minecraft/vanilla-data": "1.26.40-preview.30"
+  },
+  "allowScripts": {
+    "esbuild": true
   }
 }
