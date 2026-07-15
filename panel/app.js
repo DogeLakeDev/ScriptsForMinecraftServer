@@ -9,7 +9,8 @@ import { hookMouse, enableMouse, disableMouse, registerHitRegion, clearHitRegion
 import { pushLog } from './log-buffer.js';
 import { Dashboard, SvcView, ConfirmOverlay, MonitorView, ChatView, DbView, ModulesView, ServicesView, SERVICE_ORDER } from './views/views.js';
 import { Header, Sidebar, Footer } from './ui/Shell.js';
-import { getLayout } from './navigation/rules.js';
+import { KeyHint, Crumb } from './ui/Feedback.js';
+import { getLayout, canSwitchTab, requiresConfirmation, canUseTabShortcut } from './navigation/rules.js';
 import { spawn, exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -63,7 +64,7 @@ function App({ initialSetupRequired = null } = {}) {
   const [confirm, setConfirm] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [quitPending, setQuitPending] = useState(false);
-  const [viewZone, setViewZone] = useState({ consumesDigits: false, consumesEsc: true });
+  const [viewZone, setViewZone] = useState({ consumesDigits: false });
   const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => {
@@ -117,6 +118,7 @@ function App({ initialSetupRequired = null } = {}) {
   }, [view, svcName]);
 
   function switchTab(tab) {
+    if (!canSwitchTab(setupRequired, tab)) return;
     setActiveTab(tab);
     setFocusZone('main');
     setMenuFocus(-1);
@@ -145,7 +147,7 @@ function App({ initialSetupRequired = null } = {}) {
             .catch((error) => pushLog(`${services[svcName].title}: ${error.message}`, 'error'))
             .finally(() => setActionBusy(false));
         };
-        if (item.act === 'stop' || item.act === 'restart') {
+        if (requiresConfirmation(item.act)) {
           setConfirm({
             title: item.act === 'stop' ? '停止服务' : '重启服务',
             body: [`${services[svcName].title} 将${item.act === 'stop' ? '停止' : '重启'}`, '确定继续?'],
@@ -235,7 +237,7 @@ function App({ initialSetupRequired = null } = {}) {
     if (input && !key.ctrl && !key.meta && '123456789'.includes(input)) {
       if (viewZone.consumesDigits) {
         // 让 view 自己接收数字
-      } else if (!inputVal) {
+      } else if (canUseTabShortcut(inputVal, view)) {
         const idx = parseInt(input, 10) - 1;
         if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
       }
@@ -323,7 +325,7 @@ function App({ initialSetupRequired = null } = {}) {
       if (cmd === 'start' || cmd === 'stop' || cmd === 'restart') {
         if (view === 'svc' && svcName && services[svcName]) {
           const run = () => services[svcName][cmd]();
-          if (cmd === 'stop' || cmd === 'restart') setConfirm({ title: cmd === 'stop' ? '停止服务' : '重启服务', body: [`${services[svcName].title} 将${cmd === 'stop' ? '停止' : '重启'}`, '确定继续?'], onConfirm: run, onCancel: () => {} });
+          if (requiresConfirmation(cmd)) setConfirm({ title: cmd === 'stop' ? '停止服务' : '重启服务', body: [`${services[svcName].title} 将${cmd === 'stop' ? '停止' : '重启'}`, '确定继续?'], onConfirm: run, onCancel: () => {} });
           else run();
         } else pushLog(`需先通过服务页选择服务`, 'warning');
       } else if (cmd === 'back' || cmd === '0') { switchTab('dashboard'); }
@@ -380,21 +382,32 @@ function App({ initialSetupRequired = null } = {}) {
   if (focusZone === 'sidebar') crumbParts.push('动作');
   if (confirm) crumbParts.push('确认');
   if (helpOpen) crumbParts.push('帮助');
-  const crumb = crumbParts.join(' › ');
 
-  const footerHint = confirm ? '[y] 确认   [n] / Esc 取消' :
-    helpOpen ? 'Esc  关闭帮助' :
-    actionBusy ? '服务操作进行中…' :
-    view === 'monitor' ? '↑↓ 玩家表  PgUp/Dn 翻页  Esc 返回总览  Tab/1-6 切页  ? 帮助' :
-    view === 'chat' ? '←→ 频道/消息  ↑↓ 滚动  l 跟随  Esc 返回  Tab 切页' :
-    view === 'data' ? '数字+Enter 开表  r 刷新  Esc 返回  Tab 切页' :
-    view === 'modules' ? '↑↓ 选择  Enter 启停  / 搜索  f 筛选  Esc 返回' :
-    view === 'services' ? '↑↓ 选服务  Enter 打开  → 动作  1-6 切页  ? 帮助' :
-    view === 'svc' ? 'Esc 返回列表  → 动作  输入+Enter 发命令  PgUp/Dn 日志' :
-    focusZone === 'sidebar' ? '↑↓ 选动作  Enter 执行  ← 主区  Esc 主区' :
-    quitPending ? '再按 Esc 退出（3s 内）' :
-    logScroll > 0 ? 'PgUp/Dn 日志  Home/End 首尾  → 动作  q 退出  ? 帮助' :
-    'Tab/1-6 切页  → 动作  PgUp/Dn 日志  q 退出  ? 帮助';
+  const footerHintKeys = confirm
+    ? [{ key: 'y', label: '确认' }, { key: 'n/Esc', label: '取消' }]
+    : helpOpen
+      ? [{ key: 'Esc', label: '关闭帮助' }]
+      : actionBusy
+        ? [{ key: '…', label: '服务操作进行中' }]
+        : view === 'monitor'
+          ? [{ key: '↑↓', label: '玩家表' }, { key: 'PgUp/Dn', label: '翻页' }, { key: 'Esc', label: '返回' }, { key: 'Tab', label: '切页' }, { key: '?', label: '帮助' }]
+          : view === 'chat'
+            ? [{ key: '←→', label: '频道/消息' }, { key: '↑↓', label: '滚动' }, { key: 'l', label: '跟随' }, { key: 'Esc', label: '返回' }, { key: 'Tab', label: '切页' }]
+            : view === 'data'
+              ? [{ key: '数字+Enter', label: '开表' }, { key: 'r', label: '刷新' }, { key: 'Esc', label: '返回' }, { key: 'Tab', label: '切页' }]
+              : view === 'modules'
+                ? [{ key: '↑↓', label: '选择' }, { key: 'Enter', label: '启停' }, { key: '/', label: '搜索' }, { key: 'f', label: '筛选' }, { key: 'Esc', label: '返回' }]
+                : view === 'services'
+                  ? [{ key: '↑↓', label: '选服务' }, { key: 'Enter', label: '打开' }, { key: '→', label: '动作' }, { key: '1-6', label: '切页' }, { key: '?', label: '帮助' }]
+                  : view === 'svc'
+                    ? [{ key: 'Esc', label: '返回列表' }, { key: '→', label: '动作' }, { key: '输入+Enter', label: '发命令' }, { key: 'PgUp/Dn', label: '日志' }]
+                    : focusZone === 'sidebar'
+                      ? [{ key: '↑↓', label: '选动作' }, { key: 'Enter', label: '执行' }, { key: '←', label: '主区' }, { key: 'Esc', label: '主区' }]
+                      : quitPending
+                        ? [{ key: 'Esc', label: '再按一次退出 (3s)' }]
+                        : logScroll > 0
+                          ? [{ key: 'PgUp/Dn', label: '日志' }, { key: 'Home/End', label: '首尾' }, { key: '→', label: '动作' }, { key: 'q', label: '退出' }, { key: '?', label: '帮助' }]
+                          : [{ key: 'Tab/1-6', label: '切页' }, { key: '→', label: '动作' }, { key: 'PgUp/Dn', label: '日志' }, { key: 'q', label: '退出' }, { key: '?', label: '帮助' }];
 
   return h(Box, { width: cols, height: rows, flexDirection: 'column' },
     h(Header, { tabs: TABS, activeTab, compact, svcStatus, onSwitchTab: (k) => switchTab(k) }),
@@ -402,6 +415,7 @@ function App({ initialSetupRequired = null } = {}) {
       !compact && h(Sidebar, {
         tabs: TABS, activeTab, menuItems, menuFocus, sidebarWidth,
         onSwitchTab: (k) => switchTab(k),
+        onDoAct: (k) => doAct(k),
       }),
       h(Box, { flexGrow: 1, flexDirection: 'column', paddingLeft: 1, paddingRight: 1 },
         mainContent,
@@ -414,8 +428,8 @@ function App({ initialSetupRequired = null } = {}) {
       inputVal,
       cursorPos,
       cursorVisible,
-      hint: footerHint,
-      crumb: ` ${crumb}`,
+      hintEl: h(KeyHint, { keys: footerHintKeys }),
+      crumbEl: h(Crumb, { parts: crumbParts }),
     }),
     toast && h(Box, {
       position: 'absolute', top: 2, right: 2,

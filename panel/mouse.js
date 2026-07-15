@@ -35,10 +35,9 @@ function _handleSequence(seq) {
   const y = parseInt(m[3]);
   if (btn === 64 && _scrollSetter) { _scrollSetter((s) => Math.min(logBuf.length, s + 3)); return; }
   if (btn === 65 && _scrollSetter) { _scrollSetter((s) => Math.max(0, s - 3)); return; }
-  // button=0 是左键释放（MouseRelease），按下时是 btn=32。我们用 m-press + release 来模拟 click
-  // 也支持 button=0 (PRESS=0, RELEASE=0)
-  if (btn === 0 || btn === 32) {
-    // find hit region
+  // SGR 1006: btn=0 是 press+release（按钮 1），btn=32 是 press-only。
+  // 只在 release 时触发 click，避免双派发。
+  if (btn === 0) {
     for (const r of _hitRegions) {
       if (x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) {
         emitClick(r, x, y);

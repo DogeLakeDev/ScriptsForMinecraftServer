@@ -52,8 +52,8 @@ function ChatView({ logH, logW, inputActive = true, registerZone }) {
 
   useEffect(() => {
     if (!registerZone) return;
-    registerZone({ consumesDigits: false, consumesEsc: true });
-    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+    registerZone({ consumesDigits: false });
+    return () => registerZone({ consumesDigits: false });
   }, [registerZone]);
 
   // 内部轮询频道列表（5s）

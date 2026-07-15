@@ -93,8 +93,8 @@ function MonitorView({ logH, logW, inputActive = true, registerZone }) {
   const [playerScroll, setPlayerScroll] = React.useState(0);
   React.useEffect(() => {
     if (!registerZone) return;
-    registerZone({ consumesDigits: false, consumesEsc: true });
-    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+    registerZone({ consumesDigits: false });
+    return () => registerZone({ consumesDigits: false });
   }, [registerZone]);
   useInput((input, key) => {
     const maxRows = Math.max(3, logH - 5);

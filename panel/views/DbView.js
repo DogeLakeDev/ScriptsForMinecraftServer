@@ -48,8 +48,8 @@ function DbView({ logH, logW, inputActive = true, registerZone }) {
 
   useEffect(() => {
     if (!registerZone) return;
-    registerZone({ consumesDigits: !tableView, consumesEsc: true });
-    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+    registerZone({ consumesDigits: !tableView });
+    return () => registerZone({ consumesDigits: false });
   }, [registerZone, tableView]);
 
   function loadTables() {

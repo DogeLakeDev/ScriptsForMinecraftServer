@@ -13,8 +13,8 @@ function ServicesView({ focus, logW, onOpenService, onSidebar, inputActive = tru
   const [detailId, setDetailId] = useState(null);
   React.useEffect(() => {
     if (!registerZone) return;
-    registerZone({ consumesDigits: false, consumesEsc: true });
-    return () => registerZone({ consumesDigits: false, consumesEsc: true });
+    registerZone({ consumesDigits: false });
+    return () => registerZone({ consumesDigits: false });
   }, [registerZone]);
   const cardCount = 5;
   const totalItems = SERVICE_ORDER.length + cardCount;

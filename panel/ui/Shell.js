@@ -62,19 +62,17 @@ function Header({ tabs, activeTab, compact, svcStatus = {}, onSwitchTab }) {
   );
 }
 
-function Sidebar({ tabs = [], activeTab, menuItems, menuFocus, schema, sidebarWidth = 22, onSwitchTab, onDoAct }) {
+function Sidebar({ tabs = [], activeTab, menuItems, menuFocus, schema, sidebarWidth = 20, onSwitchTab, onDoAct }) {
   const schemaInfo = schema ? (schema.desc || schema.name) : null;
   // 计算 sidebar 内每个 item 的 y 坐标用于鼠标命中
   let yCursor = 2; // paddingTop=1 → content row 1
-  const itemYs = [];
-  // tabs 区域起始 y = 2（首行是"导航"标题）
+  const tabYs = [];
   for (const tab of tabs) {
-    itemYs.push({ y1: yCursor, y2: yCursor, tab });
+    tabYs.push({ y1: yCursor, y2: yCursor, tab });
     yCursor += 1;
   }
   yCursor += 1; // separator line
-  // 跳过"运行状态"块（已移除）
-  yCursor += 2; // separator + "动作" 标题
+  yCursor += 1; // "动作" 标题
   const actionYs = menuItems.map((item, index) => {
     if (item.act === 'separator') { yCursor += 1; return null; }
     const y1 = yCursor;
@@ -82,8 +80,25 @@ function Sidebar({ tabs = [], activeTab, menuItems, menuFocus, schema, sidebarWi
     return { y1, y2: y1, item, index };
   }).filter(Boolean);
 
-  // 注意：sidebar 在 Ink 中不一定获得精确 x 坐标（布局为 flex + margin），
-  // 所以 click 主要用于 y 命中；column index 触发对应 tab/action。
+  // 注册鼠标命中区：tab 行 + 动作行
+  useEffect(() => {
+    for (const ty of tabYs) {
+      if (!ty.tab) continue;
+      registerHitRegion({
+        id: `side-tab-${ty.tab.k}`,
+        x1: 2, x2: sidebarWidth, y1: ty.y1, y2: ty.y2,
+        onClick: () => onSwitchTab?.(ty.tab.k),
+      });
+    }
+    for (const ay of actionYs) {
+      registerHitRegion({
+        id: `side-act-${ay.item.k}`,
+        x1: 2, x2: sidebarWidth, y1: ay.y1, y2: ay.y2,
+        onClick: () => onDoAct?.(ay.item.k),
+      });
+    }
+  }, [activeTab, menuFocus, menuItems, onSwitchTab, onDoAct]);
+
   return h(Box, { width: sidebarWidth, flexDirection: 'column', backgroundColor: T.panel, margin: 1, paddingTop: 1 },
     h(Text, { color: T.muted, paddingLeft: 1, bold: true }, '导航'),
     ...tabs.map((tab, index) => h(Box, { key: tab.k, paddingLeft: 1, backgroundColor: activeTab === tab.k ? T.focusBg : T.panel },
@@ -94,14 +109,10 @@ function Sidebar({ tabs = [], activeTab, menuItems, menuFocus, schema, sidebarWi
     ...menuItems.map((item, index) => {
       if (item.act === 'separator') return h(Text, { key: `sep-${index}`, color: T.separator }, ` ${'─'.repeat(18)}`);
       const selected = index === menuFocus;
-      const yInfo = actionYs.find((y) => y.index === index);
+      const clicked = consumeLastClick(`side-act-${item.k}`);
       return h(Box, {
         key: item.k,
-        backgroundColor: selected ? T.element : T.panel,
-        // 鼠标命中区：btn-0 → onDoAct(item.k)
-        ...(yInfo ? {
-          // 我们用 useState 全局登记代替 inline attribute（Ink 不支持 box onClick）
-        } : {}),
+        backgroundColor: clicked ? T.focusBg : (selected ? T.element : T.panel),
       },
         h(Text, { color: selected ? T.primary : T.text }, ` ${selected ? '▶' : ' '} ${item.l}`),
       );
@@ -112,7 +123,7 @@ function Sidebar({ tabs = [], activeTab, menuItems, menuFocus, schema, sidebarWi
   );
 }
 
-function Footer({ height, narrow, inputFocus, inputVal, cursorPos, cursorVisible, hint, crumb }) {
+function Footer({ height, narrow, inputFocus, inputVal, cursorPos, cursorVisible, hintEl, crumbEl }) {
   return h(Box, {
     height,
     backgroundColor: inputFocus ? T.element : T.panel,
@@ -124,12 +135,12 @@ function Footer({ height, narrow, inputFocus, inputVal, cursorPos, cursorVisible
     marginLeft: 1,
     marginRight: 1,
   },
-  !narrow && crumb && h(Text, { color: T.subtle }, crumb),
+  !narrow && crumbEl && h(Box, { paddingLeft: 0 }, crumbEl),
   h(Text, { bold: true, color: inputFocus ? T.primary : T.text },
     ` ${inputFocus ? '>' : '$'} ${!inputVal ? (cursorVisible ? '█' : ' ') : (cursorVisible
       ? inputVal.slice(0, cursorPos) + '█' + inputVal.slice(cursorPos)
       : inputVal)}`),
-  !narrow && h(Text, { color: T.muted }, hint),
+  !narrow && hintEl && h(Box, {}, hintEl),
   );
 }
 
