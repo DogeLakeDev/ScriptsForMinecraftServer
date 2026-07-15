@@ -13,6 +13,19 @@
 
 import { debug } from "../libs/DebugLog";
 import { defaultConfig, defaultPermissions, generateLandId } from "./defaults";
+import {
+  LAND_ROLES,
+  ROLE_CAPABILITIES,
+  ROLE_LABELS_CN,
+  SERVER_VALID_ROLES,
+  isValidRole,
+  type LandCapability,
+  type LandRole,
+} from "./LandRoles";
+
+// Re-export from LandRoles (single source of truth)
+export { LAND_ROLES, ROLE_CAPABILITIES, ROLE_LABELS_CN, SERVER_VALID_ROLES, isValidRole };
+export type { LandCapability, LandRole };
 
 // ---------- 类型定义（保持与旧版兼容，仍在本文件） ----------
 
@@ -38,50 +51,10 @@ export interface LandPermissions {
   pickup_item?: boolean;
 }
 
-export type LandRole = "owner" | "admin" | "builder" | "container" | "visitor" | "redstone" | "entity";
-
-export const ROLE_PERMISSIONS: Record<LandRole, string[]> = {
-  owner: [
-    "place",
-    "break",
-    "container",
-    "door",
-    "button",
-    "redstone",
-    "attack_entity",
-    "interact_entity",
-    "pickup_item",
-    "manage_members",
-    "manage_permissions",
-    "rename",
-    "transfer",
-    "delete",
-  ],
-  admin: [
-    "place",
-    "break",
-    "container",
-    "door",
-    "button",
-    "redstone",
-    "attack_entity",
-    "interact_entity",
-    "pickup_item",
-    "manage_members",
-    "manage_permissions",
-    "rename",
-  ],
-  builder: ["place", "break"],
-  container: ["container"],
-  visitor: [],
-  redstone: ["redstone", "button", "door"],
-  entity: ["attack_entity", "interact_entity"],
-};
-
 export interface LandMember {
   player_id: string;
   player_name_snapshot?: string;
-  role: LandRole;
+  role: import("./LandRoles").LandRole;
   expires_at?: number | null;
 }
 

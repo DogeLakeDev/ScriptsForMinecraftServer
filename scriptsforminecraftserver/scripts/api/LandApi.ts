@@ -201,20 +201,56 @@ export async function deleteLand(
   };
 }
 
-export async function inviteMember(id: string, actorId: string, playerId: string, role: string): Promise<boolean> {
+export interface LandMemberInviteResult {
+  ok: boolean;
+  inviteId?: string;
+  expiresAt?: number;
+  error?: LandErrorCode | string;
+  message?: string;
+}
+
+export interface LandMemberResult {
+  ok: boolean;
+  land?: LandData | null;
+  error?: LandErrorCode | string;
+  message?: string;
+}
+
+export async function inviteMember(
+  id: string,
+  actorId: string,
+  playerId: string,
+  role: string
+): Promise<LandMemberInviteResult> {
   debug.i("API", `inviteMember: landId=${id} playerId=${playerId} role=${role}`);
   const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(id)}/members`, {
     actorId,
     playerId,
     role,
   });
-  return result.status === 200;
+  if (result.status !== 200) {
+    let parsed: any = {};
+    try { parsed = JSON.parse(result.body || "{}"); } catch {}
+    return {
+      ok: false,
+      error: parsed.error || (result.status === 0 ? "database_unavailable" : "forbidden"),
+      message: parsed.message,
+    };
+  }
+  let parsed: any = {};
+  try { parsed = JSON.parse(result.body || "{}"); } catch {}
+  return { ok: true, inviteId: parsed.inviteId, expiresAt: parsed.expiresAt };
 }
 
-export async function removeLandMember(id: string, actorId: string, playerId: string): Promise<LandData | null> {
+export async function removeLandMember(id: string, actorId: string, playerId: string): Promise<LandMemberResult> {
   debug.i("API", `removeLandMember: landId=${id} playerId=${playerId}`);
   const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}/members`, { actorId, playerId });
-  return result.status === 200 ? parseLand(result.body) : null;
+  if (result.status !== 200) {
+    let parsed: any = {};
+    try { parsed = JSON.parse(result.body || "{}"); } catch {}
+    return { ok: false, error: parsed.error || "forbidden", message: parsed.message };
+  }
+  return { ok: true, land: parseLand(result.body) };
 }
 
 export async function updateLandMember(
@@ -222,14 +258,19 @@ export async function updateLandMember(
   actorId: string,
   playerId: string,
   role: string
-): Promise<LandData | null> {
+): Promise<LandMemberResult> {
   debug.i("API", `updateLandMember: landId=${id} playerId=${playerId} role=${role}`);
   const result = await HttpDB.requestJSON(
     "Patch",
     `${PATH}/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId)}`,
     { actorId, role }
   );
-  return result.status === 200 ? parseLand(result.body) : null;
+  if (result.status !== 200) {
+    let parsed: any = {};
+    try { parsed = JSON.parse(result.body || "{}"); } catch {}
+    return { ok: false, error: parsed.error || "invalid_role", message: parsed.message };
+  }
+  return { ok: true, land: parseLand(result.body) };
 }
 
 export async function getInvites(playerId: string): Promise<any[]> {

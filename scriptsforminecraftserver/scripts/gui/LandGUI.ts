@@ -1,7 +1,8 @@
 import { Player, world } from "@minecraft/server";
 import { MenuNavigator, obsBool, obsNum, obsStr, FormStatus } from "../libs/MenuNavigator";
 import { LandCore } from "../land/LandCore";
-import { Database, LandData, LandPos, LandRole, ROLE_PERMISSIONS } from "../land/LandDatabase";
+import { Database, LandData, LandPos, LandRole } from "../land/LandDatabase";
+import { ROLE_CAPABILITIES } from "../land/LandRoles";
 import { Msg, ListFormInfo } from "../libs/Tools";
 import { Money } from "../libs/Money";
 import { canManage, getPlayerRole } from "../land/LandPolicy";
@@ -32,6 +33,7 @@ type LandGuiState = {
   invites: any[];
   loading: boolean;
   error?: string;
+  previewPrice?: number;
 };
 
 export class LandGUI {
@@ -238,8 +240,9 @@ export class LandGUI {
         void this.nav.runTask(status, async () => {
           const player = online[target.getData()];
           const selectedRole = roleItems[role.getData()]?.value;
-          if (!player || !selectedRole || !(await inviteMember(land.id, this.player.id, player.id, selectedRole)))
-            throw new Error("invite failed");
+          if (!player || !selectedRole) throw new Error("请选择玩家和角色");
+          const result = await inviteMember(land.id, this.player.id, player.id, selectedRole);
+          if (!result.ok) throw new Error(result.message || result.error || "邀请失败");
           status.ok(`已向 ${player.name} 发送${ROLE_NAMES[selectedRole]}邀请。`);
           await Database.refresh();
         })
@@ -269,9 +272,9 @@ export class LandGUI {
       () =>
         void this.nav.runTask(status, async () => {
           const next = roles[role.getData()];
-          const updated = await updateLandMember(land.id, this.player.id, member.player_id, next);
-          if (!updated) throw new Error("member update failed");
-          Database.upsert(updated);
+          const result = await updateLandMember(land.id, this.player.id, member.player_id, next);
+          if (!result.ok || !result.land) throw new Error(result.message || result.error || "member update failed");
+          Database.upsert(result.land);
           status.ok("成员角色已更新。");
         })
     );
@@ -413,11 +416,12 @@ export class LandGUI {
     page.label(ListFormInfo(body));
     if (application.pos1 && application.pos2) {
       const info = LandCore.getCubeInfo(application.pos1, application.pos2);
-      const price = LandCore.calculatePrice(application.pos1, application.pos2);
+      // 价格从服务端权威获取，避免 UI 预览和服务端报价脱钩。
+      void this.refreshPreviewPrice(application.pos1, application.pos2, application.dimensionId!, info);
       page.label(
         ListFormInfo([
           `面积：${info.square} 格`,
-          `预估价格：${price} ${Money.UNIT}`,
+          `预估价格：${this.state.previewPrice ?? "-"} ${Money.UNIT}`,
           `当前余额：${Money.get(this.player)} ${Money.UNIT}`,
         ])
       );
@@ -440,6 +444,7 @@ export class LandGUI {
             );
             if (!land) throw new Error("purchase failed");
             this.state.application = undefined;
+            this.state.previewPrice = undefined;
             this.state.selectedLandId = land.id;
             await this.nav.replace("landDetail");
             const balance = await Money.load(this.player);
@@ -452,6 +457,7 @@ export class LandGUI {
     page.button("取消申请", () => {
       LandCore.clearSession(this.player.id);
       this.state.application = undefined;
+      this.state.previewPrice = undefined;
       void this.nav.replace("home");
     });
   }
@@ -460,6 +466,38 @@ export class LandGUI {
     debug.i("GUI", "LandGUI.loadInvites");
     this.state.invites = await getInvites(this.player.id);
     await this.nav.replace("invites");
+  }
+
+  /**
+   * 通过服务端 validateLand 拿到权威价；client 公式不再用于报价。
+   * 受网络 / 服务端故障时仍降级显示 client 估算，避免 UI 卡死。
+   */
+  private async refreshPreviewPrice(
+    posA: LandPos,
+    posB: LandPos,
+    dimid: number,
+    info: { square: number; height: number }
+  ): Promise<void> {
+    try {
+      const { validateLand } = await import("../api/LandApi");
+      const r = await validateLand({ ownerId: this.player.id, ownerName: this.player.name, dimid, posA, posB });
+      if (r.ok && typeof r.price === "number") {
+        if (this.state.previewPrice !== r.price) {
+          this.state.previewPrice = r.price;
+          void this.nav.refresh();
+        }
+        return;
+      }
+    } catch (error) {
+      debug.w("GUI", `refreshPreviewPrice fallback: ${(error as Error).message}`);
+    }
+    // 降级：用 client 公式估算（含 cfg.discount），仍优于固定硬编码
+    const cfg = Database.getConfig();
+    const local = Math.max(0, Math.floor((info.square * 8 + info.height * 20) * cfg.discount));
+    if (this.state.previewPrice !== local) {
+      this.state.previewPrice = local;
+      void this.nav.refresh();
+    }
   }
 
   private openLand(land: LandData, section: string): void {
@@ -477,12 +515,12 @@ export class LandGUI {
   }
 
   private async removeMember(land: LandData, memberId: string, status: FormStatus): Promise<void> {
-    const updated = await removeLandMember(land.id, this.player.id, memberId);
-    if (!updated) {
-      status.fail("移除成员失败。");
+    const result = await removeLandMember(land.id, this.player.id, memberId);
+    if (!result.ok || !result.land) {
+      status.fail(result.message || "移除成员失败。");
       return;
     }
-    Database.upsert(updated);
+    Database.upsert(result.land);
     status.ok("成员已移除。");
     await this.nav.refresh();
   }
