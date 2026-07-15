@@ -13,8 +13,6 @@
  *   node bds-manager.js send <cmd>     发送命令到 BDS
  *   node bds-manager.js watch          监护（崩溃自动重启）
  *
- * Config:直接读取文件
- * bds_updater.json
  */
 
 const { spawn, execSync } = require("child_process");

@@ -7,7 +7,7 @@ import { LandGUI } from "../gui/LandGUI";
 import { Command } from "../libs/Command";
 import { debug } from "../libs/DebugLog";
 import { Permission } from "../libs/Permission";
-import { Msg } from "../libs/Tools";
+import { dimensionId, Msg } from "../libs/Tools";
 import { LandCore } from "./LandCore";
 import { Database } from "./LandDatabase";
 import { LandTax } from "./LandTax";
@@ -40,8 +40,7 @@ export class LandSystem {
           y: Math.floor(player.location.y),
           z: Math.floor(player.location.z),
         };
-        const dimid =
-          player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+        const dimid = dimensionId(player.dimension);
         const land = LandCore.getLandByPos(pos, dimid);
         if (!land) return "当前位置不在任何土地内。";
         return `土地：${land.nickname || land.id}，所有者：${land.ownerName}，版本：${land.version || 1}`;
@@ -106,7 +105,7 @@ export class LandSystem {
 function handlePosCommand(player: Player, which: 1 | 2) {
   const plid = player.id;
   const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
-  const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+  const dimid = dimensionId(player.dimension);
 
   const session = LandCore.getSession(plid);
   if (!session) return Msg.error("你没有正在进行的土地申请。", player);

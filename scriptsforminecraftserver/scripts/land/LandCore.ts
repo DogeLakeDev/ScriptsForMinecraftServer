@@ -288,7 +288,7 @@ export class LandCore {
     const plid = player.id;
     const n = this.normalize(posA, posB);
     const price = this.calculatePrice(n.posA, n.posB);
-    const requestId = `land-create:${plid}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    const requestId = `land-create:${plid}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
     const result = await createLandOnServer({
       ownerId: plid,
       ownerName: player.name,

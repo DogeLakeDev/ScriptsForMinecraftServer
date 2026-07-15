@@ -1,4 +1,4 @@
-import { BlockComponentTypes, BlockPermutation, Dimension, Player, world } from "@minecraft/server";
+import { BlockComponentTypes, BlockPermutation, Dimension, Player } from "@minecraft/server";
 
 // 判断坐标是否在某区域内 (2D, 包含边界)
 export function pointInArea_2D(
@@ -28,59 +28,6 @@ export function pointInArea_2D(
     }
   }
   return true;
-}
-export function pointInArea_3D(
-  x: number,
-  y: number,
-  z: number,
-  areaStart_x: number,
-  areaStart_y: number,
-  areaStart_z: number,
-  areaEnd_x: number,
-  areaEnd_y: number,
-  areaEnd_z: number
-): boolean {
-  if (areaStart_x < areaEnd_x) {
-    if (x < areaStart_x || areaEnd_x < x) {
-      return false;
-    }
-  } else {
-    if (x < areaEnd_x || areaStart_x < x) {
-      return false;
-    }
-  }
-  if (areaStart_y < areaEnd_y) {
-    if (y < areaStart_y || areaEnd_y < y) {
-      return false;
-    }
-  } else {
-    if (y < areaEnd_y || areaStart_y < y) {
-      return false;
-    }
-  }
-  if (areaStart_z < areaEnd_z) {
-    if (z < areaStart_z || areaEnd_z < z) {
-      return false;
-    }
-  } else {
-    if (z < areaEnd_z || areaStart_z < z) {
-      return false;
-    }
-  }
-  return true;
-}
-
-export function playerCMDName(name: string): string {
-  if (name.indexOf(" ") !== -1) {
-    return '"' + name + '"';
-  }
-  return name;
-}
-
-export function logger(str: string): void {
-  for (let player of world.getPlayers()) {
-    player.sendMessage({ rawtext: [{ text: `${str}` }] });
-  }
 }
 
 /**
@@ -208,11 +155,6 @@ export function getShanghaiTime(): { date: string; time: string } {
   };
 }
 
-/** 当前 UTC 时间戳（毫秒） */
-export function now(): number {
-  return Date.now();
-}
-
 /** 格式化时间戳为 Asia/Shanghai 时区的 YYYY-MM-DD HH:mm */
 export function formatTimestamp(ts: number): string {
   const offset = 8 * 60;
@@ -230,6 +172,11 @@ export function registerSystemMsgHandler(handler: (player: Player, text: string)
 export type IDType = "CH" | "M" | "RP" | "L" | "CP";
 export function generateId(type: IDType): string {
   return `${type}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** 将 Dimension id 转为数字 0/1/2（主世界/地狱/末地） */
+export function dimensionId(dimension: Dimension): number {
+  return dimension.id === "minecraft:overworld" ? 0 : dimension.id === "minecraft:nether" ? 1 : 2;
 }
 
 /** 构建 URL 查询字符串（替代 SAPI 中不可用的 URLSearchParams） */

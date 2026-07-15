@@ -115,7 +115,7 @@ export class DogeChat {
     if (pub) {
       DogeChat.activeChannelMap.set(player.id, pub.id);
       this._ensureSubscribed(player.id, pub.id);
-      HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e) =>
+      HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e) =>
         console.warn("[DogeChat] error:", e)
       );
     }
@@ -126,7 +126,7 @@ export class DogeChat {
     debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
     DogeChat.activeChannelMap.set(player.id, channelId);
     this._ensureSubscribed(player.id, channelId);
-    await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e) =>
+    await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e) =>
       console.warn("[DogeChat] error:", e)
     );
   }
@@ -185,7 +185,7 @@ export class DogeChat {
 
   private static _saveSubscriptions(playerId: string): void {
     const ids = Array.from(this.subscribedChannelsMap.get(playerId) ?? []);
-    HttpDB.patch(`/api/sfmc/players/${playerId}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch((e) =>
+    HttpDB.put(`/api/sfmc/players/${playerId}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch((e) =>
       console.warn("[DogeChat] error:", e)
     );
   }

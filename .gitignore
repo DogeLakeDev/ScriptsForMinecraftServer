@@ -51,3 +51,5 @@ panel-state.json
 data/
 .AddCompLib/*
 *.zip
+BDSTools/.bds.pid
+db-server/package-lock.json

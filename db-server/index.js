@@ -174,7 +174,7 @@ function setModuleEnabled(module, enabled) {
 function ensurePublicPlaza() {
   // 公共广场 —— 服务器首次启动时插入一块永久 public 土地，
   // 玩家第一次进服即可看到 LandGUI 的"公共广场"入口。
-  // 配置可通过 configs/settings.json: { plaza: { dimid, range, name, welcome } } 覆盖。
+  // 配置来自 configs/land.json 的 land:plaza 键；下方字面量仅为配置缺失时的兜底。
   const existing = query("SELECT id FROM sfmc_lands WHERE id='PUBLIC-PLAZA'")[0];
   if (existing) return;
   let cfg = { dimid: 0, range: 32, name: "公共广场", welcome: "欢迎来到服务器！这里是公共领地，所有人都可以建造。" };
@@ -217,8 +217,9 @@ async function initDB() {
       dynamic_property_total_byte_count INTEGER DEFAULT 0,
       moon_phase INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT ''
-    );
+    )`);
 
+  db.exec(`
     -- 玩家数据
     CREATE TABLE IF NOT EXISTS sfmc_players (
         id TEXT NOT NULL,
@@ -249,8 +250,9 @@ async function initDB() {
         PRIMARY KEY (id, name)
       );
       CREATE INDEX IF NOT EXISTS idx_players_id ON sfmc_players(id);
-      CREATE INDEX IF NOT EXISTS idx_players_name ON sfmc_players(name);
+      CREATE INDEX IF NOT EXISTS idx_players_name ON sfmc_players(name);`)
 
+    desc(`
       -- 计分板数据
       CREATE TABLE IF NOT EXISTS sfmc_scoreboards (
         objective_id      TEXT NOT NULL,
@@ -304,8 +306,9 @@ async function initDB() {
       PRIMARY KEY (id, name)
     );
     CREATE INDEX IF NOT EXISTS idx_channels_id ON sfmc_chat_channels(id);
-    CREATE INDEX IF NOT EXISTS idx_channels_name ON sfmc_chat_channels(name, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_channels_name ON sfmc_chat_channels(name, created_at ASC);`);
 
+    db.exec(`
     -- 聊天信息数据
     CREATE TABLE IF NOT EXISTS sfmc_chat_messages (
       id TEXT PRIMARY KEY,
@@ -318,8 +321,9 @@ async function initDB() {
       show_timestamp INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_messages_channel ON sfmc_chat_messages(channel_id, created_at ASC);
+      CREATE INDEX IF NOT EXISTS idx_messages_channel ON sfmc_chat_messages(channel_id, created_at ASC);`)
 
+      db.exec(`
       -- 聊天红包
       CREATE TABLE IF NOT EXISTS sfmc_chat_redpackets (
         id TEXT PRIMARY KEY,
@@ -335,11 +339,10 @@ async function initDB() {
         created_at INTEGER NOT NULL,
         expires_at INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_redpackets_id ON sfmc_chat_redpackets(id);
-      `);
+      CREATE INDEX IF NOT EXISTS idx_redpackets_id ON sfmc_chat_redpackets(id);`);
 
-  // 配置表
-  db.exec(`
+    db.exec(`
+    -- 配置
     CREATE TABLE IF NOT EXISTS sfmc_config_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL DEFAULT '',
@@ -377,10 +380,7 @@ async function initDB() {
       poll_interval INTEGER NOT NULL DEFAULT 60,
       updated_at INTEGER NOT NULL
     );
-  `);
-  db.exec("INSERT OR IGNORE INTO sfmc_config_clean(id, item_max, poll_interval, updated_at) VALUES(1, 192, 60, 0)");
-  db.exec(`
-
+    INSERT OR IGNORE INTO sfmc_config_clean(id, item_max, poll_interval, updated_at) VALUES(1, 192, 60, 0)");
     CREATE TABLE IF NOT EXISTS sfmc_config_permissions (
       player_name TEXT PRIMARY KEY,
       level INTEGER NOT NULL DEFAULT 0,
@@ -414,7 +414,9 @@ async function initDB() {
       type TEXT NOT NULL DEFAULT 'cmd', cmd TEXT NOT NULL,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (question_id) REFERENCES sfmc_config_qa_questions(id) ON DELETE CASCADE
-    );
+    );`);
+
+    db.exec(`
     -- Coop 表
     CREATE TABLE IF NOT EXISTS sfmc_coops (
       cid TEXT PRIMARY KEY,
@@ -422,6 +424,7 @@ async function initDB() {
       owner_name_snapshot TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'active', notice TEXT DEFAULT '',
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      fee_bps INTEGER NOT NULL DEFAULT 500,
       version INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS sfmc_coop_members (
@@ -476,7 +479,10 @@ async function initDB() {
       displayname TEXT NOT NULL,
       displaydescribe TEXT DEFAULT '',
       icon TEXT DEFAULT '', type_function TEXT DEFAULT ''
-    );
+    );`);
+
+    db.exec(`
+      -- 领地系统
     CREATE TABLE IF NOT EXISTS sfmc_lands (
       id TEXT PRIMARY KEY,
       owner_player_id TEXT NOT NULL,
@@ -486,8 +492,72 @@ async function initDB() {
       max_x INTEGER NOT NULL, max_y INTEGER NOT NULL, max_z INTEGER NOT NULL,
       name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active',
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, expires_at INTEGER,
-      protection_profile TEXT NOT NULL DEFAULT '{}', version INTEGER NOT NULL DEFAULT 1
+      protection_profile TEXT NOT NULL DEFAULT '{}', version INTEGER NOT NULL DEFAULT 1,
+      purchase_price INTEGER NOT NULL DEFAULT,
+      refund_rate REAL NOT NULL DEFAULT 0.7,
+      tax_rate INTEGER NOT NULL DEFAULT 0,
+      tax_due_at INTEGER,
+      tax_frozen INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS sfmc_land_members (
+      land_id TEXT NOT NULL, player_id TEXT NOT NULL, player_name_snapshot TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'admin', created_at INTEGER NOT NULL, expires_at INTEGER,
+      PRIMARY KEY (land_id, player_id), FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_land_permissions (
+      land_id TEXT NOT NULL, permission_key TEXT NOT NULL, subject_type TEXT NOT NULL,
+      subject_id TEXT NOT NULL, allowed INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
+      PRIMARY KEY (land_id, permission_key, subject_type, subject_id),
+      FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_land_invites (
+      id TEXT PRIMARY KEY, land_id TEXT NOT NULL, inviter_id TEXT NOT NULL, invitee_id TEXT NOT NULL,
+      role TEXT NOT NULL, expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL,
+      FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sfmc_land_invites_target ON sfmc_land_invites(invitee_id, status, expires_at);
+    CREATE TABLE IF NOT EXISTS sfmc_land_audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, land_id TEXT NOT NULL, actor_id TEXT NOT NULL,
+      action TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL,
+      FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sfmc_land_operations (
+      request_id TEXT PRIMARY KEY, operation_type TEXT NOT NULL, actor_id TEXT NOT NULL,
+      land_id TEXT, status TEXT NOT NULL, response_json TEXT NOT NULL, created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sfmc_player_command_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_id TEXT NOT NULL, command TEXT NOT NULL,
+      date TEXT NOT NULL, count INTEGER DEFAULT 0,
+      UNIQUE(player_id, command, date)
+    );`);
+
+    db.exec(`
+      -- 经济系统
+      CREATE TABLE IF NOT EXISTS sfmc_economy_price_index (
+        item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
+        base_buy_price INTEGER NOT NULL DEFAULT 0, base_sell_price INTEGER NOT NULL DEFAULT 0,
+        current_buy_price INTEGER NOT NULL DEFAULT 0, current_sell_price INTEGER NOT NULL DEFAULT 0,
+        elasticity REAL DEFAULT 0.3, weekly_acquisition_cap INTEGER,
+        weekly_acquired INTEGER DEFAULT 0, week_start INTEGER,
+        rarity TEXT DEFAULT 'common', is_renewable INTEGER DEFAULT 1, updated_at INTEGER,
+        PRIMARY KEY (item_type, item_aux)
+      );
+      CREATE TABLE IF NOT EXISTS sfmc_economy_daily_tasks (
+        id TEXT PRIMARY KEY, item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
+        target_qty INTEGER NOT NULL, filled_qty INTEGER DEFAULT 0,
+        unit_reward INTEGER NOT NULL, created_at INTEGER, expires_at INTEGER,
+        status TEXT DEFAULT 'active'
+      );
+      CREATE TABLE IF NOT EXISTS sfmc_economy_stats (
+        id TEXT PRIMARY KEY,
+        total_issued INTEGER DEFAULT 0,
+        total_destroyed INTEGER DEFAULT 0,
+        total_supply INTEGER DEFAULT 0,
+        active_accounts INTEGER DEFAULT 0,
+        computed_at INTEGER
+        )
     CREATE TABLE IF NOT EXISTS sfmc_economy_accounts (
       player_id TEXT PRIMARY KEY,
       player_name_snapshot TEXT NOT NULL DEFAULT '',
@@ -521,72 +591,8 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_economy_transactions_player ON sfmc_economy_transactions(source_player_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_economy_transactions_target ON sfmc_economy_transactions(target_player_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_sfmc_lands_owner ON sfmc_lands(owner_player_id, status);
-    CREATE INDEX IF NOT EXISTS idx_sfmc_lands_location ON sfmc_lands(dimension, min_x, max_x, min_z, max_z, status);
-    CREATE TABLE IF NOT EXISTS sfmc_land_members (
-      land_id TEXT NOT NULL, player_id TEXT NOT NULL, player_name_snapshot TEXT NOT NULL DEFAULT '',
-      role TEXT NOT NULL DEFAULT 'admin', created_at INTEGER NOT NULL, expires_at INTEGER,
-      PRIMARY KEY (land_id, player_id), FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_land_permissions (
-      land_id TEXT NOT NULL, permission_key TEXT NOT NULL, subject_type TEXT NOT NULL,
-      subject_id TEXT NOT NULL, allowed INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
-      PRIMARY KEY (land_id, permission_key, subject_type, subject_id),
-      FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_land_invites (
-      id TEXT PRIMARY KEY, land_id TEXT NOT NULL, inviter_id TEXT NOT NULL, invitee_id TEXT NOT NULL,
-      role TEXT NOT NULL, expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL,
-      FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_sfmc_land_invites_target ON sfmc_land_invites(invitee_id, status, expires_at);
-    CREATE TABLE IF NOT EXISTS sfmc_land_audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, land_id TEXT NOT NULL, actor_id TEXT NOT NULL,
-      action TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL,
-      FOREIGN KEY (land_id) REFERENCES sfmc_lands(id) ON DELETE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_land_operations (
-      request_id TEXT PRIMARY KEY, operation_type TEXT NOT NULL, actor_id TEXT NOT NULL,
-      land_id TEXT, status TEXT NOT NULL, response_json TEXT NOT NULL, created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_economy_price_index (
-      item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
-      base_buy_price INTEGER NOT NULL DEFAULT 0, base_sell_price INTEGER NOT NULL DEFAULT 0,
-      current_buy_price INTEGER NOT NULL DEFAULT 0, current_sell_price INTEGER NOT NULL DEFAULT 0,
-      elasticity REAL DEFAULT 0.3, weekly_acquisition_cap INTEGER,
-      weekly_acquired INTEGER DEFAULT 0, week_start INTEGER,
-      rarity TEXT DEFAULT 'common', is_renewable INTEGER DEFAULT 1, updated_at INTEGER,
-      PRIMARY KEY (item_type, item_aux)
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_economy_daily_tasks (
-      id TEXT PRIMARY KEY, item_type TEXT NOT NULL, item_aux INTEGER DEFAULT 0,
-      target_qty INTEGER NOT NULL, filled_qty INTEGER DEFAULT 0,
-      unit_reward INTEGER NOT NULL, created_at INTEGER, expires_at INTEGER,
-      status TEXT DEFAULT 'active'
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_player_command_usage (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      player_id TEXT NOT NULL, command TEXT NOT NULL,
-      date TEXT NOT NULL, count INTEGER DEFAULT 0,
-      UNIQUE(player_id, command, date)
-    );
-    CREATE TABLE IF NOT EXISTS sfmc_economy_stats (
-      id TEXT PRIMARY KEY,
-      total_issued INTEGER DEFAULT 0,
-      total_destroyed INTEGER DEFAULT 0,
-      total_supply INTEGER DEFAULT 0,
-      active_accounts INTEGER DEFAULT 0,
-      computed_at INTEGER
-    );
-  `);
-  if (!db.prepare("PRAGMA table_info('sfmc_coops')").all().some((column) => column.name === 'fee_bps')) {
-    db.exec("ALTER TABLE sfmc_coops ADD COLUMN fee_bps INTEGER NOT NULL DEFAULT 500");
-  }
-  const landColumns = db.prepare("PRAGMA table_info('sfmc_lands')").all().map((column) => column.name);
-  if (!landColumns.includes('purchase_price')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN purchase_price INTEGER NOT NULL DEFAULT 0");
-  if (!landColumns.includes('refund_rate')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN refund_rate REAL NOT NULL DEFAULT 0.7");
-  if (!landColumns.includes('tax_rate')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN tax_rate INTEGER NOT NULL DEFAULT 0");
-  if (!landColumns.includes('tax_due_at')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN tax_due_at INTEGER");
-  if (!landColumns.includes('tax_frozen')) db.exec("ALTER TABLE sfmc_lands ADD COLUMN tax_frozen INTEGER NOT NULL DEFAULT 0");
+    CREATE INDEX IF NOT EXISTS idx_sfmc_lands_location ON sfmc_lands(dimension, min_x, max_x, min_z, max_z, status);`);
+
   // 从 /configs/ JSON 文件导入初始配置（仅空表时执行）
   {
       const cfgDir = path.join(PROJECT_ROOT, 'configs');
@@ -597,6 +603,14 @@ async function initDB() {
       try {
         const s = JSON.parse(fs.readFileSync(path.join(cfgDir, 'settings.json'), 'utf-8'));
         for (const [k, v] of Object.entries(s)) {
+          if (isMetaKey(k)) continue;
+          _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, cfgValue(v), now]);
+        }
+      } catch (e) {}
+      // land.json: 领地系统的全部配置（地价/限制/广场/税/默认权限），导入为 land:* 键
+      try {
+        const l = JSON.parse(fs.readFileSync(path.join(cfgDir, 'land.json'), 'utf-8'));
+        for (const [k, v] of Object.entries(l)) {
           if (isMetaKey(k)) continue;
           _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, cfgValue(v), now]);
         }
@@ -673,6 +687,13 @@ function reloadConfigsFromJson() {
       _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, cfgValue(v), now]); c++;
     } log('settings', c);
   } catch (e) { console.warn('[ConfigReload] settings.json 失败:', e.message); }
+  try {
+    const l = JSON.parse(fs.readFileSync(path.join(cfgDir, 'land.json'), 'utf-8'));
+    let c = 0; for (const [k, v] of Object.entries(l)) {
+      if (isMetaKey(k)) continue;
+      _('INSERT OR REPLACE INTO sfmc_config_settings (key, value, updated_at) VALUES (?,?,?)', [k, cfgValue(v), now]); c++;
+    } log('land', c);
+  } catch (e) { console.warn('[ConfigReload] land.json 失败:', e.message); }
   try {
     const a = JSON.parse(fs.readFileSync(path.join(cfgDir, 'areas.json'), 'utf-8'));
     let c = 0; for (const r of a) {
@@ -782,6 +803,7 @@ function forwardToQQBridge(channelId, fromName, content, fromId) {
 
 let query;
 
+/** LAND */
 function mapLandRow(row) {
   const members = query('SELECT player_id, player_name_snapshot, role, expires_at FROM sfmc_land_members WHERE land_id=? ORDER BY created_at ASC', [row.id]);
   return {
@@ -797,8 +819,8 @@ function mapLandRow(row) {
 
 function defaultLandPermissions() {
   return {
-    allow_place: false, allow_destroy: false, attack_entity: false, open_container: false,
-    use_door: false, use_button: false, use_redstone: false, interact_entity: false, pickup_item: false,
+    allow_place: true, allow_destroy: true, attack_entity: false, open_container: false,
+    use_door: true, use_button: true, use_redstone: true, interact_entity: true, pickup_item: true,
   };
 }
 
@@ -827,61 +849,6 @@ function canManageMember(landId, actorId, targetRole = null) {
   return actorRole === 'admin' && targetRole !== 'owner' && targetRole !== 'admin';
 }
 
-function ensureEconomyAccount(playerId, playerName = '') {
-  const now = Date.now();
-  query('INSERT OR IGNORE INTO sfmc_economy_accounts (player_id, player_name_snapshot, created_at, updated_at) VALUES (?,?,?,?)', [String(playerId), String(playerName), now, now]);
-  if (playerName) query('UPDATE sfmc_economy_accounts SET player_name_snapshot=?, updated_at=? WHERE player_id=?', [String(playerName), now, String(playerId)]);
-  return query('SELECT * FROM sfmc_economy_accounts WHERE player_id=?', [String(playerId)])[0];
-}
-
-function economyResult(row) { return { playerId: row.player_id, playerName: row.player_name_snapshot, balance: row.balance, version: row.version }; }
-
-function applyEconomyTransaction(data) {
-  const amount = Number(data.amount);
-  if (!data.actorId || !Number.isSafeInteger(amount) || amount <= 0) return { ok: false, error: 'invalid_amount', status: 400 };
-  const sourceId = data.sourcePlayerId ? String(data.sourcePlayerId) : null;
-  const targetId = data.targetPlayerId ? String(data.targetPlayerId) : null;
-  const idempotencyKey = data.idempotencyKey ? String(data.idempotencyKey).trim() : '';
-  if (idempotencyKey && !/^[A-Za-z0-9_.:-]{1,128}$/.test(idempotencyKey)) return { ok: false, error: 'invalid_idempotency_key', status: 400 };
-  if (!sourceId && !targetId) return { ok: false, error: 'missing_account', status: 400 };
-  if (sourceId && sourceId !== String(data.actorId)) return { ok: false, error: 'forbidden_source', status: 403 };
-  if (sourceId && targetId && sourceId === targetId) return { ok: false, error: 'same_account', status: 400 };
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    if (idempotencyKey) {
-      const previous = query('SELECT response_json FROM sfmc_economy_idempotency WHERE actor_id=? AND idempotency_key=?', [String(data.actorId), idempotencyKey])[0];
-      if (previous) { const response = { ...JSON.parse(previous.response_json), replayed: true }; db.exec('COMMIT'); return response; }
-    }
-    const source = sourceId ? ensureEconomyAccount(sourceId, data.sourcePlayerName) : null;
-    const target = targetId ? ensureEconomyAccount(targetId, data.targetPlayerName) : null;
-    if (source && source.balance < amount) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: source.balance, status: 409 }; }
-    const now = Date.now();
-    if (source) query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [amount, now, source.player_id, amount]);
-    if (target) query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [amount, now, target.player_id]);
-    const id = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-    const txRows = [];
-    if (source) {
-      txRows.push([id + '-dr', String(data.type || 'adjustment') + '.dr', String(data.actorId), sourceId, null, amount, source.balance, source.balance - amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
-    }
-    if (target) {
-      txRows.push([id + '-cr', String(data.type || 'adjustment') + '.cr', String(data.actorId), null, targetId, amount, target.balance, target.balance + amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
-    }
-    for (const row of txRows) {
-      query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', row);
-    }
-    const sourceResult = source ? economyResult(ensureEconomyAccount(source.player_id)) : null;
-    const targetResult = target ? economyResult(ensureEconomyAccount(target.player_id)) : null;
-    const response = {
-      ok: true, transactionId: id,
-      source: sourceResult ? { ...sourceResult, balanceBefore: source.balance, balanceAfter: source.balance - amount } : null,
-      target: targetResult ? { ...targetResult, balanceBefore: target.balance, balanceAfter: target.balance + amount } : null
-    };
-    if (idempotencyKey) query('INSERT INTO sfmc_economy_idempotency (actor_id,idempotency_key,transaction_id,response_json,created_at) VALUES (?,?,?,?,?)', [String(data.actorId), idempotencyKey, id, JSON.stringify(response), now]);
-    db.exec('COMMIT');
-    return response;
-  } catch (error) { try { db.exec('ROLLBACK'); } catch {} return { ok: false, error: error.message || 'economy_transaction_failed', status: 500 }; }
-}
-
 function normalizeLandInput(data) {
   const a = data.posA || {}, b = data.posB || {};
   const values = [data.dimid, a.x, a.y, a.z, b.x, b.y, b.z];
@@ -898,6 +865,7 @@ function validateLandInput(data) {
   const width = n.maxX - n.minX + 1, length = n.maxZ - n.minZ + 1, height = n.maxY - n.minY + 1;
   const square = width * length, volume = square * height;
   const settings = query("SELECT value FROM sfmc_config_settings WHERE key='land:config'")[0];
+  // 配置来自 configs/land.json 的 land:config 键；下方字面量仅为配置缺失时的兜底，不应被依赖。
   let cfg = { priceFormula: '{square}*8+{height}*20', maxLandsPerPlayer: 5, minSquare: 4, maxSquare: 50000, discount: 1, refundRate: 0.7 };
   try { if (settings) cfg = { ...cfg, ...JSON.parse(settings.value) }; } catch {}
   if (square < cfg.minSquare || square > cfg.maxSquare) return { ok: false, error: 'area_out_of_range', status: 400 };
@@ -907,8 +875,7 @@ function validateLandInput(data) {
   if (overlap.length) return { ok: false, error: 'overlap', status: 409 };
   const basePrice = evaluateLandFormula(String(cfg.priceFormula || '{square}*8+{height}*20'), { square, volume, height, width, length });
   const price = Math.max(0, Math.floor(basePrice * Number(cfg.discount || 1)));
-  let refundRate = 0.7;
-  try { if (settings) refundRate = Number(JSON.parse(settings.value).refundRate ?? refundRate); } catch {}
+  const refundRate = Number(cfg.refundRate ?? 0.7);
   return { ok: true, price, square, volume, refundRate, normalized: n };
 }
 
@@ -972,7 +939,12 @@ function createLandTransaction(data) {
     if (account.balance < locked.price) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: account.balance, price: locked.price, status: 409 }; }
     query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [locked.price, now, account.player_id, locked.price]);
     const refundRate = Math.max(0, Math.min(1, Number(check.refundRate ?? 0.7)));
-    query('INSERT INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, created_at, updated_at, purchase_price, refund_rate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), n.dimid, n.minX, n.minY, n.minZ, n.maxX, n.maxY, n.maxZ, now, now, locked.price, refundRate]);
+    // 地皮税：配置 land:tax.enabled=true 时，新购土地采用 defaultRate（单位万分之一）。默认关闭（tax_rate=0）。
+    const taxCfgRow = query("SELECT value FROM sfmc_config_settings WHERE key='land:tax'")[0];
+    let taxCfg = { enabled: false, defaultRate: 0 };
+    try { if (taxCfgRow) taxCfg = { ...taxCfg, ...JSON.parse(taxCfgRow.value) }; } catch {}
+    const taxRate = taxCfg.enabled ? (Number(taxCfg.defaultRate) || 0) : 0;
+    query('INSERT INTO sfmc_lands (id, owner_player_id, owner_name_snapshot, dimension, min_x, min_y, min_z, max_x, max_y, max_z, created_at, updated_at, purchase_price, refund_rate, tax_rate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), n.dimid, n.minX, n.minY, n.minZ, n.maxX, n.maxY, n.maxZ, now, now, locked.price, refundRate, taxRate]);
     query('INSERT INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)', [id, String(data.ownerId), String(data.ownerName || ''), 'owner', now]);
     query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.purchase', String(data.ownerId), String(data.ownerId), null, locked.price, account.balance, account.balance - locked.price, 'land', id, '购买土地', now]);
     auditLand(id, String(data.ownerId), 'land.create', { price: locked.price });
@@ -986,6 +958,63 @@ function createLandTransaction(data) {
     try { db.exec('ROLLBACK'); } catch {}
     return { ok: false, error: error.message || 'create_failed', status: 500 };
   }
+}
+
+/** ECONOMY */
+
+function ensureEconomyAccount(playerId, playerName = '') {
+  const now = Date.now();
+  query('INSERT OR IGNORE INTO sfmc_economy_accounts (player_id, player_name_snapshot, created_at, updated_at) VALUES (?,?,?,?)', [String(playerId), String(playerName), now, now]);
+  if (playerName) query('UPDATE sfmc_economy_accounts SET player_name_snapshot=?, updated_at=? WHERE player_id=?', [String(playerName), now, String(playerId)]);
+  return query('SELECT * FROM sfmc_economy_accounts WHERE player_id=?', [String(playerId)])[0];
+}
+
+function economyResult(row) { return { playerId: row.player_id, playerName: row.player_name_snapshot, balance: row.balance, version: row.version }; }
+
+function applyEconomyTransaction(data) {
+  const amount = Number(data.amount);
+  if (!data.actorId || !Number.isSafeInteger(amount) || amount <= 0) return { ok: false, error: 'invalid_amount', status: 400 };
+  const sourceId = data.sourcePlayerId ? String(data.sourcePlayerId) : null;
+  const targetId = data.targetPlayerId ? String(data.targetPlayerId) : null;
+  const idempotencyKey = data.idempotencyKey ? String(data.idempotencyKey).trim() : '';
+  if (idempotencyKey && !/^[A-Za-z0-9_.:-]{1,128}$/.test(idempotencyKey)) return { ok: false, error: 'invalid_idempotency_key', status: 400 };
+  if (!sourceId && !targetId) return { ok: false, error: 'missing_account', status: 400 };
+  if (sourceId && sourceId !== String(data.actorId)) return { ok: false, error: 'forbidden_source', status: 403 };
+  if (sourceId && targetId && sourceId === targetId) return { ok: false, error: 'same_account', status: 400 };
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (idempotencyKey) {
+      const previous = query('SELECT response_json FROM sfmc_economy_idempotency WHERE actor_id=? AND idempotency_key=?', [String(data.actorId), idempotencyKey])[0];
+      if (previous) { const response = { ...JSON.parse(previous.response_json), replayed: true }; db.exec('COMMIT'); return response; }
+    }
+    const source = sourceId ? ensureEconomyAccount(sourceId, data.sourcePlayerName) : null;
+    const target = targetId ? ensureEconomyAccount(targetId, data.targetPlayerName) : null;
+    if (source && source.balance < amount) { db.exec('ROLLBACK'); return { ok: false, error: 'insufficient_funds', balance: source.balance, status: 409 }; }
+    const now = Date.now();
+    if (source) query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [amount, now, source.player_id, amount]);
+    if (target) query('UPDATE sfmc_economy_accounts SET balance=balance+?, version=version+1, updated_at=? WHERE player_id=?', [amount, now, target.player_id]);
+    const id = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const txRows = [];
+    if (source) {
+      txRows.push([id + '-dr', String(data.type || 'adjustment') + '.dr', String(data.actorId), sourceId, null, amount, source.balance, source.balance - amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    }
+    if (target) {
+      txRows.push([id + '-cr', String(data.type || 'adjustment') + '.cr', String(data.actorId), null, targetId, amount, target.balance, target.balance + amount, String(data.referenceType || ''), String(data.referenceId || ''), String(data.reason || ''), now]);
+    }
+    for (const row of txRows) {
+      query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', row);
+    }
+    const sourceResult = source ? economyResult(ensureEconomyAccount(source.player_id)) : null;
+    const targetResult = target ? economyResult(ensureEconomyAccount(target.player_id)) : null;
+    const response = {
+      ok: true, transactionId: id,
+      source: sourceResult ? { ...sourceResult, balanceBefore: source.balance, balanceAfter: source.balance - amount } : null,
+      target: targetResult ? { ...targetResult, balanceBefore: target.balance, balanceAfter: target.balance + amount } : null
+    };
+    if (idempotencyKey) query('INSERT INTO sfmc_economy_idempotency (actor_id,idempotency_key,transaction_id,response_json,created_at) VALUES (?,?,?,?,?)', [String(data.actorId), idempotencyKey, id, JSON.stringify(response), now]);
+    db.exec('COMMIT');
+    return response;
+  } catch (error) { try { db.exec('ROLLBACK'); } catch {} return { ok: false, error: error.message || 'economy_transaction_failed', status: 500 }; }
 }
 
 // ---------- 路由（按资源路径分组） ----------
@@ -1050,7 +1079,7 @@ async function handle(req, res) {
       else { json(res, { success: false, error: 'not_found' }, 404); }
       return;
     }
-
+    // ────── /api/economy ──────
     if (path === '/api/sfmc/economy/account') {
       if (method === 'GET') {
         const playerId = params.get('playerId');
@@ -1080,7 +1109,6 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/economy/price-index ──────
     if (path === '/api/sfmc/economy/price-index') {
       if (method === 'GET') {
         json(res, { items: query('SELECT * FROM sfmc_economy_price_index ORDER BY rarity, item_type') });
@@ -1117,7 +1145,6 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/economy/daily-tasks ──────
     if (path === '/api/sfmc/economy/daily-tasks') {
       if (method === 'GET') {
         const tasks = query("SELECT * FROM sfmc_economy_daily_tasks WHERE status='active' AND expires_at>? ORDER BY created_at ASC", [Date.now()]);
@@ -1167,7 +1194,6 @@ async function handle(req, res) {
       return;
     }
 
-    // ────── /api/sfmc/economy/command-usage ──────
     if (path === '/api/sfmc/economy/command-usage') {
       if (method === 'GET') {
         const playerId = params.get('playerId');
@@ -1191,7 +1217,6 @@ async function handle(req, res) {
       json(res, { ok: false, error: 'not_found' }, 404); return;
     }
 
-    // ────── /api/sfmc/economy/stats/monthly ──────
     if (path === '/api/sfmc/economy/stats/monthly') {
       const now = new Date();
       const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1297,7 +1322,7 @@ async function handle(req, res) {
       const tail = path.slice('/api/sfmc/lands/'.length).split('/');
       const id = decodeURIComponent(tail[0]);
       const playerId = decodeURIComponent(tail[2] || '');
-      if (tail.length !== 3 || tail[1] !== 'members' || method !== 'PATCH') { json(res, { success: false, error: 'not_found' }, 404); return; }
+      if (tail.length !== 3 || tail[1] !== 'members' || method !== 'POST') { json(res, { success: false, error: 'not_found' }, 404); return; }
       const data = await body(req);
       const currentRole = query('SELECT role FROM sfmc_land_members WHERE land_id=? AND player_id=? AND (expires_at IS NULL OR expires_at>?)', [id, playerId, Date.now()])[0]?.role;
       if (!currentRole || !data.actorId || !canManageMember(id, data.actorId, currentRole)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
@@ -1384,7 +1409,7 @@ async function handle(req, res) {
       return;
     }
 
-    // POST /api/sfmc/lands/:id/tax-collect — 征收地皮税
+    // POST /api/sfmc/lands/:id/tax-collect — 征收地皮税 地主模拟器
     if (path.startsWith('/api/sfmc/lands/') && path.endsWith('/tax-collect') && method === 'POST') {
       const tid = decodeURIComponent(path.slice('/api/sfmc/lands/'.length, -'/tax-collect'.length));
       const data = await body(req);
@@ -1392,22 +1417,30 @@ async function handle(req, res) {
       const land = query("SELECT * FROM sfmc_lands WHERE id=? AND status='active'", [tid])[0];
       if (!land) { json(res, { ok: false, error: 'not_found' }, 404); return; }
       if (land.tax_rate <= 0) { json(res, { ok: false, error: 'no_tax' }, 400); return; }
-      const taxAmount = Math.floor((land.purchase_price || 100) * land.tax_rate / 10000);
+      // 税额与周期来自 configs/land.json 的 land:tax 键
+      const taxCfgRow = query("SELECT value FROM sfmc_config_settings WHERE key='land:tax'")[0];
+      let taxCfg = { periodDays: 7, fallbackPurchasePrice: 100, freezeOnInsufficient: true };
+      try { if (taxCfgRow) taxCfg = { ...taxCfg, ...JSON.parse(taxCfgRow.value) }; } catch {}
+      const periodMs = (Number(taxCfg.periodDays) || 7) * 86400000;
+      const fallbackPrice = Number(taxCfg.fallbackPurchasePrice) || 100;
+      const taxAmount = Math.floor((Number(land.purchase_price) || fallbackPrice) * land.tax_rate / 10000);
       if (taxAmount <= 0) { json(res, { ok: true, taxCollected: 0, message: '免税' }); return; }
       db.exec('BEGIN IMMEDIATE');
       try {
         const account = ensureEconomyAccount(land.owner_player_id, land.owner_name_snapshot);
         if (account.balance < taxAmount) {
-          query("UPDATE sfmc_lands SET tax_frozen=1, updated_at=? WHERE id=?", [Date.now(), tid]);
+          if (taxCfg.freezeOnInsufficient) {
+            query("UPDATE sfmc_lands SET tax_frozen=1, updated_at=? WHERE id=?", [Date.now(), tid]);
+          }
           db.exec('COMMIT');
-          json(res, { ok: false, error: 'insufficient_funds', frozen: true, taxAmount });
+          json(res, { ok: false, error: 'insufficient_funds', frozen: !!taxCfg.freezeOnInsufficient, taxAmount });
           return;
         }
         query('UPDATE sfmc_economy_accounts SET balance=balance-?, version=version+1, updated_at=? WHERE player_id=? AND balance>=?', [taxAmount, Date.now(), land.owner_player_id, taxAmount]);
         const now = Date.now();
         query('INSERT INTO sfmc_economy_transactions (id, transaction_type, actor_id, source_player_id, target_player_id, amount, balance_before, balance_after, reference_type, reference_id, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
           [`E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`, 'land.tax', data.actorId, land.owner_player_id, null, taxAmount, account.balance, account.balance - taxAmount, 'land', tid, '地皮税', now]);
-        query("UPDATE sfmc_lands SET tax_due_at=?, tax_frozen=0, updated_at=? WHERE id=?", [now + 604800000, now, tid]);
+        query("UPDATE sfmc_lands SET tax_due_at=?, tax_frozen=0, updated_at=? WHERE id=?", [now + periodMs, now, tid]);
         auditLand(tid, String(data.actorId), 'land.tax', { collected: taxAmount });
         db.exec('COMMIT');
         json(res, { ok: true, taxCollected: taxAmount, balance: account.balance - taxAmount });
@@ -1420,7 +1453,7 @@ async function handle(req, res) {
       const rows = query('SELECT * FROM sfmc_lands WHERE id=?', [id]);
       if (!rows.length) { json(res, { success: false, error: 'not_found' }, 404); return; }
       if (method === 'GET') { json(res, { land: mapLandRow(rows[0]) }); return; }
-      if (method === 'PATCH' || method === 'PUT') {
+      if (method === 'PUT') {
         const data = await body(req);
         if (!canManageLand(id, data.actorId)) { json(res, { success: false, error: 'forbidden' }, 403); return; }
         const current = rows[0];
@@ -1566,7 +1599,7 @@ async function handle(req, res) {
         const rows = query('SELECT * FROM sfmc_chat_channels WHERE id = ?', [id]);
         if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
         json(res, { channel: rows[0] });
-      } else if (method === 'PATCH' || method === 'PUT') {
+      } else if (method === 'PUT') {
         const raw = await body(req);
         const data = raw.channel || raw;
         if (!data || typeof data !== 'object') { json(res, { success: false, error: 'invalid' }, 400); return; }
@@ -1693,7 +1726,7 @@ async function handle(req, res) {
           query('INSERT INTO sfmc_economy_transactions (id,transaction_type,actor_id,source_player_id,target_player_id,amount,balance_before,balance_after,reference_type,reference_id,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [tx, 'redpacket.claim', actorId, null, actorId, amount, account.balance, account.balance + amount, 'redpacket', id.slice(0, -6), '领取红包', now]);
           db.exec('COMMIT'); json(res, { success: true, amount, transactionId: tx, account: economyResult(ensureEconomyAccount(actorId)) });
         } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { success: false, error: error.message || 'redpacket_claim_failed' }, 500); }
-      } else if (method === 'PATCH' || method === 'PUT') {
+      } else if (method === 'PUT') {
         json(res, { success: false, error: 'legacy_route_disabled' }, 410);
       } else if (method === 'DELETE') {
         query('DELETE FROM sfmc_chat_redpackets WHERE id = ?', [id]);
@@ -1794,7 +1827,7 @@ async function handle(req, res) {
         const rows = query('SELECT * FROM sfmc_players WHERE id = ?', [id]);
         if (rows.length === 0) { json(res, { success: false, error: 'not_found' }, 404); return; }
         json(res, { player: rows[0] });
-      } else if (method === 'PATCH' || method === 'PUT') {
+      } else if (method === 'PUT') {
         const { player } = await body(req);
         if (!player || typeof player !== 'object') { json(res, { success: false, error: 'invalid' }, 400); return; }
         const FIELD_MAP = {
@@ -1988,20 +2021,6 @@ async function handle(req, res) {
       const can = (id, capability) => { const role = roleOf(id); return role === 'owner' || (role === 'admin' && ['manage_notice','manage_members','manage_shop','audit'].includes(capability)) || (role === 'member' && ['view','deposit','withdraw'].includes(capability)); };
       const snapshot = () => ({ ...query("SELECT * FROM sfmc_coops WHERE cid=?", [cid])[0], account: query('SELECT * FROM sfmc_coop_accounts WHERE cid=?', [cid])[0], members: query('SELECT * FROM sfmc_coop_members WHERE cid=?', [cid]) });
       if (!sub && method === 'GET') { json(res, { ok: true, coop: snapshot() }); return; }
-      if (sub === 'settings' && method === 'PATCH') {
-        const data = await body(req), actorId = String(data.actorId || ''), feeBps = Number(data.feeBps);
-        if (roleOf(actorId) !== 'owner') { json(res, { ok: false, error: 'forbidden' }, 403); return; }
-        if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 3000) { json(res, { ok: false, error: 'invalid_fee' }, 400); return; }
-        const now = Date.now(), before = query('SELECT fee_bps FROM sfmc_coops WHERE cid=?', [cid])[0];
-        db.exec('BEGIN IMMEDIATE');
-        try {
-          query('UPDATE sfmc_coops SET fee_bps=?,version=version+1,updated_at=? WHERE cid=? AND status=\'active\'', [feeBps, now, cid]);
-          const tx = `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-          query('INSERT INTO sfmc_coop_audit_logs (cid,actor_id,action,before_state,after_state,transaction_id,created_at) VALUES (?,?,?,?,?,?,?)', [cid, actorId, 'coop.fee_change', JSON.stringify(before), JSON.stringify({ fee_bps: feeBps }), tx, now]);
-          db.exec('COMMIT'); json(res, { ok: true, feeBps, transactionId: tx, coop: snapshot() });
-        } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'settings_failed' }, 500); }
-        return;
-      }
       if (sub === 'members' && method === 'GET') { json(res, { ok: true, members: query('SELECT * FROM sfmc_coop_members WHERE cid=?', [cid]) }); return; }
       if (sub === 'invites' && method === 'GET') {
         const inviteeId = String(params.get('playerId') || '');
@@ -2052,7 +2071,7 @@ async function handle(req, res) {
         query('INSERT INTO sfmc_coop_members (cid,player_id,player_name_snapshot,role,joined_at) VALUES (?,?,?,?,?)', [cid, targetId, String(data.playerName || ''), 'member', Date.now()]);
         json(res, { ok: true, coop: snapshot() }); return;
       }
-      if (sub === 'members' && method === 'PATCH' && playerId) {
+      if (sub === 'members' && (method === 'PUT') && playerId) {
         const data = await body(req); if (!can(String(data.actorId || ''), 'manage_members') || !['admin','member'].includes(String(data.role))) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
         query('UPDATE sfmc_coop_members SET role=?,version=version+1 WHERE cid=? AND player_id=? AND role<>\'owner\'', [String(data.role), cid, decodeURIComponent(playerId)]);
         json(res, { ok: true, coop: snapshot() }); return;
@@ -2075,7 +2094,7 @@ async function handle(req, res) {
         } catch (error) { try { db.exec('ROLLBACK'); } catch {} json(res, { ok: false, error: error.message || 'treasury_failed' }, 500); }
         return;
       }
-      if (!sub && (method === 'PATCH' || method === 'PUT')) {
+      if (!sub && (method === 'PUT')) {
         const data = await body(req); if (!can(String(data.actorId || ''), 'manage_notice')) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
         const sets = ['updated_at=?','version=version+1'], values = [Date.now()]; if (data.name !== undefined) { sets.push('name=?'); values.push(String(data.name)); } if (data.notice !== undefined) { sets.push('notice=?'); values.push(String(data.notice)); } values.push(cid); query(`UPDATE sfmc_coops SET ${sets.join(',')} WHERE cid=? AND status='active'`, values); json(res, { ok: true, coop: snapshot() }); return;
       }
@@ -2116,7 +2135,7 @@ async function handle(req, res) {
       const subId = parts[2];
       if (!cid) { json(res, { success: false, error: 'invalid' }, 400); return; }
 
-      // GET/PATCH/DELETE /api/sfmc/coops/:cid
+      // GET/DELETE /api/sfmc/coops/:cid
       if (!sub) {
         if (method === 'GET') {
           const rows = query('SELECT * FROM sfmc_coops WHERE cid = ?', [cid]);
@@ -2125,7 +2144,7 @@ async function handle(req, res) {
           coop.members = query('SELECT * FROM sfmc_coop_members WHERE cid = ?', [cid]);
           coop.shop_items = query('SELECT * FROM sfmc_coop_shop_items WHERE cid = ?', [cid]);
           json(res, { coop });
-        } else if (method === 'PATCH' || method === 'PUT') {
+        } else if (method === 'PUT') {
           json(res, { ok: false, error: 'legacy_route_disabled' }, 410);
         } else if (method === 'DELETE') {
           json(res, { ok: false, error: 'legacy_route_disabled' }, 410);
@@ -2303,7 +2322,6 @@ async function handle(req, res) {
       json(res, { success: false, error: 'not_found' }, 404); return;
     }
 
-    // ────── /api/sfmc/areas (GET with module filter) ──────
     // ────── /api/sfmc/permissions ──────
     if (path === '/api/sfmc/permissions') {
       if (method === 'GET') { json(res, { permissions: query('SELECT * FROM sfmc_config_permissions') }); return; }

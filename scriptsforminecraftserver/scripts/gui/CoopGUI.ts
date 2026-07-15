@@ -19,7 +19,7 @@ function countItemInInventory(player: Player): number {
 }
 
 function _genId(): string {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function _fmtGoodBt(name: string, unit: string, price: number, sv: number, num: number, isBuy: boolean): string {
@@ -63,7 +63,6 @@ export class CoopGUI {
     this.nav.section("coopList", "合作社列表", (p) => this.buildCoopList(p));
     this.nav.section("createCoop", "创建合作社", (p) => this.buildCreateCoop(p));
     this.nav.section("adminPanel", "管理面板", (p) => this.buildAdminPanel(p));
-    this.nav.section("editNotice", "编辑公告", (p) => this.buildEditNotice(p));
     this.nav.section("talkToMembers", "喊话", (p) => this.buildTalkToMembers(p));
     this.nav.section("addAdmin", "添加管理", (p) => this.buildAddAdmin(p));
     this.nav.section("bankPanel", "银行", (p) => this.buildBankPanel(p));
@@ -224,25 +223,9 @@ export class CoopGUI {
       page.label("请先加入一个合作社。");
       return;
     }
-    page.label(ListFormInfo(["§6CID:§r " + cid]));
-    page.button("编辑公告", () => this.nav.go("editNotice"));
+    page.label(ListFormInfo(["CID: " + cid]));
     page.button("向所有成员喊话", () => this.nav.go("talkToMembers"));
     page.button("添加管理成员", () => this.nav.rebuild("addAdmin"));
-  }
-
-  private buildEditNotice(page: any): void {
-    const status = new FormStatus(page);
-    const cid = this.nav.state.cid as string | undefined;
-    if (!cid) {
-      page.label("请先加入一个合作社。");
-      return;
-    }
-    const obsNotice = obsStr("");
-    page.textField("公告内容", obsNotice);
-    page.button("确认", async () => {
-      await CoopCore.setNotice(cid, obsNotice.getData() || "");
-      status.info("设置成功。");
-    });
   }
 
   private buildTalkToMembers(page: any): void {

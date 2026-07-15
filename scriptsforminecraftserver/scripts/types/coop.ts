@@ -12,7 +12,6 @@ export interface CoopData {
   owner_player_id: string;
   owner_name_snapshot: string;
   status?: string;
-  notice?: string;
   fee_bps?: number;
   account?: { cid: string; balance: number; version: number };
   members?: CoopMember[];

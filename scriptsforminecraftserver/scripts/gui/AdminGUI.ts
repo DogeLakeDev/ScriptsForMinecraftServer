@@ -53,7 +53,7 @@ export class AdminGUI {
   }
 
   private async onToggle(name: string, val: boolean): Promise<void> {
-    const ok = await HttpDB.patch(`/api/sfmc/modules/${name}`, { enabled: val });
+    const ok = await HttpDB.put(`/api/sfmc/modules/${name}`, { enabled: val });
     if (!ok) {
       Msg.error(`${name} 修改失败`, this.player);
       return;

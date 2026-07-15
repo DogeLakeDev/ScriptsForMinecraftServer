@@ -8,7 +8,7 @@
  */
 
 import { system } from "@minecraft/server";
-import { http, HttpRequest } from "@minecraft/server-net";
+import { http, HttpRequest, HttpRequestMethod } from "@minecraft/server-net";
 
 const HOST = "127.0.0.1";
 const PORT = 3001;
@@ -75,14 +75,14 @@ export class HttpDB {
   // ---- 通用 HTTP 方法 ----
 
   private static async request(
-    method: string,
+    method: HttpRequestMethod,
     path: string,
     bodyData?: Record<string, unknown>
   ): Promise<{ status: number; body: string }> {
     try {
       const req = new HttpRequest(`${BASE_URL}${path}`);
       req.timeout = TIMEOUT;
-      (req as any).method = method;
+      req.method = method;
 
       if (bodyData) {
         req.body = JSON.stringify(bodyData);
@@ -103,7 +103,7 @@ export class HttpDB {
   }
 
   static async requestJSON(
-    method: string,
+    method: HttpRequestMethod,
     path: string,
     bodyData?: Record<string, unknown>
   ): Promise<{ status: number; body: string }> {
@@ -111,7 +111,7 @@ export class HttpDB {
   }
 
   static async typedRequest<T = any>(
-    method: string,
+    method: HttpRequestMethod,
     path: string,
     bodyData?: Record<string, unknown>
   ): Promise<{ ok: boolean; data?: T; error?: string; status: number }> {
@@ -127,7 +127,7 @@ export class HttpDB {
   }
 
   static async get(path: string): Promise<string | null> {
-    const { status, body } = await this.request("Get", path);
+    const { status, body } = await this.request(HttpRequestMethod.GET, path);
     if (status !== 200) {
       console.info(`[HttpDB] GET ${path} → ${status}`);
     }
@@ -135,7 +135,7 @@ export class HttpDB {
   }
 
   static async post(path: string, bodyData: Record<string, unknown>): Promise<boolean> {
-    const { status, body } = await this.request("Post", path, bodyData);
+    const { status, body } = await this.request(HttpRequestMethod.POST, path, bodyData);
     if (status !== 200) {
       console.info(`[HttpDB] POST ${path} → ${status}`);
     }
@@ -143,23 +143,15 @@ export class HttpDB {
   }
 
   static async put(path: string, bodyData: Record<string, unknown>): Promise<boolean> {
-    const { status, body } = await this.request("Put", path, bodyData);
+    const { status, body } = await this.request(HttpRequestMethod.PUT, path, bodyData);
     if (status !== 200) {
       console.info(`[HttpDB] PUT ${path} → ${status}`);
     }
     return status === 200;
   }
 
-  static async patch(path: string, bodyData: Record<string, unknown>): Promise<boolean> {
-    const { status, body } = await this.request("Patch", path, bodyData);
-    if (status !== 200) {
-      console.info(`[HttpDB] PATCH ${path} → ${status}`);
-    }
-    return status === 200;
-  }
-
   static async del(path: string): Promise<boolean> {
-    const { status, body } = await this.request("Delete", path);
+    const { status, body } = await this.request(HttpRequestMethod.DELETE, path);
     if (status !== 200) {
       console.info(`[HttpDB] DELETE ${path} → ${status}`);
     }

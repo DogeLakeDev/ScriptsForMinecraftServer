@@ -25,17 +25,3 @@ export async function loadScoreboards(filter?: {
     return null;
   }
 }
-
-export async function getScoreboardObjectives(): Promise<any[] | null> {
-  const body = await HttpDB.get("/api/sfmc/scoreboards/objectives");
-  if (!body) return null;
-  try {
-    return JSON.parse(body).objectives;
-  } catch {
-    return null;
-  }
-}
-
-export async function clearScoreboards(): Promise<boolean> {
-  return HttpDB.del("/api/sfmc/scoreboards");
-}

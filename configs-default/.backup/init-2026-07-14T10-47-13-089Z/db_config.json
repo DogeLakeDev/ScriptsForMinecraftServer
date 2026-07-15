@@ -1,0 +1,6 @@
+{
+  "db_port": 3001,
+  "http_auth": "",
+  "dbDir": "./data/sfmc_data.db",
+  "modulesDir": "../modules"
+}

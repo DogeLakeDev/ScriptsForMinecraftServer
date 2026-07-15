@@ -233,7 +233,7 @@ export class ConfigManager {
   private static async _fetchModules(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/modules");
-      if (!body) return;
+      if (!body) { this._recordError("modules", "empty response"); return; }
       const { modules } = JSON.parse(body);
       this.cache.modules.clear();
       for (const m of modules) {
@@ -249,7 +249,7 @@ export class ConfigManager {
   private static async _fetchSettings(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/settings");
-      if (!body) return;
+      if (!body) { this._recordError("settings", "empty response"); return; }
       const { settings } = JSON.parse(body);
       this.cache.settings.clear();
       for (const s of settings) this.cache.settings.set(s.key, s.value);
@@ -262,7 +262,7 @@ export class ConfigManager {
   private static async _fetchAreas(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/areas");
-      if (!body) return;
+      if (!body) { this._recordError("areas", "empty response"); return; }
       this.cache.areas = (JSON.parse(body).areas || []).map((a: any) => ({
         name: a.name || "",
         dimension: a.dimension,
@@ -279,7 +279,7 @@ export class ConfigManager {
   private static async _fetchPermissions(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/permissions");
-      if (!body) return;
+      if (!body) { this._recordError("permissions", "empty response"); return; }
       const { permissions } = JSON.parse(body);
       this.cache.permissions = {};
       for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
@@ -292,7 +292,7 @@ export class ConfigManager {
   private static async _fetchBannedItems(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/banned_items");
-      if (!body) return;
+      if (!body) { this._recordError("banned_items", "empty response"); return; }
       this.cache.bannedItems = (JSON.parse(body).items || []).map((i: any) => i.item_id);
       this._clearError("banned_items");
     } catch (e) {
@@ -303,7 +303,7 @@ export class ConfigManager {
   private static async _fetchClean(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/clean");
-      if (!body) return;
+      if (!body) { this._recordError("clean", "empty response"); return; }
       const { clean } = JSON.parse(body);
       if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
       this._clearError("clean");
@@ -315,7 +315,7 @@ export class ConfigManager {
   private static async _fetchGrids(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/grids");
-      if (!body) return;
+      if (!body) { this._recordError("grids", "empty response"); return; }
       const { grids } = JSON.parse(body);
       this.cache.grids = {};
       for (const g of grids) {
@@ -334,7 +334,7 @@ export class ConfigManager {
   private static async _fetchPeaceFilters(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/peace_filters");
-      if (!body) return;
+      if (!body) { this._recordError("peace_filters", "empty response"); return; }
       this.cache.peaceFilters = JSON.parse(body).filters || [];
       this._clearError("peace_filters");
     } catch (e) {
@@ -345,7 +345,7 @@ export class ConfigManager {
   private static async _fetchQA(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/qa");
-      if (!body) return;
+      if (!body) { this._recordError("qa", "empty response"); return; }
       const { questions } = JSON.parse(body);
       this.cache.questions = questions.map((q: any) => ({
         weight: q.weight,

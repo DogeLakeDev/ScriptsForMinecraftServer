@@ -1,3 +1,4 @@
+import { HttpRequestMethod } from "@minecraft/server-net";
 import { HttpDB } from "../libs/HttpDB";
 import { toQueryString } from "../libs/Tools";
 import type { Channel, ChatMessage, RedPacket } from "../types/chat";
@@ -135,7 +136,7 @@ export async function saveChannels(channels: Channel[]): Promise<boolean> {
  * @returns 是否成功
  */
 export async function patchChannel(channelId: string, data: Record<string, unknown>): Promise<boolean> {
-  return HttpDB.patch(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data);
+  return HttpDB.put(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data);
 }
 
 /**
@@ -229,24 +230,18 @@ export async function claimRedPacket(
   actorId: string,
   actorName: string
 ): Promise<{ ok: boolean; amount?: number; error?: string }> {
-  const result = await HttpDB.requestJSON("Post", `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`, {
-    actorId,
-    actorName,
-  });
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod.POST,
+    `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`,
+    {
+      actorId,
+      actorName,
+    }
+  );
   try {
     const parsed = JSON.parse(result.body);
     return { ok: result.status === 200 && parsed.success, amount: parsed.amount, error: parsed.error };
   } catch {
     return { ok: false, error: "invalid_response" };
   }
-}
-
-/**
- * 更新红包
- * @param redpacketId 红包id
- * @param redpacketModify 红包修改字段
- * @returns 是否成功
- */
-export async function updateRedPacket(redpacketId: string, redpacketModify: Record<string, unknown>): Promise<boolean> {
-  return HttpDB.patch(`${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}`, redpacketModify);
 }

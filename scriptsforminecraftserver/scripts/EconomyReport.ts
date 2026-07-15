@@ -1,4 +1,5 @@
 import { system, world } from "@minecraft/server";
+import { HttpRequestMethod } from "@minecraft/server-net";
 import { HttpDB } from "./libs/HttpDB";
 import { Money } from "./libs/Money";
 
@@ -26,7 +27,7 @@ export class EconomyReport {
   }
 
   private static async publish(): Promise<void> {
-    const result = await HttpDB.typedRequest("Get", "/api/sfmc/economy/stats/monthly");
+    const result = await HttpDB.typedRequest(HttpRequestMethod.GET, "/api/sfmc/economy/stats/monthly");
     if (!result.ok) return;
     const stats = (result.data as any)?.stats;
     if (!stats) return;

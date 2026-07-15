@@ -1,3 +1,4 @@
+import { HttpRequestMethod } from "@minecraft/server-net";
 import { debug } from "../libs/DebugLog";
 import { HttpDB } from "../libs/HttpDB";
 import type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "../types";
@@ -60,7 +61,7 @@ export async function getCoop(cid: string): Promise<CoopData | null> {
  */
 export async function updateCoop(cid: string, data: Partial<CoopData> & { actorId: string }): Promise<boolean> {
   debug.i("API", `updateCoop: cid=${cid}`);
-  return HttpDB.patch(`${PATH}/${encodeURIComponent(cid)}`, data);
+  return HttpDB.put(`${PATH}/${encodeURIComponent(cid)}`, data);
 }
 
 /**
@@ -72,45 +73,7 @@ export async function updateCoop(cid: string, data: Partial<CoopData> & { actorI
  */
 export async function deleteCoop(cid: string, actorId: string): Promise<boolean> {
   debug.i("API", `deleteCoop: cid=${cid} actorId=${actorId}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(cid)}`, { actorId });
-  return result.status === 200;
-}
-
-export async function updateCoopFee(cid: string, actorId: string, feeBps: number): Promise<boolean> {
-  debug.i("API", `updateCoopFee: cid=${cid} feeBps=${feeBps}`);
-  const result = await HttpDB.requestJSON("Patch", `${PATH}/${encodeURIComponent(cid)}/settings`, { actorId, feeBps });
-  return result.status === 200;
-}
-
-export async function inviteCoopMember(
-  cid: string,
-  actorId: string,
-  playerId: string,
-  playerName: string,
-  role: "admin" | "member" = "member"
-): Promise<boolean> {
-  debug.i("API", `inviteCoopMember: cid=${cid} player=${playerName} role=${role}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites`, {
-    actorId,
-    playerId,
-    playerName,
-    role,
-  });
-  return result.status === 200;
-}
-
-export async function acceptCoopInvite(
-  cid: string,
-  inviteId: string,
-  playerId: string,
-  playerName: string
-): Promise<boolean> {
-  debug.i("API", `acceptCoopInvite: cid=${cid} inviteId=${inviteId} player=${playerName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites/accept`, {
-    actorId: playerId,
-    inviteId,
-    playerName,
-  });
+  const result = await HttpDB.requestJSON(HttpRequestMethod.DELETE, `${PATH}/${encodeURIComponent(cid)}`, { actorId });
   return result.status === 200;
 }
 
@@ -134,28 +97,9 @@ export async function getMembers(cid: string): Promise<CoopMember[]> {
   }
 }
 
-/**
- *
- *
- * @export
- * @param {string} cid
- * @param {string} player_name
- * @param {boolean} [is_op]
- * @return {*}  {Promise<boolean>}
- */
-export async function addMember(cid: string, actorId: string, playerId: string, playerName: string): Promise<boolean> {
-  debug.i("API", `addMember: cid=${cid} player=${playerName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members`, {
-    actorId,
-    playerId,
-    playerName,
-  });
-  return result.status === 200;
-}
-
 export async function joinCoop(cid: string, playerId: string, playerName: string): Promise<boolean> {
   debug.i("API", `joinCoop: cid=${cid} player=${playerName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/join`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(cid)}/members/join`, {
     actorId: playerId,
     playerId,
     playerName,
@@ -165,7 +109,7 @@ export async function joinCoop(cid: string, playerId: string, playerName: string
 
 export async function leaveCoop(cid: string, playerId: string): Promise<boolean> {
   debug.i("API", `leaveCoop: cid=${cid} playerId=${playerId}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
     actorId: playerId,
   });
   return result.status === 200;
@@ -179,7 +123,7 @@ export async function updateMemberRole(
 ): Promise<boolean> {
   debug.i("API", `updateMemberRole: cid=${cid} playerId=${playerId} role=${role}`);
   const result = await HttpDB.requestJSON(
-    "Patch",
+    HttpRequestMethod.PUT,
     `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId)}`,
     { actorId, role }
   );
@@ -197,7 +141,7 @@ export async function updateMemberRole(
 export async function removeMember(cid: string, actorId: string, playerId: string): Promise<boolean> {
   debug.i("API", `removeMember: cid=${cid} playerId=${playerId}`);
   const result = await HttpDB.requestJSON(
-    "Delete",
+    HttpRequestMethod.DELETE,
     `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId)}`,
     { actorId }
   );
@@ -271,28 +215,6 @@ export async function getBankLog(cid: string): Promise<CoopBankLog[]> {
   }
 }
 
-/**
- *
- *
- * @export
- * @param {string} cid
- * @param {string} player_name
- * @param {number} type
- * @param {number} amount
- * @param {string} [note]
- * @return {*}  {Promise<boolean>}
- */
-export async function addBankLog(
-  cid: string,
-  player_name: string,
-  type: number,
-  amount: number,
-  note?: string
-): Promise<boolean> {
-  debug.i("API", `addBankLog: cid=${cid} player=${player_name} type=${type} amount=${amount}`);
-  return HttpDB.post(`${PATH}/${encodeURIComponent(cid)}/bank_log`, { player_name, type, amount, note });
-}
-
 // ── Shop Groups ──
 
 /**
@@ -349,7 +271,7 @@ export async function createCoop(
   actorName: string
 ): Promise<{ ok: boolean; coop?: CoopData; balance?: number; error?: string }> {
   debug.i("API", `createCoop: name=${name} cid=${cid} actor=${actorName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/create`, { name, cid, actorId, actorName });
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/create`, { name, cid, actorId, actorName });
   try {
     const parsed = JSON.parse(result.body);
     return {
@@ -372,7 +294,7 @@ export async function treasury(
   note = ""
 ) {
   debug.i("API", `treasury: cid=${cid} actor=${actorName} mode=${mode} amount=${amount}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
     actorId,
     actorName,
     amount,
@@ -395,7 +317,7 @@ export async function coopShopBuy(
   idempotencyKey?: string
 ) {
   debug.i("API", `coopShopBuy: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/shop/buy`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(cid)}/shop/buy`, {
     actorId,
     actorName,
     listingId,
@@ -419,7 +341,7 @@ export async function coopShopSell(
   idempotencyKey?: string
 ) {
   debug.i("API", `coopShopSell: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/shop/sell`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(cid)}/shop/sell`, {
     actorId,
     actorName,
     listingId,

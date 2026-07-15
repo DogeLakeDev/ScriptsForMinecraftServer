@@ -14,7 +14,6 @@ import {
   joinCoop as joinCoopApi,
   leaveCoop as leaveCoopApi,
   treasury,
-  updateCoop,
 } from "../api";
 import { debug } from "../libs/DebugLog";
 import { Money } from "../libs/Money";
@@ -40,11 +39,7 @@ export class CoopCore {
   };
 
   static generateId(): string {
-    return `${Date.now().toString(36)}_${(++this._guidCounter).toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-  }
-
-  static getConfig() {
-    return this.cooperativeConfig;
+    return `${Date.now().toString(36)}_${(++this._guidCounter).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
   private static _countItemInInventory(player: Player, typeId: string): number {
@@ -204,7 +199,7 @@ export class CoopCore {
       .filter((m) => m.role === "owner" || m.role === "admin")
       .map((m) => m.player_name_snapshot)
       .join(", ");
-    return `公告：\n${data.notice}\n\n合作社名称: ${data.name}\n社长&管理: ${ops}\n人数: ${(data.members || []).length}\n银行经济: ${data.account?.balance || 0}`;
+    return `合作社名称: ${data.name}\n社长&管理: ${ops}\n成员: \n${(data.members || []).join("\n")}\n银行经济: ${data.account?.balance || 0}`;
   }
 
   static async getMemberList(cid: string): Promise<string[]> {
@@ -234,12 +229,6 @@ export class CoopCore {
     await import("../api/CoopAPI").then((api) =>
       api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin")
     );
-  }
-
-  static async setNotice(cid: string, text: string) {
-    debug.i("COOP", `setNotice: cid=${cid} text=${text}`);
-    const data = await getCoop(cid);
-    if (data) await updateCoop(cid, { actorId: data.owner_player_id, notice: text });
   }
 
   // ==========================================
@@ -354,7 +343,7 @@ export class CoopCore {
     }
 
     try {
-      player.runCommand(`give "${player.name}" ${good.item_type} ${num} ${good.item_aux ?? 0}`);
+      player.runCommand(`give @s ${good.item_type} ${num} ${good.item_aux ?? 0}`);
     } catch {
       Msg.error("物品发放失败，请联系管理员。", player);
       return { ok: false, error: "give_failed" };
@@ -383,7 +372,7 @@ export class CoopCore {
     }
 
     try {
-      player.runCommand(`clear "${player.name}" ${good.item_type} ${good.item_aux ?? 0} ${num}`);
+      player.runCommand(`clear @s ${good.item_type} ${good.item_aux ?? 0} ${num}`);
     } catch {
       Msg.error("从背包扣除物品失败。", player);
       return { ok: false, error: "clear_failed" };
@@ -393,7 +382,7 @@ export class CoopCore {
     const result = await coopShopSell(good.cid, player.id, player.name, gid, num, idempotencyKey);
     if (!result.ok) {
       try {
-        player.runCommand(`give "${player.name}" ${good.item_type} ${num} ${good.item_aux ?? 0}`);
+        player.runCommand(`give @s ${good.item_type} ${num} ${good.item_aux ?? 0}`);
       } catch {}
       Msg.error(`出售失败：${result.error || "服务器错误"}，物品已返还。`, player);
       debug.e("COOP", `sell: API failed ${result.error}`);

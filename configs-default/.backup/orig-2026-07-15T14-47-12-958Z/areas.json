@@ -1,0 +1,29 @@
+[
+  {
+    "module": "fly",
+    "name": "fly2",
+    "dimension": "minecraft:overworld",
+    "start_x": 951,
+    "start_z": -2715,
+    "end_x": 4604,
+    "end_z": 5628
+  },
+  {
+    "module": "peace",
+    "name": "",
+    "dimension": "minecraft:overworld",
+    "start_x": -16,
+    "start_z": 16,
+    "end_x": -12,
+    "end_z": 12
+  },
+  {
+    "module": "peace",
+    "name": "",
+    "dimension": "minecraft:overworld",
+    "start_x": 951,
+    "start_z": -2715,
+    "end_x": 4604,
+    "end_z": 5628
+  }
+]

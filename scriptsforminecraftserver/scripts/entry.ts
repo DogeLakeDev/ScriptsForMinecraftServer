@@ -425,11 +425,6 @@ export class AddOnInit {
       system.run(async () => {
         await ConfigManager.init();
 
-        // 孤立权限（无对应模块的遗留项）
-        Permission.register("holorint.menu", Permission.Member);
-        Permission.register("holorint.pos1", Permission.Member);
-        Permission.register("holorint.pos2", Permission.Member);
-
         setModuleGuard((moduleId) => {
           const idKey = moduleId as keyof typeof Modules;
           return ModuleRegistry.isActive(idKey);

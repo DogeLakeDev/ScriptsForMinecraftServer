@@ -5,9 +5,7 @@
       "label": "build",
       "type": "shell",
       "command": "npm run build",
-      "dependsOn": [
-        "minecraft: deploy"
-      ]
+      "dependsOn": ["minecraft: deploy"]
     },
     {
       "label": "deploy",

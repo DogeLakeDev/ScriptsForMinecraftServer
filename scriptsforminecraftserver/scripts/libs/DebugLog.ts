@@ -1,4 +1,4 @@
-const ENABLED = true;
+const ENABLED = false;
 
 const LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
 
@@ -27,7 +27,7 @@ function log(level: keyof typeof LEVELS, module: string, msg: string, ...args: a
         })
         .join(" ")
     : "";
-  console.log(`[${ts()}[${level}][${module}] ${msg}${extra}`);
+  console.log(`[${ts()}][${level}][${module}] ${msg}${extra}`);
 }
 
 export const debug = {

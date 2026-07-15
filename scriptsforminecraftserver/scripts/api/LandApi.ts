@@ -1,3 +1,4 @@
+import { HttpRequestMethod } from "@minecraft/server-net";
 import { LandData, LandPos } from "../land/LandDatabase";
 import { debug } from "../libs/DebugLog";
 import { HttpDB } from "../libs/HttpDB";
@@ -76,43 +77,13 @@ export async function getAllLands(): Promise<LandData[] | null> {
   }
 }
 
-export async function getLand(id: string): Promise<LandData | null> {
-  debug.i("API", `getLand: id=${id}`);
-  return parseLand(await HttpDB.get(`${PATH}/${encodeURIComponent(id)}`));
-}
-
-export async function getLandsByOwner(ownerId: string): Promise<LandData[]> {
-  debug.i("API", `getLandsByOwner: ownerId=${ownerId}`);
-  const body = await HttpDB.get(`${PATH}/by-owner/${encodeURIComponent(ownerId)}`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).lands || [];
-  } catch {
-    return [];
-  }
-}
-
-export async function getLandAt(dimid: number, pos: LandPos): Promise<LandData | null> {
-  debug.i("API", `getLandAt: dimid=${dimid} pos=(${pos.x},${pos.y},${pos.z})`);
-  return parseLand(await HttpDB.get(`${PATH}/at/${dimid}/${pos.x}/${pos.y}/${pos.z}`));
-}
-
-export async function getLandsAtBatch(
-  points: Array<{ dimid: number; x: number; y: number; z: number }>
-): Promise<Array<LandData | null>> {
-  debug.i("API", `getLandsAtBatch: ${points.length} points`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/at-batch`, { points });
-  if (result.status !== 200) return points.map(() => null);
-  try {
-    return JSON.parse(result.body).lands || points.map(() => null);
-  } catch {
-    return points.map(() => null);
-  }
-}
-
 export async function validateLand(request: CreateLandRequest): Promise<LandValidation> {
   debug.i("API", `validateLand: owner=${request.ownerId} dimid=${request.dimid}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/validate`, request as unknown as Record<string, unknown>);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod.POST,
+    `${PATH}/validate`,
+    request as unknown as Record<string, unknown>
+  );
   if (result.status === 0) return { ok: false, error: "数据库服务不可用。" };
   try {
     return JSON.parse(result.body);
@@ -131,7 +102,7 @@ export async function createLand(request: CreateLandRequest): Promise<{
   transactionId?: string;
 }> {
   debug.i("API", `createLand: owner=${request.ownerId} dimid=${request.dimid}`);
-  const result = await HttpDB.requestJSON("Post", PATH, request as unknown as Record<string, unknown>);
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, PATH, request as unknown as Record<string, unknown>);
   if (result.status !== 200) {
     try {
       const parsed = JSON.parse(result.body);
@@ -160,8 +131,8 @@ export async function updateLand(
 ): Promise<LandData | null> {
   debug.i("API", `updateLand: id=${id} actorId=${data.actorId} version=${data.expectedVersion}`);
   const result = await HttpDB.requestJSON(
-    "Patch",
-    `${PATH}/${encodeURIComponent(id)}`,
+    HttpRequestMethod.PUT,
+    `${PATH}/update/${encodeURIComponent(id)}`,
     data as Record<string, unknown>
   );
   return result.status === 200 ? parseLand(result.body) : null;
@@ -174,7 +145,7 @@ export async function deleteLand(
   requestId?: string
 ): Promise<DeleteLandResult> {
   debug.i("API", `deleteLand: id=${id} actorId=${actorId} version=${expectedVersion}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.DELETE, `${PATH}/${encodeURIComponent(id)}`, {
     actorId,
     expectedVersion,
     requestId,
@@ -221,7 +192,7 @@ export async function inviteMember(
   role: string
 ): Promise<LandMemberInviteResult> {
   debug.i("API", `inviteMember: landId=${id} playerId=${playerId} role=${role}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(id)}/members`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(id)}/members`, {
     actorId,
     playerId,
     role,
@@ -246,7 +217,10 @@ export async function inviteMember(
 
 export async function removeLandMember(id: string, actorId: string, playerId: string): Promise<LandMemberResult> {
   debug.i("API", `removeLandMember: landId=${id} playerId=${playerId}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(id)}/members`, { actorId, playerId });
+  const result = await HttpDB.requestJSON(HttpRequestMethod.DELETE, `${PATH}/${encodeURIComponent(id)}/members`, {
+    actorId,
+    playerId,
+  });
   if (result.status !== 200) {
     let parsed: any = {};
     try {
@@ -265,7 +239,7 @@ export async function updateLandMember(
 ): Promise<LandMemberResult> {
   debug.i("API", `updateLandMember: landId=${id} playerId=${playerId} role=${role}`);
   const result = await HttpDB.requestJSON(
-    "Patch",
+    HttpRequestMethod.POST,
     `${PATH}/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId)}`,
     { actorId, role }
   );
@@ -292,22 +266,28 @@ export async function getInvites(playerId: string): Promise<any[]> {
 
 export async function acceptInvite(playerId: string, inviteId: string): Promise<LandData | null> {
   debug.i("API", `acceptInvite: playerId=${playerId} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/invites/${encodeURIComponent(playerId)}`, { inviteId });
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/invites/${encodeURIComponent(playerId)}`, {
+    inviteId,
+  });
   return result.status === 200 ? parseLand(result.body) : null;
 }
 
 export async function declineInvite(playerId: string, inviteId: string): Promise<boolean> {
   debug.i("API", `declineInvite: playerId=${playerId} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/invites/${encodeURIComponent(playerId)}/decline`, {
-    inviteId,
-  });
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod.POST,
+    `${PATH}/invites/${encodeURIComponent(playerId)}/decline`,
+    {
+      inviteId,
+    }
+  );
   return result.status === 200;
 }
 
 export async function revokeInvite(id: string, actorId: string, inviteId: string): Promise<boolean> {
   debug.i("API", `revokeInvite: landId=${id} inviteId=${inviteId}`);
   const result = await HttpDB.requestJSON(
-    "Delete",
+    HttpRequestMethod.DELETE,
     `${PATH}/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`,
     { actorId }
   );
@@ -323,7 +303,7 @@ export async function transferLand(
   requestId?: string
 ): Promise<TransferLandResult> {
   debug.i("API", `transferLand: id=${id} from=${actorId} to=${targetName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(id)}/transfer`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(id)}/transfer`, {
     actorId,
     targetId,
     targetName,

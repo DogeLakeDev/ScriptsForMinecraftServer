@@ -129,7 +129,6 @@
       "minecraft:is_hidden_when_invisible": {},
       "minecraft:nameable": {},
 
-      // Zombie Components
       "minecraft:type_family": {
         "family": ["mob"]
       },
@@ -398,7 +397,6 @@
         "despawn_from_distance": {}
       },
 
-      // Zombie Behaviors
       "minecraft:behavior.equip_item": {
         "priority": 2
       },

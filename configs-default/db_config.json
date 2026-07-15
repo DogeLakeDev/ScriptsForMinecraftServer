@@ -1,0 +1,7 @@
+{
+  "_comment": "db-server 配置 —— 启动必读。SAPI 通过 HTTP 调用 :db_port; qq-bridge / panel 同样。本文件由 db-server 直接 fs.readFileSync 读取。",
+  "db_port": 3001,
+  "http_auth": "",
+  "dbDir": "./data/sfmc_data.db",
+  "modulesDir": "../modules"
+}

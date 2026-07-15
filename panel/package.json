@@ -11,7 +11,6 @@
   "dependencies": {
     "ink": "^7.1.0",
     "pidusage": "^4.0.1",
-    "react": "^19.2.7",
-    "scriptsforminecraft/db-server": "^1.0.0"
+    "react": "^19.2.7"
   }
 }

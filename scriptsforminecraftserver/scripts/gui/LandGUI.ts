@@ -13,7 +13,7 @@ import { canManage, getPlayerRole } from "../land/LandPolicy";
 import { debug } from "../libs/DebugLog";
 import { FormStatus, MenuNavigator, obsBool, obsNum, obsStr } from "../libs/MenuNavigator";
 import { Money } from "../libs/Money";
-import { ListFormInfo, Msg } from "../libs/Tools";
+import { dimensionId, ListFormInfo, Msg } from "../libs/Tools";
 
 const ROLES: LandRole[] = ["builder", "container", "visitor", "redstone", "entity", "admin"];
 const ROLE_NAMES: Record<LandRole, string> = {
@@ -52,7 +52,7 @@ export class LandGUI {
     const gui = new LandGUI(player);
     const session = LandCore.getSession(player.id);
     if (session)
-      gui.nav.state.gui.application = { ...session, dimensionId: session.dimensionId ?? dimensionId(player) };
+      gui.nav.state.gui.application = { ...session, dimensionId: session.dimensionId ?? dimensionId(player.dimension) };
     void getInvites(player.id)
       .then((invites) => {
         gui.state.invites = invites;
@@ -86,6 +86,7 @@ export class LandGUI {
     this.nav.section("protection", "访客保护", (page) => this.buildProtection(page));
     this.nav.section("basic", "基本信息", (page) => this.buildBasic(page));
     this.nav.section("risk", "所有权与风险", (page) => this.buildRisk(page));
+    this.nav.section("transferSelect", "转让土地", (page) => this.buildTransferSelect(page));
     this.nav.section("application", "土地申请", (page) => this.buildApplication(page));
     this.nav.section("plaza", "公共广场", (page) => void this.buildPlaza(page));
   }
@@ -98,7 +99,7 @@ export class LandGUI {
         y: Math.floor(this.player.location.y),
         z: Math.floor(this.player.location.z),
       },
-      dimensionId(this.player)
+      dimensionId(this.player.dimension)
     );
     const owned = LandCore.getPlayerLands(this.player.id);
     const application = this.state.application;
@@ -461,7 +462,7 @@ export class LandGUI {
         "删除后土地将进入已删除状态并按比例退款。",
       ])
     );
-    page.button("转让土地（在线）", () => void this.transferLand(land, status));
+    page.button("转让土地（在线）", () => void this.nav.rebuild("transferSelect"));
     page.button("删除土地", () => void this.deleteLand(land, status));
   }
 
@@ -474,7 +475,7 @@ export class LandGUI {
       (LandCore.initSession(this.player.id), LandCore.getSession(this.player.id));
     const application = this.state.application || {
       ...session,
-      dimensionId: session?.dimensionId ?? dimensionId(this.player),
+      dimensionId: session?.dimensionId ?? dimensionId(this.player.dimension),
     };
     this.state.application = application;
     const body = [
@@ -577,7 +578,7 @@ export class LandGUI {
     if (!LandCore.getSession(this.player.id)) LandCore.initSession(this.player.id);
     const session = LandCore.getSession(this.player.id);
     this.state.application = session
-      ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player) }
+      ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player.dimension) }
       : undefined;
     void this.nav.rebuild("application");
   }
@@ -593,41 +594,44 @@ export class LandGUI {
     await this.nav.refresh();
   }
 
-  private async transferLand(land: LandData, status: FormStatus): Promise<void> {
-    const target = world.getPlayers().find((p) => p.id !== this.player.id);
-    if (!target) {
-      await this.nav.message(
-        "无法转让土地",
-        "当前没有其他在线玩家。\n土地转让目前只能选择在线玩家。\n\n请返回后在其他玩家在线时重试。"
-      );
+  private buildTransferSelect(page: any): void {
+    const land = this.currentLand();
+    if (!land || !LandCore.isOwner(land, this.player.id)) return;
+    const status = new FormStatus(page);
+    const online = world.getPlayers().filter((p) => p.id !== this.player.id);
+    if (!online.length) {
+      page.label(ListFormInfo(["当前没有其他在线玩家。", "请稍后重试。"]));
       return;
     }
-    if (
-      !(await this.nav.confirmMessage(
-        "转让土地",
-        `确定将 ${land.nickname || land.id} 转让给 ${target.name} 吗？转让后你将成为管理员。`,
-        "确认转让",
-        "返回"
-      ))
-    )
-      return;
-    const { transferLand } = await import("../api/LandApi");
-    await this.nav.runTask(status, async () => {
-      const requestId = `land-transfer:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
-      const result = await transferLand(land.id, this.player.id, target.id, target.name, land.version, requestId);
-      if (!result.ok || !result.land) {
-        if (result.error === "version_conflict") {
-          await this.refreshAfterConflict();
-          return;
-        }
-        await this.nav.replace("home");
-        Msg.error(landErrorMessage(result.error, result.message), this.player);
-        return;
-      }
-      Database.upsert(result.land);
-      await this.nav.replace("home");
-      Msg.success(`土地已转让给 ${target.name}。`, this.player);
-    });
+    const target = obsNum(0);
+    page.dropdown(
+      "选择接收玩家",
+      target,
+      online.map((p, i) => ({ value: i, label: p.name }))
+    );
+    page.button(
+      "确认转让",
+      () =>
+        void this.nav.runTask(status, async () => {
+          const player = online[target.getData()];
+          if (!player) return;
+          const requestId = `land-transfer:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+          const { transferLand } = await import("../api/LandApi");
+          const result = await transferLand(land.id, this.player.id, player.id, player.name, land.version, requestId);
+          if (!result.ok || !result.land) {
+            if (result.error === "version_conflict") {
+              await this.refreshAfterConflict();
+              return;
+            }
+            await this.nav.replace("home");
+            Msg.error(landErrorMessage(result.error, result.message), this.player);
+            return;
+          }
+          Database.upsert(result.land);
+          await this.nav.replace("home");
+          Msg.success(`土地已转让给 ${player.name}。`, this.player);
+        })
+    );
   }
 
   private async deleteLand(land: LandData, status: FormStatus): Promise<void> {
@@ -641,7 +645,7 @@ export class LandGUI {
     )
       return;
     await this.nav.runTask(status, async () => {
-      const requestId = `land-delete:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      const requestId = `land-delete:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
       const deleted = await LandCore.deleteLand(land.id, this.player, requestId);
       if (!deleted.ok) {
         if (deleted.error === "version_conflict") {
@@ -665,10 +669,6 @@ export class LandGUI {
     await this.nav.replace("landDetail");
     await this.nav.message("土地数据已更新", "土地数据已被其他操作更新。\n已刷新最新数据，请重新确认本次操作。");
   }
-}
-
-function dimensionId(player: Player): number {
-  return player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
 }
 
 function roleText(land: LandData, playerId: string): string {

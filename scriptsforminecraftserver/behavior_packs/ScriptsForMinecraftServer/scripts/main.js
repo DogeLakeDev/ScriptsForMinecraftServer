@@ -34,13 +34,13 @@ function log(level, module, msg, ...args) {
       return String(a);
     }
   }).join(" ") : "";
-  console.log(`[${ts()}[${level}][${module}] ${msg}${extra}`);
+  console.log(`[${ts()}][${level}][${module}] ${msg}${extra}`);
 }
 var ENABLED, LEVELS, minLevel, debug;
 var init_DebugLog = __esm({
   "scripts/libs/DebugLog.ts"() {
     "use strict";
-    ENABLED = true;
+    ENABLED = false;
     LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
     minLevel = 0;
     debug = {
@@ -53,7 +53,7 @@ var init_DebugLog = __esm({
 });
 
 // scripts/libs/Tools.ts
-import { BlockComponentTypes, BlockPermutation, world } from "@minecraft/server";
+import { BlockComponentTypes, BlockPermutation } from "@minecraft/server";
 function pointInArea_2D(x, z, areaStart_x, areaStart_z, areaEnd_x, areaEnd_z) {
   if (areaStart_x < areaEnd_x) {
     if (x < areaStart_x || areaEnd_x < x) {
@@ -168,6 +168,9 @@ function registerSystemMsgHandler(handler) {
 function generateId(type) {
   return `${type}_${Math.random().toString(36).slice(2, 10)}`;
 }
+function dimensionId(dimension) {
+  return dimension.id === "minecraft:overworld" ? 0 : dimension.id === "minecraft:nether" ? 1 : 2;
+}
 function toQueryString(params) {
   const parts = [];
   for (const [k, v] of Object.entries(params)) {
@@ -224,7 +227,7 @@ import {
   EntityInitializationCause,
   GameMode,
   system,
-  world as world2
+  world
 } from "@minecraft/server";
 var _CreativeArea, CreativeArea;
 var init_CreativeArea = __esm({
@@ -255,7 +258,7 @@ var init_CreativeArea = __esm({
       registerEvents() {
         if (this.subscriptions.length > 0) return;
         this.subscriptions.push(
-          world2.afterEvents.playerSpawn.subscribe((event) => {
+          world.afterEvents.playerSpawn.subscribe((event) => {
             if (!event.initialSpawn) return;
             system.runTimeout(() => {
               const areaName = this.inArea(event.player);
@@ -268,7 +271,7 @@ var init_CreativeArea = __esm({
           })
         );
         this.subscriptions.push(
-          world2.afterEvents.playerDimensionChange.subscribe((event) => {
+          world.afterEvents.playerDimensionChange.subscribe((event) => {
             if (!_CreativeArea.enable) return;
             system.runTimeout(() => {
               const areaName = this.inArea(event.player);
@@ -282,7 +285,7 @@ var init_CreativeArea = __esm({
           })
         );
         this.subscriptions.push(
-          world2.afterEvents.entitySpawn.subscribe((event) => {
+          world.afterEvents.entitySpawn.subscribe((event) => {
             if (!_CreativeArea.enable) return;
             if (!event.entity) return;
             if (event.entity.typeId === "minecraft:player") return;
@@ -298,7 +301,7 @@ var init_CreativeArea = __esm({
           })
         );
         this.subscriptions.push(
-          world2.beforeEvents.playerPlaceBlock.subscribe((event) => {
+          world.beforeEvents.playerPlaceBlock.subscribe((event) => {
             if (!_CreativeArea.enable) return;
             const player = event.player;
             if (player.getGameMode() !== GameMode.Creative) return;
@@ -316,7 +319,7 @@ var init_CreativeArea = __esm({
           })
         );
         this.subscriptions.push(
-          world2.beforeEvents.playerBreakBlock.subscribe((event) => {
+          world.beforeEvents.playerBreakBlock.subscribe((event) => {
             if (!_CreativeArea.enable) return;
             if (event.player.getGameMode() !== GameMode.Creative) return;
             if (!this.inAreaByPos(event.block.location.x, event.block.location.z, event.player.dimension.id)) {
@@ -430,7 +433,7 @@ var init_CreativeArea = __esm({
         const identity = player.scoreboardIdentity;
         if (!identity) return;
         const scores = {};
-        for (const obj of world2.scoreboard.getObjectives()) {
+        for (const obj of world.scoreboard.getObjectives()) {
           try {
             const score = obj.getScore(identity);
             if (score !== void 0) scores[obj.id] = score;
@@ -447,7 +450,7 @@ var init_CreativeArea = __esm({
         if (!scores) return;
         const identity = player.scoreboardIdentity;
         if (!identity) return;
-        for (const obj of world2.scoreboard.getObjectives()) {
+        for (const obj of world.scoreboard.getObjectives()) {
           if (scores[obj.id] !== void 0) {
             try {
               obj.setScore(identity, scores[obj.id]);
@@ -464,7 +467,7 @@ var init_CreativeArea = __esm({
         this.tickRunIds.push(
           system.runInterval(() => {
             if (!_CreativeArea.enable) return;
-            for (const player of world2.getPlayers()) {
+            for (const player of world.getPlayers()) {
               if (player.getGameMode() === GameMode.Spectator) continue;
               const currentArea = player.getDynamicProperty("hpbe:creative_area");
               if (currentArea === void 0) {
@@ -484,7 +487,7 @@ var init_CreativeArea = __esm({
         this.tickRunIds.push(
           system.runInterval(() => {
             if (!_CreativeArea.enable) return;
-            for (const player of world2.getPlayers()) {
+            for (const player of world.getPlayers()) {
               if (player.getGameMode() !== GameMode.Creative) continue;
               if (!this.isNearBorder(player)) continue;
               const currentArea = player.getDynamicProperty("hpbe:creative_area");
@@ -502,7 +505,7 @@ var init_CreativeArea = __esm({
         this.tickRunIds.push(
           system.runInterval(() => {
             if (!_CreativeArea.enable) return;
-            for (const player of world2.getPlayers()) {
+            for (const player of world.getPlayers()) {
               for (const area of ConfigManager.getAreas("creative")) {
                 if (player.dimension.id !== area.dimension) continue;
                 const pos = player.location;
@@ -542,7 +545,7 @@ var init_CreativeArea = __esm({
 });
 
 // scripts/area/Peace.ts
-import { EntityInitializationCause as EntityInitializationCause2, world as world3 } from "@minecraft/server";
+import { EntityInitializationCause as EntityInitializationCause2, world as world2 } from "@minecraft/server";
 var Peace;
 var init_Peace = __esm({
   "scripts/area/Peace.ts"() {
@@ -565,7 +568,7 @@ var init_Peace = __esm({
       }
       registerEvents() {
         if (this.entitySpawnSub) return;
-        this.entitySpawnSub = world3.afterEvents.entitySpawn.subscribe((event) => {
+        this.entitySpawnSub = world2.afterEvents.entitySpawn.subscribe((event) => {
           if (!this.enable) return;
           try {
             if (event.cause === EntityInitializationCause2.Spawned) {
@@ -635,7 +638,7 @@ __export(HttpDB_exports, {
   HttpDB: () => HttpDB
 });
 import { system as system2 } from "@minecraft/server";
-import { http, HttpRequest } from "@minecraft/server-net";
+import { http, HttpRequest, HttpRequestMethod } from "@minecraft/server-net";
 var HOST, PORT, BASE_URL, TIMEOUT, _HttpDB, HttpDB;
 var init_HttpDB = __esm({
   "scripts/libs/HttpDB.ts"() {
@@ -729,35 +732,28 @@ var init_HttpDB = __esm({
         }
       }
       static async get(path) {
-        const { status, body } = await this.request("Get", path);
+        const { status, body } = await this.request(HttpRequestMethod.GET, path);
         if (status !== 200) {
           console.info(`[HttpDB] GET ${path} \u2192 ${status}`);
         }
         return status === 200 ? body : null;
       }
       static async post(path, bodyData) {
-        const { status, body } = await this.request("Post", path, bodyData);
+        const { status, body } = await this.request(HttpRequestMethod.POST, path, bodyData);
         if (status !== 200) {
           console.info(`[HttpDB] POST ${path} \u2192 ${status}`);
         }
         return status === 200;
       }
       static async put(path, bodyData) {
-        const { status, body } = await this.request("Put", path, bodyData);
+        const { status, body } = await this.request(HttpRequestMethod.PUT, path, bodyData);
         if (status !== 200) {
           console.info(`[HttpDB] PUT ${path} \u2192 ${status}`);
         }
         return status === 200;
       }
-      static async patch(path, bodyData) {
-        const { status, body } = await this.request("Patch", path, bodyData);
-        if (status !== 200) {
-          console.info(`[HttpDB] PATCH ${path} \u2192 ${status}`);
-        }
-        return status === 200;
-      }
       static async del(path) {
-        const { status, body } = await this.request("Delete", path);
+        const { status, body } = await this.request(HttpRequestMethod.DELETE, path);
         if (status !== 200) {
           console.info(`[HttpDB] DELETE ${path} \u2192 ${status}`);
         }
@@ -772,6 +768,7 @@ var init_HttpDB = __esm({
 });
 
 // scripts/api/ChatApi.ts
+import { HttpRequestMethod as HttpRequestMethod2 } from "@minecraft/server-net";
 async function getChannels(filter) {
   const qs = toQueryString({
     search: filter?.search,
@@ -857,7 +854,7 @@ async function saveChannels(channels) {
   return HttpDB.post(PATH_CHANNELS, { channels: flat });
 }
 async function patchChannel(channelId, data) {
-  return HttpDB.patch(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data);
+  return HttpDB.put(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data);
 }
 async function deleteChannel(channelId) {
   return HttpDB.del(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`);
@@ -904,10 +901,14 @@ async function saveRedPacket(redpacket) {
   return HttpDB.post(PATH_REDPACKET, { redpacket, actorId: redpacket.senderid });
 }
 async function claimRedPacket(redpacketId, actorId, actorName) {
-  const result = await HttpDB.requestJSON("Post", `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`, {
-    actorId,
-    actorName
-  });
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod2.POST,
+    `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`,
+    {
+      actorId,
+      actorName
+    }
+  );
   try {
     const parsed = JSON.parse(result.body);
     return { ok: result.status === 200 && parsed.success, amount: parsed.amount, error: parsed.error };
@@ -930,9 +931,6 @@ var init_ChatApi = __esm({
 // scripts/api/CoopAPI.ts
 var CoopAPI_exports = {};
 __export(CoopAPI_exports, {
-  acceptCoopInvite: () => acceptCoopInvite,
-  addBankLog: () => addBankLog,
-  addMember: () => addMember,
   coopShopBuy: () => coopShopBuy,
   coopShopSell: () => coopShopSell,
   createCoop: () => createCoop,
@@ -945,7 +943,6 @@ __export(CoopAPI_exports, {
   getCoop: () => getCoop,
   getMembers: () => getMembers,
   getShopItems: () => getShopItems,
-  inviteCoopMember: () => inviteCoopMember,
   joinCoop: () => joinCoop,
   leaveCoop: () => leaveCoop,
   removeMember: () => removeMember,
@@ -953,9 +950,9 @@ __export(CoopAPI_exports, {
   saveShopItem: () => saveShopItem,
   treasury: () => treasury,
   updateCoop: () => updateCoop,
-  updateCoopFee: () => updateCoopFee,
   updateMemberRole: () => updateMemberRole
 });
+import { HttpRequestMethod as HttpRequestMethod3 } from "@minecraft/server-net";
 async function getAllCoops() {
   debug.i("API", "getAllCoops");
   const body = await HttpDB.get(PATH);
@@ -980,35 +977,11 @@ async function getCoop(cid) {
 }
 async function updateCoop(cid, data) {
   debug.i("API", `updateCoop: cid=${cid}`);
-  return HttpDB.patch(`${PATH}/${encodeURIComponent(cid)}`, data);
+  return HttpDB.put(`${PATH}/${encodeURIComponent(cid)}`, data);
 }
 async function deleteCoop(cid, actorId) {
   debug.i("API", `deleteCoop: cid=${cid} actorId=${actorId}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH}/${encodeURIComponent(cid)}`, { actorId });
-  return result.status === 200;
-}
-async function updateCoopFee(cid, actorId, feeBps) {
-  debug.i("API", `updateCoopFee: cid=${cid} feeBps=${feeBps}`);
-  const result = await HttpDB.requestJSON("Patch", `${PATH}/${encodeURIComponent(cid)}/settings`, { actorId, feeBps });
-  return result.status === 200;
-}
-async function inviteCoopMember(cid, actorId, playerId2, playerName, role = "member") {
-  debug.i("API", `inviteCoopMember: cid=${cid} player=${playerName} role=${role}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites`, {
-    actorId,
-    playerId: playerId2,
-    playerName,
-    role
-  });
-  return result.status === 200;
-}
-async function acceptCoopInvite(cid, inviteId, playerId2, playerName) {
-  debug.i("API", `acceptCoopInvite: cid=${cid} inviteId=${inviteId} player=${playerName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/invites/accept`, {
-    actorId: playerId2,
-    inviteId,
-    playerName
-  });
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.DELETE, `${PATH}/${encodeURIComponent(cid)}`, { actorId });
   return result.status === 200;
 }
 async function getMembers(cid) {
@@ -1021,18 +994,9 @@ async function getMembers(cid) {
     return [];
   }
 }
-async function addMember(cid, actorId, playerId2, playerName) {
-  debug.i("API", `addMember: cid=${cid} player=${playerName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members`, {
-    actorId,
-    playerId: playerId2,
-    playerName
-  });
-  return result.status === 200;
-}
 async function joinCoop(cid, playerId2, playerName) {
   debug.i("API", `joinCoop: cid=${cid} player=${playerName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/join`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/members/join`, {
     actorId: playerId2,
     playerId: playerId2,
     playerName
@@ -1041,7 +1005,7 @@ async function joinCoop(cid, playerId2, playerName) {
 }
 async function leaveCoop(cid, playerId2) {
   debug.i("API", `leaveCoop: cid=${cid} playerId=${playerId2}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
     actorId: playerId2
   });
   return result.status === 200;
@@ -1049,7 +1013,7 @@ async function leaveCoop(cid, playerId2) {
 async function updateMemberRole(cid, actorId, playerId2, role) {
   debug.i("API", `updateMemberRole: cid=${cid} playerId=${playerId2} role=${role}`);
   const result = await HttpDB.requestJSON(
-    "Patch",
+    HttpRequestMethod3.PUT,
     `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId2)}`,
     { actorId, role }
   );
@@ -1058,7 +1022,7 @@ async function updateMemberRole(cid, actorId, playerId2, role) {
 async function removeMember(cid, actorId, playerId2) {
   debug.i("API", `removeMember: cid=${cid} playerId=${playerId2}`);
   const result = await HttpDB.requestJSON(
-    "Delete",
+    HttpRequestMethod3.DELETE,
     `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId2)}`,
     { actorId }
   );
@@ -1093,10 +1057,6 @@ async function getBankLog(cid) {
     return [];
   }
 }
-async function addBankLog(cid, player_name, type, amount, note) {
-  debug.i("API", `addBankLog: cid=${cid} player=${player_name} type=${type} amount=${amount}`);
-  return HttpDB.post(`${PATH}/${encodeURIComponent(cid)}/bank_log`, { player_name, type, amount, note });
-}
 async function getAllShopGroups() {
   debug.i("API", "getAllShopGroups");
   const body = await HttpDB.get("/api/sfmc/coop_shop_groups");
@@ -1123,7 +1083,7 @@ async function findPlayerCoop(playerId2) {
 }
 async function createCoop(name, cid, actorId, actorName) {
   debug.i("API", `createCoop: name=${name} cid=${cid} actor=${actorName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/create`, { name, cid, actorId, actorName });
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/create`, { name, cid, actorId, actorName });
   try {
     const parsed = JSON.parse(result.body);
     return {
@@ -1138,7 +1098,7 @@ async function createCoop(name, cid, actorId, actorName) {
 }
 async function treasury(cid, actorId, actorName, mode, amount, note = "") {
   debug.i("API", `treasury: cid=${cid} actor=${actorName} mode=${mode} amount=${amount}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
     actorId,
     actorName,
     amount,
@@ -1153,7 +1113,7 @@ async function treasury(cid, actorId, actorName, mode, amount, note = "") {
 }
 async function coopShopBuy(cid, actorId, actorName, listingId, quantity, idempotencyKey) {
   debug.i("API", `coopShopBuy: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/shop/buy`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/shop/buy`, {
     actorId,
     actorName,
     listingId,
@@ -1169,7 +1129,7 @@ async function coopShopBuy(cid, actorId, actorName, listingId, quantity, idempot
 }
 async function coopShopSell(cid, actorId, actorName, listingId, quantity, idempotencyKey) {
   debug.i("API", `coopShopSell: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH}/${encodeURIComponent(cid)}/shop/sell`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/shop/sell`, {
     actorId,
     actorName,
     listingId,
@@ -1199,11 +1159,10 @@ __export(EconomyApi_exports, {
   applyEconomyTransaction: () => applyEconomyTransaction,
   getDailyTasks: () => getDailyTasks,
   getEconomyAccount: () => getEconomyAccount,
-  getPriceIndex: () => getPriceIndex,
-  recalcPriceIndex: () => recalcPriceIndex,
   submitDailyTask: () => submitDailyTask,
   transferEconomy: () => transferEconomy
 });
+import { HttpRequestMethod as HttpRequestMethod4 } from "@minecraft/server-net";
 function parseAccount(body) {
   if (!body) return null;
   try {
@@ -1219,7 +1178,7 @@ async function getEconomyAccount(playerId2, playerName) {
 }
 async function applyEconomyTransaction(data) {
   debug.i("API", `applyEconomyTransaction: playerId=${data.playerId} amount=${data.amount}`);
-  const result = await HttpDB.typedRequest("Post", "/api/sfmc/economy/account", data);
+  const result = await HttpDB.typedRequest(HttpRequestMethod4.POST, "/api/sfmc/economy/account", data);
   if (!result.ok) {
     debug.e("API", `applyEconomyTransaction failed: ${result.error}`);
     return { ok: false, error: result.error || "request_failed" };
@@ -1234,20 +1193,15 @@ async function applyEconomyTransaction(data) {
     transactionId: result.data?.transactionId
   };
 }
-async function getPriceIndex() {
-  debug.i("API", "getPriceIndex");
-  const result = await HttpDB.typedRequest("Get", "/api/sfmc/economy/price-index");
-  return result.ok ? result.data : null;
-}
 async function getDailyTasks() {
   debug.i("API", "getDailyTasks");
-  const result = await HttpDB.typedRequest("Get", "/api/sfmc/economy/daily-tasks");
+  const result = await HttpDB.typedRequest(HttpRequestMethod4.GET, "/api/sfmc/economy/daily-tasks");
   return result.ok ? result.data : null;
 }
 async function submitDailyTask(taskId, actorId, actorName, quantity) {
   debug.i("API", `submitDailyTask: taskId=${taskId} actor=${actorName} qty=${quantity}`);
   const result = await HttpDB.typedRequest(
-    "Post",
+    HttpRequestMethod4.POST,
     `/api/sfmc/economy/daily-tasks/${encodeURIComponent(taskId)}/submit`,
     { actorId, actorName, quantity }
   );
@@ -1255,14 +1209,9 @@ async function submitDailyTask(taskId, actorId, actorName, quantity) {
   const d = result.data;
   return { ok: true, reward: d.reward, balance: d.balance, balanceVersion: d.balanceVersion, error: d.error };
 }
-async function recalcPriceIndex(actorId) {
-  debug.i("API", `recalcPriceIndex: actorId=${actorId}`);
-  const result = await HttpDB.typedRequest("Post", "/api/sfmc/economy/price-index/recalc", { actorId });
-  return result.ok;
-}
 async function transferEconomy(actorId, targetPlayerId, amount, targetPlayerName) {
   debug.i("API", `transferEconomy: from=${actorId} to=${targetPlayerId} amount=${amount}`);
-  const result = await HttpDB.typedRequest("Post", "/api/sfmc/economy/transfer", {
+  const result = await HttpDB.typedRequest(HttpRequestMethod4.POST, "/api/sfmc/economy/transfer", {
     actorId,
     targetPlayerId,
     targetPlayerName,
@@ -1287,11 +1236,7 @@ __export(LandApi_exports, {
   deleteLand: () => deleteLand,
   getAllLands: () => getAllLands,
   getInvites: () => getInvites,
-  getLand: () => getLand,
-  getLandAt: () => getLandAt,
   getLandAudit: () => getLandAudit,
-  getLandsAtBatch: () => getLandsAtBatch,
-  getLandsByOwner: () => getLandsByOwner,
   inviteMember: () => inviteMember,
   removeLandMember: () => removeLandMember,
   revokeInvite: () => revokeInvite,
@@ -1300,6 +1245,7 @@ __export(LandApi_exports, {
   updateLandMember: () => updateLandMember,
   validateLand: () => validateLand
 });
+import { HttpRequestMethod as HttpRequestMethod5 } from "@minecraft/server-net";
 function parseLand(body) {
   if (!body) return null;
   try {
@@ -1321,37 +1267,13 @@ async function getAllLands() {
     return null;
   }
 }
-async function getLand(id) {
-  debug.i("API", `getLand: id=${id}`);
-  return parseLand(await HttpDB.get(`${PATH2}/${encodeURIComponent(id)}`));
-}
-async function getLandsByOwner(ownerId) {
-  debug.i("API", `getLandsByOwner: ownerId=${ownerId}`);
-  const body = await HttpDB.get(`${PATH2}/by-owner/${encodeURIComponent(ownerId)}`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).lands || [];
-  } catch {
-    return [];
-  }
-}
-async function getLandAt(dimid, pos) {
-  debug.i("API", `getLandAt: dimid=${dimid} pos=(${pos.x},${pos.y},${pos.z})`);
-  return parseLand(await HttpDB.get(`${PATH2}/at/${dimid}/${pos.x}/${pos.y}/${pos.z}`));
-}
-async function getLandsAtBatch(points) {
-  debug.i("API", `getLandsAtBatch: ${points.length} points`);
-  const result = await HttpDB.requestJSON("Post", `${PATH2}/at-batch`, { points });
-  if (result.status !== 200) return points.map(() => null);
-  try {
-    return JSON.parse(result.body).lands || points.map(() => null);
-  } catch {
-    return points.map(() => null);
-  }
-}
 async function validateLand(request) {
   debug.i("API", `validateLand: owner=${request.ownerId} dimid=${request.dimid}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH2}/validate`, request);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod5.POST,
+    `${PATH2}/validate`,
+    request
+  );
   if (result.status === 0) return { ok: false, error: "\u6570\u636E\u5E93\u670D\u52A1\u4E0D\u53EF\u7528\u3002" };
   try {
     return JSON.parse(result.body);
@@ -1361,7 +1283,7 @@ async function validateLand(request) {
 }
 async function createLand(request) {
   debug.i("API", `createLand: owner=${request.ownerId} dimid=${request.dimid}`);
-  const result = await HttpDB.requestJSON("Post", PATH2, request);
+  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, PATH2, request);
   if (result.status !== 200) {
     try {
       const parsed = JSON.parse(result.body);
@@ -1386,15 +1308,15 @@ async function createLand(request) {
 async function updateLand(id, data) {
   debug.i("API", `updateLand: id=${id} actorId=${data.actorId} version=${data.expectedVersion}`);
   const result = await HttpDB.requestJSON(
-    "Patch",
-    `${PATH2}/${encodeURIComponent(id)}`,
+    HttpRequestMethod5.PUT,
+    `${PATH2}/update/${encodeURIComponent(id)}`,
     data
   );
   return result.status === 200 ? parseLand(result.body) : null;
 }
 async function deleteLand(id, actorId, expectedVersion, requestId) {
   debug.i("API", `deleteLand: id=${id} actorId=${actorId} version=${expectedVersion}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH2}/${encodeURIComponent(id)}`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod5.DELETE, `${PATH2}/${encodeURIComponent(id)}`, {
     actorId,
     expectedVersion,
     requestId
@@ -1421,7 +1343,7 @@ async function deleteLand(id, actorId, expectedVersion, requestId) {
 }
 async function inviteMember(id, actorId, playerId2, role) {
   debug.i("API", `inviteMember: landId=${id} playerId=${playerId2} role=${role}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH2}/${encodeURIComponent(id)}/members`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, `${PATH2}/${encodeURIComponent(id)}/members`, {
     actorId,
     playerId: playerId2,
     role
@@ -1447,7 +1369,10 @@ async function inviteMember(id, actorId, playerId2, role) {
 }
 async function removeLandMember(id, actorId, playerId2) {
   debug.i("API", `removeLandMember: landId=${id} playerId=${playerId2}`);
-  const result = await HttpDB.requestJSON("Delete", `${PATH2}/${encodeURIComponent(id)}/members`, { actorId, playerId: playerId2 });
+  const result = await HttpDB.requestJSON(HttpRequestMethod5.DELETE, `${PATH2}/${encodeURIComponent(id)}/members`, {
+    actorId,
+    playerId: playerId2
+  });
   if (result.status !== 200) {
     let parsed = {};
     try {
@@ -1461,7 +1386,7 @@ async function removeLandMember(id, actorId, playerId2) {
 async function updateLandMember(id, actorId, playerId2, role) {
   debug.i("API", `updateLandMember: landId=${id} playerId=${playerId2} role=${role}`);
   const result = await HttpDB.requestJSON(
-    "Patch",
+    HttpRequestMethod5.POST,
     `${PATH2}/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId2)}`,
     { actorId, role }
   );
@@ -1487,20 +1412,26 @@ async function getInvites(playerId2) {
 }
 async function acceptInvite(playerId2, inviteId) {
   debug.i("API", `acceptInvite: playerId=${playerId2} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH2}/invites/${encodeURIComponent(playerId2)}`, { inviteId });
+  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, `${PATH2}/invites/${encodeURIComponent(playerId2)}`, {
+    inviteId
+  });
   return result.status === 200 ? parseLand(result.body) : null;
 }
 async function declineInvite(playerId2, inviteId) {
   debug.i("API", `declineInvite: playerId=${playerId2} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH2}/invites/${encodeURIComponent(playerId2)}/decline`, {
-    inviteId
-  });
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod5.POST,
+    `${PATH2}/invites/${encodeURIComponent(playerId2)}/decline`,
+    {
+      inviteId
+    }
+  );
   return result.status === 200;
 }
 async function revokeInvite(id, actorId, inviteId) {
   debug.i("API", `revokeInvite: landId=${id} inviteId=${inviteId}`);
   const result = await HttpDB.requestJSON(
-    "Delete",
+    HttpRequestMethod5.DELETE,
     `${PATH2}/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`,
     { actorId }
   );
@@ -1508,7 +1439,7 @@ async function revokeInvite(id, actorId, inviteId) {
 }
 async function transferLand(id, actorId, targetId, targetName, expectedVersion, requestId) {
   debug.i("API", `transferLand: id=${id} from=${actorId} to=${targetName}`);
-  const result = await HttpDB.requestJSON("Post", `${PATH2}/${encodeURIComponent(id)}/transfer`, {
+  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, `${PATH2}/${encodeURIComponent(id)}/transfer`, {
     actorId,
     targetId,
     targetName,
@@ -1664,6 +1595,7 @@ var init_Money = __esm({
        */
       /** @deprecated Use add() or a domain transaction. This no longer performs read-modify-write. */
       static async set(player, money) {
+        console.warn(`[MNY] Money.set() is deprecated, called from ${new Error().stack?.split("\n")[2]?.trim() || "unknown"}`);
         if (!Number.isSafeInteger(money) || money < 0) {
           debug.w("MNY", `set invalid: ${player.name} ${money}`);
           return false;
@@ -1684,7 +1616,11 @@ var init_Money = __esm({
         });
         if (result.ok) {
           debug.i("MNY", `add OK ${player.name}: bal=${result.balance} ver=${result.version} tx=${result.transactionId}`);
-          this.setCached(player, result.balance ?? this.get(player) + money, result.version);
+          if (result.balance !== void 0) {
+            this.setCached(player, result.balance, result.version);
+          } else {
+            this.cache.delete(player.id);
+          }
         } else {
           debug.e("MNY", `add FAIL ${player.name} ${money}: ${result.error || "unknown"}`);
         }
@@ -1706,7 +1642,7 @@ var init_Money = __esm({
 });
 
 // scripts/chat/DogeChat.ts
-import { system as system3, world as world4 } from "@minecraft/server";
+import { system as system3, world as world3 } from "@minecraft/server";
 var _DogeChat, DogeChat;
 var init_DogeChat = __esm({
   "scripts/chat/DogeChat.ts"() {
@@ -1779,7 +1715,7 @@ var init_DogeChat = __esm({
         if (pub) {
           _DogeChat.activeChannelMap.set(player.id, pub.id);
           this._ensureSubscribed(player.id, pub.id);
-          HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
+          HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
             (e) => console.warn("[DogeChat] error:", e)
           );
         }
@@ -1789,7 +1725,7 @@ var init_DogeChat = __esm({
         debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
         _DogeChat.activeChannelMap.set(player.id, channelId);
         this._ensureSubscribed(player.id, channelId);
-        await HttpDB.patch(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
+        await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
           (e) => console.warn("[DogeChat] error:", e)
         );
       }
@@ -1840,7 +1776,7 @@ var init_DogeChat = __esm({
       }
       static _saveSubscriptions(playerId2) {
         const ids = Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
-        HttpDB.patch(`/api/sfmc/players/${playerId2}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch(
+        HttpDB.put(`/api/sfmc/players/${playerId2}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch(
           (e) => console.warn("[DogeChat] error:", e)
         );
       }
@@ -1866,7 +1802,7 @@ var init_DogeChat = __esm({
       /** 频道在线人数（按订阅统计） */
       static getOnlineCount(channelId) {
         let count = 0;
-        for (const p of world4.getPlayers()) {
+        for (const p of world3.getPlayers()) {
           if (this.subscribedChannelsMap.get(p.id)?.has(channelId)) count++;
         }
         return count;
@@ -2093,7 +2029,7 @@ var init_DogeChat = __esm({
       /** 广播消息给所有订阅了该频道的玩家 */
       static _broadcastToSubscribers(channel, msg, showTimestamp, excludeId) {
         const isBroadcast = channel.config.isBroadcast;
-        for (const p of world4.getPlayers()) {
+        for (const p of world3.getPlayers()) {
           if (p.id === excludeId) continue;
           if (!this.isSubscribed(p.id, channel.id)) continue;
           let display = msg.content;
@@ -2157,7 +2093,7 @@ var init_DogeChat = __esm({
         const channelId = `priv_${ids[0]}_${ids[1]}`;
         const existing = await getChannel(channelId);
         if (existing) return existing;
-        const nameB = world4.getPlayers().find((p) => p.id === idB)?.name ?? idB;
+        const nameB = world3.getPlayers().find((p) => p.id === idB)?.name ?? idB;
         const channel = {
           id: channelId,
           name: `\u4E0E ${nameB} \u7684\u79C1\u804A`,
@@ -2308,7 +2244,7 @@ var init_DogeChat = __esm({
             for (const msg of msgs) {
               if (msg.fromid.startsWith("qq_")) {
                 const isBroadcast = channel.config.isBroadcast;
-                for (const p of world4.getPlayers()) {
+                for (const p of world3.getPlayers()) {
                   if (!this.isSubscribed(p.id, bridgeChannelId)) continue;
                   if (!isBroadcast && msg.timestamp - this._lastBridgeTimestamp > 3e5) {
                     this._lastBridgeTimestamp = msg.timestamp;
@@ -2592,7 +2528,7 @@ var init_ModuleRegistry = __esm({
 });
 
 // scripts/libs/ConfigManager.ts
-import { system as system5, world as world5 } from "@minecraft/server";
+import { system as system5, world as world4 } from "@minecraft/server";
 var ConfigManager;
 var init_ConfigManager = __esm({
   "scripts/libs/ConfigManager.ts"() {
@@ -2745,14 +2681,14 @@ var init_ConfigManager = __esm({
             const { ModuleRegistry: ModuleRegistry2 } = await Promise.resolve().then(() => (init_ModuleRegistry(), ModuleRegistry_exports));
             const changes = ModuleRegistry2.reconcile();
             if (changes.length > 0) {
-              for (const p of world5.getPlayers()) {
+              for (const p of world4.getPlayers()) {
                 const list = changes.map((c) => `${c.id} ${c.action === "disable" ? "\u5DF2\u7981\u7528" : "\u5DF2\u542F\u7528"}`).join(", ");
                 Msg.info(`\u6A21\u5757\u53D8\u66F4: ${list}`, p);
               }
             }
             const bridgeId = this.getSetting("bridge_channel_id", "");
             if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-            for (const p of world5.getPlayers()) {
+            for (const p of world4.getPlayers()) {
               Msg.info("\u914D\u7F6E\u5DF2\u70ED\u91CD\u8F7D", p);
             }
           }
@@ -2770,7 +2706,10 @@ var init_ConfigManager = __esm({
       static async _fetchModules() {
         try {
           const body = await HttpDB.get("/api/sfmc/modules");
-          if (!body) return;
+          if (!body) {
+            this._recordError("modules", "empty response");
+            return;
+          }
           const { modules } = JSON.parse(body);
           this.cache.modules.clear();
           for (const m of modules) {
@@ -2785,7 +2724,10 @@ var init_ConfigManager = __esm({
       static async _fetchSettings() {
         try {
           const body = await HttpDB.get("/api/sfmc/settings");
-          if (!body) return;
+          if (!body) {
+            this._recordError("settings", "empty response");
+            return;
+          }
           const { settings } = JSON.parse(body);
           this.cache.settings.clear();
           for (const s of settings) this.cache.settings.set(s.key, s.value);
@@ -2797,7 +2739,10 @@ var init_ConfigManager = __esm({
       static async _fetchAreas() {
         try {
           const body = await HttpDB.get("/api/sfmc/areas");
-          if (!body) return;
+          if (!body) {
+            this._recordError("areas", "empty response");
+            return;
+          }
           this.cache.areas = (JSON.parse(body).areas || []).map((a) => ({
             name: a.name || "",
             dimension: a.dimension,
@@ -2813,7 +2758,10 @@ var init_ConfigManager = __esm({
       static async _fetchPermissions() {
         try {
           const body = await HttpDB.get("/api/sfmc/permissions");
-          if (!body) return;
+          if (!body) {
+            this._recordError("permissions", "empty response");
+            return;
+          }
           const { permissions } = JSON.parse(body);
           this.cache.permissions = {};
           for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
@@ -2825,7 +2773,10 @@ var init_ConfigManager = __esm({
       static async _fetchBannedItems() {
         try {
           const body = await HttpDB.get("/api/sfmc/banned_items");
-          if (!body) return;
+          if (!body) {
+            this._recordError("banned_items", "empty response");
+            return;
+          }
           this.cache.bannedItems = (JSON.parse(body).items || []).map((i) => i.item_id);
           this._clearError("banned_items");
         } catch (e) {
@@ -2835,7 +2786,10 @@ var init_ConfigManager = __esm({
       static async _fetchClean() {
         try {
           const body = await HttpDB.get("/api/sfmc/clean");
-          if (!body) return;
+          if (!body) {
+            this._recordError("clean", "empty response");
+            return;
+          }
           const { clean } = JSON.parse(body);
           if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
           this._clearError("clean");
@@ -2846,7 +2800,10 @@ var init_ConfigManager = __esm({
       static async _fetchGrids() {
         try {
           const body = await HttpDB.get("/api/sfmc/grids");
-          if (!body) return;
+          if (!body) {
+            this._recordError("grids", "empty response");
+            return;
+          }
           const { grids } = JSON.parse(body);
           this.cache.grids = {};
           for (const g of grids) {
@@ -2864,7 +2821,10 @@ var init_ConfigManager = __esm({
       static async _fetchPeaceFilters() {
         try {
           const body = await HttpDB.get("/api/sfmc/peace_filters");
-          if (!body) return;
+          if (!body) {
+            this._recordError("peace_filters", "empty response");
+            return;
+          }
           this.cache.peaceFilters = JSON.parse(body).filters || [];
           this._clearError("peace_filters");
         } catch (e) {
@@ -2874,7 +2834,10 @@ var init_ConfigManager = __esm({
       static async _fetchQA() {
         try {
           const body = await HttpDB.get("/api/sfmc/qa");
-          if (!body) return;
+          if (!body) {
+            this._recordError("qa", "empty response");
+            return;
+          }
           const { questions } = JSON.parse(body);
           this.cache.questions = questions.map((q) => ({
             weight: q.weight,
@@ -3198,7 +3161,7 @@ var init_Command = __esm({
 });
 
 // scripts/doge/AFK.ts
-import { system as system7, world as world6 } from "@minecraft/server";
+import { system as system7, world as world5 } from "@minecraft/server";
 function cacheGet(player, key, fallback) {
   const pc = afkCache.get(player.id);
   if (!pc || !pc.has(key)) return fallback;
@@ -3228,7 +3191,7 @@ function setAFK(player) {
   player.removeTag("NOAFK");
   startAFKScan();
   playerList[player.id] = player.location;
-  world6.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
+  world5.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
   cacheSet(player, "afk:step", 0);
   player.addTag("AFK");
 }
@@ -3249,7 +3212,7 @@ function startScan() {
   if (scanActive || scanRunId !== void 0) return;
   scanActive = true;
   scanRunId = system7.runInterval(() => {
-    for (let player of world6.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
+    for (let player of world5.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
       let lastLoaction = cacheGet(
         player,
         "afk:last_location",
@@ -3284,12 +3247,12 @@ function startAFKScan() {
   intervalId = system7.runInterval(() => {
     let count = 0;
     for (let id in playerList) {
-      let player = world6.getEntity(id);
+      let player = world5.getEntity(id);
       if (player === void 0) {
         delete playerList[id];
       } else {
         if (locationMoved(playerList[id], player.location)) {
-          world6.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
+          world5.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
           player.removeTag("AFK");
           cacheSet(player, "afk:last_location", player.location);
           cacheSet(player, "afk:step", 0);
@@ -3331,7 +3294,7 @@ function registerPermissions() {
   Permission.register("afk.clear.other", Permission.OP);
 }
 function registerEvents() {
-  world6.afterEvents.playerSpawn.subscribe((event) => {
+  world5.afterEvents.playerSpawn.subscribe((event) => {
     if (event.initialSpawn) reset(event.player);
   });
 }
@@ -3339,7 +3302,7 @@ function init() {
   debug.i("AFK", "init");
   console.log(`Initializing AFK...`);
   if (!scanActive) startScan();
-  for (let player of world6.getAllPlayers()) {
+  for (let player of world5.getAllPlayers()) {
     reset(player);
   }
   console.log(`AFK initialized successfully.`);
@@ -3374,7 +3337,7 @@ var init_AFK = __esm({
 });
 
 // scripts/doge/ChatSoundsHelper.ts
-import { system as system8, world as world7 } from "@minecraft/server";
+import { system as system8, world as world6 } from "@minecraft/server";
 var KEYWORDS, ChatSoundsHelper;
 var init_ChatSoundsHelper = __esm({
   "scripts/doge/ChatSoundsHelper.ts"() {
@@ -3403,7 +3366,7 @@ var init_ChatSoundsHelper = __esm({
       }
       registerEvent() {
         if (this.chatSub) return;
-        this.chatSub = world7.beforeEvents.chatSend.subscribe((event) => {
+        this.chatSub = world6.beforeEvents.chatSend.subscribe((event) => {
           const msg = event.message;
           for (const keyWord in this.keywords) {
             if (!msg.toLowerCase().includes(keyWord.toLowerCase())) continue;
@@ -3418,7 +3381,7 @@ var init_ChatSoundsHelper = __esm({
             }
             const soundId = this.keywords[keyWord];
             system8.run(() => {
-              for (const p of world7.getAllPlayers()) {
+              for (const p of world6.getAllPlayers()) {
                 try {
                   p.playSound(soundId);
                 } catch {
@@ -3443,7 +3406,7 @@ var init_ChatSoundsHelper = __esm({
 });
 
 // scripts/doge/Clean.ts
-import { BlockComponentTypes as BlockComponentTypes2, system as system9, world as world8 } from "@minecraft/server";
+import { BlockComponentTypes as BlockComponentTypes2, system as system9, world as world7 } from "@minecraft/server";
 function registerCommand2() {
   Permission.register("clean.admin", Permission.OP);
   Command.register(
@@ -3515,7 +3478,7 @@ var init_Clean = __esm({
         let facingDirection = getSignFacing(this.direction, this.face);
         let index = 0;
         let currentIndex = this.getCleanIndex();
-        const dimension = world8.getDimension("overworld");
+        const dimension = world7.getDimension("overworld");
         for (let mainAxis = 0; mainAxis < this.size[0]; mainAxis++) {
           for (let y = 0; y < this.size[1]; y++) {
             index++;
@@ -3596,11 +3559,11 @@ var init_Clean = __esm({
         this.intervalId = system9.runInterval(() => {
           let entities = this.getAllItemEntities();
           if (entities.length > this.itemMax) {
-            world8.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
+            world7.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
             system9.runTimeout(() => {
               this.startClean(void 0);
               system9.runTimeout(() => {
-                world8.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
+                world7.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
               }, 5);
             }, 100);
           }
@@ -3621,9 +3584,9 @@ var init_Clean = __esm({
        * 获取世界的所有物品
        */
       getAllItemEntities() {
-        let itemEntities = world8.getDimension("overworld").getEntities({ type: "item" });
-        itemEntities.push(...world8.getDimension("nether").getEntities({ type: "item" }));
-        itemEntities.push(...world8.getDimension("the_end").getEntities({ type: "item" }));
+        let itemEntities = world7.getDimension("overworld").getEntities({ type: "item" });
+        itemEntities.push(...world7.getDimension("nether").getEntities({ type: "item" }));
+        itemEntities.push(...world7.getDimension("the_end").getEntities({ type: "item" }));
         return itemEntities;
       }
       getTimeStr() {
@@ -3999,7 +3962,7 @@ var init_DailyTask = __esm({
 });
 
 // scripts/doge/TPS.ts
-import { system as system11, world as world9 } from "@minecraft/server";
+import { system as system11, world as world8 } from "@minecraft/server";
 var _TPS, TPS;
 var init_TPS = __esm({
   "scripts/doge/TPS.ts"() {
@@ -4060,7 +4023,7 @@ var init_TPS = __esm({
             if (player) {
               Msg.info(msg, player);
             } else {
-              world9.sendMessage(msg);
+              world8.sendMessage(msg);
             }
           },
           "\u67E5\u770B\u670D\u52A1\u5668 TPS",
@@ -4075,7 +4038,7 @@ var init_TPS = __esm({
 });
 
 // scripts/doge/MonitorReporter.ts
-import { system as system12, world as world10 } from "@minecraft/server";
+import { system as system12, world as world9 } from "@minecraft/server";
 var REPORT_INTERVAL, DIMENSIONS, MonitorReporter;
 var init_MonitorReporter = __esm({
   "scripts/doge/MonitorReporter.ts"() {
@@ -4106,13 +4069,13 @@ var init_MonitorReporter = __esm({
           const entities = {};
           for (const dim of DIMENSIONS) {
             try {
-              entities[dim] = world10.getDimension(dim).getEntities().length;
+              entities[dim] = world9.getDimension(dim).getEntities().length;
             } catch (e) {
               entities[dim] = 0;
             }
           }
           await HttpDB.post("/api/sfmc/monitor/metrics", { tps, entities });
-          const players = world10.getAllPlayers();
+          const players = world9.getAllPlayers();
           const playerChunks = players.map((p) => {
             const loc2 = p.location;
             const dim = p.dimension?.id || "minecraft:overworld";
@@ -4139,7 +4102,7 @@ var init_MonitorReporter = __esm({
 });
 
 // scripts/doge/OnlineTime.ts
-import { system as system13, world as world11 } from "@minecraft/server";
+import { system as system13, world as world10 } from "@minecraft/server";
 var FLUSH_INTERVAL_TICKS, OnlineTime;
 var init_OnlineTime = __esm({
   "scripts/doge/OnlineTime.ts"() {
@@ -4171,7 +4134,7 @@ var init_OnlineTime = __esm({
           "onlinetime.see",
           async (player) => {
             if (!player) {
-              world11.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
+              world10.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
               return;
             }
             const data = await this.load(player);
@@ -4192,7 +4155,7 @@ var init_OnlineTime = __esm({
       registerEvents() {
         debug.i("ONLINE", "registerEvents");
         if (this.playerLeaveSub) return;
-        this.playerLeaveSub = world11.afterEvents.playerSpawn.subscribe((event) => {
+        this.playerLeaveSub = world10.afterEvents.playerSpawn.subscribe((event) => {
           if (event.initialSpawn) {
             this.onPlayerJoin(event.player);
           }
@@ -4239,7 +4202,7 @@ var init_OnlineTime = __esm({
         return promise;
       }
       async persist(playerId2, data) {
-        await HttpDB.patch(`/api/sfmc/players/${playerId2}`, {
+        await HttpDB.put(`/api/sfmc/players/${playerId2}`, {
           player: {
             onlinetimeToday: data.today,
             onlinetimeMonth: data.month,
@@ -4267,7 +4230,7 @@ var init_OnlineTime = __esm({
         const now = /* @__PURE__ */ new Date();
         const currentDate = now.getDate();
         const currentMonth = now.getMonth();
-        for (const player of world11.getAllPlayers()) {
+        for (const player of world10.getAllPlayers()) {
           const data = this.dataMap.get(player.id);
           if (!data) {
             if (!this.loading.has(player.id)) {
@@ -4333,7 +4296,7 @@ var init_OnlineTime = __esm({
 });
 
 // scripts/doge/QA.ts
-import { system as system14, world as world12 } from "@minecraft/server";
+import { system as system14, world as world11 } from "@minecraft/server";
 var QAManager;
 var init_QA = __esm({
   "scripts/doge/QA.ts"() {
@@ -4374,7 +4337,7 @@ var init_QA = __esm({
       start() {
         debug.i("QA", "start");
         if (this.chatSub) return;
-        this.chatSub = world12.beforeEvents.chatSend.subscribe((event) => {
+        this.chatSub = world11.beforeEvents.chatSend.subscribe((event) => {
           if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "\uFF01") {
             let answer = event.message.substring(1);
             answer = answer.replaceAll(" ");
@@ -4446,7 +4409,7 @@ var init_QA = __esm({
             break;
           }
         }
-        world12.sendMessage(
+        world11.sendMessage(
           `\xA7b[Baka Cirno]\xA7r \xA7g${ConfigManager.getQuestions()[this.nowQuestion].q}\xA7r
   \xA7h\u53D1\u9001 \xA7e!\u7B54\u6848\xA7r \xA7h\u6765\u7B54\u9898`
         );
@@ -4463,7 +4426,7 @@ var init_QA = __esm({
         debug.i("QA", "finish");
         if (this.nowQuestion === void 0) return;
         let question = ConfigManager.getQuestions()[this.nowQuestion];
-        world12.sendMessage(
+        world11.sendMessage(
           `\xA7b[Baka Cirno]\xA7r \u6B63\u786E\u7B54\u6848\u662F \xA7e${question.a[0]}\xA7r ! ${question.d !== void 0 ? "\n  " + question.d : ""}`
         );
         this.nowQuestion = void 0;
@@ -4562,7 +4525,7 @@ var init_QA = __esm({
 });
 
 // scripts/doge/SpawnProtect.ts
-import { world as world13 } from "@minecraft/server";
+import { world as world12 } from "@minecraft/server";
 var SpawnProtect;
 var init_SpawnProtect = __esm({
   "scripts/doge/SpawnProtect.ts"() {
@@ -4574,7 +4537,7 @@ var init_SpawnProtect = __esm({
         }
       }
       static registerEvents() {
-        world13.afterEvents.playerSpawn.subscribe((event) => {
+        world12.afterEvents.playerSpawn.subscribe((event) => {
           _SpawnProtect.setProtect(event.player);
         });
       }
@@ -4583,7 +4546,8 @@ var init_SpawnProtect = __esm({
 });
 
 // scripts/EconomyReport.ts
-import { system as system15, world as world14 } from "@minecraft/server";
+import { system as system15, world as world13 } from "@minecraft/server";
+import { HttpRequestMethod as HttpRequestMethod6 } from "@minecraft/server-net";
 var EconomyReport;
 var init_EconomyReport = __esm({
   "scripts/EconomyReport.ts"() {
@@ -4610,7 +4574,7 @@ var init_EconomyReport = __esm({
         }
       }
       static async publish() {
-        const result = await HttpDB.typedRequest("Get", "/api/sfmc/economy/stats/monthly");
+        const result = await HttpDB.typedRequest(HttpRequestMethod6.GET, "/api/sfmc/economy/stats/monthly");
         if (!result.ok) return;
         const stats = result.data?.stats;
         if (!stats) return;
@@ -4622,7 +4586,7 @@ var init_EconomyReport = __esm({
           `\xA77\u6D3B\u8DC3\u8D26\u6237: \xA7f${stats.active_accounts}`,
           `\xA7e==============================`
         ].join("\n");
-        world14.sendMessage(msg);
+        world13.sendMessage(msg);
       }
     };
     EconomyReport.runId = null;
@@ -4630,13 +4594,13 @@ var init_EconomyReport = __esm({
 });
 
 // scripts/area/Fly.ts
-import { GameMode as GameMode2, system as system16, world as world15 } from "@minecraft/server";
+import { GameMode as GameMode2, system as system16, world as world14 } from "@minecraft/server";
 function registerPermissions2() {
   Permission.register("fly.use", Permission.Any);
 }
 function registerEvents2() {
   debug.i("FLY", "registerEvents");
-  world15.afterEvents.playerSpawn.subscribe((event) => {
+  world14.afterEvents.playerSpawn.subscribe((event) => {
     if (event.initialSpawn) playerJoinEvent(event.player);
   });
 }
@@ -4653,7 +4617,7 @@ function playerJoinEvent(player) {
 function startScan2() {
   if (scanRunId2 !== void 0) return;
   scanRunId2 = system16.runInterval(() => {
-    for (let player of world15.getPlayers({ gameMode: GameMode2.Survival })) {
+    for (let player of world14.getPlayers({ gameMode: GameMode2.Survival })) {
       let nowArea = player.getDynamicProperty("hpbe:dogefly");
       let areaName = inFlyArea(player);
       if (areaName !== void 0) {
@@ -4748,7 +4712,7 @@ import {
   EquipmentSlot,
   GameMode as GameMode3,
   system as system17,
-  world as world16
+  world as world15
 } from "@minecraft/server";
 var _InventorySwitcher, InventorySwitcher;
 var init_InventorySwitcher = __esm({
@@ -4769,7 +4733,7 @@ var init_InventorySwitcher = __esm({
       /** 注册事件（由 entry.ts 统一调用） */
       registerEvents() {
         if (this.gameModeSub) return;
-        this.gameModeSub = world16.afterEvents.playerGameModeChange.subscribe((event) => {
+        this.gameModeSub = world15.afterEvents.playerGameModeChange.subscribe((event) => {
           const player = event.player;
           system17.run(() => {
             if (player.getGameMode() !== event.toGameMode) return;
@@ -4812,7 +4776,7 @@ var init_InventorySwitcher = __esm({
         const key = `invswitcher:player_${playerId2}`;
         let base = _InventorySwitcher.chestMap.get(key);
         if (base === void 0) {
-          let nextIdx = world16.getDynamicProperty("hpbe:invswitcher_next");
+          let nextIdx = world15.getDynamicProperty("hpbe:invswitcher_next");
           if (nextIdx === void 0) nextIdx = 0;
           const grid = ConfigManager.getGrid("inventory_chest");
           if (!grid) return 0;
@@ -4820,7 +4784,7 @@ var init_InventorySwitcher = __esm({
           if (nextIdx > max) nextIdx = 0;
           base = nextIdx;
           _InventorySwitcher.chestMap.set(key, base);
-          world16.setDynamicProperty("hpbe:invswitcher_next", base + 2);
+          world15.setDynamicProperty("hpbe:invswitcher_next", base + 2);
         }
         return base * 2 + (forCreative ? 1 : 0);
       }
@@ -4830,7 +4794,7 @@ var init_InventorySwitcher = __esm({
       saveToChest(player, forCreative) {
         const cfg = ConfigManager.getGrid("inventory_chest");
         if (!cfg) return;
-        const dim = world16.getDimension("minecraft:overworld");
+        const dim = world15.getDimension("minecraft:overworld");
         const { left, sign } = this.getLayout(this.getChestIndex(player.id, forCreative));
         ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
         const { date, time } = getShanghaiTime();
@@ -4886,7 +4850,7 @@ ${time}`
       restoreFromChest(player, forCreative) {
         const cfg = ConfigManager.getGrid("inventory_chest");
         if (!cfg) return;
-        const dim = world16.getDimension("minecraft:overworld");
+        const dim = world15.getDimension("minecraft:overworld");
         const { left } = this.getLayout(this.getChestIndex(player.id, forCreative));
         ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
         const block = dim.getBlock(left);
@@ -4945,7 +4909,7 @@ ${time}`
 import {
   GameMode as GameMode4,
   system as system18,
-  world as world17
+  world as world16
 } from "@minecraft/server";
 var SurvivalArea;
 var init_SurvivalArea = __esm({
@@ -4978,7 +4942,7 @@ var init_SurvivalArea = __esm({
       registerEvents() {
         if (this.subscriptions.length > 0) return;
         this.subscriptions.push(
-          world17.afterEvents.playerSpawn.subscribe((event) => {
+          world16.afterEvents.playerSpawn.subscribe((event) => {
             if (!event.initialSpawn) return;
             if (!CreativeArea.enable) return;
             if (!this.enable) return;
@@ -4993,7 +4957,7 @@ var init_SurvivalArea = __esm({
           })
         );
         this.subscriptions.push(
-          world17.beforeEvents.playerGameModeChange.subscribe((event) => {
+          world16.beforeEvents.playerGameModeChange.subscribe((event) => {
             if (!CreativeArea.enable) return;
             if (!this.enable) return;
             if (event.toGameMode === GameMode4.Creative || event.toGameMode === GameMode4.Spectator) {
@@ -5006,7 +4970,7 @@ var init_SurvivalArea = __esm({
           })
         );
         this.subscriptions.push(
-          world17.afterEvents.playerDimensionChange.subscribe((event) => {
+          world16.afterEvents.playerDimensionChange.subscribe((event) => {
             if (!CreativeArea.enable) return;
             if (!this.enable) return;
             const player = event.player;
@@ -5064,9 +5028,9 @@ function defaultPermissions() {
   return { ...DEFAULT_PERMISSIONS };
 }
 function generateLandId() {
-  return "L" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+  return "L" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 10).toUpperCase();
 }
-var DEFAULT_CONFIG, DEFAULT_PERMISSIONS;
+var DEFAULT_CONFIG, DEFAULT_PERMISSIONS, DEFAULT_TAX;
 var init_defaults = __esm({
   "scripts/land/defaults.ts"() {
     "use strict";
@@ -5082,7 +5046,19 @@ var init_defaults = __esm({
       allow_place: false,
       allow_destroy: false,
       attack_entity: false,
-      open_container: false
+      open_container: false,
+      use_door: false,
+      use_button: false,
+      use_redstone: false,
+      interact_entity: false,
+      pickup_item: false
+    };
+    DEFAULT_TAX = {
+      enabled: false,
+      defaultRate: 50,
+      periodDays: 7,
+      freezeOnInsufficient: true,
+      fallbackPurchasePrice: 100
     };
   }
 });
@@ -5161,21 +5137,32 @@ function isPosInBoundingBox(land, pos) {
 async function fetchServerConfig() {
   try {
     const { HttpDB: HttpDB2 } = await Promise.resolve().then(() => (init_HttpDB(), HttpDB_exports));
-    const body = await HttpDB2.get("/api/sfmc/settings/land:config");
-    if (!body) return null;
-    const parsed = JSON.parse(body);
-    if (!parsed || !parsed.value) return null;
-    try {
-      return JSON.parse(parsed.value);
-    } catch {
-      return null;
-    }
+    const [cfgBody, permBody, taxBody] = await Promise.all([
+      HttpDB2.get("/api/sfmc/settings/land:config"),
+      HttpDB2.get("/api/sfmc/settings/land:permissions"),
+      HttpDB2.get("/api/sfmc/settings/land:tax")
+    ]);
+    const parseValue = (body) => {
+      if (!body) return null;
+      try {
+        const parsed = JSON.parse(body);
+        if (!parsed || !parsed.value) return null;
+        return JSON.parse(parsed.value);
+      } catch {
+        return null;
+      }
+    };
+    const cfg = parseValue(cfgBody);
+    if (cfg) _serverConfig = cfg;
+    const perm = parseValue(permBody);
+    if (perm) _serverPermissions = perm;
+    const tax = parseValue(taxBody);
+    if (tax) _serverTax = tax;
   } catch (error) {
     debug.w("LANDDB", `fetchServerConfig failed: ${error.message}`);
-    return null;
   }
 }
-var CHUNK_SIZE, CONFIG_REFRESH_MS, _configLastFetchedAt, _configInFlight, _Database, Database;
+var CHUNK_SIZE, CONFIG_REFRESH_MS, _configLastFetchedAt, _configInFlight, _serverConfig, _serverPermissions, _serverTax, _Database, Database;
 var init_LandDatabase = __esm({
   "scripts/land/LandDatabase.ts"() {
     "use strict";
@@ -5186,6 +5173,9 @@ var init_LandDatabase = __esm({
     CONFIG_REFRESH_MS = 5 * 60 * 1e3;
     _configLastFetchedAt = 0;
     _configInFlight = null;
+    _serverConfig = null;
+    _serverPermissions = null;
+    _serverTax = null;
     _Database = class _Database {
       // ── 重建索引 ──
       static rebuildOwnerIndex() {
@@ -5216,12 +5206,21 @@ var init_LandDatabase = __esm({
       }
       // ── 配置 ──
       static getConfig() {
-        if (this._config) return this._config;
-        this._config = defaultConfig();
-        return this._config;
+        if (_serverConfig) return _serverConfig;
+        return defaultConfig();
       }
       static replaceConfig(cfg) {
-        this._config = cfg;
+        _serverConfig = cfg;
+      }
+      /** 新领地默认访客权限：优先 server 配置（land:permissions），否则本地兜底。 */
+      static getDefaultPermissions() {
+        if (_serverPermissions) return _serverPermissions;
+        return defaultPermissions();
+      }
+      /** 地皮税配置：优先 server 配置（land:tax），否则本地兜底。 */
+      static getDefaultTax() {
+        if (_serverTax) return _serverTax;
+        return DEFAULT_TAX;
       }
       /**
        * 5 min 内最多拉一次 server config；失败保留上次缓存/默认。
@@ -5231,11 +5230,8 @@ var init_LandDatabase = __esm({
         if (Date.now() - _configLastFetchedAt < CONFIG_REFRESH_MS) return;
         if (_configInFlight) return _configInFlight;
         _configInFlight = (async () => {
-          const serverCfg = await fetchServerConfig();
-          if (serverCfg) {
-            _Database.replaceConfig(serverCfg);
-            _configLastFetchedAt = Date.now();
-          }
+          await fetchServerConfig();
+          _configLastFetchedAt = Date.now();
         })().finally(() => {
           _configInFlight = null;
         });
@@ -5272,12 +5268,14 @@ var init_LandDatabase = __esm({
       // ── 查询 ──
       static getAll() {
         this.ensureLoaded();
+        if (!this._registry) return [];
         const all = Array.from(this._registry.values());
         debug.i("LANDDB", `getAll: ${all.length} lands`);
         return all;
       }
       static getAt(pos, dimid) {
         this.ensureLoaded();
+        if (!this._registry) return void 0;
         const candidates = this._chunkIndex.get(chunkKey(dimid, pos.x, pos.z));
         if (!candidates) return void 0;
         for (const id of candidates) {
@@ -5292,12 +5290,14 @@ var init_LandDatabase = __esm({
       }
       static getById(landId) {
         this.ensureLoaded();
+        if (!this._registry) return void 0;
         const land = this._registry.get(landId);
         debug.i("LANDDB", `getById: landId=${landId} ${land ? "found" : "not found"}`);
         return land;
       }
       static getByOwner(plid) {
         this.ensureLoaded();
+        if (!this._ownerIndex) return [];
         const list = this._ownerIndex.get(plid) || [];
         debug.i("LANDDB", `getByOwner: plid=${plid} count=${list.length}`);
         return list;
@@ -5309,6 +5309,7 @@ var init_LandDatabase = __esm({
       static async add(land) {
         debug.i("LANDDB", `add: landId=${land.id} owner=${land.ownerplid} dimid=${land.dimid}`);
         this.ensureLoaded();
+        if (!this._registry || !this._ownerIndex) return;
         this._registry.set(land.id, land);
         const owners = this._ownerIndex.get(land.ownerplid) || [];
         if (!owners.includes(land.id)) owners.push(land.id);
@@ -5322,6 +5323,7 @@ var init_LandDatabase = __esm({
       static upsert(land) {
         debug.i("LANDDB", `upsert: landId=${land.id} owner=${land.ownerplid} version=${land.version}`);
         this.ensureLoaded();
+        if (!this._registry) return;
         const current = this._registry.get(land.id);
         if (current && (land.version || 0) < (current.version || 0)) {
           debug.w("LANDDB", `upsert: stale version, skipped landId=${land.id}`);
@@ -5344,6 +5346,7 @@ var init_LandDatabase = __esm({
           return false;
         }
         this.ensureLoaded();
+        if (!this._registry) return false;
         const current = this._registry.get(updated.id);
         if (current && (updated.version || 0) < (current.version || 0)) return true;
         this._registry.set(updated.id, updated);
@@ -5369,6 +5372,7 @@ var init_LandDatabase = __esm({
           }
         }
         this.ensureLoaded();
+        if (!this._registry || !this._ownerIndex) return result;
         const land = this._registry.get(landId);
         if (!land) return { ok: true, refund: result.refund, balance: result.balance };
         this._registry.delete(landId);
@@ -5392,13 +5396,10 @@ var init_LandDatabase = __esm({
           dimid,
           posA,
           posB,
-          permissions: defaultPermissions(),
+          permissions: _Database.getDefaultPermissions(),
           nickname: "",
           createdAt: Date.now()
         };
-      }
-      static getDefaultPermissions() {
-        return defaultPermissions();
       }
       static getDefaultConfig() {
         return defaultConfig();
@@ -5408,15 +5409,19 @@ var init_LandDatabase = __esm({
       }
       // ── 内部工具 ──
       static ensureLoaded() {
-        if (!this._registry) this._registry = /* @__PURE__ */ new Map();
-        if (!this._ownerIndex) this._ownerIndex = /* @__PURE__ */ new Map();
+        if (!this._registry) {
+          if (this._loading) {
+            return;
+          }
+          this._registry = /* @__PURE__ */ new Map();
+          this._ownerIndex = /* @__PURE__ */ new Map();
+        }
       }
     };
     /** 运行时缓存 */
     _Database._registry = null;
     _Database._ownerIndex = null;
     _Database._chunkIndex = /* @__PURE__ */ new Map();
-    _Database._config = null;
     _Database._loading = null;
     _Database._hasAuthoritativeSnapshot = false;
     Database = _Database;
@@ -5647,7 +5652,7 @@ var init_LandCore = __esm({
         const plid = player.id;
         const n = this.normalize(posA, posB);
         const price = this.calculatePrice(n.posA, n.posB);
-        const requestId = `land-create:${plid}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+        const requestId = `land-create:${plid}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
         const result = await createLand({
           ownerId: plid,
           ownerName: player.name,
@@ -5769,7 +5774,7 @@ var init_LandPolicy = __esm({
 });
 
 // scripts/land/LandEvents.ts
-import { Player as Player15, system as system19, world as world18 } from "@minecraft/server";
+import { Player as Player15, system as system19, world as world17 } from "@minecraft/server";
 function isContainerBlock(typeId) {
   if (CONTAINER_BLOCKS.has(typeId)) return true;
   return /^minecraft:.*_shulker_box$/.test(typeId);
@@ -5812,63 +5817,63 @@ var init_LandEvents = __esm({
         debug.i("LAND", "registerEvents");
         if (this.initialized) return;
         this.initialized = true;
-        this.scanRunId = system19.runInterval(() => this.scanPlayerBoundaries(), 20);
-        world18.afterEvents.playerLeave.subscribe((event) => {
+        this.scanRunId = system19.runInterval(() => this.scanPlayerBoundaries(), 40);
+        world17.afterEvents.playerLeave.subscribe((event) => {
           LandCore.clearSession(event.playerId);
         });
-        this.subscribe(world18.beforeEvents.playerPlaceBlock, (ev) => {
+        this.subscribe(world17.beforeEvents.playerPlaceBlock, (ev) => {
           const { player, block } = ev;
           const pos = { x: block.x, y: block.y, z: block.z };
-          const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(block.dimension);
           if (!checkLandPermission(player, pos, dimid, "place")) {
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u653E\u7F6E\u65B9\u5757\uFF01", player);
             ev.cancel = true;
           }
         });
-        this.subscribe(world18.beforeEvents.playerBreakBlock, (ev) => {
+        this.subscribe(world17.beforeEvents.playerBreakBlock, (ev) => {
           const { player, block } = ev;
           const pos = { x: block.x, y: block.y, z: block.z };
-          const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(block.dimension);
           if (!checkLandPermission(player, pos, dimid, "break")) {
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u7834\u574F\u65B9\u5757\uFF01", player);
             ev.cancel = true;
           }
         });
-        this.subscribe(world18.beforeEvents.playerInteractWithBlock, (ev) => {
+        this.subscribe(world17.beforeEvents.playerInteractWithBlock, (ev) => {
           const { player, block } = ev;
           if (!isContainerBlock(block.typeId)) return;
           const pos = { x: block.x, y: block.y, z: block.z };
-          const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(block.dimension);
           if (!checkLandPermission(player, pos, dimid, "container")) {
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u5728\u6B64\u571F\u5730\u6253\u5F00\u5BB9\u5668\uFF01", player);
             ev.cancel = true;
           }
         });
-        this.subscribe(world18.beforeEvents.playerInteractWithBlock, (ev) => {
+        this.subscribe(world17.beforeEvents.playerInteractWithBlock, (ev) => {
           if (isContainerBlock(ev.block.typeId)) return;
           const type = ev.block.typeId;
           const capability = /door|trapdoor|fence_gate/.test(type) ? "door" : /button|lever|pressure_plate/.test(type) ? "button" : /redstone|repeater|comparator|piston|dispenser|dropper|hopper/.test(type) ? "redstone" : null;
           if (!capability) return;
           const pos = { x: ev.block.x, y: ev.block.y, z: ev.block.z };
-          const dimid = ev.block.dimension.id === "minecraft:overworld" ? 0 : ev.block.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(ev.block.dimension);
           if (!checkLandPermission(ev.player, pos, dimid, capability)) {
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u4F7F\u7528\u6B64\u571F\u5730\u8BBE\u65BD\uFF01", ev.player);
             ev.cancel = true;
           }
         });
-        this.subscribe(world18.beforeEvents.playerInteractWithEntity, (ev) => {
+        this.subscribe(world17.beforeEvents.playerInteractWithEntity, (ev) => {
           const pos = {
             x: Math.floor(ev.target.location.x),
             y: Math.floor(ev.target.location.y),
             z: Math.floor(ev.target.location.z)
           };
-          const dimid = ev.target.dimension.id === "minecraft:overworld" ? 0 : ev.target.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(ev.target.dimension);
           if (!checkLandPermission(ev.player, pos, dimid, "interact_entity")) {
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u4E0E\u6B64\u571F\u5730\u5185\u7684\u5B9E\u4F53\u4EA4\u4E92\uFF01", ev.player);
             ev.cancel = true;
           }
         });
-        this.subscribe(world18.beforeEvents.entityHurt, (ev) => {
+        this.subscribe(world17.beforeEvents.entityHurt, (ev) => {
           const source = ev.damageSource.damagingEntity;
           if (!(source instanceof Player15)) return;
           const target = ev.hurtEntity;
@@ -5877,30 +5882,30 @@ var init_LandEvents = __esm({
             y: Math.floor(target.location.y),
             z: Math.floor(target.location.z)
           };
-          const dimid = target.dimension.id === "minecraft:overworld" ? 0 : target.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(target.dimension);
           if (!checkLandPermission(source, pos, dimid, "attack_entity")) {
             ev.cancel = true;
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u653B\u51FB\u6B64\u571F\u5730\u5185\u7684\u5B9E\u4F53\uFF01", source);
           }
         });
-        this.subscribe(world18.beforeEvents.entityItemPickup, (ev) => {
+        this.subscribe(world17.beforeEvents.entityItemPickup, (ev) => {
           if (!(ev.entity instanceof Player15)) return;
           const pos = {
             x: Math.floor(ev.item.location.x),
             y: Math.floor(ev.item.location.y),
             z: Math.floor(ev.item.location.z)
           };
-          const dimid = ev.item.dimension.id === "minecraft:overworld" ? 0 : ev.item.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(ev.item.dimension);
           if (!checkLandPermission(ev.entity, pos, dimid, "pickup_item")) {
             ev.cancel = true;
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u62FE\u53D6\u6B64\u571F\u5730\u5185\u7684\u7269\u54C1\uFF01", ev.entity);
           }
         });
-        this.subscribe(world18.beforeEvents.explosion, (ev) => {
+        this.subscribe(world17.beforeEvents.explosion, (ev) => {
           const blocks = ev.getImpactedBlocks();
           if (blocks.some((block) => {
             const pos = { x: block.x, y: block.y, z: block.z };
-            const dimid = block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+            const dimid = dimensionId(block.dimension);
             return LandCore.getLandByPos(pos, dimid) !== void 0;
           }))
             ev.cancel = true;
@@ -5910,13 +5915,13 @@ var init_LandEvents = __esm({
         this.subscriptions.push({ signal, callback: signal.subscribe(callback) });
       }
       static scanPlayerBoundaries() {
-        for (const player of world18.getPlayers()) {
+        for (const player of world17.getPlayers()) {
           const pos = {
             x: Math.floor(player.location.x),
             y: Math.floor(player.location.y),
             z: Math.floor(player.location.z)
           };
-          const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+          const dimid = dimensionId(player.dimension);
           const land = LandCore.getLandByPos(pos, dimid);
           const current = land?.id || null;
           const previous = this.lastLandByPlayer.get(player.id);
@@ -6007,10 +6012,7 @@ var init_LandEvents = __esm({
 });
 
 // scripts/gui/LandGUI.ts
-import { world as world19 } from "@minecraft/server";
-function dimensionId(player) {
-  return player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
-}
+import { world as world18 } from "@minecraft/server";
 function roleText(land, playerId2) {
   const role = getPlayerRole(land, playerId2);
   return role ? ROLE_NAMES[role] : "\u8BBF\u5BA2";
@@ -6062,7 +6064,7 @@ var init_LandGUI = __esm({
         const gui = new _LandGUI(player);
         const session = LandCore.getSession(player.id);
         if (session)
-          gui.nav.state.gui.application = { ...session, dimensionId: session.dimensionId ?? dimensionId(player) };
+          gui.nav.state.gui.application = { ...session, dimensionId: session.dimensionId ?? dimensionId(player.dimension) };
         void getInvites(player.id).then((invites) => {
           gui.state.invites = invites;
           return gui.nav.start("home");
@@ -6091,6 +6093,7 @@ var init_LandGUI = __esm({
         this.nav.section("protection", "\u8BBF\u5BA2\u4FDD\u62A4", (page) => this.buildProtection(page));
         this.nav.section("basic", "\u57FA\u672C\u4FE1\u606F", (page) => this.buildBasic(page));
         this.nav.section("risk", "\u6240\u6709\u6743\u4E0E\u98CE\u9669", (page) => this.buildRisk(page));
+        this.nav.section("transferSelect", "\u8F6C\u8BA9\u571F\u5730", (page) => this.buildTransferSelect(page));
         this.nav.section("application", "\u571F\u5730\u7533\u8BF7", (page) => this.buildApplication(page));
         this.nav.section("plaza", "\u516C\u5171\u5E7F\u573A", (page) => void this.buildPlaza(page));
       }
@@ -6102,7 +6105,7 @@ var init_LandGUI = __esm({
             y: Math.floor(this.player.location.y),
             z: Math.floor(this.player.location.z)
           },
-          dimensionId(this.player)
+          dimensionId(this.player.dimension)
         );
         const owned = LandCore.getPlayerLands(this.player.id);
         const application = this.state.application;
@@ -6270,7 +6273,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         const land = this.currentLand();
         if (!land) return;
         const status = new FormStatus(page);
-        const online = world19.getPlayers().filter((p) => p.id !== land.ownerplid && !(land.members || []).some((m) => m.player_id === p.id));
+        const online = world18.getPlayers().filter((p) => p.id !== land.ownerplid && !(land.members || []).some((m) => m.player_id === p.id));
         const names = online.map((p) => p.name);
         if (!names.length) {
           page.label("\u6CA1\u6709\u53EF\u9080\u8BF7\u7684\u5728\u7EBF\u73A9\u5BB6\u3002");
@@ -6439,7 +6442,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
             "\u5220\u9664\u540E\u571F\u5730\u5C06\u8FDB\u5165\u5DF2\u5220\u9664\u72B6\u6001\u5E76\u6309\u6BD4\u4F8B\u9000\u6B3E\u3002"
           ])
         );
-        page.button("\u8F6C\u8BA9\u571F\u5730\uFF08\u5728\u7EBF\uFF09", () => void this.transferLand(land, status));
+        page.button("\u8F6C\u8BA9\u571F\u5730\uFF08\u5728\u7EBF\uFF09", () => void this.nav.rebuild("transferSelect"));
         page.button("\u5220\u9664\u571F\u5730", () => void this.deleteLand(land, status));
       }
       buildApplication(page) {
@@ -6448,7 +6451,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         const session = LandCore.getSession(this.player.id) || (LandCore.initSession(this.player.id), LandCore.getSession(this.player.id));
         const application = this.state.application || {
           ...session,
-          dimensionId: session?.dimensionId ?? dimensionId(this.player)
+          dimensionId: session?.dimensionId ?? dimensionId(this.player.dimension)
         };
         this.state.application = application;
         const body = [
@@ -6538,7 +6541,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
       openApplication() {
         if (!LandCore.getSession(this.player.id)) LandCore.initSession(this.player.id);
         const session = LandCore.getSession(this.player.id);
-        this.state.application = session ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player) } : void 0;
+        this.state.application = session ? { ...session, dimensionId: session.dimensionId ?? dimensionId(this.player.dimension) } : void 0;
         void this.nav.rebuild("application");
       }
       async removeMember(land, memberId, status) {
@@ -6551,39 +6554,43 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         status.ok("\u6210\u5458\u5DF2\u79FB\u9664\u3002");
         await this.nav.refresh();
       }
-      async transferLand(land, status) {
-        const target = world19.getPlayers().find((p) => p.id !== this.player.id);
-        if (!target) {
-          await this.nav.message(
-            "\u65E0\u6CD5\u8F6C\u8BA9\u571F\u5730",
-            "\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u3002\n\u571F\u5730\u8F6C\u8BA9\u76EE\u524D\u53EA\u80FD\u9009\u62E9\u5728\u7EBF\u73A9\u5BB6\u3002\n\n\u8BF7\u8FD4\u56DE\u540E\u5728\u5176\u4ED6\u73A9\u5BB6\u5728\u7EBF\u65F6\u91CD\u8BD5\u3002"
-          );
+      buildTransferSelect(page) {
+        const land = this.currentLand();
+        if (!land || !LandCore.isOwner(land, this.player.id)) return;
+        const status = new FormStatus(page);
+        const online = world18.getPlayers().filter((p) => p.id !== this.player.id);
+        if (!online.length) {
+          page.label(ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u3002", "\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002"]));
           return;
         }
-        if (!await this.nav.confirmMessage(
-          "\u8F6C\u8BA9\u571F\u5730",
-          `\u786E\u5B9A\u5C06 ${land.nickname || land.id} \u8F6C\u8BA9\u7ED9 ${target.name} \u5417\uFF1F\u8F6C\u8BA9\u540E\u4F60\u5C06\u6210\u4E3A\u7BA1\u7406\u5458\u3002`,
+        const target = obsNum(0);
+        page.dropdown(
+          "\u9009\u62E9\u63A5\u6536\u73A9\u5BB6",
+          target,
+          online.map((p, i) => ({ value: i, label: p.name }))
+        );
+        page.button(
           "\u786E\u8BA4\u8F6C\u8BA9",
-          "\u8FD4\u56DE"
-        ))
-          return;
-        const { transferLand: transferLand2 } = await Promise.resolve().then(() => (init_LandApi(), LandApi_exports));
-        await this.nav.runTask(status, async () => {
-          const requestId = `land-transfer:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
-          const result = await transferLand2(land.id, this.player.id, target.id, target.name, land.version, requestId);
-          if (!result.ok || !result.land) {
-            if (result.error === "version_conflict") {
-              await this.refreshAfterConflict();
+          () => void this.nav.runTask(status, async () => {
+            const player = online[target.getData()];
+            if (!player) return;
+            const requestId = `land-transfer:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+            const { transferLand: transferLand2 } = await Promise.resolve().then(() => (init_LandApi(), LandApi_exports));
+            const result = await transferLand2(land.id, this.player.id, player.id, player.name, land.version, requestId);
+            if (!result.ok || !result.land) {
+              if (result.error === "version_conflict") {
+                await this.refreshAfterConflict();
+                return;
+              }
+              await this.nav.replace("home");
+              Msg.error(landErrorMessage(result.error, result.message), this.player);
               return;
             }
+            Database.upsert(result.land);
             await this.nav.replace("home");
-            Msg.error(landErrorMessage(result.error, result.message), this.player);
-            return;
-          }
-          Database.upsert(result.land);
-          await this.nav.replace("home");
-          Msg.success(`\u571F\u5730\u5DF2\u8F6C\u8BA9\u7ED9 ${target.name}\u3002`, this.player);
-        });
+            Msg.success(`\u571F\u5730\u5DF2\u8F6C\u8BA9\u7ED9 ${player.name}\u3002`, this.player);
+          })
+        );
       }
       async deleteLand(land, status) {
         if (!await this.nav.confirmMessage(
@@ -6594,7 +6601,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         ))
           return;
         await this.nav.runTask(status, async () => {
-          const requestId = `land-delete:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+          const requestId = `land-delete:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
           const deleted = await LandCore.deleteLand(land.id, this.player, requestId);
           if (!deleted.ok) {
             if (deleted.error === "version_conflict") {
@@ -6623,6 +6630,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
 
 // scripts/land/LandTax.ts
 import { system as system20 } from "@minecraft/server";
+import { HttpRequestMethod as HttpRequestMethod7 } from "@minecraft/server-net";
 var LandTax;
 var init_LandTax = __esm({
   "scripts/land/LandTax.ts"() {
@@ -6646,7 +6654,7 @@ var init_LandTax = __esm({
       }
       static async collectAllTaxes() {
         debug.i("LAND", "collectAllTaxes: starting tax collection");
-        const result = await HttpDB.typedRequest("Get", "/api/sfmc/lands");
+        const result = await HttpDB.typedRequest(HttpRequestMethod7.GET, "/api/sfmc/lands");
         if (!result.ok) {
           debug.e("LAND", "collectAllTaxes: failed to fetch lands");
           return;
@@ -6657,7 +6665,7 @@ var init_LandTax = __esm({
           if (land.tax_rate <= 0) continue;
           if (land.tax_due_at && land.tax_due_at > Date.now()) continue;
           const taxResult = await HttpDB.typedRequest(
-            "Post",
+            HttpRequestMethod7.POST,
             `/api/sfmc/lands/${encodeURIComponent(land.id)}/tax-collect`,
             {
               actorId: "system"
@@ -6679,7 +6687,7 @@ import { system as system21 } from "@minecraft/server";
 function handlePosCommand(player, which) {
   const plid = player.id;
   const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
-  const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+  const dimid = dimensionId(player.dimension);
   const session = LandCore.getSession(plid);
   if (!session) return Msg.error("\u4F60\u6CA1\u6709\u6B63\u5728\u8FDB\u884C\u7684\u571F\u5730\u7533\u8BF7\u3002", player);
   if (session.dimensionId !== void 0 && session.dimensionId !== dimid)
@@ -6738,7 +6746,7 @@ var init_LandSystem = __esm({
               y: Math.floor(player.location.y),
               z: Math.floor(player.location.z)
             };
-            const dimid = player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+            const dimid = dimensionId(player.dimension);
             const land = LandCore.getLandByPos(pos, dimid);
             if (!land) return "\u5F53\u524D\u4F4D\u7F6E\u4E0D\u5728\u4EFB\u4F55\u571F\u5730\u5185\u3002";
             return `\u571F\u5730\uFF1A${land.nickname || land.id}\uFF0C\u6240\u6709\u8005\uFF1A${land.ownerName}\uFF0C\u7248\u672C\uFF1A${land.version || 1}`;
@@ -6848,7 +6856,7 @@ var init_AdminGUI = __esm({
         }
       }
       async onToggle(name, val) {
-        const ok = await HttpDB.patch(`/api/sfmc/modules/${name}`, { enabled: val });
+        const ok = await HttpDB.put(`/api/sfmc/modules/${name}`, { enabled: val });
         if (!ok) {
           Msg.error(`${name} \u4FEE\u6539\u5931\u8D25`, this.player);
           return;
@@ -6866,7 +6874,7 @@ var init_AdminGUI = __esm({
 });
 
 // scripts/gui/ChatGUI.ts
-import { world as world20 } from "@minecraft/server";
+import { world as world19 } from "@minecraft/server";
 var ChatGUI;
 var init_ChatGUI = __esm({
   "scripts/gui/ChatGUI.ts"() {
@@ -6914,7 +6922,7 @@ var init_ChatGUI = __esm({
             Msg.error("\u65E0\u6CD5\u627E\u5230\u79C1\u804A\u5BF9\u8C61\u3002", player);
             return;
           }
-          const target = world20.getPlayers().find((p) => p.id === otherid);
+          const target = world19.getPlayers().find((p) => p.id === otherid);
           if (!target) {
             Msg.error("\u5BF9\u65B9\u4E0D\u5728\u7EBF\u3002", player);
             return;
@@ -6922,7 +6930,7 @@ var init_ChatGUI = __esm({
           DogeChat.sendTeleportInvite(player, target);
           return;
         }
-        const online = world20.getPlayers().filter((p) => p.id !== player.id);
+        const online = world19.getPlayers().filter((p) => p.id !== player.id);
         if (online.length === 0) {
           Msg.info("\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002", player);
           return;
@@ -7236,7 +7244,7 @@ var init_ChatGUI = __esm({
         }
       }
       async buildInvite(page) {
-        const online = world20.getPlayers().filter((p) => p.id !== this.player.id);
+        const online = world19.getPlayers().filter((p) => p.id !== this.player.id);
         if (online.length === 0) {
           page.label(ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002"]));
           return;
@@ -7295,7 +7303,7 @@ var init_ChatGUI = __esm({
 });
 
 // scripts/coop/CoopCore.ts
-import { world as world21 } from "@minecraft/server";
+import { world as world20 } from "@minecraft/server";
 var CoopCore;
 var init_CoopCore = __esm({
   "scripts/coop/CoopCore.ts"() {
@@ -7306,10 +7314,7 @@ var init_CoopCore = __esm({
     init_Tools();
     CoopCore = class {
       static generateId() {
-        return `${Date.now().toString(36)}_${(++this._guidCounter).toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-      }
-      static getConfig() {
-        return this.cooperativeConfig;
+        return `${Date.now().toString(36)}_${(++this._guidCounter).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
       }
       static _countItemInInventory(player, typeId) {
         const inv = player.getComponent("inventory");
@@ -7438,7 +7443,7 @@ var init_CoopCore = __esm({
         if (!data) return;
         let sent = 0;
         for (const member of data.members || []) {
-          for (const p of world21.getPlayers())
+          for (const p of world20.getPlayers())
             if (p.id === member.player_id) {
               Msg.info(`[${data.name}] ${text}`, p);
               sent++;
@@ -7453,12 +7458,10 @@ var init_CoopCore = __esm({
           return "\u5408\u4F5C\u793E\u4E0D\u5B58\u5728";
         }
         const ops = (data.members || []).filter((m) => m.role === "owner" || m.role === "admin").map((m) => m.player_name_snapshot).join(", ");
-        return `\u516C\u544A\uFF1A
-${data.notice}
-
-\u5408\u4F5C\u793E\u540D\u79F0: ${data.name}
+        return `\u5408\u4F5C\u793E\u540D\u79F0: ${data.name}
 \u793E\u957F&\u7BA1\u7406: ${ops}
-\u4EBA\u6570: ${(data.members || []).length}
+\u6210\u5458: 
+${(data.members || []).join("\n")}
 \u94F6\u884C\u7ECF\u6D4E: ${data.account?.balance || 0}`;
       }
       static async getMemberList(cid) {
@@ -7484,11 +7487,6 @@ ${data.notice}
         await Promise.resolve().then(() => (init_CoopAPI(), CoopAPI_exports)).then(
           (api) => api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin")
         );
-      }
-      static async setNotice(cid, text) {
-        debug.i("COOP", `setNotice: cid=${cid} text=${text}`);
-        const data = await getCoop(cid);
-        if (data) await updateCoop(cid, { actorId: data.owner_player_id, notice: text });
       }
       // ==========================================
       //  银行操作
@@ -7579,7 +7577,7 @@ ${data.notice}
           return { ok: false, error: result.error || "\u8D2D\u4E70\u5931\u8D25" };
         }
         try {
-          player.runCommand(`give "${player.name}" ${good.item_type} ${num} ${good.item_aux ?? 0}`);
+          player.runCommand(`give @s ${good.item_type} ${num} ${good.item_aux ?? 0}`);
         } catch {
           Msg.error("\u7269\u54C1\u53D1\u653E\u5931\u8D25\uFF0C\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u3002", player);
           return { ok: false, error: "give_failed" };
@@ -7604,7 +7602,7 @@ ${data.notice}
           return { ok: false, error: "\u80CC\u5305\u7269\u54C1\u4E0D\u8DB3" };
         }
         try {
-          player.runCommand(`clear "${player.name}" ${good.item_type} ${good.item_aux ?? 0} ${num}`);
+          player.runCommand(`clear @s ${good.item_type} ${good.item_aux ?? 0} ${num}`);
         } catch {
           Msg.error("\u4ECE\u80CC\u5305\u6263\u9664\u7269\u54C1\u5931\u8D25\u3002", player);
           return { ok: false, error: "clear_failed" };
@@ -7613,7 +7611,7 @@ ${data.notice}
         const result = await coopShopSell(good.cid, player.id, player.name, gid, num, idempotencyKey);
         if (!result.ok) {
           try {
-            player.runCommand(`give "${player.name}" ${good.item_type} ${num} ${good.item_aux ?? 0}`);
+            player.runCommand(`give @s ${good.item_type} ${num} ${good.item_aux ?? 0}`);
           } catch {
           }
           Msg.error(`\u51FA\u552E\u5931\u8D25\uFF1A${result.error || "\u670D\u52A1\u5668\u9519\u8BEF"}\uFF0C\u7269\u54C1\u5DF2\u8FD4\u8FD8\u3002`, player);
@@ -7655,7 +7653,7 @@ function countItemInInventory(player) {
   return total;
 }
 function _genId() {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 function _fmtGoodBt(name, unit, price, sv, num, isBuy) {
   return isBuy ? `${name} ${unit}${price}
@@ -7702,7 +7700,6 @@ var init_CoopGUI = __esm({
         this.nav.section("coopList", "\u5408\u4F5C\u793E\u5217\u8868", (p) => this.buildCoopList(p));
         this.nav.section("createCoop", "\u521B\u5EFA\u5408\u4F5C\u793E", (p) => this.buildCreateCoop(p));
         this.nav.section("adminPanel", "\u7BA1\u7406\u9762\u677F", (p) => this.buildAdminPanel(p));
-        this.nav.section("editNotice", "\u7F16\u8F91\u516C\u544A", (p) => this.buildEditNotice(p));
         this.nav.section("talkToMembers", "\u558A\u8BDD", (p) => this.buildTalkToMembers(p));
         this.nav.section("addAdmin", "\u6DFB\u52A0\u7BA1\u7406", (p) => this.buildAddAdmin(p));
         this.nav.section("bankPanel", "\u94F6\u884C", (p) => this.buildBankPanel(p));
@@ -7850,24 +7847,9 @@ var init_CoopGUI = __esm({
           page.label("\u8BF7\u5148\u52A0\u5165\u4E00\u4E2A\u5408\u4F5C\u793E\u3002");
           return;
         }
-        page.label(ListFormInfo(["\xA76CID:\xA7r " + cid]));
-        page.button("\u7F16\u8F91\u516C\u544A", () => this.nav.go("editNotice"));
+        page.label(ListFormInfo(["CID: " + cid]));
         page.button("\u5411\u6240\u6709\u6210\u5458\u558A\u8BDD", () => this.nav.go("talkToMembers"));
         page.button("\u6DFB\u52A0\u7BA1\u7406\u6210\u5458", () => this.nav.rebuild("addAdmin"));
-      }
-      buildEditNotice(page) {
-        const status = new FormStatus(page);
-        const cid = this.nav.state.cid;
-        if (!cid) {
-          page.label("\u8BF7\u5148\u52A0\u5165\u4E00\u4E2A\u5408\u4F5C\u793E\u3002");
-          return;
-        }
-        const obsNotice = obsStr("");
-        page.textField("\u516C\u544A\u5185\u5BB9", obsNotice);
-        page.button("\u786E\u8BA4", async () => {
-          await CoopCore.setNotice(cid, obsNotice.getData() || "");
-          status.info("\u8BBE\u7F6E\u6210\u529F\u3002");
-        });
       }
       buildTalkToMembers(page) {
         const status = new FormStatus(page);
@@ -8417,7 +8399,7 @@ var init_MainMenu = __esm({
 });
 
 // scripts/gui/MoneyGUI.ts
-import { world as world22 } from "@minecraft/server";
+import { world as world21 } from "@minecraft/server";
 var MoneyGUI;
 var init_MoneyGUI = __esm({
   "scripts/gui/MoneyGUI.ts"() {
@@ -8463,7 +8445,7 @@ var init_MoneyGUI = __esm({
               status.fail("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002");
               return;
             }
-            const target = world22.getPlayers().find((p) => p.name === name);
+            const target = world21.getPlayers().find((p) => p.name === name);
             if (!target) {
               status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
               return;
@@ -8486,7 +8468,7 @@ var init_MoneyGUI = __esm({
               status.fail("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u73A9\u5BB6\u540D\u79F0\u3002");
               return;
             }
-            const target = world22.getPlayers().find((p) => p.name === name);
+            const target = world21.getPlayers().find((p) => p.name === name);
             if (!target) {
               status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
               return;
@@ -8550,7 +8532,7 @@ var init_CoopSystem = __esm({
 });
 
 // scripts/chat/ChatSystem.ts
-import { system as system23, world as world23 } from "@minecraft/server";
+import { system as system23, world as world22 } from "@minecraft/server";
 var _ChatSystem, ChatSystem;
 var init_ChatSystem = __esm({
   "scripts/chat/ChatSystem.ts"() {
@@ -8581,7 +8563,7 @@ var init_ChatSystem = __esm({
         console.log(`ChatSystem initialized successfully.`);
       }
       static registerEvents() {
-        _ChatSystem.chatSendSub = world23.beforeEvents.chatSend.subscribe(async (event) => {
+        _ChatSystem.chatSendSub = world22.beforeEvents.chatSend.subscribe(async (event) => {
           const player = event.sender;
           const message = event.message;
           if (message.startsWith("!") || message.startsWith("\uFF01")) return;
@@ -8589,8 +8571,8 @@ var init_ChatSystem = __esm({
           const channel = await DogeChat.getActiveChannel(player);
           if (channel) await DogeChat.sendChannelMessage(player, channel.id, message);
         });
-        _ChatSystem.playerJoinSub = world23.afterEvents.playerJoin.subscribe((event) => {
-          const player = world23.getEntity(event.playerId);
+        _ChatSystem.playerJoinSub = world22.afterEvents.playerJoin.subscribe((event) => {
+          const player = world22.getEntity(event.playerId);
           system23.run(async () => {
             await DogeChat.loadSubscriptions(player);
             const channel = await DogeChat.getActiveChannel(player);
@@ -8690,7 +8672,7 @@ var init_ChatSystem = __esm({
 });
 
 // scripts/data/ActivityLog.ts
-import { system as system24, world as world24 } from "@minecraft/server";
+import { system as system24, world as world23 } from "@minecraft/server";
 function enqueue(entry) {
   queue.push(entry);
   if (!flushTimer) {
@@ -8774,7 +8756,7 @@ function subscribe() {
       }
     }
   }
-  const AE = world24.afterEvents;
+  const AE = world23.afterEvents;
   safeSubscribe(AE.playerSpawn, (event) => {
     if (!event.initialSpawn) return;
     if (!ENABLED_EVENTS.has("player.join")) return;
@@ -9279,11 +9261,11 @@ var init_Player = __esm({
 });
 
 // scripts/data/Scoreboards.ts
-import { world as world25 } from "@minecraft/server";
+import { world as world24 } from "@minecraft/server";
 function ScoreboardsBackup() {
   debug.i("DATA", "ScoreboardsBackup");
   let entries = [];
-  world25.scoreboard.getObjectives().forEach((obj, index) => {
+  world24.scoreboard.getObjectives().forEach((obj, index) => {
     const scores = obj.getScores();
     entries.push({
       id: obj.id,
@@ -9321,7 +9303,7 @@ var init_Scoreboards = __esm({
             const result = await this.load();
             const message = `\u8BA1\u5206\u677F\u6062\u590D\u5B8C\u6210\uFF1A\u6210\u529F ${result.success}\uFF0C\u5931\u8D25 ${result.fail}`;
             if (player) Msg.info(message, player);
-            else world25.sendMessage(message);
+            else world24.sendMessage(message);
           },
           "\u4ECE\u6570\u636E\u5E93\u6062\u590D\u8BA1\u5206\u677F",
           "scoreboardSync"
@@ -9350,10 +9332,10 @@ var init_Scoreboards = __esm({
             groups.set(e.objective_id, list);
           }
           for (const [objId, objEntries] of groups) {
-            let objective = world25.scoreboard.getObjective(objId);
+            let objective = world24.scoreboard.getObjective(objId);
             if (!objective) {
               try {
-                objective = world25.scoreboard.addObjective(objId, objEntries[0].objective_display || objId);
+                objective = world24.scoreboard.addObjective(objId, objEntries[0].objective_display || objId);
               } catch (err) {
                 console.warn(`[ScoreboardSync] \u65E0\u6CD5\u521B\u5EFA\u8BB0\u5206\u9879 "${objId}"\uFF1A${err}`);
                 fail += objEntries.length;
@@ -9363,7 +9345,7 @@ var init_Scoreboards = __esm({
             for (const e of objEntries) {
               try {
                 if (e.participant_type === "Player" && e.id) {
-                  const player = [...world25.getPlayers()].find((p) => p.id === e.id);
+                  const player = [...world24.getPlayers()].find((p) => p.id === e.id);
                   if (player?.scoreboardIdentity) {
                     objective.setScore(player.scoreboardIdentity, e.score);
                     success++;
@@ -9389,9 +9371,9 @@ var init_Scoreboards = __esm({
 });
 
 // scripts/data/World.ts
-import { world as world26 } from "@minecraft/server";
+import { world as world25 } from "@minecraft/server";
 function serializeGameRules() {
-  const g = world26.gameRules;
+  const g = world25.gameRules;
   const rules = {};
   const props = [
     "commandBlockOutput",
@@ -9435,18 +9417,18 @@ function serializeGameRules() {
 async function getWorldData() {
   debug.i("DATA", "getWorldData");
   const data = {
-    allowCheats: world26.allowCheats,
+    allowCheats: world25.allowCheats,
     gameRules: serializeGameRules(),
-    seed: world26.seed,
-    defaultSpawnLocation: JSON.stringify(world26.getDefaultSpawnLocation()),
-    difficulty: world26.getDifficulty(),
-    day: world26.getDay(),
-    tickingAreasCount: world26.tickingAreaManager.chunkCount,
-    absoluteTime: world26.getAbsoluteTime(),
-    structuresFromAddon: world26.structureManager.getPackStructureIds().toString(),
-    structuresFromWorld: world26.structureManager.getWorldStructureIds().toString(),
-    MoonPhase: world26.getMoonPhase(),
-    dynamicPropertyTotalByteCount: world26.getDynamicPropertyTotalByteCount(),
+    seed: world25.seed,
+    defaultSpawnLocation: JSON.stringify(world25.getDefaultSpawnLocation()),
+    difficulty: world25.getDifficulty(),
+    day: world25.getDay(),
+    tickingAreasCount: world25.tickingAreaManager.chunkCount,
+    absoluteTime: world25.getAbsoluteTime(),
+    structuresFromAddon: world25.structureManager.getPackStructureIds().toString(),
+    structuresFromWorld: world25.structureManager.getWorldStructureIds().toString(),
+    MoonPhase: world25.getMoonPhase(),
+    dynamicPropertyTotalByteCount: world25.getDynamicPropertyTotalByteCount(),
     updatedAt: getShanghaiTime().date + getShanghaiTime().time
   };
   return data;
@@ -9466,7 +9448,7 @@ var init_World = __esm({
 });
 
 // scripts/entry.ts
-import { system as system25, world as world27 } from "@minecraft/server";
+import { system as system25, world as world26 } from "@minecraft/server";
 var AddOnInit;
 var init_entry = __esm({
   "scripts/entry.ts"() {
@@ -9539,7 +9521,7 @@ var init_entry = __esm({
           Permission.registerPermlistCommand();
         },
         registerEvents: () => {
-          world27.beforeEvents.chatSend.subscribe((event) => {
+          world26.beforeEvents.chatSend.subscribe((event) => {
             if (!guardEvent()) return;
             const firstChar = event.message.substring(0, 1);
             if (firstChar === "!" || firstChar === "\uFF01") {
@@ -9556,7 +9538,7 @@ var init_entry = __esm({
       afterWorldLoad: false,
       lifecycle: {
         registerEvents: () => {
-          world27.afterEvents.playerSpawn.subscribe((event) => {
+          world26.afterEvents.playerSpawn.subscribe((event) => {
             if (!guardEvent()) return;
             if (event.initialSpawn) {
               getPlayerData(event.player).then((data) => {
@@ -9565,9 +9547,9 @@ var init_entry = __esm({
               });
             }
           });
-          world27.afterEvents.playerLeave.subscribe(async (event) => {
+          world26.afterEvents.playerLeave.subscribe(async (event) => {
             if (!guardEvent()) return;
-            const player = world27.getEntity(event.playerId);
+            const player = world26.getEntity(event.playerId);
             if (player) {
               try {
                 const data = await getPlayerData(player);
@@ -9661,7 +9643,7 @@ var init_entry = __esm({
         registerPermissions: () => Permission.register("money.admin", Permission.OP),
         registerCommands: () => MoneyGUI.registerCommand(),
         registerEvents: () => {
-          world27.afterEvents.playerSpawn.subscribe((event) => {
+          world26.afterEvents.playerSpawn.subscribe((event) => {
             void Money.load(event.player);
           });
         },
@@ -9830,9 +9812,6 @@ var init_entry = __esm({
         system25.beforeEvents.startup.subscribe(async () => {
           system25.run(async () => {
             await ConfigManager.init();
-            Permission.register("holorint.menu", Permission.Member);
-            Permission.register("holorint.pos1", Permission.Member);
-            Permission.register("holorint.pos2", Permission.Member);
             setModuleGuard((moduleId) => {
               const idKey = moduleId;
               return ModuleRegistry.isActive(idKey);
@@ -9842,7 +9821,7 @@ var init_entry = __esm({
             announceLoaded();
           });
         });
-        world27.afterEvents.worldLoad.subscribe(() => {
+        world26.afterEvents.worldLoad.subscribe(() => {
           if (!guardEvent()) return;
           ModuleRegistry.bootAfterWorldLoad();
           syncWorldData();

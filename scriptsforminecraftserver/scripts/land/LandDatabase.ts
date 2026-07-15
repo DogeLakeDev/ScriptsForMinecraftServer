@@ -7,12 +7,10 @@
  *    - 通过 refresh() 定期刷新
  *    - owner / chunk 索引仅用于本地查询，不写入 world.dynamicProperty
  *
- *  历史遗留：早期版本在内存里跑过持久化（memoryStore / writeJSON），
- *  那套逻辑是死代码，本版本完全移除。所有权威数据走 db-server SQLite。
 \* ---------------------------------------- */
 
 import { debug } from "../libs/DebugLog";
-import { defaultConfig, defaultPermissions, generateLandId } from "./defaults";
+import { DEFAULT_TAX, defaultConfig, defaultPermissions, generateLandId } from "./defaults";
 import {
   LAND_ROLES,
   ROLE_CAPABILITIES,
@@ -99,6 +97,19 @@ export interface LandConfig {
   refundRate: number;
 }
 
+export interface LandTaxConfig {
+  /** 是否对地皮征税（开启后新购土地采用 defaultRate） */
+  enabled: boolean;
+  /** 默认税率，单位万分之一（如 50 = 0.5%） */
+  defaultRate: number;
+  /** 缴税周期（天） */
+  periodDays: number;
+  /** 余额不足时是否冻结领地 */
+  freezeOnInsufficient: boolean;
+  /** 购地价缺失时的兜底值 */
+  fallbackPurchasePrice: number;
+}
+
 // ---------- chunks / 多边形索引 ----------
 
 const CHUNK_SIZE = 16;
@@ -136,24 +147,38 @@ function isPosInBoundingBox(land: LandData, pos: LandPos): boolean {
 const CONFIG_REFRESH_MS = 5 * 60 * 1000;
 let _configLastFetchedAt = 0;
 let _configInFlight: Promise<void> | null = null;
+let _serverConfig: LandConfig | null = null;
+let _serverPermissions: LandPermissions | null = null;
+let _serverTax: LandTaxConfig | null = null;
 
-async function fetchServerConfig(): Promise<LandConfig | null> {
+async function fetchServerConfig(): Promise<void> {
   try {
     const { HttpDB } = await import("../libs/HttpDB");
-    // 服务端权威配置走 /api/sfmc/settings/land:config —— 通用 settings 接口
+    // 服务端权威配置走 /api/sfmc/settings/land:* —— 通用 settings 接口
     // （避免新增专用 endpoint，settings 已是 admin 写入通道）
-    const body = await HttpDB.get("/api/sfmc/settings/land:config");
-    if (!body) return null;
-    const parsed = JSON.parse(body);
-    if (!parsed || !parsed.value) return null;
-    try {
-      return JSON.parse(parsed.value) as LandConfig;
-    } catch {
-      return null;
-    }
+    const [cfgBody, permBody, taxBody] = await Promise.all([
+      HttpDB.get("/api/sfmc/settings/land:config"),
+      HttpDB.get("/api/sfmc/settings/land:permissions"),
+      HttpDB.get("/api/sfmc/settings/land:tax"),
+    ]);
+    const parseValue = (body: string | null): any | null => {
+      if (!body) return null;
+      try {
+        const parsed = JSON.parse(body);
+        if (!parsed || !parsed.value) return null;
+        return JSON.parse(parsed.value);
+      } catch {
+        return null;
+      }
+    };
+    const cfg = parseValue(cfgBody);
+    if (cfg) _serverConfig = cfg as LandConfig;
+    const perm = parseValue(permBody);
+    if (perm) _serverPermissions = perm as LandPermissions;
+    const tax = parseValue(taxBody);
+    if (tax) _serverTax = tax as LandTaxConfig;
   } catch (error) {
     debug.w("LANDDB", `fetchServerConfig failed: ${(error as Error).message}`);
-    return null;
   }
 }
 
@@ -164,7 +189,6 @@ export class Database {
   private static _registry: Map<string, LandData> | null = null;
   private static _ownerIndex: Map<string, string[]> | null = null;
   private static _chunkIndex: Map<string, Set<string>> = new Map();
-  private static _config: LandConfig | null = null;
   private static _loading: Promise<void> | null = null;
   private static _hasAuthoritativeSnapshot = false;
 
@@ -202,13 +226,24 @@ export class Database {
   // ── 配置 ──
 
   static getConfig(): LandConfig {
-    if (this._config) return this._config;
-    this._config = defaultConfig();
-    return this._config;
+    if (_serverConfig) return _serverConfig;
+    return defaultConfig();
   }
 
   static replaceConfig(cfg: LandConfig): void {
-    this._config = cfg;
+    _serverConfig = cfg;
+  }
+
+  /** 新领地默认访客权限：优先 server 配置（land:permissions），否则本地兜底。 */
+  static getDefaultPermissions(): LandPermissions {
+    if (_serverPermissions) return _serverPermissions;
+    return defaultPermissions();
+  }
+
+  /** 地皮税配置：优先 server 配置（land:tax），否则本地兜底。 */
+  static getDefaultTax(): LandTaxConfig {
+    if (_serverTax) return _serverTax;
+    return DEFAULT_TAX;
   }
 
   /**
@@ -219,11 +254,8 @@ export class Database {
     if (Date.now() - _configLastFetchedAt < CONFIG_REFRESH_MS) return;
     if (_configInFlight) return _configInFlight;
     _configInFlight = (async () => {
-      const serverCfg = await fetchServerConfig();
-      if (serverCfg) {
-        Database.replaceConfig(serverCfg);
-        _configLastFetchedAt = Date.now();
-      }
+      await fetchServerConfig();
+      _configLastFetchedAt = Date.now();
     })().finally(() => {
       _configInFlight = null;
     });
@@ -266,17 +298,19 @@ export class Database {
 
   static getAll(): LandData[] {
     this.ensureLoaded();
-    const all = Array.from(this._registry!.values());
+    if (!this._registry) return [];
+    const all = Array.from(this._registry.values());
     debug.i("LANDDB", `getAll: ${all.length} lands`);
     return all;
   }
 
   static getAt(pos: LandPos, dimid: number): LandData | undefined {
     this.ensureLoaded();
+    if (!this._registry) return undefined;
     const candidates = this._chunkIndex.get(chunkKey(dimid, pos.x, pos.z));
     if (!candidates) return undefined;
     for (const id of candidates) {
-      const land = this._registry!.get(id);
+      const land = this._registry.get(id);
       if (!land) continue;
       if (isPosInBoundingBox(land, pos)) {
         debug.i("LANDDB", `getAt: found land ${land.id} at (${pos.x},${pos.y},${pos.z}) dimid=${dimid}`);
@@ -288,14 +322,16 @@ export class Database {
 
   static getById(landId: string): LandData | undefined {
     this.ensureLoaded();
-    const land = this._registry!.get(landId);
+    if (!this._registry) return undefined;
+    const land = this._registry.get(landId);
     debug.i("LANDDB", `getById: landId=${landId} ${land ? "found" : "not found"}`);
     return land;
   }
 
   static getByOwner(plid: string): string[] {
     this.ensureLoaded();
-    const list = this._ownerIndex!.get(plid) || [];
+    if (!this._ownerIndex) return [];
+    const list = this._ownerIndex.get(plid) || [];
     debug.i("LANDDB", `getByOwner: plid=${plid} count=${list.length}`);
     return list;
   }
@@ -309,10 +345,11 @@ export class Database {
   static async add(land: LandData): Promise<void> {
     debug.i("LANDDB", `add: landId=${land.id} owner=${land.ownerplid} dimid=${land.dimid}`);
     this.ensureLoaded();
-    this._registry!.set(land.id, land);
-    const owners = this._ownerIndex!.get(land.ownerplid) || [];
+    if (!this._registry || !this._ownerIndex) return;
+    this._registry.set(land.id, land);
+    const owners = this._ownerIndex.get(land.ownerplid) || [];
     if (!owners.includes(land.id)) owners.push(land.id);
-    this._ownerIndex!.set(land.ownerplid, owners);
+    this._ownerIndex.set(land.ownerplid, owners);
     for (const { dimid, cx, cz } of landChunkSpan(land)) {
       const key = chunkKey(dimid, cx * CHUNK_SIZE, cz * CHUNK_SIZE);
       if (!this._chunkIndex.has(key)) this._chunkIndex.set(key, new Set());
@@ -323,7 +360,8 @@ export class Database {
   static upsert(land: LandData): void {
     debug.i("LANDDB", `upsert: landId=${land.id} owner=${land.ownerplid} version=${land.version}`);
     this.ensureLoaded();
-    const current = this._registry!.get(land.id);
+    if (!this._registry) return;
+    const current = this._registry.get(land.id);
     if (current && (land.version || 0) < (current.version || 0)) {
       debug.w("LANDDB", `upsert: stale version, skipped landId=${land.id}`);
       return;
@@ -346,9 +384,10 @@ export class Database {
       return false;
     }
     this.ensureLoaded();
-    const current = this._registry!.get(updated.id);
+    if (!this._registry) return false;
+    const current = this._registry.get(updated.id);
     if (current && (updated.version || 0) < (current.version || 0)) return true;
-    this._registry!.set(updated.id, updated);
+    this._registry.set(updated.id, updated);
     this.rebuildAll();
     debug.i("LANDDB", `update: success landId=${land.id} newVersion=${updated.version}`);
     return true;
@@ -377,10 +416,11 @@ export class Database {
       }
     }
     this.ensureLoaded();
-    const land = this._registry!.get(landId);
+    if (!this._registry || !this._ownerIndex) return result;
+    const land = this._registry.get(landId);
     if (!land) return { ok: true, refund: result.refund, balance: result.balance };
-    this._registry!.delete(landId);
-    const owners = this._ownerIndex!.get(land.ownerplid);
+    this._registry.delete(landId);
+    const owners = this._ownerIndex.get(land.ownerplid);
     if (owners) {
       const idx = owners.indexOf(landId);
       if (idx !== -1) owners.splice(idx, 1);
@@ -402,14 +442,10 @@ export class Database {
       dimid,
       posA,
       posB,
-      permissions: defaultPermissions(),
+      permissions: Database.getDefaultPermissions(),
       nickname: "",
       createdAt: Date.now(),
     };
-  }
-
-  static getDefaultPermissions(): LandPermissions {
-    return defaultPermissions();
   }
 
   static getDefaultConfig(): LandConfig {
@@ -423,7 +459,12 @@ export class Database {
   // ── 内部工具 ──
 
   private static ensureLoaded(): void {
-    if (!this._registry) this._registry = new Map();
-    if (!this._ownerIndex) this._ownerIndex = new Map();
+    if (!this._registry) {
+      if (this._loading) {
+        return;
+      }
+      this._registry = new Map();
+      this._ownerIndex = new Map();
+    }
   }
 }

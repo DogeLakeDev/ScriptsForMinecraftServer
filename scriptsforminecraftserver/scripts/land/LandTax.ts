@@ -1,4 +1,5 @@
 import { system } from "@minecraft/server";
+import { HttpRequestMethod } from "@minecraft/server-net";
 import { debug } from "../libs/DebugLog";
 import { HttpDB } from "../libs/HttpDB";
 
@@ -24,7 +25,7 @@ export class LandTax {
 
   private static async collectAllTaxes(): Promise<void> {
     debug.i("LAND", "collectAllTaxes: starting tax collection");
-    const result = await HttpDB.typedRequest("Get", "/api/sfmc/lands");
+    const result = await HttpDB.typedRequest(HttpRequestMethod.GET, "/api/sfmc/lands");
     if (!result.ok) {
       debug.e("LAND", "collectAllTaxes: failed to fetch lands");
       return;
@@ -35,7 +36,7 @@ export class LandTax {
       if (land.tax_rate <= 0) continue;
       if (land.tax_due_at && land.tax_due_at > Date.now()) continue;
       const taxResult = await HttpDB.typedRequest(
-        "Post",
+        HttpRequestMethod.POST,
         `/api/sfmc/lands/${encodeURIComponent(land.id)}/tax-collect`,
         {
           actorId: "system",

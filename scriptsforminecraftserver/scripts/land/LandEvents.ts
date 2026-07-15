@@ -5,7 +5,7 @@
 import { Player, system, world } from "@minecraft/server";
 import { debug } from "../libs/DebugLog";
 import { Permission } from "../libs/Permission";
-import { Msg } from "../libs/Tools";
+import { dimensionId, Msg } from "../libs/Tools";
 import { LandCore } from "./LandCore";
 import { LandPos } from "./LandDatabase";
 import { canUseAt } from "./LandPolicy";
@@ -67,7 +67,7 @@ export class LandEvents {
     debug.i("LAND", "registerEvents");
     if (this.initialized) return;
     this.initialized = true;
-    this.scanRunId = system.runInterval(() => this.scanPlayerBoundaries(), 20);
+    this.scanRunId = system.runInterval(() => this.scanPlayerBoundaries(), 40);
 
     world.afterEvents.playerLeave.subscribe((event) => {
       LandCore.clearSession(event.playerId);
@@ -78,7 +78,7 @@ export class LandEvents {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid =
-        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(block.dimension);
 
       if (!checkLandPermission(player, pos, dimid, "place")) {
         Msg.error("你没有权限在此土地放置方块！", player);
@@ -91,7 +91,7 @@ export class LandEvents {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid =
-        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(block.dimension);
 
       if (!checkLandPermission(player, pos, dimid, "break")) {
         Msg.error("你没有权限在此土地破坏方块！", player);
@@ -106,7 +106,7 @@ export class LandEvents {
 
       const pos = { x: block.x, y: block.y, z: block.z };
       const dimid =
-        block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(block.dimension);
 
       if (!checkLandPermission(player, pos, dimid, "container")) {
         Msg.error("你没有权限在此土地打开容器！", player);
@@ -127,7 +127,7 @@ export class LandEvents {
       if (!capability) return;
       const pos = { x: ev.block.x, y: ev.block.y, z: ev.block.z };
       const dimid =
-        ev.block.dimension.id === "minecraft:overworld" ? 0 : ev.block.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(ev.block.dimension);
       if (!checkLandPermission(ev.player, pos, dimid, capability)) {
         Msg.error("你没有权限使用此土地设施！", ev.player);
         ev.cancel = true;
@@ -141,7 +141,7 @@ export class LandEvents {
         z: Math.floor(ev.target.location.z),
       };
       const dimid =
-        ev.target.dimension.id === "minecraft:overworld" ? 0 : ev.target.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(ev.target.dimension);
       if (!checkLandPermission(ev.player, pos, dimid, "interact_entity")) {
         Msg.error("你没有权限与此土地内的实体交互！", ev.player);
         ev.cancel = true;
@@ -158,7 +158,7 @@ export class LandEvents {
         z: Math.floor(target.location.z),
       };
       const dimid =
-        target.dimension.id === "minecraft:overworld" ? 0 : target.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(target.dimension);
       if (!checkLandPermission(source, pos, dimid, "attack_entity")) {
         ev.cancel = true;
         Msg.error("你没有权限攻击此土地内的实体！", source);
@@ -173,7 +173,7 @@ export class LandEvents {
         z: Math.floor(ev.item.location.z),
       };
       const dimid =
-        ev.item.dimension.id === "minecraft:overworld" ? 0 : ev.item.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(ev.item.dimension);
       if (!checkLandPermission(ev.entity, pos, dimid, "pickup_item")) {
         ev.cancel = true;
         Msg.error("你没有权限拾取此土地内的物品！", ev.entity);
@@ -186,7 +186,7 @@ export class LandEvents {
         blocks.some((block) => {
           const pos = { x: block.x, y: block.y, z: block.z };
           const dimid =
-            block.dimension.id === "minecraft:overworld" ? 0 : block.dimension.id === "minecraft:nether" ? 1 : 2;
+            dimensionId(block.dimension);
           return LandCore.getLandByPos(pos, dimid) !== undefined;
         })
       )
@@ -212,7 +212,7 @@ export class LandEvents {
         z: Math.floor(player.location.z),
       };
       const dimid =
-        player.dimension.id === "minecraft:overworld" ? 0 : player.dimension.id === "minecraft:nether" ? 1 : 2;
+        dimensionId(player.dimension);
       const land = LandCore.getLandByPos(pos, dimid);
       const current = land?.id || null;
       const previous = this.lastLandByPlayer.get(player.id);

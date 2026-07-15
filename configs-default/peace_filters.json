@@ -1,0 +1,15 @@
+[
+  {
+    "_comment": "和平区过滤 —— 排除指定 family 实体被杀。一般填 { family: \"monster\", exclude_family: \"<具体子类型>\" } 例如 zombie_villager / wither / illager 防止误杀 (BOSS / 村民僵尸)。",
+    "family": "monster",
+    "exclude_family": "zombie_villager"
+  },
+  {
+    "family": "monster",
+    "exclude_family": "wither"
+  },
+  {
+    "family": "monster",
+    "exclude_family": "illager"
+  }
+]

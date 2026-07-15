@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "adm-zip": "^0.5.16",
-    "cheerio": "^1.0.0",
-    "extract-zip": "^2.0.1",
-    "node-html-parser": "^6.1.13",
-    "prettier-plugin-organize-imports": "^4.3.0"
+    "adm-zip": "^0.5.18",
+    "cheerio": "^1.2.0"
   },
   "devDependencies": {
     "prettier": "^3.9.5"
+  },
+  "scripts": {
+    "update": "node check-update.js",
+    "update:check": "node check-update.js --check-only",
+    "update:force": "node check-update.js --force",
+    "start": "node bds-manager.js start",
+    "start:watch": "node bds-manager.js watch"
   }
 }

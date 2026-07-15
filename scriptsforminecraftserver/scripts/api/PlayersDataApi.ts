@@ -29,7 +29,3 @@ export async function getPlayers(filter?: {
 export async function savePlayers(players: PlayerData[]): Promise<boolean> {
   return HttpDB.post(PATH_PLAYERS, { players });
 }
-
-export async function updatePlayer(playerId: string, modify: Record<string, unknown>): Promise<boolean> {
-  return HttpDB.patch(`${PATH_PLAYERS}/${encodeURIComponent(playerId)}`, modify);
-}

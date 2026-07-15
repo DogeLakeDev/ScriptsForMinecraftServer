@@ -1,0 +1,12 @@
+{
+  "afk_time": 120,
+  "qa_interval_min": 600,
+  "qa_interval_max": 720,
+  "qa_timeout": 60,
+  "clean_item_max": 192,
+  "clean_poll_interval": 60,
+  "clean_kill_list": [
+    "shitcraft:shit"
+  ],
+  "_reload_signal": "1784034797164"
+}

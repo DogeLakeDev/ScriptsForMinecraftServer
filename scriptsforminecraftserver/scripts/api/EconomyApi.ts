@@ -1,3 +1,4 @@
+import { HttpRequestMethod } from "@minecraft/server-net";
 import { debug } from "../libs/DebugLog";
 import { HttpDB } from "../libs/HttpDB";
 
@@ -33,7 +34,7 @@ export async function applyEconomyTransaction(data: Record<string, unknown>): Pr
   error?: string;
 }> {
   debug.i("API", `applyEconomyTransaction: playerId=${data.playerId} amount=${data.amount}`);
-  const result = await HttpDB.typedRequest("Post", "/api/sfmc/economy/account", data);
+  const result = await HttpDB.typedRequest(HttpRequestMethod.POST, "/api/sfmc/economy/account", data);
   if (!result.ok) {
     debug.e("API", `applyEconomyTransaction failed: ${result.error}`);
     return { ok: false, error: result.error || "request_failed" };
@@ -49,15 +50,9 @@ export async function applyEconomyTransaction(data: Record<string, unknown>): Pr
   };
 }
 
-export async function getPriceIndex(): Promise<{ items: any[] } | null> {
-  debug.i("API", "getPriceIndex");
-  const result = await HttpDB.typedRequest("Get", "/api/sfmc/economy/price-index");
-  return result.ok ? (result.data as any) : null;
-}
-
 export async function getDailyTasks(): Promise<{ tasks: any[] } | null> {
   debug.i("API", "getDailyTasks");
-  const result = await HttpDB.typedRequest("Get", "/api/sfmc/economy/daily-tasks");
+  const result = await HttpDB.typedRequest(HttpRequestMethod.GET, "/api/sfmc/economy/daily-tasks");
   return result.ok ? (result.data as any) : null;
 }
 
@@ -69,19 +64,13 @@ export async function submitDailyTask(
 ): Promise<{ ok: boolean; reward?: number; balance?: number; balanceVersion?: number; error?: string }> {
   debug.i("API", `submitDailyTask: taskId=${taskId} actor=${actorName} qty=${quantity}`);
   const result = await HttpDB.typedRequest(
-    "Post",
+    HttpRequestMethod.POST,
     `/api/sfmc/economy/daily-tasks/${encodeURIComponent(taskId)}/submit`,
     { actorId, actorName, quantity }
   );
   if (!result.ok) return { ok: false, error: result.error || "submit_failed" };
   const d = result.data as any;
   return { ok: true, reward: d.reward, balance: d.balance, balanceVersion: d.balanceVersion, error: d.error };
-}
-
-export async function recalcPriceIndex(actorId: string): Promise<boolean> {
-  debug.i("API", `recalcPriceIndex: actorId=${actorId}`);
-  const result = await HttpDB.typedRequest("Post", "/api/sfmc/economy/price-index/recalc", { actorId });
-  return result.ok;
 }
 
 export async function transferEconomy(
@@ -91,7 +80,7 @@ export async function transferEconomy(
   targetPlayerName?: string
 ): Promise<{ ok: boolean; error?: string }> {
   debug.i("API", `transferEconomy: from=${actorId} to=${targetPlayerId} amount=${amount}`);
-  const result = await HttpDB.typedRequest("Post", "/api/sfmc/economy/transfer", {
+  const result = await HttpDB.typedRequest(HttpRequestMethod.POST, "/api/sfmc/economy/transfer", {
     actorId,
     targetPlayerId,
     targetPlayerName,

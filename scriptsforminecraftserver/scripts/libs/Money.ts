@@ -48,6 +48,7 @@ export class Money {
    */
   /** @deprecated Use add() or a domain transaction. This no longer performs read-modify-write. */
   static async set(player: Player, money: number): Promise<boolean> {
+    console.warn(`[MNY] Money.set() is deprecated, called from ${new Error().stack?.split("\n")[2]?.trim() || "unknown"}`);
     if (!Number.isSafeInteger(money) || money < 0) {
       debug.w("MNY", `set invalid: ${player.name} ${money}`);
       return false;
@@ -69,7 +70,11 @@ export class Money {
     });
     if (result.ok) {
       debug.i("MNY", `add OK ${player.name}: bal=${result.balance} ver=${result.version} tx=${result.transactionId}`);
-      this.setCached(player, result.balance ?? this.get(player) + money, result.version);
+      if (result.balance !== undefined) {
+        this.setCached(player, result.balance, result.version);
+      } else {
+        this.cache.delete(player.id);
+      }
     } else {
       debug.e("MNY", `add FAIL ${player.name} ${money}: ${result.error || "unknown"}`);
     }

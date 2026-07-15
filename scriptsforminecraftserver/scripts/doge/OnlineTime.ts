@@ -113,7 +113,7 @@ export class OnlineTime {
   }
 
   private async persist(playerId: string, data: OnlineTimeData): Promise<void> {
-    await HttpDB.patch(`/api/sfmc/players/${playerId}`, {
+    await HttpDB.put(`/api/sfmc/players/${playerId}`, {
       player: {
         onlinetimeToday: data.today,
         onlinetimeMonth: data.month,
