@@ -219,7 +219,7 @@ function App({ initialSetupRequired = null } = {}) {
       return;
     }
 
-    // ── 顶栏 Tab 切换 ──
+    // ── 顶栏 Tab 切换（全屏页也可用，避免困在监控/数据里） ──
     if (key.tab) {
       const idx = TABS.findIndex((t) => t.k === activeTab);
       switchTab(TABS[(idx + 1) % TABS.length].k);
@@ -229,7 +229,7 @@ function App({ initialSetupRequired = null } = {}) {
     if (input && !key.ctrl && !key.meta && '123456789'.includes(input)) {
       if (viewZone.consumesDigits) {
         // 让 view 自己接收数字
-      } else {
+      } else if (!inputVal) {
         const idx = parseInt(input, 10) - 1;
         if (TABS[idx]) { switchTab(TABS[idx].k); setMenuFocus(-1); return; }
       }
@@ -238,9 +238,15 @@ function App({ initialSetupRequired = null } = {}) {
     // ── 帮助 ──
     if ((input === '?' || input === 'h' || key.name === 'f1') && !inputVal) { setHelpOpen(true); return; }
 
-    // ── 独立全屏视图：阻挡所有导航快捷键 ──
+    // ── 全屏工作区：Esc 返回总览；其余键交给子 view ──
     if (view === 'monitor' || view === 'chat' || view === 'data' || view === 'modules') {
-      if (isEsc) { setView('dashboard'); setActiveTab('dashboard'); setLogScroll(0); }
+      if (isEsc) {
+        setView('dashboard');
+        setActiveTab('dashboard');
+        setLogScroll(0);
+        setFocusZone('main');
+        setMenuFocus(-1);
+      }
       return;
     }
 
@@ -362,52 +368,70 @@ function App({ initialSetupRequired = null } = {}) {
                   ? h(SvcView, { name: svcName, logH, logScroll, logW })
                   : null;
 
-  const footerHint = confirm ? '[y] 确认  [n/Esc] 取消' :
-    helpOpen ? 'Esc/?/h 关闭帮助' :
-    actionBusy ? '正在执行服务操作，请稍候...' :
-    view === 'services' ? '↑↓ 选择服务  Enter 打开  → 动作  1-6 导航  ? 帮助' :
-      view === 'svc' ? 'Esc 返回  → 侧栏  输入+Enter 发送  PgUp/Dn 翻页' :
-        focusZone === 'sidebar' ? '侧栏  ↑↓ 选择  Enter 确认  ← 回到主区' :
-          quitPending ? '再按 Esc 确认退出' :
-            (logScroll > 0 ? '→ 侧栏  PgUp/Dn 翻页  Home/End 首尾  q 退出  ? 帮助' :
-              '→ 动作  ↑↓ 选择  Enter 执行  Tab/1-6 导航  PgUp/Dn 日志  q 退出  ? 帮助');
+  const tabLabel = TABS.find((t) => t.k === activeTab)?.l || activeTab;
+  const crumbParts = [tabLabel];
+  if (view === 'svc' && svcName) crumbParts.push(services[svcName]?.title || svcName);
+  if (focusZone === 'sidebar') crumbParts.push('动作');
+  if (confirm) crumbParts.push('确认');
+  if (helpOpen) crumbParts.push('帮助');
+  const crumb = crumbParts.join(' › ');
+
+  const footerHint = confirm ? '[y] 确认   [n] / Esc 取消' :
+    helpOpen ? 'Esc  关闭帮助' :
+    actionBusy ? '服务操作进行中…' :
+    view === 'monitor' ? '↑↓ 玩家表  PgUp/Dn 翻页  Esc 返回总览  Tab/1-6 切页  ? 帮助' :
+    view === 'chat' ? '←→ 频道/消息  ↑↓ 滚动  l 跟随  Esc 返回  Tab 切页' :
+    view === 'data' ? '数字+Enter 开表  r 刷新  Esc 返回  Tab 切页' :
+    view === 'modules' ? '↑↓ 选择  Enter 启停  / 搜索  f 筛选  Esc 返回' :
+    view === 'services' ? '↑↓ 选服务  Enter 打开  → 动作  1-6 切页  ? 帮助' :
+    view === 'svc' ? 'Esc 返回列表  → 动作  输入+Enter 发命令  PgUp/Dn 日志' :
+    focusZone === 'sidebar' ? '↑↓ 选动作  Enter 执行  ← 主区  Esc 主区' :
+    quitPending ? '再按 Esc 退出（3s 内）' :
+    logScroll > 0 ? 'PgUp/Dn 日志  Home/End 首尾  → 动作  q 退出  ? 帮助' :
+    'Tab/1-6 切页  → 动作  PgUp/Dn 日志  q 退出  ? 帮助';
 
   return h(Box, { width: cols, height: rows, flexDirection: 'column' },
-    h(Header, { tabs: TABS, activeTab, compact }),
+    h(Header, { tabs: TABS, activeTab, compact, svcStatus }),
     h(Box, { height: viewH, flexDirection: 'row' },
       !compact && h(Sidebar, { tabs: TABS, activeTab, menuItems, menuFocus, svcStatus, sidebarWidth }),
       h(Box, { flexGrow: 1, flexDirection: 'column', paddingLeft: 1, paddingRight: 1 },
         mainContent,
       ),
     ),
-    h(Footer, { height: footerH, narrow, inputFocus: Boolean(inputVal) || view === 'svc', inputVal, cursorPos, cursorVisible, hint: footerHint }),
+    h(Footer, {
+      height: footerH,
+      narrow,
+      inputFocus: Boolean(inputVal) || view === 'svc',
+      inputVal,
+      cursorPos,
+      cursorVisible,
+      hint: footerHint,
+      crumb: ` ${crumb}`,
+    }),
     toast && h(Box, {
       position: 'absolute', top: 2, right: 2,
       backgroundColor: ({ success: T.success, warning: T.warning, error: T.error, info: T.primary })[toast.level] || T.success,
       paddingLeft: 1, paddingRight: 1,
     }, h(Text, { color: T.bg, bold: true }, toast.msg)),
-    helpOpen && h(HelpOverlay, { tabs: TABS, activeTab, focusZone }),
+    helpOpen && h(HelpOverlay, { tabs: TABS, activeTab, focusZone, view }),
   );
 }
 
-function HelpOverlay({ tabs, activeTab, focusZone }) {
-  const tabHints = tabs.map((tab, i) => `  ${i + 1}            切换到 ${tab.l}`).join('\n');
+function HelpOverlay({ tabs, activeTab, focusZone, view }) {
+  const tabHints = tabs.map((tab, i) => `  ${i + 1}  ${tab.l}`).join('\n');
   const lines = [
-    '╭─ 全局快捷键 ─────────────────────────────────╮',
+    '┌ 快捷键 ────────────────────────────────────┐',
     tabHints,
-    '  Tab         循环 Tab',
-    '  → / ←       主区 ↔ 侧栏焦点切换',
-    '  ↑↓          当前 zone 内导航',
-    '  Home/End    当前 zone 首/尾',
-    '  PgUp/PgDn   主区日志翻页',
-    '  Enter       确认 / 进入编辑',
-    '  Esc         退出当前 zone',
-    '  Backspace   命令栏删字符 / 退出 zone',
-    '  q (双击)    退出面板',
-    '  Ctrl+C      退出面板',
-    '  ? / h / F1  打开/关闭本帮助',
-    '╰───────────────────────────────────────────────╯',
-    '', `当前焦点: ${focusZone === 'sidebar' ? '侧栏' : '主区'}`, `当前 Tab: ${activeTab}`, '', '按 Esc / ? / h 关闭',
+    '  Tab     下一页',
+    '  → ←     主区 ↔ 动作侧栏',
+    '  ↑ ↓     列表导航',
+    '  Esc     返回 / 关弹层',
+    '  q       退出确认',
+    '  ? h F1  本帮助',
+    '└────────────────────────────────────────────┘',
+    '',
+    `位置: ${activeTab}${view !== activeTab ? ` / ${view}` : ''} · ${focusZone === 'sidebar' ? '侧栏' : '主区'}`,
+    'Esc 关闭',
   ];
   return h(Box, {
     position: 'absolute', top: 2, left: 2, flexDirection: 'column', paddingX: 2, paddingY: 1,

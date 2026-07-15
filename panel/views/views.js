@@ -19,25 +19,39 @@ const LogBlock = memo(function LogBlock({ all, startIdx, logW, height, total, of
 
 function Dashboard({ logH, logScroll, logW, setupRequired }) {
   const { total, all } = useLogs();
-  const serviceRows = Object.values(services);
-  const running = serviceRows.filter((service) => service.running).length;
+  const serviceRows = Object.entries(services);
+  const running = serviceRows.filter(([, service]) => service.running).length;
   const errors = all.filter((line) => line.level === 'error').length;
-  const maxLogs = Math.max(1, logH);
+  const maxLogs = Math.max(1, logH - 2);
   const s = Math.min(logScroll, Math.max(0, total - maxLogs));
   const startIdx = Math.max(0, total - maxLogs - s);
   const visible = React.useMemo(() => all.slice(startIdx, total - s), [all, startIdx, total, s]);
   return h(Box, { flexDirection: 'column' },
-    h(Text, { color: T.primary, bold: true }, '控制台总览'),
-    h(Text, { color: T.muted }, '服务健康、错误信号和最近事件集中在这里。按数字键进入对应工作区。'),
-    setupRequired === true && h(StatusLine, { kind: 'warning' }, '初始化状态未完成，请使用配置向导或 CLI 完成初始化。'),
+    h(SectionTitle, { detail: '1-6 切页 · ? 帮助' }, '总览'),
+    h(Text, { color: T.muted }, '一眼看服务健康与最近错误，再进对应工作区。'),
+    setupRequired === true && h(StatusLine, { kind: 'warning' }, '尚未完成初始化 — 用配置向导或 CLI 收尾'),
+    h(Box, { marginTop: 1, flexDirection: 'row', flexWrap: 'wrap' },
+      ...serviceRows.map(([name, svc]) => h(Box, {
+        key: name,
+        marginRight: 2,
+        paddingX: 1,
+        backgroundColor: T.surfaceAlt,
+      },
+        h(Text, { color: svc.running ? T.serviceRunning : T.serviceStopped }, svc.running ? '●' : '○'),
+        h(Text, { color: T.text }, ` ${name}`),
+        h(Text, { color: T.subtle }, svc.running && svc.pid ? ` ${svc.pid}` : ''),
+      )),
+    ),
     h(Box, { marginTop: 1 },
-      h(Text, { color: T.success }, `服务 ${running}/${serviceRows.length} 运行`),
-      h(Text, { color: errors > 0 ? T.warning : T.muted }, `   错误日志 ${errors}`),
-      h(Text, { color: T.muted }, `   记录 ${total}`),
+      h(Text, { color: running === serviceRows.length ? T.success : T.warning }, `运行 ${running}/${serviceRows.length}`),
+      h(Text, { color: errors > 0 ? T.error : T.muted }, `  ·  错误 ${errors}`),
+      h(Text, { color: T.muted }, `  ·  日志 ${total}`),
     ),
     h(Text, { color: T.separator }, '─'.repeat(Math.max(10, logW))),
-    h(SectionTitle, { detail: `${total} 条  |  PgUp/PgDn 滚动` }, '最近日志'),
-    h(LogBlock, { all: visible, startIdx, logW, height: maxLogs, total, offset: s }),
+    h(SectionTitle, { detail: total ? `${total} 条 · PgUp/Dn` : '空' }, '最近日志'),
+    total === 0
+      ? h(StatusLine, { kind: 'empty' }, '暂无日志 — 启动服务后会出现在这里')
+      : h(LogBlock, { all: visible, startIdx, logW, height: maxLogs, total, offset: s }),
   );
 }
 
@@ -60,15 +74,16 @@ function SvcView({ name, logH, logScroll, logW }) {
 }
 
 function ConfirmOverlay({ title, body }) {
+  const destructive = /停止|删除|退出|重启|禁用/.test(title || '');
   return h(Box, { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
     h(Box, {
       flexDirection: 'column', backgroundColor: T.panel,
-      borderStyle: 'round', borderColor: T.border,
+      borderStyle: 'round', borderColor: destructive ? T.error : T.borderFocus,
       paddingLeft: 3, paddingRight: 3, paddingTop: 2, paddingBottom: 2,
     },
-      h(Text, { bold: true, color: T.primary }, title),
+      h(Text, { bold: true, color: destructive ? T.error : T.primary }, title),
       ...body.map((l, i) => h(Text, { key: i, color: T.text }, l)),
-      h(Text, { color: T.muted, marginTop: 1 }, '[y] 确认  [n] 取消'),
+      h(Text, { color: T.muted, marginTop: 1 }, '[y] 确认    [n] / Esc 取消'),
     ),
   );
 }

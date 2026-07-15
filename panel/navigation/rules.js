@@ -5,8 +5,9 @@ function canSwitchTab(setupRequired, target) {
 function getLayout(columns, rows) {
   const compact = columns < 80;
   const narrow = columns < 60 || rows < 20;
-  const sidebarWidth = compact ? 0 : 20;
-  const footerHeight = narrow ? 1 : 2;
+  const sidebarWidth = compact ? 0 : 22;
+  // 宽屏：输入行 + 面包屑 + 快捷键；窄屏：只保留输入
+  const footerHeight = narrow ? 1 : 3;
   const headerHeight = 1;
   const viewHeight = Math.max(4, rows - footerHeight - headerHeight);
   const contentWidth = columns - sidebarWidth - 2;
@@ -17,7 +18,7 @@ function getLayout(columns, rows) {
     footerHeight,
     headerHeight,
     viewHeight,
-    logHeight: Math.max(3, viewHeight - 5),
+    logHeight: Math.max(3, viewHeight - 6),
     logWidth: Math.max(10, contentWidth - 2),
   };
 }

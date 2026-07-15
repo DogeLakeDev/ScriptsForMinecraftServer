@@ -4,9 +4,19 @@ import { T } from '../theme.js';
 
 const h = React.createElement;
 
-function Header({ tabs, activeTab, compact }) {
+function Header({ tabs, activeTab, compact, svcStatus = {} }) {
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
   const idx = tabs.findIndex((tab) => tab.k === activeTab);
+  const entries = Object.entries(svcStatus);
+  const running = entries.filter(([, s]) => s.running).length;
+  const health = entries.length
+    ? entries.map(([name, s]) => h(Text, {
+      key: name,
+      color: s.running ? T.serviceRunning : T.serviceStopped,
+    }, s.running ? '●' : '○')).concat(
+      h(Text, { key: 'cnt', color: T.muted }, ` ${running}/${entries.length}`)
+    )
+    : [h(Text, { key: 'none', color: T.subtle }, '—')];
   const compactHint = compact
     ? `‹ ${idx + 1}/${tabs.length} ${tabs[idx]?.l || ''} ›`
     : null;
@@ -22,7 +32,8 @@ function Header({ tabs, activeTab, compact }) {
         }, h(Text, { color: activeTab === tab.k ? T.primary : T.muted, bold: activeTab === tab.k }, `${index + 1} ${tab.l}`))),
     ),
     h(Box, { flexGrow: 1 }),
-    !compact && h(Text, { color: T.muted, paddingRight: 2 }, now),
+    h(Box, { flexDirection: 'row', paddingRight: 1 }, ...health),
+    !compact && h(Text, { color: T.muted, paddingRight: 2 }, `  ${now}`),
   );
 }
 
@@ -54,22 +65,23 @@ function Sidebar({ tabs = [], activeTab, menuItems, menuFocus, svcStatus, schema
   );
 }
 
-function Footer({ height, narrow, inputFocus, inputVal, cursorPos, cursorVisible, hint }) {
+function Footer({ height, narrow, inputFocus, inputVal, cursorPos, cursorVisible, hint, crumb }) {
   return h(Box, {
     height,
     backgroundColor: inputFocus ? T.element : T.panel,
     flexDirection: 'column',
     paddingLeft: 2,
     paddingRight: 2,
-    paddingTop: narrow ? 0 : 1,
-    marginBottom: narrow ? 0 : 1,
+    paddingTop: narrow ? 0 : 0,
+    marginBottom: narrow ? 0 : 0,
     marginLeft: 1,
     marginRight: 1,
   },
-   h(Text, { bold: true, color: inputFocus ? T.primary : T.text },
-     ` ${inputFocus ? '>' : '$'} ${!inputVal ? (cursorVisible ? '█' : ' ') : (cursorVisible
-       ? inputVal.slice(0, cursorPos) + '█' + inputVal.slice(cursorPos)
-       : inputVal)}`),
+  !narrow && crumb && h(Text, { color: T.subtle }, crumb),
+  h(Text, { bold: true, color: inputFocus ? T.primary : T.text },
+    ` ${inputFocus ? '>' : '$'} ${!inputVal ? (cursorVisible ? '█' : ' ') : (cursorVisible
+      ? inputVal.slice(0, cursorPos) + '█' + inputVal.slice(cursorPos)
+      : inputVal)}`),
   !narrow && h(Text, { color: T.muted }, hint),
   );
 }
