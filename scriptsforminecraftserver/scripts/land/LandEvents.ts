@@ -217,11 +217,62 @@ export class LandEvents {
       const current = land?.id || null;
       const previous = this.lastLandByPlayer.get(player.id);
       if (current !== previous) {
-        if (land) Msg.tips(`进入土地：${land.nickname || land.id}（所有者：${land.ownerName}）`, player);
-        else if (previous) Msg.tips("你已离开土地保护范围。", player);
+        if (land) {
+          Msg.tips(`进入土地：${land.nickname || land.id}（所有者：${land.ownerName}）`, player);
+          this.spawnShieldParticles(player, land);
+        } else if (previous) {
+          Msg.tips("你已离开土地保护范围。", player);
+        }
         this.lastLandByPlayer.set(player.id, current);
       }
     }
+  }
+
+  /** 在土地 8 个角点 + 顶/底中心生成彩色屏障粒子（一次性触发，进入边界时跑一次） */
+  private static spawnShieldParticles(player: Player, land: any): void {
+    const color = this.themeColorFor(land);
+    const corners = this.computeCorners(land);
+    try {
+      for (const c of corners) {
+        // 向上撒一条 4m 的粒子柱
+        for (let h = 0; h < 4; h++) {
+          player.spawnParticle(color.particle, { x: c.x + 0.5, y: c.y + 1 + h, z: c.z + 0.5 });
+        }
+      }
+    } catch (e) {
+      // particle API 在某些版本可能不可用 — 静默失败，不影响保护
+    }
+  }
+
+  private static computeCorners(land: any): Array<{ x: number; y: number; z: number }> {
+    const minX = Math.min(land.posA.x, land.posB.x);
+    const maxX = Math.max(land.posA.x, land.posB.x);
+    const minY = Math.min(land.posA.y, land.posB.y);
+    const maxY = Math.max(land.posA.y, land.posB.y);
+    const minZ = Math.min(land.posA.z, land.posB.z);
+    const maxZ = Math.max(land.posA.z, land.posB.z);
+    const midY = Math.round((minY + maxY) / 2);
+    return [
+      { x: minX, y: midY, z: minZ },
+      { x: maxX, y: midY, z: minZ },
+      { x: minX, y: midY, z: maxZ },
+      { x: maxX, y: midY, z: maxZ },
+    ];
+  }
+
+  /** 简单 hash → 颜色。保证每块地视觉上唯一，又不需要额外存储。 */
+  private static themeColorFor(land: any): { particle: string; hex: string } {
+    const ids = (land.id || "L").split("").reduce((s: number, c: string) => s + c.charCodeAt(0), 0);
+    const palette = [
+      "minecraft:totem_particle",
+      "minecraft:villager_happy",
+      "minecraft:heart_particle",
+      "minecraft:end_chest",
+      "minecraft:sparkler",
+      "minecraft:wax_on",
+      "minecraft:wax_off",
+    ];
+    return { particle: palette[ids % palette.length], hex: "#" + ((ids * 0x9E3779B1) >>> 0).toString(16).padStart(8, "0").slice(0, 6) };
   }
 
   static getMetrics() {
