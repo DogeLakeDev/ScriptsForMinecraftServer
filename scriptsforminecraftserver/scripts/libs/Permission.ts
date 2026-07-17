@@ -1,7 +1,7 @@
 import { Player, PlayerPermissionLevel } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
-import { Command } from "./Command";
-import { Msg } from "./Tools";
+import { Command } from "./Command.js";
+import { ConfigManager } from "./ConfigManager.js";
+import { Msg } from "./Tools.js";
 
 /**
  * 权限等级（与原生 PlayerPermissionLevel 对齐）

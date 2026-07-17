@@ -9,8 +9,8 @@
  *
 \* ---------------------------------------- */
 
-import { debug } from "../libs/DebugLog";
-import { DEFAULT_TAX, defaultConfig, defaultPermissions, generateLandId } from "./defaults";
+import { debug } from "../libs/DebugLog.js";
+import { DEFAULT_TAX, defaultConfig, defaultPermissions, generateLandId } from "./defaults.js";
 import {
   LAND_ROLES,
   ROLE_CAPABILITIES,
@@ -19,7 +19,7 @@ import {
   isValidRole,
   type LandCapability,
   type LandRole,
-} from "./LandRoles";
+} from "./LandRoles.js";
 
 // Re-export from LandRoles (single source of truth)
 export { LAND_ROLES, ROLE_CAPABILITIES, ROLE_LABELS_CN, SERVER_VALID_ROLES, isValidRole };
@@ -52,7 +52,7 @@ export interface LandPermissions {
 export interface LandMember {
   player_id: string;
   player_name_snapshot?: string;
-  role: import("./LandRoles").LandRole;
+  role: import("./LandRoles.js").LandRole;
   expires_at?: number | null;
 }
 
@@ -153,7 +153,7 @@ let _serverTax: LandTaxConfig | null = null;
 
 async function fetchServerConfig(): Promise<void> {
   try {
-    const { HttpDB } = await import("../libs/HttpDB");
+    const { HttpDB } = await import("../libs/HttpDB.js");
     // 服务端权威配置走 /api/sfmc/settings/land:* —— 通用 settings 接口
     // （避免新增专用 endpoint，settings 已是 admin 写入通道）
     const [cfgBody, permBody, taxBody] = await Promise.all([
@@ -165,8 +165,9 @@ async function fetchServerConfig(): Promise<void> {
       if (!body) return null;
       try {
         const parsed = JSON.parse(body);
-        if (!parsed || !parsed.value) return null;
-        return JSON.parse(parsed.value);
+        if (!parsed || parsed.value === null || parsed.value === undefined) return null;
+        // 新版直接返回 JSON 对象（不再 JSON.stringify 再 parse）
+        return typeof parsed.value === "string" ? JSON.parse(parsed.value) : parsed.value;
       } catch {
         return null;
       }
@@ -268,7 +269,7 @@ export class Database {
     debug.i("LANDDB", "loadFromServer: loading lands from server");
     if (this._loading) return this._loading;
     this._loading = (async () => {
-      const { getAllLands } = await import("../api/LandApi");
+      const { getAllLands } = await import("../api/LandApi.js");
       const lands = await getAllLands();
       if (lands === null) {
         debug.w("LANDDB", "loadFromServer: getAllLands returned null, keeping local cache");
@@ -372,7 +373,7 @@ export class Database {
 
   static async update(land: LandData, actorId = land.ownerplid): Promise<boolean> {
     debug.i("LANDDB", `update: landId=${land.id} actorId=${actorId} version=${land.version}`);
-    const { updateLand } = await import("../api/LandApi");
+    const { updateLand } = await import("../api/LandApi.js");
     const updated = await updateLand(land.id, {
       nickname: land.nickname,
       permissions: land.permissions,
@@ -398,16 +399,16 @@ export class Database {
     actorId: string,
     expectedVersion?: number,
     requestId?: string
-  ): Promise<import("../api/LandApi").DeleteLandResult> {
+  ): Promise<import("../api/LandApi.js").DeleteLandResult> {
     debug.i("LANDDB", `delete: landId=${landId} actorId=${actorId} version=${expectedVersion}`);
-    const { deleteLand } = await import("../api/LandApi");
+    const { deleteLand } = await import("../api/LandApi.js");
     const result = await deleteLand(landId, actorId, expectedVersion, requestId);
     if (!result.ok) {
       debug.e("LANDDB", `delete: failed landId=${landId} error=${result.error}`);
       return result;
     }
     if (result.balance !== undefined) {
-      const { Money } = await import("../libs/Money");
+      const { Money } = await import("../libs/Money.js");
       const players = (await import("@minecraft/server")).world.getPlayers();
       const player = players.find((item) => item.id === actorId);
       if (player) {

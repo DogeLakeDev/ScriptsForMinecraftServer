@@ -6,11 +6,10 @@
 \* ---------------------------------------- */
 
 import { Entity, GameMode, Player, system, world } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
-import { debug } from "../libs/DebugLog";
-import { Permission } from "../libs/Permission";
-import * as Tool from "../libs/Tools";
-import { Msg } from "../libs/Tools";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import { debug } from "../libs/DebugLog.js";
+import { Permission } from "../libs/Permission.js";
+import * as Tool from "../libs/Tools.js";
 
 export function registerPermissions(): void {
   Permission.register("fly.use", Permission.Any);
@@ -33,7 +32,7 @@ export function playerJoinEvent(player: Player): void {
     let areaName = inFlyArea(player);
     if (areaName !== undefined) {
       enableFly(player);
-      Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
+      Tool.Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
       player.setDynamicProperty("hpbe:dogefly", areaName);
     }
   }, 60);
@@ -51,7 +50,7 @@ function startScan() {
       if (areaName !== undefined) {
         if (nowArea === undefined) {
           enableFly(player);
-          Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
+          Tool.Msg.info(`当前处于飞行区 ${areaName}, 已打开飞行模式。`, player);
           player.setDynamicProperty("hpbe:dogefly", areaName);
         } else if (nowArea !== areaName) {
           player.setDynamicProperty("hpbe:dogefly", areaName);
@@ -59,7 +58,7 @@ function startScan() {
       } else {
         if (nowArea !== undefined) {
           disableFly(player);
-          Msg.info(`离开飞行区 ${nowArea}, 已关闭飞行模式。`, player);
+          Tool.Msg.info(`离开飞行区 ${nowArea}, 已关闭飞行模式。`, player);
           player.setDynamicProperty("hpbe:dogefly", undefined);
         }
       }

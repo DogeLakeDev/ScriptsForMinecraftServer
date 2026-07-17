@@ -27,5 +27,5 @@
   },
   "cSpell.words": ["gametest", "gametests", "mcaddon", "minecart", "shulker", "zoglin"],
   "editor.tabSize": 2,
-  "eslint.experimental.useFlatConfig": true
+  "eslint.useFlatConfig": true
 }

@@ -1,11 +1,11 @@
 import { Player, world } from "@minecraft/server";
-import * as ChatApi from "../api";
-import { DogeChat } from "../chat/DogeChat";
-import { FormStatus, MenuNavigator, obsNum, obsStr } from "../libs/MenuNavigator";
-import { Money } from "../libs/Money";
-import { Permission } from "../libs/Permission";
-import { ListFormInfo, Msg } from "../libs/Tools";
-import type { Channel, RedPacket } from "../types/chat";
+import type { Channel, RedPacket } from "@sfmc-types/chat.js";
+import * as ChatApi from "../api/index.js";
+import { DogeChat } from "../chat/DogeChat.js";
+import { FormStatus, MenuNavigator, obsNum, obsStr } from "../libs/MenuNavigator.js";
+import { Money } from "../libs/Money.js";
+import { Permission } from "../libs/Permission.js";
+import { ListFormInfo, Msg } from "../libs/Tools.js";
 
 export class ChatGUI {
   private nav: MenuNavigator;

@@ -1,6 +1,6 @@
-import { HttpDB } from "../libs/HttpDB";
-import { toQueryString } from "../libs/Tools";
-import type { ScoreboardEntry } from "../types";
+import type { ScoreboardEntry } from "@sfmc-types/scoreboard.js";
+import { HttpDB } from "../libs/HttpDB.js";
+import { toQueryString } from "../libs/Tools.js";
 export type { ScoreboardEntry };
 
 export async function backupScoreboards(entries: ScoreboardEntry[]): Promise<boolean> {

@@ -4,7 +4,7 @@
   "productName": "scriptsforminecraftserver",
   "description": "ScriptsForMinecraftServer",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
@@ -22,11 +22,12 @@
     "typescript": "^6.0.3"
   },
   "scripts": {
-    "build": "npm-run-all2 check:catalog clean bundle copy ",
-    "build:lint": "npm-run-all2 check:catalog lint clean bundle copy ",
-    "build:tsc": "npm-run-all2 check:catalog lint tsc clean bundle copy ",
-    "build:deploy": "npm-run-all2 build deploy  watch",
-    "build:mcaddon": "npm-run-all2 check:catalog lint tsc clean bundle copy && node ./tools/package-mcaddon.js ",
+    "build": "npm-run-all2 clean bundle check:catalog copy ",
+    "build:lint": "npm-run-all2 lint clean bundle check:catalog copy ",
+    "build:tsc": "npm-run-all2 lint tsc clean bundle check:catalog copy ",
+    "build:deploy": "npm-run-all2 build deploy",
+    "build:deploy-watch": "npm-run-all2 build deploy  watch",
+    "build:mcaddon": "npm-run-all2 lint tsc clean bundle check:catalog copy && node ./tools/package-mcaddon.js ",
     "watch": "nodemon --watch scripts --watch behavior_packs --watch resource_packs -e ts,json,lang,png --exec \"npm run deploy\"",
     "tsc": "tsc --noEmit",
     "lint": "eslint scripts/**/*.ts",

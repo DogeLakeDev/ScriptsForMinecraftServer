@@ -3,14 +3,14 @@
 \* ---------------------------------------- */
 
 import { Player, system } from "@minecraft/server";
-import { LandGUI } from "../gui/LandGUI";
-import { Command } from "../libs/Command";
-import { debug } from "../libs/DebugLog";
-import { Permission } from "../libs/Permission";
-import { dimensionId, Msg } from "../libs/Tools";
-import { LandCore } from "./LandCore";
-import { Database } from "./LandDatabase";
-import { LandTax } from "./LandTax";
+import { LandGUI } from "../gui/LandGUI.js";
+import { Command } from "../libs/Command.js";
+import { debug } from "../libs/DebugLog.js";
+import { Permission } from "../libs/Permission.js";
+import { dimensionId, Msg } from "../libs/Tools.js";
+import { LandCore } from "./LandCore.js";
+import { Database } from "./LandDatabase.js";
+import { LandTax } from "./LandTax.js";
 
 export class LandSystem {
   private static refreshRunId: number | undefined;

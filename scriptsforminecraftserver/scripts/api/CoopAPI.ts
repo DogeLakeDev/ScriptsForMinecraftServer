@@ -1,7 +1,7 @@
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
-import type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "../types";
+import type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "@sfmc-types/coop.js";
+import { debug } from "../libs/DebugLog.js";
+import { HttpDB } from "../libs/HttpDB.js";
 
 const PATH = "/api/sfmc/coops";
 
@@ -294,12 +294,16 @@ export async function treasury(
   note = ""
 ) {
   debug.i("API", `treasury: cid=${cid} actor=${actorName} mode=${mode} amount=${amount}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod.POST, `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
-    actorId,
-    actorName,
-    amount,
-    note,
-  });
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod.POST,
+    `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`,
+    {
+      actorId,
+      actorName,
+      amount,
+      note,
+    }
+  );
   try {
     const parsed = JSON.parse(result.body);
     return { ok: result.status === 200 && parsed.ok !== false, ...parsed };

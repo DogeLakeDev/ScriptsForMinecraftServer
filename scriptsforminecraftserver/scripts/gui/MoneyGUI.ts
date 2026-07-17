@@ -1,9 +1,9 @@
 import { Player, world } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { debug } from "../libs/DebugLog";
-import { FormStatus, MenuNavigator, obsStr } from "../libs/MenuNavigator";
-import { Money } from "../libs/Money";
-import { ListFormInfo } from "../libs/Tools";
+import { Command } from "../libs/Command.js";
+import { debug } from "../libs/DebugLog.js";
+import { FormStatus, MenuNavigator, obsStr } from "../libs/MenuNavigator.js";
+import { Money } from "../libs/Money.js";
+import { ListFormInfo } from "../libs/Tools.js";
 
 export class MoneyGUI {
   static registerCommand() {

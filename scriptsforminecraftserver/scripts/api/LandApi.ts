@@ -1,7 +1,7 @@
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { LandData, LandPos } from "../land/LandDatabase";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
+import { LandData, LandPos } from "../land/LandDatabase.js";
+import { debug } from "../libs/DebugLog.js";
+import { HttpDB } from "../libs/HttpDB.js";
 
 const PATH = "/api/sfmc/lands";
 

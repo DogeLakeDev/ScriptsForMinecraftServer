@@ -3,8 +3,8 @@
  * 每 600 tick (30 秒) 向 db-server 汇报一次 TPS / 实体数 / 玩家区块估算
  */
 import { Player, system, world } from "@minecraft/server";
-import { HttpDB } from "../libs/HttpDB";
-import { TPS } from "./TPS";
+import { HttpDB } from "../libs/HttpDB.js";
+import { TPS } from "./TPS.js";
 
 const REPORT_INTERVAL = 600; // 30 秒
 const DIMENSIONS = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"];

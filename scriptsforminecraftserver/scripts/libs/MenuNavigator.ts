@@ -13,7 +13,7 @@ import {
   TextFieldOptions,
   ToggleOptions,
 } from "@minecraft/server-ui";
-import { Msg } from "./Tools";
+import { Msg } from "./Tools.js";
 
 export { ObservableBoolean, ObservableNumber, ObservableString };
 

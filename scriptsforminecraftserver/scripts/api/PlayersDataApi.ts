@@ -1,6 +1,6 @@
-import { HttpDB } from "../libs/HttpDB";
-import { toQueryString } from "../libs/Tools";
-import type { PlayerData } from "../types";
+import type { PlayerData } from "@sfmc-types/player.js";
+import { HttpDB } from "../libs/HttpDB.js";
+import { toQueryString } from "../libs/Tools.js";
 
 const PATH_PLAYERS = "/api/sfmc/players";
 

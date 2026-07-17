@@ -1,8 +1,8 @@
 import { Player, system, world } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { debug } from "../libs/DebugLog";
-import { Permission } from "../libs/Permission";
-import { Msg } from "../libs/Tools";
+import { Command } from "../libs/Command.js";
+import { debug } from "../libs/DebugLog.js";
+import { Permission } from "../libs/Permission.js";
+import { Msg } from "../libs/Tools.js";
 
 export class TPS {
   private static tickTimes: number[] = [];

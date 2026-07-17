@@ -1,16 +1,26 @@
+/** db-server\src\routes\channels.ts */
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { HttpDB } from "../libs/HttpDB";
-import { toQueryString } from "../libs/Tools";
-import type { Channel, ChatMessage, RedPacket } from "../types/chat";
+import type { Channel, ChatMessage, RedPacket } from "@sfmc-types/chat.js";
+import { HttpDB } from "../libs/HttpDB.js";
+import { toQueryString } from "../libs/Tools.js";
 
 const PATH_CHANNELS = "/api/sfmc/channels";
 const PATH_MESSAGES = "/api/sfmc/messages";
 const PATH_REDPACKET = "/api/sfmc/redpacket";
 
 /**
- * 模糊搜索频道
- * @param filter 搜索参数
- * @returns 符合条件的频道列表
+ * @description 模糊搜索频道
+ * @author Shiroha7z
+ * @date 17/07/2026
+ * @export
+ * @param {{
+ *   search?: string;
+ *   type?: string;
+ *   ownerId?: string;
+ *   minCreatedAt?: number;
+ *   maxCreatedAt?: number;
+ * }} [filter]
+ * @return {*}  {(Promise<Channel[] | null>)}
  */
 export async function getChannels(filter?: {
   search?: string;

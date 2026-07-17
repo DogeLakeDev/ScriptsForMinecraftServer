@@ -1,15 +1,17 @@
-/* ---------------------------------------- *\
- *  合作社系统入口
- *  命令注册、事件监听
-\* ---------------------------------------- */
-
 import { Player } from "@minecraft/server";
-import { CoopGUI } from "../gui/CoopGUI";
-import { Command } from "../libs/Command";
-import { debug } from "../libs/DebugLog";
-import { Permission } from "../libs/Permission";
+import { CoopGUI } from "../gui/CoopGUI.js";
+import { Command } from "../libs/Command.js";
+import { debug } from "../libs/DebugLog.js";
+import { Permission } from "../libs/Permission.js";
 
 export class CoopSystem {
+  /**
+   * @description
+   * @author Shiroha7z
+   * @date 17/07/2026
+   * @static
+   * @memberof CoopSystem
+   */
   static init() {
     debug.i("COOP", "init");
     console.log(`Initializing CoopSystem...`);

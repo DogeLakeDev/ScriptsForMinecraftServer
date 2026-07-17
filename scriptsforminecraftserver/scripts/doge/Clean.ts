@@ -6,11 +6,11 @@
 \* ---------------------------------------- */
 
 import { BlockComponentTypes, Entity, ItemStack, system, world } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { ConfigManager } from "../libs/ConfigManager";
-import { debug } from "../libs/DebugLog";
-import { Permission } from "../libs/Permission";
-import * as Tool from "../libs/Tools";
+import { Command } from "../libs/Command.js";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import { debug } from "../libs/DebugLog.js";
+import { Permission } from "../libs/Permission.js";
+import * as Tool from "../libs/Tools.js";
 
 /**
  * [重要]

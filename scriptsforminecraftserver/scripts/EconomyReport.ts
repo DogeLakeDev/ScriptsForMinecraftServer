@@ -1,7 +1,7 @@
 import { system, world } from "@minecraft/server";
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { HttpDB } from "./libs/HttpDB";
-import { Money } from "./libs/Money";
+import { HttpDB } from "./libs/HttpDB.js";
+import { Money } from "./libs/Money.js";
 
 export class EconomyReport {
   private static runId: number | null = null;

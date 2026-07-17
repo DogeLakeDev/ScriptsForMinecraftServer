@@ -3,11 +3,11 @@
 \* ---------------------------------------- */
 
 import { Player } from "@minecraft/server";
-import type { DeleteLandResult } from "../api/LandApi";
-import { createLand as createLandOnServer, validateLand } from "../api/LandApi";
-import { debug } from "../libs/DebugLog";
-import { Money } from "../libs/Money";
-import { Database, LandData, LandPos } from "./LandDatabase";
+import type { DeleteLandResult } from "../api/LandApi.js";
+import { createLand as createLandOnServer, validateLand } from "../api/LandApi.js";
+import { debug } from "../libs/DebugLog.js";
+import { Money } from "../libs/Economy.js";
+import { Database, LandData, LandPos } from "./LandDatabase.js";
 
 // ===== 类型定义 =====
 

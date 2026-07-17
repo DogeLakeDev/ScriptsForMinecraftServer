@@ -1,10 +1,10 @@
 import { Player } from "@minecraft/server";
-import { CreativeArea } from "../area/CreativeArea";
-import { Peace } from "../area/Peace";
-import { ConfigManager } from "../libs/ConfigManager";
-import { HttpDB } from "../libs/HttpDB";
-import { MenuNavigator, obsBool } from "../libs/MenuNavigator";
-import { ListFormInfo, Msg } from "../libs/Tools";
+import { CreativeArea } from "../area/CreativeArea.js";
+import { Peace } from "../area/Peace.js";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import { HttpDB } from "../libs/HttpDB.js";
+import { MenuNavigator, obsBool } from "../libs/MenuNavigator.js";
+import { ListFormInfo, Msg } from "../libs/Tools.js";
 
 const MODULES = [
   "fly",
@@ -53,12 +53,14 @@ export class AdminGUI {
   }
 
   private async onToggle(name: string, val: boolean): Promise<void> {
-    const ok = await HttpDB.put(`/api/sfmc/modules/${name}`, { enabled: val });
+    const ok = val
+      ? await HttpDB.post(`/api/sfmc/modules/${name}/enable`, {})
+      : await HttpDB.post(`/api/sfmc/modules/${name}/disable`, {});
     if (!ok) {
       Msg.error(`${name} 修改失败`, this.player);
       return;
     }
-    await ConfigManager.reloadAll();
+    await ConfigManager.refreshModules();
     AdminGUI.applyRuntimeState(name, val);
     Msg.success(`${name} 已${val ? "启用" : "禁用"}`, this.player);
   }

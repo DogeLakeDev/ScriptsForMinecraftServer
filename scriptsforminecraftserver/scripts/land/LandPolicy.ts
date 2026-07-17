@@ -1,8 +1,8 @@
 import { Player } from "@minecraft/server";
-import { Permission } from "../libs/Permission";
-import { LandCore } from "./LandCore";
-import { Database, LandData, LandPermissions, LandPos, LandRole } from "./LandDatabase";
-import { ROLE_CAPABILITIES, type LandActionCapability } from "./LandRoles";
+import { Permission } from "../libs/Permission.js";
+import { LandCore } from "./LandCore.js";
+import { Database, LandData, LandPermissions, LandPos, LandRole } from "./LandDatabase.js";
+import { ROLE_CAPABILITIES, type LandActionCapability } from "./LandRoles.js";
 
 // 玩家在土地上能动手的具体动作（用于 canUse）— LandActionCapability 由 LandRoles 提供
 export type { LandActionCapability as LandCapability };

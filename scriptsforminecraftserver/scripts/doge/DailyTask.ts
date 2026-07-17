@@ -1,11 +1,18 @@
+/* ---------------------------------------- *\
+ *  Name        :  ActivityLog              *
+ *  Description :  行为日志                  *
+ *  Version     :  1.0.0                    *
+ *  Author      :  Shiroha7z                *
+\* ---------------------------------------- */
+
 import { Player } from "@minecraft/server";
-import { getDailyTasks, submitDailyTask } from "../api/EconomyApi";
-import { Command } from "../libs/Command";
-import { debug } from "../libs/DebugLog";
-import { FormStatus, MenuNavigator, obsNum } from "../libs/MenuNavigator";
-import { Money } from "../libs/Money";
-import { Permission } from "../libs/Permission";
-import { ListFormInfo } from "../libs/Tools";
+import { getDailyTasks, submitDailyTask } from "../api/EconomyApi.js";
+import { Command } from "../libs/Command.js";
+import { debug } from "../libs/DebugLog.js";
+import { Money } from "../libs/Economy.js";
+import { FormStatus, MenuNavigator, obsNum } from "../libs/MenuNavigator.js";
+import { Permission } from "../libs/Permission.js";
+import { ListFormInfo } from "../libs/Tools.js";
 
 export class DailyTask {
   static registerCommand() {

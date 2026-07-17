@@ -1,13 +1,13 @@
-/**
- * ActivityLog — 玩家行为日志模块
- *
- * 订阅原版游戏事件，记录玩家行为到 db-server（sfmc_activities 表）。
- * 支持：高频事件节流、可配事件类型、自动清理。
- */
+/* ---------------------------------------- *\
+ *  Name        :  ActivityLog              *
+ *  Description :  行为日志                  *
+ *  Version     :  1.0.0                    *
+ *  Author      :  Shiroha7z                *
+\* ---------------------------------------- */
 
 import { Block, Entity, Player, system, Vector3, world } from "@minecraft/server";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
+import { debug } from "../libs/DebugLog.js";
+import { HttpDB } from "../libs/HttpDB.js";
 
 // ============================================
 //  配置

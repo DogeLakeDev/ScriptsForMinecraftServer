@@ -50,7 +50,6 @@
       "minecraft:convert_to_drowned": {
         "minecraft:transformation": {
           "into": "minecraft:drowned<minecraft:as_adult>",
-          "transformation_sound": "convert_to_drowned",
           "drop_equipment": true,
           "delay": {
             "value": 15
@@ -62,7 +61,6 @@
       "minecraft:convert_to_baby_drowned": {
         "minecraft:transformation": {
           "into": "minecraft:drowned<minecraft:as_baby>",
-          "transformation_sound": "convert_to_drowned",
           "drop_equipment": true,
           "delay": {
             "value": 15

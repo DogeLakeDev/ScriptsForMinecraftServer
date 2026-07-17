@@ -1,7 +1,7 @@
 import { system } from "@minecraft/server";
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
+import { debug } from "../libs/DebugLog.js";
+import { HttpDB } from "../libs/HttpDB.js";
 
 export class LandTax {
   private static intervalId: number | null = null;

@@ -3,12 +3,30 @@
   "version": "1.0.0",
   "description": "",
   "author": "Shiroha7z",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start":"node index.js",
-    "test": "node --test test/*.test.js"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "start:qb": "node src/qq-bridge.js",
+    "test": "node --test src/*.test.js",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --outfile=dist/scripts/main.js --sourcemap --target=es2022"
   },
-  "engines": { "node": ">=22.5.0" },
-  "dependencies": {}
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "prettier": "^3.9.5",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "sql-template-strings": "^2.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/ws": "^8.18.1"
+  }
 }

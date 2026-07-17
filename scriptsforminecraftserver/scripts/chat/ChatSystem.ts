@@ -1,16 +1,23 @@
 import { Player, system, world } from "@minecraft/server";
-import { ChatGUI } from "../gui/ChatGUI";
-import { Command } from "../libs/Command";
-import { ConfigManager } from "../libs/ConfigManager";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
-import { registerSystemMsgHandler } from "../libs/Tools";
-import { DogeChat } from "./DogeChat";
+import { ChatGUI } from "../gui/ChatGUI.js";
+import { Command } from "../libs/Command.js";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import { debug } from "../libs/DebugLog.js";
+import { HttpDB } from "../libs/HttpDB.js";
+import { registerSystemMsgHandler } from "../libs/Tools.js";
+import { DogeChat } from "./DogeChat.js";
 
 export class ChatSystem {
   private static chatSendSub: any = undefined;
   private static playerJoinSub: any = undefined;
 
+  /**
+   * @description
+   * @author Shiroha7z
+   * @date 17/07/2026
+   * @static
+   * @memberof ChatSystem
+   */
   static init() {
     debug.i("CHAT", "init");
     console.log(`Initializing ChatSystem...`);

@@ -1,9 +1,14 @@
 /*TypeScript编译器配置*/
 {
   "compilerOptions": {
-    "target": "es2020",
-    "moduleResolution": "Bundler",
-    "module": "ES2020",
+    "rootDir": "../",
+    "outDir": "./lib",
+
+    "module": "nodenext",
+    "target": "es6",
+    "lib": ["esnext", "DOM"],
+
+    "moduleResolution": "nodenext",
     "declaration": false,
     "noLib": false,
     "emitDecoratorMetadata": true,
@@ -17,11 +22,13 @@
     "noImplicitAny": true,
     "noImplicitReturns": false,
     "noImplicitUseStrict": false,
-    "outDir": "lib",
-    "rootDir": ".",
+
     "listFiles": false,
     "noEmitHelpers": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@sfmc-types/*": ["../db-server/src/types/*"]
+    }
   },
   "include": ["scripts/**/*"],
   "exclude": ["lib", "dist", "node_modules"],

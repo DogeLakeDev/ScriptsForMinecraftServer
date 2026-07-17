@@ -18,9 +18,9 @@ import {
   system,
   world,
 } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
-import { Permission } from "../libs/Permission";
-import * as Tool from "../libs/Tools";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import { Permission } from "../libs/Permission.js";
+import * as Tool from "../libs/Tools.js";
 
 export class CreativeArea {
   static _instance: CreativeArea;

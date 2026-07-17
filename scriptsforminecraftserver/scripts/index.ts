@@ -1,3 +1,3 @@
-import { AddOnInit } from "./entry";
+import { AddOnInit } from "./entry.js";
 
 AddOnInit.init();

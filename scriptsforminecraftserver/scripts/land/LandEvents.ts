@@ -3,12 +3,12 @@
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { debug } from "../libs/DebugLog";
-import { Permission } from "../libs/Permission";
-import { dimensionId, Msg } from "../libs/Tools";
-import { LandCore } from "./LandCore";
-import { LandPos } from "./LandDatabase";
-import { canUseAt } from "./LandPolicy";
+import { debug } from "../libs/DebugLog.js";
+import { Permission } from "../libs/Permission.js";
+import { dimensionId, Msg } from "../libs/Tools.js";
+import { LandCore } from "./LandCore.js";
+import { LandPos } from "./LandDatabase.js";
+import { canUseAt } from "./LandPolicy.js";
 
 // 容器方块类型（箱子/木桶/潜影盒）
 const CONTAINER_BLOCKS = new Set([
@@ -77,8 +77,7 @@ export class LandEvents {
     this.subscribe(world.beforeEvents.playerPlaceBlock, (ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid =
-        dimensionId(block.dimension);
+      const dimid = dimensionId(block.dimension);
 
       if (!checkLandPermission(player, pos, dimid, "place")) {
         Msg.error("你没有权限在此土地放置方块！", player);
@@ -90,8 +89,7 @@ export class LandEvents {
     this.subscribe(world.beforeEvents.playerBreakBlock, (ev) => {
       const { player, block } = ev;
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid =
-        dimensionId(block.dimension);
+      const dimid = dimensionId(block.dimension);
 
       if (!checkLandPermission(player, pos, dimid, "break")) {
         Msg.error("你没有权限在此土地破坏方块！", player);
@@ -105,8 +103,7 @@ export class LandEvents {
       if (!isContainerBlock(block.typeId)) return;
 
       const pos = { x: block.x, y: block.y, z: block.z };
-      const dimid =
-        dimensionId(block.dimension);
+      const dimid = dimensionId(block.dimension);
 
       if (!checkLandPermission(player, pos, dimid, "container")) {
         Msg.error("你没有权限在此土地打开容器！", player);
@@ -126,8 +123,7 @@ export class LandEvents {
             : null;
       if (!capability) return;
       const pos = { x: ev.block.x, y: ev.block.y, z: ev.block.z };
-      const dimid =
-        dimensionId(ev.block.dimension);
+      const dimid = dimensionId(ev.block.dimension);
       if (!checkLandPermission(ev.player, pos, dimid, capability)) {
         Msg.error("你没有权限使用此土地设施！", ev.player);
         ev.cancel = true;
@@ -140,8 +136,7 @@ export class LandEvents {
         y: Math.floor(ev.target.location.y),
         z: Math.floor(ev.target.location.z),
       };
-      const dimid =
-        dimensionId(ev.target.dimension);
+      const dimid = dimensionId(ev.target.dimension);
       if (!checkLandPermission(ev.player, pos, dimid, "interact_entity")) {
         Msg.error("你没有权限与此土地内的实体交互！", ev.player);
         ev.cancel = true;
@@ -157,8 +152,7 @@ export class LandEvents {
         y: Math.floor(target.location.y),
         z: Math.floor(target.location.z),
       };
-      const dimid =
-        dimensionId(target.dimension);
+      const dimid = dimensionId(target.dimension);
       if (!checkLandPermission(source, pos, dimid, "attack_entity")) {
         ev.cancel = true;
         Msg.error("你没有权限攻击此土地内的实体！", source);
@@ -172,8 +166,7 @@ export class LandEvents {
         y: Math.floor(ev.item.location.y),
         z: Math.floor(ev.item.location.z),
       };
-      const dimid =
-        dimensionId(ev.item.dimension);
+      const dimid = dimensionId(ev.item.dimension);
       if (!checkLandPermission(ev.entity, pos, dimid, "pickup_item")) {
         ev.cancel = true;
         Msg.error("你没有权限拾取此土地内的物品！", ev.entity);
@@ -185,8 +178,7 @@ export class LandEvents {
       if (
         blocks.some((block) => {
           const pos = { x: block.x, y: block.y, z: block.z };
-          const dimid =
-            dimensionId(block.dimension);
+          const dimid = dimensionId(block.dimension);
           return LandCore.getLandByPos(pos, dimid) !== undefined;
         })
       )
@@ -211,8 +203,7 @@ export class LandEvents {
         y: Math.floor(player.location.y),
         z: Math.floor(player.location.z),
       };
-      const dimid =
-        dimensionId(player.dimension);
+      const dimid = dimensionId(player.dimension);
       const land = LandCore.getLandByPos(pos, dimid);
       const current = land?.id || null;
       const previous = this.lastLandByPlayer.get(player.id);

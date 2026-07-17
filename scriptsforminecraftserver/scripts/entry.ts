@@ -1,47 +1,47 @@
 import { Player, system, world } from "@minecraft/server";
 
-import { Command, setModuleGuard } from "./libs/Command";
-import { ConfigManager } from "./libs/ConfigManager";
-import { debug } from "./libs/DebugLog";
-import { Modules } from "./libs/ModuleKeys";
-import { ModuleRegistry, announceLoaded, guardEvent } from "./libs/ModuleRegistry";
-import { Money } from "./libs/Money";
-import { Permission } from "./libs/Permission";
+import { Command, setModuleGuard } from "./libs/Command.js";
+import { ConfigManager } from "./libs/ConfigManager.js";
+import { debug } from "./libs/DebugLog.js";
+import { Money } from "./libs/Economy.js";
+import { Modules } from "./libs/ModuleKeys.js";
+import { ModuleRegistry, announceLoaded, guardEvent } from "./libs/ModuleRegistry.js";
+import { Permission } from "./libs/Permission.js";
 
-import * as AFK from "./doge/AFK";
-import { ChatSoundsHelper } from "./doge/ChatSoundsHelper";
-import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean";
-import { DailyTask } from "./doge/DailyTask";
-import { MonitorReporter } from "./doge/MonitorReporter";
-import { OnlineTime } from "./doge/OnlineTime";
-import { QAManager } from "./doge/QA";
-import { SpawnProtect } from "./doge/SpawnProtect";
-import { TPS } from "./doge/TPS";
-import { EconomyReport } from "./EconomyReport";
+import * as AFK from "./doge/AFK.js";
+import { ChatSoundsHelper } from "./doge/ChatSoundsHelper.js";
+import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean.js";
+import { DailyTask } from "./doge/DailyTask.js";
+import { MonitorReporter } from "./doge/MonitorReporter.js";
+import { OnlineTime } from "./doge/OnlineTime.js";
+import { QAManager } from "./doge/QA.js";
+import { SpawnProtect } from "./doge/SpawnProtect.js";
+import { TPS } from "./doge/TPS.js";
+import { EconomyReport } from "./EconomyReport.js";
 
-import { CreativeArea } from "./area/CreativeArea";
-import * as Fly from "./area/Fly";
-import { InventorySwitcher } from "./area/InventorySwitcher";
-import { Peace } from "./area/Peace";
-import { SurvivalArea } from "./area/SurvivalArea";
+import { CreativeArea } from "./area/CreativeArea.js";
+import * as Fly from "./area/Fly.js";
+import { InventorySwitcher } from "./area/InventorySwitcher.js";
+import { Peace } from "./area/Peace.js";
+import { SurvivalArea } from "./area/SurvivalArea.js";
 
-import { LandEvents } from "./land/LandEvents";
-import { LandSystem } from "./land/LandSystem";
+import { LandEvents } from "./land/LandEvents.js";
+import { LandSystem } from "./land/LandSystem.js";
 
-import { AdminGUI } from "./gui/AdminGUI";
-import { MainMenu } from "./gui/MainMenu";
-import { MoneyGUI } from "./gui/MoneyGUI";
+import { AdminGUI } from "./gui/AdminGUI.js";
+import { MainMenu } from "./gui/MainMenu.js";
+import { MoneyGUI } from "./gui/MoneyGUI.js";
 
-import { CoopSystem } from "./coop/CoopSystem";
+import { CoopSystem } from "./coop/CoopSystem.js";
 
-import { ChatSystem } from "./chat/ChatSystem";
+import { ChatSystem } from "./chat/ChatSystem.js";
 
-import { ActivityLog } from "./data/ActivityLog";
-import { getPlayerData } from "./data/Player";
-import { ScoreboardSync, ScoreboardsBackup } from "./data/Scoreboards";
-import { syncWorldData } from "./data/World";
+import { ActivityLog } from "./data/ActivityLog.js";
+import { getPlayerData } from "./data/PlayerData.js";
+import { ScoreboardSync, ScoreboardsBackup } from "./data/ScoreboardsData.js";
+import { syncWorldData } from "./data/WorldData.js";
 
-import { savePlayers } from "./api";
+import { savePlayers } from "./api/PlayersDataApi.js";
 
 // ============================================================
 //  模块注册
@@ -64,8 +64,8 @@ ModuleRegistry.register({
       );
     },
     init: () => {
-      ConfigManager.startPolling();
-      ConfigManager.startFastPoll();
+      // 配置在 AddOnInit.init() 时已通过 ConfigManager.init() 一次性加载，
+      // 不再轮询 / 热重载。改 configs/*.json 后重启 BDS 即可。
     },
   },
 });

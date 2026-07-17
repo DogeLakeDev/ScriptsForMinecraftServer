@@ -1,15 +1,9 @@
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
+import type { EconomyAccountRow } from "@sfmc-types/economy.js";
+import { debug } from "../libs/DebugLog.js";
+import { HttpDB } from "../libs/HttpDB.js";
 
-export interface EconomyAccount {
-  playerId: string;
-  playerName: string;
-  balance: number;
-  version: number;
-}
-
-function parseAccount(body: string | null): EconomyAccount | null {
+function parseAccount(body: string | null): EconomyAccountRow | null {
   if (!body) return null;
   try {
     return JSON.parse(body).account || null;
@@ -18,7 +12,7 @@ function parseAccount(body: string | null): EconomyAccount | null {
   }
 }
 
-export async function getEconomyAccount(playerId: string, playerName?: string): Promise<EconomyAccount | null> {
+export async function getEconomyAccount(playerId: string, playerName?: string): Promise<EconomyAccountRow | null> {
   debug.i("API", `getEconomyAccount: playerId=${playerId}`);
   const query = `?playerId=${encodeURIComponent(playerId)}${playerName ? `&playerName=${encodeURIComponent(playerName)}` : ""}`;
   return parseAccount(await HttpDB.get(`/api/sfmc/economy/account${query}`));
@@ -61,7 +55,13 @@ export async function submitDailyTask(
   actorId: string,
   actorName: string,
   quantity: number
-): Promise<{ ok: boolean; reward?: number; balance?: number; balanceVersion?: number; error?: string }> {
+): Promise<{
+  ok: boolean;
+  reward?: number;
+  balance?: number;
+  balanceVersion?: number;
+  error?: string;
+}> {
   debug.i("API", `submitDailyTask: taskId=${taskId} actor=${actorName} qty=${quantity}`);
   const result = await HttpDB.typedRequest(
     HttpRequestMethod.POST,
@@ -70,7 +70,13 @@ export async function submitDailyTask(
   );
   if (!result.ok) return { ok: false, error: result.error || "submit_failed" };
   const d = result.data as any;
-  return { ok: true, reward: d.reward, balance: d.balance, balanceVersion: d.balanceVersion, error: d.error };
+  return {
+    ok: true,
+    reward: d.reward,
+    balance: d.balance,
+    balanceVersion: d.balanceVersion,
+    error: d.error,
+  };
 }
 
 export async function transferEconomy(

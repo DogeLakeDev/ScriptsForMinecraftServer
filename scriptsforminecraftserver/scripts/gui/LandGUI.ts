@@ -6,14 +6,14 @@ import {
   inviteMember,
   removeLandMember,
   updateLandMember,
-} from "../api/LandApi";
-import { LandCore } from "../land/LandCore";
-import { Database, LandData, LandPos, LandRole } from "../land/LandDatabase";
-import { canManage, getPlayerRole } from "../land/LandPolicy";
-import { debug } from "../libs/DebugLog";
-import { FormStatus, MenuNavigator, obsBool, obsNum, obsStr } from "../libs/MenuNavigator";
-import { Money } from "../libs/Money";
-import { dimensionId, ListFormInfo, Msg } from "../libs/Tools";
+} from "../api/LandApi.js";
+import { LandCore } from "../land/LandCore.js";
+import { Database, LandData, LandPos, LandRole } from "../land/LandDatabase.js";
+import { canManage, getPlayerRole } from "../land/LandPolicy.js";
+import { debug } from "../libs/DebugLog.js";
+import { FormStatus, MenuNavigator, obsBool, obsNum, obsStr } from "../libs/MenuNavigator.js";
+import { Money } from "../libs/Money.js";
+import { dimensionId, ListFormInfo, Msg } from "../libs/Tools.js";
 
 const ROLES: LandRole[] = ["builder", "container", "visitor", "redstone", "entity", "admin"];
 const ROLE_NAMES: Record<LandRole, string> = {
@@ -167,17 +167,18 @@ export class LandGUI {
 
   private async fetchPlazaSettings(): Promise<{ name: string; welcome: string; dimid: number; range: number }> {
     try {
-      const { HttpDB } = await import("../libs/HttpDB");
+      const { HttpDB } = await import("../libs/HttpDB.js");
       const body = await HttpDB.get("/api/sfmc/settings/land:plaza");
       if (body) {
         const parsed = JSON.parse(body);
-        if (parsed?.value) {
+        if (parsed?.value !== null && parsed?.value !== undefined) {
+          const value = typeof parsed.value === "string" ? JSON.parse(parsed.value) : parsed.value;
           return {
             name: "公共广场",
             welcome: "欢迎来到服务器！这里是公共领地，所有人都可以建造。",
             dimid: 0,
             range: 32,
-            ...JSON.parse(parsed.value),
+            ...value,
           };
         }
       }
@@ -548,7 +549,7 @@ export class LandGUI {
     info: { square: number; height: number }
   ): Promise<void> {
     try {
-      const { validateLand } = await import("../api/LandApi");
+      const { validateLand } = await import("../api/LandApi.js");
       const r = await validateLand({ ownerId: this.player.id, ownerName: this.player.name, dimid, posA, posB });
       if (r.ok && typeof r.price === "number") {
         if (this.state.previewPrice !== r.price) {
@@ -616,7 +617,7 @@ export class LandGUI {
           const player = online[target.getData()];
           if (!player) return;
           const requestId = `land-transfer:${this.player.id}:${land.id}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
-          const { transferLand } = await import("../api/LandApi");
+          const { transferLand } = await import("../api/LandApi.js");
           const result = await transferLand(land.id, this.player.id, player.id, player.name, land.version, requestId);
           if (!result.ok || !result.land) {
             if (result.error === "version_conflict") {

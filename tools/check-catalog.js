@@ -11,13 +11,14 @@
  *  - entry.init 仅在 sapi 类型可选
  *  - 不允许循环依赖（拓扑排序检测）
  */
-const fs = require("node:fs");
-const path = require("node:path");
+import { accessSync, constants, readFileSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { path } from "node:path";
 
-const ROOT = path.resolve(__dirname, "..");
-const CATALOG = path.join(ROOT, "modules", "catalog.json");
-const SAPI_ENTRY = path.join(ROOT, "scriptsforminecraftserver", "scripts", "entry.ts");
-const MODULE_KEYS = path.join(ROOT, "scriptsforminecraftserver", "scripts", "libs", "ModuleKeys.ts");
+const ROOT = resolve(path.dirname(), "..");
+const CATALOG = join(ROOT, "modules", "catalog.json");
+const SAPI_ENTRY = join(ROOT, "scriptsforminecraftserver", "scripts", "entry.ts");
+const MODULE_KEYS = join(ROOT, "scriptsforminecraftserver", "scripts", "libs", "ModuleKeys.ts");
 
 function fail(msg) {
   console.error(`[check-catalog] ${msg}`);
@@ -26,7 +27,7 @@ function fail(msg) {
 
 function exists(p) {
   try {
-    fs.accessSync(p, fs.constants.F_OK);
+    accessSync(p, constants.F_OK);
     return true;
   } catch {
     return false;
@@ -35,7 +36,7 @@ function exists(p) {
 
 function main() {
   if (!exists(CATALOG)) fail(`找不到 ${CATALOG}`);
-  const raw = JSON.parse(fs.readFileSync(CATALOG, "utf-8"));
+  const raw = JSON.parse(readFileSync(CATALOG, "utf-8"));
   if (raw.version !== 1) fail(`catalog 版本不支持: ${raw.version}`);
   const modules = Array.isArray(raw.modules) ? raw.modules : [];
   if (modules.length === 0) fail("catalog 为空");
@@ -51,8 +52,8 @@ function main() {
   }
 
   const sapiCatalog = modules.filter((m) => m.type === "feature" && m.entry?.kind === "sapi");
-  const source = fs.readFileSync(SAPI_ENTRY, "utf-8");
-  const keysSource = fs.readFileSync(MODULE_KEYS, "utf-8");
+  const source = readFileSync(SAPI_ENTRY, "utf-8");
+  const keysSource = readFileSync(MODULE_KEYS, "utf-8");
   const configKeys = new Set([...keysSource.matchAll(/\n\s*\w+:\s*["']([^"']+)["']/g)].map((match) => match[1]));
   const registeredIds = new Set([...source.matchAll(/ModuleRegistry\.register\(\{\s*\n\s*id:\s*["']([^"']+)["']/g)].map((match) => match[1]));
   for (const m of sapiCatalog) {
@@ -68,7 +69,7 @@ function main() {
       if (!byId.has(dep)) fail(`${m.id} 引用了未知模块 ${dep}`);
     }
     if (!m.entry || !m.entry.path) fail(`${m.id} 缺少 entry.path`);
-    const entryPath = path.join(ROOT, m.entry.path);
+    const entryPath = join(ROOT, m.entry.path);
     if (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset") {
       if (!exists(entryPath)) fail(`${m.id} 入口路径不存在: ${m.entry.path}`);
     }

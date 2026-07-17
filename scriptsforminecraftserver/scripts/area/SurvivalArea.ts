@@ -1,6 +1,6 @@
 /* ---------------------------------------- *\
  *  Name        :  生存区域                   *
- *  Description :  全图除创造区外强制生存（需开启创造区后才生效）       *
+ *  Description :  全图除创造区外强制生存（需配合创造区）       *
  *  Version     :  1.0.0                    *
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
@@ -14,18 +14,18 @@ import {
   system,
   world,
 } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
-import { Permission } from "../libs/Permission";
-import * as Tool from "../libs/Tools";
-import { Msg } from "../libs/Tools";
-import { CreativeArea } from "./CreativeArea";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import { Permission } from "../libs/Permission.js";
+import * as Tool from "../libs/Tools.js";
+import { Msg } from "../libs/Tools.js";
+import { CreativeArea } from "./CreativeArea.js";
 
 export class SurvivalArea {
   static _instance: SurvivalArea;
   /**
    * @returns {SurvivalArea}
    */
-  static getInstance() {
+  static getInstance(): SurvivalArea {
     if (!SurvivalArea._instance) {
       SurvivalArea._instance = new SurvivalArea();
     }

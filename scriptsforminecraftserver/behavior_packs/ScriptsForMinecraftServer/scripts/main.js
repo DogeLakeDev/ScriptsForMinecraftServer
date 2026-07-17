@@ -767,1543 +767,427 @@ var init_HttpDB = __esm({
   }
 });
 
-// scripts/api/ChatApi.ts
-import { HttpRequestMethod as HttpRequestMethod2 } from "@minecraft/server-net";
-async function getChannels(filter) {
-  const qs = toQueryString({
-    search: filter?.search,
-    type: filter?.type,
-    ownerId: filter?.ownerId,
-    minCreatedAt: filter?.minCreatedAt,
-    maxCreatedAt: filter?.maxCreatedAt
-  });
-  const path = `${PATH_CHANNELS}${qs}`;
-  const body = await HttpDB.get(path);
-  if (!body) return null;
-  try {
-    const raw = JSON.parse(body).channels;
-    return raw.map(toChannel);
-  } catch {
-    return null;
-  }
-}
-function toChannel(r) {
-  return {
-    id: r.id,
-    name: r.name,
-    type: r.type,
-    prefix: r.prefix,
-    ownerid: r.owner_id || void 0,
-    createdAt: r.created_at,
-    config: {
-      allowChat: !!r.config_allow_chat,
-      slowMode: r.config_slow_mode || 0,
-      isBroadcast: !!r.config_is_broadcast
-    }
-  };
-}
-function toMessage(r) {
-  return {
-    id: r.id,
-    fromid: r.from_id,
-    fromName: r.from_name,
-    channelId: r.channel_id,
-    type: r.type || "text",
-    content: r.content,
-    attachment: r.attachment,
-    showTimestamp: !!r.show_timestamp,
-    timestamp: r.created_at
-  };
-}
-function toRedPacket(r) {
-  return {
-    id: r.id,
-    senderid: r.sender_id,
-    senderName: r.sender_name,
-    totalAmount: r.total_amount,
-    remainingAmount: r.remaining_amount,
-    totalCount: r.total_count,
-    remainingCount: r.remaining_count,
-    receivers: JSON.parse(r.receivers || "[]"),
-    targetType: r.target_type,
-    targetId: r.target_id,
-    createdAt: r.created_at,
-    expiresAt: r.expires_at
-  };
-}
-async function getChannel(channelId) {
-  const raw = await HttpDB.fetchJSON(PATH_CHANNELS, channelId, "channel");
-  if (!raw) return null;
-  return toChannel(raw);
-}
-async function createChannel(channel) {
-  return saveChannels([channel]);
-}
-async function saveChannels(channels) {
-  const flat = channels.map((c) => ({
-    id: c.id,
-    name: c.name,
-    type: c.type,
-    prefix: c.prefix,
-    ownerId: c.ownerid,
-    createdAt: c.createdAt,
-    configAllowChat: c.config?.allowChat,
-    configSlowMode: c.config?.slowMode,
-    configIsBroadcast: c.config?.isBroadcast
-  }));
-  return HttpDB.post(PATH_CHANNELS, { channels: flat });
-}
-async function patchChannel(channelId, data) {
-  return HttpDB.put(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data);
-}
-async function deleteChannel(channelId) {
-  return HttpDB.del(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`);
-}
-async function getMessages(filter) {
-  const qs = toQueryString({
-    search: filter?.search,
-    type: filter?.type,
-    channelId: filter?.channelId,
-    from: filter?.from,
-    minSentAt: filter?.minSentAt,
-    maxSentAt: filter?.maxSentAt
-  });
-  const path = `${PATH_MESSAGES}${qs}`;
-  const body = await HttpDB.get(path);
-  if (!body) return null;
-  try {
-    const raw = JSON.parse(body).messages;
-    return raw.map(toMessage);
-  } catch {
-    return null;
-  }
-}
-async function saveMessages(messages) {
-  return HttpDB.post(PATH_MESSAGES, { messages });
-}
-async function getRedPackets() {
-  const body = await HttpDB.get(PATH_REDPACKET);
-  if (!body) return [];
-  try {
-    const parsed = JSON.parse(body);
-    const raw = parsed.redpackets || parsed.redpacket || [];
-    return raw.map(toRedPacket);
-  } catch {
-    return [];
-  }
-}
-async function getRedPacket(redpacketId) {
-  const raw = await HttpDB.fetchJSON(PATH_REDPACKET, redpacketId, "redpacket");
-  if (!raw) return null;
-  return toRedPacket(raw);
-}
-async function saveRedPacket(redpacket) {
-  return HttpDB.post(PATH_REDPACKET, { redpacket, actorId: redpacket.senderid });
-}
-async function claimRedPacket(redpacketId, actorId, actorName) {
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod2.POST,
-    `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`,
-    {
-      actorId,
-      actorName
-    }
-  );
-  try {
-    const parsed = JSON.parse(result.body);
-    return { ok: result.status === 200 && parsed.success, amount: parsed.amount, error: parsed.error };
-  } catch {
-    return { ok: false, error: "invalid_response" };
-  }
-}
-var PATH_CHANNELS, PATH_MESSAGES, PATH_REDPACKET;
-var init_ChatApi = __esm({
-  "scripts/api/ChatApi.ts"() {
+// scripts/libs/ConfigManager.ts
+var ConfigManager;
+var init_ConfigManager = __esm({
+  "scripts/libs/ConfigManager.ts"() {
     "use strict";
+    init_CreativeArea();
+    init_Peace();
     init_HttpDB();
-    init_Tools();
-    PATH_CHANNELS = "/api/sfmc/channels";
-    PATH_MESSAGES = "/api/sfmc/messages";
-    PATH_REDPACKET = "/api/sfmc/redpacket";
-  }
-});
-
-// scripts/api/CoopAPI.ts
-var CoopAPI_exports = {};
-__export(CoopAPI_exports, {
-  coopShopBuy: () => coopShopBuy,
-  coopShopSell: () => coopShopSell,
-  createCoop: () => createCoop,
-  deleteCoop: () => deleteCoop,
-  deleteShopItem: () => deleteShopItem,
-  findPlayerCoop: () => findPlayerCoop,
-  getAllCoops: () => getAllCoops,
-  getAllShopGroups: () => getAllShopGroups,
-  getBankLog: () => getBankLog,
-  getCoop: () => getCoop,
-  getMembers: () => getMembers,
-  getShopItems: () => getShopItems,
-  joinCoop: () => joinCoop,
-  leaveCoop: () => leaveCoop,
-  removeMember: () => removeMember,
-  saveShopGroup: () => saveShopGroup,
-  saveShopItem: () => saveShopItem,
-  treasury: () => treasury,
-  updateCoop: () => updateCoop,
-  updateMemberRole: () => updateMemberRole
-});
-import { HttpRequestMethod as HttpRequestMethod3 } from "@minecraft/server-net";
-async function getAllCoops() {
-  debug.i("API", "getAllCoops");
-  const body = await HttpDB.get(PATH);
-  if (!body) return [];
-  try {
-    const coops = JSON.parse(body).coops || [];
-    debug.i("API", `getAllCoops: ${coops.length} coops`);
-    return coops;
-  } catch {
-    return [];
-  }
-}
-async function getCoop(cid) {
-  debug.i("API", `getCoop: cid=${cid}`);
-  const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}`);
-  if (!body) return null;
-  try {
-    return JSON.parse(body).coop || null;
-  } catch {
-    return null;
-  }
-}
-async function updateCoop(cid, data) {
-  debug.i("API", `updateCoop: cid=${cid}`);
-  return HttpDB.put(`${PATH}/${encodeURIComponent(cid)}`, data);
-}
-async function deleteCoop(cid, actorId) {
-  debug.i("API", `deleteCoop: cid=${cid} actorId=${actorId}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.DELETE, `${PATH}/${encodeURIComponent(cid)}`, { actorId });
-  return result.status === 200;
-}
-async function getMembers(cid) {
-  debug.i("API", `getMembers: cid=${cid}`);
-  const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}/members`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).members || [];
-  } catch {
-    return [];
-  }
-}
-async function joinCoop(cid, playerId2, playerName) {
-  debug.i("API", `joinCoop: cid=${cid} player=${playerName}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/members/join`, {
-    actorId: playerId2,
-    playerId: playerId2,
-    playerName
-  });
-  return result.status === 200;
-}
-async function leaveCoop(cid, playerId2) {
-  debug.i("API", `leaveCoop: cid=${cid} playerId=${playerId2}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/members/leave`, {
-    actorId: playerId2
-  });
-  return result.status === 200;
-}
-async function updateMemberRole(cid, actorId, playerId2, role) {
-  debug.i("API", `updateMemberRole: cid=${cid} playerId=${playerId2} role=${role}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod3.PUT,
-    `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId2)}`,
-    { actorId, role }
-  );
-  return result.status === 200;
-}
-async function removeMember(cid, actorId, playerId2) {
-  debug.i("API", `removeMember: cid=${cid} playerId=${playerId2}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod3.DELETE,
-    `${PATH}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId2)}`,
-    { actorId }
-  );
-  return result.status === 200;
-}
-async function getShopItems(cid, type) {
-  debug.i("API", `getShopItems: cid=${cid} type=${type}`);
-  const qs = type !== void 0 ? `?type=${type}` : "";
-  const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}/shop_items${qs}`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).items || [];
-  } catch {
-    return [];
-  }
-}
-async function saveShopItem(item) {
-  debug.i("API", `saveShopItem: cid=${item.cid} id=${item.id} name=${item.name}`);
-  return HttpDB.post(`${PATH}/${encodeURIComponent(item.cid)}/shop_items`, item);
-}
-async function deleteShopItem(cid, id) {
-  debug.i("API", `deleteShopItem: cid=${cid} id=${id}`);
-  return HttpDB.del(`${PATH}/${encodeURIComponent(cid)}/shop_items/${encodeURIComponent(id)}`);
-}
-async function getBankLog(cid) {
-  debug.i("API", `getBankLog: cid=${cid}`);
-  const body = await HttpDB.get(`${PATH}/${encodeURIComponent(cid)}/bank_log`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).log || [];
-  } catch {
-    return [];
-  }
-}
-async function getAllShopGroups() {
-  debug.i("API", "getAllShopGroups");
-  const body = await HttpDB.get("/api/sfmc/coop_shop_groups");
-  if (!body) return [];
-  try {
-    return JSON.parse(body).groups || [];
-  } catch {
-    return [];
-  }
-}
-async function saveShopGroup(group) {
-  debug.i("API", `saveShopGroup: groupid=${group.groupid} displayname=${group.displayname}`);
-  return HttpDB.post("/api/sfmc/coop_shop_groups", { group });
-}
-async function findPlayerCoop(playerId2) {
-  debug.i("API", `findPlayerCoop: playerId=${playerId2}`);
-  const body = await HttpDB.get(`${PATH}/by-player/${encodeURIComponent(playerId2)}`);
-  if (!body) return null;
-  try {
-    return JSON.parse(body).coop?.cid || null;
-  } catch {
-    return null;
-  }
-}
-async function createCoop(name, cid, actorId, actorName) {
-  debug.i("API", `createCoop: name=${name} cid=${cid} actor=${actorName}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/create`, { name, cid, actorId, actorName });
-  try {
-    const parsed = JSON.parse(result.body);
-    return {
-      ok: result.status === 200 && parsed.ok !== false,
-      coop: parsed.coop,
-      balance: parsed.balance,
-      error: parsed.error
-    };
-  } catch {
-    return { ok: false, error: "invalid_response" };
-  }
-}
-async function treasury(cid, actorId, actorName, mode, amount, note = "") {
-  debug.i("API", `treasury: cid=${cid} actor=${actorName} mode=${mode} amount=${amount}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/treasury/${mode}`, {
-    actorId,
-    actorName,
-    amount,
-    note
-  });
-  try {
-    const parsed = JSON.parse(result.body);
-    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
-  } catch {
-    return { ok: false, error: "invalid_response" };
-  }
-}
-async function coopShopBuy(cid, actorId, actorName, listingId, quantity, idempotencyKey) {
-  debug.i("API", `coopShopBuy: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/shop/buy`, {
-    actorId,
-    actorName,
-    listingId,
-    quantity,
-    idempotencyKey
-  });
-  try {
-    const parsed = JSON.parse(result.body);
-    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
-  } catch {
-    return { ok: false, error: "invalid_response" };
-  }
-}
-async function coopShopSell(cid, actorId, actorName, listingId, quantity, idempotencyKey) {
-  debug.i("API", `coopShopSell: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod3.POST, `${PATH}/${encodeURIComponent(cid)}/shop/sell`, {
-    actorId,
-    actorName,
-    listingId,
-    quantity,
-    idempotencyKey
-  });
-  try {
-    const parsed = JSON.parse(result.body);
-    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
-  } catch {
-    return { ok: false, error: "invalid_response" };
-  }
-}
-var PATH;
-var init_CoopAPI = __esm({
-  "scripts/api/CoopAPI.ts"() {
-    "use strict";
-    init_DebugLog();
-    init_HttpDB();
-    PATH = "/api/sfmc/coops";
-  }
-});
-
-// scripts/api/EconomyApi.ts
-var EconomyApi_exports = {};
-__export(EconomyApi_exports, {
-  applyEconomyTransaction: () => applyEconomyTransaction,
-  getDailyTasks: () => getDailyTasks,
-  getEconomyAccount: () => getEconomyAccount,
-  submitDailyTask: () => submitDailyTask,
-  transferEconomy: () => transferEconomy
-});
-import { HttpRequestMethod as HttpRequestMethod4 } from "@minecraft/server-net";
-function parseAccount(body) {
-  if (!body) return null;
-  try {
-    return JSON.parse(body).account || null;
-  } catch {
-    return null;
-  }
-}
-async function getEconomyAccount(playerId2, playerName) {
-  debug.i("API", `getEconomyAccount: playerId=${playerId2}`);
-  const query = `?playerId=${encodeURIComponent(playerId2)}${playerName ? `&playerName=${encodeURIComponent(playerName)}` : ""}`;
-  return parseAccount(await HttpDB.get(`/api/sfmc/economy/account${query}`));
-}
-async function applyEconomyTransaction(data) {
-  debug.i("API", `applyEconomyTransaction: playerId=${data.playerId} amount=${data.amount}`);
-  const result = await HttpDB.typedRequest(HttpRequestMethod4.POST, "/api/sfmc/economy/account", data);
-  if (!result.ok) {
-    debug.e("API", `applyEconomyTransaction failed: ${result.error}`);
-    return { ok: false, error: result.error || "request_failed" };
-  }
-  const account = result.data?.source ?? result.data?.target;
-  return {
-    ok: true,
-    balance: account?.balance,
-    balanceBefore: account?.balanceBefore,
-    balanceAfter: account?.balanceAfter,
-    version: account?.version,
-    transactionId: result.data?.transactionId
-  };
-}
-async function getDailyTasks() {
-  debug.i("API", "getDailyTasks");
-  const result = await HttpDB.typedRequest(HttpRequestMethod4.GET, "/api/sfmc/economy/daily-tasks");
-  return result.ok ? result.data : null;
-}
-async function submitDailyTask(taskId, actorId, actorName, quantity) {
-  debug.i("API", `submitDailyTask: taskId=${taskId} actor=${actorName} qty=${quantity}`);
-  const result = await HttpDB.typedRequest(
-    HttpRequestMethod4.POST,
-    `/api/sfmc/economy/daily-tasks/${encodeURIComponent(taskId)}/submit`,
-    { actorId, actorName, quantity }
-  );
-  if (!result.ok) return { ok: false, error: result.error || "submit_failed" };
-  const d = result.data;
-  return { ok: true, reward: d.reward, balance: d.balance, balanceVersion: d.balanceVersion, error: d.error };
-}
-async function transferEconomy(actorId, targetPlayerId, amount, targetPlayerName) {
-  debug.i("API", `transferEconomy: from=${actorId} to=${targetPlayerId} amount=${amount}`);
-  const result = await HttpDB.typedRequest(HttpRequestMethod4.POST, "/api/sfmc/economy/transfer", {
-    actorId,
-    targetPlayerId,
-    targetPlayerName,
-    amount
-  });
-  return { ok: result.ok, error: result.error };
-}
-var init_EconomyApi = __esm({
-  "scripts/api/EconomyApi.ts"() {
-    "use strict";
-    init_DebugLog();
-    init_HttpDB();
-  }
-});
-
-// scripts/api/LandApi.ts
-var LandApi_exports = {};
-__export(LandApi_exports, {
-  acceptInvite: () => acceptInvite,
-  createLand: () => createLand,
-  declineInvite: () => declineInvite,
-  deleteLand: () => deleteLand,
-  getAllLands: () => getAllLands,
-  getInvites: () => getInvites,
-  getLandAudit: () => getLandAudit,
-  inviteMember: () => inviteMember,
-  removeLandMember: () => removeLandMember,
-  revokeInvite: () => revokeInvite,
-  transferLand: () => transferLand,
-  updateLand: () => updateLand,
-  updateLandMember: () => updateLandMember,
-  validateLand: () => validateLand
-});
-import { HttpRequestMethod as HttpRequestMethod5 } from "@minecraft/server-net";
-function parseLand(body) {
-  if (!body) return null;
-  try {
-    return JSON.parse(body).land || null;
-  } catch {
-    return null;
-  }
-}
-async function getAllLands() {
-  debug.i("API", "getAllLands");
-  const body = await HttpDB.get(PATH2);
-  if (!body) return null;
-  try {
-    const lands = JSON.parse(body).lands;
-    const count = Array.isArray(lands) ? lands.length : 0;
-    debug.i("API", `getAllLands: ${count} lands`);
-    return Array.isArray(lands) ? lands : null;
-  } catch {
-    return null;
-  }
-}
-async function validateLand(request) {
-  debug.i("API", `validateLand: owner=${request.ownerId} dimid=${request.dimid}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod5.POST,
-    `${PATH2}/validate`,
-    request
-  );
-  if (result.status === 0) return { ok: false, error: "\u6570\u636E\u5E93\u670D\u52A1\u4E0D\u53EF\u7528\u3002" };
-  try {
-    return JSON.parse(result.body);
-  } catch {
-    return { ok: false, error: "\u6570\u636E\u5E93\u54CD\u5E94\u65E0\u6548\u3002" };
-  }
-}
-async function createLand(request) {
-  debug.i("API", `createLand: owner=${request.ownerId} dimid=${request.dimid}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, PATH2, request);
-  if (result.status !== 200) {
-    try {
-      const parsed = JSON.parse(result.body);
-      return { land: null, error: parsed.error, message: parsed.message, price: parsed.price, balance: parsed.balance };
-    } catch {
-      return { land: null, error: "\u571F\u5730\u521B\u5EFA\u5931\u8D25\u3002" };
-    }
-  }
-  try {
-    const parsed = JSON.parse(result.body);
-    return {
-      land: parsed.land || null,
-      price: parsed.price,
-      balance: parsed.balance,
-      balanceVersion: parsed.balanceVersion,
-      transactionId: parsed.transactionId
-    };
-  } catch {
-    return { land: null, error: "\u6570\u636E\u5E93\u54CD\u5E94\u65E0\u6548\u3002" };
-  }
-}
-async function updateLand(id, data) {
-  debug.i("API", `updateLand: id=${id} actorId=${data.actorId} version=${data.expectedVersion}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod5.PUT,
-    `${PATH2}/update/${encodeURIComponent(id)}`,
-    data
-  );
-  return result.status === 200 ? parseLand(result.body) : null;
-}
-async function deleteLand(id, actorId, expectedVersion, requestId) {
-  debug.i("API", `deleteLand: id=${id} actorId=${actorId} version=${expectedVersion}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod5.DELETE, `${PATH2}/${encodeURIComponent(id)}`, {
-    actorId,
-    expectedVersion,
-    requestId
-  });
-  let parsed = {};
-  try {
-    parsed = JSON.parse(result.body || "{}");
-  } catch {
-  }
-  if (result.status !== 200)
-    return {
-      ok: false,
-      error: parsed.error || (result.status === 0 ? "database_unavailable" : "transaction_failed"),
-      message: parsed.message,
-      status: result.status
-    };
-  return {
-    ok: true,
-    refund: parsed.refund || 0,
-    balance: parsed.balance,
-    balanceVersion: parsed.balanceVersion,
-    transactionId: parsed.transactionId
-  };
-}
-async function inviteMember(id, actorId, playerId2, role) {
-  debug.i("API", `inviteMember: landId=${id} playerId=${playerId2} role=${role}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, `${PATH2}/${encodeURIComponent(id)}/members`, {
-    actorId,
-    playerId: playerId2,
-    role
-  });
-  if (result.status !== 200) {
-    let parsed2 = {};
-    try {
-      parsed2 = JSON.parse(result.body || "{}");
-    } catch {
-    }
-    return {
-      ok: false,
-      error: parsed2.error || (result.status === 0 ? "database_unavailable" : "forbidden"),
-      message: parsed2.message
-    };
-  }
-  let parsed = {};
-  try {
-    parsed = JSON.parse(result.body || "{}");
-  } catch {
-  }
-  return { ok: true, inviteId: parsed.inviteId, expiresAt: parsed.expiresAt };
-}
-async function removeLandMember(id, actorId, playerId2) {
-  debug.i("API", `removeLandMember: landId=${id} playerId=${playerId2}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod5.DELETE, `${PATH2}/${encodeURIComponent(id)}/members`, {
-    actorId,
-    playerId: playerId2
-  });
-  if (result.status !== 200) {
-    let parsed = {};
-    try {
-      parsed = JSON.parse(result.body || "{}");
-    } catch {
-    }
-    return { ok: false, error: parsed.error || "forbidden", message: parsed.message };
-  }
-  return { ok: true, land: parseLand(result.body) };
-}
-async function updateLandMember(id, actorId, playerId2, role) {
-  debug.i("API", `updateLandMember: landId=${id} playerId=${playerId2} role=${role}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod5.POST,
-    `${PATH2}/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId2)}`,
-    { actorId, role }
-  );
-  if (result.status !== 200) {
-    let parsed = {};
-    try {
-      parsed = JSON.parse(result.body || "{}");
-    } catch {
-    }
-    return { ok: false, error: parsed.error || "invalid_role", message: parsed.message };
-  }
-  return { ok: true, land: parseLand(result.body) };
-}
-async function getInvites(playerId2) {
-  debug.i("API", `getInvites: playerId=${playerId2}`);
-  const body = await HttpDB.get(`${PATH2}/invites/${encodeURIComponent(playerId2)}`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).invites || [];
-  } catch {
-    return [];
-  }
-}
-async function acceptInvite(playerId2, inviteId) {
-  debug.i("API", `acceptInvite: playerId=${playerId2} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, `${PATH2}/invites/${encodeURIComponent(playerId2)}`, {
-    inviteId
-  });
-  return result.status === 200 ? parseLand(result.body) : null;
-}
-async function declineInvite(playerId2, inviteId) {
-  debug.i("API", `declineInvite: playerId=${playerId2} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod5.POST,
-    `${PATH2}/invites/${encodeURIComponent(playerId2)}/decline`,
-    {
-      inviteId
-    }
-  );
-  return result.status === 200;
-}
-async function revokeInvite(id, actorId, inviteId) {
-  debug.i("API", `revokeInvite: landId=${id} inviteId=${inviteId}`);
-  const result = await HttpDB.requestJSON(
-    HttpRequestMethod5.DELETE,
-    `${PATH2}/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`,
-    { actorId }
-  );
-  return result.status === 200;
-}
-async function transferLand(id, actorId, targetId, targetName, expectedVersion, requestId) {
-  debug.i("API", `transferLand: id=${id} from=${actorId} to=${targetName}`);
-  const result = await HttpDB.requestJSON(HttpRequestMethod5.POST, `${PATH2}/${encodeURIComponent(id)}/transfer`, {
-    actorId,
-    targetId,
-    targetName,
-    expectedVersion,
-    requestId
-  });
-  let parsed = {};
-  try {
-    parsed = JSON.parse(result.body || "{}");
-  } catch {
-  }
-  if (result.status !== 200)
-    return {
-      ok: false,
-      error: parsed.error || (result.status === 0 ? "database_unavailable" : "transaction_failed"),
-      message: parsed.message,
-      status: result.status
-    };
-  return { ok: true, land: parsed.land || null, data: parsed.land || void 0, transactionId: parsed.transactionId };
-}
-async function getLandAudit(id) {
-  debug.i("API", `getLandAudit: id=${id}`);
-  const body = await HttpDB.get(`${PATH2}/${encodeURIComponent(id)}/audit`);
-  if (!body) return [];
-  try {
-    return JSON.parse(body).logs || [];
-  } catch {
-    return [];
-  }
-}
-var PATH2;
-var init_LandApi = __esm({
-  "scripts/api/LandApi.ts"() {
-    "use strict";
-    init_DebugLog();
-    init_HttpDB();
-    PATH2 = "/api/sfmc/lands";
-  }
-});
-
-// scripts/api/PlayersDataApi.ts
-async function savePlayers(players) {
-  return HttpDB.post(PATH_PLAYERS, { players });
-}
-var PATH_PLAYERS;
-var init_PlayersDataApi = __esm({
-  "scripts/api/PlayersDataApi.ts"() {
-    "use strict";
-    init_HttpDB();
-    init_Tools();
-    PATH_PLAYERS = "/api/sfmc/players";
-  }
-});
-
-// scripts/api/ScoreboardsSyncApi.ts
-async function backupScoreboards(entries) {
-  return HttpDB.post("/api/sfmc/scoreboards", { entries });
-}
-async function loadScoreboards(filter) {
-  const qs = toQueryString({
-    objective: filter?.objective,
-    name: filter?.name,
-    id: filter?.id
-  });
-  const body = await HttpDB.get(`/api/sfmc/scoreboards${qs}`);
-  if (!body) return null;
-  try {
-    return JSON.parse(body).entries;
-  } catch {
-    return null;
-  }
-}
-var init_ScoreboardsSyncApi = __esm({
-  "scripts/api/ScoreboardsSyncApi.ts"() {
-    "use strict";
-    init_HttpDB();
-    init_Tools();
-  }
-});
-
-// scripts/api/WorldDataApi.ts
-async function saveWorldData(data) {
-  return HttpDB.post("/api/sfmc/world", { data });
-}
-var init_WorldDataApi = __esm({
-  "scripts/api/WorldDataApi.ts"() {
-    "use strict";
-    init_HttpDB();
-  }
-});
-
-// scripts/api/index.ts
-var init_api = __esm({
-  "scripts/api/index.ts"() {
-    "use strict";
-    init_ChatApi();
-    init_CoopAPI();
-    init_EconomyApi();
-    init_LandApi();
-    init_PlayersDataApi();
-    init_ScoreboardsSyncApi();
-    init_WorldDataApi();
-  }
-});
-
-// scripts/libs/Money.ts
-var Money_exports = {};
-__export(Money_exports, {
-  Money: () => Money
-});
-var Money;
-var init_Money = __esm({
-  "scripts/libs/Money.ts"() {
-    "use strict";
-    init_EconomyApi();
-    init_DebugLog();
-    Money = class {
-      static get(player) {
-        const b = this.getCached(player) ?? 0;
-        debug.d("MNY", `get ${player.name}=${b}`);
-        return b;
+    ConfigManager = class {
+      static async init() {
+        if (this._initialized) return;
+        this._initialized = true;
+        await HttpDB.checkHealth();
+        await this.loadAll();
+        HttpDB.setAuthToken(this.getSetting("db_auth_token", ""));
+        this._syncRuntimeFlags();
+        this._ready = true;
+        console.log("[ConfigManager] \u914D\u7F6E\u5DF2\u52A0\u8F7D");
       }
-      static getCached(player) {
-        return this.cache.get(player.id)?.balance ?? null;
+      static isReady() {
+        return this._ready;
       }
-      static getVersion(player) {
-        return this.cache.get(player.id)?.version ?? null;
+      static isEnabled(module) {
+        if (!this._ready) return false;
+        return this.cache.modules.get(module) ?? false;
       }
-      static setCached(player, balance, version = 0) {
-        const previous = this.cache.get(player.id);
-        if (previous && version > 0 && previous.version > version) {
-          debug.d("MNY", `setCached SKIP ${player.name}: stale ver=${version} < cached=${previous.version}`);
-          return;
+      static getSetting(key, defaultVal) {
+        const val = this.cache.settings.get(key);
+        if (val === void 0) return defaultVal;
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
         }
-        this.cache.set(player.id, { balance, version, loadedAt: Date.now(), loading: false });
-        debug.d("MNY", `setCached ${player.name}: bal=${balance} ver=${version}`);
       }
-      static async load(player) {
-        const previous = this.cache.get(player.id);
-        if (previous?.loading) return previous.balance;
-        if (previous) previous.loading = true;
-        debug.i("MNY", `load ${player.name}...`);
-        const account = await getEconomyAccount(player.id, player.name);
-        const balance = account?.balance ?? previous?.balance ?? 0;
-        if (account) {
-          this.setCached(player, balance, account.version);
-          debug.i("MNY", `load ${player.name}: server bal=${balance} ver=${account.version}`);
-        } else if (previous) previous.loading = false;
-        return balance;
+      static getAreas(module) {
+        return this.cache.areas.filter((a) => a.module === module);
+      }
+      static getPermissions() {
+        return { ...this.cache.permissions };
+      }
+      static getBannedItems() {
+        return [...this.cache.bannedItems];
+      }
+      static getClean() {
+        return { ...this.cache.clean };
+      }
+      static getGrid(name) {
+        return this.cache.grids[name] ?? null;
+      }
+      static getPeaceFilters() {
+        return [...this.cache.peaceFilters];
+      }
+      static getQuestions() {
+        return [...this.cache.questions];
       }
       /**
-       * 设置玩家金钱数量
+       * SAPI 启动时一次性从 db-server 拉取所有配置。
+       * db-server 直接读取 configs/*.json 文件并返回，不走 SQLite，无热重载。
+       * 改配置后需重启 BDS 才会生效。
        */
-      /** @deprecated Use add() or a domain transaction. This no longer performs read-modify-write. */
-      static async set(player, money) {
-        console.warn(`[MNY] Money.set() is deprecated, called from ${new Error().stack?.split("\n")[2]?.trim() || "unknown"}`);
-        if (!Number.isSafeInteger(money) || money < 0) {
-          debug.w("MNY", `set invalid: ${player.name} ${money}`);
-          return false;
-        }
-        this.setCached(player, money, this.getVersion(player) ?? 0);
-        debug.w("MNY", `set (deprecated) ${player.name}=${money}`);
-        return true;
-      }
-      static async add(player, money) {
-        if (!Number.isSafeInteger(money) || money === 0) return money === 0;
-        debug.i("MNY", `add ${player.name} ${money > 0 ? "+" : ""}${money}`);
-        const result = await applyEconomyTransaction({
-          actorId: player.id,
-          sourcePlayerId: money < 0 ? player.id : void 0,
-          targetPlayerId: money > 0 ? player.id : void 0,
-          amount: Math.abs(money),
-          type: money < 0 ? "debit" : "credit"
-        });
-        if (result.ok) {
-          debug.i("MNY", `add OK ${player.name}: bal=${result.balance} ver=${result.version} tx=${result.transactionId}`);
-          if (result.balance !== void 0) {
-            this.setCached(player, result.balance, result.version);
-          } else {
-            this.cache.delete(player.id);
-          }
-        } else {
-          debug.e("MNY", `add FAIL ${player.name} ${money}: ${result.error || "unknown"}`);
-        }
-        return result.ok;
-      }
-      /**
-       * 初始化计分板
-       */
-      static initScoreboard() {
-      }
-    };
-    /** 货币单位名称 */
-    Money.UNIT = "\u8282\u64CD";
-    /**
-     * 获取玩家金钱数量
-     */
-    Money.cache = /* @__PURE__ */ new Map();
-  }
-});
-
-// scripts/chat/DogeChat.ts
-import { system as system3, world as world3 } from "@minecraft/server";
-var _DogeChat, DogeChat;
-var init_DogeChat = __esm({
-  "scripts/chat/DogeChat.ts"() {
-    "use strict";
-    init_api();
-    init_DebugLog();
-    init_HttpDB();
-    init_Money();
-    init_Permission();
-    init_Tools();
-    _DogeChat = class _DogeChat {
-      // ---------- 保留期 ----------
-      static getRetention(channel) {
-        if (channel.config.isBroadcast) return Infinity;
-        switch (channel.type) {
-          case "private":
-            return 30 * 24 * 60 * 60 * 1e3;
-          case "system":
-            return 24 * 60 * 60 * 1e3;
-          case "public":
-          case "custom":
-          default:
-            return 7 * 24 * 60 * 60 * 1e3;
-        }
-      }
-      // ============================================
-      //  频道初始化
-      // ============================================
-      static async ensureDefaultChannels() {
-        debug.i("CHAT", "ensureDefaultChannels");
-        for (let i = 0; i < 5; i++) {
-          const existing = await getChannels();
-          if (existing && existing.length > 0) {
-            debug.i("CHAT", `ensureDefaultChannels: ${existing.length} channels exist`);
-            return;
-          }
-          if (i < 4) {
-            await system3.waitTicks(40);
-            continue;
-          }
-          const ok = await saveChannels(_DogeChat.DEFAULT_CHANNELS).catch((err) => {
-            debug.e("CHAT", `ensureDefaultChannels: save failed: ${err}`);
-            return false;
-          });
-          if (ok) {
-            debug.i("CHAT", "ensureDefaultChannels: created default channels");
-            return;
-          }
-          await system3.waitTicks(40);
-        }
-      }
-      static async getPublicChannel() {
-        const rows = await getChannels({ type: "public" });
-        if (rows && rows.length > 0) return rows[0];
-        await this.ensureDefaultChannels();
-        const retry = await getChannels({ type: "public" });
-        return retry && retry.length > 0 ? retry[0] : null;
-      }
-      // ============================================
-      //  发送频道（!ch 用）
-      // ============================================
-      static async getActiveChannel(player) {
-        debug.i("CHAT", `getActiveChannel: player=${player.name}`);
-        const channelId = _DogeChat.activeChannelMap.get(player.id);
-        if (channelId) {
-          const ch = await getChannel(channelId);
-          if (ch) return ch;
-        }
-        const pub = await this.getPublicChannel();
-        if (pub) {
-          _DogeChat.activeChannelMap.set(player.id, pub.id);
-          this._ensureSubscribed(player.id, pub.id);
-          HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
-            (e) => console.warn("[DogeChat] error:", e)
-          );
-        }
-        return pub;
-      }
-      static async setActiveChannel(player, channelId) {
-        debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
-        _DogeChat.activeChannelMap.set(player.id, channelId);
-        this._ensureSubscribed(player.id, channelId);
-        await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
-          (e) => console.warn("[DogeChat] error:", e)
-        );
-      }
-      // ============================================
-      //  频道订阅系统
-      // ============================================
-      static isSubscribed(playerId2, channelId) {
-        return this.subscribedChannelsMap.get(playerId2)?.has(channelId) ?? false;
-      }
-      static getSubscribedChannelIds(playerId2) {
-        return Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
-      }
-      static async getSubscribedChannels(player) {
-        const ids = this.getSubscribedChannelIds(player.id);
-        const all = await getChannels();
-        if (!all) return [];
-        return all.filter((c) => ids.includes(c.id));
-      }
-      static async toggleSubscription(player, channelId) {
-        const subs = this.subscribedChannelsMap.get(player.id);
-        if (!subs) {
-          this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([channelId]));
-          this._saveSubscriptions(player.id);
-          return true;
-        }
-        if (subs.has(channelId)) {
-          subs.delete(channelId);
-          if (subs.size === 0) {
-            const pub = await this.getPublicChannel();
-            if (pub) subs.add(pub.id);
-          }
-          this._saveSubscriptions(player.id);
-          return false;
-        }
-        subs.add(channelId);
-        this._saveSubscriptions(player.id);
-        return true;
-      }
-      static async setSubscriptions(player, channelIds) {
-        this.subscribedChannelsMap.set(player.id, new Set(channelIds));
-        this._saveSubscriptions(player.id);
-      }
-      static _ensureSubscribed(playerId2, channelId) {
-        if (!this.subscribedChannelsMap.has(playerId2)) {
-          this.subscribedChannelsMap.set(playerId2, /* @__PURE__ */ new Set());
-        }
-        this.subscribedChannelsMap.get(playerId2).add(channelId);
-      }
-      static _saveSubscriptions(playerId2) {
-        const ids = Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
-        HttpDB.put(`/api/sfmc/players/${playerId2}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch(
-          (e) => console.warn("[DogeChat] error:", e)
-        );
-      }
-      static async loadSubscriptions(player) {
-        debug.i("CHAT", `loadSubscriptions: player=${player.name}`);
-        const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
-        if (raw?.subscribed_channels) {
-          try {
-            const ids = JSON.parse(raw.subscribed_channels);
-            this.subscribedChannelsMap.set(player.id, new Set(ids));
-          } catch {
-          }
-        }
-        if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id).size === 0) {
-          const pub = await this.getPublicChannel();
-          if (pub) this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([pub.id]));
-        }
-        if (!this.activeChannelMap.has(player.id)) {
-          const pub = await this.getPublicChannel();
-          if (pub) this.activeChannelMap.set(player.id, pub.id);
-        }
-      }
-      /** 频道在线人数（按订阅统计） */
-      static getOnlineCount(channelId) {
-        let count = 0;
-        for (const p of world3.getPlayers()) {
-          if (this.subscribedChannelsMap.get(p.id)?.has(channelId)) count++;
-        }
-        return count;
-      }
-      /** 创建新频道 */
-      static async createChannel(name, prefix, type, config, owner) {
-        debug.i("CHAT", `createChannel: name=${name} prefix=${prefix} type=${type}`);
-        const channel = {
-          id: generateId("CH"),
-          name,
-          prefix,
-          type,
-          ownerid: owner?.id,
-          createdAt: Date.now(),
-          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config }
-        };
-        const ok = await createChannel(channel);
-        return ok ? channel.id : "";
-      }
-      static async deleteChannel(channelId) {
-        debug.i("CHAT", `deleteChannel: channelId=${channelId}`);
-        const ch = await getChannel(channelId);
-        if (!ch) {
-          debug.w("CHAT", "deleteChannel: not found");
-          return false;
-        }
-        if (ch.type === "public") {
-          debug.w("CHAT", "deleteChannel: cannot delete public channel");
-          return false;
-        }
-        return deleteChannel(channelId);
-      }
-      static async updateChannelConfig(channelId, config) {
-        const data = {};
-        if (config.allowChat !== void 0) data.configAllowChat = config.allowChat ? 1 : 0;
-        if (config.slowMode !== void 0) data.configSlowMode = config.slowMode;
-        if (config.isBroadcast !== void 0) data.configIsBroadcast = config.isBroadcast ? 1 : 0;
-        if (Object.keys(data).length === 0) return false;
-        return patchChannel(channelId, data);
-      }
-      static async updateChannelName(channelId, newName, newPrefix) {
-        return patchChannel(channelId, { name: newName, prefix: newPrefix });
-      }
-      static async getPrivateChannels(player) {
-        const rows = await getChannels({ type: "private", ownerId: player.id });
-        return rows ?? [];
-      }
-      // ============================================
-      //  系统消息频道
-      // ============================================
-      static getSystemChannelId(player) {
-        return `sys_${player.id}`;
-      }
-      static async ensureSystemChannel(player) {
-        const channelId = this.getSystemChannelId(player);
-        const existing = await getChannel(channelId);
-        if (existing) return existing;
-        const channel = {
-          id: channelId,
-          name: "\u7CFB\u7EDF\u6D88\u606F",
-          type: "system",
-          prefix: "SYS",
-          ownerid: player.id,
-          createdAt: Date.now(),
-          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false }
-        };
-        await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
-        return channel;
-      }
-      static async sendSystemMessage(player, content) {
-        const channel = await this.ensureSystemChannel(player);
-        const msg = {
-          id: generateId("M"),
-          fromid: "system",
-          fromName: "SYS",
-          channelId: channel.id,
-          type: "text",
-          content,
-          timestamp: Date.now(),
-          showTimestamp: true
-        };
-        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-      }
-      static isPrivateParticipant(channelId, playerId2) {
-        if (!channelId.startsWith("priv_")) return false;
-        return channelId.includes(playerId2);
-      }
-      static getPrivateOther(channelId, myId) {
-        if (!channelId.startsWith("priv_")) return void 0;
-        const parts = channelId.split("_");
-        return parts[1] === myId ? parts[2] : parts[1];
-      }
-      /** 循环切换发送频道（!ch 用），同时订阅目标频道 */
-      static async cycleChannel(player) {
-        const all = await getChannels();
-        if (!all) return null;
-        const switchable = all.filter((c) => c.type !== "private");
-        if (switchable.length === 0) {
-          const pub = await this.getPublicChannel();
-          if (pub) await this.setActiveChannel(player, pub.id);
-          return pub;
-        }
-        const currentId = _DogeChat.activeChannelMap.get(player.id);
-        const current = all.find((c) => c.id === currentId);
-        const idx = current ? switchable.findIndex((c) => c.id === current.id) : -1;
-        const next = switchable[(idx + 1) % switchable.length];
-        if (next) await this.setActiveChannel(player, next.id);
-        return next ?? null;
-      }
-      // ============================================
-      //  消息同步
-      // ============================================
-      static async getChannelHistory(channelId) {
-        const channel = await getChannel(channelId);
-        if (!channel) return [];
-        const cutoff = Date.now() - this.getRetention(channel);
-        const rows = await getMessages({ channelId, minSentAt: cutoff });
-        if (rows !== null) return rows;
-        return [];
-      }
-      static async loadChannelHistory(player, channelId) {
-        const channel = await getChannel(channelId);
-        if (!channel) return;
-        const history = await this.getChannelHistory(channelId);
-        if (history.length === 0) {
-          player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u6682\u65E0\u5386\u53F2\u6D88\u606F ---`);
+      static async loadAll() {
+        const body = await HttpDB.get("/api/sfmc/configs/all");
+        if (!body) {
+          console.warn("[ConfigManager] \u914D\u7F6E\u62C9\u53D6\u5931\u8D25\uFF0C\u4F7F\u7528\u7A7A\u7F13\u5B58");
           return;
         }
-        player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u5386\u53F2\u6D88\u606F ---`);
-        for (const msg of history) {
-          const isBroadcast = channel.config.isBroadcast;
-          if (msg.showTimestamp && !isBroadcast) {
-            player.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-          }
-          let display = msg.content;
-          switch (msg.type) {
-            case "location":
-              display = `\xA7a[\u5B9A\u4F4D] ${display}`;
-              break;
-            case "teleport_invite":
-              display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
-              break;
-            case "redpacket":
-              display = `\xA76[\u7EA2\u5305] ${display}`;
-              break;
-          }
-          player.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: ${display}` }] });
+        try {
+          const all = JSON.parse(body);
+          this.populate(all);
+        } catch (e) {
+          console.warn(`[ConfigManager] \u914D\u7F6E\u89E3\u6790\u5931\u8D25: ${e.message}`);
         }
-        player.sendMessage(`\xA77--- \u4EE5\u4E0A\u4E3A\u5386\u53F2\u6D88\u606F\uFF0C\u5171 ${history.length} \u6761 ---`);
-        player.sendMessage("\xA77!lo \xA78\u53D1\u9001\u5B9A\u4F4D \xA77| !tp \xA78\u4F20\u9001\u9080\u8BF7 \xA77| !hb \xA78\u53D1\u9001\u7EA2\u5305");
       }
-      // ============================================
-      //  发送消息
-      // ============================================
-      static async sendChannelMessage(from, channelId, content, type = "text", attachment) {
-        debug.i("CHAT", `sendChannelMessage: from=${from.name} channelId=${channelId} type=${type}`);
-        const channel = await getChannel(channelId);
-        if (!channel) {
-          Msg.warning("\u9891\u9053\u4E0D\u5B58\u5728\u3002", from);
-          return false;
-        }
-        if (!channel.config?.allowChat) {
-          if (channel.type === "system") Msg.warning("\u8BE5\u9891\u9053\u53EA\u8BFB\u3002", from);
-          return false;
-        }
-        if (channel.config?.isBroadcast) {
-          const owner = await this.isChannelOwner(from, channelId);
-          const isAdmin = Permission.check(from, "chat.admin");
-          if (!owner && !isAdmin) {
-            Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002", from);
-            return false;
+      /**
+       * 切换模块后局部刷新（AdminGUI 用）。
+       * 仅刷新 modules 缓存，不重新拉取其它配置。
+       */
+      static async refreshModules() {
+        try {
+          const body = await HttpDB.get("/api/sfmc/modules");
+          if (!body) return;
+          const { modules } = JSON.parse(body);
+          this.cache.modules.clear();
+          for (const m of modules) {
+            const key = m.config_key || m.configKey || m.name;
+            if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
           }
-          const msg2 = {
-            id: generateId("M"),
-            fromid: from.id,
-            fromName: from.name,
-            channelId,
-            type,
-            content,
-            attachment,
-            timestamp: Date.now(),
-            showTimestamp: true
+        } catch (e) {
+          console.warn(`[ConfigManager] \u6A21\u5757\u7F13\u5B58\u5237\u65B0\u5931\u8D25: ${e.message}`);
+        }
+      }
+      // ── Internal ──
+      static populate(all) {
+        this.cache.modules.clear();
+        for (const m of all.modules || []) {
+          const key = m.config_key || m.configKey || m.name;
+          if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
+        }
+        this.cache.settings.clear();
+        for (const [k, v] of Object.entries(all.settings || {})) {
+          this.cache.settings.set(k, typeof v === "string" ? v : JSON.stringify(v));
+        }
+        this.cache.areas = (all.areas || []).map((a) => ({
+          name: a.name || "",
+          dimension: a.dimension,
+          module: a.module,
+          start: [a.start_x, a.start_z],
+          end: [a.end_x, a.end_z]
+        }));
+        this.cache.permissions = {};
+        for (const p of all.permissions || []) {
+          this.cache.permissions[p.player_name] = p.level;
+        }
+        this.cache.bannedItems = (all.banned_items || []).filter((s) => typeof s === "string");
+        if (all.clean) {
+          this.cache.clean = {
+            itemMax: all.clean.item_max ?? 192,
+            pollInterval: all.clean.poll_interval ?? 60
           };
-          await saveMessages([msg2]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-          from.sendMessage({ rawtext: [{ text: `\xA7a[${channel.prefix}] ${from.name}: ${content}` }] });
-          return true;
         }
-        if (channel.config?.slowMode && channel.config.slowMode > 0) {
-          const playerMap = this.slowModeTracker.get(from.id);
-          const lastTs = playerMap?.get(channelId) ?? 0;
-          const elapsed = (Date.now() - lastTs) / 1e3;
-          if (elapsed < channel.config.slowMode) {
-            Msg.warning(
-              `\u9891\u9053 ${channel.prefix} \u6162\u901F\u6A21\u5F0F\u4E2D\uFF0C\u8BF7\u7B49\u5F85 ${Math.ceil(channel.config.slowMode - elapsed)} \u79D2\u3002`,
-              from
-            );
-            return false;
-          }
+        this.cache.grids = {};
+        for (const g of all.grids || []) {
+          this.cache.grids[g.name] = {
+            ...g,
+            size: [g.size_h, g.size_v],
+            start: [g.start_x, g.start_y, g.start_z]
+          };
         }
-        const history = await this.getChannelHistory(channelId);
-        const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
-        const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
-        const msg = {
-          id: generateId("M"),
-          fromid: from.id,
-          fromName: from.name,
-          channelId,
-          type,
-          content,
-          attachment,
-          timestamp: Date.now(),
-          showTimestamp
-        };
-        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-        if (showTimestamp) from.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-        from.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${from.name}: ${content}` }] });
-        this._broadcastToSubscribers(channel, msg, showTimestamp, from.id);
-        if (channel.config?.slowMode && channel.config.slowMode > 0) {
-          if (!this.slowModeTracker.has(from.id)) this.slowModeTracker.set(from.id, /* @__PURE__ */ new Map());
-          this.slowModeTracker.get(from.id).set(channelId, Date.now());
-        }
-        return true;
+        this.cache.peaceFilters = Array.isArray(all.peace_filters) ? all.peace_filters : [];
+        this.cache.questions = (all.questions || []).map((q) => ({
+          weight: q.weight,
+          q: q.question,
+          a: q.answers || [],
+          msg_right: q.msg_right || "",
+          msg_wrong: q.msg_wrong || "",
+          d: q.explanation || "",
+          seq: [q.min_rank, q.max_rank].filter((v) => v !== null && v !== void 0),
+          bonus: q.rewards || [],
+          punish: q.punishments || []
+        }));
       }
-      /** 广播消息给所有订阅了该频道的玩家 */
-      static _broadcastToSubscribers(channel, msg, showTimestamp, excludeId) {
-        const isBroadcast = channel.config.isBroadcast;
-        for (const p of world3.getPlayers()) {
-          if (p.id === excludeId) continue;
-          if (!this.isSubscribed(p.id, channel.id)) continue;
-          let display = msg.content;
-          switch (msg.type) {
-            case "location":
-              display = `\xA7a[\u5B9A\u4F4D] ${display}`;
-              break;
-            case "teleport_invite":
-              display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
-              break;
-            case "redpacket":
-              display = `\xA76[\u7EA2\u5305] ${display}`;
-              break;
-          }
-          if (showTimestamp && !isBroadcast) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-          p.chatNamePrefix = `[${channel.prefix}]`;
-          p.sendMessage(`${display}`);
+      /** 启动时把模块开关同步到运行时的模块标志 */
+      static _syncRuntimeFlags() {
+        CreativeArea.enable = this.isEnabled("creative");
+        Peace.getInstance().enable = this.isEnabled("peace");
+      }
+    };
+    ConfigManager.cache = {
+      modules: /* @__PURE__ */ new Map(),
+      settings: /* @__PURE__ */ new Map(),
+      areas: [],
+      permissions: {},
+      bannedItems: [],
+      clean: { itemMax: 192, pollInterval: 60 },
+      grids: {},
+      peaceFilters: [],
+      questions: []
+    };
+    ConfigManager._initialized = false;
+    ConfigManager._ready = false;
+  }
+});
+
+// scripts/libs/Permission.ts
+import { PlayerPermissionLevel } from "@minecraft/server";
+var Permission;
+var init_Permission = __esm({
+  "scripts/libs/Permission.ts"() {
+    "use strict";
+    init_ConfigManager();
+    init_Command();
+    init_Tools();
+    Permission = class {
+      /**
+       * 注册一个权限项
+       * @param name 权限名（如 "creativearea.toggle"）
+       * @param level 所需最低权限等级
+       */
+      static register(name, level) {
+        this.registry.set(name, level);
+      }
+      /**
+       * 检查玩家是否拥有指定权限
+       * @param player 玩家对象或玩家名
+       * @param permissionName 权限名
+       * @returns 是否满足权限要求
+       */
+      static check(player, permissionName) {
+        const required = this.registry.get(permissionName);
+        if (required === void 0) {
+          console.warn(`[Permission] \u672A\u6CE8\u518C\u7684\u6743\u9650\u88AB\u62D2\u7EDD: ${permissionName}`);
+          return false;
+        }
+        const perms = ConfigManager.getPermissions();
+        const playerLevel = typeof player === "string" ? perms[player] ?? this.Member : this.getPermission(player);
+        return playerLevel >= required;
+      }
+      static getPermission(player) {
+        const perms = ConfigManager.getPermissions();
+        if (perms[player.name] !== void 0) {
+          return perms[player.name];
+        }
+        switch (player.playerPermissionLevel) {
+          case PlayerPermissionLevel.Visitor:
+            return this.Any;
+          case PlayerPermissionLevel.Member:
+            return this.Member;
+          case PlayerPermissionLevel.Operator:
+            return this.OP;
+          case PlayerPermissionLevel.Custom:
+            return this.Admin;
+          default:
+            return this.Member;
         }
       }
-      static async sendPrivateMessage(from, toPlayer, content, type = "text") {
-        const channel = await this.ensurePrivateChannel(from.id, toPlayer.id);
-        const history = await this.getChannelHistory(channel.id);
-        const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
-        const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
-        const msg = {
-          id: generateId("M"),
-          fromid: from.id,
-          fromName: from.name,
-          channelId: channel.id,
-          type,
-          content,
-          timestamp: Date.now(),
-          showTimestamp
-        };
-        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-        for (const p of [from, toPlayer]) {
-          if (this.isSubscribed(p.id, channel.id)) {
-            let display = content;
-            switch (type) {
-              case "location":
-                display = `\xA7a[\u5B9A\u4F4D] ${display}`;
-                break;
-              case "teleport_invite":
-                display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
-                break;
-              case "redpacket":
-                display = `\xA76[\u7EA2\u5305] ${display}`;
-                break;
+      /** 注册 permlist 命令 */
+      static registerPermlistCommand() {
+        Command.register(
+          "permlist",
+          "permlist.see",
+          (player) => {
+            if (!player) return;
+            const lines = [];
+            lines.push(`\u83B7\u53D6\u5230\u5982\u4E0B\u6743\u9650\u9879\uFF1A\xA7r`);
+            const byLevel = [
+              [this.Any, []],
+              [this.Member, []],
+              [this.OP, []],
+              [this.Admin, []],
+              [-1, []]
+            ];
+            const levelMap = new Map(byLevel);
+            for (const [name, level] of this.registry) {
+              const bucket = levelMap.get(level);
+              if (bucket) bucket.push(name);
+              else (levelMap.get(-1) ?? []).push(name);
             }
-            if (showTimestamp) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-            const sender = p.id === from.id ? toPlayer.name : from.name;
-            p.sendMessage({ rawtext: [{ text: `\xA7d[\u79C1\u4FE1] \xA7f${sender}: ${display}` }] });
-          } else if (p.id !== from.id) {
-            Msg.info(`\xA7b${from.name} \u53D1\u6765\u4E00\u6761\u79C1\u4FE1\u3002\u4F7F\u7528 !channel \u5207\u6362\u5230\u79C1\u804A\u9891\u9053\u67E5\u770B\u3002`, p);
-          }
-        }
-        return true;
-      }
-      static async ensurePrivateChannel(idA, idB) {
-        const ids = [idA, idB].sort();
-        const channelId = `priv_${ids[0]}_${ids[1]}`;
-        const existing = await getChannel(channelId);
-        if (existing) return existing;
-        const nameB = world3.getPlayers().find((p) => p.id === idB)?.name ?? idB;
-        const channel = {
-          id: channelId,
-          name: `\u4E0E ${nameB} \u7684\u79C1\u804A`,
-          type: "private",
-          prefix: `\u79C1\u804A-${nameB}`,
-          ownerid: idA,
-          createdAt: Date.now(),
-          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
-        };
-        await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
-        return channel;
-      }
-      // ============================================
-      //  定位 & 传送
-      // ============================================
-      static createLocationMessage(player) {
-        const loc2 = player.location;
-        return `${player.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
-      }
-      static sendTeleportInvite(from, toPlayer) {
-        const loc2 = from.location;
-        const locStr = `${from.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
-        return this.sendPrivateMessage(from, toPlayer, `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`, "teleport_invite");
-      }
-      // ============================================
-      //  红包
-      // ============================================
-      static async sendRedPacket(sender, amount, count, targetType, targetId) {
-        debug.i(
-          "CHAT",
-          `sendRedPacket: sender=${sender.name} amount=${amount} count=${count} type=${targetType} targetId=${targetId}`
-        );
-        if (amount <= 0 || count <= 0 || count > amount) {
-          Msg.error("\u7EA2\u5305\u53C2\u6570\u65E0\u6548\u3002", sender);
-          return false;
-        }
-        const balance = await Money.load(sender);
-        if (balance < amount) {
-          Msg.error(`${Money.UNIT}\u4E0D\u8DB3\uFF0C\u9700\u8981 ${amount}\uFF0C\u5F53\u524D ${balance}\u3002`, sender);
-          return false;
-        }
-        const packet = {
-          id: generateId("RP"),
-          senderid: sender.id,
-          senderName: sender.name,
-          totalAmount: amount,
-          remainingAmount: amount,
-          totalCount: count,
-          remainingCount: count,
-          receivers: [],
-          targetType,
-          targetId,
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 24 * 60 * 60 * 1e3
-        };
-        const saved = await saveRedPacket(packet);
-        if (!saved) {
-          Msg.error("\u7EA2\u5305\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", sender);
-          return false;
-        }
-        await Money.load(sender);
-        Msg.success(`${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`, sender);
-        const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
-        saveMessages([
-          {
-            id: generateId("M"),
-            fromid: sender.id,
-            fromName: sender.name,
-            channelId,
-            type: "redpacket",
-            content: `\u53D1\u9001\u4E86 ${amount} ${Money.UNIT} \u7684\u7EA2\u5305\uFF08\u5171 ${count} \u4EFD\uFF09`,
-            timestamp: Date.now()
-          }
-        ]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
-        return true;
-      }
-      static async claimRedPacket(player, packetId) {
-        debug.i("CHAT", `claimRedPacket: player=${player.name} packetId=${packetId}`);
-        const packet = await getRedPacket(packetId);
-        if (!packet) {
-          Msg.error("\u7EA2\u5305\u4E0D\u5B58\u5728\u3002", player);
-          return 0;
-        }
-        if (packet.remainingCount <= 0) {
-          Msg.error("\u7EA2\u5305\u5DF2\u88AB\u9886\u5B8C\u3002", player);
-          return 0;
-        }
-        if (packet.receivers.includes(player.id)) {
-          Msg.warning("\u4F60\u5DF2\u7ECF\u9886\u53D6\u8FC7\u8FD9\u4E2A\u7EA2\u5305\u4E86\u3002", player);
-          return 0;
-        }
-        if (Date.now() > packet.expiresAt) {
-          Msg.error("\u7EA2\u5305\u5DF2\u8FC7\u671F\u3002", player);
-          return 0;
-        }
-        let amount;
-        if (packet.remainingCount === 1) {
-          amount = packet.remainingAmount;
-        } else {
-          const max = Math.floor(packet.remainingAmount / packet.remainingCount * 2);
-          amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
-          amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
-        }
-        const result = await claimRedPacket(packet.id, player.id, player.name);
-        if (!result.ok) {
-          Msg.error("\u9886\u53D6\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", player);
-          return 0;
-        }
-        const claimedAmount = result.amount ?? amount;
-        await Money.load(player);
-        Msg.success(`\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${claimedAmount} ${Money.UNIT}\uFF01`, player);
-        return claimedAmount;
-      }
-      static async getAvailableRedPackets(player) {
-        const rows = await getRedPackets();
-        const now = Date.now();
-        return rows.filter((p) => {
-          if (p.remainingCount <= 0 || now > p.expiresAt) return false;
-          if (p.targetType === "player") return p.targetId === player.id;
-          return true;
-        });
-      }
-      static cleanupExpiredRedPackets() {
-      }
-      // ============================================
-      //  权限判断
-      // ============================================
-      static async isChannelOwner(player, channelId) {
-        const ch = await getChannel(channelId);
-        return ch?.ownerid === player.id;
-      }
-      // ============================================
-      //  QQ 桥接轮询
-      // ============================================
-      static startBridgePolling(bridgeChannelId) {
-        debug.i("CHAT", `startBridgePolling: channelId=${bridgeChannelId}`);
-        if (this._bridgePollStarted) return;
-        this._bridgePollStarted = true;
-        this._lastBridgeFetch = Date.now();
-        this._bridgePollId = system3.runInterval(async () => {
-          try {
-            const since = this._lastBridgeFetch;
-            this._lastBridgeFetch = Date.now();
-            const msgs = await getMessages({ channelId: bridgeChannelId, minSentAt: since });
-            if (!msgs || msgs.length === 0) return;
-            const channel = await getChannel(bridgeChannelId);
-            if (!channel) return;
-            for (const msg of msgs) {
-              if (msg.fromid.startsWith("qq_")) {
-                const isBroadcast = channel.config.isBroadcast;
-                for (const p of world3.getPlayers()) {
-                  if (!this.isSubscribed(p.id, bridgeChannelId)) continue;
-                  if (!isBroadcast && msg.timestamp - this._lastBridgeTimestamp > 3e5) {
-                    this._lastBridgeTimestamp = msg.timestamp;
-                    p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
-                  }
-                  p.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: \xA7r${msg.content}` }] });
-                }
+            const label = {
+              [-1]: "\u672A\u77E5",
+              [this.Any]: "\xA7a\u8BBF\u5BA2",
+              [this.Member]: "\xA7e\u6210\u5458",
+              [this.OP]: "\xA76\u7BA1\u7406",
+              [this.Admin]: "\xA7c\u81EA\u5B9A\u4E49"
+            };
+            for (const [level, perms] of byLevel) {
+              if (perms.length === 0) continue;
+              lines.push(`
+${label[level] ?? "\xA77\u5176\u4ED6"} (${level}+):`);
+              for (const p of perms) {
+                lines.push(`  \xA7f${p}`);
               }
             }
-          } catch {
-          }
-        }, 600);
+            Msg.success(lines.join("\n"), player);
+          },
+          "\u67E5\u770B\u6240\u6709\u6743\u9650\u5217\u8868"
+        );
       }
-      static stopBridgePolling() {
-        debug.i("CHAT", "stopBridgePolling");
-        if (this._bridgePollId !== void 0) {
-          try {
-            system3.clearRun(this._bridgePollId);
-          } catch {
-          }
-          this._bridgePollId = void 0;
+    };
+    Permission.Guest = -1;
+    // 脚本指定的无权限访客
+    Permission.Any = 0;
+    // 等同于原生 Visitor
+    Permission.Member = 1;
+    // 等同于原生 Member
+    Permission.OP = 2;
+    // 等同于原生 Operator
+    Permission.Admin = 3;
+    // 等同于原生 Custom
+    /** 权限注册表：权限名 → 所需最低等级 */
+    Permission.registry = /* @__PURE__ */ new Map();
+  }
+});
+
+// scripts/libs/Command.ts
+import { system as system3 } from "@minecraft/server";
+function setModuleGuard(guard) {
+  moduleGuard = guard;
+}
+var moduleGuard, Command;
+var init_Command = __esm({
+  "scripts/libs/Command.ts"() {
+    "use strict";
+    init_DebugLog();
+    init_Permission();
+    init_Tools();
+    moduleGuard = () => true;
+    Command = class {
+      /**
+       * 注册指令
+       * @param name 指令名称
+       * @param permission 权限等级(数字) 或 权限名(字符串)
+       * @param callback 回调
+       * @param description 指令描述
+       * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
+       * @param cost 指令费用配置
+       */
+      static register(name, permission, callback, description, moduleId, cost) {
+        this.list[name] = {
+          callback,
+          permission,
+          description: description === void 0 ? name : description,
+          moduleId,
+          cost
+        };
+        debug.i("CMD", `register "${name}" perm=${permission} mod=${moduleId || "-"} cost=${cost?.amount || 0}`);
+        return true;
+      }
+      static unregister(name) {
+        if (this.list[name] !== void 0) {
+          delete this.list[name];
+          return true;
         }
-        this._bridgePollStarted = false;
+        return false;
+      }
+      static unregisterByModule(moduleId) {
+        let n = 0;
+        for (const k of Object.keys(this.list)) {
+          if (this.list[k].moduleId === moduleId) {
+            delete this.list[k];
+            n++;
+          }
+        }
+        return n;
+      }
+      static has(name) {
+        return this.list[name] !== void 0;
+      }
+      static names() {
+        return Object.keys(this.list);
+      }
+      static getModuleId(name) {
+        return this.list[name]?.moduleId;
+      }
+      /**
+       * 检查玩家是否有权限执行该命令
+       */
+      static canExecute(player, permission) {
+        if (player === void 0) return true;
+        if (typeof permission === "string") {
+          return Permission.check(player, permission);
+        }
+        return Permission.getPermission(player) >= permission;
+      }
+      /**
+       * 触发指令
+       * @param player 触发指令的玩家，不指定时使用最高权限执行
+       * @param message
+       */
+      static trigger(player, message) {
+        const pname = player?.name || "CONSOLE";
+        const pid = player?.id || "N/A";
+        debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);
+        let commandInfo = this.list[message];
+        if (commandInfo !== void 0) {
+          if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
+            debug.w("CMD", `blocked: module ${commandInfo.moduleId} disabled for ${pname}`);
+            if (player) Msg.error(`\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`, player);
+            return;
+          }
+          if (!this.canExecute(player, commandInfo.permission)) {
+            debug.w("CMD", `permission denied: ${pname} needs ${commandInfo.permission} for "${message}"`);
+            if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
+            return;
+          }
+          system3.run(async () => {
+            if (player && commandInfo.cost && this.deductCost) {
+              const ok = await this.deductCost(player, commandInfo.cost.amount, message);
+              if (!ok) {
+                debug.w("CMD", `cost deduct failed: ${pname} needs ${commandInfo.cost.amount} for "${message}"`);
+                Msg.error(`\u4F59\u989D\u4E0D\u8DB3\uFF0C\u65E0\u6CD5\u6267\u884C\u8BE5\u6307\u4EE4\uFF08\u9700\u8981 ${commandInfo.cost.amount}\uFF09\u3002`, player);
+                return;
+              }
+              debug.i("CMD", `cost deducted ${commandInfo.cost.amount} from ${pname} for "${message}"`);
+            }
+            debug.d("CMD", `executing "${message}" for ${pname}`);
+            const result = await commandInfo.callback(player);
+            if (result !== void 0 && player) debug.d("CMD", `result for "${message}": ${result}`);
+            if (result !== void 0 && player) Msg.success(`${result}`, player);
+          });
+          return;
+        }
+        debug.w("CMD", `unknown command "${message}" from ${pname}`);
+        if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
+        return;
+      }
+      /**
+       * 注册帮助指令，在初始化时调用
+       */
+      static registerHelpCommand() {
+        this.register(
+          "help",
+          "help.see",
+          (player) => {
+            let result = "\u5F53\u524D\u53EF\u7528\u6307\u4EE4\u5217\u8868\u5982\u4E0B\uFF1A\xA7r\n";
+            for (let command in this.list) {
+              if (this.canExecute(player, this.list[command].permission)) {
+                result += `  ${command} - ${this.list[command].description}
+`;
+              }
+            }
+            return result;
+          },
+          "\u83B7\u53D6\u6240\u6709\u6307\u4EE4"
+        );
+      }
+      /**
+       * 注册脚本事件，在初始化时调用
+       */
+      static registerScriptEvent() {
+        system3.afterEvents.scriptEventReceive.subscribe(
+          (event) => {
+            this.trigger(event.sourceEntity, event.id.substring(5));
+          },
+          { namespaces: ["doge"] }
+        );
       }
     };
-    _DogeChat.DEFAULT_CHANNEL_CONFIG = {
-      allowChat: true,
-      slowMode: 0,
-      isBroadcast: false
-    };
-    _DogeChat.DEFAULT_CHANNELS = [
-      {
-        id: generateId("CH"),
-        name: "\u516C\u5171\u9891\u9053",
-        type: "public",
-        prefix: "PB",
-        createdAt: Date.now(),
-        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
-      },
-      {
-        id: generateId("CH"),
-        name: "\u516C\u544A",
-        type: "custom",
-        prefix: "BC",
-        createdAt: Date.now(),
-        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
-      }
-    ];
-    _DogeChat.slowModeTracker = /* @__PURE__ */ new Map();
-    /** 发送频道（玩家输入的消息发送到此频道） */
-    _DogeChat.activeChannelMap = /* @__PURE__ */ new Map();
-    /** 订阅频道（接收消息的频道列表） */
-    _DogeChat.subscribedChannelsMap = /* @__PURE__ */ new Map();
-    /** QQ 桥接轮询 */
-    _DogeChat._bridgePollStarted = false;
-    _DogeChat._bridgePollId = void 0;
-    _DogeChat._lastBridgeFetch = Date.now();
-    _DogeChat._lastBridgeTimestamp = 0;
-    DogeChat = _DogeChat;
+    Command.list = {};
+    Command.deductCost = null;
+    Command.registerScriptEvent();
   }
 });
 
@@ -2345,12 +1229,6 @@ var init_ModuleKeys = __esm({
 });
 
 // scripts/libs/ModuleRegistry.ts
-var ModuleRegistry_exports = {};
-__export(ModuleRegistry_exports, {
-  ModuleRegistry: () => ModuleRegistry,
-  announceLoaded: () => announceLoaded,
-  guardEvent: () => guardEvent
-});
 import { system as system4 } from "@minecraft/server";
 function guardEvent() {
   return ConfigManager.isReady();
@@ -2527,641 +1405,178 @@ var init_ModuleRegistry = __esm({
   }
 });
 
-// scripts/libs/ConfigManager.ts
-import { system as system5, world as world4 } from "@minecraft/server";
-var ConfigManager;
-var init_ConfigManager = __esm({
-  "scripts/libs/ConfigManager.ts"() {
-    "use strict";
-    init_CreativeArea();
-    init_Peace();
-    init_DogeChat();
-    init_HttpDB();
-    init_Tools();
-    ConfigManager = class {
-      static async init() {
-        if (this._initialized) return;
-        this._initialized = true;
-        await HttpDB.checkHealth();
-        await this.reloadAll();
-        HttpDB.setAuthToken(this.getSetting("db_auth_token", ""));
-        this._syncRuntimeFlags();
-        this._ready = true;
-        console.log("[ConfigManager] \u914D\u7F6E\u5DF2\u52A0\u8F7D");
-      }
-      static isReady() {
-        return this._ready;
-      }
-      static isStale() {
-        return this._configStale;
-      }
-      static getLastErrors() {
-        return Object.fromEntries(this._lastErrors);
-      }
-      static startPolling(intervalTicks = 72e3) {
-        system5.runInterval(() => this._poll(), intervalTicks);
-      }
-      /**
-       * 快速信号检查（每 2 秒），检测 _reload_signal → 立即全量重载
-       */
-      static startFastPoll(intervalTicks = 40) {
-        system5.runInterval(() => this._fastPoll(), intervalTicks);
-      }
-      static isEnabled(module) {
-        if (!this._ready) return false;
-        return this.cache.modules.get(module) ?? false;
-      }
-      static getSetting(key, defaultVal) {
-        const val = this.cache.settings.get(key);
-        if (val === void 0) return defaultVal;
-        try {
-          return JSON.parse(val);
-        } catch {
-          return val;
-        }
-      }
-      static getAreas(module) {
-        return this.cache.areas.filter((a) => a.module === module);
-      }
-      static getPermissions() {
-        return { ...this.cache.permissions };
-      }
-      static getBannedItems() {
-        return [...this.cache.bannedItems];
-      }
-      static getClean() {
-        return { ...this.cache.clean };
-      }
-      static getGrid(name) {
-        return this.cache.grids[name] ?? null;
-      }
-      static getPeaceFilters() {
-        return [...this.cache.peaceFilters];
-      }
-      static getQuestions() {
-        return [...this.cache.questions];
-      }
-      static async reloadAll() {
-        if (this._reloadInFlight) return this._reloadInFlight;
-        const now = Date.now();
-        this._reloadInFlight = (async () => {
-          const promises = [
-            this._fetchModules(),
-            this._fetchSettings(),
-            this._fetchAreas(),
-            this._fetchPermissions(),
-            this._fetchBannedItems(),
-            this._fetchClean(),
-            this._fetchGrids(),
-            this._fetchPeaceFilters(),
-            this._fetchQA()
-          ];
-          await Promise.allSettled(promises);
-          this.cache._lastFetch = now;
-          this._configStale = this._lastErrors.size > 0;
-        })();
-        try {
-          await this._reloadInFlight;
-        } finally {
-          this._reloadInFlight = null;
-        }
-      }
-      static async reloadModule(module) {
-        await this._fetchSettings();
-        await this._fetchAreas();
-      }
-      // ── Internal fetchers ──
-      static async _poll() {
-        if (this._pollInFlight) return;
-        this._pollInFlight = true;
-        try {
-          if (!this.cache._lastFetch) return;
-          const body = await HttpDB.get(`/api/sfmc/configs/updated-since/${this.cache._lastFetch}`);
-          if (!body) return;
-          const data = JSON.parse(body);
-          const upd = data.updated;
-          if (!upd) return;
-          this.cache._lastFetch = data.timestamp || Date.now();
-          if (upd.modules) await this._fetchModules();
-          if (upd.settings) await this._fetchSettings();
-          if (upd.areas) await this._fetchAreas();
-          if (upd.permissions) await this._fetchPermissions();
-          if (upd.banned_items) await this._fetchBannedItems();
-          if (upd.clean) await this._fetchClean();
-          if (upd.grids) await this._fetchGrids();
-          if (upd.peace_filters) await this._fetchPeaceFilters();
-          if (upd.qa_questions) await this._fetchQA();
-        } catch (e) {
-          this._recordError("poll", e);
-        } finally {
-          this._pollInFlight = false;
-        }
-      }
-      static async _fastPoll() {
-        if (this._fastPollInFlight) return;
-        this._fastPollInFlight = true;
-        try {
-          if (!HttpDB.isAvailable()) {
-            const ok = await HttpDB.checkHealth();
-            if (!ok) return;
-            console.warn("[ConfigManager] \u6570\u636E\u5E93\u5DF2\u91CD\u8FDE\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
-            await this.reloadAll();
-            this._syncRuntimeFlags();
-            const bridgeId = this.getSetting("bridge_channel_id", "");
-            if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-            return;
-          }
-          const body = await HttpDB.get("/api/sfmc/settings/_reload_signal");
-          if (!body) return;
-          const { value } = JSON.parse(body);
-          if (parseInt(value, 10) > this.cache._lastFetch) {
-            console.warn("[ConfigManager] \u6536\u5230\u70ED\u91CD\u8F7D\u4FE1\u53F7\uFF0C\u91CD\u65B0\u52A0\u8F7D\u914D\u7F6E");
-            await this.reloadAll();
-            this._syncRuntimeFlags();
-            const { ModuleRegistry: ModuleRegistry2 } = await Promise.resolve().then(() => (init_ModuleRegistry(), ModuleRegistry_exports));
-            const changes = ModuleRegistry2.reconcile();
-            if (changes.length > 0) {
-              for (const p of world4.getPlayers()) {
-                const list = changes.map((c) => `${c.id} ${c.action === "disable" ? "\u5DF2\u7981\u7528" : "\u5DF2\u542F\u7528"}`).join(", ");
-                Msg.info(`\u6A21\u5757\u53D8\u66F4: ${list}`, p);
-              }
-            }
-            const bridgeId = this.getSetting("bridge_channel_id", "");
-            if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-            for (const p of world4.getPlayers()) {
-              Msg.info("\u914D\u7F6E\u5DF2\u70ED\u91CD\u8F7D", p);
-            }
-          }
-        } catch (e) {
-          console.warn(`[ConfigManager] \u70ED\u91CD\u8F7D\u4FE1\u53F7\u68C0\u67E5\u5931\u8D25: ${e.message || e}`);
-        } finally {
-          this._fastPollInFlight = false;
-        }
-      }
-      /** 将缓存中的模块开关同步到运行时的模块标志 */
-      static _syncRuntimeFlags() {
-        CreativeArea.enable = this.isEnabled("creative");
-        Peace.getInstance().enable = this.isEnabled("peace");
-      }
-      static async _fetchModules() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/modules");
-          if (!body) {
-            this._recordError("modules", "empty response");
-            return;
-          }
-          const { modules } = JSON.parse(body);
-          this.cache.modules.clear();
-          for (const m of modules) {
-            const key = m.config_key || m.configKey || m.name;
-            if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
-          }
-          this._clearError("modules");
-        } catch (e) {
-          this._recordError("modules", e);
-        }
-      }
-      static async _fetchSettings() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/settings");
-          if (!body) {
-            this._recordError("settings", "empty response");
-            return;
-          }
-          const { settings } = JSON.parse(body);
-          this.cache.settings.clear();
-          for (const s of settings) this.cache.settings.set(s.key, s.value);
-          this._clearError("settings");
-        } catch (e) {
-          this._recordError("settings", e);
-        }
-      }
-      static async _fetchAreas() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/areas");
-          if (!body) {
-            this._recordError("areas", "empty response");
-            return;
-          }
-          this.cache.areas = (JSON.parse(body).areas || []).map((a) => ({
-            name: a.name || "",
-            dimension: a.dimension,
-            module: a.module,
-            start: [a.start_x, a.start_z],
-            end: [a.end_x, a.end_z]
-          }));
-          this._clearError("areas");
-        } catch (e) {
-          this._recordError("areas", e);
-        }
-      }
-      static async _fetchPermissions() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/permissions");
-          if (!body) {
-            this._recordError("permissions", "empty response");
-            return;
-          }
-          const { permissions } = JSON.parse(body);
-          this.cache.permissions = {};
-          for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
-          this._clearError("permissions");
-        } catch (e) {
-          this._recordError("permissions", e);
-        }
-      }
-      static async _fetchBannedItems() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/banned_items");
-          if (!body) {
-            this._recordError("banned_items", "empty response");
-            return;
-          }
-          this.cache.bannedItems = (JSON.parse(body).items || []).map((i) => i.item_id);
-          this._clearError("banned_items");
-        } catch (e) {
-          this._recordError("banned_items", e);
-        }
-      }
-      static async _fetchClean() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/clean");
-          if (!body) {
-            this._recordError("clean", "empty response");
-            return;
-          }
-          const { clean } = JSON.parse(body);
-          if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
-          this._clearError("clean");
-        } catch (e) {
-          this._recordError("clean", e);
-        }
-      }
-      static async _fetchGrids() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/grids");
-          if (!body) {
-            this._recordError("grids", "empty response");
-            return;
-          }
-          const { grids } = JSON.parse(body);
-          this.cache.grids = {};
-          for (const g of grids) {
-            this.cache.grids[g.name] = {
-              ...g,
-              size: [g.size_h, g.size_v],
-              start: [g.start_x, g.start_y, g.start_z]
-            };
-          }
-          this._clearError("grids");
-        } catch (e) {
-          this._recordError("grids", e);
-        }
-      }
-      static async _fetchPeaceFilters() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/peace_filters");
-          if (!body) {
-            this._recordError("peace_filters", "empty response");
-            return;
-          }
-          this.cache.peaceFilters = JSON.parse(body).filters || [];
-          this._clearError("peace_filters");
-        } catch (e) {
-          this._recordError("peace_filters", e);
-        }
-      }
-      static async _fetchQA() {
-        try {
-          const body = await HttpDB.get("/api/sfmc/qa");
-          if (!body) {
-            this._recordError("qa", "empty response");
-            return;
-          }
-          const { questions } = JSON.parse(body);
-          this.cache.questions = questions.map((q) => ({
-            weight: q.weight,
-            q: q.question,
-            a: JSON.parse(q.answers || "[]"),
-            msg_right: q.msg_right || "",
-            msg_wrong: q.msg_wrong || "",
-            d: q.explanation || "",
-            seq: [q.min_rank, q.max_rank].filter((v) => v !== null),
-            bonus: this._parseQAItems(q.rewards),
-            punish: this._parseQAItems(q.punishments)
-          }));
-          this._clearError("qa");
-        } catch (e) {
-          this._recordError("qa", e);
-        }
-      }
-      static _parseQAItems(jsonStr) {
-        if (!jsonStr) return [];
-        try {
-          const items = JSON.parse(jsonStr);
-          if (!items || items.length === 0) return [];
-          if (typeof items[0] === "object" && items[0] !== null) return items;
-          return [];
-        } catch {
-          return [];
-        }
-      }
-      static _recordError(source, error) {
-        const message = error?.message || String(error);
-        const previous = this._lastErrors.get(source);
-        this._lastErrors.set(source, message);
-        this._configStale = true;
-        if (previous !== message) console.warn(`[ConfigManager] ${source} \u914D\u7F6E\u83B7\u53D6\u5931\u8D25: ${message}`);
-      }
-      static _clearError(source) {
-        this._lastErrors.delete(source);
-        this._configStale = this._lastErrors.size > 0;
-      }
-    };
-    ConfigManager.cache = {
-      modules: /* @__PURE__ */ new Map(),
-      settings: /* @__PURE__ */ new Map(),
-      areas: [],
-      permissions: {},
-      bannedItems: [],
-      clean: { itemMax: 192, pollInterval: 60 },
-      grids: {},
-      peaceFilters: [],
-      questions: [],
-      _lastFetch: 0
-    };
-    ConfigManager._initialized = false;
-    ConfigManager._ready = false;
-    ConfigManager._configStale = false;
-    ConfigManager._lastErrors = /* @__PURE__ */ new Map();
-    ConfigManager._pollInFlight = false;
-    ConfigManager._fastPollInFlight = false;
-    ConfigManager._reloadInFlight = null;
-  }
+// scripts/api/EconomyApi.ts
+var EconomyApi_exports = {};
+__export(EconomyApi_exports, {
+  applyEconomyTransaction: () => applyEconomyTransaction,
+  getDailyTasks: () => getDailyTasks,
+  getEconomyAccount: () => getEconomyAccount,
+  submitDailyTask: () => submitDailyTask,
+  transferEconomy: () => transferEconomy
 });
-
-// scripts/libs/Permission.ts
-import { PlayerPermissionLevel } from "@minecraft/server";
-var Permission;
-var init_Permission = __esm({
-  "scripts/libs/Permission.ts"() {
-    "use strict";
-    init_ConfigManager();
-    init_Command();
-    init_Tools();
-    Permission = class {
-      /**
-       * 注册一个权限项
-       * @param name 权限名（如 "creativearea.toggle"）
-       * @param level 所需最低权限等级
-       */
-      static register(name, level) {
-        this.registry.set(name, level);
-      }
-      /**
-       * 检查玩家是否拥有指定权限
-       * @param player 玩家对象或玩家名
-       * @param permissionName 权限名
-       * @returns 是否满足权限要求
-       */
-      static check(player, permissionName) {
-        const required = this.registry.get(permissionName);
-        if (required === void 0) {
-          console.warn(`[Permission] \u672A\u6CE8\u518C\u7684\u6743\u9650\u88AB\u62D2\u7EDD: ${permissionName}`);
-          return false;
-        }
-        const perms = ConfigManager.getPermissions();
-        const playerLevel = typeof player === "string" ? perms[player] ?? this.Member : this.getPermission(player);
-        return playerLevel >= required;
-      }
-      static getPermission(player) {
-        const perms = ConfigManager.getPermissions();
-        if (perms[player.name] !== void 0) {
-          return perms[player.name];
-        }
-        switch (player.playerPermissionLevel) {
-          case PlayerPermissionLevel.Visitor:
-            return this.Any;
-          case PlayerPermissionLevel.Member:
-            return this.Member;
-          case PlayerPermissionLevel.Operator:
-            return this.OP;
-          case PlayerPermissionLevel.Custom:
-            return this.Admin;
-          default:
-            return this.Member;
-        }
-      }
-      /** 注册 permlist 命令 */
-      static registerPermlistCommand() {
-        Command.register(
-          "permlist",
-          "permlist.see",
-          (player) => {
-            if (!player) return;
-            const lines = [];
-            lines.push(`\u83B7\u53D6\u5230\u5982\u4E0B\u6743\u9650\u9879\uFF1A\xA7r`);
-            const byLevel = [
-              [this.Any, []],
-              [this.Member, []],
-              [this.OP, []],
-              [this.Admin, []],
-              [-1, []]
-            ];
-            const levelMap = new Map(byLevel);
-            for (const [name, level] of this.registry) {
-              const bucket = levelMap.get(level);
-              if (bucket) bucket.push(name);
-              else (levelMap.get(-1) ?? []).push(name);
-            }
-            const label = {
-              [-1]: "\u672A\u77E5",
-              [this.Any]: "\xA7a\u8BBF\u5BA2",
-              [this.Member]: "\xA7e\u6210\u5458",
-              [this.OP]: "\xA76\u7BA1\u7406",
-              [this.Admin]: "\xA7c\u81EA\u5B9A\u4E49"
-            };
-            for (const [level, perms] of byLevel) {
-              if (perms.length === 0) continue;
-              lines.push(`
-${label[level] ?? "\xA77\u5176\u4ED6"} (${level}+):`);
-              for (const p of perms) {
-                lines.push(`  \xA7f${p}`);
-              }
-            }
-            Msg.success(lines.join("\n"), player);
-          },
-          "\u67E5\u770B\u6240\u6709\u6743\u9650\u5217\u8868"
-        );
-      }
-    };
-    Permission.Guest = -1;
-    // 脚本指定的无权限访客
-    Permission.Any = 0;
-    // 等同于原生 Visitor
-    Permission.Member = 1;
-    // 等同于原生 Member
-    Permission.OP = 2;
-    // 等同于原生 Operator
-    Permission.Admin = 3;
-    // 等同于原生 Custom
-    /** 权限注册表：权限名 → 所需最低等级 */
-    Permission.registry = /* @__PURE__ */ new Map();
+import { HttpRequestMethod as HttpRequestMethod2 } from "@minecraft/server-net";
+function parseAccount(body) {
+  if (!body) return null;
+  try {
+    return JSON.parse(body).account || null;
+  } catch {
+    return null;
   }
-});
-
-// scripts/libs/Command.ts
-import { system as system6 } from "@minecraft/server";
-function setModuleGuard(guard) {
-  moduleGuard = guard;
 }
-var moduleGuard, Command;
-var init_Command = __esm({
-  "scripts/libs/Command.ts"() {
+async function getEconomyAccount(playerId2, playerName) {
+  debug.i("API", `getEconomyAccount: playerId=${playerId2}`);
+  const query = `?playerId=${encodeURIComponent(playerId2)}${playerName ? `&playerName=${encodeURIComponent(playerName)}` : ""}`;
+  return parseAccount(await HttpDB.get(`/api/sfmc/economy/account${query}`));
+}
+async function applyEconomyTransaction(data) {
+  debug.i("API", `applyEconomyTransaction: playerId=${data.playerId} amount=${data.amount}`);
+  const result = await HttpDB.typedRequest(HttpRequestMethod2.POST, "/api/sfmc/economy/account", data);
+  if (!result.ok) {
+    debug.e("API", `applyEconomyTransaction failed: ${result.error}`);
+    return { ok: false, error: result.error || "request_failed" };
+  }
+  const account = result.data?.source ?? result.data?.target;
+  return {
+    ok: true,
+    balance: account?.balance,
+    balanceBefore: account?.balanceBefore,
+    balanceAfter: account?.balanceAfter,
+    version: account?.version,
+    transactionId: result.data?.transactionId
+  };
+}
+async function getDailyTasks() {
+  debug.i("API", "getDailyTasks");
+  const result = await HttpDB.typedRequest(HttpRequestMethod2.GET, "/api/sfmc/economy/daily-tasks");
+  return result.ok ? result.data : null;
+}
+async function submitDailyTask(taskId, actorId, actorName, quantity) {
+  debug.i("API", `submitDailyTask: taskId=${taskId} actor=${actorName} qty=${quantity}`);
+  const result = await HttpDB.typedRequest(
+    HttpRequestMethod2.POST,
+    `/api/sfmc/economy/daily-tasks/${encodeURIComponent(taskId)}/submit`,
+    { actorId, actorName, quantity }
+  );
+  if (!result.ok) return { ok: false, error: result.error || "submit_failed" };
+  const d = result.data;
+  return { ok: true, reward: d.reward, balance: d.balance, balanceVersion: d.balanceVersion, error: d.error };
+}
+async function transferEconomy(actorId, targetPlayerId, amount, targetPlayerName) {
+  debug.i("API", `transferEconomy: from=${actorId} to=${targetPlayerId} amount=${amount}`);
+  const result = await HttpDB.typedRequest(HttpRequestMethod2.POST, "/api/sfmc/economy/transfer", {
+    actorId,
+    targetPlayerId,
+    targetPlayerName,
+    amount
+  });
+  return { ok: result.ok, error: result.error };
+}
+var init_EconomyApi = __esm({
+  "scripts/api/EconomyApi.ts"() {
     "use strict";
     init_DebugLog();
-    init_Permission();
-    init_Tools();
-    moduleGuard = () => true;
-    Command = class {
-      /**
-       * 注册指令
-       * @param name 指令名称
-       * @param permission 权限等级(数字) 或 权限名(字符串)
-       * @param callback 回调
-       * @param description 指令描述
-       * @param moduleId 所属模块 ID（可选），用于模块禁用时拦截
-       * @param cost 指令费用配置
-       */
-      static register(name, permission, callback, description, moduleId, cost) {
-        this.list[name] = {
-          callback,
-          permission,
-          description: description === void 0 ? name : description,
-          moduleId,
-          cost
-        };
-        debug.i("CMD", `register "${name}" perm=${permission} mod=${moduleId || "-"} cost=${cost?.amount || 0}`);
-        return true;
+    init_HttpDB();
+  }
+});
+
+// scripts/libs/Money.ts
+var Money_exports = {};
+__export(Money_exports, {
+  Money: () => Money
+});
+var Money;
+var init_Money = __esm({
+  "scripts/libs/Money.ts"() {
+    "use strict";
+    init_EconomyApi();
+    init_DebugLog();
+    Money = class {
+      static get(player) {
+        const b = this.getCached(player) ?? 0;
+        debug.d("MNY", `get ${player.name}=${b}`);
+        return b;
       }
-      static unregister(name) {
-        if (this.list[name] !== void 0) {
-          delete this.list[name];
-          return true;
-        }
-        return false;
+      static getCached(player) {
+        return this.cache.get(player.id)?.balance ?? null;
       }
-      static unregisterByModule(moduleId) {
-        let n = 0;
-        for (const k of Object.keys(this.list)) {
-          if (this.list[k].moduleId === moduleId) {
-            delete this.list[k];
-            n++;
-          }
-        }
-        return n;
+      static getVersion(player) {
+        return this.cache.get(player.id)?.version ?? null;
       }
-      static has(name) {
-        return this.list[name] !== void 0;
-      }
-      static names() {
-        return Object.keys(this.list);
-      }
-      static getModuleId(name) {
-        return this.list[name]?.moduleId;
-      }
-      /**
-       * 检查玩家是否有权限执行该命令
-       */
-      static canExecute(player, permission) {
-        if (player === void 0) return true;
-        if (typeof permission === "string") {
-          return Permission.check(player, permission);
-        }
-        return Permission.getPermission(player) >= permission;
-      }
-      /**
-       * 触发指令
-       * @param player 触发指令的玩家，不指定时使用最高权限执行
-       * @param message
-       */
-      static trigger(player, message) {
-        const pname = player?.name || "CONSOLE";
-        const pid = player?.id || "N/A";
-        debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);
-        let commandInfo = this.list[message];
-        if (commandInfo !== void 0) {
-          if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
-            debug.w("CMD", `blocked: module ${commandInfo.moduleId} disabled for ${pname}`);
-            if (player) Msg.error(`\u8BE5\u547D\u4EE4\u6240\u5C5E\u6A21\u5757\u5DF2\u7981\u7528: ${commandInfo.moduleId}`, player);
-            return;
-          }
-          if (!this.canExecute(player, commandInfo.permission)) {
-            debug.w("CMD", `permission denied: ${pname} needs ${commandInfo.permission} for "${message}"`);
-            if (player) Msg.error(`\u4F60\u6CA1\u6709\u6267\u884C\u6B64\u6761\u6307\u4EE4\u7684\u6743\u9650\u3002`, player);
-            return;
-          }
-          system6.run(async () => {
-            if (player && commandInfo.cost && this.deductCost) {
-              const ok = await this.deductCost(player, commandInfo.cost.amount, message);
-              if (!ok) {
-                debug.w("CMD", `cost deduct failed: ${pname} needs ${commandInfo.cost.amount} for "${message}"`);
-                Msg.error(`\u4F59\u989D\u4E0D\u8DB3\uFF0C\u65E0\u6CD5\u6267\u884C\u8BE5\u6307\u4EE4\uFF08\u9700\u8981 ${commandInfo.cost.amount}\uFF09\u3002`, player);
-                return;
-              }
-              debug.i("CMD", `cost deducted ${commandInfo.cost.amount} from ${pname} for "${message}"`);
-            }
-            debug.d("CMD", `executing "${message}" for ${pname}`);
-            const result = await commandInfo.callback(player);
-            if (result !== void 0 && player) debug.d("CMD", `result for "${message}": ${result}`);
-            if (result !== void 0 && player) Msg.success(`${result}`, player);
-          });
+      static setCached(player, balance, version = 0) {
+        const previous = this.cache.get(player.id);
+        if (previous && version > 0 && previous.version > version) {
+          debug.d("MNY", `setCached SKIP ${player.name}: stale ver=${version} < cached=${previous.version}`);
           return;
         }
-        debug.w("CMD", `unknown command "${message}" from ${pname}`);
-        if (player) Msg.error(`\u672A\u77E5\u7684\u547D\u4EE4! \u53D1\u9001'!help'\u67E5\u8BE2\u6240\u6709\u6307\u4EE4\u3002`, player);
-        return;
+        this.cache.set(player.id, { balance, version, loadedAt: Date.now(), loading: false });
+        debug.d("MNY", `setCached ${player.name}: bal=${balance} ver=${version}`);
+      }
+      static async load(player) {
+        const previous = this.cache.get(player.id);
+        if (previous?.loading) return previous.balance;
+        if (previous) previous.loading = true;
+        debug.i("MNY", `load ${player.name}...`);
+        const account = await getEconomyAccount(player.id, player.name);
+        const balance = account?.balance ?? previous?.balance ?? 0;
+        if (account) {
+          this.setCached(player, balance, account.version);
+          debug.i("MNY", `load ${player.name}: server bal=${balance} ver=${account.version}`);
+        } else if (previous) previous.loading = false;
+        return balance;
       }
       /**
-       * 注册帮助指令，在初始化时调用
+       * 设置玩家金钱数量
        */
-      static registerHelpCommand() {
-        this.register(
-          "help",
-          "help.see",
-          (player) => {
-            let result = "\u5F53\u524D\u53EF\u7528\u6307\u4EE4\u5217\u8868\u5982\u4E0B\uFF1A\xA7r\n";
-            for (let command in this.list) {
-              if (this.canExecute(player, this.list[command].permission)) {
-                result += `  ${command} - ${this.list[command].description}
-`;
-              }
-            }
-            return result;
-          },
-          "\u83B7\u53D6\u6240\u6709\u6307\u4EE4"
-        );
+      /** @deprecated Use add() or a domain transaction. This no longer performs read-modify-write. */
+      static async set(player, money) {
+        console.warn(`[MNY] Money.set() is deprecated, called from ${new Error().stack?.split("\n")[2]?.trim() || "unknown"}`);
+        if (!Number.isSafeInteger(money) || money < 0) {
+          debug.w("MNY", `set invalid: ${player.name} ${money}`);
+          return false;
+        }
+        this.setCached(player, money, this.getVersion(player) ?? 0);
+        debug.w("MNY", `set (deprecated) ${player.name}=${money}`);
+        return true;
+      }
+      static async add(player, money) {
+        if (!Number.isSafeInteger(money) || money === 0) return money === 0;
+        debug.i("MNY", `add ${player.name} ${money > 0 ? "+" : ""}${money}`);
+        const result = await applyEconomyTransaction({
+          actorId: player.id,
+          sourcePlayerId: money < 0 ? player.id : void 0,
+          targetPlayerId: money > 0 ? player.id : void 0,
+          amount: Math.abs(money),
+          type: money < 0 ? "debit" : "credit"
+        });
+        if (result.ok) {
+          debug.i("MNY", `add OK ${player.name}: bal=${result.balance} ver=${result.version} tx=${result.transactionId}`);
+          if (result.balance !== void 0) {
+            this.setCached(player, result.balance, result.version);
+          } else {
+            this.cache.delete(player.id);
+          }
+        } else {
+          debug.e("MNY", `add FAIL ${player.name} ${money}: ${result.error || "unknown"}`);
+        }
+        return result.ok;
       }
       /**
-       * 注册脚本事件，在初始化时调用
+       * 初始化计分板
        */
-      static registerScriptEvent() {
-        system6.afterEvents.scriptEventReceive.subscribe(
-          (event) => {
-            this.trigger(event.sourceEntity, event.id.substring(5));
-          },
-          { namespaces: ["doge"] }
-        );
+      static initScoreboard() {
       }
     };
-    Command.list = {};
-    Command.deductCost = null;
-    Command.registerScriptEvent();
+    /** 货币单位名称 */
+    Money.UNIT = "\u8282\u64CD";
+    /**
+     * 获取玩家金钱数量
+     */
+    Money.cache = /* @__PURE__ */ new Map();
   }
 });
 
 // scripts/doge/AFK.ts
-import { system as system7, world as world5 } from "@minecraft/server";
+import { system as system5, world as world3 } from "@minecraft/server";
 function cacheGet(player, key, fallback) {
   const pc = afkCache.get(player.id);
   if (!pc || !pc.has(key)) return fallback;
@@ -3191,7 +1606,7 @@ function setAFK(player) {
   player.removeTag("NOAFK");
   startAFKScan();
   playerList[player.id] = player.location;
-  world5.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
+  world3.sendMessage(`\xA77* ${player.nameTag} is now AFK. *`);
   cacheSet(player, "afk:step", 0);
   player.addTag("AFK");
 }
@@ -3211,8 +1626,8 @@ function locationMoved(lastLocation, nowLocation) {
 function startScan() {
   if (scanActive || scanRunId !== void 0) return;
   scanActive = true;
-  scanRunId = system7.runInterval(() => {
-    for (let player of world5.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
+  scanRunId = system5.runInterval(() => {
+    for (let player of world3.getPlayers({ excludeTags: ["AFK", "NOAFK"] })) {
       let lastLoaction = cacheGet(
         player,
         "afk:last_location",
@@ -3244,15 +1659,15 @@ function startAFKScan() {
   if (intervalId !== void 0) {
     return;
   }
-  intervalId = system7.runInterval(() => {
+  intervalId = system5.runInterval(() => {
     let count = 0;
     for (let id in playerList) {
-      let player = world5.getEntity(id);
+      let player = world3.getEntity(id);
       if (player === void 0) {
         delete playerList[id];
       } else {
         if (locationMoved(playerList[id], player.location)) {
-          world5.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
+          world3.sendMessage(`\xA77* ${player.nameTag} is no longer AFK. *`);
           player.removeTag("AFK");
           cacheSet(player, "afk:last_location", player.location);
           cacheSet(player, "afk:step", 0);
@@ -3270,7 +1685,7 @@ function startAFKScan() {
 function stopAFKScan() {
   if (intervalId !== void 0) {
     try {
-      system7.clearRun(intervalId);
+      system5.clearRun(intervalId);
     } catch {
     }
     intervalId = void 0;
@@ -3280,7 +1695,7 @@ function stop() {
   debug.i("AFK", "stop");
   if (scanRunId !== void 0) {
     try {
-      system7.clearRun(scanRunId);
+      system5.clearRun(scanRunId);
     } catch {
     }
     scanRunId = void 0;
@@ -3294,7 +1709,7 @@ function registerPermissions() {
   Permission.register("afk.clear.other", Permission.OP);
 }
 function registerEvents() {
-  world5.afterEvents.playerSpawn.subscribe((event) => {
+  world3.afterEvents.playerSpawn.subscribe((event) => {
     if (event.initialSpawn) reset(event.player);
   });
 }
@@ -3302,7 +1717,7 @@ function init() {
   debug.i("AFK", "init");
   console.log(`Initializing AFK...`);
   if (!scanActive) startScan();
-  for (let player of world5.getAllPlayers()) {
+  for (let player of world3.getAllPlayers()) {
     reset(player);
   }
   console.log(`AFK initialized successfully.`);
@@ -3337,7 +1752,7 @@ var init_AFK = __esm({
 });
 
 // scripts/doge/ChatSoundsHelper.ts
-import { system as system8, world as world6 } from "@minecraft/server";
+import { system as system6, world as world4 } from "@minecraft/server";
 var KEYWORDS, ChatSoundsHelper;
 var init_ChatSoundsHelper = __esm({
   "scripts/doge/ChatSoundsHelper.ts"() {
@@ -3366,7 +1781,7 @@ var init_ChatSoundsHelper = __esm({
       }
       registerEvent() {
         if (this.chatSub) return;
-        this.chatSub = world6.beforeEvents.chatSend.subscribe((event) => {
+        this.chatSub = world4.beforeEvents.chatSend.subscribe((event) => {
           const msg = event.message;
           for (const keyWord in this.keywords) {
             if (!msg.toLowerCase().includes(keyWord.toLowerCase())) continue;
@@ -3375,13 +1790,13 @@ var init_ChatSoundsHelper = __esm({
               const id = sender.id;
               if (this.cooldownMap[id]) return;
               this.cooldownMap[id] = true;
-              system8.runTimeout(() => {
+              system6.runTimeout(() => {
                 delete this.cooldownMap[id];
               }, this.cooldownTicks);
             }
             const soundId = this.keywords[keyWord];
-            system8.run(() => {
-              for (const p of world6.getAllPlayers()) {
+            system6.run(() => {
+              for (const p of world4.getAllPlayers()) {
                 try {
                   p.playSound(soundId);
                 } catch {
@@ -3406,7 +1821,7 @@ var init_ChatSoundsHelper = __esm({
 });
 
 // scripts/doge/Clean.ts
-import { BlockComponentTypes as BlockComponentTypes2, system as system9, world as world7 } from "@minecraft/server";
+import { BlockComponentTypes as BlockComponentTypes2, system as system7, world as world5 } from "@minecraft/server";
 function registerCommand2() {
   Permission.register("clean.admin", Permission.OP);
   Command.register(
@@ -3478,7 +1893,7 @@ var init_Clean = __esm({
         let facingDirection = getSignFacing(this.direction, this.face);
         let index = 0;
         let currentIndex = this.getCleanIndex();
-        const dimension = world7.getDimension("overworld");
+        const dimension = world5.getDimension("overworld");
         for (let mainAxis = 0; mainAxis < this.size[0]; mainAxis++) {
           for (let y = 0; y < this.size[1]; y++) {
             index++;
@@ -3553,17 +1968,17 @@ var init_Clean = __esm({
       startCleanInterval() {
         debug.i("CLEAN", "startCleanInterval");
         if (this.intervalId) {
-          system9.clearRun(this.intervalId);
+          system7.clearRun(this.intervalId);
           this.intervalId = void 0;
         }
-        this.intervalId = system9.runInterval(() => {
+        this.intervalId = system7.runInterval(() => {
           let entities = this.getAllItemEntities();
           if (entities.length > this.itemMax) {
-            world7.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
-            system9.runTimeout(() => {
+            world5.sendMessage({ rawtext: [{ text: "\u300C\xA76\u8AAD\u7D4C\u3059\u308B\u30E4\u30DE\u30D3\u30B3 ~ \u5E7D\u8C37 \u97FF\u5B50\xA7f\u300D \u8DDD\u79BB\u6E05\u7406\u6389\u843D\u7269\u8FD8\u6709\xA7c 5 \xA7fs" }] });
+            system7.runTimeout(() => {
               this.startClean(void 0);
-              system9.runTimeout(() => {
-                world7.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
+              system7.runTimeout(() => {
+                world5.sendMessage({ rawtext: [{ text: "\xA7a* \u5DF2\u6E05\u7406\u6389\u843D\u7269 *" }] });
               }, 5);
             }, 100);
           }
@@ -3572,7 +1987,7 @@ var init_Clean = __esm({
       stopCleanInterval() {
         debug.i("CLEAN", "stopCleanInterval");
         if (this.intervalId) {
-          system9.clearRun(this.intervalId);
+          system7.clearRun(this.intervalId);
           this.intervalId = void 0;
         }
       }
@@ -3584,9 +1999,9 @@ var init_Clean = __esm({
        * 获取世界的所有物品
        */
       getAllItemEntities() {
-        let itemEntities = world7.getDimension("overworld").getEntities({ type: "item" });
-        itemEntities.push(...world7.getDimension("nether").getEntities({ type: "item" }));
-        itemEntities.push(...world7.getDimension("the_end").getEntities({ type: "item" }));
+        let itemEntities = world5.getDimension("overworld").getEntities({ type: "item" });
+        itemEntities.push(...world5.getDimension("nether").getEntities({ type: "item" }));
+        itemEntities.push(...world5.getDimension("the_end").getEntities({ type: "item" }));
         return itemEntities;
       }
       getTimeStr() {
@@ -3603,7 +2018,7 @@ ${time}`;
 });
 
 // scripts/libs/MenuNavigator.ts
-import { system as system10 } from "@minecraft/server";
+import { system as system8 } from "@minecraft/server";
 import {
   CustomForm,
   DataDrivenScreenClosedReason,
@@ -3697,12 +2112,12 @@ var init_MenuNavigator = __esm({
           try {
             const result = await box.show();
             if (result.closeReason === DataDrivenScreenClosedReason.UserBusy) {
-              await system10.waitTicks(10);
+              await system8.waitTicks(10);
               continue;
             }
             return result.closeReason === DataDrivenScreenClosedReason.ClientClosed && result.selection === 0;
           } catch {
-            await system10.waitTicks(2);
+            await system8.waitTicks(2);
           }
         }
         return false;
@@ -3748,7 +2163,7 @@ var init_MenuNavigator = __esm({
             result = await box.show();
             break;
           } catch {
-            await system10.waitTicks(10);
+            await system8.waitTicks(10);
           }
         }
         if (formWasOpen && result?.selection === 0) {
@@ -3767,10 +2182,10 @@ var init_MenuNavigator = __esm({
           await def.build(page, this);
         }
         this.form.closeButton();
-        const startTick = system10.currentTick;
+        const startTick = system8.currentTick;
         let notified = false;
         while (true) {
-          if (system10.currentTick - startTick >= 160) {
+          if (system8.currentTick - startTick >= 160) {
             if (notified) Msg.warning("\u83DC\u5355\u5904\u7406\u8D85\u65F6\uFF088\u79D2\uFF09\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002", this.player);
             break;
           }
@@ -3782,7 +2197,7 @@ var init_MenuNavigator = __esm({
                 notified = true;
                 Msg.info("\u60A8\u6709\u4E00\u5219\u83DC\u5355\u5904\u7406\uFF0C\u8BF7\u5173\u95ED\u5F53\u524D\u754C\u9762\u540E\u663E\u793A\u3002\xA77\uFF08\u8D85\u65F68\u79D2\uFF09", this.player);
               }
-              await system10.waitTicks(10);
+              await system8.waitTicks(10);
               continue;
             }
             break;
@@ -3962,7 +2377,7 @@ var init_DailyTask = __esm({
 });
 
 // scripts/doge/TPS.ts
-import { system as system11, world as world8 } from "@minecraft/server";
+import { system as system9, world as world6 } from "@minecraft/server";
 var _TPS, TPS;
 var init_TPS = __esm({
   "scripts/doge/TPS.ts"() {
@@ -3993,7 +2408,7 @@ var init_TPS = __esm({
         this.startRecord();
       }
       static startRecord() {
-        this.recordRunId = system11.runInterval(() => {
+        this.recordRunId = system9.runInterval(() => {
           _TPS.tickTimes.push(Date.now());
           if (_TPS.tickTimes.length > _TPS.MAX_SAMPLES) {
             _TPS.tickTimes.shift();
@@ -4004,7 +2419,7 @@ var init_TPS = __esm({
         debug.i("TPS", "stop");
         if (this.recordRunId !== void 0) {
           try {
-            system11.clearRun(this.recordRunId);
+            system9.clearRun(this.recordRunId);
           } catch {
           }
           this.recordRunId = void 0;
@@ -4023,7 +2438,7 @@ var init_TPS = __esm({
             if (player) {
               Msg.info(msg, player);
             } else {
-              world8.sendMessage(msg);
+              world6.sendMessage(msg);
             }
           },
           "\u67E5\u770B\u670D\u52A1\u5668 TPS",
@@ -4038,7 +2453,7 @@ var init_TPS = __esm({
 });
 
 // scripts/doge/MonitorReporter.ts
-import { system as system12, world as world9 } from "@minecraft/server";
+import { system as system10, world as world7 } from "@minecraft/server";
 var REPORT_INTERVAL, DIMENSIONS, MonitorReporter;
 var init_MonitorReporter = __esm({
   "scripts/doge/MonitorReporter.ts"() {
@@ -4050,14 +2465,14 @@ var init_MonitorReporter = __esm({
     MonitorReporter = class {
       static init() {
         if (this.runId !== void 0) return;
-        this.runId = system12.runInterval(() => {
+        this.runId = system10.runInterval(() => {
           this.report();
         }, REPORT_INTERVAL);
       }
       static stop() {
         if (this.runId !== void 0) {
           try {
-            system12.clearRun(this.runId);
+            system10.clearRun(this.runId);
           } catch {
           }
           this.runId = void 0;
@@ -4069,13 +2484,13 @@ var init_MonitorReporter = __esm({
           const entities = {};
           for (const dim of DIMENSIONS) {
             try {
-              entities[dim] = world9.getDimension(dim).getEntities().length;
+              entities[dim] = world7.getDimension(dim).getEntities().length;
             } catch (e) {
               entities[dim] = 0;
             }
           }
           await HttpDB.post("/api/sfmc/monitor/metrics", { tps, entities });
-          const players = world9.getAllPlayers();
+          const players = world7.getAllPlayers();
           const playerChunks = players.map((p) => {
             const loc2 = p.location;
             const dim = p.dimension?.id || "minecraft:overworld";
@@ -4102,7 +2517,7 @@ var init_MonitorReporter = __esm({
 });
 
 // scripts/doge/OnlineTime.ts
-import { system as system13, world as world10 } from "@minecraft/server";
+import { system as system11, world as world8 } from "@minecraft/server";
 var FLUSH_INTERVAL_TICKS, OnlineTime;
 var init_OnlineTime = __esm({
   "scripts/doge/OnlineTime.ts"() {
@@ -4134,7 +2549,7 @@ var init_OnlineTime = __esm({
           "onlinetime.see",
           async (player) => {
             if (!player) {
-              world10.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
+              world8.sendMessage("\xA7c\u8BE5\u6307\u4EE4\u5FC5\u987B\u7531\u73A9\u5BB6\u6267\u884C\u3002");
               return;
             }
             const data = await this.load(player);
@@ -4155,7 +2570,7 @@ var init_OnlineTime = __esm({
       registerEvents() {
         debug.i("ONLINE", "registerEvents");
         if (this.playerLeaveSub) return;
-        this.playerLeaveSub = world10.afterEvents.playerSpawn.subscribe((event) => {
+        this.playerLeaveSub = world8.afterEvents.playerSpawn.subscribe((event) => {
           if (event.initialSpawn) {
             this.onPlayerJoin(event.player);
           }
@@ -4164,7 +2579,7 @@ var init_OnlineTime = __esm({
       init() {
         debug.i("ONLINE", "init");
         this.startTick();
-        this.flushRunId = system13.runInterval(() => this.flushAll(), FLUSH_INTERVAL_TICKS);
+        this.flushRunId = system11.runInterval(() => this.flushAll(), FLUSH_INTERVAL_TICKS);
       }
       formatTime(seconds) {
         const d = Math.floor(seconds / 86400);
@@ -4230,7 +2645,7 @@ var init_OnlineTime = __esm({
         const now = /* @__PURE__ */ new Date();
         const currentDate = now.getDate();
         const currentMonth = now.getMonth();
-        for (const player of world10.getAllPlayers()) {
+        for (const player of world8.getAllPlayers()) {
           const data = this.dataMap.get(player.id);
           if (!data) {
             if (!this.loading.has(player.id)) {
@@ -4262,7 +2677,7 @@ var init_OnlineTime = __esm({
         }
       }
       startTick() {
-        this.tickRunId = system13.runInterval(() => {
+        this.tickRunId = system11.runInterval(() => {
           this.tickSecond();
         }, 20);
       }
@@ -4270,14 +2685,14 @@ var init_OnlineTime = __esm({
         debug.i("ONLINE", "stop");
         if (this.tickRunId !== void 0) {
           try {
-            system13.clearRun(this.tickRunId);
+            system11.clearRun(this.tickRunId);
           } catch {
           }
           this.tickRunId = void 0;
         }
         if (this.flushRunId !== void 0) {
           try {
-            system13.clearRun(this.flushRunId);
+            system11.clearRun(this.flushRunId);
           } catch {
           }
           this.flushRunId = void 0;
@@ -4296,7 +2711,7 @@ var init_OnlineTime = __esm({
 });
 
 // scripts/doge/QA.ts
-import { system as system14, world as world11 } from "@minecraft/server";
+import { system as system12, world as world9 } from "@minecraft/server";
 var QAManager;
 var init_QA = __esm({
   "scripts/doge/QA.ts"() {
@@ -4337,7 +2752,7 @@ var init_QA = __esm({
       start() {
         debug.i("QA", "start");
         if (this.chatSub) return;
-        this.chatSub = world11.beforeEvents.chatSend.subscribe((event) => {
+        this.chatSub = world9.beforeEvents.chatSend.subscribe((event) => {
           if (event.message.substring(0, 1) === "!" || event.message.substring(0, 1) === "\uFF01") {
             let answer = event.message.substring(1);
             answer = answer.replaceAll(" ");
@@ -4348,7 +2763,7 @@ var init_QA = __esm({
             }
           }
         });
-        this.timeoutId = system14.runTimeout(() => {
+        this.timeoutId = system12.runTimeout(() => {
           this.nextQuestion();
         }, _QAManager.getNextTimeout());
       }
@@ -4361,14 +2776,14 @@ var init_QA = __esm({
         this.chatSub = void 0;
         if (this.timeoutId !== void 0) {
           try {
-            system14.clearRun(this.timeoutId);
+            system12.clearRun(this.timeoutId);
           } catch {
           }
           this.timeoutId = void 0;
         }
         if (this.finishTimeoutId !== void 0) {
           try {
-            system14.clearRun(this.finishTimeoutId);
+            system12.clearRun(this.finishTimeoutId);
           } catch {
           }
           this.finishTimeoutId = void 0;
@@ -4382,7 +2797,7 @@ var init_QA = __esm({
         this.recordLimit = Math.max(0, questions.length - 2);
         if (questions.length === 0) {
           console.warn("[QA] \u6CA1\u6709\u53EF\u7528\u9898\u76EE\uFF0C\u7A0D\u540E\u91CD\u8BD5");
-          this.timeoutId = system14.runTimeout(() => this.nextQuestion(), 20 * 60);
+          this.timeoutId = system12.runTimeout(() => this.nextQuestion(), 20 * 60);
           return;
         }
         let questionList = [];
@@ -4398,7 +2813,7 @@ var init_QA = __esm({
         if (questionList.length === 0 || totalWeight <= 0) {
           this.record = [];
           this.recordPtr = 0;
-          this.timeoutId = system14.runTimeout(() => this.nextQuestion(), 20 * 60);
+          this.timeoutId = system12.runTimeout(() => this.nextQuestion(), 20 * 60);
           return;
         }
         let randomNum = getRandomInteger(0, totalWeight - 1);
@@ -4409,11 +2824,11 @@ var init_QA = __esm({
             break;
           }
         }
-        world11.sendMessage(
+        world9.sendMessage(
           `\xA7b[Baka Cirno]\xA7r \xA7g${ConfigManager.getQuestions()[this.nowQuestion].q}\xA7r
   \xA7h\u53D1\u9001 \xA7e!\u7B54\u6848\xA7r \xA7h\u6765\u7B54\u9898`
         );
-        this.finishTimeoutId = system14.runTimeout(
+        this.finishTimeoutId = system12.runTimeout(
           () => {
             this.finishTimeoutId = void 0;
             this.finish();
@@ -4426,14 +2841,14 @@ var init_QA = __esm({
         debug.i("QA", "finish");
         if (this.nowQuestion === void 0) return;
         let question = ConfigManager.getQuestions()[this.nowQuestion];
-        world11.sendMessage(
+        world9.sendMessage(
           `\xA7b[Baka Cirno]\xA7r \u6B63\u786E\u7B54\u6848\u662F \xA7e${question.a[0]}\xA7r ! ${question.d !== void 0 ? "\n  " + question.d : ""}`
         );
         this.nowQuestion = void 0;
         this.playerList = {};
         this.rightAmount = 0;
         this.wrongAmount = 0;
-        this.timeoutId = system14.runTimeout(() => {
+        this.timeoutId = system12.runTimeout(() => {
           this.timeoutId = void 0;
           this.nextQuestion();
         }, _QAManager.getNextTimeout());
@@ -4501,7 +2916,7 @@ var init_QA = __esm({
         debug.i("QA", `giveBonus: player=${pl.name} seq=${seq} bonusCount=${bonus.length}`);
         for (let b of bonus) {
           if (b["seq"] === void 0 || b["seq"][0] <= seq && seq <= b["seq"][1]) {
-            system14.run(async () => {
+            system12.run(async () => {
               switch (b["type"]) {
                 case "money":
                   await Money.add(pl, b["amount"]);
@@ -4525,7 +2940,7 @@ var init_QA = __esm({
 });
 
 // scripts/doge/SpawnProtect.ts
-import { world as world12 } from "@minecraft/server";
+import { world as world10 } from "@minecraft/server";
 var SpawnProtect;
 var init_SpawnProtect = __esm({
   "scripts/doge/SpawnProtect.ts"() {
@@ -4537,7 +2952,7 @@ var init_SpawnProtect = __esm({
         }
       }
       static registerEvents() {
-        world12.afterEvents.playerSpawn.subscribe((event) => {
+        world10.afterEvents.playerSpawn.subscribe((event) => {
           _SpawnProtect.setProtect(event.player);
         });
       }
@@ -4546,8 +2961,8 @@ var init_SpawnProtect = __esm({
 });
 
 // scripts/EconomyReport.ts
-import { system as system15, world as world13 } from "@minecraft/server";
-import { HttpRequestMethod as HttpRequestMethod6 } from "@minecraft/server-net";
+import { system as system13, world as world11 } from "@minecraft/server";
+import { HttpRequestMethod as HttpRequestMethod3 } from "@minecraft/server-net";
 var EconomyReport;
 var init_EconomyReport = __esm({
   "scripts/EconomyReport.ts"() {
@@ -4559,22 +2974,22 @@ var init_EconomyReport = __esm({
         const now = /* @__PURE__ */ new Date();
         const msUntilNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 8, 0, 0).getTime() - now.getTime();
         const delay = msUntilNextMonth > 0 ? msUntilNextMonth : 864e5;
-        this.runId = system15.runTimeout(
+        this.runId = system13.runTimeout(
           () => {
             this.publish();
-            this.runId = system15.runInterval(() => this.publish(), 30 * 86400 * 20);
+            this.runId = system13.runInterval(() => this.publish(), 30 * 86400 * 20);
           },
           Math.ceil(delay / 50)
         );
       }
       static stop() {
         if (this.runId !== null) {
-          system15.clearRun(this.runId);
+          system13.clearRun(this.runId);
           this.runId = null;
         }
       }
       static async publish() {
-        const result = await HttpDB.typedRequest(HttpRequestMethod6.GET, "/api/sfmc/economy/stats/monthly");
+        const result = await HttpDB.typedRequest(HttpRequestMethod3.GET, "/api/sfmc/economy/stats/monthly");
         if (!result.ok) return;
         const stats = result.data?.stats;
         if (!stats) return;
@@ -4586,7 +3001,7 @@ var init_EconomyReport = __esm({
           `\xA77\u6D3B\u8DC3\u8D26\u6237: \xA7f${stats.active_accounts}`,
           `\xA7e==============================`
         ].join("\n");
-        world13.sendMessage(msg);
+        world11.sendMessage(msg);
       }
     };
     EconomyReport.runId = null;
@@ -4594,18 +3009,18 @@ var init_EconomyReport = __esm({
 });
 
 // scripts/area/Fly.ts
-import { GameMode as GameMode2, system as system16, world as world14 } from "@minecraft/server";
+import { GameMode as GameMode2, system as system14, world as world12 } from "@minecraft/server";
 function registerPermissions2() {
   Permission.register("fly.use", Permission.Any);
 }
 function registerEvents2() {
   debug.i("FLY", "registerEvents");
-  world14.afterEvents.playerSpawn.subscribe((event) => {
+  world12.afterEvents.playerSpawn.subscribe((event) => {
     if (event.initialSpawn) playerJoinEvent(event.player);
   });
 }
 function playerJoinEvent(player) {
-  system16.runTimeout(() => {
+  system14.runTimeout(() => {
     let areaName = inFlyArea(player);
     if (areaName !== void 0) {
       enableFly(player);
@@ -4616,8 +3031,8 @@ function playerJoinEvent(player) {
 }
 function startScan2() {
   if (scanRunId2 !== void 0) return;
-  scanRunId2 = system16.runInterval(() => {
-    for (let player of world14.getPlayers({ gameMode: GameMode2.Survival })) {
+  scanRunId2 = system14.runInterval(() => {
+    for (let player of world12.getPlayers({ gameMode: GameMode2.Survival })) {
       let nowArea = player.getDynamicProperty("hpbe:dogefly");
       let areaName = inFlyArea(player);
       if (areaName !== void 0) {
@@ -4641,7 +3056,7 @@ function startScan2() {
 function stop2() {
   if (scanRunId2 !== void 0) {
     try {
-      system16.clearRun(scanRunId2);
+      system14.clearRun(scanRunId2);
     } catch {
     }
     scanRunId2 = void 0;
@@ -4711,8 +3126,8 @@ import {
   BlockComponentTypes as BlockComponentTypes3,
   EquipmentSlot,
   GameMode as GameMode3,
-  system as system17,
-  world as world15
+  system as system15,
+  world as world13
 } from "@minecraft/server";
 var _InventorySwitcher, InventorySwitcher;
 var init_InventorySwitcher = __esm({
@@ -4733,9 +3148,9 @@ var init_InventorySwitcher = __esm({
       /** 注册事件（由 entry.ts 统一调用） */
       registerEvents() {
         if (this.gameModeSub) return;
-        this.gameModeSub = world15.afterEvents.playerGameModeChange.subscribe((event) => {
+        this.gameModeSub = world13.afterEvents.playerGameModeChange.subscribe((event) => {
           const player = event.player;
-          system17.run(() => {
+          system15.run(() => {
             if (player.getGameMode() !== event.toGameMode) return;
             if (event.fromGameMode === GameMode3.Survival && event.toGameMode === GameMode3.Creative) {
               this.saveToChest(player, false);
@@ -4776,7 +3191,7 @@ var init_InventorySwitcher = __esm({
         const key = `invswitcher:player_${playerId2}`;
         let base = _InventorySwitcher.chestMap.get(key);
         if (base === void 0) {
-          let nextIdx = world15.getDynamicProperty("hpbe:invswitcher_next");
+          let nextIdx = world13.getDynamicProperty("hpbe:invswitcher_next");
           if (nextIdx === void 0) nextIdx = 0;
           const grid = ConfigManager.getGrid("inventory_chest");
           if (!grid) return 0;
@@ -4784,7 +3199,7 @@ var init_InventorySwitcher = __esm({
           if (nextIdx > max) nextIdx = 0;
           base = nextIdx;
           _InventorySwitcher.chestMap.set(key, base);
-          world15.setDynamicProperty("hpbe:invswitcher_next", base + 2);
+          world13.setDynamicProperty("hpbe:invswitcher_next", base + 2);
         }
         return base * 2 + (forCreative ? 1 : 0);
       }
@@ -4794,7 +3209,7 @@ var init_InventorySwitcher = __esm({
       saveToChest(player, forCreative) {
         const cfg = ConfigManager.getGrid("inventory_chest");
         if (!cfg) return;
-        const dim = world15.getDimension("minecraft:overworld");
+        const dim = world13.getDimension("minecraft:overworld");
         const { left, sign } = this.getLayout(this.getChestIndex(player.id, forCreative));
         ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
         const { date, time } = getShanghaiTime();
@@ -4850,7 +3265,7 @@ ${time}`
       restoreFromChest(player, forCreative) {
         const cfg = ConfigManager.getGrid("inventory_chest");
         if (!cfg) return;
-        const dim = world15.getDimension("minecraft:overworld");
+        const dim = world13.getDimension("minecraft:overworld");
         const { left } = this.getLayout(this.getChestIndex(player.id, forCreative));
         ensureDoubleChest(dim, left, getChestCardinal(cfg.direction, cfg.face), cfg.direction);
         const block = dim.getBlock(left);
@@ -4908,8 +3323,8 @@ ${time}`
 // scripts/area/SurvivalArea.ts
 import {
   GameMode as GameMode4,
-  system as system18,
-  world as world16
+  system as system16,
+  world as world14
 } from "@minecraft/server";
 var SurvivalArea;
 var init_SurvivalArea = __esm({
@@ -4942,14 +3357,14 @@ var init_SurvivalArea = __esm({
       registerEvents() {
         if (this.subscriptions.length > 0) return;
         this.subscriptions.push(
-          world16.afterEvents.playerSpawn.subscribe((event) => {
+          world14.afterEvents.playerSpawn.subscribe((event) => {
             if (!event.initialSpawn) return;
             if (!CreativeArea.enable) return;
             if (!this.enable) return;
             const player = event.player;
             const mode = player.getGameMode();
             if (mode === GameMode4.Survival || mode === GameMode4.Adventure) return;
-            system18.runTimeout(() => {
+            system16.runTimeout(() => {
               if (!this.inCreativeArea(player)) {
                 this.forceSurvival(player);
               }
@@ -4957,7 +3372,7 @@ var init_SurvivalArea = __esm({
           })
         );
         this.subscriptions.push(
-          world16.beforeEvents.playerGameModeChange.subscribe((event) => {
+          world14.beforeEvents.playerGameModeChange.subscribe((event) => {
             if (!CreativeArea.enable) return;
             if (!this.enable) return;
             if (event.toGameMode === GameMode4.Creative || event.toGameMode === GameMode4.Spectator) {
@@ -4970,13 +3385,13 @@ var init_SurvivalArea = __esm({
           })
         );
         this.subscriptions.push(
-          world16.afterEvents.playerDimensionChange.subscribe((event) => {
+          world14.afterEvents.playerDimensionChange.subscribe((event) => {
             if (!CreativeArea.enable) return;
             if (!this.enable) return;
             const player = event.player;
             const mode = player.getGameMode();
             if (mode === GameMode4.Survival || mode === GameMode4.Adventure) return;
-            system18.runTimeout(() => {
+            system16.runTimeout(() => {
               if (!this.inCreativeArea(player)) {
                 this.forceSurvival(player);
               }
@@ -5017,6 +3432,259 @@ var init_SurvivalArea = __esm({
         Msg.info(`\u5DF2\u79BB\u5F00\u521B\u9020\u533A\u57DF\uFF0C\u5F3A\u5236\u5207\u6362\u4E3A\u751F\u5B58\u6A21\u5F0F\u3002`, player);
       }
     };
+  }
+});
+
+// scripts/api/LandApi.ts
+var LandApi_exports = {};
+__export(LandApi_exports, {
+  acceptInvite: () => acceptInvite,
+  createLand: () => createLand,
+  declineInvite: () => declineInvite,
+  deleteLand: () => deleteLand,
+  getAllLands: () => getAllLands,
+  getInvites: () => getInvites,
+  getLandAudit: () => getLandAudit,
+  inviteMember: () => inviteMember,
+  removeLandMember: () => removeLandMember,
+  revokeInvite: () => revokeInvite,
+  transferLand: () => transferLand,
+  updateLand: () => updateLand,
+  updateLandMember: () => updateLandMember,
+  validateLand: () => validateLand
+});
+import { HttpRequestMethod as HttpRequestMethod4 } from "@minecraft/server-net";
+function parseLand(body) {
+  if (!body) return null;
+  try {
+    return JSON.parse(body).land || null;
+  } catch {
+    return null;
+  }
+}
+async function getAllLands() {
+  debug.i("API", "getAllLands");
+  const body = await HttpDB.get(PATH);
+  if (!body) return null;
+  try {
+    const lands = JSON.parse(body).lands;
+    const count = Array.isArray(lands) ? lands.length : 0;
+    debug.i("API", `getAllLands: ${count} lands`);
+    return Array.isArray(lands) ? lands : null;
+  } catch {
+    return null;
+  }
+}
+async function validateLand(request) {
+  debug.i("API", `validateLand: owner=${request.ownerId} dimid=${request.dimid}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod4.POST,
+    `${PATH}/validate`,
+    request
+  );
+  if (result.status === 0) return { ok: false, error: "\u6570\u636E\u5E93\u670D\u52A1\u4E0D\u53EF\u7528\u3002" };
+  try {
+    return JSON.parse(result.body);
+  } catch {
+    return { ok: false, error: "\u6570\u636E\u5E93\u54CD\u5E94\u65E0\u6548\u3002" };
+  }
+}
+async function createLand(request) {
+  debug.i("API", `createLand: owner=${request.ownerId} dimid=${request.dimid}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod4.POST, PATH, request);
+  if (result.status !== 200) {
+    try {
+      const parsed = JSON.parse(result.body);
+      return { land: null, error: parsed.error, message: parsed.message, price: parsed.price, balance: parsed.balance };
+    } catch {
+      return { land: null, error: "\u571F\u5730\u521B\u5EFA\u5931\u8D25\u3002" };
+    }
+  }
+  try {
+    const parsed = JSON.parse(result.body);
+    return {
+      land: parsed.land || null,
+      price: parsed.price,
+      balance: parsed.balance,
+      balanceVersion: parsed.balanceVersion,
+      transactionId: parsed.transactionId
+    };
+  } catch {
+    return { land: null, error: "\u6570\u636E\u5E93\u54CD\u5E94\u65E0\u6548\u3002" };
+  }
+}
+async function updateLand(id, data) {
+  debug.i("API", `updateLand: id=${id} actorId=${data.actorId} version=${data.expectedVersion}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod4.PUT,
+    `${PATH}/update/${encodeURIComponent(id)}`,
+    data
+  );
+  return result.status === 200 ? parseLand(result.body) : null;
+}
+async function deleteLand(id, actorId, expectedVersion, requestId) {
+  debug.i("API", `deleteLand: id=${id} actorId=${actorId} version=${expectedVersion}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod4.DELETE, `${PATH}/${encodeURIComponent(id)}`, {
+    actorId,
+    expectedVersion,
+    requestId
+  });
+  let parsed = {};
+  try {
+    parsed = JSON.parse(result.body || "{}");
+  } catch {
+  }
+  if (result.status !== 200)
+    return {
+      ok: false,
+      error: parsed.error || (result.status === 0 ? "database_unavailable" : "transaction_failed"),
+      message: parsed.message,
+      status: result.status
+    };
+  return {
+    ok: true,
+    refund: parsed.refund || 0,
+    balance: parsed.balance,
+    balanceVersion: parsed.balanceVersion,
+    transactionId: parsed.transactionId
+  };
+}
+async function inviteMember(id, actorId, playerId2, role) {
+  debug.i("API", `inviteMember: landId=${id} playerId=${playerId2} role=${role}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod4.POST, `${PATH}/${encodeURIComponent(id)}/members`, {
+    actorId,
+    playerId: playerId2,
+    role
+  });
+  if (result.status !== 200) {
+    let parsed2 = {};
+    try {
+      parsed2 = JSON.parse(result.body || "{}");
+    } catch {
+    }
+    return {
+      ok: false,
+      error: parsed2.error || (result.status === 0 ? "database_unavailable" : "forbidden"),
+      message: parsed2.message
+    };
+  }
+  let parsed = {};
+  try {
+    parsed = JSON.parse(result.body || "{}");
+  } catch {
+  }
+  return { ok: true, inviteId: parsed.inviteId, expiresAt: parsed.expiresAt };
+}
+async function removeLandMember(id, actorId, playerId2) {
+  debug.i("API", `removeLandMember: landId=${id} playerId=${playerId2}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod4.DELETE, `${PATH}/${encodeURIComponent(id)}/members`, {
+    actorId,
+    playerId: playerId2
+  });
+  if (result.status !== 200) {
+    let parsed = {};
+    try {
+      parsed = JSON.parse(result.body || "{}");
+    } catch {
+    }
+    return { ok: false, error: parsed.error || "forbidden", message: parsed.message };
+  }
+  return { ok: true, land: parseLand(result.body) };
+}
+async function updateLandMember(id, actorId, playerId2, role) {
+  debug.i("API", `updateLandMember: landId=${id} playerId=${playerId2} role=${role}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod4.POST,
+    `${PATH}/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId2)}`,
+    { actorId, role }
+  );
+  if (result.status !== 200) {
+    let parsed = {};
+    try {
+      parsed = JSON.parse(result.body || "{}");
+    } catch {
+    }
+    return { ok: false, error: parsed.error || "invalid_role", message: parsed.message };
+  }
+  return { ok: true, land: parseLand(result.body) };
+}
+async function getInvites(playerId2) {
+  debug.i("API", `getInvites: playerId=${playerId2}`);
+  const body = await HttpDB.get(`${PATH}/invites/${encodeURIComponent(playerId2)}`);
+  if (!body) return [];
+  try {
+    return JSON.parse(body).invites || [];
+  } catch {
+    return [];
+  }
+}
+async function acceptInvite(playerId2, inviteId) {
+  debug.i("API", `acceptInvite: playerId=${playerId2} inviteId=${inviteId}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod4.POST, `${PATH}/invites/${encodeURIComponent(playerId2)}`, {
+    inviteId
+  });
+  return result.status === 200 ? parseLand(result.body) : null;
+}
+async function declineInvite(playerId2, inviteId) {
+  debug.i("API", `declineInvite: playerId=${playerId2} inviteId=${inviteId}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod4.POST,
+    `${PATH}/invites/${encodeURIComponent(playerId2)}/decline`,
+    {
+      inviteId
+    }
+  );
+  return result.status === 200;
+}
+async function revokeInvite(id, actorId, inviteId) {
+  debug.i("API", `revokeInvite: landId=${id} inviteId=${inviteId}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod4.DELETE,
+    `${PATH}/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`,
+    { actorId }
+  );
+  return result.status === 200;
+}
+async function transferLand(id, actorId, targetId, targetName, expectedVersion, requestId) {
+  debug.i("API", `transferLand: id=${id} from=${actorId} to=${targetName}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod4.POST, `${PATH}/${encodeURIComponent(id)}/transfer`, {
+    actorId,
+    targetId,
+    targetName,
+    expectedVersion,
+    requestId
+  });
+  let parsed = {};
+  try {
+    parsed = JSON.parse(result.body || "{}");
+  } catch {
+  }
+  if (result.status !== 200)
+    return {
+      ok: false,
+      error: parsed.error || (result.status === 0 ? "database_unavailable" : "transaction_failed"),
+      message: parsed.message,
+      status: result.status
+    };
+  return { ok: true, land: parsed.land || null, data: parsed.land || void 0, transactionId: parsed.transactionId };
+}
+async function getLandAudit(id) {
+  debug.i("API", `getLandAudit: id=${id}`);
+  const body = await HttpDB.get(`${PATH}/${encodeURIComponent(id)}/audit`);
+  if (!body) return [];
+  try {
+    return JSON.parse(body).logs || [];
+  } catch {
+    return [];
+  }
+}
+var PATH;
+var init_LandApi = __esm({
+  "scripts/api/LandApi.ts"() {
+    "use strict";
+    init_DebugLog();
+    init_HttpDB();
+    PATH = "/api/sfmc/lands";
   }
 });
 
@@ -5146,8 +3814,8 @@ async function fetchServerConfig() {
       if (!body) return null;
       try {
         const parsed = JSON.parse(body);
-        if (!parsed || !parsed.value) return null;
-        return JSON.parse(parsed.value);
+        if (!parsed || parsed.value === null || parsed.value === void 0) return null;
+        return typeof parsed.value === "string" ? JSON.parse(parsed.value) : parsed.value;
       } catch {
         return null;
       }
@@ -5774,7 +4442,7 @@ var init_LandPolicy = __esm({
 });
 
 // scripts/land/LandEvents.ts
-import { Player as Player15, system as system19, world as world17 } from "@minecraft/server";
+import { Player as Player14, system as system17, world as world15 } from "@minecraft/server";
 function isContainerBlock(typeId) {
   if (CONTAINER_BLOCKS.has(typeId)) return true;
   return /^minecraft:.*_shulker_box$/.test(typeId);
@@ -5817,11 +4485,11 @@ var init_LandEvents = __esm({
         debug.i("LAND", "registerEvents");
         if (this.initialized) return;
         this.initialized = true;
-        this.scanRunId = system19.runInterval(() => this.scanPlayerBoundaries(), 40);
-        world17.afterEvents.playerLeave.subscribe((event) => {
+        this.scanRunId = system17.runInterval(() => this.scanPlayerBoundaries(), 40);
+        world15.afterEvents.playerLeave.subscribe((event) => {
           LandCore.clearSession(event.playerId);
         });
-        this.subscribe(world17.beforeEvents.playerPlaceBlock, (ev) => {
+        this.subscribe(world15.beforeEvents.playerPlaceBlock, (ev) => {
           const { player, block } = ev;
           const pos = { x: block.x, y: block.y, z: block.z };
           const dimid = dimensionId(block.dimension);
@@ -5830,7 +4498,7 @@ var init_LandEvents = __esm({
             ev.cancel = true;
           }
         });
-        this.subscribe(world17.beforeEvents.playerBreakBlock, (ev) => {
+        this.subscribe(world15.beforeEvents.playerBreakBlock, (ev) => {
           const { player, block } = ev;
           const pos = { x: block.x, y: block.y, z: block.z };
           const dimid = dimensionId(block.dimension);
@@ -5839,7 +4507,7 @@ var init_LandEvents = __esm({
             ev.cancel = true;
           }
         });
-        this.subscribe(world17.beforeEvents.playerInteractWithBlock, (ev) => {
+        this.subscribe(world15.beforeEvents.playerInteractWithBlock, (ev) => {
           const { player, block } = ev;
           if (!isContainerBlock(block.typeId)) return;
           const pos = { x: block.x, y: block.y, z: block.z };
@@ -5849,7 +4517,7 @@ var init_LandEvents = __esm({
             ev.cancel = true;
           }
         });
-        this.subscribe(world17.beforeEvents.playerInteractWithBlock, (ev) => {
+        this.subscribe(world15.beforeEvents.playerInteractWithBlock, (ev) => {
           if (isContainerBlock(ev.block.typeId)) return;
           const type = ev.block.typeId;
           const capability = /door|trapdoor|fence_gate/.test(type) ? "door" : /button|lever|pressure_plate/.test(type) ? "button" : /redstone|repeater|comparator|piston|dispenser|dropper|hopper/.test(type) ? "redstone" : null;
@@ -5861,7 +4529,7 @@ var init_LandEvents = __esm({
             ev.cancel = true;
           }
         });
-        this.subscribe(world17.beforeEvents.playerInteractWithEntity, (ev) => {
+        this.subscribe(world15.beforeEvents.playerInteractWithEntity, (ev) => {
           const pos = {
             x: Math.floor(ev.target.location.x),
             y: Math.floor(ev.target.location.y),
@@ -5873,9 +4541,9 @@ var init_LandEvents = __esm({
             ev.cancel = true;
           }
         });
-        this.subscribe(world17.beforeEvents.entityHurt, (ev) => {
+        this.subscribe(world15.beforeEvents.entityHurt, (ev) => {
           const source = ev.damageSource.damagingEntity;
-          if (!(source instanceof Player15)) return;
+          if (!(source instanceof Player14)) return;
           const target = ev.hurtEntity;
           const pos = {
             x: Math.floor(target.location.x),
@@ -5888,8 +4556,8 @@ var init_LandEvents = __esm({
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u653B\u51FB\u6B64\u571F\u5730\u5185\u7684\u5B9E\u4F53\uFF01", source);
           }
         });
-        this.subscribe(world17.beforeEvents.entityItemPickup, (ev) => {
-          if (!(ev.entity instanceof Player15)) return;
+        this.subscribe(world15.beforeEvents.entityItemPickup, (ev) => {
+          if (!(ev.entity instanceof Player14)) return;
           const pos = {
             x: Math.floor(ev.item.location.x),
             y: Math.floor(ev.item.location.y),
@@ -5901,7 +4569,7 @@ var init_LandEvents = __esm({
             Msg.error("\u4F60\u6CA1\u6709\u6743\u9650\u62FE\u53D6\u6B64\u571F\u5730\u5185\u7684\u7269\u54C1\uFF01", ev.entity);
           }
         });
-        this.subscribe(world17.beforeEvents.explosion, (ev) => {
+        this.subscribe(world15.beforeEvents.explosion, (ev) => {
           const blocks = ev.getImpactedBlocks();
           if (blocks.some((block) => {
             const pos = { x: block.x, y: block.y, z: block.z };
@@ -5915,7 +4583,7 @@ var init_LandEvents = __esm({
         this.subscriptions.push({ signal, callback: signal.subscribe(callback) });
       }
       static scanPlayerBoundaries() {
-        for (const player of world17.getPlayers()) {
+        for (const player of world15.getPlayers()) {
           const pos = {
             x: Math.floor(player.location.x),
             y: Math.floor(player.location.y),
@@ -5991,7 +4659,7 @@ var init_LandEvents = __esm({
       }
       static cleanup() {
         debug.i("LAND", "cleanup");
-        if (this.scanRunId !== void 0) system19.clearRun(this.scanRunId);
+        if (this.scanRunId !== void 0) system17.clearRun(this.scanRunId);
         this.scanRunId = void 0;
         this.lastLandByPlayer.clear();
         for (const s of this.subscriptions) {
@@ -6012,7 +4680,7 @@ var init_LandEvents = __esm({
 });
 
 // scripts/gui/LandGUI.ts
-import { world as world18 } from "@minecraft/server";
+import { world as world16 } from "@minecraft/server";
 function roleText(land, playerId2) {
   const role = getPlayerRole(land, playerId2);
   return role ? ROLE_NAMES[role] : "\u8BBF\u5BA2";
@@ -6170,13 +4838,14 @@ var init_LandGUI = __esm({
           const body = await HttpDB2.get("/api/sfmc/settings/land:plaza");
           if (body) {
             const parsed = JSON.parse(body);
-            if (parsed?.value) {
+            if (parsed?.value !== null && parsed?.value !== void 0) {
+              const value = typeof parsed.value === "string" ? JSON.parse(parsed.value) : parsed.value;
               return {
                 name: "\u516C\u5171\u5E7F\u573A",
                 welcome: "\u6B22\u8FCE\u6765\u5230\u670D\u52A1\u5668\uFF01\u8FD9\u91CC\u662F\u516C\u5171\u9886\u5730\uFF0C\u6240\u6709\u4EBA\u90FD\u53EF\u4EE5\u5EFA\u9020\u3002",
                 dimid: 0,
                 range: 32,
-                ...JSON.parse(parsed.value)
+                ...value
               };
             }
           }
@@ -6273,7 +4942,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         const land = this.currentLand();
         if (!land) return;
         const status = new FormStatus(page);
-        const online = world18.getPlayers().filter((p) => p.id !== land.ownerplid && !(land.members || []).some((m) => m.player_id === p.id));
+        const online = world16.getPlayers().filter((p) => p.id !== land.ownerplid && !(land.members || []).some((m) => m.player_id === p.id));
         const names = online.map((p) => p.name);
         if (!names.length) {
           page.label("\u6CA1\u6709\u53EF\u9080\u8BF7\u7684\u5728\u7EBF\u73A9\u5BB6\u3002");
@@ -6558,7 +5227,7 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
         const land = this.currentLand();
         if (!land || !LandCore.isOwner(land, this.player.id)) return;
         const status = new FormStatus(page);
-        const online = world18.getPlayers().filter((p) => p.id !== this.player.id);
+        const online = world16.getPlayers().filter((p) => p.id !== this.player.id);
         if (!online.length) {
           page.label(ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u3002", "\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002"]));
           return;
@@ -6629,8 +5298,8 @@ ${LandCore.getDimensionName(land.dimid)} \xB7 ${info.square} \u683C \xB7 ${(land
 });
 
 // scripts/land/LandTax.ts
-import { system as system20 } from "@minecraft/server";
-import { HttpRequestMethod as HttpRequestMethod7 } from "@minecraft/server-net";
+import { system as system18 } from "@minecraft/server";
+import { HttpRequestMethod as HttpRequestMethod5 } from "@minecraft/server-net";
 var LandTax;
 var init_LandTax = __esm({
   "scripts/land/LandTax.ts"() {
@@ -6641,20 +5310,20 @@ var init_LandTax = __esm({
       static start() {
         debug.i("LAND", "LandTax.start");
         if (this.intervalId !== null) return;
-        this.intervalId = system20.runInterval(() => {
+        this.intervalId = system18.runInterval(() => {
           this.collectAllTaxes();
         }, this.CHECK_INTERVAL);
       }
       static stop() {
         debug.i("LAND", "LandTax.stop");
         if (this.intervalId !== null) {
-          system20.clearRun(this.intervalId);
+          system18.clearRun(this.intervalId);
           this.intervalId = null;
         }
       }
       static async collectAllTaxes() {
         debug.i("LAND", "collectAllTaxes: starting tax collection");
-        const result = await HttpDB.typedRequest(HttpRequestMethod7.GET, "/api/sfmc/lands");
+        const result = await HttpDB.typedRequest(HttpRequestMethod5.GET, "/api/sfmc/lands");
         if (!result.ok) {
           debug.e("LAND", "collectAllTaxes: failed to fetch lands");
           return;
@@ -6665,7 +5334,7 @@ var init_LandTax = __esm({
           if (land.tax_rate <= 0) continue;
           if (land.tax_due_at && land.tax_due_at > Date.now()) continue;
           const taxResult = await HttpDB.typedRequest(
-            HttpRequestMethod7.POST,
+            HttpRequestMethod5.POST,
             `/api/sfmc/lands/${encodeURIComponent(land.id)}/tax-collect`,
             {
               actorId: "system"
@@ -6683,7 +5352,7 @@ var init_LandTax = __esm({
 });
 
 // scripts/land/LandSystem.ts
-import { system as system21 } from "@minecraft/server";
+import { system as system19 } from "@minecraft/server";
 function handlePosCommand(player, which) {
   const plid = player.id;
   const pos = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) };
@@ -6790,7 +5459,7 @@ var init_LandSystem = __esm({
         debug.i("LAND", "init");
         void Database.loadFromServer();
         LandTax.start();
-        this.refreshRunId = system21.runInterval(() => {
+        this.refreshRunId = system19.runInterval(() => {
           LandCore.clearExpiredSessions();
           void Database.refresh();
         }, 20 * 60);
@@ -6798,7 +5467,7 @@ var init_LandSystem = __esm({
       static cleanup() {
         debug.i("LAND", "cleanup");
         LandTax.stop();
-        if (this.refreshRunId !== void 0) system21.clearRun(this.refreshRunId);
+        if (this.refreshRunId !== void 0) system19.clearRun(this.refreshRunId);
         this.refreshRunId = void 0;
       }
     };
@@ -6856,12 +5525,12 @@ var init_AdminGUI = __esm({
         }
       }
       async onToggle(name, val) {
-        const ok = await HttpDB.put(`/api/sfmc/modules/${name}`, { enabled: val });
+        const ok = val ? await HttpDB.post(`/api/sfmc/modules/${name}/enable`, {}) : await HttpDB.post(`/api/sfmc/modules/${name}/disable`, {});
         if (!ok) {
           Msg.error(`${name} \u4FEE\u6539\u5931\u8D25`, this.player);
           return;
         }
-        await ConfigManager.reloadAll();
+        await ConfigManager.refreshModules();
         _AdminGUI.applyRuntimeState(name, val);
         Msg.success(`${name} \u5DF2${val ? "\u542F\u7528" : "\u7981\u7528"}`, this.player);
       }
@@ -6873,8 +5542,1125 @@ var init_AdminGUI = __esm({
   }
 });
 
+// scripts/api/ChatApi.ts
+import { HttpRequestMethod as HttpRequestMethod6 } from "@minecraft/server-net";
+async function getChannels(filter) {
+  const qs = toQueryString({
+    search: filter?.search,
+    type: filter?.type,
+    ownerId: filter?.ownerId,
+    minCreatedAt: filter?.minCreatedAt,
+    maxCreatedAt: filter?.maxCreatedAt
+  });
+  const path = `${PATH_CHANNELS}${qs}`;
+  const body = await HttpDB.get(path);
+  if (!body) return null;
+  try {
+    const raw = JSON.parse(body).channels;
+    return raw.map(toChannel);
+  } catch {
+    return null;
+  }
+}
+function toChannel(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    prefix: r.prefix,
+    ownerid: r.owner_id || void 0,
+    createdAt: r.created_at,
+    config: {
+      allowChat: !!r.config_allow_chat,
+      slowMode: r.config_slow_mode || 0,
+      isBroadcast: !!r.config_is_broadcast
+    }
+  };
+}
+function toMessage(r) {
+  return {
+    id: r.id,
+    fromid: r.from_id,
+    fromName: r.from_name,
+    channelId: r.channel_id,
+    type: r.type || "text",
+    content: r.content,
+    attachment: r.attachment,
+    showTimestamp: !!r.show_timestamp,
+    timestamp: r.created_at
+  };
+}
+function toRedPacket(r) {
+  return {
+    id: r.id,
+    senderid: r.sender_id,
+    senderName: r.sender_name,
+    totalAmount: r.total_amount,
+    remainingAmount: r.remaining_amount,
+    totalCount: r.total_count,
+    remainingCount: r.remaining_count,
+    receivers: JSON.parse(r.receivers || "[]"),
+    targetType: r.target_type,
+    targetId: r.target_id,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at
+  };
+}
+async function getChannel(channelId) {
+  const raw = await HttpDB.fetchJSON(PATH_CHANNELS, channelId, "channel");
+  if (!raw) return null;
+  return toChannel(raw);
+}
+async function createChannel(channel) {
+  return saveChannels([channel]);
+}
+async function saveChannels(channels) {
+  const flat = channels.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    prefix: c.prefix,
+    ownerId: c.ownerid,
+    createdAt: c.createdAt,
+    configAllowChat: c.config?.allowChat,
+    configSlowMode: c.config?.slowMode,
+    configIsBroadcast: c.config?.isBroadcast
+  }));
+  return HttpDB.post(PATH_CHANNELS, { channels: flat });
+}
+async function patchChannel(channelId, data) {
+  return HttpDB.put(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`, data);
+}
+async function deleteChannel(channelId) {
+  return HttpDB.del(`${PATH_CHANNELS}/${encodeURIComponent(channelId)}`);
+}
+async function getMessages(filter) {
+  const qs = toQueryString({
+    search: filter?.search,
+    type: filter?.type,
+    channelId: filter?.channelId,
+    from: filter?.from,
+    minSentAt: filter?.minSentAt,
+    maxSentAt: filter?.maxSentAt
+  });
+  const path = `${PATH_MESSAGES}${qs}`;
+  const body = await HttpDB.get(path);
+  if (!body) return null;
+  try {
+    const raw = JSON.parse(body).messages;
+    return raw.map(toMessage);
+  } catch {
+    return null;
+  }
+}
+async function saveMessages(messages) {
+  return HttpDB.post(PATH_MESSAGES, { messages });
+}
+async function getRedPackets() {
+  const body = await HttpDB.get(PATH_REDPACKET);
+  if (!body) return [];
+  try {
+    const parsed = JSON.parse(body);
+    const raw = parsed.redpackets || parsed.redpacket || [];
+    return raw.map(toRedPacket);
+  } catch {
+    return [];
+  }
+}
+async function getRedPacket(redpacketId) {
+  const raw = await HttpDB.fetchJSON(PATH_REDPACKET, redpacketId, "redpacket");
+  if (!raw) return null;
+  return toRedPacket(raw);
+}
+async function saveRedPacket(redpacket) {
+  return HttpDB.post(PATH_REDPACKET, { redpacket, actorId: redpacket.senderid });
+}
+async function claimRedPacket(redpacketId, actorId, actorName) {
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod6.POST,
+    `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`,
+    {
+      actorId,
+      actorName
+    }
+  );
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.success, amount: parsed.amount, error: parsed.error };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+var PATH_CHANNELS, PATH_MESSAGES, PATH_REDPACKET;
+var init_ChatApi = __esm({
+  "scripts/api/ChatApi.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+    PATH_CHANNELS = "/api/sfmc/channels";
+    PATH_MESSAGES = "/api/sfmc/messages";
+    PATH_REDPACKET = "/api/sfmc/redpacket";
+  }
+});
+
+// scripts/api/CoopAPI.ts
+var CoopAPI_exports = {};
+__export(CoopAPI_exports, {
+  coopShopBuy: () => coopShopBuy,
+  coopShopSell: () => coopShopSell,
+  createCoop: () => createCoop,
+  deleteCoop: () => deleteCoop,
+  deleteShopItem: () => deleteShopItem,
+  findPlayerCoop: () => findPlayerCoop,
+  getAllCoops: () => getAllCoops,
+  getAllShopGroups: () => getAllShopGroups,
+  getBankLog: () => getBankLog,
+  getCoop: () => getCoop,
+  getMembers: () => getMembers,
+  getShopItems: () => getShopItems,
+  joinCoop: () => joinCoop,
+  leaveCoop: () => leaveCoop,
+  removeMember: () => removeMember,
+  saveShopGroup: () => saveShopGroup,
+  saveShopItem: () => saveShopItem,
+  treasury: () => treasury,
+  updateCoop: () => updateCoop,
+  updateMemberRole: () => updateMemberRole
+});
+import { HttpRequestMethod as HttpRequestMethod7 } from "@minecraft/server-net";
+async function getAllCoops() {
+  debug.i("API", "getAllCoops");
+  const body = await HttpDB.get(PATH2);
+  if (!body) return [];
+  try {
+    const coops = JSON.parse(body).coops || [];
+    debug.i("API", `getAllCoops: ${coops.length} coops`);
+    return coops;
+  } catch {
+    return [];
+  }
+}
+async function getCoop(cid) {
+  debug.i("API", `getCoop: cid=${cid}`);
+  const body = await HttpDB.get(`${PATH2}/${encodeURIComponent(cid)}`);
+  if (!body) return null;
+  try {
+    return JSON.parse(body).coop || null;
+  } catch {
+    return null;
+  }
+}
+async function updateCoop(cid, data) {
+  debug.i("API", `updateCoop: cid=${cid}`);
+  return HttpDB.put(`${PATH2}/${encodeURIComponent(cid)}`, data);
+}
+async function deleteCoop(cid, actorId) {
+  debug.i("API", `deleteCoop: cid=${cid} actorId=${actorId}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.DELETE, `${PATH2}/${encodeURIComponent(cid)}`, { actorId });
+  return result.status === 200;
+}
+async function getMembers(cid) {
+  debug.i("API", `getMembers: cid=${cid}`);
+  const body = await HttpDB.get(`${PATH2}/${encodeURIComponent(cid)}/members`);
+  if (!body) return [];
+  try {
+    return JSON.parse(body).members || [];
+  } catch {
+    return [];
+  }
+}
+async function joinCoop(cid, playerId2, playerName) {
+  debug.i("API", `joinCoop: cid=${cid} player=${playerName}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.POST, `${PATH2}/${encodeURIComponent(cid)}/members/join`, {
+    actorId: playerId2,
+    playerId: playerId2,
+    playerName
+  });
+  return result.status === 200;
+}
+async function leaveCoop(cid, playerId2) {
+  debug.i("API", `leaveCoop: cid=${cid} playerId=${playerId2}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.POST, `${PATH2}/${encodeURIComponent(cid)}/members/leave`, {
+    actorId: playerId2
+  });
+  return result.status === 200;
+}
+async function updateMemberRole(cid, actorId, playerId2, role) {
+  debug.i("API", `updateMemberRole: cid=${cid} playerId=${playerId2} role=${role}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod7.PUT,
+    `${PATH2}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId2)}`,
+    { actorId, role }
+  );
+  return result.status === 200;
+}
+async function removeMember(cid, actorId, playerId2) {
+  debug.i("API", `removeMember: cid=${cid} playerId=${playerId2}`);
+  const result = await HttpDB.requestJSON(
+    HttpRequestMethod7.DELETE,
+    `${PATH2}/${encodeURIComponent(cid)}/members/${encodeURIComponent(playerId2)}`,
+    { actorId }
+  );
+  return result.status === 200;
+}
+async function getShopItems(cid, type) {
+  debug.i("API", `getShopItems: cid=${cid} type=${type}`);
+  const qs = type !== void 0 ? `?type=${type}` : "";
+  const body = await HttpDB.get(`${PATH2}/${encodeURIComponent(cid)}/shop_items${qs}`);
+  if (!body) return [];
+  try {
+    return JSON.parse(body).items || [];
+  } catch {
+    return [];
+  }
+}
+async function saveShopItem(item) {
+  debug.i("API", `saveShopItem: cid=${item.cid} id=${item.id} name=${item.name}`);
+  return HttpDB.post(`${PATH2}/${encodeURIComponent(item.cid)}/shop_items`, item);
+}
+async function deleteShopItem(cid, id) {
+  debug.i("API", `deleteShopItem: cid=${cid} id=${id}`);
+  return HttpDB.del(`${PATH2}/${encodeURIComponent(cid)}/shop_items/${encodeURIComponent(id)}`);
+}
+async function getBankLog(cid) {
+  debug.i("API", `getBankLog: cid=${cid}`);
+  const body = await HttpDB.get(`${PATH2}/${encodeURIComponent(cid)}/bank_log`);
+  if (!body) return [];
+  try {
+    return JSON.parse(body).log || [];
+  } catch {
+    return [];
+  }
+}
+async function getAllShopGroups() {
+  debug.i("API", "getAllShopGroups");
+  const body = await HttpDB.get("/api/sfmc/coop_shop_groups");
+  if (!body) return [];
+  try {
+    return JSON.parse(body).groups || [];
+  } catch {
+    return [];
+  }
+}
+async function saveShopGroup(group) {
+  debug.i("API", `saveShopGroup: groupid=${group.groupid} displayname=${group.displayname}`);
+  return HttpDB.post("/api/sfmc/coop_shop_groups", { group });
+}
+async function findPlayerCoop(playerId2) {
+  debug.i("API", `findPlayerCoop: playerId=${playerId2}`);
+  const body = await HttpDB.get(`${PATH2}/by-player/${encodeURIComponent(playerId2)}`);
+  if (!body) return null;
+  try {
+    return JSON.parse(body).coop?.cid || null;
+  } catch {
+    return null;
+  }
+}
+async function createCoop(name, cid, actorId, actorName) {
+  debug.i("API", `createCoop: name=${name} cid=${cid} actor=${actorName}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.POST, `${PATH2}/create`, { name, cid, actorId, actorName });
+  try {
+    const parsed = JSON.parse(result.body);
+    return {
+      ok: result.status === 200 && parsed.ok !== false,
+      coop: parsed.coop,
+      balance: parsed.balance,
+      error: parsed.error
+    };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+async function treasury(cid, actorId, actorName, mode, amount, note = "") {
+  debug.i("API", `treasury: cid=${cid} actor=${actorName} mode=${mode} amount=${amount}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.POST, `${PATH2}/${encodeURIComponent(cid)}/treasury/${mode}`, {
+    actorId,
+    actorName,
+    amount,
+    note
+  });
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+async function coopShopBuy(cid, actorId, actorName, listingId, quantity, idempotencyKey) {
+  debug.i("API", `coopShopBuy: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.POST, `${PATH2}/${encodeURIComponent(cid)}/shop/buy`, {
+    actorId,
+    actorName,
+    listingId,
+    quantity,
+    idempotencyKey
+  });
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+async function coopShopSell(cid, actorId, actorName, listingId, quantity, idempotencyKey) {
+  debug.i("API", `coopShopSell: cid=${cid} actor=${actorName} listingId=${listingId} qty=${quantity}`);
+  const result = await HttpDB.requestJSON(HttpRequestMethod7.POST, `${PATH2}/${encodeURIComponent(cid)}/shop/sell`, {
+    actorId,
+    actorName,
+    listingId,
+    quantity,
+    idempotencyKey
+  });
+  try {
+    const parsed = JSON.parse(result.body);
+    return { ok: result.status === 200 && parsed.ok !== false, ...parsed };
+  } catch {
+    return { ok: false, error: "invalid_response" };
+  }
+}
+var PATH2;
+var init_CoopAPI = __esm({
+  "scripts/api/CoopAPI.ts"() {
+    "use strict";
+    init_DebugLog();
+    init_HttpDB();
+    PATH2 = "/api/sfmc/coops";
+  }
+});
+
+// scripts/api/PlayersDataApi.ts
+async function savePlayers(players) {
+  return HttpDB.post(PATH_PLAYERS, { players });
+}
+var PATH_PLAYERS;
+var init_PlayersDataApi = __esm({
+  "scripts/api/PlayersDataApi.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+    PATH_PLAYERS = "/api/sfmc/players";
+  }
+});
+
+// scripts/api/ScoreboardsSyncApi.ts
+async function backupScoreboards(entries) {
+  return HttpDB.post("/api/sfmc/scoreboards", { entries });
+}
+async function loadScoreboards(filter) {
+  const qs = toQueryString({
+    objective: filter?.objective,
+    name: filter?.name,
+    id: filter?.id
+  });
+  const body = await HttpDB.get(`/api/sfmc/scoreboards${qs}`);
+  if (!body) return null;
+  try {
+    return JSON.parse(body).entries;
+  } catch {
+    return null;
+  }
+}
+var init_ScoreboardsSyncApi = __esm({
+  "scripts/api/ScoreboardsSyncApi.ts"() {
+    "use strict";
+    init_HttpDB();
+    init_Tools();
+  }
+});
+
+// scripts/api/WorldDataApi.ts
+async function saveWorldData(data) {
+  return HttpDB.post("/api/sfmc/world", { data });
+}
+var init_WorldDataApi = __esm({
+  "scripts/api/WorldDataApi.ts"() {
+    "use strict";
+    init_HttpDB();
+  }
+});
+
+// scripts/api/index.ts
+var init_api = __esm({
+  "scripts/api/index.ts"() {
+    "use strict";
+    init_ChatApi();
+    init_CoopAPI();
+    init_EconomyApi();
+    init_LandApi();
+    init_PlayersDataApi();
+    init_ScoreboardsSyncApi();
+    init_WorldDataApi();
+  }
+});
+
+// scripts/chat/DogeChat.ts
+import { system as system20, world as world17 } from "@minecraft/server";
+var _DogeChat, DogeChat;
+var init_DogeChat = __esm({
+  "scripts/chat/DogeChat.ts"() {
+    "use strict";
+    init_api();
+    init_DebugLog();
+    init_HttpDB();
+    init_Money();
+    init_Permission();
+    init_Tools();
+    _DogeChat = class _DogeChat {
+      // ---------- 保留期 ----------
+      static getRetention(channel) {
+        if (channel.config.isBroadcast) return Infinity;
+        switch (channel.type) {
+          case "private":
+            return 30 * 24 * 60 * 60 * 1e3;
+          case "system":
+            return 24 * 60 * 60 * 1e3;
+          case "public":
+          case "custom":
+          default:
+            return 7 * 24 * 60 * 60 * 1e3;
+        }
+      }
+      // ============================================
+      //  频道初始化
+      // ============================================
+      static async ensureDefaultChannels() {
+        debug.i("CHAT", "ensureDefaultChannels");
+        for (let i = 0; i < 5; i++) {
+          const existing = await getChannels();
+          if (existing && existing.length > 0) {
+            debug.i("CHAT", `ensureDefaultChannels: ${existing.length} channels exist`);
+            return;
+          }
+          if (i < 4) {
+            await system20.waitTicks(40);
+            continue;
+          }
+          const ok = await saveChannels(_DogeChat.DEFAULT_CHANNELS).catch((err) => {
+            debug.e("CHAT", `ensureDefaultChannels: save failed: ${err}`);
+            return false;
+          });
+          if (ok) {
+            debug.i("CHAT", "ensureDefaultChannels: created default channels");
+            return;
+          }
+          await system20.waitTicks(40);
+        }
+      }
+      static async getPublicChannel() {
+        const rows = await getChannels({ type: "public" });
+        if (rows && rows.length > 0) return rows[0];
+        await this.ensureDefaultChannels();
+        const retry = await getChannels({ type: "public" });
+        return retry && retry.length > 0 ? retry[0] : null;
+      }
+      // ============================================
+      //  发送频道（!ch 用）
+      // ============================================
+      static async getActiveChannel(player) {
+        debug.i("CHAT", `getActiveChannel: player=${player.name}`);
+        const channelId = _DogeChat.activeChannelMap.get(player.id);
+        if (channelId) {
+          const ch = await getChannel(channelId);
+          if (ch) return ch;
+        }
+        const pub = await this.getPublicChannel();
+        if (pub) {
+          _DogeChat.activeChannelMap.set(player.id, pub.id);
+          this._ensureSubscribed(player.id, pub.id);
+          HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch(
+            (e) => console.warn("[DogeChat] error:", e)
+          );
+        }
+        return pub;
+      }
+      static async setActiveChannel(player, channelId) {
+        debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
+        _DogeChat.activeChannelMap.set(player.id, channelId);
+        this._ensureSubscribed(player.id, channelId);
+        await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch(
+          (e) => console.warn("[DogeChat] error:", e)
+        );
+      }
+      // ============================================
+      //  频道订阅系统
+      // ============================================
+      static isSubscribed(playerId2, channelId) {
+        return this.subscribedChannelsMap.get(playerId2)?.has(channelId) ?? false;
+      }
+      static getSubscribedChannelIds(playerId2) {
+        return Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
+      }
+      static async getSubscribedChannels(player) {
+        const ids = this.getSubscribedChannelIds(player.id);
+        const all = await getChannels();
+        if (!all) return [];
+        return all.filter((c) => ids.includes(c.id));
+      }
+      static async toggleSubscription(player, channelId) {
+        const subs = this.subscribedChannelsMap.get(player.id);
+        if (!subs) {
+          this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([channelId]));
+          this._saveSubscriptions(player.id);
+          return true;
+        }
+        if (subs.has(channelId)) {
+          subs.delete(channelId);
+          if (subs.size === 0) {
+            const pub = await this.getPublicChannel();
+            if (pub) subs.add(pub.id);
+          }
+          this._saveSubscriptions(player.id);
+          return false;
+        }
+        subs.add(channelId);
+        this._saveSubscriptions(player.id);
+        return true;
+      }
+      static async setSubscriptions(player, channelIds) {
+        this.subscribedChannelsMap.set(player.id, new Set(channelIds));
+        this._saveSubscriptions(player.id);
+      }
+      static _ensureSubscribed(playerId2, channelId) {
+        if (!this.subscribedChannelsMap.has(playerId2)) {
+          this.subscribedChannelsMap.set(playerId2, /* @__PURE__ */ new Set());
+        }
+        this.subscribedChannelsMap.get(playerId2).add(channelId);
+      }
+      static _saveSubscriptions(playerId2) {
+        const ids = Array.from(this.subscribedChannelsMap.get(playerId2) ?? []);
+        HttpDB.put(`/api/sfmc/players/${playerId2}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch(
+          (e) => console.warn("[DogeChat] error:", e)
+        );
+      }
+      static async loadSubscriptions(player) {
+        debug.i("CHAT", `loadSubscriptions: player=${player.name}`);
+        const raw = await HttpDB.fetchJSON("/api/sfmc/players", player.id, "player");
+        if (raw?.subscribed_channels) {
+          try {
+            const ids = JSON.parse(raw.subscribed_channels);
+            this.subscribedChannelsMap.set(player.id, new Set(ids));
+          } catch {
+          }
+        }
+        if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id).size === 0) {
+          const pub = await this.getPublicChannel();
+          if (pub) this.subscribedChannelsMap.set(player.id, /* @__PURE__ */ new Set([pub.id]));
+        }
+        if (!this.activeChannelMap.has(player.id)) {
+          const pub = await this.getPublicChannel();
+          if (pub) this.activeChannelMap.set(player.id, pub.id);
+        }
+      }
+      /** 频道在线人数（按订阅统计） */
+      static getOnlineCount(channelId) {
+        let count = 0;
+        for (const p of world17.getPlayers()) {
+          if (this.subscribedChannelsMap.get(p.id)?.has(channelId)) count++;
+        }
+        return count;
+      }
+      /** 创建新频道 */
+      static async createChannel(name, prefix, type, config, owner) {
+        debug.i("CHAT", `createChannel: name=${name} prefix=${prefix} type=${type}`);
+        const channel = {
+          id: generateId("CH"),
+          name,
+          prefix,
+          type,
+          ownerid: owner?.id,
+          createdAt: Date.now(),
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, ...config }
+        };
+        const ok = await createChannel(channel);
+        return ok ? channel.id : "";
+      }
+      static async deleteChannel(channelId) {
+        debug.i("CHAT", `deleteChannel: channelId=${channelId}`);
+        const ch = await getChannel(channelId);
+        if (!ch) {
+          debug.w("CHAT", "deleteChannel: not found");
+          return false;
+        }
+        if (ch.type === "public") {
+          debug.w("CHAT", "deleteChannel: cannot delete public channel");
+          return false;
+        }
+        return deleteChannel(channelId);
+      }
+      static async updateChannelConfig(channelId, config) {
+        const data = {};
+        if (config.allowChat !== void 0) data.configAllowChat = config.allowChat ? 1 : 0;
+        if (config.slowMode !== void 0) data.configSlowMode = config.slowMode;
+        if (config.isBroadcast !== void 0) data.configIsBroadcast = config.isBroadcast ? 1 : 0;
+        if (Object.keys(data).length === 0) return false;
+        return patchChannel(channelId, data);
+      }
+      static async updateChannelName(channelId, newName, newPrefix) {
+        return patchChannel(channelId, { name: newName, prefix: newPrefix });
+      }
+      static async getPrivateChannels(player) {
+        const rows = await getChannels({ type: "private", ownerId: player.id });
+        return rows ?? [];
+      }
+      // ============================================
+      //  系统消息频道
+      // ============================================
+      static getSystemChannelId(player) {
+        return `sys_${player.id}`;
+      }
+      static async ensureSystemChannel(player) {
+        const channelId = this.getSystemChannelId(player);
+        const existing = await getChannel(channelId);
+        if (existing) return existing;
+        const channel = {
+          id: channelId,
+          name: "\u7CFB\u7EDF\u6D88\u606F",
+          type: "system",
+          prefix: "SYS",
+          ownerid: player.id,
+          createdAt: Date.now(),
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, allowChat: false }
+        };
+        await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
+        return channel;
+      }
+      static async sendSystemMessage(player, content) {
+        const channel = await this.ensureSystemChannel(player);
+        const msg = {
+          id: generateId("M"),
+          fromid: "system",
+          fromName: "SYS",
+          channelId: channel.id,
+          type: "text",
+          content,
+          timestamp: Date.now(),
+          showTimestamp: true
+        };
+        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+      }
+      static isPrivateParticipant(channelId, playerId2) {
+        if (!channelId.startsWith("priv_")) return false;
+        return channelId.includes(playerId2);
+      }
+      static getPrivateOther(channelId, myId) {
+        if (!channelId.startsWith("priv_")) return void 0;
+        const parts = channelId.split("_");
+        return parts[1] === myId ? parts[2] : parts[1];
+      }
+      /** 循环切换发送频道（!ch 用），同时订阅目标频道 */
+      static async cycleChannel(player) {
+        const all = await getChannels();
+        if (!all) return null;
+        const switchable = all.filter((c) => c.type !== "private");
+        if (switchable.length === 0) {
+          const pub = await this.getPublicChannel();
+          if (pub) await this.setActiveChannel(player, pub.id);
+          return pub;
+        }
+        const currentId = _DogeChat.activeChannelMap.get(player.id);
+        const current = all.find((c) => c.id === currentId);
+        const idx = current ? switchable.findIndex((c) => c.id === current.id) : -1;
+        const next = switchable[(idx + 1) % switchable.length];
+        if (next) await this.setActiveChannel(player, next.id);
+        return next ?? null;
+      }
+      // ============================================
+      //  消息同步
+      // ============================================
+      static async getChannelHistory(channelId) {
+        const channel = await getChannel(channelId);
+        if (!channel) return [];
+        const cutoff = Date.now() - this.getRetention(channel);
+        const rows = await getMessages({ channelId, minSentAt: cutoff });
+        if (rows !== null) return rows;
+        return [];
+      }
+      static async loadChannelHistory(player, channelId) {
+        const channel = await getChannel(channelId);
+        if (!channel) return;
+        const history = await this.getChannelHistory(channelId);
+        if (history.length === 0) {
+          player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u6682\u65E0\u5386\u53F2\u6D88\u606F ---`);
+          return;
+        }
+        player.sendMessage(`\xA77--- \xA7f${channel.prefix} \xA77\u9891\u9053\u5386\u53F2\u6D88\u606F ---`);
+        for (const msg of history) {
+          const isBroadcast = channel.config.isBroadcast;
+          if (msg.showTimestamp && !isBroadcast) {
+            player.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+          }
+          let display = msg.content;
+          switch (msg.type) {
+            case "location":
+              display = `\xA7a[\u5B9A\u4F4D] ${display}`;
+              break;
+            case "teleport_invite":
+              display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
+              break;
+            case "redpacket":
+              display = `\xA76[\u7EA2\u5305] ${display}`;
+              break;
+          }
+          player.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: ${display}` }] });
+        }
+        player.sendMessage(`\xA77--- \u4EE5\u4E0A\u4E3A\u5386\u53F2\u6D88\u606F\uFF0C\u5171 ${history.length} \u6761 ---`);
+        player.sendMessage("\xA77!lo \xA78\u53D1\u9001\u5B9A\u4F4D \xA77| !tp \xA78\u4F20\u9001\u9080\u8BF7 \xA77| !hb \xA78\u53D1\u9001\u7EA2\u5305");
+      }
+      // ============================================
+      //  发送消息
+      // ============================================
+      static async sendChannelMessage(from, channelId, content, type = "text", attachment) {
+        debug.i("CHAT", `sendChannelMessage: from=${from.name} channelId=${channelId} type=${type}`);
+        const channel = await getChannel(channelId);
+        if (!channel) {
+          Msg.warning("\u9891\u9053\u4E0D\u5B58\u5728\u3002", from);
+          return false;
+        }
+        if (!channel.config?.allowChat) {
+          if (channel.type === "system") Msg.warning("\u8BE5\u9891\u9053\u53EA\u8BFB\u3002", from);
+          return false;
+        }
+        if (channel.config?.isBroadcast) {
+          const owner = await this.isChannelOwner(from, channelId);
+          const isAdmin = Permission.check(from, "chat.admin");
+          if (!owner && !isAdmin) {
+            Msg.warning("\u6B64\u9891\u9053\u4E3A\u516C\u544A\u677F\u6A21\u5F0F\uFF0C\u53EA\u6709\u7BA1\u7406\u5458\u624D\u80FD\u53D1\u8A00\u3002", from);
+            return false;
+          }
+          const msg2 = {
+            id: generateId("M"),
+            fromid: from.id,
+            fromName: from.name,
+            channelId,
+            type,
+            content,
+            attachment,
+            timestamp: Date.now(),
+            showTimestamp: true
+          };
+          await saveMessages([msg2]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+          from.sendMessage({ rawtext: [{ text: `\xA7a[${channel.prefix}] ${from.name}: ${content}` }] });
+          return true;
+        }
+        if (channel.config?.slowMode && channel.config.slowMode > 0) {
+          const playerMap = this.slowModeTracker.get(from.id);
+          const lastTs = playerMap?.get(channelId) ?? 0;
+          const elapsed = (Date.now() - lastTs) / 1e3;
+          if (elapsed < channel.config.slowMode) {
+            Msg.warning(
+              `\u9891\u9053 ${channel.prefix} \u6162\u901F\u6A21\u5F0F\u4E2D\uFF0C\u8BF7\u7B49\u5F85 ${Math.ceil(channel.config.slowMode - elapsed)} \u79D2\u3002`,
+              from
+            );
+            return false;
+          }
+        }
+        const history = await this.getChannelHistory(channelId);
+        const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
+        const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
+        const msg = {
+          id: generateId("M"),
+          fromid: from.id,
+          fromName: from.name,
+          channelId,
+          type,
+          content,
+          attachment,
+          timestamp: Date.now(),
+          showTimestamp
+        };
+        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+        if (showTimestamp) from.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+        from.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${from.name}: ${content}` }] });
+        this._broadcastToSubscribers(channel, msg, showTimestamp, from.id);
+        if (channel.config?.slowMode && channel.config.slowMode > 0) {
+          if (!this.slowModeTracker.has(from.id)) this.slowModeTracker.set(from.id, /* @__PURE__ */ new Map());
+          this.slowModeTracker.get(from.id).set(channelId, Date.now());
+        }
+        return true;
+      }
+      /** 广播消息给所有订阅了该频道的玩家 */
+      static _broadcastToSubscribers(channel, msg, showTimestamp, excludeId) {
+        const isBroadcast = channel.config.isBroadcast;
+        for (const p of world17.getPlayers()) {
+          if (p.id === excludeId) continue;
+          if (!this.isSubscribed(p.id, channel.id)) continue;
+          let display = msg.content;
+          switch (msg.type) {
+            case "location":
+              display = `\xA7a[\u5B9A\u4F4D] ${display}`;
+              break;
+            case "teleport_invite":
+              display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
+              break;
+            case "redpacket":
+              display = `\xA76[\u7EA2\u5305] ${display}`;
+              break;
+          }
+          if (showTimestamp && !isBroadcast) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+          p.chatNamePrefix = `[${channel.prefix}]`;
+          p.sendMessage(`${display}`);
+        }
+      }
+      static async sendPrivateMessage(from, toPlayer, content, type = "text") {
+        const channel = await this.ensurePrivateChannel(from.id, toPlayer.id);
+        const history = await this.getChannelHistory(channel.id);
+        const lastMsg = history.length > 0 ? history[history.length - 1] : void 0;
+        const showTimestamp = !lastMsg || Date.now() - lastMsg.timestamp > 5 * 60 * 1e3;
+        const msg = {
+          id: generateId("M"),
+          fromid: from.id,
+          fromName: from.name,
+          channelId: channel.id,
+          type,
+          content,
+          timestamp: Date.now(),
+          showTimestamp
+        };
+        saveMessages([msg]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+        for (const p of [from, toPlayer]) {
+          if (this.isSubscribed(p.id, channel.id)) {
+            let display = content;
+            switch (type) {
+              case "location":
+                display = `\xA7a[\u5B9A\u4F4D] ${display}`;
+                break;
+              case "teleport_invite":
+                display = `\xA7e[\u4F20\u9001\u9080\u8BF7] ${display}`;
+                break;
+              case "redpacket":
+                display = `\xA76[\u7EA2\u5305] ${display}`;
+                break;
+            }
+            if (showTimestamp) p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+            const sender = p.id === from.id ? toPlayer.name : from.name;
+            p.sendMessage({ rawtext: [{ text: `\xA7d[\u79C1\u4FE1] \xA7f${sender}: ${display}` }] });
+          } else if (p.id !== from.id) {
+            Msg.info(`\xA7b${from.name} \u53D1\u6765\u4E00\u6761\u79C1\u4FE1\u3002\u4F7F\u7528 !channel \u5207\u6362\u5230\u79C1\u804A\u9891\u9053\u67E5\u770B\u3002`, p);
+          }
+        }
+        return true;
+      }
+      static async ensurePrivateChannel(idA, idB) {
+        const ids = [idA, idB].sort();
+        const channelId = `priv_${ids[0]}_${ids[1]}`;
+        const existing = await getChannel(channelId);
+        if (existing) return existing;
+        const nameB = world17.getPlayers().find((p) => p.id === idB)?.name ?? idB;
+        const channel = {
+          id: channelId,
+          name: `\u4E0E ${nameB} \u7684\u79C1\u804A`,
+          type: "private",
+          prefix: `\u79C1\u804A-${nameB}`,
+          ownerid: idA,
+          createdAt: Date.now(),
+          config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+        };
+        await createChannel(channel).catch((e) => console.warn("[DogeChat] error:", e));
+        return channel;
+      }
+      // ============================================
+      //  定位 & 传送
+      // ============================================
+      static createLocationMessage(player) {
+        const loc2 = player.location;
+        return `${player.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
+      }
+      static sendTeleportInvite(from, toPlayer) {
+        const loc2 = from.location;
+        const locStr = `${from.dimension.id}:${Math.floor(loc2.x)},${Math.floor(loc2.y)},${Math.floor(loc2.z)}`;
+        return this.sendPrivateMessage(from, toPlayer, `${from.name} \u9080\u8BF7\u4F60\u4F20\u9001\u5230\u4ED6\u7684\u4F4D\u7F6E\uFF01(${locStr})`, "teleport_invite");
+      }
+      // ============================================
+      //  红包
+      // ============================================
+      static async sendRedPacket(sender, amount, count, targetType, targetId) {
+        debug.i(
+          "CHAT",
+          `sendRedPacket: sender=${sender.name} amount=${amount} count=${count} type=${targetType} targetId=${targetId}`
+        );
+        if (amount <= 0 || count <= 0 || count > amount) {
+          Msg.error("\u7EA2\u5305\u53C2\u6570\u65E0\u6548\u3002", sender);
+          return false;
+        }
+        const balance = await Money.load(sender);
+        if (balance < amount) {
+          Msg.error(`${Money.UNIT}\u4E0D\u8DB3\uFF0C\u9700\u8981 ${amount}\uFF0C\u5F53\u524D ${balance}\u3002`, sender);
+          return false;
+        }
+        const packet = {
+          id: generateId("RP"),
+          senderid: sender.id,
+          senderName: sender.name,
+          totalAmount: amount,
+          remainingAmount: amount,
+          totalCount: count,
+          remainingCount: count,
+          receivers: [],
+          targetType,
+          targetId,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 24 * 60 * 60 * 1e3
+        };
+        const saved = await saveRedPacket(packet);
+        if (!saved) {
+          Msg.error("\u7EA2\u5305\u53D1\u9001\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", sender);
+          return false;
+        }
+        await Money.load(sender);
+        Msg.success(`${sender.name} \u53D1\u9001\u4E86\u7EA2\u5305\uFF1A${amount} ${Money.UNIT}\uFF08\u5171 ${count} \u4EFD\uFF09\u3002`, sender);
+        const channelId = targetType === "group" ? targetId : (await this.ensurePrivateChannel(sender.id, targetId)).id;
+        saveMessages([
+          {
+            id: generateId("M"),
+            fromid: sender.id,
+            fromName: sender.name,
+            channelId,
+            type: "redpacket",
+            content: `\u53D1\u9001\u4E86 ${amount} ${Money.UNIT} \u7684\u7EA2\u5305\uFF08\u5171 ${count} \u4EFD\uFF09`,
+            timestamp: Date.now()
+          }
+        ]).catch((err) => console.warn(`[DogeChat] \u4FDD\u5B58\u6D88\u606F\u5931\u8D25: ${err}`));
+        return true;
+      }
+      static async claimRedPacket(player, packetId) {
+        debug.i("CHAT", `claimRedPacket: player=${player.name} packetId=${packetId}`);
+        const packet = await getRedPacket(packetId);
+        if (!packet) {
+          Msg.error("\u7EA2\u5305\u4E0D\u5B58\u5728\u3002", player);
+          return 0;
+        }
+        if (packet.remainingCount <= 0) {
+          Msg.error("\u7EA2\u5305\u5DF2\u88AB\u9886\u5B8C\u3002", player);
+          return 0;
+        }
+        if (packet.receivers.includes(player.id)) {
+          Msg.warning("\u4F60\u5DF2\u7ECF\u9886\u53D6\u8FC7\u8FD9\u4E2A\u7EA2\u5305\u4E86\u3002", player);
+          return 0;
+        }
+        if (Date.now() > packet.expiresAt) {
+          Msg.error("\u7EA2\u5305\u5DF2\u8FC7\u671F\u3002", player);
+          return 0;
+        }
+        let amount;
+        if (packet.remainingCount === 1) {
+          amount = packet.remainingAmount;
+        } else {
+          const max = Math.floor(packet.remainingAmount / packet.remainingCount * 2);
+          amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
+          amount = Math.min(amount, packet.remainingAmount - (packet.remainingCount - 1));
+        }
+        const result = await claimRedPacket(packet.id, player.id, player.name);
+        if (!result.ok) {
+          Msg.error("\u9886\u53D6\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", player);
+          return 0;
+        }
+        const claimedAmount = result.amount ?? amount;
+        await Money.load(player);
+        Msg.success(`\u4F60\u9886\u53D6\u4E86 ${packet.senderName} \u7684\u7EA2\u5305\uFF0C\u83B7\u5F97 ${claimedAmount} ${Money.UNIT}\uFF01`, player);
+        return claimedAmount;
+      }
+      static async getAvailableRedPackets(player) {
+        const rows = await getRedPackets();
+        const now = Date.now();
+        return rows.filter((p) => {
+          if (p.remainingCount <= 0 || now > p.expiresAt) return false;
+          if (p.targetType === "player") return p.targetId === player.id;
+          return true;
+        });
+      }
+      static cleanupExpiredRedPackets() {
+      }
+      // ============================================
+      //  权限判断
+      // ============================================
+      static async isChannelOwner(player, channelId) {
+        const ch = await getChannel(channelId);
+        return ch?.ownerid === player.id;
+      }
+      // ============================================
+      //  QQ 桥接轮询
+      // ============================================
+      static startBridgePolling(bridgeChannelId) {
+        debug.i("CHAT", `startBridgePolling: channelId=${bridgeChannelId}`);
+        if (this._bridgePollStarted) return;
+        this._bridgePollStarted = true;
+        this._lastBridgeFetch = Date.now();
+        this._bridgePollId = system20.runInterval(async () => {
+          try {
+            const since = this._lastBridgeFetch;
+            this._lastBridgeFetch = Date.now();
+            const msgs = await getMessages({ channelId: bridgeChannelId, minSentAt: since });
+            if (!msgs || msgs.length === 0) return;
+            const channel = await getChannel(bridgeChannelId);
+            if (!channel) return;
+            for (const msg of msgs) {
+              if (msg.fromid.startsWith("qq_")) {
+                const isBroadcast = channel.config.isBroadcast;
+                for (const p of world17.getPlayers()) {
+                  if (!this.isSubscribed(p.id, bridgeChannelId)) continue;
+                  if (!isBroadcast && msg.timestamp - this._lastBridgeTimestamp > 3e5) {
+                    this._lastBridgeTimestamp = msg.timestamp;
+                    p.sendMessage(`\xA77${formatTimestamp(msg.timestamp)}`);
+                  }
+                  p.sendMessage({ rawtext: [{ text: `\xA7b[${channel.prefix}] \xA7f${msg.fromName}: \xA7r${msg.content}` }] });
+                }
+              }
+            }
+          } catch {
+          }
+        }, 600);
+      }
+      static stopBridgePolling() {
+        debug.i("CHAT", "stopBridgePolling");
+        if (this._bridgePollId !== void 0) {
+          try {
+            system20.clearRun(this._bridgePollId);
+          } catch {
+          }
+          this._bridgePollId = void 0;
+        }
+        this._bridgePollStarted = false;
+      }
+    };
+    _DogeChat.DEFAULT_CHANNEL_CONFIG = {
+      allowChat: true,
+      slowMode: 0,
+      isBroadcast: false
+    };
+    _DogeChat.DEFAULT_CHANNELS = [
+      {
+        id: generateId("CH"),
+        name: "\u516C\u5171\u9891\u9053",
+        type: "public",
+        prefix: "PB",
+        createdAt: Date.now(),
+        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG }
+      },
+      {
+        id: generateId("CH"),
+        name: "\u516C\u544A",
+        type: "custom",
+        prefix: "BC",
+        createdAt: Date.now(),
+        config: { ..._DogeChat.DEFAULT_CHANNEL_CONFIG, isBroadcast: true }
+      }
+    ];
+    _DogeChat.slowModeTracker = /* @__PURE__ */ new Map();
+    /** 发送频道（玩家输入的消息发送到此频道） */
+    _DogeChat.activeChannelMap = /* @__PURE__ */ new Map();
+    /** 订阅频道（接收消息的频道列表） */
+    _DogeChat.subscribedChannelsMap = /* @__PURE__ */ new Map();
+    /** QQ 桥接轮询 */
+    _DogeChat._bridgePollStarted = false;
+    _DogeChat._bridgePollId = void 0;
+    _DogeChat._lastBridgeFetch = Date.now();
+    _DogeChat._lastBridgeTimestamp = 0;
+    DogeChat = _DogeChat;
+  }
+});
+
 // scripts/gui/ChatGUI.ts
-import { world as world19 } from "@minecraft/server";
+import { world as world18 } from "@minecraft/server";
 var ChatGUI;
 var init_ChatGUI = __esm({
   "scripts/gui/ChatGUI.ts"() {
@@ -6922,7 +6708,7 @@ var init_ChatGUI = __esm({
             Msg.error("\u65E0\u6CD5\u627E\u5230\u79C1\u804A\u5BF9\u8C61\u3002", player);
             return;
           }
-          const target = world19.getPlayers().find((p) => p.id === otherid);
+          const target = world18.getPlayers().find((p) => p.id === otherid);
           if (!target) {
             Msg.error("\u5BF9\u65B9\u4E0D\u5728\u7EBF\u3002", player);
             return;
@@ -6930,7 +6716,7 @@ var init_ChatGUI = __esm({
           DogeChat.sendTeleportInvite(player, target);
           return;
         }
-        const online = world19.getPlayers().filter((p) => p.id !== player.id);
+        const online = world18.getPlayers().filter((p) => p.id !== player.id);
         if (online.length === 0) {
           Msg.info("\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002", player);
           return;
@@ -7244,7 +7030,7 @@ var init_ChatGUI = __esm({
         }
       }
       async buildInvite(page) {
-        const online = world19.getPlayers().filter((p) => p.id !== this.player.id);
+        const online = world18.getPlayers().filter((p) => p.id !== this.player.id);
         if (online.length === 0) {
           page.label(ListFormInfo(["\u5F53\u524D\u6CA1\u6709\u5176\u4ED6\u5728\u7EBF\u73A9\u5BB6\u53EF\u9080\u8BF7\u3002"]));
           return;
@@ -7303,7 +7089,7 @@ var init_ChatGUI = __esm({
 });
 
 // scripts/coop/CoopCore.ts
-import { world as world20 } from "@minecraft/server";
+import { world as world19 } from "@minecraft/server";
 var CoopCore;
 var init_CoopCore = __esm({
   "scripts/coop/CoopCore.ts"() {
@@ -7443,7 +7229,7 @@ var init_CoopCore = __esm({
         if (!data) return;
         let sent = 0;
         for (const member of data.members || []) {
-          for (const p of world20.getPlayers())
+          for (const p of world19.getPlayers())
             if (p.id === member.player_id) {
               Msg.info(`[${data.name}] ${text}`, p);
               sent++;
@@ -8307,7 +8093,7 @@ var init_CoopGUI = __esm({
 });
 
 // scripts/gui/MainMenu.ts
-import { system as system22 } from "@minecraft/server";
+import { system as system21 } from "@minecraft/server";
 var MainMenu;
 var init_MainMenu = __esm({
   "scripts/gui/MainMenu.ts"() {
@@ -8389,7 +8175,7 @@ var init_MainMenu = __esm({
             await Money.load(player);
             await Money.load(target);
             status.setData(`\xA7a\u6210\u529F\u8F6C\u8D26 ${amount} ${Money.UNIT} \u7ED9 ${name}\u3002`);
-            system22.runTimeout(() => nav.rebuild("economy"), 40);
+            system21.runTimeout(() => nav.rebuild("economy"), 40);
           });
         });
         nav.start("main");
@@ -8399,7 +8185,7 @@ var init_MainMenu = __esm({
 });
 
 // scripts/gui/MoneyGUI.ts
-import { world as world21 } from "@minecraft/server";
+import { world as world20 } from "@minecraft/server";
 var MoneyGUI;
 var init_MoneyGUI = __esm({
   "scripts/gui/MoneyGUI.ts"() {
@@ -8445,7 +8231,7 @@ var init_MoneyGUI = __esm({
               status.fail("\u8F93\u5165\u65E0\u6548\uFF0C\u8BF7\u68C0\u67E5\u73A9\u5BB6\u540D\u79F0\u548C\u6570\u91CF\u3002");
               return;
             }
-            const target = world21.getPlayers().find((p) => p.name === name);
+            const target = world20.getPlayers().find((p) => p.name === name);
             if (!target) {
               status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
               return;
@@ -8468,7 +8254,7 @@ var init_MoneyGUI = __esm({
               status.fail("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u73A9\u5BB6\u540D\u79F0\u3002");
               return;
             }
-            const target = world21.getPlayers().find((p) => p.name === name);
+            const target = world20.getPlayers().find((p) => p.name === name);
             if (!target) {
               status.fail(`\u672A\u627E\u5230\u73A9\u5BB6\u300C${name}\u300D\u3002`);
               return;
@@ -8532,7 +8318,7 @@ var init_CoopSystem = __esm({
 });
 
 // scripts/chat/ChatSystem.ts
-import { system as system23, world as world22 } from "@minecraft/server";
+import { system as system22, world as world21 } from "@minecraft/server";
 var _ChatSystem, ChatSystem;
 var init_ChatSystem = __esm({
   "scripts/chat/ChatSystem.ts"() {
@@ -8563,7 +8349,7 @@ var init_ChatSystem = __esm({
         console.log(`ChatSystem initialized successfully.`);
       }
       static registerEvents() {
-        _ChatSystem.chatSendSub = world22.beforeEvents.chatSend.subscribe(async (event) => {
+        _ChatSystem.chatSendSub = world21.beforeEvents.chatSend.subscribe(async (event) => {
           const player = event.sender;
           const message = event.message;
           if (message.startsWith("!") || message.startsWith("\uFF01")) return;
@@ -8571,9 +8357,9 @@ var init_ChatSystem = __esm({
           const channel = await DogeChat.getActiveChannel(player);
           if (channel) await DogeChat.sendChannelMessage(player, channel.id, message);
         });
-        _ChatSystem.playerJoinSub = world22.afterEvents.playerJoin.subscribe((event) => {
-          const player = world22.getEntity(event.playerId);
-          system23.run(async () => {
+        _ChatSystem.playerJoinSub = world21.afterEvents.playerJoin.subscribe((event) => {
+          const player = world21.getEntity(event.playerId);
+          system22.run(async () => {
             await DogeChat.loadSubscriptions(player);
             const channel = await DogeChat.getActiveChannel(player);
             if (channel) await DogeChat.loadChannelHistory(player, channel.id);
@@ -8672,11 +8458,11 @@ var init_ChatSystem = __esm({
 });
 
 // scripts/data/ActivityLog.ts
-import { system as system24, world as world23 } from "@minecraft/server";
+import { system as system23, world as world22 } from "@minecraft/server";
 function enqueue(entry) {
   queue.push(entry);
   if (!flushTimer) {
-    flushTimer = system24.runTimeout(flush, FLUSH_INTERVAL / 50);
+    flushTimer = system23.runTimeout(flush, FLUSH_INTERVAL / 50);
   }
 }
 async function flush() {
@@ -8756,7 +8542,7 @@ function subscribe() {
       }
     }
   }
-  const AE = world23.afterEvents;
+  const AE = world22.afterEvents;
   safeSubscribe(AE.playerSpawn, (event) => {
     if (!event.initialSpawn) return;
     if (!ENABLED_EVENTS.has("player.join")) return;
@@ -9188,28 +8974,28 @@ var init_ActivityLog = __esm({
         subscriptions.length = 0;
         if (flushTimer !== null) {
           try {
-            system24.clearRun(flushTimer);
+            system23.clearRun(flushTimer);
           } catch {
           }
           flushTimer = null;
         }
         if (flushIntervalId !== void 0) {
           try {
-            system24.clearRun(flushIntervalId);
+            system23.clearRun(flushIntervalId);
           } catch {
           }
           flushIntervalId = void 0;
         }
         if (cleanupStartTimeoutId !== void 0) {
           try {
-            system24.clearRun(cleanupStartTimeoutId);
+            system23.clearRun(cleanupStartTimeoutId);
           } catch {
           }
           cleanupStartTimeoutId = void 0;
         }
         if (cleanupIntervalId !== void 0) {
           try {
-            system24.clearRun(cleanupIntervalId);
+            system23.clearRun(cleanupIntervalId);
           } catch {
           }
           cleanupIntervalId = void 0;
@@ -9221,11 +9007,11 @@ var init_ActivityLog = __esm({
         if (initialized) return;
         initialized = true;
         console.info("[ActivityLog] \u4E8B\u4EF6\u8BA2\u9605\u5B8C\u6210");
-        flushIntervalId = system24.runInterval(flush, FLUSH_INTERVAL / 50);
-        cleanupStartTimeoutId = system24.runTimeout(() => {
+        flushIntervalId = system23.runInterval(flush, FLUSH_INTERVAL / 50);
+        cleanupStartTimeoutId = system23.runTimeout(() => {
           cleanupStartTimeoutId = void 0;
           doCleanup();
-          cleanupIntervalId = system24.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
+          cleanupIntervalId = system23.runInterval(doCleanup, CLEANUP_INTERVAL / 50);
         }, 72e3 / 50);
       }
     };
@@ -9261,11 +9047,11 @@ var init_Player = __esm({
 });
 
 // scripts/data/Scoreboards.ts
-import { world as world24 } from "@minecraft/server";
+import { world as world23 } from "@minecraft/server";
 function ScoreboardsBackup() {
   debug.i("DATA", "ScoreboardsBackup");
   let entries = [];
-  world24.scoreboard.getObjectives().forEach((obj, index) => {
+  world23.scoreboard.getObjectives().forEach((obj, index) => {
     const scores = obj.getScores();
     entries.push({
       id: obj.id,
@@ -9303,7 +9089,7 @@ var init_Scoreboards = __esm({
             const result = await this.load();
             const message = `\u8BA1\u5206\u677F\u6062\u590D\u5B8C\u6210\uFF1A\u6210\u529F ${result.success}\uFF0C\u5931\u8D25 ${result.fail}`;
             if (player) Msg.info(message, player);
-            else world24.sendMessage(message);
+            else world23.sendMessage(message);
           },
           "\u4ECE\u6570\u636E\u5E93\u6062\u590D\u8BA1\u5206\u677F",
           "scoreboardSync"
@@ -9332,10 +9118,10 @@ var init_Scoreboards = __esm({
             groups.set(e.objective_id, list);
           }
           for (const [objId, objEntries] of groups) {
-            let objective = world24.scoreboard.getObjective(objId);
+            let objective = world23.scoreboard.getObjective(objId);
             if (!objective) {
               try {
-                objective = world24.scoreboard.addObjective(objId, objEntries[0].objective_display || objId);
+                objective = world23.scoreboard.addObjective(objId, objEntries[0].objective_display || objId);
               } catch (err) {
                 console.warn(`[ScoreboardSync] \u65E0\u6CD5\u521B\u5EFA\u8BB0\u5206\u9879 "${objId}"\uFF1A${err}`);
                 fail += objEntries.length;
@@ -9345,7 +9131,7 @@ var init_Scoreboards = __esm({
             for (const e of objEntries) {
               try {
                 if (e.participant_type === "Player" && e.id) {
-                  const player = [...world24.getPlayers()].find((p) => p.id === e.id);
+                  const player = [...world23.getPlayers()].find((p) => p.id === e.id);
                   if (player?.scoreboardIdentity) {
                     objective.setScore(player.scoreboardIdentity, e.score);
                     success++;
@@ -9371,9 +9157,9 @@ var init_Scoreboards = __esm({
 });
 
 // scripts/data/World.ts
-import { world as world25 } from "@minecraft/server";
+import { world as world24 } from "@minecraft/server";
 function serializeGameRules() {
-  const g = world25.gameRules;
+  const g = world24.gameRules;
   const rules = {};
   const props = [
     "commandBlockOutput",
@@ -9417,18 +9203,18 @@ function serializeGameRules() {
 async function getWorldData() {
   debug.i("DATA", "getWorldData");
   const data = {
-    allowCheats: world25.allowCheats,
+    allowCheats: world24.allowCheats,
     gameRules: serializeGameRules(),
-    seed: world25.seed,
-    defaultSpawnLocation: JSON.stringify(world25.getDefaultSpawnLocation()),
-    difficulty: world25.getDifficulty(),
-    day: world25.getDay(),
-    tickingAreasCount: world25.tickingAreaManager.chunkCount,
-    absoluteTime: world25.getAbsoluteTime(),
-    structuresFromAddon: world25.structureManager.getPackStructureIds().toString(),
-    structuresFromWorld: world25.structureManager.getWorldStructureIds().toString(),
-    MoonPhase: world25.getMoonPhase(),
-    dynamicPropertyTotalByteCount: world25.getDynamicPropertyTotalByteCount(),
+    seed: world24.seed,
+    defaultSpawnLocation: JSON.stringify(world24.getDefaultSpawnLocation()),
+    difficulty: world24.getDifficulty(),
+    day: world24.getDay(),
+    tickingAreasCount: world24.tickingAreaManager.chunkCount,
+    absoluteTime: world24.getAbsoluteTime(),
+    structuresFromAddon: world24.structureManager.getPackStructureIds().toString(),
+    structuresFromWorld: world24.structureManager.getWorldStructureIds().toString(),
+    MoonPhase: world24.getMoonPhase(),
+    dynamicPropertyTotalByteCount: world24.getDynamicPropertyTotalByteCount(),
     updatedAt: getShanghaiTime().date + getShanghaiTime().time
   };
   return data;
@@ -9448,7 +9234,7 @@ var init_World = __esm({
 });
 
 // scripts/entry.ts
-import { system as system25, world as world26 } from "@minecraft/server";
+import { system as system24, world as world25 } from "@minecraft/server";
 var AddOnInit;
 var init_entry = __esm({
   "scripts/entry.ts"() {
@@ -9502,8 +9288,6 @@ var init_entry = __esm({
           );
         },
         init: () => {
-          ConfigManager.startPolling();
-          ConfigManager.startFastPoll();
         }
       }
     });
@@ -9521,7 +9305,7 @@ var init_entry = __esm({
           Permission.registerPermlistCommand();
         },
         registerEvents: () => {
-          world26.beforeEvents.chatSend.subscribe((event) => {
+          world25.beforeEvents.chatSend.subscribe((event) => {
             if (!guardEvent()) return;
             const firstChar = event.message.substring(0, 1);
             if (firstChar === "!" || firstChar === "\uFF01") {
@@ -9538,7 +9322,7 @@ var init_entry = __esm({
       afterWorldLoad: false,
       lifecycle: {
         registerEvents: () => {
-          world26.afterEvents.playerSpawn.subscribe((event) => {
+          world25.afterEvents.playerSpawn.subscribe((event) => {
             if (!guardEvent()) return;
             if (event.initialSpawn) {
               getPlayerData(event.player).then((data) => {
@@ -9547,9 +9331,9 @@ var init_entry = __esm({
               });
             }
           });
-          world26.afterEvents.playerLeave.subscribe(async (event) => {
+          world25.afterEvents.playerLeave.subscribe(async (event) => {
             if (!guardEvent()) return;
-            const player = world26.getEntity(event.playerId);
+            const player = world25.getEntity(event.playerId);
             if (player) {
               try {
                 const data = await getPlayerData(player);
@@ -9643,7 +9427,7 @@ var init_entry = __esm({
         registerPermissions: () => Permission.register("money.admin", Permission.OP),
         registerCommands: () => MoneyGUI.registerCommand(),
         registerEvents: () => {
-          world26.afterEvents.playerSpawn.subscribe((event) => {
+          world25.afterEvents.playerSpawn.subscribe((event) => {
             void Money.load(event.player);
           });
         },
@@ -9809,8 +9593,8 @@ var init_entry = __esm({
         this.registerEvents();
       }
       static registerEvents() {
-        system25.beforeEvents.startup.subscribe(async () => {
-          system25.run(async () => {
+        system24.beforeEvents.startup.subscribe(async () => {
+          system24.run(async () => {
             await ConfigManager.init();
             setModuleGuard((moduleId) => {
               const idKey = moduleId;
@@ -9821,12 +9605,12 @@ var init_entry = __esm({
             announceLoaded();
           });
         });
-        world26.afterEvents.worldLoad.subscribe(() => {
+        world25.afterEvents.worldLoad.subscribe(() => {
           if (!guardEvent()) return;
           ModuleRegistry.bootAfterWorldLoad();
           syncWorldData();
         });
-        system25.beforeEvents.shutdown.subscribe(() => {
+        system24.beforeEvents.shutdown.subscribe(() => {
           if (!guardEvent()) return;
           ModuleRegistry.teardown();
         });

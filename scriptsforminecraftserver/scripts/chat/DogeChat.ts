@@ -1,11 +1,17 @@
+/* ---------------------------------------- *\
+ *  Name        :  CHAT                     *
+ *  Description :  频道式聊天系统            *
+ *  Version     :  1.2.0                    *
+ *  Author      :  Shiroha7z                *
+\* ---------------------------------------- */
 import { Player, system, world } from "@minecraft/server";
-import * as ChatApi from "../api";
-import { debug } from "../libs/DebugLog";
-import { HttpDB } from "../libs/HttpDB";
-import { Money } from "../libs/Money";
-import { Permission } from "../libs/Permission";
-import { Msg, formatTimestamp, generateId } from "../libs/Tools";
-import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "../types";
+import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc-types/chat.js";
+import * as ChatApi from "../api/ChatApi.js";
+import { debug } from "../libs/DebugLog.js";
+import { Money } from "../libs/Economy.js";
+import { HttpDB } from "../libs/HttpDB.js";
+import { Permission } from "../libs/Permission.js";
+import { Msg, formatTimestamp, generateId } from "../libs/Tools.js";
 
 export type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket };
 

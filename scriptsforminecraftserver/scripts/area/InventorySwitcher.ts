@@ -16,8 +16,8 @@ import {
   system,
   world,
 } from "@minecraft/server";
-import { ConfigManager } from "../libs/ConfigManager";
-import * as Tool from "../libs/Tools";
+import { ConfigManager } from "../libs/ConfigManager.js";
+import * as Tool from "../libs/Tools.js";
 
 export class InventorySwitcher {
   static _instance: InventorySwitcher;

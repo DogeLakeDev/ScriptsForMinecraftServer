@@ -1,12 +1,12 @@
 import { Player, system } from "@minecraft/server";
-import { Command } from "../libs/Command";
-import { debug } from "../libs/DebugLog";
-import { MenuNavigator, obsStr } from "../libs/MenuNavigator";
-import { Money } from "../libs/Money";
-import { ListFormInfo } from "../libs/Tools";
-import { ChatGUI } from "./ChatGUI";
-import { CoopGUI } from "./CoopGUI";
-import { LandGUI } from "./LandGUI";
+import { Command } from "../libs/Command.js";
+import { debug } from "../libs/DebugLog.js";
+import { MenuNavigator, obsStr } from "../libs/MenuNavigator.js";
+import { Money } from "../libs/Money.js";
+import { ListFormInfo } from "../libs/Tools.js";
+import { ChatGUI } from "./ChatGUI.js";
+import { CoopGUI } from "./CoopGUI.js";
+import { LandGUI } from "./LandGUI.js";
 
 export class MainMenu {
   static registerMenuCommand() {
@@ -72,7 +72,7 @@ export class MainMenu {
           status.setData(`§c余额不足。当前余额: ${bal} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`);
           return;
         }
-        const transferred = await import("../api/EconomyApi").then(({ transferEconomy }) =>
+        const transferred = await import("../api/EconomyApi.js").then(({ transferEconomy }) =>
           transferEconomy(player.id, target.id, amount, target.name)
         );
         if (!transferred) {

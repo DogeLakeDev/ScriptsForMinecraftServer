@@ -1,9 +1,6 @@
-import { system, world } from "@minecraft/server";
-import { CreativeArea } from "../area/CreativeArea";
-import { Peace } from "../area/Peace";
-import { DogeChat } from "../chat/DogeChat";
-import { HttpDB } from "./HttpDB";
-import { Msg } from "./Tools";
+import { CreativeArea } from "../area/CreativeArea.js";
+import { Peace } from "../area/Peace.js";
+import { HttpDB } from "./HttpDB.js";
 
 type ConfigCache = {
   modules: Map<string, boolean>;
@@ -15,7 +12,35 @@ type ConfigCache = {
   grids: Record<string, any>;
   peaceFilters: any[];
   questions: any[];
-  _lastFetch: number;
+};
+
+type AllConfigs = {
+  modules: Array<{ config_key?: string; configKey?: string; name?: string; enabled?: boolean; installed?: boolean }>;
+  settings: Record<string, any>;
+  areas: Array<{
+    name?: string;
+    module: string;
+    dimension: any;
+    start_x: number;
+    start_z: number;
+    end_x: number;
+    end_z: number;
+  }>;
+  permissions: Array<{ player_name: string; level: number }>;
+  banned_items: string[];
+  clean: { item_max?: number; poll_interval?: number };
+  grids: Array<{
+    name: string;
+    start_x: number;
+    start_y: number;
+    start_z: number;
+    size_h: number;
+    size_v: number;
+    direction: number;
+    face: number;
+  }>;
+  peace_filters: any[];
+  questions: any[];
 };
 
 export class ConfigManager {
@@ -29,22 +54,16 @@ export class ConfigManager {
     grids: {},
     peaceFilters: [],
     questions: [],
-    _lastFetch: 0,
   };
 
   private static _initialized = false;
   private static _ready = false;
-  private static _configStale = false;
-  private static _lastErrors = new Map<string, string>();
-  private static _pollInFlight = false;
-  private static _fastPollInFlight = false;
-  private static _reloadInFlight: Promise<void> | null = null;
 
   static async init(): Promise<void> {
     if (this._initialized) return;
     this._initialized = true;
     await HttpDB.checkHealth();
-    await this.reloadAll();
+    await this.loadAll();
     HttpDB.setAuthToken(this.getSetting("db_auth_token", ""));
     this._syncRuntimeFlags();
     this._ready = true;
@@ -53,25 +72,6 @@ export class ConfigManager {
 
   static isReady(): boolean {
     return this._ready;
-  }
-
-  static isStale(): boolean {
-    return this._configStale;
-  }
-
-  static getLastErrors(): Record<string, string> {
-    return Object.fromEntries(this._lastErrors);
-  }
-
-  static startPolling(intervalTicks = 72000): void {
-    system.runInterval(() => this._poll(), intervalTicks);
-  }
-
-  /**
-   * 快速信号检查（每 2 秒），检测 _reload_signal → 立即全量重载
-   */
-  static startFastPoll(intervalTicks = 40): void {
-    system.runInterval(() => this._fastPoll(), intervalTicks);
   }
 
   static isEnabled(module: string): boolean {
@@ -117,275 +117,108 @@ export class ConfigManager {
     return [...this.cache.questions];
   }
 
-  static async reloadAll(): Promise<void> {
-    if (this._reloadInFlight) return this._reloadInFlight;
-    const now = Date.now();
-    this._reloadInFlight = (async () => {
-      const promises = [
-        this._fetchModules(),
-        this._fetchSettings(),
-        this._fetchAreas(),
-        this._fetchPermissions(),
-        this._fetchBannedItems(),
-        this._fetchClean(),
-        this._fetchGrids(),
-        this._fetchPeaceFilters(),
-        this._fetchQA(),
-      ];
-      await Promise.allSettled(promises);
-      this.cache._lastFetch = now;
-      this._configStale = this._lastErrors.size > 0;
-    })();
-    try {
-      await this._reloadInFlight;
-    } finally {
-      this._reloadInFlight = null;
+  /**
+   * SAPI 启动时一次性从 db-server 拉取所有配置。
+   * db-server 直接读取 configs/*.json 文件并返回，不走 SQLite，无热重载。
+   * 改配置后需重启 BDS 才会生效。
+   */
+  static async loadAll(): Promise<void> {
+    const body = await HttpDB.get("/api/sfmc/configs/all");
+    if (!body) {
+      console.warn("[ConfigManager] 配置拉取失败，使用空缓存");
+      return;
     }
-  }
-
-  static async reloadModule(module: string): Promise<void> {
-    // Reload settings that might affect this module
-    await this._fetchSettings();
-    await this._fetchAreas();
-  }
-
-  // ── Internal fetchers ──
-
-  private static async _poll(): Promise<void> {
-    if (this._pollInFlight) return;
-    this._pollInFlight = true;
     try {
-      if (!this.cache._lastFetch) return;
-      const body = await HttpDB.get(`/api/sfmc/configs/updated-since/${this.cache._lastFetch}`);
-      if (!body) return;
-      const data = JSON.parse(body);
-      const upd = data.updated;
-      if (!upd) return;
-      this.cache._lastFetch = data.timestamp || Date.now();
-      if (upd.modules) await this._fetchModules();
-      if (upd.settings) await this._fetchSettings();
-      if (upd.areas) await this._fetchAreas();
-      if (upd.permissions) await this._fetchPermissions();
-      if (upd.banned_items) await this._fetchBannedItems();
-      if (upd.clean) await this._fetchClean();
-      if (upd.grids) await this._fetchGrids();
-      if (upd.peace_filters) await this._fetchPeaceFilters();
-      if (upd.qa_questions) await this._fetchQA();
+      const all = JSON.parse(body) as AllConfigs;
+      this.populate(all);
     } catch (e) {
-      this._recordError("poll", e);
-    } finally {
-      this._pollInFlight = false;
+      console.warn(`[ConfigManager] 配置解析失败: ${(e as Error).message}`);
     }
   }
 
-  private static async _fastPoll(): Promise<void> {
-    if (this._fastPollInFlight) return;
-    this._fastPollInFlight = true;
-    try {
-      // 数据库断线时尝试重连
-      if (!HttpDB.isAvailable()) {
-        const ok = await HttpDB.checkHealth();
-        if (!ok) return;
-        console.warn("[ConfigManager] 数据库已重连，重新加载配置");
-        await this.reloadAll();
-        this._syncRuntimeFlags();
-        // 重试启动 bridge polling（若之前因 settings 为空而跳过）
-        const bridgeId = this.getSetting("bridge_channel_id", "");
-        if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-        return;
-      }
-
-      const body = await HttpDB.get("/api/sfmc/settings/_reload_signal");
-      if (!body) return;
-      const { value } = JSON.parse(body);
-      if (parseInt(value as string, 10) > this.cache._lastFetch) {
-        console.warn("[ConfigManager] 收到热重载信号，重新加载配置");
-        await this.reloadAll();
-        this._syncRuntimeFlags();
-        // 模块启用/禁用变更触发 cleanup/boot
-        const { ModuleRegistry } = await import("./ModuleRegistry");
-        const changes = ModuleRegistry.reconcile();
-        if (changes.length > 0) {
-          for (const p of world.getPlayers()) {
-            const list = changes.map((c) => `${c.id} ${c.action === "disable" ? "已禁用" : "已启用"}`).join(", ");
-            Msg.info(`模块变更: ${list}`, p);
-          }
-        }
-        const bridgeId = this.getSetting("bridge_channel_id", "");
-        if (bridgeId) DogeChat.startBridgePolling(bridgeId);
-        for (const p of world.getPlayers()) {
-          Msg.info("配置已热重载", p);
-        }
-      }
-    } catch (e) {
-      console.warn(`[ConfigManager] 热重载信号检查失败: ${(e as Error).message || e}`);
-    } finally {
-      this._fastPollInFlight = false;
-    }
-  }
-
-  /** 将缓存中的模块开关同步到运行时的模块标志 */
-  private static _syncRuntimeFlags(): void {
-    CreativeArea.enable = this.isEnabled("creative");
-    Peace.getInstance().enable = this.isEnabled("peace");
-  }
-
-  private static async _fetchModules(): Promise<void> {
+  /**
+   * 切换模块后局部刷新（AdminGUI 用）。
+   * 仅刷新 modules 缓存，不重新拉取其它配置。
+   */
+  static async refreshModules(): Promise<void> {
     try {
       const body = await HttpDB.get("/api/sfmc/modules");
-      if (!body) { this._recordError("modules", "empty response"); return; }
+      if (!body) return;
       const { modules } = JSON.parse(body);
       this.cache.modules.clear();
       for (const m of modules) {
         const key = m.config_key || m.configKey || m.name;
         if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
       }
-      this._clearError("modules");
     } catch (e) {
-      this._recordError("modules", e);
+      console.warn(`[ConfigManager] 模块缓存刷新失败: ${(e as Error).message}`);
     }
   }
 
-  private static async _fetchSettings(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/settings");
-      if (!body) { this._recordError("settings", "empty response"); return; }
-      const { settings } = JSON.parse(body);
-      this.cache.settings.clear();
-      for (const s of settings) this.cache.settings.set(s.key, s.value);
-      this._clearError("settings");
-    } catch (e) {
-      this._recordError("settings", e);
+  // ── Internal ──
+
+  private static populate(all: AllConfigs): void {
+    this.cache.modules.clear();
+    for (const m of all.modules || []) {
+      const key = m.config_key || m.configKey || m.name;
+      if (key) this.cache.modules.set(key, !!m.enabled && m.installed !== false);
     }
-  }
 
-  private static async _fetchAreas(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/areas");
-      if (!body) { this._recordError("areas", "empty response"); return; }
-      this.cache.areas = (JSON.parse(body).areas || []).map((a: any) => ({
-        name: a.name || "",
-        dimension: a.dimension,
-        module: a.module,
-        start: [a.start_x, a.start_z],
-        end: [a.end_x, a.end_z],
-      }));
-      this._clearError("areas");
-    } catch (e) {
-      this._recordError("areas", e);
+    this.cache.settings.clear();
+    for (const [k, v] of Object.entries(all.settings || {})) {
+      this.cache.settings.set(k, typeof v === "string" ? v : JSON.stringify(v));
     }
-  }
 
-  private static async _fetchPermissions(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/permissions");
-      if (!body) { this._recordError("permissions", "empty response"); return; }
-      const { permissions } = JSON.parse(body);
-      this.cache.permissions = {};
-      for (const p of permissions) this.cache.permissions[p.player_name] = p.level;
-      this._clearError("permissions");
-    } catch (e) {
-      this._recordError("permissions", e);
+    this.cache.areas = (all.areas || []).map((a) => ({
+      name: a.name || "",
+      dimension: a.dimension,
+      module: a.module,
+      start: [a.start_x, a.start_z],
+      end: [a.end_x, a.end_z],
+    }));
+
+    this.cache.permissions = {};
+    for (const p of all.permissions || []) {
+      this.cache.permissions[p.player_name] = p.level;
     }
-  }
 
-  private static async _fetchBannedItems(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/banned_items");
-      if (!body) { this._recordError("banned_items", "empty response"); return; }
-      this.cache.bannedItems = (JSON.parse(body).items || []).map((i: any) => i.item_id);
-      this._clearError("banned_items");
-    } catch (e) {
-      this._recordError("banned_items", e);
+    this.cache.bannedItems = (all.banned_items || []).filter((s) => typeof s === "string");
+
+    if (all.clean) {
+      this.cache.clean = {
+        itemMax: all.clean.item_max ?? 192,
+        pollInterval: all.clean.poll_interval ?? 60,
+      };
     }
-  }
 
-  private static async _fetchClean(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/clean");
-      if (!body) { this._recordError("clean", "empty response"); return; }
-      const { clean } = JSON.parse(body);
-      if (clean) this.cache.clean = { itemMax: clean.item_max, pollInterval: clean.poll_interval };
-      this._clearError("clean");
-    } catch (e) {
-      this._recordError("clean", e);
+    this.cache.grids = {};
+    for (const g of all.grids || []) {
+      this.cache.grids[g.name] = {
+        ...g,
+        size: [g.size_h, g.size_v],
+        start: [g.start_x, g.start_y, g.start_z],
+      };
     }
+
+    this.cache.peaceFilters = Array.isArray(all.peace_filters) ? all.peace_filters : [];
+
+    this.cache.questions = (all.questions || []).map((q: any) => ({
+      weight: q.weight,
+      q: q.question,
+      a: q.answers || [],
+      msg_right: q.msg_right || "",
+      msg_wrong: q.msg_wrong || "",
+      d: q.explanation || "",
+      seq: [q.min_rank, q.max_rank].filter((v: any) => v !== null && v !== undefined),
+      bonus: q.rewards || [],
+      punish: q.punishments || [],
+    }));
   }
 
-  private static async _fetchGrids(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/grids");
-      if (!body) { this._recordError("grids", "empty response"); return; }
-      const { grids } = JSON.parse(body);
-      this.cache.grids = {};
-      for (const g of grids) {
-        this.cache.grids[g.name] = {
-          ...g,
-          size: [g.size_h, g.size_v],
-          start: [g.start_x, g.start_y, g.start_z],
-        };
-      }
-      this._clearError("grids");
-    } catch (e) {
-      this._recordError("grids", e);
-    }
-  }
-
-  private static async _fetchPeaceFilters(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/peace_filters");
-      if (!body) { this._recordError("peace_filters", "empty response"); return; }
-      this.cache.peaceFilters = JSON.parse(body).filters || [];
-      this._clearError("peace_filters");
-    } catch (e) {
-      this._recordError("peace_filters", e);
-    }
-  }
-
-  private static async _fetchQA(): Promise<void> {
-    try {
-      const body = await HttpDB.get("/api/sfmc/qa");
-      if (!body) { this._recordError("qa", "empty response"); return; }
-      const { questions } = JSON.parse(body);
-      this.cache.questions = questions.map((q: any) => ({
-        weight: q.weight,
-        q: q.question,
-        a: JSON.parse(q.answers || "[]"),
-        msg_right: q.msg_right || "",
-        msg_wrong: q.msg_wrong || "",
-        d: q.explanation || "",
-        seq: [q.min_rank, q.max_rank].filter((v: any) => v !== null),
-        bonus: this._parseQAItems(q.rewards),
-        punish: this._parseQAItems(q.punishments),
-      }));
-      this._clearError("qa");
-    } catch (e) {
-      this._recordError("qa", e);
-    }
-  }
-
-  private static _parseQAItems(jsonStr: string): any[] {
-    if (!jsonStr) return [];
-    try {
-      const items = JSON.parse(jsonStr);
-      if (!items || items.length === 0) return [];
-      if (typeof items[0] === "object" && items[0] !== null) return items;
-      return [];
-    } catch {
-      return [];
-    }
-  }
-
-  private static _recordError(source: string, error: unknown): void {
-    const message = (error as Error)?.message || String(error);
-    const previous = this._lastErrors.get(source);
-    this._lastErrors.set(source, message);
-    this._configStale = true;
-    if (previous !== message) console.warn(`[ConfigManager] ${source} 配置获取失败: ${message}`);
-  }
-
-  private static _clearError(source: string): void {
-    this._lastErrors.delete(source);
-    this._configStale = this._lastErrors.size > 0;
+  /** 启动时把模块开关同步到运行时的模块标志 */
+  private static _syncRuntimeFlags(): void {
+    CreativeArea.enable = this.isEnabled("creative");
+    Peace.getInstance().enable = this.isEnabled("peace");
   }
 }
+
