@@ -1,7 +1,0 @@
-[
-  {
-    "_comment": "玩家权限表 — 每条 { player_name, level }。level: 0=游客 1=成员 2=OP 3=Admin。生产环境通过 /perm set 命令授予（更安全）。此处只是 db-server 启动的种子值。",
-    "player_name": "ExampleOwner",
-    "level": 3
-  }
-]

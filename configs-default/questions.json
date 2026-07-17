@@ -6,7 +6,7 @@
     "answers": ["H2O", "h2o"],
     "msg_right": "§a答对啦！",
     "msg_wrong": "§c答错了。",
-    "explanation": "氢二氧一，化学课基本常识。",
+    "explanation": "快去学化学",
     "rewards": [
       { "type": "money", "amount": 100 }
     ]

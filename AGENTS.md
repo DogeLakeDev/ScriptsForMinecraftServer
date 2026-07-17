@@ -66,6 +66,19 @@ db-server: `cd db-server && node index.js` (default port 3001, override via `DB_
 - `better-sqlite3` in db-server requires native build toolchain
 - No test framework in either component
 
+## Configuration model (no DB, no hot-reload)
+
+Configs live as plain JSON files under `configs/` and are read by `db-server` on demand — SQLite is **not** used for configs. There is no `_reload_signal`, no polling, and no `db-server` console `reload` command.
+
+- `db-server` serves configs via `routes/config.js`:
+  - `GET /api/sfmc/configs/all` — one-shot, returns all configs (used by SAPI at startup)
+  - `GET /api/sfmc/settings` and `GET /api/sfmc/settings/{key}` — `bridge_channel_id` falls back to `configs/qq_config.json`, `land:*` keys fall back to `configs/land.json`
+  - `GET /api/sfmc/{areas,permissions,banned_items,clean,grids,peace_filters,qa}` — each backed by the matching JSON file
+- SAPI `ConfigManager.init()` (`scripts/libs/ConfigManager.ts`) calls `/api/sfmc/configs/all` once at BDS startup, populates in-memory caches, then stays static for the process lifetime. To change a config: edit the JSON file → restart BDS.
+- AdminGUI `!admin` toggles a module: SAPI calls `POST /api/sfmc/modules/{id}/{enable|disable}` → db-server writes `modules/module-lock.json` → SAPI calls `ConfigManager.refreshModules()` to update its in-memory cache.
+- The `PATCH /api/sfmc/settings/{key}` endpoint is gone. To change runtime settings (e.g. `bridge_channel_id`), edit `configs/settings.json` or `configs/qq_config.json` directly.
+- `sfmc_config_*` tables are no longer created. On a fresh DB you'll see only `sfmc_coop_*`, `sfmc_economy_*`, `sfmc_land_*`, `sfmc_players`, `sfmc_activities`, etc.
+
 ## Key module locations (updated from README tree)
 
 | Module | Actual path |
@@ -180,41 +193,28 @@ trailingComma es5, tabWidth 2, semicolons, double quotes, bracketSpacing, arrowP
 - 默认 TUI 模式（要求 stdin/stdout TTY）
 - `--cli`：只打印状态后退出（管道友好）
 - `--no-tui`：启动服务后保持进程存活
-- `--setup` / `--reset`：强制重开初始化向导
 - `--help`：打印帮助
 
 启动顺序（`panel/index.js`）：
 
 1. 启动 db-server + qq-bridge 子进程（通过 SFMC_ROOT 环境变量隔离工作根）
 2. 等待 `/api/health` 200
-3. 调 `/api/sfmc/setup/state` 检测 `_initialized`
-4. 若未初始化，进入主 TUI 第一屏渲染 `SetupWizard`（5 步表单）
-5. 用户提交后写入 `panel-state.json` + `configs/*.json` + `modules/module-lock.json`
-6. 进入主 TUI（模块管理 / 服务控制 / 数据查看）
+3. 进入主 TUI（仪表盘 / 模块管理 / 服务控制 / 数据查看 / DB 浏览 / 监控）
 
 主 App 状态机（`panel/app.js`）：
 
-- `view`：`'dashboard' | 'monitor' | 'modules' | 'chat' | 'data' | 'svc' | 'cfg_list' | 'cfg_edit' | 'setup'`
+- `view`：`'dashboard' | 'monitor' | 'modules' | 'chat' | 'data' | 'svc' | 'db' | 'settings'`
 - `activeTab`：当前 Tab
-- `setupRequired`：从 `/api/sfmc/setup/state` 周期拉取（5s），true 时强制 `view='setup'`
 
-### Setup Wizard
-
-文件：`panel/setup/wizard.js`（注意：不是 `.jsx`，Node 23+ 不支持 `.jsx` 直接 import）。
-
-- `panel/setup/state.js`：读写 `panel-state.json`
-- `panel/setup/orchestrator.js`：封装 `detect / runChecks / submit / reset / importState`
-- `panel/setup/service-install.js`：路径依赖检测
+注：之前文档里提到的 `panel/setup/` 目录、`SetupWizard`、`cfg_list`/`cfg_edit` 视图和 `/api/sfmc/setup/state` 路由在当前代码里都不存在，是历史残留。当前唯一能写 module-lock.json 的运行时入口是 Panel 的 `ModulesView`（启用 / 禁用某个模块），写完后需要重启 BDS 才会对 SAPI 生效（无热重载）。
 
 ## 常见坑
 
-1. **`wizard.jsx` 不能直接被 Node import** → 已统一用 `.js` 后缀 + `React.createElement`。
-2. **`mount().then(process.exit(0))` 会把 SIGINT 清理流程吃掉** → 已删。
-3. **两套 Ink 进程抢 stdout** → 改用主 TUI 内 `view='setup'` 单进程。
-4. **disable 模块后命令仍能触发** → `Command.trigger` 内置 `moduleGuard`。
-5. **`process.stdin.isTTY=false` 会让 Ink 报错** → 入口已加 TTY 检测并 fallback 到 `--cli` / `--no-tui`。
-6. **db-server 端口被占用** → 启动时 `checkPortConflict()` 直接退出码 2 并给出提示。
-7. **`SFMC_ROOT` 环境变量** → 让 db-server 从指定根读 configs/modules；`sim-new-user.js` 用它实现隔离。
+1. **disable 模块后命令仍能触发** → `Command.trigger` 内置 `moduleGuard`。
+2. **`process.stdin.isTTY=false` 会让 Ink 报错** → 入口已加 TTY 检测并 fallback 到 `--cli` / `--no-tui`。
+3. **db-server 端口被占用** → 启动时 `checkPortConflict()` 直接退出码 2 并给出提示。
+4. **`SFMC_ROOT` 环境变量** → 让 db-server 从指定根读 configs/modules；`sim-new-user.js` 用它实现隔离。
+5. **改配置不重启 BDS 不生效** → 配置无热重载。改完 `configs/*.json` 必须重启 BDS。
 
 ## CI
 

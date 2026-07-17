@@ -53,3 +53,4 @@ data/
 *.zip
 BDSTools/.bds.pid
 db-server/package-lock.json
+configs

@@ -1,5 +1,6 @@
 {
-  "_comment": "通用运行时配置 —— 启动时由 db-server 同步到 sfmc_config_settings 表。具体可被运行时覆盖。改后 2 秒内 SAPI 自动感知（reload_signal）。",
+  "_comment": "通用运行时配置 —— SAPI 启动时由 db-server 一次性读取此文件并缓存到内存。改后需重启 BDS 才会生效。",
+
   "_comment_afk": "AFK 自动踢出",
   "afk_time": 120,
 
@@ -13,7 +14,5 @@
   "clean_poll_interval": 60,
   "clean_kill_list": [
     "shitcraft:shit"
-  ],
-
-  "_reload_signal": "0"
+  ]
 }

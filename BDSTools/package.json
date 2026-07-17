@@ -1,19 +1,32 @@
 {
   "name": "bds-tools",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
+  "type": "commonjs",
   "dependencies": {
     "adm-zip": "^0.5.18",
-    "cheerio": "^1.2.0"
+    "cheerio": "^1.2.0",
+    "cli-progress": "^3.12.0"
   },
   "devDependencies": {
-    "prettier": "^3.9.5"
+    "@types/adm-zip": "^0.5.8",
+    "@types/cli-progress": "^3.11.6",
+    "@types/node": "^22.20.1",
+    "prettier": "^3.9.5",
+    "typescript": "^5.9.3"
   },
   "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "update": "node check-update.js",
     "update:check": "node check-update.js --check-only",
     "update:force": "node check-update.js --force",
+    "rollback": "node recovery.js",
     "start": "node bds-manager.js start",
-    "start:watch": "node bds-manager.js watch"
+    "stop": "node bds-manager.js stop",
+    "status": "node bds-manager.js status",
+    "watch": "node bds-manager.js watch"
   }
 }

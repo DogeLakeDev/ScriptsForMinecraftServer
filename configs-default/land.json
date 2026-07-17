@@ -1,5 +1,5 @@
 {
-  "_comment": "领地系统配置。db-server 启动时由 configs/land.json 导入 sfmc_config_settings 的 land:* 键；SAPI 通过 /api/sfmc/settings/land:* 读取（5 分钟内最多拉一次，reload 后 2 秒内生效）。修改本文件后，在 db-server 控制台执行 reload（或重启）即可热更新，无需改代码。",
+  "_comment": "领地系统配置。SAPI 通过 /api/sfmc/settings/land:* 直接读取此文件（5 分钟内最多拉一次）。改后重启 BDS 即可生效。",
 
   "land:config": {
     "priceFormula": "{square}*8+{height}*20",

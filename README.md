@@ -2,7 +2,7 @@
 
 基于 Minecraft Bedrock Script API (SAPI) 的服务器插件 + SQLite 后端 + QQ 桥接 + TUI 管理面板。
 
-整个项目从 0 用户视角设计：**克隆下来能在几分钟内跑起来**。
+整个项目从 0 用户视角设计：**克隆下来能在几分钟内跑起来**
 
 ---
 
@@ -10,12 +10,12 @@
 
 ### 1.1 系统要求
 
-| 工具 | 版本 | 说明 |
-|---|---|---|
-| Node.js | 18+；db-server 需要 22.5+ | SAPI 编译 + db-server + qq-bridge + panel |
-| Minecraft Bedrock | 1.21.60+ | 推荐开启 Beta APIs |
-| PowerShell | 5.1+ (Windows) | 部署脚本依赖 |
-| BDS | 任意版本 | 默认放 `D:\Minecraft\BEServer`，可改 |
+| 工具              | 版本                      | 说明                                      |
+| ----------------- | ------------------------- | ----------------------------------------- |
+| Node.js           | 18+；db-server 需要 22.5+ | SAPI 编译 + db-server + qq-bridge + panel |
+| Minecraft Bedrock | 1.21.60+                  | 推荐开启 Beta APIs                        |
+| PowerShell        | 5.1+ (Windows)            | 部署脚本依赖                              |
+| BDS               | 任意版本                  | 默认放 `D:\Minecraft\BEServer`，可改      |
 
 ### 1.2 克隆与初始化
 
@@ -80,13 +80,13 @@ asset-*     资源包/资产
 
 ### 2.2 配置文件
 
-| 文件 | 作用 |
-|---|---|
-| `modules/catalog.json` | 模块目录真理源（29 个模块，类型/依赖/权限/默认状态） |
-| `modules/module-lock.json` | 模块安装状态（运行时维护） |
-| `modules/lock.json` | 文件指纹快照，由 `tools/lock.js` 生成 |
-| `configs/modules.json` | 旧版启用/禁用平面表（兼容层，仍由 setup 向导生成） |
-| `panel-state.json` | 项目级初始化状态（`~/.sim-workspace.bak/` 备份在 setup 重置时使用） |
+| 文件                       | 作用                                                                |
+| -------------------------- | ------------------------------------------------------------------- |
+| `modules/catalog.json`     | 模块目录真理源（29 个模块，类型/依赖/权限/默认状态）                |
+| `modules/module-lock.json` | 模块安装状态（运行时维护）                                          |
+| `modules/lock.json`        | 文件指纹快照，由 `tools/lock.js` 生成                               |
+| `configs/modules.json`     | 旧版启用/禁用平面表（兼容层，仍由 setup 向导生成）                  |
+| `panel-state.json`         | 项目级初始化状态（`~/.sim-workspace.bak/` 备份在 setup 重置时使用） |
 
 ### 2.3 模块管理命令
 
@@ -119,11 +119,11 @@ POST   /api/sfmc/modules/:id/uninstall
 
 错误码：
 
-| code | 含义 |
-|---|---|
-| `module_cannot_disable` | 模块 `canDisable=false` |
-| `module_cannot_uninstall` | 模块 `canUninstall=false` |
-| `dependency_unmet` (409) | 启用 / 安装时 requires 不满足 |
+| code                        | 含义                              |
+| --------------------------- | --------------------------------- |
+| `module_cannot_disable`     | 模块 `canDisable=false`           |
+| `module_cannot_uninstall`   | 模块 `canUninstall=false`         |
+| `dependency_unmet` (409)    | 启用 / 安装时 requires 不满足     |
 | `dependency_required` (409) | 卸载时仍被其他 installed 模块引用 |
 
 ---
@@ -142,43 +142,34 @@ $env:DB_PORT=4000; node db-server/index.js
 
 ### 3.1 环境变量
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `SFMC_ROOT` | `<db-server>` 的父目录 | 让 db-server 从指定根读 configs/modules |
-| `SFMC_DB_PATH` | `<db-server>/sfmc_data.db` | SQLite 文件路径 |
-| `SFMC_MODULES_DIR` | `<SFMC_ROOT>/modules` | modules 目录 |
-| `DB_PORT` | `3001` | 监听端口 |
-| `DB_AUTH_TOKEN` | 空 | 写接口 token（留空=loopback 仅） |
-| `DB_MAX_BODY` | `1048576` | 请求体字节上限 |
+| 变量               | 默认                       | 说明                                    |
+| ------------------ | -------------------------- | --------------------------------------- |
+| `SFMC_ROOT`        | `<db-server>` 的父目录     | 让 db-server 从指定根读 configs/modules |
+| `SFMC_DB_PATH`     | `<db-server>/sfmc_data.db` | SQLite 文件路径                         |
+| `SFMC_MODULES_DIR` | `<SFMC_ROOT>/modules`      | modules 目录                            |
+| `DB_PORT`          | `3001`                     | 监听端口                                |
+| `DB_AUTH_TOKEN`    | 空                         | 写接口 token（留空=loopback 仅）        |
+| `DB_MAX_BODY`      | `1048576`                  | 请求体字节上限                          |
 
-### 3.2 初始化向导接口
+### 3.2 配置接口
+
+配置直接读取 `configs/*.json`，无 DB、无热重载。改配置后重启 BDS 才会生效。
 
 ```
-GET  /api/sfmc/setup/state
-POST /api/sfmc/setup/init     { paths, tokens, ui, locale }
-POST /api/sfmc/setup/reset
-POST /api/sfmc/setup/check    { db, bds, qq }
+GET  /api/sfmc/configs/all              # 一次性返回所有配置（SAPI 启动用）
+GET  /api/sfmc/settings                 # 返回 settings.json 的所有键值
+GET  /api/sfmc/settings/{key}           # 单 key；bridge_channel_id 兜底读 qq_config.json；land:* 兜底读 land.json
+GET  /api/sfmc/areas                    # configs/areas.json
+GET  /api/sfmc/permissions              # configs/permissions.json
+GET  /api/sfmc/banned_items             # configs/banned_items.json
+GET  /api/sfmc/clean                    # configs/clean.json
+GET  /api/sfmc/grids                    # configs/grids.json
+GET  /api/sfmc/peace_filters            # configs/peace_filters.json
+GET  /api/sfmc/qa                       # configs/questions.json（已转成 array 形式）
 ```
 
-完整 payload 示例：
-
-```json
-{
-  "paths": {
-    "bdsPath": "D:\\Minecraft\\BEServer",
-    "llbotPath": "D:\\LLBot-CLI-win-x64\\llbot.exe",
-    "llbotCwd": "D:\\LLBot-CLI-win-x64",
-    "dbPort": 3001
-  },
-  "tokens": { "dbAuthToken": "", "bridgeAuthToken": "" },
-  "ui": {
-    "defaultModules": ["money", "chat", "afk", "land", "tps"],
-    "defaultServices": ["db", "qq"],
-    "skipGuidedSetup": false
-  },
-  "locale": "zh-CN"
-}
-```
+> 之前的初始化向导接口 `/api/sfmc/setup/state`、`/init`、`/reset`、`/check` 已废弃（路由不存在）。
+> 模块启用 / 禁用走 `POST /api/sfmc/modules/{id}/{enable|disable}`，写 `modules/module-lock.json`。
 
 ---
 
@@ -235,15 +226,15 @@ back / 0                返回总览
 
 ## 6. 开发工具
 
-| 命令 | 作用 |
-|---|---|
-| `node tools/check-ootb.js` | 开箱即用自检（推荐 CI 跑） |
-| `node tools/check-catalog.js` | catalog.json 静态校验 |
-| `node tools/smoke-modules.js` | 模块系统冒烟（需 db-server） |
-| `node tools/sim-new-user.js` | 模拟新用户从 0 到 init 全流程（自动备份/还原） |
-| `node tools/install-module.js` | 安装/卸载/状态 |
-| `node tools/lock.js rebuild` | 生成文件指纹快照 |
-| `node tools/lock.js drift` | 检测文件漂移 |
+| 命令                           | 作用                                           |
+| ------------------------------ | ---------------------------------------------- |
+| `node tools/check-ootb.js`     | 开箱即用自检（推荐 CI 跑）                     |
+| `node tools/check-catalog.js`  | catalog.json 静态校验                          |
+| `node tools/smoke-modules.js`  | 模块系统冒烟（需 db-server）                   |
+| `node tools/sim-new-user.js`   | 模拟新用户从 0 到 init 全流程（自动备份/还原） |
+| `node tools/install-module.js` | 安装/卸载/状态                                 |
+| `node tools/lock.js rebuild`   | 生成文件指纹快照                               |
+| `node tools/lock.js drift`     | 检测文件漂移                                   |
 
 ---
 
@@ -283,23 +274,29 @@ ScriptsForMinecraftServer/
 ## 8. 常见问题（FAQ）
 
 ### 8.1 启动报 `Raw mode is not supported`
+
 你在非交互终端跑（如 PowerShell 管道 / IDE / 子进程）。改用：
+
 ```bash
 node panel/index.js --cli    # 打印状态
 node panel/index.js --no-tui # 启服务但不进 TUI
 ```
+
 或在真正的终端窗口中运行（PowerShell ISE 不行，需 conhost / Windows Terminal / cmd）。
 
 ### 8.2 db-server 启动报 `unable to open database file`
+
 检查 `SFMC_DB_PATH` 指向的目录是否存在，或权限不足。默认 `<db-server>/sfmc_data.db` 由 Node 创建，父目录会自动 mkdir。
 
 ### 8.3 db-server 报 `port 3001 in use`
+
 ```bash
 $env:DB_PORT=4000; node db-server/index.js
 $env:DB_PORT=4000; node panel/index.js  # panel 自动跟随
 ```
 
 ### 8.4 npm run build 报 `Cannot find module .env`
+
 ```bash
 cd scriptsforminecraftserver
 Copy-Item .env.example .env
@@ -307,9 +304,11 @@ Copy-Item .env.example .env
 ```
 
 ### 8.5 模块 disable 后命令还能用？
+
 默认行为已修：禁用模块的命令会被 `Command.trigger` 守卫拦截。若仍能执行，请确认面板模块页显示状态已切到「禁用」，并查看 SAPI 是否已加载新版（重启 BDS）。
 
 ### 8.6 sim-new-user 失败
+
 `sim-new-user.js` 自动备份/还原。如果中途崩溃留下 `.sim-workspace.bak/`，下次运行会覆盖。可以手动删除 `tools/.sim-workspace/` 和 `tools/.sim-workspace.bak/`。
 
 ---
