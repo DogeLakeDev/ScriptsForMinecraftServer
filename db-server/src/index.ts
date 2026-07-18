@@ -17,6 +17,7 @@ import { initSchema } from "./domain/schema.js";
 import { assertNodeVersion } from "./lib/runtime.js";
 import { createServer, startConsole } from "./server.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
+import { log } from "./lib/log.js";
 
 import { createHealthRoutes } from "./routes/health.js";
 import { createScoreboardsRoutes } from "./routes/scoreboards.js";
@@ -301,7 +302,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
 
     json(res, { success: false, error: "not_found" }, 404);
   } catch (err) {
-    console.error("[DogeDB] 错误:", err);
+    log.err(err, "DogeDB");
     json(res, { success: false, error: (err as Error).message }, 500);
   }
 }

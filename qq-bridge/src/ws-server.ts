@@ -14,7 +14,7 @@
 import type { IncomingMessage } from "node:http";
 import { createRequire } from "node:module";
 import { WebSocket, WebSocketServer } from "ws";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 import type { OneBotDispatcher } from "./onebot.js";
 
 export interface WsServerOptions {
@@ -37,11 +37,11 @@ export async function startWsServer(opts: WsServerOptions): Promise<WebSocketSer
   const ws = await loadWs();
   const { WebSocketServer: WSS } = ws;
   const wss = new WSS({ port: opts.port });
-  logger.info(`WebSocket 服务启动 ws://0.0.0.0:${opts.port}`);
+  log.info(`WebSocket 服务启动 ws://0.0.0.0:${opts.port}`);
 
   wss.on("connection", (sock: WebSocket, req: IncomingMessage) => {
     const path = req.url ?? "/";
-    logger.info(`LLBot 已连接 (${path})`);
+    log.info(`LLBot 已连接 (${path})`);
     sock.on("message", (raw) => {
       try {
         const text = raw.toString("utf-8");
@@ -49,19 +49,19 @@ export async function startWsServer(opts: WsServerOptions): Promise<WebSocketSer
         // 异步但不阻塞 socket 循环
         void opts.dispatcher.handle(parsed);
       } catch (e) {
-        logger.error(`解析消息失败: ${(e as Error).message}`);
+        log.error(`解析消息失败: ${(e as Error).message}`);
       }
     });
     sock.on("close", () => {
-      logger.info("LLBot 已断开");
+      log.info("LLBot 已断开");
     });
     sock.on("error", (err) => {
-      logger.error(`WebSocket 连接错误: ${err.message}`);
+      log.error(`WebSocket 连接错误: ${err.message}`);
     });
   });
 
   wss.on("error", (err) => {
-    logger.error(`WebSocket 服务器错误: ${err.message}`);
+    log.error(`WebSocket 服务器错误: ${err.message}`);
   });
 
   return wss;

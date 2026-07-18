@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { QQBridgeConfig } from "./types.js";
+import { log } from "./log.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -44,7 +45,7 @@ export function loadInitialConfig(): QQBridgeConfig {
   try {
     return readFromDisk();
   } catch (e) {
-    console.error(`[QQBridge] 无法读取配置: ${CFG_PATH}`, (e as Error).message);
+    log.error(`无法读取配置: ${CFG_PATH}: ${(e as Error).message}`);
     process.exit(1);
   }
 }
@@ -59,6 +60,6 @@ export function reloadInto(cfg: QQBridgeConfig): void {
     Object.assign(cfg, fresh);
   } catch (e) {
     // reload 失败不抛,旧实现也是只 log
-    console.error(`[QQBridge] 重载配置失败: ${(e as Error).message}`);
+    log.error(`重载配置失败: ${(e as Error).message}`);
   }
 }

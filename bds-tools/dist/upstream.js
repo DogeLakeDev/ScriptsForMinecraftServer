@@ -20,7 +20,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const http_js_1 = require("./http.js");
 const version_js_1 = require("./version.js");
-const logger_js_1 = require("./logger.js");
+const log_js_1 = require("./log.js");
 const DEFAULT_VERSIONS_API = "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
 const DEFAULT_VERSIONS_MIRROR = "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json";
 function resolveTemplate(tpl, vars) {
@@ -57,7 +57,7 @@ async function getVersionInfo(cfg, channel) {
             lastErr = e;
             if (attempt < 3) {
                 const wait = attempt * 3000;
-                logger_js_1.logger.warn(`版本号获取失败 (${attempt}/3): ${e.message}，${wait / 1000}s 后重试...`);
+                log_js_1.log.warn(`版本号获取失败 (${attempt}/3): ${e.message}，${wait / 1000}s 后重试...`);
                 await new Promise((r) => setTimeout(r, wait));
             }
         }

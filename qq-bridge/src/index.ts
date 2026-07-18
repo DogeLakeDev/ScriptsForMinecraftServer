@@ -21,14 +21,14 @@ import { loadInitialConfig } from "./config.js";
 import { OneBotDispatcher } from "./onebot.js";
 import { startWsServer } from "./ws-server.js";
 import { startConsole } from "./console.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 import type { QQBridgeConfig } from "./types.js";
 
 async function main(): Promise<void> {
   const cfg: QQBridgeConfig = loadInitialConfig();
 
   if (!cfg.qq_enabled) {
-    logger.info("已禁用 (qq_enabled = false)");
+    log.info("已禁用 (qq_enabled = false)");
     process.exit(0);
   }
 
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
 
   await startWsServer({ port: cfg.qq_ws_port, dispatcher });
 
-  logger.info(
+  log.info(
     `等待 LLBot 连接 (主群: ${cfg.qq_group_id || "未配置"}, channel: ${cfg.bridge_channel_id || "未配置"}, db: ${cfg.db_host}:${cfg.db_port})`
   );
 
@@ -62,10 +62,10 @@ async function main(): Promise<void> {
     botSelfIdRef,
   });
 
-  logger.info("启动完成");
+  log.info("启动完成");
 }
 
 main().catch((e) => {
-  logger.error(`未捕获异常: ${(e as Error).message}`);
+  log.error(`未捕获异常: ${(e as Error).message}`);
   process.exit(1);
 });

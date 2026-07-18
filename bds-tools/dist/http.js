@@ -20,7 +20,7 @@ const node_http_1 = __importDefault(require("node:http"));
 const node_https_1 = __importDefault(require("node:https"));
 const promises_1 = require("node:stream/promises");
 const node_fs_1 = require("node:fs");
-const logger_js_1 = require("./logger.js");
+const log_js_1 = require("./log.js");
 const MAX_REDIRECTS = 5;
 const DEFAULT_CONNECT_TIMEOUT = 15_000;
 const DEFAULT_TOTAL_TIMEOUT = 600_000;
@@ -142,6 +142,10 @@ async function httpDownload(url, destPath, opts = {}) {
             const file = (0, node_fs_1.createWriteStream)(destPath);
             let downloaded = 0;
             let failed = false;
+            // 节流进度回调:每个 tick 最多 10 次/秒(100ms 间隔),
+            // 避免 cli-progress 频繁重绘拖慢下载
+            let lastProgressAt = 0;
+            const PROGRESS_INTERVAL_MS = 100;
             const handleError = (e) => {
                 if (failed)
                     return;
@@ -159,6 +163,13 @@ async function httpDownload(url, destPath, opts = {}) {
             const stream = res;
             stream.on("data", (chunk) => {
                 downloaded += chunk.length;
+                if (opts.onProgress && total) {
+                    const now = Date.now();
+                    if (now - lastProgressAt >= PROGRESS_INTERVAL_MS) {
+                        lastProgressAt = now;
+                        opts.onProgress(downloaded, total);
+                    }
+                }
             });
             stream.on("error", (e) => handleError(e));
             file.on("error", (e) => handleError(e));
@@ -172,6 +183,8 @@ async function httpDownload(url, destPath, opts = {}) {
                     return;
                 try {
                     const finalBytes = (0, node_fs_1.statSync)(destPath).size;
+                    // 收尾:确保最后一次回调让进度条走到 100%(即便最近
+                    // 一个 tick 的节流没触发,也补一次)
                     if (opts.onProgress && total)
                         opts.onProgress(finalBytes, total);
                     resolve(finalBytes);
@@ -191,7 +204,7 @@ async function httpDownload(url, destPath, opts = {}) {
         req.on("error", (e) => {
             clearTimeout(totalTimer);
             clearTimeout(connectTimer);
-            logger_js_1.logger.warn(`HTTP 错误 ${url}: ${e.message}`);
+            log_js_1.log.warn(`HTTP 错误 ${url}: ${e.message}`);
             reject(e);
         });
         req.end();

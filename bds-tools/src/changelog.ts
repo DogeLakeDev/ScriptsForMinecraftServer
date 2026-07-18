@@ -5,7 +5,7 @@
 import cheerio from "cheerio";
 import { fetchJsonWithFallback, httpGetText } from "./http.js";
 import type { ChangelogPayload } from "./types.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 const CHANGELOG_BASE = "https://feedback.minecraft.net/hc/en-us/sections/360001186971";
 
@@ -44,14 +44,14 @@ export async function fetchChangelog(channel: string): Promise<ChangelogPayload 
           const img = await httpRequest(imgUrl);
           imageBase64 = img.body.toString("base64");
         } catch (e) {
-          logger.warn(`获取图片失败: ${(e as Error).message}`);
+          log.warn(`获取图片失败: ${(e as Error).message}`);
         }
       }
     }
 
     return { text: text.slice(0, 2000), imageBase64 };
   } catch (e) {
-    logger.warn(`获取更新日志失败: ${(e as Error).message}`);
+    log.warn(`获取更新日志失败: ${(e as Error).message}`);
     return null;
   }
 }

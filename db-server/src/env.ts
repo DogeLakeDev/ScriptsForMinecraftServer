@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { log } from "./lib/log.js";
+
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 export interface EnvConfig {
@@ -54,14 +56,14 @@ export function loadEnv(): EnvConfig {
     if (isMeta(k)) continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     process.env[envKey] = String(v);
-    console.info(`[DogeDB] db_config::${k} -> process.env.${envKey} = ${String(v)}`);
+    log.info(`db_config::${k} -> process.env.${envKey} = ${String(v)}`);
   }
   for (const [k, v] of Object.entries(qqconfig)) {
     if (isMeta(k)) continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     if (process.env[envKey] === undefined) {
       process.env[envKey] = String(v);
-      console.info(`[DogeDB] qq_config::${k} -> process.env.${envKey} = ${String(v)}`);
+      log.info(`qq_config::${k} -> process.env.${envKey} = ${String(v)}`);
     }
   }
 
@@ -74,7 +76,7 @@ export function loadEnv(): EnvConfig {
     }
     const fromEnv = envBaseline[envKey];
     if (fromEnv !== undefined && fromEnv !== "") {
-      console.info(`[DogeDB] ${source} 未在 JSON 中配置,使用系统环境变量 ${envKey} = ${fromEnv}`);
+      log.info(`${source} 未在 JSON 中配置,使用系统环境变量 ${envKey} = ${fromEnv}`);
       return fromEnv as unknown as T;
     }
     return fallback;

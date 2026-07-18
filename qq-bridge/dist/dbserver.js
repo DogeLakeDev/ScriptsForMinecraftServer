@@ -5,7 +5,7 @@
  * 超时: 与 db-server 内部 HTTP 风格一致,使用 req.on("timeout") + req.destroy。
  */
 import { request as httpRequest } from "node:http";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 const REQUEST_TIMEOUT_MS = 5_000;
 function postJSON(url, body, timeoutMs) {
     const payload = JSON.stringify(body);
@@ -74,10 +74,10 @@ export async function forwardGroupMessage(cfg, fromId, fromName, content, now = 
 export async function tryForward(cfg, fromId, fromName, content) {
     try {
         await forwardGroupMessage(cfg, fromId, fromName, content);
-        logger.info(`QQ → MC: ${fromName}: ${content.slice(0, 60)}`);
+        log.info(`QQ → MC: ${fromName}: ${content.slice(0, 60)}`);
     }
     catch (e) {
-        logger.error(`转发到 db-server 失败: ${e.message}`);
+        log.error(`转发到 db-server 失败: ${e.message}`);
     }
 }
 //# sourceMappingURL=dbserver.js.map

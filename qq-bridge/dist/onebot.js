@@ -9,7 +9,7 @@
  *
  * 行为与旧 index.js 完全一致; 类型上把 sender/message 都收紧为 narrow 类型。
  */
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 import { tryForward } from "./dbserver.js";
 // ── 类型守卫 ────────────────────────────────────────────────────
 function isGroupMessageEvent(e) {
@@ -141,7 +141,7 @@ export class OneBotDispatcher {
         if (isLifecycleEvent(event)) {
             if (event.self_id !== undefined && this.botSelfId === null) {
                 this.botSelfId = String(event.self_id);
-                logger.info(`LLBot self_id = ${this.botSelfId}`);
+                log.info(`LLBot self_id = ${this.botSelfId}`);
             }
             return;
         }
@@ -159,7 +159,7 @@ export class OneBotDispatcher {
         if (!text)
             return;
         if (!this.opts.db.channelId) {
-            logger.warn("bridge_channel_id 未配置,跳过 (可用 reload 重读配置)");
+            log.warn("bridge_channel_id 未配置,跳过 (可用 reload 重读配置)");
             return;
         }
         const senderCard = event.sender?.card;

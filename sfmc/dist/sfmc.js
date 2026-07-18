@@ -14,24 +14,1015 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// package.json
+var package_default;
+var init_package = __esm({
+  "package.json"() {
+    package_default = {
+      name: "sfmc-cil",
+      version: "0.1.0",
+      private: true,
+      description: "REPL management tool for ScriptsForMinecraftServer",
+      type: "module",
+      scripts: {
+        start: "node ./dist/sfmc.js",
+        build: "node build.js",
+        dev: "tsx src/main.ts"
+      },
+      dependencies: {
+        "@sfmc/logs": "*",
+        chalk: "^5.4.1",
+        "@clack/prompts": "^0.9.1",
+        "cli-progress": "^3.12.0"
+      }
+    };
+  }
+});
+
+// ../shared/sfmc-logs/dist/esm/index.js
+function inferLevel(text2) {
+  const t = text2.toUpperCase();
+  if (t.includes("[FATAL]") || t.includes("[ERROR]") || t.includes("[X]")) return "error";
+  if (t.includes("[WARN") || t.includes("[WARNING]") || t.includes("[!]")) return "warn";
+  if (t.includes("[SUCCESS]") || t.includes("[OK]") || t.includes("[\u221A]")) return "success";
+  if (t.includes("[DEBUG]") || t.includes("[DBG]")) return "debug";
+  return "info";
+}
+function createMemoryBuffer(maxSize = 5e3) {
+  const allLogs = [];
+  const subscribers = [];
+  function push(entry) {
+    allLogs.push(entry);
+    if (allLogs.length > maxSize) allLogs.splice(0, allLogs.length - maxSize);
+    for (const fn of subscribers) {
+      try {
+        fn(entry);
+      } catch {
+      }
+    }
+  }
+  return {
+    sink: {
+      write(entry) {
+        push(entry);
+      }
+    },
+    pushDirect(text2, source, level) {
+      push({ time: /* @__PURE__ */ new Date(), text: text2, source, level });
+    },
+    getAll() {
+      return allLogs.slice();
+    },
+    getRecent(n, levels, sources) {
+      const lvls = levels ?? [];
+      const srcs = sources ?? [];
+      const filtered = [];
+      for (let i = allLogs.length - 1; i >= 0 && filtered.length < n; i--) {
+        const l = allLogs[i];
+        if (lvls.length && !lvls.includes(l.level)) continue;
+        if (srcs.length && !srcs.includes(l.source)) continue;
+        filtered.unshift(l);
+      }
+      return filtered;
+    },
+    subscribe(fn) {
+      subscribers.push(fn);
+      return () => {
+        const idx = subscribers.indexOf(fn);
+        if (idx >= 0) subscribers.splice(idx, 1);
+      };
+    },
+    clear() {
+      allLogs.length = 0;
+    },
+    get size() {
+      return allLogs.length;
+    }
+  };
+}
+var init_esm = __esm({
+  "../shared/sfmc-logs/dist/esm/index.js"() {
+    "use strict";
+  }
+});
+
+// src/theme.ts
+import chalk from "chalk";
+function highlightLogLine(raw) {
+  return raw.replace(/§[0-9a-fklmnor]/g, "").replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, (m) => c.dim(m)).replace(/\[ERROR\]/g, (m) => c.red(m)).replace(/\[FATAL\]/g, (m) => c.red(c.bold(m))).replace(/\[WARN(ING)?\]/g, (m) => c.yellow(m)).replace(/\[SUCCESS\]/g, (m) => c.green(c.bold(m))).replace(/\[INFO\]/g, (m) => c.blue(m)).replace(/\[DEBUG\]/g, (m) => c.dim(m)).replace(/\[PLAYER\]/g, (m) => c.green(m)).replace(/\[TPS\]/g, (m) => c.cyan(m)).replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g, (m) => c.cyan(m)).replace(/Player (joined|left):/g, (m) => c.green(m)).replace(/Server (started|stopped)/g, (m) => c.green(m)).replace(/\b(TPS|MSPT|tick|loaded|saved)\b/gi, (m) => c.cyan(m));
+}
+var T, c, W, DIVIDER;
+var init_theme = __esm({
+  "src/theme.ts"() {
+    "use strict";
+    T = {
+      bg: "#282c34",
+      panel: "#21252b",
+      surface: "#2c313c",
+      surfaceHi: "#3e4452",
+      subtle: "#4b5263",
+      text: "#dcdfe4",
+      muted: "#888888",
+      red: "#e06c75",
+      green: "#98c379",
+      yellow: "#e5c07b",
+      blue: "#61afef",
+      cyan: "#56b6c2",
+      purple: "#c678dd",
+      orange: "#d19a66"
+    };
+    c = {
+      dim: chalk.hex(T.muted),
+      text: chalk.hex(T.text),
+      green: chalk.hex(T.green),
+      red: chalk.hex(T.red),
+      yellow: chalk.hex(T.yellow),
+      blue: chalk.hex(T.blue),
+      cyan: chalk.hex(T.cyan),
+      purple: chalk.hex(T.purple),
+      orange: chalk.hex(T.orange),
+      bold: chalk.bold
+    };
+    W = 58;
+    DIVIDER = c.dim("\u2500".repeat(W - 2));
+  }
+});
+
+// src/wizard.ts
+var wizard_exports = {};
+__export(wizard_exports, {
+  runWizard: () => runWizard
+});
+import { confirm, intro, isCancel, note, outro, select, spinner, text } from "@clack/prompts";
+import { execSync, spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+function cfg(name) {
+  return path.join(ROOT, "configs", name);
+}
+function read(file) {
+  try {
+    return JSON.parse(fs.readFileSync(cfg(file), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+function write(file, data) {
+  fs.mkdirSync(path.dirname(cfg(file)), { recursive: true });
+  fs.writeFileSync(cfg(file), JSON.stringify(data, null, 2), "utf-8");
+}
+async function waitForHealth(port, ms = 15e3) {
+  const t = Date.now();
+  while (Date.now() - t < ms) {
+    try {
+      if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true;
+    } catch {
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return false;
+}
+async function runWizard() {
+  intro(c.bold("sfmc \u2014 Setup Wizard"));
+  const hasConfigs = fs.existsSync(cfg("db_config.json"));
+  if (hasConfigs) {
+    const r = await confirm({ message: "Configs already exist. Re-run setup?", initialValue: false });
+    if (isCancel(r) || !r) {
+      outro(c.dim("Setup skipped"));
+      return;
+    }
+  }
+  const s = spinner();
+  s.start("Checking environment");
+  const bdsExists = (() => {
+    try {
+      const p = read("bds_updater.json").bds_path;
+      return p ? fs.existsSync(path.join(p, "bedrock_server.exe")) : false;
+    } catch {
+      return false;
+    }
+  })();
+  const hasDefaults = fs.existsSync(path.join(ROOT, "configs-default", "db_config.json"));
+  s.stop(bdsExists ? "BDS found" : "BDS not found");
+  note(c.text(`Root: ${ROOT}`), "Environment");
+  let downloadBds = false;
+  let bdsChannel = "release";
+  if (!bdsExists) {
+    const d = await confirm({ message: "BDS not found \u2014 download now?", initialValue: true });
+    if (!isCancel(d) && d) {
+      downloadBds = true;
+      const ch = await select({
+        message: "Select channel:",
+        options: [
+          { value: "release", label: "Release", hint: "stable" },
+          { value: "preview", label: "Preview", hint: "may be unstable" }
+        ]
+      });
+      if (isCancel(ch)) {
+        downloadBds = false;
+      } else {
+        bdsChannel = ch;
+      }
+    }
+  }
+  let dbPort2 = 3001;
+  if (hasConfigs) {
+    dbPort2 = read("db_config.json").db_port ?? 3001;
+  } else {
+    const p = await text({
+      message: "db-server port:",
+      initialValue: "3001",
+      validate: (v) => {
+        const n = parseInt(v, 10);
+        if (isNaN(n) || n < 1024 || n > 65535) return "Enter 1024-65535";
+      }
+    });
+    if (!isCancel(p)) dbPort2 = parseInt(p, 10);
+  }
+  let qqGroupId = 0;
+  if (!hasConfigs) {
+    const g = await text({
+      message: "QQ group ID (0 to disable):",
+      initialValue: "0",
+      validate: (v) => {
+        const n = parseInt(v, 10);
+        if (isNaN(n) || n < 0) return "Enter a number \u2265 0";
+      }
+    });
+    if (!isCancel(g)) qqGroupId = parseInt(g, 10);
+  }
+  s.start("Writing configs");
+  try {
+    if (!hasConfigs || read("db_config.json").db_port !== dbPort2) {
+      write("db_config.json", {
+        _comment: "sfmc init wizard",
+        db_port: dbPort2,
+        http_auth: "",
+        dbDir: "../data/sfmc_data.db",
+        modulesDir: "../modules"
+      });
+    }
+    if (!hasConfigs) {
+      write("qq_config.json", {
+        _comment: "sfmc init wizard",
+        qq_ws_port: 3002,
+        qq_group_id: qqGroupId,
+        llbot_enabled: qqGroupId > 0,
+        llbot_host: "127.0.0.1",
+        llbot_port: 3004,
+        llbot_token: "",
+        bridge_channel_id: "",
+        mctoqq_prefix: "[MC]"
+      });
+      write("bds_updater.json", {
+        _comment: "sfmc init wizard",
+        bds_path: "D:\\Minecraft\\BEServer",
+        backup_dir: "D:\\Minecraft\\BEServer_backups",
+        channel: bdsChannel,
+        preserve: ["server.properties", "whitelist.json", "permissions.json", "allowlist.json", "worlds", "config"],
+        qq_notify: qqGroupId > 0,
+        auto_check: true,
+        crash_restart: true,
+        auto_restart: true
+      });
+      if (hasDefaults) {
+        fs.cpSync(path.join(ROOT, "configs-default", "."), cfg("."), { recursive: true, force: false });
+      }
+    }
+    s.stop("Configs written");
+  } catch (e) {
+    s.stop(c.red("Write failed"));
+    outro(c.red(`Error: ${e.message}`));
+    return;
+  }
+  if (downloadBds) {
+    s.start("Downloading BDS");
+    try {
+      execSync(`node bds-tools/dist/check-update.js --channel=${bdsChannel} --force`, {
+        cwd: ROOT,
+        stdio: "pipe",
+        timeout: 3e5
+      });
+      s.stop(c.green("BDS downloaded"));
+    } catch (e) {
+      const err = e;
+      s.stop(c.red("Download failed"));
+      console.log(c.red(err.stderr?.toString() || err.message || "unknown error"));
+    }
+  }
+  s.start("Initializing DB");
+  try {
+    const child = spawn(process.execPath, ["db-server/dist/index.js"], {
+      cwd: ROOT,
+      stdio: "ignore",
+      env: { ...process.env, DB_PORT: String(dbPort2) }
+    });
+    if (await waitForHealth(dbPort2)) {
+      await new Promise((r) => setTimeout(r, 1e3));
+      child.kill("SIGTERM");
+      setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+        }
+      }, 3e3);
+      s.stop(c.green("Database initialized"));
+    } else {
+      s.stop(c.yellow("Timed out \u2014 start db-server manually"));
+      try {
+        child.kill("SIGTERM");
+      } catch {
+      }
+    }
+  } catch {
+    s.stop(c.yellow("Skipped \u2014 start manually"));
+  }
+  outro(c.green("Done! Run sfmc to start managing."));
+}
+var init_wizard = __esm({
+  "src/wizard.ts"() {
+    "use strict";
+    init_services();
+    init_theme();
+  }
+});
+
+// src/repl.ts
+import process2, { stdin, stdout } from "node:process";
+function setRaw(v) {
+  try {
+    if (stdin.isTTY && typeof stdin.setRawMode === "function") stdin.setRawMode(v);
+  } catch {
+  }
+}
+function parseLine(line) {
+  const endsWithSpace = line.length > 0 && /\s$/.test(line);
+  const trimmed = line.trim();
+  if (!trimmed) return { cmd: "", argIndex: 0, current: "" };
+  const tokens = trimmed.split(/\s+/);
+  if (endsWithSpace) {
+    return { cmd: tokens[0] ?? "", argIndex: tokens.length - 1, current: "" };
+  }
+  if (tokens.length === 1) return { cmd: "", argIndex: 0, current: tokens[0] };
+  return { cmd: tokens[0], argIndex: tokens.length - 2, current: tokens[tokens.length - 1] };
+}
+function getCompletions(parsed) {
+  const { cmd, argIndex, current } = parsed;
+  const sw = (s) => s.startsWith(current);
+  if (!cmd) return COMMANDS.filter(sw);
+  switch (cmd) {
+    case "logs":
+    case "log":
+      if (argIndex === 0) return SERVICE_NAMES.filter(sw);
+      if (argIndex === 1) return ["-n", "-f"].filter(sw);
+      return [];
+    case "start":
+    case "stop":
+    case "restart":
+      if (argIndex === 0) return ["-all", ...SERVICE_NAMES].filter(sw);
+      return [];
+    case "send":
+      if (argIndex === 0) return SERVICE_NAMES.filter(sw);
+      return [];
+    case "update":
+      return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
+    default:
+      return [];
+  }
+}
+function consumeEscapeSeq(chunk, i) {
+  if (chunk[i] !== 27) return null;
+  const rem = chunk.length - i - 1;
+  if (rem >= 2 && chunk[i + 1] === 91) {
+    let j = i + 2;
+    while (j < chunk.length && chunk[j] >= 48 && chunk[j] <= 63) j++;
+    while (j < chunk.length && chunk[j] >= 32 && chunk[j] <= 47) j++;
+    if (j < chunk.length && chunk[j] >= 64 && chunk[j] <= 126) j++;
+    return j;
+  }
+  if (rem >= 2 && chunk[i + 1] === 79) return i + 3;
+  if (rem >= 1) return i + 2;
+  return i + 1;
+}
+async function simpleSelect(items, label) {
+  const wasRaw = stdin.isRaw ?? false;
+  setRaw(true);
+  stdin.resume();
+  let selected = 0;
+  const h = Math.min(items.length, 8);
+  let lastLines = h;
+  function render(first) {
+    if (!first) {
+      stdout.write(`\x1B[${lastLines}A\x1B[J`);
+    } else {
+      stdout.write("\x1B[J");
+    }
+    lastLines = h;
+    let out = "";
+    for (let i = 0; i < h; i++) {
+      const cur = i === selected ? `\u25C9 ${c.text(items[i].label)}` : `\u25CB ${c.text(items[i].label)}`;
+      out += `${cur}
+`;
+    }
+    stdout.write(out);
+  }
+  function clear() {
+    stdout.write(`\x1B[${lastLines}A\x1B[J`);
+  }
+  render(true);
+  return new Promise((resolve) => {
+    const handler = (chunk) => {
+      let i = 0;
+      while (i < chunk.length) {
+        if (chunk[i] === 27) {
+          const rem = chunk.length - i - 1;
+          if (rem === 0) {
+            clear();
+            stdin.removeListener("data", handler);
+            setRaw(wasRaw);
+            resolve(null);
+            return;
+          }
+          const next = consumeEscapeSeq(chunk, i);
+          if (next !== null) {
+            const c2 = next - i;
+            if (c2 === 3 && chunk[i + 1] === 91) {
+              if (chunk[i + 2] === 65 && selected > 0) {
+                selected--;
+                render(false);
+              }
+              if (chunk[i + 2] === 66 && selected < items.length - 1) {
+                selected++;
+                render(false);
+              }
+            }
+            i = next;
+          } else i++;
+          continue;
+        }
+        const byte = chunk[i];
+        i++;
+        if (byte === 13 || byte === 10) {
+          clear();
+          stdin.removeListener("data", handler);
+          setRaw(wasRaw);
+          resolve(items[selected]?.value ?? null);
+          return;
+        }
+        if (byte === 3) {
+          clear();
+          stdin.removeListener("data", handler);
+          setRaw(wasRaw);
+          resolve(null);
+          return;
+        }
+      }
+    };
+    stdin.on("data", handler);
+  });
+}
+async function readLine(prompt, initial = "") {
+  const wasRaw = stdin.isRaw ?? false;
+  setRaw(true);
+  stdin.resume();
+  let line = initial;
+  let suggestion = "";
+  let tabState = null;
+  function redraw() {
+    const parsed = parseLine(line);
+    const candidates = getCompletions(parsed);
+    const first = candidates[0];
+    suggestion = parsed.current && first && first !== parsed.current && first.startsWith(parsed.current) ? first.slice(parsed.current.length) : "";
+    stdout.write("\r\x1B[K" + prompt + line);
+    if (suggestion) {
+      stdout.write(c.dim(suggestion));
+      stdout.write("\x1B[" + suggestion.length + "D");
+    }
+  }
+  redraw();
+  currentRedraw = redraw;
+  return new Promise((resolve) => {
+    const handler = (chunk) => {
+      let i = 0;
+      while (i < chunk.length) {
+        if (chunk[i] === 27) {
+          const next = consumeEscapeSeq(chunk, i);
+          if (next !== null) {
+            const len = next - i;
+            if (len === 3 && chunk[i + 1] === 91) {
+              const fin = chunk[i + 2];
+              if (fin === 65 && historyIdx > 0) {
+                historyIdx--;
+                line = history[historyIdx] ?? "";
+                tabState = null;
+                redraw();
+              } else if (fin === 66) {
+                if (historyIdx < history.length - 1) {
+                  historyIdx++;
+                  line = history[historyIdx] ?? "";
+                  tabState = null;
+                  redraw();
+                } else if (historyIdx === history.length - 1) {
+                  historyIdx = history.length;
+                  line = "";
+                  tabState = null;
+                  redraw();
+                }
+              } else if (fin === 67 && suggestion) {
+                line += suggestion;
+                tabState = null;
+                redraw();
+              }
+            }
+            i = next;
+          } else i++;
+          continue;
+        }
+        const byte = chunk[i];
+        i++;
+        if (byte === 13 || byte === 10) {
+          stdin.removeListener("data", handler);
+          setRaw(wasRaw);
+          stdout.write("\r\x1B[K" + prompt + line + "\r\n");
+          if (line.length > 0) {
+            history.push(line);
+            if (history.length > 100) history.shift();
+          }
+          historyIdx = history.length;
+          resolve(line);
+          return;
+        }
+        if (byte === 3) {
+          stdin.removeListener("data", handler);
+          setRaw(wasRaw);
+          if (line.length > 0) {
+            line = "";
+            tabState = null;
+            stdout.write("\r\x1B[K" + prompt);
+            continue;
+          }
+          stdout.write("\r\n");
+          resolve(null);
+          return;
+        }
+        if (byte === 9) {
+          if (tabState && line === tabState.completedLine) {
+            tabState.idx = (tabState.idx + 1) % tabState.candidates.length;
+          } else {
+            const parsed = parseLine(line);
+            const candidates = getCompletions(parsed);
+            if (candidates.length === 0) {
+              tabState = null;
+              redraw();
+              continue;
+            }
+            tabState = {
+              candidates,
+              idx: 0,
+              wordStart: line.length - parsed.current.length,
+              completedLine: ""
+            };
+          }
+          const match = tabState.candidates[tabState.idx];
+          line = line.slice(0, tabState.wordStart) + match;
+          tabState.completedLine = line;
+          redraw();
+          continue;
+        }
+        if (byte === 12) {
+          stdin.removeListener("data", handler);
+          setRaw(wasRaw);
+          resolve("__CTRLL__" + line);
+          return;
+        }
+        if (byte === 127 || byte === 8) {
+          if (line.length > 0) {
+            line = line.slice(0, -1);
+          }
+          tabState = null;
+          redraw();
+          continue;
+        }
+        if (byte >= 32 && byte <= 126) {
+          line += String.fromCharCode(byte);
+          tabState = null;
+          redraw();
+          continue;
+        }
+      }
+    };
+    stdin.on("data", handler);
+  }).finally(() => {
+    currentRedraw = null;
+  });
+}
+function pushAndRender(log, filter) {
+  if (filter.levels.length && !filter.levels.includes(log.level)) return;
+  if (filter.sources.length && !filter.sources.includes(log.source)) return;
+  stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}
+`);
+}
+async function startRepl() {
+  if (!stdin.isTTY) {
+    console.log(c.dim(" Non-interactive mode (pipe detected)\n"));
+    for await (const line of (await import("node:readline/promises")).createInterface({
+      input: stdin,
+      output: stdout,
+      terminal: false
+    })) {
+      const t = line.trim();
+      if (!t) continue;
+      const p = t.split(/\s+/);
+      if (["quit", "exit", "q"].includes(p[0])) break;
+      if (p[0] === "init") {
+        (await Promise.resolve().then(() => (init_wizard(), wizard_exports))).runWizard();
+        continue;
+      }
+      await execCmd(p);
+    }
+    console.log(c.dim("stopping services..."));
+    await stopAll();
+    console.log(c.dim("bye"));
+    return;
+  }
+  console.clear();
+  stdout.write(welcome);
+  let filter = { levels: [], sources: [] };
+  const unsub = onLog((log) => pushAndRender(log, filter));
+  function onResize() {
+    if (!currentRedraw) return;
+    const rows = process2.stdout.rows || 24;
+    stdout.write("\x1B[H\x1B[2J");
+    const all = getAllLogs();
+    const out = [];
+    let usedRows = 0;
+    for (let i = all.length - 1; i >= 0; i--) {
+      const log = all[i];
+      if (filter.levels.length && !filter.levels.includes(log.level)) continue;
+      if (filter.sources.length && !filter.sources.includes(log.source)) continue;
+      const wrapped = wrapLogLine(formatLog(log), 26);
+      const logRows = wrapped.split("\n").length;
+      if (usedRows + logRows > rows - 2) break;
+      out.unshift(wrapped);
+      usedRows += logRows;
+    }
+    for (const l of out) stdout.write(l + "\n");
+    currentRedraw();
+  }
+  process2.stdout.on("resize", onResize);
+  let pendingInput = "";
+  while (true) {
+    const raw = await readLine(c.text(" \u276F "), pendingInput);
+    pendingInput = "";
+    if (raw === null) break;
+    if (raw.startsWith("__CTRLL__")) {
+      stdout.write(c.dim(`
+LEVEL\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500SOURCE
+`));
+      const lvl = await simpleSelect([{ label: "ALL", value: "" }, ...LEVEL_ITEMS]);
+      if (lvl === null) continue;
+      const src = await simpleSelect([{ label: "ALL", value: "" }, ...SOURCE_ITEMS]);
+      if (src === null) continue;
+      filter = { levels: lvl ? [lvl] : [], sources: src ? [src] : [] };
+      stdout.write(c.dim(`filter: ${lvl || "*"} / ${src || "*"}
+`));
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    try {
+      await execCmd(trimmed.split(/\s+/));
+    } catch (e) {
+      if (e === "QUIT") break;
+      console.log(c.red(`Error: ${e.message}`));
+    }
+  }
+  process2.stdout.off("resize", onResize);
+  unsub();
+  stdout.write(c.dim("stopping services...\n"));
+  await stopAll();
+  stdout.write(c.dim("bye\n"));
+}
+async function execCmd(parts) {
+  const [cmd, ...args] = parts;
+  switch (cmd) {
+    case "help":
+    case "h":
+    case "?":
+      stdout.write(HELP);
+      break;
+    case "version":
+      stdout.write(`sfmc v${process2.env["npm_package_version"] || "0.1.0"}
+`);
+      break;
+    case "status":
+      stdout.write(cmdStatus() + "\n");
+      break;
+    case "logs":
+    case "log": {
+      const out = cmdLogs(args, (svc) => {
+        if (!stdin.isTTY) {
+          stdout.write(c.yellow("follow mode requires TTY\n"));
+          return;
+        }
+      });
+      if (out) stdout.write(out + "\n");
+      break;
+    }
+    case "start":
+      if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") stdout.write(await cmdStartAll() + "\n");
+      else if (args[0]) stdout.write(await cmdStart(args[0]) + "\n");
+      else stdout.write(c.yellow("Usage: start <service>|-all\n"));
+      break;
+    case "stop":
+      if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") stdout.write(await cmdStopAll() + "\n");
+      else if (args[0]) stdout.write(await cmdStop(args[0]) + "\n");
+      else stdout.write(c.yellow("Usage: stop <service>|-all\n"));
+      break;
+    case "restart":
+      if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") {
+        await cmdStopAll();
+        stdout.write(await cmdStartAll() + "\n");
+      } else if (args[0]) stdout.write(await cmdRestart(args[0]) + "\n");
+      else stdout.write(c.yellow("Usage: restart <service>|-all\n"));
+      break;
+    case "send": {
+      const svc = args[0];
+      const msg = args.slice(1).join(" ");
+      if (!svc || !msg) {
+        stdout.write(c.yellow("Usage: send <service> <message>\n"));
+        break;
+      }
+      const s = services[svc];
+      if (!s.running) {
+        stdout.write(c.yellow(`${s.title} not running
+`));
+        break;
+      }
+      try {
+        s.proc?.stdin?.write(msg + "\n");
+        stdout.write(c.dim(`sent to ${svc}
+`));
+      } catch {
+        stdout.write(c.red("write failed\n"));
+      }
+      break;
+    }
+    case "init": {
+      const { runWizard: runWizard2 } = await Promise.resolve().then(() => (init_wizard(), wizard_exports));
+      await runWizard2();
+      break;
+    }
+    case "update":
+      await cmdUpdate(args);
+      break;
+    case "quit":
+    case "exit":
+    case "q":
+      throw "QUIT";
+    default:
+      stdout.write(c.yellow(`Unknown: ${cmd}  (try: help)
+`));
+  }
+}
+var welcome, HELP, COMMANDS, history, historyIdx, currentRedraw, LEVEL_ITEMS, SOURCE_ITEMS;
+var init_repl = __esm({
+  "src/repl.ts"() {
+    "use strict";
+    init_package();
+    init_commands();
+    init_logs();
+    init_services();
+    init_theme();
+    welcome = `
+
+  ${c.text(`\u282A\u2841\u286F\u2801`)}
+  ${c.text(`\u2812\u2801\u2803`)}${c.purple(`\u2804`)}
+  ${c.text(`\u2877\u2847\u284E\u2801`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${package_default.version}
+  ${c.text(`\u2803\u2803\u2811\u2802`)}      ${c.dim(`help \xB7 Ctrl+L \xB7 \u21B9 \xB7 \u2192 \xB7 \u2191\u2193`)}
+
+`;
+    HELP = `
+${c.bold("Commands")}
+  ${c.green("status")}                    Show all services status
+  ${c.green("logs")} <svc> [-n N] [-f]    View / follow service logs
+  ${c.green("start")} <svc>|-all          Start (or all)
+  ${c.green("stop")} <svc>|-all           Stop (or all)
+  ${c.green("restart")} <svc>|-all        Restart (or all)
+  ${c.green("send")} <svc> <msg>          Send command to a service's stdin
+  ${c.green("init")}                      Setup wizard
+  ${c.green("update")} [--check-only] [--channel=release|preview]
+                          Check/apply BDS update
+  ${c.green("version")}                   Show version
+  ${c.green("help")}                      Show this
+  ${c.green("quit")} / ${c.green("exit")} Exit
+
+${c.dim("Shortcuts:")}
+  ${c.dim("Tab")}      Complete (cycle on repeat)
+  ${c.dim("\u2192")}        Accept gray suggestion
+  ${c.dim("Ctrl+L")}   Filter log level / source
+  ${c.dim("\u2191\u2193")}       History
+`;
+    COMMANDS = [
+      "status",
+      "logs",
+      "start",
+      "stop",
+      "restart",
+      "send",
+      "init",
+      "update",
+      "version",
+      "help",
+      "quit",
+      "exit"
+    ];
+    history = [];
+    historyIdx = -1;
+    currentRedraw = null;
+    LEVEL_ITEMS = [
+      { label: c.blue("INFO"), value: "info" },
+      { label: c.yellow("WARN"), value: "warn" },
+      { label: c.red("ERROR"), value: "error" },
+      { label: c.dim("DEBUG"), value: "debug" },
+      { label: c.green("SUCCESS"), value: "success" }
+    ];
+    SOURCE_ITEMS = [
+      { label: c.green("BDServer"), value: "bds" },
+      { label: c.blue("DataBase"), value: "db" },
+      { label: c.purple("QQBridge"), value: "qq" },
+      { label: c.yellow(" LL-BOT "), value: "llbot" },
+      { label: c.cyan(" SYSTEM "), value: "system" }
+    ];
+  }
+});
+
+// src/logs.ts
+function pushLog(text2, source, level) {
+  buffer.pushDirect(text2, source, level);
+}
+function onLog(fn) {
+  return buffer.subscribe(fn);
+}
+function getAllLogs() {
+  return buffer.getAll();
+}
+function inferLevel2(text2) {
+  return inferLevel(text2);
+}
+function stripLogPrefix(line) {
+  const prefixRegex = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}:\d{3} (INFO|WARNING|ERROR|FATAL|DEBUG)\]\s*/;
+  return line.replace(prefixRegex, "");
+}
+function getLogLevel(line) {
+  const levelNames = ["INFO", "WARNING", "ERROR", "FATAL", "DEBUG", "TRACE", "WARN"];
+  const levelPattern = levelNames.join("|");
+  let match = line.match(new RegExp(`\\[(${levelPattern})\\]`, "i"));
+  if (match) return match[1].toUpperCase();
+  match = line.match(new RegExp(`^\\[.*?\\]\\s*(${levelPattern})`, "i"));
+  if (match) return match[1].toUpperCase();
+  match = line.match(new RegExp(`^(${levelPattern})\\s*:`, "i"));
+  if (match) return match[1].toUpperCase();
+  match = line.match(new RegExp(`\\[.*?\\]\\s*(${levelPattern})\\s*:`, "i"));
+  if (match) return match[1].toUpperCase();
+  return "UNKNOWN";
+}
+function formatLog(l) {
+  let src = c.bold(padSource(l.source));
+  let ts = c.dim(l.time.toLocaleTimeString());
+  let lvl = levelTag(l.level);
+  let txt = highlightText(l.text);
+  for (let _src of SOURCE_ITEMS) {
+    if (_src["value"] === l.source) src = `[${_src["label"]}]`;
+    continue;
+  }
+  if (l.source === "bds") {
+    lvl = getLogLevel(l.text);
+    switch (lvl) {
+      case "INFO":
+        lvl = "info";
+        break;
+      case "WARNING":
+        lvl = "warn";
+        break;
+      case "ERROR":
+        lvl = "error";
+        break;
+      case "DEBUG":
+        lvl = "debug";
+        break;
+      default:
+        lvl = "info";
+        break;
+    }
+    txt = stripLogPrefix(l.text);
+    lvl = levelTag(l.level);
+  }
+  return `${ts} ${src} ${lvl} ${txt}`;
+}
+function padSource(s) {
+  return s.padEnd(7);
+}
+function levelTag(lvl) {
+  switch (lvl) {
+    case "error":
+      return c.red("[ERR]");
+    case "warn":
+      return c.yellow("[WRN]");
+    case "success":
+      return c.green(c.bold("[OK]"));
+    case "debug":
+      return c.dim("[DBG]");
+    default:
+      return c.blue("[INF]");
+  }
+}
+function highlightText(raw) {
+  let s = raw;
+  s = s.replace(/§[0-9a-fklmnor]/g, "");
+  s = s.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g, (m) => c.cyan(m));
+  s = s.replace(/\b(TPS|MSPT|tick|loaded|saved)\b/gi, (m) => c.cyan(m));
+  return s;
+}
+function charWidth(ch) {
+  const c2 = ch.codePointAt(0) ?? 0;
+  if (c2 >= 4352 && (c2 <= 4447 || c2 >= 11904 && c2 <= 42191 && c2 !== 12351 || c2 >= 44032 && c2 <= 55203 || c2 >= 63744 && c2 <= 64255 || c2 >= 65072 && c2 <= 65103 || c2 >= 65280 && c2 <= 65376 || c2 >= 65504 && c2 <= 65510 || c2 >= 131072 && c2 <= 196605))
+    return 2;
+  return 1;
+}
+function visibleWidth(s) {
+  const stripped = s.replace(/\x1b\[[0-9;]*m/g, "");
+  let w = 0;
+  for (const ch of stripped) w += charWidth(ch);
+  return w;
+}
+function wrapLogLine(s, indent) {
+  const cols = process.stdout.columns || 80;
+  if (visibleWidth(s) <= cols) return s;
+  const lines = [];
+  let cur = "";
+  let w = 0;
+  let limit = cols;
+  let activeAnsi = "";
+  let i = 0;
+  while (i < s.length) {
+    const m = /^\x1b\[[0-9;]*m/.exec(s.slice(i));
+    if (m) {
+      const code = m[0];
+      cur += code;
+      if (code === "\x1B[0m") activeAnsi = "";
+      else activeAnsi = code;
+      i += code.length;
+    } else {
+      const ch = s[i];
+      const cw = charWidth(ch);
+      if (w + cw > limit) {
+        if (activeAnsi) cur += "\x1B[0m";
+        lines.push(cur);
+        cur = " ".repeat(indent);
+        if (activeAnsi) cur += activeAnsi;
+        w = 0;
+        limit = cols - indent;
+      }
+      cur += ch;
+      w += cw;
+      i++;
+    }
+  }
+  if (activeAnsi) cur += "\x1B[0m";
+  lines.push(cur);
+  return lines.join("\n");
+}
+var buffer;
+var init_logs = __esm({
+  "src/logs.ts"() {
+    "use strict";
+    init_esm();
+    init_repl();
+    init_theme();
+    buffer = createMemoryBuffer(5e3);
+  }
+});
+
 // src/services.ts
 var services_exports = {};
 __export(services_exports, {
   ROOT: () => ROOT,
+  SERVICE_NAMES: () => SERVICE_NAMES,
   START_ORDER: () => START_ORDER,
   services: () => services,
   startAll: () => startAll,
   stopAll: () => stopAll
 });
-import { spawn } from "node:child_process";
-import path from "node:path";
-import fs from "node:fs";
+import { spawn as spawn2 } from "node:child_process";
+import path2 from "node:path";
+import fs2 from "node:fs";
 import { fileURLToPath } from "node:url";
 import { EventEmitter } from "node:events";
 function loadJson(file) {
   try {
-    const p = path.join(ROOT, "configs", file);
-    return JSON.parse(fs.readFileSync(p, "utf-8"));
+    const p = path2.join(ROOT, "configs", file);
+    return JSON.parse(fs2.readFileSync(p, "utf-8"));
   } catch {
     return {};
   }
@@ -57,12 +1048,14 @@ async function stopAll() {
     }
   }
 }
-var __dirname, ROOT, Service, bdsCfg, qqCfg, dbCfg, bdsPath, llbotEnabled, llbotPath, llbotCwd, dbPort, BDS_EXE, services, START_ORDER;
+var __dirname, ROOT, SERVICE_NAMES, Service, bdsCfg, qqCfg, dbCfg, bdsPath, llbotEnabled, llbotPath, llbotCwd, dbPort, BDS_EXE, services, START_ORDER;
 var init_services = __esm({
   "src/services.ts"() {
     "use strict";
-    __dirname = path.dirname(fileURLToPath(import.meta.url));
-    ROOT = path.resolve(__dirname, "..", "..");
+    init_logs();
+    __dirname = path2.dirname(fileURLToPath(import.meta.url));
+    ROOT = path2.resolve(__dirname, "..", "..");
+    SERVICE_NAMES = ["bds", "db", "qq", "llbot"];
     Service = class {
       name;
       title;
@@ -93,6 +1086,8 @@ var init_services = __esm({
         this.logs.push(line);
         if (this.logs.length > 2e3) this.logs.splice(0, this.logs.length - 2e3);
         this.events.emit("log", line);
+        const level = stream === "stderr" ? "error" : inferLevel2(text2);
+        pushLog(text2, this.name, level);
       }
       async start() {
         if (this.running) return;
@@ -101,7 +1096,7 @@ var init_services = __esm({
           if (v) throw new Error(v);
         }
         this.manualStop = false;
-        const child = spawn(this.def.cmd, this.def.args, {
+        const child = spawn2(this.def.cmd, this.def.args, {
           cwd: this.def.cwd,
           stdio: ["pipe", "pipe", "pipe"],
           env: this.def.env ? { ...process.env, ...this.def.env } : process.env
@@ -178,12 +1173,12 @@ var init_services = __esm({
     bdsCfg = loadJson("bds_updater.json");
     qqCfg = loadJson("qq_config.json");
     dbCfg = loadJson("db_config.json");
-    bdsPath = bdsCfg.bds_path ?? path.join(ROOT);
+    bdsPath = bdsCfg.bds_path ?? path2.join(ROOT);
     llbotEnabled = qqCfg.llbot_enabled !== false;
     llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
     llbotCwd = qqCfg.llbot_cwd ?? "D:\\LLBot-CLI-win-x64";
     dbPort = dbCfg.db_port ?? 3001;
-    BDS_EXE = path.resolve(bdsPath, "bedrock_server.exe");
+    BDS_EXE = path2.resolve(bdsPath, "bedrock_server.exe");
     services = {
       bds: new Service({
         name: "bds",
@@ -196,7 +1191,7 @@ var init_services = __esm({
         autoRestart: bdsCfg.crash_restart !== false,
         restartDelay: 5e3,
         validate: () => {
-          if (!fs.existsSync(BDS_EXE)) return `not found: ${BDS_EXE}`;
+          if (!fs2.existsSync(BDS_EXE)) return `not found: ${BDS_EXE}`;
           return null;
         }
       }),
@@ -232,7 +1227,7 @@ var init_services = __esm({
         restartDelay: 5e3,
         validate: () => {
           if (!llbotEnabled) return "LLBot disabled (llbot_enabled=false)";
-          if (!fs.existsSync(llbotPath)) return `not found: ${llbotPath}`;
+          if (!fs2.existsSync(llbotPath)) return `not found: ${llbotPath}`;
           return null;
         }
       })
@@ -241,282 +1236,9 @@ var init_services = __esm({
   }
 });
 
-// src/theme.ts
-import chalk from "chalk";
-function highlightLogLine(raw) {
-  return raw.replace(/§[0-9a-fklmnor]/g, "").replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, (m) => c.dim(m)).replace(/\[ERROR\]/g, (m) => c.red(m)).replace(/\[FATAL\]/g, (m) => c.red(c.bold(m))).replace(/\[WARN(ING)?\]/g, (m) => c.yellow(m)).replace(/\[SUCCESS\]/g, (m) => c.green(c.bold(m))).replace(/\[INFO\]/g, (m) => c.blue(m)).replace(/\[DEBUG\]/g, (m) => c.dim(m)).replace(/\[PLAYER\]/g, (m) => c.green(m)).replace(/\[TPS\]/g, (m) => c.cyan(m)).replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g, (m) => c.cyan(m)).replace(/Player (joined|left):/g, (m) => c.green(m)).replace(/Server (started|stopped)/g, (m) => c.green(m)).replace(/\b(TPS|MSPT|tick|loaded|saved)\b/gi, (m) => c.cyan(m));
-}
-function boxHeader(label, dots) {
-  const top = c.dim("\u256D\u2500 ") + c.bold(label) + c.dim(" \u2500" + "\u2500".repeat(W - 6 - label.length) + "\u256E");
-  const inner = c.dim("\u2502") + "  " + dots + " ".repeat(W - 3 - visibleLen(dots)) + c.dim("\u2502");
-  const bot = c.dim("\u2570" + "\u2500".repeat(W - 2) + "\u256F");
-  return `
-${top}
-${inner}
-${bot}
-`;
-}
-function visibleLen(s) {
-  return s.replace(/\x1b\[[0-9;]*m/g, "").length;
-}
-function padRight(s, n) {
-  return s + " ".repeat(Math.max(0, n - visibleLen(s)));
-}
-var T, c, W, DIVIDER;
-var init_theme = __esm({
-  "src/theme.ts"() {
-    "use strict";
-    T = {
-      bg: "#282c34",
-      panel: "#21252b",
-      surface: "#2c313c",
-      surfaceHi: "#3e4452",
-      text: "#abb2bf",
-      muted: "#5c6370",
-      subtle: "#4b5263",
-      red: "#e06c75",
-      green: "#98c379",
-      yellow: "#e5c07b",
-      blue: "#61afef",
-      cyan: "#56b6c2",
-      purple: "#c678dd",
-      orange: "#d19a66"
-    };
-    c = {
-      dim: chalk.hex(T.muted),
-      text: chalk.hex(T.text),
-      green: chalk.hex(T.green),
-      red: chalk.hex(T.red),
-      yellow: chalk.hex(T.yellow),
-      blue: chalk.hex(T.blue),
-      cyan: chalk.hex(T.cyan),
-      purple: chalk.hex(T.purple),
-      orange: chalk.hex(T.orange),
-      bold: chalk.bold
-    };
-    W = 58;
-    DIVIDER = c.dim("\u2500".repeat(W - 2));
-  }
-});
-
-// src/wizard.ts
-var wizard_exports = {};
-__export(wizard_exports, {
-  runWizard: () => runWizard
-});
-import { intro, outro, note, spinner, confirm, select, text, isCancel } from "@clack/prompts";
-import fs2 from "node:fs";
-import path2 from "node:path";
-import { execSync, spawn as spawn2 } from "node:child_process";
-function cfg(name) {
-  return path2.join(ROOT, "configs", name);
-}
-function read(file) {
-  try {
-    return JSON.parse(fs2.readFileSync(cfg(file), "utf-8"));
-  } catch {
-    return {};
-  }
-}
-function write(file, data) {
-  fs2.mkdirSync(path2.dirname(cfg(file)), { recursive: true });
-  fs2.writeFileSync(cfg(file), JSON.stringify(data, null, 2), "utf-8");
-}
-async function waitForHealth(port, ms = 15e3) {
-  const t = Date.now();
-  while (Date.now() - t < ms) {
-    try {
-      if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true;
-    } catch {
-    }
-    await new Promise((r) => setTimeout(r, 300));
-  }
-  return false;
-}
-async function runWizard() {
-  intro(c.bold("sfmc \u2014 Setup Wizard"));
-  const hasConfigs = fs2.existsSync(cfg("db_config.json"));
-  if (hasConfigs) {
-    const r = await confirm({ message: "Configs already exist. Re-run setup?", initialValue: false });
-    if (isCancel(r) || !r) {
-      outro(c.dim("Setup skipped"));
-      return;
-    }
-  }
-  const s = spinner();
-  s.start("Checking environment");
-  const bdsExists = (() => {
-    try {
-      const p = read("bds_updater.json").bds_path;
-      return p ? fs2.existsSync(path2.join(p, "bedrock_server.exe")) : false;
-    } catch {
-      return false;
-    }
-  })();
-  const hasDefaults = fs2.existsSync(path2.join(ROOT, "configs-default", "db_config.json"));
-  s.stop(bdsExists ? "BDS found" : "BDS not found");
-  note(c.dim(`Root: ${ROOT}`), "Environment");
-  let downloadBds = false;
-  let bdsChannel = "release";
-  if (!bdsExists) {
-    const d = await confirm({ message: "BDS not found \u2014 download now?", initialValue: true });
-    if (!isCancel(d) && d) {
-      downloadBds = true;
-      const ch = await select({
-        message: "Select channel:",
-        options: [
-          { value: "release", label: "Release", hint: "stable" },
-          { value: "preview", label: "Preview", hint: "may be unstable" }
-        ]
-      });
-      if (isCancel(ch)) {
-        downloadBds = false;
-      } else {
-        bdsChannel = ch;
-      }
-    }
-  }
-  let dbPort2 = 3001;
-  if (hasConfigs) {
-    dbPort2 = read("db_config.json").db_port ?? 3001;
-  } else {
-    const p = await text({
-      message: "db-server port:",
-      initialValue: "3001",
-      validate: (v) => {
-        const n = parseInt(v, 10);
-        if (isNaN(n) || n < 1024 || n > 65535) return "Enter 1024-65535";
-      }
-    });
-    if (!isCancel(p)) dbPort2 = parseInt(p, 10);
-  }
-  let qqGroupId = 0;
-  if (!hasConfigs) {
-    const g = await text({
-      message: "QQ group ID (0 to disable):",
-      initialValue: "0",
-      validate: (v) => {
-        const n = parseInt(v, 10);
-        if (isNaN(n) || n < 0) return "Enter a number \u2265 0";
-      }
-    });
-    if (!isCancel(g)) qqGroupId = parseInt(g, 10);
-  }
-  s.start("Writing configs");
-  try {
-    if (!hasConfigs || read("db_config.json").db_port !== dbPort2) {
-      write("db_config.json", {
-        _comment: "sfmc init wizard",
-        db_port: dbPort2,
-        http_auth: "",
-        dbDir: "../data/sfmc_data.db",
-        modulesDir: "../modules"
-      });
-    }
-    if (!hasConfigs) {
-      write("qq_config.json", {
-        _comment: "sfmc init wizard",
-        qq_ws_port: 3002,
-        qq_group_id: qqGroupId,
-        llbot_enabled: qqGroupId > 0,
-        llbot_host: "127.0.0.1",
-        llbot_port: "3004",
-        llbot_token: "",
-        bridge_channel_id: "",
-        mctoqq_prefix: "[MC]"
-      });
-      write("bds_updater.json", {
-        _comment: "sfmc init wizard",
-        bds_path: "D:\\Minecraft\\BEServer",
-        backup_dir: "D:\\Minecraft\\BEServer_backups",
-        channel: bdsChannel,
-        preserve: ["server.properties", "whitelist.json", "permissions.json", "allowlist.json", "worlds", "config"],
-        qq_notify: qqGroupId > 0,
-        auto_check: true,
-        crash_restart: true,
-        auto_restart: true
-      });
-      if (hasDefaults) {
-        fs2.cpSync(path2.join(ROOT, "configs-default", "."), cfg("."), { recursive: true, force: false });
-      }
-    }
-    s.stop("Configs written");
-  } catch (e) {
-    s.stop(c.red("Write failed"));
-    outro(c.red(`Error: ${e.message}`));
-    return;
-  }
-  if (downloadBds) {
-    s.start("Downloading BDS");
-    try {
-      execSync(`node BDSTools/check-update.js --channel=${bdsChannel} --force`, { cwd: ROOT, stdio: "pipe", timeout: 3e5 });
-      s.stop(c.green("BDS downloaded"));
-    } catch (e) {
-      const err = e;
-      s.stop(c.red("Download failed"));
-      console.log(c.red(err.stderr?.toString() || err.message || "unknown error"));
-    }
-  }
-  s.start("Initializing DB");
-  try {
-    const child = spawn2(process.execPath, ["db-server/dist/index.js"], { cwd: ROOT, stdio: "ignore", env: { ...process.env, DB_PORT: String(dbPort2) } });
-    if (await waitForHealth(dbPort2)) {
-      await new Promise((r) => setTimeout(r, 1e3));
-      child.kill("SIGTERM");
-      setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-        }
-      }, 3e3);
-      s.stop(c.green("Database initialized"));
-    } else {
-      s.stop(c.yellow("Timed out \u2014 start db-server manually"));
-      try {
-        child.kill("SIGTERM");
-      } catch {
-      }
-    }
-  } catch {
-    s.stop(c.yellow("Skipped \u2014 start manually"));
-  }
-  outro(c.green("Done! Run sfmc to start managing."));
-}
-var init_wizard = __esm({
-  "src/wizard.ts"() {
-    "use strict";
-    init_theme();
-    init_services();
-  }
-});
-
-// src/main.ts
-import process2 from "node:process";
-
 // src/commands.ts
-init_services();
-init_theme();
-var SERVICE_NAMES = ["bds", "db", "qq", "llbot"];
-var HELP = `
-${c.bold("Commands")}
-  ${c.green("status")}              Show all services status
-  ${c.green("logs")} <service>      View service logs
-    ${c.dim("  -n <num>  lines (default 20)")}
-    ${c.dim("  -f        follow mode (Ctrl+C to stop)")}
-  ${c.green("follow")} <service>    Enter service console (logs + send commands)
-  ${c.green("start")} <service>     Start a service
-  ${c.green("stop")} <service>      Stop a service
-  ${c.green("restart")} <service>   Restart a service
-  ${c.green("start-all")}           Start all services (db\u2192qq\u2192llbot\u2192bds)
-  ${c.green("stop-all")}            Stop all services
-  ${c.green("init")}                Run setup wizard
-  ${c.green("update")}              Check/apply BDS update
-  ${c.green("version")}             Show version
-  ${c.green("help")}                Show this help
-  ${c.green("quit")} / ${c.green("exit")}  Exit
-
-${c.dim("Tip: Tab completes commands & service names")}
-`;
+import { spawn as spawn3 } from "node:child_process";
+import process3 from "node:process";
 function parseService(raw) {
   const s = raw.toLowerCase();
   if (SERVICE_NAMES.includes(s)) return s;
@@ -540,22 +1262,24 @@ ${c.bold("Services")}
 `) + DIVIDER + "\n" + lines.join("\n") + "\n";
 }
 function cmdLogs(args, onFollow) {
-  const argsCopy = [...args];
-  const svcRaw = argsCopy.shift();
+  let n = 20;
+  let follow = false;
+  const positional = [];
+  for (const a of args) {
+    if (a === "-n") continue;
+    if (a === "-f") {
+      follow = true;
+      continue;
+    }
+    positional.push(a);
+  }
+  const nIdx = args.indexOf("-n");
+  if (nIdx >= 0 && nIdx + 1 < args.length) n = parseInt(args[nIdx + 1], 10);
+  const svcRaw = positional[0];
   if (!svcRaw) return c.yellow("Usage: logs <service> [-n N] [-f]");
   const svc = parseService(svcRaw);
   if (!svc) return c.red(`Unknown service: ${svcRaw} (try: ${SERVICE_NAMES.join(", ")})`);
   const svcObj = services[svc];
-  let n = 20;
-  let follow = false;
-  while (argsCopy.length > 0) {
-    const opt = argsCopy.shift();
-    if (opt === "-n") {
-      n = parseInt(argsCopy.shift() ?? "20", 10);
-    } else if (opt === "-f") {
-      follow = true;
-    }
-  }
   const lines = svcObj.getRecentLogs(n);
   if (lines.length === 0) return c.dim("(no logs yet)");
   const header = `
@@ -573,8 +1297,6 @@ ${c.bold(svcObj.title)} logs (last ${lines.length}):`;
   }
   return result;
 }
-var STARTING = /* @__PURE__ */ new Set();
-var STOPPING = /* @__PURE__ */ new Set();
 async function cmdStart(raw) {
   const svc = parseService(raw);
   if (!svc) return c.red(`Unknown service: ${raw} (try: ${SERVICE_NAMES.join(", ")})`);
@@ -628,586 +1350,67 @@ async function cmdStopAll() {
   await stopAll2();
   return c.dim("All services stopped");
 }
-async function cmdUpdate() {
-  const { execSync: execSync2 } = await import("node:child_process");
-  const { ROOT: ROOT2 } = await Promise.resolve().then(() => (init_services(), services_exports));
-  try {
-    const result = execSync2(`node bds-tools/dist/check-update.js`, {
-      cwd: ROOT2,
-      encoding: "utf-8",
-      timeout: 12e4
-    });
-    return c.green(result.toString());
-  } catch (e) {
-    const err = e;
-    return c.red(err.stderr?.toString() || err.stdout?.toString() || err.message || "update failed");
-  }
-}
-
-// src/repl.ts
-init_theme();
-import { stdin, stdout } from "node:process";
-init_services();
-var SERVICE_NAMES2 = ["bds", "db", "qq", "llbot"];
-function setRaw(v) {
-  try {
-    if (stdin.isTTY && typeof stdin.setRawMode === "function") stdin.setRawMode(v);
-  } catch {
-  }
-}
-var HELP2 = `
-${c.bold("Commands")}
-  ${c.green("status")}              Show all services status
-  ${c.green("logs")} <svc>          View service logs
-  ${c.green("start")} <svc>         Start a service
-  ${c.green("stop")} <svc>          Stop a service
-  ${c.green("restart")} <svc>       Restart a service
-  ${c.green("follow")} <svc>        Enter service console (logs + stdin)
-  ${c.green("start-all")}           Start all services
-  ${c.green("stop-all")}            Stop all services
-  ${c.green("init")}                Run setup wizard
-  ${c.green("update")}              Check/apply BDS update
-  ${c.green("version")}             Show version
-  ${c.green("help")}                Show this help
-  ${c.green("quit")} / ${c.green("exit")}  Exit
-
-${c.dim("Shortcuts:")}
-  ${c.dim("Ctrl+P")}   Quick service console switcher
-  ${c.dim("Alt+P")}    Command palette
-  ${c.dim("Tab")}      Complete commands & arguments
-  ${c.dim("\u2191\u2193")}       History navigation
-`;
-function getServiceDots() {
-  return SERVICE_NAMES2.map((n) => {
-    const s = services[n];
-    const dot = s.running ? c.green("\u25CF") : c.dim("\u25CB");
-    return `${dot}${c.bold(s.title)}`;
-  }).join(" ");
-}
-function printHeader() {
-  console.log(boxHeader("sfmc", getServiceDots()));
-}
-function consumeEscapeSeq(chunk, i) {
-  if (chunk[i] !== 27) return null;
-  const rem = chunk.length - i - 1;
-  if (rem >= 2 && chunk[i + 1] === 91) {
-    let j = i + 2;
-    while (j < chunk.length && chunk[j] >= 48 && chunk[j] <= 63) j++;
-    while (j < chunk.length && chunk[j] >= 32 && chunk[j] <= 47) j++;
-    if (j < chunk.length && chunk[j] >= 64 && chunk[j] <= 126) j++;
-    return j;
-  }
-  if (rem >= 2 && chunk[i + 1] === 79) return i + 3;
-  if (rem >= 1) return i + 2;
-  return i + 1;
-}
-async function popupSelect(items, title, filterHint = "") {
-  const wasRaw = stdin.isRaw ?? false;
-  setRaw(true);
-  stdin.resume();
-  let filtered = items;
-  let selected = 0;
-  let filter = filterHint;
-  let lastLines = 0;
-  function popHeight() {
-    return Math.min(filtered.length, 8);
-  }
-  function popTotalLines() {
-    const h = popHeight();
-    let lines = 4 + h;
-    if (filtered.length > h) lines += 1;
-    return lines;
-  }
-  function render(first = false) {
-    const lines = popTotalLines();
-    const h = popHeight();
-    if (!first) {
-      stdout.write(`\x1B[${lastLines}A\x1B[J`);
-    } else {
-      stdout.write("\x1B[J");
-    }
-    lastLines = lines;
-    let out = `\r${c.dim("\u256D\u2500 ")}${c.bold(title)}${c.dim(` \u2500${"\u2500".repeat(40)}\u256E`)}
-`;
-    out += `${c.dim("\u2502")} ${c.dim("search:")} ${filter}${" ".repeat(Math.max(0, 22 - filter.length))}${c.dim("\u2502")}
-`;
-    out += c.dim(`\u251C\u2500${"\u2500".repeat(42)}\u2524`) + "\n";
-    for (let i = 0; i < h; i++) {
-      const item = filtered[i];
-      if (!item) break;
-      const cursor = i === selected ? c.cyan("\u25B6") : " ";
-      const style = i === selected ? c.bold : (s) => s;
-      out += `${c.dim("\u2502")} ${cursor} ${style(padRight(item.label, 38))} ${c.dim("\u2502")}
-`;
-    }
-    if (filtered.length > h) {
-      out += `${c.dim("\u2502")}  ${c.dim(`\u2026 ${filtered.length - h} more`)}${" ".repeat(28)}${c.dim("\u2502")}
-`;
-    }
-    out += c.dim("\u2570" + "\u2500".repeat(44) + "\u256F");
-    stdout.write(out);
-  }
-  function clearPop() {
-    if (lastLines > 0) {
-      stdout.write(`\x1B[${lastLines}A\x1B[J`);
-    }
-  }
-  render(true);
-  const result = await new Promise((resolve) => {
-    const handler = (chunk) => {
-      let i = 0;
-      while (i < chunk.length) {
-        if (chunk[i] === 27) {
-          const rem = chunk.length - i - 1;
-          if (rem === 0) {
-            clearPop();
-            stdin.removeListener("data", handler);
-            setRaw(wasRaw);
-            resolve(null);
-            return;
-          }
-          const next = consumeEscapeSeq(chunk, i);
-          if (next !== null) i = next;
-          else i++;
-          continue;
-        }
-        const byte = chunk[i];
-        i++;
-        if (byte === 13 || byte === 10) {
-          clearPop();
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          resolve(filtered[selected]?.value ?? null);
-          return;
-        }
-        if (byte === 3) {
-          clearPop();
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          resolve(null);
-          return;
-        }
-        if (byte === 127 || byte === 8) {
-          if (filter.length > 0) {
-            filter = filter.slice(0, -1);
-            filtered = items.filter((i2) => i2.label.toLowerCase().includes(filter.toLowerCase()));
-            selected = 0;
-            render();
-          }
-          continue;
-        }
-        if (byte >= 32 && byte <= 126) {
-          filter += String.fromCharCode(byte);
-          filtered = items.filter((i2) => i2.label.toLowerCase().includes(filter.toLowerCase()));
-          selected = 0;
-          render();
-          continue;
-        }
-      }
-    };
-    stdin.on("data", handler);
-  });
-  return result;
-}
-var history = [];
-var historyIdx = -1;
-async function readLine(prompt) {
-  const wasRaw = stdin.isRaw ?? false;
-  setRaw(true);
-  stdin.resume();
-  let line = "";
-  stdout.write(prompt);
+async function cmdUpdate(args = []) {
   return new Promise((resolve) => {
-    const handler = (chunk) => {
-      let i = 0;
-      while (i < chunk.length) {
-        if (chunk[i] === 27) {
-          const next = consumeEscapeSeq(chunk, i);
-          if (next !== null) {
-            const consumed = next - i;
-            if (consumed === 3 && chunk[i + 1] === 91) {
-              const fin = chunk[i + 2];
-              if (fin === 65) {
-                if (historyIdx > 0) {
-                  historyIdx--;
-                  const prev = history[historyIdx] ?? "";
-                  stdout.write("\r" + " ".repeat(line.length + prompt.length) + "\r" + prompt + prev);
-                  line = prev;
-                }
-              } else if (fin === 66) {
-                if (historyIdx < history.length - 1) {
-                  historyIdx++;
-                  const nextLn = history[historyIdx] ?? "";
-                  stdout.write("\r" + " ".repeat(line.length + prompt.length) + "\r" + prompt + nextLn);
-                  line = nextLn;
-                } else if (historyIdx === history.length - 1) {
-                  historyIdx = history.length;
-                  stdout.write("\r" + " ".repeat(line.length + prompt.length) + "\r" + prompt);
-                  line = "";
-                }
-              }
-            }
-            i = next;
-          } else {
-            i++;
-          }
-          continue;
-        }
-        const byte = chunk[i];
-        i++;
-        if (byte === 13 || byte === 10) {
-          stdout.write("\r\n");
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          if (line.length > 0) {
-            history.push(line);
-            if (history.length > 100) history.shift();
-          }
-          historyIdx = history.length;
-          resolve(line);
-          return;
-        }
-        if (byte === 3) {
-          stdout.write("\r\n");
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          resolve(null);
-          return;
-        }
-        if (byte === 9) {
-          stdin.removeListener("data", handler);
-          stdout.write("\r\n");
-          setRaw(wasRaw);
-          resolve("__TAB__" + line);
-          return;
-        }
-        if (byte === 16) {
-          stdin.removeListener("data", handler);
-          stdout.write("\r\n");
-          setRaw(wasRaw);
-          resolve("__CTRLP__");
-          return;
-        }
-        if (byte === 127 || byte === 8) {
-          if (line.length > 0) {
-            line = line.slice(0, -1);
-            stdout.write("\b \b");
-          }
-          continue;
-        }
-        if (byte >= 32 && byte <= 126) {
-          line += String.fromCharCode(byte);
-          stdout.write(String.fromCharCode(byte));
-          continue;
-        }
+    const proc = spawn3(process3.execPath, ["bds-tools/dist/check-update.js", ...args], {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let out = "";
+    proc.stdout?.on("data", (d) => {
+      const s = d.toString();
+      out += s;
+      for (const line of s.split("\n").filter(Boolean)) pushLog(line, "system", "info");
+    });
+    proc.stderr?.on("data", (d) => {
+      const s = d.toString();
+      out += s;
+      for (const line of s.split("\n").filter(Boolean)) pushLog(line, "system", "error");
+    });
+    proc.on("exit", (code) => {
+      if (code === 0) {
+        pushLog("update complete", "system", "success");
+        resolve((out ? out + "\n" : "") + "update complete");
+      } else {
+        resolve(out || `update exited with code ${code}`);
       }
-    };
-    stdin.on("data", handler);
+    });
+    proc.on("error", (e) => {
+      pushLog(`update error: ${e.message}`, "system", "error");
+      resolve(`update error: ${e.message}`);
+    });
   });
 }
-var COMMAND_ITEMS = [
-  { label: "status          Show service status", value: "status" },
-  { label: "logs <svc>      View service logs", value: "logs " },
-  { label: "follow <svc>    Service console (logs + stdin)", value: "follow " },
-  { label: "start <svc>     Start a service", value: "start " },
-  { label: "stop <svc>      Stop a service", value: "stop " },
-  { label: "restart <svc>   Restart a service", value: "restart " },
-  { label: "start-all       Start all services", value: "start-all" },
-  { label: "stop-all        Stop all services", value: "stop-all" },
-  { label: "init            Setup wizard", value: "init" },
-  { label: "update          BDS update", value: "update" },
-  { label: "help            Show help", value: "help" },
-  { label: "quit            Exit", value: "quit" }
-];
-var SERVICE_ITEMS = SERVICE_NAMES2.map((n) => {
-  const s = services[n];
-  const dot = s.running ? c.green("\u25CF") : c.dim("\u25CB");
-  return { label: `${dot} ${padRight(s.title, 34)} ${c.dim(s.running ? `PID ${s.pid}` : "stopped")}`, value: n };
+var STARTING, STOPPING;
+var init_commands = __esm({
+  "src/commands.ts"() {
+    "use strict";
+    init_services();
+    init_theme();
+    init_logs();
+    STARTING = /* @__PURE__ */ new Set();
+    STOPPING = /* @__PURE__ */ new Set();
+  }
 });
-async function startRepl() {
-  printHeader();
-  if (!stdin.isTTY) {
-    console.log(c.dim(" Non-interactive mode (pipe detected)\n"));
-    await startReplSimple();
-    return;
-  }
-  console.log(c.dim(" Type help \xB7 Ctrl+P services \xB7 Alt+P commands \xB7 Tab/\u2191\u2193\n"));
-  while (true) {
-    const raw = await readLine(c.cyan(" > "));
-    if (raw === null) break;
-    if (raw.startsWith("__TAB__")) {
-      const partial = raw.slice(7);
-      const parts2 = partial.trim().split(/\s+/);
-      const cmd = parts2[0];
-      const rest = parts2.slice(1).join(" ");
-      if (!cmd) {
-        const sel2 = await popupSelect(COMMAND_ITEMS, "Commands");
-        if (sel2) await execCmd(sel2.split(/\s+/));
-        continue;
-      }
-      if ((cmd === "logs" || cmd === "follow" || cmd === "start" || cmd === "stop" || cmd === "restart") && !rest) {
-        const items = SERVICE_ITEMS.map((i) => ({ label: i.label, value: `${cmd} ${i.value}` }));
-        const sel2 = await popupSelect(items, `Pick service for: ${cmd}`);
-        if (sel2) await execCmd(sel2.split(/\s+/));
-        continue;
-      }
-      const sel = await popupSelect(COMMAND_ITEMS, "Commands");
-      if (sel) await execCmd(sel.split(/\s+/));
-      continue;
-    }
-    if (raw === "__CTRLP__") {
-      const sel = await popupSelect(SERVICE_ITEMS, "Service Console");
-      if (sel) await enterServiceConsole(sel);
-      continue;
-    }
-    if (raw.startsWith("/")) {
-      const sel = await popupSelect(COMMAND_ITEMS, "Commands", raw.slice(1));
-      if (sel) await execCmd(sel.split(/\s+/));
-      continue;
-    }
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split(/\s+/);
-    await execCmd(parts);
-  }
-  console.log(c.dim("bye"));
-}
-async function startReplSimple() {
-  const { createInterface } = await import("node:readline/promises");
-  const rl = createInterface({ input: stdin, output: stdout, terminal: false });
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split(/\s+/);
-    if (parts[0] === "quit" || parts[0] === "exit" || parts[0] === "q") break;
-    if (parts[0] === "init") {
-      const { runWizard: runWizard2 } = await Promise.resolve().then(() => (init_wizard(), wizard_exports));
-      await runWizard2();
-      continue;
-    }
-    await execCmd(parts);
-  }
-}
-async function execCmd(parts) {
-  const [cmd, ...args] = parts;
-  try {
-    switch (cmd) {
-      case "help":
-      case "h":
-      case "?":
-        console.log(HELP2);
-        break;
-      case "version":
-        console.log(`sfmc v${process.env["npm_package_version"] || "0.1.0"}`);
-        break;
-      case "status":
-        console.log(cmdStatus());
-        break;
-      case "logs":
-      case "log": {
-        const out = cmdLogs(args, (svc) => {
-          if (!stdin.isTTY) {
-            console.log(c.yellow("follow mode requires TTY (interactive terminal)"));
-            return;
-          }
-          enterServiceConsole(svc);
-        });
-        if (out) console.log(out);
-        break;
-      }
-      case "follow": {
-        const svcName = args[0];
-        if (!stdin.isTTY) {
-          console.log(c.yellow("console mode requires TTY (interactive terminal)"));
-          break;
-        }
-        if (svcName && SERVICE_NAMES2.includes(svcName.toLowerCase())) {
-          await enterServiceConsole(svcName.toLowerCase());
-        } else {
-          const sel = await popupSelect(SERVICE_ITEMS, "Service Console");
-          if (sel) await enterServiceConsole(sel);
-        }
-        break;
-      }
-      case "start":
-        if (args[0] === "all" || args[0] === "--all") {
-          console.log(await cmdStartAll());
-        } else if (args[0]) {
-          console.log(await cmdStart(args[0]));
-        } else {
-          console.log(c.yellow("Usage: start <service>"));
-        }
-        break;
-      case "stop":
-        if (args[0] === "all" || args[0] === "--all") {
-          console.log(await cmdStopAll());
-        } else if (args[0]) {
-          console.log(await cmdStop(args[0]));
-        } else {
-          console.log(c.yellow("Usage: stop <service>"));
-        }
-        break;
-      case "restart":
-        if (args[0]) {
-          console.log(await cmdRestart(args[0]));
-        } else {
-          console.log(c.yellow("Usage: restart <service>"));
-        }
-        break;
-      case "start-all":
-        console.log(await cmdStartAll());
-        break;
-      case "stop-all":
-        console.log(await cmdStopAll());
-        break;
-      case "init": {
-        const { runWizard: runWizard2 } = await Promise.resolve().then(() => (init_wizard(), wizard_exports));
-        await runWizard2();
-        break;
-      }
-      case "update":
-        console.log(await cmdUpdate());
-        break;
-      case "quit":
-      case "exit":
-      case "q":
-        throw "QUIT";
-      default:
-        if (cmd.startsWith("/")) {
-          const sel = await popupSelect(COMMAND_ITEMS, "Commands", cmd.slice(1));
-          if (sel) await execCmd(sel.split(/\s+/));
-        } else {
-          console.log(c.yellow(`Unknown: ${cmd}  (try: help)`));
-        }
-    }
-  } catch (e) {
-    if (e === "QUIT") throw e;
-    console.log(c.red(`Error: ${e.message}`));
-  }
-}
-async function enterServiceConsole(svc) {
-  const svcObj = services[svc];
-  const wasRaw = stdin.isRaw ?? false;
-  setRaw(true);
-  stdin.resume();
-  let running = true;
-  let inputBuf = "";
-  const PROMPT = c.cyan(`[${svcObj.title}] `);
-  function fmtLog(l) {
-    const ts = c.dim(l.time.toLocaleTimeString());
-    const text2 = highlightLogLine(l.text);
-    const pfx = l.stream === "stderr" ? c.red("!") : c.dim(" ");
-    return `${ts} ${pfx} ${text2}`;
-  }
-  function redrawInput() {
-    stdout.write(`\r${PROMPT}${inputBuf}\x1B[K`);
-  }
-  stdout.write(`
-${c.bold(svcObj.title)} console \u2014 type and press Enter to send to service
-`);
-  stdout.write(`${c.dim("Ctrl+C or /exit to leave \xB7 Ctrl+L to clear logs")}
-`);
-  stdout.write(`${DIVIDER}
-`);
-  for (const l of svcObj.getRecentLogs(10)) {
-    stdout.write(fmtLog(l) + "\n");
-  }
-  redrawInput();
-  const onLog = (l) => {
-    if (!running) return;
-    stdout.write(`\r\x1B[K${fmtLog(l)}
-`);
-    redrawInput();
-  };
-  svcObj.events.on("log", onLog);
-  const dataHandler = (chunk) => {
-    if (!running) return;
-    let i = 0;
-    while (i < chunk.length) {
-      if (chunk[i] === 27) {
-        const next = consumeEscapeSeq(chunk, i);
-        i = next !== null ? next : i + 1;
-        continue;
-      }
-      const byte = chunk[i];
-      i++;
-      if (byte === 3) {
-        running = false;
-        stdin.removeListener("data", dataHandler);
-        svcObj.events.removeListener("log", onLog);
-        setRaw(wasRaw);
-        stdout.write(`
-${c.dim("left console")}
-`);
-        return;
-      }
-      if (byte === 13 || byte === 10) {
-        const cmd = inputBuf.trim();
-        stdout.write(`\r\x1B[K${c.dim(`> ${cmd}`)}
-`);
-        if (cmd.toLowerCase() === "/exit") {
-          running = false;
-          stdin.removeListener("data", dataHandler);
-          svcObj.events.removeListener("log", onLog);
-          setRaw(wasRaw);
-          stdout.write(`${c.dim("left console")}
-`);
-          return;
-        }
-        if (cmd) {
-          try {
-            svcObj.proc?.stdin?.write(cmd + "\n");
-          } catch {
-          }
-        }
-        inputBuf = "";
-        redrawInput();
-        continue;
-      }
-      if (byte === 8 || byte === 127) {
-        if (inputBuf.length > 0) {
-          inputBuf = inputBuf.slice(0, -1);
-          stdout.write("\b \b");
-        }
-        continue;
-      }
-      if (byte >= 32 && byte <= 126) {
-        inputBuf += String.fromCharCode(byte);
-        stdout.write(String.fromCharCode(byte));
-        continue;
-      }
-    }
-  };
-  stdin.on("data", dataHandler);
-}
 
 // src/main.ts
+init_package();
+init_commands();
+init_repl();
 init_theme();
+import process4 from "node:process";
 function printVersion() {
-  console.log(`sfmc v${process2.env["npm_package_version"] || "0.1.0"}`);
+  `${c.text(`\u282A\u2841\u286F\u2801`)}
+  ${c.text(`\u2812\u2801\u2803`)}${c.purple(`\u2804`)}
+  ${c.text(`\u2877\u2847\u284E\u2801`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${package_default.version}
+  ${c.text(`\u2803\u2803\u2811\u2802`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}
+`;
 }
 function printUsage() {
-  console.log(`${c.bold("sfmc")} \u2014 Server Manager for Minecraft BDS
-
-${c.dim("Usage:")}
-  ${c.green("sfmc")}                  Enter interactive REPL
-  ${c.green("sfmc")} ${c.blue("<command>")}       Run command once and exit
-
-${c.dim("Commands:")}
-  ${c.green("status")}              Show all services status
-  ${c.green("logs")} <service>      View service logs
-  ${c.green("follow")} <service>    Follow service logs (live tail)
-  ${c.green("start")} <service>     Start a service
-  ${c.green("stop")} <service>      Stop a service
-  ${c.green("restart")} <service>   Restart a service
-  ${c.green("update")}              Check/apply BDS update
-  ${c.green("init")}                Run setup wizard
-  ${c.green("help")}                Show this help
-  ${c.green("--version")} / ${c.green("-v")}  Print version
-`);
+  console.log(`${HELP}`);
 }
 async function main() {
-  const args = process2.argv.slice(2);
+  const args = process4.argv.slice(2);
   if (args.length === 0) {
     await startRepl();
     return;
@@ -1227,61 +1430,55 @@ async function main() {
       console.log(cmdStatus());
       break;
     case "logs":
-    case "log":
-      {
-        const result = cmdLogs(rest);
-        if (result) console.log(result);
-      }
+    case "log": {
+      const out = cmdLogs(rest);
+      if (out) console.log(out);
       break;
-    case "follow":
-      {
-        const followArgs = rest.length > 0 ? [`${rest[0]}`, "-f"] : [];
-        const result = cmdLogs(followArgs);
-        if (result) console.log(result);
-      }
-      break;
+    }
     case "start":
-      if (rest[0] === "all" || rest[0] === "--all") {
+      if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
         console.log(await cmdStartAll());
       } else if (rest[0]) {
         console.log(await cmdStart(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc start <service>"));
+        console.log(c.yellow("Usage: sfmc start <service>|-all"));
       }
       break;
     case "stop":
-      if (rest[0] === "all" || rest[0] === "--all") {
+      if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
         console.log(await cmdStopAll());
       } else if (rest[0]) {
         console.log(await cmdStop(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc stop <service>"));
+        console.log(c.yellow("Usage: sfmc stop <service>|-all"));
       }
       break;
     case "restart":
-      if (rest[0]) {
+      if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
+        await cmdStopAll();
+        console.log(await cmdStartAll());
+      } else if (rest[0]) {
         console.log(await cmdRestart(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc restart <service>"));
+        console.log(c.yellow("Usage: sfmc restart <service>|-all"));
       }
       break;
     case "update":
-      console.log(await cmdUpdate());
+      console.log(await cmdUpdate(rest));
       break;
-    case "init":
-      {
-        const { runWizard: runWizard2 } = await Promise.resolve().then(() => (init_wizard(), wizard_exports));
-        await runWizard2();
-      }
+    case "init": {
+      const { runWizard: runWizard2 } = await Promise.resolve().then(() => (init_wizard(), wizard_exports));
+      await runWizard2();
       break;
+    }
     default:
       console.log(c.red(`Unknown command: ${cmd}`));
       printUsage();
-      process2.exit(1);
+      process4.exit(1);
   }
-  process2.exit(0);
+  process4.exit(0);
 }
 main().catch((err) => {
-  console.error(c.red(`Fatal: ${err.message}`));
-  process2.exit(1);
+  console.error(c.red(err?.message ? `Error: ${err.message}` : "Fatal"));
+  process4.exit(1);
 });

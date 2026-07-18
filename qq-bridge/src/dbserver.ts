@@ -6,7 +6,7 @@
  */
 
 import { request as httpRequest, type RequestOptions } from "node:http";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 import type { IncomingChatMessage, PostMessagesBody } from "./types.js";
 
 export interface DBServerConfig {
@@ -95,8 +95,8 @@ export async function tryForward(
 ): Promise<void> {
   try {
     await forwardGroupMessage(cfg, fromId, fromName, content);
-    logger.info(`QQ → MC: ${fromName}: ${content.slice(0, 60)}`);
+    log.info(`QQ → MC: ${fromName}: ${content.slice(0, 60)}`);
   } catch (e) {
-    logger.error(`转发到 db-server 失败: ${(e as Error).message}`);
+    log.error(`转发到 db-server 失败: ${(e as Error).message}`);
   }
 }

@@ -23,15 +23,15 @@ const node_path_1 = __importDefault(require("node:path"));
 const paths_js_1 = require("./paths.js");
 const fsx_js_1 = require("./fsx.js");
 Object.defineProperty(exports, "getDirSize", { enumerable: true, get: function () { return fsx_js_1.getDirSize; } });
-const logger_js_1 = require("./logger.js");
+const log_js_1 = require("./log.js");
 /** 在备份完成后调用: 记录快照指示符。 */
 function writeRollbackMarker(marker) {
     try {
         node_fs_1.default.writeFileSync(paths_js_1.ROLLBACK_MARKER, JSON.stringify(marker, null, 2));
-        logger_js_1.logger.info(`[回滚] 已记录回滚标记 -> ${paths_js_1.ROLLBACK_MARKER}`);
+        log_js_1.log.info(`[回滚] 已记录回滚标记 -> ${paths_js_1.ROLLBACK_MARKER}`);
     }
     catch (e) {
-        logger_js_1.logger.warn(`[回滚] 无法写入标记: ${e.message}`);
+        log_js_1.log.warn(`[回滚] 无法写入标记: ${e.message}`);
     }
 }
 function clearRollbackMarker() {
@@ -62,12 +62,12 @@ function rollbackFromBackup(marker) {
     if (!node_fs_1.default.existsSync(backup_dir)) {
         return { ok: false, reason: `备份目录不存在: ${backup_dir}` };
     }
-    logger_js_1.logger.warn(`[回滚] 开始恢复 ${preserve.length} 项到 ${bds_path}`);
+    log_js_1.log.warn(`[回滚] 开始恢复 ${preserve.length} 项到 ${bds_path}`);
     for (const item of preserve) {
         const src = node_path_1.default.join(backup_dir, item);
         const dest = node_path_1.default.join(bds_path, item);
         if (!node_fs_1.default.existsSync(src)) {
-            logger_js_1.logger.warn(`[回滚] 跳过 (备份中不存在): ${item}`);
+            log_js_1.log.warn(`[回滚] 跳过 (备份中不存在): ${item}`);
             continue;
         }
         try {
@@ -84,10 +84,10 @@ function rollbackFromBackup(marker) {
             else {
                 node_fs_1.default.copyFileSync(src, dest);
             }
-            logger_js_1.logger.info(`[回滚] 已恢复: ${item}`);
+            log_js_1.log.info(`[回滚] 已恢复: ${item}`);
         }
         catch (e) {
-            logger_js_1.logger.warn(`[回滚] 恢复失败 ${item}: ${e.message}`);
+            log_js_1.log.warn(`[回滚] 恢复失败 ${item}: ${e.message}`);
         }
     }
     return { ok: true };

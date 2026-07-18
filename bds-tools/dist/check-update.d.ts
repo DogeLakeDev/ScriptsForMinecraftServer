@@ -1,7 +1,6 @@
 /**
  * check-update.ts — BDS 自动更新器 (主流程)
  *
- * 核心改进:
  *   1. 临时 staging 目录 (mkdtempSync) - 避免污染 SCRIPT_DIR
  *   2. 下载/解压失败 → 自动从备份回滚 preserves
  *   3. 流式 SHA256 校验 - 不把 250MB 文件读入内存

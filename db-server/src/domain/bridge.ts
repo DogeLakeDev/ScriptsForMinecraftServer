@@ -18,6 +18,8 @@
 
 import { request } from "node:http";
 
+import { log } from "../lib/log.js";
+
 type LLBotConfig = {
   host: string;
   port: number;
@@ -64,7 +66,7 @@ export function forwardToQQBridge(
   fromId: string
 ): void {
   if (!config.groupId || config.groupId === "0") {
-    console.warn(`[DogeDB] QQ 群未配置 (qq_group_id),跳过 MC→QQ 转发 (channel=${channelId})`);
+    log.warn(`QQ 群未配置 (qq_group_id),跳过 MC→QQ 转发 (channel=${channelId})`);
     return;
   }
 
@@ -95,15 +97,15 @@ export function forwardToQQBridge(
       res.on("data", (c) => (body += c));
       res.on("end", () => {
         if (res.statusCode !== 200) {
-          console.warn(
-            `[DogeDB] LLBot send_group_msg → ${res.statusCode}: ${String(body).slice(0, 200)} (from=${fromId}, channel=${channelId})`
+          log.warn(
+            `LLBot send_group_msg → ${res.statusCode}: ${String(body).slice(0, 200)} (from=${fromId}, channel=${channelId})`
           );
         }
       });
     }
   );
   req.on("error", (err) => {
-    console.warn(`[DogeDB] LLBot 不可达 (${config.host}:${config.port}): ${err.message}`);
+    log.warn(`LLBot 不可达 (${config.host}:${config.port}): ${err.message}`);
   });
   req.write(payload);
   req.end();

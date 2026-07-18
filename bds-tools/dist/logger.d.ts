@@ -1,10 +1,10 @@
 /**
- * logger.ts — 单例流式日志 (避免断行 / 文件描述符泄漏)
+ * logger.ts — 已废弃,统一改用 log.ts
  *
- * appendFileSync 在长消息或高频调用下可能撞到 buffer 边界，导致行被截断。
- * 这里使用 createWriteStream + 缓冲行，单例保持一个 FD。
+ * 此文件保留仅为向后兼容 (safe-delete 限制无法删除)。
+ * 实际日志逻辑在 log.ts,通过 @sfmc/logs 共享包接入。
+ *
+ * 新代码请直接:import { log } from "./log.js"
  */
-import type { Logger } from "./types.js";
-export declare const logger: Logger;
-export declare function closeLogger(): void;
+export { log as logger, closeLog as closeLogger } from "./log.js";
 //# sourceMappingURL=logger.d.ts.map

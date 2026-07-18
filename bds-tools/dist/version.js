@@ -17,7 +17,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const paths_js_1 = require("./paths.js");
 const fsx_js_1 = require("./fsx.js");
-const logger_js_1 = require("./logger.js");
+const log_js_1 = require("./log.js");
 /** 4段 → 3段 (去尾) */
 function toVer3(v) {
     return v.split(".").slice(0, 3).join(".");
@@ -95,7 +95,7 @@ async function getCurrentVersionAsync(exePath) {
         if (entry.sha256 === actual)
             return ver;
     }
-    logger_js_1.logger.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存，疑似被改动或首次启动");
+    log_js_1.log.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存，疑似被改动或首次启动");
     return "0.0.0.0";
 }
 /** 同步版本 (兼容旧流程) */
@@ -110,7 +110,7 @@ function getCurrentVersionSync(exePath) {
         if (entry.sha256 === actual)
             return ver;
     }
-    logger_js_1.logger.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存");
+    log_js_1.log.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存");
     return "0.0.0.0";
 }
 //# sourceMappingURL=version.js.map

@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { fetchJsonWithFallback } from "./http.js";
 import { toVer3 } from "./version.js";
 import type { BdsUpdaterConfig, VersionDetails, VersionInfo } from "./types.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 const DEFAULT_VERSIONS_API =
   "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
@@ -54,7 +54,7 @@ export async function getVersionInfo(cfg: BdsUpdaterConfig, channel: string): Pr
       lastErr = e;
       if (attempt < 3) {
         const wait = attempt * 3000;
-        logger.warn(`版本号获取失败 (${attempt}/3): ${(e as Error).message}，${wait / 1000}s 后重试...`);
+        log.warn(`版本号获取失败 (${attempt}/3): ${(e as Error).message}，${wait / 1000}s 后重试...`);
         await new Promise((r) => setTimeout(r, wait));
       }
     }

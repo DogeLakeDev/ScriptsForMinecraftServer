@@ -6,26 +6,26 @@
  */
 
 import { readRollbackMarker, rollbackFromBackup } from "./rollback.js";
-import { logger, closeLogger } from "./logger.js";
+import { log, closeLog } from "./log.js";
 import { clearPid } from "./paths.js";
 
 async function run(): Promise<void> {
   const m = readRollbackMarker();
   if (!m) {
-    logger.warn("未发现回滚标记，无需恢复。");
+    log.warn("未发现回滚标记，无需恢复。");
     return;
   }
-  logger.info(`发现回滚标记: 时间 ${new Date(m.timestamp).toISOString()}`);
-  logger.info(`目标: 从 ${m.backup_dir} 恢复 ${m.preserve.length} 项到 ${m.bds_path}`);
+  log.info(`发现回滚标记: 时间 ${new Date(m.timestamp).toISOString()}`);
+  log.info(`目标: 从 ${m.backup_dir} 恢复 ${m.preserve.length} 项到 ${m.bds_path}`);
 
   const result = rollbackFromBackup(m);
   if (!result.ok) {
-    logger.error(`回滚失败: ${result.reason}`);
+    log.error(`回滚失败: ${result.reason}`);
     process.exit(1);
   }
   // 清理 pid 文件
   clearPid();
-  logger.info("回滚完成，请手动检查并启动 BDS。");
+  log.info("回滚完成，请手动检查并启动 BDS。");
 }
 
 function isMain(): boolean {
@@ -37,12 +37,12 @@ function isMain(): boolean {
 if (isMain()) {
   run()
     .then(() => {
-      closeLogger();
+      closeLog();
       process.exit(0);
     })
     .catch((e) => {
-      logger.error(`未捕获错误: ${(e as Error).message}`);
-      closeLogger();
+      log.error(`未捕获错误: ${(e as Error).message}`);
+      closeLog();
       process.exit(1);
     });
 }

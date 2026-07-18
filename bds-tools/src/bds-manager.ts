@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { loadConfig, PID_FILE } from "./paths.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 const execAsync = promisify(exec);
 
@@ -103,19 +103,19 @@ export function createBdsManager(): BdsManager {
     const p = ensureProc();
     const pid = readPid();
     if (!pid || !isAlive(pid)) {
-      logger.warn("BDS 未运行");
+      log.warn("BDS 未运行");
       return false;
     }
     if (p.process && p.process.pid === pid && p.process.stdin) {
       try {
         p.process.stdin.write(cmd + "\n");
-        logger.info(`已发送命令: ${cmd}`);
+        log.info(`已发送命令: ${cmd}`);
         return true;
       } catch {
         return false;
       }
     }
-    logger.warn("BDS 由外部启动，无法发送命令到 stdin");
+    log.warn("BDS 由外部启动，无法发送命令到 stdin");
     return false;
   };
 
@@ -123,25 +123,25 @@ export function createBdsManager(): BdsManager {
     const p = ensureProc();
     const pid = readPid();
     if (!pid || !(await isAlive(pid))) {
-      logger.info("BDS 未运行");
+      log.info("BDS 未运行");
       clearPid();
       return;
     }
 
     if (p.process && p.process.pid === pid && p.process.stdin) {
       p.isManualStop = true;
-      logger.info("正在关闭 BDS...");
+      log.info("正在关闭 BDS...");
       try {
         p.process.stdin.write("stop\n");
       } catch (e) {
-        logger.warn(`发送 stop 命令失败: ${(e as Error).message}`);
+        log.warn(`发送 stop 命令失败: ${(e as Error).message}`);
       }
 
       await Promise.race([
         new Promise<void>((resolve) => p.process?.once("exit", () => resolve())),
         new Promise<void>((resolve) =>
           setTimeout(() => {
-            logger.warn("30s 超时，强制终止...");
+            log.warn("30s 超时，强制终止...");
             try { p.process?.kill("SIGTERM"); } catch {}
             setTimeout(resolve, 5000);
           }, 30_000)
@@ -149,12 +149,12 @@ export function createBdsManager(): BdsManager {
       ]);
 
       if (p.process && p.process.exitCode === null) {
-        logger.warn("强制结束进程...");
+        log.warn("强制结束进程...");
         try { p.process.kill("SIGKILL"); } catch {}
       }
     } else {
       // 外部启动的 BDS — fallback 使用 taskkill / pkill
-      logger.info("BDS 由外部启动，使用 taskkill...");
+      log.info("BDS 由外部启动，使用 taskkill...");
       try {
         if (process.platform === "win32") {
           await execAsync("taskkill /f /im bedrock_server.exe", { windowsHide: true });
@@ -168,23 +168,23 @@ export function createBdsManager(): BdsManager {
 
     clearPid();
     p.process = null;
-    logger.info("BDS 已停止");
+    log.info("BDS 已停止");
   };
 
   const start = async (): Promise<void> => {
     const p = ensureProc();
     const existing = readPid();
     if (existing && (await isAlive(existing))) {
-      logger.info("BDS 已在运行中");
+      log.info("BDS 已在运行中");
       return;
     }
 
     if (!fs.existsSync(p.exePath)) {
-      logger.error(`未找到 ${p.exePath}`);
+      log.error(`未找到 ${p.exePath}`);
       throw new Error(`bedrock_server.exe 不存在: ${p.exePath}`);
     }
 
-    logger.info("正在启动 BDS...");
+    log.info("正在启动 BDS...");
     const child = spawn(p.exePath, [], {
       cwd: p.bdsPath,
       stdio: ["pipe", "pipe", "pipe"],
@@ -193,7 +193,7 @@ export function createBdsManager(): BdsManager {
 
     p.process = child;
     writePid(child.pid ?? 0);
-    logger.info(`BDS 已启动 (PID: ${child.pid})`);
+    log.info(`BDS 已启动 (PID: ${child.pid})`);
 
     child.stdout?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
@@ -207,13 +207,13 @@ export function createBdsManager(): BdsManager {
     });
 
     child.on("exit", (code) => {
-      logger.info(`BDS 已退出 (code: ${code})`);
+      log.info(`BDS 已退出 (code: ${code})`);
       clearPid();
       p.process = null;
       if (!p.isManualStop && p.crashRestart && isMain()) {
-        logger.info(`BDS 意外退出，${p.crashDelayMs / 1000}s 后自动重启...`);
+        log.info(`BDS 意外退出，${p.crashDelayMs / 1000}s 后自动重启...`);
         setTimeout(() => {
-          start().catch((e) => logger.error(`自动重启失败: ${e.message}`));
+          start().catch((e) => log.error(`自动重启失败: ${e.message}`));
         }, p.crashDelayMs);
       }
       p.isManualStop = false;
@@ -233,12 +233,12 @@ export function createBdsManager(): BdsManager {
   };
 
   const watch = async (): Promise<void> => {
-    logger.info("启动监护模式...");
+    log.info("启动监护模式...");
     while (true) {
       const pid = readPid();
       if (!pid || !(await isAlive(pid))) {
         try { await start(); }
-        catch (e) { logger.error(`自动启动失败: ${(e as Error).message}`); }
+        catch (e) { log.error(`自动启动失败: ${(e as Error).message}`); }
       }
       await new Promise((r) => setTimeout(r, 5_000));
     }
@@ -282,15 +282,15 @@ if (isMain()) {
 
   switch (cmd) {
     case "start":
-      bds.start().catch((e) => logger.error(`启动失败: ${e.message}`));
+      bds.start().catch((e) => log.error(`启动失败: ${e.message}`));
       break;
     case "stop":
-      bds.stop().catch((e) => logger.error(`停止失败: ${e.message}`));
+      bds.stop().catch((e) => log.error(`停止失败: ${e.message}`));
       break;
     case "restart":
       bds.stop()
         .then(() => bds.start())
-        .catch((e) => logger.error(`重启失败: ${e.message}`));
+        .catch((e) => log.error(`重启失败: ${e.message}`));
       break;
     case "status":
       bds.status();
@@ -300,7 +300,7 @@ if (isMain()) {
       else console.log("用法: node bds-manager.js send <command>");
       break;
     case "watch":
-      bds.watch().catch((e) => logger.error(`监护异常: ${e.message}`));
+      bds.watch().catch((e) => log.error(`监护异常: ${e.message}`));
       break;
     default:
       console.log(`用法:

@@ -20,11 +20,11 @@ import { loadInitialConfig } from "./config.js";
 import { OneBotDispatcher } from "./onebot.js";
 import { startWsServer } from "./ws-server.js";
 import { startConsole } from "./console.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 async function main() {
     const cfg = loadInitialConfig();
     if (!cfg.qq_enabled) {
-        logger.info("已禁用 (qq_enabled = false)");
+        log.info("已禁用 (qq_enabled = false)");
         process.exit(0);
     }
     // 让控制台 status 命令读到 bot 当前的 self_id
@@ -42,17 +42,17 @@ async function main() {
         get: () => dispatcher.selfId,
     });
     await startWsServer({ port: cfg.qq_ws_port, dispatcher });
-    logger.info(`等待 LLBot 连接 (主群: ${cfg.qq_group_id || "未配置"}, channel: ${cfg.bridge_channel_id || "未配置"}, db: ${cfg.db_host}:${cfg.db_port})`);
+    log.info(`等待 LLBot 连接 (主群: ${cfg.qq_group_id || "未配置"}, channel: ${cfg.bridge_channel_id || "未配置"}, db: ${cfg.db_host}:${cfg.db_port})`);
     startConsole({
         config: cfg,
         initialEnabled: cfg.qq_enabled,
         wsPort: cfg.qq_ws_port,
         botSelfIdRef,
     });
-    logger.info("启动完成");
+    log.info("启动完成");
 }
 main().catch((e) => {
-    logger.error(`未捕获异常: ${e.message}`);
+    log.error(`未捕获异常: ${e.message}`);
     process.exit(1);
 });
 //# sourceMappingURL=index.js.map

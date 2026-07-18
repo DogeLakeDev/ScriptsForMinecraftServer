@@ -10,7 +10,7 @@ import http from "node:http";
 import path from "node:path";
 import fs from "node:fs";
 import { SCRIPT_DIR } from "./paths.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 interface QqConfig {
   llbot_http?: string;
@@ -80,14 +80,14 @@ async function safeSend(label: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
   } catch (e) {
-    logger.warn(`[QQ] ${label} 失败: ${(e as Error).message}`);
+    log.warn(`[QQ] ${label} 失败: ${(e as Error).message}`);
   }
 }
 
 export async function sendText(text: string): Promise<void> {
   const cfg = getConfig();
   if (!isQqBridgeEnabled() || !cfg.qq_group_id) {
-    logger.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
+    log.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
     return;
   }
   await safeSend("sendText", () =>
@@ -101,7 +101,7 @@ export async function sendText(text: string): Promise<void> {
 export async function sendMixed(segments: unknown[]): Promise<void> {
   const cfg = getConfig();
   if (!isQqBridgeEnabled() || !cfg.qq_group_id) {
-    logger.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
+    log.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
     return;
   }
   await safeSend("sendMixed", () =>

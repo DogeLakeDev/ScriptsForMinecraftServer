@@ -1,5 +1,8 @@
 {
   "name": "scriptsforminecraftserver-monorepo",
+  "bin": {
+    "sfmc": "index.js"
+  },
   "devDependencies": {
     "typescript": "^6.0.3",
     "eslint": "^10.7.0",
@@ -27,6 +30,7 @@
     "lint": "eslint . --ext .ts,.tsx"
   },
   "workspaces": [
+    "shared/sfmc-logs",
     "db-server",
     "scriptsforminecraftserver",
     "qq-bridge",

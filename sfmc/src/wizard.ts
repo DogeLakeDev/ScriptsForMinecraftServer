@@ -1,17 +1,20 @@
-import { intro, outro, note, spinner, confirm, select, text, isCancel } from "@clack/prompts";
+import { confirm, intro, isCancel, note, outro, select, spinner, text } from "@clack/prompts";
+import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { execSync, spawn } from "node:child_process";
-import { c } from "./theme.js";
 import { ROOT } from "./services.js";
+import { c } from "./theme.js";
 
 function cfg(name: string): string {
   return path.join(ROOT, "configs", name);
 }
 
 function read(file: string): Record<string, unknown> {
-  try { return JSON.parse(fs.readFileSync(cfg(file), "utf-8")) as Record<string, unknown>; }
-  catch { return {}; }
+  try {
+    return JSON.parse(fs.readFileSync(cfg(file), "utf-8")) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 function write(file: string, data: Record<string, unknown>): void {
@@ -22,7 +25,11 @@ function write(file: string, data: Record<string, unknown>): void {
 async function waitForHealth(port: number, ms = 15000): Promise<boolean> {
   const t = Date.now();
   while (Date.now() - t < ms) {
-    try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true; } catch { /* retry */ }
+    try {
+      if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return true;
+    } catch {
+      /* retry */
+    }
     await new Promise((r) => setTimeout(r, 300));
   }
   return false;
@@ -35,7 +42,10 @@ export async function runWizard(): Promise<void> {
 
   if (hasConfigs) {
     const r = await confirm({ message: "Configs already exist. Re-run setup?", initialValue: false });
-    if (isCancel(r) || !r) { outro(c.dim("Setup skipped")); return; }
+    if (isCancel(r) || !r) {
+      outro(c.dim("Setup skipped"));
+      return;
+    }
   }
 
   const s = spinner();
@@ -45,12 +55,14 @@ export async function runWizard(): Promise<void> {
     try {
       const p = read("bds_updater.json").bds_path as string;
       return p ? fs.existsSync(path.join(p, "bedrock_server.exe")) : false;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   })();
   const hasDefaults = fs.existsSync(path.join(ROOT, "configs-default", "db_config.json"));
 
   s.stop(bdsExists ? "BDS found" : "BDS not found");
-  note(c.dim(`Root: ${ROOT}`), "Environment");
+  note(c.text(`Root: ${ROOT}`), "Environment");
 
   let downloadBds = false;
   let bdsChannel = "release";
@@ -66,8 +78,11 @@ export async function runWizard(): Promise<void> {
           { value: "preview", label: "Preview", hint: "may be unstable" },
         ],
       });
-      if (isCancel(ch)) { downloadBds = false; }
-      else { bdsChannel = ch as string; }
+      if (isCancel(ch)) {
+        downloadBds = false;
+      } else {
+        bdsChannel = ch as string;
+      }
     }
   }
 
@@ -104,20 +119,34 @@ export async function runWizard(): Promise<void> {
     if (!hasConfigs || (read("db_config.json").db_port as number) !== dbPort) {
       write("db_config.json", {
         _comment: "sfmc init wizard",
-        db_port: dbPort, http_auth: "", dbDir: "../data/sfmc_data.db", modulesDir: "../modules",
+        db_port: dbPort,
+        http_auth: "",
+        dbDir: "../data/sfmc_data.db",
+        modulesDir: "../modules",
       });
     }
     if (!hasConfigs) {
       write("qq_config.json", {
-        _comment: "sfmc init wizard", qq_ws_port: 3002, qq_group_id: qqGroupId,
-        llbot_enabled: qqGroupId > 0, llbot_host: "127.0.0.1", llbot_port: "3004",
-        llbot_token: "", bridge_channel_id: "", mctoqq_prefix: "[MC]",
+        _comment: "sfmc init wizard",
+        qq_ws_port: 3002,
+        qq_group_id: qqGroupId,
+        llbot_enabled: qqGroupId > 0,
+        llbot_host: "127.0.0.1",
+        llbot_port: 3004,
+        llbot_token: "",
+        bridge_channel_id: "",
+        mctoqq_prefix: "[MC]",
       });
       write("bds_updater.json", {
-        _comment: "sfmc init wizard", bds_path: "D:\\Minecraft\\BEServer",
-        backup_dir: "D:\\Minecraft\\BEServer_backups", channel: bdsChannel,
+        _comment: "sfmc init wizard",
+        bds_path: "D:\\Minecraft\\BEServer",
+        backup_dir: "D:\\Minecraft\\BEServer_backups",
+        channel: bdsChannel,
         preserve: ["server.properties", "whitelist.json", "permissions.json", "allowlist.json", "worlds", "config"],
-        qq_notify: qqGroupId > 0, auto_check: true, crash_restart: true, auto_restart: true,
+        qq_notify: qqGroupId > 0,
+        auto_check: true,
+        crash_restart: true,
+        auto_restart: true,
       });
       if (hasDefaults) {
         fs.cpSync(path.join(ROOT, "configs-default", "."), cfg("."), { recursive: true, force: false });
@@ -133,7 +162,11 @@ export async function runWizard(): Promise<void> {
   if (downloadBds) {
     s.start("Downloading BDS");
     try {
-      execSync(`node BDSTools/check-update.js --channel=${bdsChannel} --force`, { cwd: ROOT, stdio: "pipe", timeout: 300000 });
+      execSync(`node bds-tools/dist/check-update.js --channel=${bdsChannel} --force`, {
+        cwd: ROOT,
+        stdio: "pipe",
+        timeout: 300000,
+      });
       s.stop(c.green("BDS downloaded"));
     } catch (e) {
       const err = e as { stderr?: Buffer; message?: string };
@@ -144,15 +177,25 @@ export async function runWizard(): Promise<void> {
 
   s.start("Initializing DB");
   try {
-    const child = spawn(process.execPath, ["db-server/dist/index.js"], { cwd: ROOT, stdio: "ignore", env: { ...process.env, DB_PORT: String(dbPort) } });
+    const child = spawn(process.execPath, ["db-server/dist/index.js"], {
+      cwd: ROOT,
+      stdio: "ignore",
+      env: { ...process.env, DB_PORT: String(dbPort) },
+    });
     if (await waitForHealth(dbPort)) {
       await new Promise((r) => setTimeout(r, 1000));
       child.kill("SIGTERM");
-      setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, 3000);
+      setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {}
+      }, 3000);
       s.stop(c.green("Database initialized"));
     } else {
       s.stop(c.yellow("Timed out — start db-server manually"));
-      try { child.kill("SIGTERM"); } catch {}
+      try {
+        child.kill("SIGTERM");
+      } catch {}
     }
   } catch {
     s.stop(c.yellow("Skipped — start manually"));
@@ -160,3 +203,4 @@ export async function runWizard(): Promise<void> {
 
   outro(c.green("Done! Run sfmc to start managing."));
 }
+

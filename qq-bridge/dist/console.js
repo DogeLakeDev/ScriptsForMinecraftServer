@@ -10,7 +10,7 @@
  * 行为与旧实现完全一致。
  */
 import { createInterface } from "node:readline";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 import { reloadInto } from "./config.js";
 function showHelp() {
     console.log("可用命令:");
@@ -45,7 +45,7 @@ function handleCommand(line, opts, rl) {
                 db_port: opts.config.db_port,
             };
             reloadInto(opts.config);
-            logger.info(`配置已重载 (qq_group_id=${opts.config.qq_group_id}, channel=${opts.config.bridge_channel_id}, db=${opts.config.db_host}:${opts.config.db_port})`);
+            log.info(`配置已重载 (qq_group_id=${opts.config.qq_group_id}, channel=${opts.config.bridge_channel_id}, db=${opts.config.db_host}:${opts.config.db_port})`);
             // 静默消费未使用变量警告
             void before;
             return false;
@@ -56,14 +56,14 @@ function handleCommand(line, opts, rl) {
         case "stop":
         case "exit":
         case "quit":
-            logger.info("正在停止...");
+            log.info("正在停止...");
             rl.close();
             process.exit(0);
             return true; // 不可达,但满足 noImplicitReturns
         case "":
             return false;
         default:
-            logger.info(`未知命令: ${cmd} (输入 help 查看帮助)`);
+            log.info(`未知命令: ${cmd} (输入 help 查看帮助)`);
             return false;
     }
 }

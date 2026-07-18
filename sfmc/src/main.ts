@@ -1,31 +1,18 @@
 import process from "node:process";
+import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
-import { startRepl } from "./repl.js";
+import { HELP, startRepl } from "./repl.js";
 import { c } from "./theme.js";
 
 function printVersion(): void {
-  console.log(`sfmc v${process.env["npm_package_version"] || "0.1.0"}`);
+  `${c.text(`⠪⡁⡯⠁`)}
+  ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
+  ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}\n`;
 }
 
 function printUsage(): void {
-  console.log(`${c.bold("sfmc")} — Server Manager for Minecraft BDS
-
-${c.dim("Usage:")}
-  ${c.green("sfmc")}                  Enter interactive REPL
-  ${c.green("sfmc")} ${c.blue("<command>")}       Run command once and exit
-
-${c.dim("Commands:")}
-  ${c.green("status")}              Show all services status
-  ${c.green("logs")} <service>      View service logs
-  ${c.green("follow")} <service>    Follow service logs (live tail)
-  ${c.green("start")} <service>     Start a service
-  ${c.green("stop")} <service>      Stop a service
-  ${c.green("restart")} <service>   Restart a service
-  ${c.green("update")}              Check/apply BDS update
-  ${c.green("init")}                Run setup wizard
-  ${c.green("help")}                Show this help
-  ${c.green("--version")} / ${c.green("-v")}  Print version
-`);
+  console.log(`${HELP}`);
 }
 
 async function main(): Promise<void> {
@@ -52,53 +39,47 @@ async function main(): Promise<void> {
       console.log(cmdStatus());
       break;
     case "logs":
-    case "log":
-      {
-        const result = cmdLogs(rest);
-        if (result) console.log(result);
-      }
+    case "log": {
+      const out = cmdLogs(rest);
+      if (out) console.log(out);
       break;
-    case "follow":
-      {
-        const followArgs = rest.length > 0 ? [`${rest[0]}`, "-f"] : [];
-        const result = cmdLogs(followArgs);
-        if (result) console.log(result);
-      }
-      break;
+    }
     case "start":
-      if (rest[0] === "all" || rest[0] === "--all") {
+      if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
         console.log(await cmdStartAll());
       } else if (rest[0]) {
         console.log(await cmdStart(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc start <service>"));
+        console.log(c.yellow("Usage: sfmc start <service>|-all"));
       }
       break;
     case "stop":
-      if (rest[0] === "all" || rest[0] === "--all") {
+      if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
         console.log(await cmdStopAll());
       } else if (rest[0]) {
         console.log(await cmdStop(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc stop <service>"));
+        console.log(c.yellow("Usage: sfmc stop <service>|-all"));
       }
       break;
     case "restart":
-      if (rest[0]) {
+      if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
+        await cmdStopAll();
+        console.log(await cmdStartAll());
+      } else if (rest[0]) {
         console.log(await cmdRestart(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc restart <service>"));
+        console.log(c.yellow("Usage: sfmc restart <service>|-all"));
       }
       break;
     case "update":
-      console.log(await cmdUpdate());
+      console.log(await cmdUpdate(rest));
       break;
-    case "init":
-      {
-        const { runWizard } = await import("./wizard.js");
-        await runWizard();
-      }
+    case "init": {
+      const { runWizard } = await import("./wizard.js");
+      await runWizard();
       break;
+    }
     default:
       console.log(c.red(`Unknown command: ${cmd}`));
       printUsage();
@@ -107,8 +88,8 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
-main().catch((err: Error) => {
-  console.error(c.red(`Fatal: ${err.message}`));
+main().catch((err) => {
+  console.error(c.red(err?.message ? `Error: ${err.message}` : "Fatal"));
   process.exit(1);
 });
 

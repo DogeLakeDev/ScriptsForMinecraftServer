@@ -5,9 +5,9 @@ export const T = {
   panel: "#21252b",
   surface: "#2c313c",
   surfaceHi: "#3e4452",
-  text: "#abb2bf",
-  muted: "#5c6370",
   subtle: "#4b5263",
+  text: "#dcdfe4",
+  muted: "#888888",
   red: "#e06c75",
   green: "#98c379",
   yellow: "#e5c07b",
@@ -48,13 +48,6 @@ export function highlightLogLine(raw: string): string {
     .replace(/Player (joined|left):/g, (m) => c.green(m))
     .replace(/Server (started|stopped)/g, (m) => c.green(m))
     .replace(/\b(TPS|MSPT|tick|loaded|saved)\b/gi, (m) => c.cyan(m));
-}
-
-export function boxHeader(label: string, dots: string): string {
-  const top = c.dim("╭─ ") + c.bold(label) + c.dim(" ─" + "─".repeat(W - 6 - label.length) + "╮");
-  const inner = c.dim("│") + "  " + dots + " ".repeat(W - 3 - visibleLen(dots)) + c.dim("│");
-  const bot = c.dim("╰" + "─".repeat(W - 2) + "╯");
-  return `\n${top}\n${inner}\n${bot}\n`;
 }
 
 function visibleLen(s: string): number {

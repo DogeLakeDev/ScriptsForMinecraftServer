@@ -12,7 +12,7 @@ import https from "node:https";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream, statSync } from "node:fs";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 interface HttpOptions {
   method?: "GET" | "HEAD" | "POST";
@@ -179,6 +179,10 @@ export async function httpDownload(
         const file = createWriteStream(destPath);
         let downloaded = 0;
         let failed = false;
+        // 节流进度回调:每个 tick 最多 10 次/秒(100ms 间隔),
+        // 避免 cli-progress 频繁重绘拖慢下载
+        let lastProgressAt = 0;
+        const PROGRESS_INTERVAL_MS = 100;
 
         const handleError = (e: Error): void => {
           if (failed) return;
@@ -194,6 +198,13 @@ export async function httpDownload(
         const stream: Readable = res;
         stream.on("data", (chunk: Buffer) => {
           downloaded += chunk.length;
+          if (opts.onProgress && total) {
+            const now = Date.now();
+            if (now - lastProgressAt >= PROGRESS_INTERVAL_MS) {
+              lastProgressAt = now;
+              opts.onProgress(downloaded, total);
+            }
+          }
         });
         stream.on("error", (e) => handleError(e as Error));
 
@@ -208,6 +219,8 @@ export async function httpDownload(
           if (failed) return;
           try {
             const finalBytes = statSync(destPath).size;
+            // 收尾:确保最后一次回调让进度条走到 100%(即便最近
+            // 一个 tick 的节流没触发,也补一次)
             if (opts.onProgress && total) opts.onProgress(finalBytes, total);
             resolve(finalBytes);
           } catch (e) {
@@ -228,7 +241,7 @@ export async function httpDownload(
     req.on("error", (e) => {
       clearTimeout(totalTimer);
       clearTimeout(connectTimer);
-      logger.warn(`HTTP 错误 ${url}: ${(e as Error).message}`);
+      log.warn(`HTTP 错误 ${url}: ${(e as Error).message}`);
       reject(e);
     });
     req.end();

@@ -10,7 +10,7 @@ exports.CHANGELOG_BASE = void 0;
 exports.fetchChangelog = fetchChangelog;
 const cheerio_1 = __importDefault(require("cheerio"));
 const http_js_1 = require("./http.js");
-const logger_js_1 = require("./logger.js");
+const log_js_1 = require("./log.js");
 const CHANGELOG_BASE = "https://feedback.minecraft.net/hc/en-us/sections/360001186971";
 exports.CHANGELOG_BASE = CHANGELOG_BASE;
 /** 抓取当前版本的更新说明 (文本 + 首张图 base64) */
@@ -49,14 +49,14 @@ async function fetchChangelog(channel) {
                     imageBase64 = img.body.toString("base64");
                 }
                 catch (e) {
-                    logger_js_1.logger.warn(`获取图片失败: ${e.message}`);
+                    log_js_1.log.warn(`获取图片失败: ${e.message}`);
                 }
             }
         }
         return { text: text.slice(0, 2000), imageBase64 };
     }
     catch (e) {
-        logger_js_1.logger.warn(`获取更新日志失败: ${e.message}`);
+        log_js_1.log.warn(`获取更新日志失败: ${e.message}`);
         return null;
     }
 }

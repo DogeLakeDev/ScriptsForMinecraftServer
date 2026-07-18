@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROLLBACK_MARKER } from "./paths.js";
 import { copyDirSync, getDirSize, emptyDirSync } from "./fsx.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 export interface RollbackMarker {
   timestamp: number;
@@ -26,9 +26,9 @@ export interface RollbackMarker {
 export function writeRollbackMarker(marker: RollbackMarker): void {
   try {
     fs.writeFileSync(ROLLBACK_MARKER, JSON.stringify(marker, null, 2));
-    logger.info(`[回滚] 已记录回滚标记 -> ${ROLLBACK_MARKER}`);
+    log.info(`[回滚] 已记录回滚标记 -> ${ROLLBACK_MARKER}`);
   } catch (e) {
-    logger.warn(`[回滚] 无法写入标记: ${(e as Error).message}`);
+    log.warn(`[回滚] 无法写入标记: ${(e as Error).message}`);
   }
 }
 
@@ -58,12 +58,12 @@ export function rollbackFromBackup(marker: RollbackMarker): { ok: boolean; reaso
   if (!fs.existsSync(backup_dir)) {
     return { ok: false, reason: `备份目录不存在: ${backup_dir}` };
   }
-  logger.warn(`[回滚] 开始恢复 ${preserve.length} 项到 ${bds_path}`);
+  log.warn(`[回滚] 开始恢复 ${preserve.length} 项到 ${bds_path}`);
   for (const item of preserve) {
     const src = path.join(backup_dir, item);
     const dest = path.join(bds_path, item);
     if (!fs.existsSync(src)) {
-      logger.warn(`[回滚] 跳过 (备份中不存在): ${item}`);
+      log.warn(`[回滚] 跳过 (备份中不存在): ${item}`);
       continue;
     }
     try {
@@ -77,9 +77,9 @@ export function rollbackFromBackup(marker: RollbackMarker): { ok: boolean; reaso
       } else {
         fs.copyFileSync(src, dest);
       }
-      logger.info(`[回滚] 已恢复: ${item}`);
+      log.info(`[回滚] 已恢复: ${item}`);
     } catch (e) {
-      logger.warn(`[回滚] 恢复失败 ${item}: ${(e as Error).message}`);
+      log.warn(`[回滚] 恢复失败 ${item}: ${(e as Error).message}`);
     }
   }
   return { ok: true };

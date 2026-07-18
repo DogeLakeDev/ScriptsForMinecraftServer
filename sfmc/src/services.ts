@@ -3,6 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { EventEmitter } from "node:events";
+import { pushLog as pushUnifiedLog, inferLevel } from "./logs.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, "..", "..");
@@ -14,6 +15,7 @@ export interface LogLine {
 }
 
 export type ServiceName = "bds" | "db" | "qq" | "llbot";
+export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
 
 let svcLogSeq = 0;
 
@@ -65,6 +67,10 @@ class Service {
     this.logs.push(line);
     if (this.logs.length > 2000) this.logs.splice(0, this.logs.length - 2000);
     this.events.emit("log", line);
+    // stderr 视为 error; stdout 用 inferLevel 推断 (bare 子进程纯 text 时默认 info,
+    // BDS 等自带 [LEVEL] 标签的仍可正确推断)
+    const level = stream === "stderr" ? "error" : inferLevel(text);
+    pushUnifiedLog(text, this.name, level);
   }
 
   async start(): Promise<void> {

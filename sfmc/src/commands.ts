@@ -1,28 +1,8 @@
-import { services, type ServiceName } from "./services.js";
+import { spawn } from "node:child_process";
+import process from "node:process";
+import { services, type ServiceName, SERVICE_NAMES, ROOT } from "./services.js";
 import { c, DIVIDER, highlightLogLine } from "./theme.js";
-
-const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
-
-const HELP = `
-${c.bold("Commands")}
-  ${c.green("status")}              Show all services status
-  ${c.green("logs")} <service>      View service logs
-    ${c.dim("  -n <num>  lines (default 20)")}
-    ${c.dim("  -f        follow mode (Ctrl+C to stop)")}
-  ${c.green("follow")} <service>    Enter service console (logs + send commands)
-  ${c.green("start")} <service>     Start a service
-  ${c.green("stop")} <service>      Stop a service
-  ${c.green("restart")} <service>   Restart a service
-  ${c.green("start-all")}           Start all services (db→qq→llbot→bds)
-  ${c.green("stop-all")}            Stop all services
-  ${c.green("init")}                Run setup wizard
-  ${c.green("update")}              Check/apply BDS update
-  ${c.green("version")}             Show version
-  ${c.green("help")}                Show this help
-  ${c.green("quit")} / ${c.green("exit")}  Exit
-
-${c.dim("Tip: Tab completes commands & service names")}
-`;
+import { pushLog as pushUnifiedLog } from "./logs.js";
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -36,10 +16,6 @@ function statusLine(name: string, running: boolean, pid: number, uptime: string)
   const pidStr = pid ? c.dim(String(pid)) : c.dim("—");
   const upStr = uptime !== "—" ? c.dim(uptime) : c.dim("—");
   return `  ${dot} ${c.bold(name.padEnd(9))} ${status.padEnd(10)} ${pidStr.padEnd(8)} ${upStr}`;
-}
-
-export function cmdHelp(): string {
-  return HELP;
 }
 
 export function cmdStatus(): string {
@@ -58,25 +34,27 @@ export function cmdStatus(): string {
 }
 
 export function cmdLogs(args: string[], onFollow?: (serviceName: ServiceName) => void): string {
-  const argsCopy = [...args];
-  const svcRaw = argsCopy.shift();
+  let n = 20;
+  let follow = false;
+  const positional: string[] = [];
+
+  for (const a of args) {
+    if (a === "-n") continue; /* handled below */
+    if (a === "-f") { follow = true; continue; }
+    positional.push(a);
+  }
+
+  /* -n takes the next argument as value */
+  const nIdx = args.indexOf("-n");
+  if (nIdx >= 0 && nIdx + 1 < args.length) n = parseInt(args[nIdx + 1], 10);
+
+  const svcRaw = positional[0];
   if (!svcRaw) return c.yellow("Usage: logs <service> [-n N] [-f]");
 
   const svc = parseService(svcRaw);
   if (!svc) return c.red(`Unknown service: ${svcRaw} (try: ${SERVICE_NAMES.join(", ")})`);
 
   const svcObj = services[svc];
-  let n = 20;
-  let follow = false;
-
-  while (argsCopy.length > 0) {
-    const opt = argsCopy.shift();
-    if (opt === "-n") {
-      n = parseInt(argsCopy.shift() ?? "20", 10);
-    } else if (opt === "-f") {
-      follow = true;
-    }
-  }
 
   const lines = svcObj.getRecentLogs(n);
   if (lines.length === 0) return c.dim("(no logs yet)");
@@ -162,19 +140,35 @@ export async function cmdStopAll(): Promise<string> {
   return c.dim("All services stopped");
 }
 
-export async function cmdUpdate(): Promise<string> {
-  const { execSync } = await import("node:child_process");
-  const { ROOT } = await import("./services.js");
-  try {
-    const result = execSync(`node bds-tools/dist/check-update.js`, {
+export async function cmdUpdate(args: string[] = []): Promise<string> {
+  return new Promise((resolve) => {
+    const proc = spawn(process.execPath, ["bds-tools/dist/check-update.js", ...args], {
       cwd: ROOT,
-      encoding: "utf-8",
-      timeout: 120000,
+      stdio: ["ignore", "pipe", "pipe"],
     });
-    return c.green(result.toString());
-  } catch (e) {
-    const err = e as { stdout?: Buffer; stderr?: Buffer; message?: string };
-    return c.red(err.stderr?.toString() || err.stdout?.toString() || err.message || "update failed");
-  }
+    let out = "";
+    proc.stdout?.on("data", (d: Buffer) => {
+      const s = d.toString();
+      out += s;
+      for (const line of s.split("\n").filter(Boolean)) pushUnifiedLog(line, "system", "info");
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      const s = d.toString();
+      out += s;
+      for (const line of s.split("\n").filter(Boolean)) pushUnifiedLog(line, "system", "error");
+    });
+    proc.on("exit", (code) => {
+      if (code === 0) {
+        pushUnifiedLog("update complete", "system", "success");
+        resolve((out ? out + "\n" : "") + "update complete");
+      } else {
+        resolve(out || `update exited with code ${code}`);
+      }
+    });
+    proc.on("error", (e) => {
+      pushUnifiedLog(`update error: ${e.message}`, "system", "error");
+      resolve(`update error: ${e.message}`);
+    });
+  });
 }
 

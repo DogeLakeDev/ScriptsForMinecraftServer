@@ -18,7 +18,7 @@ const node_http_1 = __importDefault(require("node:http"));
 const node_path_1 = __importDefault(require("node:path"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const paths_js_1 = require("./paths.js");
-const logger_js_1 = require("./logger.js");
+const log_js_1 = require("./log.js");
 let cachedCfg = null;
 function getConfig() {
     if (cachedCfg)
@@ -82,13 +82,13 @@ async function safeSend(label, fn) {
         await fn();
     }
     catch (e) {
-        logger_js_1.logger.warn(`[QQ] ${label} 失败: ${e.message}`);
+        log_js_1.log.warn(`[QQ] ${label} 失败: ${e.message}`);
     }
 }
 async function sendText(text) {
     const cfg = getConfig();
     if (!isQqBridgeEnabled() || !cfg.qq_group_id) {
-        logger_js_1.logger.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
+        log_js_1.log.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
         return;
     }
     await safeSend("sendText", () => sendToLLBot({
@@ -99,7 +99,7 @@ async function sendText(text) {
 async function sendMixed(segments) {
     const cfg = getConfig();
     if (!isQqBridgeEnabled() || !cfg.qq_group_id) {
-        logger_js_1.logger.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
+        log_js_1.log.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
         return;
     }
     await safeSend("sendMixed", () => sendToLLBot({

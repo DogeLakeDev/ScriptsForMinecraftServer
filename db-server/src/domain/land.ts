@@ -51,6 +51,7 @@ import { join } from "node:path";
 import { SQL } from "sql-template-strings";
 import type { QueryFn } from "../lib/sqlite.js";
 import type { TxResult } from "./transaction.js";
+import { log } from "../lib/log.js";
 
 type Query = QueryFn;
 type QueryAny = QueryFn;
@@ -401,7 +402,7 @@ function ensurePublicPlaza(query: Query, projectRoot: string): void {
     "INSERT OR IGNORE INTO sfmc_land_members (land_id, player_id, player_name_snapshot, role, created_at) VALUES (?,?,?,?,?)",
     [id, "system", "服务器", "owner", now]
   );
-  console.info("[DogeDB] 公共广场已初始化 (PUBLIC-PLAZA)。");
+  log.info("公共广场已初始化 (PUBLIC-PLAZA)。");
 }
 
 function createLandTransaction(

@@ -10,3 +10,4 @@ await esbuild.build({
   format: "esm",
   external: ["chalk", "@clack/prompts", "cli-progress"],
 });
+

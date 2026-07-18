@@ -1,7 +1,6 @@
 /**
  * check-update.ts — BDS 自动更新器 (主流程)
  *
- * 核心改进:
  *   1. 临时 staging 目录 (mkdtempSync) - 避免污染 SCRIPT_DIR
  *   2. 下载/解压失败 → 自动从备份回滚 preserves
  *   3. 流式 SHA256 校验 - 不把 250MB 文件读入内存
@@ -10,27 +9,18 @@
  *   6. Rollback marker 落盘 - 跨进程 / 跨重启可恢复
  */
 
+import { createFileSink, createLogger, createStdoutSink } from "@sfmc/logs";
+import AdmZip from "adm-zip";
+import cliProgress from "cli-progress";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import AdmZip from "adm-zip";
-import { loadConfig, resolvePaths } from "./paths.js";
-import { logger, closeLogger } from "./logger.js";
+import { createBdsManager } from "./bds-manager.js";
+import { CHANGELOG_BASE, fetchChangelog } from "./changelog.js";
+import { copyDirSync, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
 import { httpDownload } from "./http.js";
-import {
-  buildDownloadUrls,
-  fetchVersionDetails,
-  getVersionInfo,
-  isVersionCompatible,
-  verifyFileHash,
-} from "./upstream.js";
-import {
-  compareVersions,
-  getCurrentVersionAsync,
-  getCurrentVersionSync,
-  saveVersionCache,
-} from "./version.js";
-import { fetchChangelog, CHANGELOG_BASE } from "./changelog.js";
+import { loadConfig, LOG_PATH, resolvePaths } from "./paths.js";
+import { sendText, sendWithImage } from "./qqutil.js";
 import {
   clearRollbackMarker,
   getDirSize,
@@ -38,10 +28,20 @@ import {
   verifyBdsInstall,
   writeRollbackMarker,
 } from "./rollback.js";
-import { copyDirSync, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
-import { sendText, sendWithImage } from "./qqutil.js";
-import { createBdsManager } from "./bds-manager.js";
-import cliProgress from 'cli-progress';
+import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
+import {
+  buildDownloadUrls,
+  fetchVersionDetails,
+  getVersionInfo,
+  isVersionCompatible,
+  verifyFileHash,
+} from "./upstream.js";
+import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVersionCache } from "./version.js";
+
+// 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
+const updaterFileSink = createFileSink(LOG_PATH);
+const log = createLogger({ source: "updater", sinks: [createStdoutSink(), updaterFileSink] });
+const closeLog = (): void => updaterFileSink.close();
 
 function parseArgs(argv: string[]): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
@@ -82,7 +82,11 @@ function buildContext(): UpdateContext {
   };
 }
 
-async function doBackup(bdsPath: string, backupDir: string, preserve: string[]): Promise<{ path: string; size: number }> {
+async function doBackup(
+  bdsPath: string,
+  backupDir: string,
+  preserve: string[]
+): Promise<{ path: string; size: number }> {
   const dateStr = new Date().toISOString().slice(0, 10);
   const dest = path.join(backupDir, dateStr);
   fs.mkdirSync(dest, { recursive: true });
@@ -96,12 +100,12 @@ async function doBackup(bdsPath: string, backupDir: string, preserve: string[]):
     if (fs.statSync(src).isDirectory()) copyDirSync(src, target);
     else fs.copyFileSync(src, target);
     anyCopied = true;
-    logger.info(`已备份: ${item}`);
+    log.info(`已备份: ${item}`);
   }
 
   // 即使全部 preserve 都跳过，也让目录存在以便记录时间戳
   if (!anyCopied) {
-    logger.info(`没有需要备份的文件 (preserve 列表为空或全部缺失)`);
+    log.info(`没有需要备份的文件 (preserve 列表为空或全部缺失)`);
   }
   return { path: dest, size: getDirSize(dest) };
 }
@@ -120,9 +124,9 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.copyFileSync(src, dest);
       }
-      logger.info(`已恢复: ${item}`);
+      log.info(`已恢复: ${item}`);
     } catch (e) {
-      logger.warn(`恢复失败 ${item}: ${(e as Error).message}`);
+      log.warn(`恢复失败 ${item}: ${(e as Error).message}`);
     }
   }
 }
@@ -155,22 +159,22 @@ export async function runUpdate(): Promise<number> {
   const ctx = buildContext();
   const { cfg, channel, checkOnly, force, bdsPath, backupDir, preserve, autoRestart, qqNotify } = ctx;
 
-  logger.info(`===== 开始检查更新 (${channel}) =====`);
+  log.info(`===== 开始检查更新 (${channel}) =====`);
 
   // 1. 当前版本
   const exePath = path.join(bdsPath, "bedrock_server.exe");
   const currentVer = await getCurrentVersionAsync(exePath).catch(() => getCurrentVersionSync(exePath));
-  logger.info(`当前版本: ${currentVer}`);
+  log.info(`当前版本: ${currentVer}`);
 
   // 2. 获取最新版本
   let latestVer: string;
   try {
     const info = await getVersionInfo(cfg, channel);
     latestVer = info.version;
-    logger.info(`最新版本: ${latestVer}`);
+    log.info(`最新版本: ${latestVer}`);
     const cmp = compareVersions(latestVer, currentVer);
     if (cmp <= 0 && !force) {
-      logger.info("已是最新版本，无需更新");
+      log.info("已是最新版本，无需更新");
       if (qqNotify) {
         await sendText(`✅ BDS 已是最新版本\n\n当前: ${currentVer}\n最新: ${latestVer}`);
       }
@@ -179,14 +183,14 @@ export async function runUpdate(): Promise<number> {
       return 0;
     }
   } catch (e) {
-    logger.error(`获取版本信息失败: ${(e as Error).message}`);
+    log.error(`获取版本信息失败: ${(e as Error).message}`);
     await sendText(`❌ BDS 更新失败\n\n无法获取版本信息: ${(e as Error).message}`);
     return 1;
   }
 
   // 兼容性检查
   if (!force && !isVersionCompatible(cfg, latestVer)) {
-    logger.warn(`${latestVer} 不在兼容版本白名单中，跳过升级`);
+    log.warn(`${latestVer} 不在兼容版本白名单中，跳过升级`);
     if (qqNotify) {
       await sendText(`⚠️ BDS ${latestVer} 不在兼容性白名单，已跳过升级。请人工确认。`);
     }
@@ -201,7 +205,7 @@ export async function runUpdate(): Promise<number> {
     downloadUrls = buildDownloadUrls(cfg, channel, latestVer, details);
     hash = { sha1: details.sha1, sha256: details.sha256 };
   } catch (e) {
-    logger.error(`获取下载详情失败: ${(e as Error).message}`);
+    log.error(`获取下载详情失败: ${(e as Error).message}`);
     await sendText(`❌ BDS 更新失败\n\n下载详情获取失败: ${(e as Error).message}`);
     return 1;
   }
@@ -214,7 +218,7 @@ export async function runUpdate(): Promise<number> {
     return 0;
   }
 
-  logger.info(`发现新版本: ${currentVer} → ${latestVer}`);
+  log.info(`发现新版本: ${currentVer} → ${latestVer}`);
 
   // 4. QQ 预告
   if (qqNotify) {
@@ -240,14 +244,12 @@ export async function runUpdate(): Promise<number> {
   let backupInfo: { path: string; size: number };
   try {
     backupInfo = await doBackup(bdsPath, backupDir, preserve);
-    logger.info(`备份完成: ${backupInfo.path} (${(backupInfo.size / 1024 / 1024).toFixed(1)} MB)`);
+    log.info(`备份完成: ${backupInfo.path} (${(backupInfo.size / 1024 / 1024).toFixed(1)} MB)`);
     if (qqNotify) {
-      await sendText(
-        `✅ 备份完成\n\n大小: ${(backupInfo.size / 1024 / 1024).toFixed(1)} MB\n位置: ${backupInfo.path}`
-      );
+      await sendText(`✅ 备份完成\n\n大小: ${(backupInfo.size / 1024 / 1024).toFixed(1)} MB\n位置: ${backupInfo.path}`);
     }
   } catch (e) {
-    logger.error(`备份失败: ${(e as Error).message}`);
+    log.error(`备份失败: ${(e as Error).message}`);
     await sendText(`❌ BDS 更新失败\n\n备份失败: ${(e as Error).message}\n操作已中止`);
     return 1;
   }
@@ -264,11 +266,11 @@ export async function runUpdate(): Promise<number> {
   // 7. 停服
   let bds = createBdsManager();
   try {
-    logger.info("停止 BDS 服务...");
+    log.info("停止 BDS 服务...");
     await bds.stop();
-    logger.info("BDS 已停止");
+    log.info("BDS 已停止");
   } catch (e) {
-    logger.warn(`BDS 停止异常: ${(e as Error).message}`);
+    log.warn(`BDS 停止异常: ${(e as Error).message}`);
   }
 
   // 8. 下载 (全部失败则回滚)
@@ -277,84 +279,110 @@ export async function runUpdate(): Promise<number> {
   const zipPath = path.join(stagingDir, `bedrock-server-${latestVer}.zip`);
   let downloaded = false;
   try {
-    logger.info(`开始下载 ${latestVer}...`);
+    log.info(`开始下载 ${latestVer}...`);
     if (qqNotify) await sendText(`📥 正在下载 BDS ${latestVer}...`);
 
     let lastErr: Error | null = null;
     const downloadTimeoutMs = (cfg.download_timeout ?? 120) * 1000;
-    const progressBar = new cliProgress.SingleBar({
-      format: '下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}',
-      barCompleteChar: '\u2588',
-      barIncompleteChar: '\u2591',
-      hideCursor: true,
-      clearOnComplete: false, // 保留进度条
-    }, cliProgress.Presets.shades_classic);
-    
+    const progressBar = new cliProgress.SingleBar(
+      {
+        format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
+        barCompleteChar: "\u2588",
+        barIncompleteChar: "\u2591",
+        hideCursor: true,
+        clearOnComplete: false, // 保留进度条
+      },
+      cliProgress.Presets.shades_classic
+    );
+
     let lastTime = Date.now();
     let lastLoaded = 0;
     let barStarted = false; // 标记是否已启动
+    if (isTaskbarSupported()) {
+      log.info("检测到 Windows Terminal,任务栏进度已启用 (OSC 9;4)");
+    }
     for (const url of downloadUrls) {
       try {
         await httpDownload(url, zipPath, {
           totalTimeoutMs: Math.max(downloadTimeoutMs, 600_000), // 不少于 10 分钟
           onProgress: (dl, total) => {
-          // 第一次触发时启动进度条
-          if (!barStarted) {
-            progressBar.start(total, 0, { speed: '0 KB/s' });
-            barStarted = true;
-          }
-          const now = Date.now();
-          const timeDelta = (now - lastTime) / 1000; // 秒
-          const bytesDelta = dl - lastLoaded;
-          const speed = timeDelta > 0 ? bytesDelta / timeDelta : 0;
-          const speedStr = speed > 1024 * 1024 ? `${(speed / 1024 / 1024).toFixed(1)} MB/s` :
-                           speed > 1024 ? `${(speed / 1024).toFixed(1)} KB/s` : `${speed.toFixed(0)} B/s`;
-          progressBar.update(dl, { speed: speedStr });
-          lastLoaded = dl;
-          lastTime = now;
-         },
+            // 第一次触发时启动进度条
+            if (!barStarted) {
+              progressBar.start(total, 0, { speed: "0 KB/s" });
+              barStarted = true;
+              setTaskbarProgress(0); // 启动任务栏进度(0%)
+            }
+            const now = Date.now();
+            const timeDelta = (now - lastTime) / 1000; // 秒
+            const bytesDelta = dl - lastLoaded;
+            const speed = timeDelta > 0 ? bytesDelta / timeDelta : 0;
+            const speedStr =
+              speed > 1024 * 1024
+                ? `${(speed / 1024 / 1024).toFixed(1)} MB/s`
+                : speed > 1024
+                  ? `${(speed / 1024).toFixed(1)} KB/s`
+                  : `${speed.toFixed(0)} B/s`;
+            progressBar.update(dl, { speed: speedStr });
+            // 同步任务栏进度(0-100)。httpDownload 内部已做 100ms 节流,
+            // 这里再 set 一次,getSnapshot 比较,相同值直接跳过
+            setTaskbarProgress((dl / total) * 100);
+            lastLoaded = dl;
+            lastTime = now;
+          },
         });
         progressBar.stop();
+        // 下载完成,任务栏收到 100% 绿条后清掉
+        setTaskbarProgress(100);
+        clearTaskbarProgress();
         downloaded = true;
         lastErr = null;
         break;
       } catch (e) {
         if (barStarted) progressBar.stop();
+        // 下载失败,任务栏亮红
+        setTaskbarProgress(100, "error");
+        clearTaskbarProgress();
         lastErr = e as Error;
-        logger.warn(`${url} 不可用: ${lastErr.message}，尝试备用地址...`);
+        log.warn(`${url} 不可用: ${lastErr.message}，尝试备用地址...`);
       }
     }
     if (!downloaded && lastErr) throw lastErr;
 
     const zipSizeMB = (fs.statSync(zipPath).size / 1024 / 1024).toFixed(1);
-    logger.info(`下载完成 (${zipSizeMB} MB)`);
+    log.info(`下载完成 (${zipSizeMB} MB)`);
 
     // 流式哈希校验
     if (hash.sha1 || hash.sha256) {
       const algo = hash.sha256 ? "SHA256" : "SHA1";
-      logger.info(`校验文件完整性 (${algo})...`);
+      log.info(`校验文件完整性 (${algo})...`);
       const ok = await verifyFileHash(zipPath, hash.sha1, hash.sha256);
       if (!ok) throw new Error(`${algo} 校验不通过，文件可能损坏`);
-      logger.info(`${algo} 校验通过`);
+      log.info(`${algo} 校验通过`);
     }
   } catch (e) {
-    logger.error(`下载失败: ${(e as Error).message}`);
+    log.error(`下载失败: ${(e as Error).message}`);
     await sendText(`❌ BDS 更新失败\n\n下载失败: ${(e as Error).message}\nBDS 已停止，请手动恢复`);
     // 自动回滚
-    rollbackFromBackup({ timestamp: Date.now(), bds_path: bdsPath, backup_dir: backupInfo.path, preserve, previous_version: currentVer });
+    rollbackFromBackup({
+      timestamp: Date.now(),
+      bds_path: bdsPath,
+      backup_dir: backupInfo.path,
+      preserve,
+      previous_version: currentVer,
+    });
     rmSafe(stagingDir);
     return 1;
   }
 
   // 9. 解压 + 部署
   try {
-    logger.info("解压中...");
+    log.info("解压中...");
     // 先清空 BDS 目录
     emptyDirSync(bdsPath);
     extractZipToBds(zipPath, bdsPath);
-    logger.info("解压完成");
+    log.info("解压完成");
   } catch (e) {
-    logger.error(`解压失败: ${(e as Error).message}`);
+    log.error(`解压失败: ${(e as Error).message}`);
     await sendText(`❌ BDS 更新失败\n\n解压失败: ${(e as Error).message}\nBDS 已停止，请手动恢复`);
     // 回滚: 清空 + 从备份恢复 preserves
     emptyDirSync(bdsPath);
@@ -366,9 +394,12 @@ export async function runUpdate(): Promise<number> {
   }
 
   // 10. 完整性检查 (避免解压出空/缺文件的病态包)
-  const verify = verifyBdsInstall(bdsPath, ["bedrock_server.exe", /*"bedrock_server_symbols.debug",*/ "permissions.json"]);
+  const verify = verifyBdsInstall(bdsPath, [
+    "bedrock_server.exe",
+    /*"bedrock_server_symbols.debug",*/ "permissions.json",
+  ]);
   if (!verify.ok) {
-    logger.error(`解压后的 BDS 不完整，缺失文件: ${verify.missing.join(", ")}`);
+    log.error(`解压后的 BDS 不完整，缺失文件: ${verify.missing.join(", ")}`);
     await sendText(`❌ BDS 更新失败\n\n部署后缺失关键文件: ${verify.missing.join(", ")}`);
     emptyDirSync(bdsPath);
     await restorePreserves(bdsPath, backupInfo.path, preserve);
@@ -383,16 +414,16 @@ export async function runUpdate(): Promise<number> {
   const newExeHash = await hashFileAsync(exePath, "sha256").catch(() => "");
   if (newExeHash) {
     saveVersionCache(latestVer, newExeHash);
-    logger.info(`已记录版本 ${latestVer} 的 SHA256`);
+    log.info(`已记录版本 ${latestVer} 的 SHA256`);
   }
 
   // 13. 启动 BDS
   if (autoRestart) {
     try {
-      logger.info("启动 BDS...");
+      log.info("启动 BDS...");
       await bds.start();
     } catch (e) {
-      logger.error(`启动失败: ${(e as Error).message}`);
+      log.error(`启动失败: ${(e as Error).message}`);
       await sendText(`❌ BDS 更新失败\n\n启动失败: ${(e as Error).message}\n请手动启动 BDS`);
       // 注意: 此时 BDS 已经部署完成，启动失败 → 启动问题，不做文件级回滚
       rmSafe(stagingDir);
@@ -414,7 +445,7 @@ export async function runUpdate(): Promise<number> {
         `${autoRestart ? "服务器已重新启动" : "请手动重启服务器"}`
     );
   }
-  logger.info(`===== 更新完成 (${(durationMs / 1000).toFixed(1)}s) =====`);
+  log.info(`===== 更新完成 (${(durationMs / 1000).toFixed(1)}s) =====`);
   return 0;
 }
 
@@ -427,12 +458,13 @@ function isMain(): boolean {
 if (isMain()) {
   runUpdate()
     .then((code) => {
-      closeLogger();
+      closeLog();
       process.exit(code);
     })
     .catch((e) => {
-      logger.error(`未捕获错误: ${(e as Error).message}`);
-      closeLogger();
+      log.error(`未捕获错误: ${(e as Error).message}`);
+      closeLog();
       process.exit(1);
     });
 }
+

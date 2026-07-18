@@ -1,270 +1,306 @@
-import { stdin, stdout } from "node:process";
-import { c, DIVIDER, boxHeader, highlightLogLine, padRight } from "./theme.js";
-import { cmdHelp, cmdStatus, cmdLogs, cmdStart, cmdStop, cmdRestart, cmdStartAll, cmdStopAll, cmdUpdate } from "./commands.js";
-import { services, type ServiceName, type LogLine } from "./services.js";
-
-const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
+import process, { stdin, stdout } from "node:process";
+import pkg from "../package.json" with { type: "json" };
+import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
+import { SERVICE_NAMES, services, stopAll, type ServiceName } from "./services.js";
+import { c } from "./theme.js";
 
 function setRaw(v: boolean): void {
-  try { if (stdin.isTTY && typeof (stdin as Record<string, unknown>).setRawMode === "function") (stdin as Record<string, unknown>).setRawMode(v); } catch {}
+  try {
+    if (stdin.isTTY && typeof stdin.setRawMode === "function") stdin.setRawMode(v);
+  } catch {}
 }
 
-const HELP = `
-${c.bold("Commands")}
-  ${c.green("status")}              Show all services status
-  ${c.green("logs")} <svc>          View service logs
-  ${c.green("start")} <svc>         Start a service
-  ${c.green("stop")} <svc>          Stop a service
-  ${c.green("restart")} <svc>       Restart a service
-  ${c.green("follow")} <svc>        Enter service console (logs + stdin)
-  ${c.green("start-all")}           Start all services
-  ${c.green("stop-all")}            Stop all services
-  ${c.green("init")}                Run setup wizard
-  ${c.green("update")}              Check/apply BDS update
-  ${c.green("version")}             Show version
-  ${c.green("help")}                Show this help
-  ${c.green("quit")} / ${c.green("exit")}  Exit
-
-${c.dim("Shortcuts:")}
-  ${c.dim("Ctrl+P")}   Quick service console switcher
-  ${c.dim("Alt+P")}    Command palette
-  ${c.dim("Tab")}      Complete commands & arguments
-  ${c.dim("↑↓")}       History navigation
+const welcome = `\n
+  ${c.text(`⠪⡁⡯⠁`)}
+  ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
+  ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`help · Ctrl+L · ↹ · → · ↑↓`)}\n
 `;
 
-function getServiceDots(): string {
-  return SERVICE_NAMES.map((n) => {
-    const s = services[n];
-    const dot = s.running ? c.green("●") : c.dim("○");
-    return `${dot}${c.bold(s.title)}`;
-  }).join(" ");
+export const HELP = `
+${c.bold("Commands")}
+  ${c.green("status")}                    Show all services status
+  ${c.green("logs")} <svc> [-n N] [-f]    View / follow service logs
+  ${c.green("start")} <svc>|-all          Start (or all)
+  ${c.green("stop")} <svc>|-all           Stop (or all)
+  ${c.green("restart")} <svc>|-all        Restart (or all)
+  ${c.green("send")} <svc> <msg>          Send command to a service's stdin
+  ${c.green("init")}                      Setup wizard
+  ${c.green("update")} [--check-only] [--channel=release|preview]
+                          Check/apply BDS update
+  ${c.green("version")}                   Show version
+  ${c.green("help")}                      Show this
+  ${c.green("quit")} / ${c.green("exit")} Exit
+
+${c.dim("Shortcuts:")}
+  ${c.dim("Tab")}      Complete (cycle on repeat)
+  ${c.dim("→")}        Accept gray suggestion
+  ${c.dim("Ctrl+L")}   Filter log level / source
+  ${c.dim("↑↓")}       History
+`;
+
+const COMMANDS = [
+  "status",
+  "logs",
+  "start",
+  "stop",
+  "restart",
+  "send",
+  "init",
+  "update",
+  "version",
+  "help",
+  "quit",
+  "exit",
+];
+
+/* ==================================================================
+ *  Context-aware completion
+ * ================================================================== */
+interface ParsedLine {
+  cmd: string;
+  argIndex: number;
+  current: string;
 }
 
-function printHeader(): void {
-  console.log(boxHeader("sfmc", getServiceDots()));
+/**
+ * 解析当前输入行,提取命令名、参数位置、正在输入的 word。
+ * 末尾空格视为"刚结束一个 word,准备输入下一个"。
+ */
+function parseLine(line: string): ParsedLine {
+  const endsWithSpace = line.length > 0 && /\s$/.test(line);
+  const trimmed = line.trim();
+  if (!trimmed) return { cmd: "", argIndex: 0, current: "" };
+  const tokens = trimmed.split(/\s+/);
+  if (endsWithSpace) {
+    return { cmd: tokens[0] ?? "", argIndex: tokens.length - 1, current: "" };
+  }
+  if (tokens.length === 1) return { cmd: "", argIndex: 0, current: tokens[0] };
+  return { cmd: tokens[0], argIndex: tokens.length - 2, current: tokens[tokens.length - 1] };
 }
 
-/* ============================================================
- *  Escape sequence consumer (arrows, F-keys, Alt+letter, …)
- * ============================================================ */
-/** returns new index `i` after consuming the escape sequence, or `null` if `chunk[i]` is not ESC */
+/**
+ * 根据命令 + 参数位置返回补全候选 (区分命令,不再把服务名当成所有指令的二级参数)。
+ */
+function getCompletions(parsed: ParsedLine): string[] {
+  const { cmd, argIndex, current } = parsed;
+  const sw = (s: string): boolean => s.startsWith(current);
+  if (!cmd) return COMMANDS.filter(sw);
+  switch (cmd) {
+    case "logs":
+    case "log":
+      if (argIndex === 0) return SERVICE_NAMES.filter(sw);
+      if (argIndex === 1) return ["-n", "-f"].filter(sw);
+      return [];
+    case "start":
+    case "stop":
+    case "restart":
+      if (argIndex === 0) return ["-all", ...SERVICE_NAMES].filter(sw);
+      return [];
+    case "send":
+      if (argIndex === 0) return SERVICE_NAMES.filter(sw);
+      return [];
+    case "update":
+      return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
+    default:
+      return [];
+  }
+}
+
+/* ==================================================================
+ *  Escape sequence consumer
+ * ================================================================== */
 function consumeEscapeSeq(chunk: Buffer, i: number): number | null {
-  if (chunk[i] !== 0x1B) return null;
+  if (chunk[i] !== 0x1b) return null;
   const rem = chunk.length - i - 1;
-
-  /* CSI: \x1B[ param… intermed… finalbyte */
-  if (rem >= 2 && chunk[i + 1] === 0x5B) {
+  if (rem >= 2 && chunk[i + 1] === 0x5b) {
     let j = i + 2;
-    while (j < chunk.length && chunk[j] >= 0x30 && chunk[j] <= 0x3F) j++;
-    while (j < chunk.length && chunk[j] >= 0x20 && chunk[j] <= 0x2F) j++;
-    if (j < chunk.length && chunk[j] >= 0x40 && chunk[j] <= 0x7E) j++;
+    while (j < chunk.length && chunk[j] >= 0x30 && chunk[j] <= 0x3f) j++;
+    while (j < chunk.length && chunk[j] >= 0x20 && chunk[j] <= 0x2f) j++;
+    if (j < chunk.length && chunk[j] >= 0x40 && chunk[j] <= 0x7e) j++;
     return j;
   }
-
-  /* SS3: \x1BO letter (F1-F4) */
-  if (rem >= 2 && chunk[i + 1] === 0x4F) return i + 3;
-
-  /* Alt+letter or unknown 2-byte */
+  if (rem >= 2 && chunk[i + 1] === 0x4f) return i + 3;
   if (rem >= 1) return i + 2;
-
-  /* Standalone ESC at end of chunk */
   return i + 1;
 }
 
-/* ============================================================
- *  Popup — filtered select list (raw mode)
- * ============================================================ */
-interface PopupItem {
+/* ==================================================================
+ *  Simple select
+ * ================================================================== */
+interface SelectItem {
   label: string;
   value: string;
 }
 
-async function popupSelect(items: PopupItem[], title: string, filterHint = ""): Promise<string | null> {
-  const wasRaw = (stdin as Record<string, boolean>).isRaw ?? false;
+async function simpleSelect(items: SelectItem[], label?: string): Promise<string | null> {
+  const wasRaw = stdin.isRaw ?? false;
   setRaw(true);
   stdin.resume();
-
-  let filtered = items;
   let selected = 0;
-  let filter = filterHint;
-  let lastLines = 0;
-
-  function popHeight(): number {
-    return Math.min(filtered.length, 8);
-  }
-
-  function popTotalLines(): number {
-    const h = popHeight();
-    // top ─ search ─ divider ─ h items ─ "more" line ─ bottom
-    let lines = 4 + h;
-    if (filtered.length > h) lines += 1;
-    return lines;
-  }
-
-  function render(first = false): void {
-    const lines = popTotalLines();
-    const h = popHeight();
+  const h = Math.min(items.length, 8);
+  let lastLines = h;
+  function render(first: boolean): void {
     if (!first) {
       stdout.write(`\x1B[${lastLines}A\x1B[J`);
     } else {
       stdout.write("\x1B[J");
     }
-    lastLines = lines;
-
-    let out = `\r${c.dim("╭─ ")}${c.bold(title)}${c.dim(` ─${"─".repeat(40)}╮`)}\n`;
-    out += `${c.dim("│")} ${c.dim("search:")} ${filter}${" ".repeat(Math.max(0, 22 - filter.length))}${c.dim("│")}\n`;
-    out += c.dim(`├─${"─".repeat(42)}┤`) + "\n";
-
+    lastLines = h;
+    let out = "";
     for (let i = 0; i < h; i++) {
-      const item = filtered[i];
-      if (!item) break;
-      const cursor = i === selected ? c.cyan("▶") : " ";
-      const style = i === selected ? c.bold : (s: string) => s;
-      out += `${c.dim("│")} ${cursor} ${style(padRight(item.label, 38))} ${c.dim("│")}\n`;
+      const cur = i === selected ? `◉ ${c.text(items[i].label)}` : `○ ${c.text(items[i].label)}`;
+      out += `${cur}\n`;
     }
-    if (filtered.length > h) {
-      out += `${c.dim("│")}  ${c.dim(`… ${filtered.length - h} more`)}${" ".repeat(28)}${c.dim("│")}\n`;
-    }
-    out += c.dim("╰" + "─".repeat(44) + "╯");
     stdout.write(out);
   }
 
-  function clearPop(): void {
-    if (lastLines > 0) {
-      stdout.write(`\x1B[${lastLines}A\x1B[J`);
-    }
+  function clear(): void {
+    stdout.write(`\x1B[${lastLines}A\x1B[J`);
   }
 
   render(true);
 
-  const result: string | null = await new Promise((resolve) => {
+  return new Promise<string | null>((resolve) => {
     const handler = (chunk: Buffer) => {
       let i = 0;
       while (i < chunk.length) {
-        /* ---------- escape sequences ---------- */
-        if (chunk[i] === 0x1B) {
+        if (chunk[i] === 0x1b) {
           const rem = chunk.length - i - 1;
           if (rem === 0) {
-            // Standalone ESC — cancel
-            clearPop();
+            clear();
             stdin.removeListener("data", handler);
             setRaw(wasRaw);
             resolve(null);
             return;
           }
           const next = consumeEscapeSeq(chunk, i);
-          if (next !== null) i = next;
-          else i++;
-          continue; // never fall through to char handling
+          if (next !== null) {
+            const c = next - i;
+            if (c === 3 && chunk[i + 1] === 0x5b) {
+              if (chunk[i + 2] === 0x41 && selected > 0) {
+                selected--;
+                render(false);
+              }
+              if (chunk[i + 2] === 0x42 && selected < items.length - 1) {
+                selected++;
+                render(false);
+              }
+            }
+            i = next;
+          } else i++;
+          continue;
         }
-
         const byte = chunk[i];
         i++;
-
-        if (byte === 0x0D || byte === 0x0A) {
-          clearPop();
+        if (byte === 0x0d || byte === 0x0a) {
+          clear();
           stdin.removeListener("data", handler);
           setRaw(wasRaw);
-          resolve(filtered[selected]?.value ?? null);
+          resolve(items[selected]?.value ?? null);
           return;
         }
-
         if (byte === 0x03) {
-          clearPop();
+          clear();
           stdin.removeListener("data", handler);
           setRaw(wasRaw);
           resolve(null);
           return;
         }
-
-        if (byte === 0x7F || byte === 0x08) {
-          if (filter.length > 0) {
-            filter = filter.slice(0, -1);
-            filtered = items.filter((i) => i.label.toLowerCase().includes(filter.toLowerCase()));
-            selected = 0;
-            render();
-          }
-          continue;
-        }
-
-        if (byte >= 0x20 && byte <= 0x7E) {
-          filter += String.fromCharCode(byte);
-          filtered = items.filter((i) => i.label.toLowerCase().includes(filter.toLowerCase()));
-          selected = 0;
-          render();
-          continue;
-        }
-
-        /* all other control chars silently dropped */
       }
     };
-
     stdin.on("data", handler);
   });
-
-  return result;
 }
 
-/* ============================================================
- *  Line reader (raw mode, no readline dependency)
- * ============================================================ */
+/* ==================================================================
+ *  Line reader
+ * ================================================================== */
 const history: string[] = [];
 let historyIdx = -1;
 
-async function readLine(prompt: string): Promise<string | null> {
-  const wasRaw = (stdin as Record<string, boolean>).isRaw ?? false;
+/** 当前 readLine 的重绘函数 (窗口 resize 时调用,重绘输入行) */
+let currentRedraw: (() => void) | null = null;
+
+async function readLine(prompt: string, initial = ""): Promise<string | null> {
+  const wasRaw = stdin.isRaw ?? false;
   setRaw(true);
   stdin.resume();
 
-  let line = "";
-  stdout.write(prompt);
+  let line = initial;
+  let suggestion = "";
+  let tabState: { candidates: string[]; idx: number; wordStart: number; completedLine: string } | null = null;
 
-  return new Promise((resolve) => {
+  /**
+   * 重绘当前行:prompt + line + 灰色 autosuggestion,光标停在 line 末尾。
+   * autosuggestion 取当前 word 的第一个补全候选的剩余部分 (仅当 current 非空时)。
+   */
+  function redraw(): void {
+    const parsed = parseLine(line);
+    const candidates = getCompletions(parsed);
+    const first = candidates[0];
+    suggestion =
+      parsed.current && first && first !== parsed.current && first.startsWith(parsed.current)
+        ? first.slice(parsed.current.length)
+        : "";
+    stdout.write("\r\x1B[K" + prompt + line);
+    if (suggestion) {
+      stdout.write(c.dim(suggestion));
+      stdout.write("\x1B[" + suggestion.length + "D");
+    }
+  }
+
+  redraw();
+
+  currentRedraw = redraw;
+  return new Promise<string | null>((resolve) => {
     const handler = (chunk: Buffer) => {
       let i = 0;
       while (i < chunk.length) {
-        /* ---------- escape sequences ---------- */
-        if (chunk[i] === 0x1B) {
+        if (chunk[i] === 0x1b) {
           const next = consumeEscapeSeq(chunk, i);
           if (next !== null) {
-            // Check if consumed exactly 3 bytes for a CSI arrow
-            const consumed = next - i;
-            if (consumed === 3 && chunk[i + 1] === 0x5B) {
+            const len = next - i;
+            if (len === 3 && chunk[i + 1] === 0x5b) {
               const fin = chunk[i + 2];
-              if (fin === 0x41) { // ↑
-                if (historyIdx > 0) {
-                  historyIdx--;
-                  const prev = history[historyIdx] ?? "";
-                  stdout.write("\r" + " ".repeat(line.length + prompt.length) + "\r" + prompt + prev);
-                  line = prev;
-                }
-              } else if (fin === 0x42) { // ↓
+              if (fin === 0x41 && historyIdx > 0) {
+                historyIdx--;
+                line = history[historyIdx] ?? "";
+                tabState = null;
+                redraw();
+              } else if (fin === 0x42) {
                 if (historyIdx < history.length - 1) {
                   historyIdx++;
-                  const nextLn = history[historyIdx] ?? "";
-                  stdout.write("\r" + " ".repeat(line.length + prompt.length) + "\r" + prompt + nextLn);
-                  line = nextLn;
+                  line = history[historyIdx] ?? "";
+                  tabState = null;
+                  redraw();
                 } else if (historyIdx === history.length - 1) {
                   historyIdx = history.length;
-                  stdout.write("\r" + " ".repeat(line.length + prompt.length) + "\r" + prompt);
                   line = "";
+                  tabState = null;
+                  redraw();
                 }
+              } else if (fin === 0x43 && suggestion) {
+                /* → 接受 autosuggestion */
+                line += suggestion;
+                tabState = null;
+                redraw();
               }
             }
             i = next;
-          } else {
-            i++;
-          }
-          continue; // never fall through to char handling
+          } else i++;
+          continue;
         }
 
         const byte = chunk[i];
         i++;
 
-        if (byte === 0x0D || byte === 0x0A) {
-          stdout.write("\r\n");
+        if (byte === 0x0d || byte === 0x0a) {
           stdin.removeListener("data", handler);
           setRaw(wasRaw);
+          /* 清掉灰色 suggestion,留下干净的 prompt+line 再换行 */
+          stdout.write("\r\x1B[K" + prompt + line + "\r\n");
           if (line.length > 0) {
             history.push(line);
             if (history.length > 100) history.shift();
@@ -275,358 +311,275 @@ async function readLine(prompt: string): Promise<string | null> {
         }
 
         if (byte === 0x03) {
-          stdout.write("\r\n");
           stdin.removeListener("data", handler);
           setRaw(wasRaw);
+          if (line.length > 0) {
+            line = "";
+            tabState = null;
+            /* Ctrl+C 清空当前输入,不弹 suggestion */
+            stdout.write("\r\x1B[K" + prompt);
+            continue;
+          }
+          stdout.write("\r\n");
           resolve(null);
           return;
         }
 
+        /* Tab — context-aware completion, cycle on repeated Tab, no auto-space */
         if (byte === 0x09) {
+          if (tabState && line === tabState.completedLine) {
+            tabState.idx = (tabState.idx + 1) % tabState.candidates.length;
+          } else {
+            const parsed = parseLine(line);
+            const candidates = getCompletions(parsed);
+            if (candidates.length === 0) {
+              tabState = null;
+              redraw();
+              continue;
+            }
+            tabState = {
+              candidates,
+              idx: 0,
+              wordStart: line.length - parsed.current.length,
+              completedLine: "",
+            };
+          }
+          const match = tabState.candidates[tabState.idx]!;
+          line = line.slice(0, tabState.wordStart) + match;
+          tabState.completedLine = line;
+          redraw();
+          continue;
+        }
+
+        /* Ctrl+L */
+        if (byte === 0x0c) {
           stdin.removeListener("data", handler);
-          stdout.write("\r\n");
           setRaw(wasRaw);
-          resolve("__TAB__" + line);
+          resolve("__CTRLL__" + line);
           return;
         }
 
-        if (byte === 0x10) {
-          stdin.removeListener("data", handler);
-          stdout.write("\r\n");
-          setRaw(wasRaw);
-          resolve("__CTRLP__");
-          return;
-        }
-
-        if (byte === 0x7F || byte === 0x08) {
+        if (byte === 0x7f || byte === 0x08) {
           if (line.length > 0) {
             line = line.slice(0, -1);
-            stdout.write("\b \b");
           }
+          tabState = null;
+          redraw();
           continue;
         }
 
-        if (byte >= 0x20 && byte <= 0x7E) {
+        if (byte >= 0x20 && byte <= 0x7e) {
           line += String.fromCharCode(byte);
-          stdout.write(String.fromCharCode(byte));
+          tabState = null;
+          redraw();
           continue;
         }
-
-        /* all other control chars silently dropped */
       }
     };
-
     stdin.on("data", handler);
+  }).finally(() => {
+    currentRedraw = null;
   });
 }
 
-const COMMAND_ITEMS: PopupItem[] = [
-  { label: "status          Show service status", value: "status" },
-  { label: "logs <svc>      View service logs", value: "logs " },
-  { label: "follow <svc>    Service console (logs + stdin)", value: "follow " },
-  { label: "start <svc>     Start a service", value: "start " },
-  { label: "stop <svc>      Stop a service", value: "stop " },
-  { label: "restart <svc>   Restart a service", value: "restart " },
-  { label: "start-all       Start all services", value: "start-all" },
-  { label: "stop-all        Stop all services", value: "stop-all" },
-  { label: "init            Setup wizard", value: "init" },
-  { label: "update          BDS update", value: "update" },
-  { label: "help            Show help", value: "help" },
-  { label: "quit            Exit", value: "quit" },
+/* ==================================================================
+ *  REPL
+ * ================================================================== */
+interface LogFilter {
+  levels: LogLevel[];
+  sources: LogSource[];
+}
+
+const LEVEL_ITEMS: SelectItem[] = [
+  { label: c.blue("INFO"), value: "info" },
+  { label: c.yellow("WARN"), value: "warn" },
+  { label: c.red("ERROR"), value: "error" },
+  { label: c.dim("DEBUG"), value: "debug" },
+  { label: c.green("SUCCESS"), value: "success" },
+];
+export const SOURCE_ITEMS: SelectItem[] = [
+  { label: c.green("BDServer"), value: "bds" },
+  { label: c.blue("DataBase"), value: "db" },
+  { label: c.purple("QQBridge"), value: "qq" },
+  { label: c.yellow(" LL-BOT "), value: "llbot" },
+  { label: c.cyan(" SYSTEM "), value: "system" },
 ];
 
-const SERVICE_ITEMS: PopupItem[] = SERVICE_NAMES.map((n) => {
-  const s = services[n];
-  const dot = s.running ? c.green("●") : c.dim("○");
-  return { label: `${dot} ${padRight(s.title, 34)} ${c.dim(s.running ? `PID ${s.pid}` : "stopped")}`, value: n };
-});
+function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
+  if (filter.levels.length && !filter.levels.includes(log.level)) return;
+  if (filter.sources.length && !filter.sources.includes(log.source)) return;
+  stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}\n`);
+}
 
-/* ============================================================
- *  REPL loop
- * ============================================================ */
 export async function startRepl(): Promise<void> {
-  printHeader();
-
   if (!stdin.isTTY) {
     console.log(c.dim(" Non-interactive mode (pipe detected)\n"));
-    await startReplSimple();
+    for await (const line of (await import("node:readline/promises")).createInterface({
+      input: stdin,
+      output: stdout,
+      terminal: false,
+    })) {
+      const t = line.trim();
+      if (!t) continue;
+      const p = t.split(/\s+/);
+      if (["quit", "exit", "q"].includes(p[0])) break;
+      if (p[0] === "init") {
+        (await import("./wizard.js")).runWizard();
+        continue;
+      }
+      await execCmd(p);
+    }
+    console.log(c.dim("stopping services..."));
+    await stopAll();
+    console.log(c.dim("bye"));
     return;
   }
+  console.clear();
+  stdout.write(welcome);
 
-  console.log(c.dim(" Type help · Ctrl+P services · Alt+P commands · Tab/↑↓\n"));
+  let filter: LogFilter = { levels: [], sources: [] };
+
+  const unsub = onLog((log) => pushAndRender(log, filter));
+
+  /** 窗口大小变化时重绘可见日志 + 输入行 (按新宽度换行) */
+  function onResize(): void {
+    if (!currentRedraw) return;
+    const rows = process.stdout.rows || 24;
+    stdout.write("\x1B[H\x1B[2J");
+    const all = getAllLogs();
+    const out: string[] = [];
+    let usedRows = 0;
+    for (let i = all.length - 1; i >= 0; i--) {
+      const log = all[i]!;
+      if (filter.levels.length && !filter.levels.includes(log.level)) continue;
+      if (filter.sources.length && !filter.sources.includes(log.source)) continue;
+      const wrapped = wrapLogLine(formatLog(log), 26);
+      const logRows = wrapped.split("\n").length;
+      if (usedRows + logRows > rows - 2) break;
+      out.unshift(wrapped);
+      usedRows += logRows;
+    }
+    for (const l of out) stdout.write(l + "\n");
+    currentRedraw();
+  }
+
+  process.stdout.on("resize", onResize);
+
+  let pendingInput = "";
 
   while (true) {
-    const raw = await readLine(c.cyan(" > "));
+    const raw = await readLine(c.text(" ❯ "), pendingInput);
+    pendingInput = "";
+
     if (raw === null) break;
 
-    if (raw.startsWith("__TAB__")) {
-      const partial = raw.slice(7);
-      const parts = partial.trim().split(/\s+/);
-      const cmd = parts[0];
-      const rest = parts.slice(1).join(" ");
-
-      if (!cmd) {
-        const sel = await popupSelect(COMMAND_ITEMS, "Commands");
-        if (sel) await execCmd(sel.split(/\s+/));
-        continue;
-      }
-
-      if ((cmd === "logs" || cmd === "follow" || cmd === "start" || cmd === "stop" || cmd === "restart") && !rest) {
-        const items = SERVICE_ITEMS.map((i) => ({ label: i.label, value: `${cmd} ${i.value}` }));
-        const sel = await popupSelect(items, `Pick service for: ${cmd}`);
-        if (sel) await execCmd(sel.split(/\s+/));
-        continue;
-      }
-
-      const sel = await popupSelect(COMMAND_ITEMS, "Commands");
-      if (sel) await execCmd(sel.split(/\s+/));
-      continue;
-    }
-
-    if (raw === "__CTRLP__") {
-      const sel = await popupSelect(SERVICE_ITEMS, "Service Console");
-      if (sel) await enterServiceConsole(sel as ServiceName);
-      continue;
-    }
-
-    if (raw.startsWith("/")) {
-      const sel = await popupSelect(COMMAND_ITEMS, "Commands", raw.slice(1));
-      if (sel) await execCmd(sel.split(/\s+/));
+    /* Ctrl+L — filter */
+    if (raw.startsWith("__CTRLL__")) {
+      stdout.write(c.dim(`\nLEVEL──────────SOURCE\n`));
+      const lvl = await simpleSelect([{ label: "ALL", value: "" }, ...LEVEL_ITEMS]);
+      if (lvl === null) continue;
+      const src = await simpleSelect([{ label: "ALL", value: "" }, ...SOURCE_ITEMS]);
+      if (src === null) continue;
+      filter = { levels: lvl ? [lvl as LogLevel] : [], sources: src ? [src as LogSource] : [] };
+      stdout.write(c.dim(`filter: ${lvl || "*"} / ${src || "*"}\n`));
       continue;
     }
 
     const trimmed = raw.trim();
     if (!trimmed) continue;
 
-    const parts = trimmed.split(/\s+/);
-    await execCmd(parts);
-  }
-
-  console.log(c.dim("bye"));
-}
-
-async function startReplSimple(): Promise<void> {
-  const { createInterface } = await import("node:readline/promises");
-  const rl = createInterface({ input: stdin, output: stdout, terminal: false });
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split(/\s+/);
-    if (parts[0] === "quit" || parts[0] === "exit" || parts[0] === "q") break;
-    if (parts[0] === "init") {
-      const { runWizard } = await import("./wizard.js");
-      await runWizard();
-      continue;
+    try {
+      await execCmd(trimmed.split(/\s+/));
+    } catch (e) {
+      if (e === "QUIT") break;
+      console.log(c.red(`Error: ${(e as Error).message}`));
     }
-    await execCmd(parts);
   }
+
+  process.stdout.off("resize", onResize);
+  unsub();
+  stdout.write(c.dim("stopping services...\n"));
+  await stopAll();
+  stdout.write(c.dim("bye\n"));
 }
 
 async function execCmd(parts: string[]): Promise<void> {
   const [cmd, ...args] = parts;
 
-  try {
-    switch (cmd) {
-      case "help":
-      case "h":
-      case "?":
-        console.log(HELP);
-        break;
-      case "version":
-        console.log(`sfmc v${process.env["npm_package_version"] || "0.1.0"}`);
-        break;
-      case "status":
-        console.log(cmdStatus());
-        break;
-      case "logs":
-      case "log": {
-        const out = cmdLogs(args, (svc) => {
-          if (!stdin.isTTY) {
-            console.log(c.yellow("follow mode requires TTY (interactive terminal)"));
-            return;
-          }
-          enterServiceConsole(svc);
-        });
-        if (out) console.log(out);
-        break;
-      }
-      case "follow": {
-        const svcName = args[0];
+  switch (cmd) {
+    case "help":
+    case "h":
+    case "?":
+      stdout.write(HELP);
+      break;
+    case "version":
+      stdout.write(`sfmc v${process.env["npm_package_version"] || "0.1.0"}\n`);
+      break;
+    case "status":
+      stdout.write(cmdStatus() + "\n");
+      break;
+    case "logs":
+    case "log": {
+      const out = cmdLogs(args, (svc) => {
         if (!stdin.isTTY) {
-          console.log(c.yellow("console mode requires TTY (interactive terminal)"));
-          break;
-        }
-        if (svcName && (SERVICE_NAMES as readonly string[]).includes(svcName.toLowerCase())) {
-          await enterServiceConsole(svcName.toLowerCase() as ServiceName);
-        } else {
-          const sel = await popupSelect(SERVICE_ITEMS, "Service Console");
-          if (sel) await enterServiceConsole(sel as ServiceName);
-        }
-        break;
-      }
-      case "start":
-        if (args[0] === "all" || args[0] === "--all") {
-          console.log(await cmdStartAll());
-        } else if (args[0]) {
-          console.log(await cmdStart(args[0]));
-        } else {
-          console.log(c.yellow("Usage: start <service>"));
-        }
-        break;
-      case "stop":
-        if (args[0] === "all" || args[0] === "--all") {
-          console.log(await cmdStopAll());
-        } else if (args[0]) {
-          console.log(await cmdStop(args[0]));
-        } else {
-          console.log(c.yellow("Usage: stop <service>"));
-        }
-        break;
-      case "restart":
-        if (args[0]) {
-          console.log(await cmdRestart(args[0]));
-        } else {
-          console.log(c.yellow("Usage: restart <service>"));
-        }
-        break;
-      case "start-all":
-        console.log(await cmdStartAll());
-        break;
-      case "stop-all":
-        console.log(await cmdStopAll());
-        break;
-      case "init": {
-        const { runWizard } = await import("./wizard.js");
-        await runWizard();
-        break;
-      }
-      case "update":
-        console.log(await cmdUpdate());
-        break;
-      case "quit":
-      case "exit":
-      case "q":
-        throw "QUIT";
-      default:
-        if (cmd.startsWith("/")) {
-          const sel = await popupSelect(COMMAND_ITEMS, "Commands", cmd.slice(1));
-          if (sel) await execCmd(sel.split(/\s+/));
-        } else {
-          console.log(c.yellow(`Unknown: ${cmd}  (try: help)`));
-        }
-    }
-  } catch (e) {
-    if (e === "QUIT") throw e;
-    console.log(c.red(`Error: ${(e as Error).message}`));
-  }
-}
-
-/* ============================================================
- *  Service Console (follow mode with stdin → service)
- * ============================================================ */
-async function enterServiceConsole(svc: ServiceName): Promise<void> {
-  const svcObj = services[svc];
-  const wasRaw = (stdin as Record<string, boolean>).isRaw ?? false;
-
-  setRaw(true);
-  stdin.resume();
-
-  let running = true;
-  let inputBuf = "";
-
-  const PROMPT = c.cyan(`[${svcObj.title}] `);
-
-  function fmtLog(l: LogLine): string {
-    const ts = c.dim(l.time.toLocaleTimeString());
-    const text = highlightLogLine(l.text);
-    const pfx = l.stream === "stderr" ? c.red("!") : c.dim(" ");
-    return `${ts} ${pfx} ${text}`;
-  }
-
-  function redrawInput(): void {
-    stdout.write(`\r${PROMPT}${inputBuf}\x1B[K`);
-  }
-
-  stdout.write(`\n${c.bold(svcObj.title)} console — type and press Enter to send to service\n`);
-  stdout.write(`${c.dim("Ctrl+C or /exit to leave · Ctrl+L to clear logs")}\n`);
-  stdout.write(`${DIVIDER}\n`);
-
-  for (const l of svcObj.getRecentLogs(10)) {
-    stdout.write(fmtLog(l) + "\n");
-  }
-
-  redrawInput();
-
-  const onLog = (l: LogLine) => {
-    if (!running) return;
-    stdout.write(`\r\x1B[K${fmtLog(l)}\n`);
-    redrawInput();
-  };
-  svcObj.events.on("log", onLog);
-
-  const dataHandler = (chunk: Buffer) => {
-    if (!running) return;
-
-    let i = 0;
-    while (i < chunk.length) {
-      /* ---------- escape sequences — silently ignore ---------- */
-      if (chunk[i] === 0x1B) {
-        const next = consumeEscapeSeq(chunk, i);
-        i = next !== null ? next : i + 1;
-        continue;
-      }
-
-      const byte = chunk[i];
-      i++;
-
-      if (byte === 0x03) {
-        running = false;
-        stdin.removeListener("data", dataHandler);
-        svcObj.events.removeListener("log", onLog);
-        setRaw(wasRaw);
-        stdout.write(`\n${c.dim("left console")}\n`);
-        return;
-      }
-
-      if (byte === 0x0D || byte === 0x0A) {
-        const cmd = inputBuf.trim();
-        stdout.write(`\r\x1B[K${c.dim(`> ${cmd}`)}\n`);
-
-        if (cmd.toLowerCase() === "/exit") {
-          running = false;
-          stdin.removeListener("data", dataHandler);
-          svcObj.events.removeListener("log", onLog);
-          setRaw(wasRaw);
-          stdout.write(`${c.dim("left console")}\n`);
+          stdout.write(c.yellow("follow mode requires TTY\n"));
           return;
         }
-
-        if (cmd) {
-          try { svcObj.proc?.stdin?.write(cmd + "\n"); } catch {}
-        }
-
-        inputBuf = "";
-        redrawInput();
-        continue;
-      }
-
-      if (byte === 0x08 || byte === 0x7F) {
-        if (inputBuf.length > 0) {
-          inputBuf = inputBuf.slice(0, -1);
-          stdout.write("\b \b");
-        }
-        continue;
-      }
-
-      if (byte >= 0x20 && byte <= 0x7E) {
-        inputBuf += String.fromCharCode(byte);
-        stdout.write(String.fromCharCode(byte));
-        continue;
-      }
-
-      /* all other control chars silently dropped */
+      });
+      if (out) stdout.write(out + "\n");
+      break;
     }
-  };
-
-  stdin.on("data", dataHandler);
+    case "start":
+      if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") stdout.write((await cmdStartAll()) + "\n");
+      else if (args[0]) stdout.write((await cmdStart(args[0])) + "\n");
+      else stdout.write(c.yellow("Usage: start <service>|-all\n"));
+      break;
+    case "stop":
+      if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") stdout.write((await cmdStopAll()) + "\n");
+      else if (args[0]) stdout.write((await cmdStop(args[0])) + "\n");
+      else stdout.write(c.yellow("Usage: stop <service>|-all\n"));
+      break;
+    case "restart":
+      if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") {
+        await cmdStopAll();
+        stdout.write((await cmdStartAll()) + "\n");
+      } else if (args[0]) stdout.write((await cmdRestart(args[0])) + "\n");
+      else stdout.write(c.yellow("Usage: restart <service>|-all\n"));
+      break;
+    case "send": {
+      const svc = args[0] as ServiceName;
+      const msg = args.slice(1).join(" ");
+      if (!svc || !msg) {
+        stdout.write(c.yellow("Usage: send <service> <message>\n"));
+        break;
+      }
+      const s = services[svc];
+      if (!s.running) {
+        stdout.write(c.yellow(`${s.title} not running\n`));
+        break;
+      }
+      try {
+        s.proc?.stdin?.write(msg + "\n");
+        stdout.write(c.dim(`sent to ${svc}\n`));
+      } catch {
+        stdout.write(c.red("write failed\n"));
+      }
+      break;
+    }
+    case "init": {
+      const { runWizard } = await import("./wizard.js");
+      await runWizard();
+      break;
+    }
+    case "update":
+      await cmdUpdate(args);
+      break;
+    case "quit":
+    case "exit":
+    case "q":
+      throw "QUIT";
+    default:
+      stdout.write(c.yellow(`Unknown: ${cmd}  (try: help)\n`));
+  }
 }
+

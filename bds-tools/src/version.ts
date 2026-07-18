@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { VERSION_CACHE } from "./paths.js";
 import { hashFileSync, hashFileAsync } from "./fsx.js";
-import { logger } from "./logger.js";
+import { log } from "./log.js";
 
 /** 4段 → 3段 (去尾) */
 export function toVer3(v: string): string {
@@ -89,7 +89,7 @@ export async function getCurrentVersionAsync(exePath: string): Promise<string> {
   for (const [ver, entry] of Object.entries(cache)) {
     if (entry.sha256 === actual) return ver;
   }
-  logger.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存，疑似被改动或首次启动");
+  log.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存，疑似被改动或首次启动");
   return "0.0.0.0";
 }
 
@@ -102,6 +102,6 @@ export function getCurrentVersionSync(exePath: string): string {
   for (const [ver, entry] of Object.entries(cache)) {
     if (entry.sha256 === actual) return ver;
   }
-  logger.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存");
+  log.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存");
   return "0.0.0.0";
 }

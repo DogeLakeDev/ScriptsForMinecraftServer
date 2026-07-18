@@ -18,6 +18,7 @@
     "node": ">=22.5.0"
   },
   "dependencies": {
+    "@sfmc/logs": "*",
     "sql-template-strings": "^2.2.2",
     "ws": "^8.21.1"
   },

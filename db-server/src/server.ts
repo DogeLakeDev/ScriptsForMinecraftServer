@@ -7,6 +7,8 @@ import net from "node:net";
 import readline from "node:readline";
 import type { DatabaseSync } from "node:sqlite";
 
+import { log } from "./lib/log.js";
+
 interface CheckResult {
   ok: boolean;
   port: number;
@@ -59,15 +61,15 @@ export function createServer({ handle, env, onListening }: ServerOptions): http.
       const quietPoll = (req.url ?? "").startsWith("/api/sfmc/messages?") && res.statusCode < 400;
       const bodySnippet = req.method === "GET" ? "" : ` ${bodyStr.slice(0, 200)}`;
       if (!quietPoll)
-        console.log(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms${bodySnippet}`);
+        log.info(`[HTTP] ${req.method} ${req.url} ${res.statusCode} ${Date.now() - startedAt}ms${bodySnippet}`);
     });
     void handle(req, res);
   });
 
   server.listen(env.PORT, env.HOST, () => {
-    console.log(`[DogeDB] HTTP 服务已启动，端口 ${env.PORT} (loopback only)`);
-    console.log(`[DogeDB] API 健康检查: http://${env.HOST}:${env.PORT}/api/health`);
-    console.log(`[DogeDB] 鉴权: ${env.AUTH_TOKEN ? "已启用 token" : "未启用"}`);
+    log.success(`HTTP 服务已启动，端口 ${env.PORT} (loopback only)`);
+    log.info(`API 健康检查: http://${env.HOST}:${env.PORT}/api/health`);
+    log.info(`鉴权: ${env.AUTH_TOKEN ? "已启用 token" : "未启用"}`);
     if (onListening) onListening(server);
   });
 
@@ -84,17 +86,17 @@ export function startConsole(server: http.Server, db: DatabaseSync | null): read
       console.log("  status  — 显示服务状态");
       console.log("  stop    — 停止服务");
     } else if (cmd === "status") {
-      console.log(`[DogeDB] 状态: 运行中`);
+      console.log(`状态: 运行中`);
       console.log(`  HTTP 端口: ${(server.address() as { port: number }).port}`);
       console.log(`  数据库: ${db ? "(已连接)" : "(未连接)"}`);
     } else if (cmd === "stop") {
-      console.log("[DogeDB] 正在停止服务...");
+      log.info("正在停止服务...");
       rl.close();
       server.close();
       if (db) db.close();
       process.exit(0);
     } else {
-      console.log(`[DogeDB] 未知命令: ${cmd}，输入 help 查看帮助`);
+      log.warn(`未知命令: ${cmd}，输入 help 查看帮助`);
     }
   });
   rl.on("SIGINT", () => process.exit());
