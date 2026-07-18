@@ -1,7 +1,12 @@
 /**
  * routes/scoreboards.ts — 计分板备份
+ *
+ * 路由列表：
+ *   GET  /api/sfmc/scoreboards — 读取全部计分板
+ *   POST /api/sfmc/scoreboards — 批量写入(INSERT OR REPLACE)计分板
  */
 
+import { SQL } from "sql-template-strings";
 import { body, json } from "./_shared.js";
 import type { QueryFn } from "../lib/sqlite.js";
 
@@ -20,7 +25,7 @@ function createScoreboardsRoutes({ query }: Deps) {
   }): Promise<boolean> {
     if (path === "/api/sfmc/scoreboards") {
       if (method === "GET") {
-        json(res, { entries: query("SELECT * FROM sfmc_scoreboards") });
+        json(res, { entries: query(SQL`SELECT * FROM sfmc_scoreboards`) });
       } else if (method === "POST") {
         const { entries } = await body(req);
         if (!entries || !Array.isArray(entries)) {
@@ -29,9 +34,13 @@ function createScoreboardsRoutes({ query }: Deps) {
         }
         const now = Date.now();
         for (const e of entries as Array<Record<string, unknown>>) {
+          const objectiveId = String(e.objectiveId ?? e.id ?? "");
+          const objectiveDisplay = String(e.objectiveDisplay ?? e.displayName ?? "");
+          const participants = JSON.stringify(e.participantIds ?? e.participants ?? []);
           query(
-            "INSERT OR REPLACE INTO sfmc_scoreboards (objective_id, objective_display, participants, updated_at) VALUES (?, ?, ?, ?)",
-            [e.objectiveId || e.id, e.objectiveDisplay || e.displayName || "", JSON.stringify(e.participantIds || e.participants || []), now]
+            SQL`INSERT OR REPLACE INTO sfmc_scoreboards
+                (objective_id, objective_display, participants, updated_at)
+                VALUES (${objectiveId}, ${objectiveDisplay}, ${participants}, ${now})`
           );
         }
         json(res, { success: true, count: (entries as unknown[]).length });

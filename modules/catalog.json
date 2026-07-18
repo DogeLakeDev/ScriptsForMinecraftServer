@@ -2,6 +2,28 @@
   "version": 1,
   "modules": [
     {
+      "id": "core-data-backup",
+      "configKey": "data_backup",
+      "name": "数据备份",
+      "type": "core",
+      "description": "玩家数据自动保存与存档同步",
+      "enabledByDefault": true,
+      "canDisable": false,
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/entry.ts" }
+    },
+    {
+      "id": "core-gui",
+      "configKey": "gui",
+      "name": "主菜单GUI",
+      "type": "core",
+      "description": "主菜单、管理面板等图形界面入口",
+      "enabledByDefault": true,
+      "canDisable": false,
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/entry.ts" }
+    },
+    {
       "id": "core-config",
       "configKey": "config",
       "name": "配置中心",
@@ -46,15 +68,15 @@
       "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/HttpDB.ts" }
     },
     {
-      "id": "feature-money",
+      "id": "feature-economy",
       "configKey": "money",
       "name": "经济系统",
       "type": "feature",
       "description": "服务端控制的、安全的经济系统",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission","core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/Money.ts" }
+      "requires": ["core-command", "core-permission", "core-httpdb"],
+      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/Economy.ts" }
     },
     {
       "id": "feature-price-index",
@@ -98,7 +120,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/coop/CoopSystem.ts" }
+      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/coop/Coop.ts" }
     },
     {
       "id": "feature-land",
@@ -175,7 +197,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": ["core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/data/Scoreboards.ts" }
+      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/data/ScoreboardsData.ts" }
     },
     {
       "id": "feature-spawn-protect",
@@ -274,7 +296,7 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": [],
-      "entry": { "kind": "node", "path": "db-server/index.js" }
+      "entry": { "kind": "node", "path": "db-server/dist/index.js" }
     },
     {
       "id": "service-qq-bridge",
@@ -296,7 +318,7 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": ["service-db", "service-qq-bridge"],
-      "entry": { "kind": "node", "path": "panel/index.js" }
+      "entry": { "kind": "node", "path": "panel/dist/main.js" }
     },
     {
       "id": "tool-bds-updater",
@@ -307,29 +329,8 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "node", "path": "BDSTools/check-update.js" }
-    },
-    {
-      "id": "core-data-backup",
-      "configKey": "data_backup",
-      "name": "数据备份",
-      "type": "core",
-      "description": "玩家数据自动保存与存档同步",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/entry.ts" }
-    },
-    {
-      "id": "core-gui",
-      "configKey": "gui",
-      "name": "主菜单GUI",
-      "type": "core",
-      "description": "主菜单、管理面板等图形界面入口",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/entry.ts" }
+      "entry": { "kind": "node", "path": "BDSTools/dist/check-update.js" }
     }
   ]
 }
+

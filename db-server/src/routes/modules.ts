@@ -1,5 +1,13 @@
 /**
- * routes/modules.ts — 模块目录与启停
+ * routes/modules.ts — 模块目录与启停（基于 modules/catalog.json + module-lock.json）
+ *
+ * 路由列表：
+ *   GET  /api/sfmc/modules                       — 模块列表（含 enable 状态）
+ *   GET  /api/sfmc/modules/catalog               — 原始 catalog 列表
+ *   GET  /api/sfmc/modules/:key                  — 单个模块详情
+ *   PATCH/PUT /api/sfmc/modules/:key             — 设置 enabled
+ *   POST /api/sfmc/modules/:key/enable           — 启用模块
+ *   POST /api/sfmc/modules/:key/disable          — 禁用模块
  */
 
 interface Deps {

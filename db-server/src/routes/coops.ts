@@ -3,13 +3,41 @@
  *
  * 所有 BEGIN IMMEDIATE / COMMIT / ROLLBACK 及裸 SQL 都已下沉到 domain/coops.ts。
  * 本文件只负责请求解析 → 调用领域函数 → 序列化响应。
+ *
+ * 路由列表：
+ *   POST /api/sfmc/coops/create                                       — 创社（事务：扣 1000 → INSERT coop/member/account → 写 tx log/audit）
+ *   GET  /api/sfmc/coops/by-player/:playerId                          — 查玩家当前合作社
+ *   GET  /api/sfmc/coops                                             — 列出全部合作社（旧式）
+ *   GET  /api/sfmc/coops/:cid                                         — 合作社 snapshot
+ *   GET  /api/sfmc/coops/:cid/members                                 — 列出全部成员
+ *   POST /api/sfmc/coops/:cid/members                                 — 添加成员（owner/admin 调用）
+ *   PUT  /api/sfmc/coops/:cid/members/:playerId                       — 修改成员 role
+ *   DELETE /api/sfmc/coops/:cid/members/:playerId                     — 移除成员（活跃表单）
+ *   POST /api/sfmc/coops/:cid/members/join                            — 自助加入
+ *   POST /api/sfmc/coops/:cid/members/leave                           — 自助退出
+ *   GET  /api/sfmc/coops/:cid/audit                                   — 审计日志
+ *   GET  /api/sfmc/coops/:cid/invites                                 — 列出当前 invite（需 ?playerId=）
+ *   POST /api/sfmc/coops/:cid/invites                                 — 创建 invite
+ *   POST /api/sfmc/coops/:cid/invites/:inviteId/accept                — 接受 invite（事务）
+ *   POST /api/sfmc/coops/:cid/treasury/{deposit|withdraw}             — 公共金库存取（事务）
+ *   PUT  /api/sfmc/coops/:cid                                         — 更新 name/notice
+ *   DELETE /api/sfmc/coops/:cid                                       — 解散合作社（事务，需资产清零）
+ *   POST /api/sfmc/coops/:cid/shop/buy                                — 商店买入（事务 + 幂等回放）
+ *   POST /api/sfmc/coops/:cid/shop/sell                               — 商店卖出（事务 + 幂等回放）
+ *   GET  /api/sfmc/coops/:cid/shop_items                              — 列出商品
+ *   POST /api/sfmc/coops/:cid/shop_items                              — 写入商品 (upsert)
+ *   DELETE /api/sfmc/coops/:cid/shop_items/:itemId                    — 删除商品
+ *   GET  /api/sfmc/coops/:cid/bank_log                                — 公共金库流日志
+ *   POST /api/sfmc/coops/:cid/bank_log                                — 写入日志
+ *   GET  /api/sfmc/coop_shop_groups                                    — 列出分组
+ *   POST /api/sfmc/coop_shop_groups                                    — 写入分组
  */
 
 import type { DatabaseSync } from "node:sqlite";
 
+import { SQL } from "sql-template-strings";
 import type { QueryFn } from "../lib/sqlite.js";
 import { json } from "./_shared.js";
-import { SQL } from "sql-template-strings";
 
 import {
   acceptCoopInviteTx,
@@ -31,20 +59,21 @@ import {
   listBankLog,
   listCoopMembers,
   listCoops,
-  listShopItems,
   listPendingInvitesForInvitee,
   listShopGroups,
+  listShopItems,
+  removeCoopMember,
   roleOf,
   setCoopMemberRole,
-  updateCoopMeta,
-  upsertBankLog,
-  upsertShopGroup,
-  upsertShopItem,
   TABLE_COOP,
   TABLE_COOP_ACCOUNT,
   TABLE_INVITES,
   TABLE_MEMBERS,
   TABLE_SHOP_ITEMS,
+  updateCoopMeta,
+  upsertBankLog,
+  upsertShopGroup,
+  upsertShopItem,
 } from "../domain/coops.js";
 
 interface CoopDeps {
@@ -116,8 +145,7 @@ function createCoopsRoutes(deps: CoopDeps) {
     }
 
     // ─── 主要路由: /api/sfmc/coops/:cid/... ─────────────────────
-    if (path.startsWith("/api/sfmc/coops/") &&
-        !path.includes("/shop_items") && !path.includes("/shop_groups")) {
+    if (path.startsWith("/api/sfmc/coops/") && !path.includes("/shop_items/") && !path.includes("/shop_groups/")) {
       const parts = path.slice("/api/sfmc/coops/".length).split("/");
       const cid = decodeURIComponent(parts[0] ?? "");
       const sub = parts[1];
@@ -168,7 +196,7 @@ function createCoopsRoutes(deps: CoopDeps) {
           now + 7 * 86400000,
           now
         );
-        const rows = (query)(SQL`SELECT * FROM ${TABLE_INVITES} WHERE id = ${inviteId}`);
+        const rows = query(SQL`SELECT * FROM ${TABLE_INVITES} WHERE id = ${inviteId}`);
         const rowList = Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
         writeJson(res, { ok: true, invite: rowList[0] ?? { id: inviteId } });
         return true;
@@ -264,11 +292,33 @@ function createCoopsRoutes(deps: CoopDeps) {
       if (sub === "members" && subId && method === "PUT") {
         const data = await readBody(req);
         const actorId = String(data.actorId ?? "");
-        if (!coopCanAct(query, cid, actorId, "manage_members") || !["admin", "member"].includes(String(data.role ?? ""))) {
+        if (
+          !coopCanAct(query, cid, actorId, "manage_members") ||
+          !["admin", "member"].includes(String(data.role ?? ""))
+        ) {
           writeJson(res, { ok: false, error: "forbidden" }, 403);
           return true;
         }
         setCoopMemberRole(query, cid, decodeURIComponent(subId), String(data.role));
+        writeJson(res, { ok: true, coop: coopSnapshot(query, cid) });
+        return true;
+      }
+
+      // DELETE /api/sfmc/coops/:cid/members/:playerId  (active form, by player_id)
+      if (sub === "members" && subId && method === "DELETE") {
+        const data = await readBody(req);
+        const actorId = String(data.actorId ?? "");
+        const targetId = decodeURIComponent(subId);
+        if (!coopCanAct(query, cid, actorId, "manage_members")) {
+          writeJson(res, { ok: false, error: "forbidden" }, 403);
+          return true;
+        }
+        const targetRole = roleOf(query, cid, targetId);
+        if (targetRole === "owner") {
+          writeJson(res, { ok: false, error: "owner_cannot_remove" }, 409);
+          return true;
+        }
+        removeCoopMember(query, cid, targetId);
         writeJson(res, { ok: true, coop: coopSnapshot(query, cid) });
         return true;
       }
@@ -337,8 +387,12 @@ function createCoopsRoutes(deps: CoopDeps) {
           writeJson(res, { ok: false, error: "not_found" }, 404);
           return true;
         }
-        const account = (query)(SQL`SELECT balance FROM ${TABLE_COOP_ACCOUNT} WHERE cid = ${cid}`) as Array<{ balance: number }>;
-        const stockRows = (query)(SQL`SELECT SUM(num) AS total FROM ${TABLE_SHOP_ITEMS} WHERE cid = ${cid} AND type = 1`) as Array<{ total: number | null }>;
+        const account = query(SQL`SELECT balance FROM ${TABLE_COOP_ACCOUNT} WHERE cid = ${cid}`) as Array<{
+          balance: number;
+        }>;
+        const stockRows = query(
+          SQL`SELECT SUM(num) AS total FROM ${TABLE_SHOP_ITEMS} WHERE cid = ${cid} AND type = 1`
+        ) as Array<{ total: number | null }>;
         const balance = Number(account[0]?.balance ?? 0);
         const stock = Number(stockRows[0]?.total ?? 0) || 0;
         if (balance !== 0 || stock !== 0) {
@@ -386,14 +440,14 @@ function createCoopsRoutes(deps: CoopDeps) {
       }
       // GET  /api/sfmc/coops/:cid  (legacy with members + shop_items)
       if (!sub && method === "GET") {
-        const rows = (query)(SQL`SELECT * FROM ${TABLE_COOP} WHERE cid = ${cid}`) as Array<Record<string, unknown>>;
+        const rows = query(SQL`SELECT * FROM ${TABLE_COOP} WHERE cid = ${cid}`) as Array<Record<string, unknown>>;
         if (rows.length === 0) {
           writeJson(res, { success: false, error: "not_found" }, 404);
           return true;
         }
         const coop = rows[0];
-        (coop as Record<string, unknown>).members = (query)(SQL`SELECT * FROM ${TABLE_MEMBERS} WHERE cid = ${cid}`);
-        (coop as Record<string, unknown>).shop_items = (query)(SQL`SELECT * FROM ${TABLE_SHOP_ITEMS} WHERE cid = ${cid}`);
+        (coop as Record<string, unknown>).members = query(SQL`SELECT * FROM ${TABLE_MEMBERS} WHERE cid = ${cid}`);
+        (coop as Record<string, unknown>).shop_items = query(SQL`SELECT * FROM ${TABLE_SHOP_ITEMS} WHERE cid = ${cid}`);
         writeJson(res, { coop });
         return true;
       }
@@ -415,7 +469,9 @@ function createCoopsRoutes(deps: CoopDeps) {
             writeJson(res, { success: false, error: "player_name required" }, 400);
             return true;
           }
-          (query)(SQL`INSERT OR REPLACE INTO ${TABLE_MEMBERS} (cid, player_name, is_op, joined_at) VALUES (${cid}, ${player_name}, ${is_op ? 1 : 0}, ${Date.now()})`);
+          query(
+            SQL`INSERT OR REPLACE INTO ${TABLE_MEMBERS} (cid, player_name, is_op, joined_at) VALUES (${cid}, ${player_name}, ${is_op ? 1 : 0}, ${Date.now()})`
+          );
           writeJson(res, { success: true });
           return true;
         }
@@ -442,6 +498,12 @@ function createCoopsRoutes(deps: CoopDeps) {
             return true;
           }
           upsertShopItem(query, { ...item, cid });
+          writeJson(res, { success: true });
+          return true;
+        }
+        if (method === "DELETE" && subId) {
+          const id = decodeURIComponent(subId);
+          query(SQL`DELETE FROM ${TABLE_SHOP_ITEMS} WHERE cid = ${cid} AND id = ${id}`);
           writeJson(res, { success: true });
           return true;
         }
@@ -578,9 +640,13 @@ function createCoopsRoutes(deps: CoopDeps) {
   };
 }
 
-function notFound(res: import("http").ServerResponse, writeJson: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void): boolean {
+function notFound(
+  res: import("http").ServerResponse,
+  writeJson: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void
+): boolean {
   writeJson(res, { success: false, error: "not_found" }, 404);
   return true;
 }
 
 export { createCoopsRoutes };
+

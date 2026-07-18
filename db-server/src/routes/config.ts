@@ -1,5 +1,17 @@
 /**
  * routes/config.ts — 配置路由（直接读取 configs/*.json）
+ *
+ * 路由列表：
+ *   GET /api/sfmc/configs/all          — SAPI 启动时一次性拉取所有配置
+ *   GET /api/sfmc/settings             — 平铺 settings.json
+ *   GET /api/sfmc/settings/:key        — 含 land:* / bridge_channel_id 等 fallback 查询
+ *   GET /api/sfmc/areas                — areas.json
+ *   GET /api/sfmc/permissions          — permissions.json
+ *   GET /api/sfmc/banned_items         — banned_items.json
+ *   GET /api/sfmc/clean                — clean.json
+ *   GET /api/sfmc/grids                — grids.json
+ *   GET /api/sfmc/peace_filters        — peace_filters.json
+ *   GET /api/sfmc/qa                   — questions.json
  */
 
 import { readFileSync } from "node:fs";

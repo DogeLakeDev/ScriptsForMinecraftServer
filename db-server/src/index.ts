@@ -34,7 +34,7 @@ import { createCoopsRoutes } from "./routes/coops.js";
 import { createModuleRoutes } from "./routes/modules.js";
 
 import { ensureEconomyAccount as domainEnsureEconomyAccount, economyResult as domainEconomyResult } from "./domain/economy.js";
-import { forwardToQQBridge } from "./domain/bridge.js";
+import { forwardToQQBridge, makeLLBotConfig } from "./domain/bridge.js";
 import { readJsonFile } from "./lib/json.js";
 import { loadModuleLock, isEnabled, updateModuleState } from "./lib/module-state.js";
 import { writeJsonFile } from "./lib/json.js";
@@ -130,7 +130,24 @@ const worldRoutes = createWorldRoutes({ query, body, json } as any) as any;
 const playersRoutes = createPlayersRoutes({ query, body, json } as any) as any;
 const activitiesRoutes = createActivitiesRoutes({ query, body, json } as any) as any;
 const channelsRoutes = createChannelsRoutes({ query, body, json } as any) as any;
-const messagesRoutes = createMessagesRoutes({ query, body, json, forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) => forwardToQQBridge({ host: env.QQ_BRIDGE_HOST, port: env.QQ_BRIDGE_PORT }, channelId, fromName, content, fromId) } as any) as any;
+const messagesRoutes = createMessagesRoutes({
+  query,
+  body,
+  json,
+  forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) =>
+    forwardToQQBridge(
+      makeLLBotConfig({
+        LLBOT_HOST: env.LLBOT_HOST,
+        LLBOT_PORT: env.LLBOT_PORT,
+        LLBOT_TOKEN: env.LLBOT_TOKEN,
+        QQ_GROUP_ID: env.QQ_GROUP_ID,
+      }),
+      channelId,
+      fromName,
+      content,
+      fromId
+    ),
+} as any) as any;
 const redpacketRoutes = createRedpacketRoutes({
   query: query as any, db, body, json,
   ensureEconomyAccount: (playerId: string, playerName: string) => {

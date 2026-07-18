@@ -1,32 +1,28 @@
 {
   "name": "scriptsforminecraftserver",
   "version": "1.0.0",
-  "productName": "scriptsforminecraftserver",
-  "description": "ScriptsForMinecraftServer",
-  "private": true,
+  "description": "ScriptsForMinecraftServer(Minecraft BDS)",
   "type": "module",
+  "contributors": [
+    "ENIACJushi,Shiroha7z"
+  ],
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.64.0",
-    "@typescript-eslint/parser": "^8.64.0",
     "adm-zip": "^0.6.0",
-    "esbuild": "^0.28.1",
-    "eslint-plugin-minecraft-linting": "^2.0.12",
-    "fs-extra": "^11.3.6",
-    "nodemon": "^3.1.14",
-    "npm-run-all2": "^9.0.2",
-    "prettier": "^3.9.5",
-    "prettier-plugin-organize-imports": "^4.3.0",
-    "rimraf": "^6.1.3",
-    "source-map": "^0.7.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "eslint-plugin-minecraft-linting": "^2.0.12"
+  },
+  "dependencies": {
+    "@minecraft/math": "^2.4.0",
+    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
+    "@minecraft/server-net": "^1.0.0-beta.release.1.19.50",
+    "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
+    "@minecraft/vanilla-data": "1.26.40-preview.30"
   },
   "scripts": {
-    "build": "npm-run-all2 clean bundle check:catalog copy ",
+    "build": "npm-run-all2 clean bundle copy",
     "build:lint": "npm-run-all2 lint clean bundle check:catalog copy ",
     "build:tsc": "npm-run-all2 lint tsc clean bundle check:catalog copy ",
     "build:deploy": "npm-run-all2 build deploy",
-    "build:deploy-watch": "npm-run-all2 build deploy  watch",
+    "build:deploy-watch": "npm-run-all2 build deploy watch",
     "build:mcaddon": "npm-run-all2 lint tsc clean bundle check:catalog copy && node ./tools/package-mcaddon.js ",
     "watch": "nodemon --watch scripts --watch behavior_packs --watch resource_packs -e ts,json,lang,png --exec \"npm run deploy\"",
     "tsc": "tsc --noEmit",
@@ -38,15 +34,5 @@
     "deploy": "node ./tools/deploy.js",
     "enablemcloopback": "CheckNetIsolation.exe LoopbackExempt -a -p=S-1-15-2-1958404141-86561845-1752920682-3514627264-368642714-62675701-733520436",
     "enablemcpreviewloopback": "CheckNetIsolation.exe LoopbackExempt -a -p=S-1-15-2-424268864-5579737-879501358-346833251-474568803-887069379-4040235476"
-  },
-  "dependencies": {
-    "@minecraft/math": "^2.4.0",
-    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
-    "@minecraft/server-net": "^1.0.0-beta.release.1.19.50",
-    "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
-    "@minecraft/vanilla-data": "1.26.40-preview.30"
-  },
-  "allowScripts": {
-    "esbuild": true
   }
 }

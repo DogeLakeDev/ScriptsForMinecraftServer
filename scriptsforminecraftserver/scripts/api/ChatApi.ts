@@ -239,7 +239,13 @@ export async function claimRedPacket(
   redpacketId: string,
   actorId: string,
   actorName: string
-): Promise<{ ok: boolean; amount?: number; error?: string }> {
+): Promise<{
+  ok: boolean;
+  amount?: number;
+  transactionId?: string;
+  account?: { balance?: number; version?: number };
+  error?: string;
+}> {
   const result = await HttpDB.requestJSON(
     HttpRequestMethod.POST,
     `${PATH_REDPACKET}/${encodeURIComponent(redpacketId)}/claim`,
@@ -250,7 +256,13 @@ export async function claimRedPacket(
   );
   try {
     const parsed = JSON.parse(result.body);
-    return { ok: result.status === 200 && parsed.success, amount: parsed.amount, error: parsed.error };
+    return {
+      ok: result.status === 200 && parsed.success,
+      amount: parsed.amount,
+      transactionId: parsed.transactionId,
+      account: parsed.account,
+      error: parsed.error,
+    };
   } catch {
     return { ok: false, error: "invalid_response" };
   }

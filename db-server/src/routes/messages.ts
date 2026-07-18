@@ -1,7 +1,12 @@
 /**
- * routes/messages.ts — 聊天消息
+ * routes/messages.ts — 聊天消息 (sfmc_chat_messages)
+ *
+ * 路由列表：
+ *   GET  /api/sfmc/messages — 模糊/过滤查询消息
+ *   POST /api/sfmc/messages — 批量 INSERT OR REPLACE 消息（同时转发至 QQ Bridge）
  */
 
+import { SQL } from "sql-template-strings";
 import type { QueryFn } from "../lib/sqlite.js";
 
 interface Deps {
@@ -27,27 +32,23 @@ function createMessagesRoutes({ query, body, json, forwardToQQBridge }: Deps) {
   }): Promise<boolean> {
     if (path === "/api/sfmc/messages") {
       if (method === "GET") {
-        let sql = "SELECT * FROM sfmc_chat_messages WHERE 1=1";
-        const values: unknown[] = [];
-        const filterMap = [
-          { key: "search", sql: " AND (content LIKE ?)", transform: (v: string) => `%${v}%`, repeat: 1 },
-          { key: "type", sql: " AND type = ?", transform: (v: string) => v, repeat: 1 },
-          { key: "channelId", sql: " AND channel_id = ?", transform: (v: string) => v, repeat: 1 },
-          { key: "from", sql: " AND from_id = ?", transform: (v: string) => v, repeat: 1 },
-          { key: "minCreatedAt", sql: " AND created_at >= ?", transform: (v: string) => Number(v), repeat: 1 },
-          { key: "minSentAt", sql: " AND created_at >= ?", transform: (v: string) => Number(v), repeat: 1 },
-          { key: "maxCreatedAt", sql: " AND created_at <= ?", transform: (v: string) => Number(v), repeat: 1 },
-        ];
-        for (const rule of filterMap) {
-          const val = params.get(rule.key);
-          if (val && val.trim() !== "") {
-            sql += rule.sql;
-            const t = rule.transform(val.trim());
-            for (let i = 0; i < rule.repeat; i++) values.push(t);
-          }
-        }
-        sql += " ORDER BY created_at ASC";
-        json(res, { messages: query(sql, values) });
+        const stmt = SQL`SELECT * FROM sfmc_chat_messages WHERE 1=1`;
+        const search = params.get("search")?.trim();
+        if (search) stmt.append(SQL` AND (content LIKE ${`%${search}%`})`);
+        const type = params.get("type")?.trim();
+        if (type) stmt.append(SQL` AND type = ${type}`);
+        const channelId = params.get("channelId")?.trim();
+        if (channelId) stmt.append(SQL` AND channel_id = ${channelId}`);
+        const from = params.get("from")?.trim();
+        if (from) stmt.append(SQL` AND from_id = ${from}`);
+        const minCreatedAt = params.get("minCreatedAt")?.trim();
+        if (minCreatedAt) stmt.append(SQL` AND created_at >= ${Number(minCreatedAt)}`);
+        const minSentAt = params.get("minSentAt")?.trim();
+        if (minSentAt) stmt.append(SQL` AND created_at >= ${Number(minSentAt)}`);
+        const maxCreatedAt = params.get("maxCreatedAt")?.trim();
+        if (maxCreatedAt) stmt.append(SQL` AND created_at <= ${Number(maxCreatedAt)}`);
+        stmt.append(SQL` ORDER BY created_at ASC`);
+        json(res, { messages: query(stmt) });
       } else if (method === "POST") {
         const { messages } = await body(req);
         if (!Array.isArray(messages) || messages.length === 0) {
@@ -58,24 +59,18 @@ function createMessagesRoutes({ query, body, json, forwardToQQBridge }: Deps) {
           json(res, { success: false, error: "too many requests" }, 413);
           return true;
         }
-        query(
-          `INSERT OR REPLACE INTO sfmc_chat_messages (
-            id, channel_id, from_id, from_name, type, content, attachment, show_timestamp, created_at
-          ) VALUES ${(messages as unknown[])
-            .map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .join(", ")}`,
-          (messages as Array<Record<string, unknown>>).flatMap((m) => [
-            m.id,
-            m.channelId,
-            m.fromid,
-            m.fromName,
-            m.type ?? "text",
-            m.content,
-            m.attachment ?? null,
-            m.showTimestamp ? 1 : 0,
-            m.timestamp,
-          ])
-        );
+        // 多行 INSERT 改成循环单条 INSERT OR REPLACE —— 简单优先
+        for (const m of messages as Array<Record<string, unknown>>) {
+          query(
+            SQL`INSERT OR REPLACE INTO sfmc_chat_messages (
+                id, channel_id, from_id, from_name, type, content, attachment, show_timestamp, created_at
+              ) VALUES (
+                ${m.id}, ${m.channelId}, ${m.fromid}, ${m.fromName},
+                ${m.type ?? "text"}, ${m.content}, ${m.attachment ?? null},
+                ${m.showTimestamp ? 1 : 0}, ${m.timestamp}
+              )`
+          );
+        }
         for (const m of messages as Array<Record<string, unknown>>) {
           forwardToQQBridge(m.channelId as string, m.fromName as string, m.content as string, m.fromid as string);
         }

@@ -1,43 +1,36 @@
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { LandData, LandPos } from "../land/LandDatabase.js";
+import type {
+  CreateLandRequest,
+  DeleteLandResult,
+  LandApiResult,
+  LandData,
+  LandErrorCode,
+  LandMemberInviteResult,
+  LandMemberResult,
+  LandPos,
+  LandValidation,
+  TransferLandResult,
+} from "@sfmc-types/land.js";
 import { debug } from "../libs/DebugLog.js";
 import { HttpDB } from "../libs/HttpDB.js";
 
+// Re-export 以兼容老调用方
+export type {
+  CreateLandRequest,
+  DeleteLandResult,
+  LandApiResult,
+  LandData,
+  LandErrorCode,
+  LandMemberInviteResult,
+  LandMemberResult,
+  LandPos,
+  LandValidation,
+  TransferLandResult,
+};
+
 const PATH = "/api/sfmc/lands";
 
-export type LandErrorCode =
-  | "not_found"
-  | "forbidden"
-  | "already_deleted"
-  | "invalid_request"
-  | "invalid_target"
-  | "invalid_role"
-  | "overlap"
-  | "land_limit"
-  | "insufficient_funds"
-  | "database_unavailable"
-  | "version_conflict"
-  | "transaction_failed"
-  | "request_id_conflict";
-
-export interface LandApiResult<T = undefined> {
-  ok: boolean;
-  data?: T;
-  error?: LandErrorCode | string;
-  message?: string;
-  status?: number;
-  transactionId?: string;
-}
-
-export interface DeleteLandResult extends LandApiResult {
-  refund?: number;
-  balance?: number;
-  balanceVersion?: number;
-}
-
-export interface TransferLandResult extends LandApiResult<LandData> {
-  land?: LandData;
-}
+// 类型别名 → 取自 db-server（@sfmc-types/land.js），此处不再重复定义。
 
 function parseLand(body: string | null): LandData | null {
   if (!body) return null;
@@ -46,21 +39,6 @@ function parseLand(body: string | null): LandData | null {
   } catch {
     return null;
   }
-}
-
-export interface CreateLandRequest {
-  ownerId: string;
-  ownerName: string;
-  dimid: number;
-  posA: LandPos;
-  posB: LandPos;
-  requestId?: string;
-}
-
-export interface LandValidation {
-  ok: boolean;
-  error?: string;
-  price?: number;
 }
 
 export async function getAllLands(): Promise<LandData[] | null> {
@@ -132,7 +110,7 @@ export async function updateLand(
   debug.i("API", `updateLand: id=${id} actorId=${data.actorId} version=${data.expectedVersion}`);
   const result = await HttpDB.requestJSON(
     HttpRequestMethod.PUT,
-    `${PATH}/update/${encodeURIComponent(id)}`,
+    `${PATH}/${encodeURIComponent(id)}`,
     data as Record<string, unknown>
   );
   return result.status === 200 ? parseLand(result.body) : null;

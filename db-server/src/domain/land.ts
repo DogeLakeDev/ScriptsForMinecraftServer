@@ -1,17 +1,68 @@
 /**
- * domain/land.ts — 领地业务逻辑
+ * domain/land.ts — 领地业务核心
+ *
+ * 提供领地的购买、转让、收税、删除等事务,以及成员 / 邀请 / 审计的查询与写入。
+ * 价格公式由 configs/land.json 里的 land:config 控制。
+ *
+ * 事务描述 (Tx*):
+ *   - createLandTransaction  购买土地(BEGIN IMMEDIATE 原生写法,带 requestId 幂等回放)
+ *                            流程:幂等回放 → validateLandInput(面积/重叠/限额/价格) →
+ *                                  扣款(余额守护) → INSERT land + member(owner) →
+ *                                  INSERT economy tx log → 写 land_operations → COMMIT
+ *                            退款率 / 税率由 land:config 决定
+ *   - transferLandTx         土地转让(withTransaction 包裹)
+ *                            流程:幂等回放 → 校验 owner / 期望 version →
+ *                                  乐观锁 UPDATE owner → 原 owner 降为 admin →
+ *                                  新 owner 写入 members → 审计日志
+ *   - collectLandTaxTx       收地皮税(withTransaction 包裹)
+ *                            流程:按 periodDays 周期 + tax_rate 计算应缴 →
+ *                                  余额不足时(可选)冻结 land → 扣 owner 账户 →
+ *                                  写 tx log + 推进 tax_due_at + 审计
+ *   - deleteLandTx           删除领地(带退款 + 经济事务)
+ *                            流程:幂等回放 → 校验 owner / 期望 version → 乐观锁 UPDATE
+ *                                  status='deleted' → 按 refundRate 计算退款 →
+ *                                  加回 owner 账户 + tx log → 审计
+ *
+ * 领域辅助 (查询 / 元数据写入,不走事务):
+ *   - findLandById / findLandAt / listActiveLands / listActiveLandsByOwner
+ *   - mapLandRow            DB 行 → 业务视图(含 managers / members / permissions)
+ *   - loadLandJson          读 configs/land.json(过滤 _comment* 字段)
+ *   - defaultLandPermissions 默认保护权限档
+ *   - validateLandInput     校验面积/重叠/限额,计算价格(evaluateLandFormula)
+ *   - evaluateLandFormula   安全求值器(白名单字符 + 自实现四则运算)
+ *   - landPrice             按 refundRate 计算退款额
+ *   - canManageLand / canManageMember / landMemberRole / getMemberRole
+ *   - auditLand             写 sfmc_land_audit_logs
+ *   - createLandInvite / acceptLandInvite / revokeLandInvite / declineLandInvite
+ *   - expirePendingInvitesForInvitee / listActiveInvitesForInvitee
+ *   - findInviteById / findInviteByIdAnyStatus / findInviteByIdForLand
+ *   - setLandMemberRole / removeLandMember / updateLandMeta / listLandAudit
+ *   - ensurePublicPlaza     启动时确保 PUBLIC-PLAZA 存在
+ *   - landRequestId / replayLandOperation / saveLandOperation  requestId 幂等机制
+ *
+ * SQL 全部走 sql-template-strings 的 SQL`` 模板。
+ * 事务由 withTransaction 包裹(见 domain/transaction.ts)。
+ * createLandTransaction 是早期写法,直接 BEGIN IMMEDIATE / COMMIT / ROLLBACK,
+ * 保留 requestId 幂等(走 sfmc_land_operations)。
  */
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SQL } from "sql-template-strings";
 import type { QueryFn } from "../lib/sqlite.js";
-import type { TxResult } from "./redpacket.js";
+import type { TxResult } from "./transaction.js";
 
 type Query = QueryFn;
 type QueryAny = QueryFn;
 type DBExec = { exec: (sql: string) => void };
 
+/**
+ * @description
+ * @author Shiroha7z
+ * @date 17/07/2026
+ * @param {string} projectRoot
+ * @return {*}  {Record<string, unknown>}
+ */
 function loadLandJson(projectRoot: string): Record<string, unknown> {
   try {
     const raw = JSON.parse(readFileSync(join(projectRoot, "configs", "land.json"), "utf-8")) as Record<string, unknown>;
@@ -82,7 +133,9 @@ function auditLand(
 }
 
 function canManageLand(query: Query, landId: string, actorId: string): boolean {
-  const rows = query("SELECT owner_player_id FROM sfmc_lands WHERE id=? AND status='active'", [landId]) as Array<Record<string, unknown>>;
+  const rows = query("SELECT owner_player_id FROM sfmc_lands WHERE id=? AND status='active'", [landId]) as Array<
+    Record<string, unknown>
+  >;
   const land = rows[0];
   if (!land || !actorId) return false;
   if (land.owner_player_id === String(actorId)) return true;
@@ -497,6 +550,8 @@ export type { DBExec as LandDB, Query as LandQuery, QueryAny as LandQueryAny };
 // 以下是新增的事务域与查询 —— 由 routes/lands.ts 迁出
 // ────────────────────────────────────────────────────────────────────────────────
 
+import { withTransaction } from "./transaction.js";
+
 /** 兼容 lib/sqlite QueryFn —— any 类型允许 routes 层任意 query 调用 */
 type AnyLandQuery = QueryAny;
 
@@ -518,16 +573,11 @@ function nowMs(): number {
 // ── 读取函数 ────────────────────────────────────────────────────────────
 
 export function listActiveLands(query: AnyLandQuery): Array<Record<string, unknown>> {
-  const rows = query(
-    SQL`SELECT * FROM ${TABLE_LANDS} WHERE status = 'active' ORDER BY created_at ASC`
-  );
+  const rows = query(SQL`SELECT * FROM ${TABLE_LANDS} WHERE status = 'active' ORDER BY created_at ASC`);
   return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
 }
 
-export function listActiveLandsByOwner(
-  query: AnyLandQuery,
-  ownerPlayerId: string
-): Array<Record<string, unknown>> {
+export function listActiveLandsByOwner(query: AnyLandQuery, ownerPlayerId: string): Array<Record<string, unknown>> {
   const rows = query(
     SQL`SELECT * FROM ${TABLE_LANDS}
            WHERE owner_player_id = ${ownerPlayerId} AND status = 'active'
@@ -537,9 +587,7 @@ export function listActiveLandsByOwner(
 }
 
 export function findLandById(query: AnyLandQuery, id: string): Record<string, unknown> | null {
-  const rows = query(SQL`SELECT * FROM ${TABLE_LANDS} WHERE id = ${id}`) as Array<
-    Record<string, unknown>
-  >;
+  const rows = query(SQL`SELECT * FROM ${TABLE_LANDS} WHERE id = ${id}`) as Array<Record<string, unknown>>;
   return rows[0] ?? null;
 }
 
@@ -569,11 +617,7 @@ export function listLandAudit(query: AnyLandQuery, id: string): unknown[] {
   return Array.isArray(rows) ? rows : [];
 }
 
-export function expirePendingInvitesForInvitee(
-  query: AnyLandQuery,
-  inviteeId: string,
-  now: number = nowMs()
-): void {
+export function expirePendingInvitesForInvitee(query: AnyLandQuery, inviteeId: string, now: number = nowMs()): void {
   query(
     SQL`UPDATE ${TABLE_LAND_INVITES}
             SET status = 'expired'
@@ -581,11 +625,7 @@ export function expirePendingInvitesForInvitee(
   );
 }
 
-export function listActiveInvitesForInvitee(
-  query: AnyLandQuery,
-  inviteeId: string,
-  now: number = nowMs()
-): unknown[] {
+export function listActiveInvitesForInvitee(query: AnyLandQuery, inviteeId: string, now: number = nowMs()): unknown[] {
   const rows = query(
     SQL`SELECT * FROM ${TABLE_LAND_INVITES}
             WHERE invitee_id = ${inviteeId} AND status = 'pending' AND expires_at > ${now}
@@ -632,16 +672,10 @@ export function findInviteByIdForLand(
 }
 
 export function revokeLandInvite(query: AnyLandQuery, landId: string, inviteId: string): void {
-  query(
-    SQL`UPDATE ${TABLE_LAND_INVITES} SET status = 'revoked' WHERE id = ${inviteId} AND land_id = ${landId}`
-  );
+  query(SQL`UPDATE ${TABLE_LAND_INVITES} SET status = 'revoked' WHERE id = ${inviteId} AND land_id = ${landId}`);
 }
 
-export function declineLandInvite(
-  query: AnyLandQuery,
-  inviteeId: string,
-  inviteId: string
-): void {
+export function declineLandInvite(query: AnyLandQuery, inviteeId: string, inviteId: string): void {
   query(
     SQL`UPDATE ${TABLE_LAND_INVITES}
             SET status = 'declined'
@@ -713,12 +747,7 @@ export function getMemberRole(
 }
 
 /** 简单地更新 land 成员 role */
-export function setLandMemberRole(
-  query: AnyLandQuery,
-  landId: string,
-  playerId: string,
-  role: string
-): void {
+export function setLandMemberRole(query: AnyLandQuery, landId: string, playerId: string, role: string): void {
   query(
     SQL`UPDATE ${TABLE_LAND_MEMBERS}
             SET role = ${role}
@@ -732,11 +761,7 @@ export function setLandMemberRole(
 }
 
 /** 移除 land 成员 */
-export function removeLandMember(
-  query: AnyLandQuery,
-  landId: string,
-  playerId: string
-): void {
+export function removeLandMember(query: AnyLandQuery, landId: string, playerId: string): void {
   query(
     SQL`DELETE FROM ${TABLE_LAND_MEMBERS}
             WHERE land_id = ${landId} AND player_id = ${playerId}
@@ -783,35 +808,38 @@ export function transferLandTx(
   const actorId = String(data.actorId ?? "");
   const targetId = String(data.targetId ?? "");
 
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  return withTransaction(db, () => {
     const replay = replayLandOperation(query, requestId, "land.transfer", actorId);
     if (replay) {
-      db.exec("COMMIT");
+      // 之前已保存过的同 requestId 请求 —— 直接复用其响应。
+      // 注意:replay 可能含 ok:false (request_id_conflict) → 直接透传。
+      if (replay.ok) {
+        return {
+          ok: true,
+          data: {
+            transactionId: String(replay.transactionId ?? ""),
+            land: (replay.land as Record<string, unknown> | null) ?? null,
+          },
+        };
+      }
       return {
-        ok: true,
-        data: replay as unknown as {
-          transactionId: string;
-          land: Record<string, unknown> | null;
-        },
+        ok: false,
+        error: String(replay.error ?? "request_id_conflict"),
+        status: 409,
       };
     }
-    const landRow = findLandById(query, id) as Record<string, unknown> | null;
+    const landRow = findLandById(query, id);
     if (!landRow || landRow.status !== "active") {
-      db.exec("ROLLBACK");
       return { ok: false, error: "not_found", status: 404 };
     }
     if (String(landRow.owner_player_id) !== actorId) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "forbidden", status: 403 };
     }
     if (targetId === actorId) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "invalid_target", status: 400 };
     }
     const expectedVersion = data.expectedVersion;
     if (expectedVersion !== undefined && Number(expectedVersion) !== Number(landRow.version)) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "version_conflict", status: 409 };
     }
     const upd = query(
@@ -824,7 +852,6 @@ export function transferLandTx(
                 AND version = ${Number(landRow.version ?? 0)}`
     ) as { changes?: number };
     if (!upd.changes) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "version_conflict", status: 409 };
     }
     query(
@@ -851,20 +878,8 @@ export function transferLandTx(
       land: finalLand ? mapLandRow(query, finalLand) : null,
     };
     saveLandOperation(query, requestId, "land.transfer", actorId, id, response);
-    db.exec("COMMIT");
     return { ok: true, data: { transactionId, land: finalLand } };
-  } catch (error) {
-    try {
-      db.exec("ROLLBACK");
-    } catch {
-      /* ignore */
-    }
-    return {
-      ok: false,
-      error: (error as Error).message || "transaction_failed",
-      status: 500,
-    };
-  }
+  });
 }
 
 /** 收地皮税 */
@@ -877,7 +892,7 @@ export function collectLandTaxTx(
     playerId: string,
     playerName: string
   ) => { balance: number; player_id: string; version: number } | undefined
-): TxResult<{ taxCollected: number; balance: number; frozen: boolean } | { taxCollected: 0 }> {
+): TxResult<{ taxCollected: number; balance: number; frozen: boolean }> {
   const tid = String(data.landId ?? data.id ?? "");
   const cfg = loadLandJson(projectRoot);
   const taxCfg: Record<string, unknown> = { periodDays: 7, fallbackPurchasePrice: 100, freezeOnInsufficient: true };
@@ -894,30 +909,21 @@ export function collectLandTaxTx(
   }
   const taxRate = Number(land.tax_rate ?? 0);
   if (taxRate <= 0) {
-    return {
-      ok: true,
-      data: { taxCollected: 0, balance: 0, frozen: false, message: "免税" } as never,
-    };
+    return { ok: true, data: { taxCollected: 0, balance: 0, frozen: false } };
   }
   const periodMs = (Number(taxCfg.periodDays) || 7) * 86400000;
   const fallbackPrice = Number(taxCfg.fallbackPurchasePrice) || 100;
-  const taxAmount = Math.floor(
-    ((Number(land.purchase_price) || fallbackPrice) * taxRate) / 10000
-  );
+  const taxAmount = Math.floor(((Number(land.purchase_price) || fallbackPrice) * taxRate) / 10000);
   if (taxAmount <= 0) {
-    return { ok: true, data: { taxCollected: 0, balance: 0, frozen: false } as never };
+    return { ok: true, data: { taxCollected: 0, balance: 0, frozen: false } };
   }
 
   const actorId = String(data.actorId ?? "");
   const freezeOnInsufficient = taxCfg.freezeOnInsufficient === true;
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const account = ensureEconomyAccount(
-      String(land.owner_player_id),
-      String(land.owner_name_snapshot ?? "")
-    );
+
+  return withTransaction(db, () => {
+    const account = ensureEconomyAccount(String(land.owner_player_id), String(land.owner_name_snapshot ?? ""));
     if (!account) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "ensure_account_failed", status: 500 };
     }
     if (account.balance < taxAmount) {
@@ -928,10 +934,9 @@ export function collectLandTaxTx(
                   WHERE id = ${tid}`
         );
       }
-      db.exec("COMMIT");
       return {
         ok: true,
-        data: { taxCollected: 0, balance: account.balance, frozen: freezeOnInsufficient } as never,
+        data: { taxCollected: 0, balance: account.balance, frozen: freezeOnInsufficient },
       };
     }
     query(
@@ -960,23 +965,11 @@ export function collectLandTaxTx(
               WHERE id = ${tid}`
     );
     auditLand(query, tid, actorId, "land.tax", { collected: taxAmount });
-    db.exec("COMMIT");
     return {
       ok: true,
-      data: { taxCollected: taxAmount, balance: account.balance - taxAmount, frozen: false } as never,
+      data: { taxCollected: taxAmount, balance: account.balance - taxAmount, frozen: false },
     };
-  } catch (error) {
-    try {
-      db.exec("ROLLBACK");
-    } catch {
-      /* ignore */
-    }
-    return {
-      ok: false,
-      error: (error as Error).message || "tax_collect_failed",
-      status: 500,
-    };
-  }
+  });
 }
 
 /** 删除领地（含退款 + 经济事务） */
@@ -1002,49 +995,46 @@ export function deleteLandTx(
   if (data.requestId && !requestId) {
     return { ok: false, error: "invalid_request", status: 400 };
   }
+  const actorId = String(data.actorId);
 
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const replay = replayLandOperation(query, requestId, "land.delete", String(data.actorId));
+  return withTransaction(db, () => {
+    const replay = replayLandOperation(query, requestId, "land.delete", actorId);
     if (replay) {
-      db.exec("COMMIT");
-      return { ok: true, data: replay as never };
+      if (replay.ok) {
+        return { ok: true, data: replay as never };
+      }
+      return {
+        ok: false,
+        error: String(replay.error ?? "request_id_conflict"),
+        status: 409,
+      };
     }
     const land = findLandById(query, id);
     if (!land) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "not_found", status: 404 };
     }
     if (land.status !== "active") {
-      db.exec("ROLLBACK");
       return { ok: false, error: "already_deleted", status: 409 };
     }
-    if (String(data.actorId) !== String(land.owner_player_id)) {
-      db.exec("ROLLBACK");
+    if (actorId !== String(land.owner_player_id)) {
       return { ok: false, error: "forbidden", status: 403 };
     }
     if (data.expectedVersion !== undefined && Number(data.expectedVersion) !== Number(land.version)) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "version_conflict", status: 409 };
     }
     const refund = landPrice(land);
-    const account = ensureEconomyAccount(
-      String(land.owner_player_id),
-      String(land.owner_name_snapshot ?? "")
-    );
+    const account = ensureEconomyAccount(String(land.owner_player_id), String(land.owner_name_snapshot ?? ""));
     if (!account) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "ensure_account_failed", status: 500 };
     }
     const del = query(
       SQL`UPDATE ${TABLE_LANDS}
               SET status = 'deleted', updated_at = ${nowMs()}, version = version + 1
               WHERE id = ${id} AND status = 'active'
-                AND owner_player_id = ${String(data.actorId)}
+                AND owner_player_id = ${actorId}
                 AND version = ${Number(land.version ?? 0)}`
     ) as { changes?: number };
     if (!del.changes) {
-      db.exec("ROLLBACK");
       return { ok: false, error: "version_conflict", status: 409 };
     }
     if (refund > 0) {
@@ -1060,7 +1050,7 @@ export function deleteLandTx(
         SQL`INSERT INTO ${TABLE_TX}
                 (id, transaction_type, actor_id, source_player_id, target_player_id,
                  amount, balance_before, balance_after, reference_type, reference_id, reason, created_at)
-                VALUES (${tx}, ${"land.refund"}, ${String(data.actorId)},
+                VALUES (${tx}, ${"land.refund"}, ${actorId},
                         ${null}, ${String(land.owner_player_id)},
                         ${refund}, ${account.balance}, ${account.balance + refund},
                         ${"land"}, ${id}, ${"删除土地退款"}, ${nowMs()})`
@@ -1069,30 +1059,18 @@ export function deleteLandTx(
     const finalAccount = ensureEconomyAccount(String(land.owner_player_id), "");
     const balance = finalAccount?.balance ?? 0;
     const transactionId = `LTX${nowMs().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-    auditLand(query, id, String(data.actorId), "land.delete", { refund, transactionId });
-    const response: Record<string, unknown> = {
-      ok: true,
-      refund,
-      balance,
-      balanceBefore: account.balance,
-      balanceAfter: balance,
-      balanceVersion: finalAccount?.version ?? 0,
-      transactionId,
-      version: Number(land.version ?? 0) + 1,
-    };
-    saveLandOperation(query, requestId, "land.delete", String(data.actorId), id, response);
-    db.exec("COMMIT");
-    return { ok: true, data: response as never };
-  } catch (error) {
-    try {
-      db.exec("ROLLBACK");
-    } catch {
-      /* ignore */
-    }
+    auditLand(query, id, actorId, "land.delete", { refund, transactionId });
     return {
-      ok: false,
-      error: (error as Error).message || "transaction_failed",
-      status: 500,
+      ok: true,
+      data: {
+        refund,
+        balance,
+        balanceBefore: account.balance,
+        balanceAfter: balance,
+        balanceVersion: finalAccount?.version ?? 0,
+        transactionId,
+        version: Number(land.version ?? 0) + 1,
+      },
     };
-  }
+  });
 }

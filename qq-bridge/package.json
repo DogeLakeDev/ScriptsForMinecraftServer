@@ -1,0 +1,28 @@
+{
+  "name": "qq-bridge",
+  "version": "1.0.0",
+  "description": "QQ ↔ MC 桥接进程:WS 3002 接 LLBot reverse-ws,转发 OneBot 11 事件到 db-server",
+  "author": "Shiroha7z",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\""
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "keywords": [],
+  "license": "ISC"
+}
+

@@ -1,7 +1,15 @@
 /**
- * routes/activities.ts — 行为日志记录与查询
+ * routes/activities.ts — 行为日志记录与查询 (sfmc_activities)
+ *
+ * 路由列表：
+ *   POST /api/sfmc/activities/batch    — 批量 INSERT 行为记录(客户端批量推流)
+ *   POST /api/sfmc/activities/cleanup  — 删除早于保留天数的行为
+ *   GET  /api/sfmc/activities/stats    — 按 source_id / 时间窗统计
+ *   GET  /api/sfmc/activities          — 模糊/过滤查询行为记录
  */
 
+import { SQL, type SQLStatement } from "sql-template-strings";
+import { raw } from "../lib/sql-helpers.js";
 import type { QueryFn } from "../lib/sqlite.js";
 
 interface Deps {
@@ -32,32 +40,25 @@ function createActivitiesRoutes({ query, body, json }: Deps) {
           return true;
         }
         const now = Date.now();
-        const insert = `INSERT OR IGNORE INTO sfmc_activities (
-          id, timestamp, dimension, source_type, source_id, source_name,
-          source_x, source_y, source_z, event_type,
-          target_type, target_id, target_name, target_x, target_y, target_z, detail, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         for (const e of entries as Array<Record<string, unknown>>) {
-          query(insert, [
-            e.id || `${now}_${Math.random().toString(36).slice(2, 8)}`,
-            e.timestamp || now,
-            e.dimension || "",
-            e.sourceType || "unknown",
-            e.sourceid || "",
-            e.sourceName || "",
-            e.sourceX ?? null,
-            e.sourceY ?? null,
-            e.sourceZ ?? null,
-            e.eventType || "unknown",
-            e.targetType || "",
-            e.targetid || "",
-            e.targetName || "",
-            e.targetX ?? null,
-            e.targetY ?? null,
-            e.targetZ ?? null,
-            typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail ?? {}),
-            now,
-          ]);
+          const id = String(e.id ?? `${now}_${Math.random().toString(36).slice(2, 8)}`);
+          const timestamp = Number(e.timestamp ?? now);
+          const detail = typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail ?? {});
+          query(
+            SQL`INSERT OR IGNORE INTO sfmc_activities (
+                id, timestamp, dimension, source_type, source_id, source_name,
+                source_x, source_y, source_z, event_type,
+                target_type, target_id, target_name, target_x, target_y, target_z, detail, created_at
+              ) VALUES (${id}, ${timestamp}, ${String(e.dimension ?? "")},
+                      ${String(e.sourceType ?? "unknown")}, ${String(e.sourceid ?? "")},
+                      ${String(e.sourceName ?? "")},
+                      ${Number(e.sourceX ?? 0)}, ${Number(e.sourceY ?? 0)}, ${Number(e.sourceZ ?? 0)},
+                      ${String(e.eventType ?? "unknown")},
+                      ${String(e.targetType ?? "")}, ${String(e.targetid ?? "")},
+                      ${String(e.targetName ?? "")},
+                      ${Number(e.targetX ?? 0)}, ${Number(e.targetY ?? 0)}, ${Number(e.targetZ ?? 0)},
+                      ${detail}, ${now})`
+          );
         }
         json(res, { success: true, count: (entries as unknown[]).length });
       } else {
@@ -70,18 +71,13 @@ function createActivitiesRoutes({ query, body, json }: Deps) {
       if (method === "POST") {
         const { keepDays = 30, keepAdmin = true } = await body(req);
         const cutoff = Date.now() - (keepDays as number) * 86400000;
-        if (keepAdmin) {
-          const r = query("DELETE FROM sfmc_activities WHERE timestamp < ? AND event_type NOT LIKE ?", [
-            cutoff,
-            "admin.%",
-          ]) as { changes?: number };
-          json(res, { success: true, deleted: r.changes || 0 });
-        } else {
-          const r = query("DELETE FROM sfmc_activities WHERE timestamp < ?", [cutoff]) as {
-            changes?: number;
-          };
-          json(res, { success: true, deleted: r.changes || 0 });
-        }
+        const r = keepAdmin
+          ? query(
+              SQL`DELETE FROM sfmc_activities
+                  WHERE timestamp < ${cutoff} AND event_type NOT LIKE ${"admin.%"}`
+            )
+          : query(SQL`DELETE FROM sfmc_activities WHERE timestamp < ${cutoff}`);
+        json(res, { success: true, deleted: (r as { changes?: number }).changes || 0 });
       } else {
         json(res, { success: false, error: "not_found" }, 404);
       }
@@ -93,32 +89,28 @@ function createActivitiesRoutes({ query, body, json }: Deps) {
         const id = params.get("id") || "";
         const from = params.get("from") || "";
         const to = params.get("to") || "";
-        let cond = "WHERE 1=1";
-        const vals: unknown[] = [];
-        if (id) {
-          cond += " AND source_id = ?";
-          vals.push(id);
-        }
-        if (from) {
-          cond += " AND timestamp >= ?";
-          vals.push(parseInt(from));
-        }
-        if (to) {
-          cond += " AND timestamp <= ?";
-          vals.push(parseInt(to));
-        }
-        const totalRow = query(`SELECT COUNT(*) as total FROM sfmc_activities ${cond}`, vals) as Array<{
-          total: number;
-        }>;
+        /** 用 buildSelect 反复接收前缀并复用 WHERE，避免对 SQLStatement 做
+         *  模板插值（sql-template-strings 模板插值会丢失 values 绑定）。 */
+        const buildSelect = (prefix: string): SQLStatement => {
+          const s = SQL`${raw(prefix)} FROM sfmc_activities WHERE 1=1`;
+          if (id) s.append(SQL` AND source_id = ${id}`);
+          if (from) s.append(SQL` AND timestamp >= ${parseInt(from)}`);
+          if (to) s.append(SQL` AND timestamp <= ${parseInt(to)}`);
+          return s;
+        };
+        const rows = query(buildSelect("SELECT *")) as Array<Record<string, unknown>>;
+        const totalRow = query(buildSelect("SELECT COUNT(*) AS total")) as Array<{ total: number }>;
         const byEvent = query(
-          `SELECT event_type, COUNT(*) as count FROM sfmc_activities ${cond} GROUP BY event_type ORDER BY count DESC`,
-          vals
+          buildSelect(`SELECT event_type, COUNT(*) AS count`).append(
+            SQL` GROUP BY event_type ORDER BY count DESC`
+          )
         );
         const byDate = query(
-          `SELECT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') as date, COUNT(*) as count FROM sfmc_activities ${cond} GROUP BY date ORDER BY date DESC LIMIT 30`,
-          vals
+          buildSelect(
+            `SELECT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') AS date, COUNT(*) AS count`
+          ).append(SQL` GROUP BY date ORDER BY date DESC LIMIT 30`)
         );
-        json(res, { total: totalRow[0]?.total || 0, byEvent, byDate });
+        json(res, { total: totalRow[0]?.total || 0, byEvent, byDate, sampleRows: rows.length });
       } else {
         json(res, { success: false, error: "not_found" }, 404);
       }
@@ -134,31 +126,14 @@ function createActivitiesRoutes({ query, body, json }: Deps) {
         const sourceName = params.get("name") || "";
         const limit = Math.min(parseInt(params.get("limit") || "200", 10), 1000);
         const offset = parseInt(params.get("offset") || "0", 10);
-        let sql = "SELECT * FROM sfmc_activities WHERE 1=1";
-        const vals: unknown[] = [];
-        if (id) {
-          sql += " AND source_id = ?";
-          vals.push(id);
-        }
-        if (event) {
-          sql += " AND event_type = ?";
-          vals.push(event);
-        }
-        if (from) {
-          sql += " AND timestamp >= ?";
-          vals.push(parseInt(from));
-        }
-        if (to) {
-          sql += " AND timestamp <= ?";
-          vals.push(parseInt(to));
-        }
-        if (sourceName) {
-          sql += " AND source_name = ?";
-          vals.push(sourceName);
-        }
-        sql += " ORDER BY timestamp DESC LIMIT ? OFFSET ?";
-        vals.push(limit, offset);
-        const rows = query(sql, vals);
+        const stmt = SQL`SELECT * FROM sfmc_activities WHERE 1=1`;
+        if (id) stmt.append(SQL` AND source_id = ${id}`);
+        if (event) stmt.append(SQL` AND event_type = ${event}`);
+        if (from) stmt.append(SQL` AND timestamp >= ${parseInt(from)}`);
+        if (to) stmt.append(SQL` AND timestamp <= ${parseInt(to)}`);
+        if (sourceName) stmt.append(SQL` AND source_name = ${sourceName}`);
+        stmt.append(SQL` ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`);
+        const rows = query(stmt);
         json(res, { entries: rows, count: (rows as unknown[]).length, limit, offset });
       } else {
         json(res, { success: false, error: "not_found" }, 404);
@@ -171,3 +146,4 @@ function createActivitiesRoutes({ query, body, json }: Deps) {
 }
 
 export { createActivitiesRoutes };
+

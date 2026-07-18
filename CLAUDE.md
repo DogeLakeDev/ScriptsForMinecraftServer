@@ -10,13 +10,14 @@ ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with f
 |------|------|---------|
 | `scriptsforminecraftserver/` | Behavior pack — game logic, commands, GUIs | Minecraft Bedrock (SAPI) |
 | `db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.5+ |
-| `qq-bridge/` | QQ bridge via LLBot OneBot 11 (ports 3002/3003) | Node.js |
+| `qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
 | `panel/` | TUI management dashboard | Node.js (Ink) |
 | `BDSTools/` | BDS auto-updater | Node.js |
 
 ## Common Commands
 
 ### SAPI behavior pack (scriptsforminecraftserver/)
+
 ```powershell
 cd scriptsforminecraftserver
 npm install                    # install deps (required before first run)
@@ -26,6 +27,7 @@ npm run lint                   # ESLint
 ```
 
 ### db-server
+
 ```bash
 cd db-server
 node inedx.js                  # starts on 127.0.0.1:3001
@@ -33,6 +35,7 @@ DB_PORT=4000 node inedx.js     # override port
 ```
 
 ### Management panel
+
 ```bash
 node panel/index.js            # TUI mode (requires interactive terminal)
 node panel/index.js --cli      # print status and exit (pipe-friendly)
@@ -40,6 +43,7 @@ node panel/index.js --no-tui   # keep services running, no TUI
 ```
 
 ### Dev tools (run from repo root)
+
 ```bash
 node tools/check-ootb.js       # self-check: validates environment readiness
 node tools/check-catalog.js    # validates catalog.json (unique IDs, dependency closure, entry paths)
@@ -51,6 +55,7 @@ node tools/install-module.js uninstall <id> # uninstall module
 ```
 
 ### Build prerequisites
+
 - Node.js 18+ for SAPI; Node.js 22.5+ for db-server
 - Create `scriptsforminecraftserver/.env` from `.env.example` with `PROJECT_NAME` and `CUSTOM_DEPLOYMENT_PATH`
 
@@ -80,6 +85,7 @@ Module enable/disable at runtime goes through Panel → `POST /api/sfmc/modules/
 Plain JSON files under `configs/`. No SQLite, no hot-reload. SAPI calls `GET /api/sfmc/configs/all` once at startup via `ConfigManager.init()` and caches everything in memory. After any `configs/*.json` edit, restart BDS.
 
 Key config endpoints:
+
 - `GET /api/sfmc/settings/{key}` — `land:*` keys fall back to `configs/land.json`; `bridge_channel_id` falls back to `qq_config.json`
 - `GET /api/sfmc/configs/all` — one-shot snapshot for SAPI startup
 
@@ -95,8 +101,11 @@ Use `Msg.info/success/error/warning/tips()` from `libs/Tools.ts` for all system 
 
 ```
 QQ → MC: LLBot ─WS:3002──→ qq-bridge ─POST──→ db-server:3001/api/sfmc/messages
-MC → QQ: db-server POST /api/sfmc/messages ─POST──→ qq-bridge:3003/forward → LLBot HTTP
+MC → QQ: db-server POST /api/sfmc/messages ─HTTP──→ LLBot:3004/send_group_msg
 ```
+
+> qq-bridge 进程**只起 WS 3002**;MC→QQ 由 db-server 直连 LLBot,不再有 3003 中转端口。
+> 循环防护:跳过 `sender.user_id === self_id` 的回声 + 5 秒 message_id 去重。
 
 ## Prettier
 

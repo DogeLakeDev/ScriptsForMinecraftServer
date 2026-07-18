@@ -8,7 +8,7 @@
 import { Player, system, world } from "@minecraft/server";
 import { ConfigManager } from "../libs/ConfigManager.js";
 import { debug } from "../libs/DebugLog.js";
-import { Money } from "../libs/Money.js";
+import { Money } from "../libs/Economy.js";
 import { getRandomInteger, Msg } from "../libs/Tools.js";
 
 export class QAManager {

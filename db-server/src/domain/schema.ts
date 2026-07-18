@@ -1,8 +1,25 @@
 /**
- * domain/schema.ts — 数据库 schema 初始化（唯一真源）
+ * domain/schema.ts — 数据库 schema 初始化(唯一真源)
  *
  * 所有 CREATE TABLE / CREATE INDEX 语句集中于此。
- * 调用方式：initSchema(db) — 在 openDatabase 之后、createQuery 之前执行。
+ * 调用方式:initSchema(db) — 在 openDatabase 之后、createQuery 之前执行。
+ *
+ * 事务描述:
+ *   - 无业务 Tx(本文件只做 DDL,不涉及业务事务)
+ *
+ * 业务域(按文件内 db.exec 块编号):
+ *   (1) 世界备份        (2) 玩家备份    (3) 计分板
+ *   (4) 玩家行为日志    (5) 聊天频道    (6) 聊天消息
+ *   (7) 红包            (8) 合作社主体/成员/邀请/账户
+ *   (9) 合作社商店项/商店组 (10) 合作社账变流水/审计
+ *   (11) 领地主体/成员/权限 (12) 领地邀请/审计/请求幂等
+ *   (13) 玩家指令用量   (14) 价格指数
+ *   (15) 每日任务/统计  (16) 经济账户/流水/幂等
+ *
+ *   完整表名以 `sfmc_` 前缀,具体见下方每个 db.exec 块。
+ *
+ * 备注: ALTER / DROP 不在此处;如需迁移请新建 tools/migrate-*.ts,
+ *       保持本文件只做"全新初始化"。
  */
 
 import type { DatabaseSync } from "node:sqlite";

@@ -30,7 +30,7 @@
       "@sfmc-types/*": ["../db-server/src/types/*"]
     }
   },
-  "include": ["scripts/**/*"],
+  "include": ["scripts/**/*","../tools","tools"],
   "exclude": ["lib", "dist", "node_modules"],
   "compileOnSave": false
 }

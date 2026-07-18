@@ -12,10 +12,11 @@
  *  - 不允许循环依赖（拓扑排序检测）
  */
 import { accessSync, constants, readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
-import { path } from "node:path";
+import { resolve, join, dirname } from "node:path";
+import { fileURLToPath } from 'node:url';
+import path from "node:path";
 
-const ROOT = resolve(path.dirname(), "..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOG = join(ROOT, "modules", "catalog.json");
 const SAPI_ENTRY = join(ROOT, "scriptsforminecraftserver", "scripts", "entry.ts");
 const MODULE_KEYS = join(ROOT, "scriptsforminecraftserver", "scripts", "libs", "ModuleKeys.ts");

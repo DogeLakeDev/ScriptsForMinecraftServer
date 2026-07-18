@@ -1,5 +1,10 @@
 /**
- * routes/monitor.ts — 监控面板数据上报与汇总
+ * routes/monitor.ts — 监控面板数据上报与汇总（仅内存，不落 DB）
+ *
+ * 路由列表：
+ *   POST /api/sfmc/monitor/metrics       — SAPI 上报 tps / entity stats
+ *   POST /api/sfmc/monitor/player-chunks — SAPI 上报玩家 chunk 数
+ *   GET  /api/sfmc/monitor/summary       — 面板展示汇总
  */
 
 interface Deps {

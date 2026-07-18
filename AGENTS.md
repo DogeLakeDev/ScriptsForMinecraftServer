@@ -104,30 +104,45 @@ Configs live as plain JSON files under `configs/` and are read by `db-server` on
 
 File: `qq-bridge/index.js`
 
-独立的 Node.js 进程，不依赖 db-server。通过 WebSocket 接收 LLBot 推送，通过 HTTP 与 db-server 通信。
+独立的 Node.js 进程,只起 WS 3002 接 LLBot reverse-ws,转发 OneBot 11 事件到 db-server。
+**MC→QQ 由 db-server 直连 LLBot HTTP**,不再走 qq-bridge 中转。
 
 ### 端口
 
 | 端口 | 用途 | 协议 |
 |------|------|------|
 | 3002 | LLBot WebSocket 接入 | WebSocket (reverse) |
-| 3003 | HTTP API（db-server 调用 /forward，外部工具调用 /send） | HTTP |
+
+> qq-bridge **不再起 HTTP 端口**(3003 已废弃)。`db-server` 直接调
+> `LLBOT_HOST:LLBOT_PORT/send_group_msg` 完成 MC→QQ。
 
 ### 消息流
 
 ```
 QQ → MC:
-  LLBot ──WS:3002──→ qq-bridge
-                      └─ POST → db-server:3001/api/sfmc/messages
+  LLBot ──WS:3002──→ qq-bridge ──POST:3001──→ db-server ──→ SAPI 拉取
 
 MC → QQ:
-  db-server POST /api/sfmc/messages
-    └─ POST → qq-bridge:3003/forward → LLBot HTTP
+  SAPI ──POST:3001──→ db-server ──(内部 HTTP)──→ LLBot:3004/send_group_msg
 ```
+
+### 循环防护(qq-bridge 侧)
+
+1. **self_id 过滤**:LLBot 通过 lifecycle 元事件告知自己的 QQ,
+   `sender.user_id === self_id` 的消息直接丢弃
+2. **5 秒去重**:对每条 `message_id` 短期去重,防 LLBot 偶发重发
 
 ### 配置
 
-`configs/qq_config.json` 统一管理：
+`configs/qq_config.json` 统一管理,关键字段:
+
+| 字段 | 用途 | 读取方 |
+|------|------|--------|
+| `qq_ws_port` | LLBot reverse-ws 端口 | qq-bridge |
+| `qq_group_id` | 主群 ID(0 禁用) | qq-bridge / db-server |
+| `bridge_channel_id` | MC 侧聊天频道 | qq-bridge / db-server |
+| `llbot_host` / `llbot_port` / `llbot_token` | LLBot HTTP 连接 | db-server |
+| `mctoqq_prefix` | MC→QQ 消息前缀 | db-server |
 
 ### 启动顺序
 
@@ -137,13 +152,7 @@ MC → QQ:
 3. BDS          (自动或手动启动)
 ```
 
-### API
-
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/forward` | POST | db-server 转发 MC 消息到 QQ（含循环保护） |
-| `/send` | POST | 外部工具直接发送群消息（`{text}` 或 `{segments}`） |
-| `/health` | GET | 健康检查 |
+qq-bridge 控制台命令:`help / reload / status / stop`。
 
 ## BDSTools — BDS 更新器
 

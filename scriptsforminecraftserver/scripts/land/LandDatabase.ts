@@ -9,6 +9,7 @@
  *
 \* ---------------------------------------- */
 
+import type { LandConfig, LandData, LandMember, LandPermissions, LandPos, LandTaxConfig } from "@sfmc-types/land.js";
 import { debug } from "../libs/DebugLog.js";
 import { DEFAULT_TAX, defaultConfig, defaultPermissions, generateLandId } from "./defaults.js";
 import {
@@ -25,90 +26,9 @@ import {
 export { LAND_ROLES, ROLE_CAPABILITIES, ROLE_LABELS_CN, SERVER_VALID_ROLES, isValidRole };
 export type { LandCapability, LandRole };
 
-// ---------- 类型定义（保持与旧版兼容，仍在本文件） ----------
-
-export interface LandPos {
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface LandPermissions {
-  /** 允许访客放置方块 */
-  allow_place: boolean;
-  /** 允许访客破坏方块 */
-  allow_destroy: boolean;
-  /** 允许访客攻击实体 */
-  attack_entity: boolean;
-  /** 允许访客打开容器 */
-  open_container: boolean;
-  use_door?: boolean;
-  use_button?: boolean;
-  use_redstone?: boolean;
-  interact_entity?: boolean;
-  pickup_item?: boolean;
-}
-
-export interface LandMember {
-  player_id: string;
-  player_name_snapshot?: string;
-  role: import("./LandRoles.js").LandRole;
-  expires_at?: number | null;
-}
-
-export interface LandData {
-  /** 土地唯一 ID（自动生成） */
-  id: string;
-  /** 拥有者 id */
-  ownerplid: string;
-  /** 拥有者玩家名（快照） */
-  ownerName: string;
-  /** 管理者 id 列表（拥有者自动在内，存于此方便查） */
-  managers: string[];
-  members?: LandMember[];
-  /** 维度 ID（0=主世界 1=地狱 2=末地） */
-  dimid: number;
-  /** 起点坐标 */
-  posA: LandPos;
-  /** 终点坐标 */
-  posB: LandPos;
-  /** 访客权限 */
-  permissions: LandPermissions;
-  /** 土地昵称 */
-  nickname: string;
-  /** 创建时间戳 */
-  createdAt: number;
-  version?: number;
-  status?: string;
-}
-
-export interface LandConfig {
-  /** 3D 价格计算公式 */
-  priceFormula: string;
-  /** 每玩家最大土地数 */
-  maxLandsPerPlayer: number;
-  /** 最小面积 */
-  minSquare: number;
-  /** 最大面积 */
-  maxSquare: number;
-  /** 折扣率 (0~1) */
-  discount: number;
-  /** 删除退款率 (0~1) */
-  refundRate: number;
-}
-
-export interface LandTaxConfig {
-  /** 是否对地皮征税（开启后新购土地采用 defaultRate） */
-  enabled: boolean;
-  /** 默认税率，单位万分之一（如 50 = 0.5%） */
-  defaultRate: number;
-  /** 缴税周期（天） */
-  periodDays: number;
-  /** 余额不足时是否冻结领地 */
-  freezeOnInsufficient: boolean;
-  /** 购地价缺失时的兜底值 */
-  fallbackPurchasePrice: number;
-}
+// 类型定义统一来自 db-server (通过 @sfmc-types/land)，避免重复与漂移。
+// 本文件不再声明 LandPos / LandPermissions / LandMember / LandData / LandConfig / LandTaxConfig。
+export type { LandConfig, LandData, LandMember, LandPermissions, LandPos, LandTaxConfig };
 
 // ---------- chunks / 多边形索引 ----------
 
@@ -408,7 +328,7 @@ export class Database {
       return result;
     }
     if (result.balance !== undefined) {
-      const { Money } = await import("../libs/Money.js");
+      const { Money } = await import("../libs/Economy.js");
       const players = (await import("@minecraft/server")).world.getPlayers();
       const player = players.find((item) => item.id === actorId);
       if (player) {

@@ -1,7 +1,16 @@
 /**
- * routes/channels.ts — 聊天频道管理
+ * routes/channels.ts — 聊天频道管理 (sfmc_chat_channels)
+ *
+ * 路由列表：
+ *   GET    /api/sfmc/channels       — 模糊/过滤搜索频道
+ *   POST   /api/sfmc/channels       — 批量 INSERT OR REPLACE 频道
+ *   GET    /api/sfmc/channels/:id   — 读取单个频道
+ *   PUT    /api/sfmc/channels/:id   — 局部更新频道
+ *   DELETE /api/sfmc/channels/:id   — 删除单个频道
  */
 
+import { SQL } from "sql-template-strings";
+import { raw } from "../lib/sql-helpers.js";
 import type { QueryFn } from "../lib/sqlite.js";
 
 interface Deps {
@@ -26,25 +35,22 @@ function createChannelsRoutes({ query, body, json }: Deps) {
   }): Promise<boolean> {
     if (path === "/api/sfmc/channels") {
       if (method === "GET") {
-        let sql = "SELECT * FROM sfmc_chat_channels WHERE 1=1";
-        const values: unknown[] = [];
-        const filterMap = [
-          { key: "search", sql: " AND (name LIKE ? OR id LIKE ?)", transform: (v: string) => `%${v}%`, repeat: 2 },
-          { key: "type", sql: " AND type = ?", transform: (v: string) => v, repeat: 1 },
-          { key: "ownerId", sql: " AND owner_id = ?", transform: (v: string) => v, repeat: 1 },
-          { key: "minCreatedAt", sql: " AND created_at >= ?", transform: (v: string) => Number(v), repeat: 1 },
-          { key: "maxCreatedAt", sql: " AND created_at <= ?", transform: (v: string) => Number(v), repeat: 1 },
-        ];
-        for (const rule of filterMap) {
-          const val = params.get(rule.key);
-          if (val && val.trim() !== "") {
-            sql += rule.sql;
-            const t = rule.transform(val.trim());
-            for (let i = 0; i < rule.repeat; i++) values.push(t);
-          }
+        const stmt = SQL`SELECT * FROM sfmc_chat_channels WHERE 1=1`;
+        const search = params.get("search")?.trim();
+        if (search) {
+          const like = `%${search}%`;
+          stmt.append(SQL` AND (name LIKE ${like} OR id LIKE ${like})`);
         }
-        sql += " ORDER BY created_at ASC";
-        json(res, { channels: query(sql, values) });
+        const type = params.get("type")?.trim();
+        if (type) stmt.append(SQL` AND type = ${type}`);
+        const ownerId = params.get("ownerId")?.trim();
+        if (ownerId) stmt.append(SQL` AND owner_id = ${ownerId}`);
+        const minCreatedAt = params.get("minCreatedAt")?.trim();
+        if (minCreatedAt) stmt.append(SQL` AND created_at >= ${Number(minCreatedAt)}`);
+        const maxCreatedAt = params.get("maxCreatedAt")?.trim();
+        if (maxCreatedAt) stmt.append(SQL` AND created_at <= ${Number(maxCreatedAt)}`);
+        stmt.append(SQL` ORDER BY created_at ASC`);
+        json(res, { channels: query(stmt) });
       } else if (method === "POST") {
         const { channels } = await body(req);
         if (!Array.isArray(channels) || channels.length === 0) {
@@ -55,28 +61,26 @@ function createChannelsRoutes({ query, body, json }: Deps) {
           json(res, { success: false, error: "too many requests" }, 413);
           return true;
         }
-        query(
-          `INSERT OR REPLACE INTO sfmc_chat_channels (
-            id, name, type, prefix, owner_id, created_at,
-            config_allow_chat, config_slow_mode, config_is_broadcast, updated_at
-          ) VALUES ${(channels as unknown[])
-            .map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .join(", ")}`,
-          (channels as Array<Record<string, unknown>>).flatMap((ch) => [
-            String(ch.id ?? ""),
-            String(ch.name ?? ""),
-            String(ch.type ?? ""),
-            String(ch.prefix ?? ""),
-            String(ch.ownerId || ch.ownerid || ""),
-            Number(ch.createdAt) || Date.now(),
-            Number(ch.configAllowChat ?? (((ch.config as Record<string, unknown>)?.allowChat) ? 1 : 0)) || 0,
-            Number(ch.configSlowMode ?? ((ch.config as Record<string, unknown>)?.slowMode || 0)) || 0,
-            Number(
-              ch.configIsBroadcast ?? (((ch.config as Record<string, unknown>)?.isBroadcast) ? 1 : 0)
-            ) || 0,
-            Date.now(),
-          ])
-        );
+        const now = Date.now();
+        // 多行 INSERT 改成循环单条 INSERT OR REPLACE —— 简单优先
+        for (const ch of channels as Array<Record<string, unknown>>) {
+          const cfg = ch.config as Record<string, unknown> | undefined;
+          query(
+            SQL`INSERT OR REPLACE INTO sfmc_chat_channels (
+                id, name, type, prefix, owner_id, created_at,
+                config_allow_chat, config_slow_mode, config_is_broadcast, updated_at
+              ) VALUES (
+                ${String(ch.id ?? "")}, ${String(ch.name ?? "")},
+                ${String(ch.type ?? "")}, ${String(ch.prefix ?? "")},
+                ${String(ch.ownerId ?? ch.ownerid ?? "")},
+                ${Number(ch.createdAt) || now},
+                ${Number(ch.configAllowChat ?? (cfg?.allowChat ? 1 : 0)) || 0},
+                ${Number(ch.configSlowMode ?? Number(cfg?.slowMode ?? 0)) || 0},
+                ${Number(ch.configIsBroadcast ?? (cfg?.isBroadcast ? 1 : 0)) || 0},
+                ${now}
+              )`
+          );
+        }
         json(res, { success: true });
       } else {
         json(res, { success: false, error: "not_found" }, 404);
@@ -91,21 +95,19 @@ function createChannelsRoutes({ query, body, json }: Deps) {
         return true;
       }
       if (method === "GET") {
-        const rows = query("SELECT * FROM sfmc_chat_channels WHERE id = ?", [id]) as unknown[];
+        const rows = query(SQL`SELECT * FROM sfmc_chat_channels WHERE id = ${id}`) as unknown[];
         if (rows.length === 0) {
           json(res, { success: false, error: "not_found" }, 404);
           return true;
         }
         json(res, { channel: rows[0] });
       } else if (method === "PUT") {
-        const raw = await body(req);
-        const data = (raw.channel as Record<string, unknown> | undefined) ?? (raw as Record<string, unknown>);
+        const bodyData = await body(req);
+        const data = (bodyData.channel as Record<string, unknown> | undefined) ?? (bodyData as Record<string, unknown>);
         if (!data || typeof data !== "object") {
           json(res, { success: false, error: "invalid" }, 400);
           return true;
         }
-        const sets: string[] = ["updated_at=?"];
-        const vals: unknown[] = [Date.now()];
         const colMap: Record<string, string> = {
           name: "name",
           prefix: "prefix",
@@ -116,32 +118,27 @@ function createChannelsRoutes({ query, body, json }: Deps) {
           configSlowMode: "config_slow_mode",
           configIsBroadcast: "config_is_broadcast",
         };
+        const stmt = SQL`UPDATE sfmc_chat_channels SET updated_at = ${Date.now()}`;
         for (const [jsField, dbCol] of Object.entries(colMap)) {
           if (data[jsField] !== undefined) {
-            sets.push(`${dbCol}=?`);
-            vals.push(data[jsField]);
+            stmt.append(SQL`, ${raw(dbCol)} = ${data[jsField]}`);
           }
         }
         const cfg = data.config as Record<string, unknown> | undefined;
         if (cfg?.allowChat !== undefined) {
-          sets.push("config_allow_chat=?");
-          vals.push(cfg.allowChat ? 1 : 0);
+          stmt.append(SQL`, config_allow_chat = ${cfg.allowChat ? 1 : 0}`);
         }
         if (cfg?.slowMode !== undefined) {
-          sets.push("config_slow_mode=?");
-          vals.push(cfg.slowMode);
+          stmt.append(SQL`, config_slow_mode = ${cfg.slowMode}`);
         }
         if (cfg?.isBroadcast !== undefined) {
-          sets.push("config_is_broadcast=?");
-          vals.push(cfg.isBroadcast ? 1 : 0);
+          stmt.append(SQL`, config_is_broadcast = ${cfg.isBroadcast ? 1 : 0}`);
         }
-        if (sets.length > 1) {
-          vals.push(id);
-          query(`UPDATE sfmc_chat_channels SET ${sets.join(", ")} WHERE id=?`, vals);
-        }
+        stmt.append(SQL` WHERE id = ${id}`);
+        query(stmt);
         json(res, { success: true });
       } else if (method === "DELETE") {
-        query("DELETE FROM sfmc_chat_channels WHERE id = ?", [id]);
+        query(SQL`DELETE FROM sfmc_chat_channels WHERE id = ${id}`);
         json(res, { success: true });
       } else {
         json(res, { success: false, error: "not_found" }, 404);

@@ -1,8 +1,8 @@
 import { Player, system } from "@minecraft/server";
 import { Command } from "../libs/Command.js";
 import { debug } from "../libs/DebugLog.js";
+import { Money } from "../libs/Economy.js";
 import { MenuNavigator, obsStr } from "../libs/MenuNavigator.js";
-import { Money } from "../libs/Money.js";
 import { ListFormInfo } from "../libs/Tools.js";
 import { ChatGUI } from "./ChatGUI.js";
 import { CoopGUI } from "./CoopGUI.js";

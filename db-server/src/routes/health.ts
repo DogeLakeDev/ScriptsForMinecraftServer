@@ -1,5 +1,8 @@
 /**
- * routes/health.ts — /api/health
+ * routes/health.ts — 健康检查
+ *
+ * 路由列表：
+ *   GET /api/health — 返回 db-server 的运行状态
  */
 
 import { json, type RouteFactory } from "./_shared.js";

@@ -1,12 +1,31 @@
 /**
  * domain/redpacket.ts — 红包业务核心
  *
- * 把 routes/redpacket.ts 中的 BEGIN IMMEDIATE 块全部搬到本文件:
- *   - createRedpacketTx   创建红包
- *   - claimRedpacketTx    领取红包
+ * 把 routes/redpacket.ts 中的 BEGIN IMMEDIATE 块全部搬到本文件。
+ * 所有 SQL 走 SQL`` 模板字符串;事务由 withTransaction 包裹。
+ * 路由文件只负责请求 → 调领域函数 → 序列化响应,不再直接接触 db / SQL。
  *
- * 所有 SQL 走 SQL`` 模板字符串；事务由 withTransaction 包裹。
- * 路由文件只负责请求 → 调领域函数 → 序列化响应，不再直接接触 db / SQL。
+ * 事务描述 (Tx*):
+ *   - createRedpacketTx  创建红包
+ *                        流程:校验 sender/amount → 扣 sender 余额(带余额守护) →
+ *                              INSERT redpacket → INSERT economy tx log (dr) →
+ *                              返回 transactionId + 更新后账户视图
+ *   - claimRedpacketTx   领取红包
+ *                        流程:校验存在/未过期/未领完/未重复 → computeClaimAmount
+ *                              (剩余 1 全分,否则在 [min, max] 随机) →
+ *                              乐观锁 UPDATE redpacket(remaining_amount/count) →
+ *                              增领取者余额 → INSERT economy tx log (cr)
+ *
+ * 领域辅助 (查询 / 删除,不走事务):
+ *   - listRedpackets         列出所有红包(按 created_at DESC)
+ *   - findRedpacketById      按 id 查单条
+ *   - deleteRedpacket        DELETE 单条
+ *   - computeClaimAmount     分配算法(纯函数)
+ *   - buildPacketInsert      构造 INSERT SQL(校验失败返回 { error })
+ *
+ * 依赖:
+ *   - economy.ts:ensureEconomyAccount / economyResult(账户 upsert + 视图转换)
+ *   - transaction.ts:withTransaction / TxResult(事务执行器 + 统一返回类型)
  */
 
 import type { DatabaseSync } from "node:sqlite";
@@ -15,15 +34,14 @@ import { SQL, type SQLStatement } from "sql-template-strings";
 import type { AnyQuery, EconomyAccountView } from "./economy.js";
 import { ensureEconomyAccount, economyResult } from "./economy.js";
 import { withTransaction } from "./transaction.js";
+import type { TxResult } from "./transaction.js";
 
 const TABLE_PACKETS = "sfmc_chat_redpackets";
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TX = "sfmc_economy_transactions";
 
-/** 业务结果：成功 ok / 失败 error+status */
-export type TxResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; status: number; extra?: Record<string, unknown> };
+// TxResult 已移至 transaction.ts（避免跨域循环依赖），此处 re-export 保持向后兼容。
+export type { TxResult };
 
 function newTxId(now: number): string {
   return `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;

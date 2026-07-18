@@ -2,11 +2,12 @@
  *  Description :  构建工作流工具     *
  *  Version     :  1.0.0                    *
 \* ---------------------------------------- */
-const path = require("path");
-const fs = require("fs-extra");
+import path from "path";
+import fs from "node:fs";
+const { existsSync, mkdirSync } = fs;
 
 // 从 .env 或 process.env 读取环境变量
-function getEnv(key) {
+export function getEnv(key) {
   const val = process.env[key];
   if (!val) {
     console.warn(` 环境变量 ${key} 未设置，使用默认值`);
@@ -16,10 +17,8 @@ function getEnv(key) {
 }
 
 // 确保目录存在
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+export function ensureDir(dir) {
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
   }
 }
-
-module.exports = { getEnv, ensureDir };

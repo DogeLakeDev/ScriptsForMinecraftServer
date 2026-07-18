@@ -1,26 +1,40 @@
 /**
  * domain/coops.ts — 合作社业务核心
  *
- * 所有事务 (BEGIN IMMEDIATE / COMMIT / ROLLBACK) 与 SQL 都搬到这里:
+ * 所有事务 (BEGIN IMMEDIATE / COMMIT / ROLLBACK) 与 SQL 都搬到这里,
+ * 让 routes/coops.ts 只剩请求解析 + 路由 dispatch。
  *
- *   - createCoopTx           创建合作社（带扣款）
- *   - acceptCoopInviteTx     接受邀请
- *   - coopTreasuryTx         公共金库存取
- *   - dissolveCoopTx         解散合作社
- *   - coopShopBuyTx          合作社商店买入（带幂等）
- *   - coopShopSellTx         合作社商店卖出（带幂等）
+ * 事务描述 (Tx*):
+ *   - createCoopTx           创建合作社(扣 1000 加入owner)
+ *   - acceptCoopInviteTx     接受合作社邀请(写入 members)
+ *   - coopTreasuryTx         公共金库存取(deposit / withdraw,带经济账)
+ *   - dissolveCoopTx         解散合作社(置 status=dissolved,清成员,写审计)
+ *   - coopShopBuyTx          合作社商店买入(扣玩家、增库存 sv、写 tx log)
+ *   - coopShopSellTx         合作社商店卖出(增玩家、减库存 sv、写 tx log)
  *
- *   以及查询 / 元数据写入的薄函数（listXxx / findXxx / upsertXxx / etc），
- *   让 routes/coops.ts 只剩请求解析 + 路由 dispatch。
+ *   其中 coopShopBuyTx / coopShopSellTx 走 sfmc_economy_idempotency 实现幂等回放。
+ *
+ * 领域辅助 (查询 / 元数据写入,不走事务):
+ *   - findCoopByCid / findCoopByOwner / listCoops / listCoopMembers  读取
+ *   - roleOf / coopCanAct / hasActiveCoopMembership / hasActiveCoop   权限 / 校验
+ *   - coopAccountByCid / coopSnapshot                                  账户 / 快照
+ *   - listPendingInvitesForInvitee / listActiveInvitesForInvitee        邀请读取
+ *   - listAuditLogs / listBankLog / listShopItems / listShopGroups     日志 / 商店
+ *   - createCoopInvite / revokeCoopInvite / declineCoopInvite            邀请写入
+ *   - updateCoopMeta / addCoopMember / setCoopMemberRole               成员 / 元数据
+ *   - leaveCoop / removeCoopMember / deleteShopMemberByName             成员移除
+ *   - upsertShopItem / upsertShopGroup / upsertBankLog                  商店 / 账目写入
+ *   - expirePendingInvitesForInvitee                                    邀请过期清理
  *
  * SQL 全部走 sql-template-strings 的 SQL`` 模板。
+ * 事务由 withTransaction 包裹(见 domain/transaction.ts)。
  */
 
 import type { DatabaseSync } from "node:sqlite";
 import { SQL } from "sql-template-strings";
 
 import type { AnyQuery } from "./economy.js";
-import type { TxResult } from "./redpacket.js";
+import type { TxResult } from "./transaction.js";
 import { withTransaction } from "./transaction.js";
 
 const TABLE_COOP = "sfmc_coops";
@@ -41,8 +55,8 @@ export {
   TABLE_COOP_ACCOUNT,
   TABLE_INVITES,
   TABLE_MEMBERS,
-  TABLE_SHOP_ITEMS,
   TABLE_SHOP_GROUPS,
+  TABLE_SHOP_ITEMS,
 };
 
 function newTxId(now: number): string {
@@ -64,9 +78,7 @@ export type EnsureEconomyAccountFn = (
 // ──────────────────────────────────────────────────────────────────
 
 export function findCoopByCid(query: AnyQuery, cid: string): Record<string, unknown> | null {
-  const rows = query(SQL`SELECT * FROM ${TABLE_COOP} WHERE cid = ${cid}`) as Array<
-    Record<string, unknown>
-  >;
+  const rows = query(SQL`SELECT * FROM ${TABLE_COOP} WHERE cid = ${cid}`) as Array<Record<string, unknown>>;
   return rows[0] ?? null;
 }
 
@@ -122,9 +134,7 @@ export function coopCanAct(
 }
 
 export function hasActiveCoopMembership(query: AnyQuery, playerId: string): boolean {
-  const rows = query(
-    SQL`SELECT 1 FROM ${TABLE_MEMBERS} WHERE player_id = ${playerId} AND status = 'active' LIMIT 1`
-  );
+  const rows = query(SQL`SELECT 1 FROM ${TABLE_MEMBERS} WHERE player_id = ${playerId} AND status = 'active' LIMIT 1`);
   return Array.isArray(rows) && rows.length > 0;
 }
 
@@ -134,13 +144,14 @@ export function hasActiveCoop(query: AnyQuery, cid: string): boolean {
 }
 
 export function coopAccountByCid(query: AnyQuery, cid: string): Record<string, unknown> | null {
-  const rows = query(SQL`SELECT * FROM ${TABLE_COOP_ACCOUNT} WHERE cid = ${cid}`) as Array<
-    Record<string, unknown>
-  >;
+  const rows = query(SQL`SELECT * FROM ${TABLE_COOP_ACCOUNT} WHERE cid = ${cid}`) as Array<Record<string, unknown>>;
   return rows[0] ?? null;
 }
 
-export function coopSnapshot(query: AnyQuery, cid: string): {
+export function coopSnapshot(
+  query: AnyQuery,
+  cid: string
+): {
   coop: Record<string, unknown> | null;
   account: Record<string, unknown> | null;
   members: unknown[];
@@ -169,9 +180,7 @@ export function listPendingInvitesForInvitee(
 }
 
 export function listAuditLogs(query: AnyQuery, cid: string): unknown[] {
-  const rows = query(
-    SQL`SELECT * FROM ${TABLE_AUDIT} WHERE cid = ${cid} ORDER BY created_at DESC LIMIT 200`
-  );
+  const rows = query(SQL`SELECT * FROM ${TABLE_AUDIT} WHERE cid = ${cid} ORDER BY created_at DESC LIMIT 200`);
   return Array.isArray(rows) ? rows : [];
 }
 
@@ -190,9 +199,7 @@ export function listShopGroups(query: AnyQuery): unknown[] {
 }
 
 export function listBankLog(query: AnyQuery, cid: string, limit = 100): unknown[] {
-  const rows = query(
-    SQL`SELECT * FROM ${TABLE_BANK_LOG} WHERE cid = ${cid} ORDER BY created_at DESC LIMIT ${limit}`
-  );
+  const rows = query(SQL`SELECT * FROM ${TABLE_BANK_LOG} WHERE cid = ${cid} ORDER BY created_at DESC LIMIT ${limit}`);
   return Array.isArray(rows) ? rows : [];
 }
 
@@ -256,11 +263,7 @@ export function upsertBankLog(
   );
 }
 
-export function expirePendingInvitesForInvitee(
-  query: AnyQuery,
-  inviteeId: string,
-  now: number = nowMs()
-): void {
+export function expirePendingInvitesForInvitee(query: AnyQuery, inviteeId: string, now: number = nowMs()): void {
   query(
     SQL`UPDATE ${TABLE_INVITES}
         SET status = 'expired'
@@ -268,11 +271,7 @@ export function expirePendingInvitesForInvitee(
   );
 }
 
-export function listActiveInvitesForInvitee(
-  query: AnyQuery,
-  inviteeId: string,
-  now: number = nowMs()
-): unknown[] {
+export function listActiveInvitesForInvitee(query: AnyQuery, inviteeId: string, now: number = nowMs()): unknown[] {
   const rows = query(
     SQL`SELECT * FROM ${TABLE_INVITES}
         WHERE invitee_id = ${inviteeId} AND status = 'pending' AND expires_at > ${now}
@@ -281,14 +280,8 @@ export function listActiveInvitesForInvitee(
   return Array.isArray(rows) ? rows : [];
 }
 
-export function deleteShopMemberByName(
-  query: AnyQuery,
-  cid: string,
-  playerName: string
-): void {
-  query(
-    SQL`DELETE FROM ${TABLE_MEMBERS} WHERE cid = ${cid} AND player_name = ${playerName}`
-  );
+export function deleteShopMemberByName(query: AnyQuery, cid: string, playerName: string): void {
+  query(SQL`DELETE FROM ${TABLE_MEMBERS} WHERE cid = ${cid} AND player_name = ${playerName}`);
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -342,9 +335,7 @@ export function createCoopTx(
           (cid, player_id, player_name_snapshot, role, joined_at)
           VALUES (${cid}, ${actorId}, ${String(data.actorName ?? "")}, ${"owner"}, ${now})`
     );
-    query(
-      SQL`INSERT INTO ${TABLE_COOP_ACCOUNT} (cid, updated_at) VALUES (${cid}, ${now})`
-    );
+    query(SQL`INSERT INTO ${TABLE_COOP_ACCOUNT} (cid, updated_at) VALUES (${cid}, ${now})`);
     const tx = newTxId(now);
     query(
       SQL`INSERT INTO ${TABLE_TX}
@@ -513,11 +504,7 @@ export function coopTreasuryTx(
 }
 
 /** 更新合作社 metadata (name / notice)。动态 SET 子句通过 append() 拼接 */
-export function updateCoopMeta(
-  query: AnyQuery,
-  cid: string,
-  patch: { name?: string; notice?: string }
-): void {
+export function updateCoopMeta(query: AnyQuery, cid: string, patch: { name?: string; notice?: string }): void {
   const stmt = SQL`UPDATE ${TABLE_COOP} SET version = version + 1, updated_at = ${nowMs()}`;
   if (patch.name !== undefined) {
     stmt.append(SQL`, name = ${patch.name}`);
@@ -530,13 +517,7 @@ export function updateCoopMeta(
 }
 
 /** 更新合作社成员 role 或加入 */
-export function addCoopMember(
-  query: AnyQuery,
-  cid: string,
-  playerId: string,
-  playerName: string,
-  role: string
-): void {
+export function addCoopMember(query: AnyQuery, cid: string, playerId: string, playerName: string, role: string): void {
   query(
     SQL`INSERT INTO ${TABLE_MEMBERS}
         (cid, player_id, player_name_snapshot, role, joined_at)
@@ -560,10 +541,22 @@ export function leaveCoop(query: AnyQuery, cid: string, playerId: string): void 
   );
 }
 
-export function revokeCoopInvite(query: AnyQuery, cid: string, inviteId: string): void {
+/** 通过 player_id 移除合作社成员（owner 受保护，不能被剔除） */
+export function removeCoopMember(query: AnyQuery, cid: string, playerId: string): void {
   query(
-    SQL`UPDATE ${TABLE_INVITES} SET status = 'revoked' WHERE id = ${inviteId} AND cid = ${cid}`
+    SQL`UPDATE ${TABLE_MEMBERS}
+        SET status = 'removed', version = version + 1
+        WHERE cid = ${cid} AND player_id = ${playerId} AND role <> 'owner'`
   );
+  query(
+    SQL`UPDATE ${TABLE_COOP}
+        SET updated_at = ${nowMs()}, version = version + 1
+        WHERE cid = ${cid}`
+  );
+}
+
+export function revokeCoopInvite(query: AnyQuery, cid: string, inviteId: string): void {
+  query(SQL`UPDATE ${TABLE_INVITES} SET status = 'revoked' WHERE id = ${inviteId} AND cid = ${cid}`);
 }
 
 export function declineCoopInvite(query: AnyQuery, inviteId: string, inviteeId: string): void {
@@ -840,3 +833,4 @@ export function coopShopSellTx(
     return { ok: true, data: response as never };
   });
 }
+

@@ -1,6 +1,24 @@
 /**
- * domain/economy.ts — 经济系统业务逻辑
+ * domain/economy.ts — 经济系统业务核心
  *
+ * 提供账户 upsert、通用转账事务,以及日常任务奖励事务。
+ * 是 land / coop / redpacket 等领域事务的底座 —— 它们都通过
+ * applyEconomyTransaction() 写 sfmc_economy_transactions 流水。
+ *
+ * 事务描述 (Tx*):
+ *   - applyEconomyTransaction  原子经济事务(转账 / 调整 / 退款 / 通用入账)
+ *                              流程:幂等回放 → ensureAccount → 余额守护 →
+ *                                    UPDATE accounts → INSERT tx log (dr/cr) →
+ *                                    写 idempotency → COMMIT
+ *                              异常时 ROLLBACK,返回 { ok:false, error, status }
+ *   - submitDailyTaskTx        提交日常任务(扣减任务剩余量 → 调 applyEconomyTransaction
+ *                              发奖 → COMMIT)
+ *
+ * 领域辅助 (不涉及事务):
+ *   - ensureEconomyAccount     upsert 玩家账户(ON CONFLICT DO UPDATE),返回最新行
+ *   - economyResult            DB 行 → 业务视图(camelCase 字段)
+ *   - EconomyAccountView / ApplyEconomyInput / ApplyEconomyResult  类型定义
+ *   - AnyQuery                 query 兼容类型(string / SQLStatement / {sql,values})
  *
  * 字段命名约定：
  *   - DB 列 / SQL 绑定参数: snake_case (actor_id, source_player_id, ...)

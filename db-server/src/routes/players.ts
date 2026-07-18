@@ -1,7 +1,17 @@
 /**
- * routes/players.ts — 玩家数据
+ * routes/players.ts — 玩家数据 (sfmc_players)
+ *
+ * 路由列表：
+ *   GET  /api/sfmc/players                                  — 模糊搜索/过滤玩家列表
+ *   POST /api/sfmc/players                                  — 批量写入/替换玩家记录
+ *   POST /api/sfmc/players/saveField                        — 写入单个字段（动态列名）
+ *   POST /api/sfmc/players/saveAll                          — 批量 saveField 形式
+ *   GET  /api/sfmc/players/:id                              — 读取单个玩家
+ *   PUT  /api/sfmc/players/:id                              — 局部更新玩家字段
  */
 
+import { SQL } from "sql-template-strings";
+import { raw } from "../lib/sql-helpers.js";
 import type { QueryFn } from "../lib/sqlite.js";
 
 interface Deps {
@@ -32,11 +42,13 @@ function createPlayersRoutes({ query, body, json }: Deps) {
           return true;
         }
         const bind = typeof value === "object" && value !== null ? JSON.stringify(value) : value;
-        query(`UPDATE sfmc_players SET ${String(field).replace(/:/g, "_")}=?, updated_at=? WHERE id=?`, [
-          bind,
-          Date.now(),
-          playerId,
-        ]);
+        const colName = String(field).replace(/:/g, "_");
+        // 列名经受控映射(只把 ":" 替换为 "_"),通过 raw() 注入是安全的
+        query(
+          SQL`UPDATE sfmc_players
+              SET ${raw(colName)} = ${bind}, updated_at = ${Date.now()}
+              WHERE id = ${String(playerId)}`
+        );
         json(res, { success: true });
       } else {
         json(res, { success: false, error: "not_found" }, 404);
@@ -54,8 +66,9 @@ function createPlayersRoutes({ query, body, json }: Deps) {
         const now = Date.now();
         for (const p of players as Array<Record<string, unknown>>) {
           query(
-            "INSERT OR REPLACE INTO sfmc_players (id, name, active_channel, updated_at) VALUES (?, ?, ?, ?)",
-            [p.id || p.playerId, p.name ?? "", p.activeChannel ?? "", now]
+            SQL`INSERT OR REPLACE INTO sfmc_players (id, name, active_channel, updated_at)
+                VALUES (${String(p.id ?? p.playerId ?? "")}, ${String(p.name ?? "")},
+                        ${String(p.activeChannel ?? "")}, ${now})`
           );
         }
         json(res, { success: true, count: (players as unknown[]).length });
@@ -67,24 +80,20 @@ function createPlayersRoutes({ query, body, json }: Deps) {
 
     if (path === "/api/sfmc/players") {
       if (method === "GET") {
-        let sql = "SELECT * FROM sfmc_players WHERE 1=1";
-        const values: unknown[] = [];
-        const filterMap = [
-          { key: "search", sql: " AND (name LIKE ? OR id LIKE ?)", transform: (v: string) => `%${v}%`, repeat: 2 },
-          { key: "name", sql: " AND name LIKE ?", transform: (v: string) => `%${v}%`, repeat: 1 },
-          { key: "id", sql: " AND id = ?", transform: (v: string) => v, repeat: 1 },
-          { key: "active_channel", sql: " AND active_channel = ?", transform: (v: string) => v, repeat: 1 },
-        ];
-        for (const rule of filterMap) {
-          const val = params.get(rule.key);
-          if (val && val.trim() !== "") {
-            sql += rule.sql;
-            const t = rule.transform(val.trim());
-            for (let i = 0; i < rule.repeat; i++) values.push(t);
-          }
+        const stmt = SQL`SELECT * FROM sfmc_players WHERE 1=1`;
+        const search = params.get("search")?.trim();
+        if (search) {
+          const like = `%${search}%`;
+          stmt.append(SQL` AND (name LIKE ${like} OR id LIKE ${like})`);
         }
-        sql += " ORDER BY updated_at ASC";
-        json(res, { players: query(sql, values) });
+        const name = params.get("name")?.trim();
+        if (name) stmt.append(SQL` AND name LIKE ${`%${name}%`}`);
+        const id = params.get("id")?.trim();
+        if (id) stmt.append(SQL` AND id = ${id}`);
+        const activeChannel = params.get("active_channel")?.trim();
+        if (activeChannel) stmt.append(SQL` AND active_channel = ${activeChannel}`);
+        stmt.append(SQL` ORDER BY updated_at ASC`);
+        json(res, { players: query(stmt) });
       } else if (method === "POST") {
         const { players } = await body(req);
         if (!Array.isArray(players) || players.length === 0) {
@@ -95,55 +104,52 @@ function createPlayersRoutes({ query, body, json }: Deps) {
           json(res, { success: false, error: "too many requests" }, 413);
           return true;
         }
-        const normalizedPlayers = (players as Array<Record<string, unknown>>).map((p) => ({
-          ...p,
-          id: p.id || p.playerId || "",
-          name: p.name || "",
-          permission: (p.permission as number) ?? 0,
-        } as Record<string, unknown>));
-        if (normalizedPlayers.some((p) => !p.id)) {
-          json(res, { success: false, error: "player_id_required" }, 400);
-          return true;
+        // 单条 INSERT OR REPLACE 循环。createQuery 内部按 SQL 缓存 StatementSync，重复语句开销低。
+        for (const p of players as Array<Record<string, unknown>>) {
+          const id = String(p.id ?? p.playerId ?? "");
+          if (!id) {
+            json(res, { success: false, error: "player_id_required" }, 400);
+            return true;
+          }
+          query(
+            SQL`INSERT OR REPLACE INTO sfmc_players (
+                id, name, permission,
+                client_system_info_local, client_system_info_maxRenderDistance,
+                client_system_info_memoryTier_level, client_system_info_PlatformType,
+                graphicsMode, dynamicPropertyTotalByteCount, ping,
+                spawnPoint, tags, level, totalXp,
+                afk_step, afk_last_location,
+                onlinetime_session, onlinetime_today, onlinetime_month, onlinetime_total,
+                onlinetime_last_date, onlinetime_last_month, active_channel, subscribed_channels, updated_at
+              ) VALUES (
+                ${id},
+                ${String(p.name ?? "")},
+                ${Number(p.permission ?? 0)},
+                ${String(p.clientSystemInfoLocal ?? "")},
+                ${Number(p.clientSystemInfoMaxRenderDistance ?? 0)},
+                ${Number(p.clientSystemInfoMemoryTier_level ?? 0)},
+                ${String(p.clientSystemInfo_PlatformType ?? "")},
+                ${String(p.graphicsMode ?? "")},
+                ${Number(p.dynamicPropertyTotalByteCount ?? 0)},
+                ${Number(p.ping ?? 0)},
+                ${String(p.spawnPoint ?? "")},
+                ${String(p.tags ?? "")},
+                ${Number(p.level ?? 0)},
+                ${Number(p.totalXp ?? 0)},
+                ${Number(p.afkStep ?? 0)},
+                ${String(p.afkLastLocation ?? "")},
+                ${Number(p.onlinetimeSession ?? 0)},
+                ${Number(p.onlinetimeToday ?? 0)},
+                ${Number(p.onlinetimeMonth ?? 0)},
+                ${Number(p.onlinetimeTotal ?? 0)},
+                ${String(p.onlinetimeLastDate ?? "")},
+                ${String(p.onlinetimeLastMonth ?? "")},
+                ${String(p.activeChannel ?? "")},
+                ${String(p.subscribedChannels ?? "")},
+                ${Date.now()}
+              )`
+          );
         }
-        query(
-          `INSERT OR REPLACE INTO sfmc_players (
-            id, name, permission,
-            client_system_info_local, client_system_info_maxRenderDistance,
-            client_system_info_memoryTier_level, client_system_info_PlatformType,
-            graphicsMode, dynamicPropertyTotalByteCount, ping,
-            spawnPoint, tags, level, totalXp,
-            afk_step, afk_last_location,
-            onlinetime_session, onlinetime_today, onlinetime_month, onlinetime_total,
-            onlinetime_last_date, onlinetime_last_month, active_channel, subscribed_channels, updated_at
-          ) VALUES ${normalizedPlayers.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
-          normalizedPlayers.flatMap((p) => [
-            p.id,
-            p.name,
-            p.permission,
-            p.clientSystemInfoLocal ?? "",
-            p.clientSystemInfoMaxRenderDistance ?? 0,
-            p.clientSystemInfoMemoryTier_level ?? 0,
-            p.clientSystemInfo_PlatformType ?? "",
-            p.graphicsMode ?? "",
-            p.dynamicPropertyTotalByteCount ?? 0,
-            p.ping ?? 0,
-            p.spawnPoint ?? "",
-            p.tags ?? "",
-            p.level ?? 0,
-            p.totalXp ?? 0,
-            p.afkStep ?? 0,
-            p.afkLastLocation ?? "",
-            p.onlinetimeSession ?? 0,
-            p.onlinetimeToday ?? 0,
-            p.onlinetimeMonth ?? 0,
-            p.onlinetimeTotal ?? 0,
-            p.onlinetimeLastDate ?? "",
-            p.onlinetimeLastMonth ?? "",
-            p.activeChannel ?? "",
-            p.subscribedChannels ?? "",
-            Date.now(),
-          ])
-        );
         json(res, { success: true });
       } else {
         json(res, { success: false, error: "not_found" }, 404);
@@ -158,7 +164,7 @@ function createPlayersRoutes({ query, body, json }: Deps) {
         return true;
       }
       if (method === "GET") {
-        const rows = query("SELECT * FROM sfmc_players WHERE id = ?", [id]) as unknown[];
+        const rows = query(SQL`SELECT * FROM sfmc_players WHERE id = ${id}`) as unknown[];
         if (rows.length === 0) {
           json(res, { success: false, error: "not_found" }, 404);
           return true;
@@ -173,16 +179,16 @@ function createPlayersRoutes({ query, body, json }: Deps) {
         const FIELD_MAP: Record<string, string> = {
           permission: "permission",
           clientSystemInfoLocal: "client_system_info_local",
-          clientSystemInfoMaxRenderDistance: "client_system_info_max_render_distance",
-          clientSystemInfoMemoryTierLevel: "client_system_info_memory_tier_level",
-          clientSystemInfoPlatformType: "client_system_info_platform_type",
-          graphicsMode: "graphics_mode",
-          dynamicPropertyTotalByteCount: "dynamic_property_total_byte_count",
+          clientSystemInfoMaxRenderDistance: "client_system_info_maxRenderDistance",
+          clientSystemInfoMemoryTierLevel: "client_system_info_memoryTier_level",
+          clientSystemInfoPlatformType: "client_system_info_PlatformType",
+          graphicsMode: "graphicsMode",
+          dynamicPropertyTotalByteCount: "dynamicPropertyTotalByteCount",
           ping: "ping",
-          spawnPoint: "spawn_point",
+          spawnPoint: "spawnPoint",
           tags: "tags",
           level: "level",
-          totalXp: "total_xp",
+          totalXp: "totalXp",
           afkStep: "afk_step",
           afkLastLocation: "afk_last_location",
           onlinetimeSession: "onlinetime_session",
@@ -194,18 +200,15 @@ function createPlayersRoutes({ query, body, json }: Deps) {
           activeChannel: "active_channel",
           subscribedChannels: "subscribed_channels",
         };
-        const sets: string[] = ["updated_at=?"];
-        const vals: unknown[] = [Date.now()];
+        const stmt = SQL`UPDATE sfmc_players SET updated_at = ${Date.now()}`;
         for (const [jsField, dbCol] of Object.entries(FIELD_MAP)) {
-          if ((player as Record<string, unknown>)[jsField] !== undefined) {
-            sets.push(`${dbCol}=?`);
-            vals.push((player as Record<string, unknown>)[jsField]);
+          const v = (player as Record<string, unknown>)[jsField];
+          if (v !== undefined) {
+            stmt.append(SQL`, ${raw(dbCol)} = ${v}`);
           }
         }
-        if (sets.length > 1) {
-          vals.push(id);
-          query(`UPDATE sfmc_players SET ${sets.join(", ")} WHERE id=?`, vals);
-        }
+        stmt.append(SQL` WHERE id = ${id}`);
+        query(stmt);
         json(res, { success: true });
       } else {
         json(res, { success: false, error: "not_found" }, 404);

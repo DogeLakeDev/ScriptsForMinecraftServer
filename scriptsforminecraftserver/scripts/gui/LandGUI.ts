@@ -11,8 +11,8 @@ import { LandCore } from "../land/LandCore.js";
 import { Database, LandData, LandPos, LandRole } from "../land/LandDatabase.js";
 import { canManage, getPlayerRole } from "../land/LandPolicy.js";
 import { debug } from "../libs/DebugLog.js";
+import { Money } from "../libs/Economy.js";
 import { FormStatus, MenuNavigator, obsBool, obsNum, obsStr } from "../libs/MenuNavigator.js";
-import { Money } from "../libs/Money.js";
 import { dimensionId, ListFormInfo, Msg } from "../libs/Tools.js";
 
 const ROLES: LandRole[] = ["builder", "container", "visitor", "redstone", "entity", "admin"];

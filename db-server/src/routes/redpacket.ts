@@ -4,6 +4,14 @@
  * 所有数据库事务 (BEGIN IMMEDIATE / COMMIT / ROLLBACK) 与 SQL 已全部下沉到
  * domain/redpacket.ts 中的 `createRedpacketTx` / `claimRedpacketTx`。
  * 本文件只负责请求解析、参数校验、调领域函数、序列化响应。
+ *
+ * 路由列表：
+ *   GET    /api/sfmc/redpacket            — 列出所有红包
+ *   POST   /api/sfmc/redpacket            — 发红包（事务：扣 sender 余额 → INSERT → 写 tx log）
+ *   GET    /api/sfmc/redpacket/:id        — 读单个红包
+ *   POST   /api/sfmc/redpacket/:id/claim  — 领红包（事务：金额分配 → 余额更新 → 写 tx log）
+ *   DELETE /api/sfmc/redpacket/:id        — 删除红包
+ *   PUT    /api/sfmc/redpacket/:id        — 旧路由，已禁用 (legacy_route_disabled)
  */
 
 import type { QueryFn } from "../lib/sqlite.js";

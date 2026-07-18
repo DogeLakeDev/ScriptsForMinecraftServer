@@ -1,0 +1,22 @@
+{
+  "name": "sfmc-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "REPL management tool for ScriptsForMinecraftServer",
+  "type": "module",
+  "bin": {
+    "sfmc": "./dist/sfmc.js"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "@clack/prompts": "^0.9.1",
+    "cli-progress": "^3.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
+  }
+}

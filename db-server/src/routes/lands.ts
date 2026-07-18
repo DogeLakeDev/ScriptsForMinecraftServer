@@ -3,6 +3,28 @@
  *
  * 所有 BEGIN IMMEDIATE / COMMIT / ROLLBACK 与裸 SQL 都已下沉到 domain/land.ts。
  * 本文件只负责请求解析 → 调用领域函数 → 序列化响应。
+ *
+ * 路由列表：
+ *   GET  /api/sfmc/lands                              — 列出全部 active 领地（带 member）
+ *   POST /api/sfmc/lands                              — 购买领地（事务：扣款 → INSERT land/member → 写 tx log）
+ *   GET  /api/sfmc/lands/validate                     — GET 走 URL 参数 / POST 走 body 校验输入 + 算价
+ *   GET  /api/sfmc/lands/by-owner/:ownerId            — 按 owner 列领地
+ *   GET  /api/sfmc/lands/invites/:inviteeId           — 列出有效邀请
+ *   POST /api/sfmc/lands/invites/:inviteeId           — 接受 invite（事务：检查 → INSERT member）
+ *   POST /api/sfmc/lands/invites/:inviteeId/decline   — 拒绝 invite
+ *   GET  /api/sfmc/lands/:id/members                  — 等价于子路由处理邀请列表
+ *   POST /api/sfmc/lands/:id/members                  — 创建 member 邀请
+ *   DELETE /api/sfmc/lands/:id/members                — 移除 member
+ *   POST /api/sfmc/lands/:id/members/:playerId       — 修改 member role
+ *   DELETE /api/sfmc/lands/:id/invites/:inviteId      — 撤销 invite
+ *   POST /api/sfmc/lands/:id/transfer                 — 转让（事务：版本守护 → UPDATE owner/members → 审计 + 幂等记录）
+ *   GET  /api/sfmc/lands/:id/audit                    — 审计日志
+ *   GET  /api/sfmc/lands/at/:dim/:x/:y/:z             — 坐标查询（活跃领地）
+ *   POST /api/sfmc/lands/at-batch                     — 批量坐标查询
+ *   POST /api/sfmc/lands/:id/tax-collect              — 收地皮税（事务：税款扣款 → 写 tx log → 更新下期）
+ *   GET  /api/sfmc/lands/:id                          — 读取单个领地
+ *   PUT  /api/sfmc/lands/:id                          — 更新 nickname / permissions
+ *   DELETE /api/sfmc/lands/:id                        — 删除领地（事务：soft-delete → 退款 → 写 tx log + 幂等记录）
  */
 
 import type { QueryFn } from "../lib/sqlite.js";
@@ -56,6 +78,7 @@ function createLandsRoutes(deps: LandDeps) {
   return async function handle({
     path,
     method,
+    params,
     req,
     res,
   }: {
@@ -94,9 +117,11 @@ function createLandsRoutes(deps: LandDeps) {
       return true;
     }
 
-    // ─── GET /api/sfmc/lands/validate ─────────────────────────
-    if (path === "/api/sfmc/lands/validate" && method === "GET") {
-      const result = validateLandInput(query, {} as Record<string, unknown>, projectRoot);
+    // ─── GET/POST /api/sfmc/lands/validate ────────────────────
+    if (path === "/api/sfmc/lands/validate") {
+      const data: Record<string, unknown> =
+        method === "GET" ? Object.fromEntries(params.entries()) : (await readBody(req));
+      const result = validateLandInput(query, data, projectRoot);
       writeJson(res, result, result.ok ? 200 : (result.status as number) || 400);
       return true;
     }

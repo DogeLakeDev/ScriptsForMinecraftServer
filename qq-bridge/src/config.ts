@@ -1,0 +1,64 @@
+/**
+ * config.ts — 加载 configs/qq_config.json
+ *
+ * 行为与旧 index.js 保持完全一致:
+ *   - 文件不存在或解析失败: 进程退出 (旧版 process.exit(1))
+ *   - 字段缺失: 走默认值
+ *   - reload 时仅覆盖原对象 (mutate), 保留运行时引用的同一份对象
+ */
+
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { QQBridgeConfig } from "./types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** 仓库根目录: src/ → qq-bridge/ → ROOT */
+export const ROOT_DIR: string = resolve(__dirname, "..", "..");
+export const CFG_PATH: string = join(ROOT_DIR, "configs", "qq_config.json");
+
+function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
+  return {
+    qq_enabled: raw.qq_enabled !== false,
+    qq_ws_port: parseInt(String(raw.qq_ws_port ?? "3002"), 10),
+    qq_group_id: String(raw.qq_group_id ?? ""),
+    bridge_channel_id: String(raw.bridge_channel_id ?? ""),
+    db_host: String(raw.db_host ?? "127.0.0.1"),
+    db_port: parseInt(String(raw.db_port ?? "3001"), 10),
+    mctoqq_prefix: String(raw.mctoqq_prefix ?? "[MC]"),
+    ...raw,
+  };
+}
+
+function readFromDisk(): QQBridgeConfig {
+  if (!existsSync(CFG_PATH)) {
+    throw new Error(`配置文件不存在: ${CFG_PATH}`);
+  }
+  const raw = JSON.parse(readFileSync(CFG_PATH, "utf-8")) as Partial<QQBridgeConfig>;
+  return applyDefaults(raw);
+}
+
+/** 进程启动时加载一次。失败直接退出,与旧实现一致。 */
+export function loadInitialConfig(): QQBridgeConfig {
+  try {
+    return readFromDisk();
+  } catch (e) {
+    console.error(`[QQBridge] 无法读取配置: ${CFG_PATH}`, (e as Error).message);
+    process.exit(1);
+  }
+}
+
+/**
+ * 重新读取配置文件,合并到传入对象上 (mutate)。
+ * 旧实现是 Object.assign(cfg, newCfg),保留运行时对原 cfg 对象的引用 — 同样行为。
+ */
+export function reloadInto(cfg: QQBridgeConfig): void {
+  try {
+    const fresh = readFromDisk();
+    Object.assign(cfg, fresh);
+  } catch (e) {
+    // reload 失败不抛,旧实现也是只 log
+    console.error(`[QQBridge] 重载配置失败: ${(e as Error).message}`);
+  }
+}
