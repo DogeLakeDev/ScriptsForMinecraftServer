@@ -27,7 +27,6 @@
     "lint": "eslint . --ext .ts,.tsx"
   },
   "workspaces": [
-    "panel",
     "db-server",
     "scriptsforminecraftserver",
     "qq-bridge",
