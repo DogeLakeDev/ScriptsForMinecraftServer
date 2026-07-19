@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
@@ -19,6 +21,12 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
+    const { ROOT } = await import("./services.js");
+    const configFile = path.join(ROOT, "configs", "db_config.json");
+    if (!fs.existsSync(configFile)) {
+      const { runWizard } = await import("./wizard.js");
+      await runWizard();
+    }
     await startRepl();
     return;
   }

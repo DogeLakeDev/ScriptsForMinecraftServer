@@ -18,10 +18,10 @@ const welcome = `\n
   ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`help · Ctrl+L · ↹ · → · ↑↓`)}\n
 `;
 const version = `\n
-${c.text(`⠪⡁⡯⠁`)}
-${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
-${c.text(`⡷⡇⡎⠁`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}
-${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
+  ${c.text(`⠪⡁⡯⠁`)}
+  ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
+  ${c.text(`⡷⡇⡎⠁`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
 `;
 export const HELP = `
 ${c.bold("Commands")}

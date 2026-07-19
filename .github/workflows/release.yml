@@ -1,0 +1,79 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  build-sea:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: sfmc-windows-x64.exe
+          - os: ubuntu-latest
+            artifact: sfmc-linux-x64
+          - os: macos-latest
+            artifact: sfmc-darwin-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+      - run: npm ci
+      - run: npm run build
+      - run: node build-sea.mjs
+      - run: node --build-sea sea-config.json
+      - name: copy node binary as base
+        shell: bash
+        run: cp "$(which node)" "${{ matrix.artifact }}"
+      - name: inject SEA blob
+        run: npx -y postject@latest "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+      - name: chmod +x (unix)
+        if: matrix.os != 'windows-latest'
+        run: chmod +x "${{ matrix.artifact }}"
+      - name: smoke test
+        shell: bash
+        run: |
+          ./"${{ matrix.artifact }}" status
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: [build-sea]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+

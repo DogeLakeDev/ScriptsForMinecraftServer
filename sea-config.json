@@ -1,11 +1,11 @@
 {
-  "main": "dist/sea/dispatcher.cjs",
+  "main": "dist/sea/dispatcher.mjs",
   "output": "dist/sea/sfmc.exe",
   "mainFormat": "module",
   "assets": {
-    "config": "configs-default/",
-    "bp": "scriptsforminecraftserver/behavior_packs/",
-    "rp": "scriptsforminecraftserver/resource_packs",
-    "modules": "modules/"
+    "configs_default": "dist/sea/configs-default.zip",
+    "modules": "dist/sea/modules.zip",
+    "resource_packs": "dist/sea/resource_packs.zip",
+    "behavior_packs": "dist/sea/behavior_packs.zip"
   }
 }

@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@sfmc/logs": "*",
+
     "chalk": "^5.4.1",
     "@clack/prompts": "^0.9.1",
-    "cli-progress": "^3.12.0"
+    "cli-progress": "^3.12.0",
+    "jszip": "^3.10.1"
   }
 }
 
