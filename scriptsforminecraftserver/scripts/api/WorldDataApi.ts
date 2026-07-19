@@ -1,4 +1,4 @@
-import type { WorldData } from "@sfmc-types/world.js";
+import type { WorldData } from "@sfmc/types";
 import { HttpDB } from "../libs/HttpDB.js";
 
 export async function saveWorldData(data: WorldData): Promise<boolean> {

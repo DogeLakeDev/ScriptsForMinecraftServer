@@ -4,6 +4,7 @@ import { configPath } from "@sfmc/config";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
+import { enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 function printVersion() {
     `${c.text(`⠪⡁⡯⠁`)}
@@ -25,6 +26,7 @@ async function main() {
             const { refreshServices } = await import("./services.js");
             refreshServices();
         }
+        startRemoteAgent();
         await startRepl();
         return;
     }
@@ -89,6 +91,20 @@ async function main() {
         case "init": {
             const { runWizard } = await import("./wizard.js");
             await runWizard();
+            break;
+        }
+        case "remote": {
+            const [subcommand, ...remoteArgs] = rest;
+            if (subcommand === "enroll" && remoteArgs[0] && remoteArgs[1]) {
+                const name = remoteArgs[2] ?? process.env.COMPUTERNAME ?? "sfmc-agent";
+                console.log(`Enrolled remote agent: ${await enrollRemoteAgent(remoteArgs[0], remoteArgs[1], name)}`);
+            }
+            else if (subcommand === "status") {
+                console.log(JSON.stringify(remoteStatus(), null, 2));
+            }
+            else {
+                console.log("Usage: sfmc remote enroll <controller-url> <enrollment-token> [name] | sfmc remote status");
+            }
             break;
         }
         default:

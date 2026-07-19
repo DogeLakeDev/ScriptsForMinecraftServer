@@ -254,4 +254,10 @@ export function forceStopAll() {
     for (const service of Object.values(services))
         service.forceStop();
 }
+export function serviceStatus() {
+    return SERVICE_NAMES.map((name) => {
+        const service = services[name];
+        return { name, title: service.title, running: service.running, pid: service.pid, uptime: service.uptime };
+    });
+}
 //# sourceMappingURL=services.js.map

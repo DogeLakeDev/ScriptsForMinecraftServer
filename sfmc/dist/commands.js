@@ -148,13 +148,13 @@ export async function cmdUpdate(args = []) {
             const s = d.toString();
             out += s;
             for (const line of s.split("\n").filter(Boolean))
-                pushUnifiedLog(line, "system", "info");
+                pushUnifiedLog(line, "update", "info");
         });
         proc.stderr?.on("data", (d) => {
             const s = d.toString();
             out += s;
             for (const line of s.split("\n").filter(Boolean))
-                pushUnifiedLog(line, "system", "error");
+                pushUnifiedLog(line, "update", "error");
         });
         proc.on("exit", (code) => {
             if (code === 0) {

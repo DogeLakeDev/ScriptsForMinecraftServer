@@ -2,6 +2,7 @@ import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
+import { enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, services, stopAll, type ServiceName } from "./services.js";
 import { c } from "./theme.js";
 
@@ -36,6 +37,9 @@ ${c.bold("Commands")}
   ${c.green("init")}                      Setup wizard
   ${c.green("update")} [--check-only] [--channel=release|preview]
                           Check/apply BDS update
+  ${c.green("remote status")}             Show remote-agent enrollment status
+  ${c.green("remote enroll")} <url> <token> [name]
+                          Enroll this supervisor with a controller
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
   ${c.green("quit")} / ${c.green("exit")} Exit
@@ -56,6 +60,7 @@ const COMMANDS = [
   "send",
   "init",
   "update",
+  "remote",
   "version",
   "help",
   "quit",
@@ -110,6 +115,9 @@ function getCompletions(parsed: ParsedLine): string[] {
       return [];
     case "update":
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
+    case "remote":
+      if (argIndex === 0) return ["status", "enroll"].filter(sw);
+      return [];
     default:
       return [];
   }
@@ -598,6 +606,19 @@ async function execCmd(parts: string[]): Promise<void> {
     case "update":
       await cmdUpdate(args);
       break;
+    case "remote": {
+      const [subcommand, controllerUrl, enrollmentToken, name] = args;
+      if (subcommand === "status") {
+        stdout.write(JSON.stringify(remoteStatus(), null, 2) + "\n");
+      } else if (subcommand === "enroll" && controllerUrl && enrollmentToken) {
+        const agentName = name ?? process.env.COMPUTERNAME ?? "sfmc-agent";
+        stdout.write(`Enrolled remote agent: ${await enrollRemoteAgent(controllerUrl, enrollmentToken, agentName)}\n`);
+        startRemoteAgent();
+      } else {
+        stdout.write("Usage: remote enroll <controller-url> <enrollment-token> [name] | remote status\n");
+      }
+      break;
+    }
     case "quit":
     case "exit":
     case "q":

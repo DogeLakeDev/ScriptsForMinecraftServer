@@ -17,6 +17,14 @@ export interface LogLine {
 export type ServiceName = "bds" | "db" | "qq" | "llbot";
 export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
 
+export interface ServiceStatus {
+  name: ServiceName;
+  title: string;
+  running: boolean;
+  pid: number;
+  uptime: string;
+}
+
 interface ServiceDef {
   name: ServiceName;
   title: string;
@@ -290,4 +298,11 @@ export async function stopAll(): Promise<void> {
 
 export function forceStopAll(): void {
   for (const service of Object.values(services)) service.forceStop();
+}
+
+export function serviceStatus(): ServiceStatus[] {
+  return SERVICE_NAMES.map((name) => {
+    const service = services[name];
+    return { name, title: service.title, running: service.running, pid: service.pid, uptime: service.uptime };
+  });
 }

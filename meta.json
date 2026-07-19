@@ -7400,7 +7400,7 @@
       "format": "cjs"
     },
     "sfmc/package.json": {
-      "bytes": 491,
+      "bytes": 512,
       "imports": [],
       "format": "esm",
       "with": {
@@ -7408,7 +7408,7 @@
       }
     },
     "sfmc/src/services.ts": {
-      "bytes": 8264,
+      "bytes": 8636,
       "imports": [
         {
           "path": "node:child_process",
@@ -7449,6 +7449,47 @@
           "path": "sfmc/src/runtime.ts",
           "kind": "import-statement",
           "original": "./runtime.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/remote-agent.ts": {
+      "bytes": 4832,
+      "imports": [
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node_modules/ws/wrapper.mjs",
+          "kind": "import-statement",
+          "original": "ws"
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/config"
+        },
+        {
+          "path": "sfmc/src/commands.ts",
+          "kind": "import-statement",
+          "original": "./commands.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/services.ts",
+          "kind": "import-statement",
+          "original": "./services.js"
         }
       ],
       "format": "esm"
@@ -9026,7 +9067,7 @@
       "format": "esm"
     },
     "sfmc/src/repl.ts": {
-      "bytes": 20043,
+      "bytes": 21083,
       "imports": [
         {
           "path": "node:process",
@@ -9050,6 +9091,11 @@
           "path": "sfmc/src/logs.ts",
           "kind": "import-statement",
           "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/remote-agent.ts",
+          "kind": "import-statement",
+          "original": "./remote-agent.js"
         },
         {
           "path": "sfmc/src/services.ts",
@@ -9137,7 +9183,7 @@
       "format": "esm"
     },
     "sfmc/src/main.ts": {
-      "bytes": 3178,
+      "bytes": 3872,
       "imports": [
         {
           "path": "node:fs",
@@ -9171,6 +9217,11 @@
           "path": "sfmc/src/repl.ts",
           "kind": "import-statement",
           "original": "./repl.js"
+        },
+        {
+          "path": "sfmc/src/remote-agent.ts",
+          "kind": "import-statement",
+          "original": "./remote-agent.js"
         },
         {
           "path": "sfmc/src/theme.ts",
@@ -10331,6 +10382,16 @@
           "external": true
         },
         {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "node:process",
           "kind": "import-statement",
           "external": true
@@ -10377,6 +10438,16 @@
         },
         {
           "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
           "kind": "import-statement",
           "external": true
         },
@@ -10828,13 +10899,13 @@
           "bytesInOutput": 1667
         },
         "node_modules/dom-serializer/lib/index.js": {
-          "bytesInOutput": 3202
+          "bytesInOutput": 3216
         },
         "node_modules/domutils/lib/stringify.js": {
-          "bytesInOutput": 906
+          "bytesInOutput": 914
         },
         "node_modules/domutils/lib/traversal.js": {
-          "bytesInOutput": 902
+          "bytesInOutput": 904
         },
         "node_modules/domutils/lib/manipulation.js": {
           "bytesInOutput": 1163
@@ -11509,10 +11580,13 @@
           "bytesInOutput": 10020
         },
         "sfmc/package.json": {
-          "bytesInOutput": 392
+          "bytesInOutput": 405
         },
         "sfmc/src/services.ts": {
-          "bytesInOutput": 4052
+          "bytesInOutput": 4192
+        },
+        "sfmc/src/remote-agent.ts": {
+          "bytesInOutput": 2309
         },
         "node_modules/chalk/source/vendor/ansi-styles/index.js": {
           "bytesInOutput": 2566
@@ -11548,7 +11622,7 @@
           "bytesInOutput": 9592
         },
         "node_modules/@clack/prompts/dist/index.mjs": {
-          "bytesInOutput": 11900
+          "bytesInOutput": 12025
         },
         "node_modules/process-nextick-args/index.js": {
           "bytesInOutput": 716
@@ -11764,7 +11838,7 @@
           "bytesInOutput": 8416
         },
         "sfmc/src/repl.ts": {
-          "bytesInOutput": 8984
+          "bytesInOutput": 9575
         },
         "sfmc/src/logs.ts": {
           "bytesInOutput": 2221
@@ -11773,7 +11847,7 @@
           "bytesInOutput": 3119
         },
         "sfmc/src/main.ts": {
-          "bytesInOutput": 1917
+          "bytesInOutput": 2250
         },
         "sfmc/src/dispatcher.ts": {
           "bytesInOutput": 404
@@ -11800,7 +11874,7 @@
           "bytesInOutput": 2084
         }
       },
-      "bytes": 1961020
+      "bytes": 1964555
     }
   }
 }

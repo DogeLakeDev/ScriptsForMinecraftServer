@@ -1,4 +1,4 @@
-import type { ScoreboardEntry } from "@sfmc-types/scoreboard.js";
+import type { ScoreboardEntry } from "@sfmc/types";
 import { HttpDB } from "../libs/HttpDB.js";
 import { toQueryString } from "../libs/Tools.js";
 export type { ScoreboardEntry };

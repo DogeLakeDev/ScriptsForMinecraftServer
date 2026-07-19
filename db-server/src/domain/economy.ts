@@ -26,10 +26,10 @@
  *                             （字段类型 EconomyTransactionRow 在 types/economy.ts 标注）
  */
 
+import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/types";
 import type { DatabaseSync } from "node:sqlite";
 import { SQL, type SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
-import type { EconomyAccountRow, EconomyTransactionRow } from "../types/economy.js";
 import type { TxResult } from "./redpacket.js";
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
@@ -411,4 +411,3 @@ export function submitDailyTaskTx(
     };
   }
 }
-

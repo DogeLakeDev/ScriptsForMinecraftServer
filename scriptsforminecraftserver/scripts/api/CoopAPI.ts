@@ -1,5 +1,5 @@
 import { HttpRequestMethod } from "@minecraft/server-net";
-import type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "@sfmc-types/coop.js";
+import type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "@sfmc/types";
 import { debug } from "../libs/DebugLog.js";
 import { HttpDB } from "../libs/HttpDB.js";
 

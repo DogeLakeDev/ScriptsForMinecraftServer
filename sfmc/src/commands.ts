@@ -152,12 +152,12 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
     proc.stdout?.on("data", (d: Buffer) => {
       const s = d.toString();
       out += s;
-      for (const line of s.split("\n").filter(Boolean)) pushUnifiedLog(line, "system", "info");
+      for (const line of s.split("\n").filter(Boolean)) pushUnifiedLog(line, "update", "info");
     });
     proc.stderr?.on("data", (d: Buffer) => {
       const s = d.toString();
       out += s;
-      for (const line of s.split("\n").filter(Boolean)) pushUnifiedLog(line, "system", "error");
+      for (const line of s.split("\n").filter(Boolean)) pushUnifiedLog(line, "update", "error");
     });
     proc.on("exit", (code) => {
       if (code === 0) {

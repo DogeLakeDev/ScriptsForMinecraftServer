@@ -1,5 +1,5 @@
 import { Player, world } from "@minecraft/server";
-import type { Channel, RedPacket } from "@sfmc-types/chat.js";
+import type { Channel, RedPacket } from "@sfmc/types";
 import * as ChatApi from "../api/index.js";
 import { DogeChat } from "../chat/DogeChat.js";
 import { Money } from "../libs/Economy.js";

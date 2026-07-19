@@ -18,7 +18,7 @@ const result = await esbuild.build({
   target: "node26",
   format: "esm",
   outfile: "dist/sea/dispatcher.mjs",
-  external: ["readline", "node:readline", "fs", "path"],
+  external: ["node:readline", "node:fs", "node:path"],
   alias: { cheerio: require.resolve("cheerio") },
   conditions: ["import", "require", "node", "default"],
   logLevel: "debug",

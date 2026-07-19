@@ -3,7 +3,7 @@
 \* ---------------------------------------- */
 
 import { Player } from "@minecraft/server";
-import type { DeleteLandResult } from "../api/LandApi.js";
+import type { DeleteLandResult } from "@sfmc/types";
 import { createLand as createLandOnServer, validateLand } from "../api/LandApi.js";
 import { debug } from "../libs/DebugLog.js";
 import { Money } from "../libs/Economy.js";

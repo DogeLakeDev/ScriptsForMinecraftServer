@@ -20,6 +20,7 @@
   "dependencies": {
     "@sfmc/config": "*",
     "@sfmc/logs": "*",
+    "@sfmc/types": "*",
     "sql-template-strings": "^2.2.2",
     "ws": "^8.21.1"
   },

@@ -1,7 +1,7 @@
 /**
  * chat.ts — 频道 / 消息 / 红包 共享数据模型
  *
- * db-server 和 sapi 都依赖这些类型。前后端统一通过 @sfmc-types/* 别名引用。
+ * db-server 和 sapi 都依赖这些类型。前后端统一通过 @sfmc/types/* 别名引用。
  */
 
 export type MessageType = "text" | "location" | "redpacket" | "teleport_invite" | "attachment";

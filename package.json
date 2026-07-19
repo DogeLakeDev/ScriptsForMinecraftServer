@@ -33,11 +33,13 @@
   "workspaces": [
     "shared/sfmc-logs",
     "shared/sfmc-config",
+    "shared/sfmc-types",
     "db-server",
     "scriptsforminecraftserver",
     "qq-bridge",
     "bds-tools",
-    "sfmc"
+    "sfmc",
+    "remote-controller"
   ],
   "allow-scripts": "esbuild@0.28.1"
 }

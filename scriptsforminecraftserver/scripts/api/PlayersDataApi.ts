@@ -1,4 +1,4 @@
-import type { PlayerData } from "@sfmc-types/player.js";
+import type { PlayerData } from "@sfmc/types";
 import { HttpDB } from "../libs/HttpDB.js";
 import { toQueryString } from "../libs/Tools.js";
 

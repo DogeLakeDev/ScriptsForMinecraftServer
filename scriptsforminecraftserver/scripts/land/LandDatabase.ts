@@ -9,7 +9,7 @@
  *
 \* ---------------------------------------- */
 
-import type { LandConfig, LandData, LandMember, LandPermissions, LandPos, LandTaxConfig } from "@sfmc-types/land.js";
+import type { LandConfig, LandData, LandMember, LandPermissions, LandPos, LandTaxConfig } from "@sfmc/types";
 import { debug } from "../libs/DebugLog.js";
 import { DEFAULT_TAX, defaultConfig, defaultPermissions, generateLandId } from "./defaults.js";
 import {
@@ -26,7 +26,7 @@ import {
 export { LAND_ROLES, ROLE_CAPABILITIES, ROLE_LABELS_CN, SERVER_VALID_ROLES, isValidRole };
 export type { LandCapability, LandRole };
 
-// 类型定义统一来自 db-server (通过 @sfmc-types/land)，避免重复与漂移。
+// 类型定义统一来自 db-server (通过 @sfmc/types/land)，避免重复与漂移。
 // 本文件不再声明 LandPos / LandPermissions / LandMember / LandData / LandConfig / LandTaxConfig。
 export type { LandConfig, LandData, LandMember, LandPermissions, LandPos, LandTaxConfig };
 

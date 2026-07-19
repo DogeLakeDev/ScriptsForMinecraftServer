@@ -5,7 +5,7 @@
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
 import { Player, system, world } from "@minecraft/server";
-import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc-types/chat.js";
+import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc/types";
 import * as ChatApi from "../api/ChatApi.js";
 import { debug } from "../libs/DebugLog.js";
 import { Money } from "../libs/Economy.js";

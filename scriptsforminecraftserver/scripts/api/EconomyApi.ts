@@ -1,5 +1,5 @@
 import { HttpRequestMethod } from "@minecraft/server-net";
-import type { EconomyAccountRow } from "@sfmc-types/economy.js";
+import type { EconomyAccountRow } from "@sfmc/types";
 import { debug } from "../libs/DebugLog.js";
 import { HttpDB } from "../libs/HttpDB.js";
 

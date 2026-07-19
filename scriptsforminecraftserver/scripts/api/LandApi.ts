@@ -2,35 +2,19 @@ import { HttpRequestMethod } from "@minecraft/server-net";
 import type {
   CreateLandRequest,
   DeleteLandResult,
-  LandApiResult,
   LandData,
   LandErrorCode,
   LandMemberInviteResult,
   LandMemberResult,
-  LandPos,
   LandValidation,
   TransferLandResult,
-} from "@sfmc-types/land.js";
+} from "@sfmc/types";
 import { debug } from "../libs/DebugLog.js";
 import { HttpDB } from "../libs/HttpDB.js";
 
-// Re-export 以兼容老调用方
-export type {
-  CreateLandRequest,
-  DeleteLandResult,
-  LandApiResult,
-  LandData,
-  LandErrorCode,
-  LandMemberInviteResult,
-  LandMemberResult,
-  LandPos,
-  LandValidation,
-  TransferLandResult,
-};
-
 const PATH = "/api/sfmc/lands";
 
-// 类型别名 → 取自 db-server（@sfmc-types/land.js），此处不再重复定义。
+// 类型别名 → 取自 db-server（@sfmc/types/land.js），此处不再重复定义。
 
 function parseLand(body: string | null): LandData | null {
   if (!body) return null;

@@ -9,6 +9,13 @@ export interface LogLine {
 }
 export type ServiceName = "bds" | "db" | "qq" | "llbot";
 export declare const SERVICE_NAMES: ServiceName[];
+export interface ServiceStatus {
+    name: ServiceName;
+    title: string;
+    running: boolean;
+    pid: number;
+    uptime: string;
+}
 interface ServiceDef {
     name: ServiceName;
     title: string;
@@ -52,4 +59,5 @@ export declare const START_ORDER: ServiceName[];
 export declare function startAll(): Promise<void>;
 export declare function stopAll(): Promise<void>;
 export declare function forceStopAll(): void;
+export declare function serviceStatus(): ServiceStatus[];
 //# sourceMappingURL=services.d.ts.map

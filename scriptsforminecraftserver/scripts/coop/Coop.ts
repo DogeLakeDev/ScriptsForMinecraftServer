@@ -6,7 +6,7 @@
 \* ---------------------------------------- */
 
 import { EntityInventoryComponent, ItemStack, Player, world } from "@minecraft/server";
-import type { CoopShopItem } from "@sfmc-types/coop.js";
+import type { CoopShopItem } from "@sfmc/types";
 import {
   coopShopBuy,
   coopShopSell,

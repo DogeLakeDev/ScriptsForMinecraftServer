@@ -1,5 +1,5 @@
 import { EntityInventoryComponent, Player } from "@minecraft/server";
-import type { CoopMember, CoopShopItem } from "@sfmc-types/coop.js";
+import type { CoopMember, CoopShopItem } from "@sfmc/types";
 import * as CoopAPI from "../api/index.js";
 import { CoopCore } from "../coop/Coop.js";
 import { debug } from "../libs/DebugLog.js";

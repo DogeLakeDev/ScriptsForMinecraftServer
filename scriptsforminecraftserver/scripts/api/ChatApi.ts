@@ -1,6 +1,6 @@
 /** db-server\src\routes\channels.ts */
 import { HttpRequestMethod } from "@minecraft/server-net";
-import type { Channel, ChatMessage, RedPacket } from "@sfmc-types/chat.js";
+import type { Channel, ChatMessage, RedPacket } from "@sfmc/types";
 import { HttpDB } from "../libs/HttpDB.js";
 import { toQueryString } from "../libs/Tools.js";
 
