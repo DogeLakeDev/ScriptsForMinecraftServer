@@ -22,7 +22,14 @@ const result = await esbuild.build({
   alias: { cheerio: require.resolve("cheerio") },
   conditions: ["import", "require", "node", "default"],
   logLevel: "debug",
-  banner: { js: "// SEA dispatcher bundle — generated, do not edit" },
+  minify: true,
+  banner: {
+    js: [
+      `import { createRequire as __sea_require } from "node:module";`,
+      `globalThis.require = __sea_require(import.meta.url);`,
+      `// SEA dispatcher bundle — generated, do not edit`,
+    ].join("\n"),
+  },
 });
 fs.writeFileSync("meta.json", JSON.stringify(result.metafile, null, 2));
 console.log("SEA dispatcher bundle -> dist/sea/dispatcher.mjs");

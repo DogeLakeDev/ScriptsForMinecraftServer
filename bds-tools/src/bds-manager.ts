@@ -29,6 +29,10 @@ export interface BdsManager {
   getPid(): number;
 }
 
+export interface BdsManagerOptions {
+  detached?: boolean;
+}
+
 interface CachedProc {
   process: ReturnType<typeof spawn> | null;
   isManualStop: boolean;
@@ -95,7 +99,7 @@ function ensureProc(): CachedProc {
   return cached;
 }
 
-export function createBdsManager(): BdsManager {
+export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
   const events = new EventEmitter();
   events.setMaxListeners(100);
 
@@ -187,9 +191,12 @@ export function createBdsManager(): BdsManager {
     log.info("正在启动 BDS...");
     const child = spawn(p.exePath, [], {
       cwd: p.bdsPath,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: options.detached ? "ignore" : ["pipe", "pipe", "pipe"],
+      detached: options.detached,
       windowsHide: true,
     });
+
+    if (options.detached) child.unref();
 
     p.process = child;
     writePid(child.pid ?? 0);

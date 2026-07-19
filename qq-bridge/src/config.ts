@@ -8,16 +8,17 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { configPath, resolveRuntimeRoot } from "@sfmc/config";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { QQBridgeConfig } from "./types.js";
 import { log } from "./log.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** 仓库根目录: src/ → qq-bridge/ → ROOT */
-export const ROOT_DIR: string = resolve(__dirname, "..", "..");
-export const CFG_PATH: string = join(ROOT_DIR, "configs", "qq_config.json");
+/** npm 模式从源码位置回退，supervisor/SEA 模式统一由 SFMC_ROOT 指定。 */
+export const ROOT_DIR: string = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
+export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 
 function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
   return {

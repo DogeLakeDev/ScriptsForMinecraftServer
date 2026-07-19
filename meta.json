@@ -1,7 +1,179 @@
 {
   "inputs": {
+    "shared/sfmc-config/dist/esm/index.js": {
+      "bytes": 898,
+      "imports": [
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/jsonc-parser/lib/esm/impl/scanner.js": {
+      "bytes": 19188,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/jsonc-parser/lib/esm/impl/string-intern.js": {
+      "bytes": 1034,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/jsonc-parser/lib/esm/impl/format.js": {
+      "bytes": 11098,
+      "imports": [
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/scanner.js",
+          "kind": "import-statement",
+          "original": "./scanner"
+        },
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/string-intern.js",
+          "kind": "import-statement",
+          "original": "./string-intern"
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/jsonc-parser/lib/esm/impl/parser.js": {
+      "bytes": 25765,
+      "imports": [
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/scanner.js",
+          "kind": "import-statement",
+          "original": "./scanner"
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/jsonc-parser/lib/esm/impl/edit.js": {
+      "bytes": 8613,
+      "imports": [
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/format.js",
+          "kind": "import-statement",
+          "original": "./format"
+        },
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/parser.js",
+          "kind": "import-statement",
+          "original": "./parser"
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/jsonc-parser/lib/esm/main.js": {
+      "bytes": 9363,
+      "imports": [
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/format.js",
+          "kind": "import-statement",
+          "original": "./impl/format"
+        },
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/edit.js",
+          "kind": "import-statement",
+          "original": "./impl/edit"
+        },
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/scanner.js",
+          "kind": "import-statement",
+          "original": "./impl/scanner"
+        },
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/impl/parser.js",
+          "kind": "import-statement",
+          "original": "./impl/parser"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/runtime.ts": {
+      "bytes": 2804,
+      "imports": [
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:sea",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:url",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/config"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/terminal.ts": {
+      "bytes": 6822,
+      "imports": [
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/config"
+        },
+        {
+          "path": "node_modules/jsonc-parser/lib/esm/main.js",
+          "kind": "import-statement",
+          "original": "jsonc-parser/lib/esm/main.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        }
+      ],
+      "format": "esm"
+    },
     "db-server/dist/domain/schema.js": {
-      "bytes": 24871,
+      "bytes": 25233,
       "imports": [],
       "format": "esm"
     },
@@ -33,7 +205,7 @@
       "format": "esm"
     },
     "db-server/dist/env.js": {
-      "bytes": 4106,
+      "bytes": 4090,
       "imports": [
         {
           "path": "node:fs",
@@ -49,6 +221,11 @@
           "path": "node:url",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/config"
         },
         {
           "path": "db-server/dist/lib/log.js",
@@ -207,7 +384,7 @@
       "format": "esm"
     },
     "db-server/dist/domain/coops.js": {
-      "bytes": 28586,
+      "bytes": 28739,
       "imports": [
         {
           "path": "node_modules/sql-template-strings/index.js",
@@ -249,7 +426,7 @@
       "format": "esm"
     },
     "db-server/dist/domain/economy.js": {
-      "bytes": 12684,
+      "bytes": 12708,
       "imports": [
         {
           "path": "node_modules/sql-template-strings/index.js",
@@ -265,7 +442,7 @@
       "format": "esm"
     },
     "db-server/dist/routes/economy.js": {
-      "bytes": 16862,
+      "bytes": 16911,
       "imports": [
         {
           "path": "node_modules/sql-template-strings/index.js",
@@ -297,7 +474,7 @@
       "format": "esm"
     },
     "db-server/dist/domain/land.js": {
-      "bytes": 36748,
+      "bytes": 36833,
       "imports": [
         {
           "path": "node:fs",
@@ -376,7 +553,7 @@
       "format": "esm"
     },
     "db-server/dist/domain/redpacket.js": {
-      "bytes": 9376,
+      "bytes": 9410,
       "imports": [
         {
           "path": "node_modules/sql-template-strings/index.js",
@@ -635,12 +812,17 @@
       "format": "esm"
     },
     "qq-bridge/dist/config.js": {
-      "bytes": 2158,
+      "bytes": 2269,
       "imports": [
         {
           "path": "node:fs",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/config"
         },
         {
           "path": "node:path",
@@ -1660,7 +1842,7 @@
       "format": "cjs"
     },
     "bds-tools/dist/paths.js": {
-      "bytes": 2706,
+      "bytes": 3413,
       "imports": [
         {
           "path": "node:fs",
@@ -1671,6 +1853,11 @@
           "path": "node:path",
           "kind": "require-call",
           "external": true
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "require-call",
+          "original": "@sfmc/config"
         }
       ],
       "format": "cjs"
@@ -1692,7 +1879,7 @@
       "format": "cjs"
     },
     "bds-tools/dist/bds-manager.js": {
-      "bytes": 9969,
+      "bytes": 10114,
       "imports": [
         {
           "path": "node:child_process",
@@ -6993,7 +7180,7 @@
       "format": "cjs"
     },
     "bds-tools/dist/qqutil.js": {
-      "bytes": 4309,
+      "bytes": 4235,
       "imports": [
         {
           "path": "node:http",
@@ -7001,14 +7188,14 @@
           "external": true
         },
         {
-          "path": "node:path",
+          "path": "node:fs",
           "kind": "require-call",
           "external": true
         },
         {
-          "path": "node:fs",
+          "path": "shared/sfmc-config/dist/esm/index.js",
           "kind": "require-call",
-          "external": true
+          "original": "@sfmc/config"
         },
         {
           "path": "bds-tools/dist/paths.js",
@@ -7122,7 +7309,7 @@
       "format": "cjs"
     },
     "bds-tools/dist/check-update.js": {
-      "bytes": 18735,
+      "bytes": 18972,
       "imports": [
         {
           "path": "shared/sfmc-logs/dist/esm/index.js",
@@ -7213,46 +7400,15 @@
       "format": "cjs"
     },
     "sfmc/package.json": {
-      "bytes": 438,
+      "bytes": 491,
       "imports": [],
       "format": "esm",
       "with": {
         "type": "json"
       }
     },
-    "sfmc/src/runtime.ts": {
-      "bytes": 2643,
-      "imports": [
-        {
-          "path": "node:child_process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:sea",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:url",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
     "sfmc/src/services.ts": {
-      "bytes": 7579,
+      "bytes": 8264,
       "imports": [
         {
           "path": "node:child_process",
@@ -7275,14 +7431,19 @@
           "external": true
         },
         {
-          "path": "node:url",
+          "path": "shared/sfmc-config/dist/esm/index.js",
           "kind": "import-statement",
-          "external": true
+          "original": "@sfmc/config"
         },
         {
           "path": "sfmc/src/logs.ts",
           "kind": "import-statement",
           "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
         },
         {
           "path": "sfmc/src/runtime.ts",
@@ -7360,54 +7521,51 @@
       ],
       "format": "esm"
     },
+    "node_modules/fast-string-truncated-width/dist/utils.js": {
+      "bytes": 1197,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/fast-string-truncated-width/dist/index.js": {
+      "bytes": 5047,
+      "imports": [
+        {
+          "path": "node_modules/fast-string-truncated-width/dist/utils.js",
+          "kind": "import-statement",
+          "original": "./utils.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/fast-string-width/dist/index.js": {
+      "bytes": 367,
+      "imports": [
+        {
+          "path": "node_modules/fast-string-truncated-width/dist/index.js",
+          "kind": "import-statement",
+          "original": "fast-string-truncated-width"
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/fast-wrap-ansi/lib/main.js": {
+      "bytes": 7634,
+      "imports": [
+        {
+          "path": "node_modules/fast-string-width/dist/index.js",
+          "kind": "import-statement",
+          "original": "fast-string-width"
+        }
+      ],
+      "format": "esm"
+    },
     "node_modules/sisteransi/src/index.js": {
       "bytes": 1361,
       "imports": [],
       "format": "cjs"
     },
-    "node_modules/picocolors/picocolors.js": {
-      "bytes": 2663,
-      "imports": [],
-      "format": "cjs"
-    },
     "node_modules/@clack/core/dist/index.mjs": {
-      "bytes": 35967,
-      "imports": [
-        {
-          "path": "node_modules/sisteransi/src/index.js",
-          "kind": "import-statement",
-          "original": "sisteransi"
-        },
-        {
-          "path": "node:process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:readline",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:readline",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:tty",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/picocolors/picocolors.js",
-          "kind": "import-statement",
-          "original": "picocolors"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/@clack/prompts/dist/index.mjs": {
-      "bytes": 11865,
+      "bytes": 34187,
       "imports": [
         {
           "path": "node:util",
@@ -7415,6 +7573,42 @@
           "external": true
         },
         {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:readline",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:readline",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node_modules/fast-wrap-ansi/lib/main.js",
+          "kind": "import-statement",
+          "original": "fast-wrap-ansi"
+        },
+        {
+          "path": "node_modules/sisteransi/src/index.js",
+          "kind": "import-statement",
+          "original": "sisteransi"
+        },
+        {
+          "path": "node:tty",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/@clack/prompts/dist/index.mjs": {
+      "bytes": 50397,
+      "imports": [
+        {
           "path": "node_modules/@clack/core/dist/index.mjs",
           "kind": "import-statement",
           "original": "@clack/core"
@@ -7423,6 +7617,11 @@
           "path": "node_modules/@clack/core/dist/index.mjs",
           "kind": "import-statement",
           "original": "@clack/core"
+        },
+        {
+          "path": "node:util",
+          "kind": "import-statement",
+          "external": true
         },
         {
           "path": "node:process",
@@ -7430,9 +7629,24 @@
           "external": true
         },
         {
-          "path": "node_modules/picocolors/picocolors.js",
+          "path": "node_modules/fast-wrap-ansi/lib/main.js",
           "kind": "import-statement",
-          "original": "picocolors"
+          "original": "fast-wrap-ansi"
+        },
+        {
+          "path": "node_modules/fast-string-width/dist/index.js",
+          "kind": "import-statement",
+          "original": "fast-string-width"
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
         },
         {
           "path": "node_modules/sisteransi/src/index.js",
@@ -8761,17 +8975,12 @@
       "format": "cjs"
     },
     "sfmc/src/wizard.ts": {
-      "bytes": 15251,
+      "bytes": 17101,
       "imports": [
         {
           "path": "node_modules/@clack/prompts/dist/index.mjs",
           "kind": "import-statement",
           "original": "@clack/prompts"
-        },
-        {
-          "path": "node_modules/cli-progress/cli-progress.js",
-          "kind": "import-statement",
-          "original": "cli-progress"
         },
         {
           "path": "node_modules/jszip/lib/index.js",
@@ -8794,14 +9003,19 @@
           "external": true
         },
         {
+          "path": "node:sea",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "shared/sfmc-config/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/config"
+        },
+        {
           "path": "sfmc/src/runtime.ts",
           "kind": "import-statement",
           "original": "./runtime.js"
-        },
-        {
-          "path": "sfmc/src/services.ts",
-          "kind": "import-statement",
-          "original": "./services.js"
         },
         {
           "path": "sfmc/src/theme.ts",
@@ -8812,7 +9026,7 @@
       "format": "esm"
     },
     "sfmc/src/repl.ts": {
-      "bytes": 18965,
+      "bytes": 20043,
       "imports": [
         {
           "path": "node:process",
@@ -8923,7 +9137,7 @@
       "format": "esm"
     },
     "sfmc/src/main.ts": {
-      "bytes": 2997,
+      "bytes": 3178,
       "imports": [
         {
           "path": "node:fs",
@@ -8931,14 +9145,14 @@
           "external": true
         },
         {
-          "path": "node:path",
+          "path": "node:process",
           "kind": "import-statement",
           "external": true
         },
         {
-          "path": "node:process",
+          "path": "shared/sfmc-config/dist/esm/index.js",
           "kind": "import-statement",
-          "external": true
+          "original": "@sfmc/config"
         },
         {
           "path": "sfmc/package.json",
@@ -8964,14 +9178,19 @@
           "original": "./theme.js"
         },
         {
-          "path": "sfmc/src/services.ts",
+          "path": "sfmc/src/runtime.ts",
           "kind": "dynamic-import",
-          "original": "./services.js"
+          "original": "./runtime.js"
         },
         {
           "path": "sfmc/src/wizard.ts",
           "kind": "dynamic-import",
           "original": "./wizard.js"
+        },
+        {
+          "path": "sfmc/src/services.ts",
+          "kind": "dynamic-import",
+          "original": "./services.js"
         },
         {
           "path": "sfmc/src/wizard.ts",
@@ -8982,12 +9201,17 @@
       "format": "esm"
     },
     "sfmc/src/dispatcher.ts": {
-      "bytes": 1242,
+      "bytes": 1360,
       "imports": [
         {
           "path": "node:process",
           "kind": "import-statement",
           "external": true
+        },
+        {
+          "path": "sfmc/src/terminal.ts",
+          "kind": "import-statement",
+          "original": "./terminal.js"
         },
         {
           "path": "db-server/dist/index.js",
@@ -9021,6 +9245,41 @@
   "outputs": {
     "dist/sea/dispatcher.mjs": {
       "imports": [
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:sea",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:url",
+          "kind": "import-statement",
+          "external": true
+        },
         {
           "path": "node:fs",
           "kind": "import-statement",
@@ -10002,11 +10261,6 @@
           "external": true
         },
         {
-          "path": "node:path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
           "path": "node:fs",
           "kind": "require-call",
           "external": true
@@ -10062,31 +10316,6 @@
           "external": true
         },
         {
-          "path": "node:sea",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:url",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:child_process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
           "path": "node:events",
           "kind": "import-statement",
           "external": true
@@ -10102,11 +10331,6 @@
           "external": true
         },
         {
-          "path": "node:url",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
           "path": "node:process",
           "kind": "import-statement",
           "external": true
@@ -10118,6 +10342,11 @@
         },
         {
           "path": "node:tty",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:util",
           "kind": "import-statement",
           "external": true
         },
@@ -10212,6 +10441,11 @@
           "external": true
         },
         {
+          "path": "node:sea",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "node:process",
           "kind": "import-statement",
           "external": true
@@ -10219,6 +10453,26 @@
         {
           "path": "node:readline/promises",
           "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
           "external": true
         },
         {
@@ -10235,1290 +10489,1318 @@
           "path": "node:process",
           "kind": "import-statement",
           "external": true
-        },
-        {
-          "path": "node:process",
-          "kind": "import-statement",
-          "external": true
         }
       ],
       "exports": [],
       "entryPoint": "sfmc/src/dispatcher.ts",
       "inputs": {
-        "db-server/dist/domain/schema.js": {
-          "bytesInOutput": 28325
-        },
-        "shared/sfmc-logs/dist/esm/index.js": {
-          "bytesInOutput": 8246
-        },
-        "db-server/dist/lib/log.js": {
-          "bytesInOutput": 209
-        },
-        "db-server/dist/env.js": {
-          "bytesInOutput": 3381
-        },
-        "db-server/dist/lib/http.js": {
-          "bytesInOutput": 828
-        },
-        "db-server/dist/lib/runtime.js": {
-          "bytesInOutput": 705
-        },
-        "db-server/dist/lib/sqlite.js": {
-          "bytesInOutput": 1496
-        },
-        "db-server/dist/server.js": {
-          "bytesInOutput": 2478
-        },
-        "node_modules/sql-template-strings/index.js": {
-          "bytesInOutput": 2377
-        },
-        "db-server/dist/lib/sql-helpers.js": {
-          "bytesInOutput": 288
-        },
-        "db-server/dist/routes/activities.js": {
-          "bytesInOutput": 5764
-        },
-        "db-server/dist/routes/channels.js": {
-          "bytesInOutput": 5499
-        },
-        "db-server/dist/routes/config.js": {
-          "bytesInOutput": 7385
-        },
-        "db-server/dist/routes/_shared.js": {
-          "bytesInOutput": 164
-        },
-        "db-server/dist/domain/transaction.js": {
-          "bytesInOutput": 599
-        },
-        "db-server/dist/domain/coops.js": {
-          "bytesInOutput": 24667
-        },
-        "db-server/dist/routes/coops.js": {
-          "bytesInOutput": 18875
-        },
-        "db-server/dist/lib/idempotency.js": {
-          "bytesInOutput": 299
-        },
-        "db-server/dist/domain/economy.js": {
-          "bytesInOutput": 8950
-        },
-        "db-server/dist/routes/economy.js": {
-          "bytesInOutput": 13671
-        },
-        "db-server/dist/routes/health.js": {
-          "bytesInOutput": 474
-        },
-        "db-server/dist/domain/land.js": {
-          "bytesInOutput": 29397
-        },
-        "db-server/dist/routes/lands.js": {
-          "bytesInOutput": 14269
-        },
-        "db-server/dist/routes/messages.js": {
-          "bytesInOutput": 3099
-        },
-        "db-server/dist/routes/modules.js": {
-          "bytesInOutput": 2860
-        },
-        "db-server/dist/routes/monitor.js": {
-          "bytesInOutput": 1902
-        },
-        "db-server/dist/routes/players.js": {
-          "bytesInOutput": 8208
-        },
-        "db-server/dist/domain/redpacket.js": {
-          "bytesInOutput": 7038
-        },
-        "db-server/dist/routes/redpacket.js": {
-          "bytesInOutput": 3076
-        },
-        "db-server/dist/routes/scoreboards.js": {
-          "bytesInOutput": 1572
-        },
-        "db-server/dist/routes/world.js": {
-          "bytesInOutput": 2728
-        },
-        "db-server/dist/domain/bridge.js": {
-          "bytesInOutput": 1575
-        },
-        "db-server/dist/lib/json.js": {
-          "bytesInOutput": 662
-        },
-        "db-server/dist/lib/module-state.js": {
-          "bytesInOutput": 878
-        },
-        "db-server/dist/index.js": {
-          "bytesInOutput": 9797
-        },
-        "qq-bridge/dist/log.js": {
-          "bytesInOutput": 208
-        },
-        "qq-bridge/dist/config.js": {
-          "bytesInOutput": 1592
-        },
-        "qq-bridge/dist/dbserver.js": {
-          "bytesInOutput": 2051
-        },
-        "qq-bridge/dist/onebot.js": {
-          "bytesInOutput": 4408
-        },
-        "node_modules/ws/lib/constants.js": {
-          "bytesInOutput": 730
-        },
-        "node_modules/ws/lib/buffer-util.js": {
-          "bytesInOutput": 2330
-        },
-        "node_modules/ws/lib/limiter.js": {
-          "bytesInOutput": 1216
-        },
-        "node_modules/ws/lib/permessage-deflate.js": {
-          "bytesInOutput": 14458
-        },
-        "node_modules/ws/lib/validation.js": {
-          "bytesInOutput": 3614
-        },
-        "node_modules/ws/lib/receiver.js": {
-          "bytesInOutput": 19397
-        },
-        "node_modules/ws/lib/sender.js": {
-          "bytesInOutput": 17618
-        },
-        "node_modules/ws/lib/event-target.js": {
-          "bytesInOutput": 7788
-        },
-        "node_modules/ws/lib/extension.js": {
-          "bytesInOutput": 5693
-        },
-        "node_modules/ws/lib/websocket.js": {
-          "bytesInOutput": 31988
-        },
-        "node_modules/ws/lib/stream.js": {
-          "bytesInOutput": 2932
-        },
-        "node_modules/ws/lib/subprotocol.js": {
-          "bytesInOutput": 1518
-        },
-        "node_modules/ws/lib/websocket-server.js": {
-          "bytesInOutput": 16157
-        },
-        "node_modules/ws/wrapper.mjs": {
-          "bytesInOutput": 700
-        },
-        "qq-bridge/dist/ws-server.js": {
-          "bytesInOutput": 1353
-        },
-        "qq-bridge/dist/console.js": {
-          "bytesInOutput": 2509
-        },
-        "qq-bridge/dist/index.js": {
-          "bytesInOutput": 1253
-        },
-        "node_modules/adm-zip/util/constants.js": {
-          "bytesInOutput": 6019
-        },
-        "node_modules/adm-zip/util/errors.js": {
-          "bytesInOutput": 2953
-        },
-        "node_modules/adm-zip/util/utils.js": {
-          "bytesInOutput": 9332
-        },
-        "node_modules/adm-zip/util/fattr.js": {
-          "bytesInOutput": 1824
-        },
-        "node_modules/adm-zip/util/decoder.js": {
-          "bytesInOutput": 247
-        },
-        "node_modules/adm-zip/util/index.js": {
-          "bytesInOutput": 330
-        },
-        "node_modules/adm-zip/headers/entryHeader.js": {
-          "bytesInOutput": 9483
-        },
-        "node_modules/adm-zip/headers/mainHeader.js": {
-          "bytesInOutput": 5461
-        },
-        "node_modules/adm-zip/headers/index.js": {
-          "bytesInOutput": 192
-        },
-        "node_modules/adm-zip/methods/deflater.js": {
-          "bytesInOutput": 1003
-        },
-        "node_modules/adm-zip/methods/inflater.js": {
-          "bytesInOutput": 1121
-        },
-        "node_modules/adm-zip/methods/zipcrypto.js": {
-          "bytesInOutput": 3725
-        },
-        "node_modules/adm-zip/methods/index.js": {
-          "bytesInOutput": 227
-        },
-        "node_modules/adm-zip/zipEntry.js": {
-          "bytesInOutput": 13025
-        },
-        "node_modules/adm-zip/zipFile.js": {
-          "bytesInOutput": 12592
-        },
-        "node_modules/adm-zip/adm-zip.js": {
-          "bytesInOutput": 33206
-        },
-        "node_modules/cli-progress/lib/eta.js": {
-          "bytesInOutput": 1629
-        },
-        "node_modules/cli-progress/lib/terminal.js": {
-          "bytesInOutput": 3100
-        },
-        "node_modules/ansi-regex/index.js": {
-          "bytesInOutput": 488
-        },
-        "node_modules/strip-ansi/index.js": {
-          "bytesInOutput": 266
-        },
-        "node_modules/is-fullwidth-code-point/index.js": {
-          "bytesInOutput": 1755
-        },
-        "node_modules/emoji-regex/index.js": {
-          "bytesInOutput": 10377
-        },
-        "node_modules/string-width/index.js": {
-          "bytesInOutput": 1035
-        },
-        "node_modules/cli-progress/lib/format-value.js": {
-          "bytesInOutput": 505
-        },
-        "node_modules/cli-progress/lib/format-bar.js": {
-          "bytesInOutput": 447
-        },
-        "node_modules/cli-progress/lib/format-time.js": {
-          "bytesInOutput": 859
-        },
-        "node_modules/cli-progress/lib/formatter.js": {
-          "bytesInOutput": 2141
-        },
-        "node_modules/cli-progress/lib/options.js": {
-          "bytesInOutput": 2813
-        },
-        "node_modules/cli-progress/lib/generic-bar.js": {
-          "bytesInOutput": 4510
-        },
-        "node_modules/cli-progress/lib/single-bar.js": {
-          "bytesInOutput": 2919
-        },
-        "node_modules/cli-progress/lib/multi-bar.js": {
-          "bytesInOutput": 4551
-        },
-        "node_modules/cli-progress/presets/legacy.js": {
-          "bytesInOutput": 276
-        },
-        "node_modules/cli-progress/presets/shades-classic.js": {
-          "bytesInOutput": 292
-        },
-        "node_modules/cli-progress/presets/shades-grey.js": {
-          "bytesInOutput": 301
-        },
-        "node_modules/cli-progress/presets/rect.js": {
-          "bytesInOutput": 273
-        },
-        "node_modules/cli-progress/presets/index.js": {
-          "bytesInOutput": 418
-        },
-        "node_modules/cli-progress/cli-progress.js": {
-          "bytesInOutput": 741
-        },
-        "bds-tools/dist/paths.js": {
-          "bytesInOutput": 2451
-        },
-        "bds-tools/dist/log.js": {
-          "bytesInOutput": 624
-        },
-        "bds-tools/dist/bds-manager.js": {
-          "bytesInOutput": 9756
-        },
-        "node_modules/cheerio/dist/commonjs/options.js": {
-          "bytesInOutput": 874
-        },
-        "node_modules/domelementtype/lib/index.js": {
-          "bytesInOutput": 1416
-        },
-        "node_modules/domhandler/lib/node.js": {
-          "bytesInOutput": 14452
-        },
-        "node_modules/domhandler/lib/index.js": {
-          "bytesInOutput": 5888
-        },
-        "node_modules/entities/lib/generated/decode-data-html.js": {
-          "bytesInOutput": 47488
-        },
-        "node_modules/entities/lib/generated/decode-data-xml.js": {
-          "bytesInOutput": 429
-        },
-        "node_modules/entities/lib/decode_codepoint.js": {
-          "bytesInOutput": 1901
-        },
-        "node_modules/entities/lib/decode.js": {
-          "bytesInOutput": 15843
-        },
-        "node_modules/entities/lib/generated/encode-html.js": {
-          "bytesInOutput": 27153
-        },
-        "node_modules/entities/lib/escape.js": {
-          "bytesInOutput": 2629
-        },
-        "node_modules/entities/lib/encode.js": {
-          "bytesInOutput": 1938
-        },
-        "node_modules/entities/lib/index.js": {
-          "bytesInOutput": 6055
-        },
-        "node_modules/dom-serializer/lib/foreignNames.js": {
-          "bytesInOutput": 2553
-        },
-        "node_modules/dom-serializer/lib/index.js": {
-          "bytesInOutput": 6770
-        },
-        "node_modules/domutils/lib/stringify.js": {
-          "bytesInOutput": 2082
-        },
-        "node_modules/domutils/lib/traversal.js": {
-          "bytesInOutput": 1991
-        },
-        "node_modules/domutils/lib/manipulation.js": {
-          "bytesInOutput": 2894
-        },
-        "node_modules/domutils/lib/querying.js": {
-          "bytesInOutput": 3084
-        },
-        "node_modules/domutils/lib/legacy.js": {
-          "bytesInOutput": 3878
-        },
-        "node_modules/domutils/lib/helpers.js": {
-          "bytesInOutput": 3189
-        },
-        "node_modules/domutils/lib/feeds.js": {
-          "bytesInOutput": 5267
-        },
-        "node_modules/domutils/lib/index.js": {
-          "bytesInOutput": 2225
-        },
-        "node_modules/cheerio/dist/commonjs/static.js": {
-          "bytesInOutput": 3160
-        },
-        "node_modules/cheerio/dist/commonjs/utils.js": {
-          "bytesInOutput": 1720
-        },
-        "node_modules/htmlparser2/node_modules/entities/dist/esm/decode-codepoint.js": {
-          "bytesInOutput": 1527
-        },
-        "node_modules/htmlparser2/node_modules/entities/dist/esm/internal/decode-shared.js": {
-          "bytesInOutput": 1173
-        },
-        "node_modules/htmlparser2/node_modules/entities/dist/esm/generated/decode-data-html.js": {
-          "bytesInOutput": 32439
-        },
-        "node_modules/htmlparser2/node_modules/entities/dist/esm/generated/decode-data-xml.js": {
-          "bytesInOutput": 299
-        },
-        "node_modules/htmlparser2/node_modules/entities/dist/esm/internal/bin-trie-flags.js": {
-          "bytesInOutput": 517
-        },
-        "node_modules/htmlparser2/node_modules/entities/dist/esm/decode.js": {
-          "bytesInOutput": 15748
-        },
-        "node_modules/htmlparser2/dist/esm/Tokenizer.js": {
-          "bytesInOutput": 27057
-        },
-        "node_modules/htmlparser2/dist/esm/Parser.js": {
-          "bytesInOutput": 15956
-        },
-        "node_modules/htmlparser2/dist/esm/index.js": {
-          "bytesInOutput": 1958
-        },
-        "node_modules/cheerio/dist/commonjs/api/attributes.js": {
-          "bytesInOutput": 14293
-        },
-        "node_modules/css-what/lib/commonjs/types.js": {
-          "bytesInOutput": 1540
-        },
-        "node_modules/css-what/lib/commonjs/parse.js": {
-          "bytesInOutput": 13114
-        },
-        "node_modules/css-what/lib/commonjs/stringify.js": {
-          "bytesInOutput": 5183
-        },
-        "node_modules/css-what/lib/commonjs/index.js": {
-          "bytesInOutput": 1534
-        },
-        "node_modules/boolbase/index.js": {
-          "bytesInOutput": 266
-        },
-        "node_modules/css-select/lib/sort.js": {
-          "bytesInOutput": 2431
-        },
-        "node_modules/css-select/lib/attributes.js": {
-          "bytesInOutput": 6972
-        },
-        "node_modules/nth-check/lib/parse.js": {
-          "bytesInOutput": 1919
-        },
-        "node_modules/nth-check/lib/compile.js": {
-          "bytesInOutput": 2035
-        },
-        "node_modules/nth-check/lib/index.js": {
-          "bytesInOutput": 1012
-        },
-        "node_modules/css-select/lib/pseudo-selectors/filters.js": {
-          "bytesInOutput": 5758
-        },
-        "node_modules/css-select/lib/pseudo-selectors/pseudos.js": {
-          "bytesInOutput": 3404
-        },
-        "node_modules/css-select/lib/pseudo-selectors/aliases.js": {
-          "bytesInOutput": 1605
-        },
-        "node_modules/css-select/lib/pseudo-selectors/subselects.js": {
-          "bytesInOutput": 4316
-        },
-        "node_modules/css-select/lib/pseudo-selectors/index.js": {
-          "bytesInOutput": 2614
-        },
-        "node_modules/css-select/lib/general.js": {
-          "bytesInOutput": 5533
-        },
-        "node_modules/css-select/lib/compile.js": {
-          "bytesInOutput": 5813
-        },
-        "node_modules/css-select/lib/index.js": {
-          "bytesInOutput": 5276
-        },
-        "node_modules/cheerio-select/lib/positionals.js": {
-          "bytesInOutput": 1459
-        },
-        "node_modules/cheerio-select/lib/helpers.js": {
-          "bytesInOutput": 967
-        },
-        "node_modules/cheerio-select/lib/index.js": {
-          "bytesInOutput": 11656
-        },
-        "node_modules/cheerio/dist/commonjs/api/traversing.js": {
-          "bytesInOutput": 13007
-        },
-        "node_modules/cheerio/dist/commonjs/parse.js": {
-          "bytesInOutput": 1550
-        },
-        "node_modules/cheerio/dist/commonjs/api/manipulation.js": {
-          "bytesInOutput": 12343
-        },
-        "node_modules/cheerio/dist/commonjs/api/css.js": {
-          "bytesInOutput": 2543
-        },
-        "node_modules/cheerio/dist/commonjs/api/forms.js": {
-          "bytesInOutput": 1844
-        },
-        "node_modules/cheerio/dist/commonjs/api/extract.js": {
-          "bytesInOutput": 1255
-        },
-        "node_modules/cheerio/dist/commonjs/cheerio.js": {
-          "bytesInOutput": 3049
-        },
-        "node_modules/cheerio/dist/commonjs/load.js": {
-          "bytesInOutput": 5924
-        },
-        "node_modules/parse5/dist/common/unicode.js": {
-          "bytesInOutput": 3303
-        },
-        "node_modules/parse5/dist/common/error-codes.js": {
-          "bytesInOutput": 5021
-        },
-        "node_modules/parse5/dist/tokenizer/preprocessor.js": {
-          "bytesInOutput": 5651
-        },
-        "node_modules/parse5/dist/common/token.js": {
-          "bytesInOutput": 1045
-        },
-        "node_modules/parse5/node_modules/entities/dist/esm/generated/decode-data-html.js": {
-          "bytesInOutput": 47436
-        },
-        "node_modules/parse5/node_modules/entities/dist/esm/generated/decode-data-xml.js": {
-          "bytesInOutput": 132
-        },
-        "node_modules/parse5/node_modules/entities/dist/esm/decode-codepoint.js": {
-          "bytesInOutput": 1536
-        },
-        "node_modules/parse5/node_modules/entities/dist/esm/decode.js": {
-          "bytesInOutput": 14459
-        },
-        "node_modules/parse5/dist/common/html.js": {
-          "bytesInOutput": 19052
-        },
-        "node_modules/parse5/dist/tokenizer/index.js": {
-          "bytesInOutput": 93790
-        },
-        "node_modules/parse5/dist/parser/open-element-stack.js": {
-          "bytesInOutput": 11185
-        },
-        "node_modules/parse5/dist/parser/formatting-element-list.js": {
-          "bytesInOutput": 4152
-        },
-        "node_modules/parse5/dist/tree-adapters/default.js": {
-          "bytesInOutput": 5344
-        },
-        "node_modules/parse5/dist/common/doctype.js": {
-          "bytesInOutput": 4961
-        },
-        "node_modules/parse5/dist/common/foreign-content.js": {
-          "bytesInOutput": 7170
-        },
-        "node_modules/parse5/dist/parser/index.js": {
-          "bytesInOutput": 94537
-        },
-        "node_modules/parse5/node_modules/entities/dist/esm/escape.js": {
-          "bytesInOutput": 1340
-        },
-        "node_modules/parse5/dist/serializer/index.js": {
-          "bytesInOutput": 3906
-        },
-        "node_modules/parse5/dist/index.js": {
-          "bytesInOutput": 1118
-        },
-        "node_modules/parse5-htmlparser2-tree-adapter/dist/index.js": {
-          "bytesInOutput": 7471
-        },
-        "node_modules/cheerio/dist/commonjs/parsers/parse5-adapter.js": {
-          "bytesInOutput": 1572
-        },
-        "node_modules/cheerio/dist/commonjs/load-parse.js": {
-          "bytesInOutput": 1065
-        },
-        "node_modules/parse5-parser-stream/dist/index.js": {
-          "bytesInOutput": 2472
-        },
-        "node_modules/safer-buffer/safer.js": {
-          "bytesInOutput": 2319
-        },
-        "node_modules/iconv-lite/lib/bom-handling.js": {
-          "bytesInOutput": 1221
-        },
-        "node_modules/iconv-lite/encodings/internal.js": {
-          "bytesInOutput": 5046
-        },
-        "node_modules/iconv-lite/encodings/utf32.js": {
-          "bytesInOutput": 7852
-        },
-        "node_modules/iconv-lite/encodings/utf16.js": {
-          "bytesInOutput": 4534
-        },
-        "node_modules/iconv-lite/encodings/utf7.js": {
-          "bytesInOutput": 7435
-        },
-        "node_modules/iconv-lite/encodings/sbcs-codec.js": {
-          "bytesInOutput": 2094
-        },
-        "node_modules/iconv-lite/encodings/sbcs-data.js": {
-          "bytesInOutput": 7072
-        },
-        "node_modules/iconv-lite/encodings/sbcs-data-generated.js": {
-          "bytesInOutput": 61929
-        },
-        "node_modules/iconv-lite/encodings/dbcs-codec.js": {
-          "bytesInOutput": 16554
-        },
-        "node_modules/iconv-lite/encodings/tables/shiftjis.json": {
-          "bytesInOutput": 46886
-        },
-        "node_modules/iconv-lite/encodings/tables/eucjp.json": {
-          "bytesInOutput": 81222
-        },
-        "node_modules/iconv-lite/encodings/tables/cp936.json": {
-          "bytesInOutput": 90735
-        },
-        "node_modules/iconv-lite/encodings/tables/gbk-added.json": {
-          "bytesInOutput": 2234
-        },
-        "node_modules/iconv-lite/encodings/tables/gb18030-ranges.json": {
-          "bytesInOutput": 2785
-        },
-        "node_modules/iconv-lite/encodings/tables/cp949.json": {
-          "bytesInOutput": 72748
-        },
-        "node_modules/iconv-lite/encodings/tables/cp950.json": {
-          "bytesInOutput": 83770
-        },
-        "node_modules/iconv-lite/encodings/tables/big5-added.json": {
-          "bytesInOutput": 36622
-        },
-        "node_modules/iconv-lite/encodings/dbcs-data.js": {
-          "bytesInOutput": 10050
-        },
-        "node_modules/iconv-lite/encodings/index.js": {
-          "bytesInOutput": 639
-        },
-        "node_modules/iconv-lite/lib/streams.js": {
-          "bytesInOutput": 3028
-        },
-        "node_modules/iconv-lite/lib/index.js": {
-          "bytesInOutput": 4799
-        },
-        "node_modules/whatwg-encoding/lib/supported-names.json": {
-          "bytesInOutput": 858
-        },
-        "node_modules/whatwg-encoding/lib/labels-to-names.json": {
-          "bytesInOutput": 6937
-        },
-        "node_modules/whatwg-encoding/lib/whatwg-encoding.js": {
-          "bytesInOutput": 1696
-        },
-        "node_modules/encoding-sniffer/dist/esm/sniffer.js": {
-          "bytesInOutput": 32124
-        },
-        "node_modules/encoding-sniffer/dist/esm/index.js": {
-          "bytesInOutput": 1916
-        },
-        "node_modules/undici/lib/core/symbols.js": {
-          "bytesInOutput": 4457
-        },
-        "node_modules/undici/lib/util/timers.js": {
-          "bytesInOutput": 6960
-        },
-        "node_modules/undici/lib/core/errors.js": {
-          "bytesInOutput": 15066
-        },
-        "node_modules/undici/lib/core/constants.js": {
-          "bytesInOutput": 3525
-        },
-        "node_modules/undici/lib/core/tree.js": {
-          "bytesInOutput": 3816
-        },
-        "node_modules/undici/lib/core/util.js": {
-          "bytesInOutput": 22489
-        },
-        "node_modules/undici/lib/util/stats.js": {
-          "bytesInOutput": 824
-        },
-        "node_modules/undici/lib/core/diagnostics.js": {
-          "bytesInOutput": 7150
-        },
-        "node_modules/undici/lib/core/request.js": {
-          "bytesInOutput": 13600
-        },
-        "node_modules/undici/lib/handler/wrap-handler.js": {
-          "bytesInOutput": 2938
-        },
-        "node_modules/undici/lib/dispatcher/dispatcher.js": {
-          "bytesInOutput": 1460
-        },
-        "node_modules/undici/lib/handler/unwrap-handler.js": {
-          "bytesInOutput": 2661
-        },
-        "node_modules/undici/lib/dispatcher/dispatcher-base.js": {
-          "bytesInOutput": 4899
-        },
-        "node_modules/undici/lib/core/connect.js": {
-          "bytesInOutput": 4795
-        },
-        "node_modules/undici/lib/llhttp/utils.js": {
-          "bytesInOutput": 625
-        },
-        "node_modules/undici/lib/llhttp/constants.js": {
-          "bytesInOutput": 18207
-        },
-        "node_modules/undici/lib/llhttp/llhttp-wasm.js": {
-          "bytesInOutput": 72427
-        },
-        "node_modules/undici/lib/llhttp/llhttp_simd-wasm.js": {
-          "bytesInOutput": 72689
-        },
-        "node_modules/undici/lib/web/fetch/constants.js": {
-          "bytesInOutput": 4617
-        },
-        "node_modules/undici/lib/web/fetch/global.js": {
-          "bytesInOutput": 1043
-        },
-        "node_modules/undici/lib/encoding/index.js": {
-          "bytesInOutput": 521
-        },
-        "node_modules/undici/lib/web/infra/index.js": {
-          "bytesInOutput": 3756
-        },
-        "node_modules/undici/lib/web/fetch/data-url.js": {
-          "bytesInOutput": 9378
-        },
-        "node_modules/undici/lib/util/runtime-features.js": {
-          "bytesInOutput": 3140
-        },
-        "node_modules/undici/lib/web/webidl/index.js": {
-          "bytesInOutput": 21602
-        },
-        "node_modules/undici/lib/web/fetch/util.js": {
-          "bytesInOutput": 26526
-        },
-        "node_modules/undici/lib/web/fetch/formdata.js": {
-          "bytesInOutput": 5776
-        },
-        "node_modules/undici/lib/web/fetch/formdata-parser.js": {
-          "bytesInOutput": 11834
-        },
-        "node_modules/undici/lib/util/promise.js": {
-          "bytesInOutput": 424
-        },
-        "node_modules/undici/lib/web/fetch/body.js": {
-          "bytesInOutput": 10098
-        },
-        "node_modules/undici/lib/dispatcher/client-h1.js": {
-          "bytesInOutput": 42812
-        },
-        "node_modules/undici/lib/dispatcher/client-h2.js": {
-          "bytesInOutput": 25277
-        },
-        "node_modules/undici/lib/dispatcher/client.js": {
-          "bytesInOutput": 19390
-        },
-        "node_modules/undici/lib/dispatcher/fixed-queue.js": {
-          "bytesInOutput": 1814
-        },
-        "node_modules/undici/lib/dispatcher/pool-base.js": {
-          "bytesInOutput": 5910
-        },
-        "node_modules/undici/lib/dispatcher/pool.js": {
-          "bytesInOutput": 3512
-        },
-        "node_modules/undici/lib/dispatcher/balanced-pool.js": {
-          "bytesInOutput": 5878
-        },
-        "node_modules/undici/lib/dispatcher/round-robin-pool.js": {
-          "bytesInOutput": 4065
-        },
-        "node_modules/undici/lib/dispatcher/agent.js": {
-          "bytesInOutput": 5421
-        },
-        "node_modules/undici/lib/core/socks5-utils.js": {
-          "bytesInOutput": 5614
-        },
-        "node_modules/undici/lib/core/socks5-client.js": {
-          "bytesInOutput": 11755
-        },
-        "node_modules/undici/lib/dispatcher/socks5-proxy-agent.js": {
-          "bytesInOutput": 7994
-        },
-        "node_modules/undici/lib/dispatcher/proxy-agent.js": {
-          "bytesInOutput": 9763
-        },
-        "node_modules/undici/lib/dispatcher/env-http-proxy-agent.js": {
-          "bytesInOutput": 4419
-        },
-        "node_modules/undici/lib/handler/retry-handler.js": {
-          "bytesInOutput": 10684
-        },
-        "node_modules/undici/lib/dispatcher/retry-agent.js": {
-          "bytesInOutput": 911
-        },
-        "node_modules/undici/lib/dispatcher/h2c-client.js": {
-          "bytesInOutput": 1508
-        },
-        "node_modules/undici/lib/api/readable.js": {
-          "bytesInOutput": 12759
-        },
-        "node_modules/undici/lib/api/api-request.js": {
-          "bytesInOutput": 6059
-        },
-        "node_modules/undici/lib/api/abort-signal.js": {
-          "bytesInOutput": 1412
-        },
-        "node_modules/undici/lib/api/api-stream.js": {
-          "bytesInOutput": 5391
-        },
-        "node_modules/undici/lib/api/api-pipeline.js": {
-          "bytesInOutput": 6275
-        },
-        "node_modules/undici/lib/api/api-upgrade.js": {
-          "bytesInOutput": 3169
-        },
-        "node_modules/undici/lib/api/api-connect.js": {
-          "bytesInOutput": 3019
-        },
-        "node_modules/undici/lib/api/index.js": {
-          "bytesInOutput": 377
-        },
-        "node_modules/undici/lib/mock/mock-errors.js": {
-          "bytesInOutput": 843
-        },
-        "node_modules/undici/lib/mock/mock-symbols.js": {
-          "bytesInOutput": 2110
-        },
-        "node_modules/undici/lib/mock/mock-utils.js": {
-          "bytesInOutput": 14248
-        },
-        "node_modules/undici/lib/mock/mock-interceptor.js": {
-          "bytesInOutput": 6515
-        },
-        "node_modules/undici/lib/mock/mock-client.js": {
-          "bytesInOutput": 1940
-        },
-        "node_modules/undici/lib/mock/mock-call-history.js": {
-          "bytesInOutput": 8462
-        },
-        "node_modules/undici/lib/mock/mock-pool.js": {
-          "bytesInOutput": 1926
-        },
-        "node_modules/undici/lib/mock/pending-interceptors-formatter.js": {
-          "bytesInOutput": 1445
-        },
-        "node_modules/undici/lib/mock/mock-agent.js": {
-          "bytesInOutput": 7261
-        },
-        "node_modules/undici/lib/mock/snapshot-utils.js": {
-          "bytesInOutput": 3237
-        },
-        "node_modules/undici/lib/mock/snapshot-recorder.js": {
-          "bytesInOutput": 14571
-        },
-        "node_modules/undici/lib/mock/snapshot-agent.js": {
-          "bytesInOutput": 11082
-        },
-        "node_modules/undici/lib/global.js": {
-          "bytesInOutput": 1496
-        },
-        "node_modules/undici/lib/handler/decorator-handler.js": {
-          "bytesInOutput": 1753
-        },
-        "node_modules/undici/lib/handler/redirect-handler.js": {
-          "bytesInOutput": 6951
-        },
-        "node_modules/undici/lib/interceptor/redirect.js": {
-          "bytesInOutput": 839
-        },
-        "node_modules/undici/lib/interceptor/response-error.js": {
-          "bytesInOutput": 2747
-        },
-        "node_modules/undici/lib/interceptor/retry.js": {
-          "bytesInOutput": 594
-        },
-        "node_modules/undici/lib/interceptor/dump.js": {
-          "bytesInOutput": 2901
-        },
-        "node_modules/undici/lib/interceptor/dns.js": {
-          "bytesInOutput": 15031
-        },
-        "node_modules/undici/lib/util/cache.js": {
-          "bytesInOutput": 9876
-        },
-        "node_modules/undici/lib/util/date.js": {
-          "bytesInOutput": 17484
-        },
-        "node_modules/undici/lib/handler/cache-handler.js": {
-          "bytesInOutput": 14638
-        },
-        "node_modules/undici/lib/cache/memory-cache-store.js": {
-          "bytesInOutput": 6788
-        },
-        "node_modules/undici/lib/handler/cache-revalidation-handler.js": {
-          "bytesInOutput": 2795
-        },
-        "node_modules/undici/lib/interceptor/cache.js": {
-          "bytesInOutput": 11916
-        },
-        "node_modules/undici/lib/interceptor/decompress.js": {
-          "bytesInOutput": 7993
-        },
-        "node_modules/undici/lib/handler/deduplication-handler.js": {
-          "bytesInOutput": 12098
-        },
-        "node_modules/undici/lib/interceptor/deduplicate.js": {
-          "bytesInOutput": 3655
-        },
-        "node_modules/undici/lib/cache/sqlite-cache-store.js": {
-          "bytesInOutput": 11696
-        },
-        "node_modules/undici/lib/web/fetch/headers.js": {
-          "bytesInOutput": 15487
-        },
-        "node_modules/undici/lib/web/fetch/response.js": {
-          "bytesInOutput": 14656
-        },
-        "node_modules/undici/lib/web/fetch/request.js": {
-          "bytesInOutput": 28585
-        },
-        "node_modules/undici/lib/web/subresource-integrity/subresource-integrity.js": {
-          "bytesInOutput": 4918
-        },
-        "node_modules/undici/lib/web/fetch/index.js": {
-          "bytesInOutput": 46478
-        },
-        "node_modules/undici/lib/web/cache/util.js": {
-          "bytesInOutput": 846
-        },
-        "node_modules/undici/lib/web/cache/cache.js": {
-          "bytesInOutput": 20531
-        },
-        "node_modules/undici/lib/web/cache/cachestorage.js": {
-          "bytesInOutput": 3947
-        },
-        "node_modules/undici/lib/web/cookies/constants.js": {
-          "bytesInOutput": 297
-        },
-        "node_modules/undici/lib/web/cookies/util.js": {
-          "bytesInOutput": 4869
-        },
-        "node_modules/undici/lib/web/cookies/parse.js": {
-          "bytesInOutput": 5006
-        },
-        "node_modules/undici/lib/web/cookies/index.js": {
-          "bytesInOutput": 4038
-        },
-        "node_modules/undici/lib/web/websocket/events.js": {
-          "bytesInOutput": 8277
-        },
-        "node_modules/undici/lib/web/websocket/constants.js": {
-          "bytesInOutput": 1115
-        },
-        "node_modules/undici/lib/web/websocket/util.js": {
-          "bytesInOutput": 5733
-        },
-        "node_modules/undici/lib/web/websocket/frame.js": {
-          "bytesInOutput": 3472
-        },
-        "node_modules/undici/lib/web/websocket/connection.js": {
-          "bytesInOutput": 7168
-        },
-        "node_modules/undici/lib/web/websocket/permessage-deflate.js": {
-          "bytesInOutput": 2957
-        },
-        "node_modules/undici/lib/web/websocket/receiver.js": {
-          "bytesInOutput": 14104
-        },
-        "node_modules/undici/lib/web/websocket/sender.js": {
-          "bytesInOutput": 2576
-        },
-        "node_modules/undici/lib/web/websocket/websocket.js": {
-          "bytesInOutput": 17551
-        },
-        "node_modules/undici/lib/web/websocket/stream/websocketerror.js": {
-          "bytesInOutput": 2629
-        },
-        "node_modules/undici/lib/web/websocket/stream/websocketstream.js": {
-          "bytesInOutput": 12809
-        },
-        "node_modules/undici/lib/web/eventsource/util.js": {
-          "bytesInOutput": 534
-        },
-        "node_modules/undici/lib/web/eventsource/eventsource-stream.js": {
-          "bytesInOutput": 6734
-        },
-        "node_modules/undici/lib/web/eventsource/eventsource.js": {
-          "bytesInOutput": 10557
-        },
-        "node_modules/undici/index.js": {
-          "bytesInOutput": 8356
-        },
-        "node_modules/whatwg-mimetype/lib/utils.js": {
-          "bytesInOutput": 1617
-        },
-        "node_modules/whatwg-mimetype/lib/mime-type-parameters.js": {
-          "bytesInOutput": 1743
-        },
-        "node_modules/whatwg-mimetype/lib/parser.js": {
-          "bytesInOutput": 2842
-        },
-        "node_modules/whatwg-mimetype/lib/serializer.js": {
-          "bytesInOutput": 781
-        },
-        "node_modules/whatwg-mimetype/lib/mime-type.js": {
-          "bytesInOutput": 3494
-        },
-        "node_modules/cheerio/dist/commonjs/index.js": {
-          "bytesInOutput": 7577
-        },
-        "bds-tools/dist/http.js": {
-          "bytesInOutput": 7902
-        },
-        "bds-tools/dist/changelog.js": {
-          "bytesInOutput": 2489
-        },
-        "bds-tools/dist/fsx.js": {
-          "bytesInOutput": 4341
-        },
-        "bds-tools/dist/qqutil.js": {
-          "bytesInOutput": 4187
-        },
-        "bds-tools/dist/rollback.js": {
-          "bytesInOutput": 3652
-        },
-        "bds-tools/dist/taskbar.js": {
-          "bytesInOutput": 1795
-        },
-        "bds-tools/dist/version.js": {
-          "bytesInOutput": 3723
-        },
-        "bds-tools/dist/upstream.js": {
-          "bytesInOutput": 5746
-        },
-        "bds-tools/dist/check-update.js": {
-          "bytesInOutput": 17767
-        },
-        "sfmc/package.json": {
-          "bytesInOutput": 589
+        "shared/sfmc-config/dist/esm/index.js": {
+          "bytesInOutput": 539
         },
         "sfmc/src/runtime.ts": {
-          "bytesInOutput": 1419
+          "bytesInOutput": 944
         },
-        "sfmc/src/services.ts": {
-          "bytesInOutput": 7143
+        "db-server/dist/domain/schema.js": {
+          "bytesInOutput": 27249
         },
-        "node_modules/chalk/source/vendor/ansi-styles/index.js": {
-          "bytesInOutput": 5856
+        "shared/sfmc-logs/dist/esm/index.js": {
+          "bytesInOutput": 4463
         },
-        "node_modules/chalk/source/vendor/supports-color/index.js": {
-          "bytesInOutput": 3898
+        "db-server/dist/lib/log.js": {
+          "bytesInOutput": 80
         },
-        "node_modules/chalk/source/utilities.js": {
+        "db-server/dist/env.js": {
+          "bytesInOutput": 1938
+        },
+        "db-server/dist/lib/http.js": {
+          "bytesInOutput": 453
+        },
+        "db-server/dist/lib/runtime.js": {
+          "bytesInOutput": 381
+        },
+        "db-server/dist/lib/sqlite.js": {
+          "bytesInOutput": 794
+        },
+        "db-server/dist/server.js": {
+          "bytesInOutput": 1668
+        },
+        "node_modules/sql-template-strings/index.js": {
+          "bytesInOutput": 885
+        },
+        "db-server/dist/lib/sql-helpers.js": {
+          "bytesInOutput": 83
+        },
+        "db-server/dist/routes/activities.js": {
+          "bytesInOutput": 3385
+        },
+        "db-server/dist/routes/channels.js": {
+          "bytesInOutput": 2995
+        },
+        "db-server/dist/routes/config.js": {
+          "bytesInOutput": 3967
+        },
+        "db-server/dist/routes/_shared.js": {
+          "bytesInOutput": 52
+        },
+        "db-server/dist/domain/transaction.js": {
+          "bytesInOutput": 275
+        },
+        "db-server/dist/domain/coops.js": {
+          "bytesInOutput": 15268
+        },
+        "db-server/dist/routes/coops.js": {
+          "bytesInOutput": 8223
+        },
+        "db-server/dist/lib/idempotency.js": {
+          "bytesInOutput": 148
+        },
+        "db-server/dist/domain/economy.js": {
+          "bytesInOutput": 5185
+        },
+        "db-server/dist/routes/economy.js": {
+          "bytesInOutput": 8114
+        },
+        "db-server/dist/routes/health.js": {
+          "bytesInOutput": 224
+        },
+        "db-server/dist/domain/land.js": {
+          "bytesInOutput": 17864
+        },
+        "db-server/dist/routes/lands.js": {
+          "bytesInOutput": 6689
+        },
+        "db-server/dist/routes/messages.js": {
+          "bytesInOutput": 1643
+        },
+        "db-server/dist/routes/modules.js": {
+          "bytesInOutput": 1397
+        },
+        "db-server/dist/routes/monitor.js": {
+          "bytesInOutput": 920
+        },
+        "db-server/dist/routes/players.js": {
+          "bytesInOutput": 5289
+        },
+        "db-server/dist/domain/redpacket.js": {
+          "bytesInOutput": 4086
+        },
+        "db-server/dist/routes/redpacket.js": {
+          "bytesInOutput": 1371
+        },
+        "db-server/dist/routes/scoreboards.js": {
+          "bytesInOutput": 814
+        },
+        "db-server/dist/routes/world.js": {
+          "bytesInOutput": 1530
+        },
+        "db-server/dist/domain/bridge.js": {
+          "bytesInOutput": 975
+        },
+        "db-server/dist/lib/json.js": {
+          "bytesInOutput": 343
+        },
+        "db-server/dist/lib/module-state.js": {
+          "bytesInOutput": 404
+        },
+        "db-server/dist/index.js": {
+          "bytesInOutput": 5205
+        },
+        "qq-bridge/dist/log.js": {
+          "bytesInOutput": 80
+        },
+        "qq-bridge/dist/config.js": {
+          "bytesInOutput": 994
+        },
+        "qq-bridge/dist/dbserver.js": {
+          "bytesInOutput": 1065
+        },
+        "qq-bridge/dist/onebot.js": {
+          "bytesInOutput": 2135
+        },
+        "node_modules/ws/lib/constants.js": {
+          "bytesInOutput": 414
+        },
+        "node_modules/ws/lib/buffer-util.js": {
           "bytesInOutput": 1022
         },
-        "node_modules/chalk/source/index.js": {
-          "bytesInOutput": 5487
+        "node_modules/ws/lib/limiter.js": {
+          "bytesInOutput": 358
         },
-        "sfmc/src/theme.ts": {
-          "bytesInOutput": 1709
+        "node_modules/ws/lib/permessage-deflate.js": {
+          "bytesInOutput": 5701
         },
-        "node_modules/sisteransi/src/index.js": {
-          "bytesInOutput": 1657
+        "node_modules/ws/lib/validation.js": {
+          "bytesInOutput": 1425
         },
-        "node_modules/picocolors/picocolors.js": {
-          "bytesInOutput": 3195
+        "node_modules/ws/lib/receiver.js": {
+          "bytesInOutput": 7835
         },
-        "node_modules/@clack/core/dist/index.mjs": {
-          "bytesInOutput": 40920
+        "node_modules/ws/lib/sender.js": {
+          "bytesInOutput": 5144
         },
-        "node_modules/@clack/prompts/dist/index.mjs": {
-          "bytesInOutput": 12353
+        "node_modules/ws/lib/event-target.js": {
+          "bytesInOutput": 2329
         },
-        "node_modules/process-nextick-args/index.js": {
-          "bytesInOutput": 1385
+        "node_modules/ws/lib/extension.js": {
+          "bytesInOutput": 2201
         },
-        "node_modules/isarray/index.js": {
-          "bytesInOutput": 242
+        "node_modules/ws/lib/websocket.js": {
+          "bytesInOutput": 13477
         },
-        "node_modules/readable-stream/lib/internal/streams/stream.js": {
+        "node_modules/ws/lib/stream.js": {
+          "bytesInOutput": 1308
+        },
+        "node_modules/ws/lib/subprotocol.js": {
+          "bytesInOutput": 708
+        },
+        "node_modules/ws/lib/websocket-server.js": {
+          "bytesInOutput": 5655
+        },
+        "node_modules/ws/wrapper.mjs": {
+          "bytesInOutput": 152
+        },
+        "qq-bridge/dist/ws-server.js": {
+          "bytesInOutput": 833
+        },
+        "qq-bridge/dist/console.js": {
+          "bytesInOutput": 1804
+        },
+        "qq-bridge/dist/index.js": {
+          "bytesInOutput": 781
+        },
+        "node_modules/adm-zip/util/constants.js": {
+          "bytesInOutput": 1377
+        },
+        "node_modules/adm-zip/util/errors.js": {
+          "bytesInOutput": 2151
+        },
+        "node_modules/adm-zip/util/utils.js": {
+          "bytesInOutput": 4279
+        },
+        "node_modules/adm-zip/util/fattr.js": {
+          "bytesInOutput": 883
+        },
+        "node_modules/adm-zip/util/decoder.js": {
+          "bytesInOutput": 103
+        },
+        "node_modules/adm-zip/util/index.js": {
+          "bytesInOutput": 136
+        },
+        "node_modules/adm-zip/headers/entryHeader.js": {
+          "bytesInOutput": 4079
+        },
+        "node_modules/adm-zip/headers/mainHeader.js": {
+          "bytesInOutput": 2474
+        },
+        "node_modules/adm-zip/headers/index.js": {
+          "bytesInOutput": 55
+        },
+        "node_modules/adm-zip/methods/deflater.js": {
+          "bytesInOutput": 417
+        },
+        "node_modules/adm-zip/methods/inflater.js": {
+          "bytesInOutput": 468
+        },
+        "node_modules/adm-zip/methods/zipcrypto.js": {
+          "bytesInOutput": 1744
+        },
+        "node_modules/adm-zip/methods/index.js": {
+          "bytesInOutput": 68
+        },
+        "node_modules/adm-zip/zipEntry.js": {
+          "bytesInOutput": 5064
+        },
+        "node_modules/adm-zip/zipFile.js": {
+          "bytesInOutput": 3915
+        },
+        "node_modules/adm-zip/adm-zip.js": {
+          "bytesInOutput": 8447
+        },
+        "node_modules/cli-progress/lib/eta.js": {
+          "bytesInOutput": 683
+        },
+        "node_modules/cli-progress/lib/terminal.js": {
+          "bytesInOutput": 1190
+        },
+        "node_modules/ansi-regex/index.js": {
+          "bytesInOutput": 309
+        },
+        "node_modules/strip-ansi/index.js": {
+          "bytesInOutput": 101
+        },
+        "node_modules/is-fullwidth-code-point/index.js": {
+          "bytesInOutput": 416
+        },
+        "node_modules/emoji-regex/index.js": {
+          "bytesInOutput": 10264
+        },
+        "node_modules/string-width/index.js": {
+          "bytesInOutput": 334
+        },
+        "node_modules/cli-progress/lib/format-value.js": {
           "bytesInOutput": 168
         },
-        "node_modules/safe-buffer/index.js": {
-          "bytesInOutput": 1686
+        "node_modules/cli-progress/lib/format-bar.js": {
+          "bytesInOutput": 175
         },
-        "node_modules/core-util-is/lib/util.js": {
-          "bytesInOutput": 2055
+        "node_modules/cli-progress/lib/format-time.js": {
+          "bytesInOutput": 275
         },
-        "node_modules/inherits/inherits_browser.js": {
-          "bytesInOutput": 894
+        "node_modules/cli-progress/lib/formatter.js": {
+          "bytesInOutput": 731
         },
-        "node_modules/inherits/inherits.js": {
-          "bytesInOutput": 328
+        "node_modules/cli-progress/lib/options.js": {
+          "bytesInOutput": 1411
         },
-        "node_modules/readable-stream/lib/internal/streams/BufferList.js": {
-          "bytesInOutput": 2461
+        "node_modules/cli-progress/lib/generic-bar.js": {
+          "bytesInOutput": 2251
         },
-        "node_modules/readable-stream/lib/internal/streams/destroy.js": {
-          "bytesInOutput": 2203
+        "node_modules/cli-progress/lib/single-bar.js": {
+          "bytesInOutput": 1639
         },
-        "node_modules/util-deprecate/node.js": {
+        "node_modules/cli-progress/lib/multi-bar.js": {
+          "bytesInOutput": 2525
+        },
+        "node_modules/cli-progress/presets/legacy.js": {
+          "bytesInOutput": 149
+        },
+        "node_modules/cli-progress/presets/shades-classic.js": {
+          "bytesInOutput": 149
+        },
+        "node_modules/cli-progress/presets/shades-grey.js": {
+          "bytesInOutput": 164
+        },
+        "node_modules/cli-progress/presets/rect.js": {
           "bytesInOutput": 150
         },
-        "node_modules/readable-stream/lib/_stream_writable.js": {
-          "bytesInOutput": 15097
+        "node_modules/cli-progress/presets/index.js": {
+          "bytesInOutput": 122
         },
-        "node_modules/readable-stream/lib/_stream_duplex.js": {
-          "bytesInOutput": 2515
+        "node_modules/cli-progress/cli-progress.js": {
+          "bytesInOutput": 202
         },
-        "node_modules/string_decoder/lib/string_decoder.js": {
-          "bytesInOutput": 7189
+        "bds-tools/dist/paths.js": {
+          "bytesInOutput": 1729
         },
-        "node_modules/readable-stream/lib/_stream_readable.js": {
-          "bytesInOutput": 23111
+        "bds-tools/dist/log.js": {
+          "bytesInOutput": 321
         },
-        "node_modules/readable-stream/lib/_stream_transform.js": {
-          "bytesInOutput": 3456
+        "bds-tools/dist/bds-manager.js": {
+          "bytesInOutput": 5395
         },
-        "node_modules/readable-stream/lib/_stream_passthrough.js": {
-          "bytesInOutput": 621
+        "node_modules/cheerio/dist/commonjs/options.js": {
+          "bytesInOutput": 331
         },
-        "node_modules/readable-stream/readable.js": {
-          "bytesInOutput": 903
+        "node_modules/domelementtype/lib/index.js": {
+          "bytesInOutput": 673
         },
-        "node_modules/jszip/lib/support.js": {
-          "bytesInOutput": 1186
+        "node_modules/domhandler/lib/node.js": {
+          "bytesInOutput": 6300
         },
-        "node_modules/jszip/lib/base64.js": {
-          "bytesInOutput": 2713
+        "node_modules/domhandler/lib/index.js": {
+          "bytesInOutput": 2834
         },
-        "node_modules/jszip/lib/nodejsUtils.js": {
-          "bytesInOutput": 1849
+        "node_modules/entities/lib/generated/decode-data-html.js": {
+          "bytesInOutput": 47290
         },
-        "node_modules/immediate/lib/index.js": {
-          "bytesInOutput": 2110
+        "node_modules/entities/lib/generated/decode-data-xml.js": {
+          "bytesInOutput": 233
         },
-        "node_modules/lie/lib/index.js": {
-          "bytesInOutput": 7811
+        "node_modules/entities/lib/decode_codepoint.js": {
+          "bytesInOutput": 832
         },
-        "node_modules/jszip/lib/external.js": {
-          "bytesInOutput": 328
+        "node_modules/entities/lib/decode.js": {
+          "bytesInOutput": 7024
         },
-        "node_modules/setimmediate/setImmediate.js": {
-          "bytesInOutput": 5027
+        "node_modules/entities/lib/generated/encode-html.js": {
+          "bytesInOutput": 23507
         },
-        "node_modules/jszip/lib/utils.js": {
-          "bytesInOutput": 10884
+        "node_modules/entities/lib/escape.js": {
+          "bytesInOutput": 1262
         },
-        "node_modules/jszip/lib/stream/GenericWorker.js": {
-          "bytesInOutput": 6897
+        "node_modules/entities/lib/encode.js": {
+          "bytesInOutput": 833
         },
-        "node_modules/jszip/lib/utf8.js": {
-          "bytesInOutput": 5951
+        "node_modules/entities/lib/index.js": {
+          "bytesInOutput": 3454
         },
-        "node_modules/jszip/lib/stream/ConvertWorker.js": {
-          "bytesInOutput": 628
+        "node_modules/dom-serializer/lib/foreignNames.js": {
+          "bytesInOutput": 1667
         },
-        "node_modules/jszip/lib/nodejs/NodejsStreamOutputAdapter.js": {
-          "bytesInOutput": 929
+        "node_modules/dom-serializer/lib/index.js": {
+          "bytesInOutput": 3202
         },
-        "node_modules/jszip/lib/stream/StreamHelper.js": {
-          "bytesInOutput": 5129
+        "node_modules/domutils/lib/stringify.js": {
+          "bytesInOutput": 906
         },
-        "node_modules/jszip/lib/defaults.js": {
-          "bytesInOutput": 422
+        "node_modules/domutils/lib/traversal.js": {
+          "bytesInOutput": 902
         },
-        "node_modules/jszip/lib/stream/DataWorker.js": {
-          "bytesInOutput": 2562
+        "node_modules/domutils/lib/manipulation.js": {
+          "bytesInOutput": 1163
         },
-        "node_modules/jszip/lib/crc32.js": {
-          "bytesInOutput": 1294
+        "node_modules/domutils/lib/querying.js": {
+          "bytesInOutput": 1257
         },
-        "node_modules/jszip/lib/stream/Crc32Probe.js": {
-          "bytesInOutput": 612
+        "node_modules/domutils/lib/legacy.js": {
+          "bytesInOutput": 1598
         },
-        "node_modules/jszip/lib/stream/DataLengthProbe.js": {
-          "bytesInOutput": 786
+        "node_modules/domutils/lib/helpers.js": {
+          "bytesInOutput": 1196
         },
-        "node_modules/jszip/lib/compressedObject.js": {
-          "bytesInOutput": 2078
+        "node_modules/domutils/lib/feeds.js": {
+          "bytesInOutput": 2195
         },
-        "node_modules/jszip/lib/zipObject.js": {
-          "bytesInOutput": 4382
+        "node_modules/domutils/lib/index.js": {
+          "bytesInOutput": 1222
         },
-        "node_modules/pako/lib/utils/common.js": {
-          "bytesInOutput": 2641
+        "node_modules/cheerio/dist/commonjs/static.js": {
+          "bytesInOutput": 1429
         },
-        "node_modules/pako/lib/zlib/trees.js": {
-          "bytesInOutput": 18729
+        "node_modules/cheerio/dist/commonjs/utils.js": {
+          "bytesInOutput": 799
         },
-        "node_modules/pako/lib/zlib/adler32.js": {
-          "bytesInOutput": 536
+        "node_modules/htmlparser2/node_modules/entities/dist/esm/decode-codepoint.js": {
+          "bytesInOutput": 620
         },
-        "node_modules/pako/lib/zlib/crc32.js": {
-          "bytesInOutput": 679
+        "node_modules/htmlparser2/node_modules/entities/dist/esm/internal/decode-shared.js": {
+          "bytesInOutput": 314
         },
-        "node_modules/pako/lib/zlib/messages.js": {
-          "bytesInOutput": 693
+        "node_modules/htmlparser2/node_modules/entities/dist/esm/generated/decode-data-html.js": {
+          "bytesInOutput": 32234
         },
-        "node_modules/pako/lib/zlib/deflate.js": {
-          "bytesInOutput": 34137
+        "node_modules/htmlparser2/node_modules/entities/dist/esm/generated/decode-data-xml.js": {
+          "bytesInOutput": 98
         },
-        "node_modules/pako/lib/utils/strings.js": {
-          "bytesInOutput": 4173
+        "node_modules/htmlparser2/node_modules/entities/dist/esm/internal/bin-trie-flags.js": {
+          "bytesInOutput": 185
         },
-        "node_modules/pako/lib/zlib/zstream.js": {
-          "bytesInOutput": 479
+        "node_modules/htmlparser2/node_modules/entities/dist/esm/decode.js": {
+          "bytesInOutput": 5271
         },
-        "node_modules/pako/lib/deflate.js": {
-          "bytesInOutput": 4985
+        "node_modules/htmlparser2/dist/esm/Tokenizer.js": {
+          "bytesInOutput": 14150
         },
-        "node_modules/pako/lib/zlib/inffast.js": {
-          "bytesInOutput": 7946
+        "node_modules/htmlparser2/dist/esm/Parser.js": {
+          "bytesInOutput": 7785
         },
-        "node_modules/pako/lib/zlib/inftrees.js": {
-          "bytesInOutput": 6085
+        "node_modules/htmlparser2/dist/esm/index.js": {
+          "bytesInOutput": 785
         },
-        "node_modules/pako/lib/zlib/inflate.js": {
-          "bytesInOutput": 39500
+        "node_modules/cheerio/dist/commonjs/api/attributes.js": {
+          "bytesInOutput": 6257
         },
-        "node_modules/pako/lib/zlib/constants.js": {
-          "bytesInOutput": 1353
+        "node_modules/css-what/lib/commonjs/types.js": {
+          "bytesInOutput": 739
         },
-        "node_modules/pako/lib/zlib/gzheader.js": {
-          "bytesInOutput": 415
+        "node_modules/css-what/lib/commonjs/parse.js": {
+          "bytesInOutput": 4879
         },
-        "node_modules/pako/lib/inflate.js": {
-          "bytesInOutput": 5828
+        "node_modules/css-what/lib/commonjs/stringify.js": {
+          "bytesInOutput": 2674
         },
-        "node_modules/pako/index.js": {
-          "bytesInOutput": 361
+        "node_modules/css-what/lib/commonjs/index.js": {
+          "bytesInOutput": 869
         },
-        "node_modules/jszip/lib/flate.js": {
-          "bytesInOutput": 1878
+        "node_modules/boolbase/index.js": {
+          "bytesInOutput": 96
         },
-        "node_modules/jszip/lib/compressions.js": {
-          "bytesInOutput": 459
+        "node_modules/css-select/lib/sort.js": {
+          "bytesInOutput": 1118
         },
-        "node_modules/jszip/lib/signature.js": {
-          "bytesInOutput": 389
+        "node_modules/css-select/lib/attributes.js": {
+          "bytesInOutput": 3220
         },
-        "node_modules/jszip/lib/generate/ZipFileWorker.js": {
-          "bytesInOutput": 11121
+        "node_modules/nth-check/lib/parse.js": {
+          "bytesInOutput": 732
         },
-        "node_modules/jszip/lib/generate/index.js": {
-          "bytesInOutput": 1581
+        "node_modules/nth-check/lib/compile.js": {
+          "bytesInOutput": 826
         },
-        "node_modules/jszip/lib/nodejs/NodejsStreamInputAdapter.js": {
-          "bytesInOutput": 1661
+        "node_modules/nth-check/lib/index.js": {
+          "bytesInOutput": 550
         },
-        "node_modules/jszip/lib/object.js": {
-          "bytesInOutput": 9990
+        "node_modules/css-select/lib/pseudo-selectors/filters.js": {
+          "bytesInOutput": 2239
         },
-        "node_modules/jszip/lib/reader/DataReader.js": {
-          "bytesInOutput": 3851
+        "node_modules/css-select/lib/pseudo-selectors/pseudos.js": {
+          "bytesInOutput": 1513
         },
-        "node_modules/jszip/lib/reader/ArrayReader.js": {
-          "bytesInOutput": 1561
+        "node_modules/css-select/lib/pseudo-selectors/aliases.js": {
+          "bytesInOutput": 1059
         },
-        "node_modules/jszip/lib/reader/StringReader.js": {
-          "bytesInOutput": 967
+        "node_modules/css-select/lib/pseudo-selectors/subselects.js": {
+          "bytesInOutput": 1901
         },
-        "node_modules/jszip/lib/reader/Uint8ArrayReader.js": {
-          "bytesInOutput": 695
+        "node_modules/css-select/lib/pseudo-selectors/index.js": {
+          "bytesInOutput": 1245
         },
-        "node_modules/jszip/lib/reader/NodeBufferReader.js": {
+        "node_modules/css-select/lib/general.js": {
+          "bytesInOutput": 2230
+        },
+        "node_modules/css-select/lib/compile.js": {
+          "bytesInOutput": 2781
+        },
+        "node_modules/css-select/lib/index.js": {
+          "bytesInOutput": 2499
+        },
+        "node_modules/cheerio-select/lib/positionals.js": {
+          "bytesInOutput": 691
+        },
+        "node_modules/cheerio-select/lib/helpers.js": {
+          "bytesInOutput": 354
+        },
+        "node_modules/cheerio-select/lib/index.js": {
+          "bytesInOutput": 4931
+        },
+        "node_modules/cheerio/dist/commonjs/api/traversing.js": {
+          "bytesInOutput": 6079
+        },
+        "node_modules/cheerio/dist/commonjs/parse.js": {
+          "bytesInOutput": 619
+        },
+        "node_modules/cheerio/dist/commonjs/api/manipulation.js": {
+          "bytesInOutput": 5323
+        },
+        "node_modules/cheerio/dist/commonjs/api/css.js": {
+          "bytesInOutput": 1092
+        },
+        "node_modules/cheerio/dist/commonjs/api/forms.js": {
+          "bytesInOutput": 805
+        },
+        "node_modules/cheerio/dist/commonjs/api/extract.js": {
+          "bytesInOutput": 622
+        },
+        "node_modules/cheerio/dist/commonjs/cheerio.js": {
+          "bytesInOutput": 1355
+        },
+        "node_modules/cheerio/dist/commonjs/load.js": {
+          "bytesInOutput": 2112
+        },
+        "node_modules/parse5/dist/common/unicode.js": {
+          "bytesInOutput": 1587
+        },
+        "node_modules/parse5/dist/common/error-codes.js": {
+          "bytesInOutput": 4013
+        },
+        "node_modules/parse5/dist/tokenizer/preprocessor.js": {
+          "bytesInOutput": 2858
+        },
+        "node_modules/parse5/dist/common/token.js": {
+          "bytesInOutput": 488
+        },
+        "node_modules/parse5/node_modules/entities/dist/esm/generated/decode-data-html.js": {
+          "bytesInOutput": 47205
+        },
+        "node_modules/parse5/node_modules/entities/dist/esm/generated/decode-data-xml.js": {
+          "bytesInOutput": 17
+        },
+        "node_modules/parse5/node_modules/entities/dist/esm/decode-codepoint.js": {
+          "bytesInOutput": 626
+        },
+        "node_modules/parse5/node_modules/entities/dist/esm/decode.js": {
+          "bytesInOutput": 4733
+        },
+        "node_modules/parse5/dist/common/html.js": {
+          "bytesInOutput": 8571
+        },
+        "node_modules/parse5/dist/tokenizer/index.js": {
+          "bytesInOutput": 45835
+        },
+        "node_modules/parse5/dist/parser/open-element-stack.js": {
+          "bytesInOutput": 5285
+        },
+        "node_modules/parse5/dist/parser/formatting-element-list.js": {
+          "bytesInOutput": 1647
+        },
+        "node_modules/parse5/dist/tree-adapters/default.js": {
+          "bytesInOutput": 2375
+        },
+        "node_modules/parse5/dist/common/doctype.js": {
+          "bytesInOutput": 3143
+        },
+        "node_modules/parse5/dist/common/foreign-content.js": {
+          "bytesInOutput": 3832
+        },
+        "node_modules/parse5/dist/parser/index.js": {
+          "bytesInOutput": 46991
+        },
+        "node_modules/parse5/node_modules/entities/dist/esm/escape.js": {
+          "bytesInOutput": 538
+        },
+        "node_modules/parse5/dist/serializer/index.js": {
+          "bytesInOutput": 1729
+        },
+        "node_modules/parse5/dist/index.js": {
+          "bytesInOutput": 472
+        },
+        "node_modules/parse5-htmlparser2-tree-adapter/dist/index.js": {
+          "bytesInOutput": 3084
+        },
+        "node_modules/cheerio/dist/commonjs/parsers/parse5-adapter.js": {
           "bytesInOutput": 646
         },
+        "node_modules/cheerio/dist/commonjs/load-parse.js": {
+          "bytesInOutput": 450
+        },
+        "node_modules/parse5-parser-stream/dist/index.js": {
+          "bytesInOutput": 1114
+        },
+        "node_modules/safer-buffer/safer.js": {
+          "bytesInOutput": 1259
+        },
+        "node_modules/iconv-lite/lib/bom-handling.js": {
+          "bytesInOutput": 587
+        },
+        "node_modules/iconv-lite/encodings/internal.js": {
+          "bytesInOutput": 2272
+        },
+        "node_modules/iconv-lite/encodings/utf32.js": {
+          "bytesInOutput": 3594
+        },
+        "node_modules/iconv-lite/encodings/utf16.js": {
+          "bytesInOutput": 2263
+        },
+        "node_modules/iconv-lite/encodings/utf7.js": {
+          "bytesInOutput": 3418
+        },
+        "node_modules/iconv-lite/encodings/sbcs-codec.js": {
+          "bytesInOutput": 1050
+        },
+        "node_modules/iconv-lite/encodings/sbcs-data.js": {
+          "bytesInOutput": 5444
+        },
+        "node_modules/iconv-lite/encodings/sbcs-data-generated.js": {
+          "bytesInOutput": 57253
+        },
+        "node_modules/iconv-lite/encodings/dbcs-codec.js": {
+          "bytesInOutput": 7312
+        },
+        "node_modules/iconv-lite/encodings/tables/shiftjis.json": {
+          "bytesInOutput": 45736
+        },
+        "node_modules/iconv-lite/encodings/tables/eucjp.json": {
+          "bytesInOutput": 79576
+        },
+        "node_modules/iconv-lite/encodings/tables/cp936.json": {
+          "bytesInOutput": 86962
+        },
+        "node_modules/iconv-lite/encodings/tables/gbk-added.json": {
+          "bytesInOutput": 1642
+        },
+        "node_modules/iconv-lite/encodings/tables/gb18030-ranges.json": {
+          "bytesInOutput": 2247
+        },
+        "node_modules/iconv-lite/encodings/tables/cp949.json": {
+          "bytesInOutput": 69180
+        },
+        "node_modules/iconv-lite/encodings/tables/cp950.json": {
+          "bytesInOutput": 82237
+        },
+        "node_modules/iconv-lite/encodings/tables/big5-added.json": {
+          "bytesInOutput": 35522
+        },
+        "node_modules/iconv-lite/encodings/dbcs-data.js": {
+          "bytesInOutput": 1792
+        },
+        "node_modules/iconv-lite/encodings/index.js": {
+          "bytesInOutput": 213
+        },
+        "node_modules/iconv-lite/lib/streams.js": {
+          "bytesInOutput": 1415
+        },
+        "node_modules/iconv-lite/lib/index.js": {
+          "bytesInOutput": 2258
+        },
+        "node_modules/whatwg-encoding/lib/supported-names.json": {
+          "bytesInOutput": 486
+        },
+        "node_modules/whatwg-encoding/lib/labels-to-names.json": {
+          "bytesInOutput": 5097
+        },
+        "node_modules/whatwg-encoding/lib/whatwg-encoding.js": {
+          "bytesInOutput": 625
+        },
+        "node_modules/encoding-sniffer/dist/esm/sniffer.js": {
+          "bytesInOutput": 16878
+        },
+        "node_modules/encoding-sniffer/dist/esm/index.js": {
+          "bytesInOutput": 925
+        },
+        "node_modules/undici/lib/core/symbols.js": {
+          "bytesInOutput": 2648
+        },
+        "node_modules/undici/lib/util/timers.js": {
+          "bytesInOutput": 1126
+        },
+        "node_modules/undici/lib/core/errors.js": {
+          "bytesInOutput": 7650
+        },
+        "node_modules/undici/lib/core/constants.js": {
+          "bytesInOutput": 2028
+        },
+        "node_modules/undici/lib/core/tree.js": {
+          "bytesInOutput": 1253
+        },
+        "node_modules/undici/lib/core/util.js": {
+          "bytesInOutput": 10827
+        },
+        "node_modules/undici/lib/util/stats.js": {
+          "bytesInOutput": 393
+        },
+        "node_modules/undici/lib/core/diagnostics.js": {
+          "bytesInOutput": 3225
+        },
+        "node_modules/undici/lib/core/request.js": {
+          "bytesInOutput": 6713
+        },
+        "node_modules/undici/lib/handler/wrap-handler.js": {
+          "bytesInOutput": 1262
+        },
+        "node_modules/undici/lib/dispatcher/dispatcher.js": {
+          "bytesInOutput": 643
+        },
+        "node_modules/undici/lib/handler/unwrap-handler.js": {
+          "bytesInOutput": 1113
+        },
+        "node_modules/undici/lib/dispatcher/dispatcher-base.js": {
+          "bytesInOutput": 1834
+        },
+        "node_modules/undici/lib/core/connect.js": {
+          "bytesInOutput": 2150
+        },
+        "node_modules/undici/lib/llhttp/utils.js": {
+          "bytesInOutput": 290
+        },
+        "node_modules/undici/lib/llhttp/constants.js": {
+          "bytesInOutput": 10723
+        },
+        "node_modules/undici/lib/llhttp/llhttp-wasm.js": {
+          "bytesInOutput": 72176
+        },
+        "node_modules/undici/lib/llhttp/llhttp_simd-wasm.js": {
+          "bytesInOutput": 72428
+        },
+        "node_modules/undici/lib/web/fetch/constants.js": {
+          "bytesInOutput": 1799
+        },
+        "node_modules/undici/lib/web/fetch/global.js": {
+          "bytesInOutput": 535
+        },
+        "node_modules/undici/lib/encoding/index.js": {
+          "bytesInOutput": 201
+        },
+        "node_modules/undici/lib/web/infra/index.js": {
+          "bytesInOutput": 1667
+        },
+        "node_modules/undici/lib/web/fetch/data-url.js": {
+          "bytesInOutput": 3680
+        },
+        "node_modules/undici/lib/util/runtime-features.js": {
+          "bytesInOutput": 1024
+        },
+        "node_modules/undici/lib/web/webidl/index.js": {
+          "bytesInOutput": 11632
+        },
+        "node_modules/undici/lib/web/fetch/util.js": {
+          "bytesInOutput": 11195
+        },
+        "node_modules/undici/lib/web/fetch/formdata.js": {
+          "bytesInOutput": 2708
+        },
+        "node_modules/undici/lib/web/fetch/formdata-parser.js": {
+          "bytesInOutput": 4583
+        },
+        "node_modules/undici/lib/util/promise.js": {
+          "bytesInOutput": 162
+        },
+        "node_modules/undici/lib/web/fetch/body.js": {
+          "bytesInOutput": 4341
+        },
+        "node_modules/undici/lib/dispatcher/client-h1.js": {
+          "bytesInOutput": 16964
+        },
+        "node_modules/undici/lib/dispatcher/client-h2.js": {
+          "bytesInOutput": 9870
+        },
+        "node_modules/undici/lib/dispatcher/client.js": {
+          "bytesInOutput": 8505
+        },
+        "node_modules/undici/lib/dispatcher/fixed-queue.js": {
+          "bytesInOutput": 657
+        },
+        "node_modules/undici/lib/dispatcher/pool-base.js": {
+          "bytesInOutput": 2425
+        },
+        "node_modules/undici/lib/dispatcher/pool.js": {
+          "bytesInOutput": 1619
+        },
+        "node_modules/undici/lib/dispatcher/balanced-pool.js": {
+          "bytesInOutput": 2532
+        },
+        "node_modules/undici/lib/dispatcher/round-robin-pool.js": {
+          "bytesInOutput": 1775
+        },
+        "node_modules/undici/lib/dispatcher/agent.js": {
+          "bytesInOutput": 2374
+        },
+        "node_modules/undici/lib/core/socks5-utils.js": {
+          "bytesInOutput": 2338
+        },
+        "node_modules/undici/lib/core/socks5-client.js": {
+          "bytesInOutput": 5800
+        },
+        "node_modules/undici/lib/dispatcher/socks5-proxy-agent.js": {
+          "bytesInOutput": 3262
+        },
+        "node_modules/undici/lib/dispatcher/proxy-agent.js": {
+          "bytesInOutput": 4110
+        },
+        "node_modules/undici/lib/dispatcher/env-http-proxy-agent.js": {
+          "bytesInOutput": 1713
+        },
+        "node_modules/undici/lib/handler/retry-handler.js": {
+          "bytesInOutput": 4837
+        },
+        "node_modules/undici/lib/dispatcher/retry-agent.js": {
+          "bytesInOutput": 363
+        },
+        "node_modules/undici/lib/dispatcher/h2c-client.js": {
+          "bytesInOutput": 559
+        },
+        "node_modules/undici/lib/api/readable.js": {
+          "bytesInOutput": 4204
+        },
+        "node_modules/undici/lib/api/api-request.js": {
+          "bytesInOutput": 2926
+        },
+        "node_modules/undici/lib/api/abort-signal.js": {
+          "bytesInOutput": 554
+        },
+        "node_modules/undici/lib/api/api-stream.js": {
+          "bytesInOutput": 2605
+        },
+        "node_modules/undici/lib/api/api-pipeline.js": {
+          "bytesInOutput": 2930
+        },
+        "node_modules/undici/lib/api/api-upgrade.js": {
+          "bytesInOutput": 1538
+        },
+        "node_modules/undici/lib/api/api-connect.js": {
+          "bytesInOutput": 1454
+        },
+        "node_modules/undici/lib/api/index.js": {
+          "bytesInOutput": 155
+        },
+        "node_modules/undici/lib/mock/mock-errors.js": {
+          "bytesInOutput": 424
+        },
+        "node_modules/undici/lib/mock/mock-symbols.js": {
+          "bytesInOutput": 1323
+        },
+        "node_modules/undici/lib/mock/mock-utils.js": {
+          "bytesInOutput": 6025
+        },
+        "node_modules/undici/lib/mock/mock-interceptor.js": {
+          "bytesInOutput": 2660
+        },
+        "node_modules/undici/lib/mock/mock-client.js": {
+          "bytesInOutput": 898
+        },
+        "node_modules/undici/lib/mock/mock-call-history.js": {
+          "bytesInOutput": 3941
+        },
+        "node_modules/undici/lib/mock/mock-pool.js": {
+          "bytesInOutput": 898
+        },
+        "node_modules/undici/lib/mock/pending-interceptors-formatter.js": {
+          "bytesInOutput": 644
+        },
+        "node_modules/undici/lib/mock/mock-agent.js": {
+          "bytesInOutput": 2982
+        },
+        "node_modules/undici/lib/mock/snapshot-utils.js": {
+          "bytesInOutput": 1425
+        },
+        "node_modules/undici/lib/mock/snapshot-recorder.js": {
+          "bytesInOutput": 4681
+        },
+        "node_modules/undici/lib/mock/snapshot-agent.js": {
+          "bytesInOutput": 3510
+        },
+        "node_modules/undici/lib/global.js": {
+          "bytesInOutput": 721
+        },
+        "node_modules/undici/lib/handler/decorator-handler.js": {
+          "bytesInOutput": 741
+        },
+        "node_modules/undici/lib/handler/redirect-handler.js": {
+          "bytesInOutput": 3530
+        },
+        "node_modules/undici/lib/interceptor/redirect.js": {
+          "bytesInOutput": 235
+        },
+        "node_modules/undici/lib/interceptor/response-error.js": {
+          "bytesInOutput": 1110
+        },
+        "node_modules/undici/lib/interceptor/retry.js": {
+          "bytesInOutput": 169
+        },
+        "node_modules/undici/lib/interceptor/dump.js": {
+          "bytesInOutput": 1205
+        },
+        "node_modules/undici/lib/interceptor/dns.js": {
+          "bytesInOutput": 6093
+        },
+        "node_modules/undici/lib/util/cache.js": {
+          "bytesInOutput": 4613
+        },
+        "node_modules/undici/lib/util/date.js": {
+          "bytesInOutput": 6975
+        },
+        "node_modules/undici/lib/handler/cache-handler.js": {
+          "bytesInOutput": 4622
+        },
+        "node_modules/undici/lib/cache/memory-cache-store.js": {
+          "bytesInOutput": 2492
+        },
+        "node_modules/undici/lib/handler/cache-revalidation-handler.js": {
+          "bytesInOutput": 827
+        },
+        "node_modules/undici/lib/interceptor/cache.js": {
+          "bytesInOutput": 4681
+        },
+        "node_modules/undici/lib/interceptor/decompress.js": {
+          "bytesInOutput": 2018
+        },
+        "node_modules/undici/lib/handler/deduplication-handler.js": {
+          "bytesInOutput": 3201
+        },
+        "node_modules/undici/lib/interceptor/deduplicate.js": {
+          "bytesInOutput": 1576
+        },
+        "node_modules/undici/lib/cache/sqlite-cache-store.js": {
+          "bytesInOutput": 5511
+        },
+        "node_modules/undici/lib/web/fetch/headers.js": {
+          "bytesInOutput": 6669
+        },
+        "node_modules/undici/lib/web/fetch/response.js": {
+          "bytesInOutput": 6681
+        },
+        "node_modules/undici/lib/web/fetch/request.js": {
+          "bytesInOutput": 11857
+        },
+        "node_modules/undici/lib/web/subresource-integrity/subresource-integrity.js": {
+          "bytesInOutput": 1419
+        },
+        "node_modules/undici/lib/web/fetch/index.js": {
+          "bytesInOutput": 19271
+        },
+        "node_modules/undici/lib/web/cache/util.js": {
+          "bytesInOutput": 322
+        },
+        "node_modules/undici/lib/web/cache/cache.js": {
+          "bytesInOutput": 7634
+        },
+        "node_modules/undici/lib/web/cache/cachestorage.js": {
+          "bytesInOutput": 1440
+        },
+        "node_modules/undici/lib/web/cookies/constants.js": {
+          "bytesInOutput": 101
+        },
+        "node_modules/undici/lib/web/cookies/util.js": {
+          "bytesInOutput": 2257
+        },
+        "node_modules/undici/lib/web/cookies/parse.js": {
+          "bytesInOutput": 1508
+        },
+        "node_modules/undici/lib/web/cookies/index.js": {
+          "bytesInOutput": 2193
+        },
+        "node_modules/undici/lib/web/websocket/events.js": {
+          "bytesInOutput": 4251
+        },
+        "node_modules/undici/lib/web/websocket/constants.js": {
+          "bytesInOutput": 571
+        },
+        "node_modules/undici/lib/web/websocket/util.js": {
+          "bytesInOutput": 2633
+        },
+        "node_modules/undici/lib/web/websocket/frame.js": {
+          "bytesInOutput": 1169
+        },
+        "node_modules/undici/lib/web/websocket/connection.js": {
+          "bytesInOutput": 3639
+        },
+        "node_modules/undici/lib/web/websocket/permessage-deflate.js": {
+          "bytesInOutput": 1141
+        },
+        "node_modules/undici/lib/web/websocket/receiver.js": {
+          "bytesInOutput": 5473
+        },
+        "node_modules/undici/lib/web/websocket/sender.js": {
+          "bytesInOutput": 1021
+        },
+        "node_modules/undici/lib/web/websocket/websocket.js": {
+          "bytesInOutput": 8133
+        },
+        "node_modules/undici/lib/web/websocket/stream/websocketerror.js": {
+          "bytesInOutput": 1187
+        },
+        "node_modules/undici/lib/web/websocket/stream/websocketstream.js": {
+          "bytesInOutput": 5232
+        },
+        "node_modules/undici/lib/web/eventsource/util.js": {
+          "bytesInOutput": 261
+        },
+        "node_modules/undici/lib/web/eventsource/eventsource-stream.js": {
+          "bytesInOutput": 2643
+        },
+        "node_modules/undici/lib/web/eventsource/eventsource.js": {
+          "bytesInOutput": 4228
+        },
+        "node_modules/undici/index.js": {
+          "bytesInOutput": 4185
+        },
+        "node_modules/whatwg-mimetype/lib/utils.js": {
+          "bytesInOutput": 721
+        },
+        "node_modules/whatwg-mimetype/lib/mime-type-parameters.js": {
+          "bytesInOutput": 895
+        },
+        "node_modules/whatwg-mimetype/lib/parser.js": {
+          "bytesInOutput": 939
+        },
+        "node_modules/whatwg-mimetype/lib/serializer.js": {
+          "bytesInOutput": 295
+        },
+        "node_modules/whatwg-mimetype/lib/mime-type.js": {
+          "bytesInOutput": 1739
+        },
+        "node_modules/cheerio/dist/commonjs/index.js": {
+          "bytesInOutput": 3442
+        },
+        "bds-tools/dist/http.js": {
+          "bytesInOutput": 3543
+        },
+        "bds-tools/dist/changelog.js": {
+          "bytesInOutput": 1330
+        },
+        "bds-tools/dist/fsx.js": {
+          "bytesInOutput": 2089
+        },
+        "bds-tools/dist/qqutil.js": {
+          "bytesInOutput": 2135
+        },
+        "bds-tools/dist/rollback.js": {
+          "bytesInOutput": 1984
+        },
+        "bds-tools/dist/taskbar.js": {
+          "bytesInOutput": 825
+        },
+        "bds-tools/dist/version.js": {
+          "bytesInOutput": 2006
+        },
+        "bds-tools/dist/upstream.js": {
+          "bytesInOutput": 3015
+        },
+        "bds-tools/dist/check-update.js": {
+          "bytesInOutput": 10020
+        },
+        "sfmc/package.json": {
+          "bytesInOutput": 392
+        },
+        "sfmc/src/services.ts": {
+          "bytesInOutput": 4052
+        },
+        "node_modules/chalk/source/vendor/ansi-styles/index.js": {
+          "bytesInOutput": 2566
+        },
+        "node_modules/chalk/source/vendor/supports-color/index.js": {
+          "bytesInOutput": 2020
+        },
+        "node_modules/chalk/source/utilities.js": {
+          "bytesInOutput": 340
+        },
+        "node_modules/chalk/source/index.js": {
+          "bytesInOutput": 2168
+        },
+        "sfmc/src/theme.ts": {
+          "bytesInOutput": 1175
+        },
+        "node_modules/fast-string-truncated-width/dist/utils.js": {
+          "bytesInOutput": 601
+        },
+        "node_modules/fast-string-truncated-width/dist/index.js": {
+          "bytesInOutput": 1735
+        },
+        "node_modules/fast-string-width/dist/index.js": {
+          "bytesInOutput": 115
+        },
+        "node_modules/fast-wrap-ansi/lib/main.js": {
+          "bytesInOutput": 2279
+        },
+        "node_modules/sisteransi/src/index.js": {
+          "bytesInOutput": 822
+        },
+        "node_modules/@clack/core/dist/index.mjs": {
+          "bytesInOutput": 9592
+        },
+        "node_modules/@clack/prompts/dist/index.mjs": {
+          "bytesInOutput": 11900
+        },
+        "node_modules/process-nextick-args/index.js": {
+          "bytesInOutput": 716
+        },
+        "node_modules/isarray/index.js": {
+          "bytesInOutput": 118
+        },
+        "node_modules/readable-stream/lib/internal/streams/stream.js": {
+          "bytesInOutput": 45
+        },
+        "node_modules/safe-buffer/index.js": {
+          "bytesInOutput": 770
+        },
+        "node_modules/core-util-is/lib/util.js": {
+          "bytesInOutput": 1081
+        },
+        "node_modules/inherits/inherits_browser.js": {
+          "bytesInOutput": 333
+        },
+        "node_modules/inherits/inherits.js": {
+          "bytesInOutput": 133
+        },
+        "node_modules/readable-stream/lib/internal/streams/BufferList.js": {
+          "bytesInOutput": 1230
+        },
+        "node_modules/readable-stream/lib/internal/streams/destroy.js": {
+          "bytesInOutput": 1135
+        },
+        "node_modules/util-deprecate/node.js": {
+          "bytesInOutput": 53
+        },
+        "node_modules/readable-stream/lib/_stream_writable.js": {
+          "bytesInOutput": 7255
+        },
+        "node_modules/readable-stream/lib/_stream_duplex.js": {
+          "bytesInOutput": 1262
+        },
+        "node_modules/string_decoder/lib/string_decoder.js": {
+          "bytesInOutput": 3669
+        },
+        "node_modules/readable-stream/lib/_stream_readable.js": {
+          "bytesInOutput": 10931
+        },
+        "node_modules/readable-stream/lib/_stream_transform.js": {
+          "bytesInOutput": 2031
+        },
+        "node_modules/readable-stream/lib/_stream_passthrough.js": {
+          "bytesInOutput": 244
+        },
+        "node_modules/readable-stream/readable.js": {
+          "bytesInOutput": 386
+        },
+        "node_modules/jszip/lib/support.js": {
+          "bytesInOutput": 577
+        },
+        "node_modules/jszip/lib/base64.js": {
+          "bytesInOutput": 1145
+        },
+        "node_modules/jszip/lib/nodejsUtils.js": {
+          "bytesInOutput": 541
+        },
+        "node_modules/immediate/lib/index.js": {
+          "bytesInOutput": 934
+        },
+        "node_modules/lie/lib/index.js": {
+          "bytesInOutput": 3450
+        },
+        "node_modules/jszip/lib/external.js": {
+          "bytesInOutput": 109
+        },
+        "node_modules/setimmediate/setImmediate.js": {
+          "bytesInOutput": 1743
+        },
+        "node_modules/jszip/lib/utils.js": {
+          "bytesInOutput": 4690
+        },
+        "node_modules/jszip/lib/stream/GenericWorker.js": {
+          "bytesInOutput": 2176
+        },
+        "node_modules/jszip/lib/utf8.js": {
+          "bytesInOutput": 2543
+        },
+        "node_modules/jszip/lib/stream/ConvertWorker.js": {
+          "bytesInOutput": 261
+        },
+        "node_modules/jszip/lib/nodejs/NodejsStreamOutputAdapter.js": {
+          "bytesInOutput": 356
+        },
+        "node_modules/jszip/lib/stream/StreamHelper.js": {
+          "bytesInOutput": 1844
+        },
+        "node_modules/jszip/lib/defaults.js": {
+          "bytesInOutput": 208
+        },
+        "node_modules/jszip/lib/stream/DataWorker.js": {
+          "bytesInOutput": 1303
+        },
+        "node_modules/jszip/lib/crc32.js": {
+          "bytesInOutput": 535
+        },
+        "node_modules/jszip/lib/stream/Crc32Probe.js": {
+          "bytesInOutput": 282
+        },
+        "node_modules/jszip/lib/stream/DataLengthProbe.js": {
+          "bytesInOutput": 356
+        },
+        "node_modules/jszip/lib/compressedObject.js": {
+          "bytesInOutput": 996
+        },
+        "node_modules/jszip/lib/zipObject.js": {
+          "bytesInOutput": 1595
+        },
+        "node_modules/pako/lib/utils/common.js": {
+          "bytesInOutput": 1111
+        },
+        "node_modules/pako/lib/zlib/trees.js": {
+          "bytesInOutput": 6924
+        },
+        "node_modules/pako/lib/zlib/adler32.js": {
+          "bytesInOutput": 210
+        },
+        "node_modules/pako/lib/zlib/crc32.js": {
+          "bytesInOutput": 278
+        },
+        "node_modules/pako/lib/zlib/messages.js": {
+          "bytesInOutput": 219
+        },
+        "node_modules/pako/lib/zlib/deflate.js": {
+          "bytesInOutput": 14746
+        },
+        "node_modules/pako/lib/utils/strings.js": {
+          "bytesInOutput": 1740
+        },
+        "node_modules/pako/lib/zlib/zstream.js": {
+          "bytesInOutput": 253
+        },
+        "node_modules/pako/lib/deflate.js": {
+          "bytesInOutput": 2263
+        },
+        "node_modules/pako/lib/zlib/inffast.js": {
+          "bytesInOutput": 1861
+        },
+        "node_modules/pako/lib/zlib/inftrees.js": {
+          "bytesInOutput": 1690
+        },
+        "node_modules/pako/lib/zlib/inflate.js": {
+          "bytesInOutput": 11669
+        },
+        "node_modules/pako/lib/zlib/constants.js": {
+          "bytesInOutput": 430
+        },
+        "node_modules/pako/lib/zlib/gzheader.js": {
+          "bytesInOutput": 200
+        },
+        "node_modules/pako/lib/inflate.js": {
+          "bytesInOutput": 2755
+        },
+        "node_modules/pako/index.js": {
+          "bytesInOutput": 122
+        },
+        "node_modules/jszip/lib/flate.js": {
+          "bytesInOutput": 963
+        },
+        "node_modules/jszip/lib/compressions.js": {
+          "bytesInOutput": 209
+        },
+        "node_modules/jszip/lib/signature.js": {
+          "bytesInOutput": 232
+        },
+        "node_modules/jszip/lib/generate/ZipFileWorker.js": {
+          "bytesInOutput": 4330
+        },
+        "node_modules/jszip/lib/generate/index.js": {
+          "bytesInOutput": 626
+        },
+        "node_modules/jszip/lib/nodejs/NodejsStreamInputAdapter.js": {
+          "bytesInOutput": 693
+        },
+        "node_modules/jszip/lib/object.js": {
+          "bytesInOutput": 3461
+        },
+        "node_modules/jszip/lib/reader/DataReader.js": {
+          "bytesInOutput": 928
+        },
+        "node_modules/jszip/lib/reader/ArrayReader.js": {
+          "bytesInOutput": 845
+        },
+        "node_modules/jszip/lib/reader/StringReader.js": {
+          "bytesInOutput": 513
+        },
+        "node_modules/jszip/lib/reader/Uint8ArrayReader.js": {
+          "bytesInOutput": 303
+        },
+        "node_modules/jszip/lib/reader/NodeBufferReader.js": {
+          "bytesInOutput": 266
+        },
         "node_modules/jszip/lib/reader/readerFor.js": {
-          "bytesInOutput": 886
+          "bytesInOutput": 320
         },
         "node_modules/jszip/lib/zipEntry.js": {
-          "bytesInOutput": 8470
+          "bytesInOutput": 3700
         },
         "node_modules/jszip/lib/zipEntries.js": {
-          "bytesInOutput": 8681
+          "bytesInOutput": 4581
         },
         "node_modules/jszip/lib/load.js": {
-          "bytesInOutput": 2913
+          "bytesInOutput": 1358
         },
         "node_modules/jszip/lib/index.js": {
-          "bytesInOutput": 1106
+          "bytesInOutput": 579
         },
         "sfmc/src/wizard.ts": {
-          "bytesInOutput": 13096
+          "bytesInOutput": 8416
         },
         "sfmc/src/repl.ts": {
-          "bytesInOutput": 16518
+          "bytesInOutput": 8984
         },
         "sfmc/src/logs.ts": {
-          "bytesInOutput": 4100
+          "bytesInOutput": 2221
         },
         "sfmc/src/commands.ts": {
-          "bytesInOutput": 5241
+          "bytesInOutput": 3119
         },
         "sfmc/src/main.ts": {
-          "bytesInOutput": 3125
+          "bytesInOutput": 1917
         },
         "sfmc/src/dispatcher.ts": {
-          "bytesInOutput": 593
+          "bytesInOutput": 404
+        },
+        "sfmc/src/terminal.ts": {
+          "bytesInOutput": 3144
+        },
+        "node_modules/jsonc-parser/lib/esm/impl/scanner.js": {
+          "bytesInOutput": 4537
+        },
+        "node_modules/jsonc-parser/lib/esm/impl/string-intern.js": {
+          "bytesInOutput": 451
+        },
+        "node_modules/jsonc-parser/lib/esm/impl/format.js": {
+          "bytesInOutput": 2277
+        },
+        "node_modules/jsonc-parser/lib/esm/impl/parser.js": {
+          "bytesInOutput": 4656
+        },
+        "node_modules/jsonc-parser/lib/esm/impl/edit.js": {
+          "bytesInOutput": 3076
+        },
+        "node_modules/jsonc-parser/lib/esm/main.js": {
+          "bytesInOutput": 2084
         }
       },
-      "bytes": 3403946
+      "bytes": 1961020
     }
   }
 }

@@ -3,6 +3,7 @@ import { isSea } from "node:sea";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { resolveRuntimeRoot } from "@sfmc/config";
 /**
  * 运行模式抽象层 —— 同一份源码在 npm 与 SEA 两种产物下都能跑。
  *
@@ -17,9 +18,10 @@ import { fileURLToPath } from "node:url";
  * 因此这里可直接顶层 import,无需降级。
  */
 export const IS_SEA = typeof isSea === "function" && isSea();
-export const ROOT = IS_SEA
+const defaultRoot = IS_SEA
     ? path.dirname(process.execPath)
     : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+export const ROOT = resolveRuntimeRoot(defaultRoot);
 const SERVICE_SCRIPT = {
     db: "db-server/dist/index.js",
     qq: "qq-bridge/dist/index.js",

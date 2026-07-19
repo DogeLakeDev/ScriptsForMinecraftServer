@@ -2,11 +2,10 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { configPath } from "@sfmc/config";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
-import { spawnService } from "./runtime.js";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = path.resolve(__dirname, "..", "..");
+import { ROOT, spawnService } from "./runtime.js";
+export { ROOT } from "./runtime.js";
 export const SERVICE_NAMES = ["bds", "db", "qq", "llbot"];
 class Service {
     name;
@@ -124,6 +123,19 @@ class Service {
             });
         });
     }
+    forceStop() {
+        const child = this.proc;
+        this.manualStop = true;
+        this.cleanup();
+        if (!child)
+            return;
+        try {
+            child.kill("SIGKILL");
+        }
+        catch {
+            /* ignore */
+        }
+    }
     async restart() {
         await this.stop();
         await this.start();
@@ -139,76 +151,83 @@ class Service {
 }
 function loadJson(file) {
     try {
-        const p = path.join(ROOT, "configs", file);
+        const p = configPath(ROOT, file);
         return JSON.parse(fs.readFileSync(p, "utf-8"));
     }
     catch {
         return {};
     }
 }
-const bdsCfg = loadJson("bds_updater.json");
-const qqCfg = loadJson("qq_config.json");
-const dbCfg = loadJson("db_config.json");
-const bdsPath = bdsCfg.bds_path ?? path.join(ROOT);
-const llbotEnabled = qqCfg.llbot_enabled !== false;
-const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
-const llbotCwd = qqCfg.llbot_cwd ?? "D:\\LLBot-CLI-win-x64";
-const dbPort = dbCfg.db_port ?? 3001;
-const BDS_EXE = path.resolve(bdsPath, "bedrock_server.exe");
-export const services = {
-    bds: new Service({
-        name: "bds",
-        title: "BDS",
-        cmd: BDS_EXE,
-        args: [],
-        cwd: bdsPath,
-        stopCommand: "stop",
-        stopTimeout: 30000,
-        autoRestart: bdsCfg.crash_restart !== false,
-        restartDelay: 5000,
-        validate: () => {
-            if (!fs.existsSync(BDS_EXE))
-                return `not found: ${BDS_EXE}`;
-            return null;
-        },
-    }),
-    db: new Service({
-        name: "db",
-        title: "DB Server",
-        service: "db",
-        cwd: ROOT,
-        stopTimeout: 10000,
-        autoRestart: true,
-        restartDelay: 3000,
-        env: { DB_PORT: String(dbPort) },
-    }),
-    qq: new Service({
-        name: "qq",
-        title: "QQ Bridge",
-        service: "qq",
-        cwd: ROOT,
-        stopTimeout: 10000,
-        autoRestart: true,
-        restartDelay: 3000,
-    }),
-    llbot: new Service({
-        name: "llbot",
-        title: "LLBot",
-        cmd: llbotPath,
-        args: [],
-        cwd: llbotCwd,
-        stopTimeout: 10000,
-        autoRestart: false,
-        restartDelay: 5000,
-        validate: () => {
-            if (!llbotEnabled)
-                return "LLBot disabled (llbot_enabled=false)";
-            if (!fs.existsSync(llbotPath))
-                return `not found: ${llbotPath}`;
-            return null;
-        },
-    }),
-};
+function createServices() {
+    const bdsCfg = loadJson("bds_updater.json");
+    const qqCfg = loadJson("qq_config.json");
+    const dbCfg = loadJson("db_config.json");
+    const bdsPath = bdsCfg.bds_path ?? ROOT;
+    const llbotEnabled = qqCfg.llbot_enabled !== false;
+    const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
+    const llbotCwd = qqCfg.llbot_cwd ?? "D:\\LLBot-CLI-win-x64";
+    const dbPort = dbCfg.db_port ?? 3001;
+    const bdsExe = path.resolve(bdsPath, "bedrock_server.exe");
+    return {
+        bds: new Service({
+            name: "bds",
+            title: "BDS",
+            cmd: bdsExe,
+            args: [],
+            cwd: bdsPath,
+            stopCommand: "stop",
+            stopTimeout: 30000,
+            autoRestart: bdsCfg.crash_restart !== false,
+            restartDelay: 5000,
+            validate: () => {
+                if (!fs.existsSync(bdsExe))
+                    return `not found: ${bdsExe}`;
+                return null;
+            },
+        }),
+        db: new Service({
+            name: "db",
+            title: "DB Server",
+            service: "db",
+            cwd: ROOT,
+            stopTimeout: 10000,
+            autoRestart: true,
+            restartDelay: 3000,
+            env: { DB_PORT: String(dbPort) },
+        }),
+        qq: new Service({
+            name: "qq",
+            title: "QQ Bridge",
+            service: "qq",
+            cwd: ROOT,
+            stopTimeout: 10000,
+            autoRestart: true,
+            restartDelay: 3000,
+        }),
+        llbot: new Service({
+            name: "llbot",
+            title: "LLBot",
+            cmd: llbotPath,
+            args: [],
+            cwd: llbotCwd,
+            stopTimeout: 10000,
+            autoRestart: false,
+            restartDelay: 5000,
+            validate: () => {
+                if (!llbotEnabled)
+                    return "LLBot disabled (llbot_enabled=false)";
+                if (!fs.existsSync(llbotPath))
+                    return `not found: ${llbotPath}`;
+                return null;
+            },
+        }),
+    };
+}
+export let services = createServices();
+export function refreshServices() {
+    forceStopAll();
+    services = createServices();
+}
 export const START_ORDER = ["db", "qq", "llbot", "bds"];
 export async function startAll() {
     for (const name of START_ORDER) {
@@ -224,16 +243,15 @@ export async function startAll() {
     }
 }
 export async function stopAll() {
-    for (const name of [...START_ORDER].reverse()) {
-        const svc = services[name];
-        if (!svc?.running)
-            continue;
-        try {
-            await svc.stop();
-        }
-        catch {
-            /* ignore */
-        }
-    }
+    const pending = [...START_ORDER]
+        .reverse()
+        .map((name) => services[name])
+        .filter((service) => Boolean(service?.running))
+        .map((service) => service.stop());
+    await Promise.allSettled(pending);
+}
+export function forceStopAll() {
+    for (const service of Object.values(services))
+        service.forceStop();
 }
 //# sourceMappingURL=services.js.map

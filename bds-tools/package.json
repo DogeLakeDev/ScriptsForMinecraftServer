@@ -19,6 +19,7 @@
     "watch": "node dist/bds-manager.js watch"
   },
   "dependencies": {
+    "@sfmc/config": "*",
     "@sfmc/logs": "*",
     "adm-zip": "^0.5.18",
     "cheerio": "^1.2.0",

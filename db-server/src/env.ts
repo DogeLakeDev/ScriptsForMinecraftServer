@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { configPath, resolveRuntimeRoot } from "@sfmc/config";
 
 import { log } from "./lib/log.js";
 
@@ -42,10 +43,9 @@ function readJSON(path: string): Record<string, unknown> {
 }
 
 export function loadEnv(): EnvConfig {
-  const PROJECT_ROOT = process.env["SFMC_ROOT"] || resolve(__dirname, "..");
-  // 路径基于 __dirname(ESM 下的当前文件目录)
-  const dbcfgPath = join(__dirname, "..", "..", "configs", "db_config.json");
-  const qqcfgPath = join(__dirname, "..", "..", "configs", "qq_config.json");
+  const PROJECT_ROOT = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
+  const dbcfgPath = configPath(PROJECT_ROOT, "db_config.json");
+  const qqcfgPath = configPath(PROJECT_ROOT, "qq_config.json");
   const dbconfig = readJSON(dbcfgPath);
   const qqconfig = readJSON(qqcfgPath);
 
@@ -87,7 +87,7 @@ export function loadEnv(): EnvConfig {
 
   const PORT = parseInt(String(pick(dbconfig["db_port"] as number | undefined, "DB_PORT", 3001, "db_port")), 10);
   const HOST = "127.0.0.1";
-  const DB_PATH_RAW = String(pick(dbconfig["dbDir"] as string | undefined, "DB_DIR", "../data/sfmc_data.db", "dbDir"));
+  const DB_PATH_RAW = String(pick(dbconfig["dbDir"] as string | undefined, "DB_DIR", "data/sfmc_data.db", "dbDir"));
   const DB_PATH = isAbsolute(DB_PATH_RAW) ? DB_PATH_RAW : resolve(PROJECT_ROOT, DB_PATH_RAW);
   const LLBOT_HOST = String(
     pick(qqconfig["llbot_host"] as string | undefined, "LLBOT_HOST", "127.0.0.1", "llbot_host")
@@ -102,7 +102,7 @@ export function loadEnv(): EnvConfig {
     pick(qqconfig["bridge_channel_id"] as string | undefined, "BRIDGE_CHANNEL_ID", "", "bridge_channel_id")
   );
   const AUTH_TOKEN = String(pick(dbconfig["http_auth"] as string | undefined, "HTTP_AUTH", "", "http_auth"));
-  const MODULES_DIR = dbconfig["modulesDir"] ? resolve(String(dbconfig["modulesDir"])) : join(PROJECT_ROOT, "modules");
+  const MODULES_DIR = dbconfig["modulesDir"] ? resolve(PROJECT_ROOT, String(dbconfig["modulesDir"])) : join(PROJECT_ROOT, "modules");
   const MODULE_CATALOG_PATH = join(MODULES_DIR, "catalog.json");
   const MODULE_LOCK_PATH = join(MODULES_DIR, "module-lock.json");
 

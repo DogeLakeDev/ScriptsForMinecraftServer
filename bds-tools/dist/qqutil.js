@@ -15,15 +15,15 @@ exports.sendText = sendText;
 exports.sendMixed = sendMixed;
 exports.sendWithImage = sendWithImage;
 const node_http_1 = __importDefault(require("node:http"));
-const node_path_1 = __importDefault(require("node:path"));
 const node_fs_1 = __importDefault(require("node:fs"));
+const config_1 = require("@sfmc/config");
 const paths_js_1 = require("./paths.js");
 const log_js_1 = require("./log.js");
 let cachedCfg = null;
 function getConfig() {
     if (cachedCfg)
         return cachedCfg;
-    const cfgPath = node_path_1.default.join(paths_js_1.SCRIPT_DIR, "..", "configs", "qq_config.json");
+    const cfgPath = (0, config_1.configPath)(paths_js_1.ROOT_DIR, "qq_config.json");
     try {
         cachedCfg = JSON.parse(node_fs_1.default.readFileSync(cfgPath, "utf-8"));
     }
@@ -35,8 +35,8 @@ function getConfig() {
 /** 检查 qq-bridge 模块是否启用 */
 function isQqBridgeEnabled() {
     try {
-        const catalog = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(paths_js_1.SCRIPT_DIR, "..", "modules", "catalog.json"), "utf-8"));
-        const lock = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(paths_js_1.SCRIPT_DIR, "..", "modules", "module-lock.json"), "utf-8"));
+        const catalog = JSON.parse(node_fs_1.default.readFileSync((0, config_1.modulePath)(paths_js_1.ROOT_DIR, "catalog.json"), "utf-8"));
+        const lock = JSON.parse(node_fs_1.default.readFileSync((0, config_1.modulePath)(paths_js_1.ROOT_DIR, "module-lock.json"), "utf-8"));
         const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge");
         return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
     }

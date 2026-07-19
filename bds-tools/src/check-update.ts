@@ -77,7 +77,7 @@ function buildContext(): UpdateContext {
     bdsPath: bds_path,
     backupDir: backup_dir,
     preserve,
-    autoRestart: cfg.auto_restart !== false,
+    autoRestart: !args["no-start"] && cfg.auto_restart !== false,
     qqNotify: !!cfg.qq_notify,
   };
 }
@@ -160,6 +160,8 @@ export async function runUpdate(): Promise<number> {
   const { cfg, channel, checkOnly, force, bdsPath, backupDir, preserve, autoRestart, qqNotify } = ctx;
 
   log.info(`===== 开始检查更新 (${channel}) =====`);
+  fs.mkdirSync(bdsPath, { recursive: true });
+  fs.mkdirSync(backupDir, { recursive: true });
 
   // 1. 当前版本
   const exePath = path.join(bdsPath, "bedrock_server.exe");
@@ -264,7 +266,7 @@ export async function runUpdate(): Promise<number> {
   });
 
   // 7. 停服
-  let bds = createBdsManager();
+  const bds = createBdsManager({ detached: true });
   try {
     log.info("停止 BDS 服务...");
     await bds.stop();
@@ -450,6 +452,7 @@ export async function runUpdate(): Promise<number> {
 }
 
 function isMain(): boolean {
+  if (process.env.SFMC_SERVICE === "update") return true;
   if (require.main === module) return true;
   const entry = process.argv[1] ?? "";
   return entry.endsWith("check-update.js") || entry.endsWith("check-update.ts");

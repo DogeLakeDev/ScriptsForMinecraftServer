@@ -7,7 +7,7 @@
  *   - reload 时仅覆盖原对象 (mutate), 保留运行时引用的同一份对象
  */
 import type { QQBridgeConfig } from "./types.js";
-/** 仓库根目录: src/ → qq-bridge/ → ROOT */
+/** npm 模式从源码位置回退，supervisor/SEA 模式统一由 SFMC_ROOT 指定。 */
 export declare const ROOT_DIR: string;
 export declare const CFG_PATH: string;
 /** 进程启动时加载一次。失败直接退出,与旧实现一致。 */

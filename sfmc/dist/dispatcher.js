@@ -12,6 +12,8 @@
  *
  */
 import process from "node:process";
+import { ensureSeaTerminalProfile } from "./terminal.js";
+ensureSeaTerminalProfile();
 const mode = process.env.SFMC_SERVICE;
 const p = mode === "db"
     ? import("../../db-server/dist/index.js")

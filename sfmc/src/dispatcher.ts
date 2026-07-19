@@ -13,6 +13,9 @@
  */
 
 import process from "node:process";
+import { ensureSeaTerminalProfile } from "./terminal.js";
+
+ensureSeaTerminalProfile();
 
 const mode = process.env.SFMC_SERVICE;
 

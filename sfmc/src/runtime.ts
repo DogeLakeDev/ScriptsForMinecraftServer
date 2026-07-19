@@ -3,6 +3,7 @@ import { isSea } from "node:sea";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { resolveRuntimeRoot } from "@sfmc/config";
 
 /**
  * 运行模式抽象层 —— 同一份源码在 npm 与 SEA 两种产物下都能跑。
@@ -20,9 +21,10 @@ import { fileURLToPath } from "node:url";
 
 export const IS_SEA: boolean = typeof isSea === "function" && isSea();
 
-export const ROOT: string = IS_SEA
+const defaultRoot: string = IS_SEA
   ? path.dirname(process.execPath)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+export const ROOT: string = resolveRuntimeRoot(defaultRoot);
 
 export type ServiceId = "db" | "qq" | "update" | "manager";
 

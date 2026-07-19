@@ -3,6 +3,9 @@
  *
  * SCRIPT_DIR = 编译产物上一级目录 (即 BDSTools/)
  * 这样无论从 src/ 还是 dist/ 调用，都能找到 scripts/bds-manager.js 等。
+ *
+ * SEA bundle 模式下优先读 SFMC_ROOT env (由 spawnService 设置)，
+ * 退回到 __dirname 兼容原生 CJS standalone 模式。
  */
 import type { BdsUpdaterConfig } from "./types.js";
 export declare const SCRIPT_DIR: string;

@@ -2,12 +2,11 @@ import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { configPath } from "@sfmc/config";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
-import { spawnService, type ServiceId } from "./runtime.js";
+import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = path.resolve(__dirname, "..", "..");
+export { ROOT } from "./runtime.js";
 
 export interface LogLine {
   time: Date;
@@ -155,6 +154,18 @@ class Service {
     });
   }
 
+  forceStop(): void {
+    const child = this.proc;
+    this.manualStop = true;
+    this.cleanup();
+    if (!child) return;
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      /* ignore */
+    }
+  }
+
   async restart(): Promise<void> {
     await this.stop();
     await this.start();
@@ -173,29 +184,29 @@ class Service {
 
 function loadJson(file: string): Record<string, unknown> {
   try {
-    const p = path.join(ROOT, "configs", file);
+    const p = configPath(ROOT, file);
     return JSON.parse(fs.readFileSync(p, "utf-8")) as Record<string, unknown>;
   } catch {
     return {};
   }
 }
 
-const bdsCfg = loadJson("bds_updater.json") as Record<string, unknown>;
-const qqCfg = loadJson("qq_config.json") as Record<string, unknown>;
-const dbCfg = loadJson("db_config.json") as Record<string, unknown>;
-const bdsPath = (bdsCfg.bds_path as string) ?? path.join(ROOT);
-const llbotEnabled = qqCfg.llbot_enabled !== false;
-const llbotPath = (qqCfg.llbot_path as string) ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
-const llbotCwd = (qqCfg.llbot_cwd as string) ?? "D:\\LLBot-CLI-win-x64";
-const dbPort = (dbCfg.db_port as number) ?? 3001;
+function createServices(): Record<ServiceName, Service> {
+  const bdsCfg = loadJson("bds_updater.json") as Record<string, unknown>;
+  const qqCfg = loadJson("qq_config.json") as Record<string, unknown>;
+  const dbCfg = loadJson("db_config.json") as Record<string, unknown>;
+  const bdsPath = (bdsCfg.bds_path as string) ?? ROOT;
+  const llbotEnabled = qqCfg.llbot_enabled !== false;
+  const llbotPath = (qqCfg.llbot_path as string) ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
+  const llbotCwd = (qqCfg.llbot_cwd as string) ?? "D:\\LLBot-CLI-win-x64";
+  const dbPort = (dbCfg.db_port as number) ?? 3001;
+  const bdsExe = path.resolve(bdsPath, "bedrock_server.exe");
 
-const BDS_EXE = path.resolve(bdsPath, "bedrock_server.exe");
-
-export const services: Record<ServiceName, Service> = {
+  return {
   bds: new Service({
     name: "bds",
     title: "BDS",
-    cmd: BDS_EXE,
+    cmd: bdsExe,
     args: [],
     cwd: bdsPath,
     stopCommand: "stop",
@@ -203,7 +214,7 @@ export const services: Record<ServiceName, Service> = {
     autoRestart: bdsCfg.crash_restart !== false,
     restartDelay: 5000,
     validate: () => {
-      if (!fs.existsSync(BDS_EXE)) return `not found: ${BDS_EXE}`;
+      if (!fs.existsSync(bdsExe)) return `not found: ${bdsExe}`;
       return null;
     },
   }),
@@ -244,7 +255,15 @@ export const services: Record<ServiceName, Service> = {
       return null;
     },
   }),
-};
+  };
+}
+
+export let services: Record<ServiceName, Service> = createServices();
+
+export function refreshServices(): void {
+  forceStopAll();
+  services = createServices();
+}
 
 export const START_ORDER: ServiceName[] = ["db", "qq", "llbot", "bds"];
 
@@ -261,14 +280,14 @@ export async function startAll(): Promise<void> {
 }
 
 export async function stopAll(): Promise<void> {
-  for (const name of [...START_ORDER].reverse()) {
-    const svc = services[name];
-    if (!svc?.running) continue;
-    try {
-      await svc.stop();
-    } catch {
-      /* ignore */
-    }
-  }
+  const pending = [...START_ORDER]
+    .reverse()
+    .map((name) => services[name])
+    .filter((service): service is Service => Boolean(service?.running))
+    .map((service) => service.stop());
+  await Promise.allSettled(pending);
 }
 
+export function forceStopAll(): void {
+  for (const service of Object.values(services)) service.forceStop();
+}

@@ -18,7 +18,10 @@ export interface BdsManager {
     isManualStop: boolean;
     getPid(): number;
 }
-export declare function createBdsManager(): BdsManager;
+export interface BdsManagerOptions {
+    detached?: boolean;
+}
+export declare function createBdsManager(options?: BdsManagerOptions): BdsManager;
 export declare const bdsEvents: EventEmitter;
 export declare const bdsEvents_enabled: () => void;
 //# sourceMappingURL=bds-manager.d.ts.map

@@ -79,7 +79,7 @@ function ensureProc() {
     };
     return cached;
 }
-function createBdsManager() {
+function createBdsManager(options = {}) {
     const events = new node_events_1.EventEmitter();
     events.setMaxListeners(100);
     const sendCommand = (cmd) => {
@@ -171,9 +171,12 @@ function createBdsManager() {
         log_js_1.log.info("正在启动 BDS...");
         const child = (0, node_child_process_1.spawn)(p.exePath, [], {
             cwd: p.bdsPath,
-            stdio: ["pipe", "pipe", "pipe"],
+            stdio: options.detached ? "ignore" : ["pipe", "pipe", "pipe"],
+            detached: options.detached,
             windowsHide: true,
         });
+        if (options.detached)
+            child.unref();
         p.process = child;
         writePid(child.pid ?? 0);
         log_js_1.log.info(`BDS 已启动 (PID: ${child.pid})`);

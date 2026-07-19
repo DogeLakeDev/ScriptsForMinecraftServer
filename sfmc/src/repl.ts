@@ -2,7 +2,7 @@ import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
-import { SERVICE_NAMES, services, stopAll, type ServiceName } from "./services.js";
+import { forceStopAll, SERVICE_NAMES, services, stopAll, type ServiceName } from "./services.js";
 import { c } from "./theme.js";
 
 function setRaw(v: boolean): void {
@@ -418,7 +418,26 @@ function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
   stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}\n`);
 }
 
+/* ==================================================================
+ *  START REPL
+ * ================================================================== */
+
 export async function startRepl(): Promise<void> {
+  let stopping = false;
+  const shutdown = async (): Promise<void> => {
+    if (stopping) return;
+    stopping = true;
+    stdout.write(c.dim("stopping services...\n"));
+    await stopAll();
+    stdout.write(c.dim("bye\n"));
+  };
+  const onSigint = (): void => {
+    stdout.write(c.yellow("\nforce stopping services...\n"));
+    forceStopAll();
+    process.exit(130);
+  };
+  process.on("SIGINT", onSigint);
+
   if (!stdin.isTTY) {
     console.log(c.dim(" Non-interactive mode (pipe detected)\n"));
     for await (const line of (await import("node:readline/promises")).createInterface({
@@ -436,9 +455,8 @@ export async function startRepl(): Promise<void> {
       }
       await execCmd(p);
     }
-    console.log(c.dim("stopping services..."));
-    await stopAll();
-    console.log(c.dim("bye"));
+    await shutdown();
+    process.off("SIGINT", onSigint);
     return;
   }
   console.clear();
@@ -505,9 +523,8 @@ export async function startRepl(): Promise<void> {
 
   process.stdout.off("resize", onResize);
   unsub();
-  stdout.write(c.dim("stopping services...\n"));
-  await stopAll();
-  stdout.write(c.dim("bye\n"));
+  await shutdown();
+  process.off("SIGINT", onSigint);
 }
 
 async function execCmd(parts: string[]): Promise<void> {
@@ -589,4 +606,3 @@ async function execCmd(parts: string[]): Promise<void> {
       stdout.write(c.yellow(`Unknown: ${cmd}  (try: help)\n`));
   }
 }
-

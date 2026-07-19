@@ -7,9 +7,9 @@
  */
 
 import http from "node:http";
-import path from "node:path";
 import fs from "node:fs";
-import { SCRIPT_DIR } from "./paths.js";
+import { configPath, modulePath } from "@sfmc/config";
+import { ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
 
 interface QqConfig {
@@ -20,7 +20,7 @@ interface QqConfig {
 let cachedCfg: QqConfig | null = null;
 function getConfig(): QqConfig {
   if (cachedCfg) return cachedCfg;
-  const cfgPath = path.join(SCRIPT_DIR, "..", "configs", "qq_config.json");
+  const cfgPath = configPath(ROOT_DIR, "qq_config.json");
   try {
     cachedCfg = JSON.parse(fs.readFileSync(cfgPath, "utf-8")) as QqConfig;
   } catch {
@@ -32,8 +32,8 @@ function getConfig(): QqConfig {
 /** 检查 qq-bridge 模块是否启用 */
 export function isQqBridgeEnabled(): boolean {
   try {
-    const catalog = JSON.parse(fs.readFileSync(path.join(SCRIPT_DIR, "..", "modules", "catalog.json"), "utf-8")) as { modules?: Array<{ id?: string; configKey?: string }> };
-    const lock = JSON.parse(fs.readFileSync(path.join(SCRIPT_DIR, "..", "modules", "module-lock.json"), "utf-8")) as { modules?: Record<string, { enabled?: boolean }> };
+    const catalog = JSON.parse(fs.readFileSync(modulePath(ROOT_DIR, "catalog.json"), "utf-8")) as { modules?: Array<{ id?: string; configKey?: string }> };
+    const lock = JSON.parse(fs.readFileSync(modulePath(ROOT_DIR, "module-lock.json"), "utf-8")) as { modules?: Record<string, { enabled?: boolean }> };
     const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge");
     return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
   } catch {

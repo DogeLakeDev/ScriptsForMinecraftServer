@@ -32,6 +32,7 @@
   },
   "workspaces": [
     "shared/sfmc-logs",
+    "shared/sfmc-config",
     "db-server",
     "scriptsforminecraftserver",
     "qq-bridge",

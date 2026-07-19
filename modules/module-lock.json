@@ -7,51 +7,51 @@
     },
     "feature-price-index": {
       "enabled": true,
-      "updatedAt": 1784041399423
+      "updatedAt": 1784463641711
     },
     "feature-daily-task": {
       "enabled": true,
-      "updatedAt": 1784041402582
+      "updatedAt": 1784463641711
     },
     "feature-chat": {
       "enabled": true,
-      "updatedAt": 1784041405374
+      "updatedAt": 1784463641711
     },
     "feature-coop": {
       "enabled": true,
-      "updatedAt": 1784041405854
+      "updatedAt": 1784463641711
     },
     "feature-land": {
       "enabled": true,
-      "updatedAt": 1784041406287
+      "updatedAt": 1784463641711
     },
     "feature-afk": {
       "enabled": true,
-      "updatedAt": 1784041406729
+      "updatedAt": 1784463641711
     },
     "feature-clean": {
       "enabled": true,
-      "updatedAt": 1784041407927
+      "updatedAt": 1784463641711
     },
     "feature-online-time": {
       "enabled": true,
-      "updatedAt": 1784041409356
+      "updatedAt": 1784463641711
     },
     "feature-activity-log": {
       "enabled": true,
-      "updatedAt": 1784041410056
+      "updatedAt": 1784463641711
     },
     "feature-scoreboard-sync": {
       "enabled": true,
-      "updatedAt": 1784041410546
+      "updatedAt": 1784463641711
     },
     "feature-spawn-protect": {
       "enabled": true,
-      "updatedAt": 1784041411019
+      "updatedAt": 1784463641711
     },
     "feature-chat-sounds": {
       "enabled": true,
-      "updatedAt": 1784041411469
+      "updatedAt": 1784463641711
     },
     "feature-inventory-switcher": {
       "enabled": true,
@@ -59,7 +59,7 @@
     },
     "feature-area-fly": {
       "enabled": true,
-      "updatedAt": 1784041412687
+      "updatedAt": 1784463641711
     },
     "feature-area-creative": {
       "enabled": true,
@@ -75,11 +75,31 @@
     },
     "feature-qa": {
       "enabled": true,
-      "updatedAt": 1784041414623
+      "updatedAt": 1784463641711
     },
     "tool-bds-updater": {
       "enabled": true,
-      "updatedAt": 1784041421943
+      "updatedAt": 1784464791795
+    },
+    "feature-economy": {
+      "enabled": true,
+      "updatedAt": 1784463641711
+    },
+    "feature-tps": {
+      "enabled": true,
+      "updatedAt": 1784463641711
+    },
+    "service-db": {
+      "enabled": true,
+      "updatedAt": 1784464791795
+    },
+    "service-qq-bridge": {
+      "enabled": true,
+      "updatedAt": 1784464791795
+    },
+    "service-panel": {
+      "enabled": true,
+      "updatedAt": 1784464791795
     }
   }
 }

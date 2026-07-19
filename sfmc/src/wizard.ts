@@ -1,21 +1,86 @@
-import { confirm, intro, isCancel, multiselect, note, outro, select, spinner, text } from "@clack/prompts";
-import cliProgress from "cli-progress";
+import {
+  confirm,
+  intro,
+  isCancel,
+  multiselect,
+  note,
+  outro,
+  select,
+  tasks,
+  text,
+} from "@clack/prompts";
 import JSZip from "jszip";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnService, spawnServiceSync } from "./runtime.js";
-import { ROOT } from "./services.js";
+import { getAsset } from "node:sea";
+import { configPath } from "@sfmc/config";
+import { IS_SEA, ROOT, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
 function cfg(rootDir: string, name: string): string {
-  return path.join(rootDir, "configs", name);
+  return configPath(rootDir, name);
 }
 
-function write(rootDir: string, file: string, data: Record<string, unknown>): void {
-  const target = cfg(rootDir, file);
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, JSON.stringify(data, null, 2), "utf-8");
+function readJson(file: string): Record<string, unknown> {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf-8")) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function patchJson(rootDir: string, name: string, updates: Record<string, unknown>): void {
+  const file = cfg(rootDir, name);
+  const existing = readJson(file);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ ...existing, ...updates }, null, 2), "utf-8");
+}
+
+function ensureDirectory(directory: string): boolean {
+  try {
+    fs.mkdirSync(directory, { recursive: true });
+    return fs.statSync(directory).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function pickDirectory(message: string, defaultDirectory: string): Promise<string> {
+  const method = await select({
+    message,
+    options: [
+      { value: "text", label: "Enter path", hint: defaultDirectory },
+      { value: "browse", label: "Browse...", hint: "open system folder picker" },
+    ],
+  });
+  if (isCancel(method)) return defaultDirectory;
+  if (method === "browse") return pickDirectoryDialog(message, defaultDirectory) ?? defaultDirectory;
+
+  const selected = await text({ message, initialValue: defaultDirectory });
+  return isCancel(selected) || !selected ? defaultDirectory : selected;
+}
+
+function pickDirectoryDialog(title: string, defaultDirectory: string): string | null {
+  const escape = (value: string): string => value.replace(/'/g, "''");
+  const script = [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
+    `$dialog.Description = '${escape(title)}'`,
+    `$dialog.SelectedPath = '${escape(defaultDirectory)}'`,
+    "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }",
+  ].join("; ");
+
+  try {
+    const output = execFileSync("powershell.exe", ["-NoProfile", "-STA", "-Command", script], {
+      encoding: "utf-8",
+      timeout: 30_000,
+      windowsHide: true,
+    });
+    return output.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 async function waitForHealth(port: number, ms = 15000): Promise<boolean> {
@@ -31,123 +96,118 @@ async function waitForHealth(port: number, ms = 15000): Promise<boolean> {
   return false;
 }
 
-function pickFolder(title: string): string | null {
-  const ps = [
-    `Add-Type -AssemblyName System.Windows.Forms`,
-    `$b = New-Object System.Windows.Forms.FolderBrowserDialog`,
-    `$b.Description = '${title.replace(/'/g, "''")}'`,
-    `$b.ShowDialog() | Out-Null`,
-    `Write-Output $b.SelectedPath`,
-  ].join("; ");
-  try {
-    const out = execSync(`powershell -NoProfile -Command "${ps.replace(/"/g, '\\"')}"`, {
-      encoding: "utf-8",
-      timeout: 30000,
-    });
-    return out.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-function listFiles(dir: string, prefix = ""): string[] {
-  const result: string[] = [];
-  try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) {
-        result.push(...listFiles(path.join(dir, entry.name), rel));
-      } else {
-        result.push(rel);
-      }
-    }
-  } catch {
-    /* dir may not exist */
-  }
-  return result;
-}
-
-async function extractZip(data: Buffer, destDir: string): Promise<string[]> {
+async function extractZip(
+  data: Buffer,
+  destDir: string,
+  options: { overwrite?: boolean } = { overwrite: true }
+): Promise<string[]> {
   const zip = await JSZip.loadAsync(data);
   const files: string[] = [];
-  zip.forEach((relPath) => {
-    if (!relPath.endsWith("/")) files.push(relPath);
-  });
-  fs.mkdirSync(destDir, { recursive: true });
-  for (const relPath of files) {
-    const file = zip.file(relPath);
-    if (!file) continue;
-    const target = path.join(destDir, relPath);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    const buf = await file.async("nodebuffer");
-    fs.writeFileSync(target, buf);
+
+  const safeJoin = (base: string, relative: string): string => {
+    const fullPath = path.resolve(base, relative);
+    const relativePath = path.relative(base, fullPath);
+    if (relativePath === "" || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+      throw new Error(`Path traversal detected: ${relative}`);
+    }
+    return fullPath;
+  };
+
+  const concurrency = 10;
+  const entries = Object.keys(zip.files);
+  const chunks = [];
+  for (let i = 0; i < entries.length; i += concurrency) {
+    chunks.push(entries.slice(i, i + concurrency));
   }
+
+  for (const chunk of chunks) {
+    await Promise.all(
+      chunk.map(async (relPath) => {
+        if (relPath.endsWith("/")) return;
+
+        const file = zip.file(relPath);
+        if (!file) return;
+
+        const targetPath = safeJoin(destDir, relPath);
+        if (!options.overwrite && fs.existsSync(targetPath)) {
+          return;
+        }
+
+        await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+        const content = await file.async("nodebuffer");
+        await fs.promises.writeFile(targetPath, content);
+        files.push(relPath);
+      })
+    );
+  }
+
   return files;
 }
 
-async function extractDefaults(rootDir: string): Promise<void> {
-  const s = spinner();
-  s.start("Checking bundled assets");
+/** SEA asset: { zipBaseName, targetDirRelative, SEA_asset_name } */
+const ASSETS = [
+  { target: "configs", npmTarget: "configs", asset: "configs_default" },
+  { target: "modules", npmTarget: "modules", asset: "modules" },
+  { target: "resource_packs", npmTarget: "scriptsforminecraftserver/resource_packs", asset: "resource_packs" },
+  { target: "behavior_packs", npmTarget: "scriptsforminecraftserver/behavior_packs", asset: "behavior_packs" },
+] as const;
 
-  const defaultsDir = path.join(rootDir, "configs-default");
-  const configsDir = path.join(rootDir, "configs");
+function missingRuntimeAssets(rootDir: string): string[] {
+  return ASSETS.flatMap(({ target, npmTarget }) => {
+    const directory = path.join(rootDir, npmTarget);
+    try {
+      return fs.statSync(directory).isDirectory() && fs.readdirSync(directory).length > 0 ? [] : [target];
+    } catch {
+      return [target];
+    }
+  });
+}
 
-  if (fs.existsSync(configsDir) && fs.readdirSync(configsDir).length > 0) {
-    s.stop("Configs already exist");
+async function runBdsUpdate(rootDir: string, channel: string): Promise<{ code: number | null; output: string }> {
+  const child = spawnService("update", [`--channel=${channel}`, "--force", "--no-start"], {
+    cwd: rootDir,
+    stdio: "pipe",
+  });
+  const output: string[] = [];
+  child.stdout?.on("data", (data: Buffer) => output.push(data.toString()));
+  child.stderr?.on("data", (data: Buffer) => output.push(data.toString()));
+
+  return new Promise((resolve) => {
+    child.once("error", (error) => resolve({ code: null, output: `${output.join("")}${error.message}` }));
+    child.once("close", (code) => resolve({ code, output: output.join("") }));
+  });
+}
+
+async function prepareRuntimeAssets(rootDir: string): Promise<void> {
+  if (!IS_SEA) {
+    const missing = missingRuntimeAssets(rootDir);
+    if (missing.length > 0) {
+      throw new Error(`npm runtime is missing required directories: ${missing.join(", ")}`);
+    }
     return;
   }
 
-  let data: Buffer | null = null;
-  const getAsset = (process as { getBuiltinAsset?: (name: string) => Uint8Array }).getBuiltinAsset;
-  if (typeof getAsset === "function") {
-    try {
-      const raw = getAsset("configs_default");
-      data = Buffer.from(raw);
-    } catch {
-      /* not available */
-    }
-  }
+  await tasks([
+    {
+      title: "Extracting bundled assets",
+      task: async (message) => {
+        for (const { target, asset } of ASSETS) {
+          message(`Extracting ${target}`);
+          const assetBuffer = getAsset(asset);
+          if (!assetBuffer) throw new Error(`Bundled asset not found: ${asset}`);
 
-  s.stop("Extracting configs");
-
-  if (data) {
-    const files = await extractZip(data, configsDir);
-    if (files.length > 0) {
-      const bar = new cliProgress.SingleBar(
-        { format: ` {bar} {percentage}% | {value}/{total} files | {file}` },
-        cliProgress.Presets.shades_classic
-      );
-      bar.start(files.length, 0, { file: "" });
-      for (const f of files) {
-        bar.increment({ file: f });
-        await new Promise((r) => setTimeout(r, 5));
-      }
-      bar.stop();
-    }
-  } else if (fs.existsSync(defaultsDir)) {
-    const files = listFiles(defaultsDir);
-    const bar = new cliProgress.SingleBar(
-      { format: ` {bar} {percentage}% | {value}/{total} files | {file}` },
-      cliProgress.Presets.shades_classic
-    );
-    bar.start(files.length, 0, { file: "" });
-    fs.mkdirSync(configsDir, { recursive: true });
-    for (const file of files) {
-      const src = path.join(defaultsDir, file);
-      const dest = path.join(configsDir, file);
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
-      bar.increment({ file });
-    }
-    bar.stop();
-  } else {
-    fs.mkdirSync(configsDir, { recursive: true });
-    note(c.yellow("No bundled configs found — created empty configs/ directory"), "Notice");
-  }
+          const destDir = path.join(rootDir, target);
+          if (!ensureDirectory(destDir)) throw new Error(`Cannot create asset directory: ${destDir}`);
+          await extractZip(Buffer.from(assetBuffer), destDir, { overwrite: true });
+        }
+        return "Assets extracted";
+      },
+    },
+  ]);
 }
 
 export async function runWizard(): Promise<void> {
-  intro(c.bold("sfmc — Setup Wizard"));
+  intro(c.bold("Setup Wizard =D"));
 
   const hasConfigs = fs.existsSync(cfg(ROOT, "db_config.json"));
 
@@ -159,62 +219,60 @@ export async function runWizard(): Promise<void> {
     }
   }
 
-  // ── Step 1: Runtime environment ──────────────────────────────────
-  note(c.text("First, select where this server runs"), "Step 1 — Runtime Environment");
+  const rootDir = ROOT;
+  note(c.text(`Runtime root: ${rootDir}`), "Step 1 — Runtime Environment");
 
-  const runtimeEnv = await select({
-    message: "Runtime environment:",
-    options: [
-      { value: "local", label: "Local", hint: "run on this machine" },
-      { value: "remote", label: "Remote", hint: "connect to remote server (not yet implemented)" },
-    ],
+  try {
+    await prepareRuntimeAssets(rootDir);
+    patchJson(rootDir, "runtime.json", { runtime_root: rootDir, initialized_at: new Date().toISOString() });
+  } catch (error) {
+    outro(c.red(`Runtime preparation failed: ${(error as Error).message}`));
+    return;
+  }
+
+  // ── Step 2: External runtime paths ────────────────────────────────
+  note(c.text("Select paths for BDS, Database, and LLBOT"), "Step 2 — External Runtimes");
+
+  const bdsResolved = await pickDirectory("BDS installation directory", path.join(rootDir, "BDS"));
+  if (!ensureDirectory(bdsResolved)) {
+    outro(c.red(`Cannot create BDS installation directory: ${bdsResolved}`));
+    return;
+  }
+  const EULA = await confirm({
+    message:
+      "Do you agree to the EULA(https://www.minecraft.net/en-us/eula) published by Mojang? You must agree to it before you can use this program.",
+    initialValue: false,
   });
-  if (isCancel(runtimeEnv)) {
-    outro(c.dim("Setup cancelled"));
+  if (isCancel(EULA) || !EULA) {
+    outro(c.yellow("Disagreed."));
     return;
   }
-
-  let rootDir = ROOT;
-  if (runtimeEnv === "local") {
-    const picked = pickFolder("Select server root directory");
-    if (picked && fs.existsSync(picked)) {
-      rootDir = picked;
-    } else {
-      note(c.text(`Using default: ${ROOT}`), "Server directory");
-    }
-  } else {
-    outro(c.yellow("Remote mode not yet implemented — skipping setup"));
-    return;
-  }
-
-  note(c.text(`Server root: ${rootDir}`), "Confirmed");
-
-  // ── Step 2: Extract bundled defaults ────────────────────────────
-  await extractDefaults(rootDir);
-
-  // ── Step 3: External runtime paths ────────────────────────────────
-  note(c.text("Select paths for BDS, LLBOT, and database"), "Step 2 — External Runtimes");
-
-  const bdsPath = pickFolder("Select BDS installation directory");
-  const bdsResolved = bdsPath || path.join(rootDir, "BDServer");
 
   let llbotPath: string | undefined;
   const llbotEnabled = await confirm({ message: "Enable LLBot (QQ bridge)?", initialValue: false });
   if (!isCancel(llbotEnabled) && llbotEnabled) {
-    const picked = pickFolder("Select LLBot directory");
-    if (picked) llbotPath = picked;
+    const picked = await pickDirectory("LLBot runtime directory", path.join(rootDir, "LLBOT"));
+    if (ensureDirectory(picked)) {
+      llbotPath = picked;
+    } else {
+      llbotPath = path.join(rootDir, "LLBOT");
+      note(c.text(`Using default: ${llbotPath}`), "TIPS");
+    }
   }
 
-  const dbDir = pickFolder("Select database storage directory");
-  const dbResolved = dbDir || path.join(rootDir, "data");
+  const dbDirInput = await pickDirectory("Database storage directory", path.join(rootDir, "data"));
+  const dbDir = ensureDirectory(dbDirInput) ? dbDirInput : path.join(rootDir, "data");
+  if (dbDir !== dbDirInput) {
+    note(c.text(`Using default: ${dbDir}`), "TIPS");
+  }
 
   const dbPortRaw = await text({
     message: "Database server port:",
     initialValue: "3001",
-    validate: (v: string) => {
+    validate: (v: any): any => {
       const n = parseInt(v, 10);
       if (isNaN(n) || n < 1024 || n > 65535) return "Enter 1024–65535";
-      return;
+      if (v.length === 0) return `Value is required!`;
     },
   });
   const dbPort = isCancel(dbPortRaw) ? 3001 : parseInt(dbPortRaw as string, 10);
@@ -230,7 +288,7 @@ export async function runWizard(): Promise<void> {
 
   let downloadBds = false;
   let bdsChannel = "release";
-  let backupDir = "";
+  let backupDir = path.join(path.dirname(bdsResolved), "backups");
   let preserve: string[] = [];
 
   if (!bdsExists) {
@@ -247,8 +305,11 @@ export async function runWizard(): Promise<void> {
       });
       if (!isCancel(ch)) bdsChannel = ch as string;
 
-      const bd = await text({ message: "Backup directory (empty to disable):", initialValue: "" });
-      if (!isCancel(bd)) backupDir = bd as string;
+      backupDir = await pickDirectory("BDS backup directory", backupDir);
+      if (!ensureDirectory(backupDir)) {
+        outro(c.red(`Cannot create BDS backup directory: ${backupDir}`));
+        return;
+      }
 
       const pr = await multiselect({
         message: "Files to preserve on update:",
@@ -264,10 +325,7 @@ export async function runWizard(): Promise<void> {
       });
       if (!isCancel(pr)) preserve = pr as string[];
     } else {
-      note(
-        c.yellow("You can configure BDS path later in configs/bds_updater.json"),
-        "Skipped"
-      );
+      note(c.yellow("You can configure BDS path later in configs/bds_updater.json"), "Skipped");
     }
   }
 
@@ -292,7 +350,10 @@ export async function runWizard(): Promise<void> {
     /* catalog not found */
   }
 
-  note(c.text(catalogModules.length > 0 ? `Found ${catalogModules.length} optional modules` : "No modules catalog found"), "Step 4 — Modules");
+  note(
+    c.text(catalogModules.length > 0 ? `Found ${catalogModules.length} optional modules` : "No modules catalog found"),
+    "Step 4 — Modules"
+  );
 
   let selectedModules: string[] = [];
   if (catalogModules.length > 0) {
@@ -308,138 +369,116 @@ export async function runWizard(): Promise<void> {
     if (!isCancel(r)) selectedModules = r as string[];
   }
 
-  // ── Write configs ─────────────────────────────────────────────────
-  const s = spinner();
-  s.start("Writing configs");
-
+  // ── Write paths into configs ──────────────────────────────
   try {
-    write(rootDir, "db_config.json", {
-      _comment: "sfmc init wizard",
-      db_port: dbPort,
-      http_auth: "",
-      dbDir: path.relative(rootDir, dbResolved) || dbResolved,
-      modulesDir: "../modules",
-    });
+    await tasks([
+      {
+        title: "Updating configs",
+        task: () => {
+          const slashPath = (value: string) => value.replace(/\\/g, "/");
+          patchJson(rootDir, "db_config.json", {
+            db_port: dbPort,
+            dbDir: slashPath(path.relative(rootDir, path.join(dbDir, "sfmc_data.db"))),
+            modulesDir: "modules",
+          });
 
-    write(rootDir, "qq_config.json", {
-      _comment: "sfmc init wizard",
-      qq_ws_port: 3002,
-      qq_group_id: 0,
-      llbot_enabled: !!llbotEnabled && !!llbotPath,
-      llbot_host: "127.0.0.1",
-      llbot_port: 3004,
-      llbot_token: "",
-      llbot_path: llbotPath ? llbotPath.replace(/\\/g, "\\\\") : "",
-      llbot_cwd: llbotPath ? llbotPath.replace(/\\/g, "\\\\") : "",
-      bridge_channel_id: "",
-      mctoqq_prefix: "[MC]",
-    });
-
-    write(rootDir, "bds_updater.json", {
-      _comment: "sfmc init wizard",
-      bds_path: bdsResolved.replace(/\\/g, "\\\\"),
-      backup_dir: backupDir ? backupDir.replace(/\\/g, "\\\\") : "",
-      channel: bdsChannel,
-      preserve: preserve.length > 0
-        ? preserve
-        : ["server.properties", "whitelist.json", "permissions.json", "allowlist.json", "worlds", "config"],
-      qq_notify: !!llbotEnabled && !!llbotPath,
-      auto_check: true,
-      crash_restart: true,
-      auto_restart: true,
-    });
-
-    write(rootDir, "settings.json", {
-      _comment: "sfmc init wizard",
-      afk_time: 120,
-      qa_interval_min: 600,
-      qa_interval_max: 720,
-      qa_timeout: 60,
-      clean_item_max: 192,
-      clean_poll_interval: 60,
-      clean_kill_list: ["shitcraft:shit"],
-    });
-
-    s.stop("Configs written");
+          const llbotOn = !!llbotEnabled && !!llbotPath;
+          patchJson(rootDir, "qq_config.json", {
+            llbot_enabled: llbotOn,
+            llbot_path: llbotPath ? slashPath(llbotPath) : "",
+            llbot_cwd: llbotPath ? slashPath(llbotPath) : "",
+          });
+          patchJson(rootDir, "bds_updater.json", {
+            bds_path: slashPath(bdsResolved),
+            channel: bdsChannel,
+            backup_dir: slashPath(backupDir),
+            preserve,
+            qq_notify: llbotOn,
+          });
+          return "Configs updated";
+        },
+      },
+    ]);
   } catch (e) {
-    s.stop(c.red("Write failed"));
     outro(c.red(`Error: ${(e as Error).message}`));
     return;
   }
 
   // ── Write module-lock.json ──────────────────────────────────────
   if (selectedModules.length > 0) {
-    s.start("Updating module state");
     try {
-      const lockPath = path.join(rootDir, "modules", "module-lock.json");
-      let lock: { version?: number; modules?: Record<string, { enabled: boolean; updatedAt: number }> } = {
-        version: 1,
-        modules: {},
-      };
-      try {
-        lock = JSON.parse(fs.readFileSync(lockPath, "utf-8")) as typeof lock;
-      } catch {
-        /* start fresh */
-      }
-      if (!lock.modules) lock.modules = {};
-      const now = Date.now();
-      for (const id of selectedModules) {
-        lock.modules[id] = { enabled: true, updatedAt: now };
-      }
-      fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-      fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2), "utf-8");
-      s.stop("Module state updated");
-    } catch (e) {
-      s.stop(c.yellow("Module state write failed"));
+      await tasks([
+        {
+          title: "Updating module state",
+          task: () => {
+            const lockPath = path.join(rootDir, "modules", "module-lock.json");
+            let lock: { version?: number; modules?: Record<string, { enabled: boolean; updatedAt: number }> } = {
+              version: 1,
+              modules: {},
+            };
+            try {
+              lock = JSON.parse(fs.readFileSync(lockPath, "utf-8")) as typeof lock;
+            } catch {
+              /* start fresh */
+            }
+            if (!lock.modules) lock.modules = {};
+            const now = Date.now();
+            for (const id of selectedModules) lock.modules[id] = { enabled: true, updatedAt: now };
+            fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+            fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2), "utf-8");
+            return "Module state updated";
+          },
+        },
+      ]);
+    } catch {
+      note(c.yellow("Module state write failed"), "Warning");
     }
   }
 
   // ── Download BDS ─────────────────────────────────────────────────
   if (downloadBds) {
-    s.start("Downloading BDS");
-    const result = spawnServiceSync("update", [`--channel=${bdsChannel}`, "--force"], {
-      cwd: rootDir,
-      stdio: "pipe",
-      timeout: 300000,
-    });
-    if (result.status === 0) {
-      s.stop(c.green("BDS downloaded"));
-    } else {
-      s.stop(c.red("Download failed"));
-      const errText = result.stderr?.toString() || result.error?.message || "unknown error";
-      console.log(c.red(errText));
+    try {
+      await tasks([
+        {
+          title: "Downloading BDS",
+          task: async (message) => {
+            message("Downloading and installing BDS");
+            const result = await runBdsUpdate(rootDir, bdsChannel);
+            if (result.code !== 0) throw new Error(result.output || "unknown error");
+            return "BDS downloaded";
+          },
+        },
+      ]);
+    } catch (error) {
+      note(c.red((error as Error).message), "BDS installation failed");
     }
   }
 
   // ── Init DB ──────────────────────────────────────────────────────
-  s.start("Initializing database");
   try {
-    const child = spawnService("db", [], {
-      cwd: rootDir,
-      stdio: "ignore",
-      env: { ...process.env, DB_PORT: String(dbPort) },
-    });
-    if (await waitForHealth(dbPort)) {
-      await new Promise((r) => setTimeout(r, 1000));
-      child.kill("SIGTERM");
-      setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          /* ignore */
-        }
-      }, 3000);
-      s.stop(c.green("Database initialized"));
-    } else {
-      s.stop(c.yellow("Timed out — start db-server manually"));
-      try {
-        child.kill("SIGTERM");
-      } catch {
-        /* ignore */
-      }
-    }
+    await tasks([
+      {
+        title: "Initializing database",
+        task: async () => {
+          const child = spawnService("db", [], {
+            cwd: rootDir,
+            stdio: "ignore",
+            env: { ...process.env, DB_PORT: String(dbPort) },
+          });
+          if (!await waitForHealth(dbPort)) {
+            child.kill("SIGTERM");
+            return "Database startup timed out";
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          child.kill("SIGTERM");
+          setTimeout(() => child.kill("SIGKILL"), 3000).unref();
+          return "Database initialized";
+        },
+      },
+    ]);
   } catch {
-    s.stop(c.yellow("Skipped — start manually"));
+    note(c.yellow("Skipped — start manually"), "Database");
   }
 
   outro(c.green("Done! Run help to learn managing."));

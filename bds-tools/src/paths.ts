@@ -3,26 +3,38 @@
  *
  * SCRIPT_DIR = 编译产物上一级目录 (即 BDSTools/)
  * 这样无论从 src/ 还是 dist/ 调用，都能找到 scripts/bds-manager.js 等。
+ *
+ * SEA bundle 模式下优先读 SFMC_ROOT env (由 spawnService 设置)，
+ * 退回到 __dirname 兼容原生 CJS standalone 模式。
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { configPath, resolveRuntimeRoot } from "@sfmc/config";
 import type { BdsUpdaterConfig } from "./types.js";
 
-// __dirname 在 dist/ 时 = BDSTools/dist/，在 src/ 时 = BDSTools/src/
-// 用 basename 判断是否在 dist 子目录 → 上跳一层回到 BDSTools
+/** 尝试获取当前脚本所在目录 */
 function detectScriptDir(): string {
-  const here = __dirname;
-  const base = path.basename(here);
-  if (base === "dist" || base === "src") {
-    return path.resolve(here, "..");
+  // SEA bundle: 由 spawnService 注入 SFMC_ROOT
+  if (process.env.SFMC_ROOT) {
+    return path.join(process.env.SFMC_ROOT, "bds-tools");
   }
-  return here;
+  // 原生 CJS: __dirname 由 Node 提供
+  try {
+    const here = __dirname;
+    const base = path.basename(here);
+    if (base === "dist" || base === "src") {
+      return path.resolve(here, "..");
+    }
+    return here;
+  } catch {
+    return process.cwd();
+  }
 }
 
 export const SCRIPT_DIR: string = detectScriptDir();
-export const ROOT_DIR: string = path.resolve(SCRIPT_DIR, "..");
-export const CFG_PATH: string = path.join(ROOT_DIR, "configs", "bds_updater.json");
+export const ROOT_DIR: string = resolveRuntimeRoot(path.resolve(SCRIPT_DIR, ".."));
+export const CFG_PATH: string = configPath(ROOT_DIR, "bds_updater.json");
 export const LOG_PATH: string = path.join(SCRIPT_DIR, "update.log");
 export const VERSION_CACHE: string = path.join(SCRIPT_DIR, ".version_cache.json");
 export const PID_FILE: string = path.join(SCRIPT_DIR, ".bds.pid");
@@ -50,9 +62,11 @@ export interface BdsPaths {
 
 export function resolvePaths(cfg: BdsUpdaterConfig): BdsPaths {
   const bds_path = path.resolve(cfg.bds_path || process.cwd());
-  const backup_dir = path.resolve(
-    cfg.backup_dir || path.join(bds_path, "..", "backups")
-  );
+  const backup_dir = path.resolve(cfg.backup_dir || path.join(bds_path, "..", "backups"));
+  const relativeBackup = path.relative(bds_path, backup_dir);
+  if (relativeBackup === "" || (!relativeBackup.startsWith("..") && !path.isAbsolute(relativeBackup))) {
+    throw new Error("backup_dir must be outside bds_path so deployment cannot delete the backup");
+  }
   const preserve = Array.isArray(cfg.preserve) ? cfg.preserve : [];
   return { bds_path, backup_dir, preserve, cfg };
 }

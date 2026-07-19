@@ -1,7 +1,7 @@
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { type ServiceId } from "./runtime.js";
-export declare const ROOT: string;
+export { ROOT } from "./runtime.js";
 export interface LogLine {
     time: Date;
     text: string;
@@ -41,13 +41,15 @@ declare class Service {
     pushLog(text: string, stream: "stdout" | "stderr"): void;
     start(): Promise<void>;
     stop(): Promise<void>;
+    forceStop(): void;
     restart(): Promise<void>;
     getRecentLogs(n: number): LogLine[];
     private cleanup;
 }
-export declare const services: Record<ServiceName, Service>;
+export declare let services: Record<ServiceName, Service>;
+export declare function refreshServices(): void;
 export declare const START_ORDER: ServiceName[];
 export declare function startAll(): Promise<void>;
 export declare function stopAll(): Promise<void>;
-export {};
+export declare function forceStopAll(): void;
 //# sourceMappingURL=services.d.ts.map
