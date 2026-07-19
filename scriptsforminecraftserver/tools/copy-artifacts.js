@@ -3,12 +3,12 @@
  *  Version     :  1.0.0                    *
 \* ---------------------------------------- */
 
-import { resolve, dirname } from "path";
-import fs from "fs-extra";
-const { existsSync, copySync } = fs;
-import { getEnv, ensureDir } from "./utils.js";
-import config from "../config.json" with { type: 'json' };
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "path";
+import config from "../config.json" with { type: "json" };
+import { ensureDir } from "./utils.js";
+const { existsSync, copyFileSync } = fs;
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const projectName = config.projectName;
@@ -35,13 +35,13 @@ async function copyArtifacts() {
     ensureDir(dirname(behaviorTarget));
 
     // 复制到 behavior_packs
-    copySync(srcFile, behaviorTarget, { overwrite: true });
+    copyFileSync(srcFile, behaviorTarget, fs.constants.COPYFILE_FICLONE);
     console.log(`✅ 已复制到 ${behaviorTarget}`);
 
     // 如果 sourcemap 存在，也复制
     if (existsSync(srcMap)) {
       const behaviorMap = resolve(__dirname, `../behavior_packs/${projectName}/scripts/main.js.map`);
-      copySync(srcMap, behaviorMap, { overwrite: true });
+      copyFileSync(srcMap, behaviorMap, fs.constants.COPYFILE_FICLONE);
       console.log(`✅ 已复制 sourcemap`);
     }
   } catch (err) {

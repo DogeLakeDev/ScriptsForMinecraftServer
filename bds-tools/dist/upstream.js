@@ -16,11 +16,11 @@ exports.fetchVersionDetails = fetchVersionDetails;
 exports.buildDownloadUrls = buildDownloadUrls;
 exports.verifyFileHash = verifyFileHash;
 exports.isVersionCompatible = isVersionCompatible;
-const node_fs_1 = __importDefault(require("node:fs"));
 const node_crypto_1 = __importDefault(require("node:crypto"));
+const node_fs_1 = __importDefault(require("node:fs"));
 const http_js_1 = require("./http.js");
-const version_js_1 = require("./version.js");
 const log_js_1 = require("./log.js");
+const version_js_1 = require("./version.js");
 const DEFAULT_VERSIONS_API = "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
 const DEFAULT_VERSIONS_MIRROR = "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json";
 function resolveTemplate(tpl, vars) {
@@ -39,7 +39,7 @@ async function getVersionInfo(cfg, channel) {
     let lastErr;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            const json = (await (0, http_js_1.fetchJsonWithFallback)(sources));
+            const json = await (0, http_js_1.fetchJsonWithFallback)(sources);
             let ver;
             if (versionMode === "endstone") {
                 const entry = channel === "preview" ? json.preview : json.release;

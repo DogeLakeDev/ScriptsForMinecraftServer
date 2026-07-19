@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 
 import { log } from "./lib/log.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
+import { dirname } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export interface EnvConfig {
   PROJECT_ROOT: string;

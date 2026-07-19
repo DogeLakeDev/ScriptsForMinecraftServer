@@ -3,18 +3,18 @@ scriptsforminecraftserver/lib/
 scriptsforminecraftserver/.vscode/
 scriptsforminecraftserver/node_modules/
 scriptsforminecraftserver/dist/
-BDSTools/dist/
+bds-tools/dist/
 db-server/dist/
 panel/dist/
 
 node_modules/
 db-server/node_modules/
-BDSTools/node_modules/
+bds-tools/node_modules/
 panel/node_modules/
 
 db-server/*.log
-BDSTools/update.log
-BDSTools/.version_cache.json
+bds-tools/update.log
+bds-tools/.version_cache.json
 
 panel/*.log
 
@@ -27,10 +27,12 @@ tools/.sim-workspace.bak/
 # Proactive-agent credentials (security-audit.sh)
 .credentials/
 
+bds-tools\.bds.pid
+bds-tools\.version_cache.json
+
 memory/
 data/
 .AddCompLib/*
 *.zip
-BDSTools/.bds.pid
 configs/
 .workbuddy/

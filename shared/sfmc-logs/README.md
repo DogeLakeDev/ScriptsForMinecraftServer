@@ -2,7 +2,7 @@
 
 ScriptsForMinecraftServer 项目统一日志接口。
 
-被以下组件共用（`scriptsforminecraftserver` SAPI 不在范围内——它跑在 Minecraft 进程内不能用 Node 模块）：
+被以下组件共用（`scriptsforminecraftserver` SAPI 不在范围内）：
 
 - `db-server/` (ESM)
 - `qq-bridge/` (ESM)

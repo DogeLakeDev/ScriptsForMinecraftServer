@@ -1,7 +1,7 @@
 import { confirm, intro, isCancel, note, outro, select, spinner, text } from "@clack/prompts";
-import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnService, spawnServiceSync } from "./runtime.js";
 import { ROOT } from "./services.js";
 import { c } from "./theme.js";
 
@@ -96,6 +96,7 @@ export async function runWizard(): Promise<void> {
       validate: (v: string) => {
         const n = parseInt(v, 10);
         if (isNaN(n) || n < 1024 || n > 65535) return "Enter 1024-65535";
+        return;
       },
     });
     if (!isCancel(p)) dbPort = parseInt(p as string, 10);
@@ -109,6 +110,7 @@ export async function runWizard(): Promise<void> {
       validate: (v: string) => {
         const n = parseInt(v, 10);
         if (isNaN(n) || n < 0) return "Enter a number ≥ 0";
+        return;
       },
     });
     if (!isCancel(g)) qqGroupId = parseInt(g as string, 10);
@@ -161,23 +163,23 @@ export async function runWizard(): Promise<void> {
 
   if (downloadBds) {
     s.start("Downloading BDS");
-    try {
-      execSync(`node bds-tools/dist/check-update.js --channel=${bdsChannel} --force`, {
-        cwd: ROOT,
-        stdio: "pipe",
-        timeout: 300000,
-      });
+    const result = spawnServiceSync("update", [`--channel=${bdsChannel}`, "--force"], {
+      cwd: ROOT,
+      stdio: "pipe",
+      timeout: 300000,
+    });
+    if (result.status === 0) {
       s.stop(c.green("BDS downloaded"));
-    } catch (e) {
-      const err = e as { stderr?: Buffer; message?: string };
+    } else {
       s.stop(c.red("Download failed"));
-      console.log(c.red(err.stderr?.toString() || err.message || "unknown error"));
+      const errText = result.stderr?.toString() || result.error?.message || "unknown error";
+      console.log(c.red(errText));
     }
   }
 
   s.start("Initializing DB");
   try {
-    const child = spawn(process.execPath, ["db-server/dist/index.js"], {
+    const child = spawnService("db", [], {
       cwd: ROOT,
       stdio: "ignore",
       env: { ...process.env, DB_PORT: String(dbPort) },
@@ -201,6 +203,6 @@ export async function runWizard(): Promise<void> {
     s.stop(c.yellow("Skipped — start manually"));
   }
 
-  outro(c.green("Done! Run sfmc to start managing."));
+  outro(c.green("Done! Run help to learning managing."));
 }
 

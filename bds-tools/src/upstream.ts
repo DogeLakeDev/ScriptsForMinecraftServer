@@ -7,17 +7,15 @@
  *  - 流式校验 + 边下边校验
  */
 
-import fs from "node:fs";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import { fetchJsonWithFallback } from "./http.js";
-import { toVer3 } from "./version.js";
-import type { BdsUpdaterConfig, VersionDetails, VersionInfo } from "./types.js";
 import { log } from "./log.js";
+import type { BdsUpdaterConfig, VersionDetails, VersionInfo } from "./types.js";
+import { toVer3 } from "./version.js";
 
-const DEFAULT_VERSIONS_API =
-  "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
-const DEFAULT_VERSIONS_MIRROR =
-  "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json";
+const DEFAULT_VERSIONS_API = "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
+const DEFAULT_VERSIONS_MIRROR = "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json";
 
 function resolveTemplate(tpl: string, vars: Record<string, string>): string {
   let s = tpl;
@@ -29,17 +27,15 @@ function resolveTemplate(tpl: string, vars: Record<string, string>): string {
 
 /** 获取最新版本号 (含 cdn_root)，3 次重试 */
 export async function getVersionInfo(cfg: BdsUpdaterConfig, channel: string): Promise<VersionInfo> {
-  const api =
-    cfg.version_versions || process.env["BDS_VERSIONS_API"] || DEFAULT_VERSIONS_API;
-  const mirror =
-    cfg.version_versions_mirror || process.env["BDS_VERSIONS_MIRROR"] || DEFAULT_VERSIONS_MIRROR;
+  const api = cfg.version_versions || process.env["BDS_VERSIONS_API"] || DEFAULT_VERSIONS_API;
+  const mirror = cfg.version_versions_mirror || process.env["BDS_VERSIONS_MIRROR"] || DEFAULT_VERSIONS_MIRROR;
   const sources = [api, mirror].filter(Boolean);
   const versionMode = cfg.version_mode || "bedrock-oss";
 
   let lastErr: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const json = (await fetchJsonWithFallback<any>(sources)) as any;
+      const json = await fetchJsonWithFallback<any>(sources);
       let ver: string | undefined;
       if (versionMode === "endstone") {
         const entry = channel === "preview" ? json.preview : json.release;
@@ -71,8 +67,10 @@ export async function fetchVersionDetails(
   const platform = channel === "preview" ? "windows_preview" : "windows";
   const ch = channel === "preview" ? "preview" : "release";
   const vars = { version, ver3: toVer3(version), platform, channel: ch };
-  const detailsTpl = cfg.version_details || "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/{platform}/{version}.json";
-  const mirrorTpl = cfg.version_details_mirror || "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/{platform}/{version}.json";
+  const detailsTpl =
+    cfg.version_details || "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/{platform}/{version}.json";
+  const mirrorTpl =
+    cfg.version_details_mirror || "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/{platform}/{version}.json";
   const sources = [detailsTpl, mirrorTpl].filter(Boolean).map((t) => resolveTemplate(t, vars));
 
   const json = await fetchJsonWithFallback<any>(sources);
@@ -108,20 +106,17 @@ export function buildDownloadUrls(
   }
   if (details.downloadUrl) urls.push(details.downloadUrl);
   const cdnRoot = cfg.cdn_root || "https://www.minecraft.net/bedrockdedicatedserver";
-  const suffix = channel === "preview"
-    ? `/bin-win-preview/bedrock-server-${version}-preview.zip`
-    : `/bin-win/bedrock-server-${version}.zip`;
+  const suffix =
+    channel === "preview"
+      ? `/bin-win-preview/bedrock-server-${version}-preview.zip`
+      : `/bin-win/bedrock-server-${version}.zip`;
   urls.push(cdnRoot + suffix);
   urls.push(`https://minecraft.azureedge.net${suffix}`);
   return [...new Set(urls)];
 }
 
 /** 同步 / 异步校验文件哈希 */
-export async function verifyFileHash(
-  filePath: string,
-  expectedSha1: string,
-  expectedSha256: string
-): Promise<boolean> {
+export async function verifyFileHash(filePath: string, expectedSha1: string, expectedSha256: string): Promise<boolean> {
   const expected = expectedSha256 || expectedSha1;
   if (!expected) return true;
   const algo: "sha1" | "sha256" = expectedSha256 ? "sha256" : "sha1";
@@ -146,3 +141,4 @@ export function isVersionCompatible(cfg: BdsUpdaterConfig, version: string): boo
   if (!allow || allow.length === 0) return true;
   return allow.includes(version) || allow.includes(toVer3(version));
 }
+

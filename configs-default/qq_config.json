@@ -3,13 +3,13 @@
   "_comment_ports": "qq_ws_port: WS 端口供 LLBot reverse-ws 接入(默认 3002)。LLBot HTTP 由 db-server 直连,不再走中间 bridge 进程。",
   "qq_ws_port": 3002,
 
-  "_comment_group": "主群 ID（机器人只转发此群消息到 MC）。设为 0 禁用。",
+  "_comment_group": "主群群号（机器人只转发此群消息到 MC）。设为 0 禁用。",
   "qq_group_id": 0,
 
   "_comment_llbot": "LLBot 二进制管理 —— 由 BDSTools控制启动 / 重启。路径需使用双反斜杠 (\\\\) 或正斜杠 (/)。llbot_host/port/token 由 db-server 用于 MC→QQ 发送。",
-  "llbot_enabled": true,
-  "llbot_path": "D:\\\\LLBot-CLI-win-x64\\\\llbot.exe",
-  "llbot_cwd": "D:\\\\LLBot-CLI-win-x64",
+  "llbot_enabled": false,
+  "llbot_path": "",
+  "llbot_cwd": "",
   "llbot_host": "127.0.0.1",
   "llbot_port": "3004",
   "llbot_token": "",
@@ -17,6 +17,7 @@
   "_comment_bridge": "转发 channel id(MC 侧聊天频道)",
   "bridge_channel_id": "",
 
-  "_comment_prefix": "MC → QQ 消息前缀（用于标识消息源）",
+  "_comment_prefix": "MC → QQ 消息前缀",
   "mctoqq_prefix": "[MC]"
 }
+

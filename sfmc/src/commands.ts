@@ -1,8 +1,7 @@
-import { spawn } from "node:child_process";
-import process from "node:process";
-import { services, type ServiceName, SERVICE_NAMES, ROOT } from "./services.js";
-import { c, DIVIDER, highlightLogLine } from "./theme.js";
 import { pushLog as pushUnifiedLog } from "./logs.js";
+import { spawnService } from "./runtime.js";
+import { ROOT, SERVICE_NAMES, services, type ServiceName } from "./services.js";
+import { c, DIVIDER, highlightLogLine } from "./theme.js";
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -40,13 +39,16 @@ export function cmdLogs(args: string[], onFollow?: (serviceName: ServiceName) =>
 
   for (const a of args) {
     if (a === "-n") continue; /* handled below */
-    if (a === "-f") { follow = true; continue; }
+    if (a === "-f") {
+      follow = true;
+      continue;
+    }
     positional.push(a);
   }
 
   /* -n takes the next argument as value */
   const nIdx = args.indexOf("-n");
-  if (nIdx >= 0 && nIdx + 1 < args.length) n = parseInt(args[nIdx + 1], 10);
+  if (nIdx >= 0 && nIdx + 1 < args.length) n = parseInt(args[nIdx + 1] ?? "0", 10);
 
   const svcRaw = positional[0];
   if (!svcRaw) return c.yellow("Usage: logs <service> [-n N] [-f]");
@@ -142,7 +144,7 @@ export async function cmdStopAll(): Promise<string> {
 
 export async function cmdUpdate(args: string[] = []): Promise<string> {
   return new Promise((resolve) => {
-    const proc = spawn(process.execPath, ["bds-tools/dist/check-update.js", ...args], {
+    const proc = spawnService("update", args, {
       cwd: ROOT,
       stdio: ["ignore", "pipe", "pipe"],
     });

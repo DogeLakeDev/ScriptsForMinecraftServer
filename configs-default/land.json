@@ -1,5 +1,5 @@
 {
-  "_comment": "领地系统配置。SAPI 通过 /api/sfmc/settings/land:* 直接读取此文件（5 分钟内最多拉一次）。改后重启 BDS 即可生效。",
+  "_comment": "领地系统配置。SAPI 通过 /api/sfmc/settings/land:* 直接读取此文件。",
 
   "land:config": {
     "priceFormula": "{square}*8+{height}*20",
@@ -12,7 +12,7 @@
 
   "land:plaza": {
     "name": "公共广场",
-    "welcome": "欢迎来到服务器！这里是公共领地，所有人都可以建造。",
+    "welcome": "欢迎来到服务器！这里是公共土地，所有人都可以建造。",
     "dimid": 0,
     "range": 32
   },
@@ -37,3 +37,4 @@
     "pickup_item": false
   }
 }
+

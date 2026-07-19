@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import path from "node:path";
-import fs from "node:fs";
-import { fileURLToPath } from "node:url";
+import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { pushLog as pushUnifiedLog, inferLevel } from "./logs.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
+import { spawnService, type ServiceId } from "./runtime.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, "..", "..");
@@ -17,13 +18,14 @@ export interface LogLine {
 export type ServiceName = "bds" | "db" | "qq" | "llbot";
 export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
 
-let svcLogSeq = 0;
-
 interface ServiceDef {
   name: ServiceName;
   title: string;
-  cmd: string;
-  args: string[];
+  /** 抽象服务: npm 模式 spawn node <script>, SEA 模式自重入 exe。与 cmd 二选一。 */
+  service?: ServiceId;
+  /** 直接命令 (bds/llbot 外部 exe)。与 service 二选一。 */
+  cmd?: string;
+  args?: string[];
   cwd: string;
   env?: Record<string, string>;
   stopCommand?: string;
@@ -80,12 +82,15 @@ class Service {
       if (v) throw new Error(v);
     }
     this.manualStop = false;
-    const child = spawn(this.def.cmd, this.def.args, {
+    const spawnOpts = {
       cwd: this.def.cwd,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"] as Array<IOType>,
       env: this.def.env ? { ...process.env, ...this.def.env } : process.env,
-    });
-    child.unref();
+    };
+    const child = this.def.service
+      ? spawnService(this.def.service, this.def.args ?? [], spawnOpts)
+      : spawn(this.def.cmd as string, this.def.args ?? [], spawnOpts);
+    //child.unref();
     this.proc = child;
     this.pid = child.pid ?? 0;
     this.running = true;
@@ -112,7 +117,9 @@ class Service {
       this.events.emit("output", `exited (code: ${code})`, "info");
       this.cleanup();
       if (!this.manualStop && this.def.autoRestart) {
-        setTimeout(() => { void this.start(); }, this.def.restartDelay);
+        setTimeout(() => {
+          void this.start();
+        }, this.def.restartDelay);
       }
     });
   }
@@ -132,7 +139,11 @@ class Service {
       const timeout = setTimeout(() => {
         if (this.proc) {
           this.events.emit("output", "force kill", "error");
-          try { this.proc.kill("SIGKILL"); } catch { /* ignore */ }
+          try {
+            this.proc.kill("SIGKILL");
+          } catch {
+            /* ignore */
+          }
         }
         resolve();
       }, this.def.stopTimeout);
@@ -200,8 +211,7 @@ export const services: Record<ServiceName, Service> = {
   db: new Service({
     name: "db",
     title: "DB Server",
-    cmd: process.execPath,
-    args: ["db-server/dist/index.js"],
+    service: "db",
     cwd: ROOT,
     stopTimeout: 10000,
     autoRestart: true,
@@ -212,8 +222,7 @@ export const services: Record<ServiceName, Service> = {
   qq: new Service({
     name: "qq",
     title: "QQ Bridge",
-    cmd: process.execPath,
-    args: ["qq-bridge/dist/index.js"],
+    service: "qq",
     cwd: ROOT,
     stopTimeout: 10000,
     autoRestart: true,
@@ -257,6 +266,9 @@ export async function stopAll(): Promise<void> {
     if (!svc?.running) continue;
     try {
       await svc.stop();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 }
+

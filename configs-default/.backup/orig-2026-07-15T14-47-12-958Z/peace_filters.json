@@ -1,5 +1,0 @@
-[
-  { "family": "monster", "exclude_family": "zombie_villager" },
-  { "family": "monster", "exclude_family": "wither" },
-  { "family": "monster", "exclude_family": "illager" }
-]

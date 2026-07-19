@@ -18,6 +18,13 @@ const welcome = `\n
   ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`help · Ctrl+L · ↹ · → · ↑↓`)}\n
 `;
 
+const version = `\n
+  ${c.text(`⠪⡁⡯⠁`)}
+  ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
+  ${c.text(`⡷⡇⡎⠁`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
+`;
+
 export const HELP = `
 ${c.bold("Commands")}
   ${c.green("status")}                    Show all services status
@@ -76,8 +83,8 @@ function parseLine(line: string): ParsedLine {
   if (endsWithSpace) {
     return { cmd: tokens[0] ?? "", argIndex: tokens.length - 1, current: "" };
   }
-  if (tokens.length === 1) return { cmd: "", argIndex: 0, current: tokens[0] };
-  return { cmd: tokens[0], argIndex: tokens.length - 2, current: tokens[tokens.length - 1] };
+  if (tokens.length === 1) return { cmd: "", argIndex: 0, current: tokens[0]! };
+  return { cmd: tokens[0]!, argIndex: tokens.length - 2, current: tokens[tokens.length - 1]! };
 }
 
 /**
@@ -116,9 +123,9 @@ function consumeEscapeSeq(chunk: Buffer, i: number): number | null {
   const rem = chunk.length - i - 1;
   if (rem >= 2 && chunk[i + 1] === 0x5b) {
     let j = i + 2;
-    while (j < chunk.length && chunk[j] >= 0x30 && chunk[j] <= 0x3f) j++;
-    while (j < chunk.length && chunk[j] >= 0x20 && chunk[j] <= 0x2f) j++;
-    if (j < chunk.length && chunk[j] >= 0x40 && chunk[j] <= 0x7e) j++;
+    while (j < chunk.length && chunk[j]! >= 0x30 && chunk[j]! <= 0x3f) j++;
+    while (j < chunk.length && chunk[j]! >= 0x20 && chunk[j]! <= 0x2f) j++;
+    if (j < chunk.length && chunk[j]! >= 0x40 && chunk[j]! <= 0x7e) j++;
     return j;
   }
   if (rem >= 2 && chunk[i + 1] === 0x4f) return i + 3;
@@ -134,7 +141,7 @@ interface SelectItem {
   value: string;
 }
 
-async function simpleSelect(items: SelectItem[], label?: string): Promise<string | null> {
+async function simpleSelect(items: SelectItem[]): Promise<string | null> {
   const wasRaw = stdin.isRaw ?? false;
   setRaw(true);
   stdin.resume();
@@ -150,7 +157,7 @@ async function simpleSelect(items: SelectItem[], label?: string): Promise<string
     lastLines = h;
     let out = "";
     for (let i = 0; i < h; i++) {
-      const cur = i === selected ? `◉ ${c.text(items[i].label)}` : `○ ${c.text(items[i].label)}`;
+      const cur = i === selected ? `◉ ${c.text(items[i]!.label)}` : `○ ${c.text(items[i]!.label)}`;
       out += `${cur}\n`;
     }
     stdout.write(out);
@@ -368,8 +375,8 @@ async function readLine(prompt: string, initial = ""): Promise<string | null> {
           continue;
         }
 
-        if (byte >= 0x20 && byte <= 0x7e) {
-          line += String.fromCharCode(byte);
+        if (byte! >= 0x20 && byte! <= 0x7e) {
+          line += String.fromCharCode(byte!);
           tabState = null;
           redraw();
           continue;
@@ -422,7 +429,7 @@ export async function startRepl(): Promise<void> {
       const t = line.trim();
       if (!t) continue;
       const p = t.split(/\s+/);
-      if (["quit", "exit", "q"].includes(p[0])) break;
+      if (["quit", "exit", "q"].includes(p[0]!)) break;
       if (p[0] === "init") {
         (await import("./wizard.js")).runWizard();
         continue;
@@ -513,14 +520,14 @@ async function execCmd(parts: string[]): Promise<void> {
       stdout.write(HELP);
       break;
     case "version":
-      stdout.write(`sfmc v${process.env["npm_package_version"] || "0.1.0"}\n`);
+      stdout.write(`${version}\n`);
       break;
     case "status":
       stdout.write(cmdStatus() + "\n");
       break;
     case "logs":
     case "log": {
-      const out = cmdLogs(args, (svc) => {
+      const out = cmdLogs(args, () => {
         if (!stdin.isTTY) {
           stdout.write(c.yellow("follow mode requires TTY\n"));
           return;

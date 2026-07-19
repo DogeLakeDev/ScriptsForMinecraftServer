@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node ./dist/sfmc.js",
-    "build": "node build.js",
+    "build": "tsc -p tsconfig.json",
     "dev": "tsx src/main.ts"
   },
   "dependencies": {

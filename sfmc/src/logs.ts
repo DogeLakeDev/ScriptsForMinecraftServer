@@ -67,19 +67,19 @@ function getLogLevel(line: string): string {
 
   // 1. 等级在方括号内，如 [INFO] 或 [WARNING]
   let match = line.match(new RegExp(`\\[(${levelPattern})\\]`, "i"));
-  if (match) return match[1].toUpperCase();
+  if (match && match[1]) return match[1].toUpperCase();
 
   // 2. 等级紧跟在时间戳方括号之后，如 [2026-...] INFO
   match = line.match(new RegExp(`^\\[.*?\\]\\s*(${levelPattern})`, "i"));
-  if (match) return match[1].toUpperCase();
+  if (match && match[1]) return match[1].toUpperCase();
 
   // 3. 等级在行首，后跟冒号，如 INFO: 或 ERROR:
   match = line.match(new RegExp(`^(${levelPattern})\\s*:`, "i"));
-  if (match) return match[1].toUpperCase();
+  if (match && match[1]) return match[1].toUpperCase();
 
   // 4. 等级在类似 [Server] 后的方括号外，如 [Server] INFO:
   match = line.match(new RegExp(`\\[.*?\\]\\s*(${levelPattern})\\s*:`, "i"));
-  if (match) return match[1].toUpperCase();
+  if (match && match[1]) return match[1].toUpperCase();
 
   // 5. 若上述均未匹配，返回未知
   return "UNKNOWN";

@@ -11,34 +11,36 @@
 
 import http from "node:http";
 
-import { loadEnv } from "./env.js";
-import { openDatabase, createQuery } from "./lib/sqlite.js";
 import { initSchema } from "./domain/schema.js";
-import { assertNodeVersion } from "./lib/runtime.js";
-import { createServer, startConsole } from "./server.js";
+import { loadEnv } from "./env.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 import { log } from "./lib/log.js";
+import { assertNodeVersion } from "./lib/runtime.js";
+import { createQuery, openDatabase } from "./lib/sqlite.js";
+import { createServer, startConsole } from "./server.js";
 
-import { createHealthRoutes } from "./routes/health.js";
-import { createScoreboardsRoutes } from "./routes/scoreboards.js";
-import { createWorldRoutes } from "./routes/world.js";
-import { createPlayersRoutes } from "./routes/players.js";
 import { createActivitiesRoutes } from "./routes/activities.js";
 import { createChannelsRoutes } from "./routes/channels.js";
-import { createMessagesRoutes } from "./routes/messages.js";
-import { createRedpacketRoutes } from "./routes/redpacket.js";
-import { createMonitorRoutes } from "./routes/monitor.js";
 import { createConfigRoutes } from "./routes/config.js";
-import { createEconomyRoutes } from "./routes/economy.js";
-import { createLandsRoutes } from "./routes/lands.js";
 import { createCoopsRoutes } from "./routes/coops.js";
+import { createEconomyRoutes } from "./routes/economy.js";
+import { createHealthRoutes } from "./routes/health.js";
+import { createLandsRoutes } from "./routes/lands.js";
+import { createMessagesRoutes } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
+import { createMonitorRoutes } from "./routes/monitor.js";
+import { createPlayersRoutes } from "./routes/players.js";
+import { createRedpacketRoutes } from "./routes/redpacket.js";
+import { createScoreboardsRoutes } from "./routes/scoreboards.js";
+import { createWorldRoutes } from "./routes/world.js";
 
-import { ensureEconomyAccount as domainEnsureEconomyAccount, economyResult as domainEconomyResult } from "./domain/economy.js";
 import { forwardToQQBridge, makeLLBotConfig } from "./domain/bridge.js";
-import { readJsonFile } from "./lib/json.js";
-import { loadModuleLock, isEnabled, updateModuleState } from "./lib/module-state.js";
-import { writeJsonFile } from "./lib/json.js";
+import {
+  economyResult as domainEconomyResult,
+  ensureEconomyAccount as domainEnsureEconomyAccount,
+} from "./domain/economy.js";
+import { readJsonFile, writeJsonFile } from "./lib/json.js";
+import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
 
 if (!assertNodeVersion(22, 5)) {
   process.exit(2);
@@ -63,58 +65,67 @@ const body = sharedBody;
 
 // ── 模块目录加载（供 moduleRoutes 使用）──────────────────────────
 function loadModuleCatalog() {
-  const data = readJsonFile<{ version?: number; modules?: unknown[] }>(env.MODULE_CATALOG_PATH, { version: 1, modules: [] });
+  const data = readJsonFile<{ version?: number; modules?: unknown[] }>(env.MODULE_CATALOG_PATH, {
+    version: 1,
+    modules: [],
+  });
   return Array.isArray(data.modules) ? data.modules : [];
 }
 
 function buildModuleList() {
   const catalog = loadModuleCatalog();
   const lock = loadModuleLock(env.MODULE_LOCK_PATH);
-  return catalog.map((raw) => {
-    const entry = (raw as Record<string, unknown>).entry && typeof (raw as Record<string, unknown>).entry === "object"
-      ? (raw as Record<string, unknown>).entry as Record<string, unknown>
-      : {};
-    const id = String((raw as Record<string, unknown>).id || "").trim();
-    const configKey = String((raw as Record<string, unknown>).configKey || (raw as Record<string, unknown>).config_key || "").trim();
-    if (!id || !configKey) return null;
-    const state = (lock.modules as Record<string, { updatedAt?: number }>)[id];
-    const enabled = isEnabled(lock, id, (raw as Record<string, unknown>).enabledByDefault !== false);
-    return {
-      id,
-      module_id: id,
-      name: configKey,
-      config_key: configKey,
-      display_name: String((raw as Record<string, unknown>).name || configKey),
-      type: String((raw as Record<string, unknown>).type || "feature"),
-      description: String((raw as Record<string, unknown>).description || ""),
-      default_enabled: (raw as Record<string, unknown>).enabledByDefault !== false,
-      can_disable: (raw as Record<string, unknown>).canDisable !== false,
-      requires: Array.isArray((raw as Record<string, unknown>).requires)
-        ? ((raw as Record<string, unknown>).requires as unknown[]).filter(Boolean).map(String)
-        : [],
-      optional: Array.isArray((raw as Record<string, unknown>).optional)
-        ? ((raw as Record<string, unknown>).optional as unknown[]).filter(Boolean).map(String)
-        : [],
-      commands: Array.isArray((raw as Record<string, unknown>).commands)
-        ? ((raw as Record<string, unknown>).commands as unknown[]).filter(Boolean).map(String)
-        : [],
-      entry: {
-        kind: String(entry.kind || ""),
-        path: String(entry.path || ""),
-        init: String(entry.init || ""),
-      },
-      updated_at: state?.updatedAt ?? null,
-      enabled: !!enabled,
-    };
-  }).filter(Boolean);
+  return catalog
+    .map((raw) => {
+      const entry =
+        (raw as Record<string, unknown>).entry && typeof (raw as Record<string, unknown>).entry === "object"
+          ? ((raw as Record<string, unknown>).entry as Record<string, unknown>)
+          : {};
+      const id = String((raw as Record<string, unknown>).id || "").trim();
+      const configKey = String(
+        (raw as Record<string, unknown>).configKey || (raw as Record<string, unknown>).config_key || ""
+      ).trim();
+      if (!id || !configKey) return null;
+      const state = (lock.modules as Record<string, { updatedAt?: number }>)[id];
+      const enabled = isEnabled(lock, id, (raw as Record<string, unknown>).enabledByDefault !== false);
+      return {
+        id,
+        module_id: id,
+        name: configKey,
+        config_key: configKey,
+        display_name: String((raw as Record<string, unknown>).name || configKey),
+        type: String((raw as Record<string, unknown>).type || "feature"),
+        description: String((raw as Record<string, unknown>).description || ""),
+        default_enabled: (raw as Record<string, unknown>).enabledByDefault !== false,
+        can_disable: (raw as Record<string, unknown>).canDisable !== false,
+        requires: Array.isArray((raw as Record<string, unknown>).requires)
+          ? ((raw as Record<string, unknown>).requires as unknown[]).filter(Boolean).map(String)
+          : [],
+        optional: Array.isArray((raw as Record<string, unknown>).optional)
+          ? ((raw as Record<string, unknown>).optional as unknown[]).filter(Boolean).map(String)
+          : [],
+        commands: Array.isArray((raw as Record<string, unknown>).commands)
+          ? ((raw as Record<string, unknown>).commands as unknown[]).filter(Boolean).map(String)
+          : [],
+        entry: {
+          kind: String(entry.kind || ""),
+          path: String(entry.path || ""),
+          init: String(entry.init || ""),
+        },
+        updated_at: state?.updatedAt ?? null,
+        enabled: !!enabled,
+      };
+    })
+    .filter(Boolean);
 }
 
 function resolveModuleByKey(key: string) {
   const catalog = loadModuleCatalog();
   const k = String(key || "").trim();
-  return catalog.find((m) =>
-    String((m as Record<string, unknown>).id || "") === k ||
-    String((m as Record<string, unknown>).configKey || (m as Record<string, unknown>).config_key || "") === k
+  return catalog.find(
+    (m) =>
+      String((m as Record<string, unknown>).id || "") === k ||
+      String((m as Record<string, unknown>).configKey || (m as Record<string, unknown>).config_key || "") === k
   ) as { id: string; configKey: string; canDisable: boolean } | null;
 }
 
@@ -125,8 +136,8 @@ function setModuleEnabled(module: { id: string; canDisable: boolean }, enabled: 
 }
 
 // ── 路由工厂实例 ────────────────────────────────────────────────
-const healthRoutes = createHealthRoutes() as any;
-const scoreboardsRoutes = createScoreboardsRoutes({ query, body, json } as any) as any;
+const healthRoutes = createHealthRoutes();
+const scoreboardsRoutes = createScoreboardsRoutes({ query, body, json }) as any;
 const worldRoutes = createWorldRoutes({ query, body, json } as any) as any;
 const playersRoutes = createPlayersRoutes({ query, body, json } as any) as any;
 const activitiesRoutes = createActivitiesRoutes({ query, body, json } as any) as any;
@@ -150,7 +161,10 @@ const messagesRoutes = createMessagesRoutes({
     ),
 } as any) as any;
 const redpacketRoutes = createRedpacketRoutes({
-  query: query as any, db, body, json,
+  query: query as any,
+  db,
+  body,
+  json,
   ensureEconomyAccount: (playerId: string, playerName: string) => {
     const acc = domainEnsureEconomyAccount(query as any, playerId, playerName);
     if (!acc) throw new Error("ensureEconomyAccount returned undefined");
@@ -165,7 +179,11 @@ const monitorRoutes = createMonitorRoutes({ body, json, monitorState } as any) a
 const configRoutes = createConfigRoutes({ json, projectRoot: env.PROJECT_ROOT } as any) as any;
 const economyRoutes = createEconomyRoutes({ query: query as any, db, body, json } as any) as any;
 const landsRoutes = createLandsRoutes({
-  query: query as any, db, body, json, projectRoot: env.PROJECT_ROOT,
+  query: query as any,
+  db,
+  body,
+  json,
+  projectRoot: env.PROJECT_ROOT,
   ensureEconomyAccount: (playerId: string, playerName: string) => {
     const acc = domainEnsureEconomyAccount(query as any, playerId, playerName);
     if (!acc) throw new Error("ensureEconomyAccount returned undefined");
@@ -173,7 +191,10 @@ const landsRoutes = createLandsRoutes({
   },
 }) as any;
 const coopsRoutes = createCoopsRoutes({
-  query: query as any, db, body, json,
+  query: query as any,
+  db,
+  body,
+  json,
   ensureEconomyAccount: (playerId: string, playerName: string) => {
     const acc = domainEnsureEconomyAccount(query as any, playerId, playerName);
     if (!acc) throw new Error("ensureEconomyAccount returned undefined");
@@ -208,18 +229,14 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   }
 
   // token 鉴权
-  const PUBLIC_GET = path === "/api/health" ||
-    (method === "GET" && (
-      path === "/api/sfmc/modules" ||
-      path === "/api/sfmc/modules/catalog" ||
-      path.startsWith("/api/sfmc/modules/")
-    ));
+  const PUBLIC_GET =
+    path === "/api/health" ||
+    (method === "GET" &&
+      (path === "/api/sfmc/modules" || path === "/api/sfmc/modules/catalog" || path.startsWith("/api/sfmc/modules/")));
   const NEEDS_AUTH = !PUBLIC_GET && method !== "GET";
   if (env.AUTH_TOKEN && NEEDS_AUTH) {
     const auth = req.headers["authorization"] || "";
-    const provided = auth.startsWith("Bearer ")
-      ? auth.slice(7)
-      : (req.headers["x-db-token"] as string || "");
+    const provided = auth.startsWith("Bearer ") ? auth.slice(7) : (req.headers["x-db-token"] as string) || "";
     if (provided !== env.AUTH_TOKEN) {
       json(res, { success: false, error: "unauthorized" }, 401);
       return;
@@ -262,9 +279,13 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
 
     // /api/sfmc/db/* — 内联读取 / sqlite 浏览端点
     if (path === "/api/sfmc/db/tables" && method === "GET") {
-      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as Array<{ name: string }>;
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as Array<{
+        name: string;
+      }>;
       const result = tables.map((t) => {
-        const count = db.prepare(`SELECT COUNT(*) AS cnt FROM "${t.name.replace(/[^A-Za-z0-9_]/g, "")}"`).get() as { cnt: number };
+        const count = db.prepare(`SELECT COUNT(*) AS cnt FROM "${t.name.replace(/[^A-Za-z0-9_]/g, "")}"`).get() as {
+          cnt: number;
+        };
         return { name: t.name, rows: count.cnt };
       });
       json(res, { tables: result });
@@ -314,4 +335,5 @@ const server = createServer({
 });
 startConsole(server, db);
 
-export { env, db, query };
+export { db, env, query };
+
