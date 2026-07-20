@@ -34,7 +34,7 @@ import { MoneyGUI } from "./gui/MoneyGUI.js";
 
 import { CoopSystem } from "@sfmc/module-coop";
 
-import { ChatSystem } from "./chat/ChatSystem.js";
+import { ChatSystem } from "@sfmc/module-chat";
 
 import { ActivityLog } from "./data/ActivityLog.js";
 import { getPlayerData } from "./data/PlayerData.js";
