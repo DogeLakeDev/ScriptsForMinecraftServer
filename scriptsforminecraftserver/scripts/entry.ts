@@ -33,13 +33,9 @@ import { AdminGUI, MainMenu, MoneyGUI } from "@sfmc/module-gui";
 import { CoopSystem } from "@sfmc/module-coop";
 
 import { ChatSystem } from "@sfmc/module-chat";
-
 import { ActivityLog } from "@sfmc/module-activity-log";
-import { getPlayerData } from "./data/PlayerData.js";
 import { ScoreboardSync, ScoreboardsBackup } from "@sfmc/module-scoreboard-sync";
-import { syncWorldData } from "./data/WorldData.js";
-
-import { savePlayers } from "./api/PlayersDataApi.js";
+import { getPlayerData, savePlayers, syncWorldData } from "@sfmc/module-data-backup";
 
 // ============================================================
 //  模块注册
