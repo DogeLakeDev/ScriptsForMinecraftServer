@@ -8,13 +8,13 @@ import {
   guardEvent,
 } from "@sfmc/sdk/module-loader";
 
-import * as AFK from "./doge/AFK.js";
+import * as AFK from "@sfmc/module-afk";
 import { ChatSoundsHelper } from "@sfmc/module-chat-sounds";
-import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean.js";
+import { Clean, registerCommand as registerCleanCommand } from "@sfmc/module-clean";
 import { DailyTask } from "@sfmc/module-daily-task";
 import { MonitorReporter } from "@sfmc/module-monitor";
-import { OnlineTime } from "./doge/OnlineTime.js";
-import { QAManager } from "./doge/QA.js";
+import { OnlineTime } from "@sfmc/module-online-time";
+import { QAManager } from "@sfmc/module-qa";
 import { SpawnProtect } from "@sfmc/module-spawn-protect";
 import { TPS } from "@sfmc/module-tps";
 import { EconomyReport } from "@sfmc/module-economy";
