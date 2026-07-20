@@ -1,4 +1,3 @@
-/*TypeScript编译器配置*/
 {
   "compilerOptions": {
     "rootDir": "../",
@@ -30,7 +29,7 @@
       "@sfmc-types/*": ["../db-server/src/types/*"]
     }
   },
-  "include": ["scripts/**/*","../tools","tools"],
+  "include": ["scripts/**/*", "../tools", "tools"],
   "exclude": ["lib", "dist", "node_modules"],
   "compileOnSave": false
 }

@@ -18,8 +18,8 @@ import path from "node:path";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOG = join(ROOT, "modules", "catalog.json");
+const SERVICES_CATALOG = join(ROOT, "services", "catalog.json");
 const SAPI_ENTRY = join(ROOT, "scriptsforminecraftserver", "scripts", "entry.ts");
-const MODULE_KEYS = join(ROOT, "scriptsforminecraftserver", "scripts", "libs", "ModuleKeys.ts");
 
 function fail(msg) {
   console.error(`[check-catalog] ${msg}`);
@@ -54,14 +54,26 @@ function main() {
 
   const sapiCatalog = modules.filter((m) => m.type === "feature" && m.entry?.kind === "sapi");
   const source = readFileSync(SAPI_ENTRY, "utf-8");
-  const keysSource = readFileSync(MODULE_KEYS, "utf-8");
-  const configKeys = new Set([...keysSource.matchAll(/\n\s*\w+:\s*["']([^"']+)["']/g)].map((match) => match[1]));
   const registeredIds = new Set([...source.matchAll(/ModuleRegistry\.register\(\{\s*\n\s*id:\s*["']([^"']+)["']/g)].map((match) => match[1]));
   for (const m of sapiCatalog) {
-    if (!configKeys.has(m.configKey)) fail(`${m.id} 的 configKey 未在 ModuleKeys.ts 注册: ${m.configKey}`);
-    const moduleId = [...configKeys].find((key) => key === m.configKey);
-    if (moduleId && !registeredIds.has(moduleId === "online_time" ? "onlineTime" : moduleId === "scoreboard_sync" ? "scoreboardSync" : moduleId === "activity_log" ? "activityLog" : moduleId === "spawn_protect" ? "spawnProtect" : moduleId === "chat_sounds" ? "chatSounds" : moduleId === "inventory_switcher" ? "inventorySwitcher" : moduleId === "price_index" ? "priceIndex" : moduleId === "daily_task" ? "dailyTask" : moduleId)) {
-      fail(`${m.id} 未在 entry.ts 注册 ModuleRegistry 生命周期: ${m.configKey}`);
+    // Map configKey -> camelCase entry.ts id (mirrors pre-refactor ModuleKeys.ts mapping).
+    const idFromConfig = m.configKey.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+    if (!registeredIds.has(idFromConfig)) {
+      fail(`${m.id} 未在 entry.ts 注册 ModuleRegistry 生命周期: expected id "${idFromConfig}"`);
+    }
+  }
+
+  // Optional: also validate services/catalog.json if it exists.
+  if (exists(SERVICES_CATALOG)) {
+    const svc = JSON.parse(readFileSync(SERVICES_CATALOG, "utf-8"));
+    if (svc.version !== 1) fail(`services/catalog.json 版本不支持: ${svc.version}`);
+    for (const m of svc.modules || []) {
+      if (!m.id || !m.configKey) fail(`services 模块缺少 id 或 configKey: ${JSON.stringify(m)}`);
+      if (!m.entry || !m.entry.path) fail(`${m.id} 缺少 entry.path`);
+      const entryPath = join(ROOT, m.entry.path);
+      if (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset") {
+        if (!exists(entryPath)) fail(`${m.id} 服务入口路径不存在: ${m.entry.path}`);
+      }
     }
   }
 

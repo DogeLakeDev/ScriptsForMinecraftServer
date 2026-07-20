@@ -242,39 +242,6 @@
       "canDisable": true,
       "requires": [],
       "entry": { "kind": "sapi", "path": "modules/packages/monitor/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-coop-gui",
-      "configKey": "coop_gui",
-      "name": "合作社界面",
-      "type": "feature",
-      "description": "合作社图形界面",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/coop-gui/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-chat-gui",
-      "configKey": "chat_gui",
-      "name": "聊天界面",
-      "type": "feature",
-      "description": "聊天图形界面",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/chat-gui/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-land-gui",
-      "configKey": "land_gui",
-      "name": "领地界面",
-      "type": "feature",
-      "description": "领地图形界面",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/land-gui/sapi/src/index.ts" }
     }
   ]
 }
