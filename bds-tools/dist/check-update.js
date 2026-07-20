@@ -32,7 +32,7 @@ const upstream_js_1 = require("./upstream.js");
 const version_js_1 = require("./version.js");
 // 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
 const updaterFileSink = (0, logs_1.createFileSink)(paths_js_1.LOG_PATH);
-const log = (0, logs_1.createLogger)({ source: "updater", sinks: [(0, logs_1.createStdoutSink)(), updaterFileSink] });
+const log = (0, logs_1.createLogger)({ source: "updater", sinks: [(0, logs_1.createStdoutSink)({ bare: true }), updaterFileSink] });
 const closeLog = () => updaterFileSink.close();
 function parseArgs(argv) {
     const out = {};

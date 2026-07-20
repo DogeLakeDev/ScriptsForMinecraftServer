@@ -24,9 +24,6 @@
     "sql-template-strings": "^2.2.2",
     "ws": "^8.21.1"
   },
-  "devDependencies": {
-    "@types/ws": "^8.18.1"
-  },
   "keywords": [],
   "license": "ISC",
   "types": "./dist/index.d.ts"

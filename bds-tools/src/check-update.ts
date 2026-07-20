@@ -40,7 +40,7 @@ import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVer
 
 // 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
 const updaterFileSink = createFileSink(LOG_PATH);
-const log = createLogger({ source: "updater", sinks: [createStdoutSink(), updaterFileSink] });
+const log = createLogger({ source: "updater", sinks: [createStdoutSink({ bare: true }), updaterFileSink] });
 const closeLog = (): void => updaterFileSink.close();
 
 function parseArgs(argv: string[]): Record<string, string | boolean> {
@@ -470,4 +470,3 @@ if (isMain()) {
       process.exit(1);
     });
 }
-
