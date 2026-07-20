@@ -28,9 +28,7 @@ import { SurvivalArea } from "@sfmc/module-survival";
 import { LandEvents } from "@sfmc/module-land";
 import { LandSystem } from "@sfmc/module-land";
 
-import { AdminGUI } from "./gui/AdminGUI.js";
-import { MainMenu } from "./gui/MainMenu.js";
-import { MoneyGUI } from "./gui/MoneyGUI.js";
+import { AdminGUI, MainMenu, MoneyGUI } from "@sfmc/module-gui";
 
 import { CoopSystem } from "@sfmc/module-coop";
 
