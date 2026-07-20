@@ -1,32 +1,3 @@
-export const Modules = {
-  config: "config",
-  command: "command",
-  permission: "permission",
-  httpdb: "httpdb",
-  money: "money",
-  chat: "chat",
-  coop: "coop",
-  land: "land",
-  afk: "afk",
-  clean: "clean",
-  tps: "tps",
-  onlineTime: "online_time",
-  activityLog: "activity_log",
-  scoreboardSync: "scoreboard_sync",
-  spawnProtect: "spawn_protect",
-  chatSounds: "chat_sounds",
-  inventorySwitcher: "inventory_switcher",
-  fly: "fly",
-  creative: "creative",
-  survival: "survival",
-  peace: "peace",
-  qa: "qa",
-  monitor: "monitor",
-  dailyTask: "daily_task",
-  priceIndex: "price_index",
-  dataBackup: "data_backup",
-  gui: "gui",
-} as const;
-
-export type ModuleKey = (typeof Modules)[keyof typeof Modules];
-export type ModuleId = keyof typeof Modules;
+// 临时 shim — Commit 13 删除。
+export { Modules } from "@sfmc/sdk/module-loader";
+export type { ModuleKey, ModuleId } from "@sfmc/sdk/module-loader";

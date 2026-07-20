@@ -1,0 +1,69 @@
+{
+  "name": "@sfmc/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ScriptsForMinecraftServer unified SDK — single umbrella covering contracts, logs, sapi/{sdk,host,runtime}, node/{sdk,node}, module-loader, behavior-pack-build.",
+  "type": "module",
+  "exports": {
+    "./contracts": {
+      "types": "./dist/types/contracts/index.d.ts",
+      "import": "./dist/esm/contracts/index.js",
+      "default": "./dist/esm/contracts/index.js"
+    },
+    "./contracts/*": {
+      "types": "./dist/types/contracts/*.d.ts",
+      "import": "./dist/esm/contracts/*.js",
+      "default": "./dist/esm/contracts/*.js"
+    },
+    "./logs": {
+      "types": "./dist/types/logs/index.d.ts",
+      "import": "./dist/esm/logs/index.js",
+      "default": "./dist/esm/logs/index.js"
+    },
+    "./sapi/sdk": {
+      "types": "./dist/types/sapi/sdk/index.d.ts",
+      "import": "./dist/esm/sapi/sdk/index.js",
+      "default": "./dist/esm/sapi/sdk/index.js"
+    },
+    "./sapi/host": {
+      "types": "./dist/types/sapi/host/index.d.ts",
+      "import": "./dist/esm/sapi/host/index.js",
+      "default": "./dist/esm/sapi/host/index.js"
+    },
+    "./sapi/runtime": {
+      "types": "./dist/types/sapi/runtime/index.d.ts",
+      "import": "./dist/esm/sapi/runtime/index.js",
+      "default": "./dist/esm/sapi/runtime/index.js"
+    },
+    "./node/sdk": {
+      "types": "./dist/types/node/sdk/index.d.ts",
+      "import": "./dist/esm/node/sdk/index.js",
+      "default": "./dist/esm/node/sdk/index.js"
+    },
+    "./node": {
+      "types": "./dist/types/node/node/index.d.ts",
+      "import": "./dist/esm/node/node/index.js",
+      "default": "./dist/esm/node/node/index.js"
+    },
+    "./module-loader": {
+      "types": "./dist/types/module-loader/index.d.ts",
+      "import": "./dist/esm/module-loader/index.js",
+      "default": "./dist/esm/module-loader/index.js"
+    },
+    "./behavior-pack-build": {
+      "types": "./dist/types/behavior-pack-build/index.d.ts",
+      "import": "./dist/esm/behavior-pack-build/index.js",
+      "default": "./dist/esm/behavior-pack-build/index.js"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "node build.mjs",
+    "build:js": "node build.mjs",
+    "build:types": "tsc -p tsconfig.types.json",
+    "typecheck": "tsc --noEmit -p tsconfig.types.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "engines": { "node": ">=18" },
+  "license": "ISC"
+}

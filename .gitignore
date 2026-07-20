@@ -6,6 +6,10 @@ scriptsforminecraftserver/dist/
 bds-tools/dist/
 db-server/dist/
 panel/dist/
+modules/sdk/@sfmc-sdk/dist/
+modules/sdk/@sfmc-sdk/node_modules/
+shared/**/dist/
+shared/**/node_modules/
 
 node_modules/
 db-server/node_modules/
