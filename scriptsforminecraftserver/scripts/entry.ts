@@ -23,7 +23,7 @@ import { CreativeArea } from "@sfmc/module-creative";
 import * as Fly from "./area/Fly.js";
 import { InventorySwitcher } from "./area/InventorySwitcher.js";
 import { Peace } from "./area/Peace.js";
-import { SurvivalArea } from "./area/SurvivalArea.js";
+import { SurvivalArea } from "@sfmc/module-survival";
 
 import { LandEvents } from "@sfmc/module-land";
 import { LandSystem } from "@sfmc/module-land";
