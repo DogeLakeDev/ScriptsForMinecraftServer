@@ -1,0 +1,17 @@
+{
+  "name": "@sfmc/module-economy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SAPI module: 经济系统 - 月度白皮书 + 账户/转账/日常任务。",
+  "main": "sapi/src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p sapi/tsconfig.json"
+  },
+  "dependencies": {
+    "@sfmc/sdk": "*"
+  },
+  "peerDependencies": {
+    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30"
+  }
+}
