@@ -1,10 +1,12 @@
 import { Player, system, world } from "@minecraft/server";
 import { ChatGUI } from "../../../../../scriptsforminecraftserver/scripts/gui/ChatGUI.js";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { ConfigManager } from "../../../../../scriptsforminecraftserver/scripts/libs/ConfigManager.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { HttpDB } from "../../../../../scriptsforminecraftserver/scripts/libs/HttpDB.js";
-import { registerSystemMsgHandler } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import {
+  Command,
+  debug,
+  HttpDB,
+  registerSystemMsgHandler,
+} from "@sfmc/sdk/sapi/runtime";
+import { ConfigManager } from "@sfmc/sdk/module-loader";
 import { DogeChat } from "./DogeChat.js";
 
 export class ChatSystem {
@@ -23,12 +25,12 @@ export class ChatSystem {
     console.log(`Initializing ChatSystem...`);
     DogeChat.ensureDefaultChannels();
 
-    HttpDB.checkHealth().then((ok) => {
+    HttpDB.checkHealth().then((ok: boolean) => {
       if (ok) console.info("[DogeChat] 外部数据库已连接，消息将持久化存储。");
       else console.warn("[DogeChat] 外部数据库未连接。");
     });
 
-    registerSystemMsgHandler((player, text) => {
+    registerSystemMsgHandler((player: Player, text: string) => {
       DogeChat.sendSystemMessage(player, text);
     });
 

@@ -32,7 +32,7 @@ export class MainMenu {
     const nav = new MenuNavigator(player);
     const balance = Money.get(player);
 
-    nav.section("main", "主菜单", (page) => {
+    nav.section("main", "主菜单", (page: any) => {
       page.label(ListFormInfo([`当前余额: ${balance} ${Money.UNIT}`]));
       page.button("土地", () => nav.leave(() => LandGUI.showMainMenu(player)));
       page.button("合作社", () => nav.leave(() => new CoopGUI(player).mainPanel()));
@@ -41,13 +41,13 @@ export class MainMenu {
       page.button("节操", () => nav.go("economy"));
     });
 
-    nav.section("economy", "经济系统", (page) => {
+    nav.section("economy", "经济系统", (page: any) => {
       const balLabel = obsStr(`§f[*] 当前余额: ${Money.get(player)} ${Money.UNIT}`);
       page.label(balLabel);
       page.button("转账", () => nav.go("transfer"));
     });
 
-    nav.section("transfer", "转账", (page) => {
+    nav.section("transfer", "转账", (page: any) => {
       const status = obsStr("");
       const targetName = obsStr("");
       const amountStr = obsStr("");

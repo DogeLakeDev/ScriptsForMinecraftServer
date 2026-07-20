@@ -100,10 +100,10 @@ export class DogeChat {
 
   static async getPublicChannel(): Promise<Channel | null> {
     const rows = await ChatApi.getChannels({ type: "public" });
-    if (rows && rows.length > 0) return rows[0];
+    if (rows && rows.length > 0) return rows[0] ?? null;
     await this.ensureDefaultChannels();
     const retry = await ChatApi.getChannels({ type: "public" });
-    return retry && retry.length > 0 ? retry[0] : null;
+    return retry && retry.length > 0 ? retry[0] ?? null : null;
   }
 
   // ============================================
@@ -121,7 +121,7 @@ export class DogeChat {
     if (pub) {
       DogeChat.activeChannelMap.set(player.id, pub.id);
       this._ensureSubscribed(player.id, pub.id);
-      HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e) =>
+      HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e: any) =>
         console.warn("[DogeChat] error:", e)
       );
     }
@@ -132,7 +132,7 @@ export class DogeChat {
     debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
     DogeChat.activeChannelMap.set(player.id, channelId);
     this._ensureSubscribed(player.id, channelId);
-    await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e) =>
+    await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e: any) =>
       console.warn("[DogeChat] error:", e)
     );
   }
@@ -191,7 +191,7 @@ export class DogeChat {
 
   private static _saveSubscriptions(playerId: string): void {
     const ids = Array.from(this.subscribedChannelsMap.get(playerId) ?? []);
-    HttpDB.put(`/api/sfmc/players/${playerId}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch((e) =>
+    HttpDB.put(`/api/sfmc/players/${playerId}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch((e: any) =>
       console.warn("[DogeChat] error:", e)
     );
   }
@@ -237,12 +237,13 @@ export class DogeChat {
     owner?: Player
   ): Promise<string> {
     debug.i("CHAT", `createChannel: name=${name} prefix=${prefix} type=${type}`);
+    const ownerid = owner?.id;
     const channel: Channel = {
       id: generateId("CH"),
       name,
       prefix,
       type: type as Channel["type"],
-      ownerid: owner?.id,
+      ...(ownerid !== undefined && { ownerid }),
       createdAt: Date.now(),
       config: { ...DogeChat.DEFAULT_CHANNEL_CONFIG, ...config },
     };
@@ -431,7 +432,7 @@ export class DogeChat {
         channelId,
         type,
         content,
-        attachment,
+        ...(attachment !== undefined && { attachment }),
         timestamp: Date.now(),
         showTimestamp: true,
       };
@@ -464,7 +465,7 @@ export class DogeChat {
       channelId,
       type,
       content,
-      attachment,
+      ...(attachment !== undefined && { attachment }),
       timestamp: Date.now(),
       showTimestamp,
     };

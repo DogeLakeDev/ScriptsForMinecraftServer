@@ -7,31 +7,30 @@
 
 import { Player, world } from "@minecraft/server";
 import { ScoreboardEntry, backupScoreboards, loadScoreboards } from "../../../../../scriptsforminecraftserver/scripts/api/ScoreboardsSyncApi.js";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import { Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { Command, debug, Msg, Permission } from "@sfmc/sdk/sapi/runtime";
 
 export function ScoreboardsBackup(): void {
   debug.i("DATA", "ScoreboardsBackup");
-  let entries: ScoreboardEntry[] = [];
-  world.scoreboard.getObjectives().forEach((obj, index) => {
-    const scores = obj.getScores();
-    entries.push({
+  const entries: ScoreboardEntry[] = [];
+  for (const obj of world.scoreboard.getObjectives()) {
+    const entry: ScoreboardEntry = {
       id: obj.id,
       displayName: obj.displayName,
       participants: [],
-    });
-    for (const info of scores) {
+    };
+    for (const info of obj.getScores()) {
       const identity = info.participant;
-      entries[index].participants?.push({
+      const participants = entry.participants ?? [];
+      participants.push({
         id: identity.id,
-        type: identity.type,
+        type: Number(identity.type) || 0,
         name: identity.displayName,
         score: info.score,
       });
+      entry.participants = participants;
     }
-  });
+    entries.push(entry);
+  }
   backupScoreboards(entries);
 }
 

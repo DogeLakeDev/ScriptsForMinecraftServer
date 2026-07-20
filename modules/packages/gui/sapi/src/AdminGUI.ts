@@ -34,7 +34,7 @@ export class AdminGUI {
   private constructor(player: Player) {
     this.player = player;
     this.nav = new MenuNavigator(player);
-    this.nav.section("main", "管理面板", (p) => this.buildMain(p));
+    this.nav.section("main", "管理面板", (p: any) => this.buildMain(p));
   }
 
   static show(player: Player): void {
@@ -45,7 +45,7 @@ export class AdminGUI {
     page.label(ListFormInfo(["模块开关"]));
     for (const name of MODULES) {
       const toggle = obsBool(ConfigManager.isEnabled(name));
-      toggle.subscribe((val) => {
+      toggle.subscribe((val: any) => {
         if (val !== ConfigManager.isEnabled(name)) this.onToggle(name, val);
       });
       page.toggle(name, toggle);

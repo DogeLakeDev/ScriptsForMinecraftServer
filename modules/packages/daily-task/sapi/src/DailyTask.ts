@@ -26,7 +26,7 @@ export class DailyTask {
   private show(player: Player): void {
     debug.i("TASK", `DailyTask.show: player=${player.name}`);
     const nav = new MenuNavigator(player);
-    nav.section("main", "每日任务", async (page) => {
+    nav.section("main", "每日任务", async (page: any) => {
       page.label(ListFormInfo(["完成每日任务获得节操奖励！"]));
       page.button("刷新任务列表", () => nav.rebuild("main"));
       const result = await getDailyTasks();
@@ -48,7 +48,7 @@ export class DailyTask {
         }
       }
     });
-    nav.section("submit", "提交任务物品", (page) => {
+    nav.section("submit", "提交任务物品", (page: any) => {
       const status = new FormStatus(page);
       const taskId = nav.state.taskId as string;
       const maxQty = nav.state.maxQty as number;

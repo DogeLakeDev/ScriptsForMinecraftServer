@@ -24,14 +24,14 @@ export class MoneyGUI {
     debug.i("GUI", `MoneyGUI.show: player=${player.name}`);
     const nav = new MenuNavigator(player);
 
-    nav.section("main", "货币管理", (page) => {
+    nav.section("main", "货币管理", (page: any) => {
       const balance = Money.get(player);
       page.label(ListFormInfo([`当前余额: ${balance} ${Money.UNIT}。`]));
       page.button("给予玩家", () => nav.go("give"));
       page.button("查询玩家", () => nav.go("query"));
     });
 
-    nav.section("give", "给予玩家", (page) => {
+    nav.section("give", "给予玩家", (page: any) => {
       const status = new FormStatus(page);
       const targetName = obsStr("");
       const amountStr = obsStr("");
@@ -58,7 +58,7 @@ export class MoneyGUI {
       });
     });
 
-    nav.section("query", "查询玩家", (page) => {
+    nav.section("query", "查询玩家", (page: any) => {
       const status = new FormStatus(page);
       const targetName = obsStr("");
       page.textField("玩家名称", targetName, { description: "请输入玩家名称" });

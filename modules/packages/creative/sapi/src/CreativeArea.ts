@@ -35,7 +35,6 @@ export class CreativeArea {
   static enable = true;
 
   private readonly BORDER_THRESHOLD = 10;
-  private readonly BORDER_WARNING_DISTANCE = 5;
   private readonly BUFFER_ZONE = 3;
 
   private subscriptions: Array<any> = [];
@@ -273,9 +272,10 @@ export class CreativeArea {
     const identity = player.scoreboardIdentity;
     if (!identity) return;
     for (const obj of world.scoreboard.getObjectives()) {
-      if (scores[obj.id] !== undefined) {
+      const v = scores[obj.id];
+      if (v !== undefined) {
         try {
-          obj.setScore(identity, scores[obj.id]);
+          obj.setScore(identity, v);
         } catch {}
       }
     }
@@ -328,6 +328,7 @@ export class CreativeArea {
   //  边界视觉警告
   // ==========================================
 
+  /* startBorderWarning disabled — particle API churn across BDS versions; kept for future re-enable.
   private startBorderWarning() {
     this.tickRunIds.push(
       system.runInterval(() => {
@@ -365,4 +366,5 @@ export class CreativeArea {
       }, 20)
     );
   }
+  */
 }

@@ -229,6 +229,10 @@ export class CoopCore {
       return;
     }
     const member = data.members[index];
+    if (!member) {
+      debug.w("COOP", "setOp: member is undefined");
+      return;
+    }
     await import("../../../../../scriptsforminecraftserver/scripts/api/CoopApi.js").then((api) =>
       api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin")
     );
