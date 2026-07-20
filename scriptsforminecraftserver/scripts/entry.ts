@@ -34,7 +34,7 @@ import { CoopSystem } from "@sfmc/module-coop";
 
 import { ChatSystem } from "@sfmc/module-chat";
 
-import { ActivityLog } from "./data/ActivityLog.js";
+import { ActivityLog } from "@sfmc/module-activity-log";
 import { getPlayerData } from "./data/PlayerData.js";
 import { ScoreboardSync, ScoreboardsBackup } from "@sfmc/module-scoreboard-sync";
 import { syncWorldData } from "./data/WorldData.js";

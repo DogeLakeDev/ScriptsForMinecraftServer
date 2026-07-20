@@ -1,0 +1,17 @@
+{
+  "name": "@sfmc/module-activity-log",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SAPI module: 行为日志 - 玩家/方块/实体事件批量上报。",
+  "main": "sapi/src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p sapi/tsconfig.json"
+  },
+  "dependencies": {
+    "@sfmc/sdk": "*"
+  },
+  "peerDependencies": {
+    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30"
+  }
+}
