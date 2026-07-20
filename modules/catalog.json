@@ -10,7 +10,7 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/entry.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/data-backup/sapi/src/index.ts" }
     },
     {
       "id": "core-gui",
@@ -21,51 +21,7 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/entry.ts" }
-    },
-    {
-      "id": "core-config",
-      "configKey": "config",
-      "name": "配置中心",
-      "type": "core",
-      "description": "配置读取、缓存和热重载入口",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/ConfigManager.ts" }
-    },
-    {
-      "id": "core-command",
-      "configKey": "command",
-      "name": "命令系统",
-      "type": "core",
-      "description": "命令注册与分发",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/Command.ts" }
-    },
-    {
-      "id": "core-permission",
-      "configKey": "permission",
-      "name": "权限系统",
-      "type": "core",
-      "description": "权限注册、查询与管理入口",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/Permission.ts" }
-    },
-    {
-      "id": "core-httpdb",
-      "configKey": "httpdb",
-      "name": "HTTP 数据层",
-      "type": "core",
-      "description": "SAPI 到 db-server 的 HTTP 客户端",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/HttpDB.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/gui/sapi/src/index.ts" }
     },
     {
       "id": "feature-economy",
@@ -75,19 +31,8 @@
       "description": "服务端控制的、安全的经济系统",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/libs/Economy.ts" }
-    },
-    {
-      "id": "feature-price-index",
-      "configKey": "price_index",
-      "name": "价格指数",
-      "type": "feature",
-      "description": "动态物品定价引擎",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": ["core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/api/EconomyApi.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/economy/sapi/src/index.ts" }
     },
     {
       "id": "feature-daily-task",
@@ -97,8 +42,8 @@
       "description": "任务制货币回收系统",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/DailyTask.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/daily-task/sapi/src/index.ts" }
     },
     {
       "id": "feature-chat",
@@ -108,8 +53,8 @@
       "description": "频道聊天、私聊和消息分发",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/chat/ChatSystem.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/chat/sapi/src/index.ts" }
     },
     {
       "id": "feature-coop",
@@ -119,8 +64,8 @@
       "description": "合作社与队伍系统",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/coop/Coop.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/coop/sapi/src/index.ts" }
     },
     {
       "id": "feature-land",
@@ -130,8 +75,8 @@
       "description": "领地、权限和保护逻辑",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/land/LandSystem.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/land/sapi/src/index.ts" }
     },
     {
       "id": "feature-afk",
@@ -141,8 +86,8 @@
       "description": "挂机判定",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/AFK.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/afk/sapi/src/index.ts" }
     },
     {
       "id": "feature-clean",
@@ -152,8 +97,8 @@
       "description": "地面掉落物清理",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/Clean.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/clean/sapi/src/index.ts" }
     },
     {
       "id": "feature-tps",
@@ -163,8 +108,8 @@
       "description": "服务器 TPS 监视与命令",
       "enabledByDefault": true,
       "canDisable": true,
-      "requires": ["core-command"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/TPS.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/tps/sapi/src/index.ts" }
     },
     {
       "id": "feature-online-time",
@@ -174,8 +119,8 @@
       "description": "玩家在线时长统计",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/OnlineTime.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/online-time/sapi/src/index.ts" }
     },
     {
       "id": "feature-activity-log",
@@ -185,8 +130,8 @@
       "description": "玩家行为批量写入数据库",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/data/ActivityLog.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/activity-log/sapi/src/index.ts" }
     },
     {
       "id": "feature-scoreboard-sync",
@@ -196,8 +141,8 @@
       "description": "计分板快照备份与恢复",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/data/ScoreboardsData.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/scoreboard-sync/sapi/src/index.ts" }
     },
     {
       "id": "feature-spawn-protect",
@@ -208,7 +153,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/SpawnProtect.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/spawn-protect/sapi/src/index.ts" }
     },
     {
       "id": "feature-chat-sounds",
@@ -219,7 +164,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/ChatSoundsHelper.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/chat-sounds/sapi/src/index.ts" }
     },
     {
       "id": "feature-inventory-switcher",
@@ -229,8 +174,8 @@
       "description": "生存/创造独立背包切换",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/area/InventorySwitcher.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/inventory-switcher/sapi/src/index.ts" }
     },
     {
       "id": "feature-area-fly",
@@ -240,8 +185,8 @@
       "description": "定义区域内允许飞行",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-config"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/area/Fly.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/fly/sapi/src/index.ts" }
     },
     {
       "id": "feature-area-creative",
@@ -251,8 +196,8 @@
       "description": "进入区域自动切换创造模式",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-config"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/area/CreativeArea.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/creative/sapi/src/index.ts" }
     },
     {
       "id": "feature-area-survival",
@@ -262,8 +207,8 @@
       "description": "进入区域自动切换生存模式",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-config"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/area/SurvivalArea.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/survival/sapi/src/index.ts" }
     },
     {
       "id": "feature-area-peace",
@@ -273,8 +218,8 @@
       "description": "定义区域内禁止刷怪",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-config"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/area/Peace.ts" }
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/peace/sapi/src/index.ts" }
     },
     {
       "id": "feature-qa",
@@ -284,53 +229,52 @@
       "description": "随机答题与奖励",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["core-command", "core-permission", "core-httpdb"],
-      "entry": { "kind": "sapi", "path": "scriptsforminecraftserver/scripts/doge/QA.ts" }
-    },
-    {
-      "id": "service-db",
-      "configKey": "db_server",
-      "name": "数据库服务",
-      "type": "service",
-      "description": "SQLite HTTP 后端",
-      "enabledByDefault": true,
-      "canDisable": false,
       "requires": [],
-      "entry": { "kind": "node", "path": "db-server/dist/index.js" }
+      "entry": { "kind": "sapi", "path": "modules/packages/qa/sapi/src/index.ts" }
     },
     {
-      "id": "service-qq-bridge",
-      "configKey": "qq_bridge",
-      "name": "QQ 桥接",
-      "type": "service",
-      "description": "LLBot / OneBot 11 桥接进程",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": ["service-db"],
-      "entry": { "kind": "node", "path": "qq-bridge/index.js" }
-    },
-    {
-      "id": "service-panel",
-      "configKey": "panel",
-      "name": "管理面板",
-      "type": "service",
-      "description": "TUI 管理面板",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": ["service-db", "service-qq-bridge"],
-      "entry": { "kind": "node", "path": "panel/dist/main.js" }
-    },
-    {
-      "id": "tool-bds-updater",
-      "configKey": "bds_updater",
-      "name": "BDS 更新器",
-      "type": "tool",
-      "description": "BDS 检查、下载、备份与重启工具",
+      "id": "feature-monitor",
+      "configKey": "monitor",
+      "name": "监控",
+      "type": "feature",
+      "description": "服务器运行状态监控",
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "node", "path": "BDSTools/dist/check-update.js" }
+      "entry": { "kind": "sapi", "path": "modules/packages/monitor/sapi/src/index.ts" }
+    },
+    {
+      "id": "feature-coop-gui",
+      "configKey": "coop_gui",
+      "name": "合作社界面",
+      "type": "feature",
+      "description": "合作社图形界面",
+      "enabledByDefault": false,
+      "canDisable": true,
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/coop-gui/sapi/src/index.ts" }
+    },
+    {
+      "id": "feature-chat-gui",
+      "configKey": "chat_gui",
+      "name": "聊天界面",
+      "type": "feature",
+      "description": "聊天图形界面",
+      "enabledByDefault": false,
+      "canDisable": true,
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/chat-gui/sapi/src/index.ts" }
+    },
+    {
+      "id": "feature-land-gui",
+      "configKey": "land_gui",
+      "name": "领地界面",
+      "type": "feature",
+      "description": "领地图形界面",
+      "enabledByDefault": false,
+      "canDisable": true,
+      "requires": [],
+      "entry": { "kind": "sapi", "path": "modules/packages/land-gui/sapi/src/index.ts" }
     }
   ]
 }
-

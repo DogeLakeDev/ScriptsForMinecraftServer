@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "service-db",
+      "configKey": "db_server",
+      "name": "数据库服务",
+      "type": "service",
+      "description": "SQLite HTTP 后端",
+      "enabledByDefault": true,
+      "canDisable": false,
+      "requires": [],
+      "entry": { "kind": "node", "path": "db-server/dist/index.js" }
+    },
+    {
+      "id": "service-qq-bridge",
+      "configKey": "qq_bridge",
+      "name": "QQ 桥接",
+      "type": "service",
+      "description": "LLBot / OneBot 11 桥接进程",
+      "enabledByDefault": true,
+      "canDisable": false,
+      "requires": ["service-db"],
+      "entry": { "kind": "node", "path": "qq-bridge/index.js" }
+    },
+    {
+      "id": "tool-bds-updater",
+      "configKey": "bds_updater",
+      "name": "BDS 更新器",
+      "type": "tool",
+      "description": "BDS 检查、下载、备份与重启工具",
+      "enabledByDefault": false,
+      "canDisable": true,
+      "requires": [],
+      "entry": { "kind": "node", "path": "bds-tools/dist/bds-manager.js" }
+    }
+  ]
+}

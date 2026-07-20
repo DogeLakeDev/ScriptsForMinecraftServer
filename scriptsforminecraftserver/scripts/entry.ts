@@ -299,14 +299,6 @@ ModuleRegistry.register({
   },
 });
 
-// ---- priceIndex（价格指数）----
-debug.i("SYS", "register module: priceIndex");
-ModuleRegistry.register({
-  id: "priceIndex",
-  afterWorldLoad: false,
-  lifecycle: {},
-});
-
 // ---- dailyTask（每日任务）----
 debug.i("SYS", "register module: dailyTask");
 ModuleRegistry.register({
