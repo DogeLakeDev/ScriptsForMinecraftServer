@@ -9,14 +9,14 @@ import { ModuleRegistry, announceLoaded, guardEvent } from "./libs/ModuleRegistr
 import { Permission } from "./libs/Permission.js";
 
 import * as AFK from "./doge/AFK.js";
-import { ChatSoundsHelper } from "./doge/ChatSoundsHelper.js";
+import { ChatSoundsHelper } from "@sfmc/module-chat-sounds";
 import { Clean, registerCommand as registerCleanCommand } from "./doge/Clean.js";
-import { DailyTask } from "./doge/DailyTask.js";
-import { MonitorReporter } from "./doge/MonitorReporter.js";
+import { DailyTask } from "@sfmc/module-daily-task";
+import { MonitorReporter } from "@sfmc/module-monitor";
 import { OnlineTime } from "./doge/OnlineTime.js";
 import { QAManager } from "./doge/QA.js";
-import { SpawnProtect } from "./doge/SpawnProtect.js";
-import { TPS } from "./doge/TPS.js";
+import { SpawnProtect } from "@sfmc/module-spawn-protect";
+import { TPS } from "@sfmc/module-tps";
 import { EconomyReport } from "./EconomyReport.js";
 
 import { CreativeArea } from "./area/CreativeArea.js";
