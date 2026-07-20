@@ -1,12 +1,12 @@
 import { Player, system, world } from "@minecraft/server";
-
-import { Command, setModuleGuard } from "./libs/Command.js";
-import { ConfigManager } from "./libs/ConfigManager.js";
-import { debug } from "./libs/DebugLog.js";
-import { Money } from "./libs/Economy.js";
-import { Modules } from "./libs/ModuleKeys.js";
-import { ModuleRegistry, announceLoaded, guardEvent } from "./libs/ModuleRegistry.js";
-import { Permission } from "./libs/Permission.js";
+import { Command, debug, Money, Msg, Permission, setModuleGuard } from "@sfmc/sdk/sapi/runtime";
+import {
+  ConfigManager,
+  Modules,
+  ModuleRegistry,
+  announceLoaded,
+  guardEvent,
+} from "@sfmc/sdk/module-loader";
 
 import * as AFK from "./doge/AFK.js";
 import { ChatSoundsHelper } from "@sfmc/module-chat-sounds";
