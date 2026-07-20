@@ -25,8 +25,8 @@ import { InventorySwitcher } from "./area/InventorySwitcher.js";
 import { Peace } from "./area/Peace.js";
 import { SurvivalArea } from "./area/SurvivalArea.js";
 
-import { LandEvents } from "./land/LandEvents.js";
-import { LandSystem } from "./land/LandSystem.js";
+import { LandEvents } from "@sfmc/module-land";
+import { LandSystem } from "@sfmc/module-land";
 
 import { AdminGUI } from "./gui/AdminGUI.js";
 import { MainMenu } from "./gui/MainMenu.js";

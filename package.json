@@ -39,6 +39,7 @@
   },
   "workspaces": [
     "modules/sdk/@sfmc-sdk",
+    "modules/packages/*",
     "db-server",
     "scriptsforminecraftserver",
     "qq-bridge",

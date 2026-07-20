@@ -5,6 +5,7 @@
  *  lib/db-server 引用。未来 db-server 抽出共享 lib 后直接 import。
 \* ---------------------------------------- */
 
+// 与 @sfmc/sdk/contracts 中 LandRole 保持一致(含 "member")
 export type LandRole = "owner" | "admin" | "member" | "builder" | "container" | "visitor" | "redstone" | "entity";
 
 export const LAND_ROLES: ReadonlyArray<LandRole> = [
@@ -145,7 +146,6 @@ export const SERVER_VALID_ROLES: ReadonlyArray<string> = [
   "redstone",
   "entity",
   "admin",
-  "member",
 ];
 
 export function isValidRole(role: string): role is LandRole {

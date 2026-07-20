@@ -15,10 +15,11 @@ import { Money } from "../libs/Economy.js";
 import { FormStatus, MenuNavigator, obsBool, obsNum, obsStr } from "../libs/MenuNavigator.js";
 import { dimensionId, ListFormInfo, Msg } from "../libs/Tools.js";
 
-const ROLES: LandRole[] = ["builder", "container", "visitor", "redstone", "entity", "admin"];
+const ROLES: LandRole[] = ["builder", "container", "visitor", "redstone", "entity", "admin", "member"];
 const ROLE_NAMES: Record<LandRole, string> = {
   owner: "所有者",
   admin: "管理员",
+  member: "成员",
   builder: "建造者",
   container: "容器访问",
   visitor: "访客",

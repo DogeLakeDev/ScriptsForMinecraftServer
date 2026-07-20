@@ -17,8 +17,13 @@
  * @minecraft/* 始终 external,留给真正 bundle BP 时由 scriptsforminecraftserver
  * 那一侧 esbuild 解析(在 BP 端它们从 scriptsforminecraftserver/node_modules 解析,
  * 这里 esbuild 只是产生中间 bundle,@minecraft/* 会以 require("..") 形式留下)。
+ *
+ * 步骤:
+ *   1) esbuild 各子路径产 ESM bundle → dist/esm/<subpath>/index.js
+ *   2) tsc 发 .d.ts → dist/types/<subpath>/index.d.ts
  */
 import { build } from "esbuild";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -35,7 +40,9 @@ const SUBPATHS = [
 ];
 
 const DIST_ESM = "dist/esm";
+const DIST_TYPES = "dist/types";
 fs.mkdirSync(DIST_ESM, { recursive: true });
+fs.mkdirSync(DIST_TYPES, { recursive: true });
 
 const MINECRAFT_EXTERNALS = [
   "@minecraft/server",
@@ -44,22 +51,26 @@ const MINECRAFT_EXTERNALS = [
   "@minecraft/vanilla-data",
 ];
 
-await Promise.all(
-  SUBPATHS.map(async ({ sub, platform }) => {
-    const entry = path.posix.join("src", sub, "index.ts");
-    const outfile = path.posix.join(DIST_ESM, sub, "index.js");
-    await build({
-      entryPoints: [entry],
-      bundle: true,
-      format: "esm",
-      outfile,
-      platform,
-      target: platform === "node" ? "node18" : "es2022",
-      sourcemap: true,
-      logLevel: "info",
-      external: MINECRAFT_EXTERNALS,
-    });
-  })
-);
+// 1) ESM bundle
+for (const { sub, platform } of SUBPATHS) {
+  const entry = path.posix.join("src", sub, "index.ts");
+  const outfile = path.posix.join(DIST_ESM, sub, "index.js");
+  await build({
+    entryPoints: [entry],
+    bundle: true,
+    format: "esm",
+    outfile,
+    platform,
+    target: platform === "node" ? "node18" : "es2022",
+    sourcemap: true,
+    logLevel: "info",
+    external: MINECRAFT_EXTERNALS,
+  });
+}
 
-console.log("@sfmc/sdk ESM bundle done:", SUBPATHS.length, "subpaths");
+// 2) .d.ts — tsc --emitDeclarationOnly 产 dist/types
+console.log("[sdk] emitting .d.ts via tsc...");
+execSync("npx tsc -p tsconfig.types.json", { stdio: "inherit" });
+
+console.log("@sfmc/sdk build done:", SUBPATHS.length, "subpaths");
+
