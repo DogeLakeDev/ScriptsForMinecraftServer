@@ -32,7 +32,7 @@ import { AdminGUI } from "./gui/AdminGUI.js";
 import { MainMenu } from "./gui/MainMenu.js";
 import { MoneyGUI } from "./gui/MoneyGUI.js";
 
-import { CoopSystem } from "./coop/CoopSystem.js";
+import { CoopSystem } from "@sfmc/module-coop";
 
 import { ChatSystem } from "./chat/ChatSystem.js";
 
