@@ -38,7 +38,7 @@ import { ChatSystem } from "./chat/ChatSystem.js";
 
 import { ActivityLog } from "./data/ActivityLog.js";
 import { getPlayerData } from "./data/PlayerData.js";
-import { ScoreboardSync, ScoreboardsBackup } from "./data/ScoreboardsData.js";
+import { ScoreboardSync, ScoreboardsBackup } from "@sfmc/module-scoreboard-sync";
 import { syncWorldData } from "./data/WorldData.js";
 
 import { savePlayers } from "./api/PlayersDataApi.js";
