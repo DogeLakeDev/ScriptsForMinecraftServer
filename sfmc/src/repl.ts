@@ -1,9 +1,9 @@
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
-import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
-import { enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
-import { forceStopAll, SERVICE_NAMES, services, stopAll, type ServiceName } from "./services.js";
+import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
+import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
 import { c } from "./theme.js";
 
 function setRaw(v: boolean): void {
@@ -40,6 +40,7 @@ ${c.bold("Commands")}
   ${c.green("remote status")}             Show remote-agent enrollment status
   ${c.green("remote enroll")} <url> <token> [name]
                           Enroll this supervisor with a controller
+  ${c.green("remote disable")}            Disable + disconnect remote agent
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
   ${c.green("quit")} / ${c.green("exit")} Exit
@@ -116,7 +117,7 @@ function getCompletions(parsed: ParsedLine): string[] {
     case "update":
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
     case "remote":
-      if (argIndex === 0) return ["status", "enroll"].filter(sw);
+      if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
     default:
       return [];
@@ -418,6 +419,8 @@ export const SOURCE_ITEMS: SelectItem[] = [
   { label: c.purple("QQBridge"), value: "qq" },
   { label: c.yellow(" LL-BOT "), value: "llbot" },
   { label: c.cyan(" SYSTEM "), value: "system" },
+  { label: c.orange(" UPDATE "), value: "update" },
+  { label: c.red("BDSTools"), value: "bds-tools" },
 ];
 
 function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
@@ -579,23 +582,9 @@ async function execCmd(parts: string[]): Promise<void> {
       else stdout.write(c.yellow("Usage: restart <service>|-all\n"));
       break;
     case "send": {
-      const svc = args[0] as ServiceName;
+      const svc = args[0] ?? "";
       const msg = args.slice(1).join(" ");
-      if (!svc || !msg) {
-        stdout.write(c.yellow("Usage: send <service> <message>\n"));
-        break;
-      }
-      const s = services[svc];
-      if (!s.running) {
-        stdout.write(c.yellow(`${s.title} not running\n`));
-        break;
-      }
-      try {
-        s.proc?.stdin?.write(msg + "\n");
-        stdout.write(c.dim(`sent to ${svc}\n`));
-      } catch {
-        stdout.write(c.red("write failed\n"));
-      }
+      stdout.write((await cmdSend(svc, msg)) + "\n");
       break;
     }
     case "init": {
@@ -614,8 +603,11 @@ async function execCmd(parts: string[]): Promise<void> {
         const agentName = name ?? process.env.COMPUTERNAME ?? "sfmc-agent";
         stdout.write(`Enrolled remote agent: ${await enrollRemoteAgent(controllerUrl, enrollmentToken, agentName)}\n`);
         startRemoteAgent();
+      } else if (subcommand === "disable") {
+        disableRemoteAgent();
+        stdout.write(c.dim("Remote agent disabled\n"));
       } else {
-        stdout.write("Usage: remote enroll <controller-url> <enrollment-token> [name] | remote status\n");
+        stdout.write("Usage: remote enroll <controller-url> <enrollment-token> [name] | remote status | remote disable\n");
       }
       break;
     }

@@ -21,7 +21,7 @@ const result = await esbuild.build({
   external: ["node:readline", "node:fs", "node:path"],
   alias: { cheerio: require.resolve("cheerio") },
   conditions: ["import", "require", "node", "default"],
-  logLevel: "debug",
+  logLevel: "info",
   minify: true,
   banner: {
     js: [

@@ -1,9 +1,9 @@
+import { configPath } from "@sfmc/config";
+import { applyEdits, modify, parse } from "jsonc-parser/lib/esm/main.js";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { configPath } from "@sfmc/config";
-import { applyEdits, modify, parse } from "jsonc-parser/lib/esm/main.js";
 import { IS_SEA, ROOT } from "./runtime.js";
 const PROFILE_NAME = "SFMC";
 function readJson(file, fallback) {
@@ -68,10 +68,23 @@ function profile(guid, startingDirectory, commandline) {
         closeOnExit: "automatic",
         colorScheme: "One Half Dark",
         commandline,
-        cursorColor: "#98C379",
+        cursorColor: "#DCDFE4",
         cursorShape: "filledBox",
         font: {
-            axes: { ital: 0, wght: 400, rlig: 1 },
+            axes: {},
+            features: {
+                dnom: 0,
+                fina: 0,
+                frac: 0,
+                mark: 1,
+                medi: 0,
+                numr: 0,
+                ordn: 0,
+                rlig: 1,
+                subs: 0,
+                sups: 0,
+                zero: 0,
+            },
             size: 12,
             weight: "semi-bold",
         },
@@ -80,14 +93,14 @@ function profile(guid, startingDirectory, commandline) {
         historySize: 9001,
         icon: "\ud83d\udd25",
         intenseTextStyle: "all",
-        name: PROFILE_NAME,
-        opacity: 100,
+        name: "SFMC",
+        opacity: 90,
         padding: "8, 8, 8, 8",
         scrollbarState: "visible",
         snapOnInput: true,
         startingDirectory,
-        tabTitle: PROFILE_NAME,
-        useAcrylic: false,
+        tabTitle: "SFMC",
+        useAcrylic: true,
     };
 }
 function editSettings(settingsFile, edits) {
@@ -103,7 +116,9 @@ function removeManagedProfiles(settingsFile, settings, state) {
     for (let index = list.length - 1; index >= 0; index -= 1) {
         const item = list[index];
         if (item && (item.guid === state.guid || item.name === PROFILE_NAME)) {
-            editSettings(settingsFile, modify(fs.readFileSync(settingsFile, "utf-8"), ["profiles", "list", index], undefined, { formattingOptions: JSONC_FORMAT }));
+            editSettings(settingsFile, modify(fs.readFileSync(settingsFile, "utf-8"), ["profiles", "list", index], undefined, {
+                formattingOptions: JSONC_FORMAT,
+            }));
         }
     }
 }
@@ -120,7 +135,10 @@ function updateProfile(settingsFile, state, commandline) {
     const value = Array.isArray(list)
         ? profile(state.guid, state.starting_directory, commandline)
         : [profile(state.guid, state.starting_directory, commandline)];
-    editSettings(settingsFile, modify(fs.readFileSync(settingsFile, "utf-8"), pathToList, value, { formattingOptions: JSONC_FORMAT, isArrayInsertion: Array.isArray(list) }));
+    editSettings(settingsFile, modify(fs.readFileSync(settingsFile, "utf-8"), pathToList, value, {
+        formattingOptions: JSONC_FORMAT,
+        isArrayInsertion: Array.isArray(list),
+    }));
 }
 function removeProfile(settingsFile, state) {
     const settings = readTerminalSettings(settingsFile);

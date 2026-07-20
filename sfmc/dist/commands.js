@@ -114,6 +114,23 @@ export async function cmdStop(raw) {
         STOPPING.delete(svc);
     }
 }
+export async function cmdSend(raw, message) {
+    const svc = parseService(raw);
+    if (!svc)
+        return c.red(`Unknown service: ${raw} (try: ${SERVICE_NAMES.join(", ")})`);
+    if (!message)
+        return c.yellow("Usage: send <service> <message>");
+    const svcObj = services[svc];
+    if (!svcObj.running || !svcObj.proc?.stdin)
+        return c.yellow(`${svcObj.title} not running`);
+    try {
+        svcObj.proc.stdin.write(message + "\n");
+        return c.dim(`sent to ${svc}`);
+    }
+    catch {
+        return c.red("write failed");
+    }
+}
 export async function cmdRestart(raw) {
     const svc = parseService(raw);
     if (!svc)

@@ -9,6 +9,7 @@
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
+    "@types/ws": "^8.18.1",
     "esbuild": "^0.28.1",
     "eslint": "^10.7.0",
     "nodemon": "^3.1.14",
@@ -24,6 +25,10 @@
   "scripts": {
     "start": "node index.js",
     "build": "npm run build --workspaces",
+    "module-core:build": "npm run build --workspace @sfmc/logs && npm run build --workspace @sfmc/contracts && npm run build --workspace @sfmc/sapi-sdk && npm run build --workspace @sfmc/node-sdk",
+    "module-core:typecheck": "npm run typecheck --workspace @sfmc/logs && npm run typecheck --workspace @sfmc/contracts && npm run typecheck --workspace @sfmc/sapi-sdk && npm run typecheck --workspace @sfmc/node-sdk",
+    "module-core:test": "npm test --workspace @sfmc/contracts",
+    "module-core:verify": "npm run module-core:typecheck && npm run module-core:build && npm run module-core:test",
     "check-catalog": "node /tools/check-catalog.js",
     "dev": "tsc panel/src/main.ts",
     "lint": "eslint . --ext .ts,.tsx",
@@ -34,6 +39,9 @@
     "shared/sfmc-logs",
     "shared/sfmc-config",
     "shared/sfmc-types",
+    "shared/sfmc-contracts",
+    "shared/sfmc-sapi-sdk",
+    "shared/sfmc-node-sdk",
     "db-server",
     "scriptsforminecraftserver",
     "qq-bridge",
@@ -41,5 +49,7 @@
     "sfmc",
     "remote-controller"
   ],
-  "allow-scripts": "esbuild@0.28.1"
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
 }

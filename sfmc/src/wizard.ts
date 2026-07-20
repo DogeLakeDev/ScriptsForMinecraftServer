@@ -1,20 +1,10 @@
-import {
-  confirm,
-  intro,
-  isCancel,
-  multiselect,
-  note,
-  outro,
-  select,
-  tasks,
-  text,
-} from "@clack/prompts";
+import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
+import { configPath } from "@sfmc/config";
 import JSZip from "jszip";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { getAsset } from "node:sea";
-import { configPath } from "@sfmc/config";
 import { IS_SEA, ROOT, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
@@ -218,7 +208,7 @@ export async function runWizard(): Promise<void> {
       return;
     }
   }
-
+  // ── Step 1: Runtime Environment ────────────────────────────────
   const rootDir = ROOT;
   note(c.text(`Runtime root: ${rootDir}`), "Step 1 — Runtime Environment");
 
@@ -236,15 +226,6 @@ export async function runWizard(): Promise<void> {
   const bdsResolved = await pickDirectory("BDS installation directory", path.join(rootDir, "BDS"));
   if (!ensureDirectory(bdsResolved)) {
     outro(c.red(`Cannot create BDS installation directory: ${bdsResolved}`));
-    return;
-  }
-  const EULA = await confirm({
-    message:
-      "Do you agree to the EULA(https://www.minecraft.net/en-us/eula) published by Mojang? You must agree to it before you can use this program.",
-    initialValue: false,
-  });
-  if (isCancel(EULA) || !EULA) {
-    outro(c.yellow("Disagreed."));
     return;
   }
 
@@ -265,7 +246,6 @@ export async function runWizard(): Promise<void> {
   if (dbDir !== dbDirInput) {
     note(c.text(`Using default: ${dbDir}`), "TIPS");
   }
-
   const dbPortRaw = await text({
     message: "Database server port:",
     initialValue: "3001",
@@ -286,6 +266,16 @@ export async function runWizard(): Promise<void> {
     "Step 3 — BDS Environment"
   );
 
+  const EULA = await confirm({
+    message:
+      "Do you agree to the EULA(https://www.minecraft.net/en-us/eula) published by Mojang? You must agree to it before you can use this program.",
+    initialValue: false,
+  });
+  if (isCancel(EULA) || !EULA) {
+    outro(c.yellow("Disagreed."));
+    return;
+  }
+
   let downloadBds = false;
   let bdsChannel = "release";
   let backupDir = path.join(path.dirname(bdsResolved), "backups");
@@ -294,8 +284,6 @@ export async function runWizard(): Promise<void> {
   if (!bdsExists) {
     const d = await confirm({ message: "Download BDS now?", initialValue: true });
     if (!isCancel(d) && d) {
-      downloadBds = true;
-
       const ch = await select({
         message: "Select channel:",
         options: [
@@ -303,31 +291,37 @@ export async function runWizard(): Promise<void> {
           { value: "preview", label: "Preview", hint: "may be unstable" },
         ],
       });
-      if (!isCancel(ch)) bdsChannel = ch as string;
-
-      backupDir = await pickDirectory("BDS backup directory", backupDir);
+      if (!isCancel(ch)) {
+        bdsChannel = ch as string;
+        downloadBds = true;
+      }
       if (!ensureDirectory(backupDir)) {
         outro(c.red(`Cannot create BDS backup directory: ${backupDir}`));
         return;
       }
-
-      const pr = await multiselect({
-        message: "Files to preserve on update:",
-        options: [
-          { value: "server.properties", label: "server.properties", hint: "server config" },
-          { value: "whitelist.json", label: "whitelist.json" },
-          { value: "permissions.json", label: "permissions.json" },
-          { value: "allowlist.json", label: "allowlist.json" },
-          { value: "worlds", label: "worlds/", hint: "world data" },
-          { value: "config", label: "config/", hint: "config directory" },
-        ],
-        required: false,
-      });
-      if (!isCancel(pr)) preserve = pr as string[];
-    } else {
-      note(c.yellow("You can configure BDS path later in configs/bds_updater.json"), "Skipped");
     }
   }
+
+  backupDir = await pickDirectory("BDS backup directory", backupDir);
+  const pr = await multiselect({
+    message: "Files to preserve on update(When updates are enabled next time):",
+    options: [
+      { value: "server.properties", label: "server.properties", hint: "server config", disabled: true },
+      { value: "whitelist.json", label: "whitelist.json" },
+      { value: "permissions.json", label: "permissions.json" },
+      { value: "allowlist.json", label: "allowlist.json" },
+      { value: "worlds", label: "worlds/", hint: "world data" },
+      { value: "config", label: "config/", hint: "config directory", disabled: true },
+    ],
+    required: false,
+  });
+  if (!isCancel(pr)) preserve = pr as string[];
+  note(
+    c.yellow(
+      "If could not find BDS runtime, updater will be started later.\n You can configure updater later in configs/bds_updater.json"
+    ),
+    "TIPS"
+  );
 
   // ── Step 5: Module initialization ─────────────────────────────────
   const catalogPath = path.join(rootDir, "modules", "catalog.json");
@@ -337,7 +331,6 @@ export async function runWizard(): Promise<void> {
     if (Array.isArray(raw.modules)) {
       for (const m of raw.modules) {
         const entry = m as Record<string, unknown>;
-        if (String(entry.type) === "core") continue;
         catalogModules.push({
           id: String(entry.id ?? ""),
           name: String(entry.name ?? entry.id ?? ""),
@@ -356,130 +349,122 @@ export async function runWizard(): Promise<void> {
   );
 
   let selectedModules: string[] = [];
+  const coreMd: any[] = [];
+  const featMd: any[] = [];
+  catalogModules.forEach((k) => {
+    if (k.type === "core") {
+      coreMd.push({
+        value: k.id,
+        label: `${k.name}  (${k.type})`,
+        hint: String(k.description ?? "(empty)"),
+        disabled: true,
+      });
+    } else if (k.type === "feature") {
+      featMd.push({
+        value: k.id,
+        label: `${k.name}  (${k.type})`,
+        hint: String(k.description ?? "(empty)"),
+      });
+    }
+  });
   if (catalogModules.length > 0) {
     const r = await multiselect({
       message: "Enable modules:",
-      options: catalogModules.map((m) => ({
-        value: m.id,
-        label: `${m.name}  (${m.type})`,
-        ...(m.description ? { hint: m.description } : {}),
-      })),
+      // merge core and feature module option arrays into a single options array
+      options: [...coreMd, ...featMd],
       required: false,
     });
     if (!isCancel(r)) selectedModules = r as string[];
   }
 
   // ── Write paths into configs ──────────────────────────────
-  try {
-    await tasks([
-      {
-        title: "Updating configs",
-        task: () => {
-          const slashPath = (value: string) => value.replace(/\\/g, "/");
-          patchJson(rootDir, "db_config.json", {
-            db_port: dbPort,
-            dbDir: slashPath(path.relative(rootDir, path.join(dbDir, "sfmc_data.db"))),
-            modulesDir: "modules",
-          });
+  const t = [
+    {
+      title: "Updating configs",
+      task: () => {
+        const slashPath = (value: string) => value.replace(/\\/g, "/");
+        patchJson(rootDir, "db_config.json", {
+          db_port: dbPort,
+          dbDir: slashPath(path.relative(rootDir, path.join(dbDir, "sfmc_data.db"))),
+          modulesDir: "modules",
+        });
 
-          const llbotOn = !!llbotEnabled && !!llbotPath;
-          patchJson(rootDir, "qq_config.json", {
-            llbot_enabled: llbotOn,
-            llbot_path: llbotPath ? slashPath(llbotPath) : "",
-            llbot_cwd: llbotPath ? slashPath(llbotPath) : "",
-          });
-          patchJson(rootDir, "bds_updater.json", {
-            bds_path: slashPath(bdsResolved),
-            channel: bdsChannel,
-            backup_dir: slashPath(backupDir),
-            preserve,
-            qq_notify: llbotOn,
-          });
-          return "Configs updated";
-        },
+        const llbotOn = !!llbotEnabled && !!llbotPath;
+        patchJson(rootDir, "qq_config.json", {
+          llbot_enabled: llbotOn,
+          llbot_path: llbotPath ? slashPath(llbotPath) : "",
+          llbot_cwd: llbotPath ? slashPath(llbotPath) : "",
+        });
+        patchJson(rootDir, "bds_updater.json", {
+          bds_path: slashPath(bdsResolved),
+          channel: bdsChannel,
+          backup_dir: slashPath(backupDir),
+          preserve,
+          qq_notify: llbotOn,
+        });
+        return "Configs updated";
       },
-    ]);
+    },
+    {
+      title: "Updating module state",
+      task: async (): Promise<string> => {
+        const lockPath = path.join(rootDir, "modules", "module-lock.json");
+        let lock: { version?: number; modules?: Record<string, { enabled: boolean; updatedAt: number }> } = {
+          version: 1,
+          modules: {},
+        };
+        try {
+          lock = JSON.parse(fs.readFileSync(lockPath, "utf-8")) as typeof lock;
+        } catch {
+          /* start fresh */
+        }
+        if (!lock.modules) lock.modules = {};
+        const now = Date.now();
+        for (const id of selectedModules) lock.modules[id] = { enabled: true, updatedAt: now };
+        fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+        fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2), "utf-8");
+        return "Module state updated";
+      },
+    },
+    {
+      title: "Initializing database",
+      task: async (): Promise<string> => {
+        const child = spawnService("db", [], {
+          cwd: rootDir,
+          stdio: "ignore",
+          env: { ...process.env, DB_PORT: String(dbPort) },
+        });
+        if (!(await waitForHealth(dbPort))) {
+          child.kill("SIGTERM");
+          return "Database startup timed out";
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        child.kill("SIGTERM");
+        setTimeout(() => child.kill("SIGKILL"), 3000).unref();
+        return "Database initialized";
+      },
+    },
+  ];
+  if (downloadBds) {
+    t.push({
+      title: "Downloading BDS",
+      task: async (): Promise<string> => {
+        const result = await runBdsUpdate(rootDir, bdsChannel);
+        if (result.code !== 0) {
+          return "Downloaded Failure.";
+        }
+        return "BDS downloaded";
+      },
+    });
+  }
+  try {
+    await tasks(t);
   } catch (e) {
     outro(c.red(`Error: ${(e as Error).message}`));
     return;
   }
 
-  // ── Write module-lock.json ──────────────────────────────────────
-  if (selectedModules.length > 0) {
-    try {
-      await tasks([
-        {
-          title: "Updating module state",
-          task: () => {
-            const lockPath = path.join(rootDir, "modules", "module-lock.json");
-            let lock: { version?: number; modules?: Record<string, { enabled: boolean; updatedAt: number }> } = {
-              version: 1,
-              modules: {},
-            };
-            try {
-              lock = JSON.parse(fs.readFileSync(lockPath, "utf-8")) as typeof lock;
-            } catch {
-              /* start fresh */
-            }
-            if (!lock.modules) lock.modules = {};
-            const now = Date.now();
-            for (const id of selectedModules) lock.modules[id] = { enabled: true, updatedAt: now };
-            fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-            fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2), "utf-8");
-            return "Module state updated";
-          },
-        },
-      ]);
-    } catch {
-      note(c.yellow("Module state write failed"), "Warning");
-    }
-  }
-
-  // ── Download BDS ─────────────────────────────────────────────────
-  if (downloadBds) {
-    try {
-      await tasks([
-        {
-          title: "Downloading BDS",
-          task: async (message) => {
-            message("Downloading and installing BDS");
-            const result = await runBdsUpdate(rootDir, bdsChannel);
-            if (result.code !== 0) throw new Error(result.output || "unknown error");
-            return "BDS downloaded";
-          },
-        },
-      ]);
-    } catch (error) {
-      note(c.red((error as Error).message), "BDS installation failed");
-    }
-  }
-
-  // ── Init DB ──────────────────────────────────────────────────────
-  try {
-    await tasks([
-      {
-        title: "Initializing database",
-        task: async () => {
-          const child = spawnService("db", [], {
-            cwd: rootDir,
-            stdio: "ignore",
-            env: { ...process.env, DB_PORT: String(dbPort) },
-          });
-          if (!await waitForHealth(dbPort)) {
-            child.kill("SIGTERM");
-            return "Database startup timed out";
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          child.kill("SIGTERM");
-          setTimeout(() => child.kill("SIGKILL"), 3000).unref();
-          return "Database initialized";
-        },
-      },
-    ]);
-  } catch {
-    note(c.yellow("Skipped — start manually"), "Database");
-  }
-
   outro(c.green("Done! Run help to learn managing."));
 }
+

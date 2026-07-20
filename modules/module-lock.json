@@ -15,7 +15,7 @@
     },
     "feature-chat": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-coop": {
       "enabled": true,
@@ -27,19 +27,19 @@
     },
     "feature-afk": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-clean": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-online-time": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-activity-log": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-scoreboard-sync": {
       "enabled": true,
@@ -51,7 +51,7 @@
     },
     "feature-chat-sounds": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-inventory-switcher": {
       "enabled": true,
@@ -83,11 +83,11 @@
     },
     "feature-economy": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "feature-tps": {
       "enabled": true,
-      "updatedAt": 1784463641711
+      "updatedAt": 1784487209308
     },
     "service-db": {
       "enabled": true,

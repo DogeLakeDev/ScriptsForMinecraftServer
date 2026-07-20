@@ -4,7 +4,7 @@ import { configPath } from "@sfmc/config";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
-import { enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
+import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 function printVersion() {
     `${c.text(`⠪⡁⡯⠁`)}
@@ -97,13 +97,27 @@ async function main() {
             const [subcommand, ...remoteArgs] = rest;
             if (subcommand === "enroll" && remoteArgs[0] && remoteArgs[1]) {
                 const name = remoteArgs[2] ?? process.env.COMPUTERNAME ?? "sfmc-agent";
-                console.log(`Enrolled remote agent: ${await enrollRemoteAgent(remoteArgs[0], remoteArgs[1], name)}`);
+                const agentId = await enrollRemoteAgent(remoteArgs[0], remoteArgs[1], name);
+                console.log(`Enrolled remote agent: ${agentId}`);
+                startRemoteAgent();
+                const exit = () => {
+                    stopRemoteAgent();
+                    process.exit(0);
+                };
+                process.once("SIGINT", exit);
+                process.once("SIGTERM", exit);
+                /* keep alive so the WS loop can run; ctrl-c exits. */
+                await new Promise(() => undefined);
             }
             else if (subcommand === "status") {
                 console.log(JSON.stringify(remoteStatus(), null, 2));
             }
+            else if (subcommand === "disable") {
+                disableRemoteAgent();
+                console.log("Remote agent disabled");
+            }
             else {
-                console.log("Usage: sfmc remote enroll <controller-url> <enrollment-token> [name] | sfmc remote status");
+                console.log("Usage: sfmc remote enroll <controller-url> <enrollment-token> [name] | sfmc remote status | sfmc remote disable");
             }
             break;
         }

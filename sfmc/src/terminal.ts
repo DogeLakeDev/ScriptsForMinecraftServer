@@ -1,9 +1,9 @@
+import { configPath } from "@sfmc/config";
+import { applyEdits, modify, parse, type FormattingOptions, type ParseError } from "jsonc-parser/lib/esm/main.js";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { configPath } from "@sfmc/config";
-import { applyEdits, modify, parse, type FormattingOptions, type ParseError } from "jsonc-parser/lib/esm/main.js";
 import { IS_SEA, ROOT } from "./runtime.js";
 
 const PROFILE_NAME = "SFMC";
@@ -56,8 +56,8 @@ function terminalSettingsFiles(): string[] {
 }
 
 function preferredPowerShell(): string {
-  const programFiles = [process.env.ProgramW6432, process.env.ProgramFiles].filter(
-    (value): value is string => Boolean(value)
+  const programFiles = [process.env.ProgramW6432, process.env.ProgramFiles].filter((value): value is string =>
+    Boolean(value)
   );
   const candidates = [
     ...programFiles.map((base) => path.join(base, "PowerShell", "7", "pwsh.exe")),
@@ -86,10 +86,23 @@ function profile(guid: string, startingDirectory: string, commandline: string): 
     closeOnExit: "automatic",
     colorScheme: "One Half Dark",
     commandline,
-    cursorColor: "#98C379",
+    cursorColor: "#DCDFE4",
     cursorShape: "filledBox",
     font: {
-      axes: { ital: 0, wght: 400, rlig: 1 },
+      axes: {},
+      features: {
+        dnom: 0,
+        fina: 0,
+        frac: 0,
+        mark: 1,
+        medi: 0,
+        numr: 0,
+        ordn: 0,
+        rlig: 1,
+        subs: 0,
+        sups: 0,
+        zero: 0,
+      },
       size: 12,
       weight: "semi-bold",
     },
@@ -98,14 +111,14 @@ function profile(guid: string, startingDirectory: string, commandline: string): 
     historySize: 9001,
     icon: "\ud83d\udd25",
     intenseTextStyle: "all",
-    name: PROFILE_NAME,
-    opacity: 100,
+    name: "SFMC",
+    opacity: 90,
     padding: "8, 8, 8, 8",
     scrollbarState: "visible",
     snapOnInput: true,
     startingDirectory,
-    tabTitle: PROFILE_NAME,
-    useAcrylic: false,
+    tabTitle: "SFMC",
+    useAcrylic: true,
   };
 }
 
@@ -122,7 +135,12 @@ function removeManagedProfiles(settingsFile: string, settings: TerminalSettings,
   for (let index = list.length - 1; index >= 0; index -= 1) {
     const item = list[index];
     if (item && (item.guid === state.guid || item.name === PROFILE_NAME)) {
-      editSettings(settingsFile, modify(fs.readFileSync(settingsFile, "utf-8"), ["profiles", "list", index], undefined, { formattingOptions: JSONC_FORMAT }));
+      editSettings(
+        settingsFile,
+        modify(fs.readFileSync(settingsFile, "utf-8"), ["profiles", "list", index], undefined, {
+          formattingOptions: JSONC_FORMAT,
+        })
+      );
     }
   }
 }
@@ -138,7 +156,13 @@ function updateProfile(settingsFile: string, state: TerminalProfileState, comman
   const value = Array.isArray(list)
     ? profile(state.guid, state.starting_directory, commandline)
     : [profile(state.guid, state.starting_directory, commandline)];
-  editSettings(settingsFile, modify(fs.readFileSync(settingsFile, "utf-8"), pathToList, value, { formattingOptions: JSONC_FORMAT, isArrayInsertion: Array.isArray(list) }));
+  editSettings(
+    settingsFile,
+    modify(fs.readFileSync(settingsFile, "utf-8"), pathToList, value, {
+      formattingOptions: JSONC_FORMAT,
+      isArrayInsertion: Array.isArray(list),
+    })
+  );
 }
 
 function removeProfile(settingsFile: string, state: TerminalProfileState): void {
@@ -178,3 +202,4 @@ export function ensureSeaTerminalProfile(): void {
   const state = terminalState(runtimeFile, path.dirname(process.execPath));
   for (const settingsFile of settingsFiles) updateProfile(settingsFile, state, preferredPowerShell());
 }
+
