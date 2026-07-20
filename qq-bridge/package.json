@@ -16,10 +16,7 @@
   "dependencies": {
     "@sfmc/config": "*",
     "@sfmc/logs": "*",
-    "ws": "^8.18.0"
-  },
-  "devDependencies": {
-    "@types/ws": "^8.18.1"
+    "ws": "^8.21.1"
   },
   "engines": {
     "node": ">=22.5.0"
@@ -27,3 +24,4 @@
   "keywords": [],
   "license": "ISC"
 }
+

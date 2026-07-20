@@ -36,3 +36,5 @@ data/
 *.zip
 configs/
 .workbuddy/
+
+BDS
