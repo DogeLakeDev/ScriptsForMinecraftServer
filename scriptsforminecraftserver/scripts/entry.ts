@@ -22,7 +22,7 @@ import { EconomyReport } from "./EconomyReport.js";
 import { CreativeArea } from "@sfmc/module-creative";
 import * as Fly from "@sfmc/module-fly";
 import { InventorySwitcher } from "@sfmc/module-inventory-switcher";
-import { Peace } from "./area/Peace.js";
+import { Peace } from "@sfmc/module-peace";
 import { SurvivalArea } from "@sfmc/module-survival";
 
 import { LandEvents } from "@sfmc/module-land";
