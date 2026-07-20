@@ -1,16 +1,16 @@
 {
-  "name": "@sfmc/module-chat",
+  "name": "@sfmc/module-coop-gui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "SAPI module: chat 模块。SAPI 侧入口,sapi/src/index.ts。",
+  "description": "SAPI module: coop GUI 表单面板。",
   "main": "sapi/src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit -p sapi/tsconfig.json"
   },
   "dependencies": {
     "@sfmc/sdk": "*",
-    "@sfmc/module-chat-gui": "*"
+    "@sfmc/module-coop": "*"
   },
   "peerDependencies": {
     "@minecraft/server": "2.10.0-beta.1.26.40-preview.30"

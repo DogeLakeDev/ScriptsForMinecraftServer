@@ -7,18 +7,7 @@
 
 import { EntityInventoryComponent, ItemStack, Player, world } from "@minecraft/server";
 import type { CoopShopItem } from "@sfmc/types";
-import {
-  coopShopBuy,
-  coopShopSell,
-  deleteCoop,
-  getAllCoops,
-  getAllShopGroups,
-  getCoop,
-  getShopItems,
-  joinCoop as joinCoopApi,
-  leaveCoop as leaveCoopApi,
-  treasury,
-} from "../../../../../scriptsforminecraftserver/scripts/api/index.js";
+import { CoopApi } from "@sfmc/module-coop-gui";
 import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
 import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
 import { Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
@@ -100,7 +89,7 @@ export class CoopCore {
 
   static async typeGood(item: ItemStack): Promise<string[]> {
     const rtv: string[] = [];
-    const groups = (await getAllShopGroups()).filter((g) => g.type_function);
+    const groups = (await CoopApi.getAllShopGroups()).filter((g) => g.type_function);
     for (const g of groups) {
       const tfRaw = g.type_function;
       if (!tfRaw) continue;
@@ -130,9 +119,7 @@ export class CoopCore {
 
   static async registerCoop(name: string, cid: string, player: Player): Promise<boolean> {
     debug.i("COOP", `registerCoop: name=${name} cid=${cid} player=${player.name}`);
-    const result = await import("../../../../../scriptsforminecraftserver/scripts/api/CoopApi.js").then((api) =>
-      api.createCoop(name.trim(), cid.trim(), player.id, player.name)
-    );
+    const result = await CoopApi.createCoop(name.trim(), cid.trim(), player.id, player.name);
     if (!result.ok) {
       debug.w("COOP", `registerCoop: failed name=${name} cid=${cid}`);
       return false;
@@ -145,20 +132,20 @@ export class CoopCore {
 
   static async releaseCoop(cid: string, actorId: string): Promise<boolean> {
     debug.i("COOP", `releaseCoop: cid=${cid} actorId=${actorId}`);
-    const ok = await deleteCoop(cid, actorId);
+    const ok = await CoopApi.deleteCoop(cid, actorId);
     debug.i("COOP", `releaseCoop: ${ok ? "success" : "failed"} cid=${cid}`);
     return ok;
   }
 
   static async joinCoop(player: Player, cid: string): Promise<boolean> {
     debug.i("COOP", `joinCoop: player=${player.name} cid=${cid}`);
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     if (!data || (data.members || []).some((m) => m.player_id === player.id)) {
       debug.w("COOP", `joinCoop: already member or not found cid=${cid}`);
       return false;
     }
 
-    if (!(await joinCoopApi(cid, player.id, player.name))) {
+    if (!(await CoopApi.joinCoop(cid, player.id, player.name))) {
       debug.e("COOP", `joinCoop: API failed cid=${cid}`);
       return false;
     }
@@ -170,16 +157,16 @@ export class CoopCore {
 
   static async exitCoop(playerId: string, cid: string) {
     debug.i("COOP", `exitCoop: playerId=${playerId} cid=${cid}`);
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     if (!data) {
       debug.w("COOP", "exitCoop: coop not found");
       return;
     }
-    await leaveCoopApi(cid, playerId);
+    await CoopApi.leaveCoop(cid, playerId);
   }
 
   static async sendToMembers(cid: string, text: string) {
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     if (!data) return;
     let sent = 0;
     for (const member of data.members || []) {
@@ -193,7 +180,7 @@ export class CoopCore {
   }
 
   static async getInfo(cid: string): Promise<string> {
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     if (!data) {
       debug.w("COOP", `getInfo: coop not found cid=${cid}`);
       return "合作社不存在";
@@ -206,14 +193,14 @@ export class CoopCore {
   }
 
   static async getMemberList(cid: string): Promise<string[]> {
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     const list = data ? (data.members || []).map((m) => m.player_name_snapshot) : [];
     debug.i("COOP", `getMemberList: cid=${cid} count=${list.length}`);
     return list;
   }
 
   static async isOp(playerId: string, cid: string): Promise<boolean> {
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     const result =
       (data?.members || []).find((m) => m.player_id === playerId)?.role === "owner" ||
       (data?.members || []).find((m) => m.player_id === playerId)?.role === "admin";
@@ -223,7 +210,7 @@ export class CoopCore {
 
   static async setOp(cid: string, index: number) {
     debug.i("COOP", `setOp: cid=${cid} index=${index}`);
-    const data = await getCoop(cid);
+    const data = await CoopApi.getCoop(cid);
     if (!data || !data.members || index >= data.members.length) {
       debug.w("COOP", "setOp: invalid index or data");
       return;
@@ -233,9 +220,7 @@ export class CoopCore {
       debug.w("COOP", "setOp: member is undefined");
       return;
     }
-    await import("../../../../../scriptsforminecraftserver/scripts/api/CoopApi.js").then((api) =>
-      api.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin")
-    );
+    await CoopApi.updateMemberRole(cid, data.owner_player_id, member.player_id, "admin");
   }
 
   // ==========================================
@@ -253,7 +238,7 @@ export class CoopCore {
       "COOP",
       `bankControl: cid=${cid} player=${player.name} val=${val} type=${type === 1 ? "deposit" : "withdraw"}`
     );
-    const result = await treasury(cid, player.id, player.name, type === 1 ? "deposit" : "withdraw", val, note);
+    const result = await CoopApi.treasury(cid, player.id, player.name, type === 1 ? "deposit" : "withdraw", val, note);
     if (!result.ok) {
       debug.e("COOP", `bankControl: failed ${result.error}`);
       return { ok: false, error: result.error || "银行操作失败" };
@@ -269,7 +254,7 @@ export class CoopCore {
 
   static async getRankInfo(type: number): Promise<string> {
     debug.i("COOP", `getRankInfo: type=${type}`);
-    const all = await getAllCoops();
+    const all = await CoopApi.getAllCoops();
     if (type === 1) {
       return all
         .map((e) => ({ m: e.account?.balance || 0, n: e.name }))
@@ -292,10 +277,10 @@ export class CoopCore {
   // ==========================================
 
   private static async _getAllShopItems(): Promise<CoopShopItem[]> {
-    const allCoops = await getAllCoops();
+    const allCoops = await CoopApi.getAllCoops();
     const items: CoopShopItem[] = [];
     for (const c of allCoops) {
-      const shopItems = await getShopItems(c.cid);
+      const shopItems = await CoopApi.getShopItems(c.cid);
       items.push(...shopItems);
     }
     return items;
@@ -328,7 +313,7 @@ export class CoopCore {
   }
 
   static async getGroups(customOnly = false) {
-    const groups = await getAllShopGroups();
+    const groups = await CoopApi.getAllShopGroups();
     debug.i("COOP", `getGroups: customOnly=${customOnly} count=${groups.length}`);
     return customOnly ? groups.filter((g) => g.groupid.indexOf("default") === -1) : groups;
   }
@@ -343,7 +328,7 @@ export class CoopCore {
     }
 
     const idempotencyKey = `buy_${player.id}_${gid}_${num}_${Date.now()}`;
-    const result = await coopShopBuy(good.cid, player.id, player.name, gid, num, idempotencyKey);
+    const result = await CoopApi.coopShopBuy(good.cid, player.id, player.name, gid, num, idempotencyKey);
     if (!result.ok) {
       debug.e("COOP", `buy: API failed ${result.error}`);
       return { ok: false, error: result.error || "购买失败" };
@@ -386,7 +371,7 @@ export class CoopCore {
     }
 
     const idempotencyKey = `sell_${player.id}_${gid}_${num}_${Date.now()}`;
-    const result = await coopShopSell(good.cid, player.id, player.name, gid, num, idempotencyKey);
+    const result = await CoopApi.coopShopSell(good.cid, player.id, player.name, gid, num, idempotencyKey);
     if (!result.ok) {
       try {
         player.runCommand(`give @s ${good.item_type} ${num} ${good.item_aux ?? 0}`);

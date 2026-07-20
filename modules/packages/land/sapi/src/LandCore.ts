@@ -4,7 +4,7 @@
 
 import { Player } from "@minecraft/server";
 import type { DeleteLandResult } from "@sfmc/sdk/contracts";
-import { createLand as createLandOnServer, validateLand } from "../../../../../scriptsforminecraftserver/scripts/api/LandApi.js";
+import { LandApi } from "@sfmc/module-land-gui";
 import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
 import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
 import { Database, LandData, LandPos } from "./LandDatabase.js";
@@ -242,7 +242,7 @@ export class LandCore {
       return { ok: false, msg: `§c土地面积过大！\n最大面积为 ${cfg.maxSquare} 格。` };
     }
 
-    const remote = await validateLand({ ownerId: plid, ownerName: player.name, dimid, posA, posB });
+    const remote = await LandApi.validateLand({ ownerId: plid, ownerName: player.name, dimid, posA, posB });
     if (!remote.ok) {
       const messages: Record<string, string> = {
         overlap: "§c该区域与其他土地重叠，请重新选择土地范围。",
@@ -289,7 +289,7 @@ export class LandCore {
     const n = this.normalize(posA, posB);
     const price = this.calculatePrice(n.posA, n.posB);
     const requestId = `land-create:${plid}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
-    const result = await createLandOnServer({
+    const result = await LandApi.createLand({
       ownerId: plid,
       ownerName: player.name,
       dimid,

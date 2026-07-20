@@ -6,7 +6,7 @@
 \* ---------------------------------------- */
 import { Player, system, world } from "@minecraft/server";
 import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc/types";
-import * as ChatApi from "../../../../../scriptsforminecraftserver/scripts/api/ChatApi.js";
+import { ChatApi } from "@sfmc/module-chat-gui";
 import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
 import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
 import { HttpDB } from "../../../../../scriptsforminecraftserver/scripts/libs/HttpDB.js";

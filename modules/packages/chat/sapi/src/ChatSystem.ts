@@ -1,5 +1,5 @@
 import { Player, system, world } from "@minecraft/server";
-import { ChatGUI } from "../../../../../scriptsforminecraftserver/scripts/gui/ChatGUI.js";
+import { ChatGUI } from "@sfmc/module-chat-gui";
 import {
   Command,
   debug,

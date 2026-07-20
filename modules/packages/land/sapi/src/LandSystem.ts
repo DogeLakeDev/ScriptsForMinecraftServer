@@ -3,7 +3,7 @@
 \* ---------------------------------------- */
 
 import { Player, system } from "@minecraft/server";
-import { LandGUI } from "../../../../../scriptsforminecraftserver/scripts/gui/LandGUI.js";
+import { LandGUI } from "@sfmc/module-land-gui";
 import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
 import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
 import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
