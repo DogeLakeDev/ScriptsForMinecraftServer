@@ -19,7 +19,7 @@ import { SpawnProtect } from "@sfmc/module-spawn-protect";
 import { TPS } from "@sfmc/module-tps";
 import { EconomyReport } from "./EconomyReport.js";
 
-import { CreativeArea } from "./area/CreativeArea.js";
+import { CreativeArea } from "@sfmc/module-creative";
 import * as Fly from "./area/Fly.js";
 import { InventorySwitcher } from "./area/InventorySwitcher.js";
 import { Peace } from "./area/Peace.js";
