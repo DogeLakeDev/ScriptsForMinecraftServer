@@ -1,0 +1,6 @@
+{
+  "handlers": [],
+  "routes": [],
+  "migrations": [],
+  "notes": "core-data-backup: no SAPI→db-server routes required; world state is sync'd internally"
+}

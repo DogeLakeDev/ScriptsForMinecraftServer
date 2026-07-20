@@ -1,8 +1,8 @@
 import { Player, system, world } from "@minecraft/server";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import { Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { Command } from "@sfmc/sdk/sapi/runtime";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+import { Msg } from "@sfmc/sdk/sapi/runtime";
 
 export class TPS {
   private static tickTimes: number[] = [];

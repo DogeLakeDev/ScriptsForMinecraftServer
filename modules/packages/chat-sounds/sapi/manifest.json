@@ -1,0 +1,6 @@
+{
+  "handlers": [],
+  "routes": [],
+  "migrations": [],
+  "notes": "chat-sounds: no SAPI→db-server HTTP calls; pure game-side logic"
+}

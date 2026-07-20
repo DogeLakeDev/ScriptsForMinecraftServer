@@ -41,6 +41,7 @@ import {
 } from "./domain/economy.js";
 import { readJsonFile, writeJsonFile } from "./lib/json.js";
 import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
+import { loadManifest, reconcile, summarize } from "./manifest.js";
 
 if (!assertNodeVersion(22, 5)) {
   process.exit(2);
@@ -51,6 +52,27 @@ const db = openDatabase(env.DB_PATH);
 initSchema(db); // ← 唯一 schema 初始化
 
 const query = createQuery(db);
+
+// ── 模块清单加载（行为包构建产物）──────────────────────────────────
+let moduleManifest: ReturnType<typeof loadManifest> | null = null;
+try {
+  moduleManifest = loadManifest();
+  const summary = summarize(moduleManifest);
+  log.info(`[manifest] loaded schemaVersion=${moduleManifest.schemaVersion} modules=${summary.moduleCount} routes=${summary.routeCount} handlers=${summary.handlerCount} migrations=${summary.migrationCount}`);
+  // Stage I: routes are still served by routes/*.ts files; manifest provides observability.
+  const knownPrefixes = [
+    "/api/sfmc/activities", "/api/sfmc/channels", "/api/sfmc/configs", "/api/sfmc/coop", "/api/sfmc/coops",
+    "/api/sfmc/economy", "/api/sfmc/health", "/api/sfmc/lands", "/api/sfmc/messages", "/api/sfmc/modules",
+    "/api/sfmc/monitor", "/api/sfmc/players", "/api/sfmc/redpacket", "/api/sfmc/scoreboards", "/api/sfmc/world",
+    "/api/sfmc/settings",
+  ];
+  const warnings = reconcile(moduleManifest, knownPrefixes);
+  if (warnings.length > 0) {
+    for (const w of warnings) console.warn(`[manifest] WARN ${w}`);
+  }
+} catch (err) {
+  console.warn(`[manifest] ${(err as Error).message} — continuing without manifest verification`);
+}
 
 // ── 内存存储（监控面板用）──────────────────────────────────────────
 const monitorState = {

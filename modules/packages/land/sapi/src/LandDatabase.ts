@@ -10,7 +10,7 @@
 \* ---------------------------------------- */
 
 import type { LandConfig, LandData, LandMember, LandPermissions, LandPos, LandTaxConfig, DeleteLandResult } from "@sfmc/sdk/contracts";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
+import { debug } from "@sfmc/sdk/sapi/runtime";
 import { DEFAULT_TAX, defaultConfig, defaultPermissions, generateLandId } from "./defaults.js";
 import {
   LAND_ROLES,
@@ -73,7 +73,7 @@ let _serverTax: LandTaxConfig | null = null;
 
 async function fetchServerConfig(): Promise<void> {
   try {
-    const { HttpDB } = await import("../../../../../scriptsforminecraftserver/scripts/libs/HttpDB.js");
+    const { HttpDB } = await import("@sfmc/sdk/sapi/runtime");
     // 服务端权威配置走 /api/sfmc/settings/land:* —— 通用 settings 接口
     // （避免新增专用 endpoint，settings 已是 admin 写入通道）
     const [cfgBody, permBody, taxBody] = await Promise.all([
@@ -189,8 +189,8 @@ export class Database {
     debug.i("LANDDB", "loadFromServer: loading lands from server");
     if (this._loading) return this._loading;
     this._loading = (async () => {
-      const { getAllLands } = await import("../../../../../scriptsforminecraftserver/scripts/api/LandApi.js");
-      const lands = await getAllLands();
+      const { LandApi } = await import("@sfmc/module-land-gui");
+    const lands = await LandApi.getAllLands();
       if (lands === null) {
         debug.w("LANDDB", "loadFromServer: getAllLands returned null, keeping local cache");
         if (!this._registry) this._registry = new Map();
@@ -293,8 +293,8 @@ export class Database {
 
   static async update(land: LandData, actorId = land.ownerplid): Promise<boolean> {
     debug.i("LANDDB", `update: landId=${land.id} actorId=${actorId} version=${land.version}`);
-    const { updateLand } = await import("../../../../../scriptsforminecraftserver/scripts/api/LandApi.js");
-    const updated = await updateLand(land.id, {
+    const { LandApi } = await import("@sfmc/module-land-gui");
+    const updated = await LandApi.updateLand(land.id, {
       nickname: land.nickname,
       permissions: land.permissions,
       actorId,
@@ -321,14 +321,14 @@ export class Database {
     requestId?: string
   ): Promise<DeleteLandResult> {
     debug.i("LANDDB", `delete: landId=${landId} actorId=${actorId} version=${expectedVersion}`);
-    const { deleteLand } = await import("../../../../../scriptsforminecraftserver/scripts/api/LandApi.js");
-    const result = await deleteLand(landId, actorId, expectedVersion, requestId);
+    const { LandApi } = await import("@sfmc/module-land-gui");
+    const result = await LandApi.deleteLand(landId, actorId, expectedVersion, requestId);
     if (!result.ok) {
       debug.e("LANDDB", `delete: failed landId=${landId} error=${result.error}`);
       return result;
     }
     if (result.balance !== undefined) {
-      const { Money } = await import("../../../../../scriptsforminecraftserver/scripts/libs/Economy.js");
+      const { Money } = await import("@sfmc/sdk/sapi/runtime");
       const players = (await import("@minecraft/server")).world.getPlayers();
       const player = players.find((item) => item.id === actorId);
       if (player) {

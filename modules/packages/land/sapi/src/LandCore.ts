@@ -5,8 +5,8 @@
 import { Player } from "@minecraft/server";
 import type { DeleteLandResult } from "@sfmc/sdk/contracts";
 import { LandApi } from "@sfmc/module-land-gui";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Money } from "@sfmc/sdk/sapi/runtime";
 import { Database, LandData, LandPos } from "./LandDatabase.js";
 
 // ===== 类型定义 =====

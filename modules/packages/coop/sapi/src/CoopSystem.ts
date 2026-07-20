@@ -1,8 +1,8 @@
 import { Player } from "@minecraft/server";
 import { CoopGUI } from "@sfmc/module-coop-gui";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
+import { Command } from "@sfmc/sdk/sapi/runtime";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
 
 export class CoopSystem {
   /**

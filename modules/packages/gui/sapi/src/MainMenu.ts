@@ -1,12 +1,12 @@
 import { Player, system } from "@minecraft/server";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
-import { MenuNavigator, obsStr } from "../../../../../scriptsforminecraftserver/scripts/libs/MenuNavigator.js";
-import { ListFormInfo } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
-import { ChatGUI } from "../../../../../scriptsforminecraftserver/scripts/gui/ChatGUI.js";
-import { CoopGUI } from "../../../../../scriptsforminecraftserver/scripts/gui/CoopGUI.js";
-import { LandGUI } from "../../../../../scriptsforminecraftserver/scripts/gui/LandGUI.js";
+import { Command } from "@sfmc/sdk/sapi/runtime";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Money } from "@sfmc/sdk/sapi/runtime";
+import { MenuNavigator, obsStr } from "@sfmc/sdk/sapi/runtime";
+import { ListFormInfo } from "@sfmc/sdk/sapi/runtime";
+import { ChatGUI } from "@sfmc/module-chat-gui";
+import { CoopGUI } from "@sfmc/module-coop-gui";
+import { LandGUI } from "@sfmc/module-land-gui";
 
 export class MainMenu {
   static registerMenuCommand() {
@@ -72,7 +72,7 @@ export class MainMenu {
           status.setData(`§c余额不足。当前余额: ${bal} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`);
           return;
         }
-        const transferred = await import("../../../../../scriptsforminecraftserver/scripts/api/EconomyApi.js").then(({ transferEconomy }) =>
+        const transferred = await import("@sfmc/module-economy").then(({ transferEconomy }) =>
           transferEconomy(player.id, target.id, amount, target.name)
         );
         if (!transferred) {

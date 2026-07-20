@@ -3,9 +3,9 @@
 \* ---------------------------------------- */
 
 import { Player, system, world } from "@minecraft/server";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import { dimensionId, Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+import { dimensionId, Msg } from "@sfmc/sdk/sapi/runtime";
 import { LandCore } from "./LandCore.js";
 import { LandPos } from "./LandDatabase.js";
 import { canUseAt } from "./LandPolicy.js";

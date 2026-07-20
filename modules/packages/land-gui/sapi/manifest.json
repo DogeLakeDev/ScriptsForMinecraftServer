@@ -1,0 +1,12 @@
+{
+  "handlers": [],
+  "routes": [
+    { "method": "GET", "path": "/api/sfmc/lands", "handler": "lands:list" },
+    { "method": "GET", "path": "/api/sfmc/lands/:id/audit", "handler": "lands:audit" },
+    { "method": "GET", "path": "/api/sfmc/lands/:id/members", "handler": "lands:listMembers" },
+    { "method": "GET", "path": "/api/sfmc/lands/invites/:playerId", "handler": "lands:invites" },
+    { "method": "POST", "path": "/api/sfmc/lands/:id/members", "handler": "lands:addMember" },
+    { "method": "DELETE", "path": "/api/sfmc/lands/:id/members", "handler": "lands:removeMember" }
+  ],
+  "migrations": []
+}

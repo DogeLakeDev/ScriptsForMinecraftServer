@@ -8,9 +8,9 @@
 import { EntityInventoryComponent, ItemStack, Player, world } from "@minecraft/server";
 import type { CoopShopItem } from "@sfmc/types";
 import { CoopApi } from "@sfmc/module-coop-gui";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
-import { Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Money } from "@sfmc/sdk/sapi/runtime";
+import { Msg } from "@sfmc/sdk/sapi/runtime";
 
 export class CoopCore {
   // ==========================================

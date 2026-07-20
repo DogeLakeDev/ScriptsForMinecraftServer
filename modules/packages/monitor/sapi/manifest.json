@@ -1,0 +1,8 @@
+{
+  "handlers": [],
+  "routes": [
+    { "method": "POST", "path": "/api/sfmc/monitor/metrics", "handler": "monitor:metrics" },
+    { "method": "POST", "path": "/api/sfmc/monitor/player-chunks", "handler": "monitor:playerChunks" }
+  ],
+  "migrations": []
+}

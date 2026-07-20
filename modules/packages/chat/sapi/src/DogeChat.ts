@@ -7,11 +7,11 @@
 import { Player, system, world } from "@minecraft/server";
 import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc/types";
 import { ChatApi } from "@sfmc/module-chat-gui";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
-import { HttpDB } from "../../../../../scriptsforminecraftserver/scripts/libs/HttpDB.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import { Msg, formatTimestamp, generateId } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Money } from "@sfmc/sdk/sapi/runtime";
+import { HttpDB } from "@sfmc/sdk/sapi/runtime";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+import { Msg, formatTimestamp, generateId } from "@sfmc/sdk/sapi/runtime";
 
 export type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket };
 

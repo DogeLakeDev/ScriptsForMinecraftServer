@@ -1,5 +1,5 @@
 import { Player } from "@minecraft/server";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
 import { LandCore } from "./LandCore.js";
 import { Database, LandData, LandPermissions, LandPos, LandRole } from "./LandDatabase.js";
 import { ROLE_CAPABILITIES, type LandActionCapability } from "./LandRoles.js";

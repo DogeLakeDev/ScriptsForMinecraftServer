@@ -1,0 +1,6 @@
+{
+  "handlers": [],
+  "routes": [],
+  "migrations": [],
+  "notes": "survival: no SAPI→db-server HTTP calls; pure game-side logic"
+}

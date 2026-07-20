@@ -1,9 +1,9 @@
 import { Player, world } from "@minecraft/server";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
-import { FormStatus, MenuNavigator, obsStr } from "../../../../../scriptsforminecraftserver/scripts/libs/MenuNavigator.js";
-import { ListFormInfo } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { Command } from "@sfmc/sdk/sapi/runtime";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Money } from "@sfmc/sdk/sapi/runtime";
+import { FormStatus, MenuNavigator, obsStr } from "@sfmc/sdk/sapi/runtime";
+import { ListFormInfo } from "@sfmc/sdk/sapi/runtime";
 
 export class MoneyGUI {
   static registerCommand() {

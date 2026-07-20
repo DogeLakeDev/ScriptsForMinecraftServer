@@ -6,8 +6,28 @@
 \* ---------------------------------------- */
 
 import { Player, world } from "@minecraft/server";
-import { ScoreboardEntry, backupScoreboards, loadScoreboards } from "../../../../../scriptsforminecraftserver/scripts/api/ScoreboardsSyncApi.js";
-import { Command, debug, Msg, Permission } from "@sfmc/sdk/sapi/runtime";
+import { Command, debug, HttpDB, Msg, Permission } from "@sfmc/sdk/sapi/runtime";
+
+export interface ScoreboardEntry {
+  id: string;
+  displayName: string;
+  participants: Array<{ id: number; type: number; name: string; score: number }>;
+}
+
+async function backupScoreboards(entries: ScoreboardEntry[]): Promise<void> {
+  const payload = entries.map((e) => ({
+    objectiveId: e.id,
+    objectiveDisplay: e.displayName,
+    participantIds: e.participants,
+  }));
+  await HttpDB.post("/api/sfmc/scoreboards", { entries: payload });
+}
+
+async function loadScoreboards(): Promise<unknown[]> {
+  const body = await HttpDB.get("/api/sfmc/scoreboards");
+  const entries = (body as { entries?: unknown[] })?.entries ?? [];
+  return entries;
+}
 
 export function ScoreboardsBackup(): void {
   debug.i("DATA", "ScoreboardsBackup");

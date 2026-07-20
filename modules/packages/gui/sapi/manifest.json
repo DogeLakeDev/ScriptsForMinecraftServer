@@ -1,0 +1,6 @@
+{
+  "handlers": [],
+  "routes": [],
+  "migrations": [],
+  "notes": "core-gui: pure UI module, no SAPI→db-server calls of its own"
+}

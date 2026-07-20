@@ -4,7 +4,7 @@
  */
 import { Player, system, world } from "@minecraft/server";
 import { TPS } from "@sfmc/module-tps";
-import { HttpDB } from "../../../../../scriptsforminecraftserver/scripts/libs/HttpDB.js";
+import { HttpDB } from "@sfmc/sdk/sapi/runtime";
 
 const REPORT_INTERVAL = 600;
 const DIMENSIONS = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"];

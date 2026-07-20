@@ -14,10 +14,10 @@ import {
   system,
   world,
 } from "@minecraft/server";
-import { ConfigManager } from "../../../../../scriptsforminecraftserver/scripts/libs/ConfigManager.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import * as Tool from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
-import { Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+import { ConfigManager } from "@sfmc/sdk/module-loader";
+import * as Tool from "@sfmc/sdk/sapi/runtime";
+import { Msg } from "@sfmc/sdk/sapi/runtime";
 import { CreativeArea } from "@sfmc/module-creative";
 
 export class SurvivalArea {

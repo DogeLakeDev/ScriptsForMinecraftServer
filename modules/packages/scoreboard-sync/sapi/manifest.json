@@ -1,0 +1,8 @@
+{
+  "handlers": [],
+  "routes": [
+    { "method": "GET", "path": "/api/sfmc/scoreboards", "handler": "scoreboards:list" },
+    { "method": "POST", "path": "/api/sfmc/scoreboards", "handler": "scoreboards:write" }
+  ],
+  "migrations": []
+}

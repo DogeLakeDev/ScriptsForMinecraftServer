@@ -1,0 +1,8 @@
+{
+  "handlers": [],
+  "routes": [
+    { "method": "POST", "path": "/api/sfmc/activities/batch", "handler": "activities:batch" },
+    { "method": "POST", "path": "/api/sfmc/activities/cleanup", "handler": "activities:cleanup" }
+  ],
+  "migrations": []
+}

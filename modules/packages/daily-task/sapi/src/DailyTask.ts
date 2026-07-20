@@ -1,11 +1,11 @@
 import { Player } from "@minecraft/server";
-import { getDailyTasks, submitDailyTask } from "../../../../../scriptsforminecraftserver/scripts/api/EconomyApi.js";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Money } from "../../../../../scriptsforminecraftserver/scripts/libs/Economy.js";
-import { FormStatus, MenuNavigator, obsNum } from "../../../../../scriptsforminecraftserver/scripts/libs/MenuNavigator.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import { ListFormInfo } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { getDailyTasks, submitDailyTask } from "@sfmc/module-economy";
+import { Command } from "@sfmc/sdk/sapi/runtime";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Money } from "@sfmc/sdk/sapi/runtime";
+import { FormStatus, MenuNavigator, obsNum } from "@sfmc/sdk/sapi/runtime";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+import { ListFormInfo } from "@sfmc/sdk/sapi/runtime";
 
 export class DailyTask {
   static registerCommand() {

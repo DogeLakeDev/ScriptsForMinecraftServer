@@ -1,10 +1,10 @@
 import { Player } from "@minecraft/server";
 import { CreativeArea } from "@sfmc/module-creative";
 import { Peace } from "@sfmc/module-peace";
-import { ConfigManager } from "../../../../../scriptsforminecraftserver/scripts/libs/ConfigManager.js";
-import { HttpDB } from "../../../../../scriptsforminecraftserver/scripts/libs/HttpDB.js";
-import { MenuNavigator, obsBool } from "../../../../../scriptsforminecraftserver/scripts/libs/MenuNavigator.js";
-import { ListFormInfo, Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { HttpDB } from "@sfmc/sdk/sapi/runtime";
+import { ConfigManager } from "@sfmc/sdk/module-loader";
+import { MenuNavigator, obsBool } from "@sfmc/sdk/sapi/runtime";
+import { ListFormInfo, Msg } from "@sfmc/sdk/sapi/runtime";
 
 const MODULES = [
   "fly",

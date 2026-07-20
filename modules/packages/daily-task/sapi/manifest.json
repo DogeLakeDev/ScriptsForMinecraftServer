@@ -1,0 +1,8 @@
+{
+  "handlers": [],
+  "routes": [
+    { "method": "GET", "path": "/api/sfmc/economy/daily-tasks", "handler": "economy:getDailyTasks" },
+    { "method": "POST", "path": "/api/sfmc/economy/daily-tasks/submit", "handler": "economy:submitDailyTask" }
+  ],
+  "migrations": []
+}

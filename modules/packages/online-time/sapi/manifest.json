@@ -1,0 +1,8 @@
+{
+  "handlers": [],
+  "routes": [
+    { "method": "PUT", "path": "/api/sfmc/players/:playerId", "handler": "players:update" },
+    { "method": "GET", "path": "/api/sfmc/players", "handler": "players:get" }
+  ],
+  "migrations": []
+}

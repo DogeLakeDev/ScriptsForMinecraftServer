@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-20T17:19:10.654Z",
+  "modules": {
+    "core-data-backup": {
+      "name": "数据备份",
+      "type": "core",
+      "configKey": "data_backup",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "core-gui": {
+      "name": "主菜单GUI",
+      "type": "core",
+      "configKey": "gui",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-economy": {
+      "name": "经济系统",
+      "type": "feature",
+      "configKey": "money",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/sfmc/economy/account/:playerId",
+          "handler": "economy:getAccount"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/economy/transaction",
+          "handler": "economy:applyTransaction"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/economy/transfer",
+          "handler": "economy:transfer"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/economy/daily-tasks",
+          "handler": "economy:getDailyTasks"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/economy/daily-tasks/submit",
+          "handler": "economy:submitDailyTask"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-daily-task": {
+      "name": "每日任务",
+      "type": "feature",
+      "configKey": "daily_task",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/sfmc/economy/daily-tasks",
+          "handler": "economy:getDailyTasks"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/economy/daily-tasks/submit",
+          "handler": "economy:submitDailyTask"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-chat": {
+      "name": "聊天系统",
+      "type": "feature",
+      "configKey": "chat",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/sfmc/messages",
+          "handler": "messages:list"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/messages",
+          "handler": "messages:create"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/players/:playerId",
+          "handler": "players:update"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-coop": {
+      "name": "合作社",
+      "type": "feature",
+      "configKey": "coop",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/sfmc/coops/:id",
+          "handler": "coops:get"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/coops/by-player/:playerId",
+          "handler": "coops:byPlayer"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/coops/:id/members",
+          "handler": "coops:listMembers"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/coop_shop_groups",
+          "handler": "coops:shopGroups"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/coops/:id/shop_items",
+          "handler": "coops:shopItems"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/coops/:id/bank_log",
+          "handler": "coops:bankLog"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-land": {
+      "name": "领地系统",
+      "type": "feature",
+      "configKey": "land",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/sfmc/lands",
+          "handler": "lands:list"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/lands",
+          "handler": "lands:create"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/lands/validate",
+          "handler": "lands:validate"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/lands/:id/audit",
+          "handler": "lands:audit"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/lands/:id/members",
+          "handler": "lands:listMembers"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/lands/invites/:playerId",
+          "handler": "lands:invites"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/lands/:id/transfer",
+          "handler": "lands:transfer"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/lands/:id/members",
+          "handler": "lands:addMember"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/sfmc/lands/:id/members",
+          "handler": "lands:removeMember"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/sfmc/lands/:id",
+          "handler": "lands:delete"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-afk": {
+      "name": "AFK",
+      "type": "feature",
+      "configKey": "afk",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-clean": {
+      "name": "清理",
+      "type": "feature",
+      "configKey": "clean",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-tps": {
+      "name": "TPS 监控",
+      "type": "feature",
+      "configKey": "tps",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-online-time": {
+      "name": "在线时长",
+      "type": "feature",
+      "configKey": "online_time",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "PUT",
+          "path": "/api/sfmc/players/:playerId",
+          "handler": "players:update"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sfmc/players",
+          "handler": "players:get"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-activity-log": {
+      "name": "行为日志",
+      "type": "feature",
+      "configKey": "activity_log",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/sfmc/activities/batch",
+          "handler": "activities:batch"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/activities/cleanup",
+          "handler": "activities:cleanup"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-scoreboard-sync": {
+      "name": "计分板同步",
+      "type": "feature",
+      "configKey": "scoreboard_sync",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/sfmc/scoreboards",
+          "handler": "scoreboards:list"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/scoreboards",
+          "handler": "scoreboards:write"
+        }
+      ],
+      "migrations": []
+    },
+    "feature-spawn-protect": {
+      "name": "重生保护",
+      "type": "feature",
+      "configKey": "spawn_protect",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-chat-sounds": {
+      "name": "聊天音效",
+      "type": "feature",
+      "configKey": "chat_sounds",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-inventory-switcher": {
+      "name": "背包切换",
+      "type": "feature",
+      "configKey": "inventory_switcher",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-area-fly": {
+      "name": "区域飞行",
+      "type": "feature",
+      "configKey": "fly",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-area-creative": {
+      "name": "创造区域",
+      "type": "feature",
+      "configKey": "creative",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-area-survival": {
+      "name": "生存区域",
+      "type": "feature",
+      "configKey": "survival",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-area-peace": {
+      "name": "和平区域",
+      "type": "feature",
+      "configKey": "peace",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-qa": {
+      "name": "问答系统",
+      "type": "feature",
+      "configKey": "qa",
+      "requires": [],
+      "handlers": [],
+      "routes": [],
+      "migrations": []
+    },
+    "feature-monitor": {
+      "name": "监控",
+      "type": "feature",
+      "configKey": "monitor",
+      "requires": [],
+      "handlers": [],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/sfmc/monitor/metrics",
+          "handler": "monitor:metrics"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sfmc/monitor/player-chunks",
+          "handler": "monitor:playerChunks"
+        }
+      ],
+      "migrations": []
+    }
+  }
+}

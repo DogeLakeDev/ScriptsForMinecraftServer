@@ -4,10 +4,10 @@
 
 import { Player, system } from "@minecraft/server";
 import { LandGUI } from "@sfmc/module-land-gui";
-import { Command } from "../../../../../scriptsforminecraftserver/scripts/libs/Command.js";
-import { debug } from "../../../../../scriptsforminecraftserver/scripts/libs/DebugLog.js";
-import { Permission } from "../../../../../scriptsforminecraftserver/scripts/libs/Permission.js";
-import { dimensionId, Msg } from "../../../../../scriptsforminecraftserver/scripts/libs/Tools.js";
+import { Command } from "@sfmc/sdk/sapi/runtime";
+import { debug } from "@sfmc/sdk/sapi/runtime";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+import { dimensionId, Msg } from "@sfmc/sdk/sapi/runtime";
 import { LandCore } from "./LandCore.js";
 import { Database } from "./LandDatabase.js";
 import { LandTax } from "./LandTax.js";
