@@ -20,7 +20,7 @@ import { TPS } from "@sfmc/module-tps";
 import { EconomyReport } from "./EconomyReport.js";
 
 import { CreativeArea } from "@sfmc/module-creative";
-import * as Fly from "./area/Fly.js";
+import * as Fly from "@sfmc/module-fly";
 import { InventorySwitcher } from "@sfmc/module-inventory-switcher";
 import { Peace } from "./area/Peace.js";
 import { SurvivalArea } from "@sfmc/module-survival";
