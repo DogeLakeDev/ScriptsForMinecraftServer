@@ -27,6 +27,15 @@ jobs:
         shell: pwsh
         run: npm run build --workspaces --if-present
 
+      - name: Populate configs/ from configs-default/
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path configs | Out-Null
+          Get-ChildItem -Path configs-default -Filter *.json | ForEach-Object {
+            $dest = Join-Path configs $_.Name
+            if (-not (Test-Path $dest)) { Copy-Item $_.FullName $dest }
+          }
+
       - name: Run check-ootb
         shell: pwsh
         run: node tools/check-ootb.js
