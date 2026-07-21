@@ -41,7 +41,7 @@ import {
 } from "./domain/economy.js";
 import { readJsonFile, writeJsonFile } from "./lib/json.js";
 import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
-import { loadManifest, reconcile, summarize } from "./manifest.js";
+import { defaultPackagesDir, loadManifest, reconcile, summarize } from "./manifest.js";
 
 if (!assertNodeVersion(22, 5)) {
   process.exit(2);
@@ -54,6 +54,7 @@ initSchema(db); // ← 唯一 schema 初始化
 const query = createQuery(db);
 
 // ── 模块清单加载（行为包构建产物）──────────────────────────────────
+log.info(`[db-server] packages dir = ${defaultPackagesDir()}`);
 let moduleManifest: ReturnType<typeof loadManifest> | null = null;
 try {
   moduleManifest = loadManifest();

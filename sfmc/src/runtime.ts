@@ -2,7 +2,6 @@ import { spawn, spawnSync, type SpawnOptions, type SpawnSyncOptions } from "node
 import { isSea } from "node:sea";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 
 /**
@@ -12,8 +11,13 @@ import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
  * - SEA 模式: process.execPath = sfmc.exe, 子服务 = spawn(self, args, { env: SFMC_SERVICE })
  *   dispatcher 顶部读 SFMC_SERVICE 决定入口, argv 透传给子服务自身的参数解析。
  *
- * 子服务进程通过 SFMC_ROOT env 拿到项目根 (SEA=exe 同目录, npm=源码树根),
- * 各 workspace 入口优先读 SFMC_ROOT 定位 configs/data, 避免 import.meta.url 在 SEA CJS bundle 里失效。
+ * ROOT 解析(两种模式):
+ *   - SEA: `<exe-dir>` —— modules 与 exe 平级,用户下载 exe 后就在那里建模块目录
+ *   - npm: `process.cwd()` —— 用户从项目根 `node sfmc/dist/main.js`,modules 跟随当前项目
+ *     (原来用 import.meta.url 上溯两级仅对 monorepo 源码位置有效,用户从任意目录跑产物会指错)
+ *
+ * 子服务进程通过 SFMC_ROOT + SFMC_PACKAGES_DIR env 拿到项目根 + 模块目录,
+ * db-server 据此定位 modules/packages/, 不依赖自身 __dirname(SEA-launched 时不可靠)。
  *
  * node:sea 在 Node 21.7+/22+ 可用;db-server 依赖 node:sqlite 已要求 Node 22.5+,
  * 因此这里可直接顶层 import,无需降级。
@@ -21,10 +25,10 @@ import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 
 export const IS_SEA: boolean = typeof isSea === "function" && isSea();
 
-const defaultRoot: string = IS_SEA
-  ? path.dirname(process.execPath)
-  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const defaultRoot: string = IS_SEA ? path.dirname(process.execPath) : process.cwd();
 export const ROOT: string = resolveRuntimeRoot(defaultRoot);
+
+export const PACKAGES_DIR: string = path.join(ROOT, "modules", "packages");
 
 export type ServiceId = "db" | "qq" | "update" | "manager";
 
@@ -38,10 +42,20 @@ const SERVICE_SCRIPT: Record<ServiceId, string> = {
 /**
  * 启动一个子服务。SEA 模式自重入同一 exe,npm 模式用 node 跑对应 dist 脚本。
  * args 透传给子服务自身的 argv 解析(如 check-update 的 --channel/--force)。
- * SFMC_ROOT env 让子服务定位 configs/data, 不依赖 import.meta.url (SEA CJS bundle 里失效)。
+ *
+ * 透传给子进程的 env:
+ *   - SFMC_SERVICE:  服务标识(db|qq|update|manager),SEA dispatcher 据此路由
+ *   - SFMC_ROOT:     项目根,SEA=exe 同目录,npm=process.cwd()
+ *   - SFMC_PACKAGES_DIR: modules/packages/ 绝对路径,db-server 据此扫模块清单
  */
 export function spawnService(service: ServiceId, args: string[] = [], opts: SpawnOptions = {}) {
-  const env = { ...process.env, ...opts.env, SFMC_SERVICE: service, SFMC_ROOT: ROOT };
+  const env = {
+    ...process.env,
+    ...opts.env,
+    SFMC_SERVICE: service,
+    SFMC_ROOT: ROOT,
+    SFMC_PACKAGES_DIR: PACKAGES_DIR,
+  };
   if (IS_SEA) {
     return spawn(process.execPath, args, { ...opts, env });
   }
@@ -50,7 +64,13 @@ export function spawnService(service: ServiceId, args: string[] = [], opts: Spaw
 
 /** spawnService 的同步版本,用于 wizard 等需要等子进程结束的场景。 */
 export function spawnServiceSync(service: ServiceId, args: string[] = [], opts: SpawnSyncOptions = {}) {
-  const env = { ...process.env, ...opts.env, SFMC_SERVICE: service, SFMC_ROOT: ROOT };
+  const env = {
+    ...process.env,
+    ...opts.env,
+    SFMC_SERVICE: service,
+    SFMC_ROOT: ROOT,
+    SFMC_PACKAGES_DIR: PACKAGES_DIR,
+  };
   if (IS_SEA) {
     return spawnSync(process.execPath, args, { ...opts, env });
   }

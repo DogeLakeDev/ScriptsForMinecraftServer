@@ -54,7 +54,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export type PackagesDirResolver = () => string;
 
-/** Resolve where db-server should look for `modules/packages/`. */
+/** Resolve where db-server should look for `modules/packages/`.
+ *
+ * 优先级:
+ *   1. `process.env.SFMC_PACKAGES_DIR` —— sfmc/SEA 的 spawnService 在启动 db 时注入
+ *      (SEA 模式下 exe 目录, npm 模式下 process.cwd())
+ *   2. `__dirname` 上溯两级到仓库根 —— 仅当 db-server 独立启动时兜底(CLI 调试)
+ *
+ * SEA 模式必须走 env 路径:SEA CJS bundle 里 `__dirname` 是虚拟路径,
+ * 不能用 `import.meta.url` 解析;靠 SFMC_PACKAGES_DIR 才是稳定的。
+ */
 export function defaultPackagesDir(): string {
   return process.env.SFMC_PACKAGES_DIR || resolve(__dirname, "..", "..", "modules", "packages");
 }
