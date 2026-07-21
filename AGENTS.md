@@ -212,3 +212,17 @@ node tools/lock.js drift         # detect drifted files
 - **`process.stdin.isTTY=false`** makes Ink-based TUI crash — `panel/` is gone, but sfmc CLI with `--no-tui` or `--cli` avoids stdin issues.
 - **`endOfLine: "crlf"`** in prettier — Windows repo convention.
 - **No test framework** in SAPI or db-server proper. db-server has `node --test` for `src/runtime.test.js` only.
+
+## Cursor Cloud specific instructions
+
+The Cloud VM is Linux; the repo primarily targets Windows, but the Node services run fine on Linux (Node ≥22.5 provides `node:sqlite`). The update script only runs `npm install`. Everything below is required each session before running/verifying services.
+
+- **Build before running.** `dist/` is gitignored for `@sfmc/sdk`, `db-server`, `bds-tools`, etc., and services run from `dist/`. Run `npm run build --workspaces --if-present` (builds the SDK first, then the services) after `npm install`. Without it, imports like `@sfmc/sdk/node/config` fail.
+- **`configs/` is gitignored** — populate it once from `configs-default/` (`mkdir -p configs && cp -n configs-default/*.json configs/`). db-server also runs with defaults if `configs/` is absent.
+- **Gotcha — `modulesDir` in `configs/db_config.json`.** The default value copied from `configs-default/` is `"../modules"`, which resolves *relative to `PROJECT_ROOT` (= `SFMC_ROOT`, the repo root)* → `/modules` (outside the repo) → the module API returns an empty catalog. Set it to `"modules"` (or delete the key so it falls back to `<root>/modules`). When `configs/` is absent entirely, the fallback is already correct.
+- **Run db-server (main service, port 3001):** `SFMC_ROOT=$PWD node db-server/dist/index.js`. Health: `GET http://127.0.0.1:3001/api/health`. The module/config REST surface is JSON-backed and is the CI-tested core path (`GET /api/sfmc/modules/catalog`, `POST /api/sfmc/modules/:id/{enable|disable}`).
+- **Pre-existing bugs (not environment issues), so don't chase them during setup:**
+  - `tools/smoke-modules.js` uses `spawnSync` without importing it from `node:child_process` → crashes immediately.
+  - `tools/sim-new-user.js` (and the start-order docs above) spawn `db-server/index.js`, which does not exist — the real entry is `db-server/dist/index.js`. This makes the `sim-new-user` check in `tools/check-ootb.js` time out, so a healthy env shows **check-ootb 5/6 pass**.
+  - The SQLite-backed gameplay routes (`economy`, `lands`, `coops`, `scoreboards`, …) return `near "?": syntax error` because table names are interpolated through `sql-template-strings` (`FROM ${TABLE}` → `FROM ?`). The JSON-backed module/config API and `/api/health` work.
+- **`npm run lint` is broken out-of-the-box** — ESLint v10 needs a flat `eslint.config.js` and none exists in the repo. Use per-workspace `npm run typecheck` for static checking instead.
