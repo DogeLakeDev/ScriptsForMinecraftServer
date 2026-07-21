@@ -4,9 +4,25 @@
   "private": true,
   "description": "REPL management tool for ScriptsForMinecraftServer",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js"
+    }
+  },
+  "bin": {
+    "sfmc": "./dist/main.js"
+  },
   "scripts": {
-    "start": "node ./dist/sfmc.js",
+    "start": "node ./dist/main.js",
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx src/main.ts"
   },
   "dependencies": {

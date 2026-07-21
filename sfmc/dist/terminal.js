@@ -1,4 +1,4 @@
-import { configPath } from "@sfmc/config";
+import { configPath } from "@sfmc/sdk/node/config";
 import { applyEdits, modify, parse } from "jsonc-parser/lib/esm/main.js";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

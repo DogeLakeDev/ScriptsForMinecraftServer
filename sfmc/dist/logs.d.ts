@@ -7,7 +7,7 @@
  *
  * formatLog 保留 theme.ts (chalk) 配色,比共享包的纯 ANSI 版本视觉更丰富。
  */
-import { type LogEntry, type LogLevel as SharedLogLevel } from "@sfmc/logs";
+import { type LogEntry, type LogLevel as SharedLogLevel } from "@sfmc/sdk/logs";
 export type LogLevel = SharedLogLevel;
 export type LogSource = string;
 export interface UnifiedLog extends LogEntry {

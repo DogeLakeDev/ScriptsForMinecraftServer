@@ -7,7 +7,7 @@
  *
  * formatLog 保留 theme.ts (chalk) 配色,比共享包的纯 ANSI 版本视觉更丰富。
  */
-import { createMemoryBuffer, inferLevel as sharedInferLevel, } from "@sfmc/logs";
+import { createMemoryBuffer, inferLevel as sharedInferLevel, } from "@sfmc/sdk/logs";
 import { SOURCE_ITEMS } from "./repl.js";
 import { c } from "./theme.js";
 const buffer = createMemoryBuffer(5000);

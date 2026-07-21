@@ -1,5 +1,5 @@
 import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
-import { configPath } from "@sfmc/config";
+import { configPath } from "@sfmc/sdk/node/config";
 import JSZip from "jszip";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
