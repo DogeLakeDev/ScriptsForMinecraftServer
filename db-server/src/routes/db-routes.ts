@@ -87,7 +87,11 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
     if (path === "/api/sfmc/db/tx") {
       try {
         const txReq = body as unknown as TxRequest;
-        const result = await deps.txRunner!.run(txReq);
+        // 强制以「鉴权身份」执行事务:忽略 body 里自带的 moduleId,
+        // 既防止持 A 的 token 冒用 B 的权限越权,也修复客户端只发 {steps} 时
+        // moduleId 缺失导致的事务恒被拒。
+        const steps = Array.isArray(txReq.steps) ? txReq.steps : [];
+        const result = await deps.txRunner!.run({ moduleId, steps });
         const status = result.ok ? 200 : 400;
         json(res, result as unknown as Record<string, unknown>, status);
       } catch (e) {
