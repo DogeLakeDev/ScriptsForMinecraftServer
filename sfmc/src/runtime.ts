@@ -30,13 +30,14 @@ export const ROOT: string = resolveRuntimeRoot(defaultRoot);
 
 export const PACKAGES_DIR: string = path.join(ROOT, "modules", "packages");
 
-export type ServiceId = "db" | "qq" | "update" | "manager";
+export type ServiceId = "db" | "qq" | "update" | "manager" | "pack-manager";
 
 const SERVICE_SCRIPT: Record<ServiceId, string> = {
   db: "db-server/dist/index.js",
   qq: "qq-bridge/dist/index.js",
   update: "bds-tools/dist/check-update.js",
   manager: "bds-tools/dist/bds-manager.js",
+  "pack-manager": "bds-tools/dist/cli-pack-manager.js",
 };
 
 /**

@@ -28,7 +28,9 @@ const p =
         ? import("../../bds-tools/dist/check-update.js")
         : mode === "manager"
           ? import("../../bds-tools/dist/bds-manager.js")
-          : import("./main.js");
+          : mode === "pack-manager"
+            ? import("../../bds-tools/dist/cli-pack-manager.js")
+            : import("./main.js");
 
 p.catch((e) => {
   console.error(`[dispatcher] failed to launch ${mode ?? "supervisor"}:`, e);
