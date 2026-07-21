@@ -1,6 +1,17 @@
 {
-  "handlers": [],
-  "routes": [],
-  "migrations": [],
-  "notes": "chat-sounds: no SAPI→db-server HTTP calls; pure game-side logic"
+  "schemaVersion": 2,
+  "id": "feature-chat-sounds",
+  "name": "聊天音效",
+  "type": "feature",
+  "configKey": "chat_sounds",
+  "requires": [],
+
+  "permissions": [],
+
+  "services": {
+    "provides": [],
+    "requires": []
+  },
+
+  "notes": "v2 纯游戏侧逻辑(聊天关键词触发全局音效 + 玩家级冷却)。零 db 表、零 service、零 config 读。迁移自 v1 ChatSoundsHelper.ts,把单例 getInstance 改为 ModuleRegistry.register 的 lifecycle.init。关键词与 cooldown 暂写死在 src(与 v1 一致)。"
 }
