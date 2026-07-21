@@ -30,6 +30,24 @@ POST /api/sfmc/modules/feature-economy/disable -> {"success":true, ... "enabled"
 
 ---
 
+## 0.5 本 PR 已修复的高置信 BLOCKER(附运行时验证)
+
+以下问题已在本 PR 中直接修复,并用「模拟真实模块(按 `module-auth` 派生 token)」端到端验证通过:
+
+| 编号 | 问题 | 修复 | 验证 |
+|------|------|------|------|
+| P-M1 | v2 路由请求体恒空(读 `req._body` 从未赋值)| `index.ts` 改为复用预读的 `body(req)` | `define-table`/`tx`/`get`/`query` 均能拿到载荷 → 200 |
+| B2 | `GET /configs/all` 被 v2 鉴权遮蔽 401,插件端起不来 | `index.ts` 豁免 `configs/all` | `GET /configs/all` → 200(返回配置 JSON)|
+| B3 | `/db/tx` 从 body 取 `moduleId` → 越权 + 事务恒拒 | `db-routes.ts` 强制 `moduleId=auth.id` | 持 land token + body 伪造 `moduleId=afk` → 仍以 land 身份执行 |
+| B4 | 整体 `db:write:*` 断言恒失败 → 所有事务被拒 | `tx-runner.ts` 删除该断言,按表精确 gate | land 事务 200;afk 写 lands → 403 `permission_denied` |
+| (schema) | `finalize()` 从未调用 → 表永不落地;且 softDelete 建表 SQL 语法错误 | `schema-registry.ts` define 即建表 + 抽出 `buildColumnList` | `lands` 表创建成功,insert/query/get 正常 |
+| B7 | `land-gui` 未登记 catalog → 永不装载 | `catalog.json` 补 `feature-land-gui` 条目 | `check-catalog` OK(23 模块)|
+| (回归) | 模块启停后 `enabled` 不翻转(读启动缓存的 lock)| `index.ts` `setModuleEnabled` 回写共享缓存 | `smoke-modules.js` **全部通过** |
+
+> 仍**未**修复(需提交方做更大改动,详见下文):**B1**(SDK 客户端从不带 token → host-bootstrap 注入身份)、**B5**(`tx()` 录制-回放拿不到服务端结果)、**B6**(service provider 无注册通路)。这三项是 SAPI 侧/协议级改动,须结合 Bedrock 运行时验证,不在本审查 PR 的安全外科修复范围内。
+
+---
+
 ## 1. BLOCKER(必须先修,否则 v2 无法运行)
 
 ### B1. 每一次 db/config/service 调用都会 401 —— 客户端从不发送鉴权 token
