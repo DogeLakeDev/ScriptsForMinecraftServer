@@ -25,10 +25,10 @@
 
 SFMC 把 Bedrock Dedicated Server 的SAPI能力扩成一套完整的服务端体系:
 
-* **模块化设计体系，目前已提供25 个即装即用模块** (`modules/packages/<id>/`)
-* **5 个仓顶服务** (`db-server`供模块使用的sqlite数据库管理系统 / `qq-bridge`提供ws服务实现**Q群 ⇄ 服务器互通** / `bds-tools` / `sfmc` / `remote-controller`)
-* **使用sea打包的cil程序** — 一键启动、开服、管理
-* **SDK 伞包** `@sfmc/sdk` — 跨 SAPI / Node 两侧共享底层契约
+* **模块化设计体系**,基于 `modules/packages/<id>/` 的模块包结构 —— 每个模块都是一等公民,通过 `modules/catalog.json` 注册并由 `ModuleRegistry` 装载
+* **4 个仓顶服务** (`db-server` SQLite REST API / `qq-bridge` Q群 ⇄ 服务器互通 / `bds-tools` BDS 进程管理 / `sfmc` SEA CLI)
+* **使用 sea 打包的 cil 程序** —— 一键启动、开服、管理
+* **SDK 工具包** `@sfmc/sdk` —— 位于 `modules/sdk/@sfmc-sdk/`,跨 SAPI / Node 两侧共享底层契约(不是模块)
 * **构建时模块** 一次性 CLI `tools/fetch-module.mjs` 从 GitHub Releases 拉模块(SEA 进程不联网)
 
 ## 架构图
@@ -40,7 +40,7 @@ flowchart TB
       direction TB
       BP["behavior_packs/ScriptsForMinecraftServer<br/>scripts/entry.ts → esbuild → main.js"]
       REG["ModuleRegistry<br/>register / bootAll / bootAfterWorldLoad"]
-      MODS_SAPI["SAPI 模块(在 BDS 进程内运行)<br/>core-data-backup · core-gui · feature-land · ..."]
+      MODS_SAPI["SAPI 模块(在 BDS 进程内运行)<br/>由 catalog.json 注册"]
       CONF["ConfigManager<br/>GET /api/sfmc/configs/all 一次拉全"]
       BP --> REG --> MODS_SAPI
       REG -. "启动时快照" .-> CONF
@@ -61,20 +61,19 @@ flowchart TB
         direction TB
         DB["db-server<br/>SQLite + REST API<br/>:3001 HTTP"]
         QQ["qq-bridge<br/>OneBot 11 反向 WS<br/>:3002"]
-        PANEL["panel<br/>TUI 管理面板 (Ink)"]
         BDS_T["bds-tools<br/>check-update · 进程管理"]
       end
 
-      subgraph MODS["modules/packages/&lt;id&gt;/  (业务模块 25 个)"]
+      subgraph MODS["modules/packages/&lt;id&gt;/  (模块包,每个都是一等公民)"]
         direction LR
-        M1["core-data-backup"]
-        M2["core-gui"]
-        M3["feature-economy"]
-        M4["feature-land"]
-        M5["..."]
+        M1["core-*<br/>(基础设施模块)<br/>data-backup · gui · ..."]
+        M2["feature-*<br/>(特性模块)<br/>land · economy · chat · ..."]
+
+        SDK["modules/sdk/@sfmc-sdk<br/>工具包,非模块<br/>SAPI / Node 共享"]
       end
 
-      SDK["modules/sdk/@sfmc-sdk<br/>伞包(SAPI / Node 共享)"]
+      CAT["modules/catalog.json<br/>模块清单 + type 字段<br/>(区分 core / feature)"]
+      LOCK["modules/module-lock.json<br/>启/禁状态"]
     end
 
     %% ============== 外部 ==============
@@ -88,19 +87,22 @@ flowchart TB
     DISP -. "spawn / supervise" .-> DB
     DISP -. "spawn / supervise" .-> QQ
     DISP -. "spawn / supervise" .-> BDS_T
-    DISP -. "spawn" .-> PANEL
 
     %% SAPI ↔ db-server
     MODS_SAPI -- "HTTP :3001<br/>GET/POST /api/sfmc/*" --> DB
     CONF -- "HTTP :3001<br/>GET /api/sfmc/configs/all" --> DB
 
-    %% panel ↔ db-server (模块启停)
-    PANEL -- "POST /api/sfmc/modules/:id/enable<br/>→ 写 module-lock.json" --> DB
+    %% CLI ↔ db-server (启停模块)
+    CLI -- "PATCH /api/sfmc/modules/:id<br/>→ 写 module-lock.json" --> DB
     DB -. "ConfigManager.refreshModules()<br/>(重启后生效)" .-> REG
 
-    %% sfmc CLI ↔ 服务
-    CLI -- "HTTP" --> DB
-    CLI -- "控制" --> BDS_T
+    %% SDK 共享 (编译期,不是模块)
+    SDK -. "compile-time deps" .-> MODS_SAPI
+    SDK -. "compile-time deps" .-> DB
+
+    %% catalog / module-lock
+    CAT -. "注册元数据" .-> REG
+    LOCK -. "启动时读取" .-> REG
 
     %% QQ 桥消息流
     QQUSERS <-->|QQ 消息| LLBOT
@@ -111,22 +113,20 @@ flowchart TB
     %% 玩家
     BDS_USER <-->|SAPI events| BP
 
-    %% SDK 共享
-    SDK -. "compile-time" .-> MODS_SAPI
-    SDK -. "compile-time" .-> DB
-
-    %% 构建期模块拉取
+    %% 构建期模块拉取(SE 下发时 populate)
     FETCH["tools/fetch-module.mjs<br/>(构建期,不联网进 SEA)"]
-    FETCH -. "从 GitHub Releases populate" .-> MODS
+    FETCH -. "从 GitHub Releases populate<br/>(或 cp -r 本地放包)" .-> MODS_SAPI
 
     classDef seaBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
     classDef svcBox fill:#E8F5E9,stroke:#43A047
     classDef modBox fill:#EDE7F6,stroke:#7B68EE
+    classDef sdkBox fill:#FFF8E1,stroke:#F9A825
     classDef bdsBox fill:#E3F2FD,stroke:#1976D2
     classDef extBox fill:#FFF3E0,stroke:#FB8C00
     class DISP,CLI seaBox
-    class DB,QQ,PANEL,BDS_T svcBox
-    class M1,M2,M3,M4,M5 modBox
+    class DB,QQ,BDS_T svcBox
+    class M1,M2 modBox
+    class SDK sdkBox
     class BP,REG,MODS_SAPI,CONF bdsBox
     class LLBOT,QQUSERS,BDS_USER extBox
 ```
@@ -138,7 +138,7 @@ flowchart LR
     A["作者<br/>写模块"] -->|manifest.json| B["modules/packages/&lt;id&gt;/"]
     B -->|npm run build:full| C["esbuild bundle<br/>+ manifest 聚合"]
     C -->|复制到| D["BDS behavior_packs"]
-    D -->|reload BP| E["SAPI 启动 25 modules"]
+    D -->|reload BP| E["SAPI 启动 catalog 中<br/>enabled 的模块"] |
     B -->|db-server 扫| F["db-server 路由注册"]
     E <-->|HttpDB| F
 ```

@@ -18,11 +18,11 @@
 
 ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface into a complete server-side system:
 
-- **25 modules** (`modules/packages/<id>/`) — business code, fully migrated out of `scriptsforminecraftserver/`
-- **5 top-level services** (`db-server` / `qq-bridge` / `bds-tools` / `sfmc` / `remote-controller`)
-- **Single SDK umbrella** `@sfmc/sdk` — shared low-level contracts across the SAPI / Node split
-- **SEA single exe** — `dist/sea/sfmc.exe` runs every dispatch mode from one binary
-- **Build-time modules** — one-shot CLI `tools/fetch-module.mjs` pulls modules from GitHub Releases (the SEA itself never connects to the network)
+- **Module-by-package model** — every entry under `modules/packages/<id>/` is a first-class module; modules are registered through `modules/catalog.json` and loaded by `ModuleRegistry`. `type` in the catalog distinguishes `core` (infrastructure) from `feature` (add-on functionality).
+- **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` (SEA CLI).
+- **Single SEA executable** — `dist/sea/sfmc.exe` runs every dispatch mode from one binary.
+- **SDK toolkit** `@sfmc/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
+- **Build-time module fetch** — one-shot CLI `tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout). The SEA itself never connects to the network.
 
 ## Architecture diagram
 
@@ -33,7 +33,7 @@ flowchart TB
       direction TB
       BP["behavior_packs/ScriptsForMinecraftServer<br/>scripts/entry.ts → esbuild → main.js"]
       REG["ModuleRegistry<br/>register / bootAll / bootAfterWorldLoad"]
-      MODS_SAPI["SAPI modules (in-process)<br/>core-data-backup · core-gui · feature-land · ..."]
+      MODS_SAPI["SAPI modules (in-process)<br/>registered via catalog.json"]
       CONF["ConfigManager<br/>GET /api/sfmc/configs/all once"]
       BP --> REG --> MODS_SAPI
       REG -. "snapshot at startup" .-> CONF
@@ -54,20 +54,19 @@ flowchart TB
         direction TB
         DB["db-server<br/>SQLite + REST API<br/>:3001 HTTP"]
         QQ["qq-bridge<br/>OneBot 11 reverse WS<br/>:3002"]
-        PANEL["panel<br/>TUI dashboard (Ink)"]
         BDS_T["bds-tools<br/>check-update · process manager"]
       end
 
-      subgraph MODS["modules/packages/&lt;id&gt;/  (25 business modules)"]
+      subgraph MODS["modules/packages/&lt;id&gt;/  (every package is a first-class module)"]
         direction LR
-        M1["core-data-backup"]
-        M2["core-gui"]
-        M3["feature-economy"]
-        M4["feature-land"]
-        M5["..."]
+        M1["core-*<br/>(infrastructure)<br/>data-backup · gui · ..."]
+        M2["feature-*<br/>(add-on)<br/>land · economy · chat · ..."]
+
+        SDK["modules/sdk/@sfmc-sdk<br/>toolkit, NOT a module<br/>shared by SAPI / Node"]
       end
 
-      SDK["modules/sdk/@sfmc-sdk<br/>umbrella (SAPI / Node shared)"]
+      CAT["modules/catalog.json<br/>module catalog + type field<br/>(core / feature)"]
+      LOCK["modules/module-lock.json<br/>enable / disable state"]
     end
 
     %% ============== External ==============
@@ -81,19 +80,22 @@ flowchart TB
     DISP -. "spawn / supervise" .-> DB
     DISP -. "spawn / supervise" .-> QQ
     DISP -. "spawn / supervise" .-> BDS_T
-    DISP -. "spawn" .-> PANEL
 
     %% SAPI ↔ db-server
     MODS_SAPI -- "HTTP :3001<br/>GET/POST /api/sfmc/*" --> DB
     CONF -- "HTTP :3001<br/>GET /api/sfmc/configs/all" --> DB
 
-    %% panel ↔ db-server (module toggle)
-    PANEL -- "POST /api/sfmc/modules/:id/enable<br/>→ write module-lock.json" --> DB
+    %% CLI ↔ db-server (module toggle)
+    CLI -- "PATCH /api/sfmc/modules/:id<br/>→ write module-lock.json" --> DB
     DB -. "ConfigManager.refreshModules()<br/>(after BDS restart)" .-> REG
 
-    %% sfmc CLI ↔ services
-    CLI -- "HTTP" --> DB
-    CLI -- "control" --> BDS_T
+    %% SDK shared (compile-time, not a module)
+    SDK -. "compile-time deps" .-> MODS_SAPI
+    SDK -. "compile-time deps" .-> DB
+
+    %% catalog / module-lock
+    CAT -. "registers metadata" .-> REG
+    LOCK -. "read at startup" .-> REG
 
     %% QQ bridge message flow
     QQUSERS <-->|QQ msgs| LLBOT
@@ -104,22 +106,20 @@ flowchart TB
     %% Players
     BDS_USER <-->|SAPI events| BP
 
-    %% SDK shared
-    SDK -. "compile-time" .-> MODS_SAPI
-    SDK -. "compile-time" .-> DB
-
     %% Build-time module fetch
     FETCH["tools/fetch-module.mjs<br/>(build-time, offline in SEA)"]
-    FETCH -. "populate from GitHub Releases" .-> MODS
+    FETCH -. "populate from GitHub Releases<br/>(or cp -r local checkout)" .-> MODS_SAPI
 
     classDef seaBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
     classDef svcBox fill:#E8F5E9,stroke:#43A047
     classDef modBox fill:#EDE7F6,stroke:#7B68EE
+    classDef sdkBox fill:#FFF8E1,stroke:#F9A825
     classDef bdsBox fill:#E3F2FD,stroke:#1976D2
     classDef extBox fill:#FFF3E0,stroke:#FB8C00
     class DISP,CLI seaBox
-    class DB,QQ,PANEL,BDS_T svcBox
-    class M1,M2,M3,M4,M5 modBox
+    class DB,QQ,BDS_T svcBox
+    class M1,M2 modBox
+    class SDK sdkBox
     class BP,REG,MODS_SAPI,CONF bdsBox
     class LLBOT,QQUSERS,BDS_USER extBox
 ```
@@ -131,8 +131,8 @@ flowchart LR
     A["Author<br/>writes module"] -->|manifest.json| B["modules/packages/&lt;id&gt;/"]
     B -->|npm run build:full| C["esbuild bundle<br/>+ manifest aggregation"]
     C -->|copy to| D["BDS behavior_packs"]
-    D -->|reload BP| E["SAPI boots 25 modules"]
-    B -->|db-server scans| F["db-server route registration"]
+    D -->|reload BP| E["SAPI boots modules<br/>enabled in catalog"]
+    B -->|db-server scan| F["db-server route registration"]
     E <-->|HttpDB| F
 ```
 

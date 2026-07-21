@@ -1,8 +1,6 @@
 {
   "name": "scriptsforminecraftserver-monorepo",
-  "bin": {
-    "sfmc": "index.js"
-  },
+  "private": true,
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
     "@types/cli-progress": "^3.11.6",
