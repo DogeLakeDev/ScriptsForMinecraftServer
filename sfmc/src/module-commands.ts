@@ -12,7 +12,7 @@
  *                           modules (id = one; no id = all)
  *   install <id>            Wrapper around `tools/fetch-module.mjs install`.
  *                           If `--from` is omitted, the first-party registry
- *                           is consulted (Shiroha7z/sfmc-modules).
+ *                           is consulted (Tanya7z/sfmc-modules).
  *   uninstall <id>          Remove modules/packages/<id>/
  *   enable <id>             POST /api/sfmc/modules/:id/enable on db-server
  *   disable <id>            POST /api/sfmc/modules/:id/disable on db-server

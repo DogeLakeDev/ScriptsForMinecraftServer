@@ -2,7 +2,7 @@
  * registry.ts — first-party sfmc-modules index resolution, shared between
  * the module CLI and the startup unknown-source warning.
  *
- * Talks to https://raw.githubusercontent.com/Shiroha7z/sfmc-modules/main/index.json
+ * Talks to https://raw.githubusercontent.com/Tanya7z/sfmc-modules/main/index.json
  * (the registry lives in a separate repo to keep this one free of "what
  * modules exist" governance). Caches to <sfmc/src/.sfmc-registry-cache.json>
  * with a 1h TTL so a brief network blip doesn't degrade the CLI.
@@ -21,7 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_PATH = path.join(__dirname, ".sfmc-registry-cache.json");
 const TTL_MS = 60 * 60 * 1000;
 
-const DEFAULT_REGISTRY_REPO = "Shiroha7z/sfmc-modules";
+const DEFAULT_REGISTRY_REPO = "Tanya7z/sfmc-modules";
 const DEFAULT_REGISTRY_TAG = "main";
 const INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
 

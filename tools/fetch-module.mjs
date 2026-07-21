@@ -11,7 +11,7 @@
  *
  * Default source (first-party registry):
  *   If --from is omitted, look up <id> in the index at
- *   https://raw.githubusercontent.com/Shiroha7z/sfmc-modules/main/index.json
+ *   https://raw.githubusercontent.com/Tanya7z/sfmc-modules/main/index.json
  *   → { "<id>": { "repo": "...", "tag": "..." } } → translate to github:<repo>@<tag>.
  *   The index is cached at tools/.sfmc-registry-cache.json for 1h.
  *
@@ -46,8 +46,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const TARGET = path.join(ROOT, "modules", "packages");
 
-/* ── first-party registry (Shiroha7z/sfmc-modules) ─────────────── */
-const DEFAULT_REGISTRY_REPO = "Shiroha7z/sfmc-modules";
+/* ── first-party registry (Tanya7z/sfmc-modules) ─────────────── */
+const DEFAULT_REGISTRY_REPO = "Tanya7z/sfmc-modules";
 const DEFAULT_REGISTRY_TAG = "main"; // index.json lives on main, not a release tag
 const DEFAULT_REGISTRY_INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
 const REGISTRY_CACHE_PATH = path.join(__dirname, ".sfmc-registry-cache.json");
@@ -82,9 +82,19 @@ async function fetchRegistryIndexFresh() {
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
   const json = await res.json();
   if (typeof json !== "object" || json === null || Array.isArray(json)) {
-    throw new Error("registry index must be a JSON object mapping id → { repo, tag }");
+    throw new Error("registry index must be a JSON object with a 'modules' field");
   }
-  return /** @type {RegistryIndex} */ (json);
+  const modules = json.modules;
+  if (typeof modules !== "object" || modules === null || Array.isArray(modules)) {
+    throw new Error("registry index must have a 'modules' object mapping id → { repo, tag }");
+  }
+  // filter out comment keys starting with "_"
+  const filtered = {};
+  for (const [k, v] of Object.entries(modules)) {
+    if (k.startsWith("_")) continue;
+    filtered[k] = v;
+  }
+  return /** @type {RegistryIndex} */ (filtered);
 }
 
 /**

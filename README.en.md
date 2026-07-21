@@ -61,7 +61,7 @@ flowchart TB
 
     %% ============== Module sources ==============
     subgraph MODS["Module sources"]
-      REMOTE_MODS["Shiroha7z/sfmc-modules<br/>module registry"]
+      REMOTE_MODS["Tanya7z/sfmc-modules<br/>module registry"]
       LOCAL_MODS["this repo modules/packages/&lt;id&gt;/"]
       CAT["catalog.json<br/>module catalog"]
       LOCK["module-lock.json<br/>module state"]
@@ -176,7 +176,7 @@ sfmc> start -all
 ```
 
 Both paths share the same:
-- First-party module registry `Shiroha7z/sfmc-modules` (GitHub Releases).
+- First-party module registry `Tanya7z/sfmc-modules` (GitHub Releases).
 - `tools/fetch-module.mjs` to pull modules.
 - `sfmc behavior-pack build/deploy` driven by `bds-tools/pack-manager`.
 - `modules/module-lock.json` for enable/disable state.

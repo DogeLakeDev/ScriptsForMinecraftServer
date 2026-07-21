@@ -4,7 +4,7 @@
 
 ## 1. File location
 
-**Single source of truth**: `packages/<id>/sapi/manifest.json` in the `Shiroha7z/sfmc-modules` repo. After fetch-module, it lands in `modules/packages/<id>/sapi/manifest.json` in the main repo; both db-server and SAPI read it directly.
+**Single source of truth**: `packages/<id>/sapi/manifest.json` in the `Tanya7z/sfmc-modules` repo. After fetch-module, it lands in `modules/packages/<id>/sapi/manifest.json` in the main repo; both db-server and SAPI read it directly.
 
 ```jsonc
 {

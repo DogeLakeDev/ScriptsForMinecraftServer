@@ -1,13 +1,13 @@
 # SAPI 模块作者指南
 
-> 面向 `Shiroha7z/sfmc-modules` 仓库编写新模块的开发者。本文以
+> 面向 `Tanya7z/sfmc-modules` 仓库编写新模块的开发者。本文以
 > `feature-land` 与 `feature-land-gui` 为参考实现,展示 v2 协议下模块的完整
 > 生命周期。所有新增或重构模块都遵循同一约定。
 
 ## 1. 模块放置位置
 
 模块**不再**放在主仓 `modules/packages/` 下。它们居住在独立仓库
-[Shiroha7z/sfmc-modules](https://github.com/Shiroha7z/sfmc-modules),每个模块一个子目录:
+[Tanya7z/sfmc-modules](https://github.com/Tanya7z/sfmc-modules),每个模块一个子目录:
 
 ```
 sfmc-modules/

@@ -5,7 +5,7 @@
 ## 1. Design
 
 ```
-Shiroha7z/sfmc-modules              ← external module repo (independent git repo)
+Tanya7z/sfmc-modules              ← external module repo (independent git repo)
   packages/<id>/
     sapi/manifest.json               ← v2 contract (schemaVersion: 2)
     sapi/src/index.ts
@@ -28,15 +28,15 @@ Main repo ScriptsForMinecraftServer/
 
 ## 2. First-party registry
 
-Default registry is `Shiroha7z/sfmc-modules@main/index.json`:
+Default registry is `Tanya7z/sfmc-modules@main/index.json`:
 
 ```jsonc
 {
   "version": 1,
   "modules": {
-    "feature-land":      { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
-    "feature-land-gui":  { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
-    "feature-economy":   { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" }
+    "feature-land":      { "repo": "Tanya7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-land-gui":  { "repo": "Tanya7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-economy":   { "repo": "Tanya7z/sfmc-modules", "tag": "v1.5.0" }
   }
 }
 ```
@@ -60,7 +60,7 @@ node tools/fetch-module.mjs install feature-foo --from local:/abs/path/foo.zip
 node tools/fetch-module.mjs install feature-foo --from dir:/abs/path/foo/
 
 # Verification (GitHub auto-fetches .sha256 sidecar if present)
-node tools/fetch-module.mjs install feature-land --from github:Shiroha7z/sfmc-modules@v1.5.0
+node tools/fetch-module.mjs install feature-land --from github:Tanya7z/sfmc-modules@v1.5.0
 ```
 
 ## 4. sfmc module CLI (runtime, available in SEA)
@@ -77,7 +77,7 @@ sfmc module disable <id>            # write module-lock.json enabled=false
 
 REPL equivalent:
 ```
-sfmc> module install feature-land --from github:Shiroha7z/sfmc-modules@latest
+sfmc> module install feature-land --from github:Tanya7z/sfmc-modules@latest
 sfmc> module enable feature-land
 ```
 
@@ -130,7 +130,7 @@ node db-server/dist/index.js
 
 ```bash
 # SEA is offline; module install spawns a child process running tools/fetch-module.mjs
-sfmc> module install feature-chat --from github:Shiroha7z/sfmc-modules@latest
+sfmc> module install feature-chat --from github:Tanya7z/sfmc-modules@latest
 # After install, modules/packages/feature-chat/ appears
 # Restart SEA; db-server scans and loads
 ```
@@ -162,7 +162,7 @@ node tools/fetch-module.mjs install feature-foo --from dir:/mnt/share/modules/fe
 
 ```
                     ┌──────────────────────────────────┐
-                    │  Shiroha7z/sfmc-modules (ext.)   │
+                    │  Tanya7z/sfmc-modules (ext.)   │
                     │  - index.json (registry)         │
                     │  - packages/<id>/source code     │
                     └──────────────┬───────────────────┘

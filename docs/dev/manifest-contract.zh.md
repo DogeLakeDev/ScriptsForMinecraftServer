@@ -4,7 +4,7 @@
 
 ## 1. 文件位置
 
-**单源真理**:模块仓 `Shiroha7z/sfmc-modules` 里 `packages/<id>/sapi/manifest.json`。bp 构建时,fetch-module 已经把它拉到主仓 `modules/packages/<id>/sapi/manifest.json`,db-server + SAPI 直接读它。
+**单源真理**:模块仓 `Tanya7z/sfmc-modules` 里 `packages/<id>/sapi/manifest.json`。bp 构建时,fetch-module 已经把它拉到主仓 `modules/packages/<id>/sapi/manifest.json`,db-server + SAPI 直接读它。
 
 ```jsonc
 {

@@ -1,4 +1,5 @@
 {
+  "_comment": "modules/catalog.json 是本地 mirror,source of truth 在 github:Tanya7z/sfmc-modules/main/index.json。tools/fetch-module.mjs install 默认从远端拉取 modules/packages/<id>/ 后,这里同步更新。land 与 land-gui 已迁 v2 标准例子;其余 22 个模块仍为 v1 状态,等待迁移。",
   "version": 1,
   "modules": [
     {

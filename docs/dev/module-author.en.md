@@ -1,6 +1,6 @@
 # SAPI Module Author Guide
 
-> For developers writing new modules in the [Shiroha7z/sfmc-modules](https://github.com/Shiroha7z/sfmc-modules) repo. This guide uses `feature-land` and `feature-land-gui` as references to demonstrate the full v2-protocol module lifecycle. All new modules follow the same conventions.
+> For developers writing new modules in the [Tanya7z/sfmc-modules](https://github.com/Tanya7z/sfmc-modules) repo. This guide uses `feature-land` and `feature-land-gui` as references to demonstrate the full v2-protocol module lifecycle. All new modules follow the same conventions.
 
 ## 1. Module location
 

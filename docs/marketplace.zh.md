@@ -5,7 +5,7 @@
 ## 1. 设计要点
 
 ```
-Shiroha7z/sfmc-modules            ← 外部模块仓(独立 git repo)
+Tanya7z/sfmc-modules            ← 外部模块仓(独立 git repo)
   packages/<id>/
     sapi/manifest.json             ← v2 契约(schemaVersion: 2)
     sapi/src/index.ts
@@ -27,15 +27,15 @@ Shiroha7z/sfmc-modules            ← 外部模块仓(独立 git repo)
 
 ## 2. first-party registry
 
-默认从 `Shiroha7z/sfmc-modules@main/index.json` 拉取注册表:
+默认从 `Tanya7z/sfmc-modules@main/index.json` 拉取注册表:
 
 ```jsonc
 {
   "version": 1,
   "modules": {
-    "feature-land":      { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
-    "feature-land-gui":  { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
-    "feature-economy":   { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-land":      { "repo": "Tanya7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-land-gui":  { "repo": "Tanya7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-economy":   { "repo": "Tanya7z/sfmc-modules", "tag": "v1.5.0" },
     // ...
   }
 }
@@ -60,7 +60,7 @@ node tools/fetch-module.mjs install feature-foo --from local:/abs/path/foo.zip
 node tools/fetch-module.mjs install feature-foo --from dir:/abs/path/foo/
 
 # 校验(可选,GitHub 自动 .sha256 sidecar)
-node tools/fetch-module.mjs install feature-land --from github:Shiroha7z/sfmc-modules@v1.5.0
+node tools/fetch-module.mjs install feature-land --from github:Tanya7z/sfmc-modules@v1.5.0
 # → 自动 fetch .zip + .zip.sha256,sha256 匹配后解压
 ```
 
@@ -78,7 +78,7 @@ sfmc module disable <id>            # 写入 module-lock.json enabled=false
 
 REPL 同样路径:
 ```
-sfmc> module install feature-land --from github:Shiroha7z/sfmc-modules@latest
+sfmc> module install feature-land --from github:Tanya7z/sfmc-modules@latest
 sfmc> module enable feature-land
 ```
 
@@ -131,7 +131,7 @@ node db-server/dist/index.js
 
 ```bash
 # SEA 不联网;module install 实际 spawn 子进程跑 tools/fetch-module.mjs
-sfmc> module install feature-chat --from github:Shiroha7z/sfmc-modules@latest
+sfmc> module install feature-chat --from github:Tanya7z/sfmc-modules@latest
 # 安装完,modules/packages/feature-chat/ 出现
 # 下次 SEA 重启时,db-server 扫描并装载
 ```
@@ -163,7 +163,7 @@ node tools/fetch-module.mjs install feature-foo --from dir:/mnt/share/modules/fe
 
 ```
                     ┌──────────────────────────────────┐
-                    │  Shiroha7z/sfmc-modules (外部)   │
+                    │  Tanya7z/sfmc-modules (外部)   │
                     │  - index.json (registry)         │
                     │  - packages/<id>/source code     │
                     └──────────────┬───────────────────┘

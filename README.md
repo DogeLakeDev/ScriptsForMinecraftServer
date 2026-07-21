@@ -66,7 +66,7 @@ flowchart TB
 
     %% ============== 模块源 ==============
     subgraph MODS["模块源"]
-      REMOTE_MODS["Shiroha7z/sfmc-modules<br/>模块注册表"]
+      REMOTE_MODS["Tanya7z/sfmc-modules<br/>模块注册表"]
       LOCAL_MODS["本仓 modules/packages/&lt;id&gt;/"]
       CAT["catalog.json<br/>模块清单"]
       LOCK["module-lock.json<br/>模块状态"]
@@ -182,7 +182,7 @@ sfmc> start -all
 
 两条路**共用同一份**:
 
-* 第一方模块注册表 `Shiroha7z/sfmc-modules`(GitHub Releases)
+* 第一方模块注册表 `Tanya7z/sfmc-modules`(GitHub Releases)
 * `tools/fetch-module.mjs` 拉模块
 * `sfmc behavior-pack build/deploy` 走同一套 bds-tools/pack-manager
 * `modules/module-lock.json` 启/禁状态
