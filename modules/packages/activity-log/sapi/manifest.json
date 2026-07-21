@@ -1,8 +1,20 @@
 {
-  "handlers": [],
-  "routes": [
-    { "method": "POST", "path": "/api/sfmc/activities/batch", "handler": "activities:batch" },
-    { "method": "POST", "path": "/api/sfmc/activities/cleanup", "handler": "activities:cleanup" }
+  "schemaVersion": 2,
+  "id": "feature-activity-log",
+  "name": "行为日志",
+  "type": "feature",
+  "configKey": "activity_log",
+  "requires": [],
+
+  "permissions": [
+    "db:read:sfmc_activities",
+    "db:write:sfmc_activities"
   ],
-  "migrations": []
+
+  "services": {
+    "provides": [],
+    "requires": []
+  },
+
+  "notes": "v2 行为日志:19 种 SAPI 事件订阅 + 内存缓冲 + 2s flush 批量写 sfmc_activities(平台 bootstrap 表,字段已对齐 source_id / target_id 而非 v1 的 sourceid / targetid)。迁移自 v1 ActivityLog.ts(HttpDB POST /api/sfmc/activities/batch 改为 db.insert)。保留 KEEP_DAYS=30 周期清理(db.delete 软删)。"
 }
