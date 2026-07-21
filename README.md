@@ -4,9 +4,9 @@
 
 * 提供基于Minecraft SAPI的**原生SDK**
 * 外置**模块化管理**
-* 多功能、适用BDS的**cil工具**
+* 多功能、适用BDS的**cli工具**
 * 为模块提供**Sqlite数据库管理SDK**及其路由服务
-* QQ桥接，群服互通
+* 依赖与[LLBOT]()的QQ桥接，群服互通服务
 
 [English version →](./README.en.md)
 
@@ -17,117 +17,107 @@
 [![sea](https://img.shields.io/badge/SEA-single--executable-FF6B6B?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/api/single-executable-applications.html)
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
-[![discord](https://img.shields.io/badge/QQ-QQ--bridge-1E90FF?style=flat-square&logo=tencent-qq)](./qq-bridge)
 
 ---
 
 ## 项目概览
 
-SFMC 把 Bedrock Dedicated Server 的SAPI能力扩成一套完整的服务端体系:
+SFMC 把 Minecraft SAPI扩成一套完整的服务端体系:
 
-* **模块化设计体系**,基于 `modules/packages/<id>/` 的模块包结构 —— 每个模块都是一等公民,通过 `modules/catalog.json` 注册并由 `ModuleRegistry` 装载
-* **4 个仓顶服务** (`db-server` SQLite REST API / `qq-bridge` Q群 ⇄ 服务器互通 / `bds-tools` BDS 进程管理 / `sfmc` SEA CLI)
-* **使用 sea 打包的 cil 程序** —— 一键启动、开服、管理
-* **SDK 工具包** `@sfmc/sdk` —— 位于 `modules/sdk/@sfmc-sdk/`,跨 SAPI / Node 两侧共享底层契约(不是模块)
-* **构建时模块** 一次性 CLI `tools/fetch-module.mjs` 从 GitHub Releases 拉模块(SEA 进程不联网)
+* **模块化设计体系**,基于 `modules/packages/<id>/` 的模块包结构 —— 通过 `modules/catalog.json` 注册并由 `ModuleRegistry` 装载
+* **仓顶服务** (`db-server` SQLite REST API / `qq-bridge` Q群 ⇄ 服务器互通 / `bds-tools` BDS 进程管理)
+* **使用 sea 打包的 cli 程序** —— 一键启动与管理BDS及SFMC的相关服务,**上手简单，即开即用**
+* **SDK 工具包** `@sfmc/sdk` —— 位于 `modules/sdk/@sfmc-sdk/`,**跨 SAPI / Node 两侧共享底层契约**，让原生脚本的开发更加顺畅与强大。
 
 ## 架构图
 
 ```mermaid
 flowchart TB
     %% ============== BDS 侧 ==============
-    subgraph BDS["Minecraft BDS 1.26.x (host)"]
-      direction TB
-      BP["behavior_packs/ScriptsForMinecraftServer<br/>scripts/entry.ts → esbuild → main.js"]
+    subgraph BDS["Minecraft BDS (host)"]
+      BP["BP 进程<br/>behavior_packs/.../scripts/main.js"]
+      INST["模块实例 (SAPI 进程内)<br/>catalog.json 中 enabled 的模块"]
       REG["ModuleRegistry<br/>register / bootAll / bootAfterWorldLoad"]
-      MODS_SAPI["SAPI 模块(在 BDS 进程内运行)<br/>由 catalog.json 注册"]
       CONF["ConfigManager<br/>GET /api/sfmc/configs/all 一次拉全"]
-      BP --> REG --> MODS_SAPI
+      BP --> REG
+      REG --> INST
       REG -. "启动时快照" .-> CONF
     end
 
-    %% ============== 本机服务 ==============
-    subgraph HOST["本机(127.0.0.1)"]
-      direction TB
+    %% ============== BP 构建管线 ==============
+    subgraph PIPE["BP 构建管线"]
+      PKGS["modules/packages/&lt;id&gt;/<br/>sapi/src/index · resource_pack/"]
+      ESBUILD["esbuild bundle<br/>build/modules/.../main"]
+      PKG_MGR["pack-manager<br/>assembleBehaviorPack"]
+      DEPLOY["BDS worlds/&lt;level&gt;/<br/>behavior_packs/sfmc-modules/"]
 
-      subgraph SEA["sfmc.exe (Node SEA 单文件)"]
-        direction LR
-        DISP["dispatcher<br/>SFMC_SERVICE switch"]
-        CLI["sfmc REPL<br/>用户交互 + start -all"]
-        DISP --> CLI
-      end
+      PKGS -- "esbuild 聚合" --> ESBUILD
+      ESBUILD -- "组装资源包" --> PKG_MGR
+      PKG_MGR -- "载入资源包" --> DEPLOY
+      DEPLOY -. "BDS 重启加载" .-> BP
+    end
 
-      subgraph SVC["仓顶服务"]
-        direction TB
-        DB["db-server<br/>SQLite + REST API<br/>:3001 HTTP"]
-        QQ["qq-bridge<br/>OneBot 11 反向 WS<br/>:3002"]
-        BDS_T["bds-tools<br/>check-update · 进程管理"]
-      end
+    %% ============== 仓顶服务 ==============
+    subgraph SVC["仓顶服务"]
+      DB["db-server<br/>SQLite + REST API"]
+      QQ["qq-bridge<br/> 反向 WS"]
+      BDS_T["bds-tools<br/>check-update · 进程管理"]
+    end
 
-      subgraph MODS["modules/packages/&lt;id&gt;/  (模块包,每个都是一等公民)"]
-        direction LR
-        M1["core-*<br/>(基础设施模块)<br/>data-backup · gui · ..."]
-        M2["feature-*<br/>(特性模块)<br/>land · economy · chat · ..."]
-
-        SDK["modules/sdk/@sfmc-sdk<br/>工具包,非模块<br/>SAPI / Node 共享"]
-      end
-
-      CAT["modules/catalog.json<br/>模块清单 + type 字段<br/>(区分 core / feature)"]
-      LOCK["modules/module-lock.json<br/>启/禁状态"]
+    %% ============== 模块源 ==============
+    subgraph MODS["模块源"]
+      REMOTE_MODS["Shiroha7z/sfmc-modules<br/>模块注册表"]
+      LOCAL_MODS["本仓 modules/packages/&lt;id&gt;/"]
+      CAT["catalog.json<br/>模块清单"]
+      LOCK["module-lock.json<br/>模块状态"]
+      SDK["sdk/@sfmc-sdk<br/>基础工具包<br/>SAPI / Node 共享"]
     end
 
     %% ============== 外部 ==============
     subgraph EXT["外部"]
-      LLBOT["LLBot (OneBot 11)<br/>QQ 协议侧"]
+      LLBOT["协议侧"]
       QQUSERS["QQ 群服用户"]
       BDS_USER["MC 玩家"]
     end
 
     %% ============== 数据流 ==============
-    DISP -. "spawn / supervise" .-> DB
-    DISP -. "spawn / supervise" .-> QQ
-    DISP -. "spawn / supervise" .-> BDS_T
+    REMOTE_MODS -- "Release → fetch" --> LOCAL_MODS
+    LOCAL_MODS --> PKGS
+    LOCAL_MODS --> CAT
 
     %% SAPI ↔ db-server
-    MODS_SAPI -- "HTTP :3001<br/>GET/POST /api/sfmc/*" --> DB
-    CONF -- "HTTP :3001<br/>GET /api/sfmc/configs/all" --> DB
+    INST -- "HTTP GET/POST/... /api/sfmc/*" --> DB
+    CONF -- "HTTP GET /api/sfmc/configs/all" --> DB
 
-    %% CLI ↔ db-server (启停模块)
-    CLI -- "PATCH /api/sfmc/modules/:id<br/>→ 写 module-lock.json" --> DB
-    DB -. "ConfigManager.refreshModules()<br/>(重启后生效)" .-> REG
+    %% module-lock 写回路
+    DB -. "refreshModules()<br/>(重启 BDS 生效)" .-> REG
+    LOCK -- "构建时读 + 启/禁" --> PKGS
+    CAT -- "注册元数据" --> PKGS
 
-    %% SDK 共享 (编译期,不是模块)
-    SDK -. "compile-time deps" .-> MODS_SAPI
+    %% SDK 共享
+    SDK -. "compile-time deps" .-> PKGS
     SDK -. "compile-time deps" .-> DB
-
-    %% catalog / module-lock
-    CAT -. "注册元数据" .-> REG
-    LOCK -. "启动时读取" .-> REG
 
     %% QQ 桥消息流
     QQUSERS <-->|QQ 消息| LLBOT
-    LLBOT -- "WS :3002 (QQ→MC)" --> QQ
-    QQ -- "POST :3001 /api/sfmc/messages" --> DB
-    DB -- "HTTP :3004 /send_group_msg (MC→QQ)" --> LLBOT
+    LLBOT -- "WS" --> QQ
+    QQ -- "HTTP" --> DB
+    DB -- "HTTP" --> LLBOT
 
     %% 玩家
     BDS_USER <-->|SAPI events| BP
 
-    %% 构建期模块拉取(SE 下发时 populate)
-    FETCH["tools/fetch-module.mjs<br/>(构建期,不联网进 SEA)"]
-    FETCH -. "从 GitHub Releases populate<br/>(或 cp -r 本地放包)" .-> MODS_SAPI
-
-    classDef seaBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
+    classDef pipeBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
     classDef svcBox fill:#E8F5E9,stroke:#43A047
     classDef modBox fill:#EDE7F6,stroke:#7B68EE
     classDef sdkBox fill:#FFF8E1,stroke:#F9A825
     classDef bdsBox fill:#E3F2FD,stroke:#1976D2
     classDef extBox fill:#FFF3E0,stroke:#FB8C00
-    class DISP,CLI seaBox
+    class PKGS,ESBUILD,PKG_MGR,DEPLOY pipeBox
     class DB,QQ,BDS_T svcBox
-    class M1,M2 modBox
+    class REMOTE_MODS,LOCAL_MODS,CAT,LOCK modBox
     class SDK sdkBox
-    class BP,REG,MODS_SAPI,CONF bdsBox
+    class BP,INST,REG,CONF bdsBox
     class LLBOT,QQUSERS,BDS_USER extBox
 ```
 
@@ -136,10 +126,10 @@ flowchart TB
 ```mermaid
 flowchart LR
     A["作者<br/>写模块"] -->|manifest.json| B["modules/packages/&lt;id&gt;/"]
-    B -->|npm run build:full| C["esbuild bundle<br/>+ manifest 聚合"]
-    C -->|复制到| D["BDS behavior_packs"]
-    D -->|reload BP| E["SAPI 启动 catalog 中<br/>enabled 的模块"] |
-    B -->|db-server 扫| F["db-server 路由注册"]
+    B -->|sfmc behavior-pack build| C["esbuild bundle<br/>+ pack-manager 组装"]
+    C -->|deployToBDS| D["BDS worlds/&lt;level&gt;/<br/>behavior_packs/sfmc-modules/"]
+    D -->|restart BDS| E["SAPI 启动 catalog 中<br/>enabled 的模块"]
+    B -->|db-server 启动时扫| F["db-server 路由注册"]
     E <-->|HttpDB| F
 ```
 
@@ -147,7 +137,7 @@ flowchart LR
 
 SFMC 提供两条等价的上手路径,选你最舒服的就行。
 
-### ⚡ SEA 单 exe(推荐 — 不想碰 Node)
+### ⚡ SFMC - SEA
 
 ```bash
 # 1. 下载对应平台的 sfmc.exe(从 GitHub Releases),放到一个空目录
@@ -191,10 +181,11 @@ sfmc> start -all
 ```
 
 两条路**共用同一份**:
-- 第一方模块注册表 `Shiroha7z/sfmc-modules`(GitHub Releases)
-- `tools/fetch-module.mjs` 拉模块
-- `sfmc behavior-pack build/deploy` 走同一套 bds-tools/pack-manager
-- `modules/module-lock.json` 启/禁状态
+
+* 第一方模块注册表 `Shiroha7z/sfmc-modules`(GitHub Releases)
+* `tools/fetch-module.mjs` 拉模块
+* `sfmc behavior-pack build/deploy` 走同一套 bds-tools/pack-manager
+* `modules/module-lock.json` 启/禁状态
 
 SEA 不含固定 BP — 行为包是你装了模块后**实时装配**出来的。未知来源模块(不在第一方 index)会触发顶部黄字警告,确认无误可继续。
 

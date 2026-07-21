@@ -29,98 +29,90 @@ ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface int
 ```mermaid
 flowchart TB
     %% ============== BDS side ==============
-    subgraph BDS["Minecraft BDS 1.26.x (host)"]
-      direction TB
-      BP["behavior_packs/ScriptsForMinecraftServer<br/>scripts/entry.ts → esbuild → main.js"]
+    subgraph BDS["Minecraft BDS (host)"]
+      BP["BP process<br/>behavior_packs/.../scripts/main.js"]
+      INST["Module instances (in SAPI process)<br/>modules enabled in catalog.json"]
       REG["ModuleRegistry<br/>register / bootAll / bootAfterWorldLoad"]
-      MODS_SAPI["SAPI modules (in-process)<br/>registered via catalog.json"]
       CONF["ConfigManager<br/>GET /api/sfmc/configs/all once"]
-      BP --> REG --> MODS_SAPI
+      BP --> REG
+      REG --> INST
       REG -. "snapshot at startup" .-> CONF
     end
 
-    %% ============== Local services ==============
-    subgraph HOST["Local host (127.0.0.1)"]
-      direction TB
+    %% ============== BP build pipeline ==============
+    subgraph PIPE["BP build pipeline"]
+      PKGS["modules/packages/&lt;id&gt;/<br/>sapi/src/index · resource_pack/"]
+      ESBUILD["esbuild bundle<br/>build/modules/.../main"]
+      PKG_MGR["pack-manager<br/>assembleBehaviorPack"]
+      DEPLOY["BDS worlds/&lt;level&gt;/<br/>behavior_packs/sfmc-modules/"]
 
-      subgraph SEA["sfmc.exe (Node SEA single binary)"]
-        direction LR
-        DISP["dispatcher<br/>SFMC_SERVICE switch"]
-        CLI["sfmc REPL<br/>interactive + start -all"]
-        DISP --> CLI
-      end
+      PKGS -- "esbuild aggregate" --> ESBUILD
+      ESBUILD -- "assemble resource pack" --> PKG_MGR
+      PKG_MGR -- "drop into world" --> DEPLOY
+      DEPLOY -. "BDS restart loads" .-> BP
+    end
 
-      subgraph SVC["Top-level services"]
-        direction TB
-        DB["db-server<br/>SQLite + REST API<br/>:3001 HTTP"]
-        QQ["qq-bridge<br/>OneBot 11 reverse WS<br/>:3002"]
-        BDS_T["bds-tools<br/>check-update · process manager"]
-      end
+    %% ============== Top-level services ==============
+    subgraph SVC["Top-level services"]
+      DB["db-server<br/>SQLite + REST API"]
+      QQ["qq-bridge<br/>reverse WS"]
+      BDS_T["bds-tools<br/>check-update · process manager"]
+    end
 
-      subgraph MODS["modules/packages/&lt;id&gt;/  (every package is a first-class module)"]
-        direction LR
-        M1["core-*<br/>(infrastructure)<br/>data-backup · gui · ..."]
-        M2["feature-*<br/>(add-on)<br/>land · economy · chat · ..."]
-
-        SDK["modules/sdk/@sfmc-sdk<br/>toolkit, NOT a module<br/>shared by SAPI / Node"]
-      end
-
-      CAT["modules/catalog.json<br/>module catalog + type field<br/>(core / feature)"]
-      LOCK["modules/module-lock.json<br/>enable / disable state"]
+    %% ============== Module sources ==============
+    subgraph MODS["Module sources"]
+      REMOTE_MODS["Shiroha7z/sfmc-modules<br/>module registry"]
+      LOCAL_MODS["this repo modules/packages/&lt;id&gt;/"]
+      CAT["catalog.json<br/>module catalog"]
+      LOCK["module-lock.json<br/>module state"]
+      SDK["sdk/@sfmc-sdk<br/>toolkit<br/>shared by SAPI / Node"]
     end
 
     %% ============== External ==============
     subgraph EXT["External"]
-      LLBOT["LLBot (OneBot 11)<br/>QQ protocol side"]
+      LLBOT["protocol side"]
       QQUSERS["QQ chat users"]
       BDS_USER["MC players"]
     end
 
     %% ============== Data flows ==============
-    DISP -. "spawn / supervise" .-> DB
-    DISP -. "spawn / supervise" .-> QQ
-    DISP -. "spawn / supervise" .-> BDS_T
+    REMOTE_MODS -- "Release → fetch" --> LOCAL_MODS
+    LOCAL_MODS --> PKGS
+    LOCAL_MODS --> CAT
 
     %% SAPI ↔ db-server
-    MODS_SAPI -- "HTTP :3001<br/>GET/POST /api/sfmc/*" --> DB
-    CONF -- "HTTP :3001<br/>GET /api/sfmc/configs/all" --> DB
+    INST -- "HTTP GET/POST/... /api/sfmc/*" --> DB
+    CONF -- "HTTP GET /api/sfmc/configs/all" --> DB
 
-    %% CLI ↔ db-server (module toggle)
-    CLI -- "PATCH /api/sfmc/modules/:id<br/>→ write module-lock.json" --> DB
-    DB -. "ConfigManager.refreshModules()<br/>(after BDS restart)" .-> REG
+    %% module-lock writeback
+    DB -. "refreshModules()<br/>(takes effect on BDS restart)" .-> REG
+    LOCK -- "read at build + enable/disable" --> PKGS
+    CAT -- "registers metadata" --> PKGS
 
-    %% SDK shared (compile-time, not a module)
-    SDK -. "compile-time deps" .-> MODS_SAPI
+    %% SDK shared
+    SDK -. "compile-time deps" .-> PKGS
     SDK -. "compile-time deps" .-> DB
-
-    %% catalog / module-lock
-    CAT -. "registers metadata" .-> REG
-    LOCK -. "read at startup" .-> REG
 
     %% QQ bridge message flow
     QQUSERS <-->|QQ msgs| LLBOT
-    LLBOT -- "WS :3002 (QQ→MC)" --> QQ
-    QQ -- "POST :3001 /api/sfmc/messages" --> DB
-    DB -- "HTTP :3004 /send_group_msg (MC→QQ)" --> LLBOT
+    LLBOT -- "WS" --> QQ
+    QQ -- "HTTP" --> DB
+    DB -- "HTTP" --> LLBOT
 
     %% Players
     BDS_USER <-->|SAPI events| BP
 
-    %% Build-time module fetch
-    FETCH["tools/fetch-module.mjs<br/>(build-time, offline in SEA)"]
-    FETCH -. "populate from GitHub Releases<br/>(or cp -r local checkout)" .-> MODS_SAPI
-
-    classDef seaBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
+    classDef pipeBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
     classDef svcBox fill:#E8F5E9,stroke:#43A047
     classDef modBox fill:#EDE7F6,stroke:#7B68EE
     classDef sdkBox fill:#FFF8E1,stroke:#F9A825
     classDef bdsBox fill:#E3F2FD,stroke:#1976D2
     classDef extBox fill:#FFF3E0,stroke:#FB8C00
-    class DISP,CLI seaBox
+    class PKGS,ESBUILD,PKG_MGR,DEPLOY pipeBox
     class DB,QQ,BDS_T svcBox
-    class M1,M2 modBox
+    class REMOTE_MODS,LOCAL_MODS,CAT,LOCK modBox
     class SDK sdkBox
-    class BP,REG,MODS_SAPI,CONF bdsBox
+    class BP,INST,REG,CONF bdsBox
     class LLBOT,QQUSERS,BDS_USER extBox
 ```
 
