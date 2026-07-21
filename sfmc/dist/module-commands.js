@@ -4,18 +4,23 @@
  *
  * Subcommands:
  *   list                    List every installed module (reads each
- *                           modules/packages/<id>/sapi/manifest.json)
+ *                           modules/packages/<id>/sapi/manifest.json).
+ *                           Marks registry-known modules with `●` and
+ *                           modules from an unknown publisher with `?`.
  *   info <id>               Show one module's manifest + on-disk fingerprint
  *   verify [id]             Recompute the SHA-256 fingerprint of installed
  *                           modules (id = one; no id = all)
- *   install <id>            Wrapper around `tools/fetch-module.mjs install`
- *                           so the SEA-mode CLI has a single entry point.
- *                           The CLI itself stays offline (it just shells out).
+ *   install <id>            Wrapper around `tools/fetch-module.mjs install`.
+ *                           If `--from` is omitted, the first-party registry
+ *                           is consulted (Tanya7z/sfmc-modules).
  *   uninstall <id>          Remove modules/packages/<id>/
+ *   enable <id>             POST /api/sfmc/modules/:id/enable on db-server
+ *   disable <id>            POST /api/sfmc/modules/:id/disable on db-server
  *
  * The runtime SEA process never connects to the network. `install` simply
  * delegates to the build-time helper `tools/fetch-module.mjs`, which handles
- * GitHub / local sources. That keeps the SEA image self-contained.
+ * GitHub / local sources. enable/disable go through db-server's existing
+ * REST endpoints so module-lock.json stays the single source of truth.
  */
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -24,6 +29,7 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { c } from "./theme.js";
 import { ROOT } from "./runtime.js";
+import { findUnknownModules } from "./registry.js";
 /** Where modules live on disk. SEA reads this same path at runtime. */
 function modulesDir() {
     return path.join(ROOT, "modules", "packages");
@@ -120,15 +126,43 @@ export async function cmdModuleList(_args) {
     if (installed.length === 0) {
         return c.dim(`\nNo modules installed. Drop a module folder under ${modulesDir()} or run \`sfmc module install <id>\`.\n`);
     }
+    const ids = installed.map((m) => m.id);
+    const unknown = new Set(await findUnknownModules(ids));
     const lines = [c.bold("\nInstalled modules"), c.dim(`  ${modulesDir()}`)];
     const header = `    ${"id".padEnd(28)}${"files".padEnd(8)}${"size".padEnd(10)}${"routes".padEnd(8)}${"fingerprint"}`;
     lines.push(c.dim(header));
     for (const m of installed) {
         const routeCount = m.manifest?.routes?.length ?? 0;
-        const mark = m.manifest ? c.green("●") : c.yellow("○");
+        let mark;
+        if (!m.manifest) {
+            mark = c.yellow("○");
+        }
+        else if (unknown.has(m.id)) {
+            mark = c.yellow("?");
+        }
+        else {
+            mark = c.green("●");
+        }
         lines.push(`  ${mark} ${m.id.padEnd(26)}${String(m.fileCount).padEnd(8)}${fmtBytes(m.totalBytes).padEnd(10)}${String(routeCount).padEnd(8)}${shortHash(m.fingerprint)}`);
     }
     return lines.join("\n") + "\n";
+}
+/**
+ * Walk `modules/packages/<id>/` and print a one-line yellow warning for each
+ * id that isn't in the first-party registry. Intended for the REPL startup
+ * hook so users immediately see modules they installed from somewhere else.
+ *
+ * Best-effort: registry unreachable → no warning (no false positives).
+ */
+export async function scanAndWarnUnknown() {
+    const installed = await scanInstalled();
+    if (installed.length === 0)
+        return "";
+    const unknown = await findUnknownModules(installed.map((m) => m.id));
+    if (unknown.length === 0)
+        return "";
+    const list = unknown.map((id) => `  ${c.yellow("?")} ${id}`).join("\n");
+    return `${c.yellow("[sfmc] modules installed from unknown publisher — verify before use:")}\n${list}\n`;
 }
 /* ─────────────────────────────────────────────────────────────────
  *  info
@@ -190,6 +224,72 @@ export async function cmdModuleVerify(args) {
 /* ─────────────────────────────────────────────────────────────────
  *  install  — shells out to tools/fetch-module.mjs
  * ──────────────────────────────────────────────────────────────── */
+/* ───────────────────────────────────────────────────────────────
+ *  enable / disable  — talk to db-server over loopback HTTP
+ * ─────────────────────────────────────────────────────────────── */
+function configsPath() {
+    return path.join(ROOT, "configs", "db_config.json");
+}
+function readDbConfig() {
+    const p = configsPath();
+    if (!existsSync(p))
+        return {};
+    try {
+        const { readFileSync } = require("node:fs");
+        return JSON.parse(readFileSync(p, "utf8"));
+    }
+    catch {
+        return {};
+    }
+}
+async function postModuleToggle(id, action) {
+    const cfg = readDbConfig();
+    const port = cfg.db_port ?? 3001;
+    const token = cfg.http_auth || "";
+    const url = `http://127.0.0.1:${port}/api/sfmc/modules/${encodeURIComponent(id)}/${action}`;
+    let res;
+    try {
+        res = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+        });
+    }
+    catch (err) {
+        return c.red(`Cannot reach db-server at ${url}: ${err.message}. Is db-service running? (sfmc> start db)`);
+    }
+    const text = await res.text();
+    let body;
+    try {
+        body = JSON.parse(text);
+    }
+    catch {
+        body = text;
+    }
+    if (!res.ok) {
+        const err = body?.error ?? `HTTP ${res.status}`;
+        return c.red(`${action} ${id} failed: ${err}`);
+    }
+    const ok = body?.success !== false;
+    return ok ? c.green(`${action}d ${id}`) : c.red(`${action} ${id} returned: ${text}`);
+}
+export async function cmdModuleEnable(args) {
+    const id = args[0];
+    if (!id)
+        return c.yellow("Usage: sfmc module enable <id>");
+    return postModuleToggle(id, "enable");
+}
+export async function cmdModuleDisable(args) {
+    const id = args[0];
+    if (!id)
+        return c.yellow("Usage: sfmc module disable <id>");
+    return postModuleToggle(id, "disable");
+}
+/* ───────────────────────────────────────────────────────────────
+ *  install  — shells out to tools/fetch-module.mjs
+ * ─────────────────────────────────────────────────────────────── */
 export async function cmdModuleInstall(args) {
     const id = args[0];
     if (!id)
