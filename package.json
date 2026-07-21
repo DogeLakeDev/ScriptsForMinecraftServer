@@ -25,7 +25,7 @@
   },
   "scripts": {
     "start": "node sfmc/dist/main.js",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "sdk:build": "npm run build --workspace @sfmc/sdk",
     "sdk:typecheck": "npm run typecheck --workspace @sfmc/sdk",
     "sdk:verify": "npm run sdk:typecheck && npm run sdk:build",
