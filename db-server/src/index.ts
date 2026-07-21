@@ -78,7 +78,7 @@ log.success(
 );
 
 // ── enabled 集合(从 lock file)─────────────────────────────
-const lockFile = loadModuleLock(env.MODULE_LOCK_PATH);
+let lockFile = loadModuleLock(env.MODULE_LOCK_PATH);
 const moduleCatalog = readJsonFile<{ modules?: unknown[] }>(env.MODULE_CATALOG_PATH, {
   modules: [],
 });
@@ -194,6 +194,8 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   const lock = loadModuleLock(env.MODULE_LOCK_PATH);
   updateModuleState(lock, mod.id, { enabled: !!enabled });
   writeJsonFile(env.MODULE_LOCK_PATH, lock);
+  // 同步内存缓存,避免写入后立即读取(如 enable/disable 接口的返回值)仍是旧状态
+  lockFile = lock;
 }
 
 // ── 路由工厂实例 (旧业务路径 — 保留直到各模块迁 v2) ────────────────
