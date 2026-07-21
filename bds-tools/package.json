@@ -20,11 +20,10 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.18",
-    "cheerio": "^1.2.0",
-    "cli-progress": "^3.12.0"
+    "cli-progress": "^3.12.0",
+    "node-html-parser": "^9.0.0"
   },
   "main": "dist/bds-manager.js",
-  "devDependencies": {},
   "keywords": [],
   "license": "ISC"
 }
