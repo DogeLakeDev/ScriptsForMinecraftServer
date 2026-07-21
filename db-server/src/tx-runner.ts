@@ -146,7 +146,10 @@ export class TxRunner {
     const { moduleId, steps } = req;
     const manifest = this.deps.enabled.get(moduleId);
     if (!manifest) return { ok: false, step: -1, error: "模块未 enabled", code: "forbidden" };
-    assertModulePermission(moduleId, manifest.permissions, Perm.dbWrite("*"));
+    // 注意:不在此处做「整体 db:write:*」断言。
+    // 通配 `db:write:*` 无法通过 permission-gate 的 validPermissionKey 校验(模块声明它会启动失败),
+    // 因此该断言会让所有事务(含只读事务)恒被拒。真正的读写权限由每个 step 的
+    // requireTableRead / requireTableWrite 按具体表精确 gate。
 
     const traceId = randomUUID().slice(0, 8);
     const results: TxStepResult[] = [];

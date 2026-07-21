@@ -191,9 +191,10 @@ function resolveModuleByKey(key: string) {
 }
 
 function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boolean) {
-  const lock = loadModuleLock(env.MODULE_LOCK_PATH);
-  updateModuleState(lock, mod.id, { enabled: !!enabled });
-  writeJsonFile(env.MODULE_LOCK_PATH, lock);
+  // 直接更新启动时缓存的 lockFile(而非另读一份新副本),
+  // 否则 buildModuleList() 读的仍是旧缓存,导致启停后 enabled 状态不翻转。
+  updateModuleState(lockFile, mod.id, { enabled: !!enabled });
+  writeJsonFile(env.MODULE_LOCK_PATH, lockFile);
 }
 
 // ── 路由工厂实例 (旧业务路径 — 保留直到各模块迁 v2) ────────────────
@@ -313,10 +314,14 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   await body(req);
 
   // ── v2 模块身份校验:写 req.moduleAuth ────────────────────
+  // 注意:`/api/sfmc/configs/all` 是旧的一次性配置快照端点(SAPI ConfigManager.init
+  // 启动必用),不属于 v2 模块配置命名空间(configs/<模块 configKey>),必须豁免,
+  // 否则会被模块鉴权网关拦成 401,导致插件端起不来。
+  const isLegacyConfigAll = path === "/api/sfmc/configs/all";
   const needsModuleAuth =
     path.startsWith("/api/sfmc/db/") ||
     path.startsWith("/api/sfmc/services") ||
-    /^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+(?:\/(?:set|notify))?$/.test(path);
+    (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+(?:\/(?:set|notify))?$/.test(path) && !isLegacyConfigAll);
   if (needsModuleAuth) {
     const id = verifyModuleAuth({
       headers: req.headers,
@@ -353,7 +358,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   try {
     // ── v2 路由(优先匹配) ─────────────────────────────
     const reqWithAuth = req as http.IncomingMessage & { moduleAuth?: { id: string; permissions: string[] } };
-    if (reqWithAuth.moduleAuth && (path.startsWith("/api/sfmc/db/") || path.startsWith("/api/sfmc/services") || /^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+/.test(path))) {
+    if (reqWithAuth.moduleAuth && (path.startsWith("/api/sfmc/db/") || path.startsWith("/api/sfmc/services") || (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+/.test(path) && !isLegacyConfigAll))) {
       const ctx: Record<string, unknown> = {
         path,
         method,
@@ -361,7 +366,9 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
         req,
         res,
       };
-      ctx["body"] = (req as http.IncomingMessage & { _body?: Record<string, unknown> })._body ?? {};
+      // body 已在上面 `await body(req)` 预读并缓存到 req._bodyPromise;
+      // 这里复用缓存(原实现读的 req._body 从未被赋值,导致所有 v2 路由 body 恒为空)。
+      ctx["body"] = await body(req);
       if (path.startsWith("/api/sfmc/db/")) {
         if (await dbRoutes(ctx)) return;
       } else if (path.startsWith("/api/sfmc/services")) {

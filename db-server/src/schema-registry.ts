@@ -85,7 +85,7 @@ function assertValid(req: DefineTableRequest, moduleId: string): void {
  * 例如 {id:{type:"text",primary:true},name:{type:"text",notNull:true}}
  * → "id" TEXT PRIMARY KEY, "name" TEXT NOT NULL
  */
-function buildColumnClause(name: string, def: ColumnDef, withDeletedAt: boolean): string {
+function buildColumnClause(name: string, def: ColumnDef): string {
   const parts: string[] = [`"${name}"`, def.type.toUpperCase()];
   if (def.primary) parts.push("PRIMARY KEY");
   if (def.notNull && !def.primary) parts.push("NOT NULL");
@@ -95,11 +95,23 @@ function buildColumnClause(name: string, def: ColumnDef, withDeletedAt: boolean)
     else parts.push(`DEFAULT ${def.default}`);
   }
   if (def.ref) parts.push(`REFERENCES ${def.ref}`);
-  // 隐式 _deleted_at / _version 在列尾追加,不参与 columns 字段
-  if (withDeletedAt) {
-    parts.push('"_deleted_at" INTEGER', '"_version" INTEGER DEFAULT 0');
-  }
   return parts.join(" ");
+}
+
+/**
+ * 把一张表的所有列(含 softDelete 隐式列)拼成 CREATE TABLE 的列定义数组。
+ * 隐式 _deleted_at / _version 作为独立列在末尾追加「一次」(此前误在每个列
+ * 子句里各追加一次,且无逗号分隔,导致 softDelete 表建表 SQL 语法错误)。
+ */
+function buildColumnList(columns: Record<string, ColumnDef>, softDelete: boolean): string[] {
+  const cols: string[] = [];
+  for (const [n, def] of Object.entries(columns)) {
+    cols.push(buildColumnClause(n, def));
+  }
+  if (softDelete) {
+    cols.push('"_deleted_at" INTEGER', '"_version" INTEGER DEFAULT 0');
+  }
+  return cols;
 }
 
 export class SchemaRegistry {
@@ -137,13 +149,31 @@ export class SchemaRegistry {
     }
 
     const softDelete = req.softDelete ?? true;
-    this.tables.set(req.name, {
+    const defined: DefinedTable = {
       moduleId,
       name: req.name,
       columns: req.columns,
       softDelete,
-    });
+    };
+    this.tables.set(req.name, defined);
+    // 立即物理建表(幂等 CREATE TABLE IF NOT EXISTS)。
+    // 原设计是「define 收集 → finalize 统一建表」,但 finalize() 从未被调用,
+    // 导致模块表永远不会落地、后续 insert/query 全部 no such table。
+    // 采用 define 即建表:碰撞检测已在上方按内存表完成,不影响单一 owner 保证。
+    this.createPhysical(defined);
     return { table: req.name, created: true, indices: [] };
+  }
+
+  /** 幂等地物理建表 + 建索引(供 define / finalize 共用)。 */
+  private createPhysical(t: DefinedTable): void {
+    const cols = buildColumnList(t.columns, t.softDelete);
+    this.db.exec(`CREATE TABLE IF NOT EXISTS "${t.name}" (${cols.join(", ")})`);
+    for (const [n, def] of Object.entries(t.columns)) {
+      if (def.index) {
+        const idxName = `idx_${t.name}_${n}`.slice(0, 60);
+        this.db.exec(`CREATE INDEX IF NOT EXISTS "${idxName}" ON "${t.name}"("${n}")`);
+      }
+    }
   }
 
   /**
@@ -156,10 +186,7 @@ export class SchemaRegistry {
     const created: string[] = [];
 
     for (const t of this.tables.values()) {
-      const cols: string[] = [];
-      for (const [n, def] of Object.entries(t.columns)) {
-        cols.push(buildColumnClause(n, def, t.softDelete));
-      }
+      const cols = buildColumnList(t.columns, t.softDelete);
       const ddl = `CREATE TABLE IF NOT EXISTS "${t.name}" (${cols.join(", ")})`;
       this.db.exec(ddl);
 
