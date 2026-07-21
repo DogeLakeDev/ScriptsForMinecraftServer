@@ -4,7 +4,7 @@ import { configPath } from "@sfmc/sdk/node/config";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
-import { cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify } from "./module-commands.js";
+import { cmdModuleDisable, cmdModuleEnable, cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify, scanAndWarnUnknown } from "./module-commands.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 
@@ -31,6 +31,10 @@ async function main(): Promise<void> {
       const { refreshServices } = await import("./services.js");
       refreshServices();
     }
+    /* Print yellow warnings for modules from outside the first-party registry.
+     * Best-effort: registry unreachable → no warning, no failure. */
+    const warn = await scanAndWarnUnknown();
+    if (warn) console.log(warn);
     startRemoteAgent();
     await startRepl();
     return;
@@ -138,8 +142,14 @@ async function main(): Promise<void> {
         case "info":
           console.log(await cmdModuleInfo(subRest));
           break;
+        case "enable":
+          console.log(await cmdModuleEnable(subRest));
+          break;
+        case "disable":
+          console.log(await cmdModuleDisable(subRest));
+          break;
         default:
-          console.log(c.yellow("Usage: sfmc module <list|install|uninstall|verify|info> [args]"));
+          console.log(c.yellow("Usage: sfmc module <list|install|uninstall|verify|info|enable|disable> [args]"));
       }
       break;
     }
