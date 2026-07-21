@@ -1,6 +1,6 @@
 # manifest 契约
 
-> `manifest.json` 是 BP 构建产物 `modules/_manifests/module-manifests.json` 的「单模块源」。每个模块在 `modules/packages/<id>/sapi/manifest.json` 手写一份,由 `tools/emit-manifest.mjs` 在 `scriptsforminecraftserver` 构建时合并。
+> `manifest.json` 是 BP 构建产物 `build/sfmc-modules/manifest.json` 的「单模块源」。每个模块在 `modules/packages/<id>/sapi/manifest.json` 手写一份,由 `sfmc behavior-pack build` 聚合时合并。
 
 ## 1. 完整 schema
 
@@ -139,9 +139,8 @@ if (warnings.length > 0) for (const w of warnings) console.warn(`[manifest] WARN
 构建并启动:
 
 ```bash
-cd scriptsforminecraftserver
-npm run build:full    # 跑 emit-manifest.mjs 合并 22 个 manifest
-cat ../../modules/_manifests/module-manifests.json | jq '.modules["feature-foo"]'
+sfmc behavior-pack build    # 跑 emit-manifest.mjs 合并 22 个 manifest
+cat build/sfmc-modules/manifest.json | jq '.modules["feature-foo"]'
 # 应输出上面这段内容
 ```
 

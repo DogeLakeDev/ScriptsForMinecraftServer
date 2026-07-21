@@ -11,10 +11,7 @@
 //     formatTimestamp / generateId / dimensionId /
 //     toQueryString / ListFormInfo
 //
-// 这些是 Stage F 把 scriptsforminecraftserver/scripts/libs/*.ts 原样
-// 迁入后的稳定形态。所有原文件都以无副作用的方式 import 与 export,运行时
-// 副作用只剩 Command.registerScriptEvent() 在 module load 时挂一次
-// scriptEventReceive 监听。
+// @sfmc/sdk/sapi/runtime — SAPI 模块直供工具
 export * from "./menu-navigator.js";
 export * from "./msg.js";
 export * from "./debug-log.js";

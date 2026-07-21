@@ -7,7 +7,7 @@
  *          → sfmc 通过 spawnService 启 `bds-tools/dist/pack-manager.js`,
  *            SEA 自己跑 esbuild 把脚本 bundle 写到 <modulesDir>/build/sfmc-modules-bp/scripts/main.js,
  *            然后调 pack-manager#assembleBehaviorPack 装配。
- *   - npm: 用户跑 `scriptsforminecraftserver/build.mjs` 或 `sfmc behavior-pack build`,
+ *   - npm: 用户跑 `sfmc behavior-pack build`,
  *          同一 spawnService 路径。或者直接在同进程 import 这个库。
  *
  * 关键约束:本文件不允许引 esbuild / 任何 npm-only 包 — SEA 要把它打成 SEA

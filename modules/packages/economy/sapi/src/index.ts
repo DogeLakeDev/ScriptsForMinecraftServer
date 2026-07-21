@@ -1,7 +1,7 @@
 /**
  * @sfmc/module-economy — SAPI 侧入口
  *
- * 暴露给 scriptsforminecraftserver 行为包启动期:
+ * 暴露给行为包启动期 (ModuleRegistry.register 调用点):
  *   - EconomyReport.start() / .stop():月度白皮书广播
  *   - getEconomyAccount / applyEconomyTransaction / transferEconomy
  *     / getDailyTasks / submitDailyTask:经济 HTTP 客户端

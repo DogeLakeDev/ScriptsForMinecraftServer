@@ -206,10 +206,10 @@ import type { SapiHostApis, SapiModuleSurface, defineSapiModule } from "@sfmc/sd
 
 ---
 
-## module-loader — entry.ts only
+## module-loader — BP entry (scripts/main.js) only
 
 ```ts
-// scriptsforminecraftserver/scripts/entry.ts ONLY
+// BP entry (top of scripts/main.js) ONLY
 import {
   ConfigManager,                // reads configs/*.json, areas/bannedItems
   Modules,                      // module enabled-state snapshot

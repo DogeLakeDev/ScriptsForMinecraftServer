@@ -1,7 +1,7 @@
 /**
  * @sfmc/module-data-backup — SAPI 侧入口
  *
- * 暴露给 scriptsforminecraftserver 行为包启动期:
+ * 暴露给行为包启动期 (ModuleRegistry.register 调用点):
  *   - getPlayerData(player):快照当前玩家数据 (player join/leave)
  *   - getWorldData / syncWorldData:世界 gameRules 快照 + 上报
  *   - PlayersDataApi.getPlayers / savePlayers:DB 读写

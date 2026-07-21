@@ -1,7 +1,7 @@
 /**
  * @sfmc/module-fly — SAPI 侧入口
  *
- * 暴露给 scriptsforminecraftserver 行为包启动期:
+ * 暴露给行为包启动期 (ModuleRegistry.register 调用点):
  *   - Fly.registerPermissions / registerEvents / boot / stop
  *
  * entry.ts 通过 `import * as Fly from "@sfmc/module-fly"` 命名空间形式消费,

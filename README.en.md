@@ -200,7 +200,6 @@ ScriptsForMinecraftServer/
 ├── qq-bridge/             QQ bridge (LLBot OneBot 11)
 ├── sfmc/                  REPL management CLI (runs through the SEA)
 ├── remote-controller/     Remote agent
-├── scriptsforminecraftserver/   Behavior pack shell (BP manifest + esbuild entry)
 ├── modules/
 │   ├── catalog.json       22 business module rows
 │   ├── module-lock.json   enable/disable state
@@ -235,11 +234,10 @@ ScriptsForMinecraftServer/
 | BDS | Bedrock Dedicated Server 1.26.x |
 | Disk | ~500 MB (BP + services + node_modules) |
 
-Windows: BDS needs Loopback Exemption:
+Windows: BDS needs Loopback Exemption (now bundled into the wizard):
+
 ```powershell
-cd scriptsforminecraftserver
-npm run enablemcloopback
-npm run enablemcpreviewloopback
+CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 ```
 
 ## Ports

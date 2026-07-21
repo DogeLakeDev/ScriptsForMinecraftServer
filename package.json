@@ -1,7 +1,11 @@
 {
-  "name": "scriptsforminecraftserver-monorepo",
+  "name": "sfmc-monorepo",
   "private": true,
   "devDependencies": {
+    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
+    "@minecraft/server-net": "^1.0.0-beta.1.26.33-stable",
+    "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
+    "@minecraft/vanilla-data": "1.26.40-preview.30",
     "@types/cli-progress": "^3.11.6",
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
@@ -20,7 +24,7 @@
     "typescript": "^6.0.3"
   },
   "scripts": {
-    "start": "node index.js",
+    "start": "node sfmc/dist/main.js",
     "build": "npm run build --workspaces",
     "sdk:build": "npm run build --workspace @sfmc/sdk",
     "sdk:typecheck": "npm run typecheck --workspace @sfmc/sdk",
@@ -38,7 +42,6 @@
     "modules/sdk/@sfmc-sdk",
     "modules/packages/*",
     "db-server",
-    "scriptsforminecraftserver",
     "qq-bridge",
     "bds-tools",
     "sfmc",

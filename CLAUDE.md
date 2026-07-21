@@ -8,23 +8,31 @@ ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with f
 
 | Path | Role | Runtime |
 |------|------|---------|
-| `scriptsforminecraftserver/` | Behavior pack — game logic, commands, GUIs | Minecraft Bedrock (SAPI) |
 | `db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.5+ |
 | `qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
 | `panel/` | TUI management dashboard | Node.js (Ink) |
-| `BDSTools/` | BDS auto-updater | Node.js |
+| `BDSTools/` | BDS auto-updater + behavior-pack assembler | Node.js |
+| `sfmc/` | REPL / SEA supervisor / BP build pipeline | Node.js / SEA |
+| `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
+| `modules/sdk/@sfmc-sdk/` | Shared SDK (SAPI/Node umbrella) | consumed by modules |
+
+The behavior pack itself is **assembled live** at deploy time by
+`sfmc behavior-pack build` → `bds-tools/pack-manager#assembleBehaviorPack` →
+`<BDS>/worlds/<level>/behavior_packs/sfmc-modules/`. There is no
+checked-in BP shell — modules are the truth.
 
 ## Common Commands
 
-### SAPI behavior pack (scriptsforminecraftserver/)
+### SAPI behavior pack (assembled from modules)
 
-```powershell
-cd scriptsforminecraftserver
-npm install                    # install deps (required before first run)
-npm run build                  # tsc + esbuild bundle → dist/scripts/main.js
-npm run local-deploy           # build + copy to BDS path from .env
-npm run lint                   # ESLint
+```bash
+sfmc behavior-pack build      # esbuild bundles modules/packages/<id>/sapi/src/index.ts → <ROOT>/build/sfmc-modules/
+sfmc behavior-pack deploy     # copies build/sfmc-modules/ into <BDS>/worlds/<level>/behavior_packs/sfmc-modules/
 ```
+
+Per-module `sapi/src/index.ts` exports a `ModuleRegistry.register({ id, lifecycle })`
+call. The build pipeline walks every enabled module's `sapi/src/index.ts`
+and bundles them in one go — there is no manual entry.ts to edit.
 
 ### db-server
 
@@ -56,12 +64,12 @@ node tools/install-module.js uninstall <id> # uninstall module
 
 ### Build prerequisites
 
-- Node.js 18+ for SAPI; Node.js 22.5+ for db-server
-- Create `scriptsforminecraftserver/.env` from `.env.example` with `PROJECT_NAME` and `CUSTOM_DEPLOYMENT_PATH`
+- Node.js 22.5+ for everything (db-server requires `node:sqlite`)
+- Run `sfmc` (or `node sfmc/dist/main.js`) to fill `configs/*.json` via wizard
 
 ## Architecture
 
-### Init Order (entry.ts)
+### Init Order (built into the bundled BP's main.js)
 
 `system.beforeEvents.startup` → `ConfigManager.init()` → `ModuleRegistry.bootAll()` → `ModuleRegistry.snapshotEnabled()`
 `world.afterEvents.worldLoad` → `ModuleRegistry.bootAfterWorldLoad()` + `syncWorldData()`
@@ -72,11 +80,11 @@ Modules with `afterWorldLoad=false` boot immediately. Those with `afterWorldLoad
 
 Truth source: `modules/catalog.json` (metadata) + `modules/module-lock.json` (install state).
 
-`ModuleRegistry` (`scripts/libs/ModuleRegistry.ts`) handles all wiring. Each module registers a lifecycle object with `registerPermissions`, `registerCommands`, `registerEvents`, `init`, `cleanup` hooks. To add a module:
+`ModuleRegistry` (`modules/sdk/@sfmc-sdk/src/module-loader/`) handles all wiring. Each module exports a lifecycle object from `sapi/src/index.ts` with `registerPermissions`, `registerCommands`, `registerEvents`, `init`, `cleanup` hooks. To add a module:
 
 1. Add entry to `modules/catalog.json`
-2. Call `ModuleRegistry.register({ id, afterWorldLoad, lifecycle: { ... } })` in `scripts/entry.ts`
-3. Build with `npm run build`
+2. Write `modules/packages/<id>/sapi/src/index.ts` calling `ModuleRegistry.register({ id, lifecycle: { ... } })`
+3. Run `sfmc behavior-pack build && sfmc behavior-pack deploy`, restart BDS
 
 Module enable/disable at runtime goes through Panel → `POST /api/sfmc/modules/:id/{enable|disable}` → db-server writes `module-lock.json` → SAPI calls `ConfigManager.refreshModules()`. **No hot-reload: restart BDS for changes to take effect.**
 
@@ -91,7 +99,7 @@ Key config endpoints:
 
 ### Message Display
 
-Use `Msg.info/success/error/warning/tips()` from `libs/Tools.ts` for all system notifications. **Never use `player.sendMessage()` directly.** These methods handle formatting prefixes (`§f[*]`/`§a[√]`/etc.), sound effects, and system channel forwarding.
+Use `Msg.info/success/error/warning/tips()` from `@sfmc/sdk/sapi/runtime` for all system notifications. **Never use `player.sendMessage()` directly.** These methods handle formatting prefixes (`§f[*]`/`§a[√]`/etc.), sound effects, and system channel forwarding.
 
 ### Permissions
 

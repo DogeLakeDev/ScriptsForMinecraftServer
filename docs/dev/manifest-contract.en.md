@@ -1,6 +1,6 @@
 # Manifest Contract
 
-> `manifest.json` is the per-module source for the BP build artifact `modules/_manifests/module-manifests.json`. Every module ships its own `modules/packages/<id>/sapi/manifest.json`, hand-written; `tools/emit-manifest.mjs` merges them during the `scriptsforminecraftserver` build.
+> `manifest.json` is the per-module source for the BP build artifact `build/sfmc-modules/manifest.json`. Every module ships its own `modules/packages/<id>/sapi/manifest.json`, hand-written; `sfmc behavior-pack build` merges them during the BP assemble step.
 
 ## 1. Full schema
 
@@ -139,9 +139,8 @@ Current `KNOWN_PREFIXES` (derived from `db-server/src/routes/*.ts`):
 Build and verify:
 
 ```bash
-cd scriptsforminecraftserver
-npm run build:full    # runs emit-manifest.mjs to merge all manifests
-cat ../../modules/_manifests/module-manifests.json | jq '.modules["feature-foo"]'
+sfmc behavior-pack build    # runs emit-manifest.mjs to merge all manifests
+cat build/sfmc-modules/manifest.json | jq '.modules["feature-foo"]'
 # prints the manifest above
 ```
 

@@ -1,7 +1,7 @@
 /**
  * @sfmc/module-land — SAPI 侧入口
  *
- * 暴露给 scriptsforminecraftserver 行为包启动期:
+ * 暴露给行为包启动期 (ModuleRegistry.register 调用点):
  *   - LandSystem:注册命令/权限
  *   - LandEvents:注册事件订阅
  *   - LandSystem.init() / cleanup():生命周期

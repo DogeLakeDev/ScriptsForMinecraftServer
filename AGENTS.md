@@ -6,20 +6,23 @@ npm workspaces monorepo (root `package.json` has `workspaces`):
 
 | Path | What | Runtime |
 |------|------|---------|
-| `scriptsforminecraftserver/` | Minecraft Bedrock behavior pack (SAPI) | `@minecraft/server` beta |
 | `db-server/` | SQLite HTTP REST backend (plain `node:http` + `node:sqlite`) | Node.js >=22.5 |
 | `qq-bridge/` | QQ bridge (LLBot OneBot 11, WS 3002) | Node.js |
-| `bds-tools/` | BDS auto-updater + manager | Node.js |
-| `sfmc/` | CLI management tool (REPL + supervisor) | Node.js, can SEA-bundle |
+| `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
+| `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js, can SEA-bundle |
+| `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
+| `modules/sdk/@sfmc-sdk/` | Shared SDK consumed by modules | mixed |
 | `shared/sfmc-logs/` | Shared logging library `@sfmc/logs` | Node.js |
 
 **`panel/` no longer exists** — replaced by `sfmc/` CLI (the old AGENTS.md was stale).
 
 ## Plugin entry & init order
 
-`scripts/index.ts` → `scripts/entry.ts` (`AddOnInit.init()`)
+The behavior pack is **assembled at deploy time** by `sfmc behavior-pack build` →
+`bds-tools/pack-manager#assembleBehaviorPack`. The bundle entry walks every
+enabled module's `sapi/src/index.ts` and emits a single `scripts/main.js`.
 
-Init phases in `entry.ts`:
+Init phases (inside the bundled `main.js`):
 
 1. `system.beforeEvents.startup` — `ConfigManager.init()` → register permissions & commands via `ModuleRegistry`
 2. `world.afterEvents.worldLoad` — `ModuleRegistry.bootAfterWorldLoad()` + `MonitorReporter` + `syncWorldData()`
@@ -29,26 +32,18 @@ Init phases in `entry.ts`:
 
 ## Build & deploy
 
-### SAPI behavior pack (scriptsforminecraftserver/)
+### SAPI behavior pack (assembled from modules)
 
-```powershell
-npm install                     # install deps
-npm run build                   # clean → esbuild bundle → dist/scripts/main.js
-npm run deploy                  # copy to BDS path from .env
-npm run build:deploy            # build + deploy
-npm run build:deploy-watch      # watch mode
-npm run build:mcaddon           # full build → .mcaddon package
-npm run lint                    # ESLint: eslint scripts/**/*.ts
-npm run tsc                     # tsc --noEmit (typecheck only)
+The BP has no checked-in shell. Everything lives in modules and SDK:
+
+```bash
+sfmc behavior-pack build     # esbuild bundles modules/packages/<id>/sapi/src/index.ts → <ROOT>/build/sfmc-modules/
+sfmc behavior-pack deploy    # copies build/sfmc-modules/ into <BDS>/worlds/<level>/behavior_packs/sfmc-modules/
 ```
 
-`.env` controls deploy target — see `.env.example` (or check actual `.env`):
-
-```
-PROJECT_NAME="ScriptsForMinecraftServer"
-MINECRAFT_PRODUCT="Custom"
-CUSTOM_DEPLOYMENT_PATH="D:\Minecraft\BEServer\worlds\sptest2(ed)"
-```
+Each module exports a `ModuleRegistry.register({ id, lifecycle })` call from its
+`sapi/src/index.ts`. The build pipeline walks every enabled module's entry and
+bundles them in one go. To make changes load, run `build && deploy` and restart BDS.
 
 ### Root monorepo commands (run from repo root)
 
@@ -120,11 +115,11 @@ Source of truth: `modules/catalog.json` (metadata) + `modules/module-lock.json` 
 - `tools/smoke-modules.js` — regression test (requires live db-server)
 - `tools/check-ootb.js` — self-check: validates environment readiness
 
-Runtime wiring: `scripts/libs/ModuleRegistry.ts`. To add a module:
+Runtime wiring: `modules/sdk/@sfmc-sdk/src/module-loader/`. To add a module:
 
 1. Entry in `modules/catalog.json` (id, configKey, type, requires, entry)
-2. `ModuleRegistry.register({ id, afterWorldLoad, lifecycle: { registerPermissions, registerCommands, registerEvents, init, cleanup } })` in `scripts/entry.ts`
-3. `npm run build` → restart BDS
+2. `ModuleRegistry.register({ id, lifecycle: { registerPermissions, registerCommands, registerEvents, init, cleanup } })` in `modules/packages/<id>/sapi/src/index.ts`
+3. `sfmc behavior-pack build && sfmc behavior-pack deploy` → restart BDS
 
 ## Configuration model (no hot-reload)
 
@@ -146,7 +141,7 @@ Key config endpoints:
 
 ## Code conventions
 
-- **Message display**: `Msg.info/success/error/warning/tips()` from `libs/Tools.ts` (adds `§f[*]`/`§a[√]`/`§c[x]`/`§e[!]`/`§7[!]` prefixes). **Never use `player.sendMessage()` directly.**
+- **Message display**: `Msg.info/success/error/warning/tips()` from `@sfmc/sdk/sapi/runtime` (adds `§f[*]`/`§a[√]`/`§c[x]`/`§e[!]`/`§7[!]` prefixes). **Never use `player.sendMessage()` directly.**
 - **Form body**: `ListFormInfo(string[])` from `gui/` — first line gets `[*]` prefix, indented lines are plain
 - **Button/Form titles**: No formatting codes (except `返回` for back buttons)
 - **Money**: Scoreboard-based, unit from `Money.UNIT` (`节操`)
@@ -196,7 +191,7 @@ node tools/lock.js drift         # detect drifted files
 
 `.github/workflows/ootb.yml` — on push/PR to `main`/`refactor/**`:
 
-1. `npm install` in `scriptsforminecraftserver/`
+1. `npm install` at repo root
 2. `node tools/check-ootb.js`
 3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.js`
 

@@ -1,8 +1,3 @@
-scriptsforminecraftserver/out/
-scriptsforminecraftserver/lib/
-scriptsforminecraftserver/.vscode/
-scriptsforminecraftserver/node_modules/
-scriptsforminecraftserver/dist/
 bds-tools/dist/
 db-server/dist/
 panel/dist/

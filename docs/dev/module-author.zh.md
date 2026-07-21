@@ -22,7 +22,7 @@ modules/
 **关键约束**:
 - `id` 在 `modules/catalog.json` 内必须唯一,小写连字符
 - `entry.path` 固定为 `modules/packages/<id>/sapi/src/index.ts`
-- 模块**只在** BP 启动期被 `scriptsforminecraftserver/scripts/entry.ts` 通过 `ModuleRegistry.register(...)` 拉起;不要在模块内写顶层副作用,所有副作用放进生命周期回调
+- 模块**只在** BP 启动期被 `scripts/main.js`(由 `sfmc behavior-pack build` 聚合而成)通过 `ModuleRegistry.register(...)` 拉起;不要在模块内写顶层副作用,所有副作用放进生命周期回调
 
 ## 2. 模块契约 —— 你需要 export 什么
 
@@ -193,8 +193,7 @@ cd modules/packages/mymodule
 npm run typecheck
 
 # 2) 全仓行为包构建
-cd ../../scriptsforminecraftserver
-npm run build:full    # clean → bundle → copy → emit-manifest
+sfmc behavior-pack build    # esbuild 聚合模块 → build/sfmc-modules/
 
 # 3) 启动 db-server(确保 manifest 加载)
 cd ../../db-server
@@ -285,7 +284,7 @@ export class Hello {
 }
 ```
 
-随后在 `modules/catalog.json` 加一行,在 `scriptsforminecraftserver/scripts/entry.ts` 加 `ModuleRegistry.register({ id: "hello", ... })`,跑 `npm install` + `npm run build:full`。
+随后在 `modules/catalog.json` 加一行,在 `modules/packages/hello/sapi/src/index.ts` 内导出 `ModuleRegistry.register({ id: "hello", ... })`,跑 `sfmc behavior-pack build`。
 
 ---
 

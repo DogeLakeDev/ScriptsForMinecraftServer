@@ -1,9 +1,9 @@
 /**
- * module-loader/install.ts — SAPI entry 唯一的入口点
+ * module-loader/install.ts — 行为包启动入口
  *
- * scriptsforminecraftserver/scripts/entry.ts 调用:
- *   new AddOnInit().init();
- *   class AddOnInit { static init() { installHostBootstrap(); } }
+ * 由 BP 构建产物 (scripts/main.js) 顶端调用:
+ *   installHostBootstrap();
+ *   // 然后 module 包通过 ModuleRegistry.register({...}) 注册自身
  *
  * installHostBootstrap 干了:
  *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll + snapshot

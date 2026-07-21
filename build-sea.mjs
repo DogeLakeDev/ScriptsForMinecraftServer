@@ -57,11 +57,7 @@ async function buildZip(dir) {
  * docs/marketplace.zh.md). Only the skeleton — configs-default,
  * resource_packs, behavior_packs — ships inside the .exe.
  */
-const assetDirs = [
-  { dir: "configs-default", name: "configs-default.zip" },
-  { dir: "scriptsforminecraftserver/resource_packs", name: "resource_packs.zip" },
-  { dir: "scriptsforminecraftserver/behavior_packs", name: "behavior_packs.zip" },
-];
+const assetDirs = [{ dir: "configs-default", name: "configs-default.zip" }];
 
 for (const { dir, name } of assetDirs) {
   const src = path.resolve(dir);
@@ -76,4 +72,3 @@ for (const { dir, name } of assetDirs) {
 }
 
 console.log("[sea] modules are read at runtime from ./modules/packages/<id>/ (populate via tools/fetch-module.mjs)");
-

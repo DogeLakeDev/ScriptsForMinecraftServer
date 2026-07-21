@@ -22,7 +22,7 @@ modules/
 **Hard constraints:**
 - `id` must be unique inside `modules/catalog.json`, lowercase kebab-case
 - `entry.path` is fixed: `modules/packages/<id>/sapi/src/index.ts`
-- The module is only invoked by `scriptsforminecraftserver/scripts/entry.ts` via `ModuleRegistry.register(...)` during BP startup. Never put side effects at module top-level — everything goes inside lifecycle callbacks.
+- The module is only invoked by `scripts/main.js` (assembled by `sfmc behavior-pack build`) via `ModuleRegistry.register(...)` during BP startup. Never put side effects at module top-level — everything goes inside lifecycle callbacks.
 
 ## 2. Module contract — what you need to export
 
@@ -193,8 +193,7 @@ cd modules/packages/mymodule
 npm run typecheck
 
 # 2) Full BP build
-cd ../../scriptsforminecraftserver
-npm run build:full    # clean → bundle → copy → emit-manifest
+sfmc behavior-pack build    # esbuild bundles modules → build/sfmc-modules/
 
 # 3) Start db-server (verify manifest loads)
 cd ../../db-server
@@ -285,7 +284,7 @@ export class Hello {
 }
 ```
 
-Then: add a row to `modules/catalog.json`, add `ModuleRegistry.register({ id: "hello", ... })` in `scriptsforminecraftserver/scripts/entry.ts`, run `npm install` + `npm run build:full`.
+Then: add a row to `modules/catalog.json`, export `ModuleRegistry.register({ id: "hello", ... })` from `modules/packages/hello/sapi/src/index.ts`, then run `sfmc behavior-pack build`.
 
 ---
 

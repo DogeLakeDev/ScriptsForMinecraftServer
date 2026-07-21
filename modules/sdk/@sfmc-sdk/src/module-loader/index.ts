@@ -1,4 +1,4 @@
-// @sfmc/sdk/module-loader — host 装配层(只被 scriptsforminecraftserver/scripts/entry.ts 引用)
+// @sfmc/sdk/module-loader — host 装配层(被行为包构建管线消费)
 // 公开:
 //   - installHostBootstrap():SAPI 启动入口
 //   - ModuleRegistry:模块注册/启动/停止/重启实例

@@ -68,9 +68,7 @@ npm -v
 
 ```powershell
 # PowerShell as Administrator
-cd scriptsforminecraftserver
-npm run enablemcloopback
-npm run enablemcpreviewloopback
+CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 ```
 
 ## 3. Initialize the repo
@@ -124,8 +122,8 @@ The wizard writes `configs/db_config.json` with content like:
 ### 4.2 BP .env setup
 
 ```bash
-cd scriptsforminecraftserver
-cp .env.example .env   # if a template exists
+# Configs are written by `sfmc wizard` on first run — no manual copy needed.
+# To override manually: copy configs/.env.example to configs/.env, then edit.
 ```
 
 `.env` must contain:
@@ -218,9 +216,8 @@ REPL commands:
 ### 5.4 Deploy the behavior pack
 
 ```bash
-cd scriptsforminecraftserver
-npm run build:full    # clean → bundle → copy → emit-manifest
-npm run build:deploy  # build + auto-copy to .env-configured BDS path
+sfmc behavior-pack build      # esbuild + pack-manager under the hood
+sfmc behavior-pack deploy     # writes to BDS worlds/<level>/behavior_packs/sfmc-modules/
 ```
 
 `build:deploy` is `build + deploy`. BDS picks up behavior_pack changes on next world reload.
@@ -327,9 +324,8 @@ Also back up `configs/*.json`.
 
 After source changes:
 ```bash
-cd scriptsforminecraftserver
-npm run build:deploy    # build + copy to .env-configured path
-# Then reload the BP in BDS console, or `restart bds` in sfmc
+sfmc behavior-pack build && sfmc behavior-pack deploy
+# Then `restart bds` in sfmc REPL, or restart BDS manually.
 ```
 
 ## 8. Upgrade
@@ -337,9 +333,8 @@ npm run build:deploy    # build + copy to .env-configured path
 ### 8.1 BP upgrade
 
 ```bash
-cd scriptsforminecraftserver
 git pull   # or `npm update`
-npm run build:deploy
+sfmc behavior-pack build && sfmc behavior-pack deploy
 # Restart BDS
 ```
 
@@ -373,9 +368,8 @@ sfmc's `update` command wraps the above.
 ### 9.1 BP errors after BDS start
 
 1. Read BDS log, locate the first `[E]` line
-2. `cd scriptsforminecraftserver && npm run tsc` for type errors
-3. `node tools/check-catalog.js` for catalog consistency
-4. `node tools/emit-manifest.mjs` to regenerate manifest
+2. `node tools/check-catalog.js` for catalog consistency
+3. `sfmc behavior-pack build` to rebuild and surface esbuild errors
 5. `npm run build:deploy` to redeploy
 
 ### 9.2 db-server won't start
@@ -388,7 +382,7 @@ cat .sfmc.db-server.log | tail -50
 Common causes:
 - Port 3001 in use → change `db_port` in `configs/db_config.json`
 - SQLite corruption → try `sqlite3 data/sfmc_data.db ".recover"` to rescue
-- Manifest missing → `cd scriptsforminecraftserver && npm run build:full`
+- Behavior pack drift → `sfmc behavior-pack build && sfmc behavior-pack deploy`
 
 ### 9.3 qq-bridge can't connect to LLBot
 
@@ -416,8 +410,8 @@ Common causes:
 ---
 
 **Path reference:**
-- BP deploy path: `<CUSTOM_DEPLOYMENT_PATH>/ScriptsForMinecraftServer`
-- Behavior pack entry: `scriptsforminecraftserver/dist/scripts/main.js`
+- BP deploy path: `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/`
+- BP build output (pre-deploy): `build/sfmc-modules/scripts/main.js`
 - db-server config: `configs/db_config.json`
 - db-server data: `data/sfmc_data.db`
 - Module source of truth: `modules/catalog.json` + `modules/module-lock.json`

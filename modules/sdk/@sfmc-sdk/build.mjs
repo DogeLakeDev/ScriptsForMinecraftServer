@@ -14,9 +14,8 @@
  *   platform "neutral" : 纯类型/无外部依赖子路径
  *     - contracts / logs / sapi/sdk / sapi/runtime
  *
- * @minecraft/* 始终 external,留给真正 bundle BP 时由 scriptsforminecraftserver
- * 那一侧 esbuild 解析(在 BP 端它们从 scriptsforminecraftserver/node_modules 解析,
- * 这里 esbuild 只是产生中间 bundle,@minecraft/* 会以 require("..") 形式留下)。
+ * @minecraft/* 始终 external,留给 BP 构建时由 `sfmc behavior-pack build`
+ * (或 SEA 内嵌 esbuild)那一侧解析。
  *
  * 步骤:
  *   1) esbuild 各子路径产 ESM bundle → dist/esm/<subpath>/index.js

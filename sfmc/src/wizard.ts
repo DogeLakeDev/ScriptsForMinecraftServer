@@ -138,8 +138,6 @@ async function extractZip(
 const ASSETS = [
   { target: "configs", npmTarget: "configs", asset: "configs_default" },
   { target: "modules", npmTarget: "modules", asset: "modules" },
-  { target: "resource_packs", npmTarget: "scriptsforminecraftserver/resource_packs", asset: "resource_packs" },
-  { target: "behavior_packs", npmTarget: "scriptsforminecraftserver/behavior_packs", asset: "behavior_packs" },
 ] as const;
 
 function missingRuntimeAssets(rootDir: string): string[] {

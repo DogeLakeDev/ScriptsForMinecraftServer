@@ -206,10 +206,10 @@ import type { SapiHostApis, SapiModuleSurface, defineSapiModule } from "@sfmc/sd
 
 ---
 
-## module-loader — entry.ts 专用
+## module-loader — BP 入口(scripts/main.js)专用
 
 ```ts
-// scriptsforminecraftserver/scripts/entry.ts ONLY
+// BP 入口(scripts/main.js 顶层)ONLY
 import {
   ConfigManager,                // 读取 configs/*.json,areas/bannedItems
   Modules,                      // 模块启用态快照

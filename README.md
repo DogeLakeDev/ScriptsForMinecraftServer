@@ -207,7 +207,6 @@ ScriptsForMinecraftServer/
 ├── qq-bridge/             QQ 桥(LLBot OneBot 11)
 ├── sfmc/                  REPL 管理 CLI (走 SEA)
 ├── remote-controller/     远程 agent
-├── scriptsforminecraftserver/   行为包壳(BP manifest + esbuild 入口)
 ├── modules/
 │   ├── catalog.json       22 业务模块清单
 │   ├── module-lock.json   启/禁状态
@@ -242,12 +241,10 @@ ScriptsForMinecraftServer/
 | BDS | Bedrock Dedicated Server 1.26.x |
 | 磁盘 | ~500 MB(含 BP + 服务 + node_modules) |
 
-Windows 上需给 BDS 配 Loopback Exemption:
+Windows 上需给 BDS 配 Loopback Exemption(命令已合并到 wizard):
 
 ```powershell
-cd scriptsforminecraftserver
-npm run enablemcloopback
-npm run enablemcpreviewloopback
+CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 ```
 
 ## 端口速查
