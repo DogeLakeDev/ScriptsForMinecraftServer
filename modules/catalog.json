@@ -76,7 +76,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/land/sapi/src-v2/index.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/land/sapi/src/index.ts" }
     },
     {
       "id": "feature-afk",
