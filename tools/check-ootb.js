@@ -106,7 +106,7 @@ function fileContains(p, needle) {
 {
   let dbProc = null;
   try {
-    dbProc = spawn(process.execPath, [path.join(ROOT, "db-server", "index.js")], {
+    dbProc = spawn(process.execPath, [path.join(ROOT, "db-server", "dist", "index.js")], {
       cwd: ROOT,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],
