@@ -62,11 +62,11 @@ async function main() {
   copy(path.join(ROOT, 'modules', 'module-lock.json'), path.join(workspace, 'modules', 'module-lock.json'));
   fs.mkdirSync(path.join(workspace, 'data'), { recursive: true });
   fs.mkdirSync(path.join(workspace, 'configs'), { recursive: true });
-  fs.writeFileSync(path.join(workspace, 'configs', 'db_config.json'), JSON.stringify({ db_port: PORT, dbDir: './data/sfmc_data.db', modulesDir: '../modules' }) + '\n');
+  fs.writeFileSync(path.join(workspace, 'configs', 'db_config.json'), JSON.stringify({ db_port: PORT, dbDir: './data/sfmc_data.db', modulesDir: 'modules' }) + '\n');
   copy(path.join(ROOT, 'configs', 'qq_config.json'), path.join(workspace, 'configs', 'qq_config.json'));
   copy(path.join(ROOT, 'configs', 'settings.json'), path.join(workspace, 'configs', 'settings.json'));
 
-  const child = spawn(process.execPath, [path.join(ROOT, 'db-server', 'index.js')], {
+  const child = spawn(process.execPath, [path.join(ROOT, 'db-server', 'dist', 'index.js')], {
     cwd: ROOT,
     env: { ...process.env, SFMC_ROOT: workspace, SFMC_DB_PATH: dbPath, SFMC_MODULES_DIR: path.join(workspace, 'modules'), DB_PORT: String(PORT) },
     stdio: ['ignore', 'pipe', 'pipe'],
