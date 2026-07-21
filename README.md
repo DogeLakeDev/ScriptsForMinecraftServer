@@ -172,6 +172,25 @@ GitHub Actions runs:
 2. `tools/build.js` — esbuild every module's `sapi/src/index.ts` to verify no compile errors
 3. Publish tarball artifacts on tag push
 
+## Migration from main repo
+
+The `modules/packages/<id>/` directories in
+[ScriptsForMinecraftServer](https://github.com/Shiroha7z/ScriptsForMinecraftServer)
+were migrated to this repo via `git subtree push`:
+
+```bash
+cd ../ScriptsForMinecraftServer
+git subtree push --prefix=modules/packages \
+  git@github.com:Shiroha7z/sfmc-modules.git main
+```
+
+After push, modules live under `packages/<id>/` here. The main repo's
+`modules/catalog.json` is updated to fetch `index.json` from this repo via:
+
+```bash
+sfmc module install <id> --from github:Shiroha7z/sfmc-modules@latest
+```
+
 ## License
 
 ISC
