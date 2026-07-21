@@ -14,9 +14,9 @@
  * 的一部分内嵌起来,而 SEA 是个单 exe (除 Node 内置 + bds-tools 已有依赖外)。
  *
  * 已有依赖 (bds-tools/package.json):
- *   - adm-zip:    压缩 (未来扩展需要)
  *   - cli-progress: 进度条
  *   - node-html-parser: changelog 抓取 (本文件用不到)
+ *   - jszip: zip 解压(模块 zip / BDS server.zip),与 sfmc/wizard 共享同一个库
  *
  * 没有外部依赖意味着:SEA 静态把 `bds-tools/dist/*` 解压到 exe 旁边即可,
  *不需把 npm 整棵树带进去。

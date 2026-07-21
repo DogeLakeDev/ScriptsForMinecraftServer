@@ -10,8 +10,8 @@
  */
 
 import { createFileSink, createLogger, createStdoutSink } from "@sfmc/sdk/logs";
-import AdmZip from "adm-zip";
 import cliProgress from "cli-progress";
+import JSZip from "jszip";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -132,12 +132,23 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
 }
 
 /** 把 srcDir 下的内容移动到 destDir (覆盖) */
-function extractZipToBds(zipPath: string, destDir: string): void {
-  const zip = new AdmZip(zipPath);
+async function extractZipToBds(zipPath: string, destDir: string): Promise<void> {
+  const data = await fs.promises.readFile(zipPath);
+  const zip = await JSZip.loadAsync(data);
   // 抽出到临时目录，避免旧内容干扰
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bds-extract-"));
   try {
-    zip.extractAllTo(tmpDir, true);
+    const entries = Object.values(zip.files);
+    for (const e of entries) {
+      const out = path.join(tmpDir, e.name);
+      if (e.dir) {
+        fs.mkdirSync(out, { recursive: true });
+        continue;
+      }
+      fs.mkdirSync(path.dirname(out), { recursive: true });
+      const buf = await e.async("nodebuffer");
+      fs.writeFileSync(out, buf);
+    }
     // 把临时目录里的内容复制到 BDS 路径
     for (const entry of fs.readdirSync(tmpDir)) {
       const srcPath = path.join(tmpDir, entry);
@@ -381,7 +392,7 @@ export async function runUpdate(): Promise<number> {
     log.info("解压中...");
     // 先清空 BDS 目录
     emptyDirSync(bdsPath);
-    extractZipToBds(zipPath, bdsPath);
+    await extractZipToBds(zipPath, bdsPath);
     log.info("解压完成");
   } catch (e) {
     log.error(`解压失败: ${(e as Error).message}`);

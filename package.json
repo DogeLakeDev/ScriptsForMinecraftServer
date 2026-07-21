@@ -2,7 +2,6 @@
   "name": "scriptsforminecraftserver-monorepo",
   "private": true,
   "devDependencies": {
-    "@types/adm-zip": "^0.5.8",
     "@types/cli-progress": "^3.11.6",
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
