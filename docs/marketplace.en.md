@@ -1,193 +1,205 @@
 # Module Management Guide
 
-> Module acquisition flow after the SEA slim-down. The SEA embeds the `@sfmc/sdk` umbrella and reads modules directly from `modules/packages/<id>/` at runtime. There is no automatic "marketplace" download.
+> How to obtain modules under the SFMC v2 protocol. Modules are produced by an **external repository** and pulled into the main repo's `modules/packages/<id>/` via `tools/fetch-module.mjs`. Modules are untrusted third-party packages; they only talk to the platform through `@sfmc/sdk`.
 
-## 1. Design overview
-
-```
-dist/sea/sfmc.exe          ← contains dispatcher + @sfmc/sdk, 1.9MB
-modules/packages/<id>/     ← business modules; SAPI + db-server read this at runtime
-tools/fetch-module.mjs     ← one-shot CLI, populates modules/packages/<id>/
-sfmc module <verb>         ← runtime read-only CLI (works inside the SEA)
-```
-
-**Hard constraints**:
-- The SEA process **never connects to the network**. `sfmc module install` in SEA mode simply spawns `tools/fetch-module.mjs` as a child process.
-- `modules/packages/<id>/sapi/manifest.json` is the single source of truth — SAPI, db-server, and sfmc CLI all read it directly.
-- There is no longer a `modules/_manifests/module-manifests.json` aggregate product.
-
-## 2. sfmc module CLI (runtime, works inside the SEA)
+## 1. Design
 
 ```
-sfmc module list                       # scan modules/packages/<id>/ and list each module
-sfmc module info <id>                  # show one module's manifest + fingerprint
-sfmc module verify [id]                # recompute fingerprint(s); no id = all
-sfmc module install <id> [--from <source>]
-                                       # spawn tools/fetch-module.mjs
-sfmc module uninstall <id>             # rm -rf modules/packages/<id>/
+Shiroha7z/sfmc-modules              ← external module repo (independent git repo)
+  packages/<id>/
+    sapi/manifest.json               ← v2 contract (schemaVersion: 2)
+    sapi/src/index.ts
+    package.json                     ← @sfmc/module-<id>
+  index.json                         ← first-party registry
+
+Main repo ScriptsForMinecraftServer/
+  modules/packages/<id>/             ← local source after fetch-module
+  modules/catalog.json               ← local mirror (synced by fetch)
+  modules/module-lock.json           ← runtime enable/disable state
+  tools/fetch-module.mjs             ← offline/online fetch CLI
 ```
 
-REPL path is identical: `sfmc> module install feature-land --from github:DogeLakeDev/ScriptsForMinecraftServer@latest`
+**Hard constraints:**
 
-All commands anchor at `./` and resolve `modules/packages/<id>/`. In SEA mode `ROOT = path.dirname(process.execPath)`, so the SEA exe must live next to a `modules/packages/` directory.
+- The module repo's `sapi/manifest.json` is the **single source of truth** — SAPI, db-server, and the sfmc CLI all read it directly
+- Module repo publishes GitHub Release tags; `tools/fetch-module.mjs install` resolves tarballs and writes them to the main repo
+- The main repo's `modules/catalog.json` is a **local mirror**, synced by the fetch tool on each install
+- The main repo does NOT publish modules — only `@sfmc/sdk`
 
-## 3. tools/fetch-module.mjs (build-time / one-shot)
+## 2. First-party registry
 
-Three sources for populating `modules/packages/<id>/`:
+Default registry is `Shiroha7z/sfmc-modules@main/index.json`:
+
+```jsonc
+{
+  "version": 1,
+  "modules": {
+    "feature-land":      { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-land-gui":  { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-economy":   { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" }
+  }
+}
+```
+
+`fetch-module` resolves `<id>` → `github:<repo>@<tag>` → pulls the GitHub Release tarball.
+
+The registry is cached at `tools/.sfmc-registry-cache.json` (1h TTL). On network failure, the cache is used and a warning is emitted.
+
+## 3. fetch-module CLI
 
 ```bash
-# from a GitHub Release
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
+# List first-party registry
+node tools/fetch-module.mjs search
 
-# from a local zip
-node tools/fetch-module.mjs install feature-foo \
-  --from local:/abs/path/foo.zip
+# Install a module (default source: first-party registry)
+node tools/fetch-module.mjs install feature-land
 
-# directly copy a directory
-node tools/fetch-module.mjs install feature-foo \
-  --from dir:/abs/path/foo/
+# Install from explicit source
+node tools/fetch-module.mjs install feature-foo --from github:owner/repo@v1.0.0
+node tools/fetch-module.mjs install feature-foo --from local:/abs/path/foo.zip
+node tools/fetch-module.mjs install feature-foo --from dir:/abs/path/foo/
 
-# list what's in a GitHub release
-node tools/fetch-module.mjs list --from github:DogeLakeDev/ScriptsForMinecraftServer@latest
-
-# optional SHA-256 verification
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2 \
-  --sha256 a3f5b2...
+# Verification (GitHub auto-fetches .sha256 sidecar if present)
+node tools/fetch-module.mjs install feature-land --from github:Shiroha7z/sfmc-modules@v1.5.0
 ```
 
-### GitHub Release asset convention
+## 4. sfmc module CLI (runtime, available in SEA)
 
-On a GitHub release tag `vX.Y.Z`:
 ```
-sfmc-module-<id>-<version>.zip
-sfmc-module-<id>-<version>.zip.sha256   ← optional but recommended
+sfmc module list                    # scan modules/packages/<id>/, list each
+sfmc module info <id>               # show manifest + fingerprint
+sfmc module verify [id]             # recompute fingerprint
+sfmc module install <id> [--from <source>]
+sfmc module uninstall <id>          # rm -rf modules/packages/<id>/
+sfmc module enable <id>             # write module-lock.json enabled=true
+sfmc module disable <id>            # write module-lock.json enabled=false
 ```
 
-Sidecar format (64-char lowercase hex + double-space + filename):
+REPL equivalent:
 ```
-a3f5b2c1d4...  sfmc-module-feature-land-1.4.2.zip
+sfmc> module install feature-land --from github:Shiroha7z/sfmc-modules@latest
+sfmc> module enable feature-land
 ```
 
-Zip contents are arbitrary — `fetch-module.mjs` extracts them straight into `modules/packages/<id>/`. db-server, SAPI, and sfmc CLI will read the manifest from that directory.
-
-### SHA-256 verification
-
-- GitHub source: automatically fetches `.zip.sha256` sidecar if present; refuses install on mismatch.
-- Local zip: must pass `--sha256 <hex>` or skip verification.
-- Directory source: never verified (the directory already exists on disk, so you already trust it).
-
-## 4. Module directory convention
+## 5. Module directory layout
 
 ```
 modules/packages/<id>/
 ├── sapi/
-│   ├── manifest.json          ← required, module contract
-│   └── src/                   ← SAPI entry points
-├── resource_pack/             ← optional, resource pack contents
-└── package.json               ← optional, workspace metadata
+│   ├── manifest.json          ← required, v2 protocol contract
+│   ├── tsconfig.json
+│   └── src/
+│       ├── index.ts           ← entry, ModuleRegistry.register(...)
+│       └── ...business files
+├── configs-default/           ← (optional) default configKey values
+├── resource_pack/             ← (optional) resource pack contents
+└── package.json               ← @sfmc/module-<id>, depends on @sfmc/sdk
 ```
 
-Each `<id>` must match the `feature-* / core-*` ids in `modules/catalog.json`. db-server scans every `<id>/sapi/manifest.json` at startup.
+Each `<id>` must match the `feature-*` / `core-*` naming in `modules/catalog.json`.
 
-## 5. End-to-end examples
+## 6. End-to-end examples
 
-### 5.1 First-time deployment with an empty SEA
+### 6.1 Fresh main repo deployment
 
 ```bash
-# 1. Launch SEA (empty modules/, db-server reports modules=0)
-./sfmc.exe
-# 2. In another shell (regular Node), fetch modules from outside the SEA
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-node tools/fetch-module.mjs install feature-economy \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-# 3. Restart SEA → db-server reports modules=2
-./sfmc.exe
-# [manifest] loaded schemaVersion=1 modules=2 routes=...
+# 1) Pull the land module
+cd ScriptsForMinecraftServer
+node tools/fetch-module.mjs install feature-land
+# Pulls tarball + extracts to modules/packages/feature-land/
+# Syncs modules/catalog.json
+# Writes modules/module-lock.json { enabled: true }
+
+# 2) Pull land-gui
+node tools/fetch-module.mjs install feature-land-gui
+
+# 3) BP build + deploy
+sfmc behavior-pack build
+sfmc behavior-pack deploy
+
+# 4) Start db-server
+node db-server/dist/index.js
+# Startup log:
+#   [manifest v2] loaded 2 modules; provides 13 services
+#   [manifest v2] enabled: feature-land, feature-land-gui
+
+# 5) Start BDS, SAPI loads modules
 ```
 
-### 5.2 Install via sfmc inside the SEA
+### 6.2 In SEA mode
 
 ```bash
-sfmc> module install feature-chat --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-# sfmc spawns: node tools/fetch-module.mjs install ...
-# child process output is forwarded to the REPL
-# once installed, modules/packages/feature-chat/ appears → next SEA restart picks it up
+# SEA is offline; module install spawns a child process running tools/fetch-module.mjs
+sfmc> module install feature-chat --from github:Shiroha7z/sfmc-modules@latest
+# After install, modules/packages/feature-chat/ appears
+# Restart SEA; db-server scans and loads
 ```
 
-### 5.3 Local development: copy from a working directory
+### 6.3 Local dev: copy from working directory
 
 ```bash
-# you just finished feature-foo and want to test inside the SEA
-node tools/fetch-module.mjs install feature-foo --from dir:../feature-foo-work/
-sfmc> restart db
-# db-server scans feature-foo
+# You just wrote feature-foo, want to test in the main repo
+node tools/fetch-module.mjs install feature-foo --from dir:../sfmc-modules/packages/feature-foo/
+sfmc behavior-pack build
 ```
 
-### 5.4 Verify integrity
+## 7. Offline / air-gapped
+
+`fetch-module` supports fully offline sources:
 
 ```bash
-sfmc module verify
-# Verifying installed modules
-#   feature-land                    a3f5b2…c1d4e7
-#   feature-economy                 b7d218…f09a3c
-#   feature-foo                     d4e5f6…789abc
+# 1) Air-gapped: download zip, then --from local
+scp sfmc-module-feature-foo-1.0.0.zip server:/tmp/
+node tools/fetch-module.mjs install feature-foo \
+  --from local:/tmp/sfmc-module-feature-foo-1.0.0.zip \
+  --sha256 a3f5b2c1d4e5f6...
 
-sfmc module info feature-land
-# feature-land
-#   path        : /.../modules/packages/feature-land
-#   files       : 8
-#   size        : 12.3 KB
-#   fingerprint : a3f5b2c1d4...
-#   schemaVer   : 1
-#   routes      : 4
-#     GET      /api/sfmc/lands          lands:list
-#     POST     /api/sfmc/lands          lands:create
-#     ...
+# 2) Whole directory copy
+node tools/fetch-module.mjs install feature-foo --from dir:/mnt/share/modules/feature-foo/
 ```
 
-## 6. Relationship with db-server / SAPI
+## 8. Relationship with db-server / SAPI
 
 ```
-              ┌────────────────────────┐
-              │   sfmc.exe (SEA)       │
-              │   - dispatcher         │
-              │   - @sfmc/sdk embedded │
-              │   - sfmc CLI           │
-              └──────────┬─────────────┘
-                         │ spawn child services
-       ┌─────────────────┼──────────────────┐
-       ▼                 ▼                  ▼
-  db-server          qq-bridge         bds-tools
-       │
-       │ at startup scans modules/packages/<id>/sapi/manifest.json
-       ▼
-  modules/packages/<id>/sapi/manifest.json   ← single source of truth
-       ▲
-       │ SAPI bundle reads the same manifest
+                    ┌──────────────────────────────────┐
+                    │  Shiroha7z/sfmc-modules (ext.)   │
+                    │  - index.json (registry)         │
+                    │  - packages/<id>/source code     │
+                    └──────────────┬───────────────────┘
+                                   │ git subtree / fetch tarball
+                                   ▼
+┌─────────────────────────────────────────────────────────┐
+│  Main repo ScriptsForMinecraftServer                     │
+│                                                          │
+│   modules/packages/<id>/  ← esbuild entry                 │
+│   modules/catalog.json    ← static mirror                │
+│   modules/module-lock.json ← enable/disable state         │
+│                                                          │
+│   tools/fetch-module.mjs   ← fetch CLI                    │
+│   tools/check-ootb.js      ← pre-boot self-check          │
+│   tools/lock.js            ← fingerprint / drift check    │
+│                                                          │
+│   db-server/               ← runs on 127.0.0.1:3001       │
+│     manifest-loader.ts     ← reads v2 manifest, enables   │
+│     schema-registry.ts     ← collects db.defineTable      │
+│     tx-runner.ts           ← /api/sfmc/db/tx dispatcher   │
+│     service-registry.ts    ← service.get dispatcher       │
+│     permission-gate.ts     ← startup + runtime permission │
+│                                                          │
+│   modules/sdk/@sfmc-sdk/   ← npm @sfmc/sdk source         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-`sfmc module install` **only touches `modules/packages/<id>/`**. It does NOT:
-- edit `modules/module-lock.json` (enable/disable state)
-- restart db-server / BDS
-- run `npm run build:full`
+## 9. FAQ
 
-**Full loop** (manual):
-```
-node tools/fetch-module.mjs install feature-land --from github:...
-vim modules/module-lock.json           # flip enabled=true
-sfmc> restart db
-# then reload BP from BDS console
-```
+| Symptom | Cause / fix |
+|---------|-------------|
+| `fetch-module search` hangs | Network can't reach `raw.githubusercontent.com`. Check proxy / intranet config |
+| `HTTP 404` on tarball | Release tag doesn't exist or tarball name doesn't match `sfmc-module-<id>-<version>.zip` |
+| sha256 mismatch | Network MITM or file overwritten. Re-pull from first-party |
+| `module install` succeeds but BDS doesn't load | ① Check `modules/module-lock.json` has `enabled: true`; ② Restart BDS (no hot-reload) |
+| `db-server` startup logs `moduleId=... schemaVersion=1 (需要 2)` | Pulled module is v1 leftover. Check if you need to upgrade to a v2 version |
 
-## 7. Out of scope this round
+---
 
-- Cryptographic signatures / public-key verification (SHA-256 fingerprint only)
-- Signed module zips (sidecar is plain SHA-256, not a key signature)
-- Module publishing (`sfmc module publish`)
-- `install --enable-and-deploy` one-shot chain
-- Multi-source concurrent install / dependency resolution
-
-These are Stage L+ roadmap.
+Next: see [module author guide](./dev/module-author.en.md) to write a new module, or [SDK API reference](./dev/sdk-reference.en.md).

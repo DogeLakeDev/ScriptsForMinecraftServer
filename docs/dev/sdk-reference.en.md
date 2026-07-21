@@ -1,235 +1,259 @@
-# SDK Three-Drawer API Reference
+# SDK API Reference
 
-> `@sfmc/sdk` is the single umbrella package for the repo, exposing stable APIs through subpath exports. SAPI module authors should only look at `@sfmc/sdk/sapi/runtime` and `@sfmc/sdk/contracts`. The other drawers (`host` / `sdk` / `module-loader`) are currently used only by entry.ts and SDK internals.
+> `@sfmc/sdk` is the platform's official npm package, exposing the full v2 protocol as a single umbrella. Module authors only need four subpaths: `sapi/runtime`, `sapi/db`, `sapi/config`, `sapi/service`. The other drawers (`host`, `module-loader`, `node/*`, `behavior-pack-build`) are for platform and build tooling.
 
 ## Drawer cheat sheet
 
-| Drawer | Subpath | Audience |
-|--------|---------|----------|
+| Drawer | Subpath | Who should use |
+|--------|---------|----------------|
 | runtime | `@sfmc/sdk/sapi/runtime` | 90% of business code |
-| host | `@sfmc/sdk/sapi/host` | Platform adapters (rarely imported by modules) |
-| sdk | `@sfmc/sdk/sapi/sdk` | Contract types (stub for now) |
-| contracts | `@sfmc/sdk/contracts` | Shared types across SAPI and db-server |
-| module-loader | `@sfmc/sdk/module-loader` | **`scripts/entry.ts` ONLY** |
-| logs | `@sfmc/sdk/logs` | Node-side logging |
-| node/config | `@sfmc/sdk/node/config` | Node-side configs/data path resolution |
-| behavior-pack-build | `@sfmc/sdk/behavior-pack-build` | BP publish artifact builder |
+| **db** | `@sfmc/sdk/sapi/db` | All database read/write |
+| **config** | `@sfmc/sdk/sapi/config` | All config read/write |
+| **service** | `@sfmc/sdk/sapi/service` | All cross-module calls |
+| contracts | `@sfmc/sdk/contracts` | Shared types between SAPI and db-server |
+| module-loader | `@sfmc/sdk/module-loader` | BP entry: `ModuleRegistry.register` / `installHostBootstrap` |
+| host | `@sfmc/sdk/sapi/host` | Platform layer adapter (modules don't import directly) |
+| logs | `@sfmc/sdk/logs` | Node service logging |
+| node/config | `@sfmc/sdk/node/config` | Node service locating configs/data |
+| node/sdk | `@sfmc/sdk/node/sdk` | Node service unified capability surface |
+| behavior-pack-build | `@sfmc/sdk/behavior-pack-build` | Build BP release artifact |
 
 ---
 
-## runtime — the workhorse
-
-### `debug` — unified log facade
+## runtime — Business code mainstays
 
 ```ts
-import { debug } from "@sfmc/sdk/sapi/runtime";
+import { debug, Msg, Command, Permission, MenuNavigator, Money, FormStatus, ListFormInfo } from "@sfmc/sdk/sapi/runtime";
+```
+
+### `debug` — Unified log facade
+
+```ts
 debug.i("LAND", "load");          // info
 debug.w("LAND", "stale cache");   // warn
 debug.e("LAND", "db unreachable");// error
 ```
 
-`debug.i/w/e` output is gated by `setDebugLevel("INFO" | "WARN" | "ERROR")`. Production defaults to ERROR.
-
-### `Command` — command registration
+### `Msg` — Player messages (use this, not `player.sendMessage`)
 
 ```ts
-import { Command } from "@sfmc/sdk/sapi/runtime";
-
-Command.register(
-  "transfer",                       // command literal
-  "economy.transfer",               // permission node
-  (player) => { /* ... */ },        // handler (may be async)
-  "Transfer to another player",     // help text
-  "economy"                         // optional category
-);
+Msg.info("hint", player);
+Msg.success("ok", player);
+Msg.error("fail", player);
+Msg.warning("warn", player);
+Msg.tips("tip", player);
 ```
 
-Called once during BP startup. Registered commands route through `moduleGuard`, so commands from disabled modules are auto-rejected.
+Handles prefix formatting (§f[*] / §a[√] / etc.), sound effects, and system channel forwarding.
 
-### `Permission` — permission nodes
+### `Command` / `Permission`
 
 ```ts
-import { Permission } from "@sfmc/sdk/sapi/runtime";
+Permission.register("land.use", Permission.Any);
+Permission.register("land.admin", Permission.OP);
+Permission.register("land.op", Permission.Member);
 
-Permission.register("land.create", Permission.Admin);  // 0=Any 1=Member 2=OP 3=Admin
-Permission.check(player, "land.create");              // boolean
+Command.register("mylcmd", "land.use", (player) => { /* ... */ }, "My command");
 ```
 
-### `Msg` — player messaging + system channel
+Permission levels: `Any=0` / `Member=1` / `OP=2` / `Admin=3`.
+
+### `MenuNavigator` / `FormStatus` / `ListFormInfo` — UI
 
 ```ts
-import { Msg } from "@sfmc/sdk/sapi/runtime";
-
-Msg.info("Loaded.", player);       // §f[*]
-Msg.success("Saved.", player);     // §a[√]
-Msg.warning("Inventory full.", player); // §e[!]
-Msg.error("Command failed.", player);   // §c[×]
-Msg.tips("Tip: /menu opens the panel.", player);
-```
-
-> **Always** use `Msg.*` instead of `player.sendMessage()` — these methods auto-apply prefix color codes, play sound effects, and forward messages to the system channel.
-
-### `HttpDB` — db-server HTTP client
-
-```ts
-import { HttpDB } from "@sfmc/sdk/sapi/runtime";
-
-await HttpDB.get("/api/sfmc/lands");                    // string | null
-await HttpDB.post("/api/sfmc/scoreboards", { entries });
-await HttpDB.put(`/api/sfmc/players/${playerId}`, body);
-await HttpDB.delete(`/api/sfmc/lands/${id}`, { actorId });
-
-// Fine-grained control (method enum + status code)
-import { HttpRequestMethod } from "@minecraft/server-net";
-const r = await HttpDB.requestJSON(
-  HttpRequestMethod.POST, "/api/sfmc/economy/transaction", payload
-);
-if (r.status === 0) throw new Error("db-server unreachable");
-const json = JSON.parse(r.body);
-```
-
-`HttpDB` defaults to `127.0.0.1:3001`. Failures return `null` or `status=0`.
-
-### `Money` — local ledger cache + remote ledger coordination
-
-```ts
-import { Money } from "@sfmc/sdk/sapi/runtime";
-
-const balance = Money.get(player);                      // sync, cache hit
-const fresh = await Money.load(player);                 // async, refreshes cache
-Money.setCached(player, 100, version);                  // write local cache
-await Money.commit(player, -50, reason);                 // commit to db-server
-```
-
-`Money.UNIT` is the currency unit string; all display text auto-append it.
-
-### `MenuNavigator` / `FormStatus` — form state machine
-
-```ts
-import { MenuNavigator, FormStatus, obsStr } from "@sfmc/sdk/sapi/runtime";
-
 const nav = new MenuNavigator(player);
-nav.section("main", "Main menu", (page) => {
-  page.label("Choose an action");
-  page.button("Open inventory", () => nav.go("inventory"));
+nav.section("home", "Home", (page) => { page.label("..."); page.button("Go", () => nav.rebuild("next")); });
+nav.start("home");
+```
+
+### `Money` — Economy abstraction
+
+```ts
+const balance = await Money.load(player);
+if (balance < price) { /* ... */ }
+Money.setCached(player, newBalance, version);
+```
+
+---
+
+## db — Database-friendly API ⭐
+
+```ts
+import { db, DbError, type TxContext, type WhereExpr } from "@sfmc/sdk/sapi/db";
+```
+
+### Table definition
+
+```ts
+await db.defineTable("my_table", {
+  id: { type: "text", primary: true },
+  owner_player_id: { type: "text", notNull: true, index: true },
+  created_at: { type: "integer", notNull: true },
+  expires_at: { type: "integer" },
+  version: { type: "integer", default: 1 },
+}, { softDelete: true });
+// softDelete=true auto-adds _deleted_at / _version columns
+```
+
+`ColumnDef.type` ∈ `"text" | "integer" | "real" | "blob"`, optional `primary?` / `notNull?` / `default?` / `index?` / `unique?`.
+
+### Single read/write (only outside transactions)
+
+```ts
+const rows = await db.query<MyRow>("my_table", {
+  where: { eq: ["status", "active"] },
+  orderBy: { field: "created_at", dir: "desc" },
+  limit: 50,
 });
-nav.section("inventory", "Inventory", (page) => {
-  page.label(obsStr(""));
-  const qty = obsStr("");
-  page.textField("Quantity", qty);
-  const status = new FormStatus(page);
-  page.button("Confirm", () => {
-    if (!qty.getData().trim()) { status.fail("Invalid quantity"); return; }
-    status.ok("Submitted");
-  });
+const one = await db.get<MyRow>("my_table", "row-1");
+await db.insert("my_table", { id: "row-1", ... });
+await db.update("my_table", "row-1", { status: "active" });
+await db.delete("my_table", "row-1");         // soft delete
+await db.delete("my_table", "row-1", { hard: true });  // hard delete
+```
+
+### Transactions (all writes go here)
+
+```ts
+await db.tx(async (tx: TxContext) => {
+  await tx.insert("lands", { id: "L1", ... });
+  await tx.update("land_members", "lm-1", { role: "admin" });
+  await tx.audit("lands", "L1", "transfer", { from: "A", to: "B" });
+  // Cross-module call, runs inside the transaction, rolls back on failure
+  await tx.call("economy.debit", { playerId: "A", amount: 100 });
+  return { ok: true };
 });
-nav.start("main");
 ```
 
-`MenuNavigator` auto-renders the "back" button. `obsStr/Num/Bool` are reactive data sources. `FormStatus` auto-renders success/failure toasts.
+Throw inside `tx.fn` = auto ROLLBACK; return = COMMIT. Step order is the code order.
 
-### Utility functions
+### WhereExpr
 
 ```ts
-import {
-  pointInArea_2D,      // (x, z, ax, az, bx, bz) => boolean
-  getRandomInteger,    // (min, max) => number
-  getShanghaiTime,     // () => { date, time }
-  formatTimestamp,     // (ms) => "2026-07-21 14:30:25"
-  generateId,          // ("CH"|"M"|"RP"|"L"|"CP") => string
-  dimensionId,         // Dimension => 0|1|2
-  toQueryString,       // ({k:v}) => "?k=v&k2=v2"
-  ListFormInfo,        // (string[]) => "§r§7..." (gray info row)
-  ensureDoubleChest,   // block-snapshot helper for paired chests
-  placeSign,           // sign placement helper
-  getLayout,           // block-permutation snapshot helper
-  getBase, getChestCardinal, getSignFacing, // facing math
-} from "@sfmc/sdk/sapi/runtime";
+type WhereExpr =
+  | { eq: [field, value] }
+  | { ne: [field, value] }
+  | { gt: [field, value] } | { gte: [field, value] }
+  | { lt: [field, value] } | { lte: [field, value] }
+  | { like: [field, pattern] }
+  | { in: [field, values[]] }
+  | { isNull: [field] }   | { isNotNull: [field] }
+  | { and: WhereExpr[] }  | { or: WhereExpr[] }  | { not: WhereExpr };
 ```
 
----
+No raw SQL. All expressions compile to prepared statements.
 
-## contracts — shared types
+### Platform primitives
 
 ```ts
-import type {
-  LandData, LandRole, LandMember, LandPermissions, LandTaxConfig,
-  CreateLandRequest, DeleteLandResult, TransferLandResult,
-} from "@sfmc/sdk/contracts";
-
-import type {
-  Channel, ChannelConfig, ChatMessage, MessageType,
-  PlayerChannelSettings, RedPacket,
-} from "@sfmc/sdk/contracts";
-
-import type {
-  CoopData, CoopMember, CoopBankLog, CoopShopGroup, CoopShopItem,
-} from "@sfmc/sdk/contracts";
-
-import type {
-  EconomyAccountRow, EconomyTransactionRow, EconomyIdempotencyRow,
-} from "@sfmc/sdk/contracts";
-
-import type { PlayerData } from "@sfmc/sdk/contracts";
-import type { ScoreboardEntry, Participant, ScoreboardIdentityTypeNumber } from "@sfmc/sdk/contracts";
-import type { WorldData } from "@sfmc/sdk/contracts";
-import type { ModuleCatalog, ModuleCatalogEntry, ModuleLock, ModuleRuntimeState } from "@sfmc/sdk/contracts";
+await db.audit("lands", "L1", "transfer", { from, to });
+const result = await db.idempotent("land.transfer", requestId, async () => {
+  // Same requestId will not run twice
+  return await doTransfer();
+});
 ```
 
-> Per-file subpath also works (`@sfmc/sdk/contracts/land`), but for daily use just import from `@sfmc/sdk/contracts`.
-
----
-
-## host — platform adapter (advanced)
-
-`@sfmc/sdk/sapi/host` exposes host-singleton adapters. Regular modules don't import directly, but if you're writing a "host module" (like `feature-chat` adapting the entire host channel system), you can use:
+### DbError
 
 ```ts
-import { apis } from "@sfmc/sdk/sapi/host";
-apis.config.get("land:permissions");
-apis.config.refresh();
-apis.data.request("POST", "/api/sfmc/lands", body);
-apis.events.subscribe("world.afterEvents.playerSpawn", handler);
+catch (e) {
+  if (e instanceof DbError) {
+    console.log(e.code, e.status, e.message);
+  }
+}
 ```
-
-> **Stage I**: `apis.data` delegates to `HttpDB`. A later stage will swap to a direct module-loader in-memory channel.
 
 ---
 
-## sdk — contract types (stub)
+## config — Module config ⭐
 
 ```ts
-import type { SapiHostApis, SapiModuleSurface, defineSapiModule } from "@sfmc/sdk/sapi/sdk";
+import { config } from "@sfmc/sdk/sapi/config";
 ```
-
-> Currently only `SFMC_SAPI_SDK_VERSION` is exported. `defineSapiModule` and friends will land in a later commit.
-
----
-
-## module-loader — BP entry (scripts/main.js) only
 
 ```ts
-// BP entry (top of scripts/main.js) ONLY
-import {
-  ConfigManager,                // reads configs/*.json, areas/bannedItems
-  Modules,                      // module enabled-state snapshot
-  ModuleRegistry,               // bootAll / bootAfterWorldLoad / register / reconcile
-  announceLoaded,               // report loaded modules to db-server at startup
-  guardEvent,                   // wrap event subscriptions with moduleGuard
-  setModuleGuard,               // inject moduleGuard into Command/Permission
-} from "@sfmc/sdk/module-loader";
+const cfg = await config.get<{ minSquare: number; maxSquare: number }>("land.config");
+cfg.minSquare;  // typed
+await config.set("land.config", "maxSquare", 200);
+config.onChange("land.config", (key, value) => {
+  // in-process notification (all modules in same SAPI process receive)
+});
 ```
 
-> Business modules must NOT import this drawer. `moduleGuard` is injected once by entry.ts; modules benefit indirectly through `Command.register` / `Permission.register`.
+**Note**: `config.get` uses an in-memory cache; the first call pulls the full `configs/<key>.json` for the configKey, subsequent reads hit memory. `config.set` updates memory immediately + async-persists to db-server.
 
 ---
 
-## Others (Node-side)
+## service — Cross-module calls ⭐
 
-- `@sfmc/sdk/logs` — `createLogger({ source, sinks })`, shared by db-server / bds-tools / qq-bridge
-- `@sfmc/sdk/node/config` — `resolveRuntimeRoot(fallbackRoot)`, `configDir(root)`, `configPath(root, name)`
-- `@sfmc/sdk/behavior-pack-build` — esbuild entry scan + resource pack copy + manifest emit; consumed indirectly by `tools/emit-manifest.mjs`
+```ts
+import { service } from "@sfmc/sdk/sapi/service";
+```
+
+```ts
+// Call a service
+const land = await service.get<{ id: string; name: string } | null>("land.byId", { landId: "L1" });
+
+// List all registered services
+const all = await service.list();  // [{ name, moduleId }, ...]
+```
+
+**Inside transactions**: use `tx.call("service.name", input)`, not `service.get`. `tx.call` runs atomically with the current transaction.
+
+**Authorization**: `manifest.services.requires` must declare every called service, otherwise db-server throws at startup.
 
 ---
 
-Next: see [module-author.en.md](./module-author.en.md) for an end-to-end example, or [manifest-contract.en.md](./manifest-contract.en.md) for the manifest field semantics.
+## contracts — Shared types
+
+```ts
+import type { LandData, CoopData, Channel } from "@sfmc/sdk/contracts";
+```
+
+Types shared between SAPI and db-server. **Don't** reinvent. If you need a new type, add it to `contracts/` first.
+
+---
+
+## module-loader — BP entry
+
+```ts
+import { ModuleRegistry, installHostBootstrap } from "@sfmc/sdk/module-loader";
+```
+
+```ts
+// main.ts top
+installHostBootstrap({ dbServerUrl: "http://127.0.0.1:3001" });
+
+// each module sapi/src/index.ts
+import { ModuleRegistry } from "@sfmc/sdk/module-loader";
+ModuleRegistry.register({
+  id: "feature-mine",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() { Permission.register("mine.use", Permission.Any); },
+    async init() { /* db.defineTable, etc. */ },
+    cleanup() {},
+  },
+});
+```
+
+---
+
+## node/* — Platform process internals
+
+`@sfmc/sdk/node/*` is for db-server / qq-bridge / bds-tools / sfmc themselves. Module authors **must not** import these subpaths (they don't resolve in the SAPI process).
+
+---
+
+## Protocol version
+
+```ts
+import { SFMC_SAPI_DB_VERSION } from "@sfmc/sdk/sapi/db";
+// → "0.1.0"
+```
+
+Current version of the `db` subpath. Bump on incompatible protocol changes; db-server throws at startup if mismatched.
+
+---
+
+Next: see [manifest contract](./manifest-contract.en.md) or [module author guide](./module-author.en.md).

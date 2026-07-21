@@ -1,180 +1,156 @@
-# Manifest Contract
+# manifest v2 Contract
 
-> `manifest.json` is the per-module source for the BP build artifact `build/sfmc-modules/manifest.json`. Every module ships its own `modules/packages/<id>/sapi/manifest.json`, hand-written; `sfmc behavior-pack build` merges them during the BP assemble step.
+> v2 is the current protocol version, superseding the old `routes / migrations / handlers` path. Modules are untrusted third-party packages that declare to the platform **what capabilities they need, what they expose, and which database/config permissions they hold** via `manifest.json`. The platform **never executes module code**; it reads the manifest to decide whether to boot. Modules talk to the platform through `@sfmc/sdk/sapi/db|config|service`.
 
-## 1. Full schema
+## 1. File location
 
-```ts
-// Mirrored from db-server/src/manifest.ts (read-only contract)
-interface ModuleManifestRoute {
-  method: string;          // "GET" | "POST" | "PUT" | "DELETE"
-  path: string;            // "/api/sfmc/lands" or "/api/sfmc/lands/:id/members"
-  handler: string;         // "<moduleId>:<handlerName>"
-}
+**Single source of truth**: `packages/<id>/sapi/manifest.json` in the `Shiroha7z/sfmc-modules` repo. After fetch-module, it lands in `modules/packages/<id>/sapi/manifest.json` in the main repo; both db-server and SAPI read it directly.
 
-interface ModuleManifestMigration {
-  name: string;            // "create_lands_table"
-  version: number;         // ascending, 1, 2, 3, ...
-}
-
-interface ModuleManifestEntry {
-  name: string;            // display name, Chinese or English
-  type: string;            // "core" | "feature"
-  configKey: string;       // maps to configs/<key>.json
-  requires: string[];      // module ids this depends on (topological order)
-  handlers: string[];      // db-server-side handler names; empty at Stage I
-  routes: ModuleManifestRoute[];
-  migrations: ModuleManifestMigration[];
-}
-
-interface ModuleManifest {
-  schemaVersion: number;   // currently 1
-  generatedAt: string;     // ISO 8601 timestamp
-  modules: Record<string, ModuleManifestEntry>;  // keyed by module id
-}
-```
-
-## 2. Field semantics
-
-### `routes[].method`
-
-Only `GET` / `POST` / `PUT` / `DELETE` are accepted. `PATCH` has no equivalent `app.patch` in the current db-server; if you need PATCH semantics, use `POST + _method=PATCH` body instead.
-
-### `routes[].path`
-
-May be an exact path (`/api/sfmc/lands`) or a templated path with placeholders (`/api/sfmc/lands/:id/members`).
-> **Placeholders must use the `:name` form** (colon-prefixed). Don't use Express 5 `{name}` or wildcards.
-
-db-server startup matches on the first 4 path segments against `KNOWN_PREFIXES`. The exact prefix must appear in the path.
-
-### `routes[].handler`
-
-`<moduleId>:<handlerName>` form. E.g. `lands:list`, `lands:create`, `economy:transfer`.
-
-`moduleId` must match the catalog.json `id`. `handlerName` is the registered name in db-server's handler-registry (Stage I leaves `handlers: []` empty; populated when Stage J+ lands).
-
-### `migrations[]`
-
-If your module changes db-server schema, list migration names + version numbers here. db-server applies them in ascending order at startup, writing to the `_migrations` table.
-
-```json
+```jsonc
 {
-  "migrations": [
-    { "name": "create_lands_table", "version": 1 },
-    { "name": "add_land_tax_config", "version": 2 }
-  ]
+  "schemaVersion": 2,
+  "id": "feature-land",
+  "name": "Lands",
+  "type": "feature",
+  "configKey": "land",
+  "requires": ["feature-economy"],
+  "permissions": [...],
+  "services": {
+    "provides": [...],
+    "requires": [...]
+  },
+  "notes": "Free text (optional)"
 }
 ```
 
-> Empty array = no schema change required (e.g. read-only HTTP client).
+## 2. Field cheat sheet
 
-### `notes` (optional, not in schema)
+| Field | Type | Required | Meaning |
+|-------|------|----------|---------|
+| `schemaVersion` | `2` | ✓ | v1 is deprecated, throws at startup; other values throw |
+| `id` | string | ✓ | Globally unique, recommended prefixes: `feature-*` / `core-*` |
+| `name` | string | ✓ | Display name |
+| `type` | `"core"` \| `"feature"` | ✓ | `core` = cannot be disabled, `feature` = enable/disable-able |
+| `configKey` | string | ✓ | Maps to `configs/<key>.json`, read via `config.get("land.x")` |
+| `requires` | `string[]` | ✓ | Module ids this depends on (topological validation at startup) |
+| `permissions` | `string[]` | ✓ | Platform permission declarations (see §4) |
+| `services.provides` | `ServiceEntry[]` | ✓ | Services this module exposes |
+| `services.requires` | `ServiceEntry[]` | ✓ | Services this module depends on |
+| `notes` | string | – | Free text |
 
-`emit-manifest.mjs` doesn't read `notes`, but **passes them through** to `module-manifests.json`. Useful as self-documentation:
+**Forbidden fields** (v1 leftovers, startup throws if present): `routes` / `tables` / `migrations` / `seeds` / `handlers` / `events`.
 
-```json
+## 3. ServiceEntry
+
+```jsonc
 {
-  "handlers": [],
-  "routes": [],
-  "migrations": [],
-  "notes": "feature-foo: pure game-side logic, no db-server calls"
+  "name": "land.byId",
+  "input":  { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
+  "output": { "type": "object" }
 }
 ```
 
-## 3. How db-server consumes the manifest
+- `name` globally unique; db-server throws on cross-module duplicate
+- A `requires` name must be matched by some enabled module's `provides`; startup throws otherwise
+- `input/output` are documentation-only (JSON Schema style for future SDK type-gen); platform does not strictly validate them at the protocol layer
 
-`db-server/src/index.ts` at startup:
+## 4. permissions
 
-```ts
-const m = loadManifest();
-log.info(`[manifest] loaded schemaVersion=${m.schemaVersion} modules=${...} routes=${...}`);
-const warnings = reconcile(m, KNOWN_PREFIXES);
-if (warnings.length > 0) for (const w of warnings) console.warn(`[manifest] WARN ${w}`);
+Permission string prefix table:
+
+| Pattern | Meaning |
+|---------|---------|
+| `db:read:<table>` | Read a module-declared table |
+| `db:write:<table>` | Write a module-declared table |
+| `db:read:*` / `db:write:*` | Wildcard (use sparingly, requires startup whitelist) |
+| `config:read:<config_key>` | Read entries under `configs/<config_key>.json` |
+| `config:write:<config_key>` | Write entries under `configs/<config_key>.json` |
+| `service:<service_name>` | Declare an intent to invoke this service (optional but recommended; startup validates) |
+
+**Validation timing**: at startup, when db-server has loaded all enabled modules:
+- Whether the table name is declared via `db.defineTable(...)` (otherwise `db:write:*` without declared table → startup warn)
+- Whether `db:write:*` / `db:read:*` is on the `configs/db_config.json` `modulePermissionPolicy.allowWildcard` whitelist
+- Whether each `service:*` has a matching entry in `services.requires`
+
+**Runtime validation**: when `db.query("lands", ...)` runs, db-server verifies the calling module's permissions include `db:read:lands`; otherwise 403.
+
+## 5. Startup validation picture
+
+```
+db-server startup:
+  1. Open SQLite
+  2. Scan modules/packages/*/sapi/manifest.json
+     · schemaVersion != 2 → warn-skip (v1 no longer loaded)
+     · Duplicate id → throw
+  3. Topological sort of requires; cyclic → throw
+  4. For every enabled module:
+     · permissions vs. services.requires cross-check → missing declaration throws
+     · services.requires.name must hit some provides.name → not found throws
+     · Same services.provides.name declared by two modules → throw
+  5. Register service handlers (modules call service.provide during SAPI init)
+  6. Start HTTP, listen on 127.0.0.1:3001
+  7. SAPI init phase: modules call db.defineTable() → schema-registry collects → unified CREATE TABLE
 ```
 
-`reconcile` checks whether each route's first 4 segments match `KNOWN_PREFIXES`. Mismatches → WARN, but startup continues.
+## 6. End-to-end example
 
-Current `KNOWN_PREFIXES` (derived from `db-server/src/routes/*.ts`):
+`packages/feature-land/sapi/manifest.json`:
 
-```
-/api/sfmc/activities     /api/sfmc/channels
-/api/sfmc/configs        /api/sfmc/coop /api/sfmc/coops
-/api/sfmc/economy        /api/sfmc/health
-/api/sfmc/lands          /api/sfmc/messages
-/api/sfmc/modules        /api/sfmc/monitor
-/api/sfmc/players        /api/sfmc/redpacket
-/api/sfmc/scoreboards    /api/sfmc/world
-/api/sfmc/settings
-```
-
-> If your route isn't in the prefix table — first add a file in `db-server/src/routes/`, then make sure `KNOWN_PREFIXES` covers it.
-
-## 4. Evolution path
-
-| Stage | Form |
-|-------|------|
-| **Stage I (current)** | `handlers: []` placeholder. Routes trigger WARN only |
-| **Stage J** (planned) | `db-server/src/handler-registry.ts` exports a single `HANDLERS = Record<"<id>:<name>", RouteHandler>`. At startup, manifest is **strict-validated** — every handler name must exist in `HANDLERS`; missing entries throw |
-| **Stage K+** | The SAPI bundle no longer references db-server route names by string. db-server boots, reads manifest + handler-registry, and assembles Express routes itself. SAPI side only sees `HttpDB.post(path, body)` — no implicit "I know db-server has this route" contract |
-
-## 5. End-to-end example
-
-`modules/packages/feature-foo/sapi/manifest.json`:
-
-```json
+```jsonc
 {
-  "handlers": [],
-  "routes": [
-    { "method": "GET",  "path": "/api/sfmc/foo/:id",      "handler": "foo:get"    },
-    { "method": "POST", "path": "/api/sfmc/foo",           "handler": "foo:create" },
-    { "method": "PUT",  "path": "/api/sfmc/foo/:id",      "handler": "foo:update" }
+  "schemaVersion": 2,
+  "id": "feature-land",
+  "name": "Lands",
+  "type": "feature",
+  "configKey": "land",
+  "requires": ["feature-economy"],
+  "permissions": [
+    "db:read:lands",
+    "db:write:lands",
+    "db:read:land_members",
+    "db:write:land_members",
+    "db:write:land_audit_logs",
+    "db:read:land_audit_logs",
+    "config:read:land",
+    "config:write:land",
+    "service:economy.account",
+    "service:economy.debit",
+    "service:economy.credit"
   ],
-  "migrations": [
-    { "name": "create_foo_table", "version": 1 }
-  ],
-  "notes": "feature-foo: demo module"
+  "services": {
+    "provides": [
+      { "name": "land.byId",        "input": {...}, "output": {...} },
+      { "name": "land.byOwner",     "input": {...}, "output": {...} },
+      { "name": "land.transfer",    "input": {...}, "output": {...} },
+      { "name": "land.listMembers", "input": {...}, "output": {...} },
+      { "name": "land.auditLog",    "input": {...}, "output": {...} }
+    ],
+    "requires": [
+      { "name": "economy.debit" },
+      { "name": "economy.credit" }
+    ]
+  },
+  "notes": "Land system, depends on feature-economy services"
 }
 ```
 
-Build and verify:
+## 7. Validation tool
+
+The module repo ships `tools/check-modules.js`:
 
 ```bash
-sfmc behavior-pack build    # runs emit-manifest.mjs to merge all manifests
-cat build/sfmc-modules/manifest.json | jq '.modules["feature-foo"]'
-# prints the manifest above
+cd sfmc-modules
+node tools/check-modules.js
+# Inspect every packages/*/sapi/manifest.json:
+#   - schemaVersion === 2
+#   - no forbidden fields (routes / tables / migrations / seeds / handlers / events)
+#   - id globally unique
+#   - every db:read:*/db:write:* in permissions has a matching defineTable
+#   - every service:* in permissions also appears in services.requires
 ```
 
-Boot db-server:
+CI runs this on every push; failure blocks merge.
 
-```bash
-cd db-server
-npm run dev
-# [manifest] loaded schemaVersion=1 modules=22 routes=34
-# (if feature-foo's routes aren't in the prefix table, you'll see a WARN)
-```
+---
 
-## 6. Validation tooling
-
-`node tools/check-catalog.js` runs in CI. It checks catalog.json integrity but **does not** verify manifest.json field names — a typo'd field name passes through `emit-manifest.mjs` and only surfaces when db-server boots.
-
-To avoid that delayed feedback, Stage K plans `node tools/check-manifest.js` — static validation of every manifest.json before the BP build. Today, an ad-hoc check:
-
-```bash
-node -e "
-const fs = require('fs');
-const path = require('path');
-const root = 'modules/packages';
-const expected = ['handlers','routes','migrations'];
-let bad = 0;
-for (const id of fs.readdirSync(root)) {
-  const mf = path.join(root, id, 'sapi', 'manifest.json');
-  if (!fs.existsSync(mf)) { console.log('MISSING', id); bad++; continue; }
-  const j = JSON.parse(fs.readFileSync(mf, 'utf8'));
-  for (const k of expected) if (!(k in j)) { console.log('NO FIELD', id, k); bad++; }
-  if (j.routes) for (const r of j.routes) {
-    if (!r.method || !r.path || !r.handler) { console.log('BAD ROUTE', id, r); bad++; }
-  }
-}
-process.exit(bad ? 1 : 0);
-"
-```
+Next: see the [module author guide](./module-author.en.md) to write a new module, or the [SDK API reference](./sdk-reference.en.md) for the db / config / service drawers.

@@ -1,235 +1,259 @@
-# SDK 三抽屉 API 索引
+# SDK API 索引
 
-> `@sfmc/sdk` 是仓顶唯一伞包,通过 subpath exports 暴露稳定 API。SAPI 模块作者**只**看 `@sfmc/sdk/sapi/runtime` 与 `@sfmc/sdk/contracts`。其余抽屉(`host` / `sdk` / `module-loader`)目前仅供 entry.ts 与 SDK 自身使用。
+> `@sfmc/sdk` 是平台官方 npm 包,作为伞包暴露 v2 协议的全部能力。模块作者**只**看四个子路径:`sapi/runtime` / `sapi/db` / `sapi/config` / `sapi/service`。其余抽屉(`host` / `module-loader` / `node/*` / `behavior-pack-build`)供平台与构建器自身使用。
 
 ## 抽屉速览
 
 | 抽屉 | 子路径 | 谁该用 |
 |------|--------|--------|
-| runtime | `@sfmc/sdk/sapi/runtime` | 90% 的业务代码 |
-| host | `@sfmc/sdk/sapi/host` | 平台层适配(普通模块无需) |
-| sdk | `@sfmc/sdk/sapi/sdk` | 契约类型(占位) |
+| runtime | `@sfmc/sdk/sapi/runtime` | 90% 业务代码 |
+| **db** | `@sfmc/sdk/sapi/db` | 一切数据库读写 |
+| **config** | `@sfmc/sdk/sapi/config` | 一切配置读写 |
+| **service** | `@sfmc/sdk/sapi/service` | 一切跨模块调用 |
 | contracts | `@sfmc/sdk/contracts` | 跨 SAPI / db-server 共享类型 |
-| module-loader | `@sfmc/sdk/module-loader` | **仅** `scripts/entry.ts` 用 |
+| module-loader | `@sfmc/sdk/module-loader` | BP 入口:ModuleRegistry.register / installHostBootstrap |
+| host | `@sfmc/sdk/sapi/host` | 平台层适配(普通模块不直接 import) |
 | logs | `@sfmc/sdk/logs` | Node 服务日志 |
 | node/config | `@sfmc/sdk/node/config` | Node 服务定位 configs/data |
+| node/sdk | `@sfmc/sdk/node/sdk` | Node 服务统一能力面 |
 | behavior-pack-build | `@sfmc/sdk/behavior-pack-build` | 构建 BP 发布产物 |
 
 ---
 
 ## runtime — 业务代码主力
 
+```ts
+import { debug, Msg, Command, Permission, MenuNavigator, Money, FormStatus, ListFormInfo } from "@sfmc/sdk/sapi/runtime";
+```
+
 ### `debug` — 统一日志门面
 
 ```ts
-import { debug } from "@sfmc/sdk/sapi/runtime";
 debug.i("LAND", "load");          // info
 debug.w("LAND", "stale cache");   // warn
 debug.e("LAND", "db unreachable");// error
 ```
 
-`debug.i/w/e` 输出受 `setDebugLevel("INFO" | "WARN" | "ERROR")` 控制。生产环境默认 ERROR。
-
-### `Command` — 命令注册
+### `Msg` — 玩家消息(用这个,别用 player.sendMessage)
 
 ```ts
-import { Command } from "@sfmc/sdk/sapi/runtime";
-
-Command.register(
-  "transfer",                       // 命令字面
-  "economy.transfer",               // 权限节点
-  (player) => { /* ... */ },        // handler(可以是 async)
-  "转账给其他玩家",                  // 帮助文本
-  "economy"                         // 可选分类
-);
+Msg.info("提示", player);
+Msg.success("成功", player);
+Msg.error("失败", player);
+Msg.warning("警告", player);
+Msg.tips("小贴士", player);
 ```
 
-BP 启动期调用一次。注册过的命令走 `moduleGuard`,被禁用的模块命令会被自动拒绝。
+内部会处理前缀 (§f[*] / §a[√] / etc.)、音效、转发系统频道。
 
-### `Permission` — 权限节点
+### `Command` / `Permission`
 
 ```ts
-import { Permission } from "@sfmc/sdk/sapi/runtime";
+Permission.register("land.use", Permission.Any);
+Permission.register("land.admin", Permission.OP);
+Permission.register("land.op", Permission.Member);
 
-Permission.register("land.create", Permission.Admin);  // 0=Any 1=Member 2=OP 3=Admin
-Permission.check(player, "land.create");              // boolean
+Command.register("mylcmd", "land.use", (player) => { /* ... */ }, "我的命令");
 ```
 
-### `Msg` — 玩家消息 + 系统频道
+Permission 等级:`Any=0` / `Member=1` / `OP=2` / `Admin=3`。
+
+### `MenuNavigator` / `FormStatus` / `ListFormInfo` — UI
 
 ```ts
-import { Msg } from "@sfmc/sdk/sapi/runtime";
-
-Msg.info("加载完成。", player);     // §f[*]
-Msg.success("保存成功。", player);   // §a[√]
-Msg.warning("背包已满。", player);   // §e[!]
-Msg.error("指令失败。", player);     // §c[×]
-Msg.tips("提示:输入 /menu 打开面板。", player);
-```
-
-> **永远**用 `Msg.*` 而不是 `player.sendMessage()` —— 这些方法会自动带前缀色码、播放音效、并把消息转发到系统频道。
-
-### `HttpDB` — db-server HTTP 客户端
-
-```ts
-import { HttpDB } from "@sfmc/sdk/sapi/runtime";
-
-await HttpDB.get("/api/sfmc/lands");                    // string | null
-await HttpDB.post("/api/sfmc/scoreboards", { entries });
-await HttpDB.put(`/api/sfmc/players/${playerId}`, body);
-await HttpDB.delete(`/api/sfmc/lands/${id}`, { actorId });
-
-// 精细控制(method enum + status code)
-import { HttpRequestMethod } from "@minecraft/server-net";
-const r = await HttpDB.requestJSON(
-  HttpRequestMethod.POST, "/api/sfmc/economy/transaction", payload
-);
-if (r.status === 0) throw new Error("db-server unreachable");
-const json = JSON.parse(r.body);
-```
-
-`HttpDB` 自动走 `127.0.0.1:3001`,失败返回 null / status=0。
-
-### `Money` — 本地账本缓存 + 远程账本协调
-
-```ts
-import { Money } from "@sfmc/sdk/sapi/runtime";
-
-const balance = Money.get(player);                      // 同步,缓存命中
-const fresh = await Money.load(player);                 // 异步,刷新缓存
-Money.setCached(player, 100, version);                  // 写本地缓存
-await Money.commit(player, -50, reason);                 // 提交到 db-server
-```
-
-`Money.UNIT` 是货币单位字符串,所有显示文本自动拼接。
-
-### `MenuNavigator` / `FormStatus` — 表单状态机
-
-```ts
-import { MenuNavigator, FormStatus, obsStr } from "@sfmc/sdk/sapi/runtime";
-
 const nav = new MenuNavigator(player);
-nav.section("main", "主菜单", (page) => {
-  page.label("选择一个操作");
-  page.button("打开背包", () => nav.go("inventory"));
-});
-nav.section("inventory", "背包", (page) => {
-  page.label(obsStr(""));
-  const qty = obsStr("");
-  page.textField("数量", qty);
-  const status = new FormStatus(page);
-  page.button("确认", () => {
-    if (!qty.getData().trim()) { status.fail("数量无效"); return; }
-    status.ok("已提交");
-  });
-});
-nav.start("main");
+nav.section("home", "首页", (page) => { page.label("..."); page.button("进入", () => nav.rebuild("next")); });
+nav.start("home");
 ```
 
-`MenuNavigator` 自动处理「返回上级」按钮、`obsStr/Num/Bool` 是响应式数据源,FormStatus 自动渲染成功/失败 toast。
-
-### 工具函数
+### `Money` — 经济抽象
 
 ```ts
-import {
-  pointInArea_2D,      // (x, z, ax, az, bx, bz) => boolean
-  getRandomInteger,    // (min, max) => number
-  getShanghaiTime,     // () => { date, time }
-  formatTimestamp,     // (ms) => "2026-07-21 14:30:25"
-  generateId,          // ("CH"|"M"|"RP"|"L"|"CP") => string
-  dimensionId,         // Dimension => 0|1|2
-  toQueryString,       // ({k:v}) => "?k=v&k2=v2"
-  ListFormInfo,        // (string[]) => "§r§7..." (灰色提示行)
-  ensureDoubleChest,   // block-snapshot helper for paired chests
-  placeSign,           // sign placement helper
-  getLayout,           // block-permutation snapshot helper
-  getBase, getChestCardinal, getSignFacing, // facing math
-} from "@sfmc/sdk/sapi/runtime";
+const balance = await Money.load(player);
+if (balance < price) { ... }
+Money.setCached(player, newBalance, version);
 ```
+
+---
+
+## db — 数据库友好 API ⭐
+
+```ts
+import { db, DbError, type TxContext, type WhereExpr } from "@sfmc/sdk/sapi/db";
+```
+
+### 表定义
+
+```ts
+await db.defineTable("my_table", {
+  id: { type: "text", primary: true },
+  owner_player_id: { type: "text", notNull: true, index: true },
+  created_at: { type: "integer", notNull: true },
+  expires_at: { type: "integer" },
+  version: { type: "integer", default: 1 },
+}, { softDelete: true });
+// softDelete=true 自动添加 _deleted_at / _version 字段
+```
+
+`ColumnDef.type` ∈ `"text" | "integer" | "real" | "blob"`,可选 `primary?` / `notNull?` / `default?` / `index?` / `unique?`。
+
+### 单次读写(只能跑在事务外)
+
+```ts
+const rows = await db.query<MyRow>("my_table", {
+  where: { eq: ["status", "active"] },
+  orderBy: { field: "created_at", dir: "desc" },
+  limit: 50,
+});
+const one = await db.get<MyRow>("my_table", "row-1");
+await db.insert("my_table", { id: "row-1", ... });
+await db.update("my_table", "row-1", { status: "active" });
+await db.delete("my_table", "row-1");         // 软删
+await db.delete("my_table", "row-1", { hard: true });  // 硬删
+```
+
+### 事务(一切写操作走这里)
+
+```ts
+await db.tx(async (tx: TxContext) => {
+  await tx.insert("lands", { id: "L1", ... });
+  await tx.update("land_members", "lm-1", { role: "admin" });
+  await tx.audit("lands", "L1", "transfer", { from: "A", to: "B" });
+  // 跨模块调用,在事务内执行,失败回滚
+  await tx.call("economy.debit", { playerId: "A", amount: 100 });
+  return { ok: true };
+});
+```
+
+`tx.fn` 抛错 = 自动 ROLLBACK,return = COMMIT。步骤顺序由代码顺序决定。
+
+### WhereExpr
+
+```ts
+type WhereExpr =
+  | { eq: [field, value] }
+  | { ne: [field, value] }
+  | { gt: [field, value] } | { gte: [field, value] }
+  | { lt: [field, value] } | { lte: [field, value] }
+  | { like: [field, pattern] }
+  | { in: [field, values[]] }
+  | { isNull: [field] }   | { isNotNull: [field] }
+  | { and: WhereExpr[] }  | { or: WhereExpr[] }  | { not: WhereExpr };
+```
+
+不允许写 SQL 字符串。所有表达式翻译成 prepared statement。
+
+### 平台预置
+
+```ts
+await db.audit("lands", "L1", "transfer", { from, to });
+const result = await db.idempotent("land.transfer", requestId, async () => {
+  // 同 requestId 不会重复执行
+  return await doTransfer();
+});
+```
+
+### DbError
+
+```ts
+catch (e) {
+  if (e instanceof DbError) {
+    console.log(e.code, e.status, e.message);
+  }
+}
+```
+
+---
+
+## config — 模块配置 ⭐
+
+```ts
+import { config } from "@sfmc/sdk/sapi/config";
+```
+
+```ts
+const cfg = await config.get<{ minSquare: number; maxSquare: number }>("land.config");
+cfg.minSquare;  // typed
+await config.set("land.config", "maxSquare", 200);
+config.onChange("land.config", (key, value) => {
+  // SAPI 进程内通知(同一进程所有模块都能收到)
+});
+```
+
+**注意**:`config.get` 走 cache,首次调时一次性拉全 configKey 的 `configs/<key>.json` 进内存,后续走内存读。`config.set` 立刻更新内存 + 异步持久化到 db-server。
+
+---
+
+## service — 跨模块调用 ⭐
+
+```ts
+import { service } from "@sfmc/sdk/sapi/service";
+```
+
+```ts
+// 调一个服务
+const land = await service.get<{ id: string; name: string } | null>("land.byId", { landId: "L1" });
+
+// 列出所有已注册服务
+const all = await service.list();  // [{ name, moduleId }, ...]
+```
+
+**事务内调用**:用 `tx.call("service.name", input)`,不要在事务内用 `service.get`。`tx.call` 跟当前事务原子提交/回滚。
+
+**授权**:`manifest.services.requires` 必须声明要调用的 service,否则 db-server 启动期 throw。
 
 ---
 
 ## contracts — 共享类型
 
 ```ts
-import type {
-  LandData, LandRole, LandMember, LandPermissions, LandTaxConfig,
-  CreateLandRequest, DeleteLandResult, TransferLandResult,
-} from "@sfmc/sdk/contracts";
-
-import type {
-  Channel, ChannelConfig, ChatMessage, MessageType,
-  PlayerChannelSettings, RedPacket,
-} from "@sfmc/sdk/contracts";
-
-import type {
-  CoopData, CoopMember, CoopBankLog, CoopShopGroup, CoopShopItem,
-} from "@sfmc/sdk/contracts";
-
-import type {
-  EconomyAccountRow, EconomyTransactionRow, EconomyIdempotencyRow,
-} from "@sfmc/sdk/contracts";
-
-import type { PlayerData } from "@sfmc/sdk/contracts";
-import type { ScoreboardEntry, Participant, ScoreboardIdentityTypeNumber } from "@sfmc/sdk/contracts";
-import type { WorldData } from "@sfmc/sdk/contracts";
-import type { ModuleCatalog, ModuleCatalogEntry, ModuleLock, ModuleRuntimeState } from "@sfmc/sdk/contracts";
+import type { LandData, CoopData, Channel } from "@sfmc/sdk/contracts";
 ```
 
-> 子路径模式 `@sfmc/sdk/contracts/<file>` 也可,例如 `@sfmc/sdk/contracts/land`。但日常使用直接 `@sfmc/sdk/contracts` 即可。
+跨 SAPI / db-server 共享的类型。**不要**自己造轮子。需要新类型先在 contracts 里加。
 
 ---
 
-## host — 平台层适配(进阶)
-
-`@sfmc/sdk/sapi/host` 暴露 host 单例适配器。普通模块不需要直接 import,但如果你写的是「host 模块」(类似 feature-chat 那种替整个 host channel 系统做适配),可以这样用:
+## module-loader — BP 入口
 
 ```ts
-import { apis } from "@sfmc/sdk/sapi/host";
-apis.config.get("land:permissions");
-apis.config.refresh();
-apis.data.request("POST", "/api/sfmc/lands", body);
-apis.events.subscribe("world.afterEvents.playerSpawn", handler);
+import { ModuleRegistry, installHostBootstrap } from "@sfmc/sdk/module-loader";
 ```
-
-> **Stage I**:`apis.data` 内部委托给 `HttpDB`。后续阶段将切换为直接走 module-loader 的内存通道。
-
----
-
-## sdk — 契约类型(占位)
 
 ```ts
-import type { SapiHostApis, SapiModuleSurface, defineSapiModule } from "@sfmc/sdk/sapi/sdk";
-```
+// main.ts 顶层
+installHostBootstrap({ dbServerUrl: "http://127.0.0.1:3001" });
 
-> 当前仅导出 `SFMC_SAPI_SDK_VERSION` 常量。`defineSapiModule` 等契约类型将在后续 commit 引入。
+// 每个模块 sapi/src/index.ts
+import { ModuleRegistry } from "@sfmc/sdk/module-loader";
+ModuleRegistry.register({
+  id: "feature-mine",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() { Permission.register("mine.use", Permission.Any); },
+    async init() { /* db.defineTable, etc. */ },
+    cleanup() {},
+  },
+});
+```
 
 ---
 
-## module-loader — BP 入口(scripts/main.js)专用
+## node/* — 平台进程内部
+
+`@sfmc/sdk/node/*` 供 db-server / qq-bridge / bds-tools / sfmc 自身使用。模块作者**不要** import 这些子路径(在 SAPI 进程内根本拿不到)。
+
+---
+
+## 协议版本
 
 ```ts
-// BP 入口(scripts/main.js 顶层)ONLY
-import {
-  ConfigManager,                // 读取 configs/*.json,areas/bannedItems
-  Modules,                      // 模块启用态快照
-  ModuleRegistry,               // bootAll / bootAfterWorldLoad / register / reconcile
-  announceLoaded,               // 启动期向 db-server 上报已加载模块
-  guardEvent,                   // event 订阅包一层 moduleGuard
-  setModuleGuard,               // 把 moduleGuard 注入到 Command/Permission
-} from "@sfmc/sdk/module-loader";
+import { SFMC_SAPI_DB_VERSION } from "@sfmc/sdk/sapi/db";
+// → "0.1.0"
 ```
 
-> 业务模块严禁 import 此抽屉 —— `moduleGuard` 由 entry.ts 注入一次,业务模块只通过 `Command.register` / `Permission.register` 间接受益。
+db 子路径当前版本。后续 v0.2 协议不兼容时 bump 此常量 + 平台启动期 throw。
 
 ---
 
-## 其他(Node 侧)
-
-- `@sfmc/sdk/logs` — `createLogger({ source, sinks })`,db-server / bds-tools / qq-bridge 共用
-- `@sfmc/sdk/node/config` — `resolveRuntimeRoot(fallbackRoot)`、`configDir(root)`、`configPath(root, name)`
-- `@sfmc/sdk/behavior-pack-build` — esbuild 入口扫描 + 资源包拷贝 + manifest 发射;由 `tools/emit-manifest.mjs` 间接消费
-
----
-
-下一步:看 [module-author.zh.md](./module-author.zh.md) 的端到端示例,或 [manifest-contract.zh.md](./manifest-contract.zh.md) 了解契约字段语义。
+下一步:看 [manifest 契约](./manifest-contract.zh.md) 或 [模块作者指南](./module-author.zh.md)。

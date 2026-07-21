@@ -1,193 +1,206 @@
 # 模块管理指南
 
-> SEA 改造后的模块获取方式。SEA 把 SDK 伞包内嵌进 `.exe`,运行时**直接读 `modules/packages/<id>/`**。模块是约定目录,不存在自动从市场下载。
+> SFMC v2 协议下的模块获取方式。模块是**外部仓库**的产物,通过 `tools/fetch-module.mjs` 拉取到主仓的 `modules/packages/<id>/`。模块 = 不可信第三方包,只通过 `@sfmc/sdk` 与平台对话。
 
 ## 1. 设计要点
 
 ```
-dist/sea/sfmc.exe          ← 含 dispatcher + @sfmc/sdk,1.9MB
-modules/packages/<id>/     ← 业务模块,SAPI + db-server 运行时都从这里读
-tools/fetch-module.mjs     ← 一次性 CLI,populate modules/packages/<id>/
-sfmc module <verb>         ← 运行时只读 CLI(SEA 内可用),不能联网
+Shiroha7z/sfmc-modules            ← 外部模块仓(独立 git repo)
+  packages/<id>/
+    sapi/manifest.json             ← v2 契约(schemaVersion: 2)
+    sapi/src/index.ts
+    package.json                   ← @sfmc/module-<id>
+  index.json                       ← first-party registry
+
+主仓 ScriptsForMinecraftServer/
+  modules/packages/<id>/           ← fetch-module 拉下来后落地的源码
+  modules/catalog.json             ← 本地 mirror(可由 fetch 同步)
+  modules/module-lock.json         ← 运行期 enable/disable
+  tools/fetch-module.mjs           ← 离线/在线获取 CLI
 ```
 
 **关键约束**:
-- SEA 进程**不联网**。`sfmc module install` 在 SEA 模式下只是把活外包给 `tools/fetch-module.mjs`(子进程)。
-- `modules/packages/<id>/sapi/manifest.json` 是唯一真理源 —— SAPI、db-server、sfmc CLI 都直接读它。
-- 不再有 `modules/_manifests/module-manifests.json` 这种"emit 产物"。
+- 模块仓的 `sapi/manifest.json` 是**唯一真理源** —— SAPI、db-server、sfmc CLI 都直接读它
+- 模块仓打 GitHub Release tag 后,`tools/fetch-module.mjs install` 解析 tarball 写入主仓
+- 主仓的 `modules/catalog.json` 是**本地 mirror**,新模块安装后由 fetch 工具同步
+- 主仓不直接发布模块,只发布 `@sfmc/sdk`
 
-## 2. sfmc module CLI(运行时,SEA 内可用)
+## 2. first-party registry
+
+默认从 `Shiroha7z/sfmc-modules@main/index.json` 拉取注册表:
+
+```jsonc
+{
+  "version": 1,
+  "modules": {
+    "feature-land":      { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-land-gui":  { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
+    "feature-economy":   { "repo": "Shiroha7z/sfmc-modules", "tag": "v1.5.0" },
+    // ...
+  }
+}
+```
+
+`fetch-module` 解析 `<id>` → `github:<repo>@<tag>` → 拉 GitHub Release 的 tarball。
+
+注册表缓存 `tools/.sfmc-registry-cache.json`(1h TTL)。离线时用上次缓存并 warn。
+
+## 3. fetch-module CLI
+
+```bash
+# 列出 first-party registry 全部模块
+node tools/fetch-module.mjs search
+
+# 安装模块(默认从 first-party registry 拉)
+node tools/fetch-module.mjs install feature-land
+
+# 从指定 source
+node tools/fetch-module.mjs install feature-foo --from github:owner/repo@v1.0.0
+node tools/fetch-module.mjs install feature-foo --from local:/abs/path/foo.zip
+node tools/fetch-module.mjs install feature-foo --from dir:/abs/path/foo/
+
+# 校验(可选,GitHub 自动 .sha256 sidecar)
+node tools/fetch-module.mjs install feature-land --from github:Shiroha7z/sfmc-modules@v1.5.0
+# → 自动 fetch .zip + .zip.sha256,sha256 匹配后解压
+```
+
+## 4. sfmc module CLI(运行时,SEA 内可用)
 
 ```
 sfmc module list                    # 扫 modules/packages/<id>/,列出每个模块
-sfmc module info <id>               # 显示一个模块的 manifest + 指纹
-sfmc module verify [id]             # 重新计算指纹;不传 id = 全部
+sfmc module info <id>               # 显示 manifest + 指纹
+sfmc module verify [id]             # 重新计算指纹
 sfmc module install <id> [--from <source>]
-                                   # spawn tools/fetch-module.mjs
 sfmc module uninstall <id>          # rm -rf modules/packages/<id>/
+sfmc module enable <id>             # 写入 module-lock.json enabled=true
+sfmc module disable <id>            # 写入 module-lock.json enabled=false
 ```
 
-REPL 同路径:`sfmc> module install feature-land --from github:DogeLakeDev/ScriptsForMinecraftServer@latest`
-
-所有命令都跑在 `./` 目录下,定位到 `modules/packages/<id>/`。SEA 模式下 `ROOT = path.dirname(process.execPath)`,所以 SEA exe 同级要有 `modules/packages/`。
-
-## 3. tools/fetch-module.mjs(构建时 / 一次性)
-
-populate `modules/packages/<id>/` 的离线 / 在线工具,三种 source:
-
-```bash
-# 从 GitHub Release 拉
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-
-# 从本地 zip
-node tools/fetch-module.mjs install feature-foo \
-  --from local:/abs/path/foo.zip
-
-# 直接复制目录
-node tools/fetch-module.mjs install feature-foo \
-  --from dir:/abs/path/foo/
-
-# 列出 GitHub release 里有什么
-node tools/fetch-module.mjs list --from github:DogeLakeDev/ScriptsForMinecraftServer@latest
-
-# 校验(可选,如果有 .sha256 sidecar 或自己 --sha256)
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2 \
-  --sha256 a3f5b2...
+REPL 同样路径:
+```
+sfmc> module install feature-land --from github:Shiroha7z/sfmc-modules@latest
+sfmc> module enable feature-land
 ```
 
-### GitHub Release 资产约定
-
-GitHub Release `vX.Y.Z` 上的资产命名:
-```
-sfmc-module-<id>-<version>.zip
-sfmc-module-<id>-<version>.zip.sha256   ← 可选,推荐
-```
-
-sidecar 文件格式(64-char lowercase hex + 双空格 + 文件名):
-```
-a3f5b2c1d4...  sfmc-module-feature-land-1.4.2.zip
-```
-
-zip 内部任意结构 —— fetch 工具解压到 `modules/packages/<id>/` 即可。db-server / SAPI / sfmc CLI 都会从这个目录读 manifest。
-
-### SHA-256 校验
-
-- GitHub 源:自动尝试 `.zip.sha256` sidecar,匹配失败则拒绝安装
-- 本地 zip:必须传 `--sha256 <hex>` 或不校验
-- 目录源:不校验(目录已存在 = 你信任它)
-
-## 4. 模块目录约定
+## 5. 模块目录约定
 
 ```
 modules/packages/<id>/
 ├── sapi/
-│   ├── manifest.json          ← 必需,模块契约
-│   └── src/                   ← SAPI 入口
-├── resource_pack/             ← 可选,资源包内容
-└── package.json               ← 可选,workspace 元数据
+│   ├── manifest.json          ← 必需,v2 协议契约
+│   ├── tsconfig.json
+│   └── src/
+│       ├── index.ts           ← 入口,ModuleRegistry.register(...)
+│       └── ...业务文件
+├── configs-default/           ← (可选)默认 configKey 配置
+├── resource_pack/             ← (可选)资源包内容
+└── package.json               ← @sfmc/module-<id>,依赖 @sfmc/sdk
 ```
 
-每个 `<id>` 必须符合 `modules/catalog.json` 里 `feature-* / core-*` 的命名。db-server 启动会扫所有 `<id>/sapi/manifest.json`。
+每个 `<id>` 必须符合 `modules/catalog.json` 里 `feature-* / core-*` 命名。
 
-## 5. 端到端示例
+## 6. 端到端示例
 
-### 5.1 第一次部署一个全新 SEA
+### 6.1 全新主仓部署
 
 ```bash
-# 1. 启动 SEA(空 modules/, db-server 报 modules=0)
-./sfmc.exe
-# 2. 在另一个 shell fetch 模块(SEA 之外,普通 Node 环境)
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-node tools/fetch-module.mjs install feature-economy \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-# 3. 重启 SEA → db-server 报 modules=2
-./sfmc.exe
-# [manifest] loaded schemaVersion=1 modules=2 routes=...
+# 1) 拉 land 模块
+cd ScriptsForMinecraftServer
+node tools/fetch-module.mjs install feature-land
+# 拉 tarball + 解压到 modules/packages/feature-land/
+# 同步 modules/catalog.json
+# 写入 modules/module-lock.json { enabled: true }
+
+# 2) 拉 land-gui
+node tools/fetch-module.mjs install feature-land-gui
+
+# 3) BP 构建 + deploy
+sfmc behavior-pack build
+sfmc behavior-pack deploy
+
+# 4) 启动 db-server
+node db-server/dist/index.js
+# 启动日志:
+#   [manifest v2] loaded 2 modules; provides 13 services
+#   [manifest v2] enabled: feature-land, feature-land-gui
+
+# 5) 启动 BDS,SAPI 装填模块
 ```
 
-### 5.2 SEA 模式下通过 sfmc 安装
+### 6.2 SEA 模式下
 
 ```bash
-sfmc> module install feature-chat --from github:DogeLakeDev/ScriptsForMinecraftServer@v1.4.2
-# sfmc spawn 子进程: node tools/fetch-module.mjs install ...
-# sfmc 把子进程输出转发到 REPL
-# 安装完后 modules/packages/feature-chat/ 出现 → 下次 SEA 重启时被扫描
+# SEA 不联网;module install 实际 spawn 子进程跑 tools/fetch-module.mjs
+sfmc> module install feature-chat --from github:Shiroha7z/sfmc-modules@latest
+# 安装完,modules/packages/feature-chat/ 出现
+# 下次 SEA 重启时,db-server 扫描并装载
 ```
 
-### 5.3 本地开发:从工作目录直接复制
+### 6.3 本地开发:从工作目录直接复制
 
 ```bash
-# 你刚写完 feature-foo,想塞进 SEA 测一下
-node tools/fetch-module.mjs install feature-foo --from dir:../feature-foo-work/
-./sfmc.exe restart db
-# db-server 扫描到 feature-foo
+# 你刚写完 feature-foo,想塞进主仓测一下
+node tools/fetch-module.mjs install feature-foo --from dir:../sfmc-modules/packages/feature-foo/
+sfmc behavior-pack build
 ```
 
-### 5.4 验证安装完整性
+## 7. 离线/内网场景
+
+`fetch-module` 完全支持离线源:
 
 ```bash
-sfmc module verify
-# Verifying installed modules
-#   feature-land                    a3f5b2…c1d4e7
-#   feature-economy                 b7d218…f09a3c
-#   feature-foo                     d4e5f6…789abc
+# 1) 内网 / air-gapped 环境:下载 zip 后用 --from local
+scp sfmc-module-feature-foo-1.0.0.zip server:/tmp/
+node tools/fetch-module.mjs install feature-foo \
+  --from local:/tmp/sfmc-module-feature-foo-1.0.0.zip \
+  --sha256 a3f5b2c1d4e5f6...
 
-sfmc module info feature-land
-# feature-land
-#   path        : /.../modules/packages/feature-land
-#   files       : 8
-#   size        : 12.3 KB
-#   fingerprint : a3f5b2c1d4...
-#   schemaVer   : 1
-#   routes      : 4
-#     GET      /api/sfmc/lands          lands:list
-#     POST     /api/sfmc/lands          lands:create
-#     ...
+# 2) 整个目录拷过去(--from dir)
+node tools/fetch-module.mjs install feature-foo --from dir:/mnt/share/modules/feature-foo/
 ```
 
-## 6. 与 db-server / SAPI 的关系
+## 8. 与 db-server / SAPI 的关系
 
 ```
-              ┌────────────────────────┐
-              │   sfmc.exe (SEA)       │
-              │   - dispatcher         │
-              │   - @sfmc/sdk 内嵌     │
-              │   - sfmc CLI           │
-              └──────────┬─────────────┘
-                         │ spawn 子服务
-       ┌─────────────────┼──────────────────┐
-       ▼                 ▼                  ▼
-  db-server          qq-bridge         bds-tools
-       │
-       │ 启动时扫 modules/packages/<id>/sapi/manifest.json
-       ▼
-  modules/packages/<id>/sapi/manifest.json   ← 唯一真理源
-       ▲
-       │ SAPI 也在 SAPI bundle 内读同一份 manifest
+                    ┌──────────────────────────────────┐
+                    │  Shiroha7z/sfmc-modules (外部)   │
+                    │  - index.json (registry)         │
+                    │  - packages/<id>/source code     │
+                    └──────────────┬───────────────────┘
+                                   │ git subtree / fetch tarball
+                                   ▼
+┌─────────────────────────────────────────────────────────┐
+│  主仓 ScriptsForMinecraftServer                          │
+│                                                          │
+│   modules/packages/<id>/  ← esbuild 入口                │
+│   modules/catalog.json    ← 静态 mirror                  │
+│   modules/module-lock.json ← enable/disable state       │
+│                                                          │
+│   tools/fetch-module.mjs   ← 拉取 CLI                    │
+│   tools/check-ootb.js      ← 启动前自检                  │
+│   tools/lock.js            ← 指纹 / drift 检测            │
+│                                                          │
+│   db-server/               ← 跑在 127.0.0.1:3001         │
+│     manifest-loader.ts     ← 读 v2 manifest,装载 enables │
+│     schema-registry.ts     ← 收集 db.defineTable         │
+│     tx-runner.ts           ← /api/sfmc/db/tx 派发         │
+│     service-registry.ts    ← service.get 派发             │
+│     permission-gate.ts     ← 启动 + 运行时权限校验         │
+│                                                          │
+│   modules/sdk/@sfmc-sdk/   ← npm @sfmc/sdk 的源码         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-`sfmc module install` **只动 `modules/packages/<id>/` 的文件**,不会自动:
-- 改 `modules/module-lock.json`(启用/禁用状态)
-- 重启 db-server / BDS
-- 跑 `npm run build:full`
+## 9. 常见问题
 
-**完整闭环**(手动):
-```
-node tools/fetch-module.mjs install feature-land --from github:...
-vim modules/module-lock.json           # enabled=true
-sfmc> restart db
-# 然后 BDS 控制台 reload BP
-```
+| 现象 | 原因 / 解决 |
+|------|------------|
+| `fetch-module search` 卡住 | 网络到 `raw.githubusercontent.com` 不通。检查代理 / 内网配置 |
+| `HTTP 404` 拉 tarball | Release tag 不存在或 tarball 命名不符 `sfmc-module-<id>-<version>.zip` |
+| sha256 校验失败 | 网络中间人篡改或文件被覆盖。从 first-party 重新拉 |
+| `module install` 装完但 BDS 没装填 | ① 检查 `modules/module-lock.json` 是否有 `enabled: true`;② 重启 BDS(SAPI 不热重载) |
+| `db-server` 启动报 `moduleId=... schemaVersion=1 (需要 2)` | 拉的模块是 v1 残留。检查是否需要升级到 v2 版本 |
 
-## 7. 不在本轮范围
+---
 
-- 自动签名 / 公钥验证(只用 SHA-256 指纹)
-- 远端 zip 自动签名校验(sidecar 也只是明文指纹,不是密钥签名)
-- 模块签名后再分发(`sfmc module publish`)
-- `install --enable-and-deploy` 一条龙串联
-- 多源并发 / 依赖解析
-
-这些是 Stage L+ roadmap。
+下一步:看 [模块作者指南](./dev/module-author.zh.md) 写新模块,或 [SDK API 索引](./dev/sdk-reference.zh.md)。

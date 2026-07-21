@@ -1,291 +1,290 @@
 # SAPI Module Author Guide
 
-> For developers writing new modules under `modules/packages/<id>/sapi/`. This guide uses `feature-economy` as a reference, but every convention applies to new modules and refactors alike.
+> For developers writing new modules in the [Shiroha7z/sfmc-modules](https://github.com/Shiroha7z/sfmc-modules) repo. This guide uses `feature-land` and `feature-land-gui` as references to demonstrate the full v2-protocol module lifecycle. All new modules follow the same conventions.
 
 ## 1. Module location
 
+Modules **no longer live in the main repo** under `modules/packages/`. They live in a separate repo:
+
 ```
-modules/
-  catalog.json                       ← registry (must add one row)
-  module-lock.json                   ← runtime enabled/disabled state, written by db-server
-  packages/
-    <id>/
-      package.json                   ← npm workspace
-      sapi/
-        manifest.json                ← module contract — see docs/dev/manifest-contract.en.md
-        src/
-          index.ts                   ← entry point, exports lifecycle classes / functions
-          ...other source files
-      resource_pack/                 ← (optional) resource pack contents, merged at build time
+sfmc-modules/
+├── packages/
+│   ├── <id>/
+│   │   ├── package.json              ← @sfmc/module-<id>, depends on @sfmc/sdk
+│   │   ├── sapi/
+│   │   │   ├── manifest.json         ← v2 protocol contract
+│   │   │   ├── tsconfig.json
+│   │   │   └── src/
+│   │   │       ├── index.ts          ← ModuleRegistry.register entry
+│   │   │       └── ...business source files
+│   │   ├── configs-default/          ← (optional) default config
+│   │   └── resource_pack/            ← (optional) resource pack contents
+│   └── ...
+├── index.json                        ← first-party registry (read by fetch-module)
+├── tools/
+│   ├── check-modules.js              ← v2 manifest sanity
+│   ├── sync-index.js                 ← auto-sync index.json
+│   └── new.sh                        ← new-module scaffold
 ```
 
 **Hard constraints:**
-- `id` must be unique inside `modules/catalog.json`, lowercase kebab-case
-- `entry.path` is fixed: `modules/packages/<id>/sapi/src/index.ts`
-- The module is only invoked by `scripts/main.js` (assembled by `sfmc behavior-pack build`) via `ModuleRegistry.register(...)` during BP startup. Never put side effects at module top-level — everything goes inside lifecycle callbacks.
 
-## 2. Module contract — what you need to export
+- `id` must be unique inside sfmc-modules. Recommended prefixes: `core-` / `feature-`
+- `package.json#name` MUST be `@sfmc/module-<id>` and match the manifest `id`
+- The module is invoked **only** at BP startup time, by the esbuild-bundled `scripts/main.js`, via `ModuleRegistry.register(...)`
+- Modules MUST only depend on `@sfmc/sdk` and `@minecraft/server`. **No cross-module source imports.**
 
-`ModuleRegistry` from `@sfmc/sdk/module-loader` expects a lifecycle object. **Every field is optional:**
+## 2. Creating a new module
 
-```ts
-import { Command, debug, Msg, Permission } from "@sfmc/sdk/sapi/runtime";
-import type { Player } from "@minecraft/server";
-
-export class MyModule {
-  // Command registration. Called once during startup.
-  static registerCommands(): void {
-    Permission.register("mymodule.use", Permission.Member);
-    Command.register(
-      "mycommand",        // command literal
-      "mymodule.use",     // permission node
-      (player?: Player) => { /* ... */ },
-      "My command",       // help text
-      "category"          // optional category (groups entries in main menu)
-    );
-  }
-
-  // Event subscriptions. Called once during worldLoad.
-  static registerEvents(): void {
-    // Subscribe to world.afterEvents.* / world.beforeEvents.*
-  }
-
-  // Last call in startup. Synchronous.
-  static init(): void {
-    debug.i("MYMOD", "init");
-  }
-
-  // Called during worldLoad (for modules with afterWorldLoad=true).
-  static initAfterWorldLoad(): void {
-    debug.i("MYMOD", "initAfterWorldLoad");
-  }
-
-  // Called on shutdown. Unsubscribe + release timers.
-  static cleanup(): void {
-    // ...
-  }
-}
-```
-
-> entry.ts template:
-> ```ts
-> ModuleRegistry.register({
->   id: "mymodule",
->   afterWorldLoad: true,
->   lifecycle: {
->     registerCommands: () => MyModule.registerCommands(),
->     registerEvents: () => MyModule.registerEvents(),
->     init: () => MyModule.init(),
->     initAfterWorldLoad: () => MyModule.initAfterWorldLoad(),
->     cleanup: () => MyModule.cleanup(),
->   },
-> });
-> ```
->
-> `registerCommands` runs during the startup phase (inside `system.beforeEvents.startup`). `init` also runs at startup, but after commands. `registerEvents` and `initAfterWorldLoad` both fire during `world.afterEvents.worldLoad`.
-
-## 3. Three SDK drawers
-
-| Drawer | Subpath | Use for |
-|--------|---------|---------|
-| **runtime** | `@sfmc/sdk/sapi/runtime` | Utilities: `Command`, `Permission`, `Msg`, `debug`, `MenuNavigator`, `Money`, `HttpDB`, `FormStatus`, `Observable*` etc. |
-| **host** | `@sfmc/sdk/sapi/host` | Platform-layer adapters. Regular modules rarely import directly |
-| **sdk** | `@sfmc/sdk/sapi/sdk` | Module contract types (`SapiHostApis`, `defineSapiModule`, placeholders). Currently a stub — populated in future commits |
-| **contracts** | `@sfmc/sdk/contracts` | Shared types across SAPI and db-server (`LandData`, `CoopData`, `Channel`, etc.) |
-| **module-loader** | `@sfmc/sdk/module-loader` | BP entry only (`ConfigManager`, `ModuleRegistry`, `announceLoaded`, `guardEvent`). **Only `scripts/entry.ts` imports this** — business modules must not |
-
-**Practical advice:**
-- 90% of module code only imports `@sfmc/sdk/sapi/runtime`
-- Shared types come from `@sfmc/sdk/contracts`
-- For HTTP calls to db-server, use `HttpDB.get / post / requestJSON` — never raw `fetch`
-
-## 4. manifest.json fields
-
-```json
-{
-  "handlers": [],
-  "routes": [
-    { "method": "GET", "path": "/api/sfmc/lands", "handler": "lands:list" }
-  ],
-  "migrations": []
-}
-```
-
-| Field | Meaning |
-|-------|---------|
-| `handlers` | Empty at Stage I. db-server's handler-registry will consult this in later stages |
-| `routes` | Every route your module calls into db-server. `method` + `path` + `handler` name |
-| `migrations` | db-server migrations your module needs (ordered by version). Empty means no schema change |
-| `notes` (optional) | Free-form commentary |
-
-> **Required even if empty.** Even modules that never call db-server must ship a manifest with `{ "handlers": [], "routes": [], "migrations": [] }`, otherwise emit-manifest won't list the module.
-> Full reference: [manifest-contract.en.md](./manifest-contract.en.md)
-
-## 5. Adding a row to catalog.json
-
-```json
-{
-  "id": "feature-mymodule",
-  "configKey": "mymodule",
-  "name": "My Module",
-  "type": "feature",
-  "description": "One-line description",
-  "enabledByDefault": false,
-  "canDisable": true,
-  "requires": [],
-  "entry": { "kind": "sapi", "path": "modules/packages/mymodule/sapi/src/index.ts" }
-}
-```
-
-Field reference:
-- `id` — unique across the repo. Prefix with `core-` (always-on core) or `feature-` (opt-in)
-- `configKey` — the key inside `configs/<key>.json`, looked up via `ConfigManager.getConfigs("<key>")`
-- `enabledByDefault` — whether to enable on first launch
-- `requires` — `id`s this module depends on (topological order)
-- `entry.path` — fixed prefix `modules/packages/...`
-
-> `node tools/check-catalog.js` validates uniqueness, entry path existence, and that entry.ts has the matching `ModuleRegistry.register` call. If it complains `expected id "mymodule" 未在 entry.ts 注册 ModuleRegistry 生命周期`, you forgot to add the `ModuleRegistry.register(...)` call in entry.ts.
-
-## 6. package.json
-
-```json
-{
-  "name": "@sfmc/module-mymodule",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "sapi/src/index.ts",
-  "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
-  },
-  "peerDependencies": {
-    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30"
-  },
-  "dependencies": {
-    "@sfmc/sdk": "*"
-  }
-}
-```
-
-`name` **must** be `@sfmc/module-<id>` (matching the catalog id), otherwise `entry.ts`'s `import { ... } from "@sfmc/module-<id>"` will fail to resolve.
-
-## 7. tsconfig.json
-
-Reuse a sibling module's:
-
-```json
-{
-  "extends": "../../../tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": "./sapi/src",
-    "outDir": "./dist",
-    "types": ["@minecraft/server"]
-  },
-  "include": ["sapi/src/**/*"]
-}
-```
-
-## 8. Debug loop
+The fastest path is the scaffold:
 
 ```bash
-# 1) Type-check just this module
-cd modules/packages/mymodule
+cd sfmc-modules
+./tools/new.sh feature-my-thing "My new module"
+# Produces:
+#   packages/feature-my-thing/package.json
+#   packages/feature-my-thing/sapi/manifest.json
+#   packages/feature-my-thing/sapi/src/index.ts
+#   packages/feature-my-thing/sapi/tsconfig.json
+#   packages/feature-my-thing/configs-default/config.json
+#   index.json (auto-synced)
+```
+
+The scaffold fills in the v2 manifest skeleton; you complete `permissions` and `services` in `manifest.json`, then write the actual business in `src/index.ts`.
+
+### Manual
+
+If you already have a template, the minimum skeleton is:
+
+```jsonc
+// packages/<id>/package.json
+{
+  "name": "@sfmc/module-<id>",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "sapi/src/index.ts",
+  "private": true,
+  "dependencies": { "@sfmc/sdk": "^0.1.0" },
+  "peerDependencies": { "@minecraft/server": "2.10.0-beta.1.26.40-preview.30" }
+}
+```
+
+```json
+// packages/<id>/sapi/manifest.json
+{
+  "schemaVersion": 2,
+  "id": "<id>",
+  "name": "My module",
+  "type": "feature",
+  "configKey": "<config_key>",
+  "requires": [],
+  "permissions": [
+    "db:read:<table>",
+    "db:write:<table>",
+    "config:read:<config_key>",
+    "config:write:<config_key>"
+  ],
+  "services": { "provides": [], "requires": [] },
+  "notes": ""
+}
+```
+
+```ts
+// packages/<id>/sapi/src/index.ts
+import { ModuleRegistry } from "@sfmc/sdk/module-loader";
+import { Permission } from "@sfmc/sdk/sapi/runtime";
+
+ModuleRegistry.register({
+  id: "<id>",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() {
+      Permission.register("<config_key>.use", Permission.Any);
+    },
+    async init() {
+      // db.defineTable / db.tx / service.get ...
+    },
+    cleanup() {},
+  },
+});
+```
+
+## 3. manifest v2 fields
+
+| Field | Type | Required | Meaning |
+|-------|------|----------|---------|
+| `schemaVersion` | `2` | ✓ | Protocol version. Other values cause startup throw or warn-skip |
+| `id` | string | ✓ | Unique module id |
+| `name` | string | ✓ | Display name |
+| `type` | `"core"` \| `"feature"` | ✓ | `core` = canDisable=false, `feature` = canDisable=true |
+| `configKey` | string | ✓ | Maps to `configs/<config_key>.json` |
+| `requires` | string[] | ✓ | Dependency module ids (topological sort) |
+| `permissions` | string[] | ✓ | Platform permission declarations (see below) |
+| `services.provides` | ServiceEntry[] | ✓ | Capabilities this module exposes |
+| `services.requires` | ServiceEntry[] | ✓ | Capabilities this module depends on |
+| `notes` | string | – | Free text |
+
+**Permission strings:**
+
+| Pattern | Meaning |
+|---------|---------|
+| `db:read:<table>` | Read module-declared table |
+| `db:write:<table>` | Write module-declared table |
+| `db:read:*` / `db:write:*` | Wildcard (use sparingly; startup whitelist required) |
+| `config:read:<key>` | Read config under `configKey` namespace |
+| `config:write:<key>` | Write config under `configKey` namespace |
+| `service:<service_name>` | Declare you invoke this service (optional but recommended; startup validates) |
+
+**ServiceEntry:**
+
+```jsonc
+{
+  "name": "land.byOwner",
+  "input":  { "type": "object", "properties": { "ownerId": { "type": "string" } }, "required": ["ownerId"] },
+  "output": { "type": "array" }
+}
+```
+
+`provides` names are globally unique; `requires` must resolve to some module's `provides` (validated at startup).
+
+**Forbidden fields**: `routes`, `tables`, `migrations`, `seeds`, `handlers`, `events`. v1 leftovers — startup throws if present.
+
+## 4. SDK four drawers
+
+90% of module code only imports these four subpaths:
+
+| Subpath | Use |
+|---------|-----|
+| `@sfmc/sdk/sapi/runtime` | `Msg`, `Command`, `Permission`, `MenuNavigator`, `Money`, `debug`, `HttpDB` (legacy; new code should not use), `FormStatus` |
+| `@sfmc/sdk/sapi/db` | `db.defineTable`, `db.tx`, `db.query`, `db.get`, `db.insert`, `db.update`, `db.delete`, `db.audit`, `db.idempotent` |
+| `@sfmc/sdk/sapi/config` | `config.get`, `config.set`, `config.onChange` |
+| `@sfmc/sdk/sapi/service` | `service.get`, `service.list` (cross-module) |
+| `@sfmc/sdk/module-loader` | `ModuleRegistry.register` (only this one symbol for business modules) |
+| `@sfmc/sdk/contracts` | Cross-module shared types (use platform contracts; don't reinvent) |
+
+**Rules:**
+- **No** `require("fs")`, raw `fetch()`, direct db-server port access. SDK only.
+- **No** raw SQL strings. Only `WhereExpr` expression trees.
+- **No** source imports across modules. Cross-module calls go through `service.get(...)`.
+
+## 5. End-to-end example (using land)
+
+`land` provides 13 services; `land-gui` is one consumer:
+
+```ts
+// modules/packages/land/sapi/src/land-transfer.ts
+import { db, type TxContext, DbError } from "@sfmc/sdk/sapi/db";
+
+export async function transferLand(input: { landId: string; currentOwnerId: string; newOwnerId: string }) {
+  return db.tx(async (tx: TxContext) => {
+    await tx.update("lands", input.landId, { owner_player_id: input.newOwnerId, version: 2 });
+    await tx.audit("lands", input.landId, "transfer", { from: input.currentOwnerId, to: input.newOwnerId });
+    await tx.call("economy.debit", { playerId: input.currentOwnerId, amount: 100 });
+    await tx.call("economy.credit", { playerId: input.newOwnerId, amount: 100 });
+    return { ok: true };
+  });
+}
+```
+
+```ts
+// modules/packages/land-gui/sapi/src/index.ts
+import { service } from "@sfmc/sdk/sapi/service";
+import { ModuleRegistry } from "@sfmc/sdk/module-loader";
+
+ModuleRegistry.register({
+  id: "feature-land-gui",
+  afterWorldLoad: false,
+  lifecycle: {
+    async init() {
+      const land = await service.get<{ id: string; name: string } | null>("land.byId", { landId: "abc" });
+      // render GUI
+    },
+  },
+});
+```
+
+`land-gui/sapi/manifest.json` MUST declare `requires: ["feature-land"]` and `services.requires: [{ name: "land.byId" }]` — startup validates, missing declarations cause throw.
+
+## 6. Local development
+
+```bash
+# 1) Clone both repos side by side
+# D:/#WorkPlace/
+# ├── ScriptsForMinecraftServer/   (main repo)
+# └── sfmc-modules/                 (modules repo)
+
+cd sfmc-modules
+cd packages/land
+npm link ../../ScriptsForMinecraftServer/modules/sdk/@sfmc-sdk
+# Now `import "@sfmc/sdk/sapi/db"` resolves to the local SDK source.
+
+# 2) Typecheck
+cd packages/land
 npm run typecheck
 
-# 2) Full BP build
-sfmc behavior-pack build    # esbuild bundles modules → build/sfmc-modules/
+# 3) Symlink the module into main repo so esbuild picks it up
+cd ../../ScriptsForMinecraftServer
+mkdir -p modules/packages
+ln -s ../../sfmc-modules/packages/land modules/packages/land
 
-# 3) Start db-server (verify manifest loads)
-cd ../../db-server
-npm run dev
-
-# 4) Check startup log
-# [manifest] loaded schemaVersion=1 modules=22 routes=34
-# If your manifest declares a route db-server doesn't cover, you'll see:
-# [manifest] WARN feature-mymodule: route POST /api/sfmc/foo is not covered by db-server
+# 4) BP build + db-server
+sfmc behavior-pack build
+sfmc behavior-pack deploy
 ```
 
-## 9. Commit conventions
+## 7. Releasing
+
+sfmc-modules uses GitHub Releases for module tarballs:
+
+```bash
+# Inside sfmc-modules
+git tag -a v1.2.3   # tag the whole repo (one tag for all modules)
+git push origin v1.2.3
+# CI runs tools/check-modules.js + packs each packages/* → uploads to GitHub Release
+```
+
+After release, users install via:
+
+```bash
+node tools/fetch-module.mjs install <id>   # resolves GitHub Release URL + downloads tarball
+```
+
+## 8. Debugging tips
+
+- Startup log `[manifest v2] loaded N modules; provides M services`: N = your v2 manifests, M = total provides
+- If your module is warn-skipped: `[manifest] <id>: moduleId=... schemaVersion=... (需要 2),跳过`
+- `service.get` 403: missing `services.requires` declaration or `permissions` lacks `service:xxx`
+- `db-server` startup fails with `table X already registered by another module`: two modules declared the same table name — coordinate with platform
+- esbuild `Could not resolve "@sfmc/module-X"`: `package.json#name` doesn't match directory name or id
+- BP build succeeds but BDS startup reports `module X not found in catalog`: main-repo `modules/catalog.json` is missing your module entry, or `entry.path` is wrong
+
+## 9. Commit convention
 
 ```
-<type>(scope): <subject>
+<type>(<scope>): <subject>
 
 <body — explain why, not what>
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 ```
 
-`<type>` values:
-- `feat(<id>):` — new module or new feature
+`<type>`:
+- `feat(<id>):` — new feature
 - `fix(<id>):` — bug fix
-- `refactor(<id>):` — behavior-preserving refactor
+- `refactor(<id>):` — refactor (no behavior change)
 - `docs(<id>):` — docs only
-- `chore(<id>):` — tooling / build / formatting
+- `chore(<id>):` — tooling / build / CI
 
 ## 10. Common errors
 
 | Symptom | Cause |
 |---------|-------|
-| `npm run bundle` fails with `Could not resolve "@sfmc/module-mymodule"` | Catalog `entry.path` and `package.json#name` mismatch, or `npm install` was skipped |
-| Module doesn't activate after boot | `ModuleRegistry.register` missing, or `id` typo |
-| Module missing from startup log | manifest.json absent, or field names wrong (must be `handlers` / `routes` / `migrations`) |
-| `Cannot find name 'ConfigManager'` in TS | Wrong drawer. `ConfigManager` lives in `@sfmc/sdk/module-loader`, not runtime |
-| Commands don't respond | Likely blocked by `moduleGuard` — check `modules/module-lock.json`'s `enabled` field |
-
-## 11. End-to-end skeleton
-
-Minimal working new-module layout:
-
-```
-modules/packages/hello/
-├── package.json
-├── tsconfig.json
-└── sapi/
-    ├── manifest.json
-    └── src/
-        └── index.ts
-```
-
-`modules/packages/hello/package.json`:
-```json
-{
-  "name": "@sfmc/module-hello",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "sapi/src/index.ts",
-  "peerDependencies": { "@minecraft/server": "2.10.0-beta.1.26.40-preview.30" },
-  "dependencies": { "@sfmc/sdk": "*" }
-}
-```
-
-`modules/packages/hello/sapi/manifest.json`:
-```json
-{ "handlers": [], "routes": [], "migrations": [] }
-```
-
-`modules/packages/hello/sapi/src/index.ts`:
-```ts
-import { Command, debug, Msg, Permission } from "@sfmc/sdk/sapi/runtime";
-import type { Player } from "@minecraft/server";
-
-export class Hello {
-  static registerCommands(): void {
-    Permission.register("hello.use", Permission.Member);
-    Command.register(
-      "hello",
-      "hello.use",
-      (player?: Player) => { if (player) Msg.info(`Hello, ${player.name}!`, player); },
-      "Greet a player"
-    );
-  }
-
-  static init(): void { debug.i("HELLO", "init"); }
-}
-```
-
-Then: add a row to `modules/catalog.json`, export `ModuleRegistry.register({ id: "hello", ... })` from `modules/packages/hello/sapi/src/index.ts`, then run `sfmc behavior-pack build`.
+| `moduleId=... schemaVersion=... (需要 2),跳过` | Manifest has `schemaVersion: 1` or missing |
+| `service.get("xxx")` returns 403 | Missing `services.requires` declaration or `permissions` lacks `service:xxx` |
+| `db.defineTable` then startup fails with `table X already registered by another module` | Two modules declared the same table name |
+| esbuild `Could not resolve "@sfmc/module-X"` | `package.json#name` doesn't match directory / id |
+| BP build OK but BDS says `module X not found in catalog` | Main-repo `modules/catalog.json` missing your entry, or `entry.path` is wrong |
 
 ---
 
-Next: see [SDK reference](./sdk-reference.en.md) or [manifest contract](./manifest-contract.en.md).
+Next: see [SDK API reference](./sdk-reference.en.md) or [manifest contract details](./manifest-contract.en.md).

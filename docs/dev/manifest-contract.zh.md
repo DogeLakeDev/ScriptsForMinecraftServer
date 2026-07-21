@@ -1,180 +1,156 @@
-# manifest 契约
+# manifest v2 契约
 
-> `manifest.json` 是 BP 构建产物 `build/sfmc-modules/manifest.json` 的「单模块源」。每个模块在 `modules/packages/<id>/sapi/manifest.json` 手写一份,由 `sfmc behavior-pack build` 聚合时合并。
+> v2 是当前协议版本,替代旧的 `routes / migrations / handlers` 路线。模块 = 不可信第三方包,通过 `manifest.json` 向平台声明**它需要的能力 + 它暴露的能力 + 它对数据库/配置的权限**。平台**不执行模块代码**,只读 manifest 决定启停;模块用 `@sfmc/sdk/sapi/db|config|service` 与平台对话。
 
-## 1. 完整 schema
+## 1. 文件位置
 
-```ts
-// db-server/src/manifest.ts 的形状(只读契约)
-interface ModuleManifestRoute {
-  method: string;          // "GET" | "POST" | "PUT" | "DELETE"
-  path: string;            // "/api/sfmc/lands" 或 "/api/sfmc/lands/:id/members"
-  handler: string;         // "<moduleId>:<handlerName>" 形式
-}
+**单源真理**:模块仓 `Shiroha7z/sfmc-modules` 里 `packages/<id>/sapi/manifest.json`。bp 构建时,fetch-module 已经把它拉到主仓 `modules/packages/<id>/sapi/manifest.json`,db-server + SAPI 直接读它。
 
-interface ModuleManifestMigration {
-  name: string;            // "create_lands_table"
-  version: number;         // 升序,1, 2, 3, ...
-}
-
-interface ModuleManifestEntry {
-  name: string;            // 显示名,中文/英文均可
-  type: string;            // "core" | "feature"
-  configKey: string;       // 对应 configs/<key>.json
-  requires: string[];      // 依赖的模块 id(拓扑排序用)
-  handlers: string[];      // db-server 侧 handler 名字,阶段 I 留空
-  routes: ModuleManifestRoute[];
-  migrations: ModuleManifestMigration[];
-}
-
-interface ModuleManifest {
-  schemaVersion: number;   // 当前 = 1
-  generatedAt: string;     // ISO 8601 时间戳
-  modules: Record<string, ModuleManifestEntry>;  // keyed by 模块 id
-}
-```
-
-## 2. 字段语义
-
-### `routes[].method`
-
-只接受 `GET` / `POST` / `PUT` / `DELETE`。`PATCH` 当前阶段 db-server 没有等价 `app.patch`,建议改用 POST + `_method=PATCH` 形式。
-
-### `routes[].path`
-
-可以是精确路径(`/api/sfmc/lands`)或带参数占位符(`/api/sfmc/lands/:id/members`)。
-> **占位符必须用 `:name` 形式**(冒号前缀),不要用 Express 5 风格的 `{name}` 或 wildcard。
-
-db-server 启动时会按前 4 段做前缀匹配(`/api/sfmc/lands` 命中 `/api/sfmc/lands/:id/...`),所以精确前缀必须出现在 path 里。
-
-### `routes[].handler`
-
-`<moduleId>:<handlerName>` 形式。例如 `lands:list`、`lands:create`、`economy:transfer`。
-
-`moduleId` 必须与 catalog.json 的 `id` 一致;`handlerName` 是 db-server 端 handler-registry 中的注册名(Stage I 留空数组 `handlers: []`,留待 Stage J+ 引入)。
-
-### `migrations[]`
-
-如果你修改了 db-server 的 schema,在这里登记 migration 名 + 版本号。db-server 启动时按 version 升序应用,写 `_migrations` 表。
-
-```json
+```jsonc
 {
-  "migrations": [
-    { "name": "create_lands_table", "version": 1 },
-    { "name": "add_land_tax_config", "version": 2 }
-  ]
+  "schemaVersion": 2,
+  "id": "feature-land",
+  "name": "领地",
+  "type": "feature",
+  "configKey": "land",
+  "requires": ["feature-economy"],
+  "permissions": [...],
+  "services": {
+    "provides": [...],
+    "requires": [...]
+  },
+  "notes": "自由文本(可选)"
 }
 ```
 
-> 不写 = 你声明这个模块不需要 schema 变更(例如纯只读 HTTP 客户端)。
+## 2. 字段速查
 
-### `notes`(可选,非 schema 字段)
+| 字段 | 类型 | 必填 | 含义 |
+|------|------|------|------|
+| `schemaVersion` | `2` | ✓ | v1 已弃用,启动期 throw;其他值 throw |
+| `id` | string | ✓ | 全局唯一,`feature-*` / `core-*` 前缀推荐 |
+| `name` | string | ✓ | 显示名 |
+| `type` | `"core"` \| `"feature"` | ✓ | `core` 不能 disable,`feature` 可 enable/disable |
+| `configKey` | string | ✓ | 对应 `configs/<key>.json`,SDK 用 `config.get("land.x")` 读 |
+| `requires` | `string[]` | ✓ | 依赖模块 id 列表,启动期拓扑校验 |
+| `permissions` | `string[]` | ✓ | 平台权限声明,见 §4 |
+| `services.provides` | `ServiceEntry[]` | ✓ | 本模块对外暴露的服务 |
+| `services.requires` | `ServiceEntry[]` | ✓ | 本模块需要消费的服务 |
+| `notes` | string | – | 自由描述 |
 
-`emit-manifest.mjs` 不读 `notes`,但它会**原样保留**到 `module-manifests.json`。可用作模块自描述:
+**禁用字段**(v1 残留,出现则启动 throw):`routes` / `tables` / `migrations` / `seeds` / `handlers` / `events`。
 
-```json
+## 3. ServiceEntry
+
+```jsonc
 {
-  "handlers": [],
-  "routes": [],
-  "migrations": [],
-  "notes": "feature-foo: 纯游戏侧逻辑,不调用 db-server"
+  "name": "land.byId",                      // 全局唯一,通常是 <moduleId>.<动词/名词>
+  "input":  { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
+  "output": { "type": "object" }
 }
 ```
 
-## 3. db-server 怎么读 manifest
+- `name` 全局唯一,启动期 db-server 跨模块去重;重复 throw
+- `requires` 中的 name 必须在某 enabled 模块的 `provides` 里有同名,否则启动 throw
+- `input/output` 只做登记 + 文档,平台不在协议层严格校验 schema(JSON Schema 风格以便将来生成 SDK 类型)
 
-`db-server/src/index.ts` 启动期执行:
+## 4. permissions
 
-```ts
-const m = loadManifest();
-log.info(`[manifest] loaded schemaVersion=${m.schemaVersion} modules=${...} routes=${...}`);
-const warnings = reconcile(m, KNOWN_PREFIXES);
-if (warnings.length > 0) for (const w of warnings) console.warn(`[manifest] WARN ${w}`);
-```
+权限字符串统一前缀表:
 
-`reconcile` 检查每个 route 的前 4 段 path 是否落在 `KNOWN_PREFIXES` 里。前缀不匹配 → WARN 但不阻塞启动。
-
-当前 `KNOWN_PREFIXES`(由 db-server 实际 `routes/*.ts` 文件覆盖范围决定):
-
-```
-/api/sfmc/activities     /api/sfmc/channels
-/api/sfmc/configs        /api/sfmc/coop /api/sfmc/coops
-/api/sfmc/economy        /api/sfmc/health
-/api/sfmc/lands          /api/sfmc/messages
-/api/sfmc/modules        /api/sfmc/monitor
-/api/sfmc/players        /api/sfmc/redpacket
-/api/sfmc/scoreboards    /api/sfmc/world
-/api/sfmc/settings
-```
-
-> 如果你的 route 不在前缀表里 —— 先在 `db-server/src/routes/` 加文件,然后让 `KNOWN_PREFIXES` 覆盖。
-
-## 4. 演进路径
-
-| 阶段 | 形态 |
+| 模式 | 含义 |
 |------|------|
-| **Stage I(当前)** | `handlers: []` 占位。routes 仅做 WARN 检查 |
-| **Stage J**(计划中) | `db-server/src/handler-registry.ts` 单文件 `HANDLERS = Record<"<id>:<name>", RouteHandler>`;manifest 启动时**强校验**每个 handler 名都存在于 HANDLERS,缺一即 `throw` |
-| **Stage K+** | SAPI bundle 不再包含 db-server 路由名。db-server 启动读 manifest + handler-registry 后,自己拼接 Express 路由。SAPI 端只看到 `HttpDB.post(path, body)` 不再有"我知道 db-server 有这条路由"的隐含契约 |
+| `db:read:<table>` | 读模块声明的 table |
+| `db:write:<table>` | 写模块声明的 table |
+| `db:read:*` / `db:write:*` | 通配(慎用,启动期白名单) |
+| `config:read:<config_key>` | 读 `configs/<config_key>.json` 下条目 |
+| `config:write:<config_key>` | 写 `configs/<config_key>.json` 下条目 |
+| `service:<service_name>` | 调用此 service(可选但推荐,启动期校验) |
 
-## 5. 端到端示例
+**校验时机**:启动期(db-server 已加载所有 enabled 模块时)集中校验:
+- 表名是否在本模块的 `db.defineTable(...)` 中声明过(否则 db:write:* 但没声明表 → 启动 warn)
+- `db:write:*` / `db:read:*` 是否在 `configs/db_config.json` 的 `modulePermissionPolicy.allowWildcard` 白名单里
+- `service:*` 是否在 `services.requires` 里也有对应条目
 
-`modules/packages/feature-foo/sapi/manifest.json`:
+**运行时校验**:`db.query("lands", ...)` 时 db-server 验证调用方模块的 permissions 含 `db:read:lands`,否则 403。
 
-```json
-{
-  "handlers": [],
-  "routes": [
-    { "method": "GET",  "path": "/api/sfmc/foo/:id",      "handler": "foo:get"    },
-    { "method": "POST", "path": "/api/sfmc/foo",           "handler": "foo:create" },
-    { "method": "PUT",  "path": "/api/sfmc/foo/:id",      "handler": "foo:update" }
-  ],
-  "migrations": [
-    { "name": "create_foo_table", "version": 1 }
-  ],
-  "notes": "feature-foo: demo module"
-}
+## 5. 启动期校验全景
+
 ```
-
-构建并启动:
-
-```bash
-sfmc behavior-pack build    # 跑 emit-manifest.mjs 合并 22 个 manifest
-cat build/sfmc-modules/manifest.json | jq '.modules["feature-foo"]'
-# 应输出上面这段内容
-```
-
 db-server 启动:
-
-```bash
-cd db-server
-npm run dev
-# [manifest] loaded schemaVersion=1 modules=22 routes=34
-# (如果 feature-foo 的路由不在前缀表里,会出 WARN)
+  1. SQLite 打开
+  2. 扫 modules/packages/*/sapi/manifest.json
+     · schemaVersion != 2 → warn-skip(v1 不再加载)
+     · 重复 id → throw
+  3. 拓扑排序 requires;有环 → throw
+  4. 所有 enabled 模块:
+     · permissions-vs-services.requires 交叉 → 漏报 throw
+     · services.requires.name 必须命中某 provides.name → 找不到 throw
+     · 同一 services.provides.name 被两个模块声明 → throw
+  5. 注册 service handlers(模块 SAPI init 阶段调 service.provide 注册)
+  6. 启动 HTTP,监听 127.0.0.1:3001
+  7. SAPI init 阶段:模块调 db.defineTable() → schema-registry 收集 → 统一 CREATE TABLE
 ```
 
-## 6. 校验工具
+## 6. 端到端示例
 
-`node tools/check-catalog.js` 会在 CI 中跑。它检查 catalog.json 完整性,但**不**检查 manifest.json 字段名(写错的字段名会被 emit-manifest 原样透传 —— 报错只发生在 db-server 启动后)。
+`packages/feature-land/sapi/manifest.json`:
 
-为了避免这种延迟反馈,Stage K 计划加入 `node tools/check-manifest.js`,在 BP 构建前静态校验每个 manifest.json 的字段名与 shape。当前可用如下 ad-hoc 检查:
-
-```bash
-node -e "
-const fs = require('fs');
-const path = require('path');
-const root = 'modules/packages';
-const expected = ['handlers','routes','migrations'];
-let bad = 0;
-for (const id of fs.readdirSync(root)) {
-  const mf = path.join(root, id, 'sapi', 'manifest.json');
-  if (!fs.existsSync(mf)) { console.log('MISSING', id); bad++; continue; }
-  const j = JSON.parse(fs.readFileSync(mf, 'utf8'));
-  for (const k of expected) if (!(k in j)) { console.log('NO FIELD', id, k); bad++; }
-  if (j.routes) for (const r of j.routes) {
-    if (!r.method || !r.path || !r.handler) { console.log('BAD ROUTE', id, r); bad++; }
-  }
+```jsonc
+{
+  "schemaVersion": 2,
+  "id": "feature-land",
+  "name": "领地",
+  "type": "feature",
+  "configKey": "land",
+  "requires": ["feature-economy"],
+  "permissions": [
+    "db:read:lands",
+    "db:write:lands",
+    "db:read:land_members",
+    "db:write:land_members",
+    "db:write:land_audit_logs",
+    "db:read:land_audit_logs",
+    "config:read:land",
+    "config:write:land",
+    "service:economy.account",
+    "service:economy.debit",
+    "service:economy.credit"
+  ],
+  "services": {
+    "provides": [
+      { "name": "land.byId",        "input": {...}, "output": {...} },
+      { "name": "land.byOwner",     "input": {...}, "output": {...} },
+      { "name": "land.transfer",    "input": {...}, "output": {...} },
+      { "name": "land.listMembers", "input": {...}, "output": {...} },
+      { "name": "land.auditLog",    "input": {...}, "output": {...} }
+    ],
+    "requires": [
+      { "name": "economy.debit" },
+      { "name": "economy.credit" }
+    ]
+  },
+  "notes": "领地系统,需要 feature-economy 服务"
 }
-process.exit(bad ? 1 : 0);
-"
 ```
+
+## 7. 校验工具
+
+模块仓自带 `tools/check-modules.js`:
+
+```bash
+cd sfmc-modules
+node tools/check-modules.js
+# 检查所有 packages/*/sapi/manifest.json:
+#   - schemaVersion = 2
+#   - 无禁用字段 (routes/tables/migrations/seeds/handlers/events)
+#   - id 全局唯一
+#   - permissions 中每个 db:read:*/db:write:* 都有对应 defineTable
+#   - permissions 中每个 service:* 都在 services.requires 里
+```
+
+CI 在每次 push 时跑一次,失败时拒绝 merge。
+
+---
+
+下一步:看 [模块作者指南](./module-author.zh.md) 写新模块,或 [SDK API 索引](./sdk-reference.zh.md) 查 db / config / service 抽屉。

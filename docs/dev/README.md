@@ -14,8 +14,8 @@
 | 中文 | English |
 |------|---------|
 | [SAPI 模块作者指南](./module-author.zh.md) | [SAPI Module Author Guide](./module-author.en.md) |
-| [SDK 三抽屉 API 索引](./sdk-reference.zh.md) | [SDK Three-Drawer API Reference](./sdk-reference.en.md) |
-| [manifest 契约](./manifest-contract.zh.md) | [Manifest Contract](./manifest-contract.en.md) |
+| [SDK 四抽屉 API 索引](./sdk-reference.zh.md) | [SDK Four-Drawer API Reference](./sdk-reference.en.md) |
+| [manifest v2 契约](./manifest-contract.zh.md) | [manifest v2 Contract](./manifest-contract.en.md) |
 
 ## 阅读顺序建议
 
@@ -27,7 +27,7 @@
 ### 我是模块作者
 
 1. **模块作者指南** — 解释模块放置位置、生命周期、`ModuleRegistry.register(...)` 怎么写、catalog.json 怎么登记、常见错误
-2. **SDK 三抽屉 API 索引** — 写代码时查表。`@sfmc/sdk/sapi/runtime` 是 90% 业务代码的 import 来源
+2. **SDK 四抽屉 API 索引** — 写代码时查表。`@sfmc/sdk/sapi/runtime` 是 90% 业务代码的 import 来源;db / config / service 三个新抽屉覆盖所有跨进程能力
 3. **manifest 契约** — 当你需要让你的模块调用 db-server 时读这个
 
 ## 仓顶相关文档
