@@ -11,12 +11,11 @@
  *  - entry.init 仅在 sapi 类型可选
  *  - 不允许循环依赖（拓扑排序检测）
  */
-import { accessSync, constants, readFileSync } from "node:fs";
-import { resolve, join, dirname } from "node:path";
-import { fileURLToPath } from 'node:url';
-import path from "node:path";
+const { accessSync, constants, readFileSync } = require("node:fs");
+const { resolve, join, dirname } = require("node:path");
+const path = require("node:path");
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = resolve(__dirname, "..");
 const CATALOG = join(ROOT, "modules", "catalog.json");
 const SERVICES_CATALOG = join(ROOT, "services", "catalog.json");
 /* SAPI modules no longer register through a single static entry.ts —
