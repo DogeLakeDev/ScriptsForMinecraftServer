@@ -9,8 +9,16 @@
  *                                   from GitHub Releases (optionally verify
  *                                   against the .sha256 sidecar)
  *
+ * Default source (first-party registry):
+ *   If --from is omitted, look up <id> in the index at
+ *   https://raw.githubusercontent.com/Shiroha7z/sfmc-modules/main/index.json
+ *   → { "<id>": { "repo": "...", "tag": "..." } } → translate to github:<repo>@<tag>.
+ *   The index is cached at tools/.sfmc-registry-cache.json for 1h.
+ *
  * Usage:
- *   node tools/fetch-module.mjs list                                    # list available modules in the GitHub release
+ *   node tools/fetch-module.mjs list                                    # list installed
+ *   node tools/fetch-module.mjs search                                  # list first-party registry
+ *   node tools/fetch-module.mjs install <id>                            # install from first-party registry
  *   node tools/fetch-module.mjs install <id> --from github:owner/repo[@tag]
  *   node tools/fetch-module.mjs install <id> --from local:/abs/path/to/foo.zip
  *   node tools/fetch-module.mjs install <id> --from dir:/abs/path/to/foo/
@@ -26,10 +34,9 @@
  * it only reads from the resulting `modules/packages/<id>/` directories.
  */
 
-import fs from "node:fs";
+import fs, { createReadStream } from "node:fs";
 import fsp from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { createReadStream, Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import process from "node:process";
@@ -38,6 +45,88 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const TARGET = path.join(ROOT, "modules", "packages");
+
+/* ── first-party registry (Shiroha7z/sfmc-modules) ─────────────── */
+const DEFAULT_REGISTRY_REPO = "Shiroha7z/sfmc-modules";
+const DEFAULT_REGISTRY_TAG = "main"; // index.json lives on main, not a release tag
+const DEFAULT_REGISTRY_INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
+const REGISTRY_CACHE_PATH = path.join(__dirname, ".sfmc-registry-cache.json");
+const REGISTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+/**
+ * @typedef {{ repo: string, tag: string }} RegistryEntry
+ * @typedef {Record<string, RegistryEntry>} RegistryIndex
+ * @typedef {{ fetchedAt: number, index: RegistryIndex }} RegistryCache
+ */
+
+function readCache() /** @returns {RegistryCache | null} */ {
+  try {
+    const raw = fs.readFileSync(REGISTRY_CACHE_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(/** @type {RegistryCache} */ cache) {
+  try {
+    fs.writeFileSync(REGISTRY_CACHE_PATH, JSON.stringify(cache, null, 2));
+  } catch {
+    /* cache is best-effort */
+  }
+}
+
+/** @returns {Promise<RegistryIndex>} */
+async function fetchRegistryIndexFresh() {
+  const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, { headers: { "User-Agent": "sfmc-fetch-module" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
+  const json = await res.json();
+  if (typeof json !== "object" || json === null || Array.isArray(json)) {
+    throw new Error("registry index must be a JSON object mapping id → { repo, tag }");
+  }
+  return /** @type {RegistryIndex} */ (json);
+}
+
+/**
+ * Resolve the first-party registry index. Prefer the live fetch; on network
+ * failure fall back to a 1h TTL cache; on both failing, raise.
+ *
+ * @returns {Promise<{ index: RegistryIndex, stale: boolean }>}
+ */
+async function resolveRegistryIndex() {
+  const cache = readCache();
+  if (cache && Date.now() - cache.fetchedAt < REGISTRY_CACHE_TTL_MS) {
+    try {
+      const fresh = await fetchRegistryIndexFresh();
+      writeCache({ fetchedAt: Date.now(), index: fresh });
+      return { index: fresh, stale: false };
+    } catch {
+      return { index: cache.index, stale: false };
+    }
+  }
+  try {
+    const fresh = await fetchRegistryIndexFresh();
+    writeCache({ fetchedAt: Date.now(), index: fresh });
+    return { index: fresh, stale: false };
+  } catch (err) {
+    if (cache) {
+      console.warn(`[fetch-module] registry offline (${err.message}); using cached index from ${new Date(cache.fetchedAt).toISOString()}`);
+      return { index: cache.index, stale: true };
+    }
+    throw new Error(`registry unreachable and no cache: ${err.message}. Pass --from explicitly to skip the registry.`);
+  }
+}
+
+/** @param {string} id @returns {Promise<string>} */
+async function defaultSourceFor(id) {
+  const { index } = await resolveRegistryIndex();
+  const entry = index[id];
+  if (!entry || !entry.repo) {
+    const known = Object.keys(index).sort().join(", ");
+    throw new Error(`module "${id}" not found in first-party registry. Known: ${known || "(empty)"}. Pass --from explicitly to install from another source.`);
+  }
+  return `github:${entry.repo}@${entry.tag}`;
+}
 
 const [, , verb, ...rest] = process.argv;
 
@@ -237,8 +326,11 @@ async function main() {
     console.log(`tools/fetch-module.mjs — populate ./modules/packages/<id>/
 
 Commands:
-  install <id> --from <source>     fetch and install
-  list          --from github:o/r[@tag]    list available modules in a release
+  install <id> [--from <source>]      fetch and install
+                                      (no --from → first-party registry)
+  search                              list the first-party registry
+  list          --from <source>      list available modules in a source release
+                                      (no --from → first-party registry)
 
 Sources:
   local:/abs/path/to/foo.zip
@@ -247,9 +339,26 @@ Sources:
 `);
     return;
   }
+  if (verb === "search") {
+    const { index, stale } = await resolveRegistryIndex();
+    const ids = Object.keys(index).sort();
+    if (stale) console.warn("[fetch-module] registry cache may be stale (offline mode)");
+    console.log(`First-party registry (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}) — ${ids.length} modules:`);
+    for (const id of ids) {
+      const e = index[id];
+      console.log(`  ${id.padEnd(28)} ${e.repo}@${e.tag}`);
+    }
+    return;
+  }
   if (verb === "list") {
     const flags = parseFlags(rest);
-    if (!flags.from || !flags.from.startsWith("github:")) die("--from github:owner/repo required");
+    let source = flags.from;
+    if (!source) {
+      source = `${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}`;
+      flags.from = `github:${source}`;
+      console.log(`[fetch-module] no --from given; listing first-party registry: ${source}`);
+    }
+    if (!flags.from.startsWith("github:")) die("--from github:owner/repo required (or omit to use the first-party registry)");
     await listGithub(flags.from);
     return;
   }
@@ -257,7 +366,11 @@ Sources:
   const id = rest[0];
   if (!id) die("usage: install <id> --from <source>");
   const flags = parseFlags(rest.slice(1));
-  if (!flags.from) die("--from <source> required");
+  if (!flags.from) {
+    const source = await defaultSourceFor(id);
+    console.log(`[fetch-module] no --from given; using first-party registry → ${source}`);
+    flags.from = source;
+  }
 
   if (flags.from.startsWith("local:")) return fromLocal(id, flags.from, flags);
   if (flags.from.startsWith("dir:")) return fromDir(id, flags.from);
