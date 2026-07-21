@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "id": "feature-area",
+  "name": "区域功能",
+  "type": "feature",
+  "configKey": "area",
+  "requires": [],
+
+  "permissions": ["config:read:area"],
+
+  "services": {
+    "provides": [
+      {
+        "name": "area.byName",
+        "input": {
+          "type": "object",
+          "properties": { "name": { "type": "string" } },
+          "required": ["name"]
+        },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "area.byPoint",
+        "input": {
+          "type": "object",
+          "properties": {
+            "dimension": { "type": "string" },
+            "x": { "type": "number" },
+            "z": { "type": "number" },
+            "feature": { "type": "string" }
+          },
+          "required": ["dimension", "x", "z"]
+        },
+        "output": { "type": "object" }
+      }
+    ],
+    "requires": []
+  },
+
+  "notes": "五合一区域模块:合并 v1 的 feature-area-fly / feature-area-creative / feature-area-survival / feature-area-peace / feature-clean。单一 ModuleRegistry.register,内部委派给 peace/fly/survival/creative/clean 五个子生命周期。区域定义统一走 configs/area.json 的 areas[].features.<feature> 布尔开关,通过 SDK config.get 读取(不再用 ConfigManager.getAreas)。clean 子功能因不属于区域范围语义,额外读取 area.json 的 clean 配置块(recycle_bin / kill_list / item_max / poll_interval);creative 与 survival 存在同模块内耦合(survival 依据 creative 区域判定强制生存)。"
+}
