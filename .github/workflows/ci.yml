@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate v2 manifests
+        run: node tools/check-modules.js
+      - name: Sync index.json
+        run: node tools/sync-index.js
+      - name: Verify index.json committed
+        run: |
+          if [[ -n "$(git status --porcelain index.json)" ]]; then
+            echo "::error::index.json 与 packages/ 不同步,请运行 node tools/sync-index.js 后再提交"
+            exit 1
+          fi
+      - name: Typecheck every module (placeholder)
+        run: |
+          # 完整 typecheck 需要 esbuild + @sfmc/sdk installed
+          # 留作 follow-up;当前阶段 manifest sanity 是底线
+          echo "(typecheck skipped: 等 @sfmc/sdk 发布后启用)"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
