@@ -106,7 +106,9 @@ function fileContains(p, needle) {
 {
   let dbProc = null;
   try {
-    dbProc = spawn(process.execPath, [path.join(ROOT, "db-server", "index.js")], {
+    const dbEntry = path.join(ROOT, "db-server", "dist", "index.js");
+    if (!exists(dbEntry)) throw new Error(`db-server 未构建: ${dbEntry} 不存在,请先运行 npm run build`);
+    dbProc = spawn(process.execPath, [dbEntry], {
       cwd: ROOT,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],

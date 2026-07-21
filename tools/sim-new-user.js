@@ -29,8 +29,12 @@ function expect(cond, msg) {
 let dbProc = null;
 
 function startDb(simDir) {
+  const dbEntry = path.join(ROOT, "db-server", "dist", "index.js");
+  if (!fs.existsSync(dbEntry)) {
+    fail(`db-server 未构建: ${dbEntry} 不存在,请先运行 npm run build (或 npm run build --workspace db-server)`);
+  }
   const env = { ...process.env, SFMC_ROOT: simDir, DB_PORT: String(DB_PORT) };
-  dbProc = spawn(process.execPath, [path.join(ROOT, "db-server", "index.js")], {
+  dbProc = spawn(process.execPath, [dbEntry], {
     cwd: ROOT,
     env,
     stdio: ["ignore", "pipe", "pipe"],
