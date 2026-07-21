@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit -p sapi/tsconfig.json"
   },
   "dependencies": {
-    "@sfmc/module-tps": "*",
     "@sfmc/sdk": "*"
   },
   "peerDependencies": {
