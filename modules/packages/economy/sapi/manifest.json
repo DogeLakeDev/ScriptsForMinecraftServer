@@ -1,11 +1,32 @@
 {
-  "handlers": [],
-  "routes": [
-    { "method": "GET", "path": "/api/sfmc/economy/account/:playerId", "handler": "economy:getAccount" },
-    { "method": "POST", "path": "/api/sfmc/economy/transaction", "handler": "economy:applyTransaction" },
-    { "method": "POST", "path": "/api/sfmc/economy/transfer", "handler": "economy:transfer" },
-    { "method": "GET", "path": "/api/sfmc/economy/daily-tasks", "handler": "economy:getDailyTasks" },
-    { "method": "POST", "path": "/api/sfmc/economy/daily-tasks/submit", "handler": "economy:submitDailyTask" }
+  "schemaVersion": 2,
+  "id": "feature-economy",
+  "name": "经济系统",
+  "type": "feature",
+  "configKey": "economy",
+  "requires": [],
+
+  "permissions": [
+    "db:read:sfmc_economy_accounts",
+    "db:write:sfmc_economy_accounts",
+    "db:read:sfmc_economy_transactions",
+    "db:write:sfmc_economy_transactions",
+    "db:read:sfmc_economy_daily_tasks",
+    "db:write:sfmc_economy_daily_tasks"
   ],
-  "migrations": []
+
+  "services": {
+    "provides": [
+      { "name": "economy.account.get", "input": { "type": "object" }, "output": { "type": "object" } },
+      { "name": "economy.account.credit", "input": { "type": "object" }, "output": { "type": "object" } },
+      { "name": "economy.account.debit", "input": { "type": "object" }, "output": { "type": "object" } },
+      { "name": "economy.account.transfer", "input": { "type": "object" }, "output": { "type": "object" } },
+      { "name": "economy.dailyTasks.list", "input": { "type": "object" }, "output": { "type": "object" } },
+      { "name": "economy.dailyTasks.submit", "input": { "type": "object" }, "output": { "type": "object" } },
+      { "name": "economy.stats.monthly", "input": { "type": "object" }, "output": { "type": "object" } }
+    ],
+    "requires": []
+  },
+
+  "notes": "v2 经济系统 keystone。提供 7 个 service (account.get / credit / debit / transfer + dailyTasks.list / submit + stats.monthly);land / coop / daily-task 在 v2 调用这些 service.account.* 与 service.dailyTasks.* (原 v1 通过 @sfmc/module-economy import 静态函数)。SAPI 端只做月度白皮书广播 (EconomyReport.start / stop);真正的业务逻辑仍在 db-server/src/domain/economy.ts 但暴露方式改为 db.tx + tx.call(\"economy.<verb>\") handler 模式 (P1 改造)。本模块搬运 v1 EconomyApi 的 5 个 HTTP 客户端 + EconomyReport 月度白皮书。"
 }
