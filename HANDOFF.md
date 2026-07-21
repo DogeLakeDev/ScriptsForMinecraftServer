@@ -65,15 +65,31 @@ Per the user's directives:
 | `land` + `land-gui` deleted v1 src files | ✅ |
 | Documentation rewrite | ✅ docs/dev/{README, manifest-contract, sdk-reference, module-author}.{zh,en}.md + docs/marketplace.{zh,en}.md all lifted to v2 four-drawer |
 | `Tanya7z/sfmc-modules` repo created + skeleton pushed | ✅ https://github.com/Tanya7z/sfmc-modules, 2 commits on main |
+| **v2 protocol runtime fixes** | ✅ PR #3 (5e6fe15) — fixed 7 BLOCKERs: route body parsing, /configs/all auth exemption, tx moduleId spoofing, db:write:* assertion, schema-registry finalize/softDelete SQL, land-gui catalog registration, enabled-flip regression. `tools/smoke-modules.js` now passes 100% |
+| `afk` v2 migration | ✅ Pure config.get module (zero db / service), commit `1681b0a` |
+| `spawn-protect` v2 migration | ✅ Pure SAPI lifecycle module (zero db / service / config), commit `95013d4` |
+| `chat-sounds` v2 migration | ✅ Pure chatSend subscriber, commit `f5eee5c` |
+| **5 area modules → `feature-area` v2 consolidation** | ✅ PR #4 (42f58db) — merged `fly` + `creative` + `survival` + `peace` + `clean` into single `feature-area` module with unified `areas[].features.<name>` config schema. Single ModuleRegistry.register + 5 sub-lifecycles |
+| URL normalization finalization | ✅ All Shiroha7z/sfmc-modules → Tanya7z/sfmc-modules, author fields restored to Shiroha7z signature handle |
+| tools/smoke-modules.js spawnSync import | ✅ Fixed |
+| v2 manifest permission key regex | ✅ Now accepts 2-segment `service:<name>` AND 3-segment `db:op:*` / `config:op:*` |
 
 ### Not Done (where to pick up)
 
+15 v1 modules remaining:
+- **Wave 1 (independent, no db)**: `inventory-switcher`, `qa`, `tps`, `monitor`
+- **Wave 2 (simple db)**: `online-time`, `activity-log`, `daily-task`
+- **Wave 3 (provides-economy keystone)**: `money` — unlocks restoring land's economy refs
+- **Wave 4 (depends-on-money/economy)**: `chat`, `chat-gui`, `coop`, `coop-gui`
+- **Wave 5 (cross-domain)**: `scoreboard-sync`
+
 | Area | Notes |
 |------|-------|
-| Other 22 v1 modules → v2 migration | afk / fly / peace / spawnProtect / clean / qa / tps / chatSounds / priceIndex / dailyTask / onlineTime / monitor / activityLog / creative / survival / inventorySwitcher / coop / chat / money / scoreboardSync / etc. |
 | After each v2 migration → `git subtree push` to Tanya7z/sfmc-modules | Then `git rm -rf modules/packages/<id>` here |
-| Main repo `modules/` clearance + catalog.json remote-fetch-only switch | Only after ALL 24 migrated |
-| Delete `db-server/src/routes/lands.ts` + `db-server/src/domain/land.ts` + `land` DDL from `schema.ts` | Only after all 22 v1 modules migrated (right now it's dead code needed for v1 compilation) |
+| Main repo `modules/` clearance + catalog.json remote-fetch-only switch | Only after ALL 19 → v2 migrated |
+| Delete `db-server/src/routes/lands.ts` + `db-server/src/domain/land.ts` + `land` DDL from `schema.ts` | Only after all 15 v1 modules migrated (right now it's dead code needed for v1 compilation) |
+| Restore land's economy refs (`requires:[feature-economy]`, `permission:service:economy.account`, `tx.call('economy.debit')`) | When `feature-economy` lands in v2 (Wave 3) |
+| Restore feature-spawn-protect etc. to enabled=true by default | After smoke proves all 19 stable |
 | Publish `@sfmc/sdk` to npm | Currently local-only. `npm publish` from `modules/sdk/@sfmc-sdk` once release-ready |
 | `npm run bundle` SEA build verification | Make sure new SDK subpaths land in SEA bundle |
 
