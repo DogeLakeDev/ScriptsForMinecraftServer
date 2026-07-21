@@ -5,6 +5,7 @@ import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
 import { cmdModuleDisable, cmdModuleEnable, cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify, scanAndWarnUnknown } from "./module-commands.js";
+import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 
@@ -92,6 +93,21 @@ async function main(): Promise<void> {
     case "update":
       console.log(await cmdUpdate(rest));
       break;
+    case "behavior-pack":
+    case "bp": {
+      const [sub, ...subRest] = rest;
+      switch (sub) {
+        case "build":
+          console.log(await cmdBehaviorPackBuild(subRest));
+          break;
+        case "deploy":
+          console.log(await cmdBehaviorPackDeploy(subRest));
+          break;
+        default:
+          console.log(c.yellow("Usage: sfmc behavior-pack <build|deploy>"));
+      }
+      break;
+    }
     case "init": {
       const { runWizard } = await import("./wizard.js");
       await runWizard();

@@ -465,6 +465,76 @@ export async function runWizard(): Promise<void> {
     return;
   }
 
+  /* install → build → deploy chain. If the user skipped module selection
+   * earlier, this still runs `behavior-pack build` + `deploy` so the BP/
+   * RP folders exist on disk — BDS just sees an empty script. */
+  await runInstallBuildDeploy(rootDir, selectedModules, bdsResolved);
+
   outro(c.green("Done! Run help to learn managing."));
+}
+
+async function runInstallBuildDeploy(rootDir: string, selectedModules: string[], bdsResolved: string): Promise<void> {
+  if (selectedModules.length > 0) {
+    const fetchScript = path.join(rootDir, "tools", "fetch-module.mjs");
+    if (fs.existsSync(fetchScript)) {
+      const installT = [
+        {
+          title: `Installing ${selectedModules.length} module(s) from first-party registry`,
+          task: async (): Promise<string> => {
+            execFileSync(process.execPath, [fetchScript, "install", ...selectedModules], {
+              cwd: rootDir,
+              stdio: ["ignore", "pipe", "pipe"],
+            });
+            return `${selectedModules.length} installed`;
+          },
+        },
+      ];
+      try {
+        await tasks(installT);
+      } catch (e) {
+        note(c.yellow(`install failed: ${(e as Error).message}\nYou can retry with: sfmc module install <id>`));
+      }
+    } else {
+      note(c.yellow(`tools/fetch-module.mjs missing — run \`sfmc module install <id>\` later for each of: ${selectedModules.join(", ")}`));
+    }
+  } else {
+    note(c.dim("No modules selected — behavior pack will be empty until you install one with `sfmc module install <id>`."));
+  }
+
+  const { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } = await import("./commands-behavior-pack.js");
+  const buildT = [
+    {
+      title: "Building behavior pack",
+      task: async (): Promise<string> => {
+        const out = await cmdBehaviorPackBuild([]);
+        if (out.startsWith("[31m")) throw new Error(out);
+        return out;
+      },
+    },
+  ];
+  try {
+    await tasks(buildT);
+  } catch (e) {
+    note(c.yellow(`build failed: ${(e as Error).message}\nRun \`sfmc behavior-pack build\` later to retry.`));
+    return;
+  }
+
+  const deployT = [
+    {
+      title: `Deploying to ${bdsResolved}`,
+      task: async (): Promise<string> => {
+        const out = await cmdBehaviorPackDeploy([]);
+        if (out.startsWith("[31m")) throw new Error(out);
+        return out;
+      },
+    },
+  ];
+  try {
+    await tasks(deployT);
+    note(c.green("Restart BDS to load the new behavior pack."));
+  } catch (e) {
+    note(c.yellow(`deploy failed: ${(e as Error).message}\nRun \`sfmc behavior-pack deploy\` after fixing bds_root in configs/.`));
+  }
+  void rootDir;
 }
 

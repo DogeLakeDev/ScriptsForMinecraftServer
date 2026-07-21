@@ -106,8 +106,27 @@ export function randomUuid(): string {
  * The caller is responsible for running esbuild first; pack-manager does not
  * bundle scripts. That decoupling is what lets the SEA ship without esbuild.
  */
-export async function assembleBehaviorPack(_opts: AssembleBehaviorPackOpts): Promise<void> {
-  throw new Error("pack-manager#assembleBehaviorPack: implementation lands in Commit 5");
+export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Promise<void> {
+  const version = opts.version ?? [1, 0, 0];
+  const bpUuid = randomUuid();
+  await fs.promises.rm(opts.outDir, { recursive: true, force: true });
+  await fs.promises.mkdir(opts.outDir, { recursive: true });
+  if (fs.existsSync(opts.srcDir)) {
+    await copyDirAsync(opts.srcDir, opts.outDir);
+  } else {
+    await fs.promises.mkdir(path.join(opts.outDir, "scripts"), { recursive: true });
+    await fs.promises.writeFile(path.join(opts.outDir, "scripts", "main.js"), "/* no scripts */\n", "utf8");
+  }
+  await writeBehaviorPackManifest(opts.outDir, {
+    name: opts.projectName,
+    uuid: bpUuid,
+    version,
+    description: opts.description,
+  });
+  if (opts.iconSrc && fs.existsSync(opts.iconSrc)) {
+    await copyFileAsync(opts.iconSrc, path.join(opts.outDir, "pack_icon.png"));
+  }
+  await writePermissionsJson(opts.outDir);
 }
 
 /**
@@ -115,8 +134,23 @@ export async function assembleBehaviorPack(_opts: AssembleBehaviorPackOpts): Pro
  * at `outDir`, with a single fresh `manifest.json`. Per-module subfolders are
  * preserved so resource pack authors can disambiguate (e.g. `peace/textures/...`).
  */
-export async function assembleResourcePack(_opts: AssembleResourcePackOpts): Promise<void> {
-  throw new Error("pack-manager#assembleResourcePack: implementation lands in Commit 5");
+export async function assembleResourcePack(opts: AssembleResourcePackOpts): Promise<void> {
+  const version = opts.version ?? [1, 0, 0];
+  const rpUuid = randomUuid();
+  await fs.promises.rm(opts.outDir, { recursive: true, force: true });
+  await fs.promises.mkdir(opts.outDir, { recursive: true });
+  for (const [moduleId, rpDir] of Object.entries(opts.moduleResourceDirs)) {
+    if (!fs.existsSync(rpDir)) continue;
+    const dst = path.join(opts.outDir, moduleId);
+    await fs.promises.mkdir(dst, { recursive: true });
+    await copyDirAsync(rpDir, dst);
+  }
+  await writeResourcePackManifest(opts.outDir, {
+    name: opts.projectName,
+    uuid: rpUuid,
+    version,
+    description: opts.description,
+  });
 }
 
 /**
@@ -174,20 +208,57 @@ export async function writePermissionsJson(bpDir: string): Promise<void> {
  * (or `world_resource_packs.json`). If the pack_id already exists, replace its
  * version. File missing → initialize as `[]`.
  */
-export async function enablePackInWorld(_opts: EnablePackOpts): Promise<void> {
-  throw new Error("pack-manager#enablePackInWorld: implementation lands in Commit 5");
+export async function enablePackInWorld(opts: EnablePackOpts): Promise<void> {
+  await editWorldPackList(opts, "enable");
 }
 
 /** Remove a pack_id from the world's enable-list JSON. */
-export async function disablePackInWorld(_opts: EnablePackOpts): Promise<void> {
-  throw new Error("pack-manager#disablePackInWorld: implementation lands in Commit 5");
+export async function disablePackInWorld(opts: EnablePackOpts): Promise<void> {
+  await editWorldPackList(opts, "disable");
+}
+
+interface WorldPackEntry {
+  pack_id: string;
+  version: [number, number, number];
+}
+
+async function editWorldPackList(
+  opts: EnablePackOpts,
+  mode: "enable" | "disable"
+): Promise<void> {
+  const file = path.join(
+    opts.worldsDir,
+    opts.levelName,
+    opts.kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
+  );
+  let entries: WorldPackEntry[] = [];
+  try {
+    const raw = await fs.promises.readFile(file, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) entries = parsed as WorldPackEntry[];
+  } catch {
+    /* missing / corrupt → start with [] */
+    entries = [];
+  }
+  const idx = entries.findIndex((e) => e.pack_id === opts.packUuid);
+  if (mode === "enable") {
+    const next: WorldPackEntry = { pack_id: opts.packUuid, version: opts.version };
+    if (idx >= 0) entries[idx] = next;
+    else entries.push(next);
+  } else {
+    if (idx >= 0) entries.splice(idx, 1);
+  }
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  await fs.promises.writeFile(tmp, JSON.stringify(entries, null, 2) + "\n", "utf8");
+  await fs.promises.rename(tmp, file);
 }
 
 /* ── 低层 helpers (Commit 5 实现) ──────────────────────────────────────── */
 
 export async function writeBehaviorPackManifest(
   outDir: string,
-  header: { name: string; uuid: string; version: [number, number, number]; description?: string }
+  header: { name: string; uuid: string; version: [number, number, number]; description?: string | undefined }
 ): Promise<void> {
   const manifest = {
     format_version: 2,
@@ -218,7 +289,7 @@ export async function writeBehaviorPackManifest(
 
 export async function writeResourcePackManifest(
   outDir: string,
-  header: { name: string; uuid: string; version: [number, number, number]; description?: string }
+  header: { name: string; uuid: string; version: [number, number, number]; description?: string | undefined }
 ): Promise<void> {
   const manifest = {
     format_version: 2,
