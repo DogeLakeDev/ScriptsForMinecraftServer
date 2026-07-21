@@ -62,7 +62,7 @@ import { readJsonFile, writeJsonFile } from "./lib/json.js";
 import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 
-if (!assertNodeVersion(22, 5)) {
+if (!assertNodeVersion(22, 13)) {
   process.exit(2);
 }
 
