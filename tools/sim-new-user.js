@@ -30,7 +30,7 @@ let dbProc = null;
 
 function startDb(simDir) {
   const env = { ...process.env, SFMC_ROOT: simDir, DB_PORT: String(DB_PORT) };
-  dbProc = spawn(process.execPath, [path.join(ROOT, "db-server", "index.js")], {
+  dbProc = spawn(process.execPath, [path.join(ROOT, "db-server", "dist", "index.js")], {
     cwd: ROOT,
     env,
     stdio: ["ignore", "pipe", "pipe"],
