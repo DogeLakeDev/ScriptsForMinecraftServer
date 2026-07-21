@@ -27,6 +27,20 @@ jobs:
         shell: pwsh
         run: npm run build --workspaces --if-present
 
+      - name: Populate default configs
+        shell: pwsh
+        run: |
+          # configs/ 在 .gitignore 中被忽略，全新 checkout 不会带上它。
+          # 正常使用时由 `sfmc init` 向导写入；CI 里没有交互式向导，
+          # 所以直接从 configs-default/ 补全，避免 check-ootb 因缺文件而失败。
+          New-Item -ItemType Directory -Force -Path configs | Out-Null
+          Get-ChildItem -Path configs-default -Filter *.json | ForEach-Object {
+            $dest = Join-Path configs $_.Name
+            if (-not (Test-Path $dest)) {
+              Copy-Item -Path $_.FullName -Destination $dest
+            }
+          }
+
       - name: Run check-ootb
         shell: pwsh
         run: node tools/check-ootb.js
