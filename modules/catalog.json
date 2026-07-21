@@ -80,6 +80,17 @@
       "entry": { "kind": "sapi", "path": "modules/packages/land/sapi/src/index.ts" }
     },
     {
+      "id": "feature-land-gui",
+      "configKey": "land_gui",
+      "name": "领地 GUI",
+      "type": "feature",
+      "description": "领地系统的图形界面(纯 service.get 调用 feature-land)",
+      "enabledByDefault": false,
+      "canDisable": true,
+      "requires": ["feature-land"],
+      "entry": { "kind": "sapi", "path": "modules/packages/land-gui/sapi/src/index.ts" }
+    },
+    {
       "id": "feature-afk",
       "configKey": "afk",
       "name": "AFK",
