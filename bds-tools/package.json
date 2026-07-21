@@ -2,7 +2,7 @@
   "name": "bds-tools",
   "version": "1.1.0",
   "description": "",
-  "author": "Shiroha7z",
+  "author": "Tanya7z",
   "type": "commonjs",
   "scripts": {
     "build": "tsc -p tsconfig.json",

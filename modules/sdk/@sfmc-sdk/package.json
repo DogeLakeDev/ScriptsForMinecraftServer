@@ -4,15 +4,15 @@
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, db/config/service capabilities, and behavior-pack build.",
   "type": "module",
   "license": "ISC",
-  "author": "Shiroha7z",
-  "homepage": "https://github.com/Shiroha7z/ScriptsForMinecraftServer#readme",
+  "author": "Tanya7z",
+  "homepage": "https://github.com/Tanya7z/ScriptsForMinecraftServer#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Shiroha7z/ScriptsForMinecraftServer.git",
+    "url": "https://github.com/Tanya7z/ScriptsForMinecraftServer.git",
     "directory": "modules/sdk/@sfmc-sdk"
   },
   "bugs": {
-    "url": "https://github.com/Shiroha7z/ScriptsForMinecraftServer/issues"
+    "url": "https://github.com/Tanya7z/ScriptsForMinecraftServer/issues"
   },
   "keywords": [
     "minecraft-bedrock",

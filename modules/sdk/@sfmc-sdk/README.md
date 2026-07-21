@@ -57,7 +57,7 @@ ModuleRegistry.register({
 
 ## 版本
 
-`0.1.x` 是首个公开发布版本,SDK 与 `Shiroha7z/ScriptsForMinecraftServer` 主仓 `main` 分支同步打 tag。
+`0.1.x` 是首个公开发布版本,SDK 与 `Tanya7z/ScriptsForMinecraftServer` 主仓 `main` 分支同步打 tag。
 
 ## License
 

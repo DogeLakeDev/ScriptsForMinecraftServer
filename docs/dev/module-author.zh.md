@@ -220,7 +220,7 @@ ModuleRegistry.register({
 ```bash
 # 1) 在主仓 + sfmc-modules 仓下都跑
 cd ../ScriptsForMinecraftServer
-git clone git@github.com:Shiroha7z/ScriptsForMinecraftServer.git
+git clone git@github.com:Tanya7z/ScriptsForMinecraftServer.git
 # 同时克隆 sfmc-modules 仓,放在同级目录
 # D:/#WorkPlace/
 # ├── ScriptsForMinecraftServer/   (主仓)

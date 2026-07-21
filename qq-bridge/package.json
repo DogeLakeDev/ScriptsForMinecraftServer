@@ -2,7 +2,7 @@
   "name": "qq-bridge",
   "version": "1.0.0",
   "description": "QQ ↔ MC 桥接进程:WS 3002 接 LLBot reverse-ws,转发 OneBot 11 事件到 db-server",
-  "author": "Shiroha7z",
+  "author": "Tanya7z",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
