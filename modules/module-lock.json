@@ -25,7 +25,7 @@
       "enabled": true,
       "updatedAt": 1784487209308
     },
-    "feature-clean": {
+    "feature-area": {
       "enabled": true,
       "updatedAt": 1784487209308
     },
@@ -52,22 +52,6 @@
     "feature-inventory-switcher": {
       "enabled": true,
       "updatedAt": 1784041411927
-    },
-    "feature-area-fly": {
-      "enabled": true,
-      "updatedAt": 1784463641711
-    },
-    "feature-area-creative": {
-      "enabled": true,
-      "updatedAt": 1784041413141
-    },
-    "feature-area-survival": {
-      "enabled": true,
-      "updatedAt": 1784041413608
-    },
-    "feature-area-peace": {
-      "enabled": true,
-      "updatedAt": 1784041414102
     },
     "feature-qa": {
       "enabled": true,
