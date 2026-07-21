@@ -33,7 +33,7 @@
     "module-core:typecheck": "npm run sdk:typecheck",
     "module-core:test": "echo \"no sdk tests yet\"",
     "module-core:verify": "npm run sdk:verify",
-    "check-catalog": "node /tools/check-catalog.js",
+    "check-catalog": "node tools/check-catalog.js",
     "lint": "eslint . --ext .ts,.tsx",
     "bundle": "node build-sea.mjs",
     "sea": "node --build-sea sea-config.json"
