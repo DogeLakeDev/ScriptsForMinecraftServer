@@ -145,29 +145,58 @@ flowchart LR
 
 ## 快速开始
 
+SFMC 提供两条等价的上手路径,选你最舒服的就行。
+
+### ⚡ SEA 单 exe(推荐 — 不想碰 Node)
+
 ```bash
-# 1. 安装
+# 1. 下载对应平台的 sfmc.exe(从 GitHub Releases),放到一个空目录
+# 2. 自检环境
+node tools/check-ootb.js     # 或者直接在 exe 同目录跑 ./sfmc.exe wizard
+
+# 3. 首次启动会跑 wizard:填 BDS 路径 / LLBot 路径 / 备份目录,
+#    然后选 1+ 个模块 → 自动 install → build → deploy 到 BDS
+./sfmc.exe                   # 等同 sfmc
+
+# 4. REPL 起动后,装更多模块不用重启 BDS(锁变更就行)
+sfmc> module install <id>
+sfmc> behavior-pack build && behavior-pack deploy
+
+# 5. 启动全部服务
+sfmc> start -all
+```
+
+### ⚙️ npm monorepo(开发者 — 改 BP 脚本 / 写自定义模块)
+
+```bash
+# 1. clone + 装依赖
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer
 cd ScriptsForMinecraftServer
 npm install
 
-# 2. 自检环境
+# 2. 自检 + 跑 wizard(填 BDS/LLBot/备份目录)
 node tools/check-ootb.js
+node sfmc/dist/main.js       # 同 sfmc
 
-# 3. 进入cil并初始化
-sfmc
+# 3. 装模块(默认从第一方 sfmc-modules 注册表)
+node tools/fetch-module.mjs install peace
+node tools/fetch-module.mjs search                  # 看可用模块
 
-# 4. 安装模块
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v2-module-system
-# 也可以直接 cp -r modules/packages/feature-* <你想塞的>
+# 4. 写自定义 BP / 自定义模块 → 改完
+npm run build --workspaces   # 重 build 全部 SDK + 装配工具
+sfmc> behavior-pack build && behavior-pack deploy
 
-# 5. 部署 BP 到 BDS
-cd scriptsforminecraftserver && npm run build:deploy
-
-# 6. 启动
+# 5. 启动
 sfmc> start -all
 ```
+
+两条路**共用同一份**:
+- 第一方模块注册表 `Shiroha7z/sfmc-modules`(GitHub Releases)
+- `tools/fetch-module.mjs` 拉模块
+- `sfmc behavior-pack build/deploy` 走同一套 bds-tools/pack-manager
+- `modules/module-lock.json` 启/禁状态
+
+SEA 不含固定 BP — 行为包是你装了模块后**实时装配**出来的。未知来源模块(不在第一方 index)会触发顶部黄字警告,确认无误可继续。
 
 ## 目录速览
 

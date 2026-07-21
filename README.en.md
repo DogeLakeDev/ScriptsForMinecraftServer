@@ -138,30 +138,58 @@ flowchart LR
 
 ## Quick start
 
+SFMC ships two equivalent on-ramps. Pick whichever feels right.
+
+### ⚡ SEA single-exe (recommended — skip Node entirely)
+
 ```bash
-# 1. Install
+# 1. Grab sfmc.exe for your platform from GitHub Releases, drop it in an empty dir
+# 2. Self-check
+node tools/check-ootb.js            # or just run ./sfmc.exe wizard from the same folder
+
+# 3. First launch runs the wizard: pick BDS path / LLBot path / backup dir,
+#    then pick 1+ modules — it auto-installs → builds → deploys to BDS.
+./sfmc.exe                          # alias for sfmc
+
+# 4. Once REPL is up, install more modules without restarting BDS:
+sfmc> module install <id>
+sfmc> behavior-pack build && behavior-pack deploy
+
+# 5. Bring up everything
+sfmc> start -all
+```
+
+### ⚙️ npm monorepo (developers — edit BP scripts / write custom modules)
+
+```bash
+# 1. clone + install
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer
 cd ScriptsForMinecraftServer
 npm install
 
-# 2. Self-check
+# 2. Self-check + wizard (fill in BDS / LLBot / backup paths)
 node tools/check-ootb.js
+node sfmc/dist/main.js              # same as sfmc
 
-# 3. Initialize (first run only)
-node sfmc/dist/main.js
-# Wizard → writes configs/db_config.json → enters REPL
+# 3. Install modules (default: first-party sfmc-modules registry)
+node tools/fetch-module.mjs install peace
+node tools/fetch-module.mjs search                     # see what's available
 
-# 4. Install modules
-node tools/fetch-module.mjs install feature-land \
-  --from github:DogeLakeDev/ScriptsForMinecraftServer@v2-module-system
-# Or just `cp -r modules/packages/feature-* <whatever you want>`
+# 4. After editing BP / writing a custom module:
+npm run build --workspaces         # rebuild SDK + assembly tooling
+sfmc> behavior-pack build && behavior-pack deploy
 
-# 5. Deploy BP to BDS
-cd scriptsforminecraftserver && npm run build:deploy
-
-# 6. Start
+# 5. Start
 sfmc> start -all
 ```
+
+Both paths share the same:
+- First-party module registry `Shiroha7z/sfmc-modules` (GitHub Releases).
+- `tools/fetch-module.mjs` to pull modules.
+- `sfmc behavior-pack build/deploy` driven by `bds-tools/pack-manager`.
+- `modules/module-lock.json` for enable/disable state.
+
+The SEA does **not** ship a fixed behavior pack — the BP is assembled live from your enabled modules. Modules not in the first-party registry trigger a yellow "unknown source" warning at boot; verify before trusting.
 
 ## Directory layout
 
