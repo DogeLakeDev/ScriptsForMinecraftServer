@@ -2,7 +2,7 @@
   "name": "db-server",
   "version": "1.0.0",
   "description": "",
-  "author": "Tanya7z",
+  "author": "Shiroha7z",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

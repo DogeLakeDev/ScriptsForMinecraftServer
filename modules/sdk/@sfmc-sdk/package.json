@@ -4,7 +4,7 @@
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, db/config/service capabilities, and behavior-pack build.",
   "type": "module",
   "license": "ISC",
-  "author": "Tanya7z",
+  "author": "Shiroha7z",
   "homepage": "https://github.com/Tanya7z/ScriptsForMinecraftServer#readme",
   "repository": {
     "type": "git",
