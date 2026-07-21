@@ -1,7 +1,8 @@
 # ScriptsForMinecraftServer 使用文档
 
 > 把 Minecraft BDS 服务器从零部署到日常运维的完整流程。读完本文你能:
-> 1. 装好整套环境(Node 18+ / Node 22.5+ / Windows Loopback Exemption)
+>
+> 1. 完成环境配置
 > 2. 初始化配置(`db_config.json` / `qq_config.json` / BP `.env`)
 > 3. 启动 5 个仓顶服务(db-server / qq-bridge / bds-tools / sfmc / BP)
 > 4. 在 BDS 内启用 / 关闭模块
@@ -43,7 +44,8 @@
 └─────────────────────────────────────────────────────────┘
 ```
 
-**端口速查**:
+**默认端口速查**:
+
 - `3001` — db-server REST API (BP / sfmc / qq-bridge 都打这里)
 - `3002` — qq-bridge 接入 LLBot OneBot 11 的 WebSocket
 - `3003` — (旧版预留,目前**不使用**;MC→QQ 由 db-server 直接连 LLBot:3004)
@@ -52,9 +54,9 @@
 
 | 组件 | 要求 |
 |------|------|
-| Node.js | 18.x(SAPI bundle)+ 22.5+(db-server) |
+| Node.js | 22.5+ |
 | 操作系统 | Windows 10/11(主要平台),Linux/macOS 也支持 |
-| BDS | Bedrock Dedicated Server 1.26.x(已测试 preview.30) |
+| BDS | Bedrock Dedicated Server 1.26.x |
 | 磁盘 | ~500MB(含 BP + 服务 + node_modules) |
 
 **Node 安装**:从 [nodejs.org](https://nodejs.org/) 拉 22.5+ LTS。装完后:
@@ -86,6 +88,7 @@ node tools/check-ootb.js
 ```
 
 预期输出:
+
 ```
 [check-ootb] OK: <N> checks passed
 ```
@@ -101,6 +104,7 @@ node sfmc/dist/main.js
 ```
 
 sfmc 检测到没有 `configs/db_config.json` 时会自动运行 wizard,引导你设置:
+
 - db-server 端口(默认 3001)
 - db-server 数据目录(默认 `./data`)
 - modules 目录(默认 `./modules`)
@@ -138,6 +142,7 @@ CUSTOM_DEPLOYMENT_PATH=C:/path/to/BDS/behavior_packs
 ### 4.3 默认配置覆盖
 
 `configs-default/` 内有 7 个 JSON 模板:
+
 - `db_config.json` — db-server 端口
 - `banned_items.json` — 创造区域禁止物品
 - `areas.json` — fly/creative/peace 区域定义
@@ -162,6 +167,7 @@ npm run dev    # tsx 实时;或 npm run build && npm start
 ```
 
 预期日志:
+
 ```
 [manifest] loaded schemaVersion=1 modules=22 routes=34
 [initSchema] created 12 tables
@@ -170,6 +176,7 @@ API 健康检查: http://127.0.0.1:3001/api/health
 ```
 
 健康检查:
+
 ```bash
 curl http://127.0.0.1:3001/api/health
 # {"ok": true}
@@ -183,6 +190,7 @@ npm run dev
 ```
 
 预期日志:
+
 ```
 [qq-bridge] WS server listening on 127.0.0.1:3002
 [qq-bridge] waiting for LLBot connection...
@@ -240,6 +248,7 @@ sfmc behavior-pack deploy     # 写到 BDS worlds/<level>/behavior_packs/sfmc-mo
 有两种方式:
 
 **方式 1 — sfmc REPL**(不重启 BDS):
+
 ```
 sfmc> modules list              # 列出所有模块 + 启停状态
 sfmc> modules enable feature-economy
@@ -248,6 +257,7 @@ sfmc> modules refresh           # 推送给 db-server 与 SAPI
 ```
 
 **方式 2 — 直接编辑 `modules/module-lock.json`**:
+
 ```json
 {
   "modules": {
@@ -256,6 +266,7 @@ sfmc> modules refresh           # 推送给 db-server 与 SAPI
   }
 }
 ```
+
 保存后 **重启 BDS** 生效(no hot-reload)。
 
 ### 6.2 修改配置
@@ -271,6 +282,7 @@ sfmc> modules refresh           # 推送给 db-server 与 SAPI
 | `configs/banned_items.json` | 创造区域放置限制 |
 
 修改后验证:
+
 ```bash
 node tools/check-catalog.js   # catalog + modules 自检
 ```
@@ -323,6 +335,7 @@ cp modules/module-lock.json modules/module-lock.json.bak
 ### 7.3 BP 重部署
 
 代码修改后:
+
 ```bash
 sfmc behavior-pack build && sfmc behavior-pack deploy
 # 然后在 sfmc REPL 里 `restart bds` 或重启 BDS
@@ -370,7 +383,7 @@ sfmc REPL `update` 是上面这条命令的封装。
 1. 看 BDS 日志,定位第一个 `[E]` 行
 2. `node tools/check-catalog.js` 看 catalog 是否一致
 3. `sfmc behavior-pack build` 重生成行为包并查看 esbuild 报错
-5. `npm run build:deploy` 重部署
+4. `npm run build:deploy` 重部署
 
 ### 9.2 db-server 起不来
 
@@ -380,6 +393,7 @@ cat .sfmc.db-server.log | tail -50
 ```
 
 常见原因:
+
 - 端口 3001 被占 → 改 `configs/db_config.json` 的 `db_port`
 - SQLite 文件损坏 → 用 `sqlite3 data/sfmc_data.db ".recover"` 抢救
 - 行为包版本漂移 → `sfmc behavior-pack build && sfmc behavior-pack deploy`
@@ -410,6 +424,7 @@ cat .sfmc.db-server.log | tail -50
 ---
 
 **常用路径速查**:
+
 - BP 部署路径:`<BDS>/worlds/<level>/behavior_packs/sfmc-modules/`
 - BP 构建产物(未部署):`build/sfmc-modules/scripts/main.js`
 - db-server 配置:`configs/db_config.json`

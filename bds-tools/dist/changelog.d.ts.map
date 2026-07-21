@@ -1,1 +1,0 @@
-{"version":3,"file":"changelog.d.ts","sourceRoot":"","sources":["../src/changelog.ts"],"names":[],"mappings":"AAAA;;GAEG;AAIH,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,YAAY,CAAC;AAGnD,QAAA,MAAM,cAAc,kEAAkE,CAAC;AAEvF,oCAAoC;AACpC,wBAAsB,cAAc,CAAC,OAAO,EAAE,MAAM,GAAG,OAAO,CAAC,gBAAgB,GAAG,IAAI,CAAC,CA4CtF;AAED,OAAO,EAAE,cAAc,EAAE,CAAC"}
