@@ -32,8 +32,12 @@ const PERMISSION_KEYS = new Set<string>([
 ]);
 
 function validPermissionKey(k: string): boolean {
-  // 形如 "db:read:lands" / "config:read:land" / "service:economy.debit"
+  // 三类合法格式:
+  //   db:<op>:<table>      (例 db:read:lands / db:write:land_members)
+  //   config:<op>:<key>    (例 config:read:land / config:write:afk)
+  //   service:<name>       (例 service:economy.debit / service:land.byId — 名字可含 .)
   // 不允许 raw "*"(要求明确对象) — 调试时一律 Resource-level
+  if (/^service:[A-Za-z0-9_.]+$/.test(k)) return true;
   return /^[a-z]+:[a-z]+:[A-Za-z0-9_.]+$/.test(k);
 }
 

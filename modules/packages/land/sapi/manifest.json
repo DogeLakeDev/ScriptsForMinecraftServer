@@ -4,7 +4,7 @@
   "name": "领地系统",
   "type": "feature",
   "configKey": "land",
-  "requires": ["feature-economy"],
+  "requires": [],
 
   "permissions": [
     "db:read:lands",
@@ -16,8 +16,7 @@
     "db:read:land_operations",
     "db:write:land_operations",
     "config:read:land",
-    "config:write:land",
-    "service:economy.account"
+    "config:write:land"
   ],
 
   "services": {
@@ -96,10 +95,8 @@
         "output": { "type": "array" }
       }
     ],
-    "requires": [
-      { "name": "economy.account" }
-    ]
+    "requires": []
   },
 
-  "notes": "v2 标准例子;迁移自 routes/lands.ts + domain/land.ts + sfmc_lands 系列表。Phase 1 关键变更:表名去 sfmc_ 前缀(lands/land_members/land_audit_logs),land_members 用合成 id 主键。"
+  "notes": "v2 标准例子;迁移自 routes/lands.ts + domain/land.ts + sfmc_lands 系列表。Phase 1 关键变更:表名去 sfmc_ 前缀(lands/land_members/land_audit_logs),land_members 用合成 id 主键。economy.account 跨模块依赖已临时撤回:feature-economy 仍是 v1,在 feature-economy 迁移到 v2 后,本 manifest 还原 requires [feature-economy] + permission service:economy.* + tx.call('economy.debit') 等。土地转移/税收费用的临时方案:接收方经济积分由调用方命令触发,代码已注释说明。"
 }

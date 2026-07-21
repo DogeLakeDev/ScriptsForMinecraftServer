@@ -14,6 +14,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
+const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
 const HOST = "127.0.0.1";
