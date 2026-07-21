@@ -4,7 +4,6 @@
   "mainFormat": "module",
   "assets": {
     "configs_default": "dist/sea/configs-default.zip",
-    "modules": "dist/sea/modules.zip",
     "resource_packs": "dist/sea/resource_packs.zip",
     "behavior_packs": "dist/sea/behavior_packs.zip"
   }

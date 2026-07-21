@@ -7,7 +7,7 @@
  *   - reload 时仅覆盖原对象 (mutate), 保留运行时引用的同一份对象
  */
 import { existsSync, readFileSync } from "node:fs";
-import { configPath, resolveRuntimeRoot } from "@sfmc/config";
+import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./log.js";

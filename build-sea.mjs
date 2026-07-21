@@ -50,9 +50,15 @@ async function buildZip(dir) {
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
+/* Stage K (SEA slim): business modules (22 modules under modules/packages/)
+ * are NOT bundled into the SEA. The dispatcher reads them at runtime from
+ * the local `modules/packages/<id>/` directory — a fixed convention. To
+ * populate that directory, use `node tools/fetch-module.mjs <source>` (see
+ * docs/marketplace.zh.md). Only the skeleton — configs-default,
+ * resource_packs, behavior_packs — ships inside the .exe.
+ */
 const assetDirs = [
   { dir: "configs-default", name: "configs-default.zip" },
-  { dir: "modules", name: "modules.zip" },
   { dir: "scriptsforminecraftserver/resource_packs", name: "resource_packs.zip" },
   { dir: "scriptsforminecraftserver/behavior_packs", name: "behavior_packs.zip" },
 ];
@@ -68,4 +74,6 @@ for (const { dir, name } of assetDirs) {
   fs.writeFileSync(out, buf);
   console.log(`[sea] asset ${name} -> ${(buf.length / 1024).toFixed(0)} KB`);
 }
+
+console.log("[sea] modules are read at runtime from ./modules/packages/<id>/ (populate via tools/fetch-module.mjs)");
 

@@ -11,7 +11,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.log = void 0;
 exports.closeLog = closeLog;
-const logs_1 = require("@sfmc/logs");
+const logs_1 = require("@sfmc/sdk/logs");
 const paths_js_1 = require("./paths.js");
 const fileSink = (0, logs_1.createFileSink)(paths_js_1.LOG_PATH);
 process.on("exit", () => fileSink.close());

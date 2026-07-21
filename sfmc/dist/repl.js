@@ -2,6 +2,7 @@ import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { formatLog, getAllLogs, onLog, wrapLogLine } from "./logs.js";
+import { cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify } from "./module-commands.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
 import { c } from "./theme.js";
@@ -39,6 +40,13 @@ ${c.bold("Commands")}
   ${c.green("remote enroll")} <url> <token> [name]
                           Enroll this supervisor with a controller
   ${c.green("remote disable")}            Disable + disconnect remote agent
+  ${c.green("module list")} [--source <id>]
+                          List modules across marketplace sources
+  ${c.green("module install")} <id> [--source <id>] [--no-verify]
+                          Fetch + verify + install a module
+  ${c.green("module uninstall")} <id>     Remove an installed module
+  ${c.green("module verify")} [id]        Verify installed modules (SHA-256)
+  ${c.green("module info")} <id>          Show one module's details
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
   ${c.green("quit")} / ${c.green("exit")} Exit
@@ -59,6 +67,7 @@ const COMMANDS = [
     "init",
     "update",
     "remote",
+    "module",
     "version",
     "help",
     "quit",
@@ -112,6 +121,16 @@ function getCompletions(parsed) {
         case "remote":
             if (argIndex === 0)
                 return ["status", "enroll", "disable"].filter(sw);
+            return [];
+        case "module":
+        case "mod":
+            if (argIndex === 0)
+                return ["list", "install", "uninstall", "verify", "info"].filter(sw);
+            if (argIndex === 1) {
+                const verb = (parsed.cmd === "module" || parsed.cmd === "mod") ? "" : parsed.cmd;
+                if (["install", "list"].includes(verb))
+                    return ["--source", "--no-verify"].filter(sw);
+            }
             return [];
         default:
             return [];
@@ -594,6 +613,31 @@ async function execCmd(parts) {
             }
             else {
                 stdout.write("Usage: remote enroll <controller-url> <enrollment-token> [name] | remote status | remote disable\n");
+            }
+            break;
+        }
+        case "module":
+        case "mod": {
+            const [sub, ...subRest] = args;
+            switch (sub) {
+                case "list":
+                    stdout.write((await cmdModuleList(subRest)) + "\n");
+                    break;
+                case "install":
+                    stdout.write((await cmdModuleInstall(subRest)) + "\n");
+                    break;
+                case "uninstall":
+                case "remove":
+                    stdout.write((await cmdModuleUninstall(subRest)) + "\n");
+                    break;
+                case "verify":
+                    stdout.write((await cmdModuleVerify(subRest)) + "\n");
+                    break;
+                case "info":
+                    stdout.write((await cmdModuleInfo(subRest)) + "\n");
+                    break;
+                default:
+                    stdout.write(c.yellow("Usage: module <list|install|uninstall|verify|info> [args]\n"));
             }
             break;
         }

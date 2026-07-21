@@ -7,5 +7,5 @@
  * bare 模式: stdout 只输出纯 text,不加时间戳/source/level 前缀
  * (由 sfmc 的 formatLog 统一添加,避免重复)。error 走 stderr。
  */
-export declare const log: import("@sfmc/logs").Logger;
+export declare const log: import("@sfmc/sdk/logs").Logger;
 //# sourceMappingURL=log.d.ts.map

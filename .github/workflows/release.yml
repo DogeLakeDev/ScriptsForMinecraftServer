@@ -6,23 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish-npm:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          registry-url: https://registry.npmjs.org
-      - run: npm ci
-      - run: npm run build
-      - run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   build-sea:
     strategy:
       fail-fast: false
@@ -30,10 +13,13 @@ jobs:
         include:
           - os: windows-latest
             artifact: sfmc-windows-x64.exe
+            node-mirror: win-x64
           - os: ubuntu-latest
             artifact: sfmc-linux-x64
+            node-mirror: linux-x64
           - os: macos-latest
             artifact: sfmc-darwin-x64
+            node-mirror: darwin-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +27,7 @@ jobs:
         with:
           node-version: "26"
       - run: npm ci
-      - run: npm run build
+      - run: npm run build --workspaces --if-present
       - run: node build-sea.mjs
       - run: node --build-sea sea-config.json
       - name: copy node binary as base
@@ -60,6 +46,7 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
+          if-no-files-found: error
 
   release:
     needs: [build-sea]
@@ -72,8 +59,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          files: artifacts/*
           generate_release_notes: true
-

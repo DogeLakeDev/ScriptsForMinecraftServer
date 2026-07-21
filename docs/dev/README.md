@@ -7,6 +7,7 @@
 | 中文 | English |
 |------|---------|
 | [ScriptsForMinecraftServer 使用文档](../user-guide.zh.md) | [ScriptsForMinecraftServer User Guide](../user-guide.en.md) |
+| [模块市场使用指南](../marketplace.zh.md) | [Module Marketplace Guide](../marketplace.en.md) |
 
 ## 开发文档(面向 SAPI 模块作者)
 
@@ -21,6 +22,7 @@
 ### 我是用户 / 运维
 
 1. **使用文档** — 完整流程:安装 → 初始化 → 启动 → 日常操作 → 备份升级 → 应急恢复
+2. **模块市场使用指南** — SEA 部署后,如何获取业务模块(`sfmc module install ...`)、SHA-256 校验、第三方源接入
 
 ### 我是模块作者
 

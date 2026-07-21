@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runUpdate = runUpdate;
-const logs_1 = require("@sfmc/logs");
+const logs_1 = require("@sfmc/sdk/logs");
 const adm_zip_1 = __importDefault(require("adm-zip"));
 const cli_progress_1 = __importDefault(require("cli-progress"));
 const node_fs_1 = __importDefault(require("node:fs"));

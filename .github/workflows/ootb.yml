@@ -17,13 +17,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.5'
 
-      - name: Install SAPI dependencies
+      - name: Install root deps
         shell: pwsh
-        run: |
-          cd scriptsforminecraftserver
-          npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund
+
+      - name: Build all workspaces
+        shell: pwsh
+        run: npm run build --workspaces --if-present
 
       - name: Run check-ootb
         shell: pwsh
@@ -37,7 +39,8 @@ jobs:
             Get-NetTCPConnection -LocalPort $port | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
             Start-Sleep -Seconds 2
           }
-          $db = Start-Process -FilePath node -ArgumentList "db-server/index.js" -WorkingDirectory $PWD -WindowStyle Hidden -RedirectStandardOutput "db-server/_smoke.out" -RedirectStandardError "db-server/_smoke.err" -PassThru
+          $env:SFMC_ROOT = $PWD.Path
+          $db = Start-Process -FilePath node -ArgumentList "db-server/dist/index.js" -WorkingDirectory $PWD -WindowStyle Hidden -RedirectStandardOutput "db-server/_smoke.out" -RedirectStandardError "db-server/_smoke.err" -PassThru
           try {
             $ready = $false
             for ($i=0; $i -lt 40; $i++) {

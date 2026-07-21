@@ -18,7 +18,7 @@ exports.resolvePaths = resolvePaths;
 exports.clearPid = clearPid;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
-const config_1 = require("@sfmc/config");
+const config_1 = require("@sfmc/sdk/node/config");
 /** 尝试获取当前脚本所在目录 */
 function detectScriptDir() {
     // SEA bundle: 由 spawnService 注入 SFMC_ROOT

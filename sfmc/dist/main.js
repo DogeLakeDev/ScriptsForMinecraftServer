@@ -4,6 +4,7 @@ import { configPath } from "@sfmc/sdk/node/config";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
+import { cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify } from "./module-commands.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 function printVersion() {
@@ -118,6 +119,31 @@ async function main() {
             }
             else {
                 console.log("Usage: sfmc remote enroll <controller-url> <enrollment-token> [name] | sfmc remote status | sfmc remote disable");
+            }
+            break;
+        }
+        case "module":
+        case "mod": {
+            const [sub, ...subRest] = rest;
+            switch (sub) {
+                case "list":
+                    console.log(await cmdModuleList(subRest));
+                    break;
+                case "install":
+                    console.log(await cmdModuleInstall(subRest));
+                    break;
+                case "uninstall":
+                case "remove":
+                    console.log(await cmdModuleUninstall(subRest));
+                    break;
+                case "verify":
+                    console.log(await cmdModuleVerify(subRest));
+                    break;
+                case "info":
+                    console.log(await cmdModuleInfo(subRest));
+                    break;
+                default:
+                    console.log(c.yellow("Usage: sfmc module <list|install|uninstall|verify|info> [args]"));
             }
             break;
         }

@@ -54,3 +54,4 @@ export async function readModuleManifest(): Promise<unknown> {
 
 export { startRepl, HELP } from "./repl.js";
 export { runWizard } from "./wizard.js";
+export { cmdModuleList, cmdModuleInstall, cmdModuleUninstall, cmdModuleVerify, cmdModuleInfo } from "./module-commands.js";

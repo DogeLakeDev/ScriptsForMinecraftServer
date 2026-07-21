@@ -27,4 +27,5 @@ export { pushLog, onLog, getAllLogs, getRecentLogs, type UnifiedLog, type LogLev
 export declare function readModuleManifest(): Promise<unknown>;
 export { startRepl, HELP } from "./repl.js";
 export { runWizard } from "./wizard.js";
+export { cmdModuleList, cmdModuleInstall, cmdModuleUninstall, cmdModuleVerify, cmdModuleInfo } from "./module-commands.js";
 //# sourceMappingURL=index.d.ts.map

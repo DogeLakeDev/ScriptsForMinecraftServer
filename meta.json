@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "shared/sfmc-config/dist/esm/index.js": {
-      "bytes": 898,
+    "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js": {
+      "bytes": 910,
       "imports": [
         {
           "path": "node:fs",
@@ -96,7 +96,7 @@
       "format": "esm"
     },
     "sfmc/src/runtime.ts": {
-      "bytes": 2804,
+      "bytes": 2764,
       "imports": [
         {
           "path": "node:child_process",
@@ -124,20 +124,20 @@
           "external": true
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         }
       ],
       "format": "esm"
     },
     "sfmc/src/terminal.ts": {
-      "bytes": 7065,
+      "bytes": 7074,
       "imports": [
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         },
         {
           "path": "node_modules/jsonc-parser/lib/esm/main.js",
@@ -177,8 +177,8 @@
       "imports": [],
       "format": "esm"
     },
-    "shared/sfmc-logs/dist/esm/index.js": {
-      "bytes": 7804,
+    "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js": {
+      "bytes": 7829,
       "imports": [
         {
           "path": "node:fs",
@@ -194,18 +194,18 @@
       "format": "esm"
     },
     "db-server/dist/lib/log.js": {
-      "bytes": 521,
+      "bytes": 525,
       "imports": [
         {
-          "path": "shared/sfmc-logs/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/logs"
+          "original": "@sfmc/sdk/logs"
         }
       ],
       "format": "esm"
     },
     "db-server/dist/env.js": {
-      "bytes": 4090,
+      "bytes": 4099,
       "imports": [
         {
           "path": "node:fs",
@@ -223,9 +223,9 @@
           "external": true
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         },
         {
           "path": "db-server/dist/lib/log.js",
@@ -426,7 +426,7 @@
       "format": "esm"
     },
     "db-server/dist/domain/economy.js": {
-      "bytes": 12708,
+      "bytes": 12684,
       "imports": [
         {
           "path": "node_modules/sql-template-strings/index.js",
@@ -664,8 +664,29 @@
       ],
       "format": "esm"
     },
+    "db-server/dist/manifest.js": {
+      "bytes": 4798,
+      "imports": [
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:url",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
     "db-server/dist/index.js": {
-      "bytes": 12821,
+      "bytes": 14169,
       "imports": [
         {
           "path": "node:http",
@@ -796,23 +817,28 @@
           "path": "db-server/dist/lib/module-state.js",
           "kind": "import-statement",
           "original": "./lib/module-state.js"
+        },
+        {
+          "path": "db-server/dist/manifest.js",
+          "kind": "import-statement",
+          "original": "./manifest.js"
         }
       ],
       "format": "esm"
     },
     "qq-bridge/dist/log.js": {
-      "bytes": 521,
+      "bytes": 525,
       "imports": [
         {
-          "path": "shared/sfmc-logs/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/logs"
+          "original": "@sfmc/sdk/logs"
         }
       ],
       "format": "esm"
     },
     "qq-bridge/dist/config.js": {
-      "bytes": 2269,
+      "bytes": 2278,
       "imports": [
         {
           "path": "node:fs",
@@ -820,9 +846,9 @@
           "external": true
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         },
         {
           "path": "node:path",
@@ -1842,7 +1868,7 @@
       "format": "cjs"
     },
     "bds-tools/dist/paths.js": {
-      "bytes": 3413,
+      "bytes": 3422,
       "imports": [
         {
           "path": "node:fs",
@@ -1855,20 +1881,20 @@
           "external": true
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "require-call",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         }
       ],
       "format": "cjs"
     },
     "bds-tools/dist/log.js": {
-      "bytes": 890,
+      "bytes": 894,
       "imports": [
         {
-          "path": "shared/sfmc-logs/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
           "kind": "require-call",
-          "original": "@sfmc/logs"
+          "original": "@sfmc/sdk/logs"
         },
         {
           "path": "bds-tools/dist/paths.js",
@@ -7180,7 +7206,7 @@
       "format": "cjs"
     },
     "bds-tools/dist/qqutil.js": {
-      "bytes": 4235,
+      "bytes": 4244,
       "imports": [
         {
           "path": "node:http",
@@ -7193,9 +7219,9 @@
           "external": true
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "require-call",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         },
         {
           "path": "bds-tools/dist/paths.js",
@@ -7309,12 +7335,12 @@
       "format": "cjs"
     },
     "bds-tools/dist/check-update.js": {
-      "bytes": 18972,
+      "bytes": 18990,
       "imports": [
         {
-          "path": "shared/sfmc-logs/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
           "kind": "require-call",
-          "original": "@sfmc/logs"
+          "original": "@sfmc/sdk/logs"
         },
         {
           "path": "node_modules/adm-zip/adm-zip.js",
@@ -7400,99 +7426,12 @@
       "format": "cjs"
     },
     "sfmc/package.json": {
-      "bytes": 512,
+      "bytes": 813,
       "imports": [],
       "format": "esm",
       "with": {
         "type": "json"
       }
-    },
-    "sfmc/src/services.ts": {
-      "bytes": 8636,
-      "imports": [
-        {
-          "path": "node:child_process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:events",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "shared/sfmc-config/dist/esm/index.js",
-          "kind": "import-statement",
-          "original": "@sfmc/config"
-        },
-        {
-          "path": "sfmc/src/logs.ts",
-          "kind": "import-statement",
-          "original": "./logs.js"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "sfmc/src/remote-agent.ts": {
-      "bytes": 4832,
-      "imports": [
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/ws/wrapper.mjs",
-          "kind": "import-statement",
-          "original": "ws"
-        },
-        {
-          "path": "shared/sfmc-config/dist/esm/index.js",
-          "kind": "import-statement",
-          "original": "@sfmc/config"
-        },
-        {
-          "path": "sfmc/src/commands.ts",
-          "kind": "import-statement",
-          "original": "./commands.js"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
-        },
-        {
-          "path": "sfmc/src/services.ts",
-          "kind": "import-statement",
-          "original": "./services.js"
-        }
-      ],
-      "format": "esm"
     },
     "node_modules/chalk/source/vendor/ansi-styles/index.js": {
       "bytes": 5256,
@@ -7558,6 +7497,134 @@
           "path": "node_modules/chalk/source/index.js",
           "kind": "import-statement",
           "original": "chalk"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/module-commands.ts": {
+      "bytes": 11874,
+      "imports": [
+        {
+          "path": "node:fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "sfmc/src/theme.ts",
+          "kind": "import-statement",
+          "original": "./theme.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/services.ts": {
+      "bytes": 8415,
+      "imports": [
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:events",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/sdk/node/config"
+        },
+        {
+          "path": "sfmc/src/logs.ts",
+          "kind": "import-statement",
+          "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/remote-agent.ts": {
+      "bytes": 7759,
+      "imports": [
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node_modules/ws/wrapper.mjs",
+          "kind": "import-statement",
+          "original": "ws"
+        },
+        {
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc/sdk/node/config"
+        },
+        {
+          "path": "sfmc/src/commands.ts",
+          "kind": "import-statement",
+          "original": "./commands.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/services.ts",
+          "kind": "import-statement",
+          "original": "./services.js"
         }
       ],
       "format": "esm"
@@ -9016,7 +9083,7 @@
       "format": "cjs"
     },
     "sfmc/src/wizard.ts": {
-      "bytes": 16393,
+      "bytes": 16402,
       "imports": [
         {
           "path": "node_modules/@clack/prompts/dist/index.mjs",
@@ -9024,9 +9091,9 @@
           "original": "@clack/prompts"
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         },
         {
           "path": "node_modules/jszip/lib/index.js",
@@ -9067,7 +9134,7 @@
       "format": "esm"
     },
     "sfmc/src/repl.ts": {
-      "bytes": 21189,
+      "bytes": 22866,
       "imports": [
         {
           "path": "node:process",
@@ -9091,6 +9158,11 @@
           "path": "sfmc/src/logs.ts",
           "kind": "import-statement",
           "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/module-commands.ts",
+          "kind": "import-statement",
+          "original": "./module-commands.js"
         },
         {
           "path": "sfmc/src/remote-agent.ts",
@@ -9126,12 +9198,12 @@
       "format": "esm"
     },
     "sfmc/src/logs.ts": {
-      "bytes": 6787,
+      "bytes": 6791,
       "imports": [
         {
-          "path": "shared/sfmc-logs/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/logs"
+          "original": "@sfmc/sdk/logs"
         },
         {
           "path": "sfmc/src/repl.ts",
@@ -9147,7 +9219,7 @@
       "format": "esm"
     },
     "sfmc/src/commands.ts": {
-      "bytes": 5701,
+      "bytes": 6237,
       "imports": [
         {
           "path": "sfmc/src/logs.ts",
@@ -9183,7 +9255,7 @@
       "format": "esm"
     },
     "sfmc/src/main.ts": {
-      "bytes": 3872,
+      "bytes": 5188,
       "imports": [
         {
           "path": "node:fs",
@@ -9196,9 +9268,9 @@
           "external": true
         },
         {
-          "path": "shared/sfmc-config/dist/esm/index.js",
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/config"
+          "original": "@sfmc/sdk/node/config"
         },
         {
           "path": "sfmc/package.json",
@@ -9217,6 +9289,11 @@
           "path": "sfmc/src/repl.ts",
           "kind": "import-statement",
           "original": "./repl.js"
+        },
+        {
+          "path": "sfmc/src/module-commands.ts",
+          "kind": "import-statement",
+          "original": "./module-commands.js"
         },
         {
           "path": "sfmc/src/remote-agent.ts",
@@ -9418,6 +9495,21 @@
         },
         {
           "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:url",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
           "kind": "import-statement",
           "external": true
         },
@@ -10362,6 +10454,46 @@
           "external": true
         },
         {
+          "path": "node:process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:tty",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "node:child_process",
           "kind": "import-statement",
           "external": true
@@ -10388,21 +10520,6 @@
         },
         {
           "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:os",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:tty",
           "kind": "import-statement",
           "external": true
         },
@@ -10565,8 +10682,8 @@
       "exports": [],
       "entryPoint": "sfmc/src/dispatcher.ts",
       "inputs": {
-        "shared/sfmc-config/dist/esm/index.js": {
-          "bytesInOutput": 539
+        "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js": {
+          "bytesInOutput": 551
         },
         "sfmc/src/runtime.ts": {
           "bytesInOutput": 944
@@ -10574,7 +10691,7 @@
         "db-server/dist/domain/schema.js": {
           "bytesInOutput": 27249
         },
-        "shared/sfmc-logs/dist/esm/index.js": {
+        "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js": {
           "bytesInOutput": 4463
         },
         "db-server/dist/lib/log.js": {
@@ -10673,8 +10790,11 @@
         "db-server/dist/lib/module-state.js": {
           "bytesInOutput": 404
         },
+        "db-server/dist/manifest.js": {
+          "bytesInOutput": 1936
+        },
         "db-server/dist/index.js": {
-          "bytesInOutput": 5205
+          "bytesInOutput": 5915
         },
         "qq-bridge/dist/log.js": {
           "bytesInOutput": 80
@@ -10857,19 +10977,19 @@
           "bytesInOutput": 321
         },
         "bds-tools/dist/bds-manager.js": {
-          "bytesInOutput": 5395
+          "bytesInOutput": 5401
         },
         "node_modules/cheerio/dist/commonjs/options.js": {
-          "bytesInOutput": 331
+          "bytesInOutput": 335
         },
         "node_modules/domelementtype/lib/index.js": {
-          "bytesInOutput": 673
+          "bytesInOutput": 675
         },
         "node_modules/domhandler/lib/node.js": {
-          "bytesInOutput": 6300
+          "bytesInOutput": 6302
         },
         "node_modules/domhandler/lib/index.js": {
-          "bytesInOutput": 2834
+          "bytesInOutput": 2838
         },
         "node_modules/entities/lib/generated/decode-data-html.js": {
           "bytesInOutput": 47290
@@ -10878,10 +10998,10 @@
           "bytesInOutput": 233
         },
         "node_modules/entities/lib/decode_codepoint.js": {
-          "bytesInOutput": 832
+          "bytesInOutput": 836
         },
         "node_modules/entities/lib/decode.js": {
-          "bytesInOutput": 7024
+          "bytesInOutput": 7048
         },
         "node_modules/entities/lib/generated/encode-html.js": {
           "bytesInOutput": 23507
@@ -10890,16 +11010,16 @@
           "bytesInOutput": 1262
         },
         "node_modules/entities/lib/encode.js": {
-          "bytesInOutput": 833
+          "bytesInOutput": 843
         },
         "node_modules/entities/lib/index.js": {
-          "bytesInOutput": 3454
+          "bytesInOutput": 3458
         },
         "node_modules/dom-serializer/lib/foreignNames.js": {
           "bytesInOutput": 1667
         },
         "node_modules/dom-serializer/lib/index.js": {
-          "bytesInOutput": 3216
+          "bytesInOutput": 3230
         },
         "node_modules/domutils/lib/stringify.js": {
           "bytesInOutput": 914
@@ -11577,16 +11697,10 @@
           "bytesInOutput": 3015
         },
         "bds-tools/dist/check-update.js": {
-          "bytesInOutput": 10020
+          "bytesInOutput": 10029
         },
         "sfmc/package.json": {
-          "bytesInOutput": 405
-        },
-        "sfmc/src/services.ts": {
-          "bytesInOutput": 4192
-        },
-        "sfmc/src/remote-agent.ts": {
-          "bytesInOutput": 2309
+          "bytesInOutput": 610
         },
         "node_modules/chalk/source/vendor/ansi-styles/index.js": {
           "bytesInOutput": 2566
@@ -11602,6 +11716,15 @@
         },
         "sfmc/src/theme.ts": {
           "bytesInOutput": 1175
+        },
+        "sfmc/src/module-commands.ts": {
+          "bytesInOutput": 4642
+        },
+        "sfmc/src/services.ts": {
+          "bytesInOutput": 4192
+        },
+        "sfmc/src/remote-agent.ts": {
+          "bytesInOutput": 3543
         },
         "node_modules/fast-string-truncated-width/dist/utils.js": {
           "bytesInOutput": 601
@@ -11838,16 +11961,16 @@
           "bytesInOutput": 8382
         },
         "sfmc/src/repl.ts": {
-          "bytesInOutput": 9618
+          "bytesInOutput": 10689
         },
         "sfmc/src/logs.ts": {
           "bytesInOutput": 2221
         },
         "sfmc/src/commands.ts": {
-          "bytesInOutput": 3119
+          "bytesInOutput": 3458
         },
         "sfmc/src/main.ts": {
-          "bytesInOutput": 2250
+          "bytesInOutput": 2835
         },
         "sfmc/src/dispatcher.ts": {
           "bytesInOutput": 404
@@ -11874,7 +11997,7 @@
           "bytesInOutput": 2084
         }
       },
-      "bytes": 1964637
+      "bytes": 1975454
     }
   }
 }
