@@ -6,7 +6,7 @@ npm workspaces monorepo (root `package.json` has `workspaces`):
 
 | Path | What | Runtime |
 |------|------|---------|
-| `db-server/` | SQLite HTTP REST backend (plain `node:http` + `node:sqlite`) | Node.js >=22.5 |
+| `db-server/` | SQLite HTTP REST backend (plain `node:http` + `node:sqlite`) | Node.js >=22.13 |
 | `qq-bridge/` | QQ bridge (LLBot OneBot 11, WS 3002) | Node.js |
 | `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
 | `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js, can SEA-bundle |
@@ -215,14 +215,15 @@ node tools/lock.js drift         # detect drifted files
 
 ## Cursor Cloud specific instructions
 
-The Cloud VM is Linux; the repo primarily targets Windows, but the Node services run fine on Linux (Node ≥22.5 provides `node:sqlite`). The update script only runs `npm install`. Everything below is required each session before running/verifying services.
+The Cloud VM is Linux; the repo primarily targets Windows, but the Node services run fine on Linux (Node ≥22.13 provides unflagged `node:sqlite`; 22.5–22.12 require the `--experimental-sqlite` CLI flag or db-server crashes on startup with `ERR_UNKNOWN_BUILTIN_MODULE`). The update script only runs `npm install`. Everything below is required each session before running/verifying services.
 
 - **Build before running.** `dist/` is gitignored for `@sfmc/sdk`, `db-server`, `bds-tools`, etc., and services run from `dist/`. Run `npm run build --workspaces --if-present` (builds the SDK first, then the services) after `npm install`. Without it, imports like `@sfmc/sdk/node/config` fail.
 - **`configs/` is gitignored** — populate it once from `configs-default/` (`mkdir -p configs && cp -n configs-default/*.json configs/`). db-server also runs with defaults if `configs/` is absent.
-- **Gotcha — `modulesDir` in `configs/db_config.json`.** The default value copied from `configs-default/` is `"../modules"`, which resolves *relative to `PROJECT_ROOT` (= `SFMC_ROOT`, the repo root)* → `/modules` (outside the repo) → the module API returns an empty catalog. Set it to `"modules"` (or delete the key so it falls back to `<root>/modules`). When `configs/` is absent entirely, the fallback is already correct.
+- **Fixed — `modulesDir` in `configs-default/db_config.json`.** Used to ship as `"../modules"`, which resolved *relative to `PROJECT_ROOT` (= `SFMC_ROOT`, the repo root)* → `/modules` (outside the repo) → the module API returned an empty catalog. It now ships as `"modules"` so `configs/db_config.json` copied from the default is correct out of the box. When `configs/` is absent entirely, the fallback (`<root>/modules`) was already correct.
 - **Run db-server (main service, port 3001):** `SFMC_ROOT=$PWD node db-server/dist/index.js`. Health: `GET http://127.0.0.1:3001/api/health`. The module/config REST surface is JSON-backed and is the CI-tested core path (`GET /api/sfmc/modules/catalog`, `POST /api/sfmc/modules/:id/{enable|disable}`).
-- **Pre-existing bugs (not environment issues), so don't chase them during setup:**
-  - `tools/smoke-modules.js` uses `spawnSync` without importing it from `node:child_process` → crashes immediately.
-  - `tools/sim-new-user.js` (and the start-order docs above) spawn `db-server/index.js`, which does not exist — the real entry is `db-server/dist/index.js`. This makes the `sim-new-user` check in `tools/check-ootb.js` time out, so a healthy env shows **check-ootb 5/6 pass**.
-  - The SQLite-backed gameplay routes (`economy`, `lands`, `coops`, `scoreboards`, …) return `near "?": syntax error` because table names are interpolated through `sql-template-strings` (`FROM ${TABLE}` → `FROM ?`). The JSON-backed module/config API and `/api/health` work.
+- **`node:sqlite` needs Node ≥22.13, not just ≥22.5.** `db-server` imports `node:sqlite` at module scope. On 22.5.0–22.12.x the module is still gated behind `--experimental-sqlite`; importing it unflagged throws `ERR_UNKNOWN_BUILTIN_MODULE` and db-server exits immediately on startup. This is exactly what caused the `ootb` GitHub Actions workflow to fail repeatedly (`setup-node` was pinned to `node-version: '22.5'`, which resolves to `22.5.1`) — `check-ootb`'s "db-server 启动 + 模块接口" step timed out waiting for `/api/health`, and `sim-new-user`/`smoke-modules` cascaded into the same timeout. Fixed by pinning CI to `22.13`+.
+- **Pre-existing bugs (not environment issues), fixed as of this note — kept here for history:**
+  - `tools/check-catalog.js` used top-level ESM `import` syntax while the repo root `package.json` has no `"type": "module"` → `SyntaxError: Cannot use import statement outside a module` under plain `node`. Converted to CommonJS `require()` to match every other `tools/*.js` script.
+  - `tools/check-ootb.js`, `tools/sim-new-user.js`, and `tools/test-db-api.js` spawned `db-server/index.js`, which does not exist — the real entry is `db-server/dist/index.js`. This made the `db-server 启动` and `sim-new-user` checks in `tools/check-ootb.js` time out, so a healthy env used to show **check-ootb 5/6 pass**; both are now fixed and should pass 6/6 given a built workspace + `--experimental-sqlite`-capable Node.
+  - The SQLite-backed gameplay routes (`economy`, `lands`, `coops`, `scoreboards`, …) return `near "?": syntax error` because table names are interpolated through `sql-template-strings` (`FROM ${TABLE}` → `FROM ?`). The JSON-backed module/config API and `/api/health` work. This one is still open.
 - **`npm run lint` is broken out-of-the-box** — ESLint v10 needs a flat `eslint.config.js` and none exists in the repo. Use per-workspace `npm run typecheck` for static checking instead.

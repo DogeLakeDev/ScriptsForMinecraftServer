@@ -1,7 +1,7 @@
 # ScriptsForMinecraftServer User Guide
 
 > End-to-end walkthrough from a fresh BDS install to daily ops. After reading this you can:
-> 1. Set up the environment (Node 18+ / Node 22.5+ / Windows Loopback Exemption)
+> 1. Set up the environment (Node 18+ / Node 22.13+ / Windows Loopback Exemption)
 > 2. Initialize configs (`db_config.json` / `qq_config.json` / BP `.env`)
 > 3. Start all five top-level services (db-server / qq-bridge / bds-tools / sfmc / BP)
 > 4. Enable / disable modules in BDS
@@ -18,7 +18,7 @@
            │ HTTP @ 127.0.0.1:3001
            ▼
 ┌─────────────────────────────────────────────────────────┐
-│  db-server (Node 22.5+)                                 │
+│  db-server (Node 22.13+)                                │
 │  └─ SQLite @ ./data/sfmc_data.db                        │
 │     REST API /api/sfmc/*                                │
 │     manifest loader @ modules/_manifests/...json        │
@@ -52,12 +52,12 @@
 
 | Component | Required |
 |-----------|----------|
-| Node.js | 18.x (SAPI bundle) + 22.5+ (db-server) |
+| Node.js | 18.x (SAPI bundle) + 22.13+ (db-server; `node:sqlite` needs `--experimental-sqlite` before 22.13) |
 | OS | Windows 10/11 (primary), Linux/macOS also supported |
 | BDS | Bedrock Dedicated Server 1.26.x (tested with preview.30) |
 | Disk | ~500MB (BP + services + node_modules) |
 
-**Install Node**: grab 22.5+ LTS from [nodejs.org](https://nodejs.org/). Then verify:
+**Install Node**: grab 22.13+ LTS from [nodejs.org](https://nodejs.org/). Then verify:
 
 ```bash
 node -v    # should print v22.x.x
