@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { configPath, resolveRuntimeRoot } from "@sfmc/config";
+import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { QQBridgeConfig } from "./types.js";

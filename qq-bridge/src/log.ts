@@ -8,7 +8,7 @@
  * (由 sfmc 的 formatLog 统一添加,避免重复)。error 走 stderr。
  */
 
-import { createLogger, createStdoutSink } from "@sfmc/logs";
+import { createLogger, createStdoutSink } from "@sfmc/sdk/logs";
 
 export const log = createLogger({
   source: "qq",

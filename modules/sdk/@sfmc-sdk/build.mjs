@@ -35,6 +35,7 @@ const SUBPATHS = [
   { sub: "sapi/host", platform: "node" },
   { sub: "node/sdk", platform: "node" },
   { sub: "node/node", platform: "node" },
+  { sub: "node/config", platform: "node" },
   { sub: "module-loader", platform: "node" },
   { sub: "behavior-pack-build", platform: "node" },
 ];

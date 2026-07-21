@@ -3,7 +3,7 @@ import { isSea } from "node:sea";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { resolveRuntimeRoot } from "@sfmc/config";
+import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 
 /**
  * 运行模式抽象层 —— 同一份源码在 npm 与 SEA 两种产物下都能跑。

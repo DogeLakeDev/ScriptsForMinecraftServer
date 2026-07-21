@@ -14,8 +14,7 @@
     "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
     "@minecraft/server-net": "^1.0.0-beta.1.26.33-stable",
     "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
-    "@minecraft/vanilla-data": "1.26.40-preview.30",
-    "@sfmc/types": "*"
+    "@minecraft/vanilla-data": "1.26.40-preview.30"
   },
   "scripts": {
     "build": "npm-run-all2 clean bundle copy",

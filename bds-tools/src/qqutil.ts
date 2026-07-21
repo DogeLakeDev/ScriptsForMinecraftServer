@@ -8,7 +8,7 @@
 
 import http from "node:http";
 import fs from "node:fs";
-import { configPath, modulePath } from "@sfmc/config";
+import { configPath, modulePath } from "@sfmc/sdk/node/config";
 import { ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
 

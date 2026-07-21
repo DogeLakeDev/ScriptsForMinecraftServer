@@ -11,8 +11,6 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.7.0",
-    "@sfmc/config": "*",
-    "@sfmc/logs": "*",
     "chalk": "^5.4.1",
     "cli-progress": "^3.12.0",
     "jsonc-parser": "^3.3.1",

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import process from "node:process";
-import { configPath } from "@sfmc/config";
+import { configPath } from "@sfmc/sdk/node/config";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";

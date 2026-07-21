@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { WebSocket } from "ws";
-import { configPath } from "@sfmc/config";
+import { configPath } from "@sfmc/sdk/node/config";
 import { cmdRestart, cmdSend, cmdStart, cmdStop } from "./commands.js";
 import { ROOT } from "./runtime.js";
 import { SERVICE_NAMES, serviceStatus, type ServiceName } from "./services.js";

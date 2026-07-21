@@ -14,8 +14,6 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\""
   },
   "dependencies": {
-    "@sfmc/config": "*",
-    "@sfmc/logs": "*",
     "ws": "^8.21.1"
   },
   "engines": {
@@ -24,4 +22,3 @@
   "keywords": [],
   "license": "ISC"
 }
-

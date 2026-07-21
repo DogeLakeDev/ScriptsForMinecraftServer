@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { configPath, resolveRuntimeRoot } from "@sfmc/config";
+import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 
 import { log } from "./lib/log.js";
 

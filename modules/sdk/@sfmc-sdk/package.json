@@ -45,6 +45,11 @@
       "import": "./dist/esm/node/node/index.js",
       "default": "./dist/esm/node/node/index.js"
     },
+    "./node/config": {
+      "types": "./dist/types/node/config/index.d.ts",
+      "import": "./dist/esm/node/config/index.js",
+      "default": "./dist/esm/node/config/index.js"
+    },
     "./module-loader": {
       "types": "./dist/types/module-loader/index.d.ts",
       "import": "./dist/esm/module-loader/index.js",

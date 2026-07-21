@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../src/index.ts"],
-  "sourcesContent": ["/**\r\n * types/index.ts \u2014 \u5171\u4EAB\u7C7B\u578B barrel\r\n *\r\n * sapi \u901A\u8FC7 tsconfig paths \u91CC\u7684 @sfmc/types/* \u522B\u540D\u5F15\u7528\u8FD9\u91CC:\r\n *   import type { Channel } from \"@sfmc/types/chat\"\r\n */\r\nexport type { Channel, ChannelConfig, ChatMessage, MessageType, PlayerChannelSettings, RedPacket } from \"./chat.js\";\r\nexport type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from \"./coop.js\";\r\nexport type { EconomyAccountRow, EconomyIdempotencyRow, EconomyTransactionRow } from \"./economy.js\";\r\nexport type {\r\n  CreateLandRequest,\r\n  DeleteLandResult,\r\n  LandApiResult,\r\n  LandAuditLog,\r\n  LandConfig,\r\n  LandData,\r\n  LandErrorCode,\r\n  LandInviteRow,\r\n  LandMember,\r\n  LandMemberInviteResult,\r\n  LandMemberResult,\r\n  LandMemberRow,\r\n  LandPermissions,\r\n  LandPos,\r\n  LandRole,\r\n  LandRow,\r\n  LandTaxConfig,\r\n  LandValidation,\r\n  TransferLandResult,\r\n} from \"./land.js\";\r\nexport type { ModuleCatalog, ModuleCatalogEntry, ModuleEntryPath, ModuleLock, ModuleRuntimeState } from \"./module.js\";\r\nexport type { PlayerData } from \"./player.js\";\r\nexport type { Participant, ScoreboardEntry, ScoreboardIdentityTypeNumber } from \"./scoreboard.js\";\r\nexport type { WorldData } from \"./world.js\";\r\n"],
-  "mappings": ";;;;;;;;;;;;;;;AAAA;AAAA;",
-  "names": []
-}

@@ -13,7 +13,7 @@ import {
   inferLevel as sharedInferLevel,
   type LogEntry,
   type LogLevel as SharedLogLevel,
-} from "@sfmc/logs";
+} from "@sfmc/sdk/logs";
 import { SOURCE_ITEMS } from "./repl.js";
 import { c } from "./theme.js";
 

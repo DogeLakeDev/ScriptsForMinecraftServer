@@ -26,7 +26,7 @@
  *                             （字段类型 EconomyTransactionRow 在 types/economy.ts 标注）
  */
 
-import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/types";
+import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/sdk/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import { SQL, type SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";

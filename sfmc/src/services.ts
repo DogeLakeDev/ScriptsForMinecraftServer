@@ -2,7 +2,7 @@ import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
-import { configPath } from "@sfmc/config";
+import { configPath } from "@sfmc/sdk/node/config";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 

@@ -8,7 +8,7 @@
  * 见该文件内的 createUpdaterLogger()。
  */
 
-import { createLogger, createStdoutSink, createFileSink } from "@sfmc/logs";
+import { createLogger, createStdoutSink, createFileSink } from "@sfmc/sdk/logs";
 import { LOG_PATH } from "./paths.js";
 
 const fileSink = createFileSink(LOG_PATH);

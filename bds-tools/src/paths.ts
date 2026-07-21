@@ -10,7 +10,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { configPath, resolveRuntimeRoot } from "@sfmc/config";
+import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 import type { BdsUpdaterConfig } from "./types.js";
 
 /** 尝试获取当前脚本所在目录 */
