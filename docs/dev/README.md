@@ -1,8 +1,14 @@
-# ScriptsForMinecraftServer 开发文档
+# ScriptsForMinecraftServer 文档
 
-> 面向 SAPI 模块作者的开发者文档,中英双语。
+> 中英双语。
 
-## 索引
+## 使用文档(面向用户 / 运维)
+
+| 中文 | English |
+|------|---------|
+| [ScriptsForMinecraftServer 使用文档](../user-guide.zh.md) | [ScriptsForMinecraftServer User Guide](../user-guide.en.md) |
+
+## 开发文档(面向 SAPI 模块作者)
 
 | 中文 | English |
 |------|---------|
@@ -12,9 +18,15 @@
 
 ## 阅读顺序建议
 
-1. **模块作者指南** — 如果你要写/改一个 SAPI 模块,先读这个。它解释了模块放置位置、生命周期、`ModuleRegistry.register(...)` 怎么写、catalog.json 怎么登记、常见错误
-2. **SDK 三抽屉 API 索引** — 写代码时查表。`@sfmc/sdk/sapi/runtime` 是 90% 业务代码的 import 来源,这里有每个导出的最小示例
-3. **manifest 契约** — 当你需要让你的模块调用 db-server 时读这个。它定义 `manifest.json` 的字段语义、`routes[]` 占位符格式、db-server 启动期的 reconcile 流程
+### 我是用户 / 运维
+
+1. **使用文档** — 完整流程:安装 → 初始化 → 启动 → 日常操作 → 备份升级 → 应急恢复
+
+### 我是模块作者
+
+1. **模块作者指南** — 解释模块放置位置、生命周期、`ModuleRegistry.register(...)` 怎么写、catalog.json 怎么登记、常见错误
+2. **SDK 三抽屉 API 索引** — 写代码时查表。`@sfmc/sdk/sapi/runtime` 是 90% 业务代码的 import 来源
+3. **manifest 契约** — 当你需要让你的模块调用 db-server 时读这个
 
 ## 仓顶相关文档
 
