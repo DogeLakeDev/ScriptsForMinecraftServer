@@ -1,8 +1,23 @@
 {
-  "handlers": [],
-  "routes": [
-    { "method": "GET", "path": "/api/sfmc/economy/daily-tasks", "handler": "economy:getDailyTasks" },
-    { "method": "POST", "path": "/api/sfmc/economy/daily-tasks/submit", "handler": "economy:submitDailyTask" }
+  "schemaVersion": 2,
+  "id": "feature-daily-task",
+  "name": "每日任务",
+  "type": "feature",
+  "configKey": "daily_task",
+  "requires": ["feature-economy"],
+
+  "permissions": [
+    "service:economy.dailyTasks.list",
+    "service:economy.dailyTasks.submit"
   ],
-  "migrations": []
+
+  "services": {
+    "provides": [],
+    "requires": [
+      { "name": "economy.dailyTasks.list" },
+      { "name": "economy.dailyTasks.submit" }
+    ]
+  },
+
+  "notes": "v2 每日任务(基于 feature-economy service.dailyTasks.{list,submit})。迁移自 v1 DailyTask.ts,@sfmc/module-economy import 改为 service.get。业务核心仍由 economy module 提供,daily-task 只做 UI 编排(/task 命令 + 提交流程)。注:跨进程 service 派发是 P1 改造,目前 service.get 抛 ServiceError('service 未注册')——但 manifest-level requires 校验已通过。这是 keystone chain(economy)daily-task)第 1 段。"
 }
