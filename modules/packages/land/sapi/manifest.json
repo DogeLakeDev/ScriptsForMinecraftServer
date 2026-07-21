@@ -28,6 +28,51 @@
         "output": { "type": "array" }
       },
       {
+        "name": "land.byId",
+        "input": { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "land.byPos",
+        "input": { "type": "object", "properties": {
+          "dimension": { "type": "integer" },
+          "x": { "type": "integer" }, "y": { "type": "integer" }, "z": { "type": "integer" }
+        }, "required": ["dimension", "x", "y", "z"] },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "land.listByOwner",
+        "input": { "type": "object", "properties": { "ownerId": { "type": "string" } }, "required": ["ownerId"] },
+        "output": { "type": "array" }
+      },
+      {
+        "name": "land.listMembers",
+        "input": { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
+        "output": { "type": "array" }
+      },
+      {
+        "name": "land.listInvites",
+        "input": { "type": "object", "properties": { "playerId": { "type": "string" } }, "required": ["playerId"] },
+        "output": { "type": "array" }
+      },
+      {
+        "name": "land.getPlaza",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "land.plazaSettings",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "land.getPlayerRole",
+        "input": { "type": "object", "properties": {
+          "landId": { "type": "string" }, "playerId": { "type": "string" }
+        }, "required": ["landId", "playerId"] },
+        "output": { "type": "string" }
+      },
+      {
         "name": "land.validateBox",
         "input": { "type": "object", "properties": {
           "dimension": { "type": "integer" },
@@ -44,6 +89,11 @@
         "name": "land.taxDue",
         "input": { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
         "output": { "type": "object" }
+      },
+      {
+        "name": "land.auditLog",
+        "input": { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
+        "output": { "type": "array" }
       }
     ],
     "requires": [
