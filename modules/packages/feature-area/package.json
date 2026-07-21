@@ -1,9 +1,9 @@
 {
-  "name": "@sfmc/module-clean",
+  "name": "@sfmc/module-feature-area",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "SAPI module: DogeLake Cleaner - 清理掉落物并集中入箱。",
+  "description": "SAPI module: 区域功能聚合模块（peace/fly/survival/creative/clean 五合一）。SAPI 侧入口 sapi/src/index.ts。",
   "main": "sapi/src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit -p sapi/tsconfig.json"

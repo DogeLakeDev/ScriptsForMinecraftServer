@@ -1,0 +1,40 @@
+{
+  "areas": [
+    {
+      "name": "spawn_peace",
+      "dimension": "minecraft:overworld",
+      "start": [0, 0],
+      "end": [100, 100],
+      "features": {
+        "peace": true,
+        "fly": true,
+        "survival": false,
+        "creative": false,
+        "clean": false
+      }
+    }
+  ],
+  "scan_interval_ticks": 40,
+  "peace": {
+    "filters": [
+      { "family": "monster", "exclude_family": "zombie_villager" },
+      { "family": "monster", "exclude_family": "wither" },
+      { "family": "monster", "exclude_family": "illager" }
+    ]
+  },
+  "creative": {
+    "banned_items": []
+  },
+  "clean": {
+    "item_max": 192,
+    "poll_interval": 60,
+    "kill_list": [],
+    "recycle_bin": {
+      "start": [0, 60, 0],
+      "size": [5, 5],
+      "direction": -1,
+      "face": -1
+    }
+  },
+  "notes": "五合一区域模块统一配置。areas[].features.<name> 布尔位控制每个区域启用哪些子功能(peace/fly/survival/creative/clean);某功能在任意区域被开启即视为激活。start/end 为水平面 [x, z] 矩形。scan_interval_ticks 为 fly 区域进出扫描周期。peace.filters 为和平区怪物过滤器(family + exclude_family)。creative.banned_items 为创造区禁放物品 typeId。clean 块为掉落物清理配置(阈值/周期/直清列表/回收箱阵列几何);clean 属全服语义,非区域范围,仅用 features.clean 作为总开关。"
+}

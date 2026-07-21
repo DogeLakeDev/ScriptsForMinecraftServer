@@ -102,15 +102,15 @@
       "entry": { "kind": "sapi", "path": "modules/packages/afk/sapi/src/index.ts" }
     },
     {
-      "id": "feature-clean",
-      "configKey": "clean",
-      "name": "清理",
+      "id": "feature-area",
+      "configKey": "area",
+      "name": "区域功能",
       "type": "feature",
-      "description": "地面掉落物清理",
+      "description": "区域功能聚合:和平/飞行/生存/创造/清理五合一(peace/fly/survival/creative/clean)",
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/clean/sapi/src/index.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/feature-area/sapi/src/index.ts" }
     },
     {
       "id": "feature-tps",
@@ -188,50 +188,6 @@
       "canDisable": true,
       "requires": [],
       "entry": { "kind": "sapi", "path": "modules/packages/inventory-switcher/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-area-fly",
-      "configKey": "fly",
-      "name": "区域飞行",
-      "type": "feature",
-      "description": "定义区域内允许飞行",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/fly/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-area-creative",
-      "configKey": "creative",
-      "name": "创造区域",
-      "type": "feature",
-      "description": "进入区域自动切换创造模式",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/creative/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-area-survival",
-      "configKey": "survival",
-      "name": "生存区域",
-      "type": "feature",
-      "description": "进入区域自动切换生存模式",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/survival/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-area-peace",
-      "configKey": "peace",
-      "name": "和平区域",
-      "type": "feature",
-      "description": "定义区域内禁止刷怪",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/peace/sapi/src/index.ts" }
     },
     {
       "id": "feature-qa",
