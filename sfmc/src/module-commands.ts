@@ -28,12 +28,20 @@
 /** 顶层命令名(主名 + 短别名),供 HELP / 补全 / 分发共用。 */
 export const MODULE_CMD_NAMES = ["module", "mod"] as const;
 
-/** HELP 行首标签,如 `module/mod`(与 MODULE_CMD_NAMES 同源,避免两处漂移)。 */
-export const MODULE_CMD_LABEL = MODULE_CMD_NAMES.join("/");
+export type ModuleCmdName = (typeof MODULE_CMD_NAMES)[number];
 
-/** 是否为 module 顶层命令(含短别名)。新增别名只改 MODULE_CMD_NAMES。 */
-export function isModuleCommand(name: string | undefined): boolean {
-  return !!name && (MODULE_CMD_NAMES as readonly string[]).includes(name);
+/** HELP 中主名+别名展示串(权威来源 MODULE_CMD_NAMES),如 "module/mod"。 */
+export const MODULE_CMD_ALIAS_LABEL = MODULE_CMD_NAMES.join("/");
+
+/** 判断是否为 module 顶层命令(含别名);避免 main/repl 再硬编码 case。 */
+export function isModuleCommand(cmd: string | undefined): cmd is ModuleCmdName {
+  return !!cmd && (MODULE_CMD_NAMES as readonly string[]).includes(cmd);
+}
+
+/** 染色后的 HELP 前缀,避免 HELP 硬编码 module/mod。 */
+export function paintModuleCmdAlias(paint: (name: string) => string): string {
+  /* 不可写成 .map(paint):chalk 会吃到 (value,index,array) 并拼出乱文案 */
+  return MODULE_CMD_NAMES.map((name) => paint(name)).join("/");
 }
 
 /** 对外展示与 Tab 补全用的子命令列表(不含 remove 等同义别名)。 */

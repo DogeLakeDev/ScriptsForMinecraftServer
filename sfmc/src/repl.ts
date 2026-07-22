@@ -8,6 +8,7 @@ import {
   listInstalledModuleIdsSync,
   MODULE_CMD_NAMES,
   MODULE_SUBCOMMANDS,
+  paintModuleCmdAlias,
 } from "./module-commands.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
@@ -52,19 +53,19 @@ ${c.bold("Commands")}
   ${c.green("remote enroll")} <url> <token> [name]
                           Enroll this supervisor with a controller
   ${c.green("remote disable")}            Disable + disconnect remote agent
-  ${MODULE_HELP_LABEL} list
+  ${paintModuleCmdAlias(c.green)} list
                           List installed modules
-  ${MODULE_HELP_LABEL} search [id]
+  ${paintModuleCmdAlias(c.green)} search [id]
                           Fetch registry list / show one module's registry info
-  ${MODULE_HELP_LABEL} install <id> [--from <source>]
+  ${paintModuleCmdAlias(c.green)} install <id> [--from <source>]
                           Fetch + install a module
-  ${MODULE_HELP_LABEL} uninstall <id>
+  ${paintModuleCmdAlias(c.green)} uninstall <id>
                           Remove an installed module
-  ${MODULE_HELP_LABEL} verify [id]
+  ${paintModuleCmdAlias(c.green)} verify [id]
                           Verify installed modules (SHA-256)
-  ${MODULE_HELP_LABEL} info <id>
+  ${paintModuleCmdAlias(c.green)} info <id>
                           Show one installed module's details
-  ${MODULE_HELP_LABEL} enable|disable <id>
+  ${paintModuleCmdAlias(c.green)} enable|disable <id>
                           Toggle module (needs db-server)
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
@@ -158,7 +159,7 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
     default: {
-      /* module/mod 等别名统一走 MODULE_CMD_NAMES,避免 case 链与权威源漂移。 */
+      /* 与 MODULE_CMD_NAMES 对齐,新增别名无需再改 case(OCP/DRY) */
       if (!isModuleCommand(cmd)) return [];
       if (argIndex === 0) return [...MODULE_SUBCOMMANDS].filter(sw);
       const verb = words[0] ?? "";
