@@ -44,9 +44,22 @@ export function setConfigModuleContext(moduleId: string, configKey: string, toke
   _activeConfigKey = configKey;
 }
 
-export function clearConfigModuleContext(): void {
-  _buckets.clear();
-  _activeConfigKey = "";
+/**
+ * 清理配置上下文。
+ * - 传入 moduleId:只删该模块的桶(Demeter/OCP:禁用 A 不误清 B 的缓存)
+ * - 省略 moduleId:全清(进程级 teardown)
+ */
+export function clearConfigModuleContext(moduleId?: string): void {
+  if (!moduleId) {
+    _buckets.clear();
+    _activeConfigKey = "";
+    return;
+  }
+  for (const [key, bucket] of [..._buckets.entries()]) {
+    if (bucket.moduleId !== moduleId) continue;
+    _buckets.delete(key);
+    if (_activeConfigKey === key) _activeConfigKey = "";
+  }
 }
 
 function activeBucket(): ConfigBucket {
