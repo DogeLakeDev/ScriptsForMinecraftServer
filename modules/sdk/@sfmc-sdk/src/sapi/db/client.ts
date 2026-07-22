@@ -33,7 +33,13 @@ export function setDbModuleContext(moduleId: string, token: string): void {
   _authToken = token;
 }
 
-export function clearDbModuleContext(): void {
+/**
+ * 清理 db 模块身份。
+ * - 传入 moduleId:仅当当前身份匹配时清空(Demeter:禁用 A 不误清 B)
+ * - 省略 moduleId:强制清空
+ */
+export function clearDbModuleContext(moduleId?: string): void {
+  if (moduleId && _moduleId !== moduleId) return;
   _moduleId = "";
   _authToken = "";
   _currentTxId = null;

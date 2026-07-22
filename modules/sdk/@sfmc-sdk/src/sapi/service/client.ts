@@ -23,7 +23,13 @@ export function setServiceModuleContext(moduleId: string, token: string, inTx: (
   _isInTx = inTx;
 }
 
-export function clearServiceModuleContext(): void {
+/**
+ * 清理 service 模块身份。
+ * - 传入 moduleId:仅当当前身份匹配时清空(Demeter:禁用 A 不误清 B)
+ * - 省略 moduleId:强制清空
+ */
+export function clearServiceModuleContext(moduleId?: string): void {
+  if (moduleId && _moduleId !== moduleId) return;
   _moduleId = "";
   _authToken = "";
   _isInTx = () => false;
