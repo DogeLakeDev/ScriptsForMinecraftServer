@@ -10,6 +10,7 @@ export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/db-server": "db-server/package.json",
   "@sfmc-bds/qq-bridge": "qq-bridge/package.json",
   "@sfmc-bds/bds-tools": "bds-tools/package.json",
+  "@sfmc-bds/tools": "tools/package.json",
 };
 
 /** @returns {keyof typeof NPM_PUBLISH_PACKAGES | null} */
