@@ -5,9 +5,11 @@
  * 用法: node tools/check-catalog.js
  *
  * 规则:
+ *  - modules/catalog.json 允许为空（业务模块外置到 Tanya7z/sfmc-modules）
+ *  - services/catalog.json 必须存在且非空（平台服务仍是本仓真相源）
  *  - 模块 id / configKey 必须唯一
  *  - requires / optional 引用必须存在
- *  - entry.path 路径必须存在（asset/node/sapi 类型）
+ *  - modules/catalog 的 entry.path 路径必须存在（asset/node/sapi 类型）
  *  - entry.init 仅在 sapi 类型可选
  *  - 不允许循环依赖（拓扑排序检测）
  */
@@ -40,53 +42,31 @@ function exists(p) {
   }
 }
 
-function main() {
-  if (!exists(CATALOG)) fail(`找不到 ${CATALOG}`);
-  const raw = JSON.parse(readFileSync(CATALOG, "utf-8"));
-  if (raw.version !== 1) fail(`catalog 版本不支持: ${raw.version}`);
-  const modules = Array.isArray(raw.modules) ? raw.modules : [];
-  if (modules.length === 0) fail("catalog 为空");
+/**
+ * 校验一份 catalog 模块列表（modules/catalog 或 services/catalog）。
+ * 空列表合法：业务模块已外置到 Tanya7z/sfmc-modules，本地 mirror 可为 [].
+ */
+function validateModuleList(modules, { label, requireEntryOnDisk }) {
+  if (!Array.isArray(modules)) fail(`${label}: modules 必须是数组`);
 
   const byId = new Map();
   const byKey = new Map();
   for (const m of modules) {
-    if (!m.id || !m.configKey) fail(`缺少 id 或 configKey: ${JSON.stringify(m)}`);
-    if (byId.has(m.id)) fail(`重复模块 id: ${m.id}`);
-    if (byKey.has(m.configKey)) fail(`重复 configKey: ${m.configKey}`);
+    if (!m.id || !m.configKey) fail(`${label}: 缺少 id 或 configKey: ${JSON.stringify(m)}`);
+    if (byId.has(m.id)) fail(`${label}: 重复模块 id: ${m.id}`);
+    if (byKey.has(m.configKey)) fail(`${label}: 重复 configKey: ${m.configKey}`);
     byId.set(m.id, m);
     byKey.set(m.configKey, m);
   }
 
-  const sapiCatalog = modules.filter((m) => m.type === "feature" && m.entry?.kind === "sapi");
-  for (const m of sapiCatalog) {
-    const sapiEntry = join(ROOT, m.entry.path);
-    if (!exists(sapiEntry)) {
-      fail(`${m.id} entry.path 不存在: ${m.entry.path}`);
-    }
-  }
-
-  // Optional: also validate services/catalog.json if it exists.
-  if (exists(SERVICES_CATALOG)) {
-    const svc = JSON.parse(readFileSync(SERVICES_CATALOG, "utf-8"));
-    if (svc.version !== 1) fail(`services/catalog.json 版本不支持: ${svc.version}`);
-    for (const m of svc.modules || []) {
-      if (!m.id || !m.configKey) fail(`services 模块缺少 id 或 configKey: ${JSON.stringify(m)}`);
-      if (!m.entry || !m.entry.path) fail(`${m.id} 缺少 entry.path`);
-      const entryPath = join(ROOT, m.entry.path);
-      if (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset") {
-        if (!exists(entryPath)) fail(`${m.id} 服务入口路径不存在: ${m.entry.path}`);
-      }
-    }
-  }
-
   for (const m of modules) {
     for (const dep of [...(m.requires || []), ...(m.optional || [])]) {
-      if (!byId.has(dep)) fail(`${m.id} 引用了未知模块 ${dep}`);
+      if (!byId.has(dep)) fail(`${label}: ${m.id} 引用了未知模块 ${dep}`);
     }
-    if (!m.entry || !m.entry.path) fail(`${m.id} 缺少 entry.path`);
-    const entryPath = join(ROOT, m.entry.path);
-    if (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset") {
-      if (!exists(entryPath)) fail(`${m.id} 入口路径不存在: ${m.entry.path}`);
+    if (!m.entry || !m.entry.path) fail(`${label}: ${m.id} 缺少 entry.path`);
+    if (requireEntryOnDisk && (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset")) {
+      const entryPath = join(ROOT, m.entry.path);
+      if (!exists(entryPath)) fail(`${label}: ${m.id} 入口路径不存在: ${m.entry.path}`);
     }
   }
 
@@ -94,7 +74,7 @@ function main() {
   const visited = new Set();
   function dfs(id, chain) {
     if (visited.has(id)) return;
-    if (visiting.has(id)) fail(`检测到循环依赖: ${[...chain, id].join(" -> ")}`);
+    if (visiting.has(id)) fail(`${label}: 检测到循环依赖: ${[...chain, id].join(" -> ")}`);
     visiting.add(id);
     const m = byId.get(id);
     for (const dep of m.requires || []) dfs(dep, [...chain, id]);
@@ -103,7 +83,32 @@ function main() {
   }
   for (const m of modules) dfs(m.id, []);
 
-  console.log(`[check-catalog] OK (${modules.length} modules)`);
+  return modules.length;
+}
+
+function main() {
+  if (!exists(CATALOG)) fail(`找不到 ${CATALOG}`);
+  const raw = JSON.parse(readFileSync(CATALOG, "utf-8"));
+  if (raw.version !== 1) fail(`catalog 版本不支持: ${raw.version}`);
+  const modules = Array.isArray(raw.modules) ? raw.modules : [];
+  // 业务包外置后 modules/catalog.json 允许为空；仍校验其 schema 与依赖闭包。
+  const featureCount = validateModuleList(modules, {
+    label: "modules/catalog.json",
+    requireEntryOnDisk: true,
+  });
+
+  // 平台服务 catalog 仍是本仓库内置真相源，必须存在且非空。
+  if (!exists(SERVICES_CATALOG)) fail(`找不到 ${SERVICES_CATALOG}`);
+  const svc = JSON.parse(readFileSync(SERVICES_CATALOG, "utf-8"));
+  if (svc.version !== 1) fail(`services/catalog.json 版本不支持: ${svc.version}`);
+  const serviceCount = validateModuleList(svc.modules || [], {
+    label: "services/catalog.json",
+    // dist 入口在 CI build 后才存在；此处只校验 schema/依赖，不强制 dist 落盘。
+    requireEntryOnDisk: false,
+  });
+  if (serviceCount === 0) fail("services/catalog.json 为空");
+
+  console.log(`[check-catalog] OK (${featureCount} feature modules, ${serviceCount} services)`);
 }
 
 main();

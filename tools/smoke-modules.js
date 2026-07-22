@@ -3,15 +3,13 @@
  * smoke-modules.js — 模块系统冒烟回归
  *
  * 验证:
- *  - catalog 通过构建期自检
- *  - db-server 模块 API 返回 29 条且字段完整
- *  - 安装/卸载工具可执行且 lock 文件更新
- *  - 模块依赖启用前置校验
+ *  - catalog 通过构建期自检（允许业务 catalog 为空：模块已外置）
+ *  - db-server 模块 API 返回数组且与本地 catalog 长度一致
+ *  - 若存在 can_disable 模块，校验启停翻转
  *
  * 用法: node tools/smoke-modules.js
  * 要求: db-server 已启动并暴露 /api/sfmc/modules
  */
-const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const { spawnSync } = require("node:child_process");
@@ -20,9 +18,9 @@ const ROOT = path.resolve(__dirname, "..");
 const HOST = "127.0.0.1";
 const PORT = parseInt(process.env.DB_PORT || "3001", 10);
 
-function fetchJson(path) {
+function fetchJson(reqPath) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ hostname: HOST, port: PORT, path, method: "GET", timeout: 3000 }, (res) => {
+    const req = http.request({ hostname: HOST, port: PORT, path: reqPath, method: "GET", timeout: 3000 }, (res) => {
       let data = "";
       res.on("data", (c) => (data += c));
       res.on("end", () => {
@@ -68,15 +66,21 @@ async function main() {
   const check = spawnSync(process.execPath, [path.join(ROOT, "tools", "check-catalog.js")], { cwd: ROOT, encoding: "utf-8" });
   expect(check.status === 0, `check-catalog.js 通过 (status=${check.status})`);
 
-  // 2) 读 catalog 接口
+  // 2) 读取 catalog 接口（空数组合法：业务模块外置后的平台基线）
   const cat = await fetchJson("/api/sfmc/modules/catalog");
   expect(cat.status === 200, `GET /api/sfmc/modules/catalog → 200`);
-  expect(Array.isArray(cat.body.modules) && cat.body.modules.length > 0, `catalog 返回 ${cat.body.modules.length} 个模块`);
+  expect(Array.isArray(cat.body.modules), `catalog 返回数组 (len=${Array.isArray(cat.body.modules) ? cat.body.modules.length : "n/a"})`);
 
   // 3) 合并列表接口
   const list = await fetchJson("/api/sfmc/modules");
   expect(list.status === 200, `GET /api/sfmc/modules → 200`);
   expect(Array.isArray(list.body.modules) && list.body.modules.length === cat.body.modules.length, `合并列表与 catalog 一致`);
+
+  if (list.body.modules.length === 0) {
+    expect(true, "业务 catalog 为空（modules 外置基线）— 跳过启停翻转");
+    console.log("[smoke] 全部通过");
+    return;
+  }
 
   // 4) 字段完整性
   const required = ["id", "name", "config_key", "type", "description", "default_enabled", "can_disable", "requires", "entry", "enabled"];
@@ -88,12 +92,12 @@ async function main() {
 
   // 4.5) 重置所有 core/feature 模块到 enabled=true，避免之前测试遗留状态污染
   for (const m of list.body.modules) {
-    if ((m.type === 'core' || m.type === 'feature') && !m.enabled) {
+    if ((m.type === "core" || m.type === "feature") && !m.enabled) {
       await postJson(`/api/sfmc/modules/${encodeURIComponent(m.id)}/enable`);
     }
   }
   // 重新拉取（可能因 legacy 记录导致 modules > catalog）
-  let list2 = await fetchJson("/api/sfmc/modules");
+  const list2 = await fetchJson("/api/sfmc/modules");
   expect(list2.body.modules.length === cat.body.modules.length, `合并列表与 catalog 一致 (${list2.body.modules.length} === ${cat.body.modules.length})`);
 
   // 5) 切换启用状态 → 检查 enabled 翻转

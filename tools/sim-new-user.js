@@ -136,11 +136,12 @@ async function main() {
     expect(mods.status === 200 && Array.isArray(mods.body.modules), "GET /api/sfmc/modules 返回模块列表");
 
     const catalog = await request("GET", "/api/sfmc/modules/catalog");
-    expect(catalog.status === 200 && catalog.body.modules.length > 0, "GET /api/sfmc/modules/catalog 返回模块");
+    // 业务模块外置后空 catalog 是新用户基线；仍要求 API 契约（数组 + 与合并列表等长）
+    expect(catalog.status === 200 && Array.isArray(catalog.body.modules), "GET /api/sfmc/modules/catalog 返回数组");
     expect(mods.body.modules.length === catalog.body.modules.length, "模块列表与 catalog 数量一致");
 
-    const moduleLock = JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "module-lock.json"), "utf-8"));
-    const catData = JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "catalog.json"), "utf-8"));
+    JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "module-lock.json"), "utf-8"));
+    JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "catalog.json"), "utf-8"));
 
     log("result", "全部模拟通过");
   } finally {

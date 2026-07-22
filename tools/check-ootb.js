@@ -115,7 +115,8 @@ function fileContains(p, needle) {
     if (!ok) throw new Error("db-server 不可达");
     const mods = await fetchJson("/api/sfmc/modules");
     if (mods.status !== 200) throw new Error(`modules 接口 ${mods.status}`);
-    if (!Array.isArray(mods.body.modules) || mods.body.modules.length === 0) throw new Error("modules 为空");
+    // 业务模块已外置到 sfmc-modules；空 catalog 是合法的平台基线
+    if (!Array.isArray(mods.body.modules)) throw new Error("modules 非数组");
     pass("db-server 启动 + 模块接口");
   } catch (e) {
     fail("db-server 启动 + 模块接口", e.message);
