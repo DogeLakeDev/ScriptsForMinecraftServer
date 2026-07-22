@@ -3,16 +3,17 @@ import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
-import { dispatchModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
+import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 
 function printVersion(): void {
-  `${c.text(`⠪⡁⡯⠁`)}
+  /* 此前模板字符串未写入 stdout,导致 `sfmc --version` 无输出。 */
+  console.log(`${c.text(`⠪⡁⡯⠁`)}
   ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
   ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
-  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}\n`;
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}`);
 }
 
 function printUsage(): void {
@@ -138,13 +139,13 @@ async function main(): Promise<void> {
       }
       break;
     }
-    case "module":
-    case "mod": {
-      const [sub, ...subRest] = rest;
-      console.log(await dispatchModuleCommand(sub, subRest));
-      break;
-    }
     default:
+      /* module/mod 别名只维护 MODULE_CMD_NAMES,避免 main/repl case 链漂移(OCP)。 */
+      if (isModuleCommand(cmd)) {
+        const [sub, ...subRest] = rest;
+        console.log(await dispatchModuleCommand(sub, subRest));
+        break;
+      }
       console.log(c.red(`Unknown command: ${cmd}`));
       printUsage();
       process.exit(1);

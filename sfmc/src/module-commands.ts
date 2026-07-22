@@ -28,6 +28,14 @@
 /** 顶层命令名(主名 + 短别名),供 HELP / 补全 / 分发共用。 */
 export const MODULE_CMD_NAMES = ["module", "mod"] as const;
 
+/** HELP 行首标签,如 `module/mod`(与 MODULE_CMD_NAMES 同源,避免两处漂移)。 */
+export const MODULE_CMD_LABEL = MODULE_CMD_NAMES.join("/");
+
+/** 是否为 module 顶层命令(含短别名)。新增别名只改 MODULE_CMD_NAMES。 */
+export function isModuleCommand(name: string | undefined): boolean {
+  return !!name && (MODULE_CMD_NAMES as readonly string[]).includes(name);
+}
+
 /** 对外展示与 Tab 补全用的子命令列表(不含 remove 等同义别名)。 */
 export const MODULE_SUBCOMMANDS = [
   "list",
@@ -41,7 +49,7 @@ export const MODULE_SUBCOMMANDS = [
 ] as const;
 
 export const MODULE_USAGE =
-  "Usage: sfmc module|mod <list|search|install|uninstall|verify|info|enable|disable> [args]";
+  `Usage: sfmc ${MODULE_CMD_NAMES.join("|")} <${MODULE_SUBCOMMANDS.join("|")}> [args]`;
 
 import fs from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
