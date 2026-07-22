@@ -1,5 +1,0 @@
-{
-  "afk_time": 120,
-  "step_time": 15,
-  "notes": "v2 标准默认;通过 configs/afk.json 持久化。afk_time = 无操作多少秒进入 AFK; step_time = 位置扫描间隔(秒)。"
-}

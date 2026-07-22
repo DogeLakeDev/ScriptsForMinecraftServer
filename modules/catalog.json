@@ -11,7 +11,10 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/data-backup/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/data-backup/sapi/src/index.ts"
+      }
     },
     {
       "id": "core-gui",
@@ -21,8 +24,15 @@
       "description": "主菜单、管理面板等图形界面入口",
       "enabledByDefault": true,
       "canDisable": false,
-      "requires": ["feature-economy", "feature-chat", "feature-land"],
-      "entry": { "kind": "sapi", "path": "modules/packages/gui/sapi/src/index.ts" }
+      "requires": [
+        "feature-economy",
+        "feature-chat",
+        "feature-land"
+      ],
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/gui/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-economy",
@@ -33,7 +43,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/economy/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/economy/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-daily-task",
@@ -44,7 +57,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/daily-task/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/daily-task/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-chat",
@@ -54,8 +70,13 @@
       "description": "频道聊天、私聊和消息分发",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["feature-economy"],
-      "entry": { "kind": "sapi", "path": "modules/packages/feature-chat/sapi/src/index.ts" }
+      "requires": [
+        "feature-economy"
+      ],
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/feature-chat/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-coop",
@@ -66,7 +87,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/feature-coop/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/feature-coop/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-land",
@@ -76,8 +100,13 @@
       "description": "领地、权限和保护逻辑",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["feature-economy"],
-      "entry": { "kind": "sapi", "path": "modules/packages/land/sapi/src/index.ts" }
+      "requires": [
+        "feature-economy"
+      ],
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/land/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-land-gui",
@@ -87,19 +116,13 @@
       "description": "领地系统的图形界面(纯 service.get 调用 feature-land)",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": ["feature-land"],
-      "entry": { "kind": "sapi", "path": "modules/packages/land-gui/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-afk",
-      "configKey": "afk",
-      "name": "AFK",
-      "type": "feature",
-      "description": "挂机判定",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/afk/sapi/src/index.ts" }
+      "requires": [
+        "feature-land"
+      ],
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/land-gui/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-area",
@@ -110,7 +133,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/feature-area/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/feature-area/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-tps",
@@ -121,7 +147,10 @@
       "enabledByDefault": true,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/tps/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/tps/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-online-time",
@@ -132,7 +161,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/online-time/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/online-time/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-activity-log",
@@ -143,7 +175,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/activity-log/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/activity-log/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-scoreboard-sync",
@@ -154,29 +189,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/scoreboard-sync/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-spawn-protect",
-      "configKey": "spawn_protect",
-      "name": "重生保护",
-      "type": "feature",
-      "description": "玩家重生保护",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/spawn-protect/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-chat-sounds",
-      "configKey": "chat_sounds",
-      "name": "聊天音效",
-      "type": "feature",
-      "description": "聊天关键词音效触发",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/chat-sounds/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/scoreboard-sync/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-inventory-switcher",
@@ -187,18 +203,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/inventory-switcher/sapi/src/index.ts" }
-    },
-    {
-      "id": "feature-qa",
-      "configKey": "qa",
-      "name": "问答系统",
-      "type": "feature",
-      "description": "随机答题与奖励",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/qa/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/inventory-switcher/sapi/src/index.ts"
+      }
     },
     {
       "id": "feature-monitor",
@@ -209,7 +217,10 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/monitor/sapi/src/index.ts" }
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/monitor/sapi/src/index.ts"
+      }
     }
   ]
 }
