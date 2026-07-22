@@ -1,21 +1,7 @@
 {
-  "_comment": "modules/catalog.json 是本地 mirror；source of truth 见 github:Tanya7z/sfmc-modules/main/index.json。tools/fetch-module.mjs install 默认从远端拉取 modules/packages/<id>/ 后本地同步启用。land 与 land-gui 已迁 v2 待就绪；batch1+batch2 已提取至 sfmc-modules@modules-v0.2.0。本地保留 8 条 catalog 条目。",
+  "_comment": "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。tools/fetch-module.mjs install 默认从远端拉取到 modules/packages/<id>/ 后本地同步启用。batch1–3 已提取至 sfmc-modules（最新 modules-v0.3.0）。本地保留 6 个 catalog 条目（economy/land/chat/gui 链）。",
   "version": 1,
   "modules": [
-    {
-      "id": "core-data-backup",
-      "configKey": "data_backup",
-      "name": "数据备份",
-      "type": "core",
-      "description": "玩家数据自动保存与存档同步",
-      "enabledByDefault": true,
-      "canDisable": false,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/data-backup/sapi/src/index.ts"
-      }
-    },
     {
       "id": "core-gui",
       "configKey": "gui",
@@ -76,20 +62,6 @@
       "entry": {
         "kind": "sapi",
         "path": "modules/packages/feature-chat/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-coop",
-      "configKey": "coop",
-      "name": "合作社",
-      "type": "feature",
-      "description": "合作社与队伍系统",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/feature-coop/sapi/src/index.ts"
       }
     },
     {

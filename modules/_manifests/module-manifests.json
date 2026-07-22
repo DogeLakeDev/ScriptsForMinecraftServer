@@ -2,15 +2,6 @@
   "schemaVersion": 1,
   "generatedAt": "2026-07-22T05:42:54.451Z",
   "modules": {
-    "core-data-backup": {
-      "name": "数据备份",
-      "type": "core",
-      "configKey": "data_backup",
-      "requires": [],
-      "handlers": [],
-      "routes": [],
-      "migrations": []
-    },
     "core-gui": {
       "name": "主菜单GUI",
       "type": "core",
@@ -96,46 +87,6 @@
           "method": "POST",
           "path": "/api/sfmc/players/:playerId",
           "handler": "players:update"
-        }
-      ],
-      "migrations": []
-    },
-    "feature-coop": {
-      "name": "合作社",
-      "type": "feature",
-      "configKey": "coop",
-      "requires": [],
-      "handlers": [],
-      "routes": [
-        {
-          "method": "GET",
-          "path": "/api/sfmc/coops/:id",
-          "handler": "coops:get"
-        },
-        {
-          "method": "GET",
-          "path": "/api/sfmc/coops/by-player/:playerId",
-          "handler": "coops:byPlayer"
-        },
-        {
-          "method": "GET",
-          "path": "/api/sfmc/coops/:id/members",
-          "handler": "coops:listMembers"
-        },
-        {
-          "method": "GET",
-          "path": "/api/sfmc/coop_shop_groups",
-          "handler": "coops:shopGroups"
-        },
-        {
-          "method": "GET",
-          "path": "/api/sfmc/coops/:id/shop_items",
-          "handler": "coops:shopItems"
-        },
-        {
-          "method": "GET",
-          "path": "/api/sfmc/coops/:id/bank_log",
-          "handler": "coops:bankLog"
         }
       ],
       "migrations": []
