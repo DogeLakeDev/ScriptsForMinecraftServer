@@ -14,10 +14,10 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { getAsset } from "node:sea";
-import { IS_SEA, ROOT, spawnService } from "./runtime.js";
+import { IS_SEA, ROOT, isMonorepoLayout, isRuntimeInitialized, resolveDefaultsDir, resolveFetchModule, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
-/** 仓顶服务 config 浅合并写盘。委托 SDK 统一实现,禁止自己 mkdir+writeFileSync。 */
+/** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */
 function patchJson<T extends object>(rootDir: string, name: ConfigName, updates: Partial<T>): void {
   patchConfig<T>(configPath(rootDir, name), updates);
 }
@@ -162,7 +162,29 @@ async function runBdsUpdate(rootDir: string, channel: string): Promise<{ code: n
 }
 
 async function prepareRuntimeAssets(rootDir: string): Promise<void> {
-  if (!IS_SEA) {
+  if (IS_SEA) {
+    await tasks([
+      {
+        title: "Extracting bundled assets",
+        task: async (message) => {
+          for (const { target, asset } of ASSETS) {
+            message(`Extracting ${target}`);
+            const assetBuffer = getAsset(asset);
+            if (!assetBuffer) throw new Error(`Bundled asset not found: ${asset}`);
+
+            const destDir = path.join(rootDir, target);
+            if (!ensureDirectory(destDir)) throw new Error(`Cannot create asset directory: ${destDir}`);
+            await extractZip(Buffer.from(assetBuffer), destDir, { overwrite: true });
+          }
+          return "Assets extracted";
+        },
+      },
+    ]);
+    return;
+  }
+
+  /* monorepo:???? configs/ modules/;npm ?????:?????? */
+  if (isMonorepoLayout(rootDir)) {
     const missing = missingRuntimeAssets(rootDir);
     if (missing.length > 0) {
       throw new Error(`npm runtime is missing required directories: ${missing.join(", ")}`);
@@ -170,32 +192,48 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
     return;
   }
 
-  await tasks([
-    {
-      title: "Extracting bundled assets",
-      task: async (message) => {
-        for (const { target, asset } of ASSETS) {
-          message(`Extracting ${target}`);
-          const assetBuffer = getAsset(asset);
-          if (!assetBuffer) throw new Error(`Bundled asset not found: ${asset}`);
+  seedNpmRuntimeLayout(rootDir);
+}
 
-          const destDir = path.join(rootDir, target);
-          if (!ensureDirectory(destDir)) throw new Error(`Cannot create asset directory: ${destDir}`);
-          await extractZip(Buffer.from(assetBuffer), destDir, { overwrite: true });
-        }
-        return "Assets extracted";
-      },
-    },
-  ]);
+/** ? npm ??/?????? configs + modules ??(???????) */
+function seedNpmRuntimeLayout(rootDir: string): void {
+  const defaultsDir = resolveDefaultsDir();
+  const configsDest = path.join(rootDir, "configs");
+  fs.mkdirSync(configsDest, { recursive: true });
+
+  if (defaultsDir) {
+    const src = fs.existsSync(path.join(defaultsDir, "configs"))
+      ? path.join(defaultsDir, "configs")
+      : defaultsDir;
+    for (const name of fs.readdirSync(src)) {
+      if (!name.endsWith(".json")) continue;
+      const dest = path.join(configsDest, name);
+      if (!fs.existsSync(dest)) {
+        fs.copyFileSync(path.join(src, name), dest);
+      }
+    }
+  }
+
+  const modulesRoot = path.join(rootDir, "modules");
+  const packagesDir = path.join(modulesRoot, "packages");
+  fs.mkdirSync(packagesDir, { recursive: true });
+
+  const catalogPath = path.join(modulesRoot, "catalog.json");
+  if (!fs.existsSync(catalogPath)) {
+    writeJson(catalogPath, { version: 1, modules: [] });
+  }
+  const lockPath = path.join(modulesRoot, "module-lock.json");
+  if (!fs.existsSync(lockPath)) {
+    writeJson(lockPath, { version: 1, modules: {} });
+  }
 }
 
 export async function runWizard(): Promise<void> {
   intro(c.bold("Setup Wizard =D"));
 
-  const hasConfigs = fs.existsSync(configPath(ROOT, "db_config.json"));
-
-  if (hasConfigs) {
-    const r = await confirm({ message: "Configs already exist. Re-run setup?", initialValue: false });
+  // Already initialized only when runtime.json#initialized_at is set (empty db_config skeleton does not count).
+  if (isRuntimeInitialized()) {
+    const r = await confirm({ message: "Already initialized. Re-run setup?", initialValue: false });
     if (isCancel(r) || !r) {
       outro(c.dim("Setup skipped"));
       return;
@@ -456,8 +494,8 @@ export async function runWizard(): Promise<void> {
 
 async function runInstallBuildDeploy(rootDir: string, selectedModules: string[], bdsResolved: string): Promise<void> {
   if (selectedModules.length > 0) {
-    const fetchScript = path.join(rootDir, "tools", "fetch-module.mjs");
-    if (fs.existsSync(fetchScript)) {
+    const fetchScript = resolveFetchModule();
+    if (fetchScript) {
       const installT = [
         {
           title: `Installing ${selectedModules.length} module(s) from first-party registry`,
@@ -465,6 +503,7 @@ async function runInstallBuildDeploy(rootDir: string, selectedModules: string[],
             execFileSync(process.execPath, [fetchScript, "install", ...selectedModules], {
               cwd: rootDir,
               stdio: ["ignore", "pipe", "pipe"],
+              env: { ...process.env, SFMC_ROOT: rootDir },
             });
             return `${selectedModules.length} installed`;
           },
@@ -473,19 +512,19 @@ async function runInstallBuildDeploy(rootDir: string, selectedModules: string[],
       try {
         await tasks(installT);
       } catch (e) {
-        note(c.yellow(`install failed: ${(e as Error).message}\nYou can retry with: sfmc module install <id>`));
+        note(c.yellow(`install failed: ${(e as Error).message}\nYou can retry with: sfmc mod install <id>`));
       }
     } else {
       note(
         c.yellow(
-          `tools/fetch-module.mjs missing — run \`sfmc module install <id>\` later for each of: ${selectedModules.join(", ")}`
+          `fetch-module missing ? run \`sfmc mod install <id>\` later for each of: ${selectedModules.join(", ")}`
         )
       );
     }
   } else {
     note(
       c.dim(
-        "No modules selected — behavior pack will be empty until you install one with `sfmc module install <id>`."
+        "No modules selected ? behavior pack will be empty until you install one with `sfmc mod install <id>`."
       )
     );
   }

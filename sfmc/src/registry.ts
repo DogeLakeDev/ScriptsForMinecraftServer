@@ -94,18 +94,19 @@ export interface RegistryResult {
 /**
  * Resolve the first-party index.
  *
- * Order:
+ * Order (default):
  *   1. If the cache is fresh (< TTL): return it without trying the network.
  *   2. Otherwise attempt a live fetch.
  *      - success → write cache, return fresh.
  *      - failure + cache exists → return cache with `stale: true` and a warning.
  *      - failure + no cache → return `{ index: {}, stale: true }` and warn.
  *
- * Never throws: the unknown-source warning is best-effort.
+ * `force: true` 跳过 TTL 早退,始终尝试拉网(供 `mod search` 主动刷新列表)。
+ * 失败时仍回退到缓存,永不抛异常。
  */
-export async function resolveRegistryIndex(): Promise<RegistryResult> {
+export async function resolveRegistryIndex(opts?: { force?: boolean }): Promise<RegistryResult> {
   const cache = readCache();
-  if (cache && Date.now() - cache.fetchedAt < TTL_MS) {
+  if (!opts?.force && cache && Date.now() - cache.fetchedAt < TTL_MS) {
     return { index: cache.index, stale: false };
   }
   try {
@@ -122,6 +123,16 @@ export async function resolveRegistryIndex(): Promise<RegistryResult> {
     process.stderr.write(`[sfmc] registry unreachable and no cache: ${msg}\n`);
     return { index: {}, stale: true };
   }
+}
+
+/**
+ * 从本地缓存同步读出 registry 模块 id(供 Tab 补全)。
+ * 无缓存时返回空数组,不触发网络。
+ */
+export function listRegistryModuleIdsSync(): string[] {
+  const cache = readCache();
+  if (!cache) return [];
+  return Object.keys(cache.index).sort((a, b) => a.localeCompare(b));
 }
 
 /**

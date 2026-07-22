@@ -59,6 +59,8 @@ npm run bundle && npm run sea
 # → dist/sea/sfmc.exe
 ```
 
+SEA 工作根默认是 **exe 所在目录**（发布：把 exe 放到空目录即可）。仓库内调试 `dist/sea/sfmc.exe` 时请设 `SFMC_ROOT=<repo>`。首次初始化看 `configs/runtime.json#initialized_at`，不是 `db_config.json` 是否存在。
+
 ## 工具链
 
 新脚本优先放 `tools/*.mjs`，共享逻辑用 `tools/lib/`。不要复制 catalog/lock 读写。

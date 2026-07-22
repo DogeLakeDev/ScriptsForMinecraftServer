@@ -18,7 +18,7 @@
  * helpers (LogLine buffers, child-process piping) are NOT re-exported.
  */
 
-export { ROOT, IS_SEA, spawnService, spawnServiceSync, type ServiceId } from "./runtime.js";
+export { ROOT, IS_SEA, isMonorepoLayout, isRuntimeInitialized, resolveServiceScript, resolveFetchModule, spawnService, spawnServiceSync, type ServiceId } from "./runtime.js";
 
 export {
   SERVICE_NAMES,

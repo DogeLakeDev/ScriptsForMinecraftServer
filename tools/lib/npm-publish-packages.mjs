@@ -14,6 +14,7 @@ export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/qq-bridge": "qq-bridge/package.json",
   "@sfmc-bds/bds-tools": "bds-tools/package.json",
   "@sfmc-bds/tools": "tools/package.json",
+  "@sfmc-bds/sfmc": "sfmc-meta/package.json",
 };
 
 /** @returns {keyof typeof NPM_PUBLISH_PACKAGES | null} */

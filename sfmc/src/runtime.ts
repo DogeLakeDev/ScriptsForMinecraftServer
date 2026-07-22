@@ -1,5 +1,12 @@
-import { resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
+import {
+  configPath,
+  readJson,
+  resolveRuntimeRoot,
+  type RuntimeConfig,
+} from "@sfmc-bds/sdk/node/config";
 import { spawn, spawnSync, type SpawnOptions, type SpawnSyncOptions } from "node:child_process";
+import { createRequire } from "node:module";
+import fs from "node:fs";
 import path, { dirname } from "node:path";
 import process from "node:process";
 import { isSea } from "node:sea";
@@ -9,24 +16,50 @@ export const IS_SEA: boolean = typeof isSea === "function" && isSea();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-const fallbackRoot: string = path.resolve(__dirname, "..", "..");
+const requireFromCli = createRequire(import.meta.url);
 
 /**
- * 项目根目录。优先级:`process.env.SFMC_ROOT`(由 spawnService 注入) > fallback。
- * - SEA 模式:fallback 是 `<exe-dir>/..`(`dist/sea/sfmc.exe` 上一级 = 项目根)
- * - npm 模式:fallback 是 `sfmc/` 上一级 = 项目根
+ * 是否为 monorepo 布局(仓根同时有 db-server/ 与 sfmc/)。
+ * npm 全局/本地安装时 ROOT 通常是 cwd,不满足此条件。
  */
-export const ROOT: string = resolveRuntimeRoot(fallbackRoot);
+export function isMonorepoLayout(root: string): boolean {
+  return (
+    fs.existsSync(path.join(root, "db-server", "package.json")) &&
+    fs.existsSync(path.join(root, "sfmc", "package.json"))
+  );
+}
+
+function detectFallbackRoot(): string {
+  if (IS_SEA) return path.dirname(process.execPath);
+  const monoCandidate = path.resolve(__dirname, "..", "..");
+  if (isMonorepoLayout(monoCandidate)) return monoCandidate;
+  /* npm 安装:@sfmc-bds/sfmc 包装器会设 SFMC_ROOT;裸跑 cli 时用 cwd 作数据根 */
+  return process.cwd();
+}
+
+/**
+ * 项目根目录。优先级:`process.env.SFMC_ROOT` > fallback。
+ * - SEA:exe 所在目录
+ * - monorepo:`sfmc/` 上一级
+ * - npm 聚合包 / 全局安装:cwd(配置与数据落在当前目录)
+ */
+export const ROOT: string = resolveRuntimeRoot(detectFallbackRoot());
+
+/**
+ * 是否已完成首次向导初始化。
+ * 以 `configs/runtime.json#initialized_at` 为准(wizard 写入);
+ * 不再用「db_config.json 是否存在」——骨架由 ensureJsonConfig 在进程启动时创建。
+ */
+export function isRuntimeInitialized(root: string = ROOT): boolean {
+  const runtime = readJson<RuntimeConfig>(configPath(root, "runtime.json"));
+  return Boolean(runtime?.initialized_at);
+}
 
 export const PACKAGES_DIR: string = path.join(ROOT, "modules", "packages");
 
 export type ServiceId = "db" | "qq" | "update" | "manager" | "pack-manager";
 
-/**
- * 各服务入口脚本相对项目根的路径。
- * SEA 模式下不需要(走系统 node 直接调脚本);npm 模式下 spawn `node <root>/<script>`。
- */
+/** monorepo 相对 ROOT 的入口(开发布局) */
 const SERVICE_SCRIPT: Record<ServiceId, string> = {
   db: "db-server/dist/index.js",
   qq: "qq-bridge/dist/index.js",
@@ -35,11 +68,98 @@ const SERVICE_SCRIPT: Record<ServiceId, string> = {
   "pack-manager": "bds-tools/dist/cli-pack-manager.js",
 };
 
+/** 环境变量覆盖(由 @sfmc-bds/sfmc bin 注入) */
+const SERVICE_ENV: Record<ServiceId, string> = {
+  db: "SFMC_SERVICE_DB_ENTRY",
+  qq: "SFMC_SERVICE_QQ_ENTRY",
+  update: "SFMC_SERVICE_UPDATE_ENTRY",
+  manager: "SFMC_SERVICE_MANAGER_ENTRY",
+  "pack-manager": "SFMC_SERVICE_PACK_MANAGER_ENTRY",
+};
+
+/** npm 包解析回退 */
+const SERVICE_NPM: Record<ServiceId, { pkg: string; exportPath?: string; rel?: string }> = {
+  db: { pkg: "@sfmc-bds/db-server" },
+  qq: { pkg: "@sfmc-bds/qq-bridge" },
+  update: { pkg: "@sfmc-bds/bds-tools", exportPath: "@sfmc-bds/bds-tools/check-update", rel: "dist/check-update.js" },
+  manager: { pkg: "@sfmc-bds/bds-tools", exportPath: "@sfmc-bds/bds-tools/bds-manager", rel: "dist/bds-manager.js" },
+  "pack-manager": {
+    pkg: "@sfmc-bds/bds-tools",
+    exportPath: "@sfmc-bds/bds-tools/pack-manager",
+    rel: "dist/cli-pack-manager.js",
+  },
+};
+
+function tryResolveNpm(pkg: string, opts?: { exportPath?: string; rel?: string }): string | null {
+  const attempts = [requireFromCli];
+  try {
+    attempts.push(createRequire(path.join(process.cwd(), "package.json")));
+  } catch {
+    /* cwd 无 package.json */
+  }
+  for (const req of attempts) {
+    try {
+      if (opts?.exportPath) return req.resolve(opts.exportPath);
+      if (!opts?.rel) return req.resolve(pkg);
+      const root = path.dirname(req.resolve(`${pkg}/package.json`));
+      const full = path.join(root, opts.rel);
+      if (fs.existsSync(full)) return full;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
 /**
- * SEA 模式下 process.execPath === sfmc.exe —— SEA 不能执行外部 .js 文件,
- * 所以走 system `node` 二进制跑子服务脚本。
- * npm 模式下 process.execPath 本来就是 node,走自身即可。
+ * 解析子服务入口脚本绝对路径。
+ * 优先级: env 注入 > monorepo 相对 ROOT > npm 包 resolve。
  */
+export function resolveServiceScript(service: ServiceId): string {
+  const fromEnv = process.env[SERVICE_ENV[service]];
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+
+  const mono = path.join(ROOT, SERVICE_SCRIPT[service]);
+  if (fs.existsSync(mono)) return mono;
+
+  const { pkg, exportPath, rel } = SERVICE_NPM[service];
+  const fromNpm = tryResolveNpm(pkg, {
+    ...(exportPath ? { exportPath } : {}),
+    ...(rel ? { rel } : {}),
+  });
+  if (fromNpm) return fromNpm;
+
+  throw new Error(
+    `Cannot resolve service "${service}". Install @sfmc-bds/sfmc (all-in-one) or run inside the monorepo. ` +
+      `Looked for ${mono} and npm package ${pkg}.`
+  );
+}
+
+/**
+ * 解析 tools/fetch-module.mjs。
+ * 优先级: SFMC_FETCH_MODULE > ROOT/tools/ > @sfmc-bds/tools。
+ */
+export function resolveFetchModule(): string | null {
+  const fromEnv = process.env.SFMC_FETCH_MODULE;
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+
+  const mono = path.join(ROOT, "tools", "fetch-module.mjs");
+  if (fs.existsSync(mono)) return mono;
+
+  return tryResolveNpm("@sfmc-bds/tools", { rel: "fetch-module.mjs", exportPath: "@sfmc-bds/tools/fetch-module.mjs" });
+}
+
+/** 配置默认模板目录(聚合包装载 defaults/,或仓内 configs-default/) */
+export function resolveDefaultsDir(): string | null {
+  const fromEnv = process.env.SFMC_DEFAULTS_DIR;
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  const bundled = path.join(ROOT, "configs-default");
+  if (fs.existsSync(bundled)) return bundled;
+  const nested = path.join(ROOT, "defaults");
+  if (fs.existsSync(path.join(nested, "configs"))) return nested;
+  return null;
+}
+
 function nodeBinary(): string {
   return IS_SEA ? "node" : process.execPath;
 }
@@ -47,16 +167,8 @@ function nodeBinary(): string {
 /**
  * 启动一个子服务。
  *
- * SEA 模式下 spawn system node(SEA exe 不能执行外部 CJS/ESM 脚本,
- * 子服务代码必须留在根目录源码层)。SEA bundle 因此只包含 supervisor 自己
- * —— db-server / qq-bridge / bds-tools 不再被 esbuild 静态 inline。
- *
- * npm 模式:`process.execPath` 本来就是 node,效果与 SEA 模式相同。
- *
  * 透传给子进程的 env:
- *   - SFMC_SERVICE:  服务标识(db|qq|update|manager),子服务据此路由
- *   - SFMC_ROOT:     项目根,SEA=exe 上一级,npm=process.cwd()
- *   - SFMC_PACKAGES_DIR: modules/packages/ 绝对路径,db-server 据此扫模块清单
+ *   - SFMC_SERVICE / SFMC_ROOT / SFMC_PACKAGES_DIR
  */
 export function spawnService(service: ServiceId, args: string[] = [], opts: SpawnOptions = {}) {
   const env = {
@@ -66,11 +178,11 @@ export function spawnService(service: ServiceId, args: string[] = [], opts: Spaw
     SFMC_ROOT: ROOT,
     SFMC_PACKAGES_DIR: PACKAGES_DIR,
   };
-  const script = path.join(ROOT, SERVICE_SCRIPT[service]);
+  const script = resolveServiceScript(service);
   return spawn(nodeBinary(), [script, ...args], { ...opts, env });
 }
 
-/** spawnService 的同步版本,用于 wizard 等需要等子进程结束的场景。 */
+/** spawnService 的同步版本 */
 export function spawnServiceSync(service: ServiceId, args: string[] = [], opts: SpawnSyncOptions = {}) {
   const env = {
     ...process.env,
@@ -79,6 +191,6 @@ export function spawnServiceSync(service: ServiceId, args: string[] = [], opts: 
     SFMC_ROOT: ROOT,
     SFMC_PACKAGES_DIR: PACKAGES_DIR,
   };
-  const script = path.join(ROOT, SERVICE_SCRIPT[service]);
+  const script = resolveServiceScript(service);
   return spawnSync(nodeBinary(), [script, ...args], { ...opts, env });
 }

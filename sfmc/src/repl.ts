@@ -2,7 +2,8 @@ import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
-import { cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify } from "./module-commands.js";
+import { dispatchModuleCommand, listInstalledModuleIdsSync, MODULE_CMD_NAMES, MODULE_SUBCOMMANDS } from "./module-commands.js";
+import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
 import { c } from "./theme.js";
@@ -42,13 +43,20 @@ ${c.bold("Commands")}
   ${c.green("remote enroll")} <url> <token> [name]
                           Enroll this supervisor with a controller
   ${c.green("remote disable")}            Disable + disconnect remote agent
-  ${c.green("module list")} [--source <id>]
-                          List modules across marketplace sources
-  ${c.green("module install")} <id> [--source <id>] [--no-verify]
-                          Fetch + verify + install a module
-  ${c.green("module uninstall")} <id>     Remove an installed module
-  ${c.green("module verify")} [id]        Verify installed modules (SHA-256)
-  ${c.green("module info")} <id>          Show one module's details
+  ${c.green("module")}/${c.green("mod")} list
+                          List installed modules
+  ${c.green("module")}/${c.green("mod")} search [id]
+                          Fetch registry list / show one module's registry info
+  ${c.green("module")}/${c.green("mod")} install <id> [--from <source>]
+                          Fetch + install a module
+  ${c.green("module")}/${c.green("mod")} uninstall <id>
+                          Remove an installed module
+  ${c.green("module")}/${c.green("mod")} verify [id]
+                          Verify installed modules (SHA-256)
+  ${c.green("module")}/${c.green("mod")} info <id>
+                          Show one installed module's details
+  ${c.green("module")}/${c.green("mod")} enable|disable <id>
+                          Toggle module (needs db-server)
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
   ${c.green("quit")} / ${c.green("exit")} Exit
@@ -70,7 +78,7 @@ const COMMANDS = [
   "init",
   "update",
   "remote",
-  "module",
+  ...MODULE_CMD_NAMES,
   "version",
   "help",
   "quit",
@@ -82,6 +90,8 @@ const COMMANDS = [
  * ================================================================== */
 interface ParsedLine {
   cmd: string;
+  /** cmd 之后的全部 token(不含正在输入的 current,若末尾无空格则不含最后一个半词) */
+  words: string[];
   argIndex: number;
   current: string;
 }
@@ -93,20 +103,30 @@ interface ParsedLine {
 function parseLine(line: string): ParsedLine {
   const endsWithSpace = line.length > 0 && /\s$/.test(line);
   const trimmed = line.trim();
-  if (!trimmed) return { cmd: "", argIndex: 0, current: "" };
+  if (!trimmed) return { cmd: "", words: [], argIndex: 0, current: "" };
   const tokens = trimmed.split(/\s+/);
   if (endsWithSpace) {
-    return { cmd: tokens[0] ?? "", argIndex: tokens.length - 1, current: "" };
+    return {
+      cmd: tokens[0] ?? "",
+      words: tokens.slice(1),
+      argIndex: tokens.length - 1,
+      current: "",
+    };
   }
-  if (tokens.length === 1) return { cmd: "", argIndex: 0, current: tokens[0]! };
-  return { cmd: tokens[0]!, argIndex: tokens.length - 2, current: tokens[tokens.length - 1]! };
+  if (tokens.length === 1) return { cmd: "", words: [], argIndex: 0, current: tokens[0]! };
+  return {
+    cmd: tokens[0]!,
+    words: tokens.slice(1, -1),
+    argIndex: tokens.length - 2,
+    current: tokens[tokens.length - 1]!,
+  };
 }
 
 /**
  * 根据命令 + 参数位置返回补全候选 (区分命令,不再把服务名当成所有指令的二级参数)。
  */
 function getCompletions(parsed: ParsedLine): string[] {
-  const { cmd, argIndex, current } = parsed;
+  const { cmd, words, argIndex, current } = parsed;
   const sw = (s: string): boolean => s.startsWith(current);
   if (!cmd) return COMMANDS.filter(sw);
   switch (cmd) {
@@ -129,13 +149,24 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
     case "module":
-    case "mod":
-      if (argIndex === 0) return ["list", "install", "uninstall", "verify", "info"].filter(sw);
-      if (argIndex === 1) {
-        const verb = (parsed.cmd === "module" || parsed.cmd === "mod") ? "" : parsed.cmd;
-        if (["install", "list"].includes(verb)) return ["--source", "--no-verify"].filter(sw);
+    case "mod": {
+      if (argIndex === 0) return [...MODULE_SUBCOMMANDS].filter(sw);
+      const verb = words[0] ?? "";
+      /* search:补全 registry 缓存中的 id;其余本地已装 id */
+      if (argIndex === 1 && verb === "search") {
+        return listRegistryModuleIdsSync().filter(sw);
+      }
+      if (
+        argIndex === 1 &&
+        ["info", "uninstall", "remove", "verify", "enable", "disable"].includes(verb)
+      ) {
+        return listInstalledModuleIdsSync().filter(sw);
+      }
+      if (argIndex >= 1 && ["install", "list"].includes(verb)) {
+        return ["--from", "--sha256"].filter(sw);
       }
       return [];
+    }
     default:
       return [];
   }
@@ -631,26 +662,7 @@ async function execCmd(parts: string[]): Promise<void> {
     case "module":
     case "mod": {
       const [sub, ...subRest] = args;
-      switch (sub) {
-        case "list":
-          stdout.write((await cmdModuleList(subRest)) + "\n");
-          break;
-        case "install":
-          stdout.write((await cmdModuleInstall(subRest)) + "\n");
-          break;
-        case "uninstall":
-        case "remove":
-          stdout.write((await cmdModuleUninstall(subRest)) + "\n");
-          break;
-        case "verify":
-          stdout.write((await cmdModuleVerify(subRest)) + "\n");
-          break;
-        case "info":
-          stdout.write((await cmdModuleInfo(subRest)) + "\n");
-          break;
-        default:
-          stdout.write(c.yellow("Usage: module <list|install|uninstall|verify|info> [args]\n"));
-      }
+      stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
       break;
     }
     case "quit":

@@ -7,11 +7,20 @@ node sfmc/dist/main.js
 # 或 SEA: ./sfmc.exe
 ```
 
-没有 `configs/db_config.json` 时会自动引导你填：
+没有 `configs/runtime.json` 的 `initialized_at` 时会自动进向导（配置 JSON 骨架可能已由进程启动时创建，不能靠「有没有 db_config」判断）：
 
 - BDS 路径、备份目录
 - db-server 端口（默认 3001）
 - 可选 LLBot 路径（要 QQ 互通时）
+
+也可手动：`sfmc init` / `node sfmc/dist/main.js init`。
+
+npm 聚合包用户：
+
+```bash
+npm install -g @sfmc-bds/sfmc
+mkdir my-server && cd my-server && sfmc
+```
 
 ## 默认配置从哪来
 
@@ -50,7 +59,7 @@ Copy-Item configs-default\*.json configs\
 
 | 变量 | 作用 |
 |------|------|
-| `SFMC_ROOT` | 配置与数据根目录 |
+| `SFMC_ROOT` | 配置与数据根目录（SEA 默认 = exe 所在目录） |
 | `DB_PORT` | 覆盖 db 端口 |
 | `HTTP_AUTH` | 覆盖 Bearer 鉴权 |
 

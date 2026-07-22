@@ -11,6 +11,15 @@
 | `@sfmc-bds/db-server` | `db-server/` | SQLite HTTP REST 后端 |
 | `@sfmc-bds/qq-bridge` | `qq-bridge/` | QQ ↔ MC 桥接 |
 | `@sfmc-bds/bds-tools` | `bds-tools/` | BDS 更新与行为包装配 |
+| `@sfmc-bds/tools` | `tools/` | 开发/安装工具脚本 |
+| `@sfmc-bds/sfmc` | `sfmc-meta/` | **聚合包**：一条命令装齐平台，装完即可 `sfmc` 初始化 |
+
+服主若走 npm，推荐直接：
+
+```bash
+npm install -g @sfmc-bds/sfmc
+mkdir my-server && cd my-server && sfmc
+```
 
 `@sfmc-bds/remote-controller` 为内部实验包，**不发布**。
 
@@ -35,7 +44,7 @@ npm run pack:verify
 
 ## 手动首发
 
-建议顺序：SDK → 平台组件（均依赖 SDK）。
+建议顺序：SDK → 平台组件 → 聚合包（聚合包依赖前者）。
 
 ```bash
 npm run build --workspace @sfmc-bds/sdk
@@ -44,7 +53,9 @@ npm publish --workspace @sfmc-bds/sdk --access public
 npm run build --workspace @sfmc-bds/db-server
 npm publish --workspace @sfmc-bds/db-server --access public
 
-# 同理: @sfmc-bds/qq-bridge, @sfmc-bds/bds-tools, @sfmc-bds/cli
+# 同理: @sfmc-bds/qq-bridge, @sfmc-bds/bds-tools, @sfmc-bds/tools, @sfmc-bds/cli
+# 最后:
+npm publish --workspace @sfmc-bds/sfmc --access public
 ```
 
 ## CI 自动发布

@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-import fs from "node:fs";
 import process from "node:process";
-import { configPath } from "@sfmc-bds/sdk/node/config";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
-import { cmdModuleDisable, cmdModuleEnable, cmdModuleInfo, cmdModuleInstall, cmdModuleList, cmdModuleUninstall, cmdModuleVerify, scanAndWarnUnknown } from "./module-commands.js";
+import { dispatchModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
@@ -25,9 +23,10 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    const { ROOT } = await import("./runtime.js");
-    const configFile = configPath(ROOT, "db_config.json");
-    if (!fs.existsSync(configFile)) {
+    /* 首次运行:以 runtime.json#initialized_at 为准(非 db_config 是否存在)。
+     * 配置骨架由 services.ensureJsonConfig 在启动时创建,不能再当「未初始化」信号。 */
+    const { isRuntimeInitialized } = await import("./runtime.js");
+    if (!isRuntimeInitialized()) {
       const { runWizard } = await import("./wizard.js");
       await runWizard();
       const { refreshServices } = await import("./services.js");
@@ -142,32 +141,7 @@ async function main(): Promise<void> {
     case "module":
     case "mod": {
       const [sub, ...subRest] = rest;
-      switch (sub) {
-        case "list":
-          console.log(await cmdModuleList(subRest));
-          break;
-        case "install":
-          console.log(await cmdModuleInstall(subRest));
-          break;
-        case "uninstall":
-        case "remove":
-          console.log(await cmdModuleUninstall(subRest));
-          break;
-        case "verify":
-          console.log(await cmdModuleVerify(subRest));
-          break;
-        case "info":
-          console.log(await cmdModuleInfo(subRest));
-          break;
-        case "enable":
-          console.log(await cmdModuleEnable(subRest));
-          break;
-        case "disable":
-          console.log(await cmdModuleDisable(subRest));
-          break;
-        default:
-          console.log(c.yellow("Usage: sfmc module <list|install|uninstall|verify|info|enable|disable> [args]"));
-      }
+      console.log(await dispatchModuleCommand(sub, subRest));
       break;
     }
     default:

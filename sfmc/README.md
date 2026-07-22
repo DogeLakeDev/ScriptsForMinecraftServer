@@ -10,7 +10,13 @@ npm install -g @sfmc-bds/cli
 npx @sfmc-bds/cli status
 ```
 
-服主推荐仍使用 [GitHub Releases SEA 单文件](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases)。
+服主推荐：
+
+```bash
+npm install -g @sfmc-bds/sfmc
+```
+
+仅 CLI（不含后端服务）仍可用 `npm install -g @sfmc-bds/cli`，完整平台请装聚合包。
 
 ## 依赖
 

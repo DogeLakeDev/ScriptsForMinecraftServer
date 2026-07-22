@@ -58,7 +58,7 @@ export type PackagesDirResolver = () => string;
  *
  * 优先级:
  *   1. `process.env.SFMC_PACKAGES_DIR` —— sfmc/SEA 的 spawnService 在启动 db 时注入
- *      (SEA 模式下 exe 目录, npm 模式下 process.cwd())
+ *      (SEA=exe 目录 / npm=monorepo 根,由 supervisor 注入 SFMC_ROOT)
  *   2. `__dirname` 上溯两级到仓库根 —— 仅当 db-server 独立启动时兜底(CLI 调试)
  *
  * SEA 模式必须走 env 路径:SEA CJS bundle 里 `__dirname` 是虚拟路径,

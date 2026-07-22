@@ -27,6 +27,11 @@
     "README.md"
   ],
   "exports": {
+    ".": "./dist/bds-manager.js",
+    "./check-update": "./dist/check-update.js",
+    "./bds-manager": "./dist/bds-manager.js",
+    "./pack-manager": "./dist/cli-pack-manager.js",
+    "./package.json": "./package.json",
     "./types": {
       "types": "./dist/types.d.ts"
     }

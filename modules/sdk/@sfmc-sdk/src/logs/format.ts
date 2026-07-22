@@ -57,23 +57,123 @@ export function levelTagFull(lvl: LogLevel, color = true): string {
   }
 }
 
-/** 高亮文本中的关键词 (IP / TPS / [LEVEL] 标签等),并 strip Minecraft § 颜色码 */
+type HighlightRule = {
+  re: RegExp;
+  paint: (match: string) => string;
+};
+
+function paintHttpExchange(m: string): string {
+  return m
+    .replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/, (method) => wrap("magenta", method))
+    .replace(/[1-5]\d{2}$/, (code) => {
+      const n = Number(code);
+      if (n >= 500) return wrap("red", code);
+      if (n >= 400) return wrap("yellow", code);
+      if (n >= 300) return wrap("cyan", code);
+      return wrap("green", code);
+    });
+}
+
+function paintHttpStatus(m: string): string {
+  return m.replace(/[1-5]\d{2}$/i, (code) => {
+    const n = Number(code);
+    if (n >= 500) return wrap("red", code);
+    if (n >= 400) return wrap("yellow", code);
+    if (n >= 300) return wrap("cyan", code);
+    return wrap("green", code);
+  });
+}
+
+const LOG_HIGHLIGHT_RULES: HighlightRule[] = [
+  { re: /\[FATAL\]/gi, paint: (m) => `${ansi.bold}${wrap("red", m)}` },
+  { re: /\[ERROR\]|\[ERR\]|\[X\]/gi, paint: (m) => wrap("red", m) },
+  { re: /\[WARN(?:ING)?\]|\[WRN\]|\[!\]/gi, paint: (m) => wrap("yellow", m) },
+  { re: /\[SUCCESS\]|\[OK\]|\[√\]/gi, paint: (m) => `${ansi.bold}${wrap("green", m)}` },
+  { re: /\[INFO\]|\[INF\]/gi, paint: (m) => wrap("blue", m) },
+  { re: /\[DEBUG\]|\[DBG\]|\[TRACE\]/gi, paint: (m) => `${ansi.dim}${m}${ansi.reset}` },
+  { re: /\[PLAYER\]/gi, paint: (m) => wrap("green", m) },
+  { re: /\[TPS\]/gi, paint: (m) => wrap("cyan", m) },
+  { re: /\[SFMC\]/gi, paint: (m) => wrap("magenta", m) },
+
+  { re: /\b(FATAL|ERROR|ERR)\b(?=\s*:)/gi, paint: (m) => wrap("red", m) },
+  { re: /\b(WARN(?:ING)?|WRN)\b(?=\s*:)/gi, paint: (m) => wrap("yellow", m) },
+  { re: /\b(INFO|INF)\b(?=\s*:)/gi, paint: (m) => wrap("blue", m) },
+  { re: /\b(DEBUG|DBG|TRACE)\b(?=\s*:)/gi, paint: (m) => `${ansi.dim}${m}${ansi.reset}` },
+
+  {
+    re: /\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,:]\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g,
+    paint: (m) => `${ansi.dim}${m}${ansi.reset}`,
+  },
+  { re: /\b\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?\b/g, paint: (m) => `${ansi.dim}${m}${ansi.reset}` },
+
+  { re: /\bhttps?:\/\/[^\s"'<>]+/gi, paint: (m) => wrap("blue", m) },
+  { re: /\b\d{1,3}(?:\.\d{1,3}){3}(?::\d{1,5})?\b/g, paint: (m) => wrap("cyan", m) },
+  { re: /\b(?:port|listening on|bound to)\s*[:=]?\s*\d{2,5}\b/gi, paint: (m) => wrap("cyan", m) },
+
+  {
+    re: /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+    paint: (m) => wrap("magenta", m),
+  },
+  { re: /\bv\d+\.\d+\.\d+(?:[-+][\w.-]+)?\b/gi, paint: (m) => wrap("yellow", m) },
+  { re: /\b(?:pid|PID)\s*[:=]?\s*\d+\b/g, paint: (m) => wrap("yellow", m) },
+
+  {
+    re: /(?:[A-Za-z]:\\|\/)(?:[^\s"'<>|*?]+[/\\])*[^\s"'<>|*?]+\.(?:json|js|mjs|cjs|ts|tsx|exe|dll|log|db|sqlite|zip|mcpack|mcaddon)\b/gi,
+    paint: (m) => wrap("yellow", m),
+  },
+
+  { re: /\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S+\s+[1-5]\d{2}\b/g, paint: paintHttpExchange },
+  { re: /\b(?:status|HTTP\/\d(?:\.\d)?)\s*[:=]?\s*[1-5]\d{2}\b/gi, paint: paintHttpStatus },
+  { re: /\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/g, paint: (m) => wrap("magenta", m) },
+
+  { re: /\bPlayer (?:connected|disconnected|joined|left)\b:?/gi, paint: (m) => wrap("green", m) },
+  { re: /\bServer (?:started|stopped|starting|stopping)\b/gi, paint: (m) => wrap("green", m) },
+  { re: /\b(?:listening|ready|healthy|online)\b/gi, paint: (m) => wrap("green", m) },
+  { re: /\b(?:offline|disconnected)\b/gi, paint: (m) => wrap("yellow", m) },
+
+  {
+    re: /\b(TPS|MSPT|tick|chunks?|entities|dimension|spawn(?:ed)?|loaded|saved|autosave)\b/gi,
+    paint: (m) => wrap("cyan", m),
+  },
+
+  {
+    re: /\b(?:TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError|AggregateError|Error|Exception|ECONNREFUSED|EADDRINUSE|ENOENT|ETIMEDOUT|ENOTFOUND)\b/g,
+    paint: (m) => `${ansi.bold}${wrap("red", m)}`,
+  },
+  {
+    re: /\b(?:failed|failure|fatal|crash(?:ed)?|timeout|rejected|abort(?:ed)?)\b/gi,
+    paint: (m) => wrap("red", m),
+  },
+  { re: /\b(?:success(?:fully)?|done|passed|complete(?:d)?)\b/gi, paint: (m) => wrap("green", m) },
+
+  {
+    re: /\b(?:db-server|qq-bridge|bds-tools|llbot|bedrock[_-]?server|sfmc)\b/gi,
+    paint: (m) => wrap("magenta", m),
+  },
+];
+
+/** 高亮文本中的关键词,并 strip Minecraft § 颜色码 */
 export function highlightText(raw: string, color = true): string {
-  let s = raw;
-  // strip Minecraft § color codes
-  s = s.replace(/§[0-9a-fklmnor]/g, "");
+  let s = raw.replace(/§[0-9a-fklmnor]/gi, "");
   if (!color) return s;
-  // [LEVEL] tags
-  s = s.replace(/\[ERROR\]/g, (m) => wrap("red", m));
-  s = s.replace(/\[FATAL\]/g, (m) => `${ansi.bold}${wrap("red", m)}`);
-  s = s.replace(/\[WARN(ING)?\]/g, (m) => wrap("yellow", m));
-  s = s.replace(/\[SUCCESS\]/g, (m) => `${ansi.bold}${wrap("green", m)}`);
-  s = s.replace(/\[INFO\]/g, (m) => wrap("blue", m));
-  s = s.replace(/\[DEBUG\]/g, (m) => `${ansi.dim}${m}${ansi.reset}`);
-  // IPs
-  s = s.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g, (m) => wrap("cyan", m));
-  // keywords
-  s = s.replace(/\b(TPS|MSPT|tick|loaded|saved)\b/gi, (m) => wrap("cyan", m));
+
+  const hits: Array<{ start: number; end: number; text: string; paint: (m: string) => string }> = [];
+  for (const rule of LOG_HIGHLIGHT_RULES) {
+    const flags = rule.re.flags.includes("g") ? rule.re.flags : `${rule.re.flags}g`;
+    const re = new RegExp(rule.re.source, flags);
+    for (const match of s.matchAll(re)) {
+      const text = match[0];
+      const start = match.index ?? 0;
+      const end = start + text.length;
+      if (hits.some((h) => start < h.end && end > h.start)) continue;
+      hits.push({ start, end, text, paint: rule.paint });
+    }
+  }
+
+  hits.sort((a, b) => b.start - a.start);
+  for (const hit of hits) {
+    s = `${s.slice(0, hit.start)}${hit.paint(hit.text)}${s.slice(hit.end)}`;
+  }
   return s;
 }
 

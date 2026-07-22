@@ -1,0 +1,51 @@
+{
+  "name": "@sfmc-bds/sfmc",
+  "version": "0.1.0",
+  "description": "SFMC all-in-one meta package — CLI + db-server + qq-bridge + bds-tools. One install, then `sfmc` to init and run.",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "author": "Shiroha7z",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/sfmc-meta#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "sfmc-meta"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "minecraft-bedrock",
+    "sfmc",
+    "scriptsforminecraftserver",
+    "cli",
+    "bds"
+  ],
+  "bin": {
+    "sfmc": "./bin/sfmc.mjs"
+  },
+  "files": [
+    "bin",
+    "defaults",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "prepublishOnly": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@sfmc-bds/bds-tools": "^0.1.0",
+    "@sfmc-bds/cli": "^0.1.0",
+    "@sfmc-bds/db-server": "^0.1.0",
+    "@sfmc-bds/qq-bridge": "^0.1.0",
+    "@sfmc-bds/sdk": "^0.1.0",
+    "@sfmc-bds/tools": "^0.1.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

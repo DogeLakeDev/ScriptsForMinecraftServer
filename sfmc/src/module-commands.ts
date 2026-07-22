@@ -2,11 +2,14 @@
  * sfmc module-commands — runtime CLI for inspecting and managing modules
  * already on disk under `modules/packages/<id>/`.
  *
+ * 顶层命令别名:`module` / `mod`(由 main.ts / repl.ts 共同识别)。
+ *
  * Subcommands:
  *   list                    List every installed module (reads each
  *                           modules/packages/<id>/sapi/manifest.json).
  *                           Marks registry-known modules with `●` and
  *                           modules from an unknown publisher with `?`.
+ *   search [id]             拉取 first-party registry 列表;带 id 则查该模块 registry info
  *   info <id>               Show one module's manifest + on-disk fingerprint
  *   verify [id]             Recompute the SHA-256 fingerprint of installed
  *                           modules (id = one; no id = all)
@@ -17,20 +20,43 @@
  *   enable <id>             POST /api/sfmc/modules/:id/enable on db-server
  *   disable <id>            POST /api/sfmc/modules/:id/disable on db-server
  *
- * The runtime SEA process never connects to the network. `install`/`uninstall`
- * delegate to `tools/fetch-module.mjs` (install syncs catalog + lock).
+ * The runtime SEA process never connects to the network for local ops.
+ * `search`/`install`/`uninstall` 需要网络(或本地 cache / --from)。
  * enable/disable go through db-server REST so module-lock.json stays consistent.
  */
 
+/** 顶层命令名(主名 + 短别名),供 HELP / 补全 / 分发共用。 */
+export const MODULE_CMD_NAMES = ["module", "mod"] as const;
+
+/** 对外展示与 Tab 补全用的子命令列表(不含 remove 等同义别名)。 */
+export const MODULE_SUBCOMMANDS = [
+  "list",
+  "search",
+  "install",
+  "uninstall",
+  "verify",
+  "info",
+  "enable",
+  "disable",
+] as const;
+
+export const MODULE_USAGE =
+  "Usage: sfmc module|mod <list|search|install|uninstall|verify|info|enable|disable> [args]";
+
 import fs from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { configPath, readJson, type DBConfig } from "@sfmc-bds/sdk/node/config";
 import { c } from "./theme.js";
-import { ROOT } from "./runtime.js";
-import { findUnknownModules } from "./registry.js";
+import { ROOT, resolveFetchModule } from "./runtime.js";
+import {
+  DEFAULT_REGISTRY_REPO,
+  DEFAULT_REGISTRY_TAG,
+  findUnknownModules,
+  resolveRegistryIndex,
+} from "./registry.js";
 
 /** Where modules live on disk. SEA reads this same path at runtime. */
 function modulesDir(): string {
@@ -141,7 +167,7 @@ async function dirSize(dir: string): Promise<{ totalBytes: number; fileCount: nu
 export async function cmdModuleList(_args: string[]): Promise<string> {
   const installed = await scanInstalled();
   if (installed.length === 0) {
-    return c.dim(`\nNo modules installed. Drop a module folder under ${modulesDir()} or run \`sfmc module install <id>\`.\n`);
+    return c.dim(`\nNo modules installed. Drop a module folder under ${modulesDir()} or run \`sfmc mod install <id>\`.\n`);
   }
   const ids = installed.map((m) => m.id);
   const unknown = new Set(await findUnknownModules(ids));
@@ -180,11 +206,83 @@ export async function scanAndWarnUnknown(): Promise<string> {
 }
 
 /* ─────────────────────────────────────────────────────────────────
+ *  search — 拉取 first-party registry;带 id 查单条 registry info
+ * ──────────────────────────────────────────────────────────────── */
+/**
+ * 拉取 first-party registry 模块列表;带 id 时展示该条目的 registry info。
+ * 与本地 `info`(已安装磁盘详情)区分:`search` 看 registry,`info` 看本机 packages。
+ */
+export async function cmdModuleSearch(args: string[]): Promise<string> {
+  const query = args[0];
+  const { index, stale } = await resolveRegistryIndex({ force: true });
+  const ids = Object.keys(index).sort((a, b) => a.localeCompare(b));
+
+  if (ids.length === 0) {
+    return c.red(
+      `\nRegistry empty or unreachable (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}).\n` +
+        `Check network, or install with an explicit source: sfmc mod install <id> --from github:owner/repo@tag\n`
+    );
+  }
+
+  const staleNote = stale ? c.yellow("  (offline — showing cached index)\n") : "";
+
+  /* 无参数:列出全部 */
+  if (!query) {
+    const installed = new Set(listInstalledModuleIdsSync());
+    const lines: string[] = [
+      c.bold(`\nFirst-party registry (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}) — ${ids.length} modules`),
+    ];
+    if (staleNote) lines.push(staleNote.trimEnd());
+    lines.push(c.dim(`    ${"id".padEnd(28)}${"source".padEnd(40)}local`));
+    for (const id of ids) {
+      const e = index[id]!;
+      const src = `${e.repo}@${e.tag}`;
+      const local = installed.has(id) ? c.green("●") : c.dim("○");
+      lines.push(`  ${local} ${id.padEnd(26)}${src.padEnd(40)}${installed.has(id) ? "installed" : ""}`);
+    }
+    lines.push(c.dim(`\n  tip: sfmc mod search <id>  → registry info`));
+    lines.push(c.dim(`       sfmc mod install <id> → download + catalog sync`));
+    return lines.join("\n") + "\n";
+  }
+
+  /* 带 id:查单条 registry info */
+  const entry = index[query];
+  if (!entry) {
+    const hints = ids.filter((id) => id.includes(query) || query.includes(id)).slice(0, 8);
+    const hintBlock =
+      hints.length > 0
+        ? c.dim(`\n  Did you mean:\n`) + hints.map((h) => `    ${h}`).join("\n")
+        : c.dim(`\n  Known ids: ${ids.slice(0, 12).join(", ")}${ids.length > 12 ? ", …" : ""}`);
+    return c.red(`Module "${query}" not found in first-party registry.`) + hintBlock + "\n";
+  }
+
+  const installedPath = path.join(modulesDir(), query);
+  const isInstalled = existsSync(installedPath);
+  const lines: string[] = [c.bold(`\n${query}`)];
+  if (staleNote) lines.push(staleNote.trimEnd());
+  lines.push(`  registry   : ${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}`);
+  lines.push(`  repo       : ${entry.repo}`);
+  lines.push(`  tag        : ${entry.tag}`);
+  lines.push(`  source     : github:${entry.repo}@${entry.tag}`);
+  lines.push(`  github     : https://github.com/${entry.repo}/tree/${entry.tag}`);
+  lines.push(
+    `  local      : ${isInstalled ? c.green(`installed @ ${installedPath}`) : c.dim("not installed")}`
+  );
+
+  if (!isInstalled) {
+    lines.push(c.dim(`\n  install: sfmc mod install ${query}`));
+  } else {
+    lines.push(c.dim(`\n  details: sfmc mod info ${query}`));
+  }
+  return lines.join("\n") + "\n";
+}
+
+/* ─────────────────────────────────────────────────────────────────
  *  info
  * ──────────────────────────────────────────────────────────────── */
 export async function cmdModuleInfo(args: string[]): Promise<string> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module info <id>");
+  if (!id) return c.yellow("Usage: sfmc module|mod info <id>");
   const all = await scanInstalled();
   const m = all.find((x) => x.id === id);
   if (!m) return c.red(`Module ${id} not installed at ${path.join(modulesDir(), id)}`);
@@ -274,13 +372,13 @@ async function postModuleToggle(id: string, action: "enable" | "disable"): Promi
 
 export async function cmdModuleEnable(args: string[]): Promise<string> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module enable <id>");
+  if (!id) return c.yellow("Usage: sfmc module|mod enable <id>");
   return postModuleToggle(id, "enable");
 }
 
 export async function cmdModuleDisable(args: string[]): Promise<string> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module disable <id>");
+  if (!id) return c.yellow("Usage: sfmc module|mod disable <id>");
   return postModuleToggle(id, "disable");
 }
 
@@ -300,16 +398,19 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     if (args[i]?.startsWith("--")) continue;
     positional.push(args[i]!);
   }
-  if (positional.length === 0) return c.yellow("Usage: sfmc module install <id> [id2 ...] [--from <source>]");
-  const fetchScript = path.join(ROOT, "tools", "fetch-module.mjs");
-  if (!existsSync(fetchScript)) {
-    return c.red(`tools/fetch-module.mjs not found at ${fetchScript}`);
+  if (positional.length === 0) return c.yellow("Usage: sfmc module|mod install <id> [id2 ...] [--from <source>]");
+  const fetchScript = resolveFetchModule();
+  if (!fetchScript) {
+    return c.red(`fetch-module not found. Install @sfmc-bds/sfmc or run inside the monorepo.`);
   }
   const sub = ["install", ...positional];
   if (flags.from) sub.push("--from", flags.from);
   if (flags.sha256) sub.push("--sha256", flags.sha256);
   return new Promise<string>((resolve) => {
-    const proc = spawn(process.execPath, [fetchScript, ...sub], { stdio: ["ignore", "pipe", "pipe"] });
+    const proc = spawn(process.execPath, [fetchScript, ...sub], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, SFMC_ROOT: ROOT },
+    });
     let out = "";
     proc.stdout?.on("data", (d: Buffer) => {
       out += d.toString();
@@ -329,9 +430,9 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
  * ──────────────────────────────────────────────────────────────── */
 export async function cmdModuleUninstall(args: string[]): Promise<string> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module uninstall <id>");
-  const fetchScript = path.join(ROOT, "tools", "fetch-module.mjs");
-  if (!existsSync(fetchScript)) {
+  if (!id) return c.yellow("Usage: sfmc module|mod uninstall <id>");
+  const fetchScript = resolveFetchModule();
+  if (!fetchScript) {
     // 回退:仅删目录(旧行为)
     const target = path.join(modulesDir(), id);
     if (!existsSync(target)) return c.yellow(`Module ${id} not installed (no folder at ${target})`);
@@ -341,6 +442,7 @@ export async function cmdModuleUninstall(args: string[]): Promise<string> {
   return new Promise<string>((resolve) => {
     const proc = spawn(process.execPath, [fetchScript, "uninstall", id], {
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, SFMC_ROOT: ROOT },
     });
     let out = "";
     proc.stdout?.on("data", (d: Buffer) => {
@@ -372,4 +474,48 @@ function parseFlags(args: string[]): InstallFlags {
     else if (args[i] === "--sha256") flags.sha256 = args[++i] ?? null;
   }
   return flags;
+}
+
+/**
+ * 统一分发 module/mod 子命令 —— CLI(`main.ts`)与 REPL(`repl.ts`)共用,
+ * 避免两处 switch 漂移(例如原先 REPL 缺 enable/disable)。
+ *
+ * `remove` 作为 uninstall 的同义别名保留。
+ */
+export async function dispatchModuleCommand(sub: string | undefined, args: string[]): Promise<string> {
+  switch (sub) {
+    case "list":
+      return cmdModuleList(args);
+    case "search":
+      return cmdModuleSearch(args);
+    case "install":
+      return cmdModuleInstall(args);
+    case "uninstall":
+    case "remove":
+      return cmdModuleUninstall(args);
+    case "verify":
+      return cmdModuleVerify(args);
+    case "info":
+      return cmdModuleInfo(args);
+    case "enable":
+      return cmdModuleEnable(args);
+    case "disable":
+      return cmdModuleDisable(args);
+    default:
+      return c.yellow(MODULE_USAGE);
+  }
+}
+
+/** 同步枚举已安装模块 id,供 REPL Tab 补全(不读 fingerprint,尽量轻量)。 */
+export function listInstalledModuleIdsSync(): string[] {
+  const dir = modulesDir();
+  if (!existsSync(dir)) return [];
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
 }

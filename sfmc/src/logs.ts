@@ -15,7 +15,7 @@ import {
   type LogLevel as SharedLogLevel,
 } from "@sfmc-bds/sdk/logs";
 import { SOURCE_ITEMS } from "./repl.js";
-import { c } from "./theme.js";
+import { c, highlightLogLine } from "./theme.js";
 
 export type LogLevel = SharedLogLevel;
 export type LogSource = string;
@@ -88,34 +88,28 @@ function getLogLevel(line: string): string {
 /** 格式化日志用于 REPL 展示 (用 theme.ts chalk 配色) */
 export function formatLog(l: UnifiedLog): string {
   let src = c.bold(padSource(l.source));
-  let ts = c.dim(l.time.toLocaleTimeString());
+  const ts = c.dim(l.time.toLocaleTimeString());
   let lvl = levelTag(l.level);
-  let txt = highlightText(l.text);
-  for (let _src of SOURCE_ITEMS) {
-    if (_src["value"] === l.source) src = `[${_src["label"]}]`;
-    continue;
+  let txt = highlightLogLine(l.text);
+  for (const item of SOURCE_ITEMS) {
+    if (item.value === l.source) {
+      src = `[${item.label}]`;
+      break;
+    }
   }
   if (l.source === "bds") {
-    lvl = getLogLevel(l.text);
-    switch (lvl) {
-      case "INFO":
-        lvl = "info";
-        break;
-      case "WARNING":
-        lvl = "warn";
-        break;
-      case "ERROR":
-        lvl = "error";
-        break;
-      case "DEBUG":
-        lvl = "debug";
-        break;
-      default:
-        lvl = "info";
-        break;
-    }
-    txt = stripLogPrefix(l.text);
-    lvl = levelTag(l.level);
+    const parsed = getLogLevel(l.text);
+    const mapped: LogLevel =
+      parsed === "WARNING" || parsed === "WARN"
+        ? "warn"
+        : parsed === "ERROR" || parsed === "FATAL"
+          ? "error"
+          : parsed === "DEBUG" || parsed === "TRACE"
+            ? "debug"
+            : "info";
+    /* 去掉 BDS 自带时间戳前缀后再高亮正文 */
+    txt = highlightLogLine(stripLogPrefix(l.text));
+    lvl = levelTag(mapped);
   }
   return `${ts} ${src} ${lvl} ${txt}`;
 }
@@ -137,14 +131,6 @@ function levelTag(lvl: LogLevel): string {
     default:
       return c.blue("[INF]");
   }
-}
-
-function highlightText(raw: string): string {
-  let s = raw;
-  s = s.replace(/§[0-9a-fklmnor]/g, "");
-  s = s.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g, (m) => c.cyan(m));
-  s = s.replace(/\b(TPS|MSPT|tick|loaded|saved)\b/gi, (m) => c.cyan(m));
-  return s;
 }
 
 /* ==================================================================

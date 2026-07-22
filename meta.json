@@ -1,7 +1,7 @@
 {
   "inputs": {
     "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js": {
-      "bytes": 1505,
+      "bytes": 1788,
       "imports": [
         {
           "path": "node:fs",
@@ -96,7 +96,7 @@
       "format": "esm"
     },
     "sfmc/src/runtime.ts": {
-      "bytes": 3229,
+      "bytes": 3233,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
@@ -132,7 +132,7 @@
       "format": "esm"
     },
     "sfmc/src/terminal.ts": {
-      "bytes": 7279,
+      "bytes": 7283,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
@@ -173,7 +173,7 @@
       "format": "esm"
     },
     "sfmc/package.json": {
-      "bytes": 849,
+      "bytes": 1643,
       "imports": [],
       "format": "esm",
       "with": {
@@ -265,7 +265,7 @@
       "format": "esm"
     },
     "sfmc/src/registry.ts": {
-      "bytes": 4521,
+      "bytes": 5614,
       "imports": [
         {
           "path": "node:fs",
@@ -291,7 +291,7 @@
       "format": "esm"
     },
     "sfmc/src/module-commands.ts": {
-      "bytes": 16096,
+      "bytes": 17281,
       "imports": [
         {
           "path": "node:fs/promises",
@@ -319,6 +319,11 @@
           "external": true
         },
         {
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc-bds/sdk/node/config"
+        },
+        {
           "path": "sfmc/src/theme.ts",
           "kind": "import-statement",
           "original": "./theme.js"
@@ -332,11 +337,6 @@
           "path": "sfmc/src/registry.ts",
           "kind": "import-statement",
           "original": "./registry.js"
-        },
-        {
-          "path": "node:fs",
-          "kind": "require-call",
-          "external": true
         }
       ],
       "format": "esm"
@@ -719,7 +719,7 @@
       "format": "esm"
     },
     "sfmc/src/services.ts": {
-      "bytes": 8517,
+      "bytes": 8890,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
@@ -765,18 +765,8 @@
       "format": "esm"
     },
     "sfmc/src/remote-agent.ts": {
-      "bytes": 8001,
+      "bytes": 7736,
       "imports": [
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
         {
           "path": "node_modules/ws/wrapper.mjs",
           "kind": "import-statement",
@@ -2610,7 +2600,7 @@
       "format": "cjs"
     },
     "sfmc/src/commands-behavior-pack.ts": {
-      "bytes": 6093,
+      "bytes": 6097,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
@@ -2661,7 +2651,7 @@
       "format": "esm"
     },
     "sfmc/src/wizard.ts": {
-      "bytes": 18161,
+      "bytes": 18165,
       "imports": [
         {
           "path": "node_modules/@clack/prompts/dist/index.mjs",
@@ -2781,7 +2771,7 @@
       "format": "esm"
     },
     "sfmc/src/logs.ts": {
-      "bytes": 7013,
+      "bytes": 7021,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
@@ -2838,7 +2828,7 @@
       "format": "esm"
     },
     "sfmc/src/main.ts": {
-      "bytes": 6377,
+      "bytes": 6402,
       "imports": [
         {
           "path": "node:fs",
@@ -3042,11 +3032,6 @@
           "external": true
         },
         {
-          "path": "node:fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
           "path": "bufferutil",
           "kind": "require-call",
           "external": true
@@ -3158,16 +3143,6 @@
         },
         {
           "path": "node:events",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
           "kind": "import-statement",
           "external": true
         },
@@ -3471,13 +3446,13 @@
       "entryPoint": "sfmc/src/dispatcher.ts",
       "inputs": {
         "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js": {
-          "bytesInOutput": 633
+          "bytesInOutput": 693
         },
         "sfmc/src/runtime.ts": {
           "bytesInOutput": 1056
         },
         "sfmc/package.json": {
-          "bytesInOutput": 610
+          "bytesInOutput": 1214
         },
         "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js": {
           "bytesInOutput": 953
@@ -3498,10 +3473,10 @@
           "bytesInOutput": 1172
         },
         "sfmc/src/registry.ts": {
-          "bytesInOutput": 1535
+          "bytesInOutput": 1916
         },
         "sfmc/src/module-commands.ts": {
-          "bytesInOutput": 5958
+          "bytesInOutput": 6375
         },
         "node_modules/ws/lib/constants.js": {
           "bytesInOutput": 413
@@ -3546,10 +3521,10 @@
           "bytesInOutput": 152
         },
         "sfmc/src/services.ts": {
-          "bytesInOutput": 4112
+          "bytesInOutput": 4192
         },
         "sfmc/src/remote-agent.ts": {
-          "bytesInOutput": 3526
+          "bytesInOutput": 3324
         },
         "node_modules/fast-string-truncated-width/dist/utils.js": {
           "bytesInOutput": 601
@@ -3879,7 +3854,7 @@
           "bytesInOutput": 205
         }
       },
-      "bytes": 342241
+      "bytes": 343581
     }
   }
 }
