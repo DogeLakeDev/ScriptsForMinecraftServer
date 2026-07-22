@@ -1,5 +1,5 @@
 import { Player } from "@minecraft/server";
-import { HttpDB } from "./httpdb.js";
+import { service, ServiceError } from "../service/client.js";
 import { debug } from "./debug-log.js";
 
 export interface EconomyAccount {
@@ -24,37 +24,54 @@ export interface EconomyTransactionResult {
   error?: string;
 }
 
+type AccountView = { balance?: number; version?: number } | null;
+
+type MutateView = {
+  balance?: number;
+  version?: number;
+  transactionId?: string;
+};
+
+/**
+ * 经 service registry 读账户(LSP:已无 /api/sfmc/economy/* REST)。
+ * 调用方须已 setServiceModuleContext,且持有 service:economy.account.get。
+ */
 async function getEconomyAccount(playerId: string, playerName: string): Promise<EconomyAccount | null> {
   try {
-    const body = await HttpDB.get(`/api/sfmc/economy/account/${encodeURIComponent(playerId)}`);
-    if (!body) return null;
-    const parsed = JSON.parse(body);
-    if (!parsed || typeof parsed.balance !== "number") return null;
-    return { balance: parsed.balance, version: parsed.version ?? 0 };
+    const account = await service.get<AccountView>("economy.account.get", {
+      playerId,
+      playerName,
+    });
+    if (!account || typeof account.balance !== "number") return null;
+    return { balance: account.balance, version: account.version ?? 0 };
   } catch (e) {
     debug.w("MNY", `getEconomyAccount failed for ${playerName}: ${(e as Error).message}`);
     return null;
   }
 }
 
+/**
+ * credit/debit 走同名 service;保留旧 EconomyTransactionRequest 形状给调用方。
+ */
 async function applyEconomyTransaction(req: EconomyTransactionRequest): Promise<EconomyTransactionResult> {
+  const playerId =
+    req.type === "debit" ? (req.sourcePlayerId ?? req.actorId) : (req.targetPlayerId ?? req.actorId);
+  const name = req.type === "debit" ? "economy.account.debit" : "economy.account.credit";
   try {
-    const res = await HttpDB.typedRequest<EconomyTransactionResult & { balance?: number }>(
-      "POST" as any,
-      "/api/sfmc/economy/transaction",
-      {
-        actorId: req.actorId,
-        sourcePlayerId: req.sourcePlayerId,
-        targetPlayerId: req.targetPlayerId,
-        amount: req.amount,
-        type: req.type,
-        note: req.note,
-      }
-    );
-    if (res.ok && res.data) return res.data;
-    return { ok: false, error: res.error || "request_failed" };
+    const data = await service.get<MutateView>(name, {
+      playerId,
+      actorId: req.actorId,
+      amount: req.amount,
+      reason: req.note ?? "",
+    });
+    const out: EconomyTransactionResult = { ok: true };
+    if (typeof data?.balance === "number") out.balance = data.balance;
+    if (typeof data?.version === "number") out.version = data.version;
+    if (typeof data?.transactionId === "string") out.transactionId = data.transactionId;
+    return out;
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    const err = e as ServiceError;
+    return { ok: false, error: err.message || "request_failed" };
   }
 }
 

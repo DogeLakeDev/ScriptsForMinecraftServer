@@ -34,13 +34,14 @@ import { initSchema } from "./domain/schema.js";
 import { SchemaRegistry } from "./schema-registry.js";
 import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
-import { registerEconomyHandlers } from "./services/economy-handlers.js";
+import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
 
 import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 
 import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
+import { jsonV2Fail } from "./routes/_shared.js";
 
 import { createConfigRoutes } from "./routes/config.js";
 import { createHealthRoutes } from "./routes/health.js";
@@ -115,10 +116,14 @@ const txRunner = new TxRunner({
   enabled: enabledManifests,
 });
 
-// ── 进程内 service handler(第一刀:economy.*) ───────────────
-if (enabledSet.has("feature-economy")) {
-  registerEconomyHandlers(serviceRegistry, { query, db });
-  log.success(`[service] registered ${serviceRegistry.list().length} economy handlers`);
+// ── 进程内置 service handler(扩展点:BUILTIN_SERVICE_PLUGINS) ──
+{
+  const plugins = registerEnabledBuiltinServices(serviceRegistry, { query, db }, enabledSet);
+  if (plugins > 0) {
+    log.success(
+      `[service] registered ${serviceRegistry.list().length} handlers from ${plugins} builtin plugin(s)`
+    );
+  }
 }
 
 const json = sharedJson;
@@ -272,7 +277,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       enabledModuleIds: enabledSet,
     });
     if (!id) {
-      json(res, { success: false, error: "unauthorized: module identity invalid" }, 401);
+      // LSP: v2 模块门与 service-routes 同用 ok 方言
+      jsonV2Fail(res, "unauthorized: module identity invalid", 401, "unauthorized");
       return;
     }
     const manifest = enabledManifests.get(id);

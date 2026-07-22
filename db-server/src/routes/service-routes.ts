@@ -11,7 +11,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
 import { assertModulePermission, Perm, PermissionDeniedError } from "../permission-gate.js";
 import type { ServiceRegistry } from "../service-registry.js";
-import type { ModuleAuth } from "./_shared.js";
+import { jsonV2Fail, type ModuleAuth } from "./_shared.js";
 
 export interface ServiceRoutesDeps {
   serviceRegistry: ServiceRegistry;
@@ -41,7 +41,7 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
     const auth = ctx.moduleAuth ?? null;
     if (!auth) {
       // LSP: 与成功路径同一 ok 方言(文档约定 { ok:false, error, code })
-      json(res, { ok: false, error: "unauthorized: module identity missing", code: "unauthorized" }, 401);
+      jsonV2Fail(res, "unauthorized: module identity missing", 401, "unauthorized");
       return true;
     }
 

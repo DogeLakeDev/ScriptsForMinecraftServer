@@ -18,7 +18,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
-import type { ModuleAuth } from "./_shared.js";
+import { jsonV2Fail, type ModuleAuth } from "./_shared.js";
 import type {
   DefineTableRequest,
   SchemaRegistry,
@@ -59,7 +59,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
 
     const auth = ctx.moduleAuth ?? null;
     if (!auth) {
-      json(res, { success: false, error: "unauthorized: module identity missing" }, 401);
+      jsonV2Fail(res, "unauthorized: module identity missing", 401, "unauthorized");
       return true;
     }
 

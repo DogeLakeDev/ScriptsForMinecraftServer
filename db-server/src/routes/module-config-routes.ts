@@ -18,7 +18,7 @@ import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 import { json as defaultJson, type Method } from "../lib/http.js";
 import { assertModulePermission, Perm } from "../permission-gate.js";
 import type { ModuleManifestV2 } from "../manifest-loader.js";
-import type { ModuleAuth } from "./_shared.js";
+import { jsonV2Fail, type ModuleAuth } from "./_shared.js";
 
 export interface ModuleConfigRoutesDeps {
   projectRoot: string;
@@ -79,12 +79,12 @@ export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>
     const tail = m[2];
     const auth = ctx.moduleAuth;
     if (!auth) {
-      json(res, { success: false, error: "unauthorized" }, 401);
+      jsonV2Fail(res, "unauthorized", 401, "unauthorized");
       return true;
     }
     const manifest = enabled.get(auth.id);
     if (!manifest || manifest.configKey !== configKey) {
-      json(res, { success: false, error: `模块 ${auth.id} 不持有 configKey "${configKey}"` }, 403);
+      jsonV2Fail(res, `模块 ${auth.id} 不持有 configKey "${configKey}"`, 403, "forbidden");
       return true;
     }
 
@@ -97,7 +97,8 @@ export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>
         json(res, { config: cfg });
       } catch (e) {
         const code = (e as { name?: string }).name === "PermissionDeniedError" ? 403 : 500;
-        json(res, { success: false, error: (e as Error).message }, code);
+        // LSP: GET 失败与 /set 同用 ok 方言
+        jsonV2Fail(res, (e as Error).message, code);
       }
       return true;
     }
@@ -116,7 +117,7 @@ export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>
       } catch (e) {
         // LSP: /set 成功用 ok:true,失败统一 ok:false(勿混用 success)
         const code = (e as { name?: string }).name === "PermissionDeniedError" ? 403 : 500;
-        json(res, { ok: false, error: (e as Error).message }, code);
+        jsonV2Fail(res, (e as Error).message, code);
       }
       return true;
     }
