@@ -136,6 +136,13 @@ async function main() {
         if (!all.body.module_tokens || typeof all.body.module_tokens !== "object") {
           throw new Error("configs/all 缺少 module_tokens");
         }
+        // LSP:configs/all.banned_items 须为 string[](与 /banned_items、ConfigManager 同源)
+        if (Array.isArray(all.body.banned_items)) {
+          const bad = all.body.banned_items.find((x) => typeof x !== "string");
+          if (bad !== undefined) {
+            throw new Error(`configs/all.banned_items 须为 string[],收到 ${typeof bad}`);
+          }
+        }
         pass(`db-server 启动 + 平台 API (modules=${mods.body.modules.length})`);
       } catch (e) {
         fail("db-server 启动 + 平台 API", e.message);

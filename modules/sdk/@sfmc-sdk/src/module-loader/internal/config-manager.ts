@@ -74,7 +74,8 @@ type AllConfigs = {
     end_z: number;
   }>;
   permissions: Array<{ player_name: string; level: number }>;
-  banned_items: string[];
+  /** 权威为 string[];兼容历史 {item_id} */
+  banned_items: Array<string | { item_id?: string }>;
   clean: { item_max?: number; poll_interval?: number };
   grids: Array<{
     name: string;
@@ -275,7 +276,10 @@ export class ConfigManager {
       ConfigManager.cache.permissions[p.player_name] = p.level;
     }
 
-    ConfigManager.cache.bannedItems = (all.banned_items || []).filter((s) => typeof s === "string");
+    // 权威契约为 string[];兼容历史 {item_id} 以免旧服务端把缓存清空(LSP 防御)
+    ConfigManager.cache.bannedItems = (all.banned_items || [])
+      .map((s) => (typeof s === "string" ? s : s && typeof s === "object" ? String((s as { item_id?: unknown }).item_id || "") : ""))
+      .filter((id) => !!id);
 
     if (all.clean) {
       ConfigManager.cache.clean = {
