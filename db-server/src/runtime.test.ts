@@ -130,3 +130,68 @@ test("normalizeOrderBy: SDK field 与遗留 col / 数组互通(LSP)", async () =
   ]);
   throws(() => normalizeOrderBy({ dir: "asc" }), /field\/col/);
 });
+
+test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", async () => {
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { ServiceRegistry } = await import("./service-registry.js");
+  const {
+    syncModuleRuntimeState,
+    unregisterHandlersForModule,
+  } = await import("./module-runtime-sync.js");
+  const { deriveToken } = await import("./module-auth.js");
+
+  const root = mkdtempSync(join(tmpdir(), "sfmc-runtime-sync-"));
+  try {
+    const enabledSet = new Set<string>(["feature-a"]);
+    const enabledManifests = new Map();
+    const moduleAuth = { tokens: { "feature-a": "old" }, secret: "test-secret" };
+    const registry = new ServiceRegistry();
+    const fakeManifest = {
+      id: "feature-b",
+      version: "1.0.0",
+      permissions: [] as string[],
+      services: { provides: [], requires: [] },
+      db: { tables: [] },
+      config: { key: "b" },
+    } as unknown as import("./manifest-loader.js").ModuleManifestV2;
+
+    syncModuleRuntimeState({
+      moduleId: "feature-b",
+      enabled: true,
+      projectRoot: root,
+      enabledSet,
+      enabledManifests,
+      loadedManifest: { modules: { "feature-b": fakeManifest } },
+      moduleAuth,
+      serviceRegistry: registry,
+      builtinDeps: { query: (() => []) as never, db: {} as never },
+    });
+
+    equal(enabledSet.has("feature-b"), true);
+    equal(enabledManifests.has("feature-b"), true);
+    equal(moduleAuth.tokens["feature-b"], deriveToken("feature-b", "test-secret"));
+    const store = JSON.parse(readFileSync(join(root, "data", "module-tokens.json"), "utf8"));
+    equal(store.tokens["feature-b"], moduleAuth.tokens["feature-b"]);
+
+    syncModuleRuntimeState({
+      moduleId: "feature-b",
+      enabled: false,
+      projectRoot: root,
+      enabledSet,
+      enabledManifests,
+      loadedManifest: { modules: { "feature-b": fakeManifest } },
+      moduleAuth,
+      serviceRegistry: registry,
+      builtinDeps: { query: (() => []) as never, db: {} as never },
+    });
+
+    equal(enabledSet.has("feature-b"), false);
+    equal(enabledManifests.has("feature-b"), false);
+    equal(moduleAuth.tokens["feature-b"], undefined);
+    equal(unregisterHandlersForModule(registry, "feature-b"), 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

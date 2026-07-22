@@ -86,8 +86,7 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
         .filter((r) => r && r.player_name)
         .map((r) => stripMetaDeep(r)),
       banned_items: (arrayOrEmpty(readJson(configPath(projectRoot, "banned_items.json"))) as Array<string>)
-        .filter((i) => typeof i === "string" && i && !i.startsWith("_"))
-        .map((id) => ({ item_id: id })),
+        .filter((i) => typeof i === "string" && i && !i.startsWith("_")),
       clean: stripMetaDeep(readJson(configPath(projectRoot, "clean.json")) ?? {}),
       grids: (arrayOrEmpty(readJson(configPath(projectRoot, "grids.json"))) as Array<Record<string, unknown>>)
         .filter((r) => r && r.name)

@@ -35,6 +35,7 @@ import { SchemaRegistry } from "./schema-registry.js";
 import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
 import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
+import { syncModuleRuntimeState } from "./module-runtime-sync.js";
 
 import { readJson } from "@sfmc-bds/sdk/node/config";
 
@@ -186,11 +187,17 @@ function buildModuleList() {
 function resolveModuleByKey(key: string) {
   const k = String(key || "").trim();
   const catalog = loadModuleCatalog();
-  return catalog.find(
+  const raw = catalog.find(
     (m) =>
       String((m as Record<string, unknown>).id || "") === k ||
       String((m as Record<string, unknown>).configKey || (m as Record<string, unknown>).config_key || "") === k
-  ) as { id: string; configKey: string; canDisable: boolean } | null;
+  ) as Record<string, unknown> | undefined;
+  if (!raw) return null;
+  const id = String(raw.id || "").trim();
+  const configKey = String(raw.configKey || raw.config_key || "").trim();
+  if (!id || !configKey) return null;
+  /* LSP:与 buildModuleList.can_disable 同源 — 省略字段视为可禁用 */
+  return { id, configKey, canDisable: raw.canDisable !== false };
 }
 
 function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boolean) {
@@ -199,6 +206,18 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   updateModuleState(lockFile, mod.id, { enabled: !!enabled });
   // DRY:与 loadModuleLock 对称走 saveModuleLock,勿散落 writeJson
   saveModuleLock(env.MODULE_LOCK_PATH, lockFile);
+  // DIP:同步 enabledSet / tokens / builtin handlers,使「只重启 BDS」可用新 token
+  syncModuleRuntimeState({
+    moduleId: mod.id,
+    enabled: !!enabled,
+    projectRoot: env.PROJECT_ROOT,
+    enabledSet,
+    enabledManifests,
+    loadedManifest,
+    moduleAuth,
+    serviceRegistry,
+    builtinDeps: { query, db },
+  });
 }
 
 // ── 平台路由(非模块业务) ───────────────────────────────────
