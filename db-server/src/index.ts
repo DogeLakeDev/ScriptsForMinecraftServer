@@ -10,7 +10,7 @@
  *   6. buildModuleAuth({auth_token, enabled_modules})  ← data/module-tokens.json
  *   7. 实例化:SchemaRegistry / ServiceRegistry / IdempotencyStore / TxRunner
  *   8. 装配 v2 路由 (/api/sfmc/db/* + /api/sfmc/services* + /api/sfmc/configs/:key/*)
- *      旧 业务路由(lands/economy/coops/...)保留直到对应模块迁 v2
+ *      另保留 messages(qq-bridge) + config/modules/health 平台路由
  *   9. createServer + listen
  *
  * 鉴权(handle 层):
@@ -41,21 +41,12 @@ import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
 
-import { createChannelsRoutes } from "./routes/channels.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createHealthRoutes } from "./routes/health.js";
 import { createMessagesRoutes } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
-import { createMonitorRoutes } from "./routes/monitor.js";
-import { createPlayersRoutes } from "./routes/players.js";
-import { createRedpacketRoutes } from "./routes/redpacket.js";
-import { createWorldRoutes } from "./routes/world.js";
 
 import { forwardToQQBridge, makeLLBotConfig } from "./domain/bridge.js";
-import {
-  economyResult as domainEconomyResult,
-  ensureEconomyAccount as domainEnsureEconomyAccount,
-} from "./domain/economy.js";
 import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 
@@ -193,16 +184,8 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   writeJson(env.MODULE_LOCK_PATH, lockFile);
 }
 
-// ── 路由工厂实例 (旧业务路径 — 保留直到各模块迁 v2) ────────────────
-const monitorState = {
-  metrics: null as { tps: number; entities: Record<string, number>; timestamp: number } | null,
-  players: [] as Array<{ name?: string; dimension?: string; chunkEstimate?: number; timestamp: number }>,
-};
-
+// ── 平台路由(非模块业务) ───────────────────────────────────
 const healthRoutes = createHealthRoutes();
-const worldRoutes = createWorldRoutes({ query, body, json });
-const playersRoutes = createPlayersRoutes({ query, body, json });
-const channelsRoutes = createChannelsRoutes({ query, body, json });
 const messagesRoutes = createMessagesRoutes({
   query,
   body,
@@ -221,22 +204,6 @@ const messagesRoutes = createMessagesRoutes({
       fromId
     ),
 });
-const redpacketRoutes = createRedpacketRoutes({
-  query,
-  db,
-  body,
-  json,
-  ensureEconomyAccount: (playerId: string, playerName: string) => {
-    const acc = domainEnsureEconomyAccount(query, playerId, playerName);
-    if (!acc) throw new Error("ensureEconomyAccount returned undefined");
-    return { balance: acc.balance, player_id: acc.player_id, version: acc.version };
-  },
-  economyResult: (acc: unknown) => {
-    const view = domainEconomyResult(acc as Parameters<typeof domainEconomyResult>[0]);
-    return view ? { balance: view.balance, version: view.version } : null;
-  },
-});
-const monitorRoutes = createMonitorRoutes({ body, json, monitorState });
 const configRoutes = createConfigRoutes({ json, projectRoot: env.PROJECT_ROOT });
 const moduleRoutesInstance = createModuleRoutes({
   loadModuleCatalog,
@@ -344,16 +311,11 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       }
     }
 
-    // ── 旧路由 ──────────────────────────────────────
+    // ── 平台路由 ────────────────────────────────────
     const ctxBase = { path, method, params, req, res } as { path: string; method: string; params: URLSearchParams; req: http.IncomingMessage; res: http.ServerResponse };
     if (await moduleRoutesInstance(ctxBase)) return;
     if (await healthRoutes(ctxBase)) return;
-    if (await worldRoutes(ctxBase)) return;
-    if (await playersRoutes(ctxBase)) return;
-    if (await channelsRoutes(ctxBase)) return;
     if (await messagesRoutes(ctxBase)) return;
-    if (await redpacketRoutes(ctxBase)) return;
-    if (await monitorRoutes(ctxBase)) return;
     if (await configRoutes(ctxBase)) return;
 
     json(res, { success: false, error: "not_found" }, 404);

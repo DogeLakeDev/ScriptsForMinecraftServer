@@ -30,7 +30,8 @@ import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/sdk/contrac
 import type { DatabaseSync } from "node:sqlite";
 import { SQL, type SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
-import type { TxResult } from "./redpacket.js";
+import type { TxResult } from "./transaction.js";
+export type { TxResult };
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
@@ -148,9 +149,6 @@ export type ApplyEconomyResult =
       status: number;
       balance?: number;
     };
-
-/** TxResult 复用 redpacket 定义（避免循环依赖：redpacket 也从 economy 引入） */
-export type { TxResult };
 
 /**
  * 原子经济事务（转账 / 调整 / 退款等通用形态）
