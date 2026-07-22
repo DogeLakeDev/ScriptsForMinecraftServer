@@ -71,50 +71,21 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
   function getAllConfigs(): Record<string, unknown> {
     const modules = typeof listModules === "function" ? listModules() : [];
     const module_tokens = typeof getModuleTokens === "function" ? getModuleTokens() : {};
+    /* 各资源走与单资源 GET 相同的 helper,避免 configs/all 与专用路由形状漂移(DRY/LSP) */
     return {
       // 与 /api/sfmc/modules 同源;ConfigManager.init 一次拉齐启停态(DRY)
       modules,
       // loopback-only 下发;SAPI 无 fs,靠此注入模块身份(DIP)
       module_tokens,
       settings: stripMeta(readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null),
-      areas: (arrayOrEmpty(readJson(configPath(projectRoot, "areas.json"))) as Array<Record<string, unknown>>)
-        .filter((r) => r && r.module && r.dimension != null)
-        .map((r) => stripMetaDeep(r)),
-      permissions: (
-        arrayOrEmpty(readJson(configPath(projectRoot, "permissions.json"))) as Array<Record<string, unknown>>
-      )
-        .filter((r) => r && r.player_name)
-        .map((r) => stripMetaDeep(r)),
-      banned_items: (arrayOrEmpty(readJson(configPath(projectRoot, "banned_items.json"))) as Array<string>)
-        .filter((i) => typeof i === "string" && i && !i.startsWith("_"))
-        .map((id) => ({ item_id: id })),
-      clean: stripMetaDeep(readJson(configPath(projectRoot, "clean.json")) ?? {}),
-      grids: (arrayOrEmpty(readJson(configPath(projectRoot, "grids.json"))) as Array<Record<string, unknown>>)
-        .filter((r) => r && r.name)
-        .map((r) => stripMetaDeep(r)),
-      peace_filters: (
-        arrayOrEmpty(readJson(configPath(projectRoot, "peace_filters.json"))) as Array<Record<string, unknown>>
-      )
-        .filter((r) => r && r.family)
-        .map((r) => stripMetaDeep(r)),
-      questions: (arrayOrEmpty(readJson(configPath(projectRoot, "questions.json"))) as Array<Record<string, unknown>>)
-        .filter((r) => r && r.question)
-        .map((r, idx: number) => {
-          const clean = stripMetaDeep(r) as Record<string, unknown>;
-          return {
-            id: idx + 1,
-            weight: clean.weight ?? 1,
-            question: clean.question,
-            answers: clean.answers ?? [],
-            msg_right: clean.msg_right ?? "",
-            msg_wrong: clean.msg_wrong ?? "",
-            explanation: clean.explanation ?? "",
-            min_rank: clean.min_rank ?? null,
-            max_rank: clean.max_rank ?? null,
-            rewards: clean.rewards ?? [],
-            punishments: clean.punishments ?? [],
-          };
-        }),
+      areas: getAreas(),
+      permissions: getPermissions(),
+      // ConfigManager.AllConfigs.banned_items: string[];勿再包成 {item_id}
+      banned_items: getBannedItems(),
+      clean: getClean(),
+      grids: getGrids(),
+      peace_filters: getPeaceFilters(),
+      questions: getQA(),
     };
   }
 
@@ -153,10 +124,11 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
       .map((r) => stripMetaDeep(r));
   }
 
-  function getBannedItems(): Array<{ item_id: string }> {
-    return (arrayOrEmpty(readCfg("banned_items.json")) as Array<string>)
-      .filter((i) => typeof i === "string" && i && !i.startsWith("_"))
-      .map((id) => ({ item_id: id }));
+  /** 返回 string[] —— 与 ConfigManager / GET /banned_items.items 契约一致。 */
+  function getBannedItems(): string[] {
+    return (arrayOrEmpty(readCfg("banned_items.json")) as Array<string>).filter(
+      (i) => typeof i === "string" && i && !i.startsWith("_")
+    );
   }
 
   function getClean(): { item_max: number; poll_interval: number } {
@@ -248,7 +220,7 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
     }
     if (requestPath === "/api/sfmc/banned_items") {
       if (method === "GET") {
-        json(res, { items: getBannedItems().map((x) => x.item_id) });
+        json(res, { items: getBannedItems() });
         return true;
       }
     }

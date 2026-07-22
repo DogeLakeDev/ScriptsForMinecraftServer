@@ -183,14 +183,24 @@ function buildModuleList() {
     .filter(Boolean);
 }
 
-function resolveModuleByKey(key: string) {
+function resolveModuleByKey(key: string): { id: string; configKey: string; canDisable: boolean } | null {
   const k = String(key || "").trim();
   const catalog = loadModuleCatalog();
-  return catalog.find(
+  const raw = catalog.find(
     (m) =>
       String((m as Record<string, unknown>).id || "") === k ||
       String((m as Record<string, unknown>).configKey || (m as Record<string, unknown>).config_key || "") === k
-  ) as { id: string; configKey: string; canDisable: boolean } | null;
+  ) as Record<string, unknown> | undefined;
+  if (!raw) return null;
+  const id = String(raw.id || "").trim();
+  const configKey = String(raw.configKey || raw.config_key || "").trim();
+  if (!id || !configKey) return null;
+  /* 与 buildModuleList.can_disable 同源:缺省视为可禁用,避免 list/disable 契约漂移(LSP) */
+  return {
+    id,
+    configKey,
+    canDisable: raw.canDisable !== false,
+  };
 }
 
 function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boolean) {

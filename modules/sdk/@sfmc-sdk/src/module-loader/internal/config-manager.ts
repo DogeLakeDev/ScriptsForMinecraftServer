@@ -74,7 +74,8 @@ type AllConfigs = {
     end_z: number;
   }>;
   permissions: Array<{ player_name: string; level: number }>;
-  banned_items: string[];
+  /** 权威为 string[];兼容过渡期 {item_id} 信封 */
+  banned_items: Array<string | { item_id: string }>;
   clean: { item_max?: number; poll_interval?: number };
   grids: Array<{
     name: string;
@@ -275,7 +276,16 @@ export class ConfigManager {
       ConfigManager.cache.permissions[p.player_name] = p.level;
     }
 
-    ConfigManager.cache.bannedItems = (all.banned_items || []).filter((s) => typeof s === "string");
+    /* 兼容旧信封 {item_id};权威形状为 string[](与 configs/all / GET banned_items 对齐) */
+    ConfigManager.cache.bannedItems = (all.banned_items || [])
+      .map((s) => {
+        if (typeof s === "string") return s;
+        if (s && typeof s === "object" && typeof (s as { item_id?: unknown }).item_id === "string") {
+          return (s as { item_id: string }).item_id;
+        }
+        return null;
+      })
+      .filter((s): s is string => typeof s === "string" && s.length > 0);
 
     if (all.clean) {
       ConfigManager.cache.clean = {
