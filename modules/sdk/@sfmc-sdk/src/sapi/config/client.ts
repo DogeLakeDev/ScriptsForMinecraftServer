@@ -41,9 +41,7 @@ export function clearConfigModuleContext(): void {
  * 之前 config 漏带 query → 即便注入了 token 也会 401(LSP/DRY 违规)。
  */
 function withModuleId(path: string): string {
-  if (!_moduleId) return path;
-  const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}moduleId=${encodeURIComponent(_moduleId)}`;
+  return HttpDB.withModuleId(path, _moduleId);
 }
 
 async function ensureLoaded(): Promise<void> {

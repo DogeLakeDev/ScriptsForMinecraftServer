@@ -32,7 +32,7 @@ import type { SchemaRegistry } from "./schema-registry.js";
 import type { WhereExpr } from "./where.js";
 import { compile } from "./where.js";
 import { log } from "./lib/log.js";
-import type { ServiceRegistry } from "./service-registry.js";
+import { DispatchError, type ServiceRegistry } from "./service-registry.js";
 import type { ModuleManifestV2 } from "./manifest-loader.js";
 import {
   PermissionDeniedError,
@@ -124,7 +124,14 @@ export type TxError = {
   ok: false;
   step: number;
   error: string;
-  code: "permission_denied" | "forbidden" | "no_such_service" | "not_in_requires" | "internal" | "no_such_table";
+  code:
+    | "permission_denied"
+    | "forbidden"
+    | "no_such_service"
+    | "not_in_requires"
+    | "domain_error"
+    | "internal"
+    | "no_such_table";
 };
 
 export interface TxRequest {
@@ -171,11 +178,19 @@ export class TxRunner {
         const code: TxError["code"] =
           err instanceof PermissionDeniedError
             ? "permission_denied"
-            : (err as { code?: string }).code === "no_such_service"
-              ? "no_such_service"
-              : (err as { code?: string }).code === "not_in_requires"
-                ? "not_in_requires"
-                : "internal";
+            : err instanceof DispatchError &&
+                (err.code === "no_such_service" ||
+                  err.code === "not_in_requires" ||
+                  err.code === "forbidden" ||
+                  err.code === "domain_error")
+              ? err.code
+              : (err as { code?: string }).code === "no_such_service"
+                ? "no_such_service"
+                : (err as { code?: string }).code === "not_in_requires"
+                  ? "not_in_requires"
+                  : (err as { code?: string }).code === "no_such_table"
+                    ? "no_such_table"
+                    : "internal";
         log.warn(`[tx ${traceId}] step=${i} failed: ${(err as Error).message}`);
         return { ok: false, step: i, error: (err as Error).message, code };
       }
@@ -382,14 +397,8 @@ export class TxRunner {
     mod: ModuleManifestV2,
     step: TxStepService
   ): Promise<TxStepResult> {
-    // 与 ServiceRegistry.dispatch 对齐:提供方自调用跳过 requires(DRY/LSP)
-    const providerId = this.deps.serviceRegistry.getProvider(step.name);
-    const declared = mod.services.requires.find((r) => r.name === step.name);
-    if (!declared && providerId !== mod.id) {
-      const err = new Error(`模块 ${mod.id} 未声明 service.requires ${step.name}`);
-      (err as { code?: string }).code = "not_in_requires";
-      throw err;
-    }
+    // requires / 自调用豁免的唯一权威在 ServiceRegistry.dispatch(DRY/LSP);
+    // 此处只补 dispatch 不做的 service:<name> 权限门(与 HTTP service-routes 对齐)。
     assertModulePermission(mod.id, mod.permissions, Perm.service(step.name));
     const result = await this.deps.serviceRegistry.dispatch(
       this.deps.enabled,

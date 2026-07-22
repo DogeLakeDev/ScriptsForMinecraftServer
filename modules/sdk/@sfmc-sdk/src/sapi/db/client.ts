@@ -52,9 +52,7 @@ export class DbError extends Error {
 }
 
 function withModuleId(path: string): string {
-  if (!_moduleId) return path;
-  const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}moduleId=${encodeURIComponent(_moduleId)}`;
+  return HttpDB.withModuleId(path, _moduleId);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {

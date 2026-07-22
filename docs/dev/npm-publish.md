@@ -49,7 +49,8 @@ npm publish --workspace @sfmc-bds/db-server --access public
 
 ## CI 自动发布
 
-推送符合格式的 git tag 即可触发 [`.github/workflows/npm-publish.yml`](../../.github/workflows/npm-publish.yml)：
+推送符合格式的 git tag 即可触发 [`.github/workflows/npm-publish.yml`](../../.github/workflows/npm-publish.yml)。
+可发包清单的唯一权威来源是 [`tools/lib/npm-publish-packages.mjs`](../../tools/lib/npm-publish-packages.mjs)（workflow 解析/校验都读它，勿在 yaml 再抄一份）。
 
 ```bash
 # 1. 先在对应 package.json 里 bump version
@@ -62,10 +63,12 @@ Tag 中的版本号必须与 `package.json` 的 `version` 字段一致（不含 
 
 ## 模块包（可选双通道）
 
-业务模块在 `Tanya7z/sfmc-modules` 以 `@sfmc-bds/module-<id>` 命名。可选同样用 tag 发布：
+业务模块在 `Tanya7z/sfmc-modules` 以 `@sfmc-bds/module-<id>` 命名，可本地 `npm publish`。
+当前 `npm-publish.yml` **只覆盖** `tools/lib/npm-publish-packages.mjs` 中的平台包；模块 tag 不会走该 CI（避免与平台包清单漂移）。
 
 ```bash
-git tag @sfmc-bds/module-land@v0.1.0
+# 模块包请在 sfmc-modules 仓或本地发布,勿假设 @sfmc-bds/module-*@v* 会触发本仓 workflow
+npm publish --workspace @sfmc-bds/module-land --access public
 ```
 
 模块 `package.json` 应声明 `"@sfmc-bds/sdk": "^0.1.0"`。
