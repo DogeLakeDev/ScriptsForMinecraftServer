@@ -9,6 +9,7 @@
 
 import { system } from "@minecraft/server";
 import { http, HttpRequest, HttpRequestMethod } from "@minecraft/server-net";
+import { isSuccessfulHttpEnvelope } from "./http-envelope.js";
 
 const HOST = "127.0.0.1";
 const PORT = 3001;
@@ -127,7 +128,10 @@ export class HttpDB {
     if (!body) return { ok: false, error: "network_error", status };
     try {
       const parsed = JSON.parse(body);
-      if (status === 200 && parsed.ok !== false) return { ok: true, data: parsed as T, status };
+      // LSP: 同时认 ok / success 方言 — 仅看 ok!==false 会把 HTTP 200+{success:false} 当成功
+      if (isSuccessfulHttpEnvelope(status, parsed)) {
+        return { ok: true, data: parsed as T, status };
+      }
       return { ok: false, error: parsed.error || "request_failed", status, data: parsed as T };
     } catch {
       return { ok: false, error: "invalid_response", status };
