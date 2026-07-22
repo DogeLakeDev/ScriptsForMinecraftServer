@@ -44,6 +44,14 @@ jobs:
         shell: pwsh
         run: node tools/check-ootb.js
 
+      # 业务模块已外置：安装一个 can_disable fixture，覆盖启停翻转冒烟路径
+      - name: Seed fixture module (afk) for smoke toggle
+        shell: pwsh
+        run: |
+          node tools/fetch-module.mjs install afk
+          node tools/rebuild-catalog.js
+          node tools/check-catalog.js
+
       - name: Run smoke-modules (against temporary db-server)
         shell: pwsh
         run: |

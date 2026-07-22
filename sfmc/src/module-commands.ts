@@ -27,7 +27,7 @@ import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { configPath, readJson, type DBConfig } from "@sfmc/sdk/node/config";
 import { c } from "./theme.js";
 import { ROOT } from "./runtime.js";
@@ -324,6 +324,14 @@ export async function cmdModuleUninstall(args: string[]): Promise<string> {
   const target = path.join(modulesDir(), id);
   if (!existsSync(target)) return c.yellow(`Module ${id} not installed (no folder at ${target})`);
   await fs.rm(target, { recursive: true, force: true });
+  // 同步本地 catalog mirror，避免 API 仍列出已删包（DRY：与 fetch-module 共用 rebuild-catalog）
+  const rebuild = path.join(ROOT, "tools", "rebuild-catalog.js");
+  if (existsSync(rebuild)) {
+    const r = spawnSync(process.execPath, [rebuild], { cwd: ROOT, encoding: "utf-8" });
+    if (r.status !== 0) {
+      return c.green(`Removed ${id} from ${target}\n`) + c.yellow(r.stderr || r.stdout || `rebuild-catalog exit ${r.status}`);
+    }
+  }
   return c.green(`Removed ${id} from ${target}\n`);
 }
 

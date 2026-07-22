@@ -45,3 +45,10 @@ BDS
 dist/sea/
 .vscode/
 remote-controller/dist/index.js
+
+# 业务模块由 tools/fetch-module.mjs 安装到 packages/<id>/，不入库
+modules/packages/*/
+!modules/packages/.gitkeep
+
+# fetch-module 一级 registry 缓存
+tools/.sfmc-registry-cache.json

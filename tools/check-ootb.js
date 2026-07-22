@@ -115,7 +115,13 @@ function fileContains(p, needle) {
     if (!ok) throw new Error("db-server 不可达");
     const mods = await fetchJson("/api/sfmc/modules");
     if (mods.status !== 200) throw new Error(`modules 接口 ${mods.status}`);
-    if (!Array.isArray(mods.body.modules) || mods.body.modules.length === 0) throw new Error("modules 为空");
+    if (!Array.isArray(mods.body.modules)) throw new Error("modules 非数组");
+    // 业务包已外置：空 catalog 时 API 返回 [] 合法；非空则与 catalog 对齐。
+    const cat = await fetchJson("/api/sfmc/modules/catalog");
+    if (cat.status !== 200 || !Array.isArray(cat.body.modules)) throw new Error("catalog 接口异常");
+    if (mods.body.modules.length !== cat.body.modules.length) {
+      throw new Error(`modules(${mods.body.modules.length}) != catalog(${cat.body.modules.length})`);
+    }
     pass("db-server 启动 + 模块接口");
   } catch (e) {
     fail("db-server 启动 + 模块接口", e.message);

@@ -41,6 +41,7 @@ import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -309,8 +310,11 @@ async function unzip(zipPath, dstDir) {
   const zip = await JSZip.loadAsync(data);
   const entries = Object.values(zip.files);
   for (const e of entries) {
-    const out = path.join(dstDir, e.name);
-    if (e.dir) {
+    // Windows 打的 zip 常带反斜杠；统一成 POSIX 再 join，避免 Linux 写出字面量 "sapi\manifest.json"
+    const rel = String(e.name || "").replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!rel || rel.includes("..")) continue;
+    const out = path.join(dstDir, ...rel.split("/"));
+    if (e.dir || rel.endsWith("/")) {
       await fsp.mkdir(out, { recursive: true });
       continue;
     }
@@ -328,6 +332,19 @@ async function copyDir(src, dst) {
     if (e.isDirectory()) await copyDir(sp, dp);
     else if (e.isFile()) await fsp.copyFile(sp, dp);
   }
+}
+
+/** 安装/变更 packages 后重建本地 catalog mirror（单一真相：磁盘上的 manifest）。 */
+function rebuildCatalogMirror() {
+  const script = path.join(ROOT, "tools", "rebuild-catalog.js");
+  if (!fs.existsSync(script)) {
+    console.warn("[fetch-module] tools/rebuild-catalog.js missing; skip catalog rebuild");
+    return;
+  }
+  const r = spawnSync(process.execPath, [script], { cwd: ROOT, encoding: "utf-8" });
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  if (r.status !== 0) die(`rebuild-catalog failed (exit ${r.status ?? 1})`);
 }
 
 /* ── entry ──────────────────────────────────────────────── */
@@ -382,9 +399,21 @@ Sources:
     flags.from = source;
   }
 
-  if (flags.from.startsWith("local:")) return fromLocal(id, flags.from, flags);
-  if (flags.from.startsWith("dir:")) return fromDir(id, flags.from);
-  if (flags.from.startsWith("github:")) return fromGithub(id, flags.from, flags);
+  if (flags.from.startsWith("local:")) {
+    await fromLocal(id, flags.from, flags);
+    rebuildCatalogMirror();
+    return;
+  }
+  if (flags.from.startsWith("dir:")) {
+    await fromDir(id, flags.from);
+    rebuildCatalogMirror();
+    return;
+  }
+  if (flags.from.startsWith("github:")) {
+    await fromGithub(id, flags.from, flags);
+    rebuildCatalogMirror();
+    return;
+  }
   die(`unknown source: ${flags.from}`);
 }
 

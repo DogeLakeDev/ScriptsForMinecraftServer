@@ -40,12 +40,38 @@ function exists(p) {
   }
 }
 
+/** 校验 services/catalog.json（与 modules catalog 共用同一套入口约定）。 */
+function validateServicesCatalog() {
+  if (!exists(SERVICES_CATALOG)) return 0;
+  const svc = JSON.parse(readFileSync(SERVICES_CATALOG, "utf-8"));
+  if (svc.version !== 1) fail(`services/catalog.json 版本不支持: ${svc.version}`);
+  const svcMods = Array.isArray(svc.modules) ? svc.modules : [];
+  for (const m of svcMods) {
+    if (!m.id || !m.configKey) fail(`services 模块缺少 id 或 configKey: ${JSON.stringify(m)}`);
+    if (!m.entry || !m.entry.path) fail(`${m.id} 缺少 entry.path`);
+    const entryPath = join(ROOT, m.entry.path);
+    if (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset") {
+      if (!exists(entryPath)) fail(`${m.id} 服务入口路径不存在: ${m.entry.path}`);
+    }
+  }
+  return svcMods.length;
+}
+
 function main() {
   if (!exists(CATALOG)) fail(`找不到 ${CATALOG}`);
   const raw = JSON.parse(readFileSync(CATALOG, "utf-8"));
   if (raw.version !== 1) fail(`catalog 版本不支持: ${raw.version}`);
   const modules = Array.isArray(raw.modules) ? raw.modules : [];
-  if (modules.length === 0) fail("catalog 为空");
+  // 业务模块已外置到 Tanya7z/sfmc-modules；空 catalog 表示尚未 fetch 安装，平台壳合法。
+  if (modules.length === 0) {
+    const svcCount = validateServicesCatalog();
+    console.log(
+      svcCount > 0
+        ? `[check-catalog] OK (0 feature modules; ${svcCount} services)`
+        : "[check-catalog] OK (0 modules; platform shell)"
+    );
+    return;
+  }
 
   const byId = new Map();
   const byKey = new Map();
@@ -65,19 +91,7 @@ function main() {
     }
   }
 
-  // Optional: also validate services/catalog.json if it exists.
-  if (exists(SERVICES_CATALOG)) {
-    const svc = JSON.parse(readFileSync(SERVICES_CATALOG, "utf-8"));
-    if (svc.version !== 1) fail(`services/catalog.json 版本不支持: ${svc.version}`);
-    for (const m of svc.modules || []) {
-      if (!m.id || !m.configKey) fail(`services 模块缺少 id 或 configKey: ${JSON.stringify(m)}`);
-      if (!m.entry || !m.entry.path) fail(`${m.id} 缺少 entry.path`);
-      const entryPath = join(ROOT, m.entry.path);
-      if (m.entry.kind === "sapi" || m.entry.kind === "node" || m.entry.kind === "asset") {
-        if (!exists(entryPath)) fail(`${m.id} 服务入口路径不存在: ${m.entry.path}`);
-      }
-    }
-  }
+  validateServicesCatalog();
 
   for (const m of modules) {
     for (const dep of [...(m.requires || []), ...(m.optional || [])]) {

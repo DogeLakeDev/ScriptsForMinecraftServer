@@ -136,7 +136,7 @@ async function main() {
     expect(mods.status === 200 && Array.isArray(mods.body.modules), "GET /api/sfmc/modules 返回模块列表");
 
     const catalog = await request("GET", "/api/sfmc/modules/catalog");
-    expect(catalog.status === 200 && catalog.body.modules.length > 0, "GET /api/sfmc/modules/catalog 返回模块");
+    expect(catalog.status === 200 && Array.isArray(catalog.body.modules), "GET /api/sfmc/modules/catalog 返回数组");
     expect(mods.body.modules.length === catalog.body.modules.length, "模块列表与 catalog 数量一致");
 
     const moduleLock = JSON.parse(fs.readFileSync(path.join(SIM_DIR, "modules", "module-lock.json"), "utf-8"));
