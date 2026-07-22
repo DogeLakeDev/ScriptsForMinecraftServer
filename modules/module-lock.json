@@ -80,6 +80,14 @@
     "service-panel": {
       "enabled": true,
       "updatedAt": 1784464791795
+    },
+    "feature-monitor": {
+      "enabled": true,
+      "updatedAt": 1784655609315
+    },
+    "feature-land-gui": {
+      "enabled": true,
+      "updatedAt": 1784655609391
     }
   }
 }
