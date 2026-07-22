@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test": "node --test src/*.test.js",
+    "test": "npm run build && node --test dist/*.test.js",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\""
   },
   "engines": {

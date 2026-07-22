@@ -14,16 +14,9 @@ import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/sdk/contrac
 import type { DatabaseSync } from "node:sqlite";
 import type { SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
+import { sql } from "../lib/sql-helpers.js";
 import type { TxResult } from "./transaction.js";
 export type { TxResult };
-
-/**
- * 表名是信任常量,必须嵌入 SQL 文本;值走 ? 绑定。
- * 不可对 sql-template-strings 插值表名(会变成 FROM ? → near "?": syntax error)。
- */
-function sql(text: string, values: unknown[] = []): { sql: string; values: unknown[] } {
-  return { sql: text, values };
-}
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
