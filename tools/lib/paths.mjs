@@ -6,9 +6,12 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** 本包目录（tools/ 或 node_modules/@sfmc-bds/tools/） */
+export const TOOLS_PKG_DIR = path.resolve(__dirname, "..");
+
 /**
  * 主仓根目录。
- * 优先 SFMC_ROOT(与 db-server / 冒烟脚本一致);否则按 tools/lib 相对路径回退到 monorepo 根。
+ * 优先 SFMC_ROOT（与 db-server / 冒烟脚本一致）；否则按 tools/lib 相对路径回退到 monorepo 根。
  * 从 npm 安装到 node_modules 时务必设置 SFMC_ROOT。
  */
 export const ROOT = process.env.SFMC_ROOT
@@ -23,7 +26,8 @@ export const CONFIGS_DIR = path.join(ROOT, "configs");
 export const CONFIGS_DEFAULT_DIR = path.join(ROOT, "configs-default");
 export const DB_SERVER_DIST = path.join(ROOT, "db-server", "dist", "index.js");
 export const SFMC_DIST = path.join(ROOT, "sfmc", "dist", "main.js");
-export const FETCH_MODULE = path.join(ROOT, "tools", "fetch-module.mjs");
+/** 始终指向本包内脚本，勿拼 ROOT/tools（npm 安装时 ROOT≠包父目录） */
+export const FETCH_MODULE = path.join(TOOLS_PKG_DIR, "fetch-module.mjs");
 
 /** @param {string} folder  packages/<folder> */
 export function packageDir(folder) {
