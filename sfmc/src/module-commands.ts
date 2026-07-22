@@ -30,9 +30,6 @@ export const MODULE_CMD_NAMES = ["module", "mod"] as const;
 
 export type ModuleCmdName = (typeof MODULE_CMD_NAMES)[number];
 
-/** HELP 中主名+别名展示串(权威来源 MODULE_CMD_NAMES),如 "module/mod"。 */
-export const MODULE_CMD_ALIAS_LABEL = MODULE_CMD_NAMES.join("/");
-
 /** 判断是否为 module 顶层命令(含别名);避免 main/repl 再硬编码 case。 */
 export function isModuleCommand(cmd: string | undefined): cmd is ModuleCmdName {
   return !!cmd && (MODULE_CMD_NAMES as readonly string[]).includes(cmd);
@@ -56,6 +53,7 @@ export const MODULE_SUBCOMMANDS = [
   "disable",
 ] as const;
 
+/** Usage 行主名|别名(与 MODULE_CMD_NAMES 同源,避免与 HELP 漂移)。 */
 export const MODULE_USAGE =
   `Usage: sfmc ${MODULE_CMD_NAMES.join("|")} <${MODULE_SUBCOMMANDS.join("|")}> [args]`;
 
