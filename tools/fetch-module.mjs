@@ -294,11 +294,13 @@ async function unzip(zipPath, dstDir) {
   const data = await fsp.readFile(zipPath);
   const zip = await JSZip.loadAsync(data);
   for (const e of Object.values(zip.files)) {
-    const out = path.join(dstDir, e.name);
-    if (e.dir) {
-      await fsp.mkdir(out, { recursive: true });
+    // Windows zip 常带 `\`；必须归一成 `/`，否则 Linux 会写出字面量 `sapi\manifest.json`
+    const rel = String(e.name).replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!rel || e.dir || rel.endsWith("/")) {
+      if (rel) await fsp.mkdir(path.join(dstDir, ...rel.replace(/\/$/, "").split("/").filter(Boolean)), { recursive: true });
       continue;
     }
+    const out = path.join(dstDir, ...rel.split("/"));
     await fsp.mkdir(path.dirname(out), { recursive: true });
     await fsp.writeFile(out, await e.async("nodebuffer"));
   }

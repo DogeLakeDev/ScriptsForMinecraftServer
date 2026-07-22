@@ -1,5 +1,5 @@
 {
-  "_comment": "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。业务模块已全部提取至 Tanya7z/sfmc-modules（最新 modules-v0.4.0）。本仓库 modules/packages/ 不再内置业务包；请用 tools/fetch-module.mjs / sfmc 从 registry 安装到 modules/packages/<id>/。",
+  "_comment": "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。业务模块默认外置；本仓可保留开箱 fixture（如 afk）。安装/卸载后请用 tools/catalog-sync.mjs 或 fetch-module 投影。",
   "version": 1,
   "modules": [
     {

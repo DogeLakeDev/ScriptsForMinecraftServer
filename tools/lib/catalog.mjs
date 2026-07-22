@@ -3,7 +3,12 @@
  */
 import { CATALOG_PATH } from "./paths.mjs";
 import { readJson, writeJson } from "./io.mjs";
-import { loadPackageCatalogEntry, projectCatalogEntry, scanInstalledPackages } from "./packages.mjs";
+import {
+  folderFromEntryPath,
+  loadPackageCatalogEntry,
+  projectCatalogEntry,
+  scanInstalledPackages,
+} from "./packages.mjs";
 
 const DEFAULT_COMMENT =
   "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。条目由已安装的 modules/packages/<id>/sapi/manifest.json 投影生成（fetch-module install / catalog-sync）。空数组表示纯 SDK 仓，合法。";
@@ -65,7 +70,7 @@ export function upsertCatalogEntry(folder) {
   if (!entry) throw new Error(`packages/${folder}: 无有效 sapi/manifest.json`);
   const catalog = readCatalog();
   const idx = catalog.modules.findIndex(
-    (m) => m.id === entry.id || (m.entry && folderFromEntry(m.entry.path) === folder)
+    (m) => m.id === entry.id || (m.entry && folderFromEntryPath(m.entry.path) === folder)
   );
   if (idx >= 0) catalog.modules[idx] = entry;
   else catalog.modules.push(entry);
@@ -83,18 +88,10 @@ export function removeCatalogEntry(folderOrId) {
   const catalog = readCatalog();
   const idx = catalog.modules.findIndex((m) => {
     if (m.id === folderOrId) return true;
-    return folderFromEntry(m.entry?.path) === folderOrId;
+    return folderFromEntryPath(m.entry?.path) === folderOrId;
   });
   if (idx < 0) return null;
   const [removed] = catalog.modules.splice(idx, 1);
   writeCatalog(catalog);
   return removed;
-}
-
-/** @param {string | undefined} entryPath */
-function folderFromEntry(entryPath) {
-  const m = String(entryPath || "")
-    .replace(/\\/g, "/")
-    .match(/modules\/packages\/([^/]+)\//);
-  return m ? m[1] : null;
 }
