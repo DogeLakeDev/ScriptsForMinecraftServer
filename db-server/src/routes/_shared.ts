@@ -36,12 +36,17 @@ export type RouteDeps = {
   land?: Record<string, (...args: unknown[]) => unknown>;
 };
 
+/** v2 模块身份 — 由 handle 校验后写入路由 ctx(勿挂 req 私有字段,LoD)。 */
+export type ModuleAuth = { id: string; permissions: string[] };
+
 export type RouteCtx = {
   path: string;
   method: Method | string;
   params: URLSearchParams;
   req: IncomingMessage;
   res: ServerResponse;
+  /** v2 路由专用:模块鉴权结果 */
+  moduleAuth?: ModuleAuth;
 };
 
 export type RouteHandler = (ctx: RouteCtx) => Promise<boolean> | boolean;

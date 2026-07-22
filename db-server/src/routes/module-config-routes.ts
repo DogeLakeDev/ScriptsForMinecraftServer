@@ -6,7 +6,7 @@
  *   POST /api/sfmc/configs/:configKey/set             → 写一个 key
  *   GET  /api/sfmc/configs/:configKey/notify           (SSE:onChange 推送)
  *
- * 鉴权:模块身份来自 moduleAuth;Permission = config:read:configKey / config:write:configKey。
+ * 鉴权:模块身份来自 ctx.moduleAuth;Permission = config:read:configKey / config:write:configKey。
  *
  * 设计:文件 = configs/<configKey>.json;整文件 read-modify-write(lock by
  * 简单 mutex),不是细粒度 lock — 模块 config 文件本来就小;并发冲突概率极低。
@@ -18,14 +18,13 @@ import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 import { json as defaultJson, type Method } from "../lib/http.js";
 import { assertModulePermission, Perm } from "../permission-gate.js";
 import type { ModuleManifestV2 } from "../manifest-loader.js";
+import type { ModuleAuth } from "./_shared.js";
 
 export interface ModuleConfigRoutesDeps {
   projectRoot: string;
   enabled: Map<string, ModuleManifestV2>;
   json?: typeof defaultJson;
 }
-
-type ModuleAuth = { id: string; permissions: string[] };
 
 function configPath(projectRoot: string, key: string): string {
   if (!/^[A-Za-z0-9_-]+$/.test(key)) {
@@ -71,13 +70,14 @@ export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>
     req: IncomingMessage;
     res: ServerResponse;
     body?: Promise<Record<string, unknown>>;
+    moduleAuth?: ModuleAuth;
   }): Promise<boolean> => {
     const { path, method, req, res } = ctx;
     const m = path.match(/^\/api\/sfmc\/configs\/([A-Za-z0-9_-]+)(?:\/(set|notify))?$/);
     if (!m) return false;
     const configKey = m[1];
     const tail = m[2];
-    const auth = (req as IncomingMessage & { moduleAuth?: ModuleAuth }).moduleAuth;
+    const auth = ctx.moduleAuth;
     if (!auth) {
       json(res, { success: false, error: "unauthorized" }, 401);
       return true;
@@ -114,8 +114,9 @@ export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>
         notify(configKey, key, value);
         json(res, { ok: true });
       } catch (e) {
+        // LSP: /set 成功用 ok:true,失败统一 ok:false(勿混用 success)
         const code = (e as { name?: string }).name === "PermissionDeniedError" ? 403 : 500;
-        json(res, { success: false, error: (e as Error).message }, code);
+        json(res, { ok: false, error: (e as Error).message }, code);
       }
       return true;
     }
