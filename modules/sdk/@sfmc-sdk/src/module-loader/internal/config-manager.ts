@@ -35,7 +35,12 @@ export type ConfigKey =
   | "questions";
 
 type ConfigCache = {
+  /** 启停态:同时按 catalog id 与 configKey 索引(OCP/LSP) */
   modules: Map<string, boolean>;
+  /** catalog id → configKey */
+  moduleConfigKeys: Map<string, string>;
+  /** catalog id → HMAC module token(来自 configs/all.module_tokens) */
+  moduleTokens: Map<string, string>;
   settings: Map<string, string>;
   areas: any[];
   permissions: Record<string, number>;
@@ -47,7 +52,17 @@ type ConfigCache = {
 };
 
 type AllConfigs = {
-  modules: Array<{ config_key?: string; configKey?: string; name?: string; enabled?: boolean; installed?: boolean }>;
+  modules: Array<{
+    id?: string;
+    module_id?: string;
+    config_key?: string;
+    configKey?: string;
+    name?: string;
+    enabled?: boolean;
+    installed?: boolean;
+  }>;
+  /** loopback 下发的模块 HMAC token;SAPI 无 fs,靠此注入身份(DIP) */
+  module_tokens?: Record<string, string>;
   settings: Record<string, any>;
   areas: Array<{
     name?: string;
@@ -78,6 +93,8 @@ type AllConfigs = {
 export class ConfigManager {
   private static cache: ConfigCache = {
     modules: new Map(),
+    moduleConfigKeys: new Map(),
+    moduleTokens: new Map(),
     settings: new Map(),
     areas: [],
     permissions: {},
@@ -119,9 +136,23 @@ export class ConfigManager {
     return ConfigManager._ready;
   }
 
+  /**
+   * 模块是否启用。key 可为 catalog id(feature-afk)或 configKey(afk);
+   * populate 时双写索引,避免 ModuleRegistry / 旧 Modules 枚举键不一致(LSP)。
+   */
   static isEnabled(module: string): boolean {
     if (!ConfigManager._ready) return false;
     return ConfigManager.cache.modules.get(module) ?? false;
+  }
+
+  /** 取模块 HMAC token(来自 configs/all.module_tokens)。 */
+  static getModuleToken(moduleId: string): string {
+    return ConfigManager.cache.moduleTokens.get(moduleId) ?? "";
+  }
+
+  /** 取模块 configKey;无则空串。 */
+  static getModuleConfigKey(moduleId: string): string {
+    return ConfigManager.cache.moduleConfigKeys.get(moduleId) ?? "";
   }
 
   static getSetting<T>(key: string, defaultVal?: T): T {
@@ -182,9 +213,9 @@ export class ConfigManager {
     try {
       const { modules } = JSON.parse(body);
       ConfigManager.cache.modules.clear();
+      ConfigManager.cache.moduleConfigKeys.clear();
       for (const m of modules) {
-        const key = m.config_key || m.configKey || m.name;
-        if (key) ConfigManager.cache.modules.set(key, !!m.enabled && m.installed !== false);
+        ConfigManager._indexModuleEntry(m);
       }
       ConfigManager._notifyModuleChanges();
     } catch (e) {
@@ -194,11 +225,36 @@ export class ConfigManager {
 
   // ── Internal ──
 
+  private static _indexModuleEntry(m: {
+    id?: string;
+    module_id?: string;
+    config_key?: string;
+    configKey?: string;
+    name?: string;
+    enabled?: boolean;
+    installed?: boolean;
+  }): void {
+    const id = String(m.id || m.module_id || "").trim();
+    const key = String(m.config_key || m.configKey || m.name || "").trim();
+    const enabled = !!m.enabled && m.installed !== false;
+    if (id) {
+      ConfigManager.cache.modules.set(id, enabled);
+      if (key) ConfigManager.cache.moduleConfigKeys.set(id, key);
+    }
+    if (key) ConfigManager.cache.modules.set(key, enabled);
+  }
+
   private static populate(all: AllConfigs): void {
     ConfigManager.cache.modules.clear();
+    ConfigManager.cache.moduleConfigKeys.clear();
+    ConfigManager.cache.moduleTokens.clear();
     for (const m of all.modules || []) {
-      const key = m.config_key || m.configKey || m.name;
-      if (key) ConfigManager.cache.modules.set(key, !!m.enabled && m.installed !== false);
+      ConfigManager._indexModuleEntry(m);
+    }
+    for (const [id, token] of Object.entries(all.module_tokens || {})) {
+      if (id && typeof token === "string" && token) {
+        ConfigManager.cache.moduleTokens.set(id, token);
+      }
     }
 
     ConfigManager.cache.settings.clear();

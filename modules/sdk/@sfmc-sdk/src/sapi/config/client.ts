@@ -3,37 +3,66 @@
  *
  * 设计:
  *   - 首次访问时,SDK 发 GET /api/sfmc/configs/<configKey> 拉全,缓存在 _cache
- *   - get(key):同步从 _cache 读
+ *   - get(key):从 _cache 读单字段
+ *   - getAll():整份配置对象
  *   - set(key, value):写 _cache + 发 POST /api/sfmc/configs/<configKey>/set 持久化
  *   - onChange:订阅 set 触发的内存变更
  *
  * 为什么不放 ConfigManager:ConfigManager 现有缓存只展平 settings.json;
  * 模块私有 configKey(land.json / economy.json)按 configKey 隔离,需要新机制。
+ *
+ * 多模块:按 configKey 分桶缓存(OCP),bootModule 注入时不互相清空。
  */
 
-import { HttpDB } from "../runtime/httpdb.js";
+import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 import { HttpRequestMethod } from "@minecraft/server-net";
 
-let _moduleId = "";
-let _configKey = "";
-let _authToken = "";
-const _cache = new Map<string, unknown>();
-let _loadPromise: Promise<void> | null = null;
+type ConfigBucket = {
+  moduleId: string;
+  authToken: string;
+  cache: Map<string, unknown>;
+  loadPromise: Promise<void> | null;
+};
+
+/** configKey → 桶;支持多模块并存(OCP)。 */
+const _buckets = new Map<string, ConfigBucket>();
+/** 最近一次 setConfigModuleContext 的 configKey(兼容无参 get/set)。 */
+let _activeConfigKey = "";
 
 export function setConfigModuleContext(moduleId: string, configKey: string, token: string): void {
-  _moduleId = moduleId;
-  _configKey = configKey;
-  _authToken = token;
-  _cache.clear();
-  _loadPromise = null;
+  const existing = _buckets.get(configKey);
+  if (existing && existing.moduleId === moduleId && existing.authToken === token) {
+    _activeConfigKey = configKey;
+    return;
+  }
+  _buckets.set(configKey, {
+    moduleId,
+    authToken: token,
+    cache: new Map(),
+    loadPromise: null,
+  });
+  _activeConfigKey = configKey;
 }
 
 export function clearConfigModuleContext(): void {
-  _moduleId = "";
-  _configKey = "";
-  _authToken = "";
-  _cache.clear();
-  _loadPromise = null;
+  _buckets.clear();
+  _activeConfigKey = "";
+}
+
+function activeBucket(): ConfigBucket {
+  if (!_activeConfigKey) {
+    throw new Error("[config] 模块上下文未初始化,setConfigModuleContext 未调用");
+  }
+  const b = _buckets.get(_activeConfigKey);
+  if (!b) {
+    throw new Error(`[config] 找不到 configKey=${_activeConfigKey} 的上下文`);
+  }
+  return b;
+}
+
+function authOpts(token: string): HttpRequestAuthOpts | undefined {
+  const t = (token || "").trim();
+  return t ? { authToken: t } : undefined;
 }
 
 /**
@@ -41,51 +70,57 @@ export function clearConfigModuleContext(): void {
  * verifyModuleAuth 只认 query 上的 moduleId,body 里的 moduleId 不算数;
  * 之前 config 漏带 query → 即便注入了 token 也会 401(LSP/DRY 违规)。
  */
-function withModuleId(path: string): string {
-  return HttpDB.withModuleId(path, _moduleId);
+function withModuleId(path: string, moduleId: string): string {
+  return HttpDB.withModuleId(path, moduleId);
 }
 
-async function ensureLoaded(): Promise<void> {
-  if (!_configKey) {
-    throw new Error("[config] 模块上下文未初始化,setConfigModuleContext 未调用");
-  }
-  if (_loadPromise) return _loadPromise;
-  _loadPromise = (async () => {
+async function ensureLoaded(bucket: ConfigBucket, configKey: string): Promise<void> {
+  if (bucket.loadPromise) return bucket.loadPromise;
+  bucket.loadPromise = (async () => {
     const res = await HttpDB.typedRequest<{ config: Record<string, unknown> }>(
       HttpRequestMethod.GET,
-      withModuleId(`/api/sfmc/configs/${encodeURIComponent(_configKey)}`),
+      withModuleId(`/api/sfmc/configs/${encodeURIComponent(configKey)}`, bucket.moduleId),
       undefined,
-      { authToken: _authToken }
+      authOpts(bucket.authToken)
     );
     if (res.ok && res.data) {
       for (const [k, v] of Object.entries(res.data.config ?? {})) {
-        _cache.set(k, v);
+        bucket.cache.set(k, v);
       }
     }
   })();
-  return _loadPromise;
+  return bucket.loadPromise;
 }
 
 const _changeHandlers = new Set<(key: string, value: unknown) => void>();
 
 export const config = {
   async get<T = unknown>(key: string): Promise<T | undefined> {
-    await ensureLoaded();
-    return _cache.get(key) as T | undefined;
+    const bucket = activeBucket();
+    await ensureLoaded(bucket, _activeConfigKey);
+    return bucket.cache.get(key) as T | undefined;
+  },
+
+  /** 整份模块配置(afk.json 顶层字段一次取齐)。 */
+  async getAll<T = Record<string, unknown>>(): Promise<T> {
+    const bucket = activeBucket();
+    await ensureLoaded(bucket, _activeConfigKey);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of bucket.cache.entries()) out[k] = v;
+    return out as T;
   },
 
   async set<T = unknown>(key: string, value: T): Promise<void> {
-    if (!_configKey) {
-      throw new Error("[config] 模块上下文未初始化");
-    }
+    const bucket = activeBucket();
+    const configKey = _activeConfigKey;
     const res = await HttpDB.typedRequest<{ ok: true }>(
       HttpRequestMethod.POST,
-      withModuleId(`/api/sfmc/configs/${encodeURIComponent(_configKey)}/set`),
+      withModuleId(`/api/sfmc/configs/${encodeURIComponent(configKey)}/set`, bucket.moduleId),
       { key, value },
-      { authToken: _authToken }
+      authOpts(bucket.authToken)
     );
     if (res.ok) {
-      _cache.set(key, value);
+      bucket.cache.set(key, value);
       for (const h of _changeHandlers) h(key, value);
     } else {
       throw new Error(`[config] set 失败: ${res.error ?? "unknown"}`);

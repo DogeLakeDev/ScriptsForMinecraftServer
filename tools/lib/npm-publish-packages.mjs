@@ -60,6 +60,17 @@ export function assertPublishPackageInWorkspaces(pkgName, repoRoot = process.cwd
     throw new Error(`Unknown publish package: ${pkgName}`);
   }
   const pkgPath = NPM_PUBLISH_PACKAGES[resolved];
+  const absPkg = path.join(repoRoot, pkgPath);
+  // DRY:清单路径须真实存在且 name 与键一致(防路径漂移 / 漏建包)
+  if (!fs.existsSync(absPkg)) {
+    throw new Error(`${resolved} 清单路径不存在: ${pkgPath}`);
+  }
+  const pkgJson = JSON.parse(fs.readFileSync(absPkg, "utf8"));
+  if (pkgJson.name !== resolved) {
+    throw new Error(
+      `${resolved} 清单路径 ${pkgPath} 的 name 为 ${JSON.stringify(pkgJson.name)},不一致(DRY)`
+    );
+  }
   const workspaceDir = path.posix.dirname(pkgPath.replace(/\\/g, "/"));
   const rootPkgPath = path.join(repoRoot, "package.json");
   const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
@@ -71,5 +82,5 @@ export function assertPublishPackageInWorkspaces(pkgName, repoRoot = process.cwd
         ` npm -w 会失败。请把该目录写入 package.json#workspaces(DRY)。`
     );
   }
-  return { workspaceDir, workspaces };
+  return { workspaceDir, workspaces, version: pkgJson.version };
 }

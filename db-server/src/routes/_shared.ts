@@ -74,5 +74,17 @@ export function jsonV2Fail(
   sharedJson(res, payload, status);
 }
 
+/**
+ * v2 成功信封权威形态(DRY + LSP):
+ * 一律 `{ ok:true, ...fields }`,与 jsonV2Fail 对称;客户端已双认 ok/success。
+ */
+export function jsonV2Ok(
+  res: ServerResponse,
+  fields: Record<string, unknown> = {},
+  status = 200
+): void {
+  sharedJson(res, { ...fields, ok: true }, status);
+}
+
 export {};
 
