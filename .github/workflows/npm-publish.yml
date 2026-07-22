@@ -5,11 +5,11 @@ name: npm-publish
 # 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
 
 on:
-  # tag 形如 @sfmc-bds/sdk@v0.1.0（含 /）。`*` 不跨 /，须用 `**`。
-  # `**@v*`：要求含 @v，避免误触 SEA 的 v* tag。
+  # GitHub tag glob 对含 / 与 @ 的 scoped tag 极不稳定；用 ** 接住全部 tag，
+  # 再在 job 级 if 收窄到 @sfmc-bds/（避免误跑 SEA 的 v*）。
   push:
     tags:
-      - "**@v*"
+      - "**"
   workflow_dispatch:
     inputs:
       tag:
@@ -19,6 +19,9 @@ on:
 
 jobs:
   publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref_name, '@sfmc-bds/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
