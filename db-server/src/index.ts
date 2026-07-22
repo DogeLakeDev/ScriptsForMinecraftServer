@@ -23,7 +23,13 @@ import http from "node:http";
 
 import { createIdempotencyStore } from "./lib/idempotency-store.js";
 import { loadEnv } from "./env.js";
-import { buildModuleAuth, verifyModuleAuth } from "./module-auth.js";
+import {
+  buildModuleAuth,
+  ensureModuleToken,
+  persistModuleAuth,
+  revokeModuleToken,
+  verifyModuleAuth,
+} from "./module-auth.js";
 import { loadManifestV2 } from "./manifest-loader.js";
 import { log } from "./lib/log.js";
 import { assertNodeVersion } from "./lib/runtime.js";
@@ -34,7 +40,11 @@ import { initSchema } from "./domain/schema.js";
 import { SchemaRegistry } from "./schema-registry.js";
 import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
-import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
+import {
+  registerBuiltinPluginForModule,
+  registerEnabledBuiltinServices,
+  unregisterBuiltinPluginForModule,
+} from "./services/builtin-handlers.js";
 
 import { readJson } from "@sfmc-bds/sdk/node/config";
 
@@ -199,6 +209,44 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   updateModuleState(lockFile, mod.id, { enabled: !!enabled });
   // DRY:与 loadModuleLock 对称走 saveModuleLock,勿散落 writeJson
   saveModuleLock(env.MODULE_LOCK_PATH, lockFile);
+
+  // 热更新运行时图(PR #31 未完成项):enabledSet / tokens / manifests / builtin handlers
+  // 与启动期同源,避免「lock 已开但鉴权仍 401 / handler 未注册」。
+  syncRuntimeEnabled(mod.id, !!enabled);
+}
+
+/**
+ * 启停后同步 db-server 进程内运行时状态(不重启)。
+ * TxRunner / serviceRoutes 持有 enabledManifests 引用,Map 就地改即可。
+ */
+function syncRuntimeEnabled(moduleId: string, enabled: boolean): void {
+  if (enabled) {
+    const manifest = loadedManifest.modules[moduleId];
+    if (!manifest) {
+      log.warn(`[modules] 热启用 ${moduleId}: manifest 缺失(未安装?),仅写 lock`);
+      return;
+    }
+    enabledSet.add(moduleId);
+    enabledManifests.set(moduleId, manifest);
+    if (ensureModuleToken(moduleAuth, moduleId)) {
+      log.info(`[modules] 热启用 ${moduleId}: 派生 module token`);
+    }
+    persistModuleAuth(env.PROJECT_ROOT, moduleAuth, env.AUTH_TOKEN);
+    if (registerBuiltinPluginForModule(serviceRegistry, { query, db }, moduleId)) {
+      log.success(`[modules] 热启用 ${moduleId}: 已注册内置 service handlers`);
+    }
+    return;
+  }
+
+  enabledSet.delete(moduleId);
+  enabledManifests.delete(moduleId);
+  if (revokeModuleToken(moduleAuth, moduleId)) {
+    persistModuleAuth(env.PROJECT_ROOT, moduleAuth, env.AUTH_TOKEN);
+  }
+  const n = unregisterBuiltinPluginForModule(serviceRegistry, moduleId);
+  if (n > 0) {
+    log.info(`[modules] 热禁用 ${moduleId}: 卸下 ${n} 个内置 handlers`);
+  }
 }
 
 // ── 平台路由(非模块业务) ───────────────────────────────────

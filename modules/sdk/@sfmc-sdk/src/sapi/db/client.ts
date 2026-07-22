@@ -17,8 +17,8 @@ import type {
   DeleteResult,
   InsertResult,
   QueryOptions,
-  TxResponse,
   TxStep,
+  TxStepResult,
   UpdateResult,
 } from "./types.js";
 
@@ -39,7 +39,7 @@ export function clearDbModuleContext(): void {
   _currentTxId = null;
 }
 
-/** 供 service 客户端判断是否处于 db.tx 录制期(LSP:与 service.get 互斥)。 */
+/** 供 service 客户端判断是否处于 db.tx 交互会话(LSP:与 service.get 互斥)。 */
 export function isDbTxRecording(): boolean {
   return _currentTxId != null;
 }
@@ -96,14 +96,19 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.data as T;
 }
 
-/** 事务录制期不支持 query/get 读回:返回 []/null stub 会破坏 LSP(误导业务分支)。 */
-function txReadNotSupported(op: string): never {
-  throw new DbError(
-    `db.tx 内暂不支持 ${op} 读回结果(录制后一次性提交,无交互协议);` +
-      `请在事务外先 db.${op},再在 tx 内做写操作`,
-    "tx_interactive_required",
-    0
-  );
+/** 规范化 step(去掉 undefined 可选字段,避免 JSON 脏键) */
+function normalizeStep(s: TxStep): TxStep {
+  if (s.op === "query" && s.opts === undefined) delete (s as { opts?: unknown }).opts;
+  if (s.op === "audit" && s.data === undefined) delete (s as { data?: unknown }).data;
+  return s;
+}
+
+type StepOk = { ok: true; result: TxStepResult };
+type SessionBegin = { ok: true; txId: string };
+
+async function txStep(txId: string, step: TxStep): Promise<TxStepResult> {
+  const res = await post<StepOk>("/api/sfmc/db/tx/step", { txId, step: normalizeStep(step) });
+  return res.result;
 }
 
 /* ── 公开 API ──────────────────────────────────────────────────── */
@@ -170,62 +175,72 @@ export const db = {
 
   /**
    * 事务:边界在 db-server 进程。失败自动回滚,成功提交。
-   * 录制期:写操作(insert/update/delete/audit/call)可入队;query/get 显式抛错,
-   * 避免返回 []/null 假数据破坏 LSP。call 为 fire-and-forget(Promise<void>),
-   * 完整两阶段读回协议另议。
+   * 交互会话协议:begin → step* → commit|rollback。
+   * 回调内 await query/get/call 返回真实服务端结果(PR #31 未完成项补齐)。
+   * 批量 POST /db/tx 仍保留给工具/测试;模块侧统一走交互路径。
    */
   async tx<T>(fn: (tx: TxContext) => Promise<T>): Promise<T> {
     requireModuleContext("tx");
     if (_currentTxId) throw new DbError("嵌套事务暂不支持", "nested_tx", 0);
-    const steps: TxStep[] = [];
-    _currentTxId = "pending";
 
-    const push = (s: TxStep) => {
-      if (s.op === "query" && s.opts === undefined) delete (s as { opts?: unknown }).opts;
-      if (s.op === "audit" && s.data === undefined) delete (s as { data?: unknown }).data;
-      steps.push(s);
-    };
+    const begin = await post<SessionBegin>("/api/sfmc/db/tx/begin", {});
+    const txId = begin.txId;
+    _currentTxId = txId;
 
-    const recorder: TxContext = {
-      query: async () => txReadNotSupported("query"),
-      get: async () => txReadNotSupported("get"),
+    const interactive: TxContext = {
+      query: async <U extends Record<string, unknown> = Record<string, unknown>>(
+        table: string,
+        opts?: QueryOptions
+      ): Promise<U[]> => {
+        const r = await txStep(txId, { op: "query", table, ...(opts ? { opts } : {}) });
+        return (r.rows ?? []) as U[];
+      },
+      get: async <U extends Record<string, unknown> = Record<string, unknown>>(
+        table: string,
+        id: string | number
+      ): Promise<U | null> => {
+        const r = await txStep(txId, { op: "get", table, id: String(id) });
+        return (r.row ?? null) as U | null;
+      },
       insert: async <U extends Record<string, unknown>>(table: string, row: U): Promise<U> => {
-        push({ op: "insert", table, row });
-        return row;
+        const r = await txStep(txId, { op: "insert", table, row });
+        return (r.row ?? row) as U;
       },
       update: async <U extends Record<string, unknown>>(
         table: string,
         id: string | number,
         patch: Partial<U>
-      ): Promise<void> => {
-        // LSP:录制期无完整行可读回;勿把 patch 假扮成 U
-        push({ op: "update", table, id: String(id), patch });
+      ): Promise<U> => {
+        const r = await txStep(txId, { op: "update", table, id: String(id), patch });
+        return (r.row ?? ({ ...patch, id } as unknown as U)) as U;
       },
       delete: async (table: string, id: string | number, opts?: { hard?: boolean }) => {
-        push({ op: "delete", table, id: String(id), hard: opts?.hard ?? false });
+        await txStep(txId, { op: "delete", table, id: String(id), hard: opts?.hard ?? false });
       },
       audit: async (table: string, rowId: string | number, action: string, data?: Record<string, unknown>) => {
-        if (data) push({ op: "audit", table, rowId: String(rowId), action, data });
-        else push({ op: "audit", table, rowId: String(rowId), action });
+        if (data) await txStep(txId, { op: "audit", table, rowId: String(rowId), action, data });
+        else await txStep(txId, { op: "audit", table, rowId: String(rowId), action });
       },
-      call: async (name: string, input: Record<string, unknown>): Promise<void> => {
-        push({ op: "service", name, input });
-        // 录制期无服务端 result 可回放;契约为 void(与 service.get 区分 — LSP)
+      call: async <U = unknown>(name: string, input: Record<string, unknown>): Promise<U> => {
+        const r = await txStep(txId, { op: "service", name, input });
+        return r.result as U;
       },
     };
 
-    let userResult: T;
     try {
-      userResult = await fn(recorder);
+      const userResult = await fn(interactive);
+      await post("/api/sfmc/db/tx/commit", { txId });
+      return userResult;
     } catch (e) {
-      _currentTxId = null;
+      try {
+        await post("/api/sfmc/db/tx/rollback", { txId });
+      } catch {
+        /* best-effort */
+      }
       throw e;
+    } finally {
+      _currentTxId = null;
     }
-
-    // post 在 !ok 时已抛带 step/code 的 DbError;此处只需成功路径
-    await post<TxResponse>("/api/sfmc/db/tx", { steps });
-    _currentTxId = null;
-    return userResult;
   },
 
   /** 平台预置:审计日志(自动写 _audit 表) */
@@ -259,14 +274,13 @@ export interface TxContext {
     id: string | number
   ): Promise<T | null>;
   insert<T extends Record<string, unknown>>(table: string, row: T): Promise<T>;
-  /** 录制期无行读回,返回 void(与事务外 update→T 区分)。 */
   update<T extends Record<string, unknown>>(
     table: string,
     id: string | number,
     patch: Partial<T>
-  ): Promise<void>;
+  ): Promise<T>;
   delete(table: string, id: string | number, opts?: { hard?: boolean }): Promise<void>;
   audit(table: string, rowId: string | number, action: string, data?: Record<string, unknown>): Promise<void>;
-  /** fire-and-forget:入队 service step,不返回 result。 */
-  call(name: string, input: Record<string, unknown>): Promise<void>;
+  /** 交互会话内返回服务端真实 result */
+  call<T = unknown>(name: string, input: Record<string, unknown>): Promise<T>;
 }
