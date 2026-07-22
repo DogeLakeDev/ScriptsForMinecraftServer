@@ -1,15 +1,8 @@
 /**
- * area-service.ts — 区域配置加载 + 对外服务(area.byName / area.byPoint)
+ * area-service.ts — 区域配置加载 + 内存缓存
  *
- * v2 协议:配置只走 SDK config 抽屉,不再用 ConfigManager.getAreas()。
- *
- * config.get 只能拿到 configs/area.json 的顶层键(SDK 客户端把顶层键逐个缓存),
- * 因此这里用 config.get("areas") / config.get("scan_interval_ticks") /
- * config.get("clean") 分别读取,再组装成 AreaConfig。
- *
- * 区域列表在 init 时读入内存缓存(_areas),之后各子生命周期的 tick 扫描
- * 直接同步读缓存(config.get 是异步的,不能每 tick await);config.onChange
- * 订阅变更以热更新缓存。
+ * 配置走 SDK config.get("areas" / "scan_interval_ticks" / "clean")。
+ * init 时读入缓存,子生命周期 tick 同步读;config.onChange 热更新。
  */
 
 import { config } from "@sfmc/sdk/sapi/config";

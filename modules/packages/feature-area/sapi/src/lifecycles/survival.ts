@@ -1,11 +1,8 @@
 /**
- * lifecycles/survival.ts — 区域生存(合并自 v1 feature-area-survival)
+ * lifecycles/survival.ts — 区域生存
  *
- * 逻辑保持不变:创造区以外强制生存,阻止在创造区外手动切到创造/旁观。
- * 同模块耦合说明:本子功能依赖 creative 子功能的"连锁开关"与创造区判定
- *   - 连锁开关:isCreativeChainEnabled()(等价 v1 CreativeArea.enable)
- *   - 创造区判定:area-service.pointInFeatureArea("creative", ...)
- * 变更点:区域判定改走 area-service(SDK config),不再用 ConfigManager.getAreas("creative")
+ * 创造区以外强制生存,阻止在创造区外切到创造/旁观。
+ * 依赖 creative 子功能的连锁开关与创造区判定。
  */
 
 import {

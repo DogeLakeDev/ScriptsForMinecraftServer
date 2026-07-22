@@ -1,15 +1,8 @@
 /**
- * lifecycles/clean.ts — 掉落物清理(合并自 v1 feature-clean)
+ * lifecycles/clean.ts — 掉落物清理
  *
- * 逻辑保持不变:定时扫描全服掉落物,超过阈值则集中收纳到固定回收箱阵列,
- * kill_list 中的物品直接清除;回收箱装满则顺延到下一个,并放置记录时间的告示牌。
- *
- * 与其它子功能的差异(重要):
- *   clean 不是"区域范围"语义 —— 它扫描全服掉落物、收纳到唯一的回收箱阵列。
- *   为纳入统一区域模块,约定:只要任意区域的 features.clean === true 即视为
- *   clean 子功能"已启用"(isFeatureActive("clean")),否则定时任务空转。
- *   回收箱几何 / kill_list / 阈值等改从 configs/area.json 的 clean 配置块读取
- *   (SDK config.get),不再用 ConfigManager.getClean()/getGrid()/getSetting()。
+ * 全服扫描掉落物,超阈值收纳到回收箱阵列;kill_list 直接清除。
+ * 启用条件:任意区域 features.clean === true。配置读 configs/area.json 的 clean 块。
  */
 
 import { BlockComponentTypes, Entity, ItemStack, system, world } from "@minecraft/server";

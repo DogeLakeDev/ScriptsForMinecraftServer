@@ -1,10 +1,8 @@
 /**
- * lifecycles/fly.ts — 区域飞行(合并自 v1 feature-area-fly)
+ * lifecycles/fly.ts — 区域飞行
  *
- * 逻辑保持不变:进入"开启 fly 的区域"自动开启飞行,离开则关闭并把玩家落地。
- * 变更点:
- *   - 区域判定改走 area-service(SDK config),不再用 ConfigManager.getAreas("fly")
- *   - 扫描周期改读 configs/area.json 的 scan_interval_ticks(默认 40)
+ * 进入开启 fly 的区域自动开飞,离开则关闭并落地。
+ * 区域判定走 area-service;扫描周期读 configs/area.json 的 scan_interval_ticks。
  */
 
 import { Entity, GameMode, Player, PlayerSpawnAfterEvent, system, world } from "@minecraft/server";

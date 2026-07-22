@@ -1,30 +1,20 @@
-import fs from "node:fs";
-import path from "node:path";
-
-export function resolveRuntimeRoot(fallbackRoot: string): string {
-  return path.resolve(process.env.SFMC_ROOT || fallbackRoot);
-}
-
-export function configDir(runtimeRoot: string): string {
-  return path.join(runtimeRoot, "configs");
-}
-
-export function configPath(runtimeRoot: string, name: string): string {
-  return path.join(configDir(runtimeRoot), name);
-}
-
-export function modulePath(runtimeRoot: string, name: string): string {
-  return path.join(runtimeRoot, "modules", name);
-}
-
-export function readJson<T>(filePath: string, fallback: T): T {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-export function resolveRuntimePath(runtimeRoot: string, configuredPath: string): string {
-  return path.isAbsolute(configuredPath) ? configuredPath : path.resolve(runtimeRoot, configuredPath);
-}
+/**
+ * sapi/host/config — 兼容出口
+ *
+ * 历史:曾从 shared/sfmc-config 迁入一份独立实现,与 @sfmc/sdk/node/config 重复。
+ * 现统一 re-export node/config,避免双路径维护(DRY)。
+ * host 适配层其它代码若需要路径/JSON 工具,从此处或直接从 node/config 引入均可。
+ */
+export {
+  resolveRuntimeRoot,
+  resolveRuntimePath,
+  configDir,
+  configPath,
+  moduleDir,
+  modulePath,
+  readJson,
+  writeJson,
+  patchJson,
+  ensureJson,
+  ensureJsonConfig,
+} from "../../../node/config/index.js";

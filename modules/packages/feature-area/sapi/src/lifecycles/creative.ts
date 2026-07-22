@@ -1,14 +1,9 @@
 /**
- * lifecycles/creative.ts — 区域创造(合并自 v1 feature-area-creative)
+ * lifecycles/creative.ts — 区域创造
  *
- * 逻辑保持不变:进出"开启 creative 的区域"自动切换创造/生存模式,区域内限制
- * 方块放置/破坏,禁放违禁物,区域内刷怪清除,边界快速检测,计分项保存/恢复。
- * 变更点:
- *   - 区域判定改走 area-service(SDK config),不再用 ConfigManager.getAreas("creative")
- *   - 违禁物列表改从 configs/area.json 的 creative.banned_items 读取(SDK config.get),
- *     不再用 ConfigManager.getBannedItems()
- *   - 连锁开关 _chainEnabled 同时约束 creative + survival(与 v1 CreativeArea.enable 等价),
- *     由 survival 子生命周期通过 isCreativeChainEnabled() 读取
+ * 进出创造区切换模式;限制放置/破坏;禁放违禁物;清刷怪。
+ * 违禁物读 configs/area.json 的 creative.banned_items。
+ * _chainEnabled 同时约束 creative + survival(供 survival 子生命周期读取)。
  */
 
 import {

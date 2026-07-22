@@ -1,12 +1,7 @@
 /**
  * @sfmc/module-scoreboard-sync — v2 入口
  *
- * ModuleRegistry.register + 计分板数据收集/备份/恢复:
- *   - init 时立即备份世界当前所有 objective 到 sfmc_scoreboards
- *   - /scoreboard restore 命令触发从 sfmc_scoreboards 恢复
- *
- * v1 用 HttpDB.POST / GET 操作平台 sfmc_scoreboards 表;
- * v2 通过 db.tx + tx.insert(写) + db.query(读) 走 v2 协议。
+ * 计分板备份/恢复:db.tx 读写平台表 sfmc_scoreboards。
  */
 
 import { Player, system, world } from "@minecraft/server";

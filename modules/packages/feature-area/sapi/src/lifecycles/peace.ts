@@ -1,11 +1,8 @@
 /**
- * lifecycles/peace.ts — 区域和平(合并自 v1 feature-area-peace)
+ * lifecycles/peace.ts — 区域和平
  *
- * 逻辑保持不变:实体在"开启 peace 的区域"内且命中怪物过滤器时,生成即移除。
- * 变更点:
- *   - 区域判定改走 area-service(SDK config),不再用 ConfigManager.getAreas("peace")
- *   - 怪物过滤器改从 configs/area.json 的 peace.filters 读取(SDK config.get),
- *     不再用 ConfigManager.getPeaceFilters()
+ * 实体在开启 peace 的区域内且命中怪物过滤器时,生成即移除。
+ * 过滤器读 configs/area.json 的 peace.filters。
  */
 
 import { Entity, EntityInitializationCause, EntitySpawnAfterEvent, world } from "@minecraft/server";
