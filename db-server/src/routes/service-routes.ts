@@ -9,6 +9,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
+import { assertModulePermission, Perm, PermissionDeniedError } from "../permission-gate.js";
 import type { ServiceRegistry } from "../service-registry.js";
 
 export interface ServiceRoutesDeps {
@@ -66,6 +67,9 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
         }
       }
       try {
+        // 与 tx-runner.doService 对齐(LSP):HTTP service.get 与 tx.call 必须同契约 —
+        // 既要在 services.requires 里(由 dispatch 校验),也要有 service:<name> 权限。
+        assertModulePermission(auth.id, auth.permissions, Perm.service(name));
         const out = await deps.serviceRegistry!.dispatch(
           deps.enabled!,
           auth.id,
@@ -74,6 +78,10 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
         );
         json(res, { ok: true, result: out.result });
       } catch (e) {
+        if (e instanceof PermissionDeniedError) {
+          json(res, { success: false, error: e.message, code: "permission_denied" }, 403);
+          return true;
+        }
         const err = e as { status?: number; code?: string; message: string };
         json(
           res,
