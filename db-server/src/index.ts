@@ -254,7 +254,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   // ── 预读 body(所有路由共享) ───────────────────────────────
   await body(req);
 
-  // ── v2 模块身份校验:写 req.moduleAuth ────────────────────
+  // ── v2 模块身份校验 → 写入路由 ctx.moduleAuth(LoD:不挂 req 私有字段) ──
   // 注意:`/api/sfmc/configs/all` 是旧的一次性配置快照端点(SAPI ConfigManager.init
   // 启动必用),不属于 v2 模块配置命名空间(configs/<模块 configKey>),必须豁免,
   // 否则会被模块鉴权网关拦成 401,导致插件端起不来。
@@ -263,6 +263,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     path.startsWith("/api/sfmc/db/") ||
     path.startsWith("/api/sfmc/services") ||
     (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+(?:\/(?:set|notify))?$/.test(path) && !isLegacyConfigAll);
+  let moduleAuthCtx: { id: string; permissions: string[] } | null = null;
   if (needsModuleAuth) {
     const id = verifyModuleAuth({
       headers: req.headers,
@@ -275,7 +276,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       return;
     }
     const manifest = enabledManifests.get(id);
-    (req as http.IncomingMessage & { moduleAuth: { id: string; permissions: string[] } }).moduleAuth = {
+    moduleAuthCtx = {
       id,
       permissions: manifest?.permissions ?? [],
     };
@@ -298,14 +299,14 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
 
   try {
     // ── v2 路由(优先匹配) ─────────────────────────────
-    const reqWithAuth = req as http.IncomingMessage & { moduleAuth?: { id: string; permissions: string[] } };
-    if (reqWithAuth.moduleAuth && (path.startsWith("/api/sfmc/db/") || path.startsWith("/api/sfmc/services") || (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+/.test(path) && !isLegacyConfigAll))) {
+    if (moduleAuthCtx && (path.startsWith("/api/sfmc/db/") || path.startsWith("/api/sfmc/services") || (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+/.test(path) && !isLegacyConfigAll))) {
       const ctx: Record<string, unknown> = {
         path,
         method,
         params,
         req,
         res,
+        moduleAuth: moduleAuthCtx,
       };
       // body 已在上面 `await body(req)` 预读并缓存到 req._bodyPromise;
       // 这里复用缓存(原实现读的 req._body 从未被赋值,导致所有 v2 路由 body 恒为空)。
