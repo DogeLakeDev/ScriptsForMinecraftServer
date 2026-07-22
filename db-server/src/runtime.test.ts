@@ -146,7 +146,7 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
   try {
     const enabledSet = new Set<string>(["feature-a"]);
     const enabledManifests = new Map();
-    const moduleAuth = { tokens: { "feature-a": "old" }, secret: "test-secret" };
+    const moduleAuth = { tokens: { "feature-a": "old" } as Record<string, string>, secret: "test-secret" };
     const registry = new ServiceRegistry();
     const fakeManifest = {
       id: "feature-b",
