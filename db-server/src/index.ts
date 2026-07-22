@@ -36,7 +36,7 @@ import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
 import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
 
-import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
+import { readJson } from "@sfmc-bds/sdk/node/config";
 
 import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";
@@ -49,7 +49,7 @@ import { createMessagesRoutes } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
 
 import { forwardToQQBridge, makeLLBotConfig } from "./domain/bridge.js";
-import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
+import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 
 if (!assertNodeVersion(22, 13)) {
@@ -153,12 +153,15 @@ function buildModuleList() {
         id,
         module_id: id,
         name: configKey,
+        configKey,
         config_key: configKey,
         display_name: String((raw as Record<string, unknown>).name || configKey),
         type: String((raw as Record<string, unknown>).type || "feature"),
         description: String((raw as Record<string, unknown>).description || ""),
         default_enabled: (raw as Record<string, unknown>).enabledByDefault !== false,
         can_disable: (raw as Record<string, unknown>).canDisable !== false,
+        // ConfigManager 认 installed!==false;已装包默认 true
+        installed: true,
         requires: Array.isArray((raw as Record<string, unknown>).requires)
           ? ((raw as Record<string, unknown>).requires as unknown[]).filter(Boolean).map(String)
           : [],
@@ -194,7 +197,8 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   // 直接更新启动时缓存的 lockFile(而非另读一份新副本),
   // 否则 buildModuleList() 读的仍是旧缓存,导致启停后 enabled 状态不翻转。
   updateModuleState(lockFile, mod.id, { enabled: !!enabled });
-  writeJson(env.MODULE_LOCK_PATH, lockFile);
+  // DRY:与 loadModuleLock 对称走 saveModuleLock,勿散落 writeJson
+  saveModuleLock(env.MODULE_LOCK_PATH, lockFile);
 }
 
 // ── 平台路由(非模块业务) ───────────────────────────────────
@@ -217,7 +221,13 @@ const messagesRoutes = createMessagesRoutes({
       fromId
     ),
 });
-const configRoutes = createConfigRoutes({ json, projectRoot: env.PROJECT_ROOT });
+const configRoutes = createConfigRoutes({
+  json,
+  projectRoot: env.PROJECT_ROOT,
+  // DIP:路由不读 lock/catalog/token 文件,由入口注入与 /modules 同源数据
+  listModules: () => buildModuleList() as Array<Record<string, unknown>>,
+  getModuleTokens: () => ({ ...moduleAuth.tokens }),
+});
 const moduleRoutesInstance = createModuleRoutes({
   loadModuleCatalog,
   buildModuleList: buildModuleList as unknown as () => Array<Record<string, unknown>>,

@@ -18,7 +18,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
-import { jsonV2Fail, type ModuleAuth } from "./_shared.js";
+import { jsonV2Fail, jsonV2Ok, type ModuleAuth } from "./_shared.js";
 import type {
   DefineTableRequest,
   SchemaRegistry,
@@ -71,7 +71,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         const req2 = body as unknown as DefineTableRequest & { moduleId?: string };
         delete (req2 as { moduleId?: string }).moduleId;
         const result = deps.schemaRegistry!.define(moduleId, req2);
-        json(res, { success: true, table: result.table, created: result.created }, 200);
+        jsonV2Ok(res, { table: result.table, created: result.created });
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 400);
       }
@@ -87,6 +87,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         const steps = Array.isArray(txReq.steps) ? txReq.steps : [];
         const result = await deps.txRunner!.run({ moduleId, steps });
         const status = result.ok ? 200 : 400;
+        // TxResponse/TxError 自身已带 ok 字段;原样回传保持契约
         json(res, result as unknown as Record<string, unknown>, status);
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);
@@ -113,7 +114,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
             return true;
           }
           const first = result.results[0];
-          json(res, { success: true, ...unwrapResult(first, cand.op) }, 200);
+          jsonV2Ok(res, unwrapResult(first, cand.op) as Record<string, unknown>);
         } catch (e) {
           if (e instanceof PermissionDeniedError) {
             jsonV2Fail(res, e.message, 403, "permission_denied");
@@ -139,7 +140,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
           jsonV2Fail(res, result.error, 400, result.code);
           return true;
         }
-        json(res, { success: true });
+        jsonV2Ok(res);
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);
       }
@@ -163,7 +164,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
             String(body.key),
             body.value
           );
-          json(res, { success: r.ok });
+          jsonV2Ok(res, { committed: r.ok });
         }
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);

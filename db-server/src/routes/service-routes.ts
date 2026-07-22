@@ -59,11 +59,7 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
         try {
           payload = JSON.parse(rawInput);
         } catch (e) {
-          json(
-            res,
-            { ok: false, error: `invalid input json: ${(e as Error).message}`, code: "bad_request" },
-            400
-          );
+          jsonV2Fail(res, `invalid input json: ${(e as Error).message}`, 400, "bad_request");
           return true;
         }
       }
@@ -80,15 +76,11 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
         json(res, { ok: true, result: out.result });
       } catch (e) {
         if (e instanceof PermissionDeniedError) {
-          json(res, { ok: false, error: e.message, code: "permission_denied" }, 403);
+          jsonV2Fail(res, e.message, 403, "permission_denied");
           return true;
         }
         const err = e as { status?: number; code?: string; message: string };
-        json(
-          res,
-          { ok: false, error: err.message, code: err.code ?? "internal" },
-          err.status ?? 500
-        );
+        jsonV2Fail(res, err.message, err.status ?? 500, err.code ?? "internal");
       }
       return true;
     }

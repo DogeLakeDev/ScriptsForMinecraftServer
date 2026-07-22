@@ -19,6 +19,16 @@ import { configPath, readJson, type ConfigName } from "@sfmc-bds/sdk/node/config
 interface Deps {
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
   projectRoot: string;
+  /**
+   * 注入模块列表(与 GET /api/sfmc/modules 同源 — DRY)。
+   * 勿在本路由再读 catalog/lock(DIP:高层装配,路由只消费抽象)。
+   */
+  listModules?: () => Array<Record<string, unknown>>;
+  /**
+   * 注入模块 HMAC token 表(仅 loopback 可达;供 SAPI host-bootstrap 注入
+   * set*ModuleContext,因 SAPI 不能读 data/module-tokens.json)。
+   */
+  getModuleTokens?: () => Record<string, string>;
 }
 
 function isMetaKey(k: string): boolean {
@@ -54,13 +64,18 @@ function arrayOrEmpty(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
 }
 
-function createConfigRoutes({ json, projectRoot }: Deps) {
+function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }: Deps) {
   /** 仓顶服务 config 读取统一走 SDK;闭包捕获 projectRoot。 */
   const readCfg = (name: ConfigName): unknown => readJson(configPath(projectRoot, name));
 
   function getAllConfigs(): Record<string, unknown> {
+    const modules = typeof listModules === "function" ? listModules() : [];
+    const module_tokens = typeof getModuleTokens === "function" ? getModuleTokens() : {};
     return {
-      modules: [],
+      // 与 /api/sfmc/modules 同源;ConfigManager.init 一次拉齐启停态(DRY)
+      modules,
+      // loopback-only 下发;SAPI 无 fs,靠此注入模块身份(DIP)
+      module_tokens,
       settings: stripMeta(readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null),
       areas: (arrayOrEmpty(readJson(configPath(projectRoot, "areas.json"))) as Array<Record<string, unknown>>)
         .filter((r) => r && r.module && r.dimension != null)
