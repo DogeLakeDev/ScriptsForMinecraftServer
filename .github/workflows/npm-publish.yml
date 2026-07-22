@@ -5,11 +5,11 @@ name: npm-publish
 # 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
 
 on:
-  # scoped tag 含 /（@sfmc-bds/sdk@v0.1.0）须用 ** 跨段；勿再用笼统 "**"（会误触 SEA v*）。
-  # 包合法性 + 已发布探测由 tools/resolve-npm-publish-tag.mjs 校验。
+  # tag 形如 @sfmc-bds/sdk@v0.1.0（含 /）。`*` 不跨 /，须用 `**`。
+  # `**@v*`：要求含 @v，避免误触 SEA 的 v* tag。
   push:
     tags:
-      - "**sfmc-bds/**"
+      - "**@v*"
   workflow_dispatch:
     inputs:
       tag:
