@@ -28,6 +28,21 @@
 /** 顶层命令名(主名 + 短别名),供 HELP / 补全 / 分发共用。 */
 export const MODULE_CMD_NAMES = ["module", "mod"] as const;
 
+export type ModuleCmdName = (typeof MODULE_CMD_NAMES)[number];
+
+/** HELP 中主名+别名展示串(权威来源 MODULE_CMD_NAMES),如 "module/mod"。 */
+export const MODULE_CMD_ALIAS_LABEL = MODULE_CMD_NAMES.join("/");
+
+/** 判断是否为 module 顶层命令(含别名);避免 main/repl 再硬编码 case。 */
+export function isModuleCommand(cmd: string | undefined): cmd is ModuleCmdName {
+  return !!cmd && (MODULE_CMD_NAMES as readonly string[]).includes(cmd);
+}
+
+/** 染色后的 HELP 前缀,避免 HELP 硬编码 module/mod。 */
+export function paintModuleCmdAlias(paint: (name: string) => string): string {
+  return MODULE_CMD_NAMES.map(paint).join("/");
+}
+
 /** 对外展示与 Tab 补全用的子命令列表(不含 remove 等同义别名)。 */
 export const MODULE_SUBCOMMANDS = [
   "list",
@@ -41,7 +56,7 @@ export const MODULE_SUBCOMMANDS = [
 ] as const;
 
 export const MODULE_USAGE =
-  "Usage: sfmc module|mod <list|search|install|uninstall|verify|info|enable|disable> [args]";
+  `Usage: sfmc ${MODULE_CMD_NAMES.join("|")} <${MODULE_SUBCOMMANDS.join("|")}> [args]`;
 
 import fs from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";

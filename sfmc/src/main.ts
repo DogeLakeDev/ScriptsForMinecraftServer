@@ -3,7 +3,7 @@ import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
-import { dispatchModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
+import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
@@ -138,13 +138,12 @@ async function main(): Promise<void> {
       }
       break;
     }
-    case "module":
-    case "mod": {
-      const [sub, ...subRest] = rest;
-      console.log(await dispatchModuleCommand(sub, subRest));
-      break;
-    }
     default:
+      if (isModuleCommand(cmd)) {
+        const [sub, ...subRest] = rest;
+        console.log(await dispatchModuleCommand(sub, subRest));
+        break;
+      }
       console.log(c.red(`Unknown command: ${cmd}`));
       printUsage();
       process.exit(1);

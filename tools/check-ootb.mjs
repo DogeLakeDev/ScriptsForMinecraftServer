@@ -157,9 +157,12 @@ async function main() {
       console.log("[ootb] WARN: sfmc/dist/main.js 缺失 — 跳过 CLI 检查");
     } else {
       const r = runSync(process.execPath, [SFMC_DIST, "--help"], { cwd: ROOT });
-      const hasModule = /module\s+(list|install)/.test(r.stdout + r.stderr);
+      /* 剥离 ANSI;接受 module list / module/mod list / module|mod list
+       * (与 MODULE_CMD_NAMES / HELP 展示对齐,避免别名改动再次打红) */
+      const helpText = (r.stdout + r.stderr).replace(/\u001b\[[0-9;]*m/g, "");
+      const hasModule = /module(?:\s*[|/]\s*mod)?\s+(list|install)\b/.test(helpText);
       if (r.status === 0 && hasModule) pass("sfmc CLI module 子命令已注册");
-      else fail("sfmc CLI module 子命令已注册", (r.stderr || r.stdout || `exit ${r.status}`).trim());
+      else fail("sfmc CLI module 子命令已注册", helpText.trim().slice(0, 800));
     }
   }
 

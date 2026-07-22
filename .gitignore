@@ -25,6 +25,7 @@ tools/.sfmc-registry-cache.json
 *.tmp
 *.tmp.*
 *.log
+*.tgz
 
 # Proactive-agent credentials (security-audit.sh)
 .credentials/
