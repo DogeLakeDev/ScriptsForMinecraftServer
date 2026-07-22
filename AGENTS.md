@@ -107,18 +107,18 @@ CI builds for win/linux/macos on `v*` tags.
 
 ## Module system
 
-Source of truth: `modules/catalog.json` (metadata) + `modules/module-lock.json` (install state).
+Source of truth: `modules/catalog.json` (local mirror projected from installed packages) + `modules/module-lock.json` (enable state). Business modules live in `Tanya7z/sfmc-modules` and are installed via `tools/fetch-module.mjs`.
 
-- `tools/check-catalog.js` — validates unique IDs, dependency closure, entry-path existence
-- `tools/install-module.js install|uninstall <id>` — update logical install state
-- `tools/lock.js rebuild|drift` — rebuild/detect file fingerprint drift
-- `tools/smoke-modules.js` — regression test (requires live db-server)
-- `tools/check-ootb.js` — self-check: validates environment readiness
+- `tools/fetch-module.mjs install|uninstall|search` — registry install; syncs catalog + lock
+- `tools/catalog-sync.mjs` — scan `packages/*/sapi/manifest.json` → rewrite catalog
+- `tools/check-modules.mjs` — validate catalog + v2 manifests (empty catalog OK)
+- `tools/smoke-modules.mjs` — module API smoke (needs live db-server)
+- `tools/check-ootb.mjs` — platform readiness self-check
 
 Runtime wiring: `modules/sdk/@sfmc-sdk/src/module-loader/`. To add a module:
 
-1. Entry in `modules/catalog.json` (id, configKey, type, requires, entry)
-2. `ModuleRegistry.register({ id, lifecycle: { registerPermissions, registerCommands, registerEvents, init, cleanup } })` in `modules/packages/<id>/sapi/src/index.ts`
+1. Publish in `Tanya7z/sfmc-modules` (or install with `fetch-module`)
+2. `ModuleRegistry.register({ id, lifecycle: { ... } })` in `sapi/src/index.ts`
 3. `sfmc behavior-pack build && sfmc behavior-pack deploy` → restart BDS
 
 ## Configuration model (no hot-reload)
@@ -180,11 +180,12 @@ MC → QQ: db-server ─HTTP──→ LLBot:3004/send_group_msg
 ## Development tools
 
 ```bash
-node tools/check-ootb.js        # validate environment readiness
-node tools/smoke-modules.js     # module regression (needs live db-server)
-node tools/sim-new-user.js      # test isolation (uses SFMC_ROOT)
-node tools/lock.js rebuild      # rebuild modules/lock.json fingerprints
-node tools/lock.js drift         # detect drifted files
+node tools/check-ootb.mjs       # validate environment readiness
+node tools/catalog-sync.mjs     # project installed packages → catalog.json
+node tools/check-modules.mjs    # validate catalog + v2 manifests
+node tools/smoke-modules.mjs    # module regression (needs live db-server)
+node tools/sim-new-user.mjs     # isolated SFMC_ROOT smoke
+node tools/fetch-module.mjs install <id>
 ```
 
 ## CI
@@ -192,8 +193,8 @@ node tools/lock.js drift         # detect drifted files
 `.github/workflows/ootb.yml` — on push/PR to `main`/`refactor/**`:
 
 1. `npm install` at repo root
-2. `node tools/check-ootb.js`
-3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.js`
+2. `node tools/check-ootb.mjs`
+3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.mjs`
 
 `.github/workflows/release.yml` — on `v*` tags: builds SEA exe for win/linux/macos + publishes npm.
 
@@ -208,7 +209,7 @@ node tools/lock.js drift         # detect drifted files
 ## Gotchas
 
 - **configs/** and **data/** are gitignored. See `configs-default/` for defaults.
-- **`SFMC_ROOT`** env var: db-server reads `configs/` from this root. Used by `sim-new-user.js` for isolation testing.
+- **`SFMC_ROOT`** env var: db-server reads `configs/` from this root. Used by `sim-new-user.mjs` for isolation testing.
 - **`process.stdin.isTTY=false`** makes Ink-based TUI crash — `panel/` is gone, but sfmc CLI with `--no-tui` or `--cli` avoids stdin issues.
 - **`endOfLine: "crlf"`** in prettier — Windows repo convention.
 - **No test framework** in SAPI or db-server proper. db-server has `node --test` for `src/runtime.test.js` only.

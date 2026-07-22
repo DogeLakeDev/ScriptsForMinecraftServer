@@ -42,7 +42,7 @@ jobs:
 
       - name: Run check-ootb
         shell: pwsh
-        run: node tools/check-ootb.js
+        run: node tools/check-ootb.mjs
 
       - name: Run smoke-modules (against temporary db-server)
         shell: pwsh
@@ -64,7 +64,7 @@ jobs:
               Start-Sleep -Milliseconds 300
             }
             if (-not $ready) { throw "db-server not ready" }
-            node tools/smoke-modules.js
+            node tools/smoke-modules.mjs
           } finally {
             Stop-Process -Id $db.Id -Force -ErrorAction SilentlyContinue
             Remove-Item -Force db-server/_smoke.out,db-server/_smoke.err -ErrorAction SilentlyContinue

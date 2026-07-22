@@ -13,14 +13,13 @@
  *   install <id>            Wrapper around `tools/fetch-module.mjs install`.
  *                           If `--from` is omitted, the first-party registry
  *                           is consulted (Tanya7z/sfmc-modules).
- *   uninstall <id>          Remove modules/packages/<id>/
+ *   uninstall <id>          Remove packages/<id>/ + catalog/lock via fetch-module
  *   enable <id>             POST /api/sfmc/modules/:id/enable on db-server
  *   disable <id>            POST /api/sfmc/modules/:id/disable on db-server
  *
- * The runtime SEA process never connects to the network. `install` simply
- * delegates to the build-time helper `tools/fetch-module.mjs`, which handles
- * GitHub / local sources. enable/disable go through db-server's existing
- * REST endpoints so module-lock.json stays the single source of truth.
+ * The runtime SEA process never connects to the network. `install`/`uninstall`
+ * delegate to `tools/fetch-module.mjs` (install syncs catalog + lock).
+ * enable/disable go through db-server REST so module-lock.json stays consistent.
  */
 
 import fs from "node:fs/promises";
@@ -289,14 +288,24 @@ export async function cmdModuleDisable(args: string[]): Promise<string> {
  *  install  — shells out to tools/fetch-module.mjs
  * ─────────────────────────────────────────────────────────────── */
 export async function cmdModuleInstall(args: string[]): Promise<string> {
-  const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module install <id> [--from <source>]");
-  const flags = parseFlags(args.slice(1));
+  // 支持: install <id> [id2 ...] [--from ...]
+  const flags = parseFlags(args);
+  const positional: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--from" || args[i] === "--sha256") {
+      i++;
+      continue;
+    }
+    if (args[i]?.startsWith("--from=") || args[i]?.startsWith("--sha256=")) continue;
+    if (args[i]?.startsWith("--")) continue;
+    positional.push(args[i]!);
+  }
+  if (positional.length === 0) return c.yellow("Usage: sfmc module install <id> [id2 ...] [--from <source>]");
   const fetchScript = path.join(ROOT, "tools", "fetch-module.mjs");
   if (!existsSync(fetchScript)) {
     return c.red(`tools/fetch-module.mjs not found at ${fetchScript}`);
   }
-  const sub = ["install", id];
+  const sub = ["install", ...positional];
   if (flags.from) sub.push("--from", flags.from);
   if (flags.sha256) sub.push("--sha256", flags.sha256);
   return new Promise<string>((resolve) => {
@@ -321,10 +330,30 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
 export async function cmdModuleUninstall(args: string[]): Promise<string> {
   const id = args[0];
   if (!id) return c.yellow("Usage: sfmc module uninstall <id>");
-  const target = path.join(modulesDir(), id);
-  if (!existsSync(target)) return c.yellow(`Module ${id} not installed (no folder at ${target})`);
-  await fs.rm(target, { recursive: true, force: true });
-  return c.green(`Removed ${id} from ${target}\n`);
+  const fetchScript = path.join(ROOT, "tools", "fetch-module.mjs");
+  if (!existsSync(fetchScript)) {
+    // 回退:仅删目录(旧行为)
+    const target = path.join(modulesDir(), id);
+    if (!existsSync(target)) return c.yellow(`Module ${id} not installed (no folder at ${target})`);
+    await fs.rm(target, { recursive: true, force: true });
+    return c.green(`Removed ${id} from ${target}\n`);
+  }
+  return new Promise<string>((resolve) => {
+    const proc = spawn(process.execPath, [fetchScript, "uninstall", id], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let out = "";
+    proc.stdout?.on("data", (d: Buffer) => {
+      out += d.toString();
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      out += d.toString();
+    });
+    proc.on("exit", (code) => {
+      resolve(out + (code === 0 ? "" : `\n[exit ${code}]`));
+    });
+    proc.on("error", (e) => resolve(c.red(`spawn failed: ${e.message}`)));
+  });
 }
 
 /* ─────────────────────────────────────────────────────────────────

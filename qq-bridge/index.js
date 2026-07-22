@@ -6,7 +6,7 @@
  * 之所以保留这个 shim 是因为:
  *   1. panel/src/services/manager.ts 通过 `node qq-bridge/index.js` 启动
  *   2. modules/catalog.json 中 entry.path 指向 "qq-bridge/index.js"
- *   3. tools/check-ootb.js 自检要求该文件存在
+ *   3. tools/check-ootb.mjs 自检要求该文件存在
  *
  * 启动方式:
  *   - `npm start`           -> `node dist/index.js` (直接走编译产物)

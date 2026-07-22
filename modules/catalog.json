@@ -1,5 +1,20 @@
 {
   "_comment": "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。业务模块已全部提取至 Tanya7z/sfmc-modules（最新 modules-v0.4.0）。本仓库 modules/packages/ 不再内置业务包；请用 tools/fetch-module.mjs / sfmc 从 registry 安装到 modules/packages/<id>/。",
   "version": 1,
-  "modules": []
+  "modules": [
+    {
+      "id": "feature-afk",
+      "configKey": "afk",
+      "name": "AFK 检测",
+      "type": "feature",
+      "description": "",
+      "enabledByDefault": false,
+      "canDisable": true,
+      "requires": [],
+      "entry": {
+        "kind": "sapi",
+        "path": "modules/packages/afk/sapi/src/index.ts"
+      }
+    }
+  ]
 }

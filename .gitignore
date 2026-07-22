@@ -21,6 +21,7 @@ panel/*.log
 
 tools/.sim-workspace/
 tools/.sim-workspace.bak/
+tools/.sfmc-registry-cache.json
 *.tmp
 *.tmp.*
 *.log

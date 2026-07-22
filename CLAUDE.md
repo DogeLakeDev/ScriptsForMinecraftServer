@@ -53,13 +53,15 @@ node panel/index.js --no-tui   # keep services running, no TUI
 ### Dev tools (run from repo root)
 
 ```bash
-node tools/check-ootb.js       # self-check: validates environment readiness
-node tools/check-catalog.js    # validates catalog.json (unique IDs, dependency closure, entry paths)
-node tools/smoke-modules.js    # module system regression test (requires live db-server)
-node tools/lock.js rebuild    # rebuild modules/lock.json file fingerprints
-node tools/lock.js drift       # detect drifted files
-node tools/install-module.js install <id>   # install module
-node tools/install-module.js uninstall <id> # uninstall module
+node tools/check-ootb.mjs          # 平台开箱自检(空 catalog 合法)
+node tools/catalog-sync.mjs        # 扫描 packages → 重写 catalog.json
+node tools/check-modules.mjs       # 校验 catalog + 已装包 v2 manifest
+node tools/fetch-module.mjs search # 查 registry
+node tools/fetch-module.mjs install <id>   # 安装并同步 catalog/lock
+node tools/fetch-module.mjs uninstall <id>
+node tools/smoke-modules.mjs       # 模块 API 冒烟(需 live db-server)
+node tools/sim-new-user.mjs        # 隔离 SFMC_ROOT 冒烟
+node tools/test-db-api.mjs         # 平台 API 烟测
 ```
 
 ### Build prerequisites
@@ -78,12 +80,13 @@ Modules with `afterWorldLoad=false` boot immediately. Those with `afterWorldLoad
 
 ### Module System
 
-Truth source: `modules/catalog.json` (metadata) + `modules/module-lock.json` (install state).
+Truth source: `modules/catalog.json`(本地 mirror,由已装包投影) + `modules/module-lock.json`(启停)。
+业务模块源在 `Tanya7z/sfmc-modules`,经 `tools/fetch-module.mjs` 安装。
 
 `ModuleRegistry` (`modules/sdk/@sfmc-sdk/src/module-loader/`) handles all wiring. Each module exports a lifecycle object from `sapi/src/index.ts` with `registerPermissions`, `registerCommands`, `registerEvents`, `init`, `cleanup` hooks. To add a module:
 
-1. Add entry to `modules/catalog.json`
-2. Write `modules/packages/<id>/sapi/src/index.ts` calling `ModuleRegistry.register({ id, lifecycle: { ... } })`
+1. 在 `Tanya7z/sfmc-modules` 发布模块,或 `fetch-module install <folder>`
+2. `catalog-sync` / install 会把 manifest 投影进 `modules/catalog.json`
 3. Run `sfmc behavior-pack build && sfmc behavior-pack deploy`, restart BDS
 
 Module enable/disable at runtime goes through Panel → `POST /api/sfmc/modules/:id/{enable|disable}` → db-server writes `module-lock.json` → SAPI calls `ConfigManager.refreshModules()`. **No hot-reload: restart BDS for changes to take effect.**

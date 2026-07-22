@@ -175,9 +175,10 @@ node tools/fetch-module.mjs install feature-foo --from dir:/mnt/share/modules/fe
 │   modules/catalog.json    ← static mirror                │
 │   modules/module-lock.json ← enable/disable state         │
 │                                                          │
-│   tools/fetch-module.mjs   ← fetch CLI                    │
-│   tools/check-ootb.js      ← pre-boot self-check          │
-│   tools/lock.js            ← fingerprint / drift check    │
+│   tools/fetch-module.mjs   ← fetch CLI (install syncs catalog/lock) │
+│   tools/catalog-sync.mjs   ← scan packages → catalog               │
+│   tools/check-ootb.mjs     ← pre-boot self-check                   │
+│   tools/check-modules.mjs  ← catalog + manifest validate           │
 │                                                          │
 │   db-server/               ← runs on 127.0.0.1:3001       │
 │     manifest-loader.ts     ← reads v2 manifest, enables   │

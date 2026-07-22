@@ -137,7 +137,7 @@ SFMC ships two equivalent on-ramps. Pick whichever feels right.
 ```bash
 # 1. Grab sfmc.exe for your platform from GitHub Releases, drop it in an empty dir
 # 2. Self-check
-node tools/check-ootb.js            # or just run ./sfmc.exe wizard from the same folder
+node tools/check-ootb.mjs            # or just run ./sfmc.exe wizard from the same folder
 
 # 3. First launch runs the wizard: pick BDS path / LLBot path / backup dir,
 #    then pick 1+ modules — it auto-installs → builds → deploys to BDS.
@@ -164,8 +164,10 @@ node tools/check-ootb.js
 node sfmc/dist/main.js              # same as sfmc
 
 # 3. Install modules (default: first-party sfmc-modules registry)
-node tools/fetch-module.mjs install peace
 node tools/fetch-module.mjs search                     # see what's available
+node tools/fetch-module.mjs install afk
+node tools/fetch-module.mjs install land economy
+# install syncs modules/catalog.json + module-lock.json
 
 # 4. After editing BP / writing a custom module:
 npm run build --workspaces         # rebuild SDK + assembly tooling

@@ -142,7 +142,7 @@ SFMC 提供两条等价的上手路径,选你最舒服的就行。
 ```bash
 # 1. 下载对应平台的 sfmc.exe(从 GitHub Releases),放到一个空目录
 # 2. 自检环境
-node tools/check-ootb.js     # 或者直接在 exe 同目录跑 ./sfmc.exe wizard
+node tools/check-ootb.mjs     # 或者直接在 exe 同目录跑 ./sfmc.exe wizard
 
 # 3. 首次启动会跑 wizard:填 BDS 路径 / LLBot 路径 / 备份目录,
 #    然后选 1+ 个模块 → 自动 install → build → deploy 到 BDS
@@ -169,8 +169,10 @@ node tools/check-ootb.js
 node sfmc/dist/main.js       # 同 sfmc
 
 # 3. 装模块(默认从第一方 sfmc-modules 注册表)
-node tools/fetch-module.mjs install peace
 node tools/fetch-module.mjs search                  # 看可用模块
+node tools/fetch-module.mjs install afk
+node tools/fetch-module.mjs install land economy
+# install 会同步 modules/catalog.json + module-lock.json
 
 # 4. 写自定义 BP / 自定义模块 → 改完
 npm run build --workspaces   # 重 build 全部 SDK + 装配工具

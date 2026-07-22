@@ -176,9 +176,10 @@ node tools/fetch-module.mjs install feature-foo --from dir:/mnt/share/modules/fe
 │   modules/catalog.json    ← 静态 mirror                  │
 │   modules/module-lock.json ← enable/disable state       │
 │                                                          │
-│   tools/fetch-module.mjs   ← 拉取 CLI                    │
-│   tools/check-ootb.js      ← 启动前自检                  │
-│   tools/lock.js            ← 指纹 / drift 检测            │
+│   tools/fetch-module.mjs   ← 拉取 CLI(install 同步 catalog/lock) │
+│   tools/catalog-sync.mjs   ← 扫描 packages → catalog            │
+│   tools/check-ootb.mjs     ← 启动前自检                          │
+│   tools/check-modules.mjs  ← catalog + manifest 校验             │
 │                                                          │
 │   db-server/               ← 跑在 127.0.0.1:3001         │
 │     manifest-loader.ts     ← 读 v2 manifest,装载 enables │

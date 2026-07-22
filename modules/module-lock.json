@@ -16,6 +16,10 @@
     "service-panel": {
       "enabled": true,
       "updatedAt": 1784464791795
+    },
+    "feature-afk": {
+      "enabled": false,
+      "updatedAt": 1784701928968
     }
   }
 }

@@ -1,37 +1,18 @@
 #!/usr/bin/env node
 /**
- * tools/fetch-module.mjs — populate ./modules/packages/<id>/ from a source.
+ * tools/fetch-module.mjs — 从 registry / GitHub / zip / dir 安装模块到 modules/packages/<id>/
  *
- * Sources:
- *   local:<zip-path>      extract a local zip into modules/packages/<id>/
- *   dir:<dir-path>        copy a directory into modules/packages/<id>/
- *   github:<owner>/<repo>[@<tag>]   fetch sfmc-module-<id>-<version>.zip
- *                                   from GitHub Releases (optionally verify
- *                                   against the .sha256 sidecar)
- *
- * Default source (first-party registry):
- *   If --from is omitted, look up <id> in the index at
- *   https://raw.githubusercontent.com/Tanya7z/sfmc-modules/main/index.json
- *   → { "<id>": { "repo": "...", "tag": "..." } } → translate to github:<repo>@<tag>.
- *   The index is cached at tools/.sfmc-registry-cache.json for 1h.
+ * 安装成功后会把 sapi/manifest.json 投影写入 modules/catalog.json，
+ * 并按 enabledByDefault 更新 modules/module-lock.json。
  *
  * Usage:
- *   node tools/fetch-module.mjs list                                    # list installed
- *   node tools/fetch-module.mjs search                                  # list first-party registry
- *   node tools/fetch-module.mjs install <id>                            # install from first-party registry
- *   node tools/fetch-module.mjs install <id> --from github:owner/repo[@tag]
- *   node tools/fetch-module.mjs install <id> --from local:/abs/path/to/foo.zip
- *   node tools/fetch-module.mjs install <id> --from dir:/abs/path/to/foo/
+ *   node tools/fetch-module.mjs search
+ *   node tools/fetch-module.mjs list [--from github:owner/repo@tag]
+ *   node tools/fetch-module.mjs install <id> [id2 ...] [--from <source>] [--sha256 <hex>]
+ *   node tools/fetch-module.mjs uninstall <id> [id2 ...]
  *
- * Install target:
- *   modules/packages/<id>/
- *
- * SHA-256 verification:
- *   For github: source, the .sha256 sidecar is fetched and verified if present.
- *   For local: source, --sha256 <hex> may be passed.
- *
- * Note: This is a build-time / one-shot tool. The SEA itself never calls this;
- * it only reads from the resulting `modules/packages/<id>/` directories.
+ * Sources: local:<zip> | dir:<path> | github:owner/repo[@tag]
+ * 省略 --from 时查 Tanya7z/sfmc-modules index.json
  */
 
 import fs, { createReadStream } from "node:fs";
@@ -41,17 +22,19 @@ import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { upsertCatalogEntry, removeCatalogEntry } from "./lib/catalog.mjs";
+import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
+import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
+import { exists } from "./lib/io.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "..");
-const TARGET = path.join(ROOT, "modules", "packages");
+const TARGET = PACKAGES_DIR;
 
-/* ── first-party registry (Tanya7z/sfmc-modules) ─────────────── */
 const DEFAULT_REGISTRY_REPO = "Tanya7z/sfmc-modules";
-const DEFAULT_REGISTRY_TAG = "main"; // index.json lives on main, not a release tag
+const DEFAULT_REGISTRY_TAG = "main";
 const DEFAULT_REGISTRY_INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
 const REGISTRY_CACHE_PATH = path.join(__dirname, ".sfmc-registry-cache.json");
-const REGISTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+const REGISTRY_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
  * @typedef {{ repo: string, tag: string }} RegistryEntry
@@ -59,24 +42,22 @@ const REGISTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
  * @typedef {{ fetchedAt: number, index: RegistryIndex }} RegistryCache
  */
 
-function readCache() /** @returns {RegistryCache | null} */ {
+function readCache() {
   try {
-    const raw = fs.readFileSync(REGISTRY_CACHE_PATH, "utf8");
-    return JSON.parse(raw);
+    return JSON.parse(fs.readFileSync(REGISTRY_CACHE_PATH, "utf8"));
   } catch {
     return null;
   }
 }
 
-function writeCache(/** @type {RegistryCache} */ cache) {
+function writeCache(cache) {
   try {
     fs.writeFileSync(REGISTRY_CACHE_PATH, JSON.stringify(cache, null, 2));
   } catch {
-    /* cache is best-effort */
+    /* best-effort */
   }
 }
 
-/** @returns {Promise<RegistryIndex>} */
 async function fetchRegistryIndexFresh() {
   const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, { headers: { "User-Agent": "sfmc-fetch-module" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
@@ -88,21 +69,15 @@ async function fetchRegistryIndexFresh() {
   if (typeof modules !== "object" || modules === null || Array.isArray(modules)) {
     throw new Error("registry index must have a 'modules' object mapping id → { repo, tag }");
   }
-  // filter out comment keys starting with "_"
+  /** @type {RegistryIndex} */
   const filtered = {};
   for (const [k, v] of Object.entries(modules)) {
     if (k.startsWith("_")) continue;
     filtered[k] = v;
   }
-  return /** @type {RegistryIndex} */ (filtered);
+  return filtered;
 }
 
-/**
- * Resolve the first-party registry index. Prefer the live fetch; on network
- * failure fall back to a 1h TTL cache; on both failing, raise.
- *
- * @returns {Promise<{ index: RegistryIndex, stale: boolean }>}
- */
 async function resolveRegistryIndex() {
   const cache = readCache();
   if (cache && Date.now() - cache.fetchedAt < REGISTRY_CACHE_TTL_MS) {
@@ -120,39 +95,47 @@ async function resolveRegistryIndex() {
     return { index: fresh, stale: false };
   } catch (err) {
     if (cache) {
-      console.warn(`[fetch-module] registry offline (${err.message}); using cached index from ${new Date(cache.fetchedAt).toISOString()}`);
+      console.warn(
+        `[fetch-module] registry offline (${err.message}); using cached index from ${new Date(cache.fetchedAt).toISOString()}`
+      );
       return { index: cache.index, stale: true };
     }
-    throw new Error(`registry unreachable and no cache: ${err.message}. Pass --from explicitly to skip the registry.`);
+    throw new Error(
+      `registry unreachable and no cache: ${err.message}. Pass --from explicitly to skip the registry.`
+    );
   }
 }
 
-/** @param {string} id @returns {Promise<string>} */
 async function defaultSourceFor(id) {
   const { index } = await resolveRegistryIndex();
   const entry = index[id];
   if (!entry || !entry.repo) {
     const known = Object.keys(index).sort().join(", ");
-    throw new Error(`module "${id}" not found in first-party registry. Known: ${known || "(empty)"}. Pass --from explicitly to install from another source.`);
+    throw new Error(
+      `module "${id}" not found in first-party registry. Known: ${known || "(empty)"}. Pass --from explicitly.`
+    );
   }
   return `github:${entry.repo}@${entry.tag}`;
 }
-
-const [, , verb, ...rest] = process.argv;
 
 function die(msg, code = 1) {
   console.error(`[fetch-module] ${msg}`);
   process.exit(code);
 }
 
-function parseFlags(args) {
+function parseArgs(args) {
   const flags = { from: null, sha256: null };
+  /** @type {string[]} */
+  const positional = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--from") flags.from = args[++i];
     else if (a === "--sha256") flags.sha256 = args[++i];
+    else if (a.startsWith("--from=")) flags.from = a.slice("--from=".length);
+    else if (a.startsWith("--")) die(`unknown flag: ${a}`);
+    else positional.push(a);
   }
-  return flags;
+  return { flags, positional };
 }
 
 async function ensureTarget(id) {
@@ -160,17 +143,6 @@ async function ensureTarget(id) {
   await fsp.rm(dir, { recursive: true, force: true });
   await fsp.mkdir(dir, { recursive: true });
   return dir;
-}
-
-async function sha256OfStream(stream) {
-  const hash = createHash("sha256");
-  await pipeline(stream, async function* (src) {
-    for await (const chunk of src) {
-      hash.update(chunk);
-      yield chunk;
-    }
-  });
-  return hash.digest("hex");
 }
 
 async function sha256OfFile(file) {
@@ -190,10 +162,17 @@ async function fetchToBuffer(url) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-/* ── source: local:<zip-path> ─────────────────────────────── */
+/** 安装落盘后同步 catalog + lock */
+function afterInstall(folder) {
+  const entry = upsertCatalogEntry(folder);
+  setModuleLockEnabled(entry.id, entry.enabledByDefault !== false);
+  console.log(`[fetch-module]   catalog+lock: ${entry.id} (enabled=${entry.enabledByDefault !== false})`);
+  return entry;
+}
+
 async function fromLocal(id, source, flags) {
   const zipPath = source.slice("local:".length);
-  if (!fs.existsSync(zipPath)) die(`local zip not found: ${zipPath}`);
+  if (!exists(zipPath)) die(`local zip not found: ${zipPath}`);
   const actual = await sha256OfFile(zipPath);
   if (flags.sha256 && flags.sha256.toLowerCase() !== actual) {
     die(`SHA-256 mismatch (local): expected ${flags.sha256}, got ${actual}`);
@@ -203,21 +182,23 @@ async function fromLocal(id, source, flags) {
   console.log(`[fetch-module] installed ${id} from ${zipPath}`);
   console.log(`[fetch-module]   sha256: ${actual}`);
   console.log(`[fetch-module]   target: ${dir}`);
+  afterInstall(id);
 }
 
-/* ── source: dir:<dir-path> ───────────────────────────────── */
 async function fromDir(id, source) {
   const srcDir = source.slice("dir:".length);
-  if (!fs.existsSync(srcDir)) die(`local dir not found: ${srcDir}`);
+  if (!exists(srcDir)) die(`local dir not found: ${srcDir}`);
   const dir = await ensureTarget(id);
   await copyDir(srcDir, dir);
   console.log(`[fetch-module] installed ${id} from dir ${srcDir}`);
   console.log(`[fetch-module]   target: ${dir}`);
+  afterInstall(id);
 }
 
-/* ── source: github:<owner>/<repo>[@<tag>] ────────────────── */
 async function fromGithub(id, source, flags) {
-  let owner, repo, tag = "latest";
+  let owner,
+    repo,
+    tag = "latest";
   const body = source.slice("github:".length);
   const tagIdx = body.lastIndexOf("@");
   if (tagIdx > 0) {
@@ -230,7 +211,9 @@ async function fromGithub(id, source, flags) {
 
   const releasePath = tag === "latest" ? "latest" : `tags/${encodeURIComponent(tag)}`;
   const releaseUrl = `https://api.github.com/repos/${owner}/${repo}/releases/${releasePath}`;
-  const relRes = await fetch(releaseUrl, { headers: { Accept: "application/vnd.github+json", "User-Agent": "sfmc-fetch-module" } });
+  const relRes = await fetch(releaseUrl, {
+    headers: { Accept: "application/vnd.github+json", "User-Agent": "sfmc-fetch-module" },
+  });
   if (!relRes.ok) die(`github release ${releaseUrl} → HTTP ${relRes.status}`);
   const rel = await relRes.json();
 
@@ -252,7 +235,6 @@ async function fromGithub(id, source, flags) {
   const zipBuf = await fetchToBuffer(asset.browser_download_url);
   const actual = createHash("sha256").update(zipBuf).digest("hex");
 
-  /* Try sidecar .sha256 file */
   if (!flags.sha256) {
     const shaUrl = asset.browser_download_url.replace(/\.zip$/, ".sha256");
     try {
@@ -260,7 +242,7 @@ async function fromGithub(id, source, flags) {
       const text = shaBuf.toString("utf8").trim().split(/\s+/)[0];
       if (/^[a-f0-9]{64}$/.test(text)) flags.sha256 = text;
     } catch {
-      /* sidecar optional */
+      /* optional */
     }
   }
 
@@ -276,10 +258,13 @@ async function fromGithub(id, source, flags) {
   console.log(`[fetch-module] installed ${id} v${version} from ${owner}/${repo}@${rel.tag_name ?? tag}`);
   console.log(`[fetch-module]   sha256: ${actual}`);
   console.log(`[fetch-module]   target: ${dir}`);
+  afterInstall(id);
 }
 
 async function listGithub(source) {
-  let owner, repo, tag = "latest";
+  let owner,
+    repo,
+    tag = "latest";
   const body = source.slice("github:".length);
   const tagIdx = body.lastIndexOf("@");
   if (tagIdx > 0) {
@@ -291,7 +276,9 @@ async function listGithub(source) {
   if (!owner || !repo) die(`invalid github source: ${source}`);
   const releasePath = tag === "latest" ? "latest" : `tags/${encodeURIComponent(tag)}`;
   const releaseUrl = `https://api.github.com/repos/${owner}/${repo}/releases/${releasePath}`;
-  const relRes = await fetch(releaseUrl, { headers: { Accept: "application/vnd.github+json", "User-Agent": "sfmc-fetch-module" } });
+  const relRes = await fetch(releaseUrl, {
+    headers: { Accept: "application/vnd.github+json", "User-Agent": "sfmc-fetch-module" },
+  });
   if (!relRes.ok) die(`github release ${releaseUrl} → HTTP ${relRes.status}`);
   const rel = await relRes.json();
   console.log(`Release: ${rel.tag_name ?? tag} (${rel.name ?? ""})`);
@@ -302,21 +289,18 @@ async function listGithub(source) {
   }
 }
 
-/* ── unzip via Node built-in (Node 22+ has node:zlib; here we use JSZip) ── */
 async function unzip(zipPath, dstDir) {
   const JSZip = (await import("jszip")).default;
   const data = await fsp.readFile(zipPath);
   const zip = await JSZip.loadAsync(data);
-  const entries = Object.values(zip.files);
-  for (const e of entries) {
+  for (const e of Object.values(zip.files)) {
     const out = path.join(dstDir, e.name);
     if (e.dir) {
       await fsp.mkdir(out, { recursive: true });
       continue;
     }
     await fsp.mkdir(path.dirname(out), { recursive: true });
-    const buf = await e.async("nodebuffer");
-    await fsp.writeFile(out, buf);
+    await fsp.writeFile(out, await e.async("nodebuffer"));
   }
 }
 
@@ -330,25 +314,67 @@ async function copyDir(src, dst) {
   }
 }
 
-/* ── entry ──────────────────────────────────────────────── */
-async function main() {
-  if (!verb) {
-    console.log(`tools/fetch-module.mjs — populate ./modules/packages/<id>/
+async function installOne(id, flags) {
+  let from = flags.from;
+  if (!from) {
+    from = await defaultSourceFor(id);
+    console.log(`[fetch-module] no --from given; using first-party registry → ${from}`);
+  }
+  // 每模块可共用同一 --from(github monorepo release)
+  const perFlags = { ...flags, from };
+  if (from.startsWith("local:")) return fromLocal(id, from, perFlags);
+  if (from.startsWith("dir:")) {
+    // dir: 多模块时，默认 dir 指向 packages 父目录则拼 folder
+    const base = from.slice("dir:".length);
+    const candidate = path.join(base, id);
+    const src = exists(path.join(base, "sapi", "manifest.json"))
+      ? from
+      : exists(path.join(candidate, "sapi", "manifest.json"))
+        ? `dir:${candidate}`
+        : from;
+    return fromDir(id, src);
+  }
+  if (from.startsWith("github:")) return fromGithub(id, from, perFlags);
+  die(`unknown source: ${from}`);
+}
+
+async function uninstallOne(id) {
+  const dir = path.join(TARGET, id);
+  const removed = removeCatalogEntry(id);
+  if (removed) removeModuleLock(removed.id);
+  else removeModuleLock(id);
+  if (exists(dir)) {
+    await fsp.rm(dir, { recursive: true, force: true });
+    console.log(`[fetch-module] uninstalled ${id} (removed ${dir})`);
+  } else {
+    console.log(`[fetch-module] uninstalled ${id} (no package dir; catalog/lock cleaned)`);
+  }
+  if (removed) console.log(`[fetch-module]   catalog removed: ${removed.id}`);
+}
+
+function printHelp() {
+  console.log(`tools/fetch-module.mjs — populate ./modules/packages/<id>/
 
 Commands:
-  install <id> [--from <source>]      fetch and install
-                                      (no --from → first-party registry)
-  search                              list the first-party registry
-  list          --from <source>      list available modules in a source release
-                                      (no --from → first-party registry)
+  search                              list first-party registry
+  list [--from github:owner/repo@tag] list release assets (default: first-party)
+  install <id> [id2 ...] [--from ...] install one or more modules + sync catalog/lock
+  uninstall <id> [id2 ...]            remove package dir + catalog/lock entries
 
 Sources:
   local:/abs/path/to/foo.zip
-  dir:/abs/path/to/foo/
+  dir:/abs/path/to/foo/          (or dir:/path/to/packages for multi-install)
   github:owner/repo[@tag]
 `);
+}
+
+async function main() {
+  const [, , verb, ...rest] = process.argv;
+  if (!verb) {
+    printHelp();
     return;
   }
+
   if (verb === "search") {
     const { index, stale } = await resolveRegistryIndex();
     const ids = Object.keys(index).sort();
@@ -360,32 +386,33 @@ Sources:
     }
     return;
   }
+
   if (verb === "list") {
-    const flags = parseFlags(rest);
-    let source = flags.from;
-    if (!source) {
-      source = `${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}`;
-      flags.from = `github:${source}`;
-      console.log(`[fetch-module] no --from given; listing first-party registry: ${source}`);
+    const { flags } = parseArgs(rest);
+    if (!flags.from) {
+      flags.from = `github:${DEFAULT_REGISTRY_REPO}@modules-v0.4.0`;
+      console.log(`[fetch-module] no --from given; listing ${flags.from}`);
     }
-    if (!flags.from.startsWith("github:")) die("--from github:owner/repo required (or omit to use the first-party registry)");
+    if (!flags.from.startsWith("github:")) die("--from github:owner/repo[@tag] required");
     await listGithub(flags.from);
     return;
   }
-  if (verb !== "install") die(`unknown verb: ${verb}`);
-  const id = rest[0];
-  if (!id) die("usage: install <id> --from <source>");
-  const flags = parseFlags(rest.slice(1));
-  if (!flags.from) {
-    const source = await defaultSourceFor(id);
-    console.log(`[fetch-module] no --from given; using first-party registry → ${source}`);
-    flags.from = source;
+
+  if (verb === "uninstall") {
+    const { positional } = parseArgs(rest);
+    if (positional.length === 0) die("usage: uninstall <id> [id2 ...]");
+    for (const id of positional) await uninstallOne(id);
+    return;
   }
 
-  if (flags.from.startsWith("local:")) return fromLocal(id, flags.from, flags);
-  if (flags.from.startsWith("dir:")) return fromDir(id, flags.from);
-  if (flags.from.startsWith("github:")) return fromGithub(id, flags.from, flags);
-  die(`unknown source: ${flags.from}`);
+  if (verb !== "install") die(`unknown verb: ${verb}`);
+
+  const { flags, positional } = parseArgs(rest);
+  if (positional.length === 0) die("usage: install <id> [id2 ...] [--from <source>]");
+
+  for (const id of positional) {
+    await installOne(id, flags);
+  }
 }
 
 main().catch((e) => die(e?.message ?? String(e)));

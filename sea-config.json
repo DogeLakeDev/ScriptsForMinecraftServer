@@ -1,8 +1,5 @@
 {
   "main": "dist/sea/dispatcher.mjs",
   "output": "dist/sea/sfmc.exe",
-  "mainFormat": "module",
-  "assets": {
-    "configs_default": "dist/sea/configs-default.zip"
-  }
+  "mainFormat": "module"
 }
