@@ -13,12 +13,12 @@
  *   POST /api/sfmc/db/idempotent/probe  body {action, key}               → {replayed, cached?}
  *   POST /api/sfmc/db/idempotent/commit body {action, key, value?}       → {ok}
  *
- * 鉴权:handle() 层做完模块身份校验后,把 {id, permissions} 写到
- *        `req.moduleAuth`,本路由直接读。
+ * 鉴权:handle() 校验后把 {id, permissions} 写到 ctx.moduleAuth(不挂 req)。
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
+import type { ModuleAuth } from "./_shared.js";
 import type {
   DefineTableRequest,
   SchemaRegistry,
@@ -38,13 +38,6 @@ export interface DbRoutesDeps {
   json?: typeof defaultJson;
 }
 
-type ModuleAuth = { id: string; permissions: string[] };
-
-function getModuleAuth(req: IncomingMessage): ModuleAuth | null {
-  const m = (req as IncomingMessage & { moduleAuth?: ModuleAuth }).moduleAuth;
-  return m ?? null;
-}
-
 export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
   const deps = depsIn as Partial<DbRoutesDeps>;
   if (!deps.schemaRegistry || !deps.txRunner || !deps.idempotent) {
@@ -58,12 +51,13 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
     req: IncomingMessage;
     res: ServerResponse;
     body?: Promise<Record<string, unknown>> | Record<string, unknown>;
+    moduleAuth?: ModuleAuth;
   }): Promise<boolean> => {
-    const { path, method, req, res } = ctx;
+    const { path, method, res } = ctx;
     if (!path.startsWith("/api/sfmc/db/")) return false;
     if (method !== "POST" && method !== "DELETE") return false;
 
-    const auth = getModuleAuth(req);
+    const auth = ctx.moduleAuth ?? null;
     if (!auth) {
       json(res, { success: false, error: "unauthorized: module identity missing" }, 401);
       return true;
