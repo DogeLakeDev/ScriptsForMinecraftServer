@@ -1,0 +1,9 @@
+{
+  "grid": {
+    "size": [10, 2],
+    "start": [0, 60, 0],
+    "direction": "x",
+    "face": "north"
+  },
+  "_comment": "InventorySwitcher grid config. size = [行, 列] 数组;start = 起始坐标(dimension overworld);direction = 'x' or 'z';face = 'north'/'south'/'east'/'west'。如不需要此模块,configs/inventory_switcher.json 可以不存在(模块降级)。"
+}

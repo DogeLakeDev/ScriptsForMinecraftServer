@@ -1,6 +1,19 @@
 {
-  "handlers": [],
-  "routes": [],
-  "migrations": [],
-  "notes": "inventory-switcher: no SAPI→db-server HTTP calls; pure game-side logic"
+  "schemaVersion": 2,
+  "id": "feature-inventory-switcher",
+  "name": "背包切换器",
+  "type": "feature",
+  "configKey": "inventory_switcher",
+  "requires": [],
+
+  "permissions": [
+    "config:read:inventory_switcher"
+  ],
+
+  "services": {
+    "provides": [],
+    "requires": []
+  },
+
+  "notes": "v2 生存/创造模式自动切换独立背包。监听 playerGameModeChange,从 configs/inventory_switcher.json 读 grid 配置(原 v1 ConfigManager.getGrid('inventory_chest'))。无 grid 配置时模块优雅降级 — 不订阅事件、不响应模式切换。迁移自 v1 InventorySwitcher.ts(单例模式 → ModuleRegistry.register)。configs-default/inventory_switcher.json 提供默认 grid 示例。grids.json(原全局 grids)移入 inventory-switcher configs-default/ 是历史恢复数据,实际运行时仅按 grid.name = 'inventory_chest' 取对应 grid。"
 }
