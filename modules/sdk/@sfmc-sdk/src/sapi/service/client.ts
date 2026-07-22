@@ -1,8 +1,8 @@
 /**
  * client.ts — 跨模块 service registry 的 SAPI 侧客户端
  *
- * 鉴权同 db:moduleId 走 URL ?moduleId=,token 走 Authorization Bearer
- * (由 setServiceModuleContext 调 HttpDB.setAuthToken)
+ * 鉴权同 db:moduleId 走 URL ?moduleId=,token 按请求 Bearer 传入
+ * (不写 HttpDB 进程级 static,避免与其它客户端争用 — DIP)
  *
  * 设计:
  *   - service.get(name, input):发 GET /api/sfmc/services/:name?input=...
@@ -14,18 +14,19 @@ import { HttpDB } from "../runtime/httpdb.js";
 import { HttpRequestMethod } from "@minecraft/server-net";
 
 let _moduleId = "";
+let _authToken = "";
 let _isInTx: () => boolean = () => false;
 
 export function setServiceModuleContext(moduleId: string, token: string, inTx: () => boolean): void {
   _moduleId = moduleId;
+  _authToken = token;
   _isInTx = inTx;
-  HttpDB.setAuthToken(token);
 }
 
 export function clearServiceModuleContext(): void {
   _moduleId = "";
+  _authToken = "";
   _isInTx = () => false;
-  HttpDB.setAuthToken("");
 }
 
 export interface ServiceInfo {
@@ -60,7 +61,8 @@ export const service = {
     const res = await HttpDB.typedRequest<{ ok: true; result: T }>(
       HttpRequestMethod.GET,
       withModuleId(`/api/sfmc/services/${encodeURIComponent(name)}?${qs}`),
-      undefined
+      undefined,
+      { authToken: _authToken }
     );
     if (!res.ok) {
       throw new ServiceError(res.error ?? "service_error", "internal", res.status);
@@ -72,7 +74,8 @@ export const service = {
     const res = await HttpDB.typedRequest<{ services: ServiceInfo[] }>(
       HttpRequestMethod.GET,
       withModuleId("/api/sfmc/services"),
-      undefined
+      undefined,
+      { authToken: _authToken }
     );
     if (res.ok && res.data) return res.data.services;
     return [];

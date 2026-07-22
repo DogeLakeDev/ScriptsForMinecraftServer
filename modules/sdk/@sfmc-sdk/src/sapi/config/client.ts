@@ -16,23 +16,24 @@ import { HttpRequestMethod } from "@minecraft/server-net";
 
 let _moduleId = "";
 let _configKey = "";
+let _authToken = "";
 const _cache = new Map<string, unknown>();
 let _loadPromise: Promise<void> | null = null;
 
 export function setConfigModuleContext(moduleId: string, configKey: string, token: string): void {
   _moduleId = moduleId;
   _configKey = configKey;
+  _authToken = token;
   _cache.clear();
   _loadPromise = null;
-  HttpDB.setAuthToken(token);
 }
 
 export function clearConfigModuleContext(): void {
   _moduleId = "";
   _configKey = "";
+  _authToken = "";
   _cache.clear();
   _loadPromise = null;
-  HttpDB.setAuthToken("");
 }
 
 /**
@@ -53,7 +54,8 @@ async function ensureLoaded(): Promise<void> {
     const res = await HttpDB.typedRequest<{ config: Record<string, unknown> }>(
       HttpRequestMethod.GET,
       withModuleId(`/api/sfmc/configs/${encodeURIComponent(_configKey)}`),
-      undefined
+      undefined,
+      { authToken: _authToken }
     );
     if (res.ok && res.data) {
       for (const [k, v] of Object.entries(res.data.config ?? {})) {
@@ -79,7 +81,8 @@ export const config = {
     const res = await HttpDB.typedRequest<{ ok: true }>(
       HttpRequestMethod.POST,
       withModuleId(`/api/sfmc/configs/${encodeURIComponent(_configKey)}/set`),
-      { key, value }
+      { key, value },
+      { authToken: _authToken }
     );
     if (res.ok) {
       _cache.set(key, value);
