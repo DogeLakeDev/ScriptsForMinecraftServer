@@ -44,4 +44,4 @@ BDS
 # Exceeds GitHub's 100MB push limit — re-generate locally after clone.
 dist/sea/
 .vscode/
-remote-controller/dist/index.js
+remote-controller/dist/
