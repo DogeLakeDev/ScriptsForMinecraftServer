@@ -17,15 +17,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # db-server imports `node:sqlite` at module scope. That builtin is
-          # gated behind --experimental-sqlite on 22.5.0-22.12.x and only
-          # became available unflagged from 22.13.0 onward — pinning to
-          # '22.5' here made db-server crash on import on every run.
-          node-version: '22.13'
+          # db-server 在模块加载时 import node:sqlite，22.5–22.12 需 --experimental-sqlite；
+          # npm-run-all2@9 等 dev 依赖要求 ≥22.22.2。22.22 同时满足两者。
+          node-version: "22.22"
+          cache: npm
 
       - name: Install root deps
         shell: pwsh
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Build all workspaces
         shell: pwsh
@@ -42,17 +41,20 @@ jobs:
 
       - name: Run check-ootb
         shell: pwsh
-        run: node tools/check-ootb.mjs
+        env:
+          SFMC_ROOT: ${{ github.workspace }}
+        run: npm run check-ootb
 
       - name: Run smoke-modules (against temporary db-server)
         shell: pwsh
+        env:
+          SFMC_ROOT: ${{ github.workspace }}
         run: |
           $port = if ($env:DB_PORT) { $env:DB_PORT } else { '3001' }
           if (Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue) {
             Get-NetTCPConnection -LocalPort $port | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
             Start-Sleep -Seconds 2
           }
-          $env:SFMC_ROOT = $PWD.Path
           $db = Start-Process -FilePath node -ArgumentList "db-server/dist/index.js" -WorkingDirectory $PWD -WindowStyle Hidden -RedirectStandardOutput "db-server/_smoke.out" -RedirectStandardError "db-server/_smoke.err" -PassThru
           try {
             $ready = $false
@@ -64,7 +66,7 @@ jobs:
               Start-Sleep -Milliseconds 300
             }
             if (-not $ready) { throw "db-server not ready" }
-            node tools/smoke-modules.mjs
+            npm run smoke-modules
           } finally {
             Stop-Process -Id $db.Id -Force -ErrorAction SilentlyContinue
             Remove-Item -Force db-server/_smoke.out,db-server/_smoke.err -ErrorAction SilentlyContinue

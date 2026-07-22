@@ -23,25 +23,36 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
+          # SEA bundle 目标 node26（见 build-sea.mjs target）
           node-version: "26"
-      - run: npm ci
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
       - run: npm run build --workspaces --if-present
-      - run: node build-sea.mjs
-      - run: node --build-sea sea-config.json
+
+      - run: npm run bundle
+
+      - run: npm run sea
+
       - name: copy node binary as base
         shell: bash
-        run: cp "$(which node)" "${{ matrix.artifact }}"
+        run: cp "$(command -v node)" "${{ matrix.artifact }}"
+
       - name: inject SEA blob
         run: npx -y postject@latest "${{ matrix.artifact }}" NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+
       - name: chmod +x (unix)
         if: matrix.os != 'windows-latest'
         run: chmod +x "${{ matrix.artifact }}"
+
       - name: smoke test
         shell: bash
-        run: |
-          ./"${{ matrix.artifact }}" status
+        run: ./"${{ matrix.artifact }}" status
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -56,10 +67,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
