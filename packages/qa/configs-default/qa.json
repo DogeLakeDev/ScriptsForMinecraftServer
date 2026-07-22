@@ -1,0 +1,27 @@
+[
+  {
+    "_comment": "QA 题库。每条 { weight, question, answers, rewards?, punishments?, msg_right?, msg_wrong?, explanation? }。answers 数组中任一字符串视为正确。reward/punishment 类型:money / item / cmd。",
+    "weight": 1,
+    "question": "水的化学式是?",
+    "answers": ["H2O", "h2o"],
+    "msg_right": "§a答对啦!",
+    "msg_wrong": "§c答错了。",
+    "explanation": "快去学化学",
+    "rewards": [
+      { "type": "money", "amount": 100 }
+    ]
+  },
+  {
+    "_comment": "光速题,答错要扣血。",
+    "weight": 1,
+    "question": "光在真空中的速度约为 3×10^? m/s",
+    "answers": ["8"],
+    "msg_right": "光速常识 +1。",
+    "rewards": [
+      { "type": "money", "amount": 200 }
+    ],
+    "punishments": [
+      { "type": "cmd", "cmd": "damage @s 1" }
+    ]
+  }
+]

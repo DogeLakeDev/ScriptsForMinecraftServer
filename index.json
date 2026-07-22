@@ -1,4 +1,12 @@
 {
+  "_comment": "first-party registry index — fetched by tools/fetch-module.mjs。schema: modules.<packageFolder> → { repo, tag }。id 与 packages/<folder> 同名(afk 而非 feature-afk)。",
   "version": 1,
-  "modules": []
+  "generatedAt": "2026-07-22T05:20:00Z",
+  "modules": {
+    "afk": { "repo": "Tanya7z/sfmc-modules", "tag": "modules-v0.1.0" },
+    "spawn-protect": { "repo": "Tanya7z/sfmc-modules", "tag": "modules-v0.1.0" },
+    "chat-sounds": { "repo": "Tanya7z/sfmc-modules", "tag": "modules-v0.1.0" },
+    "qa": { "repo": "Tanya7z/sfmc-modules", "tag": "modules-v0.1.0" },
+    "tps": { "repo": "Tanya7z/sfmc-modules", "tag": "modules-v0.1.0" }
+  }
 }

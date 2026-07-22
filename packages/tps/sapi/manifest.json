@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 2,
+  "id": "feature-tps",
+  "name": "TPS 查询",
+  "type": "feature",
+  "configKey": "tps",
+  "requires": [],
+
+  "permissions": [],
+
+  "services": {
+    "provides": [
+      {
+        "name": "tps.current",
+        "input": { "type": "object" },
+        "output": { "type": "number" }
+      },
+      {
+        "name": "tps.status",
+        "input": { "type": "object" },
+        "output": { "type": "string" }
+      }
+    ],
+    "requires": []
+  },
+
+  "notes": "v2 纯游戏侧逻辑:每秒记录 Date.now() 到 100 长度环形缓冲,提供 tps.current (数字) + tps.status (彩色字符串) 两个 service。零 db 表、零 config 读。迁移自 v1 TPS.ts,提供 service 供 monitor 等模块消费(原 v1 monitor 通过 @sfmc/module-tps import 静态类,改为 service.get)。"
+}
