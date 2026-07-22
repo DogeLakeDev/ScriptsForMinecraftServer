@@ -20,11 +20,23 @@
     "tools",
     "scriptsforminecraftserver"
   ],
-  "main": "check-ootb.js",
+  "main": "./check-ootb.mjs",
+  "bin": {
+    "sfmc-check-ootb": "./check-ootb.mjs",
+    "sfmc-catalog-sync": "./catalog-sync.mjs",
+    "sfmc-check-modules": "./check-modules.mjs",
+    "sfmc-fetch-module": "./fetch-module.mjs",
+    "sfmc-smoke-modules": "./smoke-modules.mjs",
+    "sfmc-sim-new-user": "./sim-new-user.mjs"
+  },
   "files": [
-    "./*",
+    "*.mjs",
+    "lib",
     "README.md"
   ],
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
