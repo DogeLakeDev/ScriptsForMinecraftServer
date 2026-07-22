@@ -42,7 +42,7 @@ jobs:
 
       - name: skip if already published
         if: steps.meta.outputs.already_published == 'true'
-        run: echo "Already on npm: ${{ steps.meta.outputs.workspace }}@${{ steps.meta.outputs.ver }} — skip"
+        run: echo "Already on npm — skip"
 
       - run: npm ci --no-audit --no-fund
         if: steps.meta.outputs.already_published != 'true'
