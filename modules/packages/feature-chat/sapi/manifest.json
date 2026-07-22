@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "feature-chat",
+  "name": "聊天系统",
+  "type": "feature",
+  "configKey": "chat",
+  "requires": [],
+
+  "permissions": [],
+
+  "services": {
+    "provides": [],
+    "requires": []
+  },
+
+  "notes": "v2 聊天系统,合并 v1 chat + chat-gui 两个模块(消除循环 import)。聊天消息/频道/红包功能仍走 db-server 平台 v1 路由 /api/sfmc/{channels,messages,redpacket}(这些路由为 qq-bridge 转发而保留,本模块也是它们的主要客户端)。configs/bridge_channel_id 决定 QQ→MC 桥接开关。迁移自 v1 ChatSystem.ts(单例 + entry.ts 调用)→ ModuleRegistry.register。GUI 部分(原 ChatGUI.ts 451 行 MenuNavigator)暂不重写,玩家可用 /channel /ch /msg /lo /tp /hongbao /hb 命令,P1 阶段补全。QQ 桥接也保留(若 configKey=chat 且 configs/chat.json 含 bridge_channel_id 字段)。"
+}

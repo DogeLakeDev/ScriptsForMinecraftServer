@@ -55,7 +55,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "sapi", "path": "modules/packages/chat/sapi/src/index.ts" }
+      "entry": { "kind": "sapi", "path": "modules/packages/feature-chat/sapi/src/index.ts" }
     },
     {
       "id": "feature-coop",
