@@ -15,9 +15,13 @@ import { isSuccessfulHttpEnvelope } from "./http-envelope.js";
 let baseUrl = "http://127.0.0.1:3001";
 const TIMEOUT = 3;
 
+/** 单次请求可选覆盖;模块客户端应传自己的 token,勿抢进程级默认值(DIP)。 */
+export type HttpRequestAuthOpts = { authToken?: string };
+
 export class HttpDB {
   private static available = true;
   private static _lastErrorLog = 0;
+  /** 仅 ConfigManager / DataAdapter 默认通道;模块 db/config/service 走 per-request。 */
   private static authToken = "";
 
   /** 注入 db-server 基址(如 http://127.0.0.1:4000),去掉末尾 /。 */
@@ -96,7 +100,8 @@ export class HttpDB {
   private static async request(
     method: HttpRequestMethod,
     path: string,
-    bodyData?: Record<string, unknown>
+    bodyData?: Record<string, unknown>,
+    opts?: HttpRequestAuthOpts
   ): Promise<{ status: number; body: string }> {
     try {
       const req = new HttpRequest(`${baseUrl}${path}`);
@@ -107,7 +112,9 @@ export class HttpDB {
         req.body = JSON.stringify(bodyData);
         req.addHeader("Content-Type", "application/json");
       }
-      if (this.authToken) req.addHeader("Authorization", `Bearer ${this.authToken}`);
+      // 请求级 token 优先,否则回落 DataAdapter 默认(ConfigManager)
+      const token = (opts?.authToken ?? this.authToken).trim();
+      if (token) req.addHeader("Authorization", `Bearer ${token}`);
 
       const res = await http.request(req);
       this.available = true;
@@ -124,17 +131,19 @@ export class HttpDB {
   static async requestJSON(
     method: HttpRequestMethod,
     path: string,
-    bodyData?: Record<string, unknown>
+    bodyData?: Record<string, unknown>,
+    opts?: HttpRequestAuthOpts
   ): Promise<{ status: number; body: string }> {
-    return this.request(method, path, bodyData);
+    return this.request(method, path, bodyData, opts);
   }
 
   static async typedRequest<T = any>(
     method: HttpRequestMethod,
     path: string,
-    bodyData?: Record<string, unknown>
+    bodyData?: Record<string, unknown>,
+    opts?: HttpRequestAuthOpts
   ): Promise<{ ok: boolean; data?: T; error?: string; status: number }> {
-    const { status, body } = await this.request(method, path, bodyData);
+    const { status, body } = await this.request(method, path, bodyData, opts);
     if (!body) return { ok: false, error: "network_error", status };
     try {
       const parsed = JSON.parse(body);
@@ -148,26 +157,34 @@ export class HttpDB {
     }
   }
 
-  static async get(path: string): Promise<string | null> {
-    const { status, body } = await this.request(HttpRequestMethod.GET, path);
+  static async get(path: string, opts?: HttpRequestAuthOpts): Promise<string | null> {
+    const { status, body } = await this.request(HttpRequestMethod.GET, path, undefined, opts);
     if (status !== 200) console.info(`[HttpDB] GET ${path} → ${status}`);
     return status === 200 ? body : null;
   }
 
-  static async post(path: string, bodyData: Record<string, unknown>): Promise<boolean> {
-    const { status } = await this.request(HttpRequestMethod.POST, path, bodyData);
+  static async post(
+    path: string,
+    bodyData: Record<string, unknown>,
+    opts?: HttpRequestAuthOpts
+  ): Promise<boolean> {
+    const { status } = await this.request(HttpRequestMethod.POST, path, bodyData, opts);
     if (status !== 200) console.info(`[HttpDB] POST ${path} → ${status}`);
     return status === 200;
   }
 
-  static async put(path: string, bodyData: Record<string, unknown>): Promise<boolean> {
-    const { status } = await this.request(HttpRequestMethod.PUT, path, bodyData);
+  static async put(
+    path: string,
+    bodyData: Record<string, unknown>,
+    opts?: HttpRequestAuthOpts
+  ): Promise<boolean> {
+    const { status } = await this.request(HttpRequestMethod.PUT, path, bodyData, opts);
     if (status !== 200) console.info(`[HttpDB] PUT ${path} → ${status}`);
     return status === 200;
   }
 
-  static async del(path: string): Promise<boolean> {
-    const { status } = await this.request(HttpRequestMethod.DELETE, path);
+  static async del(path: string, opts?: HttpRequestAuthOpts): Promise<boolean> {
+    const { status } = await this.request(HttpRequestMethod.DELETE, path, undefined, opts);
     if (status !== 200) console.info(`[HttpDB] DELETE ${path} → ${status}`);
     return status === 200;
   }

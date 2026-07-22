@@ -11,7 +11,11 @@
  * 避免 workflow_dispatch 重跑对已发布版本 E403(与 publish 步骤幂等)。
  */
 import fs from "node:fs";
-import { NPM_PUBLISH_PACKAGES, resolvePublishPackage } from "./lib/npm-publish-packages.mjs";
+import {
+  NPM_PUBLISH_PACKAGES,
+  resolvePublishPackage,
+  assertPublishPackageInWorkspaces,
+} from "./lib/npm-publish-packages.mjs";
 
 const tag = process.env.PUBLISH_TAG || process.env.GITHUB_REF_NAME || "";
 const outFile = process.env.GITHUB_OUTPUT;
@@ -33,6 +37,14 @@ const resolved = resolvePublishPackage(pkg);
 if (!resolved) {
   console.error(`Unknown npm package tag: ${pkg}`);
   console.error(`Known: ${Object.keys(NPM_PUBLISH_PACKAGES).join(", ")}`);
+  process.exit(1);
+}
+
+// DRY:清单登记的包必须在 root workspaces,否则后续 npm -w 必挂
+try {
+  assertPublishPackageInWorkspaces(resolved);
+} catch (e) {
+  console.error(e?.message || e);
   process.exit(1);
 }
 

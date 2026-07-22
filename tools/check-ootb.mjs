@@ -20,6 +20,10 @@ import {
 import { exists } from "./lib/io.mjs";
 import { requestJson, waitHealth } from "./lib/http.mjs";
 import { killProc, runSync } from "./lib/proc.mjs";
+import {
+  NPM_PUBLISH_PACKAGES,
+  assertPublishPackageInWorkspaces,
+} from "./lib/npm-publish-packages.mjs";
 
 const errors = [];
 const passed = [];
@@ -61,6 +65,18 @@ async function main() {
     const missing = required.filter((f) => !exists(path.join(ROOT, f)));
     if (missing.length === 0) pass("必备仓库文件齐全");
     else fail("必备仓库文件齐全", "缺失: " + missing.join(", "));
+  }
+
+  // 1b) npm-publish 清单 ⊆ root workspaces(DRY;防 ba65eb9 tools 发包失败再现)
+  {
+    try {
+      for (const name of Object.keys(NPM_PUBLISH_PACKAGES)) {
+        assertPublishPackageInWorkspaces(name, ROOT);
+      }
+      pass("npm-publish 包均在 workspaces");
+    } catch (e) {
+      fail("npm-publish 包均在 workspaces", e?.message || String(e));
+    }
   }
 
   // 2) configs: configs/ 或 configs-default/

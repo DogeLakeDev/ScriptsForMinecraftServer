@@ -96,3 +96,17 @@ test("jsonV2Fail: ok 方言 + extra(step) 合并(LSP/DRY)", async () => {
   equal(statusCode, 400);
   deepEqual(payload, { ok: false, error: "boom", code: "bad_step", step: 2 });
 });
+
+test("normalizeOrderBy: SDK field 与遗留 col / 数组互通(LSP)", async () => {
+  const { normalizeOrderBy } = await import("./lib/order-by.js");
+  deepEqual(normalizeOrderBy(undefined), []);
+  deepEqual(normalizeOrderBy({ field: "created_at", dir: "desc" }), [
+    { col: "created_at", dir: "desc" },
+  ]);
+  deepEqual(normalizeOrderBy({ col: "id" }), [{ col: "id", dir: "asc" }]);
+  deepEqual(normalizeOrderBy([{ field: "a" }, { col: "b", dir: "desc" }]), [
+    { col: "a", dir: "asc" },
+    { col: "b", dir: "desc" },
+  ]);
+  throws(() => normalizeOrderBy({ dir: "asc" }), /field\/col/);
+});

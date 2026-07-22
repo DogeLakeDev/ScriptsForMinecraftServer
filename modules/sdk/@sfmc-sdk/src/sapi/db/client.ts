@@ -6,8 +6,8 @@
  *
  * 鉴权:
  *   - X-SFMC-Module-Id 通过 URL query string 传(?moduleId=...)
- *   - X-SFMC-Module-Token 通过 HttpDB.setAuthToken 走 Authorization: Bearer
- *     (设置时由 installHostBootstrap 在 db 上下文 setup 时调用)
+ *   - Bearer token 按请求传入(HttpDB typedRequest opts),不写进程级 static
+ *     (避免与 ConfigManager / 其它模块互相覆盖 — DIP)
  */
 
 import { HttpDB } from "../runtime/httpdb.js";
@@ -26,17 +26,18 @@ import type {
 /* ── 模块身份(由 installHostBootstrap 注入) ─────────────────────── */
 
 let _moduleId = "";
+let _authToken = "";
 let _currentTxId: string | null = null;
 
 export function setDbModuleContext(moduleId: string, token: string): void {
   _moduleId = moduleId;
-  HttpDB.setAuthToken(token);
+  _authToken = token;
 }
 
 export function clearDbModuleContext(): void {
   _moduleId = "";
+  _authToken = "";
   _currentTxId = null;
-  HttpDB.setAuthToken("");
 }
 
 /* ── HTTP 辅助 ──────────────────────────────────────────────────── */
@@ -56,11 +57,26 @@ function withModuleId(path: string): string {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await HttpDB.typedRequest<T>(HttpRequestMethod.POST, withModuleId(path), body as Record<string, unknown>);
+  const res = await HttpDB.typedRequest<T>(
+    HttpRequestMethod.POST,
+    withModuleId(path),
+    body as Record<string, unknown>,
+    { authToken: _authToken }
+  );
   if (!res.ok) {
     throw new DbError(res.error ?? "db_server_error", "internal", res.status);
   }
   return res.data as T;
+}
+
+/** 事务录制期不支持 query/get 读回:返回 []/null stub 会破坏 LSP(误导业务分支)。 */
+function txReadNotSupported(op: string): never {
+  throw new DbError(
+    `db.tx 内暂不支持 ${op} 读回结果(录制后一次性提交,无交互协议);` +
+      `请在事务外先 db.${op},再在 tx 内做写操作`,
+    "tx_interactive_required",
+    0
+  );
 }
 
 /* ── 公开 API ──────────────────────────────────────────────────── */
@@ -119,7 +135,11 @@ export const db = {
     });
   },
 
-  /** 事务:边界在 db-server 进程。失败自动回滚,成功提交。 */
+  /**
+   * 事务:边界在 db-server 进程。失败自动回滚,成功提交。
+   * 录制期:写操作(insert/update/delete/audit/call)可入队;query/get 显式抛错,
+   * 避免返回 []/null 假数据破坏 LSP。call 可入队但返回值不可用(两阶段协议另议)。
+   */
   async tx<T>(fn: (tx: TxContext) => Promise<T>): Promise<T> {
     if (_currentTxId) throw new DbError("嵌套事务暂不支持", "nested_tx", 0);
     const steps: TxStep[] = [];
@@ -132,21 +152,8 @@ export const db = {
     };
 
     const recorder: TxContext = {
-      query: async <U extends Record<string, unknown> = Record<string, unknown>>(
-        table: string,
-        opts?: QueryOptions
-      ): Promise<U[]> => {
-        if (opts) push({ op: "query", table, opts });
-        else push({ op: "query", table });
-        return [];
-      },
-      get: async <U extends Record<string, unknown> = Record<string, unknown>>(
-        table: string,
-        id: string | number
-      ): Promise<U | null> => {
-        push({ op: "get", table, id: String(id) });
-        return null;
-      },
+      query: async () => txReadNotSupported("query"),
+      get: async () => txReadNotSupported("get"),
       insert: async <U extends Record<string, unknown>>(table: string, row: U): Promise<U> => {
         push({ op: "insert", table, row });
         return row;
@@ -168,6 +175,7 @@ export const db = {
       },
       call: async <U = unknown>(name: string, input: Record<string, unknown>): Promise<U> => {
         push({ op: "service", name, input });
+        // 录制期无服务端 result 可回放;勿依赖返回值
         return undefined as unknown as U;
       },
     };
