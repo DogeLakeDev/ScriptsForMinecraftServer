@@ -56,10 +56,10 @@ function writeCache(cache: RegistryCache): void {
 
 /**
  * 解析 first-party index.json。
- * 契约与 tools/fetch-module.mjs 一致：权威映射在 `modules` 字段下
- * (`{ version, modules: { <folder>: { repo, tag } } }`)，忽略 `_` 前缀元数据键。
+ * 契约与 tools/lib/registry-index.mjs#parseRegistryIndex 保持一致：
+ * `{ modules: { <folder>: { repo, tag } } }`。忽略 `_` 前缀元数据键。
  */
-function parseRegistryIndex(json: unknown): RegistryIndex {
+export function parseRegistryIndex(json: unknown): RegistryIndex {
   if (typeof json !== "object" || json === null || Array.isArray(json)) {
     throw new Error("registry index must be a JSON object with a 'modules' field");
   }

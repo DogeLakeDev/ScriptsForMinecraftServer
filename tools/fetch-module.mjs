@@ -26,6 +26,7 @@ import { upsertCatalogEntry, removeCatalogEntry } from "./lib/catalog.mjs";
 import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
+import { parseRegistryIndex } from "./lib/registry-index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = PACKAGES_DIR;
@@ -61,21 +62,7 @@ function writeCache(cache) {
 async function fetchRegistryIndexFresh() {
   const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, { headers: { "User-Agent": "sfmc-fetch-module" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
-  const json = await res.json();
-  if (typeof json !== "object" || json === null || Array.isArray(json)) {
-    throw new Error("registry index must be a JSON object with a 'modules' field");
-  }
-  const modules = json.modules;
-  if (typeof modules !== "object" || modules === null || Array.isArray(modules)) {
-    throw new Error("registry index must have a 'modules' object mapping id → { repo, tag }");
-  }
-  /** @type {RegistryIndex} */
-  const filtered = {};
-  for (const [k, v] of Object.entries(modules)) {
-    if (k.startsWith("_")) continue;
-    filtered[k] = v;
-  }
-  return filtered;
+  return parseRegistryIndex(await res.json());
 }
 
 async function resolveRegistryIndex() {
@@ -296,11 +283,14 @@ async function unzip(zipPath, dstDir) {
   for (const e of Object.values(zip.files)) {
     // Windows zip 常带 `\`；必须归一成 `/`，否则 Linux 会写出字面量 `sapi\manifest.json`
     const rel = String(e.name).replace(/\\/g, "/").replace(/^\/+/, "");
-    if (!rel || e.dir || rel.endsWith("/")) {
-      if (rel) await fsp.mkdir(path.join(dstDir, ...rel.replace(/\/$/, "").split("/").filter(Boolean)), { recursive: true });
+    if (!rel || rel.includes("..")) continue;
+    const parts = rel.replace(/\/$/, "").split("/").filter(Boolean);
+    if (parts.length === 0) continue;
+    const out = path.join(dstDir, ...parts);
+    if (e.dir || rel.endsWith("/")) {
+      await fsp.mkdir(out, { recursive: true });
       continue;
     }
-    const out = path.join(dstDir, ...rel.split("/"));
     await fsp.mkdir(path.dirname(out), { recursive: true });
     await fsp.writeFile(out, await e.async("nodebuffer"));
   }

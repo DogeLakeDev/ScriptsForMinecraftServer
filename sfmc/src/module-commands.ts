@@ -131,7 +131,7 @@ async function dirSize(dir: string): Promise<{ totalBytes: number; fileCount: nu
       }
     }
   }
-  walk(dir);
+  await walk(dir);
   return { totalBytes, fileCount };
 }
 
