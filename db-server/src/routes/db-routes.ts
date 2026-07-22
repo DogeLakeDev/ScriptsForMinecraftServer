@@ -98,7 +98,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
       path: string;
       requireTxId?: boolean;
       requireStep?: boolean;
-      run: (args: { txId: string; step?: TxStep }) => Promise<SessionReply> | SessionReply;
+      run: (args: { txId: string; step?: TxStep | undefined }) => Promise<SessionReply> | SessionReply;
     }> = [
       {
         path: "/api/sfmc/db/tx/begin",
@@ -134,7 +134,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
           jsonV2Fail(res, "tx/step 需要 { txId, step }", 400);
           return true;
         }
-        const result = await op.run({ txId, step });
+        const result = await op.run(step !== undefined ? { txId, step } : { txId });
         json(res, result as Record<string, unknown>, result.ok ? 200 : 400);
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);
