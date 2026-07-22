@@ -14,14 +14,18 @@ on:
     inputs:
       tag:
         description: "要发布的 tag（如 @sfmc-bds/sdk@v0.1.0）"
-        required: true
+        # 勿 required:true：改本 workflow 的 branch push 会被 GHA 误评估，
+        # 缺 inputs 时出现空 jobs + "workflow file issue" failure（见 run 29922880511）。
+        required: false
         type: string
 
 jobs:
   publish:
+    # dispatch 放行；push 仅真实 tag 且 @sfmc-bds/ 前缀才跑。
+    # ref_type==tag 防御误触的 branch push（skipped 绿，而非空 jobs 红）。
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.ref_name, '@sfmc-bds/')
+      (github.ref_type == 'tag' && startsWith(github.ref_name, '@sfmc-bds/'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
