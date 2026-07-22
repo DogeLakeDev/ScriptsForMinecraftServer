@@ -12,10 +12,18 @@
 
 import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/sdk/contracts";
 import type { DatabaseSync } from "node:sqlite";
-import { SQL, type SQLStatement } from "sql-template-strings";
+import type { SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
 import type { TxResult } from "./transaction.js";
 export type { TxResult };
+
+/**
+ * 表名是信任常量,必须嵌入 SQL 文本;值走 ? 绑定。
+ * 不可对 sql-template-strings 插值表名(会变成 FROM ? → near "?": syntax error)。
+ */
+function sql(text: string, values: unknown[] = []): { sql: string; values: unknown[] } {
+  return { sql: text, values };
+}
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
@@ -58,13 +66,16 @@ export function ensureEconomyAccount(
 ): EconomyAccountRow | undefined {
   const now = Date.now();
   query(
-    SQL`INSERT INTO ${TABLE_ACCOUNTS} (player_id, player_name_snapshot, balance, version, created_at, updated_at)
-       VALUES (${String(playerId)}, ${String(playerName)}, 0, 1, ${now}, ${now})
+    sql(
+      `INSERT INTO ${TABLE_ACCOUNTS} (player_id, player_name_snapshot, balance, version, created_at, updated_at)
+       VALUES (?, ?, 0, 1, ?, ?)
        ON CONFLICT(player_id) DO UPDATE SET
          player_name_snapshot = excluded.player_name_snapshot,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at`,
+      [String(playerId), String(playerName), now, now]
+    )
   );
-  const rows = query(SQL`SELECT * FROM ${TABLE_ACCOUNTS} WHERE player_id = ${String(playerId)}`);
+  const rows = query(sql(`SELECT * FROM ${TABLE_ACCOUNTS} WHERE player_id = ?`, [String(playerId)]));
   if (Array.isArray(rows)) {
     return (rows as EconomyAccountRow[])[0];
   }
@@ -168,8 +179,11 @@ export function applyEconomySteps(query: AnyQuery, data: ApplyEconomyInput): App
   // 幂等回放
   if (idempotencyKey) {
     const rows = query(
-      SQL`SELECT response_json FROM ${TABLE_IDEMPOTENCY}
-          WHERE actor_id = ${actorId} AND idempotency_key = ${idempotencyKey}`
+      sql(
+        `SELECT response_json FROM ${TABLE_IDEMPOTENCY}
+         WHERE actor_id = ? AND idempotency_key = ?`,
+        [actorId, idempotencyKey]
+      )
     );
     const previous = Array.isArray(rows) ? (rows as Array<{ response_json: string }>)[0] : undefined;
     if (previous) {
@@ -193,16 +207,22 @@ export function applyEconomySteps(query: AnyQuery, data: ApplyEconomyInput): App
   const now = Date.now();
   if (source) {
     query(
-      SQL`UPDATE ${TABLE_ACCOUNTS}
-          SET balance = balance - ${amount}, version = version + 1, updated_at = ${now}
-          WHERE player_id = ${source.player_id} AND balance >= ${amount}`
+      sql(
+        `UPDATE ${TABLE_ACCOUNTS}
+         SET balance = balance - ?, version = version + 1, updated_at = ?
+         WHERE player_id = ? AND balance >= ?`,
+        [amount, now, source.player_id, amount]
+      )
     );
   }
   if (target) {
     query(
-      SQL`UPDATE ${TABLE_ACCOUNTS}
-          SET balance = balance + ${amount}, version = version + 1, updated_at = ${now}
-          WHERE player_id = ${target.player_id}`
+      sql(
+        `UPDATE ${TABLE_ACCOUNTS}
+         SET balance = balance + ?, version = version + 1, updated_at = ?
+         WHERE player_id = ?`,
+        [amount, now, target.player_id]
+      )
     );
   }
 
@@ -214,24 +234,50 @@ export function applyEconomySteps(query: AnyQuery, data: ApplyEconomyInput): App
 
   if (source) {
     query(
-      SQL`INSERT INTO ${TABLE_TRANSACTIONS}
+      sql(
+        `INSERT INTO ${TABLE_TRANSACTIONS}
           (id, transaction_type, actor_id, source_player_id, target_player_id,
            amount, balance_before, balance_after,
            reference_type, reference_id, reason, created_at)
-          VALUES (${id + "-dr"}, ${transactionType + ".dr"}, ${actorId}, ${sourceId}, ${null},
-                  ${amount}, ${source.balance}, ${source.balance - amount},
-                  ${referenceType}, ${referenceId}, ${reason}, ${now})`
+         VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id + "-dr",
+          transactionType + ".dr",
+          actorId,
+          sourceId,
+          amount,
+          source.balance,
+          source.balance - amount,
+          referenceType,
+          referenceId,
+          reason,
+          now,
+        ]
+      )
     );
   }
   if (target) {
     query(
-      SQL`INSERT INTO ${TABLE_TRANSACTIONS}
+      sql(
+        `INSERT INTO ${TABLE_TRANSACTIONS}
           (id, transaction_type, actor_id, source_player_id, target_player_id,
            amount, balance_before, balance_after,
            reference_type, reference_id, reason, created_at)
-          VALUES (${id + "-cr"}, ${transactionType + ".cr"}, ${actorId}, ${null}, ${targetId},
-                  ${amount}, ${target.balance}, ${target.balance + amount},
-                  ${referenceType}, ${referenceId}, ${reason}, ${now})`
+         VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id + "-cr",
+          transactionType + ".cr",
+          actorId,
+          targetId,
+          amount,
+          target.balance,
+          target.balance + amount,
+          referenceType,
+          referenceId,
+          reason,
+          now,
+        ]
+      )
     );
   }
 
@@ -251,9 +297,12 @@ export function applyEconomySteps(query: AnyQuery, data: ApplyEconomyInput): App
 
   if (idempotencyKey) {
     query(
-      SQL`INSERT INTO ${TABLE_IDEMPOTENCY}
+      sql(
+        `INSERT INTO ${TABLE_IDEMPOTENCY}
           (actor_id, idempotency_key, transaction_id, response_json, created_at)
-          VALUES (${actorId}, ${idempotencyKey}, ${id}, ${JSON.stringify(response)}, ${now})`
+         VALUES (?, ?, ?, ?, ?)`,
+        [actorId, idempotencyKey, id, JSON.stringify(response), now]
+      )
     );
   }
 
@@ -305,12 +354,11 @@ export function listDailyTasks(
   const status = filter?.status ?? "active";
   const now = Date.now();
   if (filter?.includeExpired) {
-    const rows = query(SQL`SELECT * FROM ${TABLE_DAILY} WHERE status = ${status}`);
+    const rows = query(sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ?`, [status]));
     return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
   }
   const rows = query(
-    SQL`SELECT * FROM ${TABLE_DAILY}
-        WHERE status = ${status} AND expires_at > ${now}`
+    sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ? AND expires_at > ?`, [status, now])
   );
   return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
 }
@@ -336,8 +384,11 @@ export function submitDailyTaskSteps(
   const quantity = data.quantity;
 
   const rows = query(
-    SQL`SELECT * FROM ${TABLE_DAILY}
-        WHERE id = ${taskId} AND status = 'active' AND expires_at > ${Date.now()}`
+    sql(
+      `SELECT * FROM ${TABLE_DAILY}
+       WHERE id = ? AND status = 'active' AND expires_at > ?`,
+      [taskId, Date.now()]
+    )
   ) as Array<Record<string, unknown>>;
   const task = rows[0];
   if (!task) {
@@ -351,7 +402,7 @@ export function submitDailyTaskSteps(
   }
   const reward = Number(task.unit_reward) * quantity;
 
-  query(SQL`UPDATE ${TABLE_DAILY} SET filled_qty = filled_qty + ${quantity} WHERE id = ${taskId}`);
+  query(sql(`UPDATE ${TABLE_DAILY} SET filled_qty = filled_qty + ? WHERE id = ?`, [quantity, taskId]));
 
   const result = applyEconomySteps(query, {
     actor_id: actorId,
@@ -426,7 +477,7 @@ export function monthlyEconomyStats(query: AnyQuery): {
   const now = new Date();
   const id = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  const cached = query(SQL`SELECT * FROM ${TABLE_STATS} WHERE id = ${"global"} OR id = ${id}`);
+  const cached = query(sql(`SELECT * FROM ${TABLE_STATS} WHERE id = ? OR id = ?`, ["global", id]));
   if (Array.isArray(cached) && cached.length > 0) {
     const row = cached[0] as Record<string, unknown>;
     return {
@@ -438,13 +489,15 @@ export function monthlyEconomyStats(query: AnyQuery): {
     };
   }
 
-  const supplyRows = query(SQL`SELECT COALESCE(SUM(balance),0) AS total_supply, COUNT(*) AS active_accounts FROM ${TABLE_ACCOUNTS}`);
+  const supplyRows = query(
+    sql(`SELECT COALESCE(SUM(balance),0) AS total_supply, COUNT(*) AS active_accounts FROM ${TABLE_ACCOUNTS}`)
+  );
   const supply = Array.isArray(supplyRows) ? (supplyRows[0] as Record<string, unknown>) : {};
   const issuedRows = query(
-    SQL`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE target_player_id IS NOT NULL`
+    sql(`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE target_player_id IS NOT NULL`)
   );
   const destroyedRows = query(
-    SQL`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE source_player_id IS NOT NULL`
+    sql(`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE source_player_id IS NOT NULL`)
   );
   const issued = Array.isArray(issuedRows) ? Number((issuedRows[0] as Record<string, unknown>).total ?? 0) : 0;
   const destroyed = Array.isArray(destroyedRows)

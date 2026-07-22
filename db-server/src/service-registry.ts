@@ -92,18 +92,28 @@ export class ServiceRegistry {
       });
       return { ok: true, result };
     } catch (e) {
-      const err = e as Error;
+      // 保留 handler 抛出的领域/鉴权错误契约,勿压成 500 internal(LSP)
+      if (e instanceof DispatchError) throw e;
+      const err = e as Error & { code?: string; status?: number };
+      if (typeof err.status === "number" && err.code) {
+        throw new DispatchError(err.message, err.code as DispatchError["code"], err.status);
+      }
       throw new DispatchError(`handler 抛错: ${err.message}`, "internal", 500);
     }
+  }
+
+  /** 查询 service 提供方 moduleId(供 tx.call 与 HTTP 共用鉴权策略) */
+  getProvider(name: string): string | undefined {
+    return this.handlers.get(name)?.moduleId;
   }
 }
 
 export class DispatchError extends Error {
-  code: "no_such_service" | "not_in_requires" | "forbidden" | "internal";
+  code: "no_such_service" | "not_in_requires" | "forbidden" | "internal" | "domain_error";
   status: number;
   constructor(
     message: string,
-    code: "no_such_service" | "not_in_requires" | "forbidden" | "internal",
+    code: "no_such_service" | "not_in_requires" | "forbidden" | "internal" | "domain_error",
     status: number
   ) {
     super(message);
