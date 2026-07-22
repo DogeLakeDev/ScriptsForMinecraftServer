@@ -14,7 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readCatalog, syncCatalogFromPackages } from "./lib/catalog.mjs";
-import { scanInstalledPackages } from "./lib/packages.mjs";
+import { folderFromEntryPath, scanInstalledPackages } from "./lib/packages.mjs";
 import { ROOT } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
 
@@ -62,7 +62,8 @@ function main() {
     const abs = path.join(ROOT, m.entry.path);
     if (!exists(abs)) fail(`${m.id}: entry 不存在: ${m.entry.path}`);
 
-    const folder = String(m.entry.path).replace(/\\/g, "/").split("/")[2];
+    const folder = folderFromEntryPath(m.entry.path);
+    if (!folder) fail(`${m.id}: 无法从 entry.path 解析 packages 目录: ${m.entry.path}`);
     const manifestPath = path.join(ROOT, "modules", "packages", folder, "sapi", "manifest.json");
     if (!exists(manifestPath)) fail(`${m.id}: 缺少 packages/${folder}/sapi/manifest.json`);
     let manifest;
