@@ -76,3 +76,23 @@ test("ServiceRegistry: missing service → no_such_service (not not_in_requires)
     (e: unknown) => e instanceof DispatchError && e.code === "no_such_service"
   );
 });
+
+test("jsonV2Fail: ok 方言 + extra(step) 合并(LSP/DRY)", async () => {
+  const { jsonV2Fail } = await import("./routes/_shared.js");
+  const chunks: Buffer[] = [];
+  let statusCode = 0;
+  const res = {
+    writeHead(code: number) {
+      statusCode = code;
+    },
+    end(body?: string) {
+      if (body) chunks.push(Buffer.from(body));
+    },
+    setHeader() {},
+  } as unknown as import("node:http").ServerResponse;
+
+  jsonV2Fail(res, "boom", 400, "bad_step", { step: 2 });
+  const payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  equal(statusCode, 400);
+  deepEqual(payload, { ok: false, error: "boom", code: "bad_step", step: 2 });
+});
