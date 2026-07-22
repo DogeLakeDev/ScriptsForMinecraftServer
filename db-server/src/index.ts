@@ -38,19 +38,14 @@ import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
 
-import { createActivitiesRoutes } from "./routes/activities.js";
 import { createChannelsRoutes } from "./routes/channels.js";
 import { createConfigRoutes } from "./routes/config.js";
-import { createCoopsRoutes } from "./routes/coops.js";
-import { createEconomyRoutes } from "./routes/economy.js";
 import { createHealthRoutes } from "./routes/health.js";
-import { createLandsRoutes } from "./routes/lands.js";
 import { createMessagesRoutes } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
 import { createMonitorRoutes } from "./routes/monitor.js";
 import { createPlayersRoutes } from "./routes/players.js";
 import { createRedpacketRoutes } from "./routes/redpacket.js";
-import { createScoreboardsRoutes } from "./routes/scoreboards.js";
 import { createWorldRoutes } from "./routes/world.js";
 
 import { forwardToQQBridge, makeLLBotConfig } from "./domain/bridge.js";
@@ -204,10 +199,8 @@ const monitorState = {
 };
 
 const healthRoutes = createHealthRoutes();
-const scoreboardsRoutes = createScoreboardsRoutes({ query, body, json });
 const worldRoutes = createWorldRoutes({ query, body, json });
 const playersRoutes = createPlayersRoutes({ query, body, json });
-const activitiesRoutes = createActivitiesRoutes({ query, body, json });
 const channelsRoutes = createChannelsRoutes({ query, body, json });
 const messagesRoutes = createMessagesRoutes({
   query,
@@ -244,34 +237,6 @@ const redpacketRoutes = createRedpacketRoutes({
 });
 const monitorRoutes = createMonitorRoutes({ body, json, monitorState });
 const configRoutes = createConfigRoutes({ json, projectRoot: env.PROJECT_ROOT });
-const economyRoutes = createEconomyRoutes({ query, db });
-const landsRoutes = createLandsRoutes({
-  query,
-  db,
-  body,
-  json,
-  projectRoot: env.PROJECT_ROOT,
-  ensureEconomyAccount: (playerId: string, playerName: string) => {
-    const acc = domainEnsureEconomyAccount(query, playerId, playerName);
-    if (!acc) throw new Error("ensureEconomyAccount returned undefined");
-    return { balance: acc.balance, player_id: acc.player_id, version: acc.version };
-  },
-});
-const coopsRoutes = createCoopsRoutes({
-  query,
-  db,
-  body,
-  json,
-  ensureEconomyAccount: (playerId: string, playerName: string) => {
-    const acc = domainEnsureEconomyAccount(query, playerId, playerName);
-    if (!acc) throw new Error("ensureEconomyAccount returned undefined");
-    return { balance: acc.balance, player_id: acc.player_id, version: acc.version };
-  },
-  economyResult: (acc: unknown) => {
-    const view = domainEconomyResult(acc as Parameters<typeof domainEconomyResult>[0]);
-    return view ? { balance: view.balance, version: view.version } : null;
-  },
-});
 const moduleRoutesInstance = createModuleRoutes({
   loadModuleCatalog,
   buildModuleList: buildModuleList as unknown as () => Array<Record<string, unknown>>,
@@ -382,18 +347,13 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     const ctxBase = { path, method, params, req, res } as { path: string; method: string; params: URLSearchParams; req: http.IncomingMessage; res: http.ServerResponse };
     if (await moduleRoutesInstance(ctxBase)) return;
     if (await healthRoutes(ctxBase)) return;
-    if (await scoreboardsRoutes(ctxBase)) return;
     if (await worldRoutes(ctxBase)) return;
     if (await playersRoutes(ctxBase)) return;
-    if (await activitiesRoutes(ctxBase)) return;
     if (await channelsRoutes(ctxBase)) return;
     if (await messagesRoutes(ctxBase)) return;
     if (await redpacketRoutes(ctxBase)) return;
     if (await monitorRoutes(ctxBase)) return;
     if (await configRoutes(ctxBase)) return;
-    if (await economyRoutes(ctxBase)) return;
-    if (await landsRoutes(ctxBase)) return;
-    if (await coopsRoutes(ctxBase)) return;
 
     json(res, { success: false, error: "not_found" }, 404);
   } catch (err) {
