@@ -1,18 +1,38 @@
 /**
- * @sfmc/module-gui — SAPI 侧入口
+ * @sfmc/module-gui — v2 入口
  *
- * 暴露给行为包启动期 (ModuleRegistry.register 调用点):
- *   - AdminGUI.show(player):管理面板入口(模块开关)
- *   - MainMenu.registerMenuCommand / show:!menu 主菜单
- *   - MoneyGUI.registerCommand:!money 货币管理
- *
- * gui/ChatGUI / CoopGUI / LandGUI 由对应 @sfmc/module-*-gui 包导出,
- * MainMenu 等通过包名空间 import 过去。
- *
- * AdminGUI 直接读 CreativeArea.enable / Peace.getInstance().enable —— 这些
- * 模块已经在 stage E1/E5 落到对应 package,这里改成 `@sfmc/module-creative`
- * 和 `@sfmc/module-peace` 命名空间引用,与 entry.ts 的 switch 对齐。
+ * 主菜单 / 管理面板 / 货币 GUI。ChatGUI / LandGUI 来自对应业务包;
+ * 合作社图形 UI 已并入 feature-coop 命令面(/coop)。
  */
+
+import { ModuleRegistry } from "@sfmc/sdk/module-loader";
+import { Permission, debug } from "@sfmc/sdk/sapi/runtime";
+
+import { MainMenu } from "./MainMenu.js";
+import { MoneyGUI } from "./MoneyGUI.js";
+
+const MODULE_ID = "core-gui";
+
+ModuleRegistry.register({
+  id: MODULE_ID,
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() {
+      Permission.register("menu.use", Permission.Any);
+      Permission.register("money.admin", Permission.Admin);
+    },
+    registerCommands() {
+      MainMenu.registerMenuCommand();
+      MoneyGUI.registerCommand();
+    },
+    async init() {
+      debug.i("GUI", "core-gui init");
+    },
+    cleanup() {
+      debug.i("GUI", "core-gui cleanup");
+    },
+  },
+});
 
 export { AdminGUI } from "./AdminGUI.js";
 export { MainMenu } from "./MainMenu.js";

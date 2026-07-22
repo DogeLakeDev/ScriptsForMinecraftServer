@@ -1,45 +1,36 @@
 import { Player, system, world } from "@minecraft/server";
-import { ChatGUI } from "./chat-gui.js";
-import {
-  Command,
-  debug,
-  HttpDB,
-  registerSystemMsgHandler,
-} from "@sfmc/sdk/sapi/runtime";
+import { Command, debug, registerSystemMsgHandler } from "@sfmc/sdk/sapi/runtime";
 import { ConfigManager } from "@sfmc/sdk/module-loader";
+import { db } from "@sfmc/sdk/sapi/db";
+
+import { ChatGUI } from "./chat-gui.js";
 import { DogeChat } from "./doge-chat.js";
 
 export class ChatSystem {
-  private static chatSendSub: any = undefined;
-  private static playerJoinSub: any = undefined;
+  private static chatSendSub: { unsubscribe(): void } | undefined = undefined;
+  private static playerJoinSub: { unsubscribe(): void } | undefined = undefined;
 
-  /**
-   * @description
-   * @author Shiroha7z
-   * @date 17/07/2026
-   * @static
-   * @memberof ChatSystem
-   */
   static init() {
     debug.i("CHAT", "init");
-    console.log(`Initializing ChatSystem...`);
-    DogeChat.ensureDefaultChannels();
+    void DogeChat.ensureDefaultChannels();
 
-    HttpDB.checkHealth().then((ok: boolean) => {
-      if (ok) console.info("[DogeChat] 外部数据库已连接，消息将持久化存储。");
-      else console.warn("[DogeChat] 外部数据库未连接。");
-    });
+    // 用一次轻量 query 探测 db 可达,替代 HttpDB.checkHealth
+    void db
+      .query("sfmc_chat_channels", { limit: 1 })
+      .then(() => console.info("[DogeChat] 外部数据库已连接，消息将持久化存储。"))
+      .catch(() => console.warn("[DogeChat] 外部数据库未连接。"));
 
     registerSystemMsgHandler((player: Player, text: string) => {
       DogeChat.sendSystemMessage(player, text);
     });
 
+    // bridge_channel_id 属于跨切面 settings(qq_config 回落),走既有 ConfigManager.getSetting
     const bridgeChannelId = ConfigManager.getSetting("bridge_channel_id", "");
     if (bridgeChannelId) {
       DogeChat.startBridgePolling(bridgeChannelId);
     }
 
-    console.log(`ChatSystem initialized successfully.`);
+    debug.i("CHAT", "ChatSystem initialized");
   }
 
   static registerEvents() {
@@ -66,16 +57,22 @@ export class ChatSystem {
   static cleanup() {
     debug.i("CHAT", "cleanup");
     try {
-      if (ChatSystem.chatSendSub?.unsubscribe) ChatSystem.chatSendSub.unsubscribe();
-    } catch {}
+      ChatSystem.chatSendSub?.unsubscribe();
+    } catch {
+      /* ignore */
+    }
     try {
-      if (ChatSystem.playerJoinSub?.unsubscribe) ChatSystem.playerJoinSub.unsubscribe();
-    } catch {}
+      ChatSystem.playerJoinSub?.unsubscribe();
+    } catch {
+      /* ignore */
+    }
     ChatSystem.chatSendSub = undefined;
     ChatSystem.playerJoinSub = undefined;
     try {
       DogeChat.stopBridgePolling?.();
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   }
 
   static registerCommands() {
@@ -83,7 +80,7 @@ export class ChatSystem {
       "channel",
       "chat.use",
       (player: Player | undefined) => {
-        if (player) ChatGUI.openChannelPanel(player);
+        if (player) void ChatGUI.openChannelPanel(player);
       },
       "频道管理 - 订阅/切换频道",
       "chat"
@@ -105,7 +102,7 @@ export class ChatSystem {
       "msg",
       "chat.use",
       (player: Player | undefined) => {
-        if (player) ChatGUI.openPrivateChatPanel(player);
+        if (player) void ChatGUI.openPrivateChatPanel(player);
       },
       "快捷私聊",
       "chat"
@@ -115,7 +112,7 @@ export class ChatSystem {
       "lo",
       "chat.use",
       (player: Player | undefined) => {
-        if (player) ChatGUI.sendLocation(player);
+        if (player) void ChatGUI.sendLocation(player);
       },
       "发送当前位置到当前频道",
       "chat"
@@ -125,7 +122,7 @@ export class ChatSystem {
       "tp",
       "chat.use",
       (player: Player | undefined) => {
-        if (player) ChatGUI.sendTeleportInvite(player);
+        if (player) void ChatGUI.sendTeleportInvite(player);
       },
       "发送传送邀请",
       "chat"
@@ -135,7 +132,7 @@ export class ChatSystem {
       "hongbao",
       "chat.use",
       (player: Player | undefined) => {
-        if (player) ChatGUI.openRedPacketPanel(player);
+        if (player) void ChatGUI.openRedPacketPanel(player);
       },
       "红包 - 查看/领取红包",
       "chat"
@@ -145,7 +142,7 @@ export class ChatSystem {
       "hb",
       "chat.use",
       (player: Player | undefined) => {
-        if (player) ChatGUI.sendRedPacketQuick(player);
+        if (player) void ChatGUI.sendRedPacketQuick(player);
       },
       "发送红包",
       "chat"

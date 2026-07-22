@@ -3,9 +3,9 @@ import { Command } from "@sfmc/sdk/sapi/runtime";
 import { debug } from "@sfmc/sdk/sapi/runtime";
 import { Money } from "@sfmc/sdk/sapi/runtime";
 import { MenuNavigator, obsStr } from "@sfmc/sdk/sapi/runtime";
-import { ListFormInfo } from "@sfmc/sdk/sapi/runtime";
-import { ChatGUI } from "@sfmc/module-chat-gui";
-import { CoopGUI } from "@sfmc/module-coop-gui";
+import { ListFormInfo, Msg } from "@sfmc/sdk/sapi/runtime";
+import { service } from "@sfmc/sdk/sapi/service";
+import { ChatGUI } from "@sfmc/module-feature-chat";
 import { LandGUI } from "@sfmc/module-land-gui";
 
 export class MainMenu {
@@ -35,7 +35,12 @@ export class MainMenu {
     nav.section("main", "主菜单", (page: any) => {
       page.label(ListFormInfo([`当前余额: ${balance} ${Money.UNIT}`]));
       page.button("土地", () => nav.leave(() => LandGUI.showMainMenu(player)));
-      page.button("合作社", () => nav.leave(() => new CoopGUI(player).mainPanel()));
+      // feature-coop 已合并 GUI 到命令面(/coop);图形 UI 待 P1 补回
+      page.button("合作社", () =>
+        nav.leave(() => {
+          Msg.tips("请使用 /coop 打开合作社菜单", player);
+        })
+      );
       page.button("频道", () => nav.leave(() => ChatGUI.openChannelPanel(player)));
       page.button("红包", () => nav.leave(() => ChatGUI.openRedPacketPanel(player)));
       page.button("节操", () => nav.go("economy"));
@@ -72,10 +77,14 @@ export class MainMenu {
           status.setData(`§c余额不足。当前余额: ${bal} ${Money.UNIT}，需要: ${amount} ${Money.UNIT}`);
           return;
         }
-        const transferred = await import("@sfmc/module-economy").then(({ transferEconomy }) =>
-          transferEconomy(player.id, target.id, amount, target.name)
-        );
-        if (!transferred) {
+        try {
+          await service.get("economy.account.transfer", {
+            fromPlayerId: player.id,
+            toPlayerId: target.id,
+            amount,
+            toPlayerName: target.name,
+          });
+        } catch {
           status.setData("§c转账失败，余额可能已变化，请重试。");
           return;
         }

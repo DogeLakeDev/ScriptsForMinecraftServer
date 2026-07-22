@@ -8,28 +8,21 @@
  *        - 写一份 manifest.json (uuid 由 pack-manager 随机生成)
  *        - 写 permissions.json (7 项 @minecraft/*)
  *        - 拷 pack_icon.png (如提供)
- *      SEA 与 npm 路径都用同一份逻辑 — 区别只在 esbuild bundle 放在哪里:
- *        npm: <ROOT>/build/...
- *        SEA: <exe-dir>/build/...
  *   2. `deploy` = spawnService pack-manager deploy 拷到 worlds/<level>/behavior_packs/<bpName>/
  *      并写 permissions.json。enable/disable packs in world (写 world_behavior_packs.json)
  *      是单独命令 `behavior-pack enable-pack` / `disable-pack` — 因为 BDS 重启后
  *      才会读那个 JSON,与 build/deploy 顺序解耦。
  *
- * 注意事项:
- *   - 本文件不直接 import bds-tools/pack-manager;通过 spawnService 调到子进程。
- *     这样 SEA 模式下整个 dispatcher 里 bds-tools dist 走打包路径,esbuild 自己
- *     由 sfmc 的依赖里提供(SEA 嵌入 @esbuild/<platform>-x64)。
- *   - 这是 Commit 4 的骨架:build 的 esbuild 步骤实际留给 npm 模式跑通,SEA 模式
- *     这条路径在 SEA 内嵌 esbuild 完成后再启用。
  */
 
-import fs from "node:fs/promises";
+import { configPath, readJson, type BdsUpdaterConfig } from "@sfmc/sdk/node/config";
 import { existsSync } from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { c } from "./theme.js";
+import PropertiesReader from "properties-reader";
 import { ROOT, spawnServiceSync } from "./runtime.js";
+import { c } from "./theme.js";
 
 export const BP_NAME = "sfmc-modules";
 export const RP_NAME = "sfmc-modules-rp";
@@ -117,14 +110,23 @@ export async function cmdBehaviorPackBuild(_args: string[]): Promise<string> {
   if (!existsSync(scriptFile)) {
     return c.red(`bundle failed: ${scriptFile} missing`);
   }
-  const proc = spawnServiceSync("pack-manager", [
-    "assemble-bp",
-    "--src", bpSrc(),
-    "--out", bpOut(),
-    "--name", BP_NAME,
-    "--version", "1,0,0",
-    "--description", "ScriptsForMinecraftServer aggregated behavior pack",
-  ], { encoding: "utf8" });
+  const proc = spawnServiceSync(
+    "pack-manager",
+    [
+      "assemble-bp",
+      "--src",
+      bpSrc(),
+      "--out",
+      bpOut(),
+      "--name",
+      BP_NAME,
+      "--version",
+      "1,0,0",
+      "--description",
+      "ScriptsForMinecraftServer aggregated behavior pack",
+    ],
+    { encoding: "utf8" }
+  );
   if (proc.status !== 0) {
     const stderr = (proc.stderr ?? "").toString();
     return c.red(`pack-manager assemble-bp failed: ${stderr}`);
@@ -132,64 +134,41 @@ export async function cmdBehaviorPackBuild(_args: string[]): Promise<string> {
   return `${c.green(`built behavior pack at ${bpOut()}`)}\n${(proc.stdout ?? "").toString().trim()}\n`;
 }
 
+async function getServerProperties(bdsPath: string): Promise<Record<string, unknown>> {
+  const properties = PropertiesReader({ sourceFile: path.join(bdsPath, "server.properties") });
+  const levelName = properties.get("level-name") as string;
+  return { levelName };
+}
+
 /** Deploy the assembled BP + RP into the BDS world's behavior_packs folder. */
 export async function cmdBehaviorPackDeploy(_args: string[]): Promise<string> {
-  const cfg = await loadBdsConfig();
-  if (!cfg.bdsRoot) {
-    return c.red("deploy: bds_root not configured. Run `sfmc init` first.");
+  const cfg = readJson(configPath(ROOT, "bds_updater.json")) as BdsUpdaterConfig;
+  const bdsPath = cfg.bds_path;
+  if (!bdsPath) {
+    return c.red("deploy: bds_path not configured. Run `sfmc init` first.");
   }
+  const p = await getServerProperties(bdsPath);
   const args = [
     "deploy",
-    "--bds-root", cfg.bdsRoot,
-    "--level", cfg.levelName,
-    "--bp-src", bpOut(),
-    "--bp-name", BP_NAME,
+    "--bds-root",
+    bdsPath,
+    "--level",
+    p.levelName as string,
+    "--bp-src",
+    bpOut(),
+    "--bp-name",
+    BP_NAME,
   ];
   if (existsSync(rpOut())) {
     args.push("--rp-src", rpOut(), "--rp-name", RP_NAME);
   }
-  const proc = spawnServiceSync("pack-manager", args, { encoding: "utf8" });
+  const proc = spawnServiceSync("pack-manager", args as string[], { encoding: "utf8" });
   if (proc.status !== 0) {
     const stderr = (proc.stderr ?? "").toString();
     return c.red(`pack-manager deploy failed: ${stderr}`);
   }
-  return `${c.green(`deployed to ${path.join(cfg.bdsRoot, "worlds", cfg.levelName)}`)}\n${(proc.stdout ?? "").toString().trim()}\n`;
-}
-
-interface BdsConfig {
-  bdsRoot: string | null;
-  levelName: string;
-}
-
-async function loadBdsConfig(): Promise<BdsConfig> {
-  /* Reads bds_updater.json (shared with bds-tools). When missing, fall back
-   * to db_config.json's `bds_root` and let pack-manager#readLevelName resolve
-   * the level-name from server.properties at deploy time. */
-  const cfgPath = path.join(ROOT, "configs", "bds_updater.json");
-  let bdsRoot: string | null = null;
-  try {
-    const raw = await fs.readFile(cfgPath, "utf8");
-    const cfg = JSON.parse(raw) as { bds_path?: string };
-    if (cfg.bds_path) bdsRoot = path.resolve(ROOT, cfg.bds_path);
-  } catch {
-    /* fall through */
-  }
-  if (!bdsRoot) {
-    const dbCfgPath = path.join(ROOT, "configs", "db_config.json");
-    try {
-      const raw = await fs.readFile(dbCfgPath, "utf8");
-      const cfg = JSON.parse(raw) as { bds_root?: string };
-      if (cfg.bds_root) bdsRoot = path.resolve(ROOT, cfg.bds_root);
-    } catch {
-      /* no config yet */
-    }
-  }
-  /* levelName resolved by pack-manager via server.properties — default to
-   * empty so the CLI flag can still be passed; the spawnService call above
-   * uses cfg.levelName but we leave it empty here and let server.properties
-   * parsing happen server-side. TODO Commit 5: move readLevelName here so
-   * error messages can be more specific. */
-  return { bdsRoot, levelName: "" };
+  return `${c.green(`deployed to ${path.join(bdsPath, "worlds", p.levelName as string)}`)}\n${(proc.stdout ?? "").toString().trim()}\n`;
 }
 
 void process;
+

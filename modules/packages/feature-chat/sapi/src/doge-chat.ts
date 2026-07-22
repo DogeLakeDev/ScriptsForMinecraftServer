@@ -6,12 +6,12 @@
 \* ---------------------------------------- */
 import { Player, system, world } from "@minecraft/server";
 import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc/types";
-import { ChatApi } from "./chat-api.js";
+import { db } from "@sfmc/sdk/sapi/db";
 import { debug } from "@sfmc/sdk/sapi/runtime";
 import { Money } from "@sfmc/sdk/sapi/runtime";
-import { HttpDB } from "@sfmc/sdk/sapi/runtime";
 import { Permission } from "@sfmc/sdk/sapi/runtime";
 import { Msg, formatTimestamp, generateId } from "@sfmc/sdk/sapi/runtime";
+import * as ChatApi from "./chat-api.js";
 
 export type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket };
 
@@ -121,9 +121,7 @@ export class DogeChat {
     if (pub) {
       DogeChat.activeChannelMap.set(player.id, pub.id);
       this._ensureSubscribed(player.id, pub.id);
-      HttpDB.post(`/api/sfmc/players/${player.id}`, { player: { activeChannel: pub.id } }).catch((e: any) =>
-        console.warn("[DogeChat] error:", e)
-      );
+      void this._persistPlayerChatPrefs(player, { activeChannel: pub.id });
     }
     return pub;
   }
@@ -132,9 +130,7 @@ export class DogeChat {
     debug.i("CHAT", `setActiveChannel: player=${player.name} channelId=${channelId}`);
     DogeChat.activeChannelMap.set(player.id, channelId);
     this._ensureSubscribed(player.id, channelId);
-    await HttpDB.put(`/api/sfmc/players/${player.id}`, { player: { activeChannel: channelId } }).catch((e: any) =>
-      console.warn("[DogeChat] error:", e)
-    );
+    await this._persistPlayerChatPrefs(player, { activeChannel: channelId });
   }
 
   // ============================================
@@ -191,21 +187,59 @@ export class DogeChat {
 
   private static _saveSubscriptions(playerId: string): void {
     const ids = Array.from(this.subscribedChannelsMap.get(playerId) ?? []);
-    HttpDB.put(`/api/sfmc/players/${playerId}`, { player: { subscribedChannels: JSON.stringify(ids) } }).catch((e: any) =>
-      console.warn("[DogeChat] error:", e)
-    );
+    const player = world.getAllPlayers().find((p) => p.id === playerId);
+    if (!player) return;
+    void this._persistPlayerChatPrefs(player, { subscribedChannels: JSON.stringify(ids) });
+  }
+
+  /** 把 active_channel / subscribed_channels 写回平台 sfmc_players(联合主键 id|name) */
+  private static async _persistPlayerChatPrefs(
+    player: Player,
+    patch: { activeChannel?: string; subscribedChannels?: string }
+  ): Promise<void> {
+    try {
+      const rowId = `${player.id}|${player.name}`;
+      const existing = await db.get<{ id: string }>("sfmc_players", rowId);
+      const now = Date.now();
+      if (!existing) {
+        await db.tx(async (tx) => {
+          await tx.insert("sfmc_players", {
+            id: player.id,
+            name: player.name,
+            active_channel: patch.activeChannel ?? "",
+            subscribed_channels: patch.subscribedChannels ?? "[]",
+            updated_at: now,
+          });
+        });
+        return;
+      }
+      const dbPatch: Record<string, unknown> = { updated_at: now };
+      if (patch.activeChannel !== undefined) dbPatch.active_channel = patch.activeChannel;
+      if (patch.subscribedChannels !== undefined) dbPatch.subscribed_channels = patch.subscribedChannels;
+      await db.tx(async (tx) => {
+        await tx.update("sfmc_players", rowId, dbPatch);
+      });
+    } catch (e) {
+      console.warn("[DogeChat] persist chat prefs failed:", e);
+    }
   }
 
   static async loadSubscriptions(player: Player): Promise<void> {
     debug.i("CHAT", `loadSubscriptions: player=${player.name}`);
-    const raw = await HttpDB.fetchJSON<Record<string, unknown>>("/api/sfmc/players", player.id, "player");
+    const raw = await db.get<{ subscribed_channels?: string; active_channel?: string }>(
+      "sfmc_players",
+      `${player.id}|${player.name}`
+    );
     if (raw?.subscribed_channels) {
       try {
-        const ids: string[] = JSON.parse(raw.subscribed_channels as string);
+        const ids: string[] = JSON.parse(raw.subscribed_channels);
         this.subscribedChannelsMap.set(player.id, new Set(ids));
       } catch {
         /* ignore */
       }
+    }
+    if (raw?.active_channel) {
+      this.activeChannelMap.set(player.id, raw.active_channel);
     }
     // ensure at least one subscription
     if (!this.subscribedChannelsMap.has(player.id) || this.subscribedChannelsMap.get(player.id)!.size === 0) {

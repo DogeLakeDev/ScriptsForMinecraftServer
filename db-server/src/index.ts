@@ -30,6 +30,7 @@ import { assertNodeVersion } from "./lib/runtime.js";
 import { createQuery, openDatabase } from "./lib/sqlite.js";
 import { createServer, startConsole } from "./server.js";
 import { createPlatformTables } from "./db-tables.js";
+import { initSchema } from "./domain/schema.js";
 import { SchemaRegistry } from "./schema-registry.js";
 import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
@@ -64,7 +65,8 @@ if (!assertNodeVersion(22, 13)) {
 
 const env = loadEnv();
 const db = openDatabase(env.DB_PATH);
-createPlatformTables(db); // 只建平台表(sfmc__audit / sfmc__idempotent)
+createPlatformTables(db); // sfmc__audit / sfmc__idempotent
+initSchema(db); // 平台业务 bootstrap 表(players/world/chat/...)——qq-bridge 在 SAPI defineTable 之前就需要
 const query = createQuery(db);
 
 // ── v2 manifest 加载(失败 = 启动失败)─────────────────────────

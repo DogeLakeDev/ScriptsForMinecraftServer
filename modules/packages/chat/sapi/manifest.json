@@ -1,9 +1,0 @@
-{
-  "handlers": [],
-  "routes": [
-    { "method": "GET", "path": "/api/sfmc/messages", "handler": "messages:list" },
-    { "method": "POST", "path": "/api/sfmc/messages", "handler": "messages:create" },
-    { "method": "POST", "path": "/api/sfmc/players/:playerId", "handler": "players:update" }
-  ],
-  "migrations": []
-}

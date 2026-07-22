@@ -21,7 +21,7 @@
       "description": "主菜单、管理面板等图形界面入口",
       "enabledByDefault": true,
       "canDisable": false,
-      "requires": [],
+      "requires": ["feature-economy", "feature-chat", "feature-land"],
       "entry": { "kind": "sapi", "path": "modules/packages/gui/sapi/src/index.ts" }
     },
     {
@@ -54,7 +54,7 @@
       "description": "频道聊天、私聊和消息分发",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": [],
+      "requires": ["feature-economy"],
       "entry": { "kind": "sapi", "path": "modules/packages/feature-chat/sapi/src/index.ts" }
     },
     {

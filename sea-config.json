@@ -3,8 +3,6 @@
   "output": "dist/sea/sfmc.exe",
   "mainFormat": "module",
   "assets": {
-    "configs_default": "dist/sea/configs-default.zip",
-    "resource_packs": "dist/sea/resource_packs.zip",
-    "behavior_packs": "dist/sea/behavior_packs.zip"
+    "configs_default": "dist/sea/configs-default.zip"
   }
 }

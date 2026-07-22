@@ -269,18 +269,39 @@ export class TxRunner {
     return { op: "query", rows };
   }
 
-  private doGet(_mid: string, mod: ModuleManifestV2, step: TxStepGet): TxStepResult {
-    this.requireTableRead(mod, step.table);
-    // 取主键列名
-    const cols = this.deps.db.prepare(`PRAGMA table_info("${step.table}")`).all() as Array<{
+  /** 解析主键 WHERE。单列直接等值;联合主键支持 `a|b|c`(与 data-backup 约定一致)。 */
+  private pkWhere(table: string, id: string | number): { clause: string; values: unknown[] } {
+    const cols = this.deps.db.prepare(`PRAGMA table_info("${table}")`).all() as Array<{
       name: string;
       pk: number;
     }>;
-    const pk = cols.find((c) => c.pk === 1);
-    if (!pk) throw new Error(`[tx] ${step.table} 没有 primary key,无法 get by id`);
+    const pkCols = cols
+      .filter((c) => c.pk > 0)
+      .sort((a, b) => a.pk - b.pk)
+      .map((c) => c.name);
+    if (pkCols.length === 0) {
+      throw new Error(`[tx] ${table} 没有 primary key`);
+    }
+    if (pkCols.length === 1) {
+      return { clause: `"${pkCols[0]}" = ?`, values: [id] };
+    }
+    const parts = String(id).split("|");
+    if (parts.length === pkCols.length) {
+      return {
+        clause: pkCols.map((c) => `"${c}" = ?`).join(" AND "),
+        values: parts,
+      };
+    }
+    // 联合主键但只传了首列(频道 id 等):按第一主键列匹配
+    return { clause: `"${pkCols[0]}" = ?`, values: [id] };
+  }
+
+  private doGet(_mid: string, mod: ModuleManifestV2, step: TxStepGet): TxStepResult {
+    this.requireTableRead(mod, step.table);
+    const where = this.pkWhere(step.table, step.id);
     const row = this.deps.db
-      .prepare(`SELECT * FROM "${step.table}" WHERE "${pk.name}" = ?`)
-      .get(step.id as never) as Record<string, unknown> | undefined;
+      .prepare(`SELECT * FROM "${step.table}" WHERE ${where.clause}`)
+      .get(...(where.values as never[])) as Record<string, unknown> | undefined;
     return { op: "get", row: row ?? null };
   }
 
@@ -310,10 +331,11 @@ export class TxRunner {
     for (const c of cols) {
       if (!IDENT.test(c)) throw new Error(`[tx] invalid column name "${c}"`);
     }
+    const where = this.pkWhere(step.table, step.id);
     const sets = cols.map((c) => `"${c}" = ?`).join(",");
-    const params = cols.map((c) => step.patch[c]);
-    const sql = `UPDATE "${step.table}" SET ${sets} WHERE rowid = ?`;
-    const result = this.deps.db.prepare(sql).run(...(params as never[]), step.id as never);
+    const params = [...cols.map((c) => step.patch[c]), ...where.values];
+    const sql = `UPDATE "${step.table}" SET ${sets} WHERE ${where.clause}`;
+    const result = this.deps.db.prepare(sql).run(...(params as never[]));
     if (result.changes === 0) {
       throw new Error(`UPDATE ${step.table} id=${step.id} 影响 0 行(找不到 / 已删?)`);
     }
@@ -322,24 +344,23 @@ export class TxRunner {
 
   private doDelete(_mid: string, mod: ModuleManifestV2, step: TxStepDelete): TxStepResult {
     this.requireTableWrite(mod, step.table);
-    let sql: string;
+    const where = this.pkWhere(step.table, step.id);
     if (step.hard) {
-      sql = `DELETE FROM "${step.table}" WHERE rowid = ?`;
-    } else {
-      const cols = this.deps.db.prepare(`PRAGMA table_info("${step.table}")`).all() as Array<{
-        name: string;
-      }>;
-      const hasDeletedAt = cols.find((c) => c.name === "_deleted_at");
-      if (!hasDeletedAt) {
-        throw new Error(
-          `[tx] ${step.table} 没启用 softDelete,删不掉;请 hard=true 或 schema 设 softDelete=true`
-        );
-      }
-      sql = `UPDATE "${step.table}" SET "_deleted_at" = ?, "_version" = COALESCE("_version",0)+1 WHERE rowid = ?`;
-      const r = this.deps.db.prepare(sql).run(Date.now() as never, step.id as never);
+      const sql = `DELETE FROM "${step.table}" WHERE ${where.clause}`;
+      const r = this.deps.db.prepare(sql).run(...(where.values as never[]));
       return { op: "delete", changes: Number(r.changes) };
     }
-    const r = this.deps.db.prepare(sql).run(step.id as never);
+    const cols = this.deps.db.prepare(`PRAGMA table_info("${step.table}")`).all() as Array<{
+      name: string;
+    }>;
+    const hasDeletedAt = cols.find((c) => c.name === "_deleted_at");
+    if (!hasDeletedAt) {
+      throw new Error(
+        `[tx] ${step.table} 没启用 softDelete,删不掉;请 hard=true 或 schema 设 softDelete=true`
+      );
+    }
+    const sql = `UPDATE "${step.table}" SET "_deleted_at" = ?, "_version" = COALESCE("_version",0)+1 WHERE ${where.clause}`;
+    const r = this.deps.db.prepare(sql).run(Date.now() as never, ...(where.values as never[]));
     return { op: "delete", changes: Number(r.changes) };
   }
 
