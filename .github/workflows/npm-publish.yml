@@ -5,10 +5,11 @@ name: npm-publish
 # 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
 
 on:
-  # 临时用 ** 验证；scoped tag（含 /）需跨段匹配。发布门禁在 resolve 脚本。
+  # scoped tag 含 /（@sfmc-bds/sdk@v0.1.0）须用 ** 跨段；勿再用笼统 "**"（会误触 SEA v*）。
+  # 包合法性 + 已发布探测由 tools/resolve-npm-publish-tag.mjs 校验。
   push:
     tags:
-      - "**"
+      - "**sfmc-bds/**"
   workflow_dispatch:
     inputs:
       tag:
@@ -39,16 +40,23 @@ jobs:
           PUBLISH_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: node tools/resolve-npm-publish-tag.mjs
 
+      - name: skip if already published
+        if: steps.meta.outputs.already_published == 'true'
+        run: echo "Already on npm: ${{ steps.meta.outputs.workspace }}@${{ steps.meta.outputs.ver }} — skip"
+
       - run: npm ci --no-audit --no-fund
+        if: steps.meta.outputs.already_published != 'true'
 
       - name: build SDK (dependency)
-        if: steps.meta.outputs.workspace != '@sfmc-bds/sdk'
+        if: steps.meta.outputs.already_published != 'true' && steps.meta.outputs.workspace != '@sfmc-bds/sdk'
         run: npm run build --workspace @sfmc-bds/sdk
 
       - name: build target workspace
+        if: steps.meta.outputs.already_published != 'true'
         run: npm run build --workspace "${{ steps.meta.outputs.workspace }}"
 
       - name: publish to npm
+        if: steps.meta.outputs.already_published != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --workspace "${{ steps.meta.outputs.workspace }}" --access public --provenance

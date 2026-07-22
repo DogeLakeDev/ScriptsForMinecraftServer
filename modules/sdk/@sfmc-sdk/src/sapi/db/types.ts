@@ -81,7 +81,8 @@ export interface TxStepResult {
 
 export interface TxResponse {
   ok: true;
-  steps: TxStepResult[];
+  /** 与 db-server TxResponse.results 对齐(LSP);勿再命名为 steps */
+  results: TxStepResult[];
 }
 
 export interface TxError {
