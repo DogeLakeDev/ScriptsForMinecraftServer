@@ -40,6 +40,15 @@ export class HttpDB {
   }
 
   /**
+   * 解析 Authorization token:opts 非空优先,否则 DataAdapter 默认。
+   * 空字符串不算已传(与 `??` 不同),避免模块上下文未注入时阻断平台回落(DIP)。
+   */
+  static resolveAuthToken(opts?: HttpRequestAuthOpts): string {
+    const fromOpts = typeof opts?.authToken === "string" ? opts.authToken.trim() : "";
+    return fromOpts || this.authToken.trim();
+  }
+
+  /**
    * 给路径附上 ?moduleId= / &moduleId=(db/config/service 客户端共用,DRY)。
    * verifyModuleAuth 只认 query 上的 moduleId。
    */
@@ -112,8 +121,8 @@ export class HttpDB {
         req.body = JSON.stringify(bodyData);
         req.addHeader("Content-Type", "application/json");
       }
-      // 请求级 token 优先,否则回落 DataAdapter 默认(ConfigManager)
-      const token = (opts?.authToken ?? this.authToken).trim();
+      // 请求级非空 token 优先;空串视为未传,回落 DataAdapter 默认(DIP:勿用 ?? 阻断)
+      const token = HttpDB.resolveAuthToken(opts);
       if (token) req.addHeader("Authorization", `Bearer ${token}`);
 
       const res = await http.request(req);

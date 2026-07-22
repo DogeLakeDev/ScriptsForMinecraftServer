@@ -52,6 +52,10 @@ const pkgPath = NPM_PUBLISH_PACKAGES[resolved];
 const actual = JSON.parse(fs.readFileSync(pkgPath, "utf8")).version;
 if (actual !== ver) {
   console.error(`Tag version ${ver} != package.json version ${actual} (${pkgPath})`);
+  console.error(
+    `修复:先把 ${pkgPath}  bump 到 ${ver} 并合入默认分支,再 workflow_dispatch 本 tag` +
+      `(checkout 默认分支),或删除后重打指向含新版本 commit 的 tag。`
+  );
   process.exit(1);
 }
 

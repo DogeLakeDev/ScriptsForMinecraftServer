@@ -17,7 +17,6 @@ import type {
   DeleteResult,
   InsertResult,
   QueryOptions,
-  TxError,
   TxResponse,
   TxStep,
   UpdateResult,
@@ -53,6 +52,9 @@ export class DbError extends Error {
 }
 
 function withModuleId(path: string): string {
+  if (!_moduleId) {
+    throw new DbError("模块上下文未初始化,setDbModuleContext 未调用", "no_module_context", 0);
+  }
   return HttpDB.withModuleId(path, _moduleId);
 }
 
@@ -64,6 +66,15 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     { authToken: _authToken }
   );
   if (!res.ok) {
+    // LSP: db/tx 失败信封带 step/code,勿只抛 generic error(死代码分支曾丢字段)
+    const data = res.data as { step?: number; code?: string } | undefined;
+    if (typeof data?.step === "number") {
+      throw new DbError(
+        `事务在 step ${data.step} 失败: ${res.error ?? "tx_failed"}`,
+        data.code ?? "internal",
+        res.status
+      );
+    }
     throw new DbError(res.error ?? "db_server_error", "internal", res.status);
   }
   return res.data as T;
@@ -138,7 +149,7 @@ export const db = {
   /**
    * 事务:边界在 db-server 进程。失败自动回滚,成功提交。
    * 录制期:写操作(insert/update/delete/audit/call)可入队;query/get 显式抛错,
-   * 避免返回 []/null 假数据破坏 LSP。call 可入队但返回值不可用(两阶段协议另议)。
+   * 避免返回 []/null 假数据破坏 LSP。call 入队返回 void(无服务端 result 可回放)。
    */
   async tx<T>(fn: (tx: TxContext) => Promise<T>): Promise<T> {
     if (_currentTxId) throw new DbError("嵌套事务暂不支持", "nested_tx", 0);
@@ -164,6 +175,7 @@ export const db = {
         patch: Partial<U>
       ): Promise<U> => {
         push({ op: "update", table, id: String(id), patch });
+        // 录制期无服务端合并行;返回 patch 仅作入队确认,勿当完整行(LSP 残差)
         return patch as U;
       },
       delete: async (table: string, id: string | number, opts?: { hard?: boolean }) => {
@@ -173,10 +185,8 @@ export const db = {
         if (data) push({ op: "audit", table, rowId: String(rowId), action, data });
         else push({ op: "audit", table, rowId: String(rowId), action });
       },
-      call: async <U = unknown>(name: string, input: Record<string, unknown>): Promise<U> => {
+      call: async (name: string, input: Record<string, unknown>): Promise<void> => {
         push({ op: "service", name, input });
-        // 录制期无服务端 result 可回放;勿依赖返回值
-        return undefined as unknown as U;
       },
     };
 
@@ -188,12 +198,13 @@ export const db = {
       throw e;
     }
 
-    const res = await post<TxResponse | TxError>("/api/sfmc/db/tx", { steps });
-    _currentTxId = null;
-    if (!res.ok) {
-      throw new DbError(`事务在 step ${res.step} 失败: ${res.error}`, res.code, 0);
+    try {
+      // post 已在失败信封上抛 DbError(含 step/code);成功即 TxResponse
+      await post<TxResponse>("/api/sfmc/db/tx", { steps });
+      return userResult;
+    } finally {
+      _currentTxId = null;
     }
-    return userResult;
   },
 
   /** 平台预置:审计日志(自动写 _audit 表) */
@@ -232,5 +243,6 @@ export interface TxContext {
   ): Promise<T>;
   delete(table: string, id: string | number, opts?: { hard?: boolean }): Promise<void>;
   audit(table: string, rowId: string | number, action: string, data?: Record<string, unknown>): Promise<void>;
-  call<T = unknown>(name: string, input: Record<string, unknown>): Promise<T>;
+  /** 入队跨模块 service;录制期无返回值(两阶段读回另议) */
+  call(name: string, input: Record<string, unknown>): Promise<void>;
 }

@@ -45,6 +45,9 @@ export class ServiceError extends Error {
 }
 
 function withModuleId(path: string): string {
+  if (!_moduleId) {
+    throw new ServiceError("模块上下文未初始化,setServiceModuleContext 未调用", "no_module_context", 0);
+  }
   return HttpDB.withModuleId(path, _moduleId);
 }
 
