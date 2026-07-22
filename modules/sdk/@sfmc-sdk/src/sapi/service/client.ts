@@ -81,7 +81,9 @@ export const service = {
       authOpts()
     );
     if (!res.ok) {
-      throw new ServiceError(res.error ?? "service_error", "internal", res.status);
+      // LSP:与 db 客户端一致,保留服务端 code,勿一律打成 internal
+      const data = res.data as { error?: string; code?: string } | undefined;
+      throw new ServiceError(data?.error ?? res.error ?? "service_error", data?.code || "internal", res.status);
     }
     return (res.data as { ok: true; result: T }).result;
   },
