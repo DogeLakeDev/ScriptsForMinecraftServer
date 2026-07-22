@@ -207,19 +207,23 @@ test("module-auth: ensureModuleToken / revoke 复用 secret(DRY)", async () => {
   equal(revokeModuleToken(auth, "feature-afk"), false);
 });
 
-test("builtin-handlers: 热禁用按 serviceNames 卸载(OCP)", async () => {
-  const { BUILTIN_SERVICE_PLUGINS, unregisterBuiltinPluginForModule } = await import(
+test("builtin-handlers: 热禁用按 moduleId 卸载(DRY/OCP)", async () => {
+  const { unregisterBuiltinPluginForModule, registerBuiltinPluginForModule } = await import(
     "./services/builtin-handlers.js"
   );
-  const economy = BUILTIN_SERVICE_PLUGINS.find((p) => p.moduleId === "feature-economy");
-  equal(!!economy?.serviceNames?.includes("economy.account.get"), true);
 
   const reg = new ServiceRegistry();
   reg.registerHandler("feature-economy", "economy.account.get", async () => ({}));
   reg.registerHandler("feature-economy", "economy.account.debit", async () => ({}));
+  reg.registerHandler("other-mod", "other.ping", async () => ({}));
   equal(unregisterBuiltinPluginForModule(reg, "feature-economy"), 2);
-  equal(reg.list().length, 0);
+  equal(reg.list().length, 1);
+  equal(reg.list()[0]?.moduleId, "other-mod");
   equal(unregisterBuiltinPluginForModule(reg, "feature-unknown"), 0);
+
+  // 已有同 moduleId handler 时热启用跳过
+  equal(registerBuiltinPluginForModule(reg, { query: (() => []) as never, db: {} as never }, "feature-economy"), true);
+  equal(registerBuiltinPluginForModule(reg, { query: (() => []) as never, db: {} as never }, "feature-economy"), false);
 });
 
 test("TxRunner 交互会话: step 中途读回 insert/get(PR #31 leftover)", async () => {

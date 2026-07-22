@@ -15,25 +15,11 @@ export type BuiltinServiceDeps = { query: QueryFn; db: DatabaseSync };
 export type BuiltinServicePlugin = {
   moduleId: string;
   register: (registry: ServiceRegistry, deps: BuiltinServiceDeps) => void;
-  /** 与 register 写入的 handler 名对齐,供热禁用 unregister */
-  serviceNames?: string[];
 };
 
 /** 内置 service 插件清单 — 唯一扩展点 */
 export const BUILTIN_SERVICE_PLUGINS: BuiltinServicePlugin[] = [
-  {
-    moduleId: "feature-economy",
-    register: registerEconomyHandlers,
-    serviceNames: [
-      "economy.account.get",
-      "economy.account.debit",
-      "economy.account.credit",
-      "economy.account.transfer",
-      "economy.dailyTasks.list",
-      "economy.dailyTasks.submit",
-      "economy.stats.monthly",
-    ],
-  },
+  { moduleId: "feature-economy", register: registerEconomyHandlers },
 ];
 
 /** 按 enabledSet 注册内置插件,返回已注册插件数 */
@@ -51,7 +37,7 @@ export function registerEnabledBuiltinServices(
   return n;
 }
 
-/** 热启用:只注册单个内置插件(若尚未注册) */
+/** 热启用:只注册单个内置插件(若尚未注册) — 以 registry.moduleId 为权威,勿硬编码 service 名(DRY) */
 export function registerBuiltinPluginForModule(
   registry: ServiceRegistry,
   deps: BuiltinServiceDeps,
@@ -59,22 +45,19 @@ export function registerBuiltinPluginForModule(
 ): boolean {
   const plugin = BUILTIN_SERVICE_PLUGINS.find((p) => p.moduleId === moduleId);
   if (!plugin) return false;
-  const already = (plugin.serviceNames ?? []).some((n) => registry.list().some((h) => h.name === n));
+  const already = registry.list().some((h) => h.moduleId === moduleId);
   if (already) return false;
   plugin.register(registry, deps);
   return true;
 }
 
-/** 热禁用:卸掉该模块的内置 handler */
+/** 热禁用:按 moduleId 卸掉该模块全部 handler(勿维护 serviceNames 副本 — DRY/OCP) */
 export function unregisterBuiltinPluginForModule(registry: ServiceRegistry, moduleId: string): number {
-  const plugin = BUILTIN_SERVICE_PLUGINS.find((p) => p.moduleId === moduleId);
-  if (!plugin?.serviceNames) return 0;
   let n = 0;
-  for (const name of plugin.serviceNames) {
-    if (registry.list().some((h) => h.name === name)) {
-      registry.unregisterHandler(name);
-      n += 1;
-    }
+  for (const h of registry.list()) {
+    if (h.moduleId !== moduleId) continue;
+    registry.unregisterHandler(h.name);
+    n += 1;
   }
   return n;
 }

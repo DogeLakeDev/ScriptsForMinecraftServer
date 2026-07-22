@@ -278,7 +278,13 @@ export class ConfigManager {
 
     // 权威契约为 string[];兼容历史 {item_id} 以免旧服务端把缓存清空(LSP 防御)
     ConfigManager.cache.bannedItems = (all.banned_items || [])
-      .map((s) => (typeof s === "string" ? s : s && typeof s === "object" ? String((s as { item_id?: unknown }).item_id || "") : ""))
+      .map((s) =>
+        typeof s === "string"
+          ? s
+          : s && typeof s === "object"
+            ? String((s as { item_id?: unknown }).item_id || "")
+            : ""
+      )
       .filter((id) => !!id);
 
     if (all.clean) {
