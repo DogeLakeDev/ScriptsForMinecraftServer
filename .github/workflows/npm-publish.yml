@@ -5,11 +5,11 @@ name: npm-publish
 # 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
 
 on:
-  # tag 形如 @sfmc-bds/sdk@v0.1.0；勿用以 @ 开头的 glob（Actions 可能匹配失败）。
-  # 包合法性由 tools/resolve-npm-publish-tag.mjs 校验。
+  # tag 含 /（@sfmc-bds/sdk@v0.1.0）；必须用 **，单段 * 无法跨 /
+  # 包合法性由 tools/resolve-npm-publish-tag.mjs 校验
   push:
     tags:
-      - "*sfmc-bds*"
+      - "**sfmc-bds**"
   workflow_dispatch:
     inputs:
       tag:
