@@ -40,7 +40,7 @@
     "module-core:typecheck": "npm run sdk:typecheck",
     "module-core:test": "echo \"no sdk tests yet\"",
     "module-core:verify": "npm run sdk:verify",
-    "pack:verify": "npm run build --workspaces --if-present && npm pack -w @sfmc-bds/sdk && npm pack -w @sfmc-bds/cli && npm pack -w @sfmc-bds/db-server && npm pack -w @sfmc-bds/qq-bridge && npm pack -w @sfmc-bds/bds-tools",
+    "pack:verify": "npm run build --workspaces --if-present && npm pack -w @sfmc-bds/sdk && npm pack -w @sfmc-bds/cli && npm pack -w @sfmc-bds/db-server && npm pack -w @sfmc-bds/qq-bridge && npm pack -w @sfmc-bds/bds-tools && npm pack -w @sfmc-bds/tools",
     "check-modules": "node tools/check-modules.mjs",
     "catalog-sync": "node tools/catalog-sync.mjs",
     "check-ootb": "node tools/check-ootb.mjs",
@@ -56,7 +56,8 @@
     "qq-bridge",
     "bds-tools",
     "sfmc",
-    "remote-controller"
+    "remote-controller",
+    "tools"
   ],
   "engines": {
     "node": ">=22.13.0"
