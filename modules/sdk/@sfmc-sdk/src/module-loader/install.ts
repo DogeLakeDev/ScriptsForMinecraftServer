@@ -9,20 +9,19 @@
  *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll + snapshot
  *   2) world.afterEvents.worldLoad.subscribe:bootAfterWorldLoad
  *   3) system.beforeEvents.shutdown.subscribe:teardown
- *   4) bindDataAdapter():注入 db-server HTTP 适配器
+ *   4) bindDataAdapter():注入 db-server HTTP 适配器(DIP:经 DataAdapter)
  *   5) 注册 setModuleGuard 给 Command.trigger 使用
- *
- * 本批 (Stage A+B):占位实现,host adapters (Command/Permission/HttpDB 等) 在 Stage F
- *                  (core-* 模块迁移)完成后实装。
  */
 
 import { system, world } from "@minecraft/server";
+import { createHttpDataAdapter } from "./http-data-adapter.js";
+import type { DataAdapter } from "./internal/config-manager.js";
 import { ConfigManager } from "./internal/config-manager.js";
 import { ModuleRegistry } from "./runtime.js";
 
 export interface HostBackend {
   /** 注入 db-server 数据适配器 */
-  bindDataAdapter(adapter: unknown): void;
+  bindDataAdapter(adapter: DataAdapter): void;
   /** 关闭 db-server HTTP 客户端 */
   dispose(): void;
 }
@@ -38,6 +37,11 @@ export interface InstallOptions {
   dbServerUrl?: string;
   /** 可选注入自定义 HostBackend(测试用) */
   hostBackend?: HostBackend;
+  /**
+   * 测试/离线可注入自定义 DataAdapter;默认走 HttpDB 实现。
+   * 高层只依赖 DataAdapter 抽象(DIP),不直接依赖 HttpDB。
+   */
+  dataAdapter?: DataAdapter;
   /** 模块 id 列表(默认 undefined = 全部装载,从 catalog 读取) */
   enabledModuleIds?: readonly string[];
 }
@@ -45,16 +49,16 @@ export interface InstallOptions {
 let _installed = false;
 
 export function installHostBootstrap(options: InstallOptions = {}): HostBackend {
-  if (_installed) return _bootstrapStubBackend();
+  if (_installed) return _bootstrapBackend();
   _installed = true;
 
-  // 1) 占位 data adapter:Stage F 之前 ConsoleData 把 readAll 抛 NOT_IMPLEMENTED;
-  //    installHostBootstrap 仍然注册 hooks,只有 ConfigManager.init() 会失败 —
-  //    这是允许的中间形态。modules/src/index.ts 还可以装运行。
-  ConfigManager.bindDataAdapter(stubDataAdapter());
-  if (options.hostBackend) options.hostBackend.bindDataAdapter(undefined);
+  // DIP:ConfigManager ← DataAdapter;默认 HttpDB,可被 options 替换(测试/自定义 host)
+  const adapter =
+    options.dataAdapter ?? createHttpDataAdapter(options.dbServerUrl ? { baseUrl: options.dbServerUrl } : undefined);
+  ConfigManager.bindDataAdapter(adapter);
+  if (options.hostBackend) options.hostBackend.bindDataAdapter(adapter);
 
-  // 2) 装配 system.events
+  // 装配 system.events
   system.beforeEvents.startup.subscribe(async () => {
     try {
       await ConfigManager.init();
@@ -77,22 +81,15 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
     } catch {}
   });
 
-  return _bootstrapStubBackend();
+  return _bootstrapBackend();
 }
 
-function _bootstrapStubBackend(): HostBackend {
+function _bootstrapBackend(): HostBackend {
   return {
-    bindDataAdapter: () => undefined,
+    bindDataAdapter: (adapter: DataAdapter) => {
+      ConfigManager.bindDataAdapter(adapter);
+    },
     dispose: () => undefined,
-  };
-}
-
-function stubDataAdapter() {
-  return {
-    checkHealth: async () => undefined,
-    getAllConfigs: async () => null,
-    getModules: async () => null,
-    setAuthToken: () => undefined,
   };
 }
 
