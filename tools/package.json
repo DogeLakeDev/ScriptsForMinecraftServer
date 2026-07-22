@@ -1,0 +1,32 @@
+{
+  "name": "@sfmc-bds/tools",
+  "version": "0.1.0",
+  "description": "SFMC dev tools - testing before build",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "author": "Shiroha7z",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "tools"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "minecraft-bedrock",
+    "sfmc",
+    "tools",
+    "scriptsforminecraftserver"
+  ],
+  "main": "check-ootb.js",
+  "files": [
+    "./*",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
