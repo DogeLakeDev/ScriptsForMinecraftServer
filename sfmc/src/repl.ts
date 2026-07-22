@@ -21,8 +21,8 @@ function setRaw(v: boolean): void {
   } catch {}
 }
 
-/** HELP 行首:把 MODULE_CMD_NAMES 着色后用 / 拼接(如 module/mod)。 */
-const MODULE_HELP_LABEL = MODULE_CMD_NAMES.map((n) => c.green(n)).join("/");
+/** HELP 行首:染色后的 module 别名标签(权威来源 paintModuleCmdAlias / MODULE_CMD_NAMES)。 */
+const MODULE_HELP_LABEL = paintModuleCmdAlias(c.green);
 
 const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
@@ -53,19 +53,19 @@ ${c.bold("Commands")}
   ${c.green("remote enroll")} <url> <token> [name]
                           Enroll this supervisor with a controller
   ${c.green("remote disable")}            Disable + disconnect remote agent
-  ${paintModuleCmdAlias(c.green)} list
+  ${MODULE_HELP_LABEL} list
                           List installed modules
-  ${paintModuleCmdAlias(c.green)} search [id]
+  ${MODULE_HELP_LABEL} search [id]
                           Fetch registry list / show one module's registry info
-  ${paintModuleCmdAlias(c.green)} install <id> [--from <source>]
+  ${MODULE_HELP_LABEL} install <id> [--from <source>]
                           Fetch + install a module
-  ${paintModuleCmdAlias(c.green)} uninstall <id>
+  ${MODULE_HELP_LABEL} uninstall <id>
                           Remove an installed module
-  ${paintModuleCmdAlias(c.green)} verify [id]
+  ${MODULE_HELP_LABEL} verify [id]
                           Verify installed modules (SHA-256)
-  ${paintModuleCmdAlias(c.green)} info <id>
+  ${MODULE_HELP_LABEL} info <id>
                           Show one installed module's details
-  ${paintModuleCmdAlias(c.green)} enable|disable <id>
+  ${MODULE_HELP_LABEL} enable|disable <id>
                           Toggle module (needs db-server)
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
