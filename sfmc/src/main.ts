@@ -9,10 +9,11 @@ import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, 
 import { c } from "./theme.js";
 
 function printVersion(): void {
-  `${c.text(`⠪⡁⡯⠁`)}
+  /* 此前模板字符串未写入 stdout,导致 `sfmc --version` 无输出。 */
+  console.log(`${c.text(`⠪⡁⡯⠁`)}
   ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
   ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
-  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}\n`;
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}`);
 }
 
 function printUsage(): void {
@@ -139,6 +140,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
+      /* module/mod 别名只维护 MODULE_CMD_NAMES,避免 main/repl case 链漂移(OCP)。 */
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = rest;
         console.log(await dispatchModuleCommand(sub, subRest));

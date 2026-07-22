@@ -12,7 +12,7 @@
  *   - 模块不能 require("fs");只能走这里
  */
 
-export { db, setDbModuleContext, clearDbModuleContext, DbError } from "./client.js";
+export { db, setDbModuleContext, clearDbModuleContext, isDbTxRecording, DbError } from "./client.js";
 export type { TxContext } from "./client.js";
 export type {
   ColumnDef,

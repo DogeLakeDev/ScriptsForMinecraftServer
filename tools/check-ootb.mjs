@@ -45,7 +45,7 @@ async function main() {
     else fail("Node 版本", `需要 ≥22.13，当前 ${process.versions.node}`);
   }
 
-  // 1) 仓库必需文件
+  // 1) 仓库必需文件(发布包 package.json 从 NPM_PUBLISH_PACKAGES 派生 — DRY)
   {
     const required = [
       ".gitignore",
@@ -54,13 +54,10 @@ async function main() {
       "README.md",
       "modules/catalog.json",
       "modules/module-lock.json",
-      "db-server/package.json",
-      "qq-bridge/package.json",
-      "sfmc/package.json",
-      "bds-tools/package.json",
       "tools/fetch-module.mjs",
       "tools/catalog-sync.mjs",
       "tools/check-modules.mjs",
+      ...Object.values(NPM_PUBLISH_PACKAGES),
     ];
     const missing = required.filter((f) => !exists(path.join(ROOT, f)));
     if (missing.length === 0) pass("必备仓库文件齐全");
@@ -130,6 +127,14 @@ async function main() {
         const mods = await requestJson({ port: 3001, method: "GET", path: "/api/sfmc/modules" });
         if (mods.status !== 200 || !Array.isArray(mods.body.modules)) {
           throw new Error(`modules 接口异常 ${mods.status}`);
+        }
+        // configs/all 须含 modules(与 /modules 同源) + module_tokens(SAPI 鉴权注入 — DIP)
+        const all = await requestJson({ port: 3001, method: "GET", path: "/api/sfmc/configs/all" });
+        if (all.status !== 200 || !Array.isArray(all.body.modules)) {
+          throw new Error(`configs/all.modules 异常 ${all.status}`);
+        }
+        if (!all.body.module_tokens || typeof all.body.module_tokens !== "object") {
+          throw new Error("configs/all 缺少 module_tokens");
         }
         pass(`db-server 启动 + 平台 API (modules=${mods.body.modules.length})`);
       } catch (e) {

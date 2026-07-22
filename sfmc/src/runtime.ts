@@ -164,6 +164,16 @@ function nodeBinary(): string {
   return IS_SEA ? "node" : process.execPath;
 }
 
+function serviceChildEnv(service: ServiceId, optsEnv?: NodeJS.ProcessEnv | null) {
+  return {
+    ...process.env,
+    ...optsEnv,
+    SFMC_SERVICE: service,
+    SFMC_ROOT: ROOT,
+    SFMC_PACKAGES_DIR: PACKAGES_DIR,
+  };
+}
+
 /**
  * 启动一个子服务。
  *
@@ -171,26 +181,14 @@ function nodeBinary(): string {
  *   - SFMC_SERVICE / SFMC_ROOT / SFMC_PACKAGES_DIR
  */
 export function spawnService(service: ServiceId, args: string[] = [], opts: SpawnOptions = {}) {
-  const env = {
-    ...process.env,
-    ...opts.env,
-    SFMC_SERVICE: service,
-    SFMC_ROOT: ROOT,
-    SFMC_PACKAGES_DIR: PACKAGES_DIR,
-  };
+  const env = serviceChildEnv(service, opts.env as NodeJS.ProcessEnv | undefined);
   const script = resolveServiceScript(service);
   return spawn(nodeBinary(), [script, ...args], { ...opts, env });
 }
 
 /** spawnService 的同步版本 */
 export function spawnServiceSync(service: ServiceId, args: string[] = [], opts: SpawnSyncOptions = {}) {
-  const env = {
-    ...process.env,
-    ...opts.env,
-    SFMC_SERVICE: service,
-    SFMC_ROOT: ROOT,
-    SFMC_PACKAGES_DIR: PACKAGES_DIR,
-  };
+  const env = serviceChildEnv(service, opts.env as NodeJS.ProcessEnv | undefined);
   const script = resolveServiceScript(service);
   return spawnSync(nodeBinary(), [script, ...args], { ...opts, env });
 }

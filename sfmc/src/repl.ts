@@ -21,6 +21,9 @@ function setRaw(v: boolean): void {
   } catch {}
 }
 
+/** HELP 行首:把 MODULE_CMD_NAMES 着色后用 / 拼接(如 module/mod)。 */
+const MODULE_HELP_LABEL = MODULE_CMD_NAMES.map((n) => c.green(n)).join("/");
+
 const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
   ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
