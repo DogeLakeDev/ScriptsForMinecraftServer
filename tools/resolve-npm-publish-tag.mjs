@@ -5,7 +5,10 @@
  *
  * 用法(workflow):
  *   node tools/resolve-npm-publish-tag.mjs
- *   依赖 env: GITHUB_REF_NAME, GITHUB_OUTPUT
+ *   依赖 env: PUBLISH_TAG 或 GITHUB_REF_NAME,GITHUB_OUTPUT
+ *
+ * 另:探测 registry 是否已有同版本,写 already_published=true,
+ * 避免 workflow_dispatch 重跑对已发布版本 E403(与 publish 步骤幂等)。
  */
 import fs from "node:fs";
 import { NPM_PUBLISH_PACKAGES, resolvePublishPackage } from "./lib/npm-publish-packages.mjs";
@@ -40,16 +43,34 @@ if (actual !== ver) {
   process.exit(1);
 }
 
+/** @returns {Promise<boolean>} */
+async function isAlreadyPublished(name, version) {
+  const url = `https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`;
+  try {
+    const res = await fetch(url);
+    return res.status === 200;
+  } catch (e) {
+    console.warn(`[resolve-npm-publish-tag] registry probe failed: ${e?.message || e}`);
+    return false;
+  }
+}
+
+const already = await isAlreadyPublished(resolved, ver);
+if (already) {
+  console.log(`Already published on npm: ${resolved}@${ver}`);
+} else {
+  console.log(`Version OK: ${resolved}@${ver} (${pkgPath})`);
+}
+
 const lines = [
   `tag=${tag}`,
   `pkg=${resolved}`,
   `workspace=${resolved}`,
   `ver=${ver}`,
   `pkg_path=${pkgPath}`,
+  `already_published=${already ? "true" : "false"}`,
 ];
 
 if (outFile) {
   fs.appendFileSync(outFile, lines.join("\n") + "\n");
 }
-
-console.log(`Version OK: ${resolved}@${ver} (${pkgPath})`);
