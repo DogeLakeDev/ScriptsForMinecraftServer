@@ -1,17 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import { WebSocket } from "ws";
-import { configPath } from "@sfmc/sdk/node/config";
+import { configPath, ensureJson, writeJson, type RemoteConfig } from "@sfmc/sdk/node/config";
 import { cmdRestart, cmdSend, cmdStart, cmdStop } from "./commands.js";
 import { ROOT } from "./runtime.js";
 import { SERVICE_NAMES, serviceStatus, type ServiceName } from "./services.js";
-
-type RemoteConfig = {
-  enabled?: boolean;
-  controller_url?: string;
-  agent_id?: string;
-  agent_secret?: string;
-};
 
 type Task = {
   type: "task";
@@ -40,18 +31,13 @@ let stopping = false;
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
 
+/** 启动时确保 remote.json 存在,返回现有或空配置。 */
 function loadConfig(): RemoteConfig {
-  try {
-    return JSON.parse(fs.readFileSync(configPath(ROOT, "remote.json"), "utf-8")) as RemoteConfig;
-  } catch {
-    return {};
-  }
+  return ensureJson<RemoteConfig>(configPath(ROOT, "remote.json"), {});
 }
 
 function writeConfig(config: RemoteConfig): void {
-  const file = configPath(ROOT, "remote.json");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+  writeJson(configPath(ROOT, "remote.json"), config);
 }
 
 function isService(value: string | undefined): value is ServiceName {

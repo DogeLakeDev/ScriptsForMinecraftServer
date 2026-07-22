@@ -28,6 +28,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
+import { configPath, readJson, type DBConfig } from "@sfmc/sdk/node/config";
 import { c } from "./theme.js";
 import { ROOT } from "./runtime.js";
 import { findUnknownModules } from "./registry.js";
@@ -236,24 +237,8 @@ export async function cmdModuleVerify(args: string[]): Promise<string> {
 /* ───────────────────────────────────────────────────────────────
  *  enable / disable  — talk to db-server over loopback HTTP
  * ─────────────────────────────────────────────────────────────── */
-function configsPath(): string {
-  return path.join(ROOT, "configs", "db_config.json");
-}
-
-interface DbConfig {
-  db_port?: number;
-  http_auth?: string;
-}
-
-function readDbConfig(): DbConfig {
-  const p = configsPath();
-  if (!existsSync(p)) return {};
-  try {
-    const { readFileSync } = require("node:fs") as typeof import("node:fs");
-    return JSON.parse(readFileSync(p, "utf8")) as DbConfig;
-  } catch {
-    return {};
-  }
+function readDbConfig(): DBConfig {
+  return (readJson<DBConfig>(configPath(ROOT, "db_config.json")) ?? {}) as DBConfig;
 }
 
 async function postModuleToggle(id: string, action: "enable" | "disable"): Promise<string> {

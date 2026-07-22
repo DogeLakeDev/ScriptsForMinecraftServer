@@ -22,8 +22,8 @@
  *   - 校验调用方 moduleId 在 enabled 列表(否则 403)
  */
 
+import { readJson, writeJson, type TokenStore } from "@sfmc/sdk/node/config";
 import { createHmac, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "./lib/log.js";
 
@@ -64,21 +64,13 @@ export function buildModuleAuth(opts: {
   }
 
   const outDir = join(opts.projectRoot, "data");
-  mkdirSync(outDir, { recursive: true });
   const outFile = join(outDir, "module-tokens.json");
-  writeFileSync(
-    outFile,
-    JSON.stringify(
-      {
-        generatedAt: new Date().toISOString(),
-        secretGenerated: !opts.envAuthToken,
-        tokens,
-      },
-      null,
-      2
-    ) + "\n",
-    "utf8"
-  );
+  writeJson(outFile, {
+    tokens,
+    secret,
+    generatedAt: new Date().toISOString(),
+    secretGenerated: !opts.envAuthToken,
+  });
 
   log.success(
     `[auth] 已为 ${opts.enabledModuleIds.length} 个模块派生 HMAC token,写入 ${outFile}`
@@ -105,16 +97,9 @@ export function buildModuleAuth(opts: {
 }
 
 export function loadModuleAuth(projectRoot: string): ModuleAuthMap | null {
-  const p = join(projectRoot, "data", "module-tokens.json");
-  if (!existsSync(p)) return null;
-  try {
-    const raw = readFileSync(p, "utf8");
-    const parsed = JSON.parse(raw) as { tokens?: Record<string, string>; secret?: string };
-    if (!parsed.tokens || !parsed.secret) return null;
-    return { tokens: parsed.tokens, secret: parsed.secret };
-  } catch {
-    return null;
-  }
+  const parsed = readJson<TokenStore>(join(projectRoot, "data", "module-tokens.json"));
+  if (!parsed || !parsed.tokens || !parsed.secret) return null;
+  return { tokens: parsed.tokens, secret: parsed.secret };
 }
 
 /**

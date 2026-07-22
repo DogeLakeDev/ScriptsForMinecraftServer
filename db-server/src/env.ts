@@ -2,7 +2,7 @@
  * env.ts — 环境配置加载
  */
 
-import { configPath, readJson, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
+import { ensureJsonConfig, modulePath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +12,18 @@ import { dirname } from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const DEFAULT_DB_CONFIG = {
+  db_port: 3001,
+  dbDir: "data/sfmc_data.db",
+  modulesDir: "modules",
+} as const;
+
+const DEFAULT_QQ_CONFIG = {
+  llbot_host: "127.0.0.1",
+  llbot_port: 3004,
+  llbot_token: "",
+} as const;
 
 export interface EnvConfig {
   PROJECT_ROOT: string;
@@ -35,10 +47,18 @@ export interface EnvConfig {
 
 export function loadEnv(): EnvConfig {
   const PROJECT_ROOT = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
-  const dbcfgPath = configPath(PROJECT_ROOT, "db_config.json");
-  const qqcfgPath = configPath(PROJECT_ROOT, "qq_config.json");
-  const dbconfig = (readJson(dbcfgPath) as Record<string, unknown>) ?? {};
-  const qqconfig = (readJson(qqcfgPath) as Record<string, unknown>) ?? {};
+  /* 启动时确认 db/qq config 存在;不存在就写带默认值的骨架。
+   * 不依赖 wizard:wizard 只填字段,骨架由服务自己 ensure。 */
+  const dbconfig = ensureJsonConfig<Record<string, unknown>>(
+    PROJECT_ROOT,
+    "db_config.json",
+    DEFAULT_DB_CONFIG as unknown as Record<string, unknown>
+  );
+  const qqconfig = ensureJsonConfig<Record<string, unknown>>(
+    PROJECT_ROOT,
+    "qq_config.json",
+    DEFAULT_QQ_CONFIG as unknown as Record<string, unknown>
+  );
 
   // ── 优先级:JSON > 系统环境变量 > 默认值 ───────────────────────
   const envBaseline = { ...process.env };
@@ -96,8 +116,8 @@ export function loadEnv(): EnvConfig {
   const MODULES_DIR = dbconfig["modulesDir"]
     ? resolve(PROJECT_ROOT, String(dbconfig["modulesDir"]))
     : join(PROJECT_ROOT, "modules");
-  const MODULE_CATALOG_PATH = join(MODULES_DIR, "catalog.json");
-  const MODULE_LOCK_PATH = join(MODULES_DIR, "module-lock.json");
+  const MODULE_CATALOG_PATH = modulePath(MODULES_DIR, "catalog.json");
+  const MODULE_LOCK_PATH = modulePath(MODULES_DIR, "module-lock.json");
 
   return {
     PROJECT_ROOT,

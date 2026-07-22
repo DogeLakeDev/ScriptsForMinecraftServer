@@ -2,8 +2,8 @@
  * version.ts — 版本号工具 / 版本缓存
  */
 
+import { readJson, writeJson } from "@sfmc/sdk/node/config";
 import fs from "node:fs";
-import path from "node:path";
 import { VERSION_CACHE } from "./paths.js";
 import { hashFileSync, hashFileAsync } from "./fsx.js";
 import { log } from "./log.js";
@@ -49,11 +49,7 @@ interface CacheEntry {
 }
 
 function readCache(): Record<string, CacheEntry> {
-  try {
-    return JSON.parse(fs.readFileSync(VERSION_CACHE, "utf-8")) as Record<string, CacheEntry>;
-  } catch {
-    return {};
-  }
+  return readJson<Record<string, CacheEntry>>(VERSION_CACHE) ?? {};
 }
 
 /** 仅保留最近 3 条版本缓存 (避免无限增长) */
@@ -68,9 +64,7 @@ export function saveVersionCache(version: string, sha256: string): void {
   const cache = readCache();
   cache[version] = { sha256, verified_at: Date.now() };
   try {
-    const trimmed = trimCache(cache);
-    fs.mkdirSync(path.dirname(VERSION_CACHE), { recursive: true });
-    fs.writeFileSync(VERSION_CACHE, JSON.stringify(trimmed, null, 2));
+    writeJson(VERSION_CACHE, trimCache(cache));
   } catch {
     /* ignore */
   }

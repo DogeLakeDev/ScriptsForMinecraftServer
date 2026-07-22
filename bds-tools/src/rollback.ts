@@ -8,6 +8,7 @@
  * 持久化: ROLLBACK_MARKER (BDSTools/.last_update_rollback.json) 用于跨进程记录。
  */
 
+import { readJson, writeJson } from "@sfmc/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
 import { ROLLBACK_MARKER } from "./paths.js";
@@ -25,7 +26,7 @@ export interface RollbackMarker {
 /** 在备份完成后调用: 记录快照指示符。 */
 export function writeRollbackMarker(marker: RollbackMarker): void {
   try {
-    fs.writeFileSync(ROLLBACK_MARKER, JSON.stringify(marker, null, 2));
+    writeJson(ROLLBACK_MARKER, marker);
     log.info(`[回滚] 已记录回滚标记 -> ${ROLLBACK_MARKER}`);
   } catch (e) {
     log.warn(`[回滚] 无法写入标记: ${(e as Error).message}`);
@@ -41,12 +42,7 @@ export function clearRollbackMarker(): void {
 }
 
 export function readRollbackMarker(): RollbackMarker | null {
-  try {
-    if (!fs.existsSync(ROLLBACK_MARKER)) return null;
-    return JSON.parse(fs.readFileSync(ROLLBACK_MARKER, "utf-8")) as RollbackMarker;
-  } catch {
-    return null;
-  }
+  return readJson<RollbackMarker>(ROLLBACK_MARKER) ?? null;
 }
 
 /**

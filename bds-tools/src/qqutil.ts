@@ -7,38 +7,28 @@
  */
 
 import http from "node:http";
-import fs from "node:fs";
-import { configPath, modulePath } from "@sfmc/sdk/node/config";
+import { configPath, modulePath, readJson, type Catalog, type ModuleLock, type QQBridgeConfig } from "@sfmc/sdk/node/config";
 import { ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
 
-interface QqConfig {
-  llbot_http?: string;
-  qq_group_id?: string;
-}
+type QqConfig = Pick<QQBridgeConfig, "llbot_http" | "qq_group_id">;
 
 let cachedCfg: QqConfig | null = null;
 function getConfig(): QqConfig {
   if (cachedCfg) return cachedCfg;
-  const cfgPath = configPath(ROOT_DIR, "qq_config.json");
-  try {
-    cachedCfg = JSON.parse(fs.readFileSync(cfgPath, "utf-8")) as QqConfig;
-  } catch {
-    cachedCfg = {};
-  }
+  cachedCfg = (readJson<QQBridgeConfig>(configPath(ROOT_DIR, "qq_config.json")) ?? {}) as QqConfig;
   return cachedCfg;
 }
 
 /** 检查 qq-bridge 模块是否启用 */
 export function isQqBridgeEnabled(): boolean {
-  try {
-    const catalog = JSON.parse(fs.readFileSync(modulePath(ROOT_DIR, "catalog.json"), "utf-8")) as { modules?: Array<{ id?: string; configKey?: string }> };
-    const lock = JSON.parse(fs.readFileSync(modulePath(ROOT_DIR, "module-lock.json"), "utf-8")) as { modules?: Record<string, { enabled?: boolean }> };
-    const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge");
-    return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
-  } catch {
-    return true; // 默认开启: 模块目录缺失则保守视为可用
-  }
+  const catalog = readJson<Catalog>(modulePath(ROOT_DIR, "catalog.json"));
+  const lock = readJson<ModuleLock>(modulePath(ROOT_DIR, "module-lock.json"));
+  if (!catalog || !lock) return true; // 模块目录缺失则保守视为可用
+  const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge") as
+    | { id?: string }
+    | undefined;
+  return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
 }
 
 function sendToLLBot(payload: unknown, timeoutMs = 5_000): Promise<void> {

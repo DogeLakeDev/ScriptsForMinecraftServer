@@ -1,5 +1,5 @@
 import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc/sdk/node/config";
-import { configPath, readJson } from "@sfmc/sdk/node/config";
+import { configPath, ensureJsonConfig, readJson } from "@sfmc/sdk/node/config";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
@@ -190,9 +190,14 @@ class Service {
 }
 
 function createServices(): Record<ServiceName, Service> {
-  const bdsCfg = (readJson(configPath(ROOT, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
-  const qqCfg = (readJson(configPath(ROOT, "qq_config.json")) ?? {}) as QQBridgeConfig;
-  const dbCfg = (readJson(configPath(ROOT, "db_config.json")) ?? {}) as DBConfig;
+  /* 启动时 ensure 三个核心配置文件存在;不存在就写空 {}。
+   * wizard 只负责填字段,骨架由本进程启动时一次性就地创建。 */
+  ensureJsonConfig<BdsUpdaterConfig>(ROOT, "bds_updater.json", {});
+  ensureJsonConfig<QQBridgeConfig>(ROOT, "qq_config.json", {});
+  ensureJsonConfig<DBConfig>(ROOT, "db_config.json", {});
+  const bdsCfg = readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {};
+  const qqCfg = readJson<QQBridgeConfig>(configPath(ROOT, "qq_config.json")) ?? {};
+  const dbCfg = readJson<DBConfig>(configPath(ROOT, "db_config.json")) ?? {};
   const bdsPath = bdsCfg.bds_path ?? ROOT;
   const llbotEnabled = qqCfg.llbot_enabled !== false;
   const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";

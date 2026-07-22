@@ -34,6 +34,8 @@ import { SchemaRegistry } from "./schema-registry.js";
 import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
 
+import { readJson, writeJson } from "@sfmc/sdk/node/config";
+
 import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
@@ -53,7 +55,6 @@ import {
   economyResult as domainEconomyResult,
   ensureEconomyAccount as domainEnsureEconomyAccount,
 } from "./domain/economy.js";
-import { readJsonFile, writeJsonFile } from "./lib/json.js";
 import { isEnabled, loadModuleLock, updateModuleState } from "./lib/module-state.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 
@@ -74,9 +75,7 @@ log.success(
 
 // ── enabled 集合(从 lock file)─────────────────────────────
 const lockFile = loadModuleLock(env.MODULE_LOCK_PATH);
-const moduleCatalog = readJsonFile<{ modules?: unknown[] }>(env.MODULE_CATALOG_PATH, {
-  modules: [],
-});
+const moduleCatalog = readJson<{ modules?: unknown[] }>(env.MODULE_CATALOG_PATH) ?? { modules: [] };
 const catalogIds = new Set(
   Array.isArray(moduleCatalog.modules)
     ? (moduleCatalog.modules as Array<{ id?: string }>)
@@ -189,7 +188,7 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   // 直接更新启动时缓存的 lockFile(而非另读一份新副本),
   // 否则 buildModuleList() 读的仍是旧缓存,导致启停后 enabled 状态不翻转。
   updateModuleState(lockFile, mod.id, { enabled: !!enabled });
-  writeJsonFile(env.MODULE_LOCK_PATH, lockFile);
+  writeJson(env.MODULE_LOCK_PATH, lockFile);
 }
 
 // ── 路由工厂实例 (旧业务路径 — 保留直到各模块迁 v2) ────────────────

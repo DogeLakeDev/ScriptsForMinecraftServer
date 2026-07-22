@@ -12,9 +12,9 @@
  * 简单 mutex),不是细粒度 lock — 模块 config 文件本来就小;并发冲突概率极低。
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { readJson, writeJson } from "@sfmc/sdk/node/config";
 import { json as defaultJson, type Method } from "../lib/http.js";
 import { assertModulePermission, Perm } from "../permission-gate.js";
 import type { ModuleManifestV2 } from "../manifest-loader.js";
@@ -35,15 +35,9 @@ function configPath(projectRoot: string, key: string): string {
 }
 
 function readConfig(file: string): Record<string, unknown> {
-  if (!existsSync(file)) return {};
-  try {
-    const raw = readFileSync(file, "utf8");
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return parsed as Record<string, unknown>;
-  } catch {
-    return {};
-  }
+  const parsed = readJson<unknown>(file);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  return parsed as Record<string, unknown>;
 }
 
 const subscribers = new Map<string, Set<(payload: unknown) => void>>();
@@ -116,7 +110,7 @@ export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>
         const value = body.value;
         const cfg = readConfig(file);
         cfg[key] = value;
-        writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+        writeJson(file, cfg);
         notify(configKey, key, value);
         json(res, { ok: true });
       } catch (e) {

@@ -180,8 +180,8 @@ export function moduleDir(runtimeRoot: string): string {
   return path.join(runtimeRoot, "modules");
 }
 
-export function modulePath(runtimeRoot: string, name: ModuleFileName): string {
-  return path.join(moduleDir(runtimeRoot), name);
+export function modulePath(dir: string, name: ModuleFileName): string {
+  return path.join(dir, name);
 }
 
 export function readJson<T>(filePath: string, fallback?: T): T | undefined {
@@ -213,4 +213,27 @@ export function patchJson<T extends object>(filePath: string, partial: Partial<T
   const merged = { ...existing, ...partial } as T;
   writeJson(filePath, merged);
   return merged;
+}
+
+/**
+ * 确保 JSON 文件存在。
+ *   - 存在 → 不动,返回现有内容(或 fallback)
+ *   - 不存在 → 写入 `seed`(默认 `{}`),返回 seed
+ *
+ * 设计:仓顶服务启动时调用,代替"由 wizard 创建 json"的老模式。
+ * 不应该由 wizard 兜底——wizard 只负责交互式填字段,文件骨架应该是
+ * 进程启动时一次性就地创建。
+ */
+export function ensureJson<T>(filePath: string, seed: T = {} as T): T {
+  const existing = readJson<T>(filePath);
+  if (existing !== undefined) return existing;
+  writeJson(filePath, seed);
+  return seed;
+}
+
+/**
+ * 仓顶 config JSON 的 ensure 便捷版:拼接 configPath + ensureJson。
+ */
+export function ensureJsonConfig<T>(root: string, name: ConfigName, seed: T = {} as T): T {
+  return ensureJson<T>(configPath(root, name), seed);
 }

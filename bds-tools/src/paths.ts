@@ -5,7 +5,12 @@
  * SCRIPT_DIR = bds-tools/ 内部 dist 目录,bds 的 PID / log / cache 文件落盘处。
  */
 
-import { configPath, resolveRuntimeRoot, type BdsUpdaterConfig } from "@sfmc/sdk/node/config";
+import {
+  configPath,
+  ensureJsonConfig,
+  resolveRuntimeRoot,
+  type BdsUpdaterConfig,
+} from "@sfmc/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,16 +25,16 @@ export const VERSION_CACHE: string = path.join(SCRIPT_DIR, ".version_cache.json"
 export const PID_FILE: string = path.join(SCRIPT_DIR, ".bds.pid");
 export const ROLLBACK_MARKER: string = path.join(SCRIPT_DIR, ".last_update_rollback.json");
 
-/** 加载并解析 bds_updater.json */
+/** 加载并解析 bds_updater.json。
+ *  启动时 ensure 文件存在,避免 wizard 没跑时 bds_updater.json 缺失导致 loadConfig 抛错。 */
 export function loadConfig(): BdsUpdaterConfig {
-  try {
-    const raw = fs.readFileSync(CFG_PATH, "utf-8");
-    const cfg = JSON.parse(raw) as BdsUpdaterConfig & { _comment?: unknown };
-    delete cfg._comment;
-    return cfg as BdsUpdaterConfig;
-  } catch (e) {
-    throw new Error(`无法读取 ${CFG_PATH}: ${(e as Error).message}`);
-  }
+  const cfg = ensureJsonConfig<BdsUpdaterConfig & { _comment?: unknown }>(
+    ROOT_DIR,
+    "bds_updater.json",
+    {}
+  );
+  delete cfg._comment;
+  return cfg;
 }
 
 /** 解析后的 BDS 路径 / 备份目录 */
