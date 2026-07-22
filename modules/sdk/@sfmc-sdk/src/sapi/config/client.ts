@@ -35,6 +35,17 @@ export function clearConfigModuleContext(): void {
   HttpDB.setAuthToken("");
 }
 
+/**
+ * 与 db/service 客户端一致:鉴权身份走 ?moduleId=。
+ * verifyModuleAuth 只认 query 上的 moduleId,body 里的 moduleId 不算数;
+ * 之前 config 漏带 query → 即便注入了 token 也会 401(LSP/DRY 违规)。
+ */
+function withModuleId(path: string): string {
+  if (!_moduleId) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}moduleId=${encodeURIComponent(_moduleId)}`;
+}
+
 async function ensureLoaded(): Promise<void> {
   if (!_configKey) {
     throw new Error("[config] 模块上下文未初始化,setConfigModuleContext 未调用");
@@ -43,7 +54,7 @@ async function ensureLoaded(): Promise<void> {
   _loadPromise = (async () => {
     const res = await HttpDB.typedRequest<{ config: Record<string, unknown> }>(
       HttpRequestMethod.GET,
-      `/api/sfmc/configs/${encodeURIComponent(_configKey)}`,
+      withModuleId(`/api/sfmc/configs/${encodeURIComponent(_configKey)}`),
       undefined
     );
     if (res.ok && res.data) {
@@ -69,8 +80,8 @@ export const config = {
     }
     const res = await HttpDB.typedRequest<{ ok: true }>(
       HttpRequestMethod.POST,
-      `/api/sfmc/configs/${encodeURIComponent(_configKey)}/set`,
-      { moduleId: _moduleId, key, value }
+      withModuleId(`/api/sfmc/configs/${encodeURIComponent(_configKey)}/set`),
+      { key, value }
     );
     if (res.ok) {
       _cache.set(key, value);

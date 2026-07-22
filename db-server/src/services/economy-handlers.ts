@@ -7,7 +7,7 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import type { QueryFn } from "../lib/sqlite.js";
-import type { ServiceRegistry } from "../service-registry.js";
+import { DispatchError, type ServiceRegistry } from "../service-registry.js";
 import {
   applyEconomyTransaction,
   getEconomyAccount,
@@ -32,9 +32,10 @@ function num(v: unknown): number {
   return Number(v);
 }
 
+/** 领域失败保留 status/code,避免被 registry 压成 500 internal(LSP) */
 function unwrapOk(result: ApplyEconomyResult): unknown {
   if (!result.ok) {
-    throw new Error(result.error);
+    throw new DispatchError(result.error, "domain_error", result.status);
   }
   return {
     transactionId: result.transactionId,
@@ -56,7 +57,7 @@ export function registerEconomyHandlers(
   registry.registerHandler(MODULE_ID, "economy.account.get", async (ctx) => {
     const p = asObj(ctx.payload);
     const playerId = str(p.playerId ?? p.player_id);
-    if (!playerId) throw new Error("missing_playerId");
+    if (!playerId) throw new DispatchError("missing_playerId", "domain_error", 400);
     const q = (ctx.tx?.query as unknown as AnyQuery) ?? standaloneQuery;
     return getEconomyAccount(q, playerId, str(p.playerName ?? p.player_name));
   });
@@ -65,7 +66,7 @@ export function registerEconomyHandlers(
     const p = asObj(ctx.payload);
     const playerId = str(p.playerId ?? p.player_id ?? p.actorId);
     const amount = num(p.amount);
-    if (!playerId) throw new Error("missing_playerId");
+    if (!playerId) throw new DispatchError("missing_playerId", "domain_error", 400);
     const q = (ctx.tx?.query as unknown as AnyQuery) ?? standaloneQuery;
     const db = ctx.tx?.db ?? deps.db;
     const idem = str(p.idempotencyKey ?? p.idempotency_key);
@@ -92,7 +93,7 @@ export function registerEconomyHandlers(
     const p = asObj(ctx.payload);
     const playerId = str(p.playerId ?? p.player_id ?? p.actorId);
     const amount = num(p.amount);
-    if (!playerId) throw new Error("missing_playerId");
+    if (!playerId) throw new DispatchError("missing_playerId", "domain_error", 400);
     const q = (ctx.tx?.query as unknown as AnyQuery) ?? standaloneQuery;
     const db = ctx.tx?.db ?? deps.db;
     const idem = str(p.idempotencyKey ?? p.idempotency_key);
@@ -121,7 +122,7 @@ export function registerEconomyHandlers(
       str(p.fromPlayerId ?? p.sourcePlayerId ?? p.source_player_id ?? p.actorId ?? p.actor_id) || "";
     const to = str(p.toPlayerId ?? p.targetPlayerId ?? p.target_player_id) || "";
     const amount = num(p.amount);
-    if (!from || !to) throw new Error("missing_from_or_to");
+    if (!from || !to) throw new DispatchError("missing_from_or_to", "domain_error", 400);
     const q = (ctx.tx?.query as unknown as AnyQuery) ?? standaloneQuery;
     const db = ctx.tx?.db ?? deps.db;
     const idem = str(p.idempotencyKey ?? p.idempotency_key);
@@ -144,26 +145,34 @@ export function registerEconomyHandlers(
     return unwrapOk(result);
   });
 
+  // 信封与 daily-task 消费方对齐:{ tasks: [...] }
   registry.registerHandler(MODULE_ID, "economy.dailyTasks.list", async (ctx) => {
     const p = asObj(ctx.payload);
     const q = (ctx.tx?.query as unknown as AnyQuery) ?? standaloneQuery;
-    return listDailyTasks(q, {
-      status: str(p.status) || "active",
-      includeExpired: Boolean(p.includeExpired),
-    });
+    return {
+      tasks: listDailyTasks(q, {
+        status: str(p.status) || "active",
+        includeExpired: Boolean(p.includeExpired),
+      }),
+    };
   });
 
+  // 信封与 daily-task 消费方对齐:成功/失败都带 ok,业务失败不抛(避免物品已扣却无法走 !ok 退还分支)
   registry.registerHandler(MODULE_ID, "economy.dailyTasks.submit", async (ctx) => {
     const p = asObj(ctx.payload);
     const actorId = str(p.actorId ?? p.playerId ?? p.player_id);
     const taskId = str(p.taskId ?? p.task_id);
     const quantity = num(p.quantity ?? 1);
-    if (!actorId || !taskId) throw new Error("missing_actor_or_task");
+    if (!actorId || !taskId) {
+      return { ok: false, error: "missing_actor_or_task", status: 400 };
+    }
     const q = (ctx.tx?.query as unknown as AnyQuery) ?? standaloneQuery;
     const db = ctx.tx?.db ?? deps.db;
     const result = submitDailyTaskTx(q, db, { actorId, taskId, quantity }, { alreadyInTx: !!ctx.tx });
-    if (!result.ok) throw new Error(result.error);
-    return result.data;
+    if (!result.ok) {
+      return { ok: false, error: result.error, status: result.status };
+    }
+    return { ok: true, ...result.data };
   });
 
   registry.registerHandler(MODULE_ID, "economy.stats.monthly", async (ctx) => {
