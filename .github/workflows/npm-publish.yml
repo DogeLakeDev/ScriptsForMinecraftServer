@@ -58,9 +58,9 @@ jobs:
         if: steps.meta.outputs.already_published != 'true' && steps.meta.outputs.workspace != '@sfmc-bds/sdk'
         run: npm run build --workspace @sfmc-bds/sdk
 
+      # --if-present:纯脚本包(如 @sfmc-bds/tools)无编译步骤,勿强制 build(OCP)
       - name: build target workspace
         if: steps.meta.outputs.already_published != 'true'
-        # --if-present: 允许无编译步骤的纯 JS/mjs 包（如 @sfmc-bds/tools）
         run: npm run build --workspace "${{ steps.meta.outputs.workspace }}" --if-present
 
       - name: publish to npm

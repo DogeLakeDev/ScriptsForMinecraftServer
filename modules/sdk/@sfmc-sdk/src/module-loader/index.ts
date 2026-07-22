@@ -14,4 +14,5 @@ export type { ModuleLifecycle, ModuleDescriptor } from "./runtime.js";
 export { guardEvent, announceLoaded } from "./runtime.js";
 export { installHostBootstrap } from "./install.js";
 export type { InstallOptions, HostBackend, ModuleSurface } from "./install.js";
+export { createHttpDataAdapter } from "./http-data-adapter.js";
 export const SFMC_MODULE_LOADER_VERSION = "0.1.0" as const;

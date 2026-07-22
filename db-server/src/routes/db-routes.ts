@@ -73,7 +73,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         const result = deps.schemaRegistry!.define(moduleId, req2);
         json(res, { success: true, table: result.table, created: result.created }, 200);
       } catch (e) {
-        json(res, { success: false, error: (e as Error).message }, 400);
+        jsonV2Fail(res, (e as Error).message, 400);
       }
       return true;
     }
@@ -89,7 +89,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         const status = result.ok ? 200 : 400;
         json(res, result as unknown as Record<string, unknown>, status);
       } catch (e) {
-        json(res, { success: false, error: (e as Error).message }, 500);
+        jsonV2Fail(res, (e as Error).message, 500);
       }
       return true;
     }
@@ -109,17 +109,17 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
           const result = await deps.txRunner!.run({ moduleId, steps: [step] });
           if (!result.ok) {
             const code = result.code === "permission_denied" ? 403 : 400;
-            json(res, { success: false, error: result.error, step: result.step, code: result.code }, code);
+            jsonV2Fail(res, result.error, code, result.code, { step: result.step });
             return true;
           }
           const first = result.results[0];
           json(res, { success: true, ...unwrapResult(first, cand.op) }, 200);
         } catch (e) {
           if (e instanceof PermissionDeniedError) {
-            json(res, { success: false, error: e.message, code: "permission_denied" }, 403);
+            jsonV2Fail(res, e.message, 403, "permission_denied");
             return true;
           }
-          json(res, { success: false, error: (e as Error).message }, 500);
+          jsonV2Fail(res, (e as Error).message, 500);
         }
         return true;
       }
@@ -136,12 +136,12 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         };
         const result = await deps.txRunner!.run({ moduleId, steps: [step] });
         if (!result.ok) {
-          json(res, { success: false, error: result.error }, 400);
+          jsonV2Fail(res, result.error, 400, result.code);
           return true;
         }
         json(res, { success: true });
       } catch (e) {
-        json(res, { success: false, error: (e as Error).message }, 500);
+        jsonV2Fail(res, (e as Error).message, 500);
       }
       return true;
     }
@@ -166,7 +166,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
           json(res, { success: r.ok });
         }
       } catch (e) {
-        json(res, { success: false, error: (e as Error).message }, 500);
+        jsonV2Fail(res, (e as Error).message, 500);
       }
       return true;
     }

@@ -6,8 +6,14 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** 主仓根目录 */
-export const ROOT = path.resolve(__dirname, "..", "..");
+/**
+ * 主仓根目录。
+ * 优先 SFMC_ROOT(与 db-server / 冒烟脚本一致);否则按 tools/lib 相对路径回退到 monorepo 根。
+ * 从 npm 安装到 node_modules 时务必设置 SFMC_ROOT。
+ */
+export const ROOT = process.env.SFMC_ROOT
+  ? path.resolve(process.env.SFMC_ROOT)
+  : path.resolve(__dirname, "..", "..");
 
 export const MODULES_DIR = path.join(ROOT, "modules");
 export const PACKAGES_DIR = path.join(MODULES_DIR, "packages");

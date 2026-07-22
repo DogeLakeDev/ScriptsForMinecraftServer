@@ -11,15 +11,25 @@ import { system } from "@minecraft/server";
 import { http, HttpRequest, HttpRequestMethod } from "@minecraft/server-net";
 import { isSuccessfulHttpEnvelope } from "./http-envelope.js";
 
-const HOST = "127.0.0.1";
-const PORT = 3001;
-const BASE_URL = `http://${HOST}:${PORT}`;
+/** 默认连本机 db-server;可通过 configure / InstallOptions.dbServerUrl 覆盖(DIP)。 */
+let baseUrl = "http://127.0.0.1:3001";
 const TIMEOUT = 3;
 
 export class HttpDB {
   private static available = true;
   private static _lastErrorLog = 0;
   private static authToken = "";
+
+  /** 注入 db-server 基址(如 http://127.0.0.1:4000),去掉末尾 /。 */
+  static configure(opts: { baseUrl?: string }): void {
+    if (opts.baseUrl) {
+      baseUrl = opts.baseUrl.replace(/\/+$/, "");
+    }
+  }
+
+  static getBaseUrl(): string {
+    return baseUrl;
+  }
 
   static setAuthToken(token: string): void {
     this.authToken = token.trim();
@@ -51,10 +61,10 @@ export class HttpDB {
   static async checkHealth(): Promise<boolean> {
     for (let i = 0; i < 5; i++) {
       try {
-        const res = await http.get(`${BASE_URL}/api/health`);
+        const res = await http.get(`${baseUrl}/api/health`);
         this.available = res.status === 200;
         if (this.available) {
-          console.info(`[HttpDB] 数据库服务连接成功 (${BASE_URL}/api/health)`);
+          console.info(`[HttpDB] 数据库服务连接成功 (${baseUrl}/api/health)`);
           return true;
         }
         console.error(`[HttpDB] 数据库服务返回异常状态 ${res.status}`);
@@ -64,7 +74,7 @@ export class HttpDB {
           console.info(`[HttpDB] 连接失败，2s 后重试 (${i + 1}/5)...`);
           await system.waitTicks(40);
         } else {
-          console.error(`[HttpDB] 连接失败 (${BASE_URL}): ${err}`);
+          console.error(`[HttpDB] 连接失败 (${baseUrl}): ${err}`);
         }
       }
     }
@@ -89,7 +99,7 @@ export class HttpDB {
     bodyData?: Record<string, unknown>
   ): Promise<{ status: number; body: string }> {
     try {
-      const req = new HttpRequest(`${BASE_URL}${path}`);
+      const req = new HttpRequest(`${baseUrl}${path}`);
       req.timeout = TIMEOUT;
       req.method = method;
 
