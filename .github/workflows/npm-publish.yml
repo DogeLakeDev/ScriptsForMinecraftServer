@@ -5,9 +5,17 @@ name: npm-publish
 # 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
 
 on:
+  # tag 名含 / 与多个 @；用 ** 避免 fnmatch 对 / 的截断。
+  # 包合法性仍由 tools/resolve-npm-publish-tag.mjs 校验。
   push:
     tags:
-      - "@sfmc-bds/*@v*"
+      - "@sfmc-bds/**"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要发布的 tag（如 @sfmc-bds/sdk@v0.1.0）"
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -27,6 +35,9 @@ jobs:
 
       - name: parse tag + verify package version
         id: meta
+        env:
+          # push tag 时用 GITHUB_REF_NAME；手动触发时用 inputs.tag
+          PUBLISH_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: node tools/resolve-npm-publish-tag.mjs
 
       - run: npm ci --no-audit --no-fund

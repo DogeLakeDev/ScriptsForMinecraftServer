@@ -10,11 +10,11 @@
 import fs from "node:fs";
 import { NPM_PUBLISH_PACKAGES, resolvePublishPackage } from "./lib/npm-publish-packages.mjs";
 
-const tag = process.env.GITHUB_REF_NAME || "";
+const tag = process.env.PUBLISH_TAG || process.env.GITHUB_REF_NAME || "";
 const outFile = process.env.GITHUB_OUTPUT;
 
 if (!tag) {
-  console.error("GITHUB_REF_NAME is empty");
+  console.error("PUBLISH_TAG / GITHUB_REF_NAME is empty");
   process.exit(1);
 }
 
