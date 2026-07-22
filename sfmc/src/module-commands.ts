@@ -40,7 +40,8 @@ export function isModuleCommand(cmd: string | undefined): cmd is ModuleCmdName {
 
 /** 染色后的 HELP 前缀,避免 HELP 硬编码 module/mod。 */
 export function paintModuleCmdAlias(paint: (name: string) => string): string {
-  return MODULE_CMD_NAMES.map(paint).join("/");
+  /* 不可写成 .map(paint):chalk 会吃到 (value,index,array) 并拼出乱文案 */
+  return MODULE_CMD_NAMES.map((name) => paint(name)).join("/");
 }
 
 /** 对外展示与 Tab 补全用的子命令列表(不含 remove 等同义别名)。 */
