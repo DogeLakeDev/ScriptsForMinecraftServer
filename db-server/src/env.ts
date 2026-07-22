@@ -2,10 +2,9 @@
  * env.ts — 环境配置加载
  */
 
-import { readFileSync } from "node:fs";
+import { configPath, readJson, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 
 import { log } from "./lib/log.js";
 
@@ -34,20 +33,12 @@ export interface EnvConfig {
   qqconfig: Record<string, unknown>;
 }
 
-function readJSON(path: string): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
 export function loadEnv(): EnvConfig {
   const PROJECT_ROOT = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
   const dbcfgPath = configPath(PROJECT_ROOT, "db_config.json");
   const qqcfgPath = configPath(PROJECT_ROOT, "qq_config.json");
-  const dbconfig = readJSON(dbcfgPath);
-  const qqconfig = readJSON(qqcfgPath);
+  const dbconfig = (readJson(dbcfgPath) as Record<string, unknown>) ?? {};
+  const qqconfig = (readJson(qqcfgPath) as Record<string, unknown>) ?? {};
 
   // ── 优先级:JSON > 系统环境变量 > 默认值 ───────────────────────
   const envBaseline = { ...process.env };
@@ -102,7 +93,9 @@ export function loadEnv(): EnvConfig {
     pick(qqconfig["bridge_channel_id"] as string | undefined, "BRIDGE_CHANNEL_ID", "", "bridge_channel_id")
   );
   const AUTH_TOKEN = String(pick(dbconfig["http_auth"] as string | undefined, "HTTP_AUTH", "", "http_auth"));
-  const MODULES_DIR = dbconfig["modulesDir"] ? resolve(PROJECT_ROOT, String(dbconfig["modulesDir"])) : join(PROJECT_ROOT, "modules");
+  const MODULES_DIR = dbconfig["modulesDir"]
+    ? resolve(PROJECT_ROOT, String(dbconfig["modulesDir"]))
+    : join(PROJECT_ROOT, "modules");
   const MODULE_CATALOG_PATH = join(MODULES_DIR, "catalog.json");
   const MODULE_LOCK_PATH = join(MODULES_DIR, "module-lock.json");
 
@@ -124,4 +117,3 @@ export function loadEnv(): EnvConfig {
     qqconfig,
   };
 }
-

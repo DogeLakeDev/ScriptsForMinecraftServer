@@ -105,6 +105,9 @@ export type OneBotMessageEvent = OneBotGroupMessageEvent;
 export type OneBotEvent = OneBotGroupMessageEvent | OneBotLifecycleEvent | { [k: string]: unknown };
 
 // ── 运行时配置 (从 configs/qq_config.json 读入) ───────────────
+/** 本进程用到的字段全是 required:config 加载时 (config.ts#applyDefaults)
+ *  已经把 optional 字段全部填默认值。本地类型不能放宽 optional,
+ *  否则调用点 (index.ts / dispatcher.ts) 都要补 undefined 兜底。 */
 export interface QQBridgeConfig {
   qq_enabled: boolean;
   qq_ws_port: number;
@@ -113,6 +116,14 @@ export interface QQBridgeConfig {
   db_host: string;
   db_port: number;
   mctoqq_prefix: string;
+  /** LLBot 字段(由 config.ts#applyDefaults 之外的 raw 透传补齐)。 */
+  llbot_enabled?: boolean;
+  llbot_path?: string;
+  llbot_cwd?: string;
+  llbot_host?: string;
+  llbot_port?: number;
+  llbot_token?: string;
+  llbot_http?: string;
   [k: string]: unknown;
 }
 

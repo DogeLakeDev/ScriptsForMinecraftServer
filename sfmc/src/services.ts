@@ -1,8 +1,9 @@
+import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc/sdk/node/config";
+import { configPath, readJson } from "@sfmc/sdk/node/config";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
-import { configPath } from "@sfmc/sdk/node/config";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 
@@ -28,9 +29,7 @@ export interface ServiceStatus {
 interface ServiceDef {
   name: ServiceName;
   title: string;
-  /** 抽象服务: npm 模式 spawn node <script>, SEA 模式自重入 exe。与 cmd 二选一。 */
   service?: ServiceId;
-  /** 直接命令 (bds/llbot 外部 exe)。与 service 二选一。 */
   cmd?: string;
   args?: string[];
   cwd: string;
@@ -190,79 +189,70 @@ class Service {
   }
 }
 
-function loadJson(file: string): Record<string, unknown> {
-  try {
-    const p = configPath(ROOT, file);
-    return JSON.parse(fs.readFileSync(p, "utf-8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
 function createServices(): Record<ServiceName, Service> {
-  const bdsCfg = loadJson("bds_updater.json") as Record<string, unknown>;
-  const qqCfg = loadJson("qq_config.json") as Record<string, unknown>;
-  const dbCfg = loadJson("db_config.json") as Record<string, unknown>;
-  const bdsPath = (bdsCfg.bds_path as string) ?? ROOT;
+  const bdsCfg = (readJson(configPath(ROOT, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
+  const qqCfg = (readJson(configPath(ROOT, "qq_config.json")) ?? {}) as QQBridgeConfig;
+  const dbCfg = (readJson(configPath(ROOT, "db_config.json")) ?? {}) as DBConfig;
+  const bdsPath = bdsCfg.bds_path ?? ROOT;
   const llbotEnabled = qqCfg.llbot_enabled !== false;
-  const llbotPath = (qqCfg.llbot_path as string) ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
-  const llbotCwd = (qqCfg.llbot_cwd as string) ?? "D:\\LLBot-CLI-win-x64";
-  const dbPort = (dbCfg.db_port as number) ?? 3001;
+  const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
+  const llbotCwd = qqCfg.llbot_cwd ?? "D:\\LLBot-CLI-win-x64";
+  const dbPort = dbCfg.db_port ?? 3001;
   const bdsExe = path.resolve(bdsPath, "bedrock_server.exe");
 
   return {
-  bds: new Service({
-    name: "bds",
-    title: "BDS",
-    cmd: bdsExe,
-    args: [],
-    cwd: bdsPath,
-    stopCommand: "stop",
-    stopTimeout: 30000,
-    autoRestart: bdsCfg.crash_restart !== false,
-    restartDelay: 5000,
-    validate: () => {
-      if (!fs.existsSync(bdsExe)) return `not found: ${bdsExe}`;
-      return null;
-    },
-  }),
+    bds: new Service({
+      name: "bds",
+      title: "BDS",
+      cmd: bdsExe,
+      args: [],
+      cwd: bdsPath,
+      stopCommand: "stop",
+      stopTimeout: 30000,
+      autoRestart: bdsCfg.crash_restart !== false,
+      restartDelay: 5000,
+      validate: () => {
+        if (!fs.existsSync(bdsExe)) return `not found: ${bdsExe}`;
+        return null;
+      },
+    }),
 
-  db: new Service({
-    name: "db",
-    title: "DB Server",
-    service: "db",
-    cwd: ROOT,
-    stopTimeout: 10000,
-    autoRestart: true,
-    restartDelay: 3000,
-    env: { DB_PORT: String(dbPort) },
-  }),
+    db: new Service({
+      name: "db",
+      title: "DB Server",
+      service: "db",
+      cwd: ROOT,
+      stopTimeout: 10000,
+      autoRestart: true,
+      restartDelay: 3000,
+      env: { DB_PORT: String(dbPort) },
+    }),
 
-  qq: new Service({
-    name: "qq",
-    title: "QQ Bridge",
-    service: "qq",
-    cwd: ROOT,
-    stopTimeout: 10000,
-    autoRestart: true,
-    restartDelay: 3000,
-  }),
+    qq: new Service({
+      name: "qq",
+      title: "QQ Bridge",
+      service: "qq",
+      cwd: ROOT,
+      stopTimeout: 10000,
+      autoRestart: true,
+      restartDelay: 3000,
+    }),
 
-  llbot: new Service({
-    name: "llbot",
-    title: "LLBot",
-    cmd: llbotPath,
-    args: [],
-    cwd: llbotCwd,
-    stopTimeout: 10000,
-    autoRestart: false,
-    restartDelay: 5000,
-    validate: () => {
-      if (!llbotEnabled) return "LLBot disabled (llbot_enabled=false)";
-      if (!fs.existsSync(llbotPath)) return `not found: ${llbotPath}`;
-      return null;
-    },
-  }),
+    llbot: new Service({
+      name: "llbot",
+      title: "LLBot",
+      cmd: llbotPath,
+      args: [],
+      cwd: llbotCwd,
+      stopTimeout: 10000,
+      autoRestart: false,
+      restartDelay: 5000,
+      validate: () => {
+        if (!llbotEnabled) return "LLBot disabled (llbot_enabled=false)";
+        if (!fs.existsSync(llbotPath)) return `not found: ${llbotPath}`;
+        return null;
+      },
+    }),
   };
 }
 

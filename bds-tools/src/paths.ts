@@ -1,39 +1,19 @@
 /**
  * paths.ts — 路径常量 & 加载 bds_updater.json
  *
- * SCRIPT_DIR = 编译产物上一级目录 (即 BDSTools/)
- * 这样无论从 src/ 还是 dist/ 调用，都能找到 scripts/bds-manager.js 等。
- *
- * SEA bundle 模式下优先读 SFMC_ROOT env (由 spawnService 设置)，
- * 退回到 __dirname 兼容原生 CJS standalone 模式。
+ * ROOT_DIR = 项目根,通过 SDK 统一解析(env SFMC_ROOT > __dirname 上溯)。
+ * SCRIPT_DIR = bds-tools/ 内部 dist 目录,bds 的 PID / log / cache 文件落盘处。
  */
 
+import { configPath, resolveRuntimeRoot, type BdsUpdaterConfig } from "@sfmc/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
-import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
-import type { BdsUpdaterConfig } from "./types.js";
+import { fileURLToPath } from "node:url";
 
-/** 尝试获取当前脚本所在目录 */
-function detectScriptDir(): string {
-  // SEA bundle: 由 spawnService 注入 SFMC_ROOT
-  if (process.env.SFMC_ROOT) {
-    return path.join(process.env.SFMC_ROOT, "bds-tools");
-  }
-  // 原生 CJS: __dirname 由 Node 提供
-  try {
-    const here = __dirname;
-    const base = path.basename(here);
-    if (base === "dist" || base === "src") {
-      return path.resolve(here, "..");
-    }
-    return here;
-  } catch {
-    return process.cwd();
-  }
-}
-
-export const SCRIPT_DIR: string = detectScriptDir();
-export const ROOT_DIR: string = resolveRuntimeRoot(path.resolve(SCRIPT_DIR, ".."));
+const __filename = fileURLToPath(import.meta.url);
+const SCRIPT_DIR: string = path.dirname(__filename);
+/** 项目根目录:bds-tools 的上一级。统一通过 SDK 解析,SEA / npm 一致。 */
+export const ROOT_DIR: string = resolveRuntimeRoot(path.resolve(SCRIPT_DIR, "..", ".."));
 export const CFG_PATH: string = configPath(ROOT_DIR, "bds_updater.json");
 export const LOG_PATH: string = path.join(SCRIPT_DIR, "update.log");
 export const VERSION_CACHE: string = path.join(SCRIPT_DIR, ".version_cache.json");

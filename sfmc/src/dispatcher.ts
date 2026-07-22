@@ -1,39 +1,26 @@
 /**
  * SEA dispatcher —— 单 exe 多路分发入口。
  *
- * 同一个 sfmc.exe 在不同进程里通过 SFMC_SERVICE 环境变量决定跑哪个服务。
- * supervisor (默认) 由用户直接运行; db/qq/update/manager 由 spawnService 自重入触发。
+ * 子服务(db/qq/update/manager/pack-manager)**不打包进 SEA**:
+ * SEA exe 只能跑 ESM bundle 内的代码,不能直接 require 外部 .js 文件。
+ * 所以 SEA supervisor 通过 `runtime.ts#spawnService` 用**系统 node**
+ * spawn 根目录下的子服务入口脚本,SEA bundle 只包含 supervisor 自己。
  *
- * 实现要点:
- * - 5 个 import() 都是静态字符串字面量, esbuild 单 outfile (splitting=false) 会把
- *   5 个入口全部 inline 进同一 bundle; 运行时按 env 只触发对应入口的 side-effect。
- * - 各 workspace 入口无需重构 main() —— 它们的顶层 side-effect 即启动逻辑。
- * - argv 透传: 子进程 process.argv.slice(2) 由各入口自行解析 (如 check-update 的 --channel)。
- *
+ * 同一个 sfmc.exe 默认跑 supervisor (main.ts);子服务走外部 node 进程
+ * —— SEA exe 在这里不重入,避免 SEA 重复 inline 子服务代码。
  */
 
-import process from "node:process";
 import { ensureSeaTerminalProfile } from "./terminal.js";
 
 ensureSeaTerminalProfile();
 
-const mode = process.env.SFMC_SERVICE;
-
-const p =
-  mode === "db"
-    ? import("../../db-server/dist/index.js")
-    : mode === "qq"
-      ? import("../../qq-bridge/dist/index.js")
-      : mode === "update"
-        ? import("../../bds-tools/dist/check-update.js")
-        : mode === "manager"
-          ? import("../../bds-tools/dist/bds-manager.js")
-          : mode === "pack-manager"
-            ? import("../../bds-tools/dist/cli-pack-manager.js")
-            : import("./main.js");
-
-p.catch((e) => {
-  console.error(`[dispatcher] failed to launch ${mode ?? "supervisor"}:`, e);
+if (process.env.SFMC_SERVICE) {
+  /* 子服务不在 SEA 内运行;supervisor 用系统 node spawn 它们。
+   * 这里只是兜底:如果有人误把 SFMC_SERVICE 设上后直接跑 sfmc.exe,
+   * 提示并退出,而不是错误地执行 main。 */
+  console.error(`[sfmc] service "${process.env.SFMC_SERVICE}" must be launched by the supervisor, not directly.`);
   process.exit(1);
-});
+}
 
+/* 未设 SFMC_SERVICE 时,落到 ./main.js 末尾的 main() 自执行。 */
+await import("./main.js");

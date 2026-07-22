@@ -14,20 +14,11 @@
  *   GET /api/sfmc/qa                   — questions.json
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { configPath, readJson, type ConfigName } from "@sfmc/sdk/node/config";
 
 interface Deps {
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
   projectRoot: string;
-}
-
-function readJsonFile(filePath: string, fallback: unknown): unknown {
-  try {
-    return JSON.parse(readFileSync(filePath, "utf8"));
-  } catch {
-    return fallback;
-  }
 }
 
 function isMetaKey(k: string): boolean {
@@ -64,30 +55,34 @@ function arrayOrEmpty(v: unknown): unknown[] {
 }
 
 function createConfigRoutes({ json, projectRoot }: Deps) {
-  const cfgDir = (): string => join(projectRoot, "configs");
-  const readCfg = (name: string): unknown => readJsonFile(join(cfgDir(), name), null);
+  /** 仓顶服务 config 读取统一走 SDK;闭包捕获 projectRoot。 */
+  const readCfg = (name: ConfigName): unknown => readJson(configPath(projectRoot, name));
 
   function getAllConfigs(): Record<string, unknown> {
     return {
       modules: [],
-      settings: stripMeta(readCfg("settings.json") as Record<string, unknown> | null),
-      areas: (arrayOrEmpty(readCfg("areas.json")) as Array<Record<string, unknown>>)
+      settings: stripMeta(readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null),
+      areas: (arrayOrEmpty(readJson(configPath(projectRoot, "areas.json"))) as Array<Record<string, unknown>>)
         .filter((r) => r && r.module && r.dimension != null)
         .map((r) => stripMetaDeep(r)),
-      permissions: (arrayOrEmpty(readCfg("permissions.json")) as Array<Record<string, unknown>>)
+      permissions: (
+        arrayOrEmpty(readJson(configPath(projectRoot, "permissions.json"))) as Array<Record<string, unknown>>
+      )
         .filter((r) => r && r.player_name)
         .map((r) => stripMetaDeep(r)),
-      banned_items: (arrayOrEmpty(readCfg("banned_items.json")) as Array<string>)
+      banned_items: (arrayOrEmpty(readJson(configPath(projectRoot, "banned_items.json"))) as Array<string>)
         .filter((i) => typeof i === "string" && i && !i.startsWith("_"))
         .map((id) => ({ item_id: id })),
-      clean: stripMetaDeep(readCfg("clean.json") ?? {}),
-      grids: (arrayOrEmpty(readCfg("grids.json")) as Array<Record<string, unknown>>)
+      clean: stripMetaDeep(readJson(configPath(projectRoot, "clean.json")) ?? {}),
+      grids: (arrayOrEmpty(readJson(configPath(projectRoot, "grids.json"))) as Array<Record<string, unknown>>)
         .filter((r) => r && r.name)
         .map((r) => stripMetaDeep(r)),
-      peace_filters: (arrayOrEmpty(readCfg("peace_filters.json")) as Array<Record<string, unknown>>)
+      peace_filters: (
+        arrayOrEmpty(readJson(configPath(projectRoot, "peace_filters.json"))) as Array<Record<string, unknown>>
+      )
         .filter((r) => r && r.family)
         .map((r) => stripMetaDeep(r)),
-      questions: (arrayOrEmpty(readCfg("questions.json")) as Array<Record<string, unknown>>)
+      questions: (arrayOrEmpty(readJson(configPath(projectRoot, "questions.json"))) as Array<Record<string, unknown>>)
         .filter((r) => r && r.question)
         .map((r, idx: number) => {
           const clean = stripMetaDeep(r) as Record<string, unknown>;
@@ -109,12 +104,12 @@ function createConfigRoutes({ json, projectRoot }: Deps) {
   }
 
   function getSettingsFlat(): Array<{ key: string; value: string }> {
-    const obj = stripMeta(readCfg("settings.json") as Record<string, unknown> | null);
+    const obj = stripMeta(readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null);
     return Object.entries(obj).map(([key, value]) => ({ key, value: jsonValue(value) }));
   }
 
   function getSettingByKey(key: string): { value: unknown; source?: string } {
-    const settings = (readCfg("settings.json") as Record<string, unknown> | null) ?? {};
+    const settings = (readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null) ?? {};
     if (Object.prototype.hasOwnProperty.call(settings, key) && !isMetaKey(key)) {
       return { value: settings[key], source: "settings.json" };
     }

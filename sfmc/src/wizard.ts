@@ -1,5 +1,14 @@
 import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
-import { configPath } from "@sfmc/sdk/node/config";
+import {
+  configPath,
+  modulePath,
+  patchJson as patchConfig,
+  readJson,
+  writeJson,
+  type Catalog,
+  type ConfigName,
+  type ModuleLock,
+} from "@sfmc/sdk/node/config";
 import JSZip from "jszip";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -8,23 +17,9 @@ import { getAsset } from "node:sea";
 import { IS_SEA, ROOT, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
-function cfg(rootDir: string, name: string): string {
-  return configPath(rootDir, name);
-}
-
-function readJson(file: string): Record<string, unknown> {
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf-8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function patchJson(rootDir: string, name: string, updates: Record<string, unknown>): void {
-  const file = cfg(rootDir, name);
-  const existing = readJson(file);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ ...existing, ...updates }, null, 2), "utf-8");
+/** 仓顶服务 config 浅合并写盘。委托 SDK 统一实现,禁止自己 mkdir+writeFileSync。 */
+function patchJson<T extends object>(rootDir: string, name: ConfigName, updates: Partial<T>): void {
+  patchConfig<T>(configPath(rootDir, name), updates);
 }
 
 function ensureDirectory(directory: string): boolean {
@@ -197,7 +192,7 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
 export async function runWizard(): Promise<void> {
   intro(c.bold("Setup Wizard =D"));
 
-  const hasConfigs = fs.existsSync(cfg(ROOT, "db_config.json"));
+  const hasConfigs = fs.existsSync(configPath(ROOT, "db_config.json"));
 
   if (hasConfigs) {
     const r = await confirm({ message: "Configs already exist. Re-run setup?", initialValue: false });
@@ -206,9 +201,9 @@ export async function runWizard(): Promise<void> {
       return;
     }
   }
-  // ── Step 1: Runtime Environment ────────────────────────────────
+  // Step 1: Runtime Environment
   const rootDir = ROOT;
-  note(c.text(`Runtime root: ${rootDir}`), "Step 1 — Runtime Environment");
+  note(c.text(`Runtime root: ${rootDir}`), "Step 1 - Runtime Environment");
 
   try {
     await prepareRuntimeAssets(rootDir);
@@ -218,8 +213,8 @@ export async function runWizard(): Promise<void> {
     return;
   }
 
-  // ── Step 2: External runtime paths ────────────────────────────────
-  note(c.text("Select paths for BDS, Database, and LLBOT"), "Step 2 — External Runtimes");
+  // Step 2: External runtime paths
+  note(c.text("Select paths for BDS, Database, and LLBOT"), "Step 2 - External Runtimes");
 
   const bdsResolved = await pickDirectory("BDS installation directory", path.join(rootDir, "BDS"));
   if (!ensureDirectory(bdsResolved)) {
@@ -255,13 +250,13 @@ export async function runWizard(): Promise<void> {
   });
   const dbPort = isCancel(dbPortRaw) ? 3001 : parseInt(dbPortRaw as string, 10);
 
-  // ── Step 4: BDS environment ──────────────────────────────────────
+  // Step 4: BDS environment
   const bdsExe = path.join(bdsResolved, "bedrock_server.exe");
   const bdsExists = fs.existsSync(bdsExe);
 
   note(
     bdsExists ? c.green(`Found at ${bdsResolved}`) : c.yellow(`Not found at ${bdsResolved}`),
-    "Step 3 — BDS Environment"
+    "Step 3 - BDS Environment"
   );
 
   const EULA = await confirm({
@@ -321,29 +316,24 @@ export async function runWizard(): Promise<void> {
     "TIPS"
   );
 
-  // ── Step 5: Module initialization ─────────────────────────────────
-  const catalogPath = path.join(rootDir, "modules", "catalog.json");
+  // Step 5: Module initialization
+  const catalog = readJson<Catalog>(modulePath(rootDir, "catalog.json")) ?? {};
   const catalogModules: Array<{ id: string; name?: string; type?: string; description?: string }> = [];
-  try {
-    const raw = JSON.parse(fs.readFileSync(catalogPath, "utf-8")) as { modules?: unknown[] };
-    if (Array.isArray(raw.modules)) {
-      for (const m of raw.modules) {
-        const entry = m as Record<string, unknown>;
-        catalogModules.push({
-          id: String(entry.id ?? ""),
-          name: String(entry.name ?? entry.id ?? ""),
-          type: String(entry.type ?? "feature"),
-          description: String(entry.description ?? ""),
-        });
-      }
+  if (Array.isArray(catalog.modules)) {
+    for (const m of catalog.modules) {
+      const entry = m as Record<string, unknown>;
+      catalogModules.push({
+        id: String(entry.id ?? ""),
+        name: String(entry.name ?? entry.id ?? ""),
+        type: String(entry.type ?? "feature"),
+        description: String(entry.description ?? ""),
+      });
     }
-  } catch {
-    /* catalog not found */
   }
 
   note(
     c.text(catalogModules.length > 0 ? `Found ${catalogModules.length} optional modules` : "No modules catalog found"),
-    "Step 4 — Modules"
+    "Step 4 - Modules"
   );
 
   let selectedModules: string[] = [];
@@ -375,7 +365,7 @@ export async function runWizard(): Promise<void> {
     if (!isCancel(r)) selectedModules = r as string[];
   }
 
-  // ── Write paths into configs ──────────────────────────────
+  // Write paths into configs
   const t = [
     {
       title: "Updating configs",
@@ -406,21 +396,14 @@ export async function runWizard(): Promise<void> {
     {
       title: "Updating module state",
       task: async (): Promise<string> => {
-        const lockPath = path.join(rootDir, "modules", "module-lock.json");
-        let lock: { version?: number; modules?: Record<string, { enabled: boolean; updatedAt: number }> } = {
+        const lock = readJson<ModuleLock>(modulePath(rootDir, "module-lock.json")) ?? {
           version: 1,
           modules: {},
         };
-        try {
-          lock = JSON.parse(fs.readFileSync(lockPath, "utf-8")) as typeof lock;
-        } catch {
-          /* start fresh */
-        }
         if (!lock.modules) lock.modules = {};
         const now = Date.now();
         for (const id of selectedModules) lock.modules[id] = { enabled: true, updatedAt: now };
-        fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-        fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2), "utf-8");
+        writeJson(modulePath(rootDir, "module-lock.json"), lock);
         return "Module state updated";
       },
     },
@@ -493,10 +476,18 @@ async function runInstallBuildDeploy(rootDir: string, selectedModules: string[],
         note(c.yellow(`install failed: ${(e as Error).message}\nYou can retry with: sfmc module install <id>`));
       }
     } else {
-      note(c.yellow(`tools/fetch-module.mjs missing — run \`sfmc module install <id>\` later for each of: ${selectedModules.join(", ")}`));
+      note(
+        c.yellow(
+          `tools/fetch-module.mjs missing — run \`sfmc module install <id>\` later for each of: ${selectedModules.join(", ")}`
+        )
+      );
     }
   } else {
-    note(c.dim("No modules selected — behavior pack will be empty until you install one with `sfmc module install <id>`."));
+    note(
+      c.dim(
+        "No modules selected — behavior pack will be empty until you install one with `sfmc module install <id>`."
+      )
+    );
   }
 
   const { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } = await import("./commands-behavior-pack.js");
@@ -531,8 +522,11 @@ async function runInstallBuildDeploy(rootDir: string, selectedModules: string[],
     await tasks(deployT);
     note(c.green("Restart BDS to load the new behavior pack."));
   } catch (e) {
-    note(c.yellow(`deploy failed: ${(e as Error).message}\nRun \`sfmc behavior-pack deploy\` after fixing bds_root in configs/.`));
+    note(
+      c.yellow(
+        `deploy failed: ${(e as Error).message}\nRun \`sfmc behavior-pack deploy\` after fixing bds_root in configs/.`
+      )
+    );
   }
   void rootDir;
 }
-

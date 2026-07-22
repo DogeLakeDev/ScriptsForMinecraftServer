@@ -1,38 +1,32 @@
-import { spawn, spawnSync, type SpawnOptions, type SpawnSyncOptions } from "node:child_process";
-import { isSea } from "node:sea";
-import path from "node:path";
-import process from "node:process";
 import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
-
-/**
- * 运行模式抽象层 —— 同一份源码在 npm 与 SEA 两种产物下都能跑。
- *
- * - npm 模式: process.execPath = node.exe, 子服务 = spawn(node, ["<script>", ...args])
- * - SEA 模式: process.execPath = sfmc.exe, 子服务 = spawn(self, args, { env: SFMC_SERVICE })
- *   dispatcher 顶部读 SFMC_SERVICE 决定入口, argv 透传给子服务自身的参数解析。
- *
- * ROOT 解析(两种模式):
- *   - SEA: `<exe-dir>` —— modules 与 exe 平级,用户下载 exe 后就在那里建模块目录
- *   - npm: `process.cwd()` —— 用户从项目根 `node sfmc/dist/main.js`,modules 跟随当前项目
- *     (原来用 import.meta.url 上溯两级仅对 monorepo 源码位置有效,用户从任意目录跑产物会指错)
- *
- * 子服务进程通过 SFMC_ROOT + SFMC_PACKAGES_DIR env 拿到项目根 + 模块目录,
- * db-server 据此定位 modules/packages/, 不依赖自身 __dirname(SEA-launched 时不可靠)。
- *
- * node:sea 在 Node 21.7+/22+ 可用;db-server 依赖 node:sqlite 要求 Node 22.13+
- * (22.5–22.12 该模块仍需 --experimental-sqlite,否则 import 阶段直接抛出
- * ERR_UNKNOWN_BUILTIN_MODULE),因此这里可直接顶层 import,无需降级。
- */
+import { spawn, spawnSync, type SpawnOptions, type SpawnSyncOptions } from "node:child_process";
+import path, { dirname } from "node:path";
+import process from "node:process";
+import { isSea } from "node:sea";
+import { fileURLToPath } from "node:url";
 
 export const IS_SEA: boolean = typeof isSea === "function" && isSea();
 
-const defaultRoot: string = IS_SEA ? path.dirname(process.execPath) : process.cwd();
-export const ROOT: string = resolveRuntimeRoot(defaultRoot);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const fallbackRoot: string = path.resolve(__dirname, "..", "..");
+
+/**
+ * 项目根目录。优先级:`process.env.SFMC_ROOT`(由 spawnService 注入) > fallback。
+ * - SEA 模式:fallback 是 `<exe-dir>/..`(`dist/sea/sfmc.exe` 上一级 = 项目根)
+ * - npm 模式:fallback 是 `sfmc/` 上一级 = 项目根
+ */
+export const ROOT: string = resolveRuntimeRoot(fallbackRoot);
 
 export const PACKAGES_DIR: string = path.join(ROOT, "modules", "packages");
 
 export type ServiceId = "db" | "qq" | "update" | "manager" | "pack-manager";
 
+/**
+ * 各服务入口脚本相对项目根的路径。
+ * SEA 模式下不需要(走系统 node 直接调脚本);npm 模式下 spawn `node <root>/<script>`。
+ */
 const SERVICE_SCRIPT: Record<ServiceId, string> = {
   db: "db-server/dist/index.js",
   qq: "qq-bridge/dist/index.js",
@@ -42,12 +36,26 @@ const SERVICE_SCRIPT: Record<ServiceId, string> = {
 };
 
 /**
- * 启动一个子服务。SEA 模式自重入同一 exe,npm 模式用 node 跑对应 dist 脚本。
- * args 透传给子服务自身的 argv 解析(如 check-update 的 --channel/--force)。
+ * SEA 模式下 process.execPath === sfmc.exe —— SEA 不能执行外部 .js 文件,
+ * 所以走 system `node` 二进制跑子服务脚本。
+ * npm 模式下 process.execPath 本来就是 node,走自身即可。
+ */
+function nodeBinary(): string {
+  return IS_SEA ? "node" : process.execPath;
+}
+
+/**
+ * 启动一个子服务。
+ *
+ * SEA 模式下 spawn system node(SEA exe 不能执行外部 CJS/ESM 脚本,
+ * 子服务代码必须留在根目录源码层)。SEA bundle 因此只包含 supervisor 自己
+ * —— db-server / qq-bridge / bds-tools 不再被 esbuild 静态 inline。
+ *
+ * npm 模式:`process.execPath` 本来就是 node,效果与 SEA 模式相同。
  *
  * 透传给子进程的 env:
- *   - SFMC_SERVICE:  服务标识(db|qq|update|manager),SEA dispatcher 据此路由
- *   - SFMC_ROOT:     项目根,SEA=exe 同目录,npm=process.cwd()
+ *   - SFMC_SERVICE:  服务标识(db|qq|update|manager),子服务据此路由
+ *   - SFMC_ROOT:     项目根,SEA=exe 上一级,npm=process.cwd()
  *   - SFMC_PACKAGES_DIR: modules/packages/ 绝对路径,db-server 据此扫模块清单
  */
 export function spawnService(service: ServiceId, args: string[] = [], opts: SpawnOptions = {}) {
@@ -58,10 +66,8 @@ export function spawnService(service: ServiceId, args: string[] = [], opts: Spaw
     SFMC_ROOT: ROOT,
     SFMC_PACKAGES_DIR: PACKAGES_DIR,
   };
-  if (IS_SEA) {
-    return spawn(process.execPath, args, { ...opts, env });
-  }
-  return spawn(process.execPath, [path.join(ROOT, SERVICE_SCRIPT[service]), ...args], { ...opts, env });
+  const script = path.join(ROOT, SERVICE_SCRIPT[service]);
+  return spawn(nodeBinary(), [script, ...args], { ...opts, env });
 }
 
 /** spawnService 的同步版本,用于 wizard 等需要等子进程结束的场景。 */
@@ -73,8 +79,6 @@ export function spawnServiceSync(service: ServiceId, args: string[] = [], opts: 
     SFMC_ROOT: ROOT,
     SFMC_PACKAGES_DIR: PACKAGES_DIR,
   };
-  if (IS_SEA) {
-    return spawnSync(process.execPath, args, { ...opts, env });
-  }
-  return spawnSync(process.execPath, [path.join(ROOT, SERVICE_SCRIPT[service]), ...args], { ...opts, env });
+  const script = path.join(ROOT, SERVICE_SCRIPT[service]);
+  return spawnSync(nodeBinary(), [script, ...args], { ...opts, env });
 }

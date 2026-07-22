@@ -7,16 +7,16 @@
  *   - reload 时仅覆盖原对象 (mutate), 保留运行时引用的同一份对象
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { configPath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
+import { configPath, readJson, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { QQBridgeConfig } from "./types.js";
 import { log } from "./log.js";
+import type { QQBridgeConfig } from "./types.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-/** npm 模式从源码位置回退，supervisor/SEA 模式统一由 SFMC_ROOT 指定。 */
+/** 统一通过 SDK 解析项目根:env SFMC_ROOT > __dirname 上溯。SEA / npm 一致。 */
 export const ROOT_DIR: string = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
 export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 
@@ -34,10 +34,8 @@ function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
 }
 
 function readFromDisk(): QQBridgeConfig {
-  if (!existsSync(CFG_PATH)) {
-    throw new Error(`配置文件不存在: ${CFG_PATH}`);
-  }
-  const raw = JSON.parse(readFileSync(CFG_PATH, "utf-8")) as Partial<QQBridgeConfig>;
+  const raw = readJson<Partial<QQBridgeConfig>>(CFG_PATH);
+  if (!raw) throw new Error(`配置文件不存在或无法解析: ${CFG_PATH}`);
   return applyDefaults(raw);
 }
 

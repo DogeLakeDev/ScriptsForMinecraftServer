@@ -4,7 +4,12 @@
  * 用法: node recovery.js
  */
 
-const path = require("node:path");
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const dist = path.join(__dirname, "dist", "recovery.js");
 
 try {

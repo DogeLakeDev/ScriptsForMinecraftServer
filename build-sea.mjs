@@ -2,10 +2,7 @@ import * as esbuild from "esbuild";
 import JSZip from "jszip";
 import fs from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
 import path from "node:path";
-
-const require = createRequire(import.meta.url);
 
 await rm("dist/sea", { recursive: true, force: true });
 await mkdir("dist/sea", { recursive: true });
@@ -19,7 +16,6 @@ const result = await esbuild.build({
   format: "esm",
   outfile: "dist/sea/dispatcher.mjs",
   external: ["node:readline", "node:fs", "node:path"],
-  alias: { cheerio: require.resolve("cheerio") },
   conditions: ["import", "require", "node", "default"],
   logLevel: "info",
   minify: true,
