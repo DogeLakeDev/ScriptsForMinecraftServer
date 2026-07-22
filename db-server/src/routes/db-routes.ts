@@ -92,53 +92,50 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
     }
 
     // 交互式事务会话 — 供 SDK 在回调内读回 query/get/call 结果
-    if (path === "/api/sfmc/db/tx/begin") {
-      try {
-        const result = deps.txRunner!.beginSession(moduleId);
-        json(res, result as unknown as Record<string, unknown>, result.ok ? 200 : 400);
-      } catch (e) {
-        jsonV2Fail(res, (e as Error).message, 500);
-      }
-      return true;
-    }
-    if (path === "/api/sfmc/db/tx/step") {
+    // OCP/DRY:新会话动词只往表里加一项,勿再复制 try/catch 四份
+    type SessionReply = { ok: boolean } & Record<string, unknown>;
+    const sessionOps: Array<{
+      path: string;
+      requireTxId?: boolean;
+      requireStep?: boolean;
+      run: (args: { txId: string; step?: TxStep }) => Promise<SessionReply> | SessionReply;
+    }> = [
+      {
+        path: "/api/sfmc/db/tx/begin",
+        run: () => deps.txRunner!.beginSession(moduleId) as SessionReply,
+      },
+      {
+        path: "/api/sfmc/db/tx/step",
+        requireTxId: true,
+        requireStep: true,
+        run: ({ txId, step }) => deps.txRunner!.stepSession(txId, moduleId, step!) as Promise<SessionReply>,
+      },
+      {
+        path: "/api/sfmc/db/tx/commit",
+        requireTxId: true,
+        run: ({ txId }) => deps.txRunner!.commitSession(txId, moduleId) as SessionReply,
+      },
+      {
+        path: "/api/sfmc/db/tx/rollback",
+        requireTxId: true,
+        run: ({ txId }) => deps.txRunner!.rollbackSession(txId, moduleId) as SessionReply,
+      },
+    ];
+    for (const op of sessionOps) {
+      if (path !== op.path) continue;
       try {
         const txId = String(body.txId || "");
         const step = body.step as TxStep | undefined;
-        if (!txId || !step || typeof step !== "object" || !("op" in step)) {
+        if (op.requireTxId && !txId) {
+          jsonV2Fail(res, `${op.path.split("/").pop()} 需要 { txId }`, 400);
+          return true;
+        }
+        if (op.requireStep && (!step || typeof step !== "object" || !("op" in step))) {
           jsonV2Fail(res, "tx/step 需要 { txId, step }", 400);
           return true;
         }
-        const result = await deps.txRunner!.stepSession(txId, moduleId, step);
-        json(res, result as unknown as Record<string, unknown>, result.ok ? 200 : 400);
-      } catch (e) {
-        jsonV2Fail(res, (e as Error).message, 500);
-      }
-      return true;
-    }
-    if (path === "/api/sfmc/db/tx/commit") {
-      try {
-        const txId = String(body.txId || "");
-        if (!txId) {
-          jsonV2Fail(res, "tx/commit 需要 { txId }", 400);
-          return true;
-        }
-        const result = deps.txRunner!.commitSession(txId, moduleId);
-        json(res, result as unknown as Record<string, unknown>, result.ok ? 200 : 400);
-      } catch (e) {
-        jsonV2Fail(res, (e as Error).message, 500);
-      }
-      return true;
-    }
-    if (path === "/api/sfmc/db/tx/rollback") {
-      try {
-        const txId = String(body.txId || "");
-        if (!txId) {
-          jsonV2Fail(res, "tx/rollback 需要 { txId }", 400);
-          return true;
-        }
-        const result = deps.txRunner!.rollbackSession(txId, moduleId);
-        json(res, result as unknown as Record<string, unknown>, result.ok ? 200 : 400);
+        const result = await op.run({ txId, step });
+        json(res, result as Record<string, unknown>, result.ok ? 200 : 400);
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);
       }

@@ -21,7 +21,7 @@ function setRaw(v: boolean): void {
   } catch {}
 }
 
-/** HELP 行首:染色后的 module 别名标签(权威来源 paintModuleCmdAlias / MODULE_CMD_NAMES)。 */
+/** HELP 行首:染色后的 module 别名拼接(权威来源 paintModuleCmdAlias / MODULE_CMD_NAMES)。 */
 const MODULE_HELP_LABEL = paintModuleCmdAlias(c.green);
 
 const welcome = `\n
