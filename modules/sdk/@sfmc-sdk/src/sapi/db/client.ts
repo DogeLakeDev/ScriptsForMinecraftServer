@@ -10,20 +10,19 @@
  *     (避免与 ConfigManager / 其它模块互相覆盖 — DIP)
  */
 
-import { HttpDB } from "../runtime/httpdb.js";
+import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 import { HttpRequestMethod } from "@minecraft/server-net";
 import type {
   ColumnDef,
   DeleteResult,
   InsertResult,
   QueryOptions,
-  TxError,
   TxResponse,
   TxStep,
   UpdateResult,
 } from "./types.js";
 
-/* ── 模块身份(由 installHostBootstrap 注入) ─────────────────────── */
+/* ── 模块身份(由 ModuleRegistry.bootModule → setDbModuleContext 注入) ── */
 
 let _moduleId = "";
 let _authToken = "";
@@ -38,6 +37,11 @@ export function clearDbModuleContext(): void {
   _moduleId = "";
   _authToken = "";
   _currentTxId = null;
+}
+
+/** 供 service 客户端判断是否处于 db.tx 录制期(LSP:与 service.get 互斥)。 */
+export function isDbTxRecording(): boolean {
+  return _currentTxId != null;
 }
 
 /* ── HTTP 辅助 ──────────────────────────────────────────────────── */
@@ -56,15 +60,38 @@ function withModuleId(path: string): string {
   return HttpDB.withModuleId(path, _moduleId);
 }
 
+/** 空串不传 authToken,避免 ?? 被 "" 挡住 ConfigManager 默认回落(DIP)。 */
+function authOpts(): HttpRequestAuthOpts | undefined {
+  const t = (_authToken || "").trim();
+  return t ? { authToken: t } : undefined;
+}
+
+function requireModuleContext(op: string): void {
+  if (!_moduleId) {
+    throw new DbError(
+      `[db.${op}] 模块上下文未初始化:setDbModuleContext 未调用(host-bootstrap/ModuleRegistry)`,
+      "unauthorized",
+      0
+    );
+  }
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await HttpDB.typedRequest<T>(
     HttpRequestMethod.POST,
     withModuleId(path),
     body as Record<string, unknown>,
-    { authToken: _authToken }
+    authOpts()
   );
   if (!res.ok) {
-    throw new DbError(res.error ?? "db_server_error", "internal", res.status);
+    // LSP:保留服务端 code/step(尤其 /db/tx),勿一律打成 internal
+    const data = res.data as { error?: string; code?: string; step?: number } | undefined;
+    const code = data?.code || "internal";
+    const msg =
+      data?.step != null
+        ? `事务在 step ${data.step} 失败: ${data.error ?? res.error ?? "db_server_error"}`
+        : data?.error || res.error || "db_server_error";
+    throw new DbError(msg, code, res.status);
   }
   return res.data as T;
 }
@@ -84,6 +111,7 @@ function txReadNotSupported(op: string): never {
 export const db = {
   /** 模块 init 时调,声明自己要哪些表。db-server schema-registry 收集后建表。 */
   async defineTable(name: string, columns: Record<string, ColumnDef>, opts?: { softDelete?: boolean }): Promise<void> {
+    requireModuleContext("defineTable");
     if (_currentTxId) throw new DbError("defineTable 不可在事务内调用", "forbidden", 0);
     await post("/api/sfmc/db/define-table", {
       name,
@@ -96,6 +124,7 @@ export const db = {
     table: string,
     opts?: QueryOptions
   ): Promise<T[]> {
+    requireModuleContext("query");
     if (_currentTxId) throw new DbError("query 不可直接调,请用 db.tx", "use_tx", 0);
     const res = await post<{ rows: T[] }>("/api/sfmc/db/query", { table, opts: opts ?? {} });
     return res.rows;
@@ -105,12 +134,14 @@ export const db = {
     table: string,
     id: string | number
   ): Promise<T | null> {
+    requireModuleContext("get");
     if (_currentTxId) throw new DbError("get 不可直接调,请用 db.tx", "use_tx", 0);
     const res = await post<{ row: T | null }>("/api/sfmc/db/get", { table, id: String(id) });
     return res.row;
   },
 
   async insert<T extends Record<string, unknown>>(table: string, row: T): Promise<T> {
+    requireModuleContext("insert");
     if (_currentTxId) throw new DbError("insert 不可直接调,请用 db.tx", "use_tx", 0);
     const res = await post<InsertResult>("/api/sfmc/db/insert", { table, row });
     return res.row as T;
@@ -121,12 +152,14 @@ export const db = {
     id: string | number,
     patch: Partial<T>
   ): Promise<T> {
+    requireModuleContext("update");
     if (_currentTxId) throw new DbError("update 不可直接调,请用 db.tx", "use_tx", 0);
     const res = await post<UpdateResult>("/api/sfmc/db/update", { table, id: String(id), patch });
     return res.row as T;
   },
 
   async delete(table: string, id: string | number, opts?: { hard?: boolean }): Promise<void> {
+    requireModuleContext("delete");
     if (_currentTxId) throw new DbError("delete 不可直接调,请用 db.tx", "use_tx", 0);
     await post<DeleteResult>("/api/sfmc/db/delete", {
       table,
@@ -138,9 +171,11 @@ export const db = {
   /**
    * 事务:边界在 db-server 进程。失败自动回滚,成功提交。
    * 录制期:写操作(insert/update/delete/audit/call)可入队;query/get 显式抛错,
-   * 避免返回 []/null 假数据破坏 LSP。call 可入队但返回值不可用(两阶段协议另议)。
+   * 避免返回 []/null 假数据破坏 LSP。call 为 fire-and-forget(Promise<void>),
+   * 完整两阶段读回协议另议。
    */
   async tx<T>(fn: (tx: TxContext) => Promise<T>): Promise<T> {
+    requireModuleContext("tx");
     if (_currentTxId) throw new DbError("嵌套事务暂不支持", "nested_tx", 0);
     const steps: TxStep[] = [];
     _currentTxId = "pending";
@@ -162,9 +197,9 @@ export const db = {
         table: string,
         id: string | number,
         patch: Partial<U>
-      ): Promise<U> => {
+      ): Promise<void> => {
+        // LSP:录制期无完整行可读回;勿把 patch 假扮成 U
         push({ op: "update", table, id: String(id), patch });
-        return patch as U;
       },
       delete: async (table: string, id: string | number, opts?: { hard?: boolean }) => {
         push({ op: "delete", table, id: String(id), hard: opts?.hard ?? false });
@@ -173,10 +208,9 @@ export const db = {
         if (data) push({ op: "audit", table, rowId: String(rowId), action, data });
         else push({ op: "audit", table, rowId: String(rowId), action });
       },
-      call: async <U = unknown>(name: string, input: Record<string, unknown>): Promise<U> => {
+      call: async (name: string, input: Record<string, unknown>): Promise<void> => {
         push({ op: "service", name, input });
-        // 录制期无服务端 result 可回放;勿依赖返回值
-        return undefined as unknown as U;
+        // 录制期无服务端 result 可回放;契约为 void(与 service.get 区分 — LSP)
       },
     };
 
@@ -188,16 +222,15 @@ export const db = {
       throw e;
     }
 
-    const res = await post<TxResponse | TxError>("/api/sfmc/db/tx", { steps });
+    // post 在 !ok 时已抛带 step/code 的 DbError;此处只需成功路径
+    await post<TxResponse>("/api/sfmc/db/tx", { steps });
     _currentTxId = null;
-    if (!res.ok) {
-      throw new DbError(`事务在 step ${res.step} 失败: ${res.error}`, res.code, 0);
-    }
     return userResult;
   },
 
   /** 平台预置:审计日志(自动写 _audit 表) */
   async audit(table: string, rowId: string | number, action: string, data?: Record<string, unknown>): Promise<void> {
+    requireModuleContext("audit");
     if (_currentTxId) throw new DbError("audit 不可直接调,请用 db.tx", "use_tx", 0);
     if (data) await post("/api/sfmc/db/audit", { table, rowId: String(rowId), action, data });
     else await post("/api/sfmc/db/audit", { table, rowId: String(rowId), action });
@@ -205,6 +238,7 @@ export const db = {
 
   /** 平台预置:幂等执行(同 action+key 不会重复) */
   async idempotent<T>(action: string, key: string, fn: () => Promise<T>): Promise<T> {
+    requireModuleContext("idempotent");
     const probe = await post<{ replayed: boolean }>("/api/sfmc/db/idempotent/probe", { action, key });
     if (probe.replayed) {
       return undefined as unknown as T;
@@ -225,12 +259,14 @@ export interface TxContext {
     id: string | number
   ): Promise<T | null>;
   insert<T extends Record<string, unknown>>(table: string, row: T): Promise<T>;
+  /** 录制期无行读回,返回 void(与事务外 update→T 区分)。 */
   update<T extends Record<string, unknown>>(
     table: string,
     id: string | number,
     patch: Partial<T>
-  ): Promise<T>;
+  ): Promise<void>;
   delete(table: string, id: string | number, opts?: { hard?: boolean }): Promise<void>;
   audit(table: string, rowId: string | number, action: string, data?: Record<string, unknown>): Promise<void>;
-  call<T = unknown>(name: string, input: Record<string, unknown>): Promise<T>;
+  /** fire-and-forget:入队 service step,不返回 result。 */
+  call(name: string, input: Record<string, unknown>): Promise<void>;
 }

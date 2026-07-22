@@ -10,7 +10,7 @@
  *   - service.list:列所有 enabled 模块 provides 的 service
  */
 
-import { HttpDB } from "../runtime/httpdb.js";
+import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 import { HttpRequestMethod } from "@minecraft/server-net";
 
 let _moduleId = "";
@@ -48,8 +48,24 @@ function withModuleId(path: string): string {
   return HttpDB.withModuleId(path, _moduleId);
 }
 
+function authOpts(): HttpRequestAuthOpts | undefined {
+  const t = (_authToken || "").trim();
+  return t ? { authToken: t } : undefined;
+}
+
+function requireModuleContext(op: string): void {
+  if (!_moduleId) {
+    throw new ServiceError(
+      `[service.${op}] 模块上下文未初始化:setServiceModuleContext 未调用`,
+      "unauthorized",
+      0
+    );
+  }
+}
+
 export const service = {
   async get<T = unknown>(name: string, input: Record<string, unknown> = {}): Promise<T> {
+    requireModuleContext("get");
     if (_isInTx()) {
       throw new ServiceError(
         "事务内调 service 必须用 db.tx 的 tx.call(name, input),不能用 service.get",
@@ -62,7 +78,7 @@ export const service = {
       HttpRequestMethod.GET,
       withModuleId(`/api/sfmc/services/${encodeURIComponent(name)}?${qs}`),
       undefined,
-      { authToken: _authToken }
+      authOpts()
     );
     if (!res.ok) {
       throw new ServiceError(res.error ?? "service_error", "internal", res.status);
@@ -71,11 +87,12 @@ export const service = {
   },
 
   async list(): Promise<ServiceInfo[]> {
+    requireModuleContext("list");
     const res = await HttpDB.typedRequest<{ services: ServiceInfo[] }>(
       HttpRequestMethod.GET,
       withModuleId("/api/sfmc/services"),
       undefined,
-      { authToken: _authToken }
+      authOpts()
     );
     if (res.ok && res.data) return res.data.services;
     return [];

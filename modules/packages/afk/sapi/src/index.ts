@@ -138,13 +138,17 @@ ModuleRegistry.register({
       Permission.register("afk.clear.other", Permission.OP);
     },
     async init() {
-      const cfg = await config.get<AfkConfig>("afk");
-      const safe: AfkConfig = cfg ?? { afk_time: 120, step_time: 15 };
-      if (!cfg) {
+      // getAll 取整份 afk.json(afk_time/step_time);勿用 get("afk")(文件无此键)
+      const cfg = await config.getAll<AfkConfig>();
+      const hasTime = typeof cfg?.afk_time === "number";
+      const safe: AfkConfig = hasTime
+        ? { afk_time: cfg.afk_time, step_time: typeof cfg.step_time === "number" ? cfg.step_time : 15 }
+        : { afk_time: 120, step_time: 15 };
+      if (!hasTime) {
         debug.e("AFK", "configs/afk.json missing — using built-in defaults {afk_time:120, step_time:15}");
       }
 
-      config.onChange("afk", (key, value) => {
+      config.onChange((key, value) => {
         debug.i("AFK", `config.<${key}> changed: ${JSON.stringify(value)}`);
       });
 

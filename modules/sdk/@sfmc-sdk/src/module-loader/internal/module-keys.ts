@@ -29,4 +29,8 @@ export const Modules = {
 } as const;
 
 export type ModuleKey = (typeof Modules)[keyof typeof Modules];
-export type ModuleId = keyof typeof Modules;
+/**
+ * OCP:模块 id 为开放字符串(catalog/manifest id,如 feature-afk);
+ * Modules 枚举仅作旧别名,新模块不必改此表。
+ */
+export type ModuleId = string;
