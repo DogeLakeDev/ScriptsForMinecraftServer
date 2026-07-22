@@ -1,9 +1,36 @@
 {
-  "name": "bds-tools",
-  "version": "1.1.0",
-  "description": "",
+  "name": "@sfmc-bds/bds-tools",
+  "version": "0.1.0",
+  "description": "SFMC BDS auto-updater, lifecycle manager, and behavior-pack assembler",
   "author": "Shiroha7z",
   "type": "module",
+  "license": "ISC",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/bds-tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "bds-tools"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "minecraft-bedrock",
+    "sfmc",
+    "bds",
+    "updater",
+    "scriptsforminecraftserver"
+  ],
+  "main": "dist/bds-manager.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    "./types": {
+      "types": "./dist/types.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/dist/bds-manager.ts",
@@ -16,19 +43,20 @@
     "start": "node dist/bds-manager.js start",
     "stop": "node dist/bds-manager.js stop",
     "status": "node dist/bds-manager.js status",
-    "watch": "node dist/bds-manager.js watch"
+    "watch": "node dist/bds-manager.js watch",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@sfmc-bds/sdk": "^0.1.0",
     "cli-progress": "^3.12.0",
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.0"
   },
-  "main": "dist/bds-manager.js",
-  "keywords": [],
-  "license": "ISC",
-  "exports": {
-    "./types": {
-      "types": "./dist/types.d.ts"
-    }
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

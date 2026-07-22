@@ -2,7 +2,7 @@
  * version.ts — 版本号工具 / 版本缓存
  */
 
-import { readJson, writeJson } from "@sfmc/sdk/node/config";
+import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import { VERSION_CACHE } from "./paths.js";
 import { hashFileSync, hashFileAsync } from "./fsx.js";

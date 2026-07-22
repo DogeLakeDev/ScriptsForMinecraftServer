@@ -10,7 +10,7 @@
  *     alreadyInTx=true 时只跑 steps
  */
 
-import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/sdk/contracts";
+import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc-bds/sdk/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import type { SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";

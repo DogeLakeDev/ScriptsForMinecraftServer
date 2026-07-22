@@ -15,7 +15,7 @@ Per the user's directives:
 
 - **Clean-break only**. No compatibility shims. No "保留旧代码". When v2 lands, delete v1 fully.
 - **Auto-commit as you go**. Don't wait for user to approve each commit.
-- **Modules are untrusted third-party**. Never reach into SDK source on their behalf. Don't `@sfmc/sdk` calls in the platform layer; don't assume module internals.
+- **Modules are untrusted third-party**. Never reach into SDK source on their behalf. Don't `@sfmc-bds/sdk` calls in the platform layer; don't assume module internals.
 
 ---
 
@@ -25,11 +25,11 @@ Per the user's directives:
 ┌────────────────────────────────────────────────────────────┐
 │  Minecraft BDS                                             │
 │  └─ behavior_packs/sfmc-modules/scripts/main.js (esbuild)  │
-│     imports @sfmc/sdk/runtime (90% of biz)                  │
-│            + @sfmc/sdk/sapi/db (db.tx / query / defineTable)│
-│            + @sfmc/sdk/sapi/config (config.get/set)         │
-│            + @sfmc/sdk/sapi/service (service.get)           │
-│            + @sfmc/sdk/module-loader (ModuleRegistry)       │
+│     imports @sfmc-bds/sdk/runtime (90% of biz)                  │
+│            + @sfmc-bds/sdk/sapi/db (db.tx / query / defineTable)│
+│            + @sfmc-bds/sdk/sapi/config (config.get/set)         │
+│            + @sfmc-bds/sdk/sapi/service (service.get)           │
+│            + @sfmc-bds/sdk/module-loader (ModuleRegistry)       │
 └────────────────┬───────────────────────────────────────────┘
                  │ HTTP @ 127.0.0.1:3001
                  ▼
@@ -46,7 +46,7 @@ Per the user's directives:
 └────────────────────────────────────────────────────────────┘
 ```
 
-`@sfmc/sdk` is a **publishable npm package**, not a private workspace package anymore. Module code references the published version (today: from `modules/sdk/@sfmc-sdk` via `npm link` during dev; will be registry `@sfmc/sdk@^0.1.0` after publish).
+`@sfmc-bds/sdk` is a **publishable npm package**, not a private workspace package anymore. Module code references the published version (today: from `modules/sdk/@sfmc-sdk` via `npm link` during dev; will be registry `@sfmc-bds/sdk@^0.1.0` after publish).
 
 ---
 
@@ -90,7 +90,7 @@ Per the user's directives:
 | Delete `db-server/src/routes/lands.ts` + `db-server/src/domain/land.ts` + `land` DDL from `schema.ts` | Only after all 15 v1 modules migrated (right now it's dead code needed for v1 compilation) |
 | Restore land's economy refs (`requires:[feature-economy]`, `permission:service:economy.account`, `tx.call('economy.debit')`) | When `feature-economy` lands in v2 (Wave 3) |
 | Restore feature-spawn-protect etc. to enabled=true by default | After smoke proves all 19 stable |
-| Publish `@sfmc/sdk` to npm | Currently local-only. `npm publish` from `modules/sdk/@sfmc-sdk` once release-ready |
+| Publish `@sfmc-bds/sdk` to npm | Currently local-only. `npm publish` from `modules/sdk/@sfmc-sdk` once release-ready |
 | `npm run bundle` SEA build verification | Make sure new SDK subpaths land in SEA bundle |
 
 ---
@@ -103,9 +103,9 @@ These are non-negotiable. Encode them in behavior, not just notes:
 
 > **"你一路进行下去自己commit就行 不用等我"** — Auto-commit. Don't pause for approval on each commit. Group logically related changes; commit when a unit of work lands.
 
-> **"你需要把package里面的模块全部想象成是其他作者写的东西 所以你当然不能去碰sdk把这些包写在sdk里"** — Modules = untrusted third-party. Don't import module source from anywhere in the platform. Modules may depend on `@sfmc/sdk`; platform may NOT touch module internals.
+> **"你需要把package里面的模块全部想象成是其他作者写的东西 所以你当然不能去碰sdk把这些包写在sdk里"** — Modules = untrusted third-party. Don't import module source from anywhere in the platform. Modules may depend on `@sfmc-bds/sdk`; platform may NOT touch module internals.
 
-> **"我们的目标是让主仓库变成一个纯净的sdk与api提供者 其他功能都在模块仓库内"** — Main repo `modules/` should end up EMPTY. Everything in it moves to the external registry. Keep `@sfmc/sdk` + platform infra only.
+> **"我们的目标是让主仓库变成一个纯净的sdk与api提供者 其他功能都在模块仓库内"** — Main repo `modules/` should end up EMPTY. Everything in it moves to the external registry. Keep `@sfmc-bds/sdk` + platform infra only.
 
 > **"主仓一次 subtree push 全部 24 个模块"** — Was the earlier ask; we pivoted to per-module migration because v1 modules don't compile cleanly with v2 dispatch yet. Per-module is the de-facto plan now (one v2 module at a time → push → remove).
 
@@ -215,7 +215,7 @@ For each v1 module M in `modules/packages/M/`:
 
 - **`config` cache semantics**. `config.get` hits memory after first call. `config.set` updates memory + async persists. There is no transactional config read; if you need consistency, use `db.tx` + `config.set` outside the tx.
 
-- **HMAC tokens** for service.get are per-moduleId. db-server `module-auth.ts` derives them from `process.env.SFMC_MODULE_SECRET` + moduleId. Modules don't see their own tokens; the SDK client (`@sfmc/sdk/sapi/service/client.ts`) handles this transparently.
+- **HMAC tokens** for service.get are per-moduleId. db-server `module-auth.ts` derives them from `process.env.SFMC_MODULE_SECRET` + moduleId. Modules don't see their own tokens; the SDK client (`@sfmc-bds/sdk/sapi/service/client.ts`) handles this transparently.
 
 - **Strict TypeScript everywhere**. `exactOptionalPropertyTypes: true`. Watch out for `where: undefined` — pass `where: null` or omit.
 
@@ -296,7 +296,7 @@ D:/#WorkPlace/sfmc-modules/           ← LOCAL SKELETON, pushed to https://gith
    - `git rm` deleted-v1 files within the module
    - Commit
    - Run smoke
-5. **Don't** publish `@sfmc/sdk` to npm yet — wait until at least 5 modules are v2, smoke covers the matrix of (db.tx, tx.call, service.get inside tx, audit, idempotent).
+5. **Don't** publish `@sfmc-bds/sdk` to npm yet — wait until at least 5 modules are v2, smoke covers the matrix of (db.tx, tx.call, service.get inside tx, audit, idempotent).
 6. **Don't** delete `db-server/src/routes/lands.ts` and friends until all v1 modules migrated.
 
 ---
@@ -308,7 +308,7 @@ D:/#WorkPlace/sfmc-modules/           ← LOCAL SKELETON, pushed to https://gith
 - **`db.defineTable` succeeds but later `db.query` 403 table-not-permitted**: missing `db:read:<table>` in permissions.
 - **`where: undefined` causes TypeError**: SDK strict-types — pass `null` or omit entirely.
 - **`tx.call("svc.name", ...)` returns "service not registered"**: target service's module is enabled but hasn't reached the `service.provide(...)` init phase yet. Wait for afterWorldLoad = false modules to finish init. Restart is safe.
-- **esbuild during BP build complains `Could not resolve "@sfmc/sdk/..."`**: main repo's `modules/sdk/@sfmc-sdk/package.json` exports field missing the subpath. Add to `"exports"` map.
+- **esbuild during BP build complains `Could not resolve "@sfmc-bds/sdk/..."`**: main repo's `modules/sdk/@sfmc-sdk/package.json` exports field missing the subpath. Add to `"exports"` map.
 - **SEA bundle still imports v1 routes**: dispatcher's `module-require` resolver not picking up new v2 service handlers. Check `sfmc/dist/module-commands.js` for stale imports.
 
 ---
@@ -345,12 +345,12 @@ End-of-day check-in. Counts and gotchas that will trip up the next agent.
 | `feat(qa): v2 migration` | `3aead3a` | Question bank restored from b6906a4's pre-clean `configs-default/questions.json` into `modules/packages/qa/configs-default/qa.json` |
 | `feat(online-time): v2 migration` | `f45ea68` | Module-owned `player_onlinetime` table; doesn't pollute platform `sfmc_players.onlinetime_*` columns anymore |
 | `feat(data-backup): v2 migration` | `6584069` | core module, stays in main repo. db.tx against platform `sfmc_players` / `sfmc_world` |
-| `feat(monitor): v2 migration` | `474e197` | First v2 module that consumes another module's service (`tps.current`). Dropped direct `@sfmc/module-tps` npm dependency |
+| `feat(monitor): v2 migration` | `474e197` | First v2 module that consumes another module's service (`tps.current`). Dropped direct `@sfmc-bds/module-tps` npm dependency |
 | `feat(activity-log): v2 migration` | `7e81129` | 19-event audit logger → `sfmc_activities`. v1 used camelCase columns, v2 schema is snake_case — name mapping done in flush() |
 | `feat(economy): v2 migration` | `d9fcbda` | Keystone. Provides 7 services: `economy.{account.get,credit,debit,transfer,dailyTasks.list,dailyTasks.submit,stats.monthly}`. Total provides jumped 17 → 24 |
 | `feat(daily-task): v2 migration` | `45b67ce` | First v2 module-to-module service.requires chain end-to-end. `requires:[feature-economy]`, `services.requires:[economy.dailyTasks.list, .submit]` |
 | `feat(scoreboard-sync): v2 migration` | `b8d420c` | World scoreboard backup/restore via `sfmc_scoreboards` |
-| `feat(coop): merge coop + coop-gui into v2` | `287c6bd` | Merged the v1 modules that had a circular `@sfmc/module-coop` ↔ `@sfmc/module-coop-gui` import. New `modules/packages/feature-coop/` with `coop-api.ts` (db.tx wrappers for all 18 v1 endpoints) + `coop-core.ts` (business logic) + `index.ts` (commands `/coop`, `/coop create`, `/coop join`, `/coop leave`, `/coop bank`, `/coop rank`, `/coopshop`) |
+| `feat(coop): merge coop + coop-gui into v2` | `287c6bd` | Merged the v1 modules that had a circular `@sfmc-bds/module-coop` ↔ `@sfmc-bds/module-coop-gui` import. New `modules/packages/feature-coop/` with `coop-api.ts` (db.tx wrappers for all 18 v1 endpoints) + `coop-core.ts` (business logic) + `index.ts` (commands `/coop`, `/coop create`, `/coop join`, `/coop leave`, `/coop bank`, `/coop rank`, `/coopshop`) |
 | `feat(inventory-switcher): v2 migration + restore v1 configs from backup` | `a5ff417` | (1) v2 module; (2) also moved 7 config files out of `configs-package/` backup into per-module `configs-default/` (areas, banned_items, clean, peace_filters → feature-area; land → land; grids → inventory-switcher; settings → afk). `configs-package/` directory removed |
 
 Total v2 migrations landed in this session: **16 modules**. The remaining v1 modules are **`feature-chat` + `feature-chat-gui`** (decided to defer because the same conversation weight cost that activity-log and feature-coop already consumed was deemed too high for chat+chat-gui in a single context).

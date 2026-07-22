@@ -1,18 +1,18 @@
 {
-  "name": "@sfmc/sdk",
+  "name": "@sfmc-bds/sdk",
   "version": "0.1.0",
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, db/config/service capabilities, and behavior-pack build.",
   "type": "module",
   "license": "ISC",
   "author": "Shiroha7z",
-  "homepage": "https://github.com/Tanya7z/ScriptsForMinecraftServer#readme",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/modules/sdk/@sfmc-sdk#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Tanya7z/ScriptsForMinecraftServer.git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
     "directory": "modules/sdk/@sfmc-sdk"
   },
   "bugs": {
-    "url": "https://github.com/Tanya7z/ScriptsForMinecraftServer/issues"
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
   },
   "keywords": [
     "minecraft-bedrock",
@@ -95,7 +95,6 @@
   },
   "files": [
     "dist",
-    "src",
     "README.md",
     "LICENSE"
   ],
@@ -107,7 +106,21 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run clean && npm run build:types && node build.mjs"
   },
-  "engines": { "node": ">=22.5.0" },
+  "peerDependencies": {
+    "@minecraft/server": ">=2.10.0-beta",
+    "@minecraft/server-ui": ">=2.2.0-beta"
+  },
+  "peerDependenciesMeta": {
+    "@minecraft/server": {
+      "optional": true
+    },
+    "@minecraft/server-ui": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

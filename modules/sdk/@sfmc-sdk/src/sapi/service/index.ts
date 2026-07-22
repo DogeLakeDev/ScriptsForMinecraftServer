@@ -1,5 +1,5 @@
 /**
- * service/index.ts — @sfmc/sdk/sapi/service 公开 API
+ * service/index.ts — @sfmc-bds/sdk/sapi/service 公开 API
  */
 
 export { service, setServiceModuleContext, clearServiceModuleContext, ServiceError } from "./client.js";

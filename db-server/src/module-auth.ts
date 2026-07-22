@@ -22,7 +22,7 @@
  *   - 校验调用方 moduleId 在 enabled 列表(否则 403)
  */
 
-import { readJson, writeJson, type TokenStore } from "@sfmc/sdk/node/config";
+import { readJson, writeJson, type TokenStore } from "@sfmc-bds/sdk/node/config";
 import { createHmac, randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { log } from "./lib/log.js";

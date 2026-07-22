@@ -12,7 +12,7 @@ npm workspaces monorepo (root `package.json` has `workspaces`):
 | `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js, can SEA-bundle |
 | `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
 | `modules/sdk/@sfmc-sdk/` | Shared SDK consumed by modules | mixed |
-| `shared/sfmc-logs/` | Shared logging library `@sfmc/logs` | Node.js |
+| `shared/sfmc-logs/` | Shared logging library `@sfmc-bds/logs` | Node.js |
 
 **`panel/` no longer exists** — replaced by `sfmc/` CLI (the old AGENTS.md was stale).
 
@@ -141,7 +141,7 @@ Key config endpoints:
 
 ## Code conventions
 
-- **Message display**: `Msg.info/success/error/warning/tips()` from `@sfmc/sdk/sapi/runtime` (adds `§f[*]`/`§a[√]`/`§c[x]`/`§e[!]`/`§7[!]` prefixes). **Never use `player.sendMessage()` directly.**
+- **Message display**: `Msg.info/success/error/warning/tips()` from `@sfmc-bds/sdk/sapi/runtime` (adds `§f[*]`/`§a[√]`/`§c[x]`/`§e[!]`/`§7[!]` prefixes). **Never use `player.sendMessage()` directly.**
 - **Form body**: `ListFormInfo(string[])` from `gui/` — first line gets `[*]` prefix, indented lines are plain
 - **Button/Form titles**: No formatting codes (except `返回` for back buttons)
 - **Money**: Scoreboard-based, unit from `Money.UNIT` (`节操`)
@@ -218,7 +218,7 @@ node tools/fetch-module.mjs install <id>
 
 The Cloud VM is Linux; the repo primarily targets Windows, but the Node services run fine on Linux (Node ≥22.13 provides unflagged `node:sqlite`; 22.5–22.12 require the `--experimental-sqlite` CLI flag or db-server crashes on startup with `ERR_UNKNOWN_BUILTIN_MODULE`). The update script only runs `npm install`. Everything below is required each session before running/verifying services.
 
-- **Build before running.** `dist/` is gitignored for `@sfmc/sdk`, `db-server`, `bds-tools`, etc., and services run from `dist/`. Run `npm run build --workspaces --if-present` (builds the SDK first, then the services) after `npm install`. Without it, imports like `@sfmc/sdk/node/config` fail.
+- **Build before running.** `dist/` is gitignored for `@sfmc-bds/sdk`, `db-server`, `bds-tools`, etc., and services run from `dist/`. Run `npm run build --workspaces --if-present` (builds the SDK first, then the services) after `npm install`. Without it, imports like `@sfmc-bds/sdk/node/config` fail.
 - **`configs/` is gitignored** — populate it once from `configs-default/` (`mkdir -p configs && cp -n configs-default/*.json configs/`). db-server also runs with defaults if `configs/` is absent.
 - **Fixed — `modulesDir` in `configs-default/db_config.json`.** Used to ship as `"../modules"`, which resolved *relative to `PROJECT_ROOT` (= `SFMC_ROOT`, the repo root)* → `/modules` (outside the repo) → the module API returned an empty catalog. It now ships as `"modules"` so `configs/db_config.json` copied from the default is correct out of the box. When `configs/` is absent entirely, the fallback (`<root>/modules`) was already correct.
 - **Run db-server (main service, port 3001):** `SFMC_ROOT=$PWD node db-server/dist/index.js`. Health: `GET http://127.0.0.1:3001/api/health`. The module/config REST surface is JSON-backed and is the CI-tested core path (`GET /api/sfmc/modules/catalog`, `POST /api/sfmc/modules/:id/{enable|disable}`).

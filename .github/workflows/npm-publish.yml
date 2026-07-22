@@ -1,0 +1,93 @@
+name: npm-publish
+
+# 按包 tag 触发 npm 发布，与 release.yml（SEA / v*）互不干扰。
+# 示例: git tag @sfmc-bds/sdk@v0.1.0 && git push origin @sfmc-bds/sdk@v0.1.0
+
+on:
+  push:
+    tags:
+      - "@sfmc-bds/*@v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13"
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: parse tag
+        id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG="${TAG%@v*}"
+          VER="${TAG##*@v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "pkg=$PKG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+          case "$PKG" in
+            @sfmc-bds/sdk) echo "workspace=@sfmc-bds/sdk" >> "$GITHUB_OUTPUT" ;;
+            @sfmc-bds/cli) echo "workspace=@sfmc-bds/cli" >> "$GITHUB_OUTPUT" ;;
+            @sfmc-bds/db-server) echo "workspace=@sfmc-bds/db-server" >> "$GITHUB_OUTPUT" ;;
+            @sfmc-bds/qq-bridge) echo "workspace=@sfmc-bds/qq-bridge" >> "$GITHUB_OUTPUT" ;;
+            @sfmc-bds/bds-tools) echo "workspace=@sfmc-bds/bds-tools" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::Unknown npm package tag: $PKG"
+              exit 1
+              ;;
+          esac
+
+      - name: verify package version
+        shell: bash
+        env:
+          WORKSPACE: ${{ steps.meta.outputs.workspace }}
+          VER: ${{ steps.meta.outputs.ver }}
+        run: |
+          node <<'EOF'
+          import fs from "node:fs";
+
+          const map = {
+            "@sfmc-bds/sdk": "modules/sdk/@sfmc-sdk/package.json",
+            "@sfmc-bds/cli": "sfmc/package.json",
+            "@sfmc-bds/db-server": "db-server/package.json",
+            "@sfmc-bds/qq-bridge": "qq-bridge/package.json",
+            "@sfmc-bds/bds-tools": "bds-tools/package.json",
+          };
+
+          const ws = process.env.WORKSPACE;
+          const expected = process.env.VER;
+          const pkgPath = map[ws];
+          if (!pkgPath) {
+            console.error("No package.json mapping for", ws);
+            process.exit(1);
+          }
+          const ver = JSON.parse(fs.readFileSync(pkgPath, "utf8")).version;
+          if (ver !== expected) {
+            console.error(`Tag version ${expected} != package.json version ${ver}`);
+            process.exit(1);
+          }
+          console.log(`Version OK: ${ws}@${ver}`);
+          EOF
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: build SDK (dependency)
+        if: steps.meta.outputs.workspace != '@sfmc-bds/sdk'
+        run: npm run build --workspace @sfmc-bds/sdk
+
+      - name: build target workspace
+        run: npm run build --workspace "${{ steps.meta.outputs.workspace }}"
+
+      - name: publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --workspace "${{ steps.meta.outputs.workspace }}" --access public --provenance

@@ -1,5 +1,5 @@
 /**
- * config/index.ts — @sfmc/sdk/sapi/config 公开 API
+ * config/index.ts — @sfmc-bds/sdk/sapi/config 公开 API
  */
 
 export { config, setConfigModuleContext, clearConfigModuleContext } from "./client.js";

@@ -8,7 +8,7 @@ import {
   type Catalog,
   type ConfigName,
   type ModuleLock,
-} from "@sfmc/sdk/node/config";
+} from "@sfmc-bds/sdk/node/config";
 import JSZip from "jszip";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

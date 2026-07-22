@@ -101,7 +101,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "node:child_process",
@@ -137,7 +137,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "node_modules/jsonc-parser/lib/esm/main.js",
@@ -724,7 +724,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "node:child_process",
@@ -785,7 +785,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "sfmc/src/commands.ts",
@@ -2615,7 +2615,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "node:fs",
@@ -2671,7 +2671,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "node_modules/jszip/lib/index.js",
@@ -2786,7 +2786,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/logs"
+          "original": "@sfmc-bds/sdk/logs"
         },
         {
           "path": "sfmc/src/repl.ts",
@@ -2853,7 +2853,7 @@
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
           "kind": "import-statement",
-          "original": "@sfmc/sdk/node/config"
+          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "sfmc/package.json",

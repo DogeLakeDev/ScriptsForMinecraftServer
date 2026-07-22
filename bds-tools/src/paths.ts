@@ -10,7 +10,7 @@ import {
   ensureJsonConfig,
   resolveRuntimeRoot,
   type BdsUpdaterConfig,
-} from "@sfmc/sdk/node/config";
+} from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

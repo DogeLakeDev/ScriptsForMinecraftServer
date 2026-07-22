@@ -1,5 +1,5 @@
 /**
- * @sfmc/logs — ScriptsForMinecraftServer 统一日志接口
+ * @sfmc-bds/logs — ScriptsForMinecraftServer 统一日志接口
  *
  * 零运行时依赖,纯 ANSI 颜色码。ESM + CJS 双格式输出。
  * 被所有 Node.js 组件 (db-server / qq-bridge / bds-tools / sfmc) 共用。

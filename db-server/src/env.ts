@@ -2,7 +2,7 @@
  * env.ts — 环境配置加载
  */
 
-import { ensureJsonConfig, modulePath, resolveRuntimeRoot } from "@sfmc/sdk/node/config";
+import { ensureJsonConfig, modulePath, resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 

@@ -27,7 +27,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { configPath, readJson, type DBConfig } from "@sfmc/sdk/node/config";
+import { configPath, readJson, type DBConfig } from "@sfmc-bds/sdk/node/config";
 import { c } from "./theme.js";
 import { ROOT } from "./runtime.js";
 import { findUnknownModules } from "./registry.js";

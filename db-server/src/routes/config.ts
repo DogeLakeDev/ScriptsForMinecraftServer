@@ -14,7 +14,7 @@
  *   GET /api/sfmc/qa                   — questions.json
  */
 
-import { configPath, readJson, type ConfigName } from "@sfmc/sdk/node/config";
+import { configPath, readJson, type ConfigName } from "@sfmc-bds/sdk/node/config";
 
 interface Deps {
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;

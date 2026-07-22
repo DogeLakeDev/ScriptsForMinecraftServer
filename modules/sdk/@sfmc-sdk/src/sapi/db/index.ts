@@ -1,8 +1,8 @@
 /**
- * db/index.ts — @sfmc/sdk/sapi/db 公开 API
+ * db/index.ts — @sfmc-bds/sdk/sapi/db 公开 API
  *
  * 模块作者 import:
- *   import { db, TxContext, DbError } from "@sfmc/sdk/sapi/db";
+ *   import { db, TxContext, DbError } from "@sfmc-bds/sdk/sapi/db";
  *
  * 设计:
  *   - db.query / get / insert / update / delete / audit / idempotent:单 RPC

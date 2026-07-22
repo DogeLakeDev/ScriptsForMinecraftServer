@@ -1,7 +1,7 @@
 /**
  * logs.ts — sfmc 主进程统一日志聚合层
  *
- * 内部委托 @sfmc/logs 共享包的 createMemoryBuffer + inferLevel,
+ * 内部委托 @sfmc-bds/logs 共享包的 createMemoryBuffer + inferLevel,
  * 保持向后兼容的 pushLog / onLog / getAllLogs / getRecentLogs API
  * (services.ts 捕获子进程 stdout 后调用 pushLog 汇聚到此)。
  *
@@ -13,7 +13,7 @@ import {
   inferLevel as sharedInferLevel,
   type LogEntry,
   type LogLevel as SharedLogLevel,
-} from "@sfmc/sdk/logs";
+} from "@sfmc-bds/sdk/logs";
 import { SOURCE_ITEMS } from "./repl.js";
 import { c } from "./theme.js";
 

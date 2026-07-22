@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import { configPath, ensureJson, writeJson, type RemoteConfig } from "@sfmc/sdk/node/config";
+import { configPath, ensureJson, writeJson, type RemoteConfig } from "@sfmc-bds/sdk/node/config";
 import { cmdRestart, cmdSend, cmdStart, cmdStop } from "./commands.js";
 import { ROOT } from "./runtime.js";
 import { SERVICE_NAMES, serviceStatus, type ServiceName } from "./services.js";

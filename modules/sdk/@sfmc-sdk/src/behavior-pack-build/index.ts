@@ -1,4 +1,4 @@
-// @sfmc/sdk/behavior-pack-build — BP 发布工具(esbuild + 资源包拷贝 + manifest 发射)
+// @sfmc-bds/sdk/behavior-pack-build — BP 发布工具(esbuild + 资源包拷贝 + manifest 发射)
 //
 // 阶段 A+B 占位;后续 Stage I (build pipeline) 在此文件内落:
 //   - bundle-sapi.mjs   : esbuild 聚合 modules/packages/<enabled>/sapi/src/index.ts

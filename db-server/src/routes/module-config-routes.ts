@@ -14,7 +14,7 @@
 
 import { join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { readJson, writeJson } from "@sfmc/sdk/node/config";
+import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 import { json as defaultJson, type Method } from "../lib/http.js";
 import { assertModulePermission, Perm } from "../permission-gate.js";
 import type { ModuleManifestV2 } from "../manifest-loader.js";

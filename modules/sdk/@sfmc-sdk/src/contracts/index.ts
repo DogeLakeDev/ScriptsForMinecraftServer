@@ -1,8 +1,8 @@
 /**
  * types/index.ts — 共享类型 barrel
  *
- * sapi 通过 tsconfig paths 里的 @sfmc/types/* 别名引用这里:
- *   import type { Channel } from "@sfmc/types/chat"
+ * sapi 通过 tsconfig paths 里的 @sfmc-bds/types/* 别名引用这里:
+ *   import type { Channel } from "@sfmc-bds/types/chat"
  */
 export type { Channel, ChannelConfig, ChatMessage, MessageType, PlayerChannelSettings, RedPacket } from "./chat.js";
 export type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "./coop.js";

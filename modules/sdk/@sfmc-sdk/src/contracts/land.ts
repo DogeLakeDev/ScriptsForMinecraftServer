@@ -1,12 +1,12 @@
 /**
  * types/land.ts — 领地 共享数据模型
  *
- * db-server 与 sapi 之间通过 @sfmc/types/land 别名共享。
+ * db-server 与 sapi 之间通过 @sfmc-bds/types/land 别名共享。
  * - snake_case 行类型对应数据库列；
  * - camelCase 视图类型对应 API / 客户端使用。
  *
  * sapi 旧版本曾在 land/LandDatabase.ts 中本地定义 LandData / LandMember /
- * LandPermissions 等。本文件统一后，sapi 应改为 import 自 @sfmc/types/land。
+ * LandPermissions 等。本文件统一后，sapi 应改为 import 自 @sfmc-bds/types/land。
  */
 
 // ──────────────────────────────────────────────────────────────────────────────

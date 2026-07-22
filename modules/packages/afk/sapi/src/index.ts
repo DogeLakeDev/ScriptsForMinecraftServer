@@ -1,5 +1,5 @@
 /**
- * @sfmc/module-afk — v2 入口
+ * @sfmc-bds/module-afk — v2 入口
  *
  * 与 land v2 同型:ModuleRegistry.register + SDK config.drawer。
  * 零 db 表、零 cross-module service — 纯 SAPI 进程内的位置扫描 + 标签。
@@ -7,9 +7,9 @@
  */
 
 import { Player, system, world } from "@minecraft/server";
-import { Command, debug, Permission, Msg } from "@sfmc/sdk/sapi/runtime";
-import { config } from "@sfmc/sdk/sapi/config";
-import { ModuleRegistry } from "@sfmc/sdk/module-loader";
+import { Command, debug, Permission, Msg } from "@sfmc-bds/sdk/sapi/runtime";
+import { config } from "@sfmc-bds/sdk/sapi/config";
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 
 const MODULE_ID = "feature-afk";
 

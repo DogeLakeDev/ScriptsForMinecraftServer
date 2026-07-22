@@ -1,7 +1,7 @@
 import { system } from "@minecraft/server";
 import { ConfigManager } from "./internal/config-manager.js";
 import { ModuleId, Modules } from "./internal/module-keys.js";
-// Command 类尚未迁入 @sfmc/sdk (Stage F 之后实装)。本批 (Stage A+B) 把所有
+// Command 类尚未迁入 @sfmc-bds/sdk (Stage F 之后实装)。本批 (Stage A+B) 把所有
 // Command.unregister / Command.unregisterByModule 调用换成 stub,行为等价 noop;
 // 实际命令注销由 modules 自己在 cleanup() 中调各自的 unregister 接口(已存在)。
 // 完整迁移后这里恢复 import { Command } from "../sapi/host/index.js" + 值调用。

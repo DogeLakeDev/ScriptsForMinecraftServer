@@ -90,8 +90,8 @@ async function main() {
   // 4) SDK dist 提示
   {
     const sdkDist = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "dist");
-    if (exists(sdkDist)) pass("@sfmc/sdk dist 存在");
-    else console.log("[ootb] WARN: @sfmc/sdk dist 缺失 — 运行 npm run sdk:build");
+    if (exists(sdkDist)) pass("@sfmc-bds/sdk dist 存在");
+    else console.log("[ootb] WARN: @sfmc-bds/sdk dist 缺失 — 运行 npm run sdk:build");
   }
 
   // 5) db-server 启动 + 平台 API(允许 modules=[])

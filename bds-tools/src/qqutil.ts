@@ -7,7 +7,7 @@
  */
 
 import http from "node:http";
-import { configPath, modulePath, readJson, type Catalog, type ModuleLock, type QQBridgeConfig } from "@sfmc/sdk/node/config";
+import { configPath, modulePath, readJson, type Catalog, type ModuleLock, type QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
 import { ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
 

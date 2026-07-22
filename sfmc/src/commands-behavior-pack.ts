@@ -15,7 +15,7 @@
  *
  */
 
-import { configPath, readJson, type BdsUpdaterConfig } from "@sfmc/sdk/node/config";
+import { configPath, readJson, type BdsUpdaterConfig } from "@sfmc-bds/sdk/node/config";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";

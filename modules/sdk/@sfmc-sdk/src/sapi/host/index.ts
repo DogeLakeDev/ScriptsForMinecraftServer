@@ -1,5 +1,5 @@
-// @sfmc/sdk/sapi/host — host adapter + 声明模块数据库/路由协议 + 配置加载
-// 由 @sfmc/sdk/module-loader 在 installHostBootstrap 时调用 bindDataAdapter 等接口装配。
+// @sfmc-bds/sdk/sapi/host — host adapter + 声明模块数据库/路由协议 + 配置加载
+// 由 @sfmc-bds/sdk/module-loader 在 installHostBootstrap 时调用 bindDataAdapter 等接口装配。
 //
 // 当前阶段只导出:
 //   - config: 路径解析 / SFMC_ROOT 等工具(从原 shared/sfmc-config 迁入)

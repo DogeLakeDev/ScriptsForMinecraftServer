@@ -9,7 +9,7 @@
  *   6. Rollback marker 落盘 - 跨进程 / 跨重启可恢复
  */
 
-import { createFileSink, createLogger, createStdoutSink } from "@sfmc/sdk/logs";
+import { createFileSink, createLogger, createStdoutSink } from "@sfmc-bds/sdk/logs";
 import cliProgress from "cli-progress";
 import JSZip from "jszip";
 import fs from "node:fs";

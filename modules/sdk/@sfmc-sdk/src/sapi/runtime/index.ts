@@ -1,4 +1,4 @@
-// @sfmc/sdk/sapi/runtime — SAPI 模块直供工具
+// @sfmc-bds/sdk/sapi/runtime — SAPI 模块直供工具
 //
 //   - MenuNavigator / FormStatus / Observable*:表单状态机
 //   - Msg / registerSystemMsgHandler:玩家频道消息 + 系统频道桥
@@ -11,7 +11,7 @@
 //     formatTimestamp / generateId / dimensionId /
 //     toQueryString / ListFormInfo
 //
-// @sfmc/sdk/sapi/runtime — SAPI 模块直供工具
+// @sfmc-bds/sdk/sapi/runtime — SAPI 模块直供工具
 export * from "./menu-navigator.js";
 export * from "./msg.js";
 export * from "./debug-log.js";

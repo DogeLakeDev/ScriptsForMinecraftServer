@@ -1,5 +1,5 @@
-import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc/sdk/node/config";
-import { configPath, ensureJsonConfig, readJson } from "@sfmc/sdk/node/config";
+import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
+import { configPath, ensureJsonConfig, readJson } from "@sfmc-bds/sdk/node/config";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";

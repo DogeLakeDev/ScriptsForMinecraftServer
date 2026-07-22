@@ -1,5 +1,5 @@
 {
-  "name": "@sfmc/remote-controller",
+  "name": "@sfmc-bds/remote-controller",
   "version": "0.1.0",
   "private": true,
   "type": "module",

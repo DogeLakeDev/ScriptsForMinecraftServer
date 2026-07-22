@@ -1,4 +1,4 @@
-import { readJson, writeJson } from "@sfmc/sdk/node/config";
+import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 
 interface ModuleLock {
   version: number;

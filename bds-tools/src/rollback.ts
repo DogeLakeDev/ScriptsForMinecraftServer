@@ -8,7 +8,7 @@
  * 持久化: ROLLBACK_MARKER (BDSTools/.last_update_rollback.json) 用于跨进程记录。
  */
 
-import { readJson, writeJson } from "@sfmc/sdk/node/config";
+import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
 import { ROLLBACK_MARKER } from "./paths.js";

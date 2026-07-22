@@ -1,10 +1,32 @@
 {
-  "name": "db-server",
-  "version": "1.0.0",
-  "description": "",
-  "author": "Shiroha7z",
+  "name": "@sfmc-bds/db-server",
+  "version": "0.1.0",
+  "description": "SFMC SQLite HTTP REST backend — configs, modules, gameplay data, QQ message relay",
   "type": "module",
+  "license": "ISC",
+  "author": "Shiroha7z",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/db-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "db-server"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "minecraft-bedrock",
+    "sfmc",
+    "sqlite",
+    "rest-api",
+    "scriptsforminecraftserver"
+  ],
   "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
@@ -12,16 +34,19 @@
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "node --test src/*.test.js",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@sfmc-bds/sdk": "^0.1.0",
+    "sql-template-strings": "^2.2.2",
+    "ws": "^8.21.1"
   },
   "engines": {
     "node": ">=22.13.0"
   },
-  "dependencies": {
-    "sql-template-strings": "^2.2.2",
-    "ws": "^8.21.1"
-  },
-  "keywords": [],
-  "license": "ISC",
-  "types": "./dist/index.d.ts"
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

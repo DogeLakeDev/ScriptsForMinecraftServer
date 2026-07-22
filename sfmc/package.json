@@ -1,9 +1,25 @@
 {
-  "name": "sfmc-cil",
+  "name": "@sfmc-bds/cli",
   "version": "0.1.0",
-  "private": true,
-  "description": "REPL management tool for ScriptsForMinecraftServer",
+  "description": "SFMC management CLI — REPL, service supervisor, module install, behavior-pack build/deploy",
   "type": "module",
+  "license": "ISC",
+  "author": "Shiroha7z",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/sfmc#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "sfmc"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "minecraft-bedrock",
+    "sfmc",
+    "cli",
+    "scriptsforminecraftserver"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -19,18 +35,31 @@
   "bin": {
     "sfmc": "./dist/main.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "start": "node ./dist/main.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dev": "tsx src/main.ts"
+    "dev": "tsx src/main.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@sfmc-bds/sdk": "^0.1.0",
     "@clack/prompts": "^1.7.0",
     "chalk": "^5.4.1",
     "cli-progress": "^3.12.0",
     "jsonc-parser": "^3.3.1",
     "jszip": "^3.10.1",
     "ws": "^8.21.1"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

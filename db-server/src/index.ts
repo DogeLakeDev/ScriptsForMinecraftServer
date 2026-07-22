@@ -36,7 +36,7 @@ import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
 import { registerEconomyHandlers } from "./services/economy-handlers.js";
 
-import { readJson, writeJson } from "@sfmc/sdk/node/config";
+import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 
 import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";

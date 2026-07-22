@@ -1,4 +1,4 @@
-import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
+import { resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
 import { spawn, spawnSync, type SpawnOptions, type SpawnSyncOptions } from "node:child_process";
 import path, { dirname } from "node:path";
 import process from "node:process";

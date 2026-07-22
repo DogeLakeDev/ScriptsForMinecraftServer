@@ -1,5 +1,5 @@
 /**
- * @sfmc/sdk 单伞包多产物 esbuild
+ * @sfmc-bds/sdk 单伞包多产物 esbuild
  *
  * 子路径 → 平台映射:
  *   platform "node"  : 任何 import 了 node:fs/node:path 的子路径
@@ -75,5 +75,5 @@ for (const { sub, platform } of SUBPATHS) {
 console.log("[sdk] emitting .d.ts via tsc...");
 execSync("npx tsc -p tsconfig.types.json", { stdio: "inherit" });
 
-console.log("@sfmc/sdk build done:", SUBPATHS.length, "subpaths");
+console.log("@sfmc-bds/sdk build done:", SUBPATHS.length, "subpaths");
 

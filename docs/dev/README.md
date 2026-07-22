@@ -1,37 +1,35 @@
-# ScriptsForMinecraftServer 文档
+# 开发指南
 
-> 中英双语。
+面向两类读者：**写业务模块** 和 **改 SFMC 平台本身**。
 
-## 使用文档(面向用户 / 运维)
+## 阅读顺序
 
-| 中文 | English |
-|------|---------|
-| [ScriptsForMinecraftServer 使用文档](../user-guide.zh.md) | [ScriptsForMinecraftServer User Guide](../user-guide.en.md) |
-| [模块市场使用指南](../marketplace.zh.md) | [Module Marketplace Guide](../marketplace.en.md) |
+| 章节 | 适合谁 |
+|------|--------|
+| [架构](./architecture.md) | 所有人 |
+| [平台开发](./platform.md) | 改 db-server / sfmc / 工具链 |
+| [模块开发](./module-author.md) | 写 sfmc-modules 里的包 |
+| [manifest 契约](./manifest.md) | 声明权限、services、依赖 |
+| [构建管线](./build-pipeline.md) | BP 怎么打出来 |
+| [工具脚本](./tools.md) | `tools/*.mjs` 与 CI |
+| [npm 发布](./npm-publish.md) | `@sfmc-bds/*` 包发布与 org 配置 |
+| [代码约定](./conventions.md) | 消息、权限、审查原则 |
 
-## 开发文档(面向 SAPI 模块作者)
+## 仓库分工
 
-| 中文 | English |
-|------|---------|
-| [SAPI 模块作者指南](./module-author.zh.md) | [SAPI Module Author Guide](./module-author.en.md) |
-| [SDK 四抽屉 API 索引](./sdk-reference.zh.md) | [SDK Four-Drawer API Reference](./sdk-reference.en.md) |
-| [manifest v2 契约](./manifest-contract.zh.md) | [manifest v2 Contract](./manifest-contract.en.md) |
+- **本仓**：`@sfmc-bds/sdk`、db-server、qq-bridge、sfmc、bds-tools
+- **sfmc-modules**：业务模块源码与注册表
 
-## 阅读顺序建议
+模块只通过 SDK 跟平台说话，不要直连 db-server 端口、不要 import 别的模块源码。
 
-### 我是用户 / 运维
+## 本地最小流程
 
-1. **使用文档** — 完整流程:安装 → 初始化 → 启动 → 日常操作 → 备份升级 → 应急恢复
-2. **模块市场使用指南** — SEA 部署后,如何获取业务模块(`sfmc module install ...`)、SHA-256 校验、第三方源接入
+```bash
+npm install && npm run build --workspaces --if-present
+node tools/fetch-module.mjs install afk
+npm run catalog-sync
+node sfmc/dist/main.js behavior-pack build
+node sfmc/dist/main.js behavior-pack deploy
+```
 
-### 我是模块作者
-
-1. **模块作者指南** — 解释模块放置位置、生命周期、`ModuleRegistry.register(...)` 怎么写、catalog.json 怎么登记、常见错误
-2. **SDK 四抽屉 API 索引** — 写代码时查表。`@sfmc/sdk/sapi/runtime` 是 90% 业务代码的 import 来源;db / config / service 三个新抽屉覆盖所有跨进程能力
-3. **manifest 契约** — 当你需要让你的模块调用 db-server 时读这个
-
-## 仓顶相关文档
-
-- `CLAUDE.md` — 给 Claude Code 的项目说明(人类贡献者也值得一读)
-- `docs/plan/modules.md` — 旧版模块系统规划(Stage A-G 之前的草案,部分内容已被本目录替代)
-- `meta.json` — 行为包 / 资源包的 BDS 元数据
+接口细节见 [接口指南](../api/README.md)。

@@ -1,7 +1,9 @@
 # ScriptsForMinecraftServer
 
 > A monorepo for a Minecraft Bedrock Script API (SAPI) behavior pack plus a set of Node.js sidecar services. 22+ business modules collaborate as BP code + Node services; a single SEA executable ships the whole supervisor.
-> Bilingual: [中文版本 →](./README.md)
+> Bilingual:
+
+[中文版本 →](./README.md)
 
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
@@ -21,100 +23,27 @@ ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface int
 - **Module-by-package model** — every entry under `modules/packages/<id>/` is a first-class module; modules are registered through `modules/catalog.json` and loaded by `ModuleRegistry`. `type` in the catalog distinguishes `core` (infrastructure) from `feature` (add-on functionality).
 - **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` (SEA CLI).
 - **Single SEA executable** — `dist/sea/sfmc.exe` runs every dispatch mode from one binary.
-- **SDK toolkit** `@sfmc/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
+- **SDK toolkit** `@sfmc-bds/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
 - **Build-time module fetch** — one-shot CLI `tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout). The SEA itself never connects to the network.
 
 ## Architecture diagram
 
 ```mermaid
-flowchart TB
-    %% ============== BDS side ==============
-    subgraph BDS["Minecraft BDS (host)"]
-      BP["BP process<br/>behavior_packs/.../scripts/main.js"]
-      INST["Module instances (in SAPI process)<br/>modules enabled in catalog.json"]
-      REG["ModuleRegistry<br/>register / bootAll / bootAfterWorldLoad"]
-      CONF["ConfigManager<br/>GET /api/sfmc/configs/all once"]
-      BP --> REG
-      REG --> INST
-      REG -. "snapshot at startup" .-> CONF
-    end
-
-    %% ============== BP build pipeline ==============
-    subgraph PIPE["BP build pipeline"]
-      PKGS["modules/packages/&lt;id&gt;/<br/>sapi/src/index · resource_pack/"]
-      ESBUILD["esbuild bundle<br/>build/modules/.../main"]
-      PKG_MGR["pack-manager<br/>assembleBehaviorPack"]
-      DEPLOY["BDS worlds/&lt;level&gt;/<br/>behavior_packs/sfmc-modules/"]
-
-      PKGS -- "esbuild aggregate" --> ESBUILD
-      ESBUILD -- "assemble resource pack" --> PKG_MGR
-      PKG_MGR -- "drop into world" --> DEPLOY
-      DEPLOY -. "BDS restart loads" .-> BP
-    end
-
-    %% ============== Top-level services ==============
-    subgraph SVC["Top-level services"]
-      DB["db-server<br/>SQLite + REST API"]
-      QQ["qq-bridge<br/>reverse WS"]
-      BDS_T["bds-tools<br/>check-update · process manager"]
-    end
-
-    %% ============== Module sources ==============
-    subgraph MODS["Module sources"]
-      REMOTE_MODS["Tanya7z/sfmc-modules<br/>module registry"]
-      LOCAL_MODS["this repo modules/packages/&lt;id&gt;/"]
-      CAT["catalog.json<br/>module catalog"]
-      LOCK["module-lock.json<br/>module state"]
-      SDK["sdk/@sfmc-sdk<br/>toolkit<br/>shared by SAPI / Node"]
-    end
-
-    %% ============== External ==============
-    subgraph EXT["External"]
-      LLBOT["protocol side"]
-      QQUSERS["QQ chat users"]
-      BDS_USER["MC players"]
-    end
-
-    %% ============== Data flows ==============
-    REMOTE_MODS -- "Release → fetch" --> LOCAL_MODS
-    LOCAL_MODS --> PKGS
-    LOCAL_MODS --> CAT
-
-    %% SAPI ↔ db-server
-    INST -- "HTTP GET/POST/... /api/sfmc/*" --> DB
-    CONF -- "HTTP GET /api/sfmc/configs/all" --> DB
-
-    %% module-lock writeback
-    DB -. "refreshModules()<br/>(takes effect on BDS restart)" .-> REG
-    LOCK -- "read at build + enable/disable" --> PKGS
-    CAT -- "registers metadata" --> PKGS
-
-    %% SDK shared
-    SDK -. "compile-time deps" .-> PKGS
-    SDK -. "compile-time deps" .-> DB
-
-    %% QQ bridge message flow
-    QQUSERS <-->|QQ msgs| LLBOT
-    LLBOT -- "WS" --> QQ
-    QQ -- "HTTP" --> DB
-    DB -- "HTTP" --> LLBOT
-
-    %% Players
-    BDS_USER <-->|SAPI events| BP
-
-    classDef pipeBox fill:#FFE5E5,stroke:#FF6B6B,stroke-width:2px
-    classDef svcBox fill:#E8F5E9,stroke:#43A047
-    classDef modBox fill:#EDE7F6,stroke:#7B68EE
-    classDef sdkBox fill:#FFF8E1,stroke:#F9A825
-    classDef bdsBox fill:#E3F2FD,stroke:#1976D2
-    classDef extBox fill:#FFF3E0,stroke:#FB8C00
-    class PKGS,ESBUILD,PKG_MGR,DEPLOY pipeBox
-    class DB,QQ,BDS_T svcBox
-    class REMOTE_MODS,LOCAL_MODS,CAT,LOCK modBox
-    class SDK sdkBox
-    class BP,INST,REG,CONF bdsBox
-    class LLBOT,QQUSERS,BDS_USER extBox
+flowchart LR
+  REG["sfmc-modules"] -->|fetch| PKG["packages/"]
+  PKG -->|build · deploy| BDS["BDS / SAPI"]
+  BDS <-->|HTTP :3001| DB["db-server"]
+  LLBot <-->|WS · HTTP| QQ["qq-bridge"] --> DB
+  SFMC["sfmc CLI"] -. manages .-> BDS & DB & QQ
 ```
+
+**At a glance**
+
+- **Modules:** registry → `modules/packages/` → esbuild → BDS behavior pack  
+- **In-game:** SAPI talks to db-server over HTTP (config / data / module toggles)  
+- **QQ:** LLBot → qq-bridge → db-server; MC→QQ goes db-server → LLBot directly  
+
+See the [documentation](./docs/README.md) for details.
 
 ## Module lifecycle
 
@@ -178,6 +107,7 @@ sfmc> start -all
 ```
 
 Both paths share the same:
+
 - First-party module registry `Tanya7z/sfmc-modules` (GitHub Releases).
 - `tools/fetch-module.mjs` to pull modules.
 - `sfmc behavior-pack build/deploy` driven by `bds-tools/pack-manager`.
@@ -208,15 +138,15 @@ ScriptsForMinecraftServer/
     └── dev/{module-author,sdk-reference,manifest-contract}.en.md
 ```
 
-## Documentation index
+## Documentation
 
-| 中文 | English | Audience |
-|------|---------|----------|
-| [使用文档](./docs/user-guide.zh.md) | [User Guide](./docs/user-guide.en.md) | Operators / end users |
-| [模块管理指南](./docs/marketplace.zh.md) | [Module Management](./docs/marketplace.en.md) | Operators (SEA module install) |
-| [模块作者指南](./docs/dev/module-author.zh.md) | [Module Author Guide](./docs/dev/module-author.en.md) | SAPI module authors |
-| [SDK 三抽屉 API](./docs/dev/sdk-reference.zh.md) | [SDK Reference](./docs/dev/sdk-reference.en.md) | Module authors (API lookup) |
-| [manifest 契约](./docs/dev/manifest-contract.zh.md) | [Manifest Contract](./docs/dev/manifest-contract.en.md) | Module authors (writing contracts) |
+Full docs: [docs/](./docs/README.md) (Chinese). Structure:
+
+| Section | Entry |
+|---------|--------|
+| User guide | [docs/guide/](./docs/guide/README.md) |
+| Developer guide | [docs/dev/](./docs/dev/README.md) |
+| API reference | [docs/api/](./docs/api/README.md) |
 | [CLAUDE.md](./CLAUDE.md) | same | Project notes for Claude Code |
 
 ## Requirements
@@ -245,7 +175,7 @@ CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 ## Roadmap
 
 - ✅ **Stage I**: per-module manifest + emit-manifest + db-server reader
-- ✅ **Stage J**: `shared/*` migrated into `@sfmc/sdk`; 22 modules migrated out
+- ✅ **Stage J**: `shared/*` migrated into `@sfmc-bds/sdk`; 22 modules migrated out
 - ✅ **Stage K**: SEA slim — modules stripped from the SEA, populated by `tools/fetch-module.mjs`
 - 🚧 **Stage L**: auto-extract remote zips; `sfmc module install --enable-and-deploy` one-shot
 - 🚧 **Stage M**: module signing / public-key verification (replace plain SHA-256)

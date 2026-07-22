@@ -102,7 +102,7 @@ Key config endpoints:
 
 ### Message Display
 
-Use `Msg.info/success/error/warning/tips()` from `@sfmc/sdk/sapi/runtime` for all system notifications. **Never use `player.sendMessage()` directly.** These methods handle formatting prefixes (`§f[*]`/`§a[√]`/etc.), sound effects, and system channel forwarding.
+Use `Msg.info/success/error/warning/tips()` from `@sfmc-bds/sdk/sapi/runtime` for all system notifications. **Never use `player.sendMessage()` directly.** These methods handle formatting prefixes (`§f[*]`/`§a[√]`/etc.), sound effects, and system channel forwarding.
 
 ### Permissions
 
