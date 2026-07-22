@@ -20,11 +20,22 @@
     "tools",
     "scriptsforminecraftserver"
   ],
-  "main": "check-ootb.js",
+  "main": "check-ootb.mjs",
   "files": [
-    "./*",
+    "*.mjs",
+    "lib",
     "README.md"
   ],
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "check-ootb": "node check-ootb.mjs",
+    "check-modules": "node check-modules.mjs",
+    "catalog-sync": "node catalog-sync.mjs",
+    "smoke-modules": "node smoke-modules.mjs"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
