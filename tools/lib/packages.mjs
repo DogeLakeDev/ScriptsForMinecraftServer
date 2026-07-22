@@ -1,9 +1,6 @@
 /**
  * tools/lib/packages.mjs — 扫描 packages/<id>/sapi/manifest.json 并投影为 catalog 条目
  */
-/**
- * tools/lib/packages.mjs — 扫描 packages/<id>/sapi/manifest.json 并投影为 catalog 条目
- */
 import fs from "node:fs";
 import { catalogEntryRelPath, packageDir, packageEntryPath, packageManifestPath, PACKAGES_DIR } from "./paths.mjs";
 import { exists, readJson } from "./io.mjs";

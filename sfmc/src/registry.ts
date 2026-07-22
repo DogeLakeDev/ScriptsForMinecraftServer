@@ -54,14 +54,36 @@ function writeCache(cache: RegistryCache): void {
   }
 }
 
+/**
+ * 解析 registry index.json。
+ * 契约与 tools/lib/registry-index.mjs#parseRegistryIndex 保持一致：
+ * `{ modules: { <folder>: { repo, tag } } }`。忽略 `_` 前缀元数据键。
+ */
+export function parseRegistryIndex(json: unknown): RegistryIndex {
+  if (typeof json !== "object" || json === null || Array.isArray(json)) {
+    throw new Error("registry index must be a JSON object with a 'modules' field");
+  }
+  const root = json as Record<string, unknown>;
+  const modules = root.modules;
+  if (typeof modules !== "object" || modules === null || Array.isArray(modules)) {
+    throw new Error("registry index must have a 'modules' object mapping id → { repo, tag }");
+  }
+  const filtered: RegistryIndex = {};
+  for (const [k, v] of Object.entries(modules as Record<string, unknown>)) {
+    if (k.startsWith("_")) continue;
+    if (typeof v !== "object" || v === null || Array.isArray(v)) continue;
+    const entry = v as Record<string, unknown>;
+    if (typeof entry.repo !== "string" || typeof entry.tag !== "string") continue;
+    filtered[k] = { repo: entry.repo, tag: entry.tag };
+  }
+  return filtered;
+}
+
 async function fetchFresh(): Promise<RegistryIndex> {
   const res = await fetch(INDEX_URL, { headers: { "User-Agent": "sfmc-cli" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${INDEX_URL}`);
   const json = (await res.json()) as unknown;
-  if (typeof json !== "object" || json === null || Array.isArray(json)) {
-    throw new Error("registry index must be a JSON object mapping id → { repo, tag }");
-  }
-  return json as RegistryIndex;
+  return parseRegistryIndex(json);
 }
 
 export interface RegistryResult {

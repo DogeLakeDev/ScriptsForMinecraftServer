@@ -26,6 +26,7 @@ import { upsertCatalogEntry, removeCatalogEntry } from "./lib/catalog.mjs";
 import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
+import { parseRegistryIndex } from "./lib/registry-index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = PACKAGES_DIR;
@@ -62,20 +63,7 @@ async function fetchRegistryIndexFresh() {
   const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, { headers: { "User-Agent": "sfmc-fetch-module" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
   const json = await res.json();
-  if (typeof json !== "object" || json === null || Array.isArray(json)) {
-    throw new Error("registry index must be a JSON object with a 'modules' field");
-  }
-  const modules = json.modules;
-  if (typeof modules !== "object" || modules === null || Array.isArray(modules)) {
-    throw new Error("registry index must have a 'modules' object mapping id → { repo, tag }");
-  }
-  /** @type {RegistryIndex} */
-  const filtered = {};
-  for (const [k, v] of Object.entries(modules)) {
-    if (k.startsWith("_")) continue;
-    filtered[k] = v;
-  }
-  return filtered;
+  return parseRegistryIndex(json);
 }
 
 async function resolveRegistryIndex() {
@@ -294,7 +282,10 @@ async function unzip(zipPath, dstDir) {
   const data = await fsp.readFile(zipPath);
   const zip = await JSZip.loadAsync(data);
   for (const e of Object.values(zip.files)) {
-    const out = path.join(dstDir, e.name);
+    // Windows zip 可能带 `\`；必须归一化，否则 Linux 会写出字面量 `sapi\manifest.json`
+    const rel = String(e.name).replace(/\\/g, "/");
+    if (!rel || rel.includes("..")) continue;
+    const out = path.join(dstDir, ...rel.split("/").filter(Boolean));
     if (e.dir) {
       await fsp.mkdir(out, { recursive: true });
       continue;
