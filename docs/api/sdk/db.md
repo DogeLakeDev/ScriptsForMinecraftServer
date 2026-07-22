@@ -30,12 +30,16 @@ await db.audit("lands", id, "transfer", { to: "..." });
 
 ## 事务
 
+`db.tx` 走交互会话（begin → step* → commit）：回调里 `await tx.query/get/call` 返回**真实**服务端结果，可据此分支。
+
 ```ts
 await db.tx(async (tx: TxContext) => {
+  const row = await tx.get("lands", landId);
+  if (!row) throw new Error("missing");
   await tx.update("lands", landId, { owner_player_id: newOwner });
   await tx.audit("lands", landId, "transfer", { from, to });
-  await tx.call("economy.debit", { playerId, amount: 100 });
-  return { ok: true };
+  const debit = await tx.call<{ ok: boolean }>("economy.debit", { playerId, amount: 100 });
+  return { ok: true, debit };
 });
 ```
 

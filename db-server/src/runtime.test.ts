@@ -135,12 +135,9 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
   const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { tmpdir } = await import("node:os");
-  const { ServiceRegistry } = await import("./service-registry.js");
-  const {
-    syncModuleRuntimeState,
-    unregisterHandlersForModule,
-  } = await import("./module-runtime-sync.js");
+  const { syncModuleRuntimeState } = await import("./module-runtime-sync.js");
   const { deriveToken } = await import("./module-auth.js");
+  const { unregisterBuiltinPluginForModule } = await import("./services/builtin-handlers.js");
 
   const root = mkdtempSync(join(tmpdir(), "sfmc-runtime-sync-"));
   try {
@@ -161,6 +158,7 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
       moduleId: "feature-b",
       enabled: true,
       projectRoot: root,
+      envAuthToken: "fixed-auth",
       enabledSet,
       enabledManifests,
       loadedManifest: { modules: { "feature-b": fakeManifest } },
@@ -179,6 +177,7 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
       moduleId: "feature-b",
       enabled: false,
       projectRoot: root,
+      envAuthToken: "fixed-auth",
       enabledSet,
       enabledManifests,
       loadedManifest: { modules: { "feature-b": fakeManifest } },
@@ -190,8 +189,106 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
     equal(enabledSet.has("feature-b"), false);
     equal(enabledManifests.has("feature-b"), false);
     equal(moduleAuth.tokens["feature-b"], undefined);
-    equal(unregisterHandlersForModule(registry, "feature-b"), 0);
+    equal(unregisterBuiltinPluginForModule(registry, "feature-b"), 0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("module-auth: ensureModuleToken / revoke 复用 secret(DRY)", async () => {
+  const { deriveToken, ensureModuleToken, revokeModuleToken } = await import("./module-auth.js");
+  const secret = "test-secret";
+  const auth = { secret, tokens: {} as Record<string, string> };
+  equal(ensureModuleToken(auth, "feature-afk"), true);
+  equal(auth.tokens["feature-afk"], deriveToken("feature-afk", secret));
+  equal(ensureModuleToken(auth, "feature-afk"), false);
+  equal(revokeModuleToken(auth, "feature-afk"), true);
+  equal(auth.tokens["feature-afk"], undefined);
+  equal(revokeModuleToken(auth, "feature-afk"), false);
+});
+
+test("builtin-handlers: 热禁用按 serviceNames 卸载(OCP)", async () => {
+  const { BUILTIN_SERVICE_PLUGINS, unregisterBuiltinPluginForModule } = await import(
+    "./services/builtin-handlers.js"
+  );
+  const economy = BUILTIN_SERVICE_PLUGINS.find((p) => p.moduleId === "feature-economy");
+  equal(!!economy?.serviceNames?.includes("economy.account.get"), true);
+
+  const reg = new ServiceRegistry();
+  reg.registerHandler("feature-economy", "economy.account.get", async () => ({}));
+  reg.registerHandler("feature-economy", "economy.account.debit", async () => ({}));
+  equal(unregisterBuiltinPluginForModule(reg, "feature-economy"), 2);
+  equal(reg.list().length, 0);
+  equal(unregisterBuiltinPluginForModule(reg, "feature-unknown"), 0);
+});
+
+test("TxRunner 交互会话: step 中途读回 insert/get(PR #31 leftover)", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createQuery } = await import("./lib/sqlite.js");
+  const { SchemaRegistry } = await import("./schema-registry.js");
+  const { TxRunner } = await import("./tx-runner.js");
+
+  const db = new DatabaseSync(":memory:");
+  const query = createQuery(db);
+  const schema = new SchemaRegistry(db);
+  schema.define("feature-demo", {
+    name: "demo_items",
+    columns: {
+      id: { type: "text", primary: true },
+      name: { type: "text", notNull: true },
+    },
+    softDelete: false,
+  });
+
+  const enabled = new Map([
+    [
+      "feature-demo",
+      {
+        id: "feature-demo",
+        version: "1.0.0",
+        permissions: ["db:read:demo_items", "db:write:demo_items"],
+        services: { provides: [], requires: [] },
+        db: { tables: [] },
+        config: { key: "demo" },
+      } as unknown as import("./manifest-loader.js").ModuleManifestV2,
+    ],
+  ]);
+
+  const runner = new TxRunner({
+    db,
+    query,
+    schema,
+    serviceRegistry: new ServiceRegistry(),
+    enabled,
+  });
+
+  const begin = runner.beginSession("feature-demo");
+  equal(begin.ok, true);
+  if (!begin.ok) return;
+  const { txId } = begin;
+
+  const ins = await runner.stepSession(txId, "feature-demo", {
+    op: "insert",
+    table: "demo_items",
+    row: { id: "a1", name: "alpha" },
+  });
+  equal(ins.ok, true);
+  if (!ins.ok) return;
+  equal((ins.result as { op: string; row: { id: string } }).row.id, "a1");
+
+  const got = await runner.stepSession(txId, "feature-demo", {
+    op: "get",
+    table: "demo_items",
+    id: "a1",
+  });
+  equal(got.ok, true);
+  if (!got.ok) return;
+  equal((got.result as { row: { name: string } | null }).row?.name, "alpha");
+
+  const committed = runner.commitSession(txId, "feature-demo");
+  equal(committed.ok, true);
+
+  const rows = db.prepare("SELECT name FROM demo_items WHERE id = ?").all("a1") as Array<{ name: string }>;
+  equal(rows[0]?.name, "alpha");
+  db.close();
 });

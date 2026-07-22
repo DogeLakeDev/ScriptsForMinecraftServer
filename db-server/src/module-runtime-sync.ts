@@ -1,17 +1,24 @@
 /**
  * module-runtime-sync.ts — enable/disable 时同步进程内运行态
  *
- * lock 落盘后,鉴态(enabledSet / enabledManifests / moduleAuth.tokens /
+ * lock 落盘后,内存态(enabledSet / enabledManifests / moduleAuth.tokens /
  * builtin service handlers)必须与之一致,否则「只重启 BDS」拿不到新 token
  * (DIP:路由只依赖注入的集合,不感知启停实现)。
+ *
+ * DRY:token 落盘 / 内置 handler 启停复用 module-auth 与 builtin-handlers,
+ * 不在此处再写一份派生与卸载逻辑。
  */
 
-import { writeJson } from "@sfmc-bds/sdk/node/config";
-import { join } from "node:path";
 import type { ModuleManifestV2 } from "./manifest-loader.js";
-import { deriveToken, type ModuleAuthMap } from "./module-auth.js";
 import {
-  BUILTIN_SERVICE_PLUGINS,
+  ensureModuleToken,
+  persistModuleAuth,
+  revokeModuleToken,
+  type ModuleAuthMap,
+} from "./module-auth.js";
+import {
+  registerBuiltinPluginForModule,
+  unregisterBuiltinPluginForModule,
   type BuiltinServiceDeps,
 } from "./services/builtin-handlers.js";
 import type { ServiceRegistry } from "./service-registry.js";
@@ -25,6 +32,8 @@ export type SyncModuleRuntimeOpts = {
   moduleId: string;
   enabled: boolean;
   projectRoot: string;
+  /** 与 buildModuleAuth 一致:无 AUTH_TOKEN 时 secretGenerated=true */
+  envAuthToken: string;
   enabledSet: Set<string>;
   enabledManifests: Map<string, ModuleManifestV2>;
   loadedManifest: LoadedModules;
@@ -32,42 +41,6 @@ export type SyncModuleRuntimeOpts = {
   serviceRegistry: ServiceRegistry;
   builtinDeps: BuiltinServiceDeps;
 };
-
-/** 把当前 moduleAuth.tokens 写回 data/module-tokens.json(不轮换 secret)。 */
-export function persistModuleAuthTokens(projectRoot: string, auth: ModuleAuthMap): void {
-  const outFile = join(projectRoot, "data", "module-tokens.json");
-  writeJson(outFile, {
-    tokens: auth.tokens,
-    secret: auth.secret,
-    generatedAt: new Date().toISOString(),
-    secretGenerated: false,
-  });
-}
-
-/** 卸掉某模块在 ServiceRegistry 上的全部 handler。 */
-export function unregisterHandlersForModule(registry: ServiceRegistry, moduleId: string): number {
-  let n = 0;
-  for (const h of registry.list()) {
-    if (h.moduleId !== moduleId) continue;
-    registry.unregisterHandler(h.name);
-    n += 1;
-  }
-  return n;
-}
-
-/** 若该 moduleId 有内置插件且尚未注册,则注册。 */
-export function registerBuiltinForModule(
-  registry: ServiceRegistry,
-  deps: BuiltinServiceDeps,
-  moduleId: string
-): boolean {
-  const plugin = BUILTIN_SERVICE_PLUGINS.find((p) => p.moduleId === moduleId);
-  if (!plugin) return false;
-  const already = registry.list().some((h) => h.moduleId === moduleId);
-  if (already) return false;
-  plugin.register(registry, deps);
-  return true;
-}
 
 /**
  * 同步 enable/disable 后的进程内集合与 token 文件。
@@ -78,6 +51,7 @@ export function syncModuleRuntimeState(opts: SyncModuleRuntimeOpts): void {
     moduleId,
     enabled,
     projectRoot,
+    envAuthToken,
     enabledSet,
     enabledManifests,
     loadedManifest,
@@ -87,25 +61,30 @@ export function syncModuleRuntimeState(opts: SyncModuleRuntimeOpts): void {
   } = opts;
 
   if (enabled) {
-    enabledSet.add(moduleId);
     const manifest = loadedManifest.modules[moduleId];
-    if (manifest) enabledManifests.set(moduleId, manifest);
-    moduleAuth.tokens[moduleId] = deriveToken(moduleId, moduleAuth.secret);
-    persistModuleAuthTokens(projectRoot, moduleAuth);
-    if (registerBuiltinForModule(serviceRegistry, builtinDeps, moduleId)) {
-      log.info(`[service] runtime-enable: registered builtin handlers for ${moduleId}`);
+    if (!manifest) {
+      log.warn(`[modules] 热启用 ${moduleId}: manifest 缺失(未安装?),仅写 lock`);
+      return;
     }
-    log.info(`[modules] runtime-enable ${moduleId} (token+enabledSet synced)`);
+    enabledSet.add(moduleId);
+    enabledManifests.set(moduleId, manifest);
+    if (ensureModuleToken(moduleAuth, moduleId)) {
+      log.info(`[modules] 热启用 ${moduleId}: 派生 module token`);
+    }
+    persistModuleAuth(projectRoot, moduleAuth, envAuthToken);
+    if (registerBuiltinPluginForModule(serviceRegistry, builtinDeps, moduleId)) {
+      log.success(`[modules] 热启用 ${moduleId}: 已注册内置 service handlers`);
+    }
     return;
   }
 
   enabledSet.delete(moduleId);
   enabledManifests.delete(moduleId);
-  delete moduleAuth.tokens[moduleId];
-  persistModuleAuthTokens(projectRoot, moduleAuth);
-  const removed = unregisterHandlersForModule(serviceRegistry, moduleId);
-  if (removed > 0) {
-    log.info(`[service] runtime-disable: unregistered ${removed} handler(s) for ${moduleId}`);
+  if (revokeModuleToken(moduleAuth, moduleId)) {
+    persistModuleAuth(projectRoot, moduleAuth, envAuthToken);
   }
-  log.info(`[modules] runtime-disable ${moduleId} (token+enabledSet synced)`);
+  const n = unregisterBuiltinPluginForModule(serviceRegistry, moduleId);
+  if (n > 0) {
+    log.info(`[modules] 热禁用 ${moduleId}: 卸下 ${n} 个内置 handlers`);
+  }
 }

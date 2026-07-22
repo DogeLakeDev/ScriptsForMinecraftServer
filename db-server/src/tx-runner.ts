@@ -1,16 +1,15 @@
 /**
  * tx-runner.ts — 事务 RPC 处理器
  *
- * 协议:
- *   POST /api/sfmc/db/tx
- *   body = { moduleId, steps: TxStep[] }
- *   reply: { ok: true } | { ok: false, step: <index>, error, code }
+ * 协议(两种):
+ *   A. 批量: POST /api/sfmc/db/tx  body={ steps } → { ok, results? } | { ok:false, step, error, code }
+ *   B. 交互: begin → step* → commit|rollback(SDK db.tx 用;回调内可读回 query/get/call)
  *
- * 流程:
- *   1. 校验 moduleId in enabled + permission "db:write:*"
+ * 流程(批量):
+ *   1. 校验 moduleId in enabled
  *   2. BEGIN IMMEDIATE
  *   3. 顺序跑 steps — 任一抛错 → ROLLBACK + reply { ok:false, step:<i>, ... }
- *   4. 全过 → COMMIT + reply { ok:true }
+ *   4. 全过 → COMMIT + reply { ok:true, results }
  *
  * step.op:
  *   - query      { table, opts? }
@@ -22,8 +21,7 @@
  *   - service    { name, input }                  → 派发;失败抛错回退整事务
  *
  * 事务内 service call:不持有 db handle 给 handler(避免并发写) —
- *   实现:handler 是"同步纯函数",返回 result 写回 step 的输出。
- *   若 handler 自己也想写 db,应通过其它接口在事务外做(避免嵌套)。
+ *   实现:handler 返回 result 写回 step 输出;若 handler 还要写 db,应走其它接口在事务外做。
  */
 
 import { randomUUID } from "node:crypto";
@@ -143,6 +141,12 @@ export interface TxRequest {
   steps: TxStep[];
 }
 
+interface TxSession {
+  moduleId: string;
+  results: TxStepResult[];
+  openedAt: number;
+}
+
 export interface TxRunnerDeps {
   db: DatabaseSync;
   query: import("./lib/sqlite.js").QueryFn;
@@ -152,6 +156,8 @@ export interface TxRunnerDeps {
 }
 
 export class TxRunner {
+  private readonly sessions = new Map<string, TxSession>();
+
   constructor(private readonly deps: TxRunnerDeps) {}
 
   async run(req: TxRequest): Promise<TxResponse | TxError> {
@@ -179,22 +185,7 @@ export class TxRunner {
         results.push(r);
       } catch (err) {
         this.rollback();
-        const code: TxError["code"] =
-          err instanceof PermissionDeniedError
-            ? "permission_denied"
-            : err instanceof DispatchError &&
-                (err.code === "no_such_service" ||
-                  err.code === "not_in_requires" ||
-                  err.code === "forbidden" ||
-                  err.code === "domain_error")
-              ? err.code
-              : (err as { code?: string }).code === "no_such_service"
-                ? "no_such_service"
-                : (err as { code?: string }).code === "not_in_requires"
-                  ? "not_in_requires"
-                  : (err as { code?: string }).code === "no_such_table"
-                    ? "no_such_table"
-                    : "internal";
+        const code = this.mapErrorCode(err);
         log.warn(`[tx ${traceId}] step=${i} failed: ${(err as Error).message}`);
         return { ok: false, step: i, error: (err as Error).message, code };
       }
@@ -209,6 +200,122 @@ export class TxRunner {
 
     log.info(`[tx ${traceId}] module=${moduleId} ${steps.length} steps OK`);
     return { ok: true, results };
+  }
+
+  /**
+   * 交互式事务:begin → step* → commit|rollback。
+   * 供 SDK db.tx 在回调内 await query/get/call 真实结果(PR #31 未完成项)。
+   * 单连接模型:新会话会先清掉残留会话(避免 BEGIN 锁死)。
+   */
+  beginSession(moduleId: string): { ok: true; txId: string } | TxError {
+    const manifest = this.deps.enabled.get(moduleId);
+    if (!manifest) return { ok: false, step: -1, error: "模块未 enabled", code: "forbidden" };
+    // 清残留会话(崩溃/未 commit),再开新事务
+    if (this.sessions.size > 0) {
+      for (const id of [...this.sessions.keys()]) {
+        this.abortSession(id);
+      }
+    }
+    try {
+      this.deps.db.exec("BEGIN IMMEDIATE");
+    } catch (e) {
+      return { ok: false, step: -1, error: `BEGIN 失败: ${(e as Error).message}`, code: "internal" };
+    }
+    const txId = randomUUID();
+    this.sessions.set(txId, {
+      moduleId,
+      results: [],
+      openedAt: Date.now(),
+    });
+    log.info(`[tx-session ${txId.slice(0, 8)}] begin module=${moduleId}`);
+    return { ok: true, txId };
+  }
+
+  async stepSession(
+    txId: string,
+    moduleId: string,
+    step: TxStep
+  ): Promise<{ ok: true; result: TxStepResult } | TxError> {
+    const session = this.sessions.get(txId);
+    if (!session) {
+      return { ok: false, step: -1, error: "事务会话不存在或已结束", code: "internal" };
+    }
+    if (session.moduleId !== moduleId) {
+      return { ok: false, step: session.results.length, error: "moduleId 与会话不符", code: "forbidden" };
+    }
+    const manifest = this.deps.enabled.get(moduleId);
+    if (!manifest) {
+      this.abortSession(txId);
+      return { ok: false, step: session.results.length, error: "模块未 enabled", code: "forbidden" };
+    }
+    const stepIndex = session.results.length;
+    try {
+      const r = await this.runOne(moduleId, manifest, step);
+      session.results.push(r);
+      return { ok: true, result: r };
+    } catch (err) {
+      this.abortSession(txId);
+      const code = this.mapErrorCode(err);
+      log.warn(`[tx-session ${txId.slice(0, 8)}] step=${stepIndex} failed: ${(err as Error).message}`);
+      return { ok: false, step: stepIndex, error: (err as Error).message, code };
+    }
+  }
+
+  commitSession(txId: string, moduleId: string): TxResponse | TxError {
+    const session = this.sessions.get(txId);
+    if (!session) {
+      return { ok: false, step: -1, error: "事务会话不存在或已结束", code: "internal" };
+    }
+    if (session.moduleId !== moduleId) {
+      return { ok: false, step: -1, error: "moduleId 与会话不符", code: "forbidden" };
+    }
+    try {
+      this.deps.db.exec("COMMIT");
+    } catch (e) {
+      this.abortSession(txId);
+      return { ok: false, step: -1, error: `COMMIT 失败: ${(e as Error).message}`, code: "internal" };
+    }
+    const results = session.results;
+    this.sessions.delete(txId);
+    log.info(`[tx-session ${txId.slice(0, 8)}] commit ${results.length} steps OK`);
+    return { ok: true, results };
+  }
+
+  rollbackSession(txId: string, moduleId: string): { ok: true } | TxError {
+    const session = this.sessions.get(txId);
+    if (!session) {
+      // 幂等:已结束视为成功回滚
+      return { ok: true };
+    }
+    if (session.moduleId !== moduleId) {
+      return { ok: false, step: -1, error: "moduleId 与会话不符", code: "forbidden" };
+    }
+    this.abortSession(txId);
+    return { ok: true };
+  }
+
+  private abortSession(txId: string): void {
+    this.sessions.delete(txId);
+    this.rollback();
+    log.info(`[tx-session ${txId.slice(0, 8)}] aborted`);
+  }
+
+  private mapErrorCode(err: unknown): TxError["code"] {
+    return err instanceof PermissionDeniedError
+      ? "permission_denied"
+      : err instanceof DispatchError &&
+          (err.code === "no_such_service" ||
+            err.code === "not_in_requires" ||
+            err.code === "forbidden" ||
+            err.code === "domain_error")
+        ? err.code
+        : (err as { code?: string }).code === "no_such_service"
+          ? "no_such_service"
+          : (err as { code?: string }).code === "not_in_requires"
+            ? "not_in_requires"
+            : (err as { code?: string }).code === "no_such_table"
+              ? "no_such_table"
+              : "internal";
   }
 
   private rollback(): void {

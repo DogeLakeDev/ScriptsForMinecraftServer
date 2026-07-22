@@ -76,6 +76,7 @@ export interface TxStepResult {
   rows?: Record<string, unknown>[];
   row?: Record<string, unknown>;
   id?: Primitive;
+  changes?: number;
   result?: unknown;
 }
 

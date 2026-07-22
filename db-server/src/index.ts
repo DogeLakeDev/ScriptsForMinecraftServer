@@ -211,11 +211,13 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   updateModuleState(lockFile, mod.id, { enabled: !!enabled });
   // DRY:与 loadModuleLock 对称走 saveModuleLock,勿散落 writeJson
   saveModuleLock(env.MODULE_LOCK_PATH, lockFile);
-  // DIP:同步 enabledSet / tokens / builtin handlers,使「只重启 BDS」可用新 token
+
+  // DIP:热同步 enabledSet / tokens / manifests / builtin handlers(不重启 db-server)
   syncModuleRuntimeState({
     moduleId: mod.id,
     enabled: !!enabled,
     projectRoot: env.PROJECT_ROOT,
+    envAuthToken: env.AUTH_TOKEN,
     enabledSet,
     enabledManifests,
     loadedManifest,

@@ -6,7 +6,7 @@
  *
  * 设计:
  *   - service.get(name, input):发 GET /api/sfmc/services/:name?input=...
- *   - 事务内调用走 tx.call(name, input),step 由 db.tx 一并提交
+ *   - 事务内调用走 tx.call(name, input),交互会话内返回真实 result
  *   - service.list:列所有 enabled 模块 provides 的 service
  */
 
