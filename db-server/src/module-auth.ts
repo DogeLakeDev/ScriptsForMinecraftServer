@@ -102,6 +102,34 @@ export function loadModuleAuth(projectRoot: string): ModuleAuthMap | null {
   return { tokens: parsed.tokens, secret: parsed.secret };
 }
 
+/** 把当前 auth map 写回 data/module-tokens.json(热更新 token 时复用) */
+export function persistModuleAuth(projectRoot: string, auth: ModuleAuthMap, envAuthToken: string): void {
+  const outFile = join(projectRoot, "data", "module-tokens.json");
+  writeJson(outFile, {
+    tokens: auth.tokens,
+    secret: auth.secret,
+    generatedAt: new Date().toISOString(),
+    secretGenerated: !envAuthToken,
+  } satisfies TokenStore);
+}
+
+/**
+ * 确保 moduleId 在 auth.tokens 中有派生值(复用现有 secret,勿重建随机 secret)。
+ * @returns 是否新写入了 token
+ */
+export function ensureModuleToken(auth: ModuleAuthMap, moduleId: string): boolean {
+  if (auth.tokens[moduleId]) return false;
+  auth.tokens[moduleId] = deriveToken(moduleId, auth.secret);
+  return true;
+}
+
+/** 禁用时撤销内存中的 token(磁盘由 persistModuleAuth 同步) */
+export function revokeModuleToken(auth: ModuleAuthMap, moduleId: string): boolean {
+  if (!(moduleId in auth.tokens)) return false;
+  delete auth.tokens[moduleId];
+  return true;
+}
+
 /**
  * 校验请求方身份:
  *   - Bearer 头 / X-Module-Token 二选一

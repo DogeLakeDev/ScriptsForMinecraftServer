@@ -119,6 +119,10 @@ export interface Catalog {
 export interface TokenStore {
   tokens?: Record<string, string>;
   secret?: string;
+  /** ISO 时间戳：最近一次写入 module-tokens.json */
+  generatedAt?: string;
+  /** secret 是否为本次启动随机生成（未配置 AUTH_TOKEN） */
+  secretGenerated?: boolean;
 }
 
 /**

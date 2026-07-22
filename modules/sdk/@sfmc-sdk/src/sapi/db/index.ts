@@ -6,8 +6,7 @@
  *
  * 设计:
  *   - db.query / get / insert / update / delete / audit / idempotent:单 RPC
- *   - db.tx(fn):把 fn 内写 step 录下来,一次性发 /api/sfmc/db/tx,server 端事务跑
- *     (query/get 在录制期不可用 — 避免 stub 假数据;交互读回需两阶段协议)
+ *   - db.tx(fn):交互会话 begin→step*→commit,回调内 await query/get/call 可读回真实结果
  *   - 不允许原始 SQL;只能传 WhereExpr 表达式树,平台翻译
  *   - 模块不能 require("fs");只能走这里
  */

@@ -34,9 +34,22 @@
 
 `opts` 使用表达式树 `WhereExpr`，**不要**传 SQL 字符串。
 
-## POST /api/sfmc/db/tx
+## 事务
 
-事务，body `{ steps: TxStep[] }`。步骤类型包括 query、get、insert、update、delete、audit、**call**（调 service）。
+### 交互会话（SDK `db.tx` 默认）
+
+| 路径 | Body | 响应要点 |
+|------|------|----------|
+| `/tx/begin` | `{}` | `{ ok, txId }` |
+| `/tx/step` | `{ txId, step }` | `{ ok, result }`（`query`/`get`/`call` 可当场读回） |
+| `/tx/commit` | `{ txId }` | `{ ok, results }` |
+| `/tx/rollback` | `{ txId }` | `{ ok }` |
+
+### 批量（工具/测试）
+
+`POST /api/sfmc/db/tx`，body `{ steps: TxStep[] }` → `{ ok, results }`。
+
+步骤类型：query、get、insert、update、delete、audit、**service**（SDK 侧 `tx.call`）。
 
 在 tx 内用 `tx.*`，不要混用外面的单步 CRUD。
 
