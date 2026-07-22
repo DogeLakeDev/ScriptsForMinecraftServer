@@ -151,7 +151,7 @@ export type ModuleFileName = "catalog.json" | "module-lock.json";
  *
  * 优先级:
  *   1. `process.env.SFMC_ROOT`(由 spawnService 注入到子进程,SEA / npm 一致)
- *   2. `fallbackRoot`(各服务自传的 __dirname 上溯)
+ *   2. `fallbackRoot`(各服务自传:SEA 传 exe 目录,npm 传 `__dirname` 上溯到 monorepo 根)
  *
  * 所有仓顶服务(db-server / qq-bridge / bds-tools / sfmc)统一调用本函数,
  * 不要再自己写 `resolve(__dirname, "..", "..")`。

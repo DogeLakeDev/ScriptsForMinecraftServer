@@ -19,9 +19,11 @@ node tools/fetch-module.mjs install afk land economy
 node tools/fetch-module.mjs uninstall afk
 
 # 或
-node sfmc/dist/main.js module install afk
-node sfmc/dist/main.js module list
-node sfmc/dist/main.js module info afk
+node sfmc/dist/main.js mod search          # 拉取 first-party registry 列表
+node sfmc/dist/main.js mod search afk      # 查单模块 registry info
+node sfmc/dist/main.js mod install afk
+node sfmc/dist/main.js mod list            # 本机已安装
+node sfmc/dist/main.js mod info afk        # 本机已安装详情
 ```
 
 安装会同步 `modules/catalog.json` 和 `modules/module-lock.json`。
@@ -29,8 +31,8 @@ node sfmc/dist/main.js module info afk
 ## 启用与禁用
 
 ```bash
-node sfmc/dist/main.js module enable feature-afk
-node sfmc/dist/main.js module disable feature-afk
+node sfmc/dist/main.js mod enable feature-afk
+node sfmc/dist/main.js mod disable feature-afk
 ```
 
 也可以直接改 `modules/module-lock.json`，然后**重启 BDS**。

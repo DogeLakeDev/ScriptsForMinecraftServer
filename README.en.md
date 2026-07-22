@@ -66,7 +66,7 @@ SFMC ships two equivalent on-ramps. Pick whichever feels right.
 ```bash
 # 1. Grab sfmc.exe for your platform from GitHub Releases, drop it in an empty dir
 # 2. Self-check
-node tools/check-ootb.mjs            # or just run ./sfmc.exe wizard from the same folder
+node tools/check-ootb.mjs            # or just run ./sfmc.exe (auto-init) / ./sfmc.exe init
 
 # 3. First launch runs the wizard: pick BDS path / LLBot path / backup dir,
 #    then pick 1+ modules — it auto-installs → builds → deploys to BDS.
