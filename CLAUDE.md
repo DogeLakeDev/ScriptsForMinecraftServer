@@ -8,7 +8,7 @@ ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with f
 
 | Path | Role | Runtime |
 |------|------|---------|
-| `db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.5+ |
+| `db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.13+ |
 | `qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
 | `panel/` | TUI management dashboard | Node.js (Ink) |
 | `BDSTools/` | BDS auto-updater + behavior-pack assembler | Node.js |
@@ -64,7 +64,7 @@ node tools/install-module.js uninstall <id> # uninstall module
 
 ### Build prerequisites
 
-- Node.js 22.5+ for everything (db-server requires `node:sqlite`)
+- Node.js 22.13+ for everything (db-server requires `node:sqlite`, which needs the `--experimental-sqlite` CLI flag on 22.5–22.12; unflagged from 22.13)
 - Run `sfmc` (or `node sfmc/dist/main.js`) to fill `configs/*.json` via wizard
 
 ## Architecture

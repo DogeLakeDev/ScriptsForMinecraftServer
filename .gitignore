@@ -1,6 +1,8 @@
 bds-tools/dist/
 db-server/dist/
 panel/dist/
+qq-bridge/dist/
+sfmc/dist/
 modules/sdk/@sfmc-sdk/dist/
 modules/sdk/@sfmc-sdk/node_modules/
 shared/**/dist/

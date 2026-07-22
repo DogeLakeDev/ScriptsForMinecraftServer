@@ -34,7 +34,7 @@ Per the user's directives:
                  │ HTTP @ 127.0.0.1:3001
                  ▼
 ┌────────────────────────────────────────────────────────────┐
-│  db-server (Node 22.5+)                                    │
+│  db-server (Node 22.13+)                                   │
 │   manifest-loader.ts ← v2 manifests                        │
 │   schema-registry.ts ← collects db.defineTable calls       │
 │   tx-runner.ts        ← /api/sfmc/db/tx POST               │

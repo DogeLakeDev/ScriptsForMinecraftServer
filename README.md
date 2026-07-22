@@ -12,7 +12,7 @@
 
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
-[![node](https://img.shields.io/badge/node-22.5%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![typescript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![sea](https://img.shields.io/badge/SEA-single--executable-FF6B6B?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/api/single-executable-applications.html)
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
@@ -227,7 +227,7 @@ ScriptsForMinecraftServer/
 
 | 组件 | 要求 |
 |------|------|
-| Node.js | 22.5+(db-server 原生 `node:sqlite`)+ 18+(SAPI 打包) |
+| Node.js | 22.13+(db-server 原生 `node:sqlite`,22.13 前需 `--experimental-sqlite`)+ 18+(SAPI 打包) |
 | OS | Windows 10/11(主要),Linux/macOS 也支持 |
 | BDS | Bedrock Dedicated Server 1.26.x |
 | 磁盘 | ~500 MB(含 BP + 服务 + node_modules) |

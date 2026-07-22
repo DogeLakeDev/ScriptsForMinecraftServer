@@ -19,7 +19,7 @@
            │ HTTP @ 127.0.0.1:3001
            ▼
 ┌─────────────────────────────────────────────────────────┐
-│  db-server (Node 22.5+)                                  │
+│  db-server (Node 22.13+)                                 │
 │  └─ SQLite @ ./data/sfmc_data.db                         │
 │     REST API /api/sfmc/*                                 │
 │     manifest loader @ modules/_manifests/...json         │
@@ -54,12 +54,12 @@
 
 | 组件 | 要求 |
 |------|------|
-| Node.js | 22.5+ |
+| Node.js | 22.13+(db-server 依赖 `node:sqlite`,22.13 前该模块需 `--experimental-sqlite` 才能加载) |
 | 操作系统 | Windows 10/11(主要平台),Linux/macOS 也支持 |
 | BDS | Bedrock Dedicated Server 1.26.x |
 | 磁盘 | ~500MB(含 BP + 服务 + node_modules) |
 
-**Node 安装**:从 [nodejs.org](https://nodejs.org/) 拉 22.5+ LTS。装完后:
+**Node 安装**:从 [nodejs.org](https://nodejs.org/) 拉 22.13+ LTS。装完后:
 
 ```bash
 node -v    # 应输出 v22.x.x

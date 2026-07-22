@@ -11,12 +11,14 @@
  *  - entry.init 仅在 sapi 类型可选
  *  - 不允许循环依赖（拓扑排序检测）
  */
-import { accessSync, constants, readFileSync } from "node:fs";
-import { resolve, join, dirname } from "node:path";
-import { fileURLToPath } from 'node:url';
-import path from "node:path";
+// 仓库根 package.json 未声明 "type": "module"，本文件按 CommonJS 解析；
+// 与其余 tools/*.js 保持一致改用 require()，避免在未开启 ESM 探测的 Node
+// 版本（例如 CI 固定的 node-version）上直接抛出 "Cannot use import
+// statement outside a module" 而崩溃。
+const { accessSync, constants, readFileSync } = require("node:fs");
+const { resolve, join } = require("node:path");
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = resolve(__dirname, "..");
 const CATALOG = join(ROOT, "modules", "catalog.json");
 const SERVICES_CATALOG = join(ROOT, "services", "catalog.json");
 /* SAPI modules no longer register through a single static entry.ts —

@@ -19,8 +19,9 @@ import { resolveRuntimeRoot } from "@sfmc/sdk/node/config";
  * 子服务进程通过 SFMC_ROOT + SFMC_PACKAGES_DIR env 拿到项目根 + 模块目录,
  * db-server 据此定位 modules/packages/, 不依赖自身 __dirname(SEA-launched 时不可靠)。
  *
- * node:sea 在 Node 21.7+/22+ 可用;db-server 依赖 node:sqlite 已要求 Node 22.5+,
- * 因此这里可直接顶层 import,无需降级。
+ * node:sea 在 Node 21.7+/22+ 可用;db-server 依赖 node:sqlite 要求 Node 22.13+
+ * (22.5–22.12 该模块仍需 --experimental-sqlite,否则 import 阶段直接抛出
+ * ERR_UNKNOWN_BUILTIN_MODULE),因此这里可直接顶层 import,无需降级。
  */
 
 export const IS_SEA: boolean = typeof isSea === "function" && isSea();

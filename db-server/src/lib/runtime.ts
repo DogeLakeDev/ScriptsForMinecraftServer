@@ -15,13 +15,20 @@ export function parseNodeVersion(version: string = process.versions.node): {
 }
 
 /**
+ * 校验当前 Node.js 版本是否满足最低要求。
  *
+ * 默认下限 22.13 —— `node:sqlite`（db-server 的核心依赖）在 22.5.0–22.12.x
+ * 仍需 `--experimental-sqlite` CLI 参数才能加载，未带参数时会在 import 阶段
+ * 直接抛出 `ERR_UNKNOWN_BUILTIN_MODULE`；该模块从 22.13.0 起默认可用（仍标记为
+ * experimental）。注意：由于 ESM 静态 import 会在本文件被调用之前完成解析，
+ * 这里的检查无法拦截 `./lib/sqlite.ts` 自身的 import 崩溃，只能作为其余场景
+ * 的兜底防线与版本要求的单一事实来源。
  *
  * @param {number} [minMajor=22]
- * @param {number} [minMinor=5]
+ * @param {number} [minMinor=13]
  * @return {*}  {boolean}
  */
-export function assertNodeVersion(minMajor: number = 22, minMinor: number = 5): boolean {
+export function assertNodeVersion(minMajor: number = 22, minMinor: number = 13): boolean {
   const actual = parseNodeVersion();
   if (!actual || actual.major < minMajor || (actual.major === minMajor && actual.minor < minMinor)) {
     log.error(`[Runtime] Node.js ${minMajor}.${minMinor}+ is required; found ${process.versions.node}`);

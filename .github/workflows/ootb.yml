@@ -17,7 +17,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.5'
+          # db-server imports `node:sqlite` at module scope. That builtin is
+          # gated behind --experimental-sqlite on 22.5.0-22.12.x and only
+          # became available unflagged from 22.13.0 onward — pinning to
+          # '22.5' here made db-server crash on import on every run.
+          node-version: '22.13'
 
       - name: Install root deps
         shell: pwsh
@@ -26,6 +30,15 @@ jobs:
       - name: Build all workspaces
         shell: pwsh
         run: npm run build --workspaces --if-present
+
+      - name: Seed configs/ from configs-default/
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path configs | Out-Null
+          Get-ChildItem -Path configs-default -Filter *.json | ForEach-Object {
+            $dest = Join-Path configs $_.Name
+            if (-not (Test-Path $dest)) { Copy-Item $_.FullName $dest }
+          }
 
       - name: Run check-ootb
         shell: pwsh
