@@ -134,6 +134,7 @@ export interface TxRequest {
 
 export interface TxRunnerDeps {
   db: DatabaseSync;
+  query: import("./lib/sqlite.js").QueryFn;
   schema: SchemaRegistry;
   serviceRegistry: ServiceRegistry;
   enabled: Map<string, ModuleManifestV2>;
@@ -392,7 +393,8 @@ export class TxRunner {
       this.deps.enabled,
       mod.id,
       step.name,
-      step.input
+      step.input,
+      { query: this.deps.query, db: this.deps.db }
     );
     return { op: "service", result: result.result };
   }

@@ -8,7 +8,7 @@
  *   - 删原 land_members(owner),新增新 owner member 行
  *   - 若新 owner = 当前 player = 自己 = 报错
  *
- * 注:service.get("economy.transfer") 之类的跨模块调用,在 tx 内部通过 tx.call() 走。
+ * 注:跨模块扣款在 tx 内通过 tx.call('economy.account.debit/credit') 走。
  */
 
 import { db, type TxContext, DbError } from "@sfmc/sdk/sapi/db";
@@ -107,12 +107,12 @@ async function runTransferSteps(tx: TxContext, input: TransferInput): Promise<Tr
 
   // 7. 跨模块:扣款 + 加款(在事务里通过 service.get 实现)
   if (input.transferPrice > 0) {
-    await tx.call("economy.debit", {
+    await tx.call("economy.account.debit", {
       playerId: input.currentOwnerId,
       amount: input.transferPrice,
       reason: `land.transfer:${input.landId}`,
     });
-    await tx.call("economy.credit", {
+    await tx.call("economy.account.credit", {
       playerId: input.newOwnerId,
       amount: input.transferPrice,
       reason: `land.transfer.receive:${input.landId}`,

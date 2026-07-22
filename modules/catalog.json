@@ -76,7 +76,7 @@
       "description": "领地、权限和保护逻辑",
       "enabledByDefault": false,
       "canDisable": true,
-      "requires": [],
+      "requires": ["feature-economy"],
       "entry": { "kind": "sapi", "path": "modules/packages/land/sapi/src/index.ts" }
     },
     {

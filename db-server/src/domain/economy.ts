@@ -1,29 +1,13 @@
 /**
  * domain/economy.ts — 经济系统业务核心
  *
- * 提供账户 upsert、通用转账事务,以及日常任务奖励事务。
- * 是 land / coop / redpacket 等领域事务的底座 —— 它们都通过
- * applyEconomyTransaction() 写 sfmc_economy_transactions 流水。
+ * 提供账户 upsert、通用转账、日常任务奖励与月度统计。
+ * land / chat / gui 等通过 service(economy.account.*) 调用本文件。
  *
- * 事务描述 (Tx*):
- *   - applyEconomyTransaction  原子经济事务(转账 / 调整 / 退款 / 通用入账)
- *                              流程:幂等回放 → ensureAccount → 余额守护 →
- *                                    UPDATE accounts → INSERT tx log (dr/cr) →
- *                                    写 idempotency → COMMIT
- *                              异常时 ROLLBACK,返回 { ok:false, error, status }
- *   - submitDailyTaskTx        提交日常任务(扣减任务剩余量 → 调 applyEconomyTransaction
- *                              发奖 → COMMIT)
- *
- * 领域辅助 (不涉及事务):
- *   - ensureEconomyAccount     upsert 玩家账户(ON CONFLICT DO UPDATE),返回最新行
- *   - economyResult            DB 行 → 业务视图(camelCase 字段)
- *   - EconomyAccountView / ApplyEconomyInput / ApplyEconomyResult  类型定义
- *   - AnyQuery                 query 兼容类型(string / SQLStatement / {sql,values})
- *
- * 字段命名约定：
- *   - DB 列 / SQL 绑定参数: snake_case (actor_id, source_player_id, ...)
- *   - 业务入参 data.*        : 同时接受 snake_case 与 camelCase 别名
- *                             （字段类型 EconomyTransactionRow 在 types/economy.ts 标注）
+ * 事务约定(方案 A):
+ *   - applyEconomySteps / submitDailyTaskSteps — 无 BEGIN/COMMIT,可嵌进外层 db.tx
+ *   - applyEconomyTransaction / submitDailyTaskTx — 独立调用时自己开事务;
+ *     alreadyInTx=true 时只跑 steps
  */
 
 import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc/sdk/contracts";
@@ -36,6 +20,8 @@ export type { TxResult };
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
 const TABLE_IDEMPOTENCY = "sfmc_economy_idempotency";
+const TABLE_DAILY = "sfmc_economy_daily_tasks";
+const TABLE_STATS = "sfmc_economy_stats";
 
 /** query 兼容格式：string / SQLStatement / { sql, values } */
 export type AnyQuery = (
@@ -43,12 +29,10 @@ export type AnyQuery = (
   values?: unknown[]
 ) => unknown[] | { changes: number | bigint };
 
-/** 生成业务 transaction id（dr/cr 后缀在外层加） */
 function newTransactionId(now: number): string {
   return `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** EconomyAccountRow → 业务字段 (camelCase) */
 export interface EconomyAccountView {
   playerId: string;
   playerName: string;
@@ -66,11 +50,7 @@ export function economyResult(row: EconomyAccountRow | undefined): EconomyAccoun
   };
 }
 
-/**
- * 确保账户存在，返回对应账户最新行。
- * - INSERT 走 ON CONFLICT(player_id) DO UPDATE 保证只在一行上 upsert
- * - 后续 SELECT * 拿到 version/balance 等字段（version 由 DB 自身递增）
- */
+/** 确保账户存在并返回最新行 */
 export function ensureEconomyAccount(
   query: AnyQuery,
   playerId: string,
@@ -91,9 +71,17 @@ export function ensureEconomyAccount(
   return undefined;
 }
 
-/** applyEconomyTransaction 的输入：DB 行字段 + camelCase 业务别名 */
+/** 读取(必要时创建)账户业务视图 */
+export function getEconomyAccount(
+  query: AnyQuery,
+  playerId: string,
+  playerName = ""
+): EconomyAccountView | null {
+  const row = ensureEconomyAccount(query, playerId, playerName);
+  return economyResult(row) ?? null;
+}
+
 export interface ApplyEconomyInput {
-  // snake_case DB 列（types/economy.ts 主推）
   actor_id?: string;
   amount: number;
   transaction_type?: string;
@@ -104,7 +92,6 @@ export interface ApplyEconomyInput {
   reason?: string;
   idempotency_key?: string;
 
-  // camelCase 业务别名（routes 层仍按 camelCase 喂入）
   actorId?: string;
   type?: string;
   sourcePlayerId?: string;
@@ -117,14 +104,6 @@ export interface ApplyEconomyInput {
   idempotencyKey?: string;
 }
 
-/**
- * 业务结果统一形态：成功 / 失败
- *
- * - `ok: true` 时 transactionId / source / target 都存在
- * - `ok: false` 时 `error` 是错误码，`status` 是 HTTP 状态
- *
- * 成功结果会被序列化到 sfmc_economy_idempotency.response_json 用于回放。
- */
 export type ApplyEconomyResult =
   | {
       ok: true;
@@ -151,25 +130,10 @@ export type ApplyEconomyResult =
     };
 
 /**
- * 原子经济事务（转账 / 调整 / 退款等通用形态）
- *
- * 流程：
- *   1. 验证 amount / actorId / idempotency_key
- *   2. 验证 source/target 关系合法（同账户、forbidden_source 等）
- *   3. BEGIN IMMEDIATE → 若 idempotency_key 命中历史，直接回放
- *   4. ensureEconomyAccount(source / target)
- *   5. balance 校验；UPDATE accounts (带 balance>= 守卫)
- *   6. INSERT INTO sfmc_economy_transactions (dr + cr)
- *   7. 写 idempotency 记录 + COMMIT
- *
- * 任意异常：ROLLBACK + 返回 { ok:false, ... }
- *
+ * 经济变更核心(无 BEGIN/COMMIT)。
+ * 纯 debit(仅 source)或纯 credit(仅 target)均可成功。
  */
-export function applyEconomyTransaction(
-  query: AnyQuery,
-  db: DatabaseSync,
-  data: ApplyEconomyInput
-): ApplyEconomyResult | undefined {
+export function applyEconomySteps(query: AnyQuery, data: ApplyEconomyInput): ApplyEconomyResult {
   const amount = Number(data.amount);
   const actorId = String(data.actor_id ?? data.actorId ?? "").trim();
   if (!actorId || !Number.isSafeInteger(amount) || amount <= 0) {
@@ -201,118 +165,127 @@ export function applyEconomyTransaction(
     return { ok: false, error: "same_account", status: 400 };
   }
 
+  // 幂等回放
+  if (idempotencyKey) {
+    const rows = query(
+      SQL`SELECT response_json FROM ${TABLE_IDEMPOTENCY}
+          WHERE actor_id = ${actorId} AND idempotency_key = ${idempotencyKey}`
+    );
+    const previous = Array.isArray(rows) ? (rows as Array<{ response_json: string }>)[0] : undefined;
+    if (previous) {
+      return { ...JSON.parse(previous.response_json), replayed: true } as ApplyEconomyResult;
+    }
+  }
+
+  const source = sourceId ? ensureEconomyAccount(query, sourceId, String(data.sourcePlayerName ?? "")) : null;
+  const target = targetId ? ensureEconomyAccount(query, targetId, String(data.targetPlayerName ?? "")) : null;
+  if (sourceId && !source) {
+    return { ok: false, error: "source_not_found", status: 404 };
+  }
+  if (targetId && !target) {
+    return { ok: false, error: "target_not_found", status: 404 };
+  }
+
+  if (source && source.balance < amount) {
+    return { ok: false, error: "insufficient_funds", balance: source.balance, status: 409 };
+  }
+
+  const now = Date.now();
+  if (source) {
+    query(
+      SQL`UPDATE ${TABLE_ACCOUNTS}
+          SET balance = balance - ${amount}, version = version + 1, updated_at = ${now}
+          WHERE player_id = ${source.player_id} AND balance >= ${amount}`
+    );
+  }
+  if (target) {
+    query(
+      SQL`UPDATE ${TABLE_ACCOUNTS}
+          SET balance = balance + ${amount}, version = version + 1, updated_at = ${now}
+          WHERE player_id = ${target.player_id}`
+    );
+  }
+
+  const transactionType = String(data.transaction_type ?? data.type ?? "adjustment");
+  const referenceType = String(data.reference_type ?? data.referenceType ?? "");
+  const referenceId = String(data.reference_id ?? data.referenceId ?? "");
+  const reason = String(data.reason ?? data.reasonAlias ?? "");
+  const id = newTransactionId(now);
+
+  if (source) {
+    query(
+      SQL`INSERT INTO ${TABLE_TRANSACTIONS}
+          (id, transaction_type, actor_id, source_player_id, target_player_id,
+           amount, balance_before, balance_after,
+           reference_type, reference_id, reason, created_at)
+          VALUES (${id + "-dr"}, ${transactionType + ".dr"}, ${actorId}, ${sourceId}, ${null},
+                  ${amount}, ${source.balance}, ${source.balance - amount},
+                  ${referenceType}, ${referenceId}, ${reason}, ${now})`
+    );
+  }
+  if (target) {
+    query(
+      SQL`INSERT INTO ${TABLE_TRANSACTIONS}
+          (id, transaction_type, actor_id, source_player_id, target_player_id,
+           amount, balance_before, balance_after,
+           reference_type, reference_id, reason, created_at)
+          VALUES (${id + "-cr"}, ${transactionType + ".cr"}, ${actorId}, ${null}, ${targetId},
+                  ${amount}, ${target.balance}, ${target.balance + amount},
+                  ${referenceType}, ${referenceId}, ${reason}, ${now})`
+    );
+  }
+
+  const sourceView = source ? economyResult(ensureEconomyAccount(query, source.player_id, "")) : undefined;
+  const targetView = target ? economyResult(ensureEconomyAccount(query, target.player_id, "")) : undefined;
+
+  const response: ApplyEconomyResult = {
+    ok: true,
+    transactionId: id,
+    source: sourceView
+      ? { ...sourceView, balanceBefore: source!.balance, balanceAfter: source!.balance - amount }
+      : null,
+    target: targetView
+      ? { ...targetView, balanceBefore: target!.balance, balanceAfter: target!.balance + amount }
+      : null,
+  };
+
+  if (idempotencyKey) {
+    query(
+      SQL`INSERT INTO ${TABLE_IDEMPOTENCY}
+          (actor_id, idempotency_key, transaction_id, response_json, created_at)
+          VALUES (${actorId}, ${idempotencyKey}, ${id}, ${JSON.stringify(response)}, ${now})`
+    );
+  }
+
+  return response;
+}
+
+/**
+ * 独立经济事务包装。alreadyInTx=true 时复用外层事务(不再 BEGIN)。
+ */
+export function applyEconomyTransaction(
+  query: AnyQuery,
+  db: DatabaseSync,
+  data: ApplyEconomyInput,
+  opts?: { alreadyInTx?: boolean }
+): ApplyEconomyResult {
+  if (opts?.alreadyInTx) {
+    return applyEconomySteps(query, data);
+  }
   db.exec("BEGIN IMMEDIATE");
   try {
-    // 1) 幂等回放
-    if (idempotencyKey) {
-      const rows = query(
-        SQL`SELECT response_json FROM ${TABLE_IDEMPOTENCY}
-            WHERE actor_id = ${actorId} AND idempotency_key = ${idempotencyKey}`
-      );
-      const previous = Array.isArray(rows) ? (rows as Array<{ response_json: string }>)[0] : undefined;
-      if (previous) {
-        const replay = { ...JSON.parse(previous.response_json), replayed: true } as ApplyEconomyResult;
-        db.exec("COMMIT");
-        return replay;
-      }
-    }
-
-    // 2) 准备 source / target 账户
-    const source = sourceId ? ensureEconomyAccount(query, sourceId, String(data.sourcePlayerName ?? "")) : null;
-    const target = targetId ? ensureEconomyAccount(query, targetId, String(data.targetPlayerName ?? "")) : null;
-    if (sourceId && !source) {
+    const result = applyEconomySteps(query, data);
+    if (!result.ok) {
       db.exec("ROLLBACK");
-      return { ok: false, error: "source_not_found", status: 404 };
+      return result;
     }
-    if (targetId && !target) {
-      db.exec("ROLLBACK");
-      return { ok: false, error: "target_not_found", status: 404 };
-    }
-
-    // 3) 资金校验
-    if (source && source.balance < amount) {
-      db.exec("ROLLBACK");
-      return { ok: false, error: "insufficient_funds", balance: source.balance, status: 409 };
-    }
-
-    // 4) 余额变动
-    const now = Date.now();
-    if (source) {
-      query(
-        SQL`UPDATE ${TABLE_ACCOUNTS}
-            SET balance = balance - ${amount}, version = version + 1, updated_at = ${now}
-            WHERE player_id = ${source.player_id} AND balance >= ${amount}`
-      );
-    }
-    if (target) {
-      query(
-        SQL`UPDATE ${TABLE_ACCOUNTS}
-            SET balance = balance + ${amount}, version = version + 1, updated_at = ${now}
-            WHERE player_id = ${target.player_id}`
-      );
-    }
-
-    // 5) 写 transaction log
-    const transactionType = String(data.transaction_type ?? data.type ?? "adjustment");
-    const referenceType = String(data.reference_type ?? data.referenceType ?? "");
-    const referenceId = String(data.reference_id ?? data.referenceId ?? "");
-    const reason = String(data.reason ?? data.reasonAlias ?? "");
-    const id = newTransactionId(now);
-
-    if (source) {
-      query(
-        SQL`INSERT INTO ${TABLE_TRANSACTIONS}
-            (id, transaction_type, actor_id, source_player_id, target_player_id,
-             amount, balance_before, balance_after,
-             reference_type, reference_id, reason, created_at)
-            VALUES (${id + "-dr"}, ${transactionType + ".dr"}, ${actorId}, ${sourceId}, ${null},
-                    ${amount}, ${source.balance}, ${source.balance - amount},
-                    ${referenceType}, ${referenceId}, ${reason}, ${now})`
-      );
-    }
-    if (target) {
-      query(
-        SQL`INSERT INTO ${TABLE_TRANSACTIONS}
-            (id, transaction_type, actor_id, source_player_id, target_player_id,
-             amount, balance_before, balance_after,
-             reference_type, reference_id, reason, created_at)
-            VALUES (${id + "-cr"}, ${transactionType + ".cr"}, ${actorId}, ${null}, ${targetId},
-                    ${amount}, ${target.balance}, ${target.balance + amount},
-                    ${referenceType}, ${referenceId}, ${reason}, ${now})`
-      );
-    }
-
-    // 6) 重读最新账户视图 (返回给客户端)
-    if (!source || !target) return undefined;
-    const sourceView = source ? economyResult(ensureEconomyAccount(query, source.player_id, "")) : undefined;
-    const targetView = target ? economyResult(ensureEconomyAccount(query, target.player_id, "")) : undefined;
-
-    const response: ApplyEconomyResult = {
-      ok: true,
-      transactionId: id,
-      source: sourceView
-        ? { ...sourceView, balanceBefore: source.balance, balanceAfter: source.balance - amount }
-        : null,
-      target: targetView
-        ? { ...targetView, balanceBefore: target.balance, balanceAfter: target.balance + amount }
-        : null,
-    };
-
-    if (idempotencyKey) {
-      query(
-        SQL`INSERT INTO ${TABLE_IDEMPOTENCY}
-            (actor_id, idempotency_key, transaction_id, response_json, created_at)
-            VALUES (${actorId}, ${idempotencyKey}, ${id}, ${JSON.stringify(response)}, ${now})`
-      );
-    }
-
     db.exec("COMMIT");
-    return response;
+    return result;
   } catch (error) {
     try {
       db.exec("ROLLBACK");
     } catch {
-      /* ignore rollback failures */
+      /* ignore */
     }
     return {
       ok: false,
@@ -322,20 +295,36 @@ export function applyEconomyTransaction(
   }
 }
 
-/** Re-export 业务字段类型，方便 routes 层引用 */
 export type { EconomyAccountRow, EconomyTransactionRow };
 
-// ────────────────────────────────────────────────────────────────────────────────
-// 以下为新增加的事务域与查询 —— 由 routes/economy.ts 迁出
-// ────────────────────────────────────────────────────────────────────────────────
-
-const TABLE_DAILY = "sfmc_economy_daily_tasks";
-
-/** 提交日常任务（事务） */
-export function submitDailyTaskTx(
+/** 列出日常任务(默认仅 active 且未过期) */
+export function listDailyTasks(
   query: AnyQuery,
-  db: DatabaseSync,
-  data: { actorId: string; taskId: string; quantity: number }
+  filter?: { status?: string; includeExpired?: boolean }
+): Array<Record<string, unknown>> {
+  const status = filter?.status ?? "active";
+  const now = Date.now();
+  if (filter?.includeExpired) {
+    const rows = query(SQL`SELECT * FROM ${TABLE_DAILY} WHERE status = ${status}`);
+    return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+  }
+  const rows = query(
+    SQL`SELECT * FROM ${TABLE_DAILY}
+        WHERE status = ${status} AND expires_at > ${now}`
+  );
+  return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+}
+
+export interface SubmitDailyTaskInput {
+  actorId: string;
+  taskId: string;
+  quantity: number;
+}
+
+/** 日常任务提交核心(无 BEGIN) */
+export function submitDailyTaskSteps(
+  query: AnyQuery,
+  data: SubmitDailyTaskInput
 ): TxResult<{
   transactionId: string;
   reward: number;
@@ -346,56 +335,72 @@ export function submitDailyTaskTx(
   const taskId = data.taskId;
   const quantity = data.quantity;
 
+  const rows = query(
+    SQL`SELECT * FROM ${TABLE_DAILY}
+        WHERE id = ${taskId} AND status = 'active' AND expires_at > ${Date.now()}`
+  ) as Array<Record<string, unknown>>;
+  const task = rows[0];
+  if (!task) {
+    return { ok: false, error: "task_not_found_or_expired", status: 404 };
+  }
+  const targetQty = Number(task.target_qty ?? 0);
+  const filledQty = Number(task.filled_qty ?? 0);
+  const remaining = targetQty - filledQty;
+  if (remaining < quantity) {
+    return { ok: false, error: "task_quota_exceeded", status: 409, extra: { remaining } };
+  }
+  const reward = Number(task.unit_reward) * quantity;
+
+  query(SQL`UPDATE ${TABLE_DAILY} SET filled_qty = filled_qty + ${quantity} WHERE id = ${taskId}`);
+
+  const result = applyEconomySteps(query, {
+    actor_id: actorId,
+    transaction_type: "daily_task.reward",
+    target_player_id: actorId,
+    amount: reward,
+    reference_type: "daily_task",
+    reference_id: taskId,
+    reason: `提交任务 ${task.item_type}*${quantity}`,
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error, status: result.status };
+  }
+  const tgtFinal = economyResult(ensureEconomyAccount(query, actorId, ""));
+  return {
+    ok: true,
+    data: {
+      transactionId: result.transactionId,
+      reward,
+      balance: tgtFinal?.balance ?? 0,
+      balanceVersion: tgtFinal?.version ?? 0,
+    },
+  };
+}
+
+/** 日常任务提交包装(可独立事务或嵌入外层 tx) */
+export function submitDailyTaskTx(
+  query: AnyQuery,
+  db: DatabaseSync,
+  data: SubmitDailyTaskInput,
+  opts?: { alreadyInTx?: boolean }
+): TxResult<{
+  transactionId: string;
+  reward: number;
+  balance: number;
+  balanceVersion: number;
+}> {
+  if (opts?.alreadyInTx) {
+    return submitDailyTaskSteps(query, data);
+  }
   db.exec("BEGIN IMMEDIATE");
   try {
-    const rows = query(
-      SQL`SELECT * FROM ${TABLE_DAILY}
-          WHERE id = ${taskId} AND status = 'active' AND expires_at > ${Date.now()}`
-    ) as Array<Record<string, unknown>>;
-    const task = rows[0];
-    if (!task) {
-      db.exec("ROLLBACK");
-      return { ok: false, error: "task_not_found_or_expired", status: 404 };
-    }
-    const targetQty = Number(task.target_qty ?? 0);
-    const filledQty = Number(task.filled_qty ?? 0);
-    const remaining = targetQty - filledQty;
-    if (remaining < quantity) {
-      db.exec("ROLLBACK");
-      return { ok: false, error: "task_quota_exceeded", status: 409, extra: { remaining } };
-    }
-    const reward = Number(task.unit_reward) * quantity;
-
-    query(SQL`UPDATE ${TABLE_DAILY} SET filled_qty = filled_qty + ${quantity} WHERE id = ${taskId}`);
-
-    const result = applyEconomyTransaction(query, db, {
-      actor_id: actorId,
-      transaction_type: "daily_task.reward",
-      target_player_id: actorId,
-      amount: reward,
-      reference_type: "daily_task",
-      reference_id: taskId,
-      reason: `提交任务 ${task.item_type}*${quantity}`,
-    });
-    if (!result) {
-      db.exec("ROLLBACK");
-      return { ok: false, error: "internal_error", status: 500 };
-    }
+    const result = submitDailyTaskSteps(query, data);
     if (!result.ok) {
       db.exec("ROLLBACK");
-      return { ok: false, error: result.error, status: result.status };
+      return result;
     }
     db.exec("COMMIT");
-    const tgtFinal = economyResult(ensureEconomyAccount(query, actorId, ""));
-    return {
-      ok: true,
-      data: {
-        transactionId: result.transactionId,
-        reward,
-        balance: tgtFinal?.balance ?? 0,
-        balanceVersion: tgtFinal?.version ?? 0,
-      },
-    };
+    return result;
   } catch (error) {
     try {
       db.exec("ROLLBACK");
@@ -408,4 +413,49 @@ export function submitDailyTaskTx(
       status: 500,
     };
   }
+}
+
+/** 月度/全局经济白皮书(优先读 sfmc_economy_stats,否则现场聚合) */
+export function monthlyEconomyStats(query: AnyQuery): {
+  id: string;
+  total_issued: number;
+  total_destroyed: number;
+  total_supply: number;
+  active_accounts: number;
+} {
+  const now = new Date();
+  const id = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const cached = query(SQL`SELECT * FROM ${TABLE_STATS} WHERE id = ${"global"} OR id = ${id}`);
+  if (Array.isArray(cached) && cached.length > 0) {
+    const row = cached[0] as Record<string, unknown>;
+    return {
+      id: String(row.id ?? id),
+      total_issued: Number(row.total_issued ?? 0),
+      total_destroyed: Number(row.total_destroyed ?? 0),
+      total_supply: Number(row.total_supply ?? 0),
+      active_accounts: Number(row.active_accounts ?? 0),
+    };
+  }
+
+  const supplyRows = query(SQL`SELECT COALESCE(SUM(balance),0) AS total_supply, COUNT(*) AS active_accounts FROM ${TABLE_ACCOUNTS}`);
+  const supply = Array.isArray(supplyRows) ? (supplyRows[0] as Record<string, unknown>) : {};
+  const issuedRows = query(
+    SQL`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE target_player_id IS NOT NULL`
+  );
+  const destroyedRows = query(
+    SQL`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE source_player_id IS NOT NULL`
+  );
+  const issued = Array.isArray(issuedRows) ? Number((issuedRows[0] as Record<string, unknown>).total ?? 0) : 0;
+  const destroyed = Array.isArray(destroyedRows)
+    ? Number((destroyedRows[0] as Record<string, unknown>).total ?? 0)
+    : 0;
+
+  return {
+    id,
+    total_issued: issued,
+    total_destroyed: destroyed,
+    total_supply: Number(supply.total_supply ?? 0),
+    active_accounts: Number(supply.active_accounts ?? 0),
+  };
 }

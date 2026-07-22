@@ -34,6 +34,7 @@ import { initSchema } from "./domain/schema.js";
 import { SchemaRegistry } from "./schema-registry.js";
 import { ServiceRegistry } from "./service-registry.js";
 import { TxRunner } from "./tx-runner.js";
+import { registerEconomyHandlers } from "./services/economy-handlers.js";
 
 import { readJson, writeJson } from "@sfmc/sdk/node/config";
 
@@ -108,10 +109,17 @@ const serviceRegistry = new ServiceRegistry();
 const idempotent = createIdempotencyStore(db);
 const txRunner = new TxRunner({
   db,
+  query,
   schema: schemaRegistry,
   serviceRegistry,
   enabled: enabledManifests,
 });
+
+// ── 进程内 service handler(第一刀:economy.*) ───────────────
+if (enabledSet.has("feature-economy")) {
+  registerEconomyHandlers(serviceRegistry, { query, db });
+  log.success(`[service] registered ${serviceRegistry.list().length} economy handlers`);
+}
 
 const json = sharedJson;
 const body = sharedBody;
