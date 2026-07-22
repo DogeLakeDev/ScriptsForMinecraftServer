@@ -24,6 +24,16 @@ export class HttpDB {
     this.authToken = token.trim();
   }
 
+  /**
+   * 给路径附上 ?moduleId= / &moduleId=(db/config/service 客户端共用,DRY)。
+   * verifyModuleAuth 只认 query 上的 moduleId。
+   */
+  static withModuleId(path: string, moduleId: string): string {
+    if (!moduleId) return path;
+    const sep = path.includes("?") ? "&" : "?";
+    return `${path}${sep}moduleId=${encodeURIComponent(moduleId)}`;
+  }
+
   static isAvailable(): boolean {
     return this.available;
   }

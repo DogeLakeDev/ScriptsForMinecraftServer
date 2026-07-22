@@ -44,9 +44,7 @@ export class ServiceError extends Error {
 }
 
 function withModuleId(path: string): string {
-  if (!_moduleId) return path;
-  const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}moduleId=${encodeURIComponent(_moduleId)}`;
+  return HttpDB.withModuleId(path, _moduleId);
 }
 
 export const service = {

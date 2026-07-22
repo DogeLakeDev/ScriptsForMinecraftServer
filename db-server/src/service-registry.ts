@@ -102,10 +102,6 @@ export class ServiceRegistry {
     }
   }
 
-  /** 查询 service 提供方 moduleId(供 tx.call 与 HTTP 共用鉴权策略) */
-  getProvider(name: string): string | undefined {
-    return this.handlers.get(name)?.moduleId;
-  }
 }
 
 export class DispatchError extends Error {
