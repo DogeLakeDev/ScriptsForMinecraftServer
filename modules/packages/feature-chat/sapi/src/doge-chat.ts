@@ -5,7 +5,7 @@
  *  Author      :  Shiroha7z                *
 \* ---------------------------------------- */
 import { Player, system, world } from "@minecraft/server";
-import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc/types";
+import type { Channel, ChannelConfig, ChatMessage, MessageType, RedPacket } from "@sfmc/sdk/contracts";
 import { db } from "@sfmc/sdk/sapi/db";
 import { debug } from "@sfmc/sdk/sapi/runtime";
 import { Money } from "@sfmc/sdk/sapi/runtime";

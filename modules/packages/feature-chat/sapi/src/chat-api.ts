@@ -349,42 +349,42 @@ export async function claimRedPacket(
   actorName: string
 ): Promise<{ ok: boolean; amount?: number; account?: { balance?: number; version?: number }; error?: string }> {
   try {
-    const result = await db.tx<{ amount: number; balance: number; version: number }>(async (tx) => {
-      const row = await tx.get("sfmc_chat_redpackets", redpacketId);
-      if (!row) throw new Error("redpacket_not_found");
-      const rp = rowToRedPacket(row as unknown as RedPacketRow);
-      if (rp.remainingCount <= 0) throw new Error("redpacket_empty");
-      const receivers = new Set(rp.receivers);
-      if (receivers.has(actorId)) throw new Error("already_claimed");
-      if (Date.now() > rp.expiresAt) throw new Error("redpacket_expired");
-      let amount: number;
-      if (rp.remainingCount === 1) {
-        amount = rp.remainingAmount;
-      } else {
-        const max = Math.floor((rp.remainingAmount / rp.remainingCount) * 2);
-        amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
-        amount = Math.min(amount, rp.remainingAmount - (rp.remainingCount - 1));
-      }
-      receivers.add(actorId);
+    // db.tx 录制器对 get/call 返回占位值,不可在事务回调内按结果分支(LSP)。
+    // 先用 db.get 做读校验与金额计算,再把写操作录进同一事务提交。
+    const existing = await db.get<RedPacketRow>("sfmc_chat_redpackets", redpacketId);
+    if (!existing) return { ok: false, error: "redpacket_not_found" };
+    const rp = rowToRedPacket(existing);
+    if (rp.remainingCount <= 0) return { ok: false, error: "redpacket_empty" };
+    const receivers = new Set(rp.receivers);
+    if (receivers.has(actorId)) return { ok: false, error: "already_claimed" };
+    if (Date.now() > rp.expiresAt) return { ok: false, error: "redpacket_expired" };
+
+    let amount: number;
+    if (rp.remainingCount === 1) {
+      amount = rp.remainingAmount;
+    } else {
+      const max = Math.floor((rp.remainingAmount / rp.remainingCount) * 2);
+      amount = Math.max(1, Math.floor(Math.random() * (max + 1)));
+      amount = Math.min(amount, rp.remainingAmount - (rp.remainingCount - 1));
+    }
+    receivers.add(actorId);
+
+    await db.tx(async (tx) => {
       await tx.update("sfmc_chat_redpackets", redpacketId, {
         remaining_amount: rp.remainingAmount - amount,
         remaining_count: rp.remainingCount - 1,
         receivers: JSON.stringify([...receivers]),
       });
-      const credited = (await tx.call("economy.account.credit", {
+      await tx.call("economy.account.credit", {
         playerId: actorId,
         playerName: actorName,
         amount,
         reason: "redpacket_claim",
         meta: { redpacketId },
-      })) as { balance?: number; version?: number } | null;
-      return {
-        amount,
-        balance: Number(credited?.balance ?? 0),
-        version: Number(credited?.version ?? 0),
-      };
+      });
     });
-    return { ok: true, amount: result.amount, account: { balance: result.balance, version: result.version } };
+    // tx.call 在客户端同样拿不到真实返回;余额由调用方后续 Money.load / service 刷新
+    return { ok: true, amount };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }

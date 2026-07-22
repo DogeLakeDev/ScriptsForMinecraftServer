@@ -27,7 +27,8 @@
       "requires": [
         "feature-economy",
         "feature-chat",
-        "feature-land"
+        "feature-land",
+        "feature-land-gui"
       ],
       "entry": {
         "kind": "sapi",

@@ -4,7 +4,7 @@
   "name": "主菜单GUI",
   "type": "core",
   "configKey": "gui",
-  "requires": ["feature-economy", "feature-chat", "feature-land"],
+  "requires": ["feature-economy", "feature-chat", "feature-land", "feature-land-gui"],
 
   "permissions": [
     "service:economy.account.transfer"
@@ -17,5 +17,5 @@
     ]
   },
 
-  "notes": "core-gui:主菜单/管理面板入口。土地/聊天 GUI 通过 npm 依赖 @sfmc/module-land-gui 与 @sfmc/module-feature-chat 调用;转账走 service.get(economy.account.transfer)。合作社图形 UI 已并入 feature-coop 命令面。"
+  "notes": "core-gui:主菜单/管理面板入口。依赖 feature-land-gui(LandGUI)与 feature-chat(ChatGUI);转账走 service.get(economy.account.transfer)。合作社图形 UI 已并入 feature-coop 命令面。"
 }

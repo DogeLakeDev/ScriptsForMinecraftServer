@@ -1,5 +1,5 @@
 import { Player, world } from "@minecraft/server";
-import type { Channel, RedPacket } from "@sfmc/types";
+import type { Channel, RedPacket } from "@sfmc/sdk/contracts";
 import { DogeChat } from "./doge-chat.js";
 import { Money } from "@sfmc/sdk/sapi/runtime";
 import { FormStatus, MenuNavigator, obsNum, obsStr } from "@sfmc/sdk/sapi/runtime";

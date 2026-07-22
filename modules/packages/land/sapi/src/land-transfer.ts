@@ -37,9 +37,25 @@ export async function transferLand(input: TransferInput): Promise<TransferResult
   }
 
   try {
+    // db.tx 录制器 get→null,必须在事务外读版本/归属(LSP)
+    const cur = await db.get<{
+      id: string;
+      owner_player_id: string;
+      version: number;
+      status: string;
+    }>("lands", input.landId);
+    if (!cur) {
+      return { ok: false, landId: input.landId, newOwnerId: input.newOwnerId, error: "land_not_found", message: "领地不存在。" };
+    }
+    if (cur.owner_player_id !== input.currentOwnerId) {
+      return { ok: false, landId: input.landId, newOwnerId: input.newOwnerId, error: "not_owner", message: "你不是该领地主人。" };
+    }
+    if (cur.status && cur.status !== "active") {
+      return { ok: false, landId: input.landId, newOwnerId: input.newOwnerId, error: "inactive", message: "领地不可转让。" };
+    }
+
     return await db.tx(async (tx) => {
-      const snapshot = await runTransferSteps(tx, input);
-      return snapshot;
+      return runTransferSteps(tx, input, Number(cur.version ?? 0));
     });
   } catch (e) {
     if (e instanceof DbError) {
@@ -49,26 +65,15 @@ export async function transferLand(input: TransferInput): Promise<TransferResult
   }
 }
 
-async function runTransferSteps(tx: TxContext, input: TransferInput): Promise<TransferResult> {
+async function runTransferSteps(tx: TxContext, input: TransferInput, landVersion: number): Promise<TransferResult> {
   const now = Date.now();
   const oldMemberId = synthMemberId(input.landId, input.currentOwnerId);
   const newMemberId = synthMemberId(input.landId, input.newOwnerId);
 
-  // 1. 拿当前 land(版本号)
-  const cur = await tx.get<{
-    id: string;
-    owner_player_id: string;
-    version: number;
-    status: string;
-  }>("lands", input.landId);
-  // 注意:tx.get 在 SDK 端只是 step recorder,这里拿不到真实值 — 用闭包假设
-  // 真实执行发生在 db-server 内,client 端假设步骤会被原子执行。
-  void cur;
-
-  // 2. 删原 owner 成员行
+  // 1. 删原 owner 成员行(读校验已在 tx 外完成;录制器 get 不可用于分支)
   await tx.delete("land_members", oldMemberId);
 
-  // 3. 写新 owner 成员行
+  // 2. 写新 owner 成员行
   await tx.insert("land_members", {
     id: newMemberId,
     land_id: input.landId,
@@ -78,15 +83,15 @@ async function runTransferSteps(tx: TxContext, input: TransferInput): Promise<Tr
     created_at: now,
   });
 
-  // 4. 更新 land owner
+  // 3. 更新 land owner
   await tx.update("lands", input.landId, {
     owner_player_id: input.newOwnerId,
     owner_name_snapshot: input.newOwnerName,
-    version: ((cur?.version ?? 0) as number) + 1,
+    version: landVersion + 1,
     updated_at: now,
   });
 
-  // 5. 写审计
+  // 4. 写审计
   await tx.audit("lands", input.landId, "transfer", {
     from: input.currentOwnerId,
     to: input.newOwnerId,
@@ -94,7 +99,7 @@ async function runTransferSteps(tx: TxContext, input: TransferInput): Promise<Tr
     requestId: input.requestId,
   });
 
-  // 6. 写 land_operations(idempotency 兜底)
+  // 5. 写 land_operations(idempotency 兜底)
   await tx.insert("land_operations", {
     request_id: input.requestId,
     operation_type: "transfer",
@@ -105,7 +110,7 @@ async function runTransferSteps(tx: TxContext, input: TransferInput): Promise<Tr
     created_at: now,
   });
 
-  // 7. 跨模块:扣款 + 加款(在事务里通过 service.get 实现)
+  // 6. 跨模块:扣款 + 加款
   if (input.transferPrice > 0) {
     await tx.call("economy.account.debit", {
       playerId: input.currentOwnerId,
