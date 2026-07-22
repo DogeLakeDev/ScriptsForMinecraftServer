@@ -159,7 +159,8 @@ function buildModuleList() {
         type: String((raw as Record<string, unknown>).type || "feature"),
         description: String((raw as Record<string, unknown>).description || ""),
         default_enabled: (raw as Record<string, unknown>).enabledByDefault !== false,
-        can_disable: (raw as Record<string, unknown>).canDisable !== false,
+        // 与 resolveModuleByKey 共用 moduleCanDisable,避免 list/disable 默认值漂移(LSP/DRY)
+        can_disable: moduleCanDisable(raw as Record<string, unknown>),
         // ConfigManager 认 installed!==false;已装包默认 true
         installed: true,
         requires: Array.isArray((raw as Record<string, unknown>).requires)
@@ -183,14 +184,25 @@ function buildModuleList() {
     .filter(Boolean);
 }
 
+/** catalog 省略 canDisable 时默认允许禁用(与 buildModuleList.can_disable 同源)。 */
+function moduleCanDisable(raw: Record<string, unknown>): boolean {
+  return raw.canDisable !== false;
+}
+
 function resolveModuleByKey(key: string) {
   const k = String(key || "").trim();
   const catalog = loadModuleCatalog();
-  return catalog.find(
+  const raw = catalog.find(
     (m) =>
       String((m as Record<string, unknown>).id || "") === k ||
       String((m as Record<string, unknown>).configKey || (m as Record<string, unknown>).config_key || "") === k
-  ) as { id: string; configKey: string; canDisable: boolean } | null;
+  ) as Record<string, unknown> | undefined;
+  if (!raw) return null;
+  const id = String(raw.id || "").trim();
+  const configKey = String(raw.configKey || raw.config_key || "").trim();
+  if (!id || !configKey) return null;
+  // 归一化 canDisable:裸 catalog 条目缺省字段时 undefined 会被 !canDisable 误判为不可禁用(LSP)
+  return { id, configKey, canDisable: moduleCanDisable(raw) };
 }
 
 function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boolean) {
