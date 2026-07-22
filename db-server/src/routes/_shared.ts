@@ -59,16 +59,17 @@ export const body = sharedBody;
 
 /**
  * v2 失败信封权威形态(DRY + LSP):
- * 一律 `{ ok:false, error, code? }`,勿再混用 `{ success:false }`。
+ * 一律 `{ ok:false, error, code? }`(+ 可选 extra),勿再混用 `{ success:false }`。
  * service-routes / db / module-config / index 模块鉴权门应走此助手。
  */
 export function jsonV2Fail(
   res: ServerResponse,
   error: string,
   status: number,
-  code?: string
+  code?: string,
+  extra?: Record<string, unknown>
 ): void {
-  const payload: Record<string, unknown> = { ok: false, error };
+  const payload: Record<string, unknown> = { ...(extra ?? {}), ok: false, error };
   if (code) payload.code = code;
   sharedJson(res, payload, status);
 }
