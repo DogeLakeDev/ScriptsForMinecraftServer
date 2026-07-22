@@ -382,8 +382,10 @@ export class TxRunner {
     mod: ModuleManifestV2,
     step: TxStepService
   ): Promise<TxStepResult> {
+    // 与 ServiceRegistry.dispatch 对齐:提供方自调用跳过 requires(DRY/LSP)
+    const providerId = this.deps.serviceRegistry.getProvider(step.name);
     const declared = mod.services.requires.find((r) => r.name === step.name);
-    if (!declared) {
+    if (!declared && providerId !== mod.id) {
       const err = new Error(`模块 ${mod.id} 未声明 service.requires ${step.name}`);
       (err as { code?: string }).code = "not_in_requires";
       throw err;
