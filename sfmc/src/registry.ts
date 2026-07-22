@@ -54,14 +54,37 @@ function writeCache(cache: RegistryCache): void {
   }
 }
 
+/**
+ * 解析 first-party registry index。
+ * 权威形态与 tools/fetch-module.mjs 一致：
+ *   { version, modules: { "<id>": { repo, tag }, ... } }
+ * 兼容旧扁平形态：{ "<id>": { repo, tag }, ... }
+ */
+function parseRegistryIndex(json: unknown): RegistryIndex {
+  if (typeof json !== "object" || json === null || Array.isArray(json)) {
+    throw new Error("registry index must be a JSON object with a 'modules' field");
+  }
+  const root = json as Record<string, unknown>;
+  const modulesRaw =
+    typeof root.modules === "object" && root.modules !== null && !Array.isArray(root.modules)
+      ? (root.modules as Record<string, unknown>)
+      : root;
+  const filtered: RegistryIndex = {};
+  for (const [k, v] of Object.entries(modulesRaw)) {
+    if (k.startsWith("_")) continue;
+    if (k === "version" || k === "generatedAt" || k === "modules") continue;
+    if (typeof v !== "object" || v === null || Array.isArray(v)) continue;
+    const entry = v as Record<string, unknown>;
+    if (typeof entry.repo !== "string" || typeof entry.tag !== "string") continue;
+    filtered[k] = { repo: entry.repo, tag: entry.tag };
+  }
+  return filtered;
+}
+
 async function fetchFresh(): Promise<RegistryIndex> {
   const res = await fetch(INDEX_URL, { headers: { "User-Agent": "sfmc-cli" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${INDEX_URL}`);
-  const json = (await res.json()) as unknown;
-  if (typeof json !== "object" || json === null || Array.isArray(json)) {
-    throw new Error("registry index must be a JSON object mapping id → { repo, tag }");
-  }
-  return json as RegistryIndex;
+  return parseRegistryIndex(await res.json());
 }
 
 export interface RegistryResult {
