@@ -21,35 +21,11 @@
       "enabled": true,
       "updatedAt": 1784463641711
     },
-    "feature-area": {
-      "enabled": true,
-      "updatedAt": 1784487209308
-    },
-    "feature-online-time": {
-      "enabled": true,
-      "updatedAt": 1784487209308
-    },
-    "feature-activity-log": {
-      "enabled": true,
-      "updatedAt": 1784487209308
-    },
-    "feature-scoreboard-sync": {
-      "enabled": true,
-      "updatedAt": 1784463641711
-    },
-    "feature-inventory-switcher": {
-      "enabled": true,
-      "updatedAt": 1784041411927
-    },
     "tool-bds-updater": {
       "enabled": true,
       "updatedAt": 1784464791795
     },
     "feature-economy": {
-      "enabled": true,
-      "updatedAt": 1784487209308
-    },
-    "feature-tps": {
       "enabled": true,
       "updatedAt": 1784487209308
     },
@@ -64,10 +40,6 @@
     "service-panel": {
       "enabled": true,
       "updatedAt": 1784464791795
-    },
-    "feature-monitor": {
-      "enabled": true,
-      "updatedAt": 1784655609315
     },
     "feature-land-gui": {
       "enabled": true,

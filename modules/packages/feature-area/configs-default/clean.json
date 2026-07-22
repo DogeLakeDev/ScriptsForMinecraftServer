@@ -1,5 +1,0 @@
-{
-  "_comment": "物品清理 —— SAPI 启动时通过 /api/sfmc/clean 读取此文件。遍历全服掉落物，超 item_max 阈值触发清理。",
-  "item_max": 192,
-  "poll_interval": 60
-}

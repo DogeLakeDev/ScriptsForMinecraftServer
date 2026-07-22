@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-20T18:04:40.689Z",
+  "generatedAt": "2026-07-22T05:42:54.451Z",
   "modules": {
     "core-data-backup": {
       "name": "数据备份",
@@ -218,75 +218,6 @@
       "routes": [],
       "migrations": []
     },
-    "feature-tps": {
-      "name": "TPS 监控",
-      "type": "feature",
-      "configKey": "tps",
-      "requires": [],
-      "handlers": [],
-      "routes": [],
-      "migrations": []
-    },
-    "feature-online-time": {
-      "name": "在线时长",
-      "type": "feature",
-      "configKey": "online_time",
-      "requires": [],
-      "handlers": [],
-      "routes": [
-        {
-          "method": "PUT",
-          "path": "/api/sfmc/players/:playerId",
-          "handler": "players:update"
-        },
-        {
-          "method": "GET",
-          "path": "/api/sfmc/players",
-          "handler": "players:get"
-        }
-      ],
-      "migrations": []
-    },
-    "feature-activity-log": {
-      "name": "行为日志",
-      "type": "feature",
-      "configKey": "activity_log",
-      "requires": [],
-      "handlers": [],
-      "routes": [
-        {
-          "method": "POST",
-          "path": "/api/sfmc/activities/batch",
-          "handler": "activities:batch"
-        },
-        {
-          "method": "POST",
-          "path": "/api/sfmc/activities/cleanup",
-          "handler": "activities:cleanup"
-        }
-      ],
-      "migrations": []
-    },
-    "feature-scoreboard-sync": {
-      "name": "计分板同步",
-      "type": "feature",
-      "configKey": "scoreboard_sync",
-      "requires": [],
-      "handlers": [],
-      "routes": [
-        {
-          "method": "GET",
-          "path": "/api/sfmc/scoreboards",
-          "handler": "scoreboards:list"
-        },
-        {
-          "method": "POST",
-          "path": "/api/sfmc/scoreboards",
-          "handler": "scoreboards:write"
-        }
-      ],
-      "migrations": []
-    },
     "feature-spawn-protect": {
       "name": "重生保护",
       "type": "feature",
@@ -300,15 +231,6 @@
       "name": "聊天音效",
       "type": "feature",
       "configKey": "chat_sounds",
-      "requires": [],
-      "handlers": [],
-      "routes": [],
-      "migrations": []
-    },
-    "feature-inventory-switcher": {
-      "name": "背包切换",
-      "type": "feature",
-      "configKey": "inventory_switcher",
       "requires": [],
       "handlers": [],
       "routes": [],
@@ -357,26 +279,6 @@
       "requires": [],
       "handlers": [],
       "routes": [],
-      "migrations": []
-    },
-    "feature-monitor": {
-      "name": "监控",
-      "type": "feature",
-      "configKey": "monitor",
-      "requires": [],
-      "handlers": [],
-      "routes": [
-        {
-          "method": "POST",
-          "path": "/api/sfmc/monitor/metrics",
-          "handler": "monitor:metrics"
-        },
-        {
-          "method": "POST",
-          "path": "/api/sfmc/monitor/player-chunks",
-          "handler": "monitor:playerChunks"
-        }
-      ],
       "migrations": []
     }
   }

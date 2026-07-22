@@ -1,5 +1,5 @@
 {
-  "_comment": "modules/catalog.json 是本地 mirror,source of truth 在 github:Tanya7z/sfmc-modules/main/index.json。tools/fetch-module.mjs install 默认从远端拉取 modules/packages/<id>/ 后,这里同步更新。land 与 land-gui 已迁 v2 标准例子;其余 22 个模块仍为 v1 状态,等待迁移。",
+  "_comment": "modules/catalog.json 是本地 mirror；source of truth 见 github:Tanya7z/sfmc-modules/main/index.json。tools/fetch-module.mjs install 默认从远端拉取 modules/packages/<id>/ 后本地同步启用。land 与 land-gui 已迁 v2 待就绪；batch1+batch2 已提取至 sfmc-modules@modules-v0.2.0。本地保留 8 条 catalog 条目。",
   "version": 1,
   "modules": [
     {
@@ -122,104 +122,6 @@
       "entry": {
         "kind": "sapi",
         "path": "modules/packages/land-gui/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-area",
-      "configKey": "area",
-      "name": "区域功能",
-      "type": "feature",
-      "description": "区域功能聚合:和平/飞行/生存/创造/清理五合一(peace/fly/survival/creative/clean)",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/feature-area/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-tps",
-      "configKey": "tps",
-      "name": "TPS 监控",
-      "type": "feature",
-      "description": "服务器 TPS 监视与命令",
-      "enabledByDefault": true,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/tps/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-online-time",
-      "configKey": "online_time",
-      "name": "在线时长",
-      "type": "feature",
-      "description": "玩家在线时长统计",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/online-time/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-activity-log",
-      "configKey": "activity_log",
-      "name": "行为日志",
-      "type": "feature",
-      "description": "玩家行为批量写入数据库",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/activity-log/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-scoreboard-sync",
-      "configKey": "scoreboard_sync",
-      "name": "计分板同步",
-      "type": "feature",
-      "description": "计分板快照备份与恢复",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/scoreboard-sync/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-inventory-switcher",
-      "configKey": "inventory_switcher",
-      "name": "背包切换",
-      "type": "feature",
-      "description": "生存/创造独立背包切换",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/inventory-switcher/sapi/src/index.ts"
-      }
-    },
-    {
-      "id": "feature-monitor",
-      "configKey": "monitor",
-      "name": "监控",
-      "type": "feature",
-      "description": "服务器运行状态监控",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/monitor/sapi/src/index.ts"
       }
     }
   ]
