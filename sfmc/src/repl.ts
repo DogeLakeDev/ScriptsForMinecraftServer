@@ -2,7 +2,13 @@ import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
-import { dispatchModuleCommand, listInstalledModuleIdsSync, MODULE_CMD_NAMES, MODULE_SUBCOMMANDS } from "./module-commands.js";
+import {
+  dispatchModuleCommand,
+  isModuleCommand,
+  listInstalledModuleIdsSync,
+  MODULE_CMD_NAMES,
+  MODULE_SUBCOMMANDS,
+} from "./module-commands.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
@@ -13,6 +19,9 @@ function setRaw(v: boolean): void {
     if (stdin.isTTY && typeof stdin.setRawMode === "function") stdin.setRawMode(v);
   } catch {}
 }
+
+/** HELP 行首:把 MODULE_CMD_NAMES 着色后用 / 拼接(如 module/mod)。 */
+const MODULE_HELP_LABEL = MODULE_CMD_NAMES.map((n) => c.green(n)).join("/");
 
 const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
@@ -43,19 +52,19 @@ ${c.bold("Commands")}
   ${c.green("remote enroll")} <url> <token> [name]
                           Enroll this supervisor with a controller
   ${c.green("remote disable")}            Disable + disconnect remote agent
-  ${c.green("module")}/${c.green("mod")} list
+  ${MODULE_HELP_LABEL} list
                           List installed modules
-  ${c.green("module")}/${c.green("mod")} search [id]
+  ${MODULE_HELP_LABEL} search [id]
                           Fetch registry list / show one module's registry info
-  ${c.green("module")}/${c.green("mod")} install <id> [--from <source>]
+  ${MODULE_HELP_LABEL} install <id> [--from <source>]
                           Fetch + install a module
-  ${c.green("module")}/${c.green("mod")} uninstall <id>
+  ${MODULE_HELP_LABEL} uninstall <id>
                           Remove an installed module
-  ${c.green("module")}/${c.green("mod")} verify [id]
+  ${MODULE_HELP_LABEL} verify [id]
                           Verify installed modules (SHA-256)
-  ${c.green("module")}/${c.green("mod")} info <id>
+  ${MODULE_HELP_LABEL} info <id>
                           Show one installed module's details
-  ${c.green("module")}/${c.green("mod")} enable|disable <id>
+  ${MODULE_HELP_LABEL} enable|disable <id>
                           Toggle module (needs db-server)
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
@@ -148,8 +157,9 @@ function getCompletions(parsed: ParsedLine): string[] {
     case "remote":
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
-    case "module":
-    case "mod": {
+    default: {
+      /* module/mod 等别名统一走 MODULE_CMD_NAMES,避免 case 链与权威源漂移。 */
+      if (!isModuleCommand(cmd)) return [];
       if (argIndex === 0) return [...MODULE_SUBCOMMANDS].filter(sw);
       const verb = words[0] ?? "";
       /* search:补全 registry 缓存中的 id;其余本地已装 id */
@@ -167,8 +177,6 @@ function getCompletions(parsed: ParsedLine): string[] {
       }
       return [];
     }
-    default:
-      return [];
   }
 }
 
@@ -659,17 +667,16 @@ async function execCmd(parts: string[]): Promise<void> {
       }
       break;
     }
-    case "module":
-    case "mod": {
-      const [sub, ...subRest] = args;
-      stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
-      break;
-    }
     case "quit":
     case "exit":
     case "q":
       throw "QUIT";
     default:
+      if (isModuleCommand(cmd)) {
+        const [sub, ...subRest] = args;
+        stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
+        break;
+      }
       stdout.write(c.yellow(`Unknown: ${cmd}  (try: help)\n`));
   }
 }
