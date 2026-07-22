@@ -39,6 +39,7 @@ import {
   Perm,
   assertModulePermission,
 } from "./permission-gate.js";
+import { normalizeOrderBy } from "./lib/order-by.js";
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -51,7 +52,10 @@ export interface TxStepQuery {
   table: string;
   opts?: {
     where?: WhereExpr;
-    orderBy?: { col: string; dir?: "asc" | "desc" };
+    /** SDK 用 field;历史 col 仍接受(normalizeOrderBy) */
+    orderBy?:
+      | { field?: string; col?: string; dir?: "asc" | "desc" }
+      | Array<{ field?: string; col?: string; dir?: "asc" | "desc" }>;
     limit?: number;
     offset?: number;
   };
@@ -261,17 +265,21 @@ export class TxRunner {
   private doQuery(_mid: string, mod: ModuleManifestV2, step: TxStepQuery): TxStepResult {
     this.requireTableRead(mod, step.table);
     const where = compile(step.opts?.where);
-    const orderBy = step.opts?.orderBy;
+    // LSP:与 SDK QueryOptions.orderBy({field}|[]) 对齐,兼收遗留 {col}
+    const orders = normalizeOrderBy(step.opts?.orderBy);
     const limit = typeof step.opts?.limit === "number" ? step.opts?.limit : undefined;
     const offset = typeof step.opts?.offset === "number" ? step.opts?.offset : undefined;
 
     const whereClause = where.sql;
     const params = [...where.values];
     let extra = "";
-    if (orderBy) {
-      if (!IDENT.test(orderBy.col)) throw new Error(`[tx] orderBy bad column "${orderBy.col}"`);
-      const dir = orderBy.dir === "desc" ? "DESC" : "ASC";
-      extra += ` ORDER BY "${orderBy.col}" ${dir}`;
+    if (orders.length > 0) {
+      const parts: string[] = [];
+      for (const o of orders) {
+        if (!IDENT.test(o.col)) throw new Error(`[tx] orderBy bad column "${o.col}"`);
+        parts.push(`"${o.col}" ${o.dir === "desc" ? "DESC" : "ASC"}`);
+      }
+      extra += ` ORDER BY ${parts.join(", ")}`;
     }
     if (typeof limit === "number") {
       extra += " LIMIT " + Math.max(0, Math.floor(limit));
