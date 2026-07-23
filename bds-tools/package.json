@@ -43,7 +43,7 @@
   "scripts": {
     "build": "node ../scripts/esbuild-transpile.mjs --dts",
     "dev": "tsx src/bds-manager.ts",
-    "typecheck": "node ../tools/tsc7.mjs --noEmit",
+    "typecheck": "tsc7 --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs server-properties.test.mjs world-packs.test.mjs zipx.test.mjs",
     "update": "node dist/check-update.js",

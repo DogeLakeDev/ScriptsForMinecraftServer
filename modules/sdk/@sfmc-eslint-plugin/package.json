@@ -19,8 +19,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node ../../../tools/tsc7.mjs -p tsconfig.json",
-    "typecheck": "node ../../../tools/tsc7.mjs --noEmit -p tsconfig.json",
+    "build": "tsc7 -p tsconfig.json",
+    "typecheck": "tsc7 --noEmit -p tsconfig.json",
     "test": "npm run build && node --test dist/**/*.test.js",
     "prepublishOnly": "npm run build"
   },

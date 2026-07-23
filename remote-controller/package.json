@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node ../scripts/esbuild-transpile.mjs",
-    "typecheck": "node ../tools/tsc7.mjs --noEmit",
+    "typecheck": "tsc7 --noEmit",
     "start": "node dist/index.js"
   },
   "dependencies": {

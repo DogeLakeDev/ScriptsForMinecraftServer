@@ -10,9 +10,9 @@
  */
 
 import { build } from "esbuild";
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { runTsc7 } from "../tools/tsc7.mjs";
 
 const emitDts = process.argv.includes("--dts");
 const srcDir = path.resolve("src");
@@ -60,8 +60,13 @@ await build({
 console.log(`[esbuild-transpile] emitted ${entryPoints.length} files → dist/`);
 
 if (emitDts) {
-  console.log("[esbuild-transpile] emitting .d.ts via tsc --emitDeclarationOnly...");
-  execSync("npx tsc -p tsconfig.json --emitDeclarationOnly --declaration --declarationMap", {
-    stdio: "inherit",
-  });
+  console.log("[esbuild-transpile] emitting .d.ts via tsc7 --emitDeclarationOnly...");
+  const code = runTsc7([
+    "-p",
+    "tsconfig.json",
+    "--emitDeclarationOnly",
+    "--declaration",
+    "--declarationMap",
+  ]);
+  if (code !== 0) process.exit(code);
 }
