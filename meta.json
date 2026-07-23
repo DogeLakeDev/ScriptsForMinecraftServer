@@ -96,7 +96,7 @@
       "format": "esm"
     },
     "sfmc/src/runtime.ts": {
-      "bytes": 3233,
+      "bytes": 7073,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
@@ -105,6 +105,16 @@
         },
         {
           "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
           "kind": "import-statement",
           "external": true
         },
@@ -132,7 +142,7 @@
       "format": "esm"
     },
     "sfmc/src/terminal.ts": {
-      "bytes": 7283,
+      "bytes": 7338,
       "imports": [
         {
           "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
@@ -173,7 +183,7 @@
       "format": "esm"
     },
     "sfmc/package.json": {
-      "bytes": 1643,
+      "bytes": 1739,
       "imports": [],
       "format": "esm",
       "with": {
@@ -181,7 +191,7 @@
       }
     },
     "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js": {
-      "bytes": 7829,
+      "bytes": 11898,
       "imports": [
         {
           "path": "node:fs",
@@ -254,7 +264,7 @@
       "format": "esm"
     },
     "sfmc/src/theme.ts": {
-      "bytes": 1812,
+      "bytes": 5946,
       "imports": [
         {
           "path": "node_modules/chalk/source/index.js",
@@ -264,8 +274,249 @@
       ],
       "format": "esm"
     },
+    "sfmc/src/logs.ts": {
+      "bytes": 7354,
+      "imports": [
+        {
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc-bds/sdk/logs"
+        },
+        {
+          "path": "sfmc/src/theme.ts",
+          "kind": "import-statement",
+          "original": "./theme.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/module-fingerprint.ts": {
+      "bytes": 1251,
+      "imports": [
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/esbuild/lib/main.js": {
+      "bytes": 97214,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "pnpapi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "child_process",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "tty",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "worker_threads",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "cjs"
+    },
+    "sfmc/src/pack-lifecycle.ts": {
+      "bytes": 29759,
+      "imports": [
+        {
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc-bds/sdk/node/config"
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "sfmc/src/logs.ts",
+          "kind": "import-statement",
+          "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/module-fingerprint.ts",
+          "kind": "import-statement",
+          "original": "./module-fingerprint.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/theme.ts",
+          "kind": "import-statement",
+          "original": "./theme.js"
+        },
+        {
+          "path": "node_modules/esbuild/lib/main.js",
+          "kind": "dynamic-import",
+          "original": "esbuild"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/services.ts": {
+      "bytes": 9238,
+      "imports": [
+        {
+          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
+          "kind": "import-statement",
+          "original": "@sfmc-bds/sdk/node/config"
+        },
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:events",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "sfmc/src/logs.ts",
+          "kind": "import-statement",
+          "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/pack-lifecycle.ts",
+          "kind": "dynamic-import",
+          "original": "./pack-lifecycle.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/commands.ts": {
+      "bytes": 6427,
+      "imports": [
+        {
+          "path": "sfmc/src/logs.ts",
+          "kind": "import-statement",
+          "original": "./logs.js"
+        },
+        {
+          "path": "sfmc/src/runtime.ts",
+          "kind": "import-statement",
+          "original": "./runtime.js"
+        },
+        {
+          "path": "sfmc/src/services.ts",
+          "kind": "import-statement",
+          "original": "./services.js"
+        },
+        {
+          "path": "sfmc/src/theme.ts",
+          "kind": "import-statement",
+          "original": "./theme.js"
+        },
+        {
+          "path": "sfmc/src/services.ts",
+          "kind": "dynamic-import",
+          "original": "./services.js"
+        },
+        {
+          "path": "sfmc/src/services.ts",
+          "kind": "dynamic-import",
+          "original": "./services.js"
+        }
+      ],
+      "format": "esm"
+    },
     "sfmc/src/registry.ts": {
-      "bytes": 5614,
+      "bytes": 6071,
       "imports": [
         {
           "path": "node:fs",
@@ -291,7 +542,7 @@
       "format": "esm"
     },
     "sfmc/src/module-commands.ts": {
-      "bytes": 17281,
+      "bytes": 22943,
       "imports": [
         {
           "path": "node:fs/promises",
@@ -305,11 +556,6 @@
         },
         {
           "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:crypto",
           "kind": "import-statement",
           "external": true
         },
@@ -334,9 +580,35 @@
           "original": "./runtime.js"
         },
         {
+          "path": "sfmc/src/module-fingerprint.ts",
+          "kind": "import-statement",
+          "original": "./module-fingerprint.js"
+        },
+        {
           "path": "sfmc/src/registry.ts",
           "kind": "import-statement",
           "original": "./registry.js"
+        },
+        {
+          "path": "sfmc/src/pack-lifecycle.ts",
+          "kind": "dynamic-import",
+          "original": "./pack-lifecycle.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "sfmc/src/commands-behavior-pack.ts": {
+      "bytes": 1075,
+      "imports": [
+        {
+          "path": "sfmc/src/theme.ts",
+          "kind": "import-statement",
+          "original": "./theme.js"
+        },
+        {
+          "path": "sfmc/src/pack-lifecycle.ts",
+          "kind": "import-statement",
+          "original": "./pack-lifecycle.js"
         }
       ],
       "format": "esm"
@@ -714,52 +986,6 @@
           "path": "node_modules/ws/lib/websocket-server.js",
           "kind": "import-statement",
           "original": "./lib/websocket-server.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "sfmc/src/services.ts": {
-      "bytes": 8890,
-      "imports": [
-        {
-          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
-          "kind": "import-statement",
-          "original": "@sfmc-bds/sdk/node/config"
-        },
-        {
-          "path": "node:child_process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:events",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "sfmc/src/logs.ts",
-          "kind": "import-statement",
-          "original": "./logs.js"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
         }
       ],
       "format": "esm"
@@ -2248,410 +2474,8 @@
       ],
       "format": "cjs"
     },
-    "node_modules/ms/index.js": {
-      "bytes": 3024,
-      "imports": [],
-      "format": "cjs"
-    },
-    "node_modules/debug/src/common.js": {
-      "bytes": 6915,
-      "imports": [
-        {
-          "path": "node_modules/ms/index.js",
-          "kind": "require-call",
-          "original": "ms"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/debug/src/browser.js": {
-      "bytes": 6103,
-      "imports": [
-        {
-          "path": "node_modules/debug/src/common.js",
-          "kind": "require-call",
-          "original": "./common"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/has-flag/index.js": {
-      "bytes": 320,
-      "imports": [],
-      "format": "cjs"
-    },
-    "node_modules/supports-color/index.js": {
-      "bytes": 2771,
-      "imports": [
-        {
-          "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "node_modules/has-flag/index.js",
-          "kind": "require-call",
-          "original": "has-flag"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/debug/src/node.js": {
-      "bytes": 4728,
-      "imports": [
-        {
-          "path": "tty",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "util",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "node_modules/supports-color/index.js",
-          "kind": "require-call",
-          "original": "supports-color"
-        },
-        {
-          "path": "node_modules/debug/src/common.js",
-          "kind": "require-call",
-          "original": "./common"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/debug/src/index.js": {
-      "bytes": 314,
-      "imports": [
-        {
-          "path": "node_modules/debug/src/browser.js",
-          "kind": "require-call",
-          "original": "./browser.js"
-        },
-        {
-          "path": "node_modules/debug/src/node.js",
-          "kind": "require-call",
-          "original": "./node.js"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/@kwsites/file-exists/dist/src/index.js": {
-      "bytes": 1662,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "node_modules/debug/src/index.js",
-          "kind": "require-call",
-          "original": "debug"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/@kwsites/file-exists/dist/index.js": {
-      "bytes": 235,
-      "imports": [
-        {
-          "path": "node_modules/@kwsites/file-exists/dist/src/index.js",
-          "kind": "require-call",
-          "original": "./src"
-        }
-      ],
-      "format": "cjs"
-    },
-    "node_modules/mkdirp/dist/mjs/opts-arg.js": {
-      "bytes": 1249,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/mkdirp/dist/mjs/mkdirp-manual.js": {
-      "bytes": 2321,
-      "imports": [
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/opts-arg.js",
-          "kind": "import-statement",
-          "original": "./opts-arg.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/mkdirp/dist/mjs/find-made.js": {
-      "bytes": 915,
-      "imports": [
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/mkdirp/dist/mjs/mkdirp-native.js": {
-      "bytes": 1374,
-      "imports": [
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/find-made.js",
-          "kind": "import-statement",
-          "original": "./find-made.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/mkdirp-manual.js",
-          "kind": "import-statement",
-          "original": "./mkdirp-manual.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/opts-arg.js",
-          "kind": "import-statement",
-          "original": "./opts-arg.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/mkdirp/dist/mjs/path-arg.js": {
-      "bytes": 813,
-      "imports": [
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/mkdirp/dist/mjs/use-native.js": {
-      "bytes": 592,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/opts-arg.js",
-          "kind": "import-statement",
-          "original": "./opts-arg.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/mkdirp/dist/mjs/index.js": {
-      "bytes": 1490,
-      "imports": [
-        {
-          "path": "node_modules/mkdirp/dist/mjs/mkdirp-manual.js",
-          "kind": "import-statement",
-          "original": "./mkdirp-manual.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/mkdirp-native.js",
-          "kind": "import-statement",
-          "original": "./mkdirp-native.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/opts-arg.js",
-          "kind": "import-statement",
-          "original": "./opts-arg.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/path-arg.js",
-          "kind": "import-statement",
-          "original": "./path-arg.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/use-native.js",
-          "kind": "import-statement",
-          "original": "./use-native.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/mkdirp-manual.js",
-          "kind": "import-statement",
-          "original": "./mkdirp-manual.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/mkdirp-native.js",
-          "kind": "import-statement",
-          "original": "./mkdirp-native.js"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/use-native.js",
-          "kind": "import-statement",
-          "original": "./use-native.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/properties-reader/dist/esm/index.mjs": {
-      "bytes": 8982,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs/promises",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/@kwsites/file-exists/dist/index.js",
-          "kind": "import-statement",
-          "original": "@kwsites/file-exists"
-        },
-        {
-          "path": "node_modules/mkdirp/dist/mjs/index.js",
-          "kind": "import-statement",
-          "original": "mkdirp"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/esbuild/lib/main.js": {
-      "bytes": 97214,
-      "imports": [
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "pnpapi",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "child_process",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "crypto",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "tty",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "worker_threads",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "<runtime>",
-          "kind": "import-statement",
-          "external": true
-        }
-      ],
-      "format": "cjs"
-    },
-    "sfmc/src/commands-behavior-pack.ts": {
-      "bytes": 6097,
-      "imports": [
-        {
-          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
-          "kind": "import-statement",
-          "original": "@sfmc-bds/sdk/node/config"
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:fs/promises",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node_modules/properties-reader/dist/esm/index.mjs",
-          "kind": "import-statement",
-          "original": "properties-reader"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
-        },
-        {
-          "path": "sfmc/src/theme.ts",
-          "kind": "import-statement",
-          "original": "./theme.js"
-        },
-        {
-          "path": "node_modules/esbuild/lib/main.js",
-          "kind": "dynamic-import",
-          "original": "esbuild"
-        }
-      ],
-      "format": "esm"
-    },
     "sfmc/src/wizard.ts": {
-      "bytes": 18165,
+      "bytes": 19628,
       "imports": [
         {
           "path": "node_modules/@clack/prompts/dist/index.mjs",
@@ -2707,7 +2531,7 @@
       "format": "esm"
     },
     "sfmc/src/repl.ts": {
-      "bytes": 22866,
+      "bytes": 27154,
       "imports": [
         {
           "path": "node:process",
@@ -2736,6 +2560,21 @@
           "path": "sfmc/src/module-commands.ts",
           "kind": "import-statement",
           "original": "./module-commands.js"
+        },
+        {
+          "path": "sfmc/src/pack-lifecycle.ts",
+          "kind": "import-statement",
+          "original": "./pack-lifecycle.js"
+        },
+        {
+          "path": "sfmc/src/commands-behavior-pack.ts",
+          "kind": "import-statement",
+          "original": "./commands-behavior-pack.js"
+        },
+        {
+          "path": "sfmc/src/registry.ts",
+          "kind": "import-statement",
+          "original": "./registry.js"
         },
         {
           "path": "sfmc/src/remote-agent.ts",
@@ -2770,80 +2609,13 @@
       ],
       "format": "esm"
     },
-    "sfmc/src/logs.ts": {
-      "bytes": 7021,
-      "imports": [
-        {
-          "path": "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js",
-          "kind": "import-statement",
-          "original": "@sfmc-bds/sdk/logs"
-        },
-        {
-          "path": "sfmc/src/repl.ts",
-          "kind": "import-statement",
-          "original": "./repl.js"
-        },
-        {
-          "path": "sfmc/src/theme.ts",
-          "kind": "import-statement",
-          "original": "./theme.js"
-        }
-      ],
-      "format": "esm"
-    },
-    "sfmc/src/commands.ts": {
-      "bytes": 6427,
-      "imports": [
-        {
-          "path": "sfmc/src/logs.ts",
-          "kind": "import-statement",
-          "original": "./logs.js"
-        },
-        {
-          "path": "sfmc/src/runtime.ts",
-          "kind": "import-statement",
-          "original": "./runtime.js"
-        },
-        {
-          "path": "sfmc/src/services.ts",
-          "kind": "import-statement",
-          "original": "./services.js"
-        },
-        {
-          "path": "sfmc/src/theme.ts",
-          "kind": "import-statement",
-          "original": "./theme.js"
-        },
-        {
-          "path": "sfmc/src/services.ts",
-          "kind": "dynamic-import",
-          "original": "./services.js"
-        },
-        {
-          "path": "sfmc/src/services.ts",
-          "kind": "dynamic-import",
-          "original": "./services.js"
-        }
-      ],
-      "format": "esm"
-    },
     "sfmc/src/main.ts": {
-      "bytes": 6402,
+      "bytes": 6141,
       "imports": [
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
         {
           "path": "node:process",
           "kind": "import-statement",
           "external": true
-        },
-        {
-          "path": "modules/sdk/@sfmc-sdk/dist/esm/node/config/index.js",
-          "kind": "import-statement",
-          "original": "@sfmc-bds/sdk/node/config"
         },
         {
           "path": "sfmc/package.json",
@@ -2872,6 +2644,11 @@
           "path": "sfmc/src/commands-behavior-pack.ts",
           "kind": "import-statement",
           "original": "./commands-behavior-pack.js"
+        },
+        {
+          "path": "sfmc/src/pack-lifecycle.ts",
+          "kind": "import-statement",
+          "original": "./pack-lifecycle.js"
         },
         {
           "path": "sfmc/src/remote-agent.ts",
@@ -2942,6 +2719,16 @@
           "external": true
         },
         {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "node:path",
           "kind": "import-statement",
           "external": true
@@ -2987,6 +2774,111 @@
           "external": true
         },
         {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "pnpapi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "child_process",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "tty",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "worker_threads",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:child_process",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:events",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
           "path": "node:fs",
           "kind": "import-statement",
           "external": true
@@ -3018,11 +2910,6 @@
         },
         {
           "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:crypto",
           "kind": "import-statement",
           "external": true
         },
@@ -3137,26 +3024,6 @@
           "external": true
         },
         {
-          "path": "node:child_process",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:events",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
           "path": "node:util",
           "kind": "import-statement",
           "external": true
@@ -3247,141 +3114,6 @@
           "external": true
         },
         {
-          "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "tty",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "util",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs/promises",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "pnpapi",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "child_process",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "crypto",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "path",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "fs",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "os",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "tty",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "worker_threads",
-          "kind": "require-call",
-          "external": true
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:fs/promises",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
-          "path": "node:path",
-          "kind": "import-statement",
-          "external": true
-        },
-        {
           "path": "node:child_process",
           "kind": "import-statement",
           "external": true
@@ -3409,11 +3141,6 @@
         {
           "path": "node:readline/promises",
           "kind": "dynamic-import",
-          "external": true
-        },
-        {
-          "path": "node:fs",
-          "kind": "import-statement",
           "external": true
         },
         {
@@ -3449,10 +3176,10 @@
           "bytesInOutput": 693
         },
         "sfmc/src/runtime.ts": {
-          "bytesInOutput": 1056
+          "bytesInOutput": 3217
         },
         "sfmc/package.json": {
-          "bytesInOutput": 1214
+          "bytesInOutput": 1288
         },
         "modules/sdk/@sfmc-sdk/dist/esm/logs/index.js": {
           "bytesInOutput": 953
@@ -3470,13 +3197,34 @@
           "bytesInOutput": 2148
         },
         "sfmc/src/theme.ts": {
-          "bytesInOutput": 1172
+          "bytesInOutput": 3815
+        },
+        "sfmc/src/logs.ts": {
+          "bytesInOutput": 2451
+        },
+        "sfmc/src/module-fingerprint.ts": {
+          "bytesInOutput": 568
+        },
+        "node_modules/esbuild/lib/main.js": {
+          "bytesInOutput": 43474
+        },
+        "sfmc/src/pack-lifecycle.ts": {
+          "bytesInOutput": 13517
+        },
+        "sfmc/src/services.ts": {
+          "bytesInOutput": 4344
+        },
+        "sfmc/src/commands.ts": {
+          "bytesInOutput": 3455
         },
         "sfmc/src/registry.ts": {
-          "bytesInOutput": 1916
+          "bytesInOutput": 2018
         },
         "sfmc/src/module-commands.ts": {
-          "bytesInOutput": 6375
+          "bytesInOutput": 8463
+        },
+        "sfmc/src/commands-behavior-pack.ts": {
+          "bytesInOutput": 459
         },
         "node_modules/ws/lib/constants.js": {
           "bytesInOutput": 413
@@ -3520,9 +3268,6 @@
         "node_modules/ws/wrapper.mjs": {
           "bytesInOutput": 152
         },
-        "sfmc/src/services.ts": {
-          "bytesInOutput": 4192
-        },
         "sfmc/src/remote-agent.ts": {
           "bytesInOutput": 3324
         },
@@ -3545,7 +3290,7 @@
           "bytesInOutput": 9577
         },
         "node_modules/@clack/prompts/dist/index.mjs": {
-          "bytesInOutput": 11861
+          "bytesInOutput": 11891
         },
         "node_modules/process-nextick-args/index.js": {
           "bytesInOutput": 713
@@ -3757,80 +3502,17 @@
         "node_modules/jszip/lib/index.js": {
           "bytesInOutput": 578
         },
-        "node_modules/ms/index.js": {
-          "bytesInOutput": 1395
-        },
-        "node_modules/debug/src/common.js": {
-          "bytesInOutput": 2054
-        },
-        "node_modules/debug/src/browser.js": {
-          "bytesInOutput": 2617
-        },
-        "node_modules/has-flag/index.js": {
-          "bytesInOutput": 187
-        },
-        "node_modules/supports-color/index.js": {
-          "bytesInOutput": 1422
-        },
-        "node_modules/debug/src/node.js": {
-          "bytesInOutput": 1991
-        },
-        "node_modules/debug/src/index.js": {
-          "bytesInOutput": 137
-        },
-        "node_modules/@kwsites/file-exists/dist/src/index.js": {
-          "bytesInOutput": 734
-        },
-        "node_modules/@kwsites/file-exists/dist/index.js": {
-          "bytesInOutput": 153
-        },
-        "node_modules/mkdirp/dist/mjs/opts-arg.js": {
-          "bytesInOutput": 661
-        },
-        "node_modules/mkdirp/dist/mjs/mkdirp-manual.js": {
-          "bytesInOutput": 825
-        },
-        "node_modules/mkdirp/dist/mjs/find-made.js": {
-          "bytesInOutput": 338
-        },
-        "node_modules/mkdirp/dist/mjs/mkdirp-native.js": {
-          "bytesInOutput": 483
-        },
-        "node_modules/mkdirp/dist/mjs/path-arg.js": {
-          "bytesInOutput": 453
-        },
-        "node_modules/mkdirp/dist/mjs/use-native.js": {
-          "bytesInOutput": 310
-        },
-        "node_modules/mkdirp/dist/mjs/index.js": {
-          "bytesInOutput": 378
-        },
-        "node_modules/properties-reader/dist/esm/index.mjs": {
-          "bytesInOutput": 4079
-        },
-        "node_modules/esbuild/lib/main.js": {
-          "bytesInOutput": 43474
-        },
-        "sfmc/src/commands-behavior-pack.ts": {
-          "bytesInOutput": 2354
-        },
         "sfmc/src/wizard.ts": {
-          "bytesInOutput": 9074
+          "bytesInOutput": 9547
         },
         "sfmc/src/repl.ts": {
-          "bytesInOutput": 10626
-        },
-        "sfmc/src/logs.ts": {
-          "bytesInOutput": 2211
-        },
-        "sfmc/src/commands.ts": {
-          "bytesInOutput": 3455
+          "bytesInOutput": 12335
         },
         "sfmc/src/main.ts": {
-          "bytesInOutput": 3193
+          "bytesInOutput": 2823
         },
         "sfmc/src/terminal.ts": {
-          "bytesInOutput": 3216
+          "bytesInOutput": 3236
         },
         "node_modules/jsonc-parser/lib/esm/impl/scanner.js": {
           "bytesInOutput": 4537
@@ -3854,7 +3536,7 @@
           "bytesInOutput": 205
         }
       },
-      "bytes": 343581
+      "bytes": 346876
     }
   }
 }

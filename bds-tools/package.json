@@ -37,8 +37,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/dist/bds-manager.ts",
+    "build": "node ../scripts/esbuild-transpile.mjs --dts",
+    "dev": "tsx src/bds-manager.ts",
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs",

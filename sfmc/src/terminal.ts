@@ -66,11 +66,14 @@ function preferredPowerShell(): string {
   ];
 
   const installed = candidates.find((candidate) => fs.existsSync(candidate));
-  if (installed) return installed;
+  if (installed) return "pwsh -Command sfmc";
   if (spawnSync("pwsh.exe", ["-NoProfile", "-Command", "exit"], { stdio: "ignore", windowsHide: true }).status === 0) {
-    return "pwsh.exe";
+    return "pwsh -Command sfmc";
   }
-  return path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  return (
+    path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe") +
+    " -Command sfmc"
+  );
 }
 
 function newGuid(): string {
@@ -202,4 +205,3 @@ export function ensureSeaTerminalProfile(): void {
   const state = terminalState(runtimeFile, path.dirname(process.execPath));
   for (const settingsFile of settingsFiles) updateProfile(settingsFile, state, preferredPowerShell());
 }
-

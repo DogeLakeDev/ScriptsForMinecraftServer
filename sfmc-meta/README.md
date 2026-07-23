@@ -1,6 +1,7 @@
 # @sfmc-bds/sfmc
 
-SFMC 聚合包：一条命令安装 CLI + db-server + qq-bridge + bds-tools + tools，装完即可在工作目录里初始化并管理全部服务。
+SFMC 聚合包：  
+✨ 一次性安装 CLI + db-server + qq-bridge + bds-tools + tools + sdk，装完即可在工作目录里初始化并管理全部服务。
 
 ## 安装
 
@@ -29,18 +30,18 @@ sfmc
 - 之后在 REPL 中：`start -all`、`module install <id>`、`behavior-pack build` …
 
 ```bash
-sfmc status
-sfmc init          # 重跑向导
-sfmc start -all
+sfmc > status
+sfmc > init          # 重跑向导
+sfmc > start -all
 ```
 
 ## 包含依赖
 
 | 包 | 作用 |
-|----|------|
+| ---- | ------ |
 | `@sfmc-bds/cli` | `sfmc` 管理 CLI / REPL |
 | `@sfmc-bds/db-server` | SQLite HTTP 后端 |
-| `@sfmc-bds/qq-bridge` | QQ 桥 |
+| `@sfmc-bds/qq-bridge` | QQ 互通桥接服务 |
 | `@sfmc-bds/bds-tools` | BDS 更新与行为包装配 |
 | `@sfmc-bds/tools` | `fetch-module` 等工具 |
 | `@sfmc-bds/sdk` | 共享 SDK |
@@ -48,7 +49,7 @@ sfmc start -all
 ## 环境变量
 
 | 变量 | 说明 |
-|------|------|
+| ------ | ------ |
 | `SFMC_ROOT` | 配置与数据根（默认 cwd） |
 | `SFMC_SERVICE_*_ENTRY` | 覆盖各服务入口脚本（一般由本包 bin 自动注入） |
 | `SFMC_FETCH_MODULE` | `fetch-module.mjs` 路径 |

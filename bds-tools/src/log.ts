@@ -8,7 +8,7 @@
  * 见该文件内的 createUpdaterLogger()。
  */
 
-import { createLogger, createStdoutSink, createFileSink } from "@sfmc-bds/sdk/logs";
+import { createFileSink, createLogger, createStdoutSink } from "@sfmc-bds/sdk/logs";
 import { LOG_PATH } from "./paths.js";
 
 const fileSink = createFileSink(LOG_PATH);
@@ -16,7 +16,7 @@ process.on("exit", () => fileSink.close());
 
 export const log = createLogger({
   source: "bds-tools",
-  sinks: [createStdoutSink(), fileSink],
+  sinks: [createStdoutSink({ bare: true }), fileSink],
 });
 
 /** 关闭文件流 (进程退出前调用,确保缓冲落盘) */

@@ -6,10 +6,17 @@
  *  - 静默模式 (失败不抛出)，保证主流程不被通知干扰
  */
 
+import {
+  configPath,
+  modulePath,
+  readJson,
+  type Catalog,
+  type ModuleLock,
+  type QQBridgeConfig,
+} from "@sfmc-bds/sdk/node/config";
 import http from "node:http";
-import { configPath, modulePath, readJson, type Catalog, type ModuleLock, type QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
+import { log } from "./check-update.js";
 import { ROOT_DIR } from "./paths.js";
-import { log } from "./log.js";
 
 type QqConfig = Pick<QQBridgeConfig, "llbot_http" | "qq_group_id">;
 
@@ -26,8 +33,7 @@ export function isQqBridgeEnabled(): boolean {
   const lock = readJson<ModuleLock>(modulePath(ROOT_DIR, "module-lock.json"));
   if (!catalog || !lock) return true; // 模块目录缺失则保守视为可用
   const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge") as
-    | { id?: string }
-    | undefined;
+    { id?: string } | undefined;
   return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
 }
 

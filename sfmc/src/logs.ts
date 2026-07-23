@@ -69,7 +69,6 @@ export const SOURCE_META: SourceMeta[] = [
   { value: "bds-tools", name: "BDSTools", paint: (s) => c.red(s) },
 ];
 
-/** `[BDServer]` 整段染色(含方括号),与 `[INF]`/`[ERR]` 风格一致 */
 export function formatSourceTag(source: string): string {
   const meta = SOURCE_META.find((m) => m.value === source);
   if (meta) return meta.paint(`[${meta.name}]`);
