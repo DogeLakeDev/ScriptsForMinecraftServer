@@ -3,6 +3,8 @@ import { t } from "./i18n/index.js";
 import { spawnService } from "./runtime.js";
 import { ROOT, SERVICE_NAMES, services, type ServiceName } from "./services.js";
 import { c, DIVIDER, highlightLogLine } from "./theme.js";
+import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
+import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -161,11 +163,6 @@ export async function cmdStopAll(): Promise<string> {
   return c.dim(t("svc.allStopped"));
 }
 
-/** 剥离 Windows Terminal 任务栏 OSC，避免 pipe 日志出现空白行 */
-function stripTaskbarOsc(s: string): string {
-  return s.replace(/\x1b\]9;4[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
-}
-
 /**
  * BDS 更新：子进程始终 --no-start，由 sfmc 监督器接管启停与日志。
  * （updater 内 detached 自启会导致 REPL 丢 PID / 无 stdout）
@@ -188,6 +185,7 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
     });
     let out = "";
     const pushChunk = (raw: string, level: "info" | "error"): void => {
+      // 剥离 Windows Terminal 任务栏 OSC，避免 pipe 日志空白行（权威：bds-tools/taskbar）
       const s = stripTaskbarOsc(raw);
       out += s;
       for (const line of s
@@ -215,7 +213,7 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
 
   /* 仅在真正完成部署后拉起 BDS；「已是最新」不打扰当前状态。
    * 以 updater 输出的 SFMC_UPDATE_RESULT=deployed 机器标记为准（勿匹配本地化日志）。 */
-  const didDeploy = /(?:^|\n)SFMC_UPDATE_RESULT=deployed(?:\r?\n|$)/.test(result.out);
+  const didDeploy = didUpdateDeploy(result.out);
   if (result.code === 0 && didDeploy && !userNoStart && !checkOnly) {
     if (bds.running) {
       return result.out;

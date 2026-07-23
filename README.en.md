@@ -183,8 +183,18 @@ CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 
 ## License
 
-[MIT](./LICENSE)
+[AGPL-3.0](./LICENSE)
+
+* **Freedom**: You may run, copy, distribute, and modify the program, provided those freedoms are preserved.
+* **Copyleft**: If you distribute a modified version, you must provide the complete Corresponding Source under the same license (AGPL v3).
+* **Source**: Corresponding Source must include all scripts, interface definitions, shared libraries, etc. needed for others to rebuild and modify.
+* **Additional terms**: You may add further permissions, but not further restrictions (section 7).
 
 ---
+> ⚠️ AI Assistance Disclaimer
+> Portions of this project were produced with assistance from artificial intelligence (AI) tools for research, drafting, formatting, optimization, and development workflows.
+>
+> All AI-assisted content is human-reviewed, edited, and verified before publication.
+> AI is used to improve productivity, accessibility, and workflow efficiency — not to replace human oversight, expertise, or judgment.
 
 [中文版本 →](./README.md)

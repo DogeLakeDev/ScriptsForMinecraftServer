@@ -4,15 +4,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import JSZip from "jszip";
 import { copyDirAsync } from "./fsx.js";
 import {
   disablePackInWorld,
   enablePackInWorld,
   readPackManifestHeader,
   readWorldPackList,
-  worldPackListHas,
+  readWorldPackListResult,
+  type WorldPackListReadResult,
 } from "./pack-manager.js";
+import { extractZipFileToDir } from "./zipx.js";
 
 export type WorldPackKind = "behavior" | "resource";
 
@@ -123,25 +124,10 @@ export function isPackArchive(filePath: string): boolean {
   return ARCHIVE_EXTS.some((ext) => lower.endsWith(ext));
 }
 
-/** 解压 zip/mcpack/mcaddon 到临时目录，返回该目录 */
+/** 解压 zip/mcpack/mcaddon 到临时目录，返回该目录（经 zipx 防 zip-slip） */
 export async function extractArchiveToTemp(filePath: string): Promise<string> {
-  const abs = path.resolve(filePath);
-  if (!fs.existsSync(abs)) throw new Error(`archive not found: ${abs}`);
-  const buf = fs.readFileSync(abs);
-  const zip = await JSZip.loadAsync(buf);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-"));
-  const entries = Object.keys(zip.files);
-  for (const name of entries) {
-    const entry = zip.files[name];
-    if (!entry || entry.dir) {
-      fs.mkdirSync(path.join(tmp, name), { recursive: true });
-      continue;
-    }
-    const out = path.join(tmp, name);
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    const data = await entry.async("nodebuffer");
-    fs.writeFileSync(out, data);
-  }
+  await extractZipFileToDir(filePath, tmp);
   return tmp;
 }
 
@@ -173,7 +159,7 @@ export function listInstalledWorldPacks(bdsRoot: string, levelName: string): Ins
     for (const dir of listPackDirsIn(parent)) {
       const info = readPackManifestInfo(dir);
       if (!info || info.kind !== kind) {
-        // 仍尝试用 header 展示
+        // 仍尝试用 header 展示（enabled 与正常路径同契约：enable-list 含 uuid → LSP）
         const header = readPackManifestHeader(dir);
         if (!header) continue;
         result.push({
@@ -183,7 +169,7 @@ export function listInstalledWorldPacks(bdsRoot: string, levelName: string): Ins
           name: path.basename(dir),
           uuid: header.uuid,
           version: header.version,
-          enabled: worldPackListHas(worldsDir, levelName, kind, header.uuid),
+          enabled: enabledMap.has(header.uuid),
         });
         continue;
       }
@@ -255,25 +241,36 @@ export async function installPackDirectory(opts: {
   );
   await fs.promises.mkdir(opts.destParent, { recursive: true });
 
-  // 冲突：同 uuid 任意文件夹，或同 folderName
+  // 冲突：同 uuid，或同 folderName（即使旧包 manifest 无法完整识别也要拦 — 禁止静默覆盖）
   let conflictDir: string | null = null;
+  let conflictExisting: PackManifestInfo | null = null;
   for (const dir of listPackDirsIn(opts.destParent)) {
     const existing = readPackManifestInfo(dir);
-    if (!existing) continue;
-    if (existing.uuid === info.uuid || path.basename(dir) === folderName) {
-      conflictDir = dir;
-      break;
+    const sameFolder = path.basename(dir) === folderName;
+    const sameUuid = !!existing && existing.uuid === info.uuid;
+    if (!sameFolder && !sameUuid) continue;
+    conflictDir = dir;
+    if (existing) {
+      conflictExisting = existing;
+    } else {
+      const header = readPackManifestHeader(dir);
+      conflictExisting = {
+        name: path.basename(dir),
+        uuid: header?.uuid ?? "(unknown)",
+        version: header?.version ?? [0, 0, 0],
+        kind: info.kind,
+      };
     }
+    break;
   }
 
   if (conflictDir && !opts.force) {
-    const existing = readPackManifestInfo(conflictDir)!;
     return {
       ok: false,
       skipped: true,
       reason: "conflict",
       conflict: {
-        existing: { ...existing, dir: conflictDir },
+        existing: { ...(conflictExisting ?? info), dir: conflictDir },
         incoming: info,
       },
     };
@@ -333,6 +330,24 @@ export function worldPackParentDir(
     levelName,
     kind === "behavior" ? "behavior_packs" : "resource_packs"
   );
+}
+
+/** 世界 enable-list 权威读取 — 委托 pack-manager（供 doctor 等，避免硬编码文件名） */
+export function listWorldEnableEntries(
+  bdsRoot: string,
+  levelName: string,
+  kind: WorldPackKind
+): Array<{ pack_id: string; version: [number, number, number] }> {
+  return listWorldEnableListResult(bdsRoot, levelName, kind).entries;
+}
+
+/** 含 parseFail 信号的 enable-list 快照（doctor 用；不暴露 JSON 路径构造细节） */
+export function listWorldEnableListResult(
+  bdsRoot: string,
+  levelName: string,
+  kind: WorldPackKind
+): WorldPackListReadResult {
+  return readWorldPackListResult(path.join(bdsRoot, "worlds"), levelName, kind);
 }
 
 export function findInstalledPackById(

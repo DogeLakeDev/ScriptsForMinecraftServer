@@ -11,7 +11,6 @@
 
 import { createFileSink, createLogger, createStdoutSink } from "@sfmc-bds/sdk/logs";
 import cliProgress from "cli-progress";
-import JSZip from "jszip";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,6 +30,7 @@ import {
 } from "./rollback.js";
 import { ensureEmitServerTelemetry } from "./server-properties.js";
 import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
+import { emitUpdateResult } from "./update-result.js";
 import {
   buildDownloadUrls,
   fetchVersionDetails,
@@ -39,6 +39,7 @@ import {
   verifyFileHash,
 } from "./upstream.js";
 import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVersionCache } from "./version.js";
+import { extractZipFileToDir } from "./zipx.js";
 
 // 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
 const updaterFileSink = createFileSink(LOG_PATH);
@@ -133,24 +134,12 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
   }
 }
 
-/** 把 srcDir 下的内容移动到 destDir (覆盖) */
+/** 把 zip 解压到 destDir (覆盖) — 经 zipx 安全解压 */
 async function extractZipToBds(zipPath: string, destDir: string): Promise<void> {
-  const data = await fs.promises.readFile(zipPath);
-  const zip = await JSZip.loadAsync(data);
   // 抽出到临时目录，避免旧内容干扰
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bds-extract-"));
   try {
-    const entries = Object.values(zip.files);
-    for (const e of entries) {
-      const out = path.join(tmpDir, e.name);
-      if (e.dir) {
-        fs.mkdirSync(out, { recursive: true });
-        continue;
-      }
-      fs.mkdirSync(path.dirname(out), { recursive: true });
-      const buf = await e.async("nodebuffer");
-      fs.writeFileSync(out, buf);
-    }
+    await extractZipFileToDir(zipPath, tmpDir);
     // 把临时目录里的内容复制到 BDS 路径
     for (const entry of fs.readdirSync(tmpDir)) {
       const srcPath = path.join(tmpDir, entry);
@@ -195,7 +184,7 @@ export async function runUpdate(): Promise<number> {
       }
       console.log(`CURRENT=${currentVer}`);
       console.log(`LATEST=${latestVer}`);
-      console.log("SFMC_UPDATE_RESULT=uptodate");
+      emitUpdateResult("uptodate");
       return 0;
     }
   } catch (e) {
@@ -210,7 +199,7 @@ export async function runUpdate(): Promise<number> {
     if (qqNotify) {
       await sendText(`⚠️ BDS ${latestVer} 不在兼容性白名单，已跳过升级。请人工确认。`);
     }
-    console.log("SFMC_UPDATE_RESULT=skipped");
+    emitUpdateResult("skipped");
     return 2;
   }
 
@@ -232,7 +221,7 @@ export async function runUpdate(): Promise<number> {
     console.log(`LATEST=${latestVer}`);
     console.log(`CHANNEL=${channel}`);
     console.log(`URLS=${downloadUrls.length}`);
-    console.log("SFMC_UPDATE_RESULT=check-only");
+    emitUpdateResult("check-only");
     return 0;
   }
 
@@ -486,7 +475,7 @@ export async function runUpdate(): Promise<number> {
   }
   log.info(`===== 更新完成 (${(durationMs / 1000).toFixed(1)}s) =====`);
   /* 机器可读结果标记：供 sfmc 等监督器判断「真正完成部署」，勿依赖本地化日志文案。 */
-  console.log("SFMC_UPDATE_RESULT=deployed");
+  emitUpdateResult("deployed");
   return 0;
 }
 

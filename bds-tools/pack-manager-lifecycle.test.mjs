@@ -145,6 +145,28 @@ describe("pack-manager CLI extensions", () => {
     assert.deepEqual(readWorldPackList(worldsDir, "L1", "behavior"), listed);
   });
 
+  it("readWorldPackListResult 区分缺失与 JSON 损坏（doctor parseFail）", async () => {
+    const { readWorldPackListResult } = await import("./dist/pack-manager.js");
+    const worldsDir = path.join(tmp, "worlds-parse");
+    const levelDir = path.join(worldsDir, "Lbad");
+    fs.mkdirSync(levelDir, { recursive: true });
+
+    const missing = readWorldPackListResult(worldsDir, "Lbad", "behavior");
+    assert.deepEqual(missing.entries, []);
+    assert.equal(missing.parseFailedFile, undefined);
+
+    const badFile = path.join(levelDir, "world_behavior_packs.json");
+    fs.writeFileSync(badFile, "{not-json", "utf8");
+    const bad = readWorldPackListResult(worldsDir, "Lbad", "behavior");
+    assert.deepEqual(bad.entries, []);
+    assert.equal(bad.parseFailedFile, badFile);
+
+    fs.writeFileSync(badFile, '{"not":"array"}', "utf8");
+    const notArr = readWorldPackListResult(worldsDir, "Lbad", "behavior");
+    assert.deepEqual(notArr.entries, []);
+    assert.equal(notArr.parseFailedFile, badFile);
+  });
+
   it("无 deploy-catalog 时仍可凭磁盘 RP manifest 卸世界清单(BLOCKER 回归)", async () => {
     const {
       assembleResourcePack,

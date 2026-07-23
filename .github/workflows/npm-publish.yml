@@ -31,12 +31,12 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          # 与 ootb.yml 对齐: npm-run-all2 等要求 ≥22.22; db-server 需 ≥22.13
-          node-version: "22.22"
+          # 与 ootb.yml 共用 .node-version（DRY）；勿在此再写死另一份版本号
+          node-version-file: .node-version
           cache: npm
           registry-url: https://registry.npmjs.org
 
