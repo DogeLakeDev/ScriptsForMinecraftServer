@@ -1,0 +1,24 @@
+{
+  "_comment": "BDS 自动更新配置 —— BDSTools/check-update.js 直接 fs.readFileSync 读取。路径用双反斜杠 \\\\ 或正斜杠 /。",
+  "_comment_paths": "bds_path: 指向 bedrock_server.exe 所在目录。backup_dir: 更新前自动备份的目标目录 (留空禁用)。",
+  "bds_path": "D:\\\\SFMC\\\\BDServer",
+  "backup_dir": "D:\\\\SFMC\\\\BDServer",
+
+  "_comment_channel": "( release / preview ) Auto-prefix channel name to Mojang URL.",
+  "channel": "release",
+
+  "_comment_preserve": "升级时保留（备份）的文件 / 目录。BDS 自动覆盖其他。",
+  "preserve": ["server.properties", "whitelist.json", "permissions.json", "allowlist.json", "worlds", "config"],
+
+  "_comment_qq": "更新前后通过 QQ 群发进度 —— 依赖 qq-bridge 进程在线。",
+  "qq_notify": false,
+  "qq_config": "../configs/qq_config.json",
+
+  "_comment_auto": "auto_check: 启动时检查更新。crash_restart: 异常退出自动拉起。",
+  "auto_check": true,
+  "crash_restart": true,
+
+  "_comment_legacy": "旧字段保留兼容 —— 自动判断是否启用 QQ",
+  "auto_restart": true
+}
+
