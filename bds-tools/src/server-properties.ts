@@ -2,7 +2,7 @@
  * server.properties 辅助：安装/启动时确保 emit-server-telemetry=true
  */
 import fs from "node:fs";
-import path from "node:path";
+import { serverPropertiesPath } from "./pack-manager.js";
 
 export const EMIT_SERVER_TELEMETRY_KEY = "emit-server-telemetry";
 export const EMIT_SERVER_TELEMETRY_LINE = "emit-server-telemetry=true";
@@ -20,7 +20,7 @@ export function ensureEmitServerTelemetry(
   bdsRoot: string,
   logger?: ServerPropertiesLogger
 ): boolean {
-  const file = path.join(bdsRoot, "server.properties");
+  const file = serverPropertiesPath(bdsRoot);
   if (!fs.existsSync(file)) return false;
 
   let text = fs.readFileSync(file, "utf8");

@@ -156,6 +156,37 @@ describe("pack-manager CLI extensions", () => {
     assert.equal(await readLevelName(bds), "My World");
   });
 
+  it("BDS 路径 helpers 单一权威（Demeter/DRY）", async () => {
+    const {
+      bdsWorldsDir,
+      bdsWorldLevelDir,
+      worldPackListFile,
+      configPermissionPath,
+      hasConfigPermission,
+      serverPropertiesPath,
+      ensureConfigPermission,
+    } = await import("./dist/pack-manager.js");
+    const bds = path.join(tmp, "bds-paths");
+    fs.mkdirSync(bds, { recursive: true });
+    assert.equal(bdsWorldsDir(bds), path.join(bds, "worlds"));
+    assert.equal(bdsWorldLevelDir(bds, "L1"), path.join(bds, "worlds", "L1"));
+    assert.equal(
+      worldPackListFile(bdsWorldsDir(bds), "L1", "behavior"),
+      path.join(bds, "worlds", "L1", "world_behavior_packs.json")
+    );
+    assert.equal(
+      worldPackListFile(bdsWorldsDir(bds), "L1", "resource"),
+      path.join(bds, "worlds", "L1", "world_resource_packs.json")
+    );
+    assert.equal(serverPropertiesPath(bds), path.join(bds, "server.properties"));
+    const uuid = "00000000-0000-4000-8000-000000000099";
+    assert.equal(configPermissionPath(bds, uuid), path.join(bds, "config", uuid, "permission.json"));
+    assert.equal(hasConfigPermission(bds, uuid), false);
+    assert.equal(await ensureConfigPermission(bds, uuid), true);
+    assert.equal(hasConfigPermission(bds, uuid), true);
+    assert.equal(await ensureConfigPermission(bds, uuid), false);
+  });
+
   it("readWorldPackListResult 区分缺失与 JSON 损坏（doctor parseFail）", async () => {
     const { readWorldPackListResult } = await import("./dist/pack-manager.js");
     const worldsDir = path.join(tmp, "worlds-parse");

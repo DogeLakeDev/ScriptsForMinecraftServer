@@ -27,10 +27,14 @@ import { t } from "./i18n/index.js";
 import {
   assembleBehaviorPack,
   assembleResourcePack,
+  bdsWorldLevelDir,
+  bdsWorldsDir,
+  configPermissionPath,
   deployToBDS,
   disablePackInWorld,
   enablePackInWorld,
   ensureConfigPermission,
+  hasConfigPermission,
   readLevelNameSync,
   readPackManifestHeader,
   readWorldPackList,
@@ -160,22 +164,15 @@ export function resolveBdsContext(): { bdsRoot: string; levelName: string } {
 }
 
 export function deployedBpDir(bdsRoot: string, levelName: string): string {
-  return path.join(bdsRoot, "worlds", levelName, "behavior_packs", BP_NAME);
+  return path.join(bdsWorldLevelDir(bdsRoot, levelName), "behavior_packs", BP_NAME);
 }
 
 export function deployedRpDir(bdsRoot: string, levelName: string): string {
-  return path.join(bdsRoot, "worlds", levelName, "resource_packs", RP_NAME);
+  return path.join(bdsWorldLevelDir(bdsRoot, levelName), "resource_packs", RP_NAME);
 }
 
 export function deployedCatalogPath(bdsRoot: string, levelName: string): string {
   return path.join(deployedBpDir(bdsRoot, levelName), DEPLOY_CATALOG_NAME);
-}
-
-/** 读 BP/RP manifest header — 直连 pack-manager-lib（与 CLI read-manifest 同一权威，DRY/DIP） */
-function readManifestHeader(
-  packDir: string
-): { uuid: string; version: [number, number, number]; moduleUuid?: string } | null {
-  return readPackManifestHeader(packDir);
 }
 
 /** 解析启用状态:lock 优先,否则 catalog.enabledByDefault(缺省 true↔!==false),未收录模块 false */
@@ -198,8 +195,8 @@ function collectDeployedPackUuids(
   const cat = readDeployedCatalog(bdsRoot, levelName);
   if (cat?.bpUuid) bp.add(cat.bpUuid);
   if (cat?.rpUuid) rp.add(cat.rpUuid);
-  const liveBp = readManifestHeader(deployedBpDir(bdsRoot, levelName));
-  const liveRp = readManifestHeader(deployedRpDir(bdsRoot, levelName));
+  const liveBp = readPackManifestHeader(deployedBpDir(bdsRoot, levelName));
+  const liveRp = readPackManifestHeader(deployedRpDir(bdsRoot, levelName));
   if (liveBp?.uuid) bp.add(liveBp.uuid);
   if (liveRp?.uuid) rp.add(liveRp.uuid);
   return { bp, rp };
@@ -284,25 +281,7 @@ export async function scanLocalModules(): Promise<
   return out;
 }
 
-/** 仅启用且有 SAPI 入口的路径 — 供 esbuild */
-export async function listEnabledSapiEntries(): Promise<string[]> {
-  const mods = await scanLocalModules();
-  return mods.filter((m) => m.enabled && m.entryPath).map((m) => m.entryPath!);
-}
-
-/** 启用且带 resource_pack 的模块目录 map */
-export async function listEnabledResourcePackDirs(): Promise<Record<string, string>> {
-  const mods = await scanLocalModules();
-  const out: Record<string, string> = {};
-  for (const m of mods) {
-    if (!m.enabled || !m.hasResourcePack) continue;
-    out[m.folderId] = path.join(packagesDir(), m.folderId, "resource_pack");
-  }
-  return out;
-}
-
-/**
- * 从本机状态 + 已有 UUID 合成 desired catalog。
+/** 从本机状态 + 已有 UUID 合成 desired catalog。
  * UUID 优先:deployed catalog → 本地 build manifest → 新建随机。
  */
 export async function computeDesiredCatalog(opts?: {
@@ -328,8 +307,8 @@ export async function computeDesiredCatalog(opts?: {
     if (m.enabled && m.hasResourcePack) anyRp = true;
   }
 
-  const localBp = readManifestHeader(bpOut());
-  const localRp = readManifestHeader(rpOut());
+  const localBp = readPackManifestHeader(bpOut());
+  const localRp = readPackManifestHeader(rpOut());
   const bpUuid = opts?.bpUuid ?? localBp?.uuid ?? crypto.randomUUID();
   const bpVersion = opts?.bpVersion ?? localBp?.version ?? DEFAULT_PACK_VERSION;
   const bpModuleUuid = opts?.bpModuleUuid ?? localBp?.moduleUuid;
@@ -394,7 +373,7 @@ export function catalogsEqual(a: DeployCatalog, b: DeployCatalog): boolean {
 
 /** 世界 enable-list 查询 — 直连 pack-manager-lib（DRY/DIP，与 CLI has-pack 同契约） */
 function worldPackListHas(bdsRoot: string, levelName: string, kind: "behavior" | "resource", uuid: string): boolean {
-  return pmWorldPackListHas(path.join(bdsRoot, "worlds"), levelName, kind, uuid);
+  return pmWorldPackListHas(bdsWorldsDir(bdsRoot), levelName, kind, uuid);
 }
 
 /** esbuild 聚合启用模块 → assemble BP + RP(若有) */
@@ -519,7 +498,7 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
   /* 确保 catalog 在部署后的 BP 内(deploy 会拷贝整个目录) */
   writeJson(path.join(deployedBpDir(bdsRoot, levelName), DEPLOY_CATALOG_NAME), catalog);
 
-  const worldsDir = path.join(bdsRoot, "worlds");
+  const worldsDir = bdsWorldsDir(bdsRoot);
   try {
     await enablePackInWorld({
       worldsDir,
@@ -584,11 +563,8 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
 
   try {
     const wrote = await ensureConfigPermission(bdsRoot, catalog.bpUuid);
-    packLog(
-      wrote
-        ? `wrote config/${catalog.bpUuid}/permission.json`
-        : `config/${catalog.bpUuid}/permission.json already exists — skipped`
-    );
+    const permRel = path.relative(bdsRoot, configPermissionPath(bdsRoot, catalog.bpUuid));
+    packLog(wrote ? `wrote ${permRel}` : `${permRel} already exists — skipped`);
   } catch (e) {
     throw new Error(`ensure-permission failed: ${(e as Error).message}`);
   }
@@ -666,15 +642,12 @@ export async function ensurePacksReady(): Promise<PackEnsureResult> {
     if (deployed.rpUuid && !worldPackListHas(bdsRoot, levelName, "resource", deployed.rpUuid)) {
       needRebuild = true;
     }
-    if (!existsSync(path.join(bdsRoot, "config", deployed.bpUuid, "permission.json"))) {
+    if (!hasConfigPermission(bdsRoot, deployed.bpUuid)) {
       /* permission 缺失只补写,不强制整包重编 */
       try {
         const wrote = await ensureConfigPermission(bdsRoot, deployed.bpUuid);
-        packLog(
-          wrote
-            ? `wrote config/${deployed.bpUuid}/permission.json`
-            : `config/${deployed.bpUuid}/permission.json already exists — skipped`
-        );
+        const permRel = path.relative(bdsRoot, configPermissionPath(bdsRoot, deployed.bpUuid));
+        packLog(wrote ? `wrote ${permRel}` : `${permRel} already exists — skipped`);
       } catch (e) {
         throw new Error(`ensure-permission failed: ${(e as Error).message}`);
       }
@@ -739,9 +712,7 @@ export async function cmdPackStatus(_args: string[]): Promise<string> {
     const deployed = readDeployedCatalog(bdsRoot, levelName);
     const desired = await computeDesiredCatalog(deployed ? reusePackIds(deployed) : undefined);
     const match = deployed ? catalogsEqual(desired, deployed) : false;
-    const permPath = deployed
-      ? path.join(bdsRoot, "config", deployed.bpUuid, "permission.json")
-      : null;
+    const permPath = deployed ? configPermissionPath(bdsRoot, deployed.bpUuid) : null;
     const lines = [
       c.bold("\nPack status"),
       `  bds        : ${bdsRoot}`,
@@ -781,7 +752,7 @@ export async function cmdPackList(_args: string[]): Promise<string> {
         `  ${mark} ${m.folderId.padEnd(24)} ${m.logicalId.padEnd(24)} ${m.enabled ? "on " : "off"} ${m.hasResourcePack ? "+rp" : "   "} ${m.version}`
       );
     }
-    const worldsDir = path.join(bdsRoot, "worlds");
+    const worldsDir = bdsWorldsDir(bdsRoot);
     lines.push(c.bold("\nWorld enable lists"));
     for (const kind of ["behavior", "resource"] as const) {
       const arr = readWorldPackList(worldsDir, levelName, kind);
@@ -805,7 +776,7 @@ export async function cmdPackEnableDisable(action: "enable" | "disable", args: s
     const uuid = kind === "behavior" ? deployed.bpUuid : deployed.rpUuid;
     const version = kind === "behavior" ? deployed.bpVersion : deployed.rpVersion;
     if (!uuid || !version) return c.red(t("pack.noUuid", { kind }));
-    const worldsDir = path.join(bdsRoot, "worlds");
+    const worldsDir = bdsWorldsDir(bdsRoot);
     try {
       const opts = { worldsDir, levelName, kind, packUuid: uuid, version };
       if (action === "enable") await enablePackInWorld(opts);

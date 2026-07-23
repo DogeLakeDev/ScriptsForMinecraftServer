@@ -677,12 +677,11 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
       case "path": {
         ensureInboxLayout();
         const { bdsRoot, levelName } = resolveBdsContext();
-        const world = path.join(bdsRoot, "worlds", levelName);
         return [
           `bdsRoot:     ${bdsRoot}`,
           `level:       ${levelName}`,
-          `behavior:    ${path.join(world, "behavior_packs")}`,
-          `resource:    ${path.join(world, "resource_packs")}`,
+          `behavior:    ${worldPackParentDir(bdsRoot, levelName, "behavior")}`,
+          `resource:    ${worldPackParentDir(bdsRoot, levelName, "resource")}`,
           `inbox:       ${packsInboxDir()}`,
         ].join("\n");
       }

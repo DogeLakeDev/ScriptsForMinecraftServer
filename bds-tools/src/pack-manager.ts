@@ -111,6 +111,41 @@ export const SFMC_PERMISSIONS = [
   "@minecraft/diagnostics",
 ] as const;
 
+/** `<bdsRoot>/server.properties` — level-name / telemetry 等共用（DRY） */
+export function serverPropertiesPath(bdsRoot: string): string {
+  return path.join(bdsRoot, "server.properties");
+}
+
+/** `<bdsRoot>/worlds` — enable-list / 部署调用方勿再硬拼（Demeter） */
+export function bdsWorldsDir(bdsRoot: string): string {
+  return path.join(bdsRoot, "worlds");
+}
+
+/** `<bdsRoot>/worlds/<level>` */
+export function bdsWorldLevelDir(bdsRoot: string, levelName: string): string {
+  return path.join(bdsWorldsDir(bdsRoot), levelName);
+}
+
+/** 世界 enable-list JSON 绝对路径（单一权威，供读写两侧） */
+export function worldPackListFile(
+  worldsDir: string,
+  levelName: string,
+  kind: "behavior" | "resource"
+): string {
+  const name = kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json";
+  return path.join(worldsDir, levelName, name);
+}
+
+/** `<bdsRoot>/config/<bpUuid>/permission.json` — Script API 权限文件权威路径 */
+export function configPermissionPath(bdsRoot: string, bpUuid: string): string {
+  return path.join(bdsRoot, "config", bpUuid, "permission.json");
+}
+
+/** 是否已有 Script API permission.json（只读，供 preflight/status） */
+export function hasConfigPermission(bdsRoot: string, bpUuid: string): boolean {
+  return fs.existsSync(configPermissionPath(bdsRoot, bpUuid));
+}
+
 /** 随机生成 BP/RP manifest.json header.uuid (RFC 4122 v4) */
 export function randomUuid(): string {
   /* crypto.randomUUID 是 Node 19+ 内置,SEA 走 Node 22+,这里直接用 */
@@ -193,16 +228,14 @@ function parseLevelNameFromProperties(text: string): string {
 
 /** 同步读 level-name（供 sfmc resolveBdsContext 等同进程调用方，DRY）。 */
 export function readLevelNameSync(bdsRoot: string): string {
-  const file = path.join(bdsRoot, "server.properties");
+  const file = serverPropertiesPath(bdsRoot);
   if (!fs.existsSync(file)) return "Bedrock level";
   return parseLevelNameFromProperties(fs.readFileSync(file, "utf8"));
 }
 
+/** 与 sync 同契约；CLI / async 调用方走此入口（LSP） */
 export async function readLevelName(bdsRoot: string): Promise<string> {
-  const file = path.join(bdsRoot, "server.properties");
-  if (!fs.existsSync(file)) return "Bedrock level";
-  const text = await fs.promises.readFile(file, "utf8");
-  return parseLevelNameFromProperties(text);
+  return readLevelNameSync(bdsRoot);
 }
 
 /**
@@ -213,10 +246,11 @@ export async function readLevelName(bdsRoot: string): Promise<string> {
  * must invoke after restart, because BDS only reads that file at startup.
  */
 export async function deployToBDS(opts: DeployOpts): Promise<DeployResult> {
-  const worldsDir = path.join(opts.bdsRoot, "worlds", opts.levelName);
-  const bpDst = path.join(worldsDir, "behavior_packs", opts.bpName);
-  const rpDst = path.join(worldsDir, "resource_packs", opts.rpName ?? `${opts.bpName}-rp`);
-  await fs.promises.mkdir(worldsDir, { recursive: true });
+  /* levelDir = worlds/<level>；与 EnablePackOpts.worldsDir(=worlds/) 语义不同 — 勿混用（LSP） */
+  const levelDir = bdsWorldLevelDir(opts.bdsRoot, opts.levelName);
+  const bpDst = path.join(levelDir, "behavior_packs", opts.bpName);
+  const rpDst = path.join(levelDir, "resource_packs", opts.rpName ?? `${opts.bpName}-rp`);
+  await fs.promises.mkdir(levelDir, { recursive: true });
   await fs.promises.rm(bpDst, { recursive: true, force: true });
   await copyDirAsync(opts.behaviorPackSrc, bpDst);
   await writePermissionsJson(bpDst);
@@ -238,9 +272,9 @@ export async function deployToBDS(opts: DeployOpts): Promise<DeployResult> {
  * @returns true = 新写入; false = 已存在跳过
  */
 export async function ensureConfigPermission(bdsRoot: string, bpUuid: string): Promise<boolean> {
-  const dir = path.join(bdsRoot, "config", bpUuid);
-  const file = path.join(dir, "permission.json");
+  const file = configPermissionPath(bdsRoot, bpUuid);
   if (fs.existsSync(file)) return false;
+  const dir = path.dirname(file);
   await fs.promises.mkdir(dir, { recursive: true });
   const payload = { allowed_modules: [...SFMC_PERMISSIONS] };
   const tmp = path.join(dir, `.permission.${process.pid}.tmp`);
@@ -306,11 +340,7 @@ async function editWorldPackList(
   opts: EnablePackOpts,
   mode: "enable" | "disable"
 ): Promise<void> {
-  const file = path.join(
-    opts.worldsDir,
-    opts.levelName,
-    opts.kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
-  );
+  const file = worldPackListFile(opts.worldsDir, opts.levelName, opts.kind);
   /* 与 readWorldPackList 同源解析,再写回(DRY);异步写路径保留原语义 */
   let entries: WorldPackEntry[] = readWorldPackList(opts.worldsDir, opts.levelName, opts.kind);
   const idx = entries.findIndex((e) => e.pack_id === opts.packUuid);
@@ -459,11 +489,7 @@ export function readWorldPackListResult(
   levelName: string,
   kind: "behavior" | "resource"
 ): WorldPackListReadResult {
-  const file = path.join(
-    worldsDir,
-    levelName,
-    kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
-  );
+  const file = worldPackListFile(worldsDir, levelName, kind);
   if (!fs.existsSync(file)) return { entries: [] };
   try {
     const arr = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
