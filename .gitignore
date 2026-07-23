@@ -49,3 +49,6 @@ test
 dist/sea/
 .vscode/
 remote-controller/dist/index.js
+
+# 行为包/资源包本地装配产物(sfmc pack build / mod build)
+/build/
