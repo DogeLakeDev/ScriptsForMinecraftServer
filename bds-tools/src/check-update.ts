@@ -299,21 +299,26 @@ export async function runUpdate(): Promise<number> {
 
     let lastErr: Error | null = null;
     const downloadTimeoutMs = (cfg.download_timeout ?? 120) * 1000;
-    const progressBar = new cliProgress.SingleBar(
-      {
-        format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
-        barCompleteChar: "\u2588",
-        barIncompleteChar: "\u2591",
-        hideCursor: true,
-        clearOnComplete: false, // 保留进度条
-      },
-      cliProgress.Presets.shades_classic
-    );
+    /* stderr 被 pipe 时 cli-progress 默认不画；用文本进度给 sfmc REPL 等父进程 */
+    const useProgressBar = !!process.stderr.isTTY;
+    const progressBar = useProgressBar
+      ? new cliProgress.SingleBar(
+          {
+            format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
+            barCompleteChar: "\u2588",
+            barIncompleteChar: "\u2591",
+            hideCursor: true,
+            clearOnComplete: false, // 保留进度条
+          },
+          cliProgress.Presets.shades_classic
+        )
+      : null;
 
     let lastTime = Date.now();
     let lastLoaded = 0;
     let barStarted = false; // 标记是否已启动
-    if (isTaskbarSupported()) {
+    let lastLoggedPct = -1;
+    if (isTaskbarSupported() && process.stdout.isTTY) {
       log.info("检测到 Windows Terminal,任务栏进度已启用 (OSC 9;4)");
     }
     for (const url of downloadUrls) {
@@ -321,12 +326,6 @@ export async function runUpdate(): Promise<number> {
         await httpDownload(url, zipPath, {
           totalTimeoutMs: Math.max(downloadTimeoutMs, 600_000), // 不少于 10 分钟
           onProgress: (dl, total) => {
-            // 第一次触发时启动进度条
-            if (!barStarted) {
-              progressBar.start(total, 0, { speed: "0 KB/s" });
-              barStarted = true;
-              setTaskbarProgress(0); // 启动任务栏进度(0%)
-            }
             const now = Date.now();
             const timeDelta = (now - lastTime) / 1000; // 秒
             const bytesDelta = dl - lastLoaded;
@@ -337,15 +336,32 @@ export async function runUpdate(): Promise<number> {
                 : speed > 1024
                   ? `${(speed / 1024).toFixed(1)} KB/s`
                   : `${speed.toFixed(0)} B/s`;
-            progressBar.update(dl, { speed: speedStr });
-            // 同步任务栏进度(0-100)。httpDownload 内部已做 100ms 节流,
-            // 这里再 set 一次,getSnapshot 比较,相同值直接跳过
-            setTaskbarProgress((dl / total) * 100);
+            const totalMb = total > 0 ? total / (1024 * 1024) : 0;
+            const dlMb = dl / (1024 * 1024);
+            const pct = total > 0 ? (dl / total) * 100 : 0;
+
+            if (progressBar) {
+              if (!barStarted) {
+                progressBar.start(totalMb || 1, 0, { speed: "0 KB/s" });
+                barStarted = true;
+                setTaskbarProgress(0);
+              }
+              progressBar.update(dlMb, { speed: speedStr });
+            } else {
+              const stepped = Math.floor(pct / 5) * 5;
+              if (stepped !== lastLoggedPct && (stepped > lastLoggedPct || pct >= 100)) {
+                lastLoggedPct = stepped;
+                log.info(
+                  `下载进度 ${Math.min(100, Math.round(pct))}% (${dlMb.toFixed(1)}/${totalMb.toFixed(1)} MB) ${speedStr}`
+                );
+              }
+            }
+            setTaskbarProgress(pct);
             lastLoaded = dl;
             lastTime = now;
           },
         });
-        progressBar.stop();
+        if (progressBar && barStarted) progressBar.stop();
         // 下载完成,任务栏收到 100% 绿条后清掉
         setTaskbarProgress(100);
         clearTaskbarProgress();
@@ -353,7 +369,9 @@ export async function runUpdate(): Promise<number> {
         lastErr = null;
         break;
       } catch (e) {
-        if (barStarted) progressBar.stop();
+        if (progressBar && barStarted) progressBar.stop();
+        barStarted = false;
+        lastLoggedPct = -1;
         // 下载失败,任务栏亮红
         setTaskbarProgress(100, "error");
         clearTaskbarProgress();
