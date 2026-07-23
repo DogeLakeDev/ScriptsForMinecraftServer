@@ -15,7 +15,7 @@ import {
   type QQBridgeConfig,
 } from "@sfmc-bds/sdk/node/config";
 import http from "node:http";
-import { log } from "./check-update.js";
+import { log } from "./log.js";
 import { ROOT_DIR } from "./paths.js";
 
 type QqConfig = Pick<QQBridgeConfig, "llbot_http" | "qq_group_id">;

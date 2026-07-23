@@ -55,7 +55,8 @@ function terminalSettingsFiles(): string[] {
     .filter((file) => fs.existsSync(file));
 }
 
-function preferredPowerShell(): string {
+/** Windows Terminal profile.commandline：启动 shell 并立即进入 sfmc */
+function preferredSfmcCommandline(): string {
   const programFiles = [process.env.ProgramW6432, process.env.ProgramFiles].filter((value): value is string =>
     Boolean(value)
   );
@@ -66,14 +67,18 @@ function preferredPowerShell(): string {
   ];
 
   const installed = candidates.find((candidate) => fs.existsSync(candidate));
-  if (installed) return "pwsh -Command sfmc";
+  if (installed) return `"${installed}" -Command sfmc`;
   if (spawnSync("pwsh.exe", ["-NoProfile", "-Command", "exit"], { stdio: "ignore", windowsHide: true }).status === 0) {
-    return "pwsh -Command sfmc";
+    return "pwsh.exe -Command sfmc";
   }
-  return (
-    path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe") +
-    " -Command sfmc"
+  const windowsPowerShell = path.join(
+    process.env.SystemRoot ?? "C:\\Windows",
+    "System32",
+    "WindowsPowerShell",
+    "v1.0",
+    "powershell.exe"
   );
+  return `"${windowsPowerShell}" -Command sfmc`;
 }
 
 function newGuid(): string {
@@ -203,5 +208,5 @@ export function ensureSeaTerminalProfile(): void {
 
   const runtimeFile = configPath(ROOT, "runtime.json");
   const state = terminalState(runtimeFile, path.dirname(process.execPath));
-  for (const settingsFile of settingsFiles) updateProfile(settingsFile, state, preferredPowerShell());
+  for (const settingsFile of settingsFiles) updateProfile(settingsFile, state, preferredSfmcCommandline());
 }
