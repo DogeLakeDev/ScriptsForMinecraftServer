@@ -37,7 +37,8 @@
   "scripts": {
     "build": "tsc7 -p tsconfig.json",
     "typecheck": "tsc7 --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test dist/**/*.test.js",
+    "build:test": "tsc7 -p tsconfig.test.json",
+    "test": "npm run build:test && node --test \"dist/**/*.test.js\"",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
