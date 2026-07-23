@@ -22,11 +22,11 @@ jobs:
             node-mirror: darwin-x64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          # SEA bundle 目标 node26（见 build-sea.mjs target）
+          # 故意独立于 .node-version：SEA bundle 目标 node26（见 build-sea.mjs target）
           node-version: "26"
           cache: npm
 
@@ -66,7 +66,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/download-artifact@v4
         with:
