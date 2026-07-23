@@ -15,22 +15,6 @@
         "kind": "sapi",
         "path": "modules/packages/afk/sapi/src/index.ts"
       }
-    },
-    {
-      "id": "feature-land",
-      "configKey": "land",
-      "name": "领地系统",
-      "type": "feature",
-      "description": "",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [
-        "feature-economy"
-      ],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/land/sapi/src/index.ts"
-      }
     }
   ]
 }
