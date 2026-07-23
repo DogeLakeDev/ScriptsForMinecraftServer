@@ -302,15 +302,8 @@ async function editWorldPackList(
     opts.levelName,
     opts.kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
   );
-  let entries: WorldPackEntry[] = [];
-  try {
-    const raw = await fs.promises.readFile(file, "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed)) entries = parsed as WorldPackEntry[];
-  } catch {
-    /* missing / corrupt → start with [] */
-    entries = [];
-  }
+  /* 与 readWorldPackList 同源解析,再写回(DRY);异步写路径保留原语义 */
+  let entries: WorldPackEntry[] = readWorldPackList(opts.worldsDir, opts.levelName, opts.kind);
   const idx = entries.findIndex((e) => e.pack_id === opts.packUuid);
   if (mode === "enable") {
     const next: WorldPackEntry = { pack_id: opts.packUuid, version: opts.version };
@@ -442,6 +435,42 @@ export function loadModuleResourcePackMap(jsonPath: string): Record<string, stri
   return out;
 }
 
+/**
+ * 读取世界 enable-list(单一权威,供 has-pack / list-packs / 调用方复用 — DRY)。
+ * 文件缺失或损坏时返回 []。
+ */
+export function readWorldPackList(
+  worldsDir: string,
+  levelName: string,
+  kind: "behavior" | "resource"
+): Array<{ pack_id: string; version: [number, number, number] }> {
+  const file = path.join(
+    worldsDir,
+    levelName,
+    kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
+  );
+  if (!fs.existsSync(file)) return [];
+  try {
+    const arr = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+    if (!Array.isArray(arr)) return [];
+    const out: Array<{ pack_id: string; version: [number, number, number] }> = [];
+    for (const e of arr) {
+      if (!e || typeof e !== "object") continue;
+      const packId = (e as { pack_id?: unknown }).pack_id;
+      const ver = (e as { version?: unknown }).version;
+      if (typeof packId !== "string" || !packId) continue;
+      const version: [number, number, number] =
+        Array.isArray(ver) && ver.length >= 3
+          ? [Number(ver[0]), Number(ver[1]), Number(ver[2])]
+          : [1, 0, 0];
+      out.push({ pack_id: packId, version });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** 世界 enable-list 是否已含指定 pack_id(只读,供 preflight 复用)。 */
 export function worldPackListHas(
   worldsDir: string,
@@ -449,16 +478,5 @@ export function worldPackListHas(
   kind: "behavior" | "resource",
   packUuid: string
 ): boolean {
-  const file = path.join(
-    worldsDir,
-    levelName,
-    kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
-  );
-  if (!fs.existsSync(file)) return false;
-  try {
-    const arr = JSON.parse(fs.readFileSync(file, "utf8")) as Array<{ pack_id?: string }>;
-    return Array.isArray(arr) && arr.some((e) => e.pack_id === packUuid);
-  } catch {
-    return false;
-  }
+  return readWorldPackList(worldsDir, levelName, kind).some((e) => e.pack_id === packUuid);
 }

@@ -12,6 +12,7 @@
  *   node bds-tools/dist/pack-manager.js read-level    --bds-root <dir>
  *   node bds-tools/dist/pack-manager.js read-manifest --pack-dir <dir>
  *   node bds-tools/dist/pack-manager.js has-pack      --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid>
+ *   node bds-tools/dist/pack-manager.js list-packs    --worlds-dir <dir> --level <name> --kind behavior|resource
  *
  * The pure-function API lives in pack-manager.ts. This CLI exists so the
  * SEA-launched child process doesn't have to deal with module resolution —
@@ -198,6 +199,15 @@ async function main(): Promise<void> {
       const packId = need(args, "pack-id");
       const ok = mod.worldPackListHas(path.resolve(worldsDir), level, kind, packId);
       process.stdout.write(ok ? "1\n" : "0\n");
+      return;
+    }
+    case "list-packs": {
+      /* 权威世界清单读取 — 调用方勿再直接解析 world_*_packs.json(Demeter/DRY) */
+      const worldsDir = need(args, "worlds-dir");
+      const level = need(args, "level");
+      const kind = need(args, "kind") as "behavior" | "resource";
+      const list = mod.readWorldPackList(path.resolve(worldsDir), level, kind);
+      process.stdout.write(`${JSON.stringify(list)}\n`);
       return;
     }
     default:
