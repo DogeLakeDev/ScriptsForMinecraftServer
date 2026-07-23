@@ -1,21 +1,22 @@
 /**
- * recovery.js — shim, 委托给 src/recovery.ts 编译产物
+ * recovery.js — shim, 委托给 dist/recovery.js
  *
  * 用法: node recovery.js
+ *
+ * 注意：bds-tools 为 ESM（"type":"module"），不能再用 createRequire 加载 dist。
  */
 
-import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const dist = path.join(__dirname, "dist", "recovery.js");
+const distUrl = pathToFileURL(path.join(__dirname, "dist", "recovery.js")).href;
 
 try {
-  require(dist);
+  await import(distUrl);
 } catch (e) {
-  if (e.code === "MODULE_NOT_FOUND") {
+  const err = /** @type {NodeJS.ErrnoException} */ (e);
+  if (err && (err.code === "ERR_MODULE_NOT_FOUND" || err.code === "MODULE_NOT_FOUND")) {
     console.error("[BDSRecovery] dist/ 未找到，请先运行 `npm run build`");
     process.exit(2);
   }
