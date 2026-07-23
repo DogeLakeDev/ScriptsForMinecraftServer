@@ -40,6 +40,7 @@ import {
   verifyFileHash,
 } from "./upstream.js";
 import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVersionCache } from "./version.js";
+import { extractZipFileToDir } from "./zipx.js";
 
 // 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
 const updaterFileSink = createFileSink(LOG_PATH);
