@@ -9,6 +9,7 @@ import path from "node:path";
 /** npm 包名 → 相对仓库根的 package.json 路径 */
 export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/sdk": "modules/sdk/@sfmc-sdk/package.json",
+  "@sfmc-bds/eslint-plugin": "modules/sdk/@sfmc-eslint-plugin/package.json",
   "@sfmc-bds/cli": "sfmc/package.json",
   "@sfmc-bds/db-server": "db-server/package.json",
   "@sfmc-bds/qq-bridge": "qq-bridge/package.json",
