@@ -19,7 +19,10 @@ import { sql } from "../lib/sql-helpers.js";
 import type { TxResult } from "./transaction.js";
 export type { TxResult };
 
-/** 账户表行（与 feature-economy 权威类型结构对齐） */
+/**
+ * 经济域行模型（原 SDK contracts/economy；契约内聚到表所有者 db-server）。
+ * 业务模块应通过 service(economy.*) 消费视图，不依赖这些内部行类型。
+ */
 export interface EconomyAccountRow {
   player_id: string;
   player_name_snapshot: string;
