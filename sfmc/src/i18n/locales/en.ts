@@ -294,6 +294,10 @@ export const en = {
   "mod.dbUnreachable":
     "Cannot reach db-server at {url}: {message}. Is db-service running? (sfmc> start db)",
   "mod.toggleFailed": "{action} {id} failed: {err}",
+  "mod.action.enabled": "enabled",
+  "mod.action.disabled": "disabled",
+  "mod.toggleOk": "{label} {id}",
+  "mod.toggleBadBody": "{action} {id} returned: {text}",
   "mod.enable.usage": "Usage: sfmc module|mod enable <id>",
   "mod.disable.usage": "Usage: sfmc module|mod disable <id>",
   "mod.install.usage": "Usage: sfmc module|mod install <id> [id2 ...] [--from <source>] [--link]",
@@ -337,6 +341,10 @@ export const en = {
   "packs.installedEnabled": "[packs] Installed & enabled {kind}: {name} v{version}",
   "packs.installFailed": "[packs] Install failed {name}: {reason}",
   "packs.listEmpty": "(none)",
+  "packs.list.bpHeader": "Behavior packs:",
+  "packs.list.rpHeader": "Resource packs:",
+  "packs.list.on": "on ",
+  "packs.list.off": "off",
   "packs.doctor.parseFail": "{file} could not be parsed",
   "packs.doctor.missingDir": "List has uuid but directory missing ({kind}): {uuid}",
   "packs.doctor.versionMismatch":
