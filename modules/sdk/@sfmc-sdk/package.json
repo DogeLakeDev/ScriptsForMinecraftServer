@@ -27,11 +27,6 @@
       "import": "./dist/esm/contracts/index.js",
       "default": "./dist/esm/contracts/index.js"
     },
-    "./contracts/*": {
-      "types": "./dist/types/contracts/*.d.ts",
-      "import": "./dist/esm/contracts/*.js",
-      "default": "./dist/esm/contracts/*.js"
-    },
     "./logs": {
       "types": "./dist/types/logs/index.d.ts",
       "import": "./dist/esm/logs/index.js",

@@ -1,34 +1,6 @@
 /**
- * types/index.ts — 共享类型 barrel
+ * contracts/index.ts — 平台级共享类型
  *
- * sapi 通过 tsconfig paths 里的 @sfmc-bds/types/* 别名引用这里:
- *   import type { Channel } from "@sfmc-bds/types/chat"
+ * 仅保留模块目录 / lock 协议。业务域类型由各模块在 sfmc-modules 内维护。
  */
-export type { Channel, ChannelConfig, ChatMessage, MessageType, PlayerChannelSettings, RedPacket } from "./chat.js";
-export type { CoopBankLog, CoopData, CoopMember, CoopShopGroup, CoopShopItem } from "./coop.js";
-export type { EconomyAccountRow, EconomyIdempotencyRow, EconomyTransactionRow } from "./economy.js";
-export type {
-  CreateLandRequest,
-  DeleteLandResult,
-  LandApiResult,
-  LandAuditLog,
-  LandConfig,
-  LandData,
-  LandErrorCode,
-  LandInviteRow,
-  LandMember,
-  LandMemberInviteResult,
-  LandMemberResult,
-  LandMemberRow,
-  LandPermissions,
-  LandPos,
-  LandRole,
-  LandRow,
-  LandTaxConfig,
-  LandValidation,
-  TransferLandResult,
-} from "./land.js";
 export type { ModuleCatalog, ModuleCatalogEntry, ModuleEntryPath, ModuleLock, ModuleRuntimeState } from "./module.js";
-export type { PlayerData } from "./player.js";
-export type { Participant, ScoreboardEntry, ScoreboardIdentityTypeNumber } from "./scoreboard.js";
-export type { WorldData } from "./world.js";

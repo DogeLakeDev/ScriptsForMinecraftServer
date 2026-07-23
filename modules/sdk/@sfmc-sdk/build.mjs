@@ -13,6 +13,7 @@
  *     - behavior-pack-build (BP 发布工具,Node 进程运行)
  *   platform "neutral" : 纯类型/无外部依赖子路径
  *     - contracts / logs / sapi/sdk / sapi/runtime
+ *       （contracts 现仅含 module catalog/lock）
  *
  * @minecraft/* 始终 external,留给 BP 构建时由 `sfmc behavior-pack build`
  * (或 SEA 内嵌 esbuild)那一侧解析。
@@ -44,6 +45,8 @@ const SUBPATHS = [
 
 const DIST_ESM = "dist/esm";
 const DIST_TYPES = "dist/types";
+fs.rmSync(DIST_ESM, { recursive: true, force: true });
+fs.rmSync(DIST_TYPES, { recursive: true, force: true });
 fs.mkdirSync(DIST_ESM, { recursive: true });
 fs.mkdirSync(DIST_TYPES, { recursive: true });
 
