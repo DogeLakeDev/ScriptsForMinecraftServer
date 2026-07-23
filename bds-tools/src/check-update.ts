@@ -29,6 +29,7 @@ import {
   verifyBdsInstall,
   writeRollbackMarker,
 } from "./rollback.js";
+import { ensureEmitServerTelemetry } from "./server-properties.js";
 import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
 import {
   buildDownloadUrls,
@@ -423,6 +424,9 @@ export async function runUpdate(): Promise<number> {
 
   // 11. 恢复 preserves (zip 解压时这些目录可能被覆盖)
   await restorePreserves(bdsPath, backupInfo.path, preserve);
+
+  // 11b. 安装收尾：因 EULA 已同意，确保遥测开关（已有则跳过）
+  ensureEmitServerTelemetry(bdsPath, log);
 
   // 12. 写入版本缓存
   const newExeHash = await hashFileAsync(exePath, "sha256").catch(() => "");

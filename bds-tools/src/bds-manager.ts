@@ -16,6 +16,7 @@ import { EventEmitter } from "node:events";
 import { isMainModule } from "./is-main.js";
 import { loadConfig, PID_FILE } from "./paths.js";
 import { log } from "./log.js";
+import { ensureEmitServerTelemetry } from "./server-properties.js";
 
 const execAsync = promisify(exec);
 
@@ -188,6 +189,9 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
       log.error(`未找到 ${p.exePath}`);
       throw new Error(`bedrock_server.exe 不存在: ${p.exePath}`);
     }
+
+    // 启动前幂等确保遥测开关（安装阶段也会写；旧目录首次启动时补上）
+    ensureEmitServerTelemetry(p.bdsPath, log);
 
     log.info("正在启动 BDS...");
     const child = spawn(p.exePath, [], {

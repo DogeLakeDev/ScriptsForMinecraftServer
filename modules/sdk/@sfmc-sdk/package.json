@@ -87,7 +87,8 @@
       "import": "./dist/esm/behavior-pack-build/index.js",
       "default": "./dist/esm/behavior-pack-build/index.js"
     },
-    "./schemas/*": "./schemas/*"
+    "./schemas/*": "./schemas/*",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",

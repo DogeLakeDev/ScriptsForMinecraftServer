@@ -7,6 +7,7 @@ import { HELP, startRepl } from "./repl.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
 import { dispatchPackCommand, isPackCommand } from "./pack-lifecycle.js";
+import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 
@@ -119,6 +120,12 @@ async function main(): Promise<void> {
       console.log(await dispatchPackCommand(sub, subRest));
       break;
     }
+    case "packs":
+    case "addon": {
+      const [sub, ...subRest] = rest;
+      console.log(await dispatchPacksCommand(sub, subRest));
+      break;
+    }
     case "init": {
       const { runWizard } = await import("./wizard.js");
       await runWizard();
@@ -159,6 +166,11 @@ async function main(): Promise<void> {
       if (isPackCommand(cmd)) {
         const [sub, ...subRest] = rest;
         console.log(await dispatchPackCommand(sub, subRest));
+        break;
+      }
+      if (isPacksCommand(cmd)) {
+        const [sub, ...subRest] = rest;
+        console.log(await dispatchPacksCommand(sub, subRest));
         break;
       }
       console.log(c.red(`Unknown command: ${cmd}`));

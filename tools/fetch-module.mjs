@@ -180,12 +180,107 @@ async function fetchToBuffer(url) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-/** 安装落盘后同步 catalog + lock */
-function afterInstall(folder) {
+/** 安装落盘后同步 catalog + lock；并对 copy/zip 产物做路径/命名规范化 */
+function afterInstall(folder, opts = {}) {
+  if (!opts.skipNormalize) {
+    try {
+      normalizeInstalledPackage(path.join(TARGET, folder));
+    } catch (err) {
+      console.warn(
+        `[fetch-module] normalize warn: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
   const entry = upsertCatalogEntry(folder);
   setModuleLockEnabled(entry.id, entry.enabledByDefault !== false);
   console.log(`[fetch-module]   catalog+lock: ${entry.id} (enabled=${entry.enabledByDefault !== false})`);
   return entry;
+}
+
+/**
+ * 规范化已安装包：旧 @sfmc/sdk → @sfmc-bds/sdk；tsconfig 改为自包含（不依赖主仓 sdk 路径）。
+ * --link 联调目录跳过，避免改写源仓。
+ */
+function normalizeInstalledPackage(pkgDir) {
+  if (!exists(pkgDir)) return;
+  // junction/symlink：不改写源
+  try {
+    const st = fs.lstatSync(pkgDir);
+    if (st.isSymbolicLink()) {
+      console.log(`[fetch-module]   normalize: skipped (link)`);
+      return;
+    }
+  } catch {
+    /* continue */
+  }
+
+  const pkgJsonPath = path.join(pkgDir, "package.json");
+  if (exists(pkgJsonPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+    let dirty = false;
+    if (typeof pkg.name === "string" && pkg.name.startsWith("@sfmc/module-")) {
+      pkg.name = pkg.name.replace("@sfmc/module-", "@sfmc-bds/module-");
+      dirty = true;
+    }
+    for (const section of ["dependencies", "devDependencies", "peerDependencies"]) {
+      const deps = pkg[section];
+      if (!deps || typeof deps !== "object") continue;
+      if (deps["@sfmc/sdk"] != null) {
+        deps["@sfmc-bds/sdk"] = deps["@sfmc/sdk"];
+        delete deps["@sfmc/sdk"];
+        dirty = true;
+      }
+    }
+    if (pkg.peerDependencies) {
+      delete pkg.peerDependencies;
+      dirty = true;
+    }
+    if (dirty) {
+      fs.writeFileSync(pkgJsonPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+      console.log(`[fetch-module]   normalize: package.json → @sfmc-bds`);
+    }
+  }
+
+  const tsconfigPath = path.join(pkgDir, "sapi", "tsconfig.json");
+  if (exists(tsconfigPath)) {
+    const standalone = {
+      compilerOptions: {
+        module: "nodenext",
+        moduleResolution: "nodenext",
+        target: "es2022",
+        lib: ["es2022"],
+        strict: true,
+        noEmit: true,
+        rootDir: "./src",
+        skipLibCheck: true,
+        esModuleInterop: true,
+      },
+      include: ["src/**/*"],
+    };
+    fs.writeFileSync(tsconfigPath, `${JSON.stringify(standalone, null, 2)}\n`, "utf8");
+    console.log(`[fetch-module]   normalize: sapi/tsconfig.json (standalone)`);
+  }
+
+  const srcDir = path.join(pkgDir, "sapi", "src");
+  if (exists(srcDir)) {
+    let rewritten = 0;
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (e.isFile() && /\.(ts|tsx|js|mjs)$/.test(e.name)) {
+          const text = fs.readFileSync(full, "utf8");
+          if (!text.includes("@sfmc/sdk")) continue;
+          fs.writeFileSync(full, text.replaceAll("@sfmc/sdk", "@sfmc-bds/sdk"), "utf8");
+          rewritten++;
+        }
+      }
+    };
+    walk(srcDir);
+    if (rewritten > 0) {
+      console.log(`[fetch-module]   normalize: rewrote @sfmc/sdk → @sfmc-bds/sdk in ${rewritten} file(s)`);
+    }
+  }
 }
 
 async function fromLocal(id, source, flags) {
@@ -212,13 +307,14 @@ async function fromDir(id, source, flags = {}) {
     console.log(`[fetch-module] linked ${id} → ${srcDir}`);
     console.log(`[fetch-module]   mode: ${process.platform === "win32" ? "junction" : "symlink"}`);
     console.log(`[fetch-module]   target: ${dest}`);
+    afterInstall(id, { skipNormalize: true });
   } else {
     const dir = await ensureTarget(id);
     await copyDir(srcDir, dir);
     console.log(`[fetch-module] installed ${id} from dir ${srcDir}`);
     console.log(`[fetch-module]   target: ${dir}`);
+    afterInstall(id);
   }
-  afterInstall(id);
 }
 
 async function fromGithub(id, source, flags) {

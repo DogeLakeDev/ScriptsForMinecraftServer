@@ -45,7 +45,25 @@ curl http://127.0.0.1:3001/api/health
 
 ## import / build 失败
 
-monorepo 下先：
+### `bp build` 报 `@sfmc/sdk` 无法解析 / tsconfig extends 找不到
+
+**原因：** 数据目录（如独立 `sfmc-bds/`）里装的是旧模块产物（仍 `import "@sfmc/sdk"`，`tsconfig` 指向主仓 `sdk/@sfmc-sdk`），且部署根通常没有 `node_modules/@sfmc*`。
+
+**平台侧（已修）：** `behavior-pack build` 会解析 CLI 旁的 `@sfmc-bds/sdk`，并把 `@sfmc/sdk/*` 兼容映射到同一 SDK；不再依赖模块目录里的残缺 tsconfig extends。
+
+**你这边建议：**
+
+1. 用新版 CLI 再跑 `bp build`（或设 `SFMC_SDK_ROOT` 指向 SDK 包根）
+2. 长期：重装模块以拿到 `@sfmc-bds` 命名（`fetch-module` 拷贝安装会自动 normalize）
+
+```bash
+# 示例：从本机 sfmc-modules 重装
+node tools/fetch-module.mjs install tps --from dir:../sfmc-modules/packages/tps
+```
+
+### monorepo 下其它 import 失败
+
+先：
 
 ```bash
 npm run build --workspaces --if-present

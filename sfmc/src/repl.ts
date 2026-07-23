@@ -12,6 +12,7 @@ import {
   paintModuleCmdAlias,
 } from "./module-commands.js";
 import { dispatchPackCommand, isPackCommand, PACK_SUBCOMMANDS } from "./pack-lifecycle.js";
+import { dispatchPacksCommand, isPacksCommand, PACKS_SUBCOMMANDS } from "./world-packs.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
@@ -84,6 +85,8 @@ ${c.bold("Commands")}
                           Pack install status / build / deploy
   ${c.green("pack")} enable|disable [behavior|resource]
                           Toggle world pack enable lists
+  ${c.green("packs")}/${c.green("addon")} list|search|enable|disable|bump|install|scan|doctor|path
+                          World BP/RP inbox manager (not module aggregate)
   ${c.green("bp")}/${c.green("behavior-pack")} build|deploy
                           Alias of pack build/deploy
   ${c.green("version")}                   Show version
@@ -110,6 +113,8 @@ const COMMANDS = [
   ...MODULE_CMD_NAMES,
   "reload",
   "pack",
+  "packs",
+  "addon",
   "bp",
   "behavior-pack",
   "version",
@@ -187,6 +192,13 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 0) return [...PACK_SUBCOMMANDS].filter(sw);
       if (argIndex === 1 && ["enable", "disable"].includes(words[0] ?? "")) {
         return ["behavior", "resource"].filter(sw);
+      }
+      return [];
+    case "packs":
+    case "addon":
+      if (argIndex === 0) return [...PACKS_SUBCOMMANDS].filter(sw);
+      if (argIndex === 1 && ["list"].includes(words[0] ?? "")) {
+        return ["--kind", "--search"].filter(sw);
       }
       return [];
     case "bp":
@@ -792,6 +804,11 @@ async function execCmd(parts: string[]): Promise<void> {
       if (isPackCommand(cmd)) {
         const [sub, ...subRest] = args;
         stdout.write((await dispatchPackCommand(sub, subRest)) + "\n");
+        break;
+      }
+      if (isPacksCommand(cmd)) {
+        const [sub, ...subRest] = args;
+        stdout.write((await dispatchPacksCommand(sub, subRest)) + "\n");
         break;
       }
       if (cmd === "bp" || cmd === "behavior-pack") {

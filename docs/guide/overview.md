@@ -19,10 +19,4 @@
 | 3002 | qq-bridge ← LLBot 反向 WS |
 | 3004 | db-server → LLBot（MC→QQ） |
 
-## 系统要求
-
-- Node.js **22.13+**
-- BDS **1.26.x**
-- Windows 需 Loopback Exemption（向导会提示）
-
 下一章：[安装](./install.md)

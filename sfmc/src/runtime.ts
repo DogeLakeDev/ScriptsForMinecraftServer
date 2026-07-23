@@ -163,6 +163,70 @@ export function resolveNewModule(): string | null {
   return tryResolveNpm("@sfmc-bds/tools", { rel: "new-module.mjs", exportPath: "@sfmc-bds/tools/new-module.mjs" });
 }
 
+/**
+ * 解析 `@sfmc-bds/sdk` 包根目录（含 package.json）。
+ * 优先级: SFMC_SDK_ROOT > createRequire(已知 export) > monorepo modules/sdk/@sfmc-sdk。
+ * 注意: SDK package.json 的 exports 未暴露 ./package.json，不能 req.resolve('…/package.json')。
+ */
+export function resolveSdkPackageRoot(): string {
+  const fromEnv = process.env.SFMC_SDK_ROOT;
+  if (fromEnv && fs.existsSync(path.join(fromEnv, "package.json"))) {
+    return path.resolve(fromEnv);
+  }
+
+  function findSdkRootFromRequire(req: NodeRequire): string | null {
+    try {
+      // 任一公开 export 即可；再向上找含 name=@sfmc-bds/sdk 的 package.json
+      const hit = req.resolve("@sfmc-bds/sdk/sapi/runtime");
+      let dir = path.dirname(hit);
+      for (let i = 0; i < 8; i++) {
+        const cand = path.join(dir, "package.json");
+        if (fs.existsSync(cand)) {
+          try {
+            const name = JSON.parse(fs.readFileSync(cand, "utf8")).name;
+            if (name === "@sfmc-bds/sdk" || name === "@sfmc/sdk") return dir;
+          } catch {
+            /* continue */
+          }
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  for (const req of [
+    requireFromCli,
+    (() => {
+      try {
+        return createRequire(path.join(process.cwd(), "package.json"));
+      } catch {
+        return null;
+      }
+    })(),
+  ]) {
+    if (!req) continue;
+    const found = findSdkRootFromRequire(req);
+    if (found) return found;
+  }
+
+  const mono = path.join(ROOT, "modules", "sdk", "@sfmc-sdk");
+  if (fs.existsSync(path.join(mono, "package.json"))) return mono;
+
+  // SFMC_ROOT 可能是数据目录；再试 monorepo 相对 CLI 的路径
+  const fromCli = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "modules", "sdk", "@sfmc-sdk");
+  if (fs.existsSync(path.join(fromCli, "package.json"))) return fromCli;
+
+  throw new Error(
+    `Cannot resolve @sfmc-bds/sdk for behavior-pack build. ` +
+      `Install @sfmc-bds/sdk next to the CLI, set SFMC_SDK_ROOT, or run inside the monorepo.`
+  );
+}
+
 /** 配置默认模板目录(聚合包装载 defaults/,或仓内 configs-default/) */
 export function resolveDefaultsDir(): string | null {
   const fromEnv = process.env.SFMC_DEFAULTS_DIR;

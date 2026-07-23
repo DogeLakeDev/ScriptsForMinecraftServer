@@ -31,6 +31,7 @@
     "./check-update": "./dist/check-update.js",
     "./bds-manager": "./dist/bds-manager.js",
     "./pack-manager": "./dist/cli-pack-manager.js",
+    "./world-packs": "./dist/world-packs.js",
     "./package.json": "./package.json",
     "./types": {
       "types": "./dist/types.d.ts"
@@ -41,7 +42,7 @@
     "dev": "tsx src/bds-manager.ts",
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs",
+    "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs server-properties.test.mjs world-packs.test.mjs",
     "update": "node dist/check-update.js",
     "update:check": "node dist/check-update.js --check-only",
     "update:force": "node dist/check-update.js --force",

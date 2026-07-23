@@ -210,6 +210,44 @@ async function main(): Promise<void> {
       process.stdout.write(`${JSON.stringify(list)}\n`);
       return;
     }
+    case "list-installed": {
+      const wp = await import("./world-packs.js");
+      const bdsRoot = need(args, "bds-root");
+      const level = need(args, "level");
+      const list = wp.listInstalledWorldPacks(path.resolve(bdsRoot), level);
+      process.stdout.write(`${JSON.stringify(list)}\n`);
+      return;
+    }
+    case "bump-version": {
+      const wp = await import("./world-packs.js");
+      const packDir = need(args, "pack-dir");
+      const next = wp.bumpPackPatchVersion(path.resolve(packDir));
+      process.stdout.write(`${JSON.stringify({ version: next })}\n`);
+      return;
+    }
+    case "install-dir": {
+      const wp = await import("./world-packs.js");
+      const src = need(args, "src");
+      const destParent = need(args, "dest-parent");
+      const force = !!args["force"];
+      const r = await wp.installPackDirectory({
+        srcDir: path.resolve(src),
+        destParent: path.resolve(destParent),
+        force,
+        ...(args["folder-name"] ? { folderName: args["folder-name"] } : {}),
+      });
+      process.stdout.write(`${JSON.stringify(r)}\n`);
+      if (!r.ok && !r.conflict) process.exit(1);
+      return;
+    }
+    case "discover-packs": {
+      const wp = await import("./world-packs.js");
+      const root = need(args, "root");
+      const depth = args["max-depth"] ? Number(args["max-depth"]) : 2;
+      const roots = wp.discoverPackRoots(path.resolve(root), { maxDepth: depth });
+      process.stdout.write(`${JSON.stringify(roots)}\n`);
+      return;
+    }
     default:
       die(`unknown verb: ${verb}`);
   }

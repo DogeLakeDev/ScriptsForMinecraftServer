@@ -22,7 +22,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pushLog } from "./logs.js";
 import { dirFingerprint } from "./module-fingerprint.js";
-import { ROOT, PACKAGES_DIR, spawnServiceSync } from "./runtime.js";
+import { ROOT, PACKAGES_DIR, spawnServiceSync, resolveSdkPackageRoot } from "./runtime.js";
 import { c } from "./theme.js";
 
 export const BP_NAME = "sfmc-modules";
@@ -30,6 +30,44 @@ export const RP_NAME = "sfmc-modules-rp";
 export const DEPLOY_CATALOG_NAME = "sfmc-deploy-catalog.json";
 export const DEFAULT_PACK_VERSION: [number, number, number] = [1, 0, 0];
 
+/** 将 @sfmc/sdk 与 @sfmc-bds/sdk 子路径解析到 SDK 包内真实文件 */
+function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
+  const pkg = JSON.parse(readFileSync(path.join(sdkRoot, "package.json"), "utf8")) as {
+    exports?: Record<string, string | { import?: string; default?: string; types?: string }>;
+  };
+  const exportsMap = pkg.exports ?? {};
+
+  function resolveExportSubpath(subpath: string): string | null {
+    const key = subpath === "" ? "." : `./${subpath}`;
+    const entry = exportsMap[key];
+    if (!entry) return null;
+    const rel = typeof entry === "string" ? entry : (entry.import ?? entry.default);
+    if (!rel || typeof rel !== "string") return null;
+    const abs = path.join(sdkRoot, rel);
+    return existsSync(abs) ? abs : null;
+  }
+
+  return {
+    name: "sfmc-sdk-resolve",
+    setup(build) {
+      build.onResolve({ filter: /^@sfmc(?:-bds)?\/sdk(?:\/|$)/ }, (args) => {
+        const normalized = args.path.replace(/^@sfmc\/sdk/, "@sfmc-bds/sdk");
+        const sub = normalized === "@sfmc-bds/sdk" ? "" : normalized.slice("@sfmc-bds/sdk/".length);
+        const resolved = resolveExportSubpath(sub);
+        if (!resolved) {
+          return {
+            errors: [
+              {
+                text: `Cannot resolve ${args.path} under SDK at ${sdkRoot} (export "./${sub || "."}" missing or file absent; run sdk:build?)`,
+              },
+            ],
+          };
+        }
+        return { path: resolved };
+      });
+    },
+  };
+}
 export function buildRoot(): string {
   return path.join(ROOT, "build");
 }
@@ -421,6 +459,8 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
     await fs.writeFile(outFile, "/* no modules enabled */\n", "utf8");
     packLog("no enabled SAPI modules — empty main.js", "warn");
   } else {
+    const sdkRoot = resolveSdkPackageRoot();
+    packLog(`SDK root: ${sdkRoot}`);
     await build({
       entryPoints: entries,
       outfile: outFile,
@@ -431,6 +471,17 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
       logLevel: "warning",
       sourcemap: false,
       external: ["@minecraft/*"],
+      // 避免读取模块内残缺的 extends（如 ../../../sdk/@sfmc-sdk/tsconfig.json）
+      tsconfigRaw: JSON.stringify({
+        compilerOptions: {
+          module: "ESNext",
+          moduleResolution: "bundler",
+          target: "ES2022",
+          strict: true,
+          skipLibCheck: true,
+        },
+      }),
+      plugins: [createSdkResolvePlugin(sdkRoot)],
     });
     packLog(`esbuild bundled ${entries.length} entr(y/ies)`, "success");
   }
