@@ -121,11 +121,7 @@ export function ensureEconomyAccount(
 }
 
 /** 读取(必要时创建)账户业务视图 */
-export function getEconomyAccount(
-  query: AnyQuery,
-  playerId: string,
-  playerName = ""
-): EconomyAccountView | null {
+export function getEconomyAccount(query: AnyQuery, playerId: string, playerName = ""): EconomyAccountView | null {
   const row = ensureEconomyAccount(query, playerId, playerName);
   return economyResult(row) ?? null;
 }
@@ -393,9 +389,7 @@ export function listDailyTasks(
     const rows = query(sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ?`, [status]));
     return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
   }
-  const rows = query(
-    sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ? AND expires_at > ?`, [status, now])
-  );
+  const rows = query(sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ? AND expires_at > ?`, [status, now]));
   return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
 }
 
@@ -536,9 +530,7 @@ export function monthlyEconomyStats(query: AnyQuery): {
     sql(`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE source_player_id IS NOT NULL`)
   );
   const issued = Array.isArray(issuedRows) ? Number((issuedRows[0] as Record<string, unknown>).total ?? 0) : 0;
-  const destroyed = Array.isArray(destroyedRows)
-    ? Number((destroyedRows[0] as Record<string, unknown>).total ?? 0)
-    : 0;
+  const destroyed = Array.isArray(destroyedRows) ? Number((destroyedRows[0] as Record<string, unknown>).total ?? 0) : 0;
 
   return {
     id,
@@ -548,3 +540,4 @@ export function monthlyEconomyStats(query: AnyQuery): {
     active_accounts: Number(supply.active_accounts ?? 0),
   };
 }
+
