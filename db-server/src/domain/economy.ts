@@ -79,6 +79,47 @@ function newTransactionId(now: number): string {
   return `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * 经济账户 DB 行（snake_case，对应 sfmc_economy_accounts）。
+ * 业务域类型由本模块维护，不再依赖 sdk/contracts。
+ */
+export interface EconomyAccountRow {
+  player_id: string;
+  player_name_snapshot: string;
+  balance: number;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * 经济交易流水 DB 行（snake_case，对应 sfmc_economy_transactions）。
+ * 含历史 JS 侧别名字段，供调用方兼容读取。
+ */
+export interface EconomyTransactionRow {
+  id: string;
+  transaction_type: string;
+  actor_id: string;
+  source_player_id?: string;
+  target_player_id?: string;
+  amount: number;
+  balance_before?: number;
+  balance_after?: number;
+  reference_type: string;
+  reference_id: string;
+  reason: string;
+  created_at: number;
+  idempotency_key: string;
+
+  /** JS-side alias fields used by domain/economy.ts */
+  actorId?: string;
+  type?: string;
+  referenceType?: string;
+  referenceId?: string;
+  sourcePlayerName?: string;
+  targetPlayerName?: string;
+}
+
 export interface EconomyAccountView {
   playerId: string;
   playerName: string;
