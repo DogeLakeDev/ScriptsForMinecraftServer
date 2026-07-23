@@ -82,7 +82,7 @@ function buildManifest(folderId, displayName, template) {
   const configKey = folderId.replace(/-/g, "_");
   /** @type {Record<string, unknown>} */
   const base = {
-    $schema: "../../../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
+    $schema: "../../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
     schemaVersion: 2,
     id: logicalId,
     name: displayName,
@@ -94,11 +94,7 @@ function buildManifest(folderId, displayName, template) {
     notes: `由 sfmc module create 脚手架生成（template=${template}）`,
   };
   if (template === "db") {
-    base.permissions = [
-      `db:read:sfmc_${configKey}`,
-      `db:write:sfmc_${configKey}`,
-      `config:read:${configKey}`,
-    ];
+    base.permissions = [`db:read:sfmc_${configKey}`, `db:write:sfmc_${configKey}`, `config:read:${configKey}`];
     base.notes =
       `由 sfmc module create 脚手架生成（含 db 权限占位）。` +
       `请在 sapi/manifest.json 中补全 routes/migrations，并实现 db 表。`;
@@ -141,8 +137,8 @@ ModuleRegistry.register({
       Command.register(
         "${perm}",
         "${perm}.use",
-        (player) => {
-          Msg.info("模块 ${displayName} 已就绪", player);
+        () => {
+          Msg.info("模块 ${displayName} 已就绪");
         },
         "${displayName}"
       );

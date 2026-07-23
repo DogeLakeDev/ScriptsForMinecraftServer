@@ -15,6 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getAsset } from "node:sea";
 import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
+import { persistLocale, t, type Locale } from "./i18n/index.js";
 import { IS_SEA, ROOT, isMonorepoLayout, isRuntimeInitialized, resolveDefaultsDir, resolveFetchModule, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
@@ -120,29 +121,29 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
   if (IS_SEA) {
     await tasks([
       {
-        title: "Extracting bundled assets",
+        title: t("wizard.extractAssets"),
         task: async (message) => {
           for (const { target, asset } of ASSETS) {
-            message(`Extracting ${target}`);
+            message(t("wizard.extracting", { target }));
             const assetBuffer = getAsset(asset);
-            if (!assetBuffer) throw new Error(`Bundled asset not found: ${asset}`);
+            if (!assetBuffer) throw new Error(t("wizard.assetMissing", { asset }));
 
             const destDir = path.join(rootDir, target);
-            if (!ensureDirectory(destDir)) throw new Error(`Cannot create asset directory: ${destDir}`);
+            if (!ensureDirectory(destDir)) throw new Error(t("wizard.cannotCreateAssetDir", { dir: destDir }));
             await extractZip(Buffer.from(assetBuffer), destDir, { overwrite: true });
           }
-          return "Assets extracted";
+          return t("wizard.assetsExtracted");
         },
       },
     ]);
     return;
   }
 
-  /* monorepo:???? configs/ modules/;npm ?????:?????? */
+  /* monorepo??? configs/ modules/?npm ?????????? */
   if (isMonorepoLayout(rootDir)) {
     const missing = missingRuntimeAssets(rootDir);
     if (missing.length > 0) {
-      throw new Error(`npm runtime is missing required directories: ${missing.join(", ")}`);
+      throw new Error(t("wizard.npmMissing", { list: missing.join(", ") }));
     }
     return;
   }
@@ -150,7 +151,7 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
   seedNpmRuntimeLayout(rootDir);
 }
 
-/** ? npm ??/?????? configs + modules ??(???????) */
+/** ? npm ??/?????? configs + modules ??????????? */
 function seedNpmRuntimeLayout(rootDir: string): void {
   const defaultsDir = resolveDefaultsDir();
   const configsDest = path.join(rootDir, "configs");
@@ -184,81 +185,98 @@ function seedNpmRuntimeLayout(rootDir: string): void {
 }
 
 export async function runWizard(): Promise<void> {
-  intro(c.bold("Setup Wizard =D"));
+  intro(c.bold(t("wizard.intro")));
+
+  const langPick = await select({
+    message: t("locale.wizard"),
+    options: [
+      { value: "zh-CN", label: t("locale.opt.zh") },
+      { value: "en", label: t("locale.opt.en") },
+    ],
+    initialValue: "zh-CN",
+  });
+  if (!isCancel(langPick)) {
+    persistLocale(ROOT, langPick as Locale);
+  }
 
   // Already initialized only when runtime.json#initialized_at is set (empty db_config skeleton does not count).
   if (isRuntimeInitialized()) {
-    const r = await confirm({ message: "Already initialized. Re-run setup?", initialValue: false });
+    const r = await confirm({ message: t("wizard.rerun"), initialValue: false });
     if (isCancel(r) || !r) {
-      outro(c.dim("Setup skipped"));
+      outro(c.dim(t("wizard.skipped")));
       return;
     }
   }
   // Step 1: Runtime Environment
   const rootDir = ROOT;
-  note(c.text(`Runtime root: ${rootDir}`), "Step 1 - Runtime Environment");
+  note(c.text(t("wizard.runtimeRoot", { root: rootDir })), t("wizard.step1"));
 
   try {
     await prepareRuntimeAssets(rootDir);
-    patchJson(rootDir, "runtime.json", { runtime_root: rootDir, initialized_at: new Date().toISOString() });
+    patchJson(rootDir, "runtime.json", {
+      runtime_root: rootDir,
+      initialized_at: new Date().toISOString(),
+      locale: isCancel(langPick) ? undefined : (langPick as string),
+    });
   } catch (error) {
-    outro(c.red(`Runtime preparation failed: ${(error as Error).message}`));
+    outro(c.red(t("wizard.prepFailed", { message: (error as Error).message })));
     return;
   }
 
   // Step 2: External runtime paths
-  note(c.text("Select paths for BDS, Database, and LLBOT"), "Step 2 - External Runtimes");
+  note(c.text(t("wizard.step2Note")), t("wizard.step2"));
 
-  const bdsResolved = await pickDirectory("BDS installation directory", path.join(rootDir, "BDS"));
+  const bdsResolved = await pickDirectory(t("wizard.bdsDir"), path.join(rootDir, "BDS"));
   if (!ensureDirectory(bdsResolved)) {
-    outro(c.red(`Cannot create BDS installation directory: ${bdsResolved}`));
+    outro(c.red(t("wizard.cannotCreateBds", { dir: bdsResolved })));
     return;
   }
 
   let llbotPath: string | undefined;
-  const llbotEnabled = await confirm({ message: "Enable LLBot (QQ bridge)?", initialValue: false });
+  const llbotEnabled = await confirm({ message: t("wizard.enableLlbot"), initialValue: false });
   if (!isCancel(llbotEnabled) && llbotEnabled) {
-    const picked = await pickDirectory("LLBot runtime directory", path.join(rootDir, "LLBOT"));
+    const picked = await pickDirectory(t("wizard.llbotDir"), path.join(rootDir, "LLBOT"));
     if (ensureDirectory(picked)) {
       llbotPath = picked;
     } else {
       llbotPath = path.join(rootDir, "LLBOT");
-      note(c.text(`Using default: ${llbotPath}`), "TIPS");
+      note(c.text(t("wizard.usingDefault", { path: llbotPath })), t("common.tips"));
     }
   }
 
-  const dbDirInput = await pickDirectory("Database storage directory", path.join(rootDir, "data"));
+  const dbDirInput = await pickDirectory(t("wizard.dbDir"), path.join(rootDir, "data"));
   const dbDir = ensureDirectory(dbDirInput) ? dbDirInput : path.join(rootDir, "data");
   if (dbDir !== dbDirInput) {
-    note(c.text(`Using default: ${dbDir}`), "TIPS");
+    note(c.text(t("wizard.usingDefault", { path: dbDir })), t("common.tips"));
   }
   const dbPortRaw = await text({
-    message: "Database server port:",
+    message: t("wizard.dbPort"),
     initialValue: "3001",
     validate: (v: any): any => {
       const n = parseInt(v, 10);
-      if (isNaN(n) || n < 1024 || n > 65535) return "Enter 1024–65535";
-      if (v.length === 0) return `Value is required!`;
+      if (isNaN(n) || n < 1024 || n > 65535) return t("wizard.portRange");
+      if (v.length === 0) return t("wizard.valueRequired");
     },
   });
   const dbPort = isCancel(dbPortRaw) ? 3001 : parseInt(dbPortRaw as string, 10);
 
-  // Step 4: BDS environment
+  // Step 3: BDS environment
   const bdsExe = path.join(bdsResolved, "bedrock_server.exe");
   const bdsExists = fs.existsSync(bdsExe);
 
   note(
-    bdsExists ? c.green(`Found at ${bdsResolved}`) : c.yellow(`Not found at ${bdsResolved}`),
-    "Step 3 - BDS Environment"
+    bdsExists
+      ? c.green(t("wizard.bdsFound", { path: bdsResolved }))
+      : c.yellow(t("wizard.bdsNotFound", { path: bdsResolved })),
+    t("wizard.step3")
   );
 
   const EULA = await confirm({
-    message:
-      "Do you agree to the EULA(https://www.minecraft.net/en-us/eula) published by Mojang? You must agree to it before you can use this program.",
+    message: t("wizard.eula"),
     initialValue: false,
   });
   if (isCancel(EULA) || !EULA) {
-    outro(c.yellow("Disagreed."));
+    outro(c.yellow(t("wizard.disagreed")));
     return;
   }
 
@@ -268,13 +286,13 @@ export async function runWizard(): Promise<void> {
   let preserve: string[] = [];
 
   if (!bdsExists) {
-    const d = await confirm({ message: "Download BDS now?", initialValue: true });
+    const d = await confirm({ message: t("wizard.downloadBds"), initialValue: true });
     if (!isCancel(d) && d) {
       const ch = await select({
-        message: "Select channel:",
+        message: t("wizard.selectChannel"),
         options: [
-          { value: "release", label: "Release", hint: "stable" },
-          { value: "preview", label: "Preview", hint: "may be unstable" },
+          { value: "release", label: t("wizard.channel.release"), hint: t("wizard.channel.releaseHint") },
+          { value: "preview", label: t("wizard.channel.preview"), hint: t("wizard.channel.previewHint") },
         ],
       });
       if (!isCancel(ch)) {
@@ -282,34 +300,29 @@ export async function runWizard(): Promise<void> {
         downloadBds = true;
       }
       if (!ensureDirectory(backupDir)) {
-        outro(c.red(`Cannot create BDS backup directory: ${backupDir}`));
+        outro(c.red(t("wizard.cannotCreateBackup", { dir: backupDir })));
         return;
       }
     }
   }
 
-  backupDir = await pickDirectory("BDS backup directory", backupDir);
+  backupDir = await pickDirectory(t("wizard.backupDir"), backupDir);
   const pr = await multiselect({
-    message: "Files to preserve on update(When updates are enabled next time):",
+    message: t("wizard.preserve"),
     options: [
-      { value: "server.properties", label: "server.properties", hint: "server config", disabled: true },
+      { value: "server.properties", label: "server.properties", hint: t("wizard.preserve.serverProps"), disabled: true },
       { value: "whitelist.json", label: "whitelist.json" },
       { value: "permissions.json", label: "permissions.json" },
       { value: "allowlist.json", label: "allowlist.json" },
-      { value: "worlds", label: "worlds/", hint: "world data" },
-      { value: "config", label: "config/", hint: "config directory", disabled: true },
+      { value: "worlds", label: "worlds/", hint: t("wizard.preserve.worlds") },
+      { value: "config", label: "config/", hint: t("wizard.preserve.config"), disabled: true },
     ],
     required: false,
   });
   if (!isCancel(pr)) preserve = pr as string[];
-  note(
-    c.yellow(
-      "If could not find BDS runtime, updater will be started later.\n You can configure updater later in configs/bds_updater.json"
-    ),
-    "TIPS"
-  );
+  note(c.yellow(t("wizard.updaterTip")), t("common.tips"));
 
-  // Step 5: Module initialization
+  // Step 4: Module initialization
   const catalog = readJson<Catalog>(modulePath(rootDir, "catalog.json")) ?? {};
   const catalogModules: Array<{ id: string; name?: string; type?: string; description?: string }> = [];
   if (Array.isArray(catalog.modules)) {
@@ -325,8 +338,12 @@ export async function runWizard(): Promise<void> {
   }
 
   note(
-    c.text(catalogModules.length > 0 ? `Found ${catalogModules.length} optional modules` : "No modules catalog found"),
-    "Step 4 - Modules"
+    c.text(
+      catalogModules.length > 0
+        ? t("wizard.modulesFound", { count: catalogModules.length })
+        : t("wizard.modulesNone")
+    ),
+    t("wizard.step4")
   );
 
   let selectedModules: string[] = [];
@@ -337,31 +354,29 @@ export async function runWizard(): Promise<void> {
       coreMd.push({
         value: k.id,
         label: `${k.name}  (${k.type})`,
-        hint: String(k.description ?? "(empty)"),
+        hint: String(k.description ?? t("wizard.emptyHint")),
         disabled: true,
       });
     } else if (k.type === "feature") {
       featMd.push({
         value: k.id,
         label: `${k.name}  (${k.type})`,
-        hint: String(k.description ?? "(empty)"),
+        hint: String(k.description ?? t("wizard.emptyHint")),
       });
     }
   });
   if (catalogModules.length > 0) {
     const r = await multiselect({
-      message: "Enable modules:",
-      // merge core and feature module option arrays into a single options array
+      message: t("wizard.enableModules"),
       options: [...coreMd, ...featMd],
       required: false,
     });
     if (!isCancel(r)) selectedModules = r as string[];
   }
 
-  // Write paths into configs
-  const t = [
+  const wizardTasks = [
     {
-      title: "Updating configs",
+      title: t("wizard.updatingConfigs"),
       task: () => {
         const slashPath = (value: string) => value.replace(/\\/g, "/");
         patchJson(rootDir, "db_config.json", {
@@ -383,11 +398,11 @@ export async function runWizard(): Promise<void> {
           preserve,
           qq_notify: llbotOn,
         });
-        return "Configs updated";
+        return t("wizard.configsUpdated");
       },
     },
     {
-      title: "Updating module state",
+      title: t("wizard.updatingModules"),
       task: async (): Promise<string> => {
         const lock = readJson<ModuleLock>(modulePath(rootDir, "module-lock.json")) ?? {
           version: 1,
@@ -397,11 +412,11 @@ export async function runWizard(): Promise<void> {
         const now = Date.now();
         for (const id of selectedModules) lock.modules[id] = { enabled: true, updatedAt: now };
         writeJson(modulePath(rootDir, "module-lock.json"), lock);
-        return "Module state updated";
+        return t("wizard.modulesUpdated");
       },
     },
     {
-      title: "Initializing database",
+      title: t("wizard.initDb"),
       task: async (): Promise<string> => {
         const child = spawnService("db", [], {
           cwd: rootDir,
@@ -410,41 +425,39 @@ export async function runWizard(): Promise<void> {
         });
         if (!(await waitForHealth(dbPort))) {
           child.kill("SIGTERM");
-          return "Database startup timed out";
+          return t("wizard.dbTimeout");
         }
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
         child.kill("SIGTERM");
         setTimeout(() => child.kill("SIGKILL"), 3000).unref();
-        return "Database initialized";
+        return t("wizard.dbOk");
       },
     },
   ];
   if (downloadBds) {
-    t.push({
-      title: "Downloading BDS",
+    wizardTasks.push({
+      title: t("wizard.downloadingBds"),
       task: async (): Promise<string> => {
         const result = await runBdsUpdate(rootDir, bdsChannel);
         if (result.code !== 0) {
-          return "Downloaded Failure.";
+          return t("wizard.downloadFail");
         }
-        return "BDS downloaded";
+        return t("wizard.bdsDownloaded");
       },
     });
   }
   try {
-    await tasks(t);
+    await tasks(wizardTasks);
   } catch (e) {
-    outro(c.red(`Error: ${(e as Error).message}`));
+    outro(c.red(t("common.error", { message: (e as Error).message })));
     return;
   }
 
-  /* install → build → deploy chain. If the user skipped module selection
-   * earlier, this still runs `behavior-pack build` + `deploy` so the BP/
-   * RP folders exist on disk — BDS just sees an empty script. */
+  /* install → build → deploy chain */
   await runInstallBuildDeploy(rootDir, selectedModules, bdsResolved);
 
-  outro(c.green("Done! Run help to learn managing."));
+  outro(c.green(t("wizard.done")));
 }
 
 async function runInstallBuildDeploy(rootDir: string, selectedModules: string[], bdsResolved: string): Promise<void> {
@@ -453,74 +466,62 @@ async function runInstallBuildDeploy(rootDir: string, selectedModules: string[],
     if (fetchScript) {
       const installT = [
         {
-          title: `Installing ${selectedModules.length} module(s) from first-party registry`,
+          title: t("wizard.installing", { count: selectedModules.length }),
           task: async (): Promise<string> => {
             execFileSync(process.execPath, [fetchScript, "install", ...selectedModules], {
               cwd: rootDir,
               stdio: ["ignore", "pipe", "pipe"],
               env: { ...process.env, SFMC_ROOT: rootDir },
             });
-            return `${selectedModules.length} installed`;
+            return t("wizard.installed", { count: selectedModules.length });
           },
         },
       ];
       try {
         await tasks(installT);
       } catch (e) {
-        note(c.yellow(`install failed: ${(e as Error).message}\nYou can retry with: sfmc mod install <id>`));
+        note(c.yellow(t("wizard.installFailed", { message: (e as Error).message })));
       }
     } else {
-      note(
-        c.yellow(
-          `fetch-module missing ? run \`sfmc mod install <id>\` later for each of: ${selectedModules.join(", ")}`
-        )
-      );
+      note(c.yellow(t("wizard.fetchMissing", { list: selectedModules.join(", ") })));
     }
   } else {
-    note(
-      c.dim(
-        "No modules selected ? behavior pack will be empty until you install one with `sfmc mod install <id>`."
-      )
-    );
+    note(c.dim(t("wizard.noModulesSelected")));
   }
 
   const { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } = await import("./commands-behavior-pack.js");
   const buildT = [
     {
-      title: "Building behavior pack",
+      title: t("wizard.buildingBp"),
       task: async (): Promise<string> => {
-        const out = await cmdBehaviorPackBuild([]);
-        if (out.startsWith("[31m")) throw new Error(out);
-        return out;
+        const r = await cmdBehaviorPackBuild([]);
+        if (!r.ok) throw new Error(r.message);
+        return r.message;
       },
     },
   ];
   try {
     await tasks(buildT);
   } catch (e) {
-    note(c.yellow(`build failed: ${(e as Error).message}\nRun \`sfmc behavior-pack build\` later to retry.`));
+    note(c.yellow(t("wizard.buildFailed", { message: (e as Error).message })));
     return;
   }
 
   const deployT = [
     {
-      title: `Deploying to ${bdsResolved}`,
+      title: t("wizard.deploying", { path: bdsResolved }),
       task: async (): Promise<string> => {
-        const out = await cmdBehaviorPackDeploy([]);
-        if (out.startsWith("[31m")) throw new Error(out);
-        return out;
+        const r = await cmdBehaviorPackDeploy([]);
+        if (!r.ok) throw new Error(r.message);
+        return r.message;
       },
     },
   ];
   try {
     await tasks(deployT);
-    note(c.green("Restart BDS to load the new behavior pack."));
+    note(c.green(t("wizard.restartBds")));
   } catch (e) {
-    note(
-      c.yellow(
-        `deploy failed: ${(e as Error).message}\nRun \`sfmc behavior-pack deploy\` after fixing bds_root in configs/.`
-      )
-    );
+    note(c.yellow(t("wizard.deployFailed", { message: (e as Error).message })));
   }
   void rootDir;
 }

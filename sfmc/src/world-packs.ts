@@ -21,6 +21,7 @@ import {
   type InstalledWorldPack,
   type PackManifestInfo,
 } from "@sfmc-bds/bds-tools/world-packs";
+import { t } from "./i18n/index.js";
 import { resolveBdsContext } from "./pack-lifecycle.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
@@ -38,8 +39,12 @@ export const PACKS_SUBCOMMANDS = [
   "path",
 ] as const;
 
-const RESTART_HINT = "需重启 BDS 后生效";
-const REJOIN_HINT = "客户端需重进服以下载资源包";
+function restartHint(): string {
+  return t("packs.restartHint");
+}
+function rejoinHint(): string {
+  return t("packs.rejoinHint");
+}
 
 export function isPacksCommand(cmd: string | undefined): cmd is string {
   return !!cmd && (PACKS_CMD_NAMES as readonly string[]).includes(cmd);
@@ -115,19 +120,28 @@ function printConflict(
   existing: PackManifestInfo & { dir: string },
   incoming: PackManifestInfo
 ): void {
-  console.log(c.yellow("检测到冲突："));
+  console.log(c.yellow(t("packs.conflict")));
   console.log(
-    `  已有: ${existing.name}  v${fmtVer(existing.version)}  ${existing.uuid}\n         ${existing.dir}`
+    t("packs.conflict.existing", {
+      name: existing.name,
+      version: fmtVer(existing.version),
+      uuid: existing.uuid,
+      dir: existing.dir,
+    })
   );
   console.log(
-    `  新来: ${incoming.name}  v${fmtVer(incoming.version)}  ${incoming.uuid}`
+    t("packs.conflict.incoming", {
+      name: incoming.name,
+      version: fmtVer(incoming.version),
+      uuid: incoming.uuid,
+    })
   );
 }
 
 async function askOverwrite(): Promise<boolean> {
   if (!process.stdin.isTTY) return false;
   const ans = await confirm({
-    message: "是否覆盖已有包？",
+    message: t("packs.overwriteAsk"),
     initialValue: false,
   });
   if (isCancel(ans)) return false;
@@ -144,7 +158,7 @@ async function installOnePackRoot(opts: {
 }): Promise<{ ok: boolean; skipped?: boolean; reason?: string; info?: PackManifestInfo }> {
   const info = readPackManifestInfo(opts.srcDir);
   if (!info) {
-    return { ok: false, reason: "无法识别 manifest（缺少 resources/data/script）" };
+    return { ok: false, reason: t("packs.badManifest") };
   }
   const destParent = worldPackParentDir(opts.bdsRoot, opts.levelName, info.kind);
   let force = !!opts.force;
@@ -163,11 +177,11 @@ async function installOnePackRoot(opts: {
     } else if (opts.interactive && process.stdin.isTTY) {
       force = await askOverwrite();
       if (!force) {
-        console.log(c.dim("已跳过（未覆盖）"));
+        console.log(c.dim(t("packs.skippedNoOverwrite")));
         return { ok: false, skipped: true, reason: "conflict:skipped", info };
       }
     } else {
-      console.log(c.yellow(`[packs] 冲突跳过（非交互，可用 --force）: ${info.name}`));
+      console.log(c.yellow(t("packs.conflictSkip", { name: info.name })));
       return { ok: false, skipped: true, reason: "conflict:noninteractive", info };
     }
     result = await installPackDirectory({
@@ -223,7 +237,7 @@ export async function scanAndInstallInbox(opts?: {
   try {
     ({ bdsRoot, levelName } = resolveBdsContext());
   } catch (e) {
-    console.log(c.yellow(`[packs] 跳过收件箱：${(e as Error).message}`));
+    console.log(c.yellow(t("packs.inboxSkip", { message: (e as Error).message })));
     return { installed: 0, skipped: 0, failed: candidates.length };
   }
 
@@ -235,13 +249,13 @@ export async function scanAndInstallInbox(opts?: {
   let skipped = 0;
   let failed = 0;
 
-  console.log(c.dim(`[packs] 收件箱发现 ${candidates.length} 项 → ${levelName}`));
+  console.log(c.dim(t("packs.inboxFound", { count: candidates.length, level: levelName })));
 
   for (const src of candidates) {
     const base = path.basename(src);
     const fp = sourceFingerprint(src);
     if (state.installed[fp] && !force) {
-      console.log(c.dim(`[packs] 已处理过，跳过: ${base}`));
+      console.log(c.dim(t("packs.alreadyDone", { name: base })));
       skipped++;
       if (!dryRun) {
         try {
@@ -260,7 +274,7 @@ export async function scanAndInstallInbox(opts?: {
         roots = discoverPackRoots(src, { maxDepth: 2 });
       } else if (isPackArchive(src)) {
         if (dryRun) {
-          console.log(c.dim(`[packs] dry-run 解压: ${base}`));
+          console.log(c.dim(t("packs.dryRunExtract", { name: base })));
           skipped++;
           continue;
         }
@@ -273,7 +287,7 @@ export async function scanAndInstallInbox(opts?: {
       }
 
       if (roots.length === 0) {
-        console.log(c.red(`[packs] 未找到包根: ${base}`));
+        console.log(c.red(t("packs.noPackRoot", { name: base })));
         failed++;
         if (!dryRun && !tempDir) moveTo(src, failedDir(), `${base}-no-root`);
         continue;
@@ -314,14 +328,20 @@ export async function scanAndInstallInbox(opts?: {
           lastUuid = r.info.uuid;
           console.log(
             c.green(
-              `[packs] 已安装并启用 ${r.info.kind === "resource" ? "RP" : "BP"}: ${r.info.name} v${fmtVer(r.info.version)}`
+              t("packs.installedEnabled", {
+                kind: r.info.kind === "resource" ? "RP" : "BP",
+                name: r.info.name,
+                version: fmtVer(r.info.version),
+              })
             )
           );
         } else if (r.skipped) {
           skipCount++;
         } else {
           failCount++;
-          console.log(c.red(`[packs] 安装失败 ${path.basename(root)}: ${r.reason ?? "?"}`));
+          console.log(
+            c.red(t("packs.installFailed", { name: path.basename(root), reason: r.reason ?? "?" }))
+          );
         }
       }
 
@@ -333,7 +353,7 @@ export async function scanAndInstallInbox(opts?: {
         state.installed[fp] = { uuid: lastUuid, at: new Date().toISOString(), folderName: base };
         writeState(state);
         moveTo(src, doneDir(), base);
-        console.log(c.yellow(`[packs] ${RESTART_HINT}`));
+        console.log(c.yellow(`[packs] ${restartHint()}`));
       } else if (failCount > 0 && skipCount === 0) {
         moveTo(src, failedDir(), base);
       }
@@ -383,7 +403,7 @@ function filterPacks(
 }
 
 function formatPackList(packs: InstalledWorldPack[]): string {
-  if (packs.length === 0) return c.dim("（无）");
+  if (packs.length === 0) return c.dim(t("packs.listEmpty"));
   const lines: string[] = [];
   const bp = packs.filter((p) => p.kind === "behavior");
   const rp = packs.filter((p) => p.kind === "resource");
@@ -444,7 +464,7 @@ async function cmdDoctor(): Promise<string> {
       try {
         entries = JSON.parse(fs.readFileSync(listFile, "utf8")) as typeof entries;
       } catch {
-        issues.push(`${listFile} 无法解析`);
+        issues.push(t("packs.doctor.parseFail", { file: listFile }));
         continue;
       }
     }
@@ -452,7 +472,7 @@ async function cmdDoctor(): Promise<string> {
     for (const e of entries) {
       const p = byUuid.get(e.pack_id);
       if (!p) {
-        issues.push(`清单有 uuid 但目录缺失 (${kind}): ${e.pack_id}`);
+        issues.push(t("packs.doctor.missingDir", { kind, uuid: e.pack_id }));
         continue;
       }
       const ev = e.version;
@@ -462,7 +482,12 @@ async function cmdDoctor(): Promise<string> {
         (ev[0] !== p.version[0] || ev[1] !== p.version[1] || ev[2] !== p.version[2])
       ) {
         issues.push(
-          `版本不一致 (${kind}): ${p.folderName} 清单 ${ev.join(".")} vs 磁盘 ${fmtVer(p.version)}`
+          t("packs.doctor.versionMismatch", {
+            kind,
+            folder: p.folderName,
+            listVer: ev.join("."),
+            diskVer: fmtVer(p.version),
+          })
         );
       }
     }
@@ -470,12 +495,21 @@ async function cmdDoctor(): Promise<string> {
 
   for (const p of packs) {
     if (!p.enabled) {
-      issues.push(`已安装未启用: [${p.kind === "resource" ? "RP" : "BP"}] ${p.folderName} (${p.uuid})`);
+      issues.push(
+        t("packs.doctor.notEnabled", {
+          kind: p.kind === "resource" ? "RP" : "BP",
+          folder: p.folderName,
+          uuid: p.uuid,
+        })
+      );
     }
   }
 
-  if (issues.length === 0) return c.green("doctor: 未发现问题");
-  return `doctor 发现 ${issues.length} 项:\n${issues.map((x) => `  - ${x}`).join("\n")}`;
+  if (issues.length === 0) return c.green(t("packs.doctor.ok"));
+  return t("packs.doctor.found", {
+    count: issues.length,
+    list: issues.map((x) => `  - ${x}`).join("\n"),
+  });
 }
 
 export async function dispatchPacksCommand(sub: string | undefined, args: string[]): Promise<string> {
@@ -494,7 +528,7 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
       }
       case "search": {
         const q = args[0];
-        if (!q) return c.yellow("Usage: packs search <query>");
+        if (!q) return c.yellow(t("packs.search.usage"));
         const { bdsRoot, levelName } = resolveBdsContext();
         const packs = filterPacks(listInstalledWorldPacks(bdsRoot, levelName), "all", q);
         return formatPackList(packs);
@@ -502,11 +536,11 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
       case "enable":
       case "disable": {
         const id = args[0];
-        if (!id) return c.yellow(`Usage: packs ${verb} <uuid|folder>`);
+        if (!id) return c.yellow(t("packs.toggle.usage", { verb }));
         const { bdsRoot, levelName } = resolveBdsContext();
         const packs = listInstalledWorldPacks(bdsRoot, levelName);
         const pack = findInstalledPackById(packs, id);
-        if (!pack) return c.red(`未找到包: ${id}`);
+        if (!pack) return c.red(t("packs.notFound", { id }));
         if (verb === "enable") {
           await enableInstalledPack({
             bdsRoot,
@@ -527,17 +561,17 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
             version: pack.version,
           });
         }
-        return c.green(`${verb} ${pack.folderName} 完成。${RESTART_HINT}`);
+        return c.green(t("packs.toggleDone", { verb, folder: pack.folderName, hint: restartHint() }));
       }
       case "bump": {
         const id = args[0];
-        if (!id) return c.yellow("Usage: packs bump <uuid|folder>  （仅 RP）");
+        if (!id) return c.yellow(t("packs.bump.usage"));
         const { bdsRoot, levelName } = resolveBdsContext();
         const packs = listInstalledWorldPacks(bdsRoot, levelName);
         const pack = findInstalledPackById(packs, id);
-        if (!pack) return c.red(`未找到包: ${id}`);
+        if (!pack) return c.red(t("packs.notFound", { id }));
         if (pack.kind !== "resource") {
-          return c.red("packs bump 仅支持资源包 (RP)");
+          return c.red(t("packs.bump.rpOnly"));
         }
         const next = bumpPackPatchVersion(pack.dir);
         if (pack.enabled) {
@@ -553,7 +587,12 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
           });
         }
         return c.green(
-          `已 bump ${pack.folderName} → v${fmtVer(next)}。${RESTART_HINT}；${REJOIN_HINT}`
+          t("packs.bumped", {
+            folder: pack.folderName,
+            version: fmtVer(next),
+            restart: restartHint(),
+            rejoin: rejoinHint(),
+          })
         );
       }
       case "install": {
@@ -561,12 +600,18 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
         const inbox = hasFlag(args, "--inbox") || args.length === 0 || args.every((a) => a.startsWith("-"));
         if (inbox) {
           const r = await scanAndInstallInbox({ force, interactive: true });
-          return c.dim(`install inbox: installed=${r.installed} skipped=${r.skipped} failed=${r.failed}`);
+          return c.dim(
+            t("packs.installInbox", {
+              installed: r.installed,
+              skipped: r.skipped,
+              failed: r.failed,
+            })
+          );
         }
         const target = args.find((a) => !a.startsWith("-"));
-        if (!target) return c.yellow("Usage: packs install [path|--inbox] [--force]");
+        if (!target) return c.yellow(t("packs.install.usage"));
         const abs = path.resolve(target);
-        if (!fs.existsSync(abs)) return c.red(`路径不存在: ${abs}`);
+        if (!fs.existsSync(abs)) return c.red(t("packs.pathMissing", { path: abs }));
         const { bdsRoot, levelName } = resolveBdsContext();
         let tempDir: string | null = null;
         try {
@@ -577,9 +622,9 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
             tempDir = await extractArchiveToTemp(abs);
             roots = discoverPackRoots(tempDir, { maxDepth: 2 });
           } else {
-            return c.red("不是包目录或 .zip/.mcpack/.mcaddon");
+            return c.red(t("packs.notArchive"));
           }
-          if (roots.length === 0) return c.red("未发现含 manifest.json 的包根");
+          if (roots.length === 0) return c.red(t("packs.noManifestRoot"));
           const lines: string[] = [];
           for (const root of roots) {
             const r = await installOnePackRoot({
@@ -592,13 +637,26 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
             });
             if (r.ok && r.info) {
               lines.push(
-                c.green(`已安装并启用: ${r.info.name} v${fmtVer(r.info.version)} (${r.info.kind})`)
+                c.green(
+                  t("packs.installedLine", {
+                    name: r.info.name,
+                    version: fmtVer(r.info.version),
+                    kind: r.info.kind,
+                  })
+                )
               );
             } else {
-              lines.push(c.yellow(`跳过/失败: ${path.basename(root)} (${r.reason ?? "?"})`));
+              lines.push(
+                c.yellow(
+                  t("packs.skipFailLine", {
+                    name: path.basename(root),
+                    reason: r.reason ?? "?",
+                  })
+                )
+              );
             }
           }
-          lines.push(c.yellow(RESTART_HINT));
+          lines.push(c.yellow(restartHint()));
           return lines.join("\n");
         } finally {
           if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
@@ -613,9 +671,15 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
           interactive: !!process.stdin.isTTY,
         });
         if (r.installed === 0 && r.skipped === 0 && r.failed === 0) {
-          return c.dim("收件箱为空");
+          return c.dim(t("packs.inboxEmpty"));
         }
-        return c.dim(`scan: installed=${r.installed} skipped=${r.skipped} failed=${r.failed}`);
+        return c.dim(
+          t("packs.scanResult", {
+            installed: r.installed,
+            skipped: r.skipped,
+            failed: r.failed,
+          })
+        );
       }
       case "doctor":
         return await cmdDoctor();
@@ -632,7 +696,7 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
         ].join("\n");
       }
       default:
-        return c.red(`Unknown packs subcommand: ${verb}\n`) + packsUsage();
+        return c.red(t("packs.unknownSub", { verb })) + packsUsage();
     }
   } catch (e) {
     return c.red((e as Error).message);
@@ -640,18 +704,18 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
 }
 
 export function packsUsage(): string {
-  return `${c.bold("sfmc packs")}（别名 ${c.green("addon")}）— 世界侧任意 BP/RP
+  return `${t("packs.usage.title", { cmd: c.bold("sfmc packs"), alias: c.green("addon") })}
 
   ${c.green("packs list")} [--kind bp|rp|all] [--search q]
   ${c.green("packs search")} <q>
   ${c.green("packs enable|disable")} <uuid|folder>
-  ${c.green("packs bump")} <id>          仅 RP，patch 版本 +1
+  ${c.green("packs bump")} <id>          ${t("packs.usage.bump")}
   ${c.green("packs install")} [path|--inbox] [--force]
   ${c.green("packs scan")} [--force] [--dry-run]
   ${c.green("packs doctor")}
   ${c.green("packs path")}
 
-收件箱: ${packsInboxDir()}
-安装默认写入 world_*_packs.json 启用；${RESTART_HINT}。
-模块聚合请用 ${c.green("sfmc pack")}（非本命令）。`;
+${t("packs.usage.inbox", { path: packsInboxDir() })}
+${t("packs.usage.enableNote", { hint: restartHint() })}
+${t("packs.usage.moduleNote", { cmd: c.green("sfmc pack") })}`;
 }

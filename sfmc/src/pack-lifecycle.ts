@@ -22,6 +22,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pushLog } from "./logs.js";
 import { dirFingerprint } from "./module-fingerprint.js";
+import { failResult, okResult, type CliResult } from "./cli-result.js";
+import { t } from "./i18n/index.js";
 import { ROOT, PACKAGES_DIR, spawnServiceSync, resolveSdkPackageRoot } from "./runtime.js";
 import { c } from "./theme.js";
 
@@ -741,17 +743,17 @@ export async function ensurePacksReady(): Promise<PackEnsureResult> {
 
 /* ── CLI 命令实现 ─────────────────────────────────────────────────────── */
 
-export async function cmdPackBuild(_args: string[]): Promise<string> {
+export async function cmdPackBuild(_args: string[]): Promise<CliResult> {
   try {
     const cat = await buildPacks();
-    return c.green(`built packs at ${bpOut()}`) + `\n` + formatPackLoadInfo(cat, true) + "\n";
+    return okResult(c.green(t("pack.built", { path: bpOut() })) + `\n` + formatPackLoadInfo(cat, true) + "\n");
   } catch (e) {
     packLog((e as Error).message, "error");
-    return c.red(`pack build failed: ${(e as Error).message}`);
+    return failResult(c.red(t("pack.buildFailed", { message: (e as Error).message })));
   }
 }
 
-export async function cmdPackDeploy(_args: string[]): Promise<string> {
+export async function cmdPackDeploy(_args: string[]): Promise<CliResult> {
   try {
     const localCatFile = path.join(bpOut(), DEPLOY_CATALOG_NAME);
     let cat: DeployCatalog;
@@ -761,10 +763,10 @@ export async function cmdPackDeploy(_args: string[]): Promise<string> {
       cat = await buildPacks();
     }
     await deployPacks(cat);
-    return c.green("deployed packs") + "\n" + formatPackLoadInfo(cat, true) + "\n";
+    return okResult(c.green(t("pack.deployed")) + "\n" + formatPackLoadInfo(cat, true) + "\n");
   } catch (e) {
     packLog((e as Error).message, "error");
-    return c.red(`pack deploy failed: ${(e as Error).message}`);
+    return failResult(c.red(t("pack.deployFailed", { message: (e as Error).message })));
   }
 }
 
@@ -801,7 +803,7 @@ export async function cmdPackStatus(_args: string[]): Promise<string> {
     lines.push(formatPackLoadInfo(desired, false));
     return lines.join("\n") + "\n";
   } catch (e) {
-    return c.red(`pack status failed: ${(e as Error).message}`);
+    return c.red(t("pack.statusFailed", { message: (e as Error).message }));
   }
 }
 
@@ -844,7 +846,7 @@ export async function cmdPackList(_args: string[]): Promise<string> {
     }
     return lines.join("\n") + "\n";
   } catch (e) {
-    return c.red(`pack list failed: ${(e as Error).message}`);
+    return c.red(t("pack.listFailed", { message: (e as Error).message }));
   }
 }
 
@@ -853,18 +855,22 @@ export async function cmdPackEnableDisable(action: "enable" | "disable", args: s
     const kind = (args[0] === "resource" || args[0] === "rp" ? "resource" : "behavior") as "behavior" | "resource";
     const { bdsRoot, levelName } = resolveBdsContext();
     const deployed = readDeployedCatalog(bdsRoot, levelName);
-    if (!deployed) return c.red("no deployed catalog — run `sfmc pack deploy` first");
+    if (!deployed) return c.red(t("pack.noCatalog"));
     const uuid = kind === "behavior" ? deployed.bpUuid : deployed.rpUuid;
     const version = kind === "behavior" ? deployed.bpVersion : deployed.rpVersion;
-    if (!uuid || !version) return c.red(`no ${kind} pack uuid in catalog`);
+    if (!uuid || !version) return c.red(t("pack.noUuid", { kind }));
     const worldsDir = path.join(bdsRoot, "worlds");
     const verb = action === "enable" ? "enable-pack" : "disable-pack";
     const r = spawnWorldPack(verb, worldsDir, levelName, kind, uuid, version);
-    if (!r.ok) return c.red(`${action} failed: ${r.err || r.out}`);
+    if (!r.ok) return c.red(t("pack.actionFailed", { action, detail: r.err || r.out }));
     packLog(`${action}d ${kind} pack ${uuid}`, "success");
-    return c.green(`${action}d ${kind} pack ${uuid}`);
+    return c.green(
+      action === "enable"
+        ? t("pack.enabledOk", { kind, uuid })
+        : t("pack.disabledOk", { kind, uuid })
+    );
   } catch (e) {
-    return c.red(`pack ${action} failed: ${(e as Error).message}`);
+    return c.red(t("pack.actionErr", { action, message: (e as Error).message }));
   }
 }
 
@@ -880,9 +886,9 @@ export async function dispatchPackCommand(sub: string | undefined, args: string[
     case "status":
       return cmdPackStatus(args);
     case "build":
-      return cmdPackBuild(args);
+      return (await cmdPackBuild(args)).message;
     case "deploy":
-      return cmdPackDeploy(args);
+      return (await cmdPackDeploy(args)).message;
     case "list":
       return cmdPackList(args);
     case "enable":
@@ -890,8 +896,6 @@ export async function dispatchPackCommand(sub: string | undefined, args: string[
     case "disable":
       return cmdPackEnableDisable("disable", args);
     default:
-      return c.yellow(
-        `Usage: sfmc pack <${PACK_SUBCOMMANDS.join("|")}> [behavior|resource]`
-      );
+      return c.yellow(t("pack.usage", { subs: PACK_SUBCOMMANDS.join("|") }));
   }
 }

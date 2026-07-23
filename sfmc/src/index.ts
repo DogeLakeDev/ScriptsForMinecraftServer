@@ -52,6 +52,7 @@ export async function readModuleManifest(): Promise<unknown> {
   }
 }
 
-export { startRepl, HELP } from "./repl.js";
+export { startRepl, getHelp, HELP } from "./repl.js";
+export { t, getLocale, setLocale, initLocale, type Locale } from "./i18n/index.js";
 export { runWizard } from "./wizard.js";
 export { cmdModuleList, cmdModuleInstall, cmdModuleUninstall, cmdModuleVerify, cmdModuleInfo } from "./module-commands.js";

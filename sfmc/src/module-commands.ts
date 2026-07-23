@@ -61,15 +61,13 @@ export const MODULE_SUBCOMMANDS = [
   "dev",
 ] as const;
 
-/** Usage 行主名|别名(与 MODULE_CMD_NAMES 同源,避免与 HELP 漂移)。 */
-export const MODULE_USAGE =
-  `Usage: sfmc ${MODULE_CMD_NAMES.join("|")} <${MODULE_SUBCOMMANDS.join("|")}> [args]`;
-
 import fs from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { configPath, readJson, type DBConfig } from "@sfmc-bds/sdk/node/config";
+import { failResult, okResult, type CliResult } from "./cli-result.js";
+import { t } from "./i18n/index.js";
 import { c } from "./theme.js";
 import { ROOT, resolveFetchModule } from "./runtime.js";
 import { dirFingerprint } from "./module-fingerprint.js";
@@ -79,6 +77,14 @@ import {
   findUnknownModules,
   resolveRegistryIndex,
 } from "./registry.js";
+
+/** Usage 行主名|别名(与 MODULE_CMD_NAMES 同源,避免与 HELP 漂移)。 */
+export function moduleUsage(): string {
+  return t("mod.usage", {
+    cmds: MODULE_CMD_NAMES.join("|"),
+    subs: MODULE_SUBCOMMANDS.join("|"),
+  });
+}
 
 /** Where modules live on disk. SEA reads this same path at runtime. */
 function modulesDir(): string {
@@ -163,7 +169,7 @@ async function dirSize(dir: string): Promise<{ totalBytes: number; fileCount: nu
 export async function cmdModuleList(_args: string[]): Promise<string> {
   const installed = await scanInstalled();
   if (installed.length === 0) {
-    return c.dim(`\nNo modules installed. Drop a module folder under ${modulesDir()} or run \`sfmc mod install <id>\`.\n`);
+    return c.dim(t("mod.noneInstalled", { dir: modulesDir() }));
   }
   const ids = installed.map((m) => m.id);
   const unknown = new Set(await findUnknownModules(ids));
@@ -249,7 +255,7 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
       hints.length > 0
         ? c.dim(`\n  Did you mean:\n`) + hints.map((h) => `    ${h}`).join("\n")
         : c.dim(`\n  Known ids: ${ids.slice(0, 12).join(", ")}${ids.length > 12 ? ", …" : ""}`);
-    return c.red(`Module "${query}" not found in first-party registry.`) + hintBlock + "\n";
+    return c.red(t("mod.notInRegistry", { query })) + hintBlock + "\n";
   }
 
   const installedPath = path.join(modulesDir(), query);
@@ -278,10 +284,10 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
  * ──────────────────────────────────────────────────────────────── */
 export async function cmdModuleInfo(args: string[]): Promise<string> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module|mod info <id>");
+  if (!id) return c.yellow(t("mod.info.usage"));
   const all = await scanInstalled();
   const m = all.find((x) => x.id === id);
-  if (!m) return c.red(`Module ${id} not installed at ${path.join(modulesDir(), id)}`);
+  if (!m) return c.red(t("mod.notInstalledAt", { id, path: path.join(modulesDir(), id) }));
   const lines: string[] = [c.bold(`\n${id}`)];
   lines.push(`  path        : ${m.path}`);
   lines.push(`  files       : ${m.fileCount}`);
@@ -312,8 +318,8 @@ export async function cmdModuleVerify(args: string[]): Promise<string> {
   if (id) {
     const all = await scanInstalled();
     const m = all.find((x) => x.id === id);
-    if (!m) return c.red(`Module ${id} not installed`);
-    return c.green(`${id} ok\n  fingerprint: ${m.fingerprint}\n`) ;
+    if (!m) return c.red(t("mod.notInstalled", { id }));
+    return c.green(t("mod.verifyOk", { id, fp: m.fingerprint }));
   }
   const all = await scanInstalled();
   const lines = [c.bold("\nVerifying installed modules")];
@@ -334,7 +340,7 @@ function readDbConfig(): DBConfig {
   return (readJson<DBConfig>(configPath(ROOT, "db_config.json")) ?? {}) as DBConfig;
 }
 
-async function postModuleToggle(id: string, action: "enable" | "disable"): Promise<string> {
+async function postModuleToggle(id: string, action: "enable" | "disable"): Promise<CliResult> {
   const cfg = readDbConfig();
   const port = cfg.db_port ?? 3001;
   const token = cfg.http_auth || "";
@@ -349,7 +355,9 @@ async function postModuleToggle(id: string, action: "enable" | "disable"): Promi
       },
     });
   } catch (err) {
-    return c.red(`Cannot reach db-server at ${url}: ${(err as Error).message}. Is db-service running? (sfmc> start db)`);
+    return failResult(
+      c.red(t("mod.dbUnreachable", { url, message: (err as Error).message }))
+    );
   }
   const text = await res.text();
   let body: unknown;
@@ -360,21 +368,23 @@ async function postModuleToggle(id: string, action: "enable" | "disable"): Promi
   }
   if (!res.ok) {
     const err = (body as { error?: string })?.error ?? `HTTP ${res.status}`;
-    return c.red(`${action} ${id} failed: ${err}`);
+    return failResult(c.red(t("mod.toggleFailed", { action, id, err })));
   }
   const ok = (body as { success?: boolean })?.success !== false;
-  return ok ? c.green(`${action}d ${id}`) : c.red(`${action} ${id} returned: ${text}`);
+  return ok
+    ? okResult(c.green(`${action}d ${id}`))
+    : failResult(c.red(`${action} ${id} returned: ${text}`));
 }
 
-export async function cmdModuleEnable(args: string[]): Promise<string> {
+export async function cmdModuleEnable(args: string[]): Promise<CliResult> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module|mod enable <id>");
+  if (!id) return failResult(c.yellow(t("mod.enable.usage")));
   return postModuleToggle(id, "enable");
 }
 
-export async function cmdModuleDisable(args: string[]): Promise<string> {
+export async function cmdModuleDisable(args: string[]): Promise<CliResult> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module|mod disable <id>");
+  if (!id) return failResult(c.yellow(t("mod.disable.usage")));
   return postModuleToggle(id, "disable");
 }
 
@@ -395,7 +405,7 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     positional.push(args[i]!);
   }
   if (positional.length === 0) {
-    return c.yellow("Usage: sfmc module|mod install <id> [id2 ...] [--from <source>] [--link]");
+    return c.yellow(t("mod.install.usage"));
   }
 
   /* --link 无 --from 时：自动探测旁路 sfmc-modules（与 mod link 一致） */
@@ -403,10 +413,7 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     const { resolveSfmcModulesRoot, packageDirForId } = await import("./sfmc-modules-root.js");
     const modulesRoot = resolveSfmcModulesRoot();
     if (!modulesRoot) {
-      return c.red(
-        `--link 需要 --from dir:<path>，或设置 SFMC_MODULES_ROOT / 旁路 ../sfmc-modules。\n` +
-          `示例: sfmc mod install land --from dir:../sfmc-modules/packages/land --link`
-      );
+      return c.red(t("mod.linkNeedsFrom"));
     }
     flags.from =
       positional.length === 1
@@ -416,7 +423,7 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
 
   const fetchScript = resolveFetchModule();
   if (!fetchScript) {
-    return c.red(`fetch-module not found. Install @sfmc-bds/sfmc or run inside the monorepo.`);
+    return c.red(t("mod.fetchMissing"));
   }
   const sub = ["install", ...positional];
   if (flags.from) sub.push("--from", flags.from);
@@ -475,14 +482,14 @@ export async function cmdModuleLink(args: string[]): Promise<string> {
  * ──────────────────────────────────────────────────────────────── */
 export async function cmdModuleUninstall(args: string[]): Promise<string> {
   const id = args[0];
-  if (!id) return c.yellow("Usage: sfmc module|mod uninstall <id>");
+  if (!id) return c.yellow(t("mod.uninstall.usage"));
   const fetchScript = resolveFetchModule();
   if (!fetchScript) {
     // 回退:仅删目录(旧行为)
     const target = path.join(modulesDir(), id);
-    if (!existsSync(target)) return c.yellow(`Module ${id} not installed (no folder at ${target})`);
+    if (!existsSync(target)) return c.yellow(t("mod.notInstalledFolder", { id, path: target }));
     await fs.rm(target, { recursive: true, force: true });
-    return c.green(`Removed ${id} from ${target}\n`);
+    return c.green(t("mod.removed", { id, path: target }));
   }
   return new Promise<string>((resolve) => {
     const proc = spawn(process.execPath, [fetchScript, "uninstall", id], {
@@ -546,12 +553,12 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "info":
       return cmdModuleInfo(args);
     case "enable":
-      return cmdModuleEnable(args);
+      return (await cmdModuleEnable(args)).message;
     case "disable":
-      return cmdModuleDisable(args);
+      return (await cmdModuleDisable(args)).message;
     case "build": {
       const { cmdPackBuild } = await import("./pack-lifecycle.js");
-      return cmdPackBuild(args);
+      return (await cmdPackBuild(args)).message;
     }
     case "create": {
       const { runModuleCreateWizard } = await import("./module-wizard.js");
@@ -564,7 +571,7 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
       return runModuleDevWizard();
     }
     default:
-      return c.yellow(MODULE_USAGE);
+      return c.yellow(moduleUsage());
   }
 }
 

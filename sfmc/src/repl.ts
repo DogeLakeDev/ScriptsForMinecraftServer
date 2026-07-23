@@ -1,24 +1,45 @@
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
-import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { behaviorPackUsage, cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
 import { cmdReload } from "./commands-reload.js";
-import { formatLog, getAllLogs, getRecentLogs, onLog, SOURCE_META, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
+import {
+  cmdLogs,
+  cmdRestart,
+  cmdSend,
+  cmdStart,
+  cmdStartAll,
+  cmdStatus,
+  cmdStop,
+  cmdStopAll,
+  cmdUpdate,
+} from "./commands.js";
+import {
+  formatLog,
+  getAllLogs,
+  getRecentLogs,
+  onLog,
+  SOURCE_META,
+  wrapLogLine,
+  type LogLevel,
+  type LogSource,
+  type UnifiedLog,
+} from "./logs.js";
 import {
   dispatchModuleCommand,
   isModuleCommand,
   listInstalledModuleIdsSync,
   MODULE_CMD_NAMES,
   MODULE_SUBCOMMANDS,
-  paintModuleCmdAlias,
 } from "./module-commands.js";
 import { dispatchPackCommand, isPackCommand, PACK_SUBCOMMANDS } from "./pack-lifecycle.js";
-import { dispatchPacksCommand, isPacksCommand, PACKS_SUBCOMMANDS } from "./world-packs.js";
-import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
+import { cmdLocale } from "./locale-command.js";
+import { t } from "./i18n/index.js";
 import { listSfmcModulePackages, resolveSfmcModulesRoot } from "./sfmc-modules-root.js";
 import { c } from "./theme.js";
+import { dispatchPacksCommand, isPacksCommand, PACKS_SUBCOMMANDS } from "./world-packs.js";
 
 function setRaw(v: boolean): void {
   try {
@@ -27,7 +48,7 @@ function setRaw(v: boolean): void {
 }
 
 /** HELP 行首:染色后的 module 别名拼接(权威来源 paintModuleCmdAlias / MODULE_CMD_NAMES)。 */
-const MODULE_HELP_LABEL = paintModuleCmdAlias(c.green);
+//const MODULE_HELP_LABEL = paintModuleCmdAlias(c.green);
 
 const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
@@ -43,62 +64,83 @@ const version = `\n
   ${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
 `;
 
-export const HELP = `
-${c.bold("Commands")}
-  ${c.green("status")}                    Show all services status
-  ${c.green("logs")} <svc> [-n N] [-f]    View / follow service logs
-  ${c.green("start")} <svc>|-all          Start (or all)
-  ${c.green("stop")} <svc>|-all           Stop (or all)
-  ${c.green("restart")} <svc>|-all        Restart (or all)
-  ${c.green("send")} <svc> <msg>          Send command to a service's stdin
-  ${c.green("init")}                      Setup wizard
-  ${c.green("update")} [--check-only] [--channel=release|preview]
-                          Check/apply BDS update
-  ${c.green("remote status")}             Show remote-agent enrollment status
-  ${c.green("remote enroll")} <url> <token> [name]
-                          Enroll this supervisor with a controller
-  ${c.green("remote disable")}            Disable + disconnect remote agent
-  ${MODULE_HELP_LABEL} list
-                          List installed modules
-  ${MODULE_HELP_LABEL} search [id]
-                          Fetch registry list / show one module's registry info
-  ${MODULE_HELP_LABEL} install <id> [--from <source>] [--link]
-                          Fetch + install a module ( --link = junction/symlink )
-  ${MODULE_HELP_LABEL} uninstall <id>
-                          Remove an installed module
-  ${MODULE_HELP_LABEL} verify [id]
-                          Verify installed modules (SHA-256)
-  ${MODULE_HELP_LABEL} info <id>
-                          Show one installed module's details
-  ${MODULE_HELP_LABEL} enable|disable <id>
-                          Toggle module (needs db-server)
-  ${MODULE_HELP_LABEL} create
-                          Interactive scaffold in sfmc-modules (link optional)
-  ${MODULE_HELP_LABEL} link [id]
-                          Link local sfmc-modules package (--link install)
-  ${MODULE_HELP_LABEL} dev
-                          Link + enable + build + deploy for local dev
-  ${MODULE_HELP_LABEL} build
-                          Build BP+RP from enabled modules
-  ${c.green("reload")} [--build-only]     Build + deploy BP; send "reload" to BDS (unless --build-only)
-  ${c.green("pack")} status|build|deploy|list
-                          Pack install status / build / deploy
-  ${c.green("pack")} enable|disable [behavior|resource]
-                          Toggle world pack enable lists
-  ${c.green("packs")}/${c.green("addon")} list|search|enable|disable|bump|install|scan|doctor|path
-                          World BP/RP inbox manager (not module aggregate)
-  ${c.green("bp")}/${c.green("behavior-pack")} build|deploy
-                          Alias of pack build/deploy
-  ${c.green("version")}                   Show version
-  ${c.green("help")}                      Show this
-  ${c.green("quit")} / ${c.green("exit")} Exit
+/** 按当前语言生成帮助（勿缓存为常量，locale 可切换）。 */
+export function getHelp(): string {
+  return `
+${c.bold("╭──────────────────────────────────────────────────────────╮")}
+${c.bold("│")}  ${c.green(t("help.title"))}${" ".repeat(Math.max(1, 52 - t("help.title").length))}${c.bold("│")}
+${c.bold("╰──────────────────────────────────────────────────────────╯")}
 
-${c.dim("Shortcuts:")}
-  ${c.dim("Tab")}      Complete (cycle on repeat)
-  ${c.dim("→")}        Accept gray suggestion
-  ${c.dim("Ctrl+L")}   Filter log level / source / history
-  ${c.dim("↑↓")}       History
+${c.bold(t("help.section.service"))}
+  ${c.green("status")}                    ${t("help.status")}
+  ${c.green("logs")} <svc> [-n N] [-f]    ${t("help.logs")}
+  ${c.green("start")}  <svc>|-all         ${t("help.start")}
+  ${c.green("stop")}   <svc>|-all         ${t("help.stop")}
+  ${c.green("restart")}<svc>|-all         ${t("help.restart")}
+  ${c.green("send")}   <svc> <msg>        ${t("help.send")}
+
+${c.bold(t("help.section.update"))}
+  ${c.green("update")} [--check-only] [--channel=release|preview]
+                                   ${t("help.update")}
+
+${c.bold(t("help.section.remote"))}  ${c.dim("[beta]")}
+  ${c.green("remote")} status            ${t("help.remote.status")}
+  ${c.green("remote")} enroll <url> <token> [name]
+                                   ${t("help.remote.enroll")}
+  ${c.green("remote")} disable           ${t("help.remote.disable")}
+
+${c.bold(t("help.section.module"))}
+  ${c.green("module")} list              ${t("help.module.list")}
+  ${c.green("module")} search [id]       ${t("help.module.search")}
+  ${c.green("module")} install <id> [--from <source>] [--link]
+                                   ${t("help.module.install")}
+  ${c.green("module")} uninstall <id>    ${t("help.module.uninstall")}
+  ${c.green("module")} verify [id]       ${t("help.module.verify")}
+  ${c.green("module")} info <id>         ${t("help.module.info")}
+  ${c.green("module")} enable|disable <id>
+                                   ${t("help.module.toggle")}
+  ${c.green("module")} create            ${t("help.module.create")}
+  ${c.green("module")} link [id]         ${t("help.module.link")}
+  ${c.green("module")} dev               ${t("help.module.dev")}
+  ${c.green("module")} build             ${t("help.module.build")}
+
+${c.bold(t("help.section.pack"))}
+  ${c.green("reload")} [--build-only]    ${t("help.reload")}
+  ${c.green("pack")} status|build|deploy|list
+                                   ${t("help.pack.status")}
+  ${c.green("pack")} enable|disable [behavior|resource]
+                                   ${t("help.pack.toggle")}
+  ${c.green("bp")} build|deploy          ${t("help.bp")}
+
+${c.bold(t("help.section.addon"))}
+  ${c.green("addon")} list|search|enable|disable|bump|install|scan|doctor|path
+                                   ${t("help.addon")}
+
+${c.bold(t("help.section.general"))}
+  ${c.green("init")}                     ${t("help.init")}
+  ${c.green("locale")} [zh|en]           ${t("help.locale")}
+  ${c.green("version")}                  ${t("help.version")}
+  ${c.green("help")}                     ${t("help.help")}
+  ${c.green("quit")} / ${c.green("exit")}  ${t("help.quit")}
+
+${c.dim("────────────────────────────────────────────────────────────")}
+${c.dim(t("help.shortcuts"))}
+  ${c.dim("Tab")}       ${t("help.shortcut.tab")}
+  ${c.dim("→")}         ${t("help.shortcut.right")}
+  ${c.dim("Ctrl+L")}    ${t("help.shortcut.ctrll")}
+  ${c.dim("↑↓")}        ${t("help.shortcut.history")}
 `;
+}
+
+/** @deprecated 请用 getHelp()；保留别名以兼容旧导入。 */
+export const HELP = {
+  toString() {
+    return getHelp();
+  },
+  valueOf() {
+    return getHelp();
+  },
+} as unknown as string;
 
 const COMMANDS = [
   "status",
@@ -108,6 +150,8 @@ const COMMANDS = [
   "restart",
   "send",
   "init",
+  "locale",
+  "lang",
   "update",
   "remote",
   ...MODULE_CMD_NAMES,
@@ -214,10 +258,7 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 1 && verb === "search") {
         return listRegistryModuleIdsSync().filter(sw);
       }
-      if (
-        argIndex === 1 &&
-        ["info", "uninstall", "remove", "verify", "enable", "disable"].includes(verb)
-      ) {
+      if (argIndex === 1 && ["info", "uninstall", "remove", "verify", "enable", "disable"].includes(verb)) {
         return listInstalledModuleIdsSync().filter(sw);
       }
       if (argIndex === 1 && verb === "link") {
@@ -544,18 +585,20 @@ export const SOURCE_ITEMS: SelectItem[] = SOURCE_META.map((m) => ({
  * 历史回放档位 — 复用 createMemoryBuffer(5000) 内存落盘。
  * value 约定: none | all | count:N | time:MS
  */
-const HISTORY_ITEMS: SelectItem[] = [
-  { label: "live only (no replay)", value: "none" },
-  { label: "last 50", value: "count:50" },
-  { label: "last 100", value: "count:100" },
-  { label: "last 500", value: "count:500" },
-  { label: "last 1000", value: "count:1000" },
-  { label: "last 1 min", value: "time:60000" },
-  { label: "last 5 min", value: "time:300000" },
-  { label: "last 15 min", value: "time:900000" },
-  { label: "last 1 hour", value: "time:3600000" },
-  { label: "all buffered", value: "all" },
-];
+function historyItems(): SelectItem[] {
+  return [
+    { label: t("repl.history.live"), value: "none" },
+    { label: t("repl.history.last50"), value: "count:50" },
+    { label: t("repl.history.last100"), value: "count:100" },
+    { label: t("repl.history.last500"), value: "count:500" },
+    { label: t("repl.history.last1000"), value: "count:1000" },
+    { label: t("repl.history.last1min"), value: "time:60000" },
+    { label: t("repl.history.last5min"), value: "time:300000" },
+    { label: t("repl.history.last15min"), value: "time:900000" },
+    { label: t("repl.history.last1hour"), value: "time:3600000" },
+    { label: t("repl.history.all"), value: "all" },
+  ];
+}
 
 /** 按当前过滤条件从内存缓冲取历史日志 */
 function queryHistory(filter: LogFilter, window: string): UnifiedLog[] {
@@ -602,19 +645,19 @@ export async function startRepl(): Promise<void> {
   const shutdown = async (): Promise<void> => {
     if (stopping) return;
     stopping = true;
-    stdout.write(c.dim("stopping services...\n"));
+    stdout.write(c.dim(t("repl.stopping") + "\n"));
     await stopAll();
-    stdout.write(c.dim("bye\n"));
+    stdout.write(c.dim(t("repl.bye") + "\n"));
   };
   const onSigint = (): void => {
-    stdout.write(c.yellow("\nforce stopping services...\n"));
+    stdout.write(c.yellow("\n" + t("repl.forceStop") + "\n"));
     forceStopAll();
     process.exit(130);
   };
   process.on("SIGINT", onSigint);
 
   if (!stdin.isTTY) {
-    console.log(c.dim(" Non-interactive mode (pipe detected)\n"));
+    console.log(c.dim(t("repl.nonInteractive")));
     for await (const line of (await import("node:readline/promises")).createInterface({
       input: stdin,
       output: stdout,
@@ -676,25 +719,28 @@ export async function startRepl(): Promise<void> {
     /* Ctrl+L — filter level / source / history window */
     if (raw.startsWith("__CTRLL__")) {
       stdout.write(c.dim(`\nLEVEL──────────SOURCE──────────HISTORY\n`));
-      const lvl = await simpleSelect([{ label: "ALL", value: "" }, ...LEVEL_ITEMS]);
+      const histChoices = historyItems();
+      const lvl = await simpleSelect([{ label: t("common.all"), value: "" }, ...LEVEL_ITEMS]);
       if (lvl === null) continue;
-      const src = await simpleSelect([{ label: "ALL", value: "" }, ...SOURCE_ITEMS]);
+      const src = await simpleSelect([{ label: t("common.all"), value: "" }, ...SOURCE_ITEMS]);
       if (src === null) continue;
-      const hist = await simpleSelect(HISTORY_ITEMS);
+      const hist = await simpleSelect(histChoices);
       if (hist === null) continue;
 
       filter = { levels: lvl ? [lvl as LogLevel] : [], sources: src ? [src as LogSource] : [] };
 
       const replay = queryHistory(filter, hist);
       if (replay.length > 0) {
-        stdout.write(c.dim(`── history ${replay.length} line(s) ──\n`));
+        stdout.write(c.dim(t("repl.historyHeader", { count: replay.length }) + "\n"));
         for (const log of replay) {
           stdout.write(`${wrapLogLine(formatLog(log), 26)}\n`);
         }
       }
 
-      const histLabel = HISTORY_ITEMS.find((i) => i.value === hist)?.label ?? hist;
-      stdout.write(c.dim(`filter: ${lvl || "*"} / ${src || "*"} / ${histLabel}\n`));
+      const histLabel = histChoices.find((i) => i.value === hist)?.label ?? hist;
+      stdout.write(
+        c.dim(t("repl.filter", { level: lvl || "*", source: src || "*", history: histLabel }) + "\n")
+      );
       continue;
     }
 
@@ -705,7 +751,7 @@ export async function startRepl(): Promise<void> {
       await execCmd(trimmed.split(/\s+/));
     } catch (e) {
       if (e === "QUIT") break;
-      console.log(c.red(`Error: ${(e as Error).message}`));
+      console.log(c.red(t("common.error", { message: (e as Error).message })));
     }
   }
 
@@ -722,10 +768,14 @@ async function execCmd(parts: string[]): Promise<void> {
     case "help":
     case "h":
     case "?":
-      stdout.write(HELP);
+      stdout.write(getHelp());
       break;
     case "version":
       stdout.write(`${version}\n`);
+      break;
+    case "locale":
+    case "lang":
+      stdout.write(cmdLocale(args) + "\n");
       break;
     case "status":
       stdout.write(cmdStatus() + "\n");
@@ -734,7 +784,7 @@ async function execCmd(parts: string[]): Promise<void> {
     case "log": {
       const out = cmdLogs(args, () => {
         if (!stdin.isTTY) {
-          stdout.write(c.yellow("follow mode requires TTY\n"));
+          stdout.write(c.yellow(t("repl.followRequiresTty") + "\n"));
           return;
         }
       });
@@ -744,19 +794,19 @@ async function execCmd(parts: string[]): Promise<void> {
     case "start":
       if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") stdout.write((await cmdStartAll()) + "\n");
       else if (args[0]) stdout.write((await cmdStart(args[0])) + "\n");
-      else stdout.write(c.yellow("Usage: start <service>|-all\n"));
+      else stdout.write(c.yellow(t("svc.start.usageShort") + "\n"));
       break;
     case "stop":
       if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") stdout.write((await cmdStopAll()) + "\n");
       else if (args[0]) stdout.write((await cmdStop(args[0])) + "\n");
-      else stdout.write(c.yellow("Usage: stop <service>|-all\n"));
+      else stdout.write(c.yellow(t("svc.stop.usageShort") + "\n"));
       break;
     case "restart":
       if (args[0] === "-all" || args[0] === "all" || args[0] === "--all") {
         await cmdStopAll();
         stdout.write((await cmdStartAll()) + "\n");
       } else if (args[0]) stdout.write((await cmdRestart(args[0])) + "\n");
-      else stdout.write(c.yellow("Usage: restart <service>|-all\n"));
+      else stdout.write(c.yellow(t("svc.restart.usageShort") + "\n"));
       break;
     case "send": {
       const svc = args[0] ?? "";
@@ -781,13 +831,14 @@ async function execCmd(parts: string[]): Promise<void> {
         stdout.write(JSON.stringify(remoteStatus(), null, 2) + "\n");
       } else if (subcommand === "enroll" && controllerUrl && enrollmentToken) {
         const agentName = name ?? process.env.COMPUTERNAME ?? "sfmc-agent";
-        stdout.write(`Enrolled remote agent: ${await enrollRemoteAgent(controllerUrl, enrollmentToken, agentName)}\n`);
+        const id = await enrollRemoteAgent(controllerUrl, enrollmentToken, agentName);
+        stdout.write(t("remote.enrolled", { id }) + "\n");
         startRemoteAgent();
       } else if (subcommand === "disable") {
         disableRemoteAgent();
-        stdout.write(c.dim("Remote agent disabled\n"));
+        stdout.write(c.dim(t("remote.disabled") + "\n"));
       } else {
-        stdout.write("Usage: remote enroll <controller-url> <enrollment-token> [name] | remote status | remote disable\n");
+        stdout.write(t("remote.usageShort") + "\n");
       }
       break;
     }
@@ -813,11 +864,11 @@ async function execCmd(parts: string[]): Promise<void> {
       }
       if (cmd === "bp" || cmd === "behavior-pack") {
         const [sub, ...subRest] = args;
-        if (sub === "build") stdout.write((await cmdBehaviorPackBuild(subRest)) + "\n");
-        else if (sub === "deploy") stdout.write((await cmdBehaviorPackDeploy(subRest)) + "\n");
+        if (sub === "build") stdout.write((await cmdBehaviorPackBuild(subRest)).message + "\n");
+        else if (sub === "deploy") stdout.write((await cmdBehaviorPackDeploy(subRest)).message + "\n");
         else stdout.write(behaviorPackUsage() + "\n");
         break;
       }
-      stdout.write(c.yellow(`Unknown: ${cmd}  (try: help)\n`));
+      stdout.write(c.yellow(t("common.unknownShort", { cmd: cmd ?? "" }) + "\n"));
   }
 }

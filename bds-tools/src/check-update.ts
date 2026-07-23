@@ -195,6 +195,7 @@ export async function runUpdate(): Promise<number> {
       }
       console.log(`CURRENT=${currentVer}`);
       console.log(`LATEST=${latestVer}`);
+      console.log("SFMC_UPDATE_RESULT=uptodate");
       return 0;
     }
   } catch (e) {
@@ -209,6 +210,7 @@ export async function runUpdate(): Promise<number> {
     if (qqNotify) {
       await sendText(`⚠️ BDS ${latestVer} 不在兼容性白名单，已跳过升级。请人工确认。`);
     }
+    console.log("SFMC_UPDATE_RESULT=skipped");
     return 2;
   }
 
@@ -230,6 +232,7 @@ export async function runUpdate(): Promise<number> {
     console.log(`LATEST=${latestVer}`);
     console.log(`CHANNEL=${channel}`);
     console.log(`URLS=${downloadUrls.length}`);
+    console.log("SFMC_UPDATE_RESULT=check-only");
     return 0;
   }
 
@@ -482,6 +485,8 @@ export async function runUpdate(): Promise<number> {
     );
   }
   log.info(`===== 更新完成 (${(durationMs / 1000).toFixed(1)}s) =====`);
+  /* 机器可读结果标记：供 sfmc 等监督器判断「真正完成部署」，勿依赖本地化日志文案。 */
+  console.log("SFMC_UPDATE_RESULT=deployed");
   return 0;
 }
 
