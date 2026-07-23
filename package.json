@@ -50,7 +50,7 @@
     "check-ootb": "node tools/check-ootb.mjs",
     "check-minecraft-versions": "node tools/check-minecraft-versions.mjs",
     "smoke-modules": "node tools/smoke-modules.mjs",
-    "lint": "eslint .",
+    "lint": "npm run eslint-plugin:build && eslint .",
     "bundle": "node build-sea.mjs",
     "sea": "node --build-sea sea-config.json"
   },

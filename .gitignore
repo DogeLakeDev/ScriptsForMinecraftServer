@@ -5,6 +5,8 @@ qq-bridge/dist/
 sfmc/dist/
 modules/sdk/@sfmc-sdk/dist/
 modules/sdk/@sfmc-sdk/node_modules/
+modules/sdk/@sfmc-eslint-plugin/dist/
+modules/sdk/@sfmc-eslint-plugin/node_modules/
 shared/**/dist/
 shared/**/node_modules/
 

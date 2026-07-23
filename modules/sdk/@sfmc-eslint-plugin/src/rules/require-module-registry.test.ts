@@ -1,22 +1,7 @@
-import { RuleTester } from "@typescript-eslint/rule-tester";
-import test from "node:test";
 import { requireModuleRegistry } from "./require-module-registry.js";
+import { createRuleTester } from "../utils/rule-tester.js";
 
-RuleTester.afterAll = () => {};
-RuleTester.describe = test;
-RuleTester.it = test;
-RuleTester.itOnly = test.only;
-
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parserOptions: {
-      ecmaVersion: 2022,
-      sourceType: "module",
-    },
-  },
-});
-
-ruleTester.run("require-module-registry", requireModuleRegistry, {
+createRuleTester().run("require-module-registry", requireModuleRegistry, {
   valid: [
     {
       filename: "/repo/packages/afk/sapi/src/index.ts",
