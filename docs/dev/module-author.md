@@ -181,7 +181,17 @@ npm run check-minecraft-versions
 | `@sfmc-bds/no-player-send-message` | warn | 用 `Msg.*`，勿 `sendMessage` |
 | `@sfmc-bds/no-sfmc-sdk-alias` | error | 用 `@sfmc-bds/sdk`，勿 `@sfmc/sdk` |
 | `@sfmc-bds/no-sdk-deep-import` | error | 勿相对路径深挖 SDK 源码 |
+| `@sfmc-bds/no-sdk-private-export` | error | 仅允许 SDK 公开 `exports` 子路径 |
 | `@sfmc-bds/require-module-registry` | warn | `sapi/src/index.ts` 须 `ModuleRegistry.register` |
+| `@sfmc-bds/no-db-toplevel-in-tx` | error | `db.tx` 内用 `tx.*` / `tx.call`，勿顶层 `db.*` / `service.get` |
+| `@sfmc-bds/require-command-permission` | warn | `Command.register` 字符串权限须同包 `Permission.register` |
+| `@sfmc-bds/no-httpdb-legacy` | warn | 勿用 `HttpDB`；改用 `db` / `service` / `config` |
+| `@sfmc-bds/require-service-requires` | warn | `service.get` / `tx.call` 须声明 `services.requires` |
+| `@sfmc-bds/valid-config-key` | warn | `config.get/set` 字段对照默认配置 |
+| `@sfmc-bds/require-await-sdk-promise` | warn | SDK 异步 API 须 `await` |
+| `@sfmc-bds/no-economy-private-tables` | error | 勿读写 `sfmc_economy_*`；用 economy client |
+| `@sfmc-bds/no-platform-internal-import` | error | 勿 import 平台内部（db-server / sfmc / …） |
+| `@sfmc-bds/no-cross-module-source-import` | error | 勿深挖其它模块源码；用公开 client |
 
 ```bash
 # 主仓：SDK 源码（Msg 实现处已关闭 no-player-send-message）
