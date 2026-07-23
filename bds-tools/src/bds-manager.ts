@@ -275,6 +275,8 @@ bdsEvents_enabled();
 
 /** 判断当前是否作为 CLI 主入口运行（被 check-update 等 import 时为 false） */
 function isMain(): boolean {
+  // sfmc supervisor 通过 SFMC_SERVICE 拉起子进程时优先判定（与 check-update 对称）
+  if (process.env.SFMC_SERVICE === "manager") return true;
   return isMainModule(import.meta.url);
 }
 
