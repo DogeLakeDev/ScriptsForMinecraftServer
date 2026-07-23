@@ -42,7 +42,7 @@
     "dev": "tsx src/bds-manager.ts",
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs server-properties.test.mjs world-packs.test.mjs",
+    "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs server-properties.test.mjs world-packs.test.mjs zipx.test.mjs",
     "update": "node dist/check-update.js",
     "update:check": "node dist/check-update.js --check-only",
     "update:force": "node dist/check-update.js --force",

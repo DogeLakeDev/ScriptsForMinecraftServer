@@ -16,6 +16,7 @@ import {
   installPackDirectory,
   isPackArchive,
   listInstalledWorldPacks,
+  listWorldEnableEntries,
   readPackManifestInfo,
   worldPackParentDir,
   type InstalledWorldPack,
@@ -430,24 +431,11 @@ function hasFlag(args: string[], name: string): boolean {
 async function cmdDoctor(): Promise<string> {
   const { bdsRoot, levelName } = resolveBdsContext();
   const packs = listInstalledWorldPacks(bdsRoot, levelName);
-  const worldsDir = path.join(bdsRoot, "worlds");
   const issues: string[] = [];
 
   for (const kind of ["behavior", "resource"] as const) {
-    const listFile = path.join(
-      worldsDir,
-      levelName,
-      kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
-    );
-    let entries: Array<{ pack_id: string; version: number[] }> = [];
-    if (fs.existsSync(listFile)) {
-      try {
-        entries = JSON.parse(fs.readFileSync(listFile, "utf8")) as typeof entries;
-      } catch {
-        issues.push(`${listFile} 无法解析`);
-        continue;
-      }
-    }
+    // 经 listWorldEnableEntries → pack-manager.readWorldPackList（DRY/Demeter，不硬编码 JSON 文件名）
+    const entries = listWorldEnableEntries(bdsRoot, levelName, kind);
     const byUuid = new Map(packs.filter((p) => p.kind === kind).map((p) => [p.uuid, p]));
     for (const e of entries) {
       const p = byUuid.get(e.pack_id);

@@ -165,8 +165,7 @@ export function resolveNewModule(): string | null {
 
 /**
  * 解析 `@sfmc-bds/sdk` 包根目录（含 package.json）。
- * 优先级: SFMC_SDK_ROOT > createRequire(已知 export) > monorepo modules/sdk/@sfmc-sdk。
- * 注意: SDK package.json 的 exports 未暴露 ./package.json，不能 req.resolve('…/package.json')。
+ * 优先级: SFMC_SDK_ROOT > createRequire(@sfmc-bds/sdk/package.json) > 公开 export 向上找 > monorepo。
  */
 export function resolveSdkPackageRoot(): string {
   const fromEnv = process.env.SFMC_SDK_ROOT;
@@ -176,6 +175,13 @@ export function resolveSdkPackageRoot(): string {
 
   function findSdkRootFromRequire(req: NodeRequire): string | null {
     try {
+      // SDK 已暴露 ./package.json export；优先直解
+      try {
+        const pkgJson = req.resolve("@sfmc-bds/sdk/package.json");
+        return path.dirname(pkgJson);
+      } catch {
+        /* 旧包未暴露时回退 */
+      }
       // 任一公开 export 即可；再向上找含 name=@sfmc-bds/sdk 的 package.json
       const hit = req.resolve("@sfmc-bds/sdk/sapi/runtime");
       let dir = path.dirname(hit);

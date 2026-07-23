@@ -68,6 +68,7 @@ function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
     },
   };
 }
+
 export function buildRoot(): string {
   return path.join(ROOT, "build");
 }
