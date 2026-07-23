@@ -31,7 +31,7 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "build": "node ../scripts/esbuild-transpile.mjs --dts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node ../tools/tsc7.mjs --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "npm run build && node --test dist/*.test.js",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",

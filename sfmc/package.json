@@ -44,7 +44,7 @@
   "scripts": {
     "start": "node ./dist/main.js",
     "build": "node ../scripts/esbuild-transpile.mjs --dts",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "node ../tools/tsc7.mjs --noEmit -p tsconfig.json",
     "dev": "tsx src/main.ts",
     "prepublishOnly": "npm run build"
   },
