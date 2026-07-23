@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { t } from "./i18n/index.js";
 import { cmdModuleEnable } from "./module-commands.js";
 import { pickDirectory, resolveUserPath } from "./interactive-prompts.js";
 import { ROOT, resolveFetchModule, resolveNewModule } from "./runtime.js";
@@ -25,7 +26,7 @@ function isInteractive(): boolean {
 }
 
 function cancelMessage(): string {
-  return c.dim("已取消");
+  return c.dim(t("common.cancelled"));
 }
 
 /** 子进程执行工具脚本；用参数数组避免 Windows 含 # 路径被 shell 误解析。 */
@@ -50,15 +51,15 @@ function spawnTool(script: string, args: string[]): Promise<{ code: number | nul
 async function ensureSfmcModulesRoot(): Promise<string | null> {
   let modulesRoot = resolveSfmcModulesRoot();
   if (modulesRoot) {
-    note(c.text(`sfmc-modules: ${modulesRoot}`), "路径");
+    note(c.text(t("modwiz.sfmcModulesPath", { path: modulesRoot })), t("common.path"));
     return modulesRoot;
   }
 
   const defaultGuess = path.resolve(ROOT, "..", "sfmc-modules");
-  const picked = await pickDirectory("sfmc-modules 根目录（含 packages/ 与 index.json）", defaultGuess);
+  const picked = await pickDirectory(t("modwiz.pickModulesRoot"), defaultGuess);
   modulesRoot = resolveUserPath(picked, ROOT);
   if (!existsSync(path.join(modulesRoot, "packages"))) {
-    outro(c.red(`未找到 packages/ 子目录: ${modulesRoot}`));
+    outro(c.red(t("modwiz.noPackages", { path: modulesRoot })));
     return null;
   }
   persistSfmcModulesRoot(modulesRoot);
@@ -68,7 +69,7 @@ async function ensureSfmcModulesRoot(): Promise<string | null> {
 async function runFetchModuleLink(folderId: string, pkgPath: string): Promise<{ ok: boolean; output: string }> {
   const fetchScript = resolveFetchModule();
   if (!fetchScript) {
-    return { ok: false, output: c.red("未找到 fetch-module.mjs") };
+    return { ok: false, output: c.red(t("modwiz.noFetch")) };
   }
   const fromArg = `dir:${path.resolve(pkgPath)}`;
   const { code, output } = await spawnTool(fetchScript, ["install", folderId, "--from", fromArg, "--link"]);
@@ -76,14 +77,14 @@ async function runFetchModuleLink(folderId: string, pkgPath: string): Promise<{ 
 }
 
 async function maybeEnableModule(folderId: string): Promise<string | undefined> {
-  const enable = await confirm({ message: "启用该模块？（写入 module-lock.json，需 db-server）", initialValue: true });
+  const enable = await confirm({ message: t("modwiz.enableModule"), initialValue: true });
   if (isCancel(enable) || !enable) return undefined;
-  return cmdModuleEnable([folderId]);
+  return (await cmdModuleEnable([folderId])).message;
 }
 
 async function maybeBuildDeploy(): Promise<void> {
   const buildDeploy = await confirm({
-    message: "构建并部署行为包？（完成后可用 `sfmc reload` 或在 BDS/游戏内输入 reload）",
+    message: t("modwiz.buildDeploy"),
     initialValue: true,
   });
   if (isCancel(buildDeploy) || !buildDeploy) return;
@@ -91,29 +92,29 @@ async function maybeBuildDeploy(): Promise<void> {
   const { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } = await import("./commands-behavior-pack.js");
   await tasks([
     {
-      title: "构建行为包",
+      title: t("modwiz.task.build"),
       task: async () => {
-        const out = await cmdBehaviorPackBuild([]);
-        if (out.includes("失败") || out.startsWith("\x1b[31m")) throw new Error(out.trim());
-        return "完成";
+        const r = await cmdBehaviorPackBuild([]);
+        if (!r.ok) throw new Error(r.message.trim());
+        return t("common.done");
       },
     },
     {
-      title: "部署行为包",
+      title: t("modwiz.task.deploy"),
       task: async () => {
-        const out = await cmdBehaviorPackDeploy([]);
-        if (out.includes("失败") || out.startsWith("\x1b[31m")) throw new Error(out.trim());
-        return "完成";
+        const r = await cmdBehaviorPackDeploy([]);
+        if (!r.ok) throw new Error(r.message.trim());
+        return t("common.done");
       },
     },
   ]);
-  note(c.yellow("请用 `sfmc reload`（build+deploy 后向 BDS 发 reload）；也可手动在 BDS/游戏内输入 reload。"), "提示");
+  note(c.yellow(t("modwiz.reloadHint")), t("common.hint"));
 }
 
 function validateFolderId(value: string | undefined): string | undefined {
-  if (!value?.trim()) return "必填";
+  if (!value?.trim()) return t("common.required");
   if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(value.trim())) {
-    return "须为小写 kebab-case，例如 my-feature";
+    return t("modwiz.kebab");
   }
   return undefined;
 }
@@ -121,16 +122,16 @@ function validateFolderId(value: string | undefined): string | undefined {
 /** 交互式创建模块包并可选 link / enable / build+deploy。 */
 export async function runModuleCreateWizard(): Promise<string> {
   if (!isInteractive()) {
-    return c.yellow("请在交互终端运行: sfmc module create");
+    return c.yellow(t("modwiz.needTty.create"));
   }
 
-  intro(c.bold("模块脚手架"));
+  intro(c.bold(t("modwiz.createIntro")));
 
   const modulesRoot = await ensureSfmcModulesRoot();
   if (!modulesRoot) return cancelMessage();
 
   const idRaw = await text({
-    message: "模块文件夹名（install id）",
+    message: t("modwiz.folderId"),
     placeholder: "my-feature",
     validate: validateFolderId,
   });
@@ -142,14 +143,14 @@ export async function runModuleCreateWizard(): Promise<string> {
 
   const target = packageDirForId(modulesRoot, folderId);
   if (existsSync(target)) {
-    outro(c.red(`目录已存在: ${target}`));
-    return c.red(`目录已存在: ${target}`);
+    outro(c.red(t("modwiz.dirExists", { path: target })));
+    return c.red(t("modwiz.dirExists", { path: target }));
   }
 
   const nameRaw = await text({
-    message: "显示名称",
+    message: t("modwiz.displayName"),
     initialValue: folderId,
-    validate: (v) => (!v?.trim() ? "必填" : undefined),
+    validate: (v) => (!v?.trim() ? t("common.required") : undefined),
   });
   if (isCancel(nameRaw) || !nameRaw) {
     outro(cancelMessage());
@@ -157,10 +158,10 @@ export async function runModuleCreateWizard(): Promise<string> {
   }
 
   const template = await select({
-    message: "脚手架模板",
+    message: t("modwiz.template"),
     options: [
-      { value: "minimal", label: "最小模块", hint: "命令 + 权限占位" },
-      { value: "db", label: "含 DB 权限占位", hint: "manifest 预置 db:read/write" },
+      { value: "minimal", label: t("modwiz.tpl.minimal"), hint: t("modwiz.tpl.minimalHint") },
+      { value: "db", label: t("modwiz.tpl.db"), hint: t("modwiz.tpl.dbHint") },
     ],
   });
   if (isCancel(template)) {
@@ -173,15 +174,15 @@ export async function runModuleCreateWizard(): Promise<string> {
   const useSibling = existsSync(siblingNewModule) && template === "minimal";
   const newModuleScript = useSibling ? siblingNewModule : platformNewModule;
   if (!newModuleScript) {
-    outro(c.red("未找到 tools/new-module.mjs（旁路 sfmc-modules 或主仓 tools/）"));
-    return c.red("未找到 tools/new-module.mjs");
+    outro(c.red(t("modwiz.noNewModule")));
+    return c.red(t("modwiz.noNewModule"));
   }
 
   let scaffoldOutput = "";
   try {
     await tasks([
       {
-        title: `生成 packages/${folderId}`,
+        title: t("modwiz.genPackage", { id: folderId }),
         task: async () => {
           const spawnArgs = useSibling
             ? [folderId, nameRaw.trim()]
@@ -189,7 +190,7 @@ export async function runModuleCreateWizard(): Promise<string> {
           const { code, output } = await spawnTool(newModuleScript, spawnArgs);
           scaffoldOutput = output;
           if (code !== 0) throw new Error(output.trim() || `exit ${code}`);
-          return "骨架已写入 sfmc-modules";
+          return t("modwiz.skeletonWritten");
         },
       },
     ]);
@@ -198,45 +199,45 @@ export async function runModuleCreateWizard(): Promise<string> {
     return c.red((e as Error).message);
   }
 
-  note(scaffoldOutput.trim() || c.green(`已创建 ${target}`), "脚手架");
+  note(scaffoldOutput.trim() || c.green(t("modwiz.createdNote", { path: target })), t("modwiz.createIntro"));
 
   const doLink = await confirm({
-    message: "链接到主仓 modules/packages/？（--link，改源码即生效）",
+    message: t("modwiz.linkAsk"),
     initialValue: true,
   });
   if (!isCancel(doLink) && doLink) {
     const { ok, output } = await runFetchModuleLink(folderId, target);
-    note(output.trim(), ok ? "链接" : "链接失败");
+    note(output.trim(), ok ? t("modwiz.link") : t("modwiz.linkFailed"));
     if (ok) {
       const enableMsg = await maybeEnableModule(folderId);
-      if (enableMsg) note(enableMsg, "启用");
+      if (enableMsg) note(enableMsg, t("modwiz.enable"));
       await maybeBuildDeploy();
     }
   }
 
-  outro(c.green(`完成。源码: ${target}`));
-  return c.green(`模块 ${folderId} 已创建`);
+  outro(c.green(t("modwiz.createDone", { path: target })));
+  return c.green(t("modwiz.moduleCreated", { id: folderId }));
 }
 
 /** 从 sfmc-modules/packages 选择并 --link 安装。 */
 export async function runModuleLinkWizard(): Promise<string> {
   if (!isInteractive()) {
-    return c.yellow("请在交互终端运行: sfmc module link");
+    return c.yellow(t("modwiz.needTty.link"));
   }
 
-  intro(c.bold("链接本地模块"));
+  intro(c.bold(t("modwiz.linkIntro")));
 
   const modulesRoot = await ensureSfmcModulesRoot();
   if (!modulesRoot) return cancelMessage();
 
   const packages = listSfmcModulePackages(modulesRoot);
   if (packages.length === 0) {
-    outro(c.yellow(`${modulesRoot}/packages 下没有模块`));
-    return c.yellow("没有可链接的模块包");
+    outro(c.yellow(t("modwiz.noLinkable", { path: modulesRoot })));
+    return c.yellow(t("modwiz.noLinkableShort"));
   }
 
   const picked = await select({
-    message: "选择要链接的模块包",
+    message: t("modwiz.pickLink"),
     options: packages.map((p) => ({
       value: p.id,
       label: p.id,
@@ -253,12 +254,12 @@ export async function runModuleLinkWizard(): Promise<string> {
   try {
     await tasks([
       {
-        title: `链接 ${pkg.id}`,
+        title: t("modwiz.linking", { id: pkg.id }),
         task: async () => {
           const { ok, output } = await runFetchModuleLink(pkg.id, pkg.path);
           linkOutput = output;
-          if (!ok) throw new Error(output.trim() || "link failed");
-          return "catalog + lock 已同步";
+          if (!ok) throw new Error(output.trim() || t("modwiz.linkFailed"));
+          return t("modwiz.linkSynced");
         },
       },
     ]);
@@ -267,33 +268,33 @@ export async function runModuleLinkWizard(): Promise<string> {
     return c.red((e as Error).message);
   }
 
-  note(linkOutput.trim(), "链接");
+  note(linkOutput.trim(), t("modwiz.link"));
   const enableMsg = await maybeEnableModule(pkg.id);
-  if (enableMsg) note(enableMsg, "启用");
+  if (enableMsg) note(enableMsg, t("modwiz.enable"));
 
-  outro(c.green(`已链接 ${pkg.id}`));
-  return c.green(`已链接 ${pkg.id}`);
+  outro(c.green(t("modwiz.linked", { id: pkg.id })));
+  return c.green(t("modwiz.linked", { id: pkg.id }));
 }
 
 /** 链接 + 启用 + 构建部署（本地开发一键流）。 */
 export async function runModuleDevWizard(): Promise<string> {
   if (!isInteractive()) {
-    return c.yellow("请在交互终端运行: sfmc module dev");
+    return c.yellow(t("modwiz.needTty.dev"));
   }
 
-  intro(c.bold("本地模块开发"));
+  intro(c.bold(t("modwiz.devIntro")));
 
   const modulesRoot = await ensureSfmcModulesRoot();
   if (!modulesRoot) return cancelMessage();
 
   const packages = listSfmcModulePackages(modulesRoot);
   if (packages.length === 0) {
-    outro(c.yellow(`${modulesRoot}/packages 下没有模块`));
-    return c.yellow("没有可开发的模块包");
+    outro(c.yellow(t("modwiz.noDevPackages", { path: modulesRoot })));
+    return c.yellow(t("modwiz.noDevShort"));
   }
 
   const picked = await select({
-    message: "选择要联调的模块",
+    message: t("modwiz.pickDev"),
     options: packages.map((p) => ({
       value: p.id,
       label: p.id,
@@ -310,37 +311,37 @@ export async function runModuleDevWizard(): Promise<string> {
   try {
     await tasks([
       {
-        title: `链接 ${pkg.id}`,
+        title: t("modwiz.linking", { id: pkg.id }),
         task: async () => {
           const { ok, output } = await runFetchModuleLink(pkg.id, pkg.path);
-          if (!ok) throw new Error(output.trim() || "link failed");
+          if (!ok) throw new Error(output.trim() || t("modwiz.linkFailed"));
           return output.trim().split("\n").pop() ?? "linked";
         },
       },
       {
-        title: `启用 ${pkg.id}`,
+        title: t("modwiz.enabling", { id: pkg.id }),
         task: async () => {
-          const msg = await cmdModuleEnable([pkg.id]);
-          if (msg.startsWith("\x1b[31m") || msg.includes("failed")) throw new Error(msg.trim());
-          return msg.trim();
+          const r = await cmdModuleEnable([pkg.id]);
+          if (!r.ok) throw new Error(r.message.trim());
+          return r.message.trim();
         },
       },
       {
-        title: "构建行为包",
+        title: t("modwiz.task.build"),
         task: async () => {
           const { cmdBehaviorPackBuild } = await import("./commands-behavior-pack.js");
-          const out = await cmdBehaviorPackBuild([]);
-          if (out.includes("失败") || out.startsWith("\x1b[31m")) throw new Error(out.trim());
-          return "完成";
+          const r = await cmdBehaviorPackBuild([]);
+          if (!r.ok) throw new Error(r.message.trim());
+          return t("common.done");
         },
       },
       {
-        title: "部署行为包",
+        title: t("modwiz.task.deploy"),
         task: async () => {
           const { cmdBehaviorPackDeploy } = await import("./commands-behavior-pack.js");
-          const out = await cmdBehaviorPackDeploy([]);
-          if (out.includes("失败") || out.startsWith("\x1b[31m")) throw new Error(out.trim());
-          return "完成";
+          const r = await cmdBehaviorPackDeploy([]);
+          if (!r.ok) throw new Error(r.message.trim());
+          return t("common.done");
         },
       },
     ]);
@@ -349,15 +350,9 @@ export async function runModuleDevWizard(): Promise<string> {
     return c.red((e as Error).message);
   }
 
-  note(
-    c.yellow(
-      "修改 sfmc-modules 源码后执行 `sfmc reload`（build + deploy + 向 BDS 发 reload）。\n" +
-        "或再次运行 `sfmc module dev`，然后在 BDS/游戏内输入 reload。"
-    ),
-    "提示"
-  );
-  outro(c.green(`${pkg.id} 已链接并完成 build + deploy`));
-  return c.green(`${pkg.id} 开发环境就绪`);
+  note(c.yellow(t("modwiz.devHint")), t("common.hint"));
+  outro(c.green(t("modwiz.devDone", { id: pkg.id })));
+  return c.green(t("modwiz.devReady", { id: pkg.id }));
 }
 
 export { isInteractive as isModuleWizardInteractive };

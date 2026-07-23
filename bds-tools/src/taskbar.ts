@@ -55,13 +55,21 @@ function stateCode(s: ProgressState | "clear"): 0 | 1 | 2 | 3 {
 }
 
 /**
+ * stdout 被 pipe（如 sfmc REPL 捕获子进程输出）时不应写 OSC：
+ * 终端不会解析，父进程却会把序列当成「空白日志行」刷屏。
+ */
+function canWriteOsc(): boolean {
+  return supported && !!process.stdout.isTTY;
+}
+
+/**
  * 设置任务栏进度。
  * - normal: 绿色 (pct 0-100)
  * - error: 红色 (pct 0-100)
  * - indeterminate: 动画条纹(pct 忽略)
  */
 export function setTaskbarProgress(pct: number, state: ProgressState = "normal"): void {
-  if (!supported) return;
+  if (!canWriteOsc()) return;
 
   if (state === "indeterminate") {
     if (lastState === 3) return; // 已在 indeterminate,不再重发
@@ -83,7 +91,7 @@ export function setTaskbarProgress(pct: number, state: ProgressState = "normal")
 
 /** 清除任务栏进度(隐藏进度条)。幂等。 */
 export function clearTaskbarProgress(): void {
-  if (!supported || !active) return;
+  if (!canWriteOsc() || !active) return;
   process.stdout.write("\x1b]9;4;0\x07");
   lastPct = -1;
   lastState = 0;

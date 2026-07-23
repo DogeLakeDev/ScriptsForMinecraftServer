@@ -3,12 +3,15 @@ import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { cmdReload } from "./commands-reload.js";
-import { HELP, startRepl } from "./repl.js";
+import { getHelp, startRepl } from "./repl.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
 import { dispatchPackCommand, isPackCommand } from "./pack-lifecycle.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
+import { cmdLocale } from "./locale-command.js";
+import { initLocale, stripLangArgs, t } from "./i18n/index.js";
+import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
 
 function printVersion(): void {
@@ -20,11 +23,13 @@ function printVersion(): void {
 }
 
 function printUsage(): void {
-  console.log(`${HELP}`);
+  console.log(`${getHelp()}`);
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+  const stripped = stripLangArgs(process.argv.slice(2));
+  initLocale({ root: ROOT, flag: stripped.lang });
+  const args = stripped.args;
 
   if (args.length === 0) {
     /* 首次运行:以 runtime.json#initialized_at 为准(非 db_config 是否存在)。
@@ -57,6 +62,10 @@ async function main(): Promise<void> {
     case "-v":
       printVersion();
       break;
+    case "locale":
+    case "lang":
+      console.log(cmdLocale(rest));
+      break;
     case "status":
       console.log(cmdStatus());
       break;
@@ -72,7 +81,7 @@ async function main(): Promise<void> {
       } else if (rest[0]) {
         console.log(await cmdStart(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc start <service>|-all"));
+        console.log(c.yellow(t("svc.start.usage")));
       }
       break;
     case "stop":
@@ -81,7 +90,7 @@ async function main(): Promise<void> {
       } else if (rest[0]) {
         console.log(await cmdStop(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc stop <service>|-all"));
+        console.log(c.yellow(t("svc.stop.usage")));
       }
       break;
     case "restart":
@@ -91,7 +100,7 @@ async function main(): Promise<void> {
       } else if (rest[0]) {
         console.log(await cmdRestart(rest[0]));
       } else {
-        console.log(c.yellow("Usage: sfmc restart <service>|-all"));
+        console.log(c.yellow(t("svc.restart.usage")));
       }
       break;
     case "update":
@@ -105,10 +114,10 @@ async function main(): Promise<void> {
       const [sub, ...subRest] = rest;
       switch (sub) {
         case "build":
-          console.log(await cmdBehaviorPackBuild(subRest));
+          console.log((await cmdBehaviorPackBuild(subRest)).message);
           break;
         case "deploy":
-          console.log(await cmdBehaviorPackDeploy(subRest));
+          console.log((await cmdBehaviorPackDeploy(subRest)).message);
           break;
         default:
           console.log(behaviorPackUsage());
@@ -136,7 +145,7 @@ async function main(): Promise<void> {
       if (subcommand === "enroll" && remoteArgs[0] && remoteArgs[1]) {
         const name = remoteArgs[2] ?? process.env.COMPUTERNAME ?? "sfmc-agent";
         const agentId = await enrollRemoteAgent(remoteArgs[0], remoteArgs[1], name);
-        console.log(`Enrolled remote agent: ${agentId}`);
+        console.log(t("remote.enrolled", { id: agentId }));
         startRemoteAgent();
         const exit = (): void => {
           stopRemoteAgent();
@@ -150,9 +159,9 @@ async function main(): Promise<void> {
         console.log(JSON.stringify(remoteStatus(), null, 2));
       } else if (subcommand === "disable") {
         disableRemoteAgent();
-        console.log("Remote agent disabled");
+        console.log(t("remote.disabled"));
       } else {
-        console.log("Usage: sfmc remote enroll <controller-url> <enrollment-token> [name] | sfmc remote status | sfmc remote disable");
+        console.log(t("remote.usage"));
       }
       break;
     }
@@ -173,7 +182,7 @@ async function main(): Promise<void> {
         console.log(await dispatchPacksCommand(sub, subRest));
         break;
       }
-      console.log(c.red(`Unknown command: ${cmd}`));
+      console.log(c.red(t("common.unknownCommand", { cmd: cmd ?? "" })));
       printUsage();
       process.exit(1);
   }
@@ -181,6 +190,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(c.red(err?.message ? `Error: ${err.message}` : "Fatal"));
+  console.error(c.red(err?.message ? t("common.error", { message: err.message }) : t("common.fatal")));
   process.exit(1);
 });

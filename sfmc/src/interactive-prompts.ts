@@ -2,14 +2,15 @@ import { isCancel, select, text } from "@clack/prompts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { t } from "./i18n/index.js";
 
 /** 与 init 向导一致：文本输入或系统文件夹选择器。 */
 export async function pickDirectory(message: string, defaultDirectory: string): Promise<string> {
   const method = await select({
     message,
     options: [
-      { value: "text", label: "输入路径", hint: defaultDirectory },
-      { value: "browse", label: "浏览…", hint: "打开系统文件夹选择器" },
+      { value: "text", label: t("prompt.enterPath"), hint: defaultDirectory },
+      { value: "browse", label: t("prompt.browse"), hint: t("prompt.browseHint") },
     ],
   });
   if (isCancel(method)) return defaultDirectory;
