@@ -3,12 +3,10 @@
  *
  * 这是 SEA 与 npm 两条用户路径共用的纯函数库:
  *
- *   - SEA:用户在 REPL/wizard 里跑 `sfmc behavior-pack build/deploy`
- *          → sfmc 通过 spawnService 启 `bds-tools/dist/pack-manager.js`,
- *            SEA 自己跑 esbuild 把脚本 bundle 写到 <modulesDir>/build/sfmc-modules-bp/scripts/main.js,
- *            然后调 pack-manager#assembleBehaviorPack 装配。
- *   - npm: 用户跑 `sfmc behavior-pack build`,
- *          同一 spawnService 路径。或者直接在同进程 import 这个库。
+ *   - 同进程(推荐): sfmc/pack-lifecycle 经 `@sfmc-bds/bds-tools/pack-manager-lib`
+ *     直连本模块（DIP）；world-packs 等同理。
+ *   - CLI: `cli-pack-manager.js` 仍暴露相同动词，供外部脚本/手工调试；
+ *     CLI 只是本库的薄适配，不再是 sfmc 主路径。
  *
  * 关键约束:本文件不允许引 esbuild / 任何 npm-only 包 — SEA 要把它打成 SEA
  * 的一部分内嵌起来,而 SEA 是个单 exe (除 Node 内置 + bds-tools 已有依赖外)。
@@ -185,15 +183,26 @@ export async function assembleResourcePack(opts: AssembleResourcePackOpts): Prom
  * Falls back to "Bedrock level" (BDS default) when the file is missing or
  * the key is absent.
  */
-export async function readLevelName(bdsRoot: string): Promise<string> {
-  const file = path.join(bdsRoot, "server.properties");
-  if (!fs.existsSync(file)) return "Bedrock level";
-  const text = await fs.promises.readFile(file, "utf8");
+function parseLevelNameFromProperties(text: string): string {
   for (const line of text.split(/\r?\n/)) {
     const m = /^\s*level-name\s*=\s*(.+?)\s*$/.exec(line);
     if (m && m[1]) return m[1];
   }
   return "Bedrock level";
+}
+
+/** 同步读 level-name（供 sfmc resolveBdsContext 等同进程调用方，DRY）。 */
+export function readLevelNameSync(bdsRoot: string): string {
+  const file = path.join(bdsRoot, "server.properties");
+  if (!fs.existsSync(file)) return "Bedrock level";
+  return parseLevelNameFromProperties(fs.readFileSync(file, "utf8"));
+}
+
+export async function readLevelName(bdsRoot: string): Promise<string> {
+  const file = path.join(bdsRoot, "server.properties");
+  if (!fs.existsSync(file)) return "Bedrock level";
+  const text = await fs.promises.readFile(file, "utf8");
+  return parseLevelNameFromProperties(text);
 }
 
 /**

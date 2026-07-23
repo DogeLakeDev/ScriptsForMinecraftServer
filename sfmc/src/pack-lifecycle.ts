@@ -24,7 +24,19 @@ import { pushLog } from "./logs.js";
 import { dirFingerprint } from "./module-fingerprint.js";
 import { failResult, okResult, type CliResult } from "./cli-result.js";
 import { t } from "./i18n/index.js";
-import { ROOT, PACKAGES_DIR, spawnServiceSync, resolveSdkPackageRoot } from "./runtime.js";
+import {
+  assembleBehaviorPack,
+  assembleResourcePack,
+  deployToBDS,
+  disablePackInWorld,
+  enablePackInWorld,
+  ensureConfigPermission,
+  readLevelNameSync,
+  readPackManifestHeader,
+  readWorldPackList,
+  worldPackListHas as pmWorldPackListHas,
+} from "@sfmc-bds/bds-tools/pack-manager-lib";
+import { ROOT, PACKAGES_DIR, resolveSdkPackageRoot } from "./runtime.js";
 import { c } from "./theme.js";
 
 export const BP_NAME = "sfmc-modules";
@@ -137,25 +149,14 @@ function catalogPath(): string {
   return modulePath(path.join(ROOT, "modules"), "catalog.json");
 }
 
-function spawnPackManager(args: string[]): { ok: boolean; out: string; err: string } {
-  const proc = spawnServiceSync("pack-manager", args, { encoding: "utf8" });
-  return {
-    ok: proc.status === 0,
-    out: (proc.stdout ?? "").toString(),
-    err: (proc.stderr ?? "").toString(),
-  };
-}
-
-/** 读 BDS 路径与 level-name(level 权威来源:pack-manager read-level,DRY/DIP) */
+/** 读 BDS 路径与 level-name（level 权威：pack-manager-lib.readLevelNameSync，DIP） */
 export function resolveBdsContext(): { bdsRoot: string; levelName: string } {
   const cfg = (readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
   const bdsRoot = cfg.bds_path;
   if (!bdsRoot) {
     throw new Error("bds_path not configured. Run `sfmc init` first.");
   }
-  const r = spawnPackManager(["read-level", "--bds-root", bdsRoot]);
-  const levelName = r.ok && r.out.trim() ? r.out.trim() : "Bedrock level";
-  return { bdsRoot, levelName };
+  return { bdsRoot, levelName: readLevelNameSync(bdsRoot) };
 }
 
 export function deployedBpDir(bdsRoot: string, levelName: string): string {
@@ -170,20 +171,11 @@ export function deployedCatalogPath(bdsRoot: string, levelName: string): string 
   return path.join(deployedBpDir(bdsRoot, levelName), DEPLOY_CATALOG_NAME);
 }
 
-/** 读 BP/RP manifest header — 委托 pack-manager(与 readPackManifestHeader 单一权威) */
+/** 读 BP/RP manifest header — 直连 pack-manager-lib（与 CLI read-manifest 同一权威，DRY/DIP） */
 function readManifestHeader(
   packDir: string
 ): { uuid: string; version: [number, number, number]; moduleUuid?: string } | null {
-  if (!existsSync(path.join(packDir, "manifest.json"))) return null;
-  const r = spawnPackManager(["read-manifest", "--pack-dir", packDir]);
-  if (!r.ok) return null;
-  const text = r.out.trim();
-  if (!text || text === "null") return null;
-  try {
-    return JSON.parse(text) as { uuid: string; version: [number, number, number]; moduleUuid?: string };
-  } catch {
-    return null;
-  }
+  return readPackManifestHeader(packDir);
 }
 
 /** 解析启用状态:lock 优先,否则 catalog.enabledByDefault(缺省 true↔!==false),未收录模块 false */
@@ -191,30 +183,6 @@ function isModuleEnabled(logicalId: string, lock: ModuleLock, catalogDefaults: M
   const st = lock.modules?.[logicalId];
   if (st && typeof st.enabled === "boolean") return st.enabled;
   return catalogDefaults.get(logicalId) ?? false;
-}
-
-/** 世界 enable/disable 清单 — 统一 argv 形状(DRY) */
-function spawnWorldPack(
-  verb: "enable-pack" | "disable-pack",
-  worldsDir: string,
-  levelName: string,
-  kind: "behavior" | "resource",
-  packId: string,
-  version?: [number, number, number]
-): { ok: boolean; out: string; err: string } {
-  const args = [
-    verb,
-    "--worlds-dir",
-    worldsDir,
-    "--level",
-    levelName,
-    "--kind",
-    kind,
-    "--pack-id",
-    packId,
-  ];
-  if (version) args.push("--version", version.join(","));
-  return spawnPackManager(args);
 }
 
 /**
@@ -424,20 +392,9 @@ export function catalogsEqual(a: DeployCatalog, b: DeployCatalog): boolean {
   return true;
 }
 
-/** 世界 enable-list 查询 — 委托 pack-manager has-pack(DRY) */
+/** 世界 enable-list 查询 — 直连 pack-manager-lib（DRY/DIP，与 CLI has-pack 同契约） */
 function worldPackListHas(bdsRoot: string, levelName: string, kind: "behavior" | "resource", uuid: string): boolean {
-  const r = spawnPackManager([
-    "has-pack",
-    "--worlds-dir",
-    path.join(bdsRoot, "worlds"),
-    "--level",
-    levelName,
-    "--kind",
-    kind,
-    "--pack-id",
-    uuid,
-  ]);
-  return r.ok && r.out.trim() === "1";
+  return pmWorldPackListHas(path.join(bdsRoot, "worlds"), levelName, kind, uuid);
 }
 
 /** esbuild 聚合启用模块 → assemble BP + RP(若有) */
@@ -489,49 +446,36 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
     packLog(`esbuild bundled ${entries.length} entr(y/ies)`, "success");
   }
 
-  const bpArgs = [
-    "assemble-bp",
-    "--src",
-    bpSrc(),
-    "--out",
-    bpOut(),
-    "--name",
-    BP_NAME,
-    "--version",
-    catalog.bpVersion.join(","),
-    "--description",
-    "ScriptsForMinecraftServer aggregated behavior pack",
-    "--uuid",
-    catalog.bpUuid,
-  ];
-  if (catalog.bpModuleUuid) bpArgs.push("--module-uuid", catalog.bpModuleUuid);
-  const bpProc = spawnPackManager(bpArgs);
-  if (!bpProc.ok) throw new Error(`assemble-bp failed: ${bpProc.err || bpProc.out}`);
+  try {
+    await assembleBehaviorPack({
+      srcDir: bpSrc(),
+      outDir: bpOut(),
+      projectName: BP_NAME,
+      version: catalog.bpVersion,
+      description: "ScriptsForMinecraftServer aggregated behavior pack",
+      uuid: catalog.bpUuid,
+      ...(catalog.bpModuleUuid ? { moduleUuid: catalog.bpModuleUuid } : {}),
+    });
+  } catch (e) {
+    throw new Error(`assemble-bp failed: ${(e as Error).message}`);
+  }
   packLog(`assembled BP uuid=${catalog.bpUuid}`, "success");
 
   if (Object.keys(rpDirs).length > 0 && catalog.rpUuid) {
-    /* OCP:显式 --modules-json 交给 pack-manager,不再临时镜像整树 */
-    const mapFile = path.join(buildRoot(), "_rp-modules-map.json");
-    writeJson(mapFile, rpDirs);
-    const rpArgs = [
-      "assemble-rp",
-      "--modules-json",
-      mapFile,
-      "--out",
-      rpOut(),
-      "--name",
-      RP_NAME,
-      "--version",
-      (catalog.rpVersion ?? DEFAULT_PACK_VERSION).join(","),
-      "--description",
-      "ScriptsForMinecraftServer aggregated resource pack",
-      "--uuid",
-      catalog.rpUuid,
-    ];
-    if (catalog.rpModuleUuid) rpArgs.push("--module-uuid", catalog.rpModuleUuid);
-    const rpProc = spawnPackManager(rpArgs);
-    await fs.rm(mapFile, { force: true });
-    if (!rpProc.ok) throw new Error(`assemble-rp failed: ${rpProc.err || rpProc.out}`);
+    /* OCP:显式 module→rpDir map 直传库，不再临时镜像整树 / 落盘 JSON */
+    try {
+      await assembleResourcePack({
+        moduleResourceDirs: rpDirs,
+        outDir: rpOut(),
+        projectName: RP_NAME,
+        version: catalog.rpVersion ?? DEFAULT_PACK_VERSION,
+        description: "ScriptsForMinecraftServer aggregated resource pack",
+        uuid: catalog.rpUuid,
+        ...(catalog.rpModuleUuid ? { moduleUuid: catalog.rpModuleUuid } : {}),
+      });
+    } catch (e) {
+      throw new Error(`assemble-rp failed: ${(e as Error).message}`);
+    }
     packLog(`assembled RP uuid=${catalog.rpUuid} (${Object.keys(rpDirs).length} modules)`, "success");
   } else {
     /* 无 RP:清理旧产物,catalog.rpUuid 置空 */
@@ -556,81 +500,98 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
 
   /* 必须在 deploy/clear-rp 之前采集 — 清目录后无法再读 manifest */
   const previous = collectDeployedPackUuids(bdsRoot, levelName);
-  const deployArgs = [
-    "deploy",
-    "--bds-root",
-    bdsRoot,
-    "--level",
-    levelName,
-    "--bp-src",
-    bpOut(),
-    "--bp-name",
-    BP_NAME,
-    "--rp-name",
-    RP_NAME,
-  ];
-  if (catalog.rpUuid && existsSync(rpOut())) {
-    deployArgs.push("--rp-src", rpOut());
-  } else {
-    /* 不再需要 RP:清世界内聚合 RP 目录 */
-    deployArgs.push("--clear-rp");
+  try {
+    await deployToBDS({
+      bdsRoot,
+      levelName,
+      behaviorPackSrc: bpOut(),
+      bpName: BP_NAME,
+      rpName: RP_NAME,
+      ...(catalog.rpUuid && existsSync(rpOut())
+        ? { resourcePackSrc: rpOut() }
+        : { clearResourcePack: true }),
+    });
+  } catch (e) {
+    throw new Error(`deploy failed: ${(e as Error).message}`);
   }
-  const dep = spawnPackManager(deployArgs);
-  if (!dep.ok) throw new Error(`deploy failed: ${dep.err || dep.out}`);
   packLog(`deployed to worlds/${levelName}`, "success");
 
   /* 确保 catalog 在部署后的 BP 内(deploy 会拷贝整个目录) */
   writeJson(path.join(deployedBpDir(bdsRoot, levelName), DEPLOY_CATALOG_NAME), catalog);
 
   const worldsDir = path.join(bdsRoot, "worlds");
-  const enBp = spawnWorldPack("enable-pack", worldsDir, levelName, "behavior", catalog.bpUuid, catalog.bpVersion);
-  if (!enBp.ok) throw new Error(`enable BP failed: ${enBp.err || enBp.out}`);
+  try {
+    await enablePackInWorld({
+      worldsDir,
+      levelName,
+      kind: "behavior",
+      packUuid: catalog.bpUuid,
+      version: catalog.bpVersion,
+    });
+  } catch (e) {
+    throw new Error(`enable BP failed: ${(e as Error).message}`);
+  }
   packLog(`enabled behavior pack ${catalog.bpUuid} in world list`, "success");
 
   if (catalog.rpUuid && catalog.rpVersion) {
-    const enRp = spawnWorldPack(
-      "enable-pack",
-      worldsDir,
-      levelName,
-      "resource",
-      catalog.rpUuid,
-      catalog.rpVersion
-    );
-    if (!enRp.ok) throw new Error(`enable RP failed: ${enRp.err || enRp.out}`);
+    try {
+      await enablePackInWorld({
+        worldsDir,
+        levelName,
+        kind: "resource",
+        packUuid: catalog.rpUuid,
+        version: catalog.rpVersion,
+      });
+    } catch (e) {
+      throw new Error(`enable RP failed: ${(e as Error).message}`);
+    }
     packLog(`enabled resource pack ${catalog.rpUuid} in world list`, "success");
   }
 
   /* 卸掉过期 RP:UUID 轮换 / 不再提供 RP / catalog 缺失但磁盘仍有旧包 */
   for (const staleRp of previous.rp) {
     if (staleRp === (catalog.rpUuid ?? null)) continue;
-    const dis = spawnWorldPack("disable-pack", worldsDir, levelName, "resource", staleRp);
-    if (!dis.ok) {
-      packLog(`disable stale RP ${staleRp} failed: ${dis.err || dis.out}`, "warn");
-    } else {
+    try {
+      await disablePackInWorld({
+        worldsDir,
+        levelName,
+        kind: "resource",
+        packUuid: staleRp,
+        version: DEFAULT_PACK_VERSION,
+      });
       packLog(`disabled stale resource pack ${staleRp}`, "success");
+    } catch (e) {
+      packLog(`disable stale RP ${staleRp} failed: ${(e as Error).message}`, "warn");
     }
   }
 
   /* 卸掉过期 BP(uuid 轮换) */
   for (const staleBp of previous.bp) {
     if (staleBp === catalog.bpUuid) continue;
-    const disBp = spawnWorldPack("disable-pack", worldsDir, levelName, "behavior", staleBp);
-    if (!disBp.ok) {
-      packLog(`disable stale BP ${staleBp} failed: ${disBp.err || disBp.out}`, "warn");
-    } else {
+    try {
+      await disablePackInWorld({
+        worldsDir,
+        levelName,
+        kind: "behavior",
+        packUuid: staleBp,
+        version: DEFAULT_PACK_VERSION,
+      });
       packLog(`disabled stale behavior pack ${staleBp}`, "success");
+    } catch (e) {
+      packLog(`disable stale BP ${staleBp} failed: ${(e as Error).message}`, "warn");
     }
   }
 
-  const perm = spawnPackManager([
-    "ensure-permission",
-    "--bds-root",
-    bdsRoot,
-    "--pack-id",
-    catalog.bpUuid,
-  ]);
-  if (!perm.ok) throw new Error(`ensure-permission failed: ${perm.err || perm.out}`);
-  packLog(perm.out.trim() || `config/${catalog.bpUuid}/permission.json ok`);
+  try {
+    const wrote = await ensureConfigPermission(bdsRoot, catalog.bpUuid);
+    packLog(
+      wrote
+        ? `wrote config/${catalog.bpUuid}/permission.json`
+        : `config/${catalog.bpUuid}/permission.json already exists — skipped`
+    );
+  } catch (e) {
+    throw new Error(`ensure-permission failed: ${(e as Error).message}`);
+  }
 }
 
 export function formatPackLoadInfo(catalog: DeployCatalog, rebuilt: boolean): string {
@@ -707,15 +668,16 @@ export async function ensurePacksReady(): Promise<PackEnsureResult> {
     }
     if (!existsSync(path.join(bdsRoot, "config", deployed.bpUuid, "permission.json"))) {
       /* permission 缺失只补写,不强制整包重编 */
-      const perm = spawnPackManager([
-        "ensure-permission",
-        "--bds-root",
-        bdsRoot,
-        "--pack-id",
-        deployed.bpUuid,
-      ]);
-      if (!perm.ok) throw new Error(`ensure-permission failed: ${perm.err || perm.out}`);
-      packLog(perm.out.trim());
+      try {
+        const wrote = await ensureConfigPermission(bdsRoot, deployed.bpUuid);
+        packLog(
+          wrote
+            ? `wrote config/${deployed.bpUuid}/permission.json`
+            : `config/${deployed.bpUuid}/permission.json already exists — skipped`
+        );
+      } catch (e) {
+        throw new Error(`ensure-permission failed: ${(e as Error).message}`);
+      }
     }
   }
 
@@ -822,27 +784,10 @@ export async function cmdPackList(_args: string[]): Promise<string> {
     const worldsDir = path.join(bdsRoot, "worlds");
     lines.push(c.bold("\nWorld enable lists"));
     for (const kind of ["behavior", "resource"] as const) {
-      const r = spawnPackManager([
-        "list-packs",
-        "--worlds-dir",
-        worldsDir,
-        "--level",
-        levelName,
-        "--kind",
-        kind,
-      ]);
-      if (!r.ok) {
-        lines.push(c.yellow(`  ${kind}: (list-packs failed)`));
-        continue;
-      }
-      try {
-        const arr = JSON.parse(r.out.trim() || "[]") as Array<{ pack_id: string; version: number[] }>;
-        if (!arr.length) lines.push(c.dim(`  ${kind}: (empty)`));
-        for (const e of arr) {
-          lines.push(`  ${kind}: ${e.pack_id}  v${(e.version ?? []).join(".")}`);
-        }
-      } catch {
-        lines.push(c.yellow(`  ${kind}: (corrupt)`));
+      const arr = readWorldPackList(worldsDir, levelName, kind);
+      if (!arr.length) lines.push(c.dim(`  ${kind}: (empty)`));
+      for (const e of arr) {
+        lines.push(`  ${kind}: ${e.pack_id}  v${(e.version ?? []).join(".")}`);
       }
     }
     return lines.join("\n") + "\n";
@@ -861,9 +806,13 @@ export async function cmdPackEnableDisable(action: "enable" | "disable", args: s
     const version = kind === "behavior" ? deployed.bpVersion : deployed.rpVersion;
     if (!uuid || !version) return c.red(t("pack.noUuid", { kind }));
     const worldsDir = path.join(bdsRoot, "worlds");
-    const verb = action === "enable" ? "enable-pack" : "disable-pack";
-    const r = spawnWorldPack(verb, worldsDir, levelName, kind, uuid, version);
-    if (!r.ok) return c.red(t("pack.actionFailed", { action, detail: r.err || r.out }));
+    try {
+      const opts = { worldsDir, levelName, kind, packUuid: uuid, version };
+      if (action === "enable") await enablePackInWorld(opts);
+      else await disablePackInWorld(opts);
+    } catch (e) {
+      return c.red(t("pack.actionFailed", { action, detail: (e as Error).message }));
+    }
     packLog(`${action}d ${kind} pack ${uuid}`, "success");
     return c.green(
       action === "enable"

@@ -145,6 +145,17 @@ describe("pack-manager CLI extensions", () => {
     assert.deepEqual(readWorldPackList(worldsDir, "L1", "behavior"), listed);
   });
 
+  it("readLevelNameSync 与 async 同契约（供 sfmc resolveBdsContext）", async () => {
+    const { readLevelName, readLevelNameSync } = await import("./dist/pack-manager.js");
+    const bds = path.join(tmp, "bds-level");
+    fs.mkdirSync(bds, { recursive: true });
+    assert.equal(readLevelNameSync(bds), "Bedrock level");
+    assert.equal(await readLevelName(bds), "Bedrock level");
+    fs.writeFileSync(path.join(bds, "server.properties"), "level-name=My World\n", "utf8");
+    assert.equal(readLevelNameSync(bds), "My World");
+    assert.equal(await readLevelName(bds), "My World");
+  });
+
   it("readWorldPackListResult 区分缺失与 JSON 损坏（doctor parseFail）", async () => {
     const { readWorldPackListResult } = await import("./dist/pack-manager.js");
     const worldsDir = path.join(tmp, "worlds-parse");
