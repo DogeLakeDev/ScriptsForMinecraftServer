@@ -4,12 +4,14 @@
  * so spawnService can call it as a sub-process.
  *
  *   node bds-tools/dist/pack-manager.js assemble-bp  --src <dir> --out <dir> --name <name> [--uuid <uuid>] [--module-uuid <uuid>] [--version 1,0,0] [--description "..."] [--icon <png>]
- *   node bds-tools/dist/pack-manager.js assemble-rp  --modules-dir <dir> --out <dir> --name <name> [--uuid <uuid>] [--module-uuid <uuid>] [--version 1,0,0] [--description "..."]
- *   node bds-tools/dist/pack-manager.js deploy        --bds-root <dir> --level <name> --bp-src <dir> [--rp-src <dir>] --bp-name <name> [--rp-name <name>]
+ *   node bds-tools/dist/pack-manager.js assemble-rp  (--modules-dir <dir>|--modules-json <file>) --out <dir> --name <name> [--uuid <uuid>] [--module-uuid <uuid>] [--version 1,0,0] [--description "..."]
+ *   node bds-tools/dist/pack-manager.js deploy        --bds-root <dir> --level <name> --bp-src <dir> [--rp-src <dir>] --bp-name <name> [--rp-name <name>] [--clear-rp]
  *   node bds-tools/dist/pack-manager.js enable-pack   --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid> --version 1,0,0
  *   node bds-tools/dist/pack-manager.js disable-pack  --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid>
  *   node bds-tools/dist/pack-manager.js ensure-permission --bds-root <dir> --pack-id <uuid>
  *   node bds-tools/dist/pack-manager.js read-level    --bds-root <dir>
+ *   node bds-tools/dist/pack-manager.js read-manifest --pack-dir <dir>
+ *   node bds-tools/dist/pack-manager.js has-pack      --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid>
  *
  * The pure-function API lives in pack-manager.ts. This CLI exists so the
  * SEA-launched child process doesn't have to deal with module resolution —
@@ -33,7 +35,13 @@ function parseArgs(argv: string[]): { [k: string]: string | undefined } {
     if (a && a.startsWith("--")) {
       const key = a.slice(2);
       const next = argv[++i];
-      out[key] = next;
+      /* 布尔旗标(无值或下一参也是 --xxx) */
+      if (next === undefined || next.startsWith("--")) {
+        out[key] = "1";
+        if (next !== undefined) i--;
+      } else {
+        out[key] = next;
+      }
     }
   }
   return out;
@@ -84,10 +92,16 @@ async function main(): Promise<void> {
       return;
     }
     case "assemble-rp": {
-      const modulesDir = need(args, "modules-dir");
       const out = need(args, "out");
       const name = need(args, "name");
-      const map = mod.scanModuleResourcePacks(path.resolve(modulesDir));
+      /* OCP:显式 map 优先;否则回退扫描 --modules-dir */
+      let map: Record<string, string>;
+      if (args["modules-json"]) {
+        map = mod.loadModuleResourcePackMap(path.resolve(args["modules-json"]));
+      } else {
+        const modulesDir = need(args, "modules-dir");
+        map = mod.scanModuleResourcePacks(path.resolve(modulesDir));
+      }
       await mod.assembleResourcePack({
         moduleResourceDirs: map,
         outDir: path.resolve(out),
@@ -107,6 +121,7 @@ async function main(): Promise<void> {
       const bpName = need(args, "bp-name");
       const rpSrc = args["rp-src"];
       const rpName = args["rp-name"];
+      const clearRp = args["clear-rp"] === "1" || args["clear-rp"] === "true";
       await mod.deployToBDS({
         bdsRoot: path.resolve(bdsRoot),
         levelName: level,
@@ -114,6 +129,7 @@ async function main(): Promise<void> {
         ...(rpSrc ? { resourcePackSrc: path.resolve(rpSrc) } : {}),
         bpName,
         ...(rpName ? { rpName } : {}),
+        ...(clearRp ? { clearResourcePack: true } : {}),
       });
       process.stdout.write(`[pack-manager] deployed to ${path.join(bdsRoot, "worlds", level)}\n`);
       return;
@@ -163,6 +179,25 @@ async function main(): Promise<void> {
       const root = need(args, "bds-root");
       const name = await readLevelName(path.resolve(root));
       process.stdout.write(`${name}\n`);
+      return;
+    }
+    case "read-manifest": {
+      const packDir = need(args, "pack-dir");
+      const header = mod.readPackManifestHeader(path.resolve(packDir));
+      if (!header) {
+        process.stdout.write("null\n");
+        return;
+      }
+      process.stdout.write(`${JSON.stringify(header)}\n`);
+      return;
+    }
+    case "has-pack": {
+      const worldsDir = need(args, "worlds-dir");
+      const level = need(args, "level");
+      const kind = need(args, "kind") as "behavior" | "resource";
+      const packId = need(args, "pack-id");
+      const ok = mod.worldPackListHas(path.resolve(worldsDir), level, kind, packId);
+      process.stdout.write(ok ? "1\n" : "0\n");
       return;
     }
     default:
