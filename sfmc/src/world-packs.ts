@@ -409,16 +409,16 @@ function formatPackList(packs: InstalledWorldPack[]): string {
   const bp = packs.filter((p) => p.kind === "behavior");
   const rp = packs.filter((p) => p.kind === "resource");
   if (bp.length) {
-    lines.push(c.bold("Behavior packs:"));
+    lines.push(c.bold(t("packs.list.bpHeader")));
     for (const p of bp) {
-      const en = p.enabled ? c.green("on ") : c.dim("off");
+      const en = p.enabled ? c.green(t("packs.list.on")) : c.dim(t("packs.list.off"));
       lines.push(`  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}`);
     }
   }
   if (rp.length) {
-    lines.push(c.bold("Resource packs:"));
+    lines.push(c.bold(t("packs.list.rpHeader")));
     for (const p of rp) {
-      const en = p.enabled ? c.green("on ") : c.dim("off");
+      const en = p.enabled ? c.green(t("packs.list.on")) : c.dim(t("packs.list.off"));
       lines.push(`  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}`);
     }
   }

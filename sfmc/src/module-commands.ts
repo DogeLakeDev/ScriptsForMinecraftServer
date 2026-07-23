@@ -371,9 +371,11 @@ async function postModuleToggle(id: string, action: "enable" | "disable"): Promi
     return failResult(c.red(t("mod.toggleFailed", { action, id, err })));
   }
   const ok = (body as { success?: boolean })?.success !== false;
-  return ok
-    ? okResult(c.green(`${action}d ${id}`))
-    : failResult(c.red(`${action} ${id} returned: ${text}`));
+  if (ok) {
+    const label = action === "enable" ? t("mod.action.enabled") : t("mod.action.disabled");
+    return okResult(c.green(t("mod.toggleOk", { label, id })));
+  }
+  return failResult(c.red(t("mod.toggleBadBody", { action, id, text })));
 }
 
 export async function cmdModuleEnable(args: string[]): Promise<CliResult> {

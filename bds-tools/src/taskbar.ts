@@ -62,6 +62,11 @@ function canWriteOsc(): boolean {
   return supported && !!process.stdout.isTTY;
 }
 
+/** 从日志文本剥离 WT 任务栏 OSC 9;4（与写入侧同一权威，供父进程 DRY）。 */
+export function stripTaskbarOsc(s: string): string {
+  return s.replace(/\x1b\]9;4[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
+}
+
 /**
  * 设置任务栏进度。
  * - normal: 绿色 (pct 0-100)

@@ -32,6 +32,8 @@
     "./bds-manager": "./dist/bds-manager.js",
     "./pack-manager": "./dist/cli-pack-manager.js",
     "./world-packs": "./dist/world-packs.js",
+    "./taskbar": "./dist/taskbar.js",
+    "./update-result": "./dist/update-result.js",
     "./package.json": "./package.json",
     "./types": {
       "types": "./dist/types.d.ts"

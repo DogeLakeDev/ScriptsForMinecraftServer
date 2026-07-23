@@ -21,6 +21,8 @@ import { httpDownload } from "./http.js";
 import { isMainModule } from "./is-main.js";
 import { loadConfig, LOG_PATH, resolvePaths } from "./paths.js";
 import { sendText, sendWithImage } from "./qqutil.js";
+import { emitUpdateResult } from "./update-result.js";
+import { extractZipFileToDir } from "./zipx.js";
 import {
   clearRollbackMarker,
   getDirSize,
@@ -133,7 +135,7 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
   }
 }
 
-/** 把 srcDir 下的内容移动到 destDir (覆盖) — 经 zipx 安全解压 */
+/** 把 zip 解压到 destDir (覆盖) — 经 zipx 安全解压 */
 async function extractZipToBds(zipPath: string, destDir: string): Promise<void> {
   // 抽出到临时目录，避免旧内容干扰
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bds-extract-"));
@@ -183,7 +185,7 @@ export async function runUpdate(): Promise<number> {
       }
       console.log(`CURRENT=${currentVer}`);
       console.log(`LATEST=${latestVer}`);
-      console.log("SFMC_UPDATE_RESULT=uptodate");
+      emitUpdateResult("uptodate");
       return 0;
     }
   } catch (e) {
@@ -198,7 +200,7 @@ export async function runUpdate(): Promise<number> {
     if (qqNotify) {
       await sendText(`⚠️ BDS ${latestVer} 不在兼容性白名单，已跳过升级。请人工确认。`);
     }
-    console.log("SFMC_UPDATE_RESULT=skipped");
+    emitUpdateResult("skipped");
     return 2;
   }
 
@@ -220,7 +222,7 @@ export async function runUpdate(): Promise<number> {
     console.log(`LATEST=${latestVer}`);
     console.log(`CHANNEL=${channel}`);
     console.log(`URLS=${downloadUrls.length}`);
-    console.log("SFMC_UPDATE_RESULT=check-only");
+    emitUpdateResult("check-only");
     return 0;
   }
 
@@ -474,7 +476,7 @@ export async function runUpdate(): Promise<number> {
   }
   log.info(`===== 更新完成 (${(durationMs / 1000).toFixed(1)}s) =====`);
   /* 机器可读结果标记：供 sfmc 等监督器判断「真正完成部署」，勿依赖本地化日志文案。 */
-  console.log("SFMC_UPDATE_RESULT=deployed");
+  emitUpdateResult("deployed");
   return 0;
 }
 
