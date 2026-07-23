@@ -8,6 +8,7 @@ import {
   listInstalledModuleIdsSync,
   MODULE_CMD_NAMES,
   MODULE_SUBCOMMANDS,
+  paintModuleCmdAlias,
 } from "./module-commands.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
@@ -20,8 +21,8 @@ function setRaw(v: boolean): void {
   } catch {}
 }
 
-/** HELP 行首:把 MODULE_CMD_NAMES 着色后用 / 拼接(如 module/mod)。 */
-const MODULE_HELP_LABEL = MODULE_CMD_NAMES.map((n) => c.green(n)).join("/");
+/** HELP 行首:染色后的 module 别名拼接(权威来源 paintModuleCmdAlias / MODULE_CMD_NAMES)。 */
+const MODULE_HELP_LABEL = paintModuleCmdAlias(c.green);
 
 const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
@@ -158,7 +159,7 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
     default: {
-      /* module/mod 等别名统一走 MODULE_CMD_NAMES,避免 case 链与权威源漂移。 */
+      /* 与 MODULE_CMD_NAMES 对齐,新增别名无需再改 case(OCP/DRY) */
       if (!isModuleCommand(cmd)) return [];
       if (argIndex === 0) return [...MODULE_SUBCOMMANDS].filter(sw);
       const verb = words[0] ?? "";

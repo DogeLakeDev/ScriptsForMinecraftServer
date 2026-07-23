@@ -136,6 +136,13 @@ async function main() {
         if (!all.body.module_tokens || typeof all.body.module_tokens !== "object") {
           throw new Error("configs/all 缺少 module_tokens");
         }
+        // LSP:configs/all.banned_items 须为 string[](与 /banned_items、ConfigManager 同源)
+        if (Array.isArray(all.body.banned_items)) {
+          const bad = all.body.banned_items.find((x) => typeof x !== "string");
+          if (bad !== undefined) {
+            throw new Error(`configs/all.banned_items 须为 string[],收到 ${typeof bad}`);
+          }
+        }
         pass(`db-server 启动 + 平台 API (modules=${mods.body.modules.length})`);
       } catch (e) {
         fail("db-server 启动 + 平台 API", e.message);
@@ -162,12 +169,12 @@ async function main() {
       console.log("[ootb] WARN: sfmc/dist/main.js 缺失 — 跳过 CLI 检查");
     } else {
       const r = runSync(process.execPath, [SFMC_DIST, "--help"], { cwd: ROOT });
-      /* HELP 现为 "module/mod list"(别名同行);兼容旧 "module list" / 裸 "mod list"。 */
-      const helpText = String(r.stdout || "") + String(r.stderr || "");
-      const hasModule =
-        /\bmodule(\/\S+)?\s+(list|install)\b/.test(helpText) || /\bmod\s+(list|install)\b/.test(helpText);
+      /* 剥离 ANSI;接受 module list / module/mod list / module|mod list
+       * (与 MODULE_CMD_NAMES / HELP 展示对齐,避免别名改动再次打红) */
+      const helpText = (r.stdout + r.stderr).replace(/\u001b\[[0-9;]*m/g, "");
+      const hasModule = /module(?:\s*[|/]\s*mod)?\s+(list|install)\b/.test(helpText);
       if (r.status === 0 && hasModule) pass("sfmc CLI module 子命令已注册");
-      else fail("sfmc CLI module 子命令已注册", (r.stderr || r.stdout || `exit ${r.status}`).trim());
+      else fail("sfmc CLI module 子命令已注册", helpText.trim().slice(0, 800));
     }
   }
 

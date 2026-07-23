@@ -71,50 +71,24 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
   function getAllConfigs(): Record<string, unknown> {
     const modules = typeof listModules === "function" ? listModules() : [];
     const module_tokens = typeof getModuleTokens === "function" ? getModuleTokens() : {};
+    /**
+     * SAPI ConfigManager 契约:banned_items 为 string[](与 GET /banned_items 同源)。
+     * 勿再映射成 {item_id} — 否则 filter(typeof s === "string") 会得到空缓存(LSP)。
+     * 其余资源复用单资源 helpers,避免 getAllConfigs 与专用路由双写(DRY)。
+     */
     return {
       // 与 /api/sfmc/modules 同源;ConfigManager.init 一次拉齐启停态(DRY)
       modules,
       // loopback-only 下发;SAPI 无 fs,靠此注入模块身份(DIP)
       module_tokens,
-      settings: stripMeta(readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null),
-      areas: (arrayOrEmpty(readJson(configPath(projectRoot, "areas.json"))) as Array<Record<string, unknown>>)
-        .filter((r) => r && r.module && r.dimension != null)
-        .map((r) => stripMetaDeep(r)),
-      permissions: (
-        arrayOrEmpty(readJson(configPath(projectRoot, "permissions.json"))) as Array<Record<string, unknown>>
-      )
-        .filter((r) => r && r.player_name)
-        .map((r) => stripMetaDeep(r)),
-      banned_items: (arrayOrEmpty(readJson(configPath(projectRoot, "banned_items.json"))) as Array<string>)
-        .filter((i) => typeof i === "string" && i && !i.startsWith("_"))
-        .map((id) => ({ item_id: id })),
-      clean: stripMetaDeep(readJson(configPath(projectRoot, "clean.json")) ?? {}),
-      grids: (arrayOrEmpty(readJson(configPath(projectRoot, "grids.json"))) as Array<Record<string, unknown>>)
-        .filter((r) => r && r.name)
-        .map((r) => stripMetaDeep(r)),
-      peace_filters: (
-        arrayOrEmpty(readJson(configPath(projectRoot, "peace_filters.json"))) as Array<Record<string, unknown>>
-      )
-        .filter((r) => r && r.family)
-        .map((r) => stripMetaDeep(r)),
-      questions: (arrayOrEmpty(readJson(configPath(projectRoot, "questions.json"))) as Array<Record<string, unknown>>)
-        .filter((r) => r && r.question)
-        .map((r, idx: number) => {
-          const clean = stripMetaDeep(r) as Record<string, unknown>;
-          return {
-            id: idx + 1,
-            weight: clean.weight ?? 1,
-            question: clean.question,
-            answers: clean.answers ?? [],
-            msg_right: clean.msg_right ?? "",
-            msg_wrong: clean.msg_wrong ?? "",
-            explanation: clean.explanation ?? "",
-            min_rank: clean.min_rank ?? null,
-            max_rank: clean.max_rank ?? null,
-            rewards: clean.rewards ?? [],
-            punishments: clean.punishments ?? [],
-          };
-        }),
+      settings: stripMeta(readCfg("settings.json") as Record<string, unknown> | null),
+      areas: getAreas(),
+      permissions: getPermissions(),
+      banned_items: getBannedItems(),
+      clean: getClean(),
+      grids: getGrids(),
+      peace_filters: getPeaceFilters(),
+      questions: getQA(),
     };
   }
 
@@ -153,10 +127,10 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
       .map((r) => stripMetaDeep(r));
   }
 
-  function getBannedItems(): Array<{ item_id: string }> {
-    return (arrayOrEmpty(readCfg("banned_items.json")) as Array<string>)
-      .filter((i) => typeof i === "string" && i && !i.startsWith("_"))
-      .map((id) => ({ item_id: id }));
+  function getBannedItems(): string[] {
+    return (arrayOrEmpty(readCfg("banned_items.json")) as Array<string>).filter(
+      (i) => typeof i === "string" && i && !i.startsWith("_")
+    );
   }
 
   function getClean(): { item_max: number; poll_interval: number } {
@@ -248,7 +222,7 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
     }
     if (requestPath === "/api/sfmc/banned_items") {
       if (method === "GET") {
-        json(res, { items: getBannedItems().map((x) => x.item_id) });
+        json(res, { items: getBannedItems() });
         return true;
       }
     }

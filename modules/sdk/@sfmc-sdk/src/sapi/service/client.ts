@@ -6,7 +6,7 @@
  *
  * 设计:
  *   - service.get(name, input):发 GET /api/sfmc/services/:name?input=...
- *   - 事务内调用走 tx.call(name, input),step 由 db.tx 一并提交
+ *   - 事务内调用走 tx.call(name, input),交互会话内返回真实 result
  *   - service.list:列所有 enabled 模块 provides 的 service
  */
 
@@ -23,7 +23,13 @@ export function setServiceModuleContext(moduleId: string, token: string, inTx: (
   _isInTx = inTx;
 }
 
-export function clearServiceModuleContext(): void {
+/**
+ * 清理 service 模块身份。
+ * - 传入 moduleId:仅当当前身份匹配时清空(Demeter:禁用 A 不误清 B)
+ * - 省略 moduleId:强制清空
+ */
+export function clearServiceModuleContext(moduleId?: string): void {
+  if (moduleId && _moduleId !== moduleId) return;
   _moduleId = "";
   _authToken = "";
   _isInTx = () => false;
@@ -81,7 +87,9 @@ export const service = {
       authOpts()
     );
     if (!res.ok) {
-      throw new ServiceError(res.error ?? "service_error", "internal", res.status);
+      // LSP:与 db 客户端一致,保留服务端 code,勿一律打成 internal
+      const data = res.data as { error?: string; code?: string } | undefined;
+      throw new ServiceError(data?.error ?? res.error ?? "service_error", data?.code || "internal", res.status);
     }
     return (res.data as { ok: true; result: T }).result;
   },

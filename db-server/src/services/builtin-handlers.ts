@@ -36,3 +36,28 @@ export function registerEnabledBuiltinServices(
   }
   return n;
 }
+
+/** 热启用:只注册单个内置插件(若尚未注册) — 以 registry.moduleId 为权威,勿硬编码 service 名(DRY) */
+export function registerBuiltinPluginForModule(
+  registry: ServiceRegistry,
+  deps: BuiltinServiceDeps,
+  moduleId: string
+): boolean {
+  const plugin = BUILTIN_SERVICE_PLUGINS.find((p) => p.moduleId === moduleId);
+  if (!plugin) return false;
+  const already = registry.list().some((h) => h.moduleId === moduleId);
+  if (already) return false;
+  plugin.register(registry, deps);
+  return true;
+}
+
+/** 热禁用:按 moduleId 卸掉该模块全部 handler(勿维护 serviceNames 副本 — DRY/OCP) */
+export function unregisterBuiltinPluginForModule(registry: ServiceRegistry, moduleId: string): number {
+  let n = 0;
+  for (const h of registry.list()) {
+    if (h.moduleId !== moduleId) continue;
+    registry.unregisterHandler(h.name);
+    n += 1;
+  }
+  return n;
+}

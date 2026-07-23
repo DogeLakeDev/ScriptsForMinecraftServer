@@ -228,10 +228,10 @@ export class ModuleRegistry {
       cleanups.set(id, []);
     }
     booted.delete(id);
-    // 清身份避免禁用后仍带旧 token 调用(Demeter:只清本模块上下文)
-    clearDbModuleContext();
-    clearConfigModuleContext();
-    clearServiceModuleContext();
+    // 清身份避免禁用后仍带旧 token 调用(Demeter:只清本模块上下文,勿误清其他模块桶)
+    clearDbModuleContext(id);
+    clearConfigModuleContext(id);
+    clearServiceModuleContext(id);
   }
 
   static teardown(): void {

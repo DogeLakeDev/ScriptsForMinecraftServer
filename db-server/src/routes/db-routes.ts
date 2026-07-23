@@ -3,17 +3,13 @@
  *
  * 端点:
  *   POST /api/sfmc/db/define-table      body {name, columns, softDelete?} → {table, created}
- *   POST /api/sfmc/db/tx                body {steps[]}                   → TxResponse | TxError
+ *   POST /api/sfmc/db/tx                body {steps[]}                   → TxResponse | TxError (批量)
+ *   POST /api/sfmc/db/tx/begin          body {}                          → {txId}
+ *   POST /api/sfmc/db/tx/step           body {txId, step}                → {result}
+ *   POST /api/sfmc/db/tx/commit         body {txId}                      → TxResponse
+ *   POST /api/sfmc/db/tx/rollback       body {txId}                      → {ok}
  *   POST /api/sfmc/db/query             body {table, opts?}              → {rows}
- *   POST /api/sfmc/db/get               body {table, id}                 → {row}
- *   POST /api/sfmc/db/insert            body {table, row}                → {row}
- *   POST /api/sfmc/db/update            body {table, id, patch}          → {row}
- *   POST /api/sfmc/db/delete            body {table, id, hard?}          → {changes}
- *   POST /api/sfmc/db/audit             body {table, rowId, action, data?} → {ok}
- *   POST /api/sfmc/db/idempotent/probe  body {action, key}               → {replayed, cached?}
- *   POST /api/sfmc/db/idempotent/commit body {action, key, value?}       → {ok}
- *
- * 鉴权:handle() 校验后把 {id, permissions} 写到 ctx.moduleAuth(不挂 req)。
+ *   ...
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -89,6 +85,57 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         const status = result.ok ? 200 : 400;
         // TxResponse/TxError 自身已带 ok 字段;原样回传保持契约
         json(res, result as unknown as Record<string, unknown>, status);
+      } catch (e) {
+        jsonV2Fail(res, (e as Error).message, 500);
+      }
+      return true;
+    }
+
+    // 交互式事务会话 — 供 SDK 在回调内读回 query/get/call 结果
+    // OCP/DRY:新会话动词只往表里加一项,勿再复制 try/catch 四份
+    type SessionReply = { ok: boolean } & Record<string, unknown>;
+    const sessionOps: Array<{
+      path: string;
+      requireTxId?: boolean;
+      requireStep?: boolean;
+      run: (args: { txId: string; step?: TxStep | undefined }) => Promise<SessionReply> | SessionReply;
+    }> = [
+      {
+        path: "/api/sfmc/db/tx/begin",
+        run: () => deps.txRunner!.beginSession(moduleId) as SessionReply,
+      },
+      {
+        path: "/api/sfmc/db/tx/step",
+        requireTxId: true,
+        requireStep: true,
+        run: ({ txId, step }) => deps.txRunner!.stepSession(txId, moduleId, step!) as Promise<SessionReply>,
+      },
+      {
+        path: "/api/sfmc/db/tx/commit",
+        requireTxId: true,
+        run: ({ txId }) => deps.txRunner!.commitSession(txId, moduleId) as SessionReply,
+      },
+      {
+        path: "/api/sfmc/db/tx/rollback",
+        requireTxId: true,
+        run: ({ txId }) => deps.txRunner!.rollbackSession(txId, moduleId) as SessionReply,
+      },
+    ];
+    for (const op of sessionOps) {
+      if (path !== op.path) continue;
+      try {
+        const txId = String(body.txId || "");
+        const step = body.step as TxStep | undefined;
+        if (op.requireTxId && !txId) {
+          jsonV2Fail(res, `${op.path.split("/").pop()} 需要 { txId }`, 400);
+          return true;
+        }
+        if (op.requireStep && (!step || typeof step !== "object" || !("op" in step))) {
+          jsonV2Fail(res, "tx/step 需要 { txId, step }", 400);
+          return true;
+        }
+        const result = await op.run(step !== undefined ? { txId, step } : { txId });
+        json(res, result as Record<string, unknown>, result.ok ? 200 : 400);
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);
       }
