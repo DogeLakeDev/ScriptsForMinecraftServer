@@ -24,6 +24,7 @@ node sfmc/dist/main.js mod search afk      # 查单模块 registry info
 node sfmc/dist/main.js mod install afk
 node sfmc/dist/main.js mod list            # 本机已安装
 node sfmc/dist/main.js mod info afk        # 本机已安装详情
+node sfmc/dist/main.js mod build           # 按启用状态整包编译 BP+RP
 ```
 
 安装会同步 `modules/catalog.json` 和 `modules/module-lock.json`。
@@ -54,11 +55,12 @@ curl http://127.0.0.1:3001/api/sfmc/modules
 
 ## 装完还要做什么
 
-1. `module enable`（若默认未启用）
-2. `behavior-pack build` + `deploy`（见下章）
-3. 重启 BDS
+1. `mod enable`（若默认未启用）
+2. `mod build` 或等下次 `start bds`（启动前会自动比对 catalog 并按需重编）
+3. 若只想部署不重启：`pack deploy`
+4. 重启 BDS（`start bds` 已含装载闸门）
 
-没有热重载，跳过任一步游戏内可能看不到效果。
+没有热重载，跳过任一步游戏内可能看不到效果。详见 [行为包](./behavior-pack.md)。
 
 ## 其它来源
 

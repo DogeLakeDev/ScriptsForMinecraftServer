@@ -4,7 +4,8 @@ import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { HELP, startRepl } from "./repl.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
-import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
+import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
+import { dispatchPackCommand, isPackCommand } from "./pack-lifecycle.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { c } from "./theme.js";
 
@@ -105,8 +106,13 @@ async function main(): Promise<void> {
           console.log(await cmdBehaviorPackDeploy(subRest));
           break;
         default:
-          console.log(c.yellow("Usage: sfmc behavior-pack <build|deploy>"));
+          console.log(behaviorPackUsage());
       }
+      break;
+    }
+    case "pack": {
+      const [sub, ...subRest] = rest;
+      console.log(await dispatchPackCommand(sub, subRest));
       break;
     }
     case "init": {
@@ -144,6 +150,11 @@ async function main(): Promise<void> {
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = rest;
         console.log(await dispatchModuleCommand(sub, subRest));
+        break;
+      }
+      if (isPackCommand(cmd)) {
+        const [sub, ...subRest] = rest;
+        console.log(await dispatchPackCommand(sub, subRest));
         break;
       }
       console.log(c.red(`Unknown command: ${cmd}`));

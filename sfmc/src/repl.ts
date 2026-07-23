@@ -1,7 +1,7 @@
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
-import { formatLog, getAllLogs, onLog, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
+import { formatLog, getAllLogs, getRecentLogs, onLog, SOURCE_META, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
 import {
   dispatchModuleCommand,
   isModuleCommand,
@@ -10,6 +10,8 @@ import {
   MODULE_SUBCOMMANDS,
   paintModuleCmdAlias,
 } from "./module-commands.js";
+import { dispatchPackCommand, isPackCommand, PACK_SUBCOMMANDS } from "./pack-lifecycle.js";
+import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
@@ -67,6 +69,14 @@ ${c.bold("Commands")}
                           Show one installed module's details
   ${MODULE_HELP_LABEL} enable|disable <id>
                           Toggle module (needs db-server)
+  ${MODULE_HELP_LABEL} build
+                          Build BP+RP from enabled modules
+  ${c.green("pack")} status|build|deploy|list
+                          Pack install status / build / deploy
+  ${c.green("pack")} enable|disable [behavior|resource]
+                          Toggle world pack enable lists
+  ${c.green("bp")}/${c.green("behavior-pack")} build|deploy
+                          Alias of pack build/deploy
   ${c.green("version")}                   Show version
   ${c.green("help")}                      Show this
   ${c.green("quit")} / ${c.green("exit")} Exit
@@ -74,7 +84,7 @@ ${c.bold("Commands")}
 ${c.dim("Shortcuts:")}
   ${c.dim("Tab")}      Complete (cycle on repeat)
   ${c.dim("→")}        Accept gray suggestion
-  ${c.dim("Ctrl+L")}   Filter log level / source
+  ${c.dim("Ctrl+L")}   Filter log level / source / history
   ${c.dim("↑↓")}       History
 `;
 
@@ -89,6 +99,9 @@ const COMMANDS = [
   "update",
   "remote",
   ...MODULE_CMD_NAMES,
+  "pack",
+  "bp",
+  "behavior-pack",
   "version",
   "help",
   "quit",
@@ -157,6 +170,16 @@ function getCompletions(parsed: ParsedLine): string[] {
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
     case "remote":
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
+      return [];
+    case "pack":
+      if (argIndex === 0) return [...PACK_SUBCOMMANDS].filter(sw);
+      if (argIndex === 1 && ["enable", "disable"].includes(words[0] ?? "")) {
+        return ["behavior", "resource"].filter(sw);
+      }
+      return [];
+    case "bp":
+    case "behavior-pack":
+      if (argIndex === 0) return ["build", "deploy"].filter(sw);
       return [];
     default: {
       /* 与 MODULE_CMD_NAMES 对齐,新增别名无需再改 case(OCP/DRY) */
@@ -470,20 +493,64 @@ const LEVEL_ITEMS: SelectItem[] = [
   { label: c.dim("DEBUG"), value: "debug" },
   { label: c.green("SUCCESS"), value: "success" },
 ];
-export const SOURCE_ITEMS: SelectItem[] = [
-  { label: c.green("BDServer"), value: "bds" },
-  { label: c.blue("DataBase"), value: "db" },
-  { label: c.purple("QQBridge"), value: "qq" },
-  { label: c.yellow(" LL-BOT "), value: "llbot" },
-  { label: c.cyan(" SYSTEM "), value: "system" },
-  { label: c.orange(" UPDATE "), value: "update" },
-  { label: c.red("BDSTools"), value: "bds-tools" },
+
+/** 来源选择项:标签整段染色(含后续 formatSourceTag 的方括号风格) */
+export const SOURCE_ITEMS: SelectItem[] = SOURCE_META.map((m) => ({
+  label: m.paint(m.name),
+  value: m.value,
+}));
+
+/**
+ * 历史回放档位 — 复用 createMemoryBuffer(5000) 内存落盘。
+ * value 约定: none | all | count:N | time:MS
+ */
+const HISTORY_ITEMS: SelectItem[] = [
+  { label: "live only (no replay)", value: "none" },
+  { label: "last 50", value: "count:50" },
+  { label: "last 100", value: "count:100" },
+  { label: "last 500", value: "count:500" },
+  { label: "last 1000", value: "count:1000" },
+  { label: "last 1 min", value: "time:60000" },
+  { label: "last 5 min", value: "time:300000" },
+  { label: "last 15 min", value: "time:900000" },
+  { label: "last 1 hour", value: "time:3600000" },
+  { label: "all buffered", value: "all" },
 ];
+
+/** 按当前过滤条件从内存缓冲取历史日志 */
+function queryHistory(filter: LogFilter, window: string): UnifiedLog[] {
+  if (!window || window === "none") return [];
+
+  const match = (l: UnifiedLog): boolean => {
+    if (filter.levels.length && !filter.levels.includes(l.level)) return false;
+    if (filter.sources.length && !filter.sources.includes(l.source)) return false;
+    return true;
+  };
+
+  if (window === "all") return getAllLogs().filter(match);
+
+  if (window.startsWith("count:")) {
+    const n = Number(window.slice("count:".length));
+    if (!Number.isFinite(n) || n <= 0) return [];
+    return getRecentLogs(n, filter.levels, filter.sources);
+  }
+
+  if (window.startsWith("time:")) {
+    const ms = Number(window.slice("time:".length));
+    if (!Number.isFinite(ms) || ms <= 0) return [];
+    const since = Date.now() - ms;
+    return getAllLogs().filter((l) => match(l) && l.time.getTime() >= since);
+  }
+
+  return [];
+}
 
 function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
   if (filter.levels.length && !filter.levels.includes(log.level)) return;
   if (filter.sources.length && !filter.sources.includes(log.source)) return;
+  /* 清当前输入行写日志,再立刻重绘 ❯,避免指示符短暂消失 */
   stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}\n`);
+  currentRedraw?.();
 }
 
 /* ==================================================================
@@ -566,15 +633,28 @@ export async function startRepl(): Promise<void> {
 
     if (raw === null) break;
 
-    /* Ctrl+L — filter */
+    /* Ctrl+L — filter level / source / history window */
     if (raw.startsWith("__CTRLL__")) {
-      stdout.write(c.dim(`\nLEVEL──────────SOURCE\n`));
+      stdout.write(c.dim(`\nLEVEL──────────SOURCE──────────HISTORY\n`));
       const lvl = await simpleSelect([{ label: "ALL", value: "" }, ...LEVEL_ITEMS]);
       if (lvl === null) continue;
       const src = await simpleSelect([{ label: "ALL", value: "" }, ...SOURCE_ITEMS]);
       if (src === null) continue;
+      const hist = await simpleSelect(HISTORY_ITEMS);
+      if (hist === null) continue;
+
       filter = { levels: lvl ? [lvl as LogLevel] : [], sources: src ? [src as LogSource] : [] };
-      stdout.write(c.dim(`filter: ${lvl || "*"} / ${src || "*"}\n`));
+
+      const replay = queryHistory(filter, hist);
+      if (replay.length > 0) {
+        stdout.write(c.dim(`── history ${replay.length} line(s) ──\n`));
+        for (const log of replay) {
+          stdout.write(`${wrapLogLine(formatLog(log), 26)}\n`);
+        }
+      }
+
+      const histLabel = HISTORY_ITEMS.find((i) => i.value === hist)?.label ?? hist;
+      stdout.write(c.dim(`filter: ${lvl || "*"} / ${src || "*"} / ${histLabel}\n`));
       continue;
     }
 
@@ -676,6 +756,18 @@ async function execCmd(parts: string[]): Promise<void> {
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = args;
         stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
+        break;
+      }
+      if (isPackCommand(cmd)) {
+        const [sub, ...subRest] = args;
+        stdout.write((await dispatchPackCommand(sub, subRest)) + "\n");
+        break;
+      }
+      if (cmd === "bp" || cmd === "behavior-pack") {
+        const [sub, ...subRest] = args;
+        if (sub === "build") stdout.write((await cmdBehaviorPackBuild(subRest)) + "\n");
+        else if (sub === "deploy") stdout.write((await cmdBehaviorPackDeploy(subRest)) + "\n");
+        else stdout.write(behaviorPackUsage() + "\n");
         break;
       }
       stdout.write(c.yellow(`Unknown: ${cmd}  (try: help)\n`));

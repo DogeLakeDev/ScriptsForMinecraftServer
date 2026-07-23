@@ -39,6 +39,8 @@ interface ServiceDef {
   autoRestart: boolean;
   restartDelay: number;
   validate?: () => string | null;
+  /** 启动前钩子(如 BDS 装载一致性校验);失败则禁止 spawn */
+  beforeStart?: () => Promise<void>;
 }
 
 class Service {
@@ -86,6 +88,9 @@ class Service {
     if (this.def.validate) {
       const v = this.def.validate();
       if (v) throw new Error(v);
+    }
+    if (this.def.beforeStart) {
+      await this.def.beforeStart();
     }
     this.manualStop = false;
     const spawnOpts = {
@@ -219,6 +224,10 @@ function createServices(): Record<ServiceName, Service> {
       validate: () => {
         if (!fs.existsSync(bdsExe)) return `not found: ${bdsExe}`;
         return null;
+      },
+      beforeStart: async () => {
+        const { ensurePacksReady } = await import("./pack-lifecycle.js");
+        await ensurePacksReady();
       },
     }),
 

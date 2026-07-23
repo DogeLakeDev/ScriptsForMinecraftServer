@@ -14,7 +14,6 @@ import {
   type LogEntry,
   type LogLevel as SharedLogLevel,
 } from "@sfmc-bds/sdk/logs";
-import { SOURCE_ITEMS } from "./repl.js";
 import { c, highlightLogLine } from "./theme.js";
 
 export type LogLevel = SharedLogLevel;
@@ -48,6 +47,35 @@ export function inferLevel(text: string): LogLevel {
   return sharedInferLevel(text);
 }
 
+/* ==================================================================
+ *  来源标签元数据 (方括号与文字同色,对齐 levelTag)
+ * ================================================================== */
+
+export interface SourceMeta {
+  value: string;
+  /** 显示名,尽量 8 宽对齐 */
+  name: string;
+  paint: (s: string) => string;
+}
+
+export const SOURCE_META: SourceMeta[] = [
+  { value: "bds", name: "BDServer", paint: (s) => c.green(s) },
+  { value: "db", name: "DataBase", paint: (s) => c.blue(s) },
+  { value: "qq", name: "QQBridge", paint: (s) => c.purple(s) },
+  { value: "llbot", name: " LL-BOT ", paint: (s) => c.yellow(s) },
+  { value: "system", name: " SYSTEM ", paint: (s) => c.cyan(s) },
+  { value: "update", name: " UPDATE ", paint: (s) => c.orange(s) },
+  { value: "pack", name: "  PACK  ", paint: (s) => c.purple(s) },
+  { value: "bds-tools", name: "BDSTools", paint: (s) => c.red(s) },
+];
+
+/** `[BDServer]` 整段染色(含方括号),与 `[INF]`/`[ERR]` 风格一致 */
+export function formatSourceTag(source: string): string {
+  const meta = SOURCE_META.find((m) => m.value === source);
+  if (meta) return meta.paint(`[${meta.name}]`);
+  return c.bold(`[${source.padEnd(7).slice(0, 8)}]`);
+}
+
 /** 简化BDS日志 */
 function stripLogPrefix(line: string): string {
   // 匹配格式: [2026-07-18 23:56:06:778 INFO]
@@ -61,42 +89,30 @@ function stripLogPrefix(line: string): string {
  * @returns 日志等级（大写），若无法识别则返回 'UNKNOWN'
  */
 function getLogLevel(line: string): string {
-  // 定义所有可能出现的等级（不区分大小写）
   const levelNames = ["INFO", "WARNING", "ERROR", "FATAL", "DEBUG", "TRACE", "WARN"];
   const levelPattern = levelNames.join("|");
 
-  // 1. 等级在方括号内，如 [INFO] 或 [WARNING]
   let match = line.match(new RegExp(`\\[(${levelPattern})\\]`, "i"));
   if (match && match[1]) return match[1].toUpperCase();
 
-  // 2. 等级紧跟在时间戳方括号之后，如 [2026-...] INFO
   match = line.match(new RegExp(`^\\[.*?\\]\\s*(${levelPattern})`, "i"));
   if (match && match[1]) return match[1].toUpperCase();
 
-  // 3. 等级在行首，后跟冒号，如 INFO: 或 ERROR:
   match = line.match(new RegExp(`^(${levelPattern})\\s*:`, "i"));
   if (match && match[1]) return match[1].toUpperCase();
 
-  // 4. 等级在类似 [Server] 后的方括号外，如 [Server] INFO:
   match = line.match(new RegExp(`\\[.*?\\]\\s*(${levelPattern})\\s*:`, "i"));
   if (match && match[1]) return match[1].toUpperCase();
 
-  // 5. 若上述均未匹配，返回未知
   return "UNKNOWN";
 }
 
 /** 格式化日志用于 REPL 展示 (用 theme.ts chalk 配色) */
 export function formatLog(l: UnifiedLog): string {
-  let src = c.bold(padSource(l.source));
   const ts = c.dim(l.time.toLocaleTimeString());
   let lvl = levelTag(l.level);
   let txt = highlightLogLine(l.text);
-  for (const item of SOURCE_ITEMS) {
-    if (item.value === l.source) {
-      src = `[${item.label}]`;
-      break;
-    }
-  }
+  const src = formatSourceTag(l.source);
   if (l.source === "bds") {
     const parsed = getLogLevel(l.text);
     const mapped: LogLevel =
@@ -112,10 +128,6 @@ export function formatLog(l: UnifiedLog): string {
     lvl = levelTag(mapped);
   }
   return `${ts} ${src} ${lvl} ${txt}`;
-}
-
-function padSource(s: LogSource): string {
-  return s.padEnd(7);
 }
 
 function levelTag(lvl: LogLevel): string {
