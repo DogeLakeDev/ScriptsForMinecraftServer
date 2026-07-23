@@ -26,8 +26,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          # 故意独立于 .node-version：SEA bundle 目标 node26（见 build-sea.mjs target）
-          node-version: "26"
+          # 故意独立于 .node-version（烟测 CI）；SEA 目标唯一来源：.node-version-sea
+          # （与 build-sea.mjs target 共用，DRY）
+          node-version-file: .node-version-sea
           cache: npm
 
       - run: npm ci --no-audit --no-fund

@@ -31,6 +31,7 @@
     "./check-update": "./dist/check-update.js",
     "./bds-manager": "./dist/bds-manager.js",
     "./pack-manager": "./dist/cli-pack-manager.js",
+    "./pack-manager-lib": "./dist/pack-manager.js",
     "./world-packs": "./dist/world-packs.js",
     "./taskbar": "./dist/taskbar.js",
     "./update-result": "./dist/update-result.js",
