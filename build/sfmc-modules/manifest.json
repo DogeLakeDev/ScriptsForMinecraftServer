@@ -1,0 +1,37 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "sfmc-modules",
+    "uuid": "e81ff78e-ed0a-42c3-b68b-b87331d8380f",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "description": "ScriptsForMinecraftServer aggregated behavior pack (behavior pack)",
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "1e8a4652-62e4-4234-8041-774732014efe",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.18.0"
+    }
+  ]
+}

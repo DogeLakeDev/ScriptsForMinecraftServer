@@ -41,6 +41,10 @@ export interface AssembleBehaviorPackOpts {
   description?: string | undefined;
   /** pack_icon.png 源文件 (optional, 不提供则跳过) */
   iconSrc?: string | undefined;
+  /** 稳定 header.uuid;省略则随机生成(首次装配) */
+  uuid?: string | undefined;
+  /** 稳定 script module uuid;省略则随机 */
+  moduleUuid?: string | undefined;
 }
 
 export interface AssembleResourcePackOpts {
@@ -54,6 +58,15 @@ export interface AssembleResourcePackOpts {
   version?: [number, number, number] | undefined;
   /** manifest.json 的 description */
   description?: string | undefined;
+  /** 稳定 header.uuid;省略则随机生成(首次装配) */
+  uuid?: string | undefined;
+  /** 稳定 resources module uuid;省略则随机 */
+  moduleUuid?: string | undefined;
+}
+
+export interface AssembleResult {
+  uuid: string;
+  version: [number, number, number];
 }
 
 export interface DeployOpts {
@@ -67,6 +80,11 @@ export interface DeployOpts {
   bpName: string;
   /** RP 目标目录名 (worlds/<level>/resource_packs/<rpName>);省略时复用 bpName + '-rp' */
   rpName?: string;
+}
+
+export interface DeployResult {
+  bpDir: string;
+  rpDir: string | null;
 }
 
 export interface EnablePackOpts {
@@ -106,9 +124,9 @@ export function randomUuid(): string {
  * The caller is responsible for running esbuild first; pack-manager does not
  * bundle scripts. That decoupling is what lets the SEA ship without esbuild.
  */
-export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Promise<void> {
+export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Promise<AssembleResult> {
   const version = opts.version ?? [1, 0, 0];
-  const bpUuid = randomUuid();
+  const bpUuid = opts.uuid ?? randomUuid();
   await fs.promises.rm(opts.outDir, { recursive: true, force: true });
   await fs.promises.mkdir(opts.outDir, { recursive: true });
   if (fs.existsSync(opts.srcDir)) {
@@ -122,11 +140,13 @@ export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Prom
     uuid: bpUuid,
     version,
     description: opts.description,
+    moduleUuid: opts.moduleUuid,
   });
   if (opts.iconSrc && fs.existsSync(opts.iconSrc)) {
     await copyFileAsync(opts.iconSrc, path.join(opts.outDir, "pack_icon.png"));
   }
   await writePermissionsJson(opts.outDir);
+  return { uuid: bpUuid, version };
 }
 
 /**
@@ -134,9 +154,9 @@ export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Prom
  * at `outDir`, with a single fresh `manifest.json`. Per-module subfolders are
  * preserved so resource pack authors can disambiguate (e.g. `peace/textures/...`).
  */
-export async function assembleResourcePack(opts: AssembleResourcePackOpts): Promise<void> {
+export async function assembleResourcePack(opts: AssembleResourcePackOpts): Promise<AssembleResult> {
   const version = opts.version ?? [1, 0, 0];
-  const rpUuid = randomUuid();
+  const rpUuid = opts.uuid ?? randomUuid();
   await fs.promises.rm(opts.outDir, { recursive: true, force: true });
   await fs.promises.mkdir(opts.outDir, { recursive: true });
   for (const [moduleId, rpDir] of Object.entries(opts.moduleResourceDirs)) {
@@ -150,7 +170,9 @@ export async function assembleResourcePack(opts: AssembleResourcePackOpts): Prom
     uuid: rpUuid,
     version,
     description: opts.description,
+    moduleUuid: opts.moduleUuid,
   });
+  return { uuid: rpUuid, version };
 }
 
 /**
@@ -176,7 +198,7 @@ export async function readLevelName(bdsRoot: string): Promise<string> {
  * Does NOT edit world_behavior_packs.json — that's a separate step the caller
  * must invoke after restart, because BDS only reads that file at startup.
  */
-export async function deployToBDS(opts: DeployOpts): Promise<void> {
+export async function deployToBDS(opts: DeployOpts): Promise<DeployResult> {
   const worldsDir = path.join(opts.bdsRoot, "worlds", opts.levelName);
   const bpDst = path.join(worldsDir, "behavior_packs", opts.bpName);
   const rpDst = path.join(worldsDir, "resource_packs", opts.rpName ?? `${opts.bpName}-rp`);
@@ -184,9 +206,51 @@ export async function deployToBDS(opts: DeployOpts): Promise<void> {
   await fs.promises.rm(bpDst, { recursive: true, force: true });
   await copyDirAsync(opts.behaviorPackSrc, bpDst);
   await writePermissionsJson(bpDst);
+  let rpDir: string | null = null;
   if (opts.resourcePackSrc && fs.existsSync(opts.resourcePackSrc)) {
     await fs.promises.rm(rpDst, { recursive: true, force: true });
     await copyDirAsync(opts.resourcePackSrc, rpDst);
+    rpDir = rpDst;
+  }
+  return { bpDir: bpDst, rpDir };
+}
+
+/**
+ * 确保 BDS Script API 侧 `<bdsRoot>/config/<bpUuid>/permission.json` 存在。
+ * 已存在则跳过(不覆盖用户手工改动)。
+ * @returns true = 新写入; false = 已存在跳过
+ */
+export async function ensureConfigPermission(bdsRoot: string, bpUuid: string): Promise<boolean> {
+  const dir = path.join(bdsRoot, "config", bpUuid);
+  const file = path.join(dir, "permission.json");
+  if (fs.existsSync(file)) return false;
+  await fs.promises.mkdir(dir, { recursive: true });
+  const payload = { allowed_modules: [...SFMC_PERMISSIONS] };
+  const tmp = path.join(dir, `.permission.${process.pid}.tmp`);
+  await fs.promises.writeFile(tmp, JSON.stringify(payload, null, 2) + "\n", "utf8");
+  await fs.promises.rename(tmp, file);
+  return true;
+}
+
+/** 从已装配 BP/RP 目录读取 header.uuid + version;失败返回 null。 */
+export function readPackManifestHeader(
+  packDir: string
+): { uuid: string; version: [number, number, number]; moduleUuid?: string } | null {
+  const file = path.join(packDir, "manifest.json");
+  if (!fs.existsSync(file)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as {
+      header?: { uuid?: string; version?: number[] };
+      modules?: Array<{ uuid?: string }>;
+    };
+    const uuid = raw.header?.uuid;
+    const ver = raw.header?.version;
+    if (typeof uuid !== "string" || !Array.isArray(ver) || ver.length < 3) return null;
+    const version: [number, number, number] = [Number(ver[0]), Number(ver[1]), Number(ver[2])];
+    const moduleUuid = raw.modules?.[0]?.uuid;
+    return { uuid, version, ...(typeof moduleUuid === "string" ? { moduleUuid } : {}) };
+  } catch {
+    return null;
   }
 }
 
@@ -258,7 +322,13 @@ async function editWorldPackList(
 
 export async function writeBehaviorPackManifest(
   outDir: string,
-  header: { name: string; uuid: string; version: [number, number, number]; description?: string | undefined }
+  header: {
+    name: string;
+    uuid: string;
+    version: [number, number, number];
+    description?: string | undefined;
+    moduleUuid?: string | undefined;
+  }
 ): Promise<void> {
   const manifest = {
     format_version: 2,
@@ -274,7 +344,7 @@ export async function writeBehaviorPackManifest(
         type: "script",
         language: "javascript",
         entry: "scripts/main.js",
-        uuid: crypto.randomUUID(),
+        uuid: header.moduleUuid ?? crypto.randomUUID(),
         version: header.version,
       },
     ],
@@ -289,7 +359,13 @@ export async function writeBehaviorPackManifest(
 
 export async function writeResourcePackManifest(
   outDir: string,
-  header: { name: string; uuid: string; version: [number, number, number]; description?: string | undefined }
+  header: {
+    name: string;
+    uuid: string;
+    version: [number, number, number];
+    description?: string | undefined;
+    moduleUuid?: string | undefined;
+  }
 ): Promise<void> {
   const manifest = {
     format_version: 2,
@@ -303,7 +379,7 @@ export async function writeResourcePackManifest(
     modules: [
       {
         type: "resources",
-        uuid: crypto.randomUUID(),
+        uuid: header.moduleUuid ?? crypto.randomUUID(),
         version: header.version,
       },
     ],

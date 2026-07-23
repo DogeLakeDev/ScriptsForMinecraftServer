@@ -11,26 +11,26 @@ node sfmc/dist/main.js status   # 只看状态
 
 | 命令 | 说明 |
 |------|------|
-| `start db\|qq\|llbot\|bds\|-all` | 启动 |
+| `start db\|qq\|llbot\|bds\|-all` | 启动（`bds` 启动前会校验并按需重编行为包） |
 | `stop …` / `restart …` | 停 / 重启 |
 | `logs <svc> [-n N] [-f]` | 看日志 |
 | `init` | 重跑向导 |
 | `update [--check-only]` | 检查或安装 BDS 更新 |
-| `module`/`mod` list\|install\|… | 模块（见 [模块](./modules.md)） |
+| `module`/`mod` list\|install\|build\|… | 模块（见 [模块](./modules.md)） |
+| `pack` status\|build\|deploy\|list\|… | 行为包/资源包装载（见 [行为包](./behavior-pack.md)） |
 | `remote enroll\|status\|disable` | 远程 agent |
 
-REPL 里输入 `help` 看完整列表。`Ctrl+C` 退出 REPL，子进程可继续跑。
+REPL 里输入 `help` 看完整列表。`Ctrl+C` 退出 REPL，子进程可继续跑。装载相关日志源为 **`pack`**（Ctrl+L 可过滤）。
 
-## CLI 与 REPL 的差异
+## 行为包与 BDS 启动
 
-这些命令**只在 CLI** 里（单独开终端执行）：
+`start bds` / `restart bds` / `start -all` 在拉起 `bedrock_server` **之前**会：
 
-```bash
-node sfmc/dist/main.js behavior-pack build
-node sfmc/dist/main.js behavior-pack deploy
-```
+1. 比对世界 BP 内 `sfmc-deploy-catalog.json` 与本机模块启停/指纹
+2. 不一致则整包 `build` + `deploy`（含 `world_*_packs.json` 与 `config/<uuid>/permission.json`）
+3. 打印装载摘要；失败则**不**启动 BDS
 
-`module`/`mod` 的 enable/disable 在 CLI 与 REPL 中均可使用（需 db-server 在跑）。
+手动编译可用 `mod build` / `pack build` / `bp build`。
 
 ## 单独起 db-server
 
@@ -45,6 +45,4 @@ curl http://127.0.0.1:3001/api/health
 sfmc> start -all
 ```
 
-会按依赖拉起 db、qq、llbot、bds（具体取决于你的配置）。
-
-下一章：[模块](./modules.md)
+会按 **db → qq → llbot → bds** 顺序拉起；bds 步含装载闸门。

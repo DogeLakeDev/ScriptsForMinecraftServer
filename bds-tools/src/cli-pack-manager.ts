@@ -3,11 +3,12 @@
  * pack-manager CLI — thin wrapper around the pack-manager pure functions
  * so spawnService can call it as a sub-process.
  *
- *   node bds-tools/dist/pack-manager.js assemble-bp  --src <dir> --out <dir> --name <name> [--version 1,0,0] [--description "..."] [--icon <png>]
- *   node bds-tools/dist/pack-manager.js assemble-rp  --modules-dir <dir> --out <dir> --name <name> [--version 1,0,0] [--description "..."]
+ *   node bds-tools/dist/pack-manager.js assemble-bp  --src <dir> --out <dir> --name <name> [--uuid <uuid>] [--module-uuid <uuid>] [--version 1,0,0] [--description "..."] [--icon <png>]
+ *   node bds-tools/dist/pack-manager.js assemble-rp  --modules-dir <dir> --out <dir> --name <name> [--uuid <uuid>] [--module-uuid <uuid>] [--version 1,0,0] [--description "..."]
  *   node bds-tools/dist/pack-manager.js deploy        --bds-root <dir> --level <name> --bp-src <dir> [--rp-src <dir>] --bp-name <name> [--rp-name <name>]
  *   node bds-tools/dist/pack-manager.js enable-pack   --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid> --version 1,0,0
  *   node bds-tools/dist/pack-manager.js disable-pack  --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid>
+ *   node bds-tools/dist/pack-manager.js ensure-permission --bds-root <dir> --pack-id <uuid>
  *   node bds-tools/dist/pack-manager.js read-level    --bds-root <dir>
  *
  * The pure-function API lives in pack-manager.ts. This CLI exists so the
@@ -76,6 +77,8 @@ async function main(): Promise<void> {
         version: parseVersion(args["version"]),
         description: args["description"],
         ...(icon ? { iconSrc: path.resolve(icon) } : {}),
+        ...(args["uuid"] ? { uuid: args["uuid"] } : {}),
+        ...(args["module-uuid"] ? { moduleUuid: args["module-uuid"] } : {}),
       });
       process.stdout.write(`[pack-manager] assembled BP at ${out}\n`);
       return;
@@ -91,6 +94,8 @@ async function main(): Promise<void> {
         projectName: name,
         version: parseVersion(args["version"]),
         description: args["description"],
+        ...(args["uuid"] ? { uuid: args["uuid"] } : {}),
+        ...(args["module-uuid"] ? { moduleUuid: args["module-uuid"] } : {}),
       });
       process.stdout.write(`[pack-manager] assembled RP at ${out} (${Object.keys(map).length} modules)\n`);
       return;
@@ -141,6 +146,17 @@ async function main(): Promise<void> {
         version: parseVersion(args["version"] ?? "1,0,0"),
       });
       process.stdout.write(`[pack-manager] disabled ${kind} pack ${packId} in ${level}\n`);
+      return;
+    }
+    case "ensure-permission": {
+      const bdsRoot = need(args, "bds-root");
+      const packId = need(args, "pack-id");
+      const wrote = await mod.ensureConfigPermission(path.resolve(bdsRoot), packId);
+      process.stdout.write(
+        wrote
+          ? `[pack-manager] wrote config/${packId}/permission.json\n`
+          : `[pack-manager] config/${packId}/permission.json already exists — skipped\n`
+      );
       return;
     }
     case "read-level": {

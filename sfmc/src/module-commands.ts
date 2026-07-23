@@ -54,6 +54,7 @@ export const MODULE_SUBCOMMANDS = [
   "info",
   "enable",
   "disable",
+  "build",
 ] as const;
 
 export const MODULE_USAGE =
@@ -62,11 +63,11 @@ export const MODULE_USAGE =
 import fs from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { configPath, readJson, type DBConfig } from "@sfmc-bds/sdk/node/config";
 import { c } from "./theme.js";
 import { ROOT, resolveFetchModule } from "./runtime.js";
+import { dirFingerprint } from "./module-fingerprint.js";
 import {
   DEFAULT_REGISTRY_REPO,
   DEFAULT_REGISTRY_TAG,
@@ -131,32 +132,6 @@ async function scanInstalled(): Promise<InstalledModule[]> {
   }
   out.sort((a, b) => a.id.localeCompare(b.id));
   return out;
-}
-
-/** Compute the canonical SHA-256 of a module directory (POSIX `find ... | sha256sum` compatible). */
-async function dirFingerprint(rootDir: string): Promise<string> {
-  const hash = createHash("sha256");
-  const entries: string[] = [];
-  async function walk(rel: string): Promise<void> {
-    const full = path.join(rootDir, rel);
-    const items = await fs.readdir(full, { withFileTypes: true });
-    const sorted = items.sort((a, b) => a.name.localeCompare(b.name));
-    for (const it of sorted) {
-      const child = rel ? `${rel}/${it.name}` : it.name;
-      if (it.isDirectory()) await walk(child);
-      else if (it.isFile()) entries.push(child);
-    }
-  }
-  await walk("");
-  entries.sort();
-  for (const rel of entries) {
-    const data = await fs.readFile(path.join(rootDir, rel));
-    hash.update(rel.replaceAll("\\", "/"));
-    hash.update("\n");
-    hash.update(data);
-    hash.update("\n");
-  }
-  return hash.digest("hex");
 }
 
 async function dirSize(dir: string): Promise<{ totalBytes: number; fileCount: number }> {
@@ -517,6 +492,10 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
       return cmdModuleEnable(args);
     case "disable":
       return cmdModuleDisable(args);
+    case "build": {
+      const { cmdPackBuild } = await import("./pack-lifecycle.js");
+      return cmdPackBuild(args);
+    }
     default:
       return c.yellow(MODULE_USAGE);
   }
