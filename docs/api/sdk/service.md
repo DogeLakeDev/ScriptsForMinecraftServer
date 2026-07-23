@@ -11,6 +11,10 @@ const land = await service.get<{ id: string; name: string } | null>(
 const names = await service.list();
 ```
 
+有 typed client 的模块优先用 client（例：[`@sfmc-bds/module-economy/client`](../modules/economy.md)），不要手写对方私有表。
+
+完整服务清单：[模块服务目录](../modules/README.md)。
+
 ## 声明
 
 提供方 manifest：
@@ -36,12 +40,15 @@ const names = await service.list();
 ## 事务内
 
 ```ts
+import { economy } from "@sfmc-bds/module-economy/client";
+
 await db.tx(async (tx) => {
-  await tx.call("economy.debit", { playerId, amount: 100 });
+  await economy.account.inTx(tx).debit({ playerId, amount: 100, reason: "buy" });
+  // 无 client 时：await tx.call("economy.account.debit", { … });
 });
 ```
 
-不要用 `service.get` 代替 `tx.call`。
+不要用 `service.get` 代替事务内的 `tx.call` / `inTx`。
 
 ## 错误
 

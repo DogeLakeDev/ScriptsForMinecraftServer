@@ -35,6 +35,9 @@ type MutateView = {
 /**
  * 经 service registry 读账户(LSP:已无 /api/sfmc/economy/* REST)。
  * 调用方须已 setServiceModuleContext,且持有 service:economy.account.get。
+ *
+ * 注:跨模块写账本的权威简洁 API 在 @sfmc-bds/module-economy/client;
+ * 本 Money 类仅作玩家侧余额缓存助手(get/load/setCached/UNIT),底层同样调 economy.account.*。
  */
 async function getEconomyAccount(playerId: string, playerName: string): Promise<EconomyAccount | null> {
   try {

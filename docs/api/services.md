@@ -35,4 +35,4 @@ const land = await service.get("land.byId", { landId: "abc" });
 const all = await service.list();
 ```
 
-详见 [SDK → service](./sdk/service.md)。
+详见 [SDK → service](./sdk/service.md)。各模块提供的服务名与 typed client 见 [模块服务目录](./modules/README.md)。

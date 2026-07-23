@@ -11,6 +11,7 @@
 | `npm run check-modules` | 校验 catalog + v2 manifest（空 catalog 合法） |
 | `node tools/fetch-module.mjs search` | 查注册表 |
 | `node tools/fetch-module.mjs install <id>` | 安装模块 |
+| `node tools/new-module.mjs <id> [--root ../sfmc-modules]` | 在 sfmc-modules 生成模块骨架 |
 | `npm run smoke-modules` | 模块 API 冒烟（需 live db-server） |
 | `node tools/sim-new-user.mjs` | 隔离 `SFMC_ROOT` 测试 |
 | `node tools/test-db-api.mjs` | 临时端口测 db API |
@@ -21,11 +22,23 @@
 node tools/fetch-module.mjs install afk
 node tools/fetch-module.mjs install foo --from github:owner/repo@tag
 node tools/fetch-module.mjs install foo --from dir:/path
+node tools/fetch-module.mjs install foo --from dir:/path --link   # junction(win)/symlink；仅 dir:
 node tools/fetch-module.mjs install foo --from local:/path.zip
 node tools/fetch-module.mjs uninstall afk
 ```
 
+`--link` 把 `modules/packages/<id>` 链到源目录，仍同步 catalog/lock；发布/生产请用默认 copy。
+
 默认注册表：`Tanya7z/sfmc-modules@main/index.json`，缓存 `tools/.sfmc-registry-cache.json`。
+
+## new-module
+
+```bash
+node tools/new-module.mjs my-feature --name "我的模块" --root ../sfmc-modules
+node tools/new-module.mjs my-feature --template db   # 含 db 权限占位
+```
+
+交互式入口：`sfmc module create`（REPL 内 `module create`）。
 
 ## 共享库
 

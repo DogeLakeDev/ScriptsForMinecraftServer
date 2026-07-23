@@ -1,19 +1,15 @@
 {
+  "$schema": "../../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
   "schemaVersion": 2,
   "id": "feature-afk",
   "name": "AFK 检测",
   "type": "feature",
   "configKey": "afk",
   "requires": [],
-
-  "permissions": [
-    "config:read:afk"
-  ],
-
+  "permissions": ["config:read:afk"],
   "services": {
     "provides": [],
     "requires": []
   },
-
-  "notes": "v2 纯游戏侧逻辑(位置扫描 + 标签),无 db 表、无 service。读 configs/afk.json 内的 afk_time(step_time 写死在 src)。迁移自 v1 AFK.ts,把全局 ConfigManager.getSetting 改成按模块 configKey 的 config.get。"
+  "notes": "挂机检测。"
 }

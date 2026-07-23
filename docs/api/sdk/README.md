@@ -21,7 +21,7 @@ import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 |------|------|
 | `@sfmc-bds/sdk/module-loader` | ModuleRegistry、ConfigManager、installHostBootstrap |
 | `@sfmc-bds/sdk/sapi/host` | 平台 host 适配 |
-| `@sfmc-bds/sdk/contracts` | 平台级共享类型（catalog / lock） |
+| `@sfmc-bds/sdk/contracts` | 平台级类型（module catalog / lock）；业务类型在各模块包内 |
 | `@sfmc-bds/sdk/node/config` | Node 侧读 configs |
 | `@sfmc-bds/sdk/node/sdk` | Node 服务统一能力 |
 | `@sfmc-bds/sdk/logs` | 日志 |
@@ -29,8 +29,11 @@ import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 
 ## 原则
 
-- 模块只走 SDK，不直连 `127.0.0.1:3001`
+- 模块只走 SDK / 对方 typed client，不直连 `127.0.0.1:3001`
 - 不手写 SQL；用 `WhereExpr`
-- 不 import 其它模块源码
+- 不 import 其它模块源码；跨模块用 service / client
+- 业务类型在模块包内维护；`@sfmc-bds/sdk/contracts` 仅 catalog/lock
+
+各模块对外服务：[模块服务目录](../modules/README.md)。
 
 对应 HTTP 见 [接口指南](../README.md)。

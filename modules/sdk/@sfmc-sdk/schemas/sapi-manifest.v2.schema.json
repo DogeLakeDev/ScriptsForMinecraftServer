@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/sapi-manifest.v2.schema.json",
+  "title": "SFMC SAPI Module Manifest v2",
+  "description": "业务行为包模块契约（非 Bedrock BP/RP manifest）。路径：packages/<id>/sapi/manifest.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "type",
+    "configKey",
+    "requires",
+    "permissions",
+    "services"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的 URI 或相对路径（IDE 用）"
+    },
+    "schemaVersion": {
+      "const": 2,
+      "description": "固定为 2"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "全局唯一逻辑 id，如 feature-land / core-data-backup"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "显示名"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["core", "feature"]
+    },
+    "configKey": {
+      "type": "string",
+      "minLength": 1,
+      "description": "对应 configs/<configKey>.json"
+    },
+    "requires": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "依赖的其它模块 manifest.id 列表"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(service:[A-Za-z0-9_.]+|[a-z]+:[a-z]+:[A-Za-z0-9_.*]+)$"
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provides", "requires"],
+      "properties": {
+        "provides": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/serviceEntry" }
+        },
+        "requires": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/serviceEntry" }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "serviceIO": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object", "array", "string", "number", "boolean", "null"]
+        },
+        "properties": { "type": "object" },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "serviceEntry": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input": { "$ref": "#/$defs/serviceIO" },
+        "output": { "$ref": "#/$defs/serviceIO" }
+      }
+    }
+  }
+}

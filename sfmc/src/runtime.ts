@@ -149,6 +149,20 @@ export function resolveFetchModule(): string | null {
   return tryResolveNpm("@sfmc-bds/tools", { rel: "fetch-module.mjs", exportPath: "@sfmc-bds/tools/fetch-module.mjs" });
 }
 
+/**
+ * 解析 tools/new-module.mjs。
+ * 优先级: SFMC_NEW_MODULE > ROOT/tools/ > @sfmc-bds/tools。
+ */
+export function resolveNewModule(): string | null {
+  const fromEnv = process.env.SFMC_NEW_MODULE;
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+
+  const mono = path.join(ROOT, "tools", "new-module.mjs");
+  if (fs.existsSync(mono)) return mono;
+
+  return tryResolveNpm("@sfmc-bds/tools", { rel: "new-module.mjs", exportPath: "@sfmc-bds/tools/new-module.mjs" });
+}
+
 /** 配置默认模板目录(聚合包装载 defaults/,或仓内 configs-default/) */
 export function resolveDefaultsDir(): string | null {
   const fromEnv = process.env.SFMC_DEFAULTS_DIR;

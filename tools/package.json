@@ -26,6 +26,7 @@
     "sfmc-catalog-sync": "./catalog-sync.mjs",
     "sfmc-check-modules": "./check-modules.mjs",
     "sfmc-fetch-module": "./fetch-module.mjs",
+    "sfmc-new-module": "./new-module.mjs",
     "sfmc-smoke-modules": "./smoke-modules.mjs",
     "sfmc-sim-new-user": "./sim-new-user.mjs"
   },

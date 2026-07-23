@@ -37,7 +37,8 @@ memory/
 data/
 .AddCompLib/*
 *.zip
-configs/
+# 仅忽略仓根运行时 configs/（勿写成 configs/，否则会误伤 **/configs/**，如 eslint-plugin）
+/configs/
 .workbuddy/
 
 BDS

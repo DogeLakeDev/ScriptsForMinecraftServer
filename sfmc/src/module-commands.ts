@@ -16,9 +16,13 @@
  *   install <id>            Wrapper around `tools/fetch-module.mjs install`.
  *                           If `--from` is omitted, the first-party registry
  *                           is consulted (Tanya7z/sfmc-modules).
+ *                           `--link` 透传：dir 源用 junction/symlink（开发期）。
  *   uninstall <id>          Remove packages/<id>/ + catalog/lock via fetch-module
  *   enable <id>             POST /api/sfmc/modules/:id/enable on db-server
  *   disable <id>            POST /api/sfmc/modules/:id/disable on db-server
+ *   create                  交互式脚手架（sfmc-modules/packages + 可选 link）
+ *   link [id]               无 id：交互选择；有 id：install --link（自动探测旁路 sfmc-modules）
+ *   dev                     link + enable + build + deploy 一键本地联调
  *
  * The runtime SEA process never connects to the network for local ops.
  * `search`/`install`/`uninstall` 需要网络(或本地 cache / --from)。
@@ -52,6 +56,9 @@ export const MODULE_SUBCOMMANDS = [
   "enable",
   "disable",
   "build",
+  "create",
+  "link",
+  "dev",
 ] as const;
 
 /** Usage 行主名|别名(与 MODULE_CMD_NAMES 同源,避免与 HELP 漂移)。 */
@@ -375,7 +382,7 @@ export async function cmdModuleDisable(args: string[]): Promise<string> {
  *  install  — shells out to tools/fetch-module.mjs
  * ─────────────────────────────────────────────────────────────── */
 export async function cmdModuleInstall(args: string[]): Promise<string> {
-  // 支持: install <id> [id2 ...] [--from ...]
+  // 支持: install <id> [id2 ...] [--from ...] [--link]
   const flags = parseFlags(args);
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -387,7 +394,26 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     if (args[i]?.startsWith("--")) continue;
     positional.push(args[i]!);
   }
-  if (positional.length === 0) return c.yellow("Usage: sfmc module|mod install <id> [id2 ...] [--from <source>]");
+  if (positional.length === 0) {
+    return c.yellow("Usage: sfmc module|mod install <id> [id2 ...] [--from <source>] [--link]");
+  }
+
+  /* --link 无 --from 时：自动探测旁路 sfmc-modules（与 mod link 一致） */
+  if (flags.link && !flags.from) {
+    const { resolveSfmcModulesRoot, packageDirForId } = await import("./sfmc-modules-root.js");
+    const modulesRoot = resolveSfmcModulesRoot();
+    if (!modulesRoot) {
+      return c.red(
+        `--link 需要 --from dir:<path>，或设置 SFMC_MODULES_ROOT / 旁路 ../sfmc-modules。\n` +
+          `示例: sfmc mod install land --from dir:../sfmc-modules/packages/land --link`
+      );
+    }
+    flags.from =
+      positional.length === 1
+        ? `dir:${packageDirForId(modulesRoot, positional[0]!)}`
+        : `dir:${path.join(modulesRoot, "packages")}`;
+  }
+
   const fetchScript = resolveFetchModule();
   if (!fetchScript) {
     return c.red(`fetch-module not found. Install @sfmc-bds/sfmc or run inside the monorepo.`);
@@ -395,6 +421,7 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
   const sub = ["install", ...positional];
   if (flags.from) sub.push("--from", flags.from);
   if (flags.sha256) sub.push("--sha256", flags.sha256);
+  if (flags.link) sub.push("--link");
   return new Promise<string>((resolve) => {
     const proc = spawn(process.execPath, [fetchScript, ...sub], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -412,6 +439,35 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     });
     proc.on("error", (e) => resolve(c.red(`spawn failed: ${e.message}`)));
   });
+}
+
+/**
+ * `mod link [id] [--from dir:…]`
+ * - 有 id：等价 `install <id> --link`，缺省 --from 时自动拼旁路 packages/<id>
+ * - 无 id：进入交互选择（@clack/prompts）
+ */
+export async function cmdModuleLink(args: string[]): Promise<string> {
+  const flags = parseFlags(args);
+  const positional: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--from" || args[i] === "--sha256") {
+      i++;
+      continue;
+    }
+    if (args[i]?.startsWith("--from=") || args[i]?.startsWith("--sha256=")) continue;
+    if (args[i]?.startsWith("--")) continue;
+    positional.push(args[i]!);
+  }
+
+  if (positional.length === 0) {
+    const { runModuleLinkWizard } = await import("./module-wizard.js");
+    return runModuleLinkWizard();
+  }
+
+  const id = positional[0]!;
+  const installArgs = [id, "--link"];
+  if (flags.from) installArgs.push("--from", flags.from);
+  return cmdModuleInstall(installArgs);
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -453,14 +509,17 @@ export async function cmdModuleUninstall(args: string[]): Promise<string> {
 interface InstallFlags {
   from: string | null;
   sha256: string | null;
+  link: boolean;
 }
 
 function parseFlags(args: string[]): InstallFlags {
-  const flags: InstallFlags = { from: null, sha256: null };
+  const flags: InstallFlags = { from: null, sha256: null, link: false };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--from") flags.from = args[++i] ?? null;
     else if (args[i]?.startsWith("--from=")) flags.from = args[i]!.slice("--from=".length);
     else if (args[i] === "--sha256") flags.sha256 = args[++i] ?? null;
+    else if (args[i]?.startsWith("--sha256=")) flags.sha256 = args[i]!.slice("--sha256=".length);
+    else if (args[i] === "--link") flags.link = true;
   }
   return flags;
 }
@@ -493,6 +552,16 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "build": {
       const { cmdPackBuild } = await import("./pack-lifecycle.js");
       return cmdPackBuild(args);
+    }
+    case "create": {
+      const { runModuleCreateWizard } = await import("./module-wizard.js");
+      return runModuleCreateWizard();
+    }
+    case "link":
+      return cmdModuleLink(args);
+    case "dev": {
+      const { runModuleDevWizard } = await import("./module-wizard.js");
+      return runModuleDevWizard();
     }
     default:
       return c.yellow(MODULE_USAGE);

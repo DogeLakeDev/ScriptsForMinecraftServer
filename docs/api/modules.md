@@ -44,11 +44,19 @@ Body：
 
 ## 与游戏的关系
 
-改 lock 只影响**下次** build/deploy 与 BDS 重启后的 SAPI 行为；没有热重载。
+改 lock / 模块代码后需 **build + deploy**，再让 BDS 加载新脚本：
 
-CLI 封装：
+- 推荐：`sfmc reload`（自动向 BDS 发 `reload`）
+- 或：`pack deploy` 后在 BDS/游戏内输入 `reload`
+
+改 `configs/*.json` 仍需重启 BDS（配置启动缓存）。
+
+CLI：
 
 ```bash
 node sfmc/dist/main.js module enable feature-afk
 node sfmc/dist/main.js module disable feature-afk
+node sfmc/dist/main.js reload
 ```
+
+各模块对外服务见 [模块服务目录](./modules/README.md)。

@@ -26,14 +26,15 @@ curl http://127.0.0.1:3001/api/health
 1. 看 BDS 日志第一条错误
 2. `npm run check-modules`
 3. `behavior-pack build` 看 esbuild 输出
-4. 确认模块已 enable，且 deploy + 重启 BDS
+4. 确认模块已 enable，且 `sfmc reload`（或 deploy 后在 BDS/游戏内 `reload`）
 
 ## 模块已 enable 但游戏里没效果
 
-- 是否 build + deploy 过？
+- 是否 `sfmc reload`（或 build + deploy + `reload`）过？
 - lock 里 `enabled: true` 吗？
 - `GET /api/sfmc/modules/<id>` 确认状态
 - 临时 disable 该模块，排除单模块问题
+- 依赖模块（如 land → economy）是否已安装并启用？
 
 ## QQ 桥
 

@@ -28,6 +28,7 @@ export const DB_SERVER_DIST = path.join(ROOT, "db-server", "dist", "index.js");
 export const SFMC_DIST = path.join(ROOT, "sfmc", "dist", "main.js");
 /** 始终指向本包内脚本，勿拼 ROOT/tools（npm 安装时 ROOT≠包父目录） */
 export const FETCH_MODULE = path.join(TOOLS_PKG_DIR, "fetch-module.mjs");
+export const NEW_MODULE = path.join(TOOLS_PKG_DIR, "new-module.mjs");
 
 /** @param {string} folder  packages/<folder> */
 export function packageDir(folder) {

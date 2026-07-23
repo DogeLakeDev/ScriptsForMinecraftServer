@@ -1,6 +1,7 @@
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { cmdReload } from "./commands-reload.js";
 import { formatLog, getAllLogs, getRecentLogs, onLog, SOURCE_META, wrapLogLine, type LogLevel, type LogSource, type UnifiedLog } from "./logs.js";
 import {
   dispatchModuleCommand,
@@ -15,6 +16,7 @@ import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
+import { listSfmcModulePackages, resolveSfmcModulesRoot } from "./sfmc-modules-root.js";
 import { c } from "./theme.js";
 
 function setRaw(v: boolean): void {
@@ -59,8 +61,8 @@ ${c.bold("Commands")}
                           List installed modules
   ${MODULE_HELP_LABEL} search [id]
                           Fetch registry list / show one module's registry info
-  ${MODULE_HELP_LABEL} install <id> [--from <source>]
-                          Fetch + install a module
+  ${MODULE_HELP_LABEL} install <id> [--from <source>] [--link]
+                          Fetch + install a module ( --link = junction/symlink )
   ${MODULE_HELP_LABEL} uninstall <id>
                           Remove an installed module
   ${MODULE_HELP_LABEL} verify [id]
@@ -69,8 +71,15 @@ ${c.bold("Commands")}
                           Show one installed module's details
   ${MODULE_HELP_LABEL} enable|disable <id>
                           Toggle module (needs db-server)
+  ${MODULE_HELP_LABEL} create
+                          Interactive scaffold in sfmc-modules (link optional)
+  ${MODULE_HELP_LABEL} link [id]
+                          Link local sfmc-modules package (--link install)
+  ${MODULE_HELP_LABEL} dev
+                          Link + enable + build + deploy for local dev
   ${MODULE_HELP_LABEL} build
                           Build BP+RP from enabled modules
+  ${c.green("reload")} [--build-only]     Build + deploy BP; send "reload" to BDS (unless --build-only)
   ${c.green("pack")} status|build|deploy|list
                           Pack install status / build / deploy
   ${c.green("pack")} enable|disable [behavior|resource]
@@ -99,6 +108,7 @@ const COMMANDS = [
   "update",
   "remote",
   ...MODULE_CMD_NAMES,
+  "reload",
   "pack",
   "bp",
   "behavior-pack",
@@ -168,6 +178,8 @@ function getCompletions(parsed: ParsedLine): string[] {
       return [];
     case "update":
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
+    case "reload":
+      return ["--build-only"].filter(sw);
     case "remote":
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
@@ -196,7 +208,23 @@ function getCompletions(parsed: ParsedLine): string[] {
       ) {
         return listInstalledModuleIdsSync().filter(sw);
       }
-      if (argIndex >= 1 && ["install", "list"].includes(verb)) {
+      if (argIndex === 1 && verb === "link") {
+        const root = resolveSfmcModulesRoot();
+        if (root) {
+          const ids = listSfmcModulePackages(root)
+            .map((p) => p.id)
+            .filter(sw);
+          if (ids.length) return ids;
+        }
+        return ["--from"].filter(sw);
+      }
+      if (argIndex >= 1 && verb === "install") {
+        return ["--from", "--sha256", "--link"].filter(sw);
+      }
+      if (argIndex >= 2 && verb === "link") {
+        return ["--from"].filter(sw);
+      }
+      if (argIndex >= 1 && verb === "list") {
         return ["--from", "--sha256"].filter(sw);
       }
       return [];
@@ -731,6 +759,9 @@ async function execCmd(parts: string[]): Promise<void> {
     }
     case "update":
       await cmdUpdate(args);
+      break;
+    case "reload":
+      stdout.write((await cmdReload(args)) + "\n");
       break;
     case "remote": {
       const [subcommand, controllerUrl, enrollmentToken, name] = args;

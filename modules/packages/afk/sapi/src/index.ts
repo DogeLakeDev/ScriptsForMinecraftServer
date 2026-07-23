@@ -52,6 +52,7 @@ function setAFK(player: Player): void {
   player.removeTag("NOAFK");
   startAFKScan();
   playerList.set(player.id, player.location);
+  // eslint-disable-next-line @sfmc-bds/no-player-send-message -- 全服广播 AFK 状态
   world.sendMessage(`§7* ${player.nameTag} is now AFK. *`);
   Msg.tips("已进入 AFK 状态", player);
   afkScanCache.set(player.id, { step: 0 });
@@ -93,6 +94,7 @@ function startAFKScan(): void {
         continue;
       }
       if (locationMoved(lastLoc, player.location)) {
+        // eslint-disable-next-line @sfmc-bds/no-player-send-message -- 全服广播 AFK 状态
         world.sendMessage(`§7* ${player.nameTag} is no longer AFK. *`);
         player.removeTag("AFK");
         afkScanCache.set(player.id, { lastLocation: player.location, step: 0 });
@@ -138,13 +140,9 @@ ModuleRegistry.register({
       Permission.register("afk.clear.other", Permission.OP);
     },
     async init() {
-      // getAll 取整份 afk.json(afk_time/step_time);勿用 get("afk")(文件无此键)
-      const cfg = await config.getAll<AfkConfig>();
-      const hasTime = typeof cfg?.afk_time === "number";
-      const safe: AfkConfig = hasTime
-        ? { afk_time: cfg.afk_time, step_time: typeof cfg.step_time === "number" ? cfg.step_time : 15 }
-        : { afk_time: 120, step_time: 15 };
-      if (!hasTime) {
+      const cfg = await config.get<AfkConfig>("afk");
+      const safe: AfkConfig = cfg ?? { afk_time: 120, step_time: 15 };
+      if (!cfg) {
         debug.e("AFK", "configs/afk.json missing — using built-in defaults {afk_time:120, step_time:15}");
       }
 
@@ -161,7 +159,9 @@ ModuleRegistry.register({
       for (const player of world.getAllPlayers()) reset(player);
     },
     registerCommands() {
-      Command.register("afk", "afk.use", setAFK, "进入 AFK 状态", "afk");
+      Command.register("afk", "afk.use", (pl) => {
+        if (pl) setAFK(pl);
+      }, "进入 AFK 状态", "afk");
       Command.register("noafk", "afk.clear.other", (pl) => {
         if (pl) pl.addTag("NOAFK");
       }, "令玩家不会进入 AFK 状态", "afk");
