@@ -5,9 +5,10 @@
  * 读取 ROLLBACK_MARKER，然后从备份恢复 preserve 项。
  */
 
-import { readRollbackMarker, rollbackFromBackup } from "./rollback.js";
+import { isMainModule } from "./is-main.js";
 import { log, closeLog } from "./log.js";
 import { clearPid } from "./paths.js";
+import { readRollbackMarker, rollbackFromBackup } from "./rollback.js";
 
 async function run(): Promise<void> {
   const m = readRollbackMarker();
@@ -29,9 +30,7 @@ async function run(): Promise<void> {
 }
 
 function isMain(): boolean {
-  if (require.main === module) return true;
-  const entry = process.argv[1] ?? "";
-  return entry.endsWith("recovery.js") || entry.endsWith("recovery.ts");
+  return isMainModule(import.meta.url);
 }
 
 if (isMain()) {

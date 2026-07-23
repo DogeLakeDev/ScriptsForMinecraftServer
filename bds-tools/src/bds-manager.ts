@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
+import { isMainModule } from "./is-main.js";
 import { loadConfig, PID_FILE } from "./paths.js";
 import { log } from "./log.js";
 
@@ -205,12 +206,12 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
     child.stdout?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       events.emit("output", text);
-      if (require.main === module) process.stdout.write(text);
+      if (isMain()) process.stdout.write(text);
     });
     child.stderr?.on("data", (chunk: Buffer) => {
       const text = `[STDERR] ${chunk.toString()}`;
       events.emit("output", text);
-      if (require.main === module) process.stderr.write(text);
+      if (isMain()) process.stderr.write(text);
     });
 
     child.on("exit", (code) => {
@@ -272,13 +273,9 @@ export const bdsEvents: EventEmitter = new EventEmitter();
 export const bdsEvents_enabled = (): void => { bdsEvents.setMaxListeners(100); };
 bdsEvents_enabled();
 
-/** 判断当前是否作为 CLI 主入口运行 */
+/** 判断当前是否作为 CLI 主入口运行（被 check-update 等 import 时为 false） */
 function isMain(): boolean {
-  if (require.main === module) return true;
-  // 兼容 CJS 编译产物的 require.main 不等于当前 module 场景
-  // 若 process.argv[1] 指向本文件 → 主入口
-  const entry = process.argv[1] ?? "";
-  return entry.endsWith("bds-manager.js") || entry.endsWith("bds-manager.ts");
+  return isMainModule(import.meta.url);
 }
 
 // CLI 入口

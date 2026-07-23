@@ -19,6 +19,7 @@ import { createBdsManager } from "./bds-manager.js";
 import { CHANGELOG_BASE, fetchChangelog } from "./changelog.js";
 import { copyDirSync, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
 import { httpDownload } from "./http.js";
+import { isMainModule } from "./is-main.js";
 import { loadConfig, LOG_PATH, resolvePaths } from "./paths.js";
 import { sendText, sendWithImage } from "./qqutil.js";
 import {
@@ -463,10 +464,9 @@ export async function runUpdate(): Promise<number> {
 }
 
 function isMain(): boolean {
+  // sfmc supervisor 通过 SFMC_SERVICE 拉起子进程时优先判定
   if (process.env.SFMC_SERVICE === "update") return true;
-  if (require.main === module) return true;
-  const entry = process.argv[1] ?? "";
-  return entry.endsWith("check-update.js") || entry.endsWith("check-update.ts");
+  return isMainModule(import.meta.url);
 }
 
 if (isMain()) {
