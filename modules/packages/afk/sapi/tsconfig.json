@@ -1,8 +1,8 @@
 {
-  "extends": "../../../sdk/@sfmc-sdk/tsconfig.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "../../../.."
+    "rootDir": "./src"
   },
   "include": ["src/**/*"]
 }

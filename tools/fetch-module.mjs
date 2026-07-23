@@ -8,11 +8,14 @@
  * Usage:
  *   node tools/fetch-module.mjs search
  *   node tools/fetch-module.mjs list [--from github:owner/repo@tag]
- *   node tools/fetch-module.mjs install <id> [id2 ...] [--from <source>] [--sha256 <hex>]
+ *   node tools/fetch-module.mjs install <id> [id2 ...] [--from <source>] [--sha256 <hex>] [--link]
  *   node tools/fetch-module.mjs uninstall <id> [id2 ...]
  *
  * Sources: local:<zip> | dir:<path> | github:owner/repo[@tag]
  * 省略 --from 时查 Tanya7z/sfmc-modules index.json
+ *
+ * --link: 仅配合 dir:；把 modules/packages/<id> 链到源目录（win32=junction，POSIX=symlink），
+ *         仍同步 catalog/lock。开发联调用；发布/生产请用默认 copy。
  */
 
 import fs, { createReadStream } from "node:fs";
@@ -111,13 +114,14 @@ function die(msg, code = 1) {
 }
 
 function parseArgs(args) {
-  const flags = { from: null, sha256: null };
+  const flags = { from: null, sha256: null, link: false };
   /** @type {string[]} */
   const positional = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--from") flags.from = args[++i];
     else if (a === "--sha256") flags.sha256 = args[++i];
+    else if (a === "--link") flags.link = true;
     else if (a.startsWith("--from=")) flags.from = a.slice("--from=".length);
     else if (a.startsWith("--")) die(`unknown flag: ${a}`);
     else positional.push(a);
@@ -130,6 +134,33 @@ async function ensureTarget(id) {
   await fsp.rm(dir, { recursive: true, force: true });
   await fsp.mkdir(dir, { recursive: true });
   return dir;
+}
+
+/** 移除 packages/<id>（目录 / junction / symlink），不跟随链接删除源内容 */
+async function removePackageTarget(dir) {
+  try {
+    await fsp.lstat(dir);
+  } catch (err) {
+    if (err && err.code === "ENOENT") return;
+    throw err;
+  }
+  await fsp.rm(dir, { recursive: true, force: true });
+}
+
+/**
+ * 把 dest 链到 src（win32=junction，其它=dir symlink）
+ * @param {string} srcDir
+ * @param {string} destDir
+ */
+async function linkPackageDir(srcDir, destDir) {
+  const absSrc = path.resolve(srcDir);
+  const absDest = path.resolve(destDir);
+  if (!exists(absSrc)) die(`local dir not found: ${absSrc}`);
+  await fsp.mkdir(path.dirname(absDest), { recursive: true });
+  await removePackageTarget(absDest);
+  const type = process.platform === "win32" ? "junction" : "dir";
+  await fsp.symlink(absSrc, absDest, type);
+  return absDest;
 }
 
 async function sha256OfFile(file) {
@@ -172,13 +203,21 @@ async function fromLocal(id, source, flags) {
   afterInstall(id);
 }
 
-async function fromDir(id, source) {
-  const srcDir = source.slice("dir:".length);
+async function fromDir(id, source, flags = {}) {
+  const srcDir = path.resolve(source.slice("dir:".length));
   if (!exists(srcDir)) die(`local dir not found: ${srcDir}`);
-  const dir = await ensureTarget(id);
-  await copyDir(srcDir, dir);
-  console.log(`[fetch-module] installed ${id} from dir ${srcDir}`);
-  console.log(`[fetch-module]   target: ${dir}`);
+  const dest = path.join(TARGET, id);
+  if (flags.link) {
+    await linkPackageDir(srcDir, dest);
+    console.log(`[fetch-module] linked ${id} → ${srcDir}`);
+    console.log(`[fetch-module]   mode: ${process.platform === "win32" ? "junction" : "symlink"}`);
+    console.log(`[fetch-module]   target: ${dest}`);
+  } else {
+    const dir = await ensureTarget(id);
+    await copyDir(srcDir, dir);
+    console.log(`[fetch-module] installed ${id} from dir ${srcDir}`);
+    console.log(`[fetch-module]   target: ${dir}`);
+  }
   afterInstall(id);
 }
 
@@ -307,6 +346,12 @@ async function copyDir(src, dst) {
 }
 
 async function installOne(id, flags) {
+  if (flags.link && flags.from && !flags.from.startsWith("dir:")) {
+    die(`--link only works with --from dir:<path> (got ${flags.from})`);
+  }
+  if (flags.link && !flags.from) {
+    die(`--link requires --from dir:<path>`);
+  }
   let from = flags.from;
   if (!from) {
     from = await defaultSourceFor(id);
@@ -324,7 +369,7 @@ async function installOne(id, flags) {
       : exists(path.join(candidate, "sapi", "manifest.json"))
         ? `dir:${candidate}`
         : from;
-    return fromDir(id, src);
+    return fromDir(id, src, perFlags);
   }
   if (from.startsWith("github:")) return fromGithub(id, from, perFlags);
   die(`unknown source: ${from}`);
@@ -336,7 +381,7 @@ async function uninstallOne(id) {
   if (removed) removeModuleLock(removed.id);
   else removeModuleLock(id);
   if (exists(dir)) {
-    await fsp.rm(dir, { recursive: true, force: true });
+    await removePackageTarget(dir);
     console.log(`[fetch-module] uninstalled ${id} (removed ${dir})`);
   } else {
     console.log(`[fetch-module] uninstalled ${id} (no package dir; catalog/lock cleaned)`);
@@ -350,13 +395,18 @@ function printHelp() {
 Commands:
   search                              list first-party registry
   list [--from github:owner/repo@tag] list release assets (default: first-party)
-  install <id> [id2 ...] [--from ...] install one or more modules + sync catalog/lock
+  install <id> [id2 ...] [--from ...] [--link]
+                                      install one or more modules + sync catalog/lock
   uninstall <id> [id2 ...]            remove package dir + catalog/lock entries
 
 Sources:
   local:/abs/path/to/foo.zip
   dir:/abs/path/to/foo/          (or dir:/path/to/packages for multi-install)
   github:owner/repo[@tag]
+
+Flags:
+  --link   with dir: only — junction (Windows) / symlink (POSIX) into
+           modules/packages/<id> instead of copying. Still syncs catalog/lock.
 `);
 }
 
@@ -400,7 +450,7 @@ async function main() {
   if (verb !== "install") die(`unknown verb: ${verb}`);
 
   const { flags, positional } = parseArgs(rest);
-  if (positional.length === 0) die("usage: install <id> [id2 ...] [--from <source>]");
+  if (positional.length === 0) die("usage: install <id> [id2 ...] [--from <source>] [--link]");
 
   for (const id of positional) {
     await installOne(id, flags);

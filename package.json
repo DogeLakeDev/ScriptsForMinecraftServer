@@ -6,7 +6,7 @@
   },
   "devDependencies": {
     "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
-    "@minecraft/server-net": "^1.0.0-beta.1.26.33-stable",
+    "@minecraft/server-net": "1.0.0-beta.11940b24",
     "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
     "@minecraft/vanilla-data": "1.26.40-preview.30",
     "@types/cli-progress": "^3.11.6",
@@ -15,8 +15,12 @@
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
+    "@typescript-eslint/rule-tester": "^8.65.0",
+    "@typescript-eslint/utils": "^8.65.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.7.0",
+    "jszip": "^3.10.1",
+    "lodash": "^4.18.1",
     "nodemon": "^3.1.14",
     "npm-run-all2": "^9.0.2",
     "prettier": "^3.9.5",
@@ -26,9 +30,7 @@
     "source-map": "^0.7.6",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.0",
-    "typescript": "^6.0.3",
-    "lodash": "^4.18.1",
-    "jszip": "^3.10.1"
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "start": "node sfmc/dist/main.js",
@@ -36,6 +38,8 @@
     "sdk:build": "npm run build --workspace @sfmc-bds/sdk",
     "sdk:typecheck": "npm run typecheck --workspace @sfmc-bds/sdk",
     "sdk:verify": "npm run sdk:typecheck && npm run sdk:build",
+    "eslint-plugin:build": "npm run build --workspace @sfmc-bds/eslint-plugin",
+    "eslint-plugin:test": "npm run test --workspace @sfmc-bds/eslint-plugin",
     "module-core:build": "npm run sdk:build",
     "module-core:typecheck": "npm run sdk:typecheck",
     "module-core:test": "echo \"no sdk tests yet\"",
@@ -44,13 +48,15 @@
     "check-modules": "node tools/check-modules.mjs",
     "catalog-sync": "node tools/catalog-sync.mjs",
     "check-ootb": "node tools/check-ootb.mjs",
+    "check-minecraft-versions": "node tools/check-minecraft-versions.mjs",
     "smoke-modules": "node tools/smoke-modules.mjs",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "bundle": "node build-sea.mjs",
     "sea": "node --build-sea sea-config.json"
   },
   "workspaces": [
     "modules/sdk/@sfmc-sdk",
+    "modules/sdk/@sfmc-eslint-plugin",
     "modules/packages/*",
     "db-server",
     "qq-bridge",
@@ -69,6 +75,8 @@
   "type": "module",
   "overrides": {
     "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
-    "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30"
+    "@minecraft/server-net": "1.0.0-beta.11940b24",
+    "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
+    "@minecraft/vanilla-data": "1.26.40-preview.30"
   }
 }

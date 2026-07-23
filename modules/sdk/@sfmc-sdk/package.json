@@ -86,10 +86,12 @@
       "types": "./dist/types/behavior-pack-build/index.d.ts",
       "import": "./dist/esm/behavior-pack-build/index.js",
       "default": "./dist/esm/behavior-pack-build/index.js"
-    }
+    },
+    "./schemas/*": "./schemas/*"
   },
   "files": [
     "dist",
+    "schemas",
     "README.md",
     "LICENSE"
   ],

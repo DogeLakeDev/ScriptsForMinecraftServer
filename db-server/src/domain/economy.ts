@@ -8,15 +8,60 @@
  *   - applyEconomySteps / submitDailyTaskSteps — 无 BEGIN/COMMIT,可嵌进外层 db.tx
  *   - applyEconomyTransaction / submitDailyTaskTx — 独立调用时自己开事务;
  *     alreadyInTx=true 时只跑 steps
+ *
+ * 行类型在此本地定义（平台不依赖业务模块包；权威副本在 sfmc-modules/packages/economy）。
  */
 
-import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc-bds/sdk/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import type { SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
 import { sql } from "../lib/sql-helpers.js";
 import type { TxResult } from "./transaction.js";
 export type { TxResult };
+
+/** 账户表行（与 feature-economy 权威类型结构对齐） */
+export interface EconomyAccountRow {
+  player_id: string;
+  player_name_snapshot: string;
+  balance: number;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/** 幂等键表行 */
+export interface EconomyIdempotencyRow {
+  actor_id: string;
+  idempotency_key: string;
+  transaction_id: string;
+  response_json: string;
+  created_at: number;
+}
+
+/** 流水表行 */
+export interface EconomyTransactionRow {
+  id: string;
+  transaction_type: string;
+  actor_id: string;
+  source_player_id?: string;
+  target_player_id?: string;
+  amount: number;
+  balance_before?: number;
+  balance_after?: number;
+  reference_type: string;
+  reference_id: string;
+  reason: string;
+  created_at: number;
+  idempotency_key: string;
+
+  /** JS-side alias fields used by domain/economy.ts */
+  actorId?: string;
+  type?: string;
+  referenceType?: string;
+  referenceId?: string;
+  sourcePlayerName?: string;
+  targetPlayerName?: string;
+}
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
@@ -336,8 +381,6 @@ export function applyEconomyTransaction(
     };
   }
 }
-
-export type { EconomyAccountRow, EconomyTransactionRow };
 
 /** 列出日常任务(默认仅 active 且未过期) */
 export function listDailyTasks(

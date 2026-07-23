@@ -22,6 +22,15 @@ node sfmc/dist/main.js pack enable|disable [behavior|resource]
 
 `start bds` / `restart bds` **之前**会自动比对装载 catalog：不一致则先整包重编并部署，成功后才启动 BDS。
 
+**日常改模块代码**请用：
+
+```bash
+sfmc reload              # build + deploy + 向 BDS 发 reload
+sfmc reload --build-only # 只部署；随后在 BDS/游戏内输入 reload
+```
+
+不必为脚本更新去重启整个 BDS 进程（除非你在改配置或需要冷启动）。
+
 ## 路径
 
 | 阶段 | 位置 |

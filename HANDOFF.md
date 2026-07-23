@@ -60,9 +60,8 @@ Per the user's directives:
 | SDK transformed to publishable npm package | ✅ `private: false`, exports for db/config/service added, `npm pack` passes |
 | db-server protocol plumbing | ✅ schema-registry / tx-runner / service-registry / permission-gate / module-auth + 3 new routes mounted |
 | v2 manifest loader + strict validation | ✅ `db-server/src/manifest-loader.ts` |
-| `land` module fully migrated to v2 | ✅ land-transfer / land-validate / land-audit, db.tx + db.audit + tx.call |
-| `land-gui` fully migrated to v2 | ✅ Pure SDK facade (no v1 LandApi dep) |
-| `land` + `land-gui` deleted v1 src files | ✅ |
+| `land` module fully migrated to v2 | ✅ land-transfer / land-validate / land-audit, db.tx + db.audit + tx.call；GUI 已并入同一模块 |
+| `land` + `land-gui` deleted v1 src files | ✅（`land-gui` 包随后并入 `land`，独立 `feature-land-gui` 已移除） |
 | Documentation rewrite | ✅ docs/dev/{README, manifest-contract, sdk-reference, module-author}.{zh,en}.md + docs/marketplace.{zh,en}.md all lifted to v2 four-drawer |
 | `Tanya7z/sfmc-modules` repo created + skeleton pushed | ✅ https://github.com/Tanya7z/sfmc-modules, 2 commits on main |
 | **v2 protocol runtime fixes** | ✅ PR #3 (5e6fe15) — fixed 7 BLOCKERs: route body parsing, /configs/all auth exemption, tx moduleId spoofing, db:write:* assertion, schema-registry finalize/softDelete SQL, land-gui catalog registration, enabled-flip regression. `tools/smoke-modules.js` now passes 100% |
@@ -175,7 +174,7 @@ export async function transferLand(input) {
 }
 ```
 
-When a v2 module consumes services from another v2 module (e.g. `land-gui` calls `land.byId`), the consumer's `manifest.json` MUST declare in `services.requires` and `permissions: ["service:land.byId", ...]`. Validation throws at startup otherwise.
+When a v2 module consumes services from another v2 module (e.g. `gui` calls `economy.account.get`, or historically `land-gui` called `land.byId`), the consumer's `manifest.json` MUST declare in `services.requires` and `permissions: ["service:land.byId", ...]`. Validation throws at startup otherwise.
 
 ---
 
@@ -260,8 +259,7 @@ modules/sdk/@sfmc-sdk/
 │   └── node/                         ← db-server / qq-bridge / bds-tools / sfmc internals
 └── README.md
 
-modules/packages/land/                ← TEMPLATE — done
-modules/packages/land-gui/            ← TEMPLATE — done
+modules/packages/land/                ← TEMPLATE — done（含 GUI；原 land-gui 已并入）
 modules/packages/<other>/             ← v1 NOT YET migrated
 
 tools/fetch-module.mjs                ← default source = github:Tanya7z/sfmc-modules@latest (REQUIRES URL FIX)

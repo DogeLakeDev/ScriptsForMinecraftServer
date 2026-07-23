@@ -1,0 +1,40 @@
+{
+  "_comment": "领地系统配置。SAPI 通过 /api/sfmc/settings/land:* 直接读取此文件。",
+
+  "land:config": {
+    "priceFormula": "{square}*8+{height}*20",
+    "maxLandsPerPlayer": 5,
+    "minSquare": 4,
+    "maxSquare": 50000,
+    "discount": 1,
+    "refundRate": 0.7
+  },
+
+  "land:plaza": {
+    "name": "公共广场",
+    "welcome": "欢迎来到服务器！这里是公共土地，所有人都可以建造。",
+    "dimid": 0,
+    "range": 32
+  },
+
+  "land:tax": {
+    "enabled": false,
+    "defaultRate": 50,
+    "periodDays": 7,
+    "freezeOnInsufficient": true,
+    "fallbackPurchasePrice": 100
+  },
+
+  "land:permissions": {
+    "allow_place": false,
+    "allow_destroy": false,
+    "attack_entity": false,
+    "open_container": false,
+    "use_door": false,
+    "use_button": false,
+    "use_redstone": false,
+    "interact_entity": false,
+    "pickup_item": false
+  }
+}
+

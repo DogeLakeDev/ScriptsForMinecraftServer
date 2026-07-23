@@ -14,58 +14,13 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { getAsset } from "node:sea";
+import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
 import { IS_SEA, ROOT, isMonorepoLayout, isRuntimeInitialized, resolveDefaultsDir, resolveFetchModule, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
 /** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */
 function patchJson<T extends object>(rootDir: string, name: ConfigName, updates: Partial<T>): void {
   patchConfig<T>(configPath(rootDir, name), updates);
-}
-
-function ensureDirectory(directory: string): boolean {
-  try {
-    fs.mkdirSync(directory, { recursive: true });
-    return fs.statSync(directory).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-async function pickDirectory(message: string, defaultDirectory: string): Promise<string> {
-  const method = await select({
-    message,
-    options: [
-      { value: "text", label: "Enter path", hint: defaultDirectory },
-      { value: "browse", label: "Browse...", hint: "open system folder picker" },
-    ],
-  });
-  if (isCancel(method)) return defaultDirectory;
-  if (method === "browse") return pickDirectoryDialog(message, defaultDirectory) ?? defaultDirectory;
-
-  const selected = await text({ message, initialValue: defaultDirectory });
-  return isCancel(selected) || !selected ? defaultDirectory : selected;
-}
-
-function pickDirectoryDialog(title: string, defaultDirectory: string): string | null {
-  const escape = (value: string): string => value.replace(/'/g, "''");
-  const script = [
-    "Add-Type -AssemblyName System.Windows.Forms",
-    "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
-    `$dialog.Description = '${escape(title)}'`,
-    `$dialog.SelectedPath = '${escape(defaultDirectory)}'`,
-    "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }",
-  ].join("; ");
-
-  try {
-    const output = execFileSync("powershell.exe", ["-NoProfile", "-STA", "-Command", script], {
-      encoding: "utf-8",
-      timeout: 30_000,
-      windowsHide: true,
-    });
-    return output.trim() || null;
-  } catch {
-    return null;
-  }
 }
 
 async function waitForHealth(port: number, ms = 15000): Promise<boolean> {
