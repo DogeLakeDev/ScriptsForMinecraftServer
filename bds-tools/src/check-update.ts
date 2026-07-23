@@ -11,7 +11,6 @@
 
 import { createFileSink, createLogger, createStdoutSink } from "@sfmc-bds/sdk/logs";
 import cliProgress from "cli-progress";
-import JSZip from "jszip";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -39,6 +38,7 @@ import {
   verifyFileHash,
 } from "./upstream.js";
 import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVersionCache } from "./version.js";
+import { extractZipFileToDir } from "./zipx.js";
 
 // 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
 const updaterFileSink = createFileSink(LOG_PATH);
@@ -133,24 +133,12 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
   }
 }
 
-/** 把 srcDir 下的内容移动到 destDir (覆盖) */
+/** 把 srcDir 下的内容移动到 destDir (覆盖) — 经 zipx 安全解压 */
 async function extractZipToBds(zipPath: string, destDir: string): Promise<void> {
-  const data = await fs.promises.readFile(zipPath);
-  const zip = await JSZip.loadAsync(data);
   // 抽出到临时目录，避免旧内容干扰
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bds-extract-"));
   try {
-    const entries = Object.values(zip.files);
-    for (const e of entries) {
-      const out = path.join(tmpDir, e.name);
-      if (e.dir) {
-        fs.mkdirSync(out, { recursive: true });
-        continue;
-      }
-      fs.mkdirSync(path.dirname(out), { recursive: true });
-      const buf = await e.async("nodebuffer");
-      fs.writeFileSync(out, buf);
-    }
+    await extractZipFileToDir(zipPath, tmpDir);
     // 把临时目录里的内容复制到 BDS 路径
     for (const entry of fs.readdirSync(tmpDir)) {
       const srcPath = path.join(tmpDir, entry);

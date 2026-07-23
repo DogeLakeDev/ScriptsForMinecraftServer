@@ -130,4 +130,44 @@ describe("world-packs primitives", () => {
     const { version } = JSON.parse(cli.out.trim());
     assert.deepEqual(version, [2, 0, 1]);
   });
+
+  it("installPackDirectory 同 folderName 即使旧包 kind 不可识别也要 conflict", async () => {
+    const { installPackDirectory, formatWorldPackFolderName } = await import("./dist/world-packs.js");
+    const dest = path.join(tmp, "conflict-parent");
+    const folderName = formatWorldPackFolderName("Broken", "resource");
+    const existingDir = path.join(dest, folderName);
+    fs.mkdirSync(existingDir, { recursive: true });
+    // 无法 detectPackKind 的残缺 manifest（仅 header，无 modules）
+    fs.writeFileSync(
+      path.join(existingDir, "manifest.json"),
+      JSON.stringify({
+        format_version: 2,
+        header: {
+          name: "Broken",
+          uuid: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          version: [1, 0, 0],
+        },
+        modules: [],
+      })
+    );
+    const src = path.join(tmp, "incoming-rp");
+    writeManifest(src, {
+      name: "Incoming",
+      uuid: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      version: [1, 0, 0],
+      type: "resources",
+    });
+    const r = await installPackDirectory({
+      srcDir: src,
+      destParent: dest,
+      folderName: "Broken",
+      force: false,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.reason, "conflict");
+    assert.ok(r.conflict);
+    // 未 force 时不得覆盖
+    const still = JSON.parse(fs.readFileSync(path.join(existingDir, "manifest.json"), "utf8"));
+    assert.equal(still.header.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+  });
 });
