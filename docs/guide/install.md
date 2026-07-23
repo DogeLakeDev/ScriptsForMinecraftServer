@@ -1,34 +1,24 @@
 # 安装
 
-## 环境
+## 方式一：SEA 单文件（.exe）
+
+1. 打开 [Releases](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases)，下载对应平台的 `sfmc_v*.*.*.exe`；
+2. 放到空目录，直接运行；
+3. 第一次安装进入初始化向导即可。
+
+>（工作根 = **exe 所在目录**；也可用系统变量 `SFMC_ROOT` 覆盖）
+
+## 方式二：通过包管理器安装聚合包
 
 ```bash
-node -v   # 需要 v22.13 或更高
-```
+> node -v   # 需要 v22.13 或更高
 
-Windows 上 BDS 与本机 Node 互通，管理员 PowerShell 执行一次：
-
-```powershell
-CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
-```
-
-## 方式一：npm 聚合包（推荐服主）
-
-```bash
-npm install -g @sfmc-bds/sfmc
-mkdir my-server && cd my-server
-sfmc
+> npm install -g @sfmc-bds/sfmc
+> mkdir my-server && cd my-server # 建议创建空文件夹作为工作目录
+> sfmc
 ```
 
 一条命令装齐 CLI、db-server、qq-bridge、bds-tools。工作根 = 当前目录；未初始化时自动进向导。
-
-## 方式二：SEA 单文件
-
-1. 打开 [Releases](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases)，下载对应平台的 `sfmc`
-2. 放到空目录，直接运行（工作根 = **exe 所在目录**；也可用 `SFMC_ROOT` 覆盖）
-3. 未初始化（无 `configs/runtime.json#initialized_at`）时会自动进向导
-
-SEA 不含固定行为包，模块要另外装。
 
 ## 方式三：npm monorepo
 

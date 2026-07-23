@@ -2,6 +2,8 @@
 
 每个模块根目录：`sapi/manifest.json`，**schemaVersion 必须是 2**。
 
+IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json`；工作区 `.vscode/settings.json` 也绑定了同一 schema，避免被 Bedrock 扩展当成 BP/RP `manifest.json`。若扩展仍报警，可忽略或对该路径关闭其诊断——JSON 语言服务以本 schema 为准。
+
 ## 字段
 
 | 字段 | 必填 | 说明 |
@@ -48,6 +50,7 @@
 
 ```json
 {
+  "$schema": "../../../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
   "schemaVersion": 2,
   "id": "feature-land",
   "name": "领地",

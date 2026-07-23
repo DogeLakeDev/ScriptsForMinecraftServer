@@ -36,7 +36,7 @@ node sfmc/dist/main.js mod enable feature-afk
 node sfmc/dist/main.js mod disable feature-afk
 ```
 
-也可以直接改 `modules/module-lock.json`，然后**重启 BDS**。
+也可以直接改 `modules/module-lock.json`，然后 `sfmc reload`（或 `pack build` + `pack deploy` + BDS/游戏内 `reload`）。
 
 ```json
 {
@@ -56,25 +56,28 @@ curl http://127.0.0.1:3001/api/sfmc/modules
 ## 装完还要做什么
 
 1. `mod enable`（若默认未启用）
-2. `mod build` 或等下次 `start bds`（启动前会自动比对 catalog 并按需重编）
-3. 若只想部署不重启：`pack deploy`
-4. 重启 BDS（`start bds` 已含装载闸门）
+2. `sfmc reload`（build + deploy + 向 BDS 发 `reload`）  
+   - 或 `mod build` / `pack deploy` 后在 BDS/游戏内手动 `reload`  
+   - 冷启动：`start bds` 前会自动比对 catalog 并按需重编
+3. 改 **configs/*.json** 仍需重启对应进程（配置启动缓存）
 
-没有热重载，跳过任一步游戏内可能看不到效果。详见 [行为包](./behavior-pack.md)。
+开发期推荐 `sfmc module link` / `--link`，见 [模块开发](../dev/module-author.md)。  
+对外服务清单见 [模块服务目录](../api/modules/README.md)。
 
 ## 其它来源
 
 ```bash
 node tools/fetch-module.mjs install foo --from github:owner/repo@tag
-node tools/fetch-module.mjs install foo --from dir:D:/path/to/pkg
+node tools/fetch-module.mjs install foo --from dir:D:/path/to/pkg --link
 node tools/fetch-module.mjs install foo --from local:D:/path/foo.zip
 ```
 
 ## 校验
 
 ```bash
-npm run catalog-sync    # 按磁盘 packages 重写 catalog
-npm run check-modules   # 校验 manifest
+npm run catalog-sync              # 按磁盘 packages 重写 catalog
+npm run check-modules             # 校验 manifest
+npm run check-minecraft-versions  # @minecraft/* 版本对齐
 ```
 
 下一章：[行为包](./behavior-pack.md)

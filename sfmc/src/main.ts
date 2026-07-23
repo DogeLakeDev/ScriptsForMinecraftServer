@@ -2,6 +2,7 @@
 import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { cmdReload } from "./commands-reload.js";
 import { HELP, startRepl } from "./repl.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
@@ -94,6 +95,9 @@ async function main(): Promise<void> {
       break;
     case "update":
       console.log(await cmdUpdate(rest));
+      break;
+    case "reload":
+      console.log(await cmdReload(rest));
       break;
     case "behavior-pack":
     case "bp": {

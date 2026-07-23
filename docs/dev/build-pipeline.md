@@ -36,14 +36,17 @@ build/sfmc-modules/
 ```bash
 node sfmc/dist/main.js behavior-pack build
 node sfmc/dist/main.js behavior-pack deploy
+
+# 开发迭代推荐（build + deploy + 向 BDS 发 reload）
+node sfmc/dist/main.js reload
 ```
 
 pack-manager 还提供 `enable-pack` / `disable-pack` 改世界里的包列表，与 deploy 分开。
 
 ## 改模块后
 
-1. 改 `packages/<id>/sapi/` 源码
-2. `build` + `deploy`
-3. 重启 BDS
+1. 改 `packages/<id>/sapi/` 源码（开发期用 `--link` 链到 sfmc-modules）
+2. `sfmc reload`（或 `pack build` + `pack deploy`，再在 BDS/游戏内输入 `reload`）
+3. **不必**为脚本热更去 `restart bds`；进程级重启仅在改配置、崩服恢复等场景需要
 
-只改 Node 侧（db-server）不用 redeploy BP；只改 SAPI 必须 redeploy。
+只改 Node 侧（db-server）不用 redeploy BP；只改 SAPI 必须 redeploy + `reload`。

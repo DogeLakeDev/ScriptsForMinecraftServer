@@ -8,6 +8,8 @@
  *   - applyEconomySteps / submitDailyTaskSteps — 无 BEGIN/COMMIT,可嵌进外层 db.tx
  *   - applyEconomyTransaction / submitDailyTaskTx — 独立调用时自己开事务;
  *     alreadyInTx=true 时只跑 steps
+ *
+ * 行类型在此本地定义（平台不依赖业务模块包；权威副本在 sfmc-modules/packages/economy）。
  */
 
 import type { DatabaseSync } from "node:sqlite";
@@ -16,6 +18,50 @@ import { isValidIdempotencyKey } from "../lib/idempotency.js";
 import { sql } from "../lib/sql-helpers.js";
 import type { TxResult } from "./transaction.js";
 export type { TxResult };
+
+/** 账户表行（与 feature-economy 权威类型结构对齐） */
+export interface EconomyAccountRow {
+  player_id: string;
+  player_name_snapshot: string;
+  balance: number;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/** 幂等键表行 */
+export interface EconomyIdempotencyRow {
+  actor_id: string;
+  idempotency_key: string;
+  transaction_id: string;
+  response_json: string;
+  created_at: number;
+}
+
+/** 流水表行 */
+export interface EconomyTransactionRow {
+  id: string;
+  transaction_type: string;
+  actor_id: string;
+  source_player_id?: string;
+  target_player_id?: string;
+  amount: number;
+  balance_before?: number;
+  balance_after?: number;
+  reference_type: string;
+  reference_id: string;
+  reason: string;
+  created_at: number;
+  idempotency_key: string;
+
+  /** JS-side alias fields used by domain/economy.ts */
+  actorId?: string;
+  type?: string;
+  referenceType?: string;
+  referenceId?: string;
+  sourcePlayerName?: string;
+  targetPlayerName?: string;
+}
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
@@ -116,11 +162,7 @@ export function ensureEconomyAccount(
 }
 
 /** 读取(必要时创建)账户业务视图 */
-export function getEconomyAccount(
-  query: AnyQuery,
-  playerId: string,
-  playerName = ""
-): EconomyAccountView | null {
+export function getEconomyAccount(query: AnyQuery, playerId: string, playerName = ""): EconomyAccountView | null {
   const row = ensureEconomyAccount(query, playerId, playerName);
   return economyResult(row) ?? null;
 }
@@ -388,9 +430,7 @@ export function listDailyTasks(
     const rows = query(sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ?`, [status]));
     return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
   }
-  const rows = query(
-    sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ? AND expires_at > ?`, [status, now])
-  );
+  const rows = query(sql(`SELECT * FROM ${TABLE_DAILY} WHERE status = ? AND expires_at > ?`, [status, now]));
   return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
 }
 
@@ -531,9 +571,7 @@ export function monthlyEconomyStats(query: AnyQuery): {
     sql(`SELECT COALESCE(SUM(amount),0) AS total FROM ${TABLE_TRANSACTIONS} WHERE source_player_id IS NOT NULL`)
   );
   const issued = Array.isArray(issuedRows) ? Number((issuedRows[0] as Record<string, unknown>).total ?? 0) : 0;
-  const destroyed = Array.isArray(destroyedRows)
-    ? Number((destroyedRows[0] as Record<string, unknown>).total ?? 0)
-    : 0;
+  const destroyed = Array.isArray(destroyedRows) ? Number((destroyedRows[0] as Record<string, unknown>).total ?? 0) : 0;
 
   return {
     id,
@@ -543,3 +581,4 @@ export function monthlyEconomyStats(query: AnyQuery): {
     active_accounts: Number(supply.active_accounts ?? 0),
   };
 }
+

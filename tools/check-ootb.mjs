@@ -100,6 +100,15 @@ async function main() {
     else fail("check-modules 通过", (r.stderr || r.stdout || `exit ${r.status}`).trim());
   }
 
+  // 3b) @minecraft/* 版本与根 devDependencies/overrides 一致（旁路 sfmc-modules 若存在）
+  {
+    const r = runSync(process.execPath, [path.join(ROOT, "tools", "check-minecraft-versions.mjs")], {
+      cwd: ROOT,
+    });
+    if (r.status === 0) pass("@minecraft/* 版本一致");
+    else fail("@minecraft/* 版本一致", (r.stderr || r.stdout || `exit ${r.status}`).trim());
+  }
+
   // 4) SDK dist 提示
   {
     const sdkDist = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "dist");

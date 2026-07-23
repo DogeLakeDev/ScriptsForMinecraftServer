@@ -19,7 +19,11 @@
     },
     "feature-afk": {
       "enabled": false,
-      "updatedAt": 1784701928968
+      "updatedAt": 1784797283548
+    },
+    "feature-land": {
+      "enabled": false,
+      "updatedAt": 1784797269932
     }
   }
 }
