@@ -10,13 +10,41 @@
  *     alreadyInTx=true 时只跑 steps
  */
 
-import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc-bds/sdk/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import type { SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
 import { sql } from "../lib/sql-helpers.js";
 import type { TxResult } from "./transaction.js";
 export type { TxResult };
+
+/**
+ * 经济域行模型（原 SDK contracts/economy；契约内聚到表所有者 db-server）。
+ * 业务模块应通过 service(economy.*) 消费视图，不依赖这些内部行类型。
+ */
+export interface EconomyAccountRow {
+  player_id: string;
+  player_name_snapshot: string;
+  balance: number;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface EconomyTransactionRow {
+  id: string;
+  transaction_type: string;
+  actor_id: string;
+  source_player_id?: string;
+  target_player_id?: string;
+  amount: number;
+  balance_before?: number;
+  balance_after?: number;
+  reference_type: string;
+  reference_id: string;
+  reason: string;
+  created_at: number;
+  idempotency_key: string;
+}
 
 const TABLE_ACCOUNTS = "sfmc_economy_accounts";
 const TABLE_TRANSACTIONS = "sfmc_economy_transactions";
@@ -336,8 +364,6 @@ export function applyEconomyTransaction(
     };
   }
 }
-
-export type { EconomyAccountRow, EconomyTransactionRow };
 
 /** 列出日常任务(默认仅 active 且未过期) */
 export function listDailyTasks(

@@ -21,7 +21,7 @@ import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 |------|------|
 | `@sfmc-bds/sdk/module-loader` | ModuleRegistry、ConfigManager、installHostBootstrap |
 | `@sfmc-bds/sdk/sapi/host` | 平台 host 适配 |
-| `@sfmc-bds/sdk/contracts` | 跨端共享类型 |
+| `@sfmc-bds/sdk/contracts` | 平台级共享类型（catalog / lock） |
 | `@sfmc-bds/sdk/node/config` | Node 侧读 configs |
 | `@sfmc-bds/sdk/node/sdk` | Node 服务统一能力 |
 | `@sfmc-bds/sdk/logs` | 日志 |
