@@ -16,7 +16,7 @@ import {
   installPackDirectory,
   isPackArchive,
   listInstalledWorldPacks,
-  listWorldEnableEntries,
+  listWorldEnableListResult,
   readPackManifestInfo,
   worldPackParentDir,
   type InstalledWorldPack,
@@ -454,10 +454,13 @@ async function cmdDoctor(): Promise<string> {
   const issues: string[] = [];
 
   for (const kind of ["behavior", "resource"] as const) {
-    // 经 listWorldEnableEntries → pack-manager.readWorldPackList（DRY/Demeter，不硬编码 JSON 文件名）
-    const entries = listWorldEnableEntries(bdsRoot, levelName, kind);
+    // 经 listWorldEnableListResult → pack-manager（DRY/Demeter；保留 parseFail 信号 — LSP）
+    const snap = listWorldEnableListResult(bdsRoot, levelName, kind);
+    if (snap.parseFailedFile) {
+      issues.push(t("packs.doctor.parseFail", { file: path.basename(snap.parseFailedFile) }));
+    }
     const byUuid = new Map(packs.filter((p) => p.kind === kind).map((p) => [p.uuid, p]));
-    for (const e of entries) {
+    for (const e of snap.entries) {
       const p = byUuid.get(e.pack_id);
       if (!p) {
         issues.push(t("packs.doctor.missingDir", { kind, uuid: e.pack_id }));

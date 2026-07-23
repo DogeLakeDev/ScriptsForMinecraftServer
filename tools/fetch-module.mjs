@@ -25,6 +25,7 @@ import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { extractZipFileToDir } from "@sfmc-bds/bds-tools/zipx";
 import { upsertCatalogEntry, removeCatalogEntry } from "./lib/catalog.mjs";
 import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
@@ -411,24 +412,10 @@ async function listGithub(source) {
   }
 }
 
+/** 解压模块包 — 委托 bds-tools/zipx（DRY；防 zip-slip / `\` / 绝对路径） */
 async function unzip(zipPath, dstDir) {
-  const JSZip = (await import("jszip")).default;
-  const data = await fsp.readFile(zipPath);
-  const zip = await JSZip.loadAsync(data);
-  for (const e of Object.values(zip.files)) {
-    // Windows zip 常带 `\`；必须归一成 `/`，否则 Linux 会写出字面量 `sapi\manifest.json`
-    const rel = String(e.name).replace(/\\/g, "/").replace(/^\/+/, "");
-    if (!rel || rel.includes("..")) continue;
-    const parts = rel.replace(/\/$/, "").split("/").filter(Boolean);
-    if (parts.length === 0) continue;
-    const out = path.join(dstDir, ...parts);
-    if (e.dir || rel.endsWith("/")) {
-      await fsp.mkdir(out, { recursive: true });
-      continue;
-    }
-    await fsp.mkdir(path.dirname(out), { recursive: true });
-    await fsp.writeFile(out, await e.async("nodebuffer"));
-  }
+  await fsp.mkdir(dstDir, { recursive: true });
+  await extractZipFileToDir(zipPath, dstDir);
 }
 
 async function copyDir(src, dst) {
