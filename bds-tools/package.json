@@ -34,6 +34,7 @@
     "./world-packs": "./dist/world-packs.js",
     "./taskbar": "./dist/taskbar.js",
     "./update-result": "./dist/update-result.js",
+    "./zipx": "./dist/zipx.js",
     "./package.json": "./package.json",
     "./types": {
       "types": "./dist/types.d.ts"

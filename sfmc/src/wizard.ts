@@ -1,4 +1,5 @@
 import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
+import { extractZipBufferToDir } from "@sfmc-bds/bds-tools/zipx";
 import {
   configPath,
   modulePath,
@@ -9,7 +10,6 @@ import {
   type ConfigName,
   type ModuleLock,
 } from "@sfmc-bds/sdk/node/config";
-import JSZip from "jszip";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,54 +35,6 @@ async function waitForHealth(port: number, ms = 15000): Promise<boolean> {
     await new Promise((r) => setTimeout(r, 300));
   }
   return false;
-}
-
-async function extractZip(
-  data: Buffer,
-  destDir: string,
-  options: { overwrite?: boolean } = { overwrite: true }
-): Promise<string[]> {
-  const zip = await JSZip.loadAsync(data);
-  const files: string[] = [];
-
-  const safeJoin = (base: string, relative: string): string => {
-    const fullPath = path.resolve(base, relative);
-    const relativePath = path.relative(base, fullPath);
-    if (relativePath === "" || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-      throw new Error(`Path traversal detected: ${relative}`);
-    }
-    return fullPath;
-  };
-
-  const concurrency = 10;
-  const entries = Object.keys(zip.files);
-  const chunks = [];
-  for (let i = 0; i < entries.length; i += concurrency) {
-    chunks.push(entries.slice(i, i + concurrency));
-  }
-
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map(async (relPath) => {
-        if (relPath.endsWith("/")) return;
-
-        const file = zip.file(relPath);
-        if (!file) return;
-
-        const targetPath = safeJoin(destDir, relPath);
-        if (!options.overwrite && fs.existsSync(targetPath)) {
-          return;
-        }
-
-        await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
-        const content = await file.async("nodebuffer");
-        await fs.promises.writeFile(targetPath, content);
-        files.push(relPath);
-      })
-    );
-  }
-
-  return files;
 }
 
 /** SEA asset: { zipBaseName, targetDirRelative, SEA_asset_name } */
@@ -130,7 +82,8 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
 
             const destDir = path.join(rootDir, target);
             if (!ensureDirectory(destDir)) throw new Error(t("wizard.cannotCreateAssetDir", { dir: destDir }));
-            await extractZip(Buffer.from(assetBuffer), destDir, { overwrite: true });
+            // 安全解压委托 bds-tools/zipx（与 world-packs / check-update 同一权威）
+            await extractZipBufferToDir(Buffer.from(assetBuffer), destDir);
           }
           return t("wizard.assetsExtracted");
         },
@@ -139,7 +92,7 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
     return;
   }
 
-  /* monorepo??? configs/ modules/?npm ?????????? */
+  /* monorepo 布局：configs/ modules/ 应由 npm 工作区已提供 */
   if (isMonorepoLayout(rootDir)) {
     const missing = missingRuntimeAssets(rootDir);
     if (missing.length > 0) {
@@ -151,7 +104,7 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
   seedNpmRuntimeLayout(rootDir);
 }
 
-/** ? npm ??/?????? configs + modules ??????????? */
+/** 非 monorepo 的 npm 安装布局：播种 configs + 空 modules 骨架 */
 function seedNpmRuntimeLayout(rootDir: string): void {
   const defaultsDir = resolveDefaultsDir();
   const configsDest = path.join(rootDir, "configs");
