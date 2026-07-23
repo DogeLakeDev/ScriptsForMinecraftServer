@@ -1,6 +1,6 @@
-import type { TSESTree } from "@typescript-eslint/utils";
 import { createRule } from "../utils/create-rule.js";
 import { checkSdkImportPath } from "../utils/sdk-public-exports.js";
+import { visitModuleSourceLiterals } from "../utils/module-source-visitor.js";
 
 type Options = [{ extraAllowed?: string[] }];
 
@@ -32,21 +32,12 @@ export const noSdkPrivateExport = createRule<Options, "bare" | "private">({
   },
   defaultOptions: [{}],
   create(context, [options]) {
-    function check(
-      node: TSESTree.ImportDeclaration | TSESTree.ExportNamedDeclaration | TSESTree.ExportAllDeclaration
-    ) {
-      const src = node.source;
-      if (!src || src.type !== "Literal" || typeof src.value !== "string") return;
-      const kind = checkSdkImportPath(src.value, options.extraAllowed ?? []);
-      if (kind === "bare") context.report({ node: src, messageId: "bare" });
+    return visitModuleSourceLiterals((source, sourceNode) => {
+      const kind = checkSdkImportPath(source, options.extraAllowed ?? []);
+      if (kind === "bare") context.report({ node: sourceNode, messageId: "bare" });
       else if (kind === "private") {
-        context.report({ node: src, messageId: "private", data: { source: src.value } });
+        context.report({ node: sourceNode, messageId: "private", data: { source } });
       }
-    }
-    return {
-      ImportDeclaration: check,
-      ExportNamedDeclaration: check,
-      ExportAllDeclaration: check,
-    };
+    });
   },
 });

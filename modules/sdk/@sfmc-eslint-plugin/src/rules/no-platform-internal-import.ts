@@ -1,7 +1,16 @@
 import type { TSESTree } from "@typescript-eslint/utils";
 import { createRule } from "../utils/create-rule.js";
+import { visitModuleSourceLiterals } from "../utils/module-source-visitor.js";
 
-const DEFAULT_PACKAGES = ["db-server", "qq-bridge", "bds-tools", "@sfmc-bds/db-server", "@sfmc-bds/qq-bridge", "@sfmc-bds/bds-tools", "@sfmc-bds/cli"];
+const DEFAULT_PACKAGES = [
+  "db-server",
+  "qq-bridge",
+  "bds-tools",
+  "@sfmc-bds/db-server",
+  "@sfmc-bds/qq-bridge",
+  "@sfmc-bds/bds-tools",
+  "@sfmc-bds/cli",
+];
 const DEFAULT_FRAGMENTS = [
   "/db-server/",
   "/qq-bridge/",
@@ -73,18 +82,8 @@ export const noPlatformInternalImport = createRule<Options, "blocked">({
       }
     }
 
-    function onSource(
-      node: TSESTree.ImportDeclaration | TSESTree.ExportNamedDeclaration | TSESTree.ExportAllDeclaration
-    ) {
-      const src = node.source;
-      if (!src || src.type !== "Literal" || typeof src.value !== "string") return;
-      check(src.value, src);
-    }
-
-    return {
-      ImportDeclaration: onSource,
-      ExportNamedDeclaration: onSource,
-      ExportAllDeclaration: onSource,
-    };
+    return visitModuleSourceLiterals((source, sourceNode) => {
+      check(source, sourceNode);
+    });
   },
 });
