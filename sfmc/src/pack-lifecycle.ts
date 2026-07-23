@@ -145,11 +145,55 @@ function readManifestHeader(
   }
 }
 
-/** 解析启用状态:lock 优先,否则 catalog.enabledByDefault,再否则 false */
+/** 解析启用状态:lock 优先,否则 catalog.enabledByDefault(缺省 true↔!==false),未收录模块 false */
 function isModuleEnabled(logicalId: string, lock: ModuleLock, catalogDefaults: Map<string, boolean>): boolean {
   const st = lock.modules?.[logicalId];
   if (st && typeof st.enabled === "boolean") return st.enabled;
   return catalogDefaults.get(logicalId) ?? false;
+}
+
+/** 世界 enable/disable 清单 — 统一 argv 形状(DRY) */
+function spawnWorldPack(
+  verb: "enable-pack" | "disable-pack",
+  worldsDir: string,
+  levelName: string,
+  kind: "behavior" | "resource",
+  packId: string,
+  version?: [number, number, number]
+): { ok: boolean; out: string; err: string } {
+  const args = [
+    verb,
+    "--worlds-dir",
+    worldsDir,
+    "--level",
+    levelName,
+    "--kind",
+    kind,
+    "--pack-id",
+    packId,
+  ];
+  if (version) args.push("--version", version.join(","));
+  return spawnPackManager(args);
+}
+
+/**
+ * 部署前收集世界内已出现的 BP/RP uuid。
+ * 同时读 deploy-catalog 与磁盘 manifest — catalog 缺失时仍能卸过期清单项(Demeter/完整契约)。
+ */
+function collectDeployedPackUuids(
+  bdsRoot: string,
+  levelName: string
+): { bp: Set<string>; rp: Set<string> } {
+  const bp = new Set<string>();
+  const rp = new Set<string>();
+  const cat = readDeployedCatalog(bdsRoot, levelName);
+  if (cat?.bpUuid) bp.add(cat.bpUuid);
+  if (cat?.rpUuid) rp.add(cat.rpUuid);
+  const liveBp = readManifestHeader(deployedBpDir(bdsRoot, levelName));
+  const liveRp = readManifestHeader(deployedRpDir(bdsRoot, levelName));
+  if (liveBp?.uuid) bp.add(liveBp.uuid);
+  if (liveRp?.uuid) rp.add(liveRp.uuid);
+  return { bp, rp };
 }
 
 /**
@@ -456,7 +500,8 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
     throw new Error(`BP not built at ${bpOut()}. Run build first.`);
   }
 
-  const previous = readDeployedCatalog(bdsRoot, levelName);
+  /* 必须在 deploy/clear-rp 之前采集 — 清目录后无法再读 manifest */
+  const previous = collectDeployedPackUuids(bdsRoot, levelName);
   const deployArgs = [
     "deploy",
     "--bds-root",
@@ -484,77 +529,42 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
   writeJson(path.join(deployedBpDir(bdsRoot, levelName), DEPLOY_CATALOG_NAME), catalog);
 
   const worldsDir = path.join(bdsRoot, "worlds");
-  const enBp = spawnPackManager([
-    "enable-pack",
-    "--worlds-dir",
-    worldsDir,
-    "--level",
-    levelName,
-    "--kind",
-    "behavior",
-    "--pack-id",
-    catalog.bpUuid,
-    "--version",
-    catalog.bpVersion.join(","),
-  ]);
+  const enBp = spawnWorldPack("enable-pack", worldsDir, levelName, "behavior", catalog.bpUuid, catalog.bpVersion);
   if (!enBp.ok) throw new Error(`enable BP failed: ${enBp.err || enBp.out}`);
   packLog(`enabled behavior pack ${catalog.bpUuid} in world list`, "success");
 
   if (catalog.rpUuid && catalog.rpVersion) {
-    const enRp = spawnPackManager([
+    const enRp = spawnWorldPack(
       "enable-pack",
-      "--worlds-dir",
       worldsDir,
-      "--level",
       levelName,
-      "--kind",
       "resource",
-      "--pack-id",
       catalog.rpUuid,
-      "--version",
-      catalog.rpVersion.join(","),
-    ]);
+      catalog.rpVersion
+    );
     if (!enRp.ok) throw new Error(`enable RP failed: ${enRp.err || enRp.out}`);
     packLog(`enabled resource pack ${catalog.rpUuid} in world list`, "success");
   }
 
-  /* 卸掉过期 RP:UUID 轮换或模块不再提供 RP(BLOCKER 修复) */
-  if (previous?.rpUuid && previous.rpUuid !== (catalog.rpUuid ?? null)) {
-    const dis = spawnPackManager([
-      "disable-pack",
-      "--worlds-dir",
-      worldsDir,
-      "--level",
-      levelName,
-      "--kind",
-      "resource",
-      "--pack-id",
-      previous.rpUuid,
-    ]);
+  /* 卸掉过期 RP:UUID 轮换 / 不再提供 RP / catalog 缺失但磁盘仍有旧包 */
+  for (const staleRp of previous.rp) {
+    if (staleRp === (catalog.rpUuid ?? null)) continue;
+    const dis = spawnWorldPack("disable-pack", worldsDir, levelName, "resource", staleRp);
     if (!dis.ok) {
-      packLog(`disable stale RP ${previous.rpUuid} failed: ${dis.err || dis.out}`, "warn");
+      packLog(`disable stale RP ${staleRp} failed: ${dis.err || dis.out}`, "warn");
     } else {
-      packLog(`disabled stale resource pack ${previous.rpUuid}`, "success");
+      packLog(`disabled stale resource pack ${staleRp}`, "success");
     }
   }
 
-  /* 若 BP uuid 轮换,卸掉旧 BP 清单项 */
-  if (previous?.bpUuid && previous.bpUuid !== catalog.bpUuid) {
-    const disBp = spawnPackManager([
-      "disable-pack",
-      "--worlds-dir",
-      worldsDir,
-      "--level",
-      levelName,
-      "--kind",
-      "behavior",
-      "--pack-id",
-      previous.bpUuid,
-    ]);
+  /* 卸掉过期 BP(uuid 轮换) */
+  for (const staleBp of previous.bp) {
+    if (staleBp === catalog.bpUuid) continue;
+    const disBp = spawnWorldPack("disable-pack", worldsDir, levelName, "behavior", staleBp);
     if (!disBp.ok) {
-      packLog(`disable stale BP ${previous.bpUuid} failed: ${disBp.err || disBp.out}`, "warn");
+      packLog(`disable stale BP ${staleBp} failed: ${disBp.err || disBp.out}`, "warn");
     } else {
-      packLog(`disabled stale behavior pack ${previous.bpUuid}`, "success");
+      packLog(`disabled stale behavior pack ${staleBp}`, "success");
     }
   }
 
@@ -755,25 +765,30 @@ export async function cmdPackList(_args: string[]): Promise<string> {
         `  ${mark} ${m.folderId.padEnd(24)} ${m.logicalId.padEnd(24)} ${m.enabled ? "on " : "off"} ${m.hasResourcePack ? "+rp" : "   "} ${m.version}`
       );
     }
-    const bpList = path.join(bdsRoot, "worlds", levelName, "world_behavior_packs.json");
-    const rpList = path.join(bdsRoot, "worlds", levelName, "world_resource_packs.json");
+    const worldsDir = path.join(bdsRoot, "worlds");
     lines.push(c.bold("\nWorld enable lists"));
-    for (const [label, file] of [
-      ["behavior", bpList],
-      ["resource", rpList],
-    ] as const) {
-      if (!existsSync(file)) {
-        lines.push(c.dim(`  ${label}: (missing)`));
+    for (const kind of ["behavior", "resource"] as const) {
+      const r = spawnPackManager([
+        "list-packs",
+        "--worlds-dir",
+        worldsDir,
+        "--level",
+        levelName,
+        "--kind",
+        kind,
+      ]);
+      if (!r.ok) {
+        lines.push(c.yellow(`  ${kind}: (list-packs failed)`));
         continue;
       }
       try {
-        const arr = JSON.parse(await fs.readFile(file, "utf8")) as Array<{ pack_id: string; version: number[] }>;
-        if (!arr.length) lines.push(c.dim(`  ${label}: (empty)`));
+        const arr = JSON.parse(r.out.trim() || "[]") as Array<{ pack_id: string; version: number[] }>;
+        if (!arr.length) lines.push(c.dim(`  ${kind}: (empty)`));
         for (const e of arr) {
-          lines.push(`  ${label}: ${e.pack_id}  v${(e.version ?? []).join(".")}`);
+          lines.push(`  ${kind}: ${e.pack_id}  v${(e.version ?? []).join(".")}`);
         }
       } catch {
-        lines.push(c.yellow(`  ${label}: (corrupt)`));
+        lines.push(c.yellow(`  ${kind}: (corrupt)`));
       }
     }
     return lines.join("\n") + "\n";
@@ -793,19 +808,7 @@ export async function cmdPackEnableDisable(action: "enable" | "disable", args: s
     if (!uuid || !version) return c.red(`no ${kind} pack uuid in catalog`);
     const worldsDir = path.join(bdsRoot, "worlds");
     const verb = action === "enable" ? "enable-pack" : "disable-pack";
-    const r = spawnPackManager([
-      verb,
-      "--worlds-dir",
-      worldsDir,
-      "--level",
-      levelName,
-      "--kind",
-      kind,
-      "--pack-id",
-      uuid,
-      "--version",
-      version.join(","),
-    ]);
+    const r = spawnWorldPack(verb, worldsDir, levelName, kind, uuid, version);
     if (!r.ok) return c.red(`${action} failed: ${r.err || r.out}`);
     packLog(`${action}d ${kind} pack ${uuid}`, "success");
     return c.green(`${action}d ${kind} pack ${uuid}`);

@@ -90,8 +90,9 @@ describe("pack-manager CLI extensions", () => {
     assert.ok(fs.existsSync(path.join(worlds, "behavior_packs", "sfmc-modules", "dummy.txt")));
   });
 
-  it("read-manifest / has-pack CLI 契约", async () => {
-    const { assembleBehaviorPack, enablePackInWorld, worldPackListHas } = await import("./dist/pack-manager.js");
+  it("read-manifest / has-pack / list-packs CLI 契约", async () => {
+    const { assembleBehaviorPack, enablePackInWorld, worldPackListHas, readWorldPackList } =
+      await import("./dist/pack-manager.js");
     const bpOut = path.join(tmp, "bp-assembled");
     const src = path.join(tmp, "bp-empty-src");
     fs.mkdirSync(path.join(src, "scripts"), { recursive: true });
@@ -135,5 +136,86 @@ describe("pack-manager CLI extensions", () => {
     ]);
     assert.equal(hp.status, 0);
     assert.equal(hp.out.trim(), "1");
+
+    const lp = run(["list-packs", "--worlds-dir", worldsDir, "--level", "L1", "--kind", "behavior"]);
+    assert.equal(lp.status, 0, lp.err);
+    const listed = JSON.parse(lp.out.trim());
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].pack_id, uuid);
+    assert.deepEqual(readWorldPackList(worldsDir, "L1", "behavior"), listed);
+  });
+
+  it("无 deploy-catalog 时仍可凭磁盘 RP manifest 卸世界清单(BLOCKER 回归)", async () => {
+    const {
+      assembleResourcePack,
+      deployToBDS,
+      enablePackInWorld,
+      disablePackInWorld,
+      readPackManifestHeader,
+      worldPackListHas,
+    } = await import("./dist/pack-manager.js");
+
+    const bds = path.join(tmp, "bds-stale");
+    const level = "Bedrock level";
+    const worlds = path.join(bds, "worlds", level);
+    const worldsDir = path.join(bds, "worlds");
+    const bpSrc = path.join(tmp, "bp-stale-src");
+    const rpMod = path.join(tmp, "mod-stale", "resource_pack");
+    fs.mkdirSync(path.join(bpSrc, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(bpSrc, "scripts", "main.js"), "//\n");
+    fs.mkdirSync(rpMod, { recursive: true });
+    fs.writeFileSync(path.join(rpMod, "x.txt"), "x");
+
+    const staleUuid = "44444444-4444-4444-4444-444444444444";
+    const rpAssembled = path.join(tmp, "rp-stale-assembled");
+    await assembleResourcePack({
+      moduleResourceDirs: { stale: rpMod },
+      outDir: rpAssembled,
+      projectName: "sfmc-modules-rp",
+      uuid: staleUuid,
+      version: [1, 0, 0],
+    });
+
+    await deployToBDS({
+      bdsRoot: bds,
+      levelName: level,
+      behaviorPackSrc: bpSrc,
+      resourcePackSrc: rpAssembled,
+      bpName: "sfmc-modules",
+      rpName: "sfmc-modules-rp",
+    });
+    await enablePackInWorld({
+      worldsDir,
+      levelName: level,
+      kind: "resource",
+      packUuid: staleUuid,
+      version: [1, 0, 0],
+    });
+    assert.equal(worldPackListHas(worldsDir, level, "resource", staleUuid), true);
+
+    /* 模拟 catalog 缺失:只留磁盘 RP,lifecycle 应在 clear 前读 manifest */
+    const rpDst = path.join(worlds, "resource_packs", "sfmc-modules-rp");
+    const header = readPackManifestHeader(rpDst);
+    assert.equal(header?.uuid, staleUuid);
+    assert.ok(header);
+
+    await deployToBDS({
+      bdsRoot: bds,
+      levelName: level,
+      behaviorPackSrc: bpSrc,
+      bpName: "sfmc-modules",
+      rpName: "sfmc-modules-rp",
+      clearResourcePack: true,
+    });
+    assert.ok(!fs.existsSync(rpDst));
+
+    await disablePackInWorld({
+      worldsDir,
+      levelName: level,
+      kind: "resource",
+      packUuid: header.uuid,
+      version: [1, 0, 0],
+    });
+    assert.equal(worldPackListHas(worldsDir, level, "resource", staleUuid), false);
   });
 });
