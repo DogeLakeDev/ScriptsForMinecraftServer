@@ -10,7 +10,6 @@
  *     alreadyInTx=true 时只跑 steps
  */
 
-import type { EconomyAccountRow, EconomyTransactionRow } from "@sfmc-bds/sdk/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import type { SQLStatement } from "sql-template-strings";
 import { isValidIdempotencyKey } from "../lib/idempotency.js";
@@ -32,6 +31,47 @@ export type AnyQuery = (
 
 function newTransactionId(now: number): string {
   return `E${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * 经济账户 DB 行（snake_case，对应 sfmc_economy_accounts）。
+ * 业务域类型由本模块维护，不再依赖 sdk/contracts。
+ */
+export interface EconomyAccountRow {
+  player_id: string;
+  player_name_snapshot: string;
+  balance: number;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * 经济交易流水 DB 行（snake_case，对应 sfmc_economy_transactions）。
+ * 含历史 JS 侧别名字段，供调用方兼容读取。
+ */
+export interface EconomyTransactionRow {
+  id: string;
+  transaction_type: string;
+  actor_id: string;
+  source_player_id?: string;
+  target_player_id?: string;
+  amount: number;
+  balance_before?: number;
+  balance_after?: number;
+  reference_type: string;
+  reference_id: string;
+  reason: string;
+  created_at: number;
+  idempotency_key: string;
+
+  /** JS-side alias fields used by domain/economy.ts */
+  actorId?: string;
+  type?: string;
+  referenceType?: string;
+  referenceId?: string;
+  sourcePlayerName?: string;
+  targetPlayerName?: string;
 }
 
 export interface EconomyAccountView {
@@ -336,8 +376,6 @@ export function applyEconomyTransaction(
     };
   }
 }
-
-export type { EconomyAccountRow, EconomyTransactionRow };
 
 /** 列出日常任务(默认仅 active 且未过期) */
 export function listDailyTasks(

@@ -2,7 +2,7 @@
 
 ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 
-- **`@sfmc-bds/sdk/contracts`** — 跨模块共享类型契约(land / chat / coop / economy / player / world / 等)
+- **`@sfmc-bds/sdk/contracts`** — 平台级共享类型（模块目录 / lock 协议）；业务域类型由各模块自行维护
 - **`@sfmc-bds/sdk/sapi/runtime`** — SAPI 进程内运行时:`Msg` / `Command` / `Permission` / `MenuNavigator` / `Money` / `debug`
 - **`@sfmc-bds/sdk/sapi/db`** — 数据库友好 API:`db.defineTable` / `db.tx` / `db.query` / `db.audit` / `db.idempotent`
 - **`@sfmc-bds/sdk/sapi/config`** — 模块配置:`config.get` / `config.set` / `config.onChange`
