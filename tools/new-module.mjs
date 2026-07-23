@@ -66,7 +66,7 @@ function buildPackageJson(folderId) {
     description: `SAPI module: ${folderId}`,
     main: "sapi/src/index.ts",
     scripts: {
-      typecheck: "tsc --noEmit -p sapi/tsconfig.json",
+      typecheck: "tsc7 --noEmit -p sapi/tsconfig.json",
     },
     dependencies: {
       "@sfmc-bds/sdk": "^0.1.0",

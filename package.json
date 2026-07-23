@@ -50,7 +50,7 @@
     "check-ootb": "node tools/check-ootb.mjs",
     "check-minecraft-versions": "node tools/check-minecraft-versions.mjs",
     "smoke-modules": "node tools/smoke-modules.mjs",
-    "typecheck": "node ./tools/tsc7.mjs --noEmit -p sfmc/tsconfig.json && node ./tools/tsc7.mjs --noEmit -p db-server/tsconfig.json && node ./tools/tsc7.mjs --noEmit -p bds-tools/tsconfig.json && node ./tools/tsc7.mjs --noEmit -p qq-bridge/tsconfig.json && node ./tools/tsc7.mjs --noEmit -p modules/sdk/@sfmc-sdk/tsconfig.types.json && node ./tools/tsc7.mjs --noEmit -p modules/sdk/@sfmc-eslint-plugin/tsconfig.json && node ./tools/tsc7.mjs --noEmit -p remote-controller/tsconfig.json",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run eslint-plugin:build && eslint .",
     "bundle": "node build-sea.mjs",
     "sea": "node --build-sea sea-config.json"

@@ -28,7 +28,8 @@
     "sfmc-fetch-module": "./fetch-module.mjs",
     "sfmc-new-module": "./new-module.mjs",
     "sfmc-smoke-modules": "./smoke-modules.mjs",
-    "sfmc-sim-new-user": "./sim-new-user.mjs"
+    "sfmc-sim-new-user": "./sim-new-user.mjs",
+    "tsc7": "./tsc7.mjs"
   },
   "files": [
     "*.mjs",

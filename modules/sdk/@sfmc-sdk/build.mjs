@@ -23,9 +23,9 @@
  *   2) tsc 发 .d.ts → dist/types/<subpath>/index.d.ts
  */
 import { build } from "esbuild";
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { runTsc7 } from "../../../tools/tsc7.mjs";
 
 const SUBPATHS = [
   { sub: "contracts", platform: "neutral" },
@@ -74,9 +74,10 @@ for (const { sub, platform } of SUBPATHS) {
   });
 }
 
-// 2) .d.ts — tsc --emitDeclarationOnly 产 dist/types
-console.log("[sdk] emitting .d.ts via tsc...");
-execSync("npx tsc -p tsconfig.types.json", { stdio: "inherit" });
+// 2) .d.ts — 经 tsc7（TS7 native）产 dist/types
+console.log("[sdk] emitting .d.ts via tsc7...");
+const dtsCode = runTsc7(["-p", "tsconfig.types.json"]);
+if (dtsCode !== 0) process.exit(dtsCode);
 
 console.log("@sfmc-bds/sdk build done:", SUBPATHS.length, "subpaths");
 

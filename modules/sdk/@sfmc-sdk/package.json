@@ -99,8 +99,8 @@
   "scripts": {
     "build": "node build.mjs",
     "build:js": "node build.mjs",
-    "build:types": "node ../../../tools/tsc7.mjs -p tsconfig.types.json",
-    "typecheck": "node ../../../tools/tsc7.mjs --noEmit -p tsconfig.types.json",
+    "build:types": "tsc7 -p tsconfig.types.json",
+    "typecheck": "tsc7 --noEmit -p tsconfig.types.json",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run clean && npm run build:types && node build.mjs"
   },

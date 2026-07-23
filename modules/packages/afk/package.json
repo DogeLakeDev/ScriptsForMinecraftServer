@@ -6,7 +6,7 @@
   "description": "SAPI module: AFK - 玩家挂机检测与状态管理。",
   "main": "sapi/src/index.ts",
   "scripts": {
-    "typecheck": "node ../../../tools/tsc7.mjs --noEmit -p sapi/tsconfig.json"
+    "typecheck": "tsc7 --noEmit -p sapi/tsconfig.json"
   },
   "dependencies": {
     "@sfmc-bds/sdk": "*"

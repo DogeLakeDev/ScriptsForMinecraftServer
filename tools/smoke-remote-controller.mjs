@@ -19,7 +19,7 @@ const DIST = path.join(ROOT, "remote-controller", "dist", "index.js");
 const ENTRY = path.join(ROOT, "tools", "smoke-remote-controller-agent.mjs");
 
 if (!fs.existsSync(DIST)) {
-  console.error(`FAIL: missing build artifact ${DIST} (run: cd remote-controller && npx tsc)`);
+  console.error(`FAIL: missing build artifact ${DIST} (run: npm run build -w remote-controller)`);
   process.exit(1);
 }
 
