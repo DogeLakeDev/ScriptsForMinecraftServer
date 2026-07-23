@@ -96,26 +96,24 @@ function catalogPath(): string {
   return modulePath(path.join(ROOT, "modules"), "catalog.json");
 }
 
-/** 读 BDS 路径与 level-name */
+function spawnPackManager(args: string[]): { ok: boolean; out: string; err: string } {
+  const proc = spawnServiceSync("pack-manager", args, { encoding: "utf8" });
+  return {
+    ok: proc.status === 0,
+    out: (proc.stdout ?? "").toString(),
+    err: (proc.stderr ?? "").toString(),
+  };
+}
+
+/** 读 BDS 路径与 level-name(level 权威来源:pack-manager read-level,DRY/DIP) */
 export function resolveBdsContext(): { bdsRoot: string; levelName: string } {
   const cfg = (readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
   const bdsRoot = cfg.bds_path;
   if (!bdsRoot) {
     throw new Error("bds_path not configured. Run `sfmc init` first.");
   }
-  let levelName = "Bedrock level";
-  try {
-    const text = readFileSync(path.join(bdsRoot, "server.properties"), "utf8");
-    for (const line of text.split(/\r?\n/)) {
-      const m = /^\s*level-name\s*=\s*(.+?)\s*$/.exec(line);
-      if (m?.[1]) {
-        levelName = m[1];
-        break;
-      }
-    }
-  } catch {
-    /* use default */
-  }
+  const r = spawnPackManager(["read-level", "--bds-root", bdsRoot]);
+  const levelName = r.ok && r.out.trim() ? r.out.trim() : "Bedrock level";
   return { bdsRoot, levelName };
 }
 
@@ -131,22 +129,17 @@ export function deployedCatalogPath(bdsRoot: string, levelName: string): string 
   return path.join(deployedBpDir(bdsRoot, levelName), DEPLOY_CATALOG_NAME);
 }
 
+/** 读 BP/RP manifest header — 委托 pack-manager(与 readPackManifestHeader 单一权威) */
 function readManifestHeader(
   packDir: string
 ): { uuid: string; version: [number, number, number]; moduleUuid?: string } | null {
-  const file = path.join(packDir, "manifest.json");
-  if (!existsSync(file)) return null;
+  if (!existsSync(path.join(packDir, "manifest.json"))) return null;
+  const r = spawnPackManager(["read-manifest", "--pack-dir", packDir]);
+  if (!r.ok) return null;
+  const text = r.out.trim();
+  if (!text || text === "null") return null;
   try {
-    const raw = JSON.parse(readFileSync(file, "utf8")) as {
-      header?: { uuid?: string; version?: number[] };
-      modules?: Array<{ uuid?: string }>;
-    };
-    const uuid = raw.header?.uuid;
-    const ver = raw.header?.version;
-    if (typeof uuid !== "string" || !Array.isArray(ver) || ver.length < 3) return null;
-    const version: [number, number, number] = [Number(ver[0]), Number(ver[1]), Number(ver[2])];
-    const moduleUuid = raw.modules?.[0]?.uuid;
-    return { uuid, version, ...(typeof moduleUuid === "string" ? { moduleUuid } : {}) };
+    return JSON.parse(text) as { uuid: string; version: [number, number, number]; moduleUuid?: string };
   } catch {
     return null;
   }
@@ -184,8 +177,8 @@ export async function scanLocalModules(): Promise<
     for (const m of cat.modules) {
       const id = typeof m.id === "string" ? m.id : "";
       if (!id) continue;
-      /* enabledByDefault 缺省按 false(与 feature 模块一致) */
-      defaults.set(id, typeof m.enabledByDefault === "boolean" ? m.enabledByDefault : false);
+      /* 与 db-server 契约一致:enabledByDefault !== false(缺省 true) — LSP */
+      defaults.set(id, m.enabledByDefault !== false);
     }
   }
 
@@ -346,29 +339,20 @@ export function catalogsEqual(a: DeployCatalog, b: DeployCatalog): boolean {
   return true;
 }
 
+/** 世界 enable-list 查询 — 委托 pack-manager has-pack(DRY) */
 function worldPackListHas(bdsRoot: string, levelName: string, kind: "behavior" | "resource", uuid: string): boolean {
-  const file = path.join(
-    bdsRoot,
-    "worlds",
+  const r = spawnPackManager([
+    "has-pack",
+    "--worlds-dir",
+    path.join(bdsRoot, "worlds"),
+    "--level",
     levelName,
-    kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
-  );
-  if (!existsSync(file)) return false;
-  try {
-    const arr = JSON.parse(readFileSync(file, "utf8")) as Array<{ pack_id?: string }>;
-    return Array.isArray(arr) && arr.some((e) => e.pack_id === uuid);
-  } catch {
-    return false;
-  }
-}
-
-function spawnPackManager(args: string[]): { ok: boolean; out: string; err: string } {
-  const proc = spawnServiceSync("pack-manager", args, { encoding: "utf8" });
-  return {
-    ok: proc.status === 0,
-    out: (proc.stdout ?? "").toString(),
-    err: (proc.stderr ?? "").toString(),
-  };
+    "--kind",
+    kind,
+    "--pack-id",
+    uuid,
+  ]);
+  return r.ok && r.out.trim() === "1";
 }
 
 /** esbuild 聚合启用模块 → assemble BP + RP(若有) */
@@ -377,8 +361,16 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
   const catalog = desired ?? (await computeDesiredCatalog());
   packLog(`building BP/RP (modules=${Object.keys(catalog.modules).length})…`);
 
+  /* 单次扫描:SAPI 入口 + RP 目录(DRY,避免 listEnabled* 重复 fingerprint) */
+  const mods = await scanLocalModules();
+  const entries = mods.filter((m) => m.enabled && m.entryPath).map((m) => m.entryPath!);
+  const rpDirs: Record<string, string> = {};
+  for (const m of mods) {
+    if (!m.enabled || !m.hasResourcePack) continue;
+    rpDirs[m.folderId] = path.join(packagesDir(), m.folderId, "resource_pack");
+  }
+
   const { build } = await import("esbuild");
-  const entries = await listEnabledSapiEntries();
   const outFile = path.join(bpSrc(), "scripts", "main.js");
   await fs.mkdir(path.dirname(outFile), { recursive: true });
   if (entries.length === 0) {
@@ -419,28 +411,14 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
   if (!bpProc.ok) throw new Error(`assemble-bp failed: ${bpProc.err || bpProc.out}`);
   packLog(`assembled BP uuid=${catalog.bpUuid}`, "success");
 
-  const rpDirs = await listEnabledResourcePackDirs();
   if (Object.keys(rpDirs).length > 0 && catalog.rpUuid) {
-    /* assemble-rp CLI scans modules-dir; filter by writing only enabled via temp is heavy —
-     * pass packages dir and rely on enabled filter by assembling via inline map:
-     * CLI only supports --modules-dir full scan. Filter: call assemble with all scanned,
-     * but we need only enabled. Use --modules-dir packages and accept scan of all RPs
-     * OR write a temp modules mirror. Simpler: spawn with packages dir but pre-filter
-     * by temporarily not using CLI filter — extend CLI later.
-     * Workaround: assemble-rp scans all; we only want enabled. Copy enabled RPs to temp. */
-    const tmpRpModules = path.join(buildRoot(), "_rp-modules-tmp");
-    await fs.rm(tmpRpModules, { recursive: true, force: true });
-    await fs.mkdir(tmpRpModules, { recursive: true });
-    for (const [id, rpDir] of Object.entries(rpDirs)) {
-      const dst = path.join(tmpRpModules, id, "resource_pack");
-      await fs.mkdir(path.dirname(dst), { recursive: true });
-      /* 用 pack-manager copy:直接递归复制 */
-      await copyDirRecursive(rpDir, dst);
-    }
+    /* OCP:显式 --modules-json 交给 pack-manager,不再临时镜像整树 */
+    const mapFile = path.join(buildRoot(), "_rp-modules-map.json");
+    writeJson(mapFile, rpDirs);
     const rpArgs = [
       "assemble-rp",
-      "--modules-dir",
-      tmpRpModules,
+      "--modules-json",
+      mapFile,
       "--out",
       rpOut(),
       "--name",
@@ -454,7 +432,7 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
     ];
     if (catalog.rpModuleUuid) rpArgs.push("--module-uuid", catalog.rpModuleUuid);
     const rpProc = spawnPackManager(rpArgs);
-    await fs.rm(tmpRpModules, { recursive: true, force: true });
+    await fs.rm(mapFile, { force: true });
     if (!rpProc.ok) throw new Error(`assemble-rp failed: ${rpProc.err || rpProc.out}`);
     packLog(`assembled RP uuid=${catalog.rpUuid} (${Object.keys(rpDirs).length} modules)`, "success");
   } else {
@@ -471,16 +449,6 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
   return catalog;
 }
 
-async function copyDirRecursive(src: string, dst: string): Promise<void> {
-  await fs.mkdir(dst, { recursive: true });
-  for (const e of await fs.readdir(src, { withFileTypes: true })) {
-    const s = path.join(src, e.name);
-    const d = path.join(dst, e.name);
-    if (e.isDirectory()) await copyDirRecursive(s, d);
-    else await fs.copyFile(s, d);
-  }
-}
-
 /** 部署到世界 + enable 清单 + Script API permission */
 export async function deployPacks(catalog: DeployCatalog): Promise<void> {
   const { bdsRoot, levelName } = resolveBdsContext();
@@ -488,6 +456,7 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
     throw new Error(`BP not built at ${bpOut()}. Run build first.`);
   }
 
+  const previous = readDeployedCatalog(bdsRoot, levelName);
   const deployArgs = [
     "deploy",
     "--bds-root",
@@ -498,9 +467,14 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
     bpOut(),
     "--bp-name",
     BP_NAME,
+    "--rp-name",
+    RP_NAME,
   ];
   if (catalog.rpUuid && existsSync(rpOut())) {
-    deployArgs.push("--rp-src", rpOut(), "--rp-name", RP_NAME);
+    deployArgs.push("--rp-src", rpOut());
+  } else {
+    /* 不再需要 RP:清世界内聚合 RP 目录 */
+    deployArgs.push("--clear-rp");
   }
   const dep = spawnPackManager(deployArgs);
   if (!dep.ok) throw new Error(`deploy failed: ${dep.err || dep.out}`);
@@ -542,6 +516,46 @@ export async function deployPacks(catalog: DeployCatalog): Promise<void> {
     ]);
     if (!enRp.ok) throw new Error(`enable RP failed: ${enRp.err || enRp.out}`);
     packLog(`enabled resource pack ${catalog.rpUuid} in world list`, "success");
+  }
+
+  /* 卸掉过期 RP:UUID 轮换或模块不再提供 RP(BLOCKER 修复) */
+  if (previous?.rpUuid && previous.rpUuid !== (catalog.rpUuid ?? null)) {
+    const dis = spawnPackManager([
+      "disable-pack",
+      "--worlds-dir",
+      worldsDir,
+      "--level",
+      levelName,
+      "--kind",
+      "resource",
+      "--pack-id",
+      previous.rpUuid,
+    ]);
+    if (!dis.ok) {
+      packLog(`disable stale RP ${previous.rpUuid} failed: ${dis.err || dis.out}`, "warn");
+    } else {
+      packLog(`disabled stale resource pack ${previous.rpUuid}`, "success");
+    }
+  }
+
+  /* 若 BP uuid 轮换,卸掉旧 BP 清单项 */
+  if (previous?.bpUuid && previous.bpUuid !== catalog.bpUuid) {
+    const disBp = spawnPackManager([
+      "disable-pack",
+      "--worlds-dir",
+      worldsDir,
+      "--level",
+      levelName,
+      "--kind",
+      "behavior",
+      "--pack-id",
+      previous.bpUuid,
+    ]);
+    if (!disBp.ok) {
+      packLog(`disable stale BP ${previous.bpUuid} failed: ${disBp.err || disBp.out}`, "warn");
+    } else {
+      packLog(`disabled stale behavior pack ${previous.bpUuid}`, "success");
+    }
   }
 
   const perm = spawnPackManager([

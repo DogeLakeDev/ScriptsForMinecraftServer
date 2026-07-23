@@ -80,6 +80,11 @@ export interface DeployOpts {
   bpName: string;
   /** RP 目标目录名 (worlds/<level>/resource_packs/<rpName>);省略时复用 bpName + '-rp' */
   rpName?: string;
+  /**
+   * 无 resourcePackSrc 时是否删除世界内已有 RP 目录。
+   * 用于模块不再提供 RP 时清理聚合包残留(默认 false,避免误删未声明的 RP)。
+   */
+  clearResourcePack?: boolean;
 }
 
 export interface DeployResult {
@@ -211,6 +216,9 @@ export async function deployToBDS(opts: DeployOpts): Promise<DeployResult> {
     await fs.promises.rm(rpDst, { recursive: true, force: true });
     await copyDirAsync(opts.resourcePackSrc, rpDst);
     rpDir = rpDst;
+  } else if (opts.clearResourcePack) {
+    /* 调用方显式声明不再部署 RP — 清掉聚合 RP 目录残留 */
+    await fs.promises.rm(rpDst, { recursive: true, force: true });
   }
   return { bpDir: bpDst, rpDir };
 }
@@ -264,7 +272,6 @@ export async function writePermissionsJson(bpDir: string): Promise<void> {
   const tmp = path.join(bpDir, `.permissions.${process.pid}.tmp`);
   await fs.promises.writeFile(tmp, JSON.stringify(payload, null, 2) + "\n", "utf8");
   await fs.promises.rename(tmp, path.join(bpDir, "permissions.json"));
-  void copyDirAsync;
 }
 
 /**
@@ -412,4 +419,46 @@ export function scanModuleResourcePacks(modulesDir: string): Record<string, stri
     }
   }
   return out;
+}
+
+/**
+ * 从 JSON 文件加载显式 moduleId → resource_pack 目录映射。
+ * 供 assemble-rp --modules-json 使用,避免调用方再做临时目录镜像(OCP/DRY)。
+ */
+export function loadModuleResourcePackMap(jsonPath: string): Record<string, string> {
+  const raw = JSON.parse(fs.readFileSync(jsonPath, "utf8")) as unknown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`modules-json must be an object: ${jsonPath}`);
+  }
+  const out: Record<string, string> = {};
+  for (const [id, dir] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof id !== "string" || !id || typeof dir !== "string" || !dir) continue;
+    const abs = path.resolve(dir);
+    if (!fs.existsSync(abs)) {
+      throw new Error(`modules-json entry missing: ${id} → ${abs}`);
+    }
+    out[id] = abs;
+  }
+  return out;
+}
+
+/** 世界 enable-list 是否已含指定 pack_id(只读,供 preflight 复用)。 */
+export function worldPackListHas(
+  worldsDir: string,
+  levelName: string,
+  kind: "behavior" | "resource",
+  packUuid: string
+): boolean {
+  const file = path.join(
+    worldsDir,
+    levelName,
+    kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
+  );
+  if (!fs.existsSync(file)) return false;
+  try {
+    const arr = JSON.parse(fs.readFileSync(file, "utf8")) as Array<{ pack_id?: string }>;
+    return Array.isArray(arr) && arr.some((e) => e.pack_id === packUuid);
+  } catch {
+    return false;
+  }
 }
