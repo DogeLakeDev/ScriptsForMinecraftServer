@@ -21,8 +21,6 @@ import { httpDownload } from "./http.js";
 import { isMainModule } from "./is-main.js";
 import { loadConfig, LOG_PATH, resolvePaths } from "./paths.js";
 import { sendText, sendWithImage } from "./qqutil.js";
-import { emitUpdateResult } from "./update-result.js";
-import { extractZipFileToDir } from "./zipx.js";
 import {
   clearRollbackMarker,
   getDirSize,
@@ -32,6 +30,7 @@ import {
 } from "./rollback.js";
 import { ensureEmitServerTelemetry } from "./server-properties.js";
 import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
+import { emitUpdateResult } from "./update-result.js";
 import {
   buildDownloadUrls,
   fetchVersionDetails,
