@@ -163,11 +163,6 @@ export async function cmdStopAll(): Promise<string> {
   return c.dim(t("svc.allStopped"));
 }
 
-/** 剥离 Windows Terminal 任务栏 OSC，避免 pipe 日志出现空白行（委托 bds-tools/taskbar） */
-function stripOsc(s: string): string {
-  return stripTaskbarOsc(s);
-}
-
 /**
  * BDS 更新：子进程始终 --no-start，由 sfmc 监督器接管启停与日志。
  * （updater 内 detached 自启会导致 REPL 丢 PID / 无 stdout）
@@ -190,7 +185,8 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
     });
     let out = "";
     const pushChunk = (raw: string, level: "info" | "error"): void => {
-      const s = stripOsc(raw);
+      // 剥离 Windows Terminal 任务栏 OSC，避免 pipe 日志空白行（权威：bds-tools/taskbar）
+      const s = stripTaskbarOsc(raw);
       out += s;
       for (const line of s
         .split(/\r?\n/)

@@ -437,22 +437,28 @@ export function loadModuleResourcePackMap(jsonPath: string): Record<string, stri
 
 /**
  * 读取世界 enable-list(单一权威,供 has-pack / list-packs / 调用方复用 — DRY)。
- * 文件缺失或损坏时返回 []。
+ * 文件缺失 → entries=[]；JSON 损坏 → entries=[] 且 parseFailedFile 有值（供 doctor 区分）。
  */
-export function readWorldPackList(
+export type WorldPackListReadResult = {
+  entries: Array<{ pack_id: string; version: [number, number, number] }>;
+  /** 文件存在但解析失败时为该 JSON 绝对路径 */
+  parseFailedFile?: string;
+};
+
+export function readWorldPackListResult(
   worldsDir: string,
   levelName: string,
   kind: "behavior" | "resource"
-): Array<{ pack_id: string; version: [number, number, number] }> {
+): WorldPackListReadResult {
   const file = path.join(
     worldsDir,
     levelName,
     kind === "behavior" ? "world_behavior_packs.json" : "world_resource_packs.json"
   );
-  if (!fs.existsSync(file)) return [];
+  if (!fs.existsSync(file)) return { entries: [] };
   try {
     const arr = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
-    if (!Array.isArray(arr)) return [];
+    if (!Array.isArray(arr)) return { entries: [], parseFailedFile: file };
     const out: Array<{ pack_id: string; version: [number, number, number] }> = [];
     for (const e of arr) {
       if (!e || typeof e !== "object") continue;
@@ -465,10 +471,19 @@ export function readWorldPackList(
           : [1, 0, 0];
       out.push({ pack_id: packId, version });
     }
-    return out;
+    return { entries: out };
   } catch {
-    return [];
+    return { entries: [], parseFailedFile: file };
   }
+}
+
+/** 兼容读侧：只要 entries（损坏时与缺失同为 []）。详细结果见 readWorldPackListResult。 */
+export function readWorldPackList(
+  worldsDir: string,
+  levelName: string,
+  kind: "behavior" | "resource"
+): Array<{ pack_id: string; version: [number, number, number] }> {
+  return readWorldPackListResult(worldsDir, levelName, kind).entries;
 }
 
 /** 世界 enable-list 是否已含指定 pack_id(只读,供 preflight 复用)。 */

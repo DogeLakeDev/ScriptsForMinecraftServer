@@ -10,6 +10,8 @@ import {
   enablePackInWorld,
   readPackManifestHeader,
   readWorldPackList,
+  readWorldPackListResult,
+  type WorldPackListReadResult,
 } from "./pack-manager.js";
 import { extractZipFileToDir } from "./zipx.js";
 
@@ -336,7 +338,16 @@ export function listWorldEnableEntries(
   levelName: string,
   kind: WorldPackKind
 ): Array<{ pack_id: string; version: [number, number, number] }> {
-  return readWorldPackList(path.join(bdsRoot, "worlds"), levelName, kind);
+  return listWorldEnableListResult(bdsRoot, levelName, kind).entries;
+}
+
+/** 含 parseFail 信号的 enable-list 快照（doctor 用；不暴露 JSON 路径构造细节） */
+export function listWorldEnableListResult(
+  bdsRoot: string,
+  levelName: string,
+  kind: WorldPackKind
+): WorldPackListReadResult {
+  return readWorldPackListResult(path.join(bdsRoot, "worlds"), levelName, kind);
 }
 
 export function findInstalledPackById(

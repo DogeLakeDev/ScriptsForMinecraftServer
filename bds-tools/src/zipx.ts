@@ -1,6 +1,6 @@
 /**
  * zipx.ts — JSZip 安全解压（防 zip-slip / 绝对路径 / Windows `\`）
- * 单一权威，供 world-packs / check-update 复用（DRY）。
+ * 单一权威，供 world-packs / check-update / wizard / fetch-module 复用（DRY）。
  */
 import fs from "node:fs";
 import path from "node:path";
