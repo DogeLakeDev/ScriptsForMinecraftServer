@@ -12,14 +12,15 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          # db-server 在模块加载时 import node:sqlite，22.5–22.12 需 --experimental-sqlite；
-          # npm-run-all2@9 等 dev 依赖要求 ≥22.22.2。22.22 同时满足两者。
-          node-version: "24"
+          # 默认 CI Node 唯一来源: 仓库根 .node-version（与 npm-publish 共用）。
+          # db-server 需 ≥22.13（node:sqlite 无 flag）；npm-run-all2@9 要求
+          # ^22.22.2 || ^24.15.0 || >=26 —— 当前钉 24（GHA 解析到 ≥24.15）。
+          node-version-file: .node-version
           cache: npm
 
       - name: Install root deps
