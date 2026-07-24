@@ -1,11 +1,15 @@
 {
-  "_comment": "世界包更新。apiKey 来自 https://console.curseforge.com/（x-api-key）。Bedrock gameId=78022，Addons classId=4984。官方 /mods/search 若 403 会自动改用 searchBaseUrl（api.curse.tools）。也可用环境变量 CURSEFORGE_API_KEY。defaultBindingEnabled=false 时新建绑定默认关闭，需手改 enabled 或改此默认后才会自动检查/更新。",
+  "_comment": "世界包更新。apiKey 来自 https://console.curseforge.com/（x-api-key）。Bedrock gameId=78022，Addons classId=4984。官方 /mods/search 若 403 会自动改用 searchBaseUrl（api.curse.tools）。也可用环境变量 CURSEFORGE_API_KEY。match 为源无关策略，置于顶层。defaultBindingEnabled=false 时新建绑定默认关闭，需手改 enabled 或改此默认后才会自动检查/更新。",
   "enabled": true,
   "checkOnBdsStart": true,
   "applyOnBdsStart": true,
   "askConfirmOnBind": true,
   "probeSourceAfterInstall": true,
   "defaultBindingEnabled": false,
+  "match": {
+    "nameMinScore": 0.6,
+    "stripFolderTags": true
+  },
   "providers": {
     "curseforge": {
       "enabled": true,
@@ -15,11 +19,7 @@
       "gameId": 78022,
       "classId": 4984,
       "pageSize": 10,
-      "preferredReleaseTypes": ["release", "beta", "alpha"],
-      "match": {
-        "nameMinScore": 0.6,
-        "stripFolderTags": true
-      }
+      "preferredReleaseTypes": ["release", "beta", "alpha"]
     }
   },
   "versionPolicy": {
