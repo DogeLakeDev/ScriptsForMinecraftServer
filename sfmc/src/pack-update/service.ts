@@ -50,12 +50,12 @@ function logPack(text: string, level: "info" | "warn" | "error" | "success" = "i
   pushLog(text, "pack", level);
 }
 
-function getProvider(cfg: PackUpdateConfig): PackSourceProvider {
-  return createPackSourceProvider(cfg);
-}
-
 function fmtVer(v: SemVer3): string {
   return v.join(".");
+}
+
+function bindingEnabledLabel(enabled: boolean): string {
+  return enabled ? "on" : "off";
 }
 
 function providerShortLabel(id: PackProviderId): string {
@@ -84,11 +84,12 @@ async function searchAndRankHits(
 function makeBindingFromHit(
   hit: SourceSearchHit,
   pairedResourceUuid: string | null,
-  opts?: { prev?: PackSourceBinding | null; enabled?: boolean }
+  opts?: { prev?: PackSourceBinding | null; defaultEnabled: boolean }
 ): PackSourceBinding {
   const prev = opts?.prev;
   return {
-    enabled: opts?.enabled ?? false,
+    /* 重绑保留原 enabled；新建走配置契约 defaultBindingEnabled（LSP） */
+    enabled: prev?.enabled ?? opts?.defaultEnabled ?? false,
     provider: hit.provider,
     projectId: hit.projectId,
     slug: hit.slug,
@@ -118,7 +119,7 @@ export async function probeSourceAfterInstall(opts: {
   if (opts.info.kind !== "behavior") return;
 
   ensurePackUpdateConfigFile();
-  const provider = getProvider(cfg);
+  const provider = createPackSourceProvider(cfg, "curseforge");
   if (!provider.isConfigured()) {
     logPack(t("packUpdate.needKey", { path: packUpdateConfigPath() }), "warn");
     return;
@@ -211,14 +212,13 @@ export async function probeSourceAfterInstall(opts: {
   }
 
   const paired = (opts.packDir ? pairedRpUuidFromBpDir(opts.packDir) : null) ?? null;
-  setBinding(
-    opts.info.uuid,
-    makeBindingFromHit(best.hit, paired, { enabled: cfg.defaultBindingEnabled })
-  );
+  const binding = makeBindingFromHit(best.hit, paired, { defaultEnabled: cfg.defaultBindingEnabled });
+  setBinding(opts.info.uuid, binding);
   logPack(
     t("packUpdate.bindOk", {
       uuid: opts.info.uuid,
       slug: best.hit.slug,
+      enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
       enabled: cfg.defaultBindingEnabled ? t("packs.list.on").trim() : t("packs.list.off").trim(),
     }),
@@ -228,7 +228,7 @@ export async function probeSourceAfterInstall(opts: {
 
 export async function searchRemote(query: string): Promise<string> {
   const cfg = loadPackUpdateConfig();
-  const provider = getProvider(cfg);
+  const provider = createPackSourceProvider(cfg, "curseforge");
   if (!provider.isConfigured()) {
     return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
   }
@@ -246,7 +246,7 @@ export async function searchRemote(query: string): Promise<string> {
 
 export async function bindPackSource(packId: string, ref: string): Promise<string> {
   const cfg = loadPackUpdateConfig();
-  const provider = getProvider(cfg);
+  const provider = createPackSourceProvider(cfg, "curseforge");
   if (!provider.isConfigured()) {
     return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
   }
@@ -260,14 +260,17 @@ export async function bindPackSource(packId: string, ref: string): Promise<strin
   if (!hit) return c.red(t("packUpdate.resolveFail", { ref }));
 
   const paired = pairedRpUuidFromBpDir(pack.dir);
-  const enabled = cfg.defaultBindingEnabled;
-  setBinding(pack.uuid, makeBindingFromHit(hit, paired, { prev: getBinding(pack.uuid), enabled }));
+  const binding = makeBindingFromHit(hit, paired, {
+    prev: getBinding(pack.uuid),
+    defaultEnabled: cfg.defaultBindingEnabled,
+  });
+  setBinding(pack.uuid, binding);
   return c.green(
     t("packUpdate.bindOk", {
       uuid: pack.uuid,
       slug: hit.slug,
+      enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
-      enabled: enabled ? t("packs.list.on").trim() : t("packs.list.off").trim(),
     })
   );
 }
@@ -310,7 +313,8 @@ interface CheckResult {
   remoteBpInfo?: PackManifestInfo;
   remoteRoots?: string[];
   tempDir?: string;
-  archivePath?: string;
+  /** 下载归档所在的临时 staging 目录（非 zip 文件路径） */
+  stagingDir?: string;
 }
 
 function withLocalBp(base: Omit<CheckResult, "localBp">, localBp: InstalledWorldPack | undefined): CheckResult {
@@ -348,7 +352,7 @@ async function prepareCheck(
   const localBp = packs.find((p) => p.uuid.toLowerCase() === bpUuid.toLowerCase() && p.kind === "behavior");
   const name = localBp?.name ?? bpUuid;
   const localVer: SemVer3 = localBp?.version ?? [0, 0, 0];
-  const provider = getProvider(cfg);
+  const provider = createPackSourceProvider(cfg, binding.provider);
 
   binding.lastCheckedAt = new Date().toISOString();
   setBinding(bpUuid, binding);
@@ -396,16 +400,16 @@ async function prepareCheck(
     );
   }
 
-  const staging = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-upd-"));
-  const archivePath = path.join(staging, file.fileName || "pack.zip");
-  await provider.download(file, archivePath);
-  const tempDir = await extractArchiveToTemp(archivePath);
+  const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-upd-"));
+  const archiveFile = path.join(stagingDir, file.fileName || "pack.zip");
+  await provider.download(file, archiveFile);
+  const tempDir = await extractArchiveToTemp(archiveFile);
   const roots = discoverPackRoots(tempDir, { maxDepth: 3 });
   const bpRoot = roots.find((r) => readPackManifestInfo(r)?.kind === "behavior");
   const remoteBpInfo = bpRoot ? readPackManifestInfo(bpRoot) : null;
   if (!remoteBpInfo) {
     try {
-      fs.rmSync(staging, { recursive: true, force: true });
+      fs.rmSync(stagingDir, { recursive: true, force: true });
       fs.rmSync(tempDir, { recursive: true, force: true });
     } catch {
       /* ignore */
@@ -454,14 +458,14 @@ async function prepareCheck(
       remoteBpInfo,
       remoteRoots: roots,
       tempDir,
-      archivePath: staging,
+      stagingDir,
     },
     localBp
   );
 }
 
 function cleanupCheck(r: CheckResult): void {
-  for (const d of [r.tempDir, r.archivePath]) {
+  for (const d of [r.tempDir, r.stagingDir]) {
     if (!d) continue;
     try {
       fs.rmSync(d, { recursive: true, force: true });
@@ -586,8 +590,9 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<{ ok:
 export async function checkPackUpdates(opts?: { packId?: string; apply?: boolean }): Promise<string> {
   const cfg = loadPackUpdateConfig();
   if (!cfg.enabled) return c.dim(t("packUpdate.disabled"));
-  const provider = getProvider(cfg);
-  if (!provider.isConfigured()) {
+  /* 入口预检：当前仅 curseforge；逐 binding 时仍按 binding.provider 分派（LSP） */
+  const gate = createPackSourceProvider(cfg, "curseforge");
+  if (!gate.isConfigured()) {
     return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
   }
 

@@ -16,6 +16,7 @@ export interface PackUpdateMatchConfig {
   stripFolderTags: boolean;
 }
 
+/** CF 源专属配置（不含通用 match；match 在 PackUpdateConfig 顶层） */
 export interface CurseForgeProviderConfig {
   enabled: boolean;
   apiKey: string;
@@ -32,7 +33,6 @@ export interface CurseForgeProviderConfig {
   classId: number | null;
   pageSize: number;
   preferredReleaseTypes: PackReleaseType[];
-  match: PackUpdateMatchConfig;
 }
 
 export interface VersionPolicyConfig {
@@ -57,11 +57,15 @@ export interface PackUpdateConfig {
   askConfirmOnBind: boolean;
   probeSourceAfterInstall: boolean;
   /**
-   * 新建绑定（探测自动写入）时的默认 enabled。
-   * 默认 false：需手动改为 true 或 packs 侧开启后才参与自动检查/更新。
-   * 显式 `packs bind` 仍会按此默认写入（可随后改 JSON）。
+   * 新建绑定的默认 enabled。
+   * false 时探测/手动 bind 仍写入 pack-sources，但不会自动检查/更新，需手改或改此默认。
    */
   defaultBindingEnabled: boolean;
+  /**
+   * 名称/slug 匹配策略（源无关）。
+   * 勿再塞进 providers.*（曾挂在 curseforge 下，违反 DIP/OCP）。
+   */
+  match: PackUpdateMatchConfig;
   providers: {
     curseforge: CurseForgeProviderConfig;
   };

@@ -4,7 +4,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, resolveDefaultsDir, seedMissingConfigsFromDefaults } from "../runtime.js";
-import type { PackUpdateConfig, PackUpdateMatchConfig } from "./types.js";
+import type { CurseForgeProviderConfig, PackUpdateConfig, PackUpdateMatchConfig } from "./types.js";
+
+const DEFAULT_MATCH: PackUpdateMatchConfig = {
+  nameMinScore: 0.6,
+  stripFolderTags: true,
+};
 
 const DEFAULTS: PackUpdateConfig = {
   enabled: true,
@@ -14,6 +19,7 @@ const DEFAULTS: PackUpdateConfig = {
   probeSourceAfterInstall: true,
   /* 探测绑定默认关闭，避免误更新；可在 pack-update.json 改为 true */
   defaultBindingEnabled: false,
+  match: { ...DEFAULT_MATCH },
   providers: {
     curseforge: {
       enabled: true,
@@ -24,10 +30,6 @@ const DEFAULTS: PackUpdateConfig = {
       classId: 4984,
       pageSize: 10,
       preferredReleaseTypes: ["release", "beta", "alpha"],
-      match: {
-        nameMinScore: 0.6,
-        stripFolderTags: true,
-      },
     },
   },
   versionPolicy: {
@@ -64,12 +66,34 @@ export function packUpdateConfigPath(): string {
   return path.join(ROOT, "configs", "pack-update.json");
 }
 
+/**
+ * 将旧版挂在 providers.curseforge.match 的字段提升到顶层 match（兼容一版）。
+ * 顶层显式配置优先于嵌套遗留。
+ */
+function hoistLegacyMatch(raw: Record<string, unknown>): PackUpdateMatchConfig | undefined {
+  const top = raw.match;
+  const providers = raw.providers as Record<string, unknown> | undefined;
+  const cf = providers?.curseforge as Record<string, unknown> | undefined;
+  const nested = cf?.match;
+  const pick =
+    top && typeof top === "object" && !Array.isArray(top)
+      ? (top as Partial<PackUpdateMatchConfig>)
+      : nested && typeof nested === "object" && !Array.isArray(nested)
+        ? (nested as Partial<PackUpdateMatchConfig>)
+        : undefined;
+  if (!pick) return undefined;
+  return deepMerge(
+    DEFAULT_MATCH as unknown as Record<string, unknown>,
+    pick as Record<string, unknown>
+  ) as unknown as PackUpdateMatchConfig;
+}
+
 export function loadPackUpdateConfig(): PackUpdateConfig {
   const cfgPath = packUpdateConfigPath();
-  let raw: Partial<PackUpdateConfig> = {};
+  let raw: Record<string, unknown> = {};
   if (fs.existsSync(cfgPath)) {
     try {
-      raw = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Partial<PackUpdateConfig>;
+      raw = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<string, unknown>;
     } catch {
       raw = {};
     }
@@ -78,34 +102,41 @@ export function loadPackUpdateConfig(): PackUpdateConfig {
     const bundled = defaultsDir ? path.join(defaultsDir, "pack-update.json") : "";
     if (bundled && fs.existsSync(bundled)) {
       try {
-        raw = JSON.parse(fs.readFileSync(bundled, "utf8")) as Partial<PackUpdateConfig>;
+        raw = JSON.parse(fs.readFileSync(bundled, "utf8")) as Record<string, unknown>;
       } catch {
         raw = {};
       }
     }
   }
 
+  const legacyMatch = hoistLegacyMatch(raw);
   const merged = deepMerge(
     DEFAULTS as unknown as Record<string, unknown>,
     raw as Record<string, unknown>
   ) as unknown as PackUpdateConfig;
+
+  if (legacyMatch) {
+    merged.match = legacyMatch;
+  }
 
   const envKey = process.env.CURSEFORGE_API_KEY?.trim();
   if (envKey) {
     merged.providers.curseforge.apiKey = envKey;
   }
 
-  /* 兼容旧配置里未接线的 byUuidInArchive/byName，避免 deepMerge 残留脏字段影响契约 */
-  const match = merged.providers.curseforge.match as PackUpdateMatchConfig & Record<string, unknown>;
+  /* 剥离曾挂在 CF 下的 match / 未接线死字段，避免脏配置渗入 Provider（Demeter/契约） */
+  const cf = merged.providers.curseforge as CurseForgeProviderConfig & Record<string, unknown>;
+  delete cf.match;
+  const match = merged.match as PackUpdateMatchConfig & Record<string, unknown>;
   delete match.byUuidInArchive;
   delete match.byName;
 
   return merged;
 }
 
-/** 匹配策略访问器：编排层勿直接挖 providers.curseforge.match（Demeter） */
+/** 匹配策略访问器：编排层只读顶层 match，勿挖 providers.*（Demeter） */
 export function getPackMatchConfig(cfg: PackUpdateConfig): PackUpdateMatchConfig {
-  return cfg.providers.curseforge.match;
+  return cfg.match;
 }
 
 /**
