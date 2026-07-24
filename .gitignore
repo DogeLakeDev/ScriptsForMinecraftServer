@@ -52,7 +52,6 @@ BDS
 
 test
 
-.vscode/*
 !.vscode/settings.json
 remote-controller/dist/index.js
 
