@@ -60,34 +60,27 @@ export interface FileSink extends Sink {
 
 export function createFileSink(filePath: string, opts: FileSinkOptions = {}): FileSink {
   const mkdir = opts.mkdir ?? true;
-  const flags = opts.flags ?? "a";
-  let stream: fs.WriteStream | null = null;
+  let ready = false;
 
-  function getStream(): fs.WriteStream {
-    if (stream) return stream;
+  function ensureReady(): void {
+    if (ready) return;
     if (mkdir) fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    stream = fs.createWriteStream(filePath, { flags, encoding: "utf-8" });
-    stream.on("error", () => {
-      // 退化:不抛出避免中断主流程,错误只能丢失
-    });
-    return stream;
+    ready = true;
   }
 
   return {
     write(entry: LogEntry, _formatted: string): void {
-      // 文件始终纯文本无 ANSI 码
+      // 文件始终纯文本无 ANSI;同步追加,避免 exit 钩子丢缓冲
       const line = formatLogLine(entry, false);
       try {
-        getStream().write(line + "\n");
+        ensureReady();
+        fs.appendFileSync(filePath, line + "\n", "utf-8");
       } catch {
         /* ignore — 与原 bds-tools/logger.ts 行为一致 */
       }
     },
     close(): void {
-      if (stream) {
-        stream.end();
-        stream = null;
-      }
+      /* sync append 无需关闭 FD */
     },
   };
 }

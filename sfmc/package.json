@@ -45,7 +45,7 @@
     "start": "node ./dist/main.js",
     "build": "node ../scripts/esbuild-transpile.mjs --dts",
     "typecheck": "tsc7 --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test pack-update-policy.test.mjs pack-update-config.test.mjs terminal-progress.test.mjs",
+    "test": "npm run build && node --test pack-update-policy.test.mjs pack-update-config.test.mjs terminal-progress.test.mjs wrap-log-line.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

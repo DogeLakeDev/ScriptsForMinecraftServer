@@ -5,16 +5,26 @@
  * 保持向后兼容的 pushLog / onLog / getAllLogs / getRecentLogs API
  * (services.ts 捕获子进程 stdout 后调用 pushLog 汇聚到此)。
  *
+ * 落盘策略(与子进程自写文件分工,避免重复):
+ *   - db / qq / update → 子进程已写 `.sfmc/logs/{db,qq,bds-update}.log`,此处跳过
+ *   - bds / llbot → `.sfmc/logs/{bds,llbot}.log`(外部进程无自带 file sink)
+ *   - 其余(system / pack / …) → `.sfmc/logs/sfmc.log`
+ *
  * formatLog 保留 theme.ts (chalk) 配色,比共享包的纯 ANSI 版本视觉更丰富。
  */
 
 import {
+  createFileSink,
   createMemoryBuffer,
+  formatLogLine,
   inferLevel as sharedInferLevel,
+  type FileSink,
   type LogEntry,
   type LogLevel as SharedLogLevel,
 } from "@sfmc-bds/sdk/logs";
+import { logFile } from "@sfmc-bds/sdk/node/config";
 import { c, highlightLogLine } from "./theme.js";
+import { ROOT } from "./runtime.js";
 
 export type LogLevel = SharedLogLevel;
 export type LogSource = string;
@@ -22,9 +32,44 @@ export interface UnifiedLog extends LogEntry {}
 
 const buffer = createMemoryBuffer(5000);
 
-/** 推送一条日志到内存缓冲 (services.ts 捕获子进程 stdout 后调用) */
+/** 子进程已用 createNodeServiceLogger 自行落盘的 source */
+const CHILD_OWNED_SOURCES = new Set(["db", "qq", "update"]);
+
+const fileSinks = new Map<string, FileSink>();
+
+/** 解析本条日志应写入的文件名(不含 .log);null 表示跳过(子进程已写) */
+function resolveDiskLogName(source: string): string | null {
+  if (CHILD_OWNED_SOURCES.has(source)) return null;
+  if (source === "bds" || source === "llbot") return source;
+  return "sfmc";
+}
+
+function sinkFor(source: string): FileSink | null {
+  const name = resolveDiskLogName(source);
+  if (!name) return null;
+  let sink = fileSinks.get(name);
+  if (!sink) {
+    sink = createFileSink(logFile(ROOT, name));
+    fileSinks.set(name, sink);
+  }
+  return sink;
+}
+
+process.on("exit", () => {
+  for (const sink of fileSinks.values()) sink.close();
+});
+
+/** 推送一条日志到内存缓冲,并按策略落盘 */
 export function pushLog(text: string, source: LogSource, level: LogLevel): void {
   buffer.pushDirect(text, source, level);
+  const sink = sinkFor(source);
+  if (!sink) return;
+  const entry: LogEntry = { time: new Date(), text, source, level };
+  try {
+    sink.write(entry, formatLogLine(entry, false));
+  } catch {
+    /* 落盘失败不阻断主流程 */
+  }
 }
 
 /** 订阅新日志事件,返回取消订阅函数 */
@@ -150,17 +195,17 @@ function levelTag(lvl: LogLevel): string {
 
 /** 单个字符在终端的显示宽度 (CJK 全角=2, 其余=1) */
 function charWidth(ch: string): number {
-  const c = ch.codePointAt(0) ?? 0;
+  const cp = ch.codePointAt(0) ?? 0;
   if (
-    c >= 0x1100 &&
-    (c <= 0x115f ||
-      (c >= 0x2e80 && c <= 0xa4cf && c !== 0x303f) ||
-      (c >= 0xac00 && c <= 0xd7a3) ||
-      (c >= 0xf900 && c <= 0xfaff) ||
-      (c >= 0xfe30 && c <= 0xfe4f) ||
-      (c >= 0xff00 && c <= 0xff60) ||
-      (c >= 0xffe0 && c <= 0xffe6) ||
-      (c >= 0x20000 && c <= 0x2fffd))
+    cp >= 0x1100 &&
+    (cp <= 0x115f ||
+      (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f) ||
+      (cp >= 0xac00 && cp <= 0xd7a3) ||
+      (cp >= 0xf900 && cp <= 0xfaff) ||
+      (cp >= 0xfe30 && cp <= 0xfe4f) ||
+      (cp >= 0xff00 && cp <= 0xff60) ||
+      (cp >= 0xffe0 && cp <= 0xffe6) ||
+      (cp >= 0x20000 && cp <= 0x2fffd))
   )
     return 2;
   return 1;
@@ -174,45 +219,115 @@ export function visibleWidth(s: string): number {
   return w;
 }
 
+/** 无色级别标签,与 levelTag 可见宽度一致 */
+function levelTagPlain(lvl: LogLevel): string {
+  switch (lvl) {
+    case "error":
+      return "[ERR]";
+    case "warn":
+      return "[WRN]";
+    case "success":
+      return "[OK]";
+    case "debug":
+      return "[DBG]";
+    default:
+      return "[INF]";
+  }
+}
+
 /**
- * 按终端可见宽度换行,后续行左侧缩进 indent 个空格。
- * 保留 ANSI 颜色码:换行时先 reset 避免缩进空格带色,新行恢复颜色状态。
- * 宽字符(CJK)按 2 列计算,避免中文行换行位置偏后。
+ * 日志前缀可见宽度(时间 + 源 + 级别 + 尾空格),供悬挂缩进对齐正文起点。
+ * 与 formatLog 拼接顺序保持一致。
+ */
+export function logPrefixWidth(l: UnifiedLog): number {
+  const ts = l.time.toLocaleTimeString();
+  const meta = SOURCE_META.find((m) => m.value === l.source);
+  const src = meta ? `[${meta.name}]` : `[${l.source.padEnd(7).slice(0, 8)}]`;
+  let level: LogLevel = l.level;
+  if (l.source === "bds") {
+    const parsed = getLogLevel(l.text);
+    level =
+      parsed === "WARNING" || parsed === "WARN"
+        ? "warn"
+        : parsed === "ERROR" || parsed === "FATAL"
+          ? "error"
+          : parsed === "DEBUG" || parsed === "TRACE"
+            ? "debug"
+            : "info";
+  }
+  return visibleWidth(`${ts} ${src} ${levelTagPlain(level)} `);
+}
+
+/**
+ * 按终端可见宽度换行;显式 \\n 与软换行的后续行一律左侧缩进 indent 列。
+ * 保留 ANSI:换行时 reset,新行恢复当前颜色状态(可多层叠加)。
+ * 宽字符(CJK)按 2 列;cols 预留 1 列,避免 Windows Terminal 边界再软折到第 0 列。
  */
 export function wrapLogLine(s: string, indent: number): string {
-  const cols = process.stdout.columns || 80;
-  if (visibleWidth(s) <= cols) return s;
+  const rawCols = process.stdout.columns || 80;
+  /* 至少留给正文若干列,避免 indent >= cols 时死循环 */
+  const cols = Math.max(rawCols - 1, indent + 4);
+  const segments = s.split(/\r?\n/);
+  const out: string[] = [];
+  for (let si = 0; si < segments.length; si++) {
+    const raw = segments[si]!;
+    /* 显式换行段去掉文案自带的左空格,统一由 hang indent 对齐正文 */
+    const piece = si === 0 ? raw : raw.replace(/^[ \t]+/, "");
+    out.push(wrapSegment(piece, cols, si === 0 ? 0 : indent, indent));
+  }
+  return out.join("\n");
+}
+
+/** 单段(无内嵌 \\n)软换行;startPad>0 表示本段开头已占用的列(显式换行后的悬挂) */
+function wrapSegment(s: string, cols: number, startPad: number, hangIndent: number): string {
+  if (s.length === 0) return startPad > 0 ? " ".repeat(startPad) : "";
+
   const lines: string[] = [];
-  let cur = "";
-  let w = 0;
-  let limit = cols;
-  let activeAnsi = "";
+  let cur = startPad > 0 ? " ".repeat(startPad) : "";
+  let w = startPad;
+  /** 当前生效的 ANSI 开码栈(不含 reset),换行后重放 */
+  const ansiStack: string[] = [];
+
+  const resetIfNeeded = (): void => {
+    if (ansiStack.length) cur += "\x1b[0m";
+  };
+  const replayAnsi = (): void => {
+    for (const code of ansiStack) cur += code;
+  };
+
   let i = 0;
   while (i < s.length) {
     const m = /^\x1b\[[0-9;]*m/.exec(s.slice(i));
     if (m) {
-      const code = m[0];
+      const code = m[0]!;
       cur += code;
-      if (code === "\x1b[0m") activeAnsi = "";
-      else activeAnsi = code;
+      if (code === "\x1b[0m") ansiStack.length = 0;
+      else ansiStack.push(code);
       i += code.length;
-    } else {
-      const ch = s[i]!;
-      const cw = charWidth(ch);
-      if (w + cw > limit) {
-        if (activeAnsi) cur += "\x1b[0m";
-        lines.push(cur);
-        cur = " ".repeat(indent);
-        if (activeAnsi) cur += activeAnsi;
-        w = 0;
-        limit = cols - indent;
-      }
-      cur += ch;
-      w += cw;
-      i++;
+      continue;
     }
+
+    const cp = s.codePointAt(i)!;
+    const ch = String.fromCodePoint(cp);
+    const cw = charWidth(ch);
+    const advance = ch.length;
+
+    /* w > startPad:当前行除左垫外已有内容,可以拆行;否则强制塞入避免死循环 */
+    if (w + cw > cols && w > startPad) {
+      resetIfNeeded();
+      lines.push(cur);
+      cur = " ".repeat(hangIndent);
+      replayAnsi();
+      w = hangIndent;
+      startPad = hangIndent;
+    }
+
+    cur += ch;
+    w += cw;
+    i += advance;
   }
-  if (activeAnsi) cur += "\x1b[0m";
+
+  if (ansiStack.length) cur += "\x1b[0m";
   lines.push(cur);
   return lines.join("\n");
 }

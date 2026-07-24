@@ -38,8 +38,8 @@ export {
 } from "./sink.js";
 export type { StdoutSinkOptions, FileSinkOptions, FileSink } from "./sink.js";
 
-export { createLogger, getOutputLine } from "./logger.js";
-export type { LoggerOptions, Logger } from "./logger.js";
+export { createLogger, createNodeServiceLogger, getOutputLine } from "./logger.js";
+export type { LoggerOptions, Logger, NodeServiceLogger, NodeServiceLoggerOptions } from "./logger.js";
 
 export { createMemoryBuffer } from "./memory.js";
 export type { MemoryBuffer } from "./memory.js";

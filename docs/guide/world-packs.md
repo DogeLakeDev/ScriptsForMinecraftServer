@@ -59,7 +59,7 @@ sfmc packs install --inbox
 | `packs check [id]` | 按 BP 版本检查更新（下载比对，不安装） |
 | `packs update <id\|--all>` | 检查并应用更新（同 major 时抬高 RP 版本） |
 | `packs enable \| disable <id>` | id = uuid 或文件夹名；**需重启 BDS 后生效** |
-| `packs uninstall <id> [--purge] [--no-paired]` | 卸出世界：disable + 移入 `packs/_trash`（或 `--purge` 直接删）；BP 默认连带配对 RP |
+| `packs uninstall [id...] [--purge] [--no-paired]` | 卸出世界：disable + 移入 `packs/_trash`（或 `--purge` 直接删）；BP 默认连带配对 RP。无参数且 TTY → 多选确认；可一次传多个 id |
 | `packs bump <id>` | **仅 RP**：`header`/`modules` patch 版本 +1；若已启用则同步 `world_resource_packs.json`；提示重启并重进服 |
 | `packs install [path\|--inbox] [--force]` | 指定路径或扫收件箱；成功后探测 CF 源 |
 | `packs scan [--force] [--dry-run]` | 同启动前收件箱逻辑 |

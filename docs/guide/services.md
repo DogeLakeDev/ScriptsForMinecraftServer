@@ -8,7 +8,7 @@
 | ------ | ------ |
 | `start db\|qq\|llbot\|bds\|-all` | 启动（ `bds` 启动前会校验并按需重编行为包） |
 | `stop …` / `restart …` | 停止 / 重启 |
-| `logs <svc> [-n N] [-f]` | 推荐使用快捷键 `CTRL + L` |
+| `logs <svc> [-n N] [-f]` | 推荐使用快捷键 `CTRL + L`（内存视图）；持久文件在 `<SFMC_ROOT>/.sfmc/logs/` |
 | `init` | 重新进入向导 |
 | `update [--check-only]` | 检查或安装 BDS 更新 |
 | `module`/`mod` `list\|install\|build\|reload\|…` | （见 [模块](./modules.md)） |

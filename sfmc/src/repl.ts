@@ -15,6 +15,7 @@ import {
   formatLog,
   getAllLogs,
   getRecentLogs,
+  logPrefixWidth,
   onLog,
   SOURCE_META,
   wrapLogLine,
@@ -611,7 +612,7 @@ function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
   /* 进度条 pause → 清输入行写日志 → resume → 重绘 ❯ */
   pauseAllProgress();
   try {
-    stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}\n`);
+    stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), logPrefixWidth(log))}\n`);
   } finally {
     resumeAllProgress();
   }
@@ -678,7 +679,7 @@ export async function startRepl(): Promise<void> {
       const log = all[i]!;
       if (filter.levels.length && !filter.levels.includes(log.level)) continue;
       if (filter.sources.length && !filter.sources.includes(log.source)) continue;
-      const wrapped = wrapLogLine(formatLog(log), 26);
+      const wrapped = wrapLogLine(formatLog(log), logPrefixWidth(log));
       const logRows = wrapped.split("\n").length;
       if (usedRows + logRows > rows - 2) break;
       out.unshift(wrapped);
@@ -715,7 +716,7 @@ export async function startRepl(): Promise<void> {
       if (replay.length > 0) {
         stdout.write(c.dim(t("repl.historyHeader", { count: replay.length }) + "\n"));
         for (const log of replay) {
-          stdout.write(`${wrapLogLine(formatLog(log), 26)}\n`);
+          stdout.write(`${wrapLogLine(formatLog(log), logPrefixWidth(log))}\n`);
         }
       }
 

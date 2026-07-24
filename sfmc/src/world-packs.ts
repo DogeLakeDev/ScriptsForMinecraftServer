@@ -2,7 +2,7 @@
  * world-packs.ts — 通用世界 BP/RP 编排（收件箱安装 + packs CLI）
  * 与 pack-lifecycle（模块聚合 BP/RP）职责分离。
  */
-import { confirm, isCancel } from "@clack/prompts";
+import { confirm, isCancel, multiselect } from "@clack/prompts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -201,6 +201,121 @@ async function uninstallOneInstalledPack(
     return { status: "missing", folder: pack.folderName };
   }
   return { status: "deleted", folder: pack.folderName };
+}
+
+/** 解析 BP 的配对 RP（--no-paired 时跳过） */
+function resolvePairedResource(
+  pack: InstalledWorldPack,
+  packs: InstalledWorldPack[],
+  noPaired: boolean
+): InstalledWorldPack | null {
+  if (pack.kind !== "behavior" || noPaired) return null;
+  const binding = getBinding(pack.uuid);
+  const pairedUuid =
+    binding?.pairedResourceUuid ??
+    (fs.existsSync(pack.dir) ? readPackDependencyUuids(pack.dir)[0] : undefined) ??
+    null;
+  if (!pairedUuid) return null;
+  return (
+    packs.find((p) => p.kind === "resource" && p.uuid.toLowerCase() === pairedUuid.toLowerCase()) ??
+    null
+  );
+}
+
+function formatUninstallPickLabel(pack: InstalledWorldPack): string {
+  const kind = pack.kind === "behavior" ? "BP" : "RP";
+  const en = pack.enabled ? t("packs.list.on") : t("packs.list.off");
+  return `[${kind}] ${pack.name}  ${pack.folderName}  ${en.trim()}  ${pack.uuid.slice(0, 8)}`;
+}
+
+/** TTY 多选待卸载包；取消返回 null；无可卸项返回 [] */
+async function pickPacksForUninstall(packs: InstalledWorldPack[]): Promise<InstalledWorldPack[] | null> {
+  const candidates = packs.filter((p) => !isProtectedSfmcPack(p));
+  if (candidates.length === 0) return [];
+  const bp = candidates.filter((p) => p.kind === "behavior");
+  const rp = candidates.filter((p) => p.kind === "resource");
+  const options = [
+    ...bp.map((p) => ({ value: p.uuid, label: formatUninstallPickLabel(p) })),
+    ...rp.map((p) => ({ value: p.uuid, label: formatUninstallPickLabel(p) })),
+  ];
+  const selected = await multiselect({
+    message: t("packs.uninstall.pick"),
+    options,
+    required: true,
+  });
+  if (isCancel(selected)) return null;
+  const set = new Set(selected as string[]);
+  return candidates.filter((p) => set.has(p.uuid));
+}
+
+/**
+ * 展开配对 RP 后批量卸载；可选交互确认。
+ * 同一 uuid 只卸一次（用户同时勾选 BP+配对 RP 时不重复）。
+ */
+async function uninstallPacksBatch(
+  selected: InstalledWorldPack[],
+  allPacks: InstalledWorldPack[],
+  opts: {
+    bdsRoot: string;
+    levelName: string;
+    purge: boolean;
+    noPaired: boolean;
+    askConfirm: boolean;
+  }
+): Promise<string> {
+  if (selected.length === 0) return c.yellow(t("packs.uninstall.none"));
+
+  type QueueItem = { pack: InstalledWorldPack; pairedOf?: string };
+  const queue: QueueItem[] = [];
+  const seen = new Set<string>();
+  for (const pack of selected) {
+    const key = pack.uuid.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    queue.push({ pack });
+    /* LSP：受保护主包不展开配对 RP */
+    if (isProtectedSfmcPack(pack)) continue;
+    const paired = resolvePairedResource(pack, allPacks, opts.noPaired);
+    if (paired) {
+      const pk = paired.uuid.toLowerCase();
+      if (!seen.has(pk)) {
+        seen.add(pk);
+        queue.push({ pack: paired, pairedOf: pack.folderName });
+      }
+    }
+  }
+
+  if (opts.askConfirm && process.stdin.isTTY) {
+    const preview = queue
+      .map((q) => {
+        const kind = q.pack.kind === "behavior" ? "BP" : "RP";
+        const extra = q.pairedOf ? ` ${c.dim(t("packs.uninstall.pairedOf", { folder: q.pairedOf }))}` : "";
+        return `  [${kind}] ${q.pack.folderName}${extra}`;
+      })
+      .join("\n");
+    console.log(t("packs.uninstall.summary", { count: queue.length }));
+    console.log(preview);
+    const ans = await confirm({
+      message: t("packs.uninstall.confirm", { count: String(queue.length) }),
+      initialValue: false,
+    });
+    if (isCancel(ans) || !ans) return c.dim(t("packs.uninstall.cancelled"));
+  }
+
+  const lines: string[] = [];
+  for (const item of queue) {
+    const outcome = await uninstallOneInstalledPack(item.pack, opts);
+    lines.push(formatUninstallOutcome(outcome));
+    /* 仅主包实际卸载后清绑定（受保护包 status=protected，不碰 binding） */
+    if (item.pack.kind === "behavior" && outcome.status !== "protected") {
+      const removed = removeBinding(item.pack.uuid);
+      if (removed) {
+        lines.push(c.dim(t("packs.uninstall.bindingRemoved", { uuid: item.pack.uuid })));
+      }
+    }
+  }
+  lines.push(c.yellow(restartHint()));
+  return lines.join("\n");
 }
 
 function printConflict(
@@ -688,55 +803,52 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
         return c.green(t("packs.toggleDone", { verb, folder: pack.folderName, hint: restartHint() }));
       }
       case "uninstall": {
-        const id = args.find((a) => !a.startsWith("-"));
-        if (!id) return c.yellow(t("packs.uninstall.usage"));
+        const ids = args.filter((a) => !a.startsWith("-"));
         const purge = hasFlag(args, "--purge");
         const noPaired = hasFlag(args, "--no-paired");
         const { bdsRoot, levelName } = resolveBdsContext();
         const packs = listInstalledWorldPacks(bdsRoot, levelName);
-        const pack = findInstalledPackById(packs, id);
-        if (!pack) return c.red(t("packs.notFound", { id }));
 
-        /* LSP：受保护主包直接中止，不碰配对 RP / 绑定 */
-        if (isProtectedSfmcPack(pack)) {
-          return c.red(t("packs.uninstall.protected", { folder: pack.folderName }));
-        }
-
-        /* 移走 BP 前解析配对 RP */
-        let pairedRp: InstalledWorldPack | null = null;
-        if (pack.kind === "behavior" && !noPaired) {
-          const binding = getBinding(pack.uuid);
-          const pairedUuid =
-            binding?.pairedResourceUuid ??
-            (fs.existsSync(pack.dir) ? readPackDependencyUuids(pack.dir)[0] : undefined) ??
-            null;
-          if (pairedUuid) {
-            pairedRp =
-              packs.find(
-                (p) => p.kind === "resource" && p.uuid.toLowerCase() === pairedUuid.toLowerCase()
-              ) ?? null;
+        let selected: InstalledWorldPack[] = [];
+        if (ids.length === 0) {
+          if (!process.stdin.isTTY) return c.yellow(t("packs.uninstall.usage"));
+          const picked = await pickPacksForUninstall(packs);
+          if (picked === null) return c.dim(t("packs.uninstall.cancelled"));
+          if (picked.length === 0) return c.yellow(t("packs.uninstall.none"));
+          selected = picked;
+        } else if (ids.length === 1) {
+          /* 单 id：受保护主包直接中止（与 #72 LSP 一致，不进批量确认） */
+          const pack = findInstalledPackById(packs, ids[0]!);
+          if (!pack) return c.red(t("packs.notFound", { id: ids[0]! }));
+          if (isProtectedSfmcPack(pack)) {
+            return c.red(t("packs.uninstall.protected", { folder: pack.folderName }));
           }
-        }
-
-        const lines: string[] = [];
-        const primary = await uninstallOneInstalledPack(pack, { bdsRoot, levelName, purge });
-        lines.push(formatUninstallOutcome(primary));
-
-        if (pairedRp) {
-          const paired = await uninstallOneInstalledPack(pairedRp, { bdsRoot, levelName, purge });
-          lines.push(formatUninstallOutcome(paired));
-        }
-
-        /* 清更新源绑定（BP uuid）；仅主包已实际卸载后执行 */
-        if (pack.kind === "behavior" && primary.status !== "protected") {
-          const removed = removeBinding(pack.uuid);
-          if (removed) {
-            lines.push(c.dim(t("packs.uninstall.bindingRemoved", { uuid: pack.uuid })));
+          selected = [pack];
+        } else {
+          const missing: string[] = [];
+          const byUuid = new Map<string, InstalledWorldPack>();
+          for (const id of ids) {
+            const pack = findInstalledPackById(packs, id);
+            if (!pack) {
+              missing.push(id);
+              continue;
+            }
+            byUuid.set(pack.uuid.toLowerCase(), pack);
           }
+          if (missing.length) {
+            return c.red(t("packs.notFound", { id: missing.join(", ") }));
+          }
+          selected = [...byUuid.values()];
         }
 
-        lines.push(c.yellow(restartHint()));
-        return lines.join("\n");
+        return await uninstallPacksBatch(selected, packs, {
+          bdsRoot,
+          levelName,
+          purge,
+          noPaired,
+          /* 多选或一次卸多个时确认；单 id 保持原「直接卸」手感 */
+          askConfirm: ids.length !== 1,
+        });
       }
       case "bump": {
         const id = args[0];
@@ -891,7 +1003,7 @@ export function packsUsage(): string {
   ${c.green("packs check")} [id]
   ${c.green("packs update")} <id|--all>
   ${c.green("packs enable|disable")} <uuid|folder>
-  ${c.green("packs uninstall")} <uuid|folder> [--purge] [--no-paired]
+  ${c.green("packs uninstall")} [id...] [--purge] [--no-paired]
   ${c.green("packs bump")} <id>          ${t("packs.usage.bump")}
   ${c.green("packs install")} [path|--inbox] [--force]
   ${c.green("packs scan")} [--force] [--dry-run]

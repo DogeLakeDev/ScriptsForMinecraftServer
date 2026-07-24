@@ -51,7 +51,11 @@ describe("pack-update config + provider resolve", () => {
     );
     assert.equal(cfg.uninstall.trashRelativeDir, DEFAULT_PACK_UNINSTALL.trashRelativeDir);
     assert.equal(resolveUninstallTrashDir({ purge: true }), null);
-    assert.ok(String(resolveUninstallTrashDir({})).includes(DEFAULT_PACK_UNINSTALL.trashRelativeDir));
+    const trashAbs = String(resolveUninstallTrashDir({})).replace(/\\/g, "/");
+    assert.ok(
+      trashAbs.includes(DEFAULT_PACK_UNINSTALL.trashRelativeDir),
+      `trash dir should contain ${DEFAULT_PACK_UNINSTALL.trashRelativeDir}: ${trashAbs}`
+    );
   });
 
   it("旧版 providers.curseforge.match 提升到顶层 match", () => {

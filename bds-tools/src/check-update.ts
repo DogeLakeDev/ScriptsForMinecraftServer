@@ -11,9 +11,7 @@
 
 import {
   bindByteProgressToBar,
-  createFileSink,
-  createLogger,
-  createStdoutSink,
+  createNodeServiceLogger,
   createTerminalProgress,
 } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
@@ -46,10 +44,9 @@ import {
 import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVersionCache } from "./version.js";
 import { extractZipFileToDir } from "./zipx.js";
 
-// 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分
-const updaterFileSink = createFileSink(LOG_PATH);
-const log = createLogger({ source: "updater", sinks: [createStdoutSink({ bare: true }), updaterFileSink] });
-const closeLog = (): void => updaterFileSink.close();
+// 独立入口:source = "updater",与 bds-manager 的 "bds-tools" 区分;同落盘 bds-update.log
+const log = createNodeServiceLogger({ source: "updater", logPath: LOG_PATH });
+const closeLog = (): void => log.close();
 
 function parseArgs(argv: string[]): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};

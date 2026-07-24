@@ -7,6 +7,7 @@
 
 import type { LogEntry, LogLevel, LogSource, Sink } from "./types.js";
 import { formatLogLine } from "./format.js";
+import { createFileSink, createStdoutSink, type FileSink } from "./sink.js";
 
 export interface LoggerOptions {
   /** 本 logger 的来源标识 (如 "db" / "qq" / "bds-tools" / "updater" / "system") */
@@ -31,6 +32,44 @@ export interface Logger {
   err(e: unknown, context?: string): void;
   /** 当前 logger 的 source */
   readonly source: LogSource;
+}
+
+/** Node 仓顶服务标准 logger:stdout(可 bare) + 文件落盘 */
+export interface NodeServiceLogger extends Logger {
+  /** 关闭文件 sink */
+  close(): void;
+  readonly fileSink: FileSink;
+}
+
+export interface NodeServiceLoggerOptions {
+  source: LogSource;
+  /** 绝对路径,通常由 logFile(root, source) 提供 */
+  logPath: string;
+  /**
+   * stdout 是否只输出纯 text(默认 true)。
+   * 子进程被 sfmc 捕获时须 bare,避免与主进程 formatLog 前缀重复。
+   */
+  bareStdout?: boolean;
+}
+
+/**
+ * 仓顶 Node 服务统一接入:stdout + `<ROOT>/.sfmc/logs/<name>.log`。
+ * 调用方负责传入 logPath(SDK node/config#logFile),本函数不依赖 config 子路径。
+ */
+export function createNodeServiceLogger(opts: NodeServiceLoggerOptions): NodeServiceLogger {
+  const fileSink = createFileSink(opts.logPath);
+  const bareStdout = opts.bareStdout ?? true;
+  const logger = createLogger({
+    source: opts.source,
+    sinks: [createStdoutSink({ bare: bareStdout }), fileSink],
+  });
+  return {
+    ...logger,
+    fileSink,
+    close() {
+      fileSink.close();
+    },
+  };
 }
 
 export function createLogger(opts: LoggerOptions): Logger {
