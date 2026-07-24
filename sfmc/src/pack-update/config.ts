@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../runtime.js";
 import type { CurseForgeProviderConfig, PackUpdateConfig, PackUpdateMatchConfig } from "./types.js";
+import { DEFAULT_PACK_UNINSTALL } from "./types.js";
 
 const DEFAULT_MATCH: PackUpdateMatchConfig = {
   nameMinScore: 0.6,
@@ -46,10 +47,7 @@ const DEFAULTS: PackUpdateConfig = {
     skipDisabledBindings: true,
     failMode: "continue",
   },
-  uninstall: {
-    recycleBin: true,
-    trashRelativeDir: "packs/_trash",
-  },
+  uninstall: { ...DEFAULT_PACK_UNINSTALL },
 };
 
 function deepMerge<T extends Record<string, unknown>>(base: T, over: Partial<T>): T {
@@ -136,10 +134,11 @@ export function getPackMatchConfig(cfg: PackUpdateConfig): PackUpdateMatchConfig
   return cfg.match;
 }
 
-/** 卸载回收站绝对路径（相对 SFMC_ROOT） */
+/** 卸载回收站绝对路径（相对 SFMC_ROOT；缺省走 DEFAULT_PACK_UNINSTALL） */
 export function resolvePackTrashDir(cfg?: PackUpdateConfig): string {
   const c = cfg ?? loadPackUpdateConfig();
-  const rel = (c.uninstall?.trashRelativeDir || "packs/_trash").trim() || "packs/_trash";
+  const fallback = DEFAULT_PACK_UNINSTALL.trashRelativeDir;
+  const rel = (c.uninstall?.trashRelativeDir || fallback).trim() || fallback;
   return path.isAbsolute(rel) ? rel : path.join(ROOT, rel);
 }
 
@@ -147,6 +146,19 @@ export function resolvePackTrashDir(cfg?: PackUpdateConfig): string {
 export function isPackUninstallRecycleBin(cfg?: PackUpdateConfig): boolean {
   const c = cfg ?? loadPackUpdateConfig();
   return c.uninstall?.recycleBin !== false;
+}
+
+/**
+ * 解析本次卸载的 trash 目标（DRY：purge + recycleBin 只在一处组合）。
+ * 返回 null 表示直接删除。
+ */
+export function resolveUninstallTrashDir(opts?: {
+  purge?: boolean;
+  cfg?: PackUpdateConfig;
+}): string | null {
+  const cfg = opts?.cfg ?? loadPackUpdateConfig();
+  if (opts?.purge || !isPackUninstallRecycleBin(cfg)) return null;
+  return resolvePackTrashDir(cfg);
 }
 
 /**

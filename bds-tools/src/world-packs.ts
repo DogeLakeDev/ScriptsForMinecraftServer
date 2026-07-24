@@ -378,7 +378,12 @@ export async function disableInstalledPack(opts: {
   });
 }
 
-export type UninstallPackAction = "trashed" | "deleted" | "missing";
+export type UninstallPackResult =
+  | { action: "trashed"; dest: string }
+  | { action: "deleted" }
+  | { action: "missing" };
+
+export type UninstallPackAction = UninstallPackResult["action"];
 
 /**
  * 卸载已安装世界包：先 disable enable-list，再移入 trashDir 或直接删除目录。
@@ -390,7 +395,7 @@ export async function uninstallInstalledPack(opts: {
   pack: InstalledWorldPack;
   /** 提供则移入该目录；null/省略则直接删除 */
   trashDir?: string | null;
-}): Promise<{ ok: boolean; action: UninstallPackAction; dest?: string; reason?: string }> {
+}): Promise<UninstallPackResult> {
   await disableInstalledPack({
     bdsRoot: opts.bdsRoot,
     levelName: opts.levelName,
@@ -400,7 +405,7 @@ export async function uninstallInstalledPack(opts: {
   });
 
   if (!fs.existsSync(opts.pack.dir)) {
-    return { ok: true, action: "missing" };
+    return { action: "missing" };
   }
 
   const trashDir = opts.trashDir?.trim() || null;
@@ -417,11 +422,11 @@ export async function uninstallInstalledPack(opts: {
       await copyDirAsync(opts.pack.dir, dest);
       await fs.promises.rm(opts.pack.dir, { recursive: true, force: true });
     }
-    return { ok: true, action: "trashed", dest };
+    return { action: "trashed", dest };
   }
 
   await fs.promises.rm(opts.pack.dir, { recursive: true, force: true });
-  return { ok: true, action: "deleted" };
+  return { action: "deleted" };
 }
 
 export function worldPackParentDir(
