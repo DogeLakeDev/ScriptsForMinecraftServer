@@ -228,6 +228,35 @@ function formatUninstallPickLabel(pack: InstalledWorldPack): string {
   return `[${kind}] ${pack.name}  ${pack.folderName}  ${en.trim()}  ${pack.uuid.slice(0, 8)}`;
 }
 
+/**
+ * 按 CLI id 列表解析待卸载包（DIP：解析与 TTY/确认/执行分离，便于单测）。
+ * - 任一 id 找不到 → not_found
+ * - 任一命中受保护包 → protected（与单 id 中止契约一致，LSP）
+ */
+export function resolveUninstallTargets(
+  packs: InstalledWorldPack[],
+  ids: string[]
+):
+  | { status: "ok"; selected: InstalledWorldPack[] }
+  | { status: "not_found"; missing: string[] }
+  | { status: "protected"; folder: string } {
+  const missing: string[] = [];
+  const byUuid = new Map<string, InstalledWorldPack>();
+  for (const id of ids) {
+    const pack = findInstalledPackById(packs, id);
+    if (!pack) {
+      missing.push(id);
+      continue;
+    }
+    byUuid.set(pack.uuid.toLowerCase(), pack);
+  }
+  if (missing.length) return { status: "not_found", missing };
+  const selected = [...byUuid.values()];
+  const blocked = selected.find((p) => isProtectedSfmcPack(p));
+  if (blocked) return { status: "protected", folder: blocked.folderName };
+  return { status: "ok", selected };
+}
+
 /** TTY 多选待卸载包；取消返回 null；无可卸项返回 [] */
 async function pickPacksForUninstall(packs: InstalledWorldPack[]): Promise<InstalledWorldPack[] | null> {
   const candidates = packs.filter((p) => !isProtectedSfmcPack(p));
@@ -816,29 +845,16 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
           if (picked === null) return c.dim(t("packs.uninstall.cancelled"));
           if (picked.length === 0) return c.yellow(t("packs.uninstall.none"));
           selected = picked;
-        } else if (ids.length === 1) {
-          /* 单 id：受保护主包直接中止（与 #72 LSP 一致，不进批量确认） */
-          const pack = findInstalledPackById(packs, ids[0]!);
-          if (!pack) return c.red(t("packs.notFound", { id: ids[0]! }));
-          if (isProtectedSfmcPack(pack)) {
-            return c.red(t("packs.uninstall.protected", { folder: pack.folderName }));
-          }
-          selected = [pack];
         } else {
-          const missing: string[] = [];
-          const byUuid = new Map<string, InstalledWorldPack>();
-          for (const id of ids) {
-            const pack = findInstalledPackById(packs, id);
-            if (!pack) {
-              missing.push(id);
-              continue;
-            }
-            byUuid.set(pack.uuid.toLowerCase(), pack);
+          /* 单/多 id 共用解析原语（LSP：任一受保护包整体中止） */
+          const resolved = resolveUninstallTargets(packs, ids);
+          if (resolved.status === "not_found") {
+            return c.red(t("packs.notFound", { id: resolved.missing.join(", ") }));
           }
-          if (missing.length) {
-            return c.red(t("packs.notFound", { id: missing.join(", ") }));
+          if (resolved.status === "protected") {
+            return c.red(t("packs.uninstall.protected", { folder: resolved.folder }));
           }
-          selected = [...byUuid.values()];
+          selected = resolved.selected;
         }
 
         return await uninstallPacksBatch(selected, packs, {
