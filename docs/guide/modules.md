@@ -12,14 +12,15 @@ sfmc> mod search # 🍔：从仓库拉取最新的模块列表！🐈
 sfmc> mod install afk land economy # 🍟:你可以一次装多个模块，随便🐈
 sfmc> mod uninstall afk # 🐈 
 
-sfmc> mod list # 🐱
+sfmc> mod list # 🐱：含启用/禁用状态
 
 sfmc> mod enable afk # 🐭：模块安装后默认不会启用，需要启用对应模块哦
 
-sfmc> mod build # 🕳️：手动编译 一般情况下，在服务器启动时会自动编译
+sfmc> mod build # 🕳️：仅编译；启动服务器时也会自动校验并按需编译
+sfmc> mod reload # 🔄：编译 + 部署 + 向 BDS 发 reload（开发常用）
 ```
 
-> 安装会同步 `modules/catalog.json` 和 `modules/module-lock.json`。
+> 安装会同步 `modules/catalog.json`，并按 `enabledByDefault` 写入本地 `modules/module-lock.json`。
 
 ```json
 // module-lock.json
@@ -50,4 +51,4 @@ npm run check-modules             # 校验 manifest
 npm run check-minecraft-versions  # @minecraft/* 版本对齐
 ```
 
-下一章：[行为包](./behavior-pack.md)
+下一章：[模块编译](./behavior-pack.md)

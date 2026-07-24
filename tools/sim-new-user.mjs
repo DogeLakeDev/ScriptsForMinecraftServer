@@ -45,9 +45,10 @@ async function main() {
     path.join(ROOT, "modules", "catalog.json"),
     path.join(SIM_DIR, "modules", "catalog.json")
   );
-  fs.copyFileSync(
-    path.join(ROOT, "modules", "module-lock.json"),
-    path.join(SIM_DIR, "modules", "module-lock.json")
+  /* module-lock 为本地状态：隔离环境写空骨架即可 */
+  fs.writeFileSync(
+    path.join(SIM_DIR, "modules", "module-lock.json"),
+    `${JSON.stringify({ version: 1, modules: {} }, null, 2)}\n`
   );
 
   fs.mkdirSync(path.join(SIM_DIR, "configs"), { recursive: true });

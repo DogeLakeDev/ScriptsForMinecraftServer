@@ -71,10 +71,10 @@ npm run build --workspaces --if-present
 
 ## 旧文档里的坑
 
-以下已废弃，别再搜：
+以下文件已废弃：
 
 - `check-ootb.js`、`check-catalog.js` → 用 `.mjs`
-- `emit-manifest`、`modules/_manifests/` → db-server 直接读各包 manifest
+- `emit-manifest`、`modules/_manifests/` → 已废弃；db-server 直接读各包 `sapi/manifest.json`
 - `panel/` → 用 `sfmc`
 
 仍解决不了，到 GitHub Issues 带上 BDS 日志、`check-ootb` 输出和 Node 版本。

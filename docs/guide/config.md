@@ -9,7 +9,10 @@
 | `db_config.json` | db-server | 端口、`dbDir`、`modulesDir`、`http_auth` |
 | `qq_config.json` | qq-bridge、db-server | QQ / LLBot |
 | `bds_updater.json` | bds-tools | BDS 路径、备份、更新频道 |
+| `pack-update.json` | sfmc packs/addon | CurseForge 世界包更新（API Key、启动检查、版本策略） |
 | `permissions.json` | db-server | 玩家权限种子 |
+
+绑定清单不在 `configs/`，而在 `packs/pack-sources.json`（与收件箱同级）。
 
 ## 模块配置
 
