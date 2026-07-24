@@ -170,4 +170,79 @@ describe("world-packs primitives", () => {
     const still = JSON.parse(fs.readFileSync(path.join(existingDir, "manifest.json"), "utf8"));
     assert.equal(still.header.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
   });
+
+  it("uninstallInstalledPack：回收站 / purge / 目录缺失", async () => {
+    const { uninstallInstalledPack, listInstalledWorldPacks } = await import("./dist/world-packs.js");
+    const bds = path.join(tmp, "uninstall-bds");
+    const level = "Bedrock level";
+    const folder = "[BP] Gone";
+    const uuid = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+    const packDir = path.join(bds, "worlds", level, "behavior_packs", folder);
+    writeManifest(packDir, {
+      name: "Gone",
+      uuid,
+      version: [1, 0, 0],
+      type: "data",
+    });
+    fs.mkdirSync(path.join(bds, "worlds", level), { recursive: true });
+    fs.writeFileSync(
+      path.join(bds, "worlds", level, "world_behavior_packs.json"),
+      JSON.stringify([{ pack_id: uuid, version: [1, 0, 0] }])
+    );
+
+    const packs = listInstalledWorldPacks(bds, level);
+    assert.equal(packs.length, 1);
+    const trash = path.join(tmp, "trash-bin");
+    const trashed = await uninstallInstalledPack({
+      bdsRoot: bds,
+      levelName: level,
+      pack: packs[0],
+      trashDir: trash,
+    });
+    assert.equal(trashed.action, "trashed");
+    assert.ok(trashed.dest && fs.existsSync(trashed.dest));
+    assert.equal(fs.existsSync(packDir), false);
+    const enable = JSON.parse(
+      fs.readFileSync(path.join(bds, "worlds", level, "world_behavior_packs.json"), "utf8")
+    );
+    assert.equal(enable.length, 0);
+
+    /* 目录已不在 list 中；构造 missing 场景 */
+    const phantom = {
+      ...packs[0],
+      dir: path.join(bds, "worlds", level, "behavior_packs", "no-such"),
+      enabled: false,
+    };
+    const missing = await uninstallInstalledPack({
+      bdsRoot: bds,
+      levelName: level,
+      pack: phantom,
+      trashDir: trash,
+    });
+    assert.equal(missing.action, "missing");
+
+    /* purge：再装一个直接删 */
+    const folder2 = "[BP] PurgeMe";
+    const uuid2 = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+    const packDir2 = path.join(bds, "worlds", level, "behavior_packs", folder2);
+    writeManifest(packDir2, {
+      name: "PurgeMe",
+      uuid: uuid2,
+      version: [1, 0, 0],
+      type: "data",
+    });
+    fs.writeFileSync(
+      path.join(bds, "worlds", level, "world_behavior_packs.json"),
+      JSON.stringify([{ pack_id: uuid2, version: [1, 0, 0] }])
+    );
+    const packs2 = listInstalledWorldPacks(bds, level);
+    const purged = await uninstallInstalledPack({
+      bdsRoot: bds,
+      levelName: level,
+      pack: packs2.find((p) => p.uuid === uuid2),
+      trashDir: null,
+    });
+    assert.equal(purged.action, "deleted");
+    assert.equal(fs.existsSync(packDir2), false);
+  });
 });

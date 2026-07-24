@@ -26,7 +26,7 @@ interface Deps {
   listModules?: () => Array<Record<string, unknown>>;
   /**
    * 注入模块 HMAC token 表(仅 loopback 可达;供 SAPI host-bootstrap 注入
-   * set*ModuleContext,因 SAPI 不能读 data/module-tokens.json)。
+   * set*ModuleContext,因 SAPI 不能直接读与 DB 同目录的 module-tokens.json)。
    */
   getModuleTokens?: () => Record<string, string>;
 }

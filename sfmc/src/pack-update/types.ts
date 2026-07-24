@@ -58,6 +58,12 @@ export interface PackUninstallConfig {
   trashRelativeDir: string;
 }
 
+/** 卸载策略内置默认（DEFAULTS / resolve / schema 文案的唯一权威） */
+export const DEFAULT_PACK_UNINSTALL: PackUninstallConfig = {
+  recycleBin: true,
+  trashRelativeDir: "packs/_trash",
+};
+
 export interface PackUpdateConfig {
   enabled: boolean;
   checkOnBdsStart: boolean;

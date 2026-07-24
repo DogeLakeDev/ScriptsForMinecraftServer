@@ -45,6 +45,8 @@ data/
 
 # 模块启停状态：本地生成（init / fetch-module / enable|disable），勿提交
 /modules/module-lock.json
+# 误放仓根的 lock（权威路径是 modules/module-lock.json）
+/module-lock.json
 # 遗留聚合 manifest 目录（已由各包 sapi/manifest.json 取代）
 /modules/_manifests/
 
@@ -54,6 +56,5 @@ test
 !.vscode/settings.json
 remote-controller/dist/index.js
 
-# 测试环境下产物
-
+# 测试环境下产物 / 收件箱与构建产物
 /packs/

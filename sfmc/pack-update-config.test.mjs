@@ -34,7 +34,7 @@ describe("pack-update config + provider resolve", () => {
     }
   });
 
-  it("defaultBindingEnabled 默认 false，且出现在类型化配置上", () => {
+  it("defaultBindingEnabled 默认 false，且出现在类型化配置上", async () => {
     const cfgPath = path.join(tmpRoot, "configs", "pack-update.json");
     if (fs.existsSync(cfgPath)) fs.unlinkSync(cfgPath);
     const cfg = loadPackUpdateConfig();
@@ -42,6 +42,16 @@ describe("pack-update config + provider resolve", () => {
     assert.equal(typeof cfg.match.nameMinScore, "number");
     assert.equal(cfg.uninstall.recycleBin, true);
     assert.equal(cfg.uninstall.trashRelativeDir, "packs/_trash");
+
+    const { DEFAULT_PACK_UNINSTALL } = await import(
+      pathToFileURL(path.resolve("dist/pack-update/types.js")).href
+    );
+    const { resolveUninstallTrashDir } = await import(
+      pathToFileURL(path.resolve("dist/pack-update/config.js")).href
+    );
+    assert.equal(cfg.uninstall.trashRelativeDir, DEFAULT_PACK_UNINSTALL.trashRelativeDir);
+    assert.equal(resolveUninstallTrashDir({ purge: true }), null);
+    assert.ok(String(resolveUninstallTrashDir({})).includes(DEFAULT_PACK_UNINSTALL.trashRelativeDir));
   });
 
   it("旧版 providers.curseforge.match 提升到顶层 match", () => {
