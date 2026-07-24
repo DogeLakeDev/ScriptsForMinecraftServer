@@ -464,13 +464,41 @@ async function prepareCheck(
   const decision = decideVersionPolicy(localVer, remoteBpInfo.version, cfg.versionPolicy);
 
   /*
-   * 远程 BP 版本未更高：无需覆盖安装，但仍记下 fileId，
-   * 否则每次启动都会重复下载同一归档（lastApplied 一直为空）。
+   * 是否需要写入世界目录：
+   * - 远程 BP 版本更高 → 要覆盖
+   * - 或同一 fileId 从未成功 apply 过 → 也要覆盖
+   *   （汉化包等可能与 CF 同版本号但内容不同；旧逻辑在「版本未更高」时直接记 lastApplied 会跳过安装）
+   * 注意：绝不能在未 install 成功时写入 lastAppliedFileId。
    */
-  touchBinding(bpUuid, binding, {
-    lastFileId: file.fileId,
-    ...(decision.remoteNewer ? {} : { lastAppliedFileId: file.fileId }),
-  });
+  const fileNotApplied =
+    binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
+  const updateAvailable = decision.remoteNewer || fileNotApplied;
+  const shouldBumpRp = decision.remoteNewer
+    ? decision.shouldBumpRp
+    : Boolean(
+        fileNotApplied &&
+          cfg.versionPolicy.onUpdateOverwriteBoth &&
+          cfg.versionPolicy.rpBumpWhenSameMajor &&
+          !decision.majorHigher
+      );
+
+  touchBinding(bpUuid, binding, { lastFileId: file.fileId });
+
+  let message: string;
+  if (decision.remoteNewer) {
+    message = t("packUpdate.bpNewer", {
+      local: fmtVer(localVer),
+      remote: fmtVer(remoteBpInfo.version),
+    });
+  } else if (fileNotApplied) {
+    message = t("packUpdate.needSync", {
+      local: fmtVer(localVer),
+      remote: fmtVer(remoteBpInfo.version),
+      id: String(file.fileId),
+    });
+  } else {
+    message = t("packUpdate.upToDate");
+  }
 
   return withLocalBp(
     {
@@ -478,16 +506,11 @@ async function prepareCheck(
       name,
       localVer,
       remoteVer: remoteBpInfo.version,
-      updateAvailable: decision.remoteNewer,
+      updateAvailable,
       majorHigher: decision.majorHigher,
-      shouldBumpRp: decision.shouldBumpRp,
+      shouldBumpRp,
       fileId: file.fileId,
-      message: decision.remoteNewer
-        ? t("packUpdate.bpNewer", {
-            local: fmtVer(localVer),
-            remote: fmtVer(remoteBpInfo.version),
-          })
-        : t("packUpdate.upToDate"),
+      message,
       binding,
       remoteBpInfo,
       remoteRoots: roots,
@@ -564,6 +587,13 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<{ ok:
     return { ok: false, message: t("packUpdate.installFail", { reason: bpInstall.reason ?? "?" }) };
   }
   await enableInstalledPack({ bdsRoot, levelName, info: bpInstall.info });
+  logPack(
+    t("packUpdate.installedBp", {
+      dir: bpInstall.destDir,
+      version: fmtVer(bpInstall.info.version),
+    }),
+    "success"
+  );
 
   /* 安装配对 RP：先按 binding uuid，再按新 BP dependencies */
   let rpInfo: PackManifestInfo | null = null;
@@ -604,6 +634,15 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<{ ok:
 
   if (rpInfo) {
     await enableInstalledPack({ bdsRoot, levelName, info: rpInfo });
+    logPack(
+      t("packUpdate.installedRp", {
+        dir: rpDir ?? "-",
+        version: fmtVer(rpInfo.version),
+      }),
+      "success"
+    );
+  } else if (rpRoots.length > 0) {
+    logPack(t("packUpdate.rpInstallMiss"), "warn");
   }
 
   touchBinding(r.bpUuid, r.binding, {
