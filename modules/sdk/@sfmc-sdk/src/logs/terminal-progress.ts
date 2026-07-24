@@ -26,6 +26,11 @@ export interface TerminalProgressOptions {
 export interface ProgressHandle {
   start(total: number, startValue?: number, payload?: Record<string, string>): void;
   update(value: number, payload?: Record<string, string>): void;
+  /**
+   * 修正总量刻度（未知→已知 Content-Length / finish 补总量）。
+   * LSP：勿用重 start 冒充改 total；实现须保留当前 value，并允许随后 update 按新刻度出帧。
+   */
+  setTotal(total: number): void;
   stop(): void;
   /** 当前是否已 start 且未 stop */
   readonly active: boolean;
@@ -115,7 +120,7 @@ export interface DownloadProgressBinderOptions {
  * BDS 更新与 CF 包下载共用，避免两处复制 lastTime/lastLoaded 环路（DRY）。
  *
  * LSP：与 httpDownload 契约对齐——中途 total=0（无 Content-Length）仍可回调；
- * 总量一旦变为已知（含 finish 用 finalBytes 补总量），须重设 bar 刻度，避免一直卡在占位 1MB。
+ * 总量一旦变为已知（含 finish 用 finalBytes 补总量），经 setTotal 修正刻度，避免卡在占位 1MB。
  */
 export function bindByteProgressToBar(
   bar: ProgressHandle,
@@ -138,15 +143,16 @@ export function bindByteProgressToBar(
     const speedText = formatDownloadSpeed(speed);
 
     if (!started) {
-      bar.start(totalMb, 0, { speed: "0 KB/s" });
+      /* 首帧 startValue=已下载量，避免非 TTY 先打出虚假 0%（LSP） */
+      bar.start(totalMb, dlMb, { speed: speedText });
       started = true;
       knownTotal = hasTotal;
     } else if (hasTotal && !knownTotal) {
-      /* 未知→已知：重 start 以修正 total（ProgressHandle 无独立 setTotal） */
-      bar.start(totalMb, dlMb, { speed: speedText });
+      /* 未知→已知：setTotal 修正刻度，勿重 start（OCP/LSP） */
+      bar.setTotal(totalMb);
       knownTotal = true;
     }
-    /* 始终 update：首帧反映已下载字节；非 TTY logger 也走统一刻度（LSP） */
+    /* 始终 update：TTY 重绘 / 非 TTY 步进日志与 payload 对齐 */
     bar.update(dlMb, { speed: speedText });
 
     if (speedSampleMs <= 0 || now - lastTime >= speedSampleMs) {
@@ -250,12 +256,20 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
       if (useBar) {
         if (!id) register();
         draw();
-      } else if (opts.logger) {
-        /* 尊重 startValue（LSP：与 ProgressHandle.start 契约一致；重 start 修正总量时勿写死 0%） */
-        const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
-        opts.logger(`进度 ${pct}% (${value.toFixed(1)}/${total.toFixed(1)})`);
-        lastLoggedPct = Math.floor(pct / stepPercent) * stepPercent;
+      } else {
+        /* 尊重 startValue（LSP）；与 update 共用 emitNonTty（DRY） */
+        emitNonTty(true);
       }
+    },
+    setTotal(t) {
+      if (!started || stopped) return;
+      total = t > 0 ? t : 1;
+      /* 刻度变更后允许按新百分比再出帧（含从错误占位%回落到真实%） */
+      lastLoggedPct = -1;
+      if (useBar) {
+        draw();
+      }
+      /* 非 TTY：留给随后 update 打一条正确刻度日志，避免 start+update 双打 */
     },
     update(v, p) {
       if (!started || stopped) return;
@@ -265,16 +279,7 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
         draw();
         return;
       }
-      if (!opts.logger) return;
-      const pct = total > 0 ? (value / total) * 100 : 0;
-      const stepped = Math.floor(pct / stepPercent) * stepPercent;
-      if (stepped !== lastLoggedPct && (stepped > lastLoggedPct || pct >= 100)) {
-        lastLoggedPct = stepped;
-        const speed = payload.speed ? ` ${payload.speed}` : "";
-        opts.logger(
-          `进度 ${Math.min(100, Math.round(pct))}% (${value.toFixed(1)}/${total.toFixed(1)})${speed}`
-        );
-      }
+      emitNonTty(false);
     },
     stop() {
       if (stopped) return;
@@ -287,6 +292,24 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
       started = false;
     },
   };
+
+  /** 非 TTY 百分比日志唯一出口（start / update 共用 — DRY） */
+  function emitNonTty(force: boolean): void {
+    if (!opts.logger) return;
+    const pct = total > 0 ? (value / total) * 100 : 0;
+    const stepped = Math.floor(pct / stepPercent) * stepPercent;
+    if (
+      !force &&
+      !(stepped !== lastLoggedPct && (stepped > lastLoggedPct || pct >= 100))
+    ) {
+      return;
+    }
+    lastLoggedPct = stepped;
+    const speed = payload.speed ? ` ${payload.speed}` : "";
+    opts.logger(
+      `进度 ${Math.min(100, Math.round(pct))}% (${value.toFixed(1)}/${total.toFixed(1)})${speed}`
+    );
+  }
 
   return handle;
 }
