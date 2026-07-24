@@ -63,5 +63,6 @@ export default [
 
 ```bash
 npm run build -w @sfmc-bds/eslint-plugin
+# 发布 build 不含 *.test.ts / rule-tester；测试走独立 tsconfig
 npm run test -w @sfmc-bds/eslint-plugin
 ```

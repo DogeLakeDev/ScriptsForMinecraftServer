@@ -7,6 +7,7 @@
 | npm 包 | 目录 | 说明 |
 |--------|------|------|
 | `@sfmc-bds/sdk` | `modules/sdk/@sfmc-sdk/` | 模块作者 SDK（SAPI + Node） |
+| `@sfmc-bds/eslint-plugin` | `modules/sdk/@sfmc-eslint-plugin/` | SFMC 约定 ESLint 规则 |
 | `@sfmc-bds/cli` | `sfmc/` | 管理 CLI（`sfmc` 命令） |
 | `@sfmc-bds/db-server` | `db-server/` | SQLite HTTP REST 后端 |
 | `@sfmc-bds/qq-bridge` | `qq-bridge/` | QQ ↔ MC 桥接 |

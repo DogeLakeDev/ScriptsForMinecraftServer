@@ -1,5 +1,5 @@
-import type { TSESTree } from "@typescript-eslint/utils";
 import { createRule } from "../utils/create-rule.js";
+import { visitModuleSourceLiterals } from "../utils/module-source-visitor.js";
 
 /**
  * 禁止 @sfmc/sdk 别名，统一 @sfmc-bds/sdk
@@ -19,19 +19,10 @@ export const noSfmcSdkAlias = createRule({
   },
   defaultOptions: [],
   create(context) {
-    function checkSource(
-      node: TSESTree.ImportDeclaration | TSESTree.ExportNamedDeclaration | TSESTree.ExportAllDeclaration
-    ) {
-      const src = node.source;
-      if (!src || src.type !== "Literal" || typeof src.value !== "string") return;
-      if (src.value === "@sfmc/sdk" || src.value.startsWith("@sfmc/sdk/")) {
-        context.report({ node: src, messageId: "useOfficial" });
+    return visitModuleSourceLiterals((source, sourceNode) => {
+      if (source === "@sfmc/sdk" || source.startsWith("@sfmc/sdk/")) {
+        context.report({ node: sourceNode, messageId: "useOfficial" });
       }
-    }
-    return {
-      ImportDeclaration: checkSource,
-      ExportNamedDeclaration: checkSource,
-      ExportAllDeclaration: checkSource,
-    };
+    });
   },
 });

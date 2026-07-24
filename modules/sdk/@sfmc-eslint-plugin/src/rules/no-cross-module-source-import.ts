@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { TSESTree } from "@typescript-eslint/utils";
 import { createRule } from "../utils/create-rule.js";
+import { visitModuleSourceLiterals } from "../utils/module-source-visitor.js";
 
 function toPosix(p: string): string {
   return p.replace(/\\/g, "/");
@@ -46,12 +47,12 @@ export const noCrossModuleSourceImport = createRule({
     const filename = toPosix(context.filename);
     const own = packageRootOf(filename);
 
-    function check(source: string, node: TSESTree.Node): void {
+    return visitModuleSourceLiterals((source, sourceNode) => {
       const norm = toPosix(source);
 
       if (/^@sfmc-bds\/module-[a-z0-9-]+(?:\/|$)/.test(norm)) {
         if (/\/sapi\/src(?:\/|$)/.test(norm)) {
-          context.report({ node, messageId: "crossSource", data: { source } });
+          context.report({ node: sourceNode, messageId: "crossSource", data: { source } });
         }
         return;
       }
@@ -65,7 +66,7 @@ export const noCrossModuleSourceImport = createRule({
         }
         const other = packageRootOf(resolved);
         if (other && other !== own) {
-          context.report({ node, messageId: "crossSource", data: { source } });
+          context.report({ node: sourceNode, messageId: "crossSource", data: { source } });
         }
         return;
       }
@@ -73,23 +74,9 @@ export const noCrossModuleSourceImport = createRule({
       if (/\/(?:packages|modules\/packages)\/[^/]+\/sapi\/src(?:\/|$)/.test(norm)) {
         const hit = packageRootOf(norm);
         if (!own || (hit && hit !== own)) {
-          context.report({ node, messageId: "crossSource", data: { source } });
+          context.report({ node: sourceNode, messageId: "crossSource", data: { source } });
         }
       }
-    }
-
-    function onSource(
-      node: TSESTree.ImportDeclaration | TSESTree.ExportNamedDeclaration | TSESTree.ExportAllDeclaration
-    ) {
-      const src = node.source;
-      if (!src || src.type !== "Literal" || typeof src.value !== "string") return;
-      check(src.value, src);
-    }
-
-    return {
-      ImportDeclaration: onSource,
-      ExportNamedDeclaration: onSource,
-      ExportAllDeclaration: onSource,
-    };
+    });
   },
 });
