@@ -56,6 +56,7 @@ export const MODULE_SUBCOMMANDS = [
   "enable",
   "disable",
   "build",
+  "reload",
   "create",
   "link",
   "dev",
@@ -65,7 +66,7 @@ import fs from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { configPath, readJson, type DBConfig } from "@sfmc-bds/sdk/node/config";
+import { configPath, modulePath, readJson, type DBConfig, type ModuleLock } from "@sfmc-bds/sdk/node/config";
 import { failResult, okResult, type CliResult } from "./cli-result.js";
 import { t } from "./i18n/index.js";
 import { c } from "./theme.js";
@@ -103,6 +104,7 @@ function shortHash(h: string): string {
 
 interface ModuleManifest {
   schemaVersion?: number;
+  id?: string;
   handlers?: string[];
   routes?: Array<{ method: string; path: string; handler: string }>;
   migrations?: Array<{ name: string; version: number }>;
@@ -171,23 +173,34 @@ export async function cmdModuleList(_args: string[]): Promise<string> {
   if (installed.length === 0) {
     return c.dim(t("mod.noneInstalled", { dir: modulesDir() }));
   }
+  const lock =
+    (readJson<ModuleLock>(modulePath(path.join(ROOT, "modules"), "module-lock.json")) ?? {
+      version: 1,
+      modules: {},
+    }) as ModuleLock;
   const ids = installed.map((m) => m.id);
   const unknown = new Set(await findUnknownModules(ids));
-  const lines: string[] = [c.bold("\nInstalled modules"), c.dim(`  ${modulesDir()}`)];
-  const header = `    ${"id".padEnd(28)}${"files".padEnd(8)}${"size".padEnd(10)}${"routes".padEnd(8)}${"fingerprint"}`;
+  const lines: string[] = [c.bold(`\n${t("mod.list.title")}`), c.dim(`  ${modulesDir()}`)];
+  const header = `    ${"id".padEnd(24)}${"state".padEnd(8)}${"files".padEnd(8)}${"size".padEnd(10)}${"fingerprint"}`;
   lines.push(c.dim(header));
   for (const m of installed) {
-    const routeCount = m.manifest?.routes?.length ?? 0;
+    const logicalId = typeof m.manifest?.id === "string" && m.manifest.id ? m.manifest.id : m.id;
+    const enabled = lock.modules?.[logicalId]?.enabled === true;
+    const stateCol = (enabled ? c.green("on") : c.dim("off")).padEnd(8);
     let mark: string;
     if (!m.manifest) {
       mark = c.yellow("○");
     } else if (unknown.has(m.id)) {
       mark = c.yellow("?");
     } else {
-      mark = c.green("●");
+      mark = enabled ? c.green("●") : c.dim("○");
     }
-    lines.push(`  ${mark} ${m.id.padEnd(26)}${String(m.fileCount).padEnd(8)}${fmtBytes(m.totalBytes).padEnd(10)}${String(routeCount).padEnd(8)}${shortHash(m.fingerprint)}`);
+    const idLabel = logicalId !== m.id ? `${m.id}(${logicalId})` : m.id;
+    lines.push(
+      `  ${mark} ${idLabel.padEnd(22)}${stateCol}${String(m.fileCount).padEnd(8)}${fmtBytes(m.totalBytes).padEnd(10)}${shortHash(m.fingerprint)}`
+    );
   }
+  lines.push(c.dim(`\n  tip: ${MODULE_CMD_NAMES[1] ?? "mod"} enable|disable <logicalId>`));
   return lines.join("\n") + "\n";
 }
 
@@ -561,6 +574,10 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "build": {
       const { cmdPackBuild } = await import("./pack-lifecycle.js");
       return (await cmdPackBuild(args)).message;
+    }
+    case "reload": {
+      const { cmdReload } = await import("./commands-reload.js");
+      return cmdReload(args);
     }
     case "create": {
       const { runModuleCreateWizard } = await import("./module-wizard.js");

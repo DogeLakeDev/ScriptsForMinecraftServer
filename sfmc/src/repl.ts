@@ -1,7 +1,5 @@
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
-import { behaviorPackUsage, cmdBehaviorPackBuild, cmdBehaviorPackDeploy } from "./commands-behavior-pack.js";
-import { cmdReload } from "./commands-reload.js";
 import {
   cmdLogs,
   cmdRestart,
@@ -24,6 +22,7 @@ import {
   type LogSource,
   type UnifiedLog,
 } from "./logs.js";
+import { pauseAllProgress, resumeAllProgress } from "@sfmc-bds/sdk/logs";
 import {
   dispatchModuleCommand,
   isModuleCommand,
@@ -31,7 +30,6 @@ import {
   MODULE_CMD_NAMES,
   MODULE_SUBCOMMANDS,
 } from "./module-commands.js";
-import { dispatchPackCommand, isPackCommand, PACK_SUBCOMMANDS } from "./pack-lifecycle.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
@@ -46,9 +44,6 @@ function setRaw(v: boolean): void {
     if (stdin.isTTY && typeof stdin.setRawMode === "function") stdin.setRawMode(v);
   } catch {}
 }
-
-/** HELP 行首:染色后的 module 别名拼接(权威来源 paintModuleCmdAlias / MODULE_CMD_NAMES)。 */
-//const MODULE_HELP_LABEL = paintModuleCmdAlias(c.green);
 
 const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
@@ -90,7 +85,8 @@ ${c.bold(t("help.section.remote"))}  ${c.dim("[beta]")}
   ${c.green("remote")} disable           ${t("help.remote.disable")}
 
 ${c.bold(t("help.section.module"))}
-  ${c.green("module")} list              ${t("help.module.list")}
+  ${c.green("module")}/${c.green("mod")} list
+                                   ${t("help.module.list")}
   ${c.green("module")} search [id]       ${t("help.module.search")}
   ${c.green("module")} install <id> [--from <source>] [--link]
                                    ${t("help.module.install")}
@@ -103,17 +99,11 @@ ${c.bold(t("help.section.module"))}
   ${c.green("module")} link [id]         ${t("help.module.link")}
   ${c.green("module")} dev               ${t("help.module.dev")}
   ${c.green("module")} build             ${t("help.module.build")}
-
-${c.bold(t("help.section.pack"))}
-  ${c.green("reload")} [--build-only]    ${t("help.reload")}
-  ${c.green("pack")} status|build|deploy|list
-                                   ${t("help.pack.status")}
-  ${c.green("pack")} enable|disable [behavior|resource]
-                                   ${t("help.pack.toggle")}
-  ${c.green("bp")} build|deploy          ${t("help.bp")}
+  ${c.green("module")} reload [--build-only]
+                                   ${t("help.module.reload")}
 
 ${c.bold(t("help.section.addon"))}
-  ${c.green("addon")} list|search|enable|disable|bump|install|scan|doctor|path
+  ${c.green("addon")}/${c.green("packs")} list|search|enable|disable|bump|install|scan|doctor|path
                                    ${t("help.addon")}
 
 ${c.bold(t("help.section.general"))}
@@ -155,12 +145,8 @@ const COMMANDS = [
   "update",
   "remote",
   ...MODULE_CMD_NAMES,
-  "reload",
-  "pack",
   "packs",
   "addon",
-  "bp",
-  "behavior-pack",
   "version",
   "help",
   "quit",
@@ -227,16 +213,8 @@ function getCompletions(parsed: ParsedLine): string[] {
       return [];
     case "update":
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
-    case "reload":
-      return ["--build-only"].filter(sw);
     case "remote":
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
-      return [];
-    case "pack":
-      if (argIndex === 0) return [...PACK_SUBCOMMANDS].filter(sw);
-      if (argIndex === 1 && ["enable", "disable"].includes(words[0] ?? "")) {
-        return ["behavior", "resource"].filter(sw);
-      }
       return [];
     case "packs":
     case "addon":
@@ -244,10 +222,6 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 1 && ["list"].includes(words[0] ?? "")) {
         return ["--kind", "--search"].filter(sw);
       }
-      return [];
-    case "bp":
-    case "behavior-pack":
-      if (argIndex === 0) return ["build", "deploy"].filter(sw);
       return [];
     default: {
       /* 与 MODULE_CMD_NAMES 对齐,新增别名无需再改 case(OCP/DRY) */
@@ -260,6 +234,9 @@ function getCompletions(parsed: ParsedLine): string[] {
       }
       if (argIndex === 1 && ["info", "uninstall", "remove", "verify", "enable", "disable"].includes(verb)) {
         return listInstalledModuleIdsSync().filter(sw);
+      }
+      if (argIndex === 1 && verb === "reload") {
+        return ["--build-only"].filter(sw);
       }
       if (argIndex === 1 && verb === "link") {
         const root = resolveSfmcModulesRoot();
@@ -631,8 +608,13 @@ function queryHistory(filter: LogFilter, window: string): UnifiedLog[] {
 function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
   if (filter.levels.length && !filter.levels.includes(log.level)) return;
   if (filter.sources.length && !filter.sources.includes(log.source)) return;
-  /* 清当前输入行写日志,再立刻重绘 ❯,避免指示符短暂消失 */
-  stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}\n`);
+  /* 进度条 pause → 清输入行写日志 → resume → 重绘 ❯ */
+  pauseAllProgress();
+  try {
+    stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), 26)}\n`);
+  } finally {
+    resumeAllProgress();
+  }
   currentRedraw?.();
 }
 
@@ -822,9 +804,6 @@ async function execCmd(parts: string[]): Promise<void> {
     case "update":
       await cmdUpdate(args);
       break;
-    case "reload":
-      stdout.write((await cmdReload(args)) + "\n");
-      break;
     case "remote": {
       const [subcommand, controllerUrl, enrollmentToken, name] = args;
       if (subcommand === "status") {
@@ -852,21 +831,9 @@ async function execCmd(parts: string[]): Promise<void> {
         stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
         break;
       }
-      if (isPackCommand(cmd)) {
-        const [sub, ...subRest] = args;
-        stdout.write((await dispatchPackCommand(sub, subRest)) + "\n");
-        break;
-      }
       if (isPacksCommand(cmd)) {
         const [sub, ...subRest] = args;
         stdout.write((await dispatchPacksCommand(sub, subRest)) + "\n");
-        break;
-      }
-      if (cmd === "bp" || cmd === "behavior-pack") {
-        const [sub, ...subRest] = args;
-        if (sub === "build") stdout.write((await cmdBehaviorPackBuild(subRest)).message + "\n");
-        else if (sub === "deploy") stdout.write((await cmdBehaviorPackDeploy(subRest)).message + "\n");
-        else stdout.write(behaviorPackUsage() + "\n");
         break;
       }
       stdout.write(c.yellow(t("common.unknownShort", { cmd: cmd ?? "" }) + "\n"));

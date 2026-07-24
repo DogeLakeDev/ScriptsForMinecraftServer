@@ -41,6 +41,11 @@ data/
 *.zip
 # 仅忽略仓根运行时 configs/（勿写成 configs/，否则会误伤 **/configs/**，如 eslint-plugin）
 /configs/
+
+# 模块启停状态：本地生成（init / fetch-module / enable|disable），勿提交
+/modules/module-lock.json
+# 遗留聚合 manifest 目录（已由各包 sapi/manifest.json 取代）
+/modules/_manifests/
 .workbuddy/
 
 BDS

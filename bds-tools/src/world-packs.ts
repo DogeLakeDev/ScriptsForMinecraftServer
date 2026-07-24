@@ -198,7 +198,22 @@ export function bumpPackPatchVersion(packDir: string): [number, number, number] 
   const ver = raw.header?.version;
   if (!Array.isArray(ver) || ver.length < 3) throw new Error(`invalid header.version in ${file}`);
   const next: [number, number, number] = [Number(ver[0]), Number(ver[1]), Number(ver[2]) + 1];
-  raw.header!.version = next;
+  return writePackHeaderVersion(packDir, next);
+}
+
+/** 写入 header.version（并同步 modules[].version 的 patch） */
+export function writePackHeaderVersion(
+  packDir: string,
+  next: [number, number, number]
+): [number, number, number] {
+  const file = path.join(packDir, "manifest.json");
+  if (!fs.existsSync(file)) throw new Error(`manifest.json missing: ${packDir}`);
+  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    header?: { version?: number[] };
+    modules?: Array<{ version?: number[] }>;
+  };
+  if (!raw.header) raw.header = {};
+  raw.header.version = next;
   if (Array.isArray(raw.modules)) {
     for (const m of raw.modules) {
       if (Array.isArray(m.version) && m.version.length >= 3) {
@@ -208,6 +223,48 @@ export function bumpPackPatchVersion(packDir: string): [number, number, number] 
   }
   fs.writeFileSync(file, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
   return next;
+}
+
+/** 读取 BP manifest 中依赖的资源包 uuid（非 @minecraft 模块） */
+export function readPackDependencyUuids(packDir: string): string[] {
+  const file = path.join(packDir, "manifest.json");
+  if (!fs.existsSync(file)) return [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as {
+      dependencies?: Array<{ uuid?: string; module_name?: string }>;
+    };
+    return (raw.dependencies ?? [])
+      .map((d) => d.uuid)
+      .filter((u): u is string => typeof u === "string" && u.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** 确保版本严格大于 floor（patch/minor 抬一级） */
+export function ensureVersionGreaterThan(
+  packDir: string,
+  floor: [number, number, number],
+  component: "patch" | "minor" = "patch"
+): [number, number, number] {
+  const info = readPackManifestInfo(packDir);
+  if (!info) throw new Error(`cannot read pack version: ${packDir}`);
+  let next: [number, number, number] =
+    component === "minor"
+      ? [info.version[0], info.version[1] + 1, 0]
+      : [info.version[0], info.version[1], info.version[2] + 1];
+  const cmp = (a: [number, number, number], b: [number, number, number]) => {
+    for (let i = 0; i < 3; i++) {
+      const d = a[i]! - b[i]!;
+      if (d !== 0) return d;
+    }
+    return 0;
+  };
+  while (cmp(next, floor) <= 0) {
+    if (component === "minor") next = [next[0], next[1] + 1, 0];
+    else next = [next[0], next[1], next[2] + 1];
+  }
+  return writePackHeaderVersion(packDir, next);
 }
 
 export interface InstallPackResult {

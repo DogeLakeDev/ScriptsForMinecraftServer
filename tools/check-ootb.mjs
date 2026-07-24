@@ -53,7 +53,6 @@ async function main() {
       "CLAUDE.md",
       "README.md",
       "modules/catalog.json",
-      "modules/module-lock.json",
       "tools/fetch-module.mjs",
       "tools/catalog-sync.mjs",
       "tools/check-modules.mjs",
