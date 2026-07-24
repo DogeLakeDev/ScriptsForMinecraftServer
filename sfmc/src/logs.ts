@@ -131,9 +131,12 @@ export function formatSourceTag(source: string): string {
 /** 简化BDS日志 */
 function stripLogPrefix(line: string): string {
   // 匹配格式: [2026-07-18 23:56:06:778 INFO]
-  const prefixRegex = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}:\d{3} (INFO|WARNING|ERROR|FATAL|DEBUG)\]\s*/;
-  return line.replace(prefixRegex, "");
+  return line.replace(BDS_TS_PREFIX_RE, "");
 }
+
+/** BDS 行首时间戳+级别前缀（strip / 解析级别共用，DRY） */
+const BDS_TS_PREFIX_RE =
+  /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}:\d{3} (INFO|WARNING|ERROR|FATAL|DEBUG)\]\s*/i;
 
 /**
  * 从一行 BDS 日志中提取日志等级
@@ -141,6 +144,9 @@ function stripLogPrefix(line: string): string {
  * @returns 日志等级（大写），若无法识别则返回 'UNKNOWN'
  */
 function getLogLevel(line: string): string {
+  const fromTs = BDS_TS_PREFIX_RE.exec(line);
+  if (fromTs?.[1]) return fromTs[1].toUpperCase();
+
   const levelNames = ["INFO", "WARNING", "ERROR", "FATAL", "DEBUG", "TRACE", "WARN"];
   const levelPattern = levelNames.join("|");
 
