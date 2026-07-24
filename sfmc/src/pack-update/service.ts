@@ -57,8 +57,9 @@ function fmtVer(v: SemVer3): string {
   return v.join(".");
 }
 
+/** 启停文案：与 packs list / sources 共用 i18n（DRY；勿再写死 on/off） */
 function bindingEnabledLabel(enabled: boolean): string {
-  return enabled ? "on" : "off";
+  return enabled ? t("packs.list.on").trim() : t("packs.list.off").trim();
 }
 
 /** 未配置源时的统一文案（DRY：入口勿各自拼 needKey） */
@@ -230,9 +231,9 @@ export async function probeSourceAfterInstall(opts: {
       uuid: opts.info.uuid,
       provider: providerShortLabel(best.hit.provider),
       slug: best.hit.slug,
+      /* 以 binding.enabled 为准（makeBindingFromHit 已吃 defaultBindingEnabled — LSP） */
       enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
-      enabled: cfg.defaultBindingEnabled ? t("packs.list.on").trim() : t("packs.list.off").trim(),
     }),
     "success"
   );
@@ -302,7 +303,8 @@ export function formatSourcesList(): string {
     return lines.join("\n");
   }
   for (const { bpUuid, binding } of bindings) {
-    const en = binding.enabled ? c.green(t("packs.list.on").trim()) : c.dim(t("packs.list.off").trim());
+    const label = bindingEnabledLabel(binding.enabled);
+    const en = binding.enabled ? c.green(label) : c.dim(label);
     const tag = providerShortLabel(binding.provider);
     lines.push(
       `  [${en}] ${bpUuid}  ${tag}:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`
