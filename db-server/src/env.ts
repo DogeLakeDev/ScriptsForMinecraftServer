@@ -3,16 +3,12 @@
  */
 
 import {
-  configPath,
-  DEFAULT_DB_CONFIG,
-  DEFAULT_PERMISSIONS,
-  DEFAULT_QQ_CONFIG,
-  ensureJson,
-  ensureJsonConfig,
-  isConfigMetaKey,
+  ensureCoreConfigs,
+  loadEnsuredConfig,
   modulePath,
   resolveRuntimeRoot,
-  withConfigSchema,
+  DEFAULT_DB_CONFIG,
+  DEFAULT_QQ_CONFIG,
 } from "@sfmc-bds/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,32 +42,31 @@ export interface EnvConfig {
 
 export function loadEnv(): EnvConfig {
   const PROJECT_ROOT = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
-  /* 启动时确认 db/qq config 存在;不存在就写带默认值的骨架。
+  /* 启动时确认 db/qq/permissions 存在;不存在就写带默认值的骨架。
    * 不依赖 wizard:wizard 只填字段,骨架由服务自己 ensure。 */
-  const dbconfig = ensureJsonConfig<Record<string, unknown>>(
+  ensureCoreConfigs(PROJECT_ROOT, ["db_config", "qq_config", "permissions"]);
+  const dbconfig = loadEnsuredConfig(
     PROJECT_ROOT,
     "db_config.json",
-    withConfigSchema({ ...DEFAULT_DB_CONFIG } as Record<string, unknown>, "db_config")
+    "db_config",
+    { ...DEFAULT_DB_CONFIG } as Record<string, unknown>
   );
-  const qqconfig = ensureJsonConfig<Record<string, unknown>>(
+  const qqconfig = loadEnsuredConfig(
     PROJECT_ROOT,
     "qq_config.json",
-    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
+    "qq_config",
+    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
   );
-  ensureJson(configPath(PROJECT_ROOT, "permissions.json"), DEFAULT_PERMISSIONS);
 
   // ── 优先级:JSON > 系统环境变量 > 默认值 ───────────────────────
   const envBaseline = { ...process.env };
 
-  // 元数据键:`$schema`、`_` 前缀(如 _comment)不写 env、不打日志
   for (const [k, v] of Object.entries(dbconfig)) {
-    if (isConfigMetaKey(k)) continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     process.env[envKey] = String(v);
     log.info(`db_config::${k} -> process.env.${envKey} = ${String(v)}`);
   }
   for (const [k, v] of Object.entries(qqconfig)) {
-    if (isConfigMetaKey(k)) continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     if (process.env[envKey] === undefined) {
       process.env[envKey] = String(v);

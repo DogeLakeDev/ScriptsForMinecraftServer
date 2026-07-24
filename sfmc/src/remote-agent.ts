@@ -2,7 +2,7 @@ import { WebSocket } from "ws";
 import {
   configPath,
   DEFAULT_REMOTE_CONFIG,
-  ensureJson,
+  loadEnsuredConfig,
   writeJson,
   withConfigSchema,
   type RemoteConfig,
@@ -38,12 +38,14 @@ let stopping = false;
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
 
-/** 启动时确保 remote.json 存在,返回现有或空配置。 */
+/** 启动时确保 remote.json 存在,返回现有或空配置（已剥离 $schema）。 */
 function loadConfig(): RemoteConfig {
-  return ensureJson<RemoteConfig>(
-    configPath(ROOT, "remote.json"),
-    withConfigSchema({ ...DEFAULT_REMOTE_CONFIG } as Record<string, unknown>, "remote") as RemoteConfig
-  );
+  return loadEnsuredConfig(
+    ROOT,
+    "remote.json",
+    "remote",
+    { ...DEFAULT_REMOTE_CONFIG } as Record<string, unknown>
+  ) as RemoteConfig;
 }
 
 function writeConfig(config: RemoteConfig): void {

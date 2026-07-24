@@ -1,12 +1,10 @@
 import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
 import {
-  configPath,
+  ensureCoreConfigs,
+  loadEnsuredConfig,
   DEFAULT_BDS_UPDATER_CONFIG,
   DEFAULT_DB_CONFIG,
   DEFAULT_QQ_CONFIG,
-  ensureJsonConfig,
-  readJson,
-  withConfigSchema,
 } from "@sfmc-bds/sdk/node/config";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -204,26 +202,27 @@ class Service {
 }
 
 function createServices(): Record<ServiceName, Service> {
-  /* 各服务/CLI 用代码内 DEFAULT ensure 缺失配置（含 $schema），不再从 configs-default 拷贝。 */
-  ensureJsonConfig(
+  /* 各服务/CLI 用 SDK ensureCoreConfigs 播种（含 $schema），不再从 configs-default 拷贝。 */
+  ensureCoreConfigs(ROOT, ["bds_updater", "qq_config", "db_config"]);
+  ensurePackUpdateConfigFile();
+  const bdsCfg = loadEnsuredConfig(
     ROOT,
     "bds_updater.json",
-    withConfigSchema({ ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>, "bds_updater")
-  );
-  ensureJsonConfig(
+    "bds_updater",
+    { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>
+  ) as BdsUpdaterConfig;
+  const qqCfg = loadEnsuredConfig(
     ROOT,
     "qq_config.json",
-    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
-  );
-  ensureJsonConfig(
+    "qq_config",
+    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
+  ) as QQBridgeConfig;
+  const dbCfg = loadEnsuredConfig(
     ROOT,
     "db_config.json",
-    withConfigSchema({ ...DEFAULT_DB_CONFIG } as Record<string, unknown>, "db_config")
-  );
-  ensurePackUpdateConfigFile();
-  const bdsCfg = readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {};
-  const qqCfg = readJson<QQBridgeConfig>(configPath(ROOT, "qq_config.json")) ?? {};
-  const dbCfg = readJson<DBConfig>(configPath(ROOT, "db_config.json")) ?? {};
+    "db_config",
+    { ...DEFAULT_DB_CONFIG } as Record<string, unknown>
+  ) as DBConfig;
   const bdsPath = bdsCfg.bds_path ?? ROOT;
   const llbotEnabled = qqCfg.llbot_enabled !== false;
   const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";

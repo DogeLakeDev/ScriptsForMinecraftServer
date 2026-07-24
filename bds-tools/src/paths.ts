@@ -8,11 +8,8 @@
 import {
   configPath,
   DEFAULT_BDS_UPDATER_CONFIG,
-  ensureJsonConfig,
-  isConfigMetaKey,
+  loadEnsuredConfig,
   resolveRuntimeRoot,
-  stripConfigMeta,
-  withConfigSchema,
   type BdsUpdaterConfig,
 } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
@@ -32,15 +29,12 @@ export const ROLLBACK_MARKER: string = path.join(SCRIPT_DIR, ".last_update_rollb
 /** 加载并解析 bds_updater.json。
  *  启动时 ensure 文件存在,避免 wizard 没跑时 bds_updater.json 缺失导致 loadConfig 抛错。 */
 export function loadConfig(): BdsUpdaterConfig {
-  const raw = ensureJsonConfig<Record<string, unknown>>(
+  return loadEnsuredConfig(
     ROOT_DIR,
     "bds_updater.json",
-    withConfigSchema({ ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>, "bds_updater")
-  );
-  for (const k of Object.keys(raw)) {
-    if (isConfigMetaKey(k)) delete raw[k];
-  }
-  return stripConfigMeta(raw) as BdsUpdaterConfig;
+    "bds_updater",
+    { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>
+  ) as BdsUpdaterConfig;
 }
 
 /** 解析后的 BDS 路径 / 备份目录 */

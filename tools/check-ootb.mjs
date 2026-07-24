@@ -74,7 +74,7 @@ async function main() {
     }
   }
 
-  // 2) 配置 schema + configs（缺失时由各服务 ensure 生成，本检查只验 schema 在仓）
+  // 2) 配置 schema + ensure 播种后 configs 必须齐全（不再“缺了也 pass”）
   {
     const schemas = [
       "db_config.schema.json",
@@ -91,15 +91,17 @@ async function main() {
     if (missing.length === 0) pass("配置 JSON Schema 齐全");
     else fail("配置 JSON Schema 齐全", "缺失: " + missing.join(", "));
 
-    const need = ["db_config.json", "bds_updater.json", "qq_config.json"];
-    const present = need.filter((n) => exists(path.join(CONFIGS_DIR, n)));
-    if (present.length === need.length) pass("configs/ 已有核心配置");
-    else {
-      pass("configs/ 可由服务 ensure 生成");
-      console.log(
-        `[ootb] INFO: configs/ 缺少 ${need.filter((n) => !exists(path.join(CONFIGS_DIR, n))).join(", ")} — 启动 db-server / sfmc 时会写入默认值`
-      );
-    }
+    const seed = runSync(process.execPath, [path.join(ROOT, "tools", "seed-configs.mjs")], {
+      cwd: ROOT,
+      env: { ...process.env, SFMC_ROOT: ROOT },
+    });
+    if (seed.status === 0) pass("seed-configs 写入核心配置");
+    else fail("seed-configs 写入核心配置", (seed.stderr || seed.stdout || `exit ${seed.status}`).trim());
+
+    const need = ["db_config.json", "bds_updater.json", "qq_config.json", "permissions.json", "remote.json"];
+    const absent = need.filter((n) => !exists(path.join(CONFIGS_DIR, n)));
+    if (absent.length === 0) pass("configs/ 核心配置已就绪");
+    else fail("configs/ 核心配置已就绪", "缺少: " + absent.join(", "));
   }
 
   // 3) catalog-sync + check-modules(空 catalog 合法;有已装包则投影入 catalog)
