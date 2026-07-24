@@ -43,6 +43,36 @@ describe("version-policy", () => {
     assert.equal(d.shouldBumpRp, false);
   });
 
+  it("同版本未更高时默认不 bump；treatAsUpdate 强制同步仍可 bump RP", () => {
+    const policy = {
+      authority: "behavior_pack",
+      onUpdateOverwriteBoth: true,
+      rpBumpWhenSameMajor: true,
+      rpBumpComponent: "patch",
+      majorHigherSkipRpBump: true,
+    };
+    const plain = decideVersionPolicy([1, 0, 0], [1, 0, 0], policy);
+    assert.equal(plain.remoteNewer, false);
+    assert.equal(plain.shouldBumpRp, false);
+
+    const forced = decideVersionPolicy([1, 0, 0], [1, 0, 0], policy, { treatAsUpdate: true });
+    assert.equal(forced.remoteNewer, false);
+    assert.equal(forced.shouldBumpRp, true);
+  });
+
+  it("远程更旧但 treatAsUpdate 时仍按同 major 规则 bump RP", () => {
+    const d = decideVersionPolicy([1, 2, 0], [1, 1, 0], {
+      authority: "behavior_pack",
+      onUpdateOverwriteBoth: true,
+      rpBumpWhenSameMajor: true,
+      rpBumpComponent: "patch",
+      majorHigherSkipRpBump: true,
+    }, { treatAsUpdate: true });
+    assert.equal(d.remoteNewer, false);
+    assert.equal(d.majorHigher, false);
+    assert.equal(d.shouldBumpRp, true);
+  });
+
   it("nextVersionGreaterThan", () => {
     assert.deepEqual(nextVersionGreaterThan([1, 0, 5], [1, 0, 8], "patch"), [1, 0, 9]);
   });

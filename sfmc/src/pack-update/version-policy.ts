@@ -15,16 +15,21 @@ export function isNewer(remote: SemVer3, local: SemVer3): boolean {
   return compareSemVer3(remote, local) > 0;
 }
 
-/** 根据本地/远程 BP 版本与策略，决定是否更新以及是否额外 bump RP */
+/**
+ * 根据本地/远程 BP 版本与策略，决定是否更新以及是否额外 bump RP。
+ * `treatAsUpdate`：同版本/未更高但需强制同步写入时（如 fileId 尚未 apply）也走更新侧 RP bump 规则（OCP：策略集中于此，勿在编排层复刻）。
+ */
 export function decideVersionPolicy(
   localBp: SemVer3,
   remoteBp: SemVer3,
-  policy: VersionPolicyConfig
+  policy: VersionPolicyConfig,
+  opts?: { treatAsUpdate?: boolean }
 ): VersionCompareResult {
   const remoteNewer = isNewer(remoteBp, localBp);
   const majorHigher = remoteBp[0] > localBp[0];
+  const asUpdate = remoteNewer || Boolean(opts?.treatAsUpdate);
   let shouldBumpRp = false;
-  if (remoteNewer && policy.onUpdateOverwriteBoth) {
+  if (asUpdate && policy.onUpdateOverwriteBoth) {
     if (majorHigher && policy.majorHigherSkipRpBump) {
       shouldBumpRp = false;
     } else if (policy.rpBumpWhenSameMajor) {
