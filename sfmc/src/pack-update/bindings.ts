@@ -1,6 +1,7 @@
 /**
  * packs/pack-sources.json — 世界包远程源绑定
  */
+import { withConfigSchema } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "../runtime.js";
@@ -14,7 +15,7 @@ export function readPackSources(): PackSourcesFile {
   const file = packSourcesPath();
   if (!fs.existsSync(file)) return { bindings: {} };
   try {
-    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as PackSourcesFile;
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as PackSourcesFile & { $schema?: string };
     return { bindings: raw.bindings ?? {} };
   } catch {
     return { bindings: {} };
@@ -24,7 +25,8 @@ export function readPackSources(): PackSourcesFile {
 export function writePackSources(data: PackSourcesFile): void {
   const file = packSourcesPath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify({ bindings: data.bindings ?? {} }, null, 2)}\n`, "utf8");
+  const body = withConfigSchema({ bindings: data.bindings ?? {} }, "pack_sources", "packs");
+  fs.writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`, "utf8");
 }
 
 export function getBinding(bpUuid: string): PackSourceBinding | null {

@@ -2,6 +2,10 @@
 
 配置全是 JSON 文件，放在 `configs/`。改完需要**重启对应进程**；SAPI 侧改完还要**重启 BDS**。
 
+首次启动时，**各服务用代码内默认值 ensure 生成**缺失文件（并写入 `$schema` 供 IDE 悬停说明）。仓库不再提供 `configs-default/`，也不再随 npm 包打包 defaults。
+
+IDE：工作区 [`.vscode/settings.json`](../../.vscode/settings.json) 已按文件名绑定 schema；也可用文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/*.schema.json`。
+
 ## 平台配置
 
 | 文件 | 谁读 | 说明 |
@@ -10,14 +14,15 @@
 | `qq_config.json` | qq-bridge、db-server | QQ / LLBot |
 | `bds_updater.json` | bds-tools | BDS 路径、备份、更新频道 |
 | `pack-update.json` | sfmc packs/addon | CurseForge 世界包更新（详见 [pack-update 技术路线](./pack-update.md)） |
-| `permissions.json` | db-server | 玩家权限种子 |
+| `permissions.json` | db-server | 玩家权限表（数组） |
+| `remote.json` | sfmc remote-agent | 远程管理代理（`sfmc remote enroll`） |
 
 绑定清单不在 `configs/`，而在 `packs/pack-sources.json`（与收件箱同级）。
 
 ## 模块配置
 
 每个模块有自己的 `configKey`（manifest 里声明），对应 `configs/<configKey>.json`。  
-默认值在 `modules/packages/<id>/configs-default/`。
+模块缺省值由模块代码 / 首次写入提供，不再依赖仓内 `configs-default`。
 
 SAPI 启动时通过 `GET /api/sfmc/configs/all` **一次性**拉全并缓存，运行中不会自动刷新。
 
@@ -38,6 +43,6 @@ SAPI 启动时通过 `GET /api/sfmc/configs/all` **一次性**拉全并缓存，
 |----------|------------|
 | `db_config.json` | db-server |
 | `qq_config.json` | qq-bridge、相关读方 |
-| 模块 JSON / lock | BDS（+ 可能需要 rebuild BP） |
-
-详细 HTTP 接口见 [接口指南 → 配置](../api/config.md)。
+| `bds_updater.json` | bds-tools / BDS 管理 |
+| `pack-update.json` / `packs/pack-sources.json` | 下次 packs 检查/更新流程 |
+| 模块 `configs/<key>.json` | **重启 BDS**（SAPI 无热重载） |

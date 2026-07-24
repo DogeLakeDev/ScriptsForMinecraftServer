@@ -1,11 +1,19 @@
 import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
-import { configPath, ensureJsonConfig, readJson } from "@sfmc-bds/sdk/node/config";
+import {
+  configPath,
+  DEFAULT_BDS_UPDATER_CONFIG,
+  DEFAULT_DB_CONFIG,
+  DEFAULT_QQ_CONFIG,
+  ensureJsonConfig,
+  readJson,
+  withConfigSchema,
+} from "@sfmc-bds/sdk/node/config";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
-import { ROOT, seedMissingConfigsFromDefaults, spawnService, type ServiceId } from "./runtime.js";
+import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/config.js";
 
 export { ROOT } from "./runtime.js";
@@ -196,12 +204,22 @@ class Service {
 }
 
 function createServices(): Record<ServiceName, Service> {
-  /* 启动时从 configs-default 播种缺失配置（含 pack-update.json），再 ensure 核心骨架。
-   * wizard 只负责填字段；文件模板与 ensure 共用同一套种子逻辑。 */
-  seedMissingConfigsFromDefaults(ROOT);
-  ensureJsonConfig<BdsUpdaterConfig>(ROOT, "bds_updater.json", {});
-  ensureJsonConfig<QQBridgeConfig>(ROOT, "qq_config.json", {});
-  ensureJsonConfig<DBConfig>(ROOT, "db_config.json", {});
+  /* 各服务/CLI 用代码内 DEFAULT ensure 缺失配置（含 $schema），不再从 configs-default 拷贝。 */
+  ensureJsonConfig(
+    ROOT,
+    "bds_updater.json",
+    withConfigSchema({ ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>, "bds_updater")
+  );
+  ensureJsonConfig(
+    ROOT,
+    "qq_config.json",
+    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
+  );
+  ensureJsonConfig(
+    ROOT,
+    "db_config.json",
+    withConfigSchema({ ...DEFAULT_DB_CONFIG } as Record<string, unknown>, "db_config")
+  );
   ensurePackUpdateConfigFile();
   const bdsCfg = readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {};
   const qqCfg = readJson<QQBridgeConfig>(configPath(ROOT, "qq_config.json")) ?? {};

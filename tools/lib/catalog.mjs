@@ -10,22 +10,20 @@ import {
   scanInstalledPackages,
 } from "./packages.mjs";
 
-const DEFAULT_COMMENT =
-  "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。条目由已安装的 modules/packages/<id>/sapi/manifest.json 投影生成（fetch-module install / catalog-sync）。空数组表示纯 SDK 仓，合法。";
+const CATALOG_SCHEMA = "../node_modules/@sfmc-bds/sdk/schemas/module_catalog.schema.json";
 
 /**
  * @typedef {import("./packages.mjs").CatalogEntry} CatalogEntry
- * @typedef {{ _comment?: string, version: number, modules: CatalogEntry[] }} ModuleCatalog
+ * @typedef {{ $schema?: string, version: number, modules: CatalogEntry[] }} ModuleCatalog
  */
 
 /** @returns {ModuleCatalog} */
 export function readCatalog() {
   const raw = readJson(CATALOG_PATH, null);
   if (!raw || typeof raw !== "object") {
-    return { _comment: DEFAULT_COMMENT, version: 1, modules: [] };
+    return { version: 1, modules: [] };
   }
   return {
-    _comment: typeof raw._comment === "string" ? raw._comment : DEFAULT_COMMENT,
     version: typeof raw.version === "number" ? raw.version : 1,
     modules: Array.isArray(raw.modules) ? raw.modules : [],
   };
@@ -34,7 +32,7 @@ export function readCatalog() {
 /** @param {ModuleCatalog} catalog */
 export function writeCatalog(catalog) {
   writeJson(CATALOG_PATH, {
-    _comment: catalog._comment || DEFAULT_COMMENT,
+    $schema: CATALOG_SCHEMA,
     version: catalog.version || 1,
     modules: catalog.modules || [],
   });
@@ -52,7 +50,6 @@ export function syncCatalogFromPackages() {
     modules.push(projectCatalogEntry(pkg.folder, pkg.manifest));
   }
   const catalog = {
-    _comment: prev._comment || DEFAULT_COMMENT,
     version: prev.version || 1,
     modules,
   };
@@ -80,7 +77,7 @@ export function upsertCatalogEntry(folder) {
 }
 
 /**
- * uninstall 后按 folder 或 manifest.id 删除
+ * uninstall 后按 folder / manifest.id 删除
  * @param {string} folderOrId
  * @returns {CatalogEntry | null} 被删条目
  */

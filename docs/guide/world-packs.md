@@ -68,7 +68,7 @@ sfmc packs install --inbox
 
 → **[CurseForge 世界包更新（技术路线）](./pack-update.md)**
 
-配置：`configs/pack-update.json`（启动时从 `configs-default` 播种）。  
+配置：`configs/pack-update.json`（首次由 sfmc ensure 写入内置默认）。  
 绑定：`packs/pack-sources.json`。  
 进度条与 BDS 更新器共用 `@sfmc-bds/sdk/logs` 的 `createTerminalProgress`。
 

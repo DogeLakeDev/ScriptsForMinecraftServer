@@ -39,6 +39,6 @@ SDK 封装：`@sfmc-bds/sdk/sapi/config` 的 `config.get` / `config.set` / `conf
 ## 文件位置
 
 运行时：`configs/<name>.json`  
-默认模板：`configs-default/` 或 `modules/packages/<id>/configs-default/`
+缺文件时由对应服务用代码内默认值 ensure 生成（含 `$schema`）。Schema：`@sfmc-bds/sdk/schemas/`。
 
 运维说明见 [使用指南 → 配置](../guide/config.md)。

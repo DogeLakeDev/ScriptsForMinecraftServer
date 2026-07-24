@@ -24,13 +24,17 @@
 
 ## 🛠️ 配置文件
 
+首次启动时由各服务用内置默认值写入 `configs/`（含 `$schema`，IDE 可悬停查看字段说明）。仓库不再提供 `configs-default/`。
+
 | 文件 | 用途 |
 | ------ | ------ |
 | `db_config.json` | db-server 端口、数据路径、模块目录 |
 | `qq_config.json` | QQ 桥、LLBot 连接 |
 | `bds_updater.json` | BDS 更新与备份 |
-| `permissions.json` | 权限种子 |
+| `permissions.json` | 权限表（数组） |
+| `pack-update.json` | 世界包自动更新 |
+| `remote.json` | 远程管理代理 |
 
-> 模块配置在 `modules/packages/<id>/configs-default/`，安装模块后由平台合并。
+模块配置对应 `configs/<configKey>.json`，缺省由模块/服务首次写入。
 
 下一章：[服务管理](./services.md)

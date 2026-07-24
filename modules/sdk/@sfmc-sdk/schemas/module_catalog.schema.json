@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/module_catalog.schema.json",
+  "title": "SFMC module catalog",
+  "description": "modules/catalog.json 本地 mirror；权威源为 github:Tanya7z/sfmc-modules。安装/卸载后请用 catalog-sync 或 fetch-module 投影。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "version": {
+      "type": "integer",
+      "description": "catalog 格式版本（当前为 1）"
+    },
+    "modules": {
+      "type": "array",
+      "description": "已投影的模块条目列表",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "description": "模块逻辑 id" },
+          "configKey": { "type": "string", "description": "对应 configs/<configKey>.json" },
+          "name": { "type": "string", "description": "显示名" },
+          "type": { "type": "string", "description": "core / feature 等" },
+          "description": { "type": "string", "description": "简介" },
+          "enabledByDefault": { "type": "boolean", "description": "默认是否启用" },
+          "canDisable": { "type": "boolean", "description": "是否允许禁用" },
+          "requires": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "依赖的其它模块 id"
+          },
+          "entry": {
+            "type": "object",
+            "description": "入口描述（kind/path）",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

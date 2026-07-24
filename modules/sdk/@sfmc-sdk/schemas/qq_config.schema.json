@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/qq_config.schema.json",
+  "title": "SFMC qq_config",
+  "description": "QQ-bridge 配置。qq-bridge 进程（WS 接 LLBot）与 db-server（MC→QQ 直连 LLBot HTTP）共同读取本文件。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "qq_enabled": {
+      "type": "boolean",
+      "description": "是否启用 QQ 桥接相关能力（兼容旧字段）"
+    },
+    "qq_ws_port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "qq-bridge WebSocket 端口，供 LLBot reverse-ws 接入（默认 3002）。LLBot HTTP 由 db-server 直连，不再走中间 HTTP 中转"
+    },
+    "qq_group_id": {
+      "description": "主群群号；机器人只转发此群消息到 MC。设为 0 或空禁用",
+      "oneOf": [{ "type": "integer" }, { "type": "string" }]
+    },
+    "llbot_enabled": {
+      "type": "boolean",
+      "description": "是否由 BDSTools / 管理进程拉起 LLBot 二进制"
+    },
+    "llbot_path": {
+      "type": "string",
+      "description": "LLBot 可执行文件路径（Windows 可用双反斜杠或正斜杠）"
+    },
+    "llbot_cwd": {
+      "type": "string",
+      "description": "启动 LLBot 时的工作目录；空则沿用进程默认"
+    },
+    "llbot_host": {
+      "type": "string",
+      "description": "LLBot HTTP 主机；db-server 用于 MC→QQ 发送（默认 127.0.0.1）"
+    },
+    "llbot_port": {
+      "description": "LLBot HTTP 端口（默认 3004）",
+      "oneOf": [{ "type": "integer" }, { "type": "string" }]
+    },
+    "llbot_token": {
+      "type": "string",
+      "description": "LLBot HTTP 鉴权 token（若 LLBot 启用鉴权）"
+    },
+    "llbot_http": {
+      "type": "string",
+      "description": "可选：完整 LLBot HTTP base URL，覆盖 host/port 拼接"
+    },
+    "bridge_channel_id": {
+      "type": "string",
+      "description": "转发到 MC 侧的聊天频道 id"
+    },
+    "mctoqq_prefix": {
+      "type": "string",
+      "description": "MC → QQ 消息前缀（默认 [MC]）"
+    },
+    "db_host": {
+      "type": "string",
+      "description": "qq-bridge 连接 db-server 的主机（可选）"
+    },
+    "db_port": {
+      "type": "integer",
+      "description": "qq-bridge 连接 db-server 的端口（可选，通常与 db_config.db_port 一致）"
+    }
+  }
+}

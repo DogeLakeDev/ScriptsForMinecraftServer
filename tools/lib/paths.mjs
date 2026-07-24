@@ -23,7 +23,6 @@ export const PACKAGES_DIR = path.join(MODULES_DIR, "packages");
 export const CATALOG_PATH = path.join(MODULES_DIR, "catalog.json");
 export const MODULE_LOCK_PATH = path.join(MODULES_DIR, "module-lock.json");
 export const CONFIGS_DIR = path.join(ROOT, "configs");
-export const CONFIGS_DEFAULT_DIR = path.join(ROOT, "configs-default");
 export const DB_SERVER_DIST = path.join(ROOT, "db-server", "dist", "index.js");
 export const SFMC_DIST = path.join(ROOT, "sfmc", "dist", "main.js");
 /** 始终指向本包内脚本，勿拼 ROOT/tools（npm 安装时 ROOT≠包父目录） */

@@ -49,4 +49,4 @@ await db.tx(async (tx) => {
 
 ## 配置
 
-`configKey: land` → `configs/land.json`（及模块 `configs-default/land.json`）。
+`configKey: land` → `configs/land.json`（由模块/服务首次写入缺省）。

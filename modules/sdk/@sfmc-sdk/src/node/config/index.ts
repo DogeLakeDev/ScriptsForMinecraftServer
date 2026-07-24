@@ -125,6 +125,106 @@ export interface TokenStore {
   secretGenerated?: boolean;
 }
 
+/** 与 @sfmc-bds/sdk/schemas/<name>.schema.json 文件名（不含后缀）对齐 */
+export type ConfigSchemaId =
+  | "db_config"
+  | "qq_config"
+  | "bds_updater"
+  | "permissions"
+  | "pack_update"
+  | "remote"
+  | "pack_sources"
+  | "module_catalog";
+
+/**
+ * 生成文件内 `$schema` 相对路径（相对 configs/ 或 packs/）。
+ * IDE 用；运行时加载器应忽略该键。
+ */
+export function configSchemaRef(
+  schemaId: ConfigSchemaId,
+  from: "configs" | "packs" | "modules" = "configs"
+): string {
+  const rel =
+    from === "configs"
+      ? "../node_modules/@sfmc-bds/sdk/schemas"
+      : from === "packs"
+        ? "../node_modules/@sfmc-bds/sdk/schemas"
+        : "../node_modules/@sfmc-bds/sdk/schemas";
+  return `${rel}/${schemaId}.schema.json`;
+}
+
+/** 在对象根写入 `$schema`（不覆盖已有）；数组根勿调用。 */
+export function withConfigSchema<T extends Record<string, unknown>>(
+  value: T,
+  schemaId: ConfigSchemaId,
+  from: "configs" | "packs" | "modules" = "configs"
+): T & { $schema: string } {
+  if (typeof value.$schema === "string" && value.$schema.length > 0) {
+    return value as T & { $schema: string };
+  }
+  return { $schema: configSchemaRef(schemaId, from), ...value };
+}
+
+/** 配置元数据键：`$schema` 与 `_` / `_comment*` 前缀，加载时跳过 */
+export function isConfigMetaKey(k: string): boolean {
+  return k === "$schema" || k.startsWith("_");
+}
+
+/** 浅剥离对象上的元数据键（不递归数组元素内的对象以外的深层——调用方可再 strip） */
+export function stripConfigMeta<T extends Record<string, unknown>>(obj: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (!isConfigMetaKey(k)) out[k] = v;
+  }
+  return out as T;
+}
+
+/** db-server ensure 种子（无 `$schema`；写入前用 withConfigSchema） */
+export const DEFAULT_DB_CONFIG: DBConfig = {
+  db_port: 3001,
+  http_auth: "",
+  dbDir: "./data/sfmc_data.db",
+  modulesDir: "modules",
+};
+
+/** qq-bridge / db-server 共用种子 */
+export const DEFAULT_QQ_CONFIG: QQBridgeConfig = {
+  qq_ws_port: 3002,
+  qq_group_id: "0",
+  llbot_enabled: false,
+  llbot_path: "",
+  llbot_cwd: "",
+  llbot_host: "127.0.0.1",
+  llbot_port: 3004,
+  llbot_token: "",
+  bridge_channel_id: "",
+  mctoqq_prefix: "[MC]",
+};
+
+/** bds-tools ensure 种子 */
+export const DEFAULT_BDS_UPDATER_CONFIG: BdsUpdaterConfig = {
+  bds_path: "",
+  backup_dir: "",
+  channel: "release",
+  preserve: ["server.properties", "whitelist.json", "permissions.json", "allowlist.json", "worlds", "config"],
+  qq_notify: false,
+  qq_config: "../configs/qq_config.json",
+  auto_check: true,
+  crash_restart: true,
+  auto_restart: true,
+};
+
+/** permissions.json 根为数组；默认空表 */
+export const DEFAULT_PERMISSIONS: Array<{ player_name: string; level: number }> = [];
+
+/** remote.json 骨架（enroll 前） */
+export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
+  enabled: false,
+  controller_url: "",
+  agent_id: "",
+  agent_secret: "",
+};
+
 /**
  * 仓顶服务读写的所有配置 JSON 文件名。
  * 用字面量 union 防止拼写错误并提供 IDE 补全。

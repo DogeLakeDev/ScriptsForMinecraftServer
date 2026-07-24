@@ -1,5 +1,12 @@
 import { WebSocket } from "ws";
-import { configPath, ensureJson, writeJson, type RemoteConfig } from "@sfmc-bds/sdk/node/config";
+import {
+  configPath,
+  DEFAULT_REMOTE_CONFIG,
+  ensureJson,
+  writeJson,
+  withConfigSchema,
+  type RemoteConfig,
+} from "@sfmc-bds/sdk/node/config";
 import { cmdRestart, cmdSend, cmdStart, cmdStop } from "./commands.js";
 import { ROOT } from "./runtime.js";
 import { SERVICE_NAMES, serviceStatus, type ServiceName } from "./services.js";
@@ -33,11 +40,14 @@ const HEARTBEAT_INTERVAL_MS = 20_000;
 
 /** 启动时确保 remote.json 存在,返回现有或空配置。 */
 function loadConfig(): RemoteConfig {
-  return ensureJson<RemoteConfig>(configPath(ROOT, "remote.json"), {});
+  return ensureJson<RemoteConfig>(
+    configPath(ROOT, "remote.json"),
+    withConfigSchema({ ...DEFAULT_REMOTE_CONFIG } as Record<string, unknown>, "remote") as RemoteConfig
+  );
 }
 
 function writeConfig(config: RemoteConfig): void {
-  writeJson(configPath(ROOT, "remote.json"), config);
+  writeJson(configPath(ROOT, "remote.json"), withConfigSchema({ ...config } as Record<string, unknown>, "remote"));
 }
 
 function isService(value: string | undefined): value is ServiceName {

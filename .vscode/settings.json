@@ -1,0 +1,40 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/configs/db_config.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/db_config.schema.json"
+    },
+    {
+      "fileMatch": ["**/configs/qq_config.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/qq_config.schema.json"
+    },
+    {
+      "fileMatch": ["**/configs/bds_updater.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/bds_updater.schema.json"
+    },
+    {
+      "fileMatch": ["**/configs/permissions.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/permissions.schema.json"
+    },
+    {
+      "fileMatch": ["**/configs/pack-update.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/pack_update.schema.json"
+    },
+    {
+      "fileMatch": ["**/configs/remote.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/remote.schema.json"
+    },
+    {
+      "fileMatch": ["**/packs/pack-sources.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/pack_sources.schema.json"
+    },
+    {
+      "fileMatch": ["**/modules/catalog.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/module_catalog.schema.json"
+    },
+    {
+      "fileMatch": ["**/modules/packages/*/sapi/manifest.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json"
+    }
+  ]
+}

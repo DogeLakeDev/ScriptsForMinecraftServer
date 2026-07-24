@@ -11,7 +11,7 @@
 | [`sfmc/src/services.ts`](../../sfmc/src/services.ts) | BDS `beforeStart` 检查/应用 |
 | [`bds-tools/src/world-packs.ts`](../../bds-tools/src/world-packs.ts) | 安装/enable/抬版权威实现 |
 | [`modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts`](../../modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts) | 进度条与日志共存 |
-| [`configs-default/pack-update.json`](../../configs-default/pack-update.json) | 默认配置模板 |
+| [`configs/pack-update.json`](../../configs/pack-update.json) | 运行时配置（首次由 sfmc ensure 写入内置 DEFAULTS） |
 
 通用收件箱安装见 [资源包管理](./world-packs.md)。
 
@@ -63,21 +63,15 @@ flowchart TD
 | 文件 | 作用 |
 |------|------|
 | `configs/pack-update.json` | 策略、Provider、启动行为 |
-| `configs-default/pack-update.json` | 仓库模板 |
 | `packs/pack-sources.json` | 每 BP uuid → CF 绑定（可手改/`enabled: false`） |
 
 `apiKey` 也可用环境变量 `CURSEFORGE_API_KEY` 覆盖（避免把 key 写进可分享配置）。
 
 ### 3.2 启动时如何生成配置
 
-与其它平台配置同一套种子逻辑（避免「只有用到才创建」）：
+不再从 `configs-default` 拷贝。`createServices()` / `ensurePackUpdateConfigFile()` 在文件缺失时写入代码内 `DEFAULTS`，并附带 `$schema`（见 `@sfmc-bds/sdk/schemas/pack_update.schema.json`）。
 
-1. `createServices()` 调用 `seedMissingConfigsFromDefaults(ROOT)`  
-   → 把 `configs-default/*.json` 中**尚不存在**的文件拷到 `configs/`（含 `pack-update.json`）。
-2. 再调用 `ensurePackUpdateConfigFile()` 兜底（若仍缺失则写内置 DEFAULTS）。
-3. wizard 的 npm 布局播种也调用同一 `seedMissingConfigsFromDefaults`。
-
-权威实现：[`sfmc/src/runtime.ts`](../../sfmc/src/runtime.ts) 的 `seedMissingConfigsFromDefaults`。
+权威实现：[`sfmc/src/pack-update/config.ts`](../../sfmc/src/pack-update/config.ts) 的 `ensurePackUpdateConfigFile`。
 
 ### 3.3 `pack-update.json` 关键字段
 

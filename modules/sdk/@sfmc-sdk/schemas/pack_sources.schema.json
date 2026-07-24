@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/pack_sources.schema.json",
+  "title": "SFMC pack-sources",
+  "description": "世界包远端源绑定清单，位于 packs/pack-sources.json（非 configs/）。键为行为包 UUID（小写）；由探测安装 / `packs bind` / 更新流程写入。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "bindings": {
+      "type": "object",
+      "description": "BP uuid → 绑定条目",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["enabled", "provider", "projectId", "slug", "websiteUrl"],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "是否参与自动检查/更新；新建默认取 pack-update.defaultBindingEnabled"
+          },
+          "provider": {
+            "type": "string",
+            "const": "curseforge",
+            "description": "源提供者 id（当前仅 curseforge）"
+          },
+          "projectId": {
+            "type": "integer",
+            "description": "远端项目数字 id"
+          },
+          "slug": {
+            "type": "string",
+            "description": "远端项目 slug"
+          },
+          "websiteUrl": {
+            "type": "string",
+            "description": "项目主页 URL"
+          },
+          "pairedResourceUuid": {
+            "description": "配对的资源包 UUID；无则为 null",
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "lastFileId": {
+            "description": "最近一次看到的远端 file id",
+            "oneOf": [{ "type": "integer" }, { "type": "null" }]
+          },
+          "lastCheckedAt": {
+            "description": "最近检查时间（ISO 字符串）",
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "lastAppliedFileId": {
+            "description": "最近成功应用的 file id",
+            "oneOf": [{ "type": "integer" }, { "type": "null" }]
+          }
+        }
+      }
+    }
+  }
+}
