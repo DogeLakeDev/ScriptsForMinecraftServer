@@ -53,10 +53,12 @@ export interface DBConfig {
   [key: string]: unknown;
 }
 
-export interface PermissionsConfig {
-  permissions?: Array<{ player_name?: string; level?: number; [key: string]: unknown }>;
+/** permissions.json 根为数组（与 permissions.schema.json 一致；勿写成 { permissions: [] }） */
+export type PermissionsConfig = Array<{
+  player_name: string;
+  level: number;
   [key: string]: unknown;
-}
+}>;
 
 export interface RuntimeConfig {
   runtime_root?: string;
@@ -137,20 +139,15 @@ export type ConfigSchemaId =
   | "module_catalog";
 
 /**
- * 生成文件内 `$schema` 相对路径（相对 configs/ 或 packs/）。
- * IDE 用；运行时加载器应忽略该键。
+ * 生成文件内 `$schema` 相对路径。
+ * configs/、packs/、modules/ 均在仓顶下一层，相对 node_modules 深度相同；
+ * `from` 仅作调用点语义标注，便于日后若布局分叉再按位置扩展（OCP）。
  */
 export function configSchemaRef(
   schemaId: ConfigSchemaId,
-  from: "configs" | "packs" | "modules" = "configs"
+  _from: "configs" | "packs" | "modules" = "configs"
 ): string {
-  const rel =
-    from === "configs"
-      ? "../node_modules/@sfmc-bds/sdk/schemas"
-      : from === "packs"
-        ? "../node_modules/@sfmc-bds/sdk/schemas"
-        : "../node_modules/@sfmc-bds/sdk/schemas";
-  return `${rel}/${schemaId}.schema.json`;
+  return `../node_modules/@sfmc-bds/sdk/schemas/${schemaId}.schema.json`;
 }
 
 /** 在对象根写入 `$schema`（不覆盖已有）；数组根勿调用。 */
@@ -215,7 +212,7 @@ export const DEFAULT_BDS_UPDATER_CONFIG: BdsUpdaterConfig = {
 };
 
 /** permissions.json 根为数组；默认空表 */
-export const DEFAULT_PERMISSIONS: Array<{ player_name: string; level: number }> = [];
+export const DEFAULT_PERMISSIONS: PermissionsConfig = [];
 
 /** remote.json 骨架（enroll 前） */
 export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
@@ -341,4 +338,78 @@ export function ensureJson<T>(filePath: string, seed: T = {} as T): T {
  */
 export function ensureJsonConfig<T>(root: string, name: ConfigName, seed: T = {} as T): T {
   return ensureJson<T>(configPath(root, name), seed);
+}
+
+/**
+ * ensure 带 `$schema` 的配置对象（DRY：禁止各服务手写 ensureJsonConfig+withConfigSchema）。
+ * 返回磁盘内容（可能含元数据键）；运行时业务请用 {@link loadEnsuredConfig}。
+ */
+export function ensureSchemaConfig<T extends Record<string, unknown>>(
+  root: string,
+  name: ConfigName,
+  schemaId: ConfigSchemaId,
+  defaults: T,
+  from: "configs" | "packs" | "modules" = "configs"
+): T & { $schema?: string } {
+  return ensureJsonConfig(
+    root,
+    name,
+    withConfigSchema({ ...defaults } as Record<string, unknown>, schemaId, from)
+  ) as T & { $schema?: string };
+}
+
+/**
+ * ensure 后剥离元数据，返回可交给业务逻辑的纯配置（LSP：与无 `$schema` 的契约一致）。
+ */
+export function loadEnsuredConfig<T extends Record<string, unknown>>(
+  root: string,
+  name: ConfigName,
+  schemaId: ConfigSchemaId,
+  defaults: T,
+  from: "configs" | "packs" | "modules" = "configs"
+): T {
+  return stripConfigMeta(
+    ensureSchemaConfig(root, name, schemaId, defaults, from) as Record<string, unknown>
+  ) as T;
+}
+
+/** 平台核心配置种子集合（扩展新文件时只改此处 + switch） */
+export type CoreConfigKind = "db_config" | "qq_config" | "bds_updater" | "permissions" | "remote";
+
+/**
+ * 按需 ensure 平台核心配置。新种类加到 CoreConfigKind + switch 即可（OCP）。
+ * permissions 根为数组，不能走 withConfigSchema。
+ */
+export function ensureCoreConfigs(root: string, kinds: readonly CoreConfigKind[]): void {
+  for (const kind of kinds) {
+    switch (kind) {
+      case "db_config":
+        ensureSchemaConfig(root, "db_config.json", "db_config", {
+          ...DEFAULT_DB_CONFIG,
+        } as Record<string, unknown>);
+        break;
+      case "qq_config":
+        ensureSchemaConfig(root, "qq_config.json", "qq_config", {
+          ...DEFAULT_QQ_CONFIG,
+        } as Record<string, unknown>);
+        break;
+      case "bds_updater":
+        ensureSchemaConfig(root, "bds_updater.json", "bds_updater", {
+          ...DEFAULT_BDS_UPDATER_CONFIG,
+        } as Record<string, unknown>);
+        break;
+      case "permissions":
+        ensureJson(configPath(root, "permissions.json"), DEFAULT_PERMISSIONS);
+        break;
+      case "remote":
+        ensureSchemaConfig(root, "remote.json", "remote", {
+          ...DEFAULT_REMOTE_CONFIG,
+        } as Record<string, unknown>);
+        break;
+      default: {
+        const _exhaustive: never = kind;
+        void _exhaustive;
+      }
+    }
+  }
 }
