@@ -53,7 +53,6 @@ sfmc > start -all
 | `SFMC_ROOT` | 配置与数据根（默认 cwd） |
 | `SFMC_SERVICE_*_ENTRY` | 覆盖各服务入口脚本（一般由本包 bin 自动注入） |
 | `SFMC_FETCH_MODULE` | `fetch-module.mjs` 路径 |
-| `SFMC_DEFAULTS_DIR` | 首次初始化用的默认配置模板目录 |
 
 ## 仓库
 

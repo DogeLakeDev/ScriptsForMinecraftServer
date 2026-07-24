@@ -228,43 +228,14 @@ export function resolveSdkPackageRoot(): string {
   );
 }
 
-/** 配置默认模板目录(聚合包装载 defaults/,或仓内 configs-default/) */
+/** @deprecated 已移除 configs-default 播种；保留空实现以免外部旧调用炸掉 */
 export function resolveDefaultsDir(): string | null {
-  const fromEnv = process.env.SFMC_DEFAULTS_DIR;
-  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
-  const bundled = path.join(ROOT, "configs-default");
-  if (fs.existsSync(bundled)) return bundled;
-  const nested = path.join(ROOT, "defaults");
-  if (fs.existsSync(path.join(nested, "configs"))) return nested;
   return null;
 }
 
-/**
- * 将 configs-default（或 defaults/configs）中缺失的 *.json 播种到 configs/。
- * wizard 与 createServices 共用，避免各处手写拷贝（含 pack-update.json）。
- * @returns 本次新写入的文件名列表
- */
-export function seedMissingConfigsFromDefaults(rootDir: string = ROOT): string[] {
-  const defaultsDir = resolveDefaultsDir();
-  if (!defaultsDir) return [];
-
-  const src = fs.existsSync(path.join(defaultsDir, "configs"))
-    ? path.join(defaultsDir, "configs")
-    : defaultsDir;
-  if (!fs.existsSync(src)) return [];
-
-  const configsDest = path.join(rootDir, "configs");
-  fs.mkdirSync(configsDest, { recursive: true });
-
-  const written: string[] = [];
-  for (const name of fs.readdirSync(src)) {
-    if (!name.endsWith(".json")) continue;
-    const dest = path.join(configsDest, name);
-    if (fs.existsSync(dest)) continue;
-    fs.copyFileSync(path.join(src, name), dest);
-    written.push(name);
-  }
-  return written;
+/** @deprecated 配置改由各服务 ensure + SDK DEFAULT 生成 */
+export function seedMissingConfigsFromDefaults(_rootDir: string = ROOT): string[] {
+  return [];
 }
 
 function nodeBinary(): string {

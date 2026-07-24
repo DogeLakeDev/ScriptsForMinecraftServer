@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/db_config.schema.json",
+  "title": "SFMC db_config",
+  "description": "db-server 配置。SAPI 通过 HTTP 调用 :db_port；qq-bridge / sfmc 同样依赖本文件。由 db-server 启动时 ensure 生成。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "db_port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "db-server HTTP 监听端口（默认 3001）"
+    },
+    "http_auth": {
+      "type": "string",
+      "description": "HTTP Bearer 鉴权令牌；空字符串表示不启用。也可由环境变量 HTTP_AUTH / AUTH_TOKEN 覆盖"
+    },
+    "dbDir": {
+      "type": "string",
+      "description": "SQLite 数据库文件路径（相对 SFMC_ROOT 或绝对路径），默认 ./data/sfmc_data.db"
+    },
+    "modulesDir": {
+      "type": "string",
+      "description": "模块目录（相对 SFMC_ROOT），内含 catalog.json / module-lock.json / packages；默认 modules"
+    }
+  }
+}

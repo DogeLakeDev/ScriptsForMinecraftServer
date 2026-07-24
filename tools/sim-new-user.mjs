@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
-import { ROOT, DB_SERVER_DIST, CONFIGS_DEFAULT_DIR } from "./lib/paths.mjs";
+import { ROOT, DB_SERVER_DIST } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
 import { requestJson, waitHealth } from "./lib/http.mjs";
 import { killProc } from "./lib/proc.mjs";
@@ -61,11 +61,7 @@ async function main() {
     JSON.stringify({ bds_path: path.join(SIM_DIR, "BDS") }) + "\n"
   );
   fs.writeFileSync(path.join(SIM_DIR, "configs", "qq_config.json"), "{}\n");
-  // 可选复制 defaults
-  for (const name of ["settings.json", "permissions.json"]) {
-    const src = path.join(CONFIGS_DEFAULT_DIR, name);
-    if (exists(src)) fs.copyFileSync(src, path.join(SIM_DIR, "configs", name));
-  }
+  fs.writeFileSync(path.join(SIM_DIR, "configs", "permissions.json"), "[]\n");
   fs.mkdirSync(path.join(SIM_DIR, "data"), { recursive: true });
 
   const dbProc = spawn(process.execPath, [DB_SERVER_DIST], {

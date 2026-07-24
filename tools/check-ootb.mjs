@@ -15,7 +15,6 @@ import {
   SFMC_DIST,
   FETCH_MODULE,
   CONFIGS_DIR,
-  CONFIGS_DEFAULT_DIR,
 } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
 import { requestJson, waitHealth } from "./lib/http.mjs";
@@ -75,16 +74,31 @@ async function main() {
     }
   }
 
-  // 2) configs: configs/ 或 configs-default/
+  // 2) 配置 schema + configs（缺失时由各服务 ensure 生成，本检查只验 schema 在仓）
   {
+    const schemas = [
+      "db_config.schema.json",
+      "qq_config.schema.json",
+      "bds_updater.schema.json",
+      "pack_update.schema.json",
+      "remote.schema.json",
+      "pack_sources.schema.json",
+      "permissions.schema.json",
+      "module_catalog.schema.json",
+    ];
+    const schemaDir = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "schemas");
+    const missing = schemas.filter((n) => !exists(path.join(schemaDir, n)));
+    if (missing.length === 0) pass("配置 JSON Schema 齐全");
+    else fail("配置 JSON Schema 齐全", "缺失: " + missing.join(", "));
+
     const need = ["db_config.json", "bds_updater.json", "qq_config.json"];
-    const ok = need.every(
-      (n) => exists(path.join(CONFIGS_DIR, n)) || exists(path.join(CONFIGS_DEFAULT_DIR, n))
-    );
-    if (ok) pass("configs / configs-default 就绪");
-    else fail("configs / configs-default 就绪", "缺少 db_config / bds_updater / qq_config");
-    if (!exists(path.join(CONFIGS_DIR, "db_config.json"))) {
-      console.log("[ootb] WARN: configs/ 未填充，CI/本地可从 configs-default 复制");
+    const present = need.filter((n) => exists(path.join(CONFIGS_DIR, n)));
+    if (present.length === need.length) pass("configs/ 已有核心配置");
+    else {
+      pass("configs/ 可由服务 ensure 生成");
+      console.log(
+        `[ootb] INFO: configs/ 缺少 ${need.filter((n) => !exists(path.join(CONFIGS_DIR, n))).join(", ")} — 启动 db-server / sfmc 时会写入默认值`
+      );
     }
   }
 

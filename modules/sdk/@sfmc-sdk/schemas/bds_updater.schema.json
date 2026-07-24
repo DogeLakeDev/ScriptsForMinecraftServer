@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/bds_updater.schema.json",
+  "title": "SFMC bds_updater",
+  "description": "BDS 自动更新与进程管理配置。由 bds-tools（check-update / bds-manager）读取；路径请用双反斜杠或正斜杠。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "bds_path": {
+      "type": "string",
+      "description": "bedrock_server 可执行文件所在目录"
+    },
+    "backup_dir": {
+      "type": "string",
+      "description": "升级前自动备份的目标目录；须在 bds_path 之外。留空时默认落在 bds_path 同级 backups"
+    },
+    "channel": {
+      "type": "string",
+      "description": "更新通道（release / preview），用于拼接 Mojang 下载 URL"
+    },
+    "preserve": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "升级时保留（备份后还原）的文件/目录名；其余由 BDS 包覆盖"
+    },
+    "qq_notify": {
+      "type": "boolean",
+      "description": "更新前后是否通过 QQ 群发进度（依赖 qq-bridge / LLBot 在线）"
+    },
+    "qq_config": {
+      "type": "string",
+      "description": "qq_config.json 路径（相对本文件或绝对），供更新通知读取群号等"
+    },
+    "auto_check": {
+      "type": "boolean",
+      "description": "启动时是否自动检查 BDS 更新"
+    },
+    "crash_restart": {
+      "type": "boolean",
+      "description": "BDS 异常退出时是否自动拉起"
+    },
+    "crash_restart_delay": {
+      "type": "number",
+      "description": "崩溃重启前等待秒数（可选）"
+    },
+    "auto_restart": {
+      "type": "boolean",
+      "description": "旧字段：兼容保留，用于推断是否启用 QQ 等相关自动行为"
+    },
+    "version_mode": {
+      "type": "string",
+      "enum": ["bedrock-oss", "endstone"],
+      "description": "高级版本源模式"
+    },
+    "version_versions": {
+      "type": "string",
+      "description": "版本列表 API URL"
+    },
+    "version_versions_mirror": {
+      "type": "string",
+      "description": "版本列表镜像 URL"
+    },
+    "version_details": {
+      "type": "string",
+      "description": "版本详情 API URL"
+    },
+    "version_details_mirror": {
+      "type": "string",
+      "description": "版本详情镜像 URL"
+    },
+    "download_mirror": {
+      "type": "string",
+      "description": "下载镜像根"
+    },
+    "cdn_root": {
+      "type": "string",
+      "description": "CDN 根路径"
+    },
+    "download_timeout": {
+      "type": "number",
+      "description": "下载超时（毫秒或秒，依实现）"
+    },
+    "compatible_versions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "升级前允许的兼容版本白名单"
+    }
+  }
+}

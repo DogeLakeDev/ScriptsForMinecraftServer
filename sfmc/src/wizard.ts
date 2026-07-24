@@ -1,9 +1,16 @@
 import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
 import {
   configPath,
+  DEFAULT_BDS_UPDATER_CONFIG,
+  DEFAULT_DB_CONFIG,
+  DEFAULT_PERMISSIONS,
+  DEFAULT_QQ_CONFIG,
+  ensureJson,
+  ensureJsonConfig,
   modulePath,
   patchJson as patchConfig,
   readJson,
+  withConfigSchema,
   writeJson,
   type Catalog,
   type ConfigName,
@@ -14,7 +21,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
 import { persistLocale, t, type Locale } from "./i18n/index.js";
-import { ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, seedMissingConfigsFromDefaults, spawnService } from "./runtime.js";
+import { ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, spawnService } from "./runtime.js";
+import { ensurePackUpdateConfigFile } from "./pack-update/config.js";
 import { c } from "./theme.js";
 
 /** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */
@@ -80,9 +88,28 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
   seedNpmRuntimeLayout(rootDir);
 }
 
-/** 非 monorepo 的 npm 安装布局：播种 configs + 空 modules 骨架 */
+/** 非 monorepo 的 npm 安装布局：ensure 配置骨架 + 空 modules */
 function seedNpmRuntimeLayout(rootDir: string): void {
-  seedMissingConfigsFromDefaults(rootDir);
+  ensureJsonConfig(
+    rootDir,
+    "db_config.json",
+    withConfigSchema({ ...DEFAULT_DB_CONFIG } as Record<string, unknown>, "db_config")
+  );
+  ensureJsonConfig(
+    rootDir,
+    "qq_config.json",
+    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
+  );
+  ensureJsonConfig(
+    rootDir,
+    "bds_updater.json",
+    withConfigSchema({ ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>, "bds_updater")
+  );
+  ensureJson(configPath(rootDir, "permissions.json"), DEFAULT_PERMISSIONS);
+  /* pack-update 的 ensure 使用 runtime ROOT；npm 布局下应与 rootDir 一致 */
+  if (path.resolve(rootDir) === path.resolve(ROOT)) {
+    ensurePackUpdateConfigFile();
+  }
 
   const modulesRoot = path.join(rootDir, "modules");
   const packagesDir = path.join(modulesRoot, "packages");
@@ -90,7 +117,10 @@ function seedNpmRuntimeLayout(rootDir: string): void {
 
   const catalogPath = path.join(modulesRoot, "catalog.json");
   if (!fs.existsSync(catalogPath)) {
-    writeJson(catalogPath, { version: 1, modules: [] });
+    writeJson(
+      catalogPath,
+      withConfigSchema({ version: 1, modules: [] }, "module_catalog", "modules")
+    );
   }
   const lockPath = path.join(modulesRoot, "module-lock.json");
   if (!fs.existsSync(lockPath)) {

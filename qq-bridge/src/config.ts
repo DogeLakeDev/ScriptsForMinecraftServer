@@ -7,7 +7,14 @@
  *   - reload 时仅覆盖原对象 (mutate), 保留运行时引用的同一份对象
  */
 
-import { configPath, readJson, resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
+import {
+  configPath,
+  DEFAULT_QQ_CONFIG,
+  ensureJsonConfig,
+  readJson,
+  resolveRuntimeRoot,
+  withConfigSchema,
+} from "@sfmc-bds/sdk/node/config";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./log.js";
@@ -34,9 +41,15 @@ function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
 }
 
 function readFromDisk(): QQBridgeConfig {
+  ensureJsonConfig(
+    ROOT_DIR,
+    "qq_config.json",
+    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
+  );
   const raw = readJson<Partial<QQBridgeConfig>>(CFG_PATH);
   if (!raw) throw new Error(`配置文件不存在或无法解析: ${CFG_PATH}`);
-  return applyDefaults(raw);
+  const { $schema: _s, ...rest } = raw as Partial<QQBridgeConfig> & { $schema?: string };
+  return applyDefaults(rest);
 }
 
 /** 进程启动时加载一次。失败直接退出,与旧实现一致。 */

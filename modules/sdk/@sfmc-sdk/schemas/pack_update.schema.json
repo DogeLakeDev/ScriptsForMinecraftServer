@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/pack_update.schema.json",
+  "title": "SFMC pack-update",
+  "description": "世界包（addons）自动检查/更新。apiKey 来自 https://console.curseforge.com/（x-api-key）；也可用环境变量 CURSEFORGE_API_KEY。Bedrock gameId=78022，Addons classId=4984。官方 /mods/search 若 403 会改用 searchBaseUrl。match 为源无关策略，置于顶层。defaultBindingEnabled=false 时新建绑定默认关闭。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "是否启用 pack-update 总开关"
+    },
+    "checkOnBdsStart": {
+      "type": "boolean",
+      "description": "BDS 启动流程中是否检查远端新版本"
+    },
+    "applyOnBdsStart": {
+      "type": "boolean",
+      "description": "检查到更新时是否在启动流程中直接应用"
+    },
+    "askConfirmOnBind": {
+      "type": "boolean",
+      "description": "TTY 下探测到源后是否先确认再写入 pack-sources 绑定"
+    },
+    "probeSourceAfterInstall": {
+      "type": "boolean",
+      "description": "安装世界包成功后是否探测 CurseForge 等远端源并尝试绑定"
+    },
+    "defaultBindingEnabled": {
+      "type": "boolean",
+      "description": "新建绑定（探测/手动 bind）的默认 enabled；false 时写入绑定但不会自动检查/更新，需手改或改此默认"
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "名称/slug 匹配策略（源无关；勿再放进 providers.*）",
+      "properties": {
+        "nameMinScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "名称相似度最低分数（0–1），低于则不绑定"
+        },
+        "stripFolderTags": {
+          "type": "boolean",
+          "description": "匹配前是否剥离文件夹标签（如版本后缀）"
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "远端源提供者配置",
+      "properties": {
+        "curseforge": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "CurseForge 源专属配置（不含通用 match）",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "是否启用 CurseForge 提供者"
+            },
+            "apiKey": {
+              "type": "string",
+              "description": "CurseForge API Key（x-api-key）；可用 CURSEFORGE_API_KEY 环境变量覆盖"
+            },
+            "baseUrl": {
+              "type": "string",
+              "description": "官方 Core API，用于 getMod / files / download-url"
+            },
+            "searchBaseUrl": {
+              "type": "string",
+              "description": "搜索用镜像（官方 /v1/mods/search 部分 key 会 403），默认 https://api.curse.tools/v1/cf"
+            },
+            "gameId": {
+              "type": "integer",
+              "description": "Minecraft Bedrock = 78022"
+            },
+            "classId": {
+              "description": "Addons class = 4984；null 时自动解析",
+              "oneOf": [{ "type": "integer" }, { "type": "null" }]
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "搜索分页大小"
+            },
+            "preferredReleaseTypes": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["release", "beta", "alpha"] },
+              "description": "偏好的发布类型优先级列表"
+            }
+          }
+        }
+      }
+    },
+    "versionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "版本比较与 RP 联动 bump 策略",
+      "properties": {
+        "authority": {
+          "type": "string",
+          "const": "behavior_pack",
+          "description": "以行为包版本为权威"
+        },
+        "onUpdateOverwriteBoth": {
+          "type": "boolean",
+          "description": "更新时是否同时覆盖 BP/RP"
+        },
+        "rpBumpWhenSameMajor": {
+          "type": "boolean",
+          "description": "主版本相同时是否 bump 资源包版本"
+        },
+        "rpBumpComponent": {
+          "type": "string",
+          "enum": ["patch", "minor"],
+          "description": "资源包 bump 的分量"
+        },
+        "majorHigherSkipRpBump": {
+          "type": "boolean",
+          "description": "远端主版本更高时是否跳过 RP bump"
+        }
+      }
+    },
+    "startup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "启动批处理更新时的编排选项",
+      "properties": {
+        "sequential": {
+          "type": "boolean",
+          "description": "是否按顺序逐个更新（非并行）"
+        },
+        "delayMsBetweenPacks": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "包与包之间的间隔毫秒"
+        },
+        "skipDisabledBindings": {
+          "type": "boolean",
+          "description": "是否跳过 pack-sources 中 enabled=false 的绑定"
+        },
+        "failMode": {
+          "type": "string",
+          "enum": ["continue", "abort"],
+          "description": "单个包失败时 continue 继续 / abort 中止整批"
+        }
+      }
+    }
+  }
+}

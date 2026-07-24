@@ -2,7 +2,18 @@
  * env.ts — 环境配置加载
  */
 
-import { ensureJsonConfig, modulePath, resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
+import {
+  configPath,
+  DEFAULT_DB_CONFIG,
+  DEFAULT_PERMISSIONS,
+  DEFAULT_QQ_CONFIG,
+  ensureJson,
+  ensureJsonConfig,
+  isConfigMetaKey,
+  modulePath,
+  resolveRuntimeRoot,
+  withConfigSchema,
+} from "@sfmc-bds/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,18 +23,6 @@ import { dirname } from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-const DEFAULT_DB_CONFIG = {
-  db_port: 3001,
-  dbDir: "data/sfmc_data.db",
-  modulesDir: "modules",
-} as const;
-
-const DEFAULT_QQ_CONFIG = {
-  llbot_host: "127.0.0.1",
-  llbot_port: 3004,
-  llbot_token: "",
-} as const;
 
 export interface EnvConfig {
   PROJECT_ROOT: string;
@@ -52,28 +51,27 @@ export function loadEnv(): EnvConfig {
   const dbconfig = ensureJsonConfig<Record<string, unknown>>(
     PROJECT_ROOT,
     "db_config.json",
-    DEFAULT_DB_CONFIG as unknown as Record<string, unknown>
+    withConfigSchema({ ...DEFAULT_DB_CONFIG } as Record<string, unknown>, "db_config")
   );
   const qqconfig = ensureJsonConfig<Record<string, unknown>>(
     PROJECT_ROOT,
     "qq_config.json",
-    DEFAULT_QQ_CONFIG as unknown as Record<string, unknown>
+    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
   );
+  ensureJson(configPath(PROJECT_ROOT, "permissions.json"), DEFAULT_PERMISSIONS);
 
   // ── 优先级:JSON > 系统环境变量 > 默认值 ───────────────────────
   const envBaseline = { ...process.env };
 
-  // 元数据前缀:`_` 开头视为注释/说明(如 _comment / _comment_group),不写 env、不打日志
-  const isMeta = (k: string): boolean => String(k).startsWith("_");
-
+  // 元数据键:`$schema`、`_` 前缀(如 _comment)不写 env、不打日志
   for (const [k, v] of Object.entries(dbconfig)) {
-    if (isMeta(k)) continue;
+    if (isConfigMetaKey(k)) continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     process.env[envKey] = String(v);
     log.info(`db_config::${k} -> process.env.${envKey} = ${String(v)}`);
   }
   for (const [k, v] of Object.entries(qqconfig)) {
-    if (isMeta(k)) continue;
+    if (isConfigMetaKey(k)) continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     if (process.env[envKey] === undefined) {
       process.env[envKey] = String(v);

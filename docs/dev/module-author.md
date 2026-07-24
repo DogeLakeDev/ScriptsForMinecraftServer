@@ -107,9 +107,10 @@ packages/land/
 │       ├── index.ts          # ModuleRegistry.register
 │       ├── types.ts          # 本模块权威类型（可选）
 │       └── client.ts         # 对外简洁 API（有 provides 时推荐）
-├── configs-default/          # 可选
 └── resource_pack/            # 可选
 ```
+
+模块配置缺省由首次写入 `configs/<configKey>.json` 或模块代码内默认提供（平台不再播种 `configs-default/`）。
 
 ## 最小入口
 

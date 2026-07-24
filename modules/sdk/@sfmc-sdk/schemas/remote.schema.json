@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/remote.schema.json",
+  "title": "SFMC remote",
+  "description": "远程管理代理配置。由 `sfmc remote enroll` 写入；启动时 ensure 空骨架。需四字段齐全才会连接控制器。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "是否启用远程代理连接"
+    },
+    "controller_url": {
+      "type": "string",
+      "description": "远程控制器 WebSocket/HTTP 基址（如 ws://host:port）"
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "本机代理 id（enroll 返回）"
+    },
+    "agent_secret": {
+      "type": "string",
+      "description": "本机代理密钥（enroll 返回，勿提交到公开仓库）"
+    }
+  }
+}

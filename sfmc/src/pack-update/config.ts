@@ -1,9 +1,10 @@
 /**
  * pack-update 配置加载
  */
+import { withConfigSchema } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, resolveDefaultsDir, seedMissingConfigsFromDefaults } from "../runtime.js";
+import { ROOT } from "../runtime.js";
 import type { CurseForgeProviderConfig, PackUpdateConfig, PackUpdateMatchConfig } from "./types.js";
 
 const DEFAULT_MATCH: PackUpdateMatchConfig = {
@@ -97,17 +98,9 @@ export function loadPackUpdateConfig(): PackUpdateConfig {
     } catch {
       raw = {};
     }
-  } else {
-    const defaultsDir = resolveDefaultsDir();
-    const bundled = defaultsDir ? path.join(defaultsDir, "pack-update.json") : "";
-    if (bundled && fs.existsSync(bundled)) {
-      try {
-        raw = JSON.parse(fs.readFileSync(bundled, "utf8")) as Record<string, unknown>;
-      } catch {
-        raw = {};
-      }
-    }
   }
+
+  delete raw.$schema;
 
   const legacyMatch = hoistLegacyMatch(raw);
   const merged = deepMerge(
@@ -140,14 +133,13 @@ export function getPackMatchConfig(cfg: PackUpdateConfig): PackUpdateMatchConfig
 }
 
 /**
- * 确保 configs/pack-update.json 存在。
- * 优先走与其它配置相同的 configs-default 播种；若仍缺失则写内置 DEFAULTS。
+ * 确保 configs/pack-update.json 存在；缺失则写入内置 DEFAULTS + $schema。
  */
 export function ensurePackUpdateConfigFile(): string {
-  seedMissingConfigsFromDefaults(ROOT);
   const dest = packUpdateConfigPath();
   if (fs.existsSync(dest)) return dest;
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.writeFileSync(dest, `${JSON.stringify(DEFAULTS, null, 2)}\n`, "utf8");
+  const seeded = withConfigSchema({ ...DEFAULTS } as unknown as Record<string, unknown>, "pack_update");
+  fs.writeFileSync(dest, `${JSON.stringify(seeded, null, 2)}\n`, "utf8");
   return dest;
 }

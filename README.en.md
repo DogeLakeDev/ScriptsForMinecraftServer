@@ -131,7 +131,7 @@ ScriptsForMinecraftServer/
 │   ├── sdk/@sfmc-sdk/     single umbrella
 │   └── packages/          25 business modules
 ├── tools/                 self-check + build + fetch-module.mjs
-├── configs-default/       default config JSON
+├── configs/               runtime config JSON (gitignored; generated on first ensure)
 └── docs/                  bilingual docs
     ├── user-guide.en.md
     ├── marketplace.en.md

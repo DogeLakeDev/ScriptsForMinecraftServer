@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/permissions.schema.json",
+  "title": "SFMC permissions",
+  "description": "玩家权限表（JSON 数组）。每条含 player_name 与 level：0=游客 1=成员 2=管理员 3=Admin。由服务 ensure 生成空数组；可手改。根为数组故无法内嵌 $schema，依赖工作区 json.schemas 绑定。",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": ["player_name", "level"],
+    "properties": {
+      "player_name": {
+        "type": "string",
+        "description": "玩家名（与游戏内名称一致）"
+      },
+      "level": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 3,
+        "description": "权限等级：0=游客 1=成员 2=管理员 3=Admin"
+      }
+    }
+  }
+}

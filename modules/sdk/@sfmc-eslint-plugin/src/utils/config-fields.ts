@@ -12,7 +12,7 @@ function tryLoadJsonKeys(file: string): Set<string> | null {
   try {
     const raw = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    return new Set(Object.keys(raw));
+    return new Set(Object.keys(raw).filter((k) => k !== "$schema" && !k.startsWith("_")));
   } catch {
     return null;
   }
@@ -45,13 +45,32 @@ export function loadConfigFieldKeys(filename: string, cwd?: string): Set<string>
     );
   }
   const root = cwd ?? process.cwd();
-  candidates.push(path.join(root, "configs-default", `${configKey}.json`));
+  candidates.push(path.join(root, "configs", `${configKey}.json`));
 
   for (const c of candidates) {
     const keys = tryLoadJsonKeys(c);
     if (keys) {
       fieldCache.set(key, keys);
       return keys;
+    }
+  }
+
+  /* 平台级 schema 字段名（无运行时 configs 时的回退） */
+  const schemaPath = path.join(root, "modules", "sdk", "@sfmc-sdk", "schemas", `${configKey}.schema.json`);
+  if (fs.existsSync(schemaPath)) {
+    try {
+      const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8")) as {
+        properties?: Record<string, unknown>;
+      };
+      if (schema.properties) {
+        const keys = new Set(Object.keys(schema.properties).filter((k) => k !== "$schema"));
+        if (keys.size > 0) {
+          fieldCache.set(key, keys);
+          return keys;
+        }
+      }
+    } catch {
+      /* ignore */
     }
   }
 

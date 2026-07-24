@@ -32,7 +32,7 @@ interface Deps {
 }
 
 function isMetaKey(k: string): boolean {
-  return String(k).startsWith("_comment") || k === "_comment";
+  return k === "$schema" || String(k).startsWith("_");
 }
 
 function stripMetaDeep(v: unknown): unknown {
