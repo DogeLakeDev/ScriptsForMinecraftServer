@@ -30,9 +30,12 @@ import {
   loadPackUpdateConfig,
   packUpdateConfigPath,
 } from "./config.js";
-import { createPackSourceProvider } from "./providers/index.js";
+import {
+  createPackSourceProvider,
+  providerShortLabel,
+  resolveConfiguredPackProvider,
+} from "./providers/index.js";
 import type {
-  PackProviderId,
   PackSourceBinding,
   PackSourceProvider,
   PackUpdateConfig,
@@ -58,8 +61,9 @@ function bindingEnabledLabel(enabled: boolean): string {
   return enabled ? "on" : "off";
 }
 
-function providerShortLabel(id: PackProviderId): string {
-  return id === "curseforge" ? "cf" : id;
+/** 未配置源时的统一文案（DRY：入口勿各自拼 needKey） */
+function needKeyText(): string {
+  return t("packUpdate.needKey", { path: packUpdateConfigPath() });
 }
 
 /** 多查询搜索 + 综合打分排序（probe / searchRemote 共用） */
@@ -119,9 +123,9 @@ export async function probeSourceAfterInstall(opts: {
   if (opts.info.kind !== "behavior") return;
 
   ensurePackUpdateConfigFile();
-  const provider = createPackSourceProvider(cfg, "curseforge");
-  if (!provider.isConfigured()) {
-    logPack(t("packUpdate.needKey", { path: packUpdateConfigPath() }), "warn");
+  const provider = resolveConfiguredPackProvider(cfg);
+  if (!provider) {
+    logPack(needKeyText(), "warn");
     return;
   }
 
@@ -203,7 +207,14 @@ export async function probeSourceAfterInstall(opts: {
   } else {
     /* 非 TTY / BDS 收件箱 / askConfirmOnBind=false：命中即写入，避免探测成功却无 pack-sources.json */
     accept = true;
-    logPack(t("packUpdate.probeAutoBind", { slug: best.hit.slug, path: packSourcesPath() }), "info");
+    logPack(
+      t("packUpdate.probeAutoBind", {
+        provider: providerShortLabel(best.hit.provider),
+        slug: best.hit.slug,
+        path: packSourcesPath(),
+      }),
+      "info"
+    );
   }
 
   if (!accept) {
@@ -217,6 +228,7 @@ export async function probeSourceAfterInstall(opts: {
   logPack(
     t("packUpdate.bindOk", {
       uuid: opts.info.uuid,
+      provider: providerShortLabel(best.hit.provider),
       slug: best.hit.slug,
       enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
@@ -227,9 +239,9 @@ export async function probeSourceAfterInstall(opts: {
 
 export async function searchRemote(query: string): Promise<string> {
   const cfg = loadPackUpdateConfig();
-  const provider = createPackSourceProvider(cfg, "curseforge");
-  if (!provider.isConfigured()) {
-    return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
+  const provider = resolveConfiguredPackProvider(cfg);
+  if (!provider) {
+    return c.yellow(needKeyText());
   }
   const match = getPackMatchConfig(cfg);
   const queries = buildSearchQueries(query, match.stripFolderTags);
@@ -245,9 +257,9 @@ export async function searchRemote(query: string): Promise<string> {
 
 export async function bindPackSource(packId: string, ref: string): Promise<string> {
   const cfg = loadPackUpdateConfig();
-  const provider = createPackSourceProvider(cfg, "curseforge");
-  if (!provider.isConfigured()) {
-    return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
+  const provider = resolveConfiguredPackProvider(cfg);
+  if (!provider) {
+    return c.yellow(needKeyText());
   }
   const { bdsRoot, levelName } = resolveBdsContext();
   const packs = listInstalledWorldPacks(bdsRoot, levelName);
@@ -267,6 +279,7 @@ export async function bindPackSource(packId: string, ref: string): Promise<strin
   return c.green(
     t("packUpdate.bindOk", {
       uuid: pack.uuid,
+      provider: providerShortLabel(hit.provider),
       slug: hit.slug,
       enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
@@ -559,10 +572,9 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
 export async function checkPackUpdates(opts?: { packId?: string; apply?: boolean }): Promise<string> {
   const cfg = loadPackUpdateConfig();
   if (!cfg.enabled) return c.dim(t("packUpdate.disabled"));
-  /* 入口预检：当前仅 curseforge；逐 binding 时仍按 binding.provider 分派（LSP） */
-  const gate = createPackSourceProvider(cfg, "curseforge");
-  if (!gate.isConfigured()) {
-    return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
+  /* 入口预检：任一已配置源即可；逐 binding 仍按 binding.provider 分派（LSP/OCP） */
+  if (!resolveConfiguredPackProvider(cfg)) {
+    return c.yellow(needKeyText());
   }
 
   const { bdsRoot, levelName } = resolveBdsContext();

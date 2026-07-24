@@ -10,11 +10,11 @@
  */
 
 import {
+  bindByteProgressToBar,
   createFileSink,
   createLogger,
   createStdoutSink,
   createTerminalProgress,
-  formatDownloadSpeed,
 } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import os from "node:os";
@@ -297,44 +297,30 @@ export async function runUpdate(): Promise<number> {
     let lastErr: Error | null = null;
     const downloadTimeoutMs = (cfg.download_timeout ?? 120) * 1000;
     /* stderr 被 pipe 时不画 bar；用文本进度给 sfmc REPL 等父进程 */
-    const progressBar = createTerminalProgress({
-      stream: process.stderr,
-      logger: (msg) => log.info(msg.startsWith("进度") ? `下载${msg.slice(2)}` : msg),
-      format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
-    });
-
-    let lastTime = Date.now();
-    let lastLoaded = 0;
-    let barStarted = false;
     if (isTaskbarSupported() && process.stdout.isTTY) {
       log.info("检测到 Windows Terminal,任务栏进度已启用 (OSC 9;4)");
     }
     for (const url of downloadUrls) {
+      /* 每次尝试新建 bar + binder，避免失败重试时 started 状态残留（LSP） */
+      const progressBar = createTerminalProgress({
+        stream: process.stderr,
+        logger: (msg) => log.info(msg.startsWith("进度") ? `下载${msg.slice(2)}` : msg),
+        format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
+      });
+      const onByteProgress = bindByteProgressToBar(progressBar, {
+        speedSampleMs: 0,
+        onProgress: (dl, total) => {
+          const pct = total > 0 ? (dl / total) * 100 : 0;
+          setTaskbarProgress(pct);
+        },
+      });
       try {
+        setTaskbarProgress(0);
         await httpDownload(url, zipPath, {
           totalTimeoutMs: Math.max(downloadTimeoutMs, 600_000), // 不少于 10 分钟
-          onProgress: (dl, total) => {
-            const now = Date.now();
-            const timeDelta = (now - lastTime) / 1000; // 秒
-            const bytesDelta = dl - lastLoaded;
-            const speed = timeDelta > 0 ? bytesDelta / timeDelta : 0;
-            const speedStr = formatDownloadSpeed(speed);
-            const totalMb = total > 0 ? total / (1024 * 1024) : 0;
-            const dlMb = dl / (1024 * 1024);
-            const pct = total > 0 ? (dl / total) * 100 : 0;
-
-            if (!barStarted) {
-              progressBar.start(totalMb || 1, 0, { speed: "0 KB/s" });
-              barStarted = true;
-              setTaskbarProgress(0);
-            }
-            progressBar.update(dlMb, { speed: speedStr });
-            setTaskbarProgress(pct);
-            lastLoaded = dl;
-            lastTime = now;
-          },
+          onProgress: onByteProgress,
         });
-        if (barStarted) progressBar.stop();
+        if (progressBar.active) progressBar.stop();
         // 下载完成,任务栏收到 100% 绿条后清掉
         setTaskbarProgress(100);
         clearTaskbarProgress();
@@ -342,8 +328,7 @@ export async function runUpdate(): Promise<number> {
         lastErr = null;
         break;
       } catch (e) {
-        if (barStarted) progressBar.stop();
-        barStarted = false;
+        if (progressBar.active) progressBar.stop();
         // 下载失败,任务栏亮红
         setTaskbarProgress(100, "error");
         clearTaskbarProgress();

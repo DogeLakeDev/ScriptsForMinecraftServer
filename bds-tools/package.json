@@ -33,6 +33,7 @@
     "./pack-manager": "./dist/cli-pack-manager.js",
     "./pack-manager-lib": "./dist/pack-manager.js",
     "./world-packs": "./dist/world-packs.js",
+    "./http": "./dist/http.js",
     "./taskbar": "./dist/taskbar.js",
     "./update-result": "./dist/update-result.js",
     "./zipx": "./dist/zipx.js",

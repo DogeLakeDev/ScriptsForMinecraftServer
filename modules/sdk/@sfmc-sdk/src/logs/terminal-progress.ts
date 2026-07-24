@@ -100,6 +100,48 @@ export function formatDownloadSpeed(bytesPerSec: number): string {
   return `${speed.toFixed(0)} B/s`;
 }
 
+export interface DownloadProgressBinderOptions {
+  /**
+   * 速度采样间隔（毫秒）。
+   * >0 时按间隔刷新 lastLoaded；0 表示每次回调都重采样（与旧 BDS 更新行为一致）。
+   */
+  speedSampleMs?: number;
+  /** 额外进度钩子（如任务栏 OSC），不替代 bar 更新 */
+  onProgress?: ((downloaded: number, total: number) => void) | undefined;
+}
+
+/**
+ * 把字节进度接到 TerminalProgress（MB 刻度 + 速度文案）。
+ * BDS 更新与 CF 包下载共用，避免两处复制 lastTime/lastLoaded 环路（DRY）。
+ */
+export function bindByteProgressToBar(
+  bar: ProgressHandle,
+  opts: DownloadProgressBinderOptions = {}
+): (downloaded: number, total: number) => void {
+  const speedSampleMs = opts.speedSampleMs ?? 250;
+  let lastTime = Date.now();
+  let lastLoaded = 0;
+  let started = false;
+
+  return (downloaded: number, total: number) => {
+    const totalMb = total > 0 ? total / (1024 * 1024) : 1;
+    const dlMb = downloaded / (1024 * 1024);
+    if (!started) {
+      bar.start(totalMb, 0, { speed: "0 KB/s" });
+      started = true;
+    }
+    const now = Date.now();
+    const dt = (now - lastTime) / 1000;
+    const speed = dt > 0 ? (downloaded - lastLoaded) / dt : 0;
+    bar.update(dlMb, { speed: formatDownloadSpeed(speed) });
+    if (speedSampleMs <= 0 || now - lastTime >= speedSampleMs) {
+      lastTime = now;
+      lastLoaded = downloaded;
+    }
+    opts.onProgress?.(downloaded, total);
+  };
+}
+
 function renderBarLine(
   value: number,
   total: number,
