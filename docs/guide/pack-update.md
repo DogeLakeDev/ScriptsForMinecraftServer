@@ -88,6 +88,10 @@ flowchart TD
   "applyOnBdsStart": true,
   "askConfirmOnBind": true,
   "probeSourceAfterInstall": true,
+  "match": {
+    "nameMinScore": 0.6,
+    "stripFolderTags": true
+  },
   "providers": {
     "curseforge": {
       "enabled": true,
@@ -97,11 +101,7 @@ flowchart TD
       "gameId": 78022,
       "classId": 4984,
       "pageSize": 10,
-      "preferredReleaseTypes": ["release", "beta", "alpha"],
-      "match": {
-        "nameMinScore": 0.6,
-        "stripFolderTags": true
-      }
+      "preferredReleaseTypes": ["release", "beta", "alpha"]
     }
   },
   "versionPolicy": {
@@ -122,12 +122,12 @@ flowchart TD
 
 | 字段 | 含义 |
 |------|------|
+| `match.nameMinScore` | 安装后自动绑定的最低相似度阈值（源无关，顶层）。 |
+| `match.stripFolderTags` | 清洗时是否去掉方括号标签（如 `[BP]`/`[玩法]`）。 |
 | `gameId` | **Minecraft Bedrock = `78022`**。历史误用 `459` 无效，加载时会纠正。Java Minecraft 是 `432`，不要混用。 |
 | `classId` | Bedrock **Addons = `4984`**；`null` 时用 `/v1/categories?classesOnly=true` 解析「Addons」。 |
 | `baseUrl` | 官方 Core API：getMod / files / download-url。 |
 | `searchBaseUrl` | 搜索镜像；官方 search 403 时回退。 |
-| `nameMinScore` | 安装后自动绑定的最低相似度阈值。 |
-| `stripFolderTags` | 清洗时是否去掉方括号标签（如 `[BP]`/`[玩法]`）。 |
 
 ### 3.4 绑定文件示例
 
