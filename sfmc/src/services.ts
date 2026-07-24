@@ -5,7 +5,8 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
-import { ROOT, spawnService, type ServiceId } from "./runtime.js";
+import { ROOT, seedMissingConfigsFromDefaults, spawnService, type ServiceId } from "./runtime.js";
+import { ensurePackUpdateConfigFile } from "./pack-update/config.js";
 
 export { ROOT } from "./runtime.js";
 
@@ -195,11 +196,13 @@ class Service {
 }
 
 function createServices(): Record<ServiceName, Service> {
-  /* 启动时 ensure 三个核心配置文件存在;不存在就写空 {}。
-   * wizard 只负责填字段,骨架由本进程启动时一次性就地创建。 */
+  /* 启动时从 configs-default 播种缺失配置（含 pack-update.json），再 ensure 核心骨架。
+   * wizard 只负责填字段；文件模板与 ensure 共用同一套种子逻辑。 */
+  seedMissingConfigsFromDefaults(ROOT);
   ensureJsonConfig<BdsUpdaterConfig>(ROOT, "bds_updater.json", {});
   ensureJsonConfig<QQBridgeConfig>(ROOT, "qq_config.json", {});
   ensureJsonConfig<DBConfig>(ROOT, "db_config.json", {});
+  ensurePackUpdateConfigFile();
   const bdsCfg = readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {};
   const qqCfg = readJson<QQBridgeConfig>(configPath(ROOT, "qq_config.json")) ?? {};
   const dbCfg = readJson<DBConfig>(configPath(ROOT, "db_config.json")) ?? {};
@@ -226,9 +229,11 @@ function createServices(): Record<ServiceName, Service> {
         return null;
       },
       beforeStart: async () => {
-        /* 先装收件箱第三方包，再跑模块聚合闸门 */
+        /* 先装收件箱第三方包，再检查 CF 更新，再跑模块聚合闸门 */
         const { scanAndInstallInbox } = await import("./world-packs.js");
         await scanAndInstallInbox({ interactive: false });
+        const { runPackUpdatesOnBdsStart } = await import("./pack-update/service.js");
+        await runPackUpdatesOnBdsStart();
         const { ensurePacksReady } = await import("./pack-lifecycle.js");
         await ensurePacksReady();
       },

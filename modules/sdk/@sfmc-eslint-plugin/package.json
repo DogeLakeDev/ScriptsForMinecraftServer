@@ -1,10 +1,26 @@
 {
   "name": "@sfmc-bds/eslint-plugin",
   "version": "0.1.0",
-  "private": true,
   "description": "ESLint rules for SFMC SDK / module authoring conventions (Msg API, import paths, ModuleRegistry).",
   "type": "module",
   "license": "ISC",
+  "author": "Shiroha7z",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/modules/sdk/@sfmc-eslint-plugin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "modules/sdk/@sfmc-eslint-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "eslint",
+    "eslint-plugin",
+    "minecraft-bedrock",
+    "sfmc",
+    "scriptsforminecraftserver"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -39,5 +55,9 @@
   },
   "engines": {
     "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

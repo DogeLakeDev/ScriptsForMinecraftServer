@@ -24,6 +24,16 @@ import {
 } from "@sfmc-bds/bds-tools/world-packs";
 import { t } from "./i18n/index.js";
 import { resolveBdsContext } from "./pack-lifecycle.js";
+import {
+  bindPackSource,
+  bindingLabelForUuid,
+  checkPackUpdates,
+  formatSourcesList,
+  probeSourceAfterInstall,
+  searchRemote,
+} from "./pack-update/service.js";
+import { removeBinding } from "./pack-update/bindings.js";
+import { packSourcesPath } from "./pack-update/bindings.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
 
@@ -38,6 +48,11 @@ export const PACKS_SUBCOMMANDS = [
   "scan",
   "doctor",
   "path",
+  "bind",
+  "unbind",
+  "sources",
+  "check",
+  "update",
 ] as const;
 
 function restartHint(): string {
@@ -202,6 +217,19 @@ async function installOnePackRoot(opts: {
     levelName: opts.levelName,
     info: result.info,
   });
+
+  /* 安装成功后探测 CF 更新源（仅 BP） */
+  try {
+    await probeSourceAfterInstall({
+      info: result.info,
+      packDir: result.destDir,
+      ...(result.folderName ? { folderName: result.folderName } : {}),
+      ...(opts.interactive !== undefined ? { interactive: opts.interactive } : {}),
+    });
+  } catch (e) {
+    console.log(c.yellow(`[packs] probe: ${(e as Error).message}`));
+  }
+
   return { ok: true, info: result.info };
 }
 
@@ -412,7 +440,10 @@ function formatPackList(packs: InstalledWorldPack[]): string {
     lines.push(c.bold(t("packs.list.bpHeader")));
     for (const p of bp) {
       const en = p.enabled ? c.green(t("packs.list.on")) : c.dim(t("packs.list.off"));
-      lines.push(`  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}`);
+      const src = bindingLabelForUuid(p.uuid);
+      lines.push(
+        `  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}  ${c.dim(src)}`
+      );
     }
   }
   if (rp.length) {
@@ -520,9 +551,40 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
       case "search": {
         const q = args[0];
         if (!q) return c.yellow(t("packs.search.usage"));
+        return await searchRemote(q);
+      }
+      case "bind": {
+        const packId = args[0];
+        const ref = args[1];
+        if (!packId || !ref) return c.yellow(t("packs.bind.usage"));
+        return await bindPackSource(packId, ref);
+      }
+      case "unbind": {
+        const packId = args[0];
+        if (!packId) return c.yellow(t("packs.unbind.usage"));
         const { bdsRoot, levelName } = resolveBdsContext();
-        const packs = filterPacks(listInstalledWorldPacks(bdsRoot, levelName), "all", q);
-        return formatPackList(packs);
+        const packs = listInstalledWorldPacks(bdsRoot, levelName);
+        const pack = findInstalledPackById(packs, packId);
+        const uuid = pack?.uuid ?? packId;
+        const ok = removeBinding(uuid);
+        return ok
+          ? c.green(t("packs.unbindOk", { uuid, path: packSourcesPath() }))
+          : c.yellow(t("packs.unbindMiss", { id: packId }));
+      }
+      case "sources":
+        return formatSourcesList();
+      case "check": {
+        const id = args.find((a) => !a.startsWith("-"));
+        return await checkPackUpdates({ ...(id ? { packId: id } : {}), apply: false });
+      }
+      case "update": {
+        const all = hasFlag(args, "--all");
+        const id = args.find((a) => !a.startsWith("-") && a !== "--all");
+        if (!all && !id) return c.yellow(t("packs.update.usage"));
+        return await checkPackUpdates({
+          ...(id ? { packId: id } : {}),
+          apply: true,
+        });
       }
       case "enable":
       case "disable": {
@@ -683,6 +745,7 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
           `behavior:    ${worldPackParentDir(bdsRoot, levelName, "behavior")}`,
           `resource:    ${worldPackParentDir(bdsRoot, levelName, "resource")}`,
           `inbox:       ${packsInboxDir()}`,
+          `sources:     ${packSourcesPath()}`,
         ].join("\n");
       }
       default:
@@ -697,7 +760,12 @@ export function packsUsage(): string {
   return `${t("packs.usage.title", { cmd: c.bold("sfmc packs"), alias: c.green("addon") })}
 
   ${c.green("packs list")} [--kind bp|rp|all] [--search q]
-  ${c.green("packs search")} <q>
+  ${c.green("packs search")} <q>           ${t("packs.usage.cfSearch")}
+  ${c.green("packs bind")} <id> <project|slug|url>
+  ${c.green("packs unbind")} <id>
+  ${c.green("packs sources")}
+  ${c.green("packs check")} [id]
+  ${c.green("packs update")} <id|--all>
   ${c.green("packs enable|disable")} <uuid|folder>
   ${c.green("packs bump")} <id>          ${t("packs.usage.bump")}
   ${c.green("packs install")} [path|--inbox] [--force]
@@ -706,6 +774,7 @@ export function packsUsage(): string {
   ${c.green("packs path")}
 
 ${t("packs.usage.inbox", { path: packsInboxDir() })}
+${t("packs.usage.sources", { path: packSourcesPath() })}
 ${t("packs.usage.enableNote", { hint: restartHint() })}
-${t("packs.usage.moduleNote", { cmd: c.green("sfmc pack") })}`;
+${t("packs.usage.moduleNote", { cmd: c.green("sfmc mod") })}`;
 }

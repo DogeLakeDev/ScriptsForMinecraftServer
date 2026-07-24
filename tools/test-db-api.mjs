@@ -32,9 +32,10 @@ async function main() {
   if (!exists(DB_SERVER_DIST)) throw new Error(`缺少 ${DB_SERVER_DIST}`);
 
   copy(path.join(ROOT, "modules", "catalog.json"), path.join(workspace, "modules", "catalog.json"));
-  copy(
-    path.join(ROOT, "modules", "module-lock.json"),
-    path.join(workspace, "modules", "module-lock.json")
+  fs.mkdirSync(path.join(workspace, "modules"), { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, "modules", "module-lock.json"),
+    `${JSON.stringify({ version: 1, modules: {} }, null, 2)}\n`
   );
 
   const packagesSrc = path.join(ROOT, "modules", "packages");

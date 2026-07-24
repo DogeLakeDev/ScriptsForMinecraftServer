@@ -43,3 +43,17 @@ export type { LoggerOptions, Logger } from "./logger.js";
 
 export { createMemoryBuffer } from "./memory.js";
 export type { MemoryBuffer } from "./memory.js";
+
+export {
+  createTerminalProgress,
+  withTerminalProgress,
+  pauseAllProgress,
+  resumeAllProgress,
+  withProgressPaused,
+  hasActiveProgress,
+} from "./terminal-progress.js";
+export type {
+  TerminalProgressOptions,
+  ProgressHandle,
+  ProgressLogFn,
+} from "./terminal-progress.js";

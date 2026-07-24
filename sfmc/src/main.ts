@@ -2,11 +2,8 @@
 import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
-import { cmdReload } from "./commands-reload.js";
 import { getHelp, startRepl } from "./repl.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
-import { cmdBehaviorPackBuild, cmdBehaviorPackDeploy, behaviorPackUsage } from "./commands-behavior-pack.js";
-import { dispatchPackCommand, isPackCommand } from "./pack-lifecycle.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { cmdLocale } from "./locale-command.js";
@@ -106,29 +103,6 @@ async function main(): Promise<void> {
     case "update":
       console.log(await cmdUpdate(rest));
       break;
-    case "reload":
-      console.log(await cmdReload(rest));
-      break;
-    case "behavior-pack":
-    case "bp": {
-      const [sub, ...subRest] = rest;
-      switch (sub) {
-        case "build":
-          console.log((await cmdBehaviorPackBuild(subRest)).message);
-          break;
-        case "deploy":
-          console.log((await cmdBehaviorPackDeploy(subRest)).message);
-          break;
-        default:
-          console.log(behaviorPackUsage());
-      }
-      break;
-    }
-    case "pack": {
-      const [sub, ...subRest] = rest;
-      console.log(await dispatchPackCommand(sub, subRest));
-      break;
-    }
     case "packs":
     case "addon": {
       const [sub, ...subRest] = rest;
@@ -170,11 +144,6 @@ async function main(): Promise<void> {
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = rest;
         console.log(await dispatchModuleCommand(sub, subRest));
-        break;
-      }
-      if (isPackCommand(cmd)) {
-        const [sub, ...subRest] = rest;
-        console.log(await dispatchPackCommand(sub, subRest));
         break;
       }
       if (isPacksCommand(cmd)) {

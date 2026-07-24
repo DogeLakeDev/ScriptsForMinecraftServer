@@ -1,20 +1,5 @@
 {
   "_comment": "modules/catalog.json 是本地 mirror；source of truth 为 github:Tanya7z/sfmc-modules/main/index.json。业务模块默认外置；本仓可保留开箱 fixture（如 afk）。安装/卸载后请用 tools/catalog-sync.mjs 或 fetch-module 投影。",
   "version": 1,
-  "modules": [
-    {
-      "id": "feature-afk",
-      "configKey": "afk",
-      "name": "AFK 检测",
-      "type": "feature",
-      "description": "",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/afk/sapi/src/index.ts"
-      }
-    }
-  ]
+  "modules": []
 }

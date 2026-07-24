@@ -10,6 +10,7 @@ import path from "node:path";
 import type { LogEntry, Sink } from "./types.js";
 import { formatLogLine } from "./format.js";
 import { supportsColor } from "./ansi.js";
+import { pauseAllProgress, resumeAllProgress } from "./terminal-progress.js";
 
 export interface StdoutSinkOptions {
   /** 是否带 ANSI 颜色 (默认: 自动检测 stdout TTY) */
@@ -31,10 +32,15 @@ export function createStdoutSink(opts: StdoutSinkOptions = {}): Sink {
   return {
     write(entry: LogEntry, _formatted: string): void {
       const line = bare ? entry.text : formatLogLine(entry, color);
-      if (stderrForError && entry.level === "error") {
-        process.stderr.write(line + "\n");
-      } else {
-        process.stdout.write(line + "\n");
+      pauseAllProgress();
+      try {
+        if (stderrForError && entry.level === "error") {
+          process.stderr.write(line + "\n");
+        } else {
+          process.stdout.write(line + "\n");
+        }
+      } finally {
+        resumeAllProgress();
       }
     },
   };
