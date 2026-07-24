@@ -56,6 +56,12 @@ export interface PackUpdateConfig {
   applyOnBdsStart: boolean;
   askConfirmOnBind: boolean;
   probeSourceAfterInstall: boolean;
+  /**
+   * 新建绑定（探测自动写入）时的默认 enabled。
+   * 默认 false：需手动改为 true 或 packs 侧开启后才参与自动检查/更新。
+   * 显式 `packs bind` 仍会按此默认写入（可随后改 JSON）。
+   */
+  defaultBindingEnabled: boolean;
   providers: {
     curseforge: CurseForgeProviderConfig;
   };

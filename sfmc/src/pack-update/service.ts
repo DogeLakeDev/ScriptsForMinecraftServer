@@ -84,10 +84,11 @@ async function searchAndRankHits(
 function makeBindingFromHit(
   hit: SourceSearchHit,
   pairedResourceUuid: string | null,
-  prev?: PackSourceBinding | null
+  opts?: { prev?: PackSourceBinding | null; enabled?: boolean }
 ): PackSourceBinding {
+  const prev = opts?.prev;
   return {
-    enabled: true,
+    enabled: opts?.enabled ?? false,
     provider: hit.provider,
     projectId: hit.projectId,
     slug: hit.slug,
@@ -210,12 +211,16 @@ export async function probeSourceAfterInstall(opts: {
   }
 
   const paired = (opts.packDir ? pairedRpUuidFromBpDir(opts.packDir) : null) ?? null;
-  setBinding(opts.info.uuid, makeBindingFromHit(best.hit, paired));
+  setBinding(
+    opts.info.uuid,
+    makeBindingFromHit(best.hit, paired, { enabled: cfg.defaultBindingEnabled })
+  );
   logPack(
     t("packUpdate.bindOk", {
       uuid: opts.info.uuid,
       slug: best.hit.slug,
       path: packSourcesPath(),
+      enabled: cfg.defaultBindingEnabled ? t("packs.list.on").trim() : t("packs.list.off").trim(),
     }),
     "success"
   );
@@ -255,8 +260,16 @@ export async function bindPackSource(packId: string, ref: string): Promise<strin
   if (!hit) return c.red(t("packUpdate.resolveFail", { ref }));
 
   const paired = pairedRpUuidFromBpDir(pack.dir);
-  setBinding(pack.uuid, makeBindingFromHit(hit, paired, getBinding(pack.uuid)));
-  return c.green(t("packUpdate.bindOk", { uuid: pack.uuid, slug: hit.slug, path: packSourcesPath() }));
+  const enabled = cfg.defaultBindingEnabled;
+  setBinding(pack.uuid, makeBindingFromHit(hit, paired, { prev: getBinding(pack.uuid), enabled }));
+  return c.green(
+    t("packUpdate.bindOk", {
+      uuid: pack.uuid,
+      slug: hit.slug,
+      path: packSourcesPath(),
+      enabled: enabled ? t("packs.list.on").trim() : t("packs.list.off").trim(),
+    })
+  );
 }
 
 export function formatSourcesList(): string {
@@ -273,7 +286,7 @@ export function formatSourcesList(): string {
     return lines.join("\n");
   }
   for (const { bpUuid, binding } of bindings) {
-    const en = binding.enabled ? c.green("on") : c.red("off");
+    const en = binding.enabled ? c.green(t("packs.list.on").trim()) : c.dim(t("packs.list.off").trim());
     const tag = providerShortLabel(binding.provider);
     lines.push(
       `  [${en}] ${bpUuid}  ${tag}:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`
@@ -355,6 +368,19 @@ async function prepareCheck(
     );
   }
 
+  /* 已成功应用（或确认无需覆盖）同一 fileId：不再下载 */
+  if (binding.lastAppliedFileId != null && binding.lastAppliedFileId === file.fileId) {
+    binding.lastFileId = file.fileId;
+    setBinding(bpUuid, binding);
+    return withLocalBp(
+      baseCheckFields(bpUuid, name, localVer, binding, {
+        fileId: file.fileId,
+        message: t("packUpdate.upToDate"),
+      }),
+      localBp
+    );
+  }
+
   if (!downloadArchive) {
     /* 仅文件 id 比较的轻量检查 */
     const updateAvailable = binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
@@ -394,6 +420,20 @@ async function prepareCheck(
   }
 
   const decision = decideVersionPolicy(localVer, remoteBpInfo.version, cfg.versionPolicy);
+
+  /*
+   * 远程 BP 版本未更高：无需覆盖安装，但仍记下 fileId，
+   * 否则每次启动都会重复下载同一归档（lastApplied 一直为空）。
+   */
+  if (!decision.remoteNewer) {
+    binding.lastAppliedFileId = file.fileId;
+    binding.lastFileId = file.fileId;
+    setBinding(bpUuid, binding);
+  } else {
+    binding.lastFileId = file.fileId;
+    setBinding(bpUuid, binding);
+  }
+
   return withLocalBp(
     {
       bpUuid,
@@ -456,9 +496,9 @@ async function tryInstallResourcePack(opts: {
   return null;
 }
 
-async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<string> {
+async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<{ ok: boolean; message: string }> {
   if (!r.updateAvailable || !r.remoteRoots || !r.remoteBpInfo) {
-    return r.message;
+    return { ok: true, message: r.message };
   }
   const { bdsRoot, levelName } = resolveBdsContext();
   const packs = listInstalledWorldPacks(bdsRoot, levelName);
@@ -472,9 +512,9 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
   const bpRoot = r.remoteRoots.find((x) => readPackManifestInfo(x)?.kind === "behavior");
   const rpRoots = r.remoteRoots.filter((x) => readPackManifestInfo(x)?.kind === "resource");
 
-  if (!bpRoot) return t("packUpdate.remoteNoBp");
+  if (!bpRoot) return { ok: false, message: t("packUpdate.remoteNoBp") };
 
-  /* 安装 BP */
+  /* 安装 BP（force 覆盖同 uuid / 同文件夹） */
   const bpDest = worldPackParentDir(bdsRoot, levelName, "behavior");
   const bpInstall = await installPackDirectory({
     srcDir: bpRoot,
@@ -483,7 +523,7 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
     ...(r.localBp?.folderName ? { folderName: r.localBp.folderName } : {}),
   });
   if (!bpInstall.ok || !bpInstall.info || !bpInstall.destDir) {
-    return t("packUpdate.installFail", { reason: bpInstall.reason ?? "?" });
+    return { ok: false, message: t("packUpdate.installFail", { reason: bpInstall.reason ?? "?" }) };
   }
   await enableInstalledPack({ bdsRoot, levelName, info: bpInstall.info });
 
@@ -533,11 +573,14 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
   r.binding.lastCheckedAt = new Date().toISOString();
   setBinding(r.bpUuid, r.binding);
 
-  return t("packUpdate.applied", {
-    name: r.name,
-    bp: fmtVer(bpInstall.info.version),
-    rp: rpInfo ? fmtVer(rpInfo.version) : "-",
-  });
+  return {
+    ok: true,
+    message: t("packUpdate.applied", {
+      name: r.name,
+      bp: fmtVer(bpInstall.info.version),
+      rp: rpInfo ? fmtVer(rpInfo.version) : "-",
+    }),
+  };
 }
 
 export async function checkPackUpdates(opts?: { packId?: string; apply?: boolean }): Promise<string> {
@@ -572,8 +615,8 @@ export async function checkPackUpdates(opts?: { packId?: string; apply?: boolean
       /* 始终下载归档并按 BP 版本比较 */
       result = await prepareCheck(bpUuid, binding, cfg, packs, true);
       if (opts?.apply && result.updateAvailable) {
-        const msg = await applyUpdate(result, cfg);
-        lines.push(c.green(msg));
+        const applied = await applyUpdate(result, cfg);
+        lines.push(applied.ok ? c.green(applied.message) : c.red(applied.message));
       } else {
         lines.push(
           result.updateAvailable
@@ -609,6 +652,7 @@ export async function runPackUpdatesOnBdsStart(): Promise<void> {
 export function bindingLabelForUuid(uuid: string): string {
   const b = getBinding(uuid);
   if (!b) return "src=-";
-  if (!b.enabled) return "src=off";
-  return `src=${providerShortLabel(b.provider)}:${b.slug || b.projectId}`;
+  const tag = `${providerShortLabel(b.provider)}:${b.slug || b.projectId}`;
+  /* 与 packs list / sources 一致：关闭时仍显示源，并标注 off */
+  return b.enabled ? `src=${tag}` : `src=${tag}:off`;
 }
