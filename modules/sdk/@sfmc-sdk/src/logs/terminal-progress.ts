@@ -113,6 +113,9 @@ export interface DownloadProgressBinderOptions {
 /**
  * 把字节进度接到 TerminalProgress（MB 刻度 + 速度文案）。
  * BDS 更新与 CF 包下载共用，避免两处复制 lastTime/lastLoaded 环路（DRY）。
+ *
+ * LSP：与 httpDownload 契约对齐——中途 total=0（无 Content-Length）仍可回调；
+ * 总量一旦变为已知（含 finish 用 finalBytes 补总量），须重设 bar 刻度，避免一直卡在占位 1MB。
  */
 export function bindByteProgressToBar(
   bar: ProgressHandle,
@@ -122,18 +125,30 @@ export function bindByteProgressToBar(
   let lastTime = Date.now();
   let lastLoaded = 0;
   let started = false;
+  /** 是否已用真实 Content-Length / finish 总量启动过刻度 */
+  let knownTotal = false;
 
   return (downloaded: number, total: number) => {
-    const totalMb = total > 0 ? total / (1024 * 1024) : 1;
+    const hasTotal = total > 0;
+    const totalMb = hasTotal ? total / (1024 * 1024) : 1;
     const dlMb = downloaded / (1024 * 1024);
-    if (!started) {
-      bar.start(totalMb, 0, { speed: "0 KB/s" });
-      started = true;
-    }
     const now = Date.now();
     const dt = (now - lastTime) / 1000;
     const speed = dt > 0 ? (downloaded - lastLoaded) / dt : 0;
-    bar.update(dlMb, { speed: formatDownloadSpeed(speed) });
+    const speedText = formatDownloadSpeed(speed);
+
+    if (!started) {
+      bar.start(totalMb, 0, { speed: "0 KB/s" });
+      started = true;
+      knownTotal = hasTotal;
+    } else if (hasTotal && !knownTotal) {
+      /* 未知→已知：重 start 以修正 total（ProgressHandle 无独立 setTotal） */
+      bar.start(totalMb, dlMb, { speed: speedText });
+      knownTotal = true;
+    } else {
+      bar.update(dlMb, { speed: speedText });
+    }
+
     if (speedSampleMs <= 0 || now - lastTime >= speedSampleMs) {
       lastTime = now;
       lastLoaded = downloaded;

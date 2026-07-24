@@ -62,9 +62,31 @@ function bindingEnabledLabel(enabled: boolean): string {
   return enabled ? t("packs.list.on").trim() : t("packs.list.off").trim();
 }
 
-/** 未配置源时的统一文案（DRY：入口勿各自拼 needKey） */
+/** 未配置源时的统一文案（DRY：入口勿各自拼 needKey；文案源无关 — OCP） */
 function needKeyText(): string {
   return t("packUpdate.needKey", { path: packUpdateConfigPath() });
+}
+
+/** bindOk 参数唯一构造点（probe / bind 共用 — DRY），报告实际 binding.enabled（LSP） */
+function bindOkParams(opts: {
+  uuid: string;
+  provider: PackSourceBinding["provider"] | SourceSearchHit["provider"];
+  slug: string;
+  enabled: boolean;
+}): Record<string, string> {
+  return {
+    uuid: opts.uuid,
+    provider: providerShortLabel(opts.provider),
+    slug: opts.slug,
+    enabled: bindingEnabledLabel(opts.enabled),
+    path: packSourcesPath(),
+  };
+}
+
+/** 就地补丁并落盘（prepareCheck 多出口共用 — DRY；勿散落 Object.assign+setBinding） */
+function touchBinding(bpUuid: string, binding: PackSourceBinding, patch?: Partial<PackSourceBinding>): void {
+  if (patch) Object.assign(binding, patch);
+  setBinding(bpUuid, binding);
 }
 
 /** 多查询搜索 + 综合打分排序（probe / searchRemote 共用） */
@@ -227,14 +249,15 @@ export async function probeSourceAfterInstall(opts: {
   const binding = makeBindingFromHit(best.hit, paired, { defaultEnabled: cfg.defaultBindingEnabled });
   setBinding(opts.info.uuid, binding);
   logPack(
-    t("packUpdate.bindOk", {
-      uuid: opts.info.uuid,
-      provider: providerShortLabel(best.hit.provider),
-      slug: best.hit.slug,
-      /* 报告实际写入的 binding.enabled（LSP），勿再并列一份 cfg 派生字段 */
-      enabled: bindingEnabledLabel(binding.enabled),
-      path: packSourcesPath(),
-    }),
+    t(
+      "packUpdate.bindOk",
+      bindOkParams({
+        uuid: opts.info.uuid,
+        provider: best.hit.provider,
+        slug: best.hit.slug,
+        enabled: binding.enabled,
+      })
+    ),
     "success"
   );
 }
@@ -279,13 +302,15 @@ export async function bindPackSource(packId: string, ref: string): Promise<strin
   });
   setBinding(pack.uuid, binding);
   return c.green(
-    t("packUpdate.bindOk", {
-      uuid: pack.uuid,
-      provider: providerShortLabel(hit.provider),
-      slug: hit.slug,
-      enabled: bindingEnabledLabel(binding.enabled),
-      path: packSourcesPath(),
-    })
+    t(
+      "packUpdate.bindOk",
+      bindOkParams({
+        uuid: pack.uuid,
+        provider: hit.provider,
+        slug: hit.slug,
+        enabled: binding.enabled,
+      })
+    )
   );
 }
 
@@ -369,8 +394,7 @@ async function prepareCheck(
   const localVer: SemVer3 = localBp?.version ?? [0, 0, 0];
   const provider = createPackSourceProvider(cfg, binding.provider);
 
-  binding.lastCheckedAt = new Date().toISOString();
-  setBinding(bpUuid, binding);
+  touchBinding(bpUuid, binding, { lastCheckedAt: new Date().toISOString() });
 
   if (!binding.enabled) {
     return withLocalBp(
@@ -389,8 +413,7 @@ async function prepareCheck(
 
   /* 已成功应用（或确认无需覆盖）同一 fileId：不再下载 */
   if (binding.lastAppliedFileId != null && binding.lastAppliedFileId === file.fileId) {
-    binding.lastFileId = file.fileId;
-    setBinding(bpUuid, binding);
+    touchBinding(bpUuid, binding, { lastFileId: file.fileId });
     return withLocalBp(
       baseCheckFields(bpUuid, name, localVer, binding, {
         fileId: file.fileId,
@@ -444,11 +467,10 @@ async function prepareCheck(
    * 远程 BP 版本未更高：无需覆盖安装，但仍记下 fileId，
    * 否则每次启动都会重复下载同一归档（lastApplied 一直为空）。
    */
-  binding.lastFileId = file.fileId;
-  if (!decision.remoteNewer) {
-    binding.lastAppliedFileId = file.fileId;
-  }
-  setBinding(bpUuid, binding);
+  touchBinding(bpUuid, binding, {
+    lastFileId: file.fileId,
+    ...(decision.remoteNewer ? {} : { lastAppliedFileId: file.fileId }),
+  });
 
   return withLocalBp(
     {
@@ -584,10 +606,11 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<{ ok:
     await enableInstalledPack({ bdsRoot, levelName, info: rpInfo });
   }
 
-  r.binding.lastAppliedFileId = r.fileId;
-  r.binding.lastFileId = r.fileId;
-  r.binding.lastCheckedAt = new Date().toISOString();
-  setBinding(r.bpUuid, r.binding);
+  touchBinding(r.bpUuid, r.binding, {
+    lastAppliedFileId: r.fileId,
+    lastFileId: r.fileId,
+    lastCheckedAt: new Date().toISOString(),
+  });
 
   return {
     ok: true,

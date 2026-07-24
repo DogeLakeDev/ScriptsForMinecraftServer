@@ -374,7 +374,7 @@ export const en = {
   "packs.usage.enableNote": "Install enables via world_*_packs.json by default; {hint}.",
   "packs.usage.moduleNote": "For module aggregation use {cmd} (not this command).",
 
-  "packUpdate.needKey": "CurseForge API key missing. Get a Studios key from https://console.curseforge.com/, set providers.curseforge.apiKey in {path} or CURSEFORGE_API_KEY (not the Upload API UUID token)",
+  "packUpdate.needKey": "No pack update provider configured. Set providers.*.apiKey in {path} (or the matching env var). CurseForge: get a Studios key from https://console.curseforge.com/ → providers.curseforge.apiKey / CURSEFORGE_API_KEY (not the Upload API UUID token)",
   "packUpdate.probeNoName": "Cannot derive a searchable name from header/folder",
   "packUpdate.probeQueries": "Probe sources header={header} folder={folder}\n  → {queries}",
   "packUpdate.probeFail": "Source probe failed: {message}",
