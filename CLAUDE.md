@@ -4,14 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with five runtime components sharing one git repo:
+ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with runtime components sharing one git repo:
 
 | Path | Role | Runtime |
 |------|------|---------|
 | `db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.13+ |
 | `qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
-| `panel/` | TUI management dashboard | Node.js (Ink) |
-| `BDSTools/` | BDS auto-updater + behavior-pack assembler | Node.js |
+| `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
 | `sfmc/` | REPL / CLI supervisor / BP build pipeline | Node.js |
 | `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
 | `modules/sdk/@sfmc-sdk/` | Shared SDK (SAPI/Node umbrella) | consumed by modules |
@@ -38,16 +37,18 @@ and bundles them in one go — there is no manual entry.ts to edit.
 
 ```bash
 cd db-server
-node inedx.js                  # starts on 127.0.0.1:3001
-DB_PORT=4000 node inedx.js     # override port
+npm run start                  # node dist/index.js → 127.0.0.1:3001
+DB_PORT=4000 npm run start     # override port
 ```
 
-### Management panel
+### sfmc CLI（原 panel/ TUI 已移除）
 
 ```bash
-node panel/index.js            # TUI mode (requires interactive terminal)
-node panel/index.js --cli      # print status and exit (pipe-friendly)
-node panel/index.js --no-tui   # keep services running, no TUI
+node index.js                  # REPL（交互）
+node index.js status           # 打印状态后退出
+node index.js start <svc>      # 启动服务（db / qq / update / manager）
+node index.js stop <svc>
+node index.js init             # 安装向导
 ```
 
 ### Dev tools (run from repo root)
@@ -89,7 +90,7 @@ Truth source: `modules/catalog.json`(本地 mirror,由已装包投影) + `module
 2. `catalog-sync` / install 会把 manifest 投影进 `modules/catalog.json`
 3. Run `sfmc behavior-pack build && sfmc behavior-pack deploy`, restart BDS
 
-Module enable/disable at runtime goes through Panel → `POST /api/sfmc/modules/:id/{enable|disable}` → db-server writes `module-lock.json` → SAPI calls `ConfigManager.refreshModules()`. **No hot-reload: restart BDS for changes to take effect.**
+Module enable/disable at runtime goes through CLI → `POST /api/sfmc/modules/:id/{enable|disable}` → db-server writes `module-lock.json` → SAPI calls `ConfigManager.refreshModules()`. **No hot-reload: restart BDS for changes to take effect.**
 
 ### Configuration Model
 

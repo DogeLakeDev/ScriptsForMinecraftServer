@@ -4,10 +4,10 @@
  * - 官方 api.curseforge.com：getMod / files / download（需 Studios x-api-key）
  * - 搜索：优先官方；若 403 则回退 api.curse.tools（部分 key 对 /v1/mods/search 被拒）
  * - Bedrock gameId = 78022，Addons classId = 4984
+ * - 下载走 bds-tools httpDownload（流式落盘，与 BDS 更新同一权威 — DRY/DIP）
  */
-import { createTerminalProgress, formatDownloadSpeed } from "@sfmc-bds/sdk/logs";
-import fs from "node:fs";
-import path from "node:path";
+import { httpDownload } from "@sfmc-bds/bds-tools/http";
+import { bindByteProgressToBar, createTerminalProgress } from "@sfmc-bds/sdk/logs";
 import type {
   CurseForgeProviderConfig,
   PackReleaseType,
@@ -266,43 +266,17 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
       stream: process.stderr,
       format: `下载 ${file.fileName} | {bar} | {percentage}% | {value}/{total} MB | {speed}`,
     });
-    const res = await fetch(file.downloadUrl, {
-      headers: this.headers(true),
-      redirect: "follow",
+    const onByteProgress = bindByteProgressToBar(bar, {
+      speedSampleMs: 250,
+      ...(onProgress ? { onProgress } : {}),
     });
-    if (!res.ok || !res.body) {
-      throw new Error(`下载失败 HTTP ${res.status}`);
-    }
-    const total = Number(res.headers.get("content-length") ?? 0);
-    const totalMb = total > 0 ? total / (1024 * 1024) : 1;
-    bar.start(totalMb, 0, { speed: "0 KB/s" });
-    const reader = res.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let loaded = 0;
-    let lastTime = Date.now();
-    let lastLoaded = 0;
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        loaded += value.byteLength;
-        const now = Date.now();
-        const dt = (now - lastTime) / 1000;
-        const speed = dt > 0 ? (loaded - lastLoaded) / dt : 0;
-        const speedStr = formatDownloadSpeed(speed);
-        bar.update(loaded / (1024 * 1024), { speed: speedStr });
-        onProgress?.(loaded, total);
-        if (dt >= 0.25) {
-          lastTime = now;
-          lastLoaded = loaded;
-        }
-      }
+      await httpDownload(file.downloadUrl, destPath, {
+        headers: this.headers(true),
+        onProgress: onByteProgress,
+      });
     } finally {
-      bar.stop();
+      if (bar.active) bar.stop();
     }
-    const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
-    fs.mkdirSync(path.dirname(destPath), { recursive: true });
-    fs.writeFileSync(destPath, buf);
   }
 }

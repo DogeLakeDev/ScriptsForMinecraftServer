@@ -198,10 +198,11 @@ export async function httpDownload(
         const stream: Readable = res;
         stream.on("data", (chunk: Buffer) => {
           downloaded += chunk.length;
-          if (opts.onProgress && total) {
+          if (opts.onProgress) {
             const now = Date.now();
             if (now - lastProgressAt >= PROGRESS_INTERVAL_MS) {
               lastProgressAt = now;
+              /* total=0（无 Content-Length）时仍回调，调用方可用已下载字节更新 UI */
               opts.onProgress(downloaded, total);
             }
           }

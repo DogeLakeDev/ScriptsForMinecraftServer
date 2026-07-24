@@ -52,9 +52,11 @@ export {
   withProgressPaused,
   hasActiveProgress,
   formatDownloadSpeed,
+  bindByteProgressToBar,
 } from "./terminal-progress.js";
 export type {
   TerminalProgressOptions,
   ProgressHandle,
   ProgressLogFn,
+  DownloadProgressBinderOptions,
 } from "./terminal-progress.js";
