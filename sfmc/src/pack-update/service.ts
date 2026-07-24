@@ -89,6 +89,11 @@ function touchBinding(bpUuid: string, binding: PackSourceBinding, patch?: Partia
   setBinding(bpUuid, binding);
 }
 
+/** 该 fileId 是否已成功写入世界目录（DRY：prepareCheck 多处勿手写 null/!==） */
+function isFileIdApplied(binding: PackSourceBinding, fileId: number): boolean {
+  return binding.lastAppliedFileId != null && binding.lastAppliedFileId === fileId;
+}
+
 /** 多查询搜索 + 综合打分排序（probe / searchRemote 共用） */
 async function searchAndRankHits(
   provider: PackSourceProvider,
@@ -411,8 +416,8 @@ async function prepareCheck(
     );
   }
 
-  /* 已成功应用（或确认无需覆盖）同一 fileId：不再下载 */
-  if (binding.lastAppliedFileId != null && binding.lastAppliedFileId === file.fileId) {
+  /* 已成功应用同一 fileId：不再下载 */
+  if (isFileIdApplied(binding, file.fileId)) {
     touchBinding(bpUuid, binding, { lastFileId: file.fileId });
     return withLocalBp(
       baseCheckFields(bpUuid, name, localVer, binding, {
@@ -424,15 +429,12 @@ async function prepareCheck(
   }
 
   if (!downloadArchive) {
-    /* 仅文件 id 比较的轻量检查 */
-    const updateAvailable = binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
+    /* 仅文件 id 比较的轻量检查（未 apply 即视为有更新） */
     return withLocalBp(
       baseCheckFields(bpUuid, name, localVer, binding, {
-        updateAvailable,
+        updateAvailable: true,
         fileId: file.fileId,
-        message: updateAvailable
-          ? t("packUpdate.fileNewer", { file: file.fileName, id: String(file.fileId) })
-          : t("packUpdate.upToDate"),
+        message: t("packUpdate.fileNewer", { file: file.fileName, id: String(file.fileId) }),
       }),
       localBp
     );
@@ -461,44 +463,28 @@ async function prepareCheck(
     );
   }
 
-  const decision = decideVersionPolicy(localVer, remoteBpInfo.version, cfg.versionPolicy);
-
   /*
-   * 是否需要写入世界目录：
-   * - 远程 BP 版本更高 → 要覆盖
-   * - 或同一 fileId 从未成功 apply 过 → 也要覆盖
-   *   （汉化包等可能与 CF 同版本号但内容不同；旧逻辑在「版本未更高」时直接记 lastApplied 会跳过安装）
-   * 注意：绝不能在未 install 成功时写入 lastAppliedFileId。
+   * 能走到此处说明该 fileId 尚未成功 apply（上方已 early-return）。
+   * - 远程 BP 版本更高 → 覆盖
+   * - 版本未更高 → 仍覆盖（汉化包等同版本号不同内容；勿在未 install 时写 lastAppliedFileId）
+   * RP bump 规则集中在 decideVersionPolicy（OCP/DRY：勿在编排层复刻 policy 字段）。
    */
-  const fileNotApplied =
-    binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
-  const updateAvailable = decision.remoteNewer || fileNotApplied;
-  const shouldBumpRp = decision.remoteNewer
-    ? decision.shouldBumpRp
-    : Boolean(
-        fileNotApplied &&
-          cfg.versionPolicy.onUpdateOverwriteBoth &&
-          cfg.versionPolicy.rpBumpWhenSameMajor &&
-          !decision.majorHigher
-      );
+  const decision = decideVersionPolicy(localVer, remoteBpInfo.version, cfg.versionPolicy, {
+    treatAsUpdate: true,
+  });
 
   touchBinding(bpUuid, binding, { lastFileId: file.fileId });
 
-  let message: string;
-  if (decision.remoteNewer) {
-    message = t("packUpdate.bpNewer", {
-      local: fmtVer(localVer),
-      remote: fmtVer(remoteBpInfo.version),
-    });
-  } else if (fileNotApplied) {
-    message = t("packUpdate.needSync", {
-      local: fmtVer(localVer),
-      remote: fmtVer(remoteBpInfo.version),
-      id: String(file.fileId),
-    });
-  } else {
-    message = t("packUpdate.upToDate");
-  }
+  const message = decision.remoteNewer
+    ? t("packUpdate.bpNewer", {
+        local: fmtVer(localVer),
+        remote: fmtVer(remoteBpInfo.version),
+      })
+    : t("packUpdate.needSync", {
+        local: fmtVer(localVer),
+        remote: fmtVer(remoteBpInfo.version),
+        id: String(file.fileId),
+      });
 
   return withLocalBp(
     {
@@ -506,9 +492,9 @@ async function prepareCheck(
       name,
       localVer,
       remoteVer: remoteBpInfo.version,
-      updateAvailable,
+      updateAvailable: true,
       majorHigher: decision.majorHigher,
-      shouldBumpRp,
+      shouldBumpRp: decision.shouldBumpRp,
       fileId: file.fileId,
       message,
       binding,
