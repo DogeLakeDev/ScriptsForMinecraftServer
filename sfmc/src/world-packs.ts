@@ -223,6 +223,7 @@ async function installOnePackRoot(opts: {
     await probeSourceAfterInstall({
       info: result.info,
       packDir: result.destDir,
+      ...(result.folderName ? { folderName: result.folderName } : {}),
       ...(opts.interactive !== undefined ? { interactive: opts.interactive } : {}),
     });
   } catch (e) {

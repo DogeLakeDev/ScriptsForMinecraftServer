@@ -64,24 +64,13 @@ sfmc packs install --inbox
 
 ## CurseForge 自动更新
 
-配置：`configs/pack-update.json`（模板见 `configs-default/pack-update.json`）。  
-API Key：**必须**来自 [CurseForge for Studios 控制台](https://console.curseforge.com/)（`x-api-key` → `https://api.curseforge.com`）。  
-不要使用 [support 文章里的 Upload API Token](https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-api)（UUID + `X-Api-Token`，只能上传文件）。  
-也可用环境变量 `CURSEFORGE_API_KEY`。
+世界第三方包的远程搜索 / 绑定 / 版本策略 / API 鉴权 / slug 匹配等**完整技术路线**见：
 
-Bedrock 参数：`gameId=78022`，Addons `classId=4984`。  
-官方 `/v1/mods/search` 对部分 Studios Key 会恒返回 403；此时会自动改用 `searchBaseUrl`（默认 `https://api.curse.tools/v1/cf`）。文件列表与下载仍走官方 API + 你的 key。
+→ **[CurseForge 世界包更新（技术路线）](./pack-update.md)**
 
-绑定清单：`<SFMC_ROOT>/packs/pack-sources.json`（可手改 `enabled` / `projectId`）。
-
-| 行为 | 说明 |
-| ------ | ------ |
-| 安装后探测 | 用 BP `manifest.name` 搜索 CF；TTY 确认后写入绑定 |
-| 版本权威 | **只比较 BP** `header.version` |
-| 应用更新 | 同时覆盖配对 BP+RP；同 major 时把 RP 再抬一级（触发客户端刷新）；远程 major 更高则直接覆盖 |
-| BDS 启动 | `checkOnBdsStart` / `applyOnBdsStart` 逐个检查（见配置） |
-
-进度条与 BDS 更新器共用 `@sfmc-bds/sdk/logs` 的 `createTerminalProgress`（日志写行时自动 pause/resume）。
+配置：`configs/pack-update.json`（启动时从 `configs-default` 播种）。  
+绑定：`packs/pack-sources.json`。  
+进度条与 BDS 更新器共用 `@sfmc-bds/sdk/logs` 的 `createTerminalProgress`。
 
 ## 安装即启用
 

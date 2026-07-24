@@ -27,7 +27,7 @@ import { getBinding, listBindings, packSourcesPath, setBinding } from "./binding
 import { ensurePackUpdateConfigFile, loadPackUpdateConfig, packUpdateConfigPath } from "./config.js";
 import { CurseForgeBedrockProvider } from "./providers/curseforge.js";
 import type { PackSourceBinding, PackUpdateConfig, SemVer3, SourceSearchHit } from "./types.js";
-import { decideVersionPolicy, nameSimilarity, normalizePackSearchName } from "./version-policy.js";
+import { decideVersionPolicy, buildSearchQueries, buildSearchQueriesFromSources, packSourceScore } from "./version-policy.js";
 
 function logPack(text: string, level: "info" | "warn" | "error" | "success" = "info"): void {
   pushLog(text, "pack", level);
@@ -50,6 +50,8 @@ export function pairedRpUuidFromBpDir(bpDir: string): string | null {
 export async function probeSourceAfterInstall(opts: {
   info: PackManifestInfo;
   packDir?: string;
+  /** 安装后的文件夹名（优先于 basename(packDir)） */
+  folderName?: string;
   interactive?: boolean;
 }): Promise<void> {
   const cfg = loadPackUpdateConfig();
@@ -63,33 +65,64 @@ export async function probeSourceAfterInstall(opts: {
     return;
   }
 
-  const query = normalizePackSearchName(opts.info.name, cfg.providers.curseforge.match.stripFolderTags);
-  if (!query) {
+  const strip = cfg.providers.curseforge.match.stripFolderTags;
+  /* header 常本地化；文件夹名往往含拉丁核心 — 两源分别派生再合并，有拉丁则不搜纯中文 */
+  const folderName =
+    (opts.folderName && String(opts.folderName).trim()) ||
+    (opts.packDir ? path.basename(opts.packDir) : "");
+  const plan = buildSearchQueriesFromSources(
+    [
+      { id: "header", raw: opts.info.name },
+      { id: "folder", raw: folderName },
+    ],
+    strip
+  );
+  const queries = plan.queries;
+  if (queries.length === 0) {
     logPack(t("packUpdate.probeNoName"), "warn");
     return;
   }
 
-  let hits: SourceSearchHit[] = [];
+  logPack(
+    t("packUpdate.probeQueries", {
+      header: opts.info.name || "-",
+      folder: folderName || "-",
+      queries: queries.join(" | "),
+    }),
+    "info"
+  );
+
+  const byId = new Map<number, SourceSearchHit>();
   try {
-    hits = await provider.search(query);
+    for (const q of queries) {
+      const hits = await provider.search(q);
+      for (const h of hits) byId.set(h.projectId, h);
+    }
   } catch (e) {
     logPack(t("packUpdate.probeFail", { message: (e as Error).message }), "warn");
     return;
   }
 
-  if (hits.length === 0) {
-    logPack(t("packUpdate.probeMiss", { name: query }), "info");
+  const hitList = [...byId.values()];
+  if (hitList.length === 0) {
+    logPack(t("packUpdate.probeMiss", { name: queries.join(", ") }), "info");
     return;
   }
 
-  const scored = hits.map((h) => ({ hit: h, score: nameSimilarity(query, h.name) })).sort((a, b) => b.score - a.score);
+  const primary = queries.find((q) => /[A-Za-z]/.test(q)) ?? queries[0]!;
+  const scored = hitList
+    .map((h) => ({
+      hit: h,
+      score: Math.max(...queries.map((q) => packSourceScore(q, h, strip))),
+    }))
+    .sort((a, b) => b.score - a.score);
   const best = scored[0]!;
   const minScore = cfg.providers.curseforge.match.nameMinScore;
   if (best.score < minScore) {
     logPack(
       t("packUpdate.probeLowScore", {
-        name: query,
-        hit: best.hit.name,
+        name: primary,
+        hit: `${best.hit.name} (${best.hit.slug})`,
         score: best.score.toFixed(2),
         url: best.hit.websiteUrl,
       }),
@@ -100,8 +133,8 @@ export async function probeSourceAfterInstall(opts: {
 
   logPack(
     t("packUpdate.probeHit", {
-      name: opts.info.name,
-      hit: best.hit.name,
+      name: `${opts.info.name} / ${folderName || "-"}`,
+      hit: `${best.hit.name} [${best.hit.slug}]`,
       url: best.hit.websiteUrl,
       score: best.score.toFixed(2),
     }),
@@ -119,9 +152,9 @@ export async function probeSourceAfterInstall(opts: {
     if (isCancel(ans)) return;
     accept = !!ans;
   } else {
-    /* 非 TTY：不自动绑定，只提示 */
-    logPack(t("packUpdate.probeNoAutoBind"), "info");
-    return;
+    /* 非 TTY / BDS 收件箱 / askConfirmOnBind=false：命中即写入，避免探测成功却无 pack-sources.json */
+    accept = true;
+    logPack(t("packUpdate.probeAutoBind", { slug: best.hit.slug, path: packSourcesPath() }), "info");
   }
 
   if (!accept) {
@@ -158,12 +191,25 @@ export async function searchRemote(query: string): Promise<string> {
   if (!provider.isConfigured()) {
     return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
   }
-  const hits = await provider.search(query);
-  if (hits.length === 0) return c.dim(t("packUpdate.searchEmpty", { query }));
-  return hits
+  const strip = cfg.providers.curseforge.match.stripFolderTags;
+  const queries = buildSearchQueries(query, strip);
+  const byId = new Map<number, SourceSearchHit>();
+  for (const q of queries) {
+    const hits = await provider.search(q);
+    for (const h of hits) byId.set(h.projectId, h);
+  }
+  const hitList = [...byId.values()];
+  if (hitList.length === 0) return c.dim(t("packUpdate.searchEmpty", { query }));
+  const ranked = hitList
+    .map((h) => ({
+      h,
+      score: Math.max(...queries.map((q) => packSourceScore(q, h, strip))),
+    }))
+    .sort((a, b) => b.score - a.score);
+  return ranked
     .map(
-      (h, i) =>
-        `${c.cyan(String(i + 1).padStart(2))}. ${h.name}  ${c.dim(`id=${h.projectId} slug=${h.slug}`)}\n    ${h.websiteUrl}`
+      ({ h, score }, i) =>
+        `${c.cyan(String(i + 1).padStart(2))}. ${h.name}  ${c.dim(`id=${h.projectId} slug=${h.slug} score=${score.toFixed(2)}`)}\n    ${h.websiteUrl}`
     )
     .join("\n");
 }
