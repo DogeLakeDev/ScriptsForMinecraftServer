@@ -6,19 +6,14 @@ import {
   ensureCoreConfigs,
   loadEnsuredConfig,
   modulePath,
-  resolveRuntimeRoot,
   DEFAULT_DB_CONFIG,
   DEFAULT_QQ_CONFIG,
 } from "@sfmc-bds/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { log } from "./lib/log.js";
+import { PROJECT_ROOT as RESOLVED_ROOT } from "./project-root.js";
 
-import { dirname } from "node:path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export interface EnvConfig {
   PROJECT_ROOT: string;
@@ -41,7 +36,7 @@ export interface EnvConfig {
 }
 
 export function loadEnv(): EnvConfig {
-  const PROJECT_ROOT = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
+  const PROJECT_ROOT = RESOLVED_ROOT;
   /* 启动时确认 db/qq/permissions 存在;不存在就写带默认值的骨架。
    * 不依赖 wizard:wizard 只填字段,骨架由服务自己 ensure。 */
   ensureCoreConfigs(PROJECT_ROOT, ["db_config", "qq_config", "permissions"]);

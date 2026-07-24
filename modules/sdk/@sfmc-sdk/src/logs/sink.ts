@@ -2,7 +2,7 @@
  * sink.ts — 日志输出目标实现
  *
  * StdoutSink: 输出到 stdout (可选颜色,可选 stderr 路由 error)
- * FileSink:   追加写入文件 (纯文本,无 ANSI 码,单例 FD)
+ * FileSink:   同步追加写入文件 (纯文本,无 ANSI 码;进程退出无需 flush)
  */
 
 import fs from "node:fs";
@@ -49,12 +49,13 @@ export function createStdoutSink(opts: StdoutSinkOptions = {}): Sink {
 export interface FileSinkOptions {
   /** 是否自动创建父目录 (默认 true) */
   mkdir?: boolean;
-  /** 文件打开模式 (默认 "a" 追加) */
-  flags?: string;
 }
 
 export interface FileSink extends Sink {
-  /** 关闭底层文件流,释放 FD */
+  /**
+   * 兼容钩子：当前实现为 sync appendFile，无持有 FD，调用为空操作。
+   * 保留以便 NodeServiceLogger / 进程 exit 统一调用而不破坏 LSP。
+   */
   close(): void;
 }
 

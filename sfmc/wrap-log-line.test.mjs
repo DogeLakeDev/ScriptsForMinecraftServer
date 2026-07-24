@@ -77,3 +77,25 @@ test("logPrefixWidth 与常见源标签匹配", () => {
   /* HH:MM:SS + space + [  PACK  ] + space + [OK] + space */
   assert.ok(w >= 24 && w <= 28, `prefix width unexpected: ${w}`);
 });
+
+test("resolveDisplayLevel：BDS 行从正文解析，其余用 entry.level", async () => {
+  const { resolveDisplayLevel } = await import("./dist/logs.js");
+  assert.equal(
+    resolveDisplayLevel({
+      time: new Date(),
+      text: "[2026-07-18 23:56:06:778 ERROR] boom",
+      source: "bds",
+      level: "info",
+    }),
+    "error"
+  );
+  assert.equal(
+    resolveDisplayLevel({
+      time: new Date(),
+      text: "ok",
+      source: "pack",
+      level: "success",
+    }),
+    "success"
+  );
+});

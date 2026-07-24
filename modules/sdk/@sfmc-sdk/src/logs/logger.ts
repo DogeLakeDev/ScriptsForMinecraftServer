@@ -36,7 +36,9 @@ export interface Logger {
 
 /** Node 仓顶服务标准 logger:stdout(可 bare) + 文件落盘 */
 export interface NodeServiceLogger extends Logger {
-  /** 关闭文件 sink */
+  /**
+   * 关闭文件 sink（FileSink 为 sync append 时为空操作；保留统一调用面）。
+   */
   close(): void;
   readonly fileSink: FileSink;
 }

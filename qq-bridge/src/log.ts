@@ -6,15 +6,10 @@
  */
 
 import { createNodeServiceLogger } from "@sfmc-bds/sdk/logs";
-import { logFile, resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const ROOT = resolveRuntimeRoot(resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."));
+import { logFile } from "@sfmc-bds/sdk/node/config";
+import { PROJECT_ROOT } from "./project-root.js";
 
 export const log = createNodeServiceLogger({
   source: "qq",
-  logPath: logFile(ROOT, "qq"),
+  logPath: logFile(PROJECT_ROOT, "qq"),
 });
-
-process.on("exit", () => log.close());

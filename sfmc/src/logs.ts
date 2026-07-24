@@ -114,10 +114,18 @@ export const SOURCE_META: SourceMeta[] = [
   { value: "bds-tools", name: "BDSTools", paint: (s) => c.red(s) },
 ];
 
+/** 源标签无色文本（formatSourceTag / logPrefixWidth 共用） */
+function sourceTagPlain(source: string): string {
+  const meta = SOURCE_META.find((m) => m.value === source);
+  if (meta) return `[${meta.name}]`;
+  return `[${source.padEnd(7).slice(0, 8)}]`;
+}
+
 export function formatSourceTag(source: string): string {
   const meta = SOURCE_META.find((m) => m.value === source);
-  if (meta) return meta.paint(`[${meta.name}]`);
-  return c.bold(`[${source.padEnd(7).slice(0, 8)}]`);
+  const plain = sourceTagPlain(source);
+  if (meta) return meta.paint(plain);
+  return c.bold(plain);
 }
 
 /** 简化BDS日志 */
@@ -151,42 +159,54 @@ function getLogLevel(line: string): string {
   return "UNKNOWN";
 }
 
-/** 格式化日志用于 REPL 展示 (用 theme.ts chalk 配色) */
-export function formatLog(l: UnifiedLog): string {
-  const ts = c.dim(l.time.toLocaleTimeString());
-  let lvl = levelTag(l.level);
-  let txt = highlightLogLine(l.text);
-  const src = formatSourceTag(l.source);
-  if (l.source === "bds") {
-    const parsed = getLogLevel(l.text);
-    const mapped: LogLevel =
-      parsed === "WARNING" || parsed === "WARN"
-        ? "warn"
-        : parsed === "ERROR" || parsed === "FATAL"
-          ? "error"
-          : parsed === "DEBUG" || parsed === "TRACE"
-            ? "debug"
-            : "info";
-    /* 去掉 BDS 自带时间戳前缀后再高亮正文 */
-    txt = highlightLogLine(stripLogPrefix(l.text));
-    lvl = levelTag(mapped);
-  }
-  return `${ts} ${src} ${lvl} ${txt}`;
+/** 展示用级别：BDS 行从正文解析，其余用 entry.level（DRY：formatLog / logPrefixWidth 共用） */
+export function resolveDisplayLevel(l: UnifiedLog): LogLevel {
+  if (l.source !== "bds") return l.level;
+  const parsed = getLogLevel(l.text);
+  if (parsed === "WARNING" || parsed === "WARN") return "warn";
+  if (parsed === "ERROR" || parsed === "FATAL") return "error";
+  if (parsed === "DEBUG" || parsed === "TRACE") return "debug";
+  return "info";
+}
+
+/** 无色级别标签文本（可见宽度权威源） */
+const LEVEL_TAG_TEXT: Record<LogLevel, string> = {
+  error: "[ERR]",
+  warn: "[WRN]",
+  success: "[OK]",
+  debug: "[DBG]",
+  info: "[INF]",
+};
+
+function levelTagPlain(lvl: LogLevel): string {
+  return LEVEL_TAG_TEXT[lvl] ?? LEVEL_TAG_TEXT.info;
 }
 
 function levelTag(lvl: LogLevel): string {
+  const text = levelTagPlain(lvl);
   switch (lvl) {
     case "error":
-      return c.red("[ERR]");
+      return c.red(text);
     case "warn":
-      return c.yellow("[WRN]");
+      return c.yellow(text);
     case "success":
-      return c.green(c.bold("[OK]"));
+      return c.green(c.bold(text));
     case "debug":
-      return c.dim("[DBG]");
+      return c.dim(text);
     default:
-      return c.blue("[INF]");
+      return c.blue(text);
   }
+}
+
+/** 格式化日志用于 REPL 展示 (用 theme.ts chalk 配色) */
+export function formatLog(l: UnifiedLog): string {
+  const ts = c.dim(l.time.toLocaleTimeString());
+  const level = resolveDisplayLevel(l);
+  const lvl = levelTag(level);
+  const src = formatSourceTag(l.source);
+  /* BDS：去掉自带时间戳前缀后再高亮正文 */
+  const txt = highlightLogLine(l.source === "bds" ? stripLogPrefix(l.text) : l.text);
+  return `${ts} ${src} ${lvl} ${txt}`;
 }
 
 /* ==================================================================
@@ -219,42 +239,14 @@ export function visibleWidth(s: string): number {
   return w;
 }
 
-/** 无色级别标签,与 levelTag 可见宽度一致 */
-function levelTagPlain(lvl: LogLevel): string {
-  switch (lvl) {
-    case "error":
-      return "[ERR]";
-    case "warn":
-      return "[WRN]";
-    case "success":
-      return "[OK]";
-    case "debug":
-      return "[DBG]";
-    default:
-      return "[INF]";
-  }
-}
-
 /**
  * 日志前缀可见宽度(时间 + 源 + 级别 + 尾空格),供悬挂缩进对齐正文起点。
- * 与 formatLog 拼接顺序保持一致。
+ * 与 formatLog 拼接顺序保持一致（共用 resolveDisplayLevel / sourceTagPlain / levelTagPlain）。
  */
 export function logPrefixWidth(l: UnifiedLog): number {
   const ts = l.time.toLocaleTimeString();
-  const meta = SOURCE_META.find((m) => m.value === l.source);
-  const src = meta ? `[${meta.name}]` : `[${l.source.padEnd(7).slice(0, 8)}]`;
-  let level: LogLevel = l.level;
-  if (l.source === "bds") {
-    const parsed = getLogLevel(l.text);
-    level =
-      parsed === "WARNING" || parsed === "WARN"
-        ? "warn"
-        : parsed === "ERROR" || parsed === "FATAL"
-          ? "error"
-          : parsed === "DEBUG" || parsed === "TRACE"
-            ? "debug"
-            : "info";
-  }
+  const src = sourceTagPlain(l.source);
+  const level = resolveDisplayLevel(l);
   return visibleWidth(`${ts} ${src} ${levelTagPlain(level)} `);
 }
 
