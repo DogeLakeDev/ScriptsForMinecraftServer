@@ -88,6 +88,7 @@ flowchart TD
   "applyOnBdsStart": true,
   "askConfirmOnBind": true,
   "probeSourceAfterInstall": true,
+  "defaultBindingEnabled": false,
   "providers": {
     "curseforge": {
       "enabled": true,
@@ -122,6 +123,7 @@ flowchart TD
 
 | 字段 | 含义 |
 |------|------|
+| `defaultBindingEnabled` | 新建绑定的默认 `enabled`（默认 `false`，避免误自动更新）。重新绑定已有条目时保留原 `enabled`。 |
 | `gameId` | **Minecraft Bedrock = `78022`**。历史误用 `459` 无效，加载时会纠正。Java Minecraft 是 `432`，不要混用。 |
 | `classId` | Bedrock **Addons = `4984`**；`null` 时用 `/v1/categories?classesOnly=true` 解析「Addons」。 |
 | `baseUrl` | 官方 Core API：getMod / files / download-url。 |

@@ -81,13 +81,18 @@ async function searchAndRankHits(
     .sort((a, b) => b.score - a.score);
 }
 
+/**
+ * 由搜索命中构造绑定。
+ * enabled：已有绑定时保留 prev.enabled；否则用 cfg.defaultBindingEnabled（DIP：不在此读配置）。
+ */
 function makeBindingFromHit(
   hit: SourceSearchHit,
   pairedResourceUuid: string | null,
-  prev?: PackSourceBinding | null
+  opts: { prev?: PackSourceBinding | null; defaultEnabled: boolean }
 ): PackSourceBinding {
+  const prev = opts.prev ?? null;
   return {
-    enabled: true,
+    enabled: prev?.enabled ?? opts.defaultEnabled,
     provider: hit.provider,
     projectId: hit.projectId,
     slug: hit.slug,
@@ -97,6 +102,10 @@ function makeBindingFromHit(
     lastCheckedAt: null,
     lastAppliedFileId: prev?.lastAppliedFileId ?? null,
   };
+}
+
+function bindingEnabledLabel(enabled: boolean): string {
+  return enabled ? "on" : "off";
 }
 
 /** 从已安装 BP 提取配对 RP uuid */
@@ -210,11 +219,16 @@ export async function probeSourceAfterInstall(opts: {
   }
 
   const paired = (opts.packDir ? pairedRpUuidFromBpDir(opts.packDir) : null) ?? null;
-  setBinding(opts.info.uuid, makeBindingFromHit(best.hit, paired));
+  const binding = makeBindingFromHit(best.hit, paired, {
+    prev: getBinding(opts.info.uuid),
+    defaultEnabled: cfg.defaultBindingEnabled,
+  });
+  setBinding(opts.info.uuid, binding);
   logPack(
     t("packUpdate.bindOk", {
       uuid: opts.info.uuid,
       slug: best.hit.slug,
+      enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
     }),
     "success"
@@ -255,8 +269,19 @@ export async function bindPackSource(packId: string, ref: string): Promise<strin
   if (!hit) return c.red(t("packUpdate.resolveFail", { ref }));
 
   const paired = pairedRpUuidFromBpDir(pack.dir);
-  setBinding(pack.uuid, makeBindingFromHit(hit, paired, getBinding(pack.uuid)));
-  return c.green(t("packUpdate.bindOk", { uuid: pack.uuid, slug: hit.slug, path: packSourcesPath() }));
+  const binding = makeBindingFromHit(hit, paired, {
+    prev: getBinding(pack.uuid),
+    defaultEnabled: cfg.defaultBindingEnabled,
+  });
+  setBinding(pack.uuid, binding);
+  return c.green(
+    t("packUpdate.bindOk", {
+      uuid: pack.uuid,
+      slug: hit.slug,
+      enabled: bindingEnabledLabel(binding.enabled),
+      path: packSourcesPath(),
+    })
+  );
 }
 
 export function formatSourcesList(): string {
