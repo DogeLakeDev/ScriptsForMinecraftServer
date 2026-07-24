@@ -16,8 +16,6 @@
       "pageSize": 10,
       "preferredReleaseTypes": ["release", "beta", "alpha"],
       "match": {
-        "byUuidInArchive": true,
-        "byName": true,
         "nameMinScore": 0.6,
         "stripFolderTags": true
       }

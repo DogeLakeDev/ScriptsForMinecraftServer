@@ -92,6 +92,14 @@ function isWritableTty(stream: NodeJS.WritableStream): boolean {
   return !!(stream as WriteStream).isTTY;
 }
 
+/** 下载速度文案（BDS / CF 等共用，避免各处复制阈值分支） */
+export function formatDownloadSpeed(bytesPerSec: number): string {
+  const speed = Number.isFinite(bytesPerSec) ? Math.max(0, bytesPerSec) : 0;
+  if (speed > 1024 * 1024) return `${(speed / 1024 / 1024).toFixed(1)} MB/s`;
+  if (speed > 1024) return `${(speed / 1024).toFixed(1)} KB/s`;
+  return `${speed.toFixed(0)} B/s`;
+}
+
 function renderBarLine(
   value: number,
   total: number,

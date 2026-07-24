@@ -14,6 +14,7 @@ import {
   createLogger,
   createStdoutSink,
   createTerminalProgress,
+  formatDownloadSpeed,
 } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import os from "node:os";
@@ -317,12 +318,7 @@ export async function runUpdate(): Promise<number> {
             const timeDelta = (now - lastTime) / 1000; // 秒
             const bytesDelta = dl - lastLoaded;
             const speed = timeDelta > 0 ? bytesDelta / timeDelta : 0;
-            const speedStr =
-              speed > 1024 * 1024
-                ? `${(speed / 1024 / 1024).toFixed(1)} MB/s`
-                : speed > 1024
-                  ? `${(speed / 1024).toFixed(1)} KB/s`
-                  : `${speed.toFixed(0)} B/s`;
+            const speedStr = formatDownloadSpeed(speed);
             const totalMb = total > 0 ? total / (1024 * 1024) : 0;
             const dlMb = dl / (1024 * 1024);
             const pct = total > 0 ? (dl / total) * 100 : 0;

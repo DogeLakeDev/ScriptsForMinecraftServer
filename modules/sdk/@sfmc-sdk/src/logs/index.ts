@@ -51,6 +51,7 @@ export {
   resumeAllProgress,
   withProgressPaused,
   hasActiveProgress,
+  formatDownloadSpeed,
 } from "./terminal-progress.js";
 export type {
   TerminalProgressOptions,
