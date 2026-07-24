@@ -221,8 +221,11 @@ export async function httpDownload(
           try {
             const finalBytes = statSync(destPath).size;
             // 收尾:确保最后一次回调让进度条走到 100%(即便最近
-            // 一个 tick 的节流没触发,也补一次)
-            if (opts.onProgress && total) opts.onProgress(finalBytes, total);
+            // 一个 tick 的节流没触发,也补一次)。
+            // 无 Content-Length（total=0）时用 finalBytes 作总量，与中途「仍回调」契约一致（LSP）。
+            if (opts.onProgress) {
+              opts.onProgress(finalBytes, total > 0 ? total : finalBytes);
+            }
             resolve(finalBytes);
           } catch (e) {
             reject(e as Error);
