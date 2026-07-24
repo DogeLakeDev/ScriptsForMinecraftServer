@@ -57,8 +57,9 @@ function fmtVer(v: SemVer3): string {
   return v.join(".");
 }
 
+/** 绑定启用态文案：bindOk / sources list 共用（DRY），走 packs.list i18n */
 function bindingEnabledLabel(enabled: boolean): string {
-  return enabled ? "on" : "off";
+  return enabled ? t("packs.list.on").trim() : t("packs.list.off").trim();
 }
 
 /** 未配置源时的统一文案（DRY：入口勿各自拼 needKey） */
@@ -230,9 +231,9 @@ export async function probeSourceAfterInstall(opts: {
       uuid: opts.info.uuid,
       provider: providerShortLabel(best.hit.provider),
       slug: best.hit.slug,
+      /* 报告实际写入的 binding.enabled（LSP），勿再并列一份 cfg 派生字段 */
       enabled: bindingEnabledLabel(binding.enabled),
       path: packSourcesPath(),
-      enabled: cfg.defaultBindingEnabled ? t("packs.list.on").trim() : t("packs.list.off").trim(),
     }),
     "success"
   );
@@ -302,7 +303,8 @@ export function formatSourcesList(): string {
     return lines.join("\n");
   }
   for (const { bpUuid, binding } of bindings) {
-    const en = binding.enabled ? c.green(t("packs.list.on").trim()) : c.dim(t("packs.list.off").trim());
+    const label = bindingEnabledLabel(binding.enabled);
+    const en = binding.enabled ? c.green(label) : c.dim(label);
     const tag = providerShortLabel(binding.provider);
     lines.push(
       `  [${en}] ${bpUuid}  ${tag}:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`
@@ -442,14 +444,11 @@ async function prepareCheck(
    * 远程 BP 版本未更高：无需覆盖安装，但仍记下 fileId，
    * 否则每次启动都会重复下载同一归档（lastApplied 一直为空）。
    */
+  binding.lastFileId = file.fileId;
   if (!decision.remoteNewer) {
     binding.lastAppliedFileId = file.fileId;
-    binding.lastFileId = file.fileId;
-    setBinding(bpUuid, binding);
-  } else {
-    binding.lastFileId = file.fileId;
-    setBinding(bpUuid, binding);
   }
+  setBinding(bpUuid, binding);
 
   return withLocalBp(
     {
