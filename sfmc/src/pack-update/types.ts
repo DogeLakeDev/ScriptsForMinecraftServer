@@ -14,8 +14,16 @@ export interface PackUpdateMatchConfig {
 export interface CurseForgeProviderConfig {
   enabled: boolean;
   apiKey: string;
+  /** 官方 Core API，用于 getMod / files / download-url */
   baseUrl: string;
+  /**
+   * 搜索用镜像（官方 /v1/mods/search 部分 key 会 403）。
+   * 默认 https://api.curse.tools/v1/cf
+   */
+  searchBaseUrl: string;
+  /** Minecraft Bedrock = 78022（不是 459） */
   gameId: number;
+  /** Addons class = 4984；null 时自动解析 */
   classId: number | null;
   pageSize: number;
   preferredReleaseTypes: PackReleaseType[];

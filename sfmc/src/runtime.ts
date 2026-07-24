@@ -244,6 +244,34 @@ export function resolveDefaultsDir(): string | null {
   return null;
 }
 
+/**
+ * 将 configs-default（或 defaults/configs）中缺失的 *.json 播种到 configs/。
+ * wizard 与 createServices 共用，避免各处手写拷贝（含 pack-update.json）。
+ * @returns 本次新写入的文件名列表
+ */
+export function seedMissingConfigsFromDefaults(rootDir: string = ROOT): string[] {
+  const defaultsDir = resolveDefaultsDir();
+  if (!defaultsDir) return [];
+
+  const src = fs.existsSync(path.join(defaultsDir, "configs"))
+    ? path.join(defaultsDir, "configs")
+    : defaultsDir;
+  if (!fs.existsSync(src)) return [];
+
+  const configsDest = path.join(rootDir, "configs");
+  fs.mkdirSync(configsDest, { recursive: true });
+
+  const written: string[] = [];
+  for (const name of fs.readdirSync(src)) {
+    if (!name.endsWith(".json")) continue;
+    const dest = path.join(configsDest, name);
+    if (fs.existsSync(dest)) continue;
+    fs.copyFileSync(path.join(src, name), dest);
+    written.push(name);
+  }
+  return written;
+}
+
 function nodeBinary(): string {
   return IS_SEA ? "node" : process.execPath;
 }

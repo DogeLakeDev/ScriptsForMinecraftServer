@@ -16,7 +16,7 @@ import path from "node:path";
 import { getAsset } from "node:sea";
 import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
 import { persistLocale, t, type Locale } from "./i18n/index.js";
-import { IS_SEA, ROOT, isMonorepoLayout, isRuntimeInitialized, resolveDefaultsDir, resolveFetchModule, spawnService } from "./runtime.js";
+import { IS_SEA, ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, seedMissingConfigsFromDefaults, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
 /** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */
@@ -106,22 +106,7 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
 
 /** 非 monorepo 的 npm 安装布局：播种 configs + 空 modules 骨架 */
 function seedNpmRuntimeLayout(rootDir: string): void {
-  const defaultsDir = resolveDefaultsDir();
-  const configsDest = path.join(rootDir, "configs");
-  fs.mkdirSync(configsDest, { recursive: true });
-
-  if (defaultsDir) {
-    const src = fs.existsSync(path.join(defaultsDir, "configs"))
-      ? path.join(defaultsDir, "configs")
-      : defaultsDir;
-    for (const name of fs.readdirSync(src)) {
-      if (!name.endsWith(".json")) continue;
-      const dest = path.join(configsDest, name);
-      if (!fs.existsSync(dest)) {
-        fs.copyFileSync(path.join(src, name), dest);
-      }
-    }
-  }
+  seedMissingConfigsFromDefaults(rootDir);
 
   const modulesRoot = path.join(rootDir, "modules");
   const packagesDir = path.join(modulesRoot, "packages");

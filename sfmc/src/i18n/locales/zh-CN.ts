@@ -352,7 +352,7 @@ export const zhCN: Record<MessageKey, string> = {
   "packs.usage.enableNote": "安装默认写入 world_*_packs.json 启用；{hint}。",
   "packs.usage.moduleNote": "模块聚合请用 {cmd}（非本命令）。",
 
-  "packUpdate.needKey": "未配置 CurseForge API Key。请写入 {path} 的 providers.curseforge.apiKey，或设置环境变量 CURSEFORGE_API_KEY",
+  "packUpdate.needKey": "未配置 CurseForge API Key。请到 https://console.curseforge.com/ 申请 Studios Key，写入 {path} 的 providers.curseforge.apiKey，或设置 CURSEFORGE_API_KEY（不要用 Upload API 的 UUID Token）",
   "packUpdate.probeNoName": "无法从 manifest 提取可搜索名称",
   "packUpdate.probeFail": "探测更新源失败: {message}",
   "packUpdate.probeMiss": "未在 CurseForge 找到匹配: {name}",

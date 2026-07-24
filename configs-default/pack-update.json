@@ -1,5 +1,5 @@
 {
-  "_comment": "世界第三方包（addon/packs）自动更新配置。apiKey 也可用环境变量 CURSEFORGE_API_KEY。",
+  "_comment": "世界包更新。apiKey 来自 https://console.curseforge.com/（x-api-key）。Bedrock gameId=78022，Addons classId=4984。官方 /mods/search 若 403 会自动改用 searchBaseUrl（api.curse.tools）。也可用环境变量 CURSEFORGE_API_KEY。",
   "enabled": true,
   "checkOnBdsStart": true,
   "applyOnBdsStart": true,
@@ -10,8 +10,9 @@
       "enabled": true,
       "apiKey": "",
       "baseUrl": "https://api.curseforge.com",
-      "gameId": 459,
-      "classId": null,
+      "searchBaseUrl": "https://api.curse.tools/v1/cf",
+      "gameId": 78022,
+      "classId": 4984,
       "pageSize": 10,
       "preferredReleaseTypes": ["release", "beta", "alpha"],
       "match": {

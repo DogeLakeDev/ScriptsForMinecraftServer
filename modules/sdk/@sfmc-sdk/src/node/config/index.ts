@@ -134,6 +134,7 @@ export type ConfigName =
   | "db_config.json"
   | "permissions.json"
   | "bds_updater.json"
+  | "pack-update.json"
   | "runtime.json"
   | "settings.json"
   | "areas.json"

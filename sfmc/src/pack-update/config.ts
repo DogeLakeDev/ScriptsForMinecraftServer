@@ -3,7 +3,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, resolveDefaultsDir } from "../runtime.js";
+import { ROOT, resolveDefaultsDir, seedMissingConfigsFromDefaults } from "../runtime.js";
 import type { PackUpdateConfig } from "./types.js";
 
 const DEFAULTS: PackUpdateConfig = {
@@ -17,8 +17,9 @@ const DEFAULTS: PackUpdateConfig = {
       enabled: true,
       apiKey: "",
       baseUrl: "https://api.curseforge.com",
-      gameId: 459,
-      classId: null,
+      searchBaseUrl: "https://api.curse.tools/v1/cf",
+      gameId: 78022,
+      classId: 4984,
       pageSize: 10,
       preferredReleaseTypes: ["release", "beta", "alpha"],
       match: {
@@ -84,7 +85,10 @@ export function loadPackUpdateConfig(): PackUpdateConfig {
     }
   }
 
-  const merged = deepMerge(DEFAULTS as unknown as Record<string, unknown>, raw as Record<string, unknown>) as unknown as PackUpdateConfig;
+  const merged = deepMerge(
+    DEFAULTS as unknown as Record<string, unknown>,
+    raw as Record<string, unknown>
+  ) as unknown as PackUpdateConfig;
 
   const envKey = process.env.CURSEFORGE_API_KEY?.trim();
   if (envKey) {
@@ -94,17 +98,15 @@ export function loadPackUpdateConfig(): PackUpdateConfig {
   return merged;
 }
 
-/** 确保 configs/pack-update.json 存在（从 defaults 复制） */
+/**
+ * 确保 configs/pack-update.json 存在。
+ * 优先走与其它配置相同的 configs-default 播种；若仍缺失则写内置 DEFAULTS。
+ */
 export function ensurePackUpdateConfigFile(): string {
+  seedMissingConfigsFromDefaults(ROOT);
   const dest = packUpdateConfigPath();
   if (fs.existsSync(dest)) return dest;
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const defaultsDir = resolveDefaultsDir();
-  const src = defaultsDir ? path.join(defaultsDir, "pack-update.json") : "";
-  if (src && fs.existsSync(src)) {
-    fs.copyFileSync(src, dest);
-  } else {
-    fs.writeFileSync(dest, `${JSON.stringify(DEFAULTS, null, 2)}\n`, "utf8");
-  }
+  fs.writeFileSync(dest, `${JSON.stringify(DEFAULTS, null, 2)}\n`, "utf8");
   return dest;
 }

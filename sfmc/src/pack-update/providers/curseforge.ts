@@ -1,5 +1,9 @@
 /**
  * CurseForge Bedrock SourceProvider
+ *
+ * - 官方 api.curseforge.com：getMod / files / download（需 Studios x-api-key）
+ * - 搜索：优先官方；若 403 则回退 api.curse.tools（部分 key 对 /v1/mods/search 被拒）
+ * - Bedrock gameId = 78022，Addons classId = 4984
  */
 import { createTerminalProgress } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
@@ -38,10 +42,31 @@ const RELEASE_MAP: Record<number, PackReleaseType> = {
   3: "alpha",
 };
 
+/** 历史错误默认值 → 纠正为 Bedrock */
+const LEGACY_BAD_GAME_IDS = new Set([459]);
+const BEDROCK_GAME_ID = 78022;
+const BEDROCK_ADDONS_CLASS_ID = 4984;
+const DEFAULT_SEARCH_BASE = "https://api.curse.tools/v1/cf";
+
 function releaseRank(t: PackReleaseType | undefined, preferred: PackReleaseType[]): number {
   if (!t) return 999;
   const i = preferred.indexOf(t);
   return i >= 0 ? i : 100 + (t === "release" ? 0 : t === "beta" ? 1 : 2);
+}
+
+function mapHits(mods: CfMod[]): SourceSearchHit[] {
+  return (mods ?? []).map((m) => {
+    const hit: SourceSearchHit = {
+      provider: "curseforge",
+      projectId: m.id,
+      slug: m.slug,
+      name: m.name,
+      summary: m.summary ?? "",
+      websiteUrl: m.links?.websiteUrl ?? `https://www.curseforge.com/minecraft-bedrock/addons/${m.slug}`,
+    };
+    if (typeof m.downloadCount === "number") hit.downloadCount = m.downloadCount;
+    return hit;
+  });
 }
 
 export class CurseForgeBedrockProvider implements PackSourceProvider {
@@ -54,72 +79,129 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
     return !!(this.cfg.enabled && this.cfg.apiKey?.trim());
   }
 
-  private headers(): Record<string, string> {
-    return {
-      Accept: "application/json",
-      "x-api-key": this.cfg.apiKey.trim(),
-    };
+  private gameId(): number {
+    const id = this.cfg.gameId;
+    if (!id || LEGACY_BAD_GAME_IDS.has(id)) return BEDROCK_GAME_ID;
+    return id;
   }
 
-  private async apiGet<T>(pathname: string, query: Record<string, string | number | undefined>): Promise<T> {
-    if (!this.isConfigured()) {
-      throw new Error("CurseForge API key 未配置（configs/pack-update.json 或 CURSEFORGE_API_KEY）");
+  private searchBase(): string {
+    return (this.cfg.searchBaseUrl || DEFAULT_SEARCH_BASE).replace(/\/$/, "");
+  }
+
+  private officialBase(): string {
+    return this.cfg.baseUrl.replace(/\/$/, "");
+  }
+
+  private headers(includeKey = true): Record<string, string> {
+    const h: Record<string, string> = { Accept: "application/json" };
+    if (includeKey && this.cfg.apiKey?.trim()) {
+      h["x-api-key"] = this.cfg.apiKey.trim();
     }
-    const base = this.cfg.baseUrl.replace(/\/$/, "");
+    return h;
+  }
+
+  private looksLikeLegacyUploadToken(key: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key.trim());
+  }
+
+  private buildUrl(
+    base: string,
+    pathname: string,
+    query: Record<string, string | number | undefined>
+  ): URL {
     const url = new URL(`${base}${pathname.startsWith("/") ? pathname : `/${pathname}`}`);
     for (const [k, v] of Object.entries(query)) {
       if (v === undefined || v === null || v === "") continue;
       url.searchParams.set(k, String(v));
     }
-    const res = await fetch(url, { headers: this.headers() });
+    return url;
+  }
+
+  private async fetchJson<T>(
+    base: string,
+    pathname: string,
+    query: Record<string, string | number | undefined>,
+    opts?: { requireKey?: boolean; label?: string }
+  ): Promise<T> {
+    const requireKey = opts?.requireKey !== false;
+    if (requireKey && !this.isConfigured()) {
+      throw new Error("CurseForge API key 未配置（configs/pack-update.json 或 CURSEFORGE_API_KEY）");
+    }
+    const key = this.cfg.apiKey.trim();
+    const url = this.buildUrl(base, pathname, query);
+    const res = await fetch(url, { headers: this.headers(requireKey || !!key) });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(`CurseForge HTTP ${res.status}: ${body.slice(0, 200)}`);
+      if (res.status === 403 && requireKey) {
+        const hint = this.looksLikeLegacyUploadToken(key)
+          ? "当前 key 像 legacy Upload UUID Token。请到 https://console.curseforge.com/ 申请 Studios Key。"
+          : "若仅搜索失败：官方 /mods/search 可能对你的 key 返回 403（将自动改用 curse.tools）。其它接口仍需有效 Studios Key。";
+        throw new Error(
+          `CurseForge HTTP 403 (${opts?.label ?? pathname}): ${body.slice(0, 80).trim() || "Forbidden"} — ${hint}`
+        );
+      }
+      throw new Error(`CurseForge HTTP ${res.status} (${opts?.label ?? pathname}): ${body.slice(0, 200)}`);
     }
     return (await res.json()) as T;
   }
 
-  /** 解析 Addon classId（缓存） */
+  /** 官方 Core API GET */
+  private apiGet<T>(
+    pathname: string,
+    query: Record<string, string | number | undefined>
+  ): Promise<T> {
+    return this.fetchJson<T>(this.officialBase(), pathname, query, {
+      requireKey: true,
+      label: `official${pathname}`,
+    });
+  }
+
   async resolveClassId(): Promise<number | null> {
     if (this.cfg.classId != null) return this.cfg.classId;
     if (this.classIdCache != null) return this.classIdCache;
     try {
       const data = await this.apiGet<{ data: Array<{ id: number; name: string; isClass?: boolean }> }>(
         "/v1/categories",
-        { gameId: this.cfg.gameId, classesOnly: "true" }
+        { gameId: this.gameId(), classesOnly: "true" }
       );
       const hit =
-        data.data?.find((c) => /addon/i.test(c.name)) ??
-        data.data?.find((c) => /add-?ons?/i.test(c.name));
-      this.classIdCache = hit?.id ?? null;
+        data.data?.find((c) => /^addons?$/i.test(c.name)) ??
+        data.data?.find((c) => /addon/i.test(c.name));
+      this.classIdCache = hit?.id ?? BEDROCK_ADDONS_CLASS_ID;
       return this.classIdCache;
     } catch {
-      return null;
+      this.classIdCache = BEDROCK_ADDONS_CLASS_ID;
+      return this.classIdCache;
     }
   }
 
   async search(query: string): Promise<SourceSearchHit[]> {
-    const classId = await this.resolveClassId();
-    const data = await this.apiGet<{ data: CfMod[] }>("/v1/mods/search", {
-      gameId: this.cfg.gameId,
-      classId: classId ?? undefined,
+    const classId = (await this.resolveClassId()) ?? BEDROCK_ADDONS_CLASS_ID;
+    const q = {
+      gameId: this.gameId(),
+      classId,
       searchFilter: query,
       pageSize: this.cfg.pageSize,
       sortField: 2,
       sortOrder: "desc",
+    };
+
+    /* 1) 官方搜索（部分 Studios key 会对 /mods/search 恒 403） */
+    try {
+      const data = await this.apiGet<{ data: CfMod[] }>("/v1/mods/search", q);
+      return mapHits(data.data ?? []);
+    } catch (e) {
+      const msg = (e as Error).message || "";
+      if (!/HTTP 403/.test(msg)) throw e;
+    }
+
+    /* 2) curse.tools 镜像（与官方同路径约定） */
+    const data = await this.fetchJson<{ data: CfMod[] }>(this.searchBase(), "/mods/search", q, {
+      requireKey: false,
+      label: "search-mirror",
     });
-    return (data.data ?? []).map((m) => {
-      const hit: SourceSearchHit = {
-        provider: "curseforge",
-        projectId: m.id,
-        slug: m.slug,
-        name: m.name,
-        summary: m.summary ?? "",
-        websiteUrl: m.links?.websiteUrl ?? `https://www.curseforge.com/minecraft-bedrock/addons/${m.slug}`,
-      };
-      if (typeof m.downloadCount === "number") hit.downloadCount = m.downloadCount;
-      return hit;
-    });
+    return mapHits(data.data ?? []);
   }
 
   async resolveProject(ref: string | number): Promise<SourceSearchHit | null> {
@@ -128,16 +210,7 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
       const data = await this.apiGet<{ data: CfMod }>(`/v1/mods/${id}`, {});
       const m = data.data;
       if (!m) return null;
-      const hit: SourceSearchHit = {
-        provider: "curseforge",
-        projectId: m.id,
-        slug: m.slug,
-        name: m.name,
-        summary: m.summary ?? "",
-        websiteUrl: m.links?.websiteUrl ?? `https://www.curseforge.com/minecraft-bedrock/addons/${m.slug}`,
-      };
-      if (typeof m.downloadCount === "number") hit.downloadCount = m.downloadCount;
-      return hit;
+      return mapHits([m])[0] ?? null;
     }
     const s = String(ref).trim();
     const urlMatch = s.match(/curseforge\.com\/minecraft-bedrock\/[^/]+\/([^/?#]+)/i);
@@ -163,7 +236,10 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
     if (!best) return null;
     let downloadUrl = best.downloadUrl ?? "";
     if (!downloadUrl) {
-      const dl = await this.apiGet<{ data: string }>(`/v1/mods/${projectId}/files/${best.id}/download-url`, {});
+      const dl = await this.apiGet<{ data: string }>(
+        `/v1/mods/${projectId}/files/${best.id}/download-url`,
+        {}
+      );
       downloadUrl = dl.data ?? "";
     }
     if (!downloadUrl) return null;
@@ -191,10 +267,7 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
       format: `下载 ${file.fileName} | {bar} | {percentage}% | {value}/{total} MB | {speed}`,
     });
     const res = await fetch(file.downloadUrl, {
-      headers: {
-        ...this.headers(),
-        "x-api-key": this.cfg.apiKey.trim(),
-      },
+      headers: this.headers(true),
       redirect: "follow",
     });
     if (!res.ok || !res.body) {

@@ -65,7 +65,12 @@ sfmc packs install --inbox
 ## CurseForge 自动更新
 
 配置：`configs/pack-update.json`（模板见 `configs-default/pack-update.json`）。  
-API Key：`providers.curseforge.apiKey` 或环境变量 `CURSEFORGE_API_KEY`。
+API Key：**必须**来自 [CurseForge for Studios 控制台](https://console.curseforge.com/)（`x-api-key` → `https://api.curseforge.com`）。  
+不要使用 [support 文章里的 Upload API Token](https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-api)（UUID + `X-Api-Token`，只能上传文件）。  
+也可用环境变量 `CURSEFORGE_API_KEY`。
+
+Bedrock 参数：`gameId=78022`，Addons `classId=4984`。  
+官方 `/v1/mods/search` 对部分 Studios Key 会恒返回 403；此时会自动改用 `searchBaseUrl`（默认 `https://api.curse.tools/v1/cf`）。文件列表与下载仍走官方 API + 你的 key。
 
 绑定清单：`<SFMC_ROOT>/packs/pack-sources.json`（可手改 `enabled` / `projectId`）。
 

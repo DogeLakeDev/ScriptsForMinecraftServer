@@ -19,9 +19,9 @@ import {
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { t } from "../i18n/index.js";
 import { pushLog } from "../logs.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
-import { t } from "../i18n/index.js";
 import { c } from "../theme.js";
 import { getBinding, listBindings, packSourcesPath, setBinding } from "./bindings.js";
 import { ensurePackUpdateConfigFile, loadPackUpdateConfig, packUpdateConfigPath } from "./config.js";
@@ -31,9 +31,6 @@ import { decideVersionPolicy, nameSimilarity, normalizePackSearchName } from "./
 
 function logPack(text: string, level: "info" | "warn" | "error" | "success" = "info"): void {
   pushLog(text, "pack", level);
-  const paint =
-    level === "error" ? c.red : level === "warn" ? c.yellow : level === "success" ? c.green : c.dim;
-  console.log(paint(`[pack-update] ${text}`));
 }
 
 function getProvider(cfg: PackUpdateConfig): CurseForgeBedrockProvider {
@@ -66,10 +63,7 @@ export async function probeSourceAfterInstall(opts: {
     return;
   }
 
-  const query = normalizePackSearchName(
-    opts.info.name,
-    cfg.providers.curseforge.match.stripFolderTags
-  );
+  const query = normalizePackSearchName(opts.info.name, cfg.providers.curseforge.match.stripFolderTags);
   if (!query) {
     logPack(t("packUpdate.probeNoName"), "warn");
     return;
@@ -88,9 +82,7 @@ export async function probeSourceAfterInstall(opts: {
     return;
   }
 
-  const scored = hits
-    .map((h) => ({ hit: h, score: nameSimilarity(query, h.name) }))
-    .sort((a, b) => b.score - a.score);
+  const scored = hits.map((h) => ({ hit: h, score: nameSimilarity(query, h.name) })).sort((a, b) => b.score - a.score);
   const best = scored[0]!;
   const minScore = cfg.providers.curseforge.match.nameMinScore;
   if (best.score < minScore) {
@@ -137,9 +129,7 @@ export async function probeSourceAfterInstall(opts: {
     return;
   }
 
-  const paired =
-    (opts.packDir ? pairedRpUuidFromBpDir(opts.packDir) : null) ??
-    null;
+  const paired = (opts.packDir ? pairedRpUuidFromBpDir(opts.packDir) : null) ?? null;
   const binding: PackSourceBinding = {
     enabled: true,
     provider: "curseforge",
@@ -178,10 +168,7 @@ export async function searchRemote(query: string): Promise<string> {
     .join("\n");
 }
 
-export async function bindPackSource(
-  packId: string,
-  ref: string
-): Promise<string> {
+export async function bindPackSource(packId: string, ref: string): Promise<string> {
   const cfg = loadPackUpdateConfig();
   const provider = getProvider(cfg);
   if (!provider.isConfigured()) {
@@ -208,9 +195,7 @@ export async function bindPackSource(
     lastCheckedAt: null,
     lastAppliedFileId: getBinding(pack.uuid)?.lastAppliedFileId ?? null,
   });
-  return c.green(
-    t("packUpdate.bindOk", { uuid: pack.uuid, slug: hit.slug, path: packSourcesPath() })
-  );
+  return c.green(t("packUpdate.bindOk", { uuid: pack.uuid, slug: hit.slug, path: packSourcesPath() }));
 }
 
 export function formatSourcesList(): string {
@@ -228,9 +213,7 @@ export function formatSourcesList(): string {
   }
   for (const { bpUuid, binding } of bindings) {
     const en = binding.enabled ? c.green("on") : c.red("off");
-    lines.push(
-      `  [${en}] ${bpUuid}  cf:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`
-    );
+    lines.push(`  [${en}] ${bpUuid}  cf:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`);
   }
   return lines.join("\n");
 }
@@ -253,10 +236,7 @@ interface CheckResult {
   archivePath?: string;
 }
 
-function withLocalBp(
-  base: Omit<CheckResult, "localBp">,
-  localBp: InstalledWorldPack | undefined
-): CheckResult {
+function withLocalBp(base: Omit<CheckResult, "localBp">, localBp: InstalledWorldPack | undefined): CheckResult {
   return localBp ? { ...base, localBp } : { ...base };
 }
 
@@ -314,8 +294,7 @@ async function prepareCheck(
 
   if (!downloadArchive) {
     /* 仅文件 id 比较的轻量检查 */
-    const updateAvailable =
-      binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
+    const updateAvailable = binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
     return withLocalBp(
       {
         bpUuid,
@@ -413,11 +392,7 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
 
   const oldRp =
     r.binding.pairedResourceUuid != null
-      ? packs.find(
-          (p) =>
-            p.kind === "resource" &&
-            p.uuid.toLowerCase() === r.binding.pairedResourceUuid!.toLowerCase()
-        )
+      ? packs.find((p) => p.kind === "resource" && p.uuid.toLowerCase() === r.binding.pairedResourceUuid!.toLowerCase())
       : undefined;
   const oldRpVer: SemVer3 = oldRp?.version ?? [0, 0, 0];
 
@@ -484,11 +459,7 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
   }
 
   if (rpInfo && rpDir && r.shouldBumpRp) {
-    const next = ensureVersionGreaterThan(
-      rpDir,
-      oldRpVer,
-      cfg.versionPolicy.rpBumpComponent
-    );
+    const next = ensureVersionGreaterThan(rpDir, oldRpVer, cfg.versionPolicy.rpBumpComponent);
     rpInfo = { ...rpInfo, version: next };
   }
 
@@ -508,10 +479,7 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
   });
 }
 
-export async function checkPackUpdates(opts?: {
-  packId?: string;
-  apply?: boolean;
-}): Promise<string> {
+export async function checkPackUpdates(opts?: { packId?: string; apply?: boolean }): Promise<string> {
   const cfg = loadPackUpdateConfig();
   if (!cfg.enabled) return c.dim(t("packUpdate.disabled"));
   const provider = getProvider(cfg);

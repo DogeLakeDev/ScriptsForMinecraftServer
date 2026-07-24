@@ -45,7 +45,6 @@
     "start": "node ./dist/main.js",
     "build": "node ../scripts/esbuild-transpile.mjs --dts",
     "typecheck": "tsc7 --noEmit -p tsconfig.json",
-    "dev": "tsx src/main.ts",
     "test": "node --test pack-update-policy.test.mjs terminal-progress.test.mjs",
     "prepublishOnly": "npm run build"
   },
