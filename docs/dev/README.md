@@ -29,7 +29,7 @@
 # 主仓 + 同级 sfmc-modules 已 npm install
 sfmc module create          # 或 sfmc module link / module dev
 # … 改 sapi 源码 …
-sfmc reload                 # build + deploy + 向 BDS 发 reload
+sfmc mod reload                 # build + deploy + 向 BDS 发 reload
 ```
 
 运维装机见 [使用指南 · 模块](../guide/modules.md)。接口细节见 [接口指南](../api/README.md)。

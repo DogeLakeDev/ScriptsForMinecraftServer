@@ -1,7 +1,7 @@
 /**
- * commands-behavior-pack.ts — sfmc CLI `behavior-pack` / `bp`
+ * commands-behavior-pack.ts — 模块聚合 BP/RP 的薄包装
  *
- * 实际装载逻辑在 pack-lifecycle.ts;本文件保留路径常量再导出与薄包装。
+ * CLI 已不再暴露 `behavior-pack`/`bp`；本文件供 wizard / ensurePacksReady 内部调用。
  */
 
 import type { CliResult } from "./cli-result.js";

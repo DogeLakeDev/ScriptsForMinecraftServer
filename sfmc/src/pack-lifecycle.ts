@@ -824,28 +824,6 @@ export async function cmdPackEnableDisable(action: "enable" | "disable", args: s
   }
 }
 
-export const PACK_CMD_NAMES = ["pack"] as const;
-export const PACK_SUBCOMMANDS = ["status", "build", "deploy", "list", "enable", "disable"] as const;
+/* CLI 表面已收敛：模块用 mod build/reload；第三方包启停用 addon/packs。
+ * 此处保留 cmdPackBuild / cmdPackDeploy 供 ensurePacksReady 与 mod reload 调用。 */
 
-export function isPackCommand(cmd: string | undefined): cmd is string {
-  return !!cmd && (PACK_CMD_NAMES as readonly string[]).includes(cmd);
-}
-
-export async function dispatchPackCommand(sub: string | undefined, args: string[]): Promise<string> {
-  switch (sub) {
-    case "status":
-      return cmdPackStatus(args);
-    case "build":
-      return (await cmdPackBuild(args)).message;
-    case "deploy":
-      return (await cmdPackDeploy(args)).message;
-    case "list":
-      return cmdPackList(args);
-    case "enable":
-      return cmdPackEnableDisable("enable", args);
-    case "disable":
-      return cmdPackEnableDisable("disable", args);
-    default:
-      return c.yellow(t("pack.usage", { subs: PACK_SUBCOMMANDS.join("|") }));
-  }
-}

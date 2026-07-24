@@ -9,8 +9,12 @@
  *   6. Rollback marker 落盘 - 跨进程 / 跨重启可恢复
  */
 
-import { createFileSink, createLogger, createStdoutSink } from "@sfmc-bds/sdk/logs";
-import cliProgress from "cli-progress";
+import {
+  createFileSink,
+  createLogger,
+  createStdoutSink,
+  createTerminalProgress,
+} from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -291,25 +295,16 @@ export async function runUpdate(): Promise<number> {
 
     let lastErr: Error | null = null;
     const downloadTimeoutMs = (cfg.download_timeout ?? 120) * 1000;
-    /* stderr 被 pipe 时 cli-progress 默认不画；用文本进度给 sfmc REPL 等父进程 */
-    const useProgressBar = !!process.stderr.isTTY;
-    const progressBar = useProgressBar
-      ? new cliProgress.SingleBar(
-          {
-            format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
-            barCompleteChar: "\u2588",
-            barIncompleteChar: "\u2591",
-            hideCursor: true,
-            clearOnComplete: false, // 保留进度条
-          },
-          cliProgress.Presets.shades_classic
-        )
-      : null;
+    /* stderr 被 pipe 时不画 bar；用文本进度给 sfmc REPL 等父进程 */
+    const progressBar = createTerminalProgress({
+      stream: process.stderr,
+      logger: (msg) => log.info(msg.startsWith("进度") ? `下载${msg.slice(2)}` : msg),
+      format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
+    });
 
     let lastTime = Date.now();
     let lastLoaded = 0;
-    let barStarted = false; // 标记是否已启动
-    let lastLoggedPct = -1;
+    let barStarted = false;
     if (isTaskbarSupported() && process.stdout.isTTY) {
       log.info("检测到 Windows Terminal,任务栏进度已启用 (OSC 9;4)");
     }
@@ -332,28 +327,18 @@ export async function runUpdate(): Promise<number> {
             const dlMb = dl / (1024 * 1024);
             const pct = total > 0 ? (dl / total) * 100 : 0;
 
-            if (progressBar) {
-              if (!barStarted) {
-                progressBar.start(totalMb || 1, 0, { speed: "0 KB/s" });
-                barStarted = true;
-                setTaskbarProgress(0);
-              }
-              progressBar.update(dlMb, { speed: speedStr });
-            } else {
-              const stepped = Math.floor(pct / 5) * 5;
-              if (stepped !== lastLoggedPct && (stepped > lastLoggedPct || pct >= 100)) {
-                lastLoggedPct = stepped;
-                log.info(
-                  `下载进度 ${Math.min(100, Math.round(pct))}% (${dlMb.toFixed(1)}/${totalMb.toFixed(1)} MB) ${speedStr}`
-                );
-              }
+            if (!barStarted) {
+              progressBar.start(totalMb || 1, 0, { speed: "0 KB/s" });
+              barStarted = true;
+              setTaskbarProgress(0);
             }
+            progressBar.update(dlMb, { speed: speedStr });
             setTaskbarProgress(pct);
             lastLoaded = dl;
             lastTime = now;
           },
         });
-        if (progressBar && barStarted) progressBar.stop();
+        if (barStarted) progressBar.stop();
         // 下载完成,任务栏收到 100% 绿条后清掉
         setTaskbarProgress(100);
         clearTaskbarProgress();
@@ -361,9 +346,8 @@ export async function runUpdate(): Promise<number> {
         lastErr = null;
         break;
       } catch (e) {
-        if (progressBar && barStarted) progressBar.stop();
+        if (barStarted) progressBar.stop();
         barStarted = false;
-        lastLoggedPct = -1;
         // 下载失败,任务栏亮红
         setTaskbarProgress(100, "error");
         clearTaskbarProgress();

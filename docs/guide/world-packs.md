@@ -1,8 +1,8 @@
-# 世界资源包管理（`sfmc packs`）
+# 资源包管理（`sfmc packs`）
 
 管理世界目录里的**任意**行为包 / 资源包（第三方 `.mcpack` / `.mcaddon` 等）。
 
-与 [`sfmc pack`](./behavior-pack.md)（模块聚合 BP/RP 的 build/deploy）职责不同，请勿混用。
+与 [`sfmc mod build` / `mod reload`](./behavior-pack.md)（模块聚合 BP/RP）职责不同，请勿混用。
 
 ## 收件箱
 
@@ -33,6 +33,7 @@ flowchart TB
   bump[packs bump RP] --> manifest[header+module version patch++]
   bump --> enableList[同步 world_resource_packs.json]
   beforeStart[BDS beforeStart] --> scan
+  beforeStart --> packUpdate[pack-update check/apply]
   beforeStart --> ensurePacksReady[现有 ensurePacksReady]
 ```
 
@@ -47,14 +48,35 @@ sfmc packs install --inbox
 
 | 命令 | 行为 |
 | ------ | ------ |
-| `packs list [--kind bp\|rp\|all] [--search q]` | 按 BP/RP 分组列表 |
-| `packs search <q>` | 按 name / 文件夹 / uuid 搜索 |
+| `packs list [--kind bp\|rp\|all] [--search q]` | 按 BP/RP 分组列表（BP 行带 `src=cf:…`） |
+| `packs search <q>` | **CurseForge** 远程搜索（需 API Key） |
+| `packs bind <id> <project\|slug\|url>` | 为已装 BP 绑定更新源 |
+| `packs unbind <id>` | 解除绑定 |
+| `packs sources` | 打印配置路径与全部绑定 |
+| `packs check [id]` | 按 BP 版本检查更新（下载比对，不安装） |
+| `packs update <id\|--all>` | 检查并应用更新（同 major 时抬高 RP 版本） |
 | `packs enable \| disable <id>` | id = uuid 或文件夹名；**需重启 BDS 后生效** |
 | `packs bump <id>` | **仅 RP**：`header`/`modules` patch 版本 +1；若已启用则同步 `world_resource_packs.json`；提示重启并重进服 |
-| `packs install [path\|--inbox] [--force]` | 指定路径或扫收件箱 |
+| `packs install [path\|--inbox] [--force]` | 指定路径或扫收件箱；成功后探测 CF 源 |
 | `packs scan [--force] [--dry-run]` | 同启动前收件箱逻辑 |
 | `packs doctor` | 清单缺目录、已装未启用、版本不一致 |
-| `packs path` | 打印 bdsRoot、level、世界包目录、收件箱 |
+| `packs path` | 打印 bdsRoot、level、世界包目录、收件箱、`pack-sources.json` |
+
+## CurseForge 自动更新
+
+配置：`configs/pack-update.json`（模板见 `configs-default/pack-update.json`）。  
+API Key：`providers.curseforge.apiKey` 或环境变量 `CURSEFORGE_API_KEY`。
+
+绑定清单：`<SFMC_ROOT>/packs/pack-sources.json`（可手改 `enabled` / `projectId`）。
+
+| 行为 | 说明 |
+| ------ | ------ |
+| 安装后探测 | 用 BP `manifest.name` 搜索 CF；TTY 确认后写入绑定 |
+| 版本权威 | **只比较 BP** `header.version` |
+| 应用更新 | 同时覆盖配对 BP+RP；同 major 时把 RP 再抬一级（触发客户端刷新）；远程 major 更高则直接覆盖 |
+| BDS 启动 | `checkOnBdsStart` / `applyOnBdsStart` 逐个检查（见配置） |
+
+进度条与 BDS 更新器共用 `@sfmc-bds/sdk/logs` 的 `createTerminalProgress`（日志写行时自动 pause/resume）。
 
 ## 安装即启用
 

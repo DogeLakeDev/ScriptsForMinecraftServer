@@ -11,8 +11,7 @@
 | `logs <svc> [-n N] [-f]` | 推荐使用快捷键 `CTRL + L` |
 | `init` | 重新进入向导 |
 | `update [--check-only]` | 检查或安装 BDS 更新 |
-| `module`/`mod` `list\|install\|build\|…` | （见 [模块](./modules.md)） |
-| `pack` `status\|build\|deploy\|list\|…` | （见 [模块打包](./behavior-pack.md)） |
+| `module`/`mod` `list\|install\|build\|reload\|…` | （见 [模块](./modules.md)） |
 | `packs`/`addon` `list\|scan\|install\|…` | （见 [资源包管理](./world-packs.md)） |
 | `remote enroll\|status\|disable` | 远程控制 |
 
@@ -25,7 +24,7 @@
 3. 不一致则会触发脚本编译，并写入`server-net`权限（若无）
 4. 打印装载摘要；失败则**不**启动 BDS
 
-> 手动编译：`mod build`
+> 手动编译：`mod build`；开发热更：`mod reload`
 
 ## ✈️ 一键启动
 

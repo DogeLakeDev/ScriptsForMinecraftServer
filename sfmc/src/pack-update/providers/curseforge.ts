@@ -1,0 +1,240 @@
+/**
+ * CurseForge Bedrock SourceProvider
+ */
+import { createTerminalProgress } from "@sfmc-bds/sdk/logs";
+import fs from "node:fs";
+import path from "node:path";
+import type {
+  CurseForgeProviderConfig,
+  PackReleaseType,
+  PackSourceProvider,
+  SourceFileRef,
+  SourceSearchHit,
+} from "../types.js";
+
+interface CfMod {
+  id: number;
+  name: string;
+  slug: string;
+  summary?: string;
+  downloadCount?: number;
+  links?: { websiteUrl?: string };
+  classId?: number;
+}
+
+interface CfFile {
+  id: number;
+  displayName: string;
+  fileName: string;
+  downloadUrl?: string | null;
+  fileDate?: string;
+  releaseType?: number;
+  fileStatus?: number;
+}
+
+const RELEASE_MAP: Record<number, PackReleaseType> = {
+  1: "release",
+  2: "beta",
+  3: "alpha",
+};
+
+function releaseRank(t: PackReleaseType | undefined, preferred: PackReleaseType[]): number {
+  if (!t) return 999;
+  const i = preferred.indexOf(t);
+  return i >= 0 ? i : 100 + (t === "release" ? 0 : t === "beta" ? 1 : 2);
+}
+
+export class CurseForgeBedrockProvider implements PackSourceProvider {
+  readonly id = "curseforge" as const;
+  private classIdCache: number | null = null;
+
+  constructor(private readonly cfg: CurseForgeProviderConfig) {}
+
+  isConfigured(): boolean {
+    return !!(this.cfg.enabled && this.cfg.apiKey?.trim());
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      Accept: "application/json",
+      "x-api-key": this.cfg.apiKey.trim(),
+    };
+  }
+
+  private async apiGet<T>(pathname: string, query: Record<string, string | number | undefined>): Promise<T> {
+    if (!this.isConfigured()) {
+      throw new Error("CurseForge API key 未配置（configs/pack-update.json 或 CURSEFORGE_API_KEY）");
+    }
+    const base = this.cfg.baseUrl.replace(/\/$/, "");
+    const url = new URL(`${base}${pathname.startsWith("/") ? pathname : `/${pathname}`}`);
+    for (const [k, v] of Object.entries(query)) {
+      if (v === undefined || v === null || v === "") continue;
+      url.searchParams.set(k, String(v));
+    }
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`CurseForge HTTP ${res.status}: ${body.slice(0, 200)}`);
+    }
+    return (await res.json()) as T;
+  }
+
+  /** 解析 Addon classId（缓存） */
+  async resolveClassId(): Promise<number | null> {
+    if (this.cfg.classId != null) return this.cfg.classId;
+    if (this.classIdCache != null) return this.classIdCache;
+    try {
+      const data = await this.apiGet<{ data: Array<{ id: number; name: string; isClass?: boolean }> }>(
+        "/v1/categories",
+        { gameId: this.cfg.gameId, classesOnly: "true" }
+      );
+      const hit =
+        data.data?.find((c) => /addon/i.test(c.name)) ??
+        data.data?.find((c) => /add-?ons?/i.test(c.name));
+      this.classIdCache = hit?.id ?? null;
+      return this.classIdCache;
+    } catch {
+      return null;
+    }
+  }
+
+  async search(query: string): Promise<SourceSearchHit[]> {
+    const classId = await this.resolveClassId();
+    const data = await this.apiGet<{ data: CfMod[] }>("/v1/mods/search", {
+      gameId: this.cfg.gameId,
+      classId: classId ?? undefined,
+      searchFilter: query,
+      pageSize: this.cfg.pageSize,
+      sortField: 2,
+      sortOrder: "desc",
+    });
+    return (data.data ?? []).map((m) => {
+      const hit: SourceSearchHit = {
+        provider: "curseforge",
+        projectId: m.id,
+        slug: m.slug,
+        name: m.name,
+        summary: m.summary ?? "",
+        websiteUrl: m.links?.websiteUrl ?? `https://www.curseforge.com/minecraft-bedrock/addons/${m.slug}`,
+      };
+      if (typeof m.downloadCount === "number") hit.downloadCount = m.downloadCount;
+      return hit;
+    });
+  }
+
+  async resolveProject(ref: string | number): Promise<SourceSearchHit | null> {
+    if (typeof ref === "number" || /^\d+$/.test(String(ref))) {
+      const id = Number(ref);
+      const data = await this.apiGet<{ data: CfMod }>(`/v1/mods/${id}`, {});
+      const m = data.data;
+      if (!m) return null;
+      const hit: SourceSearchHit = {
+        provider: "curseforge",
+        projectId: m.id,
+        slug: m.slug,
+        name: m.name,
+        summary: m.summary ?? "",
+        websiteUrl: m.links?.websiteUrl ?? `https://www.curseforge.com/minecraft-bedrock/addons/${m.slug}`,
+      };
+      if (typeof m.downloadCount === "number") hit.downloadCount = m.downloadCount;
+      return hit;
+    }
+    const s = String(ref).trim();
+    const urlMatch = s.match(/curseforge\.com\/minecraft-bedrock\/[^/]+\/([^/?#]+)/i);
+    const slug = urlMatch?.[1] ?? s;
+    const hits = await this.search(slug);
+    return hits.find((h) => h.slug === slug) ?? hits[0] ?? null;
+  }
+
+  async getLatestFile(projectId: number): Promise<SourceFileRef | null> {
+    const data = await this.apiGet<{ data: CfFile[] }>(`/v1/mods/${projectId}/files`, {
+      pageSize: 50,
+    });
+    const files = [...(data.data ?? [])];
+    files.sort((a, b) => {
+      const ra = releaseRank(RELEASE_MAP[a.releaseType ?? 1], this.cfg.preferredReleaseTypes);
+      const rb = releaseRank(RELEASE_MAP[b.releaseType ?? 1], this.cfg.preferredReleaseTypes);
+      if (ra !== rb) return ra - rb;
+      const da = a.fileDate ? Date.parse(a.fileDate) : 0;
+      const db = b.fileDate ? Date.parse(b.fileDate) : 0;
+      return db - da;
+    });
+    const best = files[0];
+    if (!best) return null;
+    let downloadUrl = best.downloadUrl ?? "";
+    if (!downloadUrl) {
+      const dl = await this.apiGet<{ data: string }>(`/v1/mods/${projectId}/files/${best.id}/download-url`, {});
+      downloadUrl = dl.data ?? "";
+    }
+    if (!downloadUrl) return null;
+    const out: SourceFileRef = {
+      provider: "curseforge",
+      projectId,
+      fileId: best.id,
+      fileName: best.fileName,
+      displayName: best.displayName,
+      downloadUrl,
+    };
+    if (best.fileDate) out.fileDate = best.fileDate;
+    const rt = RELEASE_MAP[best.releaseType ?? 1];
+    if (rt) out.releaseType = rt;
+    return out;
+  }
+
+  async download(
+    file: SourceFileRef,
+    destPath: string,
+    onProgress?: (dl: number, total: number) => void
+  ): Promise<void> {
+    const bar = createTerminalProgress({
+      stream: process.stderr,
+      format: `下载 ${file.fileName} | {bar} | {percentage}% | {value}/{total} MB | {speed}`,
+    });
+    const res = await fetch(file.downloadUrl, {
+      headers: {
+        ...this.headers(),
+        "x-api-key": this.cfg.apiKey.trim(),
+      },
+      redirect: "follow",
+    });
+    if (!res.ok || !res.body) {
+      throw new Error(`下载失败 HTTP ${res.status}`);
+    }
+    const total = Number(res.headers.get("content-length") ?? 0);
+    const totalMb = total > 0 ? total / (1024 * 1024) : 1;
+    bar.start(totalMb, 0, { speed: "0 KB/s" });
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    let lastTime = Date.now();
+    let lastLoaded = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.byteLength;
+        const now = Date.now();
+        const dt = (now - lastTime) / 1000;
+        const speed = dt > 0 ? (loaded - lastLoaded) / dt : 0;
+        const speedStr =
+          speed > 1024 * 1024
+            ? `${(speed / 1024 / 1024).toFixed(1)} MB/s`
+            : speed > 1024
+              ? `${(speed / 1024).toFixed(1)} KB/s`
+              : `${speed.toFixed(0)} B/s`;
+        bar.update(loaded / (1024 * 1024), { speed: speedStr });
+        onProgress?.(loaded, total);
+        if (dt >= 0.25) {
+          lastTime = now;
+          lastLoaded = loaded;
+        }
+      }
+    } finally {
+      bar.stop();
+    }
+    const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.writeFileSync(destPath, buf);
+  }
+}

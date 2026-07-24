@@ -226,9 +226,11 @@ function createServices(): Record<ServiceName, Service> {
         return null;
       },
       beforeStart: async () => {
-        /* 先装收件箱第三方包，再跑模块聚合闸门 */
+        /* 先装收件箱第三方包，再检查 CF 更新，再跑模块聚合闸门 */
         const { scanAndInstallInbox } = await import("./world-packs.js");
         await scanAndInstallInbox({ interactive: false });
+        const { runPackUpdatesOnBdsStart } = await import("./pack-update/service.js");
+        await runPackUpdatesOnBdsStart();
         const { ensurePacksReady } = await import("./pack-lifecycle.js");
         await ensurePacksReady();
       },
