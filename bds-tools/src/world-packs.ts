@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { copyDirAsync } from "./fsx.js";
 import {
+  bdsWorldLevelDir,
+  bdsWorldsDir,
   disablePackInWorld,
   enablePackInWorld,
   readPackManifestHeader,
@@ -144,8 +146,8 @@ function listPackDirsIn(parent: string): string[] {
 
 /** 扫描世界内已安装 BP/RP 目录 */
 export function listInstalledWorldPacks(bdsRoot: string, levelName: string): InstalledWorldPack[] {
-  const worldRoot = path.join(bdsRoot, "worlds", levelName);
-  const worldsDir = path.join(bdsRoot, "worlds");
+  const worldRoot = bdsWorldLevelDir(bdsRoot, levelName);
+  const worldsDir = bdsWorldsDir(bdsRoot);
   const result: InstalledWorldPack[] = [];
 
   for (const kind of ["behavior", "resource"] as const) {
@@ -351,7 +353,7 @@ export async function enableInstalledPack(opts: {
   info: PackManifestInfo;
 }): Promise<void> {
   await enablePackInWorld({
-    worldsDir: path.join(opts.bdsRoot, "worlds"),
+    worldsDir: bdsWorldsDir(opts.bdsRoot),
     levelName: opts.levelName,
     kind: opts.info.kind,
     packUuid: opts.info.uuid,
@@ -368,7 +370,7 @@ export async function disableInstalledPack(opts: {
   version: [number, number, number];
 }): Promise<void> {
   await disablePackInWorld({
-    worldsDir: path.join(opts.bdsRoot, "worlds"),
+    worldsDir: bdsWorldsDir(opts.bdsRoot),
     levelName: opts.levelName,
     kind: opts.kind,
     packUuid: opts.packUuid,
@@ -382,9 +384,7 @@ export function worldPackParentDir(
   kind: WorldPackKind
 ): string {
   return path.join(
-    bdsRoot,
-    "worlds",
-    levelName,
+    bdsWorldLevelDir(bdsRoot, levelName),
     kind === "behavior" ? "behavior_packs" : "resource_packs"
   );
 }
@@ -404,7 +404,7 @@ export function listWorldEnableListResult(
   levelName: string,
   kind: WorldPackKind
 ): WorldPackListReadResult {
-  return readWorldPackListResult(path.join(bdsRoot, "worlds"), levelName, kind);
+  return readWorldPackListResult(bdsWorldsDir(bdsRoot), levelName, kind);
 }
 
 export function findInstalledPackById(

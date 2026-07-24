@@ -132,7 +132,7 @@ async function main(): Promise<void> {
         ...(rpName ? { rpName } : {}),
         ...(clearRp ? { clearResourcePack: true } : {}),
       });
-      process.stdout.write(`[pack-manager] deployed to ${path.join(bdsRoot, "worlds", level)}\n`);
+      process.stdout.write(`[pack-manager] deployed to ${mod.bdsWorldLevelDir(path.resolve(bdsRoot), level)}\n`);
       return;
     }
     case "enable-pack": {
@@ -168,11 +168,11 @@ async function main(): Promise<void> {
     case "ensure-permission": {
       const bdsRoot = need(args, "bds-root");
       const packId = need(args, "pack-id");
-      const wrote = await mod.ensureConfigPermission(path.resolve(bdsRoot), packId);
+      const root = path.resolve(bdsRoot);
+      const wrote = await mod.ensureConfigPermission(root, packId);
+      const rel = path.relative(root, mod.configPermissionPath(root, packId));
       process.stdout.write(
-        wrote
-          ? `[pack-manager] wrote config/${packId}/permission.json\n`
-          : `[pack-manager] config/${packId}/permission.json already exists — skipped\n`
+        wrote ? `[pack-manager] wrote ${rel}\n` : `[pack-manager] ${rel} already exists — skipped\n`
       );
       return;
     }
