@@ -1,6 +1,6 @@
 # ScriptsForMinecraftServer
 
-> A monorepo for a Minecraft Bedrock Script API (SAPI) behavior pack plus a set of Node.js sidecar services. 22+ business modules collaborate as BP code + Node services; a single SEA executable ships the whole supervisor.
+> A monorepo for a Minecraft Bedrock Script API (SAPI) behavior pack plus a set of Node.js sidecar services. 22+ business modules collaborate as BP code + Node services; the `@sfmc-bds/sfmc` meta package installs the whole supervisor in one command.
 > Bilingual:
 
 [中文版本 →](./README.md)
@@ -9,7 +9,7 @@
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
 [![node](https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![typescript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![sea](https://img.shields.io/badge/SEA-single--executable-FF6B6B?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/api/single-executable-applications.html)
+[![npm](https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@sfmc-bds/sfmc)
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
 [![discord](https://img.shields.io/badge/QQ-QQ--bridge-1E90FF?style=flat-square&logo=tencent-qq)](./qq-bridge)
@@ -21,10 +21,10 @@
 ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface into a complete server-side system:
 
 - **Module-by-package model** — every entry under `modules/packages/<id>/` is a first-class module; modules are registered through `modules/catalog.json` and loaded by `ModuleRegistry`. `type` in the catalog distinguishes `core` (infrastructure) from `feature` (add-on functionality).
-- **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` (SEA CLI).
-- **Single SEA executable** — `dist/sea/sfmc.exe` runs every dispatch mode from one binary.
+- **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` (CLI supervisor).
+- **One-command install** — `npm i -g @sfmc-bds/sfmc` then `sfmc` in an empty directory.
 - **SDK toolkit** `@sfmc-bds/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
-- **Build-time module fetch** — one-shot CLI `tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout). The SEA itself never connects to the network.
+- **Build-time module fetch** — one-shot CLI `tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout).
 
 ## Architecture diagram
 
@@ -61,22 +61,22 @@ flowchart LR
 
 SFMC ships two equivalent on-ramps. Pick whichever feels right.
 
-### ⚡ SEA single-exe (recommended — skip Node entirely)
+### ⚡ npm meta package (recommended)
 
 ```bash
-# 1. Grab sfmc.exe for your platform from GitHub Releases, drop it in an empty dir
-# 2. Self-check
-node tools/check-ootb.mjs            # or just run ./sfmc.exe (auto-init) / ./sfmc.exe init
+# 1. Node.js 22.13+
+node -v
 
-# 3. First launch runs the wizard: pick BDS path / LLBot path / backup dir,
-#    then pick 1+ modules — it auto-installs → builds → deploys to BDS.
-./sfmc.exe                          # alias for sfmc
+# 2. Install + first launch (wizard fills BDS / LLBot / backup paths, then modules)
+npm i -g @sfmc-bds/sfmc
+mkdir my-server && cd my-server
+sfmc
 
-# 4. Once REPL is up, install more modules without restarting BDS:
+# 3. Once REPL is up, install more modules without restarting BDS:
 sfmc> module install <id>
 sfmc> behavior-pack build && behavior-pack deploy
 
-# 5. Bring up everything
+# 4. Bring up everything
 sfmc> start -all
 ```
 
@@ -89,7 +89,7 @@ cd ScriptsForMinecraftServer
 npm install
 
 # 2. Self-check + wizard (fill in BDS / LLBot / backup paths)
-node tools/check-ootb.js
+node tools/check-ootb.mjs
 node sfmc/dist/main.js              # same as sfmc
 
 # 3. Install modules (default: first-party sfmc-modules registry)
@@ -113,7 +113,7 @@ Both paths share the same:
 - `sfmc behavior-pack build/deploy` driven by `bds-tools/pack-manager`.
 - `modules/module-lock.json` for enable/disable state.
 
-The SEA does **not** ship a fixed behavior pack — the BP is assembled live from your enabled modules. Modules not in the first-party registry trigger a yellow "unknown source" warning at boot; verify before trusting.
+The behavior pack is assembled live from your enabled modules — there is no fixed BP shell. Modules not in the first-party registry trigger a yellow "unknown source" warning at boot; verify before trusting.
 
 ## Directory layout
 
@@ -122,7 +122,8 @@ ScriptsForMinecraftServer/
 ├── bds-tools/             BDS auto-update + process manager
 ├── db-server/             SQLite HTTP REST API (port 3001)
 ├── qq-bridge/             QQ bridge (LLBot OneBot 11)
-├── sfmc/                  REPL management CLI (runs through the SEA)
+├── sfmc/                  REPL management CLI
+├── sfmc-meta/             @sfmc-bds/sfmc aggregate package
 ├── remote-controller/     Remote agent
 ├── modules/
 │   ├── catalog.json       22 business module rows
@@ -131,7 +132,6 @@ ScriptsForMinecraftServer/
 │   └── packages/          25 business modules
 ├── tools/                 self-check + build + fetch-module.mjs
 ├── configs-default/       default config JSON
-├── build-sea.mjs          SEA build entry
 └── docs/                  bilingual docs
     ├── user-guide.en.md
     ├── marketplace.en.md
@@ -176,7 +176,7 @@ CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 
 - ✅ **Stage I**: per-module `sapi/manifest.json` + db-server reader
 - ✅ **Stage J**: `shared/*` migrated into `@sfmc-bds/sdk`; 22 modules migrated out
-- ✅ **Stage K**: SEA slim — modules stripped from the SEA, populated by `tools/fetch-module.mjs`
+- ✅ **Stage K**: on-demand modules — populated by `tools/fetch-module.mjs` / `sfmc module install`
 - 🚧 **Stage L**: auto-extract remote zips; `sfmc module install --enable-and-deploy` one-shot
 - 🚧 **Stage M**: module signing / public-key verification (replace plain SHA-256)
 - 🚧 **Stage N+**: service mesh (multi-BDS / cross-node)

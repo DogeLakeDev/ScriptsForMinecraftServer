@@ -16,7 +16,7 @@ import type { QQBridgeConfig } from "./types.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/** 统一通过 SDK 解析项目根:env SFMC_ROOT > __dirname 上溯。SEA / npm 一致。 */
+/** 统一通过 SDK 解析项目根:env SFMC_ROOT > __dirname 上溯。 */
 export const ROOT_DIR: string = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
 export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 

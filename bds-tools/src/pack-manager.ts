@@ -1,23 +1,19 @@
 /**
  * pack-manager.ts — Bedrock 行为包/资源包 装配 + 部署到 BDS 根。
  *
- * 这是 SEA 与 npm 两条用户路径共用的纯函数库:
+ * 纯函数库,两条消费路径:
  *
  *   - 同进程(推荐): sfmc/pack-lifecycle 经 `@sfmc-bds/bds-tools/pack-manager-lib`
  *     直连本模块（DIP）；world-packs 等同理。
  *   - CLI: `cli-pack-manager.js` 仍暴露相同动词，供外部脚本/手工调试；
  *     CLI 只是本库的薄适配，不再是 sfmc 主路径。
  *
- * 关键约束:本文件不允许引 esbuild / 任何 npm-only 包 — SEA 要把它打成 SEA
- * 的一部分内嵌起来,而 SEA 是个单 exe (除 Node 内置 + bds-tools 已有依赖外)。
+ * 约束:本文件不引入 esbuild / 重型 npm-only 包，保持可被 Node 子进程直接加载。
  *
  * 已有依赖 (bds-tools/package.json):
  *   - @sfmc-bds/sdk/logs createTerminalProgress: 进度条（BDS 更新等）
  *   - node-html-parser: changelog 抓取 (本文件用不到)
- *   - jszip: zip 解压(模块 zip / BDS server.zip),与 sfmc/wizard 共享同一个库
- *
- * 没有外部依赖意味着:SEA 静态把 `bds-tools/dist/*` 解压到 exe 旁边即可,
- *不需把 npm 整棵树带进去。
+ *   - jszip: zip 解压(模块 zip / BDS server.zip)
  */
 
 import fs from "node:fs";
@@ -31,7 +27,7 @@ export interface AssembleBehaviorPackOpts {
   srcDir: string;
   /** Output behavior pack directory (created if missing) */
   outDir: string;
-  /** BP 目录名 — SEA 固定 'sfmc-modules', npm 自定义 BP 可改名 */
+  /** BP 目录名 — 默认 'sfmc-modules' */
   projectName: string;
   /** manifest.json 的 header.version [major, minor, patch]; 默认 [1, 0, 0] */
   version?: [number, number, number] | undefined;
@@ -148,7 +144,7 @@ export function hasConfigPermission(bdsRoot: string, bpUuid: string): boolean {
 
 /** 随机生成 BP/RP manifest.json header.uuid (RFC 4122 v4) */
 export function randomUuid(): string {
-  /* crypto.randomUUID 是 Node 19+ 内置,SEA 走 Node 22+,这里直接用 */
+  /* crypto.randomUUID 是 Node 19+ 内置,这里直接用 */
   return crypto.randomUUID();
 }
 
@@ -160,7 +156,7 @@ export function randomUuid(): string {
  * was bundled by esbuild) and write a fresh `manifest.json` + `permissions.json`.
  *
  * The caller is responsible for running esbuild first; pack-manager does not
- * bundle scripts. That decoupling is what lets the SEA ship without esbuild.
+ * bundle scripts. That decoupling keeps pack assembly independent of the bundler.
  */
 export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Promise<AssembleResult> {
   const version = opts.version ?? [1, 0, 0];
@@ -428,7 +424,7 @@ export async function writeResourcePackManifest(
   await fs.promises.writeFile(file, JSON.stringify(manifest, null, 2) + "\n", "utf8");
 }
 
-/* Re-export copyFileAsync so callers (e.g. SEA bundle) can copy icon without
+/* Re-export copyFileAsync so callers can copy icon without
  * pulling in the full fsx surface area. */
 export { copyFileAsync, copyDirAsync };
 

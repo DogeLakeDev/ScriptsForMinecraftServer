@@ -18,7 +18,7 @@
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
 [![node](https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![typescript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![sea](https://img.shields.io/badge/SEA-single--executable-FF6B6B?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/api/single-executable-applications.html)
+[![npm](https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@sfmc-bds/sfmc)
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
 
@@ -47,19 +47,16 @@ flowchart LR
 
 ## ⚡️ 快速开始
 
-### SFMC - SEA(.exe)
-
-[Releases](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases)
-
----
-
-### npm 聚合包
+### npm 聚合包（推荐）
 
 ```bash
-> cd my-server
+> node -v   # 需要 v22.13+
 > npm install -g @sfmc-bds/sfmc
+> mkdir my-server && cd my-server
 > sfmc
 ```
+
+开发者也可克隆本仓 monorepo，见 [安装指南](./docs/guide/install.md)。
 
 ## 📖 快速入门
 
@@ -73,7 +70,7 @@ flowchart LR
 
 * ✅ **Stage I**:per-module `sapi/manifest.json` + db-server reader
 * ✅ **Stage J**:`shared/*` 迁入 `@sfmc-bds/sdk`,22 模块迁出
-* ✅ **Stage K**:SEA slim —— 模块从 SEA 剥离,populate 由 `tools/fetch-module.mjs` 完成
+* ✅ **Stage K**:模块按需安装 —— populate 由 `tools/fetch-module.mjs` / `sfmc module install` 完成
 * 🚧 **Stage L**:模块 zip 自动解压、`sfmc module install --enable-and-deploy` 一条龙
 * 🚧 **Stage M**:模块签名 / 公钥验证(取代纯 SHA-256 指纹)
 * 🚧 **Stage N+**:服务网格(多 BDS 实例 / 跨节点)

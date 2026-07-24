@@ -52,14 +52,7 @@ npm run test    # node --test
 npm run build --workspace @sfmc-bds/cli
 ```
 
-打 SEA：
-
-```bash
-npm run bundle && npm run sea
-# → dist/sea/sfmc.exe
-```
-
-SEA 工作根默认是 **exe 所在目录**（发布：把 exe 放到空目录即可）。仓库内调试 `dist/sea/sfmc.exe` 时请设 `SFMC_ROOT=<repo>`。首次初始化看 `configs/runtime.json#initialized_at`，不是 `db_config.json` 是否存在。
+工作根：monorepo 内为仓根；npm 聚合包安装后为 **cwd**（可用 `SFMC_ROOT` 覆盖）。首次初始化看 `configs/runtime.json#initialized_at`，不是 `db_config.json` 是否存在。
 
 ## 工具链
 

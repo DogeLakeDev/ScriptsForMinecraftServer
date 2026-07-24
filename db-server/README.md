@@ -9,7 +9,7 @@ npm install @sfmc-bds/db-server
 node node_modules/@sfmc-bds/db-server/dist/index.js
 ```
 
-通常由 `@sfmc-bds/cli` 或 SEA 包统一拉起，无需单独安装。
+通常由 `@sfmc-bds/sfmc` / `@sfmc-bds/cli` 统一拉起，无需单独安装。
 
 ## 依赖
 

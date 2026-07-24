@@ -24,7 +24,7 @@
  *   link [id]               无 id：交互选择；有 id：install --link（自动探测旁路 sfmc-modules）
  *   dev                     link + enable + build + deploy 一键本地联调
  *
- * The runtime SEA process never connects to the network for local ops.
+ * The CLI never connects to the network for local ops.
  * `search`/`install`/`uninstall` 需要网络(或本地 cache / --from)。
  * enable/disable go through db-server REST so module-lock.json stays consistent.
  */
@@ -87,7 +87,7 @@ export function moduleUsage(): string {
   });
 }
 
-/** Where modules live on disk. SEA reads this same path at runtime. */
+/** Where modules live on disk. */
 function modulesDir(): string {
   return path.join(ROOT, "modules", "packages");
 }

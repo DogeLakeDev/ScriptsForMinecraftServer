@@ -12,6 +12,8 @@ const DEFAULTS: PackUpdateConfig = {
   applyOnBdsStart: true,
   askConfirmOnBind: true,
   probeSourceAfterInstall: true,
+  /* 探测绑定默认关闭，避免误更新；可在 pack-update.json 改为 true */
+  defaultBindingEnabled: false,
   providers: {
     curseforge: {
       enabled: true,

@@ -12,7 +12,7 @@ ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with f
 | `qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
 | `panel/` | TUI management dashboard | Node.js (Ink) |
 | `BDSTools/` | BDS auto-updater + behavior-pack assembler | Node.js |
-| `sfmc/` | REPL / SEA supervisor / BP build pipeline | Node.js / SEA |
+| `sfmc/` | REPL / CLI supervisor / BP build pipeline | Node.js |
 | `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
 | `modules/sdk/@sfmc-sdk/` | Shared SDK (SAPI/Node umbrella) | consumed by modules |
 

@@ -52,9 +52,6 @@ BDS
 
 test
 
-# SEA single-exe bundle (~100MB) built by `npm run sea` from `dist/sea/`.
-# Exceeds GitHub's 100MB push limit — re-generate locally after clone.
-dist/sea/
 .vscode/
 remote-controller/dist/index.js
 

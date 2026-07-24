@@ -9,10 +9,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path, { dirname } from "node:path";
 import process from "node:process";
-import { isSea } from "node:sea";
 import { fileURLToPath } from "node:url";
-
-export const IS_SEA: boolean = typeof isSea === "function" && isSea();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,7 +27,6 @@ export function isMonorepoLayout(root: string): boolean {
 }
 
 function detectFallbackRoot(): string {
-  if (IS_SEA) return path.dirname(process.execPath);
   const monoCandidate = path.resolve(__dirname, "..", "..");
   if (isMonorepoLayout(monoCandidate)) return monoCandidate;
   /* npm 安装:@sfmc-bds/sfmc 包装器会设 SFMC_ROOT;裸跑 cli 时用 cwd 作数据根 */
@@ -39,7 +35,6 @@ function detectFallbackRoot(): string {
 
 /**
  * 项目根目录。优先级:`process.env.SFMC_ROOT` > fallback。
- * - SEA:exe 所在目录
  * - monorepo:`sfmc/` 上一级
  * - npm 聚合包 / 全局安装:cwd(配置与数据落在当前目录)
  */
@@ -273,7 +268,7 @@ export function seedMissingConfigsFromDefaults(rootDir: string = ROOT): string[]
 }
 
 function nodeBinary(): string {
-  return IS_SEA ? "node" : process.execPath;
+  return process.execPath;
 }
 
 function serviceChildEnv(service: ServiceId, optsEnv?: NodeJS.ProcessEnv | null) {

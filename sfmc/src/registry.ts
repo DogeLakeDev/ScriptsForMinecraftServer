@@ -8,7 +8,7 @@
  * with a 1h TTL so a brief network blip doesn't degrade the CLI.
  *
  * Both helpers are best-effort: failures are surfaced as `null` and a
- * console warning, never an exception, because the SEA must still boot
+ * console warning, never an exception, because the CLI must still boot
  * when the registry is unreachable.
  */
 
@@ -145,7 +145,7 @@ export async function findUnknownModules(installedIds: string[]): Promise<string
   const { index, stale } = await resolveRegistryIndex();
   if (stale && Object.keys(index).length === 0) {
     /* No cache either — silently treat every module as "we couldn't tell".
-     * Otherwise an offline SEA would scream warnings at every boot. */
+     * Otherwise offline mode would scream warnings at every boot. */
     return [];
   }
   return installedIds.filter((id) => !index[id]);

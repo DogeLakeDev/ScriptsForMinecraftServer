@@ -1,12 +1,12 @@
 name: npm-publish
 
-# 按包 tag 触发 npm 发布，与 release.yml（SEA / v*）互不干扰。
+# 按包 tag 触发 npm 发布。
 # 示例: git tag @sfmc-bds/sdk@v0.1.0 && git push origin @sfmc-bds/sdk@v0.1.0
 # 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
 
 on:
   # GitHub tag glob 对含 / 与 @ 的 scoped tag 极不稳定；用 ** 接住全部 tag，
-  # 再在 job 级 if 收窄到 @sfmc-bds/（避免误跑 SEA 的 v*）。
+  # 再在 job 级 if 收窄到 @sfmc-bds/。
   push:
     tags:
       - "**"

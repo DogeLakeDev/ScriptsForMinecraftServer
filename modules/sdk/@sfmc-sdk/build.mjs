@@ -15,8 +15,7 @@
  *     - contracts / logs / sapi/sdk / sapi/runtime
  *       （contracts 现仅含 module catalog/lock）
  *
- * @minecraft/* 始终 external,留给 BP 构建时由 `sfmc behavior-pack build`
- * (或 SEA 内嵌 esbuild)那一侧解析。
+ * @minecraft/* 始终 external,留给 BP 构建时由 `sfmc behavior-pack build` 那一侧解析。
  *
  * 步骤:
  *   1) esbuild 各子路径产 ESM bundle → dist/esm/<subpath>/index.js

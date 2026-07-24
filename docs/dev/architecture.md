@@ -63,7 +63,7 @@ ModuleRegistry.register({
 | `db-server/` | REST + SQLite |
 | `qq-bridge/` | QQ WS 入口 |
 | `bds-tools/` | BDS 更新、pack-manager |
-| `sfmc/` | CLI / REPL / SEA |
+| `sfmc/` | CLI / REPL / supervisor |
 | `remote-controller/` | 远程控制 |
 | `tools/` | 自检、fetch、catalog |
 

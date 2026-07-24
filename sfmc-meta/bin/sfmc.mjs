@@ -12,7 +12,7 @@ function resolved(specifier) {
   return fileURLToPath(import.meta.resolve(specifier));
 }
 
-/* Data/config root = cwd unless caller already set SFMC_ROOT (SEA / isolation). */
+/* Data/config root = cwd unless caller already set SFMC_ROOT (isolation / tests). */
 if (!process.env.SFMC_ROOT) {
   process.env.SFMC_ROOT = process.cwd();
 }

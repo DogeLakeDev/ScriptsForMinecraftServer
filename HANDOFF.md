@@ -90,7 +90,7 @@ Per the user's directives:
 | Restore land's economy refs (`requires:[feature-economy]`, `permission:service:economy.account`, `tx.call('economy.debit')`) | When `feature-economy` lands in v2 (Wave 3) |
 | Restore feature-spawn-protect etc. to enabled=true by default | After smoke proves all 19 stable |
 | Publish `@sfmc-bds/sdk` to npm | Currently local-only. `npm publish` from `modules/sdk/@sfmc-sdk` once release-ready |
-| `npm run bundle` SEA build verification | Make sure new SDK subpaths land in SEA bundle |
+| `npm run build --workspaces` after SDK export changes | Keep CLI / db-server / bds-tools in sync with new subpaths |
 
 ---
 
@@ -307,7 +307,7 @@ D:/#WorkPlace/sfmc-modules/           ← LOCAL SKELETON, pushed to https://gith
 - **`where: undefined` causes TypeError**: SDK strict-types — pass `null` or omit entirely.
 - **`tx.call("svc.name", ...)` returns "service not registered"**: target service's module is enabled but hasn't reached the `service.provide(...)` init phase yet. Wait for afterWorldLoad = false modules to finish init. Restart is safe.
 - **esbuild during BP build complains `Could not resolve "@sfmc-bds/sdk/..."`**: main repo's `modules/sdk/@sfmc-sdk/package.json` exports field missing the subpath. Add to `"exports"` map.
-- **SEA bundle still imports v1 routes**: dispatcher's `module-require` resolver not picking up new v2 service handlers. Check `sfmc/dist/module-commands.js` for stale imports.
+- **stale module-commands after SDK change**: rebuild `@sfmc-bds/cli` (`npm run build --workspace @sfmc-bds/cli`) and check `sfmc/dist/module-commands.js`.
 
 ---
 

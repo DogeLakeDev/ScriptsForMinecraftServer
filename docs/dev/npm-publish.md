@@ -1,6 +1,6 @@
 # npm 发布指南
 
-> SFMC 平台拆分为多个 `@sfmc-bds/*` scoped 包，各包独立 semver。服主仍以 [GitHub Releases SEA](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases) 为主；npm 主要面向模块作者与 Node 侧集成。
+> SFMC 平台拆分为多个 `@sfmc-bds/*` scoped 包，各包独立 semver。服主推荐安装聚合包 `@sfmc-bds/sfmc`；其余包面向模块作者与 Node 侧集成。
 
 ## 包清单
 
@@ -89,4 +89,4 @@ npm publish --workspace @sfmc-bds/module-land --access public
 
 - 各包 **独立 semver**，首发均为 `0.1.0`
 - 平台组件对 SDK 使用 `"@sfmc-bds/sdk": "^0.1.0"`；monorepo 内 workspace 链接自动覆盖
-- SEA 发布仍走 `v*` tag（`release.yml`），与 npm tag 分离
+- 发布走 scoped tag（如 `@sfmc-bds/sdk@v0.1.0`），由 `npm-publish.yml` 触发

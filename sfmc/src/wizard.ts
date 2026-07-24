@@ -1,5 +1,4 @@
 import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
-import { extractZipBufferToDir } from "@sfmc-bds/bds-tools/zipx";
 import {
   configPath,
   modulePath,
@@ -13,10 +12,9 @@ import {
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { getAsset } from "node:sea";
 import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
 import { persistLocale, t, type Locale } from "./i18n/index.js";
-import { IS_SEA, ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, seedMissingConfigsFromDefaults, spawnService } from "./runtime.js";
+import { ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, seedMissingConfigsFromDefaults, spawnService } from "./runtime.js";
 import { c } from "./theme.js";
 
 /** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */
@@ -37,14 +35,14 @@ async function waitForHealth(port: number, ms = 15000): Promise<boolean> {
   return false;
 }
 
-/** SEA asset: { zipBaseName, targetDirRelative, SEA_asset_name } */
-const ASSETS = [
-  { target: "configs", npmTarget: "configs", asset: "configs_default" },
-  { target: "modules", npmTarget: "modules", asset: "modules" },
+/** 运行时必需目录探测(configs / modules) */
+const RUNTIME_DIRS = [
+  { target: "configs", npmTarget: "configs" },
+  { target: "modules", npmTarget: "modules" },
 ] as const;
 
 function missingRuntimeAssets(rootDir: string): string[] {
-  return ASSETS.flatMap(({ target, npmTarget }) => {
+  return RUNTIME_DIRS.flatMap(({ target, npmTarget }) => {
     const directory = path.join(rootDir, npmTarget);
     try {
       return fs.statSync(directory).isDirectory() && fs.readdirSync(directory).length > 0 ? [] : [target];
@@ -70,28 +68,6 @@ async function runBdsUpdate(rootDir: string, channel: string): Promise<{ code: n
 }
 
 async function prepareRuntimeAssets(rootDir: string): Promise<void> {
-  if (IS_SEA) {
-    await tasks([
-      {
-        title: t("wizard.extractAssets"),
-        task: async (message) => {
-          for (const { target, asset } of ASSETS) {
-            message(t("wizard.extracting", { target }));
-            const assetBuffer = getAsset(asset);
-            if (!assetBuffer) throw new Error(t("wizard.assetMissing", { asset }));
-
-            const destDir = path.join(rootDir, target);
-            if (!ensureDirectory(destDir)) throw new Error(t("wizard.cannotCreateAssetDir", { dir: destDir }));
-            // 安全解压委托 bds-tools/zipx（与 world-packs / check-update 同一权威）
-            await extractZipBufferToDir(Buffer.from(assetBuffer), destDir);
-          }
-          return t("wizard.assetsExtracted");
-        },
-      },
-    ]);
-    return;
-  }
-
   /* monorepo 布局：configs/ modules/ 应由 npm 工作区已提供 */
   if (isMonorepoLayout(rootDir)) {
     const missing = missingRuntimeAssets(rootDir);

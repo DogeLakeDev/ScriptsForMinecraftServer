@@ -1,5 +1,0 @@
-{
-  "main": "dist/sea/dispatcher.mjs",
-  "output": "dist/sea/sfmc.exe",
-  "mainFormat": "module"
-}

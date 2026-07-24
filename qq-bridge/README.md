@@ -9,7 +9,7 @@ npm install @sfmc-bds/qq-bridge
 node node_modules/@sfmc-bds/qq-bridge/dist/index.js
 ```
 
-通常由 `@sfmc-bds/cli` 或 SEA 包统一拉起。
+通常由 `@sfmc-bds/sfmc` / `@sfmc-bds/cli` 统一拉起。
 
 ## 依赖
 

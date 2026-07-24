@@ -9,7 +9,7 @@ npm workspaces monorepo (root `package.json` has `workspaces`):
 | `db-server/` | SQLite HTTP REST backend (plain `node:http` + `node:sqlite`) | Node.js >=22.13 |
 | `qq-bridge/` | QQ bridge (LLBot OneBot 11, WS 3002) | Node.js |
 | `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
-| `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js, can SEA-bundle |
+| `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js |
 | `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
 | `modules/sdk/@sfmc-sdk/` | Shared SDK consumed by modules | mixed |
 | `shared/sfmc-logs/` | Shared logging library `@sfmc-bds/logs` | Node.js |
@@ -51,8 +51,6 @@ bundles them in one go. To make changes load, run `build && deploy` and restart 
 npm run start       # node index.js → sfmc CLI
 npm run build       # npm run build --workspaces
 npm run lint        # eslint . --ext .ts,.tsx
-npm run bundle      # node build-sea.mjs (esbuild SEA bundle)
-npm run sea         # node --build-sea sea-config.json (inject SEA blob)
 ```
 
 To build all workspaces: `npm run build`.
@@ -96,15 +94,6 @@ node index.js update        # BDS update
 
 Services managed by `SFMC_SERVICE` env: `db`, `qq`, `update`, `manager`.
 
-### SEA single-exe build
-
-```bash
-npm run bundle   # esbuild bundle sfmc/src/dispatcher.ts → dist/sea/dispatcher.mjs
-npm run sea      # inject into node binary → dist/sea/sfmc.exe
-```
-
-CI builds for win/linux/macos on `v*` tags.
-
 ## Module system
 
 Source of truth: `modules/catalog.json` (local mirror projected from installed packages) + `modules/module-lock.json` (enable state). Business modules live in `Tanya7z/sfmc-modules` and are installed via `tools/fetch-module.mjs`.
@@ -123,7 +112,7 @@ Runtime wiring: `modules/sdk/@sfmc-sdk/src/module-loader/`. To add a module:
 
 ## Configuration model (no hot-reload)
 
-Plain JSON under `configs/` (defaults in `configs-default/` for SEA bundling). No SQLite for configs.
+Plain JSON under `configs/` (defaults in `configs-default/`). No SQLite for configs.
 
 - db-server reads `configs/db_config.json` + `configs/qq_config.json` directly at startup
 - SAPI calls `GET /api/sfmc/configs/all` once via `ConfigManager.init()`, caches in memory for process lifetime
@@ -196,7 +185,7 @@ node tools/fetch-module.mjs install <id>
 2. `node tools/check-ootb.mjs`
 3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.mjs`
 
-`.github/workflows/release.yml` — on `v*` tags: builds SEA exe for win/linux/macos + publishes npm.
+`.github/workflows/npm-publish.yml` — on scoped package tags (e.g. `@sfmc-bds/sdk@v0.1.0`): publishes npm packages listed in `tools/lib/npm-publish-packages.mjs`.
 
 ## Prettier
 

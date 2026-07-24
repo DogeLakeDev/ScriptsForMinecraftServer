@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const SCRIPT_DIR: string = path.dirname(__filename);
-/** 项目根目录:bds-tools 的上一级。统一通过 SDK 解析,SEA / npm 一致。 */
+/** 项目根目录:bds-tools 的上一级。统一通过 SDK 解析。 */
 export const ROOT_DIR: string = resolveRuntimeRoot(path.resolve(SCRIPT_DIR, "..", ".."));
 export const CFG_PATH: string = configPath(ROOT_DIR, "bds_updater.json");
 export const LOG_PATH: string = path.join(SCRIPT_DIR, "update.log");

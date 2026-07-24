@@ -14,9 +14,9 @@
  *   node bds-tools/dist/pack-manager.js has-pack      --worlds-dir <dir> --level <name> --kind behavior|resource --pack-id <uuid>
  *   node bds-tools/dist/pack-manager.js list-packs    --worlds-dir <dir> --level <name> --kind behavior|resource
  *
- * The pure-function API lives in pack-manager.ts. This CLI exists so the
- * SEA-launched child process doesn't have to deal with module resolution —
- * it just gets spawnService-injected SFMC_ROOT, finds its own dist sibling,
+ * The pure-function API lives in pack-manager.ts. This CLI exists so a
+ * spawnService child process doesn't have to deal with module resolution —
+ * it just gets SFMC_ROOT injected, finds its own dist sibling,
  * and reads JSON flags from argv.
  */
 
