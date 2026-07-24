@@ -10,10 +10,9 @@
 import {
   configPath,
   DEFAULT_QQ_CONFIG,
-  ensureJsonConfig,
-  readJson,
+  loadEnsuredConfig,
   resolveRuntimeRoot,
-  withConfigSchema,
+  stripConfigMeta,
 } from "@sfmc-bds/sdk/node/config";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,28 +27,29 @@ export const ROOT_DIR: string = resolveRuntimeRoot(resolve(__dirname, "..", ".."
 export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 
 function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
+  /* 以 SDK DEFAULT_QQ_CONFIG 为唯一缺省权威（DRY/LSP），再叠运行时派生字段 */
+  const merged = { ...DEFAULT_QQ_CONFIG, ...raw } as Partial<QQBridgeConfig> & Record<string, unknown>;
+  const stripped = stripConfigMeta(merged);
   return {
-    qq_enabled: raw.qq_enabled !== false,
-    qq_ws_port: parseInt(String(raw.qq_ws_port ?? "3002"), 10),
-    qq_group_id: String(raw.qq_group_id ?? ""),
-    bridge_channel_id: String(raw.bridge_channel_id ?? ""),
-    db_host: String(raw.db_host ?? "127.0.0.1"),
-    db_port: parseInt(String(raw.db_port ?? "3001"), 10),
-    mctoqq_prefix: String(raw.mctoqq_prefix ?? "[MC]"),
-    ...raw,
+    qq_enabled: stripped.qq_enabled !== false,
+    qq_ws_port: parseInt(String(stripped.qq_ws_port ?? DEFAULT_QQ_CONFIG.qq_ws_port ?? 3002), 10),
+    qq_group_id: String(stripped.qq_group_id ?? DEFAULT_QQ_CONFIG.qq_group_id ?? "0"),
+    bridge_channel_id: String(stripped.bridge_channel_id ?? DEFAULT_QQ_CONFIG.bridge_channel_id ?? ""),
+    db_host: String(stripped.db_host ?? "127.0.0.1"),
+    db_port: parseInt(String(stripped.db_port ?? "3001"), 10),
+    mctoqq_prefix: String(stripped.mctoqq_prefix ?? DEFAULT_QQ_CONFIG.mctoqq_prefix ?? "[MC]"),
+    ...stripped,
   };
 }
 
 function readFromDisk(): QQBridgeConfig {
-  ensureJsonConfig(
+  const raw = loadEnsuredConfig(
     ROOT_DIR,
     "qq_config.json",
-    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
+    "qq_config",
+    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
   );
-  const raw = readJson<Partial<QQBridgeConfig>>(CFG_PATH);
-  if (!raw) throw new Error(`配置文件不存在或无法解析: ${CFG_PATH}`);
-  const { $schema: _s, ...rest } = raw as Partial<QQBridgeConfig> & { $schema?: string };
-  return applyDefaults(rest);
+  return applyDefaults(raw as Partial<QQBridgeConfig>);
 }
 
 /** 进程启动时加载一次。失败直接退出,与旧实现一致。 */

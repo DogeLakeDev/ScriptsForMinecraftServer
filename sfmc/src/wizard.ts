@@ -1,12 +1,7 @@
 import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
 import {
   configPath,
-  DEFAULT_BDS_UPDATER_CONFIG,
-  DEFAULT_DB_CONFIG,
-  DEFAULT_PERMISSIONS,
-  DEFAULT_QQ_CONFIG,
-  ensureJson,
-  ensureJsonConfig,
+  ensureCoreConfigs,
   modulePath,
   patchJson as patchConfig,
   readJson,
@@ -90,22 +85,7 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
 
 /** 非 monorepo 的 npm 安装布局：ensure 配置骨架 + 空 modules */
 function seedNpmRuntimeLayout(rootDir: string): void {
-  ensureJsonConfig(
-    rootDir,
-    "db_config.json",
-    withConfigSchema({ ...DEFAULT_DB_CONFIG } as Record<string, unknown>, "db_config")
-  );
-  ensureJsonConfig(
-    rootDir,
-    "qq_config.json",
-    withConfigSchema({ ...DEFAULT_QQ_CONFIG } as Record<string, unknown>, "qq_config")
-  );
-  ensureJsonConfig(
-    rootDir,
-    "bds_updater.json",
-    withConfigSchema({ ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>, "bds_updater")
-  );
-  ensureJson(configPath(rootDir, "permissions.json"), DEFAULT_PERMISSIONS);
+  ensureCoreConfigs(rootDir, ["db_config", "qq_config", "bds_updater", "permissions"]);
   /* pack-update 的 ensure 使用 runtime ROOT；npm 布局下应与 rootDir 一致 */
   if (path.resolve(rootDir) === path.resolve(ROOT)) {
     ensurePackUpdateConfigFile();
