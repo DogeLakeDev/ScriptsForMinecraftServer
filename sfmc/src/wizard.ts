@@ -86,10 +86,8 @@ async function prepareRuntimeAssets(rootDir: string): Promise<void> {
 /** 非 monorepo 的 npm 安装布局：ensure 配置骨架 + 空 modules */
 function seedNpmRuntimeLayout(rootDir: string): void {
   ensureCoreConfigs(rootDir, ["db_config", "qq_config", "bds_updater", "permissions"]);
-  /* pack-update 的 ensure 使用 runtime ROOT；npm 布局下应与 rootDir 一致 */
-  if (path.resolve(rootDir) === path.resolve(ROOT)) {
-    ensurePackUpdateConfigFile();
-  }
+  /* pack-update 与其它核心配置一样按 rootDir ensure（DIP，不再要求 rootDir===ROOT） */
+  ensurePackUpdateConfigFile(rootDir);
 
   const modulesRoot = path.join(rootDir, "modules");
   const packagesDir = path.join(modulesRoot, "packages");

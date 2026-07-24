@@ -97,6 +97,11 @@ function isWritableTty(stream: NodeJS.WritableStream): boolean {
   return !!(stream as WriteStream).isTTY;
 }
 
+/** 进度总量下限为 1，避免除零（start / setTotal 共用 — DRY） */
+function normalizePositiveTotal(t: number): number {
+  return t > 0 ? t : 1;
+}
+
 /** 下载速度文案（BDS / CF 等共用，避免各处复制阈值分支） */
 export function formatDownloadSpeed(bytesPerSec: number): string {
   const speed = Number.isFinite(bytesPerSec) ? Math.max(0, bytesPerSec) : 0;
@@ -248,7 +253,7 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
     },
     start(t, startValue = 0, p = {}) {
       stopped = false;
-      total = t > 0 ? t : 1;
+      total = normalizePositiveTotal(t);
       value = startValue;
       payload = { speed: "", ...p };
       started = true;
@@ -263,7 +268,7 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
     },
     setTotal(t) {
       if (!started || stopped) return;
-      total = t > 0 ? t : 1;
+      total = normalizePositiveTotal(t);
       /* 刻度变更后允许按新百分比再出帧（含从错误占位%回落到真实%） */
       lastLoggedPct = -1;
       if (useBar) {

@@ -14,9 +14,8 @@ const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-upd-cfg-"));
 process.env.SFMC_ROOT = tmpRoot;
 fs.mkdirSync(path.join(tmpRoot, "configs"), { recursive: true });
 
-const { loadPackUpdateConfig, getPackMatchConfig } = await import(
-  pathToFileURL(path.resolve("dist/pack-update/config.js")).href
-);
+const { loadPackUpdateConfig, getPackMatchConfig, ensurePackUpdateConfigFile, packUpdateConfigPath } =
+  await import(pathToFileURL(path.resolve("dist/pack-update/config.js")).href);
 const { providerShortLabel, resolveConfiguredPackProvider, createPackSourceProvider } = await import(
   pathToFileURL(path.resolve("dist/pack-update/providers/index.js")).href
 );
@@ -40,6 +39,38 @@ describe("pack-update config + provider resolve", () => {
     const cfg = loadPackUpdateConfig();
     assert.equal(cfg.defaultBindingEnabled, false);
     assert.equal(typeof cfg.match.nameMinScore, "number");
+  });
+
+  it("ensurePackUpdateConfigFile(root) 不依赖模块级 ROOT（DIP）", () => {
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-upd-other-"));
+    try {
+      const dest = ensurePackUpdateConfigFile(other);
+      assert.equal(dest, packUpdateConfigPath(other));
+      assert.ok(fs.existsSync(dest));
+      const raw = JSON.parse(fs.readFileSync(dest, "utf8"));
+      assert.equal(typeof raw.$schema, "string");
+      assert.ok(String(raw.$schema).includes("pack_update.schema.json"));
+      assert.equal(raw.defaultBindingEnabled, false);
+    } finally {
+      fs.rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  it("load 经 stripConfigMeta 剥 $schema/_comment（LSP）", () => {
+    const cfgPath = path.join(tmpRoot, "configs", "pack-update.json");
+    fs.writeFileSync(
+      cfgPath,
+      JSON.stringify({
+        $schema: "../node_modules/@sfmc-bds/sdk/schemas/pack_update.schema.json",
+        _comment: "seed",
+        defaultBindingEnabled: true,
+      }),
+      "utf8"
+    );
+    const cfg = loadPackUpdateConfig(tmpRoot);
+    assert.equal(cfg.defaultBindingEnabled, true);
+    assert.equal("$schema" in cfg, false);
+    assert.equal("_comment" in cfg, false);
   });
 
   it("旧版 providers.curseforge.match 提升到顶层 match", () => {

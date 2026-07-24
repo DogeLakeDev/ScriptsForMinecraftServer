@@ -1,9 +1,12 @@
 /**
  * pack-update 配置加载
  */
-import { withConfigSchema } from "@sfmc-bds/sdk/node/config";
-import fs from "node:fs";
-import path from "node:path";
+import {
+  configPath,
+  ensureSchemaConfig,
+  readJson,
+  stripConfigMeta,
+} from "@sfmc-bds/sdk/node/config";
 import { ROOT } from "../runtime.js";
 import type { CurseForgeProviderConfig, PackUpdateConfig, PackUpdateMatchConfig } from "./types.js";
 
@@ -63,8 +66,9 @@ function deepMerge<T extends Record<string, unknown>>(base: T, over: Partial<T>)
   return out;
 }
 
-export function packUpdateConfigPath(): string {
-  return path.join(ROOT, "configs", "pack-update.json");
+/** 解析 pack-update.json 路径（DIP：接受 root，勿写死模块级 ROOT） */
+export function packUpdateConfigPath(root: string = ROOT): string {
+  return configPath(root, "pack-update.json");
 }
 
 /**
@@ -89,18 +93,10 @@ function hoistLegacyMatch(raw: Record<string, unknown>): PackUpdateMatchConfig |
   ) as unknown as PackUpdateMatchConfig;
 }
 
-export function loadPackUpdateConfig(): PackUpdateConfig {
-  const cfgPath = packUpdateConfigPath();
-  let raw: Record<string, unknown> = {};
-  if (fs.existsSync(cfgPath)) {
-    try {
-      raw = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<string, unknown>;
-    } catch {
-      raw = {};
-    }
-  }
-
-  delete raw.$schema;
+export function loadPackUpdateConfig(root: string = ROOT): PackUpdateConfig {
+  const cfgPath = packUpdateConfigPath(root);
+  /* 与平台其它配置一致：经 stripConfigMeta 剥 $schema/_comment（DRY/LSP），勿手写 delete */
+  const raw = stripConfigMeta(readJson<Record<string, unknown>>(cfgPath, {}) ?? {});
 
   const legacyMatch = hoistLegacyMatch(raw);
   const merged = deepMerge(
@@ -134,12 +130,14 @@ export function getPackMatchConfig(cfg: PackUpdateConfig): PackUpdateMatchConfig
 
 /**
  * 确保 configs/pack-update.json 存在；缺失则写入内置 DEFAULTS + $schema。
+ * 走 SDK ensureSchemaConfig（DRY）；root 可注入（DIP，供 wizard 任意 rootDir）。
  */
-export function ensurePackUpdateConfigFile(): string {
-  const dest = packUpdateConfigPath();
-  if (fs.existsSync(dest)) return dest;
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const seeded = withConfigSchema({ ...DEFAULTS } as unknown as Record<string, unknown>, "pack_update");
-  fs.writeFileSync(dest, `${JSON.stringify(seeded, null, 2)}\n`, "utf8");
-  return dest;
+export function ensurePackUpdateConfigFile(root: string = ROOT): string {
+  ensureSchemaConfig(
+    root,
+    "pack-update.json",
+    "pack_update",
+    { ...DEFAULTS } as Record<string, unknown>
+  );
+  return packUpdateConfigPath(root);
 }
