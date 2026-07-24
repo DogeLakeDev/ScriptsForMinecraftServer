@@ -16,10 +16,11 @@ bds-tools/node_modules/
 panel/node_modules/
 
 db-server/*.log
+# 遗留：旧版落在 bds-tools/ 的运行态（已迁到 <ROOT>/.sfmc/）
 bds-tools/update.log
 bds-tools/.version_cache.json
-
-panel/*.log
+bds-tools/.bds.pid
+bds-tools/.last_update_rollback.json
 
 tools/.sim-workspace/
 tools/.sim-workspace.bak/
@@ -32,8 +33,8 @@ tools/.sfmc-registry-cache.json
 # Proactive-agent credentials (security-audit.sh)
 .credentials/
 
-bds-tools\.bds.pid
-bds-tools\.version_cache.json
+# BDS 更新器运行态（回滚标记 / PID / log / version cache）
+.sfmc/
 
 memory/
 data/
@@ -46,15 +47,13 @@ data/
 /modules/module-lock.json
 # 遗留聚合 manifest 目录（已由各包 sapi/manifest.json 取代）
 /modules/_manifests/
-.workbuddy/
 
-BDS
-
+.cursor/
 test
 
 !.vscode/settings.json
 remote-controller/dist/index.js
 
-# 行为包/资源包本地装配产物(sfmc pack build / mod build)
-/build/
-.cursor/
+# 测试环境下产物
+
+/packs/

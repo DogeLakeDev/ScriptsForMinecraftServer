@@ -13,7 +13,10 @@
 | 待装文件/目录 | `.zip` / `.mcpack` / `.mcaddon` / 含 `manifest.json` 的文件夹（可嵌套，扫描深度 2） |
 | `_done/` | 安装成功后的源归档 |
 | `_failed/` | 识别失败或安装失败 |
+| `_trash/` | **卸载回收站**（`packs uninstall` 默认移入此处） |
+| `_build/` | 模块聚合 BP/RP 构建产物（原根目录 `build/`） |
 | `inbox-state.json` | 源指纹 → 已装 uuid，防重复 |
+| `pack-sources.json` | CF 等更新源绑定 |
 
 `start bds` 前会自动 `scan` 收件箱（空收件箱不打日志）。也可手动：
 
@@ -56,6 +59,7 @@ sfmc packs install --inbox
 | `packs check [id]` | 按 BP 版本检查更新（下载比对，不安装） |
 | `packs update <id\|--all>` | 检查并应用更新（同 major 时抬高 RP 版本） |
 | `packs enable \| disable <id>` | id = uuid 或文件夹名；**需重启 BDS 后生效** |
+| `packs uninstall <id> [--purge] [--no-paired]` | 卸出世界：disable + 移入 `packs/_trash`（或 `--purge` 直接删）；BP 默认连带配对 RP |
 | `packs bump <id>` | **仅 RP**：`header`/`modules` patch 版本 +1；若已启用则同步 `world_resource_packs.json`；提示重启并重进服 |
 | `packs install [path\|--inbox] [--force]` | 指定路径或扫收件箱；成功后探测 CF 源 |
 | `packs scan [--force] [--dry-run]` | 同启动前收件箱逻辑 |
@@ -71,6 +75,29 @@ sfmc packs install --inbox
 配置：`configs/pack-update.json`（首次由 sfmc ensure 写入内置默认）。  
 绑定：`packs/pack-sources.json`。  
 进度条与 BDS 更新器共用 `@sfmc-bds/sdk/logs` 的 `createTerminalProgress`。
+
+## 卸载清理范围
+
+`packs uninstall` 相对 `install` 的对称清理：
+
+| 清理项 | 是否处理 | 说明 |
+|--------|----------|------|
+| `world_*_packs.json` enable 条目 | ✅ | 先 disable |
+| 世界内 BP/RP 目录 | ✅ | 默认**移入** `packs/_trash`；`--purge` 或 `uninstall.recycleBin=false` 则直接删除 |
+| 配对 RP（卸 BP 时） | ✅ 默认 | 来自 `pack-sources` 的 `pairedResourceUuid` 或 BP `dependencies`；`--no-paired` 跳过 |
+| `packs/pack-sources.json` 绑定 | ✅（卸 BP） | `removeBinding` |
+| `packs/inbox-state.json` | ✅ | 去掉指向该 uuid 的指纹条目 |
+| `packs/_done` 里的源归档 | ❌ | 保留作历史；与世界目录无关 |
+| `sfmc-modules` / `sfmc-modules-rp` | ❌ 拒绝 | 平台聚合包，用 `sfmc mod` |
+
+配置（`configs/pack-update.json`）：
+
+```json
+"uninstall": {
+  "recycleBin": true,
+  "trashRelativeDir": "packs/_trash"
+}
+```
 
 ## 安装即启用
 

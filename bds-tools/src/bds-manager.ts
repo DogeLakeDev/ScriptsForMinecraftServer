@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { isMainModule } from "./is-main.js";
-import { loadConfig, PID_FILE } from "./paths.js";
+import { ensureStateDir, loadConfig, PID_FILE } from "./paths.js";
 import { log } from "./log.js";
 import { ensureEmitServerTelemetry } from "./server-properties.js";
 
@@ -56,6 +56,7 @@ function readPid(): number {
 
 function writePid(pid: number): void {
   try {
+    ensureStateDir();
     fs.writeFileSync(PID_FILE, String(pid));
   } catch {
     /* ignore */

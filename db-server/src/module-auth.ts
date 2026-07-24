@@ -4,15 +4,15 @@
  * 两套并存:
  *   - `env.AUTH_TOKEN` (config db_config.json http_auth):sfmc 管控 / 平台内部用
  *   - `moduleTokens[moduleId]`:db-server 给每个 enabled 模块在启动时派生,
- *     写到 data/module-tokens.json,SAPI host-bootstrap 启动时读,按
- *     `setDbModuleContext(moduleId, token)` 注入。
+ *     写到「与数据库同目录」的 module-tokens.json（跟 db_config.dbDir 走，勿写死 ROOT/data）,
+ *     SAPI 经 loopback API 注入 setDbModuleContext。
  *
  * 派生公式:
  *   module_token = HMAC-SHA256(auth_secret, "sfmc-module:" + moduleId).hex
  *
  * auth_secret 优先级:
  *   1. env.AUTH_TOKEN
- *   2. 启动时随机生成(无 AUTH_TOKEN 时),写到 data/module-tokens.json,
+ *   2. 启动时随机生成(无 AUTH_TOKEN 时),写到 module-tokens.json,
  *      只警告一次(每次重启模块 token 都变,SAPI host 必须重读文件)
  *
  * 校验:
@@ -24,7 +24,7 @@
 
 import { readJson, writeJson, type TokenStore } from "@sfmc-bds/sdk/node/config";
 import { createHmac, randomBytes } from "node:crypto";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { log } from "./lib/log.js";
 
 export interface ModuleAuthMap {
@@ -41,6 +41,11 @@ function safeId(id: string): string {
   return id;
 }
 
+/** token 文件与 SQLite 同目录（由 dbDir 决定，避免向导选目录前就创建 ROOT/data） */
+export function moduleTokensFile(dbPath: string): string {
+  return join(dirname(dbPath), "module-tokens.json");
+}
+
 export function deriveToken(moduleId: string, secret: string): string {
   return createHmac("sha256", secret).update(`sfmc-module:${safeId(moduleId)}`).digest("hex");
 }
@@ -49,11 +54,11 @@ export function deriveToken(moduleId: string, secret: string): string {
  * 启动时调用一次:
  *   - 把 env.AUTH_TOKEN 当 secret
  *   - 给每个 enabled moduleId 派生 token
- *   - 写 data/module-tokens.json (SAPI host-bootstrap 读)
+ *   - 写 module-tokens.json（与 DB 同目录）
  *   - 控制台打印摘要(env var SFMC_LOG_MODULE_TOKEN=1 时打完整)
  */
 export function buildModuleAuth(opts: {
-  projectRoot: string;
+  dbPath: string;
   envAuthToken: string;
   enabledModuleIds: string[];
 }): ModuleAuthMap {
@@ -63,8 +68,7 @@ export function buildModuleAuth(opts: {
     tokens[id] = deriveToken(id, secret);
   }
 
-  const outDir = join(opts.projectRoot, "data");
-  const outFile = join(outDir, "module-tokens.json");
+  const outFile = moduleTokensFile(opts.dbPath);
   writeJson(outFile, {
     tokens,
     secret,
@@ -96,15 +100,15 @@ export function buildModuleAuth(opts: {
   return { tokens, secret };
 }
 
-export function loadModuleAuth(projectRoot: string): ModuleAuthMap | null {
-  const parsed = readJson<TokenStore>(join(projectRoot, "data", "module-tokens.json"));
+export function loadModuleAuth(dbPath: string): ModuleAuthMap | null {
+  const parsed = readJson<TokenStore>(moduleTokensFile(dbPath));
   if (!parsed || !parsed.tokens || !parsed.secret) return null;
   return { tokens: parsed.tokens, secret: parsed.secret };
 }
 
-/** 把当前 auth map 写回 data/module-tokens.json(热更新 token 时复用) */
-export function persistModuleAuth(projectRoot: string, auth: ModuleAuthMap, envAuthToken: string): void {
-  const outFile = join(projectRoot, "data", "module-tokens.json");
+/** 把当前 auth map 写回 module-tokens.json(热更新 token 时复用) */
+export function persistModuleAuth(dbPath: string, auth: ModuleAuthMap, envAuthToken: string): void {
+  const outFile = moduleTokensFile(dbPath);
   writeJson(outFile, {
     tokens: auth.tokens,
     secret: auth.secret,

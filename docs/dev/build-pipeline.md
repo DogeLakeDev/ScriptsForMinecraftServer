@@ -8,10 +8,10 @@
 modules/packages/*/sapi/src/index.ts
         │ esbuild（external @minecraft/*）
         ▼
-build/sfmc-modules-bp/scripts/main.js
+packs/_build/sfmc-modules-bp/scripts/main.js
         │ pack-manager assemble-bp
         ▼
-build/sfmc-modules/
+packs/_build/sfmc-modules/
         │ deploy
         ▼
 <BDS>/worlds/<level>/behavior_packs/sfmc-modules/

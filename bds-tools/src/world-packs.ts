@@ -378,6 +378,52 @@ export async function disableInstalledPack(opts: {
   });
 }
 
+export type UninstallPackAction = "trashed" | "deleted" | "missing";
+
+/**
+ * 卸载已安装世界包：先 disable enable-list，再移入 trashDir 或直接删除目录。
+ * trashDir 跨盘符时 fallback 为 copy + rm。
+ */
+export async function uninstallInstalledPack(opts: {
+  bdsRoot: string;
+  levelName: string;
+  pack: InstalledWorldPack;
+  /** 提供则移入该目录；null/省略则直接删除 */
+  trashDir?: string | null;
+}): Promise<{ ok: boolean; action: UninstallPackAction; dest?: string; reason?: string }> {
+  await disableInstalledPack({
+    bdsRoot: opts.bdsRoot,
+    levelName: opts.levelName,
+    kind: opts.pack.kind,
+    packUuid: opts.pack.uuid,
+    version: opts.pack.version,
+  });
+
+  if (!fs.existsSync(opts.pack.dir)) {
+    return { ok: true, action: "missing" };
+  }
+
+  const trashDir = opts.trashDir?.trim() || null;
+  if (trashDir) {
+    await fs.promises.mkdir(trashDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    let dest = path.join(trashDir, opts.pack.folderName);
+    if (fs.existsSync(dest)) {
+      dest = path.join(trashDir, `${opts.pack.folderName}-${stamp}`);
+    }
+    try {
+      await fs.promises.rename(opts.pack.dir, dest);
+    } catch {
+      await copyDirAsync(opts.pack.dir, dest);
+      await fs.promises.rm(opts.pack.dir, { recursive: true, force: true });
+    }
+    return { ok: true, action: "trashed", dest };
+  }
+
+  await fs.promises.rm(opts.pack.dir, { recursive: true, force: true });
+  return { ok: true, action: "deleted" };
+}
+
 export function worldPackParentDir(
   bdsRoot: string,
   levelName: string,

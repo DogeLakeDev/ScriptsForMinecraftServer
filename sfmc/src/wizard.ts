@@ -131,17 +131,12 @@ export async function runWizard(): Promise<void> {
       return;
     }
   }
-  // Step 1: Runtime Environment
+  // Step 1: Runtime Environment（只播种 configs/modules，不写 initialized_at、不建 data/）
   const rootDir = ROOT;
   note(c.text(t("wizard.runtimeRoot", { root: rootDir })), t("wizard.step1"));
 
   try {
     await prepareRuntimeAssets(rootDir);
-    patchJson(rootDir, "runtime.json", {
-      runtime_root: rootDir,
-      initialized_at: new Date().toISOString(),
-      locale: isCancel(langPick) ? undefined : (langPick as string),
-    });
   } catch (error) {
     outro(c.red(t("wizard.prepFailed", { message: (error as Error).message })));
     return;
@@ -321,6 +316,12 @@ export async function runWizard(): Promise<void> {
           backup_dir: slashPath(backupDir),
           preserve,
           qq_notify: llbotOn,
+        });
+        /* 路径选定后再标记已初始化，避免半途取消仍留下 data/ 语义 */
+        patchJson(rootDir, "runtime.json", {
+          runtime_root: rootDir,
+          initialized_at: new Date().toISOString(),
+          locale: isCancel(langPick) ? undefined : (langPick as string),
         });
         return t("wizard.configsUpdated");
       },

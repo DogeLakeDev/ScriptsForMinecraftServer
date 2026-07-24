@@ -17,13 +17,15 @@ import {
   isPackArchive,
   listInstalledWorldPacks,
   listWorldEnableListResult,
+  readPackDependencyUuids,
   readPackManifestInfo,
+  uninstallInstalledPack,
   worldPackParentDir,
   type InstalledWorldPack,
   type PackManifestInfo,
 } from "@sfmc-bds/bds-tools/world-packs";
 import { t } from "./i18n/index.js";
-import { resolveBdsContext } from "./pack-lifecycle.js";
+import { BP_NAME, RP_NAME, resolveBdsContext } from "./pack-lifecycle.js";
 import {
   bindPackSource,
   bindingLabelForUuid,
@@ -32,8 +34,12 @@ import {
   probeSourceAfterInstall,
   searchRemote,
 } from "./pack-update/service.js";
-import { removeBinding } from "./pack-update/bindings.js";
+import { getBinding, removeBinding } from "./pack-update/bindings.js";
 import { packSourcesPath } from "./pack-update/bindings.js";
+import {
+  isPackUninstallRecycleBin,
+  resolvePackTrashDir,
+} from "./pack-update/config.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
 
@@ -43,6 +49,7 @@ export const PACKS_SUBCOMMANDS = [
   "search",
   "enable",
   "disable",
+  "uninstall",
   "bump",
   "install",
   "scan",
@@ -86,8 +93,12 @@ interface InboxState {
   installed: Record<string, { uuid: string; at: string; folderName?: string }>;
 }
 
+function trashDir(): string {
+  return resolvePackTrashDir();
+}
+
 function ensureInboxLayout(): void {
-  for (const d of [packsInboxDir(), doneDir(), failedDir()]) {
+  for (const d of [packsInboxDir(), doneDir(), failedDir(), trashDir()]) {
     fs.mkdirSync(d, { recursive: true });
   }
 }
@@ -130,6 +141,58 @@ function moveTo(src: string, destParent: string, label: string): string {
 
 function fmtVer(v: [number, number, number]): string {
   return v.join(".");
+}
+
+function pruneInboxStateByUuid(uuid: string): void {
+  const state = readState();
+  let changed = false;
+  for (const [fp, meta] of Object.entries(state.installed)) {
+    if (meta.uuid.toLowerCase() === uuid.toLowerCase()) {
+      delete state.installed[fp];
+      changed = true;
+    }
+  }
+  if (changed) writeState(state);
+}
+
+function isProtectedSfmcPack(pack: InstalledWorldPack): boolean {
+  const folder = pack.folderName.toLowerCase();
+  return folder === BP_NAME.toLowerCase() || folder === RP_NAME.toLowerCase();
+}
+
+/**
+ * 卸载单个已装世界包（disable + 移回收站/删除）。
+ * 不负责配对 RP / 绑定 —— 由上层编排。
+ */
+async function uninstallOneInstalledPack(
+  pack: InstalledWorldPack,
+  opts: { bdsRoot: string; levelName: string; purge: boolean }
+): Promise<string> {
+  if (isProtectedSfmcPack(pack)) {
+    return c.red(t("packs.uninstall.protected", { folder: pack.folderName }));
+  }
+  const useTrash = !opts.purge && isPackUninstallRecycleBin();
+  const trash = useTrash ? resolvePackTrashDir() : null;
+  if (trash) fs.mkdirSync(trash, { recursive: true });
+  const r = await uninstallInstalledPack({
+    bdsRoot: opts.bdsRoot,
+    levelName: opts.levelName,
+    pack,
+    trashDir: trash,
+  });
+  pruneInboxStateByUuid(pack.uuid);
+  if (r.action === "trashed") {
+    return c.green(
+      t("packs.uninstall.trashed", {
+        folder: pack.folderName,
+        dest: r.dest ?? trash ?? "-",
+      })
+    );
+  }
+  if (r.action === "missing") {
+    return c.yellow(t("packs.uninstall.dirMissing", { folder: pack.folderName }));
+  }
+  return c.green(t("packs.uninstall.deleted", { folder: pack.folderName }));
 }
 
 function printConflict(
@@ -616,6 +679,49 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
         }
         return c.green(t("packs.toggleDone", { verb, folder: pack.folderName, hint: restartHint() }));
       }
+      case "uninstall": {
+        const id = args.find((a) => !a.startsWith("-"));
+        if (!id) return c.yellow(t("packs.uninstall.usage"));
+        const purge = hasFlag(args, "--purge");
+        const noPaired = hasFlag(args, "--no-paired");
+        const { bdsRoot, levelName } = resolveBdsContext();
+        const packs = listInstalledWorldPacks(bdsRoot, levelName);
+        const pack = findInstalledPackById(packs, id);
+        if (!pack) return c.red(t("packs.notFound", { id }));
+
+        /* 移走 BP 前解析配对 RP */
+        let pairedRp: InstalledWorldPack | null = null;
+        if (pack.kind === "behavior" && !noPaired) {
+          const binding = getBinding(pack.uuid);
+          const pairedUuid =
+            binding?.pairedResourceUuid ??
+            (fs.existsSync(pack.dir) ? readPackDependencyUuids(pack.dir)[0] : undefined) ??
+            null;
+          if (pairedUuid) {
+            pairedRp =
+              packs.find(
+                (p) => p.kind === "resource" && p.uuid.toLowerCase() === pairedUuid.toLowerCase()
+              ) ?? null;
+          }
+        }
+
+        const lines: string[] = [];
+        lines.push(await uninstallOneInstalledPack(pack, { bdsRoot, levelName, purge }));
+        if (pairedRp) {
+          lines.push(await uninstallOneInstalledPack(pairedRp, { bdsRoot, levelName, purge }));
+        }
+
+        /* 清更新源绑定（BP uuid） */
+        if (pack.kind === "behavior") {
+          const removed = removeBinding(pack.uuid);
+          if (removed) {
+            lines.push(c.dim(t("packs.uninstall.bindingRemoved", { uuid: pack.uuid })));
+          }
+        }
+
+        lines.push(c.yellow(restartHint()));
+        return lines.join("\n");
+      }
       case "bump": {
         const id = args[0];
         if (!id) return c.yellow(t("packs.bump.usage"));
@@ -745,6 +851,8 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
           `behavior:    ${worldPackParentDir(bdsRoot, levelName, "behavior")}`,
           `resource:    ${worldPackParentDir(bdsRoot, levelName, "resource")}`,
           `inbox:       ${packsInboxDir()}`,
+          `trash:       ${trashDir()}`,
+          `build:       ${path.join(packsInboxDir(), "_build")}`,
           `sources:     ${packSourcesPath()}`,
         ].join("\n");
       }
@@ -767,6 +875,7 @@ export function packsUsage(): string {
   ${c.green("packs check")} [id]
   ${c.green("packs update")} <id|--all>
   ${c.green("packs enable|disable")} <uuid|folder>
+  ${c.green("packs uninstall")} <uuid|folder> [--purge] [--no-paired]
   ${c.green("packs bump")} <id>          ${t("packs.usage.bump")}
   ${c.green("packs install")} [path|--inbox] [--force]
   ${c.green("packs scan")} [--force] [--dry-run]
@@ -774,6 +883,7 @@ export function packsUsage(): string {
   ${c.green("packs path")}
 
 ${t("packs.usage.inbox", { path: packsInboxDir() })}
+${t("packs.usage.trash", { path: trashDir() })}
 ${t("packs.usage.sources", { path: packSourcesPath() })}
 ${t("packs.usage.enableNote", { hint: restartHint() })}
 ${t("packs.usage.moduleNote", { cmd: c.green("sfmc mod") })}`;

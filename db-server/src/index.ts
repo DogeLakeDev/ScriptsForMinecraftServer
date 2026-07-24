@@ -7,7 +7,7 @@
  *   3. openDatabase + createPlatformTables(sfmc__audit / sfmc__idempotent)
  *   4. loadManifestV2() — 失败 = 启动失败
  *   5. filterEnabled(loaded, lockFileEnabled)
- *   6. buildModuleAuth({auth_token, enabled_modules})  ← data/module-tokens.json
+ *   6. buildModuleAuth({auth_token, enabled_modules})  ← 与 DB 同目录 module-tokens.json
  *   7. 实例化:SchemaRegistry / ServiceRegistry / IdempotencyStore / TxRunner
  *   8. 装配 v2 路由 (/api/sfmc/db/* + /api/sfmc/services* + /api/sfmc/configs/:key/*)
  *      另保留 messages(qq-bridge) + config/modules/health 平台路由
@@ -98,9 +98,9 @@ log.info(
   `[manifest v2] enabled: ${[...enabledSet].sort().join(", ") || "(none)"}`
 );
 
-// ── 模块 HMAC token map(写到 data/module-tokens.json)────────
+// ── 模块 HMAC token map(与 DB 同目录 module-tokens.json)────────
 const moduleAuth = buildModuleAuth({
-  projectRoot: env.PROJECT_ROOT,
+  dbPath: env.DB_PATH,
   envAuthToken: env.AUTH_TOKEN,
   enabledModuleIds: [...enabledSet],
 });
@@ -216,7 +216,7 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
   syncModuleRuntimeState({
     moduleId: mod.id,
     enabled: !!enabled,
-    projectRoot: env.PROJECT_ROOT,
+    dbPath: env.DB_PATH,
     envAuthToken: env.AUTH_TOKEN,
     enabledSet,
     enabledManifests,

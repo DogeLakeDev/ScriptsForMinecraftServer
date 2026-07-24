@@ -40,6 +40,8 @@ describe("pack-update config + provider resolve", () => {
     const cfg = loadPackUpdateConfig();
     assert.equal(cfg.defaultBindingEnabled, false);
     assert.equal(typeof cfg.match.nameMinScore, "number");
+    assert.equal(cfg.uninstall.recycleBin, true);
+    assert.equal(cfg.uninstall.trashRelativeDir, "packs/_trash");
   });
 
   it("旧版 providers.curseforge.match 提升到顶层 match", () => {

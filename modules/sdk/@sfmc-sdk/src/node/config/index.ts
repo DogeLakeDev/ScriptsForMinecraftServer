@@ -278,6 +278,31 @@ export function configPath(runtimeRoot: string, name: ConfigName): string {
   return path.join(configDir(runtimeRoot), name);
 }
 
+/**
+ * 运行态目录:<ROOT>/.sfmc
+ * PID / cache / 回滚标记 / 日志等运行时产物的唯一权威根(勿再写入 package dist)。
+ */
+export function stateDir(runtimeRoot: string): string {
+  return path.join(runtimeRoot, ".sfmc");
+}
+
+/**
+ * 日志目录:<ROOT>/.sfmc/logs
+ * 各服务落盘日志统一放这里,避免各自拼路径。
+ */
+export function logsDir(runtimeRoot: string): string {
+  return path.join(stateDir(runtimeRoot), "logs");
+}
+
+/**
+ * 服务日志文件路径:<ROOT>/.sfmc/logs/<name>.log
+ * `name` 可带或不带 `.log` 后缀。
+ */
+export function logFile(runtimeRoot: string, name: string): string {
+  const base = name.endsWith(".log") ? name : `${name}.log`;
+  return path.join(logsDir(runtimeRoot), base);
+}
+
 export function moduleDir(runtimeRoot: string): string {
   return path.join(runtimeRoot, "modules");
 }

@@ -111,6 +111,10 @@ flowchart TD
     "delayMsBetweenPacks": 0,
     "skipDisabledBindings": true,
     "failMode": "continue"
+  },
+  "uninstall": {
+    "recycleBin": true,
+    "trashRelativeDir": "packs/_trash"
   }
 }
 ```
@@ -118,6 +122,8 @@ flowchart TD
 | 字段 | 含义 |
 |------|------|
 | `defaultBindingEnabled` | 新建绑定的默认 `enabled`（**默认 `false`**）。仍写入 `pack-sources.json`，但需手改为 `true`（或改此默认）才参与启动检查/自动更新。 |
+| `uninstall.recycleBin` | `packs uninstall` 是否移入回收站（默认 `true`）；`false` 或 CLI `--purge` 则直接删除 |
+| `uninstall.trashRelativeDir` | 回收站相对 `SFMC_ROOT` 的路径（默认 `packs/_trash`） |
 | `match.nameMinScore` | 安装后自动绑定的最低相似度阈值（源无关，顶层）。 |
 | `match.stripFolderTags` | 清洗时是否去掉方括号标签（如 `[BP]`/`[玩法]`）。 |
 | `gameId` | **Minecraft Bedrock = `78022`**。历史误用 `459` 无效，加载时会纠正。Java Minecraft 是 `432`，不要混用。 |

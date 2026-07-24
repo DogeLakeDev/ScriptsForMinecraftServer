@@ -50,6 +50,14 @@ export interface StartupUpdateConfig {
   failMode: "continue" | "abort";
 }
 
+/** 世界包卸载策略（与 CF 更新同属 packs 生命周期配置） */
+export interface PackUninstallConfig {
+  /** true：移入回收站；false：直接删除目录 */
+  recycleBin: boolean;
+  /** 相对 SFMC_ROOT 的回收站路径，默认 packs/_trash */
+  trashRelativeDir: string;
+}
+
 export interface PackUpdateConfig {
   enabled: boolean;
   checkOnBdsStart: boolean;
@@ -71,6 +79,7 @@ export interface PackUpdateConfig {
   };
   versionPolicy: VersionPolicyConfig;
   startup: StartupUpdateConfig;
+  uninstall: PackUninstallConfig;
 }
 
 export interface PackSourceBinding {

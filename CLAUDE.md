@@ -25,8 +25,8 @@ checked-in BP shell — modules are the truth.
 ### SAPI behavior pack (assembled from modules)
 
 ```bash
-sfmc behavior-pack build      # esbuild bundles modules/packages/<id>/sapi/src/index.ts → <ROOT>/build/sfmc-modules/
-sfmc behavior-pack deploy     # copies build/sfmc-modules/ into <BDS>/worlds/<level>/behavior_packs/sfmc-modules/
+sfmc behavior-pack build      # esbuild bundles modules/packages/<id>/sapi/src/index.ts → <ROOT>/packs/_build/sfmc-modules/
+sfmc behavior-pack deploy     # copies packs/_build/sfmc-modules/ into <BDS>/worlds/<level>/behavior_packs/sfmc-modules/
 ```
 
 Per-module `sapi/src/index.ts` exports a `ModuleRegistry.register({ id, lifecycle })`

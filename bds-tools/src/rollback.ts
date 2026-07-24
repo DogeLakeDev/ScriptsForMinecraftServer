@@ -5,7 +5,7 @@
  * 主流程任意阶段失败时，尝试反向恢复 preserves 到 BDS_PATH，
  * 然后从备份重新放回 preserve 内容，恢复旧配置。
  *
- * 持久化: ROLLBACK_MARKER (BDSTools/.last_update_rollback.json) 用于跨进程记录。
+ * 持久化: <SFMC_ROOT>/.sfmc/last_update_rollback.json 用于跨进程记录。
  */
 
 import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";

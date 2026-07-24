@@ -31,7 +31,8 @@ export type LoadedModules = {
 export type SyncModuleRuntimeOpts = {
   moduleId: string;
   enabled: boolean;
-  projectRoot: string;
+  /** SQLite 路径；token 文件写在同目录 */
+  dbPath: string;
   /** 与 buildModuleAuth 一致:无 AUTH_TOKEN 时 secretGenerated=true */
   envAuthToken: string;
   enabledSet: Set<string>;
@@ -50,7 +51,7 @@ export function syncModuleRuntimeState(opts: SyncModuleRuntimeOpts): void {
   const {
     moduleId,
     enabled,
-    projectRoot,
+    dbPath,
     envAuthToken,
     enabledSet,
     enabledManifests,
@@ -71,7 +72,7 @@ export function syncModuleRuntimeState(opts: SyncModuleRuntimeOpts): void {
     if (ensureModuleToken(moduleAuth, moduleId)) {
       log.info(`[modules] 热启用 ${moduleId}: 派生 module token`);
     }
-    persistModuleAuth(projectRoot, moduleAuth, envAuthToken);
+    persistModuleAuth(dbPath, moduleAuth, envAuthToken);
     if (registerBuiltinPluginForModule(serviceRegistry, builtinDeps, moduleId)) {
       log.success(`[modules] 热启用 ${moduleId}: 已注册内置 service handlers`);
     }
@@ -81,7 +82,7 @@ export function syncModuleRuntimeState(opts: SyncModuleRuntimeOpts): void {
   enabledSet.delete(moduleId);
   enabledManifests.delete(moduleId);
   if (revokeModuleToken(moduleAuth, moduleId)) {
-    persistModuleAuth(projectRoot, moduleAuth, envAuthToken);
+    persistModuleAuth(dbPath, moduleAuth, envAuthToken);
   }
   const n = unregisterBuiltinPluginForModule(serviceRegistry, moduleId);
   if (n > 0) {

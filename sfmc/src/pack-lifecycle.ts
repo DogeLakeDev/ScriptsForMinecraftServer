@@ -88,7 +88,8 @@ function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
 }
 
 export function buildRoot(): string {
-  return path.join(ROOT, "build");
+  /* 与收件箱同树：packs/_build（_ 前缀不会被 inbox 扫描） */
+  return path.join(ROOT, "packs", "_build");
 }
 export function bpSrc(): string {
   return path.join(buildRoot(), `${BP_NAME}-bp`);

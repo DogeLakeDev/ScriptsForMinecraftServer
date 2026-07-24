@@ -140,6 +140,7 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
   const { unregisterBuiltinPluginForModule } = await import("./services/builtin-handlers.js");
 
   const root = mkdtempSync(join(tmpdir(), "sfmc-runtime-sync-"));
+  const dbPath = join(root, "data", "sfmc_data.db");
   try {
     const enabledSet = new Set<string>(["feature-a"]);
     const enabledManifests = new Map();
@@ -157,7 +158,7 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
     syncModuleRuntimeState({
       moduleId: "feature-b",
       enabled: true,
-      projectRoot: root,
+      dbPath,
       envAuthToken: "fixed-auth",
       enabledSet,
       enabledManifests,
@@ -176,7 +177,7 @@ test("syncModuleRuntimeState: enable/disable 热更新 token+enabledSet(DIP)", a
     syncModuleRuntimeState({
       moduleId: "feature-b",
       enabled: false,
-      projectRoot: root,
+      dbPath,
       envAuthToken: "fixed-auth",
       enabledSet,
       enabledManifests,

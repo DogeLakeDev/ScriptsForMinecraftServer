@@ -46,6 +46,10 @@ const DEFAULTS: PackUpdateConfig = {
     skipDisabledBindings: true,
     failMode: "continue",
   },
+  uninstall: {
+    recycleBin: true,
+    trashRelativeDir: "packs/_trash",
+  },
 };
 
 function deepMerge<T extends Record<string, unknown>>(base: T, over: Partial<T>): T {
@@ -130,6 +134,19 @@ export function loadPackUpdateConfig(): PackUpdateConfig {
 /** 匹配策略访问器：编排层只读顶层 match，勿挖 providers.*（Demeter） */
 export function getPackMatchConfig(cfg: PackUpdateConfig): PackUpdateMatchConfig {
   return cfg.match;
+}
+
+/** 卸载回收站绝对路径（相对 SFMC_ROOT） */
+export function resolvePackTrashDir(cfg?: PackUpdateConfig): string {
+  const c = cfg ?? loadPackUpdateConfig();
+  const rel = (c.uninstall?.trashRelativeDir || "packs/_trash").trim() || "packs/_trash";
+  return path.isAbsolute(rel) ? rel : path.join(ROOT, rel);
+}
+
+/** 是否使用卸载回收站 */
+export function isPackUninstallRecycleBin(cfg?: PackUpdateConfig): boolean {
+  const c = cfg ?? loadPackUpdateConfig();
+  return c.uninstall?.recycleBin !== false;
 }
 
 /**

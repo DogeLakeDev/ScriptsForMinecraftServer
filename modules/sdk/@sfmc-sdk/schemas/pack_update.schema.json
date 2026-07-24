@@ -152,6 +152,21 @@
           "description": "单个包失败时 continue 继续 / abort 中止整批"
         }
       }
+    },
+    "uninstall": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "packs uninstall 行为：默认移入回收站而非直接删除",
+      "properties": {
+        "recycleBin": {
+          "type": "boolean",
+          "description": "true=移入 trashRelativeDir；false=直接删除世界包目录。可用 CLI --purge 强制删除"
+        },
+        "trashRelativeDir": {
+          "type": "string",
+          "description": "相对 SFMC_ROOT 的回收站目录，默认 packs/_trash"
+        }
+      }
     }
   }
 }

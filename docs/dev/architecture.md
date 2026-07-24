@@ -10,7 +10,7 @@
 ┌──────────────────▼──────────────────────────┐
 │  主仓                                        │
 │  packages/ → catalog + lock                 │
-│  esbuild → build/sfmc-modules/ → BDS        │
+│  esbuild → packs/_build/sfmc-modules/ → BDS │
 │  db-server :3001  ←→  SAPI (BDS 内)         │
 │  qq-bridge :3002  →  db-server              │
 │  sfmc CLI 管理上述进程                       │

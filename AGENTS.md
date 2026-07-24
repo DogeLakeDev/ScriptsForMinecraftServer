@@ -37,8 +37,8 @@ Init phases (inside the bundled `main.js`):
 The BP has no checked-in shell. Everything lives in modules and SDK:
 
 ```bash
-sfmc behavior-pack build     # esbuild bundles modules/packages/<id>/sapi/src/index.ts → <ROOT>/build/sfmc-modules/
-sfmc behavior-pack deploy    # copies build/sfmc-modules/ into <BDS>/worlds/<level>/behavior_packs/sfmc-modules/
+sfmc behavior-pack build     # esbuild bundles modules/packages/<id>/sapi/src/index.ts → <ROOT>/packs/_build/sfmc-modules/
+sfmc behavior-pack deploy    # copies packs/_build/sfmc-modules/ into <BDS>/worlds/<level>/behavior_packs/sfmc-modules/
 ```
 
 Each module exports a `ModuleRegistry.register({ id, lifecycle })` call from its
