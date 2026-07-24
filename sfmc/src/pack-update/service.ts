@@ -24,21 +24,79 @@ import { pushLog } from "../logs.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { c } from "../theme.js";
 import { getBinding, listBindings, packSourcesPath, setBinding } from "./bindings.js";
-import { ensurePackUpdateConfigFile, loadPackUpdateConfig, packUpdateConfigPath } from "./config.js";
-import { CurseForgeBedrockProvider } from "./providers/curseforge.js";
-import type { PackSourceBinding, PackUpdateConfig, SemVer3, SourceSearchHit } from "./types.js";
-import { decideVersionPolicy, buildSearchQueries, buildSearchQueriesFromSources, packSourceScore } from "./version-policy.js";
+import {
+  ensurePackUpdateConfigFile,
+  getPackMatchConfig,
+  loadPackUpdateConfig,
+  packUpdateConfigPath,
+} from "./config.js";
+import { createPackSourceProvider } from "./providers/index.js";
+import type {
+  PackProviderId,
+  PackSourceBinding,
+  PackSourceProvider,
+  PackUpdateConfig,
+  SemVer3,
+  SourceSearchHit,
+} from "./types.js";
+import {
+  decideVersionPolicy,
+  buildSearchQueries,
+  buildSearchQueriesFromSources,
+  packSourceScore,
+} from "./version-policy.js";
 
 function logPack(text: string, level: "info" | "warn" | "error" | "success" = "info"): void {
   pushLog(text, "pack", level);
 }
 
-function getProvider(cfg: PackUpdateConfig): CurseForgeBedrockProvider {
-  return new CurseForgeBedrockProvider(cfg.providers.curseforge);
+function getProvider(cfg: PackUpdateConfig): PackSourceProvider {
+  return createPackSourceProvider(cfg);
 }
 
 function fmtVer(v: SemVer3): string {
   return v.join(".");
+}
+
+function providerShortLabel(id: PackProviderId): string {
+  return id === "curseforge" ? "cf" : id;
+}
+
+/** 多查询搜索 + 综合打分排序（probe / searchRemote 共用） */
+async function searchAndRankHits(
+  provider: PackSourceProvider,
+  queries: string[],
+  stripFolderTags: boolean
+): Promise<Array<{ hit: SourceSearchHit; score: number }>> {
+  const byId = new Map<number, SourceSearchHit>();
+  for (const q of queries) {
+    const hits = await provider.search(q);
+    for (const h of hits) byId.set(h.projectId, h);
+  }
+  return [...byId.values()]
+    .map((h) => ({
+      hit: h,
+      score: Math.max(...queries.map((q) => packSourceScore(q, h, stripFolderTags))),
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function makeBindingFromHit(
+  hit: SourceSearchHit,
+  pairedResourceUuid: string | null,
+  prev?: PackSourceBinding | null
+): PackSourceBinding {
+  return {
+    enabled: true,
+    provider: hit.provider,
+    projectId: hit.projectId,
+    slug: hit.slug,
+    websiteUrl: hit.websiteUrl,
+    pairedResourceUuid,
+    lastFileId: prev?.lastFileId ?? null,
+    lastCheckedAt: null,
+    lastAppliedFileId: prev?.lastAppliedFileId ?? null,
+  };
 }
 
 /** 从已安装 BP 提取配对 RP uuid */
@@ -65,7 +123,7 @@ export async function probeSourceAfterInstall(opts: {
     return;
   }
 
-  const strip = cfg.providers.curseforge.match.stripFolderTags;
+  const match = getPackMatchConfig(cfg);
   /* header 常本地化；文件夹名往往含拉丁核心 — 两源分别派生再合并，有拉丁则不搜纯中文 */
   const folderName =
     (opts.folderName && String(opts.folderName).trim()) ||
@@ -75,7 +133,7 @@ export async function probeSourceAfterInstall(opts: {
       { id: "header", raw: opts.info.name },
       { id: "folder", raw: folderName },
     ],
-    strip
+    match.stripFolderTags
   );
   const queries = plan.queries;
   if (queries.length === 0) {
@@ -92,33 +150,22 @@ export async function probeSourceAfterInstall(opts: {
     "info"
   );
 
-  const byId = new Map<number, SourceSearchHit>();
+  let scored: Array<{ hit: SourceSearchHit; score: number }>;
   try {
-    for (const q of queries) {
-      const hits = await provider.search(q);
-      for (const h of hits) byId.set(h.projectId, h);
-    }
+    scored = await searchAndRankHits(provider, queries, match.stripFolderTags);
   } catch (e) {
     logPack(t("packUpdate.probeFail", { message: (e as Error).message }), "warn");
     return;
   }
 
-  const hitList = [...byId.values()];
-  if (hitList.length === 0) {
+  if (scored.length === 0) {
     logPack(t("packUpdate.probeMiss", { name: queries.join(", ") }), "info");
     return;
   }
 
   const primary = queries.find((q) => /[A-Za-z]/.test(q)) ?? queries[0]!;
-  const scored = hitList
-    .map((h) => ({
-      hit: h,
-      score: Math.max(...queries.map((q) => packSourceScore(q, h, strip))),
-    }))
-    .sort((a, b) => b.score - a.score);
   const best = scored[0]!;
-  const minScore = cfg.providers.curseforge.match.nameMinScore;
-  if (best.score < minScore) {
+  if (best.score < match.nameMinScore) {
     logPack(
       t("packUpdate.probeLowScore", {
         name: primary,
@@ -163,18 +210,7 @@ export async function probeSourceAfterInstall(opts: {
   }
 
   const paired = (opts.packDir ? pairedRpUuidFromBpDir(opts.packDir) : null) ?? null;
-  const binding: PackSourceBinding = {
-    enabled: true,
-    provider: "curseforge",
-    projectId: best.hit.projectId,
-    slug: best.hit.slug,
-    websiteUrl: best.hit.websiteUrl,
-    pairedResourceUuid: paired,
-    lastFileId: null,
-    lastCheckedAt: null,
-    lastAppliedFileId: null,
-  };
-  setBinding(opts.info.uuid, binding);
+  setBinding(opts.info.uuid, makeBindingFromHit(best.hit, paired));
   logPack(
     t("packUpdate.bindOk", {
       uuid: opts.info.uuid,
@@ -191,24 +227,13 @@ export async function searchRemote(query: string): Promise<string> {
   if (!provider.isConfigured()) {
     return c.yellow(t("packUpdate.needKey", { path: packUpdateConfigPath() }));
   }
-  const strip = cfg.providers.curseforge.match.stripFolderTags;
-  const queries = buildSearchQueries(query, strip);
-  const byId = new Map<number, SourceSearchHit>();
-  for (const q of queries) {
-    const hits = await provider.search(q);
-    for (const h of hits) byId.set(h.projectId, h);
-  }
-  const hitList = [...byId.values()];
-  if (hitList.length === 0) return c.dim(t("packUpdate.searchEmpty", { query }));
-  const ranked = hitList
-    .map((h) => ({
-      h,
-      score: Math.max(...queries.map((q) => packSourceScore(q, h, strip))),
-    }))
-    .sort((a, b) => b.score - a.score);
+  const match = getPackMatchConfig(cfg);
+  const queries = buildSearchQueries(query, match.stripFolderTags);
+  const ranked = await searchAndRankHits(provider, queries, match.stripFolderTags);
+  if (ranked.length === 0) return c.dim(t("packUpdate.searchEmpty", { query }));
   return ranked
     .map(
-      ({ h, score }, i) =>
+      ({ hit: h, score }, i) =>
         `${c.cyan(String(i + 1).padStart(2))}. ${h.name}  ${c.dim(`id=${h.projectId} slug=${h.slug} score=${score.toFixed(2)}`)}\n    ${h.websiteUrl}`
     )
     .join("\n");
@@ -230,17 +255,7 @@ export async function bindPackSource(packId: string, ref: string): Promise<strin
   if (!hit) return c.red(t("packUpdate.resolveFail", { ref }));
 
   const paired = pairedRpUuidFromBpDir(pack.dir);
-  setBinding(pack.uuid, {
-    enabled: true,
-    provider: "curseforge",
-    projectId: hit.projectId,
-    slug: hit.slug,
-    websiteUrl: hit.websiteUrl,
-    pairedResourceUuid: paired,
-    lastFileId: getBinding(pack.uuid)?.lastFileId ?? null,
-    lastCheckedAt: null,
-    lastAppliedFileId: getBinding(pack.uuid)?.lastAppliedFileId ?? null,
-  });
+  setBinding(pack.uuid, makeBindingFromHit(hit, paired, getBinding(pack.uuid)));
   return c.green(t("packUpdate.bindOk", { uuid: pack.uuid, slug: hit.slug, path: packSourcesPath() }));
 }
 
@@ -259,7 +274,10 @@ export function formatSourcesList(): string {
   }
   for (const { bpUuid, binding } of bindings) {
     const en = binding.enabled ? c.green("on") : c.red("off");
-    lines.push(`  [${en}] ${bpUuid}  cf:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`);
+    const tag = providerShortLabel(binding.provider);
+    lines.push(
+      `  [${en}] ${bpUuid}  ${tag}:${binding.slug || binding.projectId}  ${c.dim(binding.websiteUrl || "")}`
+    );
   }
   return lines.join("\n");
 }
@@ -286,6 +304,27 @@ function withLocalBp(base: Omit<CheckResult, "localBp">, localBp: InstalledWorld
   return localBp ? { ...base, localBp } : { ...base };
 }
 
+function baseCheckFields(
+  bpUuid: string,
+  name: string,
+  localVer: SemVer3,
+  binding: PackSourceBinding,
+  extras: Partial<CheckResult> & { message: string }
+): Omit<CheckResult, "localBp"> {
+  return {
+    bpUuid,
+    name,
+    localVer,
+    remoteVer: null,
+    updateAvailable: false,
+    majorHigher: false,
+    shouldBumpRp: false,
+    fileId: null,
+    binding,
+    ...extras,
+  };
+}
+
 async function prepareCheck(
   bpUuid: string,
   binding: PackSourceBinding,
@@ -303,18 +342,7 @@ async function prepareCheck(
 
   if (!binding.enabled) {
     return withLocalBp(
-      {
-        bpUuid,
-        name,
-        localVer,
-        remoteVer: null,
-        updateAvailable: false,
-        majorHigher: false,
-        shouldBumpRp: false,
-        fileId: null,
-        message: t("packUpdate.bindingDisabled"),
-        binding,
-      },
+      baseCheckFields(bpUuid, name, localVer, binding, { message: t("packUpdate.bindingDisabled") }),
       localBp
     );
   }
@@ -322,18 +350,7 @@ async function prepareCheck(
   const file = await provider.getLatestFile(binding.projectId);
   if (!file) {
     return withLocalBp(
-      {
-        bpUuid,
-        name,
-        localVer,
-        remoteVer: null,
-        updateAvailable: false,
-        majorHigher: false,
-        shouldBumpRp: false,
-        fileId: null,
-        message: t("packUpdate.noRemoteFile"),
-        binding,
-      },
+      baseCheckFields(bpUuid, name, localVer, binding, { message: t("packUpdate.noRemoteFile") }),
       localBp
     );
   }
@@ -342,20 +359,13 @@ async function prepareCheck(
     /* 仅文件 id 比较的轻量检查 */
     const updateAvailable = binding.lastAppliedFileId == null || binding.lastAppliedFileId !== file.fileId;
     return withLocalBp(
-      {
-        bpUuid,
-        name,
-        localVer,
-        remoteVer: null,
+      baseCheckFields(bpUuid, name, localVer, binding, {
         updateAvailable,
-        majorHigher: false,
-        shouldBumpRp: false,
         fileId: file.fileId,
         message: updateAvailable
           ? t("packUpdate.fileNewer", { file: file.fileName, id: String(file.fileId) })
           : t("packUpdate.upToDate"),
-        binding,
-      },
+      }),
       localBp
     );
   }
@@ -375,18 +385,10 @@ async function prepareCheck(
       /* ignore */
     }
     return withLocalBp(
-      {
-        bpUuid,
-        name,
-        localVer,
-        remoteVer: null,
-        updateAvailable: false,
-        majorHigher: false,
-        shouldBumpRp: false,
+      baseCheckFields(bpUuid, name, localVer, binding, {
         fileId: file.fileId,
         message: t("packUpdate.remoteNoBp"),
-        binding,
-      },
+      }),
       localBp
     );
   }
@@ -429,6 +431,31 @@ function cleanupCheck(r: CheckResult): void {
   }
 }
 
+/** 尝试安装配对 RP；accept 为过滤谓词（DRY：两处循环合一） */
+async function tryInstallResourcePack(opts: {
+  rpRoots: string[];
+  bdsRoot: string;
+  levelName: string;
+  folderName?: string;
+  accept: (info: PackManifestInfo) => boolean;
+}): Promise<{ info: PackManifestInfo; destDir: string } | null> {
+  for (const root of opts.rpRoots) {
+    const info = readPackManifestInfo(root);
+    if (!info || !opts.accept(info)) continue;
+    const rpDest = worldPackParentDir(opts.bdsRoot, opts.levelName, "resource");
+    const rpInstall = await installPackDirectory({
+      srcDir: root,
+      destParent: rpDest,
+      force: true,
+      ...(opts.folderName ? { folderName: opts.folderName } : {}),
+    });
+    if (rpInstall.ok && rpInstall.info && rpInstall.destDir) {
+      return { info: rpInstall.info, destDir: rpInstall.destDir };
+    }
+  }
+  return null;
+}
+
 async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<string> {
   if (!r.updateAvailable || !r.remoteRoots || !r.remoteBpInfo) {
     return r.message;
@@ -460,47 +487,35 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<strin
   }
   await enableInstalledPack({ bdsRoot, levelName, info: bpInstall.info });
 
-  /* 安装配对 RP */
+  /* 安装配对 RP：先按 binding uuid，再按新 BP dependencies */
   let rpInfo: PackManifestInfo | null = null;
   let rpDir: string | null = null;
   const wantRp = r.binding.pairedResourceUuid?.toLowerCase();
-  for (const root of rpRoots) {
-    const info = readPackManifestInfo(root);
-    if (!info) continue;
-    if (wantRp && info.uuid.toLowerCase() !== wantRp) continue;
-    const rpDest = worldPackParentDir(bdsRoot, levelName, "resource");
-    const rpInstall = await installPackDirectory({
-      srcDir: root,
-      destParent: rpDest,
-      force: true,
-      ...(oldRp?.folderName ? { folderName: oldRp.folderName } : {}),
-    });
-    if (rpInstall.ok && rpInstall.info && rpInstall.destDir) {
-      rpInfo = rpInstall.info;
-      rpDir = rpInstall.destDir;
-      break;
-    }
+  const installed = await tryInstallResourcePack({
+    rpRoots,
+    bdsRoot,
+    levelName,
+    ...(oldRp?.folderName ? { folderName: oldRp.folderName } : {}),
+    accept: (info) => !wantRp || info.uuid.toLowerCase() === wantRp,
+  });
+  if (installed) {
+    rpInfo = installed.info;
+    rpDir = installed.destDir;
   }
 
-  /* 若 binding 无 paired，尝试从新 BP dependency 安装 */
   if (!rpInfo && rpRoots.length > 0) {
     const deps = readPackDependencyUuids(bpInstall.destDir);
-    for (const root of rpRoots) {
-      const info = readPackManifestInfo(root);
-      if (!info) continue;
-      if (deps.length && !deps.some((d) => d.toLowerCase() === info.uuid.toLowerCase())) continue;
-      const rpDest = worldPackParentDir(bdsRoot, levelName, "resource");
-      const rpInstall = await installPackDirectory({
-        srcDir: root,
-        destParent: rpDest,
-        force: true,
-      });
-      if (rpInstall.ok && rpInstall.info && rpInstall.destDir) {
-        rpInfo = rpInstall.info;
-        rpDir = rpInstall.destDir;
-        r.binding.pairedResourceUuid = info.uuid;
-        break;
-      }
+    const fallback = await tryInstallResourcePack({
+      rpRoots,
+      bdsRoot,
+      levelName,
+      accept: (info) =>
+        deps.length === 0 || deps.some((d) => d.toLowerCase() === info.uuid.toLowerCase()),
+    });
+    if (fallback) {
+      rpInfo = fallback.info;
+      rpDir = fallback.destDir;
+      r.binding.pairedResourceUuid = fallback.info.uuid;
     }
   }
 
@@ -595,5 +610,5 @@ export function bindingLabelForUuid(uuid: string): string {
   const b = getBinding(uuid);
   if (!b) return "src=-";
   if (!b.enabled) return "src=off";
-  return `src=cf:${b.slug || b.projectId}`;
+  return `src=${providerShortLabel(b.provider)}:${b.slug || b.projectId}`;
 }

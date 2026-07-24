@@ -5,7 +5,7 @@
  * - 搜索：优先官方；若 403 则回退 api.curse.tools（部分 key 对 /v1/mods/search 被拒）
  * - Bedrock gameId = 78022，Addons classId = 4984
  */
-import { createTerminalProgress } from "@sfmc-bds/sdk/logs";
+import { createTerminalProgress, formatDownloadSpeed } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import path from "node:path";
 import type {
@@ -290,12 +290,7 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
         const now = Date.now();
         const dt = (now - lastTime) / 1000;
         const speed = dt > 0 ? (loaded - lastLoaded) / dt : 0;
-        const speedStr =
-          speed > 1024 * 1024
-            ? `${(speed / 1024 / 1024).toFixed(1)} MB/s`
-            : speed > 1024
-              ? `${(speed / 1024).toFixed(1)} KB/s`
-              : `${speed.toFixed(0)} B/s`;
+        const speedStr = formatDownloadSpeed(speed);
         bar.update(loaded / (1024 * 1024), { speed: speedStr });
         onProgress?.(loaded, total);
         if (dt >= 0.25) {

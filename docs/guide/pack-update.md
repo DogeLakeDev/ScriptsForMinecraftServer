@@ -99,8 +99,6 @@ flowchart TD
       "pageSize": 10,
       "preferredReleaseTypes": ["release", "beta", "alpha"],
       "match": {
-        "byUuidInArchive": true,
-        "byName": true,
         "nameMinScore": 0.6,
         "stripFolderTags": true
       }
@@ -129,6 +127,7 @@ flowchart TD
 | `baseUrl` | 官方 Core API：getMod / files / download-url。 |
 | `searchBaseUrl` | 搜索镜像；官方 search 403 时回退。 |
 | `nameMinScore` | 安装后自动绑定的最低相似度阈值。 |
+| `stripFolderTags` | 清洗时是否去掉方括号标签（如 `[BP]`/`[玩法]`）。 |
 
 ### 3.4 绑定文件示例
 

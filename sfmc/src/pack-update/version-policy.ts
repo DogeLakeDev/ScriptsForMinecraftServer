@@ -91,10 +91,10 @@ export function extractLatinPhrase(name: string): string {
 }
 
 /**
- * 基础清洗：§码、方括号标签、扩展名、CJK/拉丁分界、包角色、版本号。
- * 例："[BP] [BA] [玩法] 拔刀剑Slash Blade v4 BP" → "拔刀剑 Slash Blade"
+ * 共享预处理：§码、方括号标签、扩展名、CJK/拉丁分界、下划线→空格。
+ * normalize / collectQuerySeeds 共用，避免两处各写一遍（DRY）。
  */
-export function normalizePackSearchName(name: string, stripFolderTags = true): string {
+export function preprocessPackNameRaw(name: string, stripFolderTags = true): string {
   let s = String(name ?? "");
   s = s.replace(/§[0-9a-zA-Z]/g, "");
   if (stripFolderTags) {
@@ -103,6 +103,15 @@ export function normalizePackSearchName(name: string, stripFolderTags = true): s
   s = s.replace(/\.(zip|mcpack|mcaddon)$/i, "");
   s = insertCjkLatinBoundaries(s);
   s = s.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  return s;
+}
+
+/**
+ * 基础清洗：预处理 + 包角色 + 版本号。
+ * 例："[BP] [BA] [玩法] 拔刀剑Slash Blade v4 BP" → "拔刀剑 Slash Blade"
+ */
+export function normalizePackSearchName(name: string, stripFolderTags = true): string {
+  let s = preprocessPackNameRaw(name, stripFolderTags);
   s = stripPackRoleTokens(s);
   s = stripVersionTokens(s);
   return s;
@@ -121,12 +130,7 @@ export function collectQuerySeeds(raw: string, stripFolderTags = true): string[]
     if (!seeds.some((x) => x.toLowerCase() === t.toLowerCase())) seeds.push(t);
   };
 
-  let s = String(raw ?? "");
-  s = s.replace(/§[0-9a-zA-Z]/g, "");
-  if (stripFolderTags) s = s.replace(/\[[^\]]*]/g, " ");
-  s = s.replace(/\.(zip|mcpack|mcaddon)$/i, "");
-  s = insertCjkLatinBoundaries(s);
-  s = s.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  const s = preprocessPackNameRaw(raw, stripFolderTags);
   push(s);
 
   const noRole = stripPackRoleTokens(s);

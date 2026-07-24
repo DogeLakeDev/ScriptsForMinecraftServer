@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, resolveDefaultsDir, seedMissingConfigsFromDefaults } from "../runtime.js";
-import type { PackUpdateConfig } from "./types.js";
+import type { PackUpdateConfig, PackUpdateMatchConfig } from "./types.js";
 
 const DEFAULTS: PackUpdateConfig = {
   enabled: true,
@@ -23,8 +23,6 @@ const DEFAULTS: PackUpdateConfig = {
       pageSize: 10,
       preferredReleaseTypes: ["release", "beta", "alpha"],
       match: {
-        byUuidInArchive: true,
-        byName: true,
         nameMinScore: 0.6,
         stripFolderTags: true,
       },
@@ -95,7 +93,17 @@ export function loadPackUpdateConfig(): PackUpdateConfig {
     merged.providers.curseforge.apiKey = envKey;
   }
 
+  /* 兼容旧配置里未接线的 byUuidInArchive/byName，避免 deepMerge 残留脏字段影响契约 */
+  const match = merged.providers.curseforge.match as PackUpdateMatchConfig & Record<string, unknown>;
+  delete match.byUuidInArchive;
+  delete match.byName;
+
   return merged;
+}
+
+/** 匹配策略访问器：编排层勿直接挖 providers.curseforge.match（Demeter） */
+export function getPackMatchConfig(cfg: PackUpdateConfig): PackUpdateMatchConfig {
+  return cfg.providers.curseforge.match;
 }
 
 /**

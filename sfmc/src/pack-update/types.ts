@@ -4,9 +4,14 @@
 
 export type PackReleaseType = "release" | "beta" | "alpha";
 
+/** 已实现的源提供者 id（扩展时只加字面量，编排层走 PackSourceProvider） */
+export type PackProviderId = "curseforge";
+
+/**
+ * 名称/slug 匹配策略。
+ * 探测与 search 共用；勿再加未接线的开关（曾出现 byUuidInArchive/byName 死配置）。
+ */
 export interface PackUpdateMatchConfig {
-  byUuidInArchive: boolean;
-  byName: boolean;
   nameMinScore: number;
   stripFolderTags: boolean;
 }
@@ -60,7 +65,7 @@ export interface PackUpdateConfig {
 
 export interface PackSourceBinding {
   enabled: boolean;
-  provider: "curseforge";
+  provider: PackProviderId;
   projectId: number;
   slug: string;
   websiteUrl: string;
@@ -75,7 +80,7 @@ export interface PackSourcesFile {
 }
 
 export interface SourceSearchHit {
-  provider: "curseforge";
+  provider: PackProviderId;
   projectId: number;
   slug: string;
   name: string;
@@ -85,7 +90,7 @@ export interface SourceSearchHit {
 }
 
 export interface SourceFileRef {
-  provider: "curseforge";
+  provider: PackProviderId;
   projectId: number;
   fileId: number;
   fileName: string;
@@ -95,8 +100,9 @@ export interface SourceFileRef {
   releaseType?: PackReleaseType;
 }
 
+/** 源提供者契约：编排层只依赖此接口（DIP），具体实现可互换（LSP） */
 export interface PackSourceProvider {
-  readonly id: "curseforge";
+  readonly id: PackProviderId;
   isConfigured(): boolean;
   search(query: string): Promise<SourceSearchHit[]>;
   getLatestFile(projectId: number): Promise<SourceFileRef | null>;
