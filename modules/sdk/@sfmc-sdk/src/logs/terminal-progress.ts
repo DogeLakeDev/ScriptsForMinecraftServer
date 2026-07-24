@@ -145,9 +145,9 @@ export function bindByteProgressToBar(
       /* 未知→已知：重 start 以修正 total（ProgressHandle 无独立 setTotal） */
       bar.start(totalMb, dlMb, { speed: speedText });
       knownTotal = true;
-    } else {
-      bar.update(dlMb, { speed: speedText });
     }
+    /* 始终 update：首帧反映已下载字节；非 TTY logger 也走统一刻度（LSP） */
+    bar.update(dlMb, { speed: speedText });
 
     if (speedSampleMs <= 0 || now - lastTime >= speedSampleMs) {
       lastTime = now;
@@ -251,8 +251,10 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
         if (!id) register();
         draw();
       } else if (opts.logger) {
-        opts.logger(`进度 0% (0/${total})`);
-        lastLoggedPct = 0;
+        /* 尊重 startValue（LSP：与 ProgressHandle.start 契约一致；重 start 修正总量时勿写死 0%） */
+        const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+        opts.logger(`进度 ${pct}% (${value.toFixed(1)}/${total.toFixed(1)})`);
+        lastLoggedPct = Math.floor(pct / stepPercent) * stepPercent;
       }
     },
     update(v, p) {
