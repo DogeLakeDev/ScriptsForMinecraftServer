@@ -2,7 +2,7 @@
 /**
  * changeset publish 包装：
  * - 跳过 lifecycle scripts（CI 已先 build；避免多包并行 prepublishOnly 抢 tsc7）
- * - 依赖仓库 .changeset/pre.json：当前 pre/beta 时打到 npm dist-tag beta
+ * - pre mode 下由 changesets 自动使用 pre.json 的 tag（勿再传 --tag，会报错）
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -25,9 +25,14 @@ const env = {
 };
 
 const args = ["changeset", "publish"];
-/* 显式 tag：双保险（pre mode 本身也会设 tag） */
-if (preTag) args.push("--tag", preTag);
+/* 仅非 pre 时允许显式 --tag；pre mode 会自行打到 pre.json#tag */
+if (!preTag && process.env.SFMC_PUBLISH_TAG) {
+  args.push("--tag", process.env.SFMC_PUBLISH_TAG);
+}
 
-console.log(`[changeset-publish] running: npx ${args.join(" ")}${preTag ? ` (pre=${preTag})` : ""}`);
+console.log(
+  `[changeset-publish] running: npx ${args.join(" ")}` +
+    (preTag ? ` (pre mode → npm tag ${preTag})` : "")
+);
 const r = spawnSync("npx", args, { cwd: root, env, stdio: "inherit", shell: true });
 process.exit(r.status === null ? 1 : r.status);
