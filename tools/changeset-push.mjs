@@ -6,6 +6,7 @@
 import {
   git,
   gitCapture,
+  listUnpushedExistingVersionTags,
   readReleaseTagsState,
   resolveReleaseTagEntries,
 } from "./lib/changeset-release.mjs";
@@ -28,19 +29,10 @@ if (!tagsOnly) {
 }
 
 const state = readReleaseTagsState();
+/* DRY/LSP：缺失态与 gh-release 共用「当前可发包 + 当前版本 tag」候选，再过滤未推送 */
 const entries = resolveReleaseTagEntries(state, () => {
-  /* 回退：仅当状态文件缺失时，推送本机尚未在 origin 的 name@version 风格 tag */
-  console.warn("[changeset] 无 .sfmc-release-tags.json，回退扫描本地未推送 tag");
-  /** @type {{ tag: string }[]} */
-  const out = [];
-  const local = gitCapture(["tag", "-l", "@sfmc-bds/*"])
-    .split(/\r?\n/)
-    .filter(Boolean);
-  for (const tag of local) {
-    const remote = gitCapture(["ls-remote", "--tags", "origin", `refs/tags/${tag}`]);
-    if (!remote) out.push({ tag });
-  }
-  return out;
+  console.warn("[changeset] 无 .sfmc-release-tags.json，回退为未推送的当前 name@version tag");
+  return listUnpushedExistingVersionTags();
 });
 
 const tags = entries.map((t) => t.tag).filter(Boolean);

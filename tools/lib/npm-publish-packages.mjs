@@ -27,6 +27,97 @@ export function resolvePublishPackage(pkg) {
 }
 
 /**
+ * 读取可发包 package.json 中落在 NPM_PUBLISH_PACKAGES 的直接依赖名。
+ * @param {keyof typeof NPM_PUBLISH_PACKAGES} pkg
+ * @param {string} [repoRoot]
+ * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
+ */
+function listDirectPublishableDeps(pkg, repoRoot = process.cwd()) {
+  const pkgPath = path.join(repoRoot, NPM_PUBLISH_PACKAGES[pkg]);
+  const pkgJson = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  const deps = { ...(pkgJson.dependencies || {}), ...(pkgJson.peerDependencies || {}) };
+  /** @type {(keyof typeof NPM_PUBLISH_PACKAGES)[]} */
+  const out = [];
+  for (const name of Object.keys(deps)) {
+    if (Object.prototype.hasOwnProperty.call(NPM_PUBLISH_PACKAGES, name) && name !== pkg) {
+      out.push(/** @type {keyof typeof NPM_PUBLISH_PACKAGES} */ (name));
+    }
+  }
+  return out;
+}
+
+/**
+ * 可发包全量 build 顺序：按 dependencies ∩ NPM_PUBLISH_PACKAGES 拓扑排序。
+ * OCP：扩包只改清单 + 各包 deps，勿在 workflow 手抄优先级。
+ * @param {string} [repoRoot]
+ * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
+ */
+export function listPublishableBuildOrder(repoRoot = process.cwd()) {
+  const all = /** @type {(keyof typeof NPM_PUBLISH_PACKAGES)[]} */ (Object.keys(NPM_PUBLISH_PACKAGES));
+  /** @type {Map<string, string[]>} */
+  const dependents = new Map(all.map((n) => [n, []]));
+  /** @type {Map<string, number>} */
+  const indeg = new Map(all.map((n) => [n, 0]));
+
+  for (const name of all) {
+    for (const d of listDirectPublishableDeps(name, repoRoot)) {
+      dependents.get(d).push(name);
+      indeg.set(name, /** @type {number} */ (indeg.get(name)) + 1);
+    }
+  }
+
+  /** @type {(keyof typeof NPM_PUBLISH_PACKAGES)[]} */
+  const queue = all.filter((n) => indeg.get(n) === 0);
+  /** @type {(keyof typeof NPM_PUBLISH_PACKAGES)[]} */
+  const out = [];
+  while (queue.length) {
+    const n = /** @type {keyof typeof NPM_PUBLISH_PACKAGES} */ (queue.shift());
+    out.push(n);
+    for (const m of dependents.get(n) || []) {
+      const next = /** @type {number} */ (indeg.get(m)) - 1;
+      indeg.set(m, next);
+      if (next === 0) queue.push(/** @type {keyof typeof NPM_PUBLISH_PACKAGES} */ (m));
+    }
+  }
+  if (out.length !== all.length) {
+    const leftover = all.filter((n) => !out.includes(n));
+    throw new Error(`Publishable package dependency cycle: ${leftover.join(", ")}`);
+  }
+  return out;
+}
+
+/**
+ * 构建目标包前必须先 build 的可发包依赖（拓扑序，不含自身）。
+ * 权威：package.json dependencies ∩ NPM_PUBLISH_PACKAGES（DRY/DIP，勿硬编码 sdk）。
+ * @param {string} pkg
+ * @param {string} [repoRoot]
+ * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
+ */
+export function listPublishableBuildDeps(pkg, repoRoot = process.cwd()) {
+  const resolved = resolvePublishPackage(pkg);
+  if (!resolved) {
+    throw new Error(`Unknown publish package: ${pkg}`);
+  }
+  /** @type {Set<string>} */
+  const needed = new Set();
+  /** @type {string[]} */
+  const stack = [resolved];
+  /** @type {Set<string>} */
+  const seen = new Set();
+  while (stack.length) {
+    const cur = /** @type {keyof typeof NPM_PUBLISH_PACKAGES} */ (stack.pop());
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    for (const d of listDirectPublishableDeps(cur, repoRoot)) {
+      if (d === resolved) continue;
+      needed.add(d);
+      stack.push(d);
+    }
+  }
+  return listPublishableBuildOrder(repoRoot).filter((n) => needed.has(n));
+}
+
+/**
  * 判断相对仓根的目录是否落在 root workspaces 声明内。
  * 支持精确项与末尾 `/*` 一层通配(与 npm workspaces 常见写法一致)。
  * @param {string} dirPosix  正斜杠相对路径,如 "tools" / "modules/packages/afk"

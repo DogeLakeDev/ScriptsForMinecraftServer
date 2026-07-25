@@ -66,7 +66,8 @@ npm run prerelease-packages
 |------|--------|
 | `prerelease-packages` | **现在**（pre/beta） |
 | `release-packages` | 仅 `changeset pre exit` 之后（latest） |
-| `ci-release-packages` | CI 专用（无交互）。`tag-packages` 默认按 `HEAD~1` 版本 diff；仅显式 `--from-existing` / `SFMC_TAG_FROM_EXISTING=1`（或浅克隆无法解析父提交）才只收录已有 tag。空的 `.sfmc-release-tags.json` 表示本轮无目标，下游不得回退扫全仓。 |
+| `ci-release-packages` | CI 专用（无交互）。`tag-packages` 默认按 `HEAD~1` 版本 diff；仅显式 `--from-existing` / `SFMC_TAG_FROM_EXISTING=1`（或浅克隆无法解析父提交）才只收录已有 tag。空的 `.sfmc-release-tags.json` 表示本轮无目标，下游不得回退扫全仓。push / gh-release 缺失态分别回退 `listUnpushedExistingVersionTags` / `listPackagesWithExistingVersionTags`。 |
+| `build:publishable` | 按 `NPM_PUBLISH_PACKAGES` 拓扑构建可发包；`node tools/build-publishable.mjs [--workspace <pkg>]`。changeset-release 全量、npm-publish 应急补发（含依赖闭包）共用，勿在 YAML 再抄 workspace/依赖列表。 |
 | `publish-packages` | 仅 npm publish 包装 |
 
 需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。
@@ -96,6 +97,7 @@ npx changeset publish    # → latest
 
 - 默认 `dist_tag=beta`
 - 若仍处于 pre mode，选择 `latest` 会被 workflow 拒绝
+- build 步骤调用 `build-publishable.mjs --workspace <pkg>`：先按 `listPublishableBuildDeps` 构建可发包依赖（如 `@sfmc-bds/cli` → sdk + bds-tools），再构建目标；勿再硬编码只 build SDK
 
 ## 本地验证（发布前）
 
