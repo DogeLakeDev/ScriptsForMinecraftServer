@@ -18,6 +18,29 @@ export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/sfmc": "sfmc-meta/package.json",
 };
 
+/**
+ * 可发包 build 顺序：优先编译被依赖的包，其余保持清单插入序（OCP：扩包只改表）。
+ * sdk / bds-tools 被 cli、tools 等引用，须先于依赖方。
+ * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
+ */
+export function listPublishableBuildOrder() {
+  const all = Object.keys(NPM_PUBLISH_PACKAGES);
+  const priority = ["@sfmc-bds/sdk", "@sfmc-bds/bds-tools"];
+  /** @type {string[]} */
+  const out = [];
+  const seen = new Set();
+  for (const name of priority) {
+    if (all.includes(name)) {
+      out.push(name);
+      seen.add(name);
+    }
+  }
+  for (const name of all) {
+    if (!seen.has(name)) out.push(name);
+  }
+  return /** @type {(keyof typeof NPM_PUBLISH_PACKAGES)[]} */ (out);
+}
+
 /** @returns {keyof typeof NPM_PUBLISH_PACKAGES | null} */
 export function resolvePublishPackage(pkg) {
   if (Object.prototype.hasOwnProperty.call(NPM_PUBLISH_PACKAGES, pkg)) {

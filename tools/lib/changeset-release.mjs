@@ -126,6 +126,20 @@ export function listPackagesWithExistingVersionTags(pkgs = listPublishablePackag
 }
 
 /**
+ * 当前版本 tag 已在本地、且 origin 尚无同名 tag 的可发包。
+ * push-release 缺失态回退权威实现：候选集与 gh-release 共用
+ * listPackagesWithExistingVersionTags（DRY/LSP），再叠加未推送过滤。
+ * @param {{ name: string, version: string, pkgPath: string }[]} [pkgs]
+ * @returns {ReleaseTagEntry[]}
+ */
+export function listUnpushedExistingVersionTags(pkgs = listPublishablePackages()) {
+  return listPackagesWithExistingVersionTags(pkgs).filter((e) => {
+    const remote = gitCapture(["ls-remote", "--tags", "origin", `refs/tags/${e.tag}`]);
+    return !remote;
+  });
+}
+
+/**
  * 相对 HEAD~1 版本有变化的可发包；无法解析父提交时安全回退到 listPackagesWithExistingVersionTags。
  * @param {{ fromExisting?: boolean }} [opts]
  * @returns {ReleaseTagEntry[]}
