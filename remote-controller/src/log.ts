@@ -4,15 +4,12 @@
  * stdout bare + 落盘 `<SFMC_ROOT>/.sfmc/logs/remote-controller.log`。
  */
 import { createNodeServiceLogger } from "@sfmc-bds/sdk/logs";
-import { logFile, resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const ROOT = resolveRuntimeRoot(resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."));
+import { logFile } from "@sfmc-bds/sdk/node/config";
+import { PROJECT_ROOT } from "./project-root.js";
 
 export const log = createNodeServiceLogger({
   source: "remote-controller",
-  logPath: logFile(ROOT, "remote-controller"),
+  logPath: logFile(PROJECT_ROOT, "remote-controller"),
 });
 
 process.on("exit", () => log.close());

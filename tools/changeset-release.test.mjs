@@ -6,6 +6,8 @@ import { describe, it } from "node:test";
 import {
   packageTagName,
   extractChangelogNotes,
+  listPendingChangesetFiles,
+  resolveReleaseTagEntries,
   RELEASE_TAGS_STATE,
   PRE_JSON,
   ROOT,
@@ -44,5 +46,42 @@ describe("release paths (DRY)", () => {
     assert.ok(RELEASE_TAGS_STATE.startsWith(ROOT));
     assert.ok(PRE_JSON.startsWith(ROOT));
     assert.equal(path.basename(RELEASE_TAGS_STATE), ".sfmc-release-tags.json");
+  });
+});
+
+describe("resolveReleaseTagEntries (LSP)", () => {
+  it("trusts empty tags array — does not call fallback", () => {
+    let called = false;
+    const out = resolveReleaseTagEntries({ tags: [], createdAt: "t" }, () => {
+      called = true;
+      return [{ tag: "should-not-appear" }];
+    });
+    assert.deepEqual(out, []);
+    assert.equal(called, false);
+  });
+
+  it("uses fallback only when state is missing", () => {
+    const fb = [{ tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
+    const out = resolveReleaseTagEntries(null, () => fb);
+    assert.equal(out, fb);
+  });
+
+  it("returns state.tags when present", () => {
+    const tags = [{ name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
+    const out = resolveReleaseTagEntries({ tags, createdAt: "t" }, () => []);
+    assert.equal(out, tags);
+  });
+});
+
+describe("listPendingChangesetFiles (pre mode LSP)", () => {
+  it("excludes ids already recorded in pre.json#changesets", () => {
+    const pre = JSON.parse(fs.readFileSync(PRE_JSON, "utf8"));
+    assert.equal(pre.mode, "pre");
+    assert.ok(Array.isArray(pre.changesets));
+    const pending = listPendingChangesetFiles();
+    const pendingIds = pending.map((p) => path.basename(p, ".md"));
+    for (const id of pre.changesets) {
+      assert.ok(!pendingIds.includes(id), `consumed ${id} must not be pending`);
+    }
   });
 });
