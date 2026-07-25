@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import {
   packageTagName,
   extractChangelogNotes,
+  listPendingChangesetFiles,
   resolveReleaseTagEntries,
   RELEASE_TAGS_STATE,
   PRE_JSON,
@@ -69,5 +70,18 @@ describe("resolveReleaseTagEntries (LSP)", () => {
     const tags = [{ name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
     const out = resolveReleaseTagEntries({ tags, createdAt: "t" }, () => []);
     assert.equal(out, tags);
+  });
+});
+
+describe("listPendingChangesetFiles (pre mode LSP)", () => {
+  it("excludes ids already recorded in pre.json#changesets", () => {
+    const pre = JSON.parse(fs.readFileSync(PRE_JSON, "utf8"));
+    assert.equal(pre.mode, "pre");
+    assert.ok(Array.isArray(pre.changesets));
+    const pending = listPendingChangesetFiles();
+    const pendingIds = pending.map((p) => path.basename(p, ".md"));
+    for (const id of pre.changesets) {
+      assert.ok(!pendingIds.includes(id), `consumed ${id} must not be pending`);
+    }
   });
 });
