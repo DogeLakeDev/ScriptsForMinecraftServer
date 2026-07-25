@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import {
   packageTagName,
   extractChangelogNotes,
+  resolveReleaseTagEntries,
   RELEASE_TAGS_STATE,
   PRE_JSON,
   ROOT,
@@ -44,5 +45,29 @@ describe("release paths (DRY)", () => {
     assert.ok(RELEASE_TAGS_STATE.startsWith(ROOT));
     assert.ok(PRE_JSON.startsWith(ROOT));
     assert.equal(path.basename(RELEASE_TAGS_STATE), ".sfmc-release-tags.json");
+  });
+});
+
+describe("resolveReleaseTagEntries (LSP)", () => {
+  it("trusts empty tags array — does not call fallback", () => {
+    let called = false;
+    const out = resolveReleaseTagEntries({ tags: [], createdAt: "t" }, () => {
+      called = true;
+      return [{ tag: "should-not-appear" }];
+    });
+    assert.deepEqual(out, []);
+    assert.equal(called, false);
+  });
+
+  it("uses fallback only when state is missing", () => {
+    const fb = [{ tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
+    const out = resolveReleaseTagEntries(null, () => fb);
+    assert.equal(out, fb);
+  });
+
+  it("returns state.tags when present", () => {
+    const tags = [{ name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
+    const out = resolveReleaseTagEntries({ tags, createdAt: "t" }, () => []);
+    assert.equal(out, tags);
   });
 });

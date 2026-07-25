@@ -39,6 +39,11 @@
 2. PR 合入 `main` 后，[changeset-release.yml](../../.github/workflows/changeset-release.yml) 会开/更新 **Version Packages** PR。
 3. 维护者审查并合并 Version PR → CI 跑 `ci-release-packages`（publish + tag + GitHub Release；pre mode → npm **`beta`**）。
 
+> **仓库设置（必开）**：Settings → Actions → General → Workflow permissions 勾选
+> **Allow GitHub Actions to create and approve pull requests**。
+> 未勾选时 `changesets/action` 能 push `changeset-release/main`，但创建 Version PR 会报
+> `GitHub Actions is not permitted to create or approve pull requests`（workflow 已具备 `pull-requests: write` 仍不够）。
+
 ### 本地一键发版（`npm-run-all2`）
 
 当前 pre mode 请用：
@@ -53,7 +58,7 @@ npm run prerelease-packages
 |------|--------|
 | `prerelease-packages` | **现在**（pre/beta） |
 | `release-packages` | 仅 `changeset pre exit` 之后（latest） |
-| `ci-release-packages` | CI 专用（无交互）。`CI=true` 时 `tag-packages` 默认 `--from-existing`：只收录 `changeset publish` 已创建的 tag，避免浅克隆误为未发版包打 tag / 建 GH Release。 |
+| `ci-release-packages` | CI 专用（无交互）。`tag-packages` 默认按 `HEAD~1` 版本 diff；仅显式 `--from-existing` / `SFMC_TAG_FROM_EXISTING=1`（或浅克隆无法解析父提交）才只收录已有 tag。空的 `.sfmc-release-tags.json` 表示本轮无目标，下游不得回退扫全仓。 |
 | `publish-packages` | 仅 npm publish 包装 |
 
 需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。

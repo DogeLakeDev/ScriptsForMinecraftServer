@@ -75,6 +75,19 @@ export function readReleaseTagsState() {
   }
 }
 
+/**
+ * LSP：状态文件存在时一律信任（含 `tags: []` = 本轮无目标）；
+ * 仅文件缺失 / 无法解析时调用 fallback（禁止把空数组当成「无状态」再扫全仓 tag）。
+ * @template T
+ * @param {ReleaseTagsState | null} state
+ * @param {() => T[]} fallback
+ * @returns {T[] | ReleaseTagEntry[]}
+ */
+export function resolveReleaseTagEntries(state, fallback) {
+  if (state) return state.tags;
+  return fallback();
+}
+
 /** @param {ReleaseTagEntry[]} tags */
 export function writeReleaseTagsState(tags) {
   const state = {

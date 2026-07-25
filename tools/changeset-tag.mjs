@@ -3,10 +3,12 @@
  * 为当前可发包创建 git tag（与 changeset publish 同格式: name@version）。
  * 已存在的 tag 跳过。写入 .sfmc-release-tags.json 供后续 push / gh release 使用。
  *
- *   node tools/changeset-tag.mjs                # 按 HEAD~1 版本 diff 打 tag
- *   node tools/changeset-tag.mjs --from-existing  # 仅收录本地已有 name@version（CI publish 之后）
+ *   node tools/changeset-tag.mjs                 # 按 HEAD~1 版本 diff 打 tag
+ *   node tools/changeset-tag.mjs --from-existing # 仅收录本地已有 name@version
+ *   SFMC_TAG_FROM_EXISTING=1                     # 同上
  *
- * CI=true 且未传 --create 时默认 --from-existing（changeset publish 已建 tag，避免浅克隆误打全量）。
+ * HEAD~1 不可用时由 resolvePackagesNeedingTags 安全回退到 from-existing（勿因 CI=true 强制）。
+ * CI 已 fetch-depth:0 时应走版本 diff，避免误收录仓内历史全量 name@version。
  */
 import path from "node:path";
 import {
@@ -19,9 +21,7 @@ import {
 } from "./lib/changeset-release.mjs";
 
 const fromExisting =
-  process.argv.includes("--from-existing") ||
-  process.env.SFMC_TAG_FROM_EXISTING === "1" ||
-  (process.env.CI === "true" && !process.argv.includes("--create"));
+  process.argv.includes("--from-existing") || process.env.SFMC_TAG_FROM_EXISTING === "1";
 
 const needed = resolvePackagesNeedingTags({ fromExisting });
 if (needed.length === 0) {
@@ -30,6 +30,7 @@ if (needed.length === 0) {
       ? "[changeset] 无已存在的 name@version tag 可收录，跳过"
       : "[changeset] 无包版本变化，跳过打 tag"
   );
+  /* 空数组仍写入：下游须信任「本轮无 tag」，禁止回退扫全仓 */
   writeReleaseTagsState([]);
   process.exit(0);
 }

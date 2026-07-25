@@ -17,6 +17,7 @@ import {
   packageDirFor,
   packageTagName,
   readReleaseTagsState,
+  resolveReleaseTagEntries,
   run,
 } from "./lib/changeset-release.mjs";
 
@@ -25,21 +26,23 @@ const forceLatest = process.argv.includes("--latest");
 
 function loadTargets() {
   const state = readReleaseTagsState();
-  if (state && state.tags.length > 0) {
-    return state.tags.map((t) => ({
-      name: t.name,
-      version: t.version,
-      tag: t.tag,
-    }));
-  }
-  const out = [];
-  for (const p of listPublishablePackages()) {
-    const tag = packageTagName(p.name, p.version);
-    if (gitCapture(["tag", "-l", tag])) {
-      out.push({ name: p.name, version: p.version, tag });
+  const entries = resolveReleaseTagEntries(state, () => {
+    /* 仅状态文件缺失时回退：当前版本对应 tag 已在本地的可发包 */
+    console.warn("[changeset] 无 .sfmc-release-tags.json，回退扫描本地 name@version tag");
+    const out = [];
+    for (const p of listPublishablePackages()) {
+      const tag = packageTagName(p.name, p.version);
+      if (gitCapture(["tag", "-l", tag])) {
+        out.push({ name: p.name, version: p.version, tag });
+      }
     }
-  }
-  return out;
+    return out;
+  });
+  return entries.map((t) => ({
+    name: t.name,
+    version: t.version,
+    tag: t.tag,
+  }));
 }
 
 function isPrereleaseVersion(version) {

@@ -23,7 +23,7 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      # fetch-depth:0：tag-packages 需 HEAD~1 做版本 diff；浅克隆会误触发全量 tag 回退路径
+      # fetch-depth:0：tag-packages 需 HEAD~1 做版本 diff；浅克隆时 resolvePackagesNeedingTags 才回退 from-existing
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -53,7 +53,7 @@ jobs:
         with:
           version: npm run version-packages
           # CI 不跑交互 changeset/version；只 publish + tag + gh release
-          # tag-packages 在 CI=true 时默认 --from-existing（publish 已建 tag，避免浅克隆误打全量）
+          # tag-packages 默认 HEAD~1 版本 diff（空状态文件亦信任，禁止扫全仓 tag）
           publish: npm run ci-release-packages
           title: "chore(release): version packages"
           commit: "chore(release): version packages"

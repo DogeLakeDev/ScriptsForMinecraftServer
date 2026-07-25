@@ -1,5 +1,11 @@
 # @sfmc-bds/tools
 
+## 0.2.0-beta.1
+
+### Patch Changes
+
+- 44ca909: 修复发版编排：浅克隆不再误打全量 tag；CHANGELOG 摘录正则；release-tags 状态 DRY
+
 ## 0.2.0-beta.0
 
 ### Minor Changes
