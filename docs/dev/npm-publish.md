@@ -39,6 +39,19 @@
 2. PR 合入 `main` 后，[changeset-release.yml](../../.github/workflows/changeset-release.yml) 会开/更新 **Version Packages** PR。
 3. 维护者审查并合并 Version PR → CI 跑 `ci-release-packages`（publish + tag + GitHub Release；pre mode → npm **`beta`**）。
 
+### Version PR 权限（必读）
+
+`changesets/action` 用 `GITHUB_TOKEN` 开 PR 时，若仓库/组织关闭了 **Allow GitHub Actions to create and approve pull requests**，会报：
+
+`HttpError: GitHub Actions is not permitted to create or approve pull requests`
+
+（版本 bump 分支 `changeset-release/main` 可能已推送，但 PR 未创建。）
+
+任选其一：
+
+1. **推荐（零 Secret）**：Repo Settings → Actions → General → Workflow permissions → 勾选 *Allow GitHub Actions to create and approve pull requests*（需 `pull-requests: write`，workflow 已声明）。
+2. **PAT**：新建 classic/fine-grained token（至少能开本仓 PR），写入 Secret **`CHANGESETS_GITHUB_TOKEN`**；workflow 优先用该 token，未配置时回退 `GITHUB_TOKEN`。
+
 ### 本地一键发版（`npm-run-all2`）
 
 当前 pre mode 请用：
@@ -95,6 +108,7 @@ npm run pack:verify
 
 1. npm 账号登录并确认 org [sfmc-bds](https://www.npmjs.com/org/sfmc-bds)
 2. Granular Access Token（Automation）写入 GitHub Secret `NPM_TOKEN`
+3. （可选）若无法开启 Actions「create and approve pull requests」：写入 `CHANGESETS_GITHUB_TOKEN`（见上文 Version PR 权限）
 
 ## 模块包
 

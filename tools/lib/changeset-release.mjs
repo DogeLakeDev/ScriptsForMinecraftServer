@@ -25,12 +25,20 @@ export function isPreMode() {
   return Boolean(pre && pre.mode === "pre");
 }
 
-/** 待消费的 changeset 文件（不含 README / config / pre） */
+/**
+ * 待消费的 changeset 文件（不含 README / config / pre）。
+ * pre mode 下 `.md` 会留在磁盘直到 `pre exit`；须排除已写入 `pre.json#changesets` 的 id（与 @changesets getRelevantChangesets 一致）。
+ */
 export function listPendingChangesetFiles() {
   if (!fs.existsSync(CHANGESET_DIR)) return [];
+  const pre = readPreState();
+  const consumed = new Set(
+    pre && pre.mode === "pre" && Array.isArray(pre.changesets) ? pre.changesets : []
+  );
   return fs
     .readdirSync(CHANGESET_DIR)
     .filter((f) => f.endsWith(".md") && f.toLowerCase() !== "readme.md")
+    .filter((f) => !consumed.has(f.replace(/\.md$/i, "")))
     .map((f) => path.join(CHANGESET_DIR, f));
 }
 

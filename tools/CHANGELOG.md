@@ -1,5 +1,12 @@
 # @sfmc-bds/tools
 
+## 0.2.0-beta.1
+
+### Patch Changes
+
+- 44ca909: 修复发版编排：浅克隆不再误打全量 tag；CHANGELOG 摘录正则；release-tags 状态 DRY
+- listPendingChangesetFiles：pre mode 下排除已写入 pre.json 的 id，避免误判待消费（LSP）
+
 ## 0.2.0-beta.0
 
 ### Minor Changes

@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import {
   packageTagName,
   extractChangelogNotes,
+  listPendingChangesetFiles,
   RELEASE_TAGS_STATE,
   PRE_JSON,
   ROOT,
@@ -44,5 +45,19 @@ describe("release paths (DRY)", () => {
     assert.ok(RELEASE_TAGS_STATE.startsWith(ROOT));
     assert.ok(PRE_JSON.startsWith(ROOT));
     assert.equal(path.basename(RELEASE_TAGS_STATE), ".sfmc-release-tags.json");
+  });
+});
+
+describe("listPendingChangesetFiles (pre mode LSP)", () => {
+  it("excludes ids already recorded in pre.json#changesets", () => {
+    const pre = JSON.parse(fs.readFileSync(PRE_JSON, "utf8"));
+    assert.equal(pre.mode, "pre");
+    assert.ok(Array.isArray(pre.changesets) && pre.changesets.length > 0);
+    // pre mode 下已消费的 .md 仍留在磁盘；待消费列表不得再包含它们
+    const pending = listPendingChangesetFiles();
+    const pendingIds = pending.map((p) => path.basename(p, ".md"));
+    for (const id of pre.changesets) {
+      assert.ok(!pendingIds.includes(id), `consumed ${id} must not be pending`);
+    }
   });
 });
