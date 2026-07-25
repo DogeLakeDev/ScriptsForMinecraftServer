@@ -3,11 +3,12 @@
  * 推送当前分支与发版 tag（优先读 .sfmc-release-tags.json）。
  * CI 下默认只推 tag（SFMC_PUSH_TAGS_ONLY=1 或 CI=true）。
  */
-import fs from "node:fs";
-import path from "node:path";
-import { ROOT, git, gitCapture } from "./lib/changeset-release.mjs";
+import {
+  git,
+  gitCapture,
+  readReleaseTagsState,
+} from "./lib/changeset-release.mjs";
 
-const statePath = path.join(ROOT, ".sfmc-release-tags.json");
 const tagsOnly =
   process.env.SFMC_PUSH_TAGS_ONLY === "1" ||
   process.env.CI === "true" ||
@@ -27,9 +28,9 @@ if (!tagsOnly) {
 
 /** @type {string[]} */
 let tags = [];
-if (fs.existsSync(statePath)) {
-  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-  tags = (state.tags ?? []).map((t) => t.tag).filter(Boolean);
+const state = readReleaseTagsState();
+if (state && state.tags.length > 0) {
+  tags = state.tags.map((t) => t.tag).filter(Boolean);
 }
 
 if (tags.length === 0) {

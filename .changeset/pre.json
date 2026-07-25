@@ -13,6 +13,12 @@
     "@sfmc-bds/tools": "0.1.1"
   },
   "changesets": [
-    "tame-suns-begin"
+    "bds-tools-0-2-beta",
+    "cli-0-2-beta",
+    "db-server-0-2-beta",
+    "qq-bridge-0-1-1-beta",
+    "sdk-0-2-beta",
+    "sfmc-meta-0-2-beta",
+    "tools-0-2-beta"
   ]
 }

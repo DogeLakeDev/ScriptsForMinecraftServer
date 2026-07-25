@@ -14,25 +14,23 @@ import {
   extractChangelogNotes,
   gitCapture,
   listPublishablePackages,
+  packageDirFor,
   packageTagName,
+  readReleaseTagsState,
   run,
 } from "./lib/changeset-release.mjs";
-import { NPM_PUBLISH_PACKAGES } from "./lib/npm-publish-packages.mjs";
 
 const forcePre = process.argv.includes("--prerelease");
 const forceLatest = process.argv.includes("--latest");
-const statePath = path.join(ROOT, ".sfmc-release-tags.json");
 
 function loadTargets() {
-  if (fs.existsSync(statePath)) {
-    const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-    if (Array.isArray(state.tags) && state.tags.length > 0) {
-      return state.tags.map((t) => ({
-        name: t.name,
-        version: t.version,
-        tag: t.tag,
-      }));
-    }
+  const state = readReleaseTagsState();
+  if (state && state.tags.length > 0) {
+    return state.tags.map((t) => ({
+      name: t.name,
+      version: t.version,
+      tag: t.tag,
+    }));
   }
   const out = [];
   for (const p of listPublishablePackages()) {
@@ -72,8 +70,7 @@ for (const t of targets) {
   }
 
   const pre = isPrereleaseVersion(t.version);
-  const rel = NPM_PUBLISH_PACKAGES[t.name];
-  const pkgDir = rel ? path.join(ROOT, path.dirname(rel)) : ROOT;
+  const pkgDir = packageDirFor(t.name) ?? ROOT;
   const notes = extractChangelogNotes(pkgDir, t.version);
   const notesFile = path.join(
     ROOT,
@@ -81,20 +78,10 @@ for (const t of targets) {
   );
   fs.writeFileSync(notesFile, notes + "\n");
 
-  const args = [
-    "release",
-    "create",
-    t.tag,
-    "--title",
-    t.tag,
-    "--notes-file",
-    notesFile,
-  ];
+  const args = ["release", "create", t.tag, "--title", t.tag, "--notes-file", notesFile];
   if (pre) args.push("--prerelease");
 
-  console.log(
-    `[changeset] gh release create ${t.tag}` + (pre ? " --prerelease" : "")
-  );
+  console.log(`[changeset] gh release create ${t.tag}` + (pre ? " --prerelease" : ""));
   try {
     run("gh", args);
   } finally {
