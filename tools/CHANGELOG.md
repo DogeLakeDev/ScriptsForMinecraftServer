@@ -6,6 +6,7 @@
 
 - 44ca909: 修复发版编排：浅克隆不再误打全量 tag；CHANGELOG 摘录正则；release-tags 状态 DRY
 - listPendingChangesetFiles：pre mode 下排除已写入 pre.json 的 id，避免误判待消费（LSP）
+- tag-packages：CI 不再默认 --from-existing；空 RELEASE_TAGS_STATE 禁止 push/gh 全量回退
 
 ## 0.2.0-beta.0
 

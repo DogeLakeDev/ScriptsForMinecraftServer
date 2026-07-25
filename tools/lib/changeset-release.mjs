@@ -94,6 +94,20 @@ export function writeReleaseTagsState(tags) {
 }
 
 /**
+ * 发版态契约（LSP）：
+ * - 文件缺失 → `missing`（允许回退扫描）
+ * - 文件存在且 tags=[] → `empty`（本轮无 tag，禁止回退全量）
+ * - 文件存在且有条目 → `present`
+ * @param {ReleaseTagsState | null} state
+ * @returns {"missing" | "empty" | "present"}
+ */
+export function releaseTagsStateKind(state) {
+  if (!state) return "missing";
+  if (!Array.isArray(state.tags) || state.tags.length === 0) return "empty";
+  return "present";
+}
+
+/**
  * 仅收录「当前版本对应 tag 已在本地存在」的可发包。
  * 用于：changeset publish 之后的 CI（publish 已建 tag），或浅克隆无法 diff 时的安全回退。
  * 切勿在「无历史 + 无 tag」时回退为全部打 tag——会误为未发版包建 GH Release。

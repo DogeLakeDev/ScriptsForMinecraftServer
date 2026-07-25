@@ -66,7 +66,7 @@ npm run prerelease-packages
 |------|--------|
 | `prerelease-packages` | **现在**（pre/beta） |
 | `release-packages` | 仅 `changeset pre exit` 之后（latest） |
-| `ci-release-packages` | CI 专用（无交互）。`CI=true` 时 `tag-packages` 默认 `--from-existing`：只收录 `changeset publish` 已创建的 tag，避免浅克隆误为未发版包打 tag / 建 GH Release。 |
+| `ci-release-packages` | CI 专用（无交互）。`tag-packages` 默认按 `HEAD~1` 版本 diff 收录（workflow `fetch-depth: 0`）；仅显式 `--from-existing` / 无法解析父提交时才回退「已有 tag」。`RELEASE_TAGS_STATE` 空数组表示本轮无 tag，push/gh-release **不得**回退全量扫描。 |
 | `publish-packages` | 仅 npm publish 包装 |
 
 需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。

@@ -17,6 +17,7 @@ import {
   packageDirFor,
   packageTagName,
   readReleaseTagsState,
+  releaseTagsStateKind,
   run,
 } from "./lib/changeset-release.mjs";
 
@@ -25,12 +26,17 @@ const forceLatest = process.argv.includes("--latest");
 
 function loadTargets() {
   const state = readReleaseTagsState();
-  if (state && state.tags.length > 0) {
+  const kind = releaseTagsStateKind(state);
+  if (kind === "present") {
     return state.tags.map((t) => ({
       name: t.name,
       version: t.version,
       tag: t.tag,
     }));
+  }
+  if (kind === "empty") {
+    /* LSP：与 push 一致 — 空态表示本轮无 Release，禁止回退全量 */
+    return [];
   }
   const out = [];
   for (const p of listPublishablePackages()) {

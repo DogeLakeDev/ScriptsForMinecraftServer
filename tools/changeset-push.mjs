@@ -7,6 +7,7 @@ import {
   git,
   gitCapture,
   readReleaseTagsState,
+  releaseTagsStateKind,
 } from "./lib/changeset-release.mjs";
 
 const tagsOnly =
@@ -29,12 +30,15 @@ if (!tagsOnly) {
 /** @type {string[]} */
 let tags = [];
 const state = readReleaseTagsState();
-if (state && state.tags.length > 0) {
+const kind = releaseTagsStateKind(state);
+if (kind === "present") {
   tags = state.tags.map((t) => t.tag).filter(Boolean);
-}
-
-if (tags.length === 0) {
-  /* 回退：推送本机尚未在 origin 的 name@version 风格 tag */
+} else if (kind === "empty") {
+  /* LSP：tag-packages 已显式写入空列表 = 本轮无 tag，禁止回退全量扫描 */
+  console.log("[changeset] 发版态为空（本轮无 tag），跳过推送");
+  process.exit(0);
+} else {
+  /* 文件缺失：本地/应急回退 */
   const local = gitCapture(["tag", "-l", "@sfmc-bds/*"])
     .split(/\r?\n/)
     .filter(Boolean);

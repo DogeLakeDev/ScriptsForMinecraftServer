@@ -7,6 +7,7 @@ import {
   packageTagName,
   extractChangelogNotes,
   listPendingChangesetFiles,
+  releaseTagsStateKind,
   RELEASE_TAGS_STATE,
   PRE_JSON,
   ROOT,
@@ -59,5 +60,19 @@ describe("listPendingChangesetFiles (pre mode LSP)", () => {
     for (const id of pre.changesets) {
       assert.ok(!pendingIds.includes(id), `consumed ${id} must not be pending`);
     }
+  });
+});
+
+describe("releaseTagsStateKind (empty-state LSP)", () => {
+  it("distinguishes missing / empty / present", () => {
+    assert.equal(releaseTagsStateKind(null), "missing");
+    assert.equal(releaseTagsStateKind({ tags: [], createdAt: "" }), "empty");
+    assert.equal(
+      releaseTagsStateKind({
+        tags: [{ name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" }],
+        createdAt: "",
+      }),
+      "present"
+    );
   });
 });

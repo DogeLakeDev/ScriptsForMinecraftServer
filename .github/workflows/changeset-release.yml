@@ -58,7 +58,7 @@ jobs:
         with:
           version: npm run version-packages
           # CI 不跑交互 changeset/version；只 publish + tag + gh release
-          # tag-packages 在 CI=true 时默认 --from-existing（publish 已建 tag，避免浅克隆误打全量）
+          # tag-packages 默认 HEAD~1 diff（本 workflow fetch-depth:0）；勿默认 --from-existing
           publish: npm run ci-release-packages
           title: "chore(release): version packages"
           commit: "chore(release): version packages"
