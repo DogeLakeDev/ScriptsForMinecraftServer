@@ -50,7 +50,7 @@
 任选其一：
 
 1. **推荐（零 Secret）**：Repo Settings → Actions → General → Workflow permissions → 勾选 *Allow GitHub Actions to create and approve pull requests*。
-2. **PAT**：写入 Secret **`CHANGESETS_GITHUB_TOKEN`**（能开本仓 PR）；workflow 优先用该 token，未配置时回退 `GITHUB_TOKEN`。
+2. **PAT**：写入 Secret **`SFMC_GITHUB_TOKEN`**（能开本仓 PR）；workflow 优先用该 token，其次兼容旧名 `CHANGESETS_GITHUB_TOKEN`，再回退 `GITHUB_TOKEN`。
 
 ### 本地一键发版（`npm-run-all2`）
 
@@ -108,7 +108,7 @@ npm run pack:verify
 
 1. npm 账号登录并确认 org [sfmc-bds](https://www.npmjs.com/org/sfmc-bds)
 2. Granular Access Token（Automation）写入 GitHub Secret `NPM_TOKEN`
-3. （可选）若无法开启 Actions「create and approve pull requests」：写入 `CHANGESETS_GITHUB_TOKEN`（见上文 Version PR 权限）
+3. （可选）若无法开启 Actions「create and approve pull requests」：写入 `SFMC_GITHUB_TOKEN`（见上文 Version PR 权限；旧名 `CHANGESETS_GITHUB_TOKEN` 仍可用）
 
 ## 模块包
 

@@ -7,6 +7,7 @@ import {
   packageTagName,
   extractChangelogNotes,
   listPendingChangesetFiles,
+  listPackagesWithExistingVersionTags,
   resolveReleaseTagEntries,
   RELEASE_TAGS_STATE,
   PRE_JSON,
@@ -70,6 +71,15 @@ describe("resolveReleaseTagEntries (LSP)", () => {
     const tags = [{ name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
     const out = resolveReleaseTagEntries({ tags, createdAt: "t" }, () => []);
     assert.equal(out, tags);
+  });
+
+  it("gh-release missing-state fallback is listPackagesWithExistingVersionTags (DRY)", () => {
+    /* 契约：changeset-github-release 不得再手写一遍 tag -l 扫描 */
+    const out = resolveReleaseTagEntries(null, () => listPackagesWithExistingVersionTags());
+    assert.ok(Array.isArray(out));
+    for (const e of out) {
+      assert.equal(e.tag, packageTagName(e.name, e.version));
+    }
   });
 });
 
