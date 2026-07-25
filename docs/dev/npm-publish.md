@@ -53,7 +53,7 @@ npm run prerelease-packages
 |------|--------|
 | `prerelease-packages` | **现在**（pre/beta） |
 | `release-packages` | 仅 `changeset pre exit` 之后（latest） |
-| `ci-release-packages` | CI 专用（无交互） |
+| `ci-release-packages` | CI 专用（无交互）。`CI=true` 时 `tag-packages` 默认 `--from-existing`：只收录 `changeset publish` 已创建的 tag，避免浅克隆误为未发版包打 tag / 建 GH Release。 |
 | `publish-packages` | 仅 npm publish 包装 |
 
 需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。

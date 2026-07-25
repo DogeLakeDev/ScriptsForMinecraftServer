@@ -11,6 +11,8 @@ import { NPM_PUBLISH_PACKAGES } from "./npm-publish-packages.mjs";
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const PRE_JSON = path.join(ROOT, ".changeset", "pre.json");
 export const CHANGESET_DIR = path.join(ROOT, ".changeset");
+/** 发版编排中间态：tag-packages → push-release / gh-release（DRY 唯一路径） */
+export const RELEASE_TAGS_STATE = path.join(ROOT, ".sfmc-release-tags.json");
 
 /** @returns {{ mode: string, tag?: string } | null} */
 export function readPreState() {
@@ -45,9 +47,105 @@ export function listPublishablePackages() {
   return out;
 }
 
+/** @returns {string | null} 包目录（package.json 所在目录） */
+export function packageDirFor(name) {
+  const hit = listPublishablePackages().find((p) => p.name === name);
+  return hit ? path.dirname(hit.pkgPath) : null;
+}
+
 /** changesets 默认 git tag: name@version */
 export function packageTagName(name, version) {
   return `${name}@${version}`;
+}
+
+/**
+ * @typedef {{ name: string, version: string, tag: string, pkgPath?: string, prev?: string, existed?: boolean }} ReleaseTagEntry
+ * @typedef {{ tags: ReleaseTagEntry[], createdAt: string }} ReleaseTagsState
+ */
+
+/** @returns {ReleaseTagsState | null} */
+export function readReleaseTagsState() {
+  if (!fs.existsSync(RELEASE_TAGS_STATE)) return null;
+  try {
+    const state = JSON.parse(fs.readFileSync(RELEASE_TAGS_STATE, "utf8"));
+    if (!state || !Array.isArray(state.tags)) return null;
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+/** @param {ReleaseTagEntry[]} tags */
+export function writeReleaseTagsState(tags) {
+  const state = {
+    tags,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(RELEASE_TAGS_STATE, JSON.stringify(state, null, 2) + "\n");
+  return state;
+}
+
+/**
+ * 仅收录「当前版本对应 tag 已在本地存在」的可发包。
+ * 用于：changeset publish 之后的 CI（publish 已建 tag），或浅克隆无法 diff 时的安全回退。
+ * 切勿在「无历史 + 无 tag」时回退为全部打 tag——会误为未发版包建 GH Release。
+ * @param {{ name: string, version: string, pkgPath: string }[]} [pkgs]
+ * @returns {ReleaseTagEntry[]}
+ */
+export function listPackagesWithExistingVersionTags(pkgs = listPublishablePackages()) {
+  const out = [];
+  for (const p of pkgs) {
+    const tag = packageTagName(p.name, p.version);
+    if (gitCapture(["tag", "-l", tag])) {
+      out.push({ name: p.name, version: p.version, pkgPath: p.pkgPath, tag });
+    }
+  }
+  return out;
+}
+
+/**
+ * 相对 HEAD~1 版本有变化的可发包；无法解析父提交时安全回退到 listPackagesWithExistingVersionTags。
+ * @param {{ fromExisting?: boolean }} [opts]
+ * @returns {ReleaseTagEntry[]}
+ */
+export function resolvePackagesNeedingTags(opts = {}) {
+  const pkgs = listPublishablePackages();
+  if (opts.fromExisting) {
+    return listPackagesWithExistingVersionTags(pkgs);
+  }
+
+  const headParent = gitCapture(["rev-parse", "--verify", "HEAD~1^{commit}"]);
+  if (!headParent) {
+    console.warn(
+      "[changeset] 无法解析 HEAD~1（浅克隆？），回退为仅收录已存在的 name@version tag，避免误打全量 tag"
+    );
+    return listPackagesWithExistingVersionTags(pkgs);
+  }
+
+  /** @type {ReleaseTagEntry[]} */
+  const needed = [];
+  for (const p of pkgs) {
+    const rel = path.relative(ROOT, p.pkgPath).replace(/\\/g, "/");
+    let prev = "";
+    const raw = gitCapture(["show", `${headParent}:${rel}`]);
+    if (raw) {
+      try {
+        prev = String(JSON.parse(raw).version ?? "");
+      } catch {
+        prev = "";
+      }
+    }
+    if (prev !== p.version) {
+      needed.push({
+        name: p.name,
+        version: p.version,
+        pkgPath: p.pkgPath,
+        tag: packageTagName(p.name, p.version),
+        prev,
+      });
+    }
+  }
+  return needed;
 }
 
 export function run(cmd, args, opts = {}) {
@@ -62,12 +160,17 @@ export function run(cmd, args, opts = {}) {
   }
 }
 
+/**
+ * @param {string[]} args
+ * @param {{ capture?: boolean } & import("node:child_process").ExecFileSyncOptions} [opts]
+ */
 export function git(args, opts = {}) {
+  const { capture = false, ...rest } = opts;
   return execFileSync("git", args, {
     cwd: ROOT,
     encoding: "utf8",
-    stdio: opts.capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    ...opts,
+    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    ...rest,
   });
 }
 
@@ -85,10 +188,8 @@ export function extractChangelogNotes(pkgDir, version) {
   if (!fs.existsSync(changelog)) return `Release ${version}`;
   const text = fs.readFileSync(changelog, "utf8");
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    `## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`,
-    "m"
-  );
+  /* 勿用 m 标志：否则 $ 会在每一行行尾匹配，非贪婪捕获只拿到首行 */
+  const re = new RegExp(`## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`);
   const m = text.match(re);
   if (!m) return `Release ${version}`;
   const body = m[1].trim();

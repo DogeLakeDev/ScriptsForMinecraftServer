@@ -5,18 +5,10 @@
  * - pre mode 下由 changesets 自动使用 pre.json 的 tag（勿再传 --tag，会报错）
  */
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { ROOT, isPreMode, readPreState } from "./lib/changeset-release.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const prePath = path.join(root, ".changeset", "pre.json");
-
-let preTag = null;
-if (fs.existsSync(prePath)) {
-  const pre = JSON.parse(fs.readFileSync(prePath, "utf8"));
-  if (pre.mode === "pre" && pre.tag) preTag = String(pre.tag);
-}
+const pre = readPreState();
+const preTag = isPreMode() && pre?.tag ? String(pre.tag) : null;
 
 const env = {
   ...process.env,
@@ -34,5 +26,5 @@ console.log(
   `[changeset-publish] running: npx ${args.join(" ")}` +
     (preTag ? ` (pre mode → npm tag ${preTag})` : "")
 );
-const r = spawnSync("npx", args, { cwd: root, env, stdio: "inherit", shell: true });
+const r = spawnSync("npx", args, { cwd: ROOT, env, stdio: "inherit", shell: true });
 process.exit(r.status === null ? 1 : r.status);
