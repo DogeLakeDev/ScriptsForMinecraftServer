@@ -2,22 +2,48 @@
 
 本仓用 [changesets](https://github.com/changesets/changesets) 管理 `@sfmc-bds/*` 的独立 semver。
 
-## 当前阶段：beta-only
+## 当前阶段：beta-only（pre mode）
 
-仓库处于 `pre` 模式（见 `pre.json`）。所有发布走 npm dist-tag **`beta`**，版本形如 `0.2.0-beta.0`。
+见 `pre.json`：`mode: pre`, `tag: beta`。版本形如 `0.2.0-beta.0`，npm dist-tag 为 **`beta`**。
 
 未达 release 门槛前 **禁止** `changeset pre exit` / 发到 `latest`。
 
-## 日常
+## 日常开发
 
 ```bash
 # 改完可发包代码后
-npx changeset
+npm run changeset
 # 选受影响的包 + patch|minor|major，写中文摘要
-
-# 发版（维护者）
-npm run version-packages   # 消费 .changeset/*.md，bump package.json + CHANGELOG
-npm run release-packages   # 包装 changeset publish；pre mode → --tag beta
 ```
+
+## 本地发版（维护者）
+
+当前在 pre mode，请用 **prerelease**：
+
+```bash
+npm run prerelease-packages
+```
+
+编排（`npm-run-all2` / `run-s`）：
+
+1. `changeset:assert-pre` — 确认处于 pre mode  
+2. `changeset:ensure` — 若无待消费 changeset 则交互添加  
+3. `version-packages` — `changeset version`  
+4. `commit-version-packages` — 提交 bump  
+5. `tag-packages` — 打 `@scope/name@version` tag  
+6. `push-release` — 推分支 + tag  
+7. `publish-packages` — `changeset publish`（→ npm `beta`）  
+8. `gh-prerelease-packages` — 创建 GitHub Pre-release  
+
+退出 pre 且达标后，正式发版：
+
+```bash
+npx changeset pre exit
+npm run release-packages   # 同上，但 npm latest + GitHub Release（非 pre）
+```
+
+## CI
+
+`changeset-release.yml` 在 `main` 上开 Version PR；合并后跑 `ci-release-packages`（publish → tag → push tags → gh release，无交互）。
 
 详情见 [docs/dev/npm-publish.md](../docs/dev/npm-publish.md)。

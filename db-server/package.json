@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/db-server",
-  "version": "0.2.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "SFMC SQLite HTTP REST backend — configs, modules, gameplay data, QQ message relay",
   "type": "module",
   "license": "ISC",

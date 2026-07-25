@@ -36,6 +36,10 @@ tools/.sfmc-registry-cache.json
 # BDS 更新器运行态（回滚标记 / PID / log / version cache）
 .sfmc/
 
+# changesets 本地发版编排中间态
+.sfmc-release-tags.json
+.sfmc-release-notes-*.md
+
 memory/
 data/
 .AddCompLib/*

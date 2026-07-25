@@ -35,16 +35,28 @@
 
 ## 日常开发流程
 
-1. 改可发包代码后：`npx changeset`（或 `npm run changeset`），选包 + type，写中文摘要。
+1. 改可发包代码后：`npm run changeset`，选包 + type，写中文摘要。
 2. PR 合入 `main` 后，[changeset-release.yml](../../.github/workflows/changeset-release.yml) 会开/更新 **Version Packages** PR。
-3. 维护者审查并合并 Version PR → CI 自动 `changeset publish`（pre mode 下推到 **`beta`**）。
+3. 维护者审查并合并 Version PR → CI 跑 `ci-release-packages`（publish + tag + GitHub Release；pre mode → npm **`beta`**）。
 
-本地手动：
+### 本地一键发版（`npm-run-all2`）
+
+当前 pre mode 请用：
 
 ```bash
-npm run version-packages   # 消费 .changeset/*.md，bump + CHANGELOG
-npm run release-packages   # 需 NPM_TOKEN；pre mode → --tag beta
+npm run prerelease-packages
 ```
+
+流程：`changeset`（若尚无）→ `changeset version` → commit → git tag → push → npm publish → GitHub Pre-release。
+
+| 脚本 | 何时用 |
+|------|--------|
+| `prerelease-packages` | **现在**（pre/beta） |
+| `release-packages` | 仅 `changeset pre exit` 之后（latest） |
+| `ci-release-packages` | CI 专用（无交互） |
+| `publish-packages` | 仅 npm publish 包装 |
+
+需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。
 
 ## Beta-only（硬约束）
 

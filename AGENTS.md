@@ -185,7 +185,9 @@ node tools/fetch-module.mjs install <id>
 2. `node tools/check-ootb.mjs`
 3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.mjs`
 
-`.github/workflows/changeset-release.yml` — on push to `main`: opens/updates Version Packages PR; merging it runs `changeset publish` (currently **beta** dist-tag via pre mode).
+`.github/workflows/changeset-release.yml` — on push to `main`: opens/updates Version Packages PR; merging it runs `npm run ci-release-packages` (publish + tag + GitHub Release; currently **beta** via pre mode).
+
+Local: `npm run prerelease-packages` (pre/beta) or `npm run release-packages` (after `changeset pre exit`).
 
 `.github/workflows/npm-publish.yml` — emergency `workflow_dispatch` single-package publish (default `--tag beta`). Do not publish `latest` while `.changeset/pre.json` is in pre mode.
 

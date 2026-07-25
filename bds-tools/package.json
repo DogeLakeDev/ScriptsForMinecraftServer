@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/bds-tools",
-  "version": "0.2.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "SFMC BDS auto-updater, lifecycle manager, and behavior-pack assembler",
   "author": "Shiroha7z",
   "type": "module",
