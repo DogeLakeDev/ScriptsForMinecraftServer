@@ -6,16 +6,10 @@
  */
 
 import { createNodeServiceLogger } from "@sfmc-bds/sdk/logs";
-import { logFile, resolveRuntimeRoot } from "@sfmc-bds/sdk/node/config";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-/** src/lib → 仓根(与 env.ts 的 src 上溯差一层) */
-const ROOT = resolveRuntimeRoot(resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", ".."));
+import { logFile } from "@sfmc-bds/sdk/node/config";
+import { PROJECT_ROOT } from "../project-root.js";
 
 export const log = createNodeServiceLogger({
   source: "db",
-  logPath: logFile(ROOT, "db"),
+  logPath: logFile(PROJECT_ROOT, "db"),
 });
-
-process.on("exit", () => log.close());
