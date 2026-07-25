@@ -88,7 +88,7 @@ export function buildModuleAuth(opts: {
   if (process.env.SFMC_LOG_MODULE_TOKEN === "1") {
     log.info("[auth] module tokens (SFMC_LOG_MODULE_TOKEN=1):");
     for (const [id, t] of Object.entries(tokens)) {
-      console.log(`  ${id} = ${t}`);
+      log.info(`  ${id} = ${t}`);
     }
   } else {
     const lines = Object.entries(tokens)

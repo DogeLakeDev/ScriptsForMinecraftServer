@@ -115,3 +115,26 @@ export function writeFileSafe(filePath: string, data: string | Buffer): void {
   fs.writeFileSync(tmp, data);
   fs.renameSync(tmp, filePath);
 }
+
+/**
+ * 读 JSON 文件（utf8）。
+ * 检测到 UTF-8 BOM 时抛 Utf8BomError（不静默剥离：多为记事本「UTF-8 with BOM」另存，游戏侧也可能异常）。
+ */
+export class Utf8BomError extends Error {
+  readonly filePath: string;
+  constructor(filePath: string) {
+    super(
+      `UTF-8 BOM in ${filePath}: re-save as UTF-8 without BOM (Notepad "UTF-8 with BOM" is not valid for Bedrock packs)`
+    );
+    this.name = "Utf8BomError";
+    this.filePath = filePath;
+  }
+}
+
+export function readJsonFile<T = unknown>(filePath: string): T {
+  const text = fs.readFileSync(filePath, "utf8");
+  if (text.length > 0 && text.charCodeAt(0) === 0xfeff) {
+    throw new Utf8BomError(filePath);
+  }
+  return JSON.parse(text) as T;
+}

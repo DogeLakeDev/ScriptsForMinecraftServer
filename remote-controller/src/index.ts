@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import fs from "node:fs";
 import path from "node:path";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
+import { log } from "./log.js";
 
 type AgentRecord = { id: string; name: string; secret: string; createdAt: string; lastSeenAt?: string };
 type TaskAction = "status" | "start" | "stop" | "restart" | "send";
@@ -31,12 +32,16 @@ const stateFile = path.resolve(process.env.REMOTE_STATE_FILE ?? "data/remote-con
 const heartbeatIntervalMs = Number(process.env.REMOTE_HEARTBEAT_MS ?? 25_000);
 
 if (!enrollmentToken || !adminToken) {
-  console.error("[remote-controller] missing required env vars.");
-  console.error("  set both: REMOTE_ENROLL_TOKEN=<random> and REMOTE_ADMIN_TOKEN=<random>");
-  console.error("  example:");
-  console.error("    REMOTE_ENROLL_TOKEN=$(node -e \"console.log(require('crypto').randomBytes(24).toString('base64url'))\") \\");
-  console.error("    REMOTE_ADMIN_TOKEN=$(node -e \"console.log(require('crypto').randomBytes(24).toString('base64url'))\") \\");
-  console.error("    node remote-controller/dist/index.js");
+  log.error("missing required env vars.");
+  log.error("  set both: REMOTE_ENROLL_TOKEN=<random> and REMOTE_ADMIN_TOKEN=<random>");
+  log.error("  example:");
+  log.error(
+    '    REMOTE_ENROLL_TOKEN=$(node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'base64url\'))") \\'
+  );
+  log.error(
+    '    REMOTE_ADMIN_TOKEN=$(node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'base64url\'))") \\'
+  );
+  log.error("    node remote-controller/dist/index.js");
   process.exit(1);
 }
 
@@ -288,17 +293,17 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`[remote-controller] listening on http://${host}:${port}`);
-  console.log(`[remote-controller] state file: ${stateFile}`);
-  console.log(`[remote-controller] endpoints:`);
-  console.log(`  POST   /v1/enroll                (enroll token)`);
-  console.log(`  GET    /v1/health                (open)`);
-  console.log(`  GET    /v1/agents                (admin token)`);
-  console.log(`  GET    /v1/agents/{id}           (admin token)`);
-  console.log(`  DELETE /v1/agents/{id}           (admin token)`);
-  console.log(`  POST   /v1/agents/{id}/tasks     (admin token)`);
-  console.log(`  GET    /v1/agents/{id}/tasks     (admin token)`);
-  console.log(`  GET    /v1/tasks/{id}            (admin token)`);
-  console.log(`  WS     /v1/agent?id={id}         (per-agent secret)`);
-  console.log(`[remote-controller] heartbeat: ${heartbeatIntervalMs}ms`);
+  log.info(`listening on http://${host}:${port}`);
+  log.info(`state file: ${stateFile}`);
+  log.info("endpoints:");
+  log.info("  POST   /v1/enroll                (enroll token)");
+  log.info("  GET    /v1/health                (open)");
+  log.info("  GET    /v1/agents                (admin token)");
+  log.info("  GET    /v1/agents/{id}           (admin token)");
+  log.info("  DELETE /v1/agents/{id}           (admin token)");
+  log.info("  POST   /v1/agents/{id}/tasks     (admin token)");
+  log.info("  GET    /v1/agents/{id}/tasks     (admin token)");
+  log.info("  GET    /v1/tasks/{id}            (admin token)");
+  log.info("  WS     /v1/agent?id={id}         (per-agent secret)");
+  log.info(`heartbeat: ${heartbeatIntervalMs}ms`);
 });

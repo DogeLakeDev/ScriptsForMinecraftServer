@@ -33,7 +33,7 @@ import {
 } from "./rollback.js";
 import { ensureEmitServerTelemetry } from "./server-properties.js";
 import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
-import { emitUpdateResult } from "./update-result.js";
+import { emitUpdateKv, emitUpdateResult } from "./update-result.js";
 import {
   buildDownloadUrls,
   fetchVersionDetails,
@@ -184,9 +184,9 @@ export async function runUpdate(): Promise<number> {
       if (qqNotify) {
         await sendText(`✅ BDS 已是最新版本\n\n当前: ${currentVer}\n最新: ${latestVer}`);
       }
-      console.log(`CURRENT=${currentVer}`);
-      console.log(`LATEST=${latestVer}`);
-      emitUpdateResult("uptodate");
+      emitUpdateKv("CURRENT", currentVer, log);
+      emitUpdateKv("LATEST", latestVer, log);
+      emitUpdateResult("uptodate", log);
       return 0;
     }
   } catch (e) {
@@ -201,7 +201,7 @@ export async function runUpdate(): Promise<number> {
     if (qqNotify) {
       await sendText(`⚠️ BDS ${latestVer} 不在兼容性白名单，已跳过升级。请人工确认。`);
     }
-    emitUpdateResult("skipped");
+    emitUpdateResult("skipped", log);
     return 2;
   }
 
@@ -219,11 +219,11 @@ export async function runUpdate(): Promise<number> {
   }
 
   if (checkOnly) {
-    console.log(`CURRENT=${currentVer}`);
-    console.log(`LATEST=${latestVer}`);
-    console.log(`CHANNEL=${channel}`);
-    console.log(`URLS=${downloadUrls.length}`);
-    emitUpdateResult("check-only");
+    emitUpdateKv("CURRENT", currentVer, log);
+    emitUpdateKv("LATEST", latestVer, log);
+    emitUpdateKv("CHANNEL", channel, log);
+    emitUpdateKv("URLS", String(downloadUrls.length), log);
+    emitUpdateResult("check-only", log);
     return 0;
   }
 
@@ -437,7 +437,7 @@ export async function runUpdate(): Promise<number> {
   }
   log.info(`===== 更新完成 (${(durationMs / 1000).toFixed(1)}s) =====`);
   /* 机器可读结果标记：供 sfmc 等监督器判断「真正完成部署」，勿依赖本地化日志文案。 */
-  emitUpdateResult("deployed");
+  emitUpdateResult("deployed", log);
   return 0;
 }
 

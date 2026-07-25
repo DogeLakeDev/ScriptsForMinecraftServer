@@ -18,7 +18,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { copyDirAsync, copyFileAsync } from "./fsx.js";
+import { copyDirAsync, copyFileAsync, readJsonFile, Utf8BomError } from "./fsx.js";
 
 /* ── 类型 ─────────────────────────────────────────────────────────────── */
 
@@ -286,17 +286,18 @@ export function readPackManifestHeader(
   const file = path.join(packDir, "manifest.json");
   if (!fs.existsSync(file)) return null;
   try {
-    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    const raw = readJsonFile<{
       header?: { uuid?: string; version?: number[] };
       modules?: Array<{ uuid?: string }>;
-    };
+    }>(file);
     const uuid = raw.header?.uuid;
     const ver = raw.header?.version;
     if (typeof uuid !== "string" || !Array.isArray(ver) || ver.length < 3) return null;
     const version: [number, number, number] = [Number(ver[0]), Number(ver[1]), Number(ver[2])];
     const moduleUuid = raw.modules?.[0]?.uuid;
     return { uuid, version, ...(typeof moduleUuid === "string" ? { moduleUuid } : {}) };
-  } catch {
+  } catch (e) {
+    if (e instanceof Utf8BomError) throw e;
     return null;
   }
 }

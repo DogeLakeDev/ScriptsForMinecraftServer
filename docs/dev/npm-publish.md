@@ -4,12 +4,12 @@
 >
 > **当前阶段：beta-only。** 所有新发布走 npm dist-tag `beta`（版本形如 `0.2.0-beta.0`）。未达 release 门槛前禁止 `changeset pre exit` / 发到 `latest`。
 >
-> 服主安装：`npm i -g @sfmc-bds/sfmc@beta`（勿用裸包名，以免装到旧 `latest` 0.1.0）。
+> 最新beta版本安装：`npm i -g @sfmc-bds/sfmc@beta`
 
 ## 包清单
 
 | npm 包 | 目录 | 说明 |
-|--------|------|------|
+| -------- | ------ | ------ |
 | `@sfmc-bds/sdk` | `modules/sdk/@sfmc-sdk/` | 模块作者 SDK（SAPI + Node） |
 | `@sfmc-bds/eslint-plugin` | `modules/sdk/@sfmc-eslint-plugin/` | SFMC 约定 ESLint 规则 |
 | `@sfmc-bds/cli` | `sfmc/` | 管理 CLI（`sfmc` 命令） |

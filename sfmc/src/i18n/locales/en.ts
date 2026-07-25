@@ -195,16 +195,14 @@ export const en = {
   "wizard.installing": "Installing {count} module(s) from first-party registry",
   "wizard.installed": "{count} installed",
   "wizard.installFailed": "install failed: {message}\nYou can retry with: sfmc mod install <id>",
-  "wizard.fetchMissing":
-    "fetch-module missing — run `sfmc mod install <id>` later for each of: {list}",
+  "wizard.fetchMissing": "fetch-module missing — run `sfmc mod install <id>` later for each of: {list}",
   "wizard.noModulesSelected":
     "No modules selected — behavior pack will be empty until you install one with `sfmc mod install <id>`.",
   "wizard.buildingBp": "Building behavior pack",
   "wizard.buildFailed": "build failed: {message}\nRun `sfmc mod build` later to retry.",
   "wizard.deploying": "Deploying to {path}",
   "wizard.restartBds": "Restart BDS to load the new behavior pack.",
-  "wizard.deployFailed":
-    "deploy failed: {message}\nRun `sfmc mod reload` after fixing bds_path in configs/.",
+  "wizard.deployFailed": "deploy failed: {message}\nRun `sfmc mod reload` after fixing bds_path in configs/.",
 
   /* ─── prompts ─── */
   "prompt.enterPath": "Enter path",
@@ -212,8 +210,7 @@ export const en = {
   "prompt.browseHint": "Open system folder picker",
 
   /* ─── reload ─── */
-  "reload.buildOnly":
-    "(deploy done; type reload in BDS/game, or omit --build-only to send automatically)",
+  "reload.buildOnly": "(deploy done; type reload in BDS/game, or omit --build-only to send automatically)",
   "reload.bdsNotRunning":
     "BDS is not running — build+deploy finished. After start, type reload in BDS console or in-game.",
   "reload.sent": "Sent reload to BDS (scripts will reload from new main.js)",
@@ -230,12 +227,10 @@ export const en = {
   "modwiz.noPackages": "packages/ subdirectory not found: {path}",
   "modwiz.noFetch": "fetch-module.mjs not found",
   "modwiz.enableModule": "Enable this module? (writes module-lock.json; needs db-server)",
-  "modwiz.buildDeploy":
-    "Build and deploy behavior pack? (then use `sfmc mod reload` or type reload in BDS/game)",
+  "modwiz.buildDeploy": "Build and deploy behavior pack? (then use `sfmc mod reload` or type reload in BDS/game)",
   "modwiz.task.build": "Building behavior pack",
   "modwiz.task.deploy": "Deploying behavior pack",
-  "modwiz.reloadHint":
-    "Use `sfmc mod reload` (build+deploy then send reload to BDS); or type reload in BDS/game.",
+  "modwiz.reloadHint": "Use `sfmc mod reload` (build+deploy then send reload to BDS); or type reload in BDS/game.",
   "modwiz.kebab": "Must be lowercase kebab-case, e.g. my-feature",
   "modwiz.createIntro": "Module scaffold",
   "modwiz.folderId": "Module folder name (install id)",
@@ -276,15 +271,13 @@ export const en = {
   /* ─── module commands ─── */
   "mod.usage": "Usage: sfmc {cmds} <{subs}> [args]",
   "mod.list.title": "Installed modules",
-  "mod.noneInstalled":
-    "\nNo modules installed. Drop a module folder under {dir} or run `sfmc mod install <id>`.\n",
+  "mod.noneInstalled": "\nNo modules installed. Drop a module folder under {dir} or run `sfmc mod install <id>`.\n",
   "mod.notInRegistry": 'Module "{query}" not found in first-party registry.',
   "mod.info.usage": "Usage: sfmc module|mod info <id>",
   "mod.notInstalledAt": "Module {id} not installed at {path}",
   "mod.notInstalled": "Module {id} not installed",
   "mod.verifyOk": "{id} ok\n  fingerprint: {fp}\n",
-  "mod.dbUnreachable":
-    "Cannot reach db-server at {url}: {message}. Is db-service running? (sfmc> start db)",
+  "mod.dbUnreachable": "Cannot reach db-server at {url}: {message}. Is db-service running? (sfmc> start db)",
   "mod.toggleFailed": "{action} {id} failed: {err}",
   "mod.action.enabled": "enabled",
   "mod.action.disabled": "disabled",
@@ -321,17 +314,19 @@ export const en = {
   "packs.conflict": "Conflict detected:",
   "packs.conflict.existing": "  Existing: {name}  v{version}  {uuid}\n         {dir}",
   "packs.conflict.incoming": "  Incoming: {name}  v{version}  {uuid}",
-  "packs.overwriteAsk": "Overwrite existing pack?",
-  "packs.badManifest": "Unrecognized manifest (missing resources/data/script)",
+  "packs.overwriteAsk": "Overwrite existing pack (same UUID)?",
+  "packs.badManifest": "Unrecognized manifest (need resources/data/script module and header name/uuid/version)",
+  "packs.utf8Bom":
+    "UTF-8 BOM detected: {file}\n  Re-save as UTF-8 without BOM (Notepad's \"UTF-8 with BOM\" can also break Bedrock)",
   "packs.skippedNoOverwrite": "Skipped (not overwritten)",
-  "packs.conflictSkip": "[packs] Conflict skipped (non-interactive; use --force): {name}",
-  "packs.inboxSkip": "[packs] Skipping inbox: {message}",
-  "packs.inboxFound": "[packs] Inbox found {count} item(s) → {level}",
-  "packs.alreadyDone": "[packs] Already processed, skip: {name}",
-  "packs.dryRunExtract": "[packs] dry-run extract: {name}",
-  "packs.noPackRoot": "[packs] Pack root not found: {name}",
-  "packs.installedEnabled": "[packs] Installed & enabled {kind}: {name} v{version}",
-  "packs.installFailed": "[packs] Install failed {name}: {reason}",
+  "packs.conflictSkip": "  Conflict skipped (non-interactive; use --force): {name}",
+  "packs.inboxSkip": "  Skipping inbox: {message}",
+  "packs.inboxFound": "  Inbox found {count} item(s) → {level}",
+  "packs.alreadyDone": "  Already processed, skip: {name}",
+  "packs.dryRunExtract": "  dry-run extract: {name}",
+  "packs.noPackRoot": "  Pack root not found: {name}",
+  "packs.installedEnabled": "  Installed & enabled {kind}: {name} v{version}",
+  "packs.installFailed": "  Install failed {name}: {reason}",
   "packs.listEmpty": "(none)",
   "packs.list.bpHeader": "Behavior packs:",
   "packs.list.rpHeader": "Resource packs:",
@@ -339,8 +334,7 @@ export const en = {
   "packs.list.off": "off",
   "packs.doctor.parseFail": "{file} could not be parsed",
   "packs.doctor.missingDir": "List has uuid but directory missing ({kind}): {uuid}",
-  "packs.doctor.versionMismatch":
-    "Version mismatch ({kind}): {folder} list {listVer} vs disk {diskVer}",
+  "packs.doctor.versionMismatch": "Version mismatch ({kind}): {folder} list {listVer} vs disk {diskVer}",
   "packs.doctor.notEnabled": "Installed but not enabled: [{kind}] {folder} ({uuid})",
   "packs.doctor.ok": "doctor: no issues found",
   "packs.doctor.found": "doctor found {count} issue(s):\n{list}",
@@ -388,7 +382,8 @@ export const en = {
   "packs.usage.enableNote": "Install enables via world_*_packs.json by default; {hint}.",
   "packs.usage.moduleNote": "For module aggregation use {cmd} (not this command).",
 
-  "packUpdate.needKey": "No pack update provider configured. Set providers.*.apiKey in {path} (or the matching env var). CurseForge: get a Studios key from https://console.curseforge.com/ → providers.curseforge.apiKey / CURSEFORGE_API_KEY (not the Upload API UUID token)",
+  "packUpdate.needKey":
+    "No pack update provider configured. Set providers.*.apiKey in {path} (or the matching env var). CurseForge: get a Studios key from https://console.curseforge.com/ → providers.curseforge.apiKey / CURSEFORGE_API_KEY (not the Upload API UUID token)",
   "packUpdate.probeNoName": "Cannot derive a searchable name from header/folder",
   "packUpdate.probeQueries": "Probe sources header={header} folder={folder}\n  → {queries}",
   "packUpdate.probeFail": "Source probe failed: {message}",
@@ -417,7 +412,8 @@ export const en = {
   "packUpdate.installFail": "Install failed: {reason}",
   "packUpdate.installedBp": "Wrote BP → {dir} (v{version})",
   "packUpdate.installedRp": "Wrote RP → {dir} (v{version})",
-  "packUpdate.rpInstallMiss": "Archive has RP but paired resource pack was not installed (check dependencies / pairedResourceUuid)",
+  "packUpdate.rpInstallMiss":
+    "Archive has RP but paired resource pack was not installed (check dependencies / pairedResourceUuid)",
   "packUpdate.applied": "Updated {name} BP={bp} RP={rp}",
   "packUpdate.noBinding": "No update binding for: {id}",
   "packUpdate.startupFail": "Startup update check failed: {message}",

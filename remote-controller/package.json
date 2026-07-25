@@ -9,6 +9,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@sfmc-bds/sdk": "^0.2.0-beta.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

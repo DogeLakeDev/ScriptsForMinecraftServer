@@ -245,9 +245,13 @@ async function main(): Promise<void> {
       }
       {
         const root = need(args, "root");
-        const depth = args["max-depth"] ? Number(args["max-depth"]) : 2;
-        const roots = wp.discoverPackRoots(path.resolve(root), { maxDepth: depth });
-        process.stdout.write(`${JSON.stringify(roots)}\n`);
+        const depth = args["max-depth"] ? Number(args["max-depth"]) : 4;
+        const resolved = await wp.resolvePackRoots(path.resolve(root), { maxDirDepth: depth });
+        try {
+          process.stdout.write(`${JSON.stringify(resolved.roots)}\n`);
+        } finally {
+          resolved.dispose();
+        }
         return;
       }
     }

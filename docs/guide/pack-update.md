@@ -268,7 +268,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 |------|------|
 | 远程 BP ≤ 本地 BP，且该 fileId **已成功 apply** | 无更新 |
 | 远程 BP ≤ 本地 BP，但 `lastAppliedFileId` 未记录该文件 | **仍覆盖安装**（同步 CF 内容；避免汉化包等同版本号跳过写入） |
-| 远程 BP 更大，且 **major 相同** | `force` 覆盖 BP + 配对 RP；再把 **RP** 版本抬高一级（默认 patch+1，且严格大于旧 RP），并同步 `world_resource_packs.json`，以便玩家进服触发客户端 RP 刷新 |
+| 远程 BP 更大，且 **major 相同** | `force` 覆盖 BP + 配对 RP；再按 **`nextEnabledVersion = bump(max(新 RP, 旧 RP))`** 抬启用版本（默认 patch+1），并同步 `world_resource_packs.json`，以便玩家进服触发客户端 RP 刷新 |
 | 远程 BP **major 更高** | 直接覆盖双方，**不再**额外 bump RP（`majorHigherSkipRpBump`） |
 | BP 自身 | 保持远程原版，不额外 bump |
 
@@ -276,7 +276,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 
 配对 RP：绑定里的 `pairedResourceUuid`，或新 BP `dependencies[].uuid`，或 mcaddon 内与之对齐的 resource 包。
 
-抬版原语：`bds-tools` 的 `ensureVersionGreaterThan` / `writePackHeaderVersion`。
+抬版原语（DRY）：`bds-tools` 的 `nextEnabledVersion` / `ensureVersionGreaterThan`（写回 manifest）+ `writePackHeaderVersion`。策略层 `sfmc/pack-update/version-policy` 再导出同一套纯函数，禁止 while 追赶。
 
 ---
 
@@ -302,10 +302,10 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 ### 8.3 应用步骤摘要
 
 1. Provider `getLatestFile(projectId)` → 带进度下载到临时目录。  
-2. `extractArchiveToTemp` + `discoverPackRoots`。  
+2. `resolvePackRoots`（解压顶层归档 + 展开嵌套 `.mcpack` + 发现 `manifest.json` 包根）。  
 3. 读远程 BP 版本 → `decideVersionPolicy`。  
 4. `installPackDirectory(..., force: true)` 装 BP / RP。  
-5. 按需 `ensureVersionGreaterThan` 抬 RP。  
+5. 按需 `ensureVersionGreaterThan`（内部 `nextEnabledVersion`）抬 RP。  
 6. `enableInstalledPack` 刷新世界 enable 列表。  
 7. 更新 binding 的 `lastAppliedFileId` / `lastCheckedAt`。
 
@@ -336,6 +336,7 @@ sfmc/src/pack-update/
 | 启动没有 `pack-update.json` | 确认跑的是会调用 `createServices` 的 sfmc；看 `SFMC_ROOT` 是否指向期望数据根 |
 | `403` + UUID 形 key | 用了 Upload Token；改去 console.curseforge.com 申请 Studios Key |
 | Studios Key 仍 search 403 | 正常现象之一；应已自动走 `searchBaseUrl`。确认配置里 `gameId=78022` |
+| **仅个别项目**（如 MineCars）403 / 无法下载，其它正常 | 作者关闭了 **Allow distribution**（`allowModDistribution=false`）→ `downloadUrl` 为空且 `/download-url` 恒 403。与 API key 无关。手动网页下载放入 `packs/inbox`，或联系作者开启分发；也可 `enabled: false` 跳过该绑定 |
 | `gameId=459` | 无效；改为 `78022`（新版本会纠正） |
 | 搜不到 Slash Blade | 看 slug 是否 `slash-blade-addon`；用 `packs search "slash blade"` 看 score；或 `packs bind <uuid> slash-blade-addon` |
 | 更新了但客户端 RP 不刷新 | 同 major 路径应抬 RP；确认 `world_resource_packs.json` 版本已变并重启 BDS / 重进服 |

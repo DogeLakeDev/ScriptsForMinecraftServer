@@ -56,7 +56,7 @@ db-server 启动时会跑 `initSchema` 做增量迁移，老数据库一般能�
 - BDS：用 bds-tools 的 rollback（若你启用了备份策略）
   - 运行态在 `<SFMC_ROOT>/.sfmc/`（回滚标记 / PID / version cache）
   - 落盘日志统一在 `<SFMC_ROOT>/.sfmc/logs/`：
-    - `db.log` / `qq.log` — 各服务进程自写
+    - `db.log` / `qq.log` / `remote-controller.log` — 各服务进程自写
     - `bds-update.log` — BDS 更新器
     - `bds.log` / `llbot.log` — sfmc 捕获的外部进程输出
     - `sfmc.log` — 监督器 / pack / system 等

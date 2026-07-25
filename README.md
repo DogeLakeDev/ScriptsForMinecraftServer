@@ -51,7 +51,7 @@ flowchart LR
 
 ```bash
 > node -v   # 需要 v22.13+
-> npm install -g @sfmc-bds/sfmc@beta
+> npm install -g @sfmc-bds/sfmc # 或 beta 版：npm install -g @sfmc-bds/sfmc@beta
 > mkdir my-server && cd my-server
 > sfmc
 ```

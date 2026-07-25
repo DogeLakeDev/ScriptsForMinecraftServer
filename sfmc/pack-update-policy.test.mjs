@@ -12,7 +12,7 @@ import {
   decideVersionPolicy,
   extractLatinPhrase,
   insertCjkLatinBoundaries,
-  nextVersionGreaterThan,
+  nextEnabledVersion,
   normalizePackSearchName,
   packSourceScore,
   toCfSlugCandidate,
@@ -73,8 +73,12 @@ describe("version-policy", () => {
     assert.equal(d.shouldBumpRp, true);
   });
 
-  it("nextVersionGreaterThan", () => {
-    assert.deepEqual(nextVersionGreaterThan([1, 0, 5], [1, 0, 8], "patch"), [1, 0, 9]);
+  it("nextEnabledVersion = bump(max(remote, previous))", () => {
+    assert.deepEqual(nextEnabledVersion([1, 0, 5], [1, 0, 8], "patch"), [1, 0, 9]);
+    /* 新包远低于旧启用版本：从 max 抬一级，禁止 while 追赶 */
+    assert.deepEqual(nextEnabledVersion([1, 0, 0], [1, 21, 100], "patch"), [1, 21, 101]);
+    assert.deepEqual(nextEnabledVersion([2, 0, 0], [1, 99, 99], "patch"), [2, 0, 1]);
+    assert.deepEqual(nextEnabledVersion([1, 2, 0], [1, 1, 9], "minor"), [1, 3, 0]);
   });
 
   it("normalize 去掉方括号、版本与 BP", () => {

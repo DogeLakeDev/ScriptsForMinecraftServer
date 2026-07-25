@@ -24,6 +24,8 @@ interface CfMod {
   downloadCount?: number;
   links?: { websiteUrl?: string };
   classId?: number;
+  /** 作者是否允许第三方/API 分发；false 时 files[].downloadUrl 恒为 null */
+  allowModDistribution?: boolean;
 }
 
 interface CfFile {
@@ -236,13 +238,38 @@ export class CurseForgeBedrockProvider implements PackSourceProvider {
     if (!best) return null;
     let downloadUrl = best.downloadUrl ?? "";
     if (!downloadUrl) {
-      const dl = await this.apiGet<{ data: string }>(
-        `/v1/mods/${projectId}/files/${best.id}/download-url`,
-        {}
-      );
-      downloadUrl = dl.data ?? "";
+      try {
+        const dl = await this.apiGet<{ data: string }>(
+          `/v1/mods/${projectId}/files/${best.id}/download-url`,
+          {}
+        );
+        downloadUrl = dl.data ?? "";
+      } catch {
+        /* 下方统一诊断 allowModDistribution */
+      }
     }
-    if (!downloadUrl) return null;
+    if (!downloadUrl) {
+      /* 作者关闭第三方分发时 downloadUrl 为空且 download-url 恒 403 — 与 API key 无关 */
+      let allowDist: boolean | undefined;
+      let slug = String(projectId);
+      try {
+        const mod = await this.apiGet<{ data: CfMod }>(`/v1/mods/${projectId}`, {});
+        allowDist = mod.data?.allowModDistribution;
+        if (mod.data?.slug) slug = mod.data.slug;
+      } catch {
+        /* ignore */
+      }
+      if (allowDist === false) {
+        throw new Error(
+          `CurseForge「${slug}」作者关闭了第三方分发（allowModDistribution=false），API 无法下载。` +
+            `请手动从 https://www.curseforge.com/minecraft-bedrock/addons/${slug} 下载后放入 packs/inbox，或联系作者开启分发。`
+        );
+      }
+      throw new Error(
+        `CurseForge 无法解析下载地址（project=${projectId} file=${best.id}）。` +
+          `若官方页可下而此处失败，多半是作者限制了 API 分发。`
+      );
+    }
     const out: SourceFileRef = {
       provider: "curseforge",
       projectId,

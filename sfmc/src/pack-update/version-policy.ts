@@ -1,19 +1,25 @@
 /**
  * 版本策略：以 BP 为准比较；同 major 更新时抬高 RP 版本触发客户端刷新
  */
+import {
+  bumpSemVer3,
+  compareSemVer3 as compareSemVer3Raw,
+  maxSemVer3,
+  nextEnabledVersion,
+} from "@sfmc-bds/bds-tools/world-packs";
 import type { SemVer3, VersionCompareResult, VersionPolicyConfig } from "./types.js";
 
+/** 归一化为 -1 | 0 | 1，供策略比较 */
 export function compareSemVer3(a: SemVer3, b: SemVer3): number {
-  for (let i = 0; i < 3; i++) {
-    const d = (a[i] ?? 0) - (b[i] ?? 0);
-    if (d !== 0) return d > 0 ? 1 : -1;
-  }
-  return 0;
+  const d = compareSemVer3Raw(a, b);
+  return d > 0 ? 1 : d < 0 ? -1 : 0;
 }
 
 export function isNewer(remote: SemVer3, local: SemVer3): boolean {
   return compareSemVer3(remote, local) > 0;
 }
+
+export { bumpSemVer3, maxSemVer3, nextEnabledVersion };
 
 /**
  * 根据本地/远程 BP 版本与策略，决定是否更新以及是否额外 bump RP。
@@ -37,26 +43,6 @@ export function decideVersionPolicy(
     }
   }
   return { remoteNewer, majorHigher, shouldBumpRp };
-}
-
-/** 生成严格大于 floor 的下一版本（按 patch 或 minor 抬一级） */
-export function nextVersionGreaterThan(
-  current: SemVer3,
-  floor: SemVer3,
-  component: "patch" | "minor" = "patch"
-): SemVer3 {
-  let next: SemVer3 =
-    component === "minor"
-      ? [current[0], current[1] + 1, 0]
-      : [current[0], current[1], current[2] + 1];
-  while (compareSemVer3(next, floor) <= 0) {
-    if (component === "minor") {
-      next = [next[0], next[1] + 1, 0];
-    } else {
-      next = [next[0], next[1], next[2] + 1];
-    }
-  }
-  return next;
 }
 
 /** 包类型/渠道等噪音 token（整词去掉，勿删产品名） */

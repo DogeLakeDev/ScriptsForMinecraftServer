@@ -3,15 +3,10 @@
  * 与 pack-lifecycle（模块聚合 BP/RP）职责分离。
  */
 import { confirm, isCancel, multiselect } from "@clack/prompts";
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import {
   bumpPackPatchVersion,
-  discoverPackRoots,
   disableInstalledPack,
   enableInstalledPack,
-  extractArchiveToTemp,
   findInstalledPackById,
   installPackDirectory,
   isPackArchive,
@@ -19,13 +14,21 @@ import {
   listWorldEnableListResult,
   readPackDependencyUuids,
   readPackManifestInfo,
+  resolvePackRoots,
   uninstallInstalledPack,
   worldPackParentDir,
+  Utf8BomError,
   type InstalledWorldPack,
   type PackManifestInfo,
 } from "@sfmc-bds/bds-tools/world-packs";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { t } from "./i18n/index.js";
+import { pushLog, type LogLevel } from "./logs.js";
 import { BP_NAME, RP_NAME, resolveBdsContext } from "./pack-lifecycle.js";
+import { getBinding, packSourcesPath, removeBinding } from "./pack-update/bindings.js";
+import { resolvePackTrashDir, resolveUninstallTrashDir } from "./pack-update/config.js";
 import {
   bindPackSource,
   bindingLabelForUuid,
@@ -34,11 +37,6 @@ import {
   probeSourceAfterInstall,
   searchRemote,
 } from "./pack-update/service.js";
-import { getBinding, removeBinding, packSourcesPath } from "./pack-update/bindings.js";
-import {
-  resolvePackTrashDir,
-  resolveUninstallTrashDir,
-} from "./pack-update/config.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
 
@@ -66,6 +64,11 @@ function restartHint(): string {
 }
 function rejoinHint(): string {
   return t("packs.rejoinHint");
+}
+
+/** 世界包编排日志：统一走 sfmc 聚合层（source=pack） */
+function logPack(text: string, level: LogLevel = "info"): void {
+  pushLog(text, "pack", level);
 }
 
 export function isPacksCommand(cmd: string | undefined): cmd is string {
@@ -212,14 +215,9 @@ function resolvePairedResource(
   if (pack.kind !== "behavior" || noPaired) return null;
   const binding = getBinding(pack.uuid);
   const pairedUuid =
-    binding?.pairedResourceUuid ??
-    (fs.existsSync(pack.dir) ? readPackDependencyUuids(pack.dir)[0] : undefined) ??
-    null;
+    binding?.pairedResourceUuid ?? (fs.existsSync(pack.dir) ? readPackDependencyUuids(pack.dir)[0] : undefined) ?? null;
   if (!pairedUuid) return null;
-  return (
-    packs.find((p) => p.kind === "resource" && p.uuid.toLowerCase() === pairedUuid.toLowerCase()) ??
-    null
-  );
+  return packs.find((p) => p.kind === "resource" && p.uuid.toLowerCase() === pairedUuid.toLowerCase()) ?? null;
 }
 
 function formatUninstallPickLabel(pack: InstalledWorldPack): string {
@@ -293,8 +291,8 @@ async function uninstallPacksBatch(
         return `  [${kind}] ${q.pack.folderName}${extra}`;
       })
       .join("\n");
-    console.log(t("packs.uninstall.summary", { count: queue.length }));
-    console.log(preview);
+    logPack(t("packs.uninstall.summary", { count: queue.length }), "info");
+    logPack(preview, "info");
     const ans = await confirm({
       message: t("packs.uninstall.confirm", { count: String(queue.length) }),
       initialValue: false,
@@ -318,25 +316,24 @@ async function uninstallPacksBatch(
   return lines.join("\n");
 }
 
-function printConflict(
-  existing: PackManifestInfo & { dir: string },
-  incoming: PackManifestInfo
-): void {
-  console.log(c.yellow(t("packs.conflict")));
-  console.log(
+function printConflict(existing: PackManifestInfo & { dir: string }, incoming: PackManifestInfo): void {
+  logPack(c.yellow(t("packs.conflict")), "warn");
+  logPack(
     t("packs.conflict.existing", {
       name: existing.name,
       version: fmtVer(existing.version),
       uuid: existing.uuid,
       dir: existing.dir,
-    })
+    }),
+    "info"
   );
-  console.log(
+  logPack(
     t("packs.conflict.incoming", {
       name: incoming.name,
       version: fmtVer(incoming.version),
       uuid: incoming.uuid,
-    })
+    }),
+    "info"
   );
 }
 
@@ -358,7 +355,15 @@ async function installOnePackRoot(opts: {
   force?: boolean;
   interactive?: boolean;
 }): Promise<{ ok: boolean; skipped?: boolean; reason?: string; info?: PackManifestInfo }> {
-  const info = readPackManifestInfo(opts.srcDir);
+  let info: PackManifestInfo | null;
+  try {
+    info = readPackManifestInfo(opts.srcDir);
+  } catch (e) {
+    if (e instanceof Utf8BomError) {
+      return { ok: false, reason: t("packs.utf8Bom", { file: e.filePath }) };
+    }
+    throw e;
+  }
   if (!info) {
     return { ok: false, reason: t("packs.badManifest") };
   }
@@ -379,11 +384,11 @@ async function installOnePackRoot(opts: {
     } else if (opts.interactive && process.stdin.isTTY) {
       force = await askOverwrite();
       if (!force) {
-        console.log(c.dim(t("packs.skippedNoOverwrite")));
+        logPack(c.dim(t("packs.skippedNoOverwrite")), "info");
         return { ok: false, skipped: true, reason: "conflict:skipped", info };
       }
     } else {
-      console.log(c.yellow(t("packs.conflictSkip", { name: info.name })));
+      logPack(c.yellow(t("packs.conflictSkip", { name: info.name })), "warn");
       return { ok: false, skipped: true, reason: "conflict:noninteractive", info };
     }
     result = await installPackDirectory({
@@ -413,7 +418,7 @@ async function installOnePackRoot(opts: {
       ...(opts.interactive !== undefined ? { interactive: opts.interactive } : {}),
     });
   } catch (e) {
-    console.log(c.yellow(`[packs] probe: ${(e as Error).message}`));
+    logPack(c.yellow(`probe: ${(e as Error).message}`), "warn");
   }
 
   return { ok: true, info: result.info };
@@ -452,7 +457,7 @@ export async function scanAndInstallInbox(opts?: {
   try {
     ({ bdsRoot, levelName } = resolveBdsContext());
   } catch (e) {
-    console.log(c.yellow(t("packs.inboxSkip", { message: (e as Error).message })));
+    logPack(c.yellow(t("packs.inboxSkip", { message: (e as Error).message })), "warn");
     return { installed: 0, skipped: 0, failed: candidates.length };
   }
 
@@ -464,13 +469,13 @@ export async function scanAndInstallInbox(opts?: {
   let skipped = 0;
   let failed = 0;
 
-  console.log(c.dim(t("packs.inboxFound", { count: candidates.length, level: levelName })));
+  logPack(c.dim(t("packs.inboxFound", { count: candidates.length, level: levelName })));
 
   for (const src of candidates) {
     const base = path.basename(src);
     const fp = sourceFingerprint(src);
     if (state.installed[fp] && !force) {
-      console.log(c.dim(t("packs.alreadyDone", { name: base })));
+      logPack(c.dim(t("packs.alreadyDone", { name: base })));
       skipped++;
       if (!dryRun) {
         try {
@@ -482,19 +487,18 @@ export async function scanAndInstallInbox(opts?: {
       continue;
     }
 
-    let tempDir: string | null = null;
+    let disposeRoots: (() => void) | null = null;
     try {
       let roots: string[] = [];
-      if (fs.statSync(src).isDirectory()) {
-        roots = discoverPackRoots(src, { maxDepth: 2 });
-      } else if (isPackArchive(src)) {
-        if (dryRun) {
-          console.log(c.dim(t("packs.dryRunExtract", { name: base })));
+      if (fs.statSync(src).isDirectory() || isPackArchive(src)) {
+        if (dryRun && isPackArchive(src) && fs.statSync(src).isFile()) {
+          logPack(c.dim(t("packs.dryRunExtract", { name: base })));
           skipped++;
           continue;
         }
-        tempDir = await extractArchiveToTemp(src);
-        roots = discoverPackRoots(tempDir, { maxDepth: 2 });
+        const resolved = await resolvePackRoots(src);
+        disposeRoots = resolved.dispose;
+        roots = resolved.roots;
       } else {
         failed++;
         if (!dryRun) moveTo(src, failedDir(), base);
@@ -502,20 +506,24 @@ export async function scanAndInstallInbox(opts?: {
       }
 
       if (roots.length === 0) {
-        console.log(c.red(t("packs.noPackRoot", { name: base })));
+        logPack(c.red(t("packs.noPackRoot", { name: base })), "error");
         failed++;
-        if (!dryRun && !tempDir) moveTo(src, failedDir(), `${base}-no-root`);
+        if (!dryRun && fs.statSync(src).isDirectory()) moveTo(src, failedDir(), `${base}-no-root`);
         continue;
       }
 
       if (dryRun) {
         for (const r of roots) {
-          const info = readPackManifestInfo(r);
-          console.log(
-            c.dim(
-              `[packs] dry-run: ${base} → ${info?.kind ?? "?"} ${info?.name ?? path.basename(r)}`
-            )
-          );
+          try {
+            const info = readPackManifestInfo(r);
+            logPack(c.dim(`dry-run: ${base} → ${info?.kind ?? "?"} ${info?.name ?? path.basename(r)}`), "info");
+          } catch (e) {
+            if (e instanceof Utf8BomError) {
+              logPack(c.red(t("packs.utf8Bom", { file: e.filePath })), "error");
+            } else {
+              throw e;
+            }
+          }
         }
         skipped++;
         continue;
@@ -527,9 +535,7 @@ export async function scanAndInstallInbox(opts?: {
       let lastUuid = "";
       for (const root of roots) {
         const folderHint =
-          roots.length === 1 && fs.statSync(src).isFile()
-            ? path.basename(src, path.extname(src))
-            : path.basename(root);
+          roots.length === 1 && fs.statSync(src).isFile() ? path.basename(src, path.extname(src)) : path.basename(root);
         const r = await installOnePackRoot({
           srcDir: root,
           bdsRoot,
@@ -541,22 +547,21 @@ export async function scanAndInstallInbox(opts?: {
         if (r.ok && r.info) {
           okCount++;
           lastUuid = r.info.uuid;
-          console.log(
+          logPack(
             c.green(
               t("packs.installedEnabled", {
                 kind: r.info.kind === "resource" ? "RP" : "BP",
                 name: r.info.name,
                 version: fmtVer(r.info.version),
               })
-            )
+            ),
+            "success"
           );
         } else if (r.skipped) {
           skipCount++;
         } else {
           failCount++;
-          console.log(
-            c.red(t("packs.installFailed", { name: path.basename(root), reason: r.reason ?? "?" }))
-          );
+          logPack(c.red(t("packs.installFailed", { name: path.basename(root), reason: r.reason ?? "?" })), "error");
         }
       }
 
@@ -568,13 +573,13 @@ export async function scanAndInstallInbox(opts?: {
         state.installed[fp] = { uuid: lastUuid, at: new Date().toISOString(), folderName: base };
         writeState(state);
         moveTo(src, doneDir(), base);
-        console.log(c.yellow(`[packs] ${restartHint()}`));
+        logPack(c.yellow(`${restartHint()}`), "warn");
       } else if (failCount > 0 && skipCount === 0) {
         moveTo(src, failedDir(), base);
       }
       /* 仅冲突跳过：保留在收件箱，便于交互时再处理 */
     } catch (e) {
-      console.log(c.red(`[packs] ${base}: ${(e as Error).message}`));
+      logPack(c.red(`${base}: ${(e as Error).message}`), "error");
       failed++;
       if (!dryRun && fs.existsSync(src)) {
         try {
@@ -584,24 +589,14 @@ export async function scanAndInstallInbox(opts?: {
         }
       }
     } finally {
-      if (tempDir) {
-        try {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        } catch {
-          /* ignore */
-        }
-      }
+      if (disposeRoots) disposeRoots();
     }
   }
 
   return { installed, skipped, failed };
 }
 
-function filterPacks(
-  packs: InstalledWorldPack[],
-  kind: "bp" | "rp" | "all",
-  search?: string
-): InstalledWorldPack[] {
+function filterPacks(packs: InstalledWorldPack[], kind: "bp" | "rp" | "all", search?: string): InstalledWorldPack[] {
   let list = packs;
   if (kind === "bp") list = list.filter((p) => p.kind === "behavior");
   if (kind === "rp") list = list.filter((p) => p.kind === "resource");
@@ -609,9 +604,7 @@ function filterPacks(
     const q = search.toLowerCase();
     list = list.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.folderName.toLowerCase().includes(q) ||
-        p.uuid.toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) || p.folderName.toLowerCase().includes(q) || p.uuid.toLowerCase().includes(q)
     );
   }
   return list;
@@ -627,9 +620,7 @@ function formatPackList(packs: InstalledWorldPack[]): string {
     for (const p of bp) {
       const en = p.enabled ? c.green(t("packs.list.on")) : c.dim(t("packs.list.off"));
       const src = bindingLabelForUuid(p.uuid);
-      lines.push(
-        `  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}  ${c.dim(src)}`
-      );
+      lines.push(`  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}  ${c.dim(src)}`);
     }
   }
   if (rp.length) {
@@ -900,17 +891,14 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
         const abs = path.resolve(target);
         if (!fs.existsSync(abs)) return c.red(t("packs.pathMissing", { path: abs }));
         const { bdsRoot, levelName } = resolveBdsContext();
-        let tempDir: string | null = null;
+        let disposeRoots: (() => void) | null = null;
         try {
-          let roots: string[];
-          if (fs.statSync(abs).isDirectory()) {
-            roots = discoverPackRoots(abs, { maxDepth: 2 });
-          } else if (isPackArchive(abs)) {
-            tempDir = await extractArchiveToTemp(abs);
-            roots = discoverPackRoots(tempDir, { maxDepth: 2 });
-          } else {
+          if (!fs.statSync(abs).isDirectory() && !isPackArchive(abs)) {
             return c.red(t("packs.notArchive"));
           }
+          const resolved = await resolvePackRoots(abs);
+          disposeRoots = resolved.dispose;
+          const roots = resolved.roots;
           if (roots.length === 0) return c.red(t("packs.noManifestRoot"));
           const lines: string[] = [];
           for (const root of roots) {
@@ -946,7 +934,7 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
           lines.push(c.yellow(restartHint()));
           return lines.join("\n");
         } finally {
-          if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+          if (disposeRoots) disposeRoots();
         }
       }
       case "scan": {

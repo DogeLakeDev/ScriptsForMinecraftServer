@@ -52,10 +52,13 @@ describe("world-packs primitives", () => {
   });
 
   it("formatWorldPackFolderName 去格式码/后缀并加前缀", async () => {
-    const { formatWorldPackFolderName } = await import("./dist/world-packs.js");
+    const { formatWorldPackFolderName, isGenericPackFolderStem } = await import("./dist/world-packs.js");
     assert.equal(formatWorldPackFolderName("§aCool§l Textures.mcpack", "resource"), "[RP] Cool Textures");
     assert.equal(formatWorldPackFolderName("My BP.zip", "behavior"), "[BP] My BP");
     assert.equal(formatWorldPackFolderName("[RP] Already", "resource"), "[RP] Already");
+    assert.equal(isGenericPackFolderStem("B"), true);
+    assert.equal(isGenericPackFolderStem("[RP] R"), true);
+    assert.equal(isGenericPackFolderStem("Slash Blade"), false);
   });
 
   it("discoverPackRoots maxDepth=2", async () => {
@@ -70,6 +73,137 @@ describe("world-packs primitives", () => {
     });
     const found = discoverPackRoots(root, { maxDepth: 2 });
     assert.ok(found.some((p) => path.resolve(p) === path.resolve(nested)));
+  });
+
+  it("resolvePackRoots：扁平目录 / 子目录 BP+RP", async () => {
+    const { resolvePackRoots, readPackManifestInfo } = await import("./dist/world-packs.js");
+    const flat = path.join(tmp, "flat-pack");
+    writeManifest(flat, {
+      name: "FlatBP",
+      uuid: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      version: [1, 0, 0],
+      type: "data",
+    });
+    const flatRes = await resolvePackRoots(flat);
+    try {
+      assert.equal(flatRes.roots.length, 1);
+      assert.equal(readPackManifestInfo(flatRes.roots[0])?.name, "FlatBP");
+    } finally {
+      flatRes.dispose();
+    }
+
+    const nest = path.join(tmp, "nest-dir");
+    writeManifest(path.join(nest, "BP"), {
+      name: "NestBP",
+      uuid: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      version: [1, 0, 0],
+      type: "data",
+    });
+    writeManifest(path.join(nest, "RP"), {
+      name: "NestRP",
+      uuid: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      version: [1, 0, 0],
+      type: "resources",
+    });
+    const nestRes = await resolvePackRoots(nest);
+    try {
+      assert.equal(nestRes.roots.length, 2);
+      const kinds = nestRes.roots.map((r) => readPackManifestInfo(r)?.kind).sort();
+      assert.deepEqual(kinds, ["behavior", "resource"]);
+    } finally {
+      nestRes.dispose();
+    }
+  });
+
+  it("resolvePackRoots：mcaddon 内嵌 mcpack + zip 套娃", async () => {
+    const JSZip = (await import("jszip")).default;
+    const { resolvePackRoots, readPackManifestInfo } = await import("./dist/world-packs.js");
+
+    async function zipDirAsArchive(entries, outFile) {
+      const zip = new JSZip();
+      for (const [name, content] of entries) {
+        zip.file(name, content);
+      }
+      const buf = await zip.generateAsync({ type: "nodebuffer" });
+      fs.mkdirSync(path.dirname(outFile), { recursive: true });
+      fs.writeFileSync(outFile, buf);
+    }
+
+    function manifestJson({ name, uuid, version, type }) {
+      return JSON.stringify({
+        format_version: 2,
+        header: { name, uuid, version, description: "test" },
+        modules: [{ type, uuid: cryptoRandom(), version }],
+      });
+    }
+
+    /* 内层 RP 作为 .mcpack */
+    const rpMcpack = path.join(tmp, "nested-build", "inner-rp.mcpack");
+    await zipDirAsArchive(
+      [
+        [
+          "manifest.json",
+          manifestJson({
+            name: "InnerRP",
+            uuid: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            version: [1, 0, 0],
+            type: "resources",
+          }),
+        ],
+      ],
+      rpMcpack
+    );
+
+    /* 外层 .mcaddon：文件夹 BP + 嵌套 .mcpack */
+    const bpManifest = manifestJson({
+      name: "OuterBP",
+      uuid: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      version: [1, 0, 0],
+      type: "data",
+    });
+    const addon = path.join(tmp, "nested-build", "bundle.mcaddon");
+    const zip = new JSZip();
+    zip.file("BP/manifest.json", bpManifest);
+    zip.file("inner-rp.mcpack", fs.readFileSync(rpMcpack));
+    fs.writeFileSync(addon, await zip.generateAsync({ type: "nodebuffer" }));
+
+    const addonRes = await resolvePackRoots(addon);
+    try {
+      assert.equal(addonRes.roots.length, 2, `roots=${JSON.stringify(addonRes.roots)}`);
+      const names = addonRes.roots.map((r) => readPackManifestInfo(r)?.name).sort();
+      assert.deepEqual(names, ["InnerRP", "OuterBP"]);
+    } finally {
+      addonRes.dispose();
+    }
+
+    /* zip → mcpack → pack（双层套娃） */
+    const leafMcpack = path.join(tmp, "nested-build", "leaf.mcpack");
+    await zipDirAsArchive(
+      [
+        [
+          "manifest.json",
+          manifestJson({
+            name: "LeafPack",
+            uuid: "12121212-1212-1212-1212-121212121212",
+            version: [2, 0, 0],
+            type: "data",
+          }),
+        ],
+      ],
+      leafMcpack
+    );
+    const outerZip = path.join(tmp, "nested-build", "outer.zip");
+    const z2 = new JSZip();
+    z2.file("leaf.mcpack", fs.readFileSync(leafMcpack));
+    fs.writeFileSync(outerZip, await z2.generateAsync({ type: "nodebuffer" }));
+
+    const zipRes = await resolvePackRoots(outerZip);
+    try {
+      assert.equal(zipRes.roots.length, 1);
+      assert.equal(readPackManifestInfo(zipRes.roots[0])?.name, "LeafPack");
+    } finally {
+      zipRes.dispose();
+    }
   });
 
   it("bumpPackPatchVersion 同步 header 与 modules", async () => {
@@ -87,6 +221,24 @@ describe("world-packs primitives", () => {
     assert.deepEqual(info?.version, [1, 2, 4]);
     const raw = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
     assert.deepEqual(raw.modules[0].version, [1, 2, 4]);
+  });
+
+  it("ensureVersionGreaterThan / nextEnabledVersion：bump(max(新包, 旧版))", async () => {
+    const { ensureVersionGreaterThan, nextEnabledVersion, readPackManifestInfo } = await import(
+      "./dist/world-packs.js"
+    );
+    assert.deepEqual(nextEnabledVersion([1, 0, 0], [1, 21, 100], "patch"), [1, 21, 101]);
+    /* 复现：旧 Slash Blade RP=[1,21,100]，远程新包=[1,0,0] */
+    const dir = path.join(tmp, "bump-floor");
+    writeManifest(dir, {
+      name: "SlashRp",
+      uuid: "8b450660-c968-3d5e-696e-b7f14c03388a",
+      version: [1, 0, 0],
+      type: "resources",
+    });
+    const next = ensureVersionGreaterThan(dir, [1, 21, 100], "patch");
+    assert.deepEqual(next, [1, 21, 101]);
+    assert.deepEqual(readPackManifestInfo(dir)?.version, [1, 21, 101]);
   });
 
   it("list-installed CLI + listInstalledWorldPacks", async () => {
@@ -131,13 +283,67 @@ describe("world-packs primitives", () => {
     assert.deepEqual(version, [2, 0, 1]);
   });
 
-  it("installPackDirectory 同 folderName 即使旧包 kind 不可识别也要 conflict", async () => {
+  it("installPackDirectory：同名不同 uuid 自动换名；同 uuid 才 conflict", async () => {
     const { installPackDirectory, formatWorldPackFolderName } = await import("./dist/world-packs.js");
     const dest = path.join(tmp, "conflict-parent");
+
+    /* 已有 Slash-like：[BP] B */
+    const existingB = path.join(dest, formatWorldPackFolderName("B", "behavior"));
+    writeManifest(existingB, {
+      name: "Slash Blade",
+      uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      version: [1, 0, 0],
+      type: "data",
+    });
+
+    /* 新包也叫 B，但 uuid/名字不同 → 应用 manifest 名，不覆盖 */
+    const src = path.join(tmp, "incoming-bp");
+    writeManifest(src, {
+      name: "pack.name",
+      uuid: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      version: [5, 0, 4],
+      type: "data",
+    });
+    const r = await installPackDirectory({
+      srcDir: src,
+      destParent: dest,
+      folderName: "B",
+      force: false,
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.ok(r.destDir);
+    assert.notEqual(path.basename(r.destDir), path.basename(existingB));
+    assert.ok(fs.existsSync(path.join(existingB, "manifest.json")), "旧包必须保留");
+    assert.equal(
+      JSON.parse(fs.readFileSync(path.join(existingB, "manifest.json"), "utf8")).header.uuid,
+      "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    );
+
+    /* 同 uuid 再装 → conflict */
+    const src2 = path.join(tmp, "incoming-same-uuid");
+    writeManifest(src2, {
+      name: "Slash Blade v2",
+      uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      version: [2, 0, 0],
+      type: "data",
+    });
+    const c = await installPackDirectory({
+      srcDir: src2,
+      destParent: dest,
+      folderName: "Anything",
+      force: false,
+    });
+    assert.equal(c.ok, false);
+    assert.equal(c.reason, "conflict");
+    assert.ok(c.conflict);
+  });
+
+  it("installPackDirectory：残缺 manifest 占用目录时换名而非覆盖", async () => {
+    const { installPackDirectory, formatWorldPackFolderName } = await import("./dist/world-packs.js");
+    const dest = path.join(tmp, "broken-parent");
     const folderName = formatWorldPackFolderName("Broken", "resource");
     const existingDir = path.join(dest, folderName);
     fs.mkdirSync(existingDir, { recursive: true });
-    // 无法 detectPackKind 的残缺 manifest（仅 header，无 modules）
     fs.writeFileSync(
       path.join(existingDir, "manifest.json"),
       JSON.stringify({
@@ -163,10 +369,8 @@ describe("world-packs primitives", () => {
       folderName: "Broken",
       force: false,
     });
-    assert.equal(r.ok, false);
-    assert.equal(r.reason, "conflict");
-    assert.ok(r.conflict);
-    // 未 force 时不得覆盖
+    assert.equal(r.ok, true, r.reason);
+    assert.notEqual(r.destDir && path.basename(r.destDir), folderName);
     const still = JSON.parse(fs.readFileSync(path.join(existingDir, "manifest.json"), "utf8"));
     assert.equal(still.header.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
   });
@@ -244,5 +448,26 @@ describe("world-packs primitives", () => {
     });
     assert.equal(purged.action, "deleted");
     assert.equal(fs.existsSync(packDir2), false);
+  });
+
+  it("readPackManifestInfo 遇 UTF-8 BOM 抛错（要求作者改为无 BOM 的 UTF-8）", async () => {
+    const { readPackManifestInfo, Utf8BomError } = await import("./dist/world-packs.js");
+    const dir = path.join(tmp, "bom-rp");
+    fs.mkdirSync(dir, { recursive: true });
+    const body = JSON.stringify(
+      {
+        format_version: 2,
+        header: {
+          name: "§l§a神金",
+          uuid: "2b6de4b1-1f74-4c6e-937b-77f5e9c1f199",
+          version: [1, 0, 4],
+        },
+        modules: [{ type: "resources", uuid: "1c710355-15e2-4293-8574-788eec05d35f", version: [1, 0, 4] }],
+      },
+      null,
+      2
+    );
+    fs.writeFileSync(path.join(dir, "manifest.json"), `\uFEFF${body}`, "utf8");
+    assert.throws(() => readPackManifestInfo(dir), (e) => e instanceof Utf8BomError);
   });
 });

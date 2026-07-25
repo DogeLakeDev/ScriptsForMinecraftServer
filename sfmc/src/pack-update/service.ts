@@ -3,15 +3,14 @@
  */
 import { confirm, isCancel } from "@clack/prompts";
 import {
-  discoverPackRoots,
   enableInstalledPack,
   ensureVersionGreaterThan,
-  extractArchiveToTemp,
   findInstalledPackById,
   installPackDirectory,
   listInstalledWorldPacks,
   readPackDependencyUuids,
   readPackManifestInfo,
+  resolvePackRoots,
   worldPackParentDir,
   type InstalledWorldPack,
   type PackManifestInfo,
@@ -360,6 +359,8 @@ interface CheckResult {
   tempDir?: string;
   /** 下载归档所在的临时 staging 目录（非 zip 文件路径） */
   stagingDir?: string;
+  /** resolvePackRoots 创建的临时树清理 */
+  disposeRoots?: () => void;
 }
 
 function withLocalBp(base: Omit<CheckResult, "localBp">, localBp: InstalledWorldPack | undefined): CheckResult {
@@ -443,14 +444,14 @@ async function prepareCheck(
   const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-upd-"));
   const archiveFile = path.join(stagingDir, file.fileName || "pack.zip");
   await provider.download(file, archiveFile);
-  const tempDir = await extractArchiveToTemp(archiveFile);
-  const roots = discoverPackRoots(tempDir, { maxDepth: 3 });
+  const resolved = await resolvePackRoots(archiveFile);
+  const roots = resolved.roots;
   const bpRoot = roots.find((r) => readPackManifestInfo(r)?.kind === "behavior");
   const remoteBpInfo = bpRoot ? readPackManifestInfo(bpRoot) : null;
   if (!remoteBpInfo) {
+    resolved.dispose();
     try {
       fs.rmSync(stagingDir, { recursive: true, force: true });
-      fs.rmSync(tempDir, { recursive: true, force: true });
     } catch {
       /* ignore */
     }
@@ -500,14 +501,21 @@ async function prepareCheck(
       binding,
       remoteBpInfo,
       remoteRoots: roots,
-      tempDir,
       stagingDir,
+      disposeRoots: resolved.dispose,
     },
     localBp
   );
 }
 
 function cleanupCheck(r: CheckResult): void {
+  if (r.disposeRoots) {
+    try {
+      r.disposeRoots();
+    } catch {
+      /* ignore */
+    }
+  }
   for (const d of [r.tempDir, r.stagingDir]) {
     if (!d) continue;
     try {
@@ -613,6 +621,7 @@ async function applyUpdate(r: CheckResult, cfg: PackUpdateConfig): Promise<{ ok:
     }
   }
 
+  /* 启用版本 = bump(max(新包, 旧 RP))，单一规则触发客户端刷新 */
   if (rpInfo && rpDir && r.shouldBumpRp) {
     const next = ensureVersionGreaterThan(rpDir, oldRpVer, cfg.versionPolicy.rpBumpComponent);
     rpInfo = { ...rpInfo, version: next };

@@ -10,7 +10,7 @@
 
 | 内容 | 说明 |
 | ------ |------ |
-| 待装文件/目录 | `.zip` / `.mcpack` / `.mcaddon` / 含 `manifest.json` 的文件夹（可嵌套，扫描深度 2） |
+| 待装文件/目录 | `.zip` / `.mcpack` / `.mcaddon` / 含 `manifest.json` 的文件夹；嵌套归档由 `resolvePackRoots` 自动展开 |
 | `_done/` | 安装成功后的源归档 |
 | `_failed/` | 识别失败或安装失败 |
 | `_trash/` | **卸载回收站**（`packs uninstall` 默认移入此处） |
@@ -22,8 +22,8 @@
 
 ```mermaid
 flowchart TB
-  inbox["SFMC_ROOT/packs inbox"] --> scan[scan depth 2]
-  scan --> detect[folder zip mcpack mcaddon]
+  inbox["SFMC_ROOT/packs inbox"] --> scan[resolvePackRoots]
+  scan --> detect[folder zip mcpack mcaddon nested]
   detect --> formatName[format folder name BP/RP prefix]
   formatName --> conflict{uuid or folder conflict?}
   conflict -->|TTY| prompt[提示对比 name+version 是否覆盖]
@@ -123,11 +123,13 @@ BDS **不支持**热加载世界包，因此仍会提示「需重启 BDS 后生�
 
 ## 安装源识别
 
+统一入口：`bds-tools` 的 `resolvePackRoots(src)`（先展开归档，再认 `manifest.json`）。
+
 | 输入 | 处理 |
 | ------ | ------ |
-| 含 `manifest.json` 的文件夹 | 直接安装 |
-| 嵌套文件夹 | `maxDepth=2` 找包根（可一次装多个） |
-| `.zip` / `.mcpack` | 解压后发现包根 |
-| `.mcaddon` | 同上，常含 BP+RP |
+| 含 `manifest.json` 的文件夹 | 直接作为包根（及子目录扫描，默认深度 4） |
+| 嵌套文件夹（无归档） | 同上发现多个包根 |
+| `.zip` / `.mcpack` / `.mcaddon` | 解压到临时目录 → 展开树内嵌套归档 → 发现包根 |
+| 归档内再套 `.mcpack` | 自动多轮展开（默认最多 3 轮），不改用户原文件 |
 
 `modules[].type`：`resources` → RP；`data` / `script` / `javascript` → BP。无法判定 → `_failed/`。
