@@ -2,8 +2,7 @@
  * log.ts — bds-tools 统一日志实例
  *
  * stdout bare + 落盘 LOG_PATH (<ROOT>/.sfmc/logs/bds-update.log)。
- * check-update.ts 是独立入口,用 source = "updater" 单独创建 logger,
- * 见该文件内的 createUpdaterLogger()。
+ * check-update.ts 是独立入口,用 source = "updater" 单独创建 logger。
  */
 
 import { createNodeServiceLogger } from "@sfmc-bds/sdk/logs";
@@ -14,9 +13,7 @@ export const log = createNodeServiceLogger({
   logPath: LOG_PATH,
 });
 
-/** 关闭文件流 (进程退出前调用,确保缓冲落盘) */
+/** 兼容钩子：FileSink 为 sync append，close 为空操作 */
 export function closeLog(): void {
   log.close();
 }
-
-process.on("exit", () => closeLog());

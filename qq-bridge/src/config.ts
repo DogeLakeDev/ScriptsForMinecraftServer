@@ -11,19 +11,14 @@ import {
   configPath,
   DEFAULT_QQ_CONFIG,
   loadEnsuredConfig,
-  resolveRuntimeRoot,
   stripConfigMeta,
 } from "@sfmc-bds/sdk/node/config";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { log } from "./log.js";
+import { PROJECT_ROOT } from "./project-root.js";
 import type { QQBridgeConfig } from "./types.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/** 统一通过 SDK 解析项目根:env SFMC_ROOT > __dirname 上溯。 */
-export const ROOT_DIR: string = resolveRuntimeRoot(resolve(__dirname, "..", ".."));
+/** 统一通过 SDK 解析项目根:env SFMC_ROOT > project-root 上溯。 */
+export const ROOT_DIR: string = PROJECT_ROOT;
 export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 
 function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {

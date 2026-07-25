@@ -39,6 +39,19 @@
 2. PR 合入 `main` 后，[changeset-release.yml](../../.github/workflows/changeset-release.yml) 会开/更新 **Version Packages** PR。
 3. 维护者审查并合并 Version PR → CI 跑 `ci-release-packages`（publish + tag + GitHub Release；pre mode → npm **`beta`**）。
 
+### Version PR 权限（必读）
+
+`changesets/action` 用 `GITHUB_TOKEN` 开 PR 时，若仓库/组织关闭了 **Allow GitHub Actions to create and approve pull requests**，会报：
+
+`HttpError: GitHub Actions is not permitted to create or approve pull requests`
+
+（版本 bump 分支 `changeset-release/main` 可能已推送，但 PR 未创建。workflow 已声明 `pull-requests: write` 仍不够。）
+
+任选其一：
+
+1. **推荐（零 Secret）**：Repo Settings → Actions → General → Workflow permissions → 勾选 *Allow GitHub Actions to create and approve pull requests*。
+2. **PAT**：写入 Secret **`SFMC_GITHUB_TOKEN`**（能开本仓 PR）；workflow 优先用该 token，其次兼容旧名 `CHANGESETS_GITHUB_TOKEN`，再回退 `GITHUB_TOKEN`。
+
 ### 本地一键发版（`npm-run-all2`）
 
 当前 pre mode 请用：
@@ -53,7 +66,7 @@ npm run prerelease-packages
 |------|--------|
 | `prerelease-packages` | **现在**（pre/beta） |
 | `release-packages` | 仅 `changeset pre exit` 之后（latest） |
-| `ci-release-packages` | CI 专用（无交互） |
+| `ci-release-packages` | CI 专用（无交互）。`tag-packages` 默认按 `HEAD~1` 版本 diff；仅显式 `--from-existing` / `SFMC_TAG_FROM_EXISTING=1`（或浅克隆无法解析父提交）才只收录已有 tag。空的 `.sfmc-release-tags.json` 表示本轮无目标，下游不得回退扫全仓。 |
 | `publish-packages` | 仅 npm publish 包装 |
 
 需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。
@@ -95,6 +108,7 @@ npm run pack:verify
 
 1. npm 账号登录并确认 org [sfmc-bds](https://www.npmjs.com/org/sfmc-bds)
 2. Granular Access Token（Automation）写入 GitHub Secret `NPM_TOKEN`
+3. （可选）若无法开启 Actions「create and approve pull requests」：写入 `SFMC_GITHUB_TOKEN`（见上文 Version PR 权限；旧名 `CHANGESETS_GITHUB_TOKEN` 仍可用）
 
 ## 模块包
 

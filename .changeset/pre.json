@@ -13,6 +13,6 @@
     "@sfmc-bds/tools": "0.1.1"
   },
   "changesets": [
-    "tame-suns-begin"
+    "align-release-token-dry"
   ]
 }

@@ -3,11 +3,13 @@
  * 推送当前分支与发版 tag（优先读 .sfmc-release-tags.json）。
  * CI 下默认只推 tag（SFMC_PUSH_TAGS_ONLY=1 或 CI=true）。
  */
-import fs from "node:fs";
-import path from "node:path";
-import { ROOT, git, gitCapture } from "./lib/changeset-release.mjs";
+import {
+  git,
+  gitCapture,
+  readReleaseTagsState,
+  resolveReleaseTagEntries,
+} from "./lib/changeset-release.mjs";
 
-const statePath = path.join(ROOT, ".sfmc-release-tags.json");
 const tagsOnly =
   process.env.SFMC_PUSH_TAGS_ONLY === "1" ||
   process.env.CI === "true" ||
@@ -25,23 +27,23 @@ if (!tagsOnly) {
   console.log("[changeset] CI/tags-only：跳过分支推送");
 }
 
-/** @type {string[]} */
-let tags = [];
-if (fs.existsSync(statePath)) {
-  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-  tags = (state.tags ?? []).map((t) => t.tag).filter(Boolean);
-}
-
-if (tags.length === 0) {
-  /* 回退：推送本机尚未在 origin 的 name@version 风格 tag */
+const state = readReleaseTagsState();
+const entries = resolveReleaseTagEntries(state, () => {
+  /* 回退：仅当状态文件缺失时，推送本机尚未在 origin 的 name@version 风格 tag */
+  console.warn("[changeset] 无 .sfmc-release-tags.json，回退扫描本地未推送 tag");
+  /** @type {{ tag: string }[]} */
+  const out = [];
   const local = gitCapture(["tag", "-l", "@sfmc-bds/*"])
     .split(/\r?\n/)
     .filter(Boolean);
   for (const tag of local) {
     const remote = gitCapture(["ls-remote", "--tags", "origin", `refs/tags/${tag}`]);
-    if (!remote) tags.push(tag);
+    if (!remote) out.push({ tag });
   }
-}
+  return out;
+});
+
+const tags = entries.map((t) => t.tag).filter(Boolean);
 
 if (tags.length === 0) {
   console.log("[changeset] 无待推送 tag，跳过");

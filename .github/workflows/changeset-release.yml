@@ -23,7 +23,10 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
+      # fetch-depth:0：tag-packages 需 HEAD~1 做版本 diff；浅克隆时 resolvePackagesNeedingTags 才回退 from-existing
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -44,17 +47,22 @@ jobs:
           npm run build --workspace @sfmc-bds/tools --if-present
           npm run build --workspace @sfmc-bds/sfmc --if-present
 
+      # Version PR 需要「创建 PR」权限。仅用 GITHUB_TOKEN 且仓库关闭
+      # Settings→Actions→General→「Allow GitHub Actions to create and approve pull requests」时，
+      # changesets/action 会 HttpError（分支已推送但 PR 未创建）。
+      # 优先 PAT：SFMC_GITHUB_TOKEN（权威名）；兼容旧名 CHANGESETS_GITHUB_TOKEN；再回退 GITHUB_TOKEN。
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
         with:
           version: npm run version-packages
           # CI 不跑交互 changeset/version；只 publish + tag + gh release
+          # tag-packages 默认 HEAD~1 版本 diff（空状态文件亦信任，禁止扫全仓 tag）
           publish: npm run ci-release-packages
           title: "chore(release): version packages"
           commit: "chore(release): version packages"
           createGithubReleases: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SFMC_GITHUB_TOKEN || secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
