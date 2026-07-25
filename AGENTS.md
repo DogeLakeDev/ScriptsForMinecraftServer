@@ -185,7 +185,11 @@ node tools/fetch-module.mjs install <id>
 2. `node tools/check-ootb.mjs`
 3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.mjs`
 
-`.github/workflows/npm-publish.yml` — on scoped package tags (e.g. `@sfmc-bds/sdk@v0.1.0`): publishes npm packages listed in `tools/lib/npm-publish-packages.mjs`.
+`.github/workflows/changeset-release.yml` — on push to `main`: opens/updates Version Packages PR; merging it runs `changeset publish` (currently **beta** dist-tag via pre mode).
+
+`.github/workflows/npm-publish.yml` — emergency `workflow_dispatch` single-package publish (default `--tag beta`). Do not publish `latest` while `.changeset/pre.json` is in pre mode.
+
+**Shipping rule:** any PR that changes a publishable package's public API/behavior must include a changeset (`npx changeset`), or the Version PR will not bump that package.
 
 ## Prettier
 

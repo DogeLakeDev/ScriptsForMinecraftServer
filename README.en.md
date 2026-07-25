@@ -22,7 +22,7 @@ ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface int
 
 - **Module-by-package model** — every entry under `modules/packages/<id>/` is a first-class module; modules are registered through `modules/catalog.json` and loaded by `ModuleRegistry`. `type` in the catalog distinguishes `core` (infrastructure) from `feature` (add-on functionality).
 - **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` (CLI supervisor).
-- **One-command install** — `npm i -g @sfmc-bds/sfmc` then `sfmc` in an empty directory.
+- **One-command install** — `npm i -g @sfmc-bds/sfmc@beta` then `sfmc` in an empty directory (beta-only until first stable release).
 - **SDK toolkit** `@sfmc-bds/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
 - **Build-time module fetch** — one-shot CLI `tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout).
 
@@ -68,7 +68,7 @@ SFMC ships two equivalent on-ramps. Pick whichever feels right.
 node -v
 
 # 2. Install + first launch (wizard fills BDS / LLBot / backup paths, then modules)
-npm i -g @sfmc-bds/sfmc
+npm i -g @sfmc-bds/sfmc@beta
 mkdir my-server && cd my-server
 sfmc
 

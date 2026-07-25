@@ -6,7 +6,7 @@ SFMC 聚合包：
 ## 安装
 
 ```bash
-npm install -g @sfmc-bds/sfmc
+npm install -g @sfmc-bds/sfmc@beta
 ```
 
 或在项目目录本地安装：
@@ -14,9 +14,11 @@ npm install -g @sfmc-bds/sfmc
 ```bash
 mkdir my-server && cd my-server
 npm init -y
-npm install @sfmc-bds/sfmc
+npm install @sfmc-bds/sfmc@beta
 npx sfmc
 ```
+
+> 当前仅开放 **beta** 通道。稳定 `latest` 未开放前请始终带 `@beta`。
 
 ## 首次使用
 

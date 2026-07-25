@@ -1,0 +1,59 @@
+name: changeset-release
+
+# Changesets: 在 main 上开/更新 Version Packages PR；
+# 合并该 PR（版本已 bump）后自动 changeset publish。
+# 当前仓库处于 pre mode (beta)：publish 仅推 npm dist-tag beta。
+# 未达 release 门槛前禁止 changeset pre exit。
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: changeset-release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: build publishable workspaces
+        run: |
+          npm run build --workspace @sfmc-bds/sdk
+          npm run build --workspace @sfmc-bds/eslint-plugin --if-present
+          npm run build --workspace @sfmc-bds/bds-tools --if-present
+          npm run build --workspace @sfmc-bds/db-server --if-present
+          npm run build --workspace @sfmc-bds/qq-bridge --if-present
+          npm run build --workspace @sfmc-bds/cli --if-present
+          npm run build --workspace @sfmc-bds/tools --if-present
+          npm run build --workspace @sfmc-bds/sfmc --if-present
+
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: npm run version-packages
+          publish: npm run release-packages
+          title: "chore(release): version packages"
+          commit: "chore(release): version packages"
+          createGithubReleases: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

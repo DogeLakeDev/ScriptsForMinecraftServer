@@ -1,0 +1,24 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@sfmc-bds/bds-tools": "0.1.0",
+    "@sfmc-bds/db-server": "0.1.0",
+    "@sfmc-bds/eslint-plugin": "0.1.0",
+    "@sfmc-bds/sdk": "0.1.0",
+    "@sfmc-bds/qq-bridge": "0.1.0",
+    "@sfmc-bds/remote-controller": "0.1.0",
+    "@sfmc-bds/cli": "0.1.0",
+    "@sfmc-bds/sfmc": "0.1.0",
+    "@sfmc-bds/tools": "0.1.1"
+  },
+  "changesets": [
+    "bds-tools-0-2-beta",
+    "cli-0-2-beta",
+    "db-server-0-2-beta",
+    "qq-bridge-0-1-1-beta",
+    "sdk-0-2-beta",
+    "sfmc-meta-0-2-beta",
+    "tools-0-2-beta"
+  ]
+}

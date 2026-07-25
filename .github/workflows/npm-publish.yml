@@ -1,31 +1,33 @@
 name: npm-publish
 
-# 按包 tag 触发 npm 发布。
-# 示例: git tag @sfmc-bds/sdk@v0.1.0 && git push origin @sfmc-bds/sdk@v0.1.0
-# 可发包清单唯一来源: tools/lib/npm-publish-packages.mjs
+# 应急单包补发（默认 --tag beta）。日常发版请走 changeset-release.yml。
+# 示例: Actions → npm-publish → Run workflow
+#   package: @sfmc-bds/sdk
+#   version: 0.2.0-beta.0   （须与 package.json 一致）
+#   dist_tag: beta          （默认；未达标前勿填 latest）
 
 on:
-  # GitHub tag glob 对含 / 与 @ 的 scoped tag 极不稳定；用 ** 接住全部 tag，
-  # 再在 job 级 if 收窄到 @sfmc-bds/。
-  push:
-    tags:
-      - "**"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "要发布的 tag（如 @sfmc-bds/sdk@v0.1.0）"
-        # 勿 required:true：改本 workflow 的 branch push 会被 GHA 误评估，
-        # 缺 inputs 时出现空 jobs + "workflow file issue" failure（见 run 29922880511）。
-        required: false
+      package:
+        description: "npm 包名（如 @sfmc-bds/sdk）"
+        required: true
         type: string
+      version:
+        description: "版本号（须与该包 package.json 一致，如 0.2.0-beta.0）"
+        required: true
+        type: string
+      dist_tag:
+        description: "npm dist-tag（当前阶段默认 beta）"
+        required: false
+        default: beta
+        type: choice
+        options:
+          - beta
+          - latest
 
 jobs:
   publish:
-    # dispatch 放行；push 仅真实 tag 且 @sfmc-bds/ 前缀才跑。
-    # ref_type==tag 防御误触的 branch push（skipped 绿，而非空 jobs 红）。
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.ref_type == 'tag' && startsWith(github.ref_name, '@sfmc-bds/'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,17 +37,28 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          # 与 ootb.yml 共用 .node-version（DRY）；勿在此再写死另一份版本号
           node-version-file: .node-version
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      - name: parse tag + verify package version
+      - name: parse + verify package version
         id: meta
         env:
-          # push tag 时用 GITHUB_REF_NAME；手动触发时用 inputs.tag
-          PUBLISH_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: node tools/resolve-npm-publish-tag.mjs
+          PUBLISH_PACKAGE: ${{ inputs.package }}
+          PUBLISH_VERSION: ${{ inputs.version }}
+          PUBLISH_DIST_TAG: ${{ inputs.dist_tag || 'beta' }}
+        run: node tools/resolve-npm-publish-dispatch.mjs
+
+      - name: block accidental latest while in beta-only
+        if: steps.meta.outputs.dist_tag == 'latest'
+        run: |
+          if [ -f .changeset/pre.json ]; then
+            mode=$(node -e "console.log(JSON.parse(require('fs').readFileSync('.changeset/pre.json','utf8')).mode)")
+            if [ "$mode" = "pre" ]; then
+              echo "::error::仓库仍处于 changesets pre mode，禁止发 latest。先达标并 changeset pre exit。"
+              exit 1
+            fi
+          fi
 
       - name: skip if already published
         if: steps.meta.outputs.already_published == 'true'
@@ -58,7 +71,6 @@ jobs:
         if: steps.meta.outputs.already_published != 'true' && steps.meta.outputs.workspace != '@sfmc-bds/sdk'
         run: npm run build --workspace @sfmc-bds/sdk
 
-      # --if-present:纯脚本包(如 @sfmc-bds/tools)无编译步骤,勿强制 build(OCP)
       - name: build target workspace
         if: steps.meta.outputs.already_published != 'true'
         run: npm run build --workspace "${{ steps.meta.outputs.workspace }}" --if-present
@@ -67,4 +79,9 @@ jobs:
         if: steps.meta.outputs.already_published != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --workspace "${{ steps.meta.outputs.workspace }}" --access public --provenance
+        run: >
+          npm publish
+          --workspace "${{ steps.meta.outputs.workspace }}"
+          --access public
+          --tag "${{ steps.meta.outputs.dist_tag }}"
+          --provenance

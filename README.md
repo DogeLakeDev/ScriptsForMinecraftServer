@@ -51,10 +51,12 @@ flowchart LR
 
 ```bash
 > node -v   # 需要 v22.13+
-> npm install -g @sfmc-bds/sfmc
+> npm install -g @sfmc-bds/sfmc@beta
 > mkdir my-server && cd my-server
 > sfmc
 ```
+
+> 当前阶段仅发 **beta**；请带 `@beta` 安装。见 [npm 发布指南](./docs/dev/npm-publish.md)。
 
 开发者也可克隆本仓 monorepo，见 [安装指南](./docs/guide/install.md)。
 
