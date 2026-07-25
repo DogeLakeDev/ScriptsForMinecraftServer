@@ -395,7 +395,7 @@ async function installOnePackRoot(opts: {
       srcDir: opts.srcDir,
       destParent,
       force: true,
-      ...(opts.folderHint ? { folderName: opts.folderHint } : {}),
+      /* 路径由同 uuid 决策锁定，不依赖 folderHint，避免旁路目录 */
     });
   }
 

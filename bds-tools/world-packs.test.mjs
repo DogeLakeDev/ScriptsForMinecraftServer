@@ -283,11 +283,153 @@ describe("world-packs primitives", () => {
     assert.deepEqual(version, [2, 0, 1]);
   });
 
-  it("installPackDirectory：同名不同 uuid 自动换名；同 uuid 才 conflict", async () => {
-    const { installPackDirectory, formatWorldPackFolderName } = await import("./dist/world-packs.js");
+  it("decidePackInstallPlan 表驱动", async () => {
+    const { decidePackInstallPlan, formatWorldPackFolderName } = await import("./dist/world-packs.js");
+    const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const mk = (over) => ({
+      name: "Foo",
+      uuid: uuidB,
+      version: [1, 0, 0],
+      kind: "behavior",
+      ...over,
+    });
+
+    const cases = [
+      {
+        title: "空占用 + hint B → fresh 用 manifest 名",
+        incoming: mk({ name: "Foo", uuid: uuidB }),
+        hint: "B",
+        occupancy: [],
+        force: false,
+        expectKind: "fresh",
+        expectFolder: "[BP] Foo",
+      },
+      {
+        title: "已有 [BP] B uuidA + 新 uuidB hint B → fresh 且不占用 B",
+        incoming: mk({ name: "pack.name", uuid: uuidB, version: [5, 0, 4] }),
+        hint: "B",
+        occupancy: [
+          {
+            folderName: "[BP] B",
+            dir: "/x/[BP] B",
+            uuid: uuidA,
+            version: [1, 0, 0],
+            name: "Slash",
+          },
+        ],
+        force: false,
+        expectKind: "fresh",
+        expectFolderNot: "[BP] B",
+      },
+      {
+        title: "同 uuid 版本更高 !force → overwriteInPlace",
+        incoming: mk({ name: "Slash v2", uuid: uuidA, version: [1, 2, 0] }),
+        hint: "Other",
+        occupancy: [
+          {
+            folderName: "[BP] B",
+            dir: "/x/[BP] B",
+            uuid: uuidA,
+            version: [1, 1, 0],
+            name: "Slash",
+          },
+        ],
+        force: false,
+        expectKind: "overwriteInPlace",
+        expectFolder: "[BP] B",
+      },
+      {
+        title: "同 uuid 版本相等 !force → needConfirm",
+        incoming: mk({ name: "Slash", uuid: uuidA, version: [1, 1, 0] }),
+        hint: "Other",
+        occupancy: [
+          {
+            folderName: "[BP] B",
+            dir: "/x/[BP] B",
+            uuid: uuidA,
+            version: [1, 1, 0],
+            name: "Slash",
+          },
+        ],
+        force: false,
+        expectKind: "needConfirm",
+        expectFolder: "[BP] B",
+      },
+      {
+        title: "同 uuid 版本更低 !force → needConfirm",
+        incoming: mk({ name: "Slash", uuid: uuidA, version: [1, 0, 0] }),
+        hint: "Other",
+        occupancy: [
+          {
+            folderName: "[BP] B",
+            dir: "/x/[BP] B",
+            uuid: uuidA,
+            version: [1, 1, 0],
+            name: "Slash",
+          },
+        ],
+        force: false,
+        expectKind: "needConfirm",
+        expectFolder: "[BP] B",
+      },
+      {
+        title: "同 uuid 降级 + force → overwriteInPlace",
+        incoming: mk({ name: "Slash old", uuid: uuidA, version: [1, 0, 0] }),
+        hint: "Other",
+        occupancy: [
+          {
+            folderName: "[BP] B",
+            dir: "/x/[BP] B",
+            uuid: uuidA,
+            version: [1, 1, 0],
+            name: "Slash",
+          },
+        ],
+        force: true,
+        expectKind: "overwriteInPlace",
+        expectFolder: "[BP] B",
+      },
+      {
+        title: "两人名撞车 → fresh 带 uuid 后缀",
+        incoming: mk({ name: "Cool", uuid: uuidB, version: [1, 0, 0] }),
+        hint: "Cool",
+        occupancy: [
+          {
+            folderName: formatWorldPackFolderName("Cool", "behavior"),
+            dir: "/x/a",
+            uuid: uuidA,
+            version: [1, 0, 0],
+          },
+        ],
+        force: false,
+        expectKind: "fresh",
+        expectFolder: formatWorldPackFolderName(`Cool ${uuidB.slice(0, 8)}`, "behavior"),
+      },
+    ];
+
+    for (const c of cases) {
+      const plan = decidePackInstallPlan({
+        incoming: c.incoming,
+        hint: c.hint,
+        occupancy: c.occupancy,
+        force: c.force,
+      });
+      assert.equal(plan.kind, c.expectKind, c.title);
+      if (c.expectFolder) assert.equal(plan.folderName, c.expectFolder, c.title);
+      if (c.expectFolderNot) assert.notEqual(plan.folderName, c.expectFolderNot, c.title);
+      if (plan.kind === "overwriteInPlace" || plan.kind === "needConfirm") {
+        assert.equal(plan.folderName, c.occupancy[0].folderName, `${c.title}: 必须原地`);
+      }
+    }
+  });
+
+  it("installPackDirectory FS：异 uuid 换名；版本升级静默覆盖；同版需 force", async () => {
+    const { installPackDirectory, formatWorldPackFolderName, readPackManifestInfo } = await import(
+      "./dist/world-packs.js"
+    );
     const dest = path.join(tmp, "conflict-parent");
 
-    /* 已有 Slash-like：[BP] B */
     const existingB = path.join(dest, formatWorldPackFolderName("B", "behavior"));
     writeManifest(existingB, {
       name: "Slash Blade",
@@ -296,7 +438,7 @@ describe("world-packs primitives", () => {
       type: "data",
     });
 
-    /* 新包也叫 B，但 uuid/名字不同 → 应用 manifest 名，不覆盖 */
+    /* 异 uuid + hint B → 换名，不碰旧包 */
     const src = path.join(tmp, "incoming-bp");
     writeManifest(src, {
       name: "pack.name",
@@ -311,31 +453,53 @@ describe("world-packs primitives", () => {
       force: false,
     });
     assert.equal(r.ok, true, r.reason);
-    assert.ok(r.destDir);
     assert.notEqual(path.basename(r.destDir), path.basename(existingB));
-    assert.ok(fs.existsSync(path.join(existingB, "manifest.json")), "旧包必须保留");
-    assert.equal(
-      JSON.parse(fs.readFileSync(path.join(existingB, "manifest.json"), "utf8")).header.uuid,
-      "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-    );
+    assert.equal(readPackManifestInfo(existingB)?.uuid, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
-    /* 同 uuid 再装 → conflict */
-    const src2 = path.join(tmp, "incoming-same-uuid");
-    writeManifest(src2, {
+    /* 同 uuid 版本更高 → 静默原地覆盖（无需 force） */
+    const srcUp = path.join(tmp, "incoming-upgrade");
+    writeManifest(srcUp, {
       name: "Slash Blade v2",
       uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
       version: [2, 0, 0],
       type: "data",
     });
-    const c = await installPackDirectory({
-      srcDir: src2,
+    const up = await installPackDirectory({
+      srcDir: srcUp,
       destParent: dest,
-      folderName: "Anything",
+      folderName: "Totally Different Hint",
+      force: false,
+    });
+    assert.equal(up.ok, true, up.reason);
+    assert.equal(up.conflict, undefined);
+    assert.equal(up.destDir && path.basename(up.destDir), path.basename(existingB));
+    assert.equal(readPackManifestInfo(existingB)?.version.join("."), "2.0.0");
+    assert.equal(fs.readdirSync(dest).filter((n) => n.startsWith("[BP]")).length, 2);
+
+    /* 同版 → needConfirm；force 后原地 */
+    const srcSame = path.join(tmp, "incoming-same-ver");
+    writeManifest(srcSame, {
+      name: "Slash Blade v2b",
+      uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      version: [2, 0, 0],
+      type: "data",
+    });
+    const c = await installPackDirectory({
+      srcDir: srcSame,
+      destParent: dest,
       force: false,
     });
     assert.equal(c.ok, false);
     assert.equal(c.reason, "conflict");
-    assert.ok(c.conflict);
+
+    const forced = await installPackDirectory({
+      srcDir: srcSame,
+      destParent: dest,
+      force: true,
+    });
+    assert.equal(forced.ok, true, forced.reason);
+    assert.equal(forced.destDir && path.basename(forced.destDir), path.basename(existingB));
+    assert.equal(readPackManifestInfo(existingB)?.name, "Slash Blade v2b");
   });
 
   it("installPackDirectory：残缺 manifest 占用目录时换名而非覆盖", async () => {

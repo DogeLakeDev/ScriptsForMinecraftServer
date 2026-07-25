@@ -73,12 +73,13 @@ export function isGenericPackFolderStem(rawName: string): boolean {
 }
 
 /**
- * 选定安装文件夹名：hint 过泛时改用 manifest.name；再与 dest 内已有目录避让（不同 uuid 不互相覆盖）。
+ * 选定安装文件夹名：hint 过泛时改用 manifest.name；再与已占用名避让（不同 uuid 不互相覆盖）。
+ * 纯函数：只依赖 taken 集合，便于表驱动单测（DRY：decide / choose 共用）。
  */
-export function choosePackInstallFolderName(opts: {
+export function allocatePackFolderName(opts: {
   hint?: string;
   info: PackManifestInfo;
-  destParent: string;
+  takenFolderNames: Iterable<string>;
   /** 同 uuid 更新时允许占用的已有目录名（不触发避让） */
   allowFolderName?: string;
 }): string {
@@ -88,11 +89,7 @@ export function choosePackInstallFolderName(opts: {
   const allow = opts.allowFolderName ? path.basename(opts.allowFolderName) : null;
   if (allow && folderName === allow) return folderName;
 
-  const taken = new Set(
-    listPackDirsIn(opts.destParent)
-      .map((d) => path.basename(d))
-      .filter((n) => n !== allow)
-  );
+  const taken = new Set([...opts.takenFolderNames].filter((n) => n !== allow));
   if (!taken.has(folderName)) return folderName;
 
   /* 同名不同包：manifest 名 + uuid 前缀；仍撞则递增 */
@@ -104,6 +101,25 @@ export function choosePackInstallFolderName(opts: {
   let i = 2;
   while (taken.has(`${withUuid}_${i}`)) i++;
   return `${withUuid}_${i}`;
+}
+
+/**
+ * 选定安装文件夹名（读 destParent 占用）。
+ * 决策权威见 allocatePackFolderName / decidePackInstallPlan。
+ */
+export function choosePackInstallFolderName(opts: {
+  hint?: string;
+  info: PackManifestInfo;
+  destParent: string;
+  allowFolderName?: string;
+}): string {
+  const taken = listPackDirsIn(opts.destParent).map((d) => path.basename(d));
+  return allocatePackFolderName({
+    info: opts.info,
+    takenFolderNames: taken,
+    ...(opts.hint !== undefined ? { hint: opts.hint } : {}),
+    ...(opts.allowFolderName !== undefined ? { allowFolderName: opts.allowFolderName } : {}),
+  });
 }
 
 /** 根据 manifest modules[].type 判定 BP / RP */
@@ -534,9 +550,164 @@ export interface InstallPackResult {
   conflict?: { existing: PackManifestInfo & { dir: string }; incoming: PackManifestInfo };
 }
 
+/** 目标父目录内已占用项（供纯决策，不含 FS 副作用） */
+export type DestOccupancy = {
+  folderName: string;
+  dir: string;
+  uuid: string | null;
+  version: [number, number, number] | null;
+  /** 可读时的展示名；决策不依赖，仅供 conflict UI */
+  name?: string;
+};
+
+export type PackInstallPlan =
+  | { kind: "fresh"; folderName: string; incoming: PackManifestInfo }
+  | {
+      kind: "overwriteInPlace";
+      folderName: string;
+      dir: string;
+      incoming: PackManifestInfo;
+      existing: PackManifestInfo & { dir: string };
+    }
+  | {
+      kind: "needConfirm";
+      folderName: string;
+      dir: string;
+      incoming: PackManifestInfo;
+      existing: PackManifestInfo & { dir: string };
+    };
+
+/** 扫描 destParent 下含 manifest 的目录占用 */
+export function scanDestOccupancy(destParent: string): DestOccupancy[] {
+  const out: DestOccupancy[] = [];
+  for (const dir of listPackDirsIn(destParent)) {
+    let uuid: string | null = null;
+    let version: [number, number, number] | null = null;
+    let name: string | undefined;
+    try {
+      const info = readPackManifestInfo(dir);
+      if (info) {
+        uuid = info.uuid;
+        version = info.version;
+        name = info.name;
+      } else {
+        const header = readPackManifestHeader(dir);
+        if (header) {
+          uuid = header.uuid;
+          version = header.version;
+        }
+      }
+    } catch (e) {
+      if (!(e instanceof Utf8BomError)) throw e;
+      try {
+        const header = readPackManifestHeader(dir);
+        if (header) {
+          uuid = header.uuid;
+          version = header.version;
+        }
+      } catch (e2) {
+        if (!(e2 instanceof Utf8BomError)) throw e2;
+      }
+    }
+    out.push({
+      folderName: path.basename(dir),
+      dir,
+      uuid,
+      version,
+      ...(name ? { name } : {}),
+    });
+  }
+  return out;
+}
+
+/**
+ * 纯决策：装到哪、是否需确认、是否原地覆盖。
+ * 同 uuid：incoming 版本严格更大 → 静默覆盖；≤ 已有且 !force → needConfirm；force → 原地覆盖。
+ */
+export function decidePackInstallPlan(opts: {
+  incoming: PackManifestInfo;
+  hint?: string;
+  occupancy: readonly DestOccupancy[];
+  force?: boolean;
+}): PackInstallPlan {
+  const force = Boolean(opts.force);
+  const incomingUuid = opts.incoming.uuid.toLowerCase();
+  const same = opts.occupancy.find((o) => o.uuid != null && o.uuid.toLowerCase() === incomingUuid);
+
+  if (same) {
+    const folderName = same.folderName;
+    const existingVersion: [number, number, number] = same.version ?? [0, 0, 0];
+    const existing: PackManifestInfo & { dir: string } = {
+      name: same.name ?? same.folderName,
+      uuid: same.uuid!,
+      version: existingVersion,
+      kind: opts.incoming.kind,
+      dir: same.dir,
+    };
+
+    const newer = compareSemVer3(opts.incoming.version, existing.version) > 0;
+    if (force || newer) {
+      if (folderName !== same.folderName) {
+        throw new Error("invariant: overwriteInPlace folderName must equal existing folder");
+      }
+      return {
+        kind: "overwriteInPlace",
+        folderName,
+        dir: same.dir,
+        incoming: opts.incoming,
+        existing,
+      };
+    }
+    return {
+      kind: "needConfirm",
+      folderName,
+      dir: same.dir,
+      incoming: opts.incoming,
+      existing,
+    };
+  }
+
+  const folderName = allocatePackFolderName({
+    info: opts.incoming,
+    takenFolderNames: opts.occupancy.map((o) => o.folderName),
+    ...(opts.hint !== undefined ? { hint: opts.hint } : {}),
+  });
+  return { kind: "fresh", folderName, incoming: opts.incoming };
+}
+
+/** 落盘后校验：防止旁路安装 / 拷贝失败仍报成功 */
+export function verifyInstalledPack(
+  destDir: string,
+  incoming: PackManifestInfo
+): { ok: true; info: PackManifestInfo } | { ok: false; reason: string } {
+  let info: PackManifestInfo | null;
+  try {
+    info = readPackManifestInfo(destDir);
+  } catch (e) {
+    if (e instanceof Utf8BomError) {
+      return { ok: false, reason: `verify: ${e.message}` };
+    }
+    throw e;
+  }
+  if (!info) return { ok: false, reason: "verify: dest has no readable manifest" };
+  if (info.uuid.toLowerCase() !== incoming.uuid.toLowerCase()) {
+    return { ok: false, reason: `verify: uuid mismatch got=${info.uuid} want=${incoming.uuid}` };
+  }
+  if (info.kind !== incoming.kind) {
+    return { ok: false, reason: `verify: kind mismatch got=${info.kind} want=${incoming.kind}` };
+  }
+  if (compareSemVer3(info.version, incoming.version) !== 0) {
+    return {
+      ok: false,
+      reason: `verify: version mismatch got=${info.version.join(".")} want=${incoming.version.join(".")}`,
+    };
+  }
+  return { ok: true, info };
+}
+
 /**
  * 将包目录安装到 destParent（behavior_packs 或 resource_packs）。
- * force=true 时覆盖「同 uuid」冲突；同名不同 uuid 会自动换文件夹名，不删别人的包。
+ * 编排：scan → decide → apply → verify。同 uuid 版本更高时静默原地覆盖。
  */
 export async function installPackDirectory(opts: {
   srcDir: string;
@@ -559,51 +730,44 @@ export async function installPackDirectory(opts: {
 
   await fs.promises.mkdir(opts.destParent, { recursive: true });
 
-  /* 仅同 uuid 视为可覆盖冲突；同名不同包由 choosePackInstallFolderName 避让 */
-  let conflictDir: string | null = null;
-  let conflictExisting: PackManifestInfo | null = null;
-  for (const dir of listPackDirsIn(opts.destParent)) {
-    let existing: PackManifestInfo | null = null;
-    try {
-      existing = readPackManifestInfo(dir);
-    } catch (e) {
-      if (!(e instanceof Utf8BomError)) throw e;
-    }
-    if (existing && existing.uuid === info.uuid) {
-      conflictDir = dir;
-      conflictExisting = existing;
-      break;
-    }
-  }
-
-  const folderName = choosePackInstallFolderName({
+  const occupancy = scanDestOccupancy(opts.destParent);
+  const plan = decidePackInstallPlan({
+    incoming: info,
     hint: opts.folderName ?? path.basename(opts.srcDir),
-    info,
-    destParent: opts.destParent,
-    ...(conflictDir ? { allowFolderName: path.basename(conflictDir) } : {}),
+    occupancy,
+    ...(opts.force !== undefined ? { force: opts.force } : {}),
   });
 
-  if (conflictDir && !opts.force) {
+  if (plan.kind === "needConfirm") {
     return {
       ok: false,
       skipped: true,
       reason: "conflict",
       conflict: {
-        existing: { ...(conflictExisting ?? info), dir: conflictDir },
+        existing: plan.existing,
         incoming: info,
       },
     };
   }
 
-  const destDir = path.join(opts.destParent, folderName);
-  if (conflictDir && path.resolve(conflictDir) !== path.resolve(destDir)) {
-    await fs.promises.rm(conflictDir, { recursive: true, force: true });
+  const destDir = path.join(opts.destParent, plan.folderName);
+  if (plan.kind === "overwriteInPlace" && path.resolve(plan.dir) !== path.resolve(destDir)) {
+    return {
+      ok: false,
+      reason: `invariant: overwrite path drift plan.dir=${plan.dir} destDir=${destDir}`,
+    };
   }
+
   if (fs.existsSync(destDir)) {
     await fs.promises.rm(destDir, { recursive: true, force: true });
   }
   await copyDirAsync(opts.srcDir, destDir);
-  return { ok: true, destDir, folderName, info };
+
+  const verified = verifyInstalledPack(destDir, info);
+  if (!verified.ok) {
+    return { ok: false, reason: verified.reason, folderName: plan.folderName, info };
+  }
+  return { ok: true, destDir, folderName: plan.folderName, info: verified.info };
 }
 
 /** 安装后写入世界 enable 清单 */

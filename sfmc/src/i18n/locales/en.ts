@@ -314,7 +314,7 @@ export const en = {
   "packs.conflict": "Conflict detected:",
   "packs.conflict.existing": "  Existing: {name}  v{version}  {uuid}\n         {dir}",
   "packs.conflict.incoming": "  Incoming: {name}  v{version}  {uuid}",
-  "packs.overwriteAsk": "Overwrite existing pack (same UUID)?",
+  "packs.overwriteAsk": "Overwrite existing pack (same UUID, version not newer)?",
   "packs.badManifest": "Unrecognized manifest (need resources/data/script module and header name/uuid/version)",
   "packs.utf8Bom":
     "UTF-8 BOM detected: {file}\n  Re-save as UTF-8 without BOM (Notepad's \"UTF-8 with BOM\" can also break Bedrock)",

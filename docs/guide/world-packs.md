@@ -133,3 +133,16 @@ BDS **不支持**热加载世界包，因此仍会提示「需重启 BDS 后生�
 | 归档内再套 `.mcpack` | 自动多轮展开（默认最多 3 轮），不改用户原文件 |
 
 `modules[].type`：`resources` → RP；`data` / `script` / `javascript` → BP。无法判定 → `_failed/`。
+
+## 安装冲突与覆盖
+
+权威：`decidePackInstallPlan`（bds-tools）。
+
+| 情况 | 行为 |
+|------|------|
+| 无相同 UUID | 写入新目录；`B`/`R` 等短名改用 manifest.name；撞名则加 uuid 后缀 |
+| 相同 UUID 且新版本 **更高** | **静默原地覆盖**（不弹窗） |
+| 相同 UUID 且版本 **≤** 已有 | TTY 确认 / `--force` 后原地覆盖 |
+| 覆盖路径 | 固定为已有文件夹名，禁止旁路新目录 |
+
+落盘后 `verifyInstalledPack` 校验 uuid/kind/version，失败则安装失败。

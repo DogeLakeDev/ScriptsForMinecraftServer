@@ -2,9 +2,9 @@
  * fsx.ts — 异步/流式文件操作 (避免大文件加载进内存)
  */
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { pipeline } from "node:stream/promises";
 
 /**
@@ -118,7 +118,7 @@ export function writeFileSafe(filePath: string, data: string | Buffer): void {
 
 /**
  * 读 JSON 文件（utf8）。
- * 检测到 UTF-8 BOM 时抛 Utf8BomError（不静默剥离：多为记事本「UTF-8 with BOM」另存，游戏侧也可能异常）。
+ * 检测到 UTF-8 BOM 时抛 Utf8BomError。
  */
 export class Utf8BomError extends Error {
   readonly filePath: string;
