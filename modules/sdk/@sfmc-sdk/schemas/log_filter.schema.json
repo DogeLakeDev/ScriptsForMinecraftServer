@@ -54,7 +54,7 @@
           },
           "regex": {
             "type": "string",
-            "description": "JS RegExp 源字符串（可用 (?i) 等旗标语法视引擎支持；推荐显式 /i 需求时在模式内写）"
+            "description": "JS RegExp 源字符串；仅支持前缀 (?i) 表示忽略大小写（引擎无内联 (?i)）"
           }
         }
       }

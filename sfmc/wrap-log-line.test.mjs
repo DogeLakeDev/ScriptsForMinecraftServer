@@ -139,6 +139,8 @@ test("resolveDisplayLevel：BDS 行从正文解析，其余用 entry.level", asy
   assert.ok(last);
   assert.equal(last.level, "warn");
   assert.equal(last.text, "[Commands] Error on line 4: unexpected /");
+  /* 入库后正文含 Error 字样，不得把展示级别抬成 error（旧 getLogLevel 松散匹配的坑） */
+  assert.equal(resolveDisplayLevel(last), "warn");
   assert.ok(getAllLogs().length === before + 1);
 
   assert.equal(

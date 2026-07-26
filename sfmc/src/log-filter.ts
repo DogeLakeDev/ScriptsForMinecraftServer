@@ -1,7 +1,7 @@
 /**
  * log-filter.ts — configs/log-filter.json 加载与匹配（纯判定 + 热读缓存）
  */
-import { stripConfigMeta, withConfigSchema } from "@sfmc-bds/sdk/node/config";
+import { ensureSchemaConfig, readJson, stripConfigMeta } from "@sfmc-bds/sdk/node/config";
 import type { LogLevel } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import path from "node:path";
@@ -43,15 +43,10 @@ export function logFilterConfigPath(): string {
   return path.join(ROOT, "configs", "log-filter.json");
 }
 
-/** 确保 configs/log-filter.json 存在 */
+/** 确保 configs/log-filter.json 存在（委托 SDK ensureSchemaConfig，禁止手写 withConfigSchema） */
 export function ensureLogFilterConfigFile(): string {
-  const p = logFilterConfigPath();
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  if (!fs.existsSync(p)) {
-    const seeded = withConfigSchema({ ...DEFAULTS } as unknown as Record<string, unknown>, "log_filter");
-    fs.writeFileSync(p, `${JSON.stringify(seeded, null, 2)}\n`, "utf8");
-  }
-  return p;
+  ensureSchemaConfig(ROOT, "log-filter.json", "log_filter", { ...DEFAULTS } as Record<string, unknown>);
+  return logFilterConfigPath();
 }
 
 type CompiledRule = {
@@ -148,18 +143,16 @@ export function getCompiledLogFilter(onBadRegex?: (src: string) => void): Compil
   if (cache && cache.mtimeMs === mtimeMs) return cache;
 
   let cfg = { ...DEFAULTS };
-  try {
-    const raw = JSON.parse(fs.readFileSync(p, "utf8")) as Record<string, unknown>;
-    cfg = normalizeConfig(raw);
-  } catch {
-    cfg = { ...DEFAULTS };
+  const raw = readJson<Record<string, unknown>>(p);
+  if (raw) {
+    try {
+      cfg = normalizeConfig(raw);
+    } catch {
+      cfg = { ...DEFAULTS };
+    }
   }
 
-  const bad: string[] = [];
-  const rules = compileRules(cfg.rules, (src) => {
-    bad.push(src);
-    onBadRegex?.(src);
-  });
+  const rules = compileRules(cfg.rules, onBadRegex);
 
   cache = {
     enabled: cfg.enabled,

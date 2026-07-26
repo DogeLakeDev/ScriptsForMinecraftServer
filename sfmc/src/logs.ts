@@ -18,6 +18,8 @@ import {
   createMemoryBuffer,
   formatLogLine,
   inferLevel as sharedInferLevel,
+  parseBdsEmbeddedLevel,
+  stripBdsLogPrefix,
   type FileSink,
   type LogEntry,
   type LogLevel as SharedLogLevel,
@@ -34,6 +36,9 @@ import { ROOT } from "./runtime.js";
 export type LogLevel = SharedLogLevel;
 export type LogSource = string;
 export interface UnifiedLog extends LogEntry {}
+
+/** 再导出 SDK BDS 解析（测试与调用方统一入口，权威在 @sfmc-bds/sdk/logs） */
+export { mapBdsLevelToken, parseBdsEmbeddedLevel, stripBdsLogPrefix } from "@sfmc-bds/sdk/logs";
 
 const buffer = createMemoryBuffer(5000);
 
@@ -164,100 +169,19 @@ export function formatSourceTag(source: string): string {
 }
 
 /**
- * BDS 行首时间戳+级别（大小写不敏感：WARN / warn / Warning 均可）。
- * Bedrock 常见为 WARN（非 WARNING）；WARNING 一并兼容。
+ * 展示用级别：BDS 若仍带时间戳前缀则解析内嵌级别；已剥离（pushLog 入库）则信任 entry.level。
+ * 禁止对正文做松散关键词匹配（会把 `[Commands] Error on line` 误判为 error）。
  */
-const BDS_LEVEL_TOKEN = "INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|VERBOSE|TRACE";
-const BDS_TS_PREFIX_RE = new RegExp(
-  `^\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]\\s*`,
-  "i"
-);
-/** 正文任意位置的 BDS 时间戳级别（防行首有杂讯时仍能提取） */
-const BDS_TS_LEVEL_ANYWHERE_RE = new RegExp(
-  `\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]`,
-  "i"
-);
-
-/**
- * 去掉 BDS 自带的 `[时间 等级]` 前缀，正文从真正消息开始。
- * 幂等：已剥离过的行原样返回。大小写不敏感（warn / WARN / Warning）。
- */
-export function stripBdsLogPrefix(line: string): string {
-  return String(line ?? "")
-    .replace(/^\uFEFF/, "")
-    .replace(/^\s+/, "")
-    .replace(BDS_TS_PREFIX_RE, "");
-}
-
-/** 将 BDS 级别词映射为 UnifiedLog 级别（大小写不敏感） */
-export function mapBdsLevelToken(token: string): LogLevel {
-  const u = String(token ?? "").toUpperCase();
-  if (u === "ERROR" || u === "FATAL") return "error";
-  if (u === "WARN" || u === "WARNING") return "warn";
-  if (u === "DEBUG" || u === "TRACE" || u === "VERBOSE") return "debug";
-  return "info";
-}
-
-/**
- * 从一行文本提取 BDS 内嵌级别（优先行首前缀，其次全文首次命中）。
- * 例：`[2026-07-25 18:42:27:626 warn] [Commands] ...` → warn
- */
-export function parseBdsEmbeddedLevel(line: string): LogLevel | null {
-  const s = String(line ?? "");
-  const head = BDS_TS_PREFIX_RE.exec(s.replace(/^\uFEFF/, "").replace(/^\s+/, ""));
-  if (head?.[1]) return mapBdsLevelToken(head[1]);
-  const any = BDS_TS_LEVEL_ANYWHERE_RE.exec(s);
-  if (any?.[1]) return mapBdsLevelToken(any[1]);
-  return null;
-}
-
-/**
- * 从一行 BDS 日志中提取日志等级词（大写）。
- * @returns 日志等级（大写），若无法识别则返回 'UNKNOWN'
- */
-function getLogLevel(line: string): string {
-  const embedded = parseBdsEmbeddedLevel(line);
-  if (embedded === "error") return "ERROR";
-  if (embedded === "warn") return "WARN";
-  if (embedded === "debug") return "DEBUG";
-  if (embedded === "info") return "INFO";
-
-  const levelNames = ["INFO", "WARNING", "ERROR", "FATAL", "DEBUG", "TRACE", "WARN", "VERBOSE"];
-  const levelPattern = levelNames.join("|");
-
-  let match = line.match(new RegExp(`\\[(${levelPattern})\\]`, "i"));
-  if (match?.[1]) return match[1].toUpperCase();
-
-  match = line.match(new RegExp(`^\\[.*?\\]\\s*(${levelPattern})`, "i"));
-  if (match?.[1]) return match[1].toUpperCase();
-
-  match = line.match(new RegExp(`^(${levelPattern})\\s*:`, "i"));
-  if (match?.[1]) return match[1].toUpperCase();
-
-  match = line.match(new RegExp(`\\[.*?\\]\\s*(${levelPattern})\\s*:`, "i"));
-  if (match?.[1]) return match[1].toUpperCase();
-
-  return "UNKNOWN";
-}
-
-/** 展示用级别：BDS 行优先解析内嵌 WARN/ERROR，其余用 entry.level */
 export function resolveDisplayLevel(l: UnifiedLog): LogLevel {
   if (l.source === "bds") {
     const embedded = parseBdsEmbeddedLevel(l.text);
     if (embedded) return embedded;
-    const parsed = getLogLevel(l.text);
-    if (parsed === "WARNING" || parsed === "WARN") return "warn";
-    if (parsed === "ERROR" || parsed === "FATAL") return "error";
-    if (parsed === "DEBUG" || parsed === "TRACE" || parsed === "VERBOSE") return "debug";
-    if (parsed === "INFO") return "info";
   }
   return l.level;
 }
 
-/** 从原始文本推断级别：BDS 内嵌级别优先，再委托共享包 */
+/** 从原始文本推断级别：委托共享包（内含 BDS 时间戳解析） */
 export function inferLevel(text: string): LogLevel {
-  const embedded = parseBdsEmbeddedLevel(text);
-  if (embedded) return embedded;
   return sharedInferLevel(text);
 }
 
