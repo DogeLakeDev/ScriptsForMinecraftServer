@@ -9,19 +9,59 @@
 import type { FormatOptions, LogEntry, LogLevel } from "./types.js";
 import { ansi, visibleLen, wrap } from "./ansi.js";
 
-/** 从原始文本推断日志级别 (关键词匹配,兼容子进程各种前缀风格) */
+/**
+ * BDS 行首时间戳+级别（大小写不敏感：WARN / warn / Warning 均可）。
+ * Bedrock 常见为 WARN（非 WARNING）；WARNING 一并兼容。
+ * 权威源：本模块；sfmc 展示层应委托而非再抄一份正则。
+ */
+const BDS_LEVEL_TOKEN = "INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|VERBOSE|TRACE";
+const BDS_TS_PREFIX_RE = new RegExp(
+  `^\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]\\s*`,
+  "i"
+);
+/** 正文任意位置的 BDS 时间戳级别（防行首有杂讯时仍能提取） */
+const BDS_TS_LEVEL_ANYWHERE_RE = new RegExp(
+  `\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]`,
+  "i"
+);
+
+/** 将 BDS 级别词映射为 LogLevel（大小写不敏感） */
+export function mapBdsLevelToken(token: string): LogLevel {
+  const u = String(token ?? "").toUpperCase();
+  if (u === "ERROR" || u === "FATAL") return "error";
+  if (u === "WARN" || u === "WARNING") return "warn";
+  if (u === "DEBUG" || u === "TRACE" || u === "VERBOSE") return "debug";
+  return "info";
+}
+
+/**
+ * 去掉 BDS 自带的 `[时间 等级]` 前缀，正文从真正消息开始。
+ * 幂等：已剥离过的行原样返回。
+ */
+export function stripBdsLogPrefix(line: string): string {
+  return String(line ?? "")
+    .replace(/^\uFEFF/, "")
+    .replace(/^\s+/, "")
+    .replace(BDS_TS_PREFIX_RE, "");
+}
+
+/**
+ * 从一行文本提取 BDS 内嵌级别（优先行首前缀，其次全文首次命中）。
+ * 例：`[2026-07-25 18:42:27:626 warn] [Commands] ...` → warn
+ */
+export function parseBdsEmbeddedLevel(line: string): LogLevel | null {
+  const s = String(line ?? "");
+  const head = BDS_TS_PREFIX_RE.exec(s.replace(/^\uFEFF/, "").replace(/^\s+/, ""));
+  if (head?.[1]) return mapBdsLevelToken(head[1]);
+  const any = BDS_TS_LEVEL_ANYWHERE_RE.exec(s);
+  if (any?.[1]) return mapBdsLevelToken(any[1]);
+  return null;
+}
+
+/** 从原始文本推断日志级别 (BDS 时间戳前缀优先,再关键词匹配) */
 export function inferLevel(text: string): LogLevel {
-  /* BDS: [YYYY-MM-DD HH:MM:SS:mmm WARN|ERROR|...] — WARN 前后是空格而非 [WARN */
-  const bds = /\[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,:]\d{1,3})?\s+(INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|VERBOSE|TRACE)\]/i.exec(
-    text
-  );
-  if (bds?.[1]) {
-    const u = bds[1].toUpperCase();
-    if (u === "ERROR" || u === "FATAL") return "error";
-    if (u === "WARN" || u === "WARNING") return "warn";
-    if (u === "DEBUG" || u === "TRACE" || u === "VERBOSE") return "debug";
-    return "info";
-  }
+  const embedded = parseBdsEmbeddedLevel(text);
+  if (embedded) return embedded;
 
   const t = text.toUpperCase();
   if (t.includes("[FATAL]") || t.includes("[ERROR]") || t.includes("[X]")) return "error";
