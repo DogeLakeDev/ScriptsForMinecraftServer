@@ -1,5 +1,14 @@
 # @sfmc-bds/tools
 
+## 0.2.0-beta.3
+
+### Patch Changes
+
+- 3714053: 发版：build-publishable 拓扑 + listPublishableBuildDeps（npm-publish 应急补发不再硬编码只 build SDK）；push 缺失态 DRY 对齐 listUnpushedExistingVersionTags。世界包：readPackDirOccupancy DRY，去掉死不变式，occupancy 保留真实 kind（LSP）。
+- Updated dependencies [3714053]
+- Updated dependencies [5ada90e]
+  - @sfmc-bds/bds-tools@0.2.0-beta.2
+
 ## 0.2.0-beta.2
 
 ### Patch Changes
