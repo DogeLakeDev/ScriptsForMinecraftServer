@@ -18,44 +18,60 @@ if (!["serve", "build"].includes(mode)) {
 }
 
 /**
- * MkDocs docs_dir=docs：页面内相对链接不应再带 ./docs/ 前缀。
- * 把 README（仓根路径）原样贴进 docs/*.md 会导致站内导航全断，且默认
- * unrecognized_links=ignore 时 CI 不会拦。在此做契约检查。
+ * MkDocs docs_dir=docs：手写页相对链接解析后必须落在 docs/ 内。
+ * 同时拦住两类误用（单一权威规则，避免再为每种前缀打洞）：
+ * 1) README 仓根路径误贴：](./docs/guide/…) → 站内变成双重 docs/
+ * 2) 指向仓内其它目录：](../../sfmc/…) → Pages 上 404；应改 GitHub 绝对 URL
+ * TypeDoc 生成目录跳过；mkdocs exclude（plan/archive/reviews）仍检查，防草稿误贴。
  */
-function assertNoRepoRootDocsLinks(docsDir) {
+function assertDocsRelativeLinksStayInDocs(docsDir) {
   const bad = [];
+  const linkRe = /\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
   const stack = [docsDir];
   while (stack.length) {
     const dir = stack.pop();
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, ent.name);
       if (ent.isDirectory()) {
-        // TypeDoc 输出目录跳过；plan/archive 由 mkdocs exclude
         const rel = path.relative(docsDir, full).replace(/\\/g, "/");
-        if (rel === "reference/sdk" || ent.name === "plan" || ent.name === "archive") continue;
+        // 仅跳过 TypeDoc 输出（生成物，非手写契约）
+        if (rel === "reference/sdk") continue;
         stack.push(full);
         continue;
       }
       if (!ent.name.endsWith(".md")) continue;
       const text = readFileSync(full, "utf8");
-      // Markdown 链接目标：](./docs/...) 或 ](docs/...)
-      if (/\]\(\.?\/?docs\//.test(text)) {
-        bad.push(path.relative(root, full));
+      const fileRel = path.relative(root, full).replace(/\\/g, "/");
+      let m;
+      linkRe.lastIndex = 0;
+      while ((m = linkRe.exec(text))) {
+        const raw = m[1].replace(/^<|>$/g, "");
+        // 锚点 / 协议链接 / 协议相对 URL 不参与 docs_dir 解析
+        if (!raw || raw.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) {
+          continue;
+        }
+        const targetPath = raw.split("#")[0].split("?")[0];
+        if (!targetPath) continue;
+        const resolved = path.resolve(path.dirname(full), targetPath);
+        const relToDocs = path.relative(docsDir, resolved);
+        if (relToDocs.startsWith("..") || path.isAbsolute(relToDocs)) {
+          bad.push(`${fileRel}: ](${raw})`);
+        }
       }
     }
   }
   if (bad.length) {
     console.error(
       [
-        "[docs-mkdocs] 发现仓根相对路径 docs/…（MkDocs 下应写成 ./guide/、./dev/ 等）：",
-        ...bad.map((f) => `  - ${f}`),
+        "[docs-mkdocs] 相对链接逃出 docs/（站内应写 ./guide/ 等；仓外目标用 GitHub 绝对 URL）：",
+        ...bad.map((line) => `  - ${line}`),
       ].join("\n")
     );
     process.exit(1);
   }
 }
 
-assertNoRepoRootDocsLinks(path.join(root, "docs"));
+assertDocsRelativeLinksStayInDocs(path.join(root, "docs"));
 
 // 先生成 API 文档
 const gen = spawnSync(process.execPath, [path.join(root, "tools", "docs-typedoc.mjs")], {
