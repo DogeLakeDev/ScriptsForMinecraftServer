@@ -543,6 +543,8 @@ export type DestOccupancy = {
   version: [number, number, number] | null;
   /** 可读时的展示名；决策不依赖，仅供 conflict UI */
   name?: string;
+  /** 可读时的包类型；决策展示优先用真实 kind，避免伪造 incoming.kind（LSP） */
+  kind?: WorldPackKind;
 };
 
 export type PackInstallPlan =
@@ -562,13 +564,37 @@ export type PackInstallPlan =
       existing: PackManifestInfo & { dir: string };
     };
 
+/**
+ * 读单目录占用事实（info 优先，否则 header）。
+ * Utf8BomError 上抛，由调用方决定跳过或仍占文件夹名。
+ */
+export function readPackDirOccupancy(dir: string): {
+  uuid: string;
+  version: [number, number, number];
+  name?: string;
+  kind?: WorldPackKind;
+} | null {
+  const info = readPackManifestInfo(dir);
+  if (info) {
+    return {
+      uuid: info.uuid,
+      version: info.version,
+      name: info.name,
+      kind: info.kind,
+    };
+  }
+  const header = readPackManifestHeader(dir);
+  if (header) {
+    return { uuid: header.uuid, version: header.version };
+  }
+  return null;
+}
+
 /** 扫描 destParent 下含 manifest 的目录占用 */
 export function scanDestOccupancy(destParent: string): DestOccupancy[] {
   const out: DestOccupancy[] = [];
   for (const dir of listPackDirsIn(destParent)) {
-    let uuid: string | null = null;
-    let version: [number, number, number] | null = null;
-    let name: string | undefined;
+    let facts: ReturnType<typeof readPackDirOccupancy> = null;
     try {
       const info = readPackManifestInfo(dir);
       if (info) {
@@ -588,9 +614,10 @@ export function scanDestOccupancy(destParent: string): DestOccupancy[] {
     out.push({
       folderName: path.basename(dir),
       dir,
-      uuid,
-      version,
-      ...(name ? { name } : {}),
+      uuid: facts?.uuid ?? null,
+      version: facts?.version ?? null,
+      ...(facts?.name ? { name: facts.name } : {}),
+      ...(facts?.kind ? { kind: facts.kind } : {}),
     });
   }
   return out;
@@ -611,24 +638,20 @@ export function decidePackInstallPlan(opts: {
   const same = opts.occupancy.find((o) => o.uuid != null && o.uuid.toLowerCase() === incomingUuid);
 
   if (same) {
-    const folderName = same.folderName;
     const existingVersion: [number, number, number] = same.version ?? [0, 0, 0];
     const existing: PackManifestInfo & { dir: string } = {
       name: same.name ?? same.folderName,
       uuid: same.uuid!,
       version: existingVersion,
-      kind: opts.incoming.kind,
+      kind: same.kind ?? opts.incoming.kind,
       dir: same.dir,
     };
 
     const newer = compareSemVer3(opts.incoming.version, existing.version) > 0;
     if (force || newer) {
-      if (folderName !== same.folderName) {
-        throw new Error("invariant: overwriteInPlace folderName must equal existing folder");
-      }
       return {
         kind: "overwriteInPlace",
-        folderName,
+        folderName: same.folderName,
         dir: same.dir,
         incoming: opts.incoming,
         existing,
@@ -636,7 +659,7 @@ export function decidePackInstallPlan(opts: {
     }
     return {
       kind: "needConfirm",
-      folderName,
+      folderName: same.folderName,
       dir: same.dir,
       incoming: opts.incoming,
       existing,

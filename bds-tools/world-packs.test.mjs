@@ -539,6 +539,58 @@ describe("world-packs primitives", () => {
     assert.equal(still.header.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
   });
 
+  it("installPackDirectory：残缺 manifest 同 uuid → 按版本决策（非旁路新目录）", async () => {
+    const { installPackDirectory, formatWorldPackFolderName, readPackManifestInfo } = await import(
+      "./dist/world-packs.js"
+    );
+    const dest = path.join(tmp, "broken-same-uuid");
+    const folderName = formatWorldPackFolderName("Legacy", "behavior");
+    const existingDir = path.join(dest, folderName);
+    fs.mkdirSync(existingDir, { recursive: true });
+    const uuid = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+    fs.writeFileSync(
+      path.join(existingDir, "manifest.json"),
+      JSON.stringify({
+        format_version: 2,
+        header: { name: "Legacy", uuid, version: [1, 0, 0] },
+        modules: [],
+      })
+    );
+    const srcSame = path.join(tmp, "incoming-same-broken");
+    writeManifest(srcSame, {
+      name: "Fixed",
+      uuid,
+      version: [1, 0, 0],
+      type: "data",
+    });
+    const c = await installPackDirectory({
+      srcDir: srcSame,
+      destParent: dest,
+      folderName: "OtherHint",
+      force: false,
+    });
+    assert.equal(c.ok, false);
+    assert.equal(c.reason, "conflict");
+    assert.equal(c.conflict?.existing.dir, existingDir);
+
+    const srcUp = path.join(tmp, "incoming-up-broken");
+    writeManifest(srcUp, {
+      name: "Fixed v2",
+      uuid,
+      version: [1, 1, 0],
+      type: "data",
+    });
+    const up = await installPackDirectory({
+      srcDir: srcUp,
+      destParent: dest,
+      folderName: "OtherHint",
+      force: false,
+    });
+    assert.equal(up.ok, true, up.reason);
+    assert.equal(up.destDir, existingDir);
+    assert.equal(readPackManifestInfo(existingDir)?.version.join("."), "1.1.0");
+  });
+
   it("uninstallInstalledPack：回收站 / purge / 目录缺失", async () => {
     const { uninstallInstalledPack, listInstalledWorldPacks } = await import("./dist/world-packs.js");
     const bds = path.join(tmp, "uninstall-bds");

@@ -8,11 +8,13 @@ import {
   extractChangelogNotes,
   listPendingChangesetFiles,
   listPackagesWithExistingVersionTags,
+  listUnpushedExistingVersionTags,
   resolveReleaseTagEntries,
   RELEASE_TAGS_STATE,
   PRE_JSON,
   ROOT,
 } from "./lib/changeset-release.mjs";
+import { listPublishableBuildDeps, listPublishableBuildOrder, NPM_PUBLISH_PACKAGES } from "./lib/npm-publish-packages.mjs";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -80,6 +82,43 @@ describe("resolveReleaseTagEntries (LSP)", () => {
     for (const e of out) {
       assert.equal(e.tag, packageTagName(e.name, e.version));
     }
+  });
+
+  it("push missing-state fallback is listUnpushedExistingVersionTags (DRY/LSP)", () => {
+    /* 契约：changeset-push 不得再硬编码 @sfmc-bds/* 全量扫描 */
+    const allExisting = listPackagesWithExistingVersionTags();
+    const existingTags = new Set(allExisting.map((e) => e.tag));
+    /** @type {ReturnType<typeof listUnpushedExistingVersionTags> | undefined} */
+    let fb;
+    const viaResolver = resolveReleaseTagEntries(null, () => {
+      fb = listUnpushedExistingVersionTags();
+      return fb;
+    });
+    assert.equal(viaResolver, fb);
+    assert.ok(Array.isArray(fb));
+    for (const e of fb) {
+      assert.equal(e.tag, packageTagName(e.name, e.version));
+      assert.ok(existingTags.has(e.tag), "unpushed 必须是 existing 的子集");
+    }
+  });
+});
+
+describe("listPublishableBuildOrder / Deps (DRY/OCP)", () => {
+  it("covers every NPM_PUBLISH_PACKAGES entry once; deps before dependents", () => {
+    const order = listPublishableBuildOrder();
+    const keys = Object.keys(NPM_PUBLISH_PACKAGES);
+    assert.equal(order.length, keys.length);
+    assert.deepEqual([...order].sort(), [...keys].sort());
+    assert.ok(order.indexOf("@sfmc-bds/sdk") < order.indexOf("@sfmc-bds/bds-tools"));
+    assert.ok(order.indexOf("@sfmc-bds/bds-tools") < order.indexOf("@sfmc-bds/cli"));
+    assert.ok(order.indexOf("@sfmc-bds/bds-tools") < order.indexOf("@sfmc-bds/tools"));
+  });
+
+  it("listPublishableBuildDeps walks publishable dependency closure", () => {
+    assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/sdk"), []);
+    assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/db-server"), ["@sfmc-bds/sdk"]);
+    assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/cli"), ["@sfmc-bds/sdk", "@sfmc-bds/bds-tools"]);
+    assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/tools"), ["@sfmc-bds/sdk", "@sfmc-bds/bds-tools"]);
   });
 });
 

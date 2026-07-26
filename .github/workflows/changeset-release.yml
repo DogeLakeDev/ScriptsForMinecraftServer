@@ -37,15 +37,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
 
       - name: build publishable workspaces
-        run: |
-          npm run build --workspace @sfmc-bds/sdk
-          npm run build --workspace @sfmc-bds/eslint-plugin --if-present
-          npm run build --workspace @sfmc-bds/bds-tools --if-present
-          npm run build --workspace @sfmc-bds/db-server --if-present
-          npm run build --workspace @sfmc-bds/qq-bridge --if-present
-          npm run build --workspace @sfmc-bds/cli --if-present
-          npm run build --workspace @sfmc-bds/tools --if-present
-          npm run build --workspace @sfmc-bds/sfmc --if-present
+        # DRY：包清单与拓扑权威在 tools/lib/npm-publish-packages.mjs，勿在此再抄 workspace 列表
+        run: node tools/build-publishable.mjs
 
       # Version PR 需要「创建 PR」权限。仅用 GITHUB_TOKEN 且仓库关闭
       # Settings→Actions→General→「Allow GitHub Actions to create and approve pull requests」时，

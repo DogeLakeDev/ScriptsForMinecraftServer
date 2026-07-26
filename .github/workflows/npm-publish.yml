@@ -67,13 +67,10 @@ jobs:
       - run: npm ci --no-audit --no-fund
         if: steps.meta.outputs.already_published != 'true'
 
-      - name: build SDK (dependency)
-        if: steps.meta.outputs.already_published != 'true' && steps.meta.outputs.workspace != '@sfmc-bds/sdk'
-        run: npm run build --workspace @sfmc-bds/sdk
-
-      - name: build target workspace
+      - name: build target + publishable deps
         if: steps.meta.outputs.already_published != 'true'
-        run: npm run build --workspace "${{ steps.meta.outputs.workspace }}" --if-present
+        # DRY/OCP：依赖闭包由 listPublishableBuildDeps 派生，勿硬编码只 build SDK
+        run: node tools/build-publishable.mjs --workspace "${{ steps.meta.outputs.workspace }}"
 
       - name: publish to npm
         if: steps.meta.outputs.already_published != 'true'
