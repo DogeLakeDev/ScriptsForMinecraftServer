@@ -1,24 +1,29 @@
-# 资源包管理（`sfmc packs`）
+# 资源包管理
 
-管理世界目录里的**任意**行为包 / 资源包（第三方 `.mcpack` / `.mcaddon` 等）。
+使用 `packs` 或 `addons` 命令管理世界目录里的**任意**行为包 / 资源包，兼容 `zip`/`.mcpack` / `.mcaddon` 等）。
 
-与 [`sfmc mod build` / `mod reload`](./behavior-pack.md)（模块聚合 BP/RP）职责不同，请勿混用。
+```bash
+sfmc> packs scan
+sfmc> packs install --inbox
+```
+
+> 术语提示: `TTY`代表一种 **“允许用户交互的环境”** 。如手动执行`packs scean` 会弹出选择框；而 `非TTY` 时不需要等待用户输入。
 
 ## 收件箱
 
 路径：`<SFMC_ROOT>/packs/`
 
 | 内容 | 说明 |
-| ------ |------ |
-| 待装文件/目录 | `.zip` / `.mcpack` / `.mcaddon` / 含 `manifest.json` 的文件夹；嵌套归档由 `resolvePackRoots` 自动展开 |
+| ------ | ------ |
+| 待装文件/目录 | `.zip` / `.mcpack` / `.mcaddon` / 含 `manifest.json` 的文件夹；嵌套归档由 `resolvePackRoots` 自动展开；安装侧读取 `manifest.json` 并解析其内容 |
 | `_done/` | 安装成功后的源归档 |
 | `_failed/` | 识别失败或安装失败 |
 | `_trash/` | **卸载回收站**（`packs uninstall` 默认移入此处） |
-| `_build/` | 模块聚合 BP/RP 构建产物（原根目录 `build/`） |
-| `inbox-state.json` | 源指纹 → 已装 uuid，防重复 |
+| `_build/` | 模块打包后的 BP/RP 构建产物 |
+| `inbox-state.json` | 源指纹  |
 | `pack-sources.json` | CF 等更新源绑定 |
 
-`start bds` 前会自动 `scan` 收件箱（空收件箱不打日志）。也可手动：
+> 可设置 `start bds` 前自动 `scan` 收件箱（默认关闭）。但仍建议手动使用 `packs scan` 命令，便于识别更新源、解决覆盖冲突问题等。
 
 ```mermaid
 flowchart TB
@@ -40,11 +45,6 @@ flowchart TB
   beforeStart --> ensurePacksReady[现有 ensurePacksReady]
 ```
 
-```bash
-sfmc packs scan
-sfmc packs install --inbox
-```
-
 ## 命令
 
 别名：`addon` ≡ `packs`。
@@ -52,43 +52,39 @@ sfmc packs install --inbox
 | 命令 | 行为 |
 | ------ | ------ |
 | `packs list [--kind bp\|rp\|all] [--search q]` | 按 BP/RP 分组列表（BP 行带 `src=cf:…`） |
-| `packs search <q>` | **CurseForge** 远程搜索（需 API Key） |
+| `packs search <q>` | **CurseForge** 远程搜索 **（需 API Key）** |
 | `packs bind <id> <project\|slug\|url>` | 为已装 BP 绑定更新源 |
 | `packs unbind <id>` | 解除绑定 |
 | `packs sources` | 打印配置路径与全部绑定 |
 | `packs check [id]` | 按 BP 版本检查更新（下载比对，不安装） |
 | `packs update <id\|--all>` | 检查并应用更新（同 major 时抬高 RP 版本） |
-| `packs enable \| disable <id>` | id = uuid 或文件夹名；**需重启 BDS 后生效** |
-| `packs uninstall [id...] [--purge] [--no-paired]` | 卸出世界：disable + 移入 `packs/_trash`（或 `--purge` 直接删）；BP 默认连带配对 RP。无参数且 TTY → 多选确认；可一次传多个 id |
-| `packs bump <id>` | **仅 RP**：`header`/`modules` patch 版本 +1；若已启用则同步 `world_resource_packs.json`；提示重启并重进服 |
+| `packs enable \| disable <id>` | id = uuid 或文件夹名 |
+| `packs uninstall [id...] [--purge] [--no-paired]` | 卸出世界：disable + 移入 `packs/_trash`（或 `--purge` 无需确认直接删除）；BP 默认连带配对 RP。无参数且 TTY → 多选确认；可一次传多个 id |
+| `packs bump <id>` | **仅 RP**：`header`/`modules` patch 版本 +1；若已启用则同步 `world_resource_packs.json` |
 | `packs install [path\|--inbox] [--force]` | 指定路径或扫收件箱；成功后探测 CF 源 |
 | `packs scan [--force] [--dry-run]` | 同启动前收件箱逻辑 |
-| `packs doctor` | 清单缺目录、已装未启用、版本不一致 |
+| `packs doctor` | 清单缺目录、已装未启用、版本不一致等问题诊断 |
 | `packs path` | 打印 bdsRoot、level、世界包目录、收件箱、`pack-sources.json` |
 
-## CurseForge 自动更新
+## CurseForge **自动更新**
 
-世界第三方包的远程搜索 / 绑定 / 版本策略 / API 鉴权 / slug 匹配等**完整技术路线**见：
+通过识别资源包的名称进行搜索 / 绑定 / 版本策略 / API 鉴权 / slug 匹配等，**完整技术路线**见：
 
-→ **[CurseForge 世界包更新（技术路线）](./pack-update.md)**
-
-配置：`configs/pack-update.json`（首次由 sfmc ensure 写入内置默认）。  
-绑定：`packs/pack-sources.json`。  
-进度条与 BDS 更新器共用 `@sfmc-bds/sdk/logs` 的 `createTerminalProgress`。
+→ **[CurseForge 资源包更新（技术路线）](./pack-update.md)**
 
 ## 卸载清理范围
 
-`packs uninstall` 相对 `install` 的对称清理：
+> `packs uninstall` 相对 `install` 进行对称清理。
 
 | 清理项 | 是否处理 | 说明 |
-|--------|----------|------|
-| `world_*_packs.json` enable 条目 | ✅ | 先 disable |
-| 世界内 BP/RP 目录 | ✅ | 默认**移入** `packs/_trash`；`--purge` 或 `uninstall.recycleBin=false` 则直接删除 |
+| -------- | ---------- | ------ |
+| `world_*_packs.json` enable 条目 | ✅ | 同 `packs disable` |
+| 世界内 BP/RP 目录 | ✅ | 同 `packs uninstall` |
 | 配对 RP（卸 BP 时） | ✅ 默认 | 来自 `pack-sources` 的 `pairedResourceUuid` 或 BP `dependencies`；`--no-paired` 跳过 |
-| `packs/pack-sources.json` 绑定 | ✅（卸 BP） | `removeBinding` |
+| `packs/pack-sources.json` 绑定 | ✅若存在 | `removeBinding` |
 | `packs/inbox-state.json` | ✅ | 去掉指向该 uuid 的指纹条目 |
-| `packs/_done` 里的源归档 | ❌ | 保留作历史；与世界目录无关 |
-| `sfmc-modules` / `sfmc-modules-rp` | ❌ 拒绝 | 平台聚合包，用 `sfmc mod` |
+| `packs/_done` 里的源归档 | ❌ | - |
+| `sfmc-modules` / `sfmc-modules-rp` | ❌ 拒绝 | - |
 
 配置（`configs/pack-update.json`）：
 
@@ -103,8 +99,6 @@ sfmc packs install --inbox
 
 安装成功后会写入对应的 `world_behavior_packs.json` / `world_resource_packs.json`（默认启用）。
 
-BDS **不支持**热加载世界包，因此仍会提示「需重启 BDS 后生效」；不必再手动 enable，除非你后来 `disable` 过。
-
 ## 冲突策略
 
 目标已存在同 uuid 或同格式化文件夹名时：
@@ -118,12 +112,10 @@ BDS **不支持**热加载世界包，因此仍会提示「需重启 BDS 后生�
 
 1. 去掉 Minecraft 格式码（`§` + 后一字符）
 2. 去掉末尾 `.zip` / `.mcpack` / `.mcaddon`
-3. 种类前缀：`[BP]` / `[RP]`（例：`[RP] Cool Textures`）
+3. 添加种类前缀：`[BP]` / `[RP]`（例：`[RP] Cool Textures`）
 4. 空白折叠；空名则回退简短占位
 
 ## 安装源识别
-
-统一入口：`bds-tools` 的 `resolvePackRoots(src)`（先展开归档，再认 `manifest.json`）。
 
 | 输入 | 处理 |
 | ------ | ------ |
@@ -132,17 +124,13 @@ BDS **不支持**热加载世界包，因此仍会提示「需重启 BDS 后生�
 | `.zip` / `.mcpack` / `.mcaddon` | 解压到临时目录 → 展开树内嵌套归档 → 发现包根 |
 | 归档内再套 `.mcpack` | 自动多轮展开（默认最多 3 轮），不改用户原文件 |
 
-`modules[].type`：`resources` → RP；`data` / `script` / `javascript` → BP。无法判定 → `_failed/`。
+> `modules[].type`：`resources` → RP；`data` / `script` / `javascript` → BP。无法判定 → `_failed/`。
 
 ## 安装冲突与覆盖
 
-权威：`decidePackInstallPlan`（bds-tools）。
-
 | 情况 | 行为 |
-|------|------|
-| 无相同 UUID | 写入新目录；`B`/`R` 等短名改用 manifest.name；撞名则加 uuid 后缀 |
-| 相同 UUID 且新版本 **更高** | **静默原地覆盖**（不弹窗） |
-| 相同 UUID 且版本 **≤** 已有 | TTY 确认 / `--force` 后原地覆盖 |
+| ------ | ------ |
+| 无相同 UUID | 写入新目录；撞文件夹名则加 uuid 后缀 |
+| 相同 UUID 且新版本 **更高** | **静默覆盖** |
+| 相同 UUID 且版本 **≤** 已有 | TTY 确认 / 非 TTY 默认跳过，可后续手动执行命令覆盖 |
 | 覆盖路径 | 固定为已有文件夹名，禁止旁路新目录 |
-
-落盘后 `verifyInstalledPack` 校验 uuid/kind/version，失败则安装失败。

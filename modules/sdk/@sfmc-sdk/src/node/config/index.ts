@@ -136,7 +136,8 @@ export type ConfigSchemaId =
   | "pack_update"
   | "remote"
   | "pack_sources"
-  | "module_catalog";
+  | "module_catalog"
+  | "log_filter";
 
 /**
  * 生成文件内 `$schema` 相对路径。
@@ -232,6 +233,7 @@ export type ConfigName =
   | "permissions.json"
   | "bds_updater.json"
   | "pack-update.json"
+  | "log-filter.json"
   | "runtime.json"
   | "settings.json"
   | "areas.json"

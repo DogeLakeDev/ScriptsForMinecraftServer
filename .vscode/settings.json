@@ -21,6 +21,10 @@
       "url": "./modules/sdk/@sfmc-sdk/schemas/pack_update.schema.json"
     },
     {
+      "fileMatch": ["**/configs/log-filter.json"],
+      "url": "./modules/sdk/@sfmc-sdk/schemas/log_filter.schema.json"
+    },
+    {
       "fileMatch": ["**/configs/remote.json"],
       "url": "./modules/sdk/@sfmc-sdk/schemas/remote.schema.json"
     },

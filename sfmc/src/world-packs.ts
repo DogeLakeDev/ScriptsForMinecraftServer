@@ -17,7 +17,6 @@ import {
   resolvePackRoots,
   uninstallInstalledPack,
   worldPackParentDir,
-  Utf8BomError,
   type InstalledWorldPack,
   type PackManifestInfo,
 } from "@sfmc-bds/bds-tools/world-packs";
@@ -387,11 +386,8 @@ async function installOnePackRoot(opts: {
   let info: PackManifestInfo | null;
   try {
     info = readPackManifestInfo(opts.srcDir);
-  } catch (e) {
-    if (e instanceof Utf8BomError) {
-      return { ok: false, reason: t("packs.utf8Bom", { file: e.filePath }) };
-    }
-    throw e;
+  } catch {
+    return { ok: false, reason: t("packs.badManifest") };
   }
   if (!info) {
     return { ok: false, reason: t("packs.badManifest") };
@@ -546,12 +542,8 @@ export async function scanAndInstallInbox(opts?: {
           try {
             const info = readPackManifestInfo(r);
             logPack(c.dim(`dry-run: ${base} → ${info?.kind ?? "?"} ${info?.name ?? path.basename(r)}`), "info");
-          } catch (e) {
-            if (e instanceof Utf8BomError) {
-              logPack(c.red(t("packs.utf8Bom", { file: e.filePath })), "error");
-            } else {
-              throw e;
-            }
+          } catch {
+            logPack(c.red(t("packs.badManifest")), "error");
           }
         }
         skipped++;

@@ -11,6 +11,18 @@ import { ansi, visibleLen, wrap } from "./ansi.js";
 
 /** 从原始文本推断日志级别 (关键词匹配,兼容子进程各种前缀风格) */
 export function inferLevel(text: string): LogLevel {
+  /* BDS: [YYYY-MM-DD HH:MM:SS:mmm WARN|ERROR|...] — WARN 前后是空格而非 [WARN */
+  const bds = /\[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,:]\d{1,3})?\s+(INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|VERBOSE|TRACE)\]/i.exec(
+    text
+  );
+  if (bds?.[1]) {
+    const u = bds[1].toUpperCase();
+    if (u === "ERROR" || u === "FATAL") return "error";
+    if (u === "WARN" || u === "WARNING") return "warn";
+    if (u === "DEBUG" || u === "TRACE" || u === "VERBOSE") return "debug";
+    return "info";
+  }
+
   const t = text.toUpperCase();
   if (t.includes("[FATAL]") || t.includes("[ERROR]") || t.includes("[X]")) return "error";
   if (t.includes("[WARN") || t.includes("[WARNING]") || t.includes("[!]")) return "warn";

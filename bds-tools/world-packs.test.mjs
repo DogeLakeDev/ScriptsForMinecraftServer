@@ -614,8 +614,8 @@ describe("world-packs primitives", () => {
     assert.equal(fs.existsSync(packDir2), false);
   });
 
-  it("readPackManifestInfo 遇 UTF-8 BOM 抛错（要求作者改为无 BOM 的 UTF-8）", async () => {
-    const { readPackManifestInfo, Utf8BomError } = await import("./dist/world-packs.js");
+  it("readPackManifestInfo 遇 UTF-8 BOM 仍可读出 uuid/name（剥离兼容）", async () => {
+    const { readPackManifestInfo } = await import("./dist/world-packs.js");
     const dir = path.join(tmp, "bom-rp");
     fs.mkdirSync(dir, { recursive: true });
     const body = JSON.stringify(
@@ -632,6 +632,10 @@ describe("world-packs primitives", () => {
       2
     );
     fs.writeFileSync(path.join(dir, "manifest.json"), `\uFEFF${body}`, "utf8");
-    assert.throws(() => readPackManifestInfo(dir), (e) => e instanceof Utf8BomError);
+    const info = readPackManifestInfo(dir);
+    assert.ok(info);
+    assert.equal(info.uuid, "2b6de4b1-1f74-4c6e-937b-77f5e9c1f199");
+    assert.equal(info.name, "§l§a神金");
+    assert.equal(info.kind, "resource");
   });
 });

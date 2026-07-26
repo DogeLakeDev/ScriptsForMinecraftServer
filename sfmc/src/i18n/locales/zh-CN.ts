@@ -297,8 +297,6 @@ export const zhCN: Record<MessageKey, string> = {
   "packs.conflict.incoming": "  新来: {name}  v{version}  {uuid}",
   "packs.overwriteAsk": "覆盖已有包（相同 UUID，版本未更高）？",
   "packs.badManifest": "无法识别 manifest（需含 resources/data/script 模块，且 header 含 name/uuid/version）",
-  "packs.utf8Bom":
-    "检测到 UTF-8 BOM：{file}\n  请用编辑器另存为「UTF-8」（不要选 UTF-8 with BOM；旧版记事本常引入 BOM，游戏内也可能异常）",
   "packs.skippedNoOverwrite": "已跳过（未覆盖）",
   "packs.conflictSkip": "  冲突跳过（非交互，可用 --force）: {name}",
   "packs.inboxSkip": "  跳过收件箱：{message}",

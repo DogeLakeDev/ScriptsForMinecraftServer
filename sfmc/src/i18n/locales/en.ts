@@ -316,8 +316,6 @@ export const en = {
   "packs.conflict.incoming": "  Incoming: {name}  v{version}  {uuid}",
   "packs.overwriteAsk": "Overwrite existing pack (same UUID, version not newer)?",
   "packs.badManifest": "Unrecognized manifest (need resources/data/script module and header name/uuid/version)",
-  "packs.utf8Bom":
-    "UTF-8 BOM detected: {file}\n  Re-save as UTF-8 without BOM (Notepad's \"UTF-8 with BOM\" can also break Bedrock)",
   "packs.skippedNoOverwrite": "Skipped (not overwritten)",
   "packs.conflictSkip": "  Conflict skipped (non-interactive; use --force): {name}",
   "packs.inboxSkip": "  Skipping inbox: {message}",

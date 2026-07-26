@@ -23,6 +23,11 @@ import {
   type LogLevel as SharedLogLevel,
 } from "@sfmc-bds/sdk/logs";
 import { logFile } from "@sfmc-bds/sdk/node/config";
+import {
+  getCompiledLogFilter,
+  shouldDropForDisk,
+  shouldDropForDisplay,
+} from "./log-filter.js";
 import { c, highlightLogLine } from "./theme.js";
 import { ROOT } from "./runtime.js";
 
@@ -61,10 +66,43 @@ process.on("exit", () => {
 
 /** 推送一条日志到内存缓冲,并按策略落盘 */
 export function pushLog(text: string, source: LogSource, level: LogLevel): void {
-  buffer.pushDirect(text, source, level);
+  let body = text;
+  let lvl = level;
+  /* BDS：先提取内嵌级别，再剥掉自带时间戳+等级，避免展示/落盘重复 */
+  if (source === "bds") {
+    const embedded = parseBdsEmbeddedLevel(text);
+    if (embedded) lvl = embedded;
+    body = stripBdsLogPrefix(text);
+  }
+
+  const entry: LogEntry = { time: new Date(), text: body, source, level: lvl };
+  const filter = getCompiledLogFilter((src) => {
+    /* 避免递归：非法正则只写文件 sink，不经 pushLog */
+    try {
+      const sink = sinkFor("system");
+      if (!sink) return;
+      const warn: LogEntry = {
+        time: new Date(),
+        text: `log-filter: invalid regex skipped: ${src}`,
+        source: "system",
+        level: "warn",
+      };
+      sink.write(warn, formatLogLine(warn, false));
+    } catch {
+      /* ignore */
+    }
+  });
+
+  const dropDisplay = shouldDropForDisplay(entry, filter);
+  const dropDisk = shouldDropForDisk(entry, filter);
+
+  if (!dropDisplay) {
+    buffer.pushDirect(body, source, lvl);
+  }
+
+  if (dropDisk) return;
   const sink = sinkFor(source);
   if (!sink) return;
-  const entry: LogEntry = { time: new Date(), text, source, level };
   try {
     sink.write(entry, formatLogLine(entry, false));
   } catch {
@@ -77,19 +115,16 @@ export function onLog(fn: (log: UnifiedLog) => void): () => void {
   return buffer.subscribe(fn);
 }
 
-/** 获取全部日志 (按时间顺序) */
-export function getAllLogs(): UnifiedLog[] {
-  return buffer.getAll();
-}
-
-/** 获取最近 n 条,可按 level / source 过滤 */
+/** 获取最近 n 条,可按 level / source 过滤；再套配置过滤（display） */
 export function getRecentLogs(n: number, levels: LogLevel[], sources: LogSource[]): UnifiedLog[] {
-  return buffer.getRecent(n, levels, sources);
+  const filter = getCompiledLogFilter();
+  return buffer.getRecent(n, levels, sources).filter((l) => !shouldDropForDisplay(l, filter));
 }
 
-/** 从原始文本推断日志级别 (委托共享包) */
-export function inferLevel(text: string): LogLevel {
-  return sharedInferLevel(text);
+/** 获取全部日志；配置过滤仅影响返回视图（缓冲内可能仍有全量，视 push 时 applyTo） */
+export function getAllLogs(): UnifiedLog[] {
+  const filter = getCompiledLogFilter();
+  return buffer.getAll().filter((l) => !shouldDropForDisplay(l, filter));
 }
 
 /* ==================================================================
@@ -128,51 +163,102 @@ export function formatSourceTag(source: string): string {
   return c.bold(plain);
 }
 
-/** 简化BDS日志 */
-function stripLogPrefix(line: string): string {
-  // 匹配格式: [2026-07-18 23:56:06:778 INFO]
-  return line.replace(BDS_TS_PREFIX_RE, "");
-}
-
-/** BDS 行首时间戳+级别前缀（strip / 解析级别共用，DRY） */
-const BDS_TS_PREFIX_RE =
-  /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}:\d{3} (INFO|WARNING|ERROR|FATAL|DEBUG)\]\s*/i;
+/**
+ * BDS 行首时间戳+级别（大小写不敏感：WARN / warn / Warning 均可）。
+ * Bedrock 常见为 WARN（非 WARNING）；WARNING 一并兼容。
+ */
+const BDS_LEVEL_TOKEN = "INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|VERBOSE|TRACE";
+const BDS_TS_PREFIX_RE = new RegExp(
+  `^\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]\\s*`,
+  "i"
+);
+/** 正文任意位置的 BDS 时间戳级别（防行首有杂讯时仍能提取） */
+const BDS_TS_LEVEL_ANYWHERE_RE = new RegExp(
+  `\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]`,
+  "i"
+);
 
 /**
- * 从一行 BDS 日志中提取日志等级
- * @param line 日志行字符串
+ * 去掉 BDS 自带的 `[时间 等级]` 前缀，正文从真正消息开始。
+ * 幂等：已剥离过的行原样返回。大小写不敏感（warn / WARN / Warning）。
+ */
+export function stripBdsLogPrefix(line: string): string {
+  return String(line ?? "")
+    .replace(/^\uFEFF/, "")
+    .replace(/^\s+/, "")
+    .replace(BDS_TS_PREFIX_RE, "");
+}
+
+/** 将 BDS 级别词映射为 UnifiedLog 级别（大小写不敏感） */
+export function mapBdsLevelToken(token: string): LogLevel {
+  const u = String(token ?? "").toUpperCase();
+  if (u === "ERROR" || u === "FATAL") return "error";
+  if (u === "WARN" || u === "WARNING") return "warn";
+  if (u === "DEBUG" || u === "TRACE" || u === "VERBOSE") return "debug";
+  return "info";
+}
+
+/**
+ * 从一行文本提取 BDS 内嵌级别（优先行首前缀，其次全文首次命中）。
+ * 例：`[2026-07-25 18:42:27:626 warn] [Commands] ...` → warn
+ */
+export function parseBdsEmbeddedLevel(line: string): LogLevel | null {
+  const s = String(line ?? "");
+  const head = BDS_TS_PREFIX_RE.exec(s.replace(/^\uFEFF/, "").replace(/^\s+/, ""));
+  if (head?.[1]) return mapBdsLevelToken(head[1]);
+  const any = BDS_TS_LEVEL_ANYWHERE_RE.exec(s);
+  if (any?.[1]) return mapBdsLevelToken(any[1]);
+  return null;
+}
+
+/**
+ * 从一行 BDS 日志中提取日志等级词（大写）。
  * @returns 日志等级（大写），若无法识别则返回 'UNKNOWN'
  */
 function getLogLevel(line: string): string {
-  const fromTs = BDS_TS_PREFIX_RE.exec(line);
-  if (fromTs?.[1]) return fromTs[1].toUpperCase();
+  const embedded = parseBdsEmbeddedLevel(line);
+  if (embedded === "error") return "ERROR";
+  if (embedded === "warn") return "WARN";
+  if (embedded === "debug") return "DEBUG";
+  if (embedded === "info") return "INFO";
 
-  const levelNames = ["INFO", "WARNING", "ERROR", "FATAL", "DEBUG", "TRACE", "WARN"];
+  const levelNames = ["INFO", "WARNING", "ERROR", "FATAL", "DEBUG", "TRACE", "WARN", "VERBOSE"];
   const levelPattern = levelNames.join("|");
 
   let match = line.match(new RegExp(`\\[(${levelPattern})\\]`, "i"));
-  if (match && match[1]) return match[1].toUpperCase();
+  if (match?.[1]) return match[1].toUpperCase();
 
   match = line.match(new RegExp(`^\\[.*?\\]\\s*(${levelPattern})`, "i"));
-  if (match && match[1]) return match[1].toUpperCase();
+  if (match?.[1]) return match[1].toUpperCase();
 
   match = line.match(new RegExp(`^(${levelPattern})\\s*:`, "i"));
-  if (match && match[1]) return match[1].toUpperCase();
+  if (match?.[1]) return match[1].toUpperCase();
 
   match = line.match(new RegExp(`\\[.*?\\]\\s*(${levelPattern})\\s*:`, "i"));
-  if (match && match[1]) return match[1].toUpperCase();
+  if (match?.[1]) return match[1].toUpperCase();
 
   return "UNKNOWN";
 }
 
-/** 展示用级别：BDS 行从正文解析，其余用 entry.level（DRY：formatLog / logPrefixWidth 共用） */
+/** 展示用级别：BDS 行优先解析内嵌 WARN/ERROR，其余用 entry.level */
 export function resolveDisplayLevel(l: UnifiedLog): LogLevel {
-  if (l.source !== "bds") return l.level;
-  const parsed = getLogLevel(l.text);
-  if (parsed === "WARNING" || parsed === "WARN") return "warn";
-  if (parsed === "ERROR" || parsed === "FATAL") return "error";
-  if (parsed === "DEBUG" || parsed === "TRACE") return "debug";
-  return "info";
+  if (l.source === "bds") {
+    const embedded = parseBdsEmbeddedLevel(l.text);
+    if (embedded) return embedded;
+    const parsed = getLogLevel(l.text);
+    if (parsed === "WARNING" || parsed === "WARN") return "warn";
+    if (parsed === "ERROR" || parsed === "FATAL") return "error";
+    if (parsed === "DEBUG" || parsed === "TRACE" || parsed === "VERBOSE") return "debug";
+    if (parsed === "INFO") return "info";
+  }
+  return l.level;
+}
+
+/** 从原始文本推断级别：BDS 内嵌级别优先，再委托共享包 */
+export function inferLevel(text: string): LogLevel {
+  const embedded = parseBdsEmbeddedLevel(text);
+  if (embedded) return embedded;
+  return sharedInferLevel(text);
 }
 
 /** 无色级别标签文本（可见宽度权威源） */
@@ -210,8 +296,8 @@ export function formatLog(l: UnifiedLog): string {
   const level = resolveDisplayLevel(l);
   const lvl = levelTag(level);
   const src = formatSourceTag(l.source);
-  /* BDS：去掉自带时间戳前缀后再高亮正文 */
-  const txt = highlightLogLine(l.source === "bds" ? stripLogPrefix(l.text) : l.text);
+  /* BDS：去掉自带时间戳+等级前缀后再高亮正文（push 时多半已剥过，此处幂等） */
+  const txt = highlightLogLine(l.source === "bds" ? stripBdsLogPrefix(l.text) : l.text);
   return `${ts} ${src} ${lvl} ${txt}`;
 }
 

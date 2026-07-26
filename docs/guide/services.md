@@ -15,6 +15,8 @@
 | `packs`/`addon` `list\|scan\|install\|…` | （见 [资源包管理](./world-packs.md)） |
 | `remote enroll\|status\|disable` | 远程控制 |
 
+> 详细说明及更多命令请在控制台输入`help`。
+
 ## 🛫 行为包与 BDS 启动
 
 `start bds` / `restart bds` / `start -all` 在拉起 `bedrock_server.exe` **之前**会：

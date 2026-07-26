@@ -18,7 +18,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { copyDirAsync, copyFileAsync, readJsonFile, Utf8BomError } from "./fsx.js";
+import { copyDirAsync, copyFileAsync, readJsonFile } from "./fsx.js";
 
 /* ── 类型 ─────────────────────────────────────────────────────────────── */
 
@@ -296,8 +296,7 @@ export function readPackManifestHeader(
     const version: [number, number, number] = [Number(ver[0]), Number(ver[1]), Number(ver[2])];
     const moduleUuid = raw.modules?.[0]?.uuid;
     return { uuid, version, ...(typeof moduleUuid === "string" ? { moduleUuid } : {}) };
-  } catch (e) {
-    if (e instanceof Utf8BomError) throw e;
+  } catch {
     return null;
   }
 }
