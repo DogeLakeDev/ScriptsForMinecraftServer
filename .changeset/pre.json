@@ -13,6 +13,7 @@
     "@sfmc-bds/tools": "0.1.1"
   },
   "changesets": [
-    "align-release-token-dry"
+    "align-release-token-dry",
+    "bds-log-filter-solid"
   ]
 }
