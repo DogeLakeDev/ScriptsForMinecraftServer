@@ -17,7 +17,7 @@
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
 [![node](https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
-[![typescript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![typescript](https://img.shields.io/badge/TypeScript-6.0.2-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![npm](https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@sfmc-bds/sfmc)
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
@@ -43,7 +43,7 @@ flowchart LR
 > **为什么用外置数据库？**  
 > SAPI 只发请求，读写 SQLite 在 Node 里完成。经济、领地这类操作可以走事务和幂等，比纯游戏内处理更稳，也更好备份。
 
-详细说明见 [文档中心](./docs/README.md)。
+详细说明见 [文档中心](./docs/index.md)（MkDocs：`npm run docs:serve`）。
 
 ## ⚡️ 快速开始
 
@@ -64,9 +64,12 @@ flowchart LR
 
 | 分类 | 入口 |
 | ------ | ------ |
-| 使用指南 | [docs/guide/](./docs/guide/README.md) |
-| 开发指南 | [docs/dev/](./docs/dev/README.md) |
-| 接口指南 | [docs/api/](./docs/api/README.md) |
+| 在线文档站 | https://dogelakedev.github.io/ScriptsForMinecraftServer/ |
+| 使用指南 | [docs/guide/](./docs/guide/index.md) |
+| 开发指南 | [docs/dev/](./docs/dev/index.md) |
+| 接口指南 | [docs/api/](./docs/api/index.md) |
+| SDK 类型参考 | [docs/reference/](./docs/reference/index.md)（`npm run docs:api`） |
+| 本地预览 | `pip install -r docs/requirements.txt` → `npm run docs:serve` |
 
 ## 🗺️ 路线图
 

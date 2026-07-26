@@ -1,0 +1,11 @@
+title: 开发指南
+nav:
+  - index.md
+  - architecture.md
+  - module-author.md
+  - manifest.md
+  - build-pipeline.md
+  - tools.md
+  - platform.md
+  - npm-publish.md
+  - conventions.md

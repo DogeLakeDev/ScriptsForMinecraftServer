@@ -2,7 +2,7 @@
 
 > 控制台输入 `start -all` 启动所有服务；输入 `status` 查看服务运行状态。
 
-## 🧺 常用命令
+## 常用命令
 
 | 命令 | 说明 |
 | ------ | ------ |
@@ -17,7 +17,7 @@
 
 > 详细说明及更多命令请在控制台输入`help`。
 
-## 🛫 行为包与 BDS 启动
+## 行为包与 BDS 启动
 
 `start bds` / `restart bds` / `start -all` 在拉起 `bedrock_server.exe` **之前**会：
 
@@ -28,7 +28,7 @@
 
 > 手动编译：`mod build`；开发热更：`mod reload`
 
-## ✈️ 一键启动
+## 一键启动
 
 ```text
 sfmc> start -all

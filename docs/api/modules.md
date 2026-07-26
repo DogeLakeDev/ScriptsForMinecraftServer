@@ -1,4 +1,4 @@
-# 模块 API
+﻿# 模块 API
 
 基于 `modules/catalog.json` + `modules/module-lock.json`。
 
@@ -59,4 +59,4 @@ node sfmc/dist/main.js module disable feature-afk
 node sfmc/dist/main.js reload
 ```
 
-各模块对外服务见 [模块服务目录](./modules/README.md)。
+各模块对外服务见 [模块服务目录](./modules/index.md)。

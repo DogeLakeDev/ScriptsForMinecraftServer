@@ -143,7 +143,7 @@ ModuleRegistry.register({
 | `@sfmc-bds/sdk/sapi/config` | 模块配置读写 |
 | `@sfmc-bds/sdk/sapi/service` | 调其它模块的 service（无 typed client 时） |
 
-查表见 [SDK 接口](../api/sdk/README.md)。各模块对外能力见 [模块服务目录](../api/modules/README.md)。
+查表见 [SDK 接口](../api/sdk/index.md)。各模块对外能力见 [模块服务目录](../api/modules/index.md)。
 
 ## 跨模块调用规则
 
@@ -175,7 +175,7 @@ npm run check-minecraft-versions
 
 ## Lint
 
-使用 [`@sfmc-bds/eslint-plugin`](../../modules/sdk/@sfmc-eslint-plugin/README.md)（形态对齐 Minecraft 官方 lint 插件）：
+使用 `@sfmc-bds/eslint-plugin`（仓库路径 `modules/sdk/@sfmc-eslint-plugin/`，形态对齐 Minecraft 官方 lint 插件）：
 
 | 规则 | 默认 | 说明 |
 |------|------|------|

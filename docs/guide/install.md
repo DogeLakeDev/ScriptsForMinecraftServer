@@ -1,6 +1,6 @@
 # 安装
 
-## ⚡️ 方式一：npm 聚合包（推荐）
+## 方式一：npm 聚合包（推荐）
 
 ```bash
 > node -v   # 需要 v22.13 或更高
@@ -14,7 +14,7 @@
 
 首次运行会进入初始化向导。工作根默认为**当前目录**（可用环境变量 `SFMC_ROOT` 覆盖）。
 
-## 🪄 方式二：npm monorepo（适用于开发者/贡献者）
+## 方式二：npm monorepo（适用于开发者/贡献者）
 
 ```bash
 > git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git

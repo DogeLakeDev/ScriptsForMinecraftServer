@@ -1,4 +1,4 @@
-# 平台开发
+﻿# 平台开发
 
 改 SDK、db-server、sfmc 或 CI 时看这篇。
 
@@ -42,7 +42,7 @@ npm run test    # node --test
 - DB 能力 → `routes/db-routes.ts`、`tx-runner.ts`
 - 跨模块服务 → `routes/service-routes.ts`、`service-registry.ts`
 
-路由表见 [接口指南](../api/README.md)。
+路由表见 [接口指南](../api/index.md)。
 
 ## sfmc CLI
 

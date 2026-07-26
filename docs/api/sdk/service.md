@@ -1,4 +1,4 @@
-# service
+﻿# service
 
 ```ts
 import { service, ServiceError } from "@sfmc-bds/sdk/sapi/service";
@@ -13,7 +13,7 @@ const names = await service.list();
 
 有 typed client 的模块优先用 client（例：[`@sfmc-bds/module-economy/client`](../modules/economy.md)），不要手写对方私有表。
 
-完整服务清单：[模块服务目录](../modules/README.md)。
+完整服务清单：[模块服务目录](../modules/index.md)。
 
 ## 声明
 

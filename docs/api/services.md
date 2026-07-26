@@ -1,4 +1,4 @@
-# 服务 API
+﻿# 服务 API
 
 跨模块 RPC：提供方在 manifest `services.provides` 声明，消费方在 `services.requires` 声明。
 
@@ -35,4 +35,4 @@ const land = await service.get("land.byId", { landId: "abc" });
 const all = await service.list();
 ```
 
-详见 [SDK → service](./sdk/service.md)。各模块提供的服务名与 typed client 见 [模块服务目录](./modules/README.md)。
+详见 [SDK → service](./sdk/service.md)。各模块提供的服务名与 typed client 见 [模块服务目录](./modules/index.md)。

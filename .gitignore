@@ -63,3 +63,8 @@ remote-controller/dist/index.js
 # 测试环境下产物 / 收件箱与构建产物
 /packs/
 remote-controller/dist/
+
+# MkDocs / TypeDoc 文档产物（TypeDoc 输出勿提交；本地用 npm run docs:api 生成）
+/site/
+/docs/reference/sdk/**
+!/docs/reference/sdk/.pages

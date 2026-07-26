@@ -1,0 +1,7 @@
+# MkDocs 文档站依赖（Python）
+#   pip install -r docs/requirements.txt
+mkdocs>=1.6,<2
+mkdocs-material>=9.5,<10
+mkdocs-awesome-pages-plugin>=2.9,<3
+mkdocs-exclude>=1.0,<2
+pymdown-extensions>=10,<11

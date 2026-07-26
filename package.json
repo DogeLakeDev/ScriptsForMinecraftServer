@@ -28,6 +28,8 @@
     "properties-reader": "^3.0.1",
     "rimraf": "^6.1.3",
     "source-map": "^0.7.6",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.12.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "scripts": {
@@ -60,7 +62,10 @@
     "catalog-sync": "node tools/catalog-sync.mjs",
     "check-ootb": "node tools/check-ootb.mjs",
     "check-minecraft-versions": "node tools/check-minecraft-versions.mjs",
-    "smoke-modules": "node tools/smoke-modules.mjs"
+    "smoke-modules": "node tools/smoke-modules.mjs",
+    "docs:api": "node tools/docs-typedoc.mjs",
+    "docs:serve": "node tools/docs-mkdocs.mjs serve",
+    "docs:build": "node tools/docs-mkdocs.mjs build"
   },
   "workspaces": [
     "modules/sdk/@sfmc-sdk",
