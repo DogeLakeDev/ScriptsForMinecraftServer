@@ -94,5 +94,6 @@ extra:
 validation:
   omitted_files: warn
   absolute_links: ignore
-  unrecognized_links: ignore
+  # warn：暴露 README→docs 误贴等坏链；不 fail，以免外部/生成页误伤 CI
+  unrecognized_links: warn
   anchors: warn
