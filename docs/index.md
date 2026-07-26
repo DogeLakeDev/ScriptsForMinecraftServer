@@ -4,7 +4,8 @@
 >
 > 在**原生 BDS**即可获得类似插件服的**高效、安全、扩展丰富**的体验
 
-在线地址：<https://dogelakedev.github.io/ScriptsForMinecraftServer/>
+[在线地址 →](https://dogelakedev.github.io/ScriptsForMinecraftServer)
+[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
 ## 文档目录
 
 | 分类 | 入口 |
@@ -20,8 +21,6 @@
 * 为模块提供 **SQLite 数据库管理 SDK** 及其路由服务
 * 自建工作流，使模组/模块开发更轻松
 * 依赖于 [LLBot](https://www.llonebot.com/zh-CN/) 的 QQ 桥接服务，轻松实现群服互通
-
-[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
 
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/LICENSE)
