@@ -1,5 +1,12 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0-beta.2
+
+### Patch Changes
+
+- 3714053: 发版：build-publishable 拓扑 + listPublishableBuildDeps（npm-publish 应急补发不再硬编码只 build SDK）；push 缺失态 DRY 对齐 listUnpushedExistingVersionTags。世界包：readPackDirOccupancy DRY，去掉死不变式，occupancy 保留真实 kind（LSP）。
+- 5ada90e: 修复 #80/#81 合并后 `scanDestOccupancy` 未赋值 `facts`、引用未声明标识符导致 tsc 构建失败；恢复经 `readPackDirOccupancy` 的 DRY 占用扫描。
+
 ## 0.2.0-beta.1
 
 ### Patch Changes
