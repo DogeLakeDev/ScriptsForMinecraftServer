@@ -566,7 +566,7 @@ export type PackInstallPlan =
 
 /**
  * 读单目录占用事实（info 优先，否则 header）。
- * Utf8BomError 上抛，由调用方决定跳过或仍占文件夹名。
+ * 读失败上抛，由调用方决定跳过或仍占文件夹名（uuid 置空）。
  */
 export function readPackDirOccupancy(dir: string): {
   uuid: string;
@@ -596,18 +596,8 @@ export function scanDestOccupancy(destParent: string): DestOccupancy[] {
   for (const dir of listPackDirsIn(destParent)) {
     let facts: ReturnType<typeof readPackDirOccupancy> = null;
     try {
-      const info = readPackManifestInfo(dir);
-      if (info) {
-        uuid = info.uuid;
-        version = info.version;
-        name = info.name;
-      } else {
-        const header = readPackManifestHeader(dir);
-        if (header) {
-          uuid = header.uuid;
-          version = header.version;
-        }
-      }
+      // DRY：单目录占用只走 readPackDirOccupancy，禁止再内联一份 info/header 分支
+      facts = readPackDirOccupancy(dir);
     } catch {
       /* manifest 不可读则占位 uuid 为空 */
     }

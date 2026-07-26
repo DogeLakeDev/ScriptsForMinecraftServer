@@ -283,6 +283,26 @@ describe("world-packs primitives", () => {
     assert.deepEqual(version, [2, 0, 1]);
   });
 
+  it("scanDestOccupancy 走 readPackDirOccupancy（含 kind）", async () => {
+    const { scanDestOccupancy } = await import("./dist/world-packs.js");
+    const parent = path.join(tmp, "occupancy-scan");
+    const dir = path.join(parent, "[BP] Occ");
+    const uuid = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+    writeManifest(dir, {
+      name: "OccPack",
+      uuid,
+      version: [2, 3, 4],
+      type: "data",
+    });
+    const rows = scanDestOccupancy(parent);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].folderName, "[BP] Occ");
+    assert.equal(rows[0].uuid, uuid);
+    assert.deepEqual(rows[0].version, [2, 3, 4]);
+    assert.equal(rows[0].name, "OccPack");
+    assert.equal(rows[0].kind, "behavior");
+  });
+
   it("decidePackInstallPlan 表驱动", async () => {
     const { decidePackInstallPlan, formatWorldPackFolderName } = await import("./dist/world-packs.js");
     const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
