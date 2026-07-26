@@ -5,6 +5,14 @@
 > 在**原生 BDS**即可获得类似插件服的**高效、安全、扩展丰富**的体验
 
 在线地址：<https://dogelakedev.github.io/ScriptsForMinecraftServer/>
+## 文档目录
+
+| 分类 | 入口 |
+|------|------|
+| 使用指南 | [guide/](./guide/index.md) |
+| 开发指南 | [dev/](./dev/index.md) |
+| 接口指南 | [api/](./api/index.md) |
+| SDK 类型参考 | [reference/](./reference/index.md)（`npm run docs:api`） |
 
 * 提供基于 [Minecraft Script API](https://learn.microsoft.com/zh-cn/minecraft/creator/scriptapi/?view=minecraft-bedrock-stable) 的**原生脚本 SDK**
 * 外置可拆卸的**模块化管理**服务，拥有类似插件服的舒适体验；目前已开发 [22+ 实用模块](https://github.com/Tanya7z/sfmc-modules)
@@ -50,40 +58,6 @@ flowchart LR
   LLBot <-->|WS · HTTP| QQ["qq-bridge"] --> DB
   SFMC["sfmc CLI"] -. 管理 .-> BDS & DB & QQ
 ```
-
-## 按角色入口
-
-| 你是谁 | 从这里开始 |
-|--------|------------|
-| 服主 / 运维 | [使用指南](./guide/index.md) |
-| 写业务模块 | [开发指南 · 模块开发](./dev/module-author.md) |
-| 改平台 | [开发指南 · 平台开发](./dev/platform.md) |
-| 查 HTTP / 模块服务 | [接口指南](./api/index.md) |
-| 查 SDK 类型 | [SDK 类型参考](./reference/index.md)（CI / `npm run docs:api` 生成） |
-
-## 文档目录
-
-| 分类 | 入口 |
-|------|------|
-| 使用指南 | [guide/](./guide/index.md) |
-| 开发指南 | [dev/](./dev/index.md) |
-| 接口指南 | [api/](./api/index.md) |
-| SDK 类型参考 | [reference/](./reference/index.md)（`npm run docs:api`） |
-
-## 本地预览
-
-在仓库根目录：
-
-```bash
-pip install -r docs/requirements.txt
-npm install
-npm run docs:serve
-```
-
-浏览器打开 http://127.0.0.1:8000 。
-
-- `npm run docs:api` — 仅 TypeDoc → `docs/reference/sdk/`
-- `npm run docs:build` — TypeDoc + MkDocs → `site/`
 
 ## 路线图
 
