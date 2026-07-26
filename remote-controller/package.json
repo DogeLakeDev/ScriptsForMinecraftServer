@@ -10,11 +10,6 @@
   },
   "dependencies": {
     "@sfmc-bds/sdk": "^0.2.0-beta.0",
-    "ws": "^8.18.0"
-  },
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "@types/ws": "^8.18.1",
-    "typescript": "npm:@typescript/typescript6@^6.0.2"
+    "ws": "^8.21.1"
   }
 }

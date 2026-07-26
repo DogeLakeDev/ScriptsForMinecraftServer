@@ -106,10 +106,14 @@
   },
   "peerDependencies": {
     "@minecraft/server": ">=2.10.0-beta",
+    "@minecraft/server-net": ">=1.0.0-beta",
     "@minecraft/server-ui": ">=2.2.0-beta"
   },
   "peerDependenciesMeta": {
     "@minecraft/server": {
+      "optional": true
+    },
+    "@minecraft/server-net": {
       "optional": true
     },
     "@minecraft/server-ui": {
