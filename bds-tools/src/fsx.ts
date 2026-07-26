@@ -118,7 +118,8 @@ export function writeFileSafe(filePath: string, data: string | Buffer): void {
 
 /**
  * 读 JSON 文件（utf8）。
- * 检测到 UTF-8 BOM 时抛 Utf8BomError。
+ * 若文件以 UTF-8 BOM（U+FEFF）开头则剥离后再解析（兼容记事本「UTF-8 with BOM」）。
+ * Utf8BomError 已弃用且不再抛出，保留类仅供旧调用方类型兼容。
  */
 export class Utf8BomError extends Error {
   readonly filePath: string;
@@ -132,9 +133,9 @@ export class Utf8BomError extends Error {
 }
 
 export function readJsonFile<T = unknown>(filePath: string): T {
-  const text = fs.readFileSync(filePath, "utf8");
+  let text = fs.readFileSync(filePath, "utf8");
   if (text.length > 0 && text.charCodeAt(0) === 0xfeff) {
-    throw new Utf8BomError(filePath);
+    text = text.slice(1);
   }
   return JSON.parse(text) as T;
 }

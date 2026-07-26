@@ -44,4 +44,4 @@ node sfmc/dist/main.js start qq
 - 跳过机器人自己发的消息（`sender.user_id === self_id`）
 - 约 5 秒内相同 `message_id` 去重
 
-排障见 [排障 → QQ](./troubleshooting.md#qq-桥)。
+排障见 [排障 · QQ 桥](./troubleshooting.md)。

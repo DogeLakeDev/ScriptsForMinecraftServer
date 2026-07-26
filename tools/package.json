@@ -40,7 +40,9 @@
     "build": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.0"
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.0",
+    "@sfmc-bds/sdk": "^0.2.0-beta.0",
+    "ws": "^8.21.1"
   },
   "publishConfig": {
     "access": "public",

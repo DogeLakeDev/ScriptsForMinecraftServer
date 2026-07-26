@@ -79,7 +79,8 @@ test("logPrefixWidth 与常见源标签匹配", () => {
 });
 
 test("resolveDisplayLevel：BDS 行从正文解析，其余用 entry.level", async () => {
-  const { resolveDisplayLevel } = await import("./dist/logs.js");
+  const { resolveDisplayLevel, inferLevel, parseBdsEmbeddedLevel, stripBdsLogPrefix, pushLog, getAllLogs } =
+    await import("./dist/logs.js");
   assert.equal(
     resolveDisplayLevel({
       time: new Date(),
@@ -89,6 +90,59 @@ test("resolveDisplayLevel：BDS 行从正文解析，其余用 entry.level", asy
     }),
     "error"
   );
+  /* Bedrock 常用 WARN；亦识别纯小写 warn */
+  assert.equal(
+    parseBdsEmbeddedLevel(
+      "[2026-07-25 18:42:27:626 WARN] [Commands] Error on line 4: command failed to parse"
+    ),
+    "warn"
+  );
+  assert.equal(
+    parseBdsEmbeddedLevel("[2026-07-25 18:42:27:626 warn] [Commands] lowercase level"),
+    "warn"
+  );
+  assert.equal(
+    parseBdsEmbeddedLevel("[2026-07-25 18:42:27:626 error] boom"),
+    "error"
+  );
+  assert.equal(
+    stripBdsLogPrefix(
+      "[2026-07-25 18:42:27:626 WARN] [Commands] Error on line 4: command failed to parse"
+    ),
+    "[Commands] Error on line 4: command failed to parse"
+  );
+  assert.equal(
+    stripBdsLogPrefix("[2026-07-25 18:42:27:626 warn] [Commands] lowercase level"),
+    "[Commands] lowercase level"
+  );
+  assert.equal(
+    resolveDisplayLevel({
+      time: new Date(),
+      text: "[2026-07-25 18:42:27:626 WARN] [Commands] Error on line 4: command failed to parse",
+      source: "bds",
+      level: "info",
+    }),
+    "warn"
+  );
+  assert.equal(inferLevel("[2026-07-25 18:42:27:626 WARN] [Commands] Syntax error"), "warn");
+  assert.equal(inferLevel("[2026-07-25 18:42:27:626 warn] [Commands] Syntax error"), "warn");
+  assert.equal(inferLevel("[2026-07-25 18:42:27:626 ERROR] something broke"), "error");
+
+  /* pushLog：等级入库 + 正文剥前缀 */
+  const before = getAllLogs().length;
+  pushLog(
+    "[2026-07-25 18:42:27:626 warn] [Commands] Error on line 4: unexpected /",
+    "bds",
+    "info"
+  );
+  const last = getAllLogs().at(-1);
+  assert.ok(last);
+  assert.equal(last.level, "warn");
+  assert.equal(last.text, "[Commands] Error on line 4: unexpected /");
+  /* 入库后正文含 Error 字样，不得把展示级别抬成 error（旧 getLogLevel 松散匹配的坑） */
+  assert.equal(resolveDisplayLevel(last), "warn");
+  assert.ok(getAllLogs().length === before + 1);
+
   assert.equal(
     resolveDisplayLevel({
       time: new Date(),

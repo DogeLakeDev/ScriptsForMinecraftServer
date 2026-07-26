@@ -39,8 +39,7 @@
   },
   "dependencies": {
     "@sfmc-bds/sdk": "^0.2.0-beta.0",
-    "sql-template-strings": "^2.2.2",
-    "ws": "^8.21.1"
+    "sql-template-strings": "^2.2.2"
   },
   "engines": {
     "node": ">=22.13.0"

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/log_filter.schema.json",
+  "title": "SFMC log-filter",
+  "description": "统一日志过滤：按来源/等级/子串/正则匹配。mode=drop 匹配则丢弃；mode=keep 仅保留匹配项。applyTo=display 只影响 REPL/内存；applyTo=all 连落盘一起过滤。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "是否启用配置过滤"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["drop", "keep"],
+      "description": "drop=匹配丢弃；keep=仅保留匹配"
+    },
+    "applyTo": {
+      "type": "string",
+      "enum": ["display", "all"],
+      "description": "display=只过滤展示/内存；all=展示与落盘一并过滤"
+    },
+    "rules": {
+      "type": "array",
+      "description": "规则列表；任一规则命中即算匹配（OR）；同条内多条件为 AND",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "false 时跳过本条"
+          },
+          "sources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "来源之一匹配即可（如 bds / pack / system）"
+          },
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["error", "warn", "info", "success", "debug"]
+            },
+            "description": "等级之一匹配即可"
+          },
+          "contains": {
+            "type": "string",
+            "description": "正文子串（大小写敏感；忽略大小写请用 regex）"
+          },
+          "regex": {
+            "type": "string",
+            "description": "JS RegExp 源字符串；仅支持前缀 (?i) 表示忽略大小写（引擎无内联 (?i)）"
+          }
+        }
+      }
+    }
+  },
+  "required": ["enabled", "mode", "applyTo", "rules"]
+}

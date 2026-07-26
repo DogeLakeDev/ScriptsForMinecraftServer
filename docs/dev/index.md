@@ -1,4 +1,4 @@
-# 开发指南
+﻿# 开发指南
 
 面向两类读者：**写业务模块** 和 **改 SFMC 平台本身**。
 
@@ -9,7 +9,7 @@
 | [架构](./architecture.md) | 所有人 |
 | [模块开发](./module-author.md) | 写 sfmc-modules（脚手架、link、`sfmc reload`） |
 | [manifest 契约](./manifest.md) | 权限、services、依赖 |
-| [模块服务目录](../api/modules/README.md) | economy / land 等对外 API |
+| [模块服务目录](../api/modules/index.md) | economy / land 等对外 API |
 | [构建管线](./build-pipeline.md) | BP 怎么打出来 |
 | [工具脚本](./tools.md) | `tools/*.mjs` 与 CI |
 | [平台开发](./platform.md) | 改 db-server / sfmc / 工具链 |
@@ -32,4 +32,4 @@ sfmc module create          # 或 sfmc module link / module dev
 sfmc mod reload                 # build + deploy + 向 BDS 发 reload
 ```
 
-运维装机见 [使用指南 · 模块](../guide/modules.md)。接口细节见 [接口指南](../api/README.md)。
+运维装机见 [使用指南 · 模块](../guide/modules.md)。接口细节见 [接口指南](../api/index.md)。

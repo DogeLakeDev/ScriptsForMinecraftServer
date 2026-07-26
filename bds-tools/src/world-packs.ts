@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { copyDirAsync, readJsonFile, Utf8BomError } from "./fsx.js";
+import { copyDirAsync, readJsonFile } from "./fsx.js";
 import {
   bdsWorldLevelDir,
   bdsWorldsDir,
@@ -155,14 +155,13 @@ export function readPackManifestInfo(packDir: string): PackManifestInfo | null {
       kind,
       ...(typeof description === "string" ? { description } : {}),
     };
-  } catch (e) {
-    /* BOM 必须上抛，由安装层打明确错误；其它解析失败仍返回 null */
-    if (e instanceof Utf8BomError) throw e;
+  } catch {
     return null;
   }
 }
 
-export { Utf8BomError };
+/** @deprecated 读 JSON 已剥离 BOM，不再抛出；保留 re-export 兼容旧 import */
+export { Utf8BomError } from "./fsx.js";
 
 /** 深度优先找含 manifest.json 的包根（默认 maxDepth=2，root 自身为 depth 0） */
 export function discoverPackRoots(root: string, opts?: { maxDepth?: number }): string[] {
@@ -387,23 +386,10 @@ export function listInstalledWorldPacks(bdsRoot: string, levelName: string): Ins
     const enabledMap = new Map(enabledList.map((e) => [e.pack_id, e.version] as const));
 
     for (const dir of listPackDirsIn(parent)) {
-      let info: PackManifestInfo | null = null;
-      try {
-        info = readPackManifestInfo(dir);
-      } catch (e) {
-        /* 已装目录若含 BOM：跳过该项，避免 list 整表炸掉；安装路径会单独报错 */
-        if (e instanceof Utf8BomError) continue;
-        throw e;
-      }
+      const info = readPackManifestInfo(dir);
       if (!info || info.kind !== kind) {
         // 仍尝试用 header 展示（enabled 与正常路径同契约：enable-list 含 uuid → LSP）
-        let header;
-        try {
-          header = readPackManifestHeader(dir);
-        } catch (e) {
-          if (e instanceof Utf8BomError) continue;
-          throw e;
-        }
+        const header = readPackManifestHeader(dir);
         if (!header) continue;
         result.push({
           kind,
@@ -479,8 +465,7 @@ export function readPackDependencyUuids(packDir: string): string[] {
     return (raw.dependencies ?? [])
       .map((d) => d.uuid)
       .filter((u): u is string => typeof u === "string" && u.length > 0);
-  } catch (e) {
-    if (e instanceof Utf8BomError) throw e;
+  } catch {
     return [];
   }
 }
@@ -611,10 +596,20 @@ export function scanDestOccupancy(destParent: string): DestOccupancy[] {
   for (const dir of listPackDirsIn(destParent)) {
     let facts: ReturnType<typeof readPackDirOccupancy> = null;
     try {
-      facts = readPackDirOccupancy(dir);
-    } catch (e) {
-      /* BOM：仍占文件夹名，uuid 未知 → 不会误匹配同 uuid 覆盖 */
-      if (!(e instanceof Utf8BomError)) throw e;
+      const info = readPackManifestInfo(dir);
+      if (info) {
+        uuid = info.uuid;
+        version = info.version;
+        name = info.name;
+      } else {
+        const header = readPackManifestHeader(dir);
+        if (header) {
+          uuid = header.uuid;
+          version = header.version;
+        }
+      }
+    } catch {
+      /* manifest 不可读则占位 uuid 为空 */
     }
     out.push({
       folderName: path.basename(dir),
@@ -684,15 +679,7 @@ export function verifyInstalledPack(
   destDir: string,
   incoming: PackManifestInfo
 ): { ok: true; info: PackManifestInfo } | { ok: false; reason: string } {
-  let info: PackManifestInfo | null;
-  try {
-    info = readPackManifestInfo(destDir);
-  } catch (e) {
-    if (e instanceof Utf8BomError) {
-      return { ok: false, reason: `verify: ${e.message}` };
-    }
-    throw e;
-  }
+  const info = readPackManifestInfo(destDir);
   if (!info) return { ok: false, reason: "verify: dest has no readable manifest" };
   if (info.uuid.toLowerCase() !== incoming.uuid.toLowerCase()) {
     return { ok: false, reason: `verify: uuid mismatch got=${info.uuid} want=${incoming.uuid}` };
@@ -719,15 +706,7 @@ export async function installPackDirectory(opts: {
   folderName?: string;
   force?: boolean;
 }): Promise<InstallPackResult> {
-  let info: PackManifestInfo | null;
-  try {
-    info = readPackManifestInfo(opts.srcDir);
-  } catch (e) {
-    if (e instanceof Utf8BomError) {
-      return { ok: false, reason: e.message };
-    }
-    throw e;
-  }
+  const info = readPackManifestInfo(opts.srcDir);
   if (!info) {
     return { ok: false, reason: "invalid or unrecognized manifest.json" };
   }

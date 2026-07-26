@@ -15,6 +15,9 @@ export type {
 
 export {
   inferLevel,
+  mapBdsLevelToken,
+  parseBdsEmbeddedLevel,
+  stripBdsLogPrefix,
   padSource,
   levelTag,
   levelTagFull,

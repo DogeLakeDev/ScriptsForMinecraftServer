@@ -1,8 +1,10 @@
-# SDK 接口
+# SDK 接口导读
 
-包名 `@sfmc-bds/sdk`，模块作者日常用四个抽屉：
+包名 `@sfmc-bds/sdk`。本文是**用法导读**；完整类型签名见 TypeDoc 生成的 [SDK 类型参考](../../reference/index.md)（`npm run docs:api`）。
 
-| 抽屉 | 导入路径 | 文档 |
+模块作者日常用四个抽屉：
+
+| 抽屉 | 导入路径 | 导读 |
 |------|----------|------|
 | runtime | `@sfmc-bds/sdk/sapi/runtime` | [runtime.md](./runtime.md) |
 | db | `@sfmc-bds/sdk/sapi/db` | [db.md](./db.md) |
@@ -34,6 +36,6 @@ import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 - 不 import 其它模块源码；跨模块用 service / client
 - 业务类型在模块包内维护；`@sfmc-bds/sdk/contracts` 仅 catalog/lock
 
-各模块对外服务：[模块服务目录](../modules/README.md)。
+各模块对外服务：[模块服务目录](../modules/index.md)。
 
-对应 HTTP 见 [接口指南](../README.md)。
+对应 HTTP 见 [接口指南](../index.md)。

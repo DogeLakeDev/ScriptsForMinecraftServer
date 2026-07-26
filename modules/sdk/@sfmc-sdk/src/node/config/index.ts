@@ -136,7 +136,8 @@ export type ConfigSchemaId =
   | "pack_update"
   | "remote"
   | "pack_sources"
-  | "module_catalog";
+  | "module_catalog"
+  | "log_filter";
 
 /**
  * 生成文件内 `$schema` 相对路径。
@@ -232,6 +233,7 @@ export type ConfigName =
   | "permissions.json"
   | "bds_updater.json"
   | "pack-update.json"
+  | "log-filter.json"
   | "runtime.json"
   | "settings.json"
   | "areas.json"
@@ -313,7 +315,12 @@ export function modulePath(dir: string, name: ModuleFileName): string {
 
 export function readJson<T>(filePath: string, fallback?: T): T | undefined {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
+    /* 与 bds-tools/fsx.readJsonFile 同契约：剥离 UTF-8 BOM 后再解析 */
+    let text = fs.readFileSync(filePath, "utf-8");
+    if (text.length > 0 && text.charCodeAt(0) === 0xfeff) {
+      text = text.slice(1);
+    }
+    return JSON.parse(text) as T;
   } catch {
     if (fallback !== undefined) return fallback;
   }
