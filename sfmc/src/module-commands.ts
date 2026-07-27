@@ -45,8 +45,18 @@ export function paintModuleCmdAlias(paint: (name: string) => string): string {
   return MODULE_CMD_NAMES.map((name) => paint(name)).join("/");
 }
 
-/** 对外展示与 Tab 补全用的子命令列表(不含 remove 等同义别名)。 */
-export const MODULE_SUBCOMMANDS = [
+/**
+ * 模块子命令集 —— 三层分类:
+ * - BASE: 始终可见(Tab 补全 / dispatch / usage)
+ * - DEV:  仅在 devmode=on 时可见(其余位置蓝色提示可见但拦截)
+ * - ALL:  全集(给 help 文案按 dev 着色用,dispatch 不据此判断)
+ *
+ * 所有可见性判定都走 `getVisibleModuleSubcommands(devMode)`(DRY),
+ * 禁止 repl.ts / main.ts / moduleUsage / dispatch 各处重写 if/switch(OCP)。
+ */
+
+/** 公开子命令:始终可见。 */
+export const BASE_MODULE_SUBCOMMANDS = [
   "list",
   "search",
   "install",
@@ -55,12 +65,34 @@ export const MODULE_SUBCOMMANDS = [
   "info",
   "enable",
   "disable",
-  "build",
-  "reload",
-  "create",
   "link",
-  "dev",
 ] as const;
+
+/** 开发者子命令:只在 devmode=on 时可用;help 中蓝色提示可见。 */
+export const DEV_MODULE_SUBCOMMANDS = ["create", "dev", "build", "reload"] as const;
+
+/** 全集(含同义别名 remove 在 dispatch 内部处理,不展示);help / 调试用。 */
+export const ALL_MODULE_SUBCOMMANDS = [
+  ...BASE_MODULE_SUBCOMMANDS,
+  ...DEV_MODULE_SUBCOMMANDS,
+] as const;
+
+/** @deprecated 使用 ALL_MODULE_SUBCOMMANDS 或 getVisibleModuleSubcommands(devMode)。保留别名以不破坏现有导入。 */
+export const MODULE_SUBCOMMANDS = ALL_MODULE_SUBCOMMANDS;
+
+export type BaseModuleSubcommand = (typeof BASE_MODULE_SUBCOMMANDS)[number];
+export type DevModuleSubcommand = (typeof DEV_MODULE_SUBCOMMANDS)[number];
+export type ModuleSubcommand = BaseModuleSubcommand | DevModuleSubcommand;
+
+/** devmode 下应可见的子命令(自动补全 / dispatch / moduleUsage 唯一权威)。 */
+export function getVisibleModuleSubcommands(devMode: boolean): readonly string[] {
+  return devMode ? ALL_MODULE_SUBCOMMANDS : BASE_MODULE_SUBCOMMANDS;
+}
+
+/** sub 是否属于开发者子命令(help 着色与 dispatch 拦截的唯一判定)。 */
+export function isDeveloperSubcommand(sub: string | undefined): boolean {
+  return !!sub && (DEV_MODULE_SUBCOMMANDS as readonly string[]).includes(sub);
+}
 
 import fs from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
@@ -71,6 +103,7 @@ import { failResult, okResult, type CliResult } from "./cli-result.js";
 import { t } from "./i18n/index.js";
 import { c } from "./theme.js";
 import { ROOT, resolveFetchModule } from "./runtime.js";
+import { isDeveloperMode } from "./devmode.js";
 import { dirFingerprint } from "./module-fingerprint.js";
 import {
   DEFAULT_REGISTRY_REPO,
@@ -83,7 +116,7 @@ import {
 export function moduleUsage(): string {
   return t("mod.usage", {
     cmds: MODULE_CMD_NAMES.join("|"),
-    subs: MODULE_SUBCOMMANDS.join("|"),
+    subs: getVisibleModuleSubcommands(isDeveloperMode()).join("|"),
   });
 }
 
@@ -550,9 +583,15 @@ function parseFlags(args: string[]): InstallFlags {
  * 统一分发 module/mod 子命令 —— CLI(`main.ts`)与 REPL(`repl.ts`)共用,
  * 避免两处 switch 漂移(例如原先 REPL 缺 enable/disable)。
  *
+ * devmode 关闭时,开发者子命令(create/dev/build/reload)直接拦截并提示
+ * `devmode on`(单一权威来源:`isDeveloperMode`)—— 不允许在 main.ts / repl.ts 各自再写一份。
+ *
  * `remove` 作为 uninstall 的同义别名保留。
  */
 export async function dispatchModuleCommand(sub: string | undefined, args: string[]): Promise<string> {
+  if (isDeveloperSubcommand(sub) && !isDeveloperMode()) {
+    return c.yellow(t("mod.devGated", { sub: sub ?? "", cmd: "devmode on" }));
+  }
   switch (sub) {
     case "list":
       return cmdModuleList(args);

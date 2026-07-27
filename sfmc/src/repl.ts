@@ -28,11 +28,13 @@ import {
 } from "./logs.js";
 import {
   dispatchModuleCommand,
+  getVisibleModuleSubcommands,
+  isDeveloperSubcommand,
   isModuleCommand,
   listInstalledModuleIdsSync,
   MODULE_CMD_NAMES,
-  MODULE_SUBCOMMANDS,
 } from "./module-commands.js";
+import { isDeveloperMode } from "./devmode.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
@@ -59,6 +61,36 @@ const version = `\n
   ${c.text(`⡷⡇⡎⠁`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}
   ${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
 `;
+
+/**
+ * module 子命令帮助条目（顺序与展示与可见性解耦 —— 始终全部展示;颜色决定可读时的角色）。
+ * `sub` 走 `isDeveloperSubcommand` 决定着色;suffix 是该条 args 后缀;i18n key 显示在右侧。
+ * 行 0 用 `module/mod` 命名一次性;其余行用 `module`。
+ */
+const MODULE_HELP_ENTRIES: ReadonlyArray<{ sub: string; suffix: string; key: string }> = [
+  { sub: "list", suffix: "", key: "help.module.list" },
+  { sub: "search", suffix: " [id]", key: "help.module.search" },
+  { sub: "install", suffix: " <id> [--from <source>] [--link]", key: "help.module.install" },
+  { sub: "uninstall", suffix: " <id>", key: "help.module.uninstall" },
+  { sub: "verify", suffix: " [id]", key: "help.module.verify" },
+  { sub: "info", suffix: " <id>", key: "help.module.info" },
+  { sub: "enable", suffix: "|disable <id>", key: "help.module.toggle" },
+  { sub: "create", suffix: "", key: "help.module.create" },
+  { sub: "link", suffix: " [id]", key: "help.module.link" },
+  { sub: "dev", suffix: "", key: "help.module.dev" },
+  { sub: "build", suffix: "", key: "help.module.build" },
+  { sub: "reload", suffix: " [--build-only]", key: "help.module.reload" },
+];
+
+/** 帮助中 module 区段的渲染：base=绿，dev=蓝（同集合驱动，避免在多处写 if）。 */
+function moduleHelpBlock(): string {
+  return MODULE_HELP_ENTRIES.map(({ sub, suffix, key }, i) => {
+    const paint = isDeveloperSubcommand(sub) ? c.blue : c.green;
+    const cmdLabel = i === 0 ? `${c.green("module")}/${c.green("mod")}` : c.green("module");
+    const subPainted = paint(sub);
+    return `  ${cmdLabel} ${subPainted}${suffix}\n                                   ${t(key as never)}`;
+  }).join("\n");
+}
 
 /** 按当前语言生成帮助（勿缓存为常量，locale 可切换）。 */
 export function getHelp(): string {
@@ -89,22 +121,7 @@ ${c.bold(t("help.section.devmode"))}
   ${c.green("devmode")} [on|off|status]  ${t("help.devmode")}
 
 ${c.bold(t("help.section.module"))}
-  ${c.green("module")}/${c.green("mod")} list
-                                   ${t("help.module.list")}
-  ${c.green("module")} search [id]       ${t("help.module.search")}
-  ${c.green("module")} install <id> [--from <source>] [--link]
-                                   ${t("help.module.install")}
-  ${c.green("module")} uninstall <id>    ${t("help.module.uninstall")}
-  ${c.green("module")} verify [id]       ${t("help.module.verify")}
-  ${c.green("module")} info <id>         ${t("help.module.info")}
-  ${c.green("module")} enable|disable <id>
-                                   ${t("help.module.toggle")}
-  ${c.green("module")} create            ${t("help.module.create")}
-  ${c.green("module")} link [id]         ${t("help.module.link")}
-  ${c.green("module")} dev               ${t("help.module.dev")}
-  ${c.green("module")} build             ${t("help.module.build")}
-  ${c.green("module")} reload [--build-only]
-                                   ${t("help.module.reload")}
+${moduleHelpBlock()}
 
 ${c.bold(t("help.section.addon"))}
   ${c.green("addon")}/${c.green("packs")} list|search|enable|disable|bump|install|scan|doctor|path
@@ -234,7 +251,8 @@ function getCompletions(parsed: ParsedLine): string[] {
     default: {
       /* 与 MODULE_CMD_NAMES 对齐,新增别名无需再改 case(OCP/DRY) */
       if (!isModuleCommand(cmd)) return [];
-      if (argIndex === 0) return [...MODULE_SUBCOMMANDS].filter(sw);
+      /* Tab 补全按 devmode 过滤 —— 唯一权威来源 */
+      if (argIndex === 0) return [...getVisibleModuleSubcommands(isDeveloperMode())].filter(sw);
       const verb = words[0] ?? "";
       /* search:补全 registry 缓存中的 id;其余本地已装 id */
       if (argIndex === 1 && verb === "search") {

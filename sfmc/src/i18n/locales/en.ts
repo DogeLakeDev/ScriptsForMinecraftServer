@@ -281,6 +281,8 @@ export const en = {
 
   /* ─── module commands ─── */
   "mod.usage": "Usage: sfmc {cmds} <{subs}> [args]",
+  "mod.devGated":
+    'Developer subcommand `{sub}` is hidden — enable persistent dev mode first: `sfmc {cmd}`.',
   "mod.list.title": "Installed modules",
   "mod.noneInstalled": "\nNo modules installed. Drop a module folder under {dir} or run `sfmc mod install <id>`.\n",
   "mod.notInRegistry": 'Module "{query}" not found in first-party registry.',
@@ -301,6 +303,8 @@ export const en = {
     "--link requires --from dir:<path>, or set SFMC_MODULES_ROOT / sibling ../sfmc-modules.\nExample: sfmc mod install land --from dir:../sfmc-modules/packages/land --link",
   "mod.fetchMissing": "fetch-module not found. Install @sfmc-bds/sfmc or run inside the monorepo.",
   "mod.uninstall.usage": "Usage: sfmc module|mod uninstall <id>",
+  "mod.devGatedHint":
+    "Tip: `sfmc devmode on` unlocks create / dev / build / reload. They are highlighted in blue in `help`.",
   "mod.notInstalledFolder": "Module {id} not installed (no folder at {path})",
   "mod.removed": "Removed {id} from {path}\n",
 

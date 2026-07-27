@@ -264,6 +264,8 @@ export const zhCN: Record<MessageKey, string> = {
   "modwiz.devReady": "{id} 开发环境就绪",
 
   "mod.usage": "用法: sfmc {cmds} <{subs}> [args]",
+  "mod.devGated":
+    "开发者子命令 `{sub}` 已隐藏 —— 请先开启持久化开发模式: `sfmc {cmd}`。",
   "mod.list.title": "已安装模块",
   "mod.noneInstalled": "\n未安装模块。请将模块目录放到 {dir}，或执行 `sfmc mod install <id>`。\n",
   "mod.notInRegistry": '模块 "{query}" 不在官方 registry 中。',
@@ -284,6 +286,8 @@ export const zhCN: Record<MessageKey, string> = {
     "--link 需要 --from dir:<path>，或设置 SFMC_MODULES_ROOT / 旁路 ../sfmc-modules。\n示例: sfmc mod install land --from dir:../sfmc-modules/packages/land --link",
   "mod.fetchMissing": "未找到 fetch-module。请安装 @sfmc-bds/sfmc 或在 monorepo 内运行。",
   "mod.uninstall.usage": "用法: sfmc module|mod uninstall <id>",
+  "mod.devGatedHint":
+    "提示: `sfmc devmode on` 解锁 create / dev / build / reload,它们在 `help` 中以蓝色标记。",
   "mod.notInstalledFolder": "模块 {id} 未安装（目录不存在: {path}）",
   "mod.removed": "已从 {path} 移除 {id}\n",
 
