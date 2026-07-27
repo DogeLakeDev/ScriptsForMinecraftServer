@@ -1,5 +1,23 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0-beta.8
+
+### Patch Changes
+
+- 7c80162: 修复 #80 合入冲突残留：`scanDestOccupancy` 恢复走 `readPackDirOccupancy`（DRY），消除未声明标识符导致的 tsc7 构建失败。
+
+## 0.2.0-beta.7
+
+### Patch Changes
+
+- c1de2a8: none
+- f8cbe3b: none
+- b6f8adc: none
+- Updated dependencies [c1de2a8]
+- Updated dependencies [f8cbe3b]
+- Updated dependencies [b6f8adc]
+  - @sfmc-bds/sdk@0.2.0-beta.6
+
 ## 0.2.0-beta.6
 
 ### Patch Changes

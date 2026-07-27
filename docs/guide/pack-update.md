@@ -6,12 +6,12 @@
 
 | 路径 | 职责 |
 |------|------|
-| [`sfmc/src/pack-update/`](../../sfmc/src/pack-update/) | 配置、绑定、CF Provider、探测/检查/应用 |
-| [`sfmc/src/world-packs.ts`](../../sfmc/src/world-packs.ts) | CLI 接线、安装后探测钩子 |
-| [`sfmc/src/services.ts`](../../sfmc/src/services.ts) | BDS `beforeStart` 检查/应用 |
-| [`bds-tools/src/world-packs.ts`](../../bds-tools/src/world-packs.ts) | 安装/enable/抬版权威实现 |
-| [`modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts`](../../modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts) | 进度条与日志共存 |
-| [`configs/pack-update.json`](../../configs/pack-update.json) | 运行时配置（首次由 sfmc ensure 写入内置 DEFAULTS） |
+| [`sfmc/src/pack-update/`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/sfmc/src/pack-update) | 配置、绑定、CF Provider、探测/检查/应用 |
+| [`sfmc/src/world-packs.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/world-packs.ts) | CLI 接线、安装后探测钩子 |
+| [`sfmc/src/services.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/services.ts) | BDS `beforeStart` 检查/应用 |
+| [`bds-tools/src/world-packs.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/bds-tools/src/world-packs.ts) | 安装/enable/抬版权威实现 |
+| [`modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts) | 进度条与日志共存 |
+| `configs/pack-update.json` | 运行时配置（gitignore；首次由 sfmc ensure 写入内置 DEFAULTS，见 [`config.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/pack-update/config.ts)） |
 
 通用收件箱安装见 [资源包管理](./world-packs.md)。
 
@@ -71,7 +71,7 @@ flowchart TD
 
 不再从 `configs-default` 拷贝。`createServices()` / `ensurePackUpdateConfigFile()` 在文件缺失时写入代码内 `DEFAULTS`，并附带 `$schema`（见 `@sfmc-bds/sdk/schemas/pack_update.schema.json`）。
 
-权威实现：[`sfmc/src/pack-update/config.ts`](../../sfmc/src/pack-update/config.ts) 的 `ensurePackUpdateConfigFile`。
+权威实现：[`sfmc/src/pack-update/config.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/pack-update/config.ts) 的 `ensurePackUpdateConfigFile`。
 
 ### 3.3 `pack-update.json` 关键字段
 
@@ -189,7 +189,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 | `GET /v1/mods/search?...` | **部分 key 恒 403**（`Forbidden: API Key missing or invalid`） |
 | `GET https://api.curse.tools/v1/cf/mods/search?...` | 200（社区镜像，路径约定与官方类似） |
 
-实现策略（[`providers/curseforge.ts`](../../sfmc/src/pack-update/providers/curseforge.ts)）：
+实现策略（[`providers/curseforge.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/pack-update/providers/curseforge.ts)）：
 
 1. 先打官方 `baseUrl` + `/v1/mods/search`。
 2. 若返回 403 → 静默改打 `searchBaseUrl`（默认 `https://api.curse.tools/v1/cf`）的 `/mods/search`。

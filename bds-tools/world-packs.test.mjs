@@ -283,52 +283,49 @@ describe("world-packs primitives", () => {
     assert.deepEqual(version, [2, 0, 1]);
   });
 
-  it("scanDestOccupancy / readPackDirOccupancy：完整与残缺 manifest", async () => {
-    const { scanDestOccupancy, readPackDirOccupancy, formatWorldPackFolderName } = await import(
-      "./dist/world-packs.js"
-    );
-    const parent = path.join(tmp, "occupancy-scan");
-    const fullName = formatWorldPackFolderName("Full", "resource");
-    const brokenName = formatWorldPackFolderName("Broken", "behavior");
-    const fullDir = path.join(parent, fullName);
-    const brokenDir = path.join(parent, brokenName);
+  it("scanDestOccupancy 走 readPackDirOccupancy（完整 + 残缺 header）", async () => {
+    const { scanDestOccupancy, readPackDirOccupancy } = await import("./dist/world-packs.js");
+    const dest = path.join(tmp, "occupancy-dry");
+    const fullDir = path.join(dest, "[RP] Full");
     writeManifest(fullDir, {
       name: "Full Pack",
-      uuid: "11111111-1111-1111-1111-111111111111",
-      version: [2, 3, 4],
+      uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      version: [2, 1, 0],
       type: "resources",
     });
-    fs.mkdirSync(brokenDir, { recursive: true });
+    const partialDir = path.join(dest, "[RP] Partial");
+    fs.mkdirSync(partialDir, { recursive: true });
     fs.writeFileSync(
-      path.join(brokenDir, "manifest.json"),
+      path.join(partialDir, "manifest.json"),
       JSON.stringify({
         format_version: 2,
         header: {
-          name: "Broken Pack",
-          uuid: "22222222-2222-2222-2222-222222222222",
-          version: [9, 0, 1],
+          name: "Partial",
+          uuid: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          version: [3, 0, 0],
         },
         modules: [],
       })
     );
 
     const fullFacts = readPackDirOccupancy(fullDir);
-    assert.equal(fullFacts?.uuid, "11111111-1111-1111-1111-111111111111");
-    assert.deepEqual(fullFacts?.version, [2, 3, 4]);
+    assert.equal(fullFacts?.uuid, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    assert.deepEqual(fullFacts?.version, [2, 1, 0]);
+    assert.equal(fullFacts?.name, "Full Pack");
     assert.equal(fullFacts?.kind, "resource");
 
-    const brokenFacts = readPackDirOccupancy(brokenDir);
-    assert.equal(brokenFacts?.uuid, "22222222-2222-2222-2222-222222222222");
-    assert.deepEqual(brokenFacts?.version, [9, 0, 1]);
-    assert.equal(brokenFacts?.kind, undefined);
+    const partialFacts = readPackDirOccupancy(partialDir);
+    assert.equal(partialFacts?.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    assert.deepEqual(partialFacts?.version, [3, 0, 0]);
+    assert.equal(partialFacts?.kind, undefined);
 
-    const occ = scanDestOccupancy(parent);
+    const occ = scanDestOccupancy(dest);
     assert.equal(occ.length, 2);
-    const byFolder = Object.fromEntries(occ.map((o) => [o.folderName, o]));
-    assert.equal(byFolder[fullName]?.uuid, "11111111-1111-1111-1111-111111111111");
-    assert.equal(byFolder[fullName]?.kind, "resource");
-    assert.equal(byFolder[brokenName]?.uuid, "22222222-2222-2222-2222-222222222222");
-    assert.equal(byFolder[brokenName]?.kind, undefined);
+    const byUuid = new Map(occ.map((o) => [o.uuid, o]));
+    assert.equal(byUuid.get("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?.name, "Full Pack");
+    assert.equal(byUuid.get("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?.kind, "resource");
+    assert.equal(byUuid.get("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?.version?.[0], 3);
+    assert.equal(byUuid.get("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?.name, undefined);
   });
 
   it("decidePackInstallPlan 表驱动", async () => {
@@ -548,6 +545,51 @@ describe("world-packs primitives", () => {
     assert.equal(forced.ok, true, forced.reason);
     assert.equal(forced.destDir && path.basename(forced.destDir), path.basename(existingB));
     assert.equal(readPackManifestInfo(existingB)?.name, "Slash Blade v2b");
+  });
+
+  it("scanDestOccupancy 走 readPackDirOccupancy（完整 + 残缺 header）", async () => {
+    const { scanDestOccupancy, readPackDirOccupancy } = await import("./dist/world-packs.js");
+    const dest = path.join(tmp, "occupancy-dry");
+    const fullDir = path.join(dest, "[RP] Full");
+    writeManifest(fullDir, {
+      name: "Full Pack",
+      uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      version: [2, 1, 0],
+      type: "resources",
+    });
+    const partialDir = path.join(dest, "[RP] Partial");
+    fs.mkdirSync(partialDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(partialDir, "manifest.json"),
+      JSON.stringify({
+        format_version: 2,
+        header: {
+          name: "Partial",
+          uuid: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          version: [3, 0, 0],
+        },
+        modules: [],
+      })
+    );
+
+    const fullFacts = readPackDirOccupancy(fullDir);
+    assert.equal(fullFacts?.uuid, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    assert.deepEqual(fullFacts?.version, [2, 1, 0]);
+    assert.equal(fullFacts?.name, "Full Pack");
+    assert.equal(fullFacts?.kind, "resource");
+
+    const partialFacts = readPackDirOccupancy(partialDir);
+    assert.equal(partialFacts?.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    assert.deepEqual(partialFacts?.version, [3, 0, 0]);
+    assert.equal(partialFacts?.kind, undefined);
+
+    const occ = scanDestOccupancy(dest);
+    assert.equal(occ.length, 2);
+    const byUuid = new Map(occ.map((o) => [o.uuid, o]));
+    assert.equal(byUuid.get("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?.name, "Full Pack");
+    assert.equal(byUuid.get("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?.kind, "resource");
+    assert.equal(byUuid.get("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?.version?.[0], 3);
+    assert.equal(byUuid.get("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?.name, undefined);
   });
 
   it("installPackDirectory：残缺 manifest 占用目录时换名而非覆盖", async () => {
