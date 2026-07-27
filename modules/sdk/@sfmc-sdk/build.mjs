@@ -59,6 +59,7 @@ const SUBPATHS = [
   { sub: "sapi/runtime", platform: "neutral" },
   { sub: "sapi/db", platform: "neutral" },
   { sub: "sapi/config", platform: "neutral" },
+  { sub: "sapi/diagnostics", platform: "neutral" },
   { sub: "sapi/service", platform: "neutral" },
   { sub: "sapi/host", platform: "node" },
   { sub: "node/sdk", platform: "node" },
@@ -79,6 +80,8 @@ const MINECRAFT_EXTERNALS = [
   "@minecraft/server",
   "@minecraft/server-ui",
   "@minecraft/server-net",
+  "@minecraft/server-admin",
+  "@minecraft/diagnostics",
   "@minecraft/vanilla-data",
 ];
 

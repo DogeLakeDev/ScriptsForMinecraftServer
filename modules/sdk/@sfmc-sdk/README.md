@@ -4,6 +4,7 @@ ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 
 - **`@sfmc-bds/sdk/contracts`** — 平台级类型契约（模块 catalog / lock）；业务域类型由各模块在 sfmc-modules 内维护
 - **`@sfmc-bds/sdk/sapi/runtime`** — SAPI 进程内运行时:`Msg` / `Command` / `Permission` / `MenuNavigator` / `Money` / `debug`
+- **`@sfmc-bds/sdk/sapi/diagnostics`** — BDS Sentry 可选接入（经 `debug` sink；`SENTRY_DSN` 缺省关闭）
 - **`@sfmc-bds/sdk/sapi/db`** — 数据库友好 API:`db.defineTable` / `db.tx` / `db.query` / `db.audit` / `db.idempotent`
 - **`@sfmc-bds/sdk/sapi/config`** — 模块配置:`config.get` / `config.set` / `config.onChange`
 - **`@sfmc-bds/sdk/sapi/service`** — 跨模块调用:`service.get` / `service.list`

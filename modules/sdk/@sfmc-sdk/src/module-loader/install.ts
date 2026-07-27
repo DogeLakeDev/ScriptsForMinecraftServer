@@ -14,6 +14,8 @@
  */
 
 import { system, world } from "@minecraft/server";
+import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
+import { debug } from "../sapi/runtime/debug-log.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import type { DataAdapter } from "./internal/config-manager.js";
 import { ConfigManager } from "./internal/config-manager.js";
@@ -64,10 +66,13 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
 
   // 装配 system.events
   system.beforeEvents.startup.subscribe(async () => {
+    // Sentry / 控制台 debug：DSN 与 sfmc_debug 均缺省关闭
+    initSentryIfConfigured();
+    applyDebugFromVariables();
     try {
       await ConfigManager.init();
     } catch (e) {
-      console.warn(`[installHostBootstrap] ConfigManager.init failed: ${(e as Error).message || e}`);
+      debug.e("HOST", "ConfigManager.init failed", e);
     }
     ModuleRegistry.bootAll();
     ModuleRegistry.snapshotEnabled();

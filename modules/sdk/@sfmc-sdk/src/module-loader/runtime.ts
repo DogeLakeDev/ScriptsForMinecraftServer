@@ -1,4 +1,5 @@
 import { system } from "@minecraft/server";
+import { debug } from "../sapi/runtime/debug-log.js";
 import { ConfigManager } from "./internal/config-manager.js";
 import { ModuleId, Modules } from "./internal/module-keys.js";
 import { setConfigModuleContext, clearConfigModuleContext } from "../sapi/config/client.js";
@@ -147,14 +148,14 @@ export class ModuleRegistry {
         try {
           ModuleRegistry.cleanupModule(d.id);
         } catch (e) {
-          console.warn(`[Module:${d.id}] cleanup failed: ${(e as Error).message || e}`);
+          debug.e("Module", `[${d.id}] cleanup failed`, e);
         }
         changes.push({ id: d.id, action: "disable" });
       } else if (!prev && cur) {
         try {
           ModuleRegistry.bootModule(d.id);
         } catch (e) {
-          console.warn(`[Module:${d.id}] boot failed: ${(e as Error).message || e}`);
+          debug.e("Module", `[${d.id}] boot failed`, e);
         }
         changes.push({ id: d.id, action: "enable" });
       }
@@ -183,7 +184,7 @@ export class ModuleRegistry {
         applyModuleAuthContext(d.id);
         d.lifecycle.init?.();
       } catch (e) {
-        console.warn(`[Module:${d.id}] init failed: ${(e as Error).message || e}`);
+        debug.e("Module", `[${d.id}] init failed`, e);
       }
     }
   }
@@ -198,7 +199,7 @@ export class ModuleRegistry {
         applyModuleAuthContext(d.id);
         d.lifecycle.init?.();
       } catch (e) {
-        console.warn(`[Module:${d.id}] task start failed: ${(e as Error).message || e}`);
+        debug.e("Module", `[${d.id}] task start failed`, e);
       }
     }
   }
@@ -219,7 +220,7 @@ export class ModuleRegistry {
       }
       booted.add(id);
     } catch (e) {
-      console.warn(`[Module:${id}] boot failed: ${(e as Error).message || e}`);
+      debug.e("Module", `[${id}] boot failed`, e);
     }
   }
 
@@ -231,7 +232,7 @@ export class ModuleRegistry {
     try {
       d.lifecycle.cleanup?.();
     } catch (e) {
-      console.warn(`[Module:${id}] cleanup hook failed: ${(e as Error).message || e}`);
+      debug.e("Module", `[${id}] cleanup hook failed`, e);
     }
     // 2. 注销模块持有的命令(用 catalog id;旧 Modules 别名作次选)
     try {
@@ -246,7 +247,7 @@ export class ModuleRegistry {
         try {
           fn();
         } catch (e) {
-          console.warn(`[Module:${id}] cleanup fn failed: ${(e as Error).message || e}`);
+          debug.e("Module", `[${id}] cleanup fn failed`, e);
         }
       }
       cleanups.set(id, []);
