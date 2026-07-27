@@ -36,6 +36,8 @@ tools/.sfmc-registry-cache.json
 /configs/
 /modules/module-lock.json
 /packs/
+BDS/
+backups/
 
 # Proactive-agent credentials (security-audit.sh)
 .credentials/
