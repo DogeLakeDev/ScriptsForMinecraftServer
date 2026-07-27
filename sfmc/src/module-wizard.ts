@@ -9,7 +9,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { t } from "./i18n/index.js";
+import { t, type MessageKey } from "./i18n/index.js";
 import { cmdModuleEnable } from "./module-commands.js";
 import { pickDirectory, resolveUserPath } from "./interactive-prompts.js";
 import { ROOT, resolveFetchModule, resolveNewModule } from "./runtime.js";
@@ -119,6 +119,44 @@ function validateFolderId(value: string | undefined): string | undefined {
   return undefined;
 }
 
+/** 模板元数据（与 tools/new-module.mjs --list-templates 一一对应）。 */
+type TemplateMeta = { id: string; isDefault: boolean };
+
+/**
+ * 向 tools/new-module.mjs 查询可用模板清单 —— 模板枚举的唯一权威源。
+ * 输出行 `<id>` 或 `<id>\tdefault`，见 tools/new-module.mjs TEMPLATES 文档。
+ *
+ * 失败兜底:工具缺失 / 子进程退出非零 → 返回空数组。调用方据此提示用户。
+ */
+async function listTemplatesFromTool(): Promise<TemplateMeta[]> {
+  const script = resolveNewModule();
+  if (!script) return [];
+  const { code, output } = await spawnTool(script, ["--list-templates"]);
+  if (code !== 0) return [];
+  const out: TemplateMeta[] = [];
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [id, ...flags] = trimmed.split("\t");
+    if (!id) continue;
+    out.push({ id, isDefault: flags.includes("default") });
+  }
+  return out;
+}
+
+/**
+ * i18n key `modwiz.tpl.<id>` 在某 locale 中缺失时 t() 会原样返回 key 字符串。
+ * 用此特征检测缺失并降级为原始 id / 隐藏 hint。
+ */
+function tplLabel(id: string): string {
+  const label = t(`modwiz.tpl.${id}` as MessageKey);
+  return label === `modwiz.tpl.${id}` ? id : label;
+}
+function tplHint(id: string): string | undefined {
+  const hint = t(`modwiz.tpl.${id}Hint` as MessageKey);
+  return hint === `modwiz.tpl.${id}Hint` ? undefined : hint;
+}
+
 /** 交互式创建模块包并可选 link / enable / build+deploy。 */
 export async function runModuleCreateWizard(): Promise<string> {
   if (!isInteractive()) {
@@ -157,12 +195,24 @@ export async function runModuleCreateWizard(): Promise<string> {
     return cancelMessage();
   }
 
+  const templates = await listTemplatesFromTool();
+  if (templates.length === 0) {
+    outro(c.red(t("modwiz.noNewModule")));
+    return c.red(t("modwiz.noNewModule"));
+  }
+  const defaultTpl = templates.find((tpl) => tpl.isDefault) ?? templates[0]!;
   const template = await select({
     message: t("modwiz.template"),
-    options: [
-      { value: "minimal", label: t("modwiz.tpl.minimal"), hint: t("modwiz.tpl.minimalHint") },
-      { value: "db", label: t("modwiz.tpl.db"), hint: t("modwiz.tpl.dbHint") },
-    ],
+    initialValue: defaultTpl.id,
+    options: templates.map((tpl) => {
+      const opt: { value: string; label: string; hint?: string } = {
+        value: tpl.id,
+        label: tplLabel(tpl.id),
+      };
+      const hint = tplHint(tpl.id);
+      if (hint) opt.hint = hint;
+      return opt;
+    }),
   });
   if (isCancel(template)) {
     outro(cancelMessage());

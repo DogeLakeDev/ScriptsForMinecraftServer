@@ -4,8 +4,13 @@
  *
  * Usage:
  *   node tools/new-module.mjs <id> [--name <显示名>] [--root <sfmc-modules>] [--template minimal|db]
+ *   node tools/new-module.mjs --list-templates
  *
  * 由 `sfmc module create` 交互向导调用；也可单独使用。
+ *
+ * —— 模板清单是模板名空间的唯一权威源 ——
+ * `sfmc module create` 向导应在启动时 spawn `new-module.mjs --list-templates` 取一份
+ * 可用模板清单，向导代码不应自己硬编码一份同名表(LSP/DRY)。新加模板只该改一处。
  */
 
 import fs from "node:fs";
@@ -19,8 +24,8 @@ function die(msg, code = 1) {
 }
 
 function parseArgs(argv) {
-  /** @type {{ name: string | null, root: string | null, template: string }} */
-  const flags = { name: null, root: null, template: "minimal" };
+  /** @type {{ name: string | null, root: string | null, template: string, listTemplates: boolean }} */
+  const flags = { name: null, root: null, template: "minimal", listTemplates: false };
   /** @type {string[]} */
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
@@ -28,6 +33,7 @@ function parseArgs(argv) {
     if (a === "--name") flags.name = argv[++i] ?? null;
     else if (a === "--root") flags.root = argv[++i] ?? null;
     else if (a === "--template") flags.template = argv[++i] ?? "minimal";
+    else if (a === "--list-templates") flags.listTemplates = true;
     else if (a.startsWith("--name=")) flags.name = a.slice("--name=".length);
     else if (a.startsWith("--root=")) flags.root = a.slice("--root=".length);
     else if (a.startsWith("--template=")) flags.template = a.slice("--template=".length);
@@ -35,6 +41,27 @@ function parseArgs(argv) {
     else positional.push(a);
   }
   return { flags, positional };
+}
+
+/**
+ * 模板清单 —— 这是 sfmc-modules 可用模板的唯一权威源(OCP)。
+ * 加新模板只需:
+ *   1) 在下方数组里加一条(配合 buildManifest 分支处理)
+ *   2) 在 sfmc CLI 的 i18n 中加 modwiz.tpl.<id> / modwiz.tpl.<id>Hint
+ *
+ * 注意:不在此处放显示文案;本地化由 sfmc i18n 接管,本工具只暴露机器可读清单。
+ *
+ * 输出格式:每行 `<id>` 或 `<id>\tdefault` —— 单源、纯文本、无 JSON 依赖。
+ */
+const TEMPLATES = [
+  { id: "minimal", isDefault: true },
+  { id: "db", isDefault: false },
+];
+
+function emitTemplateList() {
+  for (const tpl of TEMPLATES) {
+    process.stdout.write(`${tpl.id}${tpl.isDefault ? "\tdefault" : ""}\n`);
+  }
 }
 
 function isValidFolderId(id) {
@@ -178,6 +205,13 @@ function writeText(filePath, content) {
 
 function main() {
   const { flags, positional } = parseArgs(process.argv.slice(2));
+
+  /* 模板清单查询:走 stdout 后立刻退出 —— 主流程不要走到此分支 */
+  if (flags.listTemplates) {
+    emitTemplateList();
+    return;
+  }
+
   const folderId = positional[0];
   if (!folderId) {
     die("用法: new-module.mjs <id> [--name <名>] [--root <sfmc-modules>] [--template minimal|db]");
