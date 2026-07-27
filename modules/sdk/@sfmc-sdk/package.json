@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/sdk",
-  "version": "0.2.0-beta.2",
+  "version": "0.2.0-beta.3",
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, db/config/service capabilities, and behavior-pack build.",
   "author": "Shiroha7z",
   "license": "ISC",
@@ -66,15 +66,15 @@
       "import": "./dist/esm/sapi/config/index.js",
       "default": "./dist/esm/sapi/config/index.js"
     },
-    "./sapi/diagnostics": {
-      "types": "./dist/types/sapi/diagnostics/index.d.ts",
-      "import": "./dist/esm/sapi/diagnostics/index.js",
-      "default": "./dist/esm/sapi/diagnostics/index.js"
-    },
     "./sapi/db": {
       "types": "./dist/types/sapi/db/index.d.ts",
       "import": "./dist/esm/sapi/db/index.js",
       "default": "./dist/esm/sapi/db/index.js"
+    },
+    "./sapi/diagnostics": {
+      "types": "./dist/types/sapi/diagnostics/index.d.ts",
+      "import": "./dist/esm/sapi/diagnostics/index.js",
+      "default": "./dist/esm/sapi/diagnostics/index.js"
     },
     "./sapi/host": {
       "types": "./dist/types/sapi/host/index.d.ts",

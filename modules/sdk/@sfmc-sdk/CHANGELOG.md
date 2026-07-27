@@ -1,5 +1,11 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.3
+
+### Patch Changes
+
+- none
+
 ## 0.2.0-beta.2
 
 ### Minor Changes

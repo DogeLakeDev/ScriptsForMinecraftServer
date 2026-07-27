@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/qq-bridge",
-  "version": "0.1.1-beta.0",
+  "version": "0.1.1-beta.1",
   "description": "SFMC QQ ↔ MC bridge — LLBot OneBot 11 reverse-WS on port 3002, forwards events to db-server",
   "author": "Shiroha7z",
   "license": "ISC",
@@ -40,7 +40,7 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.1",
+    "@sfmc-bds/sdk": "^0.2.0-beta.3",
     "ws": "^8.21.1"
   },
   "publishConfig": {

@@ -1,5 +1,6 @@
 {
   "name": "sfmc-monorepo",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +9,6 @@
   "bin": {
     "sfmc": "sfmc/dist/main.js"
   },
-  "version": "0.1.0",
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "build:publishable": "node tools/build-publishable.mjs",

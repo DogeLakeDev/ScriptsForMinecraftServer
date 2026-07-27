@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/tools",
-  "version": "0.2.0-beta.3",
+  "version": "0.2.0-beta.4",
   "description": "SFMC dev tools - testing before build",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
@@ -24,6 +24,10 @@
     "node": ">=22.13.0"
   },
   "main": "./check-ootb.mjs",
+  "exports": {
+    "./package.json": "./package.json",
+    "./tsc7": "./tsc7.mjs"
+  },
   "bin": {
     "sfmc-catalog-sync": "./catalog-sync.mjs",
     "sfmc-check-modules": "./check-modules.mjs",
@@ -35,30 +39,26 @@
     "sfmc-smoke-modules": "./smoke-modules.mjs",
     "tsc7": "./tsc7.mjs"
   },
-  "exports": {
-    "./package.json": "./package.json",
-    "./tsc7": "./tsc7.mjs"
-  },
   "files": [
     "catalog-sync.mjs",
+    "CHANGELOG.md",
     "check-modules.mjs",
     "check-ootb.mjs",
     "esbuild-transpile.mjs",
     "fetch-module.mjs",
+    "lib",
     "new-module.mjs",
+    "README.md",
     "sim-new-user.mjs",
     "smoke-modules.mjs",
-    "tsc7.mjs",
-    "lib",
-    "README.md",
-    "CHANGELOG.md"
+    "tsc7.mjs"
   ],
   "scripts": {
     "build": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.2",
-    "@sfmc-bds/sdk": "^0.2.0-beta.1"
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.4",
+    "@sfmc-bds/sdk": "^0.2.0-beta.3"
   },
   "publishConfig": {
     "access": "public",
