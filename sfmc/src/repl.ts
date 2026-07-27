@@ -1,3 +1,4 @@
+import { pauseAllProgress, resumeAllProgress } from "@sfmc-bds/sdk/logs";
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import {
@@ -11,6 +12,8 @@ import {
   cmdStopAll,
   cmdUpdate,
 } from "./commands.js";
+import { t } from "./i18n/index.js";
+import { cmdLocale } from "./locale-command.js";
 import {
   formatLog,
   getAllLogs,
@@ -23,7 +26,6 @@ import {
   type LogSource,
   type UnifiedLog,
 } from "./logs.js";
-import { pauseAllProgress, resumeAllProgress } from "@sfmc-bds/sdk/logs";
 import {
   dispatchModuleCommand,
   isModuleCommand,
@@ -34,8 +36,6 @@ import {
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
 import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
-import { cmdLocale } from "./locale-command.js";
-import { t } from "./i18n/index.js";
 import { listSfmcModulePackages, resolveSfmcModulesRoot } from "./sfmc-modules-root.js";
 import { c } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand, PACKS_SUBCOMMANDS } from "./world-packs.js";
@@ -64,7 +64,7 @@ const version = `\n
 export function getHelp(): string {
   return `
 ${c.bold("╭──────────────────────────────────────────────────────────╮")}
-${c.bold("│")}  ${c.green(t("help.title"))}${" ".repeat(Math.max(1, 52 - t("help.title").length))}${c.bold("│")}
+${c.bold("│")}  ${c.green(t("help.title"))}${" ".repeat(Math.max(1, 56 - t("help.title").length))}${c.bold("│")}
 ${c.bold("╰──────────────────────────────────────────────────────────╯")}
 
 ${c.bold(t("help.section.service"))}
@@ -721,9 +721,7 @@ export async function startRepl(): Promise<void> {
       }
 
       const histLabel = histChoices.find((i) => i.value === hist)?.label ?? hist;
-      stdout.write(
-        c.dim(t("repl.filter", { level: lvl || "*", source: src || "*", history: histLabel }) + "\n")
-      );
+      stdout.write(c.dim(t("repl.filter", { level: lvl || "*", source: src || "*", history: histLabel }) + "\n"));
       continue;
     }
 
@@ -840,3 +838,4 @@ async function execCmd(parts: string[]): Promise<void> {
       stdout.write(c.yellow(t("common.unknownShort", { cmd: cmd ?? "" }) + "\n"));
   }
 }
+
