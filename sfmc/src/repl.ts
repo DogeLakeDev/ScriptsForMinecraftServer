@@ -1,16 +1,19 @@
 import { pauseAllProgress, resumeAllProgress } from "@sfmc-bds/sdk/logs";
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
+import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
 import {
-  cmdLogs,
-  cmdRestart,
-  cmdSend,
-  cmdStart,
-  cmdStartAll,
-  cmdStatus,
-  cmdStop,
-  cmdStopAll,
-} from "./commands.js";
+  activeNode,
+  clampPaletteSelection,
+  commitSelection,
+  formatPaletteCascadeLines,
+  paletteGhost,
+  promptSlashColumn,
+  resolvePaletteView,
+} from "./command-palette.js";
+import { listVisiblePacksSubs, listVisibleTopLevelNames, type CommandMode } from "./command-surface.js";
+import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll } from "./commands.js";
+import { getHelp as buildHelp } from "./help-text.js";
 import { t } from "./i18n/index.js";
 import {
   formatLog,
@@ -30,22 +33,6 @@ import {
   isModuleCommand,
   listInstalledModuleIdsSync,
 } from "./module-commands.js";
-import {
-  listVisiblePacksSubs,
-  listVisibleTopLevelNames,
-  type CommandMode,
-} from "./command-surface.js";
-import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
-import {
-  activeNode,
-  clampPaletteSelection,
-  commitSelection,
-  formatPaletteCascadeLines,
-  paletteGhost,
-  promptSlashColumn,
-  resolvePaletteView,
-} from "./command-palette.js";
-import { getHelp as buildHelp } from "./help-text.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { stopRemoteAgent } from "./remote-agent.js";
 import { listActiveSendTargets, paintSendPrompt, plainPrompt } from "./send-target.js";
@@ -136,7 +123,7 @@ function parseLine(line: string): ParsedLine {
  */
 function getCompletions(parsed: ParsedLine): string[] {
   const { words, argIndex, current } = parsed;
-  const cmd = (parsed.cmd.startsWith("/") ? parsed.cmd.slice(1) : parsed.cmd);
+  const cmd = parsed.cmd.startsWith("/") ? parsed.cmd.slice(1) : parsed.cmd;
   const sw = (s: string): boolean => s.startsWith(current);
   if (!cmd) {
     const cmds = getCommands().map((n) => (n.startsWith("/") ? n : n));
@@ -451,7 +438,7 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
       if (!col || col.items.length === 0) return false;
       const len = col.items.length;
       const cur = clampPaletteSelection(col.selected, len);
-      const next = ((cur + delta) % len + len) % len;
+      const next = (((cur + delta) % len) + len) % len;
       palSels[view.active] = next;
       redraw();
       return true;
