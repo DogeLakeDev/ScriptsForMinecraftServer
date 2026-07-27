@@ -54,49 +54,6 @@ npm run build --workspace @sfmc-bds/cli
 
 工作根：monorepo 内为仓根；npm 聚合包安装后为 **cwd**（可用 `SFMC_ROOT` 覆盖）。首次初始化看 `configs/runtime.json#initialized_at`，不是 `db_config.json` 是否存在。
 
-### 命令归属与运行入口（OCP 拆分判据）
-
-| 类 | 判据 | 例子 |
-|----|------|------|
-| **internal**（sfmc 进程内） | 需要 REPL 状态、`runtime.json`、db-server 连接、长连接、或与其它子命令紧耦合 | `devmode` `locale` `init` `status` `logs` `start|stop|restart|send` `remote` `module list|search|info|verify|enable|disable` `packs/addon` `debug` |
-| **external**（`tools/*.mjs` 或 `bds-tools/dist/*.js`） | 纯文件 / 网络操作；可在无 sfmc 二进制环境独立运行 | `module install|uninstall|link` → `tools/fetch-module.mjs`；`module create` → `tools/new-module.mjs`；`module build|reload` → `bds-tools/dist/cli-pack-manager.js` 各 verb |
-
-命令可见性 / 派发单一权威：`module` 子命令见 `sfmc/src/module-commands.ts` 的
-`BASE_MODULE_SUBCOMMANDS` / `DEV_MODULE_SUBCOMMANDS` 与
-`getVisibleModuleSubcommands(devMode)` / `dispatchModuleCommand()`。`repl.ts`
-的 `getHelp()` / `getCompletions()` / `main.ts` 的未知回退 全部走同一份 selector
-（DRY）。开发者子命令在 `devmode on` 时可见且帮助中蓝色提示；关闭时被
-dispatch 拦截并提示 `devmode on`。
-
-模板清单（如 `module create`）的单一权威是 `tools/new-module.mjs --list-templates`
-（spawn 取），sfmc 的 wizard 不应再硬编码一份。
-
-### `sfmc debug` —— BDS 调试配置入口
-
-读写 `<BDS>/config/default/variables.json` 与 `secrets.json`（由
-`bds_updater.json#bds_path` 定位 BDS 根）：
-
-```bash
-sfmc debug status              # 查看 sfmc_debug / SENTRY_DSN 状态
-sfmc debug enable|disable      # 写 sfmc_debug=true|false
-sfmc debug sentry on --dsn <dsn>  # 写 SENTRY_DSN
-sfmc debug sentry off          # 删除 SENTRY_DSN
-```
-
-仅改配置，不触碰 SDK `applyDebugFromVariables` / `initSentryIfConfigured` 语义
-（OCP）。改完需 `sfmc mod reload` 或重启 BDS 才在行为包运行时生效。
-
-### `sfmc devmode` —— 持久化开发模式
-
-写 `configs/runtime.json#developer_mode`：
-
-```bash
-sfmc devmode on|off|status
-```
-
-作为 `module` 开发者子命令可见性门控的唯一权威。`isDeveloperMode()`
-是 REPL/帮助/补全/分发共用入口，禁止直读 `runtime.json`。
-
 ## 工具链
 
 新脚本优先放 `tools/*.mjs`，共享逻辑用 `tools/lib/`。不要复制 catalog/lock 读写。

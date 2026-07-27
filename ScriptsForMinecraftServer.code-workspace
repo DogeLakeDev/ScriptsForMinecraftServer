@@ -1,11 +1,15 @@
 {
   "folders": [
-	{
-		"path": "."
-	},
-	{
-		"path": "../sfmc-modules"
-	}
-],
-  "settings": {}
+    {
+      "path": ".",
+    },
+    {
+      "path": "../sfmc-modules",
+    },
+    {
+      "path": "../ScriptsForMinecraftServer-feature-dev-mode",
+    },
+  ],
+  "settings": {},
 }
+
