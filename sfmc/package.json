@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/cli",
-  "version": "0.2.0-beta.4",
+  "version": "0.2.0-beta.5",
   "description": "SFMC management CLI — REPL, service supervisor, module install, behavior-pack build/deploy",
   "author": "Shiroha7z",
   "license": "ISC",
@@ -53,8 +53,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.7.0",
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.6",
-    "@sfmc-bds/sdk": "^0.2.0-beta.5",
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.7",
+    "@sfmc-bds/sdk": "^0.2.0-beta.6",
     "chalk": "^5.4.1",
     "ws": "^8.21.1"
   },
