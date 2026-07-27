@@ -566,7 +566,8 @@ export type PackInstallPlan =
 
 /**
  * 读单目录占用事实（info 优先，否则 header）。
- * 解析失败返回 null；BOM 已由 readJsonFile 剥离，不再抛 Utf8BomError。
+ * info/header 解析失败返回 null；BOM 已由 readJsonFile 剥离。
+ * 其它异常上抛，由 scanDestOccupancy 决定仍占文件夹名（uuid 置空）。
  */
 export function readPackDirOccupancy(dir: string): {
   uuid: string;
@@ -594,7 +595,13 @@ export function readPackDirOccupancy(dir: string): {
 export function scanDestOccupancy(destParent: string): DestOccupancy[] {
   const out: DestOccupancy[] = [];
   for (const dir of listPackDirsIn(destParent)) {
-    const facts = readPackDirOccupancy(dir);
+    let facts: ReturnType<typeof readPackDirOccupancy> = null;
+    try {
+      // DRY：单目录占用只走 readPackDirOccupancy，禁止再内联一份 info/header 分支
+      facts = readPackDirOccupancy(dir);
+    } catch {
+      /* manifest 不可读则占位 uuid 为空（#81 契约：扫描本身不因单目录失败而中断） */
+    }
     out.push({
       folderName: path.basename(dir),
       dir,
