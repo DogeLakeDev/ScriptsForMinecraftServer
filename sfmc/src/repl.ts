@@ -85,6 +85,9 @@ ${c.bold(t("help.section.remote"))}  ${c.dim("[beta]")}
                                    ${t("help.remote.enroll")}
   ${c.green("remote")} disable           ${t("help.remote.disable")}
 
+${c.bold(t("help.section.devmode"))}
+  ${c.green("devmode")} [on|off|status]  ${t("help.devmode")}
+
 ${c.bold(t("help.section.module"))}
   ${c.green("module")}/${c.green("mod")} list
                                    ${t("help.module.list")}
@@ -145,6 +148,7 @@ const COMMANDS = [
   "lang",
   "update",
   "remote",
+  "devmode",
   ...MODULE_CMD_NAMES,
   "packs",
   "addon",
@@ -216,6 +220,9 @@ function getCompletions(parsed: ParsedLine): string[] {
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
     case "remote":
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
+      return [];
+    case "devmode":
+      if (argIndex === 0) return ["on", "off", "status"].filter(sw);
       return [];
     case "packs":
     case "addon":

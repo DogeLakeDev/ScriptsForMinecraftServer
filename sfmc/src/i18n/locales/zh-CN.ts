@@ -23,6 +23,15 @@ export const zhCN: Record<MessageKey, string> = {
   "locale.opt.zh": "简体中文",
   "locale.opt.en": "English",
 
+  /* ─── devmode ─── */
+  "devmode.state.on": "开启",
+  "devmode.state.off": "关闭",
+  "devmode.status": "开发模式: {state}",
+  "devmode.set": "开发模式已设为 {state}",
+  "devmode.invalid": "未知子命令: {value}（可选: on, off, status）",
+  "devmode.usage": "用法: devmode on|off|status",
+  "devmode.hint": "开发模式开启后，module create|link|dev|build|reload 等开发者子命令将可见。",
+
   "help.title": "sfmc — ScriptsForMinecraftServer CLI",
   "help.section.service": "  服务控制 ──────",
   "help.status": "查看所有服务状态",
@@ -37,6 +46,8 @@ export const zhCN: Record<MessageKey, string> = {
   "help.remote.status": "查看注册状态",
   "help.remote.enroll": "向控制器注册",
   "help.remote.disable": "断开并禁用 agent",
+  "help.section.devmode": "  开发模式 ──────",
+  "help.devmode": "切换/查看持久化开发模式（控制 module 开发者子命令可见性）",
   "help.section.module": "  模块管理 ──────",
   "help.module.list": "列出已安装模块",
   "help.module.search": "搜索 registry / 查看模块信息",

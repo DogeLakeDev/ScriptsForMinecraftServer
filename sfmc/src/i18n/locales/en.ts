@@ -26,6 +26,15 @@ export const en = {
   "locale.opt.zh": "简体中文",
   "locale.opt.en": "English",
 
+  /* ─── devmode ─── */
+  "devmode.state.on": "ON",
+  "devmode.state.off": "OFF",
+  "devmode.status": "Developer mode: {state}",
+  "devmode.set": "Developer mode set to {state}",
+  "devmode.invalid": "Unknown subcommand: {value} (try: on, off, status)",
+  "devmode.usage": "Usage: devmode on|off|status",
+  "devmode.hint": "When dev mode is on, module create|link|dev|build|reload become visible.",
+
   /* ─── help ─── */
   "help.title": "sfmc — ScriptsForMinecraftServer CLI",
   "help.section.service": "─── Service Control ───",
@@ -41,6 +50,8 @@ export const en = {
   "help.remote.status": "Show enrollment status",
   "help.remote.enroll": "Enroll with a controller",
   "help.remote.disable": "Disconnect + disable agent",
+  "help.section.devmode": "─── Dev mode ───",
+  "help.devmode": "Toggle / view persistent developer mode (gates module dev subcommands)",
   "help.section.module": "─── Module Management ───",
   "help.module.list": "List installed modules",
   "help.module.search": "Search registry / show module info",

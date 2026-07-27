@@ -7,6 +7,7 @@ import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./mo
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { cmdLocale } from "./locale-command.js";
+import { cmdDevMode } from "./devmode-command.js";
 import { initLocale, stripLangArgs, t } from "./i18n/index.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
@@ -62,6 +63,9 @@ async function main(): Promise<void> {
     case "locale":
     case "lang":
       console.log(cmdLocale(rest));
+      break;
+    case "devmode":
+      console.log(cmdDevMode(rest));
       break;
     case "status":
       console.log(cmdStatus());
