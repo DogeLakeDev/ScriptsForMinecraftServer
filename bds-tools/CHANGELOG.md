@@ -1,5 +1,31 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0-beta.7
+
+### Minor Changes
+
+- c890a95: feat(bds-tools): 将 pack-update 域逻辑迁入 `@sfmc-bds/bds-tools/pack-update`
+
+  - 新增 `createPackUpdateApi(deps)` 依赖注入入口；版本策略 / CurseForge / 默认配置语义不变
+  - sfmc 保留薄封装注入 ROOT、i18n、theme、clack、logs
+
+- 06e0f19: \# feat/reactor：为CLI命令添加命令界面和帮助文本
+
+  \- 实现了command-surface.ts文件，用于定义CLI命令的规范、通道及可见性规则。
+
+  \- 创建了help-text.ts文件，根据命令在argv和REPL模式下的可见性提供帮助文档。
+
+  \- 引入了pack-update/index.ts文件，封装了包含必要依赖项和日志记录的包更新功能。
+
+  \- 添加了send-target.ts文件，用于在REPL中管理发送目标，包括服务状态和提示符样式。
+
+- c890a95: feat(sfmc/bds-tools): CLI UX 分层、pack-update 迁出、OS 进程探活
+
+  - REPL：`/` + Ctrl+P 命令面板、左右光标、quit 干净退出
+  - argv：`sfmc i|install`、`sfmc -p …`；help 按通道标准化
+  - pack-update 迁入 `@sfmc-bds/bds-tools/pack-update`（CLI 薄封装）
+  - process-probe：外部 BDS 可识别；status 区分 managed/external
+
 ## 0.2.0-beta.6
 
 ### Patch Changes
