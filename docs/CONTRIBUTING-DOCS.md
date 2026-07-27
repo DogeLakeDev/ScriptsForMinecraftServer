@@ -54,6 +54,12 @@ npm run docs -- build    # TypeDoc + mkdocs build → site/
 2. 写入该目录 `.pages` 的 `nav` 列表
 3. 从章节 `index.md` 加链接
 
+### 链接约定（契约）
+
+- **站内页**：用相对 `docs/` 的路径（`./guide/`、`../dev/`），**不要**写成仓根的 `./docs/...`。
+- **仓外目标**（源码、workflow、LICENSE、`configs/` 等）：用 GitHub 绝对 URL（`https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/...`）。相对 `../../sfmc/...` 在 Pages 上会 404。
+- `npm run docs:build` / `docs:serve` 会解析手写 `.md` 相对链接；逃出 `docs/` 即失败。
+
 ## 扩展 TypeDoc 入口
 
 在根目录 `typedoc.json` 的 `entryPoints` 追加 SDK 公开入口（与 `package.json#exports` 对齐）。
