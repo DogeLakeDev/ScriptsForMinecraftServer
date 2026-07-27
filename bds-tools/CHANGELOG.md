@@ -1,5 +1,15 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0-beta.3
+
+### Patch Changes
+
+- feat(sapi): 增强调试日志功能，支持 Sentry 接入，更新相关模块和文档
+- feat(sapi): 增强 debug 门面（运行时开关 + DebugSink），经 @minecraft/diagnostics 可选接入 Sentry；BP manifest 声明 diagnostics/server-admin
+- Updated dependencies
+- Updated dependencies
+  - @sfmc-bds/sdk@0.2.0-beta.2
+
 ## 0.2.0-beta.2
 
 ### Patch Changes

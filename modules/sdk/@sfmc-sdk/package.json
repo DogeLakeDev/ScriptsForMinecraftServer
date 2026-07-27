@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/sdk",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, db/config/service capabilities, and behavior-pack build.",
   "author": "Shiroha7z",
   "license": "ISC",
@@ -66,6 +66,11 @@
       "import": "./dist/esm/sapi/config/index.js",
       "default": "./dist/esm/sapi/config/index.js"
     },
+    "./sapi/diagnostics": {
+      "types": "./dist/types/sapi/diagnostics/index.d.ts",
+      "import": "./dist/esm/sapi/diagnostics/index.js",
+      "default": "./dist/esm/sapi/diagnostics/index.js"
+    },
     "./sapi/db": {
       "types": "./dist/types/sapi/db/index.d.ts",
       "import": "./dist/esm/sapi/db/index.js",
@@ -108,12 +113,20 @@
     "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
   },
   "peerDependencies": {
+    "@minecraft/diagnostics": "1.0.0-beta.1.26.40-preview.30",
     "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
+    "@minecraft/server-admin": "1.0.0-beta.11940b24",
     "@minecraft/server-net": "1.0.0-beta.11940b24",
     "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30"
   },
   "peerDependenciesMeta": {
+    "@minecraft/diagnostics": {
+      "optional": true
+    },
     "@minecraft/server": {
+      "optional": true
+    },
+    "@minecraft/server-admin": {
       "optional": true
     },
     "@minecraft/server-net": {
