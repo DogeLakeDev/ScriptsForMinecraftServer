@@ -19,7 +19,7 @@
 | `@sfmc-bds/tools` | `tools/` | 开发/安装工具脚本 |
 | `@sfmc-bds/sfmc` | `sfmc-meta/` | **聚合包**：一条命令装齐平台 |
 
-可发包清单权威来源：[`tools/lib/npm-publish-packages.mjs`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/tools/lib/npm-publish-packages.mjs)。
+可发包清单权威来源：[`tools/lib/npm-publish-packages.mjs`](../../tools/lib/npm-publish-packages.mjs)。
 
 `@sfmc-bds/remote-controller` 为内部实验包，**不发布**（已在 `.changeset/config.json#ignore`）。
 
@@ -36,7 +36,7 @@
 ## 日常开发流程
 
 1. 改可发包代码后：`npm run changeset`，选包 + type，写中文摘要。
-2. PR 合入 `main` 后，[changeset-release.yml](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.github/workflows/changeset-release.yml) 会开/更新 **Version Packages** PR。
+2. PR 合入 `main` 后，[changeset-release.yml](../../.github/workflows/changeset-release.yml) 会开/更新 **Version Packages** PR。
 3. 维护者审查并合并 Version PR → CI 跑 `ci-release-packages`（publish + tag + GitHub Release；pre mode → npm **`beta`**）。
 
 ### Version PR 权限（必读）
@@ -73,7 +73,7 @@ npm run prerelease-packages
 
 ## Beta-only（硬约束）
 
-- 仓库含 [`.changeset/pre.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.changeset/pre.json)：`mode: pre`, `tag: beta`。
+- 仓库含 [`.changeset/pre.json`](../../.changeset/pre.json)：`mode: pre`, `tag: beta`。
 - 安装文档与脚手架一律写 `@beta`。
 - 已存在的 `latest` 上的 `0.1.0` **保留不动**；稳定通道未开放。
 - **退出 beta → latest 门槛（全部满足才 `changeset pre exit`）**：
@@ -92,7 +92,7 @@ npx changeset publish    # → latest
 
 ## 应急单包补发
 
-[npm-publish.yml](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.github/workflows/npm-publish.yml) 仅 `workflow_dispatch`：
+[npm-publish.yml](../../.github/workflows/npm-publish.yml) 仅 `workflow_dispatch`：
 
 - 默认 `dist_tag=beta`
 - 若仍处于 pre mode，选择 `latest` 会被 workflow 拒绝

@@ -14,7 +14,7 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.6",
+    "@sfmc-bds/sdk": "^0.2.0-beta.5",
     "ws": "^8.21.1"
   }
 }

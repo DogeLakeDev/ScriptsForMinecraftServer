@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/eslint-plugin",
-  "version": "0.1.1-beta.3",
+  "version": "0.1.1-beta.2",
   "description": "ESLint rules for SFMC SDK / module authoring conventions (Msg API, import paths, ModuleRegistry).",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",

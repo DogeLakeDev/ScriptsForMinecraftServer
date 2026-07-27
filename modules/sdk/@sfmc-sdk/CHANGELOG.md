@@ -1,13 +1,5 @@
 # @sfmc-bds/sdk
 
-## 0.2.0-beta.6
-
-### Patch Changes
-
-- c1de2a8: none
-- f8cbe3b: none
-- b6f8adc: none
-
 ## 0.2.0-beta.5
 
 ### Patch Changes

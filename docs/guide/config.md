@@ -2,7 +2,7 @@
 
 首次启动时，**各服务用代码内默认值 ensure 生成**缺失配置文件，并写入 `$schema` ，使用 IDE 时便可查看**详细的悬停说明**。
 
-> IDE：工作区 [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.vscode/settings.json) 已按文件名绑定 schema；也可用文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/*.schema.json`。
+> IDE：工作区 [`.vscode/settings.json`](../../.vscode/settings.json) 已按文件名绑定 schema；也可用文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/*.schema.json`。
 
 ## 平台配置
 
