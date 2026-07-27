@@ -15,11 +15,17 @@
   "changesets": [
     "align-release-token-dry",
     "bds-log-filter-solid",
+    "bds-pack-update-move",
     "build-deps-world-packs-solid",
     "fix-scan-dest-occupancy-merge",
+    "four-turtles-lay",
     "khaki-sheep-refuse",
     "ripe-turkeys-invite",
     "sapi-debug-sentry",
+    "sfmc-cli-surface-split",
+    "sfmc-cli-ux-pack-probe",
+    "sfmc-debug-command",
+    "sfmc-module-pack-spawn",
     "sunny-boxes-hang",
     "twelve-llamas-talk"
   ]
