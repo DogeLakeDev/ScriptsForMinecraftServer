@@ -1,5 +1,11 @@
 # @sfmc-bds/eslint-plugin
 
+## 0.1.1-beta.2
+
+### Patch Changes
+
+- none
+
 ## 0.1.1-beta.1
 
 ### Patch Changes
