@@ -54,6 +54,7 @@ data/
 
 # 工作区环境
 !.vscode/settings.json
+.worktrees/
 
 # MkDocs / TypeDoc 文档产物
 /site/
