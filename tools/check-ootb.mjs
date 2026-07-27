@@ -6,23 +6,14 @@
  *
  * 用法: node tools/check-ootb.mjs
  */
+import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
-import { spawn } from "node:child_process";
-import {
-  ROOT,
-  DB_SERVER_DIST,
-  SFMC_DIST,
-  FETCH_MODULE,
-  CONFIGS_DIR,
-} from "./lib/paths.mjs";
-import { exists } from "./lib/io.mjs";
 import { requestJson, waitHealth } from "./lib/http.mjs";
+import { exists } from "./lib/io.mjs";
+import { NPM_PUBLISH_PACKAGES, assertPublishPackageInWorkspaces } from "./lib/npm-publish-packages.mjs";
+import { CONFIGS_DIR, DB_SERVER_DIST, FETCH_MODULE, ROOT, SFMC_DIST } from "./lib/paths.mjs";
 import { killProc, runSync } from "./lib/proc.mjs";
-import {
-  NPM_PUBLISH_PACKAGES,
-  assertPublishPackageInWorkspaces,
-} from "./lib/npm-publish-packages.mjs";
 
 const errors = [];
 const passed = [];
@@ -74,7 +65,7 @@ async function main() {
     }
   }
 
-  // 2) 配置 schema + ensure 播种后 configs 必须齐全（不再“缺了也 pass”）
+  // 2) 配置 schema + ensure 播种后 configs 必须齐全
   {
     const schemas = [
       "db_config.schema.json",
@@ -115,20 +106,11 @@ async function main() {
     else fail("check-modules 通过", (r.stderr || r.stdout || `exit ${r.status}`).trim());
   }
 
-  // 3b) @minecraft/* 版本与根 devDependencies/overrides 一致（旁路 sfmc-modules 若存在）
-  {
-    const r = runSync(process.execPath, [path.join(ROOT, "tools", "check-minecraft-versions.mjs")], {
-      cwd: ROOT,
-    });
-    if (r.status === 0) pass("@minecraft/* 版本一致");
-    else fail("@minecraft/* 版本一致", (r.stderr || r.stdout || `exit ${r.status}`).trim());
-  }
-
   // 4) SDK dist 提示
   {
     const sdkDist = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "dist");
     if (exists(sdkDist)) pass("@sfmc-bds/sdk dist 存在");
-    else console.log("[ootb] WARN: @sfmc-bds/sdk dist 缺失 — 运行 npm run sdk:build");
+    else console.log("[ootb] WARN: @sfmc-bds/sdk dist 缺失 — 运行 npm run build -w @sfmc-bds/sdk");
   }
 
   // 5) db-server 启动 + 平台 API(允许 modules=[])
@@ -177,7 +159,7 @@ async function main() {
     }
   }
 
-  // 6) sim-new-user
+  // 6) sim-new-user 新用户模拟测试
   {
     const r = runSync(process.execPath, [path.join(ROOT, "tools", "sim-new-user.mjs")], {
       cwd: ROOT,

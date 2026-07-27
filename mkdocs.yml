@@ -1,5 +1,5 @@
-site_name: SFMC 文档
-site_description: ScriptsForMinecraftServer 使用 · 开发 · 接口文档
+site_name: ScriptsForMinecraftServer 文档
+site_description: ScriptsForMinecraftServer 使用 · 开发 · 接口
 site_url: https://dogelakedev.github.io/ScriptsForMinecraftServer/
 repo_url: https://github.com/DogeLakeDev/ScriptsForMinecraftServer
 repo_name: DogeLakeDev/ScriptsForMinecraftServer
@@ -7,41 +7,53 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site
 
+watch:
+  - includes
+
 theme:
   name: material
   language: zh
   palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
-      accent: amber
+      primary: white
       toggle:
         icon: material/brightness-7
         name: 切换到深色模式
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: teal
-      accent: amber
+      primary: black
       toggle:
         icon: material/brightness-4
         name: 切换到浅色模式
   features:
     - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.instant.preview
     - navigation.tracking
     - navigation.tabs
     - navigation.sections
     - navigation.expand
     - navigation.indexes
+    - navigation.paths
     - navigation.top
     - search.suggest
     - search.highlight
+    - search.share
     - content.code.copy
-    - content.action.edit
+    - content.tooltips
     - toc.follow
+    - navigation.footer
   icon:
     repo: fontawesome/brands/github
 
 plugins:
+  - tags
   - search:
       lang:
         - zh
@@ -52,24 +64,31 @@ plugins:
         - plan/**
         - archive/**
         - reviews/**
+  - git-revision-date-localized:
+      # 本地关闭（省 ~14s）；CI 里 GitHub Actions 会设 CI=true
+      enabled: !ENV [CI, false]
+      fallback_to_build_date: true
+      # TypeDoc 生成物不在 git 历史里，排除以免刷屏
+      exclude:
+        - reference/sdk/**
 
 markdown_extensions:
+  - abbr
   - admonition
   - attr_list
   - def_list
   - footnotes
   - md_in_html
   - tables
+  - pymdownx.details
+  - pymdownx.inlinehilite
   - toc:
       permalink: true
       toc_depth: 3
-  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -82,6 +101,14 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.snippets:
+      # 路径相对 mkdocs 工作目录（仓根），不要加前导 /
+      # 前导 / 会被当成文件系统绝对路径（Windows 上即 \includes\…），导致文件找不到、abbr 静默失效
+      base_path:
+        - .
+      check_paths: true
+      auto_append:
+        - includes/abbreviations.md
 
 extra:
   social:
@@ -93,7 +120,10 @@ extra:
 
 validation:
   omitted_files: warn
-  absolute_links: ignore
-  # warn：暴露 README→docs 误贴等坏链；不 fail，以免外部/生成页误伤 CI
-  unrecognized_links: warn
+  # 文档会故意链到仓根源码 / workflow / configs（不在 docs_dir）。
+  # 带扩展名 → links.not_found；无扩展名目录 → links.unrecognized_links
+  not_found: ignore
+  unrecognized_links: ignore
   anchors: warn
+
+copyright: Copyright &copy; 2026 DogeLakeDev

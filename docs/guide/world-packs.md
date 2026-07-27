@@ -7,8 +7,6 @@ sfmc> packs scan
 sfmc> packs install --inbox
 ```
 
-> 术语提示: `TTY`代表一种 **“允许用户交互的环境”** 。如手动执行`packs scean` 会弹出选择框；而 `非TTY` 时不需要等待用户输入。
-
 ## 收件箱
 
 路径：`<SFMC_ROOT>/packs/`
@@ -20,7 +18,7 @@ sfmc> packs install --inbox
 | `_failed/` | 识别失败或安装失败 |
 | `_trash/` | **卸载回收站**（`packs uninstall` 默认移入此处） |
 | `_build/` | 模块打包后的 BP/RP 构建产物 |
-| `inbox-state.json` | 源指纹  |
+| `inbox-state.json` | 源指纹 |
 | `pack-sources.json` | CF 等更新源绑定 |
 
 > 可设置 `start bds` 前自动 `scan` 收件箱（默认关闭）。但仍建议手动使用 `packs scan` 命令，便于识别更新源、解决覆盖冲突问题等。

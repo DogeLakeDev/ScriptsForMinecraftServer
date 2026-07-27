@@ -7,7 +7,7 @@ on:
     branches: [main, refactor/**]
 
 jobs:
-  smoke:
+  smoke: # 冒烟测试
     runs-on: windows-latest
     timeout-minutes: 15
 
@@ -18,8 +18,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           # 默认 CI Node 唯一来源: 仓库根 .node-version（与 npm-publish 共用）。
-          # db-server 需 ≥22.13（node:sqlite 无 flag）；npm-run-all2@9 要求
-          # ^22.22.2 || ^24.15.0 || >=26 —— 当前钉 24（GHA 解析到 ≥24.15）。
+          # db-server 需 ≥22.13（node:sqlite 无 flag）
           node-version-file: .node-version
           cache: npm
 
@@ -31,23 +30,22 @@ jobs:
         shell: pwsh
         run: npm run build --workspaces --if-present
 
-      - name: Seed configs via SDK ensure
+      - name: Seed configs via SDK ensure # 测试：播种配置文件
         shell: pwsh
         env:
           SFMC_ROOT: ${{ github.workspace }}
         run: |
-          # 直接走 @sfmc-bds/sdk/node/config.ensureCoreConfigs，不启 db-server HTTP
           New-Item -ItemType Directory -Force -Path configs | Out-Null
           node tools/seed-configs.mjs
           Get-ChildItem configs -Filter *.json | ForEach-Object { Write-Host "seeded $($_.Name)" }
 
-      - name: Run check-ootb
+      - name: Run check-ootb # 平台自检
         shell: pwsh
         env:
           SFMC_ROOT: ${{ github.workspace }}
         run: npm run check-ootb
 
-      - name: Run smoke-modules (against temporary db-server)
+      - name: Run smoke-modules (against temporary db-server)# db-server测试
         shell: pwsh
         env:
           SFMC_ROOT: ${{ github.workspace }}

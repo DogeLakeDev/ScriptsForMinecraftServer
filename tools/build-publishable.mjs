@@ -5,24 +5,23 @@
  * - --workspace <pkg>：先 build 可发包依赖闭包，再 build 目标（npm-publish 应急补发）
  * 勿在 workflow YAML 里再抄 workspace / 依赖列表（DRY/OCP）。
  */
-import { spawnSync } from "node:child_process";
 import {
   listPublishableBuildDeps,
   listPublishableBuildOrder,
   resolvePublishPackage,
 } from "./lib/npm-publish-packages.mjs";
-import { ROOT } from "./lib/changeset-release.mjs";
+import { ROOT } from "./changeset-release-lib.mjs";
+import { spawnNpmSync } from "./lib/proc.mjs";
 
 /**
  * @param {string} name
  */
 function buildOne(name) {
   console.log(`[build-publishable] npm run build --workspace ${name} --if-present`);
-  const r = spawnSync("npm", ["run", "build", "--workspace", name, "--if-present"], {
+  const r = spawnNpmSync(["run", "build", "--workspace", name, "--if-present"], {
     cwd: ROOT,
-    stdio: "inherit",
-    shell: process.platform === "win32",
   });
+  if (r.error) throw r.error;
   if (r.status !== 0) {
     process.exit(r.status === null ? 1 : r.status);
   }

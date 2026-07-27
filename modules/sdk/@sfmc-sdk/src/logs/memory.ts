@@ -24,6 +24,7 @@ export interface MemoryBuffer {
   readonly size: number;
 }
 
+/** 创建进程内环形内存日志缓冲。 */
 export function createMemoryBuffer(maxSize = 5000): MemoryBuffer {
   const allLogs: LogEntry[] = [];
   const subscribers: Array<(entry: LogEntry) => void> = [];

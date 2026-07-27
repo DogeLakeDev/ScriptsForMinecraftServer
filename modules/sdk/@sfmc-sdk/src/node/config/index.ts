@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+/** BDS 自动更新器配置（`configs/bds_updater.json`）。 */
 export interface BdsUpdaterConfig {
   bds_path?: string;
   backup_dir?: string;
@@ -27,6 +28,7 @@ export interface BdsUpdaterConfig {
   compatible_versions?: string[];
 }
 
+/** QQ 桥接配置（`configs/qq_config.json`）。 */
 export interface QQBridgeConfig {
   qq_enabled?: boolean;
   qq_ws_port?: number;
@@ -45,6 +47,7 @@ export interface QQBridgeConfig {
   [key: string]: unknown;
 }
 
+/** db-server 配置（`configs/db_config.json`）。 */
 export interface DBConfig {
   db_port?: number;
   dbDir?: string;
@@ -60,12 +63,14 @@ export type PermissionsConfig = Array<{
   [key: string]: unknown;
 }>;
 
+/** 运行时根目录元数据（`configs/runtime.json`）。 */
 export interface RuntimeConfig {
   runtime_root?: string;
   initialized_at?: string;
   [key: string]: unknown;
 }
 
+/** 远程控制代理配置（`configs/remote.json`）。 */
 export interface RemoteConfig {
   enabled?: boolean;
   controller_url?: string;
@@ -74,50 +79,61 @@ export interface RemoteConfig {
   [key: string]: unknown;
 }
 
+/** 平台 settings 键值表（`configs/settings.json`）。 */
 export interface SettingsConfig {
   [key: string]: unknown;
 }
 
+/** 区域配置（`configs/areas.json`）。 */
 export interface AreasConfig {
   [key: string]: unknown;
 }
 
+/** 禁物品列表（`configs/banned_items.json`）。 */
 export interface BannedItemsConfig {
   [key: string]: unknown;
 }
 
+/** 清道夫配置（`configs/clean.json`）。 */
 export interface CleanConfig {
   item_max?: number;
   poll_interval?: number;
   [key: string]: unknown;
 }
 
+/** 网格/领地格配置（`configs/grids.json`）。 */
 export interface GridsConfig {
   [key: string]: unknown;
 }
 
+/** 和平模式过滤器（`configs/peace_filters.json`）。 */
 export interface PeaceFiltersConfig {
   [key: string]: unknown;
 }
 
+/** 问答库配置（`configs/questions.json`）。 */
 export interface QAConfig {
   [key: string]: unknown;
 }
 
+/** 领地模块配置（`configs/land.json`）。 */
 export interface LandConfig {
   [key: string]: unknown;
 }
 
+/** 模块启停锁（`modules/module-lock.json`）。 */
 export interface ModuleLock {
   version?: number;
   modules?: Record<string, { enabled: boolean; updatedAt: number }>;
 }
 
+/** 模块目录投影（`modules/catalog.json`）。 */
 export interface Catalog {
   modules?: Array<Record<string, unknown>>;
   [key: string]: unknown;
 }
 
+/** 模块 HMAC token 存储（`.sfmc/module-tokens.json` 等）。 */
 export interface TokenStore {
   tokens?: Record<string, string>;
   secret?: string;
@@ -305,14 +321,17 @@ export function logFile(runtimeRoot: string, name: string): string {
   return path.join(logsDir(runtimeRoot), base);
 }
 
+/** 模块目录路径：`<ROOT>/modules`。 */
 export function moduleDir(runtimeRoot: string): string {
   return path.join(runtimeRoot, "modules");
 }
 
+/** 模块系统文件路径（catalog / module-lock）。 */
 export function modulePath(dir: string, name: ModuleFileName): string {
   return path.join(dir, name);
 }
 
+/** 同步读取 JSON 文件；失败时返回 fallback 或 undefined。 */
 export function readJson<T>(filePath: string, fallback?: T): T | undefined {
   try {
     /* 与 bds-tools/fsx.readJsonFile 同契约：剥离 UTF-8 BOM 后再解析 */

@@ -52,7 +52,7 @@
 1. **推荐（零 Secret）**：Repo Settings → Actions → General → Workflow permissions → 勾选 *Allow GitHub Actions to create and approve pull requests*。
 2. **PAT**：写入 Secret **`SFMC_GITHUB_TOKEN`**（能开本仓 PR）；workflow 优先用该 token，其次兼容旧名 `CHANGESETS_GITHUB_TOKEN`，再回退 `GITHUB_TOKEN`。
 
-### 本地一键发版（`npm-run-all2`）
+### 本地一键发版（`tools/run-release.mjs`）
 
 当前 pre mode 请用：
 
@@ -60,15 +60,14 @@
 npm run prerelease-packages
 ```
 
-流程：`changeset`（若尚无）→ `changeset version` → commit → git tag → push → npm publish → GitHub Pre-release。
+流程：assert → ensure changeset → `changeset version` → commit → git tag → push → npm publish → GitHub Pre-release。
 
 | 脚本 | 何时用 |
 |------|--------|
-| `prerelease-packages` | **现在**（pre/beta） |
-| `release-packages` | 仅 `changeset pre exit` 之后（latest） |
-| `ci-release-packages` | CI 专用（无交互）。`tag-packages` 默认按 `HEAD~1` 版本 diff；仅显式 `--from-existing` / `SFMC_TAG_FROM_EXISTING=1`（或浅克隆无法解析父提交）才只收录已有 tag。空的 `.sfmc-release-tags.json` 表示本轮无目标，下游不得回退扫全仓。push / gh-release 缺失态分别回退 `listUnpushedExistingVersionTags` / `listPackagesWithExistingVersionTags`。 |
+| `prerelease-packages` | **现在**（pre/beta；`run-release.mjs --pre`） |
+| `release-packages` | 仅 `changeset pre exit` 之后（latest；`--stable`） |
+| `ci-release-packages` | CI 专用（`--ci`，无交互）。tag 默认按 `HEAD~1` 版本 diff；仅显式 `--from-existing` / `SFMC_TAG_FROM_EXISTING=1`（或浅克隆无法解析父提交）才只收录已有 tag。空的 `.sfmc-release-tags.json` 表示本轮无目标，下游不得回退扫全仓。push / gh-release 缺失态分别回退 `listUnpushedExistingVersionTags` / `listPackagesWithExistingVersionTags`。 |
 | `build:publishable` | 按 `NPM_PUBLISH_PACKAGES` 拓扑构建可发包；`node tools/build-publishable.mjs [--workspace <pkg>]`。changeset-release 全量、npm-publish 应急补发（含依赖闭包）共用，勿在 YAML 再抄 workspace/依赖列表。 |
-| `publish-packages` | 仅 npm publish 包装 |
 
 需要：本机已登录 `gh`、npm（或 `NPM_TOKEN`），且对 `origin` 有推送权限。
 

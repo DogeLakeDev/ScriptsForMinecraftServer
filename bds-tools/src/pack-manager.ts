@@ -302,7 +302,7 @@ export function readPackManifestHeader(
 }
 
 /**
- * Write the seven `@minecraft/*` allowed_modules into a behavior pack's
+ * Write `@minecraft/*` allowed_modules into a behavior pack's
  * `permissions.json`. Idempotent: rewrites any pre-existing file.
  */
 export async function writePermissionsJson(bpDir: string): Promise<void> {
@@ -385,6 +385,8 @@ export async function writeBehaviorPackManifest(
     ],
     dependencies: [
       { module_name: "@minecraft/server", version: "1.18.0" },
+      { module_name: "@minecraft/server-admin", version: "1.0.0-beta" },
+      { module_name: "@minecraft/diagnostics", version: "1.0.0-beta" },
     ],
   };
   const file = path.join(outDir, "manifest.json");

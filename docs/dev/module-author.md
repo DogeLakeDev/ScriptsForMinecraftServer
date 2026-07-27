@@ -168,7 +168,7 @@ await db.tx(async (tx) => {
 业务模块 **不要** 在 `package.json` 里声明 `@minecraft/*`（含 peerDependencies）；类型由 workspace 根提升提供。校验：
 
 ```bash
-npm run check-minecraft-versions
+node tools/check-minecraft-versions.mjs
 ```
 
 详见 sfmc-modules `CONTRIBUTING.md`。

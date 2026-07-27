@@ -29,6 +29,7 @@ const _buckets = new Map<string, ConfigBucket>();
 /** 最近一次 setConfigModuleContext 的 configKey(兼容无参 get/set)。 */
 let _activeConfigKey = "";
 
+/** 注入模块配置上下文（configKey 分桶，支持多模块并存）。 */
 export function setConfigModuleContext(moduleId: string, configKey: string, token: string): void {
   const existing = _buckets.get(configKey);
   if (existing && existing.moduleId === moduleId && existing.authToken === token) {
@@ -107,7 +108,9 @@ async function ensureLoaded(bucket: ConfigBucket, configKey: string): Promise<vo
 
 const _changeHandlers = new Set<(key: string, value: unknown) => void>();
 
+/** 模块私有配置 facade（`configs/<configKey>.json`）。 */
 export const config = {
+  /** 读单个配置字段（首次访问时拉全量并缓存）。 */
   async get<T = unknown>(key: string): Promise<T | undefined> {
     const bucket = activeBucket();
     await ensureLoaded(bucket, _activeConfigKey);
@@ -123,6 +126,7 @@ export const config = {
     return out as T;
   },
 
+  /** 写单个字段并持久化到 db-server。 */
   async set<T = unknown>(key: string, value: T): Promise<void> {
     const bucket = activeBucket();
     const configKey = _activeConfigKey;
@@ -140,6 +144,7 @@ export const config = {
     }
   },
 
+  /** 订阅内存配置变更；返回取消订阅函数。 */
   onChange(handler: (key: string, value: unknown) => void): () => void {
     _changeHandlers.add(handler);
     return () => _changeHandlers.delete(handler);

@@ -45,7 +45,7 @@ node tools/fetch-module.mjs install foo --from local:D:/path/foo.zip
 ```bash
 npm run catalog-sync              # 按磁盘 packages 重写 catalog
 npm run check-modules             # 校验 manifest
-npm run check-minecraft-versions  # @minecraft/* 版本对齐
+node tools/check-minecraft-versions.mjs  # @minecraft/* 版本对齐
 ```
 
 下一章：[模块编译](./behavior-pack.md)

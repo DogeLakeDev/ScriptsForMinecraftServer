@@ -22,9 +22,35 @@
  *   2) tsc 发 .d.ts → dist/types/<subpath>/index.d.ts
  */
 import { build } from "esbuild";
+import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-import { runTsc7 } from "../../../tools/tsc7.mjs";
+
+const require = createRequire(import.meta.url);
+
+/**
+ * 经 package exports 解析 `@sfmc-bds/tools/tsc7`，避免 `../../../tools/...`。
+ * SDK 不能声明依赖 tools（tools → sdk 会成环）；同仓 workspace hoist 仍可 resolve。
+ * @param {string[]} args
+ * @returns {number}
+ */
+function runTsc7(args) {
+  let tsc7Entry;
+  try {
+    tsc7Entry = require.resolve("@sfmc-bds/tools/tsc7");
+  } catch {
+    throw new Error(
+      "无法 resolve @sfmc-bds/tools/tsc7。请在 monorepo 根目录执行 npm install（SDK 构建依赖同仓 tools bin）。"
+    );
+  }
+  const result = spawnSync(process.execPath, [tsc7Entry, ...args], {
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) throw result.error;
+  return result.status === null ? 1 : result.status;
+}
 
 const SUBPATHS = [
   { sub: "contracts", platform: "neutral" },
@@ -33,6 +59,7 @@ const SUBPATHS = [
   { sub: "sapi/runtime", platform: "neutral" },
   { sub: "sapi/db", platform: "neutral" },
   { sub: "sapi/config", platform: "neutral" },
+  { sub: "sapi/diagnostics", platform: "neutral" },
   { sub: "sapi/service", platform: "neutral" },
   { sub: "sapi/host", platform: "node" },
   { sub: "node/sdk", platform: "node" },
@@ -53,6 +80,8 @@ const MINECRAFT_EXTERNALS = [
   "@minecraft/server",
   "@minecraft/server-ui",
   "@minecraft/server-net",
+  "@minecraft/server-admin",
+  "@minecraft/diagnostics",
   "@minecraft/vanilla-data",
 ];
 

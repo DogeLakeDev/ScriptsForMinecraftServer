@@ -2,7 +2,7 @@
 /**
  * 在 changeset version 之后提交 package.json / CHANGELOG / .changeset 变更。
  */
-import { git, gitCapture } from "./lib/changeset-release.mjs";
+import { git, gitCapture } from "./changeset-release-lib.mjs";
 
 const status = gitCapture(["status", "--porcelain"]);
 if (!status) {

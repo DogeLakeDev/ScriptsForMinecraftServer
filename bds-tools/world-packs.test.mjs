@@ -547,6 +547,51 @@ describe("world-packs primitives", () => {
     assert.equal(readPackManifestInfo(existingB)?.name, "Slash Blade v2b");
   });
 
+  it("scanDestOccupancy 走 readPackDirOccupancy（完整 + 残缺 header）", async () => {
+    const { scanDestOccupancy, readPackDirOccupancy } = await import("./dist/world-packs.js");
+    const dest = path.join(tmp, "occupancy-dry");
+    const fullDir = path.join(dest, "[RP] Full");
+    writeManifest(fullDir, {
+      name: "Full Pack",
+      uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      version: [2, 1, 0],
+      type: "resources",
+    });
+    const partialDir = path.join(dest, "[RP] Partial");
+    fs.mkdirSync(partialDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(partialDir, "manifest.json"),
+      JSON.stringify({
+        format_version: 2,
+        header: {
+          name: "Partial",
+          uuid: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          version: [3, 0, 0],
+        },
+        modules: [],
+      })
+    );
+
+    const fullFacts = readPackDirOccupancy(fullDir);
+    assert.equal(fullFacts?.uuid, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    assert.deepEqual(fullFacts?.version, [2, 1, 0]);
+    assert.equal(fullFacts?.name, "Full Pack");
+    assert.equal(fullFacts?.kind, "resource");
+
+    const partialFacts = readPackDirOccupancy(partialDir);
+    assert.equal(partialFacts?.uuid, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    assert.deepEqual(partialFacts?.version, [3, 0, 0]);
+    assert.equal(partialFacts?.kind, undefined);
+
+    const occ = scanDestOccupancy(dest);
+    assert.equal(occ.length, 2);
+    const byUuid = new Map(occ.map((o) => [o.uuid, o]));
+    assert.equal(byUuid.get("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?.name, "Full Pack");
+    assert.equal(byUuid.get("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?.kind, "resource");
+    assert.equal(byUuid.get("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?.version?.[0], 3);
+    assert.equal(byUuid.get("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?.name, undefined);
+  });
+
   it("installPackDirectory：残缺 manifest 占用目录时换名而非覆盖", async () => {
     const { installPackDirectory, formatWorldPackFolderName } = await import("./dist/world-packs.js");
     const dest = path.join(tmp, "broken-parent");

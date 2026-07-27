@@ -10,6 +10,7 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "typedoc.json"
+      - "tools/docs.mjs"
       - "tools/docs-*.mjs"
       - "modules/sdk/@sfmc-sdk/src/**"
       - "modules/sdk/@sfmc-sdk/tsconfig.typedoc.json"
@@ -33,6 +34,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # git-revision-date-localized 需要完整历史，浅克隆会导致日期全变成最近一次 commit
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,7 +57,7 @@ jobs:
           pip install -r docs/requirements.txt
 
       - name: Build docs (TypeDoc + MkDocs)
-        run: npm run docs:build
+        run: npm run docs -- build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

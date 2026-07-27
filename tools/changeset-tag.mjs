@@ -18,7 +18,7 @@ import {
   resolvePackagesNeedingTags,
   writeReleaseTagsState,
   RELEASE_TAGS_STATE,
-} from "./lib/changeset-release.mjs";
+} from "./changeset-release-lib.mjs";
 
 const fromExisting =
   process.argv.includes("--from-existing") || process.env.SFMC_TAG_FROM_EXISTING === "1";

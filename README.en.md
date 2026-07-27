@@ -144,7 +144,7 @@ Full docs (Chinese): [docs/](./docs/index.md). Preview with MkDocs:
 
 ```bash
 pip install -r docs/requirements.txt
-npm run docs:serve
+npm run docs -- serve
 ```
 
 | Section | Entry |
@@ -152,7 +152,7 @@ npm run docs:serve
 | User guide | [docs/guide/](./docs/guide/index.md) |
 | Developer guide | [docs/dev/](./docs/dev/index.md) |
 | API (HTTP / modules) | [docs/api/](./docs/api/index.md) |
-| SDK types (TypeDoc) | [docs/reference/](./docs/reference/index.md) — `npm run docs:api` |
+| SDK types (TypeDoc) | [docs/reference/](./docs/reference/index.md) — `npm run docs -- api` |
 
 ## Requirements
 

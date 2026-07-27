@@ -2,25 +2,41 @@ import { Player } from "@minecraft/server";
 import { service, ServiceError } from "../service/client.js";
 import { debug } from "./debug-log.js";
 
+/** 玩家经济账户快照（余额 + 乐观锁版本号）。 */
 export interface EconomyAccount {
+  /** 当前余额。 */
   balance: number;
+  /** 乐观锁版本号。 */
   version: number;
 }
 
+/** 经济交易请求（credit/debit 共用形状）。 */
 export interface EconomyTransactionRequest {
+  /** 操作者玩家 id。 */
   actorId: string;
+  /** 扣款方玩家 id（debit 时）。 */
   sourcePlayerId?: string;
+  /** 入账方玩家 id（credit 时）。 */
   targetPlayerId?: string;
+  /** 交易金额（正整数）。 */
   amount: number;
+  /** 交易类型：扣款或入账。 */
   type: "debit" | "credit";
+  /** 可选备注。 */
   note?: string;
 }
 
+/** 经济交易结果。 */
 export interface EconomyTransactionResult {
+  /** 是否成功。 */
   ok: boolean;
+  /** 交易后余额。 */
   balance?: number;
+  /** 交易后版本号。 */
   version?: number;
+  /** 交易流水 id。 */
   transactionId?: string;
+  /** 失败原因。 */
   error?: string;
 }
 
@@ -78,7 +94,9 @@ async function applyEconomyTransaction(req: EconomyTransactionRequest): Promise<
   }
 }
 
+/** 玩家侧余额缓存助手；底层经 service registry 调 economy.account.*。 */
 export class Money {
+  /** 货币单位名称。 */
   static readonly UNIT = "节操";
 
   private static cache = new Map<
@@ -86,20 +104,24 @@ export class Money {
     { balance: number; version: number; loadedAt: number; loading: boolean }
   >();
 
+  /** 读玩家余额；未加载时返回缓存或 0。 */
   static get(player: Player): number {
     const b = this.getCached(player) ?? 0;
     debug.d("MNY", `get ${player.name}=${b}`);
     return b;
   }
 
+  /** 读本地缓存余额；未加载返回 null。 */
   static getCached(player: Player): number | null {
     return this.cache.get(player.id)?.balance ?? null;
   }
 
+  /** 读本地缓存版本号；未加载返回 null。 */
   static getVersion(player: Player): number | null {
     return this.cache.get(player.id)?.version ?? null;
   }
 
+  /** 写入本地缓存；若传入 version 低于已缓存则跳过（防 stale 覆盖）。 */
   static setCached(player: Player, balance: number, version = 0): void {
     const previous = this.cache.get(player.id);
     if (previous && version > 0 && previous.version > version) {
@@ -115,6 +137,7 @@ export class Money {
     debug.d("MNY", `setCached ${player.name}: bal=${balance} ver=${version}`);
   }
 
+  /** 从 db-server 拉取账户并更新缓存；并发 load 复用进行中的请求。 */
   static async load(player: Player): Promise<number> {
     const previous = this.cache.get(player.id);
     if (previous?.loading) return previous.balance;
@@ -131,7 +154,10 @@ export class Money {
     return balance;
   }
 
-  /** @deprecated Use add() or a domain transaction. */
+  /**
+   * 直接设置余额（仅改本地缓存，不写服务端）。
+   * @deprecated 请改用 `add()` 或领域模块提供的交易 API。
+   */
   static async set(player: Player, money: number): Promise<boolean> {
     console.warn(
       `[MNY] Money.set() is deprecated, called from ${new Error().stack?.split("\n")[2]?.trim() || "unknown"}`
@@ -145,6 +171,7 @@ export class Money {
     return true;
   }
 
+  /** 增减余额；正数入账、负数扣款，成功后刷新缓存。 */
   static async add(player: Player, money: number): Promise<boolean> {
     if (!Number.isSafeInteger(money) || money === 0) return money === 0;
     debug.i("MNY", `add ${player.name} ${money > 0 ? "+" : ""}${money}`);
@@ -172,6 +199,7 @@ export class Money {
     return result.ok;
   }
 
+  /** 兼容占位：经济已改由 db-server 持久化，不再初始化计分板。 */
   static initScoreboard() {
     // Economy is persisted by db-server. The legacy scoreboard is no longer authoritative.
   }
