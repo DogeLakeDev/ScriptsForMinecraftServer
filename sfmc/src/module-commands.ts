@@ -611,12 +611,12 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "disable":
       return (await cmdModuleDisable(args)).message;
     case "build": {
-      const { cmdPackBuild } = await import("./pack-lifecycle.js");
-      return (await cmdPackBuild(args)).message;
+      const { cmdModuleBuild } = await import("./module-pack-build.js");
+      return cmdModuleBuild(args);
     }
     case "reload": {
-      const { cmdReload } = await import("./commands-reload.js");
-      return cmdReload(args);
+      const { cmdModuleReload } = await import("./module-pack-build.js");
+      return cmdModuleReload(args);
     }
     case "create": {
       const { runModuleCreateWizard } = await import("./module-wizard.js");
