@@ -8,6 +8,7 @@ import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
 import { cmdLocale } from "./locale-command.js";
 import { cmdDevMode } from "./devmode-command.js";
+import { cmdDebug } from "./debug-command.js";
 import { initLocale, stripLangArgs, t } from "./i18n/index.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
@@ -66,6 +67,9 @@ async function main(): Promise<void> {
       break;
     case "devmode":
       console.log(cmdDevMode(rest));
+      break;
+    case "debug":
+      console.log(await cmdDebug(rest));
       break;
     case "status":
       console.log(cmdStatus());

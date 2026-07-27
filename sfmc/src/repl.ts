@@ -120,6 +120,12 @@ ${c.bold(t("help.section.remote"))}  ${c.dim("[beta]")}
 ${c.bold(t("help.section.devmode"))}
   ${c.green("devmode")} [on|off|status]  ${t("help.devmode")}
 
+${c.bold(t("help.section.debug"))}
+  ${c.green("debug")} status            ${t("help.debug.status")}
+  ${c.green("debug")} enable|disable    ${t("help.debug.toggle")}
+  ${c.green("debug")} sentry on --dsn   ${t("help.debug.sentry.on")}
+  ${c.green("debug")} sentry off        ${t("help.debug.sentry.off")}
+
 ${c.bold(t("help.section.module"))}
 ${moduleHelpBlock()}
 
@@ -166,6 +172,7 @@ const COMMANDS = [
   "update",
   "remote",
   "devmode",
+  "debug",
   ...MODULE_CMD_NAMES,
   "packs",
   "addon",
@@ -240,6 +247,11 @@ function getCompletions(parsed: ParsedLine): string[] {
       return [];
     case "devmode":
       if (argIndex === 0) return ["on", "off", "status"].filter(sw);
+      return [];
+    case "debug":
+      if (argIndex === 0) return ["status", "enable", "disable", "sentry"].filter(sw);
+      if (argIndex === 1 && words[0] === "sentry") return ["on", "off"].filter(sw);
+      if (argIndex === 2 && words[0] === "sentry" && words[1] === "on") return ["--dsn"].filter(sw);
       return [];
     case "packs":
     case "addon":
