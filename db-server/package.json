@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/db-server",
-  "version": "0.2.0-beta.2",
+  "version": "0.2.0-beta.3",
   "description": "SFMC SQLite HTTP REST backend — configs, modules, gameplay data",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
@@ -42,7 +42,7 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.3",
+    "@sfmc-bds/sdk": "^0.2.0-beta.4",
     "sql-template-strings": "^2.2.2"
   },
   "publishConfig": {
