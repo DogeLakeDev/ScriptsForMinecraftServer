@@ -25,6 +25,7 @@ export interface StdoutSinkOptions {
   bare?: boolean;
 }
 
+/** 创建 stdout 日志 sink（可选颜色与 error 路由 stderr）。 */
 export function createStdoutSink(opts: StdoutSinkOptions = {}): Sink {
   const color = opts.color ?? supportsColor(process.stdout);
   const stderrForError = opts.stderrForError ?? true;
@@ -59,6 +60,7 @@ export interface FileSink extends Sink {
   close(): void;
 }
 
+/** 创建文件追加 sink（纯文本、同步写入）。 */
 export function createFileSink(filePath: string, opts: FileSinkOptions = {}): FileSink {
   const mkdir = opts.mkdir ?? true;
   let ready = false;
@@ -86,9 +88,7 @@ export function createFileSink(filePath: string, opts: FileSinkOptions = {}): Fi
   };
 }
 
-/**
- * CallbackSink — 把日志事件转发给回调 (用于 sfmc 主进程把子进程 stdout 捕获后推入内存缓冲)
- */
+/** 创建回调转发 sink（用于子进程 stdout 捕获等场景）。 */
 export function createCallbackSink(fn: (entry: LogEntry) => void): Sink {
   return {
     write(entry: LogEntry): void {

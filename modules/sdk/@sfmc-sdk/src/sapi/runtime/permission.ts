@@ -11,18 +11,25 @@ import { Msg } from "./msg.js";
  *   3 Custom   自定义(脚本指定)
  */
 export class Permission {
+  /** 访客以下（仅内部占位，不参与比较）。 */
   static Guest = -1;
+  /** 任意玩家（等级 0）。 */
   static Any = 0;
+  /** 普通成员（等级 1）。 */
   static Member = 1;
+  /** 管理员 OP（等级 2）。 */
   static OP = 2;
+  /** 自定义/脚本指定（等级 3）。 */
   static Admin = 3;
 
   private static registry: Map<string, number> = new Map();
 
+  /** 注册命名权限及其最低等级要求。 */
   static register(name: string, level: number) {
     this.registry.set(name, level);
   }
 
+  /** 检查玩家是否满足命名权限；未注册权限名一律拒绝。 */
   static check(player: Player | string, permissionName: string): boolean {
     const required = this.registry.get(permissionName);
     if (required === undefined) {
@@ -34,6 +41,7 @@ export class Permission {
     return playerLevel >= required;
   }
 
+  /** 取玩家有效权限等级：配置覆盖优先，否则映射原生 PlayerPermissionLevel。 */
   static getPermission(player: Player): number {
     const perms = ConfigManager.getPermissions();
     const override = perms[player.name];
@@ -52,6 +60,7 @@ export class Permission {
     }
   }
 
+  /** 注册内置 `!permlist` 指令，按等级分组展示已注册权限。 */
   static registerPermlistCommand() {
     Command.register(
       "permlist",

@@ -13,7 +13,7 @@ import {
   RELEASE_TAGS_STATE,
   PRE_JSON,
   ROOT,
-} from "./lib/changeset-release.mjs";
+} from "./changeset-release-lib.mjs";
 import { listPublishableBuildDeps, listPublishableBuildOrder, NPM_PUBLISH_PACKAGES } from "./lib/npm-publish-packages.mjs";
 import path from "node:path";
 import fs from "node:fs";

@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 /**
- * tools/test-db-api.mjs — 平台 API 烟测(v2)
+ * scripts/test-db-api.mjs — 平台 API 烟测(v2)
  *
  * 覆盖 health / modules / configs。允许 0 模块。
+ * 用法: npm run test:api -w @sfmc-bds/db-server
  */
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { spawn } from "node:child_process";
-import { ROOT, DB_SERVER_DIST, CONFIGS_DIR } from "./lib/paths.mjs";
-import { exists } from "./lib/io.mjs";
-import { requestJson, waitHealth } from "./lib/http.mjs";
-import { killProc } from "./lib/proc.mjs";
+import { fileURLToPath } from "node:url";
+import { exists } from "../../tools/lib/io.mjs";
+import { requestJson, waitHealth } from "../../tools/lib/http.mjs";
+import { CONFIGS_DIR, ROOT } from "../../tools/lib/paths.mjs";
+import { killProc } from "../../tools/lib/proc.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_SERVER_DIST = path.join(__dirname, "..", "dist", "index.js");
 
 const PORT = 3191;
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-db-api-"));
@@ -31,8 +36,8 @@ function assert(condition, message) {
 async function main() {
   if (!exists(DB_SERVER_DIST)) throw new Error(`缺少 ${DB_SERVER_DIST}`);
 
-  copy(path.join(ROOT, "modules", "catalog.json"), path.join(workspace, "modules", "catalog.json"));
   fs.mkdirSync(path.join(workspace, "modules"), { recursive: true });
+  copy(path.join(ROOT, "modules", "catalog.json"), path.join(workspace, "modules", "catalog.json"));
   fs.writeFileSync(
     path.join(workspace, "modules", "module-lock.json"),
     `${JSON.stringify({ version: 1, modules: {} }, null, 2)}\n`

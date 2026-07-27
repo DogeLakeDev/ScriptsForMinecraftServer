@@ -25,7 +25,7 @@ docs/
 | mkdocs.yml | Material 主题、插件、校验 |
 | typedoc.json | @sfmc-bds/sdk 全量 entryPoints → Markdown |
 | docs/guide | dev |
-| docs/reference/sdk/ | TypeDoc 生成（gitignore，需 docs:api）|
+| docs/reference/sdk/ | TypeDoc 生成（gitignore，需 `npm run docs -- api`）|
 | docs/**/.pages | awesome-pages 导航顺序 |
 
 首页与各章入口文件名为 **`index.md`**（MkDocs 惯例，勿用 `README.md`）。
@@ -36,9 +36,9 @@ docs/
 pip install -r docs/requirements.txt
 npm install
 
-npm run docs:api      # 仅 TypeDoc → docs/reference/sdk/
-npm run docs:serve    # TypeDoc + mkdocs serve
-npm run docs:build    # TypeDoc + mkdocs build → site/
+npm run docs -- api      # 仅 TypeDoc → docs/reference/sdk/
+npm run docs -- serve    # TypeDoc + mkdocs serve
+npm run docs -- build    # TypeDoc + mkdocs build → site/
 ```
 
 ## 配置入口

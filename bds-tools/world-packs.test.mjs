@@ -283,6 +283,54 @@ describe("world-packs primitives", () => {
     assert.deepEqual(version, [2, 0, 1]);
   });
 
+  it("scanDestOccupancy / readPackDirOccupancy：完整与残缺 manifest", async () => {
+    const { scanDestOccupancy, readPackDirOccupancy, formatWorldPackFolderName } = await import(
+      "./dist/world-packs.js"
+    );
+    const parent = path.join(tmp, "occupancy-scan");
+    const fullName = formatWorldPackFolderName("Full", "resource");
+    const brokenName = formatWorldPackFolderName("Broken", "behavior");
+    const fullDir = path.join(parent, fullName);
+    const brokenDir = path.join(parent, brokenName);
+    writeManifest(fullDir, {
+      name: "Full Pack",
+      uuid: "11111111-1111-1111-1111-111111111111",
+      version: [2, 3, 4],
+      type: "resources",
+    });
+    fs.mkdirSync(brokenDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(brokenDir, "manifest.json"),
+      JSON.stringify({
+        format_version: 2,
+        header: {
+          name: "Broken Pack",
+          uuid: "22222222-2222-2222-2222-222222222222",
+          version: [9, 0, 1],
+        },
+        modules: [],
+      })
+    );
+
+    const fullFacts = readPackDirOccupancy(fullDir);
+    assert.equal(fullFacts?.uuid, "11111111-1111-1111-1111-111111111111");
+    assert.deepEqual(fullFacts?.version, [2, 3, 4]);
+    assert.equal(fullFacts?.kind, "resource");
+
+    const brokenFacts = readPackDirOccupancy(brokenDir);
+    assert.equal(brokenFacts?.uuid, "22222222-2222-2222-2222-222222222222");
+    assert.deepEqual(brokenFacts?.version, [9, 0, 1]);
+    assert.equal(brokenFacts?.kind, undefined);
+
+    const occ = scanDestOccupancy(parent);
+    assert.equal(occ.length, 2);
+    const byFolder = Object.fromEntries(occ.map((o) => [o.folderName, o]));
+    assert.equal(byFolder[fullName]?.uuid, "11111111-1111-1111-1111-111111111111");
+    assert.equal(byFolder[fullName]?.kind, "resource");
+    assert.equal(byFolder[brokenName]?.uuid, "22222222-2222-2222-2222-222222222222");
+    assert.equal(byFolder[brokenName]?.kind, undefined);
+  });
+
   it("decidePackInstallPlan 表驱动", async () => {
     const { decidePackInstallPlan, formatWorldPackFolderName } = await import("./dist/world-packs.js");
     const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";

@@ -2,7 +2,7 @@
 /**
  * 若尚无待消费 changeset，则交互式执行 `changeset`；已有则跳过。
  */
-import { listPendingChangesetFiles, run } from "./lib/changeset-release.mjs";
+import { listPendingChangesetFiles, run } from "./changeset-release-lib.mjs";
 
 const pending = listPendingChangesetFiles();
 if (pending.length > 0) {

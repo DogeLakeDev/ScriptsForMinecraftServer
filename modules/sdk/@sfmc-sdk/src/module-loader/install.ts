@@ -14,6 +14,8 @@
  */
 
 import { system, world } from "@minecraft/server";
+import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
+import { debug } from "../sapi/runtime/debug-log.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import type { DataAdapter } from "./internal/config-manager.js";
 import { ConfigManager } from "./internal/config-manager.js";
@@ -26,12 +28,15 @@ export interface HostBackend {
   dispose(): void;
 }
 
+/** 模块 surface 元信息（manifest emitter 预留）。 */
 export interface ModuleSurface {
   /** 当前不在 Stage A+B 内消费,留口子给 manifest emitter */
   moduleId: string;
+  /** 是否推迟到 worldLoad 后 init。 */
   afterWorldLoad: boolean;
 }
 
+/** `installHostBootstrap` 可选参数。 */
 export interface InstallOptions {
   /** db-server URL(默认 http://127.0.0.1:3001) */
   dbServerUrl?: string;
@@ -48,6 +53,7 @@ export interface InstallOptions {
 
 let _installed = false;
 
+/** 行为包启动入口：装配 ConfigManager、事件订阅与 DataAdapter。 */
 export function installHostBootstrap(options: InstallOptions = {}): HostBackend {
   if (_installed) return _bootstrapBackend();
   _installed = true;
@@ -60,10 +66,13 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
 
   // 装配 system.events
   system.beforeEvents.startup.subscribe(async () => {
+    // Sentry / 控制台 debug：DSN 与 sfmc_debug 均缺省关闭
+    initSentryIfConfigured();
+    applyDebugFromVariables();
     try {
       await ConfigManager.init();
     } catch (e) {
-      console.warn(`[installHostBootstrap] ConfigManager.init failed: ${(e as Error).message || e}`);
+      debug.e("HOST", "ConfigManager.init failed", e);
     }
     ModuleRegistry.bootAll();
     ModuleRegistry.snapshotEnabled();

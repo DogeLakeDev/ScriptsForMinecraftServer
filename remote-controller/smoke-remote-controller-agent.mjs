@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * tools/smoke-remote-controller-agent.mjs — mock sfmc agent for smoke test
+ * smoke-remote-controller-agent.mjs — mock sfmc agent for smoke test
  */
 import WebSocket from "ws";
 

@@ -74,7 +74,20 @@ function buildPackageJson(folderId) {
   };
 }
 
-function buildManifest(folderId, displayName, template) {
+/** 写出配置用的相对路径（posix，且始终带 ./ 或 ../） */
+function relPosix(fromDir, toFile) {
+  let rel = path.relative(fromDir, toFile).replace(/\\/g, "/");
+  if (!rel.startsWith(".")) rel = `./${rel}`;
+  return rel;
+}
+
+/**
+ * @param {string} folderId
+ * @param {string} displayName
+ * @param {"minimal"|"db"} template
+ * @param {string} schemaRel $schema 相对 sapi/ 的路径（由调用方按落盘位置计算）
+ */
+function buildManifest(folderId, displayName, template, schemaRel) {
   if (folderId.startsWith("feature-") || folderId.startsWith("core-")) {
     die(`folder 须为短名（不含 feature-/core- 前缀），例如 area 而非 feature-area`);
   }
@@ -82,7 +95,7 @@ function buildManifest(folderId, displayName, template) {
   const configKey = folderId.replace(/-/g, "_");
   /** @type {Record<string, unknown>} */
   const base = {
-    $schema: "../../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
+    $schema: schemaRel,
     schemaVersion: 2,
     id: logicalId,
     name: displayName,
@@ -102,9 +115,10 @@ function buildManifest(folderId, displayName, template) {
   return base;
 }
 
-function buildTsConfig() {
+/** @param {string} extendsRel 相对 sapi/ 的 tsconfig extends */
+function buildTsConfig(extendsRel) {
   return {
-    extends: "../../../tsconfig.base.json",
+    extends: extendsRel,
     compilerOptions: {
       noEmit: true,
       rootDir: "./src",
@@ -183,10 +197,23 @@ function main() {
   const displayName = flags.name?.trim() || folderId;
   const template = flags.template === "db" ? "db" : "minimal";
 
+  const sapiDir = path.join(target, "sapi");
+  const schemaAbs = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "schemas", "sapi-manifest.v2.schema.json");
+  const baseTsAbs = path.join(ROOT, "modules", "tsconfig.base.json");
+  if (!fs.existsSync(schemaAbs)) {
+    die(`找不到 manifest schema: ${schemaAbs}`);
+  }
+  if (!fs.existsSync(baseTsAbs)) {
+    die(`找不到 tsconfig.base.json: ${baseTsAbs}`);
+  }
+
   writeJson(path.join(target, "package.json"), buildPackageJson(folderId));
-  writeJson(path.join(target, "sapi", "manifest.json"), buildManifest(folderId, displayName, template));
-  writeJson(path.join(target, "sapi", "tsconfig.json"), buildTsConfig());
-  writeText(path.join(target, "sapi", "src", "index.ts"), buildIndexTs(folderId, displayName));
+  writeJson(
+    path.join(sapiDir, "manifest.json"),
+    buildManifest(folderId, displayName, template, relPosix(sapiDir, schemaAbs))
+  );
+  writeJson(path.join(sapiDir, "tsconfig.json"), buildTsConfig(relPosix(sapiDir, baseTsAbs)));
+  writeText(path.join(sapiDir, "src", "index.ts"), buildIndexTs(folderId, displayName));
 
   console.log(`[new-module] 已创建 ${target}`);
   console.log(`[new-module]   npm: @sfmc-bds/module-${folderId}`);

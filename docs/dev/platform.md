@@ -22,7 +22,7 @@ cd db-server && npm run dev    # tsx 热跑
 ## 改 SDK 后
 
 ```bash
-npm run sdk:build
+npm run build --workspace @sfmc-bds/sdk
 # 再 build 依赖它的 workspace + 重打 BP
 ```
 
@@ -78,3 +78,22 @@ Node 必须 ≥ 22.13。
 4. 文档与代码一起改
 
 业务模块 PR 优先提 sfmc-modules；本仓只留联调用的 packages 快照。
+
+## SAPI debug 与 Sentry（BDS）
+
+统一日志门面：`import { debug, setDebugEnabled } from "@sfmc-bds/sdk/sapi/runtime"`。
+
+| 开关 | 位置 | 作用 |
+|------|------|------|
+| 控制台 debug | `<BDS>/config/default/variables.json` → `"sfmc_debug": true` | 打开 `console` 输出（默认关） |
+| Sentry | `<BDS>/config/default/secrets.json` → `"SENTRY_DSN": "https://...@....ingest.sentry.io/..."` | `init` 并挂到 `debug` sink（默认关） |
+
+也可写在 `<BDS>/config/<sfmc-modules-uuid>/` 下对应文件。两者可单独启用。
+
+行为摘要：
+
+- `debug.d/i/w` → 控制台仅在 `sfmc_debug` 时输出；（Sentry 开启时）breadcrumb
+- `debug.e` → **始终** `console.warn`；（Sentry 开启时）`captureException`（args 中的 `Error` 优先）
+- ModuleRegistry / ConfigManager 失败已走 `debug.e`
+- 改完后需 `sfmc behavior-pack build && deploy` 并重启 BDS
+- API：`@sfmc-bds/sdk/sapi/diagnostics` 的 `initSentryIfConfigured` / `reportError`（启动链已自动调用 init）

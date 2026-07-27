@@ -1,18 +1,19 @@
+#!/usr/bin/env node
 /**
- * scripts/esbuild-transpile.mjs
+ * tools/esbuild-transpile.mjs
  *
  * 逐文件 TS → ESM 转译（不 bundle），作为 tsc emit JS 的替代。
  * 可选再跑 tsc --emitDeclarationOnly 产出 .d.ts（仅带 types 导出的包使用）。
  *
- * 用法（在包根目录执行）:
- *   node ../scripts/esbuild-transpile.mjs
- *   node ../scripts/esbuild-transpile.mjs --dts
+ * 用法（在包根目录，经 npm script / PATH 调用）:
+ *   sfmc-esbuild-transpile
+ *   sfmc-esbuild-transpile --dts
  */
 
 import { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
-import { runTsc7 } from "../tools/tsc7.mjs";
+import { runTsc7 } from "./tsc7.mjs";
 
 const emitDts = process.argv.includes("--dts");
 const srcDir = path.resolve("src");
@@ -61,12 +62,6 @@ console.log(`[esbuild-transpile] emitted ${entryPoints.length} files → dist/`)
 
 if (emitDts) {
   console.log("[esbuild-transpile] emitting .d.ts via tsc7 --emitDeclarationOnly...");
-  const code = runTsc7([
-    "-p",
-    "tsconfig.json",
-    "--emitDeclarationOnly",
-    "--declaration",
-    "--declarationMap",
-  ]);
+  const code = runTsc7(["-p", "tsconfig.json", "--emitDeclarationOnly", "--declaration", "--declarationMap"]);
   if (code !== 0) process.exit(code);
 }

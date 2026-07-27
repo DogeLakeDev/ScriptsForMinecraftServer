@@ -1,5 +1,6 @@
 import { BlockComponentTypes, BlockPermutation, Dimension } from "@minecraft/server";
 
+/** 判断二维点 (x,z) 是否落在矩形区域内（起终点可任意对角） */
 export function pointInArea_2D(
   x: number,
   z: number,
@@ -21,10 +22,15 @@ export function pointInArea_2D(
   return true;
 }
 
+/** 闭区间 [min, max] 内随机整数 */
 export function getRandomInteger(min: number = 0, max: number = 1): number {
   return min + Math.floor(Math.random() * (max + 1));
 }
 
+/**
+ * 将方向码映射为水平单位向量 `[dx, dz]`。
+ * `1` 东 / `-1` 西 / `2` 南 / `-2` 北。
+ */
 export function getBase(direction: number): [number, number] {
   switch (direction) {
     case 1:
@@ -40,6 +46,7 @@ export function getBase(direction: number): [number, number] {
   }
 }
 
+/** 双箱放置用的 cardinal 朝向字符串（east/west/north/south） */
 export function getChestCardinal(direction: number, face: number): string {
   if (direction === -1 || direction === 1) {
     return face > 0 ? "south" : "north";
@@ -47,6 +54,7 @@ export function getChestCardinal(direction: number, face: number): string {
   return face > 0 ? "east" : "west";
 }
 
+/** 墙牌 `facing_direction` 数值（与箱子布局配套） */
 export function getSignFacing(direction: number, face: number): number {
   if (direction === -1 || direction === 1) {
     return face > 0 ? 3 : 2;
@@ -54,6 +62,10 @@ export function getSignFacing(direction: number, face: number): number {
   return face > 0 ? 5 : 4;
 }
 
+/**
+ * 按主轴方向计算左箱 / 右箱 / 告示牌坐标。
+ * 用于商店等「双箱 + 墙牌」布局。
+ */
 export function getLayout(
   start: [number, number, number],
   direction: number,
@@ -84,6 +96,7 @@ export function getLayout(
   return { left, right, sign };
 }
 
+/** 在指定位置确保存在一对朝向正确的双箱（已有箱子则跳过） */
 export function ensureDoubleChest(
   dimension: Dimension,
   pos: { x: number; y: number; z: number },
@@ -104,6 +117,7 @@ export function ensureDoubleChest(
   }
 }
 
+/** 放置墙牌并写入文本（失败时静默忽略） */
 export function placeSign(
   dimension: Dimension,
   pos: { x: number; y: number; z: number },
@@ -118,6 +132,7 @@ export function placeSign(
   } catch {}
 }
 
+/** 返回东八区（上海）当前日期与时间字符串 */
 export function getShanghaiTime(): { date: string; time: string } {
   const now = new Date();
   const offset = 8 * 60;
@@ -129,6 +144,7 @@ export function getShanghaiTime(): { date: string; time: string } {
   };
 }
 
+/** 将 Unix 毫秒时间戳格式化为东八区 `YYYY-MM-DD HH:mm` */
 export function formatTimestamp(ts: number): string {
   const offset = 8 * 60;
   const d = new Date(ts + offset * 60 * 1000);
@@ -136,16 +152,20 @@ export function formatTimestamp(ts: number): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
+/** 业务实体 ID 前缀：CH 宝箱 / M 货币 / RP 领地 / L 日志 / CP 检查点 */
 export type IDType = "CH" | "M" | "RP" | "L" | "CP";
 
+/** 生成带前缀的短随机 ID，如 `CH_a1b2c3d4` */
 export function generateId(type: IDType): string {
   return `${type}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** 维度 → 数值：主世界 0 / 下界 1 / 末地 2 */
 export function dimensionId(dimension: Dimension): number {
   return dimension.id === "minecraft:overworld" ? 0 : dimension.id === "minecraft:nether" ? 1 : 2;
 }
 
+/** 将键值对象编码为 `?a=1&b=2`；空对象返回空串 */
 export function toQueryString(params: Record<string, string | number | undefined>): string {
   const parts: string[] = [];
   for (const [k, v] of Object.entries(params)) {
@@ -154,6 +174,10 @@ export function toQueryString(params: Record<string, string | number | undefined
   return parts.length > 0 ? "?" + parts.join("&") : "";
 }
 
+/**
+ * 列表表单体说明文案：首行加 `[*]`，末尾追加「请选择操作」。
+ * 空数组仅返回「请选择操作」提示。
+ */
 export function ListFormInfo(str: string[]): string {
   if (str.length === 0) return "§7请选择操作：";
   const lines = [`[*] ${str[0]}`];

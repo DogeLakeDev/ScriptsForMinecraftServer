@@ -2,13 +2,20 @@
  * types.ts — 公共类型定义
  */
 
+/** 日志级别。 */
 export type LogLevel = "info" | "warn" | "error" | "debug" | "success";
+/** 日志来源标识（如 db / qq / system）。 */
 export type LogSource = string;
 
+/** 单条日志条目。 */
 export interface LogEntry {
+  /** 记录时间。 */
   time: Date;
+  /** 日志正文。 */
   text: string;
+  /** 来源标识。 */
   source: LogSource;
+  /** 级别。 */
   level: LogLevel;
 }
 

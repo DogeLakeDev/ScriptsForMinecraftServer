@@ -5,7 +5,7 @@
  * - pre mode 下由 changesets 自动使用 pre.json 的 tag（勿再传 --tag，会报错）
  */
 import { spawnSync } from "node:child_process";
-import { ROOT, isPreMode, readPreState } from "./lib/changeset-release.mjs";
+import { ROOT, isPreMode, readPreState } from "./changeset-release-lib.mjs";
 
 const pre = readPreState();
 const preTag = isPreMode() && pre?.tag ? String(pre.tag) : null;

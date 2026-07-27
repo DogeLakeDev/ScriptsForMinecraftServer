@@ -14,6 +14,13 @@
   },
   "changesets": [
     "align-release-token-dry",
-    "bds-log-filter-solid"
+    "bds-log-filter-solid",
+    "build-deps-world-packs-solid",
+    "fix-scan-dest-occupancy-merge",
+    "khaki-sheep-refuse",
+    "ripe-turkeys-invite",
+    "sapi-debug-sentry",
+    "sunny-boxes-hang",
+    "twelve-llamas-talk"
   ]
 }

@@ -1,3 +1,4 @@
+/** 旧版 Modules 枚举：configKey 别名表；新模块用 catalog id 即可。 */
 export const Modules = {
   config: "config",
   command: "command",
@@ -28,6 +29,7 @@ export const Modules = {
   gui: "gui",
 } as const;
 
+/** Modules 枚举值的联合类型（configKey 别名）。 */
 export type ModuleKey = (typeof Modules)[keyof typeof Modules];
 /**
  * OCP:模块 id 为开放字符串(catalog/manifest id,如 feature-afk);

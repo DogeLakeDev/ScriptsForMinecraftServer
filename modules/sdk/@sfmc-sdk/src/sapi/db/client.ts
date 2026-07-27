@@ -28,6 +28,7 @@ let _moduleId = "";
 let _authToken = "";
 let _currentTxId: string | null = null;
 
+/** 注入当前模块的 db 身份（由 ModuleRegistry.bootModule 调用）。 */
 export function setDbModuleContext(moduleId: string, token: string): void {
   _moduleId = moduleId;
   _authToken = token;
@@ -52,8 +53,11 @@ export function isDbTxRecording(): boolean {
 
 /* ── HTTP 辅助 ──────────────────────────────────────────────────── */
 
+/** db 客户端错误（含服务端 code 与 HTTP status）。 */
 export class DbError extends Error {
+  /** 错误码（如 permission_denied、use_tx）。 */
   code: string;
+  /** HTTP 状态码；网络错误时为 0。 */
   status: number;
   constructor(message: string, code: string, status: number) {
     super(message);
@@ -119,6 +123,7 @@ async function txStep(txId: string, step: TxStep): Promise<TxStepResult> {
 
 /* ── 公开 API ──────────────────────────────────────────────────── */
 
+/** SAPI 侧 db facade：经 HttpDB 调 db-server REST，禁止原始 SQL。 */
 export const db = {
   /** 模块 init 时调,声明自己要哪些表。db-server schema-registry 收集后建表。 */
   async defineTable(name: string, columns: Record<string, ColumnDef>, opts?: { softDelete?: boolean }): Promise<void> {
@@ -131,6 +136,7 @@ export const db = {
     });
   },
 
+  /** 条件查询表行。 */
   async query<T extends Record<string, unknown> = Record<string, unknown>>(
     table: string,
     opts?: QueryOptions
@@ -141,6 +147,7 @@ export const db = {
     return res.rows;
   },
 
+  /** 按主键取单行；不存在返回 null。 */
   async get<T extends Record<string, unknown> = Record<string, unknown>>(
     table: string,
     id: string | number
@@ -151,6 +158,7 @@ export const db = {
     return res.row;
   },
 
+  /** 插入一行并返回完整行。 */
   async insert<T extends Record<string, unknown>>(table: string, row: T): Promise<T> {
     requireModuleContext("insert");
     if (_currentTxId) throw new DbError("insert 不可直接调,请用 db.tx", "use_tx", 0);
@@ -158,6 +166,7 @@ export const db = {
     return res.row as T;
   },
 
+  /** 按主键部分更新并返回完整行。 */
   async update<T extends Record<string, unknown>>(
     table: string,
     id: string | number,
@@ -169,6 +178,7 @@ export const db = {
     return res.row as T;
   },
 
+  /** 删除一行；默认软删除，`hard: true` 物理删除。 */
   async delete(table: string, id: string | number, opts?: { hard?: boolean }): Promise<void> {
     requireModuleContext("delete");
     if (_currentTxId) throw new DbError("delete 不可直接调,请用 db.tx", "use_tx", 0);
@@ -270,22 +280,29 @@ export const db = {
   },
 };
 
+/** 交互式事务上下文（`db.tx` 回调参数）。 */
 export interface TxContext {
+  /** 事务内条件查询。 */
   query<T extends Record<string, unknown> = Record<string, unknown>>(
     table: string,
     opts?: QueryOptions
   ): Promise<T[]>;
+  /** 事务内按主键读取。 */
   get<T extends Record<string, unknown> = Record<string, unknown>>(
     table: string,
     id: string | number
   ): Promise<T | null>;
+  /** 事务内插入。 */
   insert<T extends Record<string, unknown>>(table: string, row: T): Promise<T>;
+  /** 事务内更新。 */
   update<T extends Record<string, unknown>>(
     table: string,
     id: string | number,
     patch: Partial<T>
   ): Promise<T>;
+  /** 事务内删除。 */
   delete(table: string, id: string | number, opts?: { hard?: boolean }): Promise<void>;
+  /** 事务内写审计日志。 */
   audit(table: string, rowId: string | number, action: string, data?: Record<string, unknown>): Promise<void>;
   /** 交互会话内返回服务端真实 result */
   call<T = unknown>(name: string, input: Record<string, unknown>): Promise<T>;

@@ -4,7 +4,7 @@
  *   node tools/changeset-assert-mode.mjs --pre      # 要求处于 pre mode
  *   node tools/changeset-assert-mode.mjs --stable   # 要求已退出 pre mode
  */
-import { isPreMode, readPreState } from "./lib/changeset-release.mjs";
+import { isPreMode, readPreState } from "./changeset-release-lib.mjs";
 
 const mode = process.argv.includes("--stable")
   ? "stable"

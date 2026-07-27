@@ -1,6 +1,6 @@
 # SDK 接口导读
 
-包名 `@sfmc-bds/sdk`。本文是**用法导读**；完整类型签名见 TypeDoc 生成的 [SDK 类型参考](../../reference/index.md)（`npm run docs:api`）。
+包名 `@sfmc-bds/sdk`。本文是**用法导读**；完整类型签名见 TypeDoc 生成的 [SDK 类型参考](../../reference/index.md)（`npm run docs -- api`）。
 
 模块作者日常用四个抽屉：
 

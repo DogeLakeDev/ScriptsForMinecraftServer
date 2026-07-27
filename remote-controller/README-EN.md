@@ -114,7 +114,7 @@ npx tsc -p tsconfig.json
 REMOTE_ENROLL_TOKEN=t1 REMOTE_ADMIN_TOKEN=t2 npx tsx src/index.ts
 
 # smoke test (enroll + dispatch + delete, no sfmc required)
-node tools/smoke-remote-controller.js
+npm run smoke -w @sfmc-bds/remote-controller
 ```
 
 ## Troubleshooting

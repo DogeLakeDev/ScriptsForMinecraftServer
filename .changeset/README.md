@@ -24,26 +24,17 @@ npm run changeset
 npm run prerelease-packages
 ```
 
-编排（`npm-run-all2` / `run-s`）：
-
-1. `changeset:assert-pre` — 确认处于 pre mode  
-2. `changeset:ensure` — 若无待消费 changeset 则交互添加  
-3. `version-packages` — `changeset version`  
-4. `commit-version-packages` — 提交 bump  
-5. `tag-packages` — 打 `@scope/name@version` tag  
-6. `push-release` — 推分支 + tag  
-7. `publish-packages` — `changeset publish`（→ npm `beta`）  
-8. `gh-prerelease-packages` — 创建 GitHub Pre-release  
+入口为 `node tools/run-release.mjs --pre`，内部依次：assert pre → ensure changeset → version → commit → tag → push → publish → GitHub Pre-release。
 
 退出 pre 且达标后，正式发版：
 
 ```bash
 npx changeset pre exit
-npm run release-packages   # 同上，但 npm latest + GitHub Release（非 pre）
+npm run release-packages   # run-release.mjs --stable → npm latest + GitHub Release
 ```
 
 ## CI
 
-`changeset-release.yml` 在 `main` 上开 Version PR；合并后跑 `ci-release-packages`（publish → tag → push tags → gh release，无交互）。
+`changeset-release.yml` 在 `main` 上开 Version PR；合并后跑 `ci-release-packages`（`run-release.mjs --ci`：publish → tag → push tags → gh release，无交互）。
 
 详情见 [docs/dev/npm-publish.md](../docs/dev/npm-publish.md)。
