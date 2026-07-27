@@ -1,20 +1,32 @@
 #!/usr/bin/env node
 import process from "node:process";
 import pkg from "../package.json" with { type: "json" };
+import {
+  isModuleInstallShorthand,
+  mapPacksSubAlias,
+  parseGlobalArgv,
+} from "./argv-parse.js";
 import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
-import { getHelp, startRepl } from "./repl.js";
-import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
-import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
-import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent, stopRemoteAgent } from "./remote-agent.js";
-import { cmdLocale } from "./locale-command.js";
-import { cmdDevMode } from "./devmode-command.js";
+import { gateLogsFollow, gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
 import { cmdDebug } from "./debug-command.js";
 import { initLocale, stripLangArgs, t } from "./i18n/index.js";
+import { cmdLocale } from "./locale-command.js";
+import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
+import {
+  disableRemoteAgent,
+  enrollRemoteAgent,
+  remoteStatus,
+  startRemoteAgent,
+  stopRemoteAgent,
+} from "./remote-agent.js";
+import { getHelp, startRepl } from "./repl.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
+import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
+
+const MODE = "argv" as const;
 
 function printVersion(): void {
-  /* 此前模板字符串未写入 stdout,导致 `sfmc --version` 无输出。 */
   console.log(`${c.text(`⠪⡁⡯⠁`)}
   ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
   ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
@@ -22,17 +34,20 @@ function printVersion(): void {
 }
 
 function printUsage(): void {
-  console.log(`${getHelp()}`);
+  console.log(`${getHelp("argv")}`);
+}
+
+function deny(msg: string): never {
+  console.log(msg);
+  process.exit(1);
 }
 
 async function main(): Promise<void> {
   const stripped = stripLangArgs(process.argv.slice(2));
   initLocale({ root: ROOT, flag: stripped.lang });
-  const args = stripped.args;
+  const { packsMode, args } = parseGlobalArgv(stripped.args);
 
-  if (args.length === 0) {
-    /* 首次运行:以 runtime.json#initialized_at 为准(非 db_config 是否存在)。
-     * 配置骨架由 services.ensureJsonConfig 在启动时创建,不能再当「未初始化」信号。 */
+  if (args.length === 0 && !packsMode) {
     const { isRuntimeInitialized } = await import("./runtime.js");
     if (!isRuntimeInitialized()) {
       const { runWizard } = await import("./wizard.js");
@@ -40,8 +55,6 @@ async function main(): Promise<void> {
       const { refreshServices } = await import("./services.js");
       refreshServices();
     }
-    /* Print yellow warnings for modules from outside the first-party registry.
-     * Best-effort: registry unreachable → no warning, no failure. */
     const warn = await scanAndWarnUnknown();
     if (warn) console.log(warn);
     startRemoteAgent();
@@ -49,7 +62,28 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (packsMode) {
+    const [subRaw, ...subRest] = args;
+    const sub = mapPacksSubAlias(subRaw);
+    const g = gatePacksSub(sub, MODE);
+    if (g) deny(g);
+    console.log(await dispatchPacksCommand(sub, subRest));
+    process.exit(0);
+  }
+
   const [cmd, ...rest] = args;
+
+  if (cmd && !["--help", "-h", "--version", "-v"].includes(cmd)) {
+    const topGate = gateTopLevel(cmd, MODE);
+    if (topGate) deny(topGate);
+  }
+
+  if (isModuleInstallShorthand(cmd)) {
+    const g = gateModuleSub("install", MODE);
+    if (g) deny(g);
+    console.log(await dispatchModuleCommand("install", rest));
+    process.exit(0);
+  }
 
   switch (cmd) {
     case "--help":
@@ -65,17 +99,16 @@ async function main(): Promise<void> {
     case "lang":
       console.log(cmdLocale(rest));
       break;
-    case "devmode":
-      console.log(cmdDevMode(rest));
-      break;
     case "debug":
       console.log(await cmdDebug(rest));
       break;
     case "status":
-      console.log(cmdStatus());
+      console.log(await cmdStatus());
       break;
     case "logs":
     case "log": {
+      const followGate = gateLogsFollow(rest, MODE);
+      if (followGate) deny(followGate);
       const out = cmdLogs(rest);
       if (out) console.log(out);
       break;
@@ -114,6 +147,8 @@ async function main(): Promise<void> {
     case "packs":
     case "addon": {
       const [sub, ...subRest] = rest;
+      const g = gatePacksSub(sub, MODE);
+      if (g) deny(g);
       console.log(await dispatchPacksCommand(sub, subRest));
       break;
     }
@@ -135,7 +170,6 @@ async function main(): Promise<void> {
         };
         process.once("SIGINT", exit);
         process.once("SIGTERM", exit);
-        /* keep alive so the WS loop can run; ctrl-c exits. */
         await new Promise(() => undefined);
       } else if (subcommand === "status") {
         console.log(JSON.stringify(remoteStatus(), null, 2));
@@ -148,14 +182,17 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      /* module/mod 别名只维护 MODULE_CMD_NAMES,避免 main/repl case 链漂移(OCP)。 */
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = rest;
+        const g = gateModuleSub(sub, MODE);
+        if (g) deny(g);
         console.log(await dispatchModuleCommand(sub, subRest));
         break;
       }
       if (isPacksCommand(cmd)) {
         const [sub, ...subRest] = rest;
+        const g = gatePacksSub(sub, MODE);
+        if (g) deny(g);
         console.log(await dispatchPacksCommand(sub, subRest));
         break;
       }

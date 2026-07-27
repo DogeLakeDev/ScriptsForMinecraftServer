@@ -40,7 +40,7 @@ import {
   readWorldPackList,
   worldPackListHas as pmWorldPackListHas,
 } from "@sfmc-bds/bds-tools/pack-manager-lib";
-import { ROOT, PACKAGES_DIR, resolveSdkPackageRoot } from "./runtime.js";
+import { ROOT, PACKAGES_DIR, resolveSdkPackageRoot, getRoot } from "./runtime.js";
 import { c } from "./theme.js";
 
 export const BP_NAME = "sfmc-modules";
@@ -155,8 +155,8 @@ function catalogPath(): string {
 }
 
 /** 读 BDS 路径与 level-name（level 权威：pack-manager-lib.readLevelNameSync，DIP） */
-export function resolveBdsContext(): { bdsRoot: string; levelName: string } {
-  const cfg = (readJson<BdsUpdaterConfig>(configPath(ROOT, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
+export function resolveBdsContext(root: string = getRoot()): { bdsRoot: string; levelName: string } {
+  const cfg = (readJson<BdsUpdaterConfig>(configPath(root, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
   const bdsRoot = cfg.bds_path;
   if (!bdsRoot) {
     throw new Error("bds_path not configured. Run `sfmc init` first.");

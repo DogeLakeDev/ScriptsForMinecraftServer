@@ -10,10 +10,8 @@ import {
   cmdStatus,
   cmdStop,
   cmdStopAll,
-  cmdUpdate,
 } from "./commands.js";
 import { t } from "./i18n/index.js";
-import { cmdLocale } from "./locale-command.js";
 import {
   formatLog,
   getAllLogs,
@@ -29,18 +27,34 @@ import {
 import {
   dispatchModuleCommand,
   getVisibleModuleSubcommands,
-  isDeveloperSubcommand,
   isModuleCommand,
   listInstalledModuleIdsSync,
-  MODULE_CMD_NAMES,
 } from "./module-commands.js";
-import { isDeveloperMode } from "./devmode.js";
+import {
+  listVisiblePacksSubs,
+  listVisibleTopLevelNames,
+  type CommandMode,
+} from "./command-surface.js";
+import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
+import {
+  activeNode,
+  clampPaletteSelection,
+  commitSelection,
+  formatPaletteCascadeLines,
+  paletteGhost,
+  promptSlashColumn,
+  resolvePaletteView,
+} from "./command-palette.js";
+import { getHelp as buildHelp } from "./help-text.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
-import { disableRemoteAgent, enrollRemoteAgent, remoteStatus, startRemoteAgent } from "./remote-agent.js";
-import { forceStopAll, SERVICE_NAMES, stopAll } from "./services.js";
+import { stopRemoteAgent } from "./remote-agent.js";
+import { listActiveSendTargets, paintSendPrompt, plainPrompt } from "./send-target.js";
+import { forceStopAll, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
 import { listSfmcModulePackages, resolveSfmcModulesRoot } from "./sfmc-modules-root.js";
 import { c } from "./theme.js";
-import { dispatchPacksCommand, isPacksCommand, PACKS_SUBCOMMANDS } from "./world-packs.js";
+import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
+
+const REPL_MODE: CommandMode = "repl";
 
 function setRaw(v: boolean): void {
   try {
@@ -52,7 +66,7 @@ const welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
   ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
   ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
-  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`help · Ctrl+L · ↹ · → · ↑↓`)}\n
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`/ · Tab · Ctrl+P · Ctrl+L · ←→ · ↑↓`)}\n
 `;
 
 const version = `\n
@@ -62,125 +76,23 @@ const version = `\n
   ${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
 `;
 
-/**
- * module 子命令帮助条目（顺序与展示与可见性解耦 —— 始终全部展示;颜色决定可读时的角色）。
- * `sub` 走 `isDeveloperSubcommand` 决定着色;suffix 是该条 args 后缀;i18n key 显示在右侧。
- * 行 0 用 `module/mod` 命名一次性;其余行用 `module`。
- */
-const MODULE_HELP_ENTRIES: ReadonlyArray<{ sub: string; suffix: string; key: string }> = [
-  { sub: "list", suffix: "", key: "help.module.list" },
-  { sub: "search", suffix: " [id]", key: "help.module.search" },
-  { sub: "install", suffix: " <id> [--from <source>] [--link]", key: "help.module.install" },
-  { sub: "uninstall", suffix: " <id>", key: "help.module.uninstall" },
-  { sub: "verify", suffix: " [id]", key: "help.module.verify" },
-  { sub: "info", suffix: " <id>", key: "help.module.info" },
-  { sub: "enable", suffix: "|disable <id>", key: "help.module.toggle" },
-  { sub: "create", suffix: "", key: "help.module.create" },
-  { sub: "link", suffix: " [id]", key: "help.module.link" },
-  { sub: "dev", suffix: "", key: "help.module.dev" },
-  { sub: "build", suffix: "", key: "help.module.build" },
-  { sub: "reload", suffix: " [--build-only]", key: "help.module.reload" },
-];
-
-/** 帮助中 module 区段的渲染：base=绿，dev=蓝（同集合驱动，避免在多处写 if）。 */
-function moduleHelpBlock(): string {
-  return MODULE_HELP_ENTRIES.map(({ sub, suffix, key }, i) => {
-    const paint = isDeveloperSubcommand(sub) ? c.blue : c.green;
-    const cmdLabel = i === 0 ? `${c.green("module")}/${c.green("mod")}` : c.green("module");
-    const subPainted = paint(sub);
-    return `  ${cmdLabel} ${subPainted}${suffix}\n                                   ${t(key as never)}`;
-  }).join("\n");
+export function getHelp(mode: CommandMode = "argv"): string {
+  return buildHelp(mode);
 }
 
-/** 按当前语言生成帮助（勿缓存为常量，locale 可切换）。 */
-export function getHelp(): string {
-  return `
-${c.bold("╭──────────────────────────────────────────────────────────╮")}
-${c.bold("│")}  ${c.green(t("help.title"))}${" ".repeat(Math.max(1, 56 - t("help.title").length))}${c.bold("│")}
-${c.bold("╰──────────────────────────────────────────────────────────╯")}
-
-${c.bold(t("help.section.service"))}
-  ${c.green("status")}                    ${t("help.status")}
-  ${c.green("logs")} <svc> [-n N] [-f]    ${t("help.logs")}
-  ${c.green("start")}  <svc>|-all         ${t("help.start")}
-  ${c.green("stop")}   <svc>|-all         ${t("help.stop")}
-  ${c.green("restart")}<svc>|-all         ${t("help.restart")}
-  ${c.green("send")}   <svc> <msg>        ${t("help.send")}
-
-${c.bold(t("help.section.update"))}
-  ${c.green("update")} [--check-only] [--channel=release|preview]
-                                   ${t("help.update")}
-
-${c.bold(t("help.section.remote"))}  ${c.dim("[beta]")}
-  ${c.green("remote")} status            ${t("help.remote.status")}
-  ${c.green("remote")} enroll <url> <token> [name]
-                                   ${t("help.remote.enroll")}
-  ${c.green("remote")} disable           ${t("help.remote.disable")}
-
-${c.bold(t("help.section.devmode"))}
-  ${c.green("devmode")} [on|off|status]  ${t("help.devmode")}
-
-${c.bold(t("help.section.debug"))}
-  ${c.green("debug")} status            ${t("help.debug.status")}
-  ${c.green("debug")} enable|disable    ${t("help.debug.toggle")}
-  ${c.green("debug")} sentry on --dsn   ${t("help.debug.sentry.on")}
-  ${c.green("debug")} sentry off        ${t("help.debug.sentry.off")}
-
-${c.bold(t("help.section.module"))}
-${moduleHelpBlock()}
-
-${c.bold(t("help.section.addon"))}
-  ${c.green("addon")}/${c.green("packs")} list|search|enable|disable|bump|install|scan|doctor|path
-                                   ${t("help.addon")}
-
-${c.bold(t("help.section.general"))}
-  ${c.green("init")}                     ${t("help.init")}
-  ${c.green("locale")} [zh|en]           ${t("help.locale")}
-  ${c.green("version")}                  ${t("help.version")}
-  ${c.green("help")}                     ${t("help.help")}
-  ${c.green("quit")} / ${c.green("exit")}  ${t("help.quit")}
-
-${c.dim("────────────────────────────────────────────────────────────")}
-${c.dim(t("help.shortcuts"))}
-  ${c.dim("Tab")}       ${t("help.shortcut.tab")}
-  ${c.dim("→")}         ${t("help.shortcut.right")}
-  ${c.dim("Ctrl+L")}    ${t("help.shortcut.ctrll")}
-  ${c.dim("↑↓")}        ${t("help.shortcut.history")}
-`;
-}
-
-/** @deprecated 请用 getHelp()；保留别名以兼容旧导入。 */
+/** @deprecated 请用 getHelp(mode)；保留别名以兼容旧导入。 */
 export const HELP = {
   toString() {
-    return getHelp();
+    return getHelp("argv");
   },
   valueOf() {
-    return getHelp();
+    return getHelp("argv");
   },
 } as unknown as string;
 
-const COMMANDS = [
-  "status",
-  "logs",
-  "start",
-  "stop",
-  "restart",
-  "send",
-  "init",
-  "locale",
-  "lang",
-  "update",
-  "remote",
-  "devmode",
-  "debug",
-  ...MODULE_CMD_NAMES,
-  "packs",
-  "addon",
-  "version",
-  "help",
-  "quit",
-  "exit",
-];
+function getCommands(): string[] {
+  return listVisibleTopLevelNames(REPL_MODE);
+}
 
 /* ==================================================================
  *  Context-aware completion
@@ -223,9 +135,13 @@ function parseLine(line: string): ParsedLine {
  * 根据命令 + 参数位置返回补全候选 (区分命令,不再把服务名当成所有指令的二级参数)。
  */
 function getCompletions(parsed: ParsedLine): string[] {
-  const { cmd, words, argIndex, current } = parsed;
+  const { words, argIndex, current } = parsed;
+  const cmd = (parsed.cmd.startsWith("/") ? parsed.cmd.slice(1) : parsed.cmd);
   const sw = (s: string): boolean => s.startsWith(current);
-  if (!cmd) return COMMANDS.filter(sw);
+  if (!cmd) {
+    const cmds = getCommands().map((n) => (n.startsWith("/") ? n : n));
+    return ["/", ...cmds].filter(sw);
+  }
   switch (cmd) {
     case "logs":
     case "log":
@@ -245,28 +161,17 @@ function getCompletions(parsed: ParsedLine): string[] {
     case "remote":
       if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
       return [];
-    case "devmode":
-      if (argIndex === 0) return ["on", "off", "status"].filter(sw);
-      return [];
-    case "debug":
-      if (argIndex === 0) return ["status", "enable", "disable", "sentry"].filter(sw);
-      if (argIndex === 1 && words[0] === "sentry") return ["on", "off"].filter(sw);
-      if (argIndex === 2 && words[0] === "sentry" && words[1] === "on") return ["--dsn"].filter(sw);
-      return [];
     case "packs":
     case "addon":
-      if (argIndex === 0) return [...PACKS_SUBCOMMANDS].filter(sw);
+      if (argIndex === 0) return [...listVisiblePacksSubs(REPL_MODE)].filter(sw);
       if (argIndex === 1 && ["list"].includes(words[0] ?? "")) {
         return ["--kind", "--search"].filter(sw);
       }
       return [];
     default: {
-      /* 与 MODULE_CMD_NAMES 对齐,新增别名无需再改 case(OCP/DRY) */
       if (!isModuleCommand(cmd)) return [];
-      /* Tab 补全按 devmode 过滤 —— 唯一权威来源 */
-      if (argIndex === 0) return [...getVisibleModuleSubcommands(isDeveloperMode())].filter(sw);
+      if (argIndex === 0) return [...getVisibleModuleSubcommands(REPL_MODE)].filter(sw);
       const verb = words[0] ?? "";
-      /* search:补全 registry 缓存中的 id;其余本地已装 id */
       if (argIndex === 1 && verb === "search") {
         return listRegistryModuleIdsSync().filter(sw);
       }
@@ -412,41 +317,146 @@ async function simpleSelect(items: SelectItem[]): Promise<string | null> {
 const history: string[] = [];
 let historyIdx = -1;
 
-/** 当前 readLine 的重绘函数 (窗口 resize 时调用,重绘输入行) */
+/** 当前 readLine 的重绘函数 (窗口 resize / 日志推送时调用) */
 let currentRedraw: (() => void) | null = null;
 
-async function readLine(prompt: string, initial = ""): Promise<string | null> {
+type ReadLineOpts = {
+  getPrompt: () => string;
+  /** 无活跃服务时，普通字符自动前置 / */
+  autoSlash: boolean;
+  /** Tab：在非 / 行上切换发送目标；返回 true 表示已处理 */
+  cycleSendTarget: () => boolean;
+  initial?: string;
+};
+
+type ReadLineResult =
+  | { kind: "line"; value: string }
+  | { kind: "cancel" }
+  | { kind: "filter"; pending: string }
+  | { kind: "run"; parts: string[] };
+
+async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
   const wasRaw = stdin.isRaw ?? false;
   setRaw(true);
   stdin.resume();
 
-  let line = initial;
+  let line = opts.initial ?? "";
+  let cursor = line.length;
   let suggestion = "";
-  let tabState: { candidates: string[]; idx: number; wordStart: number; completedLine: string } | null = null;
+  /** 各级列选中 / 滚动（仅最右列可导航） */
+  let palSels: number[] = [0];
+  let palScrolls: number[] = [0];
+  let overlayRows = 0;
 
-  /**
-   * 重绘当前行:prompt + line + 灰色 autosuggestion,光标停在 line 末尾。
-   * autosuggestion 取当前 word 的第一个补全候选的剩余部分 (仅当 current 非空时)。
-   */
-  function redraw(): void {
-    const parsed = parseLine(line);
-    const candidates = getCompletions(parsed);
-    const first = candidates[0];
-    suggestion =
-      parsed.current && first && first !== parsed.current && first.startsWith(parsed.current)
-        ? first.slice(parsed.current.length)
-        : "";
-    stdout.write("\r\x1B[K" + prompt + line);
-    if (suggestion) {
-      stdout.write(c.dim(suggestion));
-      stdout.write("\x1B[" + suggestion.length + "D");
+  function prompt(): string {
+    return opts.getPrompt();
+  }
+
+  function slashMode(): boolean {
+    return line.startsWith("/");
+  }
+
+  function paletteView() {
+    return resolvePaletteView(line, palSels, palScrolls);
+  }
+
+  function syncPaletteState(view: ReturnType<typeof resolvePaletteView>): void {
+    for (let i = 0; i < view.columns.length; i++) {
+      palSels[i] = view.columns[i]!.selected;
+      palScrolls[i] = view.columns[i]!.scroll;
     }
   }
 
-  redraw();
+  function resetPalette(): void {
+    palSels = [0];
+    palScrolls = [0];
+  }
 
+  function clearOverlay(): void {
+    stdout.write("\r\x1B[J");
+    overlayRows = 0;
+  }
+
+  function redraw(): void {
+    const p = prompt();
+    suggestion = "";
+
+    if (slashMode()) {
+      const view = paletteView();
+      syncPaletteState(view);
+      if (cursor === line.length) {
+        suggestion = paletteGhost(view);
+      }
+    } else {
+      const parsed = parseLine(line);
+      const candidates = getCompletions(parsed);
+      const first = candidates[0];
+      if (
+        cursor === line.length &&
+        parsed.current &&
+        first &&
+        first !== parsed.current &&
+        first.startsWith(parsed.current)
+      ) {
+        suggestion = first.slice(parsed.current.length);
+      }
+    }
+
+    clearOverlay();
+    stdout.write(p + line);
+    if (suggestion) stdout.write(c.dim(suggestion));
+
+    if (slashMode()) {
+      const view = paletteView();
+      const indent = promptSlashColumn(p);
+      const list = formatPaletteCascadeLines(view, indent);
+      if (list.length > 0) {
+        stdout.write("\n" + list.join("\n"));
+        overlayRows = list.length;
+        stdout.write(`\x1B[${overlayRows}A`);
+      }
+    }
+
+    const col = promptSlashColumn(p) + cursor + 1;
+    stdout.write(`\r\x1B[${col}G`);
+  }
+
+  redraw();
   currentRedraw = redraw;
-  return new Promise<string | null>((resolve) => {
+
+  return new Promise<ReadLineResult>((resolve) => {
+    const done = (value: ReadLineResult): void => {
+      stdin.removeListener("data", handler);
+      setRaw(wasRaw);
+      currentRedraw = null;
+      resolve(value);
+    };
+
+    const finishLine = (value: string): void => {
+      clearOverlay();
+      stdout.write(prompt() + value + "\r\n");
+      if (value.length > 0) {
+        history.push(value);
+        if (history.length > 100) history.shift();
+      }
+      historyIdx = history.length;
+      done({ kind: "line", value });
+    };
+
+    /** ↑↓/Tab：仅在最右列轮换选中，写入灰字，不改输入框 */
+    const movePalSel = (delta: number): boolean => {
+      const view = paletteView();
+      if (view.hidden) return false;
+      const col = view.columns[view.active];
+      if (!col || col.items.length === 0) return false;
+      const len = col.items.length;
+      const cur = clampPaletteSelection(col.selected, len);
+      const next = ((cur + delta) % len + len) % len;
+      palSels[view.active] = next;
+      redraw();
+      return true;
+    };
+
     const handler = (chunk: Buffer) => {
       let i = 0;
       while (i < chunk.length) {
@@ -456,27 +466,58 @@ async function readLine(prompt: string, initial = ""): Promise<string | null> {
             const len = next - i;
             if (len === 3 && chunk[i + 1] === 0x5b) {
               const fin = chunk[i + 2];
-              if (fin === 0x41 && historyIdx > 0) {
-                historyIdx--;
-                line = history[historyIdx] ?? "";
-                tabState = null;
-                redraw();
+              if (fin === 0x41) {
+                /* ↑ */
+                if (slashMode() && movePalSel(-1)) {
+                  i = next;
+                  continue;
+                }
+                if (historyIdx > 0) {
+                  historyIdx--;
+                  line = history[historyIdx] ?? "";
+                  cursor = line.length;
+                  resetPalette();
+                  redraw();
+                }
               } else if (fin === 0x42) {
+                /* ↓ */
+                if (slashMode() && movePalSel(1)) {
+                  i = next;
+                  continue;
+                }
                 if (historyIdx < history.length - 1) {
                   historyIdx++;
                   line = history[historyIdx] ?? "";
-                  tabState = null;
+                  cursor = line.length;
+                  resetPalette();
                   redraw();
                 } else if (historyIdx === history.length - 1) {
                   historyIdx = history.length;
                   line = "";
-                  tabState = null;
+                  cursor = 0;
+                  resetPalette();
                   redraw();
                 }
-              } else if (fin === 0x43 && suggestion) {
-                /* → 接受 autosuggestion */
-                line += suggestion;
-                tabState = null;
+              } else if (fin === 0x43) {
+                /* →：接受灰字或移光标（不切换面板焦点） */
+                if (cursor < line.length) {
+                  cursor++;
+                  redraw();
+                } else if (suggestion) {
+                  line += suggestion;
+                  cursor = line.length;
+                  redraw();
+                }
+              } else if (fin === 0x44) {
+                if (cursor > 0) {
+                  cursor--;
+                  redraw();
+                }
+              } else if (fin === 0x48) {
+                cursor = 0;
+                redraw();
+              } else if (fin === 0x46) {
+                cursor = line.length;
                 redraw();
               }
             }
@@ -485,98 +526,114 @@ async function readLine(prompt: string, initial = ""): Promise<string | null> {
           continue;
         }
 
-        const byte = chunk[i];
+        const byte = chunk[i]!;
         i++;
 
         if (byte === 0x0d || byte === 0x0a) {
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          /* 清掉灰色 suggestion,留下干净的 prompt+line 再换行 */
-          stdout.write("\r\x1B[K" + prompt + line + "\r\n");
-          if (line.length > 0) {
-            history.push(line);
-            if (history.length > 100) history.shift();
+          if (slashMode()) {
+            const view = paletteView();
+            syncPaletteState(view);
+            if (!view.hidden && view.columns.some((col) => col.items.length > 0) && activeNode(view)) {
+              const acc = commitSelection(line, view);
+              if (acc.submit) {
+                finishLine(acc.line);
+                return;
+              }
+              line = acc.line;
+              cursor = line.length;
+              /* 新层选中归零 */
+              const depth = Math.max(0, acc.line.trimEnd().split(/\s+/).length - 1);
+              while (palSels.length <= depth + 1) palSels.push(0);
+              while (palScrolls.length <= depth + 1) palScrolls.push(0);
+              palSels[depth + 1] = 0;
+              palScrolls[depth + 1] = 0;
+              redraw();
+              continue;
+            }
           }
-          historyIdx = history.length;
-          resolve(line);
+          finishLine(line);
           return;
         }
 
         if (byte === 0x03) {
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
           if (line.length > 0) {
             line = "";
-            tabState = null;
-            /* Ctrl+C 清空当前输入,不弹 suggestion */
-            stdout.write("\r\x1B[K" + prompt);
+            cursor = 0;
+            resetPalette();
+            redraw();
             continue;
           }
+          clearOverlay();
           stdout.write("\r\n");
-          resolve(null);
+          done({ kind: "cancel" });
           return;
         }
 
-        /* Tab — context-aware completion, cycle on repeated Tab, no auto-space */
-        if (byte === 0x09) {
-          if (tabState && line === tabState.completedLine) {
-            tabState.idx = (tabState.idx + 1) % tabState.candidates.length;
-          } else {
-            const parsed = parseLine(line);
-            const candidates = getCompletions(parsed);
-            if (candidates.length === 0) {
-              tabState = null;
-              redraw();
-              continue;
-            }
-            tabState = {
-              candidates,
-              idx: 0,
-              wordStart: line.length - parsed.current.length,
-              completedLine: "",
-            };
+        /* Ctrl+P — 确保以 / 开头 */
+        if (byte === 0x10) {
+          if (!line.startsWith("/")) {
+            line = "/" + line;
+            cursor = Math.min(cursor + 1, line.length);
           }
-          const match = tabState.candidates[tabState.idx]!;
-          line = line.slice(0, tabState.wordStart) + match;
-          tabState.completedLine = line;
+          resetPalette();
           redraw();
           continue;
         }
 
-        /* Ctrl+L */
+        if (byte === 0x09) {
+          /* Tab：/ 模式 = 列表轮换；否则切换发送目标 */
+          if (slashMode()) {
+            movePalSel(1);
+            continue;
+          }
+          if (opts.cycleSendTarget()) {
+            redraw();
+            continue;
+          }
+          continue;
+        }
+
         if (byte === 0x0c) {
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          resolve("__CTRLL__" + line);
+          clearOverlay();
+          done({ kind: "filter", pending: line });
           return;
         }
 
         if (byte === 0x7f || byte === 0x08) {
-          if (line.length > 0) {
-            line = line.slice(0, -1);
+          if (cursor > 0) {
+            line = line.slice(0, cursor - 1) + line.slice(cursor);
+            cursor--;
           }
-          tabState = null;
+          if (slashMode()) {
+            const view = paletteView();
+            palSels[view.active] = 0;
+            palScrolls[view.active] = 0;
+          }
           redraw();
           continue;
         }
 
-        if (byte! >= 0x20 && byte! <= 0x7e) {
-          line += String.fromCharCode(byte!);
-          tabState = null;
+        if (byte >= 0x20 && byte <= 0x7e) {
+          let ch = String.fromCharCode(byte);
+          if (opts.autoSlash && line.length === 0 && ch !== "/") {
+            ch = "/" + ch;
+          }
+          line = line.slice(0, cursor) + ch + line.slice(cursor);
+          cursor += ch.length;
+          if (slashMode()) {
+            const view = paletteView();
+            palSels[view.active] = 0;
+            palScrolls[view.active] = 0;
+          }
           redraw();
           continue;
         }
       }
     };
     stdin.on("data", handler);
-  }).finally(() => {
-    currentRedraw = null;
   });
 }
 
-/* ==================================================================
- *  REPL
- * ================================================================== */
 interface LogFilter {
   levels: LogLevel[];
   sources: LogSource[];
@@ -662,17 +719,27 @@ function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
 
 export async function startRepl(): Promise<void> {
   let stopping = false;
-  const shutdown = async (): Promise<void> => {
-    if (stopping) return;
-    stopping = true;
-    stdout.write(c.dim(t("repl.stopping") + "\n"));
-    await stopAll();
-    stdout.write(c.dim(t("repl.bye") + "\n"));
-  };
   const onSigint = (): void => {
     stdout.write(c.yellow("\n" + t("repl.forceStop") + "\n"));
     forceStopAll();
+    stopRemoteAgent();
     process.exit(130);
+  };
+  const shutdown = async (): Promise<void> => {
+    if (stopping) return;
+    stopping = true;
+    process.off("SIGINT", onSigint);
+    stdout.write(c.dim(t("repl.stopping") + "\n"));
+    await stopAll();
+    stopRemoteAgent();
+    try {
+      setRaw(false);
+      stdin.pause();
+    } catch {
+      /* ignore */
+    }
+    stdout.write(c.dim(t("repl.bye") + "\n"));
+    process.exit(0);
   };
   process.on("SIGINT", onSigint);
 
@@ -694,7 +761,6 @@ export async function startRepl(): Promise<void> {
       await execCmd(p);
     }
     await shutdown();
-    process.off("SIGINT", onSigint);
     return;
   }
   console.clear();
@@ -729,15 +795,42 @@ export async function startRepl(): Promise<void> {
   process.stdout.on("resize", onResize);
 
   let pendingInput = "";
+  let preferredTarget: ServiceName | null = null;
+  let activeTargets: ServiceName[] = [];
+
+  function currentTarget(): ServiceName | null {
+    if (activeTargets.length === 0) return null;
+    if (preferredTarget && activeTargets.includes(preferredTarget)) return preferredTarget;
+    preferredTarget = activeTargets[0]!;
+    return preferredTarget;
+  }
+
+  function buildPrompt(): string {
+    const tgt = currentTarget();
+    return tgt ? paintSendPrompt(tgt) : plainPrompt();
+  }
 
   while (true) {
-    const raw = await readLine(c.text(" ❯ "), pendingInput);
+    activeTargets = await listActiveSendTargets();
+    const result = await readLine({
+      getPrompt: buildPrompt,
+      autoSlash: activeTargets.length === 0,
+      cycleSendTarget: () => {
+        if (activeTargets.length === 0) return false;
+        const cur = currentTarget();
+        const idx = cur ? activeTargets.indexOf(cur) : -1;
+        const next = activeTargets[(idx + 1) % activeTargets.length]!;
+        preferredTarget = next;
+        return true;
+      },
+      initial: pendingInput,
+    });
     pendingInput = "";
 
-    if (raw === null) break;
+    if (result.kind === "cancel") break;
 
-    /* Ctrl+L — filter level / source / history window */
-    if (raw.startsWith("__CTRLL__")) {
+    if (result.kind === "filter") {
+      pendingInput = result.pending;
       stdout.write(c.dim(`\nLEVEL──────────SOURCE──────────HISTORY\n`));
       const histChoices = historyItems();
       const lvl = await simpleSelect([{ label: t("common.all"), value: "" }, ...LEVEL_ITEMS]);
@@ -762,11 +855,32 @@ export async function startRepl(): Promise<void> {
       continue;
     }
 
-    const trimmed = raw.trim();
+    if (result.kind === "run") {
+      try {
+        await execCmd(result.parts);
+      } catch (e) {
+        if (e === "QUIT") break;
+        console.log(c.red(t("common.error", { message: (e as Error).message })));
+      }
+      continue;
+    }
+
+    const trimmed = result.value.trim();
     if (!trimmed) continue;
 
     try {
-      await execCmd(trimmed.split(/\s+/));
+      if (trimmed.startsWith("/")) {
+        await execCmd(trimmed.split(/\s+/));
+      } else {
+        const tgt = currentTarget();
+        if (!tgt) {
+          /* 无活跃服务时应已被 autoSlash 转为命令 */
+          await execCmd(("/" + trimmed).split(/\s+/));
+        } else {
+          const sent = await cmdSend(tgt, trimmed);
+          if (sent) stdout.write(sent + "\n");
+        }
+      }
     } catch (e) {
       if (e === "QUIT") break;
       console.log(c.red(t("common.error", { message: (e as Error).message })));
@@ -776,27 +890,31 @@ export async function startRepl(): Promise<void> {
   process.stdout.off("resize", onResize);
   unsub();
   await shutdown();
-  process.off("SIGINT", onSigint);
 }
 
 async function execCmd(parts: string[]): Promise<void> {
-  const [cmd, ...args] = parts;
+  const normalized = parts.map((p, i) => (i === 0 && p.startsWith("/") ? p.slice(1) : p));
+  const [cmd, ...args] = normalized;
+
+  if (cmd && !["help", "h", "?", "version"].includes(cmd)) {
+    const topGate = gateTopLevel(cmd, REPL_MODE);
+    if (topGate) {
+      stdout.write(topGate + "\n");
+      return;
+    }
+  }
 
   switch (cmd) {
     case "help":
     case "h":
     case "?":
-      stdout.write(getHelp());
+      stdout.write(getHelp(REPL_MODE));
       break;
     case "version":
       stdout.write(`${version}\n`);
       break;
-    case "locale":
-    case "lang":
-      stdout.write(cmdLocale(args) + "\n");
-      break;
     case "status":
-      stdout.write(cmdStatus() + "\n");
+      stdout.write((await cmdStatus()) + "\n");
       break;
     case "logs":
     case "log": {
@@ -829,31 +947,9 @@ async function execCmd(parts: string[]): Promise<void> {
     case "send": {
       const svc = args[0] ?? "";
       const msg = args.slice(1).join(" ");
-      stdout.write((await cmdSend(svc, msg)) + "\n");
-      break;
-    }
-    case "init": {
-      const { runWizard } = await import("./wizard.js");
-      await runWizard();
-      break;
-    }
-    case "update":
-      await cmdUpdate(args);
-      break;
-    case "remote": {
-      const [subcommand, controllerUrl, enrollmentToken, name] = args;
-      if (subcommand === "status") {
-        stdout.write(JSON.stringify(remoteStatus(), null, 2) + "\n");
-      } else if (subcommand === "enroll" && controllerUrl && enrollmentToken) {
-        const agentName = name ?? process.env.COMPUTERNAME ?? "sfmc-agent";
-        const id = await enrollRemoteAgent(controllerUrl, enrollmentToken, agentName);
-        stdout.write(t("remote.enrolled", { id }) + "\n");
-        startRemoteAgent();
-      } else if (subcommand === "disable") {
-        disableRemoteAgent();
-        stdout.write(c.dim(t("remote.disabled") + "\n"));
-      } else {
-        stdout.write(t("remote.usageShort") + "\n");
+      {
+        const sent = await cmdSend(svc, msg);
+        if (sent) stdout.write(sent + "\n");
       }
       break;
     }
@@ -864,11 +960,21 @@ async function execCmd(parts: string[]): Promise<void> {
     default:
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = args;
+        const g = gateModuleSub(sub, REPL_MODE);
+        if (g) {
+          stdout.write(g + "\n");
+          break;
+        }
         stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
         break;
       }
       if (isPacksCommand(cmd)) {
         const [sub, ...subRest] = args;
+        const g = gatePacksSub(sub, REPL_MODE);
+        if (g) {
+          stdout.write(g + "\n");
+          break;
+        }
         stdout.write((await dispatchPacksCommand(sub, subRest)) + "\n");
         break;
       }

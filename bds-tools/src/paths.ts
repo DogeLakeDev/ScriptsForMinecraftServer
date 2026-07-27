@@ -17,6 +17,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { clearBdsPidFile } from "./process-probe.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const SCRIPT_DIR: string = path.dirname(__filename);
@@ -67,11 +68,7 @@ export function resolvePaths(cfg: BdsUpdaterConfig): BdsPaths {
   return { bds_path, backup_dir, preserve, cfg };
 }
 
-/** 删除 PID 文件 */
+/** 删除 PID 文件（委托 process-probe，与 bds-manager / sfmc 共用） */
 export function clearPid(): void {
-  try {
-    if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
-  } catch {
-    /* ignore */
-  }
+  clearBdsPidFile(ROOT_DIR);
 }

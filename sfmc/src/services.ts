@@ -6,13 +6,20 @@ import {
   DEFAULT_DB_CONFIG,
   DEFAULT_QQ_CONFIG,
 } from "@sfmc-bds/sdk/node/config";
+import {
+  clearBdsPidFile,
+  probeBdsStatus,
+  readBdsPidFile,
+  writeBdsPidFile,
+} from "@sfmc-bds/bds-tools/process-probe";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
-import { ensurePackUpdateConfigFile } from "./pack-update/config.js";
+import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
+import { t } from "./i18n/index.js";
 
 export { ROOT } from "./runtime.js";
 
@@ -31,6 +38,19 @@ export interface ServiceStatus {
   running: boolean;
   pid: number;
   uptime: string;
+  ownership?: "managed" | "external";
+}
+
+/** 当前 db 健康探测端口（与 createServices 同步） */
+let dbHealthPort = 3001;
+
+async function probeDbHealth(port: number): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 interface ServiceDef {
@@ -92,6 +112,14 @@ class Service {
 
   async start(): Promise<void> {
     if (this.running) return;
+    if (this.name === "bds") {
+      const probe = await probeBdsStatus({ rootDir: ROOT });
+      if (probe.state !== "stopped") {
+        throw new Error(
+          t("svc.bdsAlreadyRunning", { pid: String(probe.pid), kind: t(probe.state === "managed" ? "svc.running" : "svc.runningExternal") })
+        );
+      }
+    }
     if (this.def.validate) {
       const v = this.def.validate();
       if (v) throw new Error(v);
@@ -113,6 +141,9 @@ class Service {
     this.pid = child.pid ?? 0;
     this.running = true;
     this.startTime = new Date();
+    if (this.name === "bds" && this.pid > 0) {
+      writeBdsPidFile(this.pid, ROOT);
+    }
     this.events.emit("output", `started (PID ${this.pid})`, "info");
 
     child.on("error", (e) => {
@@ -195,9 +226,16 @@ class Service {
   }
 
   private cleanup(): void {
+    const exitingPid = this.pid;
     this.proc = null;
     this.running = false;
     this.pid = 0;
+    if (this.name === "bds" && exitingPid > 0) {
+      const filePid = readBdsPidFile(ROOT);
+      if (filePid === exitingPid) {
+        clearBdsPidFile(ROOT);
+      }
+    }
   }
 }
 
@@ -228,6 +266,7 @@ function createServices(): Record<ServiceName, Service> {
   const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
   const llbotCwd = qqCfg.llbot_cwd ?? "D:\\LLBot-CLI-win-x64";
   const dbPort = dbCfg.db_port ?? 3001;
+  dbHealthPort = dbPort;
   const bdsExe = path.resolve(bdsPath, "bedrock_server.exe");
 
   return {
@@ -249,7 +288,7 @@ function createServices(): Record<ServiceName, Service> {
         /* 先装收件箱第三方包，再检查 CF 更新，再跑模块聚合闸门 */
         const { scanAndInstallInbox } = await import("./world-packs.js");
         await scanAndInstallInbox({ interactive: false });
-        const { runPackUpdatesOnBdsStart } = await import("./pack-update/service.js");
+        const { runPackUpdatesOnBdsStart } = await import("./pack-update/index.js");
         await runPackUpdatesOnBdsStart();
         const { ensurePacksReady } = await import("./pack-lifecycle.js");
         await ensurePacksReady();
@@ -329,9 +368,55 @@ export function forceStopAll(): void {
   for (const service of Object.values(services)) service.forceStop();
 }
 
-export function serviceStatus(): ServiceStatus[] {
-  return SERVICE_NAMES.map((name) => {
-    const service = services[name];
-    return { name, title: service.title, running: service.running, pid: service.pid, uptime: service.uptime };
-  });
+export async function serviceStatus(): Promise<ServiceStatus[]> {
+  return Promise.all(
+    SERVICE_NAMES.map(async (name) => {
+      const service = services[name];
+      let running = service.running;
+      let pid = service.pid;
+      let uptime = service.uptime;
+      let ownership: "managed" | "external" | undefined;
+
+      if (name === "bds") {
+        const probe = await probeBdsStatus({
+          managedPid: service.pid,
+          hasStdin: Boolean(service.proc?.stdin),
+          rootDir: ROOT,
+        });
+        if (probe.state === "managed") {
+          running = true;
+          pid = probe.pid;
+          uptime = service.uptime;
+          ownership = "managed";
+        } else if (probe.state === "external") {
+          running = true;
+          pid = probe.pid;
+          uptime = "—";
+          ownership = "external";
+        } else {
+          running = false;
+          pid = 0;
+          uptime = "—";
+        }
+      } else if (name === "db") {
+        if (service.running) {
+          ownership = "managed";
+        } else if (await probeDbHealth(dbHealthPort)) {
+          running = true;
+          ownership = "external";
+        }
+      } else if (service.running) {
+        ownership = "managed";
+      }
+
+      return {
+        name,
+        title: service.title,
+        running,
+        pid,
+        uptime,
+        ...(ownership ? { ownership } : {}),
+      };
+    })
+  );
 }

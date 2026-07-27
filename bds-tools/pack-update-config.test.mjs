@@ -1,25 +1,25 @@
 /**
  * pack-update 配置 / provider 解析契约测试
  * 从 dist 导入权威实现（DRY / LSP）。
- * 需先 `npm run build -w @sfmc-bds/cli`。
+ * 需先 `npm run build -w @sfmc-bds/bds-tools`。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import {
+  DEFAULT_PACK_UNINSTALL,
+  createPackUpdateApi,
+  createTestPackUpdateDeps,
+  createPackSourceProvider,
+  providerShortLabel,
+  resolveConfiguredPackProvider,
+} from "./dist/pack-update/index.js";
 
-const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-upd-cfg-"));
-process.env.SFMC_ROOT = tmpRoot;
-fs.mkdirSync(path.join(tmpRoot, "configs"), { recursive: true });
-
-const { loadPackUpdateConfig, getPackMatchConfig } = await import(
-  pathToFileURL(path.resolve("dist/pack-update/config.js")).href
-);
-const { providerShortLabel, resolveConfiguredPackProvider, createPackSourceProvider } = await import(
-  pathToFileURL(path.resolve("dist/pack-update/providers/index.js")).href
-);
+const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bds-pack-upd-cfg-"));
+const api = createPackUpdateApi(createTestPackUpdateDeps(tmpRoot));
+const { loadPackUpdateConfig, getPackMatchConfig, resolveUninstallTrashDir } = api;
 
 describe("pack-update config + provider resolve", () => {
   before(() => {
@@ -34,7 +34,7 @@ describe("pack-update config + provider resolve", () => {
     }
   });
 
-  it("defaultBindingEnabled 默认 false，且出现在类型化配置上", async () => {
+  it("defaultBindingEnabled 默认 false，且出现在类型化配置上", () => {
     const cfgPath = path.join(tmpRoot, "configs", "pack-update.json");
     if (fs.existsSync(cfgPath)) fs.unlinkSync(cfgPath);
     const cfg = loadPackUpdateConfig();
@@ -43,12 +43,6 @@ describe("pack-update config + provider resolve", () => {
     assert.equal(cfg.uninstall.recycleBin, true);
     assert.equal(cfg.uninstall.trashRelativeDir, "packs/_trash");
 
-    const { DEFAULT_PACK_UNINSTALL } = await import(
-      pathToFileURL(path.resolve("dist/pack-update/types.js")).href
-    );
-    const { resolveUninstallTrashDir } = await import(
-      pathToFileURL(path.resolve("dist/pack-update/config.js")).href
-    );
     assert.equal(cfg.uninstall.trashRelativeDir, DEFAULT_PACK_UNINSTALL.trashRelativeDir);
     assert.equal(resolveUninstallTrashDir({ purge: true }), null);
     const trashAbs = String(resolveUninstallTrashDir({})).replace(/\\/g, "/");

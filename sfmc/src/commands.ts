@@ -1,7 +1,8 @@
+import { killBedrockServerByImage, probeBdsStatus, clearBdsPidFile } from "@sfmc-bds/bds-tools/process-probe";
 import { pushLog as pushUnifiedLog } from "./logs.js";
 import { t } from "./i18n/index.js";
 import { spawnService } from "./runtime.js";
-import { ROOT, SERVICE_NAMES, services, type ServiceName } from "./services.js";
+import { ROOT, SERVICE_NAMES, serviceStatus, services, type ServiceName } from "./services.js";
 import { c, DIVIDER, highlightLogLine } from "./theme.js";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
@@ -12,26 +13,38 @@ function parseService(raw: string): ServiceName | null {
   return null;
 }
 
-function statusLine(name: string, running: boolean, pid: number, uptime: string): string {
+function statusLine(
+  name: string,
+  running: boolean,
+  pid: number,
+  uptime: string,
+  ownership?: "managed" | "external"
+): string {
   const dot = running ? c.green("●") : c.dim("○");
-  const status = running ? c.green(t("svc.running")) : c.dim(t("svc.stopped"));
+  let statusText: string;
+  if (!running) {
+    statusText = t("svc.stopped");
+  } else if (ownership === "external") {
+    statusText = t("svc.runningExternal");
+  } else {
+    statusText = t("svc.running");
+  }
+  const status = running ? c.green(statusText) : c.dim(statusText);
   const pidStr = pid ? c.dim(String(pid)) : c.dim("—");
   const upStr = uptime !== "—" ? c.dim(uptime) : c.dim("—");
-  return `  ${dot} ${c.bold(name.padEnd(9))} ${status.padEnd(10)} ${pidStr.padEnd(8)} ${upStr}`;
+  return `  ${dot} ${c.bold(name.padEnd(9))} ${status.padEnd(16)} ${pidStr.padEnd(8)} ${upStr}`;
 }
 
-export function cmdStatus(): string {
-  const lines = SERVICE_NAMES.map((name) => {
-    const s = services[name];
-    return statusLine(s.title, s.running, s.pid, s.uptime);
-  });
+export async function cmdStatus(): Promise<string> {
+  const rows = await serviceStatus();
+  const lines = rows.map((row) => statusLine(row.title, row.running, row.pid, row.uptime, row.ownership));
   const nameH = t("svc.col.name");
   const statusH = t("svc.col.status");
   const pidH = t("svc.col.pid");
   const upH = t("svc.col.uptime");
   return (
     `\n${c.bold(t("svc.header"))}\n` +
-    c.dim(`  ${nameH}${" ".repeat(Math.max(1, 11 - nameH.length))}${statusH}${" ".repeat(Math.max(1, 10 - statusH.length))}${pidH}${" ".repeat(Math.max(1, 7 - pidH.length))}${upH}\n`) +
+    c.dim(`  ${nameH}${" ".repeat(Math.max(1, 11 - nameH.length))}${statusH}${" ".repeat(Math.max(1, 16 - statusH.length))}${pidH}${" ".repeat(Math.max(1, 7 - pidH.length))}${upH}\n`) +
     DIVIDER +
     "\n" +
     lines.join("\n") +
@@ -95,6 +108,17 @@ export async function cmdStart(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
+  if (svc === "bds") {
+    const probe = await probeBdsStatus({ rootDir: ROOT });
+    if (probe.state !== "stopped") {
+      return c.yellow(
+        t("svc.bdsAlreadyRunning", {
+          pid: String(probe.pid),
+          kind: probe.state === "managed" ? t("svc.running") : t("svc.runningExternal"),
+        })
+      );
+    }
+  }
   if (svcObj.running) return c.yellow(t("svc.alreadyRunning", { title: svcObj.title, pid: svcObj.pid }));
   if (STARTING.has(svc)) return c.dim(t("svc.alreadyStarting", { title: svcObj.title }));
   STARTING.add(svc);
@@ -112,6 +136,26 @@ export async function cmdStop(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
+  if (svc === "bds") {
+    const probe = await probeBdsStatus({
+      managedPid: svcObj.pid,
+      hasStdin: Boolean(svcObj.proc?.stdin),
+      rootDir: ROOT,
+    });
+    if (probe.state === "external") {
+      if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
+      STOPPING.add(svc);
+      try {
+        await killBedrockServerByImage();
+        clearBdsPidFile(ROOT);
+        return c.dim(t("svc.stoppedExternal", { title: svcObj.title }));
+      } catch (e) {
+        return c.red(t("svc.stopFailed", { title: svcObj.title, message: (e as Error).message }));
+      } finally {
+        STOPPING.delete(svc);
+      }
+    }
+  }
   if (!svcObj.running) return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
   if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
   STOPPING.add(svc);
@@ -130,10 +174,20 @@ export async function cmdSend(raw: string, message: string): Promise<string> {
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   if (!message) return c.yellow(t("svc.send.usage"));
   const svcObj = services[svc];
+  if (svc === "bds") {
+    const probe = await probeBdsStatus({
+      managedPid: svcObj.pid,
+      hasStdin: Boolean(svcObj.proc?.stdin),
+      rootDir: ROOT,
+    });
+    if (probe.state === "external") {
+      return c.yellow(t("svc.stdinUnavailable", { title: svcObj.title }));
+    }
+  }
   if (!svcObj.running || !svcObj.proc?.stdin) return c.yellow(t("svc.notRunning", { title: svcObj.title }));
   try {
     svcObj.proc.stdin.write(message + "\n");
-    return c.dim(t("svc.sent", { name: svc }));
+    return "";
   } catch {
     return c.red(t("svc.writeFailed"));
   }
@@ -142,6 +196,10 @@ export async function cmdSend(raw: string, message: string): Promise<string> {
 export async function cmdRestart(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
+  if (svc === "bds") {
+    await cmdStop("bds");
+    return cmdStart("bds");
+  }
   const svcObj = services[svc];
   try {
     await svcObj.restart();
@@ -176,7 +234,12 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
   const spawnArgs = userNoStart ? [...args] : [...args, "--no-start"];
 
   const bds = services.bds;
-  const bdsWasRunning = bds.running;
+  const bdsProbe = await probeBdsStatus({
+    managedPid: bds.pid,
+    hasStdin: Boolean(bds.proc?.stdin),
+    rootDir: ROOT,
+  });
+  const bdsWasRunning = bdsProbe.state !== "stopped";
 
   const result = await new Promise<{ code: number | null; out: string }>((resolve) => {
     const proc = spawnService("update", spawnArgs, {
@@ -215,7 +278,12 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
    * 以 updater 输出的 SFMC_UPDATE_RESULT=deployed 机器标记为准（勿匹配本地化日志）。 */
   const didDeploy = didUpdateDeploy(result.out);
   if (result.code === 0 && didDeploy && !userNoStart && !checkOnly) {
-    if (bds.running) {
+    const afterProbe = await probeBdsStatus({
+      managedPid: bds.pid,
+      hasStdin: Boolean(bds.proc?.stdin),
+      rootDir: ROOT,
+    });
+    if (afterProbe.state !== "stopped") {
       return result.out;
     }
     try {
@@ -227,8 +295,11 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
     }
   }
 
-  if (result.code === 0 && didDeploy && userNoStart && bdsWasRunning && !bds.running) {
-    return result.out + "\n" + c.yellow(t("svc.bdsStoppedForUpdate"));
+  if (result.code === 0 && didDeploy && userNoStart && bdsWasRunning) {
+    const afterProbe = await probeBdsStatus({ rootDir: ROOT });
+    if (afterProbe.state === "stopped") {
+      return result.out + "\n" + c.yellow(t("svc.bdsStoppedForUpdate"));
+    }
   }
 
   return result.out;

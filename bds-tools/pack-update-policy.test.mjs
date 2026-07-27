@@ -1,7 +1,7 @@
 /**
  * version-policy / slug 匹配测试
  * 从 dist 导入权威实现，禁止再内联复制（DRY / LSP：测生产契约）。
- * 需先 `npm run build -w @sfmc-bds/cli`。
+ * 需先 `npm run build -w @sfmc-bds/bds-tools`。
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -16,7 +16,7 @@ import {
   normalizePackSearchName,
   packSourceScore,
   toCfSlugCandidate,
-} from "./dist/pack-update/version-policy.js";
+} from "./dist/pack-update/index.js";
 
 describe("version-policy", () => {
   it("同 major 更新应 bump RP", () => {

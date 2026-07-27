@@ -26,16 +26,19 @@ import path from "node:path";
 import { t } from "./i18n/index.js";
 import { pushLog, type LogLevel } from "./logs.js";
 import { BP_NAME, RP_NAME, resolveBdsContext } from "./pack-lifecycle.js";
-import { getBinding, packSourcesPath, removeBinding } from "./pack-update/bindings.js";
-import { resolvePackTrashDir, resolveUninstallTrashDir } from "./pack-update/config.js";
 import {
   bindPackSource,
   bindingLabelForUuid,
   checkPackUpdates,
   formatSourcesList,
+  getBinding,
+  packSourcesPath,
   probeSourceAfterInstall,
+  removeBinding,
+  resolvePackTrashDir,
+  resolveUninstallTrashDir,
   searchRemote,
-} from "./pack-update/service.js";
+} from "./pack-update/index.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
 

@@ -6,8 +6,8 @@
  * - Bedrock gameId = 78022，Addons classId = 4984
  * - 下载走 bds-tools httpDownload（流式落盘，与 BDS 更新同一权威 — DRY/DIP）
  */
-import { httpDownload } from "@sfmc-bds/bds-tools/http";
 import { bindByteProgressToBar, createTerminalProgress } from "@sfmc-bds/sdk/logs";
+import { httpDownload } from "../../http.js";
 import type {
   CurseForgeProviderConfig,
   PackReleaseType,

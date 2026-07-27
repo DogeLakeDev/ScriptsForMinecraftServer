@@ -17,7 +17,7 @@ import path from "node:path";
 import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
 import { persistLocale, t, type Locale } from "./i18n/index.js";
 import { ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, spawnService } from "./runtime.js";
-import { ensurePackUpdateConfigFile } from "./pack-update/config.js";
+import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { c } from "./theme.js";
 
 /** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */

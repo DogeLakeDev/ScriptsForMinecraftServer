@@ -1,6 +1,8 @@
-﻿# 平台开发
+# 平台开发
 
 改 SDK、db-server、sfmc 或 CI 时看这篇。
+
+**包独立性：** 业务能力（pack-update、进程探活、world-packs、BDS 更新等）落在 `@sfmc-bds/bds-tools` / `db-server` / `qq-bridge` / `@sfmc-bds/sdk` 等包内，须能不经 CLI/REPL 独立调用；`@sfmc-bds/cli` 只做编排与交互壳，禁止服务包反向依赖 cli。
 
 ## 开发环境
 
@@ -89,6 +91,19 @@ Node 必须 ≥ 22.13。
 | Sentry | `<BDS>/config/default/secrets.json` → `"SENTRY_DSN": "https://...@....ingest.sentry.io/..."` | `init` 并挂到 `debug` sink（默认关） |
 
 也可写在 `<BDS>/config/<sfmc-modules-uuid>/` 下对应文件。两者可单独启用。
+
+CLI 命令按通道分层（`sfmc/src/command-surface.ts`）：`external` 仅 `sfmc <cmd>`、`repl` 仅交互 REPL、`both` 两边可用。例如 `module install|create|dev`、`debug`、多数 `packs` 部署子命令为仅外部；`send` / `logs -f` 为仅 REPL。外部 `--help` 只列 external|both。
+
+CLI 管理 debug（直接写 BDS 配置，改完后需 `sfmc mod reload` 或重启 BDS；**仅外部**，不进 REPL）：
+
+| 命令 | 作用 |
+|------|------|
+| `sfmc debug status` | 查看 `sfmc_debug` / `SENTRY_DSN` |
+| `sfmc debug enable\|disable` | 开关 `sfmc_debug`（默认 enable 打开控制台 debug 日志） |
+| `sfmc debug sentry on --dsn <url>` | 写入 `SENTRY_DSN` |
+| `sfmc debug sentry off` | 删除 `SENTRY_DSN` |
+
+开发类命令（`module create|dev|build|reload`、`debug`）在对应通道的 `help` 中以蓝色标出；无独立 `devmode` 开关。
 
 行为摘要：
 

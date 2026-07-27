@@ -6,7 +6,7 @@ import {
   compareSemVer3 as compareSemVer3Raw,
   maxSemVer3,
   nextEnabledVersion,
-} from "@sfmc-bds/bds-tools/world-packs";
+} from "../world-packs.js";
 import type { SemVer3, VersionCompareResult, VersionPolicyConfig } from "./types.js";
 
 /** 归一化为 -1 | 0 | 1，供策略比较 */

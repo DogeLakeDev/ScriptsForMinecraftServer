@@ -86,11 +86,11 @@ function stopHeartbeat(): void {
 
 async function execute(task: Task): Promise<unknown> {
   if (!isAction(task.action)) throw new Error("invalid task action");
-  if (task.action === "status") return { services: serviceStatus() };
+  if (task.action === "status") return { services: await serviceStatus() };
   if (!isService(task.service)) throw new Error("service is required and must be one of: " + SERVICE_NAMES.join(", "));
   if (task.action === "send") {
     if (!task.message) throw new Error("message is required for send action");
-    return { output: await cmdSend(task.service, task.message), services: serviceStatus() };
+    return { output: await cmdSend(task.service, task.message), services: await serviceStatus() };
   }
 
   const output =
@@ -99,7 +99,7 @@ async function execute(task: Task): Promise<unknown> {
       : task.action === "stop"
         ? await cmdStop(task.service)
         : await cmdRestart(task.service);
-  return { output, services: serviceStatus() };
+  return { output, services: await serviceStatus() };
 }
 
 function scheduleReconnect(): void {
@@ -171,8 +171,10 @@ export function startRemoteAgent(): void {
   ws.on("open", () => {
     retryDelay = 1000;
     lastError = "";
-    send({ type: "hello", agentId: config.agent_id, secret: config.agent_secret, status: serviceStatus() });
-    startHeartbeat();
+    void serviceStatus().then((status) => {
+      send({ type: "hello", agentId: config.agent_id, secret: config.agent_secret, status });
+      startHeartbeat();
+    });
   });
   ws.on("message", (raw) => {
     let msg: { type?: string };

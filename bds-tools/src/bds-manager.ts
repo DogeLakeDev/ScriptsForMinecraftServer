@@ -8,17 +8,22 @@
  *  - 完全异步 (fs/promises)
  */
 
-import { spawn, exec } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { isMainModule } from "./is-main.js";
-import { ensureStateDir, loadConfig, PID_FILE } from "./paths.js";
+import { loadConfig, ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
 import { ensureEmitServerTelemetry } from "./server-properties.js";
-
-const execAsync = promisify(exec);
+import {
+  clearBdsPidFile,
+  isProcessAlive,
+  isProcessAliveSync,
+  killBedrockServerByImage,
+  readBdsPidFile,
+  writeBdsPidFile,
+} from "./process-probe.js";
 
 export interface BdsManager {
   start(): Promise<void>;
@@ -46,45 +51,6 @@ interface CachedProc {
 
 let cached: CachedProc | null = null;
 
-function readPid(): number {
-  try {
-    return parseInt(fs.readFileSync(PID_FILE, "utf-8").trim(), 10) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-function writePid(pid: number): void {
-  try {
-    ensureStateDir();
-    fs.writeFileSync(PID_FILE, String(pid));
-  } catch {
-    /* ignore */
-  }
-}
-
-function clearPid(): void {
-  try {
-    if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
-  } catch {
-    /* ignore */
-  }
-}
-
-async function isAlive(pid: number): Promise<boolean> {
-  if (!pid) return false;
-  try {
-    if (process.platform === "win32") {
-      const { stdout } = await execAsync(`tasklist /fi "PID eq ${pid}" /nh`, { windowsHide: true });
-      return stdout.includes(String(pid));
-    }
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function ensureProc(): CachedProc {
   if (cached) return cached;
   const cfg = loadConfig();
@@ -108,8 +74,8 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
   const sendCommand = (cmd: string): boolean => {
     const p = ensureProc();
-    const pid = readPid();
-    if (!pid || !isAlive(pid)) {
+    const pid = readBdsPidFile(ROOT_DIR);
+    if (!pid || !isProcessAliveSync(pid)) {
       log.warn("BDS 未运行");
       return false;
     }
@@ -128,10 +94,10 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
   const stop = async (): Promise<void> => {
     const p = ensureProc();
-    const pid = readPid();
-    if (!pid || !(await isAlive(pid))) {
+    const pid = readBdsPidFile(ROOT_DIR);
+    if (!pid || !(await isProcessAlive(pid))) {
       log.info("BDS 未运行");
-      clearPid();
+      clearBdsPidFile(ROOT_DIR);
       return;
     }
 
@@ -149,7 +115,9 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
         new Promise<void>((resolve) =>
           setTimeout(() => {
             log.warn("30s 超时，强制终止...");
-            try { p.process?.kill("SIGTERM"); } catch {}
+            try {
+              p.process?.kill("SIGTERM");
+            } catch {}
             setTimeout(resolve, 5000);
           }, 30_000)
         ),
@@ -157,31 +125,25 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
       if (p.process && p.process.exitCode === null) {
         log.warn("强制结束进程...");
-        try { p.process.kill("SIGKILL"); } catch {}
+        try {
+          p.process.kill("SIGKILL");
+        } catch {}
       }
     } else {
       // 外部启动的 BDS — fallback 使用 taskkill / pkill
       log.info("BDS 由外部启动，使用 taskkill...");
-      try {
-        if (process.platform === "win32") {
-          await execAsync("taskkill /f /im bedrock_server.exe", { windowsHide: true });
-        } else {
-          await execAsync("pkill -f bedrock_server", { windowsHide: true });
-        }
-      } catch {
-        /* ignore */
-      }
+      await killBedrockServerByImage();
     }
 
-    clearPid();
+    clearBdsPidFile(ROOT_DIR);
     p.process = null;
     log.info("BDS 已停止");
   };
 
   const start = async (): Promise<void> => {
     const p = ensureProc();
-    const existing = readPid();
-    if (existing && (await isAlive(existing))) {
+    const existing = readBdsPidFile(ROOT_DIR);
+    if (existing && (await isProcessAlive(existing))) {
       log.info("BDS 已在运行中");
       return;
     }
@@ -205,7 +167,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
     if (options.detached) child.unref();
 
     p.process = child;
-    writePid(child.pid ?? 0);
+    writeBdsPidFile(child.pid ?? 0, ROOT_DIR);
     log.info(`BDS 已启动 (PID: ${child.pid})`);
 
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -221,7 +183,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
     child.on("exit", (code) => {
       log.info(`BDS 已退出 (code: ${code})`);
-      clearPid();
+      clearBdsPidFile(ROOT_DIR);
       p.process = null;
       if (!p.isManualStop && p.crashRestart && isMain()) {
         log.info(`BDS 意外退出，${p.crashDelayMs / 1000}s 后自动重启...`);
@@ -234,13 +196,13 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
   };
 
   const status = async (): Promise<boolean> => {
-    const pid = readPid();
-    const alive = pid > 0 && (await isAlive(pid));
+    const pid = readBdsPidFile(ROOT_DIR);
+    const alive = pid > 0 && (await isProcessAlive(pid));
     if (alive) {
       console.log(`BDS 运行中 (PID: ${pid})`);
     } else {
       console.log("BDS 未运行");
-      clearPid();
+      clearBdsPidFile(ROOT_DIR);
     }
     return alive;
   };
@@ -248,10 +210,13 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
   const watch = async (): Promise<void> => {
     log.info("启动监护模式...");
     while (true) {
-      const pid = readPid();
-      if (!pid || !(await isAlive(pid))) {
-        try { await start(); }
-        catch (e) { log.error(`自动启动失败: ${(e as Error).message}`); }
+      const pid = readBdsPidFile(ROOT_DIR);
+      if (!pid || !(await isProcessAlive(pid))) {
+        try {
+          await start();
+        } catch (e) {
+          log.error(`自动启动失败: ${(e as Error).message}`);
+        }
       }
       await new Promise((r) => setTimeout(r, 5_000));
     }
@@ -259,7 +224,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
   const getPid = (): number => {
     const p = ensureProc();
-    return p.process?.pid ?? readPid();
+    return p.process?.pid ?? readBdsPidFile(ROOT_DIR);
   };
 
   return {
@@ -275,7 +240,9 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 }
 
 export const bdsEvents: EventEmitter = new EventEmitter();
-export const bdsEvents_enabled = (): void => { bdsEvents.setMaxListeners(100); };
+export const bdsEvents_enabled = (): void => {
+  bdsEvents.setMaxListeners(100);
+};
 bdsEvents_enabled();
 
 /** 判断当前是否作为 CLI 主入口运行（被 check-update 等 import 时为 false） */
@@ -299,7 +266,8 @@ if (isMain()) {
       bds.stop().catch((e) => log.error(`停止失败: ${e.message}`));
       break;
     case "restart":
-      bds.stop()
+      bds
+        .stop()
         .then(() => bds.start())
         .catch((e) => log.error(`重启失败: ${e.message}`));
       break;

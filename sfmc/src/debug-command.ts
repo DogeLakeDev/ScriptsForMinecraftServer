@@ -52,7 +52,8 @@ async function readBdsConfig(): Promise<{
   return { variables, secrets, variablesPath, secretsPath };
 }
 
-function asBool(v: unknown): boolean {
+/** 供单测：truthy 判定与 SDK applyDebugFromVariables 对齐。 */
+export function isDebugTruthy(v: unknown): boolean {
   if (v === true || v === 1) return true;
   if (typeof v === "string" && ["true", "1", "yes", "on"].includes(v.trim().toLowerCase())) {
     return true;
@@ -69,7 +70,7 @@ async function cmdDebugStatus(): Promise<string> {
   const { variables, secrets } = await readBdsConfig();
   const lines = [c.bold(`\n${t("debug.statusTitle")}`)];
   lines.push(
-    `  ${c.text("sfmc_debug")}  : ${onOffLabel(asBool(variables.sfmc_debug))}  ${c.dim("(BDS variables.json)")}`
+    `  ${c.text("sfmc_debug")}  : ${onOffLabel(isDebugTruthy(variables.sfmc_debug))}  ${c.dim("(BDS variables.json)")}`
   );
   const dsn = secrets.SENTRY_DSN;
   if (typeof dsn === "string" && dsn.length > 0) {

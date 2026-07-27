@@ -40,6 +40,11 @@ function detectFallbackRoot(): string {
  */
 export const ROOT: string = resolveRuntimeRoot(detectFallbackRoot());
 
+/** 每次调用重新解析（尊重运行中变更的 `SFMC_ROOT`；单测/子进程友好）。 */
+export function getRoot(): string {
+  return resolveRuntimeRoot(detectFallbackRoot());
+}
+
 /**
  * 是否已完成首次向导初始化。
  * 以 `configs/runtime.json#initialized_at` 为准(wizard 写入);
