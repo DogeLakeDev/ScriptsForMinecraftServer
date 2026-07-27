@@ -1,5 +1,7 @@
+title: 主页
 nav:
-  - index.md
+
+  - 主页: index.md
   - guide
   - dev
   - api

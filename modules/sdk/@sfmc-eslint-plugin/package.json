@@ -2,9 +2,9 @@
   "name": "@sfmc-bds/eslint-plugin",
   "version": "0.1.0",
   "description": "ESLint rules for SFMC SDK / module authoring conventions (Msg API, import paths, ModuleRegistry).",
-  "type": "module",
-  "license": "ISC",
   "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/modules/sdk/@sfmc-eslint-plugin#readme",
   "repository": {
     "type": "git",
@@ -18,9 +18,12 @@
     "eslint",
     "eslint-plugin",
     "minecraft-bedrock",
-    "sfmc",
-    "scriptsforminecraftserver"
+    "scriptsforminecraftserver",
+    "sfmc"
   ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -35,30 +38,28 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc7 -p tsconfig.json",
-    "typecheck": "tsc7 --noEmit -p tsconfig.json",
+    "build": "sfmc-esbuild-transpile --dts",
     "build:test": "tsc7 -p tsconfig.test.json",
+    "prepublishOnly": "npm run build",
     "test": "npm run build:test && node --test \"dist/**/*.test.js\"",
-    "prepublishOnly": "npm run build"
-  },
-  "peerDependencies": {
-    "eslint": "^9.0.0 || ^10.0.0"
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@typescript-eslint/utils": "^8.64.0"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@typescript-eslint/parser": "^8.64.0",
     "@typescript-eslint/rule-tester": "^8.64.0",
-    "@types/node": "^26.1.1",
     "eslint": "^10.7.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
-  "engines": {
-    "node": ">=22.13.0"
+  "peerDependencies": {
+    "eslint": "^9.0.0 || ^10.0.0"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   }
 }
+

@@ -74,6 +74,7 @@ export function createNodeServiceLogger(opts: NodeServiceLoggerOptions): NodeSer
   };
 }
 
+/** 创建通用 Logger 实例。 */
 export function createLogger(opts: LoggerOptions): Logger {
   const sinks = opts.sinks ?? [];
   const subscribers = opts.subscribers ?? [];

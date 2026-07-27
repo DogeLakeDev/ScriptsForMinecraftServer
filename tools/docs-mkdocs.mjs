@@ -66,7 +66,7 @@ if (gen.status !== 0) process.exit(gen.status ?? 1);
 
 const typedocIndex = path.join(root, "docs", "reference", "sdk", "index.md");
 if (!existsSync(typedocIndex)) {
-  console.error("[docs-mkdocs] missing typedoc output; run npm run docs:api first");
+  console.error("[docs-mkdocs] missing typedoc output; run npm run docs -- api first");
   process.exit(1);
 }
 

@@ -3,8 +3,8 @@
   "version": "0.2.0-beta.2",
   "description": "SFMC BDS auto-updater, lifecycle manager, and behavior-pack assembler",
   "author": "Shiroha7z",
-  "type": "module",
   "license": "ISC",
+  "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/bds-tools#readme",
   "repository": {
     "type": "git",
@@ -15,56 +15,56 @@
     "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
   },
   "keywords": [
-    "minecraft-bedrock",
-    "sfmc",
     "bds",
-    "updater",
-    "scriptsforminecraftserver"
+    "minecraft-bedrock",
+    "scriptsforminecraftserver",
+    "sfmc",
+    "updater"
   ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "main": "dist/bds-manager.js",
+  "exports": {
+    ".": "./dist/bds-manager.js",
+    "./bds-manager": "./dist/bds-manager.js",
+    "./check-update": "./dist/check-update.js",
+    "./http": "./dist/http.js",
+    "./pack-manager": "./dist/cli-pack-manager.js",
+    "./pack-manager-lib": "./dist/pack-manager.js",
+    "./package.json": "./package.json",
+    "./taskbar": "./dist/taskbar.js",
+    "./types": {
+      "types": "./dist/types.d.ts"
+    },
+    "./update-result": "./dist/update-result.js",
+    "./world-packs": "./dist/world-packs.js",
+    "./zipx": "./dist/zipx.js"
+  },
   "files": [
     "dist",
     "README.md"
   ],
-  "exports": {
-    ".": "./dist/bds-manager.js",
-    "./check-update": "./dist/check-update.js",
-    "./bds-manager": "./dist/bds-manager.js",
-    "./pack-manager": "./dist/cli-pack-manager.js",
-    "./pack-manager-lib": "./dist/pack-manager.js",
-    "./world-packs": "./dist/world-packs.js",
-    "./http": "./dist/http.js",
-    "./taskbar": "./dist/taskbar.js",
-    "./update-result": "./dist/update-result.js",
-    "./zipx": "./dist/zipx.js",
-    "./package.json": "./package.json",
-    "./types": {
-      "types": "./dist/types.d.ts"
-    }
-  },
   "scripts": {
-    "build": "node ../scripts/esbuild-transpile.mjs --dts",
-    "dev": "tsx src/bds-manager.ts",
-    "typecheck": "tsc7 --noEmit",
+    "build": "sfmc-esbuild-transpile --dts",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dev": "tsx src/bds-manager.ts",
+    "prepublishOnly": "npm run build",
+    "rollback": "node recovery.js",
+    "start": "node dist/bds-manager.js start",
+    "status": "node dist/bds-manager.js status",
+    "stop": "node dist/bds-manager.js stop",
     "test": "node --test is-main.test.mjs pack-manager-lifecycle.test.mjs server-properties.test.mjs world-packs.test.mjs zipx.test.mjs",
+    "typecheck": "tsc7 --noEmit",
     "update": "node dist/check-update.js",
     "update:check": "node dist/check-update.js --check-only",
     "update:force": "node dist/check-update.js --force",
-    "rollback": "node recovery.js",
-    "start": "node dist/bds-manager.js start",
-    "stop": "node dist/bds-manager.js stop",
-    "status": "node dist/bds-manager.js status",
-    "watch": "node dist/bds-manager.js watch",
-    "prepublishOnly": "npm run build"
+    "watch": "node dist/bds-manager.js watch"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.0",
+    "@sfmc-bds/sdk": "^0.2.0-beta.1",
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.0"
-  },
-  "engines": {
-    "node": ">=22.13.0"
   },
   "publishConfig": {
     "access": "public",

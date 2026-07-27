@@ -1,6 +1,7 @@
 title: 开发指南
 nav:
   - index.md
+  - contributing.md
   - architecture.md
   - module-author.md
   - manifest.md

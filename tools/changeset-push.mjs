@@ -9,7 +9,7 @@ import {
   listUnpushedExistingVersionTags,
   readReleaseTagsState,
   resolveReleaseTagEntries,
-} from "./lib/changeset-release.mjs";
+} from "./changeset-release-lib.mjs";
 
 const tagsOnly =
   process.env.SFMC_PUSH_TAGS_ONLY === "1" ||

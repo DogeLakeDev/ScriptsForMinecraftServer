@@ -26,12 +26,15 @@ export interface HostBackend {
   dispose(): void;
 }
 
+/** 模块 surface 元信息（manifest emitter 预留）。 */
 export interface ModuleSurface {
   /** 当前不在 Stage A+B 内消费,留口子给 manifest emitter */
   moduleId: string;
+  /** 是否推迟到 worldLoad 后 init。 */
   afterWorldLoad: boolean;
 }
 
+/** `installHostBootstrap` 可选参数。 */
 export interface InstallOptions {
   /** db-server URL(默认 http://127.0.0.1:3001) */
   dbServerUrl?: string;
@@ -48,6 +51,7 @@ export interface InstallOptions {
 
 let _installed = false;
 
+/** 行为包启动入口：装配 ConfigManager、事件订阅与 DataAdapter。 */
 export function installHostBootstrap(options: InstallOptions = {}): HostBackend {
   if (_installed) return _bootstrapBackend();
   _installed = true;

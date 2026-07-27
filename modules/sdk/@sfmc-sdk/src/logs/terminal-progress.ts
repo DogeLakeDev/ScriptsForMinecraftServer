@@ -9,6 +9,7 @@ import type { WriteStream } from "node:tty";
 
 export type ProgressLogFn = (message: string) => void;
 
+/** 终端进度条选项。 */
 export interface TerminalProgressOptions {
   /** 输出流（默认 process.stderr） */
   stream?: NodeJS.WritableStream;
@@ -23,14 +24,18 @@ export interface TerminalProgressOptions {
   barIncompleteChar?: string;
 }
 
+/** 进度条操作句柄。 */
 export interface ProgressHandle {
+  /** 开始进度（total 为刻度总量）。 */
   start(total: number, startValue?: number, payload?: Record<string, string>): void;
+  /** 更新当前进度值。 */
   update(value: number, payload?: Record<string, string>): void;
   /**
    * 修正总量刻度（未知→已知 Content-Length / finish 补总量）。
    * LSP：勿用重 start 冒充改 total；实现须保留当前 value，并允许随后 update 按新刻度出帧。
    */
   setTotal(total: number): void;
+  /** 结束并清除进度条。 */
   stop(): void;
   /** 当前是否已 start 且未 stop */
   readonly active: boolean;
@@ -105,6 +110,7 @@ export function formatDownloadSpeed(bytesPerSec: number): string {
   return `${speed.toFixed(0)} B/s`;
 }
 
+/** 字节下载进度绑定选项。 */
 export interface DownloadProgressBinderOptions {
   /**
    * 速度采样间隔（毫秒）。

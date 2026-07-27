@@ -1,0 +1,94 @@
+{
+  "$schema": "https://unpkg.com/syncpack@15.3.2/schema.json",
+  "indent": "  ",
+  "sortAz": [
+    "bin",
+    "dependencies",
+    "devDependencies",
+    "exports",
+    "files",
+    "keywords",
+    "optionalDependencies",
+    "peerDependencies",
+    "peerDependenciesMeta",
+    "scripts"
+  ],
+  "sortFirst": [
+    "name",
+    "version",
+    "private",
+    "description",
+    "author",
+    "license",
+    "type",
+    "homepage",
+    "repository",
+    "bugs",
+    "keywords",
+    "engines",
+    "main",
+    "types",
+    "exports",
+    "bin",
+    "files",
+    "scripts",
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "peerDependenciesMeta",
+    "optionalDependencies",
+    "publishConfig",
+    "workspaces",
+    "overrides",
+    "allowScripts"
+  ],
+  "semverGroups": [
+    {
+      "label": "根仓 @minecraft/* 锁死 preview 精确版本（与 overrides 一致）",
+      "dependencies": ["@minecraft/**"],
+      "range": ""
+    },
+    {
+      "label": "一般依赖与开发依赖、本地依赖引用使用 ^",
+      "dependencyTypes": ["prod", "dev", "local"],
+      "dependencies": ["!@minecraft/**"],
+      "range": "^"
+    }
+  ],
+  "versionGroups": [
+    {
+      "label": "@minecraft/server需要固定版本",
+      "dependencies": ["@minecraft/server"],
+      "pinVersion": "2.10.0-beta.1.26.40-preview.30"
+    },
+    {
+      "label": "@minecraft/server-net需要固定版本",
+      "dependencies": ["@minecraft/server-net"],
+      "pinVersion": "1.0.0-beta.11940b24"
+    },
+    {
+      "label": "@minecraft/server-ui需要固定版本",
+      "dependencies": ["@minecraft/server-ui"],
+      "pinVersion": "2.2.0-beta.1.26.40-preview.30"
+    },
+    {
+      "label": "@minecraft/vanilla-data需要固定版本",
+      "dependencies": ["@minecraft/vanilla-data"],
+      "pinVersion": "1.26.40-preview.30"
+    },
+    {
+      "label": "开发依赖",
+      "dependencyTypes": ["dev"]
+    },
+    {
+      "label": "peer依赖不检查版本",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    },
+    {
+      "label": "TypeScript7 双轨，暂不检查版本",
+      "dependencies": ["typescript", "@typescript/native"],
+      "isIgnored": true
+    }
+  ]
+}

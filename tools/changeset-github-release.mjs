@@ -17,7 +17,7 @@ import {
   readReleaseTagsState,
   resolveReleaseTagEntries,
   run,
-} from "./lib/changeset-release.mjs";
+} from "./changeset-release-lib.mjs";
 
 const forcePre = process.argv.includes("--prerelease");
 const forceLatest = process.argv.includes("--latest");

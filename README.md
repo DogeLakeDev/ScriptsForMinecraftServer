@@ -30,8 +30,8 @@
 flowchart LR
   REG["sfmc-modules"] -->|fetch| PKG["packages/"]
   PKG -->|build · deploy| BDS["BDS / SAPI"]
-  BDS <-->|HTTP :3001| DB["db-server"]
-  LLBot <-->|WS · HTTP| QQ["qq-bridge"] --> DB
+  BDS <-->|HTTP| DB["db-server"]
+  Bot <-->|WS · HTTP| QQ["qq-bridge"] --> DB
   SFMC["sfmc CLI"] -. 管理 .-> BDS & DB & QQ
 ```
 
@@ -43,7 +43,7 @@ flowchart LR
 > **为什么用外置数据库？**  
 > SAPI 只发请求，读写 SQLite 在 Node 里完成。经济、领地这类操作可以走事务和幂等，比纯游戏内处理更稳，也更好备份。
 
-详细说明见 [文档中心](./docs/index.md)（MkDocs：`npm run docs:serve`）。
+详细说明见 [文档中心](./docs/index.md)（MkDocs：`npm run docs -- serve`）。
 
 ## ⚡️ 快速开始
 
@@ -64,12 +64,12 @@ flowchart LR
 
 | 分类 | 入口 |
 | ------ | ------ |
-| 在线文档站 | https://dogelakedev.github.io/ScriptsForMinecraftServer/ |
+| 在线文档站 | <https://dogelakedev.github.io/ScriptsForMinecraftServer/> |
 | 使用指南 | [docs/guide/](./docs/guide/index.md) |
-| 开发指南 | [docs/dev/](./docs/dev/index.md) |
+| 开发指南 | [docs/dev/](./docs/dev/index.md) · [贡献指南](./docs/dev/contributing.md) |
 | 接口指南 | [docs/api/](./docs/api/index.md) |
-| SDK 类型参考 | [docs/reference/](./docs/reference/index.md)（`npm run docs:api`） |
-| 本地预览 | `pip install -r docs/requirements.txt` → `npm run docs:serve` |
+| SDK 类型参考 | [docs/reference/](./docs/reference/index.md)（`npm run docs -- api`） |
+| 本地预览 | `pip install -r docs/requirements.txt` → `npm run docs -- serve` |
 
 ## 🗺️ 路线图
 

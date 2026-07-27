@@ -15,21 +15,30 @@ import { setServiceModuleContext, clearServiceModuleContext } from "../sapi/serv
 const _cmdUnregister = (_name: string) => undefined;
 const _cmdUnregisterByModule = (_module: string) => undefined;
 
+/** 模块生命周期钩子（各阶段可选）。 */
 export type ModuleLifecycle = {
+  /** 注册 `!` 指令。 */
   registerCommands?(): void;
+  /** 注册命名权限。 */
   registerPermissions?(): void;
+  /** 订阅游戏事件。 */
   registerEvents?(): void;
+  /** 模块初始化（定时任务、世界加载后逻辑等）。 */
   init?(): void;
+  /** 模块清理（注销事件、释放资源）。 */
   cleanup?(): void;
 };
 
+/** 模块注册描述符（由 `ModuleRegistry.register` 提交）。 */
 export type ModuleDescriptor = {
   /**
    * 模块身份:优先用 catalog/manifest id(如 feature-afk)。
    * OCP:新模块不必改 Modules 枚举;旧键(afk)仍可通过 Modules 别名解析启停。
    */
   id: ModuleId;
+  /** 为 true 时 init 推迟到 worldLoad 之后。 */
   afterWorldLoad?: boolean;
+  /** 生命周期钩子集合。 */
   lifecycle: ModuleLifecycle;
 };
 
@@ -68,33 +77,41 @@ function applyModuleAuthContext(id: ModuleId): void {
   }
 }
 
+/** 模块注册表：启动、启停对账与 cleanup 追踪。 */
 export class ModuleRegistry {
+  /** 注册模块描述符（构建时各模块包调用）。 */
   static register(descriptor: ModuleDescriptor): void {
     descriptors.push(descriptor);
   }
 
+  /** 返回已注册模块列表副本。 */
   static list(): ModuleDescriptor[] {
     return [...descriptors];
   }
 
+  /** 按 id 查找模块描述符。 */
   static get(id: ModuleId): ModuleDescriptor | undefined {
     return descriptors.find((d) => d.id === id);
   }
 
+  /** 模块是否处于启用且可启动状态。 */
   static isActive(id: ModuleId): boolean {
     // 任一索引键启用即视为 active(id / legacy Modules / configKey)
     return enableKeysFor(id).some((k) => ConfigManager.isEnabled(k));
   }
 
+  /** 登记模块 cleanup 回调（禁用时统一执行）。 */
   static trackCleanup(modId: ModuleId, fn: CleanUpFn): void {
     if (!cleanups.has(modId)) cleanups.set(modId, []);
     cleanups.get(modId)!.push(fn);
   }
 
+  /** 登记指令 cleanup（模块禁用时注销）。 */
   static trackCommand(modId: ModuleId, name: string): void {
     ModuleRegistry.trackCleanup(modId, () => _cmdUnregister(name));
   }
 
+  /** 登记 system.runInterval/run 的 cleanup。 */
   static trackSystemRun(modId: ModuleId, runId: number): void {
     ModuleRegistry.trackCleanup(modId, () => {
       try {
@@ -103,10 +120,12 @@ export class ModuleRegistry {
     });
   }
 
+  /** 清空启停快照（测试或重建前）。 */
   static clearLastEnabled(): void {
     lastEnabled.clear();
   }
 
+  /** 记录当前各模块启用状态，供后续 reconcile 对比。 */
   static snapshotEnabled(): void {
     for (const d of descriptors) {
       lastEnabled.set(d.id, ModuleRegistry.isActive(d.id));
@@ -114,8 +133,8 @@ export class ModuleRegistry {
   }
 
   /**
-   * Compare current enabled state vs last snapshot, call cleanup/boot for changed modules.
-   * Returned array: [{ id, action: 'disable'|'enable' }]
+   * 对比当前启用态与上次快照，对变化模块执行 cleanup/boot。
+   * @returns 变更列表 `[{ id, action: 'disable'|'enable' }]`
    */
   static reconcile(): Array<{ id: ModuleId; action: "disable" | "enable" }> {
     if (!ConfigManager.isReady()) return [];
@@ -144,6 +163,7 @@ export class ModuleRegistry {
     return changes;
   }
 
+  /** 启动所有已启用且尚未 boot 的模块。 */
   static bootAll(): void {
     if (!ConfigManager.isReady()) return;
     for (const d of descriptors) {
@@ -152,6 +172,7 @@ export class ModuleRegistry {
     }
   }
 
+  /** 世界加载后：对 `afterWorldLoad` 模块执行 init。 */
   static bootAfterWorldLoad(): void {
     if (!ConfigManager.isReady()) return;
     worldLoaded = true;
@@ -167,6 +188,7 @@ export class ModuleRegistry {
     }
   }
 
+  /** 对非 afterWorldLoad 模块执行 init（定时任务等）。 */
   static bootTasks(): void {
     if (!ConfigManager.isReady()) return;
     for (const d of descriptors) {
@@ -181,6 +203,7 @@ export class ModuleRegistry {
     }
   }
 
+  /** 启动单个模块（权限/命令/事件/init 按序）。 */
   static bootModule(id: ModuleId): void {
     const d = ModuleRegistry.get(id);
     if (!d) return;
@@ -200,6 +223,7 @@ export class ModuleRegistry {
     }
   }
 
+  /** 清理单个模块（cleanup 钩子、命令注销、身份上下文）。 */
   static cleanupModule(id: ModuleId): void {
     const d = ModuleRegistry.get(id);
     if (!d) return;
@@ -234,6 +258,7 @@ export class ModuleRegistry {
     clearServiceModuleContext(id);
   }
 
+  /** 清理全部已注册模块（shutdown 时调用）。 */
   static teardown(): void {
     for (const d of descriptors) {
       try {
@@ -242,15 +267,18 @@ export class ModuleRegistry {
     }
   }
 
+  /** 模块是否已完成 boot。 */
   static isBooted(id: ModuleId): boolean {
     return booted.has(id);
   }
 }
 
+/** 事件处理器守卫：ConfigManager 未就绪时跳过。 */
 export function guardEvent(): boolean {
   return ConfigManager.isReady();
 }
 
+/** 控制台打印当前已启动模块列表。 */
 export function announceLoaded(): void {
   const active = descriptors.filter((d) => ModuleRegistry.isActive(d.id)).map((d) => d.id);
   console.log(`[ModuleRegistry] 已启动模块: ${active.join(", ") || "无"}`);

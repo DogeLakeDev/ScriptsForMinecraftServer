@@ -22,7 +22,7 @@ cd db-server && npm run dev    # tsx 热跑
 ## 改 SDK 后
 
 ```bash
-npm run sdk:build
+npm run build --workspace @sfmc-bds/sdk
 # 再 build 依赖它的 workspace + 重打 BP
 ```
 

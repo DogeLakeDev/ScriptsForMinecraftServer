@@ -31,4 +31,5 @@ export type {
   DefineTableResponse,
 } from "./types.js";
 
+/** `@sfmc-bds/sdk/sapi/db` 子路径 semver 版本号。 */
 export const SFMC_SAPI_DB_VERSION = "0.1.0" as const;

@@ -15,4 +15,5 @@ export { guardEvent, announceLoaded } from "./runtime.js";
 export { installHostBootstrap } from "./install.js";
 export type { InstallOptions, HostBackend, ModuleSurface } from "./install.js";
 export { createHttpDataAdapter } from "./http-data-adapter.js";
+/** `@sfmc-bds/sdk/module-loader` 子路径 semver 版本号。 */
 export const SFMC_MODULE_LOADER_VERSION = "0.1.0" as const;

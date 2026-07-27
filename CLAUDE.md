@@ -62,7 +62,7 @@ node tools/fetch-module.mjs install <id>   # 安装并同步 catalog/lock
 node tools/fetch-module.mjs uninstall <id>
 node tools/smoke-modules.mjs       # 模块 API 冒烟(需 live db-server)
 node tools/sim-new-user.mjs        # 隔离 SFMC_ROOT 冒烟
-node tools/test-db-api.mjs         # 平台 API 烟测
+# db-server API 烟测: npm run test:api -w @sfmc-bds/db-server
 ```
 
 ### Build prerequisites

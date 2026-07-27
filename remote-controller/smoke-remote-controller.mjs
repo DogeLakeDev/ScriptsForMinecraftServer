@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 /**
- * tools/smoke-remote-controller.mjs — 远程控制冒烟测试
+ * smoke-remote-controller.mjs — 远程控制冒烟测试
  *
- * 用法: node tools/smoke-remote-controller.mjs
- * 要求: remote-controller/dist/index.js 已构建
+ * 用法: npm run smoke -w @sfmc-bds/remote-controller
+ * 要求: 本包 dist/index.js 已构建
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "..");
-const DIST = path.join(ROOT, "remote-controller", "dist", "index.js");
-const ENTRY = path.join(ROOT, "tools", "smoke-remote-controller-agent.mjs");
+const DIST = path.join(__dirname, "dist", "index.js");
+const ENTRY = path.join(__dirname, "smoke-remote-controller-agent.mjs");
 
 if (!fs.existsSync(DIST)) {
-  console.error(`FAIL: missing build artifact ${DIST} (run: npm run build -w remote-controller)`);
+  console.error(`FAIL: missing build artifact ${DIST} (run: npm run build -w @sfmc-bds/remote-controller)`);
   process.exit(1);
 }
 
@@ -27,7 +27,7 @@ const PORT = 31000 + Math.floor(Math.random() * 1000);
 const HOST = "127.0.0.1";
 const ENROLL = randomBytes(24).toString("base64url");
 const ADMIN = randomBytes(24).toString("base64url");
-const STATE_FILE = path.join(ROOT, "data", `smoke-remote-controller-${Date.now()}.json`);
+const STATE_FILE = path.join(os.tmpdir(), `smoke-remote-controller-${Date.now()}.json`);
 
 let controller = null;
 let failures = 0;
@@ -93,8 +93,6 @@ function waitForHealth(maxMs = 5000) {
 }
 
 async function main() {
-  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-
   controller = spawn(process.execPath, [DIST], {
     env: {
       ...process.env,

@@ -17,6 +17,7 @@ let _moduleId = "";
 let _authToken = "";
 let _isInTx: () => boolean = () => false;
 
+/** 注入当前模块的 service 身份；`inTx` 用于禁止事务外调 service.get。 */
 export function setServiceModuleContext(moduleId: string, token: string, inTx: () => boolean): void {
   _moduleId = moduleId;
   _authToken = token;
@@ -35,13 +36,19 @@ export function clearServiceModuleContext(moduleId?: string): void {
   _isInTx = () => false;
 }
 
+/** 已注册跨模块 service 的元信息。 */
 export interface ServiceInfo {
+  /** service 全名（如 economy.account.get）。 */
   name: string;
+  /** 提供方模块 id。 */
   moduleId: string;
 }
 
+/** service 客户端错误（含服务端 code 与 HTTP status）。 */
 export class ServiceError extends Error {
+  /** 错误码。 */
   code: string;
+  /** HTTP 状态码；网络错误时为 0。 */
   status: number;
   constructor(message: string, code: string, status: number) {
     super(message);
@@ -69,7 +76,9 @@ function requireModuleContext(op: string): void {
   }
 }
 
+/** 跨模块 service registry facade。 */
 export const service = {
+  /** 调用已注册 service；事务内须改用 `db.tx` 的 `tx.call`。 */
   async get<T = unknown>(name: string, input: Record<string, unknown> = {}): Promise<T> {
     requireModuleContext("get");
     if (_isInTx()) {
@@ -94,6 +103,7 @@ export const service = {
     return (res.data as { ok: true; result: T }).result;
   },
 
+  /** 列出当前 enabled 模块提供的全部 service。 */
   async list(): Promise<ServiceInfo[]> {
     requireModuleContext("list");
     const res = await HttpDB.typedRequest<{ services: ServiceInfo[] }>(

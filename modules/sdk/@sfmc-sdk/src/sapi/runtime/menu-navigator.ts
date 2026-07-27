@@ -17,27 +17,39 @@ import { Msg } from "./msg.js";
 
 export { ObservableBoolean, ObservableNumber, ObservableString };
 
+/** 创建可写字符串 Observable（`clientWritable: true`）。 */
 export function obsStr(v = ""): ObservableString {
   return new ObservableString(v, { clientWritable: true } as any);
 }
+
+/** 创建可写数字 Observable（`clientWritable: true`）。 */
 export function obsNum(v = 0): ObservableNumber {
   return new ObservableNumber(v, { clientWritable: true } as any);
 }
+
+/** 创建可写布尔 Observable（`clientWritable: true`）。 */
 export function obsBool(v = false): ObservableBoolean {
   return new ObservableBoolean(v, { clientWritable: true } as any);
 }
 
+/** CustomForm 页面构建器接口（链式添加控件）。 */
 export interface Page {
+  /** 添加按钮。 */
   button(label: string | ObservableString, onClick: () => void, options?: ButtonOptions): this;
+  /** 添加标签文本。 */
   label(text: string | ObservableString): this;
+  /** 添加文本输入框。 */
   textField(label: string | ObservableString, text: ObservableString, options?: TextFieldOptions): this;
+  /** 添加开关。 */
   toggle(label: string | ObservableString, toggled: ObservableBoolean, options?: ToggleOptions): this;
+  /** 添加下拉框。 */
   dropdown(
     label: string | ObservableString,
     value: ObservableNumber,
     items: DropdownItemData[],
     options?: DropdownOptions
   ): this;
+  /** 添加滑块。 */
   slider(
     label: string | ObservableString,
     value: ObservableNumber,
@@ -45,10 +57,13 @@ export interface Page {
     max: number | ObservableNumber,
     options?: SliderOptions
   ): this;
+  /** 添加分隔线。 */
   divider(): this;
+  /** 添加标题行。 */
   header(text: string | ObservableString): this;
 }
 
+/** 多页 CustomForm 导航器：section 切换、历史栈与异步任务状态。 */
 export class MenuNavigator {
   private sections: Map<string, { title: string; build: PageBuildFn }> = new Map();
   private sectionVis: Map<string, ObservableBoolean> = new Map();
@@ -57,6 +72,7 @@ export class MenuNavigator {
   private form: CustomForm | null = null;
   private titleObs: ObservableString = new ObservableString("");
   private backVis: ObservableBoolean = new ObservableBoolean(false);
+  /** 跨页面共享的状态对象。 */
   state: Record<string, any> = {};
   private _confirmIdx = 0;
   private taskRunning = false;
@@ -66,12 +82,14 @@ export class MenuNavigator {
     this.player = player;
   }
 
+  /** 注册一个 section（id、标题与构建函数）。 */
   section(id: string, title: string, build: PageBuildFn): this {
     this.sections.set(id, { title, build });
     this.sectionVis.set(id, new ObservableBoolean(false));
     return this;
   }
 
+  /** 从指定 section 打开菜单并重置历史栈。 */
   async start(sectionId: string): Promise<void> {
     const token = ++this.sessionToken;
     this.history = [sectionId];
@@ -80,6 +98,7 @@ export class MenuNavigator {
     await this.buildAndShow(token);
   }
 
+  /** 重建并显示表单；可选 push 新 section 到历史栈。 */
   async rebuild(targetSection?: string): Promise<void> {
     const token = ++this.sessionToken;
     if (this.form?.isShowing()) this.form.close();
@@ -90,10 +109,12 @@ export class MenuNavigator {
     await this.buildAndShow(token);
   }
 
+  /** 刷新当前页面（等价于无参 `rebuild`）。 */
   async refresh(): Promise<void> {
     await this.rebuild();
   }
 
+  /** 替换历史栈顶 section 并重建表单。 */
   async replace(targetSection: string): Promise<void> {
     const token = ++this.sessionToken;
     if (this.history.length > 0) this.history[this.history.length - 1] = targetSection;
@@ -102,6 +123,7 @@ export class MenuNavigator {
     await this.buildAndShow(token);
   }
 
+  /** 在表单上显示异步任务状态；同时只允许一个任务运行。 */
   async runTask(status: FormStatus, task: () => Promise<void>, onError = "操作失败，请稍后重试。"): Promise<void> {
     if (this.taskRunning) return;
     this.taskRunning = true;
@@ -117,6 +139,7 @@ export class MenuNavigator {
     }
   }
 
+  /** 弹出 MessageBox 确认框；返回是否点击确认。 */
   async confirmMessage(title: string, body: string, confirm = "确认", cancel = "取消"): Promise<boolean> {
     if (this.form?.isShowing()) this.form.close();
     const box = new MessageBox(this.player, title);
@@ -136,11 +159,13 @@ export class MenuNavigator {
     return false;
   }
 
+  /** 压栈并切换到指定 section（不立即重建，需随后调用 rebuild）。 */
   go(sectionId: string): void {
     this.history.push(sectionId);
     this.applySection(sectionId);
   }
 
+  /** 返回上一级 section。 */
   back(): void {
     if (this.history.length <= 1) return;
     this.history.pop();
@@ -148,12 +173,14 @@ export class MenuNavigator {
     if (last) this.applySection(last);
   }
 
+  /** 关闭当前表单并执行回调（如退出菜单流程）。 */
   leave(target: () => void): void {
     this.sessionToken++;
     if (this.form?.isShowing()) this.form.close();
     target();
   }
 
+  /** 在当前表单内嵌确认页（确认/取消按钮）。 */
   async confirm(
     title: string,
     body: string,
@@ -175,6 +202,7 @@ export class MenuNavigator {
     await this.rebuild(confirmId);
   }
 
+  /** 弹出 MessageBox 提示；若之前有表单打开且点确定则 rebuild 返回。 */
   async message(title: string, body: string): Promise<void> {
     const formWasOpen = this.form?.isShowing() ?? false;
     if (formWasOpen) this.form!.close();
@@ -292,21 +320,27 @@ class PageBuilder implements Page {
   }
 }
 
+/** 表单内联状态行（成功/失败/提示/清空）。 */
 export class FormStatus {
   private text: ObservableString;
+  /** 绑定到 page 的 label 控件。 */
   constructor(page: { label: (s: string | ObservableString) => any }) {
     this.text = obsStr("");
     page.label(this.text);
   }
+  /** 显示成功状态。 */
   ok(msg: string): void {
     this.text.setData("§a✔ " + msg);
   }
+  /** 显示失败状态。 */
   fail(msg: string): void {
     this.text.setData("§c✘ " + msg);
   }
+  /** 显示提示信息。 */
   info(msg: string): void {
     this.text.setData("§7" + msg);
   }
+  /** 清空状态行。 */
   clear(): void {
     this.text.setData("");
   }

@@ -6,9 +6,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { NPM_PUBLISH_PACKAGES } from "./npm-publish-packages.mjs";
+import { NPM_PUBLISH_PACKAGES } from "./lib/npm-publish-packages.mjs";
 
-export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const PRE_JSON = path.join(ROOT, ".changeset", "pre.json");
 export const CHANGESET_DIR = path.join(ROOT, ".changeset");
 /** 发版编排中间态：tag-packages → push-release / gh-release（DRY 唯一路径） */

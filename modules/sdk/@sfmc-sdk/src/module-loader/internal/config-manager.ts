@@ -23,6 +23,7 @@ export interface DataAdapter {
   checkHealth(): Promise<void>;
 }
 
+/** ConfigManager 可读的配置域键名。 */
 export type ConfigKey =
   | "modules"
   | "settings"
@@ -91,6 +92,7 @@ type AllConfigs = {
   questions: any[];
 };
 
+/** BP 启动时一次性拉取并缓存的平台配置（无热重载）。 */
 export class ConfigManager {
   private static cache: ConfigCache = {
     modules: new Map(),
@@ -121,6 +123,7 @@ export class ConfigManager {
     return () => ConfigManager._moduleChangeListeners.delete(cb);
   }
 
+  /** 初始化：健康检查 → 拉全量配置 → 设置 auth token → 标记 ready。 */
   static async init(): Promise<void> {
     if (ConfigManager._initialized) return;
     ConfigManager._initialized = true;
@@ -133,6 +136,7 @@ export class ConfigManager {
     console.log("[ConfigManager] 配置已加载");
   }
 
+  /** 配置是否已完成 init 并可读。 */
   static isReady(): boolean {
     return ConfigManager._ready;
   }
@@ -156,6 +160,7 @@ export class ConfigManager {
     return ConfigManager.cache.moduleConfigKeys.get(moduleId) ?? "";
   }
 
+  /** 读 settings 键；值经 JSON.parse，失败则原样返回。 */
   static getSetting<T>(key: string, defaultVal?: T): T {
     const val = ConfigManager.cache.settings.get(key);
     if (val === undefined) return defaultVal as T;
@@ -166,34 +171,42 @@ export class ConfigManager {
     }
   }
 
+  /** 取指定模块的区域配置列表。 */
   static getAreas(module: string): any[] {
     return ConfigManager.cache.areas.filter((a) => a.module === module);
   }
 
+  /** 取玩家权限覆盖表副本。 */
   static getPermissions(): Record<string, number> {
     return { ...ConfigManager.cache.permissions };
   }
 
+  /** 取禁物品 id 列表副本。 */
   static getBannedItems(): string[] {
     return [...ConfigManager.cache.bannedItems];
   }
 
+  /** 取清道夫配置（物品上限与轮询间隔）。 */
   static getClean(): { itemMax: number; pollInterval: number } {
     return { ...ConfigManager.cache.clean };
   }
 
+  /** 按名称取网格配置；不存在返回 null。 */
   static getGrid(name: string): any {
     return ConfigManager.cache.grids[name] ?? null;
   }
 
+  /** 取和平模式过滤器列表副本。 */
   static getPeaceFilters(): any[] {
     return [...ConfigManager.cache.peaceFilters];
   }
 
+  /** 取问答库题目列表副本。 */
   static getQuestions(): any[] {
     return [...ConfigManager.cache.questions];
   }
 
+  /** 从 db-server 重新拉取全量配置并填充缓存。 */
   static async loadAll(): Promise<void> {
     const body = await ConfigManager._data!.getAllConfigs();
     if (!body) {
@@ -208,6 +221,7 @@ export class ConfigManager {
     }
   }
 
+  /** 仅刷新模块启停缓存（runtime 开关变化后调用）。 */
   static async refreshModules(): Promise<void> {
     const body = await ConfigManager._data!.getModules();
     if (!body) return;

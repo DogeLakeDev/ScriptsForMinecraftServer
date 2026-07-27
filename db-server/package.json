@@ -1,10 +1,10 @@
 {
   "name": "@sfmc-bds/db-server",
   "version": "0.2.0-beta.1",
-  "description": "SFMC SQLite HTTP REST backend — configs, modules, gameplay data, QQ message relay",
-  "type": "module",
-  "license": "ISC",
+  "description": "SFMC SQLite HTTP REST backend — configs, modules, gameplay data",
   "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/db-server#readme",
   "repository": {
     "type": "git",
@@ -16,11 +16,14 @@
   },
   "keywords": [
     "minecraft-bedrock",
-    "sfmc",
-    "sqlite",
     "rest-api",
-    "scriptsforminecraftserver"
+    "scriptsforminecraftserver",
+    "sfmc",
+    "sqlite"
   ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -28,21 +31,19 @@
     "README.md"
   ],
   "scripts": {
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "build": "node ../scripts/esbuild-transpile.mjs --dts",
-    "typecheck": "tsc7 --noEmit",
+    "build": "sfmc-esbuild-transpile --dts",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test": "npm run build && node --test dist/*.test.js",
+    "dev": "tsx src/index.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js",
+    "test": "node --test dist/*.test.js",
+    "test:api": "npm run build && node scripts/test-db-api.mjs",
+    "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.0",
+    "@sfmc-bds/sdk": "^0.2.0-beta.1",
     "sql-template-strings": "^2.2.2"
-  },
-  "engines": {
-    "node": ">=22.13.0"
   },
   "publishConfig": {
     "access": "public",

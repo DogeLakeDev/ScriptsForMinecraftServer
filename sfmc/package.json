@@ -2,9 +2,9 @@
   "name": "@sfmc-bds/cli",
   "version": "0.2.0-beta.1",
   "description": "SFMC management CLI — REPL, service supervisor, module install, behavior-pack build/deploy",
-  "type": "module",
-  "license": "ISC",
   "author": "Shiroha7z",
+  "license": "ISC",
+  "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/sfmc#readme",
   "repository": {
     "type": "git",
@@ -15,11 +15,14 @@
     "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
   },
   "keywords": [
-    "minecraft-bedrock",
-    "sfmc",
     "cli",
-    "scriptsforminecraftserver"
+    "minecraft-bedrock",
+    "scriptsforminecraftserver",
+    "sfmc"
   ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -42,21 +45,18 @@
     "README.md"
   ],
   "scripts": {
+    "build": "sfmc-esbuild-transpile --dts",
+    "prepublishOnly": "npm run build",
     "start": "node ./dist/main.js",
-    "build": "node ../scripts/esbuild-transpile.mjs --dts",
-    "typecheck": "tsc7 --noEmit -p tsconfig.json",
     "test": "npm run build && node --test pack-update-policy.test.mjs pack-update-config.test.mjs terminal-progress.test.mjs wrap-log-line.test.mjs world-packs-uninstall.test.mjs log-filter.test.mjs",
-    "prepublishOnly": "npm run build"
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.0",
-    "@sfmc-bds/sdk": "^0.2.0-beta.1",
     "@clack/prompts": "^1.7.0",
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.2",
+    "@sfmc-bds/sdk": "^0.2.0-beta.1",
     "chalk": "^5.4.1",
     "ws": "^8.21.1"
-  },
-  "engines": {
-    "node": ">=22.13.0"
   },
   "publishConfig": {
     "access": "public",

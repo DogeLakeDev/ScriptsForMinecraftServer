@@ -14,7 +14,7 @@
 | `node tools/new-module.mjs <id> [--root ../sfmc-modules]` | 在 sfmc-modules 生成模块骨架 |
 | `npm run smoke-modules` | 模块 API 冒烟（需 live db-server） |
 | `node tools/sim-new-user.mjs` | 隔离 `SFMC_ROOT` 测试 |
-| `node tools/test-db-api.mjs` | 临时端口测 db API |
+| `npm run test:api -w @sfmc-bds/db-server` | 临时端口测 db API |
 
 ## fetch-module
 

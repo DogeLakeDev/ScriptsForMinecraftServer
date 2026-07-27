@@ -5,6 +5,7 @@
  * 颜色码与 sfmc/src/theme.ts 的配色对齐 (One Dark 风格)。
  */
 
+/** ANSI 转义码常量（One Dark 风格配色）。 */
 export const ansi = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",

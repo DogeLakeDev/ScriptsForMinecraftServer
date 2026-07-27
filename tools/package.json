@@ -2,9 +2,9 @@
   "name": "@sfmc-bds/tools",
   "version": "0.2.0-beta.3",
   "description": "SFMC dev tools - testing before build",
-  "type": "module",
-  "license": "AGPL-3.0-only",
   "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/tools#readme",
   "repository": {
     "type": "git",
@@ -16,33 +16,49 @@
   },
   "keywords": [
     "minecraft-bedrock",
+    "scriptsforminecraftserver",
     "sfmc",
-    "tools",
-    "scriptsforminecraftserver"
+    "tools"
   ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "main": "./check-ootb.mjs",
   "bin": {
-    "sfmc-check-ootb": "./check-ootb.mjs",
     "sfmc-catalog-sync": "./catalog-sync.mjs",
     "sfmc-check-modules": "./check-modules.mjs",
+    "sfmc-check-ootb": "./check-ootb.mjs",
+    "sfmc-esbuild-transpile": "./esbuild-transpile.mjs",
     "sfmc-fetch-module": "./fetch-module.mjs",
     "sfmc-new-module": "./new-module.mjs",
-    "sfmc-smoke-modules": "./smoke-modules.mjs",
     "sfmc-sim-new-user": "./sim-new-user.mjs",
+    "sfmc-smoke-modules": "./smoke-modules.mjs",
     "tsc7": "./tsc7.mjs"
   },
+  "exports": {
+    "./package.json": "./package.json",
+    "./tsc7": "./tsc7.mjs"
+  },
   "files": [
-    "*.mjs",
+    "catalog-sync.mjs",
+    "check-modules.mjs",
+    "check-ootb.mjs",
+    "esbuild-transpile.mjs",
+    "fetch-module.mjs",
+    "new-module.mjs",
+    "sim-new-user.mjs",
+    "smoke-modules.mjs",
+    "tsc7.mjs",
     "lib",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "node -e \"process.exit(0)\""
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "^0.2.0-beta.2",
-    "@sfmc-bds/sdk": "^0.2.0-beta.0",
-    "ws": "^8.21.1"
+    "@sfmc-bds/sdk": "^0.2.0-beta.1"
   },
   "publishConfig": {
     "access": "public",

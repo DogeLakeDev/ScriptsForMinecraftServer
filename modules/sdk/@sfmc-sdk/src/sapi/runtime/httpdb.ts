@@ -18,6 +18,10 @@ const TIMEOUT = 3;
 /** 单次请求可选覆盖;模块客户端应传自己的 token,勿抢进程级默认值(DIP)。 */
 export type HttpRequestAuthOpts = { authToken?: string };
 
+/**
+ * SAPI 端 db-server HTTP 客户端（经 `@minecraft/server-net`）。
+ * 默认连本机 3001；模块 db/config/service 客户端按请求注入 token。
+ */
 export class HttpDB {
   private static available = true;
   private static _lastErrorLog = 0;
@@ -31,10 +35,12 @@ export class HttpDB {
     }
   }
 
+  /** 返回当前 db-server 基址。 */
   static getBaseUrl(): string {
     return baseUrl;
   }
 
+  /** 设置进程级默认 Bearer token（ConfigManager / DataAdapter 用）。 */
   static setAuthToken(token: string): void {
     this.authToken = token.trim();
   }
@@ -58,6 +64,7 @@ export class HttpDB {
     return `${path}${sep}moduleId=${encodeURIComponent(moduleId)}`;
   }
 
+  /** 最近一次健康检查是否成功。 */
   static isAvailable(): boolean {
     return this.available;
   }
@@ -71,6 +78,7 @@ export class HttpDB {
     return false;
   }
 
+  /** 探测 `/api/health`，最多重试 5 次（间隔 2s）。 */
   static async checkHealth(): Promise<boolean> {
     for (let i = 0; i < 5; i++) {
       try {
@@ -94,6 +102,7 @@ export class HttpDB {
     return this.available;
   }
 
+  /** GET 并解析 JSON 中指定 key 的字段。 */
   static async fetchJSON<T>(basePath: string, id: string, key: string): Promise<T | null> {
     const body = await HttpDB.get(`${basePath}/${encodeURIComponent(id)}`);
     if (!body) return null;
@@ -137,6 +146,7 @@ export class HttpDB {
     }
   }
 
+  /** 发起 HTTP 请求并返回原始 status/body。 */
   static async requestJSON(
     method: HttpRequestMethod,
     path: string,
@@ -146,6 +156,7 @@ export class HttpDB {
     return this.request(method, path, bodyData, opts);
   }
 
+  /** 发起 HTTP 请求并解析 `{ ok, data, error }` 信封。 */
   static async typedRequest<T = any>(
     method: HttpRequestMethod,
     path: string,
@@ -166,12 +177,14 @@ export class HttpDB {
     }
   }
 
+  /** GET 请求；非 200 返回 null。 */
   static async get(path: string, opts?: HttpRequestAuthOpts): Promise<string | null> {
     const { status, body } = await this.request(HttpRequestMethod.GET, path, undefined, opts);
     if (status !== 200) console.info(`[HttpDB] GET ${path} → ${status}`);
     return status === 200 ? body : null;
   }
 
+  /** POST 请求；返回是否 HTTP 200。 */
   static async post(
     path: string,
     bodyData: Record<string, unknown>,
@@ -182,6 +195,7 @@ export class HttpDB {
     return status === 200;
   }
 
+  /** PUT 请求；返回是否 HTTP 200。 */
   static async put(
     path: string,
     bodyData: Record<string, unknown>,
@@ -192,6 +206,7 @@ export class HttpDB {
     return status === 200;
   }
 
+  /** DELETE 请求；返回是否 HTTP 200。 */
   static async del(path: string, opts?: HttpRequestAuthOpts): Promise<boolean> {
     const { status } = await this.request(HttpRequestMethod.DELETE, path, undefined, opts);
     if (status !== 200) console.info(`[HttpDB] DELETE ${path} → ${status}`);
