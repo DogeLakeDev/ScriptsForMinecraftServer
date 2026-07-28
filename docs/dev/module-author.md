@@ -1,70 +1,69 @@
-# 模块开发
+# 模块开发（对标 npm 插件模型）
 
-业务模块写在 [sfmc-modules](https://github.com/Tanya7z/sfmc-modules)，经 **link / install** 落到主仓 `modules/packages/<folder>/`，再组装进行为包。
+## 三层模型（硬边界）
 
-## 仓库与环境
+| 角色 | 是什么 | 不是什么 |
+|------|--------|----------|
+| **作者仓**（独立 git 仓） | **唯一推荐的开发面**：写代码、typecheck、`--from local --link` 进平台 | 不是 monorepo 写码处 |
+| **npm registry** | **唯一官方发布源**：`@<author>/sfmc-module-<id>` 或官方 `@sfmc-bds/*` | 不是分发仓 |
+| **`sfmc-modules` 仓库** | **薄 index / 检索面**（发现层）：仅条目，不存第二份源码树 | **不是**工作区、不是 monorepo 写码处 |
+| **主仓 `modules/packages/<id>/`** | install 落点（含 `--link` 时 junction/symlink） | 不是「去那儿写业务源码」 |
 
-| 仓 | 角色 |
-|----|------|
-| `ScriptsForMinecraftServer` | 平台（SDK、db-server、sfmc CLI、BP 组装） |
-| `sfmc-modules` | 业务模块源码（与主仓**同级**放置最省事） |
+**含义：**
+
+- 作者 **不** clone `sfmc-modules` 来改业务；不依赖同级放置。
+- 新模块开发推荐：用 `Tanya7z/sfmc-module-template`（GitHub Use this template）派生 → 在自己的仓里写代码。
+- `sfmc-modules` 仅承担 registry 索引/官方组织包的角色。
+
+## 推荐入手路径
 
 ```bash
-# 主仓
-cd ScriptsForMinecraftServer
-npm install && npm run build --workspaces --if-present
-
-# 模块仓（同级）
-cd ../sfmc-modules
-npm install   # workspaces + 自动 junction 到主仓 SDK
+# 1) 在 GitHub 上 Use this template Tanya7z/sfmc-module-template
+#    → git clone 派生仓 → cd 进根目录
+node scripts/rename.mjs my-feature --name "我的功能"
+npm install
 npm run typecheck
+
+# 2) 链接到主仓 modules/packages/<id>（开发联调）
+#    在主仓运行：
+sfmc mod install <id> --from local --link
+sfmc mod enable <id>
+sfmc mod reload            # 或 sfmc mod watch 进入迭代
 ```
 
-非同级时设置：
-
-```bash
-# PowerShell
-$env:SFMC_PLATFORM_ROOT = "D:\path\to\ScriptsForMinecraftServer"
-$env:SFMC_MODULES_ROOT  = "D:\path\to\sfmc-modules"
-```
-
-sfmc CLI 也会把探测到的模块根写入 `configs/runtime.json#sfmc_modules_root`。
+`scripts/rename.mjs` 把模板里的 `example` 占位符一键改成你的 id（同步 `package.json` / `sapi/manifest.json` / `sapi/src/index.ts`）。
 
 ## 命名约定
 
 | 层 | 规则 | 示例 |
 |----|------|------|
 | 文件夹 / install id | 短名 kebab，**禁止** `feature-`/`core-` 前缀 | `land`、`my-mod`、`area` |
-| npm | `@sfmc-bds/module-<folder>`（与平台同组织） | `@sfmc-bds/module-land` |
+| npm | `@sfmc-bds/module-<folder>`（官方）或 `@<username>/sfmc-module-<folder>`（作者自己） | `@sfmc-bds/module-land` |
 | manifest.id | `feature-<folder>` 或 `core-<folder>` | `feature-land` |
 | configKey | folder 的 `-` → `_` | `land`、`my_mod`、`online_time` |
 
 ## 日常开发闭环
 
-> 若 IDE 仍报找不到 `sdk/@sfmc-sdk/tsconfig.json`，确认 `sapi/tsconfig.json` 的 `extends` 为 `../../../tsconfig.base.json`，然后执行 **TypeScript: Restart TS Server**。
-
 ```mermaid
 flowchart LR
-  A[sfmc-modules 改代码] --> B[sfmc reload]
-  B --> C[build + deploy]
-  C --> D[向 BDS 发 reload]
+  A[作者仓 改代码] --> B[sfmc mod watch]
+  B --> C[esbuild + deploy]
+  C --> D[直写 BDS stdin 发 reload]
   D --> E[游戏内验证]
 ```
 
-### 推荐：交互式（少打路径）
+`sfmc mod watch` 监听 `sapi/src/**`，防抖 ~200ms 后复用 `sfmc mod reload` 同一路径（build → deploy → 直写 BDS stdin 发 `reload`）。
+
+### 命令速查
 
 ```bash
-sfmc module create    # 问 id/名称 → 写到 sfmc-modules → 可选 link / enable / build
-sfmc module link      # 从 packages/* 选择并 --link
-sfmc module link land # 非交互 link
-sfmc module dev       # link + enable + build + deploy
-```
-
-### 迭代装载
-
-```bash
-sfmc reload              # = pack build + deploy + 向 BDS 发送 reload
-sfmc reload --build-only # 只部署；随后在 BDS/游戏内手动输入 reload
+sfmc mod install --from local --link    # 在模块仓根目录：装链到主仓
+sfmc mod enable <id>
+sfmc mod reload                          # 一次性 rebuild + deploy + reload
+sfmc mod watch                           # 迭代期：改源码即 rebuild + reload
+sfmc mod test                            # node --test + @sfmc-bds/sdk/testing
+sfmc mod publish --dry-run               # 预检
+sfmc mod publish                         # 保姆式发布：登录引导 + bump + npm publish + 薄 index PR
 ```
 
 **`reload` 语义（重要）：**
@@ -73,27 +72,7 @@ sfmc reload --build-only # 只部署；随后在 BDS/游戏内手动输入 reloa
 2. 向 BDS 控制台发送命令 `reload`（**不是** `restart bds`）  
 3. BDS / 游戏内也可自行输入 `reload`
 
-改 `configs/*.json` 仍需**重启对应进程**（SAPI 配置启动时缓存）；那是配置问题，与模块代码 `reload` 不同。
-
-### 命令行等价
-
-```bash
-sfmc mod link land
-# 或
-sfmc mod install land --from dir:../sfmc-modules/packages/land --link
-
-sfmc pack build && sfmc pack deploy
-# 然后: send bds reload   或在游戏内 / BDS 控制台输入 reload
-```
-
-底层脚本：
-
-```bash
-node tools/new-module.mjs my-mod --name "我的模块" --root ../sfmc-modules
-node tools/fetch-module.mjs install land --from dir:../sfmc-modules/packages/land --link
-```
-
-`--link` 使用 Windows junction / POSIX symlink，改 sfmc-modules 源码即反映到主仓 packages，不必反复拷贝。发布给服务器时用默认 **copy** 安装，不要用 `--link`。
+**改 `configs/*.json` / `sapi/manifest.json` / `@sfmc-bds/sdk` 内部源码**仍需**重启对应进程**（SAPI 配置启动期缓存 + Node 模块重载）；`sfmc mod watch` 仅对 `sapi/src/**` 自动 rebuild。
 
 ### 安装源（`--from` / 默认行为）
 
@@ -101,36 +80,37 @@ node tools/fetch-module.mjs install land --from dir:../sfmc-modules/packages/lan
 |------|--------|------|
 | `npm:@scope/name`（**默认**） | 远端模块已发到 npm；`mod install <id>` 自动按 `@sfmc-bds/module-<id>` 解析 | `sfmc mod install land` |
 | `local:`（无路径默认 cwd） | 在模块仓根目录：作者小改自测；离线分享 `.tgz` / `.zip` | `sfmc mod install --from local` / `--from local:./x.tgz` |
-| `dir:` + `--link` | 开发联调（junction/symlink） | `--from dir:../sfmc-modules/packages/land --link` |
+| `dir:` + `--link` | 开发联调（junction/symlink） | `--from dir:D:/my-mod --link` |
 | `github:owner/repo@tag` | 兼容旧 first-party `Tanya7z/sfmc-modules` Release | `--from github:Tanya7z/sfmc-modules@main` |
 
-**`sfmc mod install <id>` 缺省 --from 时的解析顺序**（单一权威：在 `tools/fetch-module.mjs#defaultSourceFor`）：
+**`sfmc mod install <id>` 缺省 --from 时的解析顺序**（单一权威：`tools/fetch-module.mjs#defaultSourceFor`）：
+
 1. first-party registry index 命中 → `github:`
 2. 否则按 `@sfmc-bds/module-<folder>` 走 `npm:`
 3. 解析失败 → 报 `无法解析 npm 包名`，建议 `--from local:<dir|tgz|zip>` 或 `--from npm:<scope>/<name>`
 
 **`--from local:<file.zip>` 的额外校验**（zip 仅作离线分享）：CLI 必须校验内含 `package.json` + `sapi/manifest.json`，缺则清掉污染目录并报错。
 
-### 迭代：`sfmc mod watch`（少打命令）
+## 目录结构（作者仓 = 包根）
 
-> 等价「改源码 → 自动 rebuild + deploy + reload」，与上方手动流程语义一致，省去每次敲 `sfmc mod reload`。
-
-```bash
-# 在模块仓根目录（或显式 --from local:<path>）
-sfmc mod watch
-sfmc mod watch --from local:../sfmc-modules/packages/land
-sfmc mod watch --no-reload     # 只 build+deploy，rebuild 后到 BDS/游戏内输入 reload
+```
+my-feature/                  # 仓库根 = 包根
+├── package.json             # @<author>/sfmc-module-my-feature
+├── scripts/
+│   └── rename.mjs           # 模板自带的改名脚本
+├── sapi/
+│   ├── manifest.json        # id: feature-my-feature
+│   ├── tsconfig.json        # 自包含（不 depends 主仓路径）
+│   └── src/
+│       ├── index.ts         # ModuleRegistry.register
+│       ├── types.ts         # 本模块权威类型（可选）
+│       └── client.ts        # 对外简洁 API（有 provides 时推荐）
+├── test/
+│   └── my-feature.test.ts   # 走 @sfmc-bds/sdk/testing
+└── resource_pack/           # 可选
 ```
 
-**行为：**
-
-- 监听 `sapi/src/**`，防抖 ~200ms 后触发 `sfmc mod reload` 同一路径（build → deploy → 直写 BDS stdin 发 `reload`）
-- 监听 `sapi/manifest.json` 与 `sapi/tsconfig.json` → **不**自动热更新；打印「SAPI 启动期缓存 manifest，请重启 BDS 进程」
-- 改 `configs/*.json`（应用/平台配置）→ 同样需重启进程，与现有 reload 语义一致
-- 改 `@sfmc-bds/sdk` 内部源码 → 需重启 node 进程；CLI 仅打印提示
-- Ctrl+C 退出
-
-**实现：** 复用 `cmdModuleReload` 的 build/deploy 路径，复用 `sfmc` CLI 的 `queryServicesRuntime` + `probeBdsStatus` 探测 BDS 进程（与 `mod reload` 完全一致），不另写一遍 reload 路径。
+模块配置缺省由首次写入 `configs/<configKey>.json` 或模块代码内默认提供（平台不再播种 `configs-default/`）。
 
 
 
