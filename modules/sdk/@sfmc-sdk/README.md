@@ -14,6 +14,7 @@ ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 - **`@sfmc-bds/sdk/node/...`** — Node 进程内 SDK(db-server / qq-bridge / bds-tools / sfmc 自身)
 - **`@sfmc-bds/sdk/behavior-pack-build`** — BP 构建期类型与工具
 - **`@sfmc-bds/sdk/logs`** — 平台统一的日志/格式化/输出器
+- **`@sfmc-bds/sdk/testing`** — 模块 lifecycle 测试 harness：`createFakePlayer` / `createFakeWorld` / `createFakeDb` / `runLifecycle`，让模块在 `node --test` 中跑 register/init/cleanup 而不需真实 BDS
 
 ## 安装
 
@@ -48,6 +49,35 @@ ModuleRegistry.register({
   },
 });
 ```
+
+## 模块测试（无需 BDS）
+
+```typescript
+// test/my-module.test.ts（用 tsx 或 node --import tsx 跑）
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import entry from "../sapi/src/index.ts";
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
+import {
+  createFakePlayer,
+  createFakeWorld,
+  createFakeDb,
+  assertMsg,
+} from "@sfmc-bds/sdk/testing";
+
+test("smoke: register + init 不抛", async () => {
+  const world = createFakeWorld();
+  const db = createFakeDb();
+  /* harness 直接调 lifecycle 钩子，绕过 ConfigManager/ModuleRegistry 启动门禁 */
+  const desc = ModuleRegistry.list().find((d) => d.id === "my-module");
+  await desc.lifecycle.registerPermissions?.();
+  await desc.lifecycle.registerCommands?.();
+  await desc.lifecycle.init?.();
+  assert.ok(true);
+});
+```
+
+> `runLifecycle(descriptor, opts)` 提供更结构化入口（按 afterWorldLoad 决定是否跑 init，返回 `{ ok, error }`）。模块若依赖 db/config/service，须在用例里 stub；harness 不会自动替身。
 
 ## 平台规则
 

@@ -96,6 +96,11 @@
       "import": "./dist/esm/sapi/service/index.js",
       "default": "./dist/esm/sapi/service/index.js"
     },
+    "./testing": {
+      "types": "./dist/types/testing/index.d.ts",
+      "import": "./dist/esm/testing/index.js",
+      "default": "./dist/esm/testing/index.js"
+    },
     "./schemas/*": "./schemas/*"
   },
   "files": [
@@ -110,7 +115,8 @@
     "build:types": "tsc7 -p tsconfig.types.json",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run clean && npm run build:types && node build.mjs",
-    "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
+    "typecheck": "tsc7 --noEmit -p tsconfig.types.json",
+    "test": "npm run build:js && node --test testing.test.mjs"
   },
   "peerDependencies": {
     "@minecraft/diagnostics": "1.0.0-beta.1.26.40-preview.30",

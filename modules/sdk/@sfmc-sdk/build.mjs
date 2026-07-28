@@ -67,6 +67,7 @@ const SUBPATHS = [
   { sub: "node/config", platform: "node" },
   { sub: "module-loader", platform: "node" },
   { sub: "behavior-pack-build", platform: "node" },
+  { sub: "testing", platform: "node" },
 ];
 
 const DIST_ESM = "dist/esm";
