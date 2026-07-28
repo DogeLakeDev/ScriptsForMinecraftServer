@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /**
- * tools/new-module.mjs — 在 sfmc-modules/packages/<id>/ 下生成最小模块骨架
+ * tools/new-module.mjs — 生成最小模块骨架
+ *
+ * 新语义（plan: scaffold-redirect）：
+ *   - 默认：写入 **当前工作目录**（cwd）作为单包根 —— 与 Tanya7z/sfmc-module-template 同构
+ *   - --root <path> 显式覆盖：写到 `<root>/packages/<id>`（兼容旧 sfmc-modules 工作区）
+ *   - 拒绝写主仓本体的 modules/packages/<>（那是 install 落点，不是开发工作区）
  *
  * Usage:
- *   node tools/new-module.mjs <id> [--name <显示名>] [--root <sfmc-modules>] [--template minimal|db]
+ *   node tools/new-module.mjs <id> [--name <显示名>] [--template minimal|db]   # cwd
+ *   node tools/new-module.mjs <id> --root D:/sfmc-modules                     # 旧工作区
  *   node tools/new-module.mjs --list-templates
  *
  * 由 `sfmc module create` 交互向导调用；也可单独使用。
@@ -68,36 +74,70 @@ function isValidFolderId(id) {
   return /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(id);
 }
 
+/**
+ * 决定模块骨架落盘位置：
+ *   1. --root 显式覆盖 → 写到 <root>/packages/<id>（旧工作区兼容）
+ *   2. 缺省 → 写到 cwd（单包根，与 Tanya7z/sfmc-module-template 同构）
+ * 拒绝写主仓本体的 modules/packages/（避免把开发工作区混进 install 落点）。
+ */
 function resolveModulesRoot(flags) {
   if (flags.root) {
     const resolved = path.resolve(flags.root);
     if (!fs.existsSync(path.join(resolved, "packages"))) {
-      die(`目录缺少 packages/: ${resolved}`);
+      die(`--root 目录缺少 packages/: ${resolved}`);
+    }
+    /* 拒绝覆盖主仓 modules/packages：那是 install 落点，不是开发工作区 */
+    const platformPkgs = path.join(ROOT, "modules", "packages");
+    if (path.resolve(resolved) === path.resolve(platformPkgs)) {
+      die(`禁止写主仓 modules/packages（install 落点）；请用 cwd 单包根或 --root 指向独立 sfmc-modules。`);
     }
     return resolved;
   }
   if (process.env.SFMC_MODULES_ROOT) {
     return path.resolve(process.env.SFMC_MODULES_ROOT);
   }
-  const sibling = path.resolve(ROOT, "..", "sfmc-modules");
-  if (fs.existsSync(path.join(sibling, "packages"))) return sibling;
-  die("请用 --root 或 SFMC_MODULES_ROOT 指定 sfmc-modules 根目录");
+  /* 缺省：cwd */
+  return process.cwd();
 }
 
-function buildPackageJson(folderId) {
-  return {
+/**
+ * @param {string} folderId
+ * @param {{ cwdMode: boolean }} opts  cwdMode=true → 自包含（指向 node_modules）；legacy → 相对主仓路径
+ */
+function buildPackageJson(folderId, opts) {
+  const base = {
     name: `@sfmc-bds/module-${folderId}`,
     version: "0.1.0",
     private: true,
     type: "module",
     description: `SAPI module: ${folderId}`,
     main: "sapi/src/index.ts",
-    scripts: {
-      typecheck: "tsc7 --noEmit -p sapi/tsconfig.json",
-    },
-    dependencies: {
-      "@sfmc-bds/sdk": "^0.1.0",
-    },
+    files: ["sapi", "test"],
+  };
+  if (opts.cwdMode) {
+    /* 自包含（与 Tanya7z/sfmc-module-template 同构）：SDK 由 npm 装在 node_modules */
+    return {
+      ...base,
+      scripts: {
+        typecheck: "tsc --noEmit -p sapi/tsconfig.json",
+        test: "node --test --import tsx/esm test/*.test.ts",
+      },
+      devDependencies: {
+        "@sfmc-bds/sdk": "^0.2.0-beta.5",
+        "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
+        "@types/node": "^22.13.0",
+        tsx: "^4.19.0",
+        typescript: "^5.6.0",
+      },
+      peerDependencies: { "@sfmc-bds/sdk": ">=0.2.0" },
+      engines: { node: ">=22.13.0" },
+    };
+  }
+  /* legacy 工作区模式：依赖走主仓同仓 workspace 解析 */
+  return {
+    ...base,
+    scripts: { typecheck: "tsc7 --noEmit -p sapi/tsconfig.json" },
+    dependencies: { "@sfmc-bds/sdk": "^0.1.0" },
   };
 }
 
@@ -147,6 +187,28 @@ function buildTsConfig(extendsRel) {
   return {
     extends: extendsRel,
     compilerOptions: {
+      noEmit: true,
+      rootDir: "./src",
+    },
+    include: ["src/**/*"],
+  };
+}
+
+/**
+ * 自包含 sapi/tsconfig.json（cwdMode=true） —— 不依赖主仓 tsconfig.base.json；
+ * SDK 类型由 npm 装入 node_modules/@sfmc-bds/sdk 时随附。
+ */
+function buildTsConfigStandalone() {
+  return {
+    compilerOptions: {
+      module: "nodenext",
+      moduleResolution: "nodenext",
+      target: "es2022",
+      lib: ["es2022"],
+      types: ["node"],
+      strict: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
       noEmit: true,
       rootDir: "./src",
     },
@@ -214,7 +276,8 @@ function main() {
 
   const folderId = positional[0];
   if (!folderId) {
-    die("用法: new-module.mjs <id> [--name <名>] [--root <sfmc-modules>] [--template minimal|db]");
+    die("用法: new-module.mjs <id> [--name <名>] [--root <sfmc-modules>] [--template minimal|db]\n" +
+        "  缺省 --root：写到当前工作目录（单包根，与 Tanya7z/sfmc-module-template 同构）。");
   }
   if (!isValidFolderId(folderId)) {
     die(`id 须为小写 kebab-case，例如 my-mod（收到: ${folderId}）`);
@@ -222,37 +285,53 @@ function main() {
   if (folderId.startsWith("feature-") || folderId.startsWith("core-")) {
     die(`id 须为短名（不含 feature-/core- 前缀），例如 area 而非 feature-area`);
   }
-  const modulesRoot = resolveModulesRoot(flags);
-  const target = path.join(modulesRoot, "packages", folderId);
-  if (fs.existsSync(target)) {
-    die(`目标已存在: ${target}`);
+  const useLegacyWorktree = Boolean(flags.root || process.env.SFMC_MODULES_ROOT);
+  const target = useLegacyWorktree
+    ? path.join(resolveModulesRoot(flags), "packages", folderId)
+    : path.resolve(process.cwd());
+  if (fs.existsSync(path.join(target, "sapi")) || fs.existsSync(path.join(target, "package.json"))) {
+    die(`目标已含模块骨架: ${target}（cwd 非空，请用空目录或 --root 显式指向旧工作区）`);
   }
 
   const displayName = flags.name?.trim() || folderId;
   const template = flags.template === "db" ? "db" : "minimal";
 
   const sapiDir = path.join(target, "sapi");
-  const schemaAbs = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "schemas", "sapi-manifest.v2.schema.json");
-  const baseTsAbs = path.join(ROOT, "modules", "tsconfig.base.json");
-  if (!fs.existsSync(schemaAbs)) {
-    die(`找不到 manifest schema: ${schemaAbs}`);
-  }
-  if (!fs.existsSync(baseTsAbs)) {
-    die(`找不到 tsconfig.base.json: ${baseTsAbs}`);
+  const cwdMode = !useLegacyWorktree;
+
+  /* schema 与 tsconfig.base 仅在 legacy 工作区模式需要（cwdMode 自包含）。 */
+  let schemaRel = "../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json";
+  let tsConfigJson;
+  if (!cwdMode) {
+    const schemaAbs = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "schemas", "sapi-manifest.v2.schema.json");
+    const baseTsAbs = path.join(ROOT, "modules", "tsconfig.base.json");
+    if (!fs.existsSync(schemaAbs)) die(`找不到 manifest schema: ${schemaAbs}`);
+    if (!fs.existsSync(baseTsAbs)) die(`找不到 tsconfig.base.json: ${baseTsAbs}`);
+    schemaRel = relPosix(sapiDir, schemaAbs);
+    tsConfigJson = buildTsConfig(relPosix(sapiDir, baseTsAbs));
+  } else {
+    tsConfigJson = buildTsConfigStandalone();
   }
 
-  writeJson(path.join(target, "package.json"), buildPackageJson(folderId));
+  writeJson(path.join(target, "package.json"), buildPackageJson(folderId, { cwdMode }));
   writeJson(
     path.join(sapiDir, "manifest.json"),
-    buildManifest(folderId, displayName, template, relPosix(sapiDir, schemaAbs))
+    buildManifest(folderId, displayName, template, schemaRel)
   );
-  writeJson(path.join(sapiDir, "tsconfig.json"), buildTsConfig(relPosix(sapiDir, baseTsAbs)));
+  writeJson(path.join(sapiDir, "tsconfig.json"), tsConfigJson);
   writeText(path.join(sapiDir, "src", "index.ts"), buildIndexTs(folderId, displayName));
 
   console.log(`[new-module] 已创建 ${target}`);
+  console.log(`[new-module]   模式: ${cwdMode ? "cwd 单包根" : "legacy 工作区"}`);
   console.log(`[new-module]   npm: @sfmc-bds/module-${folderId}`);
   console.log(`[new-module]   manifest id: feature-${folderId}`);
-  console.log(`[new-module]   下一步: sfmc module link ${folderId}`);
+  if (cwdMode) {
+    console.log(`[new-module]   下一步:`);
+    console.log(`[new-module]     npm install`);
+    console.log(`[new-module]     sfmc mod install --from local --link  # 主仓里跑`);
+  } else {
+    console.log(`[new-module]   下一步: sfmc module link ${folderId}`);
+  }
 }
 
 main();
