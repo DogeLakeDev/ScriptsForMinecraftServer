@@ -203,6 +203,7 @@ const TOP_DESC: Record<string, string> = {
   dev: "help.module.dev",
   watch: "help.module.watch",
   test: "help.module.test",
+  publish: "help.module.publish",
 };
 
 const MODULE_DESC: Record<string, string> = {
@@ -428,6 +429,9 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
     needsTty: true,
     accent: "dev",
   },
+  { id: "module.watch", name: "module", sub: "watch", channel: "both", accent: "dev" },
+  { id: "module.test", name: "module", sub: "test", channel: "both", accent: "dev" },
+  { id: "module.publish", name: "module", sub: "publish", channel: "both", accent: "dev" },
 
   { id: "packs.list", name: "packs", sub: "list", channel: "both" },
   { id: "packs.search", name: "packs", sub: "search", channel: "both" },

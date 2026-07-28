@@ -96,6 +96,7 @@ export const en = {
   "help.module.reload": "Build + deploy BP; send reload to BDS",
   "help.module.watch": "Watch sapi/src and auto rebuild+reload",
   "help.module.test": "Run module tests (node --test + @sfmc-bds/sdk/testing)",
+  "help.module.publish": "Nanny-mode npm publish (login hint + dry-run + bump + thin-index PR)",
   "help.section.addon": "─── Addon Manager ───",
   "help.addon": "World BP/RP inbox manager",
   "help.packs.list": "List world packs",
@@ -296,6 +297,17 @@ export const en = {
   "watch.reload.manualHint":
     "[watch] --no-reload mode: type reload in BDS console or in-game",
   "watch.stopped": "[watch] stopped",
+
+  /* ─── module publish ─── */
+  "publish.banner": "[publish] nanny-mode publish (npm + thin-index PR)",
+  "publish.noLogin": "[publish] not logged in to npm",
+  "publish.noLoginHint":
+    "  → run `npm login --auth-type=web` (browser OAuth, no local credential)",
+  "publish.precheckFail":
+    "[publish] precheck failed; fix the errors above and retry",
+  "publish.dryRun.summary":
+    "[publish] --dry-run done; run `sfmc mod publish [--bump <lvl>]` for real",
+  "publish.done": "[publish] done ✓",
 
   /* ─── bp ─── */
   "bp.usage": "Usage: sfmc behavior-pack|bp <build|deploy>",

@@ -93,6 +93,7 @@ export const zhCN: Record<MessageKey, string> = {
   "help.module.reload": "构建并部署资源包，在 BDS 发送 reload指令以重载脚本",
   "help.module.watch": "监听 sapi/src 变更并自动 rebuild+reload",
   "help.module.test": "运行模块测试（node --test + @sfmc-bds/sdk/testing）",
+  "help.module.publish": "保姆式 npm publish（登录引导 + dry-run + bump + 薄 index PR）",
   "help.section.addon": "  资源包管理 ──────",
   "help.addon": "资源包收件箱管理",
   "help.packs.list": "已安装资源包列表",
@@ -284,6 +285,16 @@ export const zhCN: Record<MessageKey, string> = {
   "watch.reload.manualHint":
     "[watch] --no-reload 模式：在 BDS 控制台或游戏内输入 reload 即可",
   "watch.stopped": "[watch] 已停止",
+
+  /* ─── module publish ─── */
+  "publish.banner": "[publish] 保姆式发布（npm + 薄 index PR）",
+  "publish.noLogin": "[publish] 未登录 npm",
+  "publish.noLoginHint":
+    "  → 运行 `npm login --auth-type=web`（浏览器 OAuth，无需把 credential 落本机）",
+  "publish.precheckFail": "[publish] 预检未通过；修正上面 error 后重试",
+  "publish.dryRun.summary":
+    "[publish] --dry-run 完成；正式 publish 跑 `sfmc mod publish [--bump <lvl>]`",
+  "publish.done": "[publish] 完成 ✓",
 
   "bp.usage": "用法: bp <build|deploy>",
 

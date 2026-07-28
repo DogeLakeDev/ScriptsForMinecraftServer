@@ -580,17 +580,16 @@ export async function cmdModuleTest(args: string[]): Promise<string> {
     return c.yellow(`[mod test] 未找到 package.json: ${cwd}\n  提示：进入模块仓根目录，或用 --from local:<path> 指向。`);
   }
 
-  /* Windows 优先用 npm.cmd；POSIX 用 npm。直接 shell 调用透传 stdio。 */
+  /* Windows 用 cmd /c npm 透传 npm.cmd（避免 shell:true 的 DEP0190 安全警告）。 */
   const isWin = process.platform === "win32";
-  const cmd = isWin ? "npm.cmd" : "npm";
-  const subArgs = ["test", "--", ...passthrough];
+  const cmd = isWin ? "cmd.exe" : "npm";
+  const subArgs = isWin ? ["/c", "npm", "test", "--", ...passthrough] : ["test", "--", ...passthrough];
 
   return new Promise<string>((resolve) => {
     const proc = spawn(cmd, subArgs, {
       cwd,
       stdio: "inherit",
       env: process.env,
-      shell: isWin, /* win32 + npm.cmd 在某些 shell 包装下更稳 */
     });
     proc.on("exit", (code) => {
       resolve(code === 0 ? "" : `\n[mod test] exit ${code}`);
@@ -649,6 +648,10 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     }
     case "test": {
       return cmdModuleTest(args);
+    }
+    case "publish": {
+      const { cmdModulePublish } = await import("./module-publish.js");
+      return cmdModulePublish(args);
     }
     default:
       return c.yellow(moduleUsage());
