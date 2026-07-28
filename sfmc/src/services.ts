@@ -8,6 +8,7 @@ import {
 } from "@sfmc-bds/sdk/node/config";
 import {
   clearBdsPidFile,
+  isProcessAlive,
   probeBdsStatus,
   readBdsPidFile,
   writeBdsPidFile,
@@ -145,6 +146,7 @@ class Service {
       writeBdsPidFile(this.pid, ROOT);
     }
     this.events.emit("output", `started (PID ${this.pid})`, "info");
+    this.events.emit("state", { name: this.name, running: true, pid: this.pid });
 
     child.on("error", (e) => {
       this.events.emit("output", `process error: ${e.message}`, "error");
@@ -225,16 +227,29 @@ class Service {
     return this.logs.slice(-n);
   }
 
+  /**
+   * 探测发现进程已死后回写本地状态（不设 manualStop，以便 exit 回调仍可按需 autoRestart）。
+   */
+  markStoppedFromProbe(): void {
+    if (!this.running && !this.proc) return;
+    this.cleanup();
+  }
+
   private cleanup(): void {
+    const wasRunning = this.running || this.proc !== null;
     const exitingPid = this.pid;
     this.proc = null;
     this.running = false;
     this.pid = 0;
+    this.startTime = null;
     if (this.name === "bds" && exitingPid > 0) {
       const filePid = readBdsPidFile(ROOT);
       if (filePid === exitingPid) {
         clearBdsPidFile(ROOT);
       }
+    }
+    if (wasRunning) {
+      this.events.emit("state", { name: this.name, running: false, pid: 0 });
     }
   }
 }
@@ -368,13 +383,44 @@ export function forceStopAll(): void {
   for (const service of Object.values(services)) service.forceStop();
 }
 
-export async function serviceStatus(): Promise<ServiceStatus[]> {
+export type ServiceStateEvent = { name: ServiceName; running: boolean; pid: number };
+
+/** 订阅任意服务启停（含探测回写）；返回取消函数 */
+export function onServiceStateChange(fn: (ev: ServiceStateEvent) => void): () => void {
+  const handler = (ev: ServiceStateEvent): void => {
+    fn(ev);
+  };
+  for (const service of Object.values(services)) {
+    service.events.on("state", handler);
+  }
+  return () => {
+    for (const service of Object.values(services)) {
+      service.events.off("state", handler);
+    }
+  };
+}
+
+/** 若本地标记 running 但 OS 进程已死，回收内存标志 */
+async function reconcileManagedAlive(service: Service): Promise<boolean> {
+  if (!service.running) return false;
+  if (service.pid > 0 && !(await isProcessAlive(service.pid))) {
+    service.markStoppedFromProbe();
+    return false;
+  }
+  return service.running;
+}
+
+/**
+ * 统一运行态查询（权威入口）：OS/健康探测 + 回写 Service 内存标志。
+ * status / Tab 发送目标 / remote / reload 等均应走此接口，勿直接读 `service.running`。
+ */
+export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
   return Promise.all(
     SERVICE_NAMES.map(async (name) => {
       const service = services[name];
-      let running = service.running;
-      let pid = service.pid;
-      let uptime = service.uptime;
+      let running = false;
+      let pid = 0;
+      let uptime = "—";
       let ownership: "managed" | "external" | undefined;
 
       if (name === "bds") {
@@ -388,25 +434,42 @@ export async function serviceStatus(): Promise<ServiceStatus[]> {
           pid = probe.pid;
           uptime = service.uptime;
           ownership = "managed";
+          /* 探测为 managed 但本地已标停：保持探测结果，不强制改内存（stdin 仍可用） */
         } else if (probe.state === "external") {
           running = true;
           pid = probe.pid;
-          uptime = "—";
           ownership = "external";
+          /* 外部进程：本地 managed 句柄已失效则回收 */
+          if (service.running && service.pid !== probe.pid) {
+            service.markStoppedFromProbe();
+          } else if (service.running && !(await isProcessAlive(service.pid))) {
+            service.markStoppedFromProbe();
+          }
         } else {
           running = false;
-          pid = 0;
-          uptime = "—";
+          if (service.running || service.proc) {
+            service.markStoppedFromProbe();
+          }
         }
       } else if (name === "db") {
-        if (service.running) {
+        const managed = await reconcileManagedAlive(service);
+        if (managed) {
+          running = true;
+          pid = service.pid;
+          uptime = service.uptime;
           ownership = "managed";
         } else if (await probeDbHealth(dbHealthPort)) {
           running = true;
           ownership = "external";
         }
-      } else if (service.running) {
-        ownership = "managed";
+      } else {
+        const managed = await reconcileManagedAlive(service);
+        if (managed) {
+          running = true;
+          pid = service.pid;
+          uptime = service.uptime;
+          ownership = "managed";
+        }
       }
 
       return {
@@ -419,4 +482,15 @@ export async function serviceStatus(): Promise<ServiceStatus[]> {
       };
     })
   );
+}
+
+/** @deprecated 请用 queryServicesRuntime；保留别名以免破坏现有调用 */
+export async function serviceStatus(): Promise<ServiceStatus[]> {
+  return queryServicesRuntime();
+}
+
+/** 单服务是否在跑（含外部实例） */
+export async function isServiceRunning(name: ServiceName): Promise<boolean> {
+  const rows = await queryServicesRuntime();
+  return rows.some((r) => r.name === name && r.running);
 }

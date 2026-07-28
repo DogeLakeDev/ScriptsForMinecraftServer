@@ -24,7 +24,9 @@ import {
   type LogEntry,
   type LogLevel as SharedLogLevel,
 } from "@sfmc-bds/sdk/logs";
-import { logFile } from "@sfmc-bds/sdk/node/config";
+import { logFile, logsDir } from "@sfmc-bds/sdk/node/config";
+import fs from "node:fs";
+import path from "node:path";
 import {
   getCompiledLogFilter,
   shouldDropForDisk,
@@ -133,32 +135,123 @@ export function getAllLogs(): UnifiedLog[] {
 }
 
 /* ==================================================================
+ *  落盘文件读取（/logs 窗用，不走内存缓冲）
+ * ================================================================== */
+
+/** 与落盘策略对应的文件基名（不含 .log） */
+const DISK_LOG_FILES = ["bds", "llbot", "db", "qq", "bds-update", "sfmc"] as const;
+
+/** source → 落盘文件名（含子进程自写） */
+export function diskFileForSource(source: string): string {
+  if (source === "update") return "bds-update";
+  if (source === "bds" || source === "llbot" || source === "db" || source === "qq") return source;
+  return "sfmc";
+}
+
+/** formatLogLine 无色行：`YYYY-MM-DD HH:mm:ss [source] [LEVEL] text` */
+const DISK_LINE_RE =
+  /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[([^\]]+)\] \[(INFO|WARN|ERROR|OK|DEBUG|SUCCESS|FATAL)\]\s?(.*)$/;
+
+function mapDiskLevelTag(tag: string): LogLevel {
+  switch (tag) {
+    case "ERROR":
+    case "FATAL":
+      return "error";
+    case "WARN":
+      return "warn";
+    case "OK":
+    case "SUCCESS":
+      return "success";
+    case "DEBUG":
+      return "debug";
+    default:
+      return "info";
+  }
+}
+
+/** 解析单行落盘日志；不符格式返回 null */
+export function parseDiskLogLine(raw: string): UnifiedLog | null {
+  const m = DISK_LINE_RE.exec(raw);
+  if (!m) return null;
+  const ts = m[1]!;
+  const source = m[2]!.trim();
+  const level = mapDiskLevelTag(m[3]!);
+  const body = m[4] ?? "";
+  const time = new Date(ts.replace(" ", "T") + "Z");
+  return { time, source, level, text: body };
+}
+
+export type ReadDiskLogsOpts = {
+  levels?: LogLevel[];
+  sources?: LogSource[];
+  /** 覆盖日志目录（测试用）；默认 `<ROOT>/.sfmc/logs` */
+  dir?: string;
+};
+
+/**
+ * 从 `.sfmc/logs/*.log` 读取并解析为 UnifiedLog（按时间升序）。
+ * 供 /logs 筛选窗回放；与内存缓冲无关。
+ */
+export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
+  const levels = opts.levels ?? [];
+  const sources = opts.sources ?? [];
+  const dir = opts.dir ?? logsDir(ROOT);
+  const fileNames = new Set<string>();
+  if (sources.length === 0) {
+    for (const n of DISK_LOG_FILES) fileNames.add(n);
+  } else {
+    for (const s of sources) fileNames.add(diskFileForSource(s));
+  }
+
+  const out: UnifiedLog[] = [];
+  for (const name of fileNames) {
+    const fp = path.join(dir, name.endsWith(".log") ? name : `${name}.log`);
+    let text: string;
+    try {
+      text = fs.readFileSync(fp, "utf8");
+    } catch {
+      continue;
+    }
+    for (const raw of text.split(/\r?\n/)) {
+      if (!raw) continue;
+      const entry = parseDiskLogLine(raw);
+      if (!entry) continue;
+      if (sources.length && !sources.includes(entry.source)) continue;
+      if (levels.length && !levels.includes(entry.level)) continue;
+      out.push(entry);
+    }
+  }
+  out.sort((a, b) => a.time.getTime() - b.time.getTime());
+  return out;
+}
+
+/* ==================================================================
  *  来源标签元数据 (方括号与文字同色,对齐 levelTag)
  * ================================================================== */
 
 export interface SourceMeta {
   value: string;
-  /** 显示名,尽量 8 宽对齐 */
+  /** 方括号内固定 3 字符，与 [INF] 对齐 */
   name: string;
   paint: (s: string) => string;
 }
 
 export const SOURCE_META: SourceMeta[] = [
-  { value: "bds", name: "BDServer", paint: (s) => c.green(s) },
-  { value: "db", name: "DataBase", paint: (s) => c.blue(s) },
-  { value: "qq", name: "QQBridge", paint: (s) => c.purple(s) },
-  { value: "llbot", name: " LL-BOT ", paint: (s) => c.yellow(s) },
-  { value: "system", name: " SYSTEM ", paint: (s) => c.cyan(s) },
-  { value: "update", name: " UPDATE ", paint: (s) => c.orange(s) },
-  { value: "pack", name: "  PACK  ", paint: (s) => c.purple(s) },
-  { value: "bds-tools", name: "BDSTools", paint: (s) => c.red(s) },
+  { value: "bds", name: "BDS", paint: (s) => c.green(s) },
+  { value: "db", name: "DB ", paint: (s) => c.blue(s) },
+  { value: "qq", name: "QQ ", paint: (s) => c.purple(s) },
+  { value: "llbot", name: "BOT", paint: (s) => c.yellow(s) },
+  { value: "system", name: "SYS", paint: (s) => c.cyan(s) },
+  { value: "update", name: "UPD", paint: (s) => c.orange(s) },
+  { value: "pack", name: "PAK", paint: (s) => c.purple(s) },
+  { value: "bds-tools", name: "TOL", paint: (s) => c.red(s) },
 ];
 
 /** 源标签无色文本（formatSourceTag / logPrefixWidth 共用） */
 function sourceTagPlain(source: string): string {
   const meta = SOURCE_META.find((m) => m.value === source);
   if (meta) return `[${meta.name}]`;
-  return `[${source.padEnd(7).slice(0, 8)}]`;
+  return `[${source.toUpperCase().padEnd(3).slice(0, 3)}]`;
 }
 
 export function formatSourceTag(source: string): string {
@@ -185,11 +278,11 @@ export function inferLevel(text: string): LogLevel {
   return sharedInferLevel(text);
 }
 
-/** 无色级别标签文本（可见宽度权威源） */
+/** 无色级别标签文本（可见宽度权威源；括号内均为 3 字符） */
 const LEVEL_TAG_TEXT: Record<LogLevel, string> = {
   error: "[ERR]",
   warn: "[WRN]",
-  success: "[OK]",
+  success: "[SUC]",
   debug: "[DBG]",
   info: "[INF]",
 };

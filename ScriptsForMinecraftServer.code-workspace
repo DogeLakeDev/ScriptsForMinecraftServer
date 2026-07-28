@@ -6,9 +6,6 @@
     {
       "path": "../sfmc-modules",
     },
-    {
-      "path": "../ScriptsForMinecraftServer-feature-dev-mode",
-    },
   ],
   "settings": {},
 }

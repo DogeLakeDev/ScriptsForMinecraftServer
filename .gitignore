@@ -38,6 +38,7 @@ tools/.sfmc-registry-cache.json
 /packs/
 BDS/
 backups/
+data/
 
 # Proactive-agent credentials (security-audit.sh)
 .credentials/
@@ -49,7 +50,8 @@ backups/
 # agent tools
 memory/
 .cursor/
-data/
+.env
+.superpowers/
 
 # 误放仓根的 lock（权威路径是 modules/module-lock.json）
 /module-lock.json
@@ -61,4 +63,3 @@ data/
 /site/
 /docs/reference/sdk/**
 !/docs/reference/sdk/.pages
-.env

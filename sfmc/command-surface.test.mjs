@@ -9,18 +9,17 @@ import {
   findTopLevelSpec,
   listVisibleModuleSubs,
   listVisibleTopLevelNames,
+  resolveModuleTopShorthand,
 } from "./dist/command-surface.js";
 
 const tty = { isTty: true };
 const noTty = { isTty: false };
 
-test("install 仅 external：argv 可跑，REPL 拒绝", () => {
+test("install 两边可用（both）", () => {
   const spec = findModuleSubSpec("install");
   assert.ok(spec);
   assert.equal(canRunCommand(spec, { mode: "argv", ...tty }).ok, true);
-  const r = canRunCommand(spec, { mode: "repl", ...tty });
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, "externalOnly");
+  assert.equal(canRunCommand(spec, { mode: "repl", ...tty }).ok, true);
 });
 
 test("send 仅 REPL：argv 拒绝", () => {
@@ -48,37 +47,51 @@ test("create 需 TTY", () => {
   assert.equal(r.reason, "needTty");
 });
 
-test("build/reload 在 REPL 可见且 accent=dev", () => {
+test("build/reload/install 在 REPL 可见", () => {
   const build = findModuleSubSpec("build");
   assert.equal(build?.accent, "dev");
   assert.equal(canRunCommand(build, { mode: "repl", ...tty }).ok, true);
   assert.ok(listVisibleModuleSubs("repl").includes("build"));
-  assert.ok(!listVisibleModuleSubs("repl").includes("install"));
+  assert.ok(listVisibleModuleSubs("repl").includes("install"));
 });
 
-test("argv 顶层列表不含 send；含 debug/install", () => {
+test("argv 顶层列表不含 send；含 debug/install/uninstall", () => {
   const names = listVisibleTopLevelNames("argv");
   assert.ok(!names.includes("send"));
   assert.ok(names.includes("debug"));
+  assert.ok(names.includes("install"));
+  assert.ok(names.includes("uninstall") || names.includes("remove"));
   assert.ok(names.includes("module") || names.includes("mod"));
 });
 
-test("REPL 顶层列表含 send；不含 debug", () => {
+test("REPL 顶层列表含 send 与 debug", () => {
   const names = listVisibleTopLevelNames("repl");
   assert.ok(names.includes("send"));
-  assert.ok(!names.includes("debug"));
+  assert.ok(names.includes("debug"));
+  assert.ok(names.includes("init"));
 });
 
-test("accent 不参与 canRun：debug 在 argv 可跑", () => {
+test("accent 不参与 canRun：debug 两边可跑", () => {
   const spec = findTopLevelSpec("debug");
   assert.equal(spec?.accent, "dev");
   assert.equal(canRunCommand(spec, { mode: "argv", ...tty }).ok, true);
-  assert.equal(canRunCommand(spec, { mode: "repl", ...tty }).ok, false);
+  assert.equal(canRunCommand(spec, { mode: "repl", ...tty }).ok, true);
 });
 
-test("logs -f：argv 拒绝，REPL 放行", async () => {
-  const { gateLogsFollow } = await import("./dist/cli-gate.js");
-  assert.ok(gateLogsFollow(["bds", "-f"], "argv"));
-  assert.equal(gateLogsFollow(["bds", "-f"], "repl"), null);
-  assert.equal(gateLogsFollow(["bds", "-n", "20"], "argv"), null);
+test("模块顶层短命令映射", () => {
+  assert.equal(resolveModuleTopShorthand("i"), "install");
+  assert.equal(resolveModuleTopShorthand("remove"), "uninstall");
+  assert.equal(resolveModuleTopShorthand("search"), "search");
+  assert.equal(resolveModuleTopShorthand("status"), undefined);
+});
+
+test("logs 仅 REPL（无参叶命令）", async () => {
+  const { gateTopLevel } = await import("./dist/cli-gate.js");
+  const { listPaletteRoots } = await import("./dist/command-surface.js");
+  assert.ok(gateTopLevel("logs", "argv"), "argv 应拒绝 logs");
+  assert.equal(gateTopLevel("logs", "repl"), null);
+  const logs = listPaletteRoots("repl").find((n) => n.token === "logs");
+  assert.ok(logs);
+  assert.equal(logs.children, undefined);
+  assert.notEqual(logs.freeArgs, true);
 });

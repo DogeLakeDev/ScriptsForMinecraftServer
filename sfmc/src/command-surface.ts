@@ -2,11 +2,12 @@
  * command-surface.ts — sfmc CLI 命令通道注册表（单一权威）
  *
  * channel:
- *   - external: 仅 argv（`sfmc <cmd>`）；REPL 不展示、不分发
- *   - repl:     仅 REPL；argv 拒绝
- *   - both:     两边可用
+ *   - both: argv（`sfmc <cmd>`）与 REPL 均可用（默认）
+ *   - repl: 仅 REPL；argv 拒绝（如 send / quit）
+ *   - external: 已弃用；勿新增（历史兼容保留类型）
  *
  * accent: "dev" 仅影响帮助/补全蓝色样式，不参与 canRun（OCP/DRY）。
+ * 业务实现不在本文件 / 面板内：分发到 commands、module-commands、world-packs 等。
  */
 import { stdin } from "node:process";
 
@@ -49,7 +50,28 @@ export const TOP_LEVEL_ALIASES: Readonly<Record<string, string>> = {
   exit: "quit",
   q: "quit",
   i: "install",
+  remove: "uninstall",
 };
+
+/**
+ * 顶层扁平短命令 → module 子命令（argv / REPL 共用，避免在 switch 里散落映射）
+ * 不含 enable/disable（与 packs 冲突，仍走 /module 或 /packs）
+ */
+export const MODULE_TOP_SHORTHAND: Readonly<Record<string, string>> = {
+  install: "install",
+  uninstall: "uninstall",
+  search: "search",
+  verify: "verify",
+  link: "link",
+  create: "create",
+};
+
+export function resolveModuleTopShorthand(cmd: string | undefined): string | undefined {
+  if (!cmd) return undefined;
+  const name = resolveTopLevelName(cmd);
+  if (!name) return undefined;
+  return MODULE_TOP_SHORTHAND[name];
+}
 
 export function resolveTopLevelName(cmd: string | undefined): string | undefined {
   if (!cmd) return undefined;
@@ -155,7 +177,7 @@ export type PaletteEntry = {
   descKey: string;
 };
 
-const NO_ARG_TOP = new Set(["status", "help", "version", "quit"]);
+const NO_ARG_TOP = new Set(["status", "help", "version", "quit", "init", "logs"]);
 
 const TOP_DESC: Record<string, string> = {
   status: "help.status",
@@ -167,6 +189,17 @@ const TOP_DESC: Record<string, string> = {
   help: "help.help",
   version: "help.version",
   quit: "help.quit",
+  init: "help.init",
+  update: "help.update",
+  locale: "help.locale",
+  remote: "help.remote.status",
+  debug: "help.debug.status",
+  install: "help.module.install",
+  uninstall: "help.module.uninstall",
+  search: "help.module.search",
+  verify: "help.module.verify",
+  link: "help.module.link",
+  create: "help.module.create",
 };
 
 const MODULE_DESC: Record<string, string> = {
@@ -192,6 +225,15 @@ const PACKS_DESC: Record<string, string> = {
   disable: "help.packs.disable",
   doctor: "help.packs.doctor",
   path: "help.packs.path",
+  install: "help.addon",
+  scan: "help.addon",
+  uninstall: "help.addon",
+  bind: "help.addon",
+  unbind: "help.addon",
+  sources: "help.addon",
+  check: "help.addon",
+  update: "help.addon",
+  bump: "help.addon",
 };
 
 function serviceArgNodes(): PaletteNode[] {
@@ -199,17 +241,6 @@ function serviceArgNodes(): PaletteNode[] {
     { label: "-all", token: "-all" },
     ...(["bds", "db", "qq", "llbot"] as const).map((n) => ({ label: n, token: n })),
   ];
-}
-
-function logsArgNodes(): PaletteNode[] {
-  return (["bds", "db", "qq", "llbot"] as const).map((n) => ({
-    label: n,
-    token: n,
-    children: [
-      { label: "-n", token: "-n", freeArgs: true },
-      { label: "-f", token: "-f" },
-    ],
-  }));
 }
 
 function moduleChildNodes(mode: CommandMode): PaletteNode[] {
@@ -258,8 +289,6 @@ export function listPaletteRoots(mode: CommandMode = "repl"): PaletteNode[] {
 
     if (s.name === "start" || s.name === "stop" || s.name === "restart") {
       node.children = serviceArgNodes();
-    } else if (s.name === "logs") {
-      node.children = logsArgNodes();
     } else if (s.name === "send") {
       node.children = (["bds", "db", "qq", "llbot"] as const).map((n) => ({
         label: n,
@@ -336,53 +365,55 @@ export function isCliTty(): boolean {
 
 /**
  * 命令注册表 —— 新增命令只加此处（OCP）。
+ * channel:
+ *   - both: argv + REPL（默认；面板只调度既有 dispatcher）
+ *   - repl: 仅 REPL（如 send / quit）
  */
 export const COMMAND_SPECS: readonly CommandSpec[] = [
-  /* ─── both：值守高频 ─── */
+  /* ─── both：服务 / 模块 / 资源包 / 配置 ─── */
   { id: "status", name: "status", channel: "both" },
   { id: "start", name: "start", channel: "both" },
   { id: "stop", name: "stop", channel: "both" },
   { id: "restart", name: "restart", channel: "both" },
-  { id: "logs", name: "logs", channel: "both" },
+  { id: "logs", name: "logs", channel: "repl" },
   { id: "help", name: "help", channel: "both" },
   { id: "version", name: "version", channel: "both" },
+  { id: "init", name: "init", channel: "both", needsTty: true },
+  { id: "update", name: "update", channel: "both" },
+  { id: "locale", name: "locale", channel: "both" },
+  { id: "remote", name: "remote", channel: "both" },
+  { id: "debug", name: "debug", channel: "both", accent: "dev" },
+
+  /** 顶层扁平短命令 → module.*（少写一层 module） */
+  { id: "install", name: "install", channel: "both" },
+  { id: "uninstall", name: "uninstall", channel: "both", aliases: ["remove"] },
+  { id: "search", name: "search", channel: "both" },
+  { id: "verify", name: "verify", channel: "both" },
+  { id: "link", name: "link", channel: "both" },
+  { id: "create", name: "create", channel: "both", needsTty: true, accent: "dev" },
+
   { id: "module.list", name: "module", sub: "list", channel: "both" },
   { id: "module.info", name: "module", sub: "info", channel: "both" },
   { id: "module.build", name: "module", sub: "build", channel: "both", accent: "dev" },
   { id: "module.reload", name: "module", sub: "reload", channel: "both", accent: "dev" },
-  { id: "packs.list", name: "packs", sub: "list", channel: "both" },
-  { id: "packs.search", name: "packs", sub: "search", channel: "both" },
-  { id: "packs.enable", name: "packs", sub: "enable", channel: "both" },
-  { id: "packs.disable", name: "packs", sub: "disable", channel: "both" },
-  { id: "packs.doctor", name: "packs", sub: "doctor", channel: "both" },
-  { id: "packs.path", name: "packs", sub: "path", channel: "both" },
-
-  /* ─── external：部署 / 配置 ─── */
-  { id: "init", name: "init", channel: "external" },
-  { id: "update", name: "update", channel: "external" },
-  { id: "locale", name: "locale", channel: "external" },
-  { id: "remote", name: "remote", channel: "external" },
-  { id: "debug", name: "debug", channel: "external", accent: "dev" },
-  /** 顶层短命令：sfmc i|install ≡ module install */
-  { id: "install", name: "install", channel: "external" },
-  { id: "module.install", name: "module", sub: "install", channel: "external" },
+  { id: "module.install", name: "module", sub: "install", channel: "both" },
   {
     id: "module.uninstall",
     name: "module",
     sub: "uninstall",
-    channel: "external",
+    channel: "both",
     aliases: ["remove"],
   },
-  { id: "module.search", name: "module", sub: "search", channel: "external" },
-  { id: "module.verify", name: "module", sub: "verify", channel: "external" },
-  { id: "module.enable", name: "module", sub: "enable", channel: "external" },
-  { id: "module.disable", name: "module", sub: "disable", channel: "external" },
-  { id: "module.link", name: "module", sub: "link", channel: "external" },
+  { id: "module.search", name: "module", sub: "search", channel: "both" },
+  { id: "module.verify", name: "module", sub: "verify", channel: "both" },
+  { id: "module.enable", name: "module", sub: "enable", channel: "both" },
+  { id: "module.disable", name: "module", sub: "disable", channel: "both" },
+  { id: "module.link", name: "module", sub: "link", channel: "both" },
   {
     id: "module.create",
     name: "module",
     sub: "create",
-    channel: "external",
+    channel: "both",
     needsTty: true,
     accent: "dev",
   },
@@ -390,19 +421,26 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
     id: "module.dev",
     name: "module",
     sub: "dev",
-    channel: "external",
+    channel: "both",
     needsTty: true,
     accent: "dev",
   },
-  { id: "packs.install", name: "packs", sub: "install", channel: "external" },
-  { id: "packs.scan", name: "packs", sub: "scan", channel: "external" },
-  { id: "packs.uninstall", name: "packs", sub: "uninstall", channel: "external" },
-  { id: "packs.bind", name: "packs", sub: "bind", channel: "external" },
-  { id: "packs.unbind", name: "packs", sub: "unbind", channel: "external" },
-  { id: "packs.sources", name: "packs", sub: "sources", channel: "external" },
-  { id: "packs.check", name: "packs", sub: "check", channel: "external" },
-  { id: "packs.update", name: "packs", sub: "update", channel: "external" },
-  { id: "packs.bump", name: "packs", sub: "bump", channel: "external" },
+
+  { id: "packs.list", name: "packs", sub: "list", channel: "both" },
+  { id: "packs.search", name: "packs", sub: "search", channel: "both" },
+  { id: "packs.enable", name: "packs", sub: "enable", channel: "both" },
+  { id: "packs.disable", name: "packs", sub: "disable", channel: "both" },
+  { id: "packs.doctor", name: "packs", sub: "doctor", channel: "both" },
+  { id: "packs.path", name: "packs", sub: "path", channel: "both" },
+  { id: "packs.install", name: "packs", sub: "install", channel: "both" },
+  { id: "packs.scan", name: "packs", sub: "scan", channel: "both" },
+  { id: "packs.uninstall", name: "packs", sub: "uninstall", channel: "both" },
+  { id: "packs.bind", name: "packs", sub: "bind", channel: "both" },
+  { id: "packs.unbind", name: "packs", sub: "unbind", channel: "both" },
+  { id: "packs.sources", name: "packs", sub: "sources", channel: "both" },
+  { id: "packs.check", name: "packs", sub: "check", channel: "both" },
+  { id: "packs.update", name: "packs", sub: "update", channel: "both" },
+  { id: "packs.bump", name: "packs", sub: "bump", channel: "both" },
 
   /* ─── repl-only ─── */
   { id: "send", name: "send", channel: "repl" },

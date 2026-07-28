@@ -1,4 +1,5 @@
 import { pauseAllProgress, resumeAllProgress } from "@sfmc-bds/sdk/logs";
+import chalk from "chalk";
 import process, { stdin, stdout } from "node:process";
 import pkg from "../package.json" with { type: "json" };
 import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
@@ -11,20 +12,27 @@ import {
   promptSlashColumn,
   resolvePaletteView,
 } from "./command-palette.js";
-import { listVisiblePacksSubs, listVisibleTopLevelNames, type CommandMode } from "./command-surface.js";
-import { cmdLogs, cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll } from "./commands.js";
+import {
+  listVisiblePacksSubs,
+  listVisibleTopLevelNames,
+  resolveModuleTopShorthand,
+  type CommandMode,
+} from "./command-surface.js";
+import { cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { cmdRemote } from "./cmd-remote.js";
+import { cmdDebug } from "./debug-command.js";
 import { getHelp as buildHelp } from "./help-text.js";
 import { t } from "./i18n/index.js";
+import { cmdLocale } from "./locale-command.js";
 import {
   formatLog,
   getAllLogs,
-  getRecentLogs,
   logPrefixWidth,
   onLog,
+  readDiskLogs,
   SOURCE_META,
   wrapLogLine,
   type LogLevel,
-  type LogSource,
   type UnifiedLog,
 } from "./logs.js";
 import {
@@ -35,13 +43,42 @@ import {
 } from "./module-commands.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
 import { stopRemoteAgent } from "./remote-agent.js";
+import {
+  createLogsFilterWindow,
+  createServiceWindow,
+  serviceWindowId,
+  WindowHost,
+  type LogsFilterState,
+  type WindowChrome,
+  type WindowKeyEvent,
+  type WindowKeyResult,
+} from "./repl-windows/index.js";
 import { listActiveSendTargets, paintSendPrompt, plainPrompt } from "./send-target.js";
-import { forceStopAll, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
+import { forceStopAll, onServiceStateChange, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
 import { listSfmcModulePackages, resolveSfmcModulesRoot } from "./sfmc-modules-root.js";
-import { c } from "./theme.js";
+import { c, T } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
 const REPL_MODE: CommandMode = "repl";
+
+function getDisplayWidth(str: string) {
+  // 先去除 ANSI 码
+  const plain = str.replace(/\x1b\[[0-9;]*m/g, "");
+  let width = 0;
+  for (const ch of plain) {
+    // 粗略判断：非 ASCII 字符（如中文）视为占 2 列
+    if (ch.codePointAt(0)! > 127) {
+      width += 2;
+    } else {
+      width += 1;
+    }
+  }
+  return width;
+}
+
+function charDisplayWidth(ch: string): number {
+  return ch.codePointAt(0)! > 127 ? 2 : 1;
+}
 
 function setRaw(v: boolean): void {
   try {
@@ -49,19 +86,208 @@ function setRaw(v: boolean): void {
   } catch {}
 }
 
-const welcome = `\n
-  ${c.text(`⠪⡁⡯⠁`)}
-  ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
-  ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
-  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`/ · Tab · Ctrl+P · Ctrl+L · ←→ · ↑↓`)}\n
-`;
+/** 左侧 SFMC logo 三行（底行含接横线的 ╰───，与最终布局一致） */
+const LOGO_ROWS = ["╭─╮╭─╴╭┬╮╭─╴", "╰─╮├╴ ││││  ", "╰─╯╵  ╵ ╵╰───"] as const;
+const LOGO_PAD = "  ";
+const LOGO_TOP_GAP = "    ";
+const LOGO_MID_GAP = "      ";
+const SHORTCUT_HINT = `  / · Tab · Ctrl+P · Ctrl+L · ←→ · ↑↓`;
+/** S→F→M→C 手写笔顺（row, col）；空格格在构建时过滤 */
+const LOGO_STROKE_RAW: ReadonlyArray<readonly [number, number]> = [
+  // S
+  [0, 1],
+  [0, 2],
+  [0, 0],
+  [1, 0],
+  [1, 1],
+  [1, 2],
+  [2, 2],
+  [2, 1],
+  [2, 0],
+  // F
+  [0, 3],
+  [1, 3],
+  [2, 3],
+  [0, 4],
+  [0, 5],
+  [1, 4],
+  // M
+  [0, 6],
+  [1, 6],
+  [2, 6],
+  [0, 7],
+  [1, 7],
+  [0, 8],
+  [1, 8],
+  [2, 8],
+  // C（末笔落到 ╰───，随后无缝接横线延长）
+  [0, 10],
+  [0, 11],
+  [0, 9],
+  [1, 9],
+  [2, 9],
+  [2, 10],
+  [2, 11],
+  [2, 12],
+];
+const LOGO_STROKES = LOGO_STROKE_RAW.filter(([r, col]) => {
+  const ch = LOGO_ROWS[r]?.[col];
+  return ch !== undefined && ch !== " ";
+});
 
-const version = `\n
+/** 欢迎条纯文本（与下方样式化 meta 内容一致） */
+const metaPlain = `Scripts For Minecraft Server v${pkg.version}`;
+/** 强调首字母下标：S / F / M / c */
+const META_ACCENT_INDEX = new Set([0, 8, 12, 16]);
+const metaUnlit = chalk.hex(T.subtle);
+const meta = `${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}`;
+const metaWidth = getDisplayWidth(metaPlain);
+const lineLength = metaWidth + 5;
+
+/** 按显示列进度点亮纯文本；paintLit 决定已亮字符样式 */
+function buildTextAtProgress(
+  plain: string,
+  litColumns: number,
+  paintLit: (ch: string, index: number) => string
+): string {
+  let cols = 0;
+  let out = "";
+  for (let i = 0; i < plain.length; i++) {
+    const ch = plain[i]!;
+    const w = charDisplayWidth(ch);
+    if (cols + w <= litColumns) {
+      out += paintLit(ch, i);
+    } else {
+      out += metaUnlit(ch);
+    }
+    cols += w;
+  }
+  return out;
+}
+
+/** 按显示列进度点亮 meta：已亮保留最终样式，未亮用 subtle */
+function buildMetaAtProgress(litColumns: number): string {
+  return buildTextAtProgress(metaPlain, litColumns, (ch, i) => (META_ACCENT_INDEX.has(i) ? c.text(ch) : c.dim(ch)));
+}
+
+/** 快捷键提示与横线/meta 共用同一列进度 */
+function buildShortcutsAtProgress(litColumns: number): string {
+  return buildTextAtProgress(SHORTCUT_HINT, litColumns, (ch) => c.dim(ch));
+}
+
+/** 按笔顺进度渲染 logo；未写出的墨迹用空格占位，保持布局稳定 */
+function buildLogoRows(strokeCount: number): [string, string, string] {
+  const lit = new Set<string>();
+  const n = Math.min(Math.max(0, strokeCount), LOGO_STROKES.length);
+  for (let i = 0; i < n; i++) {
+    const [r, col] = LOGO_STROKES[i]!;
+    lit.add(`${r},${col}`);
+  }
+  return LOGO_ROWS.map((row, r) => {
+    let out = "";
+    for (let col = 0; col < row.length; col++) {
+      const ch = row[col]!;
+      if (ch === " ") {
+        out += " ";
+      } else if (lit.has(`${r},${col}`)) {
+        out += c.text(ch);
+      } else {
+        out += " ";
+      }
+    }
+    return out;
+  }) as [string, string, string];
+}
+
+function buildWelcomeLines(
+  strokeCount: number,
+  lineProgress: number,
+  metaContent: string,
+  shortcutContent: string
+): string[] {
+  const [topLogo, midLogo, botLogo] = buildLogoRows(strokeCount);
+  const line = "─".repeat(Math.max(0, lineProgress));
+  return [
+    `\n`,
+    `${LOGO_PAD}${topLogo}${LOGO_TOP_GAP}${shortcutContent}`,
+    `${LOGO_PAD}${midLogo}${LOGO_MID_GAP}${metaContent}`,
+    `${LOGO_PAD}${botLogo}${line}`,
+  ];
+}
+
+/** 回卷重绘：首帧直接写，之后光标上移并逐行 ESC[2K 清行重写 */
+function paintWelcomeLines(lines: string[], firstFrame: boolean): void {
+  if (!firstFrame) {
+    process.stdout.write(`\x1b[${lines.length}A`);
+  }
+  for (let i = 0; i < lines.length; i++) {
+    process.stdout.write(`\x1b[2K\r${lines[i]}`);
+    if (i < lines.length - 1) process.stdout.write("\n");
+  }
+}
+
+export async function playWelcomeAnimation(): Promise<void> {
+  const strokeTotal = LOGO_STROKES.length;
+  const totalSteps = strokeTotal + lineLength;
+  const finalShortcuts = c.dim(SHORTCUT_HINT);
+
+  // 非 TTY：直接输出最终帧，避免控制序列污染管道输出
+  if (!process.stdout.isTTY) {
+    const lines = buildWelcomeLines(strokeTotal, lineLength, c.bold(meta), finalShortcuts);
+    process.stdout.write(`\n${lines.join("\n")}\n\n`);
+    return;
+  }
+
+  let step = 0;
+  let firstFrame = true;
+
+  process.stdout.write("\x1b[?25l");
+  // 先空一行，把欢迎块与上方输出隔开
+  process.stdout.write("\n");
+
+  return new Promise((resolve) => {
+    const done = (): void => {
+      const finalLines = buildWelcomeLines(strokeTotal, lineLength, c.bold(meta), finalShortcuts);
+      paintWelcomeLines(finalLines, firstFrame);
+      process.stdout.write("\x1b[?25h\n\n");
+      resolve();
+    };
+
+    const tick = (): void => {
+      const inLogo = step < strokeTotal;
+      const strokeCount = Math.min(step + 1, strokeTotal);
+      // 右侧三行（shortcut / meta / 横线）共用同一列进度
+      const lineProgress = inLogo ? 0 : Math.min(step - strokeTotal + 1, lineLength);
+      const metaContent = buildMetaAtProgress(Math.min(lineProgress, metaWidth));
+      const shortcutContent = buildShortcutsAtProgress(lineProgress);
+      const lines = buildWelcomeLines(strokeCount, lineProgress, metaContent, shortcutContent);
+      paintWelcomeLines(lines, firstFrame);
+      firstFrame = false;
+
+      if (step >= totalSteps - 1) {
+        done();
+        return;
+      }
+      step += 1;
+      // logo 笔顺稍慢；接上横线后恢复较快节奏
+      setTimeout(tick, step < strokeTotal ? 22 : 5);
+    };
+
+    setTimeout(tick, 22);
+  });
+}
+
+/* let welcome = `\n
   ${c.text(`⠪⡁⡯⠁`)}
   ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
-  ${c.text(`⡷⡇⡎⠁`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}
-  ${c.text(`⠃⠃⠑⠂`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}\n
-`;
+  ${c.text(`⡷⡇⡎⠁`)}      ${meta}
+  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`/ · Tab · Ctrl+P · Ctrl+L · ←→ · ↑↓`)}\n
+`; */
+
+/* welcome = `\n
+  ╭─╮╭─╴╭┬╮╭─╴    ${c.dim(`/ · Tab · Ctrl+P · Ctrl+L · ←→ · ↑↓`)}
+  ╰─╮├╴ ││││      ${meta}
+  ╰─╯╵  ╵ ╵╰───${"─".repeat(getDisplayWidth(meta) + 3)}\n`; */
 
 export function getHelp(mode: CommandMode = "argv"): string {
   return buildHelp(mode);
@@ -132,8 +358,6 @@ function getCompletions(parsed: ParsedLine): string[] {
   switch (cmd) {
     case "logs":
     case "log":
-      if (argIndex === 0) return SERVICE_NAMES.filter(sw);
-      if (argIndex === 1) return ["-n", "-f"].filter(sw);
       return [];
     case "start":
     case "stop":
@@ -211,94 +435,6 @@ function consumeEscapeSeq(chunk: Buffer, i: number): number | null {
 }
 
 /* ==================================================================
- *  Simple select
- * ================================================================== */
-interface SelectItem {
-  label: string;
-  value: string;
-}
-
-async function simpleSelect(items: SelectItem[]): Promise<string | null> {
-  const wasRaw = stdin.isRaw ?? false;
-  setRaw(true);
-  stdin.resume();
-  let selected = 0;
-  const h = Math.min(items.length, 8);
-  let lastLines = h;
-  function render(first: boolean): void {
-    if (!first) {
-      stdout.write(`\x1B[${lastLines}A\x1B[J`);
-    } else {
-      stdout.write("\x1B[J");
-    }
-    lastLines = h;
-    let out = "";
-    for (let i = 0; i < h; i++) {
-      const cur = i === selected ? `◉ ${c.text(items[i]!.label)}` : `○ ${c.text(items[i]!.label)}`;
-      out += `${cur}\n`;
-    }
-    stdout.write(out);
-  }
-
-  function clear(): void {
-    stdout.write(`\x1B[${lastLines}A\x1B[J`);
-  }
-
-  render(true);
-
-  return new Promise<string | null>((resolve) => {
-    const handler = (chunk: Buffer) => {
-      let i = 0;
-      while (i < chunk.length) {
-        if (chunk[i] === 0x1b) {
-          const rem = chunk.length - i - 1;
-          if (rem === 0) {
-            clear();
-            stdin.removeListener("data", handler);
-            setRaw(wasRaw);
-            resolve(null);
-            return;
-          }
-          const next = consumeEscapeSeq(chunk, i);
-          if (next !== null) {
-            const c = next - i;
-            if (c === 3 && chunk[i + 1] === 0x5b) {
-              if (chunk[i + 2] === 0x41 && selected > 0) {
-                selected--;
-                render(false);
-              }
-              if (chunk[i + 2] === 0x42 && selected < items.length - 1) {
-                selected++;
-                render(false);
-              }
-            }
-            i = next;
-          } else i++;
-          continue;
-        }
-        const byte = chunk[i];
-        i++;
-        if (byte === 0x0d || byte === 0x0a) {
-          clear();
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          resolve(items[selected]?.value ?? null);
-          return;
-        }
-        if (byte === 0x03) {
-          clear();
-          stdin.removeListener("data", handler);
-          setRaw(wasRaw);
-          resolve(null);
-          return;
-        }
-      }
-    };
-    stdin.on("data", handler);
-  });
-}
-
-/* ==================================================================
  *  Line reader
  * ================================================================== */
 const history: string[] = [];
@@ -309,17 +445,21 @@ let currentRedraw: (() => void) | null = null;
 
 type ReadLineOpts = {
   getPrompt: () => string;
-  /** 无活跃服务时，普通字符自动前置 / */
-  autoSlash: boolean;
+  /** 无活跃服务时，普通字符自动前置 /；可为 getter 以便服务退出后即时生效 */
+  autoSlash: boolean | (() => boolean);
   /** Tab：在非 / 行上切换发送目标；返回 true 表示已处理 */
   cycleSendTarget: () => boolean;
+  /** 当前窗口 chrome（无输入窗画 shortcut 条） */
+  getChrome?: () => WindowChrome;
+  /** 交给活动窗的按键（Esc / L / S 等） */
+  onWindowKey?: (ev: WindowKeyEvent) => WindowKeyResult;
   initial?: string;
 };
 
 type ReadLineResult =
   | { kind: "line"; value: string }
   | { kind: "cancel" }
-  | { kind: "filter"; pending: string }
+  | { kind: "open-logs"; pending: string }
   | { kind: "run"; parts: string[] };
 
 async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
@@ -339,8 +479,12 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
     return opts.getPrompt();
   }
 
+  function showsInput(): boolean {
+    return opts.getChrome?.().showsInput !== false;
+  }
+
   function slashMode(): boolean {
-    return line.startsWith("/");
+    return showsInput() && line.startsWith("/");
   }
 
   function paletteView() {
@@ -364,7 +508,24 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
     overlayRows = 0;
   }
 
+  function applyWindowKey(ev: WindowKeyEvent): boolean {
+    if (!opts.onWindowKey) return false;
+    const r = opts.onWindowKey(ev);
+    if (r.action === "none") return false;
+    if (r.action === "redraw") redraw();
+    return true;
+  }
+
   function redraw(): void {
+    const chrome = opts.getChrome?.();
+    if (chrome && !chrome.showsInput) {
+      clearOverlay();
+      const foot = chrome.footerShortcuts || "";
+      stdout.write(foot);
+      stdout.write("\r");
+      return;
+    }
+
     const p = prompt();
     suggestion = "";
 
@@ -451,6 +612,19 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
           const next = consumeEscapeSeq(chunk, i);
           if (next !== null) {
             const len = next - i;
+            /* 单独 Esc → 交给窗口（/logs 返回） */
+            if (len === 1) {
+              if (applyWindowKey({ type: "escape" })) {
+                i = next;
+                continue;
+              }
+              i = next;
+              continue;
+            }
+            if (!showsInput()) {
+              i = next;
+              continue;
+            }
             if (len === 3 && chunk[i + 1] === 0x5b) {
               const fin = chunk[i + 2];
               if (fin === 0x41) {
@@ -517,6 +691,7 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
         i++;
 
         if (byte === 0x0d || byte === 0x0a) {
+          if (!showsInput()) continue;
           if (slashMode()) {
             const view = paletteView();
             syncPaletteState(view);
@@ -543,6 +718,14 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
         }
 
         if (byte === 0x03) {
+          if (!showsInput()) {
+            /* 无输入窗：Ctrl+C 返回上一窗，再按才退出 */
+            if (applyWindowKey({ type: "escape" })) continue;
+            clearOverlay();
+            stdout.write("\r\n");
+            done({ kind: "cancel" });
+            return;
+          }
           if (line.length > 0) {
             line = "";
             cursor = 0;
@@ -558,6 +741,7 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
 
         /* Ctrl+P — 确保以 / 开头 */
         if (byte === 0x10) {
+          if (!showsInput()) continue;
           if (!line.startsWith("/")) {
             line = "/" + line;
             cursor = Math.min(cursor + 1, line.length);
@@ -568,7 +752,7 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
         }
 
         if (byte === 0x09) {
-          /* Tab：/ 模式 = 列表轮换；否则切换发送目标 */
+          /* Tab：/ 模式 = 列表轮换；否则切换服务窗 */
           if (slashMode()) {
             movePalSel(1);
             continue;
@@ -581,12 +765,14 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
         }
 
         if (byte === 0x0c) {
+          /* Ctrl+L → 打开 /logs 筛选窗 */
           clearOverlay();
-          done({ kind: "filter", pending: line });
+          done({ kind: "open-logs", pending: showsInput() ? line : "" });
           return;
         }
 
         if (byte === 0x7f || byte === 0x08) {
+          if (!showsInput()) continue;
           if (cursor > 0) {
             line = line.slice(0, cursor - 1) + line.slice(cursor);
             cursor--;
@@ -601,12 +787,19 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
         }
 
         if (byte >= 0x20 && byte <= 0x7e) {
-          let ch = String.fromCharCode(byte);
-          if (opts.autoSlash && line.length === 0 && ch !== "/") {
-            ch = "/" + ch;
+          const ch = String.fromCharCode(byte);
+          if (!showsInput()) {
+            applyWindowKey({ type: "char", ch });
+            continue;
           }
-          line = line.slice(0, cursor) + ch + line.slice(cursor);
-          cursor += ch.length;
+          let insert = ch;
+          const autoSlash =
+            typeof opts.autoSlash === "function" ? opts.autoSlash() : opts.autoSlash;
+          if (autoSlash && line.length === 0 && insert !== "/") {
+            insert = "/" + insert;
+          }
+          line = line.slice(0, cursor) + insert + line.slice(cursor);
+          cursor += insert.length;
           if (slashMode()) {
             const view = paletteView();
             palSels[view.active] = 0;
@@ -621,79 +814,19 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
   });
 }
 
-interface LogFilter {
-  levels: LogLevel[];
-  sources: LogSource[];
-}
-
-const LEVEL_ITEMS: SelectItem[] = [
-  { label: c.blue("INFO"), value: "info" },
-  { label: c.yellow("WARN"), value: "warn" },
-  { label: c.red("ERROR"), value: "error" },
-  { label: c.dim("DEBUG"), value: "debug" },
-  { label: c.green("SUCCESS"), value: "success" },
-];
-
-/** 来源选择项:标签整段染色(含后续 formatSourceTag 的方括号风格) */
-export const SOURCE_ITEMS: SelectItem[] = SOURCE_META.map((m) => ({
-  label: m.paint(m.name),
+/** 来源选择项:方括号 3 字符标签染色（供外部/测试复用） */
+export const SOURCE_ITEMS: Array<{ label: string; value: string }> = SOURCE_META.map((m) => ({
+  label: m.paint(`[${m.name}]`),
   value: m.value,
 }));
 
-/**
- * 历史回放档位 — 复用 createMemoryBuffer(5000) 内存落盘。
- * value 约定: none | all | count:N | time:MS
- */
-function historyItems(): SelectItem[] {
-  return [
-    { label: t("repl.history.live"), value: "none" },
-    { label: t("repl.history.last50"), value: "count:50" },
-    { label: t("repl.history.last100"), value: "count:100" },
-    { label: t("repl.history.last500"), value: "count:500" },
-    { label: t("repl.history.last1000"), value: "count:1000" },
-    { label: t("repl.history.last1min"), value: "time:60000" },
-    { label: t("repl.history.last5min"), value: "time:300000" },
-    { label: t("repl.history.last15min"), value: "time:900000" },
-    { label: t("repl.history.last1hour"), value: "time:3600000" },
-    { label: t("repl.history.all"), value: "all" },
-  ];
-}
+/** REPL 交互态：无参 /logs 打开筛选窗（由 startRepl 注入） */
+let openLogsWindowHook: (() => void) | null = null;
 
-/** 按当前过滤条件从内存缓冲取历史日志 */
-function queryHistory(filter: LogFilter, window: string): UnifiedLog[] {
-  if (!window || window === "none") return [];
-
-  const match = (l: UnifiedLog): boolean => {
-    if (filter.levels.length && !filter.levels.includes(l.level)) return false;
-    if (filter.sources.length && !filter.sources.includes(l.source)) return false;
-    return true;
-  };
-
-  if (window === "all") return getAllLogs().filter(match);
-
-  if (window.startsWith("count:")) {
-    const n = Number(window.slice("count:".length));
-    if (!Number.isFinite(n) || n <= 0) return [];
-    return getRecentLogs(n, filter.levels, filter.sources);
-  }
-
-  if (window.startsWith("time:")) {
-    const ms = Number(window.slice("time:".length));
-    if (!Number.isFinite(ms) || ms <= 0) return [];
-    const since = Date.now() - ms;
-    return getAllLogs().filter((l) => match(l) && l.time.getTime() >= since);
-  }
-
-  return [];
-}
-
-function pushAndRender(log: UnifiedLog, filter: LogFilter): void {
-  if (filter.levels.length && !filter.levels.includes(log.level)) return;
-  if (filter.sources.length && !filter.sources.includes(log.source)) return;
-  /* 进度条 pause → 清输入行写日志 → resume → 重绘 ❯ */
+function writeLogLineToTty(wrapped: string): void {
   pauseAllProgress();
   try {
-    stdout.write(`\r\x1B[K${wrapLogLine(formatLog(log), logPrefixWidth(log))}\n`);
+    stdout.write(`\r\x1B[K${wrapped}\n`);
   } finally {
     resumeAllProgress();
   }
@@ -716,6 +849,7 @@ export async function startRepl(): Promise<void> {
     if (stopping) return;
     stopping = true;
     process.off("SIGINT", onSigint);
+    openLogsWindowHook = null;
     stdout.write(c.dim(t("repl.stopping") + "\n"));
     await stopAll();
     stopRemoteAgent();
@@ -751,42 +885,156 @@ export async function startRepl(): Promise<void> {
     return;
   }
   console.clear();
-  stdout.write(welcome);
+  await playWelcomeAnimation();
 
-  let filter: LogFilter = { levels: [], sources: [] };
+  let logsFilterState: LogsFilterState = { levels: [], sources: [] };
+  let preferredTarget: ServiceName | null = null;
+  let activeTargets: ServiceName[] = [];
+  let pendingInput = "";
 
-  const unsub = onLog((log) => pushAndRender(log, filter));
+  const host = new WindowHost({
+    writeLog: writeLogLineToTty,
+    onChromeChange: () => currentRedraw?.(),
+  });
 
-  /** 窗口大小变化时重绘可见日志 + 输入行 (按新宽度换行) */
+  function clearTerminal(): void {
+    /* 清视口；再清 scrollback，避免往上滑仍看到上一窗内容 */
+    console.clear();
+    stdout.write("\x1B[3J");
+  }
+
+  /** 首次进入窗口：从内存/落盘拉一次作为种子缓存 */
+  function seedWindowBuffer(w: {
+    id: string;
+    acceptLog: (l: UnifiedLog) => boolean;
+    formatLogLine: (l: UnifiedLog) => { text: string; indent: number };
+    getReplayFilter?: () => { levels: string[]; sources: string[] };
+  }): string[] {
+    const lines: string[] = [];
+    if (w.id === "logs") {
+      const f = w.getReplayFilter?.() ?? { levels: [], sources: [] };
+      const disk = readDiskLogs({
+        levels: f.levels as LogLevel[],
+        sources: f.sources,
+      });
+      for (const log of disk) {
+        if (!w.acceptLog(log)) continue;
+        const { text, indent } = w.formatLogLine(log);
+        lines.push(wrapLogLine(text, indent));
+      }
+    } else {
+      for (const log of getAllLogs()) {
+        if (!w.acceptLog(log)) continue;
+        const { text, indent } = w.formatLogLine(log);
+        lines.push(wrapLogLine(text, indent));
+      }
+    }
+    host.setBuffer(w.id, lines);
+    return lines;
+  }
+
+  /**
+   * 展示活动窗：先清屏，再恢复/seed。
+   * - /logs：用落盘种子缓存（改筛选才 reseed），避免重复读文件
+   * - 服务主面板：每次从内存重 seed，保证离开 /logs 或 Tab 回来时内容实时
+   */
+  function showActiveWindow(opts?: { reseed?: boolean }): void {
+    clearTerminal();
+    const w = host.getActive();
+    if (!w) {
+      currentRedraw?.();
+      return;
+    }
+    let lines: readonly string[];
+    if (w.id === "logs") {
+      if (opts?.reseed) host.invalidateBuffer(w.id);
+      lines = host.hasBuffer(w.id) ? host.getBuffer(w.id) : seedWindowBuffer(w);
+    } else {
+      /* 主面板实时：不作废也无妨，直接重拉内存缓冲 */
+      host.invalidateBuffer(w.id);
+      lines = seedWindowBuffer(w);
+    }
+    for (const l of lines) stdout.write(l + "\n");
+    currentRedraw?.();
+  }
+
+  host.register(
+    createLogsFilterWindow({
+      getState: () => logsFilterState,
+      setState: (next) => {
+        logsFilterState = next;
+      },
+      /* 筛选变更：作废 /logs 缓存并重新读盘一次 */
+      onFilterChanged: () => showActiveWindow({ reseed: true }),
+    })
+  );
+
+  function syncServiceWindows(targets: ServiceName[]): void {
+    for (const name of targets) {
+      const id = serviceWindowId(name);
+      if (!host.has(id)) host.register(createServiceWindow(name));
+    }
+    host.setServiceOrder(targets.map(serviceWindowId));
+    const svc = host.getActive()?.serviceName;
+    if (svc) preferredTarget = svc;
+  }
+
+  function openLogsWindow(): void {
+    /* 离开主面板：其缓存可留着，但展示上先清屏再进 /logs；Esc 回来会按实时重 seed 主面板 */
+    host.open("logs");
+    showActiveWindow();
+  }
+
+  openLogsWindowHook = openLogsWindow;
+
+  const unsub = onLog((log) => {
+    if (host.getActive()) {
+      host.routeLog(log);
+      return;
+    }
+    /* 无活动窗：全量展示（带源标签），与旧空闲行为一致 */
+    writeLogLineToTty(wrapLogLine(formatLog(log), logPrefixWidth(log)));
+  });
+
+  async function refreshTargetsFromRuntime(): Promise<void> {
+    const prevId = host.getActiveId();
+    activeTargets = await listActiveSendTargets();
+    syncServiceWindows(activeTargets);
+    if (preferredTarget && !activeTargets.includes(preferredTarget)) {
+      preferredTarget = activeTargets[0] ?? null;
+    }
+    const nextId = host.getActiveId();
+    /* 新激活窗或首次尚无缓存：清屏并 seed/恢复 */
+    if (nextId && (nextId !== prevId || !host.hasBuffer(nextId))) {
+      showActiveWindow();
+    } else if (!nextId && prevId) {
+      clearTerminal();
+      currentRedraw?.();
+    } else {
+      currentRedraw?.();
+    }
+  }
+
+  const unsubState = onServiceStateChange(() => {
+    void refreshTargetsFromRuntime();
+  });
+
   function onResize(): void {
     if (!currentRedraw) return;
-    const rows = process.stdout.rows || 24;
-    stdout.write("\x1B[H\x1B[2J");
-    const all = getAllLogs();
-    const out: string[] = [];
-    let usedRows = 0;
-    for (let i = all.length - 1; i >= 0; i--) {
-      const log = all[i]!;
-      if (filter.levels.length && !filter.levels.includes(log.level)) continue;
-      if (filter.sources.length && !filter.sources.includes(log.source)) continue;
-      const wrapped = wrapLogLine(formatLog(log), logPrefixWidth(log));
-      const logRows = wrapped.split("\n").length;
-      if (usedRows + logRows > rows - 2) break;
-      out.unshift(wrapped);
-      usedRows += logRows;
-    }
-    for (const l of out) stdout.write(l + "\n");
-    currentRedraw();
+    const id = host.getActiveId();
+    if (id) host.invalidateBuffer(id);
+    showActiveWindow();
   }
 
   process.stdout.on("resize", onResize);
 
-  let pendingInput = "";
-  let preferredTarget: ServiceName | null = null;
-  let activeTargets: ServiceName[] = [];
-
   function currentTarget(): ServiceName | null {
     if (activeTargets.length === 0) return null;
+    const fromWin = host.getActive()?.serviceName;
+    if (fromWin && activeTargets.includes(fromWin)) {
+      preferredTarget = fromWin;
+      return fromWin;
+    }
     if (preferredTarget && activeTargets.includes(preferredTarget)) return preferredTarget;
     preferredTarget = activeTargets[0]!;
     return preferredTarget;
@@ -798,16 +1046,22 @@ export async function startRepl(): Promise<void> {
   }
 
   while (true) {
-    activeTargets = await listActiveSendTargets();
+    await refreshTargetsFromRuntime();
     const result = await readLine({
       getPrompt: buildPrompt,
-      autoSlash: activeTargets.length === 0,
+      /* 无服务时默认加 /（与窗口系统前行为一致）；用 getter 以便进程退出后即时生效 */
+      autoSlash: () => activeTargets.length === 0,
+      getChrome: () => host.getChrome(),
+      onWindowKey: (ev) => {
+        const r = host.onKey(ev);
+        if (r.action === "redraw") showActiveWindow();
+        return r;
+      },
       cycleSendTarget: () => {
-        if (activeTargets.length === 0) return false;
-        const cur = currentTarget();
-        const idx = cur ? activeTargets.indexOf(cur) : -1;
-        const next = activeTargets[(idx + 1) % activeTargets.length]!;
-        preferredTarget = next;
+        const name = host.cycleServiceWindows();
+        if (!name) return false;
+        preferredTarget = name;
+        showActiveWindow();
         return true;
       },
       initial: pendingInput,
@@ -816,29 +1070,9 @@ export async function startRepl(): Promise<void> {
 
     if (result.kind === "cancel") break;
 
-    if (result.kind === "filter") {
+    if (result.kind === "open-logs") {
       pendingInput = result.pending;
-      stdout.write(c.dim(`\nLEVEL──────────SOURCE──────────HISTORY\n`));
-      const histChoices = historyItems();
-      const lvl = await simpleSelect([{ label: t("common.all"), value: "" }, ...LEVEL_ITEMS]);
-      if (lvl === null) continue;
-      const src = await simpleSelect([{ label: t("common.all"), value: "" }, ...SOURCE_ITEMS]);
-      if (src === null) continue;
-      const hist = await simpleSelect(histChoices);
-      if (hist === null) continue;
-
-      filter = { levels: lvl ? [lvl as LogLevel] : [], sources: src ? [src as LogSource] : [] };
-
-      const replay = queryHistory(filter, hist);
-      if (replay.length > 0) {
-        stdout.write(c.dim(t("repl.historyHeader", { count: replay.length }) + "\n"));
-        for (const log of replay) {
-          stdout.write(`${wrapLogLine(formatLog(log), logPrefixWidth(log))}\n`);
-        }
-      }
-
-      const histLabel = histChoices.find((i) => i.value === hist)?.label ?? hist;
-      stdout.write(c.dim(t("repl.filter", { level: lvl || "*", source: src || "*", history: histLabel }) + "\n"));
+      openLogsWindow();
       continue;
     }
 
@@ -861,7 +1095,6 @@ export async function startRepl(): Promise<void> {
       } else {
         const tgt = currentTarget();
         if (!tgt) {
-          /* 无活跃服务时应已被 autoSlash 转为命令 */
           await execCmd(("/" + trimmed).split(/\s+/));
         } else {
           const sent = await cmdSend(tgt, trimmed);
@@ -875,6 +1108,7 @@ export async function startRepl(): Promise<void> {
   }
 
   process.stdout.off("resize", onResize);
+  unsubState();
   unsub();
   await shutdown();
 }
@@ -898,20 +1132,19 @@ async function execCmd(parts: string[]): Promise<void> {
       stdout.write(getHelp(REPL_MODE));
       break;
     case "version":
-      stdout.write(`${version}\n`);
+      await playWelcomeAnimation();
       break;
     case "status":
       stdout.write((await cmdStatus()) + "\n");
       break;
     case "logs":
     case "log": {
-      const out = cmdLogs(args, () => {
-        if (!stdin.isTTY) {
-          stdout.write(c.yellow(t("repl.followRequiresTty") + "\n"));
-          return;
-        }
-      });
-      if (out) stdout.write(out + "\n");
+      /* 无参叶命令：打开筛选窗 */
+      if (openLogsWindowHook) {
+        openLogsWindowHook();
+        break;
+      }
+      stdout.write(c.yellow(t("repl.logsReplOnly") + "\n"));
       break;
     }
     case "start":
@@ -940,11 +1173,53 @@ async function execCmd(parts: string[]): Promise<void> {
       }
       break;
     }
+    case "update":
+      stdout.write((await cmdUpdate(args)) + "\n");
+      break;
+    case "locale":
+    case "lang":
+      stdout.write(cmdLocale(args) + "\n");
+      break;
+    case "debug":
+      stdout.write((await cmdDebug(args)) + "\n");
+      break;
+    case "remote":
+      stdout.write((await cmdRemote(args, { daemonAfterEnroll: false })) + "\n");
+      break;
+    case "init": {
+      const wasRaw = stdin.isRaw ?? false;
+      setRaw(false);
+      try {
+        const { runWizard } = await import("./wizard.js");
+        await runWizard();
+      } finally {
+        setRaw(wasRaw);
+      }
+      break;
+    }
     case "quit":
     case "exit":
     case "q":
       throw "QUIT";
-    default:
+    default: {
+      const modShort = resolveModuleTopShorthand(cmd);
+      if (modShort) {
+        const g = gateModuleSub(modShort, REPL_MODE);
+        if (g) {
+          stdout.write(g + "\n");
+          break;
+        }
+        /* create/dev 等交互向导需暂时退出 raw */
+        const needsCooked = modShort === "create" || modShort === "dev";
+        const wasRaw = stdin.isRaw ?? false;
+        if (needsCooked) setRaw(false);
+        try {
+          stdout.write((await dispatchModuleCommand(modShort, args)) + "\n");
+        } finally {
+          if (needsCooked) setRaw(wasRaw);
+        }
+        break;
+      }
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = args;
         const g = gateModuleSub(sub, REPL_MODE);
@@ -952,7 +1227,14 @@ async function execCmd(parts: string[]): Promise<void> {
           stdout.write(g + "\n");
           break;
         }
-        stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
+        const needsCooked = sub === "create" || sub === "dev";
+        const wasRaw = stdin.isRaw ?? false;
+        if (needsCooked) setRaw(false);
+        try {
+          stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
+        } finally {
+          if (needsCooked) setRaw(wasRaw);
+        }
         break;
       }
       if (isPacksCommand(cmd)) {
@@ -966,6 +1248,7 @@ async function execCmd(parts: string[]): Promise<void> {
         break;
       }
       stdout.write(c.yellow(t("common.unknownShort", { cmd: cmd ?? "" }) + "\n"));
+    }
   }
 }
 

@@ -2,8 +2,8 @@ import { killBedrockServerByImage, probeBdsStatus, clearBdsPidFile } from "@sfmc
 import { pushLog as pushUnifiedLog } from "./logs.js";
 import { t } from "./i18n/index.js";
 import { spawnService } from "./runtime.js";
-import { ROOT, SERVICE_NAMES, serviceStatus, services, type ServiceName } from "./services.js";
-import { c, DIVIDER, highlightLogLine } from "./theme.js";
+import { ROOT, SERVICE_NAMES, queryServicesRuntime, services, type ServiceName } from "./services.js";
+import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
 
@@ -21,30 +21,29 @@ function statusLine(
   ownership?: "managed" | "external"
 ): string {
   const dot = running ? c.green("●") : c.dim("○");
-  let statusText: string;
-  if (!running) {
-    statusText = t("svc.stopped");
-  } else if (ownership === "external") {
-    statusText = t("svc.runningExternal");
-  } else {
-    statusText = t("svc.running");
-  }
-  const status = running ? c.green(statusText) : c.dim(statusText);
+  const state = running ? c.green(t("svc.state.running")) : c.dim(t("svc.state.stopped"));
+  let owner = c.dim(t("svc.owner.none"));
+  if (running && ownership === "managed") owner = c.cyan(t("svc.owner.managed"));
+  else if (running && ownership === "external") owner = c.yellow(t("svc.owner.external"));
   const pidStr = pid ? c.dim(String(pid)) : c.dim("—");
   const upStr = uptime !== "—" ? c.dim(uptime) : c.dim("—");
-  return `  ${dot} ${c.bold(name.padEnd(9))} ${status.padEnd(16)} ${pidStr.padEnd(8)} ${upStr}`;
+  return `  ${dot} ${c.bold(padRight(name, 9))} ${padRight(state, 8)} ${padRight(owner, 6)} ${padRight(pidStr, 8)} ${upStr}`;
 }
 
 export async function cmdStatus(): Promise<string> {
-  const rows = await serviceStatus();
+  const rows = await queryServicesRuntime();
   const lines = rows.map((row) => statusLine(row.title, row.running, row.pid, row.uptime, row.ownership));
   const nameH = t("svc.col.name");
   const statusH = t("svc.col.status");
+  const ownerH = t("svc.col.owner");
   const pidH = t("svc.col.pid");
   const upH = t("svc.col.uptime");
+  const header =
+    `  ${padRight(nameH, 11)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
   return (
     `\n${c.bold(t("svc.header"))}\n` +
-    c.dim(`  ${nameH}${" ".repeat(Math.max(1, 11 - nameH.length))}${statusH}${" ".repeat(Math.max(1, 16 - statusH.length))}${pidH}${" ".repeat(Math.max(1, 7 - pidH.length))}${upH}\n`) +
+    c.dim(header) +
+    "\n" +
     DIVIDER +
     "\n" +
     lines.join("\n") +
@@ -174,6 +173,8 @@ export async function cmdSend(raw: string, message: string): Promise<string> {
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   if (!message) return c.yellow(t("svc.send.usage"));
   const svcObj = services[svc];
+  /* 先统一探测，避免内存 running 与真实进程脱节 */
+  await queryServicesRuntime();
   if (svc === "bds") {
     const probe = await probeBdsStatus({
       managedPid: svcObj.pid,

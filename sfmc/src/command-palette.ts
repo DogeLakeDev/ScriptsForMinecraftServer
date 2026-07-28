@@ -8,13 +8,20 @@ import { visibleWidth } from "./logs.js";
 import { T } from "./theme.js";
 
 const PAGE = 10;
-/** 每列固定总宽 */
+/** 每列固定总宽（含左边条 + 正文 + 右侧 ›） */
 export const PANEL_WIDTH = 28;
 const PANEL_GAP = " ";
+const MARKER_W = 1;
+const CHEVRON_W = 1;
+const INNER_WIDTH = PANEL_WIDTH - MARKER_W - CHEVRON_W;
 
 /** 层级底色（区分多级子菜单） */
 const LEVEL_BG: readonly string[] = [T.surface, T.panel, "#1a1d23", T.subtle];
 const LEVEL_SEL: readonly string[] = [T.surfaceHi, "#4a5160", "#3a404c", "#5a6270"];
+/** 非当前列：整体压暗一档 */
+const LEVEL_BG_DIM: readonly string[] = ["#22252c", "#1a1d22", "#14161b", "#2e333c"];
+const LEVEL_SEL_DIM: readonly string[] = ["#2a2e36", "#262a32", "#1e2228", "#343a44"];
+const MATCH_FG = T.cyan;
 
 export type PaletteColumn = {
   items: PaletteNode[];
@@ -68,31 +75,116 @@ export function clipPad(s: string, width: number): string {
   return out;
 }
 
-function cellContent(n: PaletteNode): string {
-  const desc = descOf(n);
-  if (!desc) return clipPad(n.label, PANEL_WIDTH);
-  const room = PANEL_WIDTH - visibleWidth(n.label) - 1;
-  if (room <= 0) return clipPad(n.label, PANEL_WIDTH);
-  let descPart = "";
-  for (const ch of desc) {
-    if (visibleWidth(descPart + ch) > room) break;
-    descPart += ch;
+/** 在 text 中找 query 的首次出现（忽略大小写；label 带 / 时也试去前缀） */
+export function findMatchRange(text: string, q: string): { start: number; end: number } | null {
+  if (!q) return null;
+  const lq = q.toLowerCase();
+  const lower = text.toLowerCase();
+  let i = lower.indexOf(lq);
+  if (i >= 0) return { start: i, end: i + q.length };
+  if (text.startsWith("/")) {
+    i = lower.slice(1).indexOf(lq);
+    if (i >= 0) return { start: i + 1, end: i + 1 + q.length };
   }
-  return clipPad(`${n.label} ${descPart}`, PANEL_WIDTH);
+  return null;
 }
 
-function paintCell(n: PaletteNode, selected: boolean, level: number): string {
-  const body = cellContent(n);
-  const bg = selected
-    ? (LEVEL_SEL[level % LEVEL_SEL.length] ?? T.surfaceHi)
-    : (LEVEL_BG[level % LEVEL_BG.length] ?? T.surface);
-  const fg = selected ? T.text : T.muted;
-  return chalk.bgHex(bg).hex(fg)(body);
+type CellStyle = {
+  bg: string;
+  fg: string;
+  match: string;
+  desc: string;
+};
+
+function cellStyle(selected: boolean, level: number, activeCol: boolean): CellStyle {
+  const i = level % LEVEL_BG.length;
+  if (activeCol) {
+    return {
+      bg: selected ? (LEVEL_SEL[i] ?? T.surfaceHi) : (LEVEL_BG[i] ?? T.surface),
+      fg: selected ? T.text : T.muted,
+      match: MATCH_FG,
+      desc: selected ? T.muted : T.subtle,
+    };
+  }
+  return {
+    bg: selected ? (LEVEL_SEL_DIM[i] ?? T.surface) : (LEVEL_BG_DIM[i] ?? T.panel),
+    fg: selected ? T.muted : T.subtle,
+    match: T.subtle,
+    desc: T.subtle,
+  };
 }
 
-function blankCell(level: number): string {
-  const bg = LEVEL_BG[level % LEVEL_BG.length] ?? T.surface;
-  return chalk.bgHex(bg)(" ".repeat(PANEL_WIDTH));
+function paintSeg(bg: string, fg: string, text: string): string {
+  if (!text) return "";
+  return chalk.bgHex(bg).hex(fg)(text);
+}
+
+/** 按可见宽度截断并着色一段纯文本 */
+function paintClipped(bg: string, fg: string, text: string, maxW: number): { painted: string; used: number } {
+  let plain = "";
+  let painted = "";
+  for (const ch of text) {
+    if (visibleWidth(plain + ch) > maxW) break;
+    plain += ch;
+    painted += paintSeg(bg, fg, ch);
+  }
+  return { painted, used: visibleWidth(plain) };
+}
+
+/** 正文区：label（可高亮匹配）+ 描述；总可见宽 INNER_WIDTH */
+function paintInner(n: PaletteNode, query: string, style: CellStyle): string {
+  const label = n.label;
+  const desc = descOf(n);
+  const range = findMatchRange(label, query);
+  let out = "";
+  let used = 0;
+
+  for (let i = 0; i < label.length; i++) {
+    const ch = label[i]!;
+    const cw = visibleWidth(ch);
+    if (used + cw > INNER_WIDTH) break;
+    const inMatch = range !== null && i >= range.start && i < range.end;
+    out += paintSeg(style.bg, inMatch ? style.match : style.fg, ch);
+    used += cw;
+  }
+
+  if (desc && used + 1 < INNER_WIDTH) {
+    out += paintSeg(style.bg, style.desc, " ");
+    used += 1;
+    const room = INNER_WIDTH - used;
+    const d = paintClipped(style.bg, style.desc, desc, room);
+    out += d.painted;
+    used += d.used;
+  }
+
+  if (used < INNER_WIDTH) {
+    out += paintSeg(style.bg, style.fg, " ".repeat(INNER_WIDTH - used));
+  }
+  return out;
+}
+
+function paintCell(
+  n: PaletteNode,
+  selected: boolean,
+  level: number,
+  activeCol: boolean,
+  query: string
+): string {
+  const style = cellStyle(selected, level, activeCol);
+  const marker = selected ? "▌" : " ";
+  const hasKids = Boolean(n.children?.length);
+  const chevron = hasKids ? "›" : " ";
+  const q = activeCol ? query : "";
+  return (
+    paintSeg(style.bg, selected && activeCol ? MATCH_FG : style.fg, marker) +
+    paintInner(n, q, style) +
+    paintSeg(style.bg, style.fg, chevron)
+  );
+}
+
+function blankCell(level: number, activeCol: boolean): string {
+  const style = cellStyle(false, level, activeCol);
+  return chalk.bgHex(style.bg)(" ".repeat(PANEL_WIDTH));
 }
 
 /** 匹配权重：越大越靠前；无查询时保持原序（同分） */
@@ -266,32 +358,51 @@ export function resolvePaletteView(line: string, sels: number[], scrolls: number
   };
 }
 
-function formatColumnLines(col: PaletteColumn, level: number): string[] {
+function formatColumnLines(col: PaletteColumn, level: number, activeCol: boolean, query: string): string[] {
   const lines: string[] = [];
-  const bg = LEVEL_BG[level % LEVEL_BG.length]!;
+  const style = cellStyle(false, level, activeCol);
   if (col.items.length === 0) {
-    lines.push(chalk.bgHex(bg).hex(T.muted)(clipPad(t("repl.palette.empty"), PANEL_WIDTH)));
+    lines.push(
+      paintSeg(style.bg, style.fg, " ") +
+        paintSeg(style.bg, style.fg, clipPad(t("repl.palette.empty"), INNER_WIDTH)) +
+        paintSeg(style.bg, style.fg, " ")
+    );
     return lines;
   }
   const { rows, above, below } = pageSlice(col.items, col.selected, col.scroll);
-  if (above > 0) lines.push(chalk.bgHex(bg).hex(T.muted)(clipPad(`↑${above}…`, PANEL_WIDTH)));
-  for (const { node, index } of rows) {
-    lines.push(paintCell(node, index === col.selected, level));
+  if (above > 0) {
+    lines.push(
+      paintSeg(style.bg, style.fg, " ") +
+        paintSeg(style.bg, style.fg, clipPad(`↑${above}…`, INNER_WIDTH)) +
+        paintSeg(style.bg, style.fg, " ")
+    );
   }
-  if (below > 0) lines.push(chalk.bgHex(bg).hex(T.muted)(clipPad(`↓${below}…`, PANEL_WIDTH)));
+  for (const { node, index } of rows) {
+    lines.push(paintCell(node, index === col.selected, level, activeCol, query));
+  }
+  if (below > 0) {
+    lines.push(
+      paintSeg(style.bg, style.fg, " ") +
+        paintSeg(style.bg, style.fg, clipPad(`↓${below}…`, INNER_WIDTH)) +
+        paintSeg(style.bg, style.fg, " ")
+    );
+  }
   return lines;
 }
 
 export function formatPaletteCascadeLines(view: PaletteView, indentCols: number): string[] {
   if (view.hidden || view.columns.length === 0) return [];
   const indent = " ".repeat(Math.max(0, indentCols));
-  const colLines = view.columns.map((col, i) => formatColumnLines(col, i));
+  const colLines = view.columns.map((col, i) =>
+    formatColumnLines(col, i, i === view.active, i === view.active ? view.partial : "")
+  );
   const height = Math.max(1, ...colLines.map((l) => l.length));
   const out: string[] = [];
   for (let r = 0; r < height; r++) {
     const parts: string[] = [];
     for (let cidx = 0; cidx < view.columns.length; cidx++) {
-      const cell = colLines[cidx]![r] ?? blankCell(cidx);
+      const activeCol = cidx === view.active;
+      const cell = colLines[cidx]![r] ?? blankCell(cidx, activeCol);
       const plainW = visibleWidth(cell);
       parts.push(plainW < PANEL_WIDTH ? cell + " ".repeat(PANEL_WIDTH - plainW) : cell);
     }

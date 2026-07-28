@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import {
   clipPad,
   commitSelection,
+  findMatchRange,
   matchWeight,
   PANEL_WIDTH,
   parseSlashLine,
@@ -125,5 +126,12 @@ describe("paletteGhost", () => {
     const top = view.columns[0].items[0].token;
     assert.ok(top.startsWith("st"));
     assert.equal(paletteGhost(view), top.slice(2));
+  });
+});
+
+describe("findMatchRange", () => {
+  it("匹配 label 前缀", () => {
+    assert.deepEqual(findMatchRange("/start", "st"), { start: 1, end: 3 });
+    assert.equal(findMatchRange("/status", "xyz"), null);
   });
 });

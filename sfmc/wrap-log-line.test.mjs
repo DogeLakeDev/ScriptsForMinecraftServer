@@ -74,8 +74,8 @@ test("logPrefixWidth 与常见源标签匹配", () => {
     level: "success",
   };
   const w = logPrefixWidth(log);
-  /* HH:MM:SS + space + [  PACK  ] + space + [OK] + space */
-  assert.ok(w >= 24 && w <= 28, `prefix width unexpected: ${w}`);
+  /* HH:MM:SS + space + [PAK] + space + [SUC] + space → 约 21 */
+  assert.ok(w >= 20 && w <= 24, `prefix width unexpected: ${w}`);
 });
 
 test("resolveDisplayLevel：BDS 行从正文解析，其余用 entry.level", async () => {

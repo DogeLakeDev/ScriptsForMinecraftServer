@@ -58,12 +58,3 @@ export function gatePacksSub(sub: string | undefined, mode: CommandMode): string
   if (!spec) return null;
   return gateSpec(spec, mode, `packs ${sub}`);
 }
-
-/** argv 下 logs -f 拒绝（follow 仅 REPL）。 */
-export function gateLogsFollow(args: string[], mode: CommandMode): string | null {
-  if (mode === "repl") return null;
-  if (args.includes("-f")) {
-    return formatGateFailure("replOnly", "logs -f");
-  }
-  return null;
-}

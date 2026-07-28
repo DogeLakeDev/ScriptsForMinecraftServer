@@ -1,36 +1,27 @@
 #!/usr/bin/env node
 import process from "node:process";
-import pkg from "../package.json" with { type: "json" };
 import {
-  isModuleInstallShorthand,
   mapPacksSubAlias,
   parseGlobalArgv,
+  resolveModuleShorthandSub,
 } from "./argv-parse.js";
-import { cmdLogs, cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
-import { gateLogsFollow, gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
+import { cmdRemote } from "./cmd-remote.js";
+import { cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
+import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
 import { cmdDebug } from "./debug-command.js";
 import { initLocale, stripLangArgs, t } from "./i18n/index.js";
 import { cmdLocale } from "./locale-command.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
-import {
-  disableRemoteAgent,
-  enrollRemoteAgent,
-  remoteStatus,
-  startRemoteAgent,
-  stopRemoteAgent,
-} from "./remote-agent.js";
-import { getHelp, startRepl } from "./repl.js";
+import { startRemoteAgent } from "./remote-agent.js";
+import { getHelp, playWelcomeAnimation, startRepl } from "./repl.js";
 import { ROOT } from "./runtime.js";
 import { c } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
 const MODE = "argv" as const;
 
-function printVersion(): void {
-  console.log(`${c.text(`⠪⡁⡯⠁`)}
-  ${c.text(`⠒⠁⠃`)}${c.purple(`⠄`)}
-  ${c.text(`⡷⡇⡎⠁`)}      ${c.text(`S`)}${c.dim(`cripts`)} ${c.text(`F`)}${c.dim(`or`)} ${c.text(`M`)}${c.dim(`ine`)}${c.text(`c`)}${c.dim(`raft Server`)} v${pkg.version}
-  ${c.text(`⠃⠃⠑⠂`)}      ${c.dim(`https://github.com/DogeLakeDev/ScriptsForMinecraftServer`)}`);
+async function printVersion(): Promise<void> {
+  await playWelcomeAnimation();
 }
 
 function printUsage(): void {
@@ -78,10 +69,11 @@ async function main(): Promise<void> {
     if (topGate) deny(topGate);
   }
 
-  if (isModuleInstallShorthand(cmd)) {
-    const g = gateModuleSub("install", MODE);
+  const moduleSub = resolveModuleShorthandSub(cmd);
+  if (moduleSub) {
+    const g = gateModuleSub(moduleSub, MODE);
     if (g) deny(g);
-    console.log(await dispatchModuleCommand("install", rest));
+    console.log(await dispatchModuleCommand(moduleSub, rest));
     process.exit(0);
   }
 
@@ -93,7 +85,7 @@ async function main(): Promise<void> {
       break;
     case "--version":
     case "-v":
-      printVersion();
+      await printVersion();
       break;
     case "locale":
     case "lang":
@@ -106,13 +98,10 @@ async function main(): Promise<void> {
       console.log(await cmdStatus());
       break;
     case "logs":
-    case "log": {
-      const followGate = gateLogsFollow(rest, MODE);
-      if (followGate) deny(followGate);
-      const out = cmdLogs(rest);
-      if (out) console.log(out);
+    case "log":
+      /* channel=repl：正常由 gateTopLevel 拦截；此处兜底 */
+      deny(gateTopLevel("logs", MODE) ?? c.yellow(t("cli.replOnly", { cmd: "logs" })));
       break;
-    }
     case "start":
       if (rest[0] === "-all" || rest[0] === "all" || rest[0] === "--all") {
         console.log(await cmdStartAll());
@@ -157,30 +146,9 @@ async function main(): Promise<void> {
       await runWizard();
       break;
     }
-    case "remote": {
-      const [subcommand, ...remoteArgs] = rest;
-      if (subcommand === "enroll" && remoteArgs[0] && remoteArgs[1]) {
-        const name = remoteArgs[2] ?? process.env.COMPUTERNAME ?? "sfmc-agent";
-        const agentId = await enrollRemoteAgent(remoteArgs[0], remoteArgs[1], name);
-        console.log(t("remote.enrolled", { id: agentId }));
-        startRemoteAgent();
-        const exit = (): void => {
-          stopRemoteAgent();
-          process.exit(0);
-        };
-        process.once("SIGINT", exit);
-        process.once("SIGTERM", exit);
-        await new Promise(() => undefined);
-      } else if (subcommand === "status") {
-        console.log(JSON.stringify(remoteStatus(), null, 2));
-      } else if (subcommand === "disable") {
-        disableRemoteAgent();
-        console.log(t("remote.disabled"));
-      } else {
-        console.log(t("remote.usage"));
-      }
+    case "remote":
+      console.log(await cmdRemote(rest, { daemonAfterEnroll: true }));
       break;
-    }
     default:
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = rest;

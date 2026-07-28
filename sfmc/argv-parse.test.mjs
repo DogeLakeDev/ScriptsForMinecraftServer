@@ -28,5 +28,9 @@ test("mapPacksSubAlias i→install", () => {
 test("isModuleInstallShorthand", () => {
   assert.equal(isModuleInstallShorthand("i"), true);
   assert.equal(isModuleInstallShorthand("install"), true);
+  assert.equal(isModuleInstallShorthand("uninstall"), true);
+  assert.equal(isModuleInstallShorthand("remove"), true);
+  assert.equal(isModuleInstallShorthand("search"), true);
+  assert.equal(isModuleInstallShorthand("status"), false);
   assert.equal(isModuleInstallShorthand("mod"), false);
 });

@@ -27,8 +27,8 @@ export async function cmdReload(args: string[]): Promise<string> {
     return parts.join("\n") + "\n";
   }
 
-  const { services } = await import("./services.js");
-  if (!services.bds.running) {
+  const { isServiceRunning } = await import("./services.js");
+  if (!(await isServiceRunning("bds"))) {
     parts.push(c.yellow(t("reload.bdsNotRunning")));
     return parts.join("\n") + "\n";
   }

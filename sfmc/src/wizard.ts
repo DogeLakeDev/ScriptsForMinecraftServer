@@ -226,16 +226,18 @@ export async function runWizard(): Promise<void> {
   }
 
   backupDir = await pickDirectory(t("wizard.backupDir"), backupDir);
+  const preserveOptions = [
+    { value: "server.properties", label: "server.properties", hint: t("wizard.preserve.serverProps") },
+    { value: "whitelist.json", label: "whitelist.json" },
+    { value: "permissions.json", label: "permissions.json" },
+    { value: "allowlist.json", label: "allowlist.json" },
+    { value: "worlds", label: "worlds/", hint: t("wizard.preserve.worlds") },
+    { value: "config", label: "config/", hint: t("wizard.preserve.config") },
+  ] as const;
   const pr = await multiselect({
     message: t("wizard.preserve"),
-    options: [
-      { value: "server.properties", label: "server.properties", hint: t("wizard.preserve.serverProps"), disabled: true },
-      { value: "whitelist.json", label: "whitelist.json" },
-      { value: "permissions.json", label: "permissions.json" },
-      { value: "allowlist.json", label: "allowlist.json" },
-      { value: "worlds", label: "worlds/", hint: t("wizard.preserve.worlds") },
-      { value: "config", label: "config/", hint: t("wizard.preserve.config"), disabled: true },
-    ],
+    options: [...preserveOptions],
+    initialValues: preserveOptions.map((o) => o.value),
     required: false,
   });
   if (!isCancel(pr)) preserve = pr as string[];
