@@ -95,6 +95,22 @@ node tools/fetch-module.mjs install land --from dir:../sfmc-modules/packages/lan
 
 `--link` 使用 Windows junction / POSIX symlink，改 sfmc-modules 源码即反映到主仓 packages，不必反复拷贝。发布给服务器时用默认 **copy** 安装，不要用 `--link`。
 
+### 安装源（`--from` / 默认行为）
+
+| 来源 | 何时用 | 例子 |
+|------|--------|------|
+| `npm:@scope/name`（**默认**） | 远端模块已发到 npm；`mod install <id>` 自动按 `@sfmc-bds/module-<id>` 解析 | `sfmc mod install land` |
+| `local:`（无路径默认 cwd） | 在模块仓根目录：作者小改自测；离线分享 `.tgz` / `.zip` | `sfmc mod install --from local` / `--from local:./x.tgz` |
+| `dir:` + `--link` | 开发联调（junction/symlink） | `--from dir:../sfmc-modules/packages/land --link` |
+| `github:owner/repo@tag` | 兼容旧 first-party `Tanya7z/sfmc-modules` Release | `--from github:Tanya7z/sfmc-modules@main` |
+
+**`sfmc mod install <id>` 缺省 --from 时的解析顺序**（单一权威：在 `tools/fetch-module.mjs#defaultSourceFor`）：
+1. first-party registry index 命中 → `github:`
+2. 否则按 `@sfmc-bds/module-<folder>` 走 `npm:`
+3. 解析失败 → 报 `无法解析 npm 包名`，建议 `--from local:<dir|tgz|zip>` 或 `--from npm:<scope>/<name>`
+
+**`--from local:<file.zip>` 的额外校验**（zip 仅作离线分享）：CLI 必须校验内含 `package.json` + `sapi/manifest.json`，缺则清掉污染目录并报错。
+
 ### 迭代：`sfmc mod watch`（少打命令）
 
 > 等价「改源码 → 自动 rebuild + deploy + reload」，与上方手动流程语义一致，省去每次敲 `sfmc mod reload`。

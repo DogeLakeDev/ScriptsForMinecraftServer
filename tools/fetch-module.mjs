@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * tools/fetch-module.mjs — 从 registry / GitHub / zip / dir 安装模块到 modules/packages/<id>/
+ * tools/fetch-module.mjs — 从 npm / GitHub / 本地 artifact 安装模块到 modules/packages/<id>/
  *
  * 安装成功后会把 sapi/manifest.json 投影写入 modules/catalog.json，
  * 并按 enabledByDefault 更新 modules/module-lock.json。
@@ -11,8 +11,16 @@
  *   node tools/fetch-module.mjs install <id> [id2 ...] [--from <source>] [--sha256 <hex>] [--link]
  *   node tools/fetch-module.mjs uninstall <id> [id2 ...]
  *
- * Sources: local:<zip> | dir:<path> | github:owner/repo[@tag]
- * 省略 --from 时查 Tanya7z/sfmc-modules index.json
+ * Sources:
+ *   npm:@scope/name         registry（默认；install <id> → @sfmc-bds/module-<folder>）
+ *   local:[/abs/path]       本地目录 / .tgz / .zip（无路径默认 cwd）
+ *   tgz:[/abs/path]         等价 local:，显式声明 .tgz
+ *   zip:[/abs/path]         等价 local:，显式声明 .zip（强制校验内含 package.json + manifest）
+ *   dir:/abs/path           本地目录（自动判单包/多包父目录）
+ *   github:owner/repo[@tag] GitHub Release（兼容旧 Tanya7z/sfmc-modules）
+ *
+ * 缺省 source：先看 first-party index（兼容 Tanya7z/sfmc-modules）→ 命中则 github:；
+ *              否则按 @sfmc-bds/module-<folder> 走 npm。
  *
  * --link: 仅配合 dir:；把 modules/packages/<id> 链到源目录（win32=junction，POSIX=symlink），
  *         仍同步 catalog/lock。开发联调用；发布/生产请用默认 copy。
@@ -97,16 +105,31 @@ async function resolveRegistryIndex() {
   }
 }
 
+/**
+ * 缺省 source：按 npm → @sfmc-bds/module-<id> 解析（DRY：避免分散在各 sub spec）。
+ * 若 first-party registry 命中 → 仍用 github:（兼容旧路径，fn 不被禁止）。
+ */
 async function defaultSourceFor(id) {
-  const { index } = await resolveRegistryIndex();
-  const entry = index[id];
-  if (!entry || !entry.repo) {
-    const known = Object.keys(index).sort().join(", ");
-    throw new Error(
-      `module "${id}" not found in first-party registry. Known: ${known || "(empty)"}. Pass --from explicitly.`
-    );
+  /* 先尝试 first-party registry index（兼容 Tanya7z/sfmc-modules） */
+  try {
+    const { index } = await resolveRegistryIndex();
+    const entry = index[id];
+    if (entry && entry.repo) {
+      console.log(`[fetch-module] ${id} found in first-party registry → github:${entry.repo}@${entry.tag}`);
+      return `github:${entry.repo}@${entry.tag}`;
+    }
+  } catch {
+    /* index 离线/失败：继续走 npm（更宽松的路径） */
   }
-  return `github:${entry.repo}@${entry.tag}`;
+  /* 默认走 npm registry（plan: mod install 主路径） */
+  const { resolveNpmPackageName } = await import("./lib/npm-resolver.mjs");
+  try {
+    const pkgName = resolveNpmPackageName(id);
+    console.log(`[fetch-module] no --from given; using npm → ${pkgName}`);
+    return `npm:${pkgName}`;
+  } catch (e) {
+    die(`无法解析 npm 包名: ${e.message}\n提示：传 --from local:<dir|tgz|zip> 或 --from npm:<scope>/<name>。`);
+  }
 }
 
 function die(msg, code = 1) {
@@ -284,19 +307,178 @@ function normalizeInstalledPackage(pkgDir) {
   }
 }
 
+/**
+ * `--from local` 入口分发。`source` 已剥前缀，
+ * 实际行为由 `resolveLocalPath` 解析出的路径类型决定：
+ *   - dir  → fromDir 拷贝
+ *   - .tgz → 解 tarball 到 packages/<id>
+ *   - .zip → 解 zip + 校验 layout
+ *   - 缺省 → cwd（被 resolveLocalPath 提前处理）
+ */
 async function fromLocal(id, source, flags) {
-  const zipPath = source.slice("local:".length);
-  if (!exists(zipPath)) die(`local zip not found: ${zipPath}`);
-  const actual = await sha256OfFile(zipPath);
+  /* 兼容旧调用：source 仍可能含 "local:" 前缀 —— 直接由 resolveLocalPath 接管 */
+  const raw = String(source ?? "");
+  const tail = raw.startsWith("local:") ? raw.slice("local:".length) : raw;
+  const resolved = resolveLocalPath(tail);
+  return installLocalArtifact(id, resolved, flags);
+}
+
+/**
+ * `sfmc mod install <id>` 走 npm registry 的主路径。
+ *
+ * 入口：`npm install --prefix packages/<id> --omit=dev --no-save --no-package-lock <pkgName>`
+ *   - 落地到 packages/<id>，不进主仓根 node_modules（隔离安装）
+ *   - 成功后 upsert catalog/lock
+ *   - 失败时把常见 npm 错误翻译成中文可读提示
+ */
+async function fromNpm(id, pkgName, flags) {
+  const dir = await ensureTarget(id);
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  const { spawn: spawnChild } = await import("node:child_process");
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawnChild(
+      npmCmd,
+      [
+        "install",
+        "--prefix",
+        dir,
+        "--omit=dev",
+        "--no-save",
+        "--no-package-lock",
+        "--no-audit",
+        "--no-fund",
+        pkgName,
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] }
+    );
+    let stderr = "";
+    proc.stderr?.on("data", (d) => {
+      stderr += d.toString();
+    });
+    proc.on("exit", (code) => {
+      if (code === 0) return resolve();
+      reject(new Error(translateNpmInstallError(pkgName, stderr)));
+    });
+    proc.on("error", (e) => reject(new Error(`spawn npm failed: ${e.message}`)));
+  });
+  console.log(`[fetch-module] installed ${id} from npm (${pkgName})`);
+  console.log(`[fetch-module]   target: ${dir}`);
+  afterInstall(id);
+}
+
+/** 翻译常见 npm install 错误为中文可读 + 下一步动作。 */
+function translateNpmInstallError(pkgName, stderr) {
+  const text = String(stderr || "");
+  if (/404 Not Found/i.test(text) || /not found/i.test(text)) {
+    return `npm 包未找到: ${pkgName}。请检查 manifest id / scope 拼写，或换 --from local:./<path>。`;
+  }
+  if (/EACCES|permission/i.test(text)) {
+    return `npm 权限错误: ${pkgName}。检查 npm registry 登录态或 token 权限。`;
+  }
+  if (/ERESOLVE/i.test(text)) {
+    return `npm 依赖冲突: ${pkgName}。提示: 用 --legacy-peer-deps 重试，或先确认 SDK/宿主版本兼容。`;
+  }
+  if (/ETIMEDOUT|ECONNRESET|ENOTFOUND/i.test(text)) {
+    return `npm 网络错误: ${pkgName}。检查代理 / 网络；或离线用 --from local:<tgz|dir>。`;
+  }
+  /* 默认透传原始 stderr（保留 npm 提示的修复建议） */
+  return `npm install ${pkgName} 失败:\n${text.trim()}`;
+}
+
+/** `tgz:` 显式前缀；等价 local:<path>，规则同 resolveLocalPath。 */
+async function fromTgz(id, source, flags) {
+  const tail = source.slice("tgz:".length);
+  const resolved = resolveLocalPath(tail);
+  return installLocalArtifact(id, resolved, flags);
+}
+
+/** `zip:` 显式前缀；同上但强制校验内部布局。 */
+async function fromZip(id, source, flags) {
+  const tail = source.slice("zip:".length);
+  const resolved = resolveLocalPath(tail);
+  return installLocalArtifact(id, resolved, flags, { kind: "zip" });
+}
+
+/**
+ * 把 `--from local[:path]` 的 path 段解析为绝对路径：
+ *   - 空 / undefined / `.` / `./` → process.cwd()
+ *   - 相对路径 → 相对 cwd 解析
+ *   - 绝对路径 → 原样
+ * 单一权威，避免 local / tgz / zip / dir 之间出现重复解析。
+ */
+function resolveLocalPath(tail) {
+  const p = String(tail ?? "").trim();
+  if (!p || p === "." || p === "./") return path.resolve(process.cwd());
+  return path.isAbsolute(p) ? path.resolve(p) : path.resolve(process.cwd(), p);
+}
+
+/**
+ * 按解析出的绝对路径判定形态并安装。
+ * kind="zip" 强制校验 layout（zip 仅作为离线分享格式，CLI 必须做完整性检查）。
+ */
+async function installLocalArtifact(id, absPath, flags, opts = {}) {
+  if (!exists(absPath)) {
+    die(`--from local target not found: ${absPath}`);
+  }
+  const st = fs.lstatSync(absPath);
+  if (st.isDirectory()) {
+    /* dir: 与 --from dir:<path> 等价，复用 fromDir（统一入口） */
+    return fromDir(id, `dir:${absPath}`, flags);
+  }
+  if (!st.isFile()) {
+    die(`--from local must be a directory, .tgz, or .zip: ${absPath}`);
+  }
+  const lower = absPath.toLowerCase();
+  const isZip = lower.endsWith(".zip");
+  const isTgz = lower.endsWith(".tgz") || lower.endsWith(".tar.gz");
+  if (!isZip && !isTgz) {
+    die(`--from local file must end with .tgz or .zip: ${absPath}`);
+  }
+
+  /* 校验 hash（local 模式下若给了 --sha256） */
+  const actual = await sha256OfFile(absPath);
   if (flags.sha256 && flags.sha256.toLowerCase() !== actual) {
     die(`SHA-256 mismatch (local): expected ${flags.sha256}, got ${actual}`);
   }
+
   const dir = await ensureTarget(id);
-  await unzip(zipPath, dir);
-  console.log(`[fetch-module] installed ${id} from ${zipPath}`);
+  if (isTgz) {
+    await extractTgz(absPath, dir);
+  } else {
+    await unzip(absPath, dir);
+  }
+  /* zip 必须校验内含关键文件（缺则硬错误） */
+  if (isZip || opts.kind === "zip") {
+    validateModuleLayout(dir);
+  }
+  console.log(`[fetch-module] installed ${id} from ${absPath}`);
   console.log(`[fetch-module]   sha256: ${actual}`);
   console.log(`[fetch-module]   target: ${dir}`);
   afterInstall(id);
+}
+
+/**
+ * 校验 modules/packages/<id> 落地目录内含 manifest + package.json + entry。
+ * zip 离线分享场景必须通过；缺关键文件则清目录并 die。
+ */
+function validateModuleLayout(pkgDir) {
+  const manifestPath = path.join(pkgDir, "sapi", "manifest.json");
+  const pkgJsonPath = path.join(pkgDir, "package.json");
+  const missing = [];
+  if (!exists(manifestPath)) missing.push("sapi/manifest.json");
+  if (!exists(pkgJsonPath)) missing.push("package.json");
+  if (missing.length > 0) {
+    /* 清掉避免污染 packages/；让用户重试而不是放任脏目录 */
+    try {
+      fs.rmSync(pkgDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
+    die(
+      `archive layout invalid: missing ${missing.join(", ")}. ` +
+        `zip 仅作离线分享，必须含 package.json + sapi/manifest.json；mod publish 用 tgz。`
+    );
+  }
 }
 
 async function fromDir(id, source, flags = {}) {
@@ -418,6 +600,64 @@ async function unzip(zipPath, dstDir) {
   await extractZipFileToDir(zipPath, dstDir);
 }
 
+/**
+ * 解 npm tarball（.tgz）到 packages/<id>。
+ * 委托 `npm` 本身（DRY；不重新发明 tar）：`npm install <tarball>` 落临时 prefix，
+ * 再拷贝到 packages/<id>。npm 已内置 tar-slip 防护。
+ */
+async function extractTgz(tgzPath, dstDir) {
+  const os = await import("node:os");
+  const { spawn: spawnChild } = await import("node:child_process");
+  const tmpPrefix = await fsp.mkdtemp(path.join(os.tmpdir(), "sfmc-tgz-"));
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawnChild(npmCmd, ["install", "--prefix", tmpPrefix, "--omit=dev", "--no-save", tgzPath], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    proc.stderr?.on("data", (d) => {
+      stderr += d.toString();
+    });
+    proc.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`npm install tarball exit ${code}: ${stderr}`))));
+    proc.on("error", reject);
+  });
+  /* npm install <tarball> 把 package.json#name 当作目录名：
+   *   @scope/module-foo   → node_modules/@scope/module-foo
+   *   @scope/sfmc-module-foo → node_modules/@scope/sfmc-module-foo
+   * 我们从 tmpPrefix/node_modules 找出唯一的一个包目录，整体拷贝到 dstDir。
+   */
+  const installed = path.join(tmpPrefix, "node_modules");
+  if (!exists(installed)) {
+    throw new Error(`npm install tarball produced no node_modules: ${tmpPrefix}`);
+  }
+  let found = null;
+  for (const e of fs.readdirSync(installed, { withFileTypes: true })) {
+    if (e.isDirectory()) {
+      if (e.name.startsWith("@")) {
+        for (const sub of fs.readdirSync(path.join(installed, e.name), { withFileTypes: true })) {
+          if (sub.isDirectory()) {
+            found = path.join(installed, e.name, sub.name);
+            break;
+          }
+        }
+      } else if (e.isDirectory()) {
+        found = path.join(installed, e.name);
+      }
+    }
+    if (found) break;
+  }
+  if (!found) {
+    throw new Error(`npm install tarball: no package directory under ${installed}`);
+  }
+  await copyDir(found, dstDir);
+  /* 清理临时 prefix */
+  try {
+    await fsp.rm(tmpPrefix, { recursive: true, force: true });
+  } catch {
+    /* best-effort */
+  }
+}
+
 async function copyDir(src, dst) {
   await fsp.mkdir(dst, { recursive: true });
   for (const e of await fsp.readdir(src, { withFileTypes: true })) {
@@ -442,7 +682,10 @@ async function installOne(id, flags) {
   }
   // 每模块可共用同一 --from(github monorepo release)
   const perFlags = { ...flags, from };
-  if (from.startsWith("local:")) return fromLocal(id, from, perFlags);
+  if (from.startsWith("local:") || from === "local") return fromLocal(id, from, perFlags);
+  if (from.startsWith("tgz:")) return fromTgz(id, from, perFlags);
+  if (from.startsWith("zip:")) return fromZip(id, from, perFlags);
+  if (from.startsWith("npm:")) return fromNpm(id, from.slice("npm:".length), perFlags);
   if (from.startsWith("dir:")) {
     // dir: 多模块时，默认 dir 指向 packages 父目录则拼 folder
     const base = from.slice("dir:".length);
@@ -482,10 +725,13 @@ Commands:
                                       install one or more modules + sync catalog/lock
   uninstall <id> [id2 ...]            remove package dir + catalog/lock entries
 
-Sources:
-  local:/abs/path/to/foo.zip
-  dir:/abs/path/to/foo/          (or dir:/path/to/packages for multi-install)
-  github:owner/repo[@tag]
+Sources (按优先级):
+  npm:@scope/name                npm registry（默认；install <id> → @sfmc-bds/module-<id>）
+  local:[/abs/path]              本地目录 / .tgz / .zip（无路径默认 cwd）
+  tgz:[/abs/path]                等价 local:，显式声明 .tgz
+  zip:[/abs/path]                等价 local:，强制校验内含 package.json + manifest
+  dir:/abs/path                  本地目录（自动判单包/多包父目录）
+  github:owner/repo[@tag]        GitHub Release（兼容旧 first-party）
 
 Flags:
   --link   with dir: only — junction (Windows) / symlink (POSIX) into
