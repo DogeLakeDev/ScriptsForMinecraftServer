@@ -549,6 +549,57 @@ function parseFlags(args: string[]): InstallFlags {
 }
 
 /**
+ * `sfmc mod test` — 委托模块仓的 test runner（node --test + @sfmc-bds/sdk/testing）。
+ * 解析 --from local[:path] 规则与 watch 一致；缺省 cwd。
+ * 透传 npm test：让模块仓的 `scripts.test` 自己决定怎么跑（node --test / tsx / vitest 等）。
+ */
+export async function cmdModuleTest(args: string[]): Promise<string> {
+  let fromRaw: string | null = null;
+  const passthrough: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--from") {
+      fromRaw = args[++i] ?? null;
+    } else if (a?.startsWith("--from=")) {
+      fromRaw = a.slice("--from=".length);
+    } else if (a === "--help" || a === "-h") {
+      return c.dim("用法: mod test [--from local[:<path>]] [-- <args>]\n  透传给模块仓的 npm test。");
+    } else {
+      passthrough.push(a!);
+    }
+  }
+
+  /* 解析 cwd（与 watch 共用 resolveLocalModuleRoot 规则）。 */
+  const { resolveLocalModuleRoot } = await import("./module-watch.js");
+  const cwd = resolveLocalModuleRoot({ from: fromRaw, cwd: process.cwd() });
+
+  if (!existsSync(cwd)) {
+    return c.red(`[mod test] 路径不存在: ${cwd}`);
+  }
+  if (!existsSync(path.join(cwd, "package.json"))) {
+    return c.yellow(`[mod test] 未找到 package.json: ${cwd}\n  提示：进入模块仓根目录，或用 --from local:<path> 指向。`);
+  }
+
+  /* Windows 优先用 npm.cmd；POSIX 用 npm。直接 shell 调用透传 stdio。 */
+  const isWin = process.platform === "win32";
+  const cmd = isWin ? "npm.cmd" : "npm";
+  const subArgs = ["test", "--", ...passthrough];
+
+  return new Promise<string>((resolve) => {
+    const proc = spawn(cmd, subArgs, {
+      cwd,
+      stdio: "inherit",
+      env: process.env,
+      shell: isWin, /* win32 + npm.cmd 在某些 shell 包装下更稳 */
+    });
+    proc.on("exit", (code) => {
+      resolve(code === 0 ? "" : `\n[mod test] exit ${code}`);
+    });
+    proc.on("error", (e) => resolve(c.red(`[mod test] spawn failed: ${e.message}`)));
+  });
+}
+
+/**
  * 统一分发 module/mod 子命令 —— CLI(`main.ts`)与 REPL(`repl.ts`)共用,
  * 避免两处 switch 漂移。
  *
@@ -591,6 +642,13 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "dev": {
       const { runModuleDevWizard } = await import("./module-wizard.js");
       return runModuleDevWizard();
+    }
+    case "watch": {
+      const { cmdModuleWatch } = await import("./module-watch.js");
+      return cmdModuleWatch(args);
+    }
+    case "test": {
+      return cmdModuleTest(args);
     }
     default:
       return c.yellow(moduleUsage());

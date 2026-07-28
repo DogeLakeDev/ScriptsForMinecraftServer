@@ -48,7 +48,7 @@
     "build": "sfmc-esbuild-transpile --dts",
     "prepublishOnly": "npm run build",
     "start": "node ./dist/main.js",
-    "test": "npm run build && node --test terminal-progress.test.mjs wrap-log-line.test.mjs world-packs-uninstall.test.mjs log-filter.test.mjs debug-command.test.mjs command-surface.test.mjs argv-parse.test.mjs command-palette.test.mjs repl-windows.test.mjs",
+    "test": "npm run build && node --test terminal-progress.test.mjs wrap-log-line.test.mjs world-packs-uninstall.test.mjs log-filter.test.mjs debug-command.test.mjs command-surface.test.mjs argv-parse.test.mjs command-palette.test.mjs repl-windows.test.mjs module-watch.test.mjs",
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {

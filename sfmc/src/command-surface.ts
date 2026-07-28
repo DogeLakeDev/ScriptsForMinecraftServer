@@ -200,6 +200,9 @@ const TOP_DESC: Record<string, string> = {
   verify: "help.module.verify",
   link: "help.module.link",
   create: "help.module.create",
+  dev: "help.module.dev",
+  watch: "help.module.watch",
+  test: "help.module.test",
 };
 
 const MODULE_DESC: Record<string, string> = {

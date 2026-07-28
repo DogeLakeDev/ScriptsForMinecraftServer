@@ -95,6 +95,29 @@ node tools/fetch-module.mjs install land --from dir:../sfmc-modules/packages/lan
 
 `--link` 使用 Windows junction / POSIX symlink，改 sfmc-modules 源码即反映到主仓 packages，不必反复拷贝。发布给服务器时用默认 **copy** 安装，不要用 `--link`。
 
+### 迭代：`sfmc mod watch`（少打命令）
+
+> 等价「改源码 → 自动 rebuild + deploy + reload」，与上方手动流程语义一致，省去每次敲 `sfmc mod reload`。
+
+```bash
+# 在模块仓根目录（或显式 --from local:<path>）
+sfmc mod watch
+sfmc mod watch --from local:../sfmc-modules/packages/land
+sfmc mod watch --no-reload     # 只 build+deploy，rebuild 后到 BDS/游戏内输入 reload
+```
+
+**行为：**
+
+- 监听 `sapi/src/**`，防抖 ~200ms 后触发 `sfmc mod reload` 同一路径（build → deploy → 直写 BDS stdin 发 `reload`）
+- 监听 `sapi/manifest.json` 与 `sapi/tsconfig.json` → **不**自动热更新；打印「SAPI 启动期缓存 manifest，请重启 BDS 进程」
+- 改 `configs/*.json`（应用/平台配置）→ 同样需重启进程，与现有 reload 语义一致
+- 改 `@sfmc-bds/sdk` 内部源码 → 需重启 node 进程；CLI 仅打印提示
+- Ctrl+C 退出
+
+**实现：** 复用 `cmdModuleReload` 的 build/deploy 路径，复用 `sfmc` CLI 的 `queryServicesRuntime` + `probeBdsStatus` 探测 BDS 进程（与 `mod reload` 完全一致），不另写一遍 reload 路径。
+
+
+
 ## 目录结构
 
 ```

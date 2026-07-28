@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
+  "schemaVersion": 2,
+  "id": "feature-example",
+  "name": "示例模块",
+  "type": "feature",
+  "configKey": "example",
+  "requires": [],
+  "permissions": [
+    "config:read:example"
+  ],
+  "services": {
+    "provides": [],
+    "requires": []
+  },
+  "notes": "由 sfmc-module-template 生成的最小模块；运行 node scripts/rename.mjs <kebab-id> 改为你的 id。"
+}

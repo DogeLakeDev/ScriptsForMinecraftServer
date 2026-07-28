@@ -91,6 +91,8 @@ export const zhCN: Record<MessageKey, string> = {
   "help.module.dev": "链接 + 启用 + 构建 + 部署",
   "help.module.build": "从已启用模块构建资源包",
   "help.module.reload": "构建并部署资源包，在 BDS 发送 reload指令以重载脚本",
+  "help.module.watch": "监听 sapi/src 变更并自动 rebuild+reload",
+  "help.module.test": "运行模块测试（node --test + @sfmc-bds/sdk/testing）",
   "help.section.addon": "  资源包管理 ──────",
   "help.addon": "资源包收件箱管理",
   "help.packs.list": "已安装资源包列表",
@@ -260,6 +262,28 @@ export const zhCN: Record<MessageKey, string> = {
   "reload.buildOnly": "构建完成。",
   "reload.bdsNotRunning": "BDS 未运行 — 已完成构建。",
   "reload.sent": "已向 BDS 发送 reload",
+
+  /* ─── module watch ─── */
+  "watch.usage":
+    "用法: mod watch [--from local[:<path>]] [--no-reload]\n" +
+    "  默认监听 cwd 模块仓的 sapi/src 变更；改 sapi/manifest.json 与 tsconfig.json 仅提示「请重启 BDS」。\n" +
+    "  Ctrl+C 退出。",
+  "watch.banner": "[watch] 监听模块: {path}",
+  "watch.hint": "[watch] 改 sapi/src/** 即 rebuild + deploy + reload；其它文件忽略。",
+  "watch.noSapiDir": "[watch] 未找到 sapi 目录: {path}",
+  "watch.noSapiSrc": "[watch] 未找到 sapi/src 目录: {path}（仅当 src 已就绪后才会触发 rebuild）",
+  "watch.recursiveFallback":
+    "[watch] 递归监听失败，回退非递归模式（仅 sapi/src 一级子目录）: {message}",
+  "watch.manifestOrTsconfig":
+    "[watch] 改 {kind} 不会热更新；SAPI 启动期缓存 manifest；请重启 BDS 进程。变更: {files}",
+  "watch.rebuild.start": "[watch] 触发 rebuild（{count} 文件）: {files}",
+  "watch.rebuild.ok": "[watch] rebuild OK ({ms} ms)",
+  "watch.rebuild.fail": "[watch] rebuild FAILED ({ms} ms)\n{output}",
+  "watch.rebuild.error": "[watch] rebuild 异常: {message}",
+  "watch.reload.sent": "[watch] reload sent",
+  "watch.reload.manualHint":
+    "[watch] --no-reload 模式：在 BDS 控制台或游戏内输入 reload 即可",
+  "watch.stopped": "[watch] 已停止",
 
   "bp.usage": "用法: bp <build|deploy>",
 
