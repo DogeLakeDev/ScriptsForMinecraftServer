@@ -374,7 +374,7 @@ export const en = {
   "mod.list.title": "Installed modules",
   "mod.noneInstalled": "\nNo modules installed. Drop a module folder under {dir} or run `sfmc mod install <id>`.\n",
   "mod.notInRegistry": 'Module "{query}" not found in first-party registry.',
-  "mod.info.usage": "Usage: sfmc module|mod info <id>",
+  "mod.info.usage": "Usage: mod info <id>",
   "mod.notInstalledAt": "Module {id} not installed at {path}",
   "mod.notInstalled": "Module {id} not installed",
   "mod.verifyOk": "{id} ok\n  fingerprint: {fp}\n",
@@ -384,13 +384,14 @@ export const en = {
   "mod.action.disabled": "disabled",
   "mod.toggleOk": "{label} {id}",
   "mod.toggleBadBody": "{action} {id} returned: {text}",
-  "mod.enable.usage": "Usage: sfmc module|mod enable <id>",
-  "mod.disable.usage": "Usage: sfmc module|mod disable <id>",
-  "mod.install.usage": "Usage: sfmc module|mod install <id> [id2 ...] [--from <source>] [--link]",
+  "mod.enable.usage": "Usage: mod enable <id>",
+  "mod.disable.usage": "Usage: mod disable <id>",
+  "mod.install.usage":
+    "Usage: mod install <id>\n       mod install <id> --from <path> --link",
   "mod.linkNeedsFrom":
-    "--link requires --from dir:<author-path> or --from local:<path>.\nExample: sfmc mod install my-mod --from dir:D:/mods/my-mod --link",
+    "--link requires --from <path>.\nExample: mod install my-mod --from D:/mods/my-mod --link",
   "mod.fetchMissing": "fetch-module not found. Install @sfmc-bds/sfmc or run inside the monorepo.",
-  "mod.uninstall.usage": "Usage: sfmc module|mod uninstall <id>",
+  "mod.uninstall.usage": "Usage: mod uninstall <id>",
   "mod.notInstalledFolder": "Module {id} not installed (no folder at {path})",
   "mod.removed": "Removed {id} from {path}\n",
 

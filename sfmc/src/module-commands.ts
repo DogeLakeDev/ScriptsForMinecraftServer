@@ -237,7 +237,7 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
   if (ids.length === 0) {
     return c.red(
       `\nRegistry empty or unreachable (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}).\n` +
-        `Check network, or install with an explicit source: sfmc mod install <id> --from github:owner/repo@tag\n`
+        `Check network, or: mod install <id> --from github:owner/repo@tag\n`
     );
   }
 

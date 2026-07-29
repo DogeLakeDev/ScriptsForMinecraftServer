@@ -41,3 +41,11 @@ test("dir: 原样通过", () => {
   assert.equal(r.ok, true);
   if (r.ok) assert.equal(r.from, "dir:D:/mods/foo");
 });
+
+test("裸路径目录 → dir:绝对路径", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-link-bare-"));
+  const r = normalizeLinkFrom(tmp, CWD);
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.from, `dir:${path.resolve(tmp)}`);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});

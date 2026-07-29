@@ -270,7 +270,8 @@ function main() {
   const official = Boolean(flags.official);
 
   const sapiDir = path.join(target, "sapi");
-  const schemaRel = "../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json";
+  const schemaRel =
+    "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json";
   const tsConfigJson = buildTsConfigStandalone();
 
   writeJson(path.join(target, "package.json"), buildPackageJson(folderId, { official }));

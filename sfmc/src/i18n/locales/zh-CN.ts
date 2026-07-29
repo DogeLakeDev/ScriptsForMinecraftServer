@@ -359,7 +359,7 @@ export const zhCN: Record<MessageKey, string> = {
   "mod.list.title": "已安装模块",
   "mod.noneInstalled": "\n未安装模块。请将模块目录放到 {dir}，或执行 `sfmc mod install <id>`。\n",
   "mod.notInRegistry": '模块 "{query}" 不在官方 registry 中。',
-  "mod.info.usage": "用法: sfmc module|mod info <id>",
+  "mod.info.usage": "用法: mod info <id>",
   "mod.notInstalledAt": "模块 {id} 未安装于 {path}",
   "mod.notInstalled": "模块 {id} 未安装",
   "mod.verifyOk": "{id} 正常\n  fingerprint: {fp}\n",
@@ -369,13 +369,14 @@ export const zhCN: Record<MessageKey, string> = {
   "mod.action.disabled": "已禁用",
   "mod.toggleOk": "{label} {id}",
   "mod.toggleBadBody": "{action} {id} 返回: {text}",
-  "mod.enable.usage": "用法: sfmc module|mod enable <id>",
-  "mod.disable.usage": "用法: sfmc module|mod disable <id>",
-  "mod.install.usage": "用法: sfmc module|mod install <id> [id2 ...] [--from <source>] [--link]",
+  "mod.enable.usage": "用法: mod enable <id>",
+  "mod.disable.usage": "用法: mod disable <id>",
+  "mod.install.usage":
+    "用法: mod install <id>\n      mod install <id> --from <路径> --link",
   "mod.linkNeedsFrom":
-    "--link 需要 --from dir:<作者仓路径> 或 --from local:<路径>。\n示例: sfmc mod install my-mod --from dir:D:/mods/my-mod --link",
+    "--link 需要 --from <路径>。\n示例: mod install my-mod --from D:/mods/my-mod --link",
   "mod.fetchMissing": "未找到 fetch-module。请安装 @sfmc-bds/sfmc 或在 monorepo 内运行。",
-  "mod.uninstall.usage": "用法: sfmc module|mod uninstall <id>",
+  "mod.uninstall.usage": "用法: mod uninstall <id>",
   "mod.notInstalledFolder": "模块 {id} 未安装（目录不存在: {path}）",
   "mod.removed": "已从 {path} 移除 {id}\n",
 

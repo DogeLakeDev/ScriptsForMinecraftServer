@@ -1,9 +1,46 @@
 // @ts-check
 /**
- * tools/lib/link-from.mjs — --link 场景下把 from 规范成 dir: 或报错
+ * tools/lib/link-from.mjs — --from 规范化（裸路径 / local: / dir:）
  */
 import fs from "node:fs";
 import path from "node:path";
+
+/**
+ * 是否为带 scheme 的 --from（非裸文件系统路径）。
+ * @param {string} from
+ */
+export function isSchemeFrom(from) {
+  return (
+    from === "local" ||
+    from.startsWith("local:") ||
+    from.startsWith("dir:") ||
+    from.startsWith("npm:") ||
+    from.startsWith("tgz:") ||
+    from.startsWith("zip:") ||
+    from.startsWith("github:")
+  );
+}
+
+/**
+ * 把裸路径规范成 dir:<abs>（不存在则报错）。
+ * @param {string} raw
+ * @param {string} [cwd]
+ * @returns {{ ok: true, from: string } | { ok: false, error: string }}
+ */
+export function normalizeBarePathFrom(raw, cwd = process.cwd()) {
+  const abs = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(cwd, raw);
+  if (!fs.existsSync(abs)) {
+    return { ok: false, error: `--from 路径不存在: ${abs}` };
+  }
+  const st = fs.lstatSync(abs);
+  if (!st.isDirectory()) {
+    return {
+      ok: false,
+      error: `--from 裸路径须为目录（文件请用 --from local:<tgz|zip>）: ${abs}`,
+    };
+  }
+  return { ok: true, from: `dir:${abs}` };
+}
 
 /**
  * @param {string} from
@@ -30,8 +67,14 @@ export function normalizeLinkFrom(from, cwd = process.cwd()) {
     };
   }
   if (from.startsWith("dir:")) return { ok: true, from };
+  /* 约定写法：mod install <id> --from <路径> --link */
+  if (!isSchemeFrom(from)) {
+    const bare = normalizeBarePathFrom(from, cwd);
+    if (!bare.ok) return bare;
+    return bare;
+  }
   return {
     ok: false,
-    error: `--link only works with --from dir:<path> or --from local[:<dir>] (got ${from})`,
+    error: `--link only works with --from <path> / dir:<path> / local[:<dir>] (got ${from})`,
   };
 }

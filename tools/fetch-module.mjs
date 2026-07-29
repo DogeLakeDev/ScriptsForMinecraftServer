@@ -40,7 +40,7 @@ import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
 import { parseRegistryIndex } from "./lib/registry-index.mjs";
-import { normalizeLinkFrom } from "./lib/link-from.mjs";
+import { isSchemeFrom, normalizeBarePathFrom, normalizeLinkFrom } from "./lib/link-from.mjs";
 import { folderFromNpmPackageName } from "./lib/npm-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -703,6 +703,11 @@ async function installOne(id, flags) {
     const norm = normalizeLinkFrom(from, process.cwd());
     if (!norm.ok) die(norm.error);
     from = norm.from;
+  } else if (!isSchemeFrom(from)) {
+    /* 约定：--from <路径> → dir:<abs> */
+    const bare = normalizeBarePathFrom(from, process.cwd());
+    if (!bare.ok) die(bare.error);
+    from = bare.from;
   }
   const perFlags = { ...flags, from };
   if (from.startsWith("local:") || from === "local") return fromLocal(id, from, perFlags);

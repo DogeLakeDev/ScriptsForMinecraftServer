@@ -2,43 +2,43 @@
   "json.schemas": [
     {
       "fileMatch": ["**/configs/db_config.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/db_config.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/db_config.schema.json"
     },
     {
       "fileMatch": ["**/configs/qq_config.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/qq_config.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/qq_config.schema.json"
     },
     {
       "fileMatch": ["**/configs/bds_updater.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/bds_updater.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/bds_updater.schema.json"
     },
     {
       "fileMatch": ["**/configs/permissions.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/permissions.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/permissions.schema.json"
     },
     {
       "fileMatch": ["**/configs/pack-update.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/pack_update.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/pack_update.schema.json"
     },
     {
       "fileMatch": ["**/configs/log-filter.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/log_filter.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/log_filter.schema.json"
     },
     {
       "fileMatch": ["**/configs/remote.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/remote.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/remote.schema.json"
     },
     {
       "fileMatch": ["**/packs/pack-sources.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/pack_sources.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/pack_sources.schema.json"
     },
     {
       "fileMatch": ["**/modules/catalog.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/module_catalog.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/module_catalog.schema.json"
     },
     {
       "fileMatch": ["**/modules/packages/*/sapi/manifest.json"],
-      "url": "./modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json"
+      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json"
     }
   ]
 }

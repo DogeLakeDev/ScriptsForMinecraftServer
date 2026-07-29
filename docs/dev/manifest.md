@@ -50,7 +50,7 @@ IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.
 
 ```json
 {
-  "$schema": "../../../../node_modules/@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json",
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
   "schemaVersion": 2,
   "id": "feature-land",
   "name": "领地",
