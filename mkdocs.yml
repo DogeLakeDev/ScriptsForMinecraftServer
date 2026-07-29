@@ -8,7 +8,7 @@ docs_dir: docs
 site_dir: site
 
 watch:
-  - includes
+  - docs/includes
 
 theme:
   name: material
@@ -102,13 +102,13 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.snippets:
-      # 路径相对 mkdocs 工作目录（仓根），不要加前导 /
-      # 前导 / 会被当成文件系统绝对路径（Windows 上即 \includes\…），导致文件找不到、abbr 静默失效
+      # abbreviations 在 docs/includes/。base_path 相对 mkdocs 工作目录（仓根）。
+      # （前导 / 会被当成文件系统绝对路径，Windows 上即 \includes\…，文件找不到，abbr 静默失效）
       base_path:
-        - .
+        - docs/includes
       check_paths: true
       auto_append:
-        - includes/abbreviations.md
+        - abbreviations.md
 
 extra:
   social:

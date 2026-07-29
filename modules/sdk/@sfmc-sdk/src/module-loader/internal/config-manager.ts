@@ -12,16 +12,8 @@
  *          时彻底切断,改为事件订阅。
  */
 
-export interface DataAdapter {
-  /** 拉取所有配置(GET /api/sfmc/configs/all),返回 raw JSON 文本;失败时返回 null */
-  getAllConfigs(): Promise<string | null>;
-  /** 仅刷新模块开关(GET /api/sfmc/modules) */
-  getModules(): Promise<string | null>;
-  /** 设置 HTTP 鉴权 token */
-  setAuthToken(token: string): void;
-  /** 健康检查 db-server */
-  checkHealth(): Promise<void>;
-}
+// DataAdapter 已迁出到 ../data-adapter.ts,这里仅 re-export 保留 import 兼容
+export type { DataAdapter } from "../data-adapter.js";
 
 /** ConfigManager 可读的配置域键名。 */
 export type ConfigKey =

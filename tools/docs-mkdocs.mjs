@@ -5,9 +5,9 @@
  *   node tools/docs-mkdocs.mjs build
  */
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv[2] ?? "serve";
@@ -91,10 +91,7 @@ if (r.error || r.status !== 0) {
 
 if (r.status !== 0) {
   console.error(
-    [
-      "[docs-mkdocs] MkDocs 失败。请先安装 Python 依赖：",
-      "  pip install -r docs/requirements.txt",
-    ].join("\n")
+    ["[docs-mkdocs] MkDocs 失败。请先安装 Python 依赖：", "  pip install -r docs/requirements.txt"].join("\n")
   );
   process.exit(r.status ?? 1);
 }

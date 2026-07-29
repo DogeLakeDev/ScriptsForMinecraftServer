@@ -4,7 +4,7 @@
  */
 
 import { HttpDB } from "../sapi/runtime/httpdb.js";
-import type { DataAdapter } from "./internal/config-manager.js";
+import type { DataAdapter } from "./data-adapter.js";
 
 /** 用 HttpDB 实现 DataAdapter;可选覆盖 db-server 基址。 */
 export function createHttpDataAdapter(opts?: { baseUrl?: string }): DataAdapter {

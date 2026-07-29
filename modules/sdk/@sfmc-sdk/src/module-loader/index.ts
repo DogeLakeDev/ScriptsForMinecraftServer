@@ -10,10 +10,11 @@ export { ConfigManager } from "./internal/config-manager.js";
 export { Modules } from "./internal/module-keys.js";
 export type { ModuleKey, ModuleId } from "./internal/module-keys.js";
 export { ModuleRegistry } from "./runtime.js";
-export type { ModuleLifecycle, ModuleDescriptor } from "./runtime.js";
+export type { ModuleLifecycle, ModuleDescriptor, CleanUpFn } from "./runtime.js";
 export { guardEvent, announceLoaded } from "./runtime.js";
 export { installHostBootstrap } from "./install.js";
 export type { InstallOptions, HostBackend, ModuleSurface } from "./install.js";
 export { createHttpDataAdapter } from "./http-data-adapter.js";
+export type { DataAdapter } from "./data-adapter.js";
 /** `@sfmc-bds/sdk/module-loader` 子路径 semver 版本号。 */
 export const SFMC_MODULE_LOADER_VERSION = "0.1.0" as const;

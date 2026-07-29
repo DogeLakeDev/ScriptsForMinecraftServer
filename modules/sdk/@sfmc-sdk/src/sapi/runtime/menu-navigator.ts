@@ -347,3 +347,5 @@ export class FormStatus {
 }
 
 type PageBuildFn = (page: Page, nav: MenuNavigator) => void | Promise<void>;
+/** section 构建函数签名：交给 `MenuNavigator.section(id, title, build)`。 */
+export type { PageBuildFn };

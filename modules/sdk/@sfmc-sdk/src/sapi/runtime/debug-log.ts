@@ -5,7 +5,8 @@
  * sink 始终收到调用（自行判断是否处理）；控制台另受 enabled + minLevel 约束。
  */
 
-const LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
+/** 调试级别映射（DEBUG/INFO/WARN/ERROR → 数值）。仅作 `DebugLevel` 类型来源，请勿直接读。 */
+export const LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
 
 export type DebugLevel = keyof typeof LEVELS;
 

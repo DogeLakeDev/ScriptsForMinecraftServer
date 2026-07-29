@@ -17,7 +17,7 @@ import { system, world } from "@minecraft/server";
 import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
 import { debug } from "../sapi/runtime/debug-log.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
-import type { DataAdapter } from "./internal/config-manager.js";
+import type { DataAdapter } from "./data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
 import { ModuleRegistry } from "./runtime.js";
 

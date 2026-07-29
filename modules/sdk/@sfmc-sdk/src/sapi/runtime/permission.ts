@@ -1,6 +1,7 @@
 import { Player, PlayerPermissionLevel } from "@minecraft/server";
 import { Command } from "./command.js";
 import { ConfigManager } from "../../module-loader/internal/config-manager.js";
+// (DataAdapter 现位于 module-loader/data-adapter.ts — 本文件未引用,无需改)
 import { Msg } from "./msg.js";
 
 /**

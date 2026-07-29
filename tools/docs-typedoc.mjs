@@ -11,12 +11,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "docs", "reference", "sdk");
 
 function run(cmd, args) {
+  // 直接 spawn 可执行文件，参数走 argv 数组。
+  // typedoc 是 .js，用 process.execPath 即可，无需 shell（避免 DEP0190）。
   const r = spawnSync(cmd, args, {
     cwd: root,
     stdio: "inherit",
     env: process.env,
-    // Windows 上 npm/npx 是 .cmd，需要 shell；参数已固定无用户输入
-    shell: process.platform === "win32",
+    shell: false,
   });
   if (r.status !== 0) {
     process.exit(r.status ?? 1);

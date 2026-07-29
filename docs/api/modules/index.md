@@ -3,7 +3,7 @@
 跨模块能力通过 **service 名**（如 `economy.account.debit`）暴露；平台用 `service.get` / `tx.call` 派发。  
 有 typed client 的模块应优先走 client，避免手写 service 字符串和直操表。
 
-机制说明：[SDK service](../sdk/service.md) · [HTTP 服务 API](../services.md) · [manifest 契约](../../dev/manifest.md)
+机制说明：[SDK service](../sdk/service.md) · [HTTP 服务 API](../services.md) · [manifest 契约](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/docs/dev/manifest.md)
 
 ## 提供方一览
 

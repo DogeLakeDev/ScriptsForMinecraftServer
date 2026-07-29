@@ -43,7 +43,8 @@ export type ModuleDescriptor = {
   lifecycle: ModuleLifecycle;
 };
 
-type CleanUpFn = () => void;
+/** 模块 cleanup 回调签名（供模块作者传给 `ModuleRegistry.trackCleanup`）。 */
+export type CleanUpFn = () => void;
 
 const descriptors: ModuleDescriptor[] = [];
 const cleanups = new Map<string, CleanUpFn[]>();
