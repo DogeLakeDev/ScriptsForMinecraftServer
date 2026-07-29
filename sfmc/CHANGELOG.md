@@ -1,5 +1,13 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.7
+
+### Patch Changes
+
+- b81327a: sdk:移除对旧版type的支持 tools,cli:杂项
+- Updated dependencies [b81327a]
+  - @sfmc-bds/sdk@0.2.0-beta.7
+
 ## 0.2.0-beta.6
 
 ### Minor Changes
