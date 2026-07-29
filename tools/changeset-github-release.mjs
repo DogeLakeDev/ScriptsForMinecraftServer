@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 为发版 tag 创建 GitHub Release / Pre-release。
  *

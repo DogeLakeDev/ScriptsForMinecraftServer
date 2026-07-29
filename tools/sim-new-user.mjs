@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/sim-new-user.mjs — 隔离 SFMC_ROOT 冒烟
  *

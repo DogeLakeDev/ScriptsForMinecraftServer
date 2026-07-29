@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/verify-module-publish.mjs — 模块包发布前的全方位预检
  *

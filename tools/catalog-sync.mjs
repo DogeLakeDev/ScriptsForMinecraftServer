@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/catalog-sync.mjs — 扫描 modules/packages/<id>/sapi/manifest.json → 重写 catalog.json
  *

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * verify-module-publish.test.mjs — pre-publish 守门脚本测试
  *

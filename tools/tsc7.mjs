@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 调用 TypeScript 7 原生 tsc（权威入口）。
  *

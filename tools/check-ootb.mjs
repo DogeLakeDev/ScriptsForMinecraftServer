@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/check-ootb.mjs — 开箱自检(平台就绪)
  *

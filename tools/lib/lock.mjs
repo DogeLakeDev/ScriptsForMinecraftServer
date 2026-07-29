@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/lock.mjs — modules/module-lock.json 读写
  *

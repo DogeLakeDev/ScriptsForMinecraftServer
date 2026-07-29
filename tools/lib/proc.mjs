@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/proc.mjs — 子进程辅助
  */

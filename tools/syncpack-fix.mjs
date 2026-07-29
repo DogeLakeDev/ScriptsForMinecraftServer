@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * syncpack fix 需两轮：
  * 1) DiffersToLocal → 先写成精确本地 version

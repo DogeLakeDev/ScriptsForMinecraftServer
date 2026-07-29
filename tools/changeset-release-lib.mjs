@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * changesets 发版编排共用工具。
  * tag 格式与 `changeset publish` 一致: `@scope/name@1.2.3`（无 v 前缀）。
@@ -8,8 +9,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { NPM_PUBLISH_PACKAGES } from "./lib/npm-publish-packages.mjs";
 
+/** 仓库根的绝对路径（= tools/ 上一级） */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+/** @type {string} changesets pre-mode 状态文件绝对路径 */
 export const PRE_JSON = path.join(ROOT, ".changeset", "pre.json");
+/** @type {string} .changeset/ 目录绝对路径 */
 export const CHANGESET_DIR = path.join(ROOT, ".changeset");
 /** 发版编排中间态：tag-packages → push-release / gh-release（DRY 唯一路径） */
 export const RELEASE_TAGS_STATE = path.join(ROOT, ".sfmc-release-tags.json");
@@ -20,6 +24,7 @@ export function readPreState() {
   return JSON.parse(fs.readFileSync(PRE_JSON, "utf8"));
 }
 
+/** @returns {boolean} 当前是否处于 changesets pre mode（pre.json#mode === "pre"） */
 export function isPreMode() {
   const pre = readPreState();
   return Boolean(pre && pre.mode === "pre");
@@ -62,7 +67,12 @@ export function packageDirFor(name) {
   return hit ? path.dirname(hit.pkgPath) : null;
 }
 
-/** changesets 默认 git tag: name@version */
+/**
+ * changesets 默认 git tag 格式: `name@version`（无 v 前缀，与 changeset publish 输出一致）。
+ * @param {string} name 包名（如 `@sfmc-bds/sdk`）
+ * @param {string} version 语义化版本字符串
+ * @returns {string}
+ */
 export function packageTagName(name, version) {
   return `${name}@${version}`;
 }
@@ -184,6 +194,12 @@ export function resolvePackagesNeedingTags(opts = {}) {
   return needed;
 }
 
+/**
+ * 同步运行子命令，cwd 固定为 ROOT；非零退出直接 `process.exit`。Windows 自动套 `shell`。
+ * @param {string} cmd 可执行名 / shell 行
+ * @param {string[]} args 参数列表
+ * @param {import("node:child_process").SpawnSyncOptions} [opts] 透传给 `spawnSync`
+ */
 export function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
     cwd: ROOT,
@@ -210,6 +226,11 @@ export function git(args, opts = {}) {
   });
 }
 
+/**
+ * `git(args)` 的字符串返回封装。异常时返回空串（用于「探测有无 / 取首行」场景）。
+ * @param {string[]} args git CLI 参数
+ * @returns {string}
+ */
 export function gitCapture(args) {
   try {
     return git(args, { capture: true }).trim();

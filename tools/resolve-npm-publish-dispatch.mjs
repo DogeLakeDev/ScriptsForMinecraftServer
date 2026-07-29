@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * workflow_dispatch 应急发布：校验包名/版本，写出 GITHUB_OUTPUT。
  * env: PUBLISH_PACKAGE, PUBLISH_VERSION, PUBLISH_DIST_TAG, GITHUB_OUTPUT

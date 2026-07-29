@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * seed-configs.mjs — 用 SDK ensureCoreConfigs 播种 configs/（不启 HTTP 服务）
  *

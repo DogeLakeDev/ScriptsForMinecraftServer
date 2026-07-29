@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/check-modules.mjs — 离线校验 catalog + 已装包
  *

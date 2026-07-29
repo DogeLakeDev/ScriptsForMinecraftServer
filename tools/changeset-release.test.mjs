@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * changeset-release 共用库单测（node:test）
  */

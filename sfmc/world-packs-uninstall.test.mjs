@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * packs uninstall 策略契约：受保护平台包识别 + 多 id 解析（DRY/LSP 与 CLI 同源）
  * 需先 `npm run build -w @sfmc-bds/cli`

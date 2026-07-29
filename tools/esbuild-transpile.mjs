@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/esbuild-transpile.mjs
  *
@@ -24,7 +25,11 @@ if (!fs.existsSync(srcDir)) {
   process.exit(1);
 }
 
-/** 递归收集 src 下 .ts（排除 .d.ts） */
+/**
+ * 递归收集 dir 下 .ts 文件绝对路径列表（排除 .d.ts）。
+ * @param {string} dir 起始目录
+ * @returns {string[]}
+ */
 function collectTsFiles(dir) {
   const out = [];
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {

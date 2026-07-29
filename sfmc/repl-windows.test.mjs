@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * repl-windows.test.mjs — WindowHost / ServiceWindow / formatLogDisplay / disk logs
  */

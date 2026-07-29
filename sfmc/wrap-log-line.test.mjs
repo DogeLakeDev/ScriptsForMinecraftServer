@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * wrap-log-line.test.mjs — 悬挂缩进:显式 \\n + 多行软换行均须对齐
  */

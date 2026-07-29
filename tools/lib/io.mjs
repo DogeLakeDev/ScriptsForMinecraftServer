@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/io.mjs — JSON 读写与 die 辅助
  */

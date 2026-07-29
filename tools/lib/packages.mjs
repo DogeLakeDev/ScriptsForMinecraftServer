@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/packages.mjs — 扫描 packages/<id>/sapi/manifest.json 并投影为 catalog 条目
  */

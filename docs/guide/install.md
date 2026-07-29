@@ -10,7 +10,7 @@
 > sfmc
 ```
 
-> 当前仅开放 **beta** 通道；裸 `@sfmc-bds/sfmc` 可能仍解析到旧的 `latest` 0.1.0。详见 [npm 发布指南](../dev/npm-publish.md)。
+> 当前仅开放 **beta** 通道。详见 [npm 发布指南](../dev/npm-publish.md)。
 
 ## npm monorepo
 

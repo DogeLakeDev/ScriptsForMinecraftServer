@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 按 NPM_PUBLISH_PACKAGES 构建可发包。
  * - 无参数：全量拓扑 build（changeset-release / 本地发版）

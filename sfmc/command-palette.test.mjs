@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * command-palette 补全器单测
  */

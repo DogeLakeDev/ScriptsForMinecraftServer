@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * argv-parse.test.mjs
  */

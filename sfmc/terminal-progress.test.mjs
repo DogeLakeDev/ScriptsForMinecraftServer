@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * terminal-progress / bindByteProgressToBar 契约测试
  * 从 @sfmc-bds/sdk/logs 导入权威实现（需 workspace build）。

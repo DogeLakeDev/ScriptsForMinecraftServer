@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 推送当前分支与发版 tag（优先读 .sfmc-release-tags.json）。
  * CI 下默认只推 tag（SFMC_PUSH_TAGS_ONLY=1 或 CI=true）。

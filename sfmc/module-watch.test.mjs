@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * module-watch.test.mjs — sfmc mod watch 的纯函数表驱动
  * 仅覆盖 resolveLocalModuleRoot 规则（其它都是 fs.watch 行为，留 e2e 验证）。

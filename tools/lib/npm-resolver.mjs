@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/npm-resolver.mjs — npm 包名解析（单一权威）
  *

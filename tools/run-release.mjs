@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/run-release.mjs — 一键发版编排（替代根 package.json 里一长串 run-s）
  *

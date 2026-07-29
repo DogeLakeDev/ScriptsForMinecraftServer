@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * scaffold-redirect.test.mjs — new-module.mjs 的 mode 切换表驱动
  *

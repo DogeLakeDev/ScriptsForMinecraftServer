@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/smoke-modules.mjs — 模块 API 冒烟(需已启动的 db-server)
  *

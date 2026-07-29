@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * install-resolver.test.mjs — npm 包名解析表驱动
  */

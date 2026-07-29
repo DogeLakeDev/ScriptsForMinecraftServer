@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * 调用 MkDocs（先确保 TypeDoc 已生成）
  * 用法:

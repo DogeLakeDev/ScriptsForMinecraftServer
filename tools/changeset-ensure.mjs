@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 若尚无待消费 changeset，则交互式执行 `changeset`；已有则跳过。
  */

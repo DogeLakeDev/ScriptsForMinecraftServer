@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * npm-publish 可发包清单 — 唯一权威来源(DRY)。
  * workflow / docs / pack:verify 应对齐本表,勿在 yaml 里再抄一份 case/map。

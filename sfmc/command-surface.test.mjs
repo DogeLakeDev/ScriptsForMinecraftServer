@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * command-surface.test.mjs — 通道门禁纯函数表驱动
  */

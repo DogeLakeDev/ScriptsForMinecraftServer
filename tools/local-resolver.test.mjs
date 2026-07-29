@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * local-resolver.test.mjs — `--from local` 路径解析表驱动
  *

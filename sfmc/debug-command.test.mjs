@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * debug-command.test.mjs — BDS variables.json / secrets.json 读写
  */

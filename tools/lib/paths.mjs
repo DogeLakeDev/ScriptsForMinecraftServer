@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/paths.mjs — 仓库根与模块相关路径
  */

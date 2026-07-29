@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 在 changeset version 之后提交 package.json / CHANGELOG / .changeset 变更。
  */

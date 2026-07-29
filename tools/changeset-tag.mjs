@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 为当前可发包创建 git tag（与 changeset publish 同格式: name@version）。
  * 已存在的 tag 跳过。写入 .sfmc-release-tags.json 供后续 push / gh release 使用。

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 发版模式门禁。
  *   node tools/changeset-assert-mode.mjs --pre      # 要求处于 pre mode

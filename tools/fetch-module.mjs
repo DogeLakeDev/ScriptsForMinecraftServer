@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/fetch-module.mjs — 从 npm / GitHub / 本地 artifact 安装模块到 modules/packages/<id>/
  *

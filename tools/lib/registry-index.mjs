@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/registry-index.mjs — 解析 Tanya7z/sfmc-modules index.json
  *

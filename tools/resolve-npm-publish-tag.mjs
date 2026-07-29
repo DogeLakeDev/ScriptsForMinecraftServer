@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * 解析 npm-publish tag,写出 GitHub Actions outputs。
  * Tag 形如: @sfmc-bds/sdk@v0.1.0

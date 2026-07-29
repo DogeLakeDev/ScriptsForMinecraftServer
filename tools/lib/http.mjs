@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/http.mjs — 轻量 HTTP JSON 客户端(供 smoke / ootb)
  */

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * log-filter.test.mjs — 纯函数表驱动（不测 IO）
  */

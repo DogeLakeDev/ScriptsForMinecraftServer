@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/check-minecraft-versions.mjs — 校验 @minecraft/* 版本与主仓权威 pin 一致
  *

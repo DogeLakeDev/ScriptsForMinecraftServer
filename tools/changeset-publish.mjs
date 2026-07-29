@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * changeset publish 包装：
  * - 跳过 lifecycle scripts（CI 已先 build；避免多包并行 prepublishOnly 抢 tsc7）

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * tools/new-module.mjs — 生成最小模块骨架
  *

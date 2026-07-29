@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/minecraft-versions.mjs — @minecraft/* 版本权威来源与扫描
  *

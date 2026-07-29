@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * 生成 @sfmc-bds/sdk 的 TypeDoc Markdown，写入 docs/reference/sdk/
  * 用法: node tools/docs-typedoc.mjs

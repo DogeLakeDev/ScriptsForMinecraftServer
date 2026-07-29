@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * tools/lib/catalog.mjs — modules/catalog.json 读写与同步
  */

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * module-publish.test.mjs — sfmc mod publish 纯函数表驱动
  */
