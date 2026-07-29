@@ -20,13 +20,23 @@
     "fix-scan-dest-occupancy-merge",
     "four-turtles-lay",
     "khaki-sheep-refuse",
+    "mod-install-npm",
+    "mod-publish",
+    "module-index-only",
+    "ninety-showers-call",
+    "publish-gh-pr",
     "ripe-turkeys-invite",
     "sapi-debug-sentry",
+    "scaffold-redirect",
+    "sdk-testing-harness",
     "sfmc-cli-surface-split",
     "sfmc-cli-ux-pack-probe",
     "sfmc-debug-command",
+    "sfmc-mod-watch",
     "sfmc-module-pack-spawn",
     "sunny-boxes-hang",
-    "twelve-llamas-talk"
+    "twelve-llamas-talk",
+    "verify-module-publish",
+    "wild-owls-appear"
   ]
 }

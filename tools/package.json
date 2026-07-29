@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/tools",
-  "version": "0.2.0-beta.6",
+  "version": "0.2.0-beta.7",
   "description": "SFMC dev tools - testing before build",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "^0.2.0-beta.6",
-    "@sfmc-bds/sdk": "^0.2.0-beta.5"
+    "@sfmc-bds/sdk": "^0.2.0-beta.6"
   },
   "publishConfig": {
     "access": "public",
