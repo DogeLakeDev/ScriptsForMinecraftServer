@@ -63,3 +63,4 @@ memory/
 /site/
 /docs/reference/sdk/**
 !/docs/reference/sdk/.pages
+ScriptsForMinecraftServer.code-workspace

@@ -1,15 +1,31 @@
-# 使用指南
+# 安装
 
-⚡️ 快速上手。
+## npm 聚合包
 
-- [安装](./install.md)
-- [首次运行](./first-run.md)
-- [服务管理](./services.md)
-- [模块](./modules.md)
-- [模块编译](./behavior-pack.md)
-- [资源包管理](./world-packs.md)
-- [CurseForge 世界包更新](./pack-update.md)
-- [QQ 互通](./qq-bridge.md)
-- [配置说明](./config.md)
-- [备份与升级](./backup-upgrade.md)
-- [排障](./troubleshooting.md)
+```bash
+> node -v   # 需要nodejs v22.13 或更高
+
+> npm i -g @sfmc-bds/sfmc@beta
+> mkdir my-server && cd my-server # 建议创建一个空文件夹作为工作目录
+> sfmc
+```
+
+> 当前仅开放 **beta** 通道。详见 [npm 发布指南](../dev/npm-publish.md)。
+
+## npm monorepo
+
+```bash
+> git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git
+> cd ScriptsForMinecraftServer
+> npm i
+> npm run build --workspaces --if-present # 第一次使用请先编译
+> npm run check-ootb
+> sfmc # 或者 npm run start 或者 node sfmc/dist/main.js
+
+> git clone https://github.com/Tanya7z/sfmc-modules.git # 如需制作模块 还需克隆模组源
+> npm i
+```
+
+> 首次运行会进入初始化向导。工作根默认为**当前目录**（可用环境变量 `SFMC_ROOT` 覆盖）。
+
+下一章：[首次运行](./first-run.md)
