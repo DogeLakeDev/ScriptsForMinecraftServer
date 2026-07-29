@@ -360,7 +360,7 @@ async function fromNpm(id, pkgName, flags) {
   const dir = await ensureTarget(id);
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   const { spawn: spawnChild } = await import("node:child_process");
-  await new Promise<void>((resolve, reject) => {
+  await new Promise((resolve, reject) => {
     const proc = spawnChild(
       npmCmd,
       [
@@ -635,7 +635,7 @@ async function extractTgz(tgzPath, dstDir) {
   const { spawn: spawnChild } = await import("node:child_process");
   const tmpPrefix = await fsp.mkdtemp(path.join(os.tmpdir(), "sfmc-tgz-"));
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  await new Promise<void>((resolve, reject) => {
+  await new Promise((resolve, reject) => {
     const proc = spawnChild(npmCmd, ["install", "--prefix", tmpPrefix, "--omit=dev", "--no-save", tgzPath], {
       stdio: ["ignore", "pipe", "pipe"],
     });
