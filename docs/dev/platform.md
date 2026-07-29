@@ -103,7 +103,7 @@ CLI 管理 debug（直接写 BDS 配置，改完后需 `sfmc mod reload` 或重�
 | `sfmc debug sentry on --dsn <url>` | 写入 `SENTRY_DSN` |
 | `sfmc debug sentry off` | 删除 `SENTRY_DSN` |
 
-开发类命令（`module create|dev|build|reload`、`debug`）在对应通道的 `help` 中以蓝色标出；无独立 `devmode` 开关。
+开发类命令（`module build|reload`、`module watch|test|publish`、`debug`）在对应通道的 `help` 中以蓝色标出；无独立 `devmode` 开关。`module create` / `module link` / `module dev` 已被移除。
 
 行为摘要：
 

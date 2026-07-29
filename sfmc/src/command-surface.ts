@@ -56,14 +56,16 @@ export const TOP_LEVEL_ALIASES: Readonly<Record<string, string>> = {
 /**
  * 顶层扁平短命令 → module 子命令（argv / REPL 共用，避免在 switch 里散落映射）
  * 不含 enable/disable（与 packs 冲突，仍走 /module 或 /packs）
+ *
+ * 与 packs 子命令对齐：`packs i` → `packs install`（mapPacksSubAlias）；
+ * module 顶层同样支持 `i` → `install`（见 TOP_LEVEL_ALIASES 与本表）。
  */
 export const MODULE_TOP_SHORTHAND: Readonly<Record<string, string>> = {
+  i: "install",
   install: "install",
   uninstall: "uninstall",
   search: "search",
   verify: "verify",
-  link: "link",
-  create: "create",
 };
 
 export function resolveModuleTopShorthand(cmd: string | undefined): string | undefined {
@@ -198,9 +200,6 @@ const TOP_DESC: Record<string, string> = {
   uninstall: "help.module.uninstall",
   search: "help.module.search",
   verify: "help.module.verify",
-  link: "help.module.link",
-  create: "help.module.create",
-  dev: "help.module.dev",
   watch: "help.module.watch",
   test: "help.module.test",
   publish: "help.module.publish",
@@ -217,9 +216,6 @@ const MODULE_DESC: Record<string, string> = {
   verify: "help.module.verify",
   enable: "help.module.toggle",
   disable: "help.module.toggle",
-  create: "help.module.create",
-  link: "help.module.link",
-  dev: "help.module.dev",
 };
 
 const PACKS_DESC: Record<string, string> = {
@@ -248,7 +244,7 @@ function serviceArgNodes(): PaletteNode[] {
 }
 
 function moduleChildNodes(mode: CommandMode): PaletteNode[] {
-  const noArg = new Set(["list", "build", "create", "dev"]);
+  const noArg = new Set(["list", "build"]);
   return listVisibleModuleSubs(mode).map((sub) => {
     const spec = findModuleSubSpec(sub);
     const node: PaletteNode = {
@@ -396,8 +392,6 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { id: "uninstall", name: "uninstall", channel: "both", aliases: ["remove"] },
   { id: "search", name: "search", channel: "both" },
   { id: "verify", name: "verify", channel: "both" },
-  { id: "link", name: "link", channel: "both" },
-  { id: "create", name: "create", channel: "both", needsTty: true, accent: "dev" },
 
   { id: "module.list", name: "module", sub: "list", channel: "both" },
   { id: "module.info", name: "module", sub: "info", channel: "both" },
@@ -415,23 +409,6 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { id: "module.verify", name: "module", sub: "verify", channel: "both" },
   { id: "module.enable", name: "module", sub: "enable", channel: "both" },
   { id: "module.disable", name: "module", sub: "disable", channel: "both" },
-  { id: "module.link", name: "module", sub: "link", channel: "both" },
-  {
-    id: "module.create",
-    name: "module",
-    sub: "create",
-    channel: "both",
-    needsTty: true,
-    accent: "dev",
-  },
-  {
-    id: "module.dev",
-    name: "module",
-    sub: "dev",
-    channel: "both",
-    needsTty: true,
-    accent: "dev",
-  },
   { id: "module.watch", name: "module", sub: "watch", channel: "both", accent: "dev" },
   { id: "module.test", name: "module", sub: "test", channel: "both", accent: "dev" },
   { id: "module.publish", name: "module", sub: "publish", channel: "both", accent: "dev" },

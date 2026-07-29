@@ -6,7 +6,7 @@
  *
  * 实际文件写入（assemble-bp / assemble-rp / deploy / enable-pack / disable-pack /
  * ensure-permission）通过 spawn bds-tools/cli-pack-manager.ts 的 verb 执行；
- * 与 module install/uninstall（→ tools/fetch-module.mjs）、module create
+ * 与 module install/uninstall（→ tools/fetch-module.mjs）、脚手架
  * （→ tools/new-module.mjs）保持同一架构：CLI 是 thin wrapper，工作在外部工具。
  *
  * 唯一权威：本文件 = `sfmc mod build|reload` 的派发入口；其他文件不得再

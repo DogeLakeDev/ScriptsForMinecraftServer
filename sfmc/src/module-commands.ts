@@ -7,7 +7,7 @@
  */
 
 import fs from "node:fs/promises";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { configPath, modulePath, readJson, type DBConfig, type ModuleLock } from "@sfmc-bds/sdk/node/config";
@@ -53,15 +53,12 @@ export const ALL_MODULE_SUBCOMMANDS = [
   "info",
   "enable",
   "disable",
-  "link",
-  "create",
-  "dev",
   "build",
   "reload",
 ] as const;
 
 /** 开发者样式子命令（蓝标，非门禁）。 */
-export const DEV_ACCENT_MODULE_SUBCOMMANDS = ["create", "dev", "build", "reload"] as const;
+export const DEV_ACCENT_MODULE_SUBCOMMANDS = ["build", "reload"] as const;
 
 /** @deprecated 使用 ALL_MODULE_SUBCOMMANDS 或 listVisibleModuleSubs。 */
 export const MODULE_SUBCOMMANDS = ALL_MODULE_SUBCOMMANDS;
@@ -408,8 +405,40 @@ export async function cmdModuleDisable(args: string[]): Promise<CliResult> {
 /* ───────────────────────────────────────────────────────────────
  *  install  — shells out to tools/fetch-module.mjs
  * ─────────────────────────────────────────────────────────────── */
+
+/**
+ * 预检 --from 取值是否是合法 scheme：
+ *   - npm:@scope/name / npm:<name>
+ *   - local[:<path>] / local
+ *   - tgz:<path>
+ *   - zip:<path>
+ *   - dir:<abs path>
+ *   - github:<owner>/<repo>[@tag]
+ *   - 裸路径：必须存在且为目录（裸文件应转 tgz:/zip:）
+ * 返回 null 表示合法；否则返回用户可读的错误文案。
+ */
+function validateFromScheme(from: string): string | null {
+  if (
+    from === "local" ||
+    from.startsWith("local:") ||
+    from.startsWith("dir:") ||
+    from.startsWith("npm:") ||
+    from.startsWith("tgz:") ||
+    from.startsWith("zip:") ||
+    from.startsWith("github:")
+  ) {
+    return null;
+  }
+  if (existsSync(from)) {
+    const st = lstatSync(from);
+    if (st.isDirectory()) return null;
+    return `--from 裸路径须为目录（文件请用 --from local:<tgz|zip>）: ${from}`;
+  }
+  return t("mod.fromUnknown", { value: from });
+}
+
 export async function cmdModuleInstall(args: string[]): Promise<string> {
-  // 支持: install <id> [id2 ...] [--from ...] [--link]
+  // 支持: install <id> [id2 ...] [--from ...] [--link] [--sha256 ...]
   const flags = parseFlags(args);
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -423,6 +452,12 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
   }
   if (positional.length === 0) {
     return c.yellow(t("mod.install.usage"));
+  }
+
+  /* scheme 预检：避免拼写错误延迟到子进程报错 */
+  if (flags.from) {
+    const err = validateFromScheme(flags.from);
+    if (err) return c.red(err);
   }
 
   const fetchScript = resolveFetchModule();
@@ -450,37 +485,6 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     });
     proc.on("error", (e) => resolve(c.red(`spawn failed: ${e.message}`)));
   });
-}
-
-/**
- * `mod link [id] --from dir:…|local:…`
- * - 有 id：等价 `install <id> --link --from …`（必须带 --from）
- * - 无 id：交互询问本地包路径并 link
- */
-export async function cmdModuleLink(args: string[]): Promise<string> {
-  const flags = parseFlags(args);
-  const positional: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--from" || args[i] === "--sha256") {
-      i++;
-      continue;
-    }
-    if (args[i]?.startsWith("--from=") || args[i]?.startsWith("--sha256=")) continue;
-    if (args[i]?.startsWith("--")) continue;
-    positional.push(args[i]!);
-  }
-
-  if (positional.length === 0) {
-    const { runModuleLinkWizard } = await import("./module-wizard.js");
-    return runModuleLinkWizard();
-  }
-
-  const id = positional[0]!;
-  if (!flags.from) {
-    return c.red(t("mod.linkNeedsFrom"));
-  }
-  const installArgs = [id, "--link", "--from", flags.from];
-  return cmdModuleInstall(installArgs);
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -620,16 +624,6 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "reload": {
       const { cmdModuleReload } = await import("./module-pack-build.js");
       return cmdModuleReload(args);
-    }
-    case "create": {
-      const { runModuleCreateWizard } = await import("./module-wizard.js");
-      return runModuleCreateWizard();
-    }
-    case "link":
-      return cmdModuleLink(args);
-    case "dev": {
-      const { runModuleDevWizard } = await import("./module-wizard.js");
-      return runModuleDevWizard();
     }
     case "watch": {
       const { cmdModuleWatch } = await import("./module-watch.js");

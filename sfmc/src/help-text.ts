@@ -17,9 +17,6 @@ const MODULE_HELP_ENTRIES: ReadonlyArray<{ sub: string; suffix: string; key: str
   { sub: "verify", suffix: " [id]", key: "help.module.verify" },
   { sub: "info", suffix: " <id>", key: "help.module.info" },
   { sub: "enable", suffix: "|disable <id>", key: "help.module.toggle" },
-  { sub: "create", suffix: "", key: "help.module.create" },
-  { sub: "link", suffix: " [id]", key: "help.module.link" },
-  { sub: "dev", suffix: "", key: "help.module.dev" },
   { sub: "build", suffix: "", key: "help.module.build" },
   { sub: "reload", suffix: " [--build-only]", key: "help.module.reload" },
 ];
@@ -87,11 +84,10 @@ ${helpLine(`${c.green("-v")}, ${c.green("--version")}`, t("help.version"))}
     const install = `
 ${c.bold(t("help.section.module"))}
 ${helpLine(`${c.green("sfmc mod install")} <id>`, t("help.module.install"))}
-${helpLine(`${c.green("sfmc mod install")} <id> --from <path> --link`, t("help.module.link"))}
+${helpLine(`${c.green("sfmc mod install")} <id> --from <path> --link`, t("help.module.install"))}
 ${helpLine(`${c.green("sfmc mod uninstall")} <id>`, t("help.module.uninstall"))}
 ${helpLine(`${c.green("sfmc mod search")} [id]`, t("help.module.search"))}
 ${helpLine(`${c.green("sfmc mod verify")} [id]`, t("help.module.verify"))}
-${helpLine(`${c.green("sfmc mod create")}`, t("help.module.create"))}
 ${moduleHelpBlock("argv")}
 `;
 

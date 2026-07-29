@@ -17,9 +17,8 @@
 ## 本地最小流程（模块作者）
 
 ```bash
-# Use Tanya7z/sfmc-module-template 或:
-sfmc module create
-# … 开发 …
+# Use Tanya7z/sfmc-module-template 派生自己的仓；本地不用 scaffold 命令。
+# 在作者仓写代码…
 # 主仓:
 sfmc mod install <id> --from dir:<作者仓> --link
 sfmc mod reload

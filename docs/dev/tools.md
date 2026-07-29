@@ -33,7 +33,7 @@ node /path/to/tools/new-module.mjs my-mod --name "我的模块"
 # --official → @sfmc-bds/module-*；默认 @CHANGE_ME/sfmc-module-*
 ```
 
-交互：`sfmc module create`。`--root` / `SFMC_MODULES_ROOT` 已移除。
+注意：`sfmc module create` / `sfmc mod create` 已被移除；脚手架请直接调用 `tools/new-module.mjs`（或 clone `Tanya7z/sfmc-module-template` 派生仓）。`--root` / `SFMC_MODULES_ROOT` 已移除。
 
 ## 共享库
 

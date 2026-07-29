@@ -39,15 +39,6 @@ test("status 两边可用", () => {
   assert.equal(canRunCommand(spec, { mode: "repl", ...tty }).ok, true);
 });
 
-test("create 需 TTY", () => {
-  const spec = findModuleSubSpec("create");
-  assert.ok(spec);
-  assert.equal(canRunCommand(spec, { mode: "argv", ...tty }).ok, true);
-  const r = canRunCommand(spec, { mode: "argv", ...noTty });
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, "needTty");
-});
-
 test("build/reload/install 在 REPL 可见", () => {
   const build = findModuleSubSpec("build");
   assert.equal(build?.accent, "dev");
@@ -101,13 +92,16 @@ test("命令面板根列不含 module 短命令，统一挂在 /module", async (
   const { listPaletteRoots } = await import("./dist/command-surface.js");
   const roots = listPaletteRoots("repl");
   const tokens = roots.map((n) => n.token);
-  for (const shy of ["install", "uninstall", "search", "verify", "link", "create"]) {
+  for (const shy of ["install", "uninstall", "search", "verify", "link", "create", "dev"]) {
     assert.ok(!tokens.includes(shy), `面板根列不应有 /${shy}`);
   }
   const mod = roots.find((n) => n.token === "module");
   assert.ok(mod?.children?.length);
   const childTokens = mod.children.map((n) => n.token);
   assert.ok(childTokens.includes("install"));
-  assert.ok(childTokens.includes("create"));
+  assert.ok(childTokens.includes("uninstall"));
+  assert.ok(!childTokens.includes("create"));
+  assert.ok(!childTokens.includes("link"));
+  assert.ok(!childTokens.includes("dev"));
   assert.equal(mod.label, "/module");
 });

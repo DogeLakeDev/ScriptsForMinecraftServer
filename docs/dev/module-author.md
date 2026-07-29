@@ -12,13 +12,12 @@
 **含义：**
 
 - 作者 **不** clone `sfmc-modules` 来改业务。
-- 新模块：用 `Tanya7z/sfmc-module-template`（GitHub Use this template）派生，或 `sfmc module create` 生成单包根。
+- 新模块：用 `Tanya7z/sfmc-module-template`（GitHub Use this template）派生，或直接调用 `node tools/new-module.mjs <id>` 生成单包根（见 [tools.md](./tools.md)）。
 
 ## 推荐入手路径
 
 ```bash
 # 1) GitHub Use this template → Tanya7z/sfmc-module-template
-#    或: sfmc module create（交互脚手架到空目录）
 node scripts/rename.mjs my-feature --name "我的功能" --scope <npm用户>
 npm install
 npm run typecheck

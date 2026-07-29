@@ -391,14 +391,8 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 1 && verb === "reload") {
         return ["--build-only"].filter(sw);
       }
-      if (argIndex === 1 && verb === "link") {
-        return ["--from"].filter(sw);
-      }
       if (argIndex >= 1 && verb === "install") {
         return ["--from", "--sha256", "--link"].filter(sw);
-      }
-      if (argIndex >= 2 && verb === "link") {
-        return ["--from"].filter(sw);
       }
       if (argIndex >= 1 && verb === "list") {
         return ["--from", "--sha256"].filter(sw);
@@ -1201,15 +1195,7 @@ async function execCmd(parts: string[]): Promise<void> {
           stdout.write(g + "\n");
           break;
         }
-        /* create/dev 等交互向导需暂时退出 raw */
-        const needsCooked = modShort === "create" || modShort === "dev";
-        const wasRaw = stdin.isRaw ?? false;
-        if (needsCooked) setRaw(false);
-        try {
-          stdout.write((await dispatchModuleCommand(modShort, args)) + "\n");
-        } finally {
-          if (needsCooked) setRaw(wasRaw);
-        }
+        stdout.write((await dispatchModuleCommand(modShort, args)) + "\n");
         break;
       }
       if (isModuleCommand(cmd)) {
@@ -1219,14 +1205,7 @@ async function execCmd(parts: string[]): Promise<void> {
           stdout.write(g + "\n");
           break;
         }
-        const needsCooked = sub === "create" || sub === "dev";
-        const wasRaw = stdin.isRaw ?? false;
-        if (needsCooked) setRaw(false);
-        try {
-          stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
-        } finally {
-          if (needsCooked) setRaw(wasRaw);
-        }
+        stdout.write((await dispatchModuleCommand(sub, subRest)) + "\n");
         break;
       }
       if (isPacksCommand(cmd)) {

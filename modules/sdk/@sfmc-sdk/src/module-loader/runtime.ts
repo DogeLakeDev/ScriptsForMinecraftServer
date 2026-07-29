@@ -1,7 +1,7 @@
 import { system } from "@minecraft/server";
 import { debug } from "../sapi/runtime/debug-log.js";
 import { ConfigManager } from "./internal/config-manager.js";
-import { ModuleId, Modules } from "./internal/module-keys.js";
+import { ModuleId } from "./internal/module-keys.js";
 import { setConfigModuleContext, clearConfigModuleContext } from "../sapi/config/client.js";
 import {
   setDbModuleContext,
@@ -55,8 +55,6 @@ let worldLoaded = false;
 /** 启停查询键:catalog id 本身 + 旧 Modules 枚举映射的 configKey。 */
 function enableKeysFor(id: ModuleId): string[] {
   const keys = [id];
-  const legacy = (Modules as Record<string, string>)[id];
-  if (legacy && legacy !== id) keys.push(legacy);
   const configKey = ConfigManager.getModuleConfigKey(id);
   if (configKey && !keys.includes(configKey)) keys.push(configKey);
   return keys;
@@ -65,7 +63,7 @@ function enableKeysFor(id: ModuleId): string[] {
 /** 启动前注入 db/config/service 模块身份(DIP:token 来自 configs/all,非 fs)。 */
 function applyModuleAuthContext(id: ModuleId): void {
   const token = ConfigManager.getModuleToken(id);
-  const configKey = ConfigManager.getModuleConfigKey(id) || (Modules as Record<string, string>)[id] || "";
+  const configKey = ConfigManager.getModuleConfigKey(id) || "";
   if (!token) {
     console.warn(
       `[Module:${id}] 无 module token(configs/all.module_tokens 缺失);` +
@@ -235,11 +233,9 @@ export class ModuleRegistry {
     } catch (e) {
       debug.e("Module", `[${id}] cleanup hook failed`, e);
     }
-    // 2. 注销模块持有的命令(用 catalog id;旧 Modules 别名作次选)
+    // 2. 注销模块持有的命令
     try {
       _cmdUnregisterByModule(id);
-      const legacy = (Modules as Record<string, string>)[id];
-      if (legacy) _cmdUnregisterByModule(legacy);
     } catch {}
     // 3. 注销模块注册的事件订阅 / runInterval
     const fns = cleanups.get(id);
