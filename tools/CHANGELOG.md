@@ -1,5 +1,15 @@
 # @sfmc-bds/tools
 
+## 0.2.0-beta.7
+
+### Patch Changes
+
+- b55557b: 纯 index 契约：`--link` 支持 `local:`；index map 支持 `npm`；拆除旁路 sfmc-modules monorepo DX；`mod publish` 写 map 并拒绝 private/非官方 `@sfmc-bds`。
+- e7e7e61: // @ts-check：添加到 23 个 tools/_.mjs 脚本 + 11 个 tools/lib/_.mjs 库 + 5 个 tools/_.test.mjs + 11 个 sfmc/_.test.mjs + 5 个 changeset 系列
+- Updated dependencies [c72fdc8]
+- Updated dependencies [0992ab9]
+  - @sfmc-bds/sdk@0.2.0-beta.6
+
 ## 0.2.0-beta.6
 
 ### Patch Changes

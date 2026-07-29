@@ -1,5 +1,90 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.6
+
+### Minor Changes
+
+- 466d214: feat(tools): `sfmc mod install` 默认走 npm；`--from local` 接受 dir/.tgz/.zip
+
+  - `tools/lib/npm-resolver.mjs`：单一权威的 npm 包名解析（短 id / feature-* / core-* / @scope/name）。
+  - `tools/fetch-module.mjs`：
+    - 新增 `npm:` 前缀（`npm install --prefix packages/<id> --omit=dev --no-save` 隔离安装）。
+    - 新增 `tgz:` / `zip:` 显式前缀；`local:` 现在接受 dir/`.tgz`/`.zip`，无路径默认 cwd。
+    - `fromLocal` 重构为单一入口（resolveLocalPath），避免 dir/tgz/zip 解析分散。
+    - zip 安装强制校验内含 `package.json` + `sapi/manifest.json`，缺关键文件硬错误并清理污染目录。
+    - tgz 安装委托 `npm install --prefix tmp <tarball>`（不重新发明 tar，零新依赖）。
+    - 缺省 source 解析：先看 first-party registry（兼容 `Tanya7z/sfmc-modules`），否则按 `@sfmc-bds/module-<folder>` 走 npm；常见 npm 错误翻译为中文可读 + 下一步动作（404 / EACCES / ERESOLVE / ETIMEDOUT）。
+  - `tools/install-resolver.test.mjs` + `tools/local-resolver.test.mjs`：表驱动共 16 用例通过。
+  - 文档：`docs/guide/modules.md` + `docs/dev/module-author.md` 增「安装源」表格，钉死 default 解析顺序。
+
+- 53d7119: feat(sfmc): 新增 `sfmc mod publish` 保姆式 CLI
+
+  - 流水线：npm whoami 检测 → scope 推断（默认 `<npm-username>`）→ dry-run 预检 → version bump → `npm publish` 透传 → 薄 index PR（占位）。
+  - 错误翻译（npm 原文 → 中文 + 下一步动作）：`ENEEDAUTH` / `EOTP` / 邮箱未确认 / 无权限 publish / 402 Payment / 包名太接近 / `ERESOLVE` / `ETIMEDOUT` / 默认透传。
+  - dry-run 预检三件套：manifest v2 schema、package.json#files 含 `sapi/`、`npm pack --dry-run` 解析 tarball 文件清单。
+  - version bump：`patch` / `minor` / `major` / `custom <x.y.z[-prerelease]>`；写入 `package.json#version`，**不改** manifest；publish 失败时回滚 bump。
+  - scope 模型：作者发自己 scope（`@<username>/sfmc-module-<id>`）；**不**触碰 `@sfmc-bds/*`（与 `mod install` 隔离）。
+  - 薄 index PR：当前为占位（`gh api` 真实调用需 `gh auth login` + 远端 `sfmc-modules` 仓；保留 `--skip-index-pr` 选项）。
+  - Windows 兼容：`spawn npm.cmd` 通过 `cmd /c npm`（避开 DEP0190 安全警告 + `shell:true` 隐患）。同步修复 `cmdModuleTest` 同样问题。
+  - 测试：`module-publish.test.mjs` 8 cases（parsePublishFlags / bumpSemver / 错误翻译表 / runPrecheck / defaultScopeFor）；sfmc workspace 85/85 通过。
+  - i18n：`publish.*` 中英文案 + `help.module.publish` 子命令描述。
+
+  > CLI 是 `npm publish` 的编排器 + 检查器 + 错误翻译；**不**替身 npm 行为。所有鉴权（`npm login --auth-type=web` / 2FA / 邮箱确认）走 npm 本身。
+
+- 2a5b502: feat(sfmc): `mod publish` 接 gh CLI 真实开薄 index PR
+
+  - `openIndexPr` 从占位升级成可执行：检测 `gh` 鉴权 → `gh repo fork` → clone fork → `git checkout -b publish/<id>-<ver>` → patch `index.json`（upsert 幂等）→ `git commit` → `git push` → `gh pr create`。
+  - 新 CLI flags：
+    - `--gh-repo OWNER/REPO`（默认 `Tanya7z/sfmc-modules`）
+    - `--gh-push` 显式 opt-in 真执行（否则只打印意图，避免误污染远端）
+    - `--gh-fork-remote <name>`（默认 `sfmc-modules-fork`）
+  - 安全：默认行为 = 打印 intent + gh 命令清单（dry-run 友好）；真执行需 `--gh-push`；缺鉴权时降级为 dry-run + 提示 `gh auth login`。
+  - 新函数 `indexEntryFor(pkgName, version, sdkRange)` / `splitOwnerRepo(s)` / `patchIndexFile(path, entry)` —— 单一职责，可单测。
+  - `patchIndexFile` 校验 `id` 已存在则报错（避免静默覆盖历史版本）。
+  - 测试：`module-publish.test.mjs` 加 8 cases（splitOwnerRepo / indexEntryFor / patchIndexFile 缺文件 / 追加排序 / 重复 id / openIndexPr dry-run / skip-index-pr / 非法 repo）；sfmc workspace **93/93** 通过。
+  - npm publish 成功但 PR 失败 → **不回滚 publish**（包已发）；给明确「手动补 index.json」提示。
+
+- c72fdc8: feat(tools): 脚手架转向 cwd 单包根（与 Tanya7z/sfmc-module-template 同构）
+
+  - `tools/new-module.mjs`：
+    - 默认（缺省 `--root`）：写到 **cwd** 作为单包根（包根 = 包仓库根），生成自包含 `package.json` + 自包含 `sapi/tsconfig.json` + `$schema` 指向 `node_modules/@sfmc-bds/sdk`。
+    - `--root <path>` / `SFMC_MODULES_ROOT` 显式 legacy 模式：仍写到 `<root>/packages/<id>`（兼容旧 sfmc-modules 工作区）。
+    - 拒绝 `--root` 指向主仓 `modules/packages`（那是 install 落点，不是开发工作区）。
+    - 终端打印「模式: cwd 单包根 / legacy 工作区」+ 各自的下一步命令。
+  - `tools/scaffold-redirect.test.mjs`：5 cases 表驱动（cwd 单包 / legacy / 拒主仓 / 缺 packages / env fallback）。
+  - i18n：`modwiz.genPackage` / `modwiz.skeletonWritten` 等改为 cwd 友好文案。
+  - 文档：上一轮 `module-author.md` 已写明 `sfmc module create` 在模块仓根执行 + `--from local --link` 装入主仓；本 PR 落地脚手架默认行为。
+
+- 2580488: feat(sfmc): 新增 `mod watch` 与 `mod test` 子命令
+
+  - `sfmc mod watch [--from local[:path]] [--no-reload]`：监听 `sapi/src/**` 变更，~200ms 防抖后复用 `mod reload` 同一路径（build → deploy → 直写 BDS stdin 发 `reload`）。改 `sapi/manifest.json` / `sapi/tsconfig.json` 仅提示「SAPI 启动期缓存，请重启 BDS 进程」。
+  - `sfmc mod test [--from local[:path]] [-- <args>]`：解析 `--from local[:path]`，spawn `npm test` 透传 stdio，让模块仓的 `scripts.test` 自己决定怎么跑。
+  - 进程探测复用 `queryServicesRuntime` + `probeBdsStatus`（与 `mod reload` 同源），不另写一遍 reload 路径。
+  - i18n：新增 `watch.*` / `help.module.watch|test` 中英文案。
+  - 模板仓 `Tanya7z/sfmc-module-template` 已在主仓外部 `D:\#WorkPlace\#MCBEProjects\sfmc-module-template\` 初始化并 commit；本仓库仅交付 CLI 与文档改动。
+  - 测试：sfmc workspace `npm test` 77/77 通过（含新增 6 个 watch resolver 表驱动用例）。
+
+- af175bc: feat(tools): 新增 `tools/verify-module-publish.mjs` pre-publish 守门
+
+  - 7 类硬检查（exit 1）：manifest v2 schema / 必填字段 / `package.name` 与 `manifest.id` 折叠一致 / `package.files` 含 `sapi/` / `npm pack` 真实产物 tar 解析（验 `package.json` + `sapi/manifest.json` + `sapi/src/**`）/ 无 `@sfmc/sdk` 旧别名 / 显式声明 `@sfmc-bds/sdk` 依赖。
+  - 跨模块源码 import 警告（exit 0；不阻塞 publish）：相对路径深挖 ≥ 2 级、未授权模块引用。
+  - npm pack tar 解析：极简 tar 头解析器（512-byte 块 + null-padded name/size + typeflag）；用 `zlib.gunzipSync` 解 gzip（无新依赖）。
+  - Windows spawn：直接调 `node npm-cli.js`（不绕 cmd.exe）；合并 stdout + stderr（npm 11+ 把 notice 打到 stderr，tgz 名在 stdout）。
+  - 复用 `@sfmc-bds/bds-tools/zipx` 已有的同思路（防 zip-slip），不重复发明。
+  - 测试 `tools/verify-module-publish.test.mjs` 5 cases：模板仓（good fixture）+ 4 个坏 fixture（缺 manifest / 错 schemaVersion / name 不匹配 / 旧别名）。
+  - sfmc workspace 仍 93/93；全仓 typecheck 干净。
+  - 单独可跑；CI 可 `node tools/verify-module-publish.mjs` 拦截 publish。
+
+- 5567073: 重构：统一服务运行时查询并增强服务状态管理
+
+### Patch Changes
+
+- b55557b: 纯 index 契约：`--link` 支持 `local:`；index map 支持 `npm`；拆除旁路 sfmc-modules monorepo DX；`mod publish` 写 map 并拒绝 private/非官方 `@sfmc-bds`。
+- e7e7e61: // @ts-check：添加到 23 个 tools/_.mjs 脚本 + 11 个 tools/lib/_.mjs 库 + 5 个 tools/_.test.mjs + 11 个 sfmc/_.test.mjs + 5 个 changeset 系列
+- Updated dependencies [c72fdc8]
+- Updated dependencies [0992ab9]
+  - @sfmc-bds/sdk@0.2.0-beta.6
+
 ## 0.2.0-beta.5
 
 ### Minor Changes
