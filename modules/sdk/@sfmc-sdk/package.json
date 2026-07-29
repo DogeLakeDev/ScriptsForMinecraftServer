@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/sdk",
-  "version": "0.2.0-beta.6",
+  "version": "0.2.0-beta.7",
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, db/config/service capabilities, and behavior-pack build.",
   "author": "Shiroha7z",
   "license": "ISC",
