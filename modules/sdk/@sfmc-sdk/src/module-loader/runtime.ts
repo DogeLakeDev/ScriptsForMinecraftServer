@@ -1,7 +1,24 @@
-import { system } from "@minecraft/server";
 import { debug } from "../sapi/runtime/debug-log.js";
 import { ConfigManager } from "./internal/config-manager.js";
 import { ModuleId } from "./internal/module-keys.js";
+
+/**
+ * BDS SAPI host 抽象（由 install.ts 在 BDS 进程里注入）。
+ * 模块 loader 只调用 stub 接口，不直接 import @minecraft/server——
+ * 让模块 entry 在 `node --test` 等非 BDS 环境里也能 import module-loader。
+ */
+export type BdsSystem = {
+  clearRun(id: number): void;
+  runInterval?(cb: () => void, ticks?: number): number;
+  run?(cb: () => void, ticks?: number): number;
+};
+
+export {}; /* 确保本文件被当作 module（declare global 才能生效） */
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __sfmcBdsSystem: BdsSystem | undefined;
+}
 import { setConfigModuleContext, clearConfigModuleContext } from "../sapi/config/client.js";
 import {
   setDbModuleContext,
@@ -111,11 +128,16 @@ export class ModuleRegistry {
     ModuleRegistry.trackCleanup(modId, () => _cmdUnregister(name));
   }
 
-  /** 登记 system.runInterval/run 的 cleanup。 */
+  /** 登记 system.runInterval/run 的 cleanup。
+   *
+   * DIP：模块 loader 不再顶层 import `@minecraft/server`。`install.ts`
+   * 在 BDS 进程里把 `(await import("@minecraft/server")).system` 写到
+   * `globalThis.__sfmcBdsSystem`；测试环境（无 BDS）由 SDK testing
+   * harness 或调用方注入一个 stub。fallback 为 noop。 */
   static trackSystemRun(modId: ModuleId, runId: number): void {
     ModuleRegistry.trackCleanup(modId, () => {
       try {
-        system.clearRun(runId);
+        globalThis.__sfmcBdsSystem?.clearRun(runId);
       } catch {}
     });
   }

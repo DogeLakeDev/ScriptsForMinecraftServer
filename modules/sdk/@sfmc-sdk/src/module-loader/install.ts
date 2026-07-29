@@ -19,7 +19,7 @@ import { debug } from "../sapi/runtime/debug-log.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import type { DataAdapter } from "./data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
-import { ModuleRegistry } from "./runtime.js";
+import { ModuleRegistry, type BdsSystem } from "./runtime.js";
 
 export interface HostBackend {
   /** 注入 db-server 数据适配器 */
@@ -36,7 +36,7 @@ export interface ModuleSurface {
   afterWorldLoad: boolean;
 }
 
-/** `installHostBootstrap` 可选参数。 */
+/** installHostBootstrap 可选参数。 */
 export interface InstallOptions {
   /** db-server URL(默认 http://127.0.0.1:3001) */
   dbServerUrl?: string;
@@ -57,6 +57,10 @@ let _installed = false;
 export function installHostBootstrap(options: InstallOptions = {}): HostBackend {
   if (_installed) return _bootstrapBackend();
   _installed = true;
+
+  // DIP:把 BDS SAPI system 注入 module-loader 的 host 抽象。
+  // 模块 loader 只引用 globalThis.__sfmcBdsSystem,不顶层 import @minecraft/server。
+  globalThis.__sfmcBdsSystem = system as unknown as BdsSystem;
 
   // DIP:ConfigManager ← DataAdapter;默认 HttpDB,可被 options 替换(测试/自定义 host)
   const adapter =

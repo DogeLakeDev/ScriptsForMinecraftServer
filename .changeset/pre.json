@@ -28,6 +28,7 @@
     "publish-gh-pr",
     "ripe-turkeys-invite",
     "sapi-debug-sentry",
+    "sdk-module-loader-dip",
     "scaffold-redirect",
     "sdk-testing-harness",
     "sfmc-cli-surface-split",
