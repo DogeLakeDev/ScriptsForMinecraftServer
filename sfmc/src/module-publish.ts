@@ -187,8 +187,21 @@ export async function runPrecheck(cwd: string): Promise<PrecheckResult> {
     const pkg = JSON.parse(await fs.readFile(path.join(cwd, "package.json"), "utf8")) as {
       name?: string;
       files?: string[];
+      private?: boolean;
     };
     if (!pkg.name) errors.push("package.json#name 缺失");
+    if (pkg.private === true) {
+      errors.push(`package.json private=true，无法 npm publish；请删除 private 字段`);
+    }
+    if (
+      typeof pkg.name === "string" &&
+      pkg.name.startsWith("@sfmc-bds/") &&
+      !process.env.SFMC_OFFICIAL_PUBLISH
+    ) {
+      errors.push(
+        `禁止向 @sfmc-bds/* 发包（非官方）。请改用 @<user>/sfmc-module-<id>，或设置 SFMC_OFFICIAL_PUBLISH=1`
+      );
+    }
     if (!Array.isArray(pkg.files) || !pkg.files.includes("sapi")) {
       warnings.push(`package.json#files 不含 "sapi"；npm pack 会打出空 tarball。建议加 ["sapi", "test"]。`);
     }
@@ -491,34 +504,46 @@ async function spawnBranch(cwd: string, branch: string): Promise<GhResult> {
   return spawnGit(cwd, ["checkout", "-b", branch]);
 }
 
-/** 在现有 index.json 上 upsert 一条；缺文件则建空数组。 */
+/** 在现有 index.json 上 upsert 一条（map v2）；缺文件则建空 map。兼容旧数组并迁移。 */
 export async function patchIndexFile(
   indexPath: string,
   entry: ReturnType<typeof indexEntryFor>
 ): Promise<{ ok: boolean; error?: string }> {
-  let list: Array<Record<string, unknown>> = [];
+  let version = 2;
+  const modules: Record<string, Record<string, unknown>> = {};
   try {
     const text = await fs.readFile(indexPath, "utf8");
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed.modules)) list = parsed.modules;
-    else if (Array.isArray(parsed)) list = parsed;
+    const parsed = JSON.parse(text) as {
+      version?: number;
+      modules?: Record<string, Record<string, unknown>> | Array<Record<string, unknown>>;
+    };
+    if (typeof parsed.version === "number") version = Math.max(2, parsed.version);
+    if (parsed.modules && !Array.isArray(parsed.modules) && typeof parsed.modules === "object") {
+      Object.assign(modules, parsed.modules);
+    } else if (Array.isArray(parsed.modules)) {
+      for (const m of parsed.modules) {
+        if (m && typeof m === "object" && typeof m.id === "string") {
+          const { id, ...rest } = m as { id: string } & Record<string, unknown>;
+          modules[id] = rest;
+        }
+      }
+    }
   } catch {
-    /* 文件不存在或非法 → 当空数组 */
+    /* 文件不存在或非法 → 新建 */
   }
-  /* 幂等 upsert：id 已有则跳过 */
-  if (list.some((m) => m && typeof m === "object" && (m as { id?: string }).id === entry.id)) {
+  if (modules[entry.id]) {
     return { ok: false, error: `${entry.id} 已在 index.json 中存在；请手动检查后再 publish` };
   }
-  list.push({
-    id: entry.id,
+  modules[entry.id] = {
     npm: entry.npm,
     version: entry.version,
     sdk: entry.sdk,
     timestamp: entry.timestamp,
-  });
-  list.sort((a, b) => String((a as { id: string }).id).localeCompare(String((b as { id: string }).id)));
+  };
+  const sorted: Record<string, Record<string, unknown>> = {};
+  for (const k of Object.keys(modules).sort()) sorted[k] = modules[k]!;
   await fs.mkdir(path.dirname(indexPath), { recursive: true });
-  await fs.writeFile(indexPath, `${JSON.stringify({ version: 1, modules: list }, null, 2)}\n`, "utf8");
+  await fs.writeFile(indexPath, `${JSON.stringify({ version, modules: sorted }, null, 2)}\n`, "utf8");
   return { ok: true };
 }
 

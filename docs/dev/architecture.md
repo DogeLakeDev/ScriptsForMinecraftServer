@@ -3,18 +3,19 @@
 ## 分层
 
 ```
-┌──────────── sfmc-modules（外部）────────────┐
-│  index.json + packages/<folder>/            │
-└──────────────────┬──────────────────────────┘
-                   │ fetch-module
-┌──────────────────▼──────────────────────────┐
-│  主仓                                        │
-│  packages/ → catalog + lock                 │
-│  esbuild → packs/_build/sfmc-modules/ → BDS │
-│  db-server :3001  ←→  SAPI (BDS 内)         │
-│  qq-bridge :3002  →  db-server              │
-│  sfmc CLI 管理上述进程                       │
-└─────────────────────────────────────────────┘
+┌── 作者独立仓（template）──┐     ┌── sfmc-modules（薄 index）──┐
+│  sapi/ + package.json     │     │  index.json（npm 优先）      │
+│  npm publish ─────────────┼──►  │  登记 PR / mod publish       │
+└───────────────────────────┘     └────────────┬────────────────┘
+                                               │ mod search / defaultSourceFor
+┌──────────────────────────────────────────────▼────────────────┐
+│  主仓                                                          │
+│  modules/packages/ → catalog + lock（install 落点，可 --link） │
+│  esbuild → packs/_build/sfmc-modules/ → BDS                    │
+│  db-server :3001  ←→  SAPI (BDS 内)                            │
+│  qq-bridge :3002  →  db-server                                 │
+│  sfmc CLI 管理上述进程                                          │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ## SAPI 启动顺序
@@ -50,7 +51,8 @@ ModuleRegistry.register({
 
 | 数据 | 来源 |
 |------|------|
-| 模块契约 | `packages/<folder>/sapi/manifest.json` |
+| 模块契约 | 已装包 `modules/packages/<folder>/sapi/manifest.json` |
+| 发现目录 | `sfmc-modules/index.json` |
 | 已装列表 | `catalog.json`（mirror） |
 | 启停 | `module-lock.json` |
 | 运行时配置 | `configs/*.json` + db-server API |

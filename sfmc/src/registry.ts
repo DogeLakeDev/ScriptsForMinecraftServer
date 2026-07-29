@@ -26,8 +26,11 @@ const DEFAULT_REGISTRY_TAG = "main";
 const INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
 
 export interface RegistryEntry {
-  repo: string;
-  tag: string;
+  npm?: string;
+  version?: string;
+  sdk?: string;
+  repo?: string;
+  tag?: string;
 }
 export type RegistryIndex = Record<string, RegistryEntry>;
 
@@ -57,7 +60,7 @@ function writeCache(cache: RegistryCache): void {
 /**
  * 解析 first-party index.json。
  * 契约与 tools/lib/registry-index.mjs#parseRegistryIndex 保持一致：
- * `{ modules: { <folder>: { repo, tag } } }`。忽略 `_` 前缀元数据键。
+ * `{ modules: { <id>: { npm? | repo+tag } } }`。忽略 `_` 前缀元数据键。
  */
 export function parseRegistryIndex(json: unknown): RegistryIndex {
   if (typeof json !== "object" || json === null || Array.isArray(json)) {
@@ -66,15 +69,27 @@ export function parseRegistryIndex(json: unknown): RegistryIndex {
   const root = json as Record<string, unknown>;
   const modulesRaw = root.modules;
   if (typeof modulesRaw !== "object" || modulesRaw === null || Array.isArray(modulesRaw)) {
-    throw new Error("registry index must have a 'modules' object mapping id → { repo, tag }");
+    throw new Error("registry index must have a 'modules' object mapping id → entry");
   }
   const filtered: RegistryIndex = {};
   for (const [k, v] of Object.entries(modulesRaw as Record<string, unknown>)) {
     if (k.startsWith("_")) continue;
     if (typeof v !== "object" || v === null || Array.isArray(v)) continue;
     const entry = v as Record<string, unknown>;
-    if (typeof entry.repo !== "string" || typeof entry.tag !== "string") continue;
-    filtered[k] = { repo: entry.repo, tag: entry.tag };
+    const hasNpm = typeof entry.npm === "string" && entry.npm.length > 0;
+    const hasGh = typeof entry.repo === "string" && typeof entry.tag === "string";
+    if (!hasNpm && !hasGh) continue;
+    const out: RegistryEntry = {};
+    if (hasNpm) {
+      out.npm = entry.npm as string;
+      if (typeof entry.version === "string") out.version = entry.version;
+      if (typeof entry.sdk === "string") out.sdk = entry.sdk;
+    }
+    if (hasGh) {
+      out.repo = entry.repo as string;
+      out.tag = entry.tag as string;
+    }
+    filtered[k] = out;
   }
   return filtered;
 }

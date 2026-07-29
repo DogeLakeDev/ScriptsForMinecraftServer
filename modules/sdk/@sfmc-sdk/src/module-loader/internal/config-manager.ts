@@ -12,8 +12,9 @@
  *          时彻底切断,改为事件订阅。
  */
 
-// DataAdapter 已迁出到 ../data-adapter.ts,这里仅 re-export 保留 import 兼容
-export type { DataAdapter } from "../data-adapter.js";
+// DataAdapter 已迁出到 ../data-adapter.ts；须 import type 才能在本文件当名用，再 re-export 兼容外部
+import type { DataAdapter } from "../data-adapter.js";
+export type { DataAdapter };
 
 /** ConfigManager 可读的配置域键名。 */
 export type ConfigKey =

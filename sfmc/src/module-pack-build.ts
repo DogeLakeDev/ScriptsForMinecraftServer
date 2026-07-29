@@ -13,7 +13,7 @@
  * 直接 import pack-lifecycle 的 cmdPackBuild / deployPacks（确保只有一个 spawn 入口）。
  */
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -108,7 +108,6 @@ async function resolveSdkRootForEsbuild(): Promise<string> {
 
 /** esbuild 插件：解析 @sfmc-bds/sdk 的 exports 字段（与 pack-lifecycle.ts 内部实现同步）。 */
 function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
-  const { readFileSync } = require("node:fs") as typeof import("node:fs");
   const pkg = JSON.parse(readFileSync(path.join(sdkRoot, "package.json"), "utf8")) as {
     exports?: Record<string, string | { import?: string; default?: string; types?: string }>;
   };

@@ -277,10 +277,13 @@ export function listPaletteRoots(mode: CommandMode = "repl"): PaletteNode[] {
   const specs = listVisibleCommands(mode);
   const out: PaletteNode[] = [];
   const seen = new Set<string>();
+  /** 面板不展示顶层短命令，统一走 /module <sub>（argv 短命令仍可用） */
+  const skipTopShorthand = new Set(Object.keys(MODULE_TOP_SHORTHAND));
 
   for (const s of specs) {
     if (s.sub) continue;
     if (s.name === "module" || s.name === "packs") continue;
+    if (skipTopShorthand.has(s.name)) continue;
     if (seen.has(s.name)) continue;
     seen.add(s.name);
 

@@ -6,56 +6,35 @@
 
 | 命令 | 作用 |
 |------|------|
-| `npm run check-ootb` | 开箱自检（Node 版本、文件、db 健康、sim-new-user） |
-| `npm run catalog-sync` | 扫 packages → 写 `catalog.json`，修剪孤儿 lock |
-| `npm run check-modules` | 校验 catalog + v2 manifest（空 catalog 合法） |
+| `npm run check-ootb` | 开箱自检 |
+| `npm run catalog-sync` | 扫 packages → 写 `catalog.json` |
+| `npm run check-modules` | 校验 catalog + v2 manifest |
 | `node tools/fetch-module.mjs search` | 查注册表 |
 | `node tools/fetch-module.mjs install <id>` | 安装模块 |
-| `node tools/new-module.mjs <id> [--root ../sfmc-modules]` | 在 sfmc-modules 生成模块骨架 |
-| `npm run smoke-modules` | 模块 API 冒烟（需 live db-server） |
-| `node tools/sim-new-user.mjs` | 隔离 `SFMC_ROOT` 测试 |
-| `npm run test:api -w @sfmc-bds/db-server` | 临时端口测 db API |
+| `node tools/new-module.mjs <id>` | 在**空目录 cwd** 生成单包根 |
+| `npm run smoke-modules` | 模块 API 冒烟 |
 
 ## fetch-module
 
 ```bash
 node tools/fetch-module.mjs install afk
-node tools/fetch-module.mjs install foo --from github:owner/repo@tag
-node tools/fetch-module.mjs install foo --from dir:/path
-node tools/fetch-module.mjs install foo --from dir:/path --link   # junction(win)/symlink；仅 dir:
-node tools/fetch-module.mjs install foo --from local:/path.zip
+node tools/fetch-module.mjs install foo --from dir:/path --link
+node tools/fetch-module.mjs install foo --from local:/path --link
 node tools/fetch-module.mjs uninstall afk
 ```
 
-`--link` 把 `modules/packages/<id>` 链到源目录，仍同步 catalog/lock；发布/生产请用默认 copy。
-
-默认注册表：`Tanya7z/sfmc-modules@main/index.json`，缓存 `tools/.sfmc-registry-cache.json`。
+`--link` 支持 `dir:` 与 `local:<dir>`。默认注册表：`Tanya7z/sfmc-modules` 的 `index.json`（npm 字段优先）。
 
 ## new-module
 
 ```bash
-node tools/new-module.mjs my-feature --name "我的模块" --root ../sfmc-modules
-node tools/new-module.mjs my-feature --template db   # 含 db 权限占位
+mkdir my-mod && cd my-mod
+node /path/to/tools/new-module.mjs my-mod --name "我的模块"
+# --official → @sfmc-bds/module-*；默认 @CHANGE_ME/sfmc-module-*
 ```
 
-交互式入口：`sfmc module create`（REPL 内 `module create`）。
+交互：`sfmc module create`。`--root` / `SFMC_MODULES_ROOT` 已移除。
 
 ## 共享库
 
-`tools/lib/`：`catalog.mjs`、`packages.mjs`、`lock.mjs`、`paths.mjs`、`http.mjs`、`io.mjs`、`proc.mjs`。
-
-写新工具请复用，别另写一套读写规则。
-
-## 已废弃
-
-不要用：`check-ootb.js`、`check-catalog.js`、`emit-manifest.mjs`、`modules/_manifests/`。
-
-## CI 对应
-
-`ootb.yml` → `check-ootb.mjs` + `smoke-modules.mjs`。本地对齐：
-
-```bash
-npm run check-ootb
-# 另终端: SFMC_ROOT=$PWD node db-server/dist/index.js
-npm run smoke-modules
-```
+`tools/lib/`：`catalog.mjs`、`packages.mjs`、`lock.mjs`、`paths.mjs`、`link-from.mjs`、`registry-index.mjs` 等。

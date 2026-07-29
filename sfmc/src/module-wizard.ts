@@ -1,7 +1,7 @@
 /**
  * module-wizard.ts — 模块脚手架 / 本地联调交互向导
  *
- * 复用 @clack/prompts 与 init 向导相同依赖；薄包装 tools/new-module.mjs、fetch-module.mjs。
+ * 单包根（template 同构）：不写入旁路 sfmc-modules monorepo。
  */
 
 import { confirm, intro, isCancel, note, outro, select, tasks, text } from "@clack/prompts";
@@ -13,12 +13,6 @@ import { t, type MessageKey } from "./i18n/index.js";
 import { cmdModuleEnable } from "./module-commands.js";
 import { pickDirectory, resolveUserPath } from "./interactive-prompts.js";
 import { ROOT, resolveFetchModule, resolveNewModule } from "./runtime.js";
-import {
-  listSfmcModulePackages,
-  packageDirForId,
-  persistSfmcModulesRoot,
-  resolveSfmcModulesRoot,
-} from "./sfmc-modules-root.js";
 import { c } from "./theme.js";
 
 function isInteractive(): boolean {
@@ -46,24 +40,6 @@ function spawnTool(script: string, args: string[]): Promise<{ code: number | nul
     proc.on("exit", (code) => resolve({ code, output }));
     proc.on("error", (e) => resolve({ code: 1, output: `${output}${e.message}` }));
   });
-}
-
-async function ensureSfmcModulesRoot(): Promise<string | null> {
-  let modulesRoot = resolveSfmcModulesRoot();
-  if (modulesRoot) {
-    note(c.text(t("modwiz.sfmcModulesPath", { path: modulesRoot })), t("common.path"));
-    return modulesRoot;
-  }
-
-  const defaultGuess = path.resolve(ROOT, "..", "sfmc-modules");
-  const picked = await pickDirectory(t("modwiz.pickModulesRoot"), defaultGuess);
-  modulesRoot = resolveUserPath(picked, ROOT);
-  if (!existsSync(path.join(modulesRoot, "packages"))) {
-    outro(c.red(t("modwiz.noPackages", { path: modulesRoot })));
-    return null;
-  }
-  persistSfmcModulesRoot(modulesRoot);
-  return modulesRoot;
 }
 
 async function runFetchModuleLink(folderId: string, pkgPath: string): Promise<{ ok: boolean; output: string }> {
@@ -119,15 +95,8 @@ function validateFolderId(value: string | undefined): string | undefined {
   return undefined;
 }
 
-/** 模板元数据（与 tools/new-module.mjs --list-templates 一一对应）。 */
 type TemplateMeta = { id: string; isDefault: boolean };
 
-/**
- * 向 tools/new-module.mjs 查询可用模板清单 —— 模板枚举的唯一权威源。
- * 输出行 `<id>` 或 `<id>\tdefault`，见 tools/new-module.mjs TEMPLATES 文档。
- *
- * 失败兜底:工具缺失 / 子进程退出非零 → 返回空数组。调用方据此提示用户。
- */
 async function listTemplatesFromTool(): Promise<TemplateMeta[]> {
   const script = resolveNewModule();
   if (!script) return [];
@@ -144,10 +113,6 @@ async function listTemplatesFromTool(): Promise<TemplateMeta[]> {
   return out;
 }
 
-/**
- * i18n key `modwiz.tpl.<id>` 在某 locale 中缺失时 t() 会原样返回 key 字符串。
- * 用此特征检测缺失并降级为原始 id / 隐藏 hint。
- */
 function tplLabel(id: string): string {
   const label = t(`modwiz.tpl.${id}` as MessageKey);
   return label === `modwiz.tpl.${id}` ? id : label;
@@ -157,16 +122,14 @@ function tplHint(id: string): string | undefined {
   return hint === `modwiz.tpl.${id}Hint` ? undefined : hint;
 }
 
-/** 交互式创建模块包并可选 link / enable / build+deploy。 */
+/** 交互式创建单包模块（cwd 或指定空目录），可选 link / enable / build+deploy。 */
 export async function runModuleCreateWizard(): Promise<string> {
   if (!isInteractive()) {
     return c.yellow(t("modwiz.needTty.create"));
   }
 
   intro(c.bold(t("modwiz.createIntro")));
-
-  const modulesRoot = await ensureSfmcModulesRoot();
-  if (!modulesRoot) return cancelMessage();
+  note(c.dim(t("modwiz.standaloneHint")), t("common.hint"));
 
   const idRaw = await text({
     message: t("modwiz.folderId"),
@@ -179,7 +142,14 @@ export async function runModuleCreateWizard(): Promise<string> {
   }
   const folderId = idRaw.trim();
 
-  const target = packageDirForId(modulesRoot, folderId);
+  const defaultTarget = path.resolve(process.cwd(), folderId);
+  const picked = await pickDirectory(t("modwiz.pickPackageRoot"), path.dirname(defaultTarget));
+  if (isCancel(picked) || !picked) {
+    outro(cancelMessage());
+    return cancelMessage();
+  }
+  const parentDir = resolveUserPath(String(picked), ROOT);
+  const target = path.join(parentDir, folderId);
   if (existsSync(target)) {
     outro(c.red(t("modwiz.dirExists", { path: target })));
     return c.red(t("modwiz.dirExists", { path: target }));
@@ -219,14 +189,14 @@ export async function runModuleCreateWizard(): Promise<string> {
     return cancelMessage();
   }
 
-  const siblingNewModule = path.join(modulesRoot, "tools", "new-module.mjs");
-  const platformNewModule = resolveNewModule();
-  const useSibling = existsSync(siblingNewModule) && template === "minimal";
-  const newModuleScript = useSibling ? siblingNewModule : platformNewModule;
+  const newModuleScript = resolveNewModule();
   if (!newModuleScript) {
     outro(c.red(t("modwiz.noNewModule")));
     return c.red(t("modwiz.noNewModule"));
   }
+
+  const { mkdirSync } = await import("node:fs");
+  mkdirSync(target, { recursive: true });
 
   let scaffoldOutput = "";
   try {
@@ -234,12 +204,29 @@ export async function runModuleCreateWizard(): Promise<string> {
       {
         title: t("modwiz.genPackage", { id: folderId }),
         task: async () => {
-          const spawnArgs = useSibling
-            ? [folderId, nameRaw.trim()]
-            : [folderId, "--name", nameRaw.trim(), "--root", modulesRoot, "--template", String(template)];
-          const { code, output } = await spawnTool(newModuleScript, spawnArgs);
-          scaffoldOutput = output;
-          if (code !== 0) throw new Error(output.trim() || `exit ${code}`);
+          const { spawn: spawnChild } = await import("node:child_process");
+          const result = await new Promise<{ code: number | null; output: string }>((resolve) => {
+            const proc = spawnChild(
+              process.execPath,
+              [newModuleScript, folderId, "--name", nameRaw.trim(), "--template", String(template)],
+              {
+                cwd: target,
+                stdio: ["ignore", "pipe", "pipe"],
+                env: { ...process.env, SFMC_ROOT: ROOT },
+              }
+            );
+            let output = "";
+            proc.stdout?.on("data", (d: Buffer) => {
+              output += d.toString();
+            });
+            proc.stderr?.on("data", (d: Buffer) => {
+              output += d.toString();
+            });
+            proc.on("exit", (code) => resolve({ code, output }));
+            proc.on("error", (e) => resolve({ code: 1, output: e.message }));
+          });
+          scaffoldOutput = result.output;
+          if (result.code !== 0) throw new Error(result.output.trim() || `exit ${result.code}`);
           return t("modwiz.skeletonWritten");
         },
       },
@@ -269,7 +256,7 @@ export async function runModuleCreateWizard(): Promise<string> {
   return c.green(t("modwiz.moduleCreated", { id: folderId }));
 }
 
-/** 从 sfmc-modules/packages 选择并 --link 安装。 */
+/** 选择本地作者仓目录并 --link 安装。 */
 export async function runModuleLinkWizard(): Promise<string> {
   if (!isInteractive()) {
     return c.yellow(t("modwiz.needTty.link"));
@@ -277,39 +264,38 @@ export async function runModuleLinkWizard(): Promise<string> {
 
   intro(c.bold(t("modwiz.linkIntro")));
 
-  const modulesRoot = await ensureSfmcModulesRoot();
-  if (!modulesRoot) return cancelMessage();
-
-  const packages = listSfmcModulePackages(modulesRoot);
-  if (packages.length === 0) {
-    outro(c.yellow(t("modwiz.noLinkable", { path: modulesRoot })));
-    return c.yellow(t("modwiz.noLinkableShort"));
-  }
-
-  const picked = await select({
-    message: t("modwiz.pickLink"),
-    options: packages.map((p) => ({
-      value: p.id,
-      label: p.id,
-      hint: `${p.name} · ${p.logicalId}`,
-    })),
-  });
-  if (isCancel(picked)) {
+  const picked = await pickDirectory(t("modwiz.pickAuthorPkg"), process.cwd());
+  if (isCancel(picked) || !picked) {
     outro(cancelMessage());
     return cancelMessage();
   }
+  const pkgPath = resolveUserPath(String(picked), ROOT);
+  if (!existsSync(path.join(pkgPath, "sapi", "manifest.json"))) {
+    outro(c.red(t("modwiz.notModulePkg", { path: pkgPath })));
+    return c.red(t("modwiz.notModulePkg", { path: pkgPath }));
+  }
 
-  const pkg = packages.find((p) => p.id === picked)!;
+  const fetchScript = resolveFetchModule();
+  if (!fetchScript) {
+    outro(c.red(t("modwiz.noFetch")));
+    return c.red(t("modwiz.noFetch"));
+  }
+
   let linkOutput = "";
   try {
     await tasks([
       {
-        title: t("modwiz.linking", { id: pkg.id }),
+        title: t("modwiz.linking", { id: path.basename(pkgPath) }),
         task: async () => {
-          const { ok, output } = await runFetchModuleLink(pkg.id, pkg.path);
+          const { code, output } = await spawnTool(fetchScript, [
+            "install",
+            "--from",
+            `dir:${pkgPath}`,
+            "--link",
+          ]);
           linkOutput = output;
-          if (!ok) throw new Error(output.trim() || t("modwiz.linkFailed"));
-          return t("modwiz.linkSynced");
+          if (code !== 0) throw new Error(output.trim() || `exit ${code}`);
+          return t("common.done");
         },
       },
     ]);
@@ -319,90 +305,29 @@ export async function runModuleLinkWizard(): Promise<string> {
   }
 
   note(linkOutput.trim(), t("modwiz.link"));
-  const enableMsg = await maybeEnableModule(pkg.id);
+  const folderId = path.basename(pkgPath);
+  const enableMsg = await maybeEnableModule(folderId);
   if (enableMsg) note(enableMsg, t("modwiz.enable"));
+  await maybeBuildDeploy();
 
-  outro(c.green(t("modwiz.linked", { id: pkg.id })));
-  return c.green(t("modwiz.linked", { id: pkg.id }));
+  outro(c.green(t("modwiz.linkDone", { id: folderId })));
+  return c.green(t("modwiz.linkDone", { id: folderId }));
 }
 
-/** 链接 + 启用 + 构建部署（本地开发一键流）。 */
+/** 本地开发提示（不再依赖旁路 sfmc-modules）。 */
 export async function runModuleDevWizard(): Promise<string> {
   if (!isInteractive()) {
     return c.yellow(t("modwiz.needTty.dev"));
   }
-
   intro(c.bold(t("modwiz.devIntro")));
-
-  const modulesRoot = await ensureSfmcModulesRoot();
-  if (!modulesRoot) return cancelMessage();
-
-  const packages = listSfmcModulePackages(modulesRoot);
-  if (packages.length === 0) {
-    outro(c.yellow(t("modwiz.noDevPackages", { path: modulesRoot })));
-    return c.yellow(t("modwiz.noDevShort"));
-  }
-
-  const picked = await select({
-    message: t("modwiz.pickDev"),
-    options: packages.map((p) => ({
-      value: p.id,
-      label: p.id,
-      hint: `${p.name} · ${p.logicalId}`,
-    })),
+  note(c.text(t("modwiz.devStandalone")), t("common.hint"));
+  const doReload = await confirm({
+    message: t("modwiz.buildDeploy"),
+    initialValue: false,
   });
-  if (isCancel(picked)) {
-    outro(cancelMessage());
-    return cancelMessage();
+  if (!isCancel(doReload) && doReload) {
+    await maybeBuildDeploy();
   }
-
-  const pkg = packages.find((p) => p.id === picked)!;
-
-  try {
-    await tasks([
-      {
-        title: t("modwiz.linking", { id: pkg.id }),
-        task: async () => {
-          const { ok, output } = await runFetchModuleLink(pkg.id, pkg.path);
-          if (!ok) throw new Error(output.trim() || t("modwiz.linkFailed"));
-          return output.trim().split("\n").pop() ?? "linked";
-        },
-      },
-      {
-        title: t("modwiz.enabling", { id: pkg.id }),
-        task: async () => {
-          const r = await cmdModuleEnable([pkg.id]);
-          if (!r.ok) throw new Error(r.message.trim());
-          return r.message.trim();
-        },
-      },
-      {
-        title: t("modwiz.task.build"),
-        task: async () => {
-          const { cmdBehaviorPackBuild } = await import("./commands-behavior-pack.js");
-          const r = await cmdBehaviorPackBuild([]);
-          if (!r.ok) throw new Error(r.message.trim());
-          return t("common.done");
-        },
-      },
-      {
-        title: t("modwiz.task.deploy"),
-        task: async () => {
-          const { cmdBehaviorPackDeploy } = await import("./commands-behavior-pack.js");
-          const r = await cmdBehaviorPackDeploy([]);
-          if (!r.ok) throw new Error(r.message.trim());
-          return t("common.done");
-        },
-      },
-    ]);
-  } catch (e) {
-    outro(c.red((e as Error).message));
-    return c.red((e as Error).message);
-  }
-
-  note(c.yellow(t("modwiz.devHint")), t("common.hint"));
-  outro(c.green(t("modwiz.devDone", { id: pkg.id })));
-  return c.green(t("modwiz.devReady", { id: pkg.id }));
+  outro(c.green(t("modwiz.reloadHint")));
+  return c.dim(t("modwiz.reloadHint"));
 }
-
-export { isInteractive as isModuleWizardInteractive };

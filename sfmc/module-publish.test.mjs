@@ -106,16 +106,15 @@ test("indexEntryFor 派生 id 兼容 module-/sfmc-module-", () => {
   assert.equal(c.npm, "@scope/land");
 });
 
-test("patchIndexFile 缺文件 → 创建", async () => {
+test("patchIndexFile 缺文件 → 创建 map", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "sfmc-idx-"));
   const file = path.join(tmp, "index.json");
   const r = await patchIndexFile(file, indexEntryFor("@sfmc-bds/module-land", "1.0.0"));
   assert.equal(r.ok, true);
   const json = JSON.parse(await fs.readFile(file, "utf8"));
-  assert.equal(json.version, 1);
-  assert.equal(json.modules.length, 1);
-  assert.equal(json.modules[0].id, "land");
-  assert.equal(json.modules[0].npm, "@sfmc-bds/module-land");
+  assert.equal(json.version, 2);
+  assert.equal(json.modules.land.npm, "@sfmc-bds/module-land");
+  assert.equal(json.modules.land.version, "1.0.0");
   await fs.rm(tmp, { recursive: true, force: true });
 });
 
@@ -126,7 +125,7 @@ test("patchIndexFile 追加并按 id 排序", async () => {
   await patchIndexFile(file, indexEntryFor("@sfmc-bds/module-afk", "0.9.0"));
   await patchIndexFile(file, indexEntryFor("@sfmc-bds/module-zoo", "2.0.0"));
   const json = JSON.parse(await fs.readFile(file, "utf8"));
-  assert.deepEqual(json.modules.map((m) => m.id), ["afk", "land", "zoo"]);
+  assert.deepEqual(Object.keys(json.modules), ["afk", "land", "zoo"]);
   await fs.rm(tmp, { recursive: true, force: true });
 });
 
@@ -137,6 +136,23 @@ test("patchIndexFile 重复 id 报错", async () => {
   const r2 = await patchIndexFile(file, indexEntryFor("@sfmc-bds/module-land", "1.0.1"));
   assert.equal(r2.ok, false);
   assert.match(r2.error, /已在 index.json 中存在/);
+  await fs.rm(tmp, { recursive: true, force: true });
+});
+
+test("patchIndexFile 保留既有 github 条目", async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "sfmc-idx-"));
+  const file = path.join(tmp, "index.json");
+  await fs.writeFile(
+    file,
+    JSON.stringify({
+      version: 2,
+      modules: { afk: { repo: "Tanya7z/sfmc-modules", tag: "modules-v0.4.0" } },
+    })
+  );
+  await patchIndexFile(file, indexEntryFor("@alice/sfmc-module-foo", "1.0.0"));
+  const json = JSON.parse(await fs.readFile(file, "utf8"));
+  assert.equal(json.modules.afk.repo, "Tanya7z/sfmc-modules");
+  assert.equal(json.modules.foo.npm, "@alice/sfmc-module-foo");
   await fs.rm(tmp, { recursive: true, force: true });
 });
 

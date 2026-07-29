@@ -425,19 +425,6 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
     return c.yellow(t("mod.install.usage"));
   }
 
-  /* --link 无 --from 时：自动探测旁路 sfmc-modules（与 mod link 一致） */
-  if (flags.link && !flags.from) {
-    const { resolveSfmcModulesRoot, packageDirForId } = await import("./sfmc-modules-root.js");
-    const modulesRoot = resolveSfmcModulesRoot();
-    if (!modulesRoot) {
-      return c.red(t("mod.linkNeedsFrom"));
-    }
-    flags.from =
-      positional.length === 1
-        ? `dir:${packageDirForId(modulesRoot, positional[0]!)}`
-        : `dir:${path.join(modulesRoot, "packages")}`;
-  }
-
   const fetchScript = resolveFetchModule();
   if (!fetchScript) {
     return c.red(t("mod.fetchMissing"));
@@ -466,9 +453,9 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
 }
 
 /**
- * `mod link [id] [--from dir:…]`
- * - 有 id：等价 `install <id> --link`，缺省 --from 时自动拼旁路 packages/<id>
- * - 无 id：进入交互选择（@clack/prompts）
+ * `mod link [id] --from dir:…|local:…`
+ * - 有 id：等价 `install <id> --link --from …`（必须带 --from）
+ * - 无 id：交互询问本地包路径并 link
  */
 export async function cmdModuleLink(args: string[]): Promise<string> {
   const flags = parseFlags(args);
@@ -489,8 +476,10 @@ export async function cmdModuleLink(args: string[]): Promise<string> {
   }
 
   const id = positional[0]!;
-  const installArgs = [id, "--link"];
-  if (flags.from) installArgs.push("--from", flags.from);
+  if (!flags.from) {
+    return c.red(t("mod.linkNeedsFrom"));
+  }
+  const installArgs = [id, "--link", "--from", flags.from];
   return cmdModuleInstall(installArgs);
 }
 

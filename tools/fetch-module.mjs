@@ -20,11 +20,11 @@
  *   dir:/abs/path           本地目录（自动判单包/多包父目录）
  *   github:owner/repo[@tag] GitHub Release（兼容旧 Tanya7z/sfmc-modules）
  *
- * 缺省 source：先看 first-party index（兼容 Tanya7z/sfmc-modules）→ 命中则 github:；
- *              否则按 @sfmc-bds/module-<folder> 走 npm。
+ * 缺省 source：first-party index → 优先 npm: 字段，否则 deprecated github:；
+ *              未命中则按 @sfmc-bds/module-<folder> 走 npm。
  *
- * --link: 仅配合 dir:；把 modules/packages/<id> 链到源目录（win32=junction，POSIX=symlink），
- *         仍同步 catalog/lock。开发联调用；发布/生产请用默认 copy。
+ * --link: 配合 dir: 或 local:<dir>；把 modules/packages/<id> 链到源目录
+ *         （win32=junction，POSIX=symlink），仍同步 catalog/lock。
  */
 
 import fs, { createReadStream } from "node:fs";
@@ -40,6 +40,8 @@ import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
 import { parseRegistryIndex } from "./lib/registry-index.mjs";
+import { normalizeLinkFrom } from "./lib/link-from.mjs";
+import { folderFromNpmPackageName } from "./lib/npm-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = PACKAGES_DIR;
@@ -111,18 +113,22 @@ async function resolveRegistryIndex() {
  * 若 first-party registry 命中 → 仍用 github:（兼容旧路径，fn 不被禁止）。
  */
 async function defaultSourceFor(id) {
-  /* 先尝试 first-party registry index（兼容 Tanya7z/sfmc-modules） */
   try {
     const { index } = await resolveRegistryIndex();
     const entry = index[id];
-    if (entry && entry.repo) {
-      console.log(`[fetch-module] ${id} found in first-party registry → github:${entry.repo}@${entry.tag}`);
+    if (entry?.npm) {
+      console.log(`[fetch-module] ${id} found in registry → npm:${entry.npm}`);
+      return `npm:${entry.npm}`;
+    }
+    if (entry?.repo && entry?.tag) {
+      console.log(
+        `[fetch-module] ${id} found in registry (deprecated github) → github:${entry.repo}@${entry.tag}`
+      );
       return `github:${entry.repo}@${entry.tag}`;
     }
   } catch {
-    /* index 离线/失败：继续走 npm（更宽松的路径） */
+    /* index 离线/失败：继续走 npm */
   }
-  /* 默认走 npm registry（plan: mod install 主路径） */
   const { resolveNpmPackageName } = await import("./lib/npm-resolver.mjs");
   try {
     const pkgName = resolveNpmPackageName(id);
@@ -131,6 +137,24 @@ async function defaultSourceFor(id) {
   } catch (e) {
     die(`无法解析 npm 包名: ${e.message}\n提示：传 --from local:<dir|tgz|zip> 或 --from npm:<scope>/<name>。`);
   }
+}
+
+/** 从本地包目录推导 install folder id。 */
+function inferFolderIdFromDir(absDir) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(absDir, "package.json"), "utf8"));
+    const fromName = folderFromNpmPackageName(pkg.name);
+    if (fromName) return fromName;
+  } catch {
+    /* ignore */
+  }
+  try {
+    const man = JSON.parse(fs.readFileSync(path.join(absDir, "sapi", "manifest.json"), "utf8"));
+    if (typeof man.id === "string") return man.id.replace(/^(feature|core)-/, "");
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 function die(msg, code = 1) {
@@ -670,25 +694,22 @@ async function copyDir(src, dst) {
 }
 
 async function installOne(id, flags) {
-  if (flags.link && flags.from && !flags.from.startsWith("dir:")) {
-    die(`--link only works with --from dir:<path> (got ${flags.from})`);
-  }
-  if (flags.link && !flags.from) {
-    die(`--link requires --from dir:<path>`);
-  }
   let from = flags.from;
   if (!from) {
     from = await defaultSourceFor(id);
-    console.log(`[fetch-module] no --from given; using first-party registry → ${from}`);
+    console.log(`[fetch-module] no --from given; using → ${from}`);
   }
-  // 每模块可共用同一 --from(github monorepo release)
+  if (flags.link) {
+    const norm = normalizeLinkFrom(from, process.cwd());
+    if (!norm.ok) die(norm.error);
+    from = norm.from;
+  }
   const perFlags = { ...flags, from };
   if (from.startsWith("local:") || from === "local") return fromLocal(id, from, perFlags);
   if (from.startsWith("tgz:")) return fromTgz(id, from, perFlags);
   if (from.startsWith("zip:")) return fromZip(id, from, perFlags);
   if (from.startsWith("npm:")) return fromNpm(id, from.slice("npm:".length), perFlags);
   if (from.startsWith("dir:")) {
-    // dir: 多模块时，默认 dir 指向 packages 父目录则拼 folder
     const base = from.slice("dir:".length);
     const candidate = path.join(base, id);
     const src = exists(path.join(base, "sapi", "manifest.json"))
@@ -735,7 +756,7 @@ Sources (按优先级):
   github:owner/repo[@tag]        GitHub Release（兼容旧 first-party）
 
 Flags:
-  --link   with dir: only — junction (Windows) / symlink (POSIX) into
+  --link   with dir: or local:<dir> — junction (Windows) / symlink (POSIX) into
            modules/packages/<id> instead of copying. Still syncs catalog/lock.
 `);
 }
@@ -751,10 +772,11 @@ async function main() {
     const { index, stale } = await resolveRegistryIndex();
     const ids = Object.keys(index).sort();
     if (stale) console.warn("[fetch-module] registry cache may be stale (offline mode)");
-    console.log(`First-party registry (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}) — ${ids.length} modules:`);
+    console.log(`Registry (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}) — ${ids.length} modules:`);
     for (const id of ids) {
       const e = index[id];
-      console.log(`  ${id.padEnd(28)} ${e.repo}@${e.tag}`);
+      const src = e.npm ? `npm:${e.npm}` : e.repo ? `github:${e.repo}@${e.tag}` : "?";
+      console.log(`  ${id.padEnd(28)} ${src}`);
     }
     return;
   }
@@ -780,9 +802,41 @@ async function main() {
   if (verb !== "install") die(`unknown verb: ${verb}`);
 
   const { flags, positional } = parseArgs(rest);
-  if (positional.length === 0) die("usage: install <id> [id2 ...] [--from <source>] [--link]");
+  let ids = [...positional];
+  if (ids.length === 0) {
+    const from = flags.from;
+    if (!from || (!from.startsWith("local") && !from.startsWith("dir:"))) {
+      die("usage: install <id> [id2 ...] [--from <source>] [--link]\n或: install --from local|dir:<path> [--link]（从包目录推导 id）");
+    }
+    let absDir;
+    if (from === "local" || from.startsWith("local:")) {
+      const raw = from === "local" ? "" : from.slice("local:".length);
+      absDir =
+        !raw || raw === "." || raw === "./"
+          ? path.resolve(process.cwd())
+          : path.isAbsolute(raw)
+            ? path.resolve(raw)
+            : path.resolve(process.cwd(), raw);
+    } else {
+      absDir = path.resolve(from.slice("dir:".length));
+    }
+    if (!exists(absDir) || !fs.lstatSync(absDir).isDirectory()) {
+      die(`无法从非目录源推导 id: ${absDir}`);
+    }
+    const inferred = inferFolderIdFromDir(absDir);
+    if (!inferred) die(`无法从 ${absDir} 推导模块 id（需要 package.json name 或 sapi/manifest.json id）`);
+    console.log(`[fetch-module] inferred id: ${inferred}`);
+    ids = [inferred];
+    if (!flags.from.startsWith("dir:") && (flags.from === "local" || flags.from.startsWith("local:"))) {
+      /* 保持 local；link 时会规范成 dir: */
+    } else if (flags.from.startsWith("dir:")) {
+      /* ok */
+    } else {
+      flags.from = `dir:${absDir}`;
+    }
+  }
 
-  for (const id of positional) {
+  for (const id of ids) {
     await installOne(id, flags);
   }
 }

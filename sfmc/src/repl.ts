@@ -55,7 +55,6 @@ import {
 } from "./repl-windows/index.js";
 import { listActiveSendTargets, paintSendPrompt, plainPrompt } from "./send-target.js";
 import { forceStopAll, onServiceStateChange, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
-import { listSfmcModulePackages, resolveSfmcModulesRoot } from "./sfmc-modules-root.js";
 import { c, T } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
@@ -393,13 +392,6 @@ function getCompletions(parsed: ParsedLine): string[] {
         return ["--build-only"].filter(sw);
       }
       if (argIndex === 1 && verb === "link") {
-        const root = resolveSfmcModulesRoot();
-        if (root) {
-          const ids = listSfmcModulePackages(root)
-            .map((p) => p.id)
-            .filter(sw);
-          if (ids.length) return ids;
-        }
         return ["--from"].filter(sw);
       }
       if (argIndex >= 1 && verb === "install") {

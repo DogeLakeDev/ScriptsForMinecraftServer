@@ -96,3 +96,18 @@ test("logs 仅 REPL（无参叶命令）", async () => {
   assert.equal(logs.children, undefined);
   assert.notEqual(logs.freeArgs, true);
 });
+
+test("命令面板根列不含 module 短命令，统一挂在 /module", async () => {
+  const { listPaletteRoots } = await import("./dist/command-surface.js");
+  const roots = listPaletteRoots("repl");
+  const tokens = roots.map((n) => n.token);
+  for (const shy of ["install", "uninstall", "search", "verify", "link", "create"]) {
+    assert.ok(!tokens.includes(shy), `面板根列不应有 /${shy}`);
+  }
+  const mod = roots.find((n) => n.token === "module");
+  assert.ok(mod?.children?.length);
+  const childTokens = mod.children.map((n) => n.token);
+  assert.ok(childTokens.includes("install"));
+  assert.ok(childTokens.includes("create"));
+  assert.equal(mod.label, "/module");
+});
