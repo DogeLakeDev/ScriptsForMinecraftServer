@@ -32,7 +32,13 @@ export interface PublishFlags {
   skipIndexPr: boolean;
   tag: string;
   access: "public" | "restricted";
+  /* 薄 index PR */
+  ghRepo: string;            /* OWNER/REPO；默认 Tanya7z/sfmc-modules */
+  ghPush: boolean;           /* 显式 opt-in：真去 fork + branch + PR；否则只打印意图 */
+  ghForkRemote: string;      /* fork 的 remote 名，默认 sfmc-modules-fork */
 }
+
+export const DEFAULT_GH_REPO = "Tanya7z/sfmc-modules";
 
 export function parsePublishFlags(args: string[]): PublishFlags {
   const flags: PublishFlags = {
@@ -43,6 +49,9 @@ export function parsePublishFlags(args: string[]): PublishFlags {
     skipIndexPr: false,
     tag: "latest",
     access: "public",
+    ghRepo: DEFAULT_GH_REPO,
+    ghPush: false,
+    ghForkRemote: "sfmc-modules-fork",
   };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -54,6 +63,11 @@ export function parsePublishFlags(args: string[]): PublishFlags {
     else if (a === "--tag") flags.tag = args[++i] ?? "latest";
     else if (a?.startsWith("--tag=")) flags.tag = a.slice("--tag=".length);
     else if (a === "--skip-index-pr") flags.skipIndexPr = true;
+    else if (a === "--gh-repo") flags.ghRepo = args[++i] ?? DEFAULT_GH_REPO;
+    else if (a?.startsWith("--gh-repo=")) flags.ghRepo = a.slice("--gh-repo=".length);
+    else if (a === "--gh-push") flags.ghPush = true;
+    else if (a === "--gh-fork-remote") flags.ghForkRemote = args[++i] ?? "sfmc-modules-fork";
+    else if (a?.startsWith("--gh-fork-remote=")) flags.ghForkRemote = a.slice("--gh-fork-remote=".length);
     else if (a === "--access" && (args[i + 1] === "public" || args[i + 1] === "restricted")) {
       flags.access = args[++i]! as "public" | "restricted";
     } else if (a === "--access=public") flags.access = "public";
@@ -255,24 +269,257 @@ export async function runNpmPublish(
 }
 
 /* ─────────────────────────────────────────────────────────────
- * 薄 index PR（保留为占位；gh CLI 真实开 PR 需要登录，远端协调）
+ * gh CLI 适配：spawn + auth + fork → branch → patch index.json → PR
+ *
+ * 安全：默认不真执行（除非 --gh-push）；缺鉴权降级为打印意图。
+ * 不重新发明 git protocol —— 委托 `gh repo fork/clone/api`。
+ * ──────────────────────────────────────────────────────────── */
+type GhResult = { code: number | null; stdout: string; stderr: string };
+
+function runGh(args: string[], opts: { cwd?: string; stdin?: string } = {}): Promise<GhResult> {
+  const isWin = process.platform === "win32";
+  const cmd = isWin ? "gh.exe" : "gh";
+  return new Promise((resolve) => {
+    const proc = spawn(cmd, args, {
+      cwd: opts.cwd ?? process.cwd(),
+      stdio: ["pipe", "pipe", "pipe"],
+      env: process.env,
+    });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout?.on("data", (d: Buffer) => {
+      stdout += d.toString();
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      stderr += d.toString();
+    });
+    if (opts.stdin) proc.stdin.write(opts.stdin);
+    proc.stdin?.end();
+    proc.on("exit", (code) => resolve({ code, stdout, stderr }));
+    proc.on("error", (e) => resolve({ code: -1, stdout, stderr: `${stderr}${e.message}` }));
+  });
+}
+
+async function ghAuthStatus(): Promise<{ ok: boolean; user: string; error: string }> {
+  const r = await runGh(["auth", "status"]);
+  if (r.code !== 0) return { ok: false, user: "", error: r.stderr.trim() || "gh auth 失败" };
+  /* `gh auth status` 输出示例：`Logged in to github.com as <user> (keyring)` */
+  const m = /(?:as|account)\s+([\w-]+)/i.exec(r.stdout + r.stderr);
+  return { ok: true, user: m?.[1] ?? "", error: "" };
+}
+
+/** 把 `OWNER/REPO` 拆成 [owner, repo]。 */
+export function splitOwnerRepo(s: string): [string, string] | null {
+  const m = /^([\w.-]+)\/([\w.-]+)$/.exec(s.trim());
+  return m ? [m[1]!, m[2]!] : null;
+}
+
+/** 计算 index.json 新条目（语义单一：仅为新版本加一条；已有则跳过）。 */
+export function indexEntryFor(pkgName: string, version: string, sdkRange: string = ">=0.2.0"): {
+  id: string;
+  npm: string;
+  version: string;
+  sdk: string;
+  timestamp: number;
+} {
+  const npmPkg = pkgName.startsWith("@") ? pkgName : `@${pkgName}`;
+  /* id = 去掉 scope 与 module-/sfmc-module- 前缀：
+   *   "@sfmc-bds/module-land"   → "land"
+   *   "@alice/sfmc-module-foo"  → "foo"
+   *   "@scope/bar"              → "bar"
+   *   "@module-x"               → "@module-x"（非 scoped 包，保留 npm 名当 id 兜底）
+   */
+  let id: string;
+  if (npmPkg.includes("/")) {
+    id = npmPkg.split("/").pop()!.replace(/^module-/, "").replace(/^sfmc-module-/, "");
+  } else {
+    id = npmPkg.replace(/^module-/, "").replace(/^sfmc-module-/, "");
+  }
+  return { id, npm: npmPkg, version, sdk: sdkRange, timestamp: Date.now() };
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * 薄 index PR 主入口
  * ──────────────────────────────────────────────────────────── */
 export async function openIndexPr(
   pkgName: string,
   version: string,
-  opts: { dryRun: boolean; skipIndexPr: boolean }
-): Promise<{ ok: boolean; skipped: boolean; message: string }> {
-  if (opts.skipIndexPr) {
-    return { ok: true, skipped: true, message: "已跳过薄 index PR（--skip-index-pr）" };
+  opts: {
+    dryRun: boolean;
+    skipIndexPr: boolean;
+    ghPush: boolean;
+    ghRepo: string;
+    ghForkRemote: string;
   }
-  /* 占位：调用方需要先 `gh auth login` + 远端 sfmc-modules 仓存在。
-   * 本函数不会在没鉴权时静默失败 —— 用 `gh` 是否可用作前置检查。 */
-  const ghCheck = await runNpm(["config", "get", "registry"]); /* 仅借用 runNpm 调用模型 */
-  void ghCheck;
-  /* 真实现留给外部 follow-up；本阶段仅 dry-run 打印意图。 */
-  const msg = `[publish] 薄 index PR（占位）：将在 sfmc-modules/index.json 新增 ${pkgName}@${version}。` +
-    `需先 \`gh auth login\` 与远端 sfmc-modules 仓存在；本轮尚未实装 gh 调用，避免假阳性。`;
-  return { ok: opts.dryRun, skipped: false, message: msg };
+): Promise<{ ok: boolean; skipped: boolean; intent: string[]; message: string; prUrl?: string }> {
+  if (opts.skipIndexPr) {
+    return { ok: true, skipped: true, intent: [], message: "已跳过薄 index PR（--skip-index-pr）" };
+  }
+
+  const target = splitOwnerRepo(opts.ghRepo);
+  if (!target) return { ok: false, skipped: false, intent: [], message: `[publish] --gh-repo 非法: ${opts.ghRepo}（需 OWNER/REPO）` };
+  const [owner, repo] = target;
+  const entry = indexEntryFor(pkgName, version);
+  const branchName = `publish/${entry.id}-${version}`;
+  const title = `chore(index): ${entry.id}@${version}`;
+  const body = [
+    `Automated PR from \`sfmc mod publish\`.`,
+    ``,
+    `- npm: \`${entry.npm}\``,
+    `- version: \`${entry.version}\``,
+    `- sdk: \`${entry.sdk}\``,
+  ].join("\n");
+
+  const intent = [
+    `gh repo fork ${owner}/${repo} --remote-name=${opts.ghForkRemote} --clone=false`,
+    `gh repo clone ${opts.ghForkRemote}/${repo} fork-workdir -- --depth=1`,
+    `cd fork-workdir`,
+    `git checkout -b ${branchName}`,
+    `edit index.json (upsert ${entry.id}: { npm=${entry.npm}, version=${entry.version}, sdk="${entry.sdk}" })`,
+    `git add index.json && git commit -m "${title}"`,
+    `git push -u ${opts.ghForkRemote} ${branchName}`,
+    `gh pr create --repo ${owner}/${repo} --head ${opts.ghForkRemote}:${branchName} --title "${title}" --body "${body}"`,
+  ];
+
+  if (!opts.ghPush) {
+    return {
+      ok: true,
+      skipped: false,
+      intent,
+      message: `[publish] dry-run：将向 ${owner}/${repo} 开 PR 登记 ${entry.id}@${version}（加 --gh-push 真执行）`,
+    };
+  }
+
+  /* 真执行路径：鉴权检查 + 逐步跑上面的 intent */
+  const auth = await ghAuthStatus();
+  if (!auth.ok) {
+    return {
+      ok: false,
+      skipped: false,
+      intent,
+      message: `[publish] gh 未登录：${auth.error}\n  → \`gh auth login\` 后重试，或省略 --gh-push 仅 dry-run`,
+    };
+  }
+
+  /* 1) fork */
+  const forkRes = await runGh(["repo", "fork", `${owner}/${repo}`, `--remote-name=${opts.ghForkRemote}`, "--clone=false"]);
+  if (forkRes.code !== 0 && !/already exists/i.test(forkRes.stderr)) {
+    return { ok: false, skipped: false, intent, message: `[publish] gh fork 失败：${forkRes.stderr.trim()}` };
+  }
+  /* 2) clone fork 到临时目录 */
+  const os = await import("node:os");
+  const fsSync = await import("node:fs");
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "sfmc-index-"));
+  const clone = await runGh(["repo", "clone", `${auth.user}/${repo}`, tmp, "--", "--depth=1"]);
+  if (clone.code !== 0) return { ok: false, skipped: false, intent, message: `[publish] gh clone 失败：${clone.stderr.trim()}` };
+
+  /* 3) branch + patch index.json */
+  const br = await runGh(["repo", "sync"], { cwd: tmp });
+  void br; /* 软同步，失败不致命 */
+  const branchRes = await spawnBranch(tmp, branchName);
+  if (branchRes.code !== 0) {
+    fsSync.rmSync(tmp, { recursive: true, force: true });
+    return { ok: false, skipped: false, intent, message: `[publish] branch 创建失败：${branchRes.stderr.trim()}` };
+  }
+  const indexPath = path.join(tmp, "index.json");
+  const patchRes = await patchIndexFile(indexPath, entry);
+  if (!patchRes.ok) {
+    fsSync.rmSync(tmp, { recursive: true, force: true });
+    return { ok: false, skipped: false, intent, message: `[publish] patch index.json 失败：${patchRes.error}` };
+  }
+
+  /* 4) commit + push */
+  const commitRes = await runGh(["api", "-X", "POST", "--input", "-"], {
+    cwd: tmp,
+    /* 委托 git 直 commit，避免 gh api 没有该 endpoint */
+  }).catch(() => ({ code: 0, stdout: "", stderr: "" }));
+  void commitRes;
+  /* 实际 commit 走 git 透传（更稳） */
+  const gitCommit = await spawnGit(tmp, ["add", "index.json"]);
+  if (gitCommit.code !== 0) {
+    fsSync.rmSync(tmp, { recursive: true, force: true });
+    return { ok: false, skipped: false, intent, message: `[publish] git add 失败：${gitCommit.stderr.trim()}` };
+  }
+  const gitCommitMsg = await spawnGit(tmp, ["commit", "-m", title]);
+  if (gitCommitMsg.code !== 0) {
+    fsSync.rmSync(tmp, { recursive: true, force: true });
+    return { ok: false, skipped: false, intent, message: `[publish] git commit 失败：${gitCommitMsg.stderr.trim()}` };
+  }
+  const gitPush = await spawnGit(tmp, ["push", opts.ghForkRemote, branchName]);
+  if (gitPush.code !== 0) {
+    fsSync.rmSync(tmp, { recursive: true, force: true });
+    return { ok: false, skipped: false, intent, message: `[publish] git push 失败：${gitPush.stderr.trim()}` };
+  }
+
+  /* 5) gh pr create */
+  const pr = await runGh([
+    "pr", "create",
+    "--repo", `${owner}/${repo}`,
+    "--head", `${auth.user}:${branchName}`,
+    "--title", title,
+    "--body", body,
+  ], { cwd: tmp });
+  fsSync.rmSync(tmp, { recursive: true, force: true });
+  if (pr.code !== 0) {
+    return { ok: false, skipped: false, intent, message: `[publish] gh pr create 失败：${pr.stderr.trim()}` };
+  }
+  const prUrl = pr.stdout.trim().split(/\r?\n/).pop() ?? "";
+  return { ok: true, skipped: false, intent, message: `[publish] 薄 index PR 已开：${prUrl || "（请到 GitHub 查看）"}`, prUrl };
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * 低层 helper：git/spawn 与 index.json 补丁
+ * ──────────────────────────────────────────────────────────── */
+function spawnGit(cwd: string, args: string[]): Promise<GhResult> {
+  return new Promise((resolve) => {
+    const proc = spawn("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"], env: process.env });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout?.on("data", (d: Buffer) => {
+      stdout += d.toString();
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      stderr += d.toString();
+    });
+    proc.on("exit", (code) => resolve({ code, stdout, stderr }));
+    proc.on("error", (e) => resolve({ code: -1, stdout, stderr: `${stderr}${e.message}` }));
+  });
+}
+
+async function spawnBranch(cwd: string, branch: string): Promise<GhResult> {
+  /* `git checkout -b` 比 gh api 稳；用 spawn 直调 */
+  return spawnGit(cwd, ["checkout", "-b", branch]);
+}
+
+/** 在现有 index.json 上 upsert 一条；缺文件则建空数组。 */
+export async function patchIndexFile(
+  indexPath: string,
+  entry: ReturnType<typeof indexEntryFor>
+): Promise<{ ok: boolean; error?: string }> {
+  let list: Array<Record<string, unknown>> = [];
+  try {
+    const text = await fs.readFile(indexPath, "utf8");
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed.modules)) list = parsed.modules;
+    else if (Array.isArray(parsed)) list = parsed;
+  } catch {
+    /* 文件不存在或非法 → 当空数组 */
+  }
+  /* 幂等 upsert：id 已有则跳过 */
+  if (list.some((m) => m && typeof m === "object" && (m as { id?: string }).id === entry.id)) {
+    return { ok: false, error: `${entry.id} 已在 index.json 中存在；请手动检查后再 publish` };
+  }
+  list.push({
+    id: entry.id,
+    npm: entry.npm,
+    version: entry.version,
+    sdk: entry.sdk,
+    timestamp: entry.timestamp,
+  });
+  list.sort((a, b) => String((a as { id: string }).id).localeCompare(String((b as { id: string }).id)));
+  await fs.mkdir(path.dirname(indexPath), { recursive: true });
+  await fs.writeFile(indexPath, `${JSON.stringify({ version: 1, modules: list }, null, 2)}\n`, "utf8");
+  return { ok: true };
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -351,8 +598,18 @@ export async function cmdModulePublish(args: string[]): Promise<string> {
   }
 
   /* 5) 薄 index PR */
-  const pr = await openIndexPr(pkgName, nextVer, { dryRun: flags.dryRun, skipIndexPr: flags.skipIndexPr });
+  const pr = await openIndexPr(pkgName, nextVer, {
+    dryRun: flags.dryRun,
+    skipIndexPr: flags.skipIndexPr,
+    ghPush: flags.ghPush,
+    ghRepo: flags.ghRepo,
+    ghForkRemote: flags.ghForkRemote,
+  });
   out.push(pr.message);
+  if (!pr.ok && !pr.skipped) {
+    /* PR 失败不回滚 publish（npm 已经成功） */
+    out.push(c.yellow(`[publish] 注意：薄 index PR 失败，但 npm 包已发布；可手动补 index.json。`));
+  }
 
   out.push(c.green(t("publish.done")));
   return out.join("\n") + "\n";

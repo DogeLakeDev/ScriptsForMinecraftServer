@@ -6,6 +6,12 @@
     {
       "path": "../sfmc-modules",
     },
+    {
+      "path": "../../../WorkPlace/Toolkit",
+    },
+    {
+      "path": "../sfmc-module-template",
+    },
   ],
   "settings": {},
 }
