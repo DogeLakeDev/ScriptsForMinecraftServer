@@ -11,10 +11,8 @@ npm workspaces monorepo (root `package.json` has `workspaces`):
 | `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
 | `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js |
 | `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
-| `modules/sdk/@sfmc-sdk/` | Shared SDK consumed by modules | mixed |
-| `shared/sfmc-logs/` | Shared logging library `@sfmc-bds/logs` | Node.js |
+| `modules/sdk/@sfmc-sdk/` | Shared SDK（含 `@sfmc-bds/sdk/logs`） | mixed |
 
-**`panel/` no longer exists** — replaced by `sfmc/` CLI (the old AGENTS.md was stale).
 
 ## Plugin entry & init order
 
@@ -206,9 +204,8 @@ Local: `npm run prerelease-packages` (pre/beta) or `npm run release-packages` (a
 - **configs/** and **data/** are gitignored. Missing config files are created by the owning service with built-in defaults (+ `$schema` for IDE).
 - **`SFMC_ROOT`** env var: db-server reads `configs/` from this root. Used by `sim-new-user.mjs` for isolation testing.
 - **JSON Schema**: see `modules/sdk/@sfmc-sdk/schemas/` and committed `.vscode/settings.json` `json.schemas` mappings.
-- **`process.stdin.isTTY=false`** makes Ink-based TUI crash — `panel/` is gone, but sfmc CLI with `--no-tui` or `--cli` avoids stdin issues.
-- **`endOfLine: "crlf"`** in prettier — Windows repo convention.
-- **No test framework** in SAPI or db-server proper. db-server has `node --test` for `src/runtime.test.js` only.
+- **`endOfLine: "crlf"`** in prettier — Windows repo convention。
+- db-server 用 `node --test`；模块侧用 `@sfmc-bds/sdk/testing` + `node --test`。
 
 ## Cursor Cloud specific instructions
 
@@ -219,8 +216,5 @@ The Cloud VM is Linux; the repo primarily targets Windows, but the Node services
 - **`modulesDir` default is `"modules"`** (relative to `SFMC_ROOT`).
 - **Run db-server (main service, port 3001):** `SFMC_ROOT=$PWD node db-server/dist/index.js`. Health: `GET http://127.0.0.1:3001/api/health`. The module/config REST surface is JSON-backed and is the CI-tested core path (`GET /api/sfmc/modules/catalog`, `POST /api/sfmc/modules/:id/{enable|disable}`).
 - **`node:sqlite` needs Node ≥22.13, not just ≥22.5.** `db-server` imports `node:sqlite` at module scope. On 22.5.0–22.12.x the module is still gated behind `--experimental-sqlite`; importing it unflagged throws `ERR_UNKNOWN_BUILTIN_MODULE` and db-server exits immediately on startup. This is exactly what caused the `ootb` GitHub Actions workflow to fail repeatedly (`setup-node` was pinned to `node-version: '22.5'`, which resolves to `22.5.1`) — `check-ootb`'s "db-server 启动 + 模块接口" step timed out waiting for `/api/health`, and `sim-new-user`/`smoke-modules` cascaded into the same timeout. Fixed by pinning CI to `22.13`+.
-- **Pre-existing bugs (not environment issues), fixed as of this note — kept here for history:**
-  - `tools/check-catalog.js` used top-level ESM `import` syntax while the repo root `package.json` has no `"type": "module"` → `SyntaxError: Cannot use import statement outside a module` under plain `node`. Converted to CommonJS `require()` to match every other `tools/*.js` script.
-  - `tools/check-ootb.js`, `tools/sim-new-user.js`, and `tools/test-db-api.js` spawned `db-server/index.js`, which does not exist — the real entry is `db-server/dist/index.js`. This made the `db-server 启动` and `sim-new-user` checks in `tools/check-ootb.js` time out, so a healthy env used to show **check-ootb 5/6 pass**; both are now fixed and should pass 6/6 given a built workspace + `--experimental-sqlite`-capable Node.
-  - The SQLite-backed gameplay/`economy` path previously returned `near "?": syntax error` because table names were interpolated through `sql-template-strings` (`FROM ${TABLE}` → `FROM ?`). **Fixed** via `sql-helpers.sql()` embedding trusted identifiers (#19/#21); keep using `sql()` / `.append(raw(...))`, never `SQL\`…${table}…\`` or bare `SQL\`…${raw(t)}…\``.
-- **`npm run lint` is broken out-of-the-box** — ESLint v10 needs a flat `eslint.config.js` and none exists in the repo. Use per-workspace `npm run typecheck` for static checking instead.
+- **SQLite 标识符**：表名等可信标识用 `sql()` / `.append(raw(...))` 嵌入，勿 `SQL\`…${table}…\``。
+- **lint**：根目录有 `eslint.config.js`；先 `npm run build --workspace @sfmc-bds/eslint-plugin`，再 `npm run lint`。静态检查也可用各 workspace 的 `npm run typecheck`。

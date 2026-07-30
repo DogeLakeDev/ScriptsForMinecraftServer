@@ -46,6 +46,8 @@ theme:
     - search.highlight
     - search.share
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
     - content.tooltips
     - toc.follow
     - navigation.footer
@@ -64,6 +66,7 @@ plugins:
         - plan/**
         - archive/**
         - reviews/**
+        - superpowers/**
   - git-revision-date-localized:
       # 本地关闭（省 ~14s）；CI 里 GitHub Actions 会设 CI=true
       enabled: !ENV [CI, false]
@@ -71,6 +74,15 @@ plugins:
       # TypeDoc 生成物不在 git 历史里，排除以免刷屏
       exclude:
         - reference/sdk/**
+  - redirects:
+      redirect_maps:
+        guide/install.md: guide/index.md
+        guide/first-run.md: guide/index.md
+        guide/behavior-pack.md: guide/modules.md
+        guide/world-packs.md: guide/addons.md
+        guide/pack-update.md: dev/pack-update.md
+        dev/npm-publish.md: dev/publish.md
+        api/modules.md: api/module-control.md
 
 markdown_extensions:
   - abbr

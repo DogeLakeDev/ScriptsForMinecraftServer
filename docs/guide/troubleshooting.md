@@ -1,80 +1,77 @@
 # 排障
 
-## 自检工具
+## 自检（monorepo）
 
 ```bash
-npm run check-ootb       # 整体开箱检查
-npm run check-modules    # catalog + manifest
-npm run catalog-sync     # packages → catalog
+npm run check-ootb
+npm run check-modules
+npm run catalog-sync
 ```
 
 ## db-server 起不来
 
-| 现象 | 处理 |
-|------|------|
-| 秒退、`node:sqlite` 报错 | Node 升到 **22.13+** |
-| 端口占用 | 改 `db_port` 或 `DB_PORT` |
-| 模块 API 空 | 检查 `modulesDir` 是否为 `"modules"` |
-| SQLite 损坏 | 停服后从备份恢复 |
+| 现象                     | 处理                              |
+| ------------------------ | --------------------------------- |
+| 秒退、`node:sqlite` 报错 | Node 升到 **22.13+**              |
+| 端口占用                 | 改 `db_port` 或环境变量 `DB_PORT` |
+| 模块 API 异常            | 确认 `modulesDir` 与 `SFMC_ROOT`  |
+| SQLite 损坏              | 停服后从备份恢复                  |
 
 ```bash
 curl http://127.0.0.1:3001/api/health
 ```
 
-## BDS 脚本报错
+## 装载闸门 / BDS 未启动
 
-1. 看 BDS 日志第一条错误
-2. `npm run check-modules`
-3. `behavior-pack build` 看 esbuild 输出
-4. 确认模块已 enable，且 `sfmc reload`（或 deploy 后在 BDS/游戏内 `reload`）
+1. 看控制台装载摘要与 `<SFMC_ROOT>/.sfmc/logs/`
+2. `mod build` 看 esbuild 是否报错
+3. `npm run check-modules`（monorepo）
+4. 收件箱冲突是否挡住启动前扫描（见 [附加包](./addons.md)）
 
 ## 模块已 enable 但游戏里没效果
 
-- 是否 `sfmc reload`（或 build + deploy + `reload`）过？
-- lock 里 `enabled: true` 吗？
+- 是否执行过 `mod reload`，或重启过 BDS？
+- `modules/module-lock.json` 里是否为 `enabled: true`
 - `GET /api/sfmc/modules/<id>` 确认状态
-- 临时 disable 该模块，排除单模块问题
-- 依赖模块（如 land → economy）是否已安装并启用？
+- 临时 `mod disable` 该模块，排除单模块问题
+- 依赖模块是否已安装并启用
+
+## 测试沙箱
+
+```bash
+npm test
+# 须带：
+# --import @sfmc-bds/sdk/testing/minecraft-loader
+```
+
+| 现象 | 处理 |
+| ------ | ------ |
+| `UnimplementedMinecraftApiError` /「未实现的 Minecraft API」 | 用例碰到尚未接线的 API：缩小断言面，或等沙箱加深；勿当业务逻辑错误 |
+| 断言失败但 BDS 正常 | 可能是沙箱保真差；用扩展 Watch / 真机复核 |
+| Testing 面板发现不了用例 | 装 `nodejs-testing`；核对模板 `.vscode/settings.json` 与 `npm test` 脚本 |
+
+作者流程见 [测试沙箱](../dev/testing.md)。
 
 ## QQ 桥
 
-1. LLBot reverse-ws 是否为 `ws://127.0.0.1:3002`
+1. LLBot 反向 WS 是否为 `ws://127.0.0.1:3002`
 2. `qq_group_id`、`llbot_*` 是否正确
-3. qq-bridge 日志里有没有连上 LLBot
-4. 防火墙是否拦 3002
+3. qq / llbot 日志是否连上
+4. 防火墙是否拦截 3002
 
-## import / build 失败
-
-### `bp build` 报 `@sfmc/sdk` 无法解析 / tsconfig extends 找不到
-
-**原因：** 数据目录（如独立 `sfmc-bds/`）里装的是旧模块产物（仍 `import "@sfmc/sdk"`，`tsconfig` 指向主仓 `sdk/@sfmc-sdk`），且部署根通常没有 `node_modules/@sfmc*`。
-
-**平台侧（已修）：** `behavior-pack build` 会解析 CLI 旁的 `@sfmc-bds/sdk`，并把 `@sfmc/sdk/*` 兼容映射到同一 SDK；不再依赖模块目录里的残缺 tsconfig extends。
-
-**你这边建议：**
-
-1. 用新版 CLI 再跑 `bp build`（或设 `SFMC_SDK_ROOT` 指向 SDK 包根）
-2. 长期：重装模块以拿到 `@sfmc-bds` 命名（`fetch-module` 拷贝安装会自动 normalize）
-
-```bash
-# 示例：从本机 sfmc-modules 重装
-node tools/fetch-module.mjs install tps --from dir:../sfmc-modules/packages/tps
-```
-
-### monorepo 下其它 import 失败
-
-先：
+## 构建与 import
 
 ```bash
 npm run build --workspaces --if-present
+sfmc> mod build
 ```
 
-## 旧文档里的坑
+旧模块若仍 `import "@sfmc/sdk"`，请用当前 CLI 重装模块，或确认 SDK 可被构建解析。
 
-以下文件已废弃：
+## 远程控制
 
-- `check-ootb.js`、`check-catalog.js` → 用 `.mjs`
-- `emit-manifest`、`modules/_manifests/` → 已废弃；db-server 直接读各包 `sapi/manifest.json`
-- `panel/` → 用 `sfmc`
+- `remote status` 看 `enabled` / `connected` / `last_error`
+- 缺字段时先 `remote enroll`
+- 控制器 URL、token 是否过期
 
-仍解决不了，到 GitHub Issues 带上 BDS 日志、`check-ootb` 输出和 Node 版本。
+仍解决不了时，可前往 GitHub Issues 附上 BDS / sfmc 日志、`check-ootb` 输出和 Node 版本。

@@ -1,4 +1,4 @@
-# coop 服务（manifest.id: feature-coop）
+# coop 服务
 
 安装 id：`coop` · npm：`@sfmc-bds/module-coop`
 

@@ -1,4 +1,4 @@
-# feature-tps 服务
+# tps 服务
 
 安装 id：`tps` · npm：`@sfmc-bds/module-tps`
 

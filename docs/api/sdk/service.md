@@ -3,21 +3,20 @@
 ```ts
 import { service, ServiceError } from "@sfmc-bds/sdk/sapi/service";
 
-const land = await service.get<{ id: string; name: string } | null>(
-  "land.byId",
-  { landId: "abc" }
-);
+const land = await service.get<{ id: string; name: string } | null>("land.byId", {
+  landId: "abc",
+});
 
 const names = await service.list();
 ```
 
-有 typed client 的模块优先用 client（例：[`@sfmc-bds/module-economy/client`](../modules/economy.md)），不要手写对方私有表。
+有 typed client 时优先用 client（例：[economy](../modules/economy.md)），不要手写对方私有表。
 
-完整服务清单：[模块服务目录](../modules/index.md)。
+清单：[模块服务目录](../modules/index.md)。
 
 ## 声明
 
-提供方 manifest：
+提供方：
 
 ```json
 "services": {
@@ -26,7 +25,7 @@ const names = await service.list();
 }
 ```
 
-消费方 manifest：
+消费方：
 
 ```json
 "services": {
@@ -35,7 +34,7 @@ const names = await service.list();
 }
 ```
 
-并在 `permissions` 里声明 `service:land.byId`（按平台校验规则）。
+并在 `permissions` 声明 `service:land.byId`（按平台规则）。
 
 ## 事务内
 
@@ -44,14 +43,14 @@ import { economy } from "@sfmc-bds/module-economy/client";
 
 await db.tx(async (tx) => {
   await economy.account.inTx(tx).debit({ playerId, amount: 100, reason: "buy" });
-  // 无 client 时：await tx.call("economy.account.debit", { … });
+  // 无 client：await tx.call("economy.account.debit", { … });
 });
 ```
 
-不要用 `service.get` 代替事务内的 `tx.call` / `inTx`。
+不要用 `service.get` 代替 `tx.call` / `inTx`。
 
 ## 错误
 
 `ServiceError` — 服务不存在、权限不足、handler 抛错等。
 
-HTTP 见 [服务 API](../services.md)。
+HTTP 见 [服务 RPC](../services.md)。

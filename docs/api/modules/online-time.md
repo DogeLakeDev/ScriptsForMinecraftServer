@@ -1,4 +1,4 @@
-# feature-online-time 服务
+# online-time 服务
 
 安装 id：`online-time` · npm：`@sfmc-bds/module-online-time`
 

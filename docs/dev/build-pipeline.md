@@ -1,52 +1,55 @@
-# 构建管线
+# 构建与装载
 
-行为包在部署时组装，仓库里没有固定的 BP 壳。
+行为包在部署时组装，仓库里没有固定的 BP 壳。已启用模块打成一份 BP（及配套 RP）写入当前世界。
 
 ## 流程
 
-```
-modules/packages/*/sapi/src/index.ts
-        │ esbuild（external @minecraft/*）
-        ▼
-packs/_build/sfmc-modules-bp/scripts/main.js
-        │ pack-manager assemble-bp
-        ▼
-packs/_build/sfmc-modules/
-        │ deploy
-        ▼
-<BDS>/worlds/<level>/behavior_packs/sfmc-modules/
+```mermaid
+flowchart TB
+  src["modules/packages/*/sapi/src/index.ts"] --> esbuild[esbuild]
+  esbuild --> build["packs/_build/sfmc-modules/"]
+  build --> deploy[deploy]
+  deploy --> world["BDS worlds/.../behavior_packs/sfmc-modules/"]
 ```
 
-## 相关代码
-
-| 位置 | 作用 |
-|------|------|
-| `sfmc/src/commands-behavior-pack.ts` | CLI `build` / `deploy` |
-| `bds-tools/src/pack-manager.ts` | 组装、复制、启用包 |
-| `@sfmc-bds/sdk/behavior-pack-build` | 构建辅助（平台内部） |
+| 阶段 | 位置 |
+| ------ | ------ |
+| 中间产物 | `packs/_build/sfmc-modules/`（及 RP） |
+| 部署 BP | `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/` |
+| 部署 RP | `…/resource_packs/sfmc-modules-rp/` |
+| 装载 catalog | BP 内 `sfmc-deploy-catalog.json` |
 
 ## 打包规则
 
-- 只 bundle **lock 里 enabled** 且 catalog 里有的模块
-- 每个模块必须 `ModuleRegistry.register`
-- 空模块集 → 合法空 `main.js`
+- 只打包 **lock 中 enabled** 且 catalog 有的模块
+- 每个入口须 `ModuleRegistry.register`
+- 无一启用 → 仍生成合法空包
+- `@minecraft/*` 作为 external，由 BDS 提供
 
 ## 命令
 
 ```bash
-node sfmc/dist/main.js behavior-pack build
-node sfmc/dist/main.js behavior-pack deploy
-
-# 开发迭代推荐（build + deploy + 向 BDS 发 reload）
-node sfmc/dist/main.js reload
+sfmc> mod build
+sfmc> mod reload
+sfmc> mod reload --build-only
 ```
 
-pack-manager 还提供 `enable-pack` / `disable-pack` 改世界里的包列表，与 deploy 分开。
+| 命令 | 作用 |
+| ------ | ------ |
+| `mod build` | 仅构建 |
+| `mod reload` | 构建、部署，并向 BDS 请求 `reload` |
+| `mod reload --build-only` | 只构建部署；之后需游戏内手动 `reload` |
 
-## 改模块后
+`start bds` 前装载闸门会比对 catalog：不一致则先重编再启动。见 [服务管理](../guide/services.md)。
 
-1. 改 `packages/<id>/sapi/` 源码（开发期用 `--link` 链到 sfmc-modules）
-2. `sfmc mod reload`（或 `mod build` 后启动服务器触发装载闸门，再在 BDS/游戏内输入 `reload`）
-3. **不必**为脚本热更去 `restart bds`；进程级重启仅在改配置、崩服恢复等场景需要
+相关实现：`sfmc` CLI、`bds-tools` pack-manager、`@sfmc-bds/sdk/behavior-pack-build`（平台内部）。
 
-只改 Node 侧（db-server）不用 redeploy BP；只改 SAPI 必须 redeploy + `reload`。
+## 改完后
+
+| 改动 | 需要 |
+| ------ | ------ |
+| 模块 SAPI 源码 | `mod reload` 或装载闸门 + 游戏内 `reload` |
+| `configs/*.json` / manifest | 重启 BDS |
+| 仅 db-server / Node | 重启对应服务，不必 redeploy BP |
+
+开发期用 `--link` 指向作者仓时，仍走同一装载路径。细节见 [模块开发](./module-author.md)。

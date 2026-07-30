@@ -1,4 +1,4 @@
-# feature-economy 服务
+# economy 服务
 
 安装 id：`economy` · npm：`@sfmc-bds/module-economy`
 

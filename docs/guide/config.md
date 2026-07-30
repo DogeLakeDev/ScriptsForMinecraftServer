@@ -1,33 +1,34 @@
-# 配置说明
+# 配置
 
-首次启动时，**各服务用代码内默认值 ensure 生成**缺失配置文件，并写入 `$schema` ，使用 IDE 时便可查看**详细的悬停说明**。
+首次启动时，各服务会用内置默认值生成缺失的配置文件，并写入 `$schema`，便于在 IDE 中悬停查看字段说明。
 
-> IDE：工作区 [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.vscode/settings.json) 已按文件名绑定 schema；也可用文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/*.schema.json`。
+工作区 [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.vscode/settings.json) 已按文件名绑定 schema；也可依赖文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/*.schema.json`。
 
 ## 平台配置
 
-| 文件 | 源 | 备注 |
-| ------ | ------ | ------ |
-| `db_config.json` | db-server | - |
-| `qq_config.json` | qq-bridge、db-server | - |
-| `bds_updater.json` | bds-tools | - |
-| `pack-update.json` | sfmc packs/addon | CurseForge 世界包更新（详见 [pack-update 技术路线](./pack-update.md)） |
-| `log-filter.json` | sfmc 日志层 | - |
-| `permissions.json` | db-server | - |
-| `remote.json` | sfmc remote-agent | - |
-| `packs/pack-sources.json` | pack-manager | |
+| 文件 | 用途 |
+| ------ | ------ |
+| `db_config.json` | db-server 端口、数据路径、模块目录等 |
+| `qq_config.json` | QQ 桥与 LLBot |
+| `bds_updater.json` | BDS 更新与备份 |
+| `pack-update.json` | 附加包 CurseForge 更新（用法见 [附加包](./addons.md)） |
+| `log-filter.json` | 日志过滤 |
+| `permissions.json` | 权限表 |
+| `remote.json` | 远程控制代理（见 [远程控制](./remote.md)） |
+| `packs/pack-sources.json` | 附加包更新源绑定 |
 
 ## 模块配置
 
-每个模块有自己的 `configKey`（于manifest 里声明），对应 `configs/<configKey>.json`。  
+每个模块在 `sapi/manifest.json` 中声明 `configKey`，对应 `configs/<configKey>.json`。缺省值由模块在首次写入时提供。读写经 `@sfmc-bds/sdk/sapi/config`（HTTP：`/api/sfmc/configs/:configKey`），与平台 `ConfigName` 解耦。
 
-> 模块缺省值由模块代码 / 首次写入提供。
->
-> SAPI 启动时通过 `GET /api/sfmc/configs/all` **一次性**拉全并**缓存**，运行中不会自动刷新。
+SAPI 启动时通过 `GET /api/sfmc/configs/all` **一次性**拉取并缓存平台域：`modules`、`settings`、`permissions`（及 `module_tokens`）。模块私有 JSON **不**进该缓存，按需经 `config.get` / `config.set` 访问；运行中 `set` 可即时写回。
 
-## 模块状态
+!!! warning "注意"
+    修改平台 `configs/*.json`（或模块配置文件且未走 `config.set`）后请重启 BDS。模块启停写入 `module-lock.json` 后，一般还需 `mod reload` 或重启 BDS 才会进入行为包。
+
+## 模块状态文件
 
 | 文件 | 说明 |
 | ------ | ------ |
-| `modules/catalog.json` | 已装模块清单（本地 mirror） |
+| `modules/catalog.json` | 已装模块清单（本地镜像） |
 | `modules/module-lock.json` | 各模块 enabled 状态 |

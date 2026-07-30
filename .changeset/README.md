@@ -37,4 +37,4 @@ npm run release-packages   # run-release.mjs --stable → npm latest + GitHub Re
 
 `changeset-release.yml` 在 `main` 上开 Version PR；合并后跑 `ci-release-packages`（`run-release.mjs --ci`：publish → tag → push tags → gh release，无交互）。
 
-详情见 [docs/dev/npm-publish.md](../docs/dev/npm-publish.md)。
+详情见 [docs/dev/publish.md](../docs/dev/publish.md)（平台包附录）。

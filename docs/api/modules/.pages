@@ -1,3 +1,8 @@
 nav:
   - index.md
-  - ...
+  - economy.md
+  - land.md
+  - area.md
+  - coop.md
+  - online-time.md
+  - tps.md

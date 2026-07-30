@@ -1,12 +1,15 @@
 title: 开发指南
 nav:
-  - index.md
-  - contributing.md
-  - architecture.md
-  - module-author.md
-  - manifest.md
-  - build-pipeline.md
-  - tools.md
-  - platform.md
-  - npm-publish.md
-  - conventions.md
+  - 入门: index.md
+  - 模块开发: module-author.md
+  - 测试沙箱: testing.md
+  - manifest 契约: manifest.md
+  - 构建与装载: build-pipeline.md
+  - ESLint 约定: eslint.md
+  - 工具脚本: tools.md
+  - 发布你的模块: publish.md
+  - 架构: architecture.md
+  - 平台开发: platform.md
+  - 贡献指南: contributing.md
+  - 代码约定: conventions.md
+  - 专题：附加包更新: pack-update.md

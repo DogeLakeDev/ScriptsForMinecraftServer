@@ -56,9 +56,9 @@ flowchart LR
 > sfmc
 ```
 
-> 当前阶段仅发 **beta**；请带 `@beta` 安装。见 [npm 发布指南](./docs/dev/npm-publish.md)。
+> 当前阶段仅发 **beta**；请带 `@beta` 安装。模块发包见 [发布你的模块](./docs/dev/publish.md)。
 
-开发者也可克隆本仓 monorepo，见 [安装指南](./docs/guide/install.md)。
+开发者也可克隆本仓 monorepo，见 [入门](./docs/guide/index.md)。
 
 ## 📖 快速入门
 

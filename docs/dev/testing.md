@@ -24,7 +24,7 @@
 3. 假 `world.afterEvents.worldLoad` → `bootAfterWorldLoad`
 4. `dispose` → cleanup + 复位 Registry / ConfigManager
 
-`enabled: false` 时模块不 boot。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager）。
+可选：`configs` 覆盖内存快照；`enabled: false` 时模块不 boot；`boot: false` 只起假引擎。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager，非默认路径）。
 
 ## 能测什么
 
@@ -100,7 +100,7 @@ test("命令冒烟", async (t) => {
 1. 安装推荐扩展：`ESLint`、`SFMC Module`、`nodejs-testing`（见模板 `.vscode/extensions.json`）。
 2. Testing 面板发现 `test/**/*.test.ts`（settings 已配好 loader）。
 3. 命令面板：`SFMC: Run Module Tests` / `Start Watch` / `Reload to BDS`。
-4. 设置 `sfmc.root` 为 SFMC 工作根（Watch 需要）。
+4. 设置 `sfmc.root` 为 SFMC 工作根（指向主仓根；Watch、Reload to BDS、模块启停都需要）。
 
 ## 相关
 
@@ -108,4 +108,4 @@ test("命令冒烟", async (t) => {
 | ------ | ------ |
 | [模块开发](./module-author.md) | 扩展优先工作流 |
 | [工具脚本](./tools.md) | 平台 `smoke-modules`（非作者日常） |
-| 规划规格 | `docs/superpowers/specs/2026-07-30-sapi-testing-sandbox-design.md` |
+| [SDK 类型参考](../reference/index.md) | TypeDoc（含 testing） |

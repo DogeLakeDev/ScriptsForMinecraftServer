@@ -1,6 +1,7 @@
 *[TTY]: 代表一种“允许用户交互的环境”。如手动执行 packs scan 会弹出选择框；而在非 TTY 环境下不需要等待用户输入。
 
 <!-- Minecraft / 平台 -->
+
 *[MCBE]: Minecraft: Bedrock Edition，基岩版；本项目的目标平台。
 *[BDS]: Bedrock Dedicated Server，基岩版官方专用服务器程序。
 *[SAPI]: Script API，基岩版官方脚本接口，行为包中运行的 TypeScript/JavaScript 运行时。
@@ -12,6 +13,7 @@
 *[OOTB]: Out Of The Box，开箱即用；指平台无需额外业务模块即可自检通过的状态。
 
 <!-- 组件 / 运行时 -->
+
 *[SDK]: Software Development Kit，此处指 @sfmc-sdk 共享开发套件。
 *[SFMC]: ScriptsForMinecraftServer，本项目代号。
 *[ORM]: Object–Relational Mapping，对象关系映射。
@@ -21,6 +23,7 @@
 *[TUI]: Text-based User Interface，文本终端界面（原 panel/ 已移除）。
 
 <!-- 网络 / 协议 -->
+
 *[API]: Application Programming Interface，应用程序编程接口。
 *[REST]: Representational State Transfer，一种 HTTP API 设计风格。
 *[HTTP]: HyperText Transfer Protocol，超文本传输协议。
@@ -31,12 +34,15 @@
 *[JSON]: JavaScript Object Notation，轻量级数据交换格式；configs/ 配置均为此格式。
 
 <!-- 工具链 -->
+
 *[npm]: Node Package Manager，Node.js 包管理器。
 *[esbuild]: 高性能 JavaScript/TypeScript 打包器；用于组装行为包 bundle。
 *[TypeDoc]: 从 TypeScript 源码生成 API 文档的工具。
 *[CI]: Continuous Integration，持续集成（此处指 GitHub Actions）。
+*[联调]: “联调”是“联合调试”的简称，在软件开发中，它指的是将不同团队或不同模块开发的代码拼在一起，进行端到端的连通性测试。
 
 <!-- 代码设计原则 -->
+
 *[SOLID]: 面向对象五大设计原则（SRP/OCP/LSP/ISP/DIP）的合称。
 *[SRP]: Single Responsibility Principle，单一职责原则：一个模块只应有一个变化的理由。
 *[OCP]: Open–Closed Principle，开闭原则：对扩展开放，对修改关闭。

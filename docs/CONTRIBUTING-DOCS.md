@@ -10,15 +10,21 @@
 
 ## 目录约定
 
-```
+```text
 docs/
 ├── guide/          # 手写 · 使用指南
 ├── dev/            # 手写 · 开发指南
 ├── api/            # 手写 · HTTP / 模块服务 / SDK 导读
 └── reference/
-    ├── index.md    # 类型参考说明
-    └── sdk/        # TypeDoc 输出（gitignore，本地生成）
+    ├── index.md
+    └── sdk/        # TypeDoc 输出（gitignore）
 ```
+
+```bash
+npx markdownlint-cli2 "docs/guide/**/*.md" "docs/dev/**/*.md" "docs/api/**/*.md"
+```
+
+`.markdownlint.json` 已关闭与 Material 选项卡冲突的 MD046，以及过严的 MD060。
 
 | 路径 | 作用 |
 | ------ | ------ |

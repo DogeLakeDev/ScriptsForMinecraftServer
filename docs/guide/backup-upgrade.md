@@ -1,62 +1,70 @@
 # 备份与升级
 
-## 备份什么
+## 备份
 
-建议一起打包：
+建议一并备份：
 
 - `data/`（SQLite）
 - `configs/`
 - `modules/catalog.json`、`modules/module-lock.json`
+- 世界目录（含行为包 / 资源包，若需要完整可回档）
 
-## 备份步骤
-
-先停 db-server，避免 WAL 下文件不一致：
-
-```text
-sfmc> stop db
-```
-
-打包后再 `start db`。
-
-不要在 db-server 运行时直接复制 `.db` 文件。
-
-## 升级主仓
+先停 db，再打包，避免 WAL 下文件不一致：
 
 ```bash
-git pull
-npm install
-npm run build --workspaces --if-present
-node sfmc/dist/main.js behavior-pack build
-node sfmc/dist/main.js behavior-pack deploy
-# 重启服务与 BDS
+sfmc> stop db
+# 打包 data / configs / modules 锁文件等
+sfmc> start db
+```
+
+!!! warning "注意"
+    不要在 db-server 运行时直接复制 `.db` 文件。
+
+## 升级 CLI / monorepo
+
+=== "全局 npm"
+
+    ```bash
+    npm i -g @sfmc-bds/sfmc@beta
+    ```
+
+=== "monorepo"
+
+    ```bash
+    git pull
+    npm install
+    npm run build --workspaces --if-present
+    ```
+
+然后重启相关服务。模块行为包可由下次 `start bds` 的装载闸门自动重编，也可手动：
+
+```bash
+sfmc> mod reload
 ```
 
 ## 升级模块
 
 ```bash
-node tools/fetch-module.mjs install <id>
-# 再 build + deploy + 重启 BDS
+sfmc> mod install <id>
+sfmc> mod reload
 ```
 
-## 升级 BDS 本体
+## 升级 BDS
 
 ```bash
-node sfmc/dist/main.js update
-# 或
-node bds-tools/dist/check-update.js --check-only
-node bds-tools/dist/check-update.js --force
+sfmc> update
+# 或仅检查
+sfmc> update --check-only
 ```
 
-db-server 启动时会跑 `initSchema` 做增量迁移，老数据库一般能直接沿用。
+db-server 启动时会跑增量 schema 迁移，旧库一般可直接沿用。
 
 ## 回滚
 
-- 配置 / lock：用备份覆盖
-- BP：重新 `build` + `deploy` 上一版模块
-- BDS：用 bds-tools 的 rollback（若你启用了备份策略）
-  - 运行态在 `<SFMC_ROOT>/.sfmc/`（回滚标记 / PID / version cache）
-  - 落盘日志统一在 `<SFMC_ROOT>/.sfmc/logs/`：
-    - `db.log` / `qq.log` / `remote-controller.log` — 各服务进程自写
-    - `bds-update.log` — BDS 更新器
-    - `bds.log` / `llbot.log` — sfmc 捕获的外部进程输出
-    - `sfmc.log` — 监督器 / pack / system 等
+| 对象 | 做法 |
+| ------ | ------ |
+| 配置 / lock | 用备份覆盖后重启 |
+| 模块行为包 | 换回上一版模块后 `mod reload` |
+| BDS | 使用 bds-tools 回滚（若启用了备份策略） |
+
+运行态与日志在 `<SFMC_ROOT>/.sfmc/`（含 `logs/` 下的 `db.log`、`qq.log`、`bds.log` 等）。

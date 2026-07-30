@@ -1,11 +1,11 @@
-# CurseForge 世界包更新（技术路线）
+﻿# CurseForge 附加包更新（技术路线）
 
-本文描述 `sfmc packs` / `addon` 的**第三方世界 BP/RP 远程更新**完整设计与实现细节（与 SFMC 业务模块 `mod` / GitHub registry **无关**）。
+本文描述 `sfmc packs` / `addon` 的**第三方 BP/RP 远程更新**完整设计与实现细节（与 SFMC 业务模块 `mod` / GitHub registry **无关**）。
 
 相关代码：
 
 | 路径 | 职责 |
-|------|------|
+| ------ | ------ |
 | [`sfmc/src/pack-update/`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/pack-update/) | 配置、绑定、CF Provider、探测/检查/应用 |
 | [`sfmc/src/world-packs.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/world-packs.ts) | CLI 接线、安装后探测钩子 |
 | [`sfmc/src/services.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/sfmc/src/services.ts) | BDS `beforeStart` 检查/应用 |
@@ -13,7 +13,7 @@
 | [`modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/modules/sdk/@sfmc-sdk/src/logs/terminal-progress.ts) | 进度条与日志共存 |
 | [`configs/pack-update.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/configs/pack-update.json) | 运行时配置（首次由 sfmc ensure 写入内置 DEFAULTS） |
 
-通用收件箱安装见 [资源包管理](./world-packs.md)。
+通用收件箱安装见 [附加包](../guide/addons.md)。
 
 ---
 
@@ -61,7 +61,7 @@ flowchart TD
 ### 3.1 文件位置
 
 | 文件 | 作用 |
-|------|------|
+| ------ | ------ |
 | `configs/pack-update.json` | 策略、Provider、启动行为 |
 | `packs/pack-sources.json` | 每 BP uuid → CF 绑定（可手改/`enabled: false`） |
 
@@ -120,7 +120,7 @@ flowchart TD
 ```
 
 | 字段 | 含义 |
-|------|------|
+| ------ | ------ |
 | `defaultBindingEnabled` | 新建绑定的默认 `enabled`（**默认 `false`**）。仍写入 `pack-sources.json`，但需手改为 `true`（或改此默认）才参与启动检查/自动更新。 |
 | `uninstall.recycleBin` | `packs uninstall` 是否移入回收站（默认 `true`）；`false` 或 CLI `--purge` 则直接删除 |
 | `uninstall.trashRelativeDir` | 回收站相对 `SFMC_ROOT` 的路径（默认 `packs/_trash`） |
@@ -162,8 +162,8 @@ flowchart TD
 
 CurseForge 存在**两套完全不同**的「API Token」，不可混用。
 
-| | Upload / Legacy API Tokens | CurseForge for Studios（本功能需要） |
-|--|--|--|
+|  | Upload / Legacy API Tokens | CurseForge for Studios（本功能需要） |
+| -- | -- | -- |
 | 文档 | [support 文章 9000197321](https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-api) | [docs.curseforge.com](https://docs.curseforge.com/rest-api/) |
 | 申请 | 站点「API Tokens」 | [console.curseforge.com](https://console.curseforge.com/) |
 | 形态 | UUID（约 36 字符） | 常见 `$2a$10$…`（更长） |
@@ -182,7 +182,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 实测（Studios Key）：
 
 | 端点 | 结果 |
-|------|------|
+| ------ | ------ |
 | `GET /v1/games`、`/v1/games/78022` | 200 |
 | `GET /v1/categories?gameId=78022` | 200 |
 | `GET /v1/mods/{id}`、`/files` | 200 |
@@ -240,7 +240,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 对每个候选 hit，取 `max(按 name 相似度, 按 slug 相似度)`：
 
 | 条件 | 约分 |
-|------|------|
+| ------ | ------ |
 | slug 完全相等 | 1.0 |
 | slug = `{q}-addon` 或以 `{q}-` 为前缀 | 0.96 |
 | slug 互相包含 | 0.88 |
@@ -265,7 +265,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 **忽略**用户曾对手改 RP 小版本号的干扰。
 
 | 情况 | 行为 |
-|------|------|
+| ------ | ------ |
 | 远程 BP ≤ 本地 BP，且该 fileId **已成功 apply** | 无更新 |
 | 远程 BP ≤ 本地 BP，但 `lastAppliedFileId` 未记录该文件 | **仍覆盖安装**（同步 CF 内容；避免汉化包等同版本号跳过写入） |
 | 远程 BP 更大，且 **major 相同** | `force` 覆盖 BP + 配对 RP；再按 **`nextEnabledVersion = bump(max(新 RP, 旧 RP))`** 抬启用版本（默认 patch+1），并同步 `world_resource_packs.json`，以便玩家进服触发客户端 RP 刷新 |
@@ -285,7 +285,7 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 ### 8.1 CLI
 
 | 命令 | 行为 |
-|------|------|
+| ------ | ------ |
 | `packs check [id]` | 下载最新归档，按 BP 版本比较，**不安装** |
 | `packs update <id\|--all>` | 比较并应用（含 RP 抬版策略） |
 | `packs sources` | 打印配置路径与全部绑定 |
@@ -332,7 +332,7 @@ sfmc/src/pack-update/
 ## 10. 排障清单
 
 | 现象 | 排查 |
-|------|------|
+| ------ | ------ |
 | 启动没有 `pack-update.json` | 确认跑的是会调用 `createServices` 的 sfmc；看 `SFMC_ROOT` 是否指向期望数据根 |
 | `403` + UUID 形 key | 用了 Upload Token；改去 console.curseforge.com 申请 Studios Key |
 | Studios Key 仍 search 403 | 正常现象之一；应已自动走 `searchBaseUrl`。确认配置里 `gameId=78022` |

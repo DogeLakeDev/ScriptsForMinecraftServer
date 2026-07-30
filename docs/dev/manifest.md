@@ -1,13 +1,13 @@
 # manifest 契约
 
-每个模块根目录：`sapi/manifest.json`，**schemaVersion 必须是 2**。
+每个模块根目录：`sapi/manifest.json`，**schemaVersion 必须为 2**。
 
-IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json`；工作区 `.vscode/settings.json` 也绑定了同一 schema，避免被 Bedrock 扩展当成 BP/RP `manifest.json`。若扩展仍报警，可忽略或对该路径关闭其诊断——JSON 语言服务以本 schema 为准。
+IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.json`；主仓 [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.vscode/settings.json) 亦按路径绑定。若 Bedrock 扩展误报 BP/RP manifest，可忽略或对该路径关闭其诊断——以本 schema 为准。
 
 ## 字段
 
 | 字段 | 必填 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `schemaVersion` | ✓ | 固定 `2` |
 | `id` | ✓ | 全局唯一，如 `feature-land` |
 | `name` | ✓ | 显示名 |
@@ -17,21 +17,19 @@ IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.
 | `permissions` | ✓ | 见下表 |
 | `services.provides` | ✓ | 对外暴露的服务 |
 | `services.requires` | ✓ | 依赖的其它模块服务 |
-| `notes` | | 备注 |
+| `notes` |  | 备注 |
 
 ## 禁止的 v1 字段
 
 `routes`、`tables`、`migrations`、`seeds`、`handlers`、`events` — 出现会报错或跳过。
 
-## permissions 写法
+## permissions
 
 | 模式 | 含义 |
-|------|------|
-| `db:read:<table>` | 读表 |
-| `db:write:<table>` | 写表 |
+| ------ | ------ |
+| `db:read:<table>` / `db:write:<table>` | 读写表 |
 | `db:read:*` / `db:write:*` | 通配（慎用） |
-| `config:read:<key>` | 读配置 |
-| `config:write:<key>` | 写配置 |
+| `config:read:<key>` / `config:write:<key>` | 配置 |
 | `service:<name>` | 调用某 service |
 
 ## ServiceEntry
@@ -39,12 +37,16 @@ IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.
 ```json
 {
   "name": "land.byId",
-  "input": { "type": "object", "properties": { "landId": { "type": "string" } }, "required": ["landId"] },
+  "input": {
+    "type": "object",
+    "properties": { "landId": { "type": "string" } },
+    "required": ["landId"]
+  },
   "output": { "type": "object" }
 }
 ```
 
-`provides` 里的 `name` 全仓唯一。`requires` 必须在某个模块的 `provides` 里找得到，启动时会校验。
+`provides` 的 `name` 全仓唯一。`requires` 必须能在某个模块的 `provides` 中解析；启动时校验。
 
 ## 示例
 
@@ -72,6 +74,6 @@ IDE：文件内 `$schema` 指向 `@sfmc-bds/sdk/schemas/sapi-manifest.v2.schema.
 
 ## 启动校验
 
-db-server 扫所有已装包的 manifest，检查：重复 id、循环依赖、service 引用、权限声明。失败会在日志里标出模块 id。
+db-server 扫描已装包 manifest：重复 id、循环依赖、service 引用、权限声明。失败会在日志标出模块 id。
 
-HTTP 侧如何消费 manifest，见 [接口指南](../api/modules.md)。
+HTTP 侧见 [接口指南 · 模块控制](../api/module-control.md)。

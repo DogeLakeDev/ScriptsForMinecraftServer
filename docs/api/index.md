@@ -1,39 +1,60 @@
-# 接口指南
+# 入门
 
-db-server 的 HTTP API、`@sfmc-bds/sdk` 模块侧接口，以及 **各业务模块对外服务**。
+db-server 的 HTTP API、`@sfmc-bds/sdk` 用法，以及各业务模块对外服务。
 
-## 阅读顺序
+本页面向模块作者与需要直调 HTTP 的调试 / Node 侧开发。读完后，您应能：
 
-| 章节 | 内容 |
-|------|------|
-| [总览](./overview.md) | Base URL、鉴权、响应习惯 |
-| [模块 API](./modules.md) | 列表、启停（HTTP） |
-| [模块服务目录](./modules/index.md) | economy / land / area / … 对外 service 与 client |
-| [配置 API](./config.md) | 平台配置 + 模块 configKey |
-| [数据库 API](./db.md) | define-table、CRUD、tx |
-| [服务 API](./services.md) | 跨模块 RPC 的 HTTP 机制 |
-| [消息 API](./messages.md) | 聊天、QQ 桥 |
-| [SDK 导读](./sdk/index.md) | runtime / db / config / service 用法 |
-| [SDK 类型参考](../reference/index.md) | TypeDoc 生成的完整 API |
+- 分清「走 SDK」还是「对照 HTTP」
+- 找到鉴权约定、四抽屉 SDK、模块服务与平台 HTTP 各章
+
+完整类型签名见 [SDK 类型参考](../reference/index.md)（`npm run docs -- api`）。开发流程见 [开发指南](../dev/index.md)。
+
+```mermaid
+flowchart LR
+  A[入门] --> B[鉴权与约定]
+  A --> C[SDK 导读]
+  C --> D[模块服务目录]
+  A --> E[HTTP 各章]
+```
 
 ## Base URL
 
 默认 `http://127.0.0.1:3001`，仅 loopback。端口见 `configs/db_config.json` 的 `db_port`。
 
-## 两类配置接口
-
-| 类型 | 路径 | 用途 |
-|------|------|------|
-| 启动快照 | `GET /api/sfmc/configs/all` | SAPI 一次性拉全 |
-| 模块配置 | `GET/POST /api/sfmc/configs/:configKey/…` | 按 manifest configKey |
-| Legacy 平台 JSON | `GET /api/sfmc/areas` 等 | 老模块只读 |
-
-## SDK 与 HTTP 的关系
-
-模块作者优先用 SDK 与 **模块 typed client**；SDK 内部发 HTTP 到 db-server。写 Node 服务或调试时可直调 HTTP。
-
-## 健康检查
-
 ```bash
 curl http://127.0.0.1:3001/api/health
 ```
+
+## SDK 与 HTTP
+
+| 场景 | 做法 |
+| ------ | ------ |
+| 写模块业务 | SDK + 对方 typed client；**不要**直连 `127.0.0.1:3001` |
+| 调试 / 写 Node 工具 | 可直调 HTTP（本指南各 HTTP 章） |
+| 查签名 | [类型参考](../reference/index.md) |
+
+## 你要走哪条路
+
+=== "模块作者"
+
+    1. [鉴权与约定](./overview.md)（错误码与身份）  
+    2. [SDK 导读](./sdk/index.md)  
+    3. [模块服务目录](./modules/index.md)（跨模块能力）
+
+=== "对照 HTTP / 调试"
+
+    1. [鉴权与约定](./overview.md)  
+    2. [模块控制](./module-control.md) · [配置](./config.md) · [数据库](./db.md) · [服务 RPC](./services.md) · [消息](./messages.md)
+
+## 章节索引
+
+| 章节 | 内容 |
+| ------ | ------ |
+| [鉴权与约定](./overview.md) | 鉴权、响应、路由索引 |
+| [SDK 导读](./sdk/index.md) | runtime / db / config / service |
+| [模块服务目录](./modules/index.md) | economy、land、area… |
+| [模块控制](./module-control.md) | catalog、enable / disable |
+| [配置](./config.md) | configs/all、configKey、legacy |
+| [数据库](./db.md) | define-table、CRUD、tx |
+| [服务 RPC](./services.md) | `GET /services`、与 tx.call |
+| [消息](./messages.md) | 聊天与 QQ 桥 |

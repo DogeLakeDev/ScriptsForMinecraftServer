@@ -1,4 +1,4 @@
-# area 服务（manifest.id: feature-area）
+# area 服务
 
 安装 id：`area` · npm：`@sfmc-bds/module-area`
 

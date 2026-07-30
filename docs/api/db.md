@@ -1,12 +1,12 @@
-# 数据库 API
+# 数据库
 
-前缀 `/api/sfmc/db/`，**全部 POST**，需要模块身份。
+前缀 `/api/sfmc/db/`，**全部 POST**，需要模块身份。manifest 声明 `db:read:<table>` / `db:write:<table>` 等。
 
-模块在 manifest 里声明 `db:read:<table>` / `db:write:<table>` 等权限。
+模块侧封装见 [SDK · db](./sdk/db.md)。
 
 ## POST /api/sfmc/db/define-table
 
-初始化表结构（只在模块 init 阶段调，不要放在 tx 里）。
+仅在模块 `init` 调用，不要放进 tx。
 
 ```json
 {
@@ -19,12 +19,12 @@
 }
 ```
 
-响应：`{ success, table, created }`
+响应：`{ success, table, created }`。
 
 ## 单步 CRUD
 
 | 路径 | Body 要点 | 响应 |
-|------|-----------|------|
+| ------ | ------ | ------ |
 | `/query` | `{ table, opts? }` | `{ rows }` |
 | `/get` | `{ table, id }` | `{ row }` |
 | `/insert` | `{ table, row }` | `{ row }` |
@@ -32,49 +32,32 @@
 | `/delete` | `{ table, id, hard? }` | `{ changes }` |
 | `/audit` | `{ table, rowId, action, data? }` | `{ ok }` |
 
-`opts` 使用表达式树 `WhereExpr`，**不要**传 SQL 字符串。
+`opts` 使用 `WhereExpr` 表达式树，**不要**传 SQL 字符串。
 
 ## 事务
 
 ### 交互会话（SDK `db.tx` 默认）
 
 | 路径 | Body | 响应要点 |
-|------|------|----------|
+| ------ | ------ | ------ |
 | `/tx/begin` | `{}` | `{ ok, txId }` |
-| `/tx/step` | `{ txId, step }` | `{ ok, result }`（`query`/`get`/`call` 可当场读回） |
+| `/tx/step` | `{ txId, step }` | `{ ok, result }` |
 | `/tx/commit` | `{ txId }` | `{ ok, results }` |
 | `/tx/rollback` | `{ txId }` | `{ ok }` |
 
-### 批量（工具/测试）
+### 批量（工具 / 测试）
 
 `POST /api/sfmc/db/tx`，body `{ steps: TxStep[] }` → `{ ok, results }`。
 
-步骤类型：query、get、insert、update、delete、audit、**service**（SDK 侧 `tx.call`）。
+步骤类型：query、get、insert、update、delete、audit、**service**（对应 SDK `tx.call`）。
 
-在 tx 内用 `tx.*`，不要混用外面的单步 CRUD。
+tx 内只用 `tx.*`，不要混用外面的单步 CRUD。
 
 ## 幂等
 
 | 路径 | 作用 |
-|------|------|
+| ------ | ------ |
 | `/idempotent/probe` | `{ action, key }` → 是否已执行 |
 | `/idempotent/commit` | 提交幂等结果 |
 
 SDK：`db.idempotent(action, key, fn)`。
-
-## SDK 封装
-
-```ts
-import { db, type TxContext } from "@sfmc-bds/sdk/sapi/db";
-
-await db.defineTable("my_table", [/* columns */]);
-
-const rows = await db.query("my_table", { where: { /* WhereExpr */ } });
-
-await db.tx(async (tx: TxContext) => {
-  await tx.update("lands", id, { version: 2 });
-  await tx.call("economy.debit", { playerId, amount: 100 });
-});
-```
-
-详见 [SDK → db](./sdk/db.md)。

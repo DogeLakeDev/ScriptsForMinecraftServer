@@ -1,4 +1,4 @@
-# feature-land 服务
+# land 服务
 
 安装 id：`land` · npm：`@sfmc-bds/module-land`  
 （原 `land-gui` 已并入本模块，GUI 在 `sapi/src/land-gui.ts`。）
