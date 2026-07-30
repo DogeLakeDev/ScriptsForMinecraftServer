@@ -2,6 +2,8 @@ import { debug } from "../sapi/runtime/debug-log.js";
 import { ConfigManager } from "./internal/config-manager.js";
 import { ModuleId } from "./internal/module-keys.js";
 
+export type { ModuleId };
+
 /**
  * BDS SAPI host 抽象（由 install.ts 在 BDS 进程里注入）。
  * 模块 loader 只调用 stub 接口，不直接 import @minecraft/server——
@@ -13,25 +15,35 @@ export type BdsSystem = {
   run?(cb: () => void, ticks?: number): number;
 };
 
+/**
+ * 模块身份注入钩子（db/config/service client）。
+ * 由 `module-loader/install` 绑定真实实现；测试环境可 noop 或不绑。
+ */
+export type ModuleAuthHooks = {
+  apply(id: string, token: string, configKey: string): void;
+  clear(id: string): void;
+};
+
 export {}; /* 确保本文件被当作 module（declare global 才能生效） */
 
 declare global {
   // eslint-disable-next-line no-var
   var __sfmcBdsSystem: BdsSystem | undefined;
 }
-import { setConfigModuleContext, clearConfigModuleContext } from "../sapi/config/client.js";
-import {
-  setDbModuleContext,
-  clearDbModuleContext,
-  isDbTxRecording,
-} from "../sapi/db/client.js";
-import { setServiceModuleContext, clearServiceModuleContext } from "../sapi/service/client.js";
+
 // Command 类尚未迁入 @sfmc-bds/sdk (Stage F 之后实装)。本批 (Stage A+B) 把所有
 // Command.unregister / Command.unregisterByModule 调用换成 stub,行为等价 noop;
 // 实际命令注销由 modules 自己在 cleanup() 中调各自的 unregister 接口(已存在)。
 // 完整迁移后这里恢复 import { Command } from "../sapi/host/index.js" + 值调用。
 const _cmdUnregister = (_name: string) => undefined;
 const _cmdUnregisterByModule = (_module: string) => undefined;
+
+let _authHooks: ModuleAuthHooks | null = null;
+
+/** 由 installHostBootstrap 注入 db/config/service 身份钩子（DIP）。 */
+export function bindModuleAuthHooks(hooks: ModuleAuthHooks): void {
+  _authHooks = hooks;
+}
 
 /** 模块生命周期钩子（各阶段可选）。 */
 export type ModuleLifecycle = {
@@ -51,7 +63,7 @@ export type ModuleLifecycle = {
 export type ModuleDescriptor = {
   /**
    * 模块身份:优先用 catalog/manifest id(如 feature-afk)。
-   * OCP:新模块不必改 Modules 枚举;旧键(afk)仍可通过 Modules 别名解析启停。
+   * 启停同时按 catalog id 与 configKey 双索引查询。
    */
   id: ModuleId;
   /** 为 true 时 init 推迟到 worldLoad 之后。 */
@@ -69,7 +81,7 @@ const booted = new Set<string>();
 const lastEnabled = new Map<string, boolean>();
 let worldLoaded = false;
 
-/** 启停查询键:catalog id 本身 + 旧 Modules 枚举映射的 configKey。 */
+/** 启停查询键:catalog id 本身 + 对应 configKey。 */
 function enableKeysFor(id: ModuleId): string[] {
   const keys = [id];
   const configKey = ConfigManager.getModuleConfigKey(id);
@@ -87,11 +99,7 @@ function applyModuleAuthContext(id: ModuleId): void {
         ` v2 db/config/service 调用将 401`
     );
   }
-  setDbModuleContext(id, token);
-  setServiceModuleContext(id, token, isDbTxRecording);
-  if (configKey) {
-    setConfigModuleContext(id, configKey, token);
-  }
+  _authHooks?.apply(id, token, configKey);
 }
 
 /** 模块注册表：启动、启停对账与 cleanup 追踪。 */
@@ -273,9 +281,7 @@ export class ModuleRegistry {
     }
     booted.delete(id);
     // 清身份避免禁用后仍带旧 token 调用(Demeter:只清本模块上下文,勿误清其他模块桶)
-    clearDbModuleContext(id);
-    clearConfigModuleContext(id);
-    clearServiceModuleContext(id);
+    _authHooks?.clear(id);
   }
 
   /** 清理全部已注册模块（shutdown 时调用）。 */
@@ -290,6 +296,22 @@ export class ModuleRegistry {
   /** 模块是否已完成 boot。 */
   static isBooted(id: ModuleId): boolean {
     return booted.has(id);
+  }
+
+  /** 测试沙箱复位注册表（勿在 BDS 生产路径调用）。 */
+  static resetForTesting(): void {
+    for (const d of [...descriptors]) {
+      try {
+        ModuleRegistry.cleanupModule(d.id);
+      } catch {
+        /* ignore */
+      }
+    }
+    descriptors.length = 0;
+    cleanups.clear();
+    booted.clear();
+    lastEnabled.clear();
+    worldLoaded = false;
   }
 }
 

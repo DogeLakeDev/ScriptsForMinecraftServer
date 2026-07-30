@@ -66,8 +66,18 @@ const SUBPATHS = [
   { sub: "node/node", platform: "node" },
   { sub: "node/config", platform: "node" },
   { sub: "module-loader", platform: "node" },
+  // BDS 启动入口：单独子路径，避免污染 module-loader barrel（DIP）
+  { sub: "module-loader/install", platform: "node", entry: "src/module-loader/install.ts" },
   { sub: "behavior-pack-build", platform: "node" },
-  { sub: "testing", platform: "node" },
+  { sub: "testing", platform: "node", externalExtra: ["@sfmc-bds/sdk/sapi/runtime", "@sfmc-bds/sdk/module-loader"] },
+];
+
+const TESTING_BRIDGES = [
+  "mc-bridge-server",
+  "mc-bridge-ui",
+  "mc-bridge-net",
+  "mc-bridge-admin",
+  "mc-bridge-diagnostics",
 ];
 
 const DIST_ESM = "dist/esm";
@@ -87,9 +97,13 @@ const MINECRAFT_EXTERNALS = [
 ];
 
 // 1) ESM bundle
-for (const { sub, platform } of SUBPATHS) {
-  const entry = path.posix.join("src", sub, "index.ts");
-  const outfile = path.posix.join(DIST_ESM, sub, "index.js");
+for (const item of SUBPATHS) {
+  const { sub, platform } = item;
+  const entry = item.entry ?? path.posix.join("src", sub, "index.ts");
+  // 单文件入口（如 module-loader/install.ts）→ dist/esm/module-loader/install.js
+  const outfile = item.entry
+    ? path.posix.join(DIST_ESM, `${sub}.js`)
+    : path.posix.join(DIST_ESM, sub, "index.js");
   await build({
     entryPoints: [entry],
     bundle: true,
@@ -99,14 +113,35 @@ for (const { sub, platform } of SUBPATHS) {
     target: platform === "node" ? "node18" : "es2022",
     sourcemap: true,
     logLevel: "info",
+    external: [...MINECRAFT_EXTERNALS, ...(item.externalExtra ?? [])],
+  });
+}
+
+// 1b) 测试假引擎桥 + loader（供 --import @sfmc-bds/sdk/testing/minecraft-loader）
+const testingOut = path.join(DIST_ESM, "testing");
+fs.mkdirSync(testingOut, { recursive: true });
+for (const name of TESTING_BRIDGES) {
+  await build({
+    entryPoints: [path.posix.join("src/testing/engine", `${name}.ts`)],
+    bundle: true,
+    format: "esm",
+    outfile: path.join(testingOut, `${name}.js`),
+    platform: "node",
+    target: "node18",
+    sourcemap: true,
+    logLevel: "info",
     external: MINECRAFT_EXTERNALS,
   });
 }
+fs.copyFileSync(
+  path.join("src/testing/minecraft-loader.mjs"),
+  path.join(testingOut, "minecraft-loader.mjs")
+);
 
 // 2) .d.ts — 经 tsc7（TS7 native）产 dist/types
 console.log("[sdk] emitting .d.ts via tsc7...");
 const dtsCode = runTsc7(["-p", "tsconfig.types.json"]);
 if (dtsCode !== 0) process.exit(dtsCode);
 
-console.log("@sfmc-bds/sdk build done:", SUBPATHS.length, "subpaths");
+console.log("@sfmc-bds/sdk build done:", SUBPATHS.length, "subpaths +", TESTING_BRIDGES.length, "bridges");
 

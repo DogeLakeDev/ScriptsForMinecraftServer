@@ -1,84 +1,86 @@
-# 模块开发（纯 index + 一模块一仓）
+# 模块开发
 
-## 三层模型（硬边界）
+从模板建仓，用 **VS Code/Cursor 扩展「SFMC Module」** 写测与 Watch；运维面仍用 `sfmc`（装模块、启停、对本机 `mod reload`）。
 
-| 角色 | 是什么 | 不是什么 |
-|------|--------|----------|
-| **作者仓**（独立 git 仓） | **唯一开发面**：写代码、typecheck、`--from dir:… --link` 进平台 | 不是 monorepo 写码处 |
-| **npm registry** | **唯一官方发布源**：`@<author>/sfmc-module-<id>` 或官方 `@sfmc-bds/module-<id>` | 不是分发仓源码树 |
-| **`sfmc-modules` 仓库** | **薄 index / 检索面**：仅 `index.json` + 登记说明 | **不是**工作区、不是 monorepo |
-| **主仓 `modules/packages/<id>/`** | install 落点（含 `--link` 时 junction/symlink） | 不是「去那儿写业务源码」 |
+一模块一仓；**不要** clone `sfmc-modules` 写业务。
 
-**含义：**
+## 新建模块
 
-- 作者 **不** clone `sfmc-modules` 来改业务。
-- 新模块：用 `Tanya7z/sfmc-module-template`（GitHub Use this template）派生，或直接调用 `node tools/new-module.mjs <id>` 生成单包根（见 [tools.md](./tools.md)）。
+=== "扩展（推荐）"
 
-## 推荐入手路径
+    命令面板 → `SFMC: New Module`，选空目录并填 id。
 
-```bash
-# 1) GitHub Use this template → Tanya7z/sfmc-module-template
-node scripts/rename.mjs my-feature --name "我的功能" --scope <npm用户>
-npm install
-npm run typecheck
+=== "模板"
 
-# 2) 在主仓联调
-sfmc mod install my-feature --from dir:D:/path/to/my-feature --link
-sfmc mod enable my-feature
-sfmc mod reload            # 或 sfmc mod watch
-```
+    使用 [sfmc-module-template](https://github.com/Tanya7z/sfmc-module-template)（GitHub *Use this template*），在仓库根目录：
 
-也可：`sfmc mod install --from local:D:/path/to/my-feature --link`（可省略 id，从 package 推导）。
+    ```bash
+    node scripts/rename.mjs my-feature --scope <npm用户> --name "我的功能"
+    npm i
+    npm run typecheck
+    npm test
+    ```
 
-## 命名约定
+=== "new-module 脚本"
 
-| 层 | 规则 | 示例 |
-|----|------|------|
-| 文件夹 / install id | 短名 kebab | `land`、`my-mod` |
-| npm（社区） | `@<user>/sfmc-module-<folder>` | `@alice/sfmc-module-my-mod` |
-| npm（官方） | `@sfmc-bds/module-<folder>` | `@sfmc-bds/module-economy` |
-| manifest.id | `feature-<folder>` 或 `core-<folder>` | `feature-land` |
-| configKey | folder 的 `-` → `_` | `my_mod` |
+    ```bash
+    mkdir my-feature && cd my-feature
+    node <主仓>/tools/new-module.mjs my-feature --name "我的功能"
+    ```
 
-## 日常开发闭环
+    详见 [工具脚本](./tools.md)。
+
+## 命名规范
+
+| 层 | 规则 | 例 |
+| ------ | ------ | ----- |
+| 文件夹 / install id | 短名 kebab | `my-feature` |
+| npm（社区） | `@<user>/sfmc-module-<id>` | `@alice/sfmc-module-my-feature` |
+| npm（官方） | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` |
+| `manifest.id` | `feature-<id>` 或 `core-<id>` | `feature-my-feature` |
+| `configKey` | `-` → `_` | `my_feature` |
+
+## 作者工作流
 
 ```mermaid
 flowchart LR
-  A[作者仓 改代码] --> B[sfmc mod watch]
-  B --> C[esbuild + deploy]
-  C --> D[直写 BDS stdin 发 reload]
-  D --> E[游戏内验证]
+  A[改 sapi/src] --> B[npm test / 扩展 Run Tests]
+  B --> C[扩展 Start Watch]
+  C --> D[组装部署]
+  D --> E[BDS reload]
 ```
 
-### 命令速查
+1. **先测**：`npm test` 或扩展 `SFMC: Run Module Tests`（假引擎，秒级）。详情见 [测试沙箱](./testing.md)（宿主分相、L0–L2、与 Watch 分工）。
+2. **再联调**：扩展 `SFMC: Start Watch`（设置 `sfmc.root`）；或运维机 `sfmc mod install --link` + `mod reload`。
 
-```bash
-sfmc mod install <id> --from dir:<作者仓> --link
-sfmc mod enable <id>
-sfmc mod reload
-sfmc mod watch
-sfmc mod test
-sfmc mod publish --dry-run
-sfmc mod publish
-```
+!!! tip "全表面 ≠ 假 BDS"
+    沙箱能 `import` 大范围 `@minecraft/*`，未实现 API 会**硬失败**（不是静默 noop）。进服仍是终检：世界交互与版本 quirk 用 Watch / 日志。
 
-**`reload` 语义：** build → deploy → 向 BDS 发 `reload`（不是 restart）。  
-改 `configs/*.json` / `sapi/manifest.json` / SDK 仍需重启对应进程。
+| 入口 | 作用 |
+| ------ | ------ |
+| 扩展 Run Tests | 跑模块仓 `npm test` |
+| 扩展 Start Watch | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
+| `sfmc mod build` / `reload` | **运维**对本机已装模块组装部署 |
+| `sfmc mod install/enable` | **运维**安装与启停 |
 
-### 安装源
+!!! warning "注意"
+    `sfmc mod test` / `mod watch` / `mod publish` 已移除；作者发布用模板/`npm publish`，联调用扩展。
+
+### 安装源（运维）
 
 | 来源 | 何时用 |
-|------|--------|
-| `npm:@scope/name`（默认） | 远端已发布；index 命中 `npm` 字段优先 |
-| `local:` / `dir:` + `--link` | 作者仓联调 |
-| `github:…` | **deprecated** 兼容旧 index `{repo,tag}` |
+| ------ | -------- |
+| `npm:@scope/name`（默认） | 已发布 |
+| `dir:` / `local:` + `--link` | 作者仓联调到服务器工作目录 |
 
-## 目录结构（作者仓 = 包根）
+## 作者仓结构
 
-```
+```text
 my-feature/
 ├── package.json
-├── scripts/rename.mjs          # 模板自带
+├── .vscode/          # ESLint / SFMC Module / 测试推荐扩展
+├── eslint.config.js
+├── scripts/rename.mjs
 ├── sapi/
 │   ├── manifest.json
 │   ├── tsconfig.json
@@ -86,47 +88,20 @@ my-feature/
 └── test/
 ```
 
-## 最小入口
+## SDK 导入
 
-```ts
-import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
-import { Permission, Command } from "@sfmc-bds/sdk/sapi/runtime";
+| 路径 | 用途 |
+| ------ | ------ |
+| `@sfmc-bds/sdk/sapi/runtime` | Msg、命令、权限、菜单 |
+| `@sfmc-bds/sdk/sapi/db` | 表、CRUD、事务 |
+| `@sfmc-bds/sdk/testing` | 测试沙箱 `createSandbox` |
+| `@sfmc-bds/devkit` | Watch / 脚手架（扩展依赖） |
 
-ModuleRegistry.register({
-  id: "feature-afk",
-  afterWorldLoad: false,
-  lifecycle: {
-    registerPermissions() {
-      Permission.register("afk.use", Permission.Any);
-    },
-    registerCommands() {
-      Command.register("afk", "afk.use", (player) => { /* … */ }, "AFK");
-    },
-    async init() { /* … */ },
-    cleanup() {},
-  },
-});
-```
+## 接下来
 
-## SDK 四抽屉
-
-| 导入 | 用途 |
-|------|------|
-| `@sfmc-bds/sdk/sapi/runtime` | 消息、命令、权限、菜单、`Money` |
-| `@sfmc-bds/sdk/sapi/db` | 表定义、CRUD、事务 |
-| `@sfmc-bds/sdk/sapi/config` | 模块配置读写 |
-| `@sfmc-bds/sdk/sapi/service` | 调其它模块 service |
-
-跨模块：**不要** import 其它模块源码；用 typed client 或 `service.get` / `tx.call`。玩家消息用 `Msg.*`。
-
-## `@minecraft/*` 版本
-
-独立作者仓可在 **devDependencies** 钉与主仓相同的 preview 线。勿在业务逻辑里假设 monorepo 提升。
-
-## 发布
-
-1. `sfmc mod publish`（登录引导 + bump + npm publish + 薄 index PR）  
-2. 官方 scope 需 `SFMC_OFFICIAL_PUBLISH=1`  
-3. `private: true` 会被预检拒绝  
-
-契约字段见 [manifest](./manifest.md)。
+| 章节 | 内容 |
+| ------ | ------ |
+| [测试沙箱](./testing.md) | 假引擎保真、L0/L2、与 Watch 分工 |
+| [ESLint 约定](./eslint.md) | 约定检查 |
+| [发布你的模块](./publish.md) | npm 发布 |
+| 规划规格 | `docs/superpowers/specs/2026-07-30-sapi-testing-sandbox-design.md` |

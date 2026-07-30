@@ -10,7 +10,8 @@ ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 - **`@sfmc-bds/sdk/sapi/service`** — 跨模块调用:`service.get` / `service.list`
 - **`@sfmc-bds/sdk/sapi/host`** — 平台 host adapter 注入面(仅 BP 构建期使用)
 - **`@sfmc-bds/sdk/sapi/sdk`** — SAPI 侧 SDK 聚合入口
-- **`@sfmc-bds/sdk/module-loader`** — `ModuleRegistry.register` / `installHostBootstrap`
+- **`@sfmc-bds/sdk/module-loader`** — `ModuleRegistry.register` / `ConfigManager`
+- **`@sfmc-bds/sdk/module-loader/install`** — `installHostBootstrap`（仅 BP 启动）
 - **`@sfmc-bds/sdk/node/...`** — Node 进程内 SDK(db-server / qq-bridge / bds-tools / sfmc 自身)
 - **`@sfmc-bds/sdk/behavior-pack-build`** — BP 构建期类型与工具
 - **`@sfmc-bds/sdk/logs`** — 平台统一的日志/格式化/输出器
@@ -53,31 +54,27 @@ ModuleRegistry.register({
 ## 模块测试（无需 BDS）
 
 ```typescript
-// test/my-module.test.ts（用 tsx 或 node --import tsx 跑）
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import entry from "../sapi/src/index.ts";
-import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
-import {
-  createFakePlayer,
-  createFakeWorld,
-  createFakeDb,
-  assertMsg,
-} from "@sfmc-bds/sdk/testing";
+import { createSandbox, assertMsg } from "@sfmc-bds/sdk/testing";
+import { DESCRIPTOR } from "../sapi/src/index.js";
 
-test("smoke: register + init 不抛", async () => {
-  const world = createFakeWorld();
-  const db = createFakeDb();
-  /* harness 直接调 lifecycle 钩子，绕过 ConfigManager/ModuleRegistry 启动门禁 */
-  const desc = ModuleRegistry.list().find((d) => d.id === "my-module");
-  await desc.lifecycle.registerPermissions?.();
-  await desc.lifecycle.registerCommands?.();
-  await desc.lifecycle.init?.();
-  assert.ok(true);
+test("命令冒烟", async (t) => {
+  const sb = await createSandbox({ module: DESCRIPTOR });
+  t.after(() => sb.dispose());
+  const player = sb.addPlayer({ name: "tester", op: true });
+  await sb.triggerCommand("hello", player);
+  assert.equal(assertMsg(player, "ok"), true);
 });
 ```
 
-> `runLifecycle(descriptor, opts)` 提供更结构化入口（按 afterWorldLoad 决定是否跑 init，返回 `{ ok, error }`）。模块若依赖 db/config/service，须在用例里 stub；harness 不会自动替身。
+运行须加载假引擎 loader：
+
+```bash
+node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm test/**/*.test.ts
+```
+
+> allowlist 外 API 会抛错；真机联调用 VS Code 扩展 Watch 或 `sfmc mod reload`。
 
 ## 平台规则
 

@@ -30,6 +30,11 @@ export class Permission {
     this.registry.set(name, level);
   }
 
+  /** 清空命名权限表（仅测试沙箱 dispose 使用）。 */
+  static clearRegistry(): void {
+    this.registry.clear();
+  }
+
   /** 检查玩家是否满足命名权限；未注册权限名一律拒绝。 */
   static check(player: Player | string, permissionName: string): boolean {
     const required = this.registry.get(permissionName);

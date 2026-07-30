@@ -30,6 +30,20 @@ jobs:
         shell: pwsh
         run: npm run build --workspaces --if-present
 
+      - name: SDK testing sandbox # 假引擎 + L0 覆盖率
+        shell: pwsh
+        run: npm test -w @sfmc-bds/sdk
+
+      - name: mc-fake 生成物与仓库一致
+        shell: pwsh
+        run: |
+          npm run gen:mc-fake -w @sfmc-bds/sdk
+          $porcelain = git status --porcelain -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"
+          if ($porcelain) {
+            Write-Host $porcelain
+            throw "generated/ 与 gen:mc-fake 不一致：请本地 npm run gen:mc-fake -w @sfmc-bds/sdk 后提交"
+          }
+
       - name: Seed configs via SDK ensure # 测试：播种配置文件
         shell: pwsh
         env:

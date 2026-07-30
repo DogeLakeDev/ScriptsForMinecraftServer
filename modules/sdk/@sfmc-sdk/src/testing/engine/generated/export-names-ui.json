@@ -1,0 +1,37 @@
+{
+  "module": "@minecraft/server-ui",
+  "dtsPath": "D:\\#WorkPlace\\#MCBEProjects\\ScriptsForMinecraftServer\\node_modules\\@minecraft\\server-ui\\index.d.ts",
+  "generatedAt": "2026-07-30T12:08:50.511Z",
+  "totalValueExports": 26,
+  "generatedNames": [
+    "ActionFormResponse",
+    "FormRejectError",
+    "FormRejectReason",
+    "FormResponse",
+    "FormVisibilityError",
+    "FormVisibilityErrorReason",
+    "InvalidFormError",
+    "InvalidFormModificationError",
+    "InvalidObservableError",
+    "MessageFormResponse",
+    "ModalFormResponse",
+    "PlayerLeftError",
+    "TextFilteringError",
+    "UIManager"
+  ],
+  "skippedHandWritten": [
+    "ActionFormData",
+    "CustomForm",
+    "DataDrivenScreenClosedReason",
+    "FormCancelationReason",
+    "MessageBox",
+    "MessageFormData",
+    "ModalFormData",
+    "ObservableBoolean",
+    "ObservableNumber",
+    "ObservableString",
+    "ObservableUIRawMessage",
+    "default",
+    "uiManager"
+  ]
+}

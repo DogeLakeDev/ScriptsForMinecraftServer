@@ -12,21 +12,12 @@
  *          时彻底切断,改为事件订阅。
  */
 
-// DataAdapter 已迁出到 ../data-adapter.ts；须 import type 才能在本文件当名用，再 re-export 兼容外部
+// DataAdapter 定义在 ../data-adapter.ts；本文件 import type 后 re-export 供调用方使用
 import type { DataAdapter } from "../data-adapter.js";
 export type { DataAdapter };
 
 /** ConfigManager 可读的配置域键名。 */
-export type ConfigKey =
-  | "modules"
-  | "settings"
-  | "areas"
-  | "permissions"
-  | "banned_items"
-  | "clean"
-  | "grids"
-  | "peace_filters"
-  | "questions";
+export type ConfigKey = "modules" | "settings" | "permissions";
 
 type ConfigCache = {
   /** 启停态:同时按 catalog id 与 configKey 索引(OCP/LSP) */
@@ -36,13 +27,7 @@ type ConfigCache = {
   /** catalog id → HMAC module token(来自 configs/all.module_tokens) */
   moduleTokens: Map<string, string>;
   settings: Map<string, string>;
-  areas: any[];
   permissions: Record<string, number>;
-  bannedItems: string[];
-  clean: { itemMax: number; pollInterval: number };
-  grids: Record<string, any>;
-  peaceFilters: any[];
-  questions: any[];
 };
 
 type AllConfigs = {
@@ -58,31 +43,7 @@ type AllConfigs = {
   /** loopback 下发的模块 HMAC token;SAPI 无 fs,靠此注入身份(DIP) */
   module_tokens?: Record<string, string>;
   settings: Record<string, any>;
-  areas: Array<{
-    name?: string;
-    module: string;
-    dimension: any;
-    start_x: number;
-    start_z: number;
-    end_x: number;
-    end_z: number;
-  }>;
   permissions: Array<{ player_name: string; level: number }>;
-  /** 权威为 string[];兼容历史 {item_id} */
-  banned_items: Array<string | { item_id?: string }>;
-  clean: { item_max?: number; poll_interval?: number };
-  grids: Array<{
-    name: string;
-    start_x: number;
-    start_y: number;
-    start_z: number;
-    size_h: number;
-    size_v: number;
-    direction: number;
-    face: number;
-  }>;
-  peace_filters: any[];
-  questions: any[];
 };
 
 /** BP 启动时一次性拉取并缓存的平台配置（无热重载）。 */
@@ -92,13 +53,7 @@ export class ConfigManager {
     moduleConfigKeys: new Map(),
     moduleTokens: new Map(),
     settings: new Map(),
-    areas: [],
     permissions: {},
-    bannedItems: [],
-    clean: { itemMax: 192, pollInterval: 60 },
-    grids: {},
-    peaceFilters: [],
-    questions: [],
   };
   private static _initialized = false;
   private static _ready = false;
@@ -124,7 +79,7 @@ export class ConfigManager {
     await ConfigManager._data.checkHealth();
     await ConfigManager.loadAll();
     ConfigManager._data.setAuthToken(ConfigManager.getSetting("db_auth_token", ""));
-    ConfigManager._notifyModuleChanges(/* force */ true);
+    ConfigManager._notifyModuleChanges(undefined);
     ConfigManager._ready = true;
     console.log("[ConfigManager] 配置已加载");
   }
@@ -134,9 +89,24 @@ export class ConfigManager {
     return ConfigManager._ready;
   }
 
+  /** 测试沙箱复位（勿在 BDS 生产路径调用）。 */
+  static resetForTesting(): void {
+    ConfigManager._initialized = false;
+    ConfigManager._ready = false;
+    ConfigManager._data = null;
+    ConfigManager.cache = {
+      modules: new Map(),
+      moduleConfigKeys: new Map(),
+      moduleTokens: new Map(),
+      settings: new Map(),
+      permissions: {},
+    };
+    ConfigManager._moduleChangeListeners.clear();
+  }
+
   /**
    * 模块是否启用。key 可为 catalog id(feature-afk)或 configKey(afk);
-   * populate 时双写索引,避免 ModuleRegistry / 旧 Modules 枚举键不一致(LSP)。
+   * populate 时按 catalog id 与 configKey 双写索引。
    */
   static isEnabled(module: string): boolean {
     if (!ConfigManager._ready) return false;
@@ -164,39 +134,9 @@ export class ConfigManager {
     }
   }
 
-  /** 取指定模块的区域配置列表。 */
-  static getAreas(module: string): any[] {
-    return ConfigManager.cache.areas.filter((a) => a.module === module);
-  }
-
   /** 取玩家权限覆盖表副本。 */
   static getPermissions(): Record<string, number> {
     return { ...ConfigManager.cache.permissions };
-  }
-
-  /** 取禁物品 id 列表副本。 */
-  static getBannedItems(): string[] {
-    return [...ConfigManager.cache.bannedItems];
-  }
-
-  /** 取清道夫配置（物品上限与轮询间隔）。 */
-  static getClean(): { itemMax: number; pollInterval: number } {
-    return { ...ConfigManager.cache.clean };
-  }
-
-  /** 按名称取网格配置；不存在返回 null。 */
-  static getGrid(name: string): any {
-    return ConfigManager.cache.grids[name] ?? null;
-  }
-
-  /** 取和平模式过滤器列表副本。 */
-  static getPeaceFilters(): any[] {
-    return [...ConfigManager.cache.peaceFilters];
-  }
-
-  /** 取问答库题目列表副本。 */
-  static getQuestions(): any[] {
-    return [...ConfigManager.cache.questions];
   }
 
   /** 从 db-server 重新拉取全量配置并填充缓存。 */
@@ -219,13 +159,14 @@ export class ConfigManager {
     const body = await ConfigManager._data!.getModules();
     if (!body) return;
     try {
+      const previous = new Map(ConfigManager.cache.modules);
       const { modules } = JSON.parse(body);
       ConfigManager.cache.modules.clear();
       ConfigManager.cache.moduleConfigKeys.clear();
       for (const m of modules) {
         ConfigManager._indexModuleEntry(m);
       }
-      ConfigManager._notifyModuleChanges();
+      ConfigManager._notifyModuleChanges(previous);
     } catch (e) {
       console.warn(`[ConfigManager] 模块缓存刷新失败: ${(e as Error).message}`);
     }
@@ -270,63 +211,19 @@ export class ConfigManager {
       ConfigManager.cache.settings.set(k, typeof v === "string" ? v : JSON.stringify(v));
     }
 
-    ConfigManager.cache.areas = (all.areas || []).map((a) => ({
-      name: a.name || "",
-      dimension: a.dimension,
-      module: a.module,
-      start: [a.start_x, a.start_z],
-      end: [a.end_x, a.end_z],
-    }));
-
     ConfigManager.cache.permissions = {};
     for (const p of all.permissions || []) {
       ConfigManager.cache.permissions[p.player_name] = p.level;
     }
-
-    // 权威契约为 string[];兼容历史 {item_id} 以免旧服务端把缓存清空(LSP 防御)
-    ConfigManager.cache.bannedItems = (all.banned_items || [])
-      .map((s) =>
-        typeof s === "string"
-          ? s
-          : s && typeof s === "object"
-            ? String((s as { item_id?: unknown }).item_id || "")
-            : ""
-      )
-      .filter((id) => !!id);
-
-    if (all.clean) {
-      ConfigManager.cache.clean = {
-        itemMax: all.clean.item_max ?? 192,
-        pollInterval: all.clean.poll_interval ?? 60,
-      };
-    }
-
-    ConfigManager.cache.grids = {};
-    for (const g of all.grids || []) {
-      ConfigManager.cache.grids[g.name] = {
-        ...g,
-        size: [g.size_h, g.size_v],
-        start: [g.start_x, g.start_y, g.start_z],
-      };
-    }
-
-    ConfigManager.cache.peaceFilters = Array.isArray(all.peace_filters) ? all.peace_filters : [];
-
-    ConfigManager.cache.questions = (all.questions || []).map((q: any) => ({
-      weight: q.weight,
-      q: q.question,
-      a: q.answers || [],
-      msg_right: q.msg_right || "",
-      msg_wrong: q.msg_wrong || "",
-      d: q.explanation || "",
-      seq: [q.min_rank, q.max_rank].filter((v: any) => v !== null && v !== undefined),
-      bonus: q.rewards || [],
-      punish: q.punishments || [],
-    }));
   }
 
-  private static _notifyModuleChanges(force = false): void {
-    for (const [key, enabled] of ConfigManager.cache.modules.entries()) {
+  /**
+   * 广播模块启停变化。
+   * - previous === undefined：init 全量通知当前缓存中每一项
+   * - 否则：只通知相对 previous 有变化的 key（含已消失且曾为 true → false）
+   */
+  private static _notifyModuleChanges(previous: Map<string, boolean> | undefined): void {
+    const emit = (key: string, enabled: boolean): void => {
       ConfigManager._moduleChangeListeners.forEach((cb) => {
         try {
           cb(key, enabled);
@@ -334,10 +231,22 @@ export class ConfigManager {
           console.warn(`[ConfigManager] listener 异常: ${(e as Error).message || e}`);
         }
       });
-      if (!force) break; // refreshModules 不需要全量广播;init 时一次性广播后退出
+    };
+
+    if (!previous) {
+      for (const [key, enabled] of ConfigManager.cache.modules.entries()) {
+        emit(key, enabled);
+      }
+      return;
     }
-    if (force) {
-      // force 时已经迭代;不二次广播
+
+    const seen = new Set<string>();
+    for (const [key, enabled] of ConfigManager.cache.modules.entries()) {
+      seen.add(key);
+      if (previous.get(key) !== enabled) emit(key, enabled);
+    }
+    for (const [key, wasEnabled] of previous.entries()) {
+      if (!seen.has(key) && wasEnabled) emit(key, false);
     }
   }
 }

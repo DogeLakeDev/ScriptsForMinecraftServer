@@ -45,6 +45,11 @@
       "import": "./dist/esm/module-loader/index.js",
       "default": "./dist/esm/module-loader/index.js"
     },
+    "./module-loader/install": {
+      "types": "./dist/types/module-loader/install.d.ts",
+      "import": "./dist/esm/module-loader/install.js",
+      "default": "./dist/esm/module-loader/install.js"
+    },
     "./node": {
       "types": "./dist/types/node/node/index.d.ts",
       "import": "./dist/esm/node/node/index.js",
@@ -101,6 +106,7 @@
       "import": "./dist/esm/testing/index.js",
       "default": "./dist/esm/testing/index.js"
     },
+    "./testing/minecraft-loader": "./dist/esm/testing/minecraft-loader.mjs",
     "./schemas/*": "./schemas/*"
   },
   "files": [
@@ -116,7 +122,8 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run clean && npm run build:types && node build.mjs",
     "typecheck": "tsc7 --noEmit -p tsconfig.types.json",
-    "test": "npm run build:js && node --test testing.test.mjs"
+    "gen:mc-fake": "node scripts/gen-mc-fake.mjs",
+    "test": "npm run gen:mc-fake && npm run build:js && node --test scripts/gen-mc-fake.test.mjs export-coverage.test.mjs && node --test --import ./dist/esm/testing/minecraft-loader.mjs testing.test.mjs conformance.test.mjs"
   },
   "peerDependencies": {
     "@minecraft/diagnostics": "1.0.0-beta.1.26.40-preview.30",
