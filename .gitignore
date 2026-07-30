@@ -64,3 +64,5 @@ memory/
 /docs/reference/sdk/**
 !/docs/reference/sdk/.pages
 ScriptsForMinecraftServer.code-workspace
+devkit/dist/**
+extensions/sfmc-module/dist/**
