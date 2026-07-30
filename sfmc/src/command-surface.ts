@@ -4,14 +4,13 @@
  * channel:
  *   - both: argv（`sfmc <cmd>`）与 REPL 均可用（默认）
  *   - repl: 仅 REPL；argv 拒绝（如 send / quit）
- *   - external: 已弃用；勿新增（历史兼容保留类型）
  *
  * accent: "dev" 仅影响帮助/补全蓝色样式，不参与 canRun（OCP/DRY）。
  * 业务实现不在本文件 / 面板内：分发到 commands、module-commands、world-packs 等。
  */
 import { stdin } from "node:process";
 
-export type CommandChannel = "external" | "repl" | "both";
+export type CommandChannel = "repl" | "both";
 export type CommandMode = "argv" | "repl";
 export type CommandAccent = "dev";
 
@@ -35,7 +34,7 @@ export type CanRunContext = {
   isTty: boolean;
 };
 
-export type CanRunFailReason = "externalOnly" | "replOnly" | "needTty";
+export type CanRunFailReason = "replOnly" | "needTty";
 
 export type CanRunResult = { ok: true } | { ok: false; reason: CanRunFailReason };
 
@@ -82,14 +81,13 @@ export function resolveTopLevelName(cmd: string | undefined): string | undefined
 
 function channelAllows(channel: CommandChannel, mode: CommandMode): boolean {
   if (channel === "both") return true;
-  if (channel === "external") return mode === "argv";
   return mode === "repl";
 }
 
 /** 判定当前模式下能否执行该命令（accent 不参与）。 */
 export function canRunCommand(spec: CommandSpec, ctx: CanRunContext): CanRunResult {
   if (!channelAllows(spec.channel, ctx.mode)) {
-    return { ok: false, reason: spec.channel === "external" ? "externalOnly" : "replOnly" };
+    return { ok: false, reason: "replOnly" };
   }
   if (spec.needsTty && !ctx.isTty) {
     return { ok: false, reason: "needTty" };
@@ -170,15 +168,6 @@ export type PaletteNode = {
   freeArgs?: boolean;
 };
 
-/** @deprecated 兼容旧扁平条目；新逻辑用 PaletteNode */
-export type PaletteEntry = {
-  slash: string;
-  needsArgs: boolean;
-  accent?: CommandAccent;
-  label: string;
-  descKey: string;
-};
-
 const NO_ARG_TOP = new Set(["status", "help", "version", "quit", "init", "logs"]);
 
 const TOP_DESC: Record<string, string> = {
@@ -200,9 +189,6 @@ const TOP_DESC: Record<string, string> = {
   uninstall: "help.module.uninstall",
   search: "help.module.search",
   verify: "help.module.verify",
-  watch: "help.module.watch",
-  test: "help.module.test",
-  publish: "help.module.publish",
 };
 
 const MODULE_DESC: Record<string, string> = {
@@ -328,30 +314,6 @@ export function listPaletteRoots(mode: CommandMode = "repl"): PaletteNode[] {
   return out;
 }
 
-/** 扁平列表（测试 / 旧调用）；层级 UI 请用 listPaletteRoots */
-export function listPaletteEntries(mode: CommandMode = "repl"): PaletteEntry[] {
-  const out: PaletteEntry[] = [];
-  const walk = (nodes: PaletteNode[], prefix: string[]): void => {
-    for (const n of nodes) {
-      const path = [...prefix, n.token];
-      const slash = "/" + path.join(" ");
-      if (n.children?.length) {
-        walk(n.children, path);
-      } else {
-        out.push({
-          slash,
-          needsArgs: Boolean(n.freeArgs),
-          label: slash,
-          descKey: n.descKey ?? "help.help",
-          ...(n.accent ? { accent: n.accent } : {}),
-        });
-      }
-    }
-  };
-  walk(listPaletteRoots(mode), []);
-  return out;
-}
-
 export function isDevAccent(spec: CommandSpec | undefined): boolean {
   return spec?.accent === "dev";
 }
@@ -409,9 +371,6 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { id: "module.verify", name: "module", sub: "verify", channel: "both" },
   { id: "module.enable", name: "module", sub: "enable", channel: "both" },
   { id: "module.disable", name: "module", sub: "disable", channel: "both" },
-  { id: "module.watch", name: "module", sub: "watch", channel: "both", accent: "dev" },
-  { id: "module.test", name: "module", sub: "test", channel: "both", accent: "dev" },
-  { id: "module.publish", name: "module", sub: "publish", channel: "both", accent: "dev" },
 
   { id: "packs.list", name: "packs", sub: "list", channel: "both" },
   { id: "packs.search", name: "packs", sub: "search", channel: "both" },

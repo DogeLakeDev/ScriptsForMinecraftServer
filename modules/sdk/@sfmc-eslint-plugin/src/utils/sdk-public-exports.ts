@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** 与当前 SDK exports 对齐的回落表（无 SDK 包时使用） */
-export const SDK_PUBLIC_EXPORTS_FALLBACK = [
+const SDK_PUBLIC_EXPORTS_FALLBACK = [
   "contracts",
   "logs",
   "sapi/sdk",
@@ -22,6 +22,7 @@ export const SDK_PUBLIC_EXPORTS_FALLBACK = [
   "node",
   "node/config",
   "module-loader",
+  "module-loader/install",
   "behavior-pack-build",
   "package.json",
 ] as const;
@@ -76,9 +77,6 @@ export function loadSdkPublicExports(): readonly string[] {
   cachedExports = [...SDK_PUBLIC_EXPORTS_FALLBACK];
   return cachedExports;
 }
-
-/** @deprecated 兼容旧名；请优先 loadSdkPublicExports() */
-export const SDK_PUBLIC_EXPORTS = SDK_PUBLIC_EXPORTS_FALLBACK;
 
 /** 测试用：清空 exports 缓存 */
 export function clearSdkPublicExportsCache(): void {

@@ -154,23 +154,6 @@ export class Money {
     return balance;
   }
 
-  /**
-   * 直接设置余额（仅改本地缓存，不写服务端）。
-   * @deprecated 请改用 `add()` 或领域模块提供的交易 API。
-   */
-  static async set(player: Player, money: number): Promise<boolean> {
-    console.warn(
-      `[MNY] Money.set() is deprecated, called from ${new Error().stack?.split("\n")[2]?.trim() || "unknown"}`
-    );
-    if (!Number.isSafeInteger(money) || money < 0) {
-      debug.w("MNY", `set invalid: ${player.name} ${money}`);
-      return false;
-    }
-    this.setCached(player, money, this.getVersion(player) ?? 0);
-    debug.w("MNY", `set (deprecated) ${player.name}=${money}`);
-    return true;
-  }
-
   /** 增减余额；正数入账、负数扣款，成功后刷新缓存。 */
   static async add(player: Player, money: number): Promise<boolean> {
     if (!Number.isSafeInteger(money) || money === 0) return money === 0;
@@ -197,10 +180,5 @@ export class Money {
       debug.e("MNY", `add FAIL ${player.name} ${money}: ${result.error || "unknown"}`);
     }
     return result.ok;
-  }
-
-  /** 兼容占位：经济已改由 db-server 持久化，不再初始化计分板。 */
-  static initScoreboard() {
-    // Economy is persisted by db-server. The legacy scoreboard is no longer authoritative.
   }
 }

@@ -87,6 +87,10 @@ async function bundleBehaviorPackScript(): Promise<void> {
     logLevel: "warning",
     sourcemap: false,
     external: ["@minecraft/*"],
+    // BDS host 启动：与 module-loader barrel 分离（DIP），须在模块 register 之前执行
+    banner: {
+      js: 'import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";\ninstallHostBootstrap();\n',
+    },
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         module: "ESNext",

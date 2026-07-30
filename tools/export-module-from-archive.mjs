@@ -96,8 +96,8 @@ function main() {
   }
 
   console.log(`[export-module] 已导出 ${id} → ${outAbs}`);
-  console.log(`[export-module] 下一步: 对齐 template CI，改 name 为 @sfmc-bds/module-${id}，SFMC_OFFICIAL_PUBLISH=1 sfmc mod publish`);
-  console.log(`[export-module] 详见 docs/dev/migrate-official-modules.md`);
+  console.log(`[export-module] 下一步: 对齐 template CI，改 name 为 @sfmc-bds/module-${id}，再 npm publish 并向薄 index 开 PR`);
+  console.log(`[export-module] 详见 docs/archive/migrate-official-modules.md`);
 }
 
 function copyDir(src, dst) {

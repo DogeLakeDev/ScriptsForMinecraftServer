@@ -160,9 +160,6 @@ export function readPackManifestInfo(packDir: string): PackManifestInfo | null {
   }
 }
 
-/** @deprecated 读 JSON 已剥离 BOM，不再抛出；保留 re-export 兼容旧 import */
-export { Utf8BomError } from "./fsx.js";
-
 /** 深度优先找含 manifest.json 的包根（默认 maxDepth=2，root 自身为 depth 0） */
 export function discoverPackRoots(root: string, opts?: { maxDepth?: number }): string[] {
   const maxDepth = opts?.maxDepth ?? 2;

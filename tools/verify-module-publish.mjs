@@ -3,8 +3,7 @@
 /**
  * tools/verify-module-publish.mjs — 模块包发布前的全方位预检
  *
- * 在 `sfmc mod publish` 真跑 npm 之前跑一遍；CI 也可触发。
- * 集成 `sfmc mod publish --dry-run` 的同一套检查，但更深：
+ * 在 `npm publish` 之前跑一遍；模板 CI / 本地均可触发：
  *
  * 1) manifest v2 字段完整性（id / configKey / permissions / services）
  * 2) package.json#name 与 manifest.id 一致（折叠规则：feature-* → folder）
@@ -15,9 +14,6 @@
  * 7) 跨模块源码 import 检查（避免深挖其它模块业务代码）
  *
  * 退出码：0 全部通过；1 任一项失败。失败时打印每条 cause + 修复建议。
- *
- * 单一权威：与 sfmc/src/module-publish.ts#runPrecheck 互补（CLI 提供 dry-run 摘要，
- * 本脚本提供可独立运行的硬预检 + 更深字段校验）。
  */
 
 import fs from "node:fs";
@@ -422,7 +418,7 @@ async function main() {
   console.log("");
   console.log(`[verify-module-publish] ${pass} pass · ${warn} warn · ${fail} fail`);
   if (fail > 0) {
-    console.error(`[verify-module-publish] FAILED（${fail} 项硬错）。修完再跑 sfmc mod publish。`);
+    console.error(`[verify-module-publish] FAILED（${fail} 项硬错）。修完再跑 npm publish。`);
     process.exit(1);
   } else {
     console.log(`[verify-module-publish] OK（${warn} 项警告；不阻塞 publish）。`);

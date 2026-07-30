@@ -9,7 +9,7 @@ import {
 } from "@sfmc-bds/sdk/node/config";
 import { cmdRestart, cmdSend, cmdStart, cmdStop } from "./commands.js";
 import { ROOT } from "./runtime.js";
-import { SERVICE_NAMES, serviceStatus, type ServiceName } from "./services.js";
+import { SERVICE_NAMES, queryServicesRuntime, type ServiceName } from "./services.js";
 
 type Task = {
   type: "task";
@@ -86,11 +86,11 @@ function stopHeartbeat(): void {
 
 async function execute(task: Task): Promise<unknown> {
   if (!isAction(task.action)) throw new Error("invalid task action");
-  if (task.action === "status") return { services: await serviceStatus() };
+  if (task.action === "status") return { services: await queryServicesRuntime() };
   if (!isService(task.service)) throw new Error("service is required and must be one of: " + SERVICE_NAMES.join(", "));
   if (task.action === "send") {
     if (!task.message) throw new Error("message is required for send action");
-    return { output: await cmdSend(task.service, task.message), services: await serviceStatus() };
+    return { output: await cmdSend(task.service, task.message), services: await queryServicesRuntime() };
   }
 
   const output =
@@ -99,7 +99,7 @@ async function execute(task: Task): Promise<unknown> {
       : task.action === "stop"
         ? await cmdStop(task.service)
         : await cmdRestart(task.service);
-  return { output, services: await serviceStatus() };
+  return { output, services: await queryServicesRuntime() };
 }
 
 function scheduleReconnect(): void {
@@ -171,7 +171,7 @@ export function startRemoteAgent(): void {
   ws.on("open", () => {
     retryDelay = 1000;
     lastError = "";
-    void serviceStatus().then((status) => {
+    void queryServicesRuntime().then((status) => {
       send({ type: "hello", agentId: config.agent_id, secret: config.agent_secret, status });
       startHeartbeat();
     });

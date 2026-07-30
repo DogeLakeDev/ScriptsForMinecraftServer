@@ -27,8 +27,6 @@ export const en = {
   "locale.opt.en": "English",
 
   /* ─── CLI channel gates ─── */
-  "cli.externalOnly": "Command `{cmd}` is external-only (not available in the REPL).",
-  "cli.externalOnly.hint": "Run from a shell: sfmc {cmd}",
   "cli.replOnly": "Command `{cmd}` is REPL-only.",
   "cli.replOnly.hint": "Start the interactive CLI with `sfmc` (no args), then run it there.",
   "cli.needTty": "Command `{cmd}` requires an interactive TTY.",
@@ -91,9 +89,6 @@ export const en = {
   "help.module.toggle": "Toggle module",
   "help.module.build": "Build BP+RP from enabled modules",
   "help.module.reload": "Build + deploy BP; send reload to BDS",
-  "help.module.watch": "Watch sapi/src and auto rebuild+reload",
-  "help.module.test": "Run module tests (node --test + @sfmc-bds/sdk/testing)",
-  "help.module.publish": "Nanny-mode npm publish (login hint + dry-run + bump + thin-index PR)",
   "help.section.addon": "─── Addon Manager ───",
   "help.addon": "World BP/RP inbox manager",
   "help.packs.list": "List world packs",
@@ -271,44 +266,8 @@ export const en = {
     "BDS is not running — build+deploy finished. After start, type reload in BDS console or in-game.",
   "reload.sent": "Sent reload to BDS",
 
-  /* ─── module watch ─── */
-  "watch.usage":
-    "Usage: mod watch [--from local[:<path>]] [--no-reload]\n" +
-    "  Watches sapi/src in the cwd module repo by default; sapi/manifest.json and tsconfig.json changes only print 'please restart BDS'.\n" +
-    "  Ctrl+C to exit.",
-  "watch.banner": "[watch] watching module: {path}",
-  "watch.hint":
-    "[watch] changes under sapi/src/** trigger rebuild + deploy + reload; everything else is ignored.",
-  "watch.noSapiDir": "[watch] sapi directory not found: {path}",
-  "watch.noSapiSrc":
-    "[watch] sapi/src not found: {path} (rebuilds only trigger after src is in place)",
-  "watch.recursiveFallback":
-    "[watch] recursive watch failed; falling back to non-recursive (sapi/src only): {message}",
-  "watch.manifestOrTsconfig":
-    "[watch] {kind} changed — SAPI caches the manifest at startup; restart BDS to apply. files: {files}",
-  "watch.rebuild.start": "[watch] rebuild triggered ({count} files): {files}",
-  "watch.rebuild.ok": "[watch] rebuild OK ({ms} ms)",
-  "watch.rebuild.fail": "[watch] rebuild FAILED ({ms} ms)\n{output}",
-  "watch.rebuild.error": "[watch] rebuild error: {message}",
-  "watch.reload.sent": "[watch] reload sent",
-  "watch.reload.manualHint":
-    "[watch] --no-reload mode: type reload in BDS console or in-game",
-  "watch.stopped": "[watch] stopped",
-
-  /* ─── module publish ─── */
-  "publish.banner": "[publish] nanny-mode publish (npm + thin-index PR)",
-  "publish.noLogin": "[publish] not logged in to npm",
-  "publish.noLoginHint":
-    "  → run `npm login --auth-type=web` (browser OAuth, no local credential)",
-  "publish.precheckFail":
-    "[publish] precheck failed; fix the errors above and retry",
-  "publish.dryRun.summary":
-    "[publish] --dry-run done; run `sfmc mod publish [--bump <lvl>]` for real",
-  "publish.done": "[publish] done ✓",
-
   /* ─── bp ─── */
   "bp.usage": "Usage: sfmc behavior-pack|bp <build|deploy>",
-
   /* ─── module commands ─── */
   "mod.usage": "Usage: sfmc {cmds} <{subs}> [args]",
   "mod.list.title": "Installed modules",
@@ -324,6 +283,10 @@ export const en = {
   "mod.action.disabled": "disabled",
   "mod.toggleOk": "{label} {id}",
   "mod.toggleBadBody": "{action} {id} returned: {text}",
+  "mod.cannotDisable": "Module {id} cannot be disabled (canDisable=false)",
+  "mod.toggleLockFailed": "Failed to write module-lock ({id}): {message}",
+  "mod.toggleDbSkipped":
+    "Wrote module-lock; db-server not synced ({detail}). Memory state updates on next start db; in-game still needs mod reload / BDS restart.",
   "mod.enable.usage": "Usage: mod enable <id>",
   "mod.disable.usage": "Usage: mod disable <id>",
   "mod.install.usage":

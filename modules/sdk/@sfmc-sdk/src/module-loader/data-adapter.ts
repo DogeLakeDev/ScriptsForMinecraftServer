@@ -1,7 +1,6 @@
 /**
  * data-adapter.ts — db-server IO 抽象(SDK 公开契约,DIP)。
  *
- * ConfigManager 只依赖 `DataAdapter`,不知道 HttpDB / 网络协议;
  * 真实 IO 由 `@sfmc-bds/sdk/module-loader/http-data-adapter` 装配。
  * 测试 / 离线场景可注入自定义实现。
  */

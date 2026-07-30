@@ -484,11 +484,6 @@ export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
   );
 }
 
-/** @deprecated 请用 queryServicesRuntime；保留别名以免破坏现有调用 */
-export async function serviceStatus(): Promise<ServiceStatus[]> {
-  return queryServicesRuntime();
-}
-
 /** 单服务是否在跑（含外部实例） */
 export async function isServiceRunning(name: ServiceName): Promise<boolean> {
   const rows = await queryServicesRuntime();

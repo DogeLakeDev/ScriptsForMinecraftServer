@@ -501,7 +501,7 @@ function validateModuleLayout(pkgDir) {
     }
     die(
       `archive layout invalid: missing ${missing.join(", ")}. ` +
-        `zip 仅作离线分享，必须含 package.json + sapi/manifest.json；mod publish 用 tgz。`
+        `zip 仅作离线分享，必须含 package.json + sapi/manifest.json；npm 发布请用 tgz/pack。`
     );
   }
 }

@@ -16,12 +16,6 @@ import { c } from "./theme.js";
 
 export function formatGateFailure(reason: CanRunFailReason, hintCmd?: string): string {
   switch (reason) {
-    case "externalOnly":
-      return (
-        c.yellow(t("cli.externalOnly", { cmd: hintCmd ?? "" })) +
-        "\n" +
-        c.dim(t("cli.externalOnly.hint", { cmd: hintCmd || "…" }))
-      );
     case "replOnly":
       return c.yellow(t("cli.replOnly", { cmd: hintCmd ?? "" })) + "\n" + c.dim(t("cli.replOnly.hint"));
     case "needTty":

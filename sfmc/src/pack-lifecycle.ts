@@ -411,6 +411,10 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
       logLevel: "warning",
       sourcemap: false,
       external: ["@minecraft/*"],
+      // BDS host 启动：与 module-loader barrel 分离（DIP），须在模块 register 之前执行
+      banner: {
+        js: 'import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";\ninstallHostBootstrap();\n',
+      },
       // 避免读取模块内残缺的 extends（如 ../../../sdk/@sfmc-sdk/tsconfig.json）
       tsconfigRaw: JSON.stringify({
         compilerOptions: {

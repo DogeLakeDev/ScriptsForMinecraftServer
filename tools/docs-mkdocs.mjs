@@ -73,12 +73,19 @@ if (!existsSync(typedocIndex)) {
 
 const args = mode === "serve" ? ["serve", "-a", "127.0.0.1:8000"] : ["build"];
 
+/** Material / ProperDocs（经 mkdocs-redirects）各自一套 MkDocs 2.0 提示；构建时静默。 */
+const mkdocsEnv = {
+  ...process.env,
+  NO_MKDOCS_2_WARNING: "true",
+  DISABLE_MKDOCS_2_WARNING: "true",
+};
+
 function tryMkdocs(cmd, cmdArgs, useShell = false) {
   return spawnSync(cmd, cmdArgs, {
     cwd: root,
     stdio: "inherit",
     shell: useShell,
-    env: process.env,
+    env: mkdocsEnv,
   });
 }
 

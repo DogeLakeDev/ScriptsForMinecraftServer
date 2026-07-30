@@ -150,20 +150,6 @@ export function resolveFetchModule(): string | null {
 }
 
 /**
- * 解析 tools/new-module.mjs。
- * 优先级: SFMC_NEW_MODULE > ROOT/tools/ > @sfmc-bds/tools。
- */
-export function resolveNewModule(): string | null {
-  const fromEnv = process.env.SFMC_NEW_MODULE;
-  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
-
-  const mono = path.join(ROOT, "tools", "new-module.mjs");
-  if (fs.existsSync(mono)) return mono;
-
-  return tryResolveNpm("@sfmc-bds/tools", { rel: "new-module.mjs", exportPath: "@sfmc-bds/tools/new-module.mjs" });
-}
-
-/**
  * 解析 `@sfmc-bds/sdk` 包根目录（含 package.json）。
  * 优先级: SFMC_SDK_ROOT > createRequire(@sfmc-bds/sdk/package.json) > 公开 export 向上找 > monorepo。
  */
@@ -231,16 +217,6 @@ export function resolveSdkPackageRoot(): string {
     `Cannot resolve @sfmc-bds/sdk for behavior-pack build. ` +
       `Install @sfmc-bds/sdk next to the CLI, set SFMC_SDK_ROOT, or run inside the monorepo.`
   );
-}
-
-/** @deprecated 已移除 configs-default 播种；保留空实现以免外部旧调用炸掉 */
-export function resolveDefaultsDir(): string | null {
-  return null;
-}
-
-/** @deprecated 配置改由各服务 ensure + SDK DEFAULT 生成 */
-export function seedMissingConfigsFromDefaults(_rootDir: string = ROOT): string[] {
-  return [];
 }
 
 function nodeBinary(): string {

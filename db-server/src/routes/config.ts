@@ -1,20 +1,18 @@
 /**
- * routes/config.ts — 配置路由（直接读取 configs/*.json）
+ * routes/config.ts — 配置路由
  *
  * 路由列表：
- *   GET /api/sfmc/configs/all          — SAPI 启动时一次性拉取所有配置
- *   GET /api/sfmc/settings             — 平铺 settings.json
- *   GET /api/sfmc/settings/:key        — 含 land:* / bridge_channel_id 等 fallback 查询
- *   GET /api/sfmc/areas                — areas.json
- *   GET /api/sfmc/permissions          — permissions.json
- *   GET /api/sfmc/banned_items         — banned_items.json
- *   GET /api/sfmc/clean                — clean.json
- *   GET /api/sfmc/grids                — grids.json
- *   GET /api/sfmc/peace_filters        — peace_filters.json
- *   GET /api/sfmc/qa                   — questions.json
+ *   GET /api/sfmc/configs/all          — SAPI ConfigManager 启动快照（仅平台域）
+ *   GET /api/sfmc/settings             — 平铺 settings.json（legacy）
+ *   GET /api/sfmc/settings/:key        — 含 land:* / bridge_channel_id 等 fallback
+ *   GET /api/sfmc/areas|permissions|…  — legacy 只读 JSON（文件名对 db-server 为黑箱）
+ *
+ * DIP：模块/legacy JSON 不进 SDK ConfigName；本路由用 configDir + 文件名拼接路径。
+ * 模块私有配置的读写权威入口是 module-config-routes（configs/:configKey）。
  */
 
-import { configPath, readJson, type ConfigName } from "@sfmc-bds/sdk/node/config";
+import { join } from "node:path";
+import { configDir, configPath, readJson, type ConfigName } from "@sfmc-bds/sdk/node/config";
 
 interface Deps {
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
@@ -65,49 +63,42 @@ function arrayOrEmpty(v: unknown): unknown[] {
 }
 
 function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }: Deps) {
-  /** 仓顶服务 config 读取统一走 SDK;闭包捕获 projectRoot。 */
-  const readCfg = (name: ConfigName): unknown => readJson(configPath(projectRoot, name));
+  /** 平台 ConfigName（qq_config 等） */
+  const readPlatform = (name: ConfigName): unknown => readJson(configPath(projectRoot, name));
+  /** 黑箱 JSON：任意 configs/<file>，不进 ConfigName */
+  const readOpaque = (fileName: string): unknown => readJson(join(configDir(projectRoot), fileName));
 
+  /**
+   * SAPI ConfigManager 契约：只缓存 modules / settings / permissions。
+   * 勿再往 all 塞 areas 等 legacy 域（那些走专用 GET 或模块 configKey）。
+   */
   function getAllConfigs(): Record<string, unknown> {
     const modules = typeof listModules === "function" ? listModules() : [];
     const module_tokens = typeof getModuleTokens === "function" ? getModuleTokens() : {};
-    /**
-     * SAPI ConfigManager 契约:banned_items 为 string[](与 GET /banned_items 同源)。
-     * 勿再映射成 {item_id} — 否则 filter(typeof s === "string") 会得到空缓存(LSP)。
-     * 其余资源复用单资源 helpers,避免 getAllConfigs 与专用路由双写(DRY)。
-     */
     return {
-      // 与 /api/sfmc/modules 同源;ConfigManager.init 一次拉齐启停态(DRY)
       modules,
-      // loopback-only 下发;SAPI 无 fs,靠此注入模块身份(DIP)
       module_tokens,
-      settings: stripMeta(readCfg("settings.json") as Record<string, unknown> | null),
-      areas: getAreas(),
+      settings: stripMeta(readOpaque("settings.json") as Record<string, unknown> | null),
       permissions: getPermissions(),
-      banned_items: getBannedItems(),
-      clean: getClean(),
-      grids: getGrids(),
-      peace_filters: getPeaceFilters(),
-      questions: getQA(),
     };
   }
 
   function getSettingsFlat(): Array<{ key: string; value: string }> {
-    const obj = stripMeta(readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null);
+    const obj = stripMeta(readOpaque("settings.json") as Record<string, unknown> | null);
     return Object.entries(obj).map(([key, value]) => ({ key, value: jsonValue(value) }));
   }
 
   function getSettingByKey(key: string): { value: unknown; source?: string } {
-    const settings = (readJson(configPath(projectRoot, "settings.json")) as Record<string, unknown> | null) ?? {};
+    const settings = (readOpaque("settings.json") as Record<string, unknown> | null) ?? {};
     if (Object.prototype.hasOwnProperty.call(settings, key) && !isMetaKey(key)) {
       return { value: settings[key], source: "settings.json" };
     }
     if (key === "bridge_channel_id") {
-      const qq = (readCfg("qq_config.json") as Record<string, unknown> | null) ?? {};
+      const qq = (readPlatform("qq_config.json") as Record<string, unknown> | null) ?? {};
       if (qq.bridge_channel_id) return { value: qq.bridge_channel_id, source: "qq_config.json" };
     }
     if (key.startsWith("land:")) {
-      const land = (readCfg("land.json") as Record<string, unknown> | null) ?? {};
+      const land = (readOpaque("land.json") as Record<string, unknown> | null) ?? {};
       if (Object.prototype.hasOwnProperty.call(land, key) && !isMetaKey(key)) {
         return { value: land[key], source: "land.json" };
       }
@@ -116,42 +107,42 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
   }
 
   function getAreas(): unknown[] {
-    return (arrayOrEmpty(readCfg("areas.json")) as Array<Record<string, unknown>>)
+    return (arrayOrEmpty(readOpaque("areas.json")) as Array<Record<string, unknown>>)
       .filter((r) => r && r.module && r.dimension != null)
       .map((r) => stripMetaDeep(r));
   }
 
   function getPermissions(): unknown[] {
-    return (arrayOrEmpty(readCfg("permissions.json")) as Array<Record<string, unknown>>)
+    return (arrayOrEmpty(readPlatform("permissions.json")) as Array<Record<string, unknown>>)
       .filter((r) => r && r.player_name)
       .map((r) => stripMetaDeep(r));
   }
 
   function getBannedItems(): string[] {
-    return (arrayOrEmpty(readCfg("banned_items.json")) as Array<string>).filter(
+    return (arrayOrEmpty(readOpaque("banned_items.json")) as Array<string>).filter(
       (i) => typeof i === "string" && i && !i.startsWith("_")
     );
   }
 
   function getClean(): { item_max: number; poll_interval: number } {
-    const c = stripMetaDeep(readCfg("clean.json") ?? {}) as Record<string, unknown>;
+    const c = stripMetaDeep(readOpaque("clean.json") ?? {}) as Record<string, unknown>;
     return { item_max: (c.item_max as number) ?? 192, poll_interval: (c.poll_interval as number) ?? 60 };
   }
 
   function getGrids(): unknown[] {
-    return (arrayOrEmpty(readCfg("grids.json")) as Array<Record<string, unknown>>)
+    return (arrayOrEmpty(readOpaque("grids.json")) as Array<Record<string, unknown>>)
       .filter((r) => r && r.name)
       .map((r) => stripMetaDeep(r));
   }
 
   function getPeaceFilters(): unknown[] {
-    return (arrayOrEmpty(readCfg("peace_filters.json")) as Array<Record<string, unknown>>)
+    return (arrayOrEmpty(readOpaque("peace_filters.json")) as Array<Record<string, unknown>>)
       .filter((r) => r && r.family)
       .map((r) => stripMetaDeep(r));
   }
 
   function getQA(): Array<Record<string, unknown>> {
-    return (arrayOrEmpty(readCfg("questions.json")) as Array<Record<string, unknown>>)
+    return (arrayOrEmpty(readOpaque("questions.json")) as Array<Record<string, unknown>>)
       .filter((r) => r && r.question)
       .map((r, idx) => {
         const clean = stripMetaDeep(r) as Record<string, unknown>;

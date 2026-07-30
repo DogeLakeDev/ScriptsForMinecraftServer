@@ -24,8 +24,6 @@ export const zhCN: Record<MessageKey, string> = {
   "locale.opt.en": "English",
 
   /* ─── CLI 通道门禁 ─── */
-  "cli.externalOnly": "命令 `{cmd}` 仅可在外部 CLI 使用（REPL 内不可用）。",
-  "cli.externalOnly.hint": "请在 shell 中运行: sfmc {cmd}",
   "cli.replOnly": "命令 `{cmd}` 仅可在 REPL 内使用。",
   "cli.replOnly.hint": "先运行无参数的 `sfmc` 进入交互模式，再执行该命令。",
   "cli.needTty": "命令 `{cmd}` 需要交互式终端（TTY）。",
@@ -88,9 +86,6 @@ export const zhCN: Record<MessageKey, string> = {
   "help.module.toggle": "启用/禁用模块",
   "help.module.build": "从已启用模块构建资源包",
   "help.module.reload": "构建并部署资源包，在 BDS 发送 reload指令以重载脚本",
-  "help.module.watch": "监听 sapi/src 变更并自动 rebuild+reload",
-  "help.module.test": "运行模块测试（node --test + @sfmc-bds/sdk/testing）",
-  "help.module.publish": "保姆式 npm publish（登录引导 + dry-run + bump + 薄 index PR）",
   "help.section.addon": "  资源包管理 ──────",
   "help.addon": "资源包收件箱管理",
   "help.packs.list": "已安装资源包列表",
@@ -261,38 +256,6 @@ export const zhCN: Record<MessageKey, string> = {
   "reload.bdsNotRunning": "BDS 未运行 — 已完成构建。",
   "reload.sent": "已向 BDS 发送 reload",
 
-  /* ─── module watch ─── */
-  "watch.usage":
-    "用法: mod watch [--from local[:<path>]] [--no-reload]\n" +
-    "  默认监听 cwd 模块仓的 sapi/src 变更；改 sapi/manifest.json 与 tsconfig.json 仅提示「请重启 BDS」。\n" +
-    "  Ctrl+C 退出。",
-  "watch.banner": "[watch] 监听模块: {path}",
-  "watch.hint": "[watch] 改 sapi/src/** 即 rebuild + deploy + reload；其它文件忽略。",
-  "watch.noSapiDir": "[watch] 未找到 sapi 目录: {path}",
-  "watch.noSapiSrc": "[watch] 未找到 sapi/src 目录: {path}（仅当 src 已就绪后才会触发 rebuild）",
-  "watch.recursiveFallback":
-    "[watch] 递归监听失败，回退非递归模式（仅 sapi/src 一级子目录）: {message}",
-  "watch.manifestOrTsconfig":
-    "[watch] 改 {kind} 不会热更新；SAPI 启动期缓存 manifest；请重启 BDS 进程。变更: {files}",
-  "watch.rebuild.start": "[watch] 触发 rebuild（{count} 文件）: {files}",
-  "watch.rebuild.ok": "[watch] rebuild OK ({ms} ms)",
-  "watch.rebuild.fail": "[watch] rebuild FAILED ({ms} ms)\n{output}",
-  "watch.rebuild.error": "[watch] rebuild 异常: {message}",
-  "watch.reload.sent": "[watch] reload sent",
-  "watch.reload.manualHint":
-    "[watch] --no-reload 模式：在 BDS 控制台或游戏内输入 reload 即可",
-  "watch.stopped": "[watch] 已停止",
-
-  /* ─── module publish ─── */
-  "publish.banner": "[publish] 保姆式发布（npm + 薄 index PR）",
-  "publish.noLogin": "[publish] 未登录 npm",
-  "publish.noLoginHint":
-    "  → 运行 `npm login --auth-type=web`（浏览器 OAuth，无需把 credential 落本机）",
-  "publish.precheckFail": "[publish] 预检未通过；修正上面 error 后重试",
-  "publish.dryRun.summary":
-    "[publish] --dry-run 完成；正式 publish 跑 `sfmc mod publish [--bump <lvl>]`",
-  "publish.done": "[publish] 完成 ✓",
-
   "bp.usage": "用法: bp <build|deploy>",
 
   "mod.usage": "用法: sfmc {cmds} <{subs}> [args]",
@@ -309,6 +272,10 @@ export const zhCN: Record<MessageKey, string> = {
   "mod.action.disabled": "已禁用",
   "mod.toggleOk": "{label} {id}",
   "mod.toggleBadBody": "{action} {id} 返回: {text}",
+  "mod.cannotDisable": "模块 {id} 不可禁用（canDisable=false）",
+  "mod.toggleLockFailed": "写入 module-lock 失败（{id}）: {message}",
+  "mod.toggleDbSkipped":
+    "已写入 module-lock；db-server 未同步（{detail}）。下次 start db 后内存态会跟上；游戏内仍需 mod reload / 重启 BDS。",
   "mod.enable.usage": "用法: mod enable <id>",
   "mod.disable.usage": "用法: mod disable <id>",
   "mod.install.usage":

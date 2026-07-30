@@ -39,8 +39,3 @@ export function mapPacksSubAlias(sub: string | undefined): string | undefined {
 export function isModuleInstallShorthand(cmd: string | undefined): boolean {
   return resolveModuleTopShorthand(cmd) !== undefined;
 }
-
-/** @deprecated 使用 resolveModuleTopShorthand；保留别名避免外部破坏 */
-export function resolveModuleShorthandSub(cmd: string | undefined): string | undefined {
-  return resolveModuleTopShorthand(cmd);
-}

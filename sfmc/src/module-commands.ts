@@ -10,7 +10,15 @@ import fs from "node:fs/promises";
 import { existsSync, lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { configPath, modulePath, readJson, type DBConfig, type ModuleLock } from "@sfmc-bds/sdk/node/config";
+import {
+  configPath,
+  modulePath,
+  readJson,
+  writeJson,
+  type Catalog,
+  type DBConfig,
+  type ModuleLock,
+} from "@sfmc-bds/sdk/node/config";
 import {
   isDevAccentModuleSub,
   listVisibleModuleSubs,
@@ -22,13 +30,20 @@ import { c } from "./theme.js";
 import { ROOT, resolveFetchModule } from "./runtime.js";
 import { dirFingerprint } from "./module-fingerprint.js";
 import {
+  applyLockEnabled,
+  finalizeToggle,
+  resolveToggleTarget,
+  type ToggleCandidate,
+  type ToggleNotify,
+} from "./module-toggle.js";
+import {
   DEFAULT_REGISTRY_REPO,
   DEFAULT_REGISTRY_TAG,
   findUnknownModules,
   resolveRegistryIndex,
 } from "./registry.js";
 
-/** 顶层命令名(主名 + 短别名),供 HELP / 补全 / 分发共用。 */
+/** 顶层命令名(主名 + 短别名),供帮助 / 补全 / 分发共用。 */
 export const MODULE_CMD_NAMES = ["module", "mod"] as const;
 
 export type ModuleCmdName = (typeof MODULE_CMD_NAMES)[number];
@@ -38,35 +53,8 @@ export function isModuleCommand(cmd: string | undefined): cmd is ModuleCmdName {
   return !!cmd && (MODULE_CMD_NAMES as readonly string[]).includes(cmd);
 }
 
-/** 染色后的 HELP 前缀,避免 HELP 硬编码 module/mod。 */
-export function paintModuleCmdAlias(paint: (name: string) => string): string {
-  return MODULE_CMD_NAMES.map((name) => paint(name)).join("/");
-}
-
-/** @deprecated 使用 listVisibleModuleSubs(mode)；保留全集供调试。 */
-export const ALL_MODULE_SUBCOMMANDS = [
-  "list",
-  "search",
-  "install",
-  "uninstall",
-  "verify",
-  "info",
-  "enable",
-  "disable",
-  "build",
-  "reload",
-] as const;
-
 /** 开发者样式子命令（蓝标，非门禁）。 */
 export const DEV_ACCENT_MODULE_SUBCOMMANDS = ["build", "reload"] as const;
-
-/** @deprecated 使用 ALL_MODULE_SUBCOMMANDS 或 listVisibleModuleSubs。 */
-export const MODULE_SUBCOMMANDS = ALL_MODULE_SUBCOMMANDS;
-
-/** @deprecated 使用 DEV_ACCENT_MODULE_SUBCOMMANDS / isDevAccentModuleSub。 */
-export const DEV_MODULE_SUBCOMMANDS = DEV_ACCENT_MODULE_SUBCOMMANDS;
-
-export type ModuleSubcommand = (typeof ALL_MODULE_SUBCOMMANDS)[number];
 
 /** 当前通道下可见的 module 子命令（自动补全 / usage）。 */
 export function getVisibleModuleSubcommands(mode: CommandMode): readonly string[] {
@@ -78,7 +66,7 @@ export function isDeveloperSubcommand(sub: string | undefined): boolean {
   return isDevAccentModuleSub(sub);
 }
 
-/** Usage 行主名|别名(与 MODULE_CMD_NAMES 同源,避免与 HELP 漂移)。 */
+/** Usage 行主名|别名(与 MODULE_CMD_NAMES 同源,避免与帮助文案漂移)。 */
 export function moduleUsage(mode: CommandMode = "argv"): string {
   return t("mod.usage", {
     cmds: MODULE_CMD_NAMES.join("|"),
@@ -346,17 +334,57 @@ export async function cmdModuleVerify(args: string[]): Promise<string> {
  *  install  — shells out to tools/fetch-module.mjs
  * ──────────────────────────────────────────────────────────────── */
 /* ───────────────────────────────────────────────────────────────
- *  enable / disable  — talk to db-server over loopback HTTP
+ *  enable / disable  — 本地写 module-lock.json；db 在线时 best-effort 热同步
  * ─────────────────────────────────────────────────────────────── */
 function readDbConfig(): DBConfig {
   return (readJson<DBConfig>(configPath(ROOT, "db_config.json")) ?? {}) as DBConfig;
 }
 
-async function postModuleToggle(id: string, action: "enable" | "disable"): Promise<CliResult> {
+function moduleLockPath(): string {
+  return modulePath(path.join(ROOT, "modules"), "module-lock.json");
+}
+
+function catalogPathOnDisk(): string {
+  return modulePath(path.join(ROOT, "modules"), "catalog.json");
+}
+
+/** 已装包 + catalog 投影 → 启停候选（canDisable 与 db 同源：省略视为可禁用）。 */
+function buildToggleCandidates(installed: InstalledModule[]): ToggleCandidate[] {
+  const catalog = (readJson<Catalog>(catalogPathOnDisk()) ?? {}) as Catalog;
+  const rows = Array.isArray(catalog.modules) ? catalog.modules : [];
+  const byLogical = new Map<string, Record<string, unknown>>();
+  for (const raw of rows) {
+    if (!raw || typeof raw !== "object") continue;
+    const id = String((raw as Record<string, unknown>).id || "").trim();
+    if (id) byLogical.set(id, raw as Record<string, unknown>);
+  }
+  return installed.map((m) => {
+    const logicalId = typeof m.manifest?.id === "string" && m.manifest.id ? m.manifest.id : m.id;
+    const raw = byLogical.get(logicalId);
+    const configKeyRaw = raw ? String(raw.configKey || raw.config_key || "").trim() : "";
+    const canDisable = raw ? raw.canDisable !== false : true;
+    const out: ToggleCandidate = { logicalId, folderId: m.id, canDisable };
+    if (configKeyRaw) out.configKey = configKeyRaw;
+    return out;
+  });
+}
+
+function writeLocalModuleEnabled(logicalId: string, enabled: boolean): void {
+  const lockPath = moduleLockPath();
+  const lock =
+    (readJson<ModuleLock>(lockPath) ?? {
+      version: 1,
+      modules: {},
+    }) as ModuleLock;
+  applyLockEnabled(lock, logicalId, enabled);
+  writeJson(lockPath, lock);
+}
+
+async function notifyDbToggle(logicalId: string, action: "enable" | "disable"): Promise<ToggleNotify> {
   const cfg = readDbConfig();
   const port = cfg.db_port ?? 3001;
   const token = cfg.http_auth || "";
-  const url = `http://127.0.0.1:${port}/api/sfmc/modules/${encodeURIComponent(id)}/${action}`;
+  const url = `http://127.0.0.1:${port}/api/sfmc/modules/${encodeURIComponent(logicalId)}/${action}`;
   let res: Response;
   try {
     res = await fetch(url, {
@@ -367,9 +395,7 @@ async function postModuleToggle(id: string, action: "enable" | "disable"): Promi
       },
     });
   } catch (err) {
-    return failResult(
-      c.red(t("mod.dbUnreachable", { url, message: (err as Error).message }))
-    );
+    return { ok: false, reason: "unreachable", detail: (err as Error).message };
   }
   const text = await res.text();
   let body: unknown;
@@ -380,26 +406,55 @@ async function postModuleToggle(id: string, action: "enable" | "disable"): Promi
   }
   if (!res.ok) {
     const err = (body as { error?: string })?.error ?? `HTTP ${res.status}`;
-    return failResult(c.red(t("mod.toggleFailed", { action, id, err })));
+    return { ok: false, reason: "http", detail: err };
   }
-  const ok = (body as { success?: boolean })?.success !== false;
-  if (ok) {
-    const label = action === "enable" ? t("mod.action.enabled") : t("mod.action.disabled");
-    return okResult(c.green(t("mod.toggleOk", { label, id })));
+  if ((body as { success?: boolean })?.success === false) {
+    return { ok: false, reason: "http", detail: text };
   }
-  return failResult(c.red(t("mod.toggleBadBody", { action, id, text })));
+  return { ok: true };
+}
+
+async function cmdModuleToggle(query: string, action: "enable" | "disable"): Promise<CliResult> {
+  const installed = await scanInstalled();
+  const target = resolveToggleTarget(query, buildToggleCandidates(installed));
+  if (!target) {
+    return failResult(c.red(t("mod.notInstalled", { id: query })));
+  }
+  if (action === "disable" && !target.canDisable) {
+    return failResult(c.red(t("mod.cannotDisable", { id: target.logicalId })));
+  }
+
+  const enabled = action === "enable";
+  try {
+    writeLocalModuleEnabled(target.logicalId, enabled);
+  } catch (err) {
+    return failResult(
+      c.red(t("mod.toggleLockFailed", { id: target.logicalId, message: (err as Error).message }))
+    );
+  }
+
+  const notify = await notifyDbToggle(target.logicalId, action);
+  const fin = finalizeToggle(true, notify);
+  const label = action === "enable" ? t("mod.action.enabled") : t("mod.action.disabled");
+  const head = c.green(t("mod.toggleOk", { label, id: target.logicalId }));
+  if (!fin.warnNotify) {
+    return okResult(head);
+  }
+  const detail = notify.ok === false ? (notify.detail ?? notify.reason) : "";
+  const warn = c.yellow(t("mod.toggleDbSkipped", { detail }));
+  return okResult(`${head}\n${warn}`);
 }
 
 export async function cmdModuleEnable(args: string[]): Promise<CliResult> {
   const id = args[0];
   if (!id) return failResult(c.yellow(t("mod.enable.usage")));
-  return postModuleToggle(id, "enable");
+  return cmdModuleToggle(id, "enable");
 }
 
 export async function cmdModuleDisable(args: string[]): Promise<CliResult> {
   const id = args[0];
   if (!id) return failResult(c.yellow(t("mod.disable.usage")));
-  return postModuleToggle(id, "disable");
+  return cmdModuleToggle(id, "disable");
 }
 
 /* ───────────────────────────────────────────────────────────────
@@ -542,61 +597,13 @@ function parseFlags(args: string[]): InstallFlags {
 }
 
 /**
- * `sfmc mod test` — 委托模块仓的 test runner（node --test + @sfmc-bds/sdk/testing）。
- * 解析 --from local[:path] 规则与 watch 一致；缺省 cwd。
- * 透传 npm test：让模块仓的 `scripts.test` 自己决定怎么跑（node --test / tsx / vitest 等）。
- */
-export async function cmdModuleTest(args: string[]): Promise<string> {
-  let fromRaw: string | null = null;
-  const passthrough: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a === "--from") {
-      fromRaw = args[++i] ?? null;
-    } else if (a?.startsWith("--from=")) {
-      fromRaw = a.slice("--from=".length);
-    } else if (a === "--help" || a === "-h") {
-      return c.dim("用法: mod test [--from local[:<path>]] [-- <args>]\n  透传给模块仓的 npm test。");
-    } else {
-      passthrough.push(a!);
-    }
-  }
-
-  /* 解析 cwd（与 watch 共用 resolveLocalModuleRoot 规则）。 */
-  const { resolveLocalModuleRoot } = await import("./module-watch.js");
-  const cwd = resolveLocalModuleRoot({ from: fromRaw, cwd: process.cwd() });
-
-  if (!existsSync(cwd)) {
-    return c.red(`[mod test] 路径不存在: ${cwd}`);
-  }
-  if (!existsSync(path.join(cwd, "package.json"))) {
-    return c.yellow(`[mod test] 未找到 package.json: ${cwd}\n  提示：进入模块仓根目录，或用 --from local:<path> 指向。`);
-  }
-
-  /* Windows 用 cmd /c npm 透传 npm.cmd（避免 shell:true 的 DEP0190 安全警告）。 */
-  const isWin = process.platform === "win32";
-  const cmd = isWin ? "cmd.exe" : "npm";
-  const subArgs = isWin ? ["/c", "npm", "test", "--", ...passthrough] : ["test", "--", ...passthrough];
-
-  return new Promise<string>((resolve) => {
-    const proc = spawn(cmd, subArgs, {
-      cwd,
-      stdio: "inherit",
-      env: process.env,
-    });
-    proc.on("exit", (code) => {
-      resolve(code === 0 ? "" : `\n[mod test] exit ${code}`);
-    });
-    proc.on("error", (e) => resolve(c.red(`[mod test] spawn failed: ${e.message}`)));
-  });
-}
-
-/**
  * 统一分发 module/mod 子命令 —— CLI(`main.ts`)与 REPL(`repl.ts`)共用,
  * 避免两处 switch 漂移。
  *
- * 通道门禁（external/repl）由调用方在 dispatch 前经 command-surface 判定；
+ * 通道门禁（argv/repl）由调用方在 dispatch 前经 command-surface 判定；
  * 本函数只负责子命令路由。`remove` 作为 uninstall 的同义别名保留。
+ *
+ * 作者向 test/watch/publish 已迁至 VS Code 扩展与 @sfmc-bds/devkit。
  */
 export async function dispatchModuleCommand(sub: string | undefined, args: string[]): Promise<string> {
   switch (sub) {
@@ -625,17 +632,12 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
       const { cmdModuleReload } = await import("./module-pack-build.js");
       return cmdModuleReload(args);
     }
-    case "watch": {
-      const { cmdModuleWatch } = await import("./module-watch.js");
-      return cmdModuleWatch(args);
-    }
-    case "test": {
-      return cmdModuleTest(args);
-    }
-    case "publish": {
-      const { cmdModulePublish } = await import("./module-publish.js");
-      return cmdModulePublish(args);
-    }
+    case "test":
+    case "watch":
+    case "publish":
+      return c.yellow(
+        `[mod ${sub}] 已移至 VS Code/Cursor 扩展「SFMC Module」与 @sfmc-bds/devkit；运维请用 mod build|reload|install。`
+      );
     default:
       return c.yellow(moduleUsage());
   }

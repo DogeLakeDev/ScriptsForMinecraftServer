@@ -61,7 +61,9 @@
     "sfmc",
     "sfmc-meta",
     "remote-controller",
-    "tools"
+    "tools",
+    "devkit",
+    "extensions/sfmc-module"
   ],
   "allowScripts": {
     "esbuild@0.28.1": true

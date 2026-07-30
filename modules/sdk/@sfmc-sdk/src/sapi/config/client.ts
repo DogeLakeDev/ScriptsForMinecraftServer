@@ -8,8 +8,8 @@
  *   - set(key, value):写 _cache + 发 POST /api/sfmc/configs/<configKey>/set 持久化
  *   - onChange:订阅 set 触发的内存变更
  *
- * 为什么不放 ConfigManager:ConfigManager 现有缓存只展平 settings.json;
- * 模块私有 configKey(land.json / economy.json)按 configKey 隔离,需要新机制。
+ * 为什么不放 ConfigManager:ConfigManager 只缓存平台域(modules / settings / permissions);
+ * 模块私有 configKey 按桶隔离,走本客户端 + module-config HTTP。
  *
  * 多模块:按 configKey 分桶缓存(OCP),bootModule 注入时不互相清空。
  */

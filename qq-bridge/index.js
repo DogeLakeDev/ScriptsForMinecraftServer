@@ -3,8 +3,8 @@
  * index.js — 入口 shim
  *
  * QQ ↔ MC 桥接进程入口。源码在 src/，tsc 编译产物在 dist/。
- * 之所以保留这个 shim 是因为:
- *   1. panel/src/services/manager.ts 通过 `node qq-bridge/index.js` 启动
+ * 保留此 shim 的原因:
+ *   1. sfmc supervisor 通过 `node qq-bridge/index.js` 启动
  *   2. modules/catalog.json 中 entry.path 指向 "qq-bridge/index.js"
  *   3. tools/check-ootb.mjs 自检要求该文件存在
  *

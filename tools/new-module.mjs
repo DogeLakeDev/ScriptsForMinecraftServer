@@ -4,7 +4,7 @@
  * tools/new-module.mjs — 生成最小模块骨架（单包根）
  *
  * - 写入 **当前工作目录**（须为空）—— 与 Tanya7z/sfmc-module-template 同构
- * - `--root` / SFMC_MODULES_ROOT 已移除（sfmc-modules 仅为 index）
+ * - 传入 `--root` / `SFMC_MODULES_ROOT` 会直接退出（sfmc-modules 仅为 index）
  * - `--official` → `@sfmc-bds/module-<id>`；默认 `@CHANGE_ME/sfmc-module-<id>`
  *
  * Usage:
@@ -69,9 +69,8 @@ function isValidFolderId(id) {
 }
 
 /**
- * 决定模块骨架落盘位置：
- *   缺省 → 写到 cwd（单包根，与 Tanya7z/sfmc-module-template 同构）
- * --root / SFMC_MODULES_ROOT 已移除（sfmc-modules 仅为 index）。
+ * 决定模块骨架落盘位置：写到 cwd（单包根，与 Tanya7z/sfmc-module-template 同构）。
+ * 传入 `--root` / `SFMC_MODULES_ROOT` 会退出。
  */
 function resolveTargetDir(flags) {
   if (flags.root || process.env.SFMC_MODULES_ROOT) {
@@ -84,7 +83,7 @@ function resolveTargetDir(flags) {
 
 /**
  * @param {string} folderId
- * @param {{ cwdMode: boolean }} opts  cwdMode=true → 自包含（指向 node_modules）；legacy → 相对主仓路径
+ * @param {{ official: boolean }} opts
  */
 function buildPackageJson(folderId, opts) {
   const base = {
@@ -100,12 +99,17 @@ function buildPackageJson(folderId, opts) {
     ...base,
     scripts: {
       typecheck: "tsc --noEmit -p sapi/tsconfig.json",
-      test: "node --test --import tsx/esm test/*.test.ts",
+      test: "node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm test/*.test.ts",
+      lint: "eslint sapi/**/*.ts",
     },
     devDependencies: {
-      "@sfmc-bds/sdk": "^0.2.0-beta.5",
       "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
+      "@sfmc-bds/eslint-plugin": "^0.1.0",
+      "@sfmc-bds/sdk": "^0.2.0-beta.7",
       "@types/node": "^22.13.0",
+      "@typescript-eslint/eslint-plugin": "^8.64.0",
+      "@typescript-eslint/parser": "^8.64.0",
+      eslint: "^10.7.0",
       tsx: "^4.19.0",
       typescript: "^5.6.0",
     },
@@ -168,7 +172,7 @@ function buildTsConfig(extendsRel) {
 }
 
 /**
- * 自包含 sapi/tsconfig.json（cwdMode=true） —— 不依赖主仓 tsconfig.base.json；
+ * 自包含 sapi/tsconfig.json —— 不依赖主仓 tsconfig.base.json；
  * SDK 类型由 npm 装入 node_modules/@sfmc-bds/sdk 时随附。
  */
 function buildTsConfigStandalone() {
@@ -228,6 +232,47 @@ ModuleRegistry.register({
 `;
 }
 
+/** 与 sfmc-module-template/eslint.config.js 同构 */
+function buildEslintConfigJs() {
+  return `// SFMC 模块 ESLint 配置
+import sfmc from "@sfmc-bds/eslint-plugin";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
+
+export default [
+  {
+    ignores: ["**/dist/**", "**/node_modules/**", "**/build/**", "**/*.d.ts"],
+  },
+  {
+    files: ["sapi/**/*.ts"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+      "@sfmc-bds": sfmc,
+    },
+    rules: {
+      "no-undef": "off",
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/ban-ts-comment": "warn",
+      "@typescript-eslint/no-require-imports": "error",
+      ...sfmc.configs.recommended.rules,
+    },
+  },
+];
+`;
+}
+
 function writeJson(filePath, data) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
@@ -236,6 +281,28 @@ function writeJson(filePath, data) {
 function writeText(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, "utf8");
+}
+
+function writeVscodeWorkspace(target) {
+  writeJson(path.join(target, ".vscode", "extensions.json"), {
+    recommendations: ["dbaeumer.vscode-eslint", "sfmc-bds.sfmc-module", "connor4312.nodejs-testing"],
+  });
+  writeJson(path.join(target, ".vscode", "settings.json"), {
+    "eslint.useFlatConfig": true,
+    "eslint.validate": ["javascript", "typescript"],
+    "nodejs-testing.include": ["./test"],
+    "nodejs-testing.extensions": [
+      {
+        extensions: ["ts"],
+        parameters: [
+          "--import",
+          "@sfmc-bds/sdk/testing/minecraft-loader",
+          "--import",
+          "tsx/esm",
+        ],
+      },
+    ],
+  });
 }
 
 function main() {
@@ -278,14 +345,16 @@ function main() {
   writeJson(path.join(sapiDir, "manifest.json"), buildManifest(folderId, displayName, template, schemaRel));
   writeJson(path.join(sapiDir, "tsconfig.json"), tsConfigJson);
   writeText(path.join(sapiDir, "src", "index.ts"), buildIndexTs(folderId, displayName));
+  writeText(path.join(target, "eslint.config.js"), buildEslintConfigJs());
+  writeVscodeWorkspace(target);
 
   const npmName = official ? `@sfmc-bds/module-${folderId}` : `@CHANGE_ME/sfmc-module-${folderId}`;
   console.log(`[new-module] 已创建 ${target}`);
-  console.log(`[new-module]   模式: cwd 单包根`);
+  console.log(`[new-module]   模式: 单包根`);
   console.log(`[new-module]   npm: ${npmName}`);
   console.log(`[new-module]   manifest id: feature-${folderId}`);
   console.log(`[new-module]   下一步:`);
-  console.log(`[new-module]     npm install && npm run typecheck`);
+  console.log(`[new-module]     npm install && npm run typecheck && npm run lint`);
   console.log(
     `[new-module]     （主仓）sfmc mod install ${folderId} --from dir:${target} --link`
   );

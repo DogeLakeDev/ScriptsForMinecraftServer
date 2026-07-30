@@ -177,7 +177,7 @@ async function main() {
     } else {
       const r = runSync(process.execPath, [SFMC_DIST, "--help"], { cwd: ROOT });
       /* 剥离 ANSI;接受 module list / module/mod list / module|mod list
-       * (与 MODULE_CMD_NAMES / HELP 展示对齐,避免别名改动再次打红) */
+       * (与 MODULE_CMD_NAMES / getHelp 展示对齐,避免别名改动再次打红) */
       const helpText = (r.stdout + r.stderr).replace(/\u001b\[[0-9;]*m/g, "");
       const hasModule = /module(?:\s*[|/]\s*mod)?\s+(list|install)\b/.test(helpText);
       if (r.status === 0 && hasModule) pass("sfmc CLI module 子命令已注册");

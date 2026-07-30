@@ -28,7 +28,6 @@ export {
   stopAll,
   forceStopAll,
   queryServicesRuntime,
-  serviceStatus,
   isServiceRunning,
   onServiceStateChange,
   services,
@@ -37,7 +36,7 @@ export {
 
 export { pushLog, onLog, getAllLogs, getRecentLogs, type UnifiedLog, type LogLevel, type LogSource } from "./logs.js";
 
-export { startRepl, getHelp, HELP } from "./repl.js";
+export { startRepl, getHelp } from "./repl.js";
 export { t, getLocale, setLocale, initLocale, type Locale } from "./i18n/index.js";
 export { runWizard } from "./wizard.js";
 export { cmdModuleList, cmdModuleInstall, cmdModuleUninstall, cmdModuleVerify, cmdModuleInfo } from "./module-commands.js";

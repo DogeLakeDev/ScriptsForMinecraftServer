@@ -26,7 +26,8 @@
   "main": "./check-ootb.mjs",
   "exports": {
     "./package.json": "./package.json",
-    "./tsc7": "./tsc7.mjs"
+    "./tsc7": "./tsc7.mjs",
+    "./new-module.mjs": "./new-module.mjs"
   },
   "bin": {
     "sfmc-catalog-sync": "./catalog-sync.mjs",

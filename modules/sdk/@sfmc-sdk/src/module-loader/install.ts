@@ -1,7 +1,8 @@
 /**
  * module-loader/install.ts — 行为包启动入口
  *
- * 由 BP 构建产物 (scripts/main.js) 顶端调用:
+ * 由 BP 构建产物 (scripts/main.js) 顶端调用（esbuild banner）:
+ *   import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";
  *   installHostBootstrap();
  *   // 然后 module 包通过 ModuleRegistry.register({...}) 注册自身
  *
@@ -14,12 +15,15 @@
  */
 
 import { system, world } from "@minecraft/server";
+import { clearConfigModuleContext, setConfigModuleContext } from "../sapi/config/client.js";
+import { clearDbModuleContext, isDbTxRecording, setDbModuleContext } from "../sapi/db/client.js";
 import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
 import { debug } from "../sapi/runtime/debug-log.js";
+import { clearServiceModuleContext, setServiceModuleContext } from "../sapi/service/client.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import type { DataAdapter } from "./data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
-import { ModuleRegistry, type BdsSystem } from "./runtime.js";
+import { bindModuleAuthHooks, ModuleRegistry, type BdsSystem } from "./runtime.js";
 
 export interface HostBackend {
   /** 注入 db-server 数据适配器 */
@@ -61,6 +65,20 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   // DIP:把 BDS SAPI system 注入 module-loader 的 host 抽象。
   // 模块 loader 只引用 globalThis.__sfmcBdsSystem,不顶层 import @minecraft/server。
   globalThis.__sfmcBdsSystem = system as unknown as BdsSystem;
+
+  // DIP:db/config/service 身份注入留在 install 侧，避免污染 module-loader barrel
+  bindModuleAuthHooks({
+    apply(id, token, configKey) {
+      setDbModuleContext(id, token);
+      setServiceModuleContext(id, token, isDbTxRecording);
+      if (configKey) setConfigModuleContext(id, configKey, token);
+    },
+    clear(id) {
+      clearDbModuleContext(id);
+      clearConfigModuleContext(id);
+      clearServiceModuleContext(id);
+    },
+  });
 
   // DIP:ConfigManager ← DataAdapter;默认 HttpDB,可被 options 替换(测试/自定义 host)
   const adapter =

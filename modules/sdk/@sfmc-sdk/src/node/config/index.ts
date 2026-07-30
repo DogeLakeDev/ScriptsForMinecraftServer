@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-/** BDS 自动更新器配置（`configs/bds_updater.json`）。 */
+/** BDS 自动更新器配置（configs/bds_updater.json）。 */
 export interface BdsUpdaterConfig {
   bds_path?: string;
   backup_dir?: string;
@@ -79,48 +79,6 @@ export interface RemoteConfig {
   [key: string]: unknown;
 }
 
-/** 平台 settings 键值表（`configs/settings.json`）。 */
-export interface SettingsConfig {
-  [key: string]: unknown;
-}
-
-/** 区域配置（`configs/areas.json`）。 */
-export interface AreasConfig {
-  [key: string]: unknown;
-}
-
-/** 禁物品列表（`configs/banned_items.json`）。 */
-export interface BannedItemsConfig {
-  [key: string]: unknown;
-}
-
-/** 清道夫配置（`configs/clean.json`）。 */
-export interface CleanConfig {
-  item_max?: number;
-  poll_interval?: number;
-  [key: string]: unknown;
-}
-
-/** 网格/领地格配置（`configs/grids.json`）。 */
-export interface GridsConfig {
-  [key: string]: unknown;
-}
-
-/** 和平模式过滤器（`configs/peace_filters.json`）。 */
-export interface PeaceFiltersConfig {
-  [key: string]: unknown;
-}
-
-/** 问答库配置（`configs/questions.json`）。 */
-export interface QAConfig {
-  [key: string]: unknown;
-}
-
-/** 领地模块配置（`configs/land.json`）。 */
-export interface LandConfig {
-  [key: string]: unknown;
-}
-
 /** 模块启停锁（`modules/module-lock.json`）。 */
 export interface ModuleLock {
   version?: number;
@@ -161,14 +119,11 @@ export type ConfigSchemaId =
  * jsDelivr 要求 tag 中的 `@` 用 `%40` 编码。
  * `from` 仅作调用点语义标注，便于日后若布局分叉再按位置扩展（OCP）。
  */
-export function configSchemaRef(
-  schemaId: ConfigSchemaId,
-  _from: "configs" | "packs" | "modules" = "configs"
-): string {
+export function configSchemaRef(schemaId: ConfigSchemaId, _from: "configs" | "packs" | "modules" = "configs"): string {
   return `https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/${schemaId}.schema.json`;
 }
 
-/** 在对象根写入 `$schema`（不覆盖已有）；数组根勿调用。 */
+/** 在对象根写入 $schema（不覆盖已有）；数组根勿调用。 */
 export function withConfigSchema<T extends Record<string, unknown>>(
   value: T,
   schemaId: ConfigSchemaId,
@@ -180,7 +135,7 @@ export function withConfigSchema<T extends Record<string, unknown>>(
   return { $schema: configSchemaRef(schemaId, from), ...value };
 }
 
-/** 配置元数据键：`$schema` 与 `_` / `_comment*` 前缀，加载时跳过 */
+/** 配置元数据键`$schema 与 _ / _comment* 前缀，加载时跳过 */
 export function isConfigMetaKey(k: string): boolean {
   return k === "$schema" || k.startsWith("_");
 }
@@ -252,14 +207,6 @@ export type ConfigName =
   | "pack-update.json"
   | "log-filter.json"
   | "runtime.json"
-  | "settings.json"
-  | "areas.json"
-  | "banned_items.json"
-  | "clean.json"
-  | "grids.json"
-  | "peace_filters.json"
-  | "questions.json"
-  | "land.json"
   | "remote.json";
 
 /**
@@ -420,9 +367,7 @@ export function loadEnsuredConfig<T extends Record<string, unknown>>(
   defaults: T,
   from: "configs" | "packs" | "modules" = "configs"
 ): T {
-  return stripConfigMeta(
-    ensureSchemaConfig(root, name, schemaId, defaults, from) as Record<string, unknown>
-  ) as T;
+  return stripConfigMeta(ensureSchemaConfig(root, name, schemaId, defaults, from) as Record<string, unknown>) as T;
 }
 
 /** 平台核心配置种子集合（扩展新文件时只改此处 + switch） */

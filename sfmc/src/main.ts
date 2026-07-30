@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 import process from "node:process";
-import {
-  mapPacksSubAlias,
-  parseGlobalArgv,
-  resolveModuleShorthandSub,
-} from "./argv-parse.js";
+import { mapPacksSubAlias, parseGlobalArgv } from "./argv-parse.js";
 import { cmdRemote } from "./cmd-remote.js";
 import { cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
+import { resolveModuleTopShorthand } from "./command-surface.js";
 import { cmdDebug } from "./debug-command.js";
 import { initLocale, stripLangArgs, t } from "./i18n/index.js";
 import { cmdLocale } from "./locale-command.js";
@@ -69,7 +66,7 @@ async function main(): Promise<void> {
     if (topGate) deny(topGate);
   }
 
-  const moduleSub = resolveModuleShorthandSub(cmd);
+  const moduleSub = resolveModuleTopShorthand(cmd);
   if (moduleSub) {
     const g = gateModuleSub(moduleSub, MODE);
     if (g) deny(g);

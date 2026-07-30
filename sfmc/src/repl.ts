@@ -292,16 +292,6 @@ export function getHelp(mode: CommandMode = "argv"): string {
   return buildHelp(mode);
 }
 
-/** @deprecated 请用 getHelp(mode)；保留别名以兼容旧导入。 */
-export const HELP = {
-  toString() {
-    return getHelp("argv");
-  },
-  valueOf() {
-    return getHelp("argv");
-  },
-} as unknown as string;
-
 function getCommands(): string[] {
   return listVisibleTopLevelNames(REPL_MODE);
 }
