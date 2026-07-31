@@ -204,81 +204,120 @@ export class PlaygroundPanel {
 </head>
 <body>
   <div class="topbar">
-    <vscode-button id="btnStart">启动</vscode-button>
-    <vscode-button id="btnStop" secondary>销毁</vscode-button>
-    <vscode-button id="btnTick" secondary>Tick 1</vscode-button>
-    <span id="statusText" class="muted">未启动</span>
+    <vscode-button-group>
+      <vscode-button id="btnStart">启动</vscode-button>
+      <vscode-button id="btnStop" secondary>销毁</vscode-button>
+      <vscode-button id="btnTick" secondary>Tick</vscode-button>
+    </vscode-button-group>
+    <vscode-badge id="statusBadge">未启动</vscode-badge>
+    <div class="progress-row hidden" id="progressRow">
+      <vscode-progress-bar id="progressBar"></vscode-progress-bar>
+      <span id="progressLabel" class="muted"></span>
+    </div>
     <span class="grow"></span>
-    <span id="progress" class="progress muted"></span>
-    <div class="views">
-      <vscode-button id="btnViewStimulus">刺激台</vscode-button>
-      <vscode-button id="btnViewLab" secondary>实验室</vscode-button>
-    </div>
   </div>
-  <div class="muted" style="padding:4px 8px;font-size:11px">模块：${escapeHtml(rootLabel)} · 事件刺激台（非假 BDS）</div>
+  <div class="subtitle">模块：${escapeHtml(rootLabel)} · 事件刺激台（VS Code Elements）</div>
 
-  <div id="stimulusRoot" class="main">
-    <div class="col">
-      <h2>大纲</h2>
-      <div class="section-label">场景</div>
-      <div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
-        <vscode-textfield id="playerName" placeholder="玩家名" value="alice" style="flex:1"></vscode-textfield>
-        <vscode-checkbox id="playerOp" checked>OP</vscode-checkbox>
-        <vscode-button id="btnAddPlayer" secondary>+ 玩家</vscode-button>
-      </div>
-      <div id="sceneTree" class="tree" style="flex:0 0 auto;max-height:30%"></div>
-      <div class="section-label">事件</div>
-      <vscode-textfield id="eventSearch" placeholder="搜索信号…" style="margin-bottom:4px"></vscode-textfield>
-      <div id="eventTree" class="tree"></div>
-    </div>
-    <div class="col">
-      <h2 id="propsTitle">属性</h2>
-      <div id="propsBody" class="props"></div>
-      <div class="actions">
-        <vscode-button id="btnEmit" disabled>Emit</vscode-button>
-      </div>
-    </div>
-    <div class="col">
-      <h2>视口</h2>
-      <div class="viewport-tabs">
-        <vscode-button id="btnTabLog">日志</vscode-button>
-        <vscode-button id="btnTabState" secondary>状态</vscode-button>
-      </div>
-      <div id="logView"></div>
-      <div id="stateView" class="hidden"></div>
-    </div>
-  </div>
+  <vscode-tabs id="rootTabs" panel>
+    <vscode-tab-header>刺激台</vscode-tab-header>
+    <vscode-tab-panel>
+      <vscode-split-layout split="vertical" initial-handle-position="24%" min-start="180px" min-end="320px" style="height:calc(100vh - 72px)">
+        <div slot="start" class="pane">
+          <vscode-collapsible heading="场景" open>
+            <div class="scene-actions">
+              <vscode-textfield id="playerName" placeholder="玩家名" value="alice"></vscode-textfield>
+              <vscode-checkbox id="playerOp" checked>OP</vscode-checkbox>
+              <vscode-button id="btnAddPlayer" secondary>添加</vscode-button>
+            </div>
+            <vscode-tree id="sceneTree" indent-guides="onHover"></vscode-tree>
+          </vscode-collapsible>
+          <vscode-divider></vscode-divider>
+          <vscode-label>事件</vscode-label>
+          <vscode-textfield id="eventSearch" placeholder="搜索信号…"></vscode-textfield>
+          <vscode-scrollable class="pane-fill">
+            <vscode-tree id="eventTree" indent-guides="onHover"></vscode-tree>
+          </vscode-scrollable>
+        </div>
+        <vscode-split-layout slot="end" split="vertical" initial-handle-position="58%" min-start="240px" min-end="200px">
+          <div slot="start" class="pane">
+            <vscode-label id="propsHeading">属性</vscode-label>
+            <vscode-scrollable class="pane-fill">
+              <div id="propsBody"></div>
+            </vscode-scrollable>
+            <div class="props-actions">
+              <vscode-button id="btnEmit" disabled>Emit</vscode-button>
+            </div>
+          </div>
+          <div slot="end" class="pane">
+            <vscode-tabs id="viewportTabs" panel>
+              <vscode-tab-header>日志</vscode-tab-header>
+              <vscode-tab-panel>
+                <vscode-scrollable id="logScroll" always-visible>
+                  <pre id="logPre" class="pre"></pre>
+                </vscode-scrollable>
+              </vscode-tab-panel>
+              <vscode-tab-header>状态</vscode-tab-header>
+              <vscode-tab-panel>
+                <vscode-scrollable id="stateScroll" always-visible>
+                  <pre id="statePre" class="pre muted">启动后显示场景摘要</pre>
+                </vscode-scrollable>
+              </vscode-tab-panel>
+            </vscode-tabs>
+          </div>
+        </vscode-split-layout>
+      </vscode-split-layout>
+    </vscode-tab-panel>
 
-  <div id="lab" class="hidden">
-    <div class="lab-col">
-      <h2>构造</h2>
-      <label>kind</label>
-      <select id="labKind" class="native"></select>
-      <label>props JSON</label>
-      <textarea id="labProps" class="raw">{"name":"alice","op":true}</textarea>
-      <vscode-button id="btnLabCreate">create</vscode-button>
-    </div>
-    <div class="lab-col">
-      <h2>操作</h2>
-      <label>object id</label>
-      <input id="labObjectId" class="native" />
-      <label>实例</label>
-      <select id="labObjects" class="native"></select>
-      <label>method</label>
-      <input id="labMethod" class="native" value="sendMessage" />
-      <label>args JSON</label>
-      <textarea id="labArgs" class="raw">["hello"]</textarea>
-      <vscode-button id="btnLabCall">call</vscode-button>
-    </div>
-    <div class="lab-col">
-      <h2>事件 JSON</h2>
-      <label>path</label>
-      <select id="labEventPath" class="native"></select>
-      <label>payload</label>
-      <textarea id="labPayload" class="raw">{}</textarea>
-      <vscode-button id="btnLabEmit">emit</vscode-button>
-    </div>
-  </div>
+    <vscode-tab-header>实验室</vscode-tab-header>
+    <vscode-tab-panel>
+      <div class="lab-grid">
+        <div class="lab-col">
+          <vscode-label>构造 · 1:1</vscode-label>
+          <vscode-form-group variant="vertical">
+            <vscode-label>kind</vscode-label>
+            <vscode-single-select id="labKind"></vscode-single-select>
+          </vscode-form-group>
+          <vscode-form-group variant="vertical">
+            <vscode-label>props JSON</vscode-label>
+            <vscode-textarea id="labProps" rows="6">{"name":"alice","op":true}</vscode-textarea>
+          </vscode-form-group>
+          <vscode-button id="btnLabCreate">create</vscode-button>
+        </div>
+        <div class="lab-col">
+          <vscode-label>操作 · 1:1</vscode-label>
+          <vscode-form-group variant="vertical">
+            <vscode-label>object id</vscode-label>
+            <vscode-textfield id="labObjectId"></vscode-textfield>
+          </vscode-form-group>
+          <vscode-form-group variant="vertical">
+            <vscode-label>实例</vscode-label>
+            <vscode-single-select id="labObjects"></vscode-single-select>
+          </vscode-form-group>
+          <vscode-form-group variant="vertical">
+            <vscode-label>method</vscode-label>
+            <vscode-textfield id="labMethod" value="sendMessage"></vscode-textfield>
+          </vscode-form-group>
+          <vscode-form-group variant="vertical">
+            <vscode-label>args JSON</vscode-label>
+            <vscode-textarea id="labArgs" rows="3">["hello"]</vscode-textarea>
+          </vscode-form-group>
+          <vscode-button id="btnLabCall">call</vscode-button>
+        </div>
+        <div class="lab-col">
+          <vscode-label>事件 JSON · 1:1</vscode-label>
+          <vscode-form-group variant="vertical">
+            <vscode-label>path</vscode-label>
+            <vscode-single-select id="labEventPath"></vscode-single-select>
+          </vscode-form-group>
+          <vscode-form-group variant="vertical">
+            <vscode-label>payload</vscode-label>
+            <vscode-textarea id="labPayload" rows="6">{}</vscode-textarea>
+          </vscode-form-group>
+          <vscode-button id="btnLabEmit">emit</vscode-button>
+        </div>
+      </div>
+    </vscode-tab-panel>
+  </vscode-tabs>
 
   <script nonce="${nonce}" src="${jsUri}"></script>
 </body>

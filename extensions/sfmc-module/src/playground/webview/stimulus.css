@@ -6,12 +6,14 @@
 * {
   box-sizing: border-box;
 }
+html,
 body {
   margin: 0;
-  padding: 0;
+  height: 100%;
   color: var(--vscode-foreground);
   background: var(--vscode-editor-background);
-  height: 100vh;
+}
+body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -19,7 +21,7 @@ body {
 .topbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   padding: 6px 8px;
   border-bottom: 1px solid var(--vscode-panel-border);
@@ -27,109 +29,82 @@ body {
 .topbar .grow {
   flex: 1;
 }
-.progress {
-  font-size: 11px;
-  opacity: 0.85;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.views {
-  display: flex;
-  gap: 4px;
-}
-.main {
-  flex: 1;
-  display: grid;
-  grid-template-columns: minmax(180px, 22%) 1fr minmax(200px, 28%);
-  min-height: 0;
-}
-.col {
-  border-right: 1px solid var(--vscode-panel-border);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 6px;
-}
-.col:last-child {
-  border-right: none;
-}
-.col h2 {
-  font-size: 11px;
-  margin: 0 0 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.75;
-  font-weight: 600;
-}
-.section-label {
+.subtitle {
+  padding: 4px 8px;
   font-size: 11px;
   opacity: 0.7;
-  margin: 8px 0 4px;
 }
-.tree {
-  overflow: auto;
+#rootTabs {
   flex: 1;
   min-height: 0;
-}
-.tree-item {
-  padding: 3px 6px;
-  cursor: pointer;
-  border-radius: 3px;
-  user-select: none;
-}
-.tree-item:hover {
-  background: var(--vscode-list-hoverBackground);
-}
-.tree-item.active {
-  background: var(--vscode-list-activeSelectionBackground);
-  color: var(--vscode-list-activeSelectionForeground);
-}
-.tree-item.indent {
-  padding-left: 16px;
-}
-.hub {
-  opacity: 0.65;
-  font-size: 11px;
-  margin-top: 6px;
-  padding: 2px 6px;
-}
-.props {
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
-}
-.field {
-  margin-bottom: 8px;
-}
-.field label {
   display: block;
-  margin-bottom: 2px;
-  opacity: 0.85;
 }
-.actions {
+#rootTabs::part(body),
+vscode-tab-panel {
+  height: 100%;
+}
+.pane {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 6px;
+}
+.pane-fill {
+  flex: 1;
+  min-height: 0;
+}
+vscode-split-layout {
+  display: block;
+  height: 100%;
+  min-height: 280px;
+}
+vscode-collapsible {
+  display: block;
+}
+.scene-actions {
   display: flex;
   gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid var(--vscode-panel-border);
-  margin-top: 8px;
-}
-.viewport-tabs {
-  display: flex;
-  gap: 4px;
+  align-items: center;
   margin-bottom: 6px;
 }
-#logView,
-#stateView {
+.scene-actions vscode-textfield {
   flex: 1;
-  overflow: auto;
-  min-height: 0;
+}
+.props-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 6px;
+}
+#logScroll,
+#stateScroll {
+  display: block;
+  height: 100%;
+  min-height: 160px;
+}
+.pre {
   white-space: pre-wrap;
   font-family: var(--vscode-editor-font-family);
   font-size: 11px;
+  margin: 0;
+  padding: 4px;
+}
+.lab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+.lab-col {
   border: 1px solid var(--vscode-panel-border);
-  padding: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .muted {
   opacity: 0.65;
@@ -137,32 +112,12 @@ body {
 .hidden {
   display: none !important;
 }
-#lab {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+.progress-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 8px;
-  min-height: 0;
-  overflow: auto;
+  min-width: 180px;
 }
-#lab .lab-col {
-  border: 1px solid var(--vscode-panel-border);
-  padding: 8px;
-}
-textarea.raw {
-  width: 100%;
-  min-height: 80px;
-  font-family: var(--vscode-editor-font-family);
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border, transparent);
-}
-select.native,
-input.native {
-  width: 100%;
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border, transparent);
-  padding: 4px;
+.progress-row vscode-progress-bar {
+  flex: 1;
 }
