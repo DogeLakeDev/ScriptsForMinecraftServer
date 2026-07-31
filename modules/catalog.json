@@ -1,20 +1,5 @@
 {
   "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/module_catalog.schema.json",
   "version": 1,
-  "modules": [
-    {
-      "id": "feature-economy",
-      "configKey": "economy",
-      "name": "经济系统",
-      "type": "feature",
-      "description": "",
-      "enabledByDefault": false,
-      "canDisable": true,
-      "requires": [],
-      "entry": {
-        "kind": "sapi",
-        "path": "modules/packages/economy/sapi/src/index.ts"
-      }
-    }
-  ]
+  "modules": []
 }
