@@ -1,5 +1,6 @@
 /**
- * @sfmc-bds/devkit — 模块作者工具核心（扩展 / CI 共用，不依赖 sfmc CLI）
+ * @sfmc-bds/devkit — 模块作者工具核心（扩展 / CI 共用）
+ * Watch / scaffold 自洽；rebuild / 启停会解析并 spawn 已安装的 sfmc CLI（与工作目录无关）。
  */
 
 export { resolveLocalModuleRoot } from "./paths.js";

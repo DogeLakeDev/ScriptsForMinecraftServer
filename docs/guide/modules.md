@@ -49,7 +49,7 @@ sfmc> mod reload --build-only
 
 ## 开发联调
 
-作者侧用 VS Code/Cursor 扩展「SFMC Module」的 **Start Watch** / **Reload to BDS** / **Enable / Disable Module**（设置 `sfmc.root` 指向主仓根；扩展会把模块启停写入 `${sfmc.root}/modules/module-lock.json`，与 CLI 同源）。运维机：
+作者侧用 VS Code/Cursor 扩展「SFMC Module」的 **Start Watch** / **Reload to BDS** / **Enable / Disable Module**（设置 `sfmc.root` 为含 `configs/`、`modules/` 的工作目录；扩展会把模块启停写入 `${sfmc.root}/modules/module-lock.json`，与 CLI 同源）。运维机：
 
 ```bash
 sfmc mod install <id> --from dir:<作者仓绝对路径> --link

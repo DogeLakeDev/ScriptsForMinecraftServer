@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "^0.2.0-beta.7",
+    "@sfmc-bds/cli": "^0.2.0-beta.7",
     "@sfmc-bds/tools": "^0.2.0-beta.7"
   },
   "publishConfig": {
