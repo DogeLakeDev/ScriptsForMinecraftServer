@@ -21,13 +21,20 @@ import { runCleanup } from "./lifecycle.js";
 import {
   createMemoryDataAdapter,
   type MemoryConfigsAll,
+  type MemoryDataAdapter,
 } from "./host/memory-data-adapter.js";
 import { SERVER_L0_META, SERVER_UI_L0_META } from "./engine/generated/l0-meta.js";
 import { createObjectRegistry, type SandboxObjects } from "./objects.js";
 import { createEventsDrive, type SandboxEvents } from "./events-drive.js";
 import { loadModuleDescriptor } from "./load-module.js";
+import {
+  applyFixtureIntent,
+  configsFromFixtureIntent,
+  type SandboxFixtureIntent,
+} from "./fixture.js";
 
-export type { MemoryConfigsAll };
+export type { MemoryConfigsAll, MemoryDataAdapter };
+export type { SandboxFixtureIntent };
 
 /** 宿主分相进度（playground-host / UI 勾选）。 */
 export type SandboxProgressStep = {
@@ -51,6 +58,11 @@ export interface CreateSandboxOpts {
   configs?: MemoryConfigsAll;
   /** 模块是否启用；默认 true（写入 configs.modules）。 */
   enabled?: boolean;
+  /**
+   * 夹具意图：合并进 configs 后 boot；与 configs 同时给出时先 configs 再叠 intent。
+   * 运行中改夹具请用 sandbox.applyFixture / playground-host fixture.apply。
+   */
+  fixture?: SandboxFixtureIntent;
   db?: FakeDbStub;
   /** 分相进度回调（原生层 / SFMC 层分标）。 */
   onProgress?: (step: SandboxProgressStep) => void;
@@ -65,6 +77,24 @@ export type SandboxEmit = {
   scriptEvent(id: string, sourceEntity?: unknown): void;
   /** 从世界移除玩家并触发 playerLeave（before + after）。 */
   playerLeave(player: FakePlayer): void;
+  /** itemUse：默认 after；`before: true` 时走 beforeEvents（可带 cancel）。 */
+  itemUse(
+    player: FakePlayer,
+    itemStack?: unknown,
+    opts?: { before?: boolean; itemStack?: unknown }
+  ): void;
+  /** playerBreakBlock：默认 after；payload 对齐 Event 属性袋（可缺省）。 */
+  playerBreakBlock(
+    player: FakePlayer,
+    opts?: {
+      before?: boolean;
+      block?: unknown;
+      brokenBlockPermutation?: unknown;
+      itemStackBeforeBreak?: unknown;
+      itemStackAfterBreak?: unknown;
+    }
+  ): void;
+  entityHitEntity(damagingEntity: unknown, hitEntity: unknown): void;
 };
 
 export type Sandbox = {
@@ -95,6 +125,12 @@ export type Sandbox = {
   objects: SandboxObjects;
   /** 1:1 事件 emit */
   events: SandboxEvents;
+  /** 内存 configs 适配器（夹具读写）。 */
+  configAdapter: MemoryDataAdapter;
+  /** 运行中应用夹具意图并刷新 ConfigManager。 */
+  applyFixture(intent: SandboxFixtureIntent): Promise<SandboxFixtureIntent>;
+  /** 清空假 DB 调用日志。 */
+  clearDb(): void;
   dispose(): Promise<void>;
 };
 
@@ -202,7 +238,8 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
   progress(onProgress, report(3, "native", "绑定 @minecraft 表面"), "done");
   progress(onProgress, report(0, "native", "装载脚本入口（early）"), "done");
 
-  const enabled = opts.enabled !== false;
+  const enabled =
+    opts.fixture?.enabled !== undefined ? opts.fixture.enabled !== false : opts.enabled !== false;
 
   // 先解析模块描述符（moduleRoot 优先），再写 configs
   let moduleRef: ModuleDescriptor | undefined = opts.module;
@@ -213,11 +250,13 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
     progress(onProgress, report(0, "native", "装载脚本入口（early）"), "done");
   }
 
-  const configs = opts.configs ?? defaultConfigsFor(moduleRef, enabled);
+  const baseConfigs = opts.configs ?? defaultConfigsFor(moduleRef, enabled);
+  const configs = configsFromFixtureIntent(baseConfigs, opts.fixture, moduleRef?.id);
 
   progress(onProgress, report(4, "native", "system.beforeEvents.startup"), "running");
   progress(onProgress, report(5, "sfmc", "ConfigManager.init"), "running");
-  ConfigManager.bindDataAdapter(createMemoryDataAdapter(configs));
+  const configAdapter = createMemoryDataAdapter(configs);
+  ConfigManager.bindDataAdapter(configAdapter);
   await ConfigManager.init();
   progress(onProgress, report(5, "sfmc", "ConfigManager.init"), "done");
   progress(onProgress, report(4, "native", "system.beforeEvents.startup"), "done");
@@ -256,6 +295,9 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
 
   const addPlayer = (init: Parameters<Sandbox["addPlayer"]>[0]) => {
     const userHook = init.onGameModeChange;
+    const userHealth = init.onHealthChange;
+    const userHurt = init.onHurt;
+    const userDie = init.onDie;
     const p = createEnginePlayer({
       ...init,
       onGameModeChange: (player, from, to) => {
@@ -270,6 +312,33 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
           player,
           fromGameMode: from,
           toGameMode: to,
+        });
+      },
+      onHealthChange: (player, oldValue, newValue) => {
+        userHealth?.(player, oldValue, newValue);
+        eng.world.afterEvents.entityHealthChanged!.emit({
+          entity: player,
+          oldValue,
+          newValue,
+        });
+      },
+      onHurt: (player, damage, options) => {
+        userHurt?.(player, damage, options);
+        const cause =
+          options && typeof options === "object" && "cause" in (options as object)
+            ? (options as { cause?: unknown }).cause
+            : "none";
+        eng.world.afterEvents.entityHurt!.emit({
+          hurtEntity: player,
+          damage,
+          damageSource: { cause: cause ?? "none" },
+        });
+      },
+      onDie: (player) => {
+        userDie?.(player);
+        eng.world.afterEvents.entityDie!.emit({
+          deadEntity: player,
+          damageSource: { cause: "none" },
         });
       },
     });
@@ -291,6 +360,7 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
     system: eng.system,
     ui: eng.ui,
     db,
+    configAdapter,
     module: moduleRef
       ? moduleRoot
         ? { id: moduleRef.id, root: moduleRoot }
@@ -329,6 +399,33 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
       playerLeave(player) {
         eng.world.removePlayer(player.id);
       },
+      itemUse(player, itemStack, opts) {
+        const stack = opts?.itemStack ?? itemStack ?? undefined;
+        const payload = { source: player, itemStack: stack, cancel: false };
+        if (opts?.before) {
+          eng.world.beforeEvents.itemUse!.emit(payload);
+        } else {
+          eng.world.afterEvents.itemUse!.emit(payload);
+        }
+      },
+      playerBreakBlock(player, opts) {
+        const payload = {
+          player,
+          block: opts?.block,
+          brokenBlockPermutation: opts?.brokenBlockPermutation,
+          itemStackBeforeBreak: opts?.itemStackBeforeBreak,
+          itemStackAfterBreak: opts?.itemStackAfterBreak,
+          cancel: false,
+        };
+        if (opts?.before) {
+          eng.world.beforeEvents.playerBreakBlock!.emit(payload);
+        } else {
+          eng.world.afterEvents.playerBreakBlock!.emit(payload);
+        }
+      },
+      entityHitEntity(damagingEntity, hitEntity) {
+        eng.world.afterEvents.entityHitEntity!.emit({ damagingEntity, hitEntity });
+      },
     },
     tick(n = 1) {
       eng.system.tick(n);
@@ -343,6 +440,20 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
       eng.system.flush();
       await Promise.resolve();
       eng.system.flush();
+    },
+    async applyFixture(intent) {
+      return applyFixtureIntent(
+        {
+          adapter: configAdapter,
+          db,
+          moduleId: moduleRef?.id ?? null,
+          getPlayers: () => eng.world.getAllPlayers(),
+        },
+        intent
+      );
+    },
+    clearDb() {
+      db.reset();
     },
     async dispose() {
       if (disposed) return;

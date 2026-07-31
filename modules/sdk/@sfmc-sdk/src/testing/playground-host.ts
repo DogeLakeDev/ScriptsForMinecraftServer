@@ -2,11 +2,13 @@
  * Playground JSON-RPC 宿主（stdio 行协议）。
  * 启动：node --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm <本文件>
  *
- * 请求：meta / start(=重置) / stop / objects.* / events.* / tick / scene.summary / smoke.run
+ * 请求：meta / start(=重置) / stop / objects.* / events.* / tick / scene.summary /
+ *       fixture.get / fixture.apply / smoke.run
  * 通知：{"type":"event","name":"progress"|"log","payload":...}
  * UI 开面板即 start；无启动/销毁主按钮。
  *
  * 环境变量 SFMC_PLAYGROUND_MODULE_ROOT：默认模块根（可被 start.params.moduleRoot 覆盖）。
+ * 夹具意图在 start/reset 间保留，并随 createSandbox({ fixture }) 重新注入。
  */
 
 import fs from "node:fs";
@@ -16,6 +18,10 @@ import { Command } from "@sfmc-bds/sdk/sapi/runtime";
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { createSandbox, type Sandbox } from "./sandbox.js";
 import { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
+import {
+  buildFixtureSnapshot,
+  type SandboxFixtureIntent,
+} from "./fixture.js";
 
 type RpcReq = { id: number | string; method: string; params?: Record<string, unknown> };
 
@@ -41,6 +47,54 @@ type LastCallSnap = {
 let lastEmit: LastEmitSnap | null = null;
 let lastCall: LastCallSnap | null = null;
 let activeModuleRoot: string | null = null;
+/** 重置场景后保留的夹具意图。 */
+let fixtureIntent: SandboxFixtureIntent = {};
+
+function parseFixtureIntent(raw: unknown): SandboxFixtureIntent {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const o = raw as Record<string, unknown>;
+  const intent: SandboxFixtureIntent = {};
+  if (o.settings && typeof o.settings === "object" && !Array.isArray(o.settings)) {
+    intent.settings = o.settings as Record<string, unknown>;
+  }
+  if (Array.isArray(o.permissions)) {
+    intent.permissions = o.permissions
+      .filter((p): p is { player_name: string; level: number } => {
+        if (!p || typeof p !== "object") return false;
+        const row = p as Record<string, unknown>;
+        return typeof row.player_name === "string" && typeof row.level === "number";
+      })
+      .map((p) => ({ player_name: p.player_name, level: p.level }));
+  }
+  if (typeof o.treatPlayersAsOp === "boolean") intent.treatPlayersAsOp = o.treatPlayersAsOp;
+  if (typeof o.enabled === "boolean") intent.enabled = o.enabled;
+  if (typeof o.clearDb === "boolean") intent.clearDb = o.clearDb;
+  return intent;
+}
+
+function mergeFixtureIntent(patch: SandboxFixtureIntent): SandboxFixtureIntent {
+  const next: SandboxFixtureIntent = { ...fixtureIntent };
+  if (patch.settings !== undefined) next.settings = structuredClone(patch.settings);
+  if (patch.permissions !== undefined) next.permissions = structuredClone(patch.permissions);
+  if (patch.treatPlayersAsOp !== undefined) next.treatPlayersAsOp = patch.treatPlayersAsOp;
+  if (patch.enabled !== undefined) next.enabled = patch.enabled;
+  if (patch.clearDb !== undefined) next.clearDb = patch.clearDb;
+  fixtureIntent = next;
+  return next;
+}
+
+function fixtureSnapshot() {
+  if (!sb) throw new Error("sandbox not started");
+  const id = sb.module?.id ?? null;
+  return buildFixtureSnapshot({
+    module: sb.module,
+    moduleRoot: activeModuleRoot,
+    enabled: id ? ModuleRegistry.isActive(id) : null,
+    adapter: sb.configAdapter,
+    intent: fixtureIntent,
+    db: sb.db,
+  });
+}
 
 /** 规范化为可 JSON 断言的摘要（深度有限） */
 function snapshotValue(value: unknown, depth = 0): unknown {
@@ -193,12 +247,32 @@ async function handle(req: RpcReq): Promise<unknown> {
       lastCall = null;
       const moduleRoot = resolveModuleRoot(params);
       activeModuleRoot = moduleRoot ?? null;
+      // start.params.fixture 可覆盖保留意图；缺省沿用上次 fixtureIntent
+      if (params.fixture !== undefined) {
+        mergeFixtureIntent(parseFixtureIntent(params.fixture));
+      }
+      if (params.clearFixture === true) {
+        fixtureIntent = {};
+      }
+      const hasFixture =
+        fixtureIntent.settings !== undefined ||
+        fixtureIntent.permissions !== undefined ||
+        fixtureIntent.treatPlayersAsOp !== undefined ||
+        fixtureIntent.enabled !== undefined ||
+        fixtureIntent.clearDb === true;
       sb = await createSandbox({
         ...(moduleRoot ? { moduleRoot } : {}),
+        ...(hasFixture ? { fixture: { ...fixtureIntent, clearDb: false } } : {}),
         onProgress(step) {
           notify("progress", { phase: "start", ...step });
         },
       });
+      if (fixtureIntent.treatPlayersAsOp || fixtureIntent.clearDb) {
+        const post: SandboxFixtureIntent = {};
+        if (fixtureIntent.treatPlayersAsOp) post.treatPlayersAsOp = true;
+        if (fixtureIntent.clearDb) post.clearDb = true;
+        await sb.applyFixture(post);
+      }
       const binding = buildModuleBinding(sb, moduleRoot ?? null);
       const modLabel = binding.id ?? "(engine only)";
       const subSummary =
@@ -231,6 +305,7 @@ async function handle(req: RpcReq): Promise<unknown> {
         subscribedEvents: binding.subscribedEvents,
         objectKinds: sb.objects.kinds(),
         eventPathCount: sb.events.paths().length,
+        fixture: fixtureSnapshot(),
       };
     }
     case "stop": {
@@ -367,6 +442,26 @@ async function handle(req: RpcReq): Promise<unknown> {
     }
     case "smoke.run": {
       return runSmoke(sb?.module?.id ?? null);
+    }
+    case "fixture.get": {
+      return fixtureSnapshot();
+    }
+    case "fixture.apply": {
+      if (!sb) throw new Error("sandbox not started");
+      const patch = parseFixtureIntent(params.fixture ?? params);
+      const merged = mergeFixtureIntent(patch);
+      await sb.applyFixture(merged);
+      notify("log", {
+        channel: "system",
+        text: `[fixture] applied settings=${Object.keys(merged.settings ?? {}).length} perms=${(merged.permissions ?? []).length} op=${!!merged.treatPlayersAsOp} enabled=${merged.enabled ?? "—"} clearDb=${!!merged.clearDb}`,
+      });
+      return fixtureSnapshot();
+    }
+    case "fixture.clearDb": {
+      if (!sb) throw new Error("sandbox not started");
+      sb.clearDb();
+      notify("log", { channel: "system", text: "[fixture] fake-db call log cleared" });
+      return fixtureSnapshot();
     }
     default:
       throw new Error(`unknown method: ${method}`);

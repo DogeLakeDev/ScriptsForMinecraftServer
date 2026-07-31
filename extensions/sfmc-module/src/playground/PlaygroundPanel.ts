@@ -336,6 +336,23 @@ export class PlaygroundPanel {
       this.reply(rid, await this.host.request("scene.summary"));
       return;
     }
+    if (cmd === "fixtureGet") {
+      this.reply(rid, await this.host.request("fixture.get", {}));
+      return;
+    }
+    if (cmd === "fixtureApply") {
+      this.reply(
+        rid,
+        await this.host.request("fixture.apply", {
+          fixture: (msg.fixture as Record<string, unknown>) ?? {},
+        })
+      );
+      return;
+    }
+    if (cmd === "fixtureClearDb") {
+      this.reply(rid, await this.host.request("fixture.clearDb", {}));
+      return;
+    }
     if (cmd === "showOutput") {
       ExtLog.show(false);
       this.reply(rid, { ok: true });

@@ -22,9 +22,20 @@ export type {
   Sandbox,
   SandboxEmit,
   MemoryConfigsAll,
+  MemoryDataAdapter,
   SandboxProgressStep,
+  SandboxFixtureIntent,
 } from "./sandbox.js";
 export { createSandbox } from "./sandbox.js";
+
+export type { SandboxFixtureSnapshot } from "./fixture.js";
+export {
+  applyFixtureIntent,
+  buildFixtureSnapshot,
+  configsFromFixtureIntent,
+  FIXTURE_PERMISSION_LEVELS,
+} from "./fixture.js";
+export { createMemoryDataAdapter } from "./host/memory-data-adapter.js";
 
 export { loadModuleDescriptor, resolveModuleEntry } from "./load-module.js";
 

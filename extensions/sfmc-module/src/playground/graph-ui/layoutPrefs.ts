@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { vscodeApi } from "./vscodeApi";
 
-export type PanelId = "tools" | "props";
+export type PanelId = "tools" | "props" | "fixture";
 export type DockMode = "left" | "right" | "float";
 
 export type PanelLayout = {
@@ -22,6 +22,7 @@ export type LayoutPrefs = {
 const DEFAULT_PANELS: Record<PanelId, PanelLayout> = {
   tools: { visible: true, dock: "left", x: 16, y: 56, w: 200, h: 420 },
   props: { visible: true, dock: "right", x: 480, y: 56, w: 320, h: 520 },
+  fixture: { visible: true, dock: "float", x: 240, y: 72, w: 300, h: 520 },
 };
 
 const DEFAULTS: LayoutPrefs = {

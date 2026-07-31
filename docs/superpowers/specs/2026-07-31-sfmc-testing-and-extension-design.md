@@ -204,7 +204,7 @@ dispose → teardown / cleanup → disposeEngine
 ### 7.2 Playground 宿主（消费面）
 
 - 加载当前 `moduleRoot` → `createSandbox`；同时仅一个会话  
-- JSON-RPC：`meta` / `start`(=重置) / `objects.*` / `events.*` / `tick` / `scene.summary`  
+- JSON-RPC：`meta` / `start`(=重置) / `objects.*` / `events.*` / `tick` / `scene.summary` / `fixture.get` / `fixture.apply` 
 - 开面板即沙箱；UI 布局与运行模型见 [脚本沙箱 UI](./2026-07-31-sfmc-script-sandbox-ui-design.md)  
 - 「启动并调试」：`debug.startDebugging` → playground-host + source map
 

@@ -11,11 +11,13 @@ import {
   type Connection,
   type Edge,
   type NodeTypes,
+  type ReactFlowInstance,
   BackgroundVariant,
 } from "@xyflow/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   StimulusNode,
+  clipRunSummary,
   formatCallDetail,
   type StimulusFlowNode,
   type StimulusKind,
@@ -30,7 +32,14 @@ import {
   migrateAssertConfig,
   normalizeAssertKind,
 } from "../graph/assert";
-import { orderNodes, type RunMode } from "../graph/order";
+import {
+  hasFailOutEdges,
+  normalizeEdgeKind,
+  orderAssertBranch,
+  orderNodes,
+  type EdgeKind,
+  type RunMode,
+} from "../graph/order";
 import {
   bindCreateObjectId,
   clearCreateObjectIds,
@@ -42,6 +51,7 @@ import { Codicon } from "./Codicon";
 import { DockPanel } from "./DockPanel";
 import { HotkeysPanelBody, PropsPanelBody } from "./PropsPanelBody";
 import { SceneDock } from "./SceneDock";
+import { FixturePanel, type FixtureSnapshot } from "./FixturePanel";
 import { ScrollArea } from "./ScrollArea";
 import {
   eventProps,
@@ -205,21 +215,47 @@ function migrateScriptNodes(nodes: StimulusFlowNode[]): StimulusFlowNode[] {
 
 function migrateScriptEdges(edges: Edge[]): Edge[] {
   return edges.map((e) => {
-    const raw =
-      (typeof e.label === "string" ? e.label : "") ||
-      String((e.data as { note?: string } | undefined)?.note ?? "");
-    const note = raw.trim();
-    if (!note) {
-      return {
-        ...e,
-        label: undefined,
-        data: { ...(typeof e.data === "object" && e.data ? e.data : {}), note: undefined },
-      };
+    const prev = typeof e.data === "object" && e.data ? { ...(e.data as Record<string, unknown>) } : {};
+    let kind = normalizeEdgeKind(prev.kind);
+    const rawLabel = typeof e.label === "string" ? e.label.trim() : "";
+    const rawNote = String(prev.note ?? "").trim();
+    let note = rawNote || rawLabel;
+    // 旧剧本把「失败」写在 label 上时推断为失败边
+    if (prev.kind == null && (rawLabel === "失败" || rawLabel.startsWith("失败 · "))) {
+      kind = "fail";
+      note = rawLabel === "失败" ? "" : rawLabel.replace(/^失败 ·\s*/, "");
     }
+    if (note === "通过" || note === "失败") note = "";
     return {
       ...e,
-      label: note,
-      data: { ...(typeof e.data === "object" && e.data ? e.data : {}), note },
+      label: note || undefined,
+      data: { ...prev, kind, note: note || undefined },
+    };
+  });
+}
+
+/** 画布展示用：失败边红虚线；断言出边标「通过/失败」 */
+function decorateFlowEdges(edges: Edge[], nodes: StimulusFlowNode[]): Edge[] {
+  const assertIds = new Set(nodes.filter((n) => n.data.kind === "assert").map((n) => n.id));
+  return edges.map((e) => {
+    const kind = normalizeEdgeKind((e.data as { kind?: string } | undefined)?.kind);
+    const note =
+      String((e.data as { note?: string } | undefined)?.note ?? "").trim() ||
+      (typeof e.label === "string" ? e.label.trim() : "");
+    const fromAssert = assertIds.has(e.source);
+    let label: string | undefined;
+    if (kind === "fail") label = note ? `失败 · ${note}` : "失败";
+    else if (fromAssert) label = note ? `通过 · ${note}` : "通过";
+    else label = note || undefined;
+    return {
+      ...e,
+      label,
+      className: kind === "fail" ? "edge-fail" : fromAssert ? "edge-pass" : undefined,
+      data: {
+        ...(typeof e.data === "object" && e.data ? e.data : {}),
+        kind,
+        note: note || undefined,
+      },
     };
   });
 }
@@ -335,6 +371,9 @@ export default function App() {
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState(bootGraph.edges);
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
+  const rfRef = useRef<ReactFlowInstance | null>(null);
   /** 已从 webview state 恢复时，started 不再用 host 文件覆盖（防抖窗口内重载） */
   const skipHostScript = useRef(bootGraph.fromWebview);
   /** 收到 started（含可选 host 恢复）后再防抖写盘，避免用内置示例覆盖存档 */
@@ -369,6 +408,7 @@ export default function App() {
     props: Record<string, unknown>;
   } | null>(null);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [fixture, setFixture] = useState<FixtureSnapshot | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{
     x: number;
     y: number;
@@ -383,6 +423,11 @@ export default function App() {
   const selectedEdge = useMemo(
     () => edges.find((e) => e.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId]
+  );
+  const flowEdges = useMemo(() => decorateFlowEdges(edges, nodes), [edges, nodes]);
+  const failedNodeId = useMemo(
+    () => nodes.find((n) => n.data.runState === "failed")?.id ?? null,
+    [nodes]
   );
 
   const appendLog = useCallback((line: string, level: "info" | "warn" | "error" | "debug" = "info") => {
@@ -412,6 +457,52 @@ export default function App() {
       setScene(summary);
     } catch (e) {
       appendLog(`[scene] ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, [appendLog, request]);
+
+  const refreshFixture = useCallback(async () => {
+    try {
+      const snap = (await request("fixtureGet")) as FixtureSnapshot;
+      setFixture(snap);
+      if (snap.module?.id || snap.enabled != null) {
+        setModuleBinding((prev) => ({
+          ...prev,
+          id: snap.module?.id ?? prev.id,
+          moduleRoot: snap.moduleRoot ?? prev.moduleRoot,
+          enabled: snap.enabled,
+          status: snap.module?.id ? "loaded" : prev.status,
+        }));
+      }
+    } catch (e) {
+      appendLog(`[fixture] ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, [appendLog, request]);
+
+  const applyFixture = useCallback(
+    async (intent: FixtureSnapshot["intent"]) => {
+      try {
+        const snap = (await request("fixtureApply", { fixture: intent })) as FixtureSnapshot;
+        setFixture(snap);
+        appendLog(
+          `[fixture] applied settings=${Object.keys(intent.settings ?? {}).length} enabled=${intent.enabled ?? "—"}`
+        );
+        await refreshScene();
+      } catch (e) {
+        appendLog(`[fixture] ${e instanceof Error ? e.message : String(e)}`, "error");
+        throw e;
+      }
+    },
+    [appendLog, refreshScene, request]
+  );
+
+  const clearFixtureDb = useCallback(async () => {
+    try {
+      const snap = (await request("fixtureClearDb")) as FixtureSnapshot;
+      setFixture(snap);
+      appendLog("[fixture] fake-db cleared");
+    } catch (e) {
+      appendLog(`[fixture] ${e instanceof Error ? e.message : String(e)}`, "error");
+      throw e;
     }
   }, [appendLog, request]);
 
@@ -568,6 +659,12 @@ export default function App() {
             `[module] subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`
           );
         }
+        const fixtureFromStart = (msg.result as { fixture?: FixtureSnapshot } | undefined)?.fixture;
+        if (fixtureFromStart) {
+          setFixture(fixtureFromStart);
+        } else {
+          void refreshFixture();
+        }
         if (graphForMaterialize) {
           void materializePlayerNodes(graphForMaterialize).catch((e) => {
             appendLog(`[scene] 自动登记失败: ${e instanceof Error ? e.message : String(e)}`);
@@ -587,7 +684,7 @@ export default function App() {
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [appendLog, applyScript, materializePlayerNodes, pending, setEdges, setNodes]);
+  }, [appendLog, applyScript, materializePlayerNodes, pending, refreshFixture, setEdges, setNodes]);
 
   // 防抖自动保存：webview state + host 文件 / workspaceState
   useEffect(() => {
@@ -625,7 +722,9 @@ export default function App() {
   const onConnect = useCallback(
     (c: Connection) => {
       pushHistory();
-      setEdges((eds) => addEdge({ ...c, id: `e-${c.source}-${c.target}` }, eds));
+      setEdges((eds) =>
+        addEdge({ ...c, id: `e-${c.source}-${c.target}`, data: { kind: "pass" as EdgeKind } }, eds)
+      );
     },
     [pushHistory, setEdges]
   );
@@ -649,13 +748,39 @@ export default function App() {
             ? {
                 ...e,
                 label: trimmed || undefined,
-                data: { ...(e.data as Record<string, unknown> | undefined), note: trimmed || undefined },
+                data: {
+                  ...(e.data as Record<string, unknown> | undefined),
+                  kind: normalizeEdgeKind((e.data as { kind?: string } | undefined)?.kind),
+                  note: trimmed || undefined,
+                },
               }
             : e
         )
       );
     },
     [pushBurst, setEdges]
+  );
+
+  const patchEdgeKind = useCallback(
+    (id: string, kind: EdgeKind) => {
+      pushHistory();
+      setEdges((es) =>
+        es.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                data: {
+                  ...(e.data as Record<string, unknown> | undefined),
+                  kind,
+                  note: (e.data as { note?: string } | undefined)?.note,
+                },
+              }
+            : e
+        )
+      );
+      appendLog(`[edit] 边 ${id} → ${kind === "fail" ? "失败边" : "通过边"}`);
+    },
+    [appendLog, pushHistory, setEdges]
   );
 
   const deleteEdgesByIds = useCallback(
@@ -710,11 +835,35 @@ export default function App() {
   );
 
   const setRunState = useCallback(
-    (id: string, runState: StimulusNodeData["runState"]) => {
-      setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, runState } } : n)));
+    (id: string, runState: StimulusNodeData["runState"], runSummary?: string) => {
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  runState,
+                  ...(runSummary !== undefined ? { runSummary } : {}),
+                },
+              }
+            : n
+        )
+      );
     },
     [setNodes]
   );
+
+  const locateFailedNode = useCallback(() => {
+    const id = nodesRef.current.find((n) => n.data.runState === "failed")?.id;
+    if (!id) {
+      appendLog("[run] 无失败节点可定位");
+      return;
+    }
+    selectGraphNode(id);
+    rfRef.current?.fitView({ nodes: [{ id }], padding: 0.45, duration: 280 });
+    setStatus(`已定位失败节点 ${id}`);
+  }, [appendLog, selectGraphNode]);
 
   const run = useCallback(
     async (mode: RunMode, focusId?: string | null) => {
@@ -735,17 +884,31 @@ export default function App() {
               : "运行上游";
       setStatus(`${label}…`);
       appendLog(`[run] ${label}`);
-      setNodes((ns) => ns.map((n) => ({ ...n, data: { ...n.data, runState: "idle" as const } })));
+      setNodes((ns) =>
+        ns.map((n) => ({
+          ...n,
+          data: { ...n.data, runState: "idle" as const, runSummary: undefined },
+        }))
+      );
 
-      const order = orderNodes(
-        nodes.map((n) => ({ id: n.id, kind: n.data.kind })),
-        edges.map((e) => ({ source: e.source, target: e.target })),
+      const graphEdges = edgesRef.current.map((e) => ({
+        source: e.source,
+        target: e.target,
+        kind: normalizeEdgeKind((e.data as { kind?: string } | undefined)?.kind),
+      }));
+      let order = orderNodes(
+        nodesRef.current.map((n) => ({ id: n.id, kind: n.data.kind })),
+        graphEdges,
         mode,
         sel
       );
 
       let failed = false;
-      for (const id of order) {
+      let divertedFail = false;
+      const doneIds = new Set<string>();
+      for (let i = 0; i < order.length; i++) {
+        const id = order[i]!;
+        if (doneIds.has(id)) continue;
         const n = nodesRef.current.find((x) => x.id === id);
         if (!n) continue;
         setSelectedId(id);
@@ -774,6 +937,7 @@ export default function App() {
               setNodes((ns) => bindCreateObjectId(ns, n.id, result.id));
             }
             await refreshScene();
+            setRunState(id, "done", clipRunSummary(`ok · ${objectId}`));
           } else if (n.data.kind === "emit") {
             const emitResult = (await request("emit", {
               path: n.data.path ?? n.data.detail,
@@ -786,6 +950,12 @@ export default function App() {
                 (nErr ? ` · ${nErr} error(s)` : "")
             );
             await refreshScene();
+            const path = n.data.path ?? n.data.detail ?? "emit";
+            setRunState(
+              id,
+              "done",
+              clipRunSummary(`lastEmit · ${path}${nErr ? ` · ${nErr}err` : ""}`)
+            );
           } else if (n.data.kind === "call") {
             let args: unknown[] = [];
             try {
@@ -803,8 +973,15 @@ export default function App() {
               args,
             });
             await refreshScene();
+            setRunState(
+              id,
+              "done",
+              clipRunSummary(`lastCall · ${n.data.targetId}.${n.data.method}`)
+            );
           } else if (n.data.kind === "tick") {
-            await request("tick", { n: n.data.n ?? 1 });
+            const ticks = n.data.n ?? 1;
+            await request("tick", { n: ticks });
+            setRunState(id, "done", clipRunSummary(`ok · ×${ticks}`));
           } else if (n.data.kind === "assert") {
             await new Promise((r) => setTimeout(r, 80));
             const cfg = migrateAssertConfig(n.data);
@@ -831,25 +1008,54 @@ export default function App() {
               { logs: logRef.current, scene: summary, target, refs }
             );
             if (!result.ok) {
-              setRunState(id, "failed");
+              setRunState(id, "failed", clipRunSummary(`失败 · ${result.message}`));
               appendLog(`[assert] 失败: ${result.message}`);
+              doneIds.add(id);
+              if (mode !== "only" && hasFailOutEdges(graphEdges, id)) {
+                const branch = orderAssertBranch(
+                  nodesRef.current.map((x) => ({ id: x.id, kind: x.data.kind })),
+                  graphEdges,
+                  id,
+                  "fail"
+                ).filter((nid) => !doneIds.has(nid));
+                appendLog(`[assert] 转向失败边 → ${branch.join(" → ") || "(无下游)"}`);
+                divertedFail = true;
+                order = [...order.slice(0, i + 1), ...branch];
+                continue;
+              }
               failed = true;
               break;
             }
             appendLog(`[assert] ok: ${result.message}`);
+            setRunState(id, "done", clipRunSummary(`ok · ${result.message}`));
+          } else {
+            setRunState(id, "done", "ok");
           }
-          setRunState(id, "done");
+          doneIds.add(id);
         } catch (e) {
-          setRunState(id, "failed");
-          appendLog(`[error] ${e instanceof Error ? e.message : String(e)}`);
+          const msg = e instanceof Error ? e.message : String(e);
+          setRunState(id, "failed", clipRunSummary(`错误 · ${msg}`));
+          appendLog(`[error] ${msg}`);
           failed = true;
           break;
         }
       }
-      setStatus(failed ? "已停止（失败）" : "就绪");
+      setStatus(
+        failed ? "已停止（失败）" : divertedFail ? "就绪（曾走失败边）" : "就绪"
+      );
       setBusy(false);
     },
-    [appendLog, busy, edges, nodes, ready, refreshScene, request, selectedId, setNodes, setRunState, setScene]
+    [
+      appendLog,
+      busy,
+      ready,
+      refreshScene,
+      request,
+      selectedId,
+      setNodes,
+      setRunState,
+      setScene,
+    ]
   );
 
   const runUpstreamFromEdge = useCallback(
@@ -1134,9 +1340,10 @@ export default function App() {
   const panelTitle: Record<PanelId, string> = {
     tools: "工具",
     props: "属性",
+    fixture: "夹具",
   };
 
-  const dockOrder: PanelId[] = ["tools", "props"];
+  const dockOrder: PanelId[] = ["tools", "props", "fixture"];
 
   const renderDocked = (id: PanelId) => (
     <DockPanel
@@ -1171,6 +1378,16 @@ export default function App() {
             onSelect={(oid) => void selectSceneObject(oid)}
           />
         </div>
+      ) : id === "fixture" ? (
+        <FixturePanel
+          ready={ready}
+          busy={busy}
+          moduleBinding={moduleBinding}
+          fixture={fixture}
+          onApply={applyFixture}
+          onClearDb={clearFixtureDb}
+          onRefresh={refreshFixture}
+        />
       ) : (
         <PropsPanelBody
           meta={meta}
@@ -1185,6 +1402,7 @@ export default function App() {
           sceneFields={sceneFields}
           patchNodeData={patchNodeData}
           patchEdgeLabel={patchEdgeLabel}
+          patchEdgeKind={patchEdgeKind}
           deleteNodesByIds={deleteNodesByIds}
           deleteEdgesByIds={deleteEdgesByIds}
         />
@@ -1249,6 +1467,11 @@ export default function App() {
             <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("props")}>
               <span className="rdx-item-main">
                 {prefs.panels.props.visible ? "隐藏" : "显示"}属性
+              </span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("fixture")}>
+              <span className="rdx-item-main">
+                {prefs.panels.fixture.visible ? "隐藏" : "显示"}夹具
               </span>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="rdx-sep" />
@@ -1342,6 +1565,15 @@ export default function App() {
         </button>
         <button
           type="button"
+          className="btn-secondary"
+          disabled={!failedNodeId}
+          title="选中失败节点并 fitView"
+          onClick={locateFailedNode}
+        >
+          定位失败
+        </button>
+        <button
+          type="button"
           className="btn-secondary hotkeys-help-btn"
           title="快捷键"
           aria-label="快捷键"
@@ -1419,12 +1651,15 @@ export default function App() {
         <div className="canvas-wrap">
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={flowEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onReconnect={onReconnect}
             edgesReconnectable
+            onInit={(inst) => {
+              rfRef.current = inst;
+            }}
             onNodeDragStart={() => pushHistory()}
             nodeTypes={nodeTypes}
             fitView
@@ -1509,15 +1744,31 @@ export default function App() {
                       <DropdownMenu.Separator className="rdx-sep" />
                       <DropdownMenu.Item
                         className="rdx-item"
+                        onSelect={() => patchEdgeKind(ctxMenu.edgeId!, "pass")}
+                      >
+                        <span className="rdx-item-main">
+                          设为通过边
+                          <span className="sub">断言成功走此边</span>
+                        </span>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className="rdx-item"
+                        onSelect={() => patchEdgeKind(ctxMenu.edgeId!, "fail")}
+                      >
+                        <span className="rdx-item-main">
+                          设为失败边
+                          <span className="sub">断言失败走此边</span>
+                        </span>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className="rdx-item"
                         onSelect={() => {
                           const id = ctxMenu.edgeId!;
                           selectGraphEdge(id);
-                          const cur =
-                            String(edges.find((e) => e.id === id)?.label ?? "").trim() ||
-                            String(
-                              (edges.find((e) => e.id === id)?.data as { note?: string } | undefined)
-                                ?.note ?? ""
-                            );
+                          const cur = String(
+                            (edges.find((e) => e.id === id)?.data as { note?: string } | undefined)
+                              ?.note ?? ""
+                          ).trim();
                           const next = window.prompt("边备注（空则清除）", cur);
                           if (next == null) return;
                           patchEdgeLabel(id, next);

@@ -260,6 +260,20 @@ body,
 .s-node .instance-tag.pending {
   color: var(--vscode-editorWarning-foreground, #cca700);
 }
+.s-node .run-summary {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.35;
+  opacity: 0.92;
+  color: var(--vscode-descriptionForeground);
+  word-break: break-word;
+}
+.s-node .run-summary.ok {
+  color: var(--run-ok);
+}
+.s-node .run-summary.fail {
+  color: var(--run-fail);
+}
 .s-node-head {
   display: flex;
   align-items: center;
@@ -356,10 +370,24 @@ body,
   stroke: color-mix(in srgb, var(--vs-muted) 75%, transparent) !important;
   stroke-width: 1.5 !important;
 }
+.react-flow__edge.edge-pass .react-flow__edge-path {
+  stroke: color-mix(in srgb, var(--run-ok) 70%, var(--vs-muted)) !important;
+}
+.react-flow__edge.edge-fail .react-flow__edge-path {
+  stroke: var(--run-fail) !important;
+  stroke-dasharray: 5 4;
+}
+.react-flow__edge.edge-fail .react-flow__edge-text {
+  fill: var(--run-fail) !important;
+}
+.react-flow__edge.edge-pass .react-flow__edge-text {
+  fill: var(--run-ok) !important;
+}
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path {
   stroke: var(--vscode-focusBorder, #007fd4) !important;
   stroke-width: 2 !important;
+  stroke-dasharray: none;
 }
 .react-flow__edge-text {
   font-size: 11px !important;
@@ -1013,3 +1041,134 @@ html body {
 .text-xs {
   font-size: 12px;
 }
+
+.btn.compact {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.btn.primary {
+  background: var(--vscode-button-background, var(--vs-btn));
+  color: var(--vscode-button-foreground, var(--vs-btn-fg));
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--vs-muted);
+  border: 1px solid var(--vs-border);
+}
+.btn.ghost:hover {
+  color: var(--vs-fg);
+  background: var(--vs-btn2);
+}
+
+.fixture-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px 12px;
+  font-size: 12px;
+}
+.fixture-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fixture-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--vs-muted);
+}
+.fixture-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+.fixture-key {
+  color: var(--vs-muted);
+}
+.fixture-val {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fixture-val.mono {
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: 11px;
+}
+.fixture-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.fixture-json {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 96px;
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vs-fg);
+  background: var(--vscode-input-background, var(--vs-bg));
+  border: 1px solid var(--vs-border);
+  border-radius: 2px;
+  padding: 6px 8px;
+}
+.fixture-input,
+.fixture-select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--vs-fg);
+  background: var(--vscode-input-background, var(--vs-bg));
+  border: 1px solid var(--vs-border);
+  border-radius: 2px;
+  padding: 4px 6px;
+}
+.fixture-perm-add {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.fixture-perm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fixture-perm-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--vs-border) 60%, transparent);
+}
+.fixture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fixture-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.fixture-hint code {
+  font-size: 10px;
+}
+.fixture-error {
+  color: var(--vscode-errorForeground, #f44747);
+  font-size: 11px;
+}
+.fixture-msg {
+  font-size: 11px;
+  color: var(--vscode-charts-green, #89d185);
+}
+
