@@ -21,6 +21,7 @@ import {
   normalizeAssertKind,
   type AssertKind,
 } from "../graph/assert";
+import { normalizeEdgeKind, type EdgeKind } from "../graph/order";
 import { preferredPlayerObjectId } from "../graph/materialize";
 
 type InspectSnap = { id: string; kind: string; props: Record<string, unknown> };
@@ -38,6 +39,7 @@ type Props = {
   sceneFields: { name: string; readonly?: boolean; type?: string }[];
   patchNodeData: (id: string, patch: Partial<StimulusNodeData>) => void;
   patchEdgeLabel: (id: string, label: string) => void;
+  patchEdgeKind: (id: string, kind: EdgeKind) => void;
   deleteNodesByIds: (ids: string[]) => void;
   deleteEdgesByIds: (ids: string[]) => void;
 };
@@ -558,6 +560,7 @@ export function PropsPanelBody({
   sceneFields,
   patchNodeData,
   patchEdgeLabel,
+  patchEdgeKind,
   deleteNodesByIds,
   deleteEdgesByIds,
 }: Props) {
@@ -591,6 +594,7 @@ export function PropsPanelBody({
     const note =
       String(selectedEdge.label ?? "").trim() ||
       String((selectedEdge.data as { note?: string } | undefined)?.note ?? "");
+    const edgeKind = normalizeEdgeKind((selectedEdge.data as { kind?: string } | undefined)?.kind);
     return (
       <>
         <div className="field">
@@ -601,6 +605,19 @@ export function PropsPanelBody({
           <label>连接</label>
           <input value={`${selectedEdge.source} → ${selectedEdge.target}`} readOnly />
         </div>
+        <div className="field">
+          <label>边类型</label>
+          <select
+            value={edgeKind}
+            onChange={(e) => patchEdgeKind(selectedEdge.id, e.target.value === "fail" ? "fail" : "pass")}
+          >
+            <option value="pass">通过边</option>
+            <option value="fail">失败边</option>
+          </select>
+        </div>
+        <p className="muted meta-hint">
+          断言成功只走通过边；失败时若有失败边则转向其下游，否则停在该断言
+        </p>
         <div className="field">
           <label>备注</label>
           <input

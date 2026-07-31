@@ -39,7 +39,18 @@ export type StimulusNodeData = {
   countOp?: AssertCountOp;
   countN?: number;
   runState?: "idle" | "running" | "done" | "failed";
+  /** 上次运行钉在节点上的短摘要（完整日志仍在 Output） */
+  runSummary?: string;
 };
+
+/** 图上摘要截断：空白折叠，超长加省略号 */
+export function clipRunSummary(text: string, max = 48): string {
+  const t = String(text ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!t) return "";
+  return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
+}
 
 export type StimulusFlowNode = Node<StimulusNodeData, "stimulus">;
 
@@ -92,6 +103,14 @@ export function StimulusNode({ data, selected }: NodeProps<StimulusFlowNode>) {
         {data.kind === "player" ? (
           <div className={`mt-1 instance-tag${pendingCreate ? " pending" : ""}`}>
             {data.objectId ? `已登记 ${data.objectId}` : "未实例化"}
+          </div>
+        ) : null}
+        {data.runSummary ? (
+          <div
+            className={`mt-1 run-summary${rs === "failed" ? " fail" : rs === "done" ? " ok" : ""}`}
+            title={data.runSummary}
+          >
+            {data.runSummary}
           </div>
         ) : null}
       </div>

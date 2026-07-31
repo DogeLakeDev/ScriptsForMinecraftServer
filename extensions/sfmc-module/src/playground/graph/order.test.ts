@@ -9,7 +9,12 @@ import {
   normalizeAssertKind,
 } from "./assert.ts";
 import { resolveExpr, collectExprObjectIds, looksLikeExpr } from "./expr.ts";
-import { orderNodes } from "./order.ts";
+import {
+  hasFailOutEdges,
+  normalizeEdgeKind,
+  orderAssertBranch,
+  orderNodes,
+} from "./order.ts";
 
 test("orderNodes graph / from / only", () => {
   const nodes = [
@@ -25,6 +30,37 @@ test("orderNodes graph / from / only", () => {
   assert.deepEqual(orderNodes(nodes, edges, "only", "b"), ["b"]);
   assert.deepEqual(orderNodes(nodes, edges, "from", "b"), ["b", "c"]);
   assert.deepEqual(orderNodes(nodes, edges, "graph", null), ["a", "b", "c"]);
+});
+
+test("orderNodes excludes fail edges by default; upstream keeps them", () => {
+  const nodes = [
+    { id: "setup", kind: "player" },
+    { id: "assert", kind: "assert" },
+    { id: "okPath", kind: "tick" },
+    { id: "failPath", kind: "emit" },
+    { id: "afterFail", kind: "call" },
+  ];
+  const edges = [
+    { source: "setup", target: "assert" },
+    { source: "assert", target: "okPath", kind: "pass" },
+    { source: "assert", target: "failPath", kind: "fail" },
+    { source: "failPath", target: "afterFail" },
+  ];
+  assert.deepEqual(orderNodes(nodes, edges, "graph", null), ["setup", "assert", "okPath"]);
+  assert.deepEqual(orderNodes(nodes, edges, "from", "assert"), ["assert", "okPath"]);
+  assert.equal(hasFailOutEdges(edges, "assert"), true);
+  assert.equal(hasFailOutEdges(edges, "setup"), false);
+  assert.deepEqual(orderAssertBranch(nodes, edges, "assert", "fail"), ["failPath", "afterFail"]);
+  assert.deepEqual(orderAssertBranch(nodes, edges, "assert", "pass"), ["okPath"]);
+  // 上游经失败边仍可达 assert
+  assert.deepEqual(orderNodes(nodes, edges, "upstream", "afterFail"), [
+    "setup",
+    "assert",
+    "failPath",
+    "afterFail",
+  ]);
+  assert.equal(normalizeEdgeKind(undefined), "pass");
+  assert.equal(normalizeEdgeKind("fail"), "fail");
 });
 
 test("assertLogMatch substring / regex / ignoreCase / negate", () => {
