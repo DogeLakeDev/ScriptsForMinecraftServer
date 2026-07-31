@@ -30,14 +30,14 @@
 | 主壳 | **节点图**（控制流边）；非全量数据流端口 |
 | Event 字段 | 选中 Emit → 侧栏按 `PLAYGROUND_META` 表单；不把每字段拉成线 |
 | 局部重试 | 一等公民：整图 / 从选中 / 仅选中 |
-| 场景实例 | World / Dimension **天生**（场景坞）；Player / Entity 可 create |
+| 场景实例 | World / Dimension **天生**（场景坞）；Scoreboard / Player / Entity 可 create（Scoreboard 登记 `world.scoreboard` 单例） |
 | 属性 | **1:1 mirror**：类属性来自 meta；Event 袋可填（含 d.ts 只读字段）；引用用 `$ref` 下拉 |
 | 生命周期 | **开面板即沙箱**；无启动 / 销毁主按钮；次要「重置场景」 |
 | 填 payload | 表单优先；原始 JSON 为高级 / 实验室后置 |
 | UI 栈 | **React + `@xyflow/react` + Radix**；皮跟 `--vscode-*`（路径含 `#` 暂不接 Tailwind CLI） |
 | 宿主 | `playground-host` JSON-RPC；执行 = 有序调用 `objects.*` / `events.emit` / `tick` |
 | 打开方式 | 在主编辑器组以 **新标签页** 打开（`ViewColumn.Active`），避免 `Beside` 半屏过窄 |
-| 日志 | **仅** VS Code Output「SFMC 扩展」（`@sfmc-bds/sdk/logs`）；Webview **不**内嵌日志面板；断言用静默缓冲 |
+| 日志 | **仅** VS Code Output「SFMC 扩展」（`@sfmc-bds/sdk/logs`）；Webview **不**内嵌日志面板；断言用**结构化**静默缓冲（`{ t, level, source, text, nodeId?, runId? }`）；可按级别/source/最近 N 条筛；运行切片 `--- run #n start/end ---`；视图菜单可设 Output 过滤与「定位日志节点」 |
 | 面板布局 | Photoshop 式：工具 / 属性可 **左停靠 / 右停靠 / 浮动**，可关、可拖、可改宽；视图菜单复位 |
 | 菜单字体 | 菜单项与快捷键标注用 **标准 UI 字体**（`--vscode-font-family` / Segoe UI），不用等宽定制体 |
 | 基础编辑 | 撤回 / 重做 |
@@ -169,7 +169,7 @@
 | 能力 | 约定 |
 |------|------|
 | 撤回 / 重做 | Ctrl+Z / Ctrl+Y（或 Ctrl+Shift+Z）；覆盖增删、连线、换连、拖动、属性 / 边备注编辑 |
-| 面板显隐 | 视图菜单：显示/隐藏工具、属性、夹具、复位布局、打开 Output |
+| 面板显隐 | 视图菜单：显示/隐藏工具、属性、夹具、已装载、复位布局、打开 Output、日志过滤 / 清除并应用、定位日志节点 |
 | 快捷键查阅 | 文件 → 快捷键…（或顶栏 `?` / 键 `?`）；弹窗列表 |
 | 调宽 | 画布与右侧栏之间拖分割条；宽度持久化 |
 | 右键 | 节点：插入…、运行、复制、删除；边：运行上游 / 到此边前、设为通过/失败边、编辑备注、重新连接（拖终点）、删除 |
