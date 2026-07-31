@@ -7,6 +7,8 @@ import path from "node:path";
 import { PlaygroundHostClient } from "./hostClient.js";
 import { ExtLog } from "../log.js";
 
+export const LAST_FAILED_NODE_KEY = "sfmc.sandbox.lastFailedNodeId";
+
 type Meta = {
   classes: Record<
     string,
@@ -89,6 +91,12 @@ export class PlaygroundPanel {
     PlaygroundPanel.current?.dispose();
   }
 
+  /** 选中图节点并 fitView（命令「定位沙箱日志节点」） */
+  locateNode(nodeId: string): void {
+    this.panel.reveal(vscode.ViewColumn.Active, true);
+    void this.panel.webview.postMessage({ type: "locateNode", nodeId });
+  }
+
   /** 当前面板绑定的模块根（供冒烟对齐）。 */
   static boundModuleRoot(): string | undefined {
     return PlaygroundPanel.current?.moduleRoot;
@@ -122,8 +130,23 @@ export class PlaygroundPanel {
     this.host = new PlaygroundHostClient((ev) => {
       void this.panel.webview.postMessage({ type: "hostEvent", ...ev });
       if (ev.name === "log") {
-        const p = ev.payload as { text?: string };
-        if (p?.text) ExtLog.info("playground", p.text);
+        const p = ev.payload as {
+          text?: string;
+          source?: string;
+          level?: string;
+          channel?: string;
+        };
+        if (p?.text) {
+          const scope =
+            (typeof p.source === "string" && p.source.trim()) ||
+            (p.channel === "module" || p.channel === "msg" ? "module" : "playground");
+          const level = String(p.level ?? "info");
+          const lv =
+            level === "error" || level === "warn" || level === "debug" || level === "success"
+              ? level
+              : "info";
+          ExtLog.write(scope, p.text, lv);
+        }
       } else if (ev.name === "progress") {
         const p = ev.payload as { layer?: string; label?: string; status?: string };
         ExtLog.debug("playground", `${p.layer ?? ""} ${p.label ?? ""} — ${p.status ?? ""}`);
@@ -250,6 +273,19 @@ export class PlaygroundPanel {
     } else if (mid) {
       ExtLog.info("sandbox", "事件由模块 registerEvents 注册；当前无已订阅 path（或仅宿主桥）");
     }
+    const binding = result.moduleBinding as
+      | {
+          commands?: { items?: unknown[] };
+          permissions?: { items?: unknown[] };
+          bootPhase?: { summary?: string };
+        }
+      | undefined;
+    if (binding?.bootPhase?.summary || binding?.commands || binding?.permissions) {
+      ExtLog.info(
+        "sandbox",
+        `inventory commands=${binding.commands?.items?.length ?? 0} permissions=${binding.permissions?.items?.length ?? 0} boot=${binding.bootPhase?.summary ?? "?"}`
+      );
+    }
     this.meta = (await this.host.request("meta")) as Meta;
     const summary = await this.host.request("scene.summary");
     const payload: Record<string, unknown> = {
@@ -358,14 +394,39 @@ export class PlaygroundPanel {
       this.reply(rid, { ok: true });
       return;
     }
+    if (cmd === "configureLogFilter") {
+      await vscode.commands.executeCommand("sfmcModule.configureLogFilter");
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "clearAndApplyLogFilter") {
+      await vscode.commands.executeCommand("sfmcModule.clearAndApplyLogFilter");
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "locateLogNode") {
+      await vscode.commands.executeCommand("sfmcModule.locateSandboxLogNode");
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "reportFailedNode") {
+      const nodeId = String(msg.nodeId ?? "").trim();
+      if (nodeId) {
+        await this.context.workspaceState.update(LAST_FAILED_NODE_KEY, nodeId);
+      }
+      this.reply(rid, { ok: true });
+      return;
+    }
     if (cmd === "uiLog") {
       const level = String(msg.level ?? "info");
       const text = String(msg.text ?? "");
+      const source =
+        typeof msg.source === "string" && msg.source.trim() ? String(msg.source).trim() : "sandbox";
       const lv =
         level === "error" || level === "warn" || level === "debug" || level === "success"
           ? level
           : "info";
-      ExtLog.write("sandbox", text, lv);
+      ExtLog.write(source, text, lv);
       this.reply(rid, { ok: true });
       return;
     }

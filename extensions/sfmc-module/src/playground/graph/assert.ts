@@ -9,6 +9,12 @@ import {
   resolveExpr,
   type ExprRefSnap,
 } from "./expr.ts";
+import {
+  isStructuredLogEvent,
+  selectLogTexts,
+  type StructuredLogEvent,
+  type StructuredLogLevel,
+} from "./logBuffer.ts";
 
 export type AssertKind =
   | "log"
@@ -27,6 +33,12 @@ export type AssertConfig = {
   assertKind?: AssertKind;
   pattern?: string;
   ignoreCase?: boolean;
+  /** 日志断言：只看最近 N 条 */
+  logRecentN?: number;
+  /** 日志断言：级别下限 */
+  logMinLevel?: StructuredLogLevel;
+  /** 日志断言：按 source 过滤（模块 id / sandbox / playground） */
+  logSource?: string;
   targetKind?: string;
   targetName?: string;
   targetId?: string;
@@ -63,7 +75,8 @@ export type AssertScene = {
 export type AssertTargetSnap = ExprRefSnap;
 
 export type AssertEvalContext = {
-  logs: string[];
+  /** 字符串行或结构化事件（优先结构化，便于 recentN / level / source） */
+  logs: string[] | StructuredLogEvent[];
   scene: AssertScene;
   /** prop 断言用：已 inspect 的目标；缺失则失败 */
   target?: AssertTargetSnap | null;
@@ -133,7 +146,12 @@ export function formatAssertDetail(cfg: AssertConfig): string {
     case "log":
     case "logNot": {
       const p = (cfg.pattern ?? "").trim() || "（空=通过）";
-      return cfg.ignoreCase ? `${p} · 忽略大小写` : p;
+      const bits = [p];
+      if (cfg.ignoreCase) bits.push("忽略大小写");
+      if (cfg.logRecentN != null && cfg.logRecentN > 0) bits.push(`近${cfg.logRecentN}条`);
+      if (cfg.logMinLevel) bits.push(`≥${cfg.logMinLevel}`);
+      if (cfg.logSource?.trim()) bits.push(`src=${cfg.logSource.trim()}`);
+      return bits.join(" · ");
     }
     case "sceneExists": {
       const parts = [cfg.targetKind || "任意 kind"];
@@ -167,14 +185,43 @@ export function formatAssertDetail(cfg: AssertConfig): string {
   }
 }
 
-/** 日志子串 / 正则匹配（/pattern/flags）；ignoreCase 叠加 i */
+export type AssertLogMatchOpts = {
+  ignoreCase?: boolean;
+  negate?: boolean;
+  recentN?: number;
+  minLevel?: StructuredLogLevel;
+  source?: string;
+  runId?: number;
+};
+
+function resolveLogTexts(
+  logs: string[] | StructuredLogEvent[],
+  opts?: AssertLogMatchOpts
+): string[] {
+  if (logs.length > 0 && isStructuredLogEvent(logs[0])) {
+    return selectLogTexts(logs as StructuredLogEvent[], {
+      recentN: opts?.recentN,
+      minLevel: opts?.minLevel,
+      source: opts?.source,
+      runId: opts?.runId,
+    });
+  }
+  let lines = logs as string[];
+  if (opts?.recentN != null && opts.recentN > 0 && lines.length > opts.recentN) {
+    lines = lines.slice(lines.length - opts.recentN);
+  }
+  return lines;
+}
+
+/** 日志子串 / 正则匹配（/pattern/flags）；ignoreCase 叠加 i；可筛 recentN / level / source */
 export function assertLogMatch(
-  logs: string[],
+  logs: string[] | StructuredLogEvent[],
   pattern: string,
-  opts?: { ignoreCase?: boolean; negate?: boolean }
+  opts?: AssertLogMatchOpts
 ): boolean {
   const ignoreCase = Boolean(opts?.ignoreCase);
   const negate = Boolean(opts?.negate);
+  const lines = resolveLogTexts(logs, opts);
   const raw = pattern.trim();
   if (!raw) {
     return negate ? false : true;
@@ -187,7 +234,7 @@ export function assertLogMatch(
       if (ignoreCase && !flags.includes("i")) flags += "i";
       re = new RegExp(raw.slice(1, last), flags);
     } catch {
-      const hit = logs.some((l) =>
+      const hit = lines.some((l) =>
         ignoreCase ? l.toLowerCase().includes(raw.toLowerCase()) : l.includes(raw)
       );
       return negate ? !hit : hit;
@@ -196,7 +243,7 @@ export function assertLogMatch(
     const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     re = new RegExp(escaped, ignoreCase ? "i" : "");
   }
-  const hit = logs.some((l) => re.test(l));
+  const hit = lines.some((l) => re.test(l));
   return negate ? !hit : hit;
 }
 
@@ -236,8 +283,8 @@ function resolveExpected(
 
 type SceneRow = { id: string; kind: string; name?: string; typeId?: string; dimensionId?: string };
 
-/** 可构造实例（不含沙箱天生 World / Dimension / Scoreboard） */
-export const INSTANCE_SCENE_KINDS = ["Player", "Entity", "ItemStack", "Block"] as const;
+/** 可构造实例（不含沙箱天生 World / Dimension） */
+export const INSTANCE_SCENE_KINDS = ["Player", "Entity", "ItemStack", "Block", "Scoreboard"] as const;
 
 /** scene.summary 字段名 / 大小写 → 规范 kind */
 const TARGET_KIND_ALIASES: Record<string, string> = {
@@ -313,11 +360,11 @@ function filterSceneRows(scene: AssertScene, cfg: AssertConfig): SceneRow[] {
   return rows;
 }
 
-/** 计数：必须指定 kind；未指定时不把天生 World/Dim/Scoreboard 算进「任意」 */
+/** 计数：必须指定 kind；未指定时不把天生 World/Dim 算进「任意」 */
 function filterCountRows(scene: AssertScene, cfg: AssertConfig): SceneRow[] {
   const kind = normalizeTargetKind(cfg.targetKind);
   if (!kind) {
-    // 未选 kind：只数可构造实例，避免空场景仍含 1+1+3 天生对象导致 eq 0 永败
+    // 未选 kind：只数可构造实例，避免空场景仍含 World+Dimension 天生对象导致 eq 0 永败
     return flattenScene(scene).filter((r) =>
       (INSTANCE_SCENE_KINDS as readonly string[]).includes(r.kind)
     );
@@ -373,6 +420,9 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
       const ok = assertLogMatch(ctx.logs, pattern, {
         ignoreCase: cfg.ignoreCase,
         negate: kind === "logNot",
+        recentN: cfg.logRecentN,
+        minLevel: cfg.logMinLevel,
+        source: cfg.logSource,
       });
       return {
         ok,

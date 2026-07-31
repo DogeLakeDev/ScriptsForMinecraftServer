@@ -14,6 +14,9 @@ import {
   cmdRunTests,
   cmdOpenPlayground,
   cmdStartDebug,
+  cmdConfigureLogFilter,
+  cmdClearAndApplyLogFilter,
+  cmdLocateSandboxLogNode,
   pickModuleRoot,
 } from "./panels/commands.js";
 import { registerTreeView } from "./panels/ModuleTreeProvider.js";
@@ -26,6 +29,7 @@ let watchStop: (() => void) | null = null;
 let statusBar: vscode.StatusBarItem | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
+  ExtLog.init(context);
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   statusBar.text = "SFMC";
   statusBar.tooltip = "SFMC Module extension";
@@ -45,6 +49,15 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("sfmcModule.showLog", () => {
       ExtLog.show(false);
+    }),
+    vscode.commands.registerCommand("sfmcModule.configureLogFilter", async () => {
+      await cmdConfigureLogFilter();
+    }),
+    vscode.commands.registerCommand("sfmcModule.clearAndApplyLogFilter", async () => {
+      await cmdClearAndApplyLogFilter();
+    }),
+    vscode.commands.registerCommand("sfmcModule.locateSandboxLogNode", async () => {
+      await cmdLocateSandboxLogNode();
     }),
     vscode.commands.registerCommand("sfmcModule.setRoot", async () => {
       await cmdSetSfmcRoot();

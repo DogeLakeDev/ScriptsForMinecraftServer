@@ -115,6 +115,18 @@
         "title": "SFMC: Show Extension Log"
       },
       {
+        "command": "sfmcModule.configureLogFilter",
+        "title": "SFMC: 日志过滤…"
+      },
+      {
+        "command": "sfmcModule.clearAndApplyLogFilter",
+        "title": "SFMC: 清除并应用日志过滤"
+      },
+      {
+        "command": "sfmcModule.locateSandboxLogNode",
+        "title": "SFMC: 定位沙箱日志节点"
+      },
+      {
         "command": "sfmcModule.setRoot",
         "title": "SFMC: 设置工作目录…",
         "icon": "$(folder)"

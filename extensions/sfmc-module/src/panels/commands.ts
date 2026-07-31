@@ -13,9 +13,10 @@ import {
   readModuleRootInfo,
   setModuleEnabled,
 } from "@sfmc-bds/devkit";
-import { PlaygroundPanel } from "../playground/PlaygroundPanel.js";
+import { PlaygroundPanel, LAST_FAILED_NODE_KEY } from "../playground/PlaygroundPanel.js";
 import { PlaygroundHostClient, buildHostNodeArgs, resolveHostEntry } from "../playground/hostClient.js";
 import { ExtLog } from "../log.js";
+import { parseNodeIdFromLog } from "../playground/graph/logBuffer.js";
 
 let statusBar: vscode.StatusBarItem | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
@@ -570,3 +571,73 @@ export async function cmdEnableModule(modRootArg?: unknown): Promise<boolean> {
 export async function cmdDisableModule(modRootArg?: unknown): Promise<boolean> {
   return cmdSetModuleEnabled(false, modRootArg);
 }
+
+const LEVEL_PICKS: { label: string; level: "debug" | "info" | "warn" | "error" }[] = [
+  { label: "debug（全部）", level: "debug" },
+  { label: "info+", level: "info" },
+  { label: "warn+", level: "warn" },
+  { label: "error", level: "error" },
+];
+
+/** Output 日志过滤：级别下限 + scope 白名单（写入前过滤；历史需清除） */
+export async function cmdConfigureLogFilter(): Promise<void> {
+  const cur = ExtLog.getFilter();
+  const levelPick = await vscode.window.showQuickPick(
+    LEVEL_PICKS.map((p) => ({
+      label: p.label,
+      description: p.level === cur.minLevel ? "当前" : undefined,
+      level: p.level,
+    })),
+    { title: "日志级别下限", placeHolder: `当前：${ExtLog.describeFilter()}` }
+  );
+  if (!levelPick) return;
+
+  const scopeRaw = await vscode.window.showInputBox({
+    title: "scope 白名单（逗号分隔；空=全部）",
+    prompt: "例：sandbox,playground,chat — 匹配 ExtLog source / 模块 id",
+    value: cur.scopes.join(","),
+    placeHolder: "留空显示全部 scope",
+  });
+  if (scopeRaw === undefined) return;
+
+  const scopes = scopeRaw
+    .split(/[,，\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  await ExtLog.setFilter({ minLevel: levelPick.level, scopes });
+  ExtLog.info("filter", `已设置：${ExtLog.describeFilter()}（仅新写入生效；可用「清除并应用过滤」）`);
+  ExtLog.show(true);
+  vscode.window.showInformationMessage(`日志过滤：${ExtLog.describeFilter()}`);
+}
+
+/** 清空 Output 并写入当前过滤说明 */
+export async function cmdClearAndApplyLogFilter(): Promise<void> {
+  ExtLog.clearAndAnnounceFilter();
+  ExtLog.show(false);
+  vscode.window.showInformationMessage(`已清除 Output；${ExtLog.describeFilter()}`);
+}
+
+/** 从剪贴板或上次失败节点定位沙箱图节点 */
+export async function cmdLocateSandboxLogNode(): Promise<void> {
+  const clip = (await vscode.env.clipboard.readText()).trim();
+  const fromClip = parseNodeIdFromLog(clip);
+  const last =
+    extensionContext?.workspaceState.get<string>(LAST_FAILED_NODE_KEY)?.trim() || "";
+  const nodeId = fromClip || last;
+  if (!nodeId) {
+    vscode.window.showWarningMessage(
+      "无节点 id：请复制含 node=<id> 的日志行，或先跑失败留下 lastFailedNodeId"
+    );
+    return;
+  }
+  const panel = PlaygroundPanel.current;
+  if (!panel) {
+    vscode.window.showWarningMessage("脚本沙箱未打开");
+    return;
+  }
+  panel.locateNode(nodeId);
+  ExtLog.info("sandbox", `定位节点 ${nodeId}${fromClip ? "（剪贴板）" : "（上次失败）"}`);
+  vscode.window.showInformationMessage(`已定位节点 ${nodeId}`);
+}
+

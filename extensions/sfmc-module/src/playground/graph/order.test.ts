@@ -115,17 +115,41 @@ test("resolveExpr literals / $ref / @lastEmit / @lastCall", () => {
   assert.deepEqual(collectExprObjectIds("bob"), []);
 });
 
-test("evaluateAssert log / logNot", () => {
-  const logs = ["[run] ok", "player joined"];
-  assert.equal(evaluateAssert({ assertKind: "log", pattern: "joined" }, { logs, scene: {} }).ok, true);
-  assert.equal(evaluateAssert({ assertKind: "logNot", pattern: "error" }, { logs, scene: {} }).ok, true);
-  assert.equal(evaluateAssert({ assertKind: "logNot", pattern: "joined" }, { logs, scene: {} }).ok, false);
+test("assertLogMatch recentN / minLevel / source on structured events", () => {
+  const events = [
+    { t: 1, level: "info" as const, source: "sandbox", text: "a noise" },
+    { t: 2, level: "error" as const, source: "chat", text: "boom fail" },
+    { t: 3, level: "info" as const, source: "sandbox", text: "ok joined" },
+  ];
+  assert.equal(assertLogMatch(events, "joined"), true);
+  assert.equal(assertLogMatch(events, "boom", { recentN: 1 }), false);
+  assert.equal(assertLogMatch(events, "boom", { recentN: 2 }), true);
+  assert.equal(assertLogMatch(events, "boom", { minLevel: "error" }), true);
+  assert.equal(assertLogMatch(events, "joined", { minLevel: "error" }), false);
+  assert.equal(assertLogMatch(events, "boom", { source: "chat" }), true);
+  assert.equal(assertLogMatch(events, "boom", { source: "sandbox" }), false);
+  assert.equal(
+    evaluateAssert(
+      { assertKind: "log", pattern: "boom", logMinLevel: "error", logSource: "chat" },
+      { logs: events, scene: {} }
+    ).ok,
+    true
+  );
+});
+
+test("parseNodeIdFromLog / formatLogLineWithNode", async () => {
+  const { parseNodeIdFromLog, formatLogLineWithNode } = await import("./logBuffer.ts");
+  assert.equal(parseNodeIdFromLog("[assert] fail node=n42"), "n42");
+  assert.equal(parseNodeIdFromLog("see [n99] here"), "n99");
+  assert.equal(parseNodeIdFromLog("n12"), "n12");
+  assert.equal(parseNodeIdFromLog("no id"), null);
+  assert.equal(formatLogLineWithNode("[run] go", "n3"), "[run] go node=n3");
+  assert.equal(formatLogLineWithNode("[run] go node=n3", "n3"), "[run] go node=n3");
 });
 
 test("evaluateAssert sceneExists / count", () => {
   const scene = {
     world: { id: "world", kind: "World" },
-    scoreboard: { id: "scoreboard", kind: "Scoreboard" },
     dimensions: [
       { id: "dim:overworld", kind: "Dimension", dimensionId: "minecraft:overworld" },
       { id: "dim:nether", kind: "Dimension", dimensionId: "minecraft:nether" },
@@ -180,7 +204,7 @@ test("evaluateAssert sceneExists / count", () => {
       .ok,
     false
   );
-  // 未选 kind：只数实例，不含天生 World/Scoreboard/Dimension（共 5）
+  // 未选 kind：只数实例，不含天生 World/Dimension（共 3：2 Player + 1 Entity）
   assert.equal(
     evaluateAssert({ assertKind: "count", countOp: "eq", countN: 3 }, { logs: [], scene }).ok,
     true
@@ -188,11 +212,25 @@ test("evaluateAssert sceneExists / count", () => {
   assert.equal(
     evaluateAssert({ assertKind: "count", countOp: "eq", countN: 0 }, { logs: [], scene: {
       world: { id: "world", kind: "World" },
-      scoreboard: { id: "scoreboard", kind: "Scoreboard" },
       dimensions: [
         { id: "dim:overworld", kind: "Dimension", dimensionId: "minecraft:overworld" },
       ],
     } }).ok,
+    true
+  );
+  // Scoreboard create 后计入实例
+  assert.equal(
+    evaluateAssert(
+      { assertKind: "count", targetKind: "Scoreboard", countOp: "eq", countN: 1 },
+      { logs: [], scene: { ...scene, scoreboard: { id: "scoreboard", kind: "Scoreboard" } } }
+    ).ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert(
+      { assertKind: "count", countOp: "eq", countN: 4 },
+      { logs: [], scene: { ...scene, scoreboard: { id: "scoreboard", kind: "Scoreboard" } } }
+    ).ok,
     true
   );
 });
