@@ -8,7 +8,7 @@
 
 **技术栈：** Node ≥22.13、TypeScript、TS Compiler API（或等价 `.d.ts` 解析）、`node --test`、现有 `@sfmc-bds/sdk` esbuild 测试包。
 
-**规格：** [../specs/2026-07-30-sapi-testing-sandbox-design.md](../specs/2026-07-30-sapi-testing-sandbox-design.md)
+**规格：** [../specs/2026-07-31-sfmc-testing-and-extension-design.md](../specs/2026-07-31-sfmc-testing-and-extension-design.md)
 
 ---
 
@@ -35,7 +35,7 @@
 
 **文件：**
 - 修改：`docs/dev/testing.md`
-- 参考：`docs/superpowers/specs/2026-07-30-sapi-testing-sandbox-design.md`
+- 参考：`docs/superpowers/specs/2026-07-31-sfmc-testing-and-extension-design.md`
 
 - [ ] **步骤 1：** 在 `testing.md` 增加「保真层级 L0–L3」「非目标」「与 BDS 日志分工」三小节（中文、对齐 style-sample）
 - [ ] **步骤 2：** 记录当前 `npm run test -w @sfmc-bds/sdk` 通过数作为基线

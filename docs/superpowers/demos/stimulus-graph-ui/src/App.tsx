@@ -243,7 +243,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand">刺激剧本</span>
+        <span className="brand">脚本沙箱</span>
+        <span className="muted text-xs">sapi-sandbox</span>
         <span className="muted">UI 示例 · xyflow + Radix</span>
 
         <DropdownMenu.Root>

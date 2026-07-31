@@ -8,7 +8,7 @@
 
 **技术栈：** TypeScript、现有 `gen-mc-fake.mjs`、esbuild、VS Code extension webview、`createSandbox`。
 
-**规格：** [../specs/2026-07-31-sfmc-module-extension-design.md](../specs/2026-07-31-sfmc-module-extension-design.md)、[../notes/script-api-native-map.md](../notes/script-api-native-map.md)
+**规格：** [../specs/2026-07-31-sfmc-testing-and-extension-design.md](../specs/2026-07-31-sfmc-testing-and-extension-design.md)、[../notes/script-api-native-map.md](../notes/script-api-native-map.md)
 
 ---
 

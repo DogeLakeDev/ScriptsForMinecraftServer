@@ -1,4 +1,4 @@
-# 刺激剧本 UI 示例（非扩展本体）
+# 脚本沙箱 UI 示例（非扩展本体）
 
 技术栈示意：React + [@xyflow/react](https://reactflow.dev/) + Radix Dropdown + 自绘 VS Code 皮。
 

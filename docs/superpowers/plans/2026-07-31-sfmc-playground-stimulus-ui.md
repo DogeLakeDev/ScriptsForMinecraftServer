@@ -2,13 +2,13 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 按 [刺激台 UX 规格](../specs/2026-07-31-sfmc-playground-stimulus-ux-design.md) 重铺 Playground Webview：大纲选中 → 属性表单 → Emit；视口日志|状态；实验室保留 1:1。
+**目标：** 按 [脚本沙箱 UI 规格](../specs/2026-07-31-sfmc-script-sandbox-ui-design.md) 实现 Playground Webview（历史：三区刺激台计划，主壳已演进为节点图）。
 
 **架构：** 继续 `PlaygroundHostClient` ↔ `playground-host` JSON-RPC；UI 改用 VS Code Elements + 三区布局。SDK meta / `objects` / `events` 已具备 Event 类型，本计划以扩展 UI 为主，宿主仅补场景摘要等薄 RPC。
 
 **技术栈：** TypeScript、esbuild、`@vscode-elements/elements`（或当前 npm 包名 `vscode-elements`）、既有 `@sfmc-bds/sdk/testing`。
 
-**规格：** [../specs/2026-07-31-sfmc-playground-stimulus-ux-design.md](../specs/2026-07-31-sfmc-playground-stimulus-ux-design.md)
+**规格：** [../specs/2026-07-31-sfmc-script-sandbox-ui-design.md](../specs/2026-07-31-sfmc-script-sandbox-ui-design.md)
 
 ---
 

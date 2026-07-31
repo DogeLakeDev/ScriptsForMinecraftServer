@@ -1,12 +1,14 @@
-# 刺激剧本（蓝图）Webview MVP 实现计划
+# 脚本沙箱 Webview MVP 实现计划
 
 > **面向 AI 代理的工作者：** 按任务顺序实现；步骤用复选框跟踪。
 
-**目标：** 扩展 Playground 主路径改为 React + xyflow + Radix + Tailwind 刺激剧本画布，接现有 `playground-host` RPC，支持整图/从选中/仅选中运行与存盘。
+**目标：** 扩展 Playground 主路径改为 React + xyflow + Radix 脚本沙箱画布，接现有 `playground-host` RPC，支持整图/从选中/仅选中运行与存盘。
+
+**规格：** [../specs/2026-07-31-sfmc-script-sandbox-ui-design.md](../specs/2026-07-31-sfmc-script-sandbox-ui-design.md)
 
 **架构：** Webview 只管画布与侧栏；纯函数 `orderNodes` + 逐步 `postMessage` 调扩展；扩展 `PlaygroundPanel` 转 RPC。执行顺序逻辑与 UI 解耦，便于后置 CLI。
 
-**技术栈：** React 19、@xyflow/react、@radix-ui/react-dropdown-menu、Tailwind 4（`--vscode-*`）、esbuild 打 Webview（避开仓库路径 `#` 对 Vite serve 的问题）、现有 hostClient。
+**技术栈：** React 19、@xyflow/react、@radix-ui/react-dropdown-menu、手写 CSS（`--vscode-*`；Tailwind 因路径 `#` 暂缓）、esbuild 打 Webview、现有 hostClient。
 
 ---
 

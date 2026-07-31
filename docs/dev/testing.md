@@ -15,6 +15,8 @@
 | L2 | 可断言状态机（Player、tick、事件、UI…） |
 | L3 | 高成本世界语义（方块/实体…）专题加深 |
 
+手写 L1–L3 实现放在 `modules/sdk/@sfmc-sdk/src/testing/engine/overrides/`；`overrides/exports.json` 是生成器跳过名单的权威来源（`npm run gen:mc-fake`）。
+
 ## Playground 1:1 驱动面
 
 第一轮对 pin 版 `@minecraft/server` **不做最小集裁剪**，三块表面可驱动：
@@ -27,16 +29,39 @@
 
 扩展「SFMC: Open Playground」通过 `playground-host` JSON-RPC 消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
 
-世界模拟维度（宿主分相、System、玩家、聊天等）与「永不模拟」边界见规格；IDE 内默认人机路径为 **事件刺激台**（大纲选中 → 表单 Emit → 视口日志|状态），见 `docs/superpowers/specs/2026-07-31-sfmc-playground-stimulus-ux-design.md`。真机联调用 Watch。
+世界模拟维度与「永不模拟」边界如下（与规格 §6 一致）。IDE 内默认人机路径为 **脚本沙箱**（sapi-sandbox：节点图编排 + 场景坞 + meta 表单），见 `docs/superpowers/specs/2026-07-31-sfmc-script-sandbox-ui-design.md`。引擎与扩展边界见 `docs/superpowers/specs/2026-07-31-sfmc-testing-and-extension-design.md`。真机联调用 Watch。
+
+## 世界模拟维度
+
+| ID | 维度 | 含义 | 沙箱 | 脚本沙箱 UI |
+| --- | --- | --- | --- | --- |
+| H | 宿主分相 | ConfigManager → boot → worldLoad | 有 | 进度 / 重置 |
+| S | System | run / tick / flush | 有 | Tick 节点 |
+| W | World | 假 world | 薄 | 场景坞只读 |
+| D | Dimension | 默认三维可查；无物理 | 部分 L2 | 场景坞只读 |
+| P | 玩家 | 名、OP、位置、Msg… | 有 | 图节点 / 场景 |
+| E | 实体 | spawn / query… | 部分 L2 | 场景 / 后置节点 |
+| I | 物品栏 | ItemStack / Container | 有 | 后置 |
+| C | 聊天 → 命令 | `chatSend` → `!` | emit 有 | Emit 节点 |
+| V | 事件对象 | 属性袋 + emit | 有 | Emit 表单 |
+| U | UI | 表单 + queueResponse | 有 | 后置 |
+| B | 记分板 | objective / score | 有 | 后置 |
+| M | 模块宿主 | Registry / Permission / Msg | 有 | boot / 冒烟 |
+| N | DB | 内存假 DB | 有 | 默认 |
+
+**永不模拟：** 完整物理、红石、流体、AI、区块生成语义、客户端渲染、BDS 原生断点。
 
 ## 宿主分相
 
-`createSandbox({ module })` 默认对齐 BDS 启动：
+`createSandbox({ module })` 或 `createSandbox({ moduleRoot })` 默认对齐 BDS 启动：
 
 1. 内存 `DataAdapter` → `ConfigManager.init()`
-2. `ModuleRegistry.register` → `bootAll`
-3. 假 `world.afterEvents.worldLoad` → `bootAfterWorldLoad`
-4. `dispose` → cleanup + 复位 Registry / ConfigManager
+2. 装载 `sapi/src/index.ts`（`moduleRoot`）或使用传入的 `DESCRIPTOR`（`module`）
+3. `ModuleRegistry.register` → `bootAll`
+4. 假 `world.afterEvents.worldLoad` → `bootAfterWorldLoad`
+5. `dispose` → cleanup + 复位 Registry / ConfigManager
+
+聊天以 `!` / `！` 开头时，沙箱拦截 `beforeEvents.chatSend` 并走 `Command.trigger`（扩展「Run Module Tests」冒烟与脚本沙箱 Emit 共用；手点主路径不要直接 `triggerCommand`）。
 
 可选：`configs` 覆盖内存快照；`enabled: false` 时模块不 boot；`boot: false` 只起假引擎。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager，非默认路径）。
 
@@ -44,7 +69,8 @@
 
 | API | 作用 |
 | ------ | ------ |
-| `createSandbox` | 假引擎 + 宿主 boot；`addPlayer` / `emit.*` / `tick` / `triggerCommand` / `ui.queueResponse` / `dispose`；`supported.l0` 为生成元数据 |
+| `createSandbox` | 假引擎 + 宿主 boot；支持 `module` / `moduleRoot`；`addPlayer` / `emit.*` / `tick` / `triggerCommand` / `ui.queueResponse` / `dispose`；`supported.l0` 为生成元数据 |
+| `loadModuleDescriptor` | 从模块根动态装载 `sapi/src/index.ts` 的 `DESCRIPTOR` |
 | `sb.objects` / `sb.events` | 1:1 构造 / 调用 / 全 hub emit；Event 类型亦可 `create`；`eventTypes` 映射信号→Event 类 |
 | `PLAYGROUND_META` | class 成员（含全部 Event）+ hub 信号 + `eventTypes` |
 | `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent`（糖；底层仍是事件） |
@@ -56,13 +82,14 @@
 
 | 面 | 行为 |
 | ------ | ------ |
-| System | `run` / `runTimeout` / `runInterval` / `clearRun` / `tick` / `flush` |
-| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `isValid` |
-| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad` |
+| System | `run` / `runTimeout` / `runInterval` / `clearRun` / `tick` / `flush`；`isEditorWorld=false` |
+| World | 薄：`getDimension`、玩家列表、时间 / 出生点、`sendMessage`、`getEntity`、动态属性；`allowCheats` / `seed` / `isHardcore` |
+| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid` |
+| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill` → `entityDie` |
 | UI | 经典三表单 + `CustomForm` / `MessageBox` / Observables / `uiManager` + `ui.queueResponse` |
 | Scoreboard | `add/get/removeObjective`、display slot、`getScore→undefined`、`set/addScore`、`Player.scoreboardIdentity`（对齐 Learn） |
-| Dimension | `getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`BlockPermutation.resolve`；不模拟未加载区块 |
-| Entity | `spawnEntity` / `getEntities` 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory')` |
+| Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`、`isChunkLoaded≡true`、天气状态袋；不模拟未加载区块 / 物理 |
+| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory')` |
 | Inventory | `ItemStack`、`Container` get/set/add/transfer/swap、玩家 36 格 |
 
 ## 边界与非目标
@@ -116,7 +143,7 @@ test("命令冒烟", async (t) => {
 1. 安装推荐扩展：`ESLint`、`SFMC Module`、`nodejs-testing`（见模板 `.vscode/extensions.json`）。
 2. Testing 面板发现 `test/**/*.test.ts`（settings 已配好 loader）。
 3. 命令面板：`SFMC: Run Module Tests` / `Start Watch` / `Reload to BDS`。
-4. 设置 `sfmc.root` 为 SFMC 工作根（指向主仓根；Watch、Reload to BDS、模块启停都需要）。
+4. 设置 `sfmc.root` 为 SFMC 工作目录（含 `configs/`、`modules/` 的运行时根，不必是源码仓库；Watch、Reload to BDS、模块启停都需要）。
 
 ## 相关
 
