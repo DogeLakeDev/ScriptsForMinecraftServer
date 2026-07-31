@@ -17,16 +17,57 @@ test("PLAYGROUND_META 含 Player、Event 类与 eventTypes", () => {
   assert.ok(Object.keys(PLAYGROUND_META.eventTypes).length >= 85);
 });
 
-test("场景天生登记 World / Dimension", async () => {
+test("场景天生登记 World / Dimension / Scoreboard", async () => {
   const sb = await createSandbox({});
   try {
     const scene = sb.objects.sceneNodes();
     assert.equal(scene.world.id, "world");
+    assert.equal(scene.scoreboard.id, "scoreboard");
     assert.equal(scene.dimensions.length, 3);
     assert.ok(scene.dimensions.some((d) => d.dimensionId.includes("overworld")));
+    assert.ok(scene.dimensions.some((d) => d.dimensionId.includes("nether")));
+    assert.ok(scene.dimensions.some((d) => d.dimensionId.includes("the_end")));
     const insp = sb.objects.inspect("world");
     assert.equal(insp.kind, "World");
+    assert.equal(insp.props.seed, "sfmc-testing");
+    assert.equal(insp.props.allowCheats, true);
+    assert.equal(insp.props.isHardcore, false);
+    const sbInsp = sb.objects.inspect("scoreboard");
+    assert.equal(sbInsp.kind, "Scoreboard");
+    for (const d of scene.dimensions) {
+      const dimInsp = sb.objects.inspect(d.id);
+      assert.equal(dimInsp.kind, "Dimension");
+      assert.equal(dimInsp.props.id, d.dimensionId);
+    }
     assert.throws(() => sb.objects.create("World", {}), /天生已有/);
+    assert.throws(() => sb.objects.create("Scoreboard", {}), /天生已有/);
+  } finally {
+    await sb.dispose();
+  }
+});
+
+test("PLAYGROUND_META Player 含 Entity 继承成员与方法参数", () => {
+  assert.ok(PLAYGROUND_META.classes.Player);
+  assert.equal(PLAYGROUND_META.classes.Player.extends, "Entity");
+  assert.ok(PLAYGROUND_META.classes.Player.properties.some((p) => p.name === "location"));
+  assert.ok(PLAYGROUND_META.classes.Player.properties.some((p) => p.name === "nameTag"));
+  const teleport = PLAYGROUND_META.classes.Player.methods.find((m) => m.name === "teleport");
+  assert.ok(teleport);
+  assert.ok(teleport.parameters?.some((p) => p.name === "location"));
+  assert.ok(PLAYGROUND_META.classes.Scoreboard);
+  assert.ok(PLAYGROUND_META.classes.ScoreboardObjective);
+});
+
+test("objects.create Player 后可 inspect / $ref", async () => {
+  const sb = await createSandbox({});
+  try {
+    const h = sb.objects.create("Player", { id: "player-alice", name: "alice", op: true });
+    assert.equal(h.id, "player-alice");
+    const insp = sb.objects.inspect("player-alice");
+    assert.equal(insp.kind, "Player");
+    assert.equal(insp.props.name, "alice");
+    const scene = sb.objects.sceneNodes();
+    assert.ok(scene.players.some((p) => p.id === "player-alice" && p.name === "alice"));
   } finally {
     await sb.dispose();
   }

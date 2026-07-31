@@ -74,7 +74,7 @@ test("命令冒烟", async (t) => {
 node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm test/**/*.test.ts
 ```
 
-> allowlist 外 API 会抛错；真机联调用 VS Code 扩展 Watch 或 `sfmc mod reload`。
+> 未实现 API 访问抛 `UnimplementedMinecraftApiError`（全表面 L0，无 allowlist 裁剪）；真机联调用 VS Code 扩展 Watch 或 `sfmc mod reload`。
 
 ## 平台规则
 

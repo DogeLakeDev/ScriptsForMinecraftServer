@@ -8,7 +8,8 @@ import {
   listValueExports,
   parseEnumMembers,
   emitServerL0Module,
-  HAND_WRITTEN_SERVER,
+  loadOverridesExportNames,
+  DEFAULT_OVERRIDES_DIR,
 } from "./gen-mc-fake.mjs";
 
 const FIXTURE = `
@@ -48,14 +49,22 @@ test("parseEnumMembers 解析字符串与数字", () => {
   assert.equal(m.N, 2);
 });
 
-test("emitServerL0Module 跳过手写名且含硬失败", () => {
+test("emitServerL0Module 跳过 overrides 名且含硬失败", () => {
   const exports = listValueExports(FIXTURE);
-  // 假装 BlockVolume 已手写
   const { code, names } = emitServerL0Module(exports, {
-    skip: new Set([...HAND_WRITTEN_SERVER, "BlockVolume"]),
+    skip: new Set(["BlockVolume"]),
   });
   assert.ok(!names.includes("BlockVolume"));
   assert.ok(names.includes("AimAssistTargetMode"));
   assert.match(code, /UnimplementedMinecraftApiError/);
   assert.match(code, /export const AimAssistTargetMode/);
+});
+
+test("loadOverridesExportNames 以 overrides/exports.json 为权威", () => {
+  const { server, serverUi, manifestPath } = loadOverridesExportNames(DEFAULT_OVERRIDES_DIR);
+  assert.match(manifestPath.replace(/\\/g, "/"), /overrides\/exports\.json$/);
+  assert.ok(server.has("ItemStack"));
+  assert.ok(server.has("world"));
+  assert.ok(serverUi.has("ActionFormData"));
+  assert.ok(!server.has("BlockVolume"));
 });

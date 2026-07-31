@@ -4,13 +4,28 @@
 
 export type EventHandler<T> = (event: T) => void;
 
+/** emit 同步调用所有订阅后的摘要（测试 / playground 可观测）。 */
+export type EventEmitResult = {
+  listeners: number;
+  errors: { message: string; stack?: string }[];
+};
+
 export interface EventSignal<T> {
   subscribe(handler: EventHandler<T>, options?: unknown): (event: T) => void;
   unsubscribe(handler: EventHandler<T>): void;
-  /** 测试侧触发（非 MC 公开 API，仅沙箱）。 */
-  emit(event: T): void;
+  /** 测试侧触发（非 MC 公开 API，仅沙箱）：同步调用已订阅回调。 */
+  emit(event: T): EventEmitResult;
   clear(): void;
   size(): number;
+}
+
+function toEmitError(e: unknown): { message: string; stack?: string } {
+  if (e instanceof Error) {
+    const row: { message: string; stack?: string } = { message: e.message };
+    if (e.stack) row.stack = e.stack;
+    return row;
+  }
+  return { message: String(e) };
 }
 
 export function createEventSignal<T>(): EventSignal<T> {
@@ -25,13 +40,25 @@ export function createEventSignal<T>(): EventSignal<T> {
       if (i >= 0) handlers.splice(i, 1);
     },
     emit(event) {
-      for (const h of [...handlers]) {
+      const snapshot = [...handlers];
+      const errors: { message: string; stack?: string }[] = [];
+      for (const h of snapshot) {
         try {
-          h(event);
-        } catch {
-          /* 单个坏 handler 不影响其余 */
+          const ret = h(event) as unknown;
+          // async 回调拒绝无法进同步 errors，至少打日志避免「看起来没跑到」
+          if (ret != null && typeof (ret as { then?: unknown }).then === "function") {
+            void Promise.resolve(ret).catch((e) => {
+              const err = toEmitError(e);
+              console.error(`[sfmc-testing] event listener rejected: ${err.message}`);
+            });
+          }
+        } catch (e) {
+          const err = toEmitError(e);
+          errors.push(err);
+          console.error(`[sfmc-testing] event listener threw: ${err.message}`);
         }
       }
+      return { listeners: snapshot.length, errors };
     },
     clear() {
       handlers.length = 0;

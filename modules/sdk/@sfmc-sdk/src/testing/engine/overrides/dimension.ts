@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 假 Dimension / Block / BlockPermutation — 对照 Learn + pin `.d.ts` 最小 L2。
  *
  * 沙箱策略：不模拟未加载区块；`getBlock` 恒返回方块引用，缺省为空气（非 undefined）。
  */
 
-import { guardAllowlist, SERVER_ALLOWLIST, UnimplementedMinecraftApiError } from "./allowlist.js";
+import { guardUnimplemented, UnimplementedMinecraftApiError } from "../unimplemented-error.js";
 import type { FakePlayer } from "./player.js";
 import {
   createFakeEntity,
@@ -55,8 +55,15 @@ export type FakeDimension = {
   setBlockPermutation(location: Vector3Like, permutation: FakeBlockPermutation): void;
   setBlockType(location: Vector3Like, blockType: FakeBlockType | string): void;
   getEntities(options?: FakeEntityQueryOptions): FakeEntity[];
+  getEntitiesAtBlockLocation(location: Vector3Like): FakeEntity[];
   getPlayers(): FakePlayer[];
   spawnEntity(identifier: string, location: Vector3Like): FakeEntity;
+  /** 掉落物：生成 `minecraft:item` 实体（无物理）。 */
+  spawnItem(itemStack: { typeId?: string }, location: Vector3Like): FakeEntity;
+  /** 沙箱不模拟未加载区块，恒 true。 */
+  isChunkLoaded(_location: Vector3Like): boolean;
+  getWeather(): string;
+  setWeather(weatherType: string): void;
   /** 沙箱内部 */
   _acceptEntity(entity: FakeEntity): void;
   _dropEntity(entity: FakeEntity): void;
@@ -66,7 +73,15 @@ export type FakeDimension = {
 export type FakeDimensionHooks = {
   getPlayers: () => FakePlayer[];
   onEntitySpawn?: (entity: FakeEntity) => void;
+  onEntityDie?: (entity: FakeEntity) => void;
 };
+
+/** 规格 §6：默认三维（overworld / nether / the_end）。 */
+export const DEFAULT_DIMENSION_IDS = [
+  "minecraft:overworld",
+  "minecraft:nether",
+  "minecraft:the_end",
+] as const;
 
 function normalizeTypeId(id: string): string {
   const s = String(id ?? "").trim();
@@ -119,7 +134,7 @@ export function createBlockPermutation(
       return [];
     },
   };
-  return perm;
+  return guardUnimplemented(perm, "BlockPermutation") as FakeBlockPermutation;
 }
 
 /** 对齐 `BlockPermutation.resolve`；`new BlockPermutation()` 硬失败。 */
@@ -160,6 +175,8 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
   const dimId = resolveDimensionId(id);
   const cells = new Map<string, FakeBlockPermutation>();
   const entities: FakeEntity[] = [];
+  /** Clear / Rain / Thunder — 无物理，仅状态袋。 */
+  let weather = "Clear";
 
   let dim!: FakeDimension;
   const api: FakeDimension = {
@@ -207,7 +224,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
           block.setPermutation(createBlockPermutation(tid));
         },
       };
-      return guardAllowlist(block, SERVER_ALLOWLIST.block, "Block") as FakeBlock;
+      return guardUnimplemented(block, "Block") as FakeBlock;
     },
     setBlockPermutation(location, permutation) {
       dim.getBlock(location).setPermutation(permutation);
@@ -218,6 +235,14 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     getEntities(options) {
       return filterEntities(entities, options);
     },
+    getEntitiesAtBlockLocation(location) {
+      const loc = floorLoc(location);
+      return entities.filter((e) => {
+        if (!e.isValid) return false;
+        const p = e.location;
+        return Math.floor(p.x) === loc.x && Math.floor(p.y) === loc.y && Math.floor(p.z) === loc.z;
+      });
+    },
     getPlayers() {
       return hooks.getPlayers();
     },
@@ -226,6 +251,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
         typeId: identifier,
         location,
         dimension: dim,
+        onDie: (e) => hooks.onEntityDie?.(e),
         onRemove: (e) => {
           const i = entities.indexOf(e);
           if (i >= 0) entities.splice(i, 1);
@@ -234,6 +260,22 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
       entities.push(entity);
       hooks.onEntitySpawn?.(entity);
       return entity;
+    },
+    spawnItem(itemStack, location) {
+      const typeId =
+        itemStack && typeof itemStack.typeId === "string" ? itemStack.typeId : "minecraft:air";
+      const entity = dim.spawnEntity("minecraft:item", location);
+      entity.nameTag = typeId;
+      return entity;
+    },
+    isChunkLoaded(_location) {
+      return true;
+    },
+    getWeather() {
+      return weather;
+    },
+    setWeather(weatherType) {
+      weather = String(weatherType ?? "Clear");
     },
     _acceptEntity(entity) {
       if (!entities.includes(entity)) entities.push(entity);
@@ -244,6 +286,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     },
     reset() {
       cells.clear();
+      weather = "Clear";
       for (const e of [...entities]) {
         if (e.isValid) e.remove();
       }
@@ -251,7 +294,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     },
   };
 
-  dim = guardAllowlist(api, SERVER_ALLOWLIST.dimension, "Dimension") as FakeDimension;
+  dim = guardUnimplemented(api, "Dimension") as FakeDimension;
   return dim;
 }
 

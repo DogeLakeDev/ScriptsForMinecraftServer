@@ -7,6 +7,8 @@ import {
   listHubSignals,
   resolveEventType,
   listHubSignalEntries,
+  resolveClassMembers,
+  extractExtends,
 } from "./gen-playground-meta.mjs";
 
 const SAMPLE = `
@@ -57,14 +59,60 @@ export class ShutdownBeforeEventSignal {
 export class ShutdownBeforeEvent {}
 `;
 
-test("parseClassMembers 区分 readonly / method", () => {
+test("parseClassMembers 区分 readonly / method / parameters", () => {
   const body = extractClassBody(SAMPLE, "ItemStack");
   assert.ok(body);
   const { properties, methods } = parseClassMembers(body);
   assert.equal(properties.find((p) => p.name === "amount")?.readonly, false);
   assert.equal(properties.find((p) => p.name === "typeId")?.readonly, true);
   assert.ok(methods.some((m) => m.name === "clone"));
-  assert.ok(methods.some((m) => m.name === "setLore"));
+  const setLore = methods.find((m) => m.name === "setLore");
+  assert.ok(setLore);
+  assert.equal(setLore.parameters.length, 1);
+  assert.equal(setLore.parameters[0].name, "loreList");
+  assert.equal(setLore.parameters[0].type, "string[]");
+});
+
+test("resolveClassMembers 合并 Player extends Entity", () => {
+  const src = `
+export class Entity {
+  readonly id: string;
+  nameTag: string;
+  teleport(location: Vector3): void;
+  addTag(tag: string): boolean;
+}
+export class Player extends Entity {
+  readonly name: string;
+  sendMessage(message: string): void;
+}
+`;
+  assert.equal(extractExtends(src, "Player"), "Entity");
+  const members = resolveClassMembers(src, "Player");
+  assert.ok(members.properties.some((p) => p.name === "id"));
+  assert.ok(members.properties.some((p) => p.name === "nameTag"));
+  assert.ok(members.properties.some((p) => p.name === "name"));
+  assert.ok(members.methods.some((m) => m.name === "teleport"));
+  assert.ok(members.methods.some((m) => m.name === "addTag"));
+  assert.ok(members.methods.some((m) => m.name === "sendMessage"));
+  const teleport = members.methods.find((m) => m.name === "teleport");
+  assert.equal(teleport?.parameters[0]?.name, "location");
+});
+
+test("parseClassMembers 泛型方法不误解析形参为属性", () => {
+  const src = `
+export class Entity {
+  nameTag: string;
+  getComponent<T extends string>(componentId: T): T | undefined;
+  hasComponent(componentId: string): boolean;
+}
+`;
+  const body = extractClassBody(src, "Entity");
+  assert.ok(body);
+  const { properties, methods } = parseClassMembers(body);
+  assert.equal(properties.some((p) => p.name === "componentId"), false);
+  assert.ok(methods.some((m) => m.name === "getComponent"));
+  const gc = methods.find((m) => m.name === "getComponent");
+  assert.equal(gc?.parameters[0]?.name, "componentId");
 });
 
 test("resolveEventType 从 Signal.subscribe 解析", () => {

@@ -18,7 +18,7 @@
     "TextFilteringError",
     "UIManager"
   ],
-  "skippedHandWritten": [
+  "skippedOverrides": [
     "ActionFormData",
     "CustomForm",
     "DataDrivenScreenClosedReason",

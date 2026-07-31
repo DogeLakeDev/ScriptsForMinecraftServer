@@ -1,0 +1,32 @@
+{
+  "server": [
+    "world",
+    "system",
+    "Player",
+    "PlayerPermissionLevel",
+    "GameMode",
+    "ItemStack",
+    "Entity",
+    "BlockComponentTypes",
+    "BlockPermutation",
+    "Dimension",
+    "EntityInventoryComponent",
+    "EntityInitializationCause",
+    "default"
+  ],
+  "serverUi": [
+    "ActionFormData",
+    "MessageFormData",
+    "ModalFormData",
+    "CustomForm",
+    "MessageBox",
+    "FormCancelationReason",
+    "DataDrivenScreenClosedReason",
+    "ObservableBoolean",
+    "ObservableNumber",
+    "ObservableString",
+    "ObservableUIRawMessage",
+    "uiManager",
+    "default"
+  ]
+}

@@ -4,9 +4,9 @@
  */
 
 import type { ModuleDescriptor } from "@sfmc-bds/sdk/module-loader";
-import type { FakeWorld } from "./engine/world.js";
+import type { FakeWorld } from "./engine/overrides/world.js";
 import type { FakeDb } from "./fake-db.js";
-import type { FakePlayer } from "./engine/player.js";
+import type { FakePlayer } from "./engine/overrides/player.js";
 
 export interface RunLifecycleOpts {
   afterWorldLoad?: boolean;

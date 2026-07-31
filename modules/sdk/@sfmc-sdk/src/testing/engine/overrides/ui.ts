@@ -1,10 +1,10 @@
-/**
+﻿/**
  * 假 @minecraft/server-ui — 对齐本地 pin `2.2.0-beta.1.26.40-preview.30`。
  * 经典三表单 + CustomForm / MessageBox / Observables / uiManager。
  */
 
 import type { FakePlayer } from "./player.js";
-import { getUi } from "./runtime.js";
+import { getUi } from "../runtime.js";
 
 function asText(v: unknown): string {
   if (v == null) return "";

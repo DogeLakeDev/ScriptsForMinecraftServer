@@ -8,23 +8,20 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import {
-  listValueExports,
-  HAND_WRITTEN_SERVER,
-  HAND_WRITTEN_SERVER_UI,
-} from "./scripts/gen-mc-fake.mjs";
+import { listValueExports, loadOverridesExportNames } from "./scripts/gen-mc-fake.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const THRESHOLD = 0.95;
+const overrides = loadOverridesExportNames();
 
-function assertCoverage(moduleName, dtsPath, metaPath, handSet) {
+function assertCoverage(moduleName, dtsPath, metaPath, overrideSet) {
   const source = fs.readFileSync(dtsPath, "utf8");
   const all = listValueExports(source);
   assert.ok(fs.existsSync(metaPath), `请先运行 npm run gen:mc-fake（缺 ${metaPath}）`);
   const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
   const generated = new Set(meta.generatedNames);
-  const covered = all.filter((e) => handSet.has(e.name) || generated.has(e.name));
+  const covered = all.filter((e) => overrideSet.has(e.name) || generated.has(e.name));
   const ratio = covered.length / all.length;
   assert.ok(
     ratio >= THRESHOLD,
@@ -32,20 +29,20 @@ function assertCoverage(moduleName, dtsPath, metaPath, handSet) {
   );
 }
 
-test("L0 覆盖率：@minecraft/server 手写+生成 ≥ 95%", () => {
+test("L0 覆盖率：@minecraft/server overrides+生成 ≥ 95%", () => {
   assertCoverage(
     "@minecraft/server",
     require.resolve("@minecraft/server/index.d.ts"),
     path.join(here, "src/testing/engine/generated/export-names.json"),
-    HAND_WRITTEN_SERVER
+    overrides.server
   );
 });
 
-test("L0 覆盖率：@minecraft/server-ui 手写+生成 ≥ 95%", () => {
+test("L0 覆盖率：@minecraft/server-ui overrides+生成 ≥ 95%", () => {
   assertCoverage(
     "@minecraft/server-ui",
     require.resolve("@minecraft/server-ui/index.d.ts"),
     path.join(here, "src/testing/engine/generated/export-names-ui.json"),
-    HAND_WRITTEN_SERVER_UI
+    overrides.serverUi
   );
 });

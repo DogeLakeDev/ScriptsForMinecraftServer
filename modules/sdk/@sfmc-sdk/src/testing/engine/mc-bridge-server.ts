@@ -9,7 +9,7 @@ import {
   PlayerPermissionLevel,
   createServerExports,
 } from "./runtime.js";
-import { UnimplementedMinecraftApiError } from "./allowlist.js";
+import { UnimplementedMinecraftApiError } from "./unimplemented-error.js";
 import * as L0 from "./generated/server-l0.js";
 
 const base = createServerExports();
@@ -20,6 +20,17 @@ function bindGet<T extends object>(getter: () => T): T {
       const target = getter();
       const v = Reflect.get(target, prop, target);
       return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+    },
+    has(_t, prop) {
+      return Reflect.has(getter(), prop);
+    },
+    ownKeys() {
+      return Reflect.ownKeys(getter());
+    },
+    getOwnPropertyDescriptor(_t, prop) {
+      const desc = Reflect.getOwnPropertyDescriptor(getter(), prop);
+      if (!desc) return undefined;
+      return { ...desc, configurable: true };
     },
   });
 }

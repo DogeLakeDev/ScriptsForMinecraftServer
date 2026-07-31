@@ -2,7 +2,7 @@
  * 由 scripts/gen-mc-fake.mjs 生成 — 勿手改。
  * L0：可 import；未实现成员硬失败。
  */
-import { UnimplementedMinecraftApiError } from "../allowlist.js";
+import { UnimplementedMinecraftApiError } from "../unimplemented-error.js";
 
 function l0Class(apiPath: string) {
   return class {

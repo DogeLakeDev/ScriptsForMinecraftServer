@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 假 system：run / runTimeout / runInterval + 可 tick 推进；事件 hub 1:1 惰性。
  */
 
 import { createEventHub, createEventSignal, type EventSignal } from "./events.js";
-import { guardAllowlist, SERVER_ALLOWLIST } from "./allowlist.js";
+import { guardUnimplemented } from "../unimplemented-error.js";
 
 type Scheduled = {
   id: number;
@@ -17,6 +17,8 @@ export type FakeSystem = {
   afterEvents: Record<string, EventSignal<unknown>>;
   beforeEvents: Record<string, EventSignal<unknown>>;
   currentTick: number;
+  /** 沙箱非编辑器世界 */
+  readonly isEditorWorld: boolean;
   run(cb: () => void, ticks?: number): number;
   runTimeout(cb: () => void, ticks?: number): number;
   runInterval(cb: () => void, ticks?: number): number;
@@ -77,6 +79,7 @@ export function createFakeSystem(): FakeSystem {
     get currentTick() {
       return currentTick;
     },
+    isEditorWorld: false,
     run(cb, ticks = 0) {
       return runAt("run", cb, ticks);
     },
@@ -117,5 +120,5 @@ export function createFakeSystem(): FakeSystem {
     },
   };
 
-  return guardAllowlist(api, SERVER_ALLOWLIST.system, "system") as FakeSystem;
+  return guardUnimplemented(api, "system") as FakeSystem;
 }

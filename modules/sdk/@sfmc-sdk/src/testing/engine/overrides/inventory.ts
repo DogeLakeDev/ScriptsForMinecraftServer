@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 假 ItemStack / Container / EntityInventoryComponent — 对照 Learn + pin `.d.ts`。
  */
 
-import { guardAllowlist, SERVER_ALLOWLIST, UnimplementedMinecraftApiError } from "./allowlist.js";
+import { guardUnimplemented, UnimplementedMinecraftApiError } from "../unimplemented-error.js";
 
 function normalizeItemTypeId(id: string): string {
   const s = String(id ?? "").trim();
@@ -34,6 +34,8 @@ export class ItemStack {
       throw new Error("ItemStack amount must be between 1 and 255");
     }
     this.amount = Math.min(Math.floor(n), this.maxAmount);
+    // 构造返回 Proxy：缺成员硬失败（与 Player/Entity 一致）
+    return guardUnimplemented(this, "ItemStack") as ItemStack;
   }
 
   get isStackable(): boolean {
@@ -173,7 +175,7 @@ export function createFakeContainer(size: number): FakeContainer {
     },
   };
 
-  return guardAllowlist(api, SERVER_ALLOWLIST.container, "Container") as FakeContainer;
+  return guardUnimplemented(api, "Container") as FakeContainer;
 }
 
 export type FakeEntityInventoryComponent = {
@@ -192,16 +194,19 @@ export function createEntityInventoryComponent(
   containerType = "inventory"
 ): FakeEntityInventoryComponent {
   const container = createFakeContainer(size);
-  return {
-    typeId: "minecraft:inventory",
-    container,
-    inventorySize: size,
-    containerType,
-    additionalSlotsPerStrength: 0,
-    canBeSiphonedFrom: true,
-    private: false,
-    restrictToOwner: false,
-  };
+  return guardUnimplemented(
+    {
+      typeId: "minecraft:inventory",
+      container,
+      inventorySize: size,
+      containerType,
+      additionalSlotsPerStrength: 0,
+      canBeSiphonedFrom: true,
+      private: false,
+      restrictToOwner: false,
+    },
+    "EntityInventoryComponent"
+  ) as FakeEntityInventoryComponent;
 }
 
 /** 对齐 static componentId；`new EntityInventoryComponent()` 硬失败。 */

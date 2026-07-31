@@ -5,11 +5,11 @@
  * `import from "@minecraft/server"` 落到可控假实现。
  */
 
-export type { FakePlayer, FakePlayerInit } from "./engine/player.js";
-export { createEnginePlayer as createFakePlayer } from "./engine/player.js";
+export type { FakePlayer, FakePlayerInit } from "./engine/overrides/player.js";
+export { createEnginePlayer as createFakePlayer } from "./engine/overrides/player.js";
 
-export type { FakeWorld } from "./engine/world.js";
-export { createFakeWorld } from "./engine/world.js";
+export type { FakeWorld } from "./engine/overrides/world.js";
+export { createFakeWorld } from "./engine/overrides/world.js";
 
 export type { FakeDb, FakeDbStub, FakeDbTx } from "./fake-db.js";
 export { createFakeDb } from "./fake-db.js";
@@ -20,14 +20,15 @@ export { runLifecycle, runCleanup } from "./lifecycle.js";
 export type { CreateSandboxOpts, Sandbox, SandboxEmit, MemoryConfigsAll } from "./sandbox.js";
 export { createSandbox } from "./sandbox.js";
 
+
 export { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
 export type { SandboxObjects, SandboxObjectHandle, SandboxObjectKind } from "./objects.js";
 export type { SandboxEvents } from "./events-drive.js";
 
 export { PlayerPermissionLevel } from "./engine/runtime.js";
 
-export type { FormResponse } from "./engine/ui-host.js";
-export { UnimplementedMinecraftApiError } from "./engine/allowlist.js";
+export type { FormResponse } from "./engine/overrides/ui-host.js";
+export { UnimplementedMinecraftApiError } from "./engine/unimplemented-error.js";
 
 /** 断言某 fake player 收到含子串的某类 Msg 消息。 */
 export function assertMsg(

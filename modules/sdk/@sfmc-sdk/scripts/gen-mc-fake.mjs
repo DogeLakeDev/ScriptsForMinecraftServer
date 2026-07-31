@@ -7,6 +7,7 @@
  *   node scripts/gen-mc-fake.mjs --dts <path> --out-dir <dir>
  *
  * 不把 Levi 头文件纳入；契约仅来自 pin 版 .d.ts。
+ * 手写 L1–L3 权威：src/testing/engine/overrides/exports.json（生成器跳过同名导出）。
  */
 
 import fs from "node:fs";
@@ -18,39 +19,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 
-/** 手写桥已提供的运行时导出名（生成物跳过，避免覆盖）。 */
-export const HAND_WRITTEN_SERVER = new Set([
-  "world",
-  "system",
-  "Player",
-  "PlayerPermissionLevel",
-  "GameMode",
-  "ItemStack",
-  "Entity",
-  "BlockComponentTypes",
-  "BlockPermutation",
-  "Dimension",
-  "EntityInventoryComponent",
-  "EntityInitializationCause",
-  "default",
-]);
+/** overrides 目录默认路径 */
+export const DEFAULT_OVERRIDES_DIR = path.join(PKG_ROOT, "src", "testing", "engine", "overrides");
 
-/** @minecraft/server-ui 手写 L2（其余走 L0 生成）。 */
-export const HAND_WRITTEN_SERVER_UI = new Set([
-  "ActionFormData",
-  "MessageFormData",
-  "ModalFormData",
-  "CustomForm",
-  "MessageBox",
-  "FormCancelationReason",
-  "DataDrivenScreenClosedReason",
-  "ObservableBoolean",
-  "ObservableNumber",
-  "ObservableString",
-  "ObservableUIRawMessage",
-  "uiManager",
-  "default",
-]);
+/**
+ * 读取 overrides/exports.json —— 跳过集合的唯一权威来源。
+ * @param {string} [overridesDir]
+ * @returns {{ server: Set<string>, serverUi: Set<string>, manifestPath: string }}
+ */
+export function loadOverridesExportNames(overridesDir = DEFAULT_OVERRIDES_DIR) {
+  const manifestPath = path.join(overridesDir, "exports.json");
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`[gen-mc-fake] 缺少 overrides 清单: ${manifestPath}`);
+  }
+  const raw = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (!Array.isArray(raw.server) || !Array.isArray(raw.serverUi)) {
+    throw new Error(`[gen-mc-fake] exports.json 须含 server / serverUi 字符串数组`);
+  }
+  return {
+    server: new Set(raw.server),
+    serverUi: new Set(raw.serverUi),
+    manifestPath,
+  };
+}
 
 /**
  * @typedef {{ kind: 'enum'|'class'|'function'|'const', name: string, enumBody?: string }} ValueExport
@@ -138,13 +129,13 @@ export function parseEnumMembers(body) {
  * @param {{ skip?: Set<string> }} [opts]
  */
 export function emitServerL0Module(exports, opts = {}) {
-  const skip = opts.skip ?? HAND_WRITTEN_SERVER;
+  const skip = opts.skip ?? new Set();
   const lines = [
     "/**",
     " * 由 scripts/gen-mc-fake.mjs 生成 — 勿手改。",
     " * L0：可 import；未实现成员硬失败。",
     " */",
-    'import { UnimplementedMinecraftApiError } from "../allowlist.js";',
+    'import { UnimplementedMinecraftApiError } from "../unimplemented-error.js";',
     "",
     "function l0Class(apiPath: string) {",
     "  return class {",
@@ -248,7 +239,7 @@ function generateOne(cfg) {
         dtsPath: dtsRel,
         totalValueExports: exports.length,
         generatedNames: names,
-        skippedHandWritten: [...cfg.skip].sort(),
+        skippedOverrides: [...cfg.skip].sort(),
       },
       null,
       2
@@ -276,12 +267,14 @@ function main() {
     ? path.resolve(args.outDir)
     : path.join(PKG_ROOT, "src", "testing", "engine", "generated");
 
+  const overrides = loadOverridesExportNames();
+
   const server = generateOne({
     module: "@minecraft/server",
     dtsPath: args.dts ? path.resolve(args.dts) : resolveDefaultDtsPath(),
     outFile: path.join(outDir, "server-l0.ts"),
     metaFile: path.join(outDir, "export-names.json"),
-    skip: HAND_WRITTEN_SERVER,
+    skip: overrides.server,
   });
 
   const serverUi = generateOne({
@@ -289,7 +282,7 @@ function main() {
     dtsPath: resolveServerUiDtsPath(),
     outFile: path.join(outDir, "server-ui-l0.ts"),
     metaFile: path.join(outDir, "export-names-ui.json"),
-    skip: HAND_WRITTEN_SERVER_UI,
+    skip: overrides.serverUi,
   });
 
   const metaTs = `/**
@@ -300,14 +293,14 @@ export const SERVER_L0_META = {
   module: "@minecraft/server" as const,
   totalValueExports: ${server.total},
   generated: ${server.generated},
-  handWrittenSkipped: ${server.skipped},
+  overridesSkipped: ${server.skipped},
 };
 
 export const SERVER_UI_L0_META = {
   module: "@minecraft/server-ui" as const,
   totalValueExports: ${serverUi.total},
   generated: ${serverUi.generated},
-  handWrittenSkipped: ${serverUi.skipped},
+  overridesSkipped: ${serverUi.skipped},
 };
 `;
   fs.writeFileSync(path.join(outDir, "l0-meta.ts"), metaTs, "utf8");

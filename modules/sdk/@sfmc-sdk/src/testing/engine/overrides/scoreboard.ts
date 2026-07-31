@@ -80,7 +80,13 @@ function resolveParticipantKey(participant: ScoreParticipant): string {
   if (typeof participant === "string") return participant;
   if (participant && typeof participant === "object") {
     const asIdentity = participant as FakeScoreboardIdentity;
-    if (typeof asIdentity.displayName === "string" && typeof asIdentity.id === "number" && "type" in asIdentity) {
+    // 先用 in 探测，避免 FakePlayer 全表面代理对缺失字段硬失败
+    if (
+      "displayName" in asIdentity &&
+      typeof asIdentity.displayName === "string" &&
+      typeof asIdentity.id === "number" &&
+      "type" in asIdentity
+    ) {
       return asIdentity.displayName;
     }
     const entity = participant as { scoreboardIdentity?: FakeScoreboardIdentity; name?: string };

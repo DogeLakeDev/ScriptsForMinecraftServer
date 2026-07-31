@@ -44,6 +44,11 @@ export const PLAYGROUND_META = {
           "type": "CommandPermissionLevel"
         },
         {
+          "name": "dimension",
+          "readonly": true,
+          "type": "Dimension"
+        },
+        {
           "name": "fogSettings",
           "readonly": true,
           "type": "FogSettings"
@@ -52,6 +57,11 @@ export const PLAYGROUND_META = {
           "name": "graphicsMode",
           "readonly": true,
           "type": "GraphicsMode"
+        },
+        {
+          "name": "id",
+          "readonly": true,
+          "type": "string"
         },
         {
           "name": "inputInfo",
@@ -64,7 +74,17 @@ export const PLAYGROUND_META = {
           "type": "PlayerInputPermissions"
         },
         {
+          "name": "isClimbing",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
           "name": "isEmoting",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
+          "name": "isFalling",
           "readonly": true,
           "type": "boolean"
         },
@@ -79,7 +99,42 @@ export const PLAYGROUND_META = {
           "type": "boolean"
         },
         {
+          "name": "isInWater",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
           "name": "isJumping",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
+          "name": "isOnGround",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
+          "name": "isSleeping",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
+          "name": "isSneaking",
+          "readonly": false,
+          "type": "boolean"
+        },
+        {
+          "name": "isSprinting",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
+          "name": "isSwimming",
+          "readonly": true,
+          "type": "boolean"
+        },
+        {
+          "name": "isValid",
           "readonly": true,
           "type": "boolean"
         },
@@ -89,6 +144,16 @@ export const PLAYGROUND_META = {
           "type": "number"
         },
         {
+          "name": "localizationKey",
+          "readonly": true,
+          "type": "string"
+        },
+        {
+          "name": "location",
+          "readonly": true,
+          "type": "Vector3"
+        },
+        {
           "name": "locatorBar",
           "readonly": true,
           "type": "LocatorBar"
@@ -96,6 +161,21 @@ export const PLAYGROUND_META = {
         {
           "name": "name",
           "readonly": true,
+          "type": "string"
+        },
+        {
+          "name": "nameplateDepthTested",
+          "readonly": false,
+          "type": "boolean"
+        },
+        {
+          "name": "nameplateRenderDistance",
+          "readonly": false,
+          "type": "number"
+        },
+        {
+          "name": "nameTag",
+          "readonly": false,
           "type": "string"
         },
         {
@@ -114,14 +194,29 @@ export const PLAYGROUND_META = {
           "type": "PlayerPermissionLevel"
         },
         {
+          "name": "scoreboardIdentity",
+          "readonly": true,
+          "type": "ScoreboardIdentity"
+        },
+        {
           "name": "selectedSlotIndex",
           "readonly": false,
           "type": "number"
         },
         {
+          "name": "target",
+          "readonly": true,
+          "type": "Entity"
+        },
+        {
           "name": "totalXpNeededForNextLevel",
           "readonly": true,
           "type": "number"
+        },
+        {
+          "name": "typeId",
+          "readonly": true,
+          "type": "string"
         },
         {
           "name": "xpEarnedAtCurrentLevel",
@@ -131,91 +226,774 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "addExperience"
+          "name": "addEffect",
+          "parameters": [
+            {
+              "name": "effectType",
+              "optional": false,
+              "type": "EffectType | string",
+              "rest": false
+            },
+            {
+              "name": "duration",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityEffectOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "addLevels"
+          "name": "addExperience",
+          "parameters": [
+            {
+              "name": "amount",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "clearPropertyOverridesForEntity"
+          "name": "addItem",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "eatItem"
+          "name": "addLevels",
+          "parameters": [
+            {
+              "name": "amount",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getAimAssist"
+          "name": "addTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getControlScheme"
+          "name": "applyDamage",
+          "parameters": [
+            {
+              "name": "amount",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityApplyDamageByProjectileOptions | EntityApplyDamageOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getGameMode"
+          "name": "applyImpulse",
+          "parameters": [
+            {
+              "name": "vector",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getItemCooldown"
+          "name": "applyKnockback",
+          "parameters": [
+            {
+              "name": "horizontalForce",
+              "optional": false,
+              "type": "VectorXZ",
+              "rest": false
+            },
+            {
+              "name": "verticalStrength",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getPing"
+          "name": "clearDynamicProperties",
+          "parameters": []
         },
         {
-          "name": "getSpawnPoint"
+          "name": "clearPropertyOverridesForEntity",
+          "parameters": [
+            {
+              "name": "targetEntity",
+              "optional": false,
+              "type": "Entity | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getSplitScreenSlot"
+          "name": "clearVelocity",
+          "parameters": []
         },
         {
-          "name": "getTotalXp"
+          "name": "eatItem",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "playMusic"
+          "name": "extinguishFire",
+          "parameters": [
+            {
+              "name": "useEffects",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "playSound"
+          "name": "getAABB",
+          "parameters": []
         },
         {
-          "name": "postClientMessage"
+          "name": "getAimAssist",
+          "parameters": []
         },
         {
-          "name": "queueMusic"
+          "name": "getAllBlocksStandingOn",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "GetBlocksStandingOnOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "removePropertyOverrideForEntity"
+          "name": "getBlockFromViewDirection",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BlockRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "resetLevel"
+          "name": "getBlockStandingOn",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "GetBlocksStandingOnOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "sendMessage"
+          "name": "getComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setControlScheme"
+          "name": "getComponents",
+          "parameters": []
         },
         {
-          "name": "setGameMode"
+          "name": "getControlScheme",
+          "parameters": []
         },
         {
-          "name": "setPropertyOverrideForEntity"
+          "name": "getDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setSpawnPoint"
+          "name": "getDynamicPropertyIds",
+          "parameters": []
         },
         {
-          "name": "spawnParticle"
+          "name": "getDynamicPropertyTotalByteCount",
+          "parameters": []
         },
         {
-          "name": "startItemCooldown"
+          "name": "getEffect",
+          "parameters": [
+            {
+              "name": "effectType",
+              "optional": false,
+              "type": "EffectType | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "stopAllSounds"
+          "name": "getEffects",
+          "parameters": []
         },
         {
-          "name": "stopMusic"
+          "name": "getEntitiesFromViewDirection",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "stopSound"
+          "name": "getGameMode",
+          "parameters": []
+        },
+        {
+          "name": "getHeadLocation",
+          "parameters": []
+        },
+        {
+          "name": "getItemCooldown",
+          "parameters": [
+            {
+              "name": "cooldownCategory",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getPing",
+          "parameters": []
+        },
+        {
+          "name": "getProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getRotation",
+          "parameters": []
+        },
+        {
+          "name": "getSpawnPoint",
+          "parameters": []
+        },
+        {
+          "name": "getSplitScreenSlot",
+          "parameters": []
+        },
+        {
+          "name": "getTags",
+          "parameters": []
+        },
+        {
+          "name": "getTotalXp",
+          "parameters": []
+        },
+        {
+          "name": "getVelocity",
+          "parameters": []
+        },
+        {
+          "name": "getViewDirection",
+          "parameters": []
+        },
+        {
+          "name": "hasComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "hasTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "kill",
+          "parameters": []
+        },
+        {
+          "name": "lookAt",
+          "parameters": [
+            {
+              "name": "targetLocation",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "matches",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": false,
+              "type": "EntityQueryOptions",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "playAnimation",
+          "parameters": [
+            {
+              "name": "animationName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "PlayAnimationOptions",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "playMusic",
+          "parameters": [
+            {
+              "name": "trackId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "musicOptions",
+              "optional": true,
+              "type": "MusicOptions",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "playSound",
+          "parameters": [
+            {
+              "name": "soundId",
+              "optional": false,
+              "type": "SoundDefinition | string",
+              "rest": false
+            },
+            {
+              "name": "soundOptions",
+              "optional": true,
+              "type": "PlayerSoundOptions",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "postClientMessage",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "queueMusic",
+          "parameters": [
+            {
+              "name": "trackId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "musicOptions",
+              "optional": true,
+              "type": "MusicOptions",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "remove",
+          "parameters": []
+        },
+        {
+          "name": "removeEffect",
+          "parameters": [
+            {
+              "name": "effectType",
+              "optional": false,
+              "type": "EffectType | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "removePropertyOverrideForEntity",
+          "parameters": [
+            {
+              "name": "targetEntity",
+              "optional": false,
+              "type": "Entity",
+              "rest": false
+            },
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "removeTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "resetLevel",
+          "parameters": []
+        },
+        {
+          "name": "resetProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "runCommand",
+          "parameters": [
+            {
+              "name": "commandString",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "sendMessage",
+          "parameters": [
+            {
+              "name": "message",
+              "optional": false,
+              "type": "(RawMessage | string)[] | RawMessage | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setControlScheme",
+          "parameters": [
+            {
+              "name": "controlScheme",
+              "optional": true,
+              "type": "ControlScheme",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setDynamicProperties",
+          "parameters": [
+            {
+              "name": "values",
+              "optional": false,
+              "type": "Record<string, boolean | number | string | Vector3 | undefined>",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "boolean | number | string | Vector3",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setGameMode",
+          "parameters": [
+            {
+              "name": "gameMode",
+              "optional": true,
+              "type": "GameMode",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setOnFire",
+          "parameters": [
+            {
+              "name": "seconds",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "useEffects",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "boolean | number | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setPropertyOverrideForEntity",
+          "parameters": [
+            {
+              "name": "targetEntity",
+              "optional": false,
+              "type": "Entity",
+              "rest": false
+            },
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "boolean | number | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setRotation",
+          "parameters": [
+            {
+              "name": "rotation",
+              "optional": false,
+              "type": "Vector2",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setSpawnPoint",
+          "parameters": [
+            {
+              "name": "spawnPoint",
+              "optional": true,
+              "type": "DimensionLocation",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "spawnParticle",
+          "parameters": [
+            {
+              "name": "effectName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "molangVariables",
+              "optional": true,
+              "type": "MolangVariableMap",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "startItemCooldown",
+          "parameters": [
+            {
+              "name": "cooldownCategory",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "tickDuration",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "stopAllSounds",
+          "parameters": []
+        },
+        {
+          "name": "stopMusic",
+          "parameters": []
+        },
+        {
+          "name": "stopSound",
+          "parameters": [
+            {
+              "name": "soundId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "teleport",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "teleportOptions",
+              "optional": true,
+              "type": "TeleportOptions",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "triggerEvent",
+          "parameters": [
+            {
+              "name": "eventName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "tryTeleport",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "teleportOptions",
+              "optional": true,
+              "type": "TeleportOptions",
+              "rest": false
+            }
+          ]
         }
       ],
-      "kind": "object"
+      "kind": "object",
+      "extends": "Entity"
     },
     "Entity": {
       "properties": [
@@ -317,139 +1095,472 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "addEffect"
+          "name": "addEffect",
+          "parameters": [
+            {
+              "name": "effectType",
+              "optional": false,
+              "type": "EffectType | string",
+              "rest": false
+            },
+            {
+              "name": "duration",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityEffectOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "addItem"
+          "name": "addItem",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "addTag"
+          "name": "addTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "applyDamage"
+          "name": "applyDamage",
+          "parameters": [
+            {
+              "name": "amount",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityApplyDamageByProjectileOptions | EntityApplyDamageOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "applyImpulse"
+          "name": "applyImpulse",
+          "parameters": [
+            {
+              "name": "vector",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "applyKnockback"
+          "name": "applyKnockback",
+          "parameters": [
+            {
+              "name": "horizontalForce",
+              "optional": false,
+              "type": "VectorXZ",
+              "rest": false
+            },
+            {
+              "name": "verticalStrength",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "clearDynamicProperties"
+          "name": "clearDynamicProperties",
+          "parameters": []
         },
         {
-          "name": "clearVelocity"
+          "name": "clearVelocity",
+          "parameters": []
         },
         {
-          "name": "extinguishFire"
+          "name": "extinguishFire",
+          "parameters": [
+            {
+              "name": "useEffects",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getAABB"
+          "name": "getAABB",
+          "parameters": []
         },
         {
-          "name": "getAllBlocksStandingOn"
+          "name": "getAllBlocksStandingOn",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "GetBlocksStandingOnOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlockFromViewDirection"
+          "name": "getBlockFromViewDirection",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BlockRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlockStandingOn"
+          "name": "getBlockStandingOn",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "GetBlocksStandingOnOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getComponents"
+          "name": "getComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getDynamicProperty"
+          "name": "getComponents",
+          "parameters": []
         },
         {
-          "name": "getDynamicPropertyIds"
+          "name": "getDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getDynamicPropertyTotalByteCount"
+          "name": "getDynamicPropertyIds",
+          "parameters": []
         },
         {
-          "name": "getEffect"
+          "name": "getDynamicPropertyTotalByteCount",
+          "parameters": []
         },
         {
-          "name": "getEffects"
+          "name": "getEffect",
+          "parameters": [
+            {
+              "name": "effectType",
+              "optional": false,
+              "type": "EffectType | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getEntitiesFromViewDirection"
+          "name": "getEffects",
+          "parameters": []
         },
         {
-          "name": "getHeadLocation"
+          "name": "getEntitiesFromViewDirection",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getProperty"
+          "name": "getHeadLocation",
+          "parameters": []
         },
         {
-          "name": "getRotation"
+          "name": "getProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getTags"
+          "name": "getRotation",
+          "parameters": []
         },
         {
-          "name": "getVelocity"
+          "name": "getTags",
+          "parameters": []
         },
         {
-          "name": "getViewDirection"
+          "name": "getVelocity",
+          "parameters": []
         },
         {
-          "name": "hasComponent"
+          "name": "getViewDirection",
+          "parameters": []
         },
         {
-          "name": "hasTag"
+          "name": "hasComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "kill"
+          "name": "hasTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "lookAt"
+          "name": "kill",
+          "parameters": []
         },
         {
-          "name": "matches"
+          "name": "lookAt",
+          "parameters": [
+            {
+              "name": "targetLocation",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "playAnimation"
+          "name": "matches",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": false,
+              "type": "EntityQueryOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "remove"
+          "name": "playAnimation",
+          "parameters": [
+            {
+              "name": "animationName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "PlayAnimationOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "removeEffect"
+          "name": "remove",
+          "parameters": []
         },
         {
-          "name": "removeTag"
+          "name": "removeEffect",
+          "parameters": [
+            {
+              "name": "effectType",
+              "optional": false,
+              "type": "EffectType | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "resetProperty"
+          "name": "removeTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "runCommand"
+          "name": "resetProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDynamicProperties"
+          "name": "runCommand",
+          "parameters": [
+            {
+              "name": "commandString",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDynamicProperty"
+          "name": "setDynamicProperties",
+          "parameters": [
+            {
+              "name": "values",
+              "optional": false,
+              "type": "Record<string, boolean | number | string | Vector3 | undefined>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setOnFire"
+          "name": "setDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "boolean | number | string | Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setProperty"
+          "name": "setOnFire",
+          "parameters": [
+            {
+              "name": "seconds",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "useEffects",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setRotation"
+          "name": "setProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "boolean | number | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "teleport"
+          "name": "setRotation",
+          "parameters": [
+            {
+              "name": "rotation",
+              "optional": false,
+              "type": "Vector2",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "triggerEvent"
+          "name": "teleport",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "teleportOptions",
+              "optional": true,
+              "type": "TeleportOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "tryTeleport"
+          "name": "triggerEvent",
+          "parameters": [
+            {
+              "name": "eventName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "tryTeleport",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "teleportOptions",
+              "optional": true,
+              "type": "TeleportOptions",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -504,64 +1615,177 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "clearDynamicProperties"
+          "name": "clearDynamicProperties",
+          "parameters": []
         },
         {
-          "name": "clone"
+          "name": "clone",
+          "parameters": []
         },
         {
-          "name": "getCanDestroy"
+          "name": "getCanDestroy",
+          "parameters": []
         },
         {
-          "name": "getCanPlaceOn"
+          "name": "getCanPlaceOn",
+          "parameters": []
         },
         {
-          "name": "getComponents"
+          "name": "getComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getDynamicProperty"
+          "name": "getComponents",
+          "parameters": []
         },
         {
-          "name": "getDynamicPropertyIds"
+          "name": "getDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getDynamicPropertyTotalByteCount"
+          "name": "getDynamicPropertyIds",
+          "parameters": []
         },
         {
-          "name": "getLore"
+          "name": "getDynamicPropertyTotalByteCount",
+          "parameters": []
         },
         {
-          "name": "getRawLore"
+          "name": "getLore",
+          "parameters": []
         },
         {
-          "name": "getTags"
+          "name": "getRawLore",
+          "parameters": []
         },
         {
-          "name": "hasComponent"
+          "name": "getTags",
+          "parameters": []
         },
         {
-          "name": "hasTag"
+          "name": "hasComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "isStackableWith"
+          "name": "hasTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "matches"
+          "name": "isStackableWith",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setCanDestroy"
+          "name": "matches",
+          "parameters": [
+            {
+              "name": "itemName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "states",
+              "optional": true,
+              "type": "Record<string, boolean | number | string>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setCanPlaceOn"
+          "name": "setCanDestroy",
+          "parameters": [
+            {
+              "name": "blockIdentifiers",
+              "optional": true,
+              "type": "string[]",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDynamicProperties"
+          "name": "setCanPlaceOn",
+          "parameters": [
+            {
+              "name": "blockIdentifiers",
+              "optional": true,
+              "type": "string[]",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDynamicProperty"
+          "name": "setDynamicProperties",
+          "parameters": [
+            {
+              "name": "values",
+              "optional": false,
+              "type": "Record<string, boolean | number | string | Vector3 | undefined>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setLore"
+          "name": "setDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "boolean | number | string | Vector3",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setLore",
+          "parameters": [
+            {
+              "name": "loreList",
+              "optional": true,
+              "type": "(RawMessage | string)[]",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -636,94 +1860,306 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "above"
+          "name": "above",
+          "parameters": [
+            {
+              "name": "steps",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "below"
+          "name": "below",
+          "parameters": [
+            {
+              "name": "steps",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "bottomCenter"
+          "name": "bottomCenter",
+          "parameters": []
         },
         {
-          "name": "canBeDestroyedByLiquidSpread"
+          "name": "canBeDestroyedByLiquidSpread",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "canContainLiquid"
+          "name": "canContainLiquid",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "canPlace"
+          "name": "canPlace",
+          "parameters": [
+            {
+              "name": "blockToPlace",
+              "optional": false,
+              "type": "BlockPermutation | BlockType | string",
+              "rest": false
+            },
+            {
+              "name": "faceToPlaceOn",
+              "optional": true,
+              "type": "Direction",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "center"
+          "name": "center",
+          "parameters": []
         },
         {
-          "name": "east"
+          "name": "east",
+          "parameters": [
+            {
+              "name": "steps",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getComponents"
+          "name": "getComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getItemStack"
+          "name": "getComponents",
+          "parameters": []
         },
         {
-          "name": "getLightLevel"
+          "name": "getItemStack",
+          "parameters": [
+            {
+              "name": "amount",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "withData",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getMapColor"
+          "name": "getLightLevel",
+          "parameters": []
         },
         {
-          "name": "getParts"
+          "name": "getMapColor",
+          "parameters": []
         },
         {
-          "name": "getRedstonePower"
+          "name": "getParts",
+          "parameters": []
         },
         {
-          "name": "getSkyLightLevel"
+          "name": "getRedstonePower",
+          "parameters": []
         },
         {
-          "name": "getTags"
+          "name": "getSkyLightLevel",
+          "parameters": []
         },
         {
-          "name": "hasComponent"
+          "name": "getTags",
+          "parameters": []
         },
         {
-          "name": "hasTag"
+          "name": "hasComponent",
+          "parameters": [
+            {
+              "name": "componentId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "isLiquidBlocking"
+          "name": "hasTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "liquidCanFlowFromDirection"
+          "name": "isLiquidBlocking",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "liquidSpreadCausesSpawn"
+          "name": "liquidCanFlowFromDirection",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            },
+            {
+              "name": "flowDirection",
+              "optional": false,
+              "type": "Direction",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "matches"
+          "name": "liquidSpreadCausesSpawn",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "north"
+          "name": "matches",
+          "parameters": [
+            {
+              "name": "blockName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "states",
+              "optional": true,
+              "type": "Record<string, boolean | number | string>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "offset"
+          "name": "north",
+          "parameters": [
+            {
+              "name": "steps",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setPermutation"
+          "name": "offset",
+          "parameters": [
+            {
+              "name": "offset",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setType"
+          "name": "setPermutation",
+          "parameters": [
+            {
+              "name": "permutation",
+              "optional": false,
+              "type": "BlockPermutation",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setWaterlogged"
+          "name": "setType",
+          "parameters": [
+            {
+              "name": "blockType",
+              "optional": false,
+              "type": "BlockType | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "south"
+          "name": "setWaterlogged",
+          "parameters": [
+            {
+              "name": "isWaterlogged",
+              "optional": false,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "trySetPermutation"
+          "name": "south",
+          "parameters": [
+            {
+              "name": "steps",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "west"
+          "name": "trySetPermutation",
+          "parameters": [
+            {
+              "name": "permutation",
+              "optional": false,
+              "type": "BlockPermutation",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "west",
+          "parameters": [
+            {
+              "name": "steps",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -748,106 +2184,597 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "calculateClosestBiomeFromSeed"
+          "name": "calculateClosestBiomeFromSeed",
+          "parameters": [
+            {
+              "name": "pos",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "biomeToFind",
+              "optional": false,
+              "type": "BiomeType | string",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BiomeSearchOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "cloneBlocks"
+          "name": "cloneBlocks",
+          "parameters": [
+            {
+              "name": "beginLocation",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "endLocation",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "destination",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "cloneMode",
+              "optional": false,
+              "type": "CloneMode",
+              "rest": false
+            },
+            {
+              "name": "filter",
+              "optional": true,
+              "type": "BlockFilter",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "containsBiomes"
+          "name": "containsBiomes",
+          "parameters": [
+            {
+              "name": "volume",
+              "optional": false,
+              "type": "BlockVolumeBase",
+              "rest": false
+            },
+            {
+              "name": "biomeFilter",
+              "optional": false,
+              "type": "BiomeFilter",
+              "rest": false
+            },
+            {
+              "name": "isSuperset",
+              "optional": false,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "containsBlock"
+          "name": "containsBlock",
+          "parameters": [
+            {
+              "name": "volume",
+              "optional": false,
+              "type": "BlockVolumeBase",
+              "rest": false
+            },
+            {
+              "name": "filter",
+              "optional": false,
+              "type": "BlockFilter",
+              "rest": false
+            },
+            {
+              "name": "allowUnloadedChunks",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "createExplosion"
+          "name": "createExplosion",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "radius",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "explosionOptions",
+              "optional": true,
+              "type": "ExplosionOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "fillBlocks"
+          "name": "fillBlocks",
+          "parameters": [
+            {
+              "name": "volume",
+              "optional": false,
+              "type": "BlockVolumeBase",
+              "rest": false
+            },
+            {
+              "name": "block",
+              "optional": false,
+              "type": "BlockPermutation | BlockType | string",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BlockFillOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBiome"
+          "name": "getBiome",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlock"
+          "name": "getBlock",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlockAbove"
+          "name": "getBlockAbove",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BlockRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlockBelow"
+          "name": "getBlockBelow",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BlockRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlockFromRay"
+          "name": "getBlockFromRay",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "direction",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "BlockRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getBlocks"
+          "name": "getBlocks",
+          "parameters": [
+            {
+              "name": "volume",
+              "optional": false,
+              "type": "BlockVolumeBase",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": false,
+              "type": "BlockQueryOptions",
+              "rest": false
+            },
+            {
+              "name": "allowUnloadedChunks",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getEntities"
+          "name": "getEntities",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityQueryOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getEntitiesAtBlockLocation"
+          "name": "getEntitiesAtBlockLocation",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getEntitiesFromRay"
+          "name": "getEntitiesFromRay",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "direction",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityRaycastOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getGeneratedStructures"
+          "name": "getGeneratedStructures",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getLightLevel"
+          "name": "getLightLevel",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getPlayers"
+          "name": "getPlayers",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityQueryOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getSkyLightLevel"
+          "name": "getSkyLightLevel",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getTopmostBlock"
+          "name": "getTopmostBlock",
+          "parameters": [
+            {
+              "name": "locationXZ",
+              "optional": false,
+              "type": "VectorXZ",
+              "rest": false
+            },
+            {
+              "name": "minHeight",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getWeather"
+          "name": "getWeather",
+          "parameters": []
         },
         {
-          "name": "isChunkLoaded"
+          "name": "isChunkLoaded",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "placeFeature"
+          "name": "placeFeature",
+          "parameters": [
+            {
+              "name": "featureName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "shouldThrow",
+              "optional": true,
+              "type": "boolean",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "placeFeatureRule"
+          "name": "placeFeatureRule",
+          "parameters": [
+            {
+              "name": "featureRuleName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "playSound"
+          "name": "playSound",
+          "parameters": [
+            {
+              "name": "soundId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "soundOptions",
+              "optional": true,
+              "type": "WorldSoundOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "runCommand"
+          "name": "runCommand",
+          "parameters": [
+            {
+              "name": "commandString",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setBlockPermutation"
+          "name": "setBlockPermutation",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "permutation",
+              "optional": false,
+              "type": "BlockPermutation",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setBlockType"
+          "name": "setBlockType",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "blockType",
+              "optional": false,
+              "type": "BlockType | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setWeather"
+          "name": "setWeather",
+          "parameters": [
+            {
+              "name": "weatherType",
+              "optional": false,
+              "type": "WeatherType",
+              "rest": false
+            },
+            {
+              "name": "duration",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "spawnItem"
+          "name": "spawnEntity",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "EntityIdentifierType<NoInfer<T>>",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "options",
+              "optional": true,
+              "type": "SpawnEntityOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "spawnParticle"
+          "name": "spawnItem",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "spawnXp"
+          "name": "spawnParticle",
+          "parameters": [
+            {
+              "name": "effectName",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "molangVariables",
+              "optional": true,
+              "type": "MolangVariableMap",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "stopAllSounds"
+          "name": "spawnXp",
+          "parameters": [
+            {
+              "name": "location",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            },
+            {
+              "name": "amount",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "stopSound"
+          "name": "stopAllSounds",
+          "parameters": []
+        },
+        {
+          "name": "stopSound",
+          "parameters": [
+            {
+              "name": "soundId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -912,88 +2839,238 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "broadcastClientMessage"
+          "name": "broadcastClientMessage",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "clearDynamicProperties"
+          "name": "clearDynamicProperties",
+          "parameters": []
         },
         {
-          "name": "getAbsoluteTime"
+          "name": "getAbsoluteTime",
+          "parameters": []
         },
         {
-          "name": "getAimAssist"
+          "name": "getAimAssist",
+          "parameters": []
         },
         {
-          "name": "getAllPlayers"
+          "name": "getAllPlayers",
+          "parameters": []
         },
         {
-          "name": "getDay"
+          "name": "getDay",
+          "parameters": []
         },
         {
-          "name": "getDefaultSpawnLocation"
+          "name": "getDefaultSpawnLocation",
+          "parameters": []
         },
         {
-          "name": "getDifficulty"
+          "name": "getDifficulty",
+          "parameters": []
         },
         {
-          "name": "getDimension"
+          "name": "getDimension",
+          "parameters": [
+            {
+              "name": "dimensionId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getDynamicProperty"
+          "name": "getDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getDynamicPropertyIds"
+          "name": "getDynamicPropertyIds",
+          "parameters": []
         },
         {
-          "name": "getDynamicPropertyTotalByteCount"
+          "name": "getDynamicPropertyTotalByteCount",
+          "parameters": []
         },
         {
-          "name": "getEntity"
+          "name": "getEntity",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getLootTableManager"
+          "name": "getLootTableManager",
+          "parameters": []
         },
         {
-          "name": "getMoonPhase"
+          "name": "getMoonPhase",
+          "parameters": []
         },
         {
-          "name": "getPackSettings"
+          "name": "getPackSettings",
+          "parameters": []
         },
         {
-          "name": "getPlayers"
+          "name": "getPlayers",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "EntityQueryOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getTimeOfDay"
+          "name": "getTimeOfDay",
+          "parameters": []
         },
         {
-          "name": "playMusic"
+          "name": "playMusic",
+          "parameters": [
+            {
+              "name": "trackId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "musicOptions",
+              "optional": true,
+              "type": "MusicOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "queueMusic"
+          "name": "queueMusic",
+          "parameters": [
+            {
+              "name": "trackId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "musicOptions",
+              "optional": true,
+              "type": "MusicOptions",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "sendMessage"
+          "name": "sendMessage",
+          "parameters": [
+            {
+              "name": "message",
+              "optional": false,
+              "type": "(RawMessage | string)[] | RawMessage | string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setAbsoluteTime"
+          "name": "setAbsoluteTime",
+          "parameters": [
+            {
+              "name": "absoluteTime",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDefaultSpawnLocation"
+          "name": "setDefaultSpawnLocation",
+          "parameters": [
+            {
+              "name": "spawnLocation",
+              "optional": false,
+              "type": "Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDifficulty"
+          "name": "setDifficulty",
+          "parameters": [
+            {
+              "name": "difficulty",
+              "optional": false,
+              "type": "Difficulty",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDynamicProperties"
+          "name": "setDynamicProperties",
+          "parameters": [
+            {
+              "name": "values",
+              "optional": false,
+              "type": "Record<string, boolean | number | string | Vector3 | undefined>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setDynamicProperty"
+          "name": "setDynamicProperty",
+          "parameters": [
+            {
+              "name": "identifier",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "boolean | number | string | Vector3",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setTimeOfDay"
+          "name": "setTimeOfDay",
+          "parameters": [
+            {
+              "name": "timeOfDay",
+              "optional": false,
+              "type": "number | TimeOfDay",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "stopMusic"
+          "name": "stopMusic",
+          "parameters": []
         }
       ],
       "kind": "object"
@@ -1028,28 +3105,110 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "clearJob"
+          "name": "clearJob",
+          "parameters": [
+            {
+              "name": "jobId",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "clearRun"
+          "name": "clearRun",
+          "parameters": [
+            {
+              "name": "runId",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "run"
+          "name": "run",
+          "parameters": [
+            {
+              "name": "callback",
+              "optional": false,
+              "type": "() => void",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "runInterval"
+          "name": "runInterval",
+          "parameters": [
+            {
+              "name": "callback",
+              "optional": false,
+              "type": "() => void",
+              "rest": false
+            },
+            {
+              "name": "tickInterval",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "runJob"
+          "name": "runJob",
+          "parameters": [
+            {
+              "name": "generator",
+              "optional": false,
+              "type": "Generator<void, void, void>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "runTimeout"
+          "name": "runTimeout",
+          "parameters": [
+            {
+              "name": "callback",
+              "optional": false,
+              "type": "() => void",
+              "rest": false
+            },
+            {
+              "name": "tickDelay",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "sendScriptEvent"
+          "name": "sendScriptEvent",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "message",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "waitTicks"
+          "name": "waitTicks",
+          "parameters": [
+            {
+              "name": "ticks",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -1084,43 +3243,162 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "addItem"
+          "name": "addItem",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "clearAll"
+          "name": "clearAll",
+          "parameters": []
         },
         {
-          "name": "contains"
+          "name": "contains",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "find"
+          "name": "find",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "findLast"
+          "name": "findLast",
+          "parameters": [
+            {
+              "name": "itemStack",
+              "optional": false,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "firstEmptySlot"
+          "name": "firstEmptySlot",
+          "parameters": []
         },
         {
-          "name": "firstItem"
+          "name": "firstItem",
+          "parameters": []
         },
         {
-          "name": "getItem"
+          "name": "getItem",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getSlot"
+          "name": "getSlot",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "moveItem"
+          "name": "moveItem",
+          "parameters": [
+            {
+              "name": "fromSlot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "toSlot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "toContainer",
+              "optional": false,
+              "type": "Container",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "setItem"
+          "name": "setItem",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "itemStack",
+              "optional": true,
+              "type": "ItemStack",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "swapItems"
+          "name": "swapItems",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "otherSlot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "otherContainer",
+              "optional": false,
+              "type": "Container",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "transferItem"
+          "name": "transferItem",
+          "parameters": [
+            {
+              "name": "fromSlot",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            },
+            {
+              "name": "toContainer",
+              "optional": false,
+              "type": "Container",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -1135,28 +3413,329 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "canBeDestroyedByLiquidSpread"
+          "name": "canBeDestroyedByLiquidSpread",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "canContainLiquid"
+          "name": "canContainLiquid",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getAllStates"
+          "name": "esolve",
+          "parameters": [
+            {
+              "name": "blockName",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            },
+            {
+              "name": "states",
+              "optional": true,
+              "type": "BlockStateArg<T>",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "getItemStack"
+          "name": "getAllStates",
+          "parameters": []
         },
         {
-          "name": "getTags"
+          "name": "getItemStack",
+          "parameters": [
+            {
+              "name": "amount",
+              "optional": true,
+              "type": "number",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "hasTag"
+          "name": "getState",
+          "parameters": [
+            {
+              "name": "stateName",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            }
+          ]
         },
         {
-          "name": "isLiquidBlocking"
+          "name": "getTags",
+          "parameters": []
         },
         {
-          "name": "liquidSpreadCausesSpawn"
+          "name": "hasTag",
+          "parameters": [
+            {
+              "name": "tag",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "isLiquidBlocking",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "liquidSpreadCausesSpawn",
+          "parameters": [
+            {
+              "name": "liquidType",
+              "optional": false,
+              "type": "LiquidType",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "matches",
+          "parameters": [
+            {
+              "name": "blockName",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            },
+            {
+              "name": "states",
+              "optional": true,
+              "type": "BlockStateArg<T>",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "withState",
+          "parameters": [
+            {
+              "name": "name",
+              "optional": false,
+              "type": "T",
+              "rest": false
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "minecraftvanilladata.BlockStateSuperset[T]",
+              "rest": false
+            }
+          ]
+        }
+      ],
+      "kind": "object"
+    },
+    "Scoreboard": {
+      "properties": [],
+      "methods": [
+        {
+          "name": "addObjective",
+          "parameters": [
+            {
+              "name": "objectiveId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            },
+            {
+              "name": "displayName",
+              "optional": true,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "clearObjectiveAtDisplaySlot",
+          "parameters": [
+            {
+              "name": "displaySlotId",
+              "optional": false,
+              "type": "DisplaySlotId",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getObjective",
+          "parameters": [
+            {
+              "name": "objectiveId",
+              "optional": false,
+              "type": "string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getObjectiveAtDisplaySlot",
+          "parameters": [
+            {
+              "name": "displaySlotId",
+              "optional": false,
+              "type": "DisplaySlotId",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getObjectives",
+          "parameters": []
+        },
+        {
+          "name": "getParticipants",
+          "parameters": []
+        },
+        {
+          "name": "removeObjective",
+          "parameters": [
+            {
+              "name": "objectiveId",
+              "optional": false,
+              "type": "ScoreboardObjective | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setObjectiveAtDisplaySlot",
+          "parameters": [
+            {
+              "name": "displaySlotId",
+              "optional": false,
+              "type": "DisplaySlotId",
+              "rest": false
+            },
+            {
+              "name": "objectiveDisplaySetting",
+              "optional": false,
+              "type": "ScoreboardObjectiveDisplayOptions",
+              "rest": false
+            }
+          ]
+        }
+      ],
+      "kind": "object"
+    },
+    "ScoreboardObjective": {
+      "properties": [
+        {
+          "name": "displayName",
+          "readonly": true,
+          "type": "string"
+        },
+        {
+          "name": "id",
+          "readonly": true,
+          "type": "string"
+        },
+        {
+          "name": "isValid",
+          "readonly": true,
+          "type": "boolean"
+        }
+      ],
+      "methods": [
+        {
+          "name": "addScore",
+          "parameters": [
+            {
+              "name": "participant",
+              "optional": false,
+              "type": "Entity | ScoreboardIdentity | string",
+              "rest": false
+            },
+            {
+              "name": "scoreToAdd",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getParticipants",
+          "parameters": []
+        },
+        {
+          "name": "getScore",
+          "parameters": [
+            {
+              "name": "participant",
+              "optional": false,
+              "type": "Entity | ScoreboardIdentity | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "getScores",
+          "parameters": []
+        },
+        {
+          "name": "hasParticipant",
+          "parameters": [
+            {
+              "name": "participant",
+              "optional": false,
+              "type": "Entity | ScoreboardIdentity | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "removeParticipant",
+          "parameters": [
+            {
+              "name": "participant",
+              "optional": false,
+              "type": "Entity | ScoreboardIdentity | string",
+              "rest": false
+            }
+          ]
+        },
+        {
+          "name": "setScore",
+          "parameters": [
+            {
+              "name": "participant",
+              "optional": false,
+              "type": "Entity | ScoreboardIdentity | string",
+              "rest": false
+            },
+            {
+              "name": "score",
+              "optional": false,
+              "type": "number",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "object"
@@ -1411,7 +3990,15 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "setImpactedBlocks"
+          "name": "setImpactedBlocks",
+          "parameters": [
+            {
+              "name": "blocks",
+              "optional": false,
+              "type": "Block[]",
+              "rest": false
+            }
+          ]
         }
       ],
       "kind": "event"
@@ -1694,7 +4281,8 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "getModifiers"
+          "name": "getModifiers",
+          "parameters": []
         }
       ],
       "kind": "event"
@@ -1996,7 +4584,8 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "getModifiers"
+          "name": "getModifiers",
+          "parameters": []
         }
       ],
       "kind": "event"
@@ -2016,7 +4605,8 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "getImpactedBlocks"
+          "name": "getImpactedBlocks",
+          "parameters": []
         }
       ],
       "kind": "event"
@@ -2764,7 +5354,8 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "getBlockHit"
+          "name": "getBlockHit",
+          "parameters": []
         }
       ],
       "kind": "event"
@@ -2799,7 +5390,8 @@ export const PLAYGROUND_META = {
       ],
       "methods": [
         {
-          "name": "getEntityHit"
+          "name": "getEntityHit",
+          "parameters": []
         }
       ],
       "kind": "event"

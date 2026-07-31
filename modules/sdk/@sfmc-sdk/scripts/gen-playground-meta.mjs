@@ -3,7 +3,8 @@
  * gen-playground-meta.mjs — 从 @minecraft/server .d.ts 生成 Playground 1:1 元数据
  *
  * 产出：
- * - classes：可构造/操作类型 + 全部 Event 类型成员
+ * - classes：可构造/操作类型 + 全部 Event 类型成员（含 extends 合并）
+ * - methods[].parameters：方法形参名/类型/optional（Call 表单权威）
  * - events：四大 hub 信号名列表
  * - eventTypes：hub.signal → Event 类名（emit 表单权威）
  */
@@ -17,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 
-/** 世界对象侧可构造类型（Event 类型由 hub 反推，不在此手写）。 */
+/** 世界对象侧可操作类型（Event 类型由 hub 反推，不在此手写）。 */
 export const TARGET_CLASSES = [
   "Player",
   "Entity",
@@ -28,6 +29,8 @@ export const TARGET_CLASSES = [
   "System",
   "Container",
   "BlockPermutation",
+  "Scoreboard",
+  "ScoreboardObjective",
 ];
 
 export const EVENT_HUBS = [
@@ -60,8 +63,64 @@ export function extractClassBody(source, className) {
 }
 
 /**
+ * @param {string} source
+ * @param {string} className
+ * @returns {string | null}
+ */
+export function extractExtends(source, className) {
+  const re = new RegExp(
+    `export\\s+(?:declare\\s+)?class\\s+${className}\\b\\s+extends\\s+([A-Za-z_][\\w]*)`,
+    "m"
+  );
+  const m = re.exec(source);
+  return m ? m[1] : null;
+}
+
+/**
+ * @param {string} raw
+ * @returns {{ name: string, type: string, optional: boolean, rest: boolean }[]}
+ */
+export function parseParamList(raw) {
+  const text = raw.trim();
+  if (!text) return [];
+  /** @type {string[]} */
+  const parts = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of text) {
+    if ("<{[(".includes(ch)) depth++;
+    else if (">}])".includes(ch)) depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      parts.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.trim()) parts.push(cur.trim());
+
+  return parts.map((p) => {
+    const rest = p.startsWith("...");
+    const s = rest ? p.slice(3).trim() : p;
+    const m = s.match(/^([A-Za-z_][\w]*)(\?)?\s*:\s*(.+)$/);
+    if (!m) {
+      return { name: s.replace(/\?.*$/, "") || "arg", type: "unknown", optional: true, rest };
+    }
+    return {
+      name: m[1],
+      optional: Boolean(m[2]) || rest,
+      type: m[3].trim().replace(/\s+/g, " "),
+      rest,
+    };
+  });
+}
+
+/**
  * @param {string} body
- * @returns {{ properties: { name: string, readonly: boolean, type: string }[], methods: { name: string }[] }}
+ * @returns {{
+ *   properties: { name: string, readonly: boolean, type: string }[],
+ *   methods: { name: string, parameters: { name: string, type: string, optional: boolean, rest: boolean }[] }[]
+ * }}
  */
 export function parseClassMembers(body) {
   const stripped = body
@@ -70,42 +129,166 @@ export function parseClassMembers(body) {
 
   /** @type {{ name: string, readonly: boolean, type: string }[]} */
   const properties = [];
-  /** @type {{ name: string }[]} */
+  /** @type {{ name: string, parameters: { name: string, type: string, optional: boolean, rest: boolean }[] }[]} */
   const methods = [];
   const seenProp = new Set();
   const seenMethod = new Set();
 
-  for (const line of stripped.split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("private ") || t.startsWith("protected ")) continue;
+  let i = 0;
+  const n = stripped.length;
 
-    const method = t.match(/^(?:readonly\s+)?([A-Za-z_][\w]*)\s*\(/);
-    if (method) {
-      const name = method[1];
-      if (name === "constructor") continue;
-      if (!seenMethod.has(name)) {
-        seenMethod.add(name);
-        methods.push({ name });
+  const skipWs = () => {
+    while (i < n && /\s/.test(stripped[i] ?? "")) i++;
+  };
+
+  while (i < n) {
+    skipWs();
+    if (i >= n) break;
+
+    // 跳过 private / protected 成员至分号（深度 0）
+    if (/^(private|protected)\b/.test(stripped.slice(i))) {
+      let depth = 0;
+      while (i < n) {
+        const ch = stripped[i++];
+        if ("<{[(".includes(ch)) depth++;
+        else if (">}])".includes(ch)) depth = Math.max(0, depth - 1);
+        else if (ch === ";" && depth === 0) break;
       }
       continue;
     }
 
-    const prop = t.match(/^(readonly\s+)?([A-Za-z_][\w]*)\??\s*:\s*([^;]+);/);
-    if (prop) {
-      const name = prop[2];
-      if (seenProp.has(name)) continue;
-      seenProp.add(name);
-      properties.push({
-        name,
-        readonly: Boolean(prop[1]),
-        type: prop[3].trim(),
-      });
+    const readonly = /^readonly\b/.test(stripped.slice(i));
+    if (readonly) {
+      i += "readonly".length;
+      skipWs();
     }
+
+    const nameMatch = stripped.slice(i).match(/^([A-Za-z_][\w]*)/);
+    if (!nameMatch) {
+      i++;
+      continue;
+    }
+    const name = nameMatch[1];
+    i += name.length;
+    skipWs();
+
+    // 泛型方法：name<...>(...)
+    if (stripped[i] === "<") {
+      let depth = 0;
+      while (i < n) {
+        const ch = stripped[i++];
+        if (ch === "<") depth++;
+        else if (ch === ">") {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      skipWs();
+    }
+
+    if (stripped[i] === "(") {
+      // 方法：吃掉配对括号内形参
+      i++; // (
+      let depth = 1;
+      let paramsRaw = "";
+      while (i < n && depth > 0) {
+        const ch = stripped[i++];
+        if (ch === "(") depth++;
+        else if (ch === ")") {
+          depth--;
+          if (depth === 0) break;
+        }
+        if (depth > 0) paramsRaw += ch;
+      }
+      // 吃掉返回类型直到 ;
+      let depth2 = 0;
+      while (i < n) {
+        const ch = stripped[i++];
+        if ("<{[(".includes(ch)) depth2++;
+        else if (">}])".includes(ch)) depth2 = Math.max(0, depth2 - 1);
+        else if (ch === ";" && depth2 === 0) break;
+      }
+      if (name !== "constructor" && !seenMethod.has(name)) {
+        seenMethod.add(name);
+        methods.push({ name, parameters: parseParamList(paramsRaw) });
+      }
+      continue;
+    }
+
+    if (stripped[i] === "?" || stripped[i] === ":") {
+      if (stripped[i] === "?") i++;
+      skipWs();
+      if (stripped[i] !== ":") continue;
+      i++; // :
+      skipWs();
+      let type = "";
+      let depth = 0;
+      while (i < n) {
+        const ch = stripped[i];
+        if ("<{[(".includes(ch)) depth++;
+        else if (">}])".includes(ch)) depth = Math.max(0, depth - 1);
+        if (ch === ";" && depth === 0) {
+          i++;
+          break;
+        }
+        type += ch;
+        i++;
+      }
+      if (!seenProp.has(name)) {
+        seenProp.add(name);
+        properties.push({
+          name,
+          readonly,
+          type: type.trim().replace(/\s+/g, " "),
+        });
+      }
+      continue;
+    }
+
+    // 无法识别：前进
+    i++;
   }
 
   properties.sort((a, b) => a.name.localeCompare(b.name));
   methods.sort((a, b) => a.name.localeCompare(b.name));
   return { properties, methods };
+}
+
+/**
+ * 合并基类成员；子类同名覆盖。
+ * @param {{ properties: any[], methods: any[] }} base
+ * @param {{ properties: any[], methods: any[] }} own
+ */
+export function mergeMembers(base, own) {
+  const propMap = new Map();
+  for (const p of base.properties) propMap.set(p.name, p);
+  for (const p of own.properties) propMap.set(p.name, p);
+  const methMap = new Map();
+  for (const m of base.methods) methMap.set(m.name, m);
+  for (const m of own.methods) methMap.set(m.name, m);
+  const properties = [...propMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const methods = [...methMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return { properties, methods };
+}
+
+/**
+ * 解析类成员并沿 extends 链合并（避免环）。
+ * @param {string} source
+ * @param {string} className
+ * @param {Set<string>} [seen]
+ */
+export function resolveClassMembers(source, className, seen = new Set()) {
+  if (seen.has(className)) {
+    return { properties: [], methods: [] };
+  }
+  seen.add(className);
+  const body = extractClassBody(source, className);
+  if (!body) return { properties: [], methods: [] };
+  const own = parseClassMembers(body);
+  const parent = extractExtends(source, className);
+  if (!parent) return own;
+  const base = resolveClassMembers(source, parent, seen);
+  return mergeMembers(base, own);
 }
 
 /**
@@ -155,12 +338,16 @@ export function resolveEventType(source, signalType) {
  * @param {string} source
  */
 export function buildPlaygroundMeta(source) {
-  /** @type {Record<string, { properties: { name: string, readonly: boolean, type: string }[], methods: { name: string }[], kind?: string }>} */
+  /** @type {Record<string, { properties: { name: string, readonly: boolean, type: string }[], methods: { name: string, parameters: { name: string, type: string, optional: boolean, rest: boolean }[] }[], kind?: string, extends?: string }>} */
   const classes = {};
   for (const name of TARGET_CLASSES) {
-    const body = extractClassBody(source, name);
-    if (!body) continue;
-    classes[name] = { ...parseClassMembers(body), kind: "object" };
+    if (!extractClassBody(source, name)) continue;
+    const parent = extractExtends(source, name);
+    const members = resolveClassMembers(source, name);
+    /** @type {{ properties: typeof members.properties, methods: typeof members.methods, kind: string, extends?: string }} */
+    const entry = { ...members, kind: "object" };
+    if (parent) entry.extends = parent;
+    classes[name] = entry;
   }
 
   /** @type {Record<string, string[]>} */

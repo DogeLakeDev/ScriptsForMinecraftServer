@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 假 Entity — 对照 Learn + pin `.d.ts` 最小 L2。
  * `new Entity()` 硬失败；实例经 Dimension.spawnEntity。
  */
 
-import { guardAllowlist, SERVER_ALLOWLIST, UnimplementedMinecraftApiError } from "./allowlist.js";
+import { guardUnimplemented, UnimplementedMinecraftApiError } from "../unimplemented-error.js";
 import type { FakeDimension, Vector3Like } from "./dimension.js";
 import {
   createPlayerScoreboardIdentity,
@@ -37,6 +37,9 @@ export type FakeEntity = {
   isValid: boolean;
   isOnGround: boolean;
   isSneaking: boolean;
+  /** d.ts 可写：名牌深度测试 / 渲染距离（薄 L2） */
+  nameplateDepthTested: boolean;
+  nameplateRenderDistance: number;
   scoreboardIdentity: FakeScoreboardIdentity;
   remove(): void;
   kill(): boolean;
@@ -70,6 +73,8 @@ export type CreateFakeEntityOpts = {
   dimension: FakeDimension;
   id?: string;
   nameTag?: string;
+  /** kill() 时先于 remove 调用（对齐 entityDie）。 */
+  onDie?: (entity: FakeEntity) => void;
   onRemove?: (entity: FakeEntity) => void;
 };
 
@@ -101,6 +106,8 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     },
     isOnGround: true,
     isSneaking: false,
+    nameplateDepthTested: true,
+    nameplateRenderDistance: 64,
     scoreboardIdentity: undefined as unknown as FakeScoreboardIdentity,
     remove() {
       if (!valid) return;
@@ -109,6 +116,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     },
     kill() {
       if (!valid) return false;
+      opts.onDie?.(entity);
       entity.remove();
       return true;
     },
@@ -168,7 +176,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     "Entity"
   );
 
-  return guardAllowlist(entity, SERVER_ALLOWLIST.entity, "Entity") as FakeEntity;
+  return guardUnimplemented(entity, "Entity") as FakeEntity;
 }
 
 /** `new Entity()` 硬失败。 */

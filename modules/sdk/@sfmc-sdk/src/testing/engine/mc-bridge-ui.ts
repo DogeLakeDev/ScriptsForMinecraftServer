@@ -2,7 +2,7 @@
  * @minecraft/server-ui 桥：手写 L2 + L0 生成大范围导出。
  */
 
-import { UnimplementedMinecraftApiError } from "./allowlist.js";
+import { UnimplementedMinecraftApiError } from "./unimplemented-error.js";
 import * as L0 from "./generated/server-ui-l0.js";
 import {
   ActionFormData,
@@ -17,7 +17,7 @@ import {
   ObservableString,
   ObservableUIRawMessage,
   uiManager,
-} from "./ui.js";
+} from "./overrides/ui.js";
 
 export {
   ActionFormData,

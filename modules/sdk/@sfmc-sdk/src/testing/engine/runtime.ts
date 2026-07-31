@@ -2,14 +2,14 @@
  * 假引擎进程内单例（挂 globalThis，避免 testing 与 mc-bridge 双份 bundle 状态分裂）。
  */
 
-import { createFakeSystem, type FakeSystem } from "./system.js";
-import { createFakeWorld, type FakeWorld } from "./world.js";
-import { createEnginePlayer, type FakePlayer, type FakePlayerInit } from "./player.js";
-import { createFakeUiHost, type FakeUiHost, type FormResponse } from "./ui-host.js";
-import { UnimplementedMinecraftApiError } from "./allowlist.js";
-import { BlockPermutation, Dimension } from "./dimension.js";
-import { Entity } from "./entity.js";
-import { ItemStack, EntityInventoryComponent } from "./inventory.js";
+import { createFakeSystem, type FakeSystem } from "./overrides/system.js";
+import { createFakeWorld, type FakeWorld } from "./overrides/world.js";
+import { createEnginePlayer, type FakePlayer, type FakePlayerInit } from "./overrides/player.js";
+import { createFakeUiHost, type FakeUiHost, type FormResponse } from "./overrides/ui-host.js";
+import { UnimplementedMinecraftApiError } from "./unimplemented-error.js";
+import { BlockPermutation, Dimension } from "./overrides/dimension.js";
+import { Entity } from "./overrides/entity.js";
+import { ItemStack, EntityInventoryComponent } from "./overrides/inventory.js";
 
 export type EngineState = {
   system: FakeSystem;

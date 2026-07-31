@@ -551,7 +551,7 @@
     "WorldLoadAfterEvent",
     "WorldLoadAfterEventSignal"
   ],
-  "skippedHandWritten": [
+  "skippedOverrides": [
     "BlockComponentTypes",
     "BlockPermutation",
     "Dimension",

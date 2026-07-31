@@ -5,12 +5,13 @@
  * - 事件对象：*AfterEvent / *BeforeEvent 属性袋（供 emit payload）
  */
 
-import { ItemStack } from "./engine/inventory.js";
-import type { FakePlayer, FakePlayerInit } from "./engine/player.js";
-import type { FakeWorld } from "./engine/world.js";
-import type { FakeSystem } from "./engine/system.js";
+import { ItemStack } from "./engine/overrides/inventory.js";
+import type { FakePlayer, FakePlayerInit } from "./engine/overrides/player.js";
+import type { FakeWorld } from "./engine/overrides/world.js";
+import type { FakeSystem } from "./engine/overrides/system.js";
 import { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
-import { UnimplementedMinecraftApiError } from "./engine/allowlist.js";
+import { UnimplementedMinecraftApiError } from "./engine/unimplemented-error.js";
+import { DEFAULT_DIMENSION_IDS } from "./engine/overrides/dimension.js";
 
 export type SandboxObjectKind = string;
 
@@ -108,9 +109,10 @@ export function createObjectRegistry(host: Host) {
     return register(kind, bag);
   }
 
-  // World / Dimension 不经 create；沙箱天生登记，供场景树选中
+  // World / Dimension / Scoreboard 不经 create；沙箱天生登记，供场景树选中
   register("World", host.world, "world");
-  for (const dimId of ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"]) {
+  register("Scoreboard", host.world.scoreboard, "scoreboard");
+  for (const dimId of DEFAULT_DIMENSION_IDS) {
     const dim = host.world.getDimension(dimId);
     register("Dimension", dim, `dim:${dim.id}`);
   }
@@ -123,7 +125,7 @@ export function createObjectRegistry(host: Host) {
     list(): SandboxObjectHandle[] {
       return [...byId.values()];
     },
-    /** 可构造种类：引擎四类 + 全部 Event 类型（不含 World/Dimension） */
+    /** 可构造种类：引擎四类 + 全部 Event 类型（不含 World/Dimension/Scoreboard） */
     kinds(): string[] {
       const out = new Set<string>(["Player", "Entity", "ItemStack", "Block"]);
       for (const [name, info] of Object.entries(PLAYGROUND_META.classes)) {
@@ -131,9 +133,10 @@ export function createObjectRegistry(host: Host) {
       }
       return [...out].sort();
     },
-    /** 场景树用：World / Dimension / Player / Entity… */
+    /** 场景树用：World / Dimension / Scoreboard / Player / Entity… */
     sceneNodes(): {
       world: { id: string; kind: string };
+      scoreboard: { id: string; kind: string };
       dimensions: { id: string; kind: string; dimensionId: string }[];
       players: { id: string; kind: string; name: string }[];
       entities: { id: string; kind: string; typeId?: string }[];
@@ -165,6 +168,7 @@ export function createObjectRegistry(host: Host) {
       }
       return {
         world: { id: "world", kind: "World" },
+        scoreboard: { id: "scoreboard", kind: "Scoreboard" },
         dimensions: dims,
         players,
         entities,
@@ -190,7 +194,7 @@ export function createObjectRegistry(host: Host) {
       return { id: h.id, kind: h.kind, props };
     },
     create(kind: SandboxObjectKind, props: Record<string, unknown> = {}): SandboxObjectHandle {
-      if (kind === "World" || kind === "Dimension") {
+      if (kind === "World" || kind === "Dimension" || kind === "Scoreboard") {
         throw new UnimplementedMinecraftApiError(
           `objects.create(${kind})：沙箱天生已有，请从场景树选中`
         );
