@@ -321,11 +321,64 @@ test("Dimension：getBlock 缺省空气；setBlockPermutation 可读写", async 
   await sb.dispose();
 });
 
+test("World 薄 L2：默认三维、时间、sendMessage、getEntity", async () => {
+  const sb = await createSandbox();
+  const ids = ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"].map(
+    (id) => sb.world.getDimension(id).id
+  );
+  assert.deepEqual(ids, ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"]);
+  assert.equal(sb.world.getDimension("nether").heightRange.max, 128);
+  assert.equal(sb.world.seed, "sfmc-testing");
+  assert.equal(sb.world.isHardcore, false);
+
+  sb.world.setAbsoluteTime(25000);
+  assert.equal(sb.world.getAbsoluteTime(), 25000);
+  assert.equal(sb.world.getDay(), 1);
+  assert.equal(sb.world.getTimeOfDay(), 1000);
+  sb.world.setTimeOfDay("Noon");
+  assert.equal(sb.world.getTimeOfDay(), 6000);
+
+  sb.world.setDefaultSpawnLocation({ x: 8, y: 70, z: -4 });
+  assert.deepEqual(sb.world.getDefaultSpawnLocation(), { x: 8, y: 70, z: -4 });
+
+  const p = sb.addPlayer({ name: "MsgP" });
+  sb.world.sendMessage("hello-world");
+  assert.ok(p.log.some((l) => l.includes("hello-world")));
+
+  const fox = sb.world.getDimension("overworld").spawnEntity("minecraft:fox", { x: 1, y: 64, z: 1 });
+  assert.equal(sb.world.getEntity(fox.id)?.typeId, "minecraft:fox");
+  assert.equal(sb.world.getEntity(p.id)?.name, "MsgP");
+
+  sb.world.setDynamicProperty("k", 1);
+  assert.equal(sb.world.getDynamicProperty("k"), 1);
+  assert.deepEqual(sb.world.getDynamicPropertyIds(), ["k"]);
+  await sb.dispose();
+});
+
+test("Dimension 部分 L2：spawnItem / getEntitiesAtBlockLocation / 天气 / isChunkLoaded", async () => {
+  const { ItemStack } = await import("@minecraft/server");
+  const sb = await createSandbox();
+  const dim = sb.world.getDimension("overworld");
+  assert.equal(dim.isChunkLoaded({ x: 1e6, y: 0, z: 1e6 }), true);
+  assert.equal(dim.getWeather(), "Clear");
+  dim.setWeather("Rain");
+  assert.equal(dim.getWeather(), "Rain");
+
+  const item = dim.spawnItem(new ItemStack("minecraft:diamond", 2), { x: 3.2, y: 64, z: -1.8 });
+  assert.equal(item.typeId, "minecraft:item");
+  const at = dim.getEntitiesAtBlockLocation({ x: 3, y: 64, z: -2 });
+  assert.equal(at.length, 1);
+  assert.equal(at[0].id, item.id);
+  await sb.dispose();
+});
+
 test("Entity：spawnEntity / getEntities / remove / teleport", async () => {
   const sb = await createSandbox();
   const dim = sb.world.getDimension("overworld");
   const spawned = [];
+  const died = [];
   sb.world.afterEvents.entitySpawn.subscribe((ev) => spawned.push(ev.entity.typeId));
+  sb.world.afterEvents.entityDie.subscribe((ev) => died.push(ev.deadEntity.typeId));
 
   const fox = dim.spawnEntity("minecraft:fox", { x: 0, y: 64, z: 0 });
   assert.equal(fox.typeId, "minecraft:fox");
@@ -351,6 +404,7 @@ test("Entity：spawnEntity / getEntities / remove / teleport", async () => {
 
   assert.equal(fox.kill(), true);
   assert.equal(fox.isValid, false);
+  assert.deepEqual(died, ["minecraft:fox"]);
   assert.equal(dim.getEntities().length, 1);
 
   const horse = dim.spawnEntity("minecraft:horse<minecraft:ageable_grow_up>", {
@@ -395,6 +449,30 @@ test("Inventory：ItemStack + Container Learn 样例路径", async () => {
   cartInv.container.swapItems(1, 0, inv.container);
   assert.equal(inv.container.getItem(0)?.typeId, "minecraft:emerald");
   assert.equal(cartInv.container.getItem(1)?.typeId, "minecraft:cake");
+
+  const stack = new ItemStack("minecraft:stick", 1);
+  assert.throws(() => {
+    void /** @type {any} */ (stack).definitelyNotAMethod;
+  }, /未实现的 Minecraft API.*ItemStack/);
+  assert.throws(() => {
+    void /** @type {any} */ (inv.container).definitelyNotAMethod;
+  }, /未实现的 Minecraft API.*Container/);
+  await sb.dispose();
+});
+
+test("ItemStack / Container 缺成员硬失败（独立）", async () => {
+  const { ItemStack } = await import("@minecraft/server");
+  const sb = await createSandbox();
+  const item = new ItemStack("minecraft:dirt", 2);
+  assert.equal(item.typeId, "minecraft:dirt");
+  assert.equal(item.clone().amount, 2);
+  assert.throws(() => {
+    void /** @type {any} */ (item).getLore;
+  }, /UnimplementedMinecraftApiError|未实现的 Minecraft API/);
+  const bag = sb.addPlayer({ name: "HardFail" }).getComponent("minecraft:inventory");
+  assert.throws(() => {
+    void /** @type {any} */ (bag.container).getItemCooldown;
+  }, /未实现的 Minecraft API.*Container/);
   await sb.dispose();
 });
 
@@ -440,4 +518,93 @@ test("server-ui：CustomForm / MessageBox / Observables（本地 pin 全表面�
   const empty = await new MessageBox(player, "x").show();
   assert.equal(empty.closeReason, DataDrivenScreenClosedReason.ClientClosed);
   await sb.dispose();
+});
+
+test("sb.emit.chatSend !命令 走 Command.trigger", async () => {
+  const { Command, Msg, Permission } = await import("./dist/esm/sapi/runtime/index.js");
+  const descriptor = {
+    id: "feature-chat-cmd",
+    afterWorldLoad: false,
+    lifecycle: {
+      registerPermissions() {
+        Permission.register("chatcmd.use", Permission.Any);
+      },
+      registerCommands() {
+        Command.register(
+          "chatping",
+          "chatcmd.use",
+          (player) => {
+            if (player) Msg.info("chat-pong", player);
+          },
+          "chat ping"
+        );
+      },
+      cleanup() {},
+    },
+  };
+  const sb = await createSandbox({ module: descriptor });
+  const player = sb.addPlayer({ name: "ChatCmd", op: true });
+  sb.emit.chatSend(player, "!chatping");
+  sb.flush();
+  await Promise.resolve();
+  sb.flush();
+  assert.equal(assertMsg(player, "chat-pong"), true);
+  await sb.dispose();
+});
+
+test("createSandbox moduleRoot 装载真实入口", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { pathToFileURL } = await import("node:url");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-"));
+  fs.mkdirSync(path.join(root, "sapi", "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ name: "tmp-mod", type: "module" })
+  );
+  fs.writeFileSync(
+    path.join(root, "sapi", "manifest.json"),
+    JSON.stringify({ schemaVersion: 2, id: "feature-load-root", name: "Load Root" })
+  );
+  // 用 .mjs 避免测试依赖 tsx；生产入口仍是 sapi/src/index.ts
+  const entry = path.join(root, "sapi", "src", "index.mjs");
+  const sdkLoader = pathToFileURL(path.resolve("dist/esm/module-loader/index.js")).href;
+  const sdkRuntime = pathToFileURL(path.resolve("dist/esm/sapi/runtime/index.js")).href;
+  fs.writeFileSync(
+    entry,
+    `
+import { ModuleRegistry } from ${JSON.stringify(sdkLoader)};
+import { Command, Msg, Permission } from ${JSON.stringify(sdkRuntime)};
+
+export const DESCRIPTOR = {
+  id: "feature-load-root",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() { Permission.register("loadroot.use", Permission.Any); },
+    registerCommands() {
+      Command.register("loadroot", "loadroot.use", (player) => {
+        if (player) Msg.info("loaded-from-root", player);
+      }, "load root");
+    },
+    registerEvents() {},
+    init() {},
+    cleanup() {},
+  },
+};
+ModuleRegistry.register(DESCRIPTOR);
+`
+  );
+
+  const sb = await createSandbox({ moduleRoot: root });
+  assert.equal(sb.module?.id, "feature-load-root");
+  assert.equal(sb.module?.root, path.resolve(root));
+  const player = sb.addPlayer({ name: "Root", op: true });
+  sb.emit.chatSend(player, "!loadroot");
+  sb.flush();
+  await Promise.resolve();
+  sb.flush();
+  assert.equal(assertMsg(player, "loaded-from-root"), true);
+  await sb.dispose();
+  fs.rmSync(root, { recursive: true, force: true });
 });

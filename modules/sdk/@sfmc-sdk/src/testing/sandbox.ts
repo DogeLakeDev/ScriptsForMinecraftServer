@@ -25,12 +25,26 @@ import {
 import { SERVER_L0_META, SERVER_UI_L0_META } from "./engine/generated/l0-meta.js";
 import { createObjectRegistry, type SandboxObjects } from "./objects.js";
 import { createEventsDrive, type SandboxEvents } from "./events-drive.js";
+import { loadModuleDescriptor } from "./load-module.js";
 
 export type { MemoryConfigsAll };
+
+/** 宿主分相进度（playground-host / UI 勾选）。 */
+export type SandboxProgressStep = {
+  id: number;
+  layer: "native" | "sfmc" | "ready";
+  label: string;
+  status: "running" | "done" | "error";
+};
 
 export interface CreateSandboxOpts {
   /** 模块描述符；缺省则只起假引擎、不 boot。 */
   module?: ModuleDescriptor;
+  /**
+   * 模块根目录：装载 sapi/src/index.ts（或 .js/.mjs），取 DESCRIPTOR 后 boot。
+   * 与 module 同时给出时以 moduleRoot 为准。
+   */
+  moduleRoot?: string;
   /** 默认 true：走 Registry boot + 假 worldLoad。 */
   boot?: boolean;
   /** 覆盖内存 configs/all（缺省为当前 module 启用）。 */
@@ -38,6 +52,8 @@ export interface CreateSandboxOpts {
   /** 模块是否启用；默认 true（写入 configs.modules）。 */
   enabled?: boolean;
   db?: FakeDbStub;
+  /** 分相进度回调（原生层 / SFMC 层分标）。 */
+  onProgress?: (step: SandboxProgressStep) => void;
 }
 
 /** 沙箱侧事件触发（非 MC 公开 API）。 */
@@ -54,6 +70,8 @@ export type Sandbox = {
   system: FakeSystem;
   ui: FakeUiHost;
   db: FakeDb;
+  /** 当前 boot 的模块；engine-only 时为 null。 */
+  module: { id: string; root?: string } | null;
   supported: {
     events: string[];
     system: string[];
@@ -69,7 +87,7 @@ export type Sandbox = {
   emit: SandboxEmit;
   tick(n?: number): void;
   flush(): void;
-  /** 触发 ! 命令（走 Command.trigger；需先 boot 注册）。 */
+  /** 触发 ! 命令（走 Command.trigger；需先 boot 注册）。手点主路径请用 emit.chatSend。 */
   triggerCommand(name: string, player?: FakePlayer): Promise<void>;
   /** 1:1 构造 / 调用 */
   objects: SandboxObjects;
@@ -124,13 +142,49 @@ function defaultConfigsFor(module: ModuleDescriptor | undefined, enabled: boolea
   };
 }
 
+function progress(
+  onProgress: CreateSandboxOpts["onProgress"],
+  step: Omit<SandboxProgressStep, "status">,
+  status: SandboxProgressStep["status"]
+): void {
+  onProgress?.({ ...step, status });
+}
+
+/** 聊天 `!` / `！` → Command.trigger（对齐 BDS 宿主拦截）。 */
+function installChatCommandBridge(world: FakeWorld): void {
+  world.beforeEvents.chatSend!.subscribe((ev) => {
+    const bag = ev as { sender?: FakePlayer; message?: string; cancel?: boolean };
+    const raw = String(bag?.message ?? "");
+    if (!raw.startsWith("!") && !raw.startsWith("！")) return;
+    const name = raw.slice(1).trim().split(/\s+/)[0];
+    if (!name) return;
+    if (!bag.sender) return;
+    bag.cancel = true;
+    Command.trigger(bag.sender as never, name);
+  });
+}
+
 export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandbox> {
+  const onProgress = opts.onProgress;
+  const report = (id: number, layer: SandboxProgressStep["layer"], label: string) => ({
+    id,
+    layer,
+    label,
+  });
+
+  progress(onProgress, report(0, "native", "装载脚本入口（early）"), "running");
   ConfigManager.resetForTesting();
   ModuleRegistry.resetForTesting();
 
+  progress(onProgress, report(1, "native", "加载 System"), "running");
   const eng = resetEngine();
   const db = createFakeDb(opts.db);
+  progress(onProgress, report(1, "native", "加载 System"), "done");
 
+  progress(onProgress, report(2, "native", "加载 World 壳"), "running");
+  progress(onProgress, report(2, "native", "加载 World 壳"), "done");
+
+  progress(onProgress, report(3, "native", "绑定 @minecraft 表面"), "running");
   globalThis.__sfmcBdsSystem = {
     clearRun(id: number) {
       getSystem().clearRun(id);
@@ -142,22 +196,61 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
       return getSystem().run(cb, ticks);
     },
   };
+  installChatCommandBridge(eng.world);
+  progress(onProgress, report(3, "native", "绑定 @minecraft 表面"), "done");
+  progress(onProgress, report(0, "native", "装载脚本入口（early）"), "done");
 
   const enabled = opts.enabled !== false;
-  const configs = opts.configs ?? defaultConfigsFor(opts.module, enabled);
-  ConfigManager.bindDataAdapter(createMemoryDataAdapter(configs));
-  await ConfigManager.init();
 
-  if (opts.module && opts.boot !== false) {
-    ModuleRegistry.register(opts.module);
-    ModuleRegistry.bootAll();
-    ModuleRegistry.snapshotEnabled();
-    eng.world.afterEvents.worldLoad!.emit({});
-    ModuleRegistry.bootAfterWorldLoad();
+  // 先解析模块描述符（moduleRoot 优先），再写 configs
+  let moduleRef: ModuleDescriptor | undefined = opts.module;
+  const moduleRoot = opts.moduleRoot?.trim() || undefined;
+  if (moduleRoot) {
+    progress(onProgress, report(0, "native", "装载脚本入口（early）"), "running");
+    moduleRef = await loadModuleDescriptor(moduleRoot);
+    progress(onProgress, report(0, "native", "装载脚本入口（early）"), "done");
   }
 
+  const configs = opts.configs ?? defaultConfigsFor(moduleRef, enabled);
+
+  progress(onProgress, report(4, "native", "system.beforeEvents.startup"), "running");
+  progress(onProgress, report(5, "sfmc", "ConfigManager.init"), "running");
+  ConfigManager.bindDataAdapter(createMemoryDataAdapter(configs));
+  await ConfigManager.init();
+  progress(onProgress, report(5, "sfmc", "ConfigManager.init"), "done");
+  progress(onProgress, report(4, "native", "system.beforeEvents.startup"), "done");
+
+  if (moduleRef && opts.boot !== false) {
+    // 入口副作用可能已 register；按 id 去重
+    if (!ModuleRegistry.get(moduleRef.id)) {
+      ModuleRegistry.register(moduleRef);
+    }
+    progress(onProgress, report(6, "sfmc", "ModuleRegistry.bootAll"), "running");
+    ModuleRegistry.bootAll();
+    progress(onProgress, report(6, "sfmc", "ModuleRegistry.bootAll"), "done");
+
+    progress(onProgress, report(7, "sfmc", "snapshotEnabled"), "running");
+    ModuleRegistry.snapshotEnabled();
+    progress(onProgress, report(7, "sfmc", "snapshotEnabled"), "done");
+
+    progress(onProgress, report(8, "native", "（等待世界就绪）"), "running");
+    progress(onProgress, report(8, "native", "（等待世界就绪）"), "done");
+
+    progress(onProgress, report(9, "native", "Dimension 默认可查询"), "running");
+    progress(onProgress, report(9, "native", "Dimension 默认可查询"), "done");
+
+    progress(onProgress, report(10, "native", "world.afterEvents.worldLoad"), "running");
+    eng.world.afterEvents.worldLoad!.emit({});
+    progress(onProgress, report(10, "native", "world.afterEvents.worldLoad"), "done");
+
+    progress(onProgress, report(11, "sfmc", "bootAfterWorldLoad"), "running");
+    ModuleRegistry.bootAfterWorldLoad();
+    progress(onProgress, report(11, "sfmc", "bootAfterWorldLoad"), "done");
+  }
+
+  progress(onProgress, report(12, "ready", "就绪"), "done");
+
   let disposed = false;
-  const moduleRef = opts.module;
 
   const addPlayer = (init: Parameters<Sandbox["addPlayer"]>[0]) => {
     const p = createEnginePlayer(init);
@@ -179,6 +272,11 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
     system: eng.system,
     ui: eng.ui,
     db,
+    module: moduleRef
+      ? moduleRoot
+        ? { id: moduleRef.id, root: moduleRoot }
+        : { id: moduleRef.id }
+      : null,
     supported: SUPPORTED,
     objects,
     events,
@@ -190,19 +288,19 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
           playerId: player.id,
         });
       },
-      playerSpawn(player, opts) {
+      playerSpawn(player, spawnOpts) {
         eng.world.afterEvents.playerSpawn!.emit({
           player,
-          initialSpawn: opts?.initialSpawn ?? true,
+          initialSpawn: spawnOpts?.initialSpawn ?? true,
         });
       },
-      chatSend(player, message, opts) {
+      chatSend(player, message, chatOpts) {
         eng.world.beforeEvents.chatSend!.emit({
           sender: player,
           message,
           cancel: false,
         });
-        if (opts?.after) {
+        if (chatOpts?.after) {
           eng.world.afterEvents.chatSend!.emit({ sender: player, message });
         }
       },

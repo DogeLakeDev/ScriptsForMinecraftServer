@@ -17,9 +17,16 @@ export { createFakeDb } from "./fake-db.js";
 export type { RunLifecycleOpts } from "./lifecycle.js";
 export { runLifecycle, runCleanup } from "./lifecycle.js";
 
-export type { CreateSandboxOpts, Sandbox, SandboxEmit, MemoryConfigsAll } from "./sandbox.js";
+export type {
+  CreateSandboxOpts,
+  Sandbox,
+  SandboxEmit,
+  MemoryConfigsAll,
+  SandboxProgressStep,
+} from "./sandbox.js";
 export { createSandbox } from "./sandbox.js";
 
+export { loadModuleDescriptor, resolveModuleEntry } from "./load-module.js";
 
 export { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
 export type { SandboxObjects, SandboxObjectHandle, SandboxObjectKind } from "./objects.js";
