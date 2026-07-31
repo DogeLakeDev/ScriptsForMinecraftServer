@@ -195,7 +195,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test --experimental-strip-types src/playground/graph/order.test.ts src/playground/graph/materialize.test.ts",
+    "test": "node --test --experimental-strip-types src/playground/graph/order.test.ts src/playground/graph/materialize.test.ts src/panels/moduleRootKey.test.ts",
     "package": "npx @vscode/vsce package"
   },
   "dependencies": {

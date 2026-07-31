@@ -9,8 +9,11 @@
  * 环境变量 SFMC_PLAYGROUND_MODULE_ROOT：默认模块根（可被 start.params.moduleRoot 覆盖）。
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import readline from "node:readline";
 import { Command } from "@sfmc-bds/sdk/sapi/runtime";
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { createSandbox, type Sandbox } from "./sandbox.js";
 import { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
 
@@ -99,6 +102,38 @@ function resolveModuleRoot(params: Record<string, unknown>): string | undefined 
   return fromEnv || undefined;
 }
 
+/** 读模块 package.json version（DESCRIPTOR 无 version 字段）。 */
+function readPackageVersion(moduleRoot: string): string | undefined {
+  try {
+    const raw = fs.readFileSync(path.join(moduleRoot, "package.json"), "utf8");
+    const pkg = JSON.parse(raw) as { version?: unknown };
+    return typeof pkg.version === "string" && pkg.version.trim() ? pkg.version.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** boot 后模块绑定摘要（供 Webview / Output 对账「装的就是我的模块」）。 */
+function buildModuleBinding(sb: Sandbox, moduleRoot: string | null) {
+  const subscribed = sb.events.subscribedPaths();
+  const id = sb.module?.id ?? null;
+  const version = moduleRoot ? readPackageVersion(moduleRoot) : undefined;
+  const enabled = id ? ModuleRegistry.isActive(id) : null;
+  const desc = id ? ModuleRegistry.get(id) : undefined;
+  return {
+    moduleRoot,
+    id,
+    version: version ?? null,
+    enabled,
+    afterWorldLoad: desc?.afterWorldLoad ?? null,
+    status: id ? ("loaded" as const) : ("engine-only" as const),
+    subscribedEvents: subscribed,
+    eventNote: id
+      ? "事件由模块 registerEvents 注册（含宿主 chat→命令桥等）"
+      : "engine only：无模块 registerEvents",
+  };
+}
+
 async function flushCommandSideEffects(): Promise<void> {
   if (!sb) return;
   sb.flush();
@@ -164,16 +199,36 @@ async function handle(req: RpcReq): Promise<unknown> {
           notify("progress", { phase: "start", ...step });
         },
       });
-      const modLabel = sb.module?.id ?? "(engine only)";
+      const binding = buildModuleBinding(sb, moduleRoot ?? null);
+      const modLabel = binding.id ?? "(engine only)";
+      const subSummary =
+        binding.subscribedEvents.length > 0
+          ? binding.subscribedEvents.map((e) => `${e.path}×${e.listeners}`).join(", ")
+          : "(无已订阅 path)";
       notify("log", {
         channel: "system",
         text: moduleRoot
-          ? `[playground] sandbox started module=${modLabel} root=${moduleRoot}`
+          ? `[playground] sandbox started module=${modLabel} version=${binding.version ?? "?"} enabled=${binding.enabled} root=${moduleRoot}`
           : "[playground] sandbox started (engine only)",
+      });
+      notify("log", {
+        channel: "system",
+        text: `[playground] ${binding.eventNote}；subscribed=[${subSummary}]`,
       });
       return {
         ok: true,
-        module: sb.module,
+        module: sb.module
+          ? {
+              id: sb.module.id,
+              root: sb.module.root ?? moduleRoot ?? undefined,
+              version: binding.version,
+              enabled: binding.enabled,
+              afterWorldLoad: binding.afterWorldLoad,
+            }
+          : null,
+        moduleRoot: binding.moduleRoot,
+        moduleBinding: binding,
+        subscribedEvents: binding.subscribedEvents,
         objectKinds: sb.objects.kinds(),
         eventPathCount: sb.events.paths().length,
       };
@@ -237,6 +292,10 @@ async function handle(req: RpcReq): Promise<unknown> {
       if (!sb) throw new Error("sandbox not started");
       return sb.events.paths();
     }
+    case "events.subscribed": {
+      if (!sb) throw new Error("sandbox not started");
+      return sb.events.subscribedPaths();
+    }
     case "events.emit": {
       if (!sb) throw new Error("sandbox not started");
       const path = String(params.path ?? "");
@@ -284,6 +343,7 @@ async function handle(req: RpcReq): Promise<unknown> {
     case "scene.summary": {
       if (!sb) throw new Error("sandbox not started");
       const scene = sb.objects.sceneNodes();
+      const binding = buildModuleBinding(sb, activeModuleRoot);
       return {
         started: true,
         ...scene,
@@ -294,6 +354,8 @@ async function handle(req: RpcReq): Promise<unknown> {
         lastCall,
         module: sb.module?.id ?? null,
         moduleRoot: activeModuleRoot,
+        moduleBinding: binding,
+        subscribedEvents: binding.subscribedEvents,
         note: sb.module ? `module=${sb.module.id}` : "engine only",
       };
     }

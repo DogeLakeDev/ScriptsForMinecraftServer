@@ -20,12 +20,174 @@ import { ExtLog } from "../log.js";
 let statusBar: vscode.StatusBarItem | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 
+/** workspaceState：上次脚本沙箱 / 冒烟绑定的模块根 */
+const LAST_SANDBOX_MODULE_KEY = "sfmc.sandbox.lastModuleRoot";
+
 export function setStatusBar(sb: vscode.StatusBarItem): void {
   statusBar = sb;
 }
 
 export function setExtensionContext(ctx: vscode.ExtensionContext): void {
   extensionContext = ctx;
+}
+
+/** Windows 路径对账用。 */
+export function normalizeModuleRootKey(p: string): string {
+  return path.resolve(p).replace(/\\/g, "/").toLowerCase();
+}
+
+export function getLastSandboxModuleRoot(ctx: vscode.ExtensionContext): string | undefined {
+  const last = (ctx.workspaceState.get<string>(LAST_SANDBOX_MODULE_KEY) || "").trim();
+  if (last && isValidModuleRoot(last)) return last;
+  return undefined;
+}
+
+export async function rememberSandboxModuleRoot(
+  ctx: vscode.ExtensionContext,
+  moduleRoot: string
+): Promise<void> {
+  await ctx.workspaceState.update(LAST_SANDBOX_MODULE_KEY, moduleRoot);
+}
+
+export type SandboxModuleResolve = {
+  moduleRoot?: string;
+  source: "explicit" | "single" | "pick" | "last" | "engine";
+};
+
+async function browseModuleRoot(): Promise<string | undefined> {
+  const picked = await vscode.window.showOpenDialog({
+    canSelectFolders: true,
+    canSelectFiles: false,
+    openLabel: "选择模块根",
+    title: "选择 SFMC 模块根（含 package.json + sapi/manifest.json）",
+  });
+  const dir = picked?.[0]?.fsPath;
+  if (!dir) return undefined;
+  if (!isValidModuleRoot(dir)) {
+    vscode.window.showErrorMessage(
+      `不是有效模块根（需 package.json + sapi/manifest.json schemaVersion 2）：${dir}`
+    );
+    return undefined;
+  }
+  return dir;
+}
+
+/**
+ * 沙箱与「Run Module Tests」共用的 moduleRoot 解析（DIP：有效根判定走 devkit）。
+ * 无选中时提示选择或沿用上次，不静默装错包。
+ * @returns null 表示用户取消
+ */
+export async function resolveSandboxModuleRoot(
+  ctx: vscode.ExtensionContext,
+  opts?: { explicit?: string; requireModule?: boolean }
+): Promise<SandboxModuleResolve | null> {
+  const explicit = opts?.explicit?.trim();
+  if (explicit) {
+    if (!isValidModuleRoot(explicit)) {
+      vscode.window.showErrorMessage(`不是有效模块根: ${explicit}`);
+      ExtLog.error("sandbox", `无效 moduleRoot=${explicit}`);
+      return null;
+    }
+    await rememberSandboxModuleRoot(ctx, explicit);
+    return { moduleRoot: explicit, source: "explicit" };
+  }
+
+  const roots = findAllModuleRoots();
+  const last = getLastSandboxModuleRoot(ctx);
+
+  if (roots.length === 1) {
+    const only = roots[0]!;
+    await rememberSandboxModuleRoot(ctx, only);
+    return { moduleRoot: only, source: "single" };
+  }
+
+  if (roots.length > 1) {
+    type PickItem = vscode.QuickPickItem & { modRoot?: string; kind?: "last" | "root" };
+    const picks: PickItem[] = [];
+    if (last && roots.some((r) => normalizeModuleRootKey(r) === normalizeModuleRootKey(last))) {
+      const info = readModuleRootInfo(last);
+      picks.push({
+        label: `$(history) 沿用上次：${info?.id ?? path.basename(last)}`,
+        description: last,
+        detail: "上次脚本沙箱 / 冒烟使用的模块",
+        modRoot: last,
+        kind: "last",
+      });
+    }
+    for (const r of roots) {
+      const info = readModuleRootInfo(r);
+      picks.push({
+        label: info?.id ?? path.basename(r),
+        description: r,
+        modRoot: r,
+        kind: "root",
+      });
+    }
+    const pick = await vscode.window.showQuickPick(picks, {
+      placeHolder: "选择要装入沙箱的模块（请确认，勿静默装错包）",
+    });
+    if (!pick?.modRoot) return null;
+    await rememberSandboxModuleRoot(ctx, pick.modRoot);
+    return {
+      moduleRoot: pick.modRoot,
+      source: pick.kind === "last" ? "last" : "pick",
+    };
+  }
+
+  // 零模块：提示选择 / 沿用上次 / 仅引擎
+  if (last) {
+    type ZeroPick = vscode.QuickPickItem & { id: "last" | "browse" | "engine" };
+    const items: ZeroPick[] = [
+      {
+        label: `$(history) 沿用上次：${path.basename(last)}`,
+        description: last,
+        id: "last",
+      },
+      { label: "打开文件夹选择模块根…", id: "browse" },
+    ];
+    if (!opts?.requireModule) {
+      items.push({ label: "仅引擎（不装模块）", id: "engine" });
+    }
+    const choice = await vscode.window.showQuickPick(items, {
+      placeHolder: "未检测到模块工作区 — 请选择模块或沿用上次",
+    });
+    if (!choice) return null;
+    if (choice.id === "last") return { moduleRoot: last, source: "last" };
+    if (choice.id === "engine") return { moduleRoot: undefined, source: "engine" };
+    const browsed = await browseModuleRoot();
+    if (!browsed) return null;
+    await rememberSandboxModuleRoot(ctx, browsed);
+    return { moduleRoot: browsed, source: "pick" };
+  }
+
+  if (opts?.requireModule) {
+    const open = "打开模块根目录";
+    const choice = await vscode.window.showInformationMessage(
+      "未检测到 SFMC 模块（需 package.json + sapi/manifest.json schemaVersion 2）",
+      open
+    );
+    if (choice === open) {
+      const browsed = await browseModuleRoot();
+      if (!browsed) return null;
+      await rememberSandboxModuleRoot(ctx, browsed);
+      return { moduleRoot: browsed, source: "pick" };
+    }
+    return null;
+  }
+
+  const choice = await vscode.window.showQuickPick(
+    [
+      { label: "打开文件夹选择模块根…", id: "browse" as const },
+      { label: "仅引擎（不装模块）", id: "engine" as const },
+    ],
+    { placeHolder: "未检测到模块 — 请选择模块根或仅引擎" }
+  );
+  if (!choice) return null;
+  if (choice.id === "engine") return { moduleRoot: undefined, source: "engine" };
+  const browsed = await browseModuleRoot();
+  if (!browsed) return null;
+  await rememberSandboxModuleRoot(ctx, browsed);
+  return { moduleRoot: browsed, source: "pick" };
 }
 
 /** 读取 sfmc.root；未配置返回空字符串（不猜工作区）。 */
@@ -177,33 +339,40 @@ export async function cmdNewModule(): Promise<void> {
   }
 }
 
-/** 打开 1:1 脚本沙箱（无模块根也可 engine-only）。 */
-export async function cmdOpenPlayground(): Promise<void> {
+/** 打开 1:1 脚本沙箱；与冒烟共用 resolveSandboxModuleRoot。 */
+export async function cmdOpenPlayground(modRootArg?: unknown): Promise<void> {
   if (!extensionContext) {
     vscode.window.showErrorMessage("扩展上下文未就绪");
     return;
   }
-  const roots = findAllModuleRoots();
-  const modRoot = roots.length === 1 ? roots[0] : roots.length > 1 ? await pickModuleRoot() : undefined;
-  ExtLog.info("playground", modRoot ? `打开 ${modRoot}` : "打开（engine only）");
-  PlaygroundPanel.show(extensionContext, modRoot);
+  const explicit = coerceModRoot(modRootArg);
+  const resolved = await resolveSandboxModuleRoot(extensionContext, { explicit });
+  if (!resolved) return;
+  const label = resolved.moduleRoot ?? "(engine only)";
+  ExtLog.info("sandbox", `moduleRoot=${label} source=${resolved.source}`);
+  PlaygroundPanel.show(extensionContext, resolved.moduleRoot);
 }
 
 /**
  * 冒烟：装载模块 → 对已注册命令走 !name + chatSend。
  * 不 spawn npm test；不直接 triggerCommand。
+ * moduleRoot 解析与脚本沙箱同源。
  */
-export async function cmdRunTests(modRoot?: string): Promise<void> {
-  if (!modRoot) {
-    modRoot = await pickModuleRoot();
-    if (!modRoot) return;
-  }
-  if (!isValidModuleRoot(modRoot)) {
-    vscode.window.showErrorMessage(`不是有效模块根: ${modRoot}`);
+export async function cmdRunTests(modRootArg?: unknown): Promise<void> {
+  if (!extensionContext) {
+    vscode.window.showErrorMessage("扩展上下文未就绪");
     return;
   }
+  const explicit = coerceModRoot(modRootArg);
+  const resolved = await resolveSandboxModuleRoot(extensionContext, {
+    explicit,
+    requireModule: true,
+  });
+  if (!resolved?.moduleRoot) return;
+  const modRoot = resolved.moduleRoot;
 
   ExtLog.show();
+  ExtLog.info("sandbox", `moduleRoot=${modRoot} source=${resolved.source}（冒烟）`);
   ExtLog.info("smoke", `开始冒烟 ${modRoot}`);
   if (statusBar) statusBar.text = "SFMC $(sync~spin) smoke";
 
@@ -215,7 +384,22 @@ export async function cmdRunTests(modRoot?: string): Promise<void> {
   }, modRoot);
 
   try {
-    await client.request("start", { moduleRoot: modRoot });
+    const startResult = (await client.request("start", { moduleRoot: modRoot })) as {
+      module?: { id?: string; version?: string | null; enabled?: boolean | null } | null;
+      subscribedEvents?: { path: string; listeners: number }[];
+    };
+    const mid = startResult.module?.id ?? "?";
+    ExtLog.info(
+      "smoke",
+      `已装 DESCRIPTOR id=${mid} version=${startResult.module?.version ?? "?"} enabled=${startResult.module?.enabled ?? "?"}`
+    );
+    const subs = startResult.subscribedEvents ?? [];
+    if (subs.length > 0) {
+      ExtLog.info(
+        "smoke",
+        `subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`
+      );
+    }
     const result = (await client.request("smoke.run", {})) as {
       ok: boolean;
       commands: string[];
@@ -231,7 +415,7 @@ export async function cmdRunTests(modRoot?: string): Promise<void> {
     if (result.ok) {
       ExtLog.info("smoke", `通过（${result.commands?.length ?? 0} 条命令）`);
       vscode.window.showInformationMessage(
-        `模块冒烟通过（${result.commands?.length ?? 0} 条 ! 命令）`
+        `模块冒烟通过（${result.commands?.length ?? 0} 条 ! 命令）· ${mid}`
       );
       if (statusBar) statusBar.text = "SFMC $(check)";
     } else {
@@ -239,6 +423,8 @@ export async function cmdRunTests(modRoot?: string): Promise<void> {
       vscode.window.showErrorMessage(`模块冒烟失败 ${failed.length} 条，见「SFMC 扩展」输出`);
       if (statusBar) statusBar.text = "SFMC $(error)";
     }
+    // 沙箱已开且同 moduleRoot：重置场景以对齐刚冒烟的模块装载
+    await PlaygroundPanel.alignAfterSmoke(modRoot);
   } catch (e) {
     const text = e instanceof Error ? e.message : String(e);
     ExtLog.error("smoke", text);
@@ -253,11 +439,18 @@ export async function cmdRunTests(modRoot?: string): Promise<void> {
  * 启动并调试：debug.startDebugging → playground-host + source map，
  * 断点目标为模块 sapi/src。
  */
-export async function cmdStartDebug(modRoot?: string): Promise<void> {
-  if (!modRoot) {
-    modRoot = await pickModuleRoot();
-    if (!modRoot) return;
+export async function cmdStartDebug(modRootArg?: unknown): Promise<void> {
+  if (!extensionContext) {
+    vscode.window.showErrorMessage("扩展上下文未就绪");
+    return;
   }
+  const explicit = coerceModRoot(modRootArg);
+  const resolved = await resolveSandboxModuleRoot(extensionContext, {
+    explicit,
+    requireModule: true,
+  });
+  if (!resolved?.moduleRoot) return;
+  const modRoot = resolved.moduleRoot;
   let entry;
   try {
     entry = resolveHostEntry();
@@ -289,6 +482,7 @@ export async function cmdStartDebug(modRoot?: string): Promise<void> {
     skipFiles: ["<node_internals>/**"],
   };
 
+  ExtLog.info("sandbox", `moduleRoot=${modRoot} source=${resolved.source}（调试）`);
   ExtLog.info("debug", `启动并调试 module=${modRoot}`);
   ExtLog.show(true);
   const ok = await vscode.debug.startDebugging(folder, config);

@@ -3,6 +3,7 @@
  */
 
 import * as vscode from "vscode";
+import path from "node:path";
 import { PlaygroundHostClient } from "./hostClient.js";
 import { ExtLog } from "../log.js";
 
@@ -17,6 +18,10 @@ type Meta = {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+
+function normalizeRootKey(p: string): string {
+  return path.resolve(p).replace(/\\/g, "/").toLowerCase();
 }
 
 /** 与手动保存同一 schema：schemaVersion + nodes + edges */
@@ -42,15 +47,33 @@ export class PlaygroundPanel {
   private meta: Meta | null = null;
   private disposed = false;
 
+  /**
+   * 打开脚本沙箱并绑定 moduleRoot。
+   * 已开面板且根不同 → 关闭后重建（避免静默装错包）。
+   */
   static show(context: vscode.ExtensionContext, moduleRoot?: string): void {
+    const nextKey = moduleRoot ? normalizeRootKey(moduleRoot) : "";
     if (PlaygroundPanel.current) {
-      PlaygroundPanel.current.panel.reveal(vscode.ViewColumn.Active, false);
-      return;
+      const curKey = PlaygroundPanel.current.moduleRoot
+        ? normalizeRootKey(PlaygroundPanel.current.moduleRoot)
+        : "";
+      if (curKey === nextKey) {
+        PlaygroundPanel.current.panel.reveal(vscode.ViewColumn.Active, false);
+        ExtLog.info("sandbox", `moduleRoot=${moduleRoot ?? "(engine only)"}（已打开，复用）`);
+        return;
+      }
+      ExtLog.info(
+        "sandbox",
+        `切换模块 ${curKey || "(engine)"} → ${nextKey || "(engine)"}，重建面板`
+      );
+      PlaygroundPanel.current.panel.dispose();
     }
     // 在当前编辑器组打开为新标签页（占满该组，避免 Beside 半屏过窄）
     const panel = vscode.window.createWebviewPanel(
       "sfmcPlayground",
-      "SFMC 脚本沙箱",
+      moduleRoot
+        ? `脚本沙箱 · ${path.basename(moduleRoot)}`
+        : "SFMC 脚本沙箱",
       { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
       {
         enableScripts: true,
@@ -64,6 +87,27 @@ export class PlaygroundPanel {
   /** 扩展 deactivate 时停宿主。 */
   static disposeCurrent(): void {
     PlaygroundPanel.current?.dispose();
+  }
+
+  /** 当前面板绑定的模块根（供冒烟对齐）。 */
+  static boundModuleRoot(): string | undefined {
+    return PlaygroundPanel.current?.moduleRoot;
+  }
+
+  /**
+   * 冒烟结束后：若沙箱已开且同 moduleRoot，重置场景再装同一模块（保持绑定）。
+   */
+  static async alignAfterSmoke(moduleRoot: string): Promise<void> {
+    const cur = PlaygroundPanel.current;
+    if (!cur?.moduleRoot) return;
+    if (normalizeRootKey(cur.moduleRoot) !== normalizeRootKey(moduleRoot)) return;
+    ExtLog.info("sandbox", `冒烟对齐：保持 moduleRoot=${moduleRoot} 并重置场景`);
+    try {
+      await cur.bootSandbox({ includeScript: false });
+    } catch (e) {
+      const text = e instanceof Error ? e.message : String(e);
+      ExtLog.warn("sandbox", `冒烟后刷新场景失败: ${text}`);
+    }
   }
 
   private constructor(
@@ -107,6 +151,7 @@ export class PlaygroundPanel {
         });
       }
     });
+    ExtLog.info("sandbox", `moduleRoot=${moduleRoot ?? "(engine only)"}`);
     ExtLog.info("playground", moduleRoot ? `面板打开 ${moduleRoot}` : "面板打开（engine only）");
     ExtLog.show(true);
     void this.bootSandbox({ includeScript: true }).catch((e) => {
@@ -171,11 +216,40 @@ export class PlaygroundPanel {
 
   /**
    * @param includeScript 仅首次打开恢复剧本；重置场景时勿带 script，避免覆盖未落盘编辑。
+   * 重置场景仍传入同一 moduleRoot（保持模块绑定）。
    */
   private async bootSandbox(options?: { includeScript?: boolean }): Promise<void> {
     const startParams: Record<string, unknown> = {};
     if (this.moduleRoot) startParams.moduleRoot = this.moduleRoot;
-    const result = await this.host.request("start", startParams);
+    ExtLog.info("sandbox", `boot moduleRoot=${this.moduleRoot ?? "(engine only)"}`);
+    const result = (await this.host.request("start", startParams)) as {
+      module?: {
+        id?: string;
+        version?: string | null;
+        enabled?: boolean | null;
+        root?: string;
+      } | null;
+      moduleBinding?: Record<string, unknown>;
+      subscribedEvents?: { path: string; listeners: number }[];
+    };
+    const mid = result.module?.id;
+    if (mid) {
+      ExtLog.info(
+        "sandbox",
+        `已装 DESCRIPTOR id=${mid} version=${result.module?.version ?? "?"} enabled=${result.module?.enabled ?? "?"}`
+      );
+    } else {
+      ExtLog.info("sandbox", "engine only（未装 DESCRIPTOR）");
+    }
+    const subs = result.subscribedEvents ?? [];
+    if (subs.length > 0) {
+      ExtLog.info(
+        "sandbox",
+        `subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`
+      );
+    } else if (mid) {
+      ExtLog.info("sandbox", "事件由模块 registerEvents 注册；当前无已订阅 path（或仅宿主桥）");
+    }
     this.meta = (await this.host.request("meta")) as Meta;
     const summary = await this.host.request("scene.summary");
     const payload: Record<string, unknown> = {
@@ -183,6 +257,14 @@ export class PlaygroundPanel {
       result,
       meta: this.meta,
       summary,
+      moduleBinding: result.moduleBinding ?? {
+        moduleRoot: this.moduleRoot ?? null,
+        id: mid ?? null,
+        version: result.module?.version ?? null,
+        enabled: result.module?.enabled ?? null,
+        status: mid ? "loaded" : "engine-only",
+        subscribedEvents: subs,
+      },
     };
     if (options?.includeScript) {
       const script = await this.loadPersistedScript();
@@ -206,6 +288,7 @@ export class PlaygroundPanel {
       return;
     }
     if (cmd === "reset") {
+      // 保持同一 moduleRoot 再装载
       await this.bootSandbox({ includeScript: false });
       this.reply(rid, { ok: true });
       return;
@@ -347,7 +430,7 @@ export class PlaygroundPanel {
 <link rel="stylesheet" href="${cssUri}" />
 <title>脚本沙箱</title>
 </head>
-<body data-module="${escapeHtml(rootLabel)}">
+<body data-module="${escapeHtml(rootLabel)}" data-module-status="pending">
 <div id="root"></div>
 <script type="module" nonce="${nonce}" src="${jsUri}"></script>
 </body>

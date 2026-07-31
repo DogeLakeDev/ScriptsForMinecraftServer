@@ -105,12 +105,37 @@ export function SceneDock({ scene, selectedId, onSelect }: SceneDockProps) {
     );
   }
 
+  const binding = scene.moduleBinding;
   const rows = buildBlocks(scene);
   let lastGroup = "";
 
   return (
     <div className="scene-dock">
       <div className="scene-dock-title">场景</div>
+      {binding ? (
+        <div className="scene-module-block" title={binding.moduleRoot ?? undefined}>
+          <div className="scene-group">当前模块</div>
+          <div className="scene-module-id">
+            {binding.id ?? "engine only"}
+            {binding.version ? ` @${binding.version}` : ""}
+          </div>
+          <div className="muted scene-module-meta">
+            {binding.status === "loaded"
+              ? binding.enabled === false
+                ? "已装载 · 未启用"
+                : "已装载"
+              : "仅引擎"}
+            {binding.moduleRoot
+              ? ` · ${binding.moduleRoot.replace(/\\/g, "/").split("/").slice(-2).join("/")}`
+              : ""}
+          </div>
+          {(binding.subscribedEvents?.length ?? 0) > 0 ? (
+            <div className="muted scene-module-subs">
+              已订阅 {(binding.subscribedEvents ?? []).length} 个事件
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="scene-grid">
         {rows.map((r) => {
           const showGroup = r.group !== lastGroup;

@@ -102,7 +102,16 @@ function CallFields({
   const targetKind =
     selected.data.targetKind ||
     objects.find((o) => o.id === selected.data.targetId)?.label.split(" · ")[0];
-  const methods = (targetKind && meta?.classes[targetKind]?.methods?.map((m) => m.name)) || [];
+  const methodEntries =
+    (targetKind && meta?.classes[targetKind]?.methods) ||
+    ([] as { name: string; impl?: "l0" | "l2" }[]);
+  // L2 在前，便于作者挑主路径；L0 标注「未接线」
+  const methods = [...methodEntries].sort((a, b) => {
+    const ai = a.impl === "l2" ? 0 : 1;
+    const bi = b.impl === "l2" ? 0 : 1;
+    if (ai !== bi) return ai - bi;
+    return a.name.localeCompare(b.name);
+  });
   const paramFields = methodParamFields(meta, targetKind, selected.data.method);
 
   const patchCall = (patch: Partial<StimulusNodeData>) => {
@@ -175,9 +184,13 @@ function CallFields({
             }}
           >
             <option value="">（选择）</option>
-            {methods.map((name) => (
-              <option key={name} value={name}>
-                {name}
+            {methods.map((m) => (
+              <option
+                key={m.name}
+                value={m.name}
+                className={m.impl === "l0" ? "method-l0" : "method-l2"}
+              >
+                {m.impl === "l0" ? `${m.name} · 未接线` : m.name}
               </option>
             ))}
           </select>

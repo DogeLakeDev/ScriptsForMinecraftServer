@@ -47,6 +47,7 @@ import {
   eventProps,
   playerCreateProps,
   seedProps,
+  type ModuleBinding,
   type PlaygroundMeta,
   type SceneSummary,
 } from "./metaForm";
@@ -352,6 +353,14 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [scene, setScene] = useState<SceneSummary | null>(null);
+  const [moduleBinding, setModuleBinding] = useState<ModuleBinding>(() => ({
+    moduleRoot: typeof document !== "undefined" ? document.body.dataset.module ?? null : null,
+    id: null,
+    version: null,
+    enabled: null,
+    status: "pending",
+    subscribedEvents: [],
+  }));
   const [sideFocus, setSideFocus] = useState<"graph" | "scene">("graph");
   const [sceneObjectId, setSceneObjectId] = useState<string | null>(null);
   const [inspect, setInspect] = useState<{
@@ -515,8 +524,22 @@ export default function App() {
       if (msg.type === "started") {
         setMeta(msg.meta ?? null);
         setScene((msg.summary as SceneSummary) ?? null);
+        const binding = (msg.moduleBinding ??
+          (msg.summary as SceneSummary | undefined)?.moduleBinding ??
+          msg.result?.moduleBinding) as ModuleBinding | undefined;
+        if (binding) {
+          setModuleBinding(binding);
+          if (typeof document !== "undefined") {
+            document.body.dataset.moduleStatus = binding.status ?? "loaded";
+            if (binding.id) document.body.dataset.moduleId = binding.id;
+          }
+        }
         setReady(true);
-        setStatus("就绪");
+        setStatus(
+          binding?.id
+            ? `已装载 ${binding.id}${binding.version ? `@${binding.version}` : ""}`
+            : "就绪（engine only）"
+        );
         setInspect(null);
         setSceneObjectId(null);
         // host 带 script：跨会话权威；若本轮已从 getState 恢复则跳过，避免覆盖未落盘编辑
@@ -534,6 +557,17 @@ export default function App() {
         skipHostScript.current = false;
         setCanPersist(true);
         appendLog(JSON.stringify(msg.result ?? { ok: true }));
+        if (binding?.id) {
+          appendLog(
+            `[module] id=${binding.id} version=${binding.version ?? "?"} enabled=${binding.enabled ?? "?"} root=${binding.moduleRoot ?? ""}`
+          );
+        }
+        const subs = binding?.subscribedEvents ?? [];
+        if (subs.length > 0) {
+          appendLog(
+            `[module] subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`
+          );
+        }
         if (graphForMaterialize) {
           void materializePlayerNodes(graphForMaterialize).catch((e) => {
             appendLog(`[scene] 自动登记失败: ${e instanceof Error ? e.message : String(e)}`);
@@ -890,6 +924,33 @@ export default function App() {
     [meta, pushHistory, selectGraphNode, setNodes]
   );
 
+  /** 从已订阅事件插入 Emit 节点草稿 */
+  const addEmitFromSubscribed = useCallback(
+    (eventPath: string) => {
+      pushHistory();
+      const id = `n${Date.now()}`;
+      const short = eventPath.split(".").pop() ?? eventPath;
+      setNodes((ns) => [
+        ...ns,
+        {
+          id,
+          type: "stimulus",
+          position: { x: 120 + Math.random() * 40, y: 60 + Math.random() * 40 },
+          data: {
+            kind: "emit",
+            title: short,
+            detail: eventPath,
+            path: eventPath,
+            props: seedProps(eventProps(meta, eventPath), {}),
+          },
+        },
+      ]);
+      selectGraphNode(id);
+      appendLog(`[insert] Emit ← subscribed ${eventPath}`);
+    },
+    [appendLog, meta, pushHistory, selectGraphNode, setNodes]
+  );
+
   const saveScript = useCallback(() => {
     const script = buildScript(nodes, edges);
     writeScriptToWebviewState(script);
@@ -1203,6 +1264,24 @@ export default function App() {
           </TopMenu>
           <TopMenu label="插入">
             <InsertMenuItems onInsert={addNode} />
+            {(moduleBinding.subscribedEvents?.length ?? 0) > 0 ? (
+              <>
+                <DropdownMenu.Separator className="rdx-sep" />
+                <DropdownMenu.Label className="rdx-label">已订阅事件 → Emit</DropdownMenu.Label>
+                {(moduleBinding.subscribedEvents ?? []).slice(0, 12).map((e) => (
+                  <DropdownMenu.Item
+                    key={e.path}
+                    className="rdx-item"
+                    onSelect={() => addEmitFromSubscribed(e.path)}
+                  >
+                    <span className="rdx-item-main">
+                      {e.path.split(".").pop()}
+                      <span className="sub">×{e.listeners}</span>
+                    </span>
+                  </DropdownMenu.Item>
+                ))}
+              </>
+            ) : null}
           </TopMenu>
           <TopMenu label="运行" disabled={!canRun && !busy}>
             <DropdownMenu.Item
@@ -1271,6 +1350,40 @@ export default function App() {
           <Codicon name="question" />
         </button>
         <span className="grow" />
+        <div
+          className="module-chip"
+          title={[
+            moduleBinding.moduleRoot ?? "(engine only)",
+            moduleBinding.eventNote,
+            (moduleBinding.subscribedEvents ?? [])
+              .map((e) => `${e.path}×${e.listeners}`)
+              .join(", "),
+          ]
+            .filter(Boolean)
+            .join("\n")}
+        >
+          <span className="module-chip-label">当前模块</span>
+          <span className="module-chip-id">
+            {moduleBinding.id ?? (moduleBinding.status === "pending" ? "…" : "engine")}
+            {moduleBinding.version ? (
+              <span className="muted">@{moduleBinding.version}</span>
+            ) : null}
+          </span>
+          <span className="module-chip-status">
+            {moduleBinding.status === "loaded"
+              ? moduleBinding.enabled === false
+                ? "已装·未启用"
+                : "已装载"
+              : moduleBinding.status === "pending"
+                ? "装载中"
+                : "仅引擎"}
+          </span>
+          {moduleBinding.moduleRoot && moduleBinding.moduleRoot !== "(engine only)" ? (
+            <span className="module-chip-path muted">
+              {moduleBinding.moduleRoot.replace(/\\/g, "/").split("/").slice(-2).join("/")}
+            </span>
+          ) : null}
+        </div>
         <span className="badge">{status}</span>
       </header>
 

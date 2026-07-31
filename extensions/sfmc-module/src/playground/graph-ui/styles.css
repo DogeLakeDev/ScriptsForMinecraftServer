@@ -1,4 +1,4 @@
-/* 脚本沙箱皮：示例同款强调色 + 跟 VS Code 亮/暗 chrome */
+/* 鑴氭湰娌欑鐨細绀轰緥鍚屾寮鸿皟鑹?+ 璺?VS Code 浜?鏆?chrome */
 :root {
   --vs-fg: var(--vscode-foreground);
   --vs-muted: var(--vscode-descriptionForeground);
@@ -26,7 +26,7 @@
   --font-vs: var(--vscode-font-family);
   --font-mono: var(--vscode-editor-font-family);
 
-  /* 示例同款节点强调色 */
+  /* 绀轰緥鍚屾鑺傜偣寮鸿皟鑹?*/
   --accent-player: #4ec9b0;
   --accent-emit: #569cd6;
   --accent-call: #4fc1ff;
@@ -76,7 +76,7 @@ body,
   background: var(--vs-bg);
 }
 
-/* Radix ScrollArea：细滑块，跟 VS Code chrome */
+/* Radix ScrollArea锛氱粏婊戝潡锛岃窡 VS Code chrome */
 .scroll-area {
   position: relative;
   overflow: hidden;
@@ -87,7 +87,7 @@ body,
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  /* 兜底隐藏原生滚动条（Radix 已处理，双保险） */
+  /* 鍏滃簳闅愯棌鍘熺敓婊氬姩鏉★紙Radix 宸插鐞嗭紝鍙屼繚闄╋級 */
   scrollbar-width: none;
 }
 .scroll-area-viewport::-webkit-scrollbar {
@@ -186,6 +186,11 @@ body,
   outline-offset: -1px;
 }
 
+/* Call 方法：L0 未接线（option 文案已带「未接线」） */
+.field select option.method-l0 {
+  color: var(--vs-muted);
+}
+
 .s-node {
   min-width: 168px;
   border: 1px solid var(--node-border);
@@ -214,7 +219,7 @@ body,
 .s-node[data-kind="note"] {
   border-left-color: var(--accent-note);
 }
-/* 场景块复用 s-node 结构，按对象类型着色 */
+/* 鍦烘櫙鍧楀鐢?s-node 缁撴瀯锛屾寜瀵硅薄绫诲瀷鐫€鑹?*/
 .s-node[data-kind="world"] {
   border-left-color: #c586c0;
 }
@@ -459,7 +464,7 @@ body,
   color: inherit;
   opacity: 0.75;
 }
-/* Radix modal 锁滚动时偶发 padding，webview 一律忽略 */
+/* Radix modal 閿佹粴鍔ㄦ椂鍋跺彂 padding锛寃ebview 涓€寰嬪拷鐣?*/
 body[data-scroll-locked],
 html body {
   margin: 0 !important;
@@ -538,6 +543,61 @@ html body {
   padding: 0 10px;
   border-bottom: 1px solid var(--vs-border);
   background: var(--vs-side);
+}
+.module-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(420px, 46vw);
+  padding: 2px 8px;
+  border: 1px solid var(--vs-border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--vs-side) 70%, var(--vs-fg) 6%);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.module-chip-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.module-chip-id {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.module-chip-status {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.module-chip-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.rdx-label {
+  padding: 4px 10px 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  color: var(--vs-menu-fg);
+}
+.scene-module-block {
+  padding: 6px 8px 8px;
+  border-bottom: 1px solid var(--vs-border);
+}
+.scene-module-id {
+  font-size: 12px;
+  font-weight: 600;
+}
+.scene-module-meta,
+.scene-module-subs {
+  font-size: 11px;
+  margin-top: 2px;
 }
 .workspace {
   display: flex;
@@ -910,7 +970,7 @@ html body {
   border-bottom: 1px solid var(--vs-border);
   overflow: auto;
   min-height: 0;
-  /* 兜底：隐藏原生滚动条（主路径应走 ScrollArea） */
+  /* 鍏滃簳锛氶殣钘忓師鐢熸粴鍔ㄦ潯锛堜富璺緞搴旇蛋 ScrollArea锛?*/
   scrollbar-width: none;
 }
 .side-section::-webkit-scrollbar {

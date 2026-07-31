@@ -4,6 +4,8 @@ export type MetaProp = {
   name: string;
   readonly?: boolean;
   type?: string;
+  /** overrides 自有成员 → l2；其余 TARGET 默认 l0 */
+  impl?: "l0" | "l2";
 };
 
 export type MetaMethodParam = {
@@ -16,6 +18,7 @@ export type MetaMethodParam = {
 export type MetaMethod = {
   name: string;
   parameters?: MetaMethodParam[];
+  impl?: "l0" | "l2";
 };
 
 export type ClassMeta = {
@@ -53,6 +56,21 @@ export type SceneSummary = {
     result?: unknown;
     at?: number;
   } | null;
+  module?: string | null;
+  moduleRoot?: string | null;
+  moduleBinding?: ModuleBinding;
+  subscribedEvents?: { path: string; listeners: number }[];
+};
+
+/** 当前模块 ↔ 沙箱宿主绑定（boot 后由 host 汇报） */
+export type ModuleBinding = {
+  moduleRoot?: string | null;
+  id?: string | null;
+  version?: string | null;
+  enabled?: boolean | null;
+  status?: "loaded" | "engine-only" | "pending" | string;
+  subscribedEvents?: { path: string; listeners: number }[];
+  eventNote?: string;
 };
 
 /** 沙箱创建 Player 入口字段（非 d.ts 表面，与 FakePlayerInit 对齐） */

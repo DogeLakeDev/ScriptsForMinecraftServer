@@ -14,10 +14,10 @@ import {
   cmdRunTests,
   cmdModuleInfo,
   cmdStartDebug,
+  cmdOpenPlayground,
   cmdEnableModule,
   cmdDisableModule,
 } from "./commands.js";
-import { PlaygroundPanel } from "../playground/PlaygroundPanel.js";
 import type { ModuleLock } from "./lock.js";
 
 function readLock(sfmcRoot: string): ModuleLock["modules"] {
@@ -201,8 +201,8 @@ export function registerTreeView(context: vscode.ExtensionContext, callbacks: Tr
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("sfmcModule.openPlaygroundAction", (modRoot: string) => {
-      PlaygroundPanel.show(context, modRoot || undefined);
+    vscode.commands.registerCommand("sfmcModule.openPlaygroundAction", async (modRoot: string) => {
+      await cmdOpenPlayground(modRoot || undefined);
     })
   );
 
