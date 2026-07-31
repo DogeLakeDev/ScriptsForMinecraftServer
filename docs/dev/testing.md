@@ -27,7 +27,7 @@
 
 扩展「SFMC: Open Playground」通过 `playground-host` JSON-RPC 消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
 
-世界模拟维度（宿主分相、System、玩家、聊天等）与「永不模拟」边界见规格 `docs/superpowers/specs/2026-07-31-sfmc-module-extension-design.md` §5；真机联调用 Watch，不靠假 BDS。
+世界模拟维度（宿主分相、System、玩家、聊天等）与「永不模拟」边界见规格；IDE 内默认人机路径为 **事件刺激台**（大纲选中 → 表单 Emit → 视口日志|状态），见 `docs/superpowers/specs/2026-07-31-sfmc-playground-stimulus-ux-design.md`。真机联调用 Watch。
 
 ## 宿主分相
 

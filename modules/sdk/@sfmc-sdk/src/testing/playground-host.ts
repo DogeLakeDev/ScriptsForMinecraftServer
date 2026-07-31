@@ -13,6 +13,7 @@ import { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
 type RpcReq = { id: number | string; method: string; params?: Record<string, unknown> };
 
 let sb: Sandbox | null = null;
+let lastEmit: { path: string; at: number } | null = null;
 
 function notify(name: string, payload: unknown): void {
   process.stdout.write(`${JSON.stringify({ type: "event", name, payload })}\n`);
@@ -76,6 +77,7 @@ async function handle(req: RpcReq): Promise<unknown> {
         });
         await sb.dispose();
         sb = null;
+        lastEmit = null;
         notify("progress", {
           phase: "stop",
           id: 1,
@@ -120,12 +122,33 @@ async function handle(req: RpcReq): Promise<unknown> {
       const path = String(params.path ?? "");
       const payload = params.payload ?? {};
       sb.events.emit(path, payload);
+      lastEmit = { path, at: Date.now() };
       notify("log", { channel: "system", text: `[events] emit ${path}` });
       return { ok: true };
     }
     case "events.eventType": {
       if (!sb) throw new Error("sandbox not started");
       return { eventType: sb.events.eventType(String(params.path ?? "")) ?? null };
+    }
+    case "scene.summary": {
+      if (!sb) throw new Error("sandbox not started");
+      const players = sb.objects
+        .list()
+        .filter((h) => h.kind === "Player")
+        .map((h) => {
+          const t = h.target as { name?: string; id?: string };
+          return { id: h.id, name: t.name ?? h.id, kind: h.kind };
+        });
+      return {
+        started: true,
+        playerCount: players.length,
+        players,
+        objectCount: sb.objects.list().length,
+        eventPathCount: sb.events.paths().length,
+        lastEmit,
+        module: null as string | null,
+        note: "engine only（模块 boot 后置）",
+      };
     }
     case "tick": {
       if (!sb) throw new Error("sandbox not started");

@@ -57,7 +57,7 @@
       },
       {
         "command": "sfmcModule.openPlayground",
-        "title": "SFMC: Open Playground"
+        "title": "SFMC: 事件刺激台"
       },
       {
         "command": "sfmcModule.showLog",
@@ -113,11 +113,11 @@
   },
   "dependencies": {
     "@sfmc-bds/devkit": "^0.1.0-beta.0",
-    "@sfmc-bds/sdk": "^0.2.0-beta.6"
+    "@sfmc-bds/sdk": "^0.2.0-beta.6",
+    "@vscode-elements/elements": "^2.5.1"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.28.1"
   }
 }
-

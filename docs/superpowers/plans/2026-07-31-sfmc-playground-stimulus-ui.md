@@ -32,9 +32,9 @@
 - 修改：`extensions/sfmc-module/package.json`、`build.mjs`
 - 修改：`PlaygroundPanel.ts`（CSP + 脚本/样式 URI）
 
-- [ ] **步骤 1：** 查清当前维护的 npm 包名与导入方式（`@vscode-elements/elements` / 文档示例）  
-- [ ] **步骤 2：** 安装依赖；esbuild 或 `asWebviewUri` 提供组件脚本  
-- [ ] **步骤 3：** 最小 Webview：一个 `vscode-button`「启动」能 RPC `start`  
+- [x] **步骤 1：** 查清当前维护的 npm 包名与导入方式（`@vscode-elements/elements` / 文档示例）  
+- [x] **步骤 2：** 安装依赖；esbuild 或 `asWebviewUri` 提供组件脚本  
+- [x] **步骤 3：** 最小 Webview：一个 `vscode-button`「启动」能 RPC `start`  
 - [ ] **步骤 4：** Commit  
 
 ---
@@ -45,9 +45,9 @@
 - 创建：webview 侧 `outliner` / `app` 脚本  
 - 修改：`PlaygroundPanel.ts` 消息协议  
 
-- [ ] **步骤 1：** 左树两区：场景（玩家列表 + +玩家）、事件（hub→信号，可搜）  
-- [ ] **步骤 2：** 单选 Active：`{ type:'player', id }` 或 `{ type:'event', path }`  
-- [ ] **步骤 3：** 启动后 `meta` + `objects.list` 灌树；create Player 后刷新场景  
+- [x] **步骤 1：** 左树两区：场景（玩家列表 + +玩家）、事件（hub→信号，可搜）  
+- [x] **步骤 2：** 单选 Active：`{ type:'player', id }` 或 `{ type:'event', path }`  
+- [x] **步骤 3：** 启动后 `meta` + `objects.list` 灌树；create Player 后刷新场景  
 - [ ] **步骤 4：** Commit  
 
 ---
@@ -58,10 +58,10 @@
 - webview 表单生成（读 `PLAYGROUND_META.classes[eventType]`）  
 - RPC：`events.emit`、`tick`、`objects.create`  
 
-- [ ] **步骤 1：** Active=事件 → 按属性类型渲染 Elements 控件；Player 字段用场景玩家下拉  
-- [ ] **步骤 2：** Emit 组装 plain object（引用字段用实例目标或 `$ref` 与宿主约定一致）  
-- [ ] **步骤 3：** Active=玩家 → 展示字段；本轮可不做聊天糖  
-- [ ] **步骤 4：** Tick 按钮；手测 chatSend / playerJoin  
+- [x] **步骤 1：** Active=事件 → 按属性类型渲染 Elements 控件；Player 字段用场景玩家下拉  
+- [x] **步骤 2：** Emit 组装 plain object（引用字段用实例目标或 `$ref` 与宿主约定一致）  
+- [x] **步骤 3：** Active=玩家 → 展示字段；本轮可不做聊天糖  
+- [x] **步骤 4：** Tick 按钮；手测 chatSend / playerJoin  
 - [ ] **步骤 5：** Commit  
 
 ---
@@ -72,9 +72,9 @@
 - webview 视口标签  
 - 可选：`playground-host` `scene.summary`  
 
-- [ ] **步骤 1：** 日志标签消费 `hostEvent` log/progress  
-- [ ] **步骤 2：** 状态标签：玩家数、最近 emit、boot 文案（engine-only 可写「未加载模块」）  
-- [ ] **步骤 3：** 默认日志；切换状态不丢日志缓冲  
+- [x] **步骤 1：** 日志标签消费 `hostEvent` log/progress  
+- [x] **步骤 2：** 状态标签：玩家数、最近 emit、boot 文案（engine-only 可写「未加载模块」）  
+- [x] **步骤 3：** 默认日志；切换状态不丢日志缓冲  
 - [ ] **步骤 4：** Commit  
 
 ---
@@ -84,9 +84,9 @@
 **文件：**
 - `PlaygroundPanel.ts` / webview  
 
-- [ ] **步骤 1：** 顶栏：启动/销毁/分相进度条或列表  
-- [ ] **步骤 2：** 视图切换「刺激台 | 实验室」；实验室嵌入既有 create/call/JSON 三栏  
-- [ ] **步骤 3：** 空态文案指向 `docs/dev/testing.md` + 刺激台规格一句话  
+- [x] **步骤 1：** 顶栏：启动/销毁/分相进度条或列表  
+- [x] **步骤 2：** 视图切换「刺激台 | 实验室」；实验室嵌入既有 create/call/JSON 三栏  
+- [x] **步骤 3：** 空态文案指向 `docs/dev/testing.md` + 刺激台规格一句话  
 - [ ] **步骤 4：** F5 手测验收规格 §7；Commit  
 
 ---
