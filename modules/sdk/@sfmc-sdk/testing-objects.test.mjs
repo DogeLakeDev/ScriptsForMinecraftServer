@@ -17,12 +17,12 @@ test("PLAYGROUND_META 含 Player、Event 类与 eventTypes", () => {
   assert.ok(Object.keys(PLAYGROUND_META.eventTypes).length >= 85);
 });
 
-test("场景天生登记 World / Dimension / Scoreboard", async () => {
+test("场景天生登记 World / Dimension；Scoreboard 须 create", async () => {
   const sb = await createSandbox({});
   try {
     const scene = sb.objects.sceneNodes();
     assert.equal(scene.world.id, "world");
-    assert.equal(scene.scoreboard.id, "scoreboard");
+    assert.equal(scene.scoreboard, undefined);
     assert.equal(scene.dimensions.length, 3);
     assert.ok(scene.dimensions.some((d) => d.dimensionId.includes("overworld")));
     assert.ok(scene.dimensions.some((d) => d.dimensionId.includes("nether")));
@@ -32,15 +32,24 @@ test("场景天生登记 World / Dimension / Scoreboard", async () => {
     assert.equal(insp.props.seed, "sfmc-testing");
     assert.equal(insp.props.allowCheats, true);
     assert.equal(insp.props.isHardcore, false);
-    const sbInsp = sb.objects.inspect("scoreboard");
-    assert.equal(sbInsp.kind, "Scoreboard");
     for (const d of scene.dimensions) {
       const dimInsp = sb.objects.inspect(d.id);
       assert.equal(dimInsp.kind, "Dimension");
       assert.equal(dimInsp.props.id, d.dimensionId);
     }
     assert.throws(() => sb.objects.create("World", {}), /天生已有/);
-    assert.throws(() => sb.objects.create("Scoreboard", {}), /天生已有/);
+    assert.throws(() => sb.objects.create("Dimension", {}), /天生已有/);
+
+    const board = sb.objects.create("Scoreboard", {});
+    assert.equal(board.kind, "Scoreboard");
+    assert.equal(board.id, "scoreboard");
+    assert.equal(board.target, sb.world.scoreboard);
+    const again = sb.objects.create("Scoreboard", { id: "other" });
+    assert.equal(again.id, board.id);
+    const scene2 = sb.objects.sceneNodes();
+    assert.equal(scene2.scoreboard?.id, "scoreboard");
+    const sbInsp = sb.objects.inspect("scoreboard");
+    assert.equal(sbInsp.kind, "Scoreboard");
   } finally {
     await sb.dispose();
   }

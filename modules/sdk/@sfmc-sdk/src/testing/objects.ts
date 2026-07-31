@@ -109,12 +109,27 @@ export function createObjectRegistry(host: Host) {
     return register(kind, bag);
   }
 
-  // World / Dimension / Scoreboard 不经 create；沙箱天生登记，供场景树选中
+  // World / Dimension 沙箱天生登记；Scoreboard 底层单例仍在 world.scoreboard，须 create 后才进场景坞
   register("World", host.world, "world");
-  register("Scoreboard", host.world.scoreboard, "scoreboard");
   for (const dimId of DEFAULT_DIMENSION_IDS) {
     const dim = host.world.getDimension(dimId);
     register("Dimension", dim, `dim:${dim.id}`);
+  }
+
+  function findScoreboardHandle(): SandboxObjectHandle | undefined {
+    for (const h of byId.values()) {
+      if (h.kind === "Scoreboard" || h.target === host.world.scoreboard) return h;
+    }
+    return undefined;
+  }
+
+  /** 将 world.scoreboard 登记为场景实例（单例；重复 create 返回已有句柄） */
+  function materializeScoreboard(props: Record<string, unknown> = {}): SandboxObjectHandle {
+    const existing = findScoreboardHandle();
+    if (existing) return existing;
+    const preferredId =
+      typeof props.id === "string" && props.id.trim() ? props.id.trim() : "scoreboard";
+    return register("Scoreboard", host.world.scoreboard, preferredId);
   }
 
   return {
@@ -125,18 +140,18 @@ export function createObjectRegistry(host: Host) {
     list(): SandboxObjectHandle[] {
       return [...byId.values()];
     },
-    /** 可构造种类：引擎四类 + 全部 Event 类型（不含 World/Dimension/Scoreboard） */
+    /** 可构造种类：引擎入口 + Scoreboard + 全部 Event 类型（不含 World/Dimension） */
     kinds(): string[] {
-      const out = new Set<string>(["Player", "Entity", "ItemStack", "Block"]);
+      const out = new Set<string>(["Player", "Entity", "ItemStack", "Block", "Scoreboard"]);
       for (const [name, info] of Object.entries(PLAYGROUND_META.classes)) {
         if ((info as { kind?: string }).kind === "event") out.add(name);
       }
       return [...out].sort();
     },
-    /** 场景树用：World / Dimension / Scoreboard / Player / Entity… */
+    /** 场景树用：World / Dimension 天生；Scoreboard / Player / Entity… 仅已登记实例 */
     sceneNodes(): {
       world: { id: string; kind: string };
-      scoreboard: { id: string; kind: string };
+      scoreboard?: { id: string; kind: string };
       dimensions: { id: string; kind: string; dimensionId: string }[];
       players: { id: string; kind: string; name: string }[];
       entities: { id: string; kind: string; typeId?: string }[];
@@ -148,8 +163,11 @@ export function createObjectRegistry(host: Host) {
       const entities: { id: string; kind: string; typeId?: string }[] = [];
       const items: { id: string; kind: string; typeId?: string }[] = [];
       const blocks: { id: string; kind: string }[] = [];
+      let scoreboard: { id: string; kind: string } | undefined;
       for (const h of byId.values()) {
-        if (h.kind === "Dimension") {
+        if (h.kind === "Scoreboard") {
+          scoreboard = { id: h.id, kind: h.kind };
+        } else if (h.kind === "Dimension") {
           const t = h.target as { id?: string };
           dims.push({ id: h.id, kind: h.kind, dimensionId: String(t.id ?? h.id) });
         } else if (h.kind === "Player") {
@@ -171,7 +189,7 @@ export function createObjectRegistry(host: Host) {
       }
       return {
         world: { id: "world", kind: "World" },
-        scoreboard: { id: "scoreboard", kind: "Scoreboard" },
+        ...(scoreboard ? { scoreboard } : {}),
         dimensions: dims,
         players,
         entities,
@@ -197,10 +215,13 @@ export function createObjectRegistry(host: Host) {
       return { id: h.id, kind: h.kind, props };
     },
     create(kind: SandboxObjectKind, props: Record<string, unknown> = {}): SandboxObjectHandle {
-      if (kind === "World" || kind === "Dimension" || kind === "Scoreboard") {
+      if (kind === "World" || kind === "Dimension") {
         throw new UnimplementedMinecraftApiError(
           `objects.create(${kind})：沙箱天生已有，请从场景树选中`
         );
+      }
+      if (kind === "Scoreboard") {
+        return materializeScoreboard(props);
       }
       const classMeta = PLAYGROUND_META.classes[kind as keyof typeof PLAYGROUND_META.classes] as
         | { kind?: string }
