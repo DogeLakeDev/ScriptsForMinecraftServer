@@ -83,14 +83,16 @@
 | 面 | 行为 |
 | ------ | ------ |
 | System | `run` / `runTimeout` / `runInterval` / `clearRun` / `tick` / `flush`；`isEditorWorld=false` |
-| World | 薄：`getDimension`、玩家列表、时间 / 出生点、`sendMessage`、`getEntity`、动态属性；`allowCheats` / `seed` / `isHardcore` |
-| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid` |
-| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill` → `entityDie` |
+| World | 薄：`getDimension`、玩家列表、时间 / 出生点、`sendMessage`、`getEntity`、动态属性；`allowCheats` / `seed` / `isHardcore`；`runCommand`（仅记录）/ `playSound`（仅记录）；`removePlayer` → `playerLeave` |
+| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；**本批加深：** `getGameMode`/`setGameMode`（对齐 pin 枚举字面量 + `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode`）、`playSound`、`onScreenDisplay`（`setTitle`/`updateSubtitle`/`setActionBar`）、`getSpawnPoint`/`setSpawnPoint` |
+| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill` → `entityDie`；`sb.emit.playerLeave` |
 | UI | 经典三表单 + `CustomForm` / `MessageBox` / Observables / `uiManager` + `ui.queueResponse` |
 | Scoreboard | `add/get/removeObjective`、display slot、`getScore→undefined`、`set/addScore`、`Player.scoreboardIdentity`（对齐 Learn） |
-| Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`、`isChunkLoaded≡true`、天气状态袋；不模拟未加载区块 / 物理 |
-| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory')` |
+| Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`、`isChunkLoaded≡true`、天气状态袋；`runCommand`（仅记录）；不模拟未加载区块 / 物理 |
+| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory')`；`runCommand`（仅记录） |
 | Inventory | `ItemStack`、`Container` get/set/add/transfer/swap、玩家 36 格 |
+
+`PLAYGROUND_META` 方法/属性带 `impl: "l0" | "l2"`：由 `gen-playground-meta` 扫描 `overrides/` 里 Fake* 自有成员推断（Player 合并 Entity），其余 TARGET 默认 `l0`。脚本沙箱 Call 方法列表对 L0 标注「未接线」。
 
 ## 边界与非目标
 
@@ -144,6 +146,13 @@ test("命令冒烟", async (t) => {
 2. Testing 面板发现 `test/**/*.test.ts`（settings 已配好 loader）。
 3. 命令面板：`SFMC: Run Module Tests` / `Start Watch` / `Reload to BDS`。
 4. 设置 `sfmc.root` 为 SFMC 工作目录（含 `configs/`、`modules/` 的运行时根，不必是源码仓库；Watch、Reload to BDS、模块启停都需要）。
+
+### 模块如何进沙箱（最短路径）
+
+1. 用 VS Code/Cursor **单独打开模块根**（含 `package.json` + `sapi/manifest.json`），或在 SFMC 侧栏选中目标模块。
+2. Tree 点 **脚本沙箱**，或命令面板 `SFMC: 脚本沙箱`（多模块时会 QuickPick；无选中可沿用上次，不会静默装错包）。
+3. 顶栏「当前模块」与 Output（`sandbox moduleRoot=…` / `已装 DESCRIPTOR id=…`）应对上你的模块 id；重置场景仍保持同一 `moduleRoot`。
+4. `SFMC: Run Module Tests` 与沙箱共用同一 `moduleRoot` 解析；冒烟结果在「SFMC 扩展」Output，若沙箱已开会按同根重置场景。
 
 ## 相关
 
