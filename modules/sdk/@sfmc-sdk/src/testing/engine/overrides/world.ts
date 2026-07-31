@@ -16,6 +16,7 @@ import {
 } from "./dimension.js";
 import { resetEntityIdCounter, type FakeEntity } from "./entity.js";
 import { runThinCommand, type FakeCommandResult } from "./command.js";
+import { toDamageSource } from "./damage-source.js";
 
 export type FakeWorld = {
   afterEvents: Record<string, EventSignal<unknown>>;
@@ -101,6 +102,8 @@ export function createFakeWorld(): FakeWorld {
     entityHitEntity: createEventSignal(),
     itemUse: createEventSignal(),
     playerBreakBlock: createEventSignal(),
+    playerPlaceBlock: createEventSignal(),
+    playerInteractWithBlock: createEventSignal(),
     /** 旧别名；pin 为 playerBreakBlock */
     blockBreak: createEventSignal(),
     entitySpawn: createEventSignal(),
@@ -111,6 +114,8 @@ export function createFakeWorld(): FakeWorld {
     playerSpawn: createEventSignal(),
     itemUse: createEventSignal(),
     playerBreakBlock: createEventSignal(),
+    playerPlaceBlock: createEventSignal(),
+    playerInteractWithBlock: createEventSignal(),
     playerLeave: createEventSignal(),
     playerGameModeChange: createEventSignal(),
   });
@@ -124,21 +129,20 @@ export function createFakeWorld(): FakeWorld {
       onEntitySpawn: (entity) => {
         afterEvents.entitySpawn!.emit({ entity });
       },
-      onEntityDie: (entity) => {
-        afterEvents.entityDie!.emit({ deadEntity: entity, damageSource: { cause: "none" } });
+      onEntityDie: (entity, options) => {
+        afterEvents.entityDie!.emit({
+          deadEntity: entity,
+          damageSource: toDamageSource(options),
+        });
       },
       onEntityHealthChange: (entity, oldValue, newValue) => {
         afterEvents.entityHealthChanged!.emit({ entity, oldValue, newValue });
       },
       onEntityHurt: (entity, damage, options) => {
-        const cause =
-          options && typeof options === "object" && "cause" in (options as object)
-            ? (options as { cause?: unknown }).cause
-            : "none";
         afterEvents.entityHurt!.emit({
           hurtEntity: entity,
           damage,
-          damageSource: { cause: cause ?? "none" },
+          damageSource: toDamageSource(options),
         });
       },
     });

@@ -32,6 +32,8 @@ import {
   configsFromFixtureIntent,
   type SandboxFixtureIntent,
 } from "./fixture.js";
+import { toDamageSource } from "./engine/overrides/damage-source.js";
+import type { FakeBlock, FakeBlockPermutation } from "./engine/overrides/dimension.js";
 
 export type { MemoryConfigsAll, MemoryDataAdapter };
 export type { SandboxFixtureIntent };
@@ -92,6 +94,33 @@ export type SandboxEmit = {
       brokenBlockPermutation?: unknown;
       itemStackBeforeBreak?: unknown;
       itemStackAfterBreak?: unknown;
+    }
+  ): void;
+  /**
+   * playerPlaceBlock：默认 before→（未 cancel 则落块）→after；
+   * `before: true` 仅 before（area/creative cancel 主路径）。
+   */
+  playerPlaceBlock(
+    player: FakePlayer,
+    opts?: {
+      before?: boolean;
+      block?: FakeBlock;
+      permutationToPlace?: FakeBlockPermutation;
+      face?: string;
+      faceLocation?: { x: number; y: number; z: number };
+    }
+  ): void;
+  /** playerInteractWithBlock：默认 after；`before: true` 可带 cancel。 */
+  playerInteractWithBlock(
+    player: FakePlayer,
+    opts?: {
+      before?: boolean;
+      block?: FakeBlock;
+      blockFace?: string;
+      faceLocation?: { x: number; y: number; z: number };
+      itemStack?: unknown;
+      beforeItemStack?: unknown;
+      isFirstEvent?: boolean;
     }
   ): void;
   entityHitEntity(damagingEntity: unknown, hitEntity: unknown): void;
@@ -324,21 +353,17 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
       },
       onHurt: (player, damage, options) => {
         userHurt?.(player, damage, options);
-        const cause =
-          options && typeof options === "object" && "cause" in (options as object)
-            ? (options as { cause?: unknown }).cause
-            : "none";
         eng.world.afterEvents.entityHurt!.emit({
           hurtEntity: player,
           damage,
-          damageSource: { cause: cause ?? "none" },
+          damageSource: toDamageSource(options),
         });
       },
-      onDie: (player) => {
-        userDie?.(player);
+      onDie: (player, options) => {
+        userDie?.(player, options);
         eng.world.afterEvents.entityDie!.emit({
           deadEntity: player,
-          damageSource: { cause: "none" },
+          damageSource: toDamageSource(options),
         });
       },
     });
@@ -421,6 +446,48 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
           eng.world.beforeEvents.playerBreakBlock!.emit(payload);
         } else {
           eng.world.afterEvents.playerBreakBlock!.emit(payload);
+        }
+      },
+      playerPlaceBlock(player, opts) {
+        const block =
+          opts?.block ??
+          player.dimension.getBlock(player.location);
+        const permutationToPlace = opts?.permutationToPlace;
+        const beforePayload = {
+          player,
+          block,
+          permutationToPlace,
+          face: opts?.face ?? "Up",
+          faceLocation: opts?.faceLocation ?? { x: 0.5, y: 1, z: 0.5 },
+          cancel: false,
+        };
+        eng.world.beforeEvents.playerPlaceBlock!.emit(beforePayload);
+        if (opts?.before) return;
+        if (beforePayload.cancel) return;
+        if (permutationToPlace) {
+          block.setPermutation(permutationToPlace);
+        }
+        eng.world.afterEvents.playerPlaceBlock!.emit({
+          player,
+          block,
+        });
+      },
+      playerInteractWithBlock(player, opts) {
+        const block = opts?.block ?? player.dimension.getBlock(player.location);
+        const payload = {
+          player,
+          block,
+          blockFace: opts?.blockFace ?? "Up",
+          faceLocation: opts?.faceLocation ?? { x: 0.5, y: 1, z: 0.5 },
+          itemStack: opts?.itemStack,
+          beforeItemStack: opts?.beforeItemStack ?? opts?.itemStack,
+          isFirstEvent: opts?.isFirstEvent ?? true,
+          cancel: false,
+        };
+        if (opts?.before) {
+          eng.world.beforeEvents.playerInteractWithBlock!.emit(payload);
+        } else {
+          eng.world.afterEvents.playerInteractWithBlock!.emit(payload);
         }
       },
       entityHitEntity(damagingEntity, hitEntity) {

@@ -1,6 +1,6 @@
 /**
  * 薄 L2：runCommand 记录命令串并返回 successCount。
- * 可选副作用：gamemode；玩家侧 give/clear → 物品栏（coop/daily-task 主路径）。
+ * 可选副作用：gamemode；give/clear → 物品栏；ability → 能力状态袋（area/fly）。
  * 解析不了的保持记录-only，不抛错。
  */
 
@@ -159,25 +159,59 @@ export function clearItemsFromContainer(
   return removed;
 }
 
+export type ParsedAbility = {
+  target: string;
+  ability: string;
+  value: boolean;
+};
+
+/**
+ * 解析 `ability <target> <ability> <true|false|1|0>`（area/fly 主路径）。
+ * 不匹配则返回 undefined。
+ */
+export function parseAbility(cmd: string): ParsedAbility | undefined {
+  const m = /^ability\s+/i.exec(cmd);
+  if (!m) return undefined;
+  let rest = cmd.slice(m[0].length);
+  const targetTok = nextToken(rest);
+  if (!targetTok) return undefined;
+  rest = targetTok.rest;
+  const abilityTok = nextToken(rest);
+  if (!abilityTok) return undefined;
+  rest = abilityTok.rest;
+  const valueTok = nextToken(rest);
+  if (!valueTok) return undefined;
+  const raw = valueTok.token.trim().toLowerCase();
+  let value: boolean | undefined;
+  if (raw === "true" || raw === "1") value = true;
+  else if (raw === "false" || raw === "0") value = false;
+  if (value === undefined) return undefined;
+  const ability = abilityTok.token.trim().toLowerCase();
+  if (!ability) return undefined;
+  return { target: targetTok.token, ability, value };
+}
+
 export type ThinCommandOpts = {
   onGamemode?: (mode: string) => void;
-  /** 玩家名：用于判断 give/clear 目标是否为本实体 */
+  /** 玩家名：用于判断 give/clear/ability 目标是否为本实体 */
   selfName?: string;
   /** 本实体物品栏；缺省则 give/clear 只记录 */
   inventory?: FakeContainer;
+  /** ability 副作用（area/fly：mayfly 等） */
+  onAbility?: (ability: string, value: boolean) => void;
   /** 从命令串提取目标 token，供 isSelfCommandTarget */
   resolveTarget?: (cmd: string) => string | undefined;
 };
 
 function extractTarget(cmd: string): string | undefined {
-  const m = /^(?:give|clear)\s+/i.exec(cmd);
+  const m = /^(?:give|clear|ability)\s+/i.exec(cmd);
   if (!m) return undefined;
   const tok = nextToken(cmd.slice(m[0].length));
   return tok?.token;
 }
 
 /**
- * 记录命令；可选 gamemode / give / clear 副作用。
+ * 记录命令；可选 gamemode / give / clear / ability 副作用。
  */
 export function runThinCommand(
   commandLog: string[],
@@ -193,6 +227,13 @@ export function runThinCommand(
   if (gm && opts?.onGamemode) {
     const mode = normalizeGameMode(gm[1]);
     if (mode) opts.onGamemode(mode);
+  }
+
+  if (opts?.onAbility) {
+    const ability = parseAbility(cmd);
+    if (ability && isSelfCommandTarget(ability.target, opts.selfName)) {
+      opts.onAbility(ability.ability, ability.value);
+    }
   }
 
   const inv = opts?.inventory;

@@ -73,7 +73,7 @@
 | `loadModuleDescriptor` | 从模块根动态装载 `sapi/src/index.ts` 的 `DESCRIPTOR` |
 | `sb.objects` / `sb.events` | 1:1 构造 / 调用 / 全 hub emit；Event 类型亦可 `create`；`eventTypes` 映射信号→Event 类 |
 | `PLAYGROUND_META` | class 成员（含全部 Event）+ hub 信号 + `eventTypes` |
-| `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent` / `playerLeave` / `itemUse` / `playerBreakBlock` / `entityHitEntity`（糖；底层仍是事件） |
+| `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent` / `playerLeave` / `itemUse` / `playerBreakBlock` / `playerPlaceBlock` / `playerInteractWithBlock` / `entityHitEntity`（糖；底层仍是事件） |
 | `createFakePlayer` / `createFakeDb` | 底层替身（一般不必直接用） |
 | `runCleanup` | 单测清理钩子 |
 | `assertMsg` | 断言玩家消息 |
@@ -84,8 +84,8 @@
 | ------ | ------ |
 | System | `run` / `runTimeout` / `runInterval` / `clearRun` / `tick` / `flush`；`isEditorWorld=false` |
 | World | 薄：`getDimension`、玩家列表、时间 / 出生点、`sendMessage`、`getEntity`、动态属性；`allowCheats` / `seed` / `isHardcore`；`runCommand`（仅记录）/ `playSound`（仅记录）；`removePlayer` → `playerLeave` |
-| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；`getGameMode`/`setGameMode`（+ `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode` / `give` / `clear`→物品栏）、`playSound`、`onScreenDisplay`、`getSpawnPoint`/`setSpawnPoint`、`applyDamage` / `kill` / `minecraft:health`；`addEffect`/`getEffect`/`getEffects`/`removeEffect` |
-| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill`/`applyDamage→0` → `entityDie`；`sb.emit.playerLeave` / `itemUse` / `playerBreakBlock` / `entityHitEntity` |
+| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；`getGameMode`/`setGameMode`（+ `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode` / `give` / `clear`→物品栏、`ability`→`abilities` 袋）、`playSound`、`onScreenDisplay`、`getSpawnPoint`/`setSpawnPoint`、`applyDamage` / `kill` / `minecraft:health`；`addEffect`/`getEffect`/`getEffects`/`removeEffect` |
+| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill`/`applyDamage→0` → `entityDie`（`damageSource` 含 cause / damagingEntity / damagingProjectile）；`sb.emit.playerLeave` / `itemUse` / `playerBreakBlock` / `playerPlaceBlock`（可落块）/ `playerInteractWithBlock` / `entityHitEntity` |
 | UI | 经典三表单 + `CustomForm` / `MessageBox` / Observables / `uiManager` + `ui.queueResponse` |
 | Scoreboard | `add/get/removeObjective`、display slot、`getScore→undefined`、`set/addScore`、`Player.scoreboardIdentity`（对齐 Learn） |
 | Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`/`getEntitiesOfType`（糖）、`isChunkLoaded≡true`、天气状态袋；`runCommand`（仅记录）；不模拟未加载区块 / 物理 |
@@ -153,6 +153,7 @@ test("命令冒烟", async (t) => {
 2. Tree 点 **脚本沙箱**，或命令面板 `SFMC: 脚本沙箱`（多模块时会 QuickPick；无选中可沿用上次，不会静默装错包）。
 3. 顶栏「当前模块」与 Output（`sandbox moduleRoot=…` / `已装 DESCRIPTOR id=…`）应对上你的模块 id；重置场景仍保持同一 `moduleRoot`。
 4. `SFMC: Run Module Tests` 与沙箱共用同一 `moduleRoot` 解析；冒烟结果在「SFMC 扩展」Output，若沙箱已开会按同根重置场景。
+5. 日志主路径：Output「SFMC 扩展」。可用 `SFMC: 日志过滤…` / 视图菜单过滤（仅新写入）；运行行含 `node=<id>`，失败后 `SFMC: 定位沙箱日志节点`（剪贴板或上次失败）；断言可筛最近 N 条 / 级别 / source；模块 `console`/`Msg` 以模块 id 为 source 汇入。
 
 ## 相关
 

@@ -57,7 +57,8 @@ export type FakeEntity = {
   /** 沙箱可观测：runCommand 记录 */
   commandLog: string[];
   remove(): void;
-  kill(): boolean;
+  /** options 透传至 onDie（对齐致死 applyDamage 的 damageSource）。 */
+  kill(options?: unknown): boolean;
   /** 扣血；<=0 返回 false；血量归零则 kill。不模拟护甲/击退。 */
   applyDamage(amount: number, options?: unknown): boolean;
   /** 效果状态袋；不模拟粒子 / 周期伤害。 */
@@ -100,8 +101,8 @@ export type CreateFakeEntityOpts = {
   dimension: FakeDimension;
   id?: string;
   nameTag?: string;
-  /** kill() 时先于 remove 调用（对齐 entityDie）。 */
-  onDie?: (entity: FakeEntity) => void;
+  /** kill() 时先于 remove 调用（对齐 entityDie）；options 来自致死 applyDamage。 */
+  onDie?: (entity: FakeEntity, options?: unknown) => void;
   onRemove?: (entity: FakeEntity) => void;
   /** 生命值变化（entityHealthChanged）。 */
   onHealthChange?: (entity: FakeEntity, oldValue: number, newValue: number) => void;
@@ -155,9 +156,9 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
       valid = false;
       opts.onRemove?.(entity);
     },
-    kill() {
+    kill(options?: unknown) {
       if (!valid) return false;
-      opts.onDie?.(entity);
+      opts.onDie?.(entity, options);
       entity.remove();
       return true;
     },
@@ -170,7 +171,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
       const dealt = before - health.currentValue;
       if (dealt <= 0) return false;
       opts.onHurt?.(entity, dealt, options);
-      if (health.currentValue <= 0) entity.kill();
+      if (health.currentValue <= 0) entity.kill(options);
       return true;
     },
     addEffect: effects.addEffect,

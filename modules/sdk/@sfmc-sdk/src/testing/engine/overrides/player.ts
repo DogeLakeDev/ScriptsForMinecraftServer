@@ -48,6 +48,11 @@ export type FakePlayer = {
   commandLog: string[];
   /** 沙箱可观测：playSound 记录 */
   soundLog: string[];
+  /**
+   * 沙箱可观测：ability 命令写入的能力袋（如 mayfly）。
+   * 不实现 Player.isFlying（见 l2-skip.json）。
+   */
+  abilities: Record<string, boolean>;
   playerPermissionLevel: number;
   /** d.ts 可写：命令权限等级（薄 L2，数字存） */
   commandPermissionLevel: number;
@@ -93,7 +98,8 @@ export type FakePlayer = {
   getEffect(effectType: string | { getName(): string }): FakeEffect | undefined;
   getEffects(): FakeEffect[];
   removeEffect(effectType: string | { getName(): string }): boolean;
-  kill(): boolean;
+  /** options 透传至 onDie（对齐致死 applyDamage 的 damageSource）。 */
+  kill(options?: unknown): boolean;
 };
 
 export interface FakePlayerInit {
@@ -111,13 +117,15 @@ export interface FakePlayerInit {
   onGameModeChange?: (player: FakePlayer, from: string, to: string) => void;
   onHealthChange?: (player: FakePlayer, oldValue: number, newValue: number) => void;
   onHurt?: (player: FakePlayer, damage: number, options?: unknown) => void;
-  onDie?: (player: FakePlayer) => void;
+  onDie?: (player: FakePlayer, options?: unknown) => void;
 }
 
 export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
   const log: string[] = [];
   const commandLog: string[] = [];
   const soundLog: string[] = [];
+  /** mayfly 默认关；其余 ability 按命令写入 */
+  const abilities: Record<string, boolean> = { mayfly: false };
   const level = init.permissionLevel ?? (init.op ? 2 /* Operator */ : 1 /* Member */);
   const dimId = init.dimensionId ?? "minecraft:overworld";
   const inventory = createEntityInventoryComponent(36);
@@ -180,6 +188,7 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
     log,
     commandLog,
     soundLog,
+    abilities,
     playerPermissionLevel: level,
     commandPermissionLevel: level,
     selectedSlotIndex: 0,
@@ -283,6 +292,9 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       if (!player.isValid) throw new Error("InvalidEntityError");
       return runThinCommand(commandLog, commandString, {
         onGamemode: (mode) => player.setGameMode(mode),
+        onAbility: (ability, value) => {
+          abilities[ability] = value;
+        },
         selfName: player.name,
         inventory: inventory.container,
       });
@@ -296,16 +308,16 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       const dealt = before - health.currentValue;
       if (dealt <= 0) return false;
       init.onHurt?.(player, dealt, options);
-      if (health.currentValue <= 0) player.kill();
+      if (health.currentValue <= 0) player.kill(options);
       return true;
     },
     addEffect: effects.addEffect,
     getEffect: effects.getEffect,
     getEffects: effects.getEffects,
     removeEffect: effects.removeEffect,
-    kill() {
+    kill(options?: unknown) {
       if (!player.isValid) return false;
-      init.onDie?.(player);
+      init.onDie?.(player, options);
       player.isValid = false;
       return true;
     },

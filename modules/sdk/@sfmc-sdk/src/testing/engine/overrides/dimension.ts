@@ -80,7 +80,7 @@ export type FakeDimension = {
 export type FakeDimensionHooks = {
   getPlayers: () => FakePlayer[];
   onEntitySpawn?: (entity: FakeEntity) => void;
-  onEntityDie?: (entity: FakeEntity) => void;
+  onEntityDie?: (entity: FakeEntity, options?: unknown) => void;
   onEntityHealthChange?: (entity: FakeEntity, oldValue: number, newValue: number) => void;
   onEntityHurt?: (entity: FakeEntity, damage: number, options?: unknown) => void;
 };
@@ -266,7 +266,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
         location,
         dimension: dim,
         ...(options?.id ? { id: options.id } : {}),
-        onDie: (e) => hooks.onEntityDie?.(e),
+        onDie: (e, options) => hooks.onEntityDie?.(e, options),
         onRemove: (e) => {
           const i = entities.indexOf(e);
           if (i >= 0) entities.splice(i, 1);
