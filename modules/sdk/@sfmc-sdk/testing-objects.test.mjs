@@ -17,6 +17,21 @@ test("PLAYGROUND_META 含 Player、Event 类与 eventTypes", () => {
   assert.ok(Object.keys(PLAYGROUND_META.eventTypes).length >= 85);
 });
 
+test("场景天生登记 World / Dimension", async () => {
+  const sb = await createSandbox({});
+  try {
+    const scene = sb.objects.sceneNodes();
+    assert.equal(scene.world.id, "world");
+    assert.equal(scene.dimensions.length, 3);
+    assert.ok(scene.dimensions.some((d) => d.dimensionId.includes("overworld")));
+    const insp = sb.objects.inspect("world");
+    assert.equal(insp.kind, "World");
+    assert.throws(() => sb.objects.create("World", {}), /天生已有/);
+  } finally {
+    await sb.dispose();
+  }
+});
+
 test("objects.create Player / ItemStack / Event / $ref", async () => {
   const sb = await createSandbox({});
   try {

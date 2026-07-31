@@ -1,10 +1,11 @@
 # SFMC 事件刺激台（Playground）UX / UI 设计
 
 **日期：** 2026-07-31  
-**状态：** 已审（对话确认）  
+**状态：** 已审（对话确认）→ **主隐喻已演进**  
+**演进：** 默认主路径改为 **刺激剧本（蓝图）**，见 [2026-07-31-sfmc-playground-stimulus-graph-design.md](./2026-07-31-sfmc-playground-stimulus-graph-design.md)。本文保留为三区 / 单步填表辅模式与历史决策参考。  
 **范围：** `extensions/sfmc-module` Playground Webview 交互与视觉；依赖既有 `@sfmc-bds/sdk/testing` 1:1 API  
 **前置：** [2026-07-31-sfmc-module-extension-design.md](./2026-07-31-sfmc-module-extension-design.md)、[script-api-native-map.md](../notes/script-api-native-map.md)  
-**非目标：** 模块引导左树、场景故事板主路径、每玩家聊天糖做默认主路径、假 BDS 视口
+**非目标：** 模块引导左树、每玩家聊天糖做默认主路径、假 BDS 视口  
 
 ---
 
@@ -30,6 +31,8 @@
 | 填 payload | **表单优先**；JSON 仅实验室 / 高级编辑 |
 | 骨架 | IDE 双栏演进为 **三区**：大纲 \| 属性 \| 视口 |
 | 视口 | **日志 \| 状态** 可切换标签；默认日志 |
+| 生命周期 | **开面板即沙箱**；无启动/销毁主按钮；次要「重置场景」 |
+| 场景树 | World / Dimension（天生）+ Player / Entity（可 create，预填） |
 | UI 库 | **[VS Code Elements](https://vscode-elements.github.io/)**（Web Components）；不用已停更的 `@vscode/webview-ui-toolkit`；不上 React/MUI/Ant |
 | 实现策略 | 薄皮重铺：保留 `playground-host` RPC 与 meta；重写 Webview |
 
@@ -38,25 +41,41 @@
 ## 3. 信息架构
 
 ```text
-┌─ 顶栏：启动 | 销毁 | 分相进度 | [刺激台] [实验室] ─────────────┐
+┌─ 顶栏：Tick | 重置场景 | 分相进度 | [刺激台] [实验室] ───────┐
 ├──────────┬─────────────────────┬──────────────────────────────┤
 │ 大纲     │ 属性（跟 Active）    │ 视口                         │
 │          │                     │ [日志] [状态]                │
-│ 场景     │ 玩家字段 或         │                              │
-│  ·玩家*  │ Event 表单          │ 日志：系统频道镜像           │
-│  [+玩家] │                     │ 状态：玩家/boot/最近 emit    │
-│ 事件     │ [Emit] [Tick]       │                              │
+│ 场景     │ 实例字段 / 新建草稿 │                              │
+│  World   │ 或 Event 表单       │ 日志：系统频道镜像           │
+│  Dim…    │                     │ 状态：场景摘要 / 最近 emit   │
+│  Player… │ [Emit|创建] [Tick] │                              │
+│  Entity… │                     │                              │
+│  [新建▾] │                     │                              │
+│ 事件     │                     │                              │
 │  ·hub…   │                     │                              │
 └──────────┴─────────────────────┴──────────────────────────────┘
 ```
 
+### 3.0 生命周期（无启动/销毁主按钮）
+
+- 打开面板 → 自动 `createSandbox`（World / 默认 Dimension 已存在）
+- 关闭面板 → dispose 宿主
+- **重置场景**：次要操作，等价于再跑一遍 `createSandbox`（清空玩家/实体后重建壳）
+- 顶栏「启动 / 销毁」视为糖，**不做主路径**
+
 ### 3.1 大纲（Outliner）
 
-**场景**
+**场景**（世界模拟维度 W / D / P / E）
 
-- 列出沙箱内玩家（显示名 + kind）
-- **+ 玩家**：弹出名 / OP 等最小字段 → `objects.create('Player', …)`
-- 选中玩家 → Active = 该玩家
+| 节点 | 来源 | 新建 |
+|------|------|------|
+| World | 沙箱单例（非 `objects.create`） | 否 |
+| Dimension | `getDimension` 默认 overworld / nether / the_end | 否 |
+| Player / Entity | `objects.create` | 是（预填） |
+| ItemStack / Block | 同左（引擎可构造） | 是（预填）；树分组可选 |
+
+- **新建**：选 kind → 属性区「新建草稿」按 `PLAYGROUND_META.classes[Kind]` 出表单并预填 → **创建**
+- 选中实例 → Active = 该实例（跟属性）
 
 **事件**
 
@@ -68,11 +87,13 @@
 
 ### 3.2 属性（Properties）
 
-**硬规则：一次一个 Active**（玩家 **或** 事件，互斥高亮）。
+**硬规则：一次一个 Active**（场景实例 / 新建草稿 / 事件，互斥高亮）。
 
 | Active | 属性区内容 | 主操作 |
 |--------|------------|--------|
-| 玩家 | 可写/展示字段（名、OP 等）；只读展示 id | （本轮）可选「设为默认 sender」；聊天糖后置 |
+| World / Dimension | 按 meta 展示字段（多只读） | （本轮）只读为主；方法进实验室 |
+| Player / Entity / … | 展示 id + 字段快照 | （本轮）只读为主 |
+| 新建草稿 | 全字段表单 + 预填 | **创建** → `objects.create` |
 | 事件 | 按 `PLAYGROUND_META.classes[eventType].properties` 生成表单 | **Emit**；旁路 **Tick** |
 
 表单控件映射（VS Code Elements）：
@@ -82,8 +103,9 @@
 | `boolean` | checkbox / switch |
 | `number` | number input |
 | `string` | text input |
+| `location` / 坐标袋 | x/y/z 数字框 |
 | `Player` / `Entity` 等引用 | 下拉：场景内已有实例；空选项表示未绑 |
-| 其余 / 复杂 | 文本框或「在实验室用 JSON」提示 |
+| 其余 / 复杂 | JSON 文本框（预填默认） |
 
 嵌套引用在 RPC 层仍可译为 `$ref`；作者默认不手写 JSON。
 
@@ -112,7 +134,7 @@
 | Outliner | 大纲：场景 + 事件 |
 | Active Object | 当前选中玩家或信号 |
 | Properties | 属性表单 |
-| Operator | Emit / Tick / +玩家 |
+| Operator | Emit / Tick / 新建 / 重置场景 |
 | Viewport | 视口：日志 \| 状态 |
 | Timeline | 后置（刺激历史） |
 
@@ -122,7 +144,7 @@
 
 - Webview CSP：Elements 经扩展打包注入；`webview.cspSource` + nonce/hash 按 VS Code 惯例
 - 主题：依赖 Elements + `--vscode-*`，不引入独立品牌皮
-- 宿主：继续 JSON-RPC stdio；表单提交 → `events.emit(path, plainObject)`；创建玩家 → `objects.create`
+- 宿主：继续 JSON-RPC stdio；开面板自动 `start`；表单 → `events.emit` / `objects.create`；World/Dim 经 registry 登记供选中
 - 元数据权威：`PLAYGROUND_META`（含 `eventTypes`、Event `kind: "event"`）
 
 ---
@@ -131,7 +153,7 @@
 
 | 轮次 | 交付 |
 |------|------|
-| **本轮** | 刺激台三区 UI（Elements）+ 全量事件树 + Event 表单 + Emit/Tick + 视口日志/状态切换 + 实验室保留 1:1 + 场景 +玩家 |
+| **本轮** | 刺激台三区 + 自动生命周期 + 场景 World/Dim/Player/Entity + 新建预填 + Event 表单 Emit/Tick + 视口日志/状态 + 实验室 1:1 |
 | **下一轮** | 模块引导左树；每玩家聊天主路径；刺激历史 / Timeline |
 | **更后** | 启动并调试；场景模板 |
 
@@ -139,7 +161,7 @@
 
 ## 7. 验收
 
-1. 未读文档的作者能在 1 分钟内：启动 → 加玩家 → 选 `chatSend`（或任意信号）→ 填表 → Emit → 在日志区看到记录  
+1. 未读文档的作者能在 1 分钟内：开面板（已有 World/Dim）→ 新建玩家 → 选 `chatSend`（或任意信号）→ 填表 → Emit → 在日志区看到记录  
 2. 默认路径无需手写 JSON、无需理解 `$ref`  
 3. 实验室仍可 create Event 袋与原始 emit  
 4. 外观跟编辑器主题（亮/暗）可读  

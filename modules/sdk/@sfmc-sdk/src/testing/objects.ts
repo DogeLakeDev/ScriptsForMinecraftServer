@@ -30,6 +30,31 @@ let seq = 0;
 
 const ENGINE_KINDS = new Set(["Player", "Entity", "ItemStack", "Block"]);
 
+function serializeInspectValue(value: unknown): unknown {
+  if (value == null) return value;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    if (typeof o.id === "string" && typeof o.name === "string") {
+      return { $refHint: o.id, name: o.name };
+    }
+    if (typeof o.id === "string" && typeof o.typeId === "string") {
+      return { $refHint: o.id, typeId: o.typeId };
+    }
+    if (typeof o.x === "number" && typeof o.y === "number" && typeof o.z === "number") {
+      return { x: o.x, y: o.y, z: o.z };
+    }
+    if (typeof o.id === "string") return { id: o.id };
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
 export function createObjectRegistry(host: Host) {
   const byId = new Map<string, SandboxObjectHandle>();
 
@@ -83,6 +108,13 @@ export function createObjectRegistry(host: Host) {
     return register(kind, bag);
   }
 
+  // World / Dimension 不经 create；沙箱天生登记，供场景树选中
+  register("World", host.world, "world");
+  for (const dimId of ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"]) {
+    const dim = host.world.getDimension(dimId);
+    register("Dimension", dim, `dim:${dim.id}`);
+  }
+
   return {
     meta: PLAYGROUND_META,
     get(id: string): SandboxObjectHandle | undefined {
@@ -91,7 +123,7 @@ export function createObjectRegistry(host: Host) {
     list(): SandboxObjectHandle[] {
       return [...byId.values()];
     },
-    /** 可构造种类：引擎四类 + 全部 Event 类型 */
+    /** 可构造种类：引擎四类 + 全部 Event 类型（不含 World/Dimension） */
     kinds(): string[] {
       const out = new Set<string>(["Player", "Entity", "ItemStack", "Block"]);
       for (const [name, info] of Object.entries(PLAYGROUND_META.classes)) {
@@ -99,7 +131,70 @@ export function createObjectRegistry(host: Host) {
       }
       return [...out].sort();
     },
+    /** 场景树用：World / Dimension / Player / Entity… */
+    sceneNodes(): {
+      world: { id: string; kind: string };
+      dimensions: { id: string; kind: string; dimensionId: string }[];
+      players: { id: string; kind: string; name: string }[];
+      entities: { id: string; kind: string; typeId?: string }[];
+      items: { id: string; kind: string }[];
+      blocks: { id: string; kind: string }[];
+    } {
+      const dims: { id: string; kind: string; dimensionId: string }[] = [];
+      const players: { id: string; kind: string; name: string }[] = [];
+      const entities: { id: string; kind: string; typeId?: string }[] = [];
+      const items: { id: string; kind: string }[] = [];
+      const blocks: { id: string; kind: string }[] = [];
+      for (const h of byId.values()) {
+        if (h.kind === "Dimension") {
+          const t = h.target as { id?: string };
+          dims.push({ id: h.id, kind: h.kind, dimensionId: String(t.id ?? h.id) });
+        } else if (h.kind === "Player") {
+          const t = h.target as { name?: string };
+          players.push({ id: h.id, kind: h.kind, name: t.name ?? h.id });
+        } else if (h.kind === "Entity") {
+          const t = h.target as { typeId?: string };
+          const row: { id: string; kind: string; typeId?: string } = { id: h.id, kind: h.kind };
+          if (typeof t.typeId === "string") row.typeId = t.typeId;
+          entities.push(row);
+        } else if (h.kind === "ItemStack") {
+          items.push({ id: h.id, kind: h.kind });
+        } else if (h.kind === "Block") {
+          blocks.push({ id: h.id, kind: h.kind });
+        }
+      }
+      return {
+        world: { id: "world", kind: "World" },
+        dimensions: dims,
+        players,
+        entities,
+        items,
+        blocks,
+      };
+    },
+    inspect(id: string): { id: string; kind: string; props: Record<string, unknown> } {
+      const h = byId.get(id);
+      if (!h) throw new Error(`unknown object id: ${id}`);
+      const classMeta = PLAYGROUND_META.classes[
+        h.kind as keyof typeof PLAYGROUND_META.classes
+      ] as unknown as { properties?: ReadonlyArray<{ name: string }> } | undefined;
+      const target = h.target as Record<string, unknown>;
+      const props: Record<string, unknown> = {};
+      for (const p of classMeta?.properties ?? []) {
+        try {
+          props[p.name] = serializeInspectValue(target[p.name]);
+        } catch {
+          props[p.name] = null;
+        }
+      }
+      return { id: h.id, kind: h.kind, props };
+    },
     create(kind: SandboxObjectKind, props: Record<string, unknown> = {}): SandboxObjectHandle {
+      if (kind === "World" || kind === "Dimension") {
+        throw new UnimplementedMinecraftApiError(
+          `objects.create(${kind})：沙箱天生已有，请从场景树选中`
+        );
+      }
       const classMeta = PLAYGROUND_META.classes[kind as keyof typeof PLAYGROUND_META.classes] as
         | { kind?: string }
         | undefined;

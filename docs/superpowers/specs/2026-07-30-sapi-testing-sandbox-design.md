@@ -181,20 +181,17 @@ dispose:
 
 ### 阶段 3 — 线 R 映射 + L2 加深（持续）
 
-1. 建立 `docs/superpowers/notes/script-api-native-map.md`（Script* → `@minecraft/server` → 沙箱状态；钉三方版本）  
-2. L2 批次顺序按 Scripting 事件表（非作者 import）：
+1. 事件流程权威图：`docs/superpowers/notes/script-api-native-map.md`（**已锁定**；Playground/沙箱分相与 emit 对齐）  
+2. L2 批次按总图扇出域（非作者 import、非 Levi 内部步骤）：
 
 建议批次：
 
-1. System / 事件总线（已有，补齐 emit 辅助 API）  
-2. Player / 权限等级 / sendMessage 与 Msg 一致  
-3. Scoreboard  
-4. Dimension 最小集（getBlock 桩 / 空气默认）  
-5. Entity 最小集  
-6. Container / Inventory  
-7. server-ui 已有三表单加深  
+1. 生命周期有序段（startup / worldLoad / shutdown + SFMC 子步）— 已基本具备  
+2. 运行期：玩家 + 聊天/`chatSend` + `scriptEventReceive`（Playground v1）  
+3. 玩家交互 / 物品 / 实体 / 方块机关 / 世界杂项 — 按模块常用分批  
+4. Scoreboard / Dimension / Inventory / server-ui 等支撑状态（已有则维护）
 
-每批：映射笔记勾选 + `.d.ts` 对齐测试 + 行为单测 + 文档「已实现语义」表。争议行为以 Learn/真机为准，Levi 头仅线索。
+每批：总图/清单勾选 + 行为单测 + testing 文档。争议：Learn/真机 > Levi。
 
 ### 阶段 4 — 作者体验与治理（约 1–2 天）
 

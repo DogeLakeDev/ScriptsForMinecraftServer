@@ -2,8 +2,9 @@
  * Playground JSON-RPC 宿主（stdio 行协议）。
  * 启动：node --import @sfmc-bds/sdk/testing/minecraft-loader <本文件>
  *
- * 请求：{"id":1,"method":"meta"} / objects.create / objects.call / events.emit / tick / start / stop
+ * 请求：meta / start(=重置) / stop / objects.* / events.* / tick / scene.summary
  * 通知：{"type":"event","name":"progress"|"log","payload":...}
+ * UI 开面板即 start；无启动/销毁主按钮。
  */
 
 import readline from "node:readline";
@@ -93,6 +94,10 @@ async function handle(req: RpcReq): Promise<unknown> {
       if (!sb) throw new Error("sandbox not started");
       return sb.objects.list().map((h) => ({ id: h.id, kind: h.kind }));
     }
+    case "objects.inspect": {
+      if (!sb) throw new Error("sandbox not started");
+      return sb.objects.inspect(String(params.id ?? ""));
+    }
     case "objects.create": {
       if (!sb) throw new Error("sandbox not started");
       const kind = String(params.kind ?? "");
@@ -132,17 +137,11 @@ async function handle(req: RpcReq): Promise<unknown> {
     }
     case "scene.summary": {
       if (!sb) throw new Error("sandbox not started");
-      const players = sb.objects
-        .list()
-        .filter((h) => h.kind === "Player")
-        .map((h) => {
-          const t = h.target as { name?: string; id?: string };
-          return { id: h.id, name: t.name ?? h.id, kind: h.kind };
-        });
+      const scene = sb.objects.sceneNodes();
       return {
         started: true,
-        playerCount: players.length,
-        players,
+        ...scene,
+        playerCount: scene.players.length,
         objectCount: sb.objects.list().length,
         eventPathCount: sb.events.paths().length,
         lastEmit,
