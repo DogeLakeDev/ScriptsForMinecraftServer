@@ -186,9 +186,13 @@ body,
   outline-offset: -1px;
 }
 
-/* Call 方法：L0 未接线（option 文案已带「未接线」） */
+/* Call 方法：L0 未接线；skip 无测价值（option 文案已带标注） */
 .field select option.method-l0 {
   color: var(--vs-muted);
+}
+.field select option.method-skip {
+  color: var(--vs-muted);
+  font-style: italic;
 }
 
 .s-node {

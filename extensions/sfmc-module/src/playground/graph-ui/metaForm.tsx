@@ -4,8 +4,8 @@ export type MetaProp = {
   name: string;
   readonly?: boolean;
   type?: string;
-  /** overrides 自有成员 → l2；其余 TARGET 默认 l0 */
-  impl?: "l0" | "l2";
+  /** overrides 自有成员 → l2；l2-skip → skip；其余 TARGET 默认 l0 */
+  impl?: "l0" | "l2" | "skip";
 };
 
 export type MetaMethodParam = {
@@ -18,7 +18,7 @@ export type MetaMethodParam = {
 export type MetaMethod = {
   name: string;
   parameters?: MetaMethodParam[];
-  impl?: "l0" | "l2";
+  impl?: "l0" | "l2" | "skip";
 };
 
 export type ClassMeta = {

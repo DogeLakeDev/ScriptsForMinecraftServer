@@ -199,3 +199,111 @@ export type FakeEntity = {
   assert.equal(meta.classes.Player.methods.find((m) => m.name === "applyImpulse")?.impl, "l0");
   assert.equal(meta.classes.Entity.methods.find((m) => m.name === "applyDamage")?.impl, "l2");
 });
+
+test("annotateImpl：l2-skip 标 skip，且优先于 overrides 表面", async () => {
+  const { annotateImpl } = await import("./gen-playground-meta.mjs");
+  const meta = {
+    classes: {
+      Player: {
+        kind: "object",
+        properties: [
+          { name: "name", readonly: true, type: "string" },
+          { name: "isFlying", readonly: true, type: "boolean" },
+        ],
+        methods: [
+          { name: "getPing", parameters: [] },
+          { name: "sendMessage", parameters: [] },
+        ],
+      },
+      Entity: {
+        kind: "object",
+        properties: [{ name: "isSprinting", readonly: true, type: "boolean" }],
+        methods: [],
+      },
+    },
+    events: {},
+    eventTypes: {},
+  };
+  const surface = {
+    Player: new Set(["name", "sendMessage", "getPing"]),
+    Entity: new Set(["isSprinting"]),
+  };
+  const skip = {
+    Player: new Set(["getPing", "isFlying"]),
+    Entity: new Set(["isSprinting"]),
+  };
+  // 合并 Entity → Player（与 loadL2Skip 一致）
+  for (const n of skip.Entity) skip.Player.add(n);
+  annotateImpl(meta, surface, skip);
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "getPing")?.impl, "skip");
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "sendMessage")?.impl, "l2");
+  assert.equal(meta.classes.Player.properties.find((p) => p.name === "isFlying")?.impl, "skip");
+  assert.equal(meta.classes.Player.properties.find((p) => p.name === "name")?.impl, "l2");
+  assert.equal(meta.classes.Entity.properties.find((p) => p.name === "isSprinting")?.impl, "skip");
+});
+
+test("loadL2Skip：解析 Class.member 并合并 Entity→Player", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { loadL2Skip } = await import("./gen-playground-meta.mjs");
+  const tmp = path.join(os.tmpdir(), `l2-skip-${Date.now()}.json`);
+  fs.writeFileSync(
+    tmp,
+    JSON.stringify({
+      entries: ["Player.getPing", "Entity.isSprinting", "Player.isFlying"],
+    }),
+    "utf8"
+  );
+  try {
+    const skip = loadL2Skip(tmp);
+    assert.ok(skip.Player.has("getPing"));
+    assert.ok(skip.Player.has("isFlying"));
+    assert.ok(skip.Player.has("isSprinting"));
+    assert.ok(skip.Entity.has("isSprinting"));
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+});
+
+test("l2-skip 权威清单存在且含 getPing；overrides 不含 skip 成员", async () => {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const {
+    loadL2Skip,
+    loadL2SurfaceFromOverrides,
+    extractOwnMemberNames,
+    extractTypeAliasBody,
+  } = await import("./gen-playground-meta.mjs");
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const skipPath = path.join(root, "src/testing/engine/l2-skip.json");
+  const overridesDir = path.join(root, "src/testing/engine/overrides");
+  assert.ok(fs.existsSync(skipPath));
+  const raw = JSON.parse(fs.readFileSync(skipPath, "utf8"));
+  assert.ok(raw.entries.includes("Player.getPing"));
+  const skip = loadL2Skip(skipPath);
+  assert.ok(skip.Player?.has("getPing"));
+  const surface = loadL2SurfaceFromOverrides(overridesDir);
+  for (const [className, members] of Object.entries(skip)) {
+    const own = surface[className];
+    if (!own) continue;
+    for (const name of members) {
+      assert.equal(
+        own.has(name),
+        false,
+        `overrides 不应实现 skip 项 ${className}.${name}`
+      );
+    }
+  }
+  // 额外：直接扫 FakePlayer / FakeEntity 类型体
+  const playerSrc = fs.readFileSync(path.join(overridesDir, "player.ts"), "utf8");
+  const entitySrc = fs.readFileSync(path.join(overridesDir, "entity.ts"), "utf8");
+  const playerBody = extractTypeAliasBody(playerSrc, "FakePlayer");
+  const entityBody = extractTypeAliasBody(entitySrc, "FakeEntity");
+  assert.ok(playerBody && entityBody);
+  const playerNames = extractOwnMemberNames(playerBody);
+  const entityNames = extractOwnMemberNames(entityBody);
+  assert.equal(playerNames.has("getPing"), false);
+  assert.equal(entityNames.has("isSprinting"), false);
+});

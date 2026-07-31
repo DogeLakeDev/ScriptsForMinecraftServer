@@ -1,0 +1,19 @@
+{
+  "description": "实现面跳过：不做 L2 / Call 不主推。L0 名面仍保留并可硬失败。≠ allowlist（不从声明面删除）。原则：只读遥测、客户端态、沙箱无断言价值、不能设的无意义 getter。",
+  "entries": [
+    "Player.getPing",
+    "Player.getAimAssist",
+    "Player.getControlScheme",
+    "Player.clientSystemInfo",
+    "Player.graphicsMode",
+    "Player.inputInfo",
+    "Player.isEmoting",
+    "Player.isFlying",
+    "Player.isGliding",
+    "Player.isJumping",
+    "Player.clearPropertyOverridesForEntity",
+    "Player.setPropertyOverrideForEntity",
+    "Entity.isSleeping",
+    "Entity.isSprinting"
+  ]
+}

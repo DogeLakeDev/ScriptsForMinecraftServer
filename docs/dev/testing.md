@@ -84,15 +84,15 @@
 | ------ | ------ |
 | System | `run` / `runTimeout` / `runInterval` / `clearRun` / `tick` / `flush`；`isEditorWorld=false` |
 | World | 薄：`getDimension`、玩家列表、时间 / 出生点、`sendMessage`、`getEntity`、动态属性；`allowCheats` / `seed` / `isHardcore`；`runCommand`（仅记录）/ `playSound`（仅记录）；`removePlayer` → `playerLeave` |
-| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；`getGameMode`/`setGameMode`（+ `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode` / `give` / `clear`→物品栏）、`playSound`、`onScreenDisplay`、`getSpawnPoint`/`setSpawnPoint`、`applyDamage` / `kill` / `minecraft:health` |
+| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；`getGameMode`/`setGameMode`（+ `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode` / `give` / `clear`→物品栏）、`playSound`、`onScreenDisplay`、`getSpawnPoint`/`setSpawnPoint`、`applyDamage` / `kill` / `minecraft:health`；`addEffect`/`getEffect`/`getEffects`/`removeEffect` |
 | 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill`/`applyDamage→0` → `entityDie`；`sb.emit.playerLeave` / `itemUse` / `playerBreakBlock` / `entityHitEntity` |
 | UI | 经典三表单 + `CustomForm` / `MessageBox` / Observables / `uiManager` + `ui.queueResponse` |
 | Scoreboard | `add/get/removeObjective`、display slot、`getScore→undefined`、`set/addScore`、`Player.scoreboardIdentity`（对齐 Learn） |
 | Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`/`getEntitiesOfType`（糖）、`isChunkLoaded≡true`、天气状态袋；`runCommand`（仅记录）；不模拟未加载区块 / 物理 |
-| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory'|'minecraft:health')`；`applyDamage`（生命值袋，无物理）；`runCommand`（记录；有物品栏时 give/clear 可作用） |
+| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory'|'minecraft:health')`；`applyDamage`（生命值袋，无物理）；`addEffect`/`getEffect`/`getEffects`/`removeEffect`（效果状态袋，无粒子/周期伤）；`runCommand`（记录；有物品栏时 give/clear 可作用） |
 | Inventory | `ItemStack`、`Container` get/set/add/transfer/swap、玩家 36 格 |
 
-`PLAYGROUND_META` 方法/属性带 `impl: "l0" | "l2"`：由 `gen-playground-meta` 扫描 `overrides/` 里 Fake* 自有成员推断（Player 合并 Entity），其余 TARGET 默认 `l0`。脚本沙箱 Call 方法列表对 L0 标注「未接线」。
+`PLAYGROUND_META` 方法/属性带 `impl: "l0" | "l2" | "skip"`：`l2` 由 `gen-playground-meta` 扫描 `overrides/` 里 Fake* 自有成员推断（Player 合并 Entity）；`skip` 来自权威清单 `src/testing/engine/l2-skip.json`（实现面跳过 / Call 不主推，**≠** L0 名面 allowlist，声明面仍可硬失败）；其余 TARGET 默认 `l0`。脚本沙箱 Call：L2 在前，L0 标「未接线」，skip 排在其后并标「跳过/无测价值」。
 
 ## 边界与非目标
 

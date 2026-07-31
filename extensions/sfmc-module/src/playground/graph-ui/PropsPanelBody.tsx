@@ -115,12 +115,12 @@ function CallFields({
     objects.find((o) => o.id === selected.data.targetId)?.label.split(" · ")[0];
   const methodEntries =
     (targetKind && meta?.classes[targetKind]?.methods) ||
-    ([] as { name: string; impl?: "l0" | "l2" }[]);
-  // L2 在前，便于作者挑主路径；L0 标注「未接线」
+    ([] as { name: string; impl?: "l0" | "l2" | "skip" }[]);
+  // L2 → L0 → skip：主路径在前；skip 排在未接线之后
   const methods = [...methodEntries].sort((a, b) => {
-    const ai = a.impl === "l2" ? 0 : 1;
-    const bi = b.impl === "l2" ? 0 : 1;
-    if (ai !== bi) return ai - bi;
+    const rank = (impl?: string) => (impl === "l2" ? 0 : impl === "skip" ? 2 : 1);
+    const d = rank(a.impl) - rank(b.impl);
+    if (d !== 0) return d;
     return a.name.localeCompare(b.name);
   });
   const paramFields = methodParamFields(meta, targetKind, selected.data.method);
@@ -195,15 +195,21 @@ function CallFields({
             }}
           >
             <option value="">（选择）</option>
-            {methods.map((m) => (
-              <option
-                key={m.name}
-                value={m.name}
-                className={m.impl === "l0" ? "method-l0" : "method-l2"}
-              >
-                {m.impl === "l0" ? `${m.name} · 未接线` : m.name}
-              </option>
-            ))}
+            {methods.map((m) => {
+              const cls =
+                m.impl === "skip" ? "method-skip" : m.impl === "l0" ? "method-l0" : "method-l2";
+              const label =
+                m.impl === "skip"
+                  ? `${m.name} · 跳过/无测价值`
+                  : m.impl === "l0"
+                    ? `${m.name} · 未接线`
+                    : m.name;
+              return (
+                <option key={m.name} value={m.name} className={cls}>
+                  {label}
+                </option>
+              );
+            })}
           </select>
         ) : (
           <input

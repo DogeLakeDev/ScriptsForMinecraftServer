@@ -425,30 +425,80 @@ export function loadL2SurfaceFromOverrides(overridesDir) {
 }
 
 /**
+ * 读取 l2-skip.json（实现面跳过名单；≠ L0 名面 allowlist）。
+ * @param {string} skipPath
+ * @returns {Record<string, Set<string>>} className → 成员名
+ */
+export function loadL2Skip(skipPath) {
+  /** @type {Record<string, Set<string>>} */
+  const byClass = {};
+  if (!fs.existsSync(skipPath)) return byClass;
+  const raw = JSON.parse(fs.readFileSync(skipPath, "utf8"));
+  const entries = Array.isArray(raw.entries) ? raw.entries : [];
+  for (const ref of entries) {
+    const s = typeof ref === "string" ? ref : ref?.ref;
+    if (typeof s !== "string" || !s.includes(".")) continue;
+    const dot = s.indexOf(".");
+    const className = s.slice(0, dot);
+    const member = s.slice(dot + 1);
+    if (!className || !member) continue;
+    if (!byClass[className]) byClass[className] = new Set();
+    byClass[className].add(member);
+  }
+  // Player extends Entity：Entity skip 对 Player 也算 skip
+  if (byClass.Entity) {
+    if (!byClass.Player) byClass.Player = new Set();
+    for (const n of byClass.Entity) byClass.Player.add(n);
+  }
+  return byClass;
+}
+
+/**
+ * @param {string | undefined} className
+ * @param {string} member
+ * @param {Record<string, Set<string>> | undefined} l2Skip
+ */
+function isSkipped(className, member, l2Skip) {
+  return Boolean(className && l2Skip?.[className]?.has(member));
+}
+
+/**
  * 给 TARGET / 已实现类成员打 impl 标记。
+ * skip 优先于 l2（黑名单命中 → skip，即便 overrides 误实现）。
  * @param {ReturnType<typeof buildPlaygroundMeta>} meta
  * @param {Record<string, Set<string>>} l2Surface
+ * @param {Record<string, Set<string>>} [l2Skip]
  */
-export function annotateImpl(meta, l2Surface) {
+export function annotateImpl(meta, l2Surface, l2Skip = {}) {
   for (const [className, entry] of Object.entries(meta.classes)) {
     const surface = l2Surface[className];
     const isEvent = entry.kind === "event";
-    entry.properties = entry.properties.map((p) => ({
-      ...p,
-      // Event 属性袋视为可填 L2；对象类按 overrides 自有成员推断
-      impl: isEvent || (surface && surface.has(p.name)) ? "l2" : "l0",
-    }));
-    entry.methods = (entry.methods ?? []).map((m) => ({
-      ...m,
-      impl: surface && surface.has(m.name) ? "l2" : "l0",
-    }));
+    entry.properties = entry.properties.map((p) => {
+      if (!isEvent && isSkipped(className, p.name, l2Skip)) {
+        return { ...p, impl: "skip" };
+      }
+      return {
+        ...p,
+        // Event 属性袋视为可填 L2；对象类按 overrides 自有成员推断
+        impl: isEvent || (surface && surface.has(p.name)) ? "l2" : "l0",
+      };
+    });
+    entry.methods = (entry.methods ?? []).map((m) => {
+      if (isSkipped(className, m.name, l2Skip)) {
+        return { ...m, impl: "skip" };
+      }
+      return {
+        ...m,
+        impl: surface && surface.has(m.name) ? "l2" : "l0",
+      };
+    });
   }
   return meta;
 }
 
 /**
  * @param {string} source
- * @param {{ l2Surface?: Record<string, Set<string>> }} [opts]
+ * @param {{ l2Surface?: Record<string, Set<string>>, l2Skip?: Record<string, Set<string>> }} [opts]
  */
 export function buildPlaygroundMeta(source, opts = {}) {
   /** @type {Record<string, { properties: { name: string, readonly: boolean, type: string, impl?: string }[], methods: { name: string, parameters: { name: string, type: string, optional: boolean, rest: boolean }[], impl?: string }[], kind?: string, extends?: string }>} */
@@ -492,7 +542,9 @@ export function buildPlaygroundMeta(source, opts = {}) {
     eventTypes,
   };
 
-  if (opts.l2Surface) annotateImpl(meta, opts.l2Surface);
+  if (opts.l2Surface || opts.l2Skip) {
+    annotateImpl(meta, opts.l2Surface ?? {}, opts.l2Skip ?? {});
+  }
   return meta;
 }
 
@@ -537,9 +589,23 @@ export function main(argv = process.argv.slice(2)) {
   const outPath =
     args.out ?? path.join(PKG_ROOT, "src/testing/engine/generated/playground-meta.ts");
   const overridesDir = path.join(PKG_ROOT, "src/testing/engine/overrides");
+  const skipPath = path.join(PKG_ROOT, "src/testing/engine/l2-skip.json");
   const source = fs.readFileSync(dtsPath, "utf8");
   const l2Surface = loadL2SurfaceFromOverrides(overridesDir);
-  const meta = buildPlaygroundMeta(source, { l2Surface });
+  const l2Skip = loadL2Skip(skipPath);
+  // 可选：overrides 不应实现 skip 项（实现面黑名单）
+  for (const [className, members] of Object.entries(l2Skip)) {
+    const surface = l2Surface[className];
+    if (!surface) continue;
+    for (const name of members) {
+      if (surface.has(name)) {
+        console.warn(
+          `[gen-playground-meta] warn: ${className}.${name} 在 l2-skip 且 overrides 有实现 — 元数据仍标 skip`
+        );
+      }
+    }
+  }
+  const meta = buildPlaygroundMeta(source, { l2Surface, l2Skip });
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, emitPlaygroundMetaTs(meta), "utf8");
   const classCount = Object.keys(meta.classes).length;
@@ -549,8 +615,15 @@ export function main(argv = process.argv.slice(2)) {
     (n, c) => n + (c.methods ?? []).filter((m) => m.impl === "l2").length,
     0
   );
+  const skipMembers = Object.values(meta.classes).reduce(
+    (n, c) =>
+      n +
+      (c.methods ?? []).filter((m) => m.impl === "skip").length +
+      (c.properties ?? []).filter((p) => p.impl === "skip").length,
+    0
+  );
   console.log(
-    `[gen-playground-meta] classes=${classCount} eventSignals=${eventCount} eventTypes=${eventTypeCount} l2Methods=${l2Methods} → ${outPath}`
+    `[gen-playground-meta] classes=${classCount} eventSignals=${eventCount} eventTypes=${eventTypeCount} l2Methods=${l2Methods} skipMembers=${skipMembers} → ${outPath}`
   );
 }
 
