@@ -60,10 +60,15 @@ test("entity / item createPayload 注入稳定 id", () => {
 
   assert.equal(createApiKind("entity"), "Entity");
   assert.equal(createApiKind("item"), "ItemStack");
+  assert.equal(createApiKind("scoreboard"), "Scoreboard");
   assert.deepEqual(createPayloadForKind("item", { kind: "item", props: { typeId: "minecraft:stick", amount: 3 } }).amount, 3);
+  assert.equal(
+    createPayloadForKind("scoreboard", { kind: "scoreboard", title: "scoreboard" }).id,
+    "scoreboard"
+  );
 });
 
-test("clear / bind objectId 覆盖 player / entity / item", () => {
+test("clear / bind objectId 覆盖 player / entity / item / scoreboard", () => {
   const nodes = [
     {
       id: "n1",
@@ -92,18 +97,30 @@ test("clear / bind objectId 覆盖 player / entity / item", () => {
         props: { typeId: "minecraft:apple", id: "item-apple" },
       },
     },
+    {
+      id: "n3b",
+      data: {
+        kind: "scoreboard",
+        title: "scoreboard",
+        objectId: "scoreboard",
+        props: { id: "scoreboard" },
+      },
+    },
     { id: "n4", data: { kind: "emit", title: "x" } },
   ];
   assert.equal(isCreateStimulusKind("entity"), true);
+  assert.equal(isCreateStimulusKind("scoreboard"), true);
   assert.equal(isCreateInstantiated(nodes[0]!.data), true);
   assert.equal(isCreateInstantiated(nodes[1]!.data), true);
   assert.equal(isCreateInstantiated(nodes[2]!.data), true);
+  assert.equal(isCreateInstantiated(nodes[3]!.data), true);
   const cleared = clearCreateObjectIds(nodes);
   assert.equal(cleared[0]!.data.objectId, undefined);
   assert.equal(cleared[1]!.data.objectId, undefined);
   assert.equal(cleared[2]!.data.objectId, undefined);
+  assert.equal(cleared[3]!.data.objectId, undefined);
   assert.equal(isCreateInstantiated(cleared[0]!.data), false);
-  assert.equal(cleared[3]!.data.kind, "emit");
+  assert.equal(cleared[4]!.data.kind, "emit");
 
   const bound = bindCreateObjectId(cleared, "n2", "entity-cow");
   assert.equal(bound[1]!.data.objectId, "entity-cow");

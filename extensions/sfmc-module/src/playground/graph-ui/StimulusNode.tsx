@@ -12,6 +12,7 @@ export type StimulusKind =
   | "player"
   | "entity"
   | "item"
+  | "scoreboard"
   | "emit"
   | "call"
   | "tick"
@@ -26,7 +27,7 @@ export type StimulusNodeData = {
   props?: Record<string, unknown>;
   n?: number;
   /**
-   * 新建 Player / Entity / ItemStack：objects.create 成功后的 registry id。
+   * 新建 Player / Entity / ItemStack / Scoreboard：objects.create 成功后的 registry id。
    * 无此字段表示尚未实例化（图上有块 ≠ 场景已有对象）。
    */
   objectId?: string;
@@ -40,6 +41,12 @@ export type StimulusNodeData = {
   assertKind?: AssertKind;
   pattern?: string;
   ignoreCase?: boolean;
+  /** 日志断言：最近 N 条 */
+  logRecentN?: number;
+  /** 日志断言：级别下限 */
+  logMinLevel?: "debug" | "info" | "warn" | "error" | "success";
+  /** 日志断言：source 过滤 */
+  logSource?: string;
   targetKind?: string;
   targetName?: string;
   propName?: string;
@@ -67,6 +74,7 @@ const KIND_LABEL: Record<Exclude<StimulusKind, "assert">, string> = {
   player: "新建 Player",
   entity: "新建 Entity",
   item: "新建 ItemStack",
+  scoreboard: "新建 Scoreboard",
   emit: "Emit",
   call: "Call",
   tick: "Tick",

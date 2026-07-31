@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { vscodeApi } from "./vscodeApi";
 
-export type PanelId = "tools" | "props" | "fixture";
+export type PanelId = "tools" | "props" | "fixture" | "loaded";
 export type DockMode = "left" | "right" | "float";
 
 export type PanelLayout = {
   visible: boolean;
   dock: DockMode;
+  /** 折叠 body，仅保留标题条 */
+  collapsed: boolean;
   x: number;
   y: number;
   w: number;
@@ -20,9 +22,10 @@ export type LayoutPrefs = {
 };
 
 const DEFAULT_PANELS: Record<PanelId, PanelLayout> = {
-  tools: { visible: true, dock: "left", x: 16, y: 56, w: 200, h: 420 },
-  props: { visible: true, dock: "right", x: 480, y: 56, w: 320, h: 520 },
-  fixture: { visible: true, dock: "float", x: 240, y: 72, w: 300, h: 520 },
+  tools: { visible: true, dock: "left", collapsed: false, x: 16, y: 56, w: 200, h: 420 },
+  props: { visible: true, dock: "right", collapsed: false, x: 480, y: 56, w: 320, h: 520 },
+  fixture: { visible: true, dock: "float", collapsed: false, x: 240, y: 72, w: 300, h: 520 },
+  loaded: { visible: true, dock: "float", collapsed: false, x: 560, y: 72, w: 320, h: 520 },
 };
 
 const DEFAULTS: LayoutPrefs = {
@@ -39,7 +42,8 @@ function mergePrefs(raw?: Persisted["layout"]): LayoutPrefs {
   const panels = { ...DEFAULT_PANELS };
   if (raw?.panels) {
     for (const id of Object.keys(panels) as PanelId[]) {
-      panels[id] = { ...panels[id], ...(raw.panels[id] ?? {}) };
+      const merged = { ...panels[id], ...(raw.panels[id] ?? {}) };
+      panels[id] = { ...merged, collapsed: !!merged.collapsed };
     }
   }
   return {

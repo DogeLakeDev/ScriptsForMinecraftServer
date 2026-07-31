@@ -1,5 +1,5 @@
 /**
- * 图上的「新建 Player / Entity / ItemStack」节点只是刺激定义；须 objects.create 后才进入场景 registry。
+ * 图上的「新建 Player / Entity / ItemStack / Scoreboard」节点只是刺激定义；须 objects.create 后才进入场景 registry。
  */
 
 export type CreateNodeLike = {
@@ -13,7 +13,7 @@ export type CreateNodeLike = {
 };
 
 /** 图上可 objects.create 的刺激 kind */
-export const CREATE_STIMULUS_KINDS = ["player", "entity", "item"] as const;
+export const CREATE_STIMULUS_KINDS = ["player", "entity", "item", "scoreboard"] as const;
 export type CreateStimulusKind = (typeof CREATE_STIMULUS_KINDS)[number];
 
 export function isCreateStimulusKind(kind: string): kind is CreateStimulusKind {
@@ -21,9 +21,12 @@ export function isCreateStimulusKind(kind: string): kind is CreateStimulusKind {
 }
 
 /** 刺激 kind → objects.create 的引擎 kind */
-export function createApiKind(kind: CreateStimulusKind): "Player" | "Entity" | "ItemStack" {
+export function createApiKind(
+  kind: CreateStimulusKind
+): "Player" | "Entity" | "ItemStack" | "Scoreboard" {
   if (kind === "player") return "Player";
   if (kind === "entity") return "Entity";
+  if (kind === "scoreboard") return "Scoreboard";
   return "ItemStack";
 }
 
@@ -103,12 +106,33 @@ export function itemCreatePayload(data: CreateNodeLike["data"]): Record<string, 
   return base;
 }
 
+/** 与 world.scoreboard 单例登记 id 对齐（默认 scoreboard） */
+export function preferredScoreboardObjectId(
+  props: Record<string, unknown> | undefined,
+  title?: string
+): string {
+  if (props && typeof props.id === "string" && props.id.trim()) {
+    return props.id.trim();
+  }
+  const t = String(title ?? "scoreboard").trim();
+  return t || "scoreboard";
+}
+
+/** 供 objects.create('Scoreboard')：登记 world.scoreboard 单例进场景坞 */
+export function scoreboardCreatePayload(data: CreateNodeLike["data"]): Record<string, unknown> {
+  const base = { ...(data.props ?? {}) };
+  const id = preferredScoreboardObjectId(base, data.title);
+  base.id = id;
+  return base;
+}
+
 export function createPayloadForKind(
   kind: CreateStimulusKind,
   data: CreateNodeLike["data"]
 ): Record<string, unknown> {
   if (kind === "player") return playerCreatePayload(data);
   if (kind === "entity") return entityCreatePayload(data);
+  if (kind === "scoreboard") return scoreboardCreatePayload(data);
   return itemCreatePayload(data);
 }
 
