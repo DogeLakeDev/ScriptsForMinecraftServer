@@ -1,17 +1,17 @@
 /**
- * 组装并部署行为包：spawn bds-tools pack-manager（需 SFMC_ROOT）。
+ * 组装并部署行为包：在 SFMC_ROOT 下 spawn `sfmc mod reload`
+ * （与 CLI 同一入口，完整传参；勿直接裸调 pack-manager verb）。
  */
 
-import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
-import fs from "node:fs";
-import path from "node:path";
+import { runSfmcCli } from "./sfmc-cli.js";
 
 export interface RebuildOptions {
-  /** SFMC 工作根（含 configs/）。 */
+  /** SFMC 工作目录（含 configs/、modules/）。 */
   sfmcRoot: string;
-  /** 仅构建不向 BDS 发 reload。 */
+  /** 仅构建部署，不向 BDS 发 reload（对应 `mod reload --build-only`）。 */
   buildOnly?: boolean;
+  /** 可选：显式 sfmc CLI 入口；默认由安装树 / PATH / SFMC_CLI 解析。 */
+  cliPath?: string;
 }
 
 export interface RebuildResult {
@@ -19,49 +19,8 @@ export interface RebuildResult {
   output: string;
 }
 
-function resolvePackManager(): string {
-  const require = createRequire(import.meta.url);
-  try {
-    return require.resolve("@sfmc-bds/bds-tools/pack-manager");
-  } catch {
-    /* fallthrough */
-  }
-  const candidates = [
-    path.resolve(process.cwd(), "bds-tools/dist/cli-pack-manager.js"),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  throw new Error("无法解析 pack-manager；请安装 @sfmc-bds/bds-tools 并设置 SFMC_ROOT");
-}
-
 export async function rebuildAndDeploy(opts: RebuildOptions): Promise<RebuildResult> {
-  const root = path.resolve(opts.sfmcRoot);
-  const script = resolvePackManager();
-  const verbs = opts.buildOnly
-    ? ["assemble-bp", "assemble-rp"]
-    : ["assemble-bp", "assemble-rp", "deploy"];
-
-  let output = "";
-  for (const verb of verbs) {
-    const r = await new Promise<{ code: number | null; output: string }>((resolve) => {
-      const proc = spawn(process.execPath, [script, verb], {
-        cwd: root,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, SFMC_ROOT: root },
-      });
-      let out = "";
-      proc.stdout?.on("data", (d) => {
-        out += d.toString();
-      });
-      proc.stderr?.on("data", (d) => {
-        out += d.toString();
-      });
-      proc.on("exit", (code) => resolve({ code, output: out }));
-      proc.on("error", (e) => resolve({ code: 1, output: e.message }));
-    });
-    output += r.output;
-    if (r.code !== 0) return { ok: false, output };
-  }
-  return { ok: true, output };
+  const args = ["mod", "reload"];
+  if (opts.buildOnly) args.push("--build-only");
+  return runSfmcCli(opts.sfmcRoot, args, { cliPath: opts.cliPath });
 }
