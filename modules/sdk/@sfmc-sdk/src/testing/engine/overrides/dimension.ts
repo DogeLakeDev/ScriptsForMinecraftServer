@@ -12,6 +12,7 @@ import {
   type FakeEntity,
   type FakeEntityQueryOptions,
 } from "./entity.js";
+import { runThinCommand, type FakeCommandResult } from "./command.js";
 
 export type Vector3Like = { x: number; y: number; z: number };
 
@@ -51,6 +52,8 @@ export type FakeDimension = {
   id: string;
   localizationKey: string;
   heightRange: { min: number; max: number };
+  /** 沙箱可观测：runCommand 记录 */
+  commandLog: string[];
   getBlock(location: Vector3Like): FakeBlock;
   setBlockPermutation(location: Vector3Like, permutation: FakeBlockPermutation): void;
   setBlockType(location: Vector3Like, blockType: FakeBlockType | string): void;
@@ -64,6 +67,7 @@ export type FakeDimension = {
   isChunkLoaded(_location: Vector3Like): boolean;
   getWeather(): string;
   setWeather(weatherType: string): void;
+  runCommand(commandString: string): FakeCommandResult;
   /** 沙箱内部 */
   _acceptEntity(entity: FakeEntity): void;
   _dropEntity(entity: FakeEntity): void;
@@ -175,6 +179,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
   const dimId = resolveDimensionId(id);
   const cells = new Map<string, FakeBlockPermutation>();
   const entities: FakeEntity[] = [];
+  const commandLog: string[] = [];
   /** Clear / Rain / Thunder — 无物理，仅状态袋。 */
   let weather = "Clear";
 
@@ -183,6 +188,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     id: dimId,
     localizationKey: `dimension.${dimId.replace(/^minecraft:/, "")}`,
     heightRange: HEIGHT[dimId] ?? { min: -64, max: 320 },
+    commandLog,
     getBlock(location) {
       const loc = floorLoc(location);
       const key = cellKey(loc);
@@ -277,6 +283,9 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     setWeather(weatherType) {
       weather = String(weatherType ?? "Clear");
     },
+    runCommand(commandString) {
+      return runThinCommand(commandLog, commandString);
+    },
     _acceptEntity(entity) {
       if (!entities.includes(entity)) entities.push(entity);
     },
@@ -287,6 +296,7 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     reset() {
       cells.clear();
       weather = "Clear";
+      commandLog.length = 0;
       for (const e of [...entities]) {
         if (e.isValid) e.remove();
       }

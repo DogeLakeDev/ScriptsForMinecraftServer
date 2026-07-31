@@ -140,3 +140,39 @@ test("listHubSignals / listHubSignalEntries", () => {
   const entries = listHubSignalEntries(SAMPLE, "WorldAfterEvents");
   assert.equal(entries[0].signalType, "PlayerJoinAfterEventSignal");
 });
+
+test("annotateImpl：overrides 自有方法标 l2，其余 l0", async () => {
+  const { annotateImpl, extractOwnMemberNames, extractTypeAliasBody } = await import(
+    "./gen-playground-meta.mjs"
+  );
+  const overrideSrc = `
+export type FakePlayer = {
+  name: string;
+  sendMessage(text: string): void;
+  getGameMode(): string;
+};
+`;
+  const body = extractTypeAliasBody(overrideSrc, "FakePlayer");
+  assert.ok(body);
+  const surface = { Player: extractOwnMemberNames(body) };
+  const meta = {
+    classes: {
+      Player: {
+        kind: "object",
+        properties: [{ name: "name", readonly: true, type: "string" }],
+        methods: [
+          { name: "sendMessage", parameters: [] },
+          { name: "getGameMode", parameters: [] },
+          { name: "applyDamage", parameters: [] },
+        ],
+      },
+    },
+    events: {},
+    eventTypes: {},
+  };
+  annotateImpl(meta, surface);
+  assert.equal(meta.classes.Player.properties[0].impl, "l2");
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "sendMessage")?.impl, "l2");
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "getGameMode")?.impl, "l2");
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "applyDamage")?.impl, "l0");
+});

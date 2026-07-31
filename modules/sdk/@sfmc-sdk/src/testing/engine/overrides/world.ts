@@ -15,6 +15,7 @@ import {
   type Vector3Like,
 } from "./dimension.js";
 import { resetEntityIdCounter, type FakeEntity } from "./entity.js";
+import { runThinCommand, type FakeCommandResult } from "./command.js";
 
 export type FakeWorld = {
   afterEvents: Record<string, EventSignal<unknown>>;
@@ -24,6 +25,9 @@ export type FakeWorld = {
   readonly isHardcore: boolean;
   readonly seed: string;
   scoreboard: FakeScoreboard;
+  /** 沙箱可观测：runCommand / playSound */
+  commandLog: string[];
+  soundLog: string[];
   getDimension(id?: string): FakeDimension;
   getPlayers(): FakePlayer[];
   getAllPlayers(): FakePlayer[];
@@ -36,6 +40,8 @@ export type FakeWorld = {
   getDefaultSpawnLocation(): Vector3Like;
   setDefaultSpawnLocation(location: Vector3Like): void;
   sendMessage(message: string | Record<string, unknown>): void;
+  playSound(soundId: string, location: Vector3Like, soundOptions?: unknown): { id: string };
+  runCommand(commandString: string): FakeCommandResult;
   clearDynamicProperties(): void;
   getDynamicProperty(id: string): unknown;
   getDynamicPropertyIds(): string[];
@@ -77,6 +83,8 @@ export function createFakeWorld(): FakeWorld {
   const scoreboard = createFakeScoreboard();
   const dims = new Map<string, FakeDimension>();
   const dynamicProps = new Map<string, unknown>();
+  const commandLog: string[] = [];
+  const soundLog: string[] = [];
   let absoluteTime = 0;
   let defaultSpawn: Vector3Like = { x: 0, y: 64, z: 0 };
   let allowCheats = true;
@@ -85,16 +93,20 @@ export function createFakeWorld(): FakeWorld {
     worldLoad: createEventSignal(),
     playerSpawn: createEventSignal(),
     playerJoin: createEventSignal(),
+    playerLeave: createEventSignal(),
     chatSend: createEventSignal(),
     entityDie: createEventSignal(),
     itemUse: createEventSignal(),
     blockBreak: createEventSignal(),
     entitySpawn: createEventSignal(),
+    playerGameModeChange: createEventSignal(),
   });
   const beforeEvents = createEventHub({
     chatSend: createEventSignal(),
     playerSpawn: createEventSignal(),
     itemUse: createEventSignal(),
+    playerLeave: createEventSignal(),
+    playerGameModeChange: createEventSignal(),
   });
 
   const getOrCreateDim = (rawId: string): FakeDimension => {
@@ -130,6 +142,8 @@ export function createFakeWorld(): FakeWorld {
     isHardcore: false,
     seed: "sfmc-testing",
     scoreboard,
+    commandLog,
+    soundLog,
     getDimension(id = "minecraft:overworld") {
       return getOrCreateDim(id);
     },
@@ -188,6 +202,14 @@ export function createFakeWorld(): FakeWorld {
             })();
       for (const p of players) p.sendMessage(text);
     },
+    playSound(soundId, _location, _soundOptions) {
+      const id = String(soundId ?? "");
+      soundLog.push(id);
+      return { id };
+    },
+    runCommand(commandString) {
+      return runThinCommand(commandLog, commandString);
+    },
     clearDynamicProperties() {
       dynamicProps.clear();
     },
@@ -227,12 +249,18 @@ export function createFakeWorld(): FakeWorld {
     },
     removePlayer(id) {
       const i = players.findIndex((p) => p.id === id);
-      if (i >= 0) players.splice(i, 1);
+      if (i < 0) return;
+      const [player] = players.splice(i, 1);
+      if (!player) return;
+      beforeEvents.playerLeave!.emit({ player, playerId: player.id });
+      afterEvents.playerLeave!.emit({ playerName: player.name, playerId: player.id });
     },
     reset() {
       players.length = 0;
       scoreboard.reset();
       dynamicProps.clear();
+      commandLog.length = 0;
+      soundLog.length = 0;
       absoluteTime = 0;
       defaultSpawn = { x: 0, y: 64, z: 0 };
       allowCheats = true;
@@ -257,4 +285,4 @@ export function createFakeWorld(): FakeWorld {
 
   return guardUnimplemented(api, "world") as FakeWorld;
 }
-
+

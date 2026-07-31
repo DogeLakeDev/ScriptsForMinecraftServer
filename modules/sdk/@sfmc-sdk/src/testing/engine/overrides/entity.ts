@@ -9,6 +9,7 @@ import {
   createPlayerScoreboardIdentity,
   type FakeScoreboardIdentity,
 } from "./scoreboard.js";
+import { runThinCommand, type FakeCommandResult } from "./command.js";
 
 export type FakeEntityQueryOptions = {
   type?: string;
@@ -41,6 +42,8 @@ export type FakeEntity = {
   nameplateDepthTested: boolean;
   nameplateRenderDistance: number;
   scoreboardIdentity: FakeScoreboardIdentity;
+  /** 沙箱可观测：runCommand 记录 */
+  commandLog: string[];
   remove(): void;
   kill(): boolean;
   teleport(location: Vector3Like, teleportOptions?: { dimension?: FakeDimension }): void;
@@ -54,6 +57,7 @@ export type FakeEntity = {
   getRotation(): { x: number; y: number };
   getHeadLocation(): Vector3Like;
   getVelocity(): Vector3Like;
+  runCommand(commandString: string): FakeCommandResult;
 };
 
 function normalizeEntityTypeId(id: string): string {
@@ -81,6 +85,7 @@ export type CreateFakeEntityOpts = {
 export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
   const typeId = normalizeEntityTypeId(opts.typeId);
   const tags = new Set<string>();
+  const commandLog: string[] = [];
   const invSize = inventorySizeForEntityType(typeId);
   const inventory = invSize !== undefined ? createEntityInventoryComponent(invSize) : undefined;
   let loc = {
@@ -109,6 +114,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     nameplateDepthTested: true,
     nameplateRenderDistance: 64,
     scoreboardIdentity: undefined as unknown as FakeScoreboardIdentity,
+    commandLog,
     remove() {
       if (!valid) return;
       valid = false;
@@ -167,6 +173,10 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     },
     getVelocity() {
       return { x: 0, y: 0, z: 0 };
+    },
+    runCommand(commandString) {
+      if (!valid) throw new Error("InvalidEntityError");
+      return runThinCommand(commandLog, commandString);
     },
   };
 

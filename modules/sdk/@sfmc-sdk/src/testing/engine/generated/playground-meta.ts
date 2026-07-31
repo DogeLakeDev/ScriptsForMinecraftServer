@@ -11,217 +11,260 @@ export const PLAYGROUND_META = {
         {
           "name": "camera",
           "readonly": true,
-          "type": "Camera"
+          "type": "Camera",
+          "impl": "l0"
         },
         {
           "name": "chatDisplayName",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l0"
         },
         {
           "name": "chatMessagePrefix",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "chatNamePrefix",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "chatNameSuffix",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "clientSystemInfo",
           "readonly": true,
-          "type": "ClientSystemInfo"
+          "type": "ClientSystemInfo",
+          "impl": "l0"
         },
         {
           "name": "commandPermissionLevel",
           "readonly": false,
-          "type": "CommandPermissionLevel"
+          "type": "CommandPermissionLevel",
+          "impl": "l2"
         },
         {
           "name": "dimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "fogSettings",
           "readonly": true,
-          "type": "FogSettings"
+          "type": "FogSettings",
+          "impl": "l0"
         },
         {
           "name": "graphicsMode",
           "readonly": true,
-          "type": "GraphicsMode"
+          "type": "GraphicsMode",
+          "impl": "l0"
         },
         {
           "name": "id",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "inputInfo",
           "readonly": true,
-          "type": "InputInfo"
+          "type": "InputInfo",
+          "impl": "l0"
         },
         {
           "name": "inputPermissions",
           "readonly": true,
-          "type": "PlayerInputPermissions"
+          "type": "PlayerInputPermissions",
+          "impl": "l0"
         },
         {
           "name": "isClimbing",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isEmoting",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isFalling",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isFlying",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isGliding",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isInWater",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isJumping",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isOnGround",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isSleeping",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isSneaking",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isSprinting",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isSwimming",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isValid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "level",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l0"
         },
         {
           "name": "localizationKey",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l0"
         },
         {
           "name": "location",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "locatorBar",
           "readonly": true,
-          "type": "LocatorBar"
+          "type": "LocatorBar",
+          "impl": "l0"
         },
         {
           "name": "name",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "nameplateDepthTested",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "nameplateRenderDistance",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "nameTag",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "onScreenDisplay",
           "readonly": true,
-          "type": "ScreenDisplay"
+          "type": "ScreenDisplay",
+          "impl": "l2"
         },
         {
           "name": "persistentId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l0"
         },
         {
           "name": "playerPermissionLevel",
           "readonly": true,
-          "type": "PlayerPermissionLevel"
+          "type": "PlayerPermissionLevel",
+          "impl": "l2"
         },
         {
           "name": "scoreboardIdentity",
           "readonly": true,
-          "type": "ScoreboardIdentity"
+          "type": "ScoreboardIdentity",
+          "impl": "l2"
         },
         {
           "name": "selectedSlotIndex",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "target",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l0"
         },
         {
           "name": "totalXpNeededForNextLevel",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l0"
         },
         {
           "name": "typeId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "xpEarnedAtCurrentLevel",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l0"
         }
       ],
       "methods": [
@@ -246,7 +289,8 @@ export const PLAYGROUND_META = {
               "type": "EntityEffectOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "addExperience",
@@ -257,7 +301,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "addItem",
@@ -268,7 +313,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "addLevels",
@@ -279,7 +325,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "addTag",
@@ -290,7 +337,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "applyDamage",
@@ -307,7 +355,8 @@ export const PLAYGROUND_META = {
               "type": "EntityApplyDamageByProjectileOptions | EntityApplyDamageOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "applyImpulse",
@@ -318,7 +367,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "applyKnockback",
@@ -335,11 +385,13 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "clearDynamicProperties",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "clearPropertyOverridesForEntity",
@@ -350,11 +402,13 @@ export const PLAYGROUND_META = {
               "type": "Entity | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "clearVelocity",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "eatItem",
@@ -365,7 +419,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "extinguishFire",
@@ -376,15 +431,18 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getAABB",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getAimAssist",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getAllBlocksStandingOn",
@@ -395,7 +453,8 @@ export const PLAYGROUND_META = {
               "type": "GetBlocksStandingOnOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlockFromViewDirection",
@@ -406,7 +465,8 @@ export const PLAYGROUND_META = {
               "type": "BlockRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlockStandingOn",
@@ -417,7 +477,8 @@ export const PLAYGROUND_META = {
               "type": "GetBlocksStandingOnOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getComponent",
@@ -428,15 +489,18 @@ export const PLAYGROUND_META = {
               "type": "T",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getComponents",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getControlScheme",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getDynamicProperty",
@@ -447,15 +511,18 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getDynamicPropertyIds",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getDynamicPropertyTotalByteCount",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getEffect",
@@ -466,11 +533,13 @@ export const PLAYGROUND_META = {
               "type": "EffectType | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getEffects",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getEntitiesFromViewDirection",
@@ -481,15 +550,18 @@ export const PLAYGROUND_META = {
               "type": "EntityRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getGameMode",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getHeadLocation",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getItemCooldown",
@@ -500,11 +572,13 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getPing",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getProperty",
@@ -515,35 +589,43 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getRotation",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getSpawnPoint",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getSplitScreenSlot",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getTags",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getTotalXp",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getVelocity",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getViewDirection",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "hasComponent",
@@ -554,7 +636,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "hasTag",
@@ -565,11 +648,13 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "kill",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "lookAt",
@@ -580,7 +665,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "matches",
@@ -591,7 +677,8 @@ export const PLAYGROUND_META = {
               "type": "EntityQueryOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "playAnimation",
@@ -608,7 +695,8 @@ export const PLAYGROUND_META = {
               "type": "PlayAnimationOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "playMusic",
@@ -625,7 +713,8 @@ export const PLAYGROUND_META = {
               "type": "MusicOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "playSound",
@@ -642,7 +731,8 @@ export const PLAYGROUND_META = {
               "type": "PlayerSoundOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "postClientMessage",
@@ -659,7 +749,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "queueMusic",
@@ -676,11 +767,13 @@ export const PLAYGROUND_META = {
               "type": "MusicOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "remove",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "removeEffect",
@@ -691,7 +784,8 @@ export const PLAYGROUND_META = {
               "type": "EffectType | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "removePropertyOverrideForEntity",
@@ -708,7 +802,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "removeTag",
@@ -719,11 +814,13 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "resetLevel",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "resetProperty",
@@ -734,7 +831,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "runCommand",
@@ -745,7 +843,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "sendMessage",
@@ -756,7 +855,8 @@ export const PLAYGROUND_META = {
               "type": "(RawMessage | string)[] | RawMessage | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setControlScheme",
@@ -767,7 +867,8 @@ export const PLAYGROUND_META = {
               "type": "ControlScheme",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setDynamicProperties",
@@ -778,7 +879,8 @@ export const PLAYGROUND_META = {
               "type": "Record<string, boolean | number | string | Vector3 | undefined>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setDynamicProperty",
@@ -795,7 +897,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string | Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setGameMode",
@@ -806,7 +909,8 @@ export const PLAYGROUND_META = {
               "type": "GameMode",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setOnFire",
@@ -823,7 +927,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setProperty",
@@ -840,7 +945,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setPropertyOverrideForEntity",
@@ -863,7 +969,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setRotation",
@@ -874,7 +981,8 @@ export const PLAYGROUND_META = {
               "type": "Vector2",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setSpawnPoint",
@@ -885,7 +993,8 @@ export const PLAYGROUND_META = {
               "type": "DimensionLocation",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "spawnParticle",
@@ -908,7 +1017,8 @@ export const PLAYGROUND_META = {
               "type": "MolangVariableMap",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "startItemCooldown",
@@ -925,15 +1035,18 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "stopAllSounds",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "stopMusic",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "stopSound",
@@ -944,7 +1057,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "teleport",
@@ -961,7 +1075,8 @@ export const PLAYGROUND_META = {
               "type": "TeleportOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "triggerEvent",
@@ -972,7 +1087,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "tryTeleport",
@@ -989,7 +1105,8 @@ export const PLAYGROUND_META = {
               "type": "TeleportOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         }
       ],
       "kind": "object",
@@ -1000,97 +1117,116 @@ export const PLAYGROUND_META = {
         {
           "name": "dimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "id",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "isClimbing",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isFalling",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isInWater",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isOnGround",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isSleeping",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isSneaking",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isSprinting",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isSwimming",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isValid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "localizationKey",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l0"
         },
         {
           "name": "location",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "nameplateDepthTested",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "nameplateRenderDistance",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "nameTag",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "scoreboardIdentity",
           "readonly": true,
-          "type": "ScoreboardIdentity"
+          "type": "ScoreboardIdentity",
+          "impl": "l2"
         },
         {
           "name": "target",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l0"
         },
         {
           "name": "typeId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -1115,7 +1251,8 @@ export const PLAYGROUND_META = {
               "type": "EntityEffectOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "addItem",
@@ -1126,7 +1263,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "addTag",
@@ -1137,7 +1275,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "applyDamage",
@@ -1154,7 +1293,8 @@ export const PLAYGROUND_META = {
               "type": "EntityApplyDamageByProjectileOptions | EntityApplyDamageOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "applyImpulse",
@@ -1165,7 +1305,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "applyKnockback",
@@ -1182,15 +1323,18 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "clearDynamicProperties",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "clearVelocity",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "extinguishFire",
@@ -1201,11 +1345,13 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getAABB",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getAllBlocksStandingOn",
@@ -1216,7 +1362,8 @@ export const PLAYGROUND_META = {
               "type": "GetBlocksStandingOnOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlockFromViewDirection",
@@ -1227,7 +1374,8 @@ export const PLAYGROUND_META = {
               "type": "BlockRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlockStandingOn",
@@ -1238,7 +1386,8 @@ export const PLAYGROUND_META = {
               "type": "GetBlocksStandingOnOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getComponent",
@@ -1249,11 +1398,13 @@ export const PLAYGROUND_META = {
               "type": "T",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getComponents",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getDynamicProperty",
@@ -1264,15 +1415,18 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getDynamicPropertyIds",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getDynamicPropertyTotalByteCount",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getEffect",
@@ -1283,11 +1437,13 @@ export const PLAYGROUND_META = {
               "type": "EffectType | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getEffects",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getEntitiesFromViewDirection",
@@ -1298,11 +1454,13 @@ export const PLAYGROUND_META = {
               "type": "EntityRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getHeadLocation",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getProperty",
@@ -1313,23 +1471,28 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getRotation",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getTags",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getVelocity",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getViewDirection",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "hasComponent",
@@ -1340,7 +1503,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "hasTag",
@@ -1351,11 +1515,13 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "kill",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "lookAt",
@@ -1366,7 +1532,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "matches",
@@ -1377,7 +1544,8 @@ export const PLAYGROUND_META = {
               "type": "EntityQueryOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "playAnimation",
@@ -1394,11 +1562,13 @@ export const PLAYGROUND_META = {
               "type": "PlayAnimationOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "remove",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "removeEffect",
@@ -1409,7 +1579,8 @@ export const PLAYGROUND_META = {
               "type": "EffectType | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "removeTag",
@@ -1420,7 +1591,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "resetProperty",
@@ -1431,7 +1603,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "runCommand",
@@ -1442,7 +1615,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setDynamicProperties",
@@ -1453,7 +1627,8 @@ export const PLAYGROUND_META = {
               "type": "Record<string, boolean | number | string | Vector3 | undefined>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setDynamicProperty",
@@ -1470,7 +1645,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string | Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setOnFire",
@@ -1487,7 +1663,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setProperty",
@@ -1504,7 +1681,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setRotation",
@@ -1515,7 +1693,8 @@ export const PLAYGROUND_META = {
               "type": "Vector2",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "teleport",
@@ -1532,7 +1711,8 @@ export const PLAYGROUND_META = {
               "type": "TeleportOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "triggerEvent",
@@ -1543,7 +1723,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "tryTeleport",
@@ -1560,7 +1741,8 @@ export const PLAYGROUND_META = {
               "type": "TeleportOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         }
       ],
       "kind": "object"
@@ -1570,65 +1752,78 @@ export const PLAYGROUND_META = {
         {
           "name": "amount",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "isStackable",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "keepOnDeath",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "localizationKey",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "lockMode",
           "readonly": false,
-          "type": "ItemLockMode"
+          "type": "ItemLockMode",
+          "impl": "l0"
         },
         {
           "name": "maxAmount",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "nameTag",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "typeId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "weight",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l0"
         }
       ],
       "methods": [
         {
           "name": "clearDynamicProperties",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "clone",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getCanDestroy",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getCanPlaceOn",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getComponent",
@@ -1639,11 +1834,13 @@ export const PLAYGROUND_META = {
               "type": "T",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getComponents",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getDynamicProperty",
@@ -1654,27 +1851,33 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getDynamicPropertyIds",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getDynamicPropertyTotalByteCount",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getLore",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getRawLore",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getTags",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "hasComponent",
@@ -1685,7 +1888,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "hasTag",
@@ -1696,7 +1900,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "isStackableWith",
@@ -1707,7 +1912,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "matches",
@@ -1724,7 +1930,8 @@ export const PLAYGROUND_META = {
               "type": "Record<string, boolean | number | string>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setCanDestroy",
@@ -1735,7 +1942,8 @@ export const PLAYGROUND_META = {
               "type": "string[]",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setCanPlaceOn",
@@ -1746,7 +1954,8 @@ export const PLAYGROUND_META = {
               "type": "string[]",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setDynamicProperties",
@@ -1757,7 +1966,8 @@ export const PLAYGROUND_META = {
               "type": "Record<string, boolean | number | string | Vector3 | undefined>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setDynamicProperty",
@@ -1774,7 +1984,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string | Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setLore",
@@ -1785,7 +1996,8 @@ export const PLAYGROUND_META = {
               "type": "(RawMessage | string)[]",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         }
       ],
       "kind": "object"
@@ -1795,67 +2007,80 @@ export const PLAYGROUND_META = {
         {
           "name": "dimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "isAir",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isLiquid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isSolid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l0"
         },
         {
           "name": "isValid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "isWaterlogged",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "localizationKey",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l0"
         },
         {
           "name": "location",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "permutation",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         },
         {
           "name": "typeId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "x",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "y",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "z",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -1868,7 +2093,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "below",
@@ -1879,11 +2105,13 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "bottomCenter",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "canBeDestroyedByLiquidSpread",
@@ -1894,7 +2122,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "canContainLiquid",
@@ -1905,7 +2134,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "canPlace",
@@ -1922,11 +2152,13 @@ export const PLAYGROUND_META = {
               "type": "Direction",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "center",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "east",
@@ -1937,7 +2169,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getComponent",
@@ -1948,11 +2181,13 @@ export const PLAYGROUND_META = {
               "type": "T",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getComponents",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getItemStack",
@@ -1969,31 +2204,38 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getLightLevel",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getMapColor",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getParts",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getRedstonePower",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getSkyLightLevel",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getTags",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "hasComponent",
@@ -2004,7 +2246,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "hasTag",
@@ -2015,7 +2258,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "isLiquidBlocking",
@@ -2026,7 +2270,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "liquidCanFlowFromDirection",
@@ -2043,7 +2288,8 @@ export const PLAYGROUND_META = {
               "type": "Direction",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "liquidSpreadCausesSpawn",
@@ -2054,7 +2300,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "matches",
@@ -2071,7 +2318,8 @@ export const PLAYGROUND_META = {
               "type": "Record<string, boolean | number | string>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "north",
@@ -2082,7 +2330,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "offset",
@@ -2093,7 +2342,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setPermutation",
@@ -2104,7 +2354,8 @@ export const PLAYGROUND_META = {
               "type": "BlockPermutation",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setType",
@@ -2115,7 +2366,8 @@ export const PLAYGROUND_META = {
               "type": "BlockType | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setWaterlogged",
@@ -2126,7 +2378,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "south",
@@ -2137,7 +2390,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "trySetPermutation",
@@ -2148,7 +2402,8 @@ export const PLAYGROUND_META = {
               "type": "BlockPermutation",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "west",
@@ -2159,7 +2414,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         }
       ],
       "kind": "object"
@@ -2169,17 +2425,20 @@ export const PLAYGROUND_META = {
         {
           "name": "heightRange",
           "readonly": true,
-          "type": "minecraftcommon.NumberRange"
+          "type": "minecraftcommon.NumberRange",
+          "impl": "l2"
         },
         {
           "name": "id",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "localizationKey",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -2204,7 +2463,8 @@ export const PLAYGROUND_META = {
               "type": "BiomeSearchOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "cloneBlocks",
@@ -2239,7 +2499,8 @@ export const PLAYGROUND_META = {
               "type": "BlockFilter",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "containsBiomes",
@@ -2262,7 +2523,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "containsBlock",
@@ -2285,7 +2547,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "createExplosion",
@@ -2308,7 +2571,8 @@ export const PLAYGROUND_META = {
               "type": "ExplosionOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "fillBlocks",
@@ -2331,7 +2595,8 @@ export const PLAYGROUND_META = {
               "type": "BlockFillOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBiome",
@@ -2342,7 +2607,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlock",
@@ -2353,7 +2619,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getBlockAbove",
@@ -2370,7 +2637,8 @@ export const PLAYGROUND_META = {
               "type": "BlockRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlockBelow",
@@ -2387,7 +2655,8 @@ export const PLAYGROUND_META = {
               "type": "BlockRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlockFromRay",
@@ -2410,7 +2679,8 @@ export const PLAYGROUND_META = {
               "type": "BlockRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getBlocks",
@@ -2433,7 +2703,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getEntities",
@@ -2444,7 +2715,8 @@ export const PLAYGROUND_META = {
               "type": "EntityQueryOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getEntitiesAtBlockLocation",
@@ -2455,7 +2727,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getEntitiesFromRay",
@@ -2478,7 +2751,8 @@ export const PLAYGROUND_META = {
               "type": "EntityRaycastOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getGeneratedStructures",
@@ -2489,7 +2763,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getLightLevel",
@@ -2500,7 +2775,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getPlayers",
@@ -2511,7 +2787,8 @@ export const PLAYGROUND_META = {
               "type": "EntityQueryOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getSkyLightLevel",
@@ -2522,7 +2799,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getTopmostBlock",
@@ -2539,11 +2817,13 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getWeather",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "isChunkLoaded",
@@ -2554,7 +2834,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "placeFeature",
@@ -2577,7 +2858,8 @@ export const PLAYGROUND_META = {
               "type": "boolean",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "placeFeatureRule",
@@ -2594,7 +2876,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "playSound",
@@ -2617,7 +2900,8 @@ export const PLAYGROUND_META = {
               "type": "WorldSoundOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "runCommand",
@@ -2628,7 +2912,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setBlockPermutation",
@@ -2645,7 +2930,8 @@ export const PLAYGROUND_META = {
               "type": "BlockPermutation",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setBlockType",
@@ -2662,7 +2948,8 @@ export const PLAYGROUND_META = {
               "type": "BlockType | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setWeather",
@@ -2679,7 +2966,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "spawnEntity",
@@ -2702,7 +2990,8 @@ export const PLAYGROUND_META = {
               "type": "SpawnEntityOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "spawnItem",
@@ -2719,7 +3008,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "spawnParticle",
@@ -2742,7 +3032,8 @@ export const PLAYGROUND_META = {
               "type": "MolangVariableMap",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "spawnXp",
@@ -2759,11 +3050,13 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "stopAllSounds",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "stopSound",
@@ -2774,7 +3067,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         }
       ],
       "kind": "object"
@@ -2784,57 +3078,68 @@ export const PLAYGROUND_META = {
         {
           "name": "afterEvents",
           "readonly": true,
-          "type": "WorldAfterEvents"
+          "type": "WorldAfterEvents",
+          "impl": "l2"
         },
         {
           "name": "allowCheats",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "beforeEvents",
           "readonly": true,
-          "type": "WorldBeforeEvents"
+          "type": "WorldBeforeEvents",
+          "impl": "l2"
         },
         {
           "name": "gameRules",
           "readonly": true,
-          "type": "GameRules"
+          "type": "GameRules",
+          "impl": "l0"
         },
         {
           "name": "isHardcore",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "primitiveShapesManager",
           "readonly": true,
-          "type": "PrimitiveShapesManager"
+          "type": "PrimitiveShapesManager",
+          "impl": "l0"
         },
         {
           "name": "scoreboard",
           "readonly": true,
-          "type": "Scoreboard"
+          "type": "Scoreboard",
+          "impl": "l2"
         },
         {
           "name": "seed",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "soundDefinitionRegistry",
           "readonly": true,
-          "type": "SoundDefinitionRegistry"
+          "type": "SoundDefinitionRegistry",
+          "impl": "l0"
         },
         {
           "name": "structureManager",
           "readonly": true,
-          "type": "StructureManager"
+          "type": "StructureManager",
+          "impl": "l0"
         },
         {
           "name": "tickingAreaManager",
           "readonly": true,
-          "type": "TickingAreaManager"
+          "type": "TickingAreaManager",
+          "impl": "l0"
         }
       ],
       "methods": [
@@ -2853,35 +3158,43 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "clearDynamicProperties",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getAbsoluteTime",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getAimAssist",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getAllPlayers",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getDay",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getDefaultSpawnLocation",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getDifficulty",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getDimension",
@@ -2892,7 +3205,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getDynamicProperty",
@@ -2903,15 +3217,18 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getDynamicPropertyIds",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getDynamicPropertyTotalByteCount",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getEntity",
@@ -2922,19 +3239,23 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getLootTableManager",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getMoonPhase",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getPackSettings",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getPlayers",
@@ -2945,11 +3266,13 @@ export const PLAYGROUND_META = {
               "type": "EntityQueryOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getTimeOfDay",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "playMusic",
@@ -2966,7 +3289,8 @@ export const PLAYGROUND_META = {
               "type": "MusicOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "queueMusic",
@@ -2983,7 +3307,8 @@ export const PLAYGROUND_META = {
               "type": "MusicOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "sendMessage",
@@ -2994,7 +3319,8 @@ export const PLAYGROUND_META = {
               "type": "(RawMessage | string)[] | RawMessage | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setAbsoluteTime",
@@ -3005,7 +3331,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setDefaultSpawnLocation",
@@ -3016,7 +3343,8 @@ export const PLAYGROUND_META = {
               "type": "Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setDifficulty",
@@ -3027,7 +3355,8 @@ export const PLAYGROUND_META = {
               "type": "Difficulty",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "setDynamicProperties",
@@ -3038,7 +3367,8 @@ export const PLAYGROUND_META = {
               "type": "Record<string, boolean | number | string | Vector3 | undefined>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setDynamicProperty",
@@ -3055,7 +3385,8 @@ export const PLAYGROUND_META = {
               "type": "boolean | number | string | Vector3",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setTimeOfDay",
@@ -3066,11 +3397,13 @@ export const PLAYGROUND_META = {
               "type": "number | TimeOfDay",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "stopMusic",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         }
       ],
       "kind": "object"
@@ -3080,27 +3413,32 @@ export const PLAYGROUND_META = {
         {
           "name": "afterEvents",
           "readonly": true,
-          "type": "SystemAfterEvents"
+          "type": "SystemAfterEvents",
+          "impl": "l2"
         },
         {
           "name": "beforeEvents",
           "readonly": true,
-          "type": "SystemBeforeEvents"
+          "type": "SystemBeforeEvents",
+          "impl": "l2"
         },
         {
           "name": "currentTick",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "isEditorWorld",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "serverSystemInfo",
           "readonly": true,
-          "type": "SystemInfo"
+          "type": "SystemInfo",
+          "impl": "l0"
         }
       ],
       "methods": [
@@ -3113,7 +3451,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "clearRun",
@@ -3124,7 +3463,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "run",
@@ -3135,7 +3475,8 @@ export const PLAYGROUND_META = {
               "type": "() => void",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "runInterval",
@@ -3152,7 +3493,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "runJob",
@@ -3163,7 +3505,8 @@ export const PLAYGROUND_META = {
               "type": "Generator<void, void, void>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "runTimeout",
@@ -3180,7 +3523,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "sendScriptEvent",
@@ -3197,7 +3541,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "waitTicks",
@@ -3208,7 +3553,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         }
       ],
       "kind": "object"
@@ -3218,27 +3564,32 @@ export const PLAYGROUND_META = {
         {
           "name": "containerRules",
           "readonly": true,
-          "type": "ContainerRules"
+          "type": "ContainerRules",
+          "impl": "l0"
         },
         {
           "name": "emptySlotsCount",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "isValid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "size",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "weight",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -3251,11 +3602,13 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "clearAll",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "contains",
@@ -3266,7 +3619,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "find",
@@ -3277,7 +3631,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "findLast",
@@ -3288,15 +3643,18 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "firstEmptySlot",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "firstItem",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         },
         {
           "name": "getItem",
@@ -3307,7 +3665,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getSlot",
@@ -3318,7 +3677,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "moveItem",
@@ -3341,7 +3701,8 @@ export const PLAYGROUND_META = {
               "type": "Container",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setItem",
@@ -3358,7 +3719,8 @@ export const PLAYGROUND_META = {
               "type": "ItemStack",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "swapItems",
@@ -3381,7 +3743,8 @@ export const PLAYGROUND_META = {
               "type": "Container",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "transferItem",
@@ -3398,7 +3761,8 @@ export const PLAYGROUND_META = {
               "type": "Container",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         }
       ],
       "kind": "object"
@@ -3408,7 +3772,8 @@ export const PLAYGROUND_META = {
         {
           "name": "localizationKey",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -3421,7 +3786,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "canContainLiquid",
@@ -3432,7 +3798,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "esolve",
@@ -3449,11 +3816,13 @@ export const PLAYGROUND_META = {
               "type": "BlockStateArg<T>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getAllStates",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getItemStack",
@@ -3464,7 +3833,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "getState",
@@ -3475,11 +3845,13 @@ export const PLAYGROUND_META = {
               "type": "T",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getTags",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "hasTag",
@@ -3490,7 +3862,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "isLiquidBlocking",
@@ -3501,7 +3874,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "liquidSpreadCausesSpawn",
@@ -3512,7 +3886,8 @@ export const PLAYGROUND_META = {
               "type": "LiquidType",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         },
         {
           "name": "matches",
@@ -3529,7 +3904,8 @@ export const PLAYGROUND_META = {
               "type": "BlockStateArg<T>",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "withState",
@@ -3546,7 +3922,8 @@ export const PLAYGROUND_META = {
               "type": "minecraftvanilladata.BlockStateSuperset[T]",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         }
       ],
       "kind": "object"
@@ -3569,7 +3946,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "clearObjectiveAtDisplaySlot",
@@ -3580,7 +3958,8 @@ export const PLAYGROUND_META = {
               "type": "DisplaySlotId",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getObjective",
@@ -3591,7 +3970,8 @@ export const PLAYGROUND_META = {
               "type": "string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getObjectiveAtDisplaySlot",
@@ -3602,15 +3982,18 @@ export const PLAYGROUND_META = {
               "type": "DisplaySlotId",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getObjectives",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getParticipants",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "removeObjective",
@@ -3621,7 +4004,8 @@ export const PLAYGROUND_META = {
               "type": "ScoreboardObjective | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setObjectiveAtDisplaySlot",
@@ -3638,7 +4022,8 @@ export const PLAYGROUND_META = {
               "type": "ScoreboardObjectiveDisplayOptions",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         }
       ],
       "kind": "object"
@@ -3648,17 +4033,20 @@ export const PLAYGROUND_META = {
         {
           "name": "displayName",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "id",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "isValid",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -3677,11 +4065,13 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getParticipants",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "getScore",
@@ -3692,11 +4082,13 @@ export const PLAYGROUND_META = {
               "type": "Entity | ScoreboardIdentity | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "getScores",
-          "parameters": []
+          "parameters": [],
+          "impl": "l2"
         },
         {
           "name": "hasParticipant",
@@ -3707,7 +4099,8 @@ export const PLAYGROUND_META = {
               "type": "Entity | ScoreboardIdentity | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "removeParticipant",
@@ -3718,7 +4111,8 @@ export const PLAYGROUND_META = {
               "type": "Entity | ScoreboardIdentity | string",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         },
         {
           "name": "setScore",
@@ -3735,7 +4129,8 @@ export const PLAYGROUND_META = {
               "type": "number",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l2"
         }
       ],
       "kind": "object"
@@ -3750,22 +4145,26 @@ export const PLAYGROUND_META = {
         {
           "name": "blockComponentRegistry",
           "readonly": true,
-          "type": "BlockComponentRegistry"
+          "type": "BlockComponentRegistry",
+          "impl": "l2"
         },
         {
           "name": "customCommandRegistry",
           "readonly": true,
-          "type": "CustomCommandRegistry"
+          "type": "CustomCommandRegistry",
+          "impl": "l2"
         },
         {
           "name": "dimensionRegistry",
           "readonly": true,
-          "type": "DimensionRegistry"
+          "type": "DimensionRegistry",
+          "impl": "l2"
         },
         {
           "name": "itemComponentRegistry",
           "readonly": true,
-          "type": "ItemComponentRegistry"
+          "type": "ItemComponentRegistry",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3776,12 +4175,14 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "terminateReason",
           "readonly": true,
-          "type": "WatchdogTerminateReason"
+          "type": "WatchdogTerminateReason",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3792,32 +4193,38 @@ export const PLAYGROUND_META = {
         {
           "name": "id",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "initiator",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "message",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "sourceBlock",
           "readonly": true,
-          "type": "Block"
+          "type": "Block",
+          "impl": "l2"
         },
         {
           "name": "sourceEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "sourceType",
           "readonly": true,
-          "type": "ScriptEventSource"
+          "type": "ScriptEventSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3828,22 +4235,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "message",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "sender",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "targets",
           "readonly": true,
-          "type": "Player[]"
+          "type": "Player[]",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3854,22 +4265,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "duration",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "effectType",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3880,22 +4295,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "healedEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "healing",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "healSource",
           "readonly": true,
-          "type": "EntityHealSource"
+          "type": "EntityHealSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3906,22 +4325,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "damage",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "damageSource",
           "readonly": true,
-          "type": "EntityDamageSource"
+          "type": "EntityDamageSource",
+          "impl": "l2"
         },
         {
           "name": "hurtEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3932,17 +4355,20 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "item",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3953,7 +4379,8 @@ export const PLAYGROUND_META = {
         {
           "name": "removedEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3964,17 +4391,20 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "tamingEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -3985,7 +4415,8 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         }
       ],
       "methods": [
@@ -3998,7 +4429,8 @@ export const PLAYGROUND_META = {
               "type": "Block[]",
               "rest": false
             }
-          ]
+          ],
+          "impl": "l0"
         }
       ],
       "kind": "event"
@@ -4008,7 +4440,8 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4019,17 +4452,20 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": false,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4040,22 +4476,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "fromGameMode",
           "readonly": true,
-          "type": "GameMode"
+          "type": "GameMode",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "toGameMode",
           "readonly": false,
-          "type": "GameMode"
+          "type": "GameMode",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4066,37 +4506,44 @@ export const PLAYGROUND_META = {
         {
           "name": "block",
           "readonly": true,
-          "type": "Block"
+          "type": "Block",
+          "impl": "l2"
         },
         {
           "name": "blockFace",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "faceLocation",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "isFirstEvent",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4107,22 +4554,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "target",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4133,7 +4584,8 @@ export const PLAYGROUND_META = {
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4144,27 +4596,32 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "face",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "faceLocation",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "permutationToPlace",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4175,22 +4632,26 @@ export const PLAYGROUND_META = {
         {
           "name": "cancel",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "duration",
           "readonly": false,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "newWeather",
           "readonly": false,
-          "type": "WeatherType"
+          "type": "WeatherType",
+          "impl": "l2"
         },
         {
           "name": "previousWeather",
           "readonly": true,
-          "type": "WeatherType"
+          "type": "WeatherType",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4201,7 +4662,8 @@ export const PLAYGROUND_META = {
         {
           "name": "closeSource",
           "readonly": false,
-          "type": "ContainerAccessSource"
+          "type": "ContainerAccessSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4212,7 +4674,8 @@ export const PLAYGROUND_META = {
         {
           "name": "openSource",
           "readonly": false,
-          "type": "ContainerAccessSource"
+          "type": "ContainerAccessSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4223,12 +4686,14 @@ export const PLAYGROUND_META = {
         {
           "name": "explodedBlockPermutation",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4239,7 +4704,8 @@ export const PLAYGROUND_META = {
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4250,17 +4716,20 @@ export const PLAYGROUND_META = {
         {
           "name": "message",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "sender",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "targets",
           "readonly": true,
-          "type": "Player[]"
+          "type": "Player[]",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4271,18 +4740,21 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "eventId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [
         {
           "name": "getModifiers",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         }
       ],
       "kind": "event"
@@ -4292,12 +4764,14 @@ export const PLAYGROUND_META = {
         {
           "name": "effect",
           "readonly": true,
-          "type": "Effect"
+          "type": "Effect",
+          "impl": "l2"
         },
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4308,12 +4782,14 @@ export const PLAYGROUND_META = {
         {
           "name": "closeSource",
           "readonly": true,
-          "type": "ContainerAccessSource"
+          "type": "ContainerAccessSource",
+          "impl": "l2"
         },
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4324,12 +4800,14 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "openSource",
           "readonly": true,
-          "type": "ContainerAccessSource"
+          "type": "ContainerAccessSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4340,12 +4818,14 @@ export const PLAYGROUND_META = {
         {
           "name": "damageSource",
           "readonly": true,
-          "type": "EntityDamageSource"
+          "type": "EntityDamageSource",
+          "impl": "l2"
         },
         {
           "name": "deadEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4356,17 +4836,20 @@ export const PLAYGROUND_META = {
         {
           "name": "healedEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "healing",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "healSource",
           "readonly": true,
-          "type": "EntityHealSource"
+          "type": "EntityHealSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4377,17 +4860,20 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "newValue",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "oldValue",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4398,22 +4884,26 @@ export const PLAYGROUND_META = {
         {
           "name": "blockFace",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "damagingEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "hitBlock",
           "readonly": true,
-          "type": "Block"
+          "type": "Block",
+          "impl": "l2"
         },
         {
           "name": "hitBlockPermutation",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4424,12 +4914,14 @@ export const PLAYGROUND_META = {
         {
           "name": "damagingEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "hitEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4440,17 +4932,20 @@ export const PLAYGROUND_META = {
         {
           "name": "damage",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "damageSource",
           "readonly": true,
-          "type": "EntityDamageSource"
+          "type": "EntityDamageSource",
+          "impl": "l2"
         },
         {
           "name": "hurtEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4461,12 +4956,14 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "items",
           "readonly": true,
-          "type": "Entity[]"
+          "type": "Entity[]",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4477,12 +4974,14 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "items",
           "readonly": true,
-          "type": "ItemStack[]"
+          "type": "ItemStack[]",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4493,7 +4992,8 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": false,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4504,12 +5004,14 @@ export const PLAYGROUND_META = {
         {
           "name": "removedEntityId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "typeId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4520,12 +5022,14 @@ export const PLAYGROUND_META = {
         {
           "name": "cause",
           "readonly": true,
-          "type": "EntityInitializationCause"
+          "type": "EntityInitializationCause",
+          "impl": "l2"
         },
         {
           "name": "entity",
           "readonly": false,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4536,7 +5040,8 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4547,7 +5052,8 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4558,12 +5064,14 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "tamingEntity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4574,18 +5082,21 @@ export const PLAYGROUND_META = {
         {
           "name": "entity",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "upgradeId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [
         {
           "name": "getModifiers",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         }
       ],
       "kind": "event"
@@ -4595,18 +5106,21 @@ export const PLAYGROUND_META = {
         {
           "name": "dimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [
         {
           "name": "getImpactedBlocks",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         }
       ],
       "kind": "event"
@@ -4616,12 +5130,14 @@ export const PLAYGROUND_META = {
         {
           "name": "rule",
           "readonly": true,
-          "type": "GameRule"
+          "type": "GameRule",
+          "impl": "l2"
         },
         {
           "name": "value",
           "readonly": true,
-          "type": "boolean | number"
+          "type": "boolean | number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4632,17 +5148,20 @@ export const PLAYGROUND_META = {
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "useDuration",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4653,17 +5172,20 @@ export const PLAYGROUND_META = {
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "useDuration",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4674,17 +5196,20 @@ export const PLAYGROUND_META = {
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "useDuration",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4695,22 +5220,26 @@ export const PLAYGROUND_META = {
         {
           "name": "block",
           "readonly": true,
-          "type": "Block"
+          "type": "Block",
+          "impl": "l2"
         },
         {
           "name": "blockFace",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4721,17 +5250,20 @@ export const PLAYGROUND_META = {
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "useDuration",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4742,17 +5274,20 @@ export const PLAYGROUND_META = {
         {
           "name": "block",
           "readonly": true,
-          "type": "Block"
+          "type": "Block",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4763,12 +5298,14 @@ export const PLAYGROUND_META = {
         {
           "name": "itemStack",
           "readonly": false,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4779,12 +5316,14 @@ export const PLAYGROUND_META = {
         {
           "name": "isPowered",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4795,17 +5334,20 @@ export const PLAYGROUND_META = {
         {
           "name": "id",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "message",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4816,12 +5358,14 @@ export const PLAYGROUND_META = {
         {
           "name": "settingName",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "settingValue",
           "readonly": true,
-          "type": "boolean | number | string"
+          "type": "boolean | number | string",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4832,12 +5376,14 @@ export const PLAYGROUND_META = {
         {
           "name": "isExpanding",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "piston",
           "readonly": true,
-          "type": "BlockPistonComponent"
+          "type": "BlockPistonComponent",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4848,22 +5394,26 @@ export const PLAYGROUND_META = {
         {
           "name": "brokenBlockPermutation",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         },
         {
           "name": "itemStackAfterBreak",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "itemStackBeforeBreak",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4874,17 +5424,20 @@ export const PLAYGROUND_META = {
         {
           "name": "button",
           "readonly": true,
-          "type": "InputButton"
+          "type": "InputButton",
+          "impl": "l2"
         },
         {
           "name": "newButtonState",
           "readonly": true,
-          "type": "ButtonState"
+          "type": "ButtonState",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4895,27 +5448,32 @@ export const PLAYGROUND_META = {
         {
           "name": "blockPermutation",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         },
         {
           "name": "breakProgress",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "face",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "heldItemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4926,27 +5484,32 @@ export const PLAYGROUND_META = {
         {
           "name": "fromDimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "fromLocation",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "toDimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "toLocation",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4957,12 +5520,14 @@ export const PLAYGROUND_META = {
         {
           "name": "personaPieceId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4973,17 +5538,20 @@ export const PLAYGROUND_META = {
         {
           "name": "fromGameMode",
           "readonly": true,
-          "type": "GameMode"
+          "type": "GameMode",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "toGameMode",
           "readonly": true,
-          "type": "GameMode"
+          "type": "GameMode",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -4994,22 +5562,26 @@ export const PLAYGROUND_META = {
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "newSlotSelected",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "previousSlotSelected",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5020,17 +5592,20 @@ export const PLAYGROUND_META = {
         {
           "name": "newInputModeUsed",
           "readonly": true,
-          "type": "InputMode"
+          "type": "InputMode",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "previousInputModeUsed",
           "readonly": true,
-          "type": "InputMode"
+          "type": "InputMode",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5041,17 +5616,20 @@ export const PLAYGROUND_META = {
         {
           "name": "category",
           "readonly": true,
-          "type": "InputPermissionCategory"
+          "type": "InputPermissionCategory",
+          "impl": "l2"
         },
         {
           "name": "enabled",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5062,37 +5640,44 @@ export const PLAYGROUND_META = {
         {
           "name": "beforeItemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "block",
           "readonly": true,
-          "type": "Block"
+          "type": "Block",
+          "impl": "l2"
         },
         {
           "name": "blockFace",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "faceLocation",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "isFirstEvent",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5103,22 +5688,26 @@ export const PLAYGROUND_META = {
         {
           "name": "beforeItemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "target",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5129,27 +5718,32 @@ export const PLAYGROUND_META = {
         {
           "name": "beforeItemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "inventoryType",
           "readonly": true,
-          "type": "PlayerInventoryType"
+          "type": "PlayerInventoryType",
+          "impl": "l2"
         },
         {
           "name": "itemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "slot",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5160,12 +5754,14 @@ export const PLAYGROUND_META = {
         {
           "name": "playerId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "playerName",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5176,12 +5772,14 @@ export const PLAYGROUND_META = {
         {
           "name": "playerId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "playerName",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5192,7 +5790,8 @@ export const PLAYGROUND_META = {
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5203,12 +5802,14 @@ export const PLAYGROUND_META = {
         {
           "name": "initialSpawn",
           "readonly": false,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": false,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5219,22 +5820,26 @@ export const PLAYGROUND_META = {
         {
           "name": "blockPermutation",
           "readonly": true,
-          "type": "BlockPermutation"
+          "type": "BlockPermutation",
+          "impl": "l2"
         },
         {
           "name": "face",
           "readonly": true,
-          "type": "Direction"
+          "type": "Direction",
+          "impl": "l2"
         },
         {
           "name": "heldItemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5245,17 +5850,20 @@ export const PLAYGROUND_META = {
         {
           "name": "heldItemStack",
           "readonly": true,
-          "type": "ItemStack"
+          "type": "ItemStack",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": true,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "swingSource",
           "readonly": true,
-          "type": "EntitySwingSource"
+          "type": "EntitySwingSource",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5266,22 +5874,26 @@ export const PLAYGROUND_META = {
         {
           "name": "entityNamed",
           "readonly": false,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "newName",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "player",
           "readonly": false,
-          "type": "Player"
+          "type": "Player",
+          "impl": "l2"
         },
         {
           "name": "previousName",
           "readonly": false,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5292,12 +5904,14 @@ export const PLAYGROUND_META = {
         {
           "name": "previousRedstonePower",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "redstonePower",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5308,17 +5922,20 @@ export const PLAYGROUND_META = {
         {
           "name": "previousRedstonePower",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "redstonePower",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5329,33 +5946,39 @@ export const PLAYGROUND_META = {
         {
           "name": "dimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "hitVector",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "location",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "projectile",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [
         {
           "name": "getBlockHit",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         }
       ],
       "kind": "event"
@@ -5365,33 +5988,39 @@ export const PLAYGROUND_META = {
         {
           "name": "dimension",
           "readonly": true,
-          "type": "Dimension"
+          "type": "Dimension",
+          "impl": "l2"
         },
         {
           "name": "hitVector",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "location",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "projectile",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [
         {
           "name": "getEntityHit",
-          "parameters": []
+          "parameters": [],
+          "impl": "l0"
         }
       ],
       "kind": "event"
@@ -5401,7 +6030,8 @@ export const PLAYGROUND_META = {
         {
           "name": "soundInstanceId",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5412,22 +6042,26 @@ export const PLAYGROUND_META = {
         {
           "name": "hitVector",
           "readonly": true,
-          "type": "Vector3"
+          "type": "Vector3",
+          "impl": "l2"
         },
         {
           "name": "previousRedstonePower",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "redstonePower",
           "readonly": true,
-          "type": "number"
+          "type": "number",
+          "impl": "l2"
         },
         {
           "name": "source",
           "readonly": true,
-          "type": "Entity"
+          "type": "Entity",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5438,12 +6072,14 @@ export const PLAYGROUND_META = {
         {
           "name": "isPowered",
           "readonly": true,
-          "type": "boolean"
+          "type": "boolean",
+          "impl": "l2"
         },
         {
           "name": "sources",
           "readonly": true,
-          "type": "Entity[]"
+          "type": "Entity[]",
+          "impl": "l2"
         }
       ],
       "methods": [],
@@ -5454,17 +6090,20 @@ export const PLAYGROUND_META = {
         {
           "name": "dimension",
           "readonly": true,
-          "type": "string"
+          "type": "string",
+          "impl": "l2"
         },
         {
           "name": "newWeather",
           "readonly": true,
-          "type": "WeatherType"
+          "type": "WeatherType",
+          "impl": "l2"
         },
         {
           "name": "previousWeather",
           "readonly": true,
-          "type": "WeatherType"
+          "type": "WeatherType",
+          "impl": "l2"
         }
       ],
       "methods": [],

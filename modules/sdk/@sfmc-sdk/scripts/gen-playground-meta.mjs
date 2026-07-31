@@ -335,10 +335,122 @@ export function resolveEventType(source, signalType) {
 }
 
 /**
- * @param {string} source
+ * Fake* 类型 / class 名 → PLAYGROUND_META 类名。
+ * 推断规则：overrides 里声明的自有成员 = L2；TARGET 其余默认 L0。
  */
-export function buildPlaygroundMeta(source) {
-  /** @type {Record<string, { properties: { name: string, readonly: boolean, type: string }[], methods: { name: string, parameters: { name: string, type: string, optional: boolean, rest: boolean }[] }[], kind?: string, extends?: string }>} */
+export const OVERRIDE_TYPE_TO_CLASS = {
+  FakePlayer: "Player",
+  FakeEntity: "Entity",
+  FakeWorld: "World",
+  FakeSystem: "System",
+  FakeDimension: "Dimension",
+  FakeBlock: "Block",
+  FakeBlockPermutation: "BlockPermutation",
+  FakeScoreboard: "Scoreboard",
+  FakeScoreboardObjective: "ScoreboardObjective",
+  FakeContainer: "Container",
+  FakeScreenDisplay: "ScreenDisplay",
+  ItemStack: "ItemStack",
+};
+
+/**
+ * 从 type/class 体解析成员名（属性 + 方法）；忽略 `_` 前缀内部字段。
+ * @param {string} body
+ * @returns {Set<string>}
+ */
+export function extractOwnMemberNames(body) {
+  const { properties, methods } = parseClassMembers(body);
+  const names = new Set();
+  for (const p of properties) {
+    if (!p.name.startsWith("_")) names.add(p.name);
+  }
+  for (const m of methods) {
+    if (!m.name.startsWith("_")) names.add(m.name);
+  }
+  return names;
+}
+
+/**
+ * 提取 `export type Name = { ... }` 体。
+ * @param {string} source
+ * @param {string} typeName
+ */
+export function extractTypeAliasBody(source, typeName) {
+  const re = new RegExp(`export\\s+type\\s+${typeName}\\b[^=]*=\\s*\\{`, "m");
+  const m = re.exec(source);
+  if (!m || m.index == null) return null;
+  const start = m.index + m[0].length - 1;
+  let depth = 0;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return source.slice(start + 1, i);
+    }
+  }
+  return null;
+}
+
+/**
+ * 扫描 overrides 目录，得到 className → L2 成员名集合。
+ * Player 合并 Entity 表面（继承）。
+ * @param {string} overridesDir
+ * @returns {Record<string, Set<string>>}
+ */
+export function loadL2SurfaceFromOverrides(overridesDir) {
+  /** @type {Record<string, Set<string>>} */
+  const byClass = {};
+  if (!fs.existsSync(overridesDir)) return byClass;
+
+  for (const file of fs.readdirSync(overridesDir)) {
+    if (!file.endsWith(".ts")) continue;
+    const source = fs.readFileSync(path.join(overridesDir, file), "utf8");
+    for (const [typeName, className] of Object.entries(OVERRIDE_TYPE_TO_CLASS)) {
+      const body = extractTypeAliasBody(source, typeName) ?? extractClassBody(source, typeName);
+      if (!body) continue;
+      const names = extractOwnMemberNames(body);
+      if (!byClass[className]) byClass[className] = new Set();
+      for (const n of names) byClass[className].add(n);
+    }
+  }
+
+  // Player extends Entity：Entity L2 对 Player 也算 L2
+  if (byClass.Entity) {
+    if (!byClass.Player) byClass.Player = new Set();
+    for (const n of byClass.Entity) byClass.Player.add(n);
+  }
+  return byClass;
+}
+
+/**
+ * 给 TARGET / 已实现类成员打 impl 标记。
+ * @param {ReturnType<typeof buildPlaygroundMeta>} meta
+ * @param {Record<string, Set<string>>} l2Surface
+ */
+export function annotateImpl(meta, l2Surface) {
+  for (const [className, entry] of Object.entries(meta.classes)) {
+    const surface = l2Surface[className];
+    const isEvent = entry.kind === "event";
+    entry.properties = entry.properties.map((p) => ({
+      ...p,
+      // Event 属性袋视为可填 L2；对象类按 overrides 自有成员推断
+      impl: isEvent || (surface && surface.has(p.name)) ? "l2" : "l0",
+    }));
+    entry.methods = (entry.methods ?? []).map((m) => ({
+      ...m,
+      impl: surface && surface.has(m.name) ? "l2" : "l0",
+    }));
+  }
+  return meta;
+}
+
+/**
+ * @param {string} source
+ * @param {{ l2Surface?: Record<string, Set<string>> }} [opts]
+ */
+export function buildPlaygroundMeta(source, opts = {}) {
+  /** @type {Record<string, { properties: { name: string, readonly: boolean, type: string, impl?: string }[], methods: { name: string, parameters: { name: string, type: string, optional: boolean, rest: boolean }[], impl?: string }[], kind?: string, extends?: string }>} */
   const classes = {};
   for (const name of TARGET_CLASSES) {
     if (!extractClassBody(source, name)) continue;
@@ -372,12 +484,15 @@ export function buildPlaygroundMeta(source) {
     }
   }
 
-  return {
+  const meta = {
     generatedAt: "gen-playground-meta",
     classes,
     events,
     eventTypes,
   };
+
+  if (opts.l2Surface) annotateImpl(meta, opts.l2Surface);
+  return meta;
 }
 
 /**
@@ -420,15 +535,21 @@ export function main(argv = process.argv.slice(2)) {
   const dtsPath = args.dts ?? resolveDefaultDts();
   const outPath =
     args.out ?? path.join(PKG_ROOT, "src/testing/engine/generated/playground-meta.ts");
+  const overridesDir = path.join(PKG_ROOT, "src/testing/engine/overrides");
   const source = fs.readFileSync(dtsPath, "utf8");
-  const meta = buildPlaygroundMeta(source);
+  const l2Surface = loadL2SurfaceFromOverrides(overridesDir);
+  const meta = buildPlaygroundMeta(source, { l2Surface });
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, emitPlaygroundMetaTs(meta), "utf8");
   const classCount = Object.keys(meta.classes).length;
   const eventCount = Object.values(meta.events).reduce((n, a) => n + a.length, 0);
   const eventTypeCount = Object.keys(meta.eventTypes).length;
+  const l2Methods = Object.values(meta.classes).reduce(
+    (n, c) => n + (c.methods ?? []).filter((m) => m.impl === "l2").length,
+    0
+  );
   console.log(
-    `[gen-playground-meta] classes=${classCount} eventSignals=${eventCount} eventTypes=${eventTypeCount} → ${outPath}`
+    `[gen-playground-meta] classes=${classCount} eventSignals=${eventCount} eventTypes=${eventTypeCount} l2Methods=${l2Methods} → ${outPath}`
   );
 }
 

@@ -63,6 +63,8 @@ export type SandboxEmit = {
   /** 默认走 beforeEvents.chatSend；`after: true` 时再发 afterEvents.chatSend。 */
   chatSend(player: FakePlayer, message: string, opts?: { after?: boolean }): void;
   scriptEvent(id: string, sourceEntity?: unknown): void;
+  /** 从世界移除玩家并触发 playerLeave（before + after）。 */
+  playerLeave(player: FakePlayer): void;
 };
 
 export type Sandbox = {
@@ -253,7 +255,24 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
   let disposed = false;
 
   const addPlayer = (init: Parameters<Sandbox["addPlayer"]>[0]) => {
-    const p = createEnginePlayer(init);
+    const userHook = init.onGameModeChange;
+    const p = createEnginePlayer({
+      ...init,
+      onGameModeChange: (player, from, to) => {
+        userHook?.(player, from, to);
+        eng.world.beforeEvents.playerGameModeChange!.emit({
+          player,
+          fromGameMode: from,
+          toGameMode: to,
+          cancel: false,
+        });
+        eng.world.afterEvents.playerGameModeChange!.emit({
+          player,
+          fromGameMode: from,
+          toGameMode: to,
+        });
+      },
+    });
     const dim = eng.world.getDimension(p.dimension.id);
     p.dimension = dim;
     eng.world.addPlayer(p);
@@ -306,6 +325,9 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
       },
       scriptEvent(id, sourceEntity) {
         eng.system.afterEvents.scriptEventReceive!.emit({ id, sourceEntity });
+      },
+      playerLeave(player) {
+        eng.world.removePlayer(player.id);
       },
     },
     tick(n = 1) {

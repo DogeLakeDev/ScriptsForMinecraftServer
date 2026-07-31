@@ -69,6 +69,32 @@ export function createEventsDrive(host: Host) {
       return resolveSignal(host, path).size();
     },
     /**
+     * 已有 listener 的事件 path 摘要（只扫 hub 已物化信号，不惰性造空信号）。
+     * 含模块 registerEvents 与宿主 chat→命令桥等。
+     */
+    subscribedPaths(): { path: string; listeners: number }[] {
+      const out: { path: string; listeners: number }[] = [];
+      const hubs: { root: "world" | "system"; name: string; bag: unknown }[] = [
+        { root: "world", name: "afterEvents", bag: host.world.afterEvents },
+        { root: "world", name: "beforeEvents", bag: host.world.beforeEvents },
+        { root: "system", name: "afterEvents", bag: host.system.afterEvents },
+        { root: "system", name: "beforeEvents", bag: host.system.beforeEvents },
+      ];
+      for (const h of hubs) {
+        const bag = h.bag as { _signals?: () => Map<string, EventSignal<unknown>> };
+        const signals = typeof bag?._signals === "function" ? bag._signals() : null;
+        if (!signals) continue;
+        for (const [signal, sig] of signals) {
+          const n = sig.size();
+          if (n <= 0) continue;
+          const path = `${h.root}.${h.name}.${signal}`;
+          if (!knownPath(path)) continue;
+          out.push({ path, listeners: n });
+        }
+      }
+      return out.sort((a, b) => a.path.localeCompare(b.path));
+    },
+    /**
      * 路径如 world.afterEvents.playerJoin；
      * 同步调用该信号全部订阅回调，返回 emit 后的事件对象（可含 cancel 等副作用）。
      */

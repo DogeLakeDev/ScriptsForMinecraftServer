@@ -79,6 +79,33 @@ test("events.emit 回调抛错仍继续调用其余订阅，并记入 lastMeta.e
   }
 });
 
+test("events.subscribedPaths 列出已 subscribe 的 path", async () => {
+  const sb = await createSandbox({
+    module: {
+      id: "sub-paths-module",
+      afterWorldLoad: false,
+      lifecycle: {
+        registerEvents() {
+          world.afterEvents.playerJoin.subscribe(() => {});
+          world.afterEvents.playerSpawn.subscribe(() => {});
+        },
+      },
+    },
+  });
+  try {
+    const subs = sb.events.subscribedPaths();
+    const paths = subs.map((s) => s.path);
+    assert.ok(paths.includes("world.afterEvents.playerJoin"));
+    assert.ok(paths.includes("world.afterEvents.playerSpawn"));
+    // 宿主 chat→命令桥
+    assert.ok(paths.includes("world.beforeEvents.chatSend"));
+    const join = subs.find((s) => s.path === "world.afterEvents.playerJoin");
+    assert.equal(join?.listeners, 1);
+  } finally {
+    await sb.dispose();
+  }
+});
+
 test("beforeEvents emit 同一事件对象可被回调 cancel", async () => {
   const sb = await createSandbox({ boot: false });
   try {

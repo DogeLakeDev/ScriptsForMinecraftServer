@@ -59,11 +59,12 @@ export const PlayerPermissionLevel = {
   Custom: 3,
 } as const;
 
+/** 对齐 pin `@minecraft/server` GameMode 枚举字面量。 */
 export const GameMode = {
-  survival: "survival",
-  creative: "creative",
-  adventure: "adventure",
-  spectator: "spectator",
+  Survival: "Survival",
+  Creative: "Creative",
+  Adventure: "Adventure",
+  Spectator: "Spectator",
 } as const;
 
 function unimplementedCtor(name: string) {

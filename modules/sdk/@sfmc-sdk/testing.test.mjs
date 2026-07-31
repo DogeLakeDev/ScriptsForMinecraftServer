@@ -608,3 +608,83 @@ ModuleRegistry.register(DESCRIPTOR);
   await sb.dispose();
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("L2 本批：getGameMode/setGameMode + playerGameModeChange", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const { GameMode } = await import("@minecraft/server");
+  const sb = await createSandbox({});
+  const seen = [];
+  sb.world.afterEvents.playerGameModeChange.subscribe((ev) => {
+    seen.push({ from: ev.fromGameMode, to: ev.toGameMode });
+  });
+  const p = sb.addPlayer({ name: "GM" });
+  assert.equal(p.getGameMode(), GameMode.Survival);
+  p.setGameMode(GameMode.Creative);
+  assert.equal(p.getGameMode(), "Creative");
+  assert.deepEqual(seen, [{ from: "Survival", to: "Creative" }]);
+  await sb.dispose();
+});
+
+test("L2 本批：runCommand 记录 + gamemode 薄解析", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Cmd" });
+  const r = p.runCommand("give @s minecraft:apple 1");
+  assert.equal(r.successCount, 1);
+  assert.ok(p.commandLog.includes("give @s minecraft:apple 1"));
+  p.runCommand("gamemode creative");
+  assert.equal(p.getGameMode(), "Creative");
+  const dim = sb.world.getDimension("overworld");
+  dim.runCommand("say hi");
+  assert.ok(dim.commandLog.includes("say hi"));
+  await sb.dispose();
+});
+
+test("L2 本批：playSound / onScreenDisplay / spawnPoint / playerLeave", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Hud" });
+  p.playSound("bucket.fill_water");
+  assert.deepEqual(p.soundLog, ["bucket.fill_water"]);
+  p.onScreenDisplay.setTitle("Hello", { subtitle: "World" });
+  assert.equal(p.onScreenDisplay.title, "Hello");
+  assert.equal(p.onScreenDisplay.subtitle, "World");
+  p.onScreenDisplay.setActionBar("bar");
+  assert.equal(p.onScreenDisplay.actionBar, "bar");
+  p.onScreenDisplay.updateSubtitle("2");
+  assert.equal(p.onScreenDisplay.subtitle, "2");
+  assert.equal(p.getSpawnPoint(), undefined);
+  p.setSpawnPoint({ dimension: p.dimension, x: 10, y: 70, z: -3 });
+  const sp = p.getSpawnPoint();
+  assert.equal(sp?.x, 10);
+  assert.equal(sp?.y, 70);
+  assert.equal(sp?.z, -3);
+
+  let left = null;
+  sb.world.afterEvents.playerLeave.subscribe((ev) => {
+    left = ev.playerId;
+  });
+  sb.emit.playerLeave(p);
+  assert.equal(left, p.id);
+  assert.equal(sb.world.getPlayers().length, 0);
+  await sb.dispose();
+});
+
+test("L2 本批：未接线 API 仍硬失败（无空成功）", async () => {
+  const { createSandbox, UnimplementedMinecraftApiError } = await import(
+    "./dist/esm/testing/index.js"
+  );
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Hard" });
+  assert.throws(() => p.applyDamage?.(1), (err) => {
+    // Proxy 抛 Unimplemented；若方法不存在同样
+    return (
+      err instanceof UnimplementedMinecraftApiError ||
+      (err instanceof Error && /未实现的 Minecraft API/.test(err.message))
+    );
+  });
+  assert.throws(() => p.onScreenDisplay.hideAllExcept?.(), (err) => {
+    return err instanceof Error && /未实现的 Minecraft API/.test(err.message);
+  });
+  await sb.dispose();
+});
