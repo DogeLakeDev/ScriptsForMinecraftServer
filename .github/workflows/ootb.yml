@@ -38,9 +38,9 @@ jobs:
         shell: pwsh
         run: |
           npm run gen:mc-fake -w @sfmc-bds/sdk
-          $porcelain = git status --porcelain -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"
-          if ($porcelain) {
-            Write-Host $porcelain
+          # 忽略 CRLF 噪声；不稳定字段已从 export-names*.json 去掉
+          git diff --ignore-cr-at-eol --exit-code -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"
+          if ($LASTEXITCODE -ne 0) {
             throw "generated/ 与 gen:mc-fake 不一致：请本地 npm run gen:mc-fake -w @sfmc-bds/sdk 后提交"
           }
 

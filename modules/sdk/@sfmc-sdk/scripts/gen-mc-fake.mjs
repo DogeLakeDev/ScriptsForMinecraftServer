@@ -232,13 +232,20 @@ function generateOne(cfg) {
   const { code, names } = emitServerL0Module(exports, { skip: cfg.skip });
   fs.mkdirSync(path.dirname(cfg.outFile), { recursive: true });
   fs.writeFileSync(cfg.outFile, code, "utf8");
+  // meta 只保留稳定字段：绝对路径 / 时间戳会让 CI「生成物一致」检查永远失败
+  const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  let dtsRel = path.relative(pkgRoot, cfg.dtsPath).replace(/\\/g, "/");
+  if (dtsRel.startsWith("..")) {
+    // 解析到仓库根 node_modules 时，相对路径从 monorepo 根写
+    const repoRoot = path.resolve(pkgRoot, "../../..");
+    dtsRel = path.relative(repoRoot, cfg.dtsPath).replace(/\\/g, "/");
+  }
   fs.writeFileSync(
     cfg.metaFile,
     JSON.stringify(
       {
         module: cfg.module,
-        dtsPath: cfg.dtsPath,
-        generatedAt: new Date().toISOString(),
+        dtsPath: dtsRel,
         totalValueExports: exports.length,
         generatedNames: names,
         skippedHandWritten: [...cfg.skip].sort(),

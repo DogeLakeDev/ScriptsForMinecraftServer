@@ -1,7 +1,6 @@
 {
   "module": "@minecraft/server",
-  "dtsPath": "D:\\#WorkPlace\\#MCBEProjects\\ScriptsForMinecraftServer\\node_modules\\@minecraft\\server\\index.d.ts",
-  "generatedAt": "2026-07-30T12:08:50.477Z",
+  "dtsPath": "node_modules/@minecraft/server/index.d.ts",
   "totalValueExports": 559,
   "generatedNames": [
     "AimAssistCategory",
