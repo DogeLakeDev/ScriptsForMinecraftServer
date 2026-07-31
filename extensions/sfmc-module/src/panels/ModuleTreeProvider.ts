@@ -13,7 +13,11 @@ import {
   getSfmcRoot,
   cmdRunTests,
   cmdModuleInfo,
+  cmdStartDebug,
+  cmdEnableModule,
+  cmdDisableModule,
 } from "./commands.js";
+import { PlaygroundPanel } from "../playground/PlaygroundPanel.js";
 import type { ModuleLock } from "./lock.js";
 
 function readLock(sfmcRoot: string): ModuleLock["modules"] {
@@ -73,7 +77,9 @@ export interface TreeViewCallbacks {
 
 function buildActions(modRoot: string, watchActive: boolean): ActionNode[] {
   const items: ActionNode[] = [
-    { kind: "action", label: "Playground", icon: "play", command: "sfmcModule.runTestsAction", modRoot },
+    { kind: "action", label: "Run Module Tests", icon: "beaker", command: "sfmcModule.runTestsAction", modRoot },
+    { kind: "action", label: "脚本沙箱", icon: "play", command: "sfmcModule.openPlaygroundAction", modRoot },
+    { kind: "action", label: "启动并调试", icon: "debug-alt", command: "sfmcModule.startDebugAction", modRoot },
   ];
   if (watchActive) {
     items.push({ kind: "action", label: "Stop Watch", icon: "circle-slash", command: "sfmcModule.stopWatch", modRoot });
@@ -81,7 +87,10 @@ function buildActions(modRoot: string, watchActive: boolean): ActionNode[] {
     items.push({ kind: "action", label: "Start Watch", icon: "eye", command: "sfmcModule.startWatch", modRoot });
   }
   items.push(
-    { kind: "action", label: "Reload to BDS", icon: "refresh", command: "sfmcModule.reload", modRoot },
+    { kind: "action", label: "编译模块", icon: "package", command: "sfmcModule.build", modRoot },
+    { kind: "action", label: "Reload to BDS", icon: "sync", command: "sfmcModule.reload", modRoot },
+    { kind: "action", label: "启用模块", icon: "check", command: "sfmcModule.enable", modRoot },
+    { kind: "action", label: "关闭模块", icon: "circle-slash", command: "sfmcModule.disable", modRoot },
     { kind: "action", label: "Module Info", icon: "info", command: "sfmcModule.moduleInfoAction", modRoot }
   );
   return items;
@@ -112,7 +121,9 @@ export class ModuleTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     if (element.kind === "root") {
       const item = new vscode.TreeItem(element.name, vscode.TreeItemCollapsibleState.Expanded);
       item.iconPath = new vscode.ThemeIcon(element.enabled ? "circle-filled" : "circle-outline");
-      item.description = element.pkgName ?? "no package.json";
+      const status = element.enabled ? "已启用" : "已关闭";
+      item.description = element.pkgName ? `${status} · ${element.pkgName}` : status;
+      item.tooltip = `${element.logicalId}\n${status}`;
       item.contextValue = "sfmcModule";
       return item;
     } else {
@@ -190,8 +201,34 @@ export function registerTreeView(context: vscode.ExtensionContext, callbacks: Tr
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("sfmcModule.openPlaygroundAction", (modRoot: string) => {
+      PlaygroundPanel.show(context, modRoot || undefined);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sfmcModule.startDebugAction", async (modRoot: string) => {
+      await cmdStartDebug(modRoot);
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("sfmcModule.refreshTree", () => {
       provider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sfmcModule.enable", async (arg?: unknown) => {
+      const ok = await cmdEnableModule(arg);
+      if (ok) provider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sfmcModule.disable", async (arg?: unknown) => {
+      const ok = await cmdDisableModule(arg);
+      if (ok) provider.refresh();
     })
   );
 

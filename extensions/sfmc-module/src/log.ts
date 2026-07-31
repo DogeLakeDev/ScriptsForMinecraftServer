@@ -1,54 +1,88 @@
 /**
- * 扩展日志 — OutputChannel「SFMC 扩展」（LogOutputChannel）
- * Playground Webview 内系统频道仍独立；此处记扩展命令 / Watch / 宿主进程级信息。
+ * 扩展日志 — 经 @sfmc-bds/sdk/logs 写入 VS Code Output「SFMC 扩展」
+ * 脚本沙箱 Webview 不再内嵌日志面板；断言缓冲仍在 Webview 静默保留。
  */
 
 import * as vscode from "vscode";
+import {
+  createCallbackSink,
+  createLogger,
+  formatLog,
+  stripAnsi,
+  type LogEntry,
+  type LogLevel,
+  type Logger,
+} from "@sfmc-bds/sdk/logs";
 
-let channel: vscode.LogOutputChannel | undefined;
+let channel: vscode.OutputChannel | undefined;
+const loggers = new Map<string, Logger>();
 
-function ensure(): vscode.LogOutputChannel {
+function ensureChannel(): vscode.OutputChannel {
   if (!channel) {
-    channel = vscode.window.createOutputChannel("SFMC 扩展", { log: true });
+    channel = vscode.window.createOutputChannel("SFMC 扩展");
   }
   return channel;
 }
 
+function sinkWrite(entry: LogEntry): void {
+  const line = stripAnsi(formatLog(entry, { color: false, padSourceWidth: 10 }));
+  ensureChannel().appendLine(line);
+}
+
+function logger(source: string): Logger {
+  let lg = loggers.get(source);
+  if (!lg) {
+    lg = createLogger({
+      source,
+      color: false,
+      sinks: [createCallbackSink(sinkWrite)],
+    });
+    loggers.set(source, lg);
+  }
+  return lg;
+}
+
 export const ExtLog = {
-  /** 注册到 extension.subscriptions */
-  channel(): vscode.LogOutputChannel {
-    return ensure();
+  channel(): vscode.OutputChannel {
+    return ensureChannel();
   },
 
   show(preserveFocus = true): void {
-    ensure().show(preserveFocus);
+    ensureChannel().show(preserveFocus);
   },
 
   clear(): void {
-    ensure().clear();
+    ensureChannel().clear();
   },
 
   info(scope: string, message: string): void {
-    ensure().info(`[${scope}] ${message}`);
+    logger(scope).info(message);
   },
 
   warn(scope: string, message: string): void {
-    ensure().warn(`[${scope}] ${message}`);
+    logger(scope).warn(message);
   },
 
   error(scope: string, message: string): void {
-    ensure().error(`[${scope}] ${message}`);
+    logger(scope).error(message);
   },
 
   debug(scope: string, message: string): void {
-    ensure().debug(`[${scope}] ${message}`);
+    logger(scope).debug(message);
   },
 
-  /** 多行原文（Watch / rebuild 输出） */
+  success(scope: string, message: string): void {
+    logger(scope).success(message);
+  },
+
   raw(scope: string, text: string): void {
-    const ch = ensure();
+    const lg = logger(scope);
     for (const line of text.replace(/\r\n/g, "\n").split("\n")) {
-      if (line.length) ch.info(`[${scope}] ${line}`);
+      if (line.length) lg.info(line);
     }
+  },
+
+  write(scope: string, message: string, level: LogLevel = "info"): void {
+    logger(scope).log(message, level);
   },
 };

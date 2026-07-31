@@ -3,17 +3,18 @@
  */
 
 import * as vscode from "vscode";
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
   scaffoldModule,
   isValidModuleRoot,
+  isValidSfmcRoot,
   findModuleRootFromFile,
   readModuleRootInfo,
+  setModuleEnabled,
 } from "@sfmc-bds/devkit";
-import { applyLockEnabled, type ModuleLock } from "./lock.js";
 import { PlaygroundPanel } from "../playground/PlaygroundPanel.js";
+import { PlaygroundHostClient, buildHostNodeArgs, resolveHostEntry } from "../playground/hostClient.js";
 import { ExtLog } from "../log.js";
 
 let statusBar: vscode.StatusBarItem | undefined;
@@ -32,26 +33,69 @@ export function getSfmcRootConfigured(): string {
   return (vscode.workspace.getConfiguration("sfmc").get<string>("root") || "").trim();
 }
 
-/** 获取 SFMC 根目录；缺失时弹目录选择并写入 Workspace 设置。取消返回 null。 */
-export async function ensureSfmcRoot(): Promise<string | null> {
+/** 可选：显式 sfmc CLI 入口（.js/.mjs）；空则由 devkit 从安装树 / PATH / SFMC_CLI 解析。 */
+export function getSfmcCliPathConfigured(): string {
+  return (vscode.workspace.getConfiguration("sfmc").get<string>("cliPath") || "").trim();
+}
+
+/**
+ * 弹文件夹选择器并写入 Workspace `sfmc.root`（工作目录）。
+ * ensureSfmcRoot（缺目录）与 cmdSetSfmcRoot（显式修改）共用，避免两套分叉。
+ */
+export async function pickAndWriteSfmcRoot(): Promise<string | null> {
   const existing = getSfmcRootConfigured();
-  if (existing && fs.existsSync(existing)) return existing;
   const picked = await vscode.window.showOpenDialog({
     canSelectFolders: true,
     canSelectFiles: false,
-    openLabel: "选择 SFMC 主仓根目录",
+    title: "选择 SFMC 工作目录",
+    openLabel: "选择 SFMC 工作目录",
+    defaultUri: existing && fs.existsSync(existing) ? vscode.Uri.file(existing) : undefined,
   });
   if (!picked?.[0]) return null;
   const root = picked[0].fsPath;
+  if (!isValidSfmcRoot(root)) {
+    vscode.window.showErrorMessage(
+      `所选目录不是有效 SFMC 工作目录（需含 configs/ 与 modules/）：${root}`
+    );
+    ExtLog.error("sfmc.root", `无效工作目录 ${root}（需含 configs/ 与 modules/）`);
+    return null;
+  }
   await vscode.workspace
     .getConfiguration("sfmc")
     .update("root", root, vscode.ConfigurationTarget.Workspace);
+  ExtLog.info("sfmc.root", `工作目录已设为 ${root}`);
   return root;
 }
 
-/** 同步读取：已配置优先；否则工作区第一项（仅兼容旧调用，Watch 请用 ensureSfmcRoot）。 */
+/** 获取 SFMC 工作目录；缺失或无效时弹目录选择并写入 Workspace 设置。取消返回 null。 */
+export async function ensureSfmcRoot(): Promise<string | null> {
+  const existing = getSfmcRootConfigured();
+  if (existing && isValidSfmcRoot(existing)) return existing;
+  if (existing) {
+    const reason = fs.existsSync(existing)
+      ? "需含 configs/ 与 modules/（运行时工作目录，不必是源码仓库）"
+      : "路径不存在";
+    vscode.window.showWarningMessage(`当前 sfmc.root 无效（${reason}）：${existing}`);
+    ExtLog.warn("sfmc.root", `无效 ${existing}（${reason}）`);
+  }
+  return pickAndWriteSfmcRoot();
+}
+
+/** 显式修改 sfmc.root（工作目录）：始终弹出选择器，写 Workspace 设置后刷新 Tree。 */
+export async function cmdSetSfmcRoot(): Promise<string | null> {
+  const root = await pickAndWriteSfmcRoot();
+  if (!root) return null;
+  await vscode.commands.executeCommand("sfmcModule.refreshTree");
+  vscode.window.showInformationMessage(`SFMC 工作目录已设为：${root}`);
+  return root;
+}
+
+/**
+ * 已配置的 sfmc.root（可能为空）。不猜工作区第一项。
+ * Tree 只读 lock 时用；Watch / 编译 / Reload / 启停须走 ensureSfmcRoot。
+ */
 export function getSfmcRoot(): string {
-  return getSfmcRootConfigured() || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+  return getSfmcRootConfigured();
 }
 
 /**
@@ -100,10 +144,6 @@ export async function pickModuleRoot(): Promise<string | undefined> {
   return pick?.modRoot;
 }
 
-function readLogicalId(modRoot: string): string {
-  return readModuleRootInfo(modRoot)?.id ?? path.basename(modRoot);
-}
-
 export async function cmdNewModule(): Promise<void> {
   const id = await vscode.window.showInputBox({
     prompt: "模块 id（kebab-case）",
@@ -137,7 +177,7 @@ export async function cmdNewModule(): Promise<void> {
   }
 }
 
-/** 打开 1:1 Playground（无模块根也可 engine-only）。 */
+/** 打开 1:1 脚本沙箱（无模块根也可 engine-only）。 */
 export async function cmdOpenPlayground(): Promise<void> {
   if (!extensionContext) {
     vscode.window.showErrorMessage("扩展上下文未就绪");
@@ -149,50 +189,116 @@ export async function cmdOpenPlayground(): Promise<void> {
   PlaygroundPanel.show(extensionContext, modRoot);
 }
 
+/**
+ * 冒烟：装载模块 → 对已注册命令走 !name + chatSend。
+ * 不 spawn npm test；不直接 triggerCommand。
+ */
 export async function cmdRunTests(modRoot?: string): Promise<void> {
   if (!modRoot) {
     modRoot = await pickModuleRoot();
     if (!modRoot) return;
   }
-
-  // 第一版：打开 Playground 作为验证主路径；手写 npm test 仍可在终端跑
-  if (!extensionContext) {
-    vscode.window.showErrorMessage("扩展上下文未就绪");
+  if (!isValidModuleRoot(modRoot)) {
+    vscode.window.showErrorMessage(`不是有效模块根: ${modRoot}`);
     return;
   }
-  PlaygroundPanel.show(extensionContext, modRoot);
-  ExtLog.info("playground", `已打开；手写 npm test 请在终端运行。模块: ${modRoot}`);
-  if (statusBar) statusBar.text = "SFMC playground";
-}
 
-export async function cmdEnable(modRoot: string): Promise<void> {
-  writeLock(modRoot, true);
-}
+  ExtLog.show();
+  ExtLog.info("smoke", `开始冒烟 ${modRoot}`);
+  if (statusBar) statusBar.text = "SFMC $(sync~spin) smoke";
 
-export async function cmdDisable(modRoot: string): Promise<void> {
-  writeLock(modRoot, false);
-}
-
-function writeLock(modRoot: string, enabled: boolean): void {
-  const logicalId = readLogicalId(modRoot);
-  const sfmcRoot = getSfmcRoot();
-  const lockPath = path.join(sfmcRoot, "modules", "module-lock.json");
-  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-
-  let lock: ModuleLock = { version: 1, modules: {} };
-  if (fs.existsSync(lockPath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(lockPath, "utf8")) as ModuleLock;
-      if (parsed && typeof parsed === "object") lock = parsed;
-    } catch {
-      /* 损坏的 lock 由 sfmc CLI / db-server 修复 */
+  const client = new PlaygroundHostClient((ev) => {
+    if (ev.name === "log") {
+      const p = ev.payload as { text?: string };
+      if (p?.text) ExtLog.info("smoke", p.text);
     }
+  }, modRoot);
+
+  try {
+    await client.request("start", { moduleRoot: modRoot });
+    const result = (await client.request("smoke.run", {})) as {
+      ok: boolean;
+      commands: string[];
+      results: { name: string; ok: boolean; log: string[] }[];
+    };
+    const failed = (result.results ?? []).filter((r) => !r.ok);
+    for (const r of result.results ?? []) {
+      ExtLog.info("smoke", `!${r.name} → ${r.ok ? "ok" : "FAIL"}`);
+      if (!r.ok) {
+        for (const line of r.log) ExtLog.raw("smoke", line);
+      }
+    }
+    if (result.ok) {
+      ExtLog.info("smoke", `通过（${result.commands?.length ?? 0} 条命令）`);
+      vscode.window.showInformationMessage(
+        `模块冒烟通过（${result.commands?.length ?? 0} 条 ! 命令）`
+      );
+      if (statusBar) statusBar.text = "SFMC $(check)";
+    } else {
+      ExtLog.error("smoke", `失败 ${failed.length}/${result.results?.length ?? 0}`);
+      vscode.window.showErrorMessage(`模块冒烟失败 ${failed.length} 条，见「SFMC 扩展」输出`);
+      if (statusBar) statusBar.text = "SFMC $(error)";
+    }
+  } catch (e) {
+    const text = e instanceof Error ? e.message : String(e);
+    ExtLog.error("smoke", text);
+    vscode.window.showErrorMessage(`冒烟失败: ${text}`);
+    if (statusBar) statusBar.text = "SFMC $(error)";
+  } finally {
+    client.dispose();
+  }
+}
+
+/**
+ * 启动并调试：debug.startDebugging → playground-host + source map，
+ * 断点目标为模块 sapi/src。
+ */
+export async function cmdStartDebug(modRoot?: string): Promise<void> {
+  if (!modRoot) {
+    modRoot = await pickModuleRoot();
+    if (!modRoot) return;
+  }
+  let entry;
+  try {
+    entry = resolveHostEntry();
+  } catch (e) {
+    vscode.window.showErrorMessage(e instanceof Error ? e.message : String(e));
+    return;
+  }
+  if (!fs.existsSync(entry.hostFs)) {
+    vscode.window.showErrorMessage(`playground-host 未构建: ${entry.hostFs}`);
+    return;
   }
 
-  applyLockEnabled(lock, logicalId, enabled);
-  fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(modRoot));
+  const nodeArgs = buildHostNodeArgs(entry);
+  const config: vscode.DebugConfiguration = {
+    type: "node",
+    request: "launch",
+    name: "SFMC 脚本沙箱调试",
+    runtimeExecutable: process.execPath,
+    runtimeArgs: nodeArgs.slice(0, -1),
+    program: entry.hostFs,
+    cwd: modRoot,
+    env: {
+      ...process.env,
+      SFMC_PLAYGROUND_MODULE_ROOT: modRoot,
+    },
+    console: "integratedTerminal",
+    sourceMaps: true,
+    skipFiles: ["<node_internals>/**"],
+  };
 
-  vscode.window.showInformationMessage(`${enabled ? "已启用" : "已禁用"}: ${logicalId}`);
+  ExtLog.info("debug", `启动并调试 module=${modRoot}`);
+  ExtLog.show(true);
+  const ok = await vscode.debug.startDebugging(folder, config);
+  if (!ok) {
+    vscode.window.showErrorMessage("启动调试会话失败");
+    return;
+  }
+  vscode.window.showInformationMessage(
+    "已启动 playground-host 调试。在 sapi/src 下断点；终端内可对 stdin 发送 JSON-RPC（start / smoke.run）。"
+  );
 }
 
 export async function cmdModuleInfo(modRoot: string): Promise<void> {
@@ -211,27 +317,62 @@ export async function cmdModuleInfo(modRoot: string): Promise<void> {
   ExtLog.show();
 }
 
-/** 可选：仍支持 spawn npm test（调试用）。 */
-export async function cmdNpmTest(modRoot: string): Promise<void> {
+/** Tree / 命令面板传入的模块根：字符串或带 modRoot 的节点。 */
+function coerceModRoot(arg?: unknown): string | undefined {
+  if (typeof arg === "string" && arg.trim()) return arg.trim();
+  if (arg && typeof arg === "object" && "modRoot" in arg) {
+    const root = (arg as { modRoot?: unknown }).modRoot;
+    if (typeof root === "string" && root.trim()) return root.trim();
+  }
+  return undefined;
+}
+
+/**
+ * 启用或关闭模块：写 `${sfmc.root}/modules/module-lock.json`（经 `sfmc mod enable|disable`）。
+ * 成功后由调用方刷新 Tree。
+ */
+export async function cmdSetModuleEnabled(enabled: boolean, modRootArg?: unknown): Promise<boolean> {
+  let modRoot = coerceModRoot(modRootArg);
+  if (!modRoot) {
+    modRoot = await pickModuleRoot();
+    if (!modRoot) return false;
+  }
+  if (!isValidModuleRoot(modRoot)) {
+    vscode.window.showErrorMessage(`不是有效模块根: ${modRoot}`);
+    return false;
+  }
+
+  const info = readModuleRootInfo(modRoot);
+  const moduleId = info?.id;
+  if (!moduleId) {
+    vscode.window.showErrorMessage(`无法读取模块 id: ${modRoot}`);
+    return false;
+  }
+
+  const sfmcRoot = await ensureSfmcRoot();
+  if (!sfmcRoot) return false;
+
+  const action = enabled ? "enable" : "disable";
+  const label = enabled ? "启用" : "关闭";
   ExtLog.show();
-  ExtLog.info("npmTest", modRoot);
-  const isWin = process.platform === "win32";
-  const cmd = isWin ? "cmd.exe" : "npm";
-  const args = isWin ? ["/c", "npm", "test"] : ["test"];
-  if (statusBar) statusBar.text = "SFMC $(sync~spin) test";
-  await new Promise<void>((resolve) => {
-    const proc = spawn(cmd, args, { cwd: modRoot, env: process.env });
-    proc.stdout?.on("data", (d) => ExtLog.raw("npmTest", d.toString()));
-    proc.stderr?.on("data", (d) => ExtLog.raw("npmTest", d.toString()));
-    proc.on("exit", (code) => {
-      ExtLog.info("npmTest", `exit ${code ?? "?"}`);
-      if (statusBar) statusBar.text = code === 0 ? "SFMC $(check)" : "SFMC $(error)";
-      resolve();
-    });
-    proc.on("error", (e) => {
-      ExtLog.error("npmTest", e.message);
-      if (statusBar) statusBar.text = "SFMC $(error)";
-      resolve();
-    });
-  });
+  ExtLog.info(action, `module=${moduleId} 工作目录=${sfmcRoot}`);
+
+  const cliPath = getSfmcCliPathConfigured() || undefined;
+  const r = await setModuleEnabled({ sfmcRoot, moduleId, enabled, cliPath });
+  ExtLog.raw(action, r.output);
+  if (r.ok) {
+    vscode.window.showInformationMessage(`已${label}模块 ${moduleId}`);
+    return true;
+  }
+  ExtLog.error(action, `${label}失败`);
+  vscode.window.showErrorMessage(`${label}模块失败，见「SFMC 扩展」输出`);
+  return false;
+}
+
+export async function cmdEnableModule(modRootArg?: unknown): Promise<boolean> {
+  return cmdSetModuleEnabled(true, modRootArg);
+}
+
+export async function cmdDisableModule(modRootArg?: unknown): Promise<boolean> {
+  return cmdSetModuleEnabled(false, modRootArg);
 }
