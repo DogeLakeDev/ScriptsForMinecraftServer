@@ -7,6 +7,7 @@ import {
   formatAssertDetail,
   migrateAssertConfig,
   normalizeAssertKind,
+  normalizeTargetKind,
 } from "./assert.ts";
 import { resolveExpr, collectExprObjectIds, looksLikeExpr } from "./expr.ts";
 import {
@@ -19,17 +20,21 @@ import {
 test("orderNodes graph / from / only", () => {
   const nodes = [
     { id: "a", kind: "player" },
+    { id: "e", kind: "entity" },
+    { id: "i", kind: "item" },
     { id: "b", kind: "emit" },
     { id: "c", kind: "tick" },
     { id: "n", kind: "note" },
   ];
   const edges = [
-    { source: "a", target: "b" },
+    { source: "a", target: "e" },
+    { source: "e", target: "i" },
+    { source: "i", target: "b" },
     { source: "b", target: "c" },
   ];
   assert.deepEqual(orderNodes(nodes, edges, "only", "b"), ["b"]);
-  assert.deepEqual(orderNodes(nodes, edges, "from", "b"), ["b", "c"]);
-  assert.deepEqual(orderNodes(nodes, edges, "graph", null), ["a", "b", "c"]);
+  assert.deepEqual(orderNodes(nodes, edges, "from", "e"), ["e", "i", "b", "c"]);
+  assert.deepEqual(orderNodes(nodes, edges, "graph", null), ["a", "e", "i", "b", "c"]);
 });
 
 test("orderNodes excludes fail edges by default; upstream keeps them", () => {
@@ -120,6 +125,12 @@ test("evaluateAssert log / logNot", () => {
 test("evaluateAssert sceneExists / count", () => {
   const scene = {
     world: { id: "world", kind: "World" },
+    scoreboard: { id: "scoreboard", kind: "Scoreboard" },
+    dimensions: [
+      { id: "dim:overworld", kind: "Dimension", dimensionId: "minecraft:overworld" },
+      { id: "dim:nether", kind: "Dimension", dimensionId: "minecraft:nether" },
+      { id: "dim:end", kind: "Dimension", dimensionId: "minecraft:the_end" },
+    ],
     players: [
       { id: "p1", kind: "Player", name: "bob" },
       { id: "p2", kind: "Player", name: "alice" },
@@ -136,6 +147,61 @@ test("evaluateAssert sceneExists / count", () => {
       .ok,
     true
   );
+  // players 别名 → Player；Entity 不含 Player
+  assert.equal(
+    evaluateAssert({ assertKind: "count", targetKind: "players", countOp: "eq", countN: 2 }, { logs: [], scene })
+      .ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert({ assertKind: "count", targetKind: "Entity", countOp: "eq", countN: 1 }, { logs: [], scene })
+      .ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert(
+      { assertKind: "count", targetKind: "Entity", targetName: "minecraft:cow", countOp: "eq", countN: 1 },
+      { logs: [], scene }
+    ).ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert({ assertKind: "count", targetKind: "Dimension", countOp: "eq", countN: 3 }, { logs: [], scene })
+      .ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert({ assertKind: "count", targetKind: "Player", countOp: "gte", countN: 2 }, { logs: [], scene })
+      .ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert({ assertKind: "count", targetKind: "Player", countOp: "lte", countN: 1 }, { logs: [], scene })
+      .ok,
+    false
+  );
+  // 未选 kind：只数实例，不含天生 World/Scoreboard/Dimension（共 5）
+  assert.equal(
+    evaluateAssert({ assertKind: "count", countOp: "eq", countN: 3 }, { logs: [], scene }).ok,
+    true
+  );
+  assert.equal(
+    evaluateAssert({ assertKind: "count", countOp: "eq", countN: 0 }, { logs: [], scene: {
+      world: { id: "world", kind: "World" },
+      scoreboard: { id: "scoreboard", kind: "Scoreboard" },
+      dimensions: [
+        { id: "dim:overworld", kind: "Dimension", dimensionId: "minecraft:overworld" },
+      ],
+    } }).ok,
+    true
+  );
+});
+
+test("normalizeTargetKind aliases", () => {
+  assert.equal(normalizeTargetKind("players"), "Player");
+  assert.equal(normalizeTargetKind("entity"), "Entity");
+  assert.equal(normalizeTargetKind("ItemStack"), "ItemStack");
+  assert.equal(normalizeTargetKind(""), undefined);
 });
 
 test("evaluateAssert prop with expr expected", () => {

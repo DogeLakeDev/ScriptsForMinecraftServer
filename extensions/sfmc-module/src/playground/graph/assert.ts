@@ -44,7 +44,7 @@ export type AssertScene = {
   dimensions?: { id: string; kind?: string; dimensionId?: string }[];
   players?: { id: string; kind?: string; name?: string }[];
   entities?: { id: string; kind?: string; typeId?: string }[];
-  items?: { id: string; kind?: string }[];
+  items?: { id: string; kind?: string; typeId?: string }[];
   blocks?: { id: string; kind?: string }[];
   lastEmit?: {
     path: string;
@@ -150,7 +150,9 @@ export function formatAssertDetail(cfg: AssertConfig): string {
     case "count": {
       const op = cfg.countOp ?? "eq";
       const sym = op === "gte" ? "≥" : op === "lte" ? "≤" : "=";
-      return `${cfg.targetKind || "?"} ${sym} ${cfg.countN ?? 0}`;
+      const kindLabel = normalizeTargetKind(cfg.targetKind) || "实例(Player/Entity/Item/Block)";
+      const name = cfg.targetName ? ` · ${cfg.targetName}` : "";
+      return `${kindLabel}${name} ${sym} ${cfg.countN ?? 0}`;
     }
     case "lastEmit": {
       if (cfg.propName) return `${cfg.propName} ${cfg.matchMode ?? "equals"} ${cfg.expected ?? ""}`;
@@ -234,6 +236,36 @@ function resolveExpected(
 
 type SceneRow = { id: string; kind: string; name?: string; typeId?: string; dimensionId?: string };
 
+/** 可构造实例（不含沙箱天生 World / Dimension / Scoreboard） */
+export const INSTANCE_SCENE_KINDS = ["Player", "Entity", "ItemStack", "Block"] as const;
+
+/** scene.summary 字段名 / 大小写 → 规范 kind */
+const TARGET_KIND_ALIASES: Record<string, string> = {
+  world: "World",
+  dimension: "Dimension",
+  dimensions: "Dimension",
+  scoreboard: "Scoreboard",
+  player: "Player",
+  players: "Player",
+  entity: "Entity",
+  entities: "Entity",
+  item: "ItemStack",
+  items: "ItemStack",
+  itemstack: "ItemStack",
+  block: "Block",
+  blocks: "Block",
+};
+
+/** 把 UI / 旧剧本里的 players、player 等归一成 Player */
+export function normalizeTargetKind(raw: string | undefined | null): string | undefined {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  const aliased = TARGET_KIND_ALIASES[s.toLowerCase()];
+  if (aliased) return aliased;
+  // 已是规范 PascalCase（World / Player…）则原样；其余保留以便匹配自定义 kind
+  return s;
+}
+
 function flattenScene(scene: AssertScene): SceneRow[] {
   const rows: SceneRow[] = [];
   if (scene.world) rows.push({ id: scene.world.id, kind: scene.world.kind ?? "World" });
@@ -255,7 +287,7 @@ function flattenScene(scene: AssertScene): SceneRow[] {
     rows.push({ id: e.id, kind: e.kind ?? "Entity", typeId: e.typeId, name: e.typeId });
   }
   for (const i of scene.items ?? []) {
-    rows.push({ id: i.id, kind: i.kind ?? "ItemStack" });
+    rows.push({ id: i.id, kind: i.kind ?? "ItemStack", typeId: i.typeId, name: i.typeId });
   }
   for (const b of scene.blocks ?? []) {
     rows.push({ id: b.id, kind: b.kind ?? "Block" });
@@ -265,9 +297,9 @@ function flattenScene(scene: AssertScene): SceneRow[] {
 
 function filterSceneRows(scene: AssertScene, cfg: AssertConfig): SceneRow[] {
   let rows = flattenScene(scene);
-  if (cfg.targetKind) {
-    const k = cfg.targetKind;
-    rows = rows.filter((r) => r.kind === k);
+  const kind = normalizeTargetKind(cfg.targetKind);
+  if (kind) {
+    rows = rows.filter((r) => r.kind === kind);
   }
   if (cfg.targetId) {
     rows = rows.filter((r) => r.id === cfg.targetId);
@@ -279,6 +311,22 @@ function filterSceneRows(scene: AssertScene, cfg: AssertConfig): SceneRow[] {
     );
   }
   return rows;
+}
+
+/** 计数：必须指定 kind；未指定时不把天生 World/Dim/Scoreboard 算进「任意」 */
+function filterCountRows(scene: AssertScene, cfg: AssertConfig): SceneRow[] {
+  const kind = normalizeTargetKind(cfg.targetKind);
+  if (!kind) {
+    // 未选 kind：只数可构造实例，避免空场景仍含 1+1+3 天生对象导致 eq 0 永败
+    return flattenScene(scene).filter((r) =>
+      (INSTANCE_SCENE_KINDS as readonly string[]).includes(r.kind)
+    );
+  }
+  return filterSceneRows(scene, {
+    targetKind: kind,
+    targetName: cfg.targetName,
+    targetId: undefined,
+  });
 }
 
 function compareCount(actual: number, op: AssertCountOp, n: number): boolean {
@@ -343,20 +391,17 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
       };
     }
     case "count": {
-      const hits = filterSceneRows(ctx.scene, {
-        targetKind: cfg.targetKind,
-        targetName: cfg.targetName,
-        targetId: undefined,
-      });
+      const hits = filterCountRows(ctx.scene, cfg);
       const op = cfg.countOp ?? "eq";
-      const n = cfg.countN ?? 0;
+      const n = typeof cfg.countN === "number" && Number.isFinite(cfg.countN) ? cfg.countN : 0;
       const ok = compareCount(hits.length, op, n);
       const sym = op === "gte" ? "≥" : op === "lte" ? "≤" : "=";
+      const kindLabel = normalizeTargetKind(cfg.targetKind) || "实例";
       return {
         ok,
         message: ok
-          ? `计数通过: ${cfg.targetKind || "?"} ${hits.length} ${sym} ${n}`
-          : `计数失败: ${cfg.targetKind || "?"} 实际 ${hits.length}，期望 ${sym} ${n}`,
+          ? `计数通过: ${kindLabel} ${hits.length} ${sym} ${n}`
+          : `计数失败: ${kindLabel} 实际 ${hits.length}，期望 ${sym} ${n}`,
       };
     }
     case "prop": {
@@ -488,6 +533,23 @@ export const ASSERT_KIND_OPTIONS: { value: AssertKind; label: string }[] = [
   { value: "lastCall", label: "上次 Call" },
 ];
 
-export const SCENE_KIND_OPTIONS = ["World", "Dimension", "Player", "Entity", "ItemStack", "Block"] as const;
+export const SCENE_KIND_OPTIONS = [
+  "World",
+  "Dimension",
+  "Scoreboard",
+  "Player",
+  "Entity",
+  "ItemStack",
+  "Block",
+] as const;
+
+/** 侧栏 kind 下拉：规范选项 ∪ 当前场景已有 kind */
+export function sceneKindSelectOptions(scene: AssertScene | null | undefined): string[] {
+  const set = new Set<string>(SCENE_KIND_OPTIONS);
+  if (scene) {
+    for (const r of flattenScene(scene)) set.add(r.kind);
+  }
+  return [...set];
+}
 
 export { collectExprObjectIds, looksLikeExpr, resolveExpr };
