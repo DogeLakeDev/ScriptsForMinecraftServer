@@ -17,6 +17,10 @@ import {
 import { resetEntityIdCounter, type FakeEntity } from "./entity.js";
 import { runThinCommand, type FakeCommandResult } from "./command.js";
 import { toDamageSource } from "./damage-source.js";
+import {
+  createDynamicPropertyBagMethods,
+  type FakeDynamicPropertyValue,
+} from "./dynamic-property.js";
 
 export type FakeWorld = {
   afterEvents: Record<string, EventSignal<unknown>>;
@@ -44,11 +48,11 @@ export type FakeWorld = {
   playSound(soundId: string, location: Vector3Like, soundOptions?: unknown): { id: string };
   runCommand(commandString: string): FakeCommandResult;
   clearDynamicProperties(): void;
-  getDynamicProperty(id: string): unknown;
+  getDynamicProperty(id: string): FakeDynamicPropertyValue | undefined;
   getDynamicPropertyIds(): string[];
   getDynamicPropertyTotalByteCount(): number;
-  setDynamicProperty(id: string, value?: unknown): void;
-  setDynamicProperties(values: Record<string, unknown>): void;
+  setDynamicProperty(id: string, value?: FakeDynamicPropertyValue | null): void;
+  setDynamicProperties(values: Record<string, FakeDynamicPropertyValue | undefined | null>): void;
   /** 沙箱内部 */
   _players: FakePlayer[];
   addPlayer(player: FakePlayer): void;
@@ -83,7 +87,7 @@ export function createFakeWorld(): FakeWorld {
   const players: FakePlayer[] = [];
   const scoreboard = createFakeScoreboard();
   const dims = new Map<string, FakeDimension>();
-  const dynamicProps = new Map<string, unknown>();
+  const dyn = createDynamicPropertyBagMethods();
   const commandLog: string[] = [];
   const soundLog: string[] = [];
   let absoluteTime = 0;
@@ -104,6 +108,7 @@ export function createFakeWorld(): FakeWorld {
     playerBreakBlock: createEventSignal(),
     playerPlaceBlock: createEventSignal(),
     playerInteractWithBlock: createEventSignal(),
+    playerInteractWithEntity: createEventSignal(),
     /** 旧别名；pin 为 playerBreakBlock */
     blockBreak: createEventSignal(),
     entitySpawn: createEventSignal(),
@@ -116,6 +121,7 @@ export function createFakeWorld(): FakeWorld {
     playerBreakBlock: createEventSignal(),
     playerPlaceBlock: createEventSignal(),
     playerInteractWithBlock: createEventSignal(),
+    playerInteractWithEntity: createEventSignal(),
     playerLeave: createEventSignal(),
     playerGameModeChange: createEventSignal(),
   });
@@ -234,34 +240,12 @@ export function createFakeWorld(): FakeWorld {
     runCommand(commandString) {
       return runThinCommand(commandLog, commandString);
     },
-    clearDynamicProperties() {
-      dynamicProps.clear();
-    },
-    getDynamicProperty(id) {
-      return dynamicProps.get(String(id));
-    },
-    getDynamicPropertyIds() {
-      return [...dynamicProps.keys()];
-    },
-    getDynamicPropertyTotalByteCount() {
-      let n = 0;
-      for (const [k, v] of dynamicProps) {
-        n += k.length;
-        if (typeof v === "string") n += v.length;
-        else if (typeof v === "number" || typeof v === "boolean") n += 8;
-      }
-      return n;
-    },
-    setDynamicProperty(id, value) {
-      const key = String(id);
-      if (value === undefined) dynamicProps.delete(key);
-      else dynamicProps.set(key, value);
-    },
-    setDynamicProperties(values) {
-      for (const [k, v] of Object.entries(values ?? {})) {
-        api.setDynamicProperty(k, v);
-      }
-    },
+    clearDynamicProperties: dyn.clearDynamicProperties,
+    getDynamicProperty: dyn.getDynamicProperty,
+    getDynamicPropertyIds: dyn.getDynamicPropertyIds,
+    getDynamicPropertyTotalByteCount: dyn.getDynamicPropertyTotalByteCount,
+    setDynamicProperty: dyn.setDynamicProperty,
+    setDynamicProperties: dyn.setDynamicProperties,
     _players: players,
     addPlayer(player) {
       if (!players.some((p) => p.id === player.id)) {
@@ -282,7 +266,7 @@ export function createFakeWorld(): FakeWorld {
     reset() {
       players.length = 0;
       scoreboard.reset();
-      dynamicProps.clear();
+      dyn.clearDynamicProperties();
       commandLog.length = 0;
       soundLog.length = 0;
       absoluteTime = 0;

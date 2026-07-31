@@ -123,6 +123,19 @@ export type SandboxEmit = {
       isFirstEvent?: boolean;
     }
   ): void;
+  /**
+   * playerInteractWithEntity：默认 after（activity-log 等）；
+   * `before: true` 可带 cancel。payload 为薄事件袋。
+   */
+  playerInteractWithEntity(
+    player: FakePlayer,
+    target: unknown,
+    opts?: {
+      before?: boolean;
+      itemStack?: unknown;
+      beforeItemStack?: unknown;
+    }
+  ): void;
   entityHitEntity(damagingEntity: unknown, hitEntity: unknown): void;
 };
 
@@ -488,6 +501,23 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
           eng.world.beforeEvents.playerInteractWithBlock!.emit(payload);
         } else {
           eng.world.afterEvents.playerInteractWithBlock!.emit(payload);
+        }
+      },
+      playerInteractWithEntity(player, target, opts) {
+        if (opts?.before) {
+          eng.world.beforeEvents.playerInteractWithEntity!.emit({
+            player,
+            target,
+            itemStack: opts?.itemStack,
+            cancel: false,
+          });
+        } else {
+          eng.world.afterEvents.playerInteractWithEntity!.emit({
+            player,
+            target,
+            itemStack: opts?.itemStack,
+            beforeItemStack: opts?.beforeItemStack ?? opts?.itemStack,
+          });
         }
       },
       entityHitEntity(damagingEntity, hitEntity) {

@@ -372,6 +372,66 @@ test("Dimension 部分 L2：spawnItem / getEntitiesAtBlockLocation / 天气 / is
   await sb.dispose();
 });
 
+test("L2 Dimension.getBlockFromRay：area/fly 向下落地路径", async () => {
+  const { BlockPermutation } = await import("@minecraft/server");
+  const { UnimplementedMinecraftApiError } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox();
+  const dim = sb.world.getDimension("overworld");
+  dim.setBlockPermutation({ x: 2, y: 60, z: -1 }, BlockPermutation.resolve("minecraft:stone"));
+
+  const hit = dim.getBlockFromRay(
+    { x: 2.3, y: 80, z: -0.7 },
+    { x: 0, y: -1, z: 0 },
+    { includeLiquidBlocks: true, includePassableBlocks: false }
+  );
+  assert.ok(hit);
+  assert.equal(hit.block.typeId, "minecraft:stone");
+  assert.equal(hit.block.x, 2);
+  assert.equal(hit.block.y, 60);
+  assert.equal(hit.block.z, -1);
+  assert.equal(hit.face, "Up");
+  assert.deepEqual(hit.block.location, { x: 2, y: 60, z: -1 });
+
+  // fly disableFly：落到方块顶面
+  const land = {
+    x: hit.block.location.x,
+    y: hit.block.location.y + 1,
+    z: hit.block.location.z,
+  };
+  assert.deepEqual(land, { x: 2, y: 61, z: -1 });
+
+  dim.setBlockType({ x: 2, y: 70, z: -1 }, "minecraft:water");
+  const skipWater = dim.getBlockFromRay(
+    { x: 2.1, y: 80, z: -0.9 },
+    { x: 0, y: -1, z: 0 },
+    { includeLiquidBlocks: false }
+  );
+  assert.equal(skipWater?.block.y, 60);
+  const stopWater = dim.getBlockFromRay(
+    { x: 2.1, y: 80, z: -0.9 },
+    { x: 0, y: -1, z: 0 },
+    { includeLiquidBlocks: true }
+  );
+  assert.equal(stopWater?.block.typeId, "minecraft:water");
+  assert.equal(stopWater?.block.y, 70);
+
+  assert.equal(
+    dim.getBlockFromRay({ x: 0, y: 100, z: 0 }, { x: 0, y: -1, z: 0 }, { maxDistance: 5 }),
+    undefined
+  );
+  assert.throws(() => dim.getBlockFromRay({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }), /zero/i);
+  assert.throws(
+    () =>
+      dim.getBlockFromRay({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 }, {
+        includeTypes: ["minecraft:stone"],
+      }),
+    (err) =>
+      err instanceof UnimplementedMinecraftApiError ||
+      (err instanceof Error && /未实现的 Minecraft API/.test(err.message))
+  );
+  await sb.dispose();
+});
+
 test("Entity：spawnEntity / getEntities / remove / teleport", async () => {
   const sb = await createSandbox();
   const dim = sb.world.getDimension("overworld");
@@ -877,6 +937,45 @@ test("L2 第四批：playerPlaceBlock / playerInteractWithBlock + setBlock", asy
   await sb.dispose();
 });
 
+test("L2：playerInteractWithEntity emit 薄事件袋", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const { ItemStack } = await import("@minecraft/server");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Interactor" });
+  const fox = p.dimension.spawnEntity("minecraft:fox", { x: 2, y: 64, z: 0 });
+  const after = [];
+  const before = [];
+  sb.world.afterEvents.playerInteractWithEntity.subscribe((ev) => {
+    after.push({
+      name: ev.player.name,
+      target: ev.target?.typeId,
+      item: ev.itemStack?.type?.id ?? null,
+      beforeItem: ev.beforeItemStack?.type?.id ?? null,
+    });
+  });
+  sb.world.beforeEvents.playerInteractWithEntity.subscribe((ev) => {
+    before.push({ name: ev.player.name, target: ev.target?.typeId, cancel: ev.cancel });
+    ev.cancel = true;
+  });
+
+  const stick = new ItemStack("minecraft:stick", 1);
+  sb.emit.playerInteractWithEntity(p, fox, { itemStack: stick });
+  assert.deepEqual(after, [
+    {
+      name: "Interactor",
+      target: "minecraft:fox",
+      item: "minecraft:stick",
+      beforeItem: "minecraft:stick",
+    },
+  ]);
+
+  sb.emit.playerInteractWithEntity(p, fox, { before: true, itemStack: stick });
+  assert.equal(before.length, 1);
+  assert.equal(before[0].cancel, false);
+  assert.equal(after.length, 1);
+  await sb.dispose();
+});
+
 test("L2 第四批：entityHurt damageSource 含 damagingEntity", async () => {
   const { createSandbox } = await import("./dist/esm/testing/index.js");
   const sb = await createSandbox({});
@@ -913,6 +1012,85 @@ test("L2 第四批：entityHurt damageSource 含 damagingEntity", async () => {
   assert.equal(fox.isValid, false);
   assert.ok(hurts.some((h) => h.cause === "projectile" && h.projectile === "minecraft:fox"));
   assert.deepEqual(dies, [{ cause: "projectile", damager: "minecraft:player" }]);
+  await sb.dispose();
+});
+
+test("L2：projectile applyDamage → entityHurt/Die 可断言 Entity projectile", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const { EntityDamageCause } = await import("@minecraft/server");
+  const sb = await createSandbox({});
+  const shooter = sb.addPlayer({ name: "Archer" });
+  const victim = shooter.dimension.spawnEntity("minecraft:fox", { x: 2, y: 64, z: 0 });
+  const arrow = shooter.dimension.spawnEntity("minecraft:arrow", { x: 1, y: 64, z: 0 });
+
+  const hurts = [];
+  const dies = [];
+  sb.world.afterEvents.entityHurt.subscribe((ev) => {
+    hurts.push({
+      hurt: ev.hurtEntity,
+      dmg: ev.damage,
+      cause: ev.damageSource.cause,
+      damager: ev.damageSource.damagingEntity,
+      projectile: ev.damageSource.damagingProjectile,
+    });
+  });
+  sb.world.afterEvents.entityDie.subscribe((ev) => {
+    dies.push({
+      dead: ev.deadEntity,
+      cause: ev.damageSource.cause,
+      damager: ev.damageSource.damagingEntity,
+      projectile: ev.damageSource.damagingProjectile,
+    });
+  });
+
+  // EntityApplyDamageByProjectileOptions：无 cause，推断为 projectile；保留 Entity 引用
+  assert.equal(
+    victim.applyDamage(5, {
+      damagingProjectile: arrow,
+      damagingEntity: shooter,
+    }),
+    true
+  );
+  assert.equal(hurts.length, 1);
+  assert.equal(hurts[0].cause, EntityDamageCause.projectile);
+  assert.equal(hurts[0].damager, shooter);
+  assert.equal(hurts[0].projectile, arrow);
+  assert.equal(hurts[0].projectile.typeId, "minecraft:arrow");
+  assert.equal(hurts[0].hurt, victim);
+
+  // 致死：hurt + die 均带同一 arrow / shooter 引用
+  assert.equal(
+    victim.applyDamage(100, {
+      damagingProjectile: arrow,
+      damagingEntity: shooter,
+    }),
+    true
+  );
+  assert.equal(victim.isValid, false);
+  assert.ok(hurts.some((h) => h.cause === "projectile" && h.projectile === arrow && h.dmg >= 15));
+  assert.equal(dies.length, 1);
+  assert.equal(dies[0].cause, "projectile");
+  assert.equal(dies[0].damager, shooter);
+  assert.equal(dies[0].projectile, arrow);
+  assert.equal(dies[0].dead, victim);
+
+  // 显式 cause + projectile 仍可透传
+  const pig = shooter.dimension.spawnEntity("minecraft:pig", { x: 3, y: 64, z: 0 });
+  const snowball = shooter.dimension.spawnEntity("minecraft:snowball", { x: 3.5, y: 64, z: 0 });
+  const hurt2 = [];
+  sb.world.afterEvents.entityHurt.subscribe((ev) => {
+    if (ev.hurtEntity === pig) hurt2.push(ev.damageSource);
+  });
+  pig.applyDamage(3, {
+    cause: EntityDamageCause.projectile,
+    damagingEntity: shooter,
+    damagingProjectile: snowball,
+  });
+  assert.equal(hurt2.length, 1);
+  assert.equal(hurt2[0].cause, "projectile");
+  assert.equal(hurt2[0].damagingProjectile, snowball);
+  assert.equal(hurt2[0].damagingEntity, shooter);
+
   await sb.dispose();
 });
 
@@ -1050,5 +1228,68 @@ test("L2 本批：未接线 API 仍硬失败（无空成功）", async () => {
   assert.throws(() => p.onScreenDisplay.hideAllExcept?.(), (err) => {
     return err instanceof Error && /未实现的 Minecraft API/.test(err.message);
   });
+  await sb.dispose();
+});
+
+test("L2：Entity / Player / World 动态属性 Map 袋", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const dim = sb.world.getDimension("overworld");
+  const fox = dim.spawnEntity("minecraft:fox", { x: 0, y: 64, z: 0 });
+  const p = sb.addPlayer({ name: "Fly" });
+
+  // 类型：boolean | number | string | Vector3；缺省 undefined
+  fox.setDynamicProperty("hpbe:dogefly", true);
+  assert.equal(fox.getDynamicProperty("hpbe:dogefly"), true);
+  fox.setDynamicProperty("sfmc:n", 3);
+  fox.setDynamicProperty("sfmc:s", "fly");
+  fox.setDynamicProperty("sfmc:v", { x: 1, y: 2, z: 3 });
+  assert.equal(fox.getDynamicProperty("sfmc:n"), 3);
+  assert.equal(fox.getDynamicProperty("sfmc:s"), "fly");
+  assert.deepEqual(fox.getDynamicProperty("sfmc:v"), { x: 1, y: 2, z: 3 });
+  assert.equal(fox.getDynamicProperty("missing"), undefined);
+  assert.deepEqual(fox.getDynamicPropertyIds().sort(), [
+    "hpbe:dogefly",
+    "sfmc:n",
+    "sfmc:s",
+    "sfmc:v",
+  ]);
+  fox.setDynamicProperty("sfmc:n", undefined);
+  assert.equal(fox.getDynamicProperty("sfmc:n"), undefined);
+  assert.ok(!fox.getDynamicPropertyIds().includes("sfmc:n"));
+  fox.setDynamicProperties({ "sfmc:a": 1, "sfmc:b": false });
+  assert.equal(fox.getDynamicProperty("sfmc:a"), 1);
+  assert.equal(fox.getDynamicProperty("sfmc:b"), false);
+  assert.ok(fox.getDynamicPropertyTotalByteCount() > 0);
+  fox.clearDynamicProperties();
+  assert.deepEqual(fox.getDynamicPropertyIds(), []);
+  assert.equal(fox.getDynamicProperty("hpbe:dogefly"), undefined);
+
+  // Player 独立袋（不与 Entity / World 共享）
+  p.setDynamicProperty("hpbe:dogefly", true);
+  assert.equal(p.getDynamicProperty("hpbe:dogefly"), true);
+  assert.equal(fox.getDynamicProperty("hpbe:dogefly"), undefined);
+  assert.equal(sb.world.getDynamicProperty("hpbe:dogefly"), undefined);
+  p.setDynamicProperty("hpbe:dogefly", null);
+  assert.equal(p.getDynamicProperty("hpbe:dogefly"), undefined);
+  p.setDynamicProperties({ a: "x", b: 2 });
+  assert.deepEqual(p.getDynamicPropertyIds().sort(), ["a", "b"]);
+  p.clearDynamicProperties();
+  assert.deepEqual(p.getDynamicPropertyIds(), []);
+
+  // World 已有袋：补 clear / TotalByteCount / setDynamicProperties
+  sb.world.setDynamicProperty("w:k", "v");
+  sb.world.setDynamicProperties({ "w:n": 9 });
+  assert.equal(sb.world.getDynamicProperty("w:k"), "v");
+  assert.equal(sb.world.getDynamicProperty("w:n"), 9);
+  assert.ok(sb.world.getDynamicPropertyTotalByteCount() > 0);
+  sb.world.clearDynamicProperties();
+  assert.deepEqual(sb.world.getDynamicPropertyIds(), []);
+
+  fox.remove();
+  assert.throws(() => fox.setDynamicProperty("x", 1), /InvalidEntityError/);
+  assert.throws(() => fox.getDynamicProperty("x"), /InvalidEntityError/);
+  p.kill();
+  assert.throws(() => p.getDynamicPropertyIds(), /InvalidEntityError/);
   await sb.dispose();
 });

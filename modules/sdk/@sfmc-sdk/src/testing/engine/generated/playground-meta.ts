@@ -391,7 +391,7 @@ export const PLAYGROUND_META = {
         {
           "name": "clearDynamicProperties",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "clearPropertyOverridesForEntity",
@@ -512,17 +512,17 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getDynamicPropertyIds",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getDynamicPropertyTotalByteCount",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getEffect",
@@ -880,7 +880,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "setDynamicProperty",
@@ -898,7 +898,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "setGameMode",
@@ -1329,7 +1329,7 @@ export const PLAYGROUND_META = {
         {
           "name": "clearDynamicProperties",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "clearVelocity",
@@ -1416,17 +1416,17 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getDynamicPropertyIds",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getDynamicPropertyTotalByteCount",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getEffect",
@@ -1628,7 +1628,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "setDynamicProperty",
@@ -1646,7 +1646,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "setOnFire",
@@ -2680,7 +2680,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getBlocks",

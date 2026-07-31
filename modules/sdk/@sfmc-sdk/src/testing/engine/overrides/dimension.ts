@@ -2,6 +2,7 @@
  * 假 Dimension / Block / BlockPermutation — 对照 Learn + pin `.d.ts` 最小 L2。
  *
  * 沙箱策略：不模拟未加载区块；`getBlock` 恒返回方块引用，缺省为空气（非 undefined）。
+ * `getBlockFromRay`：薄格点步进（area/fly 关飞落地）；无物理 / 无完整碰撞箱。
  */
 
 import { guardUnimplemented, UnimplementedMinecraftApiError } from "../unimplemented-error.js";
@@ -15,6 +16,26 @@ import {
 import { runThinCommand, type FakeCommandResult } from "./command.js";
 
 export type Vector3Like = { x: number; y: number; z: number };
+
+/** 对齐 pin `BlockRaycastOptions`；仅 liquid / passable / maxDistance 有语义。 */
+export type FakeBlockRaycastOptions = {
+  includeLiquidBlocks?: boolean;
+  includePassableBlocks?: boolean;
+  maxDistance?: number;
+  excludePermutations?: unknown[];
+  excludeTags?: string[];
+  excludeTypes?: string[];
+  includePermutations?: unknown[];
+  includeTags?: string[];
+  includeTypes?: string[];
+};
+
+/** 对齐 pin `BlockRaycastHit`；`face` 为 Direction 字符串（Down/Up/…）。 */
+export type FakeBlockRaycastHit = {
+  block: FakeBlock;
+  face: string;
+  faceLocation: Vector3Like;
+};
 
 export type FakeBlockType = {
   id: string;
@@ -55,6 +76,16 @@ export type FakeDimension = {
   /** 沙箱可观测：runCommand 记录 */
   commandLog: string[];
   getBlock(location: Vector3Like): FakeBlock;
+  /**
+   * 薄射线：沿方向格点步进，命中首个「可停」方块。
+   * 空气永不命中；液体默认穿透（`includeLiquidBlocks`）；无通行块表（`includePassableBlocks` 无额外效果）。
+   * BlockFilter 的 include/exclude* 非空 → 硬失败。
+   */
+  getBlockFromRay(
+    location: Vector3Like,
+    direction: Vector3Like,
+    options?: FakeBlockRaycastOptions
+  ): FakeBlockRaycastHit | undefined;
   setBlockPermutation(location: Vector3Like, permutation: FakeBlockPermutation): void;
   setBlockType(location: Vector3Like, blockType: FakeBlockType | string): void;
   getEntities(options?: FakeEntityQueryOptions): FakeEntity[];
@@ -108,6 +139,77 @@ function floorLoc(location: Vector3Like): { x: number; y: number; z: number } {
 
 function cellKey(loc: { x: number; y: number; z: number }): string {
   return `${loc.x},${loc.y},${loc.z}`;
+}
+
+const BLOCK_FILTER_KEYS = [
+  "excludePermutations",
+  "excludeTags",
+  "excludeTypes",
+  "includePermutations",
+  "includeTags",
+  "includeTypes",
+] as const;
+
+/** 默认最大距离：覆盖 overworld 高度跨度，够 area/fly 向下落地。 */
+const DEFAULT_RAY_MAX_DISTANCE = 384;
+const RAY_STEP = 0.25;
+
+function assertNoBlockFilter(options: FakeBlockRaycastOptions | undefined): void {
+  if (!options) return;
+  for (const key of BLOCK_FILTER_KEYS) {
+    const arr = options[key];
+    if (Array.isArray(arr) && arr.length > 0) {
+      throw new UnimplementedMinecraftApiError(`Dimension.getBlockFromRay.options.${key}`);
+    }
+  }
+}
+
+function isLiquidTypeId(typeId: string): boolean {
+  return typeId === "minecraft:water" || typeId === "minecraft:lava";
+}
+
+/**
+ * 射线行进方向命中的面（对面）：-Y → Up（fly 落地主路径）。
+ */
+function faceFromDirection(dx: number, dy: number, dz: number): string {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  const az = Math.abs(dz);
+  if (ay >= ax && ay >= az) return dy < 0 ? "Up" : "Down";
+  if (ax >= az) return dx > 0 ? "West" : "East";
+  return dz > 0 ? "North" : "South";
+}
+
+function faceLocationFor(face: string): Vector3Like {
+  switch (face) {
+    case "Up":
+      return { x: 0.5, y: 1, z: 0.5 };
+    case "Down":
+      return { x: 0.5, y: 0, z: 0.5 };
+    case "North":
+      return { x: 0.5, y: 0.5, z: 0 };
+    case "South":
+      return { x: 0.5, y: 0.5, z: 1 };
+    case "West":
+      return { x: 0, y: 0.5, z: 0.5 };
+    case "East":
+      return { x: 1, y: 0.5, z: 0.5 };
+    default:
+      return { x: 0.5, y: 0.5, z: 0.5 };
+  }
+}
+
+function rayShouldStop(
+  block: FakeBlock,
+  options: FakeBlockRaycastOptions | undefined
+): boolean {
+  if (block.isAir) return false;
+  if (isLiquidTypeId(block.typeId)) {
+    return options?.includeLiquidBlocks === true;
+  }
+  // 无通行块目录：非空气非液体一律视为实心；includePassableBlocks 无额外效果
+  void options?.includePassableBlocks;
+  return true;
 }
 
 export function createBlockPermutation(
@@ -236,6 +338,42 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
         },
       };
       return guardUnimplemented(block, "Block") as FakeBlock;
+    },
+    getBlockFromRay(location, direction, options) {
+      assertNoBlockFilter(options);
+      const dx = Number(direction?.x);
+      const dy = Number(direction?.y);
+      const dz = Number(direction?.z);
+      const len = Math.hypot(dx, dy, dz);
+      if (!(len > 0)) {
+        throw new Error("Direction vector cannot be zero");
+      }
+      const ux = dx / len;
+      const uy = dy / len;
+      const uz = dz / len;
+      const maxDistance =
+        typeof options?.maxDistance === "number" && Number.isFinite(options.maxDistance)
+          ? Math.max(0, options.maxDistance)
+          : DEFAULT_RAY_MAX_DISTANCE;
+      const ox = Number(location?.x);
+      const oy = Number(location?.y);
+      const oz = Number(location?.z);
+      let lastKey: string | undefined;
+      for (let t = 0; t <= maxDistance + 1e-9; t += RAY_STEP) {
+        const sample = { x: ox + ux * t, y: oy + uy * t, z: oz + uz * t };
+        const block = dim.getBlock(sample);
+        const key = cellKey({ x: block.x, y: block.y, z: block.z });
+        if (key === lastKey) continue;
+        lastKey = key;
+        if (!rayShouldStop(block, options)) continue;
+        const face = faceFromDirection(ux, uy, uz);
+        return {
+          block,
+          face,
+          faceLocation: faceLocationFor(face),
+        };
+      }
+      return undefined;
     },
     setBlockPermutation(location, permutation) {
       dim.getBlock(location).setPermutation(permutation);

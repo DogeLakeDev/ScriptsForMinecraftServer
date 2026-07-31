@@ -27,6 +27,15 @@ import {
   type FakeEffect,
   type FakeEntityEffectOptions,
 } from "./effect.js";
+import {
+  createDynamicPropertyBagMethods,
+  type FakeDynamicPropertyValue,
+} from "./dynamic-property.js";
+import {
+  toDamageSource,
+  type FakeApplyDamageOptions,
+  type FakeEntityDamageSource,
+} from "./damage-source.js";
 
 export type FakeEntityQueryOptions = {
   type?: string;
@@ -58,9 +67,13 @@ export type FakeEntity = {
   commandLog: string[];
   remove(): void;
   /** options 透传至 onDie（对齐致死 applyDamage 的 damageSource）。 */
-  kill(options?: unknown): boolean;
-  /** 扣血；<=0 返回 false；血量归零则 kill。不模拟护甲/击退。 */
-  applyDamage(amount: number, options?: unknown): boolean;
+  kill(options?: FakeApplyDamageOptions | FakeEntityDamageSource | unknown): boolean;
+  /**
+   * 扣血；<=0 返回 false；血量归零则 kill。不模拟护甲/击退。
+   * options 对齐 EntityApplyDamageOptions | EntityApplyDamageByProjectileOptions；
+   * projectile 路径（含 damagingProjectile）归一化后 cause="projectile"，实体引用可 === 断言。
+   */
+  applyDamage(amount: number, options?: FakeApplyDamageOptions | unknown): boolean;
   /** 效果状态袋；不模拟粒子 / 周期伤害。 */
   addEffect(
     effectType: string | { getName(): string },
@@ -82,6 +95,15 @@ export type FakeEntity = {
   getHeadLocation(): Vector3Like;
   getVelocity(): Vector3Like;
   runCommand(commandString: string): FakeCommandResult;
+  /** 动态属性薄 Map 袋；支持 boolean | number | string | Vector3 */
+  clearDynamicProperties(): void;
+  getDynamicProperty(identifier: string): FakeDynamicPropertyValue | undefined;
+  getDynamicPropertyIds(): string[];
+  getDynamicPropertyTotalByteCount(): number;
+  setDynamicProperty(identifier: string, value?: FakeDynamicPropertyValue | null): void;
+  setDynamicProperties(
+    values: Record<string, FakeDynamicPropertyValue | undefined | null>
+  ): void;
 };
 
 function normalizeEntityTypeId(id: string): string {
@@ -131,6 +153,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
   let dim = opts.dimension;
   let valid = true;
   const effects = createEffectBagMethods(() => valid);
+  const dyn = createDynamicPropertyBagMethods(() => valid);
 
   entity = {
     id: opts.id ?? `entity-${nextEntityId++}`,
@@ -170,8 +193,10 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
       health.setCurrentValue(before - n);
       const dealt = before - health.currentValue;
       if (dealt <= 0) return false;
-      opts.onHurt?.(entity, dealt, options);
-      if (health.currentValue <= 0) entity.kill(options);
+      // 归一化为 EntityDamageSource（projectile 无 cause → "projectile"；保留 Entity 引用）
+      const damageSource = options == null ? undefined : toDamageSource(options);
+      opts.onHurt?.(entity, dealt, damageSource);
+      if (health.currentValue <= 0) entity.kill(damageSource);
       return true;
     },
     addEffect: effects.addEffect,
@@ -237,6 +262,12 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
         inventory ? { inventory: inventory.container } : undefined
       );
     },
+    clearDynamicProperties: dyn.clearDynamicProperties,
+    getDynamicProperty: dyn.getDynamicProperty,
+    getDynamicPropertyIds: dyn.getDynamicPropertyIds,
+    getDynamicPropertyTotalByteCount: dyn.getDynamicPropertyTotalByteCount,
+    setDynamicProperty: dyn.setDynamicProperty,
+    setDynamicProperties: dyn.setDynamicProperties,
   };
 
   entity.scoreboardIdentity = createPlayerScoreboardIdentity(
@@ -245,7 +276,9 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     "Entity"
   );
 
-  return guardUnimplemented(entity, "Entity") as FakeEntity;
+  // 回调 / 事件载荷与 spawnEntity 返回值同为 Proxy，便于 === 断言（含 damagingProjectile）
+  entity = guardUnimplemented(entity, "Entity") as FakeEntity;
+  return entity;
 }
 
 /** `new Entity()` 硬失败。 */

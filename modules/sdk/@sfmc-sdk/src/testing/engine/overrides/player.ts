@@ -23,6 +23,11 @@ import {
   type FakeEffect,
   type FakeEntityEffectOptions,
 } from "./effect.js";
+import {
+  createDynamicPropertyBagMethods,
+  type FakeDynamicPropertyValue,
+} from "./dynamic-property.js";
+import { toDamageSource } from "./damage-source.js";
 import { guardUnimplemented } from "../unimplemented-error.js";
 import { normalizeGameMode, runThinCommand, type FakeCommandResult } from "./command.js";
 import { createFakeScreenDisplay, type FakeScreenDisplay } from "./screen-display.js";
@@ -87,7 +92,10 @@ export type FakePlayer = {
   setSpawnPoint(spawnPoint?: FakeDimensionLocation): void;
   playSound(soundId: string | { id?: string }, soundOptions?: unknown): { id: string };
   runCommand(commandString: string): FakeCommandResult;
-  /** 扣血；不模拟物理；归零则 isValid=false（不经 Dimension.remove）。 */
+  /**
+   * 扣血；不模拟物理；归零则 isValid=false（不经 Dimension.remove）。
+   * options 对齐 EntityApplyDamageOptions | EntityApplyDamageByProjectileOptions。
+   */
   applyDamage(amount: number, options?: unknown): boolean;
   /** 效果状态袋；不模拟粒子 / 周期伤害。 */
   addEffect(
@@ -100,6 +108,15 @@ export type FakePlayer = {
   removeEffect(effectType: string | { getName(): string }): boolean;
   /** options 透传至 onDie（对齐致死 applyDamage 的 damageSource）。 */
   kill(options?: unknown): boolean;
+  /** 动态属性薄 Map 袋；支持 boolean | number | string | Vector3 */
+  clearDynamicProperties(): void;
+  getDynamicProperty(identifier: string): FakeDynamicPropertyValue | undefined;
+  getDynamicPropertyIds(): string[];
+  getDynamicPropertyTotalByteCount(): number;
+  setDynamicProperty(identifier: string, value?: FakeDynamicPropertyValue | null): void;
+  setDynamicProperties(
+    values: Record<string, FakeDynamicPropertyValue | undefined | null>
+  ): void;
 };
 
 export interface FakePlayerInit {
@@ -179,6 +196,7 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
     },
   });
   const effects = createEffectBagMethods(() => player.isValid);
+  const dyn = createDynamicPropertyBagMethods(() => player.isValid);
 
   player = {
     id: init.id ?? `player-${init.name}`,
@@ -307,8 +325,9 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       health.setCurrentValue(before - n);
       const dealt = before - health.currentValue;
       if (dealt <= 0) return false;
-      init.onHurt?.(player, dealt, options);
-      if (health.currentValue <= 0) player.kill(options);
+      const damageSource = options == null ? undefined : toDamageSource(options);
+      init.onHurt?.(player, dealt, damageSource);
+      if (health.currentValue <= 0) player.kill(damageSource);
       return true;
     },
     addEffect: effects.addEffect,
@@ -321,6 +340,12 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       player.isValid = false;
       return true;
     },
+    clearDynamicProperties: dyn.clearDynamicProperties,
+    getDynamicProperty: dyn.getDynamicProperty,
+    getDynamicPropertyIds: dyn.getDynamicPropertyIds,
+    getDynamicPropertyTotalByteCount: dyn.getDynamicPropertyTotalByteCount,
+    setDynamicProperty: dyn.setDynamicProperty,
+    setDynamicProperties: dyn.setDynamicProperties,
   };
   player.scoreboardIdentity = createPlayerScoreboardIdentity(player, () => player);
   return guardUnimplemented(player, "Player") as FakePlayer;
