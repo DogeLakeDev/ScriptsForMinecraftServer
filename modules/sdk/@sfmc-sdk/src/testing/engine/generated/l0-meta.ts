@@ -5,8 +5,8 @@
 export const SERVER_L0_META = {
   module: "@minecraft/server" as const,
   totalValueExports: 559,
-  generated: 546,
-  overridesSkipped: 14,
+  generated: 545,
+  overridesSkipped: 15,
 };
 
 export const SERVER_UI_L0_META = {

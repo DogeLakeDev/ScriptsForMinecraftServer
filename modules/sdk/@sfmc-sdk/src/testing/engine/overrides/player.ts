@@ -18,6 +18,11 @@ import {
   isHealthComponentId,
   type FakeEntityHealthComponent,
 } from "./health.js";
+import {
+  createEffectBagMethods,
+  type FakeEffect,
+  type FakeEntityEffectOptions,
+} from "./effect.js";
 import { guardUnimplemented } from "../unimplemented-error.js";
 import { normalizeGameMode, runThinCommand, type FakeCommandResult } from "./command.js";
 import { createFakeScreenDisplay, type FakeScreenDisplay } from "./screen-display.js";
@@ -79,6 +84,15 @@ export type FakePlayer = {
   runCommand(commandString: string): FakeCommandResult;
   /** 扣血；不模拟物理；归零则 isValid=false（不经 Dimension.remove）。 */
   applyDamage(amount: number, options?: unknown): boolean;
+  /** 效果状态袋；不模拟粒子 / 周期伤害。 */
+  addEffect(
+    effectType: string | { getName(): string },
+    duration: number,
+    options?: FakeEntityEffectOptions
+  ): FakeEffect | undefined;
+  getEffect(effectType: string | { getName(): string }): FakeEffect | undefined;
+  getEffects(): FakeEffect[];
+  removeEffect(effectType: string | { getName(): string }): boolean;
   kill(): boolean;
 };
 
@@ -156,6 +170,7 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       init.onHealthChange?.(player, oldValue, newValue);
     },
   });
+  const effects = createEffectBagMethods(() => player.isValid);
 
   player = {
     id: init.id ?? `player-${init.name}`,
@@ -284,6 +299,10 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       if (health.currentValue <= 0) player.kill();
       return true;
     },
+    addEffect: effects.addEffect,
+    getEffect: effects.getEffect,
+    getEffects: effects.getEffects,
+    removeEffect: effects.removeEffect,
     kill() {
       if (!player.isValid) return false;
       init.onDie?.(player);

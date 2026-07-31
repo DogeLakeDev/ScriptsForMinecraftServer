@@ -22,6 +22,11 @@ import {
   isHealthComponentId,
   type FakeEntityHealthComponent,
 } from "./health.js";
+import {
+  createEffectBagMethods,
+  type FakeEffect,
+  type FakeEntityEffectOptions,
+} from "./effect.js";
 
 export type FakeEntityQueryOptions = {
   type?: string;
@@ -55,6 +60,15 @@ export type FakeEntity = {
   kill(): boolean;
   /** 扣血；<=0 返回 false；血量归零则 kill。不模拟护甲/击退。 */
   applyDamage(amount: number, options?: unknown): boolean;
+  /** 效果状态袋；不模拟粒子 / 周期伤害。 */
+  addEffect(
+    effectType: string | { getName(): string },
+    duration: number,
+    options?: FakeEntityEffectOptions
+  ): FakeEffect | undefined;
+  getEffect(effectType: string | { getName(): string }): FakeEffect | undefined;
+  getEffects(): FakeEffect[];
+  removeEffect(effectType: string | { getName(): string }): boolean;
   teleport(location: Vector3Like, teleportOptions?: { dimension?: FakeDimension }): void;
   getComponent(componentId: string): FakeEntityComponent | undefined;
   hasComponent(componentId: string): boolean;
@@ -115,6 +129,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
   };
   let dim = opts.dimension;
   let valid = true;
+  const effects = createEffectBagMethods(() => valid);
 
   entity = {
     id: opts.id ?? `entity-${nextEntityId++}`,
@@ -158,6 +173,10 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
       if (health.currentValue <= 0) entity.kill();
       return true;
     },
+    addEffect: effects.addEffect,
+    getEffect: effects.getEffect,
+    getEffects: effects.getEffects,
+    removeEffect: effects.removeEffect,
     teleport(location, teleportOptions) {
       if (!valid) throw new Error("InvalidEntityError");
       loc = {

@@ -47,6 +47,7 @@ export const BlockPermutation = base.BlockPermutation;
 export const Dimension = base.Dimension;
 export const EntityInventoryComponent = base.EntityInventoryComponent;
 export const EntityHealthComponent = base.EntityHealthComponent;
+export const Effect = base.Effect;
 export const EntityInitializationCause = base.EntityInitializationCause;
 
 export * from "./generated/server-l0.js";
@@ -64,6 +65,7 @@ const hand: Record<string | symbol, unknown> = {
   Dimension,
   EntityInventoryComponent,
   EntityHealthComponent,
+  Effect,
   EntityInitializationCause,
 };
 

@@ -12,6 +12,7 @@
     "Dimension",
     "EntityInventoryComponent",
     "EntityHealthComponent",
+    "Effect",
     "EntityInitializationCause",
     "default"
   ],

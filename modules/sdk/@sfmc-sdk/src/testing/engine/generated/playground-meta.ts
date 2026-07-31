@@ -42,7 +42,7 @@ export const PLAYGROUND_META = {
           "name": "clientSystemInfo",
           "readonly": true,
           "type": "ClientSystemInfo",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "commandPermissionLevel",
@@ -66,7 +66,7 @@ export const PLAYGROUND_META = {
           "name": "graphicsMode",
           "readonly": true,
           "type": "GraphicsMode",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "id",
@@ -78,7 +78,7 @@ export const PLAYGROUND_META = {
           "name": "inputInfo",
           "readonly": true,
           "type": "InputInfo",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "inputPermissions",
@@ -96,7 +96,7 @@ export const PLAYGROUND_META = {
           "name": "isEmoting",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isFalling",
@@ -108,13 +108,13 @@ export const PLAYGROUND_META = {
           "name": "isFlying",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isGliding",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isInWater",
@@ -126,7 +126,7 @@ export const PLAYGROUND_META = {
           "name": "isJumping",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isOnGround",
@@ -138,7 +138,7 @@ export const PLAYGROUND_META = {
           "name": "isSleeping",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isSneaking",
@@ -150,7 +150,7 @@ export const PLAYGROUND_META = {
           "name": "isSprinting",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isSwimming",
@@ -290,7 +290,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "addExperience",
@@ -403,7 +403,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "clearVelocity",
@@ -442,7 +442,7 @@ export const PLAYGROUND_META = {
         {
           "name": "getAimAssist",
           "parameters": [],
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "getAllBlocksStandingOn",
@@ -500,7 +500,7 @@ export const PLAYGROUND_META = {
         {
           "name": "getControlScheme",
           "parameters": [],
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "getDynamicProperty",
@@ -534,12 +534,12 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getEffects",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getEntitiesFromViewDirection",
@@ -578,7 +578,7 @@ export const PLAYGROUND_META = {
         {
           "name": "getPing",
           "parameters": [],
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "getProperty",
@@ -785,7 +785,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "removePropertyOverrideForEntity",
@@ -970,7 +970,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "setRotation",
@@ -1154,7 +1154,7 @@ export const PLAYGROUND_META = {
           "name": "isSleeping",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isSneaking",
@@ -1166,7 +1166,7 @@ export const PLAYGROUND_META = {
           "name": "isSprinting",
           "readonly": true,
           "type": "boolean",
-          "impl": "l0"
+          "impl": "skip"
         },
         {
           "name": "isSwimming",
@@ -1252,7 +1252,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "addItem",
@@ -1438,12 +1438,12 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getEffects",
           "parameters": [],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "getEntitiesFromViewDirection",
@@ -1580,7 +1580,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "removeTag",

@@ -720,6 +720,34 @@ test("L2 第二批：itemUse / playerBreakBlock / entityHitEntity emit + getEnti
   await sb.dispose();
 });
 
+test("L2 第三批：addEffect / getEffect / removeEffect 状态袋", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const dim = sb.world.getDimension("overworld");
+  const fox = dim.spawnEntity("minecraft:fox", { x: 0, y: 64, z: 0 });
+  const speed = fox.addEffect("speed", 200, { amplifier: 1 });
+  assert.ok(speed);
+  assert.equal(speed.typeId, "minecraft:speed");
+  assert.equal(speed.duration, 200);
+  assert.equal(speed.amplifier, 1);
+  assert.equal(fox.getEffect("minecraft:speed")?.amplifier, 1);
+  assert.equal(fox.getEffects().length, 1);
+  // 同 type 覆盖
+  fox.addEffect("speed", 40, { amplifier: 2 });
+  assert.equal(fox.getEffect("speed")?.duration, 40);
+  assert.equal(fox.getEffect("speed")?.amplifier, 2);
+  assert.equal(fox.getEffects().length, 1);
+  assert.equal(fox.removeEffect("speed"), true);
+  assert.equal(fox.getEffect("speed"), undefined);
+  assert.equal(fox.addEffect("poison", 0), undefined);
+
+  const p = sb.addPlayer({ name: "Buff" });
+  p.addEffect("minecraft:regeneration", 100);
+  assert.equal(p.getEffects().map((e) => e.typeId).join(","), "minecraft:regeneration");
+  assert.equal(p.removeEffect("regeneration"), true);
+  await sb.dispose();
+});
+
 test("L2 本批：playSound / onScreenDisplay / spawnPoint / playerLeave", async () => {
   const { createSandbox } = await import("./dist/esm/testing/index.js");
   const sb = await createSandbox({});

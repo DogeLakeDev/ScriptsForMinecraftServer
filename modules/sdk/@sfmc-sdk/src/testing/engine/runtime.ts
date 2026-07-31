@@ -11,6 +11,7 @@ import { BlockPermutation, Dimension } from "./overrides/dimension.js";
 import { Entity } from "./overrides/entity.js";
 import { ItemStack, EntityInventoryComponent } from "./overrides/inventory.js";
 import { EntityHealthComponent } from "./overrides/health.js";
+import { Effect } from "./overrides/effect.js";
 
 export type EngineState = {
   system: FakeSystem;
@@ -102,6 +103,7 @@ export function createServerExports() {
     Dimension,
     EntityInventoryComponent,
     EntityHealthComponent,
+    Effect,
     EntityInitializationCause: {},
   };
 }

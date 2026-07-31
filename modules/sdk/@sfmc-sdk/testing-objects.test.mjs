@@ -58,6 +58,19 @@ test("PLAYGROUND_META Player 含 Entity 继承成员与方法参数", () => {
   assert.ok(PLAYGROUND_META.classes.ScoreboardObjective);
 });
 
+test("PLAYGROUND_META：l2-skip 标 skip；addEffect 为 l2", () => {
+  const getPing = PLAYGROUND_META.classes.Player.methods.find((m) => m.name === "getPing");
+  assert.equal(getPing?.impl, "skip");
+  const isFlying = PLAYGROUND_META.classes.Player.properties.find((p) => p.name === "isFlying");
+  assert.equal(isFlying?.impl, "skip");
+  const addEffect = PLAYGROUND_META.classes.Entity.methods.find((m) => m.name === "addEffect");
+  assert.equal(addEffect?.impl, "l2");
+  assert.equal(
+    PLAYGROUND_META.classes.Player.methods.find((m) => m.name === "addEffect")?.impl,
+    "l2"
+  );
+});
+
 test("objects.create Player 后可 inspect / $ref", async () => {
   const sb = await createSandbox({});
   try {
