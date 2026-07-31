@@ -16,7 +16,17 @@ type Pending = {
   reject: (e: Error) => void;
 };
 
-function resolveHostEntry(): { loaderFs: string; hostFs: string; loaderUrl: string } {
+export type HostEntry = {
+  loaderFs: string;
+  hostFs: string;
+  loaderUrl: string;
+  /** tsx/esm 的 file URL；解析失败则为 null（回退 strip-types） */
+  tsxUrl: string | null;
+  sdkRoot: string;
+};
+
+/** 解析 playground-host / minecraft-loader / tsx（供 spawn 与启动并调试共用）。 */
+export function resolveHostEntry(): HostEntry {
   const require = createRequire(__filename);
   let root: string | undefined;
   try {
@@ -30,12 +40,36 @@ function resolveHostEntry(): { loaderFs: string; hostFs: string; loaderUrl: stri
   }
   const loaderFs = path.join(root, "dist/esm/testing/minecraft-loader.mjs");
   const hostFs = path.join(root, "dist/esm/testing/playground-host.js");
-  // Windows 上 --import 必须用 file://，不能直接传 D:\...
+  let tsxUrl: string | null = null;
+  try {
+    tsxUrl = pathToFileURL(require.resolve("tsx/esm")).href;
+  } catch {
+    try {
+      const fromRoot = path.resolve(root, "../../../node_modules/tsx/dist/esm/index.mjs");
+      if (fs.existsSync(fromRoot)) tsxUrl = pathToFileURL(fromRoot).href;
+    } catch {
+      /* 回退 --experimental-strip-types */
+    }
+  }
   return {
     loaderFs,
     hostFs,
     loaderUrl: pathToFileURL(loaderFs).href,
+    tsxUrl,
+    sdkRoot: root,
   };
+}
+
+/** 构造启动 playground-host 的 node argv（不含 execPath）。 */
+export function buildHostNodeArgs(entry: HostEntry = resolveHostEntry()): string[] {
+  const args = ["--import", entry.loaderUrl];
+  if (entry.tsxUrl) {
+    args.push("--import", entry.tsxUrl);
+  } else {
+    args.push("--experimental-strip-types");
+  }
+  args.push(entry.hostFs);
+  return args;
 }
 
 export class PlaygroundHostClient {
@@ -43,23 +77,30 @@ export class PlaygroundHostClient {
   private nextId = 1;
   private pending = new Map<number, Pending>();
   private onEvent: (ev: PlaygroundEvent) => void;
+  private moduleRoot?: string;
 
-  constructor(onEvent: (ev: PlaygroundEvent) => void) {
+  constructor(onEvent: (ev: PlaygroundEvent) => void, moduleRoot?: string) {
     this.onEvent = onEvent;
+    this.moduleRoot = moduleRoot;
   }
 
   startProcess(): void {
     if (this.proc) return;
-    const { loaderFs, hostFs, loaderUrl } = resolveHostEntry();
-    if (!fs.existsSync(hostFs)) {
-      throw new Error(`playground-host 未构建: ${hostFs}`);
+    const entry = resolveHostEntry();
+    if (!fs.existsSync(entry.hostFs)) {
+      throw new Error(`playground-host 未构建: ${entry.hostFs}`);
     }
-    if (!fs.existsSync(loaderFs)) {
-      throw new Error(`minecraft-loader 未构建: ${loaderFs}`);
+    if (!fs.existsSync(entry.loaderFs)) {
+      throw new Error(`minecraft-loader 未构建: ${entry.loaderFs}`);
     }
-    const proc = spawn(process.execPath, ["--import", loaderUrl, hostFs], {
+    const env = { ...process.env };
+    if (this.moduleRoot) {
+      env.SFMC_PLAYGROUND_MODULE_ROOT = this.moduleRoot;
+    }
+    const proc = spawn(process.execPath, buildHostNodeArgs(entry), {
       stdio: ["pipe", "pipe", "pipe"],
-      env: process.env,
+      env,
+      cwd: this.moduleRoot || undefined,
     });
     this.proc = proc;
     const rl = createInterface({ input: proc.stdout });

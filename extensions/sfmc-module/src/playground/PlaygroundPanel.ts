@@ -1,11 +1,8 @@
 /**
- * SFMC 事件刺激台 Webview — 大纲 / 属性 / 视口 + 实验室
+ * SFMC 脚本沙箱（sapi-sandbox）Webview — xyflow + Radix，无 Elements
  */
 
 import * as vscode from "vscode";
-import fs from "node:fs";
-import path from "node:path";
-import { createRequire } from "node:module";
 import { PlaygroundHostClient } from "./hostClient.js";
 import { ExtLog } from "../log.js";
 
@@ -18,18 +15,21 @@ type Meta = {
   eventTypes: Record<string, { eventType: string; signalType: string }>;
 };
 
-function resolveElementsMain(): string {
-  const require = createRequire(__filename);
-  try {
-    return require.resolve("@vscode-elements/elements/dist/main.js");
-  } catch {
-    const candidate = path.resolve(
-      __dirname,
-      "../../../../node_modules/@vscode-elements/elements/dist/main.js"
-    );
-    if (fs.existsSync(candidate)) return candidate;
-    throw new Error("找不到 @vscode-elements/elements；请在仓库根 npm install");
-  }
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+
+/** 与手动保存同一 schema：schemaVersion + nodes + edges */
+type SandboxScript = {
+  schemaVersion: number;
+  nodes: unknown[];
+  edges: unknown[];
+};
+
+function isSandboxScript(v: unknown): v is SandboxScript {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.nodes) && Array.isArray(o.edges);
 }
 
 export class PlaygroundPanel {
@@ -37,28 +37,33 @@ export class PlaygroundPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly host: PlaygroundHostClient;
   private readonly extensionUri: vscode.Uri;
+  private readonly context: vscode.ExtensionContext;
+  private readonly moduleRoot?: string;
   private meta: Meta | null = null;
   private disposed = false;
 
   static show(context: vscode.ExtensionContext, moduleRoot?: string): void {
     if (PlaygroundPanel.current) {
-      PlaygroundPanel.current.panel.reveal();
+      PlaygroundPanel.current.panel.reveal(vscode.ViewColumn.Active, false);
       return;
     }
+    // 在当前编辑器组打开为新标签页（占满该组，避免 Beside 半屏过窄）
     const panel = vscode.window.createWebviewPanel(
       "sfmcPlayground",
-      "SFMC 事件刺激台",
-      vscode.ViewColumn.Beside,
+      "SFMC 脚本沙箱",
+      { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(context.extensionUri, "dist", "webview"),
-          vscode.Uri.joinPath(context.extensionUri, "src", "playground", "webview"),
-        ],
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "dist", "webview")],
       }
     );
     PlaygroundPanel.current = new PlaygroundPanel(panel, context, moduleRoot);
+  }
+
+  /** 扩展 deactivate 时停宿主。 */
+  static disposeCurrent(): void {
+    PlaygroundPanel.current?.dispose();
   }
 
   private constructor(
@@ -67,7 +72,9 @@ export class PlaygroundPanel {
     moduleRoot?: string
   ) {
     this.panel = panel;
+    this.context = context;
     this.extensionUri = context.extensionUri;
+    this.moduleRoot = moduleRoot;
     this.host = new PlaygroundHostClient((ev) => {
       void this.panel.webview.postMessage({ type: "hostEvent", ...ev });
       if (ev.name === "log") {
@@ -77,7 +84,7 @@ export class PlaygroundPanel {
         const p = ev.payload as { layer?: string; label?: string; status?: string };
         ExtLog.debug("playground", `${p.layer ?? ""} ${p.label ?? ""} — ${p.status ?? ""}`);
       }
-    });
+    }, moduleRoot);
     this.panel.webview.html = this.html(moduleRoot);
     this.panel.onDidDispose(() => this.dispose());
     this.panel.webview.onDidReceiveMessage(async (msg) => {
@@ -86,6 +93,13 @@ export class PlaygroundPanel {
       } catch (e) {
         const text = e instanceof Error ? e.message : String(e);
         ExtLog.error("playground", text);
+        if (msg?.requestId) {
+          void this.panel.webview.postMessage({
+            type: "rpcResult",
+            requestId: msg.requestId,
+            error: text,
+          });
+        }
         void this.panel.webview.postMessage({
           type: "hostEvent",
           name: "log",
@@ -94,61 +108,204 @@ export class PlaygroundPanel {
       }
     });
     ExtLog.info("playground", moduleRoot ? `面板打开 ${moduleRoot}` : "面板打开（engine only）");
+    ExtLog.show(true);
+    void this.bootSandbox({ includeScript: true }).catch((e) => {
+      const text = e instanceof Error ? e.message : String(e);
+      ExtLog.error("playground", `自动启动失败: ${text}`);
+    });
   }
 
-  private async onMessage(msg: { cmd?: string; [k: string]: unknown }): Promise<void> {
+  /** workspaceState 分 key，按模块根隔离。 */
+  private scriptStateKey(): string {
+    const root = this.moduleRoot?.replace(/\\/g, "/").toLowerCase() ?? "engine";
+    return `sfmc.sandbox.script:${root}`;
+  }
+
+  /** 模块根下 `.sfmc/sandbox-script.json`；无模块根则仅用 workspaceState。 */
+  private scriptFileUri(): vscode.Uri | undefined {
+    if (!this.moduleRoot) return undefined;
+    return vscode.Uri.joinPath(vscode.Uri.file(this.moduleRoot), ".sfmc", "sandbox-script.json");
+  }
+
+  private async loadPersistedScript(): Promise<SandboxScript | undefined> {
+    const fileUri = this.scriptFileUri();
+    if (fileUri) {
+      try {
+        const buf = await vscode.workspace.fs.readFile(fileUri);
+        const parsed: unknown = JSON.parse(Buffer.from(buf).toString("utf8"));
+        if (isSandboxScript(parsed)) return parsed;
+      } catch {
+        // 无文件或损坏则回退 workspaceState
+      }
+    }
+    const fromState = this.context.workspaceState.get<unknown>(this.scriptStateKey());
+    return isSandboxScript(fromState) ? fromState : undefined;
+  }
+
+  private async persistScript(script: unknown): Promise<void> {
+    if (!isSandboxScript(script)) return;
+    const normalized: SandboxScript = {
+      schemaVersion: typeof script.schemaVersion === "number" ? script.schemaVersion : 1,
+      nodes: script.nodes,
+      edges: script.edges,
+    };
+    await this.context.workspaceState.update(this.scriptStateKey(), normalized);
+    const fileUri = this.scriptFileUri();
+    if (!fileUri) return;
+    const dir = vscode.Uri.joinPath(vscode.Uri.file(this.moduleRoot!), ".sfmc");
+    try {
+      await vscode.workspace.fs.createDirectory(dir);
+    } catch {
+      // 目录已存在
+    }
+    await vscode.workspace.fs.writeFile(
+      fileUri,
+      Buffer.from(`${JSON.stringify(normalized, null, 2)}\n`, "utf8")
+    );
+  }
+
+  private reply(requestId: unknown, result: unknown): void {
+    if (requestId == null) return;
+    void this.panel.webview.postMessage({ type: "rpcResult", requestId, result });
+  }
+
+  /**
+   * @param includeScript 仅首次打开恢复剧本；重置场景时勿带 script，避免覆盖未落盘编辑。
+   */
+  private async bootSandbox(options?: { includeScript?: boolean }): Promise<void> {
+    const startParams: Record<string, unknown> = {};
+    if (this.moduleRoot) startParams.moduleRoot = this.moduleRoot;
+    const result = await this.host.request("start", startParams);
+    this.meta = (await this.host.request("meta")) as Meta;
+    const summary = await this.host.request("scene.summary");
+    const payload: Record<string, unknown> = {
+      type: "started",
+      result,
+      meta: this.meta,
+      summary,
+    };
+    if (options?.includeScript) {
+      const script = await this.loadPersistedScript();
+      if (script) payload.script = script;
+    }
+    void this.panel.webview.postMessage(payload);
+  }
+
+  private async onMessage(msg: {
+    cmd?: string;
+    requestId?: string;
+    [k: string]: unknown;
+  }): Promise<void> {
     const cmd = msg.cmd;
     if (!cmd) return;
+    const rid = msg.requestId;
 
     if (cmd === "start") {
-      const result = await this.host.request("start");
-      this.meta = (await this.host.request("meta")) as Meta;
-      const summary = (await this.host.request("scene.summary")) as {
-        players?: { id: string; name: string; kind: string }[];
-      };
-      void this.panel.webview.postMessage({
-        type: "started",
-        result,
-        meta: this.meta,
-        players: summary.players ?? [],
-      });
+      await this.bootSandbox({ includeScript: true });
+      this.reply(rid, { ok: true });
       return;
     }
-    if (cmd === "stop") {
-      await this.host.request("stop");
-      void this.panel.webview.postMessage({ type: "stopped" });
+    if (cmd === "reset") {
+      await this.bootSandbox({ includeScript: false });
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "smoke") {
+      this.reply(rid, await this.host.request("smoke.run", {}));
       return;
     }
     if (cmd === "create") {
-      const props = (msg.props as Record<string, unknown>) ?? {};
       const result = await this.host.request("objects.create", {
         kind: msg.kind,
-        props,
+        props: (msg.props as Record<string, unknown>) ?? {},
       });
-      void this.panel.webview.postMessage({ type: "created", result, props });
-      return;
-    }
-    if (cmd === "call") {
-      const result = await this.host.request("objects.call", {
-        id: msg.id,
-        method: msg.method,
-        args: msg.args ?? [],
-      });
-      void this.panel.webview.postMessage({ type: "called", result });
+      this.reply(rid, result);
       return;
     }
     if (cmd === "emit") {
-      await this.host.request("events.emit", { path: msg.path, payload: msg.payload ?? {} });
-      void this.panel.webview.postMessage({ type: "emitted", path: msg.path });
+      const result = await this.host.request("events.emit", {
+        path: msg.path,
+        payload: msg.payload ?? {},
+      });
+      this.reply(rid, result);
       return;
     }
     if (cmd === "tick") {
-      await this.host.request("tick", { n: msg.n ?? 1 });
+      this.reply(rid, await this.host.request("tick", { n: msg.n ?? 1 }));
+      return;
+    }
+    if (cmd === "call") {
+      this.reply(
+        rid,
+        await this.host.request("objects.call", {
+          id: msg.id,
+          method: msg.method,
+          args: msg.args ?? [],
+        })
+      );
+      return;
+    }
+    if (cmd === "inspect") {
+      this.reply(rid, await this.host.request("objects.inspect", { id: msg.id }));
       return;
     }
     if (cmd === "sceneSummary") {
-      const summary = await this.host.request("scene.summary");
-      void this.panel.webview.postMessage({ type: "scene", summary });
+      this.reply(rid, await this.host.request("scene.summary"));
+      return;
+    }
+    if (cmd === "showOutput") {
+      ExtLog.show(false);
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "uiLog") {
+      const level = String(msg.level ?? "info");
+      const text = String(msg.text ?? "");
+      const lv =
+        level === "error" || level === "warn" || level === "debug" || level === "success"
+          ? level
+          : "info";
+      ExtLog.write("sandbox", text, lv);
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "persistScript") {
+      await this.persistScript(msg.script);
+      this.reply(rid, { ok: true });
+      return;
+    }
+    if (cmd === "saveScript") {
+      const uri = await vscode.window.showSaveDialog({
+        filters: { JSON: ["json"] },
+        saveLabel: "保存沙箱脚本",
+        defaultUri: this.scriptFileUri() ?? vscode.Uri.file("sandbox-script.json"),
+      });
+      if (uri) {
+        await vscode.workspace.fs.writeFile(
+          uri,
+          Buffer.from(`${JSON.stringify(msg.script ?? {}, null, 2)}\n`, "utf8")
+        );
+        // 手动另存时同步自动存档，格式一致
+        await this.persistScript(msg.script);
+        ExtLog.info("playground", `已保存 ${uri.fsPath}`);
+      }
+      this.reply(rid, { ok: Boolean(uri) });
+      return;
+    }
+    if (cmd === "openScript") {
+      const picked = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { JSON: ["json"] },
+        openLabel: "打开沙箱脚本",
+      });
+      if (picked?.[0]) {
+        const buf = await vscode.workspace.fs.readFile(picked[0]);
+        const script = JSON.parse(Buffer.from(buf).toString("utf8"));
+        void this.panel.webview.postMessage({ type: "scriptLoaded", script });
+        // 打开后写入自动存档，下次面板恢复同一剧本
+        await this.persistScript(script);
+      }
+      this.reply(rid, { ok: Boolean(picked?.[0]) });
       return;
     }
   }
@@ -160,32 +317,18 @@ export class PlaygroundPanel {
     PlaygroundPanel.current = undefined;
   }
 
-  private webviewUri(...segments: string[]): vscode.Uri {
-    const dist = vscode.Uri.joinPath(this.extensionUri, "dist", "webview", ...segments);
-    const distFs = dist.fsPath;
-    if (fs.existsSync(distFs)) {
-      return this.panel.webview.asWebviewUri(dist);
-    }
-    const src = vscode.Uri.joinPath(this.extensionUri, "src", "playground", "webview", ...segments);
-    return this.panel.webview.asWebviewUri(src);
-  }
-
   private html(moduleRoot?: string): string {
     const nonce = String(Date.now()) + Math.random().toString(36).slice(2);
     const wv = this.panel.webview;
-    const vendored = vscode.Uri.joinPath(
-      this.extensionUri,
-      "dist",
-      "webview",
-      "vendor",
-      "elements-dist",
-      "main.js"
+    const jsUri = wv.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "graph.js")
     );
-    const elementsUri = fs.existsSync(vendored.fsPath)
-      ? wv.asWebviewUri(vendored)
-      : wv.asWebviewUri(vscode.Uri.file(resolveElementsMain()));
-    const cssUri = this.webviewUri("stimulus.css");
-    const jsUri = this.webviewUri("stimulus.js");
+    const cssUri = wv.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "graph.css")
+    );
+    const codiconCssUri = wv.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "codicon.css")
+    );
     const rootLabel = moduleRoot ? moduleRoot.replace(/\\/g, "/") : "(engine only)";
     const csp = [
       `default-src 'none'`,
@@ -199,132 +342,15 @@ export class PlaygroundPanel {
 <head>
 <meta charset="UTF-8" />
 <meta http-equiv="Content-Security-Policy" content="${csp}" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="${codiconCssUri}" />
 <link rel="stylesheet" href="${cssUri}" />
-<script type="module" nonce="${nonce}" src="${elementsUri}"></script>
+<title>脚本沙箱</title>
 </head>
-<body>
-  <div class="topbar">
-    <vscode-button-group>
-      <vscode-button id="btnStart">启动</vscode-button>
-      <vscode-button id="btnStop" secondary>销毁</vscode-button>
-      <vscode-button id="btnTick" secondary>Tick</vscode-button>
-    </vscode-button-group>
-    <vscode-badge id="statusBadge">未启动</vscode-badge>
-    <div class="progress-row hidden" id="progressRow">
-      <vscode-progress-bar id="progressBar"></vscode-progress-bar>
-      <span id="progressLabel" class="muted"></span>
-    </div>
-    <span class="grow"></span>
-  </div>
-  <div class="subtitle">模块：${escapeHtml(rootLabel)} · 事件刺激台（VS Code Elements）</div>
-
-  <vscode-tabs id="rootTabs" panel>
-    <vscode-tab-header>刺激台</vscode-tab-header>
-    <vscode-tab-panel>
-      <vscode-split-layout split="vertical" initial-handle-position="24%" min-start="180px" min-end="320px" style="height:calc(100vh - 72px)">
-        <div slot="start" class="pane">
-          <vscode-collapsible heading="场景" open>
-            <div class="scene-actions">
-              <vscode-textfield id="playerName" placeholder="玩家名" value="alice"></vscode-textfield>
-              <vscode-checkbox id="playerOp" checked>OP</vscode-checkbox>
-              <vscode-button id="btnAddPlayer" secondary>添加</vscode-button>
-            </div>
-            <vscode-tree id="sceneTree" indent-guides="onHover"></vscode-tree>
-          </vscode-collapsible>
-          <vscode-divider></vscode-divider>
-          <vscode-label>事件</vscode-label>
-          <vscode-textfield id="eventSearch" placeholder="搜索信号…"></vscode-textfield>
-          <vscode-scrollable class="pane-fill">
-            <vscode-tree id="eventTree" indent-guides="onHover"></vscode-tree>
-          </vscode-scrollable>
-        </div>
-        <vscode-split-layout slot="end" split="vertical" initial-handle-position="58%" min-start="240px" min-end="200px">
-          <div slot="start" class="pane">
-            <vscode-label id="propsHeading">属性</vscode-label>
-            <vscode-scrollable class="pane-fill">
-              <div id="propsBody"></div>
-            </vscode-scrollable>
-            <div class="props-actions">
-              <vscode-button id="btnEmit" disabled>Emit</vscode-button>
-            </div>
-          </div>
-          <div slot="end" class="pane">
-            <vscode-tabs id="viewportTabs" panel>
-              <vscode-tab-header>日志</vscode-tab-header>
-              <vscode-tab-panel>
-                <vscode-scrollable id="logScroll" always-visible>
-                  <pre id="logPre" class="pre"></pre>
-                </vscode-scrollable>
-              </vscode-tab-panel>
-              <vscode-tab-header>状态</vscode-tab-header>
-              <vscode-tab-panel>
-                <vscode-scrollable id="stateScroll" always-visible>
-                  <pre id="statePre" class="pre muted">启动后显示场景摘要</pre>
-                </vscode-scrollable>
-              </vscode-tab-panel>
-            </vscode-tabs>
-          </div>
-        </vscode-split-layout>
-      </vscode-split-layout>
-    </vscode-tab-panel>
-
-    <vscode-tab-header>实验室</vscode-tab-header>
-    <vscode-tab-panel>
-      <div class="lab-grid">
-        <div class="lab-col">
-          <vscode-label>构造 · 1:1</vscode-label>
-          <vscode-form-group variant="vertical">
-            <vscode-label>kind</vscode-label>
-            <vscode-single-select id="labKind"></vscode-single-select>
-          </vscode-form-group>
-          <vscode-form-group variant="vertical">
-            <vscode-label>props JSON</vscode-label>
-            <vscode-textarea id="labProps" rows="6">{"name":"alice","op":true}</vscode-textarea>
-          </vscode-form-group>
-          <vscode-button id="btnLabCreate">create</vscode-button>
-        </div>
-        <div class="lab-col">
-          <vscode-label>操作 · 1:1</vscode-label>
-          <vscode-form-group variant="vertical">
-            <vscode-label>object id</vscode-label>
-            <vscode-textfield id="labObjectId"></vscode-textfield>
-          </vscode-form-group>
-          <vscode-form-group variant="vertical">
-            <vscode-label>实例</vscode-label>
-            <vscode-single-select id="labObjects"></vscode-single-select>
-          </vscode-form-group>
-          <vscode-form-group variant="vertical">
-            <vscode-label>method</vscode-label>
-            <vscode-textfield id="labMethod" value="sendMessage"></vscode-textfield>
-          </vscode-form-group>
-          <vscode-form-group variant="vertical">
-            <vscode-label>args JSON</vscode-label>
-            <vscode-textarea id="labArgs" rows="3">["hello"]</vscode-textarea>
-          </vscode-form-group>
-          <vscode-button id="btnLabCall">call</vscode-button>
-        </div>
-        <div class="lab-col">
-          <vscode-label>事件 JSON · 1:1</vscode-label>
-          <vscode-form-group variant="vertical">
-            <vscode-label>path</vscode-label>
-            <vscode-single-select id="labEventPath"></vscode-single-select>
-          </vscode-form-group>
-          <vscode-form-group variant="vertical">
-            <vscode-label>payload</vscode-label>
-            <vscode-textarea id="labPayload" rows="6">{}</vscode-textarea>
-          </vscode-form-group>
-          <vscode-button id="btnLabEmit">emit</vscode-button>
-        </div>
-      </div>
-    </vscode-tab-panel>
-  </vscode-tabs>
-
-  <script nonce="${nonce}" src="${jsUri}"></script>
+<body data-module="${escapeHtml(rootLabel)}">
+<div id="root"></div>
+<script type="module" nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }

@@ -1,0 +1,342 @@
+import type { ReactNode } from "react";
+
+export type MetaProp = {
+  name: string;
+  readonly?: boolean;
+  type?: string;
+};
+
+export type MetaMethodParam = {
+  name: string;
+  type: string;
+  optional?: boolean;
+  rest?: boolean;
+};
+
+export type MetaMethod = {
+  name: string;
+  parameters?: MetaMethodParam[];
+};
+
+export type ClassMeta = {
+  properties: MetaProp[];
+  methods?: MetaMethod[];
+  kind?: string;
+  extends?: string;
+};
+
+export type PlaygroundMeta = {
+  classes: Record<string, ClassMeta>;
+  events?: Record<string, string[]>;
+  eventTypes: Record<string, { eventType: string; signalType?: string }>;
+};
+
+export type SceneSummary = {
+  world?: { id: string; kind: string };
+  scoreboard?: { id: string; kind: string };
+  dimensions?: { id: string; kind: string; dimensionId: string }[];
+  players?: { id: string; kind: string; name: string }[];
+  entities?: { id: string; kind: string; typeId?: string }[];
+  items?: { id: string; kind: string }[];
+  blocks?: { id: string; kind: string }[];
+  lastEmit?: {
+    path: string;
+    payload?: unknown;
+    result?: unknown;
+    at?: number;
+    listeners?: number;
+    errors?: { message: string }[];
+  } | null;
+  lastCall?: {
+    id: string;
+    method: string;
+    result?: unknown;
+    at?: number;
+  } | null;
+};
+
+/** 沙箱创建 Player 入口字段（非 d.ts 表面，与 FakePlayerInit 对齐） */
+export const PLAYER_CREATE_ENTRY: MetaProp[] = [
+  { name: "name", type: "string", readonly: false },
+  { name: "op", type: "boolean", readonly: false },
+  { name: "dimensionId", type: "string", readonly: false },
+  { name: "location", type: "Vector3", readonly: false },
+];
+
+export function defaultForType(type?: string): unknown {
+  const t = type ?? "unknown";
+  if (t === "boolean") return false;
+  if (t === "number") return 0;
+  if (t === "string") return "";
+  if (t === "Vector3" || t === "minecraftcommon.Vector3" || /location/i.test(t)) {
+    return { x: 0, y: 64, z: 0 };
+  }
+  if (t.endsWith("[]")) return [];
+  if (t === "Player" || t === "Entity" || t === "Dimension" || t === "ItemStack" || t === "Block") {
+    return null;
+  }
+  return null;
+}
+
+export function writableProps(meta: PlaygroundMeta | null, className: string): MetaProp[] {
+  const list = meta?.classes[className]?.properties ?? [];
+  return list.filter((p) => !p.readonly);
+}
+
+export function allProps(meta: PlaygroundMeta | null, className: string): MetaProp[] {
+  return meta?.classes[className]?.properties ?? [];
+}
+
+/** Player 创建袋：入口字段 + Player/Entity 可写表面（去重） */
+export function playerCreateProps(meta: PlaygroundMeta | null): MetaProp[] {
+  const seen = new Set<string>();
+  const out: MetaProp[] = [];
+  for (const p of [...PLAYER_CREATE_ENTRY, ...writableProps(meta, "Player"), ...writableProps(meta, "Entity")]) {
+    if (seen.has(p.name)) continue;
+    seen.add(p.name);
+    out.push(p);
+  }
+  return out;
+}
+
+export function eventProps(meta: PlaygroundMeta | null, path: string): MetaProp[] {
+  const eventType = meta?.eventTypes[path]?.eventType;
+  if (!eventType) return [];
+  return allProps(meta, eventType);
+}
+
+export function seedProps(fields: MetaProp[], existing?: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...(existing ?? {}) };
+  for (const f of fields) {
+    if (out[f.name] === undefined) out[f.name] = defaultForType(f.type);
+  }
+  return out;
+}
+
+/** 方法形参 → MetaProp 表单字段 */
+export function methodParamFields(
+  meta: PlaygroundMeta | null,
+  className: string | undefined,
+  methodName: string | undefined
+): MetaProp[] {
+  if (!meta || !className || !methodName) return [];
+  const m = meta.classes[className]?.methods?.find((x) => x.name === methodName);
+  if (!m?.parameters?.length) return [];
+  return m.parameters.map((p) => ({
+    name: p.name,
+    type: p.type,
+    readonly: false,
+  }));
+}
+
+/** 从形参字段袋生成 call args 数组（按 parameters 顺序） */
+export function argsFromParamValues(
+  fields: MetaProp[],
+  values: Record<string, unknown>
+): unknown[] {
+  return fields.map((f) => values[f.name] ?? null);
+}
+
+export function seedArgsJson(
+  meta: PlaygroundMeta | null,
+  className: string | undefined,
+  methodName: string | undefined,
+  existingJson?: string
+): string {
+  const fields = methodParamFields(meta, className, methodName);
+  if (!fields.length) return existingJson ?? "[]";
+  try {
+    const parsed = existingJson ? JSON.parse(existingJson) : null;
+    if (Array.isArray(parsed) && parsed.length === fields.length) return existingJson!;
+  } catch {
+    /* ignore */
+  }
+  const bag = seedProps(fields, {});
+  return JSON.stringify(argsFromParamValues(fields, bag));
+}
+
+function isVector3(v: unknown): v is { x: number; y: number; z: number } {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    typeof (v as { x?: unknown }).x === "number" &&
+    typeof (v as { y?: unknown }).y === "number" &&
+    typeof (v as { z?: unknown }).z === "number"
+  );
+}
+
+function refIdOf(v: unknown): string {
+  if (v && typeof v === "object" && typeof (v as { $ref?: unknown }).$ref === "string") {
+    return String((v as { $ref: string }).$ref);
+  }
+  return "";
+}
+
+type MetaPropFormProps = {
+  fields: MetaProp[];
+  values: Record<string, unknown>;
+  onChange: (next: Record<string, unknown>) => void;
+  scene?: SceneSummary | null;
+  /** true：全部只读（场景 inspect） */
+  readOnly?: boolean;
+  /** event 袋：即使 meta.readonly 也可填 */
+  forceEditable?: boolean;
+};
+
+export function MetaPropForm({
+  fields,
+  values,
+  onChange,
+  scene,
+  readOnly,
+  forceEditable,
+}: MetaPropFormProps) {
+  const setField = (name: string, value: unknown) => {
+    onChange({ ...values, [name]: value });
+  };
+
+  if (!fields.length) {
+    return <p className="muted">该类在 PLAYGROUND_META 中无属性</p>;
+  }
+
+  return (
+    <div className="meta-form">
+      {fields.map((f) => {
+        const locked = Boolean(readOnly || (!forceEditable && f.readonly));
+        const type = f.type ?? "unknown";
+        const raw = values[f.name];
+        let control: ReactNode;
+
+        if (type === "boolean") {
+          control = (
+            <select
+              disabled={locked}
+              value={raw ? "1" : "0"}
+              onChange={(e) => setField(f.name, e.target.value === "1")}
+            >
+              <option value="1">true</option>
+              <option value="0">false</option>
+            </select>
+          );
+        } else if (type === "number") {
+          control = (
+            <input
+              type="number"
+              disabled={locked}
+              value={typeof raw === "number" ? raw : Number(raw) || 0}
+              onChange={(e) => setField(f.name, Number(e.target.value))}
+            />
+          );
+        } else if (type === "Vector3" || type === "minecraftcommon.Vector3" || /location/i.test(type)) {
+          const loc = isVector3(raw) ? raw : { x: 0, y: 64, z: 0 };
+          control = (
+            <div className="vec3">
+              {(["x", "y", "z"] as const).map((axis) => (
+                <label key={axis} className="vec3-axis">
+                  <span>{axis}</span>
+                  <input
+                    type="number"
+                    disabled={locked}
+                    value={loc[axis]}
+                    onChange={(e) =>
+                      setField(f.name, { ...loc, [axis]: Number(e.target.value) })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          );
+        } else if (type === "Player" || type === "Entity" || type === "Dimension") {
+          const options =
+            type === "Player"
+              ? (scene?.players ?? []).map((p) => ({ id: p.id, label: p.name }))
+              : type === "Entity"
+                ? (scene?.entities ?? []).map((p) => ({
+                    id: p.id,
+                    label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
+                  }))
+                : (scene?.dimensions ?? []).map((d) => ({
+                    id: d.id,
+                    label: d.dimensionId,
+                  }));
+          control = (
+            <select
+              disabled={locked}
+              value={refIdOf(raw)}
+              onChange={(e) => {
+                const id = e.target.value;
+                setField(f.name, id ? { $ref: id } : null);
+              }}
+            >
+              <option value="">（未绑定）</option>
+              {options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          );
+        } else if (type === "string" || type === "CommandPermissionLevel" || type === "PlayerPermissionLevel") {
+          if (f.name === "dimensionId" && (scene?.dimensions?.length ?? 0) > 0) {
+            control = (
+              <select
+                disabled={locked}
+                value={raw == null ? "" : String(raw)}
+                onChange={(e) => setField(f.name, e.target.value)}
+              >
+                {(scene?.dimensions ?? []).map((d) => (
+                  <option key={d.id} value={d.dimensionId}>
+                    {d.dimensionId}
+                  </option>
+                ))}
+              </select>
+            );
+          } else {
+            control = (
+              <input
+                disabled={locked}
+                value={raw == null ? "" : String(raw)}
+                onChange={(e) => setField(f.name, e.target.value)}
+              />
+            );
+          }
+        } else {
+          control = (
+            <textarea
+              rows={3}
+              disabled={locked}
+              value={
+                raw === undefined ? "" : typeof raw === "string" ? raw : JSON.stringify(raw, null, 2)
+              }
+              onChange={(e) => {
+                const text = e.target.value.trim();
+                if (!text) {
+                  setField(f.name, null);
+                  return;
+                }
+                try {
+                  setField(f.name, JSON.parse(text));
+                } catch {
+                  /* 输入中 */
+                }
+              }}
+            />
+          );
+        }
+
+        return (
+          <div className="field" key={f.name}>
+            <label>
+              {f.name}
+              <span className="field-type">
+                {type}
+                {locked ? " · 只读" : ""}
+              </span>
+            </label>
+            {control}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
