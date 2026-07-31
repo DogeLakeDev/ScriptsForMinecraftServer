@@ -141,20 +141,32 @@ test("listHubSignals / listHubSignalEntries", () => {
   assert.equal(entries[0].signalType, "PlayerJoinAfterEventSignal");
 });
 
-test("annotateImpl：overrides 自有方法标 l2，其余 l0", async () => {
+test("annotateImpl：overrides 自有方法标 l2，其余 l0；Entity 合并到 Player", async () => {
   const { annotateImpl, extractOwnMemberNames, extractTypeAliasBody } = await import(
     "./gen-playground-meta.mjs"
   );
-  const overrideSrc = `
+  const playerSrc = `
 export type FakePlayer = {
   name: string;
   sendMessage(text: string): void;
   getGameMode(): string;
 };
 `;
-  const body = extractTypeAliasBody(overrideSrc, "FakePlayer");
-  assert.ok(body);
-  const surface = { Player: extractOwnMemberNames(body) };
+  const entitySrc = `
+export type FakeEntity = {
+  applyDamage(amount: number): boolean;
+  runCommand(commandString: string): { successCount: number };
+};
+`;
+  const playerBody = extractTypeAliasBody(playerSrc, "FakePlayer");
+  const entityBody = extractTypeAliasBody(entitySrc, "FakeEntity");
+  assert.ok(playerBody);
+  assert.ok(entityBody);
+  const surface = {
+    Player: extractOwnMemberNames(playerBody),
+    Entity: extractOwnMemberNames(entityBody),
+  };
+  for (const n of surface.Entity) surface.Player.add(n);
   const meta = {
     classes: {
       Player: {
@@ -164,6 +176,15 @@ export type FakePlayer = {
           { name: "sendMessage", parameters: [] },
           { name: "getGameMode", parameters: [] },
           { name: "applyDamage", parameters: [] },
+          { name: "applyImpulse", parameters: [] },
+        ],
+      },
+      Entity: {
+        kind: "object",
+        properties: [],
+        methods: [
+          { name: "applyDamage", parameters: [] },
+          { name: "applyImpulse", parameters: [] },
         ],
       },
     },
@@ -174,5 +195,7 @@ export type FakePlayer = {
   assert.equal(meta.classes.Player.properties[0].impl, "l2");
   assert.equal(meta.classes.Player.methods.find((m) => m.name === "sendMessage")?.impl, "l2");
   assert.equal(meta.classes.Player.methods.find((m) => m.name === "getGameMode")?.impl, "l2");
-  assert.equal(meta.classes.Player.methods.find((m) => m.name === "applyDamage")?.impl, "l0");
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "applyDamage")?.impl, "l2");
+  assert.equal(meta.classes.Player.methods.find((m) => m.name === "applyImpulse")?.impl, "l0");
+  assert.equal(meta.classes.Entity.methods.find((m) => m.name === "applyDamage")?.impl, "l2");
 });

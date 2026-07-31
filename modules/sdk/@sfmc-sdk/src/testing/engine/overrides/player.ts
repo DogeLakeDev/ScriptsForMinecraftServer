@@ -12,6 +12,12 @@ import {
   isInventoryComponentId,
   type FakeEntityInventoryComponent,
 } from "./inventory.js";
+import {
+  createEntityHealthComponent,
+  defaultMaxHealth,
+  isHealthComponentId,
+  type FakeEntityHealthComponent,
+} from "./health.js";
 import { guardUnimplemented } from "../unimplemented-error.js";
 import { normalizeGameMode, runThinCommand, type FakeCommandResult } from "./command.js";
 import { createFakeScreenDisplay, type FakeScreenDisplay } from "./screen-display.js";
@@ -22,6 +28,8 @@ export type FakeDimensionLocation = {
   y: number;
   z: number;
 };
+
+export type FakePlayerComponent = FakeEntityInventoryComponent | FakeEntityHealthComponent;
 
 export type FakePlayer = {
   id: string;
@@ -57,9 +65,9 @@ export type FakePlayer = {
   addTag(tag: string): boolean;
   removeTag(tag: string): boolean;
   hasTag(tag: string): boolean;
-  getComponent(componentId: string): FakeEntityInventoryComponent | undefined;
+  getComponent(componentId: string): FakePlayerComponent | undefined;
   hasComponent(componentId: string): boolean;
-  getComponents(): FakeEntityInventoryComponent[];
+  getComponents(): FakePlayerComponent[];
   getRotation(): { x: number; y: number };
   getHeadLocation(): { x: number; y: number; z: number };
   getVelocity(): { x: number; y: number; z: number };
@@ -69,6 +77,9 @@ export type FakePlayer = {
   setSpawnPoint(spawnPoint?: FakeDimensionLocation): void;
   playSound(soundId: string | { id?: string }, soundOptions?: unknown): { id: string };
   runCommand(commandString: string): FakeCommandResult;
+  /** 扣血；不模拟物理；归零则 isValid=false（不经 Dimension.remove）。 */
+  applyDamage(amount: number, options?: unknown): boolean;
+  kill(): boolean;
 };
 
 export interface FakePlayerInit {
@@ -84,6 +95,9 @@ export interface FakePlayerInit {
   gameMode?: string;
   /** setGameMode 时回调（sandbox/world 用于 emit playerGameModeChange） */
   onGameModeChange?: (player: FakePlayer, from: string, to: string) => void;
+  onHealthChange?: (player: FakePlayer, oldValue: number, newValue: number) => void;
+  onHurt?: (player: FakePlayer, damage: number, options?: unknown) => void;
+  onDie?: (player: FakePlayer) => void;
 }
 
 export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
@@ -112,6 +126,7 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
     },
     getEntities: () => [],
     getEntitiesAtBlockLocation: () => [],
+    getEntitiesOfType: () => [],
     getPlayers: () => [] as FakePlayer[],
     spawnEntity() {
       throw new Error("player.dimension 尚未绑定到 FakeWorld");
@@ -135,6 +150,12 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
 
   let player!: FakePlayer;
   const screen = createFakeScreenDisplay(() => player.isValid);
+  const health = createEntityHealthComponent({
+    max: defaultMaxHealth("minecraft:player"),
+    onChange(oldValue, newValue) {
+      init.onHealthChange?.(player, oldValue, newValue);
+    },
+  });
 
   player = {
     id: init.id ?? `player-${init.name}`,
@@ -187,6 +208,7 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
     },
     getComponent(componentId) {
       if (!player.isValid) return undefined;
+      if (isHealthComponentId(componentId)) return health;
       if (isInventoryComponentId(componentId)) return inventory;
       return undefined;
     },
@@ -194,7 +216,7 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       return player.getComponent(componentId) !== undefined;
     },
     getComponents() {
-      return [inventory];
+      return [health, inventory];
     },
     getRotation() {
       return { x: 0, y: 0 };
@@ -246,7 +268,27 @@ export function createEnginePlayer(init: FakePlayerInit): FakePlayer {
       if (!player.isValid) throw new Error("InvalidEntityError");
       return runThinCommand(commandLog, commandString, {
         onGamemode: (mode) => player.setGameMode(mode),
+        selfName: player.name,
+        inventory: inventory.container,
       });
+    },
+    applyDamage(amount, options) {
+      if (!player.isValid) throw new Error("InvalidEntityError");
+      const n = Number(amount);
+      if (!Number.isFinite(n) || n <= 0) return false;
+      const before = health.currentValue;
+      health.setCurrentValue(before - n);
+      const dealt = before - health.currentValue;
+      if (dealt <= 0) return false;
+      init.onHurt?.(player, dealt, options);
+      if (health.currentValue <= 0) player.kill();
+      return true;
+    },
+    kill() {
+      if (!player.isValid) return false;
+      init.onDie?.(player);
+      player.isValid = false;
+      return true;
     },
   };
   player.scoreboardIdentity = createPlayerScoreboardIdentity(player, () => player);

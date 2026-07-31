@@ -640,6 +640,86 @@ test("L2 本批：runCommand 记录 + gamemode 薄解析", async () => {
   await sb.dispose();
 });
 
+test("L2 第二批：runCommand give/clear → 物品栏", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Shop" });
+  p.runCommand("give @s minecraft:diamond 3 0");
+  const inv = p.getComponent("minecraft:inventory").container;
+  assert.equal(inv.getItem(0)?.typeId, "minecraft:diamond");
+  assert.equal(inv.getItem(0)?.amount, 3);
+  // daily-task 形态：clear "Name" item data qty
+  p.runCommand('clear "Shop" minecraft:diamond 0 2');
+  assert.equal(inv.getItem(0)?.amount, 1);
+  p.runCommand("clear @s minecraft:diamond 0 1");
+  assert.equal(inv.getItem(0), undefined);
+  // 解析不了：仍记录
+  p.runCommand("ability @s mayfly true");
+  assert.ok(p.commandLog.includes("ability @s mayfly true"));
+  await sb.dispose();
+});
+
+test("L2 第二批：applyDamage + 生命值袋", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const { EntityHealthComponent } = await import("@minecraft/server");
+  const sb = await createSandbox({});
+  const dim = sb.world.getDimension("overworld");
+  const fox = dim.spawnEntity("minecraft:fox", { x: 0, y: 64, z: 0 });
+  const health = fox.getComponent(EntityHealthComponent.componentId);
+  assert.equal(health.currentValue, 20);
+  const hurt = [];
+  const hpChanged = [];
+  sb.world.afterEvents.entityHurt.subscribe((ev) => hurt.push(ev.damage));
+  sb.world.afterEvents.entityHealthChanged.subscribe((ev) => {
+    hpChanged.push({ old: ev.oldValue, neu: ev.newValue });
+  });
+  assert.equal(fox.applyDamage(7), true);
+  assert.equal(health.currentValue, 13);
+  assert.deepEqual(hurt, [7]);
+  assert.ok(hpChanged.some((r) => r.old === 20 && r.neu === 13));
+  assert.equal(fox.applyDamage(0), false);
+  health.resetToMaxValue();
+  assert.equal(health.currentValue, 20);
+  const died = [];
+  sb.world.afterEvents.entityDie.subscribe((ev) => died.push(ev.deadEntity.id));
+  fox.applyDamage(100);
+  assert.equal(fox.isValid, false);
+  assert.deepEqual(died, [fox.id]);
+
+  const p = sb.addPlayer({ name: "Tank" });
+  const ph = p.getComponent("minecraft:health");
+  assert.equal(ph.currentValue, 20);
+  p.applyDamage(5);
+  assert.equal(ph.currentValue, 15);
+  await sb.dispose();
+});
+
+test("L2 第二批：itemUse / playerBreakBlock / entityHitEntity emit + getEntitiesOfType", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const { ItemStack } = await import("@minecraft/server");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Ev" });
+  const uses = [];
+  const breaks = [];
+  const hits = [];
+  sb.world.afterEvents.itemUse.subscribe((ev) => uses.push(ev.source.name));
+  sb.world.afterEvents.playerBreakBlock.subscribe((ev) => breaks.push(ev.player.name));
+  sb.world.afterEvents.entityHitEntity.subscribe((ev) => {
+    hits.push([ev.damagingEntity.id, ev.hitEntity.id]);
+  });
+  sb.emit.itemUse(p, new ItemStack("minecraft:stick", 1));
+  sb.emit.playerBreakBlock(p, { block: p.dimension.getBlock(p.location) });
+  const fox = p.dimension.spawnEntity("minecraft:fox", { x: 1, y: 64, z: 0 });
+  sb.emit.entityHitEntity(p, fox);
+  assert.deepEqual(uses, ["Ev"]);
+  assert.deepEqual(breaks, ["Ev"]);
+  assert.deepEqual(hits, [[p.id, fox.id]]);
+  p.dimension.spawnEntity("minecraft:cow", { x: 2, y: 64, z: 0 });
+  assert.equal(p.dimension.getEntitiesOfType("minecraft:fox").length, 1);
+  assert.equal(p.dimension.getEntitiesOfType("cow").length, 1);
+  await sb.dispose();
+});
+
 test("L2 本批：playSound / onScreenDisplay / spawnPoint / playerLeave", async () => {
   const { createSandbox } = await import("./dist/esm/testing/index.js");
   const sb = await createSandbox({});
@@ -676,8 +756,7 @@ test("L2 本批：未接线 API 仍硬失败（无空成功）", async () => {
   );
   const sb = await createSandbox({});
   const p = sb.addPlayer({ name: "Hard" });
-  assert.throws(() => p.applyDamage?.(1), (err) => {
-    // Proxy 抛 Unimplemented；若方法不存在同样
+  assert.throws(() => p.applyImpulse?.({ x: 0, y: 1, z: 0 }), (err) => {
     return (
       err instanceof UnimplementedMinecraftApiError ||
       (err instanceof Error && /未实现的 Minecraft API/.test(err.message))

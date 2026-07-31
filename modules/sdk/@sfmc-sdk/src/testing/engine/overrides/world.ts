@@ -96,7 +96,12 @@ export function createFakeWorld(): FakeWorld {
     playerLeave: createEventSignal(),
     chatSend: createEventSignal(),
     entityDie: createEventSignal(),
+    entityHurt: createEventSignal(),
+    entityHealthChanged: createEventSignal(),
+    entityHitEntity: createEventSignal(),
     itemUse: createEventSignal(),
+    playerBreakBlock: createEventSignal(),
+    /** 旧别名；pin 为 playerBreakBlock */
     blockBreak: createEventSignal(),
     entitySpawn: createEventSignal(),
     playerGameModeChange: createEventSignal(),
@@ -105,6 +110,7 @@ export function createFakeWorld(): FakeWorld {
     chatSend: createEventSignal(),
     playerSpawn: createEventSignal(),
     itemUse: createEventSignal(),
+    playerBreakBlock: createEventSignal(),
     playerLeave: createEventSignal(),
     playerGameModeChange: createEventSignal(),
   });
@@ -120,6 +126,20 @@ export function createFakeWorld(): FakeWorld {
       },
       onEntityDie: (entity) => {
         afterEvents.entityDie!.emit({ deadEntity: entity, damageSource: { cause: "none" } });
+      },
+      onEntityHealthChange: (entity, oldValue, newValue) => {
+        afterEvents.entityHealthChanged!.emit({ entity, oldValue, newValue });
+      },
+      onEntityHurt: (entity, damage, options) => {
+        const cause =
+          options && typeof options === "object" && "cause" in (options as object)
+            ? (options as { cause?: unknown }).cause
+            : "none";
+        afterEvents.entityHurt!.emit({
+          hurtEntity: entity,
+          damage,
+          damageSource: { cause: cause ?? "none" },
+        });
       },
     });
     dims.set(canon, dim);

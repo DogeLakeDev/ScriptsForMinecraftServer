@@ -59,6 +59,8 @@ export type FakeDimension = {
   setBlockType(location: Vector3Like, blockType: FakeBlockType | string): void;
   getEntities(options?: FakeEntityQueryOptions): FakeEntity[];
   getEntitiesAtBlockLocation(location: Vector3Like): FakeEntity[];
+  /** 糖：等价 getEntities({ typeId })；pin 无此方法，沙箱可调。 */
+  getEntitiesOfType(entityType: string): FakeEntity[];
   getPlayers(): FakePlayer[];
   spawnEntity(identifier: string, location: Vector3Like): FakeEntity;
   /** 掉落物：生成 `minecraft:item` 实体（无物理）。 */
@@ -78,6 +80,8 @@ export type FakeDimensionHooks = {
   getPlayers: () => FakePlayer[];
   onEntitySpawn?: (entity: FakeEntity) => void;
   onEntityDie?: (entity: FakeEntity) => void;
+  onEntityHealthChange?: (entity: FakeEntity, oldValue: number, newValue: number) => void;
+  onEntityHurt?: (entity: FakeEntity, damage: number, options?: unknown) => void;
 };
 
 /** 规格 §6：默认三维（overworld / nether / the_end）。 */
@@ -249,6 +253,9 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
         return Math.floor(p.x) === loc.x && Math.floor(p.y) === loc.y && Math.floor(p.z) === loc.z;
       });
     },
+    getEntitiesOfType(entityType) {
+      return filterEntities(entities, { typeId: String(entityType ?? "") });
+    },
     getPlayers() {
       return hooks.getPlayers();
     },
@@ -262,6 +269,8 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
           const i = entities.indexOf(e);
           if (i >= 0) entities.splice(i, 1);
         },
+        onHealthChange: (e, oldValue, newValue) => hooks.onEntityHealthChange?.(e, oldValue, newValue),
+        onHurt: (e, damage, options) => hooks.onEntityHurt?.(e, damage, options),
       });
       entities.push(entity);
       hooks.onEntitySpawn?.(entity);

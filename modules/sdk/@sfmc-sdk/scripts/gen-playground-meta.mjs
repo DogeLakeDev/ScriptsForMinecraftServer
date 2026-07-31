@@ -350,6 +350,7 @@ export const OVERRIDE_TYPE_TO_CLASS = {
   FakeScoreboardObjective: "ScoreboardObjective",
   FakeContainer: "Container",
   FakeScreenDisplay: "ScreenDisplay",
+  FakeEntityHealthComponent: "EntityHealthComponent",
   ItemStack: "ItemStack",
 };
 

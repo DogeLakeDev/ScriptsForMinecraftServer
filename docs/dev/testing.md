@@ -63,7 +63,7 @@
 
 聊天以 `!` / `！` 开头时，沙箱拦截 `beforeEvents.chatSend` 并走 `Command.trigger`（扩展「Run Module Tests」冒烟与脚本沙箱 Emit 共用；手点主路径不要直接 `triggerCommand`）。
 
-可选：`configs` 覆盖内存快照；`enabled: false` 时模块不 boot；`boot: false` 只起假引擎。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager，非默认路径）。
+可选：`configs` 覆盖内存快照；`enabled: false` 时模块不 boot；`boot: false` 只起假引擎；`fixture` 可预置 settings/权限。脚本沙箱面板「夹具」经 `fixture.get` / `fixture.apply` 读写同一意图，重置场景后宿主会保留并重新注入。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager，非默认路径）。
 
 ## 能测什么
 
@@ -73,7 +73,7 @@
 | `loadModuleDescriptor` | 从模块根动态装载 `sapi/src/index.ts` 的 `DESCRIPTOR` |
 | `sb.objects` / `sb.events` | 1:1 构造 / 调用 / 全 hub emit；Event 类型亦可 `create`；`eventTypes` 映射信号→Event 类 |
 | `PLAYGROUND_META` | class 成员（含全部 Event）+ hub 信号 + `eventTypes` |
-| `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent`（糖；底层仍是事件） |
+| `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent` / `playerLeave` / `itemUse` / `playerBreakBlock` / `entityHitEntity`（糖；底层仍是事件） |
 | `createFakePlayer` / `createFakeDb` | 底层替身（一般不必直接用） |
 | `runCleanup` | 单测清理钩子 |
 | `assertMsg` | 断言玩家消息 |
@@ -84,12 +84,12 @@
 | ------ | ------ |
 | System | `run` / `runTimeout` / `runInterval` / `clearRun` / `tick` / `flush`；`isEditorWorld=false` |
 | World | 薄：`getDimension`、玩家列表、时间 / 出生点、`sendMessage`、`getEntity`、动态属性；`allowCheats` / `seed` / `isHardcore`；`runCommand`（仅记录）/ `playSound`（仅记录）；`removePlayer` → `playerLeave` |
-| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；**本批加深：** `getGameMode`/`setGameMode`（对齐 pin 枚举字面量 + `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode`）、`playSound`、`onScreenDisplay`（`setTitle`/`updateSubtitle`/`setActionBar`）、`getSpawnPoint`/`setSpawnPoint` |
-| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill` → `entityDie`；`sb.emit.playerLeave` |
+| Player | `id` / `name` / `nameTag` / `typeId` / `location` / `dimension` / `playerPermissionLevel` / `scoreboardIdentity` / `sendMessage` / `teleport` / tags / `isValid`；`getGameMode`/`setGameMode`（+ `playerGameModeChange`）、`runCommand`（记录 + 薄解析 `gamemode` / `give` / `clear`→物品栏）、`playSound`、`onScreenDisplay`、`getSpawnPoint`/`setSpawnPoint`、`applyDamage` / `kill` / `minecraft:health` |
+| 事件 | 订阅 + `sb.emit.*`；boot 自动假 `worldLoad`；`kill`/`applyDamage→0` → `entityDie`；`sb.emit.playerLeave` / `itemUse` / `playerBreakBlock` / `entityHitEntity` |
 | UI | 经典三表单 + `CustomForm` / `MessageBox` / Observables / `uiManager` + `ui.queueResponse` |
 | Scoreboard | `add/get/removeObjective`、display slot、`getScore→undefined`、`set/addScore`、`Player.scoreboardIdentity`（对齐 Learn） |
-| Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`、`isChunkLoaded≡true`、天气状态袋；`runCommand`（仅记录）；不模拟未加载区块 / 物理 |
-| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory')`；`runCommand`（仅记录） |
+| Dimension | 默认三维可查；`getBlock` 缺省空气、`setBlockPermutation`/`setBlockType`、`spawnEntity`/`spawnItem`、`getEntities`/`getEntitiesAtBlockLocation`/`getEntitiesOfType`（糖）、`isChunkLoaded≡true`、天气状态袋；`runCommand`（仅记录）；不模拟未加载区块 / 物理 |
+| Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory'|'minecraft:health')`；`applyDamage`（生命值袋，无物理）；`runCommand`（记录；有物品栏时 give/clear 可作用） |
 | Inventory | `ItemStack`、`Container` get/set/add/transfer/swap、玩家 36 格 |
 
 `PLAYGROUND_META` 方法/属性带 `impl: "l0" | "l2"`：由 `gen-playground-meta` 扫描 `overrides/` 里 Fake* 自有成员推断（Player 合并 Entity），其余 TARGET 默认 `l0`。脚本沙箱 Call 方法列表对 L0 标注「未接线」。

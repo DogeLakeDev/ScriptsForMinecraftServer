@@ -356,7 +356,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "applyImpulse",
@@ -1294,7 +1294,7 @@ export const PLAYGROUND_META = {
               "rest": false
             }
           ],
-          "impl": "l0"
+          "impl": "l2"
         },
         {
           "name": "applyImpulse",

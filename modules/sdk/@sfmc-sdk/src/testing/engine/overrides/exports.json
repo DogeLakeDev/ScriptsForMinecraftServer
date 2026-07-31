@@ -11,6 +11,7 @@
     "BlockPermutation",
     "Dimension",
     "EntityInventoryComponent",
+    "EntityHealthComponent",
     "EntityInitializationCause",
     "default"
   ],

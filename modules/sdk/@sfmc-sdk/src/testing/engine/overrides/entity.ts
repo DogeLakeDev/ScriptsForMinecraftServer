@@ -10,6 +10,18 @@ import {
   type FakeScoreboardIdentity,
 } from "./scoreboard.js";
 import { runThinCommand, type FakeCommandResult } from "./command.js";
+import {
+  createEntityInventoryComponent,
+  inventorySizeForEntityType,
+  isInventoryComponentId,
+  type FakeEntityInventoryComponent,
+} from "./inventory.js";
+import {
+  createEntityHealthComponent,
+  defaultMaxHealth,
+  isHealthComponentId,
+  type FakeEntityHealthComponent,
+} from "./health.js";
 
 export type FakeEntityQueryOptions = {
   type?: string;
@@ -22,12 +34,7 @@ export type FakeEntityQueryOptions = {
   excludeTags?: string[];
 };
 
-import {
-  createEntityInventoryComponent,
-  inventorySizeForEntityType,
-  isInventoryComponentId,
-  type FakeEntityInventoryComponent,
-} from "./inventory.js";
+export type FakeEntityComponent = FakeEntityInventoryComponent | FakeEntityHealthComponent;
 
 export type FakeEntity = {
   id: string;
@@ -46,10 +53,12 @@ export type FakeEntity = {
   commandLog: string[];
   remove(): void;
   kill(): boolean;
+  /** 扣血；<=0 返回 false；血量归零则 kill。不模拟护甲/击退。 */
+  applyDamage(amount: number, options?: unknown): boolean;
   teleport(location: Vector3Like, teleportOptions?: { dimension?: FakeDimension }): void;
-  getComponent(componentId: string): FakeEntityInventoryComponent | undefined;
+  getComponent(componentId: string): FakeEntityComponent | undefined;
   hasComponent(componentId: string): boolean;
-  getComponents(): FakeEntityInventoryComponent[];
+  getComponents(): FakeEntityComponent[];
   getTags(): string[];
   addTag(tag: string): boolean;
   removeTag(tag: string): boolean;
@@ -80,6 +89,10 @@ export type CreateFakeEntityOpts = {
   /** kill() 时先于 remove 调用（对齐 entityDie）。 */
   onDie?: (entity: FakeEntity) => void;
   onRemove?: (entity: FakeEntity) => void;
+  /** 生命值变化（entityHealthChanged）。 */
+  onHealthChange?: (entity: FakeEntity, oldValue: number, newValue: number) => void;
+  /** 受伤（entityHurt）；不模拟物理。 */
+  onHurt?: (entity: FakeEntity, damage: number, options?: unknown) => void;
 };
 
 export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
@@ -88,6 +101,13 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
   const commandLog: string[] = [];
   const invSize = inventorySizeForEntityType(typeId);
   const inventory = invSize !== undefined ? createEntityInventoryComponent(invSize) : undefined;
+  let entity!: FakeEntity;
+  const health = createEntityHealthComponent({
+    max: defaultMaxHealth(typeId),
+    onChange(oldValue, newValue) {
+      opts.onHealthChange?.(entity, oldValue, newValue);
+    },
+  });
   let loc = {
     x: Number(opts.location.x),
     y: Number(opts.location.y),
@@ -96,7 +116,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
   let dim = opts.dimension;
   let valid = true;
 
-  const entity: FakeEntity = {
+  entity = {
     id: opts.id ?? `entity-${nextEntityId++}`,
     typeId,
     get location() {
@@ -126,6 +146,18 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
       entity.remove();
       return true;
     },
+    applyDamage(amount, options) {
+      if (!valid) throw new Error("InvalidEntityError");
+      const n = Number(amount);
+      if (!Number.isFinite(n) || n <= 0) return false;
+      const before = health.currentValue;
+      health.setCurrentValue(before - n);
+      const dealt = before - health.currentValue;
+      if (dealt <= 0) return false;
+      opts.onHurt?.(entity, dealt, options);
+      if (health.currentValue <= 0) entity.kill();
+      return true;
+    },
     teleport(location, teleportOptions) {
       if (!valid) throw new Error("InvalidEntityError");
       loc = {
@@ -142,6 +174,7 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     },
     getComponent(componentId) {
       if (!valid) return undefined;
+      if (isHealthComponentId(componentId)) return health;
       if (inventory && isInventoryComponentId(componentId)) return inventory;
       return undefined;
     },
@@ -149,7 +182,9 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
       return entity.getComponent(componentId) !== undefined;
     },
     getComponents() {
-      return inventory ? [inventory] : [];
+      const list: FakeEntityComponent[] = [health];
+      if (inventory) list.push(inventory);
+      return list;
     },
     getTags() {
       return [...tags];
@@ -176,7 +211,11 @@ export function createFakeEntity(opts: CreateFakeEntityOpts): FakeEntity {
     },
     runCommand(commandString) {
       if (!valid) throw new Error("InvalidEntityError");
-      return runThinCommand(commandLog, commandString);
+      return runThinCommand(
+        commandLog,
+        commandString,
+        inventory ? { inventory: inventory.container } : undefined
+      );
     },
   };
 

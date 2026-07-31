@@ -10,6 +10,7 @@ import { UnimplementedMinecraftApiError } from "./unimplemented-error.js";
 import { BlockPermutation, Dimension } from "./overrides/dimension.js";
 import { Entity } from "./overrides/entity.js";
 import { ItemStack, EntityInventoryComponent } from "./overrides/inventory.js";
+import { EntityHealthComponent } from "./overrides/health.js";
 
 export type EngineState = {
   system: FakeSystem;
@@ -100,6 +101,7 @@ export function createServerExports() {
     BlockPermutation,
     Dimension,
     EntityInventoryComponent,
+    EntityHealthComponent,
     EntityInitializationCause: {},
   };
 }
