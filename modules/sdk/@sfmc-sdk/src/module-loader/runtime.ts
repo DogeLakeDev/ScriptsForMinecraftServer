@@ -298,6 +298,26 @@ export class ModuleRegistry {
     return booted.has(id);
   }
 
+  /** 宿主是否已走过 worldLoad 分相（`bootAfterWorldLoad` 已调用）。 */
+  static isWorldLoaded(): boolean {
+    return worldLoaded;
+  }
+
+  /**
+   * boot 分相只读快照（沙箱「已装载」清单用）。
+   * startup = ConfigManager 已就绪；worldLoad = 已执行 bootAfterWorldLoad。
+   */
+  static getBootPhase(): { startup: boolean; worldLoad: boolean; summary: string } {
+    const startup = ConfigManager.isReady();
+    const worldLoad = worldLoaded;
+    let summary: string;
+    if (startup && worldLoad) summary = "已 startup · 已 worldLoad";
+    else if (startup) summary = "已 startup · 未 worldLoad";
+    else if (worldLoad) summary = "未 startup · 已 worldLoad";
+    else summary = "未完成 boot 分相";
+    return { startup, worldLoad, summary };
+  }
+
   /** 测试沙箱复位注册表（勿在 BDS 生产路径调用）。 */
   static resetForTesting(): void {
     for (const d of [...descriptors]) {

@@ -35,6 +35,13 @@ export class Permission {
     this.registry.clear();
   }
 
+  /** 只读快照：已注册命名权限（沙箱「已装载」清单用）。 */
+  static entries(): { name: string; level: number }[] {
+    return [...this.registry.entries()]
+      .map(([name, level]) => ({ name, level }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   /** 检查玩家是否满足命名权限；未注册权限名一律拒绝。 */
   static check(player: Player | string, permissionName: string): boolean {
     const required = this.registry.get(permissionName);

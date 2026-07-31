@@ -94,6 +94,23 @@ export class Command {
     return Object.keys(this.list);
   }
 
+  /** 只读快照：已注册指令（沙箱「已装载」清单用）。 */
+  static entries(): {
+    name: string;
+    permission: number | string;
+    description: string;
+    moduleId?: string;
+  }[] {
+    return Object.entries(this.list)
+      .map(([name, e]) => ({
+        name,
+        permission: e.permission,
+        description: e.description,
+        ...(e.moduleId !== undefined ? { moduleId: e.moduleId } : {}),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   /** 取指令所属模块 id；无则 undefined。 */
   static getModuleId(name: string): string | undefined {
     return this.list[name]?.moduleId;
