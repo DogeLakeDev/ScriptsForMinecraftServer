@@ -1,6 +1,7 @@
 import {
   MetaPropForm,
   argsFromParamValues,
+  defaultForType,
   entityCreateProps,
   eventProps,
   itemCreateProps,
@@ -29,6 +30,7 @@ import {
   preferredEntityObjectId,
   preferredItemObjectId,
   preferredPlayerObjectId,
+  preferredScoreboardObjectId,
 } from "../graph/materialize";
 
 type InspectSnap = { id: string; kind: string; props: Record<string, unknown> };
@@ -221,11 +223,14 @@ function CallFields({
       </div>
       {paramFields.length > 0 ? (
         <>
-          <p className="muted meta-hint">形参来自 PLAYGROUND_META（1:1）</p>
+          <p className="muted meta-hint">
+            形参来自 PLAYGROUND_META（1:1）；可编辑。方法标 L0/skip 仅提示未接线，不锁表单
+          </p>
           <MetaPropForm
             fields={paramFields}
             values={paramValuesFromArgs()}
             scene={scene}
+            // 与 Emit 相同：形参袋强制可填（不因同类属性 readonly / impl 禁用）
             forceEditable
             onChange={(values) => {
               patchCall({ argsJson: JSON.stringify(argsFromParamValues(paramFields, values)) });
@@ -248,7 +253,7 @@ function CallFields({
 }
 
 function defaultNull(f: MetaProp): unknown {
-  return f.type === "boolean" ? false : f.type === "number" ? 0 : f.type === "string" ? "" : null;
+  return defaultForType(f.type);
 }
 
 function sceneKindCountHint(scene: SceneSummary | null, kind: string | undefined): string {
@@ -338,6 +343,62 @@ function AssertFields({
               />{" "}
               忽略大小写
             </label>
+          </div>
+          <div className="field">
+            <label>最近 N 条（可选）</label>
+            <input
+              type="number"
+              min={0}
+              value={selected.data.logRecentN ?? ""}
+              placeholder="全部缓冲"
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                patchAssert(
+                  selected,
+                  {
+                    logRecentN: v === "" ? undefined : Math.max(0, Number(v) || 0),
+                  },
+                  patchNodeData
+                );
+              }}
+            />
+          </div>
+          <div className="field">
+            <label>级别下限</label>
+            <select
+              value={selected.data.logMinLevel ?? ""}
+              onChange={(e) =>
+                patchAssert(
+                  selected,
+                  {
+                    logMinLevel: (e.target.value || undefined) as
+                      | StimulusNodeData["logMinLevel"]
+                      | undefined,
+                  },
+                  patchNodeData
+                )
+              }
+            >
+              <option value="">不限</option>
+              <option value="debug">debug+</option>
+              <option value="info">info+</option>
+              <option value="warn">warn+</option>
+              <option value="error">error</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>source（可选）</label>
+            <input
+              value={selected.data.logSource ?? ""}
+              placeholder="sandbox / playground / 模块 id"
+              onChange={(e) =>
+                patchAssert(
+                  selected,
+                  { logSource: e.target.value.trim() || undefined },
+                  patchNodeData
+                )
+              }
+            />
           </div>
         </>
       )}
@@ -470,7 +531,7 @@ function AssertFields({
         <>
           <p className="muted meta-hint">
             按场景 kind 计数（Player 与 Entity 分开；不填 name 则该 kind 全量）。天生 World /
-            Dimension / Scoreboard 仅在选中对应 kind 时计入。
+            Dimension 仅在选中对应 kind 时计入；Scoreboard 须 create 后才进场景。
           </p>
           <div className="field">
             <label>kind</label>
@@ -666,7 +727,7 @@ export function PropsPanelBody({
           <label>kind</label>
           <input value={inspect.kind} readOnly />
         </div>
-        <p className="muted meta-hint">PLAYGROUND_META · inspect 快照（天生对象只读）</p>
+        <p className="muted meta-hint">PLAYGROUND_META · inspect 快照（场景对象只读）</p>
         <MetaPropForm
           fields={sceneFields}
           values={inspect.props}
@@ -824,6 +885,31 @@ export function PropsPanelBody({
           />
         </>
       )}
+      {selected.data.kind === "scoreboard" && (
+        <>
+          <p className="muted meta-hint">
+            {selected.data.objectId
+              ? `已登记场景实例 ${selected.data.objectId}（底层仍为 world.scoreboard 单例）`
+              : "未实例化：create 后将 world.scoreboard 登记进场景坞（不会天生出现）"}
+          </p>
+          <p className="muted meta-hint">MC API 无独立 Scoreboard 构造；沙箱登记底层单例供 Call / 断言</p>
+          <div className="field">
+            <label>id</label>
+            <input
+              value={String(selected.data.props?.id ?? preferredScoreboardObjectId(selected.data.props, selected.data.title))}
+              onChange={(e) => {
+                const id = preferredScoreboardObjectId({ id: e.target.value }, e.target.value);
+                patchNodeData(selected.id, {
+                  title: id,
+                  props: { ...(selected.data.props ?? {}), id },
+                  objectId: undefined,
+                  detail: "world.scoreboard",
+                });
+              }}
+            />
+          </div>
+        </>
+      )}
       {selected.data.kind === "emit" && (
         <>
           <div className="field">
@@ -948,7 +1034,7 @@ export function HotkeysPanelBody({ mod }: { mod: string }) {
       </li>
       <li>
         <span>插入节点</span>
-        <span className="rdx-kbd">{mod}+1…8</span>
+        <span className="rdx-kbd">{mod}+1…9</span>
       </li>
     </ul>
   );

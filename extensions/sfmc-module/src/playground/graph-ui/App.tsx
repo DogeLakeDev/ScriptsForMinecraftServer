@@ -33,6 +33,12 @@ import {
   normalizeAssertKind,
 } from "../graph/assert";
 import {
+  formatLogLineWithNode,
+  pushLogEvent,
+  type StructuredLogEvent,
+  type StructuredLogLevel,
+} from "../graph/logBuffer";
+import {
   hasFailOutEdges,
   normalizeEdgeKind,
   orderAssertBranch,
@@ -49,6 +55,7 @@ import {
   preferredEntityObjectId,
   preferredItemObjectId,
   preferredPlayerObjectId,
+  preferredScoreboardObjectId,
   type CreateStimulusKind,
 } from "../graph/materialize";
 import { useGraphHistory, useLayoutPrefs, type PanelId } from "./layoutPrefs";
@@ -57,6 +64,7 @@ import { DockPanel } from "./DockPanel";
 import { HotkeysPanelBody, PropsPanelBody } from "./PropsPanelBody";
 import { SceneDock } from "./SceneDock";
 import { FixturePanel, type FixtureSnapshot } from "./FixturePanel";
+import { LoadedPanel } from "./LoadedPanel";
 import { ScrollArea } from "./ScrollArea";
 import {
   entityCreateProps,
@@ -77,6 +85,7 @@ const KIND_MINIMAP: Record<StimulusKind, string> = {
   player: "#4ec9b0",
   entity: "#569cd6",
   item: "#ce9178",
+  scoreboard: "#d7ba7d",
   emit: "#569cd6",
   call: "#4fc1ff",
   tick: "#dcdcaa",
@@ -304,11 +313,12 @@ const INSERT_ITEMS = [
   ["player", "Player", "1"],
   ["entity", "Entity", "2"],
   ["item", "ItemStack", "3"],
-  ["emit", "Emit", "4"],
-  ["call", "Call", "5"],
-  ["tick", "Tick", "6"],
-  ["assert", "断言", "7"],
-  ["note", "注释", "8"],
+  ["scoreboard", "Scoreboard", "4"],
+  ["emit", "Emit", "5"],
+  ["call", "Call", "6"],
+  ["tick", "Tick", "7"],
+  ["assert", "断言", "8"],
+  ["note", "注释", "9"],
 ] as const;
 
 function MenuKbd({ children }: { children: string }) {
@@ -427,8 +437,18 @@ export default function App() {
     edgeId: string | null;
   } | null>(null);
   const pending = useMemo(() => new Map<string, Pending>(), []);
-  /** 仅供断言匹配；展示走 VS Code Output */
-  const logRef = useRef<string[]>(["脚本沙箱 · sapi-sandbox"]);
+  /** 结构化静默缓冲（断言）；展示走 VS Code Output */
+  const logEventsRef = useRef<StructuredLogEvent[]>([
+    {
+      t: Date.now(),
+      level: "info",
+      source: "sandbox",
+      text: "脚本沙箱 · sapi-sandbox",
+    },
+  ]);
+  const runSeqRef = useRef(0);
+  const currentRunIdRef = useRef<number | undefined>(undefined);
+  const lastFailedNodeIdRef = useRef<string | null>(null);
 
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
   const selectedEdge = useMemo(
@@ -437,14 +457,39 @@ export default function App() {
   );
   const flowEdges = useMemo(() => decorateFlowEdges(edges, nodes), [edges, nodes]);
   const failedNodeId = useMemo(
-    () => nodes.find((n) => n.data.runState === "failed")?.id ?? null,
+    () => nodes.find((n) => n.data.runState === "failed")?.id ?? lastFailedNodeIdRef.current,
     [nodes]
   );
 
-  const appendLog = useCallback((line: string, level: "info" | "warn" | "error" | "debug" = "info") => {
-    logRef.current = [...logRef.current.slice(-400), line];
-    vscodeApi().postMessage({ cmd: "uiLog", text: line, level });
-  }, []);
+  const appendLog = useCallback(
+    (
+      line: string,
+      level: StructuredLogLevel = "info",
+      meta?: { nodeId?: string; source?: string }
+    ) => {
+      const nodeId = meta?.nodeId;
+      const source = meta?.source?.trim() || "sandbox";
+      const text = formatLogLineWithNode(line, nodeId);
+      const ev: StructuredLogEvent = {
+        t: Date.now(),
+        level,
+        source,
+        text,
+        ...(nodeId ? { nodeId } : {}),
+        ...(currentRunIdRef.current != null ? { runId: currentRunIdRef.current } : {}),
+      };
+      logEventsRef.current = pushLogEvent(logEventsRef.current, ev, 500);
+      vscodeApi().postMessage({
+        cmd: "uiLog",
+        text,
+        level,
+        source,
+        ...(nodeId ? { nodeId } : {}),
+        ...(ev.runId != null ? { runId: ev.runId } : {}),
+      });
+    },
+    []
+  );
 
   const request = useCallback(
     (cmd: string, body: Record<string, unknown> = {}) =>
@@ -466,6 +511,9 @@ export default function App() {
     try {
       const summary = (await request("sceneSummary")) as SceneSummary;
       setScene(summary);
+      if (summary.moduleBinding) {
+        setModuleBinding(summary.moduleBinding);
+      }
     } catch (e) {
       appendLog(`[scene] ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -518,7 +566,7 @@ export default function App() {
   }, [appendLog, request]);
 
   /**
-   * 将图上未实例化的 Player / Entity / ItemStack 节点 objects.create 进 registry，并回写 objectId。
+   * 将图上未实例化的 Player / Entity / ItemStack / Scoreboard 节点 objects.create 进 registry，并回写 objectId。
    * 打开/重置沙箱后调用；运行节点时也可复用。
    */
   const materializeCreateNodes = useCallback(
@@ -622,7 +670,39 @@ export default function App() {
       }
       if (msg.type === "hostEvent" && msg.name === "log" && msg.payload?.text) {
         const text = String(msg.payload.text);
-        logRef.current = [...logRef.current.slice(-400), text];
+        const source =
+          typeof msg.payload.source === "string" && msg.payload.source.trim()
+            ? String(msg.payload.source).trim()
+            : msg.payload.channel === "module" || msg.payload.channel === "msg"
+              ? "module"
+              : "playground";
+        const rawLv = String(msg.payload.level ?? "info");
+        const level: StructuredLogLevel =
+          rawLv === "error" || rawLv === "warn" || rawLv === "debug" || rawLv === "success"
+            ? rawLv
+            : "info";
+        logEventsRef.current = pushLogEvent(
+          logEventsRef.current,
+          {
+            t: Date.now(),
+            level,
+            source,
+            text,
+            ...(currentRunIdRef.current != null ? { runId: currentRunIdRef.current } : {}),
+          },
+          500
+        );
+        return;
+      }
+      if (msg.type === "locateNode" && msg.nodeId) {
+        const id = String(msg.nodeId);
+        if (nodesRef.current.some((n) => n.id === id)) {
+          selectGraphNode(id);
+          rfRef.current?.fitView({ nodes: [{ id }], padding: 0.45, duration: 280 });
+          setStatus(`已定位节点 ${id}`);
+        } else {
+          appendLog(`[run] 找不到节点 ${id}`, "warn");
+        }
         return;
       }
       if (msg.type === "started") {
@@ -639,11 +719,7 @@ export default function App() {
           }
         }
         setReady(true);
-        setStatus(
-          binding?.id
-            ? `已装载 ${binding.id}${binding.version ? `@${binding.version}` : ""}`
-            : "就绪（engine only）"
-        );
+        setStatus("就绪");
         setInspect(null);
         setSceneObjectId(null);
         // host 带 script：跨会话权威；若本轮已从 getState 恢复则跳过，避免覆盖未落盘编辑
@@ -672,6 +748,11 @@ export default function App() {
             `[module] subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`
           );
         }
+        if (binding?.bootPhase || binding?.commands || binding?.permissions) {
+          appendLog(
+            `[module] inventory commands=${binding.commands?.items?.length ?? 0} permissions=${binding.permissions?.items?.length ?? 0} boot=${binding.bootPhase?.summary ?? "?"}`
+          );
+        }
         const fixtureFromStart = (msg.result as { fixture?: FixtureSnapshot } | undefined)?.fixture;
         if (fixtureFromStart) {
           setFixture(fixtureFromStart);
@@ -697,7 +778,7 @@ export default function App() {
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [appendLog, applyScript, materializeCreateNodes, pending, refreshFixture, setEdges, setNodes]);
+  }, [appendLog, applyScript, materializeCreateNodes, pending, refreshFixture, selectGraphNode, setEdges, setNodes]);
 
   // 防抖自动保存：webview state + host 文件 / workspaceState
   useEffect(() => {
@@ -868,7 +949,10 @@ export default function App() {
   );
 
   const locateFailedNode = useCallback(() => {
-    const id = nodesRef.current.find((n) => n.data.runState === "failed")?.id;
+    const id =
+      nodesRef.current.find((n) => n.data.runState === "failed")?.id ??
+      lastFailedNodeIdRef.current ??
+      undefined;
     if (!id) {
       appendLog("[run] 无失败节点可定位");
       return;
@@ -877,6 +961,14 @@ export default function App() {
     rfRef.current?.fitView({ nodes: [{ id }], padding: 0.45, duration: 280 });
     setStatus(`已定位失败节点 ${id}`);
   }, [appendLog, selectGraphNode]);
+
+  const markFailedNode = useCallback(
+    (id: string) => {
+      lastFailedNodeIdRef.current = id;
+      vscodeApi().postMessage({ cmd: "reportFailedNode", nodeId: id });
+    },
+    []
+  );
 
   const run = useCallback(
     async (mode: RunMode, focusId?: string | null) => {
@@ -895,8 +987,10 @@ export default function App() {
             : mode === "only"
               ? "仅运行选中"
               : "运行上游";
+      const runId = ++runSeqRef.current;
+      currentRunIdRef.current = runId;
       setStatus(`${label}…`);
-      appendLog(`[run] ${label}`);
+      appendLog(`--- run #${runId} start --- mode=${mode} · ${label}`);
       setNodes((ns) =>
         ns.map((n) => ({
           ...n,
@@ -918,6 +1012,7 @@ export default function App() {
 
       let failed = false;
       let divertedFail = false;
+      let failedNode: string | null = null;
       const doneIds = new Set<string>();
       for (let i = 0; i < order.length; i++) {
         const id = order[i]!;
@@ -926,7 +1021,7 @@ export default function App() {
         if (!n) continue;
         setSelectedId(id);
         setRunState(id, "running");
-        appendLog(`[run] → ${n.data.kind} ${n.data.title}`);
+        appendLog(`[run] → ${n.data.kind} ${n.data.title}`, "info", { nodeId: id });
         try {
           if (isCreateStimulusKind(n.data.kind)) {
             const stimKind = n.data.kind as CreateStimulusKind;
@@ -961,7 +1056,9 @@ export default function App() {
             const nErr = emitResult?.errors?.length ?? 0;
             appendLog(
               `[emit] ${n.data.path ?? n.data.detail} → ${nListen} listener(s)` +
-                (nErr ? ` · ${nErr} error(s)` : "")
+                (nErr ? ` · ${nErr} error(s)` : ""),
+              nErr ? "warn" : "info",
+              { nodeId: id }
             );
             await refreshScene();
             const path = n.data.path ?? n.data.detail ?? "emit";
@@ -1019,11 +1116,13 @@ export default function App() {
             const target = cfg.targetId ? refs[cfg.targetId] ?? null : null;
             const result = evaluateAssert(
               { ...cfg, assertKind },
-              { logs: logRef.current, scene: summary, target, refs }
+              { logs: logEventsRef.current, scene: summary, target, refs }
             );
             if (!result.ok) {
               setRunState(id, "failed", clipRunSummary(`失败 · ${result.message}`));
-              appendLog(`[assert] 失败: ${result.message}`);
+              appendLog(`[assert] 失败: ${result.message}`, "error", { nodeId: id });
+              markFailedNode(id);
+              failedNode = id;
               doneIds.add(id);
               if (mode !== "only" && hasFailOutEdges(graphEdges, id)) {
                 const branch = orderAssertBranch(
@@ -1032,7 +1131,9 @@ export default function App() {
                   id,
                   "fail"
                 ).filter((nid) => !doneIds.has(nid));
-                appendLog(`[assert] 转向失败边 → ${branch.join(" → ") || "(无下游)"}`);
+                appendLog(`[assert] 转向失败边 → ${branch.join(" → ") || "(无下游)"}`, "warn", {
+                  nodeId: id,
+                });
                 divertedFail = true;
                 order = [...order.slice(0, i + 1), ...branch];
                 continue;
@@ -1040,7 +1141,7 @@ export default function App() {
               failed = true;
               break;
             }
-            appendLog(`[assert] ok: ${result.message}`);
+            appendLog(`[assert] ok: ${result.message}`, "info", { nodeId: id });
             setRunState(id, "done", clipRunSummary(`ok · ${result.message}`));
           } else {
             setRunState(id, "done", "ok");
@@ -1049,11 +1150,19 @@ export default function App() {
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           setRunState(id, "failed", clipRunSummary(`错误 · ${msg}`));
-          appendLog(`[error] ${msg}`);
+          appendLog(`[error] ${msg}`, "error", { nodeId: id });
           failed = true;
+          failedNode = id;
+          markFailedNode(id);
           break;
         }
       }
+      appendLog(
+        `--- run #${runId} end --- ${failed ? "FAIL" : divertedFail ? "ok(fail-edge)" : "ok"}${
+          failedNode ? ` failedNode=${failedNode}` : ""
+        }`
+      );
+      currentRunIdRef.current = undefined;
       setStatus(
         failed ? "已停止（失败）" : divertedFail ? "就绪（曾走失败边）" : "就绪"
       );
@@ -1062,6 +1171,7 @@ export default function App() {
     [
       appendLog,
       busy,
+      markFailedNode,
       ready,
       refreshScene,
       request,
@@ -1125,6 +1235,14 @@ export default function App() {
             typeId: "minecraft:apple",
             amount: 1,
           }),
+        },
+        scoreboard: {
+          kind: "scoreboard",
+          title: "scoreboard",
+          detail: "world.scoreboard",
+          props: {
+            id: preferredScoreboardObjectId(undefined, "scoreboard"),
+          },
         },
         emit: {
           kind: "emit",
@@ -1351,12 +1469,13 @@ export default function App() {
         void h.run("only");
         return;
       }
-      if (mod && !e.shiftKey && key >= "1" && key <= "8") {
+      if (mod && !e.shiftKey && key >= "1" && key <= "9") {
         e.preventDefault();
         const kinds: StimulusKind[] = [
           "player",
           "entity",
           "item",
+          "scoreboard",
           "emit",
           "call",
           "tick",
@@ -1389,9 +1508,54 @@ export default function App() {
     tools: "工具",
     props: "属性",
     fixture: "夹具",
+    loaded: "已装载",
   };
 
-  const dockOrder: PanelId[] = ["tools", "props", "fixture"];
+  const dockOrder: PanelId[] = ["tools", "props", "fixture", "loaded"];
+
+  /** 顶栏只读状态：就绪/忙碌相位 + 可选模块短名；详情进「视图 → 已装载」 */
+  const statusPill = useMemo(() => {
+    const modShort =
+      moduleBinding.id ??
+      (moduleBinding.status === "pending" ? null : ready ? "engine" : null);
+    const tip = [
+      moduleBinding.moduleRoot && moduleBinding.moduleRoot !== "(engine only)"
+        ? moduleBinding.moduleRoot
+        : null,
+      moduleBinding.bootPhase?.summary,
+      "详情：视图 → 已装载",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    if (!ready) {
+      if (moduleBinding.status === "pending" && status === "装载沙箱…") {
+        return { text: "装载中…", tip };
+      }
+      return { text: status, tip: status };
+    }
+    if (busy || status.endsWith("…")) {
+      return { text: status, tip: status };
+    }
+    if (
+      status.startsWith("已停止") ||
+      status.startsWith("已定位") ||
+      status.includes("拖动") ||
+      status.startsWith("就绪（")
+    ) {
+      const withMod =
+        modShort && status.startsWith("就绪") ? `${status} · ${modShort}` : status;
+      return {
+        text: withMod,
+        tip: status.startsWith("就绪") ? tip : status,
+      };
+    }
+    const enabledNote = moduleBinding.enabled === false ? " · 未启用" : "";
+    return {
+      text: modShort ? `就绪 · ${modShort}${enabledNote}` : "就绪",
+      tip,
+    };
+  }, [busy, moduleBinding, ready, status]);
 
   const renderDocked = (id: PanelId) => (
     <DockPanel
@@ -1436,6 +1600,8 @@ export default function App() {
           onClearDb={clearFixtureDb}
           onRefresh={refreshFixture}
         />
+      ) : id === "loaded" ? (
+        <LoadedPanel binding={moduleBinding} onInsertEmit={addEmitFromSubscribed} />
       ) : (
         <PropsPanelBody
           meta={meta}
@@ -1524,6 +1690,11 @@ export default function App() {
                 {prefs.panels.fixture.visible ? "隐藏" : "显示"}夹具
               </span>
             </DropdownMenu.Item>
+            <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("loaded")}>
+              <span className="rdx-item-main">
+                {prefs.panels.loaded.visible ? "隐藏" : "显示"}已装载
+              </span>
+            </DropdownMenu.Item>
             <DropdownMenu.Separator className="rdx-sep" />
             <DropdownMenu.Item className="rdx-item" onSelect={resetLayout}>
               <span className="rdx-item-main">复位面板布局</span>
@@ -1533,6 +1704,31 @@ export default function App() {
               onSelect={() => vscodeApi().postMessage({ cmd: "showOutput" })}
             >
               <span className="rdx-item-main">打开 Output 日志</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="rdx-item"
+              onSelect={() => vscodeApi().postMessage({ cmd: "configureLogFilter" })}
+            >
+              <span className="rdx-item-main">日志过滤…</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="rdx-item"
+              onSelect={() => vscodeApi().postMessage({ cmd: "clearAndApplyLogFilter" })}
+            >
+              <span className="rdx-item-main">清除并应用过滤</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="rdx-item"
+              onSelect={() => vscodeApi().postMessage({ cmd: "locateLogNode" })}
+            >
+              <span className="rdx-item-main">定位日志节点</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="rdx-item"
+              disabled={!failedNodeId}
+              onSelect={locateFailedNode}
+            >
+              <span className="rdx-item-main">定位失败节点</span>
             </DropdownMenu.Item>
           </TopMenu>
           <TopMenu label="插入">
@@ -1607,66 +1803,10 @@ export default function App() {
             </DropdownMenu.Item>
           </TopMenu>
         </nav>
-        <button type="button" className="btn" disabled={!canRun} onClick={() => void run("graph")}>
-          运行整图
-        </button>
-        <button type="button" className="btn-secondary" disabled={busy} onClick={resetScene}>
-          重置
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!failedNodeId}
-          title="选中失败节点并 fitView"
-          onClick={locateFailedNode}
-        >
-          定位失败
-        </button>
-        <button
-          type="button"
-          className="btn-secondary hotkeys-help-btn"
-          title="快捷键"
-          aria-label="快捷键"
-          onClick={() => setHotkeysOpen(true)}
-        >
-          <Codicon name="question" />
-        </button>
         <span className="grow" />
-        <div
-          className="module-chip"
-          title={[
-            moduleBinding.moduleRoot ?? "(engine only)",
-            moduleBinding.eventNote,
-            (moduleBinding.subscribedEvents ?? [])
-              .map((e) => `${e.path}×${e.listeners}`)
-              .join(", "),
-          ]
-            .filter(Boolean)
-            .join("\n")}
-        >
-          <span className="module-chip-label">当前模块</span>
-          <span className="module-chip-id">
-            {moduleBinding.id ?? (moduleBinding.status === "pending" ? "…" : "engine")}
-            {moduleBinding.version ? (
-              <span className="muted">@{moduleBinding.version}</span>
-            ) : null}
-          </span>
-          <span className="module-chip-status">
-            {moduleBinding.status === "loaded"
-              ? moduleBinding.enabled === false
-                ? "已装·未启用"
-                : "已装载"
-              : moduleBinding.status === "pending"
-                ? "装载中"
-                : "仅引擎"}
-          </span>
-          {moduleBinding.moduleRoot && moduleBinding.moduleRoot !== "(engine only)" ? (
-            <span className="module-chip-path muted">
-              {moduleBinding.moduleRoot.replace(/\\/g, "/").split("/").slice(-2).join("/")}
-            </span>
-          ) : null}
-        </div>
-        <span className="badge">{status}</span>
+        <span className="status-pill" title={statusPill.tip}>
+          {statusPill.text}
+        </span>
       </header>
 
       <div className="workspace">
