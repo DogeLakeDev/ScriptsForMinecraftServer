@@ -62,7 +62,8 @@ export type FakeDimension = {
   /** 糖：等价 getEntities({ typeId })；pin 无此方法，沙箱可调。 */
   getEntitiesOfType(entityType: string): FakeEntity[];
   getPlayers(): FakePlayer[];
-  spawnEntity(identifier: string, location: Vector3Like): FakeEntity;
+  /** options.id：沙箱登记用稳定 id（对齐 objects.create Entity） */
+  spawnEntity(identifier: string, location: Vector3Like, options?: { id?: string }): FakeEntity;
   /** 掉落物：生成 `minecraft:item` 实体（无物理）。 */
   spawnItem(itemStack: { typeId?: string }, location: Vector3Like): FakeEntity;
   /** 沙箱不模拟未加载区块，恒 true。 */
@@ -259,11 +260,12 @@ export function createFakeDimension(id: string, hooks: FakeDimensionHooks): Fake
     getPlayers() {
       return hooks.getPlayers();
     },
-    spawnEntity(identifier, location) {
+    spawnEntity(identifier, location, options) {
       const entity = createFakeEntity({
         typeId: identifier,
         location,
         dimension: dim,
+        ...(options?.id ? { id: options.id } : {}),
         onDie: (e) => hooks.onEntityDie?.(e),
         onRemove: (e) => {
           const i = entities.indexOf(e);

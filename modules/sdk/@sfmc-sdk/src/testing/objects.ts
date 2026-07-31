@@ -140,13 +140,13 @@ export function createObjectRegistry(host: Host) {
       dimensions: { id: string; kind: string; dimensionId: string }[];
       players: { id: string; kind: string; name: string }[];
       entities: { id: string; kind: string; typeId?: string }[];
-      items: { id: string; kind: string }[];
+      items: { id: string; kind: string; typeId?: string }[];
       blocks: { id: string; kind: string }[];
     } {
       const dims: { id: string; kind: string; dimensionId: string }[] = [];
       const players: { id: string; kind: string; name: string }[] = [];
       const entities: { id: string; kind: string; typeId?: string }[] = [];
-      const items: { id: string; kind: string }[] = [];
+      const items: { id: string; kind: string; typeId?: string }[] = [];
       const blocks: { id: string; kind: string }[] = [];
       for (const h of byId.values()) {
         if (h.kind === "Dimension") {
@@ -161,7 +161,10 @@ export function createObjectRegistry(host: Host) {
           if (typeof t.typeId === "string") row.typeId = t.typeId;
           entities.push(row);
         } else if (h.kind === "ItemStack") {
-          items.push({ id: h.id, kind: h.kind });
+          const t = h.target as { typeId?: string };
+          const row: { id: string; kind: string; typeId?: string } = { id: h.id, kind: h.kind };
+          if (typeof t.typeId === "string") row.typeId = t.typeId;
+          items.push(row);
         } else if (h.kind === "Block") {
           blocks.push({ id: h.id, kind: h.kind });
         }
@@ -237,23 +240,30 @@ export function createObjectRegistry(host: Host) {
         const amount = typeof props.amount === "number" ? props.amount : 1;
         const stack = new ItemStack(typeId, amount);
         applyProps("ItemStack", stack as unknown as Record<string, unknown>, props);
-        return register("ItemStack", stack);
+        const preferredId =
+          typeof props.id === "string" && props.id.trim() ? props.id.trim() : undefined;
+        return register("ItemStack", stack, preferredId);
       }
 
       if (kind === "Entity") {
-        const typeId = String(props.typeId ?? "minecraft:cow");
-        const loc = (props.location as { x: number; y: number; z: number }) ?? {
+        const bag = resolveRefs({ ...props }) as Record<string, unknown>;
+        const typeId = String(bag.typeId ?? "minecraft:cow");
+        const loc = (bag.location as { x: number; y: number; z: number }) ?? {
           x: 0,
           y: 0,
           z: 0,
         };
         const dimId =
-          typeof props.dimensionId === "string"
-            ? props.dimensionId
-            : typeof (props.dimension as { id?: string } | undefined)?.id === "string"
-              ? (props.dimension as { id: string }).id
+          typeof bag.dimensionId === "string"
+            ? bag.dimensionId
+            : typeof (bag.dimension as { id?: string } | undefined)?.id === "string"
+              ? (bag.dimension as { id: string }).id
               : "minecraft:overworld";
-        const entity = host.world.getDimension(dimId).spawnEntity(typeId, loc);
+        const preferredId =
+          typeof bag.id === "string" && bag.id.trim() ? bag.id.trim() : undefined;
+        const entity = host.world
+          .getDimension(dimId)
+          .spawnEntity(typeId, loc, preferredId ? { id: preferredId } : undefined);
         applyProps("Entity", entity as unknown as Record<string, unknown>, props);
         return register("Entity", entity, String((entity as { id: string }).id));
       }
