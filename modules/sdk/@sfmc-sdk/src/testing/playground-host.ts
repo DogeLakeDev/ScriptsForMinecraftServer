@@ -14,7 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
-import { Command } from "@sfmc-bds/sdk/sapi/runtime";
+import { Command, Permission, registerSystemMsgHandler } from "@sfmc-bds/sdk/sapi/runtime";
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { createSandbox, type Sandbox } from "./sandbox.js";
 import { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
@@ -22,10 +22,13 @@ import {
   buildFixtureSnapshot,
   type SandboxFixtureIntent,
 } from "./fixture.js";
+import { loadModuleDescriptor } from "./load-module.js";
+import { installModuleLogBridge, type ModuleLogBridgeHandle } from "./module-log-bridge.js";
 
 type RpcReq = { id: number | string; method: string; params?: Record<string, unknown> };
 
 let sb: Sandbox | null = null;
+let moduleLogBridge: ModuleLogBridgeHandle | null = null;
 type LastEmitSnap = {
   path: string;
   at: number;
@@ -141,6 +144,32 @@ function notify(name: string, payload: unknown): void {
   process.stdout.write(`${JSON.stringify({ type: "event", name, payload })}\n`);
 }
 
+function disposeModuleLogBridge(): void {
+  moduleLogBridge?.dispose();
+  moduleLogBridge = null;
+  // 卸 Msg 转发
+  registerSystemMsgHandler(() => {});
+}
+
+function attachModuleLogBridge(moduleId: string | null): void {
+  disposeModuleLogBridge();
+  if (!moduleId) return;
+  moduleLogBridge = installModuleLogBridge(moduleId, (payload) => {
+    notify("log", payload);
+  }, {
+    registerMsg(handler) {
+      registerSystemMsgHandler((player, text) => {
+        const name =
+          player && typeof player === "object" && "name" in player
+            ? String((player as { name?: unknown }).name ?? "?")
+            : "?";
+        handler(name, text);
+      });
+      return () => registerSystemMsgHandler(() => {});
+    },
+  });
+}
+
 function reply(id: number | string, result: unknown): void {
   process.stdout.write(`${JSON.stringify({ id, result })}\n`);
 }
@@ -167,6 +196,15 @@ function readPackageVersion(moduleRoot: string): string | undefined {
   }
 }
 
+/** 按模块过滤已注册命令；无 moduleId 标注的在单模块沙箱一并计入。 */
+function listCommandsForModule(moduleId: string | null) {
+  return Command.entries().filter((e) => {
+    if (e.name === "help" || e.name === "permlist") return false;
+    if (!moduleId) return true;
+    return e.moduleId === undefined || e.moduleId === moduleId;
+  });
+}
+
 /** boot 后模块绑定摘要（供 Webview / Output 对账「装的就是我的模块」）。 */
 function buildModuleBinding(sb: Sandbox, moduleRoot: string | null) {
   const subscribed = sb.events.subscribedPaths();
@@ -174,6 +212,9 @@ function buildModuleBinding(sb: Sandbox, moduleRoot: string | null) {
   const version = moduleRoot ? readPackageVersion(moduleRoot) : undefined;
   const enabled = id ? ModuleRegistry.isActive(id) : null;
   const desc = id ? ModuleRegistry.get(id) : undefined;
+  const bootPhase = ModuleRegistry.getBootPhase();
+  const commands = listCommandsForModule(id);
+  const permissions = Permission.entries();
   return {
     moduleRoot,
     id,
@@ -185,6 +226,16 @@ function buildModuleBinding(sb: Sandbox, moduleRoot: string | null) {
     eventNote: id
       ? "事件由模块 registerEvents 注册（含宿主 chat→命令桥等）"
       : "engine only：无模块 registerEvents",
+    commands: {
+      enumerable: true as const,
+      items: commands,
+    },
+    permissions: {
+      enumerable: true as const,
+      items: permissions,
+      note: "命名权限无模块归属；列出进程内 Permission.register 全表",
+    },
+    bootPhase,
   };
 }
 
@@ -243,6 +294,7 @@ async function handle(req: RpcReq): Promise<unknown> {
       return { ok: true };
     case "start": {
       if (sb) await sb.dispose();
+      disposeModuleLogBridge();
       lastEmit = null;
       lastCall = null;
       const moduleRoot = resolveModuleRoot(params);
@@ -260,13 +312,28 @@ async function handle(req: RpcReq): Promise<unknown> {
         fixtureIntent.treatPlayersAsOp !== undefined ||
         fixtureIntent.enabled !== undefined ||
         fixtureIntent.clearDb === true;
-      sb = await createSandbox({
-        ...(moduleRoot ? { moduleRoot } : {}),
-        ...(hasFixture ? { fixture: { ...fixtureIntent, clearDb: false } } : {}),
-        onProgress(step) {
-          notify("progress", { phase: "start", ...step });
-        },
-      });
+      // boot 前劫持 console，避免污染 JSON-RPC stdout，并以模块 id 为 source
+      let peekId: string | null = null;
+      if (moduleRoot) {
+        try {
+          peekId = (await loadModuleDescriptor(moduleRoot)).id;
+        } catch {
+          peekId = null;
+        }
+      }
+      attachModuleLogBridge(peekId);
+      try {
+        sb = await createSandbox({
+          ...(moduleRoot ? { moduleRoot } : {}),
+          ...(hasFixture ? { fixture: { ...fixtureIntent, clearDb: false } } : {}),
+          onProgress(step) {
+            notify("progress", { phase: "start", ...step });
+          },
+        });
+      } catch (e) {
+        disposeModuleLogBridge();
+        throw e;
+      }
       if (fixtureIntent.treatPlayersAsOp || fixtureIntent.clearDb) {
         const post: SandboxFixtureIntent = {};
         if (fixtureIntent.treatPlayersAsOp) post.treatPlayersAsOp = true;
@@ -274,6 +341,9 @@ async function handle(req: RpcReq): Promise<unknown> {
         await sb.applyFixture(post);
       }
       const binding = buildModuleBinding(sb, moduleRoot ?? null);
+      if (binding.id && binding.id !== peekId) {
+        attachModuleLogBridge(binding.id);
+      }
       const modLabel = binding.id ?? "(engine only)";
       const subSummary =
         binding.subscribedEvents.length > 0
@@ -288,6 +358,10 @@ async function handle(req: RpcReq): Promise<unknown> {
       notify("log", {
         channel: "system",
         text: `[playground] ${binding.eventNote}；subscribed=[${subSummary}]`,
+      });
+      notify("log", {
+        channel: "system",
+        text: `[playground] inventory commands=${binding.commands.items.length} permissions=${binding.permissions.items.length} boot=${binding.bootPhase.summary}`,
       });
       return {
         ok: true,
@@ -322,6 +396,7 @@ async function handle(req: RpcReq): Promise<unknown> {
         lastEmit = null;
         lastCall = null;
         activeModuleRoot = null;
+        disposeModuleLogBridge();
         notify("progress", {
           phase: "stop",
           id: 1,

@@ -39,6 +39,12 @@ export { createMemoryDataAdapter } from "./host/memory-data-adapter.js";
 
 export { loadModuleDescriptor, resolveModuleEntry } from "./load-module.js";
 
+export {
+  installModuleLogBridge,
+  shouldForwardModuleLog,
+} from "./module-log-bridge.js";
+export type { ModuleLogBridgeHandle, ModuleLogNotify } from "./module-log-bridge.js";
+
 export { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
 export type { SandboxObjects, SandboxObjectHandle, SandboxObjectKind } from "./objects.js";
 export type { SandboxEvents } from "./events-drive.js";

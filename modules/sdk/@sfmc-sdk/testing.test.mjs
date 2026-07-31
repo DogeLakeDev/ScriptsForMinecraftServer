@@ -552,6 +552,43 @@ test("sb.emit.chatSend !命令 走 Command.trigger", async () => {
   await sb.dispose();
 });
 
+test("Permission/Command/ModuleRegistry 已装载只读快照", async () => {
+  const { Command, Permission } = await import("./dist/esm/sapi/runtime/index.js");
+  const { ModuleRegistry } = await import("./dist/esm/module-loader/index.js");
+  const descriptor = {
+    id: "feature-inventory-snap",
+    afterWorldLoad: false,
+    lifecycle: {
+      registerPermissions() {
+        Permission.register("inv.use", Permission.Member);
+      },
+      registerCommands() {
+        Command.register("invping", "inv.use", () => undefined, "inventory ping", "feature-inventory-snap");
+      },
+      registerEvents() {},
+      cleanup() {},
+    },
+  };
+  const sb = await createSandbox({ module: descriptor });
+  const phase = ModuleRegistry.getBootPhase();
+  assert.equal(phase.startup, true);
+  assert.equal(phase.worldLoad, true);
+  assert.match(phase.summary, /已 startup/);
+  assert.match(phase.summary, /已 worldLoad/);
+  assert.equal(ModuleRegistry.isWorldLoaded(), true);
+  assert.equal(ModuleRegistry.isBooted("feature-inventory-snap"), true);
+
+  const cmds = Command.entries().filter((e) => e.name === "invping");
+  assert.equal(cmds.length, 1);
+  assert.equal(cmds[0].moduleId, "feature-inventory-snap");
+  assert.equal(cmds[0].description, "inventory ping");
+
+  const perms = Permission.entries().filter((e) => e.name === "inv.use");
+  assert.equal(perms.length, 1);
+  assert.equal(perms[0].level, Permission.Member);
+  await sb.dispose();
+});
+
 test("createSandbox moduleRoot 装载真实入口", async () => {
   const fs = await import("node:fs");
   const os = await import("node:os");
@@ -609,6 +646,112 @@ ModuleRegistry.register(DESCRIPTOR);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("minecraft-loader 钉 SDK：moduleRoot 下假 node_modules 不劫持 Command", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { Command, Permission } = await import("./dist/esm/sapi/runtime/index.js");
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-dual-"));
+  const decoyPkg = path.join(root, "node_modules", "@sfmc-bds", "sdk");
+  fs.mkdirSync(path.join(decoyPkg, "dist", "esm", "sapi", "runtime"), { recursive: true });
+  fs.mkdirSync(path.join(root, "sapi", "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(decoyPkg, "package.json"),
+    JSON.stringify({
+      name: "@sfmc-bds/sdk",
+      version: "0.0.0-decoy",
+      type: "module",
+      exports: {
+        "./sapi/runtime": "./dist/esm/sapi/runtime/index.js",
+        "./module-loader": "./dist/esm/module-loader/index.js",
+      },
+    })
+  );
+  fs.mkdirSync(path.join(decoyPkg, "dist", "esm", "module-loader"), { recursive: true });
+  // 诱饵：register 写到 decoy 自己的表；若 loader 未钉死，宿主 Command.entries 会为空
+  fs.writeFileSync(
+    path.join(decoyPkg, "dist", "esm", "sapi", "runtime", "index.js"),
+    `
+const list = {};
+export class Command {
+  static list = list;
+  static register(name, permission, callback, description, moduleId) {
+    list[name] = { permission, callback, description, moduleId };
+    globalThis.__sfmcDecoyCmd = true;
+    return true;
+  }
+  static entries() { return Object.keys(list).map((name) => ({ name, ...list[name] })); }
+  static names() { return Object.keys(list); }
+  static unregister() { return false; }
+  static unregisterByModule() { return 0; }
+  static has() { return false; }
+  static getModuleId() { return undefined; }
+  static trigger() {}
+}
+export class Permission {
+  static Any = 0;
+  static registry = new Map();
+  static register(name, level) { this.registry.set(name, level); globalThis.__sfmcDecoyPerm = true; }
+  static entries() { return [...this.registry.entries()].map(([name, level]) => ({ name, level })); }
+  static clearRegistry() { this.registry.clear(); }
+  static check() { return true; }
+}
+export class Msg { static info() {} }
+`
+  );
+  fs.writeFileSync(
+    path.join(decoyPkg, "dist", "esm", "module-loader", "index.js"),
+    `
+export class ModuleRegistry {
+  static register() {}
+}
+`
+  );
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "dual-mod", type: "module" }));
+  fs.writeFileSync(
+    path.join(root, "sapi", "manifest.json"),
+    JSON.stringify({ schemaVersion: 2, id: "feature-dual-sdk", name: "Dual" })
+  );
+  fs.writeFileSync(
+    path.join(root, "sapi", "src", "index.mjs"),
+    `
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
+import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+export const DESCRIPTOR = {
+  id: "feature-dual-sdk",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() { Permission.register("dual.use", Permission.Any); },
+    registerCommands() {
+      Command.register("dualping", "dual.use", (player) => {
+        if (player) Msg.info("dual-ok", player);
+      }, "dual ping", "feature-dual-sdk");
+    },
+    registerEvents() {},
+    init() {},
+    cleanup() {},
+  },
+};
+ModuleRegistry.register(DESCRIPTOR);
+`
+  );
+
+  globalThis.__sfmcDecoyCmd = false;
+  globalThis.__sfmcDecoyPerm = false;
+  const sb = await createSandbox({ moduleRoot: root });
+  assert.equal(sb.module?.id, "feature-dual-sdk");
+  assert.equal(globalThis.__sfmcDecoyCmd, false, "不得落入诱饵 Command");
+  assert.equal(globalThis.__sfmcDecoyPerm, false, "不得落入诱饵 Permission");
+  const cmds = Command.entries().filter((e) => e.name === "dualping");
+  assert.equal(cmds.length, 1);
+  assert.equal(cmds[0].moduleId, "feature-dual-sdk");
+  const perms = Permission.entries().filter((e) => e.name === "dual.use");
+  assert.equal(perms.length, 1);
+  await sb.dispose();
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test("L2 本批：getGameMode/setGameMode + playerGameModeChange", async () => {
   const { createSandbox } = await import("./dist/esm/testing/index.js");
   const { GameMode } = await import("@minecraft/server");
@@ -653,9 +796,123 @@ test("L2 第二批：runCommand give/clear → 物品栏", async () => {
   assert.equal(inv.getItem(0)?.amount, 1);
   p.runCommand("clear @s minecraft:diamond 0 1");
   assert.equal(inv.getItem(0), undefined);
-  // 解析不了：仍记录
+  // ability 另测；此处仅确认未知命令仍记录
+  p.runCommand("title @s title hi");
+  assert.ok(p.commandLog.includes("title @s title hi"));
+  await sb.dispose();
+});
+
+test("L2 第四批：runCommand ability → mayfly 状态袋", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Flyer" });
+  assert.equal(p.abilities.mayfly, false);
   p.runCommand("ability @s mayfly true");
   assert.ok(p.commandLog.includes("ability @s mayfly true"));
+  assert.equal(p.abilities.mayfly, true);
+  p.runCommand("ability @s mayfly false");
+  assert.equal(p.abilities.mayfly, false);
+  // 非本目标：只记录、不改袋
+  p.runCommand("ability Other mayfly true");
+  assert.equal(p.abilities.mayfly, false);
+  await sb.dispose();
+});
+
+test("L2 第四批：playerPlaceBlock / playerInteractWithBlock + setBlock", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const { BlockPermutation } = await import("@minecraft/server");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Builder" });
+  const loc = { x: 3, y: 64, z: -1 };
+  const block = p.dimension.getBlock(loc);
+  assert.equal(block.isAir, true);
+
+  const beforePlace = [];
+  const afterPlace = [];
+  const interacts = [];
+  sb.world.beforeEvents.playerPlaceBlock.subscribe((ev) => {
+    beforePlace.push({
+      id: ev.permutationToPlace?.type?.id,
+      cancel: ev.cancel,
+      bx: ev.block?.x,
+    });
+    if (ev.permutationToPlace?.type?.id === "minecraft:bedrock") ev.cancel = true;
+  });
+  sb.world.afterEvents.playerPlaceBlock.subscribe((ev) => {
+    afterPlace.push(ev.block?.typeId);
+  });
+  sb.world.afterEvents.playerInteractWithBlock.subscribe((ev) => {
+    interacts.push({ name: ev.player.name, id: ev.block?.typeId, face: ev.blockFace });
+  });
+
+  const stone = BlockPermutation.resolve("minecraft:stone");
+  sb.emit.playerPlaceBlock(p, { block, permutationToPlace: stone });
+  assert.equal(beforePlace.length, 1);
+  assert.equal(beforePlace[0].id, "minecraft:stone");
+  assert.equal(p.dimension.getBlock(loc).typeId, "minecraft:stone");
+  assert.deepEqual(afterPlace, ["minecraft:stone"]);
+
+  // before cancel：不落块
+  const air = p.dimension.getBlock({ x: 4, y: 64, z: -1 });
+  sb.emit.playerPlaceBlock(p, {
+    block: air,
+    permutationToPlace: BlockPermutation.resolve("minecraft:bedrock"),
+  });
+  assert.equal(air.isAir, true);
+  assert.equal(afterPlace.length, 1);
+
+  // 仅 before：可断言 cancel，不落块
+  const onlyBefore = [];
+  sb.world.beforeEvents.playerPlaceBlock.subscribe((ev) => onlyBefore.push(ev.cancel));
+  sb.emit.playerPlaceBlock(p, {
+    before: true,
+    block: p.dimension.getBlock({ x: 5, y: 64, z: 0 }),
+    permutationToPlace: BlockPermutation.resolve("minecraft:dirt"),
+  });
+  assert.deepEqual(onlyBefore, [false]);
+  assert.equal(p.dimension.getBlock({ x: 5, y: 64, z: 0 }).isAir, true);
+
+  sb.emit.playerInteractWithBlock(p, { block: p.dimension.getBlock(loc), blockFace: "Up" });
+  assert.deepEqual(interacts, [{ name: "Builder", id: "minecraft:stone", face: "Up" }]);
+  await sb.dispose();
+});
+
+test("L2 第四批：entityHurt damageSource 含 damagingEntity", async () => {
+  const { createSandbox } = await import("./dist/esm/testing/index.js");
+  const sb = await createSandbox({});
+  const p = sb.addPlayer({ name: "Victim" });
+  const fox = p.dimension.spawnEntity("minecraft:fox", { x: 1, y: 64, z: 0 });
+  const hurts = [];
+  const dies = [];
+  sb.world.afterEvents.entityHurt.subscribe((ev) => {
+    hurts.push({
+      dmg: ev.damage,
+      cause: ev.damageSource?.cause,
+      damager: ev.damageSource?.damagingEntity?.typeId,
+      projectile: ev.damageSource?.damagingProjectile?.typeId ?? null,
+    });
+  });
+  sb.world.afterEvents.entityDie.subscribe((ev) => {
+    dies.push({
+      cause: ev.damageSource?.cause,
+      damager: ev.damageSource?.damagingEntity?.typeId,
+    });
+  });
+  fox.applyDamage(5, {
+    cause: "entityAttack",
+    damagingEntity: p,
+  });
+  assert.deepEqual(hurts, [
+    { dmg: 5, cause: "entityAttack", damager: "minecraft:player", projectile: null },
+  ]);
+  fox.applyDamage(100, {
+    cause: "projectile",
+    damagingEntity: p,
+    damagingProjectile: fox,
+  });
+  assert.equal(fox.isValid, false);
+  assert.ok(hurts.some((h) => h.cause === "projectile" && h.projectile === "minecraft:fox"));
+  assert.deepEqual(dies, [{ cause: "projectile", damager: "minecraft:player" }]);
   await sb.dispose();
 });
 
