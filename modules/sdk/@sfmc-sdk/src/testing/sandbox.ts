@@ -23,6 +23,8 @@ import {
   type MemoryConfigsAll,
 } from "./host/memory-data-adapter.js";
 import { SERVER_L0_META, SERVER_UI_L0_META } from "./engine/generated/l0-meta.js";
+import { createObjectRegistry, type SandboxObjects } from "./objects.js";
+import { createEventsDrive, type SandboxEvents } from "./events-drive.js";
 
 export type { MemoryConfigsAll };
 
@@ -69,6 +71,10 @@ export type Sandbox = {
   flush(): void;
   /** 触发 ! 命令（走 Command.trigger；需先 boot 注册）。 */
   triggerCommand(name: string, player?: FakePlayer): Promise<void>;
+  /** 1:1 构造 / 调用 */
+  objects: SandboxObjects;
+  /** 1:1 事件 emit */
+  events: SandboxEvents;
   dispose(): Promise<void>;
 };
 
@@ -146,12 +152,27 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
     ModuleRegistry.register(opts.module);
     ModuleRegistry.bootAll();
     ModuleRegistry.snapshotEnabled();
-    eng.world.afterEvents.worldLoad.emit({});
+    eng.world.afterEvents.worldLoad!.emit({});
     ModuleRegistry.bootAfterWorldLoad();
   }
 
   let disposed = false;
   const moduleRef = opts.module;
+
+  const addPlayer = (init: Parameters<Sandbox["addPlayer"]>[0]) => {
+    const p = createEnginePlayer(init);
+    const dim = eng.world.getDimension(p.dimension.id);
+    p.dimension = dim;
+    eng.world.addPlayer(p);
+    return p;
+  };
+
+  const objects = createObjectRegistry({
+    world: eng.world,
+    system: eng.system,
+    addPlayer,
+  });
+  const events = createEventsDrive({ world: eng.world, system: eng.system, objects });
 
   const sb: Sandbox = {
     world: eng.world,
@@ -159,38 +180,34 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
     ui: eng.ui,
     db,
     supported: SUPPORTED,
-    addPlayer(init) {
-      const p = createEnginePlayer(init);
-      const dim = eng.world.getDimension(p.dimension.id);
-      p.dimension = dim;
-      eng.world.addPlayer(p);
-      return p;
-    },
+    objects,
+    events,
+    addPlayer,
     emit: {
       playerJoin(player) {
-        eng.world.afterEvents.playerJoin.emit({
+        eng.world.afterEvents.playerJoin!.emit({
           playerName: player.name,
           playerId: player.id,
         });
       },
       playerSpawn(player, opts) {
-        eng.world.afterEvents.playerSpawn.emit({
+        eng.world.afterEvents.playerSpawn!.emit({
           player,
           initialSpawn: opts?.initialSpawn ?? true,
         });
       },
       chatSend(player, message, opts) {
-        eng.world.beforeEvents.chatSend.emit({
+        eng.world.beforeEvents.chatSend!.emit({
           sender: player,
           message,
           cancel: false,
         });
         if (opts?.after) {
-          eng.world.afterEvents.chatSend.emit({ sender: player, message });
+          eng.world.afterEvents.chatSend!.emit({ sender: player, message });
         }
       },
       scriptEvent(id, sourceEntity) {
-        eng.system.afterEvents.scriptEventReceive.emit({ id, sourceEntity });
+        eng.system.afterEvents.scriptEventReceive!.emit({ id, sourceEntity });
       },
     },
     tick(n = 1) {

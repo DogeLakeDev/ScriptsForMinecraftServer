@@ -1,0 +1,123 @@
+{
+  "name": "sfmc-module",
+  "displayName": "SFMC Module",
+  "description": "SFMC 模块作者工具：脚手架、测试、Watch；依赖官方 ESLint 扩展以消费 @sfmc-bds/eslint-plugin",
+  "version": "0.1.0",
+  "publisher": "sfmc-bds",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Linters",
+    "Other"
+  ],
+  "extensionRecommendations": [
+    "dbaeumer.vscode-eslint"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/sapi/manifest.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sfmcModule",
+          "icon": "media/icon.svg",
+          "title": "SFMC"
+        }
+      ]
+    },
+    "views": {
+      "sfmcModule": [
+        {
+          "id": "sfmcModules",
+          "name": "SFMC Modules"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "sfmcModule.moduleInfo",
+          "when": "view == sfmcModules && viewItem == sfmcModule",
+          "group": "sfmc@3"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sfmcModule.newModule",
+        "title": "SFMC: New Module"
+      },
+      {
+        "command": "sfmcModule.runTests",
+        "title": "SFMC: Run Module Tests"
+      },
+      {
+        "command": "sfmcModule.openPlayground",
+        "title": "SFMC: Open Playground"
+      },
+      {
+        "command": "sfmcModule.showLog",
+        "title": "SFMC: Show Extension Log"
+      },
+      {
+        "command": "sfmcModule.runTestsAction",
+        "title": "SFMC: Run Tests"
+      },
+      {
+        "command": "sfmcModule.moduleInfoAction",
+        "title": "SFMC: Module Info"
+      },
+      {
+        "command": "sfmcModule.refreshTree",
+        "title": "SFMC: Refresh"
+      },
+      {
+        "command": "sfmcModule.watchStarted",
+        "title": "SFMC: Watch Started"
+      },
+      {
+        "command": "sfmcModule.watchStopped",
+        "title": "SFMC: Watch Stopped"
+      },
+      {
+        "command": "sfmcModule.startWatch",
+        "title": "SFMC: Start Watch"
+      },
+      {
+        "command": "sfmcModule.stopWatch",
+        "title": "SFMC: Stop Watch"
+      },
+      {
+        "command": "sfmcModule.reload",
+        "title": "SFMC: Reload to BDS"
+      }
+    ],
+    "configuration": {
+      "title": "SFMC Module",
+      "properties": {
+        "sfmc.root": {
+          "type": "string",
+          "default": "",
+          "description": "SFMC 工作根目录（含 modules/module-lock.json、configs/）。仅 Watch / Reload 需要；缺失时会弹出目录选择。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "package": "npx @vscode/vsce package"
+  },
+  "dependencies": {
+    "@sfmc-bds/devkit": "^0.1.0-beta.0",
+    "@sfmc-bds/sdk": "^0.2.0-beta.6"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.28.1"
+  }
+}
+

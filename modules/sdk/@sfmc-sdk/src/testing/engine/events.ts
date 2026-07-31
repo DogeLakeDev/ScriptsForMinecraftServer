@@ -41,3 +41,42 @@ export function createEventSignal<T>(): EventSignal<T> {
     },
   };
 }
+
+/** 1:1 事件 hub：访问任意信号名时惰性 createEventSignal。 */
+export function createEventHub<T = unknown>(
+  seed?: Record<string, EventSignal<T>>
+): Record<string, EventSignal<T>> & { _clearAll(): void; _signals(): Map<string, EventSignal<T>> } {
+  const map = new Map<string, EventSignal<T>>();
+  if (seed) {
+    for (const [k, v] of Object.entries(seed)) map.set(k, v);
+  }
+  const hub = new Proxy({} as Record<string, EventSignal<T>>, {
+    get(_t, prop) {
+      if (prop === "_clearAll") {
+        return () => {
+          for (const s of map.values()) s.clear();
+          map.clear();
+        };
+      }
+      if (prop === "_signals") return () => map;
+      if (typeof prop === "symbol") return undefined;
+      if (prop === "then") return undefined;
+      if (!map.has(prop)) map.set(prop, createEventSignal<T>());
+      return map.get(prop);
+    },
+    has(_t, prop) {
+      return typeof prop === "string" && prop !== "then";
+    },
+    ownKeys() {
+      return [...map.keys()];
+    },
+    getOwnPropertyDescriptor(_t, prop) {
+      if (typeof prop !== "string") return undefined;
+      return { configurable: true, enumerable: true, value: hub[prop] };
+    },
+  }) as Record<string, EventSignal<T>> & {
+    _clearAll(): void;
+    _signals(): Map<string, EventSignal<T>>;
+  };
+  return hub;
+}

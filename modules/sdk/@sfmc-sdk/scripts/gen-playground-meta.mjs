@@ -1,0 +1,250 @@
+// @ts-check
+/**
+ * gen-playground-meta.mjs — 从 @minecraft/server .d.ts 生成 Playground 1:1 元数据
+ *
+ * 产出：
+ * - classes：可构造/操作类型 + 全部 Event 类型成员
+ * - events：四大 hub 信号名列表
+ * - eventTypes：hub.signal → Event 类名（emit 表单权威）
+ */
+
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PKG_ROOT = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
+
+/** 世界对象侧可构造类型（Event 类型由 hub 反推，不在此手写）。 */
+export const TARGET_CLASSES = [
+  "Player",
+  "Entity",
+  "ItemStack",
+  "Block",
+  "Dimension",
+  "World",
+  "System",
+  "Container",
+  "BlockPermutation",
+];
+
+export const EVENT_HUBS = [
+  { hub: "system.beforeEvents", className: "SystemBeforeEvents" },
+  { hub: "system.afterEvents", className: "SystemAfterEvents" },
+  { hub: "world.beforeEvents", className: "WorldBeforeEvents" },
+  { hub: "world.afterEvents", className: "WorldAfterEvents" },
+];
+
+/**
+ * @param {string} source
+ * @param {string} className
+ * @returns {string | null}
+ */
+export function extractClassBody(source, className) {
+  const re = new RegExp(`export\\s+(?:declare\\s+)?class\\s+${className}\\b[^{]*\\{`, "m");
+  const m = re.exec(source);
+  if (!m || m.index == null) return null;
+  const start = m.index + m[0].length - 1;
+  let depth = 0;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return source.slice(start + 1, i);
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {string} body
+ * @returns {{ properties: { name: string, readonly: boolean, type: string }[], methods: { name: string }[] }}
+ */
+export function parseClassMembers(body) {
+  const stripped = body
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  /** @type {{ name: string, readonly: boolean, type: string }[]} */
+  const properties = [];
+  /** @type {{ name: string }[]} */
+  const methods = [];
+  const seenProp = new Set();
+  const seenMethod = new Set();
+
+  for (const line of stripped.split("\n")) {
+    const t = line.trim();
+    if (!t || t.startsWith("private ") || t.startsWith("protected ")) continue;
+
+    const method = t.match(/^(?:readonly\s+)?([A-Za-z_][\w]*)\s*\(/);
+    if (method) {
+      const name = method[1];
+      if (name === "constructor") continue;
+      if (!seenMethod.has(name)) {
+        seenMethod.add(name);
+        methods.push({ name });
+      }
+      continue;
+    }
+
+    const prop = t.match(/^(readonly\s+)?([A-Za-z_][\w]*)\??\s*:\s*([^;]+);/);
+    if (prop) {
+      const name = prop[2];
+      if (seenProp.has(name)) continue;
+      seenProp.add(name);
+      properties.push({
+        name,
+        readonly: Boolean(prop[1]),
+        type: prop[3].trim(),
+      });
+    }
+  }
+
+  properties.sort((a, b) => a.name.localeCompare(b.name));
+  methods.sort((a, b) => a.name.localeCompare(b.name));
+  return { properties, methods };
+}
+
+/**
+ * @param {string} source
+ * @param {string} className
+ */
+export function listHubSignals(source, className) {
+  const body = extractClassBody(source, className);
+  if (!body) return [];
+  const { properties } = parseClassMembers(body);
+  return properties.map((p) => p.name).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * hub 类属性：信号名 → Signal 类型名
+ * @param {string} source
+ * @param {string} hubClassName
+ * @returns {{ name: string, signalType: string }[]}
+ */
+export function listHubSignalEntries(source, hubClassName) {
+  const body = extractClassBody(source, hubClassName);
+  if (!body) return [];
+  const { properties } = parseClassMembers(body);
+  return properties
+    .map((p) => ({ name: p.name, signalType: p.type.replace(/\s+/g, "") }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * 从 *EventSignal 类体解析 subscribe 回调参数类型；失败则剥 Signal 后缀。
+ * @param {string} source
+ * @param {string} signalType
+ */
+export function resolveEventType(source, signalType) {
+  const body = extractClassBody(source, signalType);
+  if (body) {
+    const m = body.match(/subscribe\s*\(\s*callback\s*:\s*\(\s*arg0\s*:\s*([A-Za-z_][\w]*)/);
+    if (m) return m[1];
+    const m2 = body.match(/subscribe\s*\([^)]*:\s*\(\s*\w+\s*:\s*([A-Za-z_][\w]*)/);
+    if (m2) return m2[1];
+  }
+  if (signalType.endsWith("Signal")) return signalType.slice(0, -"Signal".length);
+  return signalType;
+}
+
+/**
+ * @param {string} source
+ */
+export function buildPlaygroundMeta(source) {
+  /** @type {Record<string, { properties: { name: string, readonly: boolean, type: string }[], methods: { name: string }[], kind?: string }>} */
+  const classes = {};
+  for (const name of TARGET_CLASSES) {
+    const body = extractClassBody(source, name);
+    if (!body) continue;
+    classes[name] = { ...parseClassMembers(body), kind: "object" };
+  }
+
+  /** @type {Record<string, string[]>} */
+  const events = {};
+  /** @type {Record<string, { eventType: string, signalType: string }>} */
+  const eventTypes = {};
+
+  for (const { hub, className } of EVENT_HUBS) {
+    const entries = listHubSignalEntries(source, className);
+    events[hub] = entries.map((e) => e.name);
+    for (const { name, signalType } of entries) {
+      const eventType = resolveEventType(source, signalType);
+      eventTypes[`${hub}.${name}`] = { eventType, signalType };
+      if (!classes[eventType]) {
+        const body = extractClassBody(source, eventType);
+        if (body) {
+          classes[eventType] = { ...parseClassMembers(body), kind: "event" };
+        } else {
+          classes[eventType] = { properties: [], methods: [], kind: "event" };
+        }
+      }
+    }
+  }
+
+  return {
+    generatedAt: "gen-playground-meta",
+    classes,
+    events,
+    eventTypes,
+  };
+}
+
+/**
+ * @param {unknown} meta
+ */
+export function emitPlaygroundMetaTs(meta) {
+  return [
+    "/**",
+    " * 由 scripts/gen-playground-meta.mjs 生成 — 勿手改。",
+    " * Playground / sb.objects / sb.events 的 1:1 表面权威。",
+    " */",
+    "",
+    `export const PLAYGROUND_META = ${JSON.stringify(meta, null, 2)} as const;`,
+    "",
+    "export type PlaygroundMeta = typeof PLAYGROUND_META;",
+    "",
+  ].join("\n");
+}
+
+function resolveDefaultDts() {
+  try {
+    return require.resolve("@minecraft/server/index.d.ts");
+  } catch {
+    return path.join(PKG_ROOT, "../../node_modules/@minecraft/server/index.d.ts");
+  }
+}
+
+function parseArgs(argv) {
+  /** @type {{ dts?: string, out?: string }} */
+  const o = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--dts") o.dts = argv[++i];
+    else if (argv[i] === "--out") o.out = argv[++i];
+  }
+  return o;
+}
+
+export function main(argv = process.argv.slice(2)) {
+  const args = parseArgs(argv);
+  const dtsPath = args.dts ?? resolveDefaultDts();
+  const outPath =
+    args.out ?? path.join(PKG_ROOT, "src/testing/engine/generated/playground-meta.ts");
+  const source = fs.readFileSync(dtsPath, "utf8");
+  const meta = buildPlaygroundMeta(source);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, emitPlaygroundMetaTs(meta), "utf8");
+  const classCount = Object.keys(meta.classes).length;
+  const eventCount = Object.values(meta.events).reduce((n, a) => n + a.length, 0);
+  const eventTypeCount = Object.keys(meta.eventTypes).length;
+  console.log(
+    `[gen-playground-meta] classes=${classCount} eventSignals=${eventCount} eventTypes=${eventTypeCount} → ${outPath}`
+  );
+}
+
+const isMain =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();

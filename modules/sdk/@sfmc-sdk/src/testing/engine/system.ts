@@ -1,8 +1,8 @@
 /**
- * 假 system：run / runTimeout / runInterval + 可 tick 推进。
+ * 假 system：run / runTimeout / runInterval + 可 tick 推进；事件 hub 1:1 惰性。
  */
 
-import { createEventSignal, type EventSignal } from "./events.js";
+import { createEventHub, createEventSignal, type EventSignal } from "./events.js";
 import { guardAllowlist, SERVER_ALLOWLIST } from "./allowlist.js";
 
 type Scheduled = {
@@ -14,22 +14,14 @@ type Scheduled = {
 };
 
 export type FakeSystem = {
-  afterEvents: {
-    startup: EventSignal<unknown>;
-    shutdown: EventSignal<unknown>;
-    scriptEventReceive: EventSignal<{ id: string; sourceEntity?: unknown }>;
-  };
-  beforeEvents: {
-    chatSend: EventSignal<unknown>;
-    worldInitialize: EventSignal<unknown>;
-  };
+  afterEvents: Record<string, EventSignal<unknown>>;
+  beforeEvents: Record<string, EventSignal<unknown>>;
   currentTick: number;
   run(cb: () => void, ticks?: number): number;
   runTimeout(cb: () => void, ticks?: number): number;
   runInterval(cb: () => void, ticks?: number): number;
   clearRun(id: number): void;
   waitTicks(ticks: number): Promise<void>;
-  /** 推进 n 个 tick，执行到期任务。 */
   tick(n?: number): void;
   flush(): void;
   reset(): void;
@@ -40,15 +32,14 @@ export function createFakeSystem(): FakeSystem {
   let currentTick = 0;
   const jobs = new Map<number, Scheduled>();
 
-  const afterEvents = {
+  const afterEvents = createEventHub<unknown>({
+    scriptEventReceive: createEventSignal(),
+  });
+  const beforeEvents = createEventHub<unknown>({
     startup: createEventSignal(),
     shutdown: createEventSignal(),
-    scriptEventReceive: createEventSignal<{ id: string; sourceEntity?: unknown }>(),
-  };
-  const beforeEvents = {
-    chatSend: createEventSignal(),
-    worldInitialize: createEventSignal(),
-  };
+    watchdogTerminate: createEventSignal(),
+  });
 
   const runAt = (kind: Scheduled["kind"], cb: () => void, ticks: number, intervalTicks?: number) => {
     const id = nextId++;
@@ -70,7 +61,7 @@ export function createFakeSystem(): FakeSystem {
       try {
         job.cb();
       } catch {
-        /* 吞掉任务异常，与引擎 isolation 接近 */
+        /* 吞掉任务异常 */
       }
       if (job.kind === "interval" && job.intervalTicks !== undefined && jobs.has(job.id)) {
         job.dueTick = currentTick + Math.max(1, job.intervalTicks);
@@ -111,7 +102,6 @@ export function createFakeSystem(): FakeSystem {
       }
     },
     flush() {
-      /* 执行所有 dueTick <= currentTick 的 run(0) 类任务；再空转直到队列无「立即」任务 */
       let guard = 0;
       while (guard++ < 1000) {
         const immediate = [...jobs.values()].filter((j) => j.dueTick <= currentTick);
@@ -120,7 +110,7 @@ export function createFakeSystem(): FakeSystem {
       }
     },
     reset() {
-      /* 只清调度队列；保留 scriptEvent 等平台级订阅（Command.registerScriptEvent）。 */
+      // 只清调度队列；保留 scriptEvent 等平台级订阅（Command.registerScriptEvent）。
       jobs.clear();
       currentTick = 0;
       nextId = 1;

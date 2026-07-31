@@ -1,8 +1,8 @@
 /**
- * 假 world：事件总线 + 玩家列表 + Scoreboard L2 + Dimension L2。
+ * 假 world：事件总线（1:1 惰性 hub）+ 玩家列表 + Scoreboard L2 + Dimension L2。
  */
 
-import { createEventSignal, type EventSignal } from "./events.js";
+import { createEventHub, createEventSignal, type EventSignal } from "./events.js";
 import { guardAllowlist, SERVER_ALLOWLIST } from "./allowlist.js";
 import type { FakePlayer } from "./player.js";
 import { createFakeScoreboard, type FakeScoreboard } from "./scoreboard.js";
@@ -10,25 +10,8 @@ import { createFakeDimension, resolveDimensionId, type FakeDimension } from "./d
 import { resetEntityIdCounter } from "./entity.js";
 
 export type FakeWorld = {
-  afterEvents: {
-    worldLoad: EventSignal<unknown>;
-    playerSpawn: EventSignal<{ player: FakePlayer; initialSpawn?: boolean }>;
-    playerJoin: EventSignal<{ playerName: string; playerId: string }>;
-    chatSend: EventSignal<{ sender: FakePlayer; message: string }>;
-    entityDie: EventSignal<unknown>;
-    itemUse: EventSignal<unknown>;
-    blockBreak: EventSignal<unknown>;
-    entitySpawn: EventSignal<unknown>;
-  };
-  beforeEvents: {
-    chatSend: EventSignal<{
-      sender: FakePlayer;
-      message: string;
-      cancel: boolean;
-    }>;
-    playerSpawn: EventSignal<unknown>;
-    itemUse: EventSignal<unknown>;
-  };
+  afterEvents: Record<string, EventSignal<unknown>>;
+  beforeEvents: Record<string, EventSignal<unknown>>;
   getDimension(id?: string): FakeDimension;
   getPlayers(): FakePlayer[];
   getAllPlayers(): FakePlayer[];
@@ -43,8 +26,23 @@ export type FakeWorld = {
 export function createFakeWorld(): FakeWorld {
   const players: FakePlayer[] = [];
   const scoreboard = createFakeScoreboard();
-  /** 规范化 id → FakeDimension */
   const dims = new Map<string, FakeDimension>();
+
+  const afterEvents = createEventHub({
+    worldLoad: createEventSignal(),
+    playerSpawn: createEventSignal(),
+    playerJoin: createEventSignal(),
+    chatSend: createEventSignal(),
+    entityDie: createEventSignal(),
+    itemUse: createEventSignal(),
+    blockBreak: createEventSignal(),
+    entitySpawn: createEventSignal(),
+  });
+  const beforeEvents = createEventHub({
+    chatSend: createEventSignal(),
+    playerSpawn: createEventSignal(),
+    itemUse: createEventSignal(),
+  });
 
   const getOrCreateDim = (rawId: string): FakeDimension => {
     const canon = resolveDimensionId(rawId);
@@ -53,7 +51,7 @@ export function createFakeWorld(): FakeWorld {
     const dim = createFakeDimension(canon, {
       getPlayers: () => players.filter((p) => p.dimension.id === canon),
       onEntitySpawn: (entity) => {
-        api.afterEvents.entitySpawn.emit({ entity });
+        afterEvents.entitySpawn!.emit({ entity });
       },
     });
     dims.set(canon, dim);
@@ -61,21 +59,8 @@ export function createFakeWorld(): FakeWorld {
   };
 
   const api: FakeWorld = {
-    afterEvents: {
-      worldLoad: createEventSignal(),
-      playerSpawn: createEventSignal(),
-      playerJoin: createEventSignal(),
-      chatSend: createEventSignal(),
-      entityDie: createEventSignal(),
-      itemUse: createEventSignal(),
-      blockBreak: createEventSignal(),
-      entitySpawn: createEventSignal(),
-    },
-    beforeEvents: {
-      chatSend: createEventSignal(),
-      playerSpawn: createEventSignal(),
-      itemUse: createEventSignal(),
-    },
+    afterEvents,
+    beforeEvents,
     getDimension(id = "minecraft:overworld") {
       return getOrCreateDim(id);
     },
@@ -106,12 +91,19 @@ export function createFakeWorld(): FakeWorld {
       dims.clear();
       resetEntityIdCounter();
       getOrCreateDim("minecraft:overworld");
-      for (const s of Object.values(api.afterEvents)) s.clear();
-      for (const s of Object.values(api.beforeEvents)) s.clear();
+      (
+        afterEvents as unknown as {
+          _clearAll(): void;
+        }
+      )._clearAll();
+      (
+        beforeEvents as unknown as {
+          _clearAll(): void;
+        }
+      )._clearAll();
     },
   };
 
-  // 预热主世界（需在 api 定义后，因 onEntitySpawn 引用 api）
   getOrCreateDim("minecraft:overworld");
 
   return guardAllowlist(api, SERVER_ALLOWLIST.world, "world") as FakeWorld;

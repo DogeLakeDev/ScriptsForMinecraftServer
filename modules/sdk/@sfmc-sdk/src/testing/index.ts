@@ -20,6 +20,10 @@ export { runLifecycle, runCleanup } from "./lifecycle.js";
 export type { CreateSandboxOpts, Sandbox, SandboxEmit, MemoryConfigsAll } from "./sandbox.js";
 export { createSandbox } from "./sandbox.js";
 
+export { PLAYGROUND_META } from "./engine/generated/playground-meta.js";
+export type { SandboxObjects, SandboxObjectHandle, SandboxObjectKind } from "./objects.js";
+export type { SandboxEvents } from "./events-drive.js";
+
 export { PlayerPermissionLevel } from "./engine/runtime.js";
 
 export type { FormResponse } from "./engine/ui-host.js";

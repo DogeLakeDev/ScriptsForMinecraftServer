@@ -15,6 +15,20 @@
 | L2 | 可断言状态机（Player、tick、事件、UI…） |
 | L3 | 高成本世界语义（方块/实体…）专题加深 |
 
+## Playground 1:1 驱动面
+
+第一轮对 pin 版 `@minecraft/server` **不做最小集裁剪**，三块表面可驱动：
+
+| 块 | API | 说明 |
+| ---- | ---- | ---- |
+| 构造对象 | `sb.objects.create(kind, props)` | `Player` / `Entity` / `ItemStack` / `Block`；可写属性来自生成元数据 |
+| 操作对象 | `sb.objects.call(id, method, args)` | 调实例方法；未实现 → L0 硬失败 |
+| 事件触发 | `sb.events.emit(path, payload)` | 路径如 `world.afterEvents.playerJoin`；hub 清单见 `PLAYGROUND_META.events` |
+
+扩展「SFMC: Open Playground」通过 `playground-host` JSON-RPC 消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
+
+世界模拟维度（宿主分相、System、玩家、聊天等）与「永不模拟」边界见规格 `docs/superpowers/specs/2026-07-31-sfmc-module-extension-design.md` §5；真机联调用 Watch，不靠假 BDS。
+
 ## 宿主分相
 
 `createSandbox({ module })` 默认对齐 BDS 启动：
@@ -31,7 +45,9 @@
 | API | 作用 |
 | ------ | ------ |
 | `createSandbox` | 假引擎 + 宿主 boot；`addPlayer` / `emit.*` / `tick` / `triggerCommand` / `ui.queueResponse` / `dispose`；`supported.l0` 为生成元数据 |
-| `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent` |
+| `sb.objects` / `sb.events` | 1:1 构造 / 调用 / 全 hub emit；Event 类型亦可 `create`；`eventTypes` 映射信号→Event 类 |
+| `PLAYGROUND_META` | class 成员（含全部 Event）+ hub 信号 + `eventTypes` |
+| `sb.emit` | `playerJoin` / `playerSpawn` / `chatSend` / `scriptEvent`（糖；底层仍是事件） |
 | `createFakePlayer` / `createFakeDb` | 底层替身（一般不必直接用） |
 | `runCleanup` | 单测清理钩子 |
 | `assertMsg` | 断言玩家消息 |

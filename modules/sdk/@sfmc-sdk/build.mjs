@@ -138,6 +138,18 @@ fs.copyFileSync(
   path.join(testingOut, "minecraft-loader.mjs")
 );
 
+await build({
+  entryPoints: ["src/testing/playground-host.ts"],
+  bundle: true,
+  format: "esm",
+  outfile: path.join(testingOut, "playground-host.js"),
+  platform: "node",
+  target: "node18",
+  sourcemap: true,
+  logLevel: "info",
+  external: [...MINECRAFT_EXTERNALS, "@sfmc-bds/sdk/sapi/runtime", "@sfmc-bds/sdk/module-loader"],
+});
+
 // 2) .d.ts — 经 tsc7（TS7 native）产 dist/types
 console.log("[sdk] emitting .d.ts via tsc7...");
 const dtsCode = runTsc7(["-p", "tsconfig.types.json"]);

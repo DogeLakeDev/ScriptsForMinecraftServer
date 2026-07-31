@@ -1,117 +1,108 @@
-# Script API 原生对照映射（线 R）
+#     Script API 事件流程（沙箱 / Playground）
 
-**状态：** 草稿  
-**用途：** 只读对照 LeviLamina `mc/scripting` 与 pin 版 `@minecraft/server`，指导沙箱 L2；**不入库任何 Levi 头文件**。
+**设计锁定（2026-07-31）：第一轮 = SAPI 1:1 映射，不设「最小集」。**
 
-## 版本钉扎
 
-| 组件 | 版本 |
-|------|------|
-| `@minecraft/server` | `2.10.0-beta.1.26.40-preview.30`（与模板 peer 一致） |
-| `@minecraft/server-ui` | `2.2.0-beta.1.26.40-preview.30` |
-| Levi `mc/scripting` | 对照时填写具体 Levi/BDS dump 版本（只读浏览，不拷贝） |
+| 块        | 1:1 含义                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------ |
+| **构造对象** | 按 pin 版 `.d.ts` 的类型表面构造/挂入：可写属性可设，只读由引擎填；无公开 ctor 的用 SAPI 同等入口（`spawnEntity` / 坐标 setBlock / 沙箱 `addPlayer`） |
+| **操作对象** | 实例上 **全部** 方法可点选调用；未实现语义 → 既有 L0 硬失败（诚实）                                                                     |
+| **事件触发** | `system`/`world` 的 **全部** before/after 信号可显式 emit；方法若应带事件则同总线自动发                                             |
 
-## 边界
 
-- **权威契约：** npm `index.d.ts` + MS Learn  
-- **线索源：** `LiteLDev/LeviLamina` → `src-server/mc/scripting/**`（如 `ScriptWorldAfterEvents`）  
-- **非权威：** `ll/api/event`（平行插件事件）  
-- 争议行为：Learn / 真机抽检优先于头文件猜测  
+快捷创建糖、聊天框糖等 **次轮**。生命周期有序段不变（startup → worldLoad → shutdown + SFMC 子步）。
 
-## 启动分相（宿主线 A）
+**来源：** `[sapi-typedoc](../../../../sapi-typedoc)` / [Learn v2](https://learn.microsoft.com/en-us/minecraft/creator/documents/scripting/v2-overview)。权威契约 = npm `.d.ts`；L0 生成器已覆盖声明面。
 
-| 原生 / Scripting 线索 | `@minecraft/server` | 沙箱目标 |
-|----------------------|---------------------|----------|
-| `ScriptModuleStartupBeforeEvent` 等 | `system.beforeEvents.startup` | ConfigManager.init → bootAll |
-| Level / world init 后 | `world.afterEvents.worldLoad` | bootAfterWorldLoad |
-| shutdown | `system.beforeEvents.shutdown` | teardown / dispose |
+---
 
-## 事件面（初表，随 L2 勾选）
+## 总图
 
-| Scripting 线索（示意） | Script API | 沙箱 | 备注 |
-|------------------------|------------|------|------|
-| ScriptWorldAfterEvents.playerJoin | `world.afterEvents.playerJoin` | L2 | `sb.emit.playerJoin` |
-| ScriptWorldAfterEvents.playerSpawn | `world.afterEvents.playerSpawn` | L2 | `sb.emit.playerSpawn` |
-| ScriptWorldBeforeEvents.chatSend | `world.beforeEvents.chatSend` | L2 | `sb.emit.chatSend` |
-| ScriptSystemAfterEvents.scriptEventReceive | `system.afterEvents.scriptEventReceive` | L2 | `sb.emit.scriptEvent` |
-| LevelTick / system tick | `system.run*` / currentTick | L2 | FakeSystem |
-| （其余 WorldAfter/Before） | 对应 after/beforeEvents.* | L0 | 生成骨架硬失败 |
+```mermaid
+flowchart TB
+  subgraph LIFE["有序生命周期"]
+    direction LR
+    A[脚本入口] --> B[startup]
+    B --> C[等待世界]
+    C --> D[worldLoad]
+    D --> E[运行期]
+    E --> F[shutdown]
+  end
 
-## Scoreboard（对照 Learn + pin `.d.ts`）
+  B -. SFMC .-> B1[ConfigManager / bootAll]
+  D -. SFMC .-> D1[bootAfterWorldLoad]
+  F -. SFMC .-> F1[teardown]
 
-权威：[Scoreboard](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/scoreboard) / [ScoreboardObjective](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/scoreboardobjective)；pin `2.10.0-beta.1.26.40-preview.30`。
+  subgraph RUN["运行期 1:1"]
+    E --> CREATE[构造对象]
+    E --> OPS[操作对象]
+    E --> EVT[事件触发]
+    CREATE --> C1["属性袋 = d.ts 可写字段"]
+    OPS --> O1["方法表 = d.ts methods"]
+    O1 --> O2[L2 有语义 / L0 硬失败]
+    EVT --> E1["hub 全信号可 emit"]
+    O1 -.-> E1
+  end
+```
 
-| Script API | 沙箱 | 备注 |
-|------------|------|------|
-| `world.scoreboard.addObjective` | L2 | 重复 id 抛错 |
-| `getObjective` / `getObjectives` / `removeObjective` | L2 | remove 后 `isValid=false` |
-| `set/get/clearObjectiveAtDisplaySlot` | L2 | 最小槽位表 |
-| `getParticipants`（Scoreboard） | L2 | 含已登记 Identity |
-| `ScoreboardObjective.getScore` | L2 | **未设分 → `undefined`**（非 0） |
-| `setScore` / `addScore` / `hasParticipant` / `removeParticipant` / `getScores` | L2 | participant: string \| Identity \| Player |
-| `Player.scoreboardIdentity` | L2 | type=`Player` |
-| `Scoreboard` / `ScoreboardObjective` 顶层 class 构造 | L0 | `new` 硬失败（与真机 private ctor 一致） |
 
-状态：`L0` = 可 import/硬失败；`L2` = 有可测语义；`—` = 未接线。
 
-## Dimension / Block（对照 Learn + pin `.d.ts`）
+---
 
-权威：[Dimension](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/dimension) / [Block](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/block) / [BlockPermutation](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/blockpermutation)。
+## 构造对象
 
-| Script API | 沙箱 | 备注 |
-|------------|------|------|
-| `world.getDimension` | L2 | overworld/nether/the_end 别名 |
-| `Dimension.id` / `heightRange` | L2 | 高度区间近似 |
-| `getBlock` | L2 | **恒返回 Block**；缺省空气（不模拟未加载→`undefined`） |
-| `setBlockPermutation` / `setBlockType` | L2 | |
-| `getPlayers` / `getEntities` | L2 | getEntities 支持 type/tags/距离查询 |
-| `spawnEntity` | L2 | 触发 `world.afterEvents.entitySpawn` |
-| `Block.isAir` / `typeId` / `permutation` / `setPermutation` | L2 | |
-| `BlockPermutation.resolve` | L2 | `new BlockPermutation()` 仍 L0 硬失败 |
-| 其余 Dimension 方法（fill/explosion/…） | L0 | allowlist 外访问硬失败 |
 
-## Entity（对照 Learn + pin `.d.ts`）
+| 类型 | 入口 | 属性 |
+| ---- | ---- | ---- |
+| Player | 无 `new`；`sandbox.addPlayer(属性袋)` | Entity 可写 + Player 可写（见 d.ts）；只读创建后生成 |
+| Entity | `dimension.spawnEntity` + 随后赋可写属性 | 全表面；未实现 setter → L0 |
+| ItemStack | `new ItemStack(...)` + 可写字段 | 全表面 |
+| Block | 坐标 `setBlockType` / `setPermutation` 等 | 定位字段 + 可变状态方法 |
+| **\*Event** | 属性袋（无公开 ctor）；`objects.create('ChatSendBeforeEvent', …)` | 全字段可填（含只读）；嵌套 `Player` 等用 `{"$ref":"实例id"}` |
+| World / System | 不构造 | 生命周期后已有 |
 
-权威：[Entity](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/entity)。
 
-| Script API | 沙箱 | 备注 |
-|------------|------|------|
-| `Entity.id` / `typeId` / `location` / `dimension` / `nameTag` / `isValid` | L2 | |
-| `remove` / `kill` / `teleport` | L2 | teleport 可换维度 |
-| `addTag` / `hasTag` / `getTags` / `removeTag` | L2 | |
-| `getComponent` / `hasComponent` | L2 | `minecraft:inventory` → EntityInventoryComponent；其余 undefined |
+属性袋 / 方法表 / **hub→Event 类型** 由 `gen-playground-meta` 从 `.d.ts` 产出（`PLAYGROUND_META.classes` + `eventTypes`），Playground 与宿主共用。
 
-## Container / Inventory（对照 Learn + pin `.d.ts`）
+---
 
-权威：[Container](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/container) / [ItemStack](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/itemstack) / [EntityInventoryComponent](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/entityinventorycomponent)。
+## 操作对象
 
-| Script API | 沙箱 | 备注 |
-|------------|------|------|
-| `new ItemStack(type, amount?)` | L2 | amount 1–255；`clone` / `isStackableWith` |
-| `Container.getItem` / `setItem` | L2 | 空槽 `undefined`；get/set 克隆 |
-| `addItem` / `clearAll` / `transferItem` / `swapItems` / `moveItem` | L2 | |
-| `size` / `emptySlotsCount` / `weight` | L2 | |
-| `EntityInventoryComponent.container` | L2 | `componentId = minecraft:inventory` |
-| 玩家库存槽位数 | L2 | 36；chest_minecart 27；默认实体 27 |
-| `new Container()` / `new EntityInventoryComponent()` | L0 | 硬失败 |
+```text
+选实例 → 列出该类全部 method → 填参调用 → 返回值/抛错进系统日志
+```
 
-## server-ui（对照本地 pin `2.2.0-beta.1.26.40-preview.30`）
+与真机一致：改状态的方法在实现里 **emit 对应事件**（有 L2 映射则发；尚无映射则至少不静默吞掉——文档标明或硬失败）。
 
-权威：本地 `node_modules/@minecraft/server-ui/index.d.ts`（**不止** Action/Message/Modal 三表单）。
+---
 
-| Script API | 沙箱 | 备注 |
-|------------|------|------|
-| `ActionFormData` / `MessageFormData` / `ModalFormData` | L2 | + divider/header/label/submitButton；`show(player)` + queueResponse |
-| `CustomForm` | L2 | `constructor(player,title)`；`show()` 无参；selection 触发 button onClick |
-| `MessageBox` | L2 | `show()` → `{ closeReason, selection? }` |
-| `ObservableBoolean/Number/String/UIRawMessage` | L2 | value + subscribe |
-| `uiManager.closeAllForms` | L2 | 清空该玩家队列 |
-| `DataDrivenScreenClosedReason` | L1 | **ClientClosed / ServerClosed / UserBusy**（非 UserClosed） |
-| `FormCancelationReason` | L1 | UserClosed / UserBusy |
-| 其余（FormReject*、错误类、UIManager ctor…） | L0 | 生成骨架硬失败 |
+## 事件触发
 
-## 维护
+```text
+选 hub 信号 → 按 Event 类型填 payload（字段来自 d.ts）→ emit
+```
 
-1. 升级 `@minecraft/server` pin 时更新本表版本行  
-2. 加深 L2 前先在本表加行再改 overrides  
-3. 勿将 Levi 路径加入 npm pack / git submodule（除非另开私有只读镜像且仍不进发布包）
+含全部 `WorldAfterEvents` / `WorldBeforeEvents` / `SystemBeforeEvents` / `SystemAfterEvents` 属性。成对 before/after 可一并或单发。
+
+---
+
+## 与既有 L0/L2
+
+- **L0：** 声明面已 1:1 可 import；未实现方法硬失败 — 操作面板直接复用  
+- **L2：** 已有语义的 overrides 继续加深；1:1 **不要求**第一轮所有方法都有真语义，但 **要求**表面与可调用入口齐全  
+- Playground 对 L0 方法显示「将硬失败」警告仍可调用（便于作者看到堆栈）
+
+---
+
+## 事件 hub 速查
+
+
+| Hub                   | 内容                                       |
+| --------------------- | ---------------------------------------- |
+| `system.beforeEvents` | `startup` `shutdown` `watchdogTerminate` |
+| `system.afterEvents`  | `scriptEventReceive`                     |
+| `world.beforeEvents`  | 16 个信号                                   |
+| `world.afterEvents`   | 65 个信号                                   |
+
+
+完整字段以 `sapi-typedoc` / 生成元数据为准。
