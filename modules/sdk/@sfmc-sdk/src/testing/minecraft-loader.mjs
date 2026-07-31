@@ -3,12 +3,15 @@
 /**
  * @sfmc-bds/sdk/testing/minecraft-loader
  *
- * Node ESM loader：把 @minecraft/server|server-ui|… 指到 SDK 假引擎桥。
+ * Node ESM loader：把 @minecraft/server|server-ui|… 指到 SDK 假引擎桥；
+ * 并把 `@sfmc-bds/sdk` / 子路径钉到本 loader 所属包根，避免模块仓
+ * node_modules 与宿主各装一份 SDK 导致 Command/Permission 双实例。
  * vanilla-data 走真实包。用法：
  *   node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm …
  */
 
 import { register } from "node:module";
+import { createRequire } from "node:module";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
@@ -16,6 +19,9 @@ import fs from "node:fs";
 register(import.meta.url);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+/** dist/esm/testing → 包根（含 package.json / exports） */
+const sdkRoot = path.resolve(here, "../../..");
+const sdkRequire = createRequire(path.join(sdkRoot, "package.json"));
 
 /** @type {Record<string, string>} */
 const BRIDGES = {
@@ -35,6 +41,23 @@ function bridgeUrl(file) {
     if (fs.existsSync(c)) return pathToFileURL(c).href;
   }
   return pathToFileURL(path.join(here, file)).href;
+}
+
+/**
+ * 将 `@sfmc-bds/sdk…` 解析到本 loader 所属包（单一 Command/Permission/Registry）。
+ * @param {string} specifier
+ * @returns {string | null} file URL
+ */
+function pinSfmcSdk(specifier) {
+  if (specifier !== "@sfmc-bds/sdk" && !specifier.startsWith("@sfmc-bds/sdk/")) {
+    return null;
+  }
+  try {
+    const resolved = sdkRequire.resolve(specifier);
+    return pathToFileURL(resolved).href;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -61,6 +84,10 @@ export async function resolve(specifier, context, nextResolve) {
       )});`,
       shortCircuit: true,
     };
+  }
+  const pinned = pinSfmcSdk(specifier);
+  if (pinned) {
+    return { url: pinned, shortCircuit: true };
   }
   return nextResolve(specifier, context);
 }

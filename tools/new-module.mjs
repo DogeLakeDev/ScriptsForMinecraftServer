@@ -235,7 +235,8 @@ function registerCommands(): void {
       if (!player) return;
       Msg.info("模块 ${displayName} 已就绪", player);
     },
-    "${displayName}"
+    "${displayName}",
+    MODULE_ID
   );
 }
 
