@@ -6,8 +6,17 @@ import {
   type AssertKind,
   type AssertMatchMode,
 } from "../graph/assert";
+import { isCreateStimulusKind } from "../graph/materialize";
 
-export type StimulusKind = "player" | "emit" | "call" | "tick" | "assert" | "note";
+export type StimulusKind =
+  | "player"
+  | "entity"
+  | "item"
+  | "emit"
+  | "call"
+  | "tick"
+  | "assert"
+  | "note";
 
 export type StimulusNodeData = {
   kind: StimulusKind;
@@ -17,7 +26,7 @@ export type StimulusNodeData = {
   props?: Record<string, unknown>;
   n?: number;
   /**
-   * 新建 Player 等 create 节点：objects.create 成功后的 registry id。
+   * 新建 Player / Entity / ItemStack：objects.create 成功后的 registry id。
    * 无此字段表示尚未实例化（图上有块 ≠ 场景已有对象）。
    */
   objectId?: string;
@@ -56,6 +65,8 @@ export type StimulusFlowNode = Node<StimulusNodeData, "stimulus">;
 
 const KIND_LABEL: Record<Exclude<StimulusKind, "assert">, string> = {
   player: "新建 Player",
+  entity: "新建 Entity",
+  item: "新建 ItemStack",
   emit: "Emit",
   call: "Call",
   tick: "Tick",
@@ -84,7 +95,7 @@ export function formatCallDetail(data: Pick<StimulusNodeData, "targetId" | "meth
 
 export function StimulusNode({ data, selected }: NodeProps<StimulusFlowNode>) {
   const rs = data.runState ?? "idle";
-  const pendingCreate = data.kind === "player" && !data.objectId;
+  const pendingCreate = isCreateStimulusKind(data.kind) && !data.objectId;
   return (
     <div
       className={`s-node${selected ? " selected" : ""} ${rs !== "idle" ? rs : ""}${
@@ -100,7 +111,7 @@ export function StimulusNode({ data, selected }: NodeProps<StimulusFlowNode>) {
       <div className="s-node-body">
         <div>{data.title}</div>
         <div className="mt-1 opacity-85">{data.detail}</div>
-        {data.kind === "player" ? (
+        {isCreateStimulusKind(data.kind) ? (
           <div className={`mt-1 instance-tag${pendingCreate ? " pending" : ""}`}>
             {data.objectId ? `已登记 ${data.objectId}` : "未实例化"}
           </div>

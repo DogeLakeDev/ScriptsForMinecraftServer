@@ -1,7 +1,9 @@
 import {
   MetaPropForm,
   argsFromParamValues,
+  entityCreateProps,
   eventProps,
+  itemCreateProps,
   methodParamFields,
   playerCreateProps,
   seedArgsJson,
@@ -15,14 +17,19 @@ import { formatCallDetail } from "./StimulusNode";
 import type { Edge } from "@xyflow/react";
 import {
   ASSERT_KIND_OPTIONS,
-  SCENE_KIND_OPTIONS,
+  normalizeTargetKind,
+  sceneKindSelectOptions,
   assertTitle,
   formatAssertDetail,
   normalizeAssertKind,
   type AssertKind,
 } from "../graph/assert";
 import { normalizeEdgeKind, type EdgeKind } from "../graph/order";
-import { preferredPlayerObjectId } from "../graph/materialize";
+import {
+  preferredEntityObjectId,
+  preferredItemObjectId,
+  preferredPlayerObjectId,
+} from "../graph/materialize";
 
 type InspectSnap = { id: string; kind: string; props: Record<string, unknown> };
 
@@ -35,6 +42,8 @@ type Props = {
   inspect: InspectSnap | null;
   eventPaths: string[];
   playerFields: ReturnType<typeof playerCreateProps>;
+  entityFields: ReturnType<typeof entityCreateProps>;
+  itemFields: ReturnType<typeof itemCreateProps>;
   emitFields: ReturnType<typeof eventProps>;
   sceneFields: { name: string; readonly?: boolean; type?: string }[];
   patchNodeData: (id: string, patch: Partial<StimulusNodeData>) => void;
@@ -61,7 +70,7 @@ function sceneObjectOptions(scene: SceneSummary | null): { id: string; label: st
     out.push({ id: e.id, label: `Entity · ${e.typeId ?? e.id}` });
   }
   for (const i of scene.items ?? []) {
-    out.push({ id: i.id, label: `ItemStack · ${i.id}` });
+    out.push({ id: i.id, label: `ItemStack · ${i.typeId ?? i.id}` });
   }
   for (const b of scene.blocks ?? []) {
     out.push({ id: b.id, label: `Block · ${b.id}` });
@@ -236,6 +245,20 @@ function defaultNull(f: MetaProp): unknown {
   return f.type === "boolean" ? false : f.type === "number" ? 0 : f.type === "string" ? "" : null;
 }
 
+function sceneKindCountHint(scene: SceneSummary | null, kind: string | undefined): string {
+  if (!scene || !kind) return "";
+  const k = normalizeTargetKind(kind);
+  if (!k) return "";
+  if (k === "World") return scene.world ? "场景中 1" : "场景中 0";
+  if (k === "Scoreboard") return scene.scoreboard ? "场景中 1" : "场景中 0";
+  if (k === "Dimension") return `场景中 ${(scene.dimensions ?? []).length}`;
+  if (k === "Player") return `场景中 ${(scene.players ?? []).length}`;
+  if (k === "Entity") return `场景中 ${(scene.entities ?? []).length}`;
+  if (k === "ItemStack") return `场景中 ${(scene.items ?? []).length}`;
+  if (k === "Block") return `场景中 ${(scene.blocks ?? []).length}`;
+  return "";
+}
+
 function AssertFields({
   selected,
   scene,
@@ -253,6 +276,8 @@ function AssertFields({
     selected.data.targetKind ||
     objects.find((o) => o.id === selected.data.targetId)?.label.split(" · ")[0];
   const propsList = propNameOptions(meta, targetKindGuess);
+  const kindOptions = sceneKindSelectOptions(scene);
+  const countHint = sceneKindCountHint(scene, selected.data.targetKind);
 
   return (
     <>
@@ -260,9 +285,23 @@ function AssertFields({
         <label>断言类型</label>
         <select
           value={kind}
-          onChange={(e) =>
-            patchAssert(selected, { assertKind: e.target.value as AssertKind }, patchNodeData)
-          }
+          onChange={(e) => {
+            const next = e.target.value as AssertKind;
+            if (next === "count") {
+              patchAssert(
+                selected,
+                {
+                  assertKind: next,
+                  targetKind: normalizeTargetKind(selected.data.targetKind) || "Player",
+                  countOp: selected.data.countOp ?? "eq",
+                  countN: typeof selected.data.countN === "number" ? selected.data.countN : 1,
+                },
+                patchNodeData
+              );
+              return;
+            }
+            patchAssert(selected, { assertKind: next }, patchNodeData);
+          }}
         >
           {ASSERT_KIND_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -370,85 +409,126 @@ function AssertFields({
         </>
       )}
 
-      {(kind === "sceneExists" || kind === "count") && (
+      {kind === "sceneExists" && (
         <>
           <div className="field">
             <label>kind</label>
             <select
-              value={selected.data.targetKind ?? ""}
+              value={normalizeTargetKind(selected.data.targetKind) ?? selected.data.targetKind ?? ""}
               onChange={(e) =>
-                patchAssert(selected, { targetKind: e.target.value || undefined }, patchNodeData)
+                patchAssert(
+                  selected,
+                  { targetKind: normalizeTargetKind(e.target.value) || e.target.value || undefined },
+                  patchNodeData
+                )
               }
             >
               <option value="">（任意）</option>
-              {SCENE_KIND_OPTIONS.map((k) => (
+              {kindOptions.map((k) => (
                 <option key={k} value={k}>
                   {k}
                 </option>
               ))}
             </select>
           </div>
-          {kind === "sceneExists" && (
-            <>
-              <div className="field">
-                <label>name / typeId</label>
-                <input
-                  value={selected.data.targetName ?? ""}
-                  placeholder="Player.name 或 Entity.typeId"
-                  onChange={(e) =>
-                    patchAssert(selected, { targetName: e.target.value || undefined }, patchNodeData)
-                  }
-                />
-              </div>
-              <div className="field">
-                <label>对象 id</label>
-                <select
-                  value={selected.data.targetId ?? ""}
-                  onChange={(e) =>
-                    patchAssert(selected, { targetId: e.target.value || undefined }, patchNodeData)
-                  }
-                >
-                  <option value="">（不限）</option>
-                  {objects.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
-          {kind === "count" && (
-            <>
-              <div className="field">
-                <label>比较</label>
-                <select
-                  value={selected.data.countOp ?? "eq"}
-                  onChange={(e) =>
-                    patchAssert(
-                      selected,
-                      { countOp: e.target.value as StimulusNodeData["countOp"] },
-                      patchNodeData
-                    )
-                  }
-                >
-                  <option value="eq">等于 =</option>
-                  <option value="gte">至少 ≥</option>
-                  <option value="lte">至多 ≤</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>N</label>
-                <input
-                  type="number"
-                  value={selected.data.countN ?? 0}
-                  onChange={(e) =>
-                    patchAssert(selected, { countN: Number(e.target.value) || 0 }, patchNodeData)
-                  }
-                />
-              </div>
-            </>
-          )}
+          <div className="field">
+            <label>name / typeId</label>
+            <input
+              value={selected.data.targetName ?? ""}
+              placeholder="Player.name 或 Entity.typeId"
+              onChange={(e) =>
+                patchAssert(selected, { targetName: e.target.value || undefined }, patchNodeData)
+              }
+            />
+          </div>
+          <div className="field">
+            <label>对象 id</label>
+            <select
+              value={selected.data.targetId ?? ""}
+              onChange={(e) =>
+                patchAssert(selected, { targetId: e.target.value || undefined }, patchNodeData)
+              }
+            >
+              <option value="">（不限）</option>
+              {objects.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
+
+      {kind === "count" && (
+        <>
+          <p className="muted meta-hint">
+            按场景 kind 计数（Player 与 Entity 分开；不填 name 则该 kind 全量）。天生 World /
+            Dimension / Scoreboard 仅在选中对应 kind 时计入。
+          </p>
+          <div className="field">
+            <label>kind</label>
+            <select
+              value={normalizeTargetKind(selected.data.targetKind) ?? selected.data.targetKind ?? "Player"}
+              onChange={(e) =>
+                patchAssert(
+                  selected,
+                  { targetKind: normalizeTargetKind(e.target.value) || e.target.value || "Player" },
+                  patchNodeData
+                )
+              }
+            >
+              {kindOptions.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </div>
+          {countHint ? <p className="muted meta-hint">{countHint}</p> : null}
+          <div className="field">
+            <label>name / typeId（可选）</label>
+            <input
+              value={selected.data.targetName ?? ""}
+              placeholder="如 minecraft:cow 或玩家名"
+              onChange={(e) =>
+                patchAssert(selected, { targetName: e.target.value || undefined }, patchNodeData)
+              }
+            />
+          </div>
+          <div className="field">
+            <label>比较</label>
+            <select
+              value={selected.data.countOp ?? "eq"}
+              onChange={(e) =>
+                patchAssert(
+                  selected,
+                  { countOp: e.target.value as StimulusNodeData["countOp"] },
+                  patchNodeData
+                )
+              }
+            >
+              <option value="eq">等于 =</option>
+              <option value="gte">至少 ≥</option>
+              <option value="lte">至多 ≤</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>N</label>
+            <input
+              type="number"
+              min={0}
+              value={selected.data.countN ?? 1}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                patchAssert(
+                  selected,
+                  { countN: Number.isFinite(n) ? n : 0 },
+                  patchNodeData
+                );
+              }}
+            />
+          </div>
         </>
       )}
 
@@ -556,6 +636,8 @@ export function PropsPanelBody({
   inspect,
   eventPaths,
   playerFields,
+  entityFields,
+  itemFields,
   emitFields,
   sceneFields,
   patchNodeData,
@@ -676,6 +758,61 @@ export function PropsPanelBody({
                 props: { ...props, id },
                 objectId: undefined,
                 detail: `${props.op ? "op" : "member"} · ${dim.replace(/^minecraft:/, "")}`,
+              });
+            }}
+          />
+        </>
+      )}
+      {selected.data.kind === "entity" && (
+        <>
+          <p className="muted meta-hint">
+            {selected.data.objectId
+              ? `已登记场景实例 ${selected.data.objectId}（可在场景坞 / $ref 中选用）`
+              : "未实例化：打开或重置沙箱后会自动 objects.create；也可运行此节点"}
+          </p>
+          <p className="muted meta-hint">创建袋 = typeId / dimension / location + Entity 可写表面</p>
+          <MetaPropForm
+            fields={entityFields}
+            values={seedProps(entityFields, selected.data.props)}
+            scene={scene}
+            onChange={(props) => {
+              const typeId = String(props.typeId ?? "minecraft:cow");
+              const dim = String(props.dimensionId ?? "minecraft:overworld");
+              const loc = (props.location as { x?: number; y?: number; z?: number }) ?? {};
+              const short = typeId.includes(":") ? typeId.slice(typeId.indexOf(":") + 1) : typeId;
+              const id = preferredEntityObjectId(props, short);
+              patchNodeData(selected.id, {
+                title: short || "entity",
+                props: { ...props, id, typeId },
+                objectId: undefined,
+                detail: `${dim.replace(/^minecraft:/, "")} · ${loc.x ?? 0},${loc.y ?? 64},${loc.z ?? 0}`,
+              });
+            }}
+          />
+        </>
+      )}
+      {selected.data.kind === "item" && (
+        <>
+          <p className="muted meta-hint">
+            {selected.data.objectId
+              ? `已登记场景实例 ${selected.data.objectId}（可在场景坞 / $ref 中选用）`
+              : "未实例化：打开或重置沙箱后会自动 objects.create；也可运行此节点"}
+          </p>
+          <p className="muted meta-hint">创建袋 = typeId / amount + ItemStack 可写表面</p>
+          <MetaPropForm
+            fields={itemFields}
+            values={seedProps(itemFields, selected.data.props)}
+            scene={scene}
+            onChange={(props) => {
+              const typeId = String(props.typeId ?? "minecraft:apple");
+              const amount = typeof props.amount === "number" ? props.amount : 1;
+              const short = typeId.includes(":") ? typeId.slice(typeId.indexOf(":") + 1) : typeId;
+              const id = preferredItemObjectId(props, short);
+              patchNodeData(selected.id, {
+                title: short || "item",
+                props: { ...props, id, typeId, amount },
+                objectId: undefined,
+                detail: `×${amount}`,
               });
             }}
           />
@@ -805,7 +942,7 @@ export function HotkeysPanelBody({ mod }: { mod: string }) {
       </li>
       <li>
         <span>插入节点</span>
-        <span className="rdx-kbd">{mod}+1…6</span>
+        <span className="rdx-kbd">{mod}+1…8</span>
       </li>
     </ul>
   );

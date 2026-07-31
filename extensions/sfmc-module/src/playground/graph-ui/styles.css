@@ -791,6 +791,18 @@ html body {
 .insert-chip[data-kind="player"] .dot {
   background: var(--accent-player);
 }
+.insert-chip[data-kind="entity"] {
+  border-left-color: var(--accent-emit);
+}
+.insert-chip[data-kind="entity"] .dot {
+  background: var(--accent-emit);
+}
+.insert-chip[data-kind="item"] {
+  border-left-color: var(--accent-assert);
+}
+.insert-chip[data-kind="item"] .dot {
+  background: var(--accent-assert);
+}
 .insert-chip[data-kind="emit"] {
   border-left-color: var(--accent-emit);
 }

@@ -78,8 +78,8 @@ function buildBlocks(scene: SceneSummary): SceneBlock[] {
     rows.push({
       id: i.id,
       kind: "item",
-      title: i.id,
-      detail: "ItemStack",
+      title: i.typeId ?? i.id,
+      detail: i.id,
       group: "实例",
     });
   }

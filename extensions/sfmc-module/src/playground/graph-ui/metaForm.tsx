@@ -40,7 +40,7 @@ export type SceneSummary = {
   dimensions?: { id: string; kind: string; dimensionId: string }[];
   players?: { id: string; kind: string; name: string }[];
   entities?: { id: string; kind: string; typeId?: string }[];
-  items?: { id: string; kind: string }[];
+  items?: { id: string; kind: string; typeId?: string }[];
   blocks?: { id: string; kind: string }[];
   lastEmit?: {
     path: string;
@@ -81,6 +81,19 @@ export const PLAYER_CREATE_ENTRY: MetaProp[] = [
   { name: "location", type: "Vector3", readonly: false },
 ];
 
+/** 沙箱创建 Entity 入口字段（对齐 objects.create Entity） */
+export const ENTITY_CREATE_ENTRY: MetaProp[] = [
+  { name: "typeId", type: "string", readonly: false },
+  { name: "dimensionId", type: "string", readonly: false },
+  { name: "location", type: "Vector3", readonly: false },
+];
+
+/** 沙箱创建 ItemStack 入口字段（对齐 objects.create ItemStack） */
+export const ITEM_CREATE_ENTRY: MetaProp[] = [
+  { name: "typeId", type: "string", readonly: false },
+  { name: "amount", type: "number", readonly: false },
+];
+
 export function defaultForType(type?: string): unknown {
   const t = type ?? "unknown";
   if (t === "boolean") return false;
@@ -110,6 +123,30 @@ export function playerCreateProps(meta: PlaygroundMeta | null): MetaProp[] {
   const seen = new Set<string>();
   const out: MetaProp[] = [];
   for (const p of [...PLAYER_CREATE_ENTRY, ...writableProps(meta, "Player"), ...writableProps(meta, "Entity")]) {
+    if (seen.has(p.name)) continue;
+    seen.add(p.name);
+    out.push(p);
+  }
+  return out;
+}
+
+/** Entity 创建袋：入口字段 + Entity 可写表面（去重） */
+export function entityCreateProps(meta: PlaygroundMeta | null): MetaProp[] {
+  const seen = new Set<string>();
+  const out: MetaProp[] = [];
+  for (const p of [...ENTITY_CREATE_ENTRY, ...writableProps(meta, "Entity")]) {
+    if (seen.has(p.name)) continue;
+    seen.add(p.name);
+    out.push(p);
+  }
+  return out;
+}
+
+/** ItemStack 创建袋：入口字段 + ItemStack 可写表面（去重） */
+export function itemCreateProps(meta: PlaygroundMeta | null): MetaProp[] {
+  const seen = new Set<string>();
+  const out: MetaProp[] = [];
+  for (const p of [...ITEM_CREATE_ENTRY, ...writableProps(meta, "ItemStack")]) {
     if (seen.has(p.name)) continue;
     seen.add(p.name);
     out.push(p);
@@ -264,7 +301,7 @@ export function MetaPropForm({
               ))}
             </div>
           );
-        } else if (type === "Player" || type === "Entity" || type === "Dimension") {
+        } else if (type === "Player" || type === "Entity" || type === "Dimension" || type === "ItemStack") {
           const options =
             type === "Player"
               ? (scene?.players ?? []).map((p) => ({ id: p.id, label: p.name }))
@@ -273,10 +310,15 @@ export function MetaPropForm({
                     id: p.id,
                     label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
                   }))
-                : (scene?.dimensions ?? []).map((d) => ({
-                    id: d.id,
-                    label: d.dimensionId,
-                  }));
+                : type === "ItemStack"
+                  ? (scene?.items ?? []).map((p) => ({
+                      id: p.id,
+                      label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
+                    }))
+                  : (scene?.dimensions ?? []).map((d) => ({
+                      id: d.id,
+                      label: d.dimensionId,
+                    }));
           control = (
             <select
               disabled={locked}

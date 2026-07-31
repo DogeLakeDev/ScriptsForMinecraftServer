@@ -43,8 +43,13 @@ import {
 import {
   bindCreateObjectId,
   clearCreateObjectIds,
-  playerCreatePayload,
+  createApiKind,
+  createPayloadForKind,
+  isCreateStimulusKind,
+  preferredEntityObjectId,
+  preferredItemObjectId,
   preferredPlayerObjectId,
+  type CreateStimulusKind,
 } from "../graph/materialize";
 import { useGraphHistory, useLayoutPrefs, type PanelId } from "./layoutPrefs";
 import { Codicon } from "./Codicon";
@@ -54,7 +59,9 @@ import { SceneDock } from "./SceneDock";
 import { FixturePanel, type FixtureSnapshot } from "./FixturePanel";
 import { ScrollArea } from "./ScrollArea";
 import {
+  entityCreateProps,
   eventProps,
+  itemCreateProps,
   playerCreateProps,
   seedProps,
   type ModuleBinding,
@@ -68,6 +75,8 @@ const nodeTypes: NodeTypes = { stimulus: StimulusNode };
 
 const KIND_MINIMAP: Record<StimulusKind, string> = {
   player: "#4ec9b0",
+  entity: "#569cd6",
+  item: "#ce9178",
   emit: "#569cd6",
   call: "#4fc1ff",
   tick: "#dcdcaa",
@@ -293,11 +302,13 @@ function isTypingTarget(t: EventTarget | null): boolean {
 
 const INSERT_ITEMS = [
   ["player", "Player", "1"],
-  ["emit", "Emit", "2"],
-  ["call", "Call", "3"],
-  ["tick", "Tick", "4"],
-  ["assert", "断言", "5"],
-  ["note", "注释", "6"],
+  ["entity", "Entity", "2"],
+  ["item", "ItemStack", "3"],
+  ["emit", "Emit", "4"],
+  ["call", "Call", "5"],
+  ["tick", "Tick", "6"],
+  ["assert", "断言", "7"],
+  ["note", "注释", "8"],
 ] as const;
 
 function MenuKbd({ children }: { children: string }) {
@@ -507,17 +518,18 @@ export default function App() {
   }, [appendLog, request]);
 
   /**
-   * 将图上未实例化的 Player 节点 objects.create 进 registry，并回写 objectId。
+   * 将图上未实例化的 Player / Entity / ItemStack 节点 objects.create 进 registry，并回写 objectId。
    * 打开/重置沙箱后调用；运行节点时也可复用。
    */
-  const materializePlayerNodes = useCallback(
+  const materializeCreateNodes = useCallback(
     async (source: StimulusFlowNode[]): Promise<StimulusFlowNode[]> => {
-      const players = source.filter((n) => n.data.kind === "player");
-      if (!players.length) return source;
+      const creates = source.filter((n) => isCreateStimulusKind(n.data.kind));
+      if (!creates.length) return source;
       let next = source;
-      let created = 0;
-      for (const n of players) {
-        const props = playerCreatePayload(n.data);
+      const createdByKind: Record<string, number> = {};
+      for (const n of creates) {
+        const stimKind = n.data.kind as CreateStimulusKind;
+        const props = createPayloadForKind(stimKind, n.data);
         const wantId = String(props.id);
         if (n.data.objectId === wantId) {
           try {
@@ -528,16 +540,17 @@ export default function App() {
           }
         }
         const result = (await request("create", {
-          kind: "Player",
+          kind: createApiKind(stimKind),
           props,
         })) as { id: string; kind: string };
         next = bindCreateObjectId(next, n.id, result.id);
-        created += 1;
+        createdByKind[stimKind] = (createdByKind[stimKind] ?? 0) + 1;
       }
       setNodes(next);
       await refreshScene();
-      if (created > 0) {
-        appendLog(`[scene] 已登记 ${created} 个 Player（图节点 → objects.create）`);
+      const parts = Object.entries(createdByKind).map(([k, n]) => `${n} 个 ${createApiKind(k as CreateStimulusKind)}`);
+      if (parts.length > 0) {
+        appendLog(`[scene] 已登记 ${parts.join("、")}（图节点 → objects.create）`);
       }
       return next;
     },
@@ -666,7 +679,7 @@ export default function App() {
           void refreshFixture();
         }
         if (graphForMaterialize) {
-          void materializePlayerNodes(graphForMaterialize).catch((e) => {
+          void materializeCreateNodes(graphForMaterialize).catch((e) => {
             appendLog(`[scene] 自动登记失败: ${e instanceof Error ? e.message : String(e)}`);
           });
         }
@@ -676,7 +689,7 @@ export default function App() {
         const next = applyScript(msg.script as SandboxScript, "[script] 已打开剧本");
         setCanPersist(true);
         if (next) {
-          void materializePlayerNodes(next).catch((e) => {
+          void materializeCreateNodes(next).catch((e) => {
             appendLog(`[scene] 自动登记失败: ${e instanceof Error ? e.message : String(e)}`);
           });
         }
@@ -684,7 +697,7 @@ export default function App() {
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [appendLog, applyScript, materializePlayerNodes, pending, refreshFixture, setEdges, setNodes]);
+  }, [appendLog, applyScript, materializeCreateNodes, pending, refreshFixture, setEdges, setNodes]);
 
   // 防抖自动保存：webview state + host 文件 / workspaceState
   useEffect(() => {
@@ -806,7 +819,7 @@ export default function App() {
             data.props = { ...data.props, name: patch.title };
             data.objectId = undefined;
           }
-          if (data.kind === "player" && patch.props != null) {
+          if (isCreateStimulusKind(data.kind) && patch.props != null) {
             data.objectId = undefined;
           }
           if (data.kind === "emit" && patch.path) {
@@ -915,8 +928,9 @@ export default function App() {
         setRunState(id, "running");
         appendLog(`[run] → ${n.data.kind} ${n.data.title}`);
         try {
-          if (n.data.kind === "player") {
-            const props = playerCreatePayload(n.data);
+          if (isCreateStimulusKind(n.data.kind)) {
+            const stimKind = n.data.kind as CreateStimulusKind;
+            const props = createPayloadForKind(stimKind, n.data);
             const wantId = String(props.id);
             let objectId = n.data.objectId;
             if (objectId === wantId) {
@@ -930,7 +944,7 @@ export default function App() {
             }
             if (!objectId) {
               const result = (await request("create", {
-                kind: "Player",
+                kind: createApiKind(stimKind),
                 props,
               })) as { id: string; kind: string };
               objectId = result.id;
@@ -1076,6 +1090,8 @@ export default function App() {
       pushHistory();
       const id = `n${Date.now()}`;
       const playerFields = playerCreateProps(meta);
+      const entityFields = entityCreateProps(meta);
+      const itemFields = itemCreateProps(meta);
       const defaults: Record<StimulusKind, StimulusNodeData> = {
         player: {
           kind: "player",
@@ -1087,6 +1103,27 @@ export default function App() {
             op: true,
             dimensionId: "minecraft:overworld",
             location: { x: 0, y: 64, z: 0 },
+          }),
+        },
+        entity: {
+          kind: "entity",
+          title: "cow",
+          detail: "overworld · 0,64,0",
+          props: seedProps(entityFields, {
+            id: preferredEntityObjectId({ typeId: "minecraft:cow" }),
+            typeId: "minecraft:cow",
+            dimensionId: "minecraft:overworld",
+            location: { x: 0, y: 64, z: 0 },
+          }),
+        },
+        item: {
+          kind: "item",
+          title: "apple",
+          detail: "×1",
+          props: seedProps(itemFields, {
+            id: preferredItemObjectId({ typeId: "minecraft:apple" }),
+            typeId: "minecraft:apple",
+            amount: 1,
           }),
         },
         emit: {
@@ -1314,9 +1351,18 @@ export default function App() {
         void h.run("only");
         return;
       }
-      if (mod && !e.shiftKey && key >= "1" && key <= "6") {
+      if (mod && !e.shiftKey && key >= "1" && key <= "8") {
         e.preventDefault();
-        const kinds: StimulusKind[] = ["player", "emit", "call", "tick", "assert", "note"];
+        const kinds: StimulusKind[] = [
+          "player",
+          "entity",
+          "item",
+          "emit",
+          "call",
+          "tick",
+          "assert",
+          "note",
+        ];
         h.addNode(kinds[Number(key) - 1]!);
       }
     };
@@ -1328,6 +1374,8 @@ export default function App() {
   const chrome = useCanvasChrome();
   const canRun = ready && !busy;
   const playerFields = useMemo(() => playerCreateProps(meta), [meta]);
+  const entityFields = useMemo(() => entityCreateProps(meta), [meta]);
+  const itemFields = useMemo(() => itemCreateProps(meta), [meta]);
   const emitFields = useMemo(() => {
     if (!selected || selected.data.kind !== "emit") return [];
     return eventProps(meta, selected.data.path ?? "");
@@ -1398,6 +1446,8 @@ export default function App() {
           inspect={inspect}
           eventPaths={eventPaths}
           playerFields={playerFields}
+          entityFields={entityFields}
+          itemFields={itemFields}
           emitFields={emitFields}
           sceneFields={sceneFields}
           patchNodeData={patchNodeData}
