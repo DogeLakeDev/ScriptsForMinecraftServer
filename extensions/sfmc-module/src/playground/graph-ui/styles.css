@@ -1,4 +1,4 @@
-/* 鑴氭湰娌欑鐨細绀轰緥鍚屾寮鸿皟鑹?+ 璺?VS Code 浜?鏆?chrome */
+/* 脚本沙箱的 playground：示例同款节点调色 + 跟 VS Code chrome 同色系 */
 :root {
   --vs-fg: var(--vscode-foreground);
   --vs-muted: var(--vscode-descriptionForeground);
@@ -968,7 +968,45 @@ html body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--vs-muted);
+}
+.scene-dock-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 6px;
+}
+.scene-view-tabs {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--vs-border);
+}
+.scene-view-tabs button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--vs-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 6px 10px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color 80ms linear,
+    border-color 80ms linear;
+}
+.scene-view-tabs button:hover {
+  color: var(--vs-fg);
+}
+.scene-view-tabs button.active {
+  color: var(--vs-fg);
+  border-bottom-color: var(--vs-focus);
+  font-weight: 600;
 }
 .scene-dock-empty {
   margin: 0;
@@ -1009,6 +1047,399 @@ html body {
 .scene-block.selected {
   border-color: var(--vs-focus);
   box-shadow: 0 0 0 1px var(--vs-focus);
+}
+
+/* 玩家块下的迷你聊天日志（按 player.name 路由） */
+.mini-chat {
+  margin-top: 2px;
+  padding: 4px 6px;
+  border-left: 2px solid var(--accent-call);
+  background: color-mix(in srgb, var(--accent-call) 8%, transparent);
+  font-size: 10.5px;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  word-break: break-word;
+}
+.mini-chat-line {
+  color: var(--vs-muted);
+}
+.mini-chat-line.mini-chat-system {
+  color: var(--vs-fg);
+}
+.mini-chat-line.mini-chat-system::before {
+  content: "→ ";
+  color: var(--accent-call);
+  font-weight: 600;
+}
+.mini-chat-more {
+  color: var(--vs-muted);
+  opacity: 0.7;
+  font-size: 9.5px;
+}
+.mini-chat-mini {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mini-chat-block {
+  border-left: 2px solid var(--accent-call);
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--accent-call) 6%, transparent);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.mini-chat-name {
+  font-weight: 600;
+  color: var(--vs-fg);
+  margin-bottom: 2px;
+}
+/* 语义化变量（自适应 VS Code 主题；本块仅 spreadsheet / drawer 用，避免污染全局） */
+.spreadsheet-section,
+.inspect-drawer {
+  /* 调色板：覆盖仓库既有 --vs-* 的语义层，避免直接写 #fff / #000 */
+  --surface-1: var(--vs-bg);
+  --surface-2: color-mix(in srgb, var(--vs-side) 75%, var(--vs-bg) 25%);
+  --border-subtle: color-mix(in srgb, var(--vs-border) 55%, transparent);
+  --text-primary: var(--vs-fg);
+  --text-secondary: var(--vs-muted);
+  --accent: var(--vs-focus);
+  --accent-muted: color-mix(in srgb, var(--vs-sel) 50%, transparent);
+}
+.spreadsheet-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.spreadsheet-section {
+  min-width: 0;
+  border: 1px solid var(--vs-border);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+.spreadsheet-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--vscode-font-family), "Segoe UI", system-ui, sans-serif;
+}
+.spreadsheet-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vs-fg) 9%, transparent);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.spreadsheet-scroll {
+  max-width: 100%;
+  font-family: var(--vscode-font-family), "Segoe UI", system-ui, sans-serif;
+}
+.spreadsheet-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+.spreadsheet-table th,
+.spreadsheet-table td {
+  max-width: 220px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.spreadsheet-table th:last-child,
+.spreadsheet-table td:last-child {
+  border-right: 0;
+}
+.spreadsheet-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.spreadsheet-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+  border-bottom: 1px solid var(--vs-border);
+}
+.spreadsheet-table th button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 80ms linear,
+    background 80ms linear;
+}
+.spreadsheet-table th button:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-muted) 60%, transparent);
+}
+.spreadsheet-table th button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.spreadsheet-sort {
+  min-width: 8px;
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1;
+}
+/* monospace 列：识别 id / typeId / 坐标 / 命令名 */
+.spreadsheet-table td.spreadsheet-col-mono {
+  font-family: var(--vscode-editor-font-family, Consolas, "Courier New", monospace);
+  font-size: 11px;
+}
+.spreadsheet-table tbody tr:not(.spreadsheet-empty-row) {
+  cursor: pointer;
+  position: relative;
+  transition: background 80ms linear;
+}
+.spreadsheet-table tbody tr:not(.spreadsheet-empty-row):hover {
+  background: color-mix(in srgb, var(--accent-muted) 45%, transparent);
+}
+.spreadsheet-table tbody tr:not(.spreadsheet-empty-row):focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent-muted) 70%, transparent);
+}
+.spreadsheet-table tbody tr:not(.spreadsheet-empty-row):focus-visible td:first-child {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+.spreadsheet-empty-row td {
+  color: var(--text-secondary);
+  text-align: center;
+  font-style: italic;
+  padding: 12px 8px;
+}
+
+/* ------- Inspect 抽屉：桌面应用观感 ------- */
+.inspect-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: color-mix(in srgb, #000 32%, transparent);
+  animation: inspect-drawer-backdrop-enter 160ms ease-out;
+}
+@keyframes inspect-drawer-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.inspect-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(480px, 60vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--vs-border);
+  background: var(--vscode-editor-background, var(--vs-side));
+  color: var(--vs-fg);
+  box-shadow:
+    -1px 0 0 0 color-mix(in srgb, var(--vs-border) 60%, transparent),
+    -8px 0 24px color-mix(in srgb, #000 18%, transparent);
+  animation: inspect-drawer-enter 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes inspect-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.inspect-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+}
+.inspect-drawer-kind {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--vscode-font-family), "Segoe UI", system-ui, sans-serif;
+}
+.inspect-drawer-id {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: 11px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+.inspect-drawer-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font:
+    18px/22px var(--vscode-font-family),
+    sans-serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 80ms linear,
+    color 80ms linear;
+}
+.inspect-drawer-close:hover {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+.inspect-drawer-close:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.inspect-drawer-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 14px 16px 16px;
+  font-family: var(--vscode-font-family), "Segoe UI", system-ui, sans-serif;
+}
+.inspect-drawer-status {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 12px 0;
+}
+.inspect-drawer-status.error {
+  color: var(--run-fail);
+}
+
+/* 属性表：与主表格同语义的紧凑型表格 */
+.inspect-property-table {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.9fr) minmax(140px, 1.6fr) minmax(64px, 0.5fr);
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--surface-1);
+}
+.inspect-property-table > div {
+  min-width: 0;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.inspect-property-table > div:nth-child(3n) {
+  border-right: 0;
+}
+.inspect-property-th {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.inspect-property-table > div:nth-child(3n + 1) {
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.inspect-property-table > div:nth-child(3n + 2) {
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+/* 控制节点 Branch / Repeat 的视觉区分 */
+.s-node[data-kind="branch"] {
+  border-left-color: #c586c0;
+  border-style: solid;
+}
+.s-node[data-kind="branch"] .s-node-head {
+  background: color-mix(in srgb, #c586c0 14%, transparent);
+}
+.s-node[data-kind="branch"] .dot {
+  background: #c586c0;
+}
+.s-node[data-kind="repeat"] {
+  border-left-color: #b5cea8;
+  border-style: dashed;
+}
+.s-node[data-kind="repeat"] .s-node-head {
+  background: color-mix(in srgb, #b5cea8 14%, transparent);
+}
+.s-node[data-kind="repeat"] .dot {
+  background: #b5cea8;
+}
+
+/* 跑图期间 Branch / Repeat 暂停高亮 + 右上小红点 */
+.s-node.paused {
+  box-shadow: 0 0 0 1px var(--run-active);
+}
+.pause-dot {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--run-fail);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--run-fail) 30%, transparent);
+  flex-shrink: 0;
 }
 .modal-backdrop {
   position: fixed;
@@ -1077,6 +1508,32 @@ html body {
 .meta-form {
   display: grid;
   gap: 0;
+}
+.nested-object {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--vs-border);
+  background: color-mix(in srgb, var(--vs-side) 60%, transparent);
+}
+.nested-field {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) 2fr;
+  gap: 6px;
+  align-items: center;
+}
+.nested-field-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--vs-muted);
+  line-height: 1.2;
+}
+.nested-field-label .field-type {
+  margin-left: 0;
+  font-size: 10px;
+  opacity: 0.8;
 }
 .side {
   display: grid;
@@ -1351,4 +1808,162 @@ html body {
   min-height: 0;
 }
 
+/* <ExprField> 失焦校验：成功灰字一行、失败红字一行 + 字段红边（input style inline） */
+.expr-field-msg {
+  margin: -2px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  font-family: var(--font-mono, var(--vscode-editor-font-family));
+}
+.expr-field-msg.expr-field-error {
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+.expr-field-msg.expr-field-ok {
+  color: var(--vs-muted);
+  opacity: 0.9;
+}
 
+/* <TargetPicker> 目标行：类型 + 名称/ID + 清空 同一行自适应 */
+.target-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(120px, 2fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+.target-row select,
+.target-row input {
+  width: 100%;
+}
+.target-row .btn-secondary.compact {
+  padding: 0 8px;
+  font-size: 11px;
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
+}
+
+/* 断言节点失败 ⓘ 提示 */
+.s-node .failure-tip {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--run-fail);
+  color: var(--vs-btn-fg);
+  cursor: help;
+  user-select: none;
+}
+.s-node {
+  position: relative;
+}
+
+/* <ExprField> 插入变量：行内 input + 右侧按钮 + 弹层 */
+.expr-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
+  align-items: stretch;
+}
+.expr-row input,
+.expr-row textarea {
+  min-width: 0;
+}
+.expr-insert-btn {
+  appearance: none;
+  border: 1px solid var(--vs-input-border, transparent);
+  background: var(--vs-input);
+  color: var(--vs-fg);
+  border-radius: 2px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 28px;
+}
+.expr-insert-btn:hover:not(:disabled) {
+  background: var(--vs-btn2);
+}
+.expr-insert-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.expr-insert-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  z-index: 30;
+  min-width: 240px;
+  max-width: min(360px, 80vw);
+  max-height: 280px;
+  overflow: auto;
+  background: var(--vs-menu);
+  color: var(--vs-menu-fg);
+  border: 1px solid var(--vs-menu-border);
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 0 8px 24px var(--vs-shadow);
+  font-size: 12px;
+}
+.expr-insert-section {
+  display: flex;
+  flex-direction: column;
+}
+.expr-insert-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(120px, 2fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 8px;
+  border-radius: 2px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.expr-insert-item:hover:not(:disabled),
+.expr-insert-item:focus-visible:not(:disabled) {
+  background: var(--vs-sel);
+  color: var(--vs-sel-fg);
+  outline: none;
+}
+.expr-insert-item:disabled {
+  opacity: 0.55;
+  cursor: default;
+  font-style: italic;
+}
+.expr-insert-label {
+  font-family: var(--font-mono, var(--vscode-editor-font-family));
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.expr-insert-preview {
+  color: var(--vs-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.expr-insert-item:hover:not(:disabled) .expr-insert-preview,
+.expr-insert-item:focus-visible:not(:disabled) .expr-insert-preview {
+  color: inherit;
+  opacity: 0.75;
+}
+.expr-insert-empty {
+  margin: 2px 8px 6px;
+  font-size: 11px;
+}

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
+  ReactFlow,
   addEdge,
   reconnectEdge,
   useEdgesState,
@@ -12,18 +13,8 @@ import {
   type Edge,
   type NodeTypes,
   type ReactFlowInstance,
-  BackgroundVariant,
 } from "@xyflow/react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import {
-  StimulusNode,
-  clipRunSummary,
-  formatCallDetail,
-  type StimulusFlowNode,
-  type StimulusKind,
-  type StimulusNodeData,
-} from "./StimulusNode";
-import { vscodeApi } from "./vscodeApi";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   assertInspectIds,
   assertTitle,
@@ -32,20 +23,13 @@ import {
   migrateAssertConfig,
   normalizeAssertKind,
 } from "../graph/assert";
+import { exprTruthy, resolveExpr } from "../graph/expr";
 import {
   formatLogLineWithNode,
   pushLogEvent,
   type StructuredLogEvent,
   type StructuredLogLevel,
 } from "../graph/logBuffer";
-import {
-  hasFailOutEdges,
-  normalizeEdgeKind,
-  orderAssertBranch,
-  orderNodes,
-  type EdgeKind,
-  type RunMode,
-} from "../graph/order";
 import {
   bindCreateObjectId,
   clearCreateObjectIds,
@@ -58,14 +42,37 @@ import {
   preferredScoreboardObjectId,
   type CreateStimulusKind,
 } from "../graph/materialize";
-import { useGraphHistory, useLayoutPrefs, type PanelId } from "./layoutPrefs";
+import {
+  hasFailOutEdges,
+  normalizeEdgeKind,
+  orderAssertBranch,
+  orderNodes,
+  sliceControlBody,
+  type EdgeKind,
+  type RunMode,
+} from "../graph/order";
 import { Codicon } from "./Codicon";
 import { DockPanel } from "./DockPanel";
+import { matchesEventLogFilter } from "./EventLogNode";
+import { FixturePanel, type FixtureSnapshot } from "./FixturePanel";
+import { FrameNode } from "./FrameNode";
+import { LoadedPanel } from "./LoadedPanel";
+import { NodePalette } from "./NodePalette";
 import { HotkeysPanelBody, PropsPanelBody } from "./PropsPanelBody";
 import { SceneDock } from "./SceneDock";
-import { FixturePanel, type FixtureSnapshot } from "./FixturePanel";
-import { LoadedPanel } from "./LoadedPanel";
 import { ScrollArea } from "./ScrollArea";
+import {
+  NODE_COLOR_PRESETS,
+  StimulusNode,
+  clipRunSummary,
+  formatCallDetail,
+  nodeColor,
+  type StimulusFlowNode,
+  type StimulusKind,
+  type StimulusNodeData,
+} from "./StimulusNode";
+import { ViewerNode } from "./ViewerNode";
+import { useGraphHistory, useLayoutPrefs, type PanelId } from "./layoutPrefs";
 import {
   entityCreateProps,
   eventProps,
@@ -76,10 +83,21 @@ import {
   type PlaygroundMeta,
   type SceneSummary,
 } from "./metaForm";
+import { vscodeApi } from "./vscodeApi";
 
 type Meta = PlaygroundMeta;
 
-const nodeTypes: NodeTypes = { stimulus: StimulusNode };
+/** 迷你聊天行：玩家说 / 系统对玩家说。最多保留 N 条（默认 50）。 */
+type ChatLine = {
+  t: number;
+  /** "say"：玩家在 QQ/MC 说；"system"：host（系统 / 模块）对该玩家发。 */
+  direction: "say" | "system";
+  text: string;
+};
+
+const CHAT_BUFFER_MAX = 50;
+
+const nodeTypes: NodeTypes = { stimulus: StimulusNode, frame: FrameNode, viewer: ViewerNode };
 
 const KIND_MINIMAP: Record<StimulusKind, string> = {
   player: "#4ec9b0",
@@ -90,6 +108,11 @@ const KIND_MINIMAP: Record<StimulusKind, string> = {
   call: "#4fc1ff",
   tick: "#dcdcaa",
   assert: "#ce9178",
+  branch: "#c586c0",
+  repeat: "#b5cea8",
+  frame: "#808080",
+  viewer: "#4fc1ff",
+  eventlog: "#808080",
   note: "#808080",
 };
 
@@ -309,7 +332,7 @@ function isTypingTarget(t: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
 }
 
-const INSERT_ITEMS = [
+const INSERT_ITEMS: readonly (readonly [StimulusKind, string, string])[] = [
   ["player", "Player", "1"],
   ["entity", "Entity", "2"],
   ["item", "ItemStack", "3"],
@@ -318,8 +341,12 @@ const INSERT_ITEMS = [
   ["call", "Call", "6"],
   ["tick", "Tick", "7"],
   ["assert", "断言", "8"],
-  ["note", "注释", "9"],
-] as const;
+  ["branch", "Branch", "B"],
+  ["repeat", "Repeat", "R"],
+  ["frame", "Frame", "F"],
+  ["viewer", "Viewer", "V"],
+  ["note", "注释", "N"],
+];
 
 function MenuKbd({ children }: { children: string }) {
   return <span className="rdx-kbd">{children}</span>;
@@ -356,15 +383,7 @@ function InsertSubmenu({ onInsert }: { onInsert: (kind: StimulusKind) => void })
   );
 }
 
-function TopMenu({
-  label,
-  children,
-  disabled,
-}: {
-  label: string;
-  children: ReactNode;
-  disabled?: boolean;
-}) {
+function TopMenu({ label, children, disabled }: { label: string; children: ReactNode; disabled?: boolean }) {
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
@@ -399,12 +418,14 @@ export default function App() {
   const skipHostScript = useRef(bootGraph.fromWebview);
   /** 收到 started（含可选 host 恢复）后再防抖写盘，避免用内置示例覆盖存档 */
   const [canPersist, setCanPersist] = useState(false);
-  const { push: pushHistory, pushBurst, undo, redo, canUndo, canRedo } = useGraphHistory(
-    nodes,
-    edges,
-    setNodes,
-    setEdges
-  );
+  const {
+    push: pushHistory,
+    pushBurst,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useGraphHistory(nodes, edges, setNodes, setEdges);
   const { prefs, setPanel, togglePanel, setDockWidth, resetLayout } = useLayoutPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(() => bootGraph.nodes[0]?.id ?? null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -414,7 +435,7 @@ export default function App() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [scene, setScene] = useState<SceneSummary | null>(null);
   const [moduleBinding, setModuleBinding] = useState<ModuleBinding>(() => ({
-    moduleRoot: typeof document !== "undefined" ? document.body.dataset.module ?? null : null,
+    moduleRoot: typeof document !== "undefined" ? (document.body.dataset.module ?? null) : null,
     id: null,
     version: null,
     enabled: null,
@@ -429,6 +450,7 @@ export default function App() {
     props: Record<string, unknown>;
   } | null>(null);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [fixture, setFixture] = useState<FixtureSnapshot | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{
     x: number;
@@ -446,15 +468,58 @@ export default function App() {
       text: "脚本沙箱 · sapi-sandbox",
     },
   ]);
+  const logChannelsRef = useRef(new Map<StructuredLogEvent, string>());
+  const eventLogListenersRef = useRef(new Set<(event: StructuredLogEvent) => void>());
   const runSeqRef = useRef(0);
   const currentRunIdRef = useRef<number | undefined>(undefined);
   const lastFailedNodeIdRef = useRef<string | null>(null);
+  /**
+   * 模块入口 source map（symbol → { file, line, column }）。
+   * boot 完成后由扩展侧 PlaygroundPanel 算出并 postMessage 传入；缺省时按空 Map 兜底，UI ⓘ 仍显示失败 message。
+   */
+  const sourceMapRef = useRef<Map<string, { file: string; line: number; column?: number }>>(new Map());
+  /**
+   * 上一次 Call 节点的 (id, method)：后续 assert 失败时 evaluateAssert 据此在 sourceMap 反查 @cmd.<method>。
+   * 仅在断言求值时透传，不影响 @lastCall 表达式语义。
+   */
+  useEffect(() => {
+    if (!busy) return;
+    const listeners = new Map<string, (event: StructuredLogEvent) => void>();
+    const refresh = (node: StimulusFlowNode) => {
+      if (node.data.kind !== "eventlog") return;
+      const maxEntries = Math.max(1, Math.floor(node.data.eventlogMaxEntries ?? 50));
+      const snapshot = logEventsRef.current
+        .filter((event) => matchesEventLogFilter(event, logChannelsRef.current.get(event), node.data))
+        .slice(-maxEntries);
+      setNodes((current) =>
+        current.map((item) =>
+          item.id === node.id ? { ...item, data: { ...item.data, eventlogSnapshot: snapshot } } : item
+        )
+      );
+    };
+    for (const node of nodesRef.current) {
+      if (node.data.kind !== "eventlog") continue;
+      refresh(node);
+      const listener = () => refresh(node);
+      listeners.set(node.id, listener);
+      eventLogListenersRef.current.add(listener);
+    }
+    return () => {
+      for (const listener of listeners.values()) eventLogListenersRef.current.delete(listener);
+    };
+  }, [busy, setNodes]);
+  const lastCallContextRef = useRef<{ id?: string; method?: string }>({});
+
+  /** 跑图期 Call 返回值袋：name → snapshot。@out.<name>[.prop] 解析时按 bag 直接下钻。 */
+  const outRef = useRef<Record<string, unknown>>({});
+  /** 跑图期 inspect 出来的对象快照袋（与原 refs 等价；key=object id）。 */
+  const refsRef = useRef<Record<string, { id: string; kind: string; props: Record<string, unknown> }>>({});
+  /** 玩家路由的迷你聊天日志（playerName → 行序列）。host log channel=msg 解析后追加。 */
+  const chatByPlayerRef = useRef<Record<string, ChatLine[]>>({});
+  const [, bumpChatVersion] = useState(0);
 
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
-  const selectedEdge = useMemo(
-    () => edges.find((e) => e.id === selectedEdgeId) ?? null,
-    [edges, selectedEdgeId]
-  );
+  const selectedEdge = useMemo(() => edges.find((e) => e.id === selectedEdgeId) ?? null, [edges, selectedEdgeId]);
   const flowEdges = useMemo(() => decorateFlowEdges(edges, nodes), [edges, nodes]);
   const failedNodeId = useMemo(
     () => nodes.find((n) => n.data.runState === "failed")?.id ?? lastFailedNodeIdRef.current,
@@ -462,11 +527,7 @@ export default function App() {
   );
 
   const appendLog = useCallback(
-    (
-      line: string,
-      level: StructuredLogLevel = "info",
-      meta?: { nodeId?: string; source?: string }
-    ) => {
+    (line: string, level: StructuredLogLevel = "info", meta?: { nodeId?: string; source?: string }) => {
       const nodeId = meta?.nodeId;
       const source = meta?.source?.trim() || "sandbox";
       const text = formatLogLineWithNode(line, nodeId);
@@ -479,6 +540,8 @@ export default function App() {
         ...(currentRunIdRef.current != null ? { runId: currentRunIdRef.current } : {}),
       };
       logEventsRef.current = pushLogEvent(logEventsRef.current, ev, 500);
+      logChannelsRef.current.set(ev, "system");
+      eventLogListenersRef.current.forEach((listener) => listener(ev));
       vscodeApi().postMessage({
         cmd: "uiLog",
         text,
@@ -678,20 +741,33 @@ export default function App() {
               : "playground";
         const rawLv = String(msg.payload.level ?? "info");
         const level: StructuredLogLevel =
-          rawLv === "error" || rawLv === "warn" || rawLv === "debug" || rawLv === "success"
-            ? rawLv
-            : "info";
-        logEventsRef.current = pushLogEvent(
-          logEventsRef.current,
-          {
-            t: Date.now(),
-            level,
-            source,
-            text,
-            ...(currentRunIdRef.current != null ? { runId: currentRunIdRef.current } : {}),
-          },
-          500
+          rawLv === "error" || rawLv === "warn" || rawLv === "debug" || rawLv === "success" ? rawLv : "info";
+        const event: StructuredLogEvent = {
+          t: Date.now(),
+          level,
+          source,
+          text,
+          ...(currentRunIdRef.current != null ? { runId: currentRunIdRef.current } : {}),
+        };
+        logEventsRef.current = pushLogEvent(logEventsRef.current, event, 500);
+        logChannelsRef.current.set(
+          event,
+          msg.payload.channel === "module" ? "module" : msg.payload.channel === "msg" ? "player" : "system"
         );
+        eventLogListenersRef.current.forEach((listener) => listener(event));
+        // 玩家路由的迷你聊天：msg 通道前缀为 "[Msg] <player>: <text>"。解析后落到该玩家桶。
+        if (msg.payload.channel === "msg") {
+          const m = /^\[Msg\]\s+([^:]+):\s*(.*)$/.exec(text);
+          if (m) {
+            const playerName = m[1]!.trim();
+            const chatText = m[2] ?? "";
+            const bag = chatByPlayerRef.current;
+            const list = bag[playerName] ?? [];
+            list.push({ t: Date.now(), direction: "system", text: chatText });
+            bag[playerName] = list.length > CHAT_BUFFER_MAX ? list.slice(list.length - CHAT_BUFFER_MAX) : list;
+            bumpChatVersion((x) => x + 1);
+          }
+        }
         return;
       }
       if (msg.type === "locateNode" && msg.nodeId) {
@@ -703,6 +779,20 @@ export default function App() {
         } else {
           appendLog(`[run] 找不到节点 ${id}`, "warn");
         }
+        return;
+      }
+      // 扩展侧 postMessage：模块 source map（symbol → file/line/column）。
+      // boot 完成后写入；空 entries 表示无 source map（UI ⓘ 仅显示 message，无跳转）。
+      if (msg.type === "sourceMap" && msg.entries) {
+        const next = new Map<string, { file: string; line: number; column?: number }>();
+        const entries = msg.entries as Array<[string, { file: string; line: number; column?: number }]>;
+        for (const [k, v] of entries) {
+          if (typeof k === "string" && v && typeof v.file === "string" && typeof v.line === "number") {
+            next.set(k, v);
+          }
+        }
+        sourceMapRef.current = next;
+        appendLog(`[sandbox] 已装载 source map（${next.size} 条 symbol → 源码定位）`, "info");
         return;
       }
       if (msg.type === "started") {
@@ -725,10 +815,7 @@ export default function App() {
         // host 带 script：跨会话权威；若本轮已从 getState 恢复则跳过，避免覆盖未落盘编辑
         let graphForMaterialize: StimulusFlowNode[] | null = null;
         if (msg.script && Array.isArray(msg.script.nodes) && !skipHostScript.current) {
-          graphForMaterialize = applyScript(
-            msg.script as SandboxScript,
-            "[script] 已恢复自动保存的剧本"
-          );
+          graphForMaterialize = applyScript(msg.script as SandboxScript, "[script] 已恢复自动保存的剧本");
         } else {
           // 重置世界后清空脏 objectId，再重新登记
           graphForMaterialize = clearCreateObjectIds(nodesRef.current);
@@ -744,9 +831,7 @@ export default function App() {
         }
         const subs = binding?.subscribedEvents ?? [];
         if (subs.length > 0) {
-          appendLog(
-            `[module] subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`
-          );
+          appendLog(`[module] subscribed=[${subs.map((e) => `${e.path}×${e.listeners}`).join(", ")}]`);
         }
         if (binding?.bootPhase || binding?.commands || binding?.permissions) {
           appendLog(
@@ -816,9 +901,7 @@ export default function App() {
   const onConnect = useCallback(
     (c: Connection) => {
       pushHistory();
-      setEdges((eds) =>
-        addEdge({ ...c, id: `e-${c.source}-${c.target}`, data: { kind: "pass" as EdgeKind } }, eds)
-      );
+      setEdges((eds) => addEdge({ ...c, id: `e-${c.source}-${c.target}`, data: { kind: "pass" as EdgeKind } }, eds));
     },
     [pushHistory, setEdges]
   );
@@ -939,6 +1022,31 @@ export default function App() {
                   ...n.data,
                   runState,
                   ...(runSummary !== undefined ? { runSummary } : {}),
+                  // 失败时清掉旧 message；成功时一并清掉（重跑后不再残留上次的 ⓘ）
+                  ...(runState !== "failed" ? { lastFailure: undefined } : {}),
+                },
+              }
+            : n
+        )
+      );
+    },
+    [setNodes]
+  );
+
+  /**
+   * 断言失败：把 evaluateAssert 结果钉在节点上，供 StimulusNode 渲染 ⓘ + hover 详情。
+   * 携带可选 location（来自 source map 反查），ⓘ 点击后向扩展发 revealInModule。
+   */
+  const setNodeLastFailure = useCallback(
+    (id: string, message: string, location?: { file: string; line: number; column?: number }) => {
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  lastFailure: { message, ...(location ? { location } : {}) },
                 },
               }
             : n
@@ -950,9 +1058,7 @@ export default function App() {
 
   const locateFailedNode = useCallback(() => {
     const id =
-      nodesRef.current.find((n) => n.data.runState === "failed")?.id ??
-      lastFailedNodeIdRef.current ??
-      undefined;
+      nodesRef.current.find((n) => n.data.runState === "failed")?.id ?? lastFailedNodeIdRef.current ?? undefined;
     if (!id) {
       appendLog("[run] 无失败节点可定位");
       return;
@@ -962,13 +1068,10 @@ export default function App() {
     setStatus(`已定位失败节点 ${id}`);
   }, [appendLog, selectGraphNode]);
 
-  const markFailedNode = useCallback(
-    (id: string) => {
-      lastFailedNodeIdRef.current = id;
-      vscodeApi().postMessage({ cmd: "reportFailedNode", nodeId: id });
-    },
-    []
-  );
+  const markFailedNode = useCallback((id: string) => {
+    lastFailedNodeIdRef.current = id;
+    vscodeApi().postMessage({ cmd: "reportFailedNode", nodeId: id });
+  }, []);
 
   const run = useCallback(
     async (mode: RunMode, focusId?: string | null) => {
@@ -980,13 +1083,7 @@ export default function App() {
       }
       setBusy(true);
       const label =
-        mode === "graph"
-          ? "运行整图"
-          : mode === "from"
-            ? "从选中运行"
-            : mode === "only"
-              ? "仅运行选中"
-              : "运行上游";
+        mode === "graph" ? "运行整图" : mode === "from" ? "从选中运行" : mode === "only" ? "仅运行选中" : "运行上游";
       const runId = ++runSeqRef.current;
       currentRunIdRef.current = runId;
       setStatus(`${label}…`);
@@ -994,9 +1091,20 @@ export default function App() {
       setNodes((ns) =>
         ns.map((n) => ({
           ...n,
-          data: { ...n.data, runState: "idle" as const, runSummary: undefined },
+          data: {
+            ...n.data,
+            runState: "idle" as const,
+            runSummary: undefined,
+            lastFailure: undefined,
+            repeatCurrent: undefined,
+          },
         }))
       );
+      // 重置 Call 上下文：本次 run 不复用上次的 (id, method) 反查 source map。
+      lastCallContextRef.current = {};
+      // 跑图期上下文：Call 返回值袋 + 已 inspect 对象袋，每次 run 重置
+      outRef.current = {};
+      refsRef.current = {};
 
       const graphEdges = edgesRef.current.map((e) => ({
         source: e.source,
@@ -1004,16 +1112,27 @@ export default function App() {
         kind: normalizeEdgeKind((e.data as { kind?: string } | undefined)?.kind),
       }));
       let order = orderNodes(
-        nodesRef.current.map((n) => ({ id: n.id, kind: n.data.kind })),
+        nodesRef.current.map((n) => ({
+          id: n.id,
+          kind: n.data.kind === "eventlog" ? "viewer" : n.data.kind,
+        })),
         graphEdges,
         mode,
         sel
       );
 
+      /** 控制节点（Branch / Repeat）执行时影响外层循环：用「线性序 + controlSubsequence」判定。 */
+      const isControl = (cid: string) => {
+        const k = nodesRef.current.find((x) => x.id === cid)?.data.kind;
+        return k === "branch" || k === "repeat";
+      };
+
       let failed = false;
       let divertedFail = false;
       let failedNode: string | null = null;
       const doneIds = new Set<string>();
+      /** Repeat 子图体内轮询期间是否要求终止；避免外部点击「终止循环」时被锁死。 */
+      const abortRepeatRef = { current: false };
       for (let i = 0; i < order.length; i++) {
         const id = order[i]!;
         if (doneIds.has(id)) continue;
@@ -1044,6 +1163,8 @@ export default function App() {
               })) as { id: string; kind: string };
               objectId = result.id;
               setNodes((ns) => bindCreateObjectId(ns, n.id, result.id));
+              // 把 create 结果也写进 outRef（玩家/实体/物品默认 out_<nodeId>）
+              outRef.current[`out_${id}`] = { id: result.id, kind: createApiKind(stimKind) };
             }
             await refreshScene();
             setRunState(id, "done", clipRunSummary(`ok · ${objectId}`));
@@ -1055,18 +1176,13 @@ export default function App() {
             const nListen = emitResult?.listeners ?? 0;
             const nErr = emitResult?.errors?.length ?? 0;
             appendLog(
-              `[emit] ${n.data.path ?? n.data.detail} → ${nListen} listener(s)` +
-                (nErr ? ` · ${nErr} error(s)` : ""),
+              `[emit] ${n.data.path ?? n.data.detail} → ${nListen} listener(s)` + (nErr ? ` · ${nErr} error(s)` : ""),
               nErr ? "warn" : "info",
               { nodeId: id }
             );
             await refreshScene();
             const path = n.data.path ?? n.data.detail ?? "emit";
-            setRunState(
-              id,
-              "done",
-              clipRunSummary(`lastEmit · ${path}${nErr ? ` · ${nErr}err` : ""}`)
-            );
+            setRunState(id, "done", clipRunSummary(`lastEmit · ${path}${nErr ? ` · ${nErr}err` : ""}`));
           } else if (n.data.kind === "call") {
             let args: unknown[] = [];
             try {
@@ -1078,17 +1194,22 @@ export default function App() {
             }
             if (!n.data.targetId) throw new Error("Call 未选择目标对象");
             if (!n.data.method) throw new Error("Call 未指定 method");
-            await request("call", {
+            const callResult = (await request("call", {
               id: n.data.targetId,
               method: n.data.method,
               args,
-            });
+            })) as { result?: unknown };
             await refreshScene();
-            setRunState(
-              id,
-              "done",
-              clipRunSummary(`lastCall · ${n.data.targetId}.${n.data.method}`)
-            );
+            // 把返回值 snapshot 写进 outRef；name 为空 / undefined 时用默认 out_<nodeId>
+            const outName = (n.data.outName || "").trim() || `out_${id}`;
+            const snap = callResult?.result ?? null;
+            outRef.current[outName] = snap;
+            // 记下最近一次 Call，断言失败时 evaluateAssert 据此反查 source map。
+            lastCallContextRef.current = { id: n.data.targetId, method: n.data.method };
+            appendLog(`[call] ${n.data.targetId}.${n.data.method} → out.${outName}=${JSON.stringify(snap)}`, "info", {
+              nodeId: id,
+            });
+            setRunState(id, "done", clipRunSummary(`lastCall · ${n.data.targetId}.${n.data.method} → ${outName}`));
           } else if (n.data.kind === "tick") {
             const ticks = n.data.n ?? 1;
             await request("tick", { n: ticks });
@@ -1099,34 +1220,47 @@ export default function App() {
             const assertKind = normalizeAssertKind(cfg.assertKind);
             const summary = (await request("sceneSummary")) as SceneSummary;
             setScene(summary);
-            const refs: Record<string, { id: string; kind: string; props: Record<string, unknown> }> =
-              {};
-            for (const oid of assertInspectIds({ ...cfg, assertKind })) {
+            // 收集所需对象 inspect 到 refsRef；先前轮次已 inspect 的复用
+            const ids = assertInspectIds({ ...cfg, assertKind });
+            for (const oid of ids) {
+              if (refsRef.current[oid]) continue;
               try {
                 const snap = (await request("inspect", { id: oid })) as {
                   id: string;
                   kind: string;
                   props: Record<string, unknown>;
                 };
-                refs[snap.id] = snap;
+                refsRef.current[snap.id] = snap;
               } catch {
                 /* 缺失由求值报错 */
               }
             }
-            const target = cfg.targetId ? refs[cfg.targetId] ?? null : null;
+            const target = cfg.targetId ? (refsRef.current[cfg.targetId] ?? null) : null;
             const result = evaluateAssert(
               { ...cfg, assertKind },
-              { logs: logEventsRef.current, scene: summary, target, refs }
+              {
+                logs: logEventsRef.current,
+                scene: summary,
+                target,
+                refs: refsRef.current,
+                out: outRef.current,
+                ...(sourceMapRef.current ? { sourceMap: sourceMapRef.current } : {}),
+                ...(lastCallContextRef.current ? { callContext: lastCallContextRef.current } : {}),
+              }
             );
             if (!result.ok) {
               setRunState(id, "failed", clipRunSummary(`失败 · ${result.message}`));
+              setNodeLastFailure(id, result.message, result.location);
               appendLog(`[assert] 失败: ${result.message}`, "error", { nodeId: id });
               markFailedNode(id);
               failedNode = id;
               doneIds.add(id);
               if (mode !== "only" && hasFailOutEdges(graphEdges, id)) {
                 const branch = orderAssertBranch(
-                  nodesRef.current.map((x) => ({ id: x.id, kind: x.data.kind })),
+                  nodesRef.current.map((x) => ({
+                    id: x.id,
+                    kind: x.data.kind === "eventlog" ? "viewer" : x.data.kind,
+                  })),
                   graphEdges,
                   id,
                   "fail"
@@ -1143,6 +1277,211 @@ export default function App() {
             }
             appendLog(`[assert] ok: ${result.message}`, "info", { nodeId: id });
             setRunState(id, "done", clipRunSummary(`ok · ${result.message}`));
+          } else if (n.data.kind === "branch") {
+            const cond = (n.data.branchCond ?? "").trim();
+            const summary = (await request("sceneSummary")) as SceneSummary;
+            setScene(summary);
+            const refs: Record<string, { id: string; kind: string; props: Record<string, unknown> }> = {
+              ...refsRef.current,
+            };
+            // cond 引用 $ / @ 时按表达式求值，否则字面量；空 cond 一律视为 false
+            let truthy = false;
+            let condError: string | null = null;
+            if (cond) {
+              const r = resolveExpr(cond, {
+                scene: {
+                  lastEmit: summary.lastEmit ?? null,
+                  lastCall: summary.lastCall ?? null,
+                },
+                refs,
+                out: outRef.current,
+              });
+              if (!r.ok) {
+                condError = r.error;
+              } else {
+                truthy = exprTruthy(r.value);
+              }
+            }
+            if (condError) {
+              setRunState(id, "failed", clipRunSummary(`条件错误 · ${condError}`));
+              appendLog(`[branch] 条件错误: ${condError}`, "error", { nodeId: id });
+              failed = true;
+              failedNode = id;
+              markFailedNode(id);
+              break;
+            }
+            const outcome: EdgeKind = truthy ? "pass" : "fail";
+            appendLog(`[branch] ${cond || "（空）"} → ${outcome}`, "info", { nodeId: id });
+            setRunState(id, "done", clipRunSummary(`${outcome} · ${cond || "（空）"}`));
+            // 把对侧支路加入 doneIds（跳），保留同侧支路在 order 中
+            const other: EdgeKind = truthy ? "fail" : "pass";
+            const otherTargets = new Set(
+              graphEdges.filter((e) => e.source === id && e.kind === other).map((e) => e.target)
+            );
+            for (const tid of otherTargets) {
+              const bfs = orderAssertBranch(
+                nodesRef.current.map((x) => ({ id: x.id, kind: x.data.kind })),
+                graphEdges,
+                id,
+                other
+              );
+              for (const b of bfs) doneIds.add(b);
+            }
+          } else if (n.data.kind === "repeat") {
+            const times = Math.max(1, Math.floor(n.data.repeatTimes ?? 1));
+            const body = sliceControlBody(order, i, isControl);
+            abortRepeatRef.current = false;
+            appendLog(`[repeat] 入口 body=${body.length} × ${times}`, "info", { nodeId: id });
+            setRunState(id, "running", clipRunSummary(`body×${times}`));
+            for (let iter = 1; iter <= times; iter++) {
+              if (abortRepeatRef.current) {
+                appendLog(`[repeat] 轮次 ${iter} 终止（手动中断）`, "warn", { nodeId: id });
+                break;
+              }
+              setNodes((ns) => ns.map((x) => (x.id === id ? { ...x, data: { ...x.data, repeatCurrent: iter } } : x)));
+              for (const bodyId of body) {
+                if (doneIds.has(bodyId) || abortRepeatRef.current) continue;
+                const subIdx = order.indexOf(bodyId);
+                if (subIdx < 0) continue;
+                // 复用外层循环逻辑：把控制节点（branch/repeat）也按内联处理。
+                // 这里仅调用通用 dispatch — 但通用 dispatch 嵌在 loop 里无法直接复用。
+                // 简化：内联执行体节点（不含控制节点）；控制节点再走下一轮外层时处理。
+                // 当前 body 已被 sliceControlBody 限定为不含控制节点，所以此处安全。
+                // 但 body 内可能含 emit/call/assert/tick/create — 需要各自处理。
+                const sub = nodesRef.current.find((x) => x.id === bodyId);
+                if (!sub) continue;
+                setSelectedId(bodyId);
+                setRunState(bodyId, "running");
+                appendLog(`[run] ↻ ${iter}/${times} → ${sub.data.kind} ${sub.data.title}`, "info", {
+                  nodeId: bodyId,
+                });
+                try {
+                  if (sub.data.kind === "tick") {
+                    const ticks = sub.data.n ?? 1;
+                    await request("tick", { n: ticks });
+                    setRunState(bodyId, "done", clipRunSummary(`ok · ×${ticks}`));
+                  } else if (sub.data.kind === "emit") {
+                    await request("emit", {
+                      path: sub.data.path ?? sub.data.detail,
+                      payload: sub.data.props ?? {},
+                    });
+                    await refreshScene();
+                    setRunState(bodyId, "done", clipRunSummary("emit · ok"));
+                  } else if (sub.data.kind === "call") {
+                    let args: unknown[] = [];
+                    try {
+                      const parsed = JSON.parse(sub.data.argsJson || "[]");
+                      if (!Array.isArray(parsed)) throw new Error("args 须为 JSON 数组");
+                      args = parsed;
+                    } catch (e) {
+                      throw new Error(`Call args JSON 无效: ${e instanceof Error ? e.message : String(e)}`);
+                    }
+                    if (!sub.data.targetId) throw new Error("Call 未选择目标对象");
+                    if (!sub.data.method) throw new Error("Call 未指定 method");
+                    const subCallResult = (await request("call", {
+                      id: sub.data.targetId,
+                      method: sub.data.method,
+                      args,
+                    })) as { result?: unknown };
+                    const outName = (sub.data.outName || "").trim() || `out_${bodyId}`;
+                    outRef.current[outName] = subCallResult?.result ?? null;
+                    // 记下最近一次 Call，断言失败时 evaluateAssert 据此反查 source map。
+                    lastCallContextRef.current = { id: sub.data.targetId, method: sub.data.method };
+                    setRunState(
+                      bodyId,
+                      "done",
+                      clipRunSummary(`lastCall · ${sub.data.targetId}.${sub.data.method} → ${outName}`)
+                    );
+                  } else if (isCreateStimulusKind(sub.data.kind)) {
+                    const stimKind = sub.data.kind as CreateStimulusKind;
+                    const props = createPayloadForKind(stimKind, sub.data);
+                    const wantId = String(props.id);
+                    let objectId = sub.data.objectId;
+                    if (objectId !== wantId) objectId = undefined;
+                    if (!objectId) {
+                      const result = (await request("create", {
+                        kind: createApiKind(stimKind),
+                        props,
+                      })) as { id: string; kind: string };
+                      objectId = result.id;
+                      setNodes((ns) => bindCreateObjectId(ns, bodyId, result.id));
+                      outRef.current[`out_${bodyId}`] = {
+                        id: result.id,
+                        kind: createApiKind(stimKind),
+                      };
+                    }
+                    setRunState(bodyId, "done", clipRunSummary(`ok · ${objectId}`));
+                  } else if (sub.data.kind === "assert") {
+                    const cfg = migrateAssertConfig(sub.data);
+                    const assertKind = normalizeAssertKind(cfg.assertKind);
+                    const summary = (await request("sceneSummary")) as SceneSummary;
+                    setScene(summary);
+                    for (const oid of assertInspectIds({ ...cfg, assertKind })) {
+                      if (refsRef.current[oid]) continue;
+                      try {
+                        const snap = (await request("inspect", { id: oid })) as {
+                          id: string;
+                          kind: string;
+                          props: Record<string, unknown>;
+                        };
+                        refsRef.current[snap.id] = snap;
+                      } catch {
+                        /* ignore */
+                      }
+                    }
+                    const target = cfg.targetId ? (refsRef.current[cfg.targetId] ?? null) : null;
+                    const r = evaluateAssert(
+                      { ...cfg, assertKind },
+                      {
+                        logs: logEventsRef.current,
+                        scene: summary,
+                        target,
+                        refs: refsRef.current,
+                        out: outRef.current,
+                        ...(sourceMapRef.current ? { sourceMap: sourceMapRef.current } : {}),
+                        ...(lastCallContextRef.current ? { callContext: lastCallContextRef.current } : {}),
+                      }
+                    );
+                    if (!r.ok) {
+                      setRunState(bodyId, "failed", clipRunSummary(`失败 · ${r.message}`));
+                      setNodeLastFailure(bodyId, r.message, r.location);
+                      appendLog(`[assert] 失败: ${r.message}`, "error", { nodeId: bodyId });
+                      markFailedNode(bodyId);
+                      failedNode = bodyId;
+                      failed = true;
+                      abortRepeatRef.current = true;
+                      break;
+                    }
+                    setRunState(bodyId, "done", clipRunSummary(`ok · ${r.message}`));
+                  } else if (sub.data.kind === "branch") {
+                    // body 不应包含控制节点；sliceControlBody 已排除；此处兜底跳过
+                    appendLog(`[repeat] 嵌套分支未支持，跳过 ${bodyId}`, "warn", { nodeId: bodyId });
+                  } else if (sub.data.kind === "repeat") {
+                    appendLog(`[repeat] 嵌套 Repeat 未支持，跳过 ${bodyId}`, "warn", { nodeId: bodyId });
+                  } else {
+                    setRunState(bodyId, "done", "ok");
+                  }
+                  doneIds.add(bodyId);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  setRunState(bodyId, "failed", clipRunSummary(`错误 · ${msg}`));
+                  appendLog(`[error] ${msg}`, "error", { nodeId: bodyId });
+                  failed = true;
+                  failedNode = bodyId;
+                  markFailedNode(bodyId);
+                  abortRepeatRef.current = true;
+                  break;
+                }
+              }
+            }
+            setNodes((ns) =>
+              ns.map((x) => (x.id === id ? { ...x, data: { ...x.data, repeatCurrent: undefined } } : x))
+            );
+            setRunState(id, failed ? "failed" : "done", clipRunSummary(`× ${times}`));
+            // 把 body 节点都标记 done，避免外层继续走；同时跳过 body
+            for (const bodyId of body) doneIds.add(bodyId);
+            i += body.length;
+            continue;
           } else {
             setRunState(id, "done", "ok");
           }
@@ -1157,15 +1496,77 @@ export default function App() {
           break;
         }
       }
+      for (const viewer of nodesRef.current.filter((x) => x.data.kind === "viewer")) {
+        try {
+          const summary = (await request("sceneSummary")) as SceneSummary;
+          const rawRef = (viewer.data.targetRef ?? "").trim();
+          let objectId = rawRef;
+          if (rawRef.startsWith("@out.")) {
+            const resolved = resolveExpr(rawRef, {
+              scene: { lastEmit: summary.lastEmit, lastCall: summary.lastCall },
+              out: outRef.current,
+            });
+            if (!resolved.ok) throw new Error(resolved.error);
+            const value = resolved.value;
+            objectId = typeof value === "string" ? value : String((value as { id?: unknown } | null)?.id ?? "");
+          }
+          if (!objectId) {
+            const kind = viewer.data.targetKind ?? "player";
+            const candidates =
+              kind === "player"
+                ? summary.players
+                : kind === "entity"
+                  ? summary.entities
+                  : kind === "item"
+                    ? summary.items
+                    : kind === "block"
+                      ? summary.blocks
+                      : kind === "dimension"
+                        ? summary.dimensions
+                        : kind === "world"
+                          ? summary.world
+                            ? [summary.world]
+                            : []
+                          : summary.scoreboard
+                            ? [summary.scoreboard]
+                            : [];
+            objectId = candidates?.[0]?.id ?? "";
+          }
+          if (!objectId) throw new Error("没有可预览对象");
+          const snap = (await request("inspect", { id: objectId })) as {
+            id: string;
+            kind: string;
+            props: Record<string, unknown>;
+          };
+          setNodes((ns) =>
+            ns.map((x) =>
+              x.id === viewer.id
+                ? {
+                    ...x,
+                    data: {
+                      ...x.data,
+                      targetRef: objectId,
+                      viewerProps: snap.props,
+                      runState: "done",
+                      runSummary: clipRunSummary(`inspect · ${objectId}`),
+                    },
+                  }
+                : x
+            )
+          );
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          setRunState(viewer.id, "failed", clipRunSummary(message));
+          appendLog(`[viewer] ${message}`, "warn", { nodeId: viewer.id });
+        }
+      }
       appendLog(
         `--- run #${runId} end --- ${failed ? "FAIL" : divertedFail ? "ok(fail-edge)" : "ok"}${
           failedNode ? ` failedNode=${failedNode}` : ""
         }`
       );
       currentRunIdRef.current = undefined;
-      setStatus(
-        failed ? "已停止（失败）" : divertedFail ? "就绪（曾走失败边）" : "就绪"
-      );
+      setStatus(failed ? "已停止（失败）" : divertedFail ? "就绪（曾走失败边）" : "就绪");
       setBusy(false);
     },
     [
@@ -1176,6 +1577,7 @@ export default function App() {
       refreshScene,
       request,
       selectedId,
+      setNodeLastFailure,
       setNodes,
       setRunState,
       setScene,
@@ -1260,6 +1662,7 @@ export default function App() {
           detail: "?.sendMessage(0)",
           method: "sendMessage",
           argsJson: '["hello"]',
+          outName: "",
         },
         tick: { kind: "tick", title: "Tick ×1", detail: "n = 1", n: 1 },
         assert: {
@@ -1269,14 +1672,32 @@ export default function App() {
           detail: "ok",
           pattern: "ok",
         },
+        branch: {
+          kind: "branch",
+          title: "Branch",
+          detail: "cond ? pass : fail",
+          branchCond: "",
+        },
+        repeat: {
+          kind: "repeat",
+          title: "Repeat ×3",
+          detail: "body × 3",
+          repeatTimes: 3,
+        },
+        frame: { kind: "frame", title: "Frame", detail: "装饰性分组", color: "violet", width: 360, height: 240 },
+        viewer: { kind: "viewer", title: "Viewer", detail: "inspect", targetKind: "player", targetRef: "" },
         note: { kind: "note", title: "注释", detail: "…" },
       };
       setNodes((ns) => [
         ...ns,
         {
           id,
-          type: "stimulus",
-          position: { x: 100 + Math.random() * 60, y: 40 + Math.random() * 60 },
+          type: kind === "frame" ? "frame" : kind === "viewer" ? "viewer" : "stimulus",
+          position: rfRef.current?.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 }) ?? {
+            x: 100,
+            y: 40,
+          },
+          ...(kind === "frame" ? { style: { width: 360, height: 240 }, zIndex: -1 } : {}),
           data: defaults[kind],
         },
       ]);
@@ -1355,6 +1776,46 @@ export default function App() {
     [appendLog, pushHistory, selectedId, setEdges, setNodes]
   );
 
+  const colorSelectedNodes = useCallback(
+    (color: keyof typeof NODE_COLOR_PRESETS) => {
+      const ids = new Set(nodes.filter((n) => n.selected || n.id === ctxMenu?.nodeId).map((n) => n.id));
+      if (!ids.size) return;
+      pushHistory();
+      setNodes((ns) => ns.map((n) => (ids.has(n.id) ? { ...n, data: { ...n.data, color } } : n)));
+    },
+    [ctxMenu?.nodeId, nodes, pushHistory, setNodes]
+  );
+
+  const frameSelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter((n) => n.selected && n.data.kind !== "frame");
+    if (!selectedNodes.length) return;
+    const minX = Math.min(...selectedNodes.map((n) => n.position.x)) - 36;
+    const minY = Math.min(...selectedNodes.map((n) => n.position.y)) - 52;
+    const maxX = Math.max(...selectedNodes.map((n) => n.position.x + (n.measured?.width ?? 180))) + 36;
+    const maxY = Math.max(...selectedNodes.map((n) => n.position.y + (n.measured?.height ?? 100))) + 36;
+    const id = `n${Date.now()}`;
+    pushHistory();
+    setNodes((ns) => [
+      ...ns,
+      {
+        id,
+        type: "frame",
+        position: { x: minX, y: minY },
+        style: { width: maxX - minX, height: maxY - minY },
+        zIndex: -1,
+        data: {
+          kind: "frame",
+          title: "Frame",
+          detail: "装饰性分组",
+          color: "violet",
+          width: maxX - minX,
+          height: maxY - minY,
+        },
+      },
+    ]);
+    selectGraphNode(id);
+  }, [nodes, pushHistory, selectGraphNode, setNodes]);
+
   const duplicateNode = useCallback(
     (id: string) => {
       const src = nodes.find((n) => n.id === id);
@@ -1412,6 +1873,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setHotkeysOpen(false);
+        setPaletteOpen(false);
         return;
       }
       if (isTypingTarget(e.target)) return;
@@ -1419,6 +1881,11 @@ export default function App() {
       const h = hotkeys.current;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
 
+      if (!mod && e.shiftKey && !e.altKey && key === "a") {
+        e.preventDefault();
+        setPaletteOpen(true);
+        return;
+      }
       if (!mod && !e.shiftKey && !e.altKey && key === "?") {
         e.preventDefault();
         setHotkeysOpen(true);
@@ -1484,6 +1951,11 @@ export default function App() {
         ];
         h.addNode(kinds[Number(key) - 1]!);
       }
+      if (mod && !e.shiftKey && !e.altKey && (key === "b" || key === "r" || key === "n")) {
+        e.preventDefault();
+        const map: Record<string, StimulusKind> = { b: "branch", r: "repeat", n: "note" };
+        h.addNode(map[key]!);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1515,13 +1987,9 @@ export default function App() {
 
   /** 顶栏只读状态：就绪/忙碌相位 + 可选模块短名；详情进「视图 → 已装载」 */
   const statusPill = useMemo(() => {
-    const modShort =
-      moduleBinding.id ??
-      (moduleBinding.status === "pending" ? null : ready ? "engine" : null);
+    const modShort = moduleBinding.id ?? (moduleBinding.status === "pending" ? null : ready ? "engine" : null);
     const tip = [
-      moduleBinding.moduleRoot && moduleBinding.moduleRoot !== "(engine only)"
-        ? moduleBinding.moduleRoot
-        : null,
+      moduleBinding.moduleRoot && moduleBinding.moduleRoot !== "(engine only)" ? moduleBinding.moduleRoot : null,
       moduleBinding.bootPhase?.summary,
       "详情：视图 → 已装载",
     ]
@@ -1543,8 +2011,7 @@ export default function App() {
       status.includes("拖动") ||
       status.startsWith("就绪（")
     ) {
-      const withMod =
-        modShort && status.startsWith("就绪") ? `${status} · ${modShort}` : status;
+      const withMod = modShort && status.startsWith("就绪") ? `${status} · ${modShort}` : status;
       return {
         text: withMod,
         tip: status.startsWith("就绪") ? tip : status,
@@ -1558,12 +2025,7 @@ export default function App() {
   }, [busy, moduleBinding, ready, status]);
 
   const renderDocked = (id: PanelId) => (
-    <DockPanel
-      key={id}
-      title={panelTitle[id]}
-      layout={prefs.panels[id]}
-      onChange={(patch) => setPanel(id, patch)}
-    >
+    <DockPanel key={id} title={panelTitle[id]} layout={prefs.panels[id]} onChange={(patch) => setPanel(id, patch)}>
       {id === "tools" ? (
         <div className="tools-stack">
           <div className="insert-toolbar">
@@ -1588,6 +2050,7 @@ export default function App() {
             scene={scene}
             selectedId={sideFocus === "scene" ? sceneObjectId : null}
             onSelect={(oid) => void selectSceneObject(oid)}
+            chatByPlayer={chatByPlayerRef.current}
           />
         </div>
       ) : id === "fixture" ? (
@@ -1676,33 +2139,22 @@ export default function App() {
           </TopMenu>
           <TopMenu label="视图">
             <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("tools")}>
-              <span className="rdx-item-main">
-                {prefs.panels.tools.visible ? "隐藏" : "显示"}工具
-              </span>
+              <span className="rdx-item-main">{prefs.panels.tools.visible ? "隐藏" : "显示"}工具</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("props")}>
-              <span className="rdx-item-main">
-                {prefs.panels.props.visible ? "隐藏" : "显示"}属性
-              </span>
+              <span className="rdx-item-main">{prefs.panels.props.visible ? "隐藏" : "显示"}属性</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("fixture")}>
-              <span className="rdx-item-main">
-                {prefs.panels.fixture.visible ? "隐藏" : "显示"}夹具
-              </span>
+              <span className="rdx-item-main">{prefs.panels.fixture.visible ? "隐藏" : "显示"}夹具</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item className="rdx-item" onSelect={() => togglePanel("loaded")}>
-              <span className="rdx-item-main">
-                {prefs.panels.loaded.visible ? "隐藏" : "显示"}已装载
-              </span>
+              <span className="rdx-item-main">{prefs.panels.loaded.visible ? "隐藏" : "显示"}已装载</span>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="rdx-sep" />
             <DropdownMenu.Item className="rdx-item" onSelect={resetLayout}>
               <span className="rdx-item-main">复位面板布局</span>
             </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="rdx-item"
-              onSelect={() => vscodeApi().postMessage({ cmd: "showOutput" })}
-            >
+            <DropdownMenu.Item className="rdx-item" onSelect={() => vscodeApi().postMessage({ cmd: "showOutput" })}>
               <span className="rdx-item-main">打开 Output 日志</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item
@@ -1717,17 +2169,10 @@ export default function App() {
             >
               <span className="rdx-item-main">清除并应用过滤</span>
             </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="rdx-item"
-              onSelect={() => vscodeApi().postMessage({ cmd: "locateLogNode" })}
-            >
+            <DropdownMenu.Item className="rdx-item" onSelect={() => vscodeApi().postMessage({ cmd: "locateLogNode" })}>
               <span className="rdx-item-main">定位日志节点</span>
             </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="rdx-item"
-              disabled={!failedNodeId}
-              onSelect={locateFailedNode}
-            >
+            <DropdownMenu.Item className="rdx-item" disabled={!failedNodeId} onSelect={locateFailedNode}>
               <span className="rdx-item-main">定位失败节点</span>
             </DropdownMenu.Item>
           </TopMenu>
@@ -1738,11 +2183,7 @@ export default function App() {
                 <DropdownMenu.Separator className="rdx-sep" />
                 <DropdownMenu.Label className="rdx-label">已订阅事件 → Emit</DropdownMenu.Label>
                 {(moduleBinding.subscribedEvents ?? []).slice(0, 12).map((e) => (
-                  <DropdownMenu.Item
-                    key={e.path}
-                    className="rdx-item"
-                    onSelect={() => addEmitFromSubscribed(e.path)}
-                  >
+                  <DropdownMenu.Item key={e.path} className="rdx-item" onSelect={() => addEmitFromSubscribed(e.path)}>
                     <span className="rdx-item-main">
                       {e.path.split(".").pop()}
                       <span className="sub">×{e.listeners}</span>
@@ -1753,33 +2194,21 @@ export default function App() {
             ) : null}
           </TopMenu>
           <TopMenu label="运行" disabled={!canRun && !busy}>
-            <DropdownMenu.Item
-              className="rdx-item"
-              disabled={!canRun}
-              onSelect={() => void run("graph")}
-            >
+            <DropdownMenu.Item className="rdx-item" disabled={!canRun} onSelect={() => void run("graph")}>
               <span className="rdx-item-main">
                 运行整图
                 <span className="sub">拓扑序</span>
               </span>
               <MenuKbd>F5</MenuKbd>
             </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="rdx-item"
-              disabled={!canRun || !selectedId}
-              onSelect={() => void run("from")}
-            >
+            <DropdownMenu.Item className="rdx-item" disabled={!canRun || !selectedId} onSelect={() => void run("from")}>
               <span className="rdx-item-main">
                 从选中运行
                 <span className="sub">路径重试</span>
               </span>
               <MenuKbd>{MOD}+F5</MenuKbd>
             </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="rdx-item"
-              disabled={!canRun || !selectedId}
-              onSelect={() => void run("only")}
-            >
+            <DropdownMenu.Item className="rdx-item" disabled={!canRun || !selectedId} onSelect={() => void run("only")}>
               <span className="rdx-item-main">
                 仅运行选中
                 <span className="sub">单步</span>
@@ -1887,9 +2316,10 @@ export default function App() {
               zoomable
               style={{ background: chrome.minimapBg }}
               maskColor={chrome.mask}
+              position="bottom-right"
               nodeColor={(n) => {
-                const k = (n.data as StimulusNodeData | undefined)?.kind;
-                return (k && KIND_MINIMAP[k]) || "#808080";
+                const data = n.data as StimulusNodeData | undefined;
+                return data?.color ? nodeColor({ data }) : (data?.kind && KIND_MINIMAP[data.kind]) || "#808080";
               }}
             />
           </ReactFlow>
@@ -1932,19 +2362,13 @@ export default function App() {
                         </span>
                       </DropdownMenu.Item>
                       <DropdownMenu.Separator className="rdx-sep" />
-                      <DropdownMenu.Item
-                        className="rdx-item"
-                        onSelect={() => patchEdgeKind(ctxMenu.edgeId!, "pass")}
-                      >
+                      <DropdownMenu.Item className="rdx-item" onSelect={() => patchEdgeKind(ctxMenu.edgeId!, "pass")}>
                         <span className="rdx-item-main">
                           设为通过边
                           <span className="sub">断言成功走此边</span>
                         </span>
                       </DropdownMenu.Item>
-                      <DropdownMenu.Item
-                        className="rdx-item"
-                        onSelect={() => patchEdgeKind(ctxMenu.edgeId!, "fail")}
-                      >
+                      <DropdownMenu.Item className="rdx-item" onSelect={() => patchEdgeKind(ctxMenu.edgeId!, "fail")}>
                         <span className="rdx-item-main">
                           设为失败边
                           <span className="sub">断言失败走此边</span>
@@ -1956,8 +2380,7 @@ export default function App() {
                           const id = ctxMenu.edgeId!;
                           selectGraphEdge(id);
                           const cur = String(
-                            (edges.find((e) => e.id === id)?.data as { note?: string } | undefined)
-                              ?.note ?? ""
+                            (edges.find((e) => e.id === id)?.data as { note?: string } | undefined)?.note ?? ""
                           ).trim();
                           const next = window.prompt("边备注（空则清除）", cur);
                           if (next == null) return;
@@ -2016,10 +2439,7 @@ export default function App() {
                             <span className="rdx-item-main">从此处运行</span>
                             <MenuKbd>{MOD}+F5</MenuKbd>
                           </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className="rdx-item"
-                            onSelect={() => duplicateNode(ctxMenu.nodeId!)}
-                          >
+                          <DropdownMenu.Item className="rdx-item" onSelect={() => duplicateNode(ctxMenu.nodeId!)}>
                             <span className="rdx-item-main">复制节点</span>
                             <MenuKbd>{MOD}+D</MenuKbd>
                           </DropdownMenu.Item>
@@ -2041,9 +2461,7 @@ export default function App() {
                             else if (selectedId) deleteNodesByIds([selectedId]);
                           }}
                         >
-                          <span className="rdx-item-main">
-                            {selectedEdgeId ? "删除选中边" : "删除选中节点"}
-                          </span>
+                          <span className="rdx-item-main">{selectedEdgeId ? "删除选中边" : "删除选中节点"}</span>
                           <MenuKbd>Del</MenuKbd>
                         </DropdownMenu.Item>
                       )}
@@ -2084,6 +2502,7 @@ export default function App() {
         ) : null}
       </div>
 
+      <NodePalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onCreate={addNode} />
       {hotkeysOpen ? (
         <div
           className="modal-backdrop"
