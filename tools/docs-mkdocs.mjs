@@ -22,12 +22,14 @@ if (!["serve", "build"].includes(mode)) {
  * MkDocs docs_dir=docs：页面内相对链接不应再带 ./docs/ 前缀。
  * 把 README（仓根路径）原样贴进 docs/*.md 会导致站内导航全断，且默认
  * unrecognized_links=ignore 时 CI 不会拦。在此做契约检查。
+ * @param {string} docsDir
  */
 function assertNoRepoRootDocsLinks(docsDir) {
   const bad = [];
   const stack = [docsDir];
   while (stack.length) {
     const dir = stack.pop();
+    if (!dir) return;
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, ent.name);
       if (ent.isDirectory()) {
@@ -80,6 +82,10 @@ const mkdocsEnv = {
   DISABLE_MKDOCS_2_WARNING: "true",
 };
 
+/**
+ * @param {string} cmd
+ * @param {readonly string[]} cmdArgs
+ */
 function tryMkdocs(cmd, cmdArgs, useShell = false) {
   return spawnSync(cmd, cmdArgs, {
     cwd: root,

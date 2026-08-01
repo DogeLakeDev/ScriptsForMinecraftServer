@@ -18,7 +18,7 @@ export const CHANGESET_DIR = path.join(ROOT, ".changeset");
 /** 发版编排中间态：tag-packages → push-release / gh-release（DRY 唯一路径） */
 export const RELEASE_TAGS_STATE = path.join(ROOT, ".sfmc-release-tags.json");
 
-/** @returns {{ mode: string, tag?: string } | null} */
+/** @returns {{ mode: string, tag?: string,changesets: string[] } | null} */
 export function readPreState() {
   if (!fs.existsSync(PRE_JSON)) return null;
   return JSON.parse(fs.readFileSync(PRE_JSON, "utf8"));
@@ -38,9 +38,7 @@ export function isPreMode() {
 export function listPendingChangesetFiles() {
   if (!fs.existsSync(CHANGESET_DIR)) return [];
   const pre = readPreState();
-  const consumed = new Set(
-    pre && pre.mode === "pre" && Array.isArray(pre.changesets) ? pre.changesets : []
-  );
+  const consumed = new Set(pre && pre.mode === "pre" && Array.isArray(pre.changesets) ? pre.changesets : []);
   return fs
     .readdirSync(CHANGESET_DIR)
     .filter((f) => f.endsWith(".md") && f.toLowerCase() !== "readme.md")
@@ -61,7 +59,12 @@ export function listPublishablePackages() {
   return out;
 }
 
-/** @returns {string | null} 包目录（package.json 所在目录） */
+/**
+ * @description
+ * @export
+ * @param {string} name
+ * @returns {string | null} 包目录（package.json 所在目录）
+ */
 export function packageDirFor(name) {
   const hit = listPublishablePackages().find((p) => p.name === name);
   return hit ? path.dirname(hit.pkgPath) : null;
@@ -162,9 +165,7 @@ export function resolvePackagesNeedingTags(opts = {}) {
 
   const headParent = gitCapture(["rev-parse", "--verify", "HEAD~1^{commit}"]);
   if (!headParent) {
-    console.warn(
-      "[changeset] 无法解析 HEAD~1（浅克隆？），回退为仅收录已存在的 name@version tag，避免误打全量 tag"
-    );
+    console.warn("[changeset] 无法解析 HEAD~1（浅克隆？），回退为仅收录已存在的 name@version tag，避免误打全量 tag");
     return listPackagesWithExistingVersionTags(pkgs);
   }
 
@@ -215,15 +216,17 @@ export function run(cmd, args, opts = {}) {
 /**
  * @param {string[]} args
  * @param {{ capture?: boolean } & import("node:child_process").ExecFileSyncOptions} [opts]
+ * @returns {string}
  */
 export function git(args, opts = {}) {
   const { capture = false, ...rest } = opts;
-  return execFileSync("git", args, {
+  const result = execFileSync("git", args, {
     cwd: ROOT,
     encoding: "utf8",
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
     ...rest,
   });
+  return typeof result === "string" ? result : result.toString("utf8");
 }
 
 /**
@@ -240,6 +243,13 @@ export function gitCapture(args) {
 }
 
 /** 读 CHANGELOG.md 里指定版本的条目（尽力而为） */
+/**
+ * @description
+ * @export
+ * @param {string} pkgDir
+ * @param {string} version
+ * @return {*}
+ */
 export function extractChangelogNotes(pkgDir, version) {
   const changelog = path.join(pkgDir, "CHANGELOG.md");
   if (!fs.existsSync(changelog)) return `Release ${version}`;

@@ -36,13 +36,20 @@ function loadTargets() {
     tag: t.tag,
   }));
 }
-
+/**
+ * @param {string} version
+ * @return {boolean | string}
+ */
 function isPrereleaseVersion(version) {
   if (forceLatest) return false;
   if (forcePre) return true;
   return version.includes("-");
 }
 
+/**
+ * @param {string} tag
+ * @return {boolean}
+ */
 function releaseExists(tag) {
   const r = spawnSync("gh", ["release", "view", tag], {
     cwd: ROOT,
@@ -67,10 +74,7 @@ for (const t of targets) {
   const pre = isPrereleaseVersion(t.version);
   const pkgDir = packageDirFor(t.name) ?? ROOT;
   const notes = extractChangelogNotes(pkgDir, t.version);
-  const notesFile = path.join(
-    ROOT,
-    `.sfmc-release-notes-${t.name.replace(/[/@]/g, "_")}.md`
-  );
+  const notesFile = path.join(ROOT, `.sfmc-release-notes-${t.name.replace(/[/@]/g, "_")}.md`);
   fs.writeFileSync(notesFile, notes + "\n");
 
   const args = ["release", "create", t.tag, "--title", t.tag, "--notes-file", notesFile];

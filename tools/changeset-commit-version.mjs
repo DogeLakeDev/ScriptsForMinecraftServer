@@ -18,6 +18,7 @@ const files = status
   .filter((f) => {
     /* git status 重命名: "old -> new" */
     const name = f.includes(" -> ") ? f.split(" -> ").pop() : f;
+    if(name)
     return (
       name.startsWith(".changeset/") ||
       name.endsWith("/package.json") ||
@@ -29,12 +30,13 @@ const files = status
   })
   .map((f) => (f.includes(" -> ") ? f.split(" -> ").pop() : f));
 
-if (files.length === 0) {
+  const validFiles = files.filter((f) => typeof f === "string");
+if (validFiles.length === 0) {
   console.log("[changeset] 无 version 相关文件，跳过 commit");
   process.exit(0);
 }
 
-git(["add", "--", ...files]);
+git(["add", "--", ...validFiles]);
 const staged = gitCapture(["diff", "--cached", "--name-only"]);
 if (!staged) {
   console.log("[changeset] 暂存区为空，跳过 commit");

@@ -18,11 +18,17 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLATFORM_ROOT = path.resolve(__dirname, "..");
 
+/**
+ * @param {string} msg
+ */
 function die(msg, code = 1) {
   console.error(`[export-module] ${msg}`);
   process.exit(code);
 }
 
+/**
+ * @param {string | any[]} argv
+ */
 function parseArgs(argv) {
   /** @type {{ out: string | null, ref: string, modulesRoot: string | null }} */
   const flags = { out: null, ref: "archive/monorepo-packages", modulesRoot: null };
@@ -54,7 +60,7 @@ function main() {
   if (!fs.existsSync(path.join(modulesRoot, ".git"))) {
     die(`找不到 sfmc-modules git 仓: ${modulesRoot}`);
   }
-  const outAbs = path.resolve(flags.out);
+  const outAbs = path.resolve(flags.out ?? '');
   fs.mkdirSync(outAbs, { recursive: true });
   if (fs.existsSync(path.join(outAbs, "sapi")) || fs.existsSync(path.join(outAbs, "package.json"))) {
     die(`目标非空（已有模块骨架）: ${outAbs}`);
@@ -100,6 +106,11 @@ function main() {
   console.log(`[export-module] 详见 docs/archive/migrate-official-modules.md`);
 }
 
+
+/**
+ * @param {string} src
+ * @param {string} dst
+ */
 function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
   for (const e of fs.readdirSync(src, { withFileTypes: true })) {

@@ -66,3 +66,7 @@ memory/
 ScriptsForMinecraftServer.code-workspace
 devkit/dist/**
 extensions/sfmc-module/dist/**
+
+# 临时测试文件
+_sm_test.ts
+_sm_test.*.ts

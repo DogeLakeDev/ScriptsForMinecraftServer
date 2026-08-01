@@ -16,13 +16,23 @@ import { NPM_PUBLISH_PACKAGES, assertPublishPackageInWorkspaces } from "./lib/np
 import { CONFIGS_DIR, DB_SERVER_DIST, FETCH_MODULE, ROOT, SFMC_DIST } from "./lib/paths.mjs";
 import { killProc, runSync } from "./lib/proc.mjs";
 
+/**
+ * @type {{ name: any; why: any; }[]}
+ */
 const errors = [];
 const passed = [];
 
+/**
+ * @param {string} name
+ */
 function pass(name) {
   passed.push(name);
   console.log(`[ootb] PASS: ${name}`);
 }
+/**
+ * @param {string} name
+ * @param {string} why
+ */
 function fail(name, why) {
   errors.push({ name, why });
   console.error(`[ootb] FAIL: ${name} — ${why}`);
@@ -62,7 +72,8 @@ async function main() {
       }
       pass("npm-publish 包均在 workspaces");
     } catch (e) {
-      fail("npm-publish 包均在 workspaces", e?.message || String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      fail("npm-publish 包均在 workspaces", message || String(e));
     }
   }
 
@@ -145,14 +156,15 @@ async function main() {
         }
         // LSP:configs/all.banned_items 须为 string[](与 /banned_items、ConfigManager 同源)
         if (Array.isArray(all.body.banned_items)) {
-          const bad = all.body.banned_items.find((x) => typeof x !== "string");
+          const bad = all.body.banned_items.find((/** @type {any} */ x) => typeof x !== "string");
           if (bad !== undefined) {
             throw new Error(`configs/all.banned_items 须为 string[],收到 ${typeof bad}`);
           }
         }
         pass(`db-server 启动 + 平台 API (modules=${mods.body.modules.length})`);
       } catch (e) {
-        fail("db-server 启动 + 平台 API", e.message);
+        const message = e instanceof Error ? e.message : String(e);
+        fail("db-server 启动 + 平台 API", message);
       } finally {
         if (dbProc) await killProc(dbProc.pid);
         await new Promise((r) => setTimeout(r, 600));

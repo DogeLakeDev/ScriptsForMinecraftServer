@@ -11,6 +11,10 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "docs", "reference", "sdk");
 
+/**
+ * @param {string} cmd
+ * @param {readonly string[]} args
+ */
 function run(cmd, args) {
   // 直接 spawn 可执行文件，参数走 argv 数组。
   // typedoc 是 .js，用 process.execPath 即可，无需 shell（避免 DEP0190）。

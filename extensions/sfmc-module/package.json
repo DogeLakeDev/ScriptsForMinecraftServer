@@ -207,7 +207,8 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test --experimental-strip-types src/playground/graph/order.test.ts src/playground/graph/materialize.test.ts src/panels/moduleRootKey.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types src/playground/graph/order.test.ts src/playground/graph/expr.test.ts src/playground/graph/parseExpected.test.ts src/playground/graph/materialize.test.ts src/playground/graph/sourceMap.test.ts src/playground/graph-ui/metaForm/detect.test.ts src/playground/graph-ui/metaForm/EnumSelect.test.ts src/playground/graph-ui/metaForm/NestedForm.test.ts src/playground/graph-ui/metaForm/assertFields.test.ts src/playground/graph-ui/metaForm/expectedMeta.test.ts src/playground/graph-ui/metaForm/insertMenu.test.ts src/panels/moduleRootKey.test.ts",
     "package": "npx @vscode/vsce package"
   },
   "dependencies": {

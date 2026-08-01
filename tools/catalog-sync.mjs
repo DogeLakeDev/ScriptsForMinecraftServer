@@ -30,5 +30,6 @@ try {
     console.log(`  ${m.id.padEnd(28)} folder=${m.entry.path.split("/")[2]}`);
   }
 } catch (e) {
-  die("catalog-sync", e?.message ?? String(e));
+  const message = e instanceof Error ? e.message : String(e);
+  die("catalog-sync", message);
 }
