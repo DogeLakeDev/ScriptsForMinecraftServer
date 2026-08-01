@@ -66,6 +66,9 @@ function readCache() {
   }
 }
 
+/**
+ * @param {{ fetchedAt: number; index: Record<string, import("./lib/registry-index.mjs").RegistryEntry>; }} cache
+ */
 function writeCache(cache) {
   try {
     fs.writeFileSync(REGISTRY_CACHE_PATH, JSON.stringify(cache, null, 2));
@@ -95,22 +98,25 @@ async function resolveRegistryIndex() {
     const fresh = await fetchRegistryIndexFresh();
     writeCache({ fetchedAt: Date.now(), index: fresh });
     return { index: fresh, stale: false };
-  } catch (err) {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     if (cache) {
       console.warn(
-        `[fetch-module] registry offline (${err.message}); using cached index from ${new Date(cache.fetchedAt).toISOString()}`
+        `[fetch-module] registry offline (${message}); using cached index from ${new Date(cache.fetchedAt).toISOString()}`
       );
       return { index: cache.index, stale: true };
     }
     throw new Error(
-      `registry unreachable and no cache: ${err.message}. Pass --from explicitly to skip the registry.`
+      `registry unreachable and no cache: ${message}. Pass --from explicitly to skip the registry.`
     );
   }
 }
 
 /**
- * 缺省 source：按 npm → @sfmc-bds/module-<id> 解析（DRY：避免分散在各 sub spec）。
- * 若 first-party registry 命中 → 仍用 github:（兼容旧路径，fn 不被禁止）。
+ * 缺省 source：按 npm →
+ * @sfmc-bds /module-<id> 解析（DRY：避免分散在各 sub spec）。
+若 first-party registry 命中 → 仍用 github:（兼容旧路径，fn 不被禁止）。
+ * @param {string | number} id
  */
 async function defaultSourceFor(id) {
   try {
@@ -135,11 +141,15 @@ async function defaultSourceFor(id) {
     console.log(`[fetch-module] no --from given; using npm → ${pkgName}`);
     return `npm:${pkgName}`;
   } catch (e) {
-    die(`无法解析 npm 包名: ${e.message}\n提示：传 --from local:<dir|tgz|zip> 或 --from npm:<scope>/<name>。`);
+    const message = e instanceof Error ? e.message : String(e);
+    die(`无法解析 npm 包名: ${message}\n提示：传 --from local:<dir|tgz|zip> 或 --from npm:<scope>/<name>。`);
   }
 }
 
-/** 从本地包目录推导 install folder id。 */
+/**
+ * 从本地包目录推导 install folder id。
+ * @param {string} absDir
+ */
 function inferFolderIdFromDir(absDir) {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(absDir, "package.json"), "utf8"));
@@ -157,6 +167,9 @@ function inferFolderIdFromDir(absDir) {
   return null;
 }
 
+/**
+ * @param {string} msg
+ */
 function die(msg, code = 1) {
   console.error(`[fetch-module] ${msg}`);
   process.exit(code);
@@ -194,6 +207,23 @@ async function removePackageTarget(dir) {
     throw err;
   }
   await fsp.rm(dir, { recursive: true, force: true });
+}
+
+/**
+ * v3 语义字段读取：纯只读，**不主动写** semantic。
+ * 通过 `loadPackageCatalogEntry` → `projectCatalogEntry` 把 manifest.semantic 投影进 catalog。
+ * 这里只用于在 install log 里打印一条状态，便于模块作者确认 v3 字段被读到。
+ * @param {string} folder
+ */
+function readV3SemanticStatus(folder) {
+  const manifestPath = path.join(TARGET, folder, "sapi", "manifest.json");
+  if (!exists(manifestPath)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return raw?.schemaVersion === 3 && raw?.semantic && typeof raw.semantic === "object";
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -243,6 +273,13 @@ function afterInstall(folder, opts = {}) {
   const entry = upsertCatalogEntry(folder);
   setModuleLockEnabled(entry.id, entry.enabledByDefault !== false);
   console.log(`[fetch-module]   catalog+lock: ${entry.id} (enabled=${entry.enabledByDefault !== false})`);
+  /* v3 状态透传：只读 semantic 字段已通过 projectCatalogEntry 投影到 catalog。
+   * 模块作者想用 v3 时只需在 sapi/manifest.json 写 `"schemaVersion": 3` 与 semantic 块；
+   * fetch-module 不会再追问也不会主动注入。 */
+  const hasV3 = readV3SemanticStatus(folder);
+  if (hasV3) {
+    console.log(`[fetch-module]   v3 semantic: detected (manifest.schemaVersion=3)`);
+  }
   return entry;
 }
 

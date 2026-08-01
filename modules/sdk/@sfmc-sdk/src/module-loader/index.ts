@@ -7,6 +7,26 @@
 // BDS 启动入口 installHostBootstrap 在 `@sfmc-bds/sdk/module-loader/install`
 //（含 HttpDB / @minecraft/server），勿从此 barrel re-export，以免 node --test 被拉进 SAPI host。
 //
+// Manifest v2 / v3 schema 与迁移（沙箱读模块语义镜像的基础）。
+export type {
+  AnyManifest,
+  ManifestV2,
+  ManifestV3,
+  ManifestV3DbTable,
+  ManifestV3Events,
+  ManifestV3PublicApi,
+  ManifestV3Semantic,
+  ServiceEntry,
+  ServiceIO,
+  ValidationResult,
+} from "./manifest-schema.js";
+export {
+  mergeSemanticV3,
+  migrateV2toV3,
+  validateManifestV2,
+  validateManifestV3,
+} from "./manifest.js";
+
 // 内部 internal/*
 export type { DataAdapter } from "./data-adapter.js";
 export { ConfigManager } from "./internal/config-manager.js";

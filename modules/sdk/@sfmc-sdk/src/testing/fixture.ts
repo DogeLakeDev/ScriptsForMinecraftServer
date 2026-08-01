@@ -3,7 +3,16 @@
  * 由 playground-host fixture.get / fixture.apply 与 createSandbox 共用。
  */
 
-import { ConfigManager } from "@sfmc-bds/sdk/module-loader";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  ConfigManager,
+  mergeSemanticV3,
+  migrateV2toV3,
+  type ManifestV3,
+  type ManifestV3Semantic,
+  validateManifestV3,
+} from "@sfmc-bds/sdk/module-loader";
 import type { MemoryConfigsAll, MemoryDataAdapter } from "./host/memory-data-adapter.js";
 import type { FakeDb } from "./fake-db.js";
 import type { FakePlayer } from "./engine/overrides/player.js";
@@ -32,6 +41,11 @@ export type SandboxFixtureIntent = {
   enabled?: boolean;
   /** 应用时清空假 DB 调用日志（无完整种子 API）。 */
   clearDb?: boolean;
+  /**
+   * 模块 manifest v3 语义字段（仅补强，不覆盖模块自身的 semantic）。
+   * 留空表示「不注入」；模块 manifest 是 v2 时由 sandbox 自动 migrate 到 v3。
+   */
+  semantic?: ManifestV3Semantic;
 };
 
 /** fixture.get 返回的可读快照。 */
@@ -138,6 +152,8 @@ export async function applyFixtureIntent(
   if (intent.treatPlayersAsOp !== undefined) out.treatPlayersAsOp = intent.treatPlayersAsOp;
   if (intent.enabled !== undefined) out.enabled = intent.enabled;
   if (intent.clearDb !== undefined) out.clearDb = intent.clearDb;
+  /* semantic 不参与 ConfigManager；只透传以便 snapshot 用。 */
+  if (intent.semantic !== undefined) out.semantic = structuredClone(intent.semantic);
   return out;
 }
 
@@ -158,6 +174,64 @@ export function configsFromFixtureIntent(
   if (intent.enabled !== undefined && moduleId) {
     setModuleEnabled(out, moduleId, intent.enabled);
   }
+  return out;
+}
+
+/**
+ * 从 moduleRoot 读 sapi/manifest.json 并解析为 v3 manifest。
+ *   - 文件缺失 / 解析失败 → 返回 null（沙箱可继续，但 moduleManifest 为 null）；
+ *   - schemaVersion ∈ {2, 3}；
+ *   - v2 → 自动 migrate 到 v3；
+ *   - v3 → 走 validateManifestV3；校验失败时剥掉 semantic 但保留 v3 顶层字段。
+ *   - fixture.semantic 非空时合并进 v3.semantic（patch 不覆盖 base）。
+ */
+export function resolveModuleManifest(
+  moduleRoot: string | undefined,
+  fixtureSemantic: ManifestV3Semantic | undefined
+): ManifestV3 | null {
+  if (!moduleRoot) return null;
+  const manifestPath = path.join(moduleRoot, "sapi", "manifest.json");
+  let raw: unknown;
+  try {
+    const text = fs.readFileSync(manifestPath, "utf8");
+    raw = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  let v3: ManifestV3;
+  if (raw && typeof raw === "object" && (raw as { schemaVersion?: unknown }).schemaVersion === 3) {
+    const validated = validateManifestV3(raw);
+    v3 = validated.ok
+      ? validated.manifest
+      : /* 校验失败：保留必需字段，去掉 semantic，避免把坏数据塞进沙箱。 */
+        stripUnsafeSemantic(raw);
+  } else if (raw && typeof raw === "object" && (raw as { schemaVersion?: unknown }).schemaVersion === 2) {
+    v3 = migrateV2toV3(raw as never);
+  } else {
+    return null;
+  }
+  if (!fixtureSemantic) return v3;
+  const mergedSemantic = mergeSemanticV3(v3.semantic, fixtureSemantic);
+  return mergedSemantic ? { ...v3, semantic: mergedSemantic } : v3;
+}
+
+/** v3 校验失败时，剥掉 semantic 但保留 v3 顶层字段，避免沙箱读到坏数据。 */
+function stripUnsafeSemantic(raw: unknown): ManifestV3 {
+  const r = raw as Record<string, unknown>;
+  const out: ManifestV3 = {
+    schemaVersion: 3,
+    id: typeof r.id === "string" ? r.id : "",
+    name: typeof r.name === "string" ? r.name : "",
+    type: r.type === "core" || r.type === "feature" ? r.type : "feature",
+    configKey: typeof r.configKey === "string" ? r.configKey : "",
+    requires: Array.isArray(r.requires) ? r.requires.filter((s): s is string => typeof s === "string") : [],
+    permissions: Array.isArray(r.permissions)
+      ? r.permissions.filter((s): s is string => typeof s === "string")
+      : [],
+    ...(r.services && typeof r.services === "object"
+      ? { services: r.services as ManifestV3["services"] }
+      : {}),
+  };
   return out;
 }
 

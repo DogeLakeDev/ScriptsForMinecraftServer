@@ -1,6 +1,9 @@
 /**
- * Playground JSON-RPC 宿主（stdio 行协议）。
- * 启动：node --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm <本文件>
+ * Playground JSON-RPC 宿主（stdio / TCP 行协议）。
+ * 默认启动：node --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm <本文件>
+ * TCP 启动：追加 --transport=port:<port>（port 可为 0 取随机端口，监听后把实际端口
+ *          以 {"type":"event","name":"listen","payload":{"port":N}} 写到 stdout）。
+ *          扩展「启动并调试」用该传输，使面板与调试宿主共用同一 sandbox 会话。
  *
  * 请求：meta / start(=重置) / stop / objects.* / events.* / tick / scene.summary /
  *       fixture.get / fixture.apply / smoke.run
@@ -12,6 +15,7 @@
  */
 
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import readline from "node:readline";
 import { Command, Permission, registerSystemMsgHandler } from "@sfmc-bds/sdk/sapi/runtime";
@@ -140,8 +144,18 @@ function snapshotValue(value: unknown, depth = 0): unknown {
   return String(value);
 }
 
+/** 可写一行 JSON 的会话（stdio stdout 或单个 TCP socket）。 */
+type Session = {
+  write: (line: string) => void;
+  close: () => void;
+};
+
+/** 活跃会话；notify（事件）广播到全部会话。 */
+const sessions = new Set<Session>();
+
 function notify(name: string, payload: unknown): void {
-  process.stdout.write(`${JSON.stringify({ type: "event", name, payload })}\n`);
+  const line = JSON.stringify({ type: "event", name, payload });
+  for (const s of sessions) s.write(line);
 }
 
 function disposeModuleLogBridge(): void {
@@ -170,12 +184,12 @@ function attachModuleLogBridge(moduleId: string | null): void {
   });
 }
 
-function reply(id: number | string, result: unknown): void {
-  process.stdout.write(`${JSON.stringify({ id, result })}\n`);
+function reply(session: Session, id: number | string, result: unknown): void {
+  session.write(JSON.stringify({ id, result }));
 }
 
-function replyError(id: number | string, message: string): void {
-  process.stdout.write(`${JSON.stringify({ id, error: { message } })}\n`);
+function replyError(session: Session, id: number | string, message: string): void {
+  session.write(JSON.stringify({ id, error: { message } }));
 }
 
 function resolveModuleRoot(params: Record<string, unknown>): string | undefined {
@@ -236,6 +250,21 @@ function buildModuleBinding(sb: Sandbox, moduleRoot: string | null) {
       note: "命名权限无模块归属；列出进程内 Permission.register 全表",
     },
     bootPhase,
+    /* v3 manifest 摘要（含 semantic）——沙箱读模块语义镜像的入口。 */
+    moduleManifest: sb.moduleManifest
+      ? {
+          schemaVersion: sb.moduleManifest.schemaVersion,
+          id: sb.moduleManifest.id,
+          name: sb.moduleManifest.name,
+          type: sb.moduleManifest.type,
+          configKey: sb.moduleManifest.configKey,
+          requires: sb.moduleManifest.requires,
+          permissions: sb.moduleManifest.permissions,
+          services: sb.moduleManifest.services,
+          ...(sb.moduleManifest.notes !== undefined ? { notes: sb.moduleManifest.notes } : {}),
+          semantic: sb.moduleManifest.semantic,
+        }
+      : null,
   };
 }
 
@@ -543,30 +572,128 @@ async function handle(req: RpcReq): Promise<unknown> {
   }
 }
 
-async function main(): Promise<void> {
+/** 逐行处理单条请求，答复回同一会话；错误转 error 通知。 */
+async function handleLine(session: Session, line: string): Promise<void> {
+  const trimmed = line.trim();
+  if (!trimmed) return;
+  let req: RpcReq;
+  try {
+    req = JSON.parse(trimmed) as RpcReq;
+  } catch {
+    notify("log", { channel: "system", text: `[playground-host] bad json: ${trimmed.slice(0, 80)}` });
+    return;
+  }
+  if (req.id === undefined || !req.method) return;
+  try {
+    const result = await handle(req);
+    reply(session, req.id, result);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    replyError(session, req.id, message);
+    notify("log", { channel: "system", text: `[error] ${message}` });
+  }
+}
+
+/** 每会话串行处理请求，保持与原 for-await 一致的顺序语义。 */
+function createLineProcessor(session: Session): (line: string) => void {
+  let tail = Promise.resolve();
+  return (line: string) => {
+    tail = tail
+      .then(() => handleLine(session, line))
+      .catch((e) => {
+        notify("log", {
+          channel: "system",
+          text: `[playground-host] fatal: ${e instanceof Error ? e.message : String(e)}`,
+        });
+      });
+  };
+}
+
+/** 优雅退出：dispose sandbox 后结束进程（调试器 stop 走 SIGTERM）。 */
+function onShutdown(): void {
+  void (async () => {
+    try {
+      if (sb) await sb.dispose();
+    } finally {
+      process.exit(0);
+    }
+  })();
+}
+
+function runStdio(): void {
+  const stdoutSession: Session = {
+    write(line) {
+      process.stdout.write(`${line}\n`);
+    },
+    close() {
+      /* stdout 无独立关闭语义 */
+    },
+  };
+  sessions.add(stdoutSession);
   notify("log", { channel: "system", text: "[playground-host] ready" });
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    let req: RpcReq;
-    try {
-      req = JSON.parse(trimmed) as RpcReq;
-    } catch {
-      notify("log", { channel: "system", text: `[playground-host] bad json: ${trimmed.slice(0, 80)}` });
-      continue;
-    }
-    if (req.id === undefined || !req.method) continue;
-    try {
-      const result = await handle(req);
-      reply(req.id, result);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      replyError(req.id, message);
-      notify("log", { channel: "system", text: `[error] ${message}` });
-    }
+  rl.on("line", createLineProcessor(stdoutSession));
+  rl.on("close", () => {
+    if (sb) void sb.dispose().catch(() => undefined);
+  });
+}
+
+function runTcp(port: number): void {
+  const server = net.createServer((socket) => {
+    const session: Session = {
+      write(line) {
+        socket.write(`${line}\n`);
+      },
+      close() {
+        socket.destroy();
+      },
+    };
+    sessions.add(session);
+    const rl = readline.createInterface({ input: socket, crlfDelay: Infinity });
+    rl.on("line", createLineProcessor(session));
+    socket.on("close", () => {
+      sessions.delete(session);
+      rl.close();
+    });
+    socket.on("error", () => {
+      /* close 已兜底清理 */
+    });
+  });
+  server.on("error", (e) => {
+    console.error(e);
+    process.exit(1);
+  });
+  server.listen(port, "127.0.0.1", () => {
+    const addr = server.address() as net.AddressInfo;
+    // 扩展侧用预选端口连接，此行为调试终端 / socket 测试提供实际端口
+    process.stdout.write(
+      `${JSON.stringify({ type: "event", name: "listen", payload: { port: addr.port } })}\n`
+    );
+    notify("log", { channel: "system", text: `[playground-host] ready (tcp :${addr.port})` });
+  });
+}
+
+function parseTransportArg(): { kind: "stdio" } | { kind: "tcp"; port: number } {
+  const arg = process.argv.find((a) => a.startsWith("--transport="));
+  if (!arg) return { kind: "stdio" };
+  const value = arg.slice("--transport=".length);
+  if (value === "stdio") return { kind: "stdio" };
+  const m = /^port:(\d+)$/.exec(value);
+  if (m) return { kind: "tcp", port: Number(m[1]) };
+  throw new Error(`unknown --transport: ${value}`);
+}
+
+async function main(): Promise<void> {
+  const transport = parseTransportArg();
+  if (transport.kind === "tcp") {
+    runTcp(transport.port);
+  } else {
+    runStdio();
   }
-  if (sb) await sb.dispose();
+}
+
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, onShutdown);
 }
 
 main().catch((e) => {

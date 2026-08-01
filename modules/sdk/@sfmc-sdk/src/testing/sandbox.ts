@@ -2,7 +2,7 @@
  * createSandbox — 对齐 BDS 宿主分相：ConfigManager + ModuleRegistry + 假 worldLoad。
  */
 
-import type { ModuleDescriptor } from "@sfmc-bds/sdk/module-loader";
+import type { ManifestV3, ModuleDescriptor } from "@sfmc-bds/sdk/module-loader";
 import { ConfigManager, ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 import {
@@ -30,6 +30,7 @@ import { loadModuleDescriptor } from "./load-module.js";
 import {
   applyFixtureIntent,
   configsFromFixtureIntent,
+  resolveModuleManifest,
   type SandboxFixtureIntent,
 } from "./fixture.js";
 import { toDamageSource } from "./engine/overrides/damage-source.js";
@@ -146,6 +147,8 @@ export type Sandbox = {
   db: FakeDb;
   /** 当前 boot 的模块；engine-only 时为 null。 */
   module: { id: string; root?: string } | null;
+  /** 解析后的 v3 模块 manifest（含 fixture.semantic 合并）。engine-only 或缺 manifest.json 时为 null。 */
+  moduleManifest: ManifestV3 | null;
   supported: {
     events: string[];
     system: string[];
@@ -393,6 +396,10 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
   });
   const events = createEventsDrive({ world: eng.world, system: eng.system, objects });
 
+  /* v3 manifest 解析：v2 → 自动 migrate；fixture.semantic 非空时合并进 manifest。
+   * engine-only（无 moduleRoot）→ 返回 null。 */
+  const moduleManifest = resolveModuleManifest(moduleRoot, opts.fixture?.semantic);
+
   const sb: Sandbox = {
     world: eng.world,
     system: eng.system,
@@ -404,6 +411,7 @@ export async function createSandbox(opts: CreateSandboxOpts = {}): Promise<Sandb
         ? { id: moduleRef.id, root: moduleRoot }
         : { id: moduleRef.id }
       : null,
+    moduleManifest,
     supported: SUPPORTED,
     objects,
     events,

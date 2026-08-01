@@ -104,3 +104,93 @@ my-feature/
 | [测试沙箱](./testing.md) | 假引擎保真、L0/L2、与 Watch 分工 |
 | [ESLint 约定](./eslint.md) | 约定检查 |
 | [发布你的模块](./publish.md) | npm 发布 |
+
+## manifest v3 语义字段
+
+v2 manifest 只够 boot 用；v3 在 v2 之上新增可选 `semantic` 块，用来描述模块**「在做什么」**——沙箱、配置面板、场景图据此推断行为来源。
+
+v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模块一行代码不用改。
+
+### 字段一览
+
+| 字段 | 类型 | 用途 |
+| --- | --- | --- |
+| `schemaVersion` | `3` | manifest schema 版本号；旧模块保留 `2` 即可。 |
+| `semantic.configKeys` | `string[]` | 模块读取的配置键：精确名（如 `"land.price"`）或前缀（如 `"economy.*"`）。 |
+| `semantic.dependsOn` | `string[]` | 依赖的其他模块 id。决定启动顺序校验、UI 提示「请先启用 X」。 |
+| `semantic.events.emits` | `string[]` | 模块主动 emit 的自定义事件名（建议 `module:<id>:<event>`）。 |
+| `semantic.events.listens` | `string[]` | 模块监听的事件路径，含 BDS 原生（`world.afterEvents.playerJoin`）与自定义。 |
+| `semantic.dbTables` | `{ name, columns? }[]` | 模块使用的 DB 表与列提示。 |
+| `semantic.publicApi` | `{ symbol, description?, params?, returns? }[]` | 模块对外暴露的 API 签名，供其他模块 import 参考。 |
+
+每个 `semantic` 子字段都允许缺失；缺省时等同于「没有声明」，沙箱按 v2 行为推断。
+
+### 完整示例
+
+```json
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v3.schema.json",
+  "schemaVersion": 3,
+  "id": "feature-economy",
+  "name": "经济",
+  "type": "feature",
+  "configKey": "economy",
+  "requires": ["feature-land"],
+  "permissions": [
+    "db:read:wallet",
+    "db:write:wallet",
+    "config:read:economy"
+  ],
+  "services": {
+    "provides": [{ "name": "economy.balance" }],
+    "requires": []
+  },
+  "semantic": {
+    "configKeys": ["economy.*", "land.economy.*"],
+    "dependsOn": ["feature-land"],
+    "events": {
+      "emits": ["economy:walletChanged"],
+      "listens": ["world.afterEvents.playerJoin"]
+    },
+    "dbTables": [
+      { "name": "wallet", "columns": ["playerId", "balance"] },
+      { "name": "tx_log" }
+    ],
+    "publicApi": [
+      {
+        "symbol": "spend",
+        "description": "扣除余额并写流水",
+        "params": [
+          { "name": "playerId", "type": "string", "required": true },
+          { "name": "amount", "type": "number", "required": true }
+        ],
+        "returns": { "type": "boolean", "description": "成功与否" }
+      }
+    ]
+  }
+}
+```
+
+### 兼容性与迁移
+
+- **v2 → v3 自动迁移**：沙箱与 `check-modules` 都内置自动 migrate（`migrateV2toV3`）。v2 manifest 加载时直接补 `schemaVersion: 3`、保留所有原有字段，`semantic` 视为空。
+- **缺省 semantic 合法**：v3 manifest 可以不写 `semantic`，等价于「暂时没声明语义」——后续可逐字段补全。
+- **运行时校验**：保留 v2 的硬校验（id/name/type/configKey/requires/permissions/services 必填）；`semantic` 子字段类型错时给 `errors: string[]`，但不拒绝启动（沙箱会剥掉坏字段、用 v3 顶层继续）。
+
+### 配套工具
+
+| 工具 | 行为 |
+| --- | --- |
+| `tools/check-modules.mjs` | v2 校验路径不变；v3 manifest 走新校验（`semantic` 字段类型错会报错）。 |
+| `tools/catalog-sync.mjs` / `fetch-module.mjs` | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入）。 |
+
+### 与缺口 1 / 3 的衔接
+
+v3 `semantic` 不是终点，是**数据源**：
+
+- 缺口 1（沙箱读语义镜像面板）：v3 字段准备齐后，沙箱能枚举每个模块的 `configKeys / events / dbTables / publicApi`，构建「模块语义镜像」面板，让作者不用读 manifest 也能看到自己模块触达的范围。
+- 缺口 3（场景对象标来源）：场景里每个对象/事件可以标注「由哪个模块的哪个 `publicApi` / `events.emit` 产生」，数据来源就是 v3 的 `publicApi.symbol` 与 `events.emits`。
+
+`publicApi` 当前只支持单签名；多载/重载留 TODO，等下一轮按真实模块诉求再加。
+
+> v2 manifest 作者请保持现状不动；只有新增模块或主动升级时再写 v3。`fetch-module` 与 `catalog-sync` 不会因为写错 v3 而拒绝模块——错就报在 `check-modules`，不必动 v2 字段。
