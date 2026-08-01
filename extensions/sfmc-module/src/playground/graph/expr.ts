@@ -6,6 +6,7 @@
  * - 对象属性：$<objectId>.<prop>[.<nested>…]（objectId 允许字母数字 _ : -）
  * - 上次结果：@lastEmit[.path|.payload[.k…]|.result[.k…]]
  *             @lastCall[.id|.method|.result]
+ * - 具名返回值：@out.<name>[.<prop>…]（Call 节点 outName 绑定进 ctx.out 的任意值）
  * - 不支持：运算符、函数、赋值、三元、多语句、括号运算
  */
 
@@ -34,6 +35,11 @@ export type ExprContext = {
   scene: ExprScene;
   /** 已 inspect 的对象表：id → 快照 */
   refs?: Record<string, ExprRefSnap>;
+  /**
+   * Call 节点返回值袋（key = outName / 默认 out_<nodeId>）。可放任意对象 / 数组 / 字面量；
+   * 解析 @out.<name>[.prop] 时按 props 链下钻。
+   */
+  out?: Record<string, unknown>;
 };
 
 export type ExprResult =
@@ -42,6 +48,7 @@ export type ExprResult =
 
 const OBJ_REF = /^\$([A-Za-z0-9_:-]+)((?:\.[A-Za-z_][A-Za-z0-9_]*)+)$/;
 const LAST_REF = /^@(lastEmit|lastCall)((?:\.[A-Za-z_][A-Za-z0-9_]*)*)$/;
+const OUT_REF = /^@out\.([A-Za-z_][A-Za-z0-9_]*)((?:\.[A-Za-z_][A-Za-z0-9_]*)*)$/;
 
 function parseLiteral(raw: string): unknown {
   const s = raw.trim();
@@ -100,20 +107,37 @@ export function resolveExpr(raw: string, ctx: ExprContext): ExprResult {
 
   if (s.startsWith("@")) {
     const m = LAST_REF.exec(s);
-    if (!m) {
-      return {
-        ok: false,
-        error: `无效结果引用: ${s}（@lastEmit[.…] / @lastCall[.…]）`,
-      };
+    if (m) {
+      const root = m[1]!;
+      const path = m[2] ? m[2].slice(1).split(".").filter(Boolean) : [];
+      const bag = root === "lastEmit" ? ctx.scene.lastEmit : ctx.scene.lastCall;
+      if (bag == null) {
+        return { ok: false, error: `${root} 尚无记录` };
+      }
+      if (path.length === 0) return { ok: true, value: bag };
+      return { ok: true, value: dig(bag, path) };
     }
-    const root = m[1]!;
-    const path = m[2] ? m[2].slice(1).split(".").filter(Boolean) : [];
-    const bag = root === "lastEmit" ? ctx.scene.lastEmit : ctx.scene.lastCall;
-    if (bag == null) {
-      return { ok: false, error: `${root} 尚无记录` };
+    const om = OUT_REF.exec(s);
+    if (om) {
+      const name = om[1]!;
+      const path = om[2] ? om[2].slice(1).split(".").filter(Boolean) : [];
+      if (!ctx.out || !(name in ctx.out)) {
+        return { ok: false, error: `@out.${name} 尚无记录` };
+      }
+      const bag = ctx.out[name];
+      if (path.length === 0) return { ok: true, value: bag };
+      // 路径首项为 `props` 时剥掉，直接以 bag.props 为根；与 inspect 快照形态一致
+      //（@out.entity.props.typeId ⇒ bag.props.typeId，而非 bag.props.props.typeId）
+      if (bag && typeof bag === "object" && "props" in (bag as Record<string, unknown>)) {
+        const root = path[0] === "props" ? (bag as { props?: unknown }).props : bag;
+        return { ok: true, value: dig(root, path[0] === "props" ? path.slice(1) : path) };
+      }
+      return { ok: true, value: dig(bag, path) };
     }
-    if (path.length === 0) return { ok: true, value: bag };
-    return { ok: true, value: dig(bag, path) };
+    return {
+      ok: false,
+      error: `无效结果引用: ${s}（@lastEmit[.…] / @lastCall[.…] / @out.<name>[.…]）`,
+    };
   }
 
   return { ok: true, value: parseLiteral(s) };
@@ -125,4 +149,22 @@ export function collectExprObjectIds(raw: string): string[] {
   if (!s.startsWith("$")) return [];
   const m = OBJ_REF.exec(s);
   return m ? [m[1]!] : [];
+}
+
+/**
+ * 把任意已解析值按 JS 真值约定归一为布尔（null/undefined/0/""/false → false；其余 true）。
+ * Branch 节点条件 / 表达式布尔求值共用此语义，避免在两处各自实现。
+ * 约定：对象带 `ok: boolean` 字段时按其值判断（AssertResult / Result-like 形态），其余对象 / 数组仍视为真。
+ */
+export function exprTruthy(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (value === false) return false;
+  if (value === 0) return false;
+  if (typeof value === "string") return value.length > 0;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "object") {
+    const ok = (value as { ok?: unknown }).ok;
+    if (typeof ok === "boolean") return ok;
+  }
+  return true;
 }

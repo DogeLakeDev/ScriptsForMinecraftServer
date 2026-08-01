@@ -11,10 +11,12 @@ import {
 } from "./assert.ts";
 import { resolveExpr, collectExprObjectIds, looksLikeExpr } from "./expr.ts";
 import {
+  CONTROL_KINDS,
   hasFailOutEdges,
   normalizeEdgeKind,
   orderAssertBranch,
   orderNodes,
+  sliceControlBody,
 } from "./order.ts";
 
 test("orderNodes graph / from / only", () => {
@@ -25,6 +27,8 @@ test("orderNodes graph / from / only", () => {
     { id: "b", kind: "emit" },
     { id: "c", kind: "tick" },
     { id: "n", kind: "note" },
+    { id: "f", kind: "frame" },
+    { id: "v", kind: "viewer" },
   ];
   const edges = [
     { source: "a", target: "e" },
@@ -35,6 +39,58 @@ test("orderNodes graph / from / only", () => {
   assert.deepEqual(orderNodes(nodes, edges, "only", "b"), ["b"]);
   assert.deepEqual(orderNodes(nodes, edges, "from", "e"), ["e", "i", "b", "c"]);
   assert.deepEqual(orderNodes(nodes, edges, "graph", null), ["a", "e", "i", "b", "c"]);
+  assert.deepEqual(orderNodes(nodes, edges, "only", "f"), []);
+  assert.deepEqual(orderNodes(nodes, edges, "only", "v"), []);
+});
+
+test("CONTROL_KINDS + sliceControlBody carve out repeat body", () => {
+  // branch / repeat 是控制节点，切出其后到下一个控制节点前的子图体
+  assert.equal(CONTROL_KINDS.has("branch"), true);
+  assert.equal(CONTROL_KINDS.has("repeat"), true);
+  assert.equal(CONTROL_KINDS.has("assert"), false);
+
+  const order = [
+    "setup",
+    "repeat",
+    "step1",
+    "step2",
+    "branch",
+    "branchPass",
+    "tail",
+  ];
+  const isControl = (id: string) => CONTROL_KINDS.has(order.includes(id) ? (id === "repeat" || id === "branch" ? id : "") : "");
+  const realIsControl = (id: string) => id === "repeat" || id === "branch";
+
+  const repeatIdx = order.indexOf("repeat");
+  assert.deepEqual(sliceControlBody(order, repeatIdx, realIsControl), ["step1", "step2"]);
+
+  const branchIdx = order.indexOf("branch");
+  // tail 在 branch 之后但不是 control 节点，会被切进 body；直到遇到下一个 control 或末端
+  assert.deepEqual(sliceControlBody(order, branchIdx, realIsControl), ["branchPass", "tail"]);
+
+  // 切到末端
+  assert.deepEqual(sliceControlBody(["a", "repeat", "x", "y"], 1, realIsControl), ["x", "y"]);
+});
+
+test("orderNodes keeps branch/repeat in linear order (executor handles them inline)", () => {
+  const nodes = [
+    { id: "setup", kind: "player" },
+    { id: "branch", kind: "branch" },
+    { id: "passNode", kind: "tick" },
+    { id: "failNode", kind: "emit" },
+    { id: "tail", kind: "note" },
+  ];
+  const edges = [
+    { source: "setup", target: "branch" },
+    { source: "branch", target: "passNode", kind: "pass" },
+    { source: "branch", target: "failNode", kind: "fail" },
+    // passNode → tail；failNode 不接，让 control 节点切分
+  ];
+  const order = orderNodes(nodes, edges, "graph", null);
+  // 默认 follow=pass，fail 分支不进序
+  assert.deepEqual(order, ["setup", "branch", "passNode"]);
+  // 切到 fail 分支
+  assert.deepEqual(orderAssertBranch(nodes, edges, "branch", "fail"), ["failNode"]);
 });
 
 test("orderNodes excludes fail edges by default; upstream keeps them", () => {

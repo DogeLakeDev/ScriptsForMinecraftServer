@@ -82,9 +82,26 @@ export type AssertEvalContext = {
   target?: AssertTargetSnap | null;
   /** 表达式 $id.prop 用的对象表 */
   refs?: Record<string, AssertTargetSnap>;
+  /**
+   * Call 节点具名返回值袋（outName → 值）。@out.<name>[.prop] 求值时使用。
+   * 不传则 @out.* 永远报错「尚无记录」，与旧行为兼容。
+   */
+  out?: Record<string, unknown>;
+  /**
+   * 模块入口 source map：symbol → (file, line, column)。
+   * 断言失败时若能定位到 module symbol（DESCRIPTOR / @cmd.<name> / 具名 export），
+   * 把 location 写进 AssertResult.location，让 UI ⓘ 可跳转。
+   * 可选；缺省时按空 Map 处理，不影响既有断言行为。
+   */
+  sourceMap?: Map<string, { file: string; line: number; column?: number }>;
+  /**
+   * 关联的 Call 节点上下文：失败断言若是某次 Call 的产物断言，
+   * 把 lastCall.id / lastCall.method 透传，evaluateAssert 据此反查 sourceMap。
+   */
+  callContext?: { id?: string; method?: string };
 };
 
-export type AssertResult = { ok: boolean; message: string };
+export type AssertResult = { ok: boolean; message: string; location?: { file: string; line: number; column?: number } };
 
 const ASSERT_KIND_LABEL: Record<AssertKind, string> = {
   log: "断言·日志包含",
@@ -272,13 +289,100 @@ export function valueAsString(v: unknown): string {
   }
 }
 
+/**
+ * 纯函数：把 expected 字段按表达式解析。与 evaluateAssert 内部用同一解析器（expr.ts）。
+ * 失败时返回 `{ ok: false, error }`，方便 UI（<ExprField>）在失焦时直接展示给作者。
+ * 不做副作用、不读 cfg，符合单测要求。
+ */
+export function parseExpr(
+  raw: string,
+  ctx: AssertEvalContext
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  return resolveExpr(raw, { scene: ctx.scene, refs: ctx.refs, out: ctx.out });
+}
+
 function resolveExpected(
   raw: string,
   ctx: AssertEvalContext
 ): { ok: true; value: unknown } | { ok: false; message: string } {
-  const r = resolveExpr(raw, { scene: ctx.scene, refs: ctx.refs });
+  const r = parseExpr(raw, ctx);
   if (!r.ok) return { ok: false, message: r.error };
   return { ok: true, value: r.value };
+}
+
+/** 摘要一段 JSON / 字符串，供失败 message 末尾追加「最近一次 emit/call 概要」 */
+function briefValue(v: unknown, max = 80): string {
+  const s = valueAsString(v);
+  if (!s) return "(空)";
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/** 取最近的 N 条日志文本（不应用 recentN / level / source 过滤；用于失败 message 附件） */
+function pickRecentLogTexts(logs: string[] | StructuredLogEvent[], n: number): string[] {
+  if (n <= 0) return [];
+  const texts = resolveLogTexts(logs, { recentN: n });
+  return texts.slice(Math.max(0, texts.length - n));
+}
+
+/** expected 期望类型（与 metaForm/expectedMeta.ts 的 ExpectedMetaType 对齐；命名空间独立便于 Node 端 import） */
+export type ExpectedLiteralType = "string" | "number" | "boolean" | "vector3" | "enum";
+
+/** 把 expected 字符串按指定类型反序列化；表达式（$ / @ 前缀）原样返回字符串。 */
+export function parseExpected(
+  raw: string,
+  meta: { type: ExpectedLiteralType; enumValues?: readonly string[] }
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  const s = (raw ?? "").trim();
+  // 表达式（$ / @）原样串返；evaluateAssert 的 resolveExpr 会处理
+  if (s.startsWith("$") || s.startsWith("@")) {
+    return { ok: true, value: raw };
+  }
+  if (meta.type === "string") {
+    return { ok: true, value: raw };
+  }
+  if (meta.type === "vector3") {
+    if (!s) return { ok: false, error: "vector3: 期望值不能为空" };
+    try {
+      const arr = JSON.parse(s);
+      if (Array.isArray(arr) && arr.length >= 3) {
+        return {
+          ok: true,
+          value: {
+            x: Number(arr[0]) || 0,
+            y: Number(arr[1]) || 0,
+            z: Number(arr[2]) || 0,
+          },
+        };
+      }
+    } catch {
+      const parts = s.split(",").map((p) => Number(p.trim()));
+      if (parts.length >= 3 && parts.every((n) => Number.isFinite(n))) {
+        return { ok: true, value: { x: parts[0]!, y: parts[1]!, z: parts[2]! } };
+      }
+    }
+    return { ok: false, error: `vector3: 无法解析「${raw}」（期望 [x,y,z] 或 x,y,z）` };
+  }
+  if (meta.type === "boolean") {
+    if (s === "true" || s === "1") return { ok: true, value: true };
+    if (s === "false" || s === "0") return { ok: true, value: false };
+    return { ok: false, error: `boolean: 无法解析「${raw}」（期望 true/false）` };
+  }
+  if (meta.type === "number") {
+    const n = Number(s);
+    if (s === "" || !Number.isFinite(n)) {
+      return { ok: false, error: `number: 无法解析「${raw}」` };
+    }
+    return { ok: true, value: n };
+  }
+  if (meta.type === "enum") {
+    if (!s) return { ok: false, error: "enum: 期望值不能为空" };
+    const values = meta.enumValues ?? [];
+    if (values.length && !values.includes(s)) {
+      return { ok: false, error: `enum: ${s} 不在候选值 [${values.join(", ")}] 中` };
+    }
+    return { ok: true, value: s };
+  }
+  return { ok: true, value: raw };
 }
 
 type SceneRow = { id: string; kind: string; name?: string; typeId?: string; dimensionId?: string };
@@ -396,8 +500,39 @@ function compareField(
   expectedRaw: string,
   mode: AssertMatchMode,
   ignoreCase: boolean,
-  ctx: AssertEvalContext
+  ctx: AssertEvalContext,
+  expectedMeta?: { type: ExpectedLiteralType; enumValues?: readonly string[] } | null
 ): AssertResult {
+  // 表达式路径（$ / @）走 resolveExpr；非表达式按类型反序列化。
+  if (looksLikeExpr(expectedRaw)) {
+    const resolved = resolveExpected(expectedRaw, ctx);
+    if (!resolved.ok) return { ok: false, message: resolved.message };
+    const actualStr = valueAsString(actual);
+    const expectedStr = valueAsString(resolved.value);
+    const ok = matchText(actualStr, expectedStr, mode, ignoreCase);
+    return {
+      ok,
+      message: ok
+        ? `字段通过: ${actualStr} ${mode} ${expectedStr}`
+        : `字段失败: 实际=${actualStr}，期望(${mode})=${expectedStr}`,
+    };
+  }
+  // 字面量路径：有 expectedMeta 时按类型比较（更严格：vector3 / boolean / enum 直接相等）；
+  // 没有 meta 时回退旧的 valueAsString 比较，与老用例兼容。
+  if (expectedMeta && expectedMeta.type !== "string") {
+    const parsed = parseExpected(expectedRaw, expectedMeta);
+    if (!parsed.ok) return { ok: false, message: parsed.error };
+    const expected = parsed.value as unknown;
+    const ok = literalEqual(actual, expected, expectedMeta.type);
+    const actualStr = valueAsString(actual);
+    const expectedStr = valueAsString(expected);
+    return {
+      ok,
+      message: ok
+        ? `字段通过: ${actualStr} ${mode} ${expectedStr}`
+        : `字段失败: 实际=${actualStr}，期望(${mode})=${expectedStr}`,
+    };
+  }
   const resolved = resolveExpected(expectedRaw, ctx);
   if (!resolved.ok) return { ok: false, message: resolved.message };
   const actualStr = valueAsString(actual);
@@ -411,8 +546,30 @@ function compareField(
   };
 }
 
+/** 字面量按类型等价比较；类型不匹配（actual 形状错）按不等处理。 */
+function literalEqual(actual: unknown, expected: unknown, type: ExpectedLiteralType): boolean {
+  if (type === "vector3") {
+    if (!actual || typeof actual !== "object") return false;
+    const a = actual as { x?: number; y?: number; z?: number };
+    const e = expected as { x?: number; y?: number; z?: number };
+    return (a.x ?? 0) === (e.x ?? 0) && (a.y ?? 0) === (e.y ?? 0) && (a.z ?? 0) === (e.z ?? 0);
+  }
+  if (type === "boolean") {
+    return Boolean(actual) === Boolean(expected);
+  }
+  if (type === "number") {
+    return Number(actual) === Number(expected);
+  }
+  if (type === "enum") {
+    return String(actual ?? "") === String(expected ?? "");
+  }
+  // string：equals 严格相等；contains / regex 留 matchText 处理
+  return valueAsString(actual) === valueAsString(expected);
+}
+
 export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): AssertResult {
   const kind = normalizeAssertKind(cfg.assertKind);
+  let result: AssertResult;
   switch (kind) {
     case "log":
     case "logNot": {
@@ -424,21 +581,32 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
         minLevel: cfg.logMinLevel,
         source: cfg.logSource,
       });
-      return {
+      if (ok) {
+        result = {
+          ok,
+          message: `日志${kind === "logNot" ? "不含" : "包含"}: ${pattern || "（空）"}`,
+        };
+        break;
+      }
+      // 失败：附加最近 N 条日志摘要；缺省 3 条，可由 logRecentN 字段调整
+      const hintN = Math.max(1, cfg.logRecentN ?? 3);
+      const recent = pickRecentLogTexts(ctx.logs, hintN);
+      const tail = recent.length > 0 ? ` · 最近日志: ${recent.map((s) => `«${s}»`).join(" ")}` : " · 日志缓冲为空";
+      result = {
         ok,
-        message: ok
-          ? `日志${kind === "logNot" ? "不含" : "包含"}: ${pattern || "（空）"}`
-          : `日志${kind === "logNot" ? "仍含" : "未匹配"}: ${pattern || "（空）"}`,
+        message: `日志${kind === "logNot" ? "仍含" : "未匹配"}: ${pattern || "（空）"}${tail}`,
       };
+      break;
     }
     case "sceneExists": {
       const hits = filterSceneRows(ctx.scene, cfg);
       const ok = hits.length > 0;
       const desc = formatAssertDetail({ ...cfg, assertKind: kind });
-      return {
+      result = {
         ok,
         message: ok ? `场景存在: ${desc}（${hits.length}）` : `场景不存在: ${desc}`,
       };
+      break;
     }
     case "count": {
       const hits = filterCountRows(ctx.scene, cfg);
@@ -447,20 +615,39 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
       const ok = compareCount(hits.length, op, n);
       const sym = op === "gte" ? "≥" : op === "lte" ? "≤" : "=";
       const kindLabel = normalizeTargetKind(cfg.targetKind) || "实例";
-      return {
+      if (ok) {
+        result = {
+          ok,
+          message: `计数通过: ${kindLabel} ${hits.length} ${sym} ${n}`,
+        };
+        break;
+      }
+      // 失败：附加「实际数量 / 场景中所有 N」便于作者对比
+      const allRows = flattenScene(ctx.scene);
+      const kindCount = kindLabel
+        ? allRows.filter((r) => r.kind === kindLabel).length
+        : allRows.filter((r) => (INSTANCE_SCENE_KINDS as readonly string[]).includes(r.kind)).length;
+      const tail = ` · ${kindLabel} 实际 ${hits.length}（场景中共 ${kindCount}）`;
+      result = {
         ok,
-        message: ok
-          ? `计数通过: ${kindLabel} ${hits.length} ${sym} ${n}`
-          : `计数失败: ${kindLabel} 实际 ${hits.length}，期望 ${sym} ${n}`,
+        message: `计数失败: ${kindLabel} 实际 ${hits.length}，期望 ${sym} ${n}${tail}`,
       };
+      break;
     }
     case "prop": {
       const target = ctx.target;
       if (!target) {
-        return { ok: false, message: `属性断言: 找不到目标 ${cfg.targetId || "（未选）"}` };
+        const tail = cfg.targetId
+          ? ` · 可用 id: ${Object.keys(ctx.refs ?? {}).join(", ") || "（未 inspect）"}`
+          : " · 未选目标";
+        result = { ok: false, message: `属性断言: 找不到目标 ${cfg.targetId || "（未选）"}${tail}` };
+        break;
       }
       const prop = cfg.propName ?? "";
-      if (!prop) return { ok: false, message: "属性断言: 未指定属性名" };
+      if (!prop) {
+        result = { ok: false, message: "属性断言: 未指定属性名" };
+        break;
+      }
       const actual = target.props[prop];
       const expectedRaw = cfg.expected ?? "";
       const mode = cfg.matchMode ?? "equals";
@@ -471,18 +658,29 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
           [target.id]: target,
         },
       });
-      if (!cmp.ok && looksLikeExpr(expectedRaw)) return cmp;
-      return {
+      if (!cmp.ok && looksLikeExpr(expectedRaw)) {
+        result = cmp;
+        break;
+      }
+      if (cmp.ok) {
+        result = {
+          ok: cmp.ok,
+          message: `属性通过: ${target.id}.${prop}=${valueAsString(actual)}`,
+        };
+        break;
+      }
+      // 失败：把实际值附加在 message 里，便于作者定位
+      result = {
         ok: cmp.ok,
-        message: cmp.ok
-          ? `属性通过: ${target.id}.${prop}=${valueAsString(actual)}`
-          : `属性失败: ${target.id}.${prop}=${valueAsString(actual)}，期望(${mode}) ${expectedRaw}`,
+        message: `属性失败: ${target.id}.${prop}=${valueAsString(actual)}，期望(${mode}) ${expectedRaw}`,
       };
+      break;
     }
     case "lastEmit": {
       const last = ctx.scene.lastEmit;
       if (!last?.path) {
-        return { ok: false, message: "上次 Emit: 尚无记录" };
+        result = { ok: false, message: "上次 Emit: 尚无记录" };
+        break;
       }
       if (cfg.propName) {
         const path = cfg.propName.split(".").filter(Boolean);
@@ -496,12 +694,18 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
           Boolean(cfg.ignoreCase),
           ctx
         );
-        return {
+        if (cmp.ok) {
+          result = {
+            ok: cmp.ok,
+            message: `上次 Emit.${cfg.propName} 通过`,
+          };
+          break;
+        }
+        result = {
           ok: cmp.ok,
-          message: cmp.ok
-            ? `上次 Emit.${cfg.propName} 通过`
-            : `上次 Emit.${cfg.propName} ${cmp.message}`,
+          message: `上次 Emit.${cfg.propName} 失败: 实际=${briefValue(actual)}，期望(${cfg.matchMode ?? "equals"}) ${cfg.expected ?? ""} · ${last.path}`,
         };
+        break;
       }
       const pattern = (cfg.pattern ?? "").trim();
       const hay = [
@@ -510,20 +714,30 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
         valueAsString(last.result),
       ];
       if (!pattern) {
-        return { ok: true, message: `上次 Emit: ${last.path}` };
+        result = { ok: true, message: `上次 Emit: ${last.path}` };
+        break;
       }
       const ok = assertLogMatch(hay, pattern, { ignoreCase: cfg.ignoreCase });
-      return {
+      if (ok) {
+        result = {
+          ok,
+          message: `上次 Emit 匹配: ${last.path}`,
+        };
+        break;
+      }
+      // 失败：附 path + payload + result 摘要
+      const tail = ` · ${last.path} · payload=${briefValue(last?.payload)} · result=${briefValue(last?.result)}`;
+      result = {
         ok,
-        message: ok
-          ? `上次 Emit 匹配: ${last.path}`
-          : `上次 Emit 不匹配: path/payload/result !~ ${pattern}`,
+        message: `上次 Emit 不匹配: path/payload/result !~ ${pattern}${tail}`,
       };
+      break;
     }
     case "lastCall": {
       const last = ctx.scene.lastCall;
       if (!last) {
-        return { ok: false, message: "上次 Call: 尚无记录" };
+        result = { ok: false, message: "上次 Call: 尚无记录" };
+        break;
       }
       if (cfg.propName) {
         const path = cfg.propName.split(".").filter(Boolean);
@@ -535,12 +749,18 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
           Boolean(cfg.ignoreCase),
           ctx
         );
-        return {
+        if (cmp.ok) {
+          result = {
+            ok: cmp.ok,
+            message: `上次 Call.${cfg.propName} 通过`,
+          };
+          break;
+        }
+        result = {
           ok: cmp.ok,
-          message: cmp.ok
-            ? `上次 Call.${cfg.propName} 通过`
-            : `上次 Call.${cfg.propName} ${cmp.message}`,
+          message: `上次 Call.${cfg.propName} 失败: 实际=${briefValue(actual)}，期望(${cfg.matchMode ?? "equals"}) ${cfg.expected ?? ""} · ${last.id}.${last.method}`,
         };
+        break;
       }
       const hay = [
         `${last.id}.${last.method}`,
@@ -550,18 +770,54 @@ export function evaluateAssert(cfg: AssertConfig, ctx: AssertEvalContext): Asser
       ];
       const pattern = (cfg.pattern ?? "").trim();
       if (!pattern) {
-        return { ok: true, message: `上次 Call: ${last.id}.${last.method}` };
+        result = { ok: true, message: `上次 Call: ${last.id}.${last.method}` };
+        break;
       }
       const ok = assertLogMatch(hay, pattern, { ignoreCase: cfg.ignoreCase });
-      return {
+      if (ok) {
+        result = {
+          ok,
+          message: `上次 Call 匹配: ${last.id}.${last.method}`,
+        };
+        break;
+      }
+      const tail = ` · ${last.id}.${last.method} · result=${briefValue(last?.result)}`;
+      result = {
         ok,
-        message: ok
-          ? `上次 Call 匹配: ${last.id}.${last.method}`
-          : `上次 Call 不匹配: ${last.id}.${last.method} !~ ${pattern}`,
+        message: `上次 Call 不匹配: ${last.id}.${last.method} !~ ${pattern}${tail}`,
       };
+      break;
     }
     default:
-      return { ok: false, message: `未知断言类型: ${String(kind)}` };
+      result = { ok: false, message: `未知断言类型: ${String(kind)}` };
+  }
+  // 失败时尝试把 source map 命中写到 result.location，便于 UI ⓘ 跳转到模块源码。
+  if (!result.ok) attachLocation(result, ctx);
+  return result;
+}
+
+/**
+ * 失败结果附加 source location：
+ * - lastCall 断言：按 ctx.callContext.id / lastCall.method 反查 sourceMap（先看 @cmd.<method>，
+ *   再看 @cmd.<id>，都没有则回退 DESCRIPTOR）；
+ * - log / lastEmit 断言：回退 ctx.callContext.method（一次 Call 触发的日志链）；
+ * - 其他断言：ctx.callContext.id 作为最后兜底。
+ * 缺 sourceMap / 无匹配则原样返回，UI 仍只显示 message。
+ */
+function attachLocation(result: AssertResult, ctx: AssertEvalContext): void {
+  const sm = ctx.sourceMap;
+  if (!sm || sm.size === 0) return;
+  const cc = ctx.callContext ?? {};
+  const candidates: string[] = [];
+  if (cc.method) candidates.push(`@cmd.${cc.method}`, cc.method);
+  if (cc.id) candidates.push(`@cmd.${cc.id}`, cc.id);
+  candidates.push("DESCRIPTOR");
+  for (const key of candidates) {
+    const loc = sm.get(key);
+    if (loc) {
+      result.location = { file: loc.file, line: loc.line, column: loc.column };
+      return;
+    }
   }
 }
 

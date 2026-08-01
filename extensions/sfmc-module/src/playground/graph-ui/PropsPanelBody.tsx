@@ -13,6 +13,20 @@ import {
   type PlaygroundMeta,
   type SceneSummary,
 } from "./metaForm";
+import {
+  ASSERT_FIELDS_BY_KIND,
+  ASSERT_KIND_HINT,
+  assertFieldsToMetaProps,
+  type AssertFieldDef,
+} from "./metaForm/assertFields";
+import {
+  formatExpected,
+  inferExpectedMeta,
+  parseExpectedToControl,
+  type ExpectedMeta,
+} from "./metaForm/expectedMeta";
+import { ExprField, type ExprFieldContext } from "./metaForm/ExprField";
+import { TargetPicker } from "./metaForm/TargetPicker";
 import type { StimulusFlowNode, StimulusNodeData } from "./StimulusNode";
 import { formatCallDetail } from "./StimulusNode";
 import type { Edge } from "@xyflow/react";
@@ -100,6 +114,16 @@ function patchAssert(
   });
 }
 
+/** 把 AssertScene 缺失的 lastEmit/lastCall 兜底成 null；与 ExprFieldContext / AssertEvalContext 对齐 */
+function buildExprFieldContext(scene: SceneSummary | null, meta: PlaygroundMeta | null): ExprFieldContext {
+  return {
+    scene,
+    refs: undefined,
+    out: undefined,
+    meta: meta ?? null,
+  };
+}
+
 function CallFields({
   selected,
   scene,
@@ -130,10 +154,12 @@ function CallFields({
   const patchCall = (patch: Partial<StimulusNodeData>) => {
     const next = { ...selected.data, ...patch };
     const method = next.method || "?";
+    const outName = (next.outName || "").trim();
+    const detail = formatCallDetail(next);
     patchNodeData(selected.id, {
       ...patch,
       title: method,
-      detail: formatCallDetail(next),
+      detail: outName ? `${detail} → ${outName}` : detail,
     });
   };
 
@@ -248,6 +274,14 @@ function CallFields({
           />
         </div>
       )}
+      <div className="field">
+        <label>outName（可选）</label>
+        <input
+          value={selected.data.outName ?? ""}
+          placeholder="留空默认 out_<nodeId>；绑定后 @out.<name>[.prop] 可解析"
+          onChange={(e) => patchCall({ outName: e.target.value || undefined })}
+        />
+      </div>
     </>
   );
 }
@@ -442,14 +476,12 @@ function AssertFields({
                   <option value="regex">正则</option>
                 </select>
               </div>
-              <div className="field">
-                <label>期望值</label>
-                <input
-                  value={selected.data.expected ?? ""}
-                  placeholder='字面量或 $id.prop / @lastCall.result'
-                  onChange={(e) => patchAssert(selected, { expected: e.target.value }, patchNodeData)}
-                />
-              </div>
+              <ExprField
+                value={selected.data.expected ?? ""}
+                placeholder="字面量或 $id.prop / @lastCall.result"
+                context={buildExprFieldContext(scene, meta)}
+                onChange={(next) => patchAssert(selected, { expected: next }, patchNodeData)}
+              />
             </>
           ) : (
             <div className="field">
@@ -478,52 +510,14 @@ function AssertFields({
 
       {kind === "sceneExists" && (
         <>
-          <div className="field">
-            <label>kind</label>
-            <select
-              value={normalizeTargetKind(selected.data.targetKind) ?? selected.data.targetKind ?? ""}
-              onChange={(e) =>
-                patchAssert(
-                  selected,
-                  { targetKind: normalizeTargetKind(e.target.value) || e.target.value || undefined },
-                  patchNodeData
-                )
-              }
-            >
-              <option value="">（任意）</option>
-              {kindOptions.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>name / typeId</label>
-            <input
-              value={selected.data.targetName ?? ""}
-              placeholder="Player.name 或 Entity.typeId"
-              onChange={(e) =>
-                patchAssert(selected, { targetName: e.target.value || undefined }, patchNodeData)
-              }
-            />
-          </div>
-          <div className="field">
-            <label>对象 id</label>
-            <select
-              value={selected.data.targetId ?? ""}
-              onChange={(e) =>
-                patchAssert(selected, { targetId: e.target.value || undefined }, patchNodeData)
-              }
-            >
-              <option value="">（不限）</option>
-              {objects.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TargetPicker
+            scene={scene}
+            targetKind={selected.data.targetKind}
+            targetName={selected.data.targetName}
+            targetId={selected.data.targetId}
+            allowAny
+            onChange={(next) => patchAssert(selected, next, patchNodeData)}
+          />
         </>
       )}
 
@@ -533,36 +527,17 @@ function AssertFields({
             按场景 kind 计数（Player 与 Entity 分开；不填 name 则该 kind 全量）。天生 World /
             Dimension 仅在选中对应 kind 时计入；Scoreboard 须 create 后才进场景。
           </p>
-          <div className="field">
-            <label>kind</label>
-            <select
-              value={normalizeTargetKind(selected.data.targetKind) ?? selected.data.targetKind ?? "Player"}
-              onChange={(e) =>
-                patchAssert(
-                  selected,
-                  { targetKind: normalizeTargetKind(e.target.value) || e.target.value || "Player" },
-                  patchNodeData
-                )
-              }
-            >
-              {kindOptions.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TargetPicker
+            scene={scene}
+            targetKind={selected.data.targetKind}
+            targetName={selected.data.targetName}
+            targetId={selected.data.targetId}
+            allowAny={false}
+            defaultKind="Player"
+            modes={["byName"]}
+            onChange={(next) => patchAssert(selected, next, patchNodeData)}
+          />
           {countHint ? <p className="muted meta-hint">{countHint}</p> : null}
-          <div className="field">
-            <label>name / typeId（可选）</label>
-            <input
-              value={selected.data.targetName ?? ""}
-              placeholder="如 minecraft:cow 或玩家名"
-              onChange={(e) =>
-                patchAssert(selected, { targetName: e.target.value || undefined }, patchNodeData)
-              }
-            />
-          </div>
           <div className="field">
             <label>比较</label>
             <select
@@ -601,29 +576,15 @@ function AssertFields({
 
       {kind === "prop" && (
         <>
-          <div className="field">
-            <label>目标对象</label>
-            <select
-              value={selected.data.targetId ?? ""}
-              onChange={(e) => {
-                const id = e.target.value || undefined;
-                const label = objects.find((o) => o.id === id)?.label ?? "";
-                const tk = label.split(" · ")[0];
-                patchAssert(
-                  selected,
-                  { targetId: id, targetKind: tk || selected.data.targetKind },
-                  patchNodeData
-                );
-              }}
-            >
-              <option value="">（选择场景实例）</option>
-              {objects.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TargetPicker
+            scene={scene}
+            targetKind={selected.data.targetKind}
+            targetName={selected.data.targetName}
+            targetId={selected.data.targetId}
+            allowAny={false}
+            modes={["byId"]}
+            onChange={(next) => patchAssert(selected, next, patchNodeData)}
+          />
           <div className="field">
             <label>属性</label>
             {propsList.length ? (
@@ -667,14 +628,12 @@ function AssertFields({
               <option value="regex">正则</option>
             </select>
           </div>
-          <div className="field">
-            <label>期望值</label>
-            <input
-              value={selected.data.expected ?? ""}
-              placeholder='字面量 / $id.prop / @lastEmit.payload.x'
-              onChange={(e) => patchAssert(selected, { expected: e.target.value }, patchNodeData)}
-            />
-          </div>
+          <ExprField
+            value={selected.data.expected ?? ""}
+            placeholder="字面量 / $id.prop / @lastEmit.payload.x"
+            context={buildExprFieldContext(scene, meta)}
+            onChange={(next) => patchAssert(selected, { expected: next }, patchNodeData)}
+          />
           <p className="muted meta-hint">$ / @ 开头按表达式求值；否则整段字面量</p>
           <div className="field">
             <label>
@@ -974,6 +933,56 @@ export function PropsPanelBody({
           meta={meta}
           patchNodeData={patchNodeData}
         />
+      )}
+      {selected.data.kind === "branch" && (
+        <>
+          <p className="muted meta-hint">
+            条件表达式（字面量 / $id.prop / @lastEmit / @lastCall / @out.&lt;name&gt;）；求值后真值走通过边、假值走失败边。
+            与 assert 不同：branch 不算断言失败/成功。
+          </p>
+          <div className="field">
+            <label>cond</label>
+            <input
+              value={selected.data.branchCond ?? ""}
+              placeholder='如 @lastCall.result === null · $p1.op · @out.playerEntity.id'
+              onChange={(e) => {
+                const cond = e.target.value;
+                patchNodeData(selected.id, {
+                  branchCond: cond,
+                  detail: cond ? `cond ? pass : fail` : `cond ? pass : fail`,
+                  title: "Branch",
+                });
+              }}
+            />
+          </div>
+          <p className="muted meta-hint">
+            出边设为「通过边 / 失败边」即生效；按 Truthy/Falsy 路由。
+          </p>
+        </>
+      )}
+      {selected.data.kind === "repeat" && (
+        <>
+          <p className="muted meta-hint">
+            Repeat 不改图；执行时把它到下一个控制节点（branch / repeat）或图末尾之间的子图跑 N 次。
+            内嵌子图不得再含控制节点（不支持嵌套）。
+          </p>
+          <div className="field">
+            <label>times</label>
+            <input
+              type="number"
+              min={1}
+              value={selected.data.repeatTimes ?? 1}
+              onChange={(e) => {
+                const n = Math.max(1, Math.floor(Number(e.target.value) || 1));
+                patchNodeData(selected.id, {
+                  repeatTimes: n,
+                  title: `Repeat ×${n}`,
+                  detail: `body × ${n}`,
+                });
+              }}
+            />
+          </div>
+        </>
       )}
       {selected.data.kind === "note" && (
         <div className="field">

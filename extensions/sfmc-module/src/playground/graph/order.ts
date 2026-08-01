@@ -5,7 +5,13 @@
 
 export type EdgeKind = "pass" | "fail";
 
-export type GraphEdge = { source: string; target: string; kind?: EdgeKind | string };
+export type GraphEdge = {
+  source: string;
+  target: string;
+  kind?: EdgeKind | string;
+  /** 禁用边视作不存在：不进拓扑、不算入边、不参与断言分支 */
+  enabled?: boolean;
+};
 export type GraphNode = { id: string; kind?: string };
 /** upstream：以 selectedId 为终点，含可达祖先与自身，不含下游（边菜单「运行上游 / 到此边前」） */
 export type RunMode = "graph" | "from" | "only" | "upstream";
@@ -14,9 +20,14 @@ export function normalizeEdgeKind(kind: unknown): EdgeKind {
   return kind === "fail" ? "fail" : "pass";
 }
 
+function isEdgeEnabled(e: GraphEdge): boolean {
+  return e.enabled !== false;
+}
+
 function filterEdges(edges: GraphEdge[], follow: EdgeKind | "all"): GraphEdge[] {
-  if (follow === "all") return edges;
-  return edges.filter((e) => normalizeEdgeKind(e.kind) === follow);
+  const active = edges.filter(isEdgeEnabled);
+  if (follow === "all") return active;
+  return active.filter((e) => normalizeEdgeKind(e.kind) === follow);
 }
 
 function topoOrder(nodes: GraphNode[], edges: GraphEdge[], skip: Set<string>): string[] {
@@ -45,6 +56,27 @@ function topoOrder(nodes: GraphNode[], edges: GraphEdge[], skip: Set<string>): s
     }
   }
   return order;
+}
+
+/** 控制节点（不出现在主线性序里的位置算子；执行器按位置内联处理）。 */
+export const CONTROL_KINDS = new Set(["branch", "repeat"]);
+
+/**
+ * 从线性序中切出某个控制节点紧跟其后到下一个控制节点（或线性末端）为止的「子图体」。
+ * 重复节点 / 分支节点的执行器依赖该切分。
+ */
+export function sliceControlBody(
+  order: readonly string[],
+  controlIdx: number,
+  isControl: (id: string) => boolean
+): string[] {
+  const out: string[] = [];
+  for (let i = controlIdx + 1; i < order.length; i++) {
+    const id = order[i]!;
+    if (isControl(id)) break;
+    out.push(id);
+  }
+  return out;
 }
 
 function outMap(edges: GraphEdge[]): Map<string, string[]> {
@@ -101,6 +133,10 @@ function reachableFrom(startIds: string[], out: Map<string, string[]>): Set<stri
 /**
  * @param opts.follow 前进模式默认只沿 pass；upstream 默认 all（祖先含失败边）
  */
+function skippedNodeIds(nodes: GraphNode[]): Set<string> {
+  return new Set(nodes.filter((n) => n.kind === "note" || n.kind === "frame" || n.kind === "viewer").map((n) => n.id));
+}
+
 export function orderNodes(
   nodes: GraphNode[],
   edges: GraphEdge[],
@@ -108,7 +144,7 @@ export function orderNodes(
   selectedId: string | null,
   opts?: { follow?: EdgeKind | "all" }
 ): string[] {
-  const skip = new Set(nodes.filter((n) => n.kind === "note").map((n) => n.id));
+  const skip = skippedNodeIds(nodes);
   const follow = opts?.follow ?? (mode === "upstream" ? "all" : "pass");
   const active = filterEdges(edges, follow);
 
@@ -165,7 +201,7 @@ export function orderAssertBranch(
   assertId: string,
   outcome: EdgeKind
 ): string[] {
-  const skip = new Set(nodes.filter((n) => n.kind === "note").map((n) => n.id));
+  const skip = skippedNodeIds(nodes);
   const targets = edges
     .filter((e) => e.source === assertId && normalizeEdgeKind(e.kind) === outcome)
     .map((e) => e.target);

@@ -1,4 +1,18 @@
 import type { ReactNode } from "react";
+import { EnumMultiSelect, EnumSingleSelect } from "./metaForm/EnumSelect.tsx";
+import { NestedForm } from "./metaForm/NestedForm.tsx";
+import {
+  enumMembers,
+  isArrayType,
+  isEnumType,
+  isObjectType,
+  objectProps,
+  splitTypeUnion,
+} from "./metaForm/detect.ts";
+import { jsonFieldText } from "./metaForm/jsonUtils.ts";
+
+// metaform worker: enum-select + nested-object forms (batch-3)
+// 其它第二、三批（Call $out / Branch / Repeat / undo / 玩家聊天框）由 batch-2 worker 处理
 
 export type MetaProp = {
   name: string;
@@ -236,6 +250,10 @@ export function seedArgsJson(
   return JSON.stringify(argsFromParamValues(fields, bag));
 }
 
+/**
+ * 形状守卫：判断值是否为 Vector3。
+ * 经典形如 { x: number; y: number; z: number }；模块侧运行时序列化场景会保持形状。
+ */
 function isVector3(v: unknown): v is { x: number; y: number; z: number } {
   return (
     !!v &&
@@ -294,14 +312,214 @@ function isRefType(type: string): type is "Player" | "Entity" | "Dimension" | "I
   );
 }
 
-function jsonFieldText(raw: unknown): string {
-  if (raw === undefined || raw === null) return "";
-  if (typeof raw === "string") return raw;
-  try {
-    return JSON.stringify(raw, null, 2);
-  } catch {
-    return String(raw);
+/**
+ * 控件路由：
+ *   enum (单值) → EnumSingleSelect
+ *   enum[]      → EnumMultiSelect
+ *   object (接口) → NestedForm（递归 renderField；超深回退 JSON）
+ *   其它基础 / 联合 / 已知类 与原行为一致。
+ *
+ * 单一函数 = 单一控件来源，方便 NestedForm 递归调用复用同一渲染。
+ */
+export function PropFieldControl({
+  field,
+  value,
+  setField,
+  locked,
+  scene,
+  depth = 0,
+}: {
+  field: MetaProp;
+  value: unknown;
+  setField: (next: unknown) => void;
+  locked: boolean;
+  scene?: SceneSummary | null;
+  /** 当前嵌套深度（0=顶层；> NESTED_FORM_MAX_DEPTH 时 NestedForm 内部回退 JSON）。 */
+  depth?: number;
+}): ReactNode {
+  const type = field.type ?? "unknown";
+
+  // 1. enum 单值 / 数组
+  if (isEnumType(type) && enumMembers(type)) {
+    const members = enumMembers(type)!;
+    if (isArrayType(type)) {
+      return (
+        <EnumMultiSelect
+          members={members}
+          value={value}
+          disabled={locked}
+          onChange={(next) => setField(next)}
+        />
+      );
+    }
+    return (
+      <EnumSingleSelect
+        members={members}
+        value={value}
+        disabled={locked}
+        onChange={(next) => setField(next)}
+      />
+    );
   }
+
+  // 2. object / interface（且不在已知 primitive/ref/array 分支）
+  if (isObjectType(type) && !isVector3Type(type) && !isRefType(type) && !isArrayType(type)) {
+    const typeNames = splitTypeUnion(type).map((t) => t.replace(/\s*\|\s*null\s*$/, "").trim());
+    const typeName = typeNames[0] ?? "object";
+    return (
+      <NestedForm
+        typeName={typeName}
+        fields={objectProps(type)}
+        value={value}
+        depth={depth}
+        locked={locked}
+        onChange={(next) => setField(next)}
+        renderField={(subField, subValue, subSet, subLocked, subDepth) => (
+          <PropFieldControl
+            field={{
+              name: subField.name,
+              type: subField.type,
+              readonly: subField.readonly,
+            }}
+            value={subValue}
+            setField={subSet}
+            locked={subLocked}
+            scene={scene ?? null}
+            depth={subDepth}
+          />
+        )}
+      />
+    );
+  }
+
+  // 3. 基础类型分支（保留原有行为）
+  if (type === "boolean") {
+    return (
+      <select
+        disabled={locked}
+        value={value ? "1" : "0"}
+        onChange={(e) => setField(e.target.value === "1")}
+      >
+        <option value="1">true</option>
+        <option value="0">false</option>
+      </select>
+    );
+  }
+
+  if (type === "number") {
+    return (
+      <input
+        type="number"
+        disabled={locked}
+        value={typeof value === "number" ? value : Number(value) || 0}
+        onChange={(e) => setField(Number(e.target.value))}
+      />
+    );
+  }
+
+  if (isVector3Type(type)) {
+    const loc = isVector3(value) ? value : { x: 0, y: 64, z: 0 };
+    return (
+      <div className="vec3">
+        {(["x", "y", "z"] as const).map((axis) => (
+          <label key={axis} className="vec3-axis">
+            <span>{axis}</span>
+            <input
+              type="number"
+              disabled={locked}
+              value={loc[axis]}
+              onChange={(e) => setField({ ...loc, [axis]: Number(e.target.value) })}
+            />
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  if (isRefType(type)) {
+    const options =
+      type === "Player"
+        ? (scene?.players ?? []).map((p) => ({ id: p.id, label: p.name }))
+        : type === "Entity"
+          ? (scene?.entities ?? []).map((p) => ({
+              id: p.id,
+              label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
+            }))
+          : type === "ItemStack"
+            ? (scene?.items ?? []).map((p) => ({
+                id: p.id,
+                label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
+              }))
+            : type === "Block"
+              ? (scene?.blocks ?? []).map((p) => ({ id: p.id, label: p.id }))
+              : (scene?.dimensions ?? []).map((d) => ({
+                  id: d.id,
+                  label: d.dimensionId,
+                }));
+    return (
+      <select
+        disabled={locked}
+        value={refIdOf(value)}
+        onChange={(e) => {
+          const id = e.target.value;
+          setField(id ? { $ref: id } : null);
+        }}
+      >
+        <option value="">（未绑定）</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (isStringyType(type)) {
+    if (field.name === "dimensionId" && (scene?.dimensions?.length ?? 0) > 0) {
+      return (
+        <select
+          disabled={locked}
+          value={value == null ? "" : String(value)}
+          onChange={(e) => setField(e.target.value)}
+        >
+          {(scene?.dimensions ?? []).map((d) => (
+            <option key={d.id} value={d.dimensionId}>
+              {d.dimensionId}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    return (
+      <input
+        disabled={locked}
+        value={value == null ? "" : String(value)}
+        onChange={(e) => setField(e.target.value)}
+      />
+    );
+  }
+
+  // 4. 复杂类型回退：textarea 容错（保留原行为）
+  return (
+    <textarea
+      rows={3}
+      disabled={locked}
+      value={jsonFieldText(value)}
+      onChange={(e) => {
+        const text = e.target.value;
+        if (!text.trim()) {
+          setField(null);
+          return;
+        }
+        try {
+          setField(JSON.parse(text));
+        } catch {
+          setField(text);
+        }
+      }}
+    />
+  );
 }
 
 export function MetaPropForm({
@@ -327,130 +545,6 @@ export function MetaPropForm({
         const locked = Boolean(readOnly || (!forceEditable && f.readonly));
         const type = f.type ?? "unknown";
         const raw = values[f.name];
-        let control: ReactNode;
-
-        if (type === "boolean") {
-          control = (
-            <select
-              disabled={locked}
-              value={raw ? "1" : "0"}
-              onChange={(e) => setField(f.name, e.target.value === "1")}
-            >
-              <option value="1">true</option>
-              <option value="0">false</option>
-            </select>
-          );
-        } else if (type === "number") {
-          control = (
-            <input
-              type="number"
-              disabled={locked}
-              value={typeof raw === "number" ? raw : Number(raw) || 0}
-              onChange={(e) => setField(f.name, Number(e.target.value))}
-            />
-          );
-        } else if (isVector3Type(type)) {
-          const loc = isVector3(raw) ? raw : { x: 0, y: 64, z: 0 };
-          control = (
-            <div className="vec3">
-              {(["x", "y", "z"] as const).map((axis) => (
-                <label key={axis} className="vec3-axis">
-                  <span>{axis}</span>
-                  <input
-                    type="number"
-                    disabled={locked}
-                    value={loc[axis]}
-                    onChange={(e) =>
-                      setField(f.name, { ...loc, [axis]: Number(e.target.value) })
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-          );
-        } else if (isRefType(type)) {
-          const options =
-            type === "Player"
-              ? (scene?.players ?? []).map((p) => ({ id: p.id, label: p.name }))
-              : type === "Entity"
-                ? (scene?.entities ?? []).map((p) => ({
-                    id: p.id,
-                    label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
-                  }))
-                : type === "ItemStack"
-                  ? (scene?.items ?? []).map((p) => ({
-                      id: p.id,
-                      label: p.typeId ? `${p.typeId} (${p.id})` : p.id,
-                    }))
-                  : type === "Block"
-                    ? (scene?.blocks ?? []).map((p) => ({ id: p.id, label: p.id }))
-                    : (scene?.dimensions ?? []).map((d) => ({
-                        id: d.id,
-                        label: d.dimensionId,
-                      }));
-          control = (
-            <select
-              disabled={locked}
-              value={refIdOf(raw)}
-              onChange={(e) => {
-                const id = e.target.value;
-                setField(f.name, id ? { $ref: id } : null);
-              }}
-            >
-              <option value="">（未绑定）</option>
-              {options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          );
-        } else if (isStringyType(type)) {
-          if (f.name === "dimensionId" && (scene?.dimensions?.length ?? 0) > 0) {
-            control = (
-              <select
-                disabled={locked}
-                value={raw == null ? "" : String(raw)}
-                onChange={(e) => setField(f.name, e.target.value)}
-              >
-                {(scene?.dimensions ?? []).map((d) => (
-                  <option key={d.id} value={d.dimensionId}>
-                    {d.dimensionId}
-                  </option>
-                ))}
-              </select>
-            );
-          } else {
-            control = (
-              <input
-                disabled={locked}
-                value={raw == null ? "" : String(raw)}
-                onChange={(e) => setField(f.name, e.target.value)}
-              />
-            );
-          }
-        } else {
-          // 复杂类型：允许输入中暂存原文，避免 JSON.parse 失败时控件像被禁用
-          control = (
-            <textarea
-              rows={3}
-              disabled={locked}
-              value={jsonFieldText(raw)}
-              onChange={(e) => {
-                const text = e.target.value;
-                if (!text.trim()) {
-                  setField(f.name, null);
-                  return;
-                }
-                try {
-                  setField(f.name, JSON.parse(text));
-                } catch {
-                  setField(f.name, text);
-                }
-              }}
-            />
-          );
-        }
 
         return (
           <div className="field" key={f.name}>
@@ -461,7 +555,13 @@ export function MetaPropForm({
                 {locked ? " · 只读" : ""}
               </span>
             </label>
-            {control}
+            <PropFieldControl
+              field={f}
+              value={raw}
+              setField={(v) => setField(f.name, v)}
+              locked={locked}
+              scene={scene ?? null}
+            />
           </div>
         );
       })}
