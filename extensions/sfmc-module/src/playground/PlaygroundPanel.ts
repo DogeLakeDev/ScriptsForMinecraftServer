@@ -6,6 +6,7 @@ import * as vscode from "vscode";
 import path from "node:path";
 import { PlaygroundHostClient } from "./hostClient.js";
 import { ExtLog } from "../log.js";
+import { scanModuleSourceMap } from "./graph/sourceMap.ts";
 
 export const LAST_FAILED_NODE_KEY = "sfmc.sandbox.lastFailedNodeId";
 
@@ -307,6 +308,72 @@ export class PlaygroundPanel {
       if (script) payload.script = script;
     }
     void this.panel.webview.postMessage(payload);
+    // boot 后顺手把模块入口 source map 推给 webview，供断言失败 ⓘ 跳转。
+    // 失败兜底：缺 moduleRoot / 入口文件 / 解析异常一律回退空 Map，UI 仍可显示 message。
+    void this.postSourceMap();
+  }
+
+  /**
+   * 把模块入口的 source map（symbol → file/line/column）以可序列化形式 post 给 webview。
+   * Map 不能直接跨 postMessage，转 [[k, v], …] 形式。
+   * 失败兜底：缺 moduleRoot 时发空 entries；扫入口异常时记 ExtLog 并发空。
+   */
+  private async postSourceMap(): Promise<void> {
+    if (!this.moduleRoot) {
+      void this.panel.webview.postMessage({ type: "sourceMap", entries: [] });
+      return;
+    }
+    let entries: Array<[string, { file: string; line: number; column?: number }]> = [];
+    try {
+      const map = await scanModuleSourceMap(this.moduleRoot);
+      entries = [...map.entries()];
+      ExtLog.info(
+        "sandbox",
+        `source map entries=${entries.length} moduleRoot=${this.moduleRoot}`
+      );
+    } catch (e) {
+      const text = e instanceof Error ? e.message : String(e);
+      ExtLog.warn("sandbox", `扫 source map 失败: ${text}`);
+    }
+    void this.panel.webview.postMessage({ type: "sourceMap", entries });
+  }
+
+  /**
+   * 节点 ⓘ 跳模块源码：拼 moduleRoot + file → vscode.Uri.file，openTextDocument + revealRange。
+   * 缺参 / 文件不存在 / 行越界一律 showErrorMessage，不抛（避免污染 RPC）。
+   * 对外暴露：panels/commands.ts 的 revealInModule 桥通过此方法复用，避免在两处重复 revealRange 逻辑。
+   */
+  async revealInModule(loc: { file: string; line: number; column: number }): Promise<void> {
+    if (!this.moduleRoot) {
+      vscode.window.showErrorMessage("未绑定模块根，无法跳转模块源码");
+      return;
+    }
+    const rel = loc.file.trim();
+    if (!rel) {
+      vscode.window.showErrorMessage("跳转位置缺少文件路径");
+      return;
+    }
+    const abs = path.resolve(this.moduleRoot, rel);
+    let doc: vscode.TextDocument;
+    try {
+      doc = await vscode.workspace.openTextDocument(vscode.Uri.file(abs));
+    } catch (e) {
+      const text = e instanceof Error ? e.message : String(e);
+      ExtLog.warn("sandbox", `跳转失败 ${abs}: ${text}`);
+      vscode.window.showErrorMessage(`打开模块文件失败: ${rel}（${text}）`);
+      return;
+    }
+    const line = Math.max(0, Math.min(loc.line - 1, Math.max(0, doc.lineCount - 1)));
+    const editor = await vscode.window.showTextDocument(doc, {
+      viewColumn: vscode.ViewColumn.Active,
+      preserveFocus: false,
+      preview: false,
+    });
+    const col = Math.max(0, loc.column | 0);
+    const range = new vscode.Range(new vscode.Position(line, col), new vscode.Position(line, col));
+    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    editor.selection = new vscode.Selection(range.start, range.end);
+    ExtLog.info("sandbox", `跳转到 ${rel}:${loc.line}`);
   }
 
   private async onMessage(msg: {
@@ -467,6 +534,19 @@ export class PlaygroundPanel {
         await this.persistScript(script);
       }
       this.reply(rid, { ok: Boolean(picked?.[0]) });
+      return;
+    }
+    /**
+     * 节点 ⓘ 跳模块源码：路径 + 行/列；拼绝对路径后 openTextDocument + revealRange。
+     * 文件不存在 / 模块根缺失时不抛，提示错误即可。
+     */
+    if (cmd === "revealInModule") {
+      await this.revealInModule({
+        file: typeof msg.file === "string" ? msg.file : "",
+        line: typeof msg.line === "number" && Number.isFinite(msg.line) ? msg.line : 1,
+        column: typeof msg.column === "number" && Number.isFinite(msg.column) ? msg.column : 0,
+      });
+      this.reply(rid, { ok: true });
       return;
     }
   }

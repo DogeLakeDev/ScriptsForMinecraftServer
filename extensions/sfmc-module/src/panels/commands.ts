@@ -618,6 +618,33 @@ export async function cmdClearAndApplyLogFilter(): Promise<void> {
   vscode.window.showInformationMessage(`已清除 Output；${ExtLog.describeFilter()}`);
 }
 
+/**
+ * 节点 ⓘ 跳模块源码的桥：webview 通过 cmd=revealInModule 触发后由 PlaygroundPanel 直接处理；
+ * 本函数暴露给命令面板 / 其他面板 / 测试调用。无当前沙箱面板 / 未绑模块根时直接提示。
+ * 实际跳转逻辑（openTextDocument + revealRange）在 PlaygroundPanel.revealInModule，
+ * 避免在两处重复。
+ */
+export async function revealInModule(
+  loc: { file: string; line: number; column?: number }
+): Promise<{ ok: boolean; reason?: string }> {
+  const panel = PlaygroundPanel.current;
+  if (!panel) {
+    vscode.window.showWarningMessage("脚本沙箱未打开");
+    return { ok: false, reason: "no-panel" };
+  }
+  try {
+    await panel.revealInModule({
+      file: loc.file,
+      line: typeof loc.line === "number" ? loc.line : 1,
+      column: typeof loc.column === "number" ? loc.column : 0,
+    });
+    return { ok: true };
+  } catch (e) {
+    const text = e instanceof Error ? e.message : String(e);
+    return { ok: false, reason: text };
+  }
+}
+
 /** 从剪贴板或上次失败节点定位沙箱图节点 */
 export async function cmdLocateSandboxLogNode(): Promise<void> {
   const clip = (await vscode.env.clipboard.readText()).trim();

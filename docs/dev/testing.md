@@ -155,6 +155,38 @@ test("命令冒烟", async (t) => {
 4. `SFMC: Run Module Tests` 与沙箱共用同一 `moduleRoot` 解析；冒烟结果在「SFMC 扩展」Output，若沙箱已开会按同根重置场景。
 5. 日志主路径：Output「SFMC 扩展」。可用 `SFMC: 日志过滤…` / 视图菜单过滤（仅新写入）；运行行含 `node=<id>`，失败后 `SFMC: 定位沙箱日志节点`（剪贴板或上次失败）；断言可筛最近 N 条 / 级别 / source；模块 `console`/`Msg` 以模块 id 为 source 汇入。
 
+## 脚本沙箱的编排与排错
+
+打开脚本沙箱后，可先从调色板添加节点、连边并运行整图。失败时先查看节点摘要与 ⓘ，再按需打开 Output 日志；这条路径通常不需要启动 BDS。
+
+### 画布编排
+
+| 能力 | 用法 |
+| ------ | ------ |
+| NodePalette 调色板 | 搜索节点名称、用途或关键词，回车插入当前选项 |
+| Frame | 为一组节点添加可调整大小的视觉分区，不参与控制流 |
+| Viewer | 读取场景对象的 `inspect` 快照，以 Spreadsheet 表格展示属性、值与类型 |
+| 场景对象 Spreadsheet | 按对象类型分表查看场景快照；表头可排序，选择一行可打开完整 `inspect` 属性 |
+| EventLog | 在图内查看结构化事件时间线，并按 channel、source、level 与条数筛选 |
+| Mini-map | 在大图中确认节点分布与当前视口 |
+| undo / redo | 撤回或重做节点、连边与布局修改；也可用「编辑」菜单 |
+| 边 `enabled` | `false` 的边不参与拓扑排序与执行；未写该字段的 v2 剧本仍按启用处理 |
+| 节点内联 `pause` | Branch / Repeat 进入暂停态时，节点标题显示暂停标记，继续后恢复运行态 |
+
+场景坞列出 World、Dimension、Scoreboard、Player、Entity、ItemStack 与 Block。选择对象后可在属性面板查看只读快照；需要把快照留在画布中时，添加 Viewer 节点并绑定目标对象。
+
+### 断言表达式
+
+断言与 Branch 表达式可引用 `$id.prop`、`@lastEmit`、`@lastCall`、`@out.<name>` 与场景对象。表达式字段右侧的「插入变量」按钮会按当前场景与执行上下文列出可用引用，减少手写路径错误。
+
+底层由 `parseExpr` 统一解析表达式，`parseExpected` 按 string、number、boolean、vector3 或 enum 解析字面量。`AssertEvalContext` 提供场景、对象引用、Call 输出、结构化日志与源码映射；旧断言配置仍按原有默认值读取。
+
+断言失败时，message 会附带最近日志摘要。若沙箱能从模块入口建立源码映射，节点上的 ⓘ 可直接打开对应源码位置；没有定位信息时，ⓘ 仍显示完整失败原因。
+
+### 模块 manifest 语义
+
+沙箱会读取模块 manifest v3 的 semantic 字段，并在场景快照中提供语义摘要。v2 manifest 会先迁移为 v3 内存结构；fixture 只补充模块未声明的 semantic，不覆盖模块自身定义。详细字段见 [模块开发](./module-author.md)。
+
 ## 相关
 
 | 章节 | 内容 |
