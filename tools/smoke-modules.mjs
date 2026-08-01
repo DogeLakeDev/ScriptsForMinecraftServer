@@ -17,6 +17,10 @@ import { runSync } from "./lib/proc.mjs";
 
 const PORT = parseInt(process.env.DB_PORT || "3001", 10);
 
+/**
+ * @param {boolean} cond
+ * @param {string} msg
+ */
 function expect(cond, msg) {
   if (!cond) {
     console.error(`[smoke] FAIL: ${msg}`);
@@ -66,7 +70,7 @@ async function main() {
     }
   }
 
-  const target = list.body.modules.find((m) => m.can_disable);
+  const target = list.body.modules.find((/** @type {{ can_disable: any; }} */ m) => m.can_disable);
   if (!target) {
     console.log("[smoke] 无 can_disable 模块 — 跳过启停翻转");
     console.log("[smoke] 全部通过");

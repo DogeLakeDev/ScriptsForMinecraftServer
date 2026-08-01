@@ -17,11 +17,17 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+/**
+ * @param {string} msg
+ */
 function die(msg, code = 1) {
   console.error(`[new-module] ${msg}`);
   process.exit(code);
 }
 
+/**
+ * @param {string | any[]} argv
+ */
 function parseArgs(argv) {
   /** @type {{ name: string | null, root: string | null, template: string, listTemplates: boolean, official: boolean }} */
   const flags = { name: null, root: null, template: "minimal", listTemplates: false, official: false };
@@ -64,6 +70,9 @@ function emitTemplateList() {
   }
 }
 
+/**
+ * @param {string} id
+ */
 function isValidFolderId(id) {
   return /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(id);
 }
@@ -71,6 +80,7 @@ function isValidFolderId(id) {
 /**
  * 决定模块骨架落盘位置：写到 cwd（单包根，与 Tanya7z/sfmc-module-template 同构）。
  * 传入 `--root` / `SFMC_MODULES_ROOT` 会退出。
+ * @param {{ name?: string | null; root: any; template?: string; listTemplates?: boolean; official?: boolean; }} flags
  */
 function resolveTargetDir(flags) {
   if (flags.root || process.env.SFMC_MODULES_ROOT) {
@@ -556,16 +566,29 @@ function buildSandboxScript(folderId, displayName) {
   };
 }
 
+/**
+ * @param {fs.PathOrFileDescriptor} filePath
+ * @param {Record<string, unknown>} data
+ */
 function writeJson(filePath, data) {
+  // @ts-ignore
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
 
+/**
+ * @param {fs.PathOrFileDescriptor} filePath
+ * @param {string | NodeJS.ArrayBufferView<ArrayBufferLike>} content
+ */
 function writeText(filePath, content) {
+  // @ts-ignore
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, "utf8");
 }
 
+/**
+ * @param {string} target
+ */
 function writeVscodeWorkspace(target) {
   writeJson(path.join(target, ".vscode", "extensions.json"), {
     recommendations: [

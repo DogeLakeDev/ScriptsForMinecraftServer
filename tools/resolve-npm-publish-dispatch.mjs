@@ -31,6 +31,7 @@ if (!resolved) {
 try {
   assertPublishPackageInWorkspaces(resolved);
 } catch (e) {
+  // @ts-ignore
   console.error(e?.message || e);
   process.exit(1);
 }
@@ -42,12 +43,17 @@ if (actual !== ver) {
   process.exit(1);
 }
 
+/**
+ * @param {string | number | boolean} name
+ * @param {string | number | boolean} version
+ */
 async function isAlreadyPublished(name, version) {
   const url = `https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`;
   try {
     const res = await fetch(url);
     return res.status === 200;
   } catch (e) {
+    // @ts-ignore
     console.warn(`[resolve-npm-publish-dispatch] registry probe failed: ${e?.message || e}`);
     return false;
   }

@@ -17,6 +17,9 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 
+/**
+ * @param {fs.PathLike} filePath
+ */
 function tryRealpath(filePath) {
   try {
     return fs.realpathSync.native(filePath);

@@ -24,6 +24,9 @@ import { spawn } from "node:child_process";
 
 const CWD = process.cwd();
 
+/**
+ * @param {any} msg
+ */
 function die(msg, code = 1) {
   console.error(`[verify-module-publish] ${msg}`);
   process.exit(code);
@@ -34,11 +37,19 @@ const KEYS = {
   required: ["id", "name", "type", "configKey", "permissions", "services", "requires"],
 };
 
+/**
+ * @type {{ kind: any; name: any; msg: any; }[]}
+ */
 const checks = [];
 let pass = 0;
 let warn = 0;
 let fail = 0;
 
+/**
+ * @param {string} kind
+ * @param {string} name
+ * @param {string} msg
+ */
 function record(kind, name, msg) {
   checks.push({ kind, name, msg });
   if (kind === "pass") pass++;
@@ -59,6 +70,7 @@ async function checkManifest() {
   try {
     manifest = JSON.parse(await fsp.readFile(manifestPath, "utf8"));
   } catch (e) {
+    // @ts-ignore
     record("fail", "manifest 可解析", `sapi/manifest.json 解析失败: ${e.message}`);
     return null;
   }
@@ -81,8 +93,8 @@ async function checkManifest() {
     if (!Array.isArray(manifest.services.requires)) {
       record("fail", "manifest.services.requires 数组", `当前类型 ${typeof manifest.services.requires}`);
     } else {
-      const refs = manifest.services.requires.map((r) => (r && typeof r === "object" ? r.name : r));
-      const dup = refs.filter((n, i) => refs.indexOf(n) !== i);
+      const refs = manifest.services.requires.map((/** @type {{ name: any; }} */ r) => (r && typeof r === "object" ? r.name : r));
+      const dup = refs.filter((/** @type {any} */ n, /** @type {any} */ i) => refs.indexOf(n) !== i);
       if (dup.length) record("fail", "manifest.services.requires 无重复", `重复: ${[...new Set(dup)].join(", ")}`);
     }
   }
@@ -94,6 +106,9 @@ async function checkManifest() {
  *    folder              → @scope/module-<folder>
  *    feature-<folder>    → 同上
  * ──────────────────────────────────────────────────────────────── */
+/**
+ * @param {{ id: any; }} manifest
+ */
 function folderFromManifest(manifest) {
   const id = manifest?.id;
   if (!id) return null;
@@ -101,6 +116,9 @@ function folderFromManifest(manifest) {
   return id;
 }
 
+/**
+ * @param {any} manifest
+ */
 async function checkPackageNameAlignment(manifest) {
   const pkgPath = path.join(CWD, "package.json");
   if (!fs.existsSync(pkgPath)) {
@@ -111,6 +129,7 @@ async function checkPackageNameAlignment(manifest) {
   try {
     pkg = JSON.parse(await fsp.readFile(pkgPath, "utf8"));
   } catch (e) {
+    // @ts-ignore
     record("fail", "package.json 可解析", e.message);
     return;
   }
@@ -168,6 +187,9 @@ async function checkFilesField() {
 /* 极简 tar 头解析：512-byte 块，name 在 offset 0（100 字节 null-padded），
  * size 在 offset 124（12 字节八进制 null-padded）；typeflag 在 offset 156（'0' = 普通文件，'5' = 目录）。
  * 末尾两个全零 512 块终止。返回 entries 名字数组（相对 tar 根，含目录与文件）。 */
+/**
+ * @param {NonSharedBuffer} buf
+ */
 function listTarEntries(buf) {
   const files = [];
   const BLOCK = 512;
@@ -189,6 +211,9 @@ function listTarEntries(buf) {
   return files;
 }
 
+/**
+ * @param {readonly string[]} args
+ */
 function runNpm(args) {
   const isWin = process.platform === "win32";
   const npmCli = path.join(process.execPath.replace(/[^\\/]+$/, ""), "node_modules", "npm", "bin", "npm-cli.js");
@@ -285,9 +310,13 @@ async function checkEntryRegistration() {
     record("fail", "sapi/src/ 存在", `未找到目录 ${srcDir}`);
     return;
   }
+  /**
+   * @type {string[]}
+   */
   const tsFiles = [];
-  const walk = (dir) => {
+  const walk = (/** @type {fs.PathLike} */ dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      // @ts-ignore
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
       else if (e.isFile() && /\.tsx?$/.test(e.name)) tsFiles.push(p);
@@ -355,9 +384,13 @@ async function checkSdkPin() {
 async function checkCrossModuleImports() {
   const srcDir = path.join(CWD, "sapi", "src");
   if (!fs.existsSync(srcDir)) return;
+  /**
+   * @type {string[]}
+   */
   const tsFiles = [];
-  const walk = (dir) => {
+  const walk = (/** @type {fs.PathLike} */ dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      // @ts-ignore
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
       else if (e.isFile() && /\.(ts|tsx)$/.test(e.name)) tsFiles.push(p);
@@ -396,7 +429,7 @@ async function checkCrossModuleImports() {
 async function main() {
   console.log(`[verify-module-publish] cwd: ${CWD}`);
   /* 包一层：单个 check 抛错不影响其它（之前是直接 await 串行，整体崩） */
-  const wrap = (name, fn) => fn().catch((e) => record("fail", name, `抛错: ${e?.message ?? String(e)}`));
+  const wrap = (/** @type {string} */ name, /** @type {{ (): Promise<any>; (): Promise<void>; (): Promise<void>; (): Promise<void>; (): Promise<void>; (): Promise<void>; (): Promise<void>; (): Promise<any>; }} */ fn) => fn().catch((/** @type {{ message: any; }} */ e) => record("fail", name, `抛错: ${e?.message ?? String(e)}`));
   const manifest = await wrap("manifest 读取", () => checkManifest());
   if (manifest) {
     await wrap("packageNameAlignment", () => checkPackageNameAlignment(manifest));

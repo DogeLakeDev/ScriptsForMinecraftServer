@@ -12,6 +12,9 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const syncpackCli = path.join(root, "node_modules", "syncpack", "index.cjs");
 
+/**
+ * @param {number} round
+ */
 function runFix(round) {
   console.log(`[syncpack] fix pass ${round}/2`);
   const r = spawnSync(process.execPath, [syncpackCli, "fix"], {

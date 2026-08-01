@@ -31,8 +31,10 @@ if (!mode) {
   process.exit(2);
 }
 
-/** @param {string} rel tools/ 下脚本相对路径 */
-/** @param {string[]} [args] */
+/**
+ * @param {string} rel tools/ 下脚本相对路径
+ * @param {string[]} [args]
+ */
 function runNode(rel, args = []) {
   const script = path.join(TOOLS, rel);
   console.log(`\n[run-release] node tools/${rel}${args.length ? ` ${args.join(" ")}` : ""}`);

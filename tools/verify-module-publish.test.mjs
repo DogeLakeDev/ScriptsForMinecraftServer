@@ -16,8 +16,13 @@ const TEMPLATE = path.resolve("D:/", "#WorkPlace", "#MCBEProjects", "sfmc-module
 const TOOLS = path.resolve("D:/", "#WorkPlace", "#MCBEProjects", "ScriptsForMinecraftServer", "tools");
 const VERIFY_SCRIPT = path.join(TOOLS, "verify-module-publish.mjs");
 
+/**
+ * @param {string} cmd
+ * @param {readonly string[]} args
+ */
 function run(cmd, args, opts = {}) {
   return new Promise((resolve) => {
+    // @ts-ignore
     const proc = spawn(cmd, args, { cwd: opts.cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
@@ -28,6 +33,9 @@ function run(cmd, args, opts = {}) {
   });
 }
 
+/**
+ * @param {string} cwd
+ */
 async function runVerify(cwd) {
   return run(process.execPath, [VERIFY_SCRIPT], { cwd });
 }

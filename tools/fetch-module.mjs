@@ -175,6 +175,9 @@ function die(msg, code = 1) {
   process.exit(code);
 }
 
+/**
+ * @param {string | any[]} args
+ */
 function parseArgs(args) {
   const flags = { from: null, sha256: null, link: false };
   /** @type {string[]} */
@@ -191,6 +194,9 @@ function parseArgs(args) {
   return { flags, positional };
 }
 
+/**
+ * @param {string} id
+ */
 async function ensureTarget(id) {
   const dir = path.join(TARGET, id);
   await fsp.rm(dir, { recursive: true, force: true });
@@ -198,11 +204,15 @@ async function ensureTarget(id) {
   return dir;
 }
 
-/** 移除 packages/<id>（目录 / junction / symlink），不跟随链接删除源内容 */
+/**
+ * 移除 packages/<id>（目录 / junction / symlink），不跟随链接删除源内容
+ * @param {fs.PathLike} dir
+ */
 async function removePackageTarget(dir) {
   try {
     await fsp.lstat(dir);
   } catch (err) {
+    // @ts-ignore
     if (err && err.code === "ENOENT") return;
     throw err;
   }
@@ -242,6 +252,9 @@ async function linkPackageDir(srcDir, destDir) {
   return absDest;
 }
 
+/**
+ * @param {fs.PathLike} file
+ */
 async function sha256OfFile(file) {
   const hash = createHash("sha256");
   await pipeline(createReadStream(file), async function* (src) {
@@ -253,14 +266,21 @@ async function sha256OfFile(file) {
   return hash.digest("hex");
 }
 
+/**
+ * @param {string | URL | Request} url
+ */
 async function fetchToBuffer(url) {
   const res = await fetch(url, { headers: { "User-Agent": "sfmc-fetch-module" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return Buffer.from(await res.arrayBuffer());
 }
 
-/** 安装落盘后同步 catalog + lock；并对 copy/zip 产物做路径/命名规范化 */
+/**
+ * 安装落盘后同步 catalog + lock；并对 copy/zip 产物做路径/命名规范化
+ * @param {string} folder
+ */
 function afterInstall(folder, opts = {}) {
+  // @ts-ignore
   if (!opts.skipNormalize) {
     try {
       normalizeInstalledPackage(path.join(TARGET, folder));
@@ -284,10 +304,14 @@ function afterInstall(folder, opts = {}) {
 }
 
 /**
- * 规范化已安装包：旧 @sfmc/sdk → @sfmc-bds/sdk；tsconfig 改为自包含（不依赖主仓 sdk 路径）。
- * --link 联调目录跳过，避免改写源仓。
+ * 规范化已安装包：旧
+ * @sfmc /sdk →
+ * @sfmc-bds /sdk；tsconfig 改为自包含（不依赖主仓 sdk 路径）。
+--link 联调目录跳过，避免改写源仓。
+ * @param {fs.PathLike} pkgDir
  */
 function normalizeInstalledPackage(pkgDir) {
+  // @ts-ignore
   if (!exists(pkgDir)) return;
   // junction/symlink：不改写源
   try {
@@ -300,6 +324,7 @@ function normalizeInstalledPackage(pkgDir) {
     /* continue */
   }
 
+  // @ts-ignore
   const pkgJsonPath = path.join(pkgDir, "package.json");
   if (exists(pkgJsonPath)) {
     const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
@@ -327,6 +352,7 @@ function normalizeInstalledPackage(pkgDir) {
     }
   }
 
+  // @ts-ignore
   const tsconfigPath = path.join(pkgDir, "sapi", "tsconfig.json");
   if (exists(tsconfigPath)) {
     const standalone = {
@@ -347,11 +373,13 @@ function normalizeInstalledPackage(pkgDir) {
     console.log(`[fetch-module]   normalize: sapi/tsconfig.json (standalone)`);
   }
 
+  // @ts-ignore
   const srcDir = path.join(pkgDir, "sapi", "src");
   if (exists(srcDir)) {
     let rewritten = 0;
-    const walk = (dir) => {
+    const walk = (/** @type {fs.PathLike} */ dir) => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        // @ts-ignore
         const full = path.join(dir, e.name);
         if (e.isDirectory()) walk(full);
         else if (e.isFile() && /\.(ts|tsx|js|mjs)$/.test(e.name)) {
@@ -376,6 +404,9 @@ function normalizeInstalledPackage(pkgDir) {
  *   - .tgz → 解 tarball 到 packages/<id>
  *   - .zip → 解 zip + 校验 layout
  *   - 缺省 → cwd（被 resolveLocalPath 提前处理）
+ * @param {any} id
+ * @param {any} source
+ * @param {any} flags
  */
 async function fromLocal(id, source, flags) {
   /* 兼容旧调用：source 仍可能含 "local:" 前缀 —— 直接由 resolveLocalPath 接管 */
@@ -387,17 +418,20 @@ async function fromLocal(id, source, flags) {
 
 /**
  * `sfmc mod install <id>` 走 npm registry 的主路径。
- *
+ * 
  * 入口：`npm install --prefix packages/<id> --omit=dev --no-save --no-package-lock <pkgName>`
  *   - 落地到 packages/<id>，不进主仓根 node_modules（隔离安装）
  *   - 成功后 upsert catalog/lock
  *   - 失败时把常见 npm 错误翻译成中文可读提示
+ * @param {string} id
+ * @param {string} pkgName
+ * @param {any} flags
  */
 async function fromNpm(id, pkgName, flags) {
   const dir = await ensureTarget(id);
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   const { spawn: spawnChild } = await import("node:child_process");
-  await new Promise((resolve, reject) => {
+  await /** @type {Promise<void>} */(new Promise((resolve, reject) => {
     const proc = spawnChild(
       npmCmd,
       [
@@ -422,13 +456,17 @@ async function fromNpm(id, pkgName, flags) {
       reject(new Error(translateNpmInstallError(pkgName, stderr)));
     });
     proc.on("error", (e) => reject(new Error(`spawn npm failed: ${e.message}`)));
-  });
+  }));
   console.log(`[fetch-module] installed ${id} from npm (${pkgName})`);
   console.log(`[fetch-module]   target: ${dir}`);
   afterInstall(id);
 }
 
-/** 翻译常见 npm install 错误为中文可读 + 下一步动作。 */
+/**
+ * 翻译常见 npm install 错误为中文可读 + 下一步动作。
+ * @param {string} pkgName
+ * @param {string} stderr
+ */
 function translateNpmInstallError(pkgName, stderr) {
   const text = String(stderr || "");
   if (/404 Not Found/i.test(text) || /not found/i.test(text)) {
@@ -447,14 +485,24 @@ function translateNpmInstallError(pkgName, stderr) {
   return `npm install ${pkgName} 失败:\n${text.trim()}`;
 }
 
-/** `tgz:` 显式前缀；等价 local:<path>，规则同 resolveLocalPath。 */
+/**
+ * `tgz:` 显式前缀；等价 local:<path>，规则同 resolveLocalPath。
+ * @param {any} id
+ * @param {string | any[]} source
+ * @param {any} flags
+ */
 async function fromTgz(id, source, flags) {
   const tail = source.slice("tgz:".length);
   const resolved = resolveLocalPath(tail);
   return installLocalArtifact(id, resolved, flags);
 }
 
-/** `zip:` 显式前缀；同上但强制校验内部布局。 */
+/**
+ * `zip:` 显式前缀；同上但强制校验内部布局。
+ * @param {any} id
+ * @param {string | any[]} source
+ * @param {any} flags
+ */
 async function fromZip(id, source, flags) {
   const tail = source.slice("zip:".length);
   const resolved = resolveLocalPath(tail);
@@ -467,6 +515,7 @@ async function fromZip(id, source, flags) {
  *   - 相对路径 → 相对 cwd 解析
  *   - 绝对路径 → 原样
  * 单一权威，避免 local / tgz / zip / dir 之间出现重复解析。
+ * @param {string | any[]} tail
  */
 function resolveLocalPath(tail) {
   const p = String(tail ?? "").trim();
@@ -477,8 +526,12 @@ function resolveLocalPath(tail) {
 /**
  * 按解析出的绝对路径判定形态并安装。
  * kind="zip" 强制校验 layout（zip 仅作为离线分享格式，CLI 必须做完整性检查）。
+ * @param {string} id
+ * @param {fs.PathLike} absPath
+ * @param {{} | undefined} flags
  */
 async function installLocalArtifact(id, absPath, flags, opts = {}) {
+  // @ts-ignore
   if (!exists(absPath)) {
     die(`--from local target not found: ${absPath}`);
   }
@@ -490,6 +543,7 @@ async function installLocalArtifact(id, absPath, flags, opts = {}) {
   if (!st.isFile()) {
     die(`--from local must be a directory, .tgz, or .zip: ${absPath}`);
   }
+  // @ts-ignore
   const lower = absPath.toLowerCase();
   const isZip = lower.endsWith(".zip");
   const isTgz = lower.endsWith(".tgz") || lower.endsWith(".tar.gz");
@@ -499,7 +553,9 @@ async function installLocalArtifact(id, absPath, flags, opts = {}) {
 
   /* 校验 hash（local 模式下若给了 --sha256） */
   const actual = await sha256OfFile(absPath);
+  // @ts-ignore
   if (flags.sha256 && flags.sha256.toLowerCase() !== actual) {
+    // @ts-ignore
     die(`SHA-256 mismatch (local): expected ${flags.sha256}, got ${actual}`);
   }
 
@@ -510,6 +566,7 @@ async function installLocalArtifact(id, absPath, flags, opts = {}) {
     await unzip(absPath, dir);
   }
   /* zip 必须校验内含关键文件（缺则硬错误） */
+  // @ts-ignore
   if (isZip || opts.kind === "zip") {
     validateModuleLayout(dir);
   }
@@ -522,9 +579,12 @@ async function installLocalArtifact(id, absPath, flags, opts = {}) {
 /**
  * 校验 modules/packages/<id> 落地目录内含 manifest + package.json + entry。
  * zip 离线分享场景必须通过；缺关键文件则清目录并 die。
+ * @param {fs.PathLike} pkgDir
  */
 function validateModuleLayout(pkgDir) {
+  // @ts-ignore
   const manifestPath = path.join(pkgDir, "sapi", "manifest.json");
+  // @ts-ignore
   const pkgJsonPath = path.join(pkgDir, "package.json");
   const missing = [];
   if (!exists(manifestPath)) missing.push("sapi/manifest.json");
@@ -543,10 +603,15 @@ function validateModuleLayout(pkgDir) {
   }
 }
 
+/**
+ * @param {string} id
+ * @param {string} source
+ */
 async function fromDir(id, source, flags = {}) {
   const srcDir = path.resolve(source.slice("dir:".length));
   if (!exists(srcDir)) die(`local dir not found: ${srcDir}`);
   const dest = path.join(TARGET, id);
+  // @ts-ignore
   if (flags.link) {
     await linkPackageDir(srcDir, dest);
     console.log(`[fetch-module] linked ${id} → ${srcDir}`);
@@ -562,6 +627,11 @@ async function fromDir(id, source, flags = {}) {
   }
 }
 
+/**
+ * @param {string} id
+ * @param {string | any[]} source
+ * @param {{ sha256: string; }} flags
+ */
 async function fromGithub(id, source, flags) {
   let owner,
     repo,
@@ -569,9 +639,12 @@ async function fromGithub(id, source, flags) {
   const body = source.slice("github:".length);
   const tagIdx = body.lastIndexOf("@");
   if (tagIdx > 0) {
+    // @ts-ignore
     tag = body.slice(tagIdx + 1);
+    // @ts-ignore
     [owner, repo] = body.slice(0, tagIdx).split("/");
   } else {
+    // @ts-ignore
     [owner, repo] = body.split("/");
   }
   if (!owner || !repo) die(`invalid github source: ${source}`);
@@ -596,6 +669,7 @@ async function fromGithub(id, source, flags) {
   if (!asset) die(`module ${id} not found in release ${rel.tag_name ?? tag}`);
 
   const versionMatch = assetRe.exec(asset.name);
+  // @ts-ignore
   const version = versionMatch[2];
   console.log(`[fetch-module] fetching ${asset.name} (${(asset.size / 1024).toFixed(1)} KB)`);
 
@@ -628,16 +702,23 @@ async function fromGithub(id, source, flags) {
   afterInstall(id);
 }
 
+/**
+ * @param {string | any[] | null} source
+ */
 async function listGithub(source) {
   let owner,
     repo,
     tag = "latest";
+  // @ts-ignore
   const body = source.slice("github:".length);
   const tagIdx = body.lastIndexOf("@");
   if (tagIdx > 0) {
+    // @ts-ignore
     tag = body.slice(tagIdx + 1);
+    // @ts-ignore
     [owner, repo] = body.slice(0, tagIdx).split("/");
   } else {
+    // @ts-ignore
     [owner, repo] = body.split("/");
   }
   if (!owner || !repo) die(`invalid github source: ${source}`);
@@ -656,9 +737,14 @@ async function listGithub(source) {
   }
 }
 
-/** 解压模块包 — 委托 bds-tools/zipx（DRY；防 zip-slip / `\` / 绝对路径） */
+/**
+ * 解压模块包 — 委托 bds-tools/zipx（DRY；防 zip-slip / `\` / 绝对路径）
+ * @param {fs.PathLike} zipPath
+ * @param {fs.PathLike} dstDir
+ */
 async function unzip(zipPath, dstDir) {
   await fsp.mkdir(dstDir, { recursive: true });
+  // @ts-ignore
   await extractZipFileToDir(zipPath, dstDir);
 }
 
@@ -666,6 +752,8 @@ async function unzip(zipPath, dstDir) {
  * 解 npm tarball（.tgz）到 packages/<id>。
  * 委托 `npm` 本身（DRY；不重新发明 tar）：`npm install <tarball>` 落临时 prefix，
  * 再拷贝到 packages/<id>。npm 已内置 tar-slip 防护。
+ * @param {fs.PathLike} tgzPath
+ * @param {string} dstDir
  */
 async function extractTgz(tgzPath, dstDir) {
   const os = await import("node:os");
@@ -673,14 +761,18 @@ async function extractTgz(tgzPath, dstDir) {
   const tmpPrefix = await fsp.mkdtemp(path.join(os.tmpdir(), "sfmc-tgz-"));
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   await new Promise((resolve, reject) => {
+    // @ts-ignore
     const proc = spawnChild(npmCmd, ["install", "--prefix", tmpPrefix, "--omit=dev", "--no-save", tgzPath], {
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stderr = "";
+    // @ts-ignore
     proc.stderr?.on("data", (d) => {
       stderr += d.toString();
     });
+    // @ts-ignore
     proc.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`npm install tarball exit ${code}: ${stderr}`))));
+    // @ts-ignore
     proc.on("error", reject);
   });
   /* npm install <tarball> 把 package.json#name 当作目录名：
@@ -720,16 +812,26 @@ async function extractTgz(tgzPath, dstDir) {
   }
 }
 
+/**
+ * @param {fs.PathLike} src
+ * @param {fs.PathLike} dst
+ */
 async function copyDir(src, dst) {
   await fsp.mkdir(dst, { recursive: true });
   for (const e of await fsp.readdir(src, { withFileTypes: true })) {
+    // @ts-ignore
     const sp = path.join(src, e.name);
+    // @ts-ignore
     const dp = path.join(dst, e.name);
     if (e.isDirectory()) await copyDir(sp, dp);
     else if (e.isFile()) await fsp.copyFile(sp, dp);
   }
 }
 
+/**
+ * @param {string} id
+ * @param {{ from: any; sha256?: null; link: any; }} flags
+ */
 async function installOne(id, flags) {
   let from = flags.from;
   if (!from) {
@@ -739,11 +841,13 @@ async function installOne(id, flags) {
   if (flags.link) {
     const norm = normalizeLinkFrom(from, process.cwd());
     if (!norm.ok) die(norm.error);
+    // @ts-ignore
     from = norm.from;
   } else if (!isSchemeFrom(from)) {
     /* 约定：--from <路径> → dir:<abs> */
     const bare = normalizeBarePathFrom(from, process.cwd());
     if (!bare.ok) die(bare.error);
+    // @ts-ignore
     from = bare.from;
   }
   const perFlags = { ...flags, from };
@@ -761,10 +865,14 @@ async function installOne(id, flags) {
         : from;
     return fromDir(id, src, perFlags);
   }
+  // @ts-ignore
   if (from.startsWith("github:")) return fromGithub(id, from, perFlags);
   die(`unknown source: ${from}`);
 }
 
+/**
+ * @param {string} id
+ */
 async function uninstallOne(id) {
   const dir = path.join(TARGET, id);
   const removed = removeCatalogEntry(id);
@@ -826,9 +934,11 @@ async function main() {
   if (verb === "list") {
     const { flags } = parseArgs(rest);
     if (!flags.from) {
+      // @ts-ignore
       flags.from = `github:${DEFAULT_REGISTRY_REPO}@modules-v0.4.0`;
       console.log(`[fetch-module] no --from given; listing ${flags.from}`);
     }
+    // @ts-ignore
     if (!flags.from.startsWith("github:")) die("--from github:owner/repo[@tag] required");
     await listGithub(flags.from);
     return;
@@ -847,11 +957,14 @@ async function main() {
   let ids = [...positional];
   if (ids.length === 0) {
     const from = flags.from;
+    // @ts-ignore
     if (!from || (!from.startsWith("local") && !from.startsWith("dir:"))) {
       die("usage: install <id> [id2 ...] [--from <source>] [--link]\n或: install --from local|dir:<path> [--link]（从包目录推导 id）");
     }
     let absDir;
+    // @ts-ignore
     if (from === "local" || from.startsWith("local:")) {
+      // @ts-ignore
       const raw = from === "local" ? "" : from.slice("local:".length);
       absDir =
         !raw || raw === "." || raw === "./"
@@ -860,6 +973,7 @@ async function main() {
             ? path.resolve(raw)
             : path.resolve(process.cwd(), raw);
     } else {
+      // @ts-ignore
       absDir = path.resolve(from.slice("dir:".length));
     }
     if (!exists(absDir) || !fs.lstatSync(absDir).isDirectory()) {
@@ -869,11 +983,14 @@ async function main() {
     if (!inferred) die(`无法从 ${absDir} 推导模块 id（需要 package.json name 或 sapi/manifest.json id）`);
     console.log(`[fetch-module] inferred id: ${inferred}`);
     ids = [inferred];
+    // @ts-ignore
     if (!flags.from.startsWith("dir:") && (flags.from === "local" || flags.from.startsWith("local:"))) {
       /* 保持 local；link 时会规范成 dir: */
+    // @ts-ignore
     } else if (flags.from.startsWith("dir:")) {
       /* ok */
     } else {
+      // @ts-ignore
       flags.from = `dir:${absDir}`;
     }
   }

@@ -21,13 +21,24 @@ const KEEP = process.argv.includes("--keep");
 const NO_RESTORE = process.argv.includes("--no-restore");
 const DB_PORT = 3091;
 
+/**
+ * @param {string} tag
+ * @param {string} msg
+ */
 function log(tag, msg) {
   console.log(`[${tag}] ${msg}`);
 }
+/**
+ * @param {string} msg
+ */
 function fail(msg) {
   console.error(`[FAIL] ${msg}`);
   process.exit(1);
 }
+/**
+ * @param {boolean} cond
+ * @param {string} msg
+ */
 function expect(cond, msg) {
   if (cond) log("PASS", msg);
   else fail(msg);

@@ -10,7 +10,10 @@ import test from "node:test";
 import path from "node:path";
 import process from "node:process";
 
-/** 镜像 tools/fetch-module.mjs#resolveLocalPath */
+/**
+ * 镜像 tools/fetch-module.mjs#resolveLocalPath
+ * @param {string | undefined} tail
+ */
 function resolveLocalPath(tail) {
   const p = String(tail ?? "").trim();
   if (!p || p === "." || p === "./") return path.resolve(process.cwd());

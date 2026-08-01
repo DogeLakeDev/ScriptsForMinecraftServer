@@ -19,6 +19,7 @@ const ROOT = process.env.SFMC_ROOT ? path.resolve(process.env.SFMC_ROOT) : path.
 const kinds = ["db_config", "qq_config", "bds_updater", "permissions", "remote"];
 
 fs.mkdirSync(configDir(ROOT), { recursive: true });
+// @ts-ignore
 ensureCoreConfigs(ROOT, kinds);
 
 const need = ["db_config.json", "qq_config.json", "bds_updater.json", "permissions.json", "remote.json"];
