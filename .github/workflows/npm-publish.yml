@@ -67,6 +67,11 @@ jobs:
       - run: npm ci --no-audit --no-fund
         if: steps.meta.outputs.already_published != 'true'
 
+      - name: Build all workspaces
+        if: steps.meta.outputs.already_published != 'true'
+        # build-publishable / paths.mjs 运行时依赖 @sfmc-bds/sdk dist（与 ootb.yml 对齐）
+        run: npm run build --workspaces --if-present
+
       - name: build target + publishable deps
         if: steps.meta.outputs.already_published != 'true'
         # DRY/OCP：依赖闭包由 listPublishableBuildDeps 派生，勿硬编码只 build SDK

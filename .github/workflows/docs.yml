@@ -56,6 +56,10 @@ jobs:
           npm ci
           pip install -r docs/requirements.txt
 
+      - name: Build all workspaces
+        # packages/tools/lib/paths.mjs 运行时依赖 @sfmc-bds/sdk dist（与 ootb.yml 对齐）
+        run: npm run build --workspaces --if-present
+
       - name: Build docs (TypeDoc + MkDocs)
         env:
           # Material / ProperDocs 的 MkDocs 2.0 提示（与 packages/tools/docs-mkdocs.mjs 一致）
