@@ -1,0 +1,101 @@
+### remote-controller（默认 127.0.0.1:3100）
+### 环境变量：REMOTE_ENROLL_TOKEN / REMOTE_ADMIN_TOKEN / REMOTE_PORT
+### WebSocket 代理入口 WS /v1/agent?id=… 不在本文件覆盖
+
+### 健康检查
+# @name remoteHealth
+GET {{remoteBase}}/v1/health
+
+### Agent 注册
+# @name remoteEnroll
+POST {{remoteBase}}/v1/enroll
+Authorization: Bearer {{remoteEnrollToken}}
+Content-Type: application/json
+
+{
+  "name": "rest-client-agent"
+}
+
+### Agent 列表（admin）
+# @name remoteAgents
+GET {{remoteBase}}/v1/agents
+Authorization: Bearer {{remoteAdminToken}}
+
+### Agent 详情
+# @name remoteAgentGet
+GET {{remoteBase}}/v1/agents/{{agentId}}
+Authorization: Bearer {{remoteAdminToken}}
+
+### 删除 Agent
+# @name remoteAgentDelete
+DELETE {{remoteBase}}/v1/agents/{{agentId}}
+Authorization: Bearer {{remoteAdminToken}}
+
+### 列出任务
+# @name remoteTasksList
+GET {{remoteBase}}/v1/agents/{{agentId}}/tasks?limit=50
+Authorization: Bearer {{remoteAdminToken}}
+
+### 按状态过滤任务
+# @name remoteTasksFilter
+GET {{remoteBase}}/v1/agents/{{agentId}}/tasks?status=queued&limit=50
+Authorization: Bearer {{remoteAdminToken}}
+
+### 下发 status
+# @name remoteTaskStatus
+POST {{remoteBase}}/v1/agents/{{agentId}}/tasks
+Authorization: Bearer {{remoteAdminToken}}
+Content-Type: application/json
+
+{
+  "action": "status"
+}
+
+### 下发 start（service: bds | db | qq | llbot）
+# @name remoteTaskStart
+POST {{remoteBase}}/v1/agents/{{agentId}}/tasks
+Authorization: Bearer {{remoteAdminToken}}
+Content-Type: application/json
+
+{
+  "action": "start",
+  "service": "db"
+}
+
+### 下发 stop
+# @name remoteTaskStop
+POST {{remoteBase}}/v1/agents/{{agentId}}/tasks
+Authorization: Bearer {{remoteAdminToken}}
+Content-Type: application/json
+
+{
+  "action": "stop",
+  "service": "db"
+}
+
+### 下发 restart
+# @name remoteTaskRestart
+POST {{remoteBase}}/v1/agents/{{agentId}}/tasks
+Authorization: Bearer {{remoteAdminToken}}
+Content-Type: application/json
+
+{
+  "action": "restart",
+  "service": "bds"
+}
+
+### 下发 send（需 message）
+# @name remoteTaskSend
+POST {{remoteBase}}/v1/agents/{{agentId}}/tasks
+Authorization: Bearer {{remoteAdminToken}}
+Content-Type: application/json
+
+{
+  "action": "send",
+  "message": "hello from REST Client"
+}
+
+### 查询单个任务
+# @name remoteTaskGet
+GET {{remoteBase}}/v1/tasks/{{taskId}}
+Authorization: Bearer {{remoteAdminToken}}

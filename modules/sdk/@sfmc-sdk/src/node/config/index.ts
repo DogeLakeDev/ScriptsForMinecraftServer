@@ -214,18 +214,45 @@ export type ConfigName =
  */
 export type ModuleFileName = "catalog.json" | "module-lock.json";
 
+/** 主仓根 package.json 的 name；walk-up 标记，勿改名。 */
+export const MONOREPO_PACKAGE_NAME = "sfmc-monorepo";
+
+/**
+ * 从 startDir 向上查找 monorepo 根（package.json#name === sfmc-monorepo）。
+ * 找不到则返回 null（例如从 npm 装到 node_modules 的独立包）。
+ */
+export function findMonorepoRoot(startDir: string): string | null {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    const pkgPath = path.join(dir, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const name = JSON.parse(fs.readFileSync(pkgPath, "utf8")).name;
+        if (name === MONOREPO_PACKAGE_NAME) return dir;
+      } catch {
+        /* 继续向上 */
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
 /**
  * 解析项目根目录。
  *
  * 优先级:
  *   1. `process.env.SFMC_ROOT`(由 spawnService 注入到子进程)
- *   2. `fallbackRoot`(各服务自传的 `__dirname` 上溯到 monorepo 根 / 安装根)
+ *   2. 从 fallbackRoot 向上找 monorepo 根（name === sfmc-monorepo）
+ *   3. `fallbackRoot` 本身（npm 安装且无 SFMC_ROOT 时）
  *
- * 所有仓顶服务(db-server / qq-bridge / bds-tools / sfmc)统一调用本函数,
- * 不要再自己写 `resolve(__dirname, "..", "..")`。
+ * 所有仓顶服务(db-server / qq-bridge / bds-tools / cli)统一调用本函数,
+ * 不要再自己写固定层数的 `resolve(__dirname, "..", "..")`。
  */
 export function resolveRuntimeRoot(fallbackRoot: string): string {
-  return path.resolve(process.env.SFMC_ROOT || fallbackRoot);
+  if (process.env.SFMC_ROOT) return path.resolve(process.env.SFMC_ROOT);
+  return findMonorepoRoot(fallbackRoot) ?? path.resolve(fallbackRoot);
 }
 
 /**

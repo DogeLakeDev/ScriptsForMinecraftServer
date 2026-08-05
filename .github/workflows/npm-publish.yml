@@ -47,7 +47,7 @@ jobs:
           PUBLISH_PACKAGE: ${{ inputs.package }}
           PUBLISH_VERSION: ${{ inputs.version }}
           PUBLISH_DIST_TAG: ${{ inputs.dist_tag || 'beta' }}
-        run: node tools/resolve-npm-publish-dispatch.mjs
+        run: node packages/tools/resolve-npm-publish-dispatch.mjs
 
       - name: block accidental latest while in beta-only
         if: steps.meta.outputs.dist_tag == 'latest'
@@ -70,7 +70,7 @@ jobs:
       - name: build target + publishable deps
         if: steps.meta.outputs.already_published != 'true'
         # DRY/OCP：依赖闭包由 listPublishableBuildDeps 派生，勿硬编码只 build SDK
-        run: node tools/build-publishable.mjs --workspace "${{ steps.meta.outputs.workspace }}"
+        run: node packages/tools/build-publishable.mjs --workspace "${{ steps.meta.outputs.workspace }}"
 
       - name: publish to npm
         if: steps.meta.outputs.already_published != 'true'

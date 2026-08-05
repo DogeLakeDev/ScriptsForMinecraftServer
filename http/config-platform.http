@@ -1,0 +1,41 @@
+### 平台配置快照与 legacy 只读 GET（无需鉴权）
+
+### SAPI 启动快照（modules / module_tokens / settings / permissions）
+# @name configsAll
+GET {{dbBase}}/api/sfmc/configs/all
+
+### settings 扁平列表
+# @name settingsList
+GET {{dbBase}}/api/sfmc/settings
+
+### 单个 setting（bridge_channel_id / land:* 有回落源）
+# @name settingsGet
+GET {{dbBase}}/api/sfmc/settings/bridge_channel_id
+
+### areas
+# @name areas
+GET {{dbBase}}/api/sfmc/areas
+
+### permissions
+# @name permissions
+GET {{dbBase}}/api/sfmc/permissions
+
+### banned_items
+# @name bannedItems
+GET {{dbBase}}/api/sfmc/banned_items
+
+### clean
+# @name clean
+GET {{dbBase}}/api/sfmc/clean
+
+### grids
+# @name grids
+GET {{dbBase}}/api/sfmc/grids
+
+### peace_filters
+# @name peaceFilters
+GET {{dbBase}}/api/sfmc/peace_filters
+
+### qa / questions
+# @name qa
+GET {{dbBase}}/api/sfmc/qa

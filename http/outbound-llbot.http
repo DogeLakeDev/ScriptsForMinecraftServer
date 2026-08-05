@@ -1,0 +1,21 @@
+### 出站：db-server → LLBot（OneBot 11 HTTP）
+### 默认 http://127.0.0.1:3004；token 见 configs/qq_config.json → llbot_token
+### 正常由 POST /api/sfmc/messages 触发；本文件用于直接探测 LLBot
+
+### 发送群消息
+# @name llbotSendGroupMsg
+POST {{llbotBase}}/send_group_msg
+Authorization: Bearer {{llbotToken}}
+Content-Type: application/json
+
+{
+  "group_id": {{qqGroupId}},
+  "message": [
+    {
+      "type": "text",
+      "data": {
+        "text": "[MC] Steve: hello from REST Client"
+      }
+    }
+  ]
+}

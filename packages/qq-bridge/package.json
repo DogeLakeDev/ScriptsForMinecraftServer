@@ -1,0 +1,50 @@
+{
+  "name": "@sfmc-bds/qq-bridge",
+  "version": "0.1.1-beta.3",
+  "description": "SFMC QQ ↔ MC bridge — LLBot OneBot 11 reverse-WS on port 3002, forwards events to db-server",
+  "author": "Shiroha7z",
+  "license": "ISC",
+  "type": "module",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/qq-bridge#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "packages/qq-bridge"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "llbot",
+    "minecraft-bedrock",
+    "onebot",
+    "qq",
+    "scriptsforminecraftserver",
+    "sfmc"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "sfmc-esbuild-transpile",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dev": "tsx src/index.ts",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js",
+    "typecheck": "tsc7 --noEmit"
+  },
+  "dependencies": {
+    "@sfmc-bds/sdk": "^0.2.0-beta.5",
+    "ws": "^8.21.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

@@ -10,7 +10,7 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": [],
-      "entry": { "kind": "node", "path": "db-server/dist/index.js" }
+      "entry": { "kind": "node", "path": "packages/db-server/dist/index.js" }
     },
     {
       "id": "service-qq-bridge",
@@ -21,7 +21,7 @@
       "enabledByDefault": true,
       "canDisable": false,
       "requires": ["service-db"],
-      "entry": { "kind": "node", "path": "qq-bridge/index.js" }
+      "entry": { "kind": "node", "path": "packages/qq-bridge/index.js" }
     },
     {
       "id": "tool-bds-updater",
@@ -32,7 +32,7 @@
       "enabledByDefault": false,
       "canDisable": true,
       "requires": [],
-      "entry": { "kind": "node", "path": "bds-tools/dist/bds-manager.js" }
+      "entry": { "kind": "node", "path": "packages/bds-tools/dist/bds-manager.js" }
     }
   ]
 }

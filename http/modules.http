@@ -1,0 +1,44 @@
+### 模块控制 — catalog / 启停
+### 写操作：若配置了 http_auth，需 Bearer 或 X-DB-Token
+
+### 合并列表（含 enabled）
+# @name modulesList
+GET {{dbBase}}/api/sfmc/modules
+
+### catalog 原始镜像
+# @name modulesCatalog
+GET {{dbBase}}/api/sfmc/modules/catalog
+
+### 单个模块（:key = manifest id 或 catalog 别名）
+# @name moduleGet
+GET {{dbBase}}/api/sfmc/modules/{{moduleKey}}
+
+### PATCH 切换 enabled
+# @name modulePatch
+PATCH {{dbBase}}/api/sfmc/modules/{{moduleKey}}
+Authorization: Bearer {{httpAuth}}
+Content-Type: application/json
+
+{
+  "enabled": true
+}
+
+### PUT 切换 enabled
+# @name modulePut
+PUT {{dbBase}}/api/sfmc/modules/{{moduleKey}}
+Authorization: Bearer {{httpAuth}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### 启用模块
+# @name moduleEnable
+POST {{dbBase}}/api/sfmc/modules/{{moduleKey}}/enable
+Authorization: Bearer {{httpAuth}}
+
+### 禁用模块（core 会返回 module_cannot_disable）
+# @name moduleDisable
+POST {{dbBase}}/api/sfmc/modules/{{moduleKey}}/disable
+Authorization: Bearer {{httpAuth}}

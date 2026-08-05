@@ -1,0 +1,22 @@
+### 跨模块服务 RPC — 需要模块身份
+### 调用方须具备 service:<name> 权限（或 manifest requires）
+
+### 列出已注册服务
+# @name servicesList
+GET {{dbBase}}/api/sfmc/services?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+
+### 调用服务（input 为 URL 编码 JSON；默认 {}）
+# @name serviceInvoke
+GET {{dbBase}}/api/sfmc/services/{{serviceName}}?moduleId={{moduleId}}&input=%7B%22landId%22%3A%22abc%22%7D
+Authorization: Bearer {{moduleToken}}
+
+### economy.account.get 示例（调用方模块须声明对应权限）
+# @name serviceEconomyGet
+GET {{dbBase}}/api/sfmc/services/economy.account.get?moduleId={{moduleId}}&input=%7B%22playerId%22%3A%22player-uuid%22%7D
+Authorization: Bearer {{moduleToken}}
+
+### land.byPos 示例
+# @name serviceLandByPos
+GET {{dbBase}}/api/sfmc/services/land.byPos?moduleId={{moduleId}}&input=%7B%22dimension%22%3A0%2C%22x%22%3A0%2C%22y%22%3A64%2C%22z%22%3A0%7D
+Authorization: Bearer {{moduleToken}}

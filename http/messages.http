@@ -1,0 +1,57 @@
+### 聊天消息 / QQ 桥
+### GET 无需鉴权；POST 若配置了 http_auth 需 Bearer / X-DB-Token
+
+### 查询消息
+# @name messagesList
+GET {{dbBase}}/api/sfmc/messages
+
+### 按频道 / 类型 / 关键词过滤
+# @name messagesFilter
+GET {{dbBase}}/api/sfmc/messages?channelId={{bridgeChannelId}}&type=text&search=hello
+
+### 时间范围（毫秒）
+# @name messagesByTime
+GET {{dbBase}}/api/sfmc/messages?minCreatedAt=1700000000000&maxCreatedAt=1900000000000
+
+### 写入消息（最多 100 条；可能触发 MC→QQ）
+# @name messagesPost
+POST {{dbBase}}/api/sfmc/messages
+Authorization: Bearer {{httpAuth}}
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "id": "rest-client-demo-1",
+      "channelId": "{{bridgeChannelId}}",
+      "fromid": "player-uuid",
+      "fromName": "Steve",
+      "type": "text",
+      "content": "hello from REST Client",
+      "attachment": null,
+      "showTimestamp": true,
+      "timestamp": 1721548800000
+    }
+  ]
+}
+
+### 模拟 qq-bridge → db-server（QQ→MC）
+# @name messagesFromQq
+POST {{dbBase}}/api/sfmc/messages
+Authorization: Bearer {{httpAuth}}
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "id": "qq_123456_1721548800000",
+      "channelId": "{{bridgeChannelId}}",
+      "fromid": "qq_123456",
+      "fromName": "Nickname",
+      "type": "text",
+      "content": "hello from QQ",
+      "showTimestamp": true,
+      "timestamp": 1721548800000
+    }
+  ]
+}

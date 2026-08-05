@@ -1,28 +1,23 @@
 # 不上传构建产物
-bds-tools/dist/
-db-server/dist/
+packages/*/dist/
 panel/dist/
-qq-bridge/dist/
-sfmc/dist/
 modules/sdk/@sfmc-sdk/dist/
 modules/sdk/@sfmc-eslint-plugin/dist/
-remote-controller/dist/
 
 # node_modules
 node_modules/
-db-server/node_modules/
-bds-tools/node_modules/
+packages/*/node_modules/
 panel/node_modules/
 modules/sdk/@sfmc-sdk/node_modules/
 modules/sdk/@sfmc-eslint-plugin/node_modules/
 
 # cache and logs
-bds-tools/.version_cache.json
-bds-tools/.bds.pid
-bds-tools/.last_update_rollback.json
-tools/.sim-workspace/
-tools/.sim-workspace.bak/
-tools/.sfmc-registry-cache.json
+packages/bds-tools/.version_cache.json
+packages/bds-tools/.bds.pid
+packages/bds-tools/.last_update_rollback.json
+packages/tools/.sim-workspace/
+packages/tools/.sim-workspace.bak/
+packages/tools/.sfmc-registry-cache.json
 *.tmp
 *.tmp.*
 *.log
@@ -53,6 +48,10 @@ memory/
 .env
 .superpowers/
 
+# REST Client 私密环境（含 token；可从 http/http-client.private.env.json.example 复制）
+http/http-client.private.env.json
+
+
 # 误放仓根的 lock（权威路径是 modules/module-lock.json）
 /module-lock.json
 
@@ -64,8 +63,6 @@ memory/
 /docs/reference/sdk/**
 !/docs/reference/sdk/.pages
 ScriptsForMinecraftServer.code-workspace
-devkit/dist/**
-extensions/sfmc-module/dist/**
 
 # 临时测试文件
 _sm_test.ts

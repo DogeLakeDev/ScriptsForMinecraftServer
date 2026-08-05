@@ -75,7 +75,7 @@ flowchart LR
 
 * ✅ **Stage I**:per-module `sapi/manifest.json` + db-server reader
 * ✅ **Stage J**:`shared/*` 迁入 `@sfmc-bds/sdk`,22 模块迁出
-* ✅ **Stage K**:模块按需安装 —— populate 由 `tools/fetch-module.mjs` / `sfmc module install` 完成
+* ✅ **Stage K**:模块按需安装 —— populate 由 `packages/tools/fetch-module.mjs` / `sfmc module install` 完成
 * 🚧 **Stage L**:模块 zip 自动解压、`sfmc module install --enable-and-deploy` 一条龙
 * 🚧 **Stage M**:模块签名 / 公钥验证(取代纯 SHA-256 指纹)
 * 🚧 **Stage N+**:服务网格(多 BDS 实例 / 跨节点)

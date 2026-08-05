@@ -1,0 +1,65 @@
+{
+  "name": "@sfmc-bds/cli",
+  "version": "0.2.0-beta.7",
+  "description": "SFMC management CLI — REPL, service supervisor, module install, behavior-pack build/deploy",
+  "author": "Shiroha7z",
+  "license": "AGPL-v3.0-only",
+  "type": "module",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "cli",
+    "minecraft-bedrock",
+    "scriptsforminecraftserver",
+    "sfmc"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js",
+      "default": "./dist/main.js"
+    }
+  },
+  "bin": {
+    "sfmc": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "sfmc-esbuild-transpile --dts",
+    "prepublishOnly": "npm run build",
+    "start": "node ./dist/main.js",
+    "test": "npm run build && node --test terminal-progress.test.mjs wrap-log-line.test.mjs world-packs-uninstall.test.mjs log-filter.test.mjs debug-command.test.mjs command-surface.test.mjs argv-parse.test.mjs command-palette.test.mjs repl-windows.test.mjs module-toggle.test.mjs",
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.7.0",
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.7",
+    "@sfmc-bds/sdk": "^0.2.0-beta.7",
+    "chalk": "^6.0.0",
+    "ws": "^8.21.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

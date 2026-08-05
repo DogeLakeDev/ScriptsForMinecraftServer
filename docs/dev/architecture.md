@@ -14,9 +14,9 @@ SFMC 如何把「作者仓 → npm / index → 主仓装载 → BDS」串起来�
 │  主仓 / SFMC_ROOT                                              │
 │  modules/packages/ → catalog + lock（可 --link）               │
 │  esbuild → packs/_build/sfmc-modules/ → BDS 世界目录           │
-│  db-server :3001  ←→  SAPI（BDS 内）                           │
-│  qq-bridge :3002  →  db-server                                 │
-│  sfmc CLI 监督上述进程                                         │
+│  packages/db-server :3001  ←→  SAPI（BDS 内）                  │
+│  packages/qq-bridge :3002  →  db-server                        │
+│  packages/cli（sfmc CLI）监督上述进程                          │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,13 +65,18 @@ ModuleRegistry.register({
 | ------ | ------ |
 | `modules/sdk/@sfmc-sdk/` | SDK 伞包 |
 | `modules/sdk/@sfmc-eslint-plugin/` | ESLint 插件 |
-| `db-server/` | REST + SQLite |
-| `qq-bridge/` | QQ WS |
-| `bds-tools/` | BDS 更新、pack-manager |
-| `sfmc/` | CLI / REPL / supervisor（运维） |
-| `devkit/` | 作者 Watch / scaffold（`@sfmc-bds/devkit`） |
-| `extensions/sfmc-module/` | VS Code/Cursor 扩展 |
-| `tools/` | 自检、fetch、catalog |
+| `modules/packages/<id>/` | 业务模块（不变） |
+| `packages/db-server/` | REST + SQLite |
+| `packages/qq-bridge/` | QQ WS |
+| `packages/bds-tools/` | BDS 更新、pack-manager |
+| `packages/cli/` | CLI / REPL / supervisor（运维；npm `@sfmc-bds/cli`） |
+| `packages/meta/` | `@sfmc-bds/sfmc` 聚合包 |
+| `packages/devkit/` | 作者 Watch / scaffold（`@sfmc-bds/devkit`） |
+| `packages/sfmc-extension/` | VS Code/Cursor 扩展 |
+| `packages/tools/` | 自检、fetch、catalog |
+| `packages/remote-controller/` | 远程 agent |
+
+**目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块。
 
 本地无 BDS 时可用 `@sfmc-bds/sdk/testing` 的 `createSandbox` 对齐宿主分相，见 [测试沙箱](./testing.md)。`module-loader` 不在顶层 import `@minecraft/server`，由 BP 启动链注入 host。
 

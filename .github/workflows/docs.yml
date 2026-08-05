@@ -10,8 +10,8 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "typedoc.json"
-      - "tools/docs.mjs"
-      - "tools/docs-*.mjs"
+      - "packages/tools/docs.mjs"
+      - "packages/tools/docs-*.mjs"
       - "modules/sdk/@sfmc-sdk/src/**"
       - "modules/sdk/@sfmc-sdk/tsconfig.typedoc.json"
       - "package.json"
@@ -58,7 +58,7 @@ jobs:
 
       - name: Build docs (TypeDoc + MkDocs)
         env:
-          # Material / ProperDocs 的 MkDocs 2.0 提示（与 tools/docs-mkdocs.mjs 一致）
+          # Material / ProperDocs 的 MkDocs 2.0 提示（与 packages/tools/docs-mkdocs.mjs 一致）
           NO_MKDOCS_2_WARNING: "true"
           DISABLE_MKDOCS_2_WARNING: "true"
         run: npm run docs -- build

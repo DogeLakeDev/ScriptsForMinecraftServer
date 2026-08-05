@@ -8,15 +8,21 @@ ScriptsForMinecraftServer is a Minecraft Bedrock Script API (SAPI) plugin with r
 
 | Path | Role | Runtime |
 |------|------|---------|
-| `db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.13+ |
-| `qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
-| `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
-| `sfmc/` | REPL / CLI supervisor / BP build pipeline | Node.js |
-| `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
+| `packages/db-server/` | SQLite HTTP REST API (port 3001) | Node.js 22.13+ |
+| `packages/qq-bridge/` | QQ bridge via LLBot OneBot 11 (WS 3002 only) | Node.js |
+| `packages/bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
+| `packages/cli/` | REPL / CLI supervisor / BP build pipeline (npm `@sfmc-bds/cli`) | Node.js |
+| `packages/meta/` | `@sfmc-bds/sfmc` aggregate package | Node.js |
+| `packages/tools/` | Platform self-check / fetch / catalog scripts | Node.js |
+| `packages/devkit/` | Author Watch / scaffold (`@sfmc-bds/devkit`) | Node.js |
+| `packages/sfmc-extension/` | VS Code/Cursor extension「SFMC Module」 | — |
+| `modules/packages/<id>/` | Business modules (unchanged); each one a first-class citizen | Node.js + SAPI |
 | `modules/sdk/@sfmc-sdk/` | Shared SDK (SAPI/Node umbrella) | consumed by modules |
 
+**Layout note:** `packages/*` = platform packages; `modules/packages/*` = business modules.
+
 The behavior pack itself is **assembled live** at deploy time by
-`sfmc behavior-pack build` → `bds-tools/pack-manager#assembleBehaviorPack` →
+`sfmc behavior-pack build` → `packages/bds-tools` pack-manager `#assembleBehaviorPack` →
 `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/`. There is no
 checked-in BP shell — modules are the truth.
 
@@ -36,7 +42,7 @@ and bundles them in one go — there is no manual entry.ts to edit.
 ### db-server
 
 ```bash
-cd db-server
+cd packages/db-server
 npm run start                  # node dist/index.js → 127.0.0.1:3001
 DB_PORT=4000 npm run start     # override port
 ```
@@ -44,31 +50,32 @@ DB_PORT=4000 npm run start     # override port
 ### sfmc CLI（原 panel/ TUI 已移除）
 
 ```bash
-node index.js                  # REPL（交互）
-node index.js status           # 打印状态后退出
-node index.js start <svc>      # 启动服务（db / qq / update / manager）
-node index.js stop <svc>
-node index.js init             # 安装向导
+npm start                      # REPL（交互）→ packages/cli/dist/main.js
+npm start -- status            # 打印状态后退出
+npm start -- start <svc>       # 启动服务（db / qq / update / manager）
+npm start -- stop <svc>
+npm start -- init              # 安装向导
+# 或: node packages/cli/dist/main.js <args>
 ```
 
 ### Dev tools (run from repo root)
 
 ```bash
-node tools/check-ootb.mjs          # 平台开箱自检(空 catalog 合法)
-node tools/catalog-sync.mjs        # 扫描 packages → 重写 catalog.json
-node tools/check-modules.mjs       # 校验 catalog + 已装包 v2 manifest
-node tools/fetch-module.mjs search # 查 registry
-node tools/fetch-module.mjs install <id>   # 安装并同步 catalog/lock
-node tools/fetch-module.mjs uninstall <id>
-node tools/smoke-modules.mjs       # 模块 API 冒烟(需 live db-server)
-node tools/sim-new-user.mjs        # 隔离 SFMC_ROOT 冒烟
+node packages/tools/check-ootb.mjs          # 平台开箱自检(空 catalog 合法)
+node packages/tools/catalog-sync.mjs        # 扫描 modules/packages → 重写 catalog.json
+node packages/tools/check-modules.mjs       # 校验 catalog + 已装包 v2 manifest
+node packages/tools/fetch-module.mjs search # 查 registry
+node packages/tools/fetch-module.mjs install <id>   # 安装并同步 catalog/lock
+node packages/tools/fetch-module.mjs uninstall <id>
+node packages/tools/smoke-modules.mjs       # 模块 API 冒烟(需 live db-server)
+node packages/tools/sim-new-user.mjs        # 隔离 SFMC_ROOT 冒烟
 # db-server API 烟测: npm run test:api -w @sfmc-bds/db-server
 ```
 
 ### Build prerequisites
 
 - Node.js 22.13+ for everything (db-server requires `node:sqlite`, which needs the `--experimental-sqlite` CLI flag on 22.5–22.12; unflagged from 22.13)
-- Run `sfmc` (or `node sfmc/dist/main.js`) to fill `configs/*.json` via wizard
+- Run `sfmc` (or `node packages/cli/dist/main.js`) to fill `configs/*.json` via wizard
 
 ## Architecture
 
@@ -82,7 +89,7 @@ Modules with `afterWorldLoad=false` boot immediately. Those with `afterWorldLoad
 ### Module System
 
 Truth source: `modules/catalog.json`(本地 mirror,由已装包投影) + `modules/module-lock.json`(启停)。
-业务模块源在 `Tanya7z/sfmc-modules`,经 `tools/fetch-module.mjs` 安装。
+业务模块源在 `Tanya7z/sfmc-modules`,经 `packages/tools/fetch-module.mjs` 安装。
 
 `ModuleRegistry` (`modules/sdk/@sfmc-sdk/src/module-loader/`) handles all wiring. Each module exports a lifecycle object from `sapi/src/index.ts` with `registerPermissions`, `registerCommands`, `registerEvents`, `init`, `cleanup` hooks. To add a module:
 

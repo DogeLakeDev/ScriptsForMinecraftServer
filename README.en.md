@@ -12,7 +12,7 @@
 [![npm](https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@sfmc-bds/sfmc)
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
-[![discord](https://img.shields.io/badge/QQ-QQ--bridge-1E90FF?style=flat-square&logo=tencent-qq)](./qq-bridge)
+[![discord](https://img.shields.io/badge/QQ-QQ--bridge-1E90FF?style=flat-square&logo=tencent-qq)](./packages/qq-bridge)
 
 ---
 
@@ -21,16 +21,16 @@
 ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface into a complete server-side system:
 
 - **Module-by-package model** — every entry under `modules/packages/<id>/` is a first-class module; modules are registered through `modules/catalog.json` and loaded by `ModuleRegistry`. `type` in the catalog distinguishes `core` (infrastructure) from `feature` (add-on functionality).
-- **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` (CLI supervisor).
+- **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` CLI (supervisor). Platform code lives under `packages/`; business modules stay under `modules/packages/`.
 - **One-command install** — `npm i -g @sfmc-bds/sfmc@beta` then `sfmc` in an empty directory (beta-only until first stable release).
 - **SDK toolkit** `@sfmc-bds/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
-- **Build-time module fetch** — one-shot CLI `tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout).
+- **Build-time module fetch** — one-shot CLI `packages/tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout).
 
 ## Architecture diagram
 
 ```mermaid
 flowchart LR
-  REG["sfmc-modules"] -->|fetch| PKG["packages/"]
+  REG["sfmc-modules"] -->|fetch| PKG["modules/packages/"]
   PKG -->|build · deploy| BDS["BDS / SAPI"]
   BDS <-->|HTTP :3001| DB["db-server"]
   LLBot <-->|WS · HTTP| QQ["qq-bridge"] --> DB
@@ -89,13 +89,13 @@ cd ScriptsForMinecraftServer
 npm install
 
 # 2. Self-check + wizard (fill in BDS / LLBot / backup paths)
-node tools/check-ootb.mjs
-node sfmc/dist/main.js              # same as sfmc
+node packages/tools/check-ootb.mjs
+node packages/cli/dist/main.js              # same as npm start / sfmc
 
 # 3. Install modules (default: first-party sfmc-modules registry)
-node tools/fetch-module.mjs search                     # see what's available
-node tools/fetch-module.mjs install afk
-node tools/fetch-module.mjs install land economy
+node packages/tools/fetch-module.mjs search                     # see what's available
+node packages/tools/fetch-module.mjs install afk
+node packages/tools/fetch-module.mjs install land economy
 # install syncs modules/catalog.json + module-lock.json
 
 # 4. After editing BP / writing a custom module:
@@ -109,8 +109,8 @@ sfmc> start -all
 Both paths share the same:
 
 - First-party module registry `Tanya7z/sfmc-modules` (GitHub Releases).
-- `tools/fetch-module.mjs` to pull modules.
-- `sfmc behavior-pack build/deploy` driven by `bds-tools/pack-manager`.
+- `packages/tools/fetch-module.mjs` to pull modules.
+- `sfmc behavior-pack build/deploy` driven by `packages/bds-tools` pack-manager.
 - `modules/module-lock.json` for enable/disable state.
 
 The behavior pack is assembled live from your enabled modules — there is no fixed BP shell. Modules not in the first-party registry trigger a yellow "unknown source" warning at boot; verify before trusting.
@@ -119,20 +119,23 @@ The behavior pack is assembled live from your enabled modules — there is no fi
 
 ```
 ScriptsForMinecraftServer/
-├── bds-tools/             BDS auto-update + process manager
-├── db-server/             SQLite HTTP REST API (port 3001)
-├── qq-bridge/             QQ bridge (LLBot OneBot 11)
-├── sfmc/                  REPL management CLI
-├── sfmc-meta/             @sfmc-bds/sfmc aggregate package
-├── remote-controller/     Remote agent
+├── packages/                  Platform packages (not business modules)
+│   ├── bds-tools/             BDS auto-update + process manager
+│   ├── db-server/             SQLite HTTP REST API (port 3001)
+│   ├── qq-bridge/             QQ bridge (LLBot OneBot 11)
+│   ├── cli/                   REPL management CLI (npm @sfmc-bds/cli)
+│   ├── meta/                  @sfmc-bds/sfmc aggregate package
+│   ├── remote-controller/     Remote agent
+│   ├── tools/                 self-check + build + fetch-module.mjs
+│   ├── devkit/                author Watch / scaffold (@sfmc-bds/devkit)
+│   └── sfmc-extension/        VS Code/Cursor extension「SFMC Module」
 ├── modules/
-│   ├── catalog.json       22 business module rows
-│   ├── module-lock.json   enable/disable state
-│   ├── sdk/@sfmc-sdk/     single umbrella
-│   └── packages/          25 business modules
-├── tools/                 self-check + build + fetch-module.mjs
-├── configs/               runtime config JSON (gitignored; generated on first ensure)
-└── docs/                  bilingual docs
+│   ├── catalog.json           22 business module rows
+│   ├── module-lock.json       enable/disable state
+│   ├── sdk/@sfmc-sdk/         single umbrella
+│   └── packages/              Business modules (unchanged)
+├── configs/                   runtime config JSON (gitignored; generated on first ensure)
+└── docs/                      bilingual docs
     ├── user-guide.en.md
     ├── marketplace.en.md
     └── dev/{module-author,sdk-reference,manifest-contract}.en.md
@@ -181,7 +184,7 @@ CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 
 - ✅ **Stage I**: per-module `sapi/manifest.json` + db-server reader
 - ✅ **Stage J**: `shared/*` migrated into `@sfmc-bds/sdk`; 22 modules migrated out
-- ✅ **Stage K**: on-demand modules — populated by `tools/fetch-module.mjs` / `sfmc module install`
+- ✅ **Stage K**: on-demand modules — populated by `packages/tools/fetch-module.mjs` / `sfmc module install`
 - 🚧 **Stage L**: auto-extract remote zips; `sfmc module install --enable-and-deploy` one-shot
 - 🚧 **Stage M**: module signing / public-key verification (replace plain SHA-256)
 - 🚧 **Stage N+**: service mesh (multi-BDS / cross-node)

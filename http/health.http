@@ -1,0 +1,10 @@
+### 用法
+### 1. 复制 http-client.private.env.json.example → http-client.private.env.json
+### 2. 填 httpAuth（configs/db_config.json → http_auth）
+### 3. 填 moduleToken（与 SQLite 同目录 module-tokens.json → tokens[<moduleId>]）
+### 4. 状态栏选择 REST Client 环境：local
+### 5. 请求上方点 Send Request
+
+### 健康检查（无需鉴权）
+# @name health
+GET {{dbBase}}/api/health

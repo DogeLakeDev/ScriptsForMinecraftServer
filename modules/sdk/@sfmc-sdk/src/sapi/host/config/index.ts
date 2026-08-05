@@ -5,6 +5,8 @@
  * host 适配层其它代码若需要路径/JSON 工具,从此处或直接从 node/config 引入均可。
  */
 export {
+  MONOREPO_PACKAGE_NAME,
+  findMonorepoRoot,
   resolveRuntimeRoot,
   resolveRuntimePath,
   configDir,

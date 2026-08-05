@@ -17,10 +17,19 @@ const DEFAULT_FRAGMENTS = [
   "/bds-tools/",
   "/sfmc/src/",
   "/sfmc/dist/",
+  "/packages/db-server/",
+  "/packages/qq-bridge/",
+  "/packages/bds-tools/",
+  "/packages/cli/src/",
+  "/packages/cli/dist/",
   "\\db-server\\",
   "\\qq-bridge\\",
   "\\bds-tools\\",
   "\\sfmc\\src\\",
+  "\\packages\\db-server\\",
+  "\\packages\\qq-bridge\\",
+  "\\packages\\bds-tools\\",
+  "\\packages\\cli\\src\\",
 ];
 
 type Options = [

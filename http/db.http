@@ -1,0 +1,177 @@
+### 数据库 v2 — 全部 POST，需要模块身份
+### Authorization: Bearer <moduleToken>；Query 必须带 moduleId
+### table / 权限须与调用方 manifest 声明一致（示例用 demo 表，按本机已装模块改）
+
+### define-table（仅模块 init；勿放进 tx）
+# @name dbDefineTable
+POST {{dbBase}}/api/sfmc/db/define-table?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "name": "demo_items",
+  "columns": [
+    { "name": "id", "type": "TEXT", "primaryKey": true },
+    { "name": "owner_player_id", "type": "TEXT" },
+    { "name": "title", "type": "TEXT" }
+  ],
+  "softDelete": true
+}
+
+### query（opts 为 WhereExpr，勿传 SQL 字符串）
+# @name dbQuery
+POST {{dbBase}}/api/sfmc/db/query?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "table": "demo_items",
+  "opts": {}
+}
+
+### get by id
+# @name dbGet
+POST {{dbBase}}/api/sfmc/db/get?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "table": "demo_items",
+  "id": "item-1"
+}
+
+### insert
+# @name dbInsert
+POST {{dbBase}}/api/sfmc/db/insert?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "table": "demo_items",
+  "row": {
+    "id": "item-1",
+    "owner_player_id": "player-uuid",
+    "title": "hello"
+  }
+}
+
+### update
+# @name dbUpdate
+POST {{dbBase}}/api/sfmc/db/update?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "table": "demo_items",
+  "id": "item-1",
+  "patch": {
+    "title": "updated"
+  }
+}
+
+### delete（soft；hard=true 为硬删）
+# @name dbDelete
+POST {{dbBase}}/api/sfmc/db/delete?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "table": "demo_items",
+  "id": "item-1",
+  "hard": false
+}
+
+### audit
+# @name dbAudit
+POST {{dbBase}}/api/sfmc/db/audit?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "table": "demo_items",
+  "rowId": "item-1",
+  "action": "manual_note",
+  "data": { "note": "rest-client probe" }
+}
+
+### 批量事务（工具 / 测试）
+# @name dbTxBatch
+POST {{dbBase}}/api/sfmc/db/tx?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "steps": [
+    {
+      "op": "get",
+      "table": "demo_items",
+      "id": "item-1"
+    }
+  ]
+}
+
+### 交互事务 begin
+# @name dbTxBegin
+POST {{dbBase}}/api/sfmc/db/tx/begin?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{}
+
+### 交互事务 step（把上一请求返回的 txId 填进来）
+# @name dbTxStep
+POST {{dbBase}}/api/sfmc/db/tx/step?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "txId": "{{dbTxBegin.response.body.$.txId}}",
+  "step": {
+    "op": "get",
+    "table": "demo_items",
+    "id": "item-1"
+  }
+}
+
+### 交互事务 commit
+# @name dbTxCommit
+POST {{dbBase}}/api/sfmc/db/tx/commit?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "txId": "{{dbTxBegin.response.body.$.txId}}"
+}
+
+### 交互事务 rollback
+# @name dbTxRollback
+POST {{dbBase}}/api/sfmc/db/tx/rollback?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "txId": "{{dbTxBegin.response.body.$.txId}}"
+}
+
+### 幂等 probe
+# @name dbIdempotentProbe
+POST {{dbBase}}/api/sfmc/db/idempotent/probe?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "action": "demo.once",
+  "key": "rest-client-key-1"
+}
+
+### 幂等 commit
+# @name dbIdempotentCommit
+POST {{dbBase}}/api/sfmc/db/idempotent/commit?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "action": "demo.once",
+  "key": "rest-client-key-1",
+  "value": { "ok": true }
+}

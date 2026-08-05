@@ -1,0 +1,25 @@
+### 模块级配置 v2 — 需要模块身份
+### Authorization: Bearer <moduleToken> 或 X-Module-Token
+### Query 必须带 moduleId；configKey 须与该模块 manifest.configKey 一致
+
+### 读整份 configs/<configKey>.json
+# @name moduleConfigGet
+GET {{dbBase}}/api/sfmc/configs/{{configKey}}?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+
+### 写单个 key（读-改-写文件）
+# @name moduleConfigSet
+POST {{dbBase}}/api/sfmc/configs/{{configKey}}/set?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Content-Type: application/json
+
+{
+  "key": "exampleKey",
+  "value": "exampleValue"
+}
+
+### SSE：配置变更推送（REST Client 会保持连接）
+# @name moduleConfigNotify
+GET {{dbBase}}/api/sfmc/configs/{{configKey}}/notify?moduleId={{moduleId}}
+Authorization: Bearer {{moduleToken}}
+Accept: text/event-stream

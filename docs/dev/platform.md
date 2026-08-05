@@ -1,8 +1,10 @@
 # 平台开发
 
-改 SDK、db-server、sfmc 或 CI 时看这篇。业务模块请走 [模块开发](./module-author.md)。
+改 SDK、db-server、sfmc CLI 或 CI 时看这篇。业务模块请走 [模块开发](./module-author.md)。
 
 **包独立性：** pack-update、探活、附加包装载、BDS 更新等能力落在 `@sfmc-bds/bds-tools` / `db-server` / `qq-bridge` / `@sfmc-bds/sdk` 等包内，须能不经 CLI 独立调用。`@sfmc-bds/cli` 只做编排与交互壳，禁止服务包反向依赖 cli。
+
+**目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块（不变）。
 
 ## 环境
 
@@ -16,17 +18,17 @@ npm run check-ootb
 npm run build -w @sfmc-bds/sdk
 npm run build -w @sfmc-bds/db-server
 npm run build -w @sfmc-bds/cli
-cd db-server && npm run dev
+cd packages/db-server && npm run dev
 ```
 
 改 SDK 后：先 build SDK，再 build 依赖它的 workspace，并重打模块行为包（`mod reload` 或装载闸门）。
 
 ## db-server
 
-入口 `db-server/src/index.ts`，路由在 `routes/`。
+入口 `packages/db-server/src/index.ts`，路由在 `routes/`。
 
 ```bash
-cd db-server
+cd packages/db-server
 npm run test
 ```
 
@@ -41,7 +43,7 @@ npm run test
 
 ## sfmc CLI
 
-源码 `sfmc/src/`。改完：`npm run build -w @sfmc-bds/cli`。
+源码 `packages/cli/src/`（npm `@sfmc-bds/cli`）。改完：`npm run build -w @sfmc-bds/cli`。根入口：`npm start` → `packages/cli/dist/main.js`。
 
 工作根：monorepo 内为仓根；npm 聚合包安装后为 **cwd**（`SFMC_ROOT` 可覆盖）。首次初始化看 `configs/runtime.json#initialized_at`。
 
@@ -51,14 +53,14 @@ npm run test
 
 | 路径 | 职责 |
 | ------ | ------ |
-| `devkit/`（`@sfmc-bds/devkit`） | scaffold、watch、rebuildAndDeploy；供扩展 import |
-| `extensions/sfmc-module/` | VS Code/Cursor「SFMC Module」 |
+| `packages/devkit/`（`@sfmc-bds/devkit`） | scaffold、watch、rebuildAndDeploy；供扩展 import |
+| `packages/sfmc-extension/` | VS Code/Cursor「SFMC Module」 |
 
 作者流程见 [模块开发](./module-author.md)、[测试沙箱](./testing.md)。
 
 ## 工具与 CI
 
-新脚本放 `tools/*.mjs`，共享逻辑进 `tools/lib/`。见 [工具脚本](./tools.md)。
+新脚本放 `packages/tools/*.mjs`，共享逻辑进 `packages/tools/lib/`。见 [工具脚本](./tools.md)。
 
 `ootb.yml`：`npm ci` → `check-ootb` → 起 db → `smoke-modules`。Node ≥ 22.13。
 

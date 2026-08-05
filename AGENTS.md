@@ -6,18 +6,24 @@ npm workspaces monorepo (root `package.json` has `workspaces`):
 
 | Path | What | Runtime |
 |------|------|---------|
-| `db-server/` | SQLite HTTP REST backend (plain `node:http` + `node:sqlite`) | Node.js >=22.13 |
-| `qq-bridge/` | QQ bridge (LLBot OneBot 11, WS 3002) | Node.js |
-| `bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
-| `sfmc/` | CLI management tool (REPL + supervisor), assembles SAPI BP at deploy time | Node.js |
-| `modules/packages/<id>/` | Per-module packages; each one a first-class citizen | Node.js + SAPI |
+| `packages/db-server/` | SQLite HTTP REST backend (plain `node:http` + `node:sqlite`) | Node.js >=22.13 |
+| `packages/qq-bridge/` | QQ bridge (LLBot OneBot 11, WS 3002) | Node.js |
+| `packages/bds-tools/` | BDS auto-updater + behavior-pack assembler | Node.js |
+| `packages/cli/` | CLI management tool (REPL + supervisor), npm `@sfmc-bds/cli`; assembles SAPI BP at deploy time | Node.js |
+| `packages/meta/` | `@sfmc-bds/sfmc` aggregate package | Node.js |
+| `packages/remote-controller/` | Remote agent | Node.js |
+| `packages/tools/` | Platform self-check / fetch / catalog scripts | Node.js |
+| `packages/devkit/` | Author Watch / scaffold (`@sfmc-bds/devkit`) | Node.js |
+| `packages/sfmc-extension/` | VS Code/Cursor extension「SFMC Module」 | — |
+| `modules/packages/<id>/` | Business modules (unchanged); each one a first-class citizen | Node.js + SAPI |
 | `modules/sdk/@sfmc-sdk/` | Shared SDK（含 `@sfmc-bds/sdk/logs`） | mixed |
 
+**Layout note:** `packages/*` = platform packages; `modules/packages/*` = business modules. Do not confuse the two.
 
 ## Plugin entry & init order
 
 The behavior pack is **assembled at deploy time** by `sfmc behavior-pack build` →
-`bds-tools/pack-manager#assembleBehaviorPack`. The bundle entry walks every
+`packages/bds-tools` pack-manager `#assembleBehaviorPack`. The bundle entry walks every
 enabled module's `sapi/src/index.ts` and emits a single `scripts/main.js`.
 
 Init phases (inside the bundled `main.js`):
@@ -46,7 +52,7 @@ bundles them in one go. To make changes load, run `build && deploy` and restart 
 ### Root monorepo commands (run from repo root)
 
 ```powershell
-npm run start       # node index.js → sfmc CLI
+npm run start       # → packages/cli/dist/main.js (sfmc CLI)
 npm run build       # npm run build --workspaces
 npm run lint        # eslint . --ext .ts,.tsx
 ```
@@ -56,7 +62,7 @@ To build all workspaces: `npm run build`.
 ### db-server
 
 ```bash
-cd db-server
+cd packages/db-server
 npm run dev          # tsx src/index.ts
 npm run start        # node dist/index.js
 npm run build        # tsc -p tsconfig.json
@@ -69,7 +75,7 @@ Port defaults to 3001. Config: `configs/db_config.json` (`db_port` key). Auth vi
 ### bds-tools (TypeScript)
 
 ```bash
-cd bds-tools
+cd packages/bds-tools
 npm run build              # tsc → dist/
 npm run update             # node dist/check-update.js
 npm run update:check       # --check-only
@@ -81,26 +87,27 @@ npm run start|stop|status|watch  # bds-manager commands
 ### sfmc CLI
 
 ```bash
-node index.js               # REPL (interactive)
-node index.js status        # print status and exit
-node index.js start <svc>   # start a service
-node index.js stop <svc>    # stop a service
-node index.js restart <svc> # restart a service
-node index.js init          # setup wizard
-node index.js update        # BDS update
+npm start                   # REPL (interactive) → packages/cli/dist/main.js
+npm start -- status         # print status and exit
+npm start -- start <svc>    # start a service
+npm start -- stop <svc>     # stop a service
+npm start -- restart <svc>  # restart a service
+npm start -- init           # setup wizard
+npm start -- update         # BDS update
+# or: node packages/cli/dist/main.js <args>
 ```
 
 Services managed by `SFMC_SERVICE` env: `db`, `qq`, `update`, `manager`.
 
 ## Module system
 
-Source of truth: `modules/catalog.json` (local mirror projected from installed packages) + `modules/module-lock.json` (enable state). Business modules live in `Tanya7z/sfmc-modules` and are installed via `tools/fetch-module.mjs`.
+Source of truth: `modules/catalog.json` (local mirror projected from installed packages) + `modules/module-lock.json` (enable state). Business modules live in `Tanya7z/sfmc-modules` and are installed via `packages/tools/fetch-module.mjs`.
 
-- `tools/fetch-module.mjs install|uninstall|search` — registry install; syncs catalog + lock
-- `tools/catalog-sync.mjs` — scan `packages/*/sapi/manifest.json` → rewrite catalog
-- `tools/check-modules.mjs` — validate catalog + v2 manifests (empty catalog OK)
-- `tools/smoke-modules.mjs` — module API smoke (needs live db-server)
-- `tools/check-ootb.mjs` — platform readiness self-check
+- `packages/tools/fetch-module.mjs install|uninstall|search` — registry install; syncs catalog + lock
+- `packages/tools/catalog-sync.mjs` — scan `modules/packages/*/sapi/manifest.json` → rewrite catalog
+- `packages/tools/check-modules.mjs` — validate catalog + v2 manifests (empty catalog OK)
+- `packages/tools/smoke-modules.mjs` — module API smoke (needs live db-server)
+- `packages/tools/check-ootb.mjs` — platform readiness self-check
 
 Runtime wiring: `modules/sdk/@sfmc-sdk/src/module-loader/`. To add a module:
 
@@ -140,7 +147,7 @@ Key config endpoints:
 
 ## QQ Bridge (LLBot / OneBot 11)
 
-File: `qq-bridge/index.js` (shim → `dist/index.js`). Source in `src/`, compile with `npm run build`.
+File: `packages/qq-bridge/index.js` (shim → `dist/index.js`). Source in `src/`, compile with `npm run build`.
 
 - Only exposes WS on port 3002 (LLBot reverse-ws). No HTTP port.
 - MC→QQ goes directly from db-server to LLBot HTTP (port 3004 by default).
@@ -159,20 +166,20 @@ MC → QQ: db-server ─HTTP──→ LLBot:3004/send_group_msg
 
 ### Start order
 ```list
-1. db-server    (node db-server/index.js or db-server/dist/index.js)
-2. qq-bridge    (node qq-bridge/index.js)
+1. db-server    (node packages/db-server/dist/index.js)
+2. qq-bridge    (node packages/qq-bridge/index.js)
 3. BDS
 ```
 
 ## Development tools
 
 ```bash
-node tools/check-ootb.mjs       # validate environment readiness
-node tools/catalog-sync.mjs     # project installed packages → catalog.json
-node tools/check-modules.mjs    # validate catalog + v2 manifests
-node tools/smoke-modules.mjs    # module regression (needs live db-server)
-node tools/sim-new-user.mjs     # isolated SFMC_ROOT smoke
-node tools/fetch-module.mjs install <id>
+node packages/tools/check-ootb.mjs       # validate environment readiness
+node packages/tools/catalog-sync.mjs     # project modules/packages → catalog.json
+node packages/tools/check-modules.mjs    # validate catalog + v2 manifests
+node packages/tools/smoke-modules.mjs    # module regression (needs live db-server)
+node packages/tools/sim-new-user.mjs     # isolated SFMC_ROOT smoke
+node packages/tools/fetch-module.mjs install <id>
 ```
 
 ## CI
@@ -180,8 +187,8 @@ node tools/fetch-module.mjs install <id>
 `.github/workflows/ootb.yml` — on push/PR to `main`/`refactor/**`:
 
 1. `npm install` at repo root
-2. `node tools/check-ootb.mjs`
-3. Spin up db-server, wait for `/api/health` 200, run `tools/smoke-modules.mjs`
+2. `node packages/tools/check-ootb.mjs`
+3. Spin up db-server, wait for `/api/health` 200, run `packages/tools/smoke-modules.mjs`
 
 `.github/workflows/changeset-release.yml` — on push to `main`: opens/updates Version Packages PR; merging it runs `npm run ci-release-packages` (publish + tag + GitHub Release; currently **beta** via pre mode).
 
@@ -211,10 +218,10 @@ Local: `npm run prerelease-packages` (pre/beta) or `npm run release-packages` (a
 
 The Cloud VM is Linux; the repo primarily targets Windows, but the Node services run fine on Linux (Node ≥22.13 provides unflagged `node:sqlite`; 22.5–22.12 require the `--experimental-sqlite` CLI flag or db-server crashes on startup with `ERR_UNKNOWN_BUILTIN_MODULE`). The update script only runs `npm install`. Everything below is required each session before running/verifying services.
 
-- **Build before running.** `dist/` is gitignored for `@sfmc-bds/sdk`, `db-server`, `bds-tools`, etc., and services run from `dist/`. Run `npm run build --workspaces --if-present` (builds the SDK first, then the services) after `npm install`. Without it, imports like `@sfmc-bds/sdk/node/config` fail.
-- **`configs/` is gitignored** — first start of db-server / sfmc / bds-tools writes missing JSON with built-in defaults. No `configs-default/` tree.
+- **Build before running.** `dist/` is gitignored for `@sfmc-bds/sdk`, `packages/db-server`, `packages/bds-tools`, etc., and services run from `dist/`. Run `npm run build --workspaces --if-present` (builds the SDK first, then the services) after `npm install`. Without it, imports like `@sfmc-bds/sdk/node/config` fail.
+- **`configs/` is gitignored** — first start of db-server / sfmc CLI / bds-tools writes missing JSON with built-in defaults. No `configs-default/` tree.
 - **`modulesDir` default is `"modules"`** (relative to `SFMC_ROOT`).
-- **Run db-server (main service, port 3001):** `SFMC_ROOT=$PWD node db-server/dist/index.js`. Health: `GET http://127.0.0.1:3001/api/health`. The module/config REST surface is JSON-backed and is the CI-tested core path (`GET /api/sfmc/modules/catalog`, `POST /api/sfmc/modules/:id/{enable|disable}`).
+- **Run db-server (main service, port 3001):** `SFMC_ROOT=$PWD node packages/db-server/dist/index.js`. Health: `GET http://127.0.0.1:3001/api/health`. The module/config REST surface is JSON-backed and is the CI-tested core path (`GET /api/sfmc/modules/catalog`, `POST /api/sfmc/modules/:id/{enable|disable}`).
 - **`node:sqlite` needs Node ≥22.13, not just ≥22.5.** `db-server` imports `node:sqlite` at module scope. On 22.5.0–22.12.x the module is still gated behind `--experimental-sqlite`; importing it unflagged throws `ERR_UNKNOWN_BUILTIN_MODULE` and db-server exits immediately on startup. This is exactly what caused the `ootb` GitHub Actions workflow to fail repeatedly (`setup-node` was pinned to `node-version: '22.5'`, which resolves to `22.5.1`) — `check-ootb`'s "db-server 启动 + 模块接口" step timed out waiting for `/api/health`, and `sim-new-user`/`smoke-modules` cascaded into the same timeout. Fixed by pinning CI to `22.13`+.
 - **SQLite 标识符**：表名等可信标识用 `sql()` / `.append(raw(...))` 嵌入，勿 `SQL\`…${table}…\``。
 - **lint**：根目录有 `eslint.config.js`；先 `npm run build --workspace @sfmc-bds/eslint-plugin`，再 `npm run lint`。静态检查也可用各 workspace 的 `npm run typecheck`。
