@@ -1,0 +1,38 @@
+{
+  "guide": {
+    "zh": "使用指南",
+    "en": "Guide"
+  },
+  "dev": {
+    "zh": "开发指南",
+    "en": "Development"
+  },
+  "api": {
+    "zh": "接口指南",
+    "en": "API"
+  },
+  "reference": {
+    "zh": "SDK 参考",
+    "en": "SDK Reference"
+  },
+  "docsContributing": {
+    "zh": "文档站维护",
+    "en": "Docs contributing"
+  },
+  "gettingStarted": {
+    "zh": "入门",
+    "en": "Getting started"
+  },
+  "runServer": {
+    "zh": "我要跑服",
+    "en": "Run a server"
+  },
+  "writeModule": {
+    "zh": "我要写模块",
+    "en": "Write a module"
+  },
+  "browseApi": {
+    "zh": "我要查接口",
+    "en": "Browse APIs"
+  }
+}

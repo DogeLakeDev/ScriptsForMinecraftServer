@@ -143,19 +143,20 @@ ScriptsForMinecraftServer/
 
 ## Documentation
 
-Full docs (Chinese): [docs/](./docs/index.md). Preview with MkDocs:
+Full docs (Chinese default, English under `/en/`): [docs/zh/](./docs/zh/index.mdx). Preview with Rspress:
 
 ```bash
-pip install -r docs/requirements.txt
+cd website && npm install
+cd ..
 npm run docs -- serve
 ```
 
 | Section | Entry |
 |---------|--------|
-| User guide | [docs/guide/](./docs/guide/index.md) |
-| Developer guide | [docs/dev/](./docs/dev/index.md) |
-| API (HTTP / modules) | [docs/api/](./docs/api/index.md) |
-| SDK types (TypeDoc) | [docs/reference/](./docs/reference/index.md) — `npm run docs -- api` |
+| User guide | [docs/zh/guide/](./docs/zh/guide/index.mdx) |
+| Developer guide | [docs/zh/dev/](./docs/zh/dev/index.mdx) |
+| API (HTTP / modules) | [docs/zh/api/](./docs/zh/api/index.mdx) |
+| SDK types (TypeDoc) | [docs/zh/reference/](./docs/zh/reference/index.md) — generated during `npm run docs -- build` |
 
 ## Requirements
 

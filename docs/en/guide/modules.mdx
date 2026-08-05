@@ -1,0 +1,83 @@
+﻿# Modules
+
+Modules are SFMC business feature packages built on vanilla BDS. Artifacts ship on npm (`@sfmc-bds/module-<id>` or `@<author>/sfmc-module-<id>`).  
+[`sfmc-modules`](https://github.com/Tanya7z/sfmc-modules) is a thin search index only; it does not contain business source.
+
+## Install and enable
+
+```bash
+sfmc> mod search
+sfmc> mod install afk economy
+sfmc> mod uninstall afk
+sfmc> mod list
+sfmc> mod enable afk
+sfmc> mod disable afk
+```
+
+`enable` / `disable` **write** `modules/module-lock.json` first (no db-server required). When db is online, memory state is best-effort synced; without db the write still succeeds, with a note to start db next. For in-game behavior, you usually need `mod reload` or a BDS restart.
+
+## Behavior pack assembly
+
+Enabled modules are bundled into one behavior pack (and companion resource pack) deployed to the current world.
+
+```bash
+sfmc> mod build
+sfmc> mod reload
+sfmc> mod reload --build-only
+```
+
+| Command | Purpose |
+| ------------------------- | -------------------------------------------- |
+| `mod build` | Build only; no deploy |
+| `mod reload` | Build, deploy, and request BDS reload (common in dev) |
+| `mod reload --build-only` | Build and deploy only; run `reload` in-game afterward |
+
+Before `start bds`, the load catalog is compared automatically: on mismatch the full pack is rebuilt and deployed; BDS starts only after success.
+
+### Paths
+
+| Stage | Location |
+| ------ | ------ |
+| Build artifacts | `packs/_build/sfmc-modules/` (and companion RP) |
+| Deploy target BP | `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/` |
+| Deploy target RP | `<BDS>/worlds/<level>/resource_packs/sfmc-modules-rp/` |
+| Load catalog | `sfmc-deploy-catalog.json` inside the BP |
+
+Third-party add-ons use `packs` / inbox flow (see [Add-ons](./addons.md)). World BP/RP assets shipped via `packs` follow the add-on path, separate from the assembled `sfmc-modules` pack.
+
+Flow summary: scan `modules/packages/*/sapi` → bundle only modules enabled in lock → esbuild → assemble BP/RP → copy to world and write enable manifest. With zero modules enabled, an empty but valid pack is still produced.
+
+## Development link
+
+Authors use the VS Code/Cursor **SFMC Module** extension: **Start Watch** / **Reload to BDS** / **Enable / Disable Module** (set `sfmc.root` to the workspace with `configs/` and `modules/`; the extension writes `${sfmc.root}/modules/module-lock.json`, same as CLI). On the server:
+
+```bash
+sfmc mod install <id> --from dir:<absolute-path-to-author-repo> --link
+sfmc mod enable <id>
+sfmc mod reload
+```
+
+`sfmc mod install` requires the module short id. Template and publish flow: [Module authoring](../dev/module-author.md).
+
+## Artifact sources
+
+| Source | Use |
+| ----------------- | ------------------------------- |
+| `npm:@scope/name` | Default (`npm` field in index wins) |
+| `dir:` / `local:` | Local directory or archive; use `--link` for dev |
+
+
+## Official module catalog
+
+The list below is generated at build time from the `sfmc-modules` registry (local sibling repo preferred; fallback otherwise).
+
+<ModuleCatalog />
+
+## Related checks (monorepo)
+
+```bash
+npm run catalog-sync
+npm run check-modules
+```
+
+Official module service index: [Module services](../api/modules/index.md).

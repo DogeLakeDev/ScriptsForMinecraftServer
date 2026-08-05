@@ -1,0 +1,80 @@
+﻿import { Tabs, Tab } from '@rspress/core/theme';
+
+# Backup and upgrade
+
+## Backup
+
+Back up together:
+
+- `data/` (SQLite)
+- `configs/`
+- `modules/catalog.json`, `modules/module-lock.json`
+- World directory (behavior / resource packs if you need a full restore)
+
+Stop db before archiving to avoid inconsistent files under WAL:
+
+```bash
+sfmc> stop db
+# archive data / configs / module lock files, etc.
+sfmc> start db
+```
+
+:::warning Important
+Do not copy `.db` files while db-server is running.
+
+:::
+
+## Upgrade CLI / monorepo
+
+
+<Tabs>
+  <Tab label="Global npm">
+
+```bash
+npm i -g @sfmc-bds/sfmc@beta
+```
+
+  </Tab>
+  <Tab label="monorepo">
+
+```bash
+git pull
+npm install
+npm run build --workspaces --if-present
+```
+
+  </Tab>
+</Tabs>
+
+Then restart affected services. The module behavior pack can be rebuilt by the next `start bds` load gate, or manually:
+
+```bash
+sfmc> mod reload
+```
+
+## Upgrade modules
+
+```bash
+sfmc> mod install <id>
+sfmc> mod reload
+```
+
+## Upgrade BDS
+
+```bash
+sfmc> update
+# or check only
+sfmc> update --check-only
+```
+
+db-server runs incremental schema migrations on startup; older databases usually work as-is.
+
+## Rollback
+
+| Target | Approach |
+| ------ | ------ |
+| Config / lock | Restore from backup and restart |
+| Module behavior pack | Reinstall previous module version, then `mod reload` |
+| BDS | bds-tools rollback (if backup policy enabled) |
+
+Runtime state and logs: `<SFMC_ROOT>/.sfmc/` (including `db.log`, `qq.log`, `bds.log` under `logs/`).

@@ -1,6 +1,6 @@
 name: Docs
 
-# MkDocs Material → GitHub Pages
+# Rspress → GitHub Pages
 # 站点：https://dogelakedev.github.io/ScriptsForMinecraftServer/
 
 on:
@@ -8,7 +8,8 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "mkdocs.yml"
+      - "website/**"
+      - "i18n.json"
       - "typedoc.json"
       - "packages/tools/docs.mjs"
       - "packages/tools/docs-*.mjs"
@@ -35,7 +36,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # git-revision-date-localized 需要完整历史，浅克隆会导致日期全变成最近一次 commit
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -43,30 +43,22 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: docs/requirements.txt
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
 
       - name: Install dependencies
         run: |
           npm ci
-          pip install -r docs/requirements.txt
+          npm ci --prefix website
 
-      - name: Build docs (TypeDoc + MkDocs)
-        env:
-          # Material / ProperDocs 的 MkDocs 2.0 提示（与 packages/tools/docs-mkdocs.mjs 一致）
-          NO_MKDOCS_2_WARNING: "true"
-          DISABLE_MKDOCS_2_WARNING: "true"
+      - name: Build docs (Rspress + TypeDoc)
         run: npm run docs -- build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: doc_build
 
   deploy:
     needs: build

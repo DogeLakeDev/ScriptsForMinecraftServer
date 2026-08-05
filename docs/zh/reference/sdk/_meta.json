@@ -1,0 +1,33 @@
+[
+  "index",
+  {
+    "type": "dir",
+    "name": "behavior-pack-build",
+    "label": "behavior-pack-build"
+  },
+  {
+    "type": "dir",
+    "name": "contracts",
+    "label": "contracts"
+  },
+  {
+    "type": "dir",
+    "name": "logs",
+    "label": "logs"
+  },
+  {
+    "type": "dir",
+    "name": "module-loader",
+    "label": "module-loader"
+  },
+  {
+    "type": "dir",
+    "name": "node",
+    "label": "node"
+  },
+  {
+    "type": "dir",
+    "name": "sapi",
+    "label": "sapi"
+  }
+]

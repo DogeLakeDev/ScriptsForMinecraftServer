@@ -43,7 +43,7 @@ flowchart LR
 > **为什么用外置数据库？**  
 > SAPI 只发请求，读写 SQLite 在 Node 里完成。经济、领地这类操作可以走事务和幂等，比纯游戏内处理更稳，也更好备份。
 
-详细说明见 [文档中心](./docs/index.md)（MkDocs：`npm run docs -- serve`）。
+详细说明见 [文档中心](./docs/zh/index.mdx)（Rspress：`npm run docs -- serve`）。
 
 ## ⚡️ 快速开始
 
@@ -56,20 +56,20 @@ flowchart LR
 > sfmc
 ```
 
-> 当前阶段仅发 **beta**；请带 `@beta` 安装。模块发包见 [发布你的模块](./docs/dev/publish.md)。
+> 当前阶段仅发 **beta**；请带 `@beta` 安装。模块发包见 [发布你的模块](./docs/zh/dev/publish.md)。
 
-开发者也可克隆本仓 monorepo，见 [入门](./docs/guide/index.md)。
+开发者也可克隆本仓 monorepo，见 [入门](./docs/zh/guide/index.mdx)。
 
 ## 📖 快速入门
 
 | 分类 | 入口 |
 | ------ | ------ |
 | 在线文档站 | <https://dogelakedev.github.io/ScriptsForMinecraftServer/> |
-| 使用指南 | [docs/guide/](./docs/guide/index.md) |
-| 开发指南 | [docs/dev/](./docs/dev/index.md) · [贡献指南](./docs/dev/contributing.md) |
-| 接口指南 | [docs/api/](./docs/api/index.md) |
-| SDK 类型参考 | [docs/reference/](./docs/reference/index.md)（`npm run docs -- api`） |
-| 本地预览 | `pip install -r docs/requirements.txt` → `npm run docs -- serve` |
+| 使用指南 | [docs/zh/guide/](./docs/zh/guide/index.mdx) |
+| 开发指南 | [docs/zh/dev/](./docs/zh/dev/index.mdx) · [贡献指南](./docs/zh/dev/contributing.md) |
+| 接口指南 | [docs/zh/api/](./docs/zh/api/index.mdx) |
+| SDK 类型参考 | [docs/zh/reference/](./docs/zh/reference/index.md)（构建时 TypeDoc） |
+| 本地预览 | `cd website && npm i` → 仓根 `npm run docs -- serve` |
 
 ## 🗺️ 路线图
 

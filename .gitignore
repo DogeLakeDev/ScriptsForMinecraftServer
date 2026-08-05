@@ -60,8 +60,13 @@ http/http-client.private.env.json
 
 # MkDocs / TypeDoc 文档产物
 /site/
-/docs/reference/sdk/**
-!/docs/reference/sdk/.pages
+/doc_build/
+/docs/zh/reference/sdk/**
+!/docs/zh/reference/sdk/_meta.json
+/docs/en/reference/sdk/**
+!/docs/en/reference/sdk/_meta.json
+/website/generated/module-registry.json
+/website/node_modules/
 ScriptsForMinecraftServer.code-workspace
 
 # 临时测试文件

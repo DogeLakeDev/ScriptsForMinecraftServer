@@ -1,0 +1,24 @@
+{
+  "name": "@sfmc-bds/docs-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview"
+  },
+  "dependencies": {
+    "@rspress/core": "^2.0.19",
+    "@rspress/plugin-client-redirects": "^2.0.19",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "rspress-plugin-mermaid": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.2"
+  }
+}

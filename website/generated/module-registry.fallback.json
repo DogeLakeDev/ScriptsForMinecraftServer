@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "source": "sfmc-modules/index.json",
+  "generatedAt": "2026-08-05T18:43:12.961Z",
+  "modules": [
+    {
+      "id": "activity-log",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "afk",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "area",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "chat",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "chat-sounds",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "coop",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "daily-task",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "data-backup",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "economy",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "gui",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "inventory-switcher",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "land",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "monitor",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "online-time",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "qa",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "scoreboard-sync",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "spawn-protect",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    },
+    {
+      "id": "tps",
+      "repo": "Tanya7z/sfmc-modules",
+      "tag": "modules-v0.4.0"
+    }
+  ]
+}

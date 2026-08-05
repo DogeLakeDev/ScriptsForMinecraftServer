@@ -19,7 +19,7 @@
   "entryPointStrategy": "resolve",
   "tsconfig": "modules/sdk/@sfmc-sdk/tsconfig.typedoc.json",
   "plugin": ["typedoc-plugin-markdown"],
-  "out": "docs/reference/sdk",
+  "out": "docs/zh/reference/sdk",
   "readme": "none",
   "excludePrivate": true,
   "excludeProtected": false,

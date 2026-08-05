@@ -1,0 +1,19 @@
+[
+  "index",
+  "overview",
+  {
+    "type": "dir",
+    "name": "sdk",
+    "label": "SDK 导读"
+  },
+  {
+    "type": "dir",
+    "name": "modules",
+    "label": "模块服务目录"
+  },
+  "module-control",
+  "config",
+  "db",
+  "services",
+  "messages"
+]

@@ -1,0 +1,83 @@
+﻿# Troubleshooting
+
+Pick a symptom and work through the steps; the full checklist below remains for search and reference.
+
+<TroubleshootWizardEn />
+
+## Full checklist
+
+### Self-check (monorepo)
+
+```bash
+npm run check-ootb
+npm run check-modules
+npm run catalog-sync
+```
+
+### db-server won't start
+
+| Symptom | Fix |
+| --- | --- |
+| Exits immediately, `node:sqlite` error | Upgrade Node to **22.13+** |
+| Port in use | Change `db_port` or env `DB_PORT` |
+| Module API oddities | Confirm `modulesDir` and `SFMC_ROOT` |
+| SQLite corruption | Stop services; restore from backup |
+
+```bash
+curl http://127.0.0.1:3001/api/health
+```
+
+### Load gate / BDS did not start
+
+1. Read the load summary in the console and `<SFMC_ROOT>/.sfmc/logs/`
+2. Run `mod build` and check esbuild errors
+3. `npm run check-modules` (monorepo)
+4. Inbox conflicts blocking pre-start scan (see [Add-ons](./addons.md))
+
+### Module enabled but no effect in-game
+
+- Did you run `mod reload` or restart BDS?
+- Is `enabled: true` in `modules/module-lock.json`?
+- Confirm with `GET /api/sfmc/modules/<id>`
+- Temporarily `mod disable` the module to isolate
+- Are dependency modules installed and enabled?
+
+### Test sandbox
+
+```bash
+npm test
+# must include:
+# --import @sfmc-bds/sdk/testing/minecraft-loader
+```
+
+| Symptom | Fix |
+| --- | --- |
+| `UnimplementedMinecraftApiError` / unimplemented Minecraft API | Test hit an unwired API: narrow assertions or wait for sandbox coverage; not a business-logic bug |
+| Assertion fails but BDS works | Sandbox fidelity gap; verify with extension Watch or live BDS |
+| Testing panel finds no tests | Install `nodejs-testing`; check template `.vscode/settings.json` and `npm test` script |
+
+Author flow: [Test sandbox](../dev/testing.md).
+
+### QQ bridge
+
+1. LLBot reverse WS set to `ws://127.0.0.1:3002`
+2. `qq_group_id`, `llbot_*` correct
+3. qq / llbot logs show connection
+4. Firewall not blocking 3002
+
+### Build and imports
+
+```bash
+npm run build --workspaces --if-present
+sfmc> mod build
+```
+
+Legacy modules still importing `@sfmc/sdk`: reinstall with current CLI, or ensure SDK resolves at build time.
+
+### Remote control
+
+- `remote status` for `enabled` / `connected` / `last_error`
+- Run `remote enroll` if fields missing
+- Controller URL, token expiry
+
+If still stuck, open a GitHub Issue with BDS / sfmc logs, `check-ootb` output, and Node version.

@@ -1,0 +1,6 @@
+[
+  { "text": "guide", "link": "/guide/", "activeMatch": "/guide/" },
+  { "text": "dev", "link": "/dev/", "activeMatch": "/dev/" },
+  { "text": "api", "link": "/api/", "activeMatch": "/api/" },
+  { "text": "reference", "link": "/reference/", "activeMatch": "/reference/" }
+]

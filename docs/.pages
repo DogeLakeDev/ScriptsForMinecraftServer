@@ -1,8 +1,0 @@
-title: 主页
-nav:
-  - 主页: index.md
-  - guide
-  - dev
-  - api
-  - reference
-  - 文档站维护: CONTRIBUTING-DOCS.md

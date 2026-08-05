@@ -1,0 +1,55 @@
+﻿# 文档站维护说明
+
+## 栈
+
+| 组件 | 用途 |
+|------|------|
+| **Rspress 2**（`website/`） | 静态文档站 |
+| **@rspress/plugin-typedoc** | 从 `@sfmc-bds/sdk` 生成 `docs/zh/reference/sdk` |
+| **llms / SSG-MD** | `llms.txt`、每页 Markdown、Copy Markdown |
+| **自定义插件** | 模块 registry 一览、缩写、EN TypeDoc 同步 |
+
+## 目录约定
+
+```text
+docs/
+├── zh/             # 默认语言（路由无前缀）
+│   ├── guide/
+│   ├── dev/
+│   ├── api/
+│   └── reference/sdk/   # TypeDoc 生成（gitignore）
+├── en/             # 英文（/en/...）
+├── includes/       # 缩写等（不进路由）
+└── superpowers/    # 内部规格（route.exclude）
+website/            # rspress.config.ts、组件、插件
+i18n.json
+```
+
+```bash
+npx markdownlint-cli2 "docs/zh/guide/**/*.{md,mdx}" "docs/zh/dev/**/*.{md,mdx}" "docs/zh/api/**/*.{md,mdx}"
+```
+
+## 常用命令
+
+```bash
+cd website && npm install   # 首次
+npm run docs -- serve       # 仓根：Rspress dev
+npm run docs -- build       # → doc_build/
+```
+
+## 配置入口
+
+- `website/rspress.config.ts` — 站点、插件、base、i18n
+- `typedoc.json` — 与 plugin `setup` 对齐的 TypeDoc 选项参考
+- `docs/zh|en/**/_meta.json`、`_nav.json` — 导航
+- `i18n.json` — 顶栏文案键
+
+## 新增手写页面
+
+1. 在 `docs/zh/<section>/` 加 `.md` / `.mdx`
+2. 写入该目录 `_meta.json`
+3. 含 `<Tabs>` 时从 `@rspress/core/theme` 导入 `Tabs`/`Tab`
+
+## 扩展 TypeDoc 入口
+
+在 `website/rspress.config.ts` 的 `pluginTypeDoc({ entryPoints })` 与根目录 `typedoc.json` 同步追加 SDK 公开入口。

@@ -1,0 +1,168 @@
+﻿import { Tabs, Tab } from '@rspress/core/theme';
+
+# 入门
+
+在本地装好 SFMC，并把服务器跑起来。
+
+本页面向运维人员与模块开发者。读完后，您应能：
+
+- 完成安装与首次初始化
+- 用常用命令管理服务与模块
+- 知道模块和附加包的区别，以及开发联调从哪一步开始
+
+更细的说明在后续各章；命令速查见 [命令列表](./commands.md)。
+
+```mermaid
+flowchart LR
+  A[安装] --> B[首启]
+  B --> C[日常使用]
+  C --> D[模块]
+  D --> E[各功能详解]
+```
+
+## 系统要求
+
+| 项目 | 要求 |
+| ------ | ------ |
+| 操作系统 | Windows 10 / 11（当前主要支持） |
+| Node.js | [22.13 或更高](https://nodejs.org/) |
+| 磁盘 | 预留 BDS、备份与模块空间 |
+
+## 快速开始
+
+
+<Tabs>
+  <Tab label="npm（推荐）">
+
+```bash
+npm i -g @sfmc-bds/sfmc@beta
+mkdir my-server && cd my-server
+sfmc
+```
+
+  </Tab>
+  <Tab label="monorepo">
+
+```bash
+git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git
+cd ScriptsForMinecraftServer
+npm i
+npm run build --workspaces --if-present
+sfmc
+```
+
+  </Tab>
+</Tabs>
+
+:::tip 提示
+当前仅发布 **beta**，请使用 `@beta` 安装。  
+数据默认写在当前目录；若要换目录，设置环境变量 `SFMC_ROOT`。  
+monorepo 首次使用前请先完成 build。  
+进入控制台后输入 `help`，可查看当前可用命令。  
+写模块请装扩展「SFMC Module」（测试 / Watch），见 [模块开发](../dev/module-author.md)。
+
+:::
+
+## 首启与日常使用
+
+首次运行会进入初始化向导，用于选择 BDS、数据目录，以及可选的 LLBot。完成后工作目录大致如下：
+
+```text
+{工作目录}/
+├── {BDS}/
+├── configs/
+├── data/
+├── packs/
+└── modules/
+```
+
+```bash
+sfmc> start -all
+sfmc> status
+```
+
+服务按 **db → qq → llbot → bds** 启动。启动 BDS 前会检查模块行为包；不一致则先编译，失败则不会启动游戏进程。
+
+| 命令 | 作用 |
+| ------ | ------ |
+| `start db\|qq\|bds\|-all` | 启动 |
+| `stop` / `restart` | 停止 / 重启 |
+| `mod list` | 已安装模块 |
+| `mod enable <id>` | 启用模块 |
+
+:::warning 注意
+修改 `configs/*.json` 或模块的 `sapi/manifest.json` 后，请重启 BDS。  
+配置与 manifest 无热更新；开发期重编请用扩展「SFMC Module」的 Watch，或运维侧 `mod reload`。
+
+服务、日志与装载细节见 [服务管理](./services.md)。配置文件一览见 [配置](./config.md)。
+
+:::
+
+## 模块
+
+**模块**是 SFMC 的业务功能包（经 `mod` 安装）。  
+**附加包**是装进世界的第三方行为包 / 资源包（经 `packs` / `addon` 管理）。二者不要混用命令。
+
+
+<Tabs>
+  <Tab label="安装已有模块">
+
+```bash
+sfmc> mod search
+sfmc> mod install afk
+sfmc> mod enable afk
+sfmc> mod reload
+```
+
+  </Tab>
+  <Tab label="开发自己的模块">
+
+用模板 [sfmc-module-template](https://github.com/Tanya7z/sfmc-module-template) 建仓，在仓库根目录执行：
+
+```bash
+node scripts/rename.mjs my-feature --scope <npm用户> --name "我的功能"
+npm i && npm test
+```
+
+再在 SFMC 工作目录联调（须写明模块短名）；作者侧用扩展 Watch，运维侧：
+
+```bash
+sfmc mod install my-feature --from dir:<作者仓绝对路径> --link
+sfmc mod enable my-feature
+sfmc mod reload
+```
+
+  </Tab>
+</Tabs>
+
+| 层 | 规则 | 例 |
+| ------ | ------ | ----- |
+| 安装 id | 短名 kebab | `my-feature` |
+| manifest / descriptor | `feature-<id>` | `feature-my-feature` |
+| npm（社区） | `@<user>/sfmc-module-<id>` | `@alice/sfmc-module-my-feature` |
+
+启停、行为包装配与 reload 见 [模块](./modules.md)。作者完整流程见 [模块开发](../dev/module-author.md)。
+
+## 常见问题
+
+| 现象 | 可以先检查 |
+| ------ | ------------ |
+| `/api/health` 不通 | db 是否已启动；Node.js 是否 ≥ 22.13 |
+| 模块命令无响应 | 是否已 `enable`；修改后是否重启过 BDS |
+| `npm test` 报错 / 缺依赖 | 是否按模板跑 `npm test`；见 [测试沙箱](../dev/testing.md) |
+
+更多见 [排障](./troubleshooting.md)。
+
+## 接下来
+
+| 章节 | 内容 |
+| ------ | ------ |
+| [服务管理](./services.md) | 启停、日志、装载闸门 |
+| [配置](./config.md) | `configs/` 与热重载说明 |
+| [模块](./modules.md) | 安装、启停、行为包装配 |
+| [附加包](./addons.md) | 第三方行为包 / 资源包 |
+| [QQ 互通](./qq-bridge.md) | 群服桥接 |
+| [远程控制](./remote.md) | `remote enroll` 与控制器 |
+| [命令列表](./commands.md) | 命令速查 |
+| [备份与升级](./backup-upgrade.md) | BDS 更新与备份 |
+| [排障](./troubleshooting.md) | 症状与处理 |
