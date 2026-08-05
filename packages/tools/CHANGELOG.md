@@ -1,5 +1,26 @@
 # @sfmc-bds/tools
 
+## 0.2.0-beta.9
+
+### Patch Changes
+
+- d1331e3: fix:typecheck
+- 4dd2d16: feat(devkit): 新增模块作者工具包（watch / scaffold / rebuild）
+
+  供 VS Code 扩展直接依赖；tools 导出 new-module.mjs。
+
+- 2326e6d: chore(tools): new-module 与 sfmc-module-template 同构（DESCRIPTOR、测试、prettier、.vscode）
+- b252a35: chore(tools): new-module 脚手架写入 eslint.config 与 .vscode（推荐 ESLint 扩展）
+- e175ed9: fix(sdk/testing): minecraft-loader 钉死同一 `@sfmc-bds/sdk` 实例，避免模块仓 node_modules 与宿主双包导致 Command/Permission 空清单；脚手架 Command.register 传入 MODULE_ID。
+- Updated dependencies [8552772]
+- Updated dependencies [8552772]
+- Updated dependencies [e175ed9]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+  - @sfmc-bds/sdk@0.2.0-beta.8
+  - @sfmc-bds/bds-tools@0.2.0-beta.8
+
 ## 0.2.0-beta.8
 
 ### Patch Changes

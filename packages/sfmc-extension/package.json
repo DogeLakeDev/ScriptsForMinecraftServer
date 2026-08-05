@@ -182,8 +182,8 @@
     "package": "npx @vscode/vsce package"
   },
   "dependencies": {
-    "@sfmc-bds/devkit": "^0.1.0-beta.0",
-    "@sfmc-bds/sdk": "^0.2.0-beta.6"
+    "@sfmc-bds/devkit": "^0.1.0-beta.1",
+    "@sfmc-bds/sdk": "^0.2.0-beta.8"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
