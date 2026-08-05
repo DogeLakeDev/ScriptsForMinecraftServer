@@ -2,7 +2,7 @@
 
 在 **不启动 BDS** 的情况下，用 `node --test` + `@sfmc-bds/sdk/testing` 跑模块 lifecycle 与游戏 API 断言。
 
-假引擎对齐 pin 版 `@minecraft/server` / `server-ui`（大范围导出 + 未实现硬失败）。作者日常用 **VS Code/Cursor 扩展「SFMC Module」**；`sfmc mod test|watch` 已移除。
+假引擎对齐 pin 版 `@minecraft/server` / `server-ui`（大范围导出 + 未实现硬失败）。可视化编排已迁至独立应用 **Sapience**；作者日常单测用 `npm test`，真机联调用 VS Code/Cursor 扩展「SFMC Module」的 Watch / Reload。`sfmc mod test|watch` 已移除。
 
 目标：把「类型全绿、进服才翻日志」的故障前移到 `npm test`（堆栈落在模块源码）。
 
@@ -27,27 +27,27 @@
 | 操作对象 | `sb.objects.call(id, method, args)` | 调实例方法；未实现 → L0 硬失败 |
 | 事件触发 | `sb.events.emit(path, payload)` | 路径如 `world.afterEvents.playerJoin`；hub 清单见 `PLAYGROUND_META.events` |
 
-扩展「SFMC: Open Playground」通过 `playground-host` JSON-RPC 消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
+Sapience（及 SDK `playground-host` JSON-RPC）消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
 
-世界模拟维度与「永不模拟」边界如下（与规格 §6 一致）。IDE 内默认人机路径为 **脚本沙箱**（sapi-sandbox：节点图编排 + 场景坞 + meta 表单），见 `docs/superpowers/specs/2026-07-31-sfmc-script-sandbox-ui-design.md`。引擎与扩展边界见 `docs/superpowers/specs/2026-07-31-sfmc-testing-and-extension-design.md`。真机联调用 Watch。
+世界模拟维度与「永不模拟」边界如下（与规格 §6 一致）。引擎边界见 `docs/superpowers/specs/2026-07-31-sfmc-testing-and-extension-design.md`（作史；IDE 脚本沙箱 Webview 已迁 Sapience）。真机联调用 Watch。
 
 ## 世界模拟维度
 
-| ID | 维度 | 含义 | 沙箱 | 脚本沙箱 UI |
-| --- | --- | --- | --- | --- |
-| H | 宿主分相 | ConfigManager → boot → worldLoad | 有 | 进度 / 重置 |
-| S | System | run / tick / flush | 有 | Tick 节点 |
-| W | World | 假 world | 薄 | 场景坞只读 |
-| D | Dimension | 默认三维可查；无物理 | 部分 L2 | 场景坞只读 |
-| P | 玩家 | 名、OP、位置、Msg… | 有 | 图节点 / 场景 |
-| E | 实体 | spawn / query… | 部分 L2 | 场景 / 后置节点 |
-| I | 物品栏 | ItemStack / Container | 有 | 后置 |
-| C | 聊天 → 命令 | `chatSend` → `!` | emit 有 | Emit 节点 |
-| V | 事件对象 | 属性袋 + emit | 有 | Emit 表单 |
-| U | UI | 表单 + queueResponse | 有 | 后置 |
-| B | 记分板 | objective / score | 有 | 后置 |
-| M | 模块宿主 | Registry / Permission / Msg | 有 | boot / 冒烟 |
-| N | DB | 内存假 DB | 有 | 默认 |
+| ID | 维度 | 含义 | 沙箱 |
+| --- | --- | --- | --- |
+| H | 宿主分相 | ConfigManager → boot → worldLoad | 有 |
+| S | System | run / tick / flush | 有 |
+| W | World | 假 world | 薄 |
+| D | Dimension | 默认三维可查；无物理 | 部分 L2 |
+| P | 玩家 | 名、OP、位置、Msg… | 有 |
+| E | 实体 | spawn / query… | 部分 L2 |
+| I | 物品栏 | ItemStack / Container | 有 |
+| C | 聊天 → 命令 | `chatSend` → `!` | emit 有 |
+| V | 事件对象 | 属性袋 + emit | 有 |
+| U | UI | 表单 + emitResponse | 有 |
+| B | 记分板 | objective / score | 有 |
+| M | 模块宿主 | Registry / Permission / Msg | 有 |
+| N | DB | 内存假 DB | 有 |
 
 **永不模拟：** 完整物理、红石、流体、AI、区块生成语义、客户端渲染、BDS 原生断点。
 
@@ -61,9 +61,9 @@
 4. 假 `world.afterEvents.worldLoad` → `bootAfterWorldLoad`
 5. `dispose` → cleanup + 复位 Registry / ConfigManager
 
-聊天以 `!` / `！` 开头时，沙箱拦截 `beforeEvents.chatSend` 并走 `Command.trigger`（扩展「Run Module Tests」冒烟与脚本沙箱 Emit 共用；手点主路径不要直接 `triggerCommand`）。
+聊天以 `!` / `！` 开头时，沙箱拦截 `beforeEvents.chatSend` 并走 `Command.trigger`（单测里可 `emit.chatSend` 或 `triggerCommand`；手点主路径不要直接绕过拦截去 `triggerCommand` 当「聊天冒烟」）。
 
-可选：`configs` 覆盖内存快照；`enabled: false` 时模块不 boot；`boot: false` 只起假引擎；`fixture` 可预置 settings/权限。脚本沙箱面板「夹具」经 `fixture.get` / `fixture.apply` 读写同一意图，重置场景后宿主会保留并重新注入。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager，非默认路径）。
+可选：`configs` 覆盖内存快照；`enabled: false` 时模块不 boot；`boot: false` 只起假引擎；`fixture` 可预置 settings/权限。旁路钩子单测可用 `runLifecycle` / `runCleanup`（不经 ConfigManager，非默认路径）。
 
 ## 能测什么
 
@@ -92,7 +92,7 @@
 | Entity | `spawnEntity` / 查询、`remove`/`kill`/`teleport`/tags；`getComponent('minecraft:inventory'|'minecraft:health')`；`applyDamage`（生命值袋，无物理）；`addEffect`/`getEffect`/`getEffects`/`removeEffect`（效果状态袋，无粒子/周期伤）；动态属性 Map 袋；`runCommand`（记录；有物品栏时 give/clear 可作用） |
 | Inventory | `ItemStack`、`Container` get/set/add/transfer/swap、玩家 36 格 |
 
-`PLAYGROUND_META` 方法/属性带 `impl: "l0" | "l2" | "skip"`：`l2` 由 `gen-playground-meta` 扫描 `overrides/` 里 Fake* 自有成员推断（Player 合并 Entity）；`skip` 来自权威清单 `src/testing/engine/l2-skip.json`（实现面跳过 / Call 不主推，**≠** L0 名面 allowlist，声明面仍可硬失败）；其余 TARGET 默认 `l0`。脚本沙箱 Call：L2 在前，L0 标「未接线」，skip 排在其后并标「跳过/无测价值」。
+`PLAYGROUND_META` 方法/属性带 `impl: "l0" | "l2" | "skip"`：`l2` 由 `gen-playground-meta` 扫描 `overrides/` 里 Fake* 自有成员推断（Player 合并 Entity）；`skip` 来自权威清单 `src/testing/engine/l2-skip.json`（实现面跳过 / Call 不主推，**≠** L0 名面 allowlist，声明面仍可硬失败）；其余 TARGET 默认 `l0`。
 
 ## 边界与非目标
 
@@ -144,48 +144,10 @@ test("命令冒烟", async (t) => {
 
 1. 安装推荐扩展：`ESLint`、`SFMC Module`、`nodejs-testing`（见模板 `.vscode/extensions.json`）。
 2. Testing 面板发现 `test/**/*.test.ts`（settings 已配好 loader）。
-3. 命令面板：`SFMC: Run Module Tests` / `Start Watch` / `Reload to BDS`。
+3. 命令面板：`SFMC: Start Watch` / `Reload to BDS`；可视化编排用 **Sapience**。
 4. 设置 `sfmc.root` 为 SFMC 工作目录（含 `configs/`、`modules/` 的运行时根，不必是源码仓库；Watch、Reload to BDS、模块启停都需要）。
 
-### 模块如何进沙箱（最短路径）
-
-1. 用 VS Code/Cursor **单独打开模块根**（含 `package.json` + `sapi/manifest.json`），或在 SFMC 侧栏选中目标模块。
-2. Tree 点 **脚本沙箱**，或命令面板 `SFMC: 脚本沙箱`（多模块时会 QuickPick；无选中可沿用上次，不会静默装错包）。
-3. 顶栏「当前模块」与 Output（`sandbox moduleRoot=…` / `已装 DESCRIPTOR id=…`）应对上你的模块 id；重置场景仍保持同一 `moduleRoot`。
-4. `SFMC: Run Module Tests` 与沙箱共用同一 `moduleRoot` 解析；冒烟结果在「SFMC 扩展」Output，若沙箱已开会按同根重置场景。
-5. 日志主路径：Output「SFMC 扩展」。可用 `SFMC: 日志过滤…` / 视图菜单过滤（仅新写入）；运行行含 `node=<id>`，失败后 `SFMC: 定位沙箱日志节点`（剪贴板或上次失败）；断言可筛最近 N 条 / 级别 / source；模块 `console`/`Msg` 以模块 id 为 source 汇入。
-
-## 脚本沙箱的编排与排错
-
-打开脚本沙箱后，可先从调色板添加节点、连边并运行整图。失败时先查看节点摘要与 ⓘ，再按需打开 Output 日志；这条路径通常不需要启动 BDS。
-
-### 画布编排
-
-| 能力 | 用法 |
-| ------ | ------ |
-| NodePalette 调色板 | 搜索节点名称、用途或关键词，回车插入当前选项 |
-| Frame | 为一组节点添加可调整大小的视觉分区，不参与控制流 |
-| Viewer | 读取场景对象的 `inspect` 快照，以 Spreadsheet 表格展示属性、值与类型 |
-| 场景对象 Spreadsheet | 按对象类型分表查看场景快照；表头可排序，选择一行可打开完整 `inspect` 属性 |
-| EventLog | 在图内查看结构化事件时间线，并按 channel、source、level 与条数筛选 |
-| Mini-map | 在大图中确认节点分布与当前视口 |
-| undo / redo | 撤回或重做节点、连边与布局修改；也可用「编辑」菜单 |
-| 边 `enabled` | `false` 的边不参与拓扑排序与执行；未写该字段的 v2 剧本仍按启用处理 |
-| 节点内联 `pause` | Branch / Repeat 进入暂停态时，节点标题显示暂停标记，继续后恢复运行态 |
-
-场景坞列出 World、Dimension、Scoreboard、Player、Entity、ItemStack 与 Block。选择对象后可在属性面板查看只读快照；需要把快照留在画布中时，添加 Viewer 节点并绑定目标对象。
-
-### 断言表达式
-
-断言与 Branch 表达式可引用 `$id.prop`、`@lastEmit`、`@lastCall`、`@out.<name>` 与场景对象。表达式字段右侧的「插入变量」按钮会按当前场景与执行上下文列出可用引用，减少手写路径错误。
-
-底层由 `parseExpr` 统一解析表达式，`parseExpected` 按 string、number、boolean、vector3 或 enum 解析字面量。`AssertEvalContext` 提供场景、对象引用、Call 输出、结构化日志与源码映射；旧断言配置仍按原有默认值读取。
-
-断言失败时，message 会附带最近日志摘要。若沙箱能从模块入口建立源码映射，节点上的 ⓘ 可直接打开对应源码位置；没有定位信息时，ⓘ 仍显示完整失败原因。
-
-### 模块 manifest 语义
-
-沙箱会读取模块 manifest v3 的 semantic 字段，并在场景快照中提供语义摘要。v2 manifest 会先迁移为 v3 内存结构；fixture 只补充模块未声明的 semantic，不覆盖模块自身定义。详细字段见 [模块开发](./module-author.md)。
+沙箱会读取模块 manifest v3 的 semantic 字段（若存在）。v2 manifest 会先迁移为 v3 内存结构；fixture 只补充模块未声明的 semantic，不覆盖模块自身定义。详细字段见 [模块开发](./module-author.md)。
 
 ## 相关
 

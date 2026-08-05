@@ -1,14 +1,13 @@
 {
   "name": "sfmc-extension",
   "displayName": "SFMC Module",
-  "description": "SFMC 模块作者工具：脚手架、测试、Watch；依赖官方 ESLint 扩展以消费 @sfmc-bds/eslint-plugin",
+  "description": "SFMC 模块作者工具：脚手架、Watch、编译与 Reload；依赖官方 ESLint 扩展以消费 @sfmc-bds/eslint-plugin",
   "version": "0.1.0",
   "publisher": "sfmc-bds",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Testing",
     "Linters",
     "Other"
   ],
@@ -99,18 +98,6 @@
         "title": "SFMC: New Module"
       },
       {
-        "command": "sfmcModule.runTests",
-        "title": "SFMC: Run Module Tests"
-      },
-      {
-        "command": "sfmcModule.openPlayground",
-        "title": "SFMC: 脚本沙箱"
-      },
-      {
-        "command": "sfmcModule.startDebug",
-        "title": "SFMC: 启动并调试"
-      },
-      {
         "command": "sfmcModule.showLog",
         "title": "SFMC: Show Extension Log"
       },
@@ -123,25 +110,9 @@
         "title": "SFMC: 清除并应用日志过滤"
       },
       {
-        "command": "sfmcModule.locateSandboxLogNode",
-        "title": "SFMC: 定位沙箱日志节点"
-      },
-      {
         "command": "sfmcModule.setRoot",
         "title": "SFMC: 设置工作目录…",
         "icon": "$(folder)"
-      },
-      {
-        "command": "sfmcModule.runTestsAction",
-        "title": "SFMC: Run Tests"
-      },
-      {
-        "command": "sfmcModule.openPlaygroundAction",
-        "title": "SFMC: Open Playground (Tree)"
-      },
-      {
-        "command": "sfmcModule.startDebugAction",
-        "title": "SFMC: Start Debug (Tree)"
       },
       {
         "command": "sfmcModule.moduleInfoAction",
@@ -208,22 +179,13 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/playground/graph/order.test.ts src/playground/graph/expr.test.ts src/playground/graph/parseExpected.test.ts src/playground/graph/materialize.test.ts src/playground/graph/sourceMap.test.ts src/playground/graph-ui/metaForm/detect.test.ts src/playground/graph-ui/metaForm/EnumSelect.test.ts src/playground/graph-ui/metaForm/NestedForm.test.ts src/playground/graph-ui/metaForm/assertFields.test.ts src/playground/graph-ui/metaForm/expectedMeta.test.ts src/playground/graph-ui/metaForm/insertMenu.test.ts src/panels/moduleRootKey.test.ts",
     "package": "npx @vscode/vsce package"
   },
   "dependencies": {
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@radix-ui/react-scroll-area": "^1.2.18",
     "@sfmc-bds/devkit": "^0.1.0-beta.0",
-    "@sfmc-bds/sdk": "^0.2.0-beta.6",
-    "@vscode/codicons": "^0.0.46-24",
-    "@xyflow/react": "^12.8.2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "@sfmc-bds/sdk": "^0.2.0-beta.6"
   },
   "devDependencies": {
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.28.1"
   }

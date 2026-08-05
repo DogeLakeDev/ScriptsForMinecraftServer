@@ -1,6 +1,5 @@
 /**
  * 扩展日志 — 经 @sfmc-bds/sdk/logs 写入 VS Code Output「SFMC 扩展」
- * 脚本沙箱 Webview 不再内嵌日志面板；断言缓冲仍在 Webview 静默保留。
  * 支持 level 下限与 scope 过滤（仅影响新写入；历史需「清除并应用过滤」）。
  */
 

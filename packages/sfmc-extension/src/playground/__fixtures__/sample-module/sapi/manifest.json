@@ -1,6 +1,0 @@
-{
-  "schemaVersion": 2,
-  "id": "sample-module",
-  "name": "Sample Module",
-  "entry": "./src/index.ts"
-}
