@@ -36,6 +36,10 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      - name: Build all workspaces
+        # build-publishable / paths.mjs 运行时依赖 @sfmc-bds/sdk dist（与 ootb.yml 对齐）
+        run: npm run build --workspaces --if-present
+
       - name: build publishable workspaces
         # DRY：包清单与拓扑权威在 packages/tools/lib/npm-publish-packages.mjs，勿在此再抄 workspace 列表
         run: node packages/tools/build-publishable.mjs
