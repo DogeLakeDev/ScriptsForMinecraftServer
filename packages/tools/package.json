@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/tools",
-  "version": "0.2.0-beta.9",
+  "version": "0.2.0-beta.10",
   "description": "SFMC dev tools - testing before build",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
