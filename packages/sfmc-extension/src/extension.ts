@@ -5,23 +5,16 @@
 import * as vscode from "vscode";
 import { startModuleWatch, rebuildAndDeploy } from "@sfmc-bds/devkit";
 import {
-  setStatusBar,
-  setExtensionContext,
   ensureSfmcRoot,
   getSfmcCliPathConfigured,
   cmdNewModule,
   cmdSetSfmcRoot,
-  cmdRunTests,
-  cmdOpenPlayground,
-  cmdStartDebug,
   cmdConfigureLogFilter,
   cmdClearAndApplyLogFilter,
-  cmdLocateSandboxLogNode,
   pickModuleRoot,
 } from "./panels/commands.js";
 import { registerTreeView } from "./panels/ModuleTreeProvider.js";
 import { ExtLog } from "./log.js";
-import { PlaygroundPanel } from "./playground/PlaygroundPanel.js";
 
 const WATCH_STATE_KEY = "sfmc:watchActive";
 
@@ -36,8 +29,6 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.show();
   context.subscriptions.push(statusBar, ExtLog.channel());
 
-  setStatusBar(statusBar);
-  setExtensionContext(context);
   ExtLog.info("activate", "SFMC Module 扩展已激活");
 
   registerTreeView(context, {
@@ -56,23 +47,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("sfmcModule.clearAndApplyLogFilter", async () => {
       await cmdClearAndApplyLogFilter();
     }),
-    vscode.commands.registerCommand("sfmcModule.locateSandboxLogNode", async () => {
-      await cmdLocateSandboxLogNode();
-    }),
     vscode.commands.registerCommand("sfmcModule.setRoot", async () => {
       await cmdSetSfmcRoot();
     }),
     vscode.commands.registerCommand("sfmcModule.newModule", async () => {
       await cmdNewModule();
-    }),
-    vscode.commands.registerCommand("sfmcModule.runTests", async () => {
-      await cmdRunTests();
-    }),
-    vscode.commands.registerCommand("sfmcModule.openPlayground", async () => {
-      await cmdOpenPlayground();
-    }),
-    vscode.commands.registerCommand("sfmcModule.startDebug", async () => {
-      await cmdStartDebug();
     }),
     vscode.commands.registerCommand("sfmcModule.startWatch", async () => {
       const modRoot = await pickModuleRoot();
@@ -149,6 +128,5 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
   if (watchStop) watchStop();
-  PlaygroundPanel.disposeCurrent();
   ExtLog.info("deactivate", "扩展停用");
 }

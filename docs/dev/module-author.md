@@ -44,13 +44,13 @@
 
 ```mermaid
 flowchart LR
-  A[改 sapi/src] --> B[npm test / 扩展 Run Tests]
+  A[改 sapi/src] --> B[npm test]
   B --> C[扩展 Start Watch]
   C --> D[组装部署]
   D --> E[BDS reload]
 ```
 
-1. **先测**：`npm test` 或扩展 `SFMC: Run Module Tests`（假引擎，秒级）。详情见 [测试沙箱](./testing.md)（宿主分相、L0–L2、与 Watch 分工）。
+1. **先测**：`npm test`（假引擎，秒级）。详情见 [测试沙箱](./testing.md)（宿主分相、L0–L2、与 Watch 分工）。可视化编排用 **Sapience**。
 2. **再联调**：扩展 `SFMC: Start Watch` / `SFMC: Reload to BDS`（设置 `sfmc.root` 为含 `configs/`、`modules/` 的工作目录；扩展会写 `${sfmc.root}/modules/module-lock.json`，与 `sfmc` CLI 同一权威源）；或运维机 `sfmc mod install --link` + `mod reload`。
 
 !!! tip "全表面 ≠ 假 BDS"
@@ -58,7 +58,7 @@ flowchart LR
 
 | 入口 | 作用 |
 | ------ | ------ |
-| 扩展 Run Tests | 跑模块仓 `npm test` |
+| `npm test` | 模块仓假引擎单测（`createSandbox`） |
 | 扩展 Start Watch | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
 | `sfmc mod build` / `reload` | **运维**对本机已装模块组装部署 |
 | `sfmc mod install/enable` | **运维**安装与启停 |

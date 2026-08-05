@@ -50,7 +50,7 @@
 ### 步骤 C — SFMC 侧残留
 
 - 规格副本可继续留在 SFMC docs 作史  
-- 扩展内 Webview Playground：主路径废弃；可选「打开 Sapience」桥后置  
+- 扩展内 Webview Playground / Run Module Tests / 启动并调试：**已移除**；可选「打开 Sapience」桥后置  
 
 ---
 

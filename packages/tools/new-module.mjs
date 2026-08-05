@@ -444,7 +444,6 @@ function buildPrettierIgnore() {
 dist/
 *.tgz
 package-lock.json
-.sfmc/
 `;
 }
 
@@ -488,9 +487,10 @@ npm run lint
 
 用 VS Code / Cursor **单独打开本仓根**。推荐扩展：ESLint、Prettier、SFMC Module、Node.js Test Runner。
 
-1. 侧栏 **脚本沙箱**（不依赖 \`sfmc.root\`）
-2. 真机联调：设 \`sfmc.root\` 为 SFMC **工作目录**（含 \`configs/\`、\`modules/\`），再 Start Watch / Reload to BDS
-3. link：\`sfmc mod install ${folderId} --from dir:<本仓绝对路径> --link\`
+1. \`npm test\`（假引擎；不依赖 \`sfmc.root\`）
+2. 可视化编排：独立应用 **Sapience**
+3. 真机联调：设 \`sfmc.root\` 为 SFMC **工作目录**（含 \`configs/\`、\`modules/\`），再 Start Watch / Reload to BDS
+4. link：\`sfmc mod install ${folderId} --from dir:<本仓绝对路径> --link\`
 
 | 命令 | 作用 |
 | --- | --- |
@@ -500,70 +500,6 @@ npm run lint
 
 \`DESCRIPTOR.id\` 须与 \`sapi/manifest.json\` 的 \`id\`（\`feature-${folderId}\`）一致。
 `;
-}
-
-/**
- * @param {string} folderId
- * @param {string} displayName
- */
-function buildSandboxScript(folderId, displayName) {
-  const cmdName = folderId.replace(/-/g, "_");
-  const readyMsg = `模块 ${displayName} 已就绪`;
-  return {
-    schemaVersion: 1,
-    nodes: [
-      {
-        id: "n1",
-        type: "stimulus",
-        position: { x: 40, y: 120 },
-        data: {
-          kind: "player",
-          title: "alice",
-          detail: "op · overworld",
-          props: {
-            id: "player-alice",
-            name: "alice",
-            op: true,
-            dimensionId: "minecraft:overworld",
-            location: { x: 0, y: 64, z: 0 },
-          },
-          objectId: "player-alice",
-        },
-      },
-      {
-        id: "n2",
-        type: "stimulus",
-        position: { x: 300, y: 120 },
-        data: {
-          kind: "emit",
-          title: "chatSend",
-          detail: "world.beforeEvents.chatSend",
-          path: "world.beforeEvents.chatSend",
-          props: {
-            message: `!${cmdName}`,
-            cancel: false,
-            sender: { $ref: "player-alice" },
-          },
-        },
-      },
-      {
-        id: "n3",
-        type: "stimulus",
-        position: { x: 560, y: 120 },
-        data: {
-          kind: "assert",
-          assertKind: "log",
-          title: "日志含文案",
-          detail: readyMsg,
-          pattern: readyMsg,
-        },
-      },
-    ],
-    edges: [
-      { id: "e1-2", source: "n1", target: "n2" },
-      { id: "e2-3", source: "n2", target: "n3" },
-    ],
-  };
 }
 
 /**
@@ -707,7 +643,6 @@ function main() {
   writeText(path.join(target, ".prettierignore"), buildPrettierIgnore());
   writeText(path.join(target, "LICENSE"), buildLicense());
   writeText(path.join(target, "README.md"), buildReadme(folderId, displayName, pkgName));
-  writeJson(path.join(target, ".sfmc", "sandbox-script.json"), buildSandboxScript(folderId, displayName));
   writeVscodeWorkspace(target);
 
   console.log(`[new-module] 已创建 ${target}`);

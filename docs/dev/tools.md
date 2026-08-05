@@ -15,7 +15,7 @@
 | `node packages/tools/fetch-module.mjs install <id>` | 安装模块 |
 | `node packages/tools/new-module.mjs <id>` | 在空目录生成单包根 |
 | `npm run smoke-modules` | 模块 API 冒烟（需 live db-server；平台 CI） |
-| （作者测试） | 见 [测试沙箱](./testing.md) / 扩展「SFMC Module」 |
+| （作者测试） | 见 [测试沙箱](./testing.md)（`npm test`）；可视化编排见 Sapience |
 
 约定检查见 [ESLint 约定](./eslint.md)。
 

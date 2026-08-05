@@ -11,10 +11,7 @@ import path from "node:path";
 import {
   findAllModuleRoots,
   getSfmcRoot,
-  cmdRunTests,
   cmdModuleInfo,
-  cmdStartDebug,
-  cmdOpenPlayground,
   cmdEnableModule,
   cmdDisableModule,
 } from "./commands.js";
@@ -76,11 +73,7 @@ export interface TreeViewCallbacks {
 }
 
 function buildActions(modRoot: string, watchActive: boolean): ActionNode[] {
-  const items: ActionNode[] = [
-    { kind: "action", label: "Run Module Tests", icon: "beaker", command: "sfmcModule.runTestsAction", modRoot },
-    { kind: "action", label: "脚本沙箱", icon: "play", command: "sfmcModule.openPlaygroundAction", modRoot },
-    { kind: "action", label: "启动并调试", icon: "debug-alt", command: "sfmcModule.startDebugAction", modRoot },
-  ];
+  const items: ActionNode[] = [];
   if (watchActive) {
     items.push({ kind: "action", label: "Stop Watch", icon: "circle-slash", command: "sfmcModule.stopWatch", modRoot });
   } else {
@@ -115,6 +108,10 @@ export class ModuleTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  dispose(): void {
+    this._onDidChangeTreeData.dispose();
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -190,25 +187,6 @@ export function registerTreeView(context: vscode.ExtensionContext, callbacks: Tr
   context.subscriptions.push(
     vscode.commands.registerCommand("sfmcModule.moduleInfoAction", async (modRoot: string) => {
       await cmdModuleInfo(modRoot);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("sfmcModule.runTestsAction", async (modRoot: string) => {
-      await cmdRunTests(modRoot);
-      provider.refresh();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("sfmcModule.openPlaygroundAction", async (modRoot: string) => {
-      await cmdOpenPlayground(modRoot || undefined);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("sfmcModule.startDebugAction", async (modRoot: string) => {
-      await cmdStartDebug(modRoot);
     })
   );
 
