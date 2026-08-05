@@ -1,5 +1,32 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.8
+
+### Minor Changes
+
+- 8568388: feat(sdk/testing): L0 自 `.d.ts` 生成大范围假导出 + 覆盖率门禁
+
+  对照 Levi 仅作映射笔记（不入库）；pin 版 `@minecraft/server` 为契约权威。
+
+- 8568388: feat(sdk/testing): MockBukkit 风格假引擎 + createSandbox + minecraft-loader
+
+  - 可控 `@minecraft/server` / `server-ui`（L0 生成全表面 + 未实现硬失败、tick、表单队列）
+  - `createSandbox` 默认 boot；conformance 套件
+  - 导出 `@sfmc-bds/sdk/testing/minecraft-loader`
+
+- 8568388: feat(sdk/testing): createSandbox 宿主分相；API 保真加深含 server-ui 全表面 L0
+
+  对照本地 pin server-ui（CustomForm/MessageBox/Observables/uiManager）；ItemStack/Container/Entity/Dimension/Scoreboard L2；CI 跑 SDK testing + generated/ 一致性。
+
+### Patch Changes
+
+- 8552772: fix(sdk/ConfigManager): `refreshModules` 对全部启停键做 diff 广播
+
+  原先 `_notifyModuleChanges` 在非 force 路径 `break`，只通知 Map 第一项。
+  现改为：init 全量通知；refresh 相对 previous 通知变更项（含消失 → false）。
+
+- e175ed9: fix(sdk/testing): minecraft-loader 钉死同一 `@sfmc-bds/sdk` 实例，避免模块仓 node_modules 与宿主双包导致 Command/Permission 空清单；脚手架 Command.register 传入 MODULE_ID。
+
 ## 0.2.0-beta.7
 
 ### Patch Changes
