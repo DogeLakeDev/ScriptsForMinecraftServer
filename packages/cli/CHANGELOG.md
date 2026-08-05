@@ -1,5 +1,38 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.8
+
+### Minor Changes
+
+- 8552772: feat(sfmc): 作者向 mod test/watch/publish 迁出 CLI
+
+  运维保留 build/reload/install；作者改用 VS Code 扩展与 @sfmc-bds/devkit。
+  调用已删子命令时给出迁移提示。
+
+- 8552772: chore: 删除已无仓内调用的公开兼容导出
+
+  破坏性（外部若仍 import 需改用替代）：
+
+  - `@sfmc-bds/cli`：移除 `serviceStatus`（用 `queryServicesRuntime`）、`HELP`（用 `getHelp`）、
+    `resolveDefaultsDir` / `seedMissingConfigsFromDefaults`、`CommandChannel: "external"` /
+    `PaletteEntry` / `listPaletteEntries` 等遗留表面。
+  - `@sfmc-bds/bds-tools`：移除已不抛出的 `Utf8BomError` 类及 re-export（读 JSON 仍自动剥 BOM）。
+
+- 8552772: feat(sfmc): mod enable/disable 本地写 lock，db 在线时 best-effort 热同步
+
+  启停不再强依赖 db-server：先写 `module-lock.json`，再尝试 POST；通知失败仍成功并警告。
+
+### Patch Changes
+
+- Updated dependencies [8552772]
+- Updated dependencies [8552772]
+- Updated dependencies [e175ed9]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+  - @sfmc-bds/sdk@0.2.0-beta.8
+  - @sfmc-bds/bds-tools@0.2.0-beta.8
+
 ## 0.2.0-beta.7
 
 ### Patch Changes
