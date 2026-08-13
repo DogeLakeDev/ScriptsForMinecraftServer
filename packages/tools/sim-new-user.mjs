@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
+import { bdsExeName } from "@sfmc-bds/bds-tools/host-platform";
 import { ROOT, DB_SERVER_DIST } from "./lib/paths.mjs";
 import { exists } from "./lib/io.mjs";
 import { requestJson, waitHealth } from "./lib/http.mjs";
@@ -48,9 +49,10 @@ async function main() {
   if (!exists(DB_SERVER_DIST)) fail(`缺少 ${DB_SERVER_DIST}`);
 
   fs.mkdirSync(path.join(SIM_DIR, "BDS"), { recursive: true });
-  fs.writeFileSync(path.join(SIM_DIR, "BDS", "bedrock_server.exe"), "");
+  fs.writeFileSync(path.join(SIM_DIR, "BDS", bdsExeName()), "");
   fs.mkdirSync(path.join(SIM_DIR, "LLBot"), { recursive: true });
-  fs.writeFileSync(path.join(SIM_DIR, "LLBot", "llbot.exe"), "");
+  const llbotBin = process.platform === "win32" ? "llbot.exe" : "llbot";
+  fs.writeFileSync(path.join(SIM_DIR, "LLBot", llbotBin), "");
 
   fs.mkdirSync(path.join(SIM_DIR, "modules", "packages"), { recursive: true });
   fs.copyFileSync(

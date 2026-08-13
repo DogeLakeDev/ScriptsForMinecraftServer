@@ -9,6 +9,7 @@
 
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { bdsCdnZipSuffix, bdsDetailsPlatformKey, bdsHostOs, type BdsHostOs } from "./host-platform.js";
 import { fetchJsonWithFallback } from "./http.js";
 import { log } from "./log.js";
 import type { BdsUpdaterConfig, VersionDetails, VersionInfo } from "./types.js";
@@ -26,7 +27,11 @@ function resolveTemplate(tpl: string, vars: Record<string, string>): string {
 }
 
 /** 获取最新版本号 (含 cdn_root)，3 次重试 */
-export async function getVersionInfo(cfg: BdsUpdaterConfig, channel: string): Promise<VersionInfo> {
+export async function getVersionInfo(
+  cfg: BdsUpdaterConfig,
+  channel: string,
+  hostOs: BdsHostOs = bdsHostOs()
+): Promise<VersionInfo> {
   const api = cfg.version_versions || process.env["BDS_VERSIONS_API"] || DEFAULT_VERSIONS_API;
   const mirror = cfg.version_versions_mirror || process.env["BDS_VERSIONS_MIRROR"] || DEFAULT_VERSIONS_MIRROR;
   const sources = [api, mirror].filter(Boolean);
@@ -41,7 +46,7 @@ export async function getVersionInfo(cfg: BdsUpdaterConfig, channel: string): Pr
         const entry = channel === "preview" ? json.preview : json.release;
         ver = entry?.latest;
       } else {
-        const platform = json.windows || json.linux;
+        const platform = hostOs === "windows" ? json.windows || json.linux : json.linux || json.windows;
         ver = channel === "preview" ? platform?.preview : platform?.stable;
       }
       if (!ver) throw new Error("未找到最新版本号");
@@ -62,9 +67,10 @@ export async function getVersionInfo(cfg: BdsUpdaterConfig, channel: string): Pr
 export async function fetchVersionDetails(
   cfg: BdsUpdaterConfig,
   channel: string,
-  version: string
+  version: string,
+  hostOs: BdsHostOs = bdsHostOs()
 ): Promise<VersionDetails> {
-  const platform = channel === "preview" ? "windows_preview" : "windows";
+  const platform = bdsDetailsPlatformKey(channel, hostOs);
   const ch = channel === "preview" ? "preview" : "release";
   const vars = { version, ver3: toVer3(version), platform, channel: ch };
   const detailsTpl =
@@ -76,7 +82,7 @@ export async function fetchVersionDetails(
   const json = await fetchJsonWithFallback<any>(sources);
   const mode = cfg.version_mode || "bedrock-oss";
   if (mode === "endstone") {
-    const bw = json.binary?.windows;
+    const bw = hostOs === "windows" ? json.binary?.windows : json.binary?.linux;
     return {
       downloadUrl: bw?.url ?? "",
       sha1: "",
@@ -97,7 +103,8 @@ export function buildDownloadUrls(
   cfg: BdsUpdaterConfig,
   channel: string,
   version: string,
-  details: VersionDetails
+  details: VersionDetails,
+  hostOs: BdsHostOs = bdsHostOs()
 ): string[] {
   const urls: string[] = [];
   if (cfg.download_mirror) {
@@ -106,10 +113,7 @@ export function buildDownloadUrls(
   }
   if (details.downloadUrl) urls.push(details.downloadUrl);
   const cdnRoot = cfg.cdn_root || "https://www.minecraft.net/bedrockdedicatedserver";
-  const suffix =
-    channel === "preview"
-      ? `/bin-win-preview/bedrock-server-${version}-preview.zip`
-      : `/bin-win/bedrock-server-${version}.zip`;
+  const suffix = bdsCdnZipSuffix(channel, version, hostOs);
   urls.push(cdnRoot + suffix);
   urls.push(`https://minecraft.azureedge.net${suffix}`);
   return [...new Set(urls)];

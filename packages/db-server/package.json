@@ -37,7 +37,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
-    "test": "node --test dist/*.test.js",
+    "test": "node --test dist/**/*.test.js dist/*.test.js",
     "test:api": "npm run build && node scripts/test-db-api.mjs",
     "typecheck": "tsc7 --noEmit"
   },

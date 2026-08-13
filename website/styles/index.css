@@ -6,6 +6,54 @@
   --rp-c-brand-lighter: #93c5fd;
 }
 
+/* Mermaid：卡片容器 + 与正文对齐的图面 */
+.sfmc-mermaid {
+  margin: 1.25rem 0 1.75rem;
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--rp-c-divider-light, #e2e8f0);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--rp-c-bg, #fff) 92%, var(--rp-c-brand) 8%);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.dark .sfmc-mermaid {
+  background: color-mix(in srgb, var(--rp-c-bg, #0b1220) 88%, #60a5fa 12%);
+  border-color: var(--rp-c-divider, #334155);
+}
+
+.sfmc-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.sfmc-mermaid .node rect,
+.sfmc-mermaid .node polygon,
+.sfmc-mermaid .node circle,
+.sfmc-mermaid .node path {
+  rx: 6;
+  stroke-width: 1.5px;
+}
+
+.sfmc-mermaid .edgePath .path {
+  stroke-width: 1.5px;
+}
+
+.sfmc-mermaid .edgeLabel {
+  font-size: 12px;
+}
+
+.sfmc-mermaid--error {
+  text-align: left;
+  border-color: #f87171;
+}
+
+.sfmc-mermaid--error p {
+  margin: 0.5rem 0 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
 .sfmc-path-cards {
   display: grid;
   gap: 1rem;

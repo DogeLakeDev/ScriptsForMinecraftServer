@@ -65,6 +65,7 @@ const SUBPATHS = [
   { sub: "node/sdk", platform: "node" },
   { sub: "node/node", platform: "node" },
   { sub: "node/config", platform: "node" },
+  { sub: "node/qq-official", platform: "node" },
   { sub: "module-loader", platform: "node" },
   // BDS 启动入口：单独子路径，避免污染 module-loader barrel（DIP）
   { sub: "module-loader/install", platform: "node", entry: "src/module-loader/install.ts" },

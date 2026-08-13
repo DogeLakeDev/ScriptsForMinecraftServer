@@ -60,10 +60,22 @@ npm test
 
 ### QQ 桥
 
+**官方后端（`qq_backend: official`）**
+
+1. `qq_app_id` / `qq_app_secret` 是否正确
+2. 是否已订阅 `GROUP_AT_MESSAGE_CREATE`，群内是否 @ 机器人
+3. `qq_group_openid` 是否已从日志抄入并重启 db / qq
+4. 群主是否允许机器人主动发言（MC→QQ）
+5. 沙箱是否与 `qq_sandbox` 一致；IP 白名单是否包含本机公网 IP
+
+**LLBot 后端（`qq_backend: llbot`）**
+
 1. LLBot 反向 WS 是否为 `ws://127.0.0.1:3002`
 2. `qq_group_id`、`llbot_*` 是否正确
 3. qq / llbot 日志是否连上
 4. 防火墙是否拦截 3002
+
+从旧版升级未写 `qq_backend` 时默认走官方；若仍用 LLBot 请显式设 `"qq_backend": "llbot"`。
 
 ### 构建与 import
 

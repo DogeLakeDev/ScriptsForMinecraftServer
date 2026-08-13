@@ -60,10 +60,22 @@ Author flow: [Test sandbox](../dev/testing.md).
 
 ### QQ bridge
 
+**Official (`qq_backend: official`)**
+
+1. `qq_app_id` / `qq_app_secret` correct
+2. Subscribed to `GROUP_AT_MESSAGE_CREATE`; messages must @ the bot
+3. `qq_group_openid` copied from logs; restart db / qq
+4. Group owner allows proactive bot messages (MC→QQ)
+5. Sandbox matches `qq_sandbox`; IP allowlist includes server public IP if enabled
+
+**LLBot (`qq_backend: llbot`)**
+
 1. LLBot reverse WS set to `ws://127.0.0.1:3002`
 2. `qq_group_id`, `llbot_*` correct
 3. qq / llbot logs show connection
 4. Firewall not blocking 3002
+
+Upgrading without `qq_backend` defaults to official; set `"qq_backend": "llbot"` to keep LLBot.
 
 ### Build and imports
 

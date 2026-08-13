@@ -39,3 +39,18 @@
 | [消息](./messages.md) | 读写聊天记录 |
 
 SDK 入口：[sdk/](./sdk/index.md)。跨模块业务能力：[模块服务目录](./modules/index.md)。
+
+## QQ 绑定（平台）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/sfmc/qq/bind/request` | `{ openid, qq_backend? }` → 短码 |
+| `POST` | `/api/sfmc/qq/bind/confirm` | `{ code, xuid, name }` |
+| `POST` | `/api/sfmc/qq/bind/unbind` | `{ openid? }` 或 `{ xuid? }` |
+| `GET` | `/api/sfmc/qq/bind/me` | `?openid=` 或 `?xuid=` |
+
+鉴权与 `messages` 写操作一致（若配置了 `http_auth`）。游戏侧模块见独立仓 `qq-link`。
+
+## 只读状态
+
+`GET /api/sfmc/status` — 公开；供 QQ `status` / `online`。

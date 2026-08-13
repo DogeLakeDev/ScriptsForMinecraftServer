@@ -1,10 +1,13 @@
-import type { BdsUpdaterConfig, DBConfig, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
+import type { BdsUpdaterConfig, DBConfig, QQBackend, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
 import {
   ensureCoreConfigs,
   loadEnsuredConfig,
+  qqRuntimeStatusPath,
+  readJson,
   DEFAULT_BDS_UPDATER_CONFIG,
   DEFAULT_DB_CONFIG,
   DEFAULT_QQ_CONFIG,
+  type QqRuntimeStatus,
 } from "@sfmc-bds/sdk/node/config";
 import {
   clearBdsPidFile,
@@ -13,11 +16,13 @@ import {
   readBdsPidFile,
   writeBdsPidFile,
 } from "@sfmc-bds/bds-tools/process-probe";
+import { bdsExePath, bdsSpawnEnvExtra, ensureBdsExecutable } from "@sfmc-bds/bds-tools/host-platform";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
+import { resolveLlbotLaunch } from "./llbot-launch.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { t } from "./i18n/index.js";
@@ -33,6 +38,24 @@ export interface LogLine {
 export type ServiceName = "bds" | "db" | "qq" | "llbot";
 export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
 
+/** argv 一次性 start 在 POSIX 上须 daemonize，否则父进程退出会带走子进程（Windows 不需要） */
+let argvDaemonize = false;
+export function setArgvDaemonize(on: boolean): void {
+  argvDaemonize = on;
+}
+
+/** 单服务 start 结果：optional 服务 validate 失败记为 skipped，不抛错 */
+export type StartOutcome =
+  | { status: "started" }
+  | { status: "already" }
+  | { status: "skipped"; reason: string };
+
+export interface StartAllResult {
+  started: ServiceName[];
+  skipped: Array<{ name: ServiceName; reason: string }>;
+  failed: Array<{ name: ServiceName; reason: string }>;
+}
+
 export interface ServiceStatus {
   name: ServiceName;
   title: string;
@@ -44,6 +67,12 @@ export interface ServiceStatus {
 
 /** 当前 db 健康探测端口（与 createServices 同步） */
 let dbHealthPort = 3001;
+/** 当前 QQ 后端（与 createServices 同步，供 Tab/窗标题） */
+let qqBackendMode: QQBackend = "official";
+
+export function getQqBackendMode(): QQBackend {
+  return qqBackendMode;
+}
 
 async function probeDbHealth(port: number): Promise<boolean> {
   try {
@@ -52,6 +81,14 @@ async function probeDbHealth(port: number): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** 读 `.sfmc/qq.runtime.json` + pid 存活，探测外部/本机 qq-bridge */
+async function probeQqRuntime(): Promise<{ alive: boolean; pid: number }> {
+  const status = readJson<QqRuntimeStatus>(qqRuntimeStatusPath(ROOT));
+  if (!status?.pid || status.pid <= 0) return { alive: false, pid: 0 };
+  if (!(await isProcessAlive(status.pid))) return { alive: false, pid: 0 };
+  return { alive: true, pid: status.pid };
 }
 
 interface ServiceDef {
@@ -66,6 +103,11 @@ interface ServiceDef {
   stopTimeout: number;
   autoRestart: boolean;
   restartDelay: number;
+  /**
+   * 可选服务：validate 失败时 start 返回 skipped（startAll 不当作失败）。
+   * 用于 official 下跳过 llbot、以及 qq_enabled=false。
+   */
+  optional?: boolean;
   validate?: () => string | null;
   /** 启动前钩子(如 BDS 装载一致性校验);失败则禁止 spawn */
   beforeStart?: () => Promise<void>;
@@ -111,8 +153,8 @@ class Service {
     pushUnifiedLog(text, this.name, level);
   }
 
-  async start(): Promise<void> {
-    if (this.running) return;
+  async start(): Promise<StartOutcome> {
+    if (this.running) return { status: "already" };
     if (this.name === "bds") {
       const probe = await probeBdsStatus({ rootDir: ROOT });
       if (probe.state !== "stopped") {
@@ -123,21 +165,27 @@ class Service {
     }
     if (this.def.validate) {
       const v = this.def.validate();
-      if (v) throw new Error(v);
+      if (v) {
+        // optional：配置层面跳过（如 official 下 llbot），不当失败、也不 spawn
+        if (this.def.optional) return { status: "skipped", reason: v };
+        throw new Error(v);
+      }
     }
     if (this.def.beforeStart) {
       await this.def.beforeStart();
     }
     this.manualStop = false;
+    const daemonize = argvDaemonize && process.platform !== "win32";
     const spawnOpts = {
       cwd: this.def.cwd,
-      stdio: ["pipe", "pipe", "pipe"] as Array<IOType>,
+      stdio: (daemonize ? "ignore" : ["pipe", "pipe", "pipe"]) as "ignore" | Array<IOType>,
       env: this.def.env ? { ...process.env, ...this.def.env } : process.env,
+      detached: daemonize,
     };
     const child = this.def.service
       ? spawnService(this.def.service, this.def.args ?? [], spawnOpts)
       : spawn(this.def.cmd as string, this.def.args ?? [], spawnOpts);
-    //child.unref();
+    if (daemonize) child.unref();
     this.proc = child;
     this.pid = child.pid ?? 0;
     this.running = true;
@@ -173,6 +221,7 @@ class Service {
         }, this.def.restartDelay);
       }
     });
+    return { status: "started" };
   }
 
   async stop(): Promise<void> {
@@ -218,9 +267,9 @@ class Service {
     }
   }
 
-  async restart(): Promise<void> {
+  async restart(): Promise<StartOutcome> {
     await this.stop();
-    await this.start();
+    return this.start();
   }
 
   getRecentLogs(n: number): LogLine[] {
@@ -277,12 +326,17 @@ function createServices(): Record<ServiceName, Service> {
     { ...DEFAULT_DB_CONFIG } as Record<string, unknown>
   ) as DBConfig;
   const bdsPath = bdsCfg.bds_path ?? ROOT;
+  const useLlbotBackend = qqCfg.qq_backend === "llbot";
+  const qqEnabled = qqCfg.qq_enabled !== false;
   const llbotEnabled = qqCfg.llbot_enabled !== false;
-  const llbotPath = qqCfg.llbot_path ?? "D:\\LLBot-CLI-win-x64\\llbot.exe";
-  const llbotCwd = qqCfg.llbot_cwd ?? "D:\\LLBot-CLI-win-x64";
+  const llbotLaunch = resolveLlbotLaunch(qqCfg.llbot_path, qqCfg.llbot_cwd);
+  const llbotPath = llbotLaunch.exe;
+  const llbotCwd = llbotLaunch.cwd;
   const dbPort = dbCfg.db_port ?? 3001;
   dbHealthPort = dbPort;
-  const bdsExe = path.resolve(bdsPath, "bedrock_server.exe");
+  qqBackendMode = useLlbotBackend ? "llbot" : "official";
+  const bdsExe = bdsExePath(path.resolve(bdsPath));
+  const qqTitle = useLlbotBackend ? "QQ (llbot)" : "QQ (official)";
 
   return {
     bds: new Service({
@@ -291,6 +345,7 @@ function createServices(): Record<ServiceName, Service> {
       cmd: bdsExe,
       args: [],
       cwd: bdsPath,
+      env: bdsSpawnEnvExtra(bdsPath),
       stopCommand: "stop",
       stopTimeout: 30000,
       autoRestart: bdsCfg.crash_restart !== false,
@@ -300,6 +355,7 @@ function createServices(): Record<ServiceName, Service> {
         return null;
       },
       beforeStart: async () => {
+        ensureBdsExecutable(bdsExe);
         /* 先装收件箱第三方包，再检查 CF 更新，再跑模块聚合闸门 */
         const { scanAndInstallInbox } = await import("./world-packs.js");
         await scanAndInstallInbox({ interactive: false });
@@ -323,12 +379,23 @@ function createServices(): Record<ServiceName, Service> {
 
     qq: new Service({
       name: "qq",
-      title: "QQ Bridge",
+      title: qqTitle,
       service: "qq",
       cwd: ROOT,
       stopTimeout: 10000,
+      // 缺凭据时 validate 拦下，不会 spawn→exit(1)→autoRestart 死循环
       autoRestart: true,
       restartDelay: 3000,
+      optional: !qqEnabled,
+      validate: () => {
+        if (!qqEnabled) return "QQ bridge disabled (qq_enabled=false)";
+        if (!useLlbotBackend) {
+          if (!String(qqCfg.qq_app_id ?? "").trim() || !String(qqCfg.qq_app_secret ?? "").trim()) {
+            return "missing qq_app_id / qq_app_secret (official backend)";
+          }
+        }
+        return null;
+      },
     }),
 
     llbot: new Service({
@@ -340,7 +407,10 @@ function createServices(): Record<ServiceName, Service> {
       stopTimeout: 10000,
       autoRestart: false,
       restartDelay: 5000,
+      // official 或未启用时真正 skip，不 throw
+      optional: !useLlbotBackend || !llbotEnabled,
       validate: () => {
+        if (!useLlbotBackend) return "LLBot skipped (qq_backend!=llbot)";
         if (!llbotEnabled) return "LLBot disabled (llbot_enabled=false)";
         if (!fs.existsSync(llbotPath)) return `not found: ${llbotPath}`;
         return null;
@@ -358,16 +428,26 @@ export function refreshServices(): void {
 
 export const START_ORDER: ServiceName[] = ["db", "qq", "llbot", "bds"];
 
-export async function startAll(): Promise<void> {
+export async function startAll(): Promise<StartAllResult> {
+  const result: StartAllResult = { started: [], skipped: [], failed: [] };
   for (const name of START_ORDER) {
     const svc = services[name];
     if (!svc) continue;
     try {
-      await svc.start();
+      const outcome = await svc.start();
+      if (outcome.status === "skipped") {
+        result.skipped.push({ name, reason: outcome.reason });
+        svc.events.emit("output", `skipped: ${outcome.reason}`, "info");
+      } else {
+        result.started.push(name);
+      }
     } catch (e) {
-      svc.events.emit("output", `start error: ${(e as Error).message}`, "error");
+      const reason = (e as Error).message;
+      result.failed.push({ name, reason });
+      svc.events.emit("output", `start error: ${reason}`, "error");
     }
   }
+  return result;
 }
 
 export async function stopAll(): Promise<void> {
@@ -461,6 +541,21 @@ export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
         } else if (await probeDbHealth(dbHealthPort)) {
           running = true;
           ownership = "external";
+        }
+      } else if (name === "qq") {
+        const managed = await reconcileManagedAlive(service);
+        if (managed) {
+          running = true;
+          pid = service.pid;
+          uptime = service.uptime;
+          ownership = "managed";
+        } else {
+          const probe = await probeQqRuntime();
+          if (probe.alive) {
+            running = true;
+            pid = probe.pid;
+            ownership = "external";
+          }
         }
       } else {
         const managed = await reconcileManagedAlive(service);

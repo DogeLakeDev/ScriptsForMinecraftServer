@@ -9,7 +9,7 @@ import { pipeline } from "node:stream/promises";
 
 /**
  * 流式计算文件哈希 (sha1 / sha256)，
- * 用于大文件 (例如 bedrock_server.exe ~80MB)，不会 OOM。
+ * 用于大文件 (例如 BDS 可执行文件 ~80MB)，不会 OOM。
  */
 export async function hashFileAsync(filePath: string, algo: "sha1" | "sha256" = "sha256"): Promise<string> {
   return new Promise((resolve, reject) => {

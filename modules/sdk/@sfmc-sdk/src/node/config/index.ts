@@ -28,15 +28,51 @@ export interface BdsUpdaterConfig {
   compatible_versions?: string[];
 }
 
+/** QQ 桥接后端：官方开放平台 Bot 或 LLBot（OneBot 11）。 */
+export type QQBackend = "official" | "llbot";
+
+/** MC 事件推群开关（`qq_config.json` → `qq_events`）。 */
+export interface QqEventsConfig {
+  /** 总开关；false 时丢弃全部事件 */
+  enabled?: boolean;
+  /** join/leave/death 聚合窗口（秒），默认 60 */
+  window_sec?: number;
+  join?: boolean;
+  leave?: boolean;
+  death?: boolean;
+  /** BDS 意外退出（立即推） */
+  crash?: boolean;
+  /** BDS 启动成功（立即推） */
+  start?: boolean;
+}
+
 /** QQ 桥接配置（`configs/qq_config.json`）。 */
 export interface QQBridgeConfig {
   qq_enabled?: boolean;
+  /** 后端选择；缺省按 DEFAULT_QQ_CONFIG（official） */
+  qq_backend?: QQBackend;
+  /** 官方 Bot AppID */
+  qq_app_id?: string;
+  /** 官方 Bot AppSecret（勿入库） */
+  qq_app_secret?: string;
+  /** 官方沙箱环境 */
+  qq_sandbox?: boolean;
+  /** 官方群 openid（非传统群号） */
+  qq_group_openid?: string;
+  /** 官方群指令面板 id（sync 后写回） */
+  qq_group_panel_id?: string;
+  /** 启动时是否同步自定义菜单/指令面板（仅 official；默认 true） */
+  qq_sync_menu_panel?: boolean;
+  /** QQ 侧管理员 openid 列表（审批/踢人等） */
+  qq_admin_openids?: string[];
   qq_ws_port?: number;
   qq_group_id?: string;
   bridge_channel_id?: string;
   db_host?: string;
   db_port?: number;
   mctoqq_prefix?: string;
+  /** 上下线/死亡/BDS 启停推群（节流） */
+  qq_events?: QqEventsConfig;
   llbot_enabled?: boolean;
   llbot_path?: string;
   llbot_cwd?: string;
@@ -157,8 +193,27 @@ export const DEFAULT_DB_CONFIG: DBConfig = {
   modulesDir: "modules",
 };
 
+/** 事件推群默认（改配置需重启） */
+export const DEFAULT_QQ_EVENTS: Required<QqEventsConfig> = {
+  enabled: true,
+  window_sec: 60,
+  join: true,
+  leave: true,
+  death: true,
+  crash: true,
+  start: true,
+};
+
 /** qq-bridge / db-server 共用种子 */
 export const DEFAULT_QQ_CONFIG: QQBridgeConfig = {
+  qq_backend: "official",
+  qq_app_id: "",
+  qq_app_secret: "",
+  qq_sandbox: false,
+  qq_group_openid: "",
+  qq_group_panel_id: "",
+  qq_sync_menu_panel: true,
+  qq_admin_openids: [],
   qq_ws_port: 3002,
   qq_group_id: "0",
   llbot_enabled: false,
@@ -169,6 +224,7 @@ export const DEFAULT_QQ_CONFIG: QQBridgeConfig = {
   llbot_token: "",
   bridge_channel_id: "",
   mctoqq_prefix: "[MC]",
+  qq_events: { ...DEFAULT_QQ_EVENTS },
 };
 
 /** bds-tools ensure 种子 */
@@ -295,6 +351,20 @@ export function logFile(runtimeRoot: string, name: string): string {
   const base = name.endsWith(".log") ? name : `${name}.log`;
   return path.join(logsDir(runtimeRoot), base);
 }
+
+/**
+ * qq-bridge 运行态心跳文件:<ROOT>/.sfmc/qq.runtime.json
+ * CLI Tab/status 用它探测「外部」qq 是否仍活着（与 db /api/health 对称）。
+ */
+export function qqRuntimeStatusPath(runtimeRoot: string): string {
+  return path.join(stateDir(runtimeRoot), "qq.runtime.json");
+}
+
+export type QqRuntimeStatus = {
+  pid: number;
+  backend: "official" | "llbot";
+  startedAt: number;
+};
 
 /** 模块目录路径：`<ROOT>/modules`。 */
 export function moduleDir(runtimeRoot: string): string {

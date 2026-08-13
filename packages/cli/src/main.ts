@@ -12,6 +12,7 @@ import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./mo
 import { startRemoteAgent } from "./remote-agent.js";
 import { getHelp, playWelcomeAnimation, startRepl } from "./repl.js";
 import { ROOT } from "./runtime.js";
+import { setArgvDaemonize } from "./services.js";
 import { c } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
@@ -34,6 +35,10 @@ async function main(): Promise<void> {
   const stripped = stripLangArgs(process.argv.slice(2));
   initLocale({ root: ROOT, flag: stripped.lang });
   const { packsMode, args } = parseGlobalArgv(stripped.args);
+
+  if (args.length > 0 || packsMode) {
+    setArgvDaemonize(true);
+  }
 
   if (args.length === 0 && !packsMode) {
     const { isRuntimeInitialized } = await import("./runtime.js");

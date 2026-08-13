@@ -1,15 +1,33 @@
 name: ootb
 
+# 多平台冒烟：Windows + Linux。不启动真实 BDS / LLBot。macOS 暂不适配。
+
 on:
   push:
     branches: [main, refactor/**]
   pull_request:
     branches: [main, refactor/**]
+  workflow_dispatch:
+
+concurrency:
+  group: ootb-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  smoke: # 冒烟测试
-    runs-on: windows-latest
-    timeout-minutes: 15
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v5
@@ -23,65 +41,40 @@ jobs:
           cache: npm
 
       - name: Install root deps
-        shell: pwsh
         run: npm ci --no-audit --no-fund
 
       - name: Build all workspaces
-        shell: pwsh
         run: npm run build --workspaces --if-present
 
-      - name: SDK testing sandbox # 假引擎 + L0 覆盖率
-        shell: pwsh
+      - name: SDK testing sandbox
         run: npm test -w @sfmc-bds/sdk
 
+      - name: Portable workspace unit tests
+        run: |
+          npm test -w @sfmc-bds/db-server
+          npm test -w @sfmc-bds/qq-bridge
+          npm test -w @sfmc-bds/bds-tools
+          npm test -w @sfmc-bds/cli
+
       - name: mc-fake 生成物与仓库一致
-        shell: pwsh
         run: |
           npm run gen:mc-fake -w @sfmc-bds/sdk
-          # 忽略 CRLF 噪声；不稳定字段已从 export-names*.json 去掉
-          git diff --ignore-cr-at-eol --exit-code -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"
-          if ($LASTEXITCODE -ne 0) {
-            throw "generated/ 与 gen:mc-fake 不一致：请本地 npm run gen:mc-fake -w @sfmc-bds/sdk 后提交"
-          }
+          if ! git diff --ignore-cr-at-eol --exit-code -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"; then
+            echo "::error::generated/ 与 gen:mc-fake 不一致：请本地 npm run gen:mc-fake -w @sfmc-bds/sdk 后提交"
+            exit 1
+          fi
 
-      - name: Seed configs via SDK ensure # 测试：播种配置文件
-        shell: pwsh
+      - name: Seed configs via SDK ensure
         env:
           SFMC_ROOT: ${{ github.workspace }}
-        run: |
-          New-Item -ItemType Directory -Force -Path configs | Out-Null
-          node packages/tools/seed-configs.mjs
-          Get-ChildItem configs -Filter *.json | ForEach-Object { Write-Host "seeded $($_.Name)" }
+        run: node packages/tools/seed-configs.mjs
 
-      - name: Run check-ootb # 平台自检
-        shell: pwsh
+      - name: Run check-ootb
         env:
           SFMC_ROOT: ${{ github.workspace }}
         run: npm run check-ootb
 
-      - name: Run smoke-modules (against temporary db-server)# db-server测试
-        shell: pwsh
+      - name: Run smoke-modules
         env:
           SFMC_ROOT: ${{ github.workspace }}
-        run: |
-          $port = if ($env:DB_PORT) { $env:DB_PORT } else { '3001' }
-          if (Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue) {
-            Get-NetTCPConnection -LocalPort $port | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
-            Start-Sleep -Seconds 2
-          }
-          $db = Start-Process -FilePath node -ArgumentList "packages/db-server/dist/index.js" -WorkingDirectory $PWD -WindowStyle Hidden -RedirectStandardOutput "packages/db-server/_smoke.out" -RedirectStandardError "packages/db-server/_smoke.err" -PassThru
-          try {
-            $ready = $false
-            for ($i=0; $i -lt 40; $i++) {
-              try {
-                $r = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/api/health" -TimeoutSec 2
-                if ($r.StatusCode -eq 200) { $ready = $true; break }
-              } catch {}
-              Start-Sleep -Milliseconds 300
-            }
-            if (-not $ready) { throw "db-server not ready" }
-            npm run smoke-modules
-          } finally {
-            Stop-Process -Id $db.Id -Force -ErrorAction SilentlyContinue
-            Remove-Item -Force packages/db-server/_smoke.out,packages/db-server/_smoke.err -ErrorAction SilentlyContinue
-          }
+        run: node packages/tools/run-with-db-server.mjs node packages/tools/smoke-modules.mjs

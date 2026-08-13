@@ -1,9 +1,10 @@
 /**
- * qqutil.ts — QQ 通知工具 (基于 LLBot HTTP OneBot 11)
+ * qqutil.ts — QQ 通知工具（官方 Bot / LLBot 双后端）
  *
  * 改进:
  *  - sendTimeout 提供总超时，避免通知发送挂死主流程
  *  - 静默模式 (失败不抛出)，保证主流程不被通知干扰
+ *  - qq_backend=official 时走 SDK 发群；llbot 仍走 OneBot HTTP
  */
 
 import {
@@ -14,11 +15,21 @@ import {
   type ModuleLock,
   type QQBridgeConfig,
 } from "@sfmc-bds/sdk/node/config";
+import { sendGroupTextMessage } from "@sfmc-bds/sdk/node/qq-official";
 import http from "node:http";
 import { log } from "./log.js";
 import { ROOT_DIR } from "./paths.js";
 
-type QqConfig = Pick<QQBridgeConfig, "llbot_http" | "qq_group_id">;
+type QqConfig = Pick<
+  QQBridgeConfig,
+  | "llbot_http"
+  | "qq_group_id"
+  | "qq_backend"
+  | "qq_app_id"
+  | "qq_app_secret"
+  | "qq_sandbox"
+  | "qq_group_openid"
+>;
 
 let cachedCfg: QqConfig | null = null;
 function getConfig(): QqConfig {
@@ -33,19 +44,24 @@ export function isQqBridgeEnabled(): boolean {
   const lock = readJson<ModuleLock>(modulePath(ROOT_DIR, "module-lock.json"));
   if (!catalog || !lock) return true; // 模块目录缺失则保守视为可用
   const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge") as
-    { id?: string } | undefined;
+    | { id?: string }
+    | undefined;
   return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
+}
+
+function isOfficialBackend(cfg: QqConfig): boolean {
+  return (cfg.qq_backend ?? "official") === "official";
 }
 
 function sendToLLBot(payload: unknown, timeoutMs = 5_000): Promise<void> {
   const cfg = getConfig();
-  const url = new URL(cfg.llbot_http || "http://127.0.0.1:3000");
+  const url = new URL(cfg.llbot_http || "http://127.0.0.1:3004");
   const data = JSON.stringify(payload);
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
         hostname: url.hostname,
-        port: url.port || 3000,
+        port: url.port || 3004,
         path: "/send_group_msg",
         method: "POST",
         headers: {
@@ -80,13 +96,36 @@ async function safeSend(label: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
+async function sendOfficialText(text: string): Promise<void> {
+  const cfg = getConfig();
+  const appId = String(cfg.qq_app_id ?? "");
+  const appSecret = String(cfg.qq_app_secret ?? "");
+  const groupOpenid = String(cfg.qq_group_openid ?? "");
+  if (!appId || !appSecret || !groupOpenid) {
+    throw new Error("官方后端缺少 qq_app_id / qq_app_secret / qq_group_openid");
+  }
+  const result = await sendGroupTextMessage(
+    { appId, appSecret, sandbox: cfg.qq_sandbox === true },
+    { groupOpenid, content: text }
+  );
+  if (!result.ok) throw new Error(result.error);
+}
+
 export async function sendText(text: string): Promise<void> {
   const cfg = getConfig();
-  if (!isQqBridgeEnabled() || !cfg.qq_group_id) {
-    log.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
+  if (!isQqBridgeEnabled()) {
+    log.warn("[QQ] qq-bridge 未启用");
     return;
   }
-  await safeSend("sendText", () =>
+  if (isOfficialBackend(cfg)) {
+    await safeSend("sendText(official)", () => sendOfficialText(text));
+    return;
+  }
+  if (!cfg.qq_group_id) {
+    log.warn("[QQ] qq_group_id 缺失");
+    return;
+  }
+  await safeSend("sendText(llbot)", () =>
     sendToLLBot({
       group_id: parseInt(cfg.qq_group_id ?? "0", 10),
       message: [{ type: "text", data: { text } }],
@@ -96,11 +135,30 @@ export async function sendText(text: string): Promise<void> {
 
 export async function sendMixed(segments: unknown[]): Promise<void> {
   const cfg = getConfig();
-  if (!isQqBridgeEnabled() || !cfg.qq_group_id) {
-    log.warn("[QQ] qq-bridge 未启用或 qq_group_id 缺失");
+  if (!isQqBridgeEnabled()) {
+    log.warn("[QQ] qq-bridge 未启用");
     return;
   }
-  await safeSend("sendMixed", () =>
+  if (isOfficialBackend(cfg)) {
+    // 官方路径仅拼纯文本；图片段降级为 [图片]
+    const text = segments
+      .map((seg) => {
+        const s = seg as { type?: string; data?: { text?: string } };
+        if (s?.type === "text") return String(s.data?.text ?? "");
+        if (s?.type === "image") return "[图片]";
+        return "";
+      })
+      .join("")
+      .trim();
+    if (!text) return;
+    await safeSend("sendMixed(official)", () => sendOfficialText(text));
+    return;
+  }
+  if (!cfg.qq_group_id) {
+    log.warn("[QQ] qq_group_id 缺失");
+    return;
+  }
+  await safeSend("sendMixed(llbot)", () =>
     sendToLLBot({
       group_id: parseInt(cfg.qq_group_id ?? "0", 10),
       message: segments,
@@ -115,3 +173,4 @@ export async function sendWithImage(text: string, base64Img: string): Promise<vo
   if (segments.length === 0) return;
   await sendMixed(segments);
 }
+

@@ -9,7 +9,7 @@ The workspace [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsFo
 | File | Purpose |
 | ------ | ------ |
 | `db_config.json` | db-server port, data paths, modules directory, etc. |
-| `qq_config.json` | QQ bridge and LLBot |
+| `qq_config.json` | QQ bridge (official bot / LLBot) |
 | `bds_updater.json` | BDS updates and backups |
 | `pack-update.json` | CurseForge add-on updates (see [Add-ons](./addons.md)) |
 | `log-filter.json` | Log filtering |

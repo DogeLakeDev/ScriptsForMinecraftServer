@@ -37,19 +37,27 @@ import { TxRunner } from "./tx-runner.js";
 import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
 import { syncModuleRuntimeState } from "./module-runtime-sync.js";
 
-import { readJson } from "@sfmc-bds/sdk/node/config";
+import { ensureJson, patchJson, readJson } from "@sfmc-bds/sdk/node/config";
+import { join } from "node:path";
 
 import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createDbRoutes } from "./routes/db-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
 import { jsonV2Fail } from "./routes/_shared.js";
 
-import { createConfigRoutes } from "./routes/config.js";
-import { createHealthRoutes } from "./routes/health.js";
+import { createStatusRoutes } from "./routes/status.js";
+import { createQqBindRoutes } from "./routes/qq-bind.js";
+import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
+import { createQqEventsRoutes } from "./routes/qq-events.js";
 import { createMessagesRoutes } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
-
-import { forwardToQQBridge, makeLLBotConfig } from "./domain/bridge.js";
+import { createConfigRoutes } from "./routes/config.js";
+import { createHealthRoutes } from "./routes/health.js";
+import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
+import {
+  createQqEventsAggregator,
+  resolveQqEventsConfig,
+} from "./domain/qq-events.js";
 import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 
@@ -229,23 +237,110 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
 
 // ── 平台路由(非模块业务) ───────────────────────────────────
 const healthRoutes = createHealthRoutes();
+const statusRoutes = createStatusRoutes({ query });
+const qqBindRoutes = createQqBindRoutes({ query, body, json });
+
+/** 模块 qq-link 的配置文件（非 SDK qq_config） */
+const QQ_LINK_CONFIG_KEY = "qq_link";
+const QQ_LINK_DEFAULTS = {
+  allowlist_enabled: true,
+  require_approval: true,
+  /** 是否将 QQ 群主/群管视作 SFMC 管理员；仅改本文件，API/群聊不可写 */
+  treat_group_admins_as_admins: false,
+} as const;
+
+function asConfigBool(v: unknown, fallback: boolean): boolean {
+  if (v === undefined || v === null) return fallback;
+  if (typeof v === "boolean") return v;
+  const s = String(v).trim().toLowerCase();
+  if (s === "true" || s === "1" || s === "yes" || s === "on") return true;
+  if (s === "false" || s === "0" || s === "no" || s === "off") return false;
+  return fallback;
+}
+
+function qqLinkConfigFile(): string {
+  return join(env.PROJECT_ROOT, "configs", `${QQ_LINK_CONFIG_KEY}.json`);
+}
+
+function readJoinFlags(): JoinFeatureFlags {
+  // 模块配置 configs/qq_link.json（非 SDK qq_config）
+  const disk = ensureJson<Record<string, unknown>>(qqLinkConfigFile(), { ...QQ_LINK_DEFAULTS });
+  return {
+    allowlistEnabled: asConfigBool(disk.allowlist_enabled, QQ_LINK_DEFAULTS.allowlist_enabled),
+    requireApproval: asConfigBool(disk.require_approval, QQ_LINK_DEFAULTS.require_approval),
+    treatGroupAdminsAsAdmins: asConfigBool(
+      disk.treat_group_admins_as_admins,
+      QQ_LINK_DEFAULTS.treat_group_admins_as_admins
+    ),
+  };
+}
+
+function writeJoinFlags(partial: Partial<JoinFeatureFlags>): JoinFeatureFlags {
+  const file = qqLinkConfigFile();
+  ensureJson<Record<string, unknown>>(file, { ...QQ_LINK_DEFAULTS });
+  const patch: Record<string, boolean> = {};
+  if (partial.allowlistEnabled !== undefined) patch.allowlist_enabled = partial.allowlistEnabled;
+  if (partial.requireApproval !== undefined) patch.require_approval = partial.requireApproval;
+  // 故意不写 treat_group_admins_as_admins：仅人工改 configs/qq_link.json
+  if (Object.keys(patch).length > 0) {
+    patchJson(file, patch);
+  }
+  return readJoinFlags();
+}
+
+// 启动即落盘模块默认配置，避免「从未点过配置/申请」时 configs/qq_link.json 不存在
+{
+  const created = !readJson(qqLinkConfigFile());
+  ensureJson<Record<string, unknown>>(qqLinkConfigFile(), { ...QQ_LINK_DEFAULTS });
+  if (created) {
+    log.info(`已写入模块配置骨架: configs/${QQ_LINK_CONFIG_KEY}.json`);
+  }
+}
+
+const qqJoinRoutes = createQqJoinRoutes({
+  query,
+  body,
+  json,
+  getAdminOpenids: () => {
+    const raw = env.qqconfig["qq_admin_openids"];
+    if (!Array.isArray(raw)) return [];
+    return raw.map((x) => String(x).trim()).filter(Boolean);
+  },
+  getJoinFlags: () => readJoinFlags(),
+  setJoinFlags: (partial) => writeJoinFlags(partial),
+});
+
+function currentOutbound() {
+  return makeOutboundConfig({
+    QQ_BACKEND: env.QQ_BACKEND,
+    LLBOT_HOST: env.LLBOT_HOST,
+    LLBOT_PORT: env.LLBOT_PORT,
+    LLBOT_TOKEN: env.LLBOT_TOKEN,
+    QQ_GROUP_ID: env.QQ_GROUP_ID,
+    QQ_APP_ID: env.QQ_APP_ID,
+    QQ_APP_SECRET: env.QQ_APP_SECRET,
+    QQ_SANDBOX: env.QQ_SANDBOX,
+    QQ_GROUP_OPENID: env.QQ_GROUP_OPENID,
+    MCTOQQ_PREFIX: env.MCTOQQ_PREFIX,
+  });
+}
+
+const qqEventsAggregator = createQqEventsAggregator({
+  getConfig: () => resolveQqEventsConfig(env.qqconfig["qq_events"]),
+  getOutbound: () => currentOutbound(),
+});
+const qqEventsRoutes = createQqEventsRoutes({
+  body,
+  json,
+  aggregator: qqEventsAggregator,
+});
+
 const messagesRoutes = createMessagesRoutes({
   query,
   body,
   json,
   forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) =>
-    forwardToQQBridge(
-      makeLLBotConfig({
-        LLBOT_HOST: env.LLBOT_HOST,
-        LLBOT_PORT: env.LLBOT_PORT,
-        LLBOT_TOKEN: env.LLBOT_TOKEN,
-        QQ_GROUP_ID: env.QQ_GROUP_ID,
-      }),
-      channelId,
-      fromName,
-      content,
-      fromId
-    ),
+    forwardToQQBridge(currentOutbound(), channelId, fromName, content, fromId),
 });
 const configRoutes = createConfigRoutes({
   json,
@@ -326,9 +421,26 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     // ── 旧 env token 鉴权(只对 POST/PUT 生效) ─────────────
     const PUBLIC_GET =
       path === "/api/health" ||
+      path === "/api/sfmc/status" ||
+      path === "/api/sfmc/qq/join/apply-queue" ||
+      path === "/api/sfmc/qq/join/settings" ||
+      path === "/api/sfmc/qq/admin/action-queue" ||
       (method === "GET" &&
-        (path === "/api/sfmc/modules" || path === "/api/sfmc/modules/catalog" || path.startsWith("/api/sfmc/modules/")));
-    const NEEDS_AUTH = !PUBLIC_GET && method !== "GET";
+        (path === "/api/sfmc/modules" ||
+          path === "/api/sfmc/modules/catalog" ||
+          path.startsWith("/api/sfmc/modules/") ||
+          path === "/api/sfmc/qq/bind/me" ||
+          path === "/api/sfmc/qq/join/pending"));
+    // bind/join/events POST 与 messages 一样走旧 AUTH_TOKEN（若配置）；游戏/桥同为 loopback
+    const NEEDS_AUTH =
+      !PUBLIC_GET &&
+      method !== "GET" &&
+      !(
+        path.startsWith("/api/sfmc/qq/bind/") ||
+        path.startsWith("/api/sfmc/qq/join/") ||
+        path.startsWith("/api/sfmc/qq/admin/") ||
+        path.startsWith("/api/sfmc/qq/events")
+      );
     if (env.AUTH_TOKEN && NEEDS_AUTH) {
       const auth = req.headers["authorization"] || "";
       const provided = auth.startsWith("Bearer ") ? auth.slice(7) : (req.headers["x-db-token"] as string) || "";
@@ -366,6 +478,10 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     const ctxBase = { path, method, params, req, res } as { path: string; method: string; params: URLSearchParams; req: http.IncomingMessage; res: http.ServerResponse };
     if (await moduleRoutesInstance(ctxBase)) return;
     if (await healthRoutes(ctxBase)) return;
+    if (await statusRoutes(ctxBase)) return;
+    if (await qqBindRoutes(ctxBase)) return;
+    if (await qqJoinRoutes(ctxBase)) return;
+    if (await qqEventsRoutes(ctxBase)) return;
     if (await messagesRoutes(ctxBase)) return;
     if (await configRoutes(ctxBase)) return;
 

@@ -110,6 +110,13 @@ export type OneBotEvent = OneBotGroupMessageEvent | OneBotLifecycleEvent | { [k:
  *  否则调用点 (index.ts / dispatcher.ts) 都要补 undefined 兜底。 */
 export interface QQBridgeConfig {
   qq_enabled: boolean;
+  qq_backend: "official" | "llbot";
+  qq_app_id: string;
+  qq_app_secret: string;
+  qq_sandbox: boolean;
+  qq_group_openid: string;
+  qq_group_panel_id: string;
+  qq_sync_menu_panel: boolean;
   qq_ws_port: number;
   qq_group_id: string;
   bridge_channel_id: string;

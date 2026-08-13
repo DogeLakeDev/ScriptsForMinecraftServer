@@ -471,5 +471,57 @@ export function initSchema(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_economy_transactions_target ON sfmc_economy_transactions(target_player_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_sfmc_lands_owner ON sfmc_lands(owner_player_id, status);
     CREATE INDEX IF NOT EXISTS idx_sfmc_lands_location ON sfmc_lands(dimension, min_x, max_x, min_z, max_z, status)`);
+
+  // QQ↔MC 身份绑定（平台表；qq-bridge / 游戏模块共用 HTTP，非模块私有表）
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_qq_bind_pending (
+      code TEXT PRIMARY KEY NOT NULL, -- 短码
+      qq_user_openid TEXT NOT NULL, -- QQ 侧用户 openid / llbot user id
+      qq_backend TEXT NOT NULL DEFAULT 'official', -- official | llbot
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`);
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_qq_bindings (
+      qq_user_openid TEXT PRIMARY KEY NOT NULL,
+      player_xuid TEXT NOT NULL UNIQUE,
+      player_name TEXT NOT NULL DEFAULT '',
+      qq_backend TEXT NOT NULL DEFAULT 'official',
+      bound_at INTEGER NOT NULL
+    )`);
+  db.exec(/* sql */ `
+    CREATE INDEX IF NOT EXISTS idx_qq_bind_pending_openid ON sfmc_qq_bind_pending(qq_user_openid);
+    CREATE INDEX IF NOT EXISTS idx_qq_bindings_xuid ON sfmc_qq_bindings(player_xuid)`);
+
+  // QQ 入服审批 + 管理动作队列（平台表；BDS 生效由 SAPI + server-admin）
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_qq_join_requests (
+      id TEXT PRIMARY KEY NOT NULL,
+      applicant_openid TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      qq_backend TEXT NOT NULL DEFAULT 'official',
+      created_at INTEGER NOT NULL,
+      decided_at INTEGER,
+      decided_by TEXT,
+      applied_at INTEGER,
+      apply_error TEXT
+    )`);
+  db.exec(/* sql */ `
+    CREATE INDEX IF NOT EXISTS idx_qq_join_status ON sfmc_qq_join_requests(status, created_at)`);
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_qq_admin_actions (
+      id TEXT PRIMARY KEY NOT NULL,
+      kind TEXT NOT NULL,
+      target_name TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      requested_by TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      applied_at INTEGER,
+      apply_error TEXT
+    )`);
+  db.exec(/* sql */ `
+    CREATE INDEX IF NOT EXISTS idx_qq_admin_actions_status ON sfmc_qq_admin_actions(status, created_at)`);
 }
 

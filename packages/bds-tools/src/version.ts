@@ -83,7 +83,7 @@ export async function getCurrentVersionAsync(exePath: string): Promise<string> {
   for (const [ver, entry] of Object.entries(cache)) {
     if (entry.sha256 === actual) return ver;
   }
-  log.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存，疑似被改动或首次启动");
+  log.warn("[BDSUpdater] BDS 可执行文件哈希未匹配缓存，疑似被改动或首次启动");
   return "0.0.0.0";
 }
 
@@ -96,6 +96,6 @@ export function getCurrentVersionSync(exePath: string): string {
   for (const [ver, entry] of Object.entries(cache)) {
     if (entry.sha256 === actual) return ver;
   }
-  log.warn("[BDSUpdater] bedrock_server.exe 哈希未匹配缓存");
+  log.warn("[BDSUpdater] BDS 可执行文件哈希未匹配缓存");
   return "0.0.0.0";
 }

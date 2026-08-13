@@ -11,6 +11,7 @@
  */
 
 import { log } from "./log.js";
+import type { CommandRouter } from "./commands/index.js";
 import { tryForward, type DBServerConfig } from "./dbserver.js";
 import type {
   OneBotAtSegment,
@@ -137,15 +138,21 @@ export interface DispatcherOptions {
   qqGroupId: string;
   /** db-server 配置 + 目标 channelId */
   db: DBServerConfig;
+  /** QQ 侧指令路由；命中则不转发 MC */
+  commandRouter?: CommandRouter;
+  /** 可注入转发（单测） */
+  forward?: typeof tryForward;
 }
 
 export class OneBotDispatcher {
   private botSelfId: string | null = null;
   private readonly opts: DispatcherOptions;
   private readonly dedup = new RecentMessageDedup();
+  private readonly forward: typeof tryForward;
 
   constructor(opts: DispatcherOptions) {
     this.opts = opts;
+    this.forward = opts.forward ?? tryForward;
   }
 
   /** 测试/调试用 */
@@ -178,16 +185,33 @@ export class OneBotDispatcher {
     const text = extractText(event.message);
     if (!text) return;
 
+    const senderCard = event.sender?.card;
+    const senderNick = event.sender?.nickname;
+    const fromName = senderCard || senderNick || `QQ_${event.user_id}`;
+    const userId = String(event.user_id);
+    const fromId = `qq_${userId}`;
+    const groupId = String(event.group_id);
+
+    if (this.opts.commandRouter) {
+      const role = String(event.sender?.role ?? "").toLowerCase();
+      const isGroupAdmin = role === "owner" || role === "admin";
+      const inbound = {
+        backend: "llbot" as const,
+        groupId,
+        userId,
+        userName: fromName,
+        text,
+        isGroupAdmin,
+        ...(event.message_id !== undefined ? { msgId: String(event.message_id) } : {}),
+      };
+      if (await this.opts.commandRouter.handle(inbound)) return;
+    }
+
     if (!this.opts.db.channelId) {
       log.warn("bridge_channel_id 未配置,跳过 (可用 reload 重读配置)");
       return;
     }
 
-    const senderCard = event.sender?.card;
-    const senderNick = event.sender?.nickname;
-    const fromName = senderCard || senderNick || `QQ_${event.user_id}`;
-    const fromId = `qq_${String(event.user_id)}`;
-
-    await tryForward(this.opts.db, fromId, fromName, text);
+    await this.forward(this.opts.db, fromId, fromName, text);
   }
 }

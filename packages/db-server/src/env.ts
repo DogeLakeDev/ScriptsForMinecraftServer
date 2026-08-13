@@ -8,12 +8,28 @@ import {
   modulePath,
   DEFAULT_DB_CONFIG,
   DEFAULT_QQ_CONFIG,
+  type QQBackend,
 } from "@sfmc-bds/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 
 import { log } from "./lib/log.js";
 import { PROJECT_ROOT as RESOLVED_ROOT } from "./project-root.js";
 
+/** 日志脱敏：密钥类字段不打印明文 */
+const SECRET_CONFIG_KEYS = new Set([
+  "qq_app_secret",
+  "llbot_token",
+  "http_auth",
+  "agent_secret",
+]);
+
+function redactConfigValue(key: string, value: unknown): string {
+  if (SECRET_CONFIG_KEYS.has(key)) {
+    const s = String(value ?? "");
+    return s.length > 0 ? "***" : "";
+  }
+  return String(value);
+}
 
 export interface EnvConfig {
   PROJECT_ROOT: string;
@@ -28,6 +44,13 @@ export interface EnvConfig {
   // QQ 群 / channel(从 qq_config.json 透出,给 bridge / messages 路由用)
   QQ_GROUP_ID: string;
   QQ_BRIDGE_CHANNEL_ID: string;
+  // 官方 Bot
+  QQ_BACKEND: QQBackend;
+  QQ_APP_ID: string;
+  QQ_APP_SECRET: string;
+  QQ_SANDBOX: boolean;
+  QQ_GROUP_OPENID: string;
+  MCTOQQ_PREFIX: string;
   MODULES_DIR: string;
   MODULE_CATALOG_PATH: string;
   MODULE_LOCK_PATH: string;
@@ -59,13 +82,13 @@ export function loadEnv(): EnvConfig {
   for (const [k, v] of Object.entries(dbconfig)) {
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     process.env[envKey] = String(v);
-    log.info(`db_config::${k} -> process.env.${envKey} = ${String(v)}`);
+    log.info(`db_config::${k} -> process.env.${envKey} = ${redactConfigValue(k, v)}`);
   }
   for (const [k, v] of Object.entries(qqconfig)) {
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     if (process.env[envKey] === undefined) {
       process.env[envKey] = String(v);
-      log.info(`qq_config::${k} -> process.env.${envKey} = ${String(v)}`);
+      log.info(`qq_config::${k} -> process.env.${envKey} = ${redactConfigValue(k, v)}`);
     }
   }
 
@@ -78,7 +101,7 @@ export function loadEnv(): EnvConfig {
     }
     const fromEnv = envBaseline[envKey];
     if (fromEnv !== undefined && fromEnv !== "") {
-      log.info(`${source} 未在 JSON 中配置,使用系统环境变量 ${envKey} = ${fromEnv}`);
+      log.info(`${source} 未在 JSON 中配置,使用系统环境变量 ${envKey} = ${redactConfigValue(source, fromEnv)}`);
       return fromEnv as unknown as T;
     }
     return fallback;
@@ -100,6 +123,40 @@ export function loadEnv(): EnvConfig {
   const QQ_BRIDGE_CHANNEL_ID = String(
     pick(qqconfig["bridge_channel_id"] as string | undefined, "BRIDGE_CHANNEL_ID", "", "bridge_channel_id")
   );
+  const rawBackend = String(
+    pick(
+      qqconfig["qq_backend"] as string | undefined,
+      "QQ_BACKEND",
+      DEFAULT_QQ_CONFIG.qq_backend ?? "official",
+      "qq_backend"
+    )
+  );
+  const QQ_BACKEND: QQBackend = rawBackend === "llbot" ? "llbot" : "official";
+  const QQ_APP_ID = String(
+    pick(qqconfig["qq_app_id"] as string | undefined, "QQ_APP_ID", "", "qq_app_id")
+  );
+  const QQ_APP_SECRET = String(
+    pick(qqconfig["qq_app_secret"] as string | undefined, "QQ_APP_SECRET", "", "qq_app_secret")
+  );
+  const sandboxRaw = pick(
+    qqconfig["qq_sandbox"] as boolean | string | undefined,
+    "QQ_SANDBOX",
+    false as boolean | string,
+    "qq_sandbox"
+  );
+  const QQ_SANDBOX =
+    sandboxRaw === true || sandboxRaw === "true" || sandboxRaw === "1";
+  const QQ_GROUP_OPENID = String(
+    pick(qqconfig["qq_group_openid"] as string | undefined, "QQ_GROUP_OPENID", "", "qq_group_openid")
+  );
+  const MCTOQQ_PREFIX = String(
+    pick(
+      qqconfig["mctoqq_prefix"] as string | undefined,
+      "MCTOQQ_PREFIX",
+      DEFAULT_QQ_CONFIG.mctoqq_prefix ?? "[MC]",
+      "mctoqq_prefix"
+    )
+  );
   const AUTH_TOKEN = String(pick(dbconfig["http_auth"] as string | undefined, "HTTP_AUTH", "", "http_auth"));
   const MODULES_DIR = dbconfig["modulesDir"]
     ? resolve(PROJECT_ROOT, String(dbconfig["modulesDir"]))
@@ -118,6 +175,12 @@ export function loadEnv(): EnvConfig {
     LLBOT_TOKEN,
     QQ_GROUP_ID,
     QQ_BRIDGE_CHANNEL_ID,
+    QQ_BACKEND,
+    QQ_APP_ID,
+    QQ_APP_SECRET,
+    QQ_SANDBOX,
+    QQ_GROUP_OPENID,
+    MCTOQQ_PREFIX,
     MODULES_DIR,
     MODULE_CATALOG_PATH,
     MODULE_LOCK_PATH,
@@ -125,3 +188,4 @@ export function loadEnv(): EnvConfig {
     qqconfig,
   };
 }
+

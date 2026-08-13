@@ -9,7 +9,7 @@
 | 文件 | 用途 |
 | ------ | ------ |
 | `db_config.json` | db-server 端口、数据路径、模块目录等 |
-| `qq_config.json` | QQ 桥与 LLBot |
+| `qq_config.json` | QQ 桥（官方 Bot / LLBot） |
 | `bds_updater.json` | BDS 更新与备份 |
 | `pack-update.json` | 附加包 CurseForge 更新（用法见 [附加包](./addons.md)） |
 | `log-filter.json` | 日志过滤 |

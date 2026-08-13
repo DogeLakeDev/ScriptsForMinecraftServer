@@ -2,65 +2,165 @@
 /**
  * index.ts — QQ ↔ MC 桥接进程入口
  *
- * 端口: 3002 (默认) — WebSocket (LLBot reverse-ws)
+ * 双后端:
+ *   official — 连接 QQ 开放平台 Gateway，只转发 GROUP_AT_MESSAGE_CREATE；C2C 走指令
+ *   llbot    — 监听 WS:3002 接 LLBot reverse-ws（OneBot 11）
  *
- * 数据流:
- *   QQ → MC:  LLBot ──WS:3002──→ qq-bridge ──POST──→ db-server:3001/api/sfmc/messages
- *   MC → QQ:  SAPI ──POST──→ db-server:3001 ──(内部)──→ LLBot:3004/send_group_msg
+ * 共同出站信封: POST db-server:3001/api/sfmc/messages
+ * MC→QQ 由 db-server 按同一 qq_backend 直连官方 OpenAPI 或 LLBot HTTP
  *
- * 注意: 本进程只做 WS 入口,不再起 HTTP server。MC→QQ 由 db-server 直连 LLBot
- *       (见 db-server/src/domain/bridge.ts:forwardToQQBridge)
- *
- * 循环防护:
- *   1. 跳过 sender.user_id === botSelfId 的回声
- *      (botSelfId 通过 LLBot 的 lifecycle 元事件捕获)
- *   2. 5 秒内同 message_id 短期去重 (防 race)
+ * QQ 侧指令在桥内拦截；official 可 sync 自定义菜单 / 群指令面板。
  */
 
+import { createLlbotCommandRouter, createOfficialCommandRouter } from "./commands/index.js";
+import { createInteractionRouter } from "./commands/interaction-router.js";
+import { persistPanelIdToConfig, syncMenuAndPanel } from "./commands/menu-panel-sync.js";
 import { loadInitialConfig } from "./config.js";
 import { OneBotDispatcher } from "./onebot.js";
 import { startWsServer } from "./ws-server.js";
 import { startConsole } from "./console.js";
+import { OfficialAtMessageDispatcher } from "./official/events.js";
+import { startOfficialGateway } from "./official/gateway.js";
+import { installQqRuntimeStatusHooks } from "./runtime-status.js";
 import { log } from "./log.js";
 import type { QQBridgeConfig } from "./types.js";
 
 async function main(): Promise<void> {
   const cfg: QQBridgeConfig = loadInitialConfig();
+  const startedAt = Date.now();
 
   if (!cfg.qq_enabled) {
     log.info("已禁用 (qq_enabled = false)");
     process.exit(0);
   }
 
-  // 让控制台 status 命令读到 bot 当前的 self_id
   const botSelfIdRef: { value: string | null } = { value: null };
+  const db = {
+    host: cfg.db_host,
+    port: cfg.db_port,
+    channelId: cfg.bridge_channel_id,
+  };
 
-  const dispatcher = new OneBotDispatcher({
-    qqGroupId: cfg.qq_group_id,
-    db: {
-      host: cfg.db_host,
-      port: cfg.db_port,
-      channelId: cfg.bridge_channel_id,
-    },
-  });
+  if (cfg.qq_backend === "official") {
+    if (!cfg.qq_app_id || !cfg.qq_app_secret) {
+      log.error("官方后端需要配置 qq_app_id 与 qq_app_secret");
+      process.exit(1);
+    }
 
-  // botSelfId 通过 dispatcher 内部维护; 控制台读 self_id 时取最新值
-  Object.defineProperty(botSelfIdRef, "value", {
-    get: () => dispatcher.selfId,
-  });
+    const creds = {
+      appId: cfg.qq_app_id,
+      appSecret: cfg.qq_app_secret,
+      sandbox: cfg.qq_sandbox,
+    };
+    const appId = cfg.qq_app_id;
+    const commandRouter = createOfficialCommandRouter(
+      creds,
+      {
+        sandbox: cfg.qq_sandbox,
+        appIdHint: appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId,
+        dbHost: cfg.db_host,
+        dbPort: cfg.db_port,
+        groupOpenid: cfg.qq_group_openid,
+        adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
+        officialCreds: creds,
+      },
+      startedAt
+    );
 
-  await startWsServer({ port: cfg.qq_ws_port, dispatcher });
+    const runSyncMenu = async (): Promise<void> => {
+      if (cfg.qq_sync_menu_panel === false) {
+        log.info("已跳过 menu/panel sync（qq_sync_menu_panel=false）");
+        return;
+      }
+      await syncMenuAndPanel({
+        creds,
+        registry: commandRouter.registry,
+        groupOpenid: cfg.qq_group_openid,
+        panelId: String(cfg.qq_group_panel_id ?? ""),
+        persistPanelId: (id) => {
+          cfg.qq_group_panel_id = id;
+          persistPanelIdToConfig(id);
+        },
+      });
+    };
 
-  log.info(
-    `等待 LLBot 连接 (主群: ${cfg.qq_group_id || "未配置"}, channel: ${cfg.bridge_channel_id || "未配置"}, db: ${cfg.db_host}:${cfg.db_port})`
-  );
+    const dispatcher = new OfficialAtMessageDispatcher({
+      groupOpenid: cfg.qq_group_openid,
+      db,
+      commandRouter,
+    });
 
-  startConsole({
-    config: cfg,
-    initialEnabled: cfg.qq_enabled,
-    wsPort: cfg.qq_ws_port,
-    botSelfIdRef,
-  });
+    const interactionRouter = createInteractionRouter({
+      creds,
+      db: { host: cfg.db_host, port: cfg.db_port },
+      adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
+    });
+
+    await startOfficialGateway({
+      creds,
+      dispatcher,
+      interactionRouter,
+    });
+
+    // 不阻断 Gateway：失败只 warn
+    void runSyncMenu().catch((e) => log.warn(`menu/panel sync 异常: ${(e as Error).message}`));
+
+    installQqRuntimeStatusHooks("official");
+
+    log.info(
+      `官方后端已启动 (sandbox=${cfg.qq_sandbox}, group_openid=${cfg.qq_group_openid || "未配置"}, channel=${cfg.bridge_channel_id || "未配置"}, db=${cfg.db_host}:${cfg.db_port})`
+    );
+
+    startConsole({
+      config: cfg,
+      initialEnabled: cfg.qq_enabled,
+      wsPort: 0,
+      botSelfIdRef,
+      backend: "official",
+      onSyncMenu: runSyncMenu,
+    });
+  } else {
+    const commandRouter = createLlbotCommandRouter(
+      {
+        host: cfg.llbot_host || "127.0.0.1",
+        port: cfg.llbot_port || 3004,
+        token: cfg.llbot_token || "",
+        groupId: cfg.qq_group_id || "0",
+      },
+      {
+        dbHost: cfg.db_host,
+        dbPort: cfg.db_port,
+        adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
+      },
+      startedAt
+    );
+
+    const dispatcher = new OneBotDispatcher({
+      qqGroupId: cfg.qq_group_id,
+      db,
+      commandRouter,
+    });
+
+    Object.defineProperty(botSelfIdRef, "value", {
+      get: () => dispatcher.selfId,
+    });
+
+    await startWsServer({ port: cfg.qq_ws_port, dispatcher });
+
+    installQqRuntimeStatusHooks("llbot");
+
+    log.info(
+      `LLBot 后端等待连接 (主群: ${cfg.qq_group_id || "未配置"}, channel: ${cfg.bridge_channel_id || "未配置"}, db: ${cfg.db_host}:${cfg.db_port})`
+    );
+
+    startConsole({
+      config: cfg,
+      initialEnabled: cfg.qq_enabled,
+      wsPort: cfg.qq_ws_port,
+      botSelfIdRef,
+      backend: "llbot",
+    });
+  }
 
   log.info("启动完成");
 }

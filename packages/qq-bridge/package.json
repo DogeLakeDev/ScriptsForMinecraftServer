@@ -1,7 +1,7 @@
 {
   "name": "@sfmc-bds/qq-bridge",
   "version": "0.1.1-beta.3",
-  "description": "SFMC QQ ↔ MC bridge — LLBot OneBot 11 reverse-WS on port 3002, forwards events to db-server",
+  "description": "SFMC QQ ↔ MC bridge — official QQ Open Platform Bot and/or LLBot OneBot 11",
   "author": "Shiroha7z",
   "license": "ISC",
   "type": "module",
@@ -37,6 +37,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
+    "test": "npm run build && node --test dist/official/events.test.js dist/commands/router.test.js dist/commands/render.test.js dist/commands/menu-panel-sync.test.js dist/commands/join-settings-ui.test.js dist/llbot-ws-api.test.js",
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {

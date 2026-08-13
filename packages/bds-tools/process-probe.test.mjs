@@ -47,6 +47,7 @@ describe("process-probe probeBdsStatus", () => {
   after(async () => {
     const probe = await loadProbe();
     probe.setExecForTesting(null);
+    probe.setIsAliveForTesting(null);
     if (tempRoot) {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
@@ -56,6 +57,7 @@ describe("process-probe probeBdsStatus", () => {
     const probe = await loadProbe();
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-probe-"));
     calls.length = 0;
+    probe.setIsAliveForTesting((pid) => pid === 100);
 
     probe.setExecForTesting(async (cmd) => {
       calls.push(cmd);
@@ -72,6 +74,7 @@ describe("process-probe probeBdsStatus", () => {
   it("PID 文件存活但无 stdin → external", async () => {
     const probe = await loadProbe();
     probe.writeBdsPidFile(200, tempRoot);
+    probe.setIsAliveForTesting((pid) => pid === 200);
 
     probe.setExecForTesting(async (cmd) => {
       if (cmd.includes("PID eq 200")) {
@@ -88,10 +91,14 @@ describe("process-probe probeBdsStatus", () => {
   it("无 PID 文件但有 bedrock_server 镜像 → external", async () => {
     const probe = await loadProbe();
     probe.clearBdsPidFile(tempRoot);
+    probe.setIsAliveForTesting(() => false);
 
     probe.setExecForTesting(async (cmd) => {
       if (cmd.includes("IMAGENAME eq bedrock_server.exe")) {
         return { stdout: '"bedrock_server.exe","555","Console","1","999 K"\n', stderr: "" };
+      }
+      if (cmd.includes("pgrep")) {
+        return { stdout: "555\n", stderr: "" };
       }
       return { stdout: "", stderr: "" };
     });

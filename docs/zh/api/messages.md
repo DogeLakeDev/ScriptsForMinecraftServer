@@ -39,11 +39,11 @@ Query（均可选）：
 }
 ```
 
-成功：`{ success: true }`。写入后可能触发 MC→QQ（由 db-server 直连 LLBot）。
+成功：`{ success: true }`。写入后可能触发 MC→QQ（由 db-server 按 `qq_backend` 直连官方 OpenAPI 或 LLBot）。
 
 ## 与 qq-bridge
 
 | 方向 | 路径 |
 | ------ | ------ |
-| QQ → MC | LLBot → qq-bridge → POST 本接口 |
-| MC → QQ | db-server → LLBot HTTP |
+| QQ → MC | 官方 Gateway 或 LLBot → qq-bridge → POST 本接口 |
+| MC → QQ | db-server → 官方发群 API 或 LLBot HTTP |

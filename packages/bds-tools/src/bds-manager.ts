@@ -12,9 +12,11 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
+import { bdsExePath, bdsSpawnEnvExtra, ensureBdsExecutable } from "./host-platform.js";
 import { isMainModule } from "./is-main.js";
 import { loadConfig, ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
+import { postBdsLifecycleEvent } from "./qq-events-notify.js";
 import { ensureEmitServerTelemetry } from "./server-properties.js";
 import {
   clearBdsPidFile,
@@ -55,7 +57,7 @@ function ensureProc(): CachedProc {
   if (cached) return cached;
   const cfg = loadConfig();
   const bds_path = path.resolve(cfg.bds_path || process.cwd());
-  const exePath = path.join(bds_path, "bedrock_server.exe");
+  const exePath = bdsExePath(bds_path);
 
   cached = {
     process: null,
@@ -94,6 +96,8 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
   const stop = async (): Promise<void> => {
     const p = ensureProc();
+    // 无论自管 / 外部进程，手动 stop 都不报 crash
+    p.isManualStop = true;
     const pid = readBdsPidFile(ROOT_DIR);
     if (!pid || !(await isProcessAlive(pid))) {
       log.info("BDS 未运行");
@@ -102,7 +106,6 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
     }
 
     if (p.process && p.process.pid === pid && p.process.stdin) {
-      p.isManualStop = true;
       log.info("正在关闭 BDS...");
       try {
         p.process.stdin.write("stop\n");
@@ -150,15 +153,17 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
 
     if (!fs.existsSync(p.exePath)) {
       log.error(`未找到 ${p.exePath}`);
-      throw new Error(`bedrock_server.exe 不存在: ${p.exePath}`);
+      throw new Error(`BDS 可执行文件不存在: ${p.exePath}`);
     }
 
     // 启动前幂等确保遥测开关（安装阶段也会写；旧目录首次启动时补上）
     ensureEmitServerTelemetry(p.bdsPath, log);
+    ensureBdsExecutable(p.exePath);
 
     log.info("正在启动 BDS...");
     const child = spawn(p.exePath, [], {
       cwd: p.bdsPath,
+      env: { ...process.env, ...bdsSpawnEnvExtra(p.bdsPath) },
       stdio: options.detached ? "ignore" : ["pipe", "pipe", "pipe"],
       detached: options.detached,
       windowsHide: true,
@@ -169,6 +174,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
     p.process = child;
     writeBdsPidFile(child.pid ?? 0, ROOT_DIR);
     log.info(`BDS 已启动 (PID: ${child.pid})`);
+    void postBdsLifecycleEvent("start", `pid=${child.pid ?? 0}`);
 
     child.stdout?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
@@ -185,7 +191,11 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
       log.info(`BDS 已退出 (code: ${code})`);
       clearBdsPidFile(ROOT_DIR);
       p.process = null;
-      if (!p.isManualStop && p.crashRestart && isMain()) {
+      const wasManual = p.isManualStop;
+      if (!wasManual) {
+        void postBdsLifecycleEvent("crash", `code=${code ?? "?"}`);
+      }
+      if (!wasManual && p.crashRestart && isMain()) {
         log.info(`BDS 意外退出，${p.crashDelayMs / 1000}s 后自动重启...`);
         setTimeout(() => {
           start().catch((e) => log.error(`自动重启失败: ${e.message}`));

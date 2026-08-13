@@ -1,4 +1,9 @@
 import { killBedrockServerByImage, probeBdsStatus, clearBdsPidFile } from "@sfmc-bds/bds-tools/process-probe";
+import {
+  DEFAULT_QQ_CONFIG,
+  loadEnsuredConfig,
+  type QQBridgeConfig,
+} from "@sfmc-bds/sdk/node/config";
 import { pushLog as pushUnifiedLog } from "./logs.js";
 import { t } from "./i18n/index.js";
 import { spawnService } from "./runtime.js";
@@ -27,7 +32,34 @@ function statusLine(
   else if (running && ownership === "external") owner = c.yellow(t("svc.owner.external"));
   const pidStr = pid ? c.dim(String(pid)) : c.dim("—");
   const upStr = uptime !== "—" ? c.dim(uptime) : c.dim("—");
-  return `  ${dot} ${c.bold(padRight(name, 9))} ${padRight(state, 8)} ${padRight(owner, 6)} ${padRight(pidStr, 8)} ${upStr}`;
+  return `  ${dot} ${c.bold(padRight(name, 14))} ${padRight(state, 8)} ${padRight(owner, 6)} ${padRight(pidStr, 8)} ${upStr}`;
+}
+
+/** status 页脚：QQ 后端与关键摘要（密钥脱敏） */
+function qqBridgeStatusFooter(): string {
+  const qqCfg = loadEnsuredConfig(
+    ROOT,
+    "qq_config.json",
+    "qq_config",
+    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
+  ) as QQBridgeConfig;
+  const backend = qqCfg.qq_backend === "llbot" ? "llbot" : "official";
+  const enabled = qqCfg.qq_enabled !== false;
+  if (backend === "llbot") {
+    const group = qqCfg.qq_group_id || "—";
+    const pathHint = qqCfg.llbot_path ? String(qqCfg.llbot_path) : "—";
+    return (
+      `\n${c.dim(t("svc.qq.footer.llbot", { enabled: enabled ? "on" : "off", group, path: pathHint }))}\n`
+    );
+  }
+  const appId = String(qqCfg.qq_app_id ?? "").trim();
+  const appIdHint = appId ? (appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId) : "—";
+  const openid = String(qqCfg.qq_group_openid ?? "").trim() || "—";
+  const sandbox = qqCfg.qq_sandbox ? "sandbox" : "prod";
+  const creds = appId && String(qqCfg.qq_app_secret ?? "").trim() ? "ok" : "missing";
+  return (
+    `\n${c.dim(t("svc.qq.footer.official", { enabled: enabled ? "on" : "off", appId: appIdHint, openid, sandbox, creds }))}\n`
+  );
 }
 
 export async function cmdStatus(): Promise<string> {
@@ -39,7 +71,7 @@ export async function cmdStatus(): Promise<string> {
   const pidH = t("svc.col.pid");
   const upH = t("svc.col.uptime");
   const header =
-    `  ${padRight(nameH, 11)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
+    `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
   return (
     `\n${c.bold(t("svc.header"))}\n` +
     c.dim(header) +
@@ -47,7 +79,7 @@ export async function cmdStatus(): Promise<string> {
     DIVIDER +
     "\n" +
     lines.join("\n") +
-    "\n"
+    qqBridgeStatusFooter()
   );
 }
 
@@ -122,7 +154,13 @@ export async function cmdStart(raw: string): Promise<string> {
   if (STARTING.has(svc)) return c.dim(t("svc.alreadyStarting", { title: svcObj.title }));
   STARTING.add(svc);
   try {
-    await svcObj.start();
+    const outcome = await svcObj.start();
+    if (outcome.status === "skipped") {
+      return c.yellow(t("svc.skipped", { title: svcObj.title, reason: outcome.reason }));
+    }
+    if (outcome.status === "already") {
+      return c.yellow(t("svc.alreadyRunning", { title: svcObj.title, pid: svcObj.pid }));
+    }
     return c.green(t("svc.started", { title: svcObj.title }));
   } catch (e) {
     return c.red(t("svc.startFailed", { title: svcObj.title, message: (e as Error).message }));
@@ -203,7 +241,10 @@ export async function cmdRestart(raw: string): Promise<string> {
   }
   const svcObj = services[svc];
   try {
-    await svcObj.restart();
+    const outcome = await svcObj.restart();
+    if (outcome.status === "skipped") {
+      return c.yellow(t("svc.skipped", { title: svcObj.title, reason: outcome.reason }));
+    }
     return c.green(t("svc.restarted", { title: svcObj.title }));
   } catch (e) {
     return c.red(t("svc.restartFailed", { title: svcObj.title, message: (e as Error).message }));
@@ -212,8 +253,34 @@ export async function cmdRestart(raw: string): Promise<string> {
 
 export async function cmdStartAll(): Promise<string> {
   const { startAll } = await import("./services.js");
-  await startAll();
-  return c.green(t("svc.allStarted"));
+  const result = await startAll();
+  const parts: string[] = [];
+  if (result.started.length > 0) {
+    parts.push(c.green(t("svc.startAll.started", { list: result.started.join(", ") })));
+  }
+  if (result.skipped.length > 0) {
+    parts.push(
+      c.dim(
+        t("svc.startAll.skipped", {
+          list: result.skipped.map((s) => `${s.name}(${s.reason})`).join("; "),
+        })
+      )
+    );
+  }
+  if (result.failed.length > 0) {
+    parts.push(
+      c.red(
+        t("svc.startAll.failed", {
+          list: result.failed.map((s) => `${s.name}: ${s.reason}`).join("; "),
+        })
+      )
+    );
+  }
+  if (parts.length === 0) return c.dim(t("svc.startAll.empty"));
+  if (result.failed.length === 0 && result.skipped.length === 0) {
+    return c.green(t("svc.allStarted"));
+  }
+  return parts.join("\n");
 }
 
 export async function cmdStopAll(): Promise<string> {

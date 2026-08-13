@@ -14,6 +14,7 @@
 import type { IncomingMessage } from "node:http";
 import { createRequire } from "node:module";
 import { WebSocket, WebSocketServer } from "ws";
+import { llbotWsApi } from "./llbot-ws-api.js";
 import { log } from "./log.js";
 import type { OneBotDispatcher } from "./onebot.js";
 
@@ -42,10 +43,13 @@ export async function startWsServer(opts: WsServerOptions): Promise<WebSocketSer
   wss.on("connection", (sock: WebSocket, req: IncomingMessage) => {
     const path = req.url ?? "/";
     log.info(`LLBot 已连接 (${path})`);
+    llbotWsApi.attach(sock);
     sock.on("message", (raw) => {
       try {
         const text = raw.toString("utf-8");
         const parsed: unknown = JSON.parse(text);
+        // API 回包（echo）优先消费，避免误入事件分发
+        if (llbotWsApi.tryHandleResponse(parsed)) return;
         // 异步但不阻塞 socket 循环
         void opts.dispatcher.handle(parsed);
       } catch (e) {
@@ -53,6 +57,7 @@ export async function startWsServer(opts: WsServerOptions): Promise<WebSocketSer
       }
     });
     sock.on("close", () => {
+      llbotWsApi.detach(sock);
       log.info("LLBot 已断开");
     });
     sock.on("error", (err) => {

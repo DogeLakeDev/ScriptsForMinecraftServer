@@ -145,24 +145,29 @@ Key config endpoints:
 - **db-server HTTP**: Via `HttpDB` class in `libs/HttpDB.ts`, targets `127.0.0.1:3001` (hardcoded, not configurable from SAPI)
 - **db-server auth**: `http_auth` in `configs/db_config.json` → Bearer token on all non-GET/POST-module endpoints
 
-## QQ Bridge (LLBot / OneBot 11)
+## QQ Bridge (official Bot / LLBot)
 
 File: `packages/qq-bridge/index.js` (shim → `dist/index.js`). Source in `src/`, compile with `npm run build`.
 
-- Only exposes WS on port 3002 (LLBot reverse-ws). No HTTP port.
-- MC→QQ goes directly from db-server to LLBot HTTP (port 3004 by default).
-- Config: `configs/qq_config.json` (keys: `qq_ws_port`, `qq_group_id`, `bridge_channel_id`, `llbot_host`/`port`/`token`, `mctoqq_prefix`)
+- **`qq_backend: "official"`（默认）**：连 QQ 开放平台 Gateway；QQ→MC 只转发群内 @机器人；MC→QQ 由 db-server 调官方发群 API（主动推送，受频控）。
+- **`qq_backend: "llbot"`**：仅暴露 WS 3002（LLBot reverse-ws）；MC→QQ 由 db-server 直连 LLBot HTTP（默认 3004）。
+- Config: `configs/qq_config.json`（`qq_backend`、`qq_app_id`/`qq_app_secret`/`qq_group_openid`，以及 llbot 键）
 
 ### Message flow
 
 ```
-QQ → MC: LLBot ─WS:3002──→ qq-bridge ─POST──→ db-server:3001/api/sfmc/messages
-MC → QQ: db-server ─HTTP──→ LLBot:3004/send_group_msg
+Official:
+  QQ → MC: Gateway ─WS──→ qq-bridge ─POST──→ db-server:3001/api/sfmc/messages
+  MC → QQ: db-server ─HTTPS──→ OpenAPI /v2/groups/{group_openid}/messages
+
+LLBot:
+  QQ → MC: LLBot ─WS:3002──→ qq-bridge ─POST──→ db-server:3001/api/sfmc/messages
+  MC → QQ: db-server ─HTTP──→ LLBot:3004/send_group_msg
 ```
 
 ### Loop protection
-1. **self_id filter**: drops messages where `sender.user_id === self_id`
-2. **5 second dedup**: message_id short-term cache
+1. **bot 过滤**：跳过机器人自身消息
+2. **5 second dedup**：message id 短期缓存
 
 ### Start order
 ```list
@@ -170,6 +175,7 @@ MC → QQ: db-server ─HTTP──→ LLBot:3004/send_group_msg
 2. qq-bridge    (node packages/qq-bridge/index.js)
 3. BDS
 ```
+（`qq_backend=llbot` 且启用时，CLI 才会拉起 LLBot）
 
 ## Development tools
 
@@ -184,11 +190,12 @@ node packages/tools/fetch-module.mjs install <id>
 
 ## CI
 
-`.github/workflows/ootb.yml` — on push/PR to `main`/`refactor/**`:
+`.github/workflows/ootb.yml` — on push/PR to `main`/`refactor/**`（矩阵：`ubuntu-latest` + `windows-latest`）。macOS 暂不适配。不启动真实 BDS。
 
-1. `npm install` at repo root
-2. `node packages/tools/check-ootb.mjs`
-3. Spin up db-server, wait for `/api/health` 200, run `packages/tools/smoke-modules.mjs`
+1. `npm ci` + `npm run build --workspaces --if-present`
+2. SDK / db-server / qq-bridge / bds-tools / cli 单测
+3. `node packages/tools/check-ootb.mjs`
+4. `node packages/tools/run-with-db-server.mjs` 拉起 db-server，等 `/api/health` 200，再跑 `smoke-modules.mjs`
 
 `.github/workflows/changeset-release.yml` — on push to `main`: opens/updates Version Packages PR; merging it runs `npm run ci-release-packages` (publish + tag + GitHub Release; currently **beta** via pre mode).
 

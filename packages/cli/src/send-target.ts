@@ -2,7 +2,7 @@
  * send-target.ts — REPL 发送目标（活跃服务间 Tab 切换）
  */
 import chalk from "chalk";
-import { queryServicesRuntime, type ServiceName } from "./services.js";
+import { getQqBackendMode, queryServicesRuntime, type ServiceName } from "./services.js";
 import { T } from "./theme.js";
 
 /** 可发送目标顺序 */
@@ -24,12 +24,16 @@ const BG: Record<ServiceName, string> = {
 };
 
 export function sendTargetShort(name: ServiceName): string {
+  if (name === "qq") {
+    return getQqBackendMode() === "llbot" ? "QQ·L" : "QQ·O";
+  }
   return SHORT[name];
 }
 
 /** ` BDS ❯ ` 整块底色高亮；块后再加空格，避免与输入粘连 */
 export function paintSendPrompt(name: ServiceName): string {
-  return chalk.bgHex(BG[name]).hex(T.bg)(` ${SHORT[name]} ❯ `) + " ";
+  const label = sendTargetShort(name);
+  return chalk.bgHex(BG[name]).hex(T.bg)(` ${label} ❯ `) + " ";
 }
 
 /** 无发送目标时：纯提示符（命令仍可用 / 或 autoSlash） */
@@ -43,3 +47,4 @@ export async function listActiveSendTargets(): Promise<ServiceName[]> {
   const running = new Set(rows.filter((r) => r.running).map((r) => r.name));
   return SEND_TARGET_ORDER.filter((n) => running.has(n));
 }
+

@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveRuntimeRoot, stateDir } from "@sfmc-bds/sdk/node/config";
+import { bdsExeName } from "./host-platform.js";
 
 const execAsync = promisify(exec);
 
@@ -77,8 +78,16 @@ export function clearBdsPidFile(rootDir?: string): void {
   }
 }
 
+let aliveOverride: ((pid: number) => boolean) | null = null;
+
+/** 测试注入探活，传 null 恢复默认（避免 Linux 上 process.kill 碰到真实 PID） */
+export function setIsAliveForTesting(fn: ((pid: number) => boolean) | null): void {
+  aliveOverride = fn;
+}
+
 export async function isProcessAlive(pid: number): Promise<boolean> {
   if (!pid) return false;
+  if (aliveOverride) return aliveOverride(pid);
   try {
     if (process.platform === "win32") {
       const { stdout } = await execImpl(`tasklist /fi "PID eq ${pid}" /nh`, { windowsHide: true });
@@ -94,6 +103,7 @@ export async function isProcessAlive(pid: number): Promise<boolean> {
 /** 同步探活（供 sync 的 sendCommand 等路径；避免 Promise 被当 truthy） */
 export function isProcessAliveSync(pid: number): boolean {
   if (!pid) return false;
+  if (aliveOverride) return aliveOverride(pid);
   try {
     if (process.platform === "win32") {
       const stdout = execSync(`tasklist /fi "PID eq ${pid}" /nh`, {
@@ -112,12 +122,14 @@ export function isProcessAliveSync(pid: number): boolean {
 export async function findBedrockServerPids(): Promise<number[]> {
   try {
     if (process.platform === "win32") {
-      const { stdout } = await execImpl('tasklist /fi "IMAGENAME eq bedrock_server.exe" /fo csv /nh', {
+      const image = bdsExeName("windows");
+      const { stdout } = await execImpl(`tasklist /fi "IMAGENAME eq ${image}" /fo csv /nh`, {
         windowsHide: true,
       });
       const pids: number[] = [];
+      const re = new RegExp(`"${image.replace(".", "\\.")}","(\\d+)"`, "i");
       for (const line of stdout.split(/\r?\n/)) {
-        const m = line.match(/"bedrock_server\.exe","(\d+)"/i);
+        const m = line.match(re);
         if (m) {
           const pid = parseInt(m[1] ?? "0", 10);
           if (pid > 0) pids.push(pid);
@@ -125,7 +137,7 @@ export async function findBedrockServerPids(): Promise<number[]> {
       }
       return pids;
     }
-    const { stdout } = await execImpl("pgrep -f bedrock_server", { windowsHide: true });
+    const { stdout } = await execImpl("pgrep -x bedrock_server", { windowsHide: true });
     return stdout
       .split(/\r?\n/)
       .map((s) => parseInt(s.trim(), 10))
@@ -138,9 +150,9 @@ export async function findBedrockServerPids(): Promise<number[]> {
 export async function killBedrockServerByImage(): Promise<void> {
   try {
     if (process.platform === "win32") {
-      await execImpl("taskkill /f /im bedrock_server.exe", { windowsHide: true });
+      await execImpl(`taskkill /f /im ${bdsExeName("windows")}`, { windowsHide: true });
     } else {
-      await execImpl("pkill -f bedrock_server", { windowsHide: true });
+      await execImpl("pkill -x bedrock_server", { windowsHide: true });
     }
   } catch {
     /* ignore — 无进程时 taskkill/pkill 会非零退出 */

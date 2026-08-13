@@ -1,4 +1,4 @@
-import { confirm, intro, isCancel, multiselect, note, outro, select, tasks, text } from "@clack/prompts";
+import { confirm, intro, isCancel, multiselect, note, outro, password, select, tasks, text } from "@clack/prompts";
 import {
   configPath,
   ensureCoreConfigs,
@@ -11,11 +11,13 @@ import {
   type ConfigName,
   type ModuleLock,
 } from "@sfmc-bds/sdk/node/config";
+import { bdsExePath } from "@sfmc-bds/bds-tools/host-platform";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { ensureDirectory, pickDirectory } from "./interactive-prompts.js";
 import { persistLocale, t, type Locale } from "./i18n/index.js";
+import { llbotExeName } from "./llbot-launch.js";
 import { ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, spawnService } from "./runtime.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { c } from "./theme.js";
@@ -151,9 +153,33 @@ export async function runWizard(): Promise<void> {
     return;
   }
 
+  /* QQ 桥：选后端 → official 凭据 / llbot 路径；禁用则 qq_enabled=false */
+  const qqBackendPick = await select({
+    message: t("wizard.qqBackend"),
+    options: [
+      { value: "official", label: t("wizard.qqBackend.official"), hint: t("wizard.qqBackend.officialHint") },
+      { value: "llbot", label: t("wizard.qqBackend.llbot"), hint: t("wizard.qqBackend.llbotHint") },
+      { value: "disabled", label: t("wizard.qqBackend.disabled"), hint: t("wizard.qqBackend.disabledHint") },
+    ],
+    initialValue: "official",
+  });
+  const qqBackendChoice =
+    isCancel(qqBackendPick) || !qqBackendPick ? "official" : String(qqBackendPick);
+
+  let qqEnabled = true;
+  let qqBackend: "official" | "llbot" = "official";
+  let qqAppId = "";
+  let qqAppSecret = "";
+  let qqSandbox = false;
+  let qqGroupOpenid = "";
   let llbotPath: string | undefined;
-  const llbotEnabled = await confirm({ message: t("wizard.enableLlbot"), initialValue: false });
-  if (!isCancel(llbotEnabled) && llbotEnabled) {
+  let llbotEnabled = false;
+
+  if (qqBackendChoice === "disabled") {
+    qqEnabled = false;
+  } else if (qqBackendChoice === "llbot") {
+    qqBackend = "llbot";
+    llbotEnabled = true;
     const picked = await pickDirectory(t("wizard.llbotDir"), path.join(rootDir, "LLBOT"));
     if (ensureDirectory(picked)) {
       llbotPath = picked;
@@ -161,6 +187,36 @@ export async function runWizard(): Promise<void> {
       llbotPath = path.join(rootDir, "LLBOT");
       note(c.text(t("wizard.usingDefault", { path: llbotPath })), t("common.tips"));
     }
+  } else {
+    qqBackend = "official";
+    const appIdRaw = await text({
+      message: t("wizard.qqAppId"),
+      placeholder: "102xxxxx",
+      validate: (v: any): any => {
+        if (!String(v ?? "").trim()) return t("wizard.valueRequired");
+      },
+    });
+    if (!isCancel(appIdRaw)) qqAppId = String(appIdRaw).trim();
+
+    const secretRaw = await password({
+      message: t("wizard.qqAppSecret"),
+      validate: (v: any): any => {
+        if (!String(v ?? "").trim()) return t("wizard.valueRequired");
+      },
+    });
+    if (!isCancel(secretRaw)) qqAppSecret = String(secretRaw).trim();
+
+    const sandboxPick = await confirm({
+      message: t("wizard.qqSandbox"),
+      initialValue: false,
+    });
+    if (!isCancel(sandboxPick)) qqSandbox = !!sandboxPick;
+
+    const openidRaw = await text({
+      message: t("wizard.qqGroupOpenid"),
+      placeholder: t("wizard.qqGroupOpenidHint"),
+    });
+    if (!isCancel(openidRaw)) qqGroupOpenid = String(openidRaw).trim();
   }
 
   const dbDirInput = await pickDirectory(t("wizard.dbDir"), path.join(rootDir, "data"));
@@ -180,7 +236,7 @@ export async function runWizard(): Promise<void> {
   const dbPort = isCancel(dbPortRaw) ? 3001 : parseInt(dbPortRaw as string, 10);
 
   // Step 3: BDS environment
-  const bdsExe = path.join(bdsResolved, "bedrock_server.exe");
+  const bdsExe = bdsExePath(bdsResolved);
   const bdsExists = fs.existsSync(bdsExe);
 
   note(
@@ -306,10 +362,19 @@ export async function runWizard(): Promise<void> {
           modulesDir: "modules",
         });
 
-        const llbotOn = !!llbotEnabled && !!llbotPath;
+        const llbotOn = qqBackend === "llbot" && !!llbotEnabled && !!llbotPath;
+        const qqNotify = qqEnabled && (qqBackend === "official" || llbotOn);
+        const exeName = llbotExeName();
         patchJson(rootDir, "qq_config.json", {
+          qq_enabled: qqEnabled,
+          qq_backend: qqBackend,
+          qq_app_id: qqAppId,
+          qq_app_secret: qqAppSecret,
+          qq_sandbox: qqSandbox,
+          qq_group_openid: qqGroupOpenid,
           llbot_enabled: llbotOn,
-          llbot_path: llbotPath ? slashPath(llbotPath) : "",
+          // path = 可执行文件；cwd = 运行目录（向导选的是目录）
+          llbot_path: llbotPath ? slashPath(path.join(llbotPath, exeName)) : "",
           llbot_cwd: llbotPath ? slashPath(llbotPath) : "",
         });
         patchJson(rootDir, "bds_updater.json", {
@@ -317,7 +382,7 @@ export async function runWizard(): Promise<void> {
           channel: bdsChannel,
           backup_dir: slashPath(backupDir),
           preserve,
-          qq_notify: llbotOn,
+          qq_notify: qqNotify,
         });
         /* 路径选定后再标记已初始化，避免半途取消仍留下 data/ 语义 */
         patchJson(rootDir, "runtime.json", {

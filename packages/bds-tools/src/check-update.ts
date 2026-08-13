@@ -20,6 +20,7 @@ import path from "node:path";
 import { createBdsManager } from "./bds-manager.js";
 import { CHANGELOG_BASE, fetchChangelog } from "./changelog.js";
 import { copyDirSync, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
+import { bdsExePath, bdsInstallRequiredFiles, ensureBdsExecutable } from "./host-platform.js";
 import { httpDownload } from "./http.js";
 import { isMainModule } from "./is-main.js";
 import { loadConfig, LOG_PATH, resolvePaths } from "./paths.js";
@@ -168,7 +169,7 @@ export async function runUpdate(): Promise<number> {
   fs.mkdirSync(backupDir, { recursive: true });
 
   // 1. 当前版本
-  const exePath = path.join(bdsPath, "bedrock_server.exe");
+  const exePath = bdsExePath(bdsPath);
   const currentVer = await getCurrentVersionAsync(exePath).catch(() => getCurrentVersionSync(exePath));
   log.info(`当前版本: ${currentVer}`);
 
@@ -367,6 +368,7 @@ export async function runUpdate(): Promise<number> {
     // 先清空 BDS 目录
     emptyDirSync(bdsPath);
     await extractZipToBds(zipPath, bdsPath);
+    ensureBdsExecutable(exePath);
     log.info("解压完成");
   } catch (e) {
     log.error(`解压失败: ${(e as Error).message}`);
@@ -381,10 +383,7 @@ export async function runUpdate(): Promise<number> {
   }
 
   // 10. 完整性检查 (避免解压出空/缺文件的病态包)
-  const verify = verifyBdsInstall(bdsPath, [
-    "bedrock_server.exe",
-    /*"bedrock_server_symbols.debug",*/ "permissions.json",
-  ]);
+  const verify = verifyBdsInstall(bdsPath, bdsInstallRequiredFiles());
   if (!verify.ok) {
     log.error(`解压后的 BDS 不完整，缺失文件: ${verify.missing.join(", ")}`);
     await sendText(`❌ BDS 更新失败\n\n部署后缺失关键文件: ${verify.missing.join(", ")}`);

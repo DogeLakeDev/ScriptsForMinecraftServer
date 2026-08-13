@@ -90,7 +90,8 @@ function prepareRoot() {
   const nmSrc = path.join(ROOT, "website", "node_modules");
   const needNm =
     !existsSync(nmDest) ||
-    !existsSync(path.join(nmDest, "rspress-plugin-mermaid")) ||
+    !existsSync(path.join(nmDest, "mermaid")) ||
+    !existsSync(path.join(nmDest, "rspress-plugin-devkit")) ||
     !existsSync(path.join(nmDest, "@rspress", "core"));
   if (needNm) {
     console.log("[docs] 同步 website/node_modules → 镜像（缺依赖时全量拷贝）…");
