@@ -339,6 +339,7 @@ const messagesRoutes = createMessagesRoutes({
   query,
   body,
   json,
+  getBridgeChannelId: () => String(env.QQ_BRIDGE_CHANNEL_ID ?? "").trim(),
   forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) =>
     forwardToQQBridge(currentOutbound(), channelId, fromName, content, fromId),
 });

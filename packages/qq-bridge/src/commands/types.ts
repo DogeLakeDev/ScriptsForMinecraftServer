@@ -62,6 +62,8 @@ export type CommandContext = {
     groupOpenid?: string;
     /** QQ 管理员 openid */
     adminOpenids?: string[];
+    /** 游戏聊天互通频道（只读提示用） */
+    bridgeChannelId?: string;
     /** official 凭证，供群 OpenAPI / 主动推送审批消息 */
     officialCreds?: {
       appId: string;

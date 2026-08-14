@@ -62,6 +62,7 @@ async function main(): Promise<void> {
         dbPort: cfg.db_port,
         groupOpenid: cfg.qq_group_openid,
         adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
+        bridgeChannelId: cfg.bridge_channel_id,
         officialCreds: creds,
       },
       startedAt
@@ -131,6 +132,7 @@ async function main(): Promise<void> {
         dbHost: cfg.db_host,
         dbPort: cfg.db_port,
         adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
+        bridgeChannelId: cfg.bridge_channel_id,
       },
       startedAt
     );

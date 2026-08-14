@@ -93,11 +93,25 @@ qq-bridge 在转发到 MC **之前**拦截指令；同一套命令表，两端�
 | `踢人` / `kick` | 排队踢出**游戏内**在线玩家（非 QQ 群踢） |
 | `群信息` / `group` | 拉取群 OpenAPI `info` + `bot_state`（仅 official） |
 | `配置` / `config` | 管理员入服开关面板：official 互动按钮切换；llbot 编号；群管开关只读 |
+| `频道` / `channel` | 只读：当前 `bridge_channel_id` 是否已配（游戏聊天互通） |
 
 - **official**：群内 **@机器人** 后发上述文本；可点菜单按钮。启动时可将命令同步到 [自定义菜单 / 指令面板](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/)（`sync-menu` 控制台命令可重推）。单聊 `C2C_MESSAGE_CREATE` 同样走指令路由。订阅交互 intent 后可点审批回调按钮（`INTERACTION_CREATE`）。
 - **llbot**：群内发同样触发词；菜单后 **60 秒内**回复数字 `1`/`2`…；**无**官方原生面板 / INTERACTION；审批用「通过/拒绝 \<id\>」。
 - 非指令消息仍走原有 QQ→MC 转发（需 `bridge_channel_id`）。
 - `status`：世界日与难度分行；official 额外附带 QQ 群摘要（见下节白名单）。
+
+## 游戏聊天互通（`bridge_channel_id`）
+
+配置 `configs/qq_config.json` 的 `bridge_channel_id`（任意稳定字符串，如 `main`），然后**重启** db-server、qq-bridge、BDS（游戏模块 `qq-link` 启动时读取该设置）。
+
+| 方向 | 行为 |
+| --- | --- |
+| QQ → 游戏 | 官方仅 **@机器人** 的非指令消息写入库；`qq-link` 轮询后向在线玩家广播 `[QQ] 昵称: 内容` |
+| 游戏 → QQ | 玩家普通聊天（非 `!` 命令、非绑定验证码等待）→ `POST /api/sfmc/messages`；db-server **仅当** `channelId === bridge_channel_id` 时推群（前缀默认 `[MC]`） |
+
+未配置 `bridge_channel_id` 时：qq-bridge QQ→MC warn 跳过；游戏聊天不会误推 QQ；事件推群不受影响。`llbot` 出站聊天仍需 LLBot HTTP（默认 3004）。
+
+验收：配好 channel 并重启 → 群 `@机器人 hello` 进游戏 → 游戏说话出 QQ `[MC] …` → QQ 发 `频道` 可确认是否已配。
 
 ## QQ↔MC 绑定
 
@@ -158,7 +172,7 @@ qq-bridge 在转发到 MC **之前**拦截指令；同一套命令表，两端�
 
 `GET /v2/groups/{group_openid}/info` 与 `bot_state` 可能需在 [QQ 开放平台](https://q.qq.com/) 申请接口白名单。未开通时 `status` / `群信息` 会提示「群信息接口未开通白名单」，不影响互通与审批流。
 
-游戏侧由同一模块 **`qq-link`**（`@sfmc-bds/module-qq-link`）实现：`!bind` + allowList 生效 + kick + 上下线/死亡上报。
+游戏侧由同一模块 **`qq-link`**（`@sfmc-bds/module-qq-link`）实现：`!bind` + allowList 生效 + kick + 上下线/死亡上报 + 聊天互通轮询。
 
 安装示例：`sfmc mod install qq-link --from dir:<作者仓> --link`，再 `behavior-pack build/deploy` 并重启 BDS。
 

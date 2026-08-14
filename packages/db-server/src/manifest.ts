@@ -16,7 +16,7 @@
  * the prefix table; mismatches WARN but do not block startup.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { PROJECT_ROOT } from "./project-root.js";
 
@@ -76,7 +76,14 @@ export function loadManifest(packagesDir: string = defaultPackagesDir()): Module
     return { schemaVersion: SUPPORTED_SCHEMA, generatedAt: new Date().toISOString(), modules };
   }
   const ids = readdirSync(packagesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
+    .filter((e) => {
+      if (e.name.startsWith(".")) return false;
+      try {
+        return statSync(join(packagesDir, e.name)).isDirectory();
+      } catch {
+        return false;
+      }
+    })
     .map((e) => e.name)
     .sort();
   for (const id of ids) {

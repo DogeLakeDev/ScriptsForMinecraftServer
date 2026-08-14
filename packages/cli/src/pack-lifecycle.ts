@@ -246,9 +246,16 @@ export async function scanLocalModules(): Promise<
   }> = [];
 
   for (const e of entries) {
-    if (!e.isDirectory()) continue;
+    if (e.name.startsWith(".")) continue;
     const folderId = e.name;
     const modPath = path.join(dir, folderId);
+    // Dirent.isDirectory() 对「指向目录的 symlink」在 Linux 为 false；用 stat 跟随链接
+    try {
+      const st = await fs.stat(modPath);
+      if (!st.isDirectory()) continue;
+    } catch {
+      continue;
+    }
     const manifestPath = path.join(modPath, "sapi", "manifest.json");
     const entryPath = path.join(modPath, "sapi", "src", "index.ts");
     let logicalId = folderId;

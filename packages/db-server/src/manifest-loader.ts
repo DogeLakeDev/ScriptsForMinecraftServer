@@ -23,7 +23,7 @@
  *        throw 即 crash。
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { defaultPackagesDir } from "./manifest.js";
 import { validateManifestPermissions } from "./permission-gate.js";
@@ -168,7 +168,14 @@ export function loadManifestV2(packagesDir: string = defaultPackagesDir()): Load
     throw new Error(`[manifest] ${packagesDir} 不存在;无法启动 v2 协议`);
   }
   const ids = readdirSync(packagesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
+    .filter((e) => {
+      if (e.name.startsWith(".")) return false;
+      try {
+        return statSync(resolve(packagesDir, e.name)).isDirectory();
+      } catch {
+        return false;
+      }
+    })
     .map((e) => e.name);
   const modules: Record<string, ModuleManifestV2> = {};
   const providesMap = new Map<string, string>();

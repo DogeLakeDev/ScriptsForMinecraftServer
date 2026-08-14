@@ -94,11 +94,25 @@ qq-bridge intercepts commands **before** forwarding to MC. Same command registry
 | `踢人` / `kick` | Queue **in-game** kick via server-admin (not QQ group kick) |
 | `群信息` / `group` | Group OpenAPI `info` + `bot_state` (official only) |
 | `配置` / `config` | Admin join-settings panel (official INTERACTION buttons; llbot numbered); group-admin flag read-only |
+| `频道` / `channel` | Read-only: whether `bridge_channel_id` is set (in-game chat bridge) |
 
 - **official**: @bot then send the trigger; optional sync to [custom menu / command panel](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/) (`sync-menu` console command). C2C messages also hit the command router. With interaction intent, approval uses callback buttons (`INTERACTION_CREATE`).
 - **llbot**: same triggers; numbered replies within **60s**; **no** native panel / INTERACTION — use `通过/拒绝 <id>`.
 - Non-command messages still use the QQ→MC forward path (needs `bridge_channel_id`).
 - `status`: world day and difficulty on separate lines; official adds a QQ group summary when APIs allow.
+
+## In-game chat bridge (`bridge_channel_id`)
+
+Set `bridge_channel_id` in `configs/qq_config.json` (any stable id, e.g. `main`), then **restart** db-server, qq-bridge, and BDS (`qq-link` reads it at boot).
+
+| Direction | Behavior |
+| --- | --- |
+| QQ → game | Official: only **@bot** non-command messages are stored; `qq-link` polls and broadcasts `[QQ] name: text` |
+| Game → QQ | Normal chat (not `!` commands / not bind-code wait) → `POST /api/sfmc/messages`; db-server forwards to the group **only if** `channelId === bridge_channel_id` (prefix default `[MC]`) |
+
+If unset: QQ→MC is skipped with a warning; game chat is not forwarded; event push is unchanged. LLBot outbound chat still needs HTTP (default 3004).
+
+Check: configure + restart → `@bot hello` appears in game → game chat appears in QQ → `频道` / `channel` shows whether set.
 
 ## QQ↔MC binding
 
@@ -142,7 +156,7 @@ Bot (`qq_admin_openids`, or group admins when the flag above is on): `配置` op
 
 `GET /v2/groups/{group_openid}/info` and `bot_state` may require a platform allowlist. When blocked, `status` / `群信息` show a clear tip; chat bridge and join flow still work.
 
-Game side is the same module **`qq-link`** (`@sfmc-bds/module-qq-link`): `!bind` + allowList apply + kick + join/leave/death reporting. Install with `sfmc mod install qq-link --from dir:<repo> --link`, then behavior-pack build/deploy and restart BDS.
+Game side is the same module **`qq-link`** (`@sfmc-bds/module-qq-link`): `!bind` + allowList apply + kick + join/leave/death reporting + chat-bridge poll. Install with `sfmc mod install qq-link --from dir:<repo> --link`, then behavior-pack build/deploy and restart BDS.
 
 Read-only ops: public `GET /api/sfmc/status` backs `status` / `online`. Payload includes `host` (uptime/memory/CPU) and `processes.bds` / `processes.db` (process uptime; BDS from `.sfmc/bds.pid` or `bedrock_server` probe).
 

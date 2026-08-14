@@ -442,7 +442,13 @@ export function scanModuleResourcePacks(modulesDir: string): Record<string, stri
   const out: Record<string, string> = {};
   if (!fs.existsSync(modulesDir)) return out;
   for (const entry of fs.readdirSync(modulesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith(".")) continue;
+    // 跟随 symlink（--link 安装）；Dirent.isDirectory() 对链接目录为 false
+    try {
+      if (!fs.statSync(path.join(modulesDir, entry.name)).isDirectory()) continue;
+    } catch {
+      continue;
+    }
     const rpDir = path.join(modulesDir, entry.name, "resource_pack");
     if (fs.existsSync(rpDir)) {
       out[entry.name] = rpDir;

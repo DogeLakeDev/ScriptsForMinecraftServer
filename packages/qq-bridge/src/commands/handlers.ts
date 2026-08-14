@@ -482,6 +482,17 @@ export const rejectHandler: CommandHandler = async (ctx: CommandContext): Promis
   }
 };
 
+/** 只读：当前 bridge_channel_id 是否已配（游戏聊天互通） */
+export const channelHandler: CommandHandler = (ctx: CommandContext): CommandResult => {
+  const id = String(ctx.runtimeInfo.bridgeChannelId ?? "").trim();
+  if (!id) {
+    return {
+      text: "游戏聊天互通未配置：请在 qq_config.json 设置 bridge_channel_id，并重启 db-server / qq-bridge / BDS。",
+    };
+  }
+  return { text: `游戏聊天互通频道：${id}\n（官方仅 @机器人 的消息会进游戏；游戏该侧聊天会推到本群）` };
+};
+
 export const kickHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
   if (!isAdmin(ctx)) return { text: "仅管理员可踢人（配置 qq_admin_openids）" };
   const ep = dbEp(ctx);
@@ -592,6 +603,12 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
     aliases: ["踢人", "/kick", "/踢人"],
     description: "踢出游戏内玩家（管理员）",
     handler: kickHandler,
+  });
+  registry.register({
+    name: "channel",
+    aliases: ["频道", "/channel", "/频道"],
+    description: "查看游戏聊天互通频道是否已配置",
+    handler: channelHandler,
   });
 }
 

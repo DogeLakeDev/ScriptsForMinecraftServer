@@ -6,6 +6,7 @@
  *          v2 manifest 不带 semantic，catalog 条目也不带。
  */
 import fs from "node:fs";
+import path from "node:path";
 import { exists, readJson } from "./io.mjs";
 import { catalogEntryRelPath, packageDir, packageEntryPath, packageManifestPath, PACKAGES_DIR } from "./paths.mjs";
 
@@ -49,9 +50,15 @@ export function scanInstalledPackages() {
   /** @type {PackageInfo[]} */
   const out = [];
   for (const ent of fs.readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
-    if (!ent.isDirectory()) continue;
     if (ent.name.startsWith(".")) continue;
     const folder = ent.name;
+    const abs = path.join(PACKAGES_DIR, folder);
+    // 跟随 symlink：Dirent.isDirectory() 对链接目录为 false
+    try {
+      if (!fs.statSync(abs).isDirectory()) continue;
+    } catch {
+      continue;
+    }
     const manifestPath = packageManifestPath(folder);
     if (!exists(manifestPath)) continue;
     const manifest = readJson(manifestPath, null);

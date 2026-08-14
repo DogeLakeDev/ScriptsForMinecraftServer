@@ -3,7 +3,7 @@
  *
  * 路由列表：
  *   GET  /api/sfmc/messages — 模糊/过滤查询消息
- *   POST /api/sfmc/messages — 批量 INSERT OR REPLACE 消息（同时转发至 QQ Bridge）
+ *   POST /api/sfmc/messages — 批量 INSERT OR REPLACE 消息（匹配 bridge 频道时转发至 QQ）
  */
 
 import { SQL } from "sql-template-strings";
@@ -14,9 +14,28 @@ interface Deps {
   body: (req: import("http").IncomingMessage) => Promise<Record<string, unknown>>;
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
   forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) => void;
+  /** 当前桥接频道；空则不做 MC→QQ 聊天出站（事件通道不受影响） */
+  getBridgeChannelId: () => string;
 }
 
-function createMessagesRoutes({ query, body, json, forwardToQQBridge }: Deps) {
+/** 是否应将本条消息推到 QQ 群 */
+export function shouldForwardChatToQQ(
+  bridgeChannelId: string,
+  channelId: string,
+  fromId: string
+): boolean {
+  const bridge = String(bridgeChannelId ?? "").trim();
+  if (!bridge) return false;
+  if (String(channelId ?? "").trim() !== bridge) return false;
+  const fid = String(fromId ?? "").trim();
+  // 无发送者 id 不出站（避免解析失败时误推）
+  if (!fid) return false;
+  // QQ→MC 写入的 fromid 形如 qq_*，禁止回环推群
+  if (fid.startsWith("qq_")) return false;
+  return true;
+}
+
+function createMessagesRoutes({ query, body, json, forwardToQQBridge, getBridgeChannelId }: Deps) {
   return async function handle({
     path,
     method,
@@ -71,8 +90,12 @@ function createMessagesRoutes({ query, body, json, forwardToQQBridge }: Deps) {
               )`
           );
         }
+        const bridgeId = getBridgeChannelId();
         for (const m of messages as Array<Record<string, unknown>>) {
-          forwardToQQBridge(m.channelId as string, m.fromName as string, m.content as string, m.fromid as string);
+          const channelId = String(m.channelId ?? "");
+          const fromId = String(m.fromid ?? "");
+          if (!shouldForwardChatToQQ(bridgeId, channelId, fromId)) continue;
+          forwardToQQBridge(channelId, String(m.fromName ?? ""), String(m.content ?? ""), fromId);
         }
         json(res, { success: true });
       } else {
