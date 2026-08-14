@@ -89,12 +89,12 @@ test("router llbot 编号会话", async () => {
   assert.ok(sent[0]!.buttons && sent[0]!.buttons.length >= 2);
 
   assert.equal(
-    await router.handle({ ...base, text: "2" }),
+    await router.handle({ ...base, text: "1" }),
     true
   );
   assert.equal(sent.length, 2);
-  // 第 2 个按钮对应 ping（menu=1, ping=2, whoami=3）
-  assert.match(sent[1]!.text, /^pong|你是/);
+  // 第 1 个按钮对应 ping（主菜单已去掉自指 menu）
+  assert.match(sent[1]!.text, /^pong/);
 });
 
 test("registry normalizeTrigger", async () => {

@@ -19,6 +19,7 @@ import {
 import { patchJson } from "@sfmc-bds/sdk/node/config";
 import { log } from "../log.js";
 import { CFG_PATH } from "../config.js";
+import { pickDisplayLabel } from "./menu-format.js";
 import type { CommandRegistry } from "./registry.js";
 import type { RegisteredCommand } from "./types.js";
 
@@ -37,12 +38,7 @@ export type MenuPanelSyncOpts = {
 
 /** 选一个适合展示/填入输入框的短触发词（优先中文别名） */
 function pickTriggerLabel(cmd: RegisteredCommand, maxChars: number): string {
-  const candidates = [cmd.name, ...cmd.aliases]
-    .map((a) => String(a ?? "").replace(/^[/／]+/, "").trim())
-    .filter((a) => a.length > 0);
-  const preferred =
-    candidates.find((a) => /[\u4e00-\u9fff]/.test(a)) ?? candidates.find((a) => !a.startsWith("/")) ?? candidates[0] ?? cmd.name;
-  return preferred.slice(0, maxChars);
+  return pickDisplayLabel(cmd, maxChars);
 }
 
 /** 从 registry 生成 C2C 菜单项（send_message）；仅用户向指令 */

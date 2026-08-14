@@ -2,8 +2,10 @@ import { killBedrockServerByImage, probeBdsStatus, clearBdsPidFile } from "@sfmc
 import {
   DEFAULT_QQ_CONFIG,
   loadEnsuredConfig,
+  qqRuntimeStatusPath,
   type QQBridgeConfig,
 } from "@sfmc-bds/sdk/node/config";
+import { findNodeServicePids, killNodeServiceByScript, type NodeServiceName } from "./node-service-probe.js";
 import { pushLog as pushUnifiedLog } from "./logs.js";
 import { t } from "./i18n/index.js";
 import { spawnService } from "./runtime.js";
@@ -11,6 +13,7 @@ import { ROOT, SERVICE_NAMES, queryServicesRuntime, services, type ServiceName }
 import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
+import fs from "node:fs";
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -135,6 +138,19 @@ export function cmdLogs(args: string[], onFollow?: (serviceName: ServiceName) =>
 const STARTING = new Set<ServiceName>();
 const STOPPING = new Set<ServiceName>();
 
+function isNodeSvc(name: ServiceName): name is NodeServiceName {
+  return name === "db" || name === "qq";
+}
+
+function clearQqRuntimeFile(): void {
+  try {
+    const file = qqRuntimeStatusPath(ROOT);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function cmdStart(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
@@ -147,6 +163,15 @@ export async function cmdStart(raw: string): Promise<string> {
           pid: String(probe.pid),
           kind: probe.state === "managed" ? t("svc.running") : t("svc.runningExternal"),
         })
+      );
+    }
+  }
+  // 外部已在跑：禁止再 spawn（避免双 db / 双 qq）
+  if (isNodeSvc(svc)) {
+    const external = await findNodeServicePids(svc);
+    if (external.length > 0) {
+      return c.yellow(
+        t("svc.alreadyRunning", { title: svcObj.title, pid: String(external.join(",")) })
       );
     }
   }
@@ -193,6 +218,32 @@ export async function cmdStop(raw: string): Promise<string> {
       }
     }
   }
+
+  // db / qq：托管或外部都要能停干净
+  if (isNodeSvc(svc)) {
+    if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
+    STOPPING.add(svc);
+    try {
+      const managed = svcObj.running;
+      if (managed) {
+        await svcObj.stop();
+      }
+      const killed = await killNodeServiceByScript(svc);
+      if (svc === "qq") clearQqRuntimeFile();
+      if (!managed && killed.length === 0) {
+        return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
+      }
+      if (!managed && killed.length > 0) {
+        return c.dim(t("svc.stoppedExternal", { title: svcObj.title }));
+      }
+      return c.dim(t("svc.stoppedMsg", { title: svcObj.title }));
+    } catch (e) {
+      return c.red(t("svc.stopFailed", { title: svcObj.title, message: (e as Error).message }));
+    } finally {
+      STOPPING.delete(svc);
+    }
+  }
+
   if (!svcObj.running) return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
   if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
   STOPPING.add(svc);
@@ -235,9 +286,16 @@ export async function cmdSend(raw: string, message: string): Promise<string> {
 export async function cmdRestart(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
-  if (svc === "bds") {
-    await cmdStop("bds");
-    return cmdStart("bds");
+  // bds / db / qq：统一走 stop→start，确保外部实例也被清掉
+  if (svc === "bds" || isNodeSvc(svc)) {
+    const stopMsg = await cmdStop(svc);
+    const startMsg = await cmdStart(svc);
+    // 若 stop 已报错文案含「失败」，原样带回
+    if (/失败|failed/i.test(stopMsg) && !/已停止|stopped|already/i.test(stopMsg)) {
+      return stopMsg;
+    }
+    if (/失败|failed/i.test(startMsg)) return startMsg;
+    return c.green(t("svc.restarted", { title: services[svc].title }));
   }
   const svcObj = services[svc];
   try {

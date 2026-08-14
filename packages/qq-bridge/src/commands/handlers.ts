@@ -21,6 +21,7 @@ import {
   type DbEndpoint,
 } from "./db-api.js";
 import { buildJoinSettingsPanel, settingsFromResponse } from "./join-settings-ui.js";
+import { formatCommandMenu } from "./menu-format.js";
 import type { CommandRegistry } from "./registry.js";
 import type { CommandContext, CommandHandler, CommandResult } from "./types.js";
 
@@ -86,18 +87,15 @@ async function fetchQqGroupLines(ctx: CommandContext): Promise<string[]> {
 
 export function createMenuHandler(registry: CommandRegistry): CommandHandler {
   return (): CommandResult => {
-    const cmds = registry.userMenu();
-    const lines = cmds.map((c) => `- **${c.name}**：${c.description}`);
-    const textLines = cmds.map((c) => `· ${c.name} — ${c.description}`);
-    return {
-      text: `SFMC QQ 指令\n${textLines.join("\n")}\n\n发送命令名或编号执行。管理员发「管理」打开管理子菜单。`,
-      markdown: `## SFMC QQ 指令\n\n${lines.join("\n")}\n\n点击按钮或发送命令名。管理员可发 **管理** 打开子菜单。`,
-      buttons: cmds.map((c) => ({
-        id: `cmd_${c.name}`,
-        label: c.name.slice(0, 10),
-        command: `/${c.name}`,
-      })),
-    };
+    const cmds = registry.userMenu().filter((c) => c.name !== "menu");
+    return formatCommandMenu({
+      title: "SFMC 指令",
+      subtitle: "点按钮或发名称/编号；管理员发「管理」打开管理菜单。",
+      cmds,
+      idPrefix: "cmd",
+      footerMd: "_官方仅 @机器人 触发；游戏聊天需配置 `bridge_channel_id`。_",
+      footerText: "官方仅 @机器人 触发；游戏聊天需配置 bridge_channel_id。",
+    });
   };
 }
 
@@ -111,17 +109,14 @@ export function createAdminMenuHandler(registry: CommandRegistry): CommandHandle
     if (cmds.length === 0) {
       return { text: "暂无管理指令" };
     }
-    const lines = cmds.map((c) => `- **${c.name}**：${c.description}`);
-    const textLines = cmds.map((c) => `· ${c.name} — ${c.description}`);
-    return {
-      text: `SFMC 管理指令\n${textLines.join("\n")}\n\n发送命令名或编号执行；也可直接发「踢人」「待审」等。`,
-      markdown: `## SFMC 管理指令\n\n${lines.join("\n")}\n\n点击按钮或发送命令名。`,
-      buttons: cmds.map((c) => ({
-        id: `adm_${c.name}`,
-        label: c.name.slice(0, 10),
-        command: `/${c.name}`,
-      })),
-    };
+    return formatCommandMenu({
+      title: "SFMC 管理",
+      subtitle: "以下为管理指令；也可直接发「踢人」「待审」等触发词。",
+      cmds,
+      idPrefix: "adm",
+      footerMd: "_敏感操作请确认对象正确。_",
+      footerText: "敏感操作请确认对象正确。",
+    });
   };
 }
 
@@ -506,15 +501,54 @@ export const rejectHandler: CommandHandler = async (ctx: CommandContext): Promis
   }
 };
 
-/** 只读：当前 bridge_channel_id 是否已配（游戏聊天互通） */
-export const channelHandler: CommandHandler = (ctx: CommandContext): CommandResult => {
+/** 频道 + 轻量自检（人人可用） */
+export const channelHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
   const id = String(ctx.runtimeInfo.bridgeChannelId ?? "").trim();
-  if (!id) {
-    return {
-      text: "游戏聊天互通未配置：请在 qq_config.json 设置 bridge_channel_id，并重启 db-server / qq-bridge / BDS。",
-    };
+  const lines: string[] = [
+    "【聊天互通】",
+    id ? `频道：${id}` : "频道：未配置（请设 qq_config.json → bridge_channel_id 并重启 db/qq/BDS）",
+    `后端：${ctx.inbound.backend}${ctx.runtimeInfo.sandbox ? " · sandbox" : ""}`,
+  ];
+  const ep = dbEp(ctx);
+  if (!ep) {
+    lines.push("db：未配置 db_host/db_port");
+  } else {
+    try {
+      const st = await fetchSfmcStatus(ep);
+      const bds = st.processes?.bds;
+      const db = st.processes?.db;
+      lines.push(`db-server：${db?.state === "stopped" || db?.running === false ? "未运行" : db?.uptimeText || "可达"}${db?.pid ? ` (PID ${db.pid})` : ""}`);
+      lines.push(
+        `BDS：${bds?.state === "running" || bds?.running === true ? `运行中 · ${bds.uptimeText || "—"}` : "未运行"}`
+      );
+    } catch (e) {
+      lines.push(`db：不可达（${(e as Error).message}）`);
+    }
   }
-  return { text: `游戏聊天互通频道：${id}\n（官方仅 @机器人 的消息会进游戏；游戏该侧聊天会推到本群）` };
+  lines.push("提示：官方仅 @机器人 的非指令消息进游戏；游戏聊天推群走 MC→QQ。");
+  const text = lines.join("\n");
+  return {
+    text,
+    markdown: text
+      .split("\n")
+      .map((l, i) => (i === 0 ? `## ${l.replace(/【|】/g, "")}` : `- ${l}`))
+      .join("\n"),
+  };
+};
+
+/** 管理侧更完整的自检 */
+export const doctorHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
+  if (!isAdmin(ctx)) return { text: "仅管理员可执行自检" };
+  const base = await channelHandler(ctx);
+  const extra: string[] = ["", "【管理自检】"];
+  const admins = ctx.runtimeInfo.adminOpenids ?? [];
+  extra.push(`管理员 openid 数：${admins.length}${admins.length === 0 ? "（空则无法审批/踢人）" : ""}`);
+  extra.push(`群 openid：${ctx.runtimeInfo.groupOpenid ? "已配置" : "未配置"}`);
+  if (ctx.inbound.backend === "official") {
+    extra.push(`凭证：${ctx.runtimeInfo.officialCreds ? "已注入" : "缺失"}`);
+  }
+  const text = `${base.text}\n${extra.join("\n")}`;
+  return { text, markdown: `${base.markdown ?? base.text}\n\n### 管理自检\n\n${extra.filter(Boolean).map((l) => `- ${l}`).join("\n")}` };
 };
 
 export const kickHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
@@ -595,7 +629,7 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
   registry.register({
     name: "channel",
     aliases: ["频道", "/channel", "/频道"],
-    description: "查看游戏聊天互通频道是否已配置",
+    description: "聊天互通频道与连通自检",
     handler: channelHandler,
   });
   registry.register({
@@ -605,6 +639,13 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
     handler: createAdminMenuHandler(registry),
   });
   // —— 以下仅出现在「管理」子菜单；触发词仍可直接调用 ——
+  registry.register({
+    name: "doctor",
+    aliases: ["自检", "/doctor", "/自检"],
+    description: "管理侧连通/配置自检",
+    handler: doctorHandler,
+    adminMenu: true,
+  });
   registry.register({
     name: "group",
     aliases: ["群信息", "/group", "/群信息"],

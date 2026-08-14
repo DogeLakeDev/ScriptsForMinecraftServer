@@ -36,3 +36,17 @@ test("renderLlbot 编号行", () => {
   assert.match(p.text, /\[2\] ping/);
   assert.match(p.text, /60 秒/);
 });
+
+test("renderLlbot 正文已编号时不重复 [n]", () => {
+  const r: CommandResult = {
+    text: "SFMC 指令\n说明\n\n1. ping — 连通\n2. 状态 — 摘要",
+    buttons: [
+      { id: "cmd_ping", label: "ping", command: "/ping" },
+      { id: "cmd_status", label: "状态", command: "/status" },
+    ],
+  };
+  const p = renderLlbot(r);
+  assert.match(p.text, /1\. ping/);
+  assert.doesNotMatch(p.text, /\[1\]/);
+  assert.match(p.text, /60 秒/);
+});

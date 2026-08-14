@@ -23,6 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
 import { resolveLlbotLaunch } from "./llbot-launch.js";
+import { findNodeServicePids } from "./node-service-probe.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { t } from "./i18n/index.js";
@@ -161,6 +162,12 @@ class Service {
         throw new Error(
           t("svc.bdsAlreadyRunning", { pid: String(probe.pid), kind: t(probe.state === "managed" ? "svc.running" : "svc.runningExternal") })
         );
+      }
+    }
+    if (this.name === "db" || this.name === "qq") {
+      const external = await findNodeServicePids(this.name);
+      if (external.length > 0) {
+        return { status: "already" };
       }
     }
     if (this.def.validate) {
@@ -541,6 +548,8 @@ export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
         } else if (await probeDbHealth(dbHealthPort)) {
           running = true;
           ownership = "external";
+          const pids = await findNodeServicePids("db");
+          pid = pids[0] ?? 0;
         }
       } else if (name === "qq") {
         const managed = await reconcileManagedAlive(service);
@@ -555,6 +564,13 @@ export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
             running = true;
             pid = probe.pid;
             ownership = "external";
+          } else {
+            const pids = await findNodeServicePids("qq");
+            if (pids.length > 0) {
+              running = true;
+              pid = pids[0]!;
+              ownership = "external";
+            }
           }
         }
       } else {

@@ -89,8 +89,8 @@ qq-bridge intercepts commands **before** forwarding to MC. Same command registry
 | `绑定` / `bind` | Request bind code (needs game module `qq-link`) |
 | `解绑` / `unbind` | Unbind |
 | `申请入服` / `join` | Request BDS allowlist entry (admin approve + module apply) |
-| `频道` / `channel` | Read-only: whether `bridge_channel_id` is set (in-game chat bridge) |
-| `管理` / `admin` | **Admin submenu** (admins only): group info / config / pending / approve / reject / kick |
+| `频道` / `channel` | Chat-bridge channel + light db/BDS self-check |
+| `管理` / `admin` | **Admin submenu** (admins only): doctor / group / config / pending / approve / reject / kick |
 
 Admin commands are hidden from the main menu and official C2C quick menu; triggers like `踢人` / `待审` still work when typed directly.
 
