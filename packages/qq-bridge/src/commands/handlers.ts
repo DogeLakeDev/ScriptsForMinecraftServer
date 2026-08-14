@@ -86,14 +86,38 @@ async function fetchQqGroupLines(ctx: CommandContext): Promise<string[]> {
 
 export function createMenuHandler(registry: CommandRegistry): CommandHandler {
   return (): CommandResult => {
-    const cmds = registry.all();
+    const cmds = registry.userMenu();
     const lines = cmds.map((c) => `- **${c.name}**：${c.description}`);
     const textLines = cmds.map((c) => `· ${c.name} — ${c.description}`);
     return {
-      text: `SFMC QQ 指令\n${textLines.join("\n")}\n\n发送命令名或编号执行。`,
-      markdown: `## SFMC QQ 指令\n\n${lines.join("\n")}\n\n点击按钮或发送命令名。`,
+      text: `SFMC QQ 指令\n${textLines.join("\n")}\n\n发送命令名或编号执行。管理员发「管理」打开管理子菜单。`,
+      markdown: `## SFMC QQ 指令\n\n${lines.join("\n")}\n\n点击按钮或发送命令名。管理员可发 **管理** 打开子菜单。`,
       buttons: cmds.map((c) => ({
         id: `cmd_${c.name}`,
+        label: c.name.slice(0, 10),
+        command: `/${c.name}`,
+      })),
+    };
+  };
+}
+
+/** 管理子菜单：仅管理员；列出 adminMenu 指令 */
+export function createAdminMenuHandler(registry: CommandRegistry): CommandHandler {
+  return (ctx: CommandContext): CommandResult => {
+    if (!isAdmin(ctx)) {
+      return { text: "仅管理员可打开管理菜单（需在 qq_admin_openids，或开启群管视作管理员）" };
+    }
+    const cmds = registry.adminMenu();
+    if (cmds.length === 0) {
+      return { text: "暂无管理指令" };
+    }
+    const lines = cmds.map((c) => `- **${c.name}**：${c.description}`);
+    const textLines = cmds.map((c) => `· ${c.name} — ${c.description}`);
+    return {
+      text: `SFMC 管理指令\n${textLines.join("\n")}\n\n发送命令名或编号执行；也可直接发「踢人」「待审」等。`,
+      markdown: `## SFMC 管理指令\n\n${lines.join("\n")}\n\n点击按钮或发送命令名。`,
+      buttons: cmds.map((c) => ({
+        id: `adm_${c.name}`,
         label: c.name.slice(0, 10),
         command: `/${c.name}`,
       })),
@@ -551,12 +575,6 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
     handler: onlineHandler,
   });
   registry.register({
-    name: "group",
-    aliases: ["群信息", "/group", "/群信息"],
-    description: "QQ 群 OpenAPI 摘要",
-    handler: groupInfoHandler,
-  });
-  registry.register({
     name: "bind",
     aliases: ["绑定", "/bind", "/绑定"],
     description: "申请 QQ↔MC 绑定码",
@@ -575,40 +593,59 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
     handler: joinHandler,
   });
   registry.register({
+    name: "channel",
+    aliases: ["频道", "/channel", "/频道"],
+    description: "查看游戏聊天互通频道是否已配置",
+    handler: channelHandler,
+  });
+  registry.register({
+    name: "admin",
+    aliases: ["管理", "/admin", "/管理"],
+    description: "管理子菜单（管理员）",
+    handler: createAdminMenuHandler(registry),
+  });
+  // —— 以下仅出现在「管理」子菜单；触发词仍可直接调用 ——
+  registry.register({
+    name: "group",
+    aliases: ["群信息", "/group", "/群信息"],
+    description: "QQ 群 OpenAPI 摘要",
+    handler: groupInfoHandler,
+    adminMenu: true,
+  });
+  registry.register({
     name: "config",
     aliases: ["配置", "入服配置", "/config", "/配置"],
     description: "入服白名单/审批开关（管理员）",
     handler: joinConfigHandler,
+    adminMenu: true,
   });
   registry.register({
     name: "pending",
     aliases: ["待审", "/pending", "/待审"],
     description: "待审入服列表（管理员）",
     handler: pendingHandler,
+    adminMenu: true,
   });
   registry.register({
     name: "approve",
     aliases: ["通过", "/approve", "/通过"],
     description: "通过入服申请（管理员）",
     handler: approveHandler,
+    adminMenu: true,
   });
   registry.register({
     name: "reject",
     aliases: ["拒绝", "/reject", "/拒绝"],
     description: "拒绝入服申请（管理员）",
     handler: rejectHandler,
+    adminMenu: true,
   });
   registry.register({
     name: "kick",
     aliases: ["踢人", "/kick", "/踢人"],
     description: "踢出游戏内玩家（管理员）",
     handler: kickHandler,
-  });
-  registry.register({
-    name: "channel",
-    aliases: ["频道", "/channel", "/频道"],
-    description: "查看游戏聊天互通频道是否已配置",
-    handler: channelHandler,
+    adminMenu: true,
   });
 }
 

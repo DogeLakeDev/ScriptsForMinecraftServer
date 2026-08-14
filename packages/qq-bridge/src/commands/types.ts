@@ -82,6 +82,11 @@ export type RegisteredCommand = {
   aliases: string[];
   description: string;
   handler: CommandHandler;
+  /**
+   * 管理子菜单项：不出现在主「菜单」/官方 C2C 菜单前排；
+   * 仍可通过触发词直接调用。
+   */
+  adminMenu?: boolean;
 };
 
 export type ReplyTarget = {

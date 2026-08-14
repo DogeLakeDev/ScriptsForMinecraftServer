@@ -81,7 +81,7 @@ qq-bridge intercepts commands **before** forwarding to MC. Same command registry
 
 | Trigger | Behavior |
 | --- | --- |
-| `菜单` / `help` / `/help` | Command list; official Markdown + keyboard, llbot numbered menu |
+| `菜单` / `help` / `/help` | Common commands; official Markdown + keyboard, llbot numbered menu |
 | `ping` / `/ping` | Liveness probe |
 | `whoami` / `我的绑定` | QQ id; shows MC name if bound |
 | `status` / `状态` | Server summary: online, world, host uptime, BDS/db uptime, memory/CPU (`GET /api/sfmc/status`) |
@@ -89,12 +89,10 @@ qq-bridge intercepts commands **before** forwarding to MC. Same command registry
 | `绑定` / `bind` | Request bind code (needs game module `qq-link`) |
 | `解绑` / `unbind` | Unbind |
 | `申请入服` / `join` | Request BDS allowlist entry (admin approve + module apply) |
-| `待审` / `pending` | Pending list (admins) |
-| `通过` / `拒绝` | llbot numbered approve/reject; official prefers callback buttons |
-| `踢人` / `kick` | Queue **in-game** kick via server-admin (not QQ group kick) |
-| `群信息` / `group` | Group OpenAPI `info` + `bot_state` (official only) |
-| `配置` / `config` | Admin join-settings panel (official INTERACTION buttons; llbot numbered); group-admin flag read-only |
 | `频道` / `channel` | Read-only: whether `bridge_channel_id` is set (in-game chat bridge) |
+| `管理` / `admin` | **Admin submenu** (admins only): group info / config / pending / approve / reject / kick |
+
+Admin commands are hidden from the main menu and official C2C quick menu; triggers like `踢人` / `待审` still work when typed directly.
 
 - **official**: @bot then send the trigger; optional sync to [custom menu / command panel](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/) (`sync-menu` console command). C2C messages also hit the command router. With interaction intent, approval uses callback buttons (`INTERACTION_CREATE`).
 - **llbot**: same triggers; numbered replies within **60s**; **no** native panel / INTERACTION — use `通过/拒绝 <id>`.

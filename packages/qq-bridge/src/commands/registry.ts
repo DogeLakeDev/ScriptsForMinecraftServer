@@ -39,4 +39,14 @@ export class CommandRegistry {
   all(): readonly RegisteredCommand[] {
     return this.list;
   }
+
+  /** 主菜单 / 官方快捷菜单：排除管理子菜单项 */
+  userMenu(): RegisteredCommand[] {
+    return this.list.filter((c) => !c.adminMenu);
+  }
+
+  /** 管理子菜单 */
+  adminMenu(): RegisteredCommand[] {
+    return this.list.filter((c) => !!c.adminMenu);
+  }
 }

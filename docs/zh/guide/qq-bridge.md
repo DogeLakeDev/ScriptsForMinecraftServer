@@ -80,7 +80,7 @@ qq-bridge 在转发到 MC **之前**拦截指令；同一套命令表，两端�
 
 | 触发 | 行为 |
 | --- | --- |
-| `菜单` / `help` / `/help` | 指令列表；official 为 Markdown + 按钮，llbot 为编号菜单 |
+| `菜单` / `help` / `/help` | 常用指令列表；official 为 Markdown + 按钮，llbot 为编号菜单 |
 | `ping` / `/ping` | 连通探测 |
 | `whoami` / `我的绑定` | QQ id；若已绑定则显示 MC 名 |
 | `status` / `状态` | 服务器摘要：在线、世界、主机运行时长、BDS/db 时长、内存/CPU（`GET /api/sfmc/status`） |
@@ -88,12 +88,10 @@ qq-bridge 在转发到 MC **之前**拦截指令；同一套命令表，两端�
 | `绑定` / `bind` | 申请绑定码（需游戏模块 `qq-link`） |
 | `解绑` / `unbind` | 解除绑定 |
 | `申请入服` / `join` | 申请加入 BDS 白名单（需管理员审批 + 模块生效） |
-| `待审` / `pending` | 待审列表（管理员） |
-| `通过` / `拒绝` | llbot 编号审批；official 优先用回调按钮 |
-| `踢人` / `kick` | 排队踢出**游戏内**在线玩家（非 QQ 群踢） |
-| `群信息` / `group` | 拉取群 OpenAPI `info` + `bot_state`（仅 official） |
-| `配置` / `config` | 管理员入服开关面板：official 互动按钮切换；llbot 编号；群管开关只读 |
 | `频道` / `channel` | 只读：当前 `bridge_channel_id` 是否已配（游戏聊天互通） |
+| `管理` / `admin` | **管理子菜单**（仅管理员）：群信息 / 配置 / 待审 / 通过 / 拒绝 / 踢人 |
+
+管理项不进主「菜单」与官方 C2C 快捷菜单前排；触发词（如「踢人」「待审」）仍可直接发送。
 
 - **official**：群内 **@机器人** 后发上述文本；可点菜单按钮。启动时可将命令同步到 [自定义菜单 / 指令面板](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/)（`sync-menu` 控制台命令可重推）。单聊 `C2C_MESSAGE_CREATE` 同样走指令路由。订阅交互 intent 后可点审批回调按钮（`INTERACTION_CREATE`）。
 - **llbot**：群内发同样触发词；菜单后 **60 秒内**回复数字 `1`/`2`…；**无**官方原生面板 / INTERACTION；审批用「通过/拒绝 \<id\>」。

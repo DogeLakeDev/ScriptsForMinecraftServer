@@ -45,10 +45,10 @@ function pickTriggerLabel(cmd: RegisteredCommand, maxChars: number): string {
   return preferred.slice(0, maxChars);
 }
 
-/** 从 registry 生成 C2C 菜单项（send_message） */
+/** 从 registry 生成 C2C 菜单项（send_message）；仅用户向指令 */
 export function buildMenuItems(registry: CommandRegistry): QqMenuItem[] {
   return registry
-    .all()
+    .userMenu()
     .slice(0, MAX_MENU_ITEMS)
     .map((c) => {
       const label = pickTriggerLabel(c, 10);
@@ -64,17 +64,18 @@ export function buildMenuItems(registry: CommandRegistry): QqMenuItem[] {
 /**
  * 从 registry 生成群指令面板项。
  * 官方：type=command 时点击后把 name 填入输入框（无独立 command 字段）。
+ * 用户向指令优先；剩余名额再补管理项（便于管理员点选）。
  */
 export function buildPanelItems(registry: CommandRegistry): QqPanelItem[] {
-  return registry
-    .all()
-    .slice(0, MAX_PANEL_ITEMS)
-    .map((c) => ({
-      type: "command" as const,
-      // 填入输入框的内容：用 /name 便于 router 命中
-      name: `/${c.name}`.slice(0, 14),
-      desc: (c.description || c.name).slice(0, 30),
-    }));
+  const user = registry.userMenu();
+  const admin = registry.adminMenu();
+  const merged = [...user, ...admin].slice(0, MAX_PANEL_ITEMS);
+  return merged.map((c) => ({
+    type: "command" as const,
+    // 填入输入框的内容：用 /name 便于 router 命中
+    name: `/${c.name}`.slice(0, 14),
+    desc: (c.description || c.name).slice(0, 30),
+  }));
 }
 
 function extractPanelId(json: unknown): string {
