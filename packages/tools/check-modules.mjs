@@ -3,31 +3,37 @@
 /**
  * tools/check-modules.mjs — 离线校验 catalog + 已装包
  *
- * - 空 catalog 合法(纯 SDK 仓)
- * - 唯一 id / configKey
- * - requires 闭包(引用必须在 catalog 内)
- * - entry.path 文件存在
- * - 已装包 schemaVersion ∈ {2, 3}；v3 走语义字段校验；v2 自动 migrate 再 validate（向后兼容）
- * - manifest.id 与 catalog 一致
+ * - 空 catalog 合法(纯平台仓)
+ * - 唯一 id / configKey、requires 闭包、manifest v2/v3
  *
- * 用法: node tools/check-modules.mjs
- *       node tools/check-modules.mjs --sync   # 先 catalog-sync 再校验
+ * 用法:
+ *   node tools/check-modules.mjs
+ *   node tools/check-modules.mjs --sync   # 先 catalog-sync 再校验
  */
 import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { readCatalog, syncCatalogFromPackages } from "./lib/catalog.mjs";
 import { exists } from "./lib/io.mjs";
 import { folderFromEntryPath, scanInstalledPackages } from "./lib/packages.mjs";
 import { ROOT } from "./lib/paths.mjs";
 
-const doSync = process.argv.includes("--sync");
+/**
+ * @typedef {object} CheckModulesOpts
+ * @property {boolean} [sync]
+ */
 
 /**
- * 校验单条 manifest。
- * v2 → 跑 v2 校验（与历史保持一致）；v3 → 跑 v3 校验（含 semantic 形状）。
- * 历史行为：v2 必备字段严格；v3 把 semantic 视为可选补强块。
+ * @typedef {object} CheckModulesResult
+ * @property {boolean} ok
+ * @property {string} [error]
+ * @property {string} [summary]
+ */
+
+/**
  * @param {*} manifest
- * @returns {{ ok: true } | { ok: false, errors: string[] }}
+ * @returns {{ ok: true } | { ok: false; errors: string[] }}
  */
 function validateManifest(manifest) {
   const v = manifest?.schemaVersion;
@@ -44,11 +50,7 @@ function validateManifest(manifest) {
   return { ok: false, errors: [`schemaVersion 应为 2 或 3，实际 ${v}`] };
 }
 
-/**
- * @description v2 必备字段校验（与 sapi-manifest.v2.schema.json 的 required 对齐）。
- * @param {*} r
- * @return {*}
- */
+/** @param {*} r */
 function checkV2(r) {
   const errs = [];
   if (!r || typeof r !== "object") return ["manifest 根必须是 plain object"];
@@ -63,11 +65,7 @@ function checkV2(r) {
   return errs;
 }
 
-/**
- * @description v3 校验：直接断言 schemaVersion=3 + 沿用 v2 必需字段 + semantic 形状校验（缺失合法）。
- * @param {*} r
- * @return {*}
- */
+/** @param {*} r */
 function checkV3(r) {
   if (!r || typeof r !== "object") return ["manifest 根必须是 plain object"];
   const errs = [];
@@ -105,94 +103,102 @@ function checkV3(r) {
 }
 
 /**
- * @description
- * @param {string} msg
+ * @param {CheckModulesOpts} [opts]
+ * @returns {CheckModulesResult}
  */
-function fail(msg) {
-  console.error(`[check-modules] FAIL: ${msg}`);
-  process.exit(1);
+export function runCheckModules(opts = {}) {
+  const doSync = opts.sync ?? false;
+
+  try {
+    if (doSync) {
+      syncCatalogFromPackages();
+    }
+
+    const catalog = readCatalog();
+    const modules = catalog.modules;
+
+    if (modules.length === 0) {
+      const pkgs = scanInstalledPackages();
+      if (pkgs.length > 0) {
+        return {
+          ok: false,
+          error: `catalog 为空但 packages/ 有 ${pkgs.length} 个已装包 — 运行 catalog-sync 或 fetch-module install`,
+        };
+      }
+      return { ok: true, summary: "check-modules OK (空 catalog，无已装包)" };
+    }
+
+    const ids = new Set();
+    const keys = new Set();
+
+    for (const m of modules) {
+      if (!m.id || typeof m.id !== "string") return { ok: false, error: "条目缺少 id" };
+      if (!m.configKey || typeof m.configKey !== "string") return { ok: false, error: `${m.id}: 缺少 configKey` };
+      if (ids.has(m.id)) return { ok: false, error: `重复 id: ${m.id}` };
+      if (keys.has(m.configKey)) return { ok: false, error: `重复 configKey: ${m.configKey}` };
+      ids.add(m.id);
+      keys.add(m.configKey);
+
+      if (!m.entry || !m.entry.path) return { ok: false, error: `${m.id}: 缺少 entry.path` };
+      const abs = path.join(ROOT, m.entry.path);
+      if (!exists(abs)) return { ok: false, error: `${m.id}: entry 不存在: ${m.entry.path}` };
+
+      const folder = folderFromEntryPath(m.entry.path);
+      if (!folder) return { ok: false, error: `${m.id}: 无法从 entry.path 解析 packages 目录` };
+
+      const manifestPath = path.join(ROOT, "modules", "packages", folder, "sapi", "manifest.json");
+      if (!exists(manifestPath)) return { ok: false, error: `${m.id}: 缺少 manifest.json` };
+
+      let manifest;
+      try {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        return { ok: false, error: `${m.id}: manifest 解析失败: ${message}` };
+      }
+
+      const v = validateManifest(manifest);
+      if (!v.ok) {
+        return { ok: false, error: `${m.id}: manifest 校验未通过 — ${v.errors.join("; ")}` };
+      }
+      if (manifest.id !== m.id) {
+        return { ok: false, error: `${m.id}: catalog.id 与 manifest.id(${manifest.id}) 不一致` };
+      }
+    }
+
+    for (const m of modules) {
+      const reqs = Array.isArray(m.requires) ? m.requires : [];
+      for (const dep of reqs) {
+        if (!ids.has(dep)) return { ok: false, error: `${m.id}: requires "${dep}" 不在 catalog 中` };
+      }
+    }
+
+    for (const pkg of scanInstalledPackages()) {
+      if (!ids.has(pkg.manifest.id)) {
+        console.warn(
+          `[check-modules] WARN: packages/${pkg.folder} (${pkg.manifest.id}) 未入 catalog — 运行 catalog-sync`
+        );
+      }
+    }
+
+    return { ok: true, summary: `check-modules OK (${modules.length} modules)` };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
+  }
 }
 
 function main() {
-  if (doSync) {
-    const { count } = syncCatalogFromPackages();
-    console.log(`[check-modules] synced catalog (${count} modules)`);
+  const doSync = process.argv.includes("--sync");
+  const result = runCheckModules({ sync: doSync });
+  if (!result.ok) {
+    console.error(`[check-modules] FAIL: ${result.error}`);
+    process.exit(1);
   }
-
-  const catalog = readCatalog();
-  const modules = catalog.modules;
-  console.log(`[check-modules] catalog modules: ${modules.length}`);
-
-  if (modules.length === 0) {
-    const pkgs = scanInstalledPackages();
-    if (pkgs.length > 0) {
-      fail(`catalog 为空但 packages/ 有 ${pkgs.length} 个已装包 — 运行 node tools/catalog-sync.mjs`);
-    }
-    console.log("[check-modules] OK (empty catalog, no installed packages)");
-    return;
-  }
-
-  const ids = new Set();
-  const keys = new Set();
-  const idList = modules.map((m) => m.id);
-
-  for (const m of modules) {
-    if (!m.id || typeof m.id !== "string") fail("条目缺少 id");
-    if (!m.configKey || typeof m.configKey !== "string") fail(`${m.id}: 缺少 configKey`);
-    if (ids.has(m.id)) fail(`重复 id: ${m.id}`);
-    if (keys.has(m.configKey)) fail(`重复 configKey: ${m.configKey}`);
-    ids.add(m.id);
-    keys.add(m.configKey);
-
-    if (!m.entry || !m.entry.path) fail(`${m.id}: 缺少 entry.path`);
-    const abs = path.join(ROOT, m.entry.path);
-    if (!exists(abs)) fail(`${m.id}: entry 不存在: ${m.entry.path}`);
-
-    const folder = folderFromEntryPath(m.entry.path);
-    if (!folder) {
-      fail(`${m.id}: 无法从 entry.path 解析 packages 目录: ${m.entry.path}`);
-      return;
-    }
-    const manifestPath = path.join(ROOT, "modules", "packages", folder, "sapi", "manifest.json");
-    if (!exists(manifestPath)) fail(`${m.id}: 缺少 packages/${folder}/sapi/manifest.json`);
-    let manifest;
-    try {
-      manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      fail(`${m.id}: manifest 解析失败: ${message}`);
-    }
-    /* v2/v3 双轨：v2 仍按旧契约校验；v3 走新契约。 */
-    const v = validateManifest(manifest);
-    if (!v.ok) {
-      fail(`${m.id}: manifest 校验未通过 — ${v.errors.join("; ")}`);
-    }
-    if (manifest.id !== m.id) {
-      fail(`${m.id}: catalog.id 与 manifest.id(${manifest.id}) 不一致`);
-    }
-  }
-
-  for (const m of modules) {
-    const reqs = Array.isArray(m.requires) ? m.requires : [];
-    for (const dep of reqs) {
-      if (!ids.has(dep)) fail(`${m.id}: requires "${dep}" 不在 catalog 中`);
-    }
-  }
-
-  // 警告:磁盘有包但不在 catalog
-  for (const pkg of scanInstalledPackages()) {
-    if (!ids.has(pkg.manifest.id)) {
-      console.warn(
-        `[check-modules] WARN: packages/${pkg.folder} (manifest.id=${pkg.manifest.id}) 未入 catalog — 运行 catalog-sync`
-      );
-    }
-  }
-
-  console.log(`[check-modules] OK (${modules.length} modules, closure ok)`);
+  console.log(`[check-modules] ${result.summary}`);
 }
 
-try {
+const __checkModulesMain = fileURLToPath(import.meta.url);
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__checkModulesMain)) {
   main();
-} catch (e) {
-  fail(String(e));
 }

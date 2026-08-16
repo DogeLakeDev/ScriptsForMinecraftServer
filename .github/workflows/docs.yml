@@ -1,7 +1,6 @@
 name: Docs
 
 # Rspress → GitHub Pages
-# 站点：https://dogelakedev.github.io/ScriptsForMinecraftServer/
 
 on:
   push:

@@ -23,7 +23,7 @@
   "engines": {
     "node": ">=22.13.0"
   },
-  "main": "./check-ootb.mjs",
+  "main": "./verify.mjs",
   "exports": {
     "./package.json": "./package.json",
     "./tsc7": "./tsc7.mjs",
@@ -38,6 +38,7 @@
     "sfmc-new-module": "./new-module.mjs",
     "sfmc-sim-new-user": "./sim-new-user.mjs",
     "sfmc-smoke-modules": "./smoke-modules.mjs",
+    "sfmc-verify": "./verify.mjs",
     "tsc7": "./tsc7.mjs"
   },
   "files": [
@@ -50,9 +51,11 @@
     "lib",
     "new-module.mjs",
     "README.md",
+    "run-with-db-server.mjs",
     "sim-new-user.mjs",
     "smoke-modules.mjs",
-    "tsc7.mjs"
+    "tsc7.mjs",
+    "verify.mjs"
   ],
   "scripts": {
     "build": "node -e \"process.exit(0)\""

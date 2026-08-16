@@ -168,10 +168,9 @@ npm run build                    # 全部 workspace
 npm run start                    # sfmc CLI REPL
 npm run lint                     # 先 build eslint-plugin，再 eslint .
 npm run typecheck
-npm run check-ootb               # 平台就绪自检
-npm run smoke-modules            # 需 live db-server
-npm run docs -- serve|build|api  # 文档站
-npm run catalog-sync
+npm run verify                   # 平台集成自检（CI 默认）
+npm run check-ootb               # verify 别名
+npm run catalog-sync             # 装模块后投影 catalog（维护命令）
 npm run syncpack:lint
 ```
 
@@ -216,13 +215,10 @@ npm start -- update
 ### 开发工具脚本
 
 ```bash
-node packages/tools/check-ootb.mjs
+node packages/tools/verify.mjs
 node packages/tools/catalog-sync.mjs
 node packages/tools/check-modules.mjs
-node packages/tools/smoke-modules.mjs
-node packages/tools/sim-new-user.mjs
 node packages/tools/fetch-module.mjs install <id>
-node packages/tools/seed-configs.mjs      # CI / 本地种子 configs
 ```
 
 ## SAPI debug 与 Sentry
@@ -255,7 +251,7 @@ CLI（仅外部 argv）：`sfmc debug status|enable|disable`、`sfmc debug sentr
 | `changeset-release.yml` | push → `main` | Version Packages PR → 发布 |
 | `npm-publish.yml` | `workflow_dispatch` | 紧急单包发布（默认 beta tag） |
 
-**ootb 步骤：** `npm ci` → build all → SDK 单测 → db/qq/bds/cli 单测 → `gen:mc-fake` 一致性 → `seed-configs.mjs` → `check-ootb` → `run-with-db-server.mjs` + `smoke-modules`。
+**ootb 步骤：** `npm ci` → build all → 各 workspace 单测 → `gen:mc-fake` 一致性 → **`npm run verify`**（一次起 db）。
 
 **Node 版本：** `engines` 最低 **≥22.13.0**（`node:sqlite` 无 flag）；CI 以根目录 **`.node-version`** 为准（当前见文件内容）。
 
@@ -268,7 +264,7 @@ CLI（仅外部 argv）：`sfmc debug status|enable|disable`、`sfmc debug sentr
 ## 注意事项
 
 - **`configs/`、`data/`、`dist/`** 等 gitignore；缺失 config 由服务写内置默认
-- **`SFMC_ROOT`**：db-server 等从此根读 `configs/`；`sim-new-user.mjs` 用于隔离测试
+- **`SFMC_ROOT`**：db-server 等从此根读 `configs/`；`verify` 内含隔离根目录模拟
 - **`modulesDir`** 默认 `"modules"`（相对 `SFMC_ROOT`）
 - **JSON Schema：** `modules/sdk/@sfmc-sdk/schemas/` + `.vscode/settings.json`
 - **构建脚本：** 包内用 `@sfmc-bds/tools` 的 `sfmc-esbuild-transpile` / `tsc7`，勿写 `node ../../../tools/...`

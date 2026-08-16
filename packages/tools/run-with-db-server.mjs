@@ -1,35 +1,22 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * tools/run-with-db-server.mjs — 拉起 db-server，等 /api/health，再跑子命令
+ * 拉起 db-server，等 /api/health，再跑子命令（CI / 本地 ad-hoc）
  *
- * CI / 本地冒烟共用（Windows / Linux / macOS）。子命令结束后必杀 db-server。
- *
- * 用法:
- *   node packages/tools/run-with-db-server.mjs [--] <cmd> [args...]
- *   node packages/tools/run-with-db-server.mjs node packages/tools/smoke-modules.mjs
- *
- * 环境: SFMC_ROOT、DB_PORT（默认 3001）
+ * @deprecated 平台 CI 请用 verify.mjs；本脚本保留给需要自定义子命令的场景。
  */
-import { findMonorepoRoot } from "@sfmc-bds/sdk/node/config";
 import { spawn } from "node:child_process";
-import path from "node:path";
 import process from "node:process";
-import { waitHealth } from "./lib/http.mjs";
-import { exists } from "./lib/io.mjs";
+import { findMonorepoRoot } from "@sfmc-bds/sdk/node/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { withDbServer } from "./lib/verify/db-harness.mjs";
 import { TOOLS_PKG_DIR } from "./lib/paths.mjs";
-import { killProc } from "./lib/proc.mjs";
 
-/** 可执行文件在仓库/安装树，与 SFMC_ROOT（数据根）解耦 — DIP */
 const REPO_ROOT = findMonorepoRoot(TOOLS_PKG_DIR) ?? path.resolve(TOOLS_PKG_DIR, "..", "..");
-const DB_SERVER_DIST = path.join(REPO_ROOT, "packages", "db-server", "dist", "index.js");
-
-const HEALTH_TIMEOUT_MS = 20_000;
-const LOG_CAP = 32_000;
 
 /**
  * @param {string[]} argv
- * @returns {string[]}
  */
 function parseChildArgs(argv) {
   const rest = argv[0] === "--" ? argv.slice(1) : argv;
@@ -60,45 +47,14 @@ function spawnChild(childArgs, port) {
 }
 
 async function main() {
-  if (!exists(DB_SERVER_DIST)) {
-    console.error(`[run-with-db-server] 缺少 ${DB_SERVER_DIST} — 先 npm run build`);
-    process.exit(1);
-  }
-
   const port = parseInt(process.env.DB_PORT || "3001", 10);
   const childArgs = parseChildArgs(process.argv.slice(2));
   const dataRoot = process.env.SFMC_ROOT || REPO_ROOT;
 
-  /** @type {string} */
-  let errLog = "";
-  let dbExit = /** @type {number | null} */ (null);
-  const dbProc = spawn(process.execPath, [DB_SERVER_DIST], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, SFMC_ROOT: dataRoot, DB_PORT: String(port) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  dbProc.stderr?.on("data", (chunk) => {
-    const s = String(chunk);
-    process.stderr.write(s);
-    if (errLog.length < LOG_CAP) errLog += s;
-  });
-  dbProc.on("exit", (code) => {
-    dbExit = code;
-  });
-
   let exitCode = 1;
   try {
-    const ready = await waitHealth(port, HEALTH_TIMEOUT_MS);
-    if (!ready) {
-      console.error(
-        `[run-with-db-server] db-server 未就绪 (port=${port}` +
-          (dbExit !== null ? `, exit=${dbExit}` : "") +
-          ")"
-      );
-      if (errLog) console.error(errLog.slice(0, LOG_CAP));
-      exitCode = 1;
-    } else {
-      const child = spawnChild(childArgs, port);
+    await withDbServer({ dataRoot, port, cwd: REPO_ROOT }, async (readyPort) => {
+      const child = spawnChild(childArgs, readyPort);
       exitCode = await new Promise((resolve) => {
         child.on("error", (err) => {
           console.error(`[run-with-db-server] 子进程启动失败: ${err.message}`);
@@ -106,14 +62,18 @@ async function main() {
         });
         child.on("close", (code) => resolve(code ?? 1));
       });
-    }
-  } finally {
-    await killProc(dbProc.pid);
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`[run-with-db-server] ERROR: ${message}`);
+    exitCode = 1;
   }
   process.exit(exitCode);
 }
 
-main().catch((e) => {
-  console.error("[run-with-db-server] ERROR:", e);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+  main().catch((e) => {
+    console.error("[run-with-db-server] ERROR:", e);
+    process.exit(1);
+  });
+}

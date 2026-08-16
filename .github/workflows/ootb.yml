@@ -1,6 +1,6 @@
 name: ootb
 
-# 多平台冒烟：Windows + Linux。不启动真实 BDS / LLBot。macOS 暂不适配。
+# 多平台冒烟：Windows + Linux；macOS 暂不适配。
 
 on:
   push:
@@ -64,17 +64,7 @@ jobs:
             exit 1
           fi
 
-      - name: Seed configs via SDK ensure
+      - name: Run platform verify
         env:
           SFMC_ROOT: ${{ github.workspace }}
-        run: node packages/tools/seed-configs.mjs
-
-      - name: Run check-ootb
-        env:
-          SFMC_ROOT: ${{ github.workspace }}
-        run: npm run check-ootb
-
-      - name: Run smoke-modules
-        env:
-          SFMC_ROOT: ${{ github.workspace }}
-        run: node packages/tools/run-with-db-server.mjs node packages/tools/smoke-modules.mjs
+        run: npm run verify

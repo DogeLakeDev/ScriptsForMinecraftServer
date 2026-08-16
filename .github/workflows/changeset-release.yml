@@ -2,8 +2,6 @@ name: changeset-release
 
 # Changesets: 在 main 上开/更新 Version Packages PR；
 # 合并该 PR（版本已 bump）后自动 changeset publish。
-# 当前仓库处于 pre mode (beta)：publish 仅推 npm dist-tag beta。
-# 未达 release 门槛前禁止 changeset pre exit。
 
 on:
   push:
@@ -37,29 +35,25 @@ jobs:
       - run: npm ci --no-audit --no-fund
 
       - name: Build all workspaces
-        # build-publishable / paths.mjs 运行时依赖 @sfmc-bds/sdk dist（与 ootb.yml 对齐）
         run: npm run build --workspaces --if-present
 
       - name: build publishable workspaces
-        # DRY：包清单与拓扑权威在 packages/tools/lib/npm-publish-packages.mjs，勿在此再抄 workspace 列表
         run: node packages/tools/build-publishable.mjs
 
       # Version PR 需要「创建 PR」权限。仅用 GITHUB_TOKEN 且仓库关闭
       # Settings→Actions→General→「Allow GitHub Actions to create and approve pull requests」时，
       # changesets/action 会 HttpError（分支已推送但 PR 未创建）。
-      # 优先 PAT：SFMC_GITHUB_TOKEN（权威名）；兼容旧名 CHANGESETS_GITHUB_TOKEN；再回退 GITHUB_TOKEN。
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
         with:
           version: npm run version-packages
-          # CI 不跑交互 changeset/version；只 publish + tag + gh release
-          # tag-packages 默认 HEAD~1 版本 diff（空状态文件亦信任，禁止扫全仓 tag）
+          # tag-packages 默认 HEAD~1 版本 diff（空状态文件亦信任）
           publish: npm run ci-release-packages
           title: "chore(release): version packages"
           commit: "chore(release): version packages"
           createGithubReleases: false
         env:
-          GITHUB_TOKEN: ${{ secrets.SFMC_GITHUB_TOKEN || secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SFMC_GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

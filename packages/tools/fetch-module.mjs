@@ -35,6 +35,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { extractZipFileToDir } from "@sfmc-bds/bds-tools/zipx";
+import { runCheckModules } from "./check-modules.mjs";
 import { upsertCatalogEntry, removeCatalogEntry } from "./lib/catalog.mjs";
 import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
@@ -300,6 +301,11 @@ function afterInstall(folder, opts = {}) {
   if (hasV3) {
     console.log(`[fetch-module]   v3 semantic: detected (manifest.schemaVersion=3)`);
   }
+  const check = runCheckModules();
+  if (!check.ok) {
+    throw new Error(`check-modules 未通过: ${check.error}`);
+  }
+  console.log(`[fetch-module]   ${check.summary}`);
   return entry;
 }
 

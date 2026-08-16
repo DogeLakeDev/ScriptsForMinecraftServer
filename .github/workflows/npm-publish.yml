@@ -1,24 +1,24 @@
 name: npm-publish
 
-# 应急单包补发（默认 --tag beta）。日常发版请走 changeset-release.yml。
+# 应急单包补发（默认 --tag beta）。
 # 示例: Actions → npm-publish → Run workflow
 #   package: @sfmc-bds/sdk
 #   version: 0.2.0-beta.0   （须与 package.json 一致）
-#   dist_tag: beta          （默认；未达标前勿填 latest）
+#   dist_tag: beta          （或 latest）
 
 on:
   workflow_dispatch:
     inputs:
       package:
-        description: "npm 包名（如 @sfmc-bds/sdk）"
+        description: "@sfmc-bds/**(?)**"
         required: true
         type: string
       version:
-        description: "版本号（须与该包 package.json 一致，如 0.2.0-beta.0）"
+        description: "版本号"
         required: true
         type: string
       dist_tag:
-        description: "npm dist-tag（当前阶段默认 beta）"
+        description: "npm dist-tag"
         required: false
         default: beta
         type: choice
@@ -55,7 +55,7 @@ jobs:
           if [ -f .changeset/pre.json ]; then
             mode=$(node -e "console.log(JSON.parse(require('fs').readFileSync('.changeset/pre.json','utf8')).mode)")
             if [ "$mode" = "pre" ]; then
-              echo "::error::仓库仍处于 changesets pre mode，禁止发 latest。先达标并 changeset pre exit。"
+              echo "::error::仓库仍处于 changesets pre mode。请使用 changeset pre exit（你确定吗？）。"
               exit 1
             fi
           fi
@@ -69,12 +69,11 @@ jobs:
 
       - name: Build all workspaces
         if: steps.meta.outputs.already_published != 'true'
-        # build-publishable / paths.mjs 运行时依赖 @sfmc-bds/sdk dist（与 ootb.yml 对齐）
         run: npm run build --workspaces --if-present
 
       - name: build target + publishable deps
         if: steps.meta.outputs.already_published != 'true'
-        # DRY/OCP：依赖闭包由 listPublishableBuildDeps 派生，勿硬编码只 build SDK
+        # DRY/OCP：依赖闭包由 listPublishableBuildDeps 派生
         run: node packages/tools/build-publishable.mjs --workspace "${{ steps.meta.outputs.workspace }}"
 
       - name: publish to npm

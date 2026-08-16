@@ -1,131 +1,19 @@
 #!/usr/bin/env node
 // @ts-check
-/**
- * tools/sim-new-user.mjs — 隔离 SFMC_ROOT 冒烟
- *
- * 空 catalog 合法。验证新用户目录下 db-server 能起、modules API 可用。
- *
- * 用法: node tools/sim-new-user.mjs [--keep] [--no-restore]
- */
-import fs from "node:fs";
-import path from "node:path";
+/** @deprecated 请用 verify.mjs --skip-isolated 以外的隔离段，或 verify 全量 */
 import process from "node:process";
-import { spawn } from "node:child_process";
-import { bdsExeName } from "@sfmc-bds/bds-tools/host-platform";
-import { ROOT, DB_SERVER_DIST } from "./lib/paths.mjs";
-import { exists } from "./lib/io.mjs";
-import { requestJson, waitHealth } from "./lib/http.mjs";
-import { killProc } from "./lib/proc.mjs";
+import { runIsolatedRootSimulation } from "./lib/verify/isolated-root.mjs";
 
-const SIM_DIR = path.join(ROOT, "tmp", `sim-${Date.now()}`);
-const KEEP = process.argv.includes("--keep");
-const NO_RESTORE = process.argv.includes("--no-restore");
-const DB_PORT = 3091;
+const keep = process.argv.includes("--keep");
+const noRestore = process.argv.includes("--no-restore");
 
-/**
- * @param {string} tag
- * @param {string} msg
- */
-function log(tag, msg) {
-  console.log(`[${tag}] ${msg}`);
-}
-/**
- * @param {string} msg
- */
-function fail(msg) {
-  console.error(`[FAIL] ${msg}`);
-  process.exit(1);
-}
-/**
- * @param {boolean} cond
- * @param {string} msg
- */
-function expect(cond, msg) {
-  if (cond) log("PASS", msg);
-  else fail(msg);
-}
+console.warn("[deprecated] sim-new-user.mjs → 请用: npm run verify");
 
-async function main() {
-  if (!exists(DB_SERVER_DIST)) fail(`缺少 ${DB_SERVER_DIST}`);
-
-  fs.mkdirSync(path.join(SIM_DIR, "BDS"), { recursive: true });
-  fs.writeFileSync(path.join(SIM_DIR, "BDS", bdsExeName()), "");
-  fs.mkdirSync(path.join(SIM_DIR, "LLBot"), { recursive: true });
-  const llbotBin = process.platform === "win32" ? "llbot.exe" : "llbot";
-  fs.writeFileSync(path.join(SIM_DIR, "LLBot", llbotBin), "");
-
-  fs.mkdirSync(path.join(SIM_DIR, "modules", "packages"), { recursive: true });
-  fs.copyFileSync(
-    path.join(ROOT, "modules", "catalog.json"),
-    path.join(SIM_DIR, "modules", "catalog.json")
-  );
-  /* module-lock 为本地状态：隔离环境写空骨架即可 */
-  fs.writeFileSync(
-    path.join(SIM_DIR, "modules", "module-lock.json"),
-    `${JSON.stringify({ version: 1, modules: {} }, null, 2)}\n`
-  );
-
-  fs.mkdirSync(path.join(SIM_DIR, "configs"), { recursive: true });
-  fs.writeFileSync(
-    path.join(SIM_DIR, "configs", "db_config.json"),
-    JSON.stringify({ db_port: DB_PORT, modulesDir: "modules" }) + "\n"
-  );
-  fs.writeFileSync(
-    path.join(SIM_DIR, "configs", "bds_updater.json"),
-    JSON.stringify({ bds_path: path.join(SIM_DIR, "BDS") }) + "\n"
-  );
-  fs.writeFileSync(path.join(SIM_DIR, "configs", "qq_config.json"), "{}\n");
-  fs.writeFileSync(path.join(SIM_DIR, "configs", "permissions.json"), "[]\n");
-  fs.mkdirSync(path.join(SIM_DIR, "data"), { recursive: true });
-
-  const dbProc = spawn(process.execPath, [DB_SERVER_DIST], {
-    cwd: ROOT,
-    env: { ...process.env, SFMC_ROOT: SIM_DIR, DB_PORT: String(DB_PORT) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  try {
-    const ok = await waitHealth(DB_PORT, 15000);
-    expect(ok, `db-server 就绪 (port ${DB_PORT})`);
-
-    const mods = await requestJson({
-      port: DB_PORT,
-      method: "GET",
-      path: "/api/sfmc/modules",
-    });
-    expect(mods.status === 200 && Array.isArray(mods.body.modules), "GET /api/sfmc/modules 返回数组");
-
-    const catalog = await requestJson({
-      port: DB_PORT,
-      method: "GET",
-      path: "/api/sfmc/modules/catalog",
-    });
-    expect(
-      catalog.status === 200 && Array.isArray(catalog.body.modules),
-      "GET /api/sfmc/modules/catalog 返回数组"
-    );
-    expect(
-      mods.body.modules.length === catalog.body.modules.length,
-      `模块列表与 catalog 数量一致 (n=${mods.body.modules.length})`
-    );
-
-    const health = await requestJson({ port: DB_PORT, method: "GET", path: "/api/health" });
-    expect(health.status === 200, "GET /api/health → 200");
-
-    log("result", "全部模拟通过");
-  } finally {
-    await killProc(dbProc.pid);
-  }
-
-  if (NO_RESTORE || KEEP) {
-    log("done", `工作根保留在 ${path.relative(ROOT, SIM_DIR)}`);
-    return;
-  }
-  fs.rmSync(SIM_DIR, { recursive: true, force: true });
-  log("done", `临时目录已清理: ${SIM_DIR}`);
-}
-
-main().catch((e) => {
+try {
+  const { simDir } = await runIsolatedRootSimulation({ keep, noRestore });
+  if (simDir) console.log(`[sim-new-user] 工作根保留: ${simDir}`);
+  else console.log("[sim-new-user] 全部模拟通过");
+} catch (e) {
   console.error(e);
   process.exit(1);
-});
+}

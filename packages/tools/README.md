@@ -13,14 +13,14 @@ npm install @sfmc-bds/tools
 ## 常用命令
 
 ```bash
-npx sfmc-check-ootb
+npx sfmc-verify
 npx sfmc-fetch-module search
 npx sfmc-catalog-sync
 npx sfmc-esbuild-transpile [--dts]   # 各包 `npm run build` 用（勿写 ../../../tools/...）
 npx tsc7 --noEmit                    # TS7 typecheck / emit
 ```
 
-或在仓库根：`npm run check-ootb` / `node packages/tools/check-ootb.mjs`。
+或在仓库根：`npm run verify`（`check-ootb` 为别名）。
 
 包内脚本应走 bin（`sfmc-esbuild-transpile` / `tsc7`），不要写相对仓库布局的 `node ../tools/...`。
 

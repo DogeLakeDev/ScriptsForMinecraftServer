@@ -8,14 +8,24 @@
 
 | 命令 | 作用 |
 | ------ | ------ |
-| `npm run check-ootb` | 开箱自检 |
-| `npm run catalog-sync` | 扫 `modules/packages` → `catalog.json` |
-| `npm run check-modules` | 校验 catalog + v2 manifest |
+| `npm run verify` | 平台集成自检（CI 默认；合并原 ootb/smoke/sim-new-user） |
+| `npm run check-ootb` | `verify` 别名 |
+| `npm run catalog-sync` | 扫 `modules/packages` → `catalog.json`（装模块后用） |
+| `npm run check-modules` | 离线校验 catalog + manifest |
 | `node packages/tools/fetch-module.mjs search` | 查注册表 |
-| `node packages/tools/fetch-module.mjs install <id>` | 安装模块 |
+| `node packages/tools/fetch-module.mjs install <id>` | 安装模块（装完后自动 check-modules） |
 | `node packages/tools/new-module.mjs <id>` | 在空目录生成单包根 |
-| `npm run smoke-modules` | 模块 API 冒烟（需 live db-server；平台 CI） |
-| （作者测试） | 见 [测试沙箱](./testing.md)（`npm test`）；可视化编排见 Sapience |
+## 平台自检
+
+主仓默认无业务模块。`npm run verify` 一次完成离线检查 + db-server 集成 + 隔离 `SFMC_ROOT` 模拟。
+
+| 脚本 | 何时用 |
+| ------ | ------ |
+| `verify.mjs` | CI / 本地「平台能不能跑」 |
+| `catalog-sync.mjs` | `fetch-module install` 或本地装包后投影 catalog |
+| `check-modules.mjs` | 离线校验；`fetch-module` 安装后也会自动跑 |
+
+旧命令 `check-ootb` / `smoke-modules` / `sim-new-user` 已合并进 `verify`（保留 deprecate shim）。
 
 约定检查见 [ESLint 约定](./eslint.md)。
 
@@ -38,14 +48,7 @@ node <主仓>/packages/tools/new-module.mjs my-mod --name "我的模块"
 
 `--official` → `@sfmc-bds/module-*`。脚手架会写入 `eslint.config.js` 与 `.vscode/`（推荐 ESLint / SFMC Module / nodejs-testing）。也可用 [sfmc-module-template](https://github.com/Tanya7z/sfmc-module-template) 或扩展 `SFMC: New Module`。
 
-## 平台冒烟
-
-| 脚本 | 前置 | 作用 |
-| ------ | ------ | ------ |
-| `smoke-modules.mjs` | db-server 已起、`/api/health` 通 | 模块 HTTP / service 路径 |
-| `sim-new-user.mjs` | 无 | 临时 `SFMC_ROOT` 模拟新用户目录 |
-
-CI（`ootb.yml`）会跑 check-ootb，并在 db 起来后跑 smoke。
+（作者测试）见 [测试沙箱](./testing.md)（`npm test`）。
 
 ## 共享库
 
