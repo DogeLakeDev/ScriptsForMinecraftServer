@@ -2,12 +2,12 @@
 
 ## 栈
 
-| 组件 | 用途 |
-|------|------|
-| **Rspress 2**（`website/`） | 静态文档站 |
+| 组件                        | 用途                                            |
+| --------------------------- | ----------------------------------------------- |
+| **Rspress 2**（`website/`） | 静态文档站                                      |
 | **@rspress/plugin-typedoc** | 从 `@sfmc-bds/sdk` 生成 `docs/zh/reference/sdk` |
-| **llms / SSG-MD** | `llms.txt`、每页 Markdown、Copy Markdown |
-| **自定义插件** | 模块 registry 一览、缩写、EN TypeDoc 同步 |
+| **llms / SSG-MD**           | `llms.txt`、每页 Markdown、Copy Markdown        |
+| **自定义插件**              | 模块 registry 一览、缩写、EN TypeDoc 同步       |
 
 ## 目录约定
 
@@ -23,10 +23,6 @@ docs/
 └── superpowers/    # 内部规格（route.exclude）
 website/            # rspress.config.ts、组件、插件
 i18n.json
-```
-
-```bash
-npx markdownlint-cli2 "docs/zh/guide/**/*.{md,mdx}" "docs/zh/dev/**/*.{md,mdx}" "docs/zh/api/**/*.{md,mdx}"
 ```
 
 ## 常用命令
@@ -53,3 +49,4 @@ npm run docs -- build       # → doc_build/
 ## 扩展 TypeDoc 入口
 
 在 `website/rspress.config.ts` 的 `pluginTypeDoc({ entryPoints })` 与根目录 `typedoc.json` 同步追加 SDK 公开入口。
+

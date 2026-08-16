@@ -1,11 +1,3 @@
 {
-  "default": true,
-  "MD007": false,
-  "no-hard-tabs": false,
-  "line-length": false,
-  "MD013": false,
-  "MD033": false,
-  "MD041": false,
-  "MD046": false,
-  "MD060": false
+  "default": false
 }
