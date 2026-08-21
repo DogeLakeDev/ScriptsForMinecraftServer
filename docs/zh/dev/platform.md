@@ -11,7 +11,7 @@
 ```bash
 npm install
 npm run build --workspaces --if-present
-npm run check-ootb
+npm run verify
 ```
 
 ```bash
@@ -60,14 +60,14 @@ npm run test
 
 ## 工具与 CI
 
-新脚本放 `packages/tools/*.mjs`，共享逻辑进 `packages/tools/lib/`。见 [工具脚本](./tools.md)。
+新脚本放 `packages/tools/*.mjs`（仓内私有），模块 install 逻辑在 `packages/cli/scripts/module-install/`。见 [工具脚本](./tools.md)。
 
-`ootb.yml`：`npm ci` → `check-ootb` → 起 db → `smoke-modules`。Node ≥ 22.13。
+`ootb.yml`：`npm ci` → build → `npm run verify`。Node ≥ 22.13。
 
 ## PR 前
 
 1. `npm run build --workspaces --if-present`
-2. `npm run check-ootb`（或 check-modules + 相关 smoke）
+2. `npm run verify`
 3. SDK 导出变更 → 相关 typecheck / TypeDoc
 4. 文档与代码同步改
 

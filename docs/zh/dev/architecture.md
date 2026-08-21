@@ -73,7 +73,7 @@ ModuleRegistry.register({
 | `packages/meta/` | `@sfmc-bds/sfmc` 聚合包 |
 | `packages/devkit/` | 作者 Watch / scaffold（`@sfmc-bds/devkit`） |
 | `packages/sfmc-extension/` | VS Code/Cursor 扩展 |
-| `packages/tools/` | 自检、fetch、catalog |
+| `packages/tools/` | 仓内自检、catalog、发版脚本（**不发 npm**） |
 
 **目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块。
 

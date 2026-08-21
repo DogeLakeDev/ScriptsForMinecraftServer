@@ -21,7 +21,7 @@
 | `@sfmc-bds/db-server` | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `@sfmc-bds/qq-bridge` | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `@sfmc-bds/bds-tools` | AGPL-3.0-only | 见仓库根 `LICENSE` |
-| `@sfmc-bds/tools` | AGPL-3.0-only | 见仓库根 `LICENSE` |
+| `@sfmc-bds/tools` | AGPL-3.0-only（**不发 npm**，仓内脚本） | 见仓库根 `LICENSE` |
 | `@sfmc-bds/sfmc`（meta） | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `@sfmc-bds/devkit` | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `sfmc-extension`（VS Code） | AGPL-3.0-only | 见仓库根 `LICENSE` |

@@ -154,5 +154,5 @@ test("命令冒烟", async (t) => {
 | 章节 | 内容 |
 | ------ | ------ |
 | [模块开发](./module-author.md) | 扩展优先工作流 |
-| [工具脚本](./tools.md) | 平台 `smoke-modules`（非作者日常） |
+| [工具脚本](./tools.md) | 平台 `verify`（非作者日常） |
 | [SDK 类型参考](../reference/index.md) | TypeDoc（含 testing） |

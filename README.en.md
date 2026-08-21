@@ -24,7 +24,7 @@ ScriptsForMinecraftServer turns Bedrock Dedicated Server's scripting surface int
 - **4 top-level services** — `db-server` (SQLite REST API) / `qq-bridge` (QQ ⇄ MC bridge) / `bds-tools` (BDS process manager) / `sfmc` CLI (supervisor). Platform code lives under `packages/`; business modules stay under `modules/packages/`.
 - **One-command install** — `npm i -g @sfmc-bds/sfmc@beta` then `sfmc` in an empty directory (beta-only until first stable release).
 - **SDK toolkit** `@sfmc-bds/sdk` — lives at `modules/sdk/@sfmc-sdk/` and shares low-level contracts across the SAPI / Node split. **It is a toolkit, not a module.**
-- **Build-time module fetch** — one-shot CLI `packages/tools/fetch-module.mjs` populates modules from GitHub Releases (or `cp -r` from a local checkout).
+- **Module install** — `sfmc mod install` (`@sfmc-bds/cli` / `packages/cli/scripts/module-install/`).
 
 ## Architecture diagram
 
@@ -89,13 +89,13 @@ cd ScriptsForMinecraftServer
 npm install
 
 # 2. Self-check + wizard (fill in BDS / LLBot / backup paths)
-node packages/tools/check-ootb.mjs
+npm run verify
 node packages/cli/dist/main.js              # same as npm start / sfmc
 
 # 3. Install modules (default: first-party sfmc-modules registry)
-node packages/tools/fetch-module.mjs search                     # see what's available
-node packages/tools/fetch-module.mjs install afk
-node packages/tools/fetch-module.mjs install land economy
+sfmc mod search
+sfmc mod install afk
+sfmc mod install land economy
 # install syncs modules/catalog.json + module-lock.json
 
 # 4. After editing BP / writing a custom module:
@@ -109,7 +109,7 @@ sfmc> start -all
 Both paths share the same:
 
 - First-party module registry `Tanya7z/sfmc-modules` (GitHub Releases).
-- `packages/tools/fetch-module.mjs` to pull modules.
+- `sfmc mod install` (`@sfmc-bds/cli`) to pull modules.
 - `sfmc behavior-pack build/deploy` driven by `packages/bds-tools` pack-manager.
 - `modules/module-lock.json` for enable/disable state.
 
@@ -123,9 +123,9 @@ ScriptsForMinecraftServer/
 │   ├── bds-tools/             BDS auto-update + process manager
 │   ├── db-server/             SQLite HTTP REST API (port 3001)
 │   ├── qq-bridge/             QQ bridge (LLBot OneBot 11)
-│   ├── cli/                   REPL management CLI (npm @sfmc-bds/cli)
+│   ├── tools/                 monorepo-only self-check + build bins
+│   ├── cli/                   REPL + fetch-module (npm @sfmc-bds/cli)
 │   ├── meta/                  @sfmc-bds/sfmc aggregate package
-│   ├── tools/                 self-check + build + fetch-module.mjs
 │   ├── devkit/                author Watch / scaffold (@sfmc-bds/devkit)
 │   └── sfmc-extension/        VS Code/Cursor extension「SFMC Module」
 ├── modules/
@@ -184,7 +184,7 @@ CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 
 - ✅ **Stage I**: per-module `sapi/manifest.json` + db-server reader
 - ✅ **Stage J**: `shared/*` migrated into `@sfmc-bds/sdk`; 22 modules migrated out
-- ✅ **Stage K**: on-demand modules — populated by `packages/tools/fetch-module.mjs` / `sfmc module install`
+- ✅ **Stage K**: on-demand modules — populated by `sfmc mod install` / `@sfmc-bds/cli` fetch-module
 - 🚧 **Stage L**: auto-extract remote zips; `sfmc module install --enable-and-deploy` one-shot
 - 🚧 **Stage M**: module signing / public-key verification (replace plain SHA-256)
 - 🚧 **Stage N+**: service mesh (multi-BDS / cross-node)

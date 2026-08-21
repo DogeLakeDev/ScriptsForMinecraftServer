@@ -13,7 +13,7 @@
 ```bash
 npm install
 npm run build
-npm run check-ootb
+npm run verify
 ```
 
 ## 根脚本
@@ -33,10 +33,9 @@ npm run check-ootb
 
 | 命令 | 说明 |
 | ------ | ------ |
-| `npm run check-ootb` | 开箱自检 |
+| `npm run verify` | 平台集成自检 |
 | `npm run catalog-sync` | packages → catalog |
 | `npm run check-modules` | catalog + manifest |
-| `npm run smoke-modules` | 需 live db-server |
 
 ### 文档
 
@@ -70,7 +69,7 @@ npx syncpack format --check
 - 不直连 db-server、不 import 其它模块源码、不读写对方私有表
 - 配置 JSON、SAPI 启动缓存；改配置后重启 BDS
 - 消息用 `Msg.*`，不用 `player.sendMessage()`
-- 包内 build/typecheck 走 `@sfmc-bds/tools` bin，勿写随深度变化的 `../../../tools`
+- 包内 build/typecheck 走 monorepo `@sfmc-bds/tools` workspace bin，勿写随深度变化的 `../../../tools`
 - 不提交 `configs/`、`data/`、密钥、本机 `.sfmc/`
 - 注释中文 UTF-8；审查关注 DRY / OCP / DIP / LSP / 最少知识
 

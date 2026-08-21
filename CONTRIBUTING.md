@@ -11,7 +11,7 @@
 ```bash
 npm install
 npm run build
-npm run check-ootb
+npm run verify
 ```
 
 文档站维护见 [docs/CONTRIBUTING-DOCS.md](./docs/CONTRIBUTING-DOCS.md)。

@@ -20,7 +20,7 @@ npm workspaces 单体仓库（根 `package.json` 的 `workspaces`）。
 | `packages/meta/` | `@sfmc-bds/sfmc` 聚合包 | Node.js |
 | `packages/devkit/` | 作者 Watch / scaffold（`@sfmc-bds/devkit`） | Node.js |
 | `packages/sfmc-extension/` | VS Code/Cursor 扩展「SFMC Module」 | — |
-| `packages/tools/` | 自检、fetch、catalog、docs、release 脚本 | Node.js |
+| `packages/tools/` | 仓内自检、catalog、docs、release（**不发 npm**） | Node.js |
 
 **目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块。勿混淆。
 
@@ -40,9 +40,10 @@ npm workspaces 单体仓库（根 `package.json` 的 `workspaces`）。
 安装 / 卸载：
 
 ```bash
-node packages/tools/fetch-module.mjs search
-node packages/tools/fetch-module.mjs install <id> [--from <source>] [--link]
-node packages/tools/fetch-module.mjs uninstall <id>
+sfmc mod search
+sfmc mod install <id> [--from <source>] [--link]
+sfmc mod uninstall <id>
+# 等价：node packages/cli/scripts/module-install/fetch-module.mjs …
 ```
 
 **来源（`--from`）：** 默认 npm `@sfmc-bds/module-<id>`；亦支持 `github:owner/repo@tag`（兼容 `Tanya7z/sfmc-modules`）、`local:` / `dir:` / `tgz:` / `zip:`；`--link` 可 junction/symlink 到作者仓。
@@ -168,7 +169,6 @@ npm run start                    # sfmc CLI REPL
 npm run lint                     # 先 build eslint-plugin，再 eslint .
 npm run typecheck
 npm run verify                   # 平台集成自检（CI 默认）
-npm run check-ootb               # verify 别名
 npm run catalog-sync             # 装模块后投影 catalog（维护命令）
 npm run syncpack:lint
 ```
@@ -217,7 +217,7 @@ npm start -- update
 node packages/tools/verify.mjs
 node packages/tools/catalog-sync.mjs
 node packages/tools/check-modules.mjs
-node packages/tools/fetch-module.mjs install <id>
+sfmc mod install <id>
 ```
 
 ## SAPI debug 与 Sentry
@@ -266,7 +266,7 @@ CLI（仅外部 argv）：`sfmc debug status|enable|disable`、`sfmc debug sentr
 - **`SFMC_ROOT`**：db-server 等从此根读 `configs/`；`verify` 内含隔离根目录模拟
 - **`modulesDir`** 默认 `"modules"`（相对 `SFMC_ROOT`）
 - **JSON Schema：** `modules/sdk/@sfmc-sdk/schemas/` + `.vscode/settings.json`
-- **构建脚本：** 包内用 `@sfmc-bds/tools` 的 `sfmc-esbuild-transpile` / `tsc7`，勿写 `node ../../../tools/...`
+- **构建脚本：** 包内用 monorepo `@sfmc-bds/tools` workspace 的 `sfmc-esbuild-transpile` / `tsc7`（不发 npm），勿写 `node ../../../tools/...`
 - **审查维度：** DRY、OCP、DIP、LSP、最少知识；重复鉴权/lock 读写/核心 switch 打洞优先抽取
 
 ## Cursor Cloud（Linux VM）

@@ -42,7 +42,7 @@ npx syncpack format --check
 
 ## 构建脚本路径
 
-包内 `build` / `typecheck` 使用 `@sfmc-bds/tools` 的 `sfmc-esbuild-transpile`、`tsc7`，不要写 `node ../../../tools/...`。
+包内 `build` / `typecheck` 使用 monorepo `@sfmc-bds/tools` workspace 的 `sfmc-esbuild-transpile`、`tsc7`（不发 npm），不要写 `node ../../../tools/...`。
 
 ## 注释
 

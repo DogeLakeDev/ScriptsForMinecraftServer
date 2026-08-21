@@ -31,7 +31,8 @@ npm test
 
 ```bash
 mkdir my-feature && cd my-feature
-node <主仓>/tools/new-module.mjs my-feature --name "我的功能"
+node <主仓>/packages/devkit/scripts/new-module.mjs my-feature --name "我的功能"
+# 或：npx sfmc-new-module my-feature --name "我的功能"
 ```
 
 详见 [工具脚本](./tools.md)。
@@ -193,7 +194,7 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
 | 工具 | 行为 |
 | --- | --- |
 | `tools/check-modules.mjs` | v2 校验路径不变；v3 manifest 走新校验（`semantic` 字段类型错会报错）。 |
-| `tools/catalog-sync.mjs` / `fetch-module.mjs` | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入）。 |
+| `catalog-sync` / CLI `fetch-module` | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入）。 |
 
 ### 与缺口 1 / 3 的衔接
 

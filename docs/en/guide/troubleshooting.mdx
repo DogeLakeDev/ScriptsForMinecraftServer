@@ -9,7 +9,7 @@ Pick a symptom and work through the steps; the full checklist below remains for 
 ### Self-check (monorepo)
 
 ```bash
-npm run check-ootb
+npm run verify
 npm run check-modules
 npm run catalog-sync
 ```
@@ -86,4 +86,4 @@ sfmc> mod build
 
 Legacy modules still importing `@sfmc/sdk`: reinstall with current CLI, or ensure SDK resolves at build time.
 
-If still stuck, open a GitHub Issue with BDS / sfmc logs, `check-ootb` output, and Node version.
+If still stuck, open a GitHub Issue with BDS / sfmc logs, `npm run verify` output, and Node version.

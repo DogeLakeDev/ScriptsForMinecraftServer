@@ -9,7 +9,7 @@
 ### 自检（monorepo）
 
 ```bash
-npm run check-ootb
+npm run verify
 npm run check-modules
 npm run catalog-sync
 ```
@@ -86,4 +86,4 @@ sfmc> mod build
 
 旧模块若仍 `import "@sfmc/sdk"`，请用当前 CLI 重装模块，或确认 SDK 可被构建解析。
 
-仍解决不了时，可前往 GitHub Issues 附上 BDS / sfmc 日志、`check-ootb` 输出和 Node 版本。
+仍解决不了时，可前往 GitHub Issues 附上 BDS / sfmc 日志、`npm run verify` 输出和 Node 版本。
