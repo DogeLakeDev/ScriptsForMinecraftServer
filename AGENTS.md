@@ -2,7 +2,8 @@
 
 Agent 仓速查。人类详文：`docs/zh/dev/`。语言与注释：简体中文。
 
-技能入口（现状剧本）：`.cursor/skills/sfmc-onboarding` · `sfmc-module-author` · `sfmc-code-review`。
+技能入口（现状剧本）：`.cursor/skills/sfmc-onboarding` · `sfmc-module-author` · `sfmc-code-review`。  
+常驻规则：`.cursor/rules/sfmc-source-of-truth.mdc` · `sfmc-standing-contracts.mdc`。
 
 ## 三根路径
 

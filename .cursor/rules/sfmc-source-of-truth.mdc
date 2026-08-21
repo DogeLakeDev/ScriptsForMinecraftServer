@@ -1,0 +1,25 @@
+---
+description: >-
+  SFMC source of truth: slim AGENTS.md and project skills are current state;
+  chat history and old plans are archaeology only. Always apply in this repo.
+alwaysApply: true
+---
+
+# SFMC：权威来源
+
+## 现状以这些为准
+
+| 层级 | 路径 |
+|------|------|
+| 仓速查 | `AGENTS.md` |
+| 剧本 | `.cursor/skills/sfmc-onboarding` · `sfmc-module-author` · `sfmc-code-review` |
+| 详文 | `docs/zh/dev/`（与源码冲突时以文档 + 源码为准） |
+
+动手前先对齐上表；回复里引用要点即可，不必整篇粘贴。
+
+## 历史对话与旧 plan
+
+- 历史聊天 / agent-transcripts / SearchConversations：**需要考古时再搜**。
+- 它们记录的是当时决策过程，**不是**现行说明书。
+- 与 AGENTS / skills 冲突时，以 AGENTS / skills（及当前源码）为准。
+- `~/.cursor/plans` 里未附在本任务上的旧 plan：默认忽略。
