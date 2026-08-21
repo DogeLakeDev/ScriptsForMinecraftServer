@@ -80,10 +80,13 @@ function buildActions(modRoot: string, watchActive: boolean): ActionNode[] {
     items.push({ kind: "action", label: "Start Watch", icon: "eye", command: "sfmcModule.startWatch", modRoot });
   }
   items.push(
+    { kind: "action", label: "Run Tests", icon: "beaker", command: "sfmcModule.runTests", modRoot },
+    { kind: "action", label: "Link to SFMC Root", icon: "link", command: "sfmcModule.linkModule", modRoot },
     { kind: "action", label: "编译模块", icon: "package", command: "sfmcModule.build", modRoot },
     { kind: "action", label: "Reload to BDS", icon: "sync", command: "sfmcModule.reload", modRoot },
     { kind: "action", label: "启用模块", icon: "check", command: "sfmcModule.enable", modRoot },
     { kind: "action", label: "关闭模块", icon: "circle-slash", command: "sfmcModule.disable", modRoot },
+    { kind: "action", label: "Publish to npm", icon: "cloud-upload", command: "sfmcModule.publishModule", modRoot },
     { kind: "action", label: "Module Info", icon: "info", command: "sfmcModule.moduleInfoAction", modRoot }
   );
   return items;

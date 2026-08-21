@@ -12,6 +12,11 @@ import {
   cmdConfigureLogFilter,
   cmdClearAndApplyLogFilter,
   pickModuleRoot,
+  coerceModRoot,
+  cmdRunTests,
+  cmdLinkModule,
+  cmdPublishModule,
+  cmdOpenPublishGuide,
 } from "./panels/commands.js";
 import { registerTreeView } from "./panels/ModuleTreeProvider.js";
 import { ExtLog } from "./log.js";
@@ -53,8 +58,21 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("sfmcModule.newModule", async () => {
       await cmdNewModule();
     }),
-    vscode.commands.registerCommand("sfmcModule.startWatch", async () => {
-      const modRoot = await pickModuleRoot();
+    vscode.commands.registerCommand("sfmcModule.runTests", async (arg?: unknown) => {
+      await cmdRunTests(arg);
+    }),
+    vscode.commands.registerCommand("sfmcModule.linkModule", async (arg?: unknown) => {
+      await cmdLinkModule(arg);
+    }),
+    vscode.commands.registerCommand("sfmcModule.publishModule", async (arg?: unknown) => {
+      await cmdPublishModule(arg);
+    }),
+    vscode.commands.registerCommand("sfmcModule.openPublishGuide", async () => {
+      await cmdOpenPublishGuide();
+    }),
+    vscode.commands.registerCommand("sfmcModule.startWatch", async (arg?: unknown) => {
+      let modRoot = coerceModRoot(arg);
+      if (!modRoot) modRoot = await pickModuleRoot();
       if (!modRoot) return;
       if (watchStop) {
         vscode.window.showWarningMessage("Watch 已在运行");

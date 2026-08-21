@@ -5,14 +5,16 @@
 import * as vscode from "vscode";
 import fs from "node:fs";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import {
-  scaffoldModule,
   isValidModuleRoot,
   isValidSfmcRoot,
   findModuleRootFromFile,
   readModuleRootInfo,
   setModuleEnabled,
+  runSfmcCli,
 } from "@sfmc-bds/devkit";
+import { createModule, isValidModuleId } from "@sfmc-bds/create-module";
 import { ExtLog } from "../log.js";
 
 /** 读取 sfmc.root；未配置返回空字符串（不猜工作区）。 */
@@ -135,6 +137,13 @@ export async function cmdNewModule(): Promise<void> {
   const id = await vscode.window.showInputBox({
     prompt: "模块 id（kebab-case）",
     placeHolder: "my-feature",
+    validateInput: (v) => {
+      if (!v) return "必填";
+      if (!isValidModuleId(v) || v.startsWith("feature-") || v.startsWith("core-")) {
+        return "须为小写 kebab-case，且不含 feature-/core- 前缀";
+      }
+      return undefined;
+    },
   });
   if (!id) return;
 
@@ -142,26 +151,177 @@ export async function cmdNewModule(): Promise<void> {
     prompt: "显示名",
     value: id,
   });
+  if (name === undefined) return;
+
+  const kind = await vscode.window.showQuickPick(
+    [
+      { label: "社区包", description: "@<scope>/sfmc-module-<id>", kind: "community" as const },
+      { label: "官方包", description: "@sfmc-bds/module-<id>", kind: "official" as const },
+    ],
+    { placeHolder: "npm 包范围" }
+  );
+  if (!kind) return;
+
+  let scope: string | undefined;
+  let official = false;
+  if (kind.kind === "official") {
+    official = true;
+  } else {
+    scope = await vscode.window.showInputBox({
+      prompt: "npm scope（不含 @）",
+      placeHolder: "alice",
+      validateInput: (v) => (!v?.trim() ? "必填" : undefined),
+    });
+    if (!scope) return;
+    scope = scope.trim().replace(/^@/, "");
+  }
+
+  const extrasPick = await vscode.window.showQuickPick(
+    [{ label: "db", description: "manifest 增加 db 读写权限占位", picked: false }],
+    { canPickMany: true, placeHolder: "可选能力（可多选 / 可不选）" }
+  );
+  if (extrasPick === undefined) return;
+  const extras = extrasPick.map((p) => p.label).filter((x): x is "db" => x === "db");
 
   const folder = await vscode.window.showOpenDialog({
     canSelectFolders: true,
     canSelectFiles: false,
-    openLabel: "选择空目录作为模块根",
+    openLabel: "选择父目录（将在其下创建 <id> 文件夹）",
   });
   if (!folder?.[0]) return;
 
   ExtLog.show();
   const target = path.join(folder[0].fsPath, id);
-  const r = await scaffoldModule({ targetDir: target, moduleId: id, displayName: name || id });
-  if (r.ok) {
-    ExtLog.info("newModule", r.message);
-    vscode.window.showInformationMessage(
-      `已创建模块 ${id}：${target}\n请在 SFMC 工作目录通过 sfmc mod install <id> --from dir:${target} --link 联调。`
+  try {
+    const r = await createModule({
+      targetDir: target,
+      id,
+      name: name || id,
+      scope,
+      official,
+      extras,
+    });
+    ExtLog.info("newModule", `已创建 ${r.pkgName} @ ${r.targetDir}`);
+    const open = "打开模块仓";
+    const choice = await vscode.window.showInformationMessage(
+      `已创建模块 ${id}（${r.pkgName}）\n下一步：npm install && npm test，再用 SFMC: Link to SFMC Root。`,
+      open
     );
-  } else {
-    ExtLog.error("newModule", r.message);
-    vscode.window.showErrorMessage(r.message);
+    if (choice === open) {
+      await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(r.targetDir), true);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    ExtLog.error("newModule", msg);
+    vscode.window.showErrorMessage(msg);
   }
+}
+
+function runNpm(cwd: string, args: string[]): Promise<{ ok: boolean; output: string }> {
+  return new Promise((resolve) => {
+    const proc = spawn(process.platform === "win32" ? "npm.cmd" : "npm", args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+      shell: false,
+    });
+    let out = "";
+    proc.stdout?.on("data", (d) => {
+      out += d.toString();
+    });
+    proc.stderr?.on("data", (d) => {
+      out += d.toString();
+    });
+    proc.on("exit", (code) => resolve({ ok: code === 0, output: out.trim() }));
+    proc.on("error", (e) => resolve({ ok: false, output: e.message }));
+  });
+}
+
+/** Tree / 命令面板传入的模块根：字符串或带 modRoot 的节点。 */
+export function coerceModRoot(arg?: unknown): string | undefined {
+  if (typeof arg === "string" && arg.trim()) return arg.trim();
+  if (arg && typeof arg === "object" && "modRoot" in arg) {
+    const root = (arg as { modRoot?: unknown }).modRoot;
+    if (typeof root === "string" && root.trim()) return root.trim();
+  }
+  return undefined;
+}
+
+export async function cmdRunTests(modRootArg?: unknown): Promise<void> {
+  let modRoot = coerceModRoot(modRootArg);
+  if (!modRoot) modRoot = await pickModuleRoot();
+  if (!modRoot) return;
+  ExtLog.show();
+  ExtLog.info("test", `npm test @ ${modRoot}`);
+  const r = await runNpm(modRoot, ["test"]);
+  ExtLog.raw("test", r.output);
+  if (r.ok) vscode.window.showInformationMessage("npm test 通过");
+  else vscode.window.showErrorMessage("npm test 失败，见「SFMC 扩展」输出");
+}
+
+export async function cmdLinkModule(modRootArg?: unknown): Promise<void> {
+  let modRoot = coerceModRoot(modRootArg);
+  if (!modRoot) modRoot = await pickModuleRoot();
+  if (!modRoot) return;
+  if (!isValidModuleRoot(modRoot)) {
+    vscode.window.showErrorMessage(`不是有效模块根: ${modRoot}`);
+    return;
+  }
+  const info = readModuleRootInfo(modRoot);
+  const folderId = path.basename(modRoot);
+  const moduleId = folderId;
+  const sfmcRoot = await ensureSfmcRoot();
+  if (!sfmcRoot) return;
+  ExtLog.show();
+  ExtLog.info("link", `mod install ${moduleId} --from dir:${modRoot} --link（manifest id=${info?.id ?? "?"}）`);
+  const r = await runSfmcCli(
+    sfmcRoot,
+    ["mod", "install", moduleId, "--from", `dir:${modRoot}`, "--link"],
+    { cliPath: getSfmcCliPathConfigured() || undefined }
+  );
+  ExtLog.raw("link", r.output);
+  if (r.ok) {
+    vscode.window.showInformationMessage(`已 link ${moduleId} → ${sfmcRoot}`);
+    await vscode.commands.executeCommand("sfmcModule.refreshTree");
+  } else {
+    vscode.window.showErrorMessage("Link 失败，见「SFMC 扩展」输出");
+  }
+}
+
+export async function cmdPublishModule(modRootArg?: unknown): Promise<void> {
+  let modRoot = coerceModRoot(modRootArg);
+  if (!modRoot) modRoot = await pickModuleRoot();
+  if (!modRoot) return;
+  const confirm = await vscode.window.showWarningMessage(
+    `将在 ${modRoot} 执行 npm publish --access public？`,
+    { modal: true },
+    "发布"
+  );
+  if (confirm !== "发布") return;
+  ExtLog.show();
+  ExtLog.info("publish", `npm publish --access public @ ${modRoot}`);
+  const r = await runNpm(modRoot, ["publish", "--access", "public"]);
+  ExtLog.raw("publish", r.output);
+  if (r.ok) {
+    const openDocs = "打开发布指南";
+    const choice = await vscode.window.showInformationMessage(
+      "npm publish 成功。请向 sfmc-modules 的 index.json 开 PR。",
+      openDocs
+    );
+    if (choice === openDocs) {
+      await cmdOpenPublishGuide();
+    }
+  } else {
+    vscode.window.showErrorMessage("npm publish 失败，见「SFMC 扩展」输出");
+  }
+}
+
+export async function cmdOpenPublishGuide(): Promise<void> {
+  await vscode.env.openExternal(
+    vscode.Uri.parse(
+      "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/docs/zh/dev/publish.md"
+    )
+  );
 }
 
 export async function cmdModuleInfo(modRoot: string): Promise<void> {
@@ -178,16 +338,6 @@ export async function cmdModuleInfo(modRoot: string): Promise<void> {
     ].join(" | ")
   );
   ExtLog.show();
-}
-
-/** Tree / 命令面板传入的模块根：字符串或带 modRoot 的节点。 */
-function coerceModRoot(arg?: unknown): string | undefined {
-  if (typeof arg === "string" && arg.trim()) return arg.trim();
-  if (arg && typeof arg === "object" && "modRoot" in arg) {
-    const root = (arg as { modRoot?: unknown }).modRoot;
-    if (typeof root === "string" && root.trim()) return root.trim();
-  }
-  return undefined;
 }
 
 /**

@@ -1,0 +1,18 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["javascript", "typescript"],
+  "nodejs-testing.include": ["./test"],
+  "nodejs-testing.extensions": [
+    {
+      "extensions": ["ts"],
+      "parameters": [
+        "--import",
+        "@sfmc-bds/sdk/testing/minecraft-loader",
+        "--import",
+        "tsx/esm"
+      ]
+    }
+  ]
+}

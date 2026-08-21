@@ -110,14 +110,14 @@ sfmc> mod reload
   </Tab>
   <Tab label="开发自己的模块">
 
-用模板 [sfmc-module-template](https://github.com/Tanya7z/sfmc-module-template) 建仓，在仓库根目录执行：
+用 `npm create @sfmc-bds/module@latest` 建仓：
 
 ```bash
-node scripts/rename.mjs my-feature --scope <npm用户> --name "我的功能"
-npm i && npm test
+npm create @sfmc-bds/module@latest
+cd my-feature && npm i && npm test
 ```
 
-再在 SFMC 工作目录联调（须写明模块短名）；作者侧用扩展 Watch，运维侧：
+再在 SFMC 工作目录联调（须写明模块短名）；作者侧用扩展 Link / Watch，运维侧：
 
 ```bash
 sfmc mod install my-feature --from dir:<作者仓绝对路径> --link

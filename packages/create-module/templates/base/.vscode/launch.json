@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Module Tests",
+      "runtimeArgs": [
+        "--test",
+        "--import",
+        "@sfmc-bds/sdk/testing/minecraft-loader",
+        "--import",
+        "tsx/esm"
+      ],
+      "args": ["${workspaceFolder}/test"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "sourceMaps": true
+    }
+  ]
+}

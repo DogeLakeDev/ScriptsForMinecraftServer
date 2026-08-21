@@ -1,14 +1,15 @@
 {
-  "name": "@sfmc-bds/devkit",
-  "version": "0.1.0-beta.1",
-  "description": "SFMC module authoring toolkit — watch, rebuild, enable/disable (for VS Code extension & tooling)",
+  "name": "@sfmc-bds/create-module",
+  "version": "0.1.0-beta.0",
+  "description": "Create an SFMC SAPI module — npm create @sfmc-bds/module",
   "type": "module",
   "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=22.13.0"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "bin": {
+    "create-module": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,16 +20,17 @@
   },
   "files": [
     "dist",
+    "templates",
     "README.md"
   ],
   "scripts": {
     "build": "node build.mjs",
-    "typecheck": "tsc7 --noEmit -p tsconfig.json"
+    "typecheck": "tsc7 --noEmit -p tsconfig.json",
+    "test": "npm run build && node --test dist/create-module.test.js"
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.8",
-    "@sfmc-bds/cli": "^0.2.0-beta.8",
-    "@sfmc-bds/sdk": "^0.2.0-beta.8"
+    "@clack/prompts": "^0.11.0",
+    "picocolors": "^1.1.1"
   },
   "publishConfig": {
     "access": "public",

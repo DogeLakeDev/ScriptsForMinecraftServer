@@ -82,9 +82,9 @@ flowchart LR
 
 ```bash
 # 模块作者最小闭环（作者仓）
-node scripts/rename.mjs my-feature --scope <npm用户> --name "我的功能"
-npm i && npm test
-# 联调：扩展「SFMC Module」→ Start Watch（设 sfmc.root）
+npm create @sfmc-bds/module@latest
+cd <id> && npm i && npm test
+# 联调：扩展「SFMC Module」→ Link to SFMC Root → Start Watch（设 sfmc.root）
 # 或运维机：
 sfmc mod install my-feature --from dir:<作者仓绝对路径> --link
 sfmc mod enable my-feature

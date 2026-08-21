@@ -636,7 +636,7 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "watch":
     case "publish":
       return c.yellow(
-        `[mod ${sub}] 已移至 VS Code/Cursor 扩展「SFMC Module」与 @sfmc-bds/devkit；运维请用 mod build|reload|install。`
+        `[mod ${sub}] 已移至扩展「SFMC Module」全周期（Create/Test/Link/Watch/Publish）；建仓请用 npm create @sfmc-bds/module@latest；运维请用 mod build|reload|install。`
       );
     default:
       return c.yellow(moduleUsage());

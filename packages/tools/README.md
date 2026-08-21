@@ -5,7 +5,7 @@
 | 对外能力 | 所在包 |
 |----------|--------|
 | `sfmc mod install` / fetch-module | `@sfmc-bds/cli` |
-| 模块脚手架 `sfmc-new-module` | `@sfmc-bds/devkit` |
+| 模块脚手架 `npm create @sfmc-bds/module` | `@sfmc-bds/create-module` |
 
 ## 仓内常用
 

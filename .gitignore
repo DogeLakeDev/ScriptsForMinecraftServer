@@ -50,6 +50,8 @@ memory/
 .cursor/*
 !.cursor/skills/
 !.cursor/skills/**
+!.cursor/rules/
+!.cursor/rules/**
 .env
 .superpowers/
 

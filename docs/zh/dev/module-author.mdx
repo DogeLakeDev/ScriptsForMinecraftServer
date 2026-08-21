@@ -1,44 +1,25 @@
-﻿import { Tabs, Tab } from '@rspress/core/theme';
+﻿# 模块开发
 
-# 模块开发
+用 **`npm create @sfmc-bds/module`** 建仓，再用 **VS Code/Cursor 扩展「SFMC Module」** 覆盖 Test → Link → Watch → Publish；运维面仍用 `sfmc`（装模块、启停、对本机 `mod reload`）。
 
-从模板建仓，用 **VS Code/Cursor 扩展「SFMC Module」** 写测与 Watch；运维面仍用 `sfmc`（装模块、启停、对本机 `mod reload`）。
-
-一模块一仓；**不要** clone `sfmc-modules` 写业务。
+一模块一仓；**不要** clone `sfmc-modules` 写业务。GitHub Template / `sfmc-new-module` / `rename.mjs` 已弃用。
 
 ## 新建模块
 
+```bash
+npm create @sfmc-bds/module@latest
+# 等价：npx @sfmc-bds/create-module@latest
+```
 
-<Tabs>
-  <Tab label="扩展（推荐）">
+交互选择：模块 id、显示名、npm scope（或官方包）、可选能力（如 `db`）。
 
-命令面板 → `SFMC: New Module`，选空目录并填 id。
-
-  </Tab>
-  <Tab label="模板">
-
-使用 [sfmc-module-template](https://github.com/Tanya7z/sfmc-module-template)（GitHub *Use this template*），在仓库根目录：
+也可在空窗口打开扩展后执行命令面板 → `SFMC: New Module`（与 CLI **同一** `createModule()` 引擎）。
 
 ```bash
-node scripts/rename.mjs my-feature --scope <npm用户> --name "我的功能"
-npm i
-npm run typecheck
+cd my-feature
+npm install
 npm test
 ```
-
-  </Tab>
-  <Tab label="new-module 脚本">
-
-```bash
-mkdir my-feature && cd my-feature
-node <主仓>/packages/devkit/scripts/new-module.mjs my-feature --name "我的功能"
-# 或：npx sfmc-new-module my-feature --name "我的功能"
-```
-
-详见 [工具脚本](./tools.md)。
-
-  </Tab>
-</Tabs>
 
 ## 命名规范
 
@@ -54,27 +35,34 @@ node <主仓>/packages/devkit/scripts/new-module.mjs my-feature --name "我的�
 
 ```mermaid
 flowchart LR
-  A[改 sapi/src] --> B[npm test]
-  B --> C[扩展 Start Watch]
-  C --> D[组装部署]
-  D --> E[BDS reload]
+  A[Create] --> B[npm test]
+  B --> C[Link]
+  C --> D[Watch]
+  D --> E[Publish]
+  E --> F[index PR]
 ```
 
-1. **先测**：`npm test`（假引擎，秒级）。详情见 [测试沙箱](./testing.md)（宿主分相、L0–L2、与 Watch 分工）。可视化编排用 **Sapience**。
-2. **再联调**：扩展 `SFMC: Start Watch` / `SFMC: Reload to BDS`（设置 `sfmc.root` 为含 `configs/`、`modules/` 的工作目录；扩展会写 `${sfmc.root}/modules/module-lock.json`，与 `sfmc` CLI 同一权威源）；或运维机 `sfmc mod install --link` + `mod reload`。
+1. **Create**：`npm create @sfmc-bds/module@latest` 或扩展 `SFMC: New Module`
+2. **Test**：`npm test` / 扩展 `SFMC: Run Tests`（假引擎，秒级；不依赖 `sfmc.root`）。详情见 [测试沙箱](./testing.md)
+3. **Link**：扩展 `SFMC: Link to SFMC Root`，或  
+   `sfmc mod install <id> --from dir:<作者仓绝对路径> --link`
+4. **Watch**：设 `sfmc.root` 为含 `configs/`、`modules/` 的工作目录 → `SFMC: Start Watch` / `Reload to BDS`
+5. **Publish**：扩展 `SFMC: Publish to npm` 或 `npm publish --access public`，再向 `sfmc-modules` 的 `index.json` 开 PR。见 [发布你的模块](./publish.md)
 
 :::tip 全表面 ≠ 假 BDS
 沙箱能 `import` 大范围 `@minecraft/*`，未实现 API 会**硬失败**（不是静默 noop）。进服仍是终检：世界交互与版本 quirk 用 Watch / 日志。
 
 | 入口 | 作用 |
 | ------ | ------ |
-| `npm test` | 模块仓假引擎单测（`createSandbox`） |
+| `npm create @sfmc-bds/module` | 建仓（唯一权威） |
+| `npm test` / 扩展 Run Tests | 模块仓假引擎单测（`createSandbox`） |
+| 扩展 Link | `mod install --from dir:… --link` |
 | 扩展 Start Watch | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
 | `sfmc mod build` / `reload` | **运维**对本机已装模块组装部署 |
 | `sfmc mod install/enable` | **运维**安装与启停 |
 
 :::warning 注意
-`sfmc mod test` / `mod watch` / `mod publish` 已移除；作者发布用模板/`npm publish`，联调用扩展。
+`sfmc mod test` / `mod watch` / `mod publish` 已移除；建仓只用 `npm create`，联调/发布用扩展全周期。
 
 :::
 
@@ -92,7 +80,6 @@ my-feature/
 ├── package.json
 ├── .vscode/          # ESLint / SFMC Module / 测试推荐扩展
 ├── eslint.config.js
-├── scripts/rename.mjs
 ├── sapi/
 │   ├── manifest.json
 │   ├── tsconfig.json
@@ -107,7 +94,8 @@ my-feature/
 | `@sfmc-bds/sdk/sapi/runtime` | Msg、命令、权限、菜单 |
 | `@sfmc-bds/sdk/sapi/db` | 表、CRUD、事务 |
 | `@sfmc-bds/sdk/testing` | 测试沙箱 `createSandbox` |
-| `@sfmc-bds/devkit` | Watch / 脚手架（扩展依赖） |
+| `@sfmc-bds/create-module` | 建仓 API（扩展 / CLI） |
+| `@sfmc-bds/devkit` | Watch / rebuild（扩展依赖） |
 
 ## 接下来
 

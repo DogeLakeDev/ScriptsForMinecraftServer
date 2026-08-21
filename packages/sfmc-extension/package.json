@@ -17,6 +17,8 @@
     "dbaeumer.vscode-eslint"
   ],
   "activationEvents": [
+    "onCommand:sfmcModule.newModule",
+    "onCommand:sfmcModule.setRoot",
     "workspaceContains:**/sapi/manifest.json"
   ],
   "main": "./dist/extension.js",
@@ -63,6 +65,16 @@
       ],
       "view/item/context": [
         {
+          "command": "sfmcModule.runTests",
+          "when": "view == sfmcModules && viewItem == sfmcModule",
+          "group": "sfmc@0"
+        },
+        {
+          "command": "sfmcModule.linkModule",
+          "when": "view == sfmcModules && viewItem == sfmcModule",
+          "group": "sfmc@0"
+        },
+        {
           "command": "sfmcModule.build",
           "when": "view == sfmcModules && viewItem == sfmcModule",
           "group": "sfmc@1"
@@ -88,6 +100,11 @@
           "group": "sfmc@5"
         },
         {
+          "command": "sfmcModule.publishModule",
+          "when": "view == sfmcModules && viewItem == sfmcModule",
+          "group": "sfmc@5"
+        },
+        {
           "command": "sfmcModule.setRoot",
           "when": "view == sfmcModules && viewItem == sfmcModule",
           "group": "sfmc@6"
@@ -98,6 +115,22 @@
       {
         "command": "sfmcModule.newModule",
         "title": "SFMC: New Module"
+      },
+      {
+        "command": "sfmcModule.runTests",
+        "title": "SFMC: Run Tests"
+      },
+      {
+        "command": "sfmcModule.linkModule",
+        "title": "SFMC: Link to SFMC Root"
+      },
+      {
+        "command": "sfmcModule.publishModule",
+        "title": "SFMC: Publish to npm"
+      },
+      {
+        "command": "sfmcModule.openPublishGuide",
+        "title": "SFMC: Open Publish Guide"
       },
       {
         "command": "sfmcModule.showLog",
@@ -184,6 +217,7 @@
     "package": "npx @vscode/vsce package"
   },
   "dependencies": {
+    "@sfmc-bds/create-module": "^0.1.0-beta.0",
     "@sfmc-bds/devkit": "^0.1.0-beta.1",
     "@sfmc-bds/sdk": "^0.2.0-beta.9"
   },

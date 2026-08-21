@@ -3,7 +3,7 @@
 把作者仓发到 npm，并登记到 [`sfmc-modules`](https://github.com/Tanya7z/sfmc-modules) 薄 index，供 `mod search` / `mod install` 发现。
 
 业务模块 **不走** 主仓 changesets。平台 `@sfmc-bds/*` 发包见文末。  
-`sfmc mod publish` 已移除；请直接使用 npm（及可选 `gh` 开 index PR）。
+`sfmc mod publish` 已移除；请用扩展 `SFMC: Publish to npm`，或直接 `npm publish`（及可选 `gh` 开 index PR）。
 
 ## 发布前
 
@@ -12,7 +12,7 @@
 | `private` | 勿为 `true` |
 | `name` | `@<user>/sfmc-module-<id>` 或官方 `@sfmc-bds/module-<id>` |
 | `files` | 含 `sapi` |
-| 测试 / lint | `npm test`；接上 [ESLint](./eslint.md) 更稳 |
+| 测试 / lint | `npm test` 或扩展 `SFMC: Run Tests`；接上 [ESLint](./eslint.md) 更稳 |
 | 登录 | `npm login`；官方 scope 另需组织权限 |
 
 ```bash

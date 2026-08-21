@@ -1,0 +1,17 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@latest/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
+  "schemaVersion": 2,
+  "id": "{{featureId}}",
+  "name": "{{name}}",
+  "type": "feature",
+  "configKey": "{{configKey}}",
+  "requires": [],
+  "permissions": [
+    "config:read:{{configKey}}"
+  ],
+  "services": {
+    "provides": [],
+    "requires": []
+  },
+  "notes": "由 @sfmc-bds/create-module 生成"
+}

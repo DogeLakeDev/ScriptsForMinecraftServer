@@ -117,14 +117,14 @@ sfmc> mod reload
   </Tab>
   <Tab label="Develop your own module">
 
-Scaffold from [sfmc-module-template](https://github.com/Tanya7z/sfmc-module-template), then at the repo root:
+Create with `npm create @sfmc-bds/module@latest`:
 
 ```bash
-node scripts/rename.mjs my-feature --scope <npm-user> --name "My Feature"
-npm i && npm test
+npm create @sfmc-bds/module@latest
+cd my-feature && npm i && npm test
 ```
 
-Link into your SFMC workspace (module short id required). Authors use extension Watch; on the server:
+Link into your SFMC workspace (module short id required). Authors use extension Link / Watch; on the server:
 
 ```bash
 sfmc mod install my-feature --from dir:<absolute-path-to-author-repo> --link

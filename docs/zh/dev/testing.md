@@ -2,7 +2,7 @@
 
 在 **不启动 BDS** 的情况下，用 `node --test` + `@sfmc-bds/sdk/testing` 跑模块 lifecycle 与游戏 API 断言。
 
-假引擎对齐 pin 版 `@minecraft/server` / `server-ui`（大范围导出 + 未实现硬失败）。可视化编排已迁至独立应用 **Sapience**；作者日常单测用 `npm test`，真机联调用 VS Code/Cursor 扩展「SFMC Module」的 Watch / Reload。`sfmc mod test|watch` 已移除。
+假引擎对齐 pin 版 `@minecraft/server` / `server-ui`（大范围导出 + 未实现硬失败）。作者日常单测用 `npm test`（或扩展 `SFMC: Run Tests`），真机联调用扩展「SFMC Module」的 Watch / Reload。`sfmc mod test|watch` 已移除。
 
 目标：把「类型全绿、进服才翻日志」的故障前移到 `npm test`（堆栈落在模块源码）。
 
@@ -27,9 +27,9 @@
 | 操作对象 | `sb.objects.call(id, method, args)` | 调实例方法；未实现 → L0 硬失败 |
 | 事件触发 | `sb.events.emit(path, payload)` | 路径如 `world.afterEvents.playerJoin`；hub 清单见 `PLAYGROUND_META.events` |
 
-Sapience（及 SDK `playground-host` JSON-RPC）消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
+SDK `playground-host` JSON-RPC 可被外部工具消费同一套 API。快捷创建 / 每玩家聊天糖为后续轮次。
 
-世界模拟维度与「永不模拟」边界如下（与规格 §6 一致）。引擎边界见 `docs/superpowers/specs/2026-07-31-sfmc-testing-and-extension-design.md`（作史；IDE 脚本沙箱 Webview 已迁 Sapience）。真机联调用 Watch。
+世界模拟维度与「永不模拟」边界如下（与规格 §6 一致）。引擎边界见 `docs/superpowers/specs/2026-07-31-sfmc-testing-and-extension-design.md`（作史）。真机联调用 Watch。
 
 ## 世界模拟维度
 
@@ -144,7 +144,7 @@ test("命令冒烟", async (t) => {
 
 1. 安装推荐扩展：`ESLint`、`SFMC Module`、`nodejs-testing`（见模板 `.vscode/extensions.json`）。
 2. Testing 面板发现 `test/**/*.test.ts`（settings 已配好 loader）。
-3. 命令面板：`SFMC: Start Watch` / `Reload to BDS`；可视化编排用 **Sapience**。
+3. 命令面板：`SFMC: Start Watch` / `Reload to BDS`。
 4. 设置 `sfmc.root` 为 SFMC 工作目录（含 `configs/`、`modules/` 的运行时根，不必是源码仓库；Watch、Reload to BDS、模块启停都需要）。
 
 沙箱会读取模块 manifest v3 的 semantic 字段（若存在）。v2 manifest 会先迁移为 v3 内存结构；fixture 只补充模块未声明的 semantic，不覆盖模块自身定义。详细字段见 [模块开发](./module-author.md)。
