@@ -1,5 +1,21 @@
 # @sfmc-bds/tools
 
+## 0.2.0-beta.10
+
+### Patch Changes
+
+- 4fc6ef9: chore(tools): new-module 不再生成脚本沙箱剧本（`.sfmc/sandbox-script.json`）；README 改为 `npm test` + Sapience + Watch
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [f3ba416]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [3c07ced]
+  - @sfmc-bds/bds-tools@0.2.0-beta.9
+  - @sfmc-bds/sdk@0.2.0-beta.9
+
 ## 0.2.0-beta.9
 
 ### Patch Changes

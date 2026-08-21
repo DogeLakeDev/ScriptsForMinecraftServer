@@ -1,5 +1,24 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0-beta.9
+
+### Minor Changes
+
+- 89ffceb: Linux BDS 宿主：按平台解析可执行文件与下载 URL，启动时设置 LD_LIBRARY_PATH；argv start 在 POSIX 上 daemonize；pgrep 用 -x 避免误匹配
+- 89ffceb: QQ 事件推群（节流）：join/leave/death 约 1 分钟聚合；BDS 启停立即推；配置 `qq_events`；出站复用现有 MC→QQ 通道
+
+### Patch Changes
+
+- f3ba416: 游戏聊天互通：MC→QQ 仅转发 `bridge_channel_id` 匹配且非 `qq_` 回环的 messages；QQ 指令「频道」只读提示；扫描 `modules/packages` 时跟随 symlink（修复 `--link` 在 Linux 下被当成非目录）
+- 89ffceb: 群服互通支持 QQ 开放平台官方 Bot（双后端可切回 LLBot）
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [3c07ced]
+  - @sfmc-bds/sdk@0.2.0-beta.9
+
 ## 0.2.0-beta.8
 
 ### Minor Changes

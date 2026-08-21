@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/bds-tools",
-  "version": "0.2.0-beta.8",
+  "version": "0.2.0-beta.9",
   "description": "SFMC BDS auto-updater, lifecycle manager, and behavior-pack assembler",
   "author": "Shiroha7z",
   "license": "ISC",
@@ -64,7 +64,7 @@
     "watch": "node dist/bds-manager.js watch"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.8",
+    "@sfmc-bds/sdk": "^0.2.0-beta.9",
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.0"
   },
