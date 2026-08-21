@@ -15,6 +15,7 @@ export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/db-server": "packages/db-server/package.json",
   "@sfmc-bds/qq-bridge": "packages/qq-bridge/package.json",
   "@sfmc-bds/bds-tools": "packages/bds-tools/package.json",
+  "@sfmc-bds/devkit": "packages/devkit/package.json",
   "@sfmc-bds/tools": "packages/tools/package.json",
   "@sfmc-bds/sfmc": "packages/meta/package.json",
 };

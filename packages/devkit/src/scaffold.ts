@@ -1,5 +1,5 @@
 /**
- * 脚手架：委托 @sfmc-bds/tools/new-module（或 monorepo packages/tools/new-module.mjs）。
+ * 脚手架：委托 @sfmc-bds/devkit/scripts/new-module.mjs。
  */
 
 import { spawn } from "node:child_process";
@@ -19,16 +19,16 @@ export interface ScaffoldOptions {
 function resolveNewModuleScript(): string {
   const require = createRequire(import.meta.url);
   try {
-    return require.resolve("@sfmc-bds/tools/new-module.mjs");
+    return require.resolve("@sfmc-bds/devkit/new-module.mjs");
   } catch {
     /* monorepo 回退 */
   }
   const monoRoot = findMonorepoRoot(process.cwd());
   const mono = monoRoot
-    ? path.join(monoRoot, "packages", "tools", "new-module.mjs")
-    : path.resolve(process.cwd(), "packages/tools/new-module.mjs");
+    ? path.join(monoRoot, "packages", "devkit", "scripts", "new-module.mjs")
+    : path.resolve(process.cwd(), "packages/devkit/scripts/new-module.mjs");
   if (fs.existsSync(mono)) return mono;
-  throw new Error("无法解析 new-module.mjs（安装 @sfmc-bds/tools 或在 monorepo 根运行）");
+  throw new Error("无法解析 new-module.mjs（安装 @sfmc-bds/devkit 或在 monorepo 根运行）");
 }
 
 export async function scaffoldModule(opts: ScaffoldOptions): Promise<{ ok: boolean; message: string }> {

@@ -5,3 +5,10 @@
 ```ts
 import { startModuleWatch, rebuildAndDeploy, scaffoldModule } from "@sfmc-bds/devkit";
 ```
+
+脚手架 CLI：
+
+```bash
+npx sfmc-new-module my-mod --name "我的模块"
+# 或：node node_modules/@sfmc-bds/devkit/scripts/new-module.mjs …
+```

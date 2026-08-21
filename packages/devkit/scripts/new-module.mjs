@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * tools/new-module.mjs — 生成最小模块骨架（单包根）
+ * @sfmc-bds/devkit — 生成最小模块骨架（单包根）
  *
  * - 写入 **当前工作目录**（须为空）—— 与 Tanya7z/sfmc-module-template 同构
  * - 传入 `--root` / `SFMC_MODULES_ROOT` 会直接退出（sfmc-modules 仅为 index）
@@ -9,8 +9,8 @@
  *
  * Usage:
  *   mkdir my-mod && cd my-mod
- *   node tools/new-module.mjs my-mod --name "我的模块"
- *   node tools/new-module.mjs --list-templates
+ *   node packages/devkit/scripts/new-module.mjs my-mod --name "我的模块"
+ *   npx sfmc-new-module my-mod --name "我的模块"
  */
 
 import fs from "node:fs";
@@ -161,12 +161,12 @@ function buildManifest(folderId, displayName, template, schemaRel) {
     requires: [],
     permissions: [`config:read:${configKey}`],
     services: { provides: [], requires: [] },
-    notes: `由 tools/new-module.mjs 脚手架生成（template=${template}）`,
+    notes: `由 @sfmc-bds/devkit new-module 脚手架生成（template=${template}）`,
   };
   if (template === "db") {
     base.permissions = [`db:read:sfmc_${configKey}`, `db:write:sfmc_${configKey}`, `config:read:${configKey}`];
     base.notes =
-      `由 tools/new-module.mjs 脚手架生成（含 db 权限占位）。` +
+      `由 @sfmc-bds/devkit new-module 脚手架生成（含 db 权限占位）。` +
       `请在 sapi/manifest.json 中补全 routes/migrations，并实现 db 表。`;
   }
   return base;
@@ -221,7 +221,7 @@ function buildIndexTs(folderId, displayName, pkgName) {
   const perm = folderId.replace(/-/g, "_");
   return `/**
  * ${pkgName} — ${displayName}
- * 由 tools/new-module.mjs 脚手架生成。
+ * 由 @sfmc-bds/devkit new-module 脚手架生成。
  */
 
 import { ModuleRegistry, type ModuleDescriptor } from "@sfmc-bds/sdk/module-loader";

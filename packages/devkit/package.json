@@ -14,10 +14,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    }
+    },
+    "./new-module.mjs": "./scripts/new-module.mjs",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "sfmc-new-module": "./scripts/new-module.mjs"
   },
   "files": [
     "dist",
+    "scripts",
     "README.md"
   ],
   "scripts": {
@@ -27,7 +33,7 @@
   "dependencies": {
     "@sfmc-bds/bds-tools": "^0.2.0-beta.8",
     "@sfmc-bds/cli": "^0.2.0-beta.8",
-    "@sfmc-bds/tools": "^0.2.0-beta.9"
+    "@sfmc-bds/sdk": "^0.2.0-beta.8"
   },
   "publishConfig": {
     "access": "public",
