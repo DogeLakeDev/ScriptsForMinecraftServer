@@ -23,8 +23,8 @@ const state = readPreState();
 
 if (mode === "pre" && !pre) {
   console.error(
-    "[changeset] 当前不在 pre mode。正式发版请用 npm run release-packages；" +
-      "若要重新进入 beta: npx changeset pre enter beta"
+    "[changeset] 当前不在 pre mode。正式通道请先 `npx changeset pre exit`；" +
+      "日常发版走 CI（push main → Version PR）。若要重新进入 beta: npx changeset pre enter beta"
   );
   process.exit(1);
 }
@@ -32,7 +32,7 @@ if (mode === "pre" && !pre) {
 if (mode === "stable" && pre) {
   console.error(
     `[changeset] 仓库仍处于 pre mode (tag=${state?.tag ?? "beta"})。` +
-      `请用 npm run prerelease-packages，或达标后执行 npx changeset pre exit 再 release-packages。`
+      `达标后执行 npx changeset pre exit；日常发版走 CI Version PR。`
   );
   process.exit(1);
 }

@@ -11,16 +11,11 @@
 
 ```bash
 npm run verify                 # 平台集成自检（CI）
-npm run catalog-sync
-npm run check-modules
 npx sfmc-esbuild-transpile     # 各包 build
 npx tsc7 --noEmit              # typecheck
 npm run docs -- serve|build
 ```
 
-构建 bin 经 workspace 链接到根 `node_modules/.bin/`；包内脚本请用 bin 名，勿写 `../../../tools/...`。
+发版走 Changesets：**push `main` → Version Packages PR → 合并后 CI 自动 `ci-release-packages`**。本地一般不手动发。
 
-## 约定
-
-- 脚本一律 `.mjs` + `// @ts-check`
-- changeset / docs / pack-verify 等发版基建也在此目录，仅 CI / 维护者使用
+构建 bin 经 workspace 链接；包内脚本请用 bin 名，勿写 `../../../tools/...`。

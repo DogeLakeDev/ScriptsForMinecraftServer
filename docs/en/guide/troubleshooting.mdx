@@ -10,8 +10,6 @@ Pick a symptom and work through the steps; the full checklist below remains for 
 
 ```bash
 npm run verify
-npm run check-modules
-npm run catalog-sync
 ```
 
 ### db-server won't start
@@ -31,7 +29,7 @@ curl http://127.0.0.1:3001/api/health
 
 1. Read the load summary in the console and `<SFMC_ROOT>/.sfmc/logs/`
 2. Run `mod build` and check esbuild errors
-3. `npm run check-modules` (monorepo)
+3. In your SFMC root, confirm the module is `mod install`ed and enabled in lock
 4. Inbox conflicts blocking pre-start scan (see [Add-ons](./addons.md))
 
 ### Module enabled but no effect in-game

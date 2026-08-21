@@ -73,12 +73,9 @@ sfmc mod reload
 
 <ModuleCatalog />
 
-## 相关校验（monorepo）
+## 相关校验（用户 SFMC 根）
 
-```bash
-npm run catalog-sync
-npm run check-modules
-```
+模块安装与 catalog 投影由 `sfmc mod install` 完成（主仓不装业务模块）。
 
 官方模块服务清单见 [模块服务目录](../api/modules/index.md)。
 
