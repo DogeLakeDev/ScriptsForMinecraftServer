@@ -47,7 +47,9 @@ data/
 
 # agent tools
 memory/
-.cursor/
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
 .env
 .superpowers/
 
