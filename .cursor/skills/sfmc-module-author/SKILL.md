@@ -1,62 +1,54 @@
 ---
 name: sfmc-module-author
 description: >-
-  SFMC module authoring workflow: create with npm create @sfmc-bds/module,
-  test via createSandbox, link into SFMC_ROOT, watch/reload with the SFMC
-  Module extension and @sfmc-bds/devkit, then publish to npm + index.
-  Use when creating modules, scaffolding, mod install --link, watch, publish,
-  author vs operator surface, or when someone mentions sfmc mod test/watch/publish
-  (removed).
+  Current SFMC module authoring path: npm create @sfmc-bds/module, createSandbox
+  tests, link into SFMC_ROOT, extension Watch via @sfmc-bds/devkit, npm publish
+  plus sfmc-modules index. Use when creating or linking modules, authoring
+  SAPI packages, or choosing author vs ops tooling.
 ---
 
 # SFMC Module Author
 
-一模块一仓。主仓 `modules/packages/` 只是 **SFMC_ROOT 上的安装目标**，不是作者工作区。
+一模块一仓。人类权威文档：`docs/zh/dev/module-author.mdx`（与源码冲突时以文档 + 源码为准）。
 
-权威人类文档：`docs/zh/dev/module-author.mdx`（细节冲突时以文档 + 源码为准）。
+## 两面分工
 
-## 作者面 vs 运维面
-
-| 动作 | 作者面 | 运维面 |
-|------|--------|--------|
-| 建仓 | `npm create @sfmc-bds/module@latest` 或扩展 `SFMC: New Module` | — |
+| 动作 | 作者面 | 运维面（SFMC_ROOT） |
+|------|--------|---------------------|
+| 建仓 | `npm create @sfmc-bds/module@latest` 或 `SFMC: New Module` | — |
 | 单测 | `npm test` / `SFMC: Run Tests` | — |
-| 挂到工作目录 | 扩展 Link，或下方 `mod install --link` | 同左（在 SFMC_ROOT 执行） |
-| 改代码热部署 | 扩展 Watch（`@sfmc-bds/devkit`） | `sfmc mod build` / `reload` |
+| 挂到工作目录 | 扩展 Link，或 `mod install --link` | 同左 |
+| 源码部署 | 扩展 Watch（`@sfmc-bds/devkit`） | `sfmc mod build` / `reload` |
 | 启停 | — | `sfmc mod enable` / `disable` |
-| 发布 | 扩展 Publish 或 `npm publish` + index PR | `sfmc mod install <id>`（装已发布包） |
+| 发布 / 安装发布物 | 扩展 Publish 或 `npm publish` + index PR | `sfmc mod install <id>` |
 
-**已移除（勿再教）：** `sfmc mod test` / `mod watch` / `mod publish`；GitHub Template / `sfmc-new-module` / `rename.mjs`。
+建仓引擎：`@sfmc-bds/create-module`（CLI 与扩展共用 `createModule()`）。
 
-建仓唯一引擎：`@sfmc-bds/create-module`（CLI 与扩展同一 `createModule()`）。
-
-## 闭环清单
+## 闭环
 
 ```text
-Author loop:
-- [ ] Create：npm create @sfmc-bds/module@latest
-- [ ] npm install && npm test（假引擎，不依赖 sfmc.root / BDS）
-- [ ] Link 到 SFMC_ROOT
-- [ ] enable（若 lock 未开）
-- [ ] Watch 或 mod reload；进服终检
-- [ ] Publish → sfmc-modules index.json PR
+1. npm create @sfmc-bds/module@latest
+2. npm install && npm test
+3. Link 到 SFMC_ROOT → enable
+4. Watch 或 mod reload → 进服终检
+5. npm publish → sfmc-modules index.json PR
 ```
 
-### Link（在 SFMC_ROOT 执行）
-
-路径含空格或 `#` 时整段加引号；推荐正斜杠：
+### Link（在 SFMC_ROOT）
 
 ```bash
 sfmc mod install <id> --from "dir:<作者仓绝对路径>" --link
 sfmc mod enable <id>
 ```
 
-扩展：先设 `sfmc.root` = SFMC_ROOT，再 `SFMC: Link to SFMC Root`。
+扩展：`sfmc.root` = SFMC_ROOT，再执行 Link。路径含 `#` 或空格时整段加引号。
 
-### 热更边界
+### 部署边界
 
-- 只改 `sapi/src` → Watch / `mod reload` 通常够用。
-- 改 `manifest` / 平台 `configs` → **重启 BDS**。
+| 改动 | 生效 |
+|------|------|
+| `sapi/src` | Watch / `mod reload` |
+| `manifest`、平台 `configs` | 重启 BDS |
 
 ## 命名
 
@@ -68,7 +60,7 @@ sfmc mod enable <id>
 | `manifest.id` | `feature-<id>` 或 `core-<id>` | `feature-my-feature` |
 | `configKey` | `-` → `_` | `my_feature` |
 
-## 作者仓最小结构
+## 仓结构
 
 ```text
 my-feature/
@@ -78,13 +70,13 @@ my-feature/
 ├── sapi/
 │   ├── manifest.json
 │   ├── tsconfig.json
-│   └── src/index.ts      # ModuleRegistry.register + DESCRIPTOR
+│   └── src/index.ts    # ModuleRegistry.register + DESCRIPTOR
 └── test/
 ```
 
-入口须 `ModuleRegistry.register({ id, lifecycle })`。生命周期顺序：`registerPermissions` → `registerCommands` → `registerEvents` → `init`。
+`bootModule` 顺序：`registerPermissions` → `registerCommands` → `registerEvents` → `init`。
 
-## SDK 导入（模块只依赖这些）
+## 模块依赖面
 
 | 路径 | 用途 |
 |------|------|
@@ -95,25 +87,16 @@ my-feature/
 | `@sfmc-bds/sdk/testing` | `createSandbox` |
 | `@minecraft/*` | SAPI |
 
-禁止：legacy `HttpDB`；`player.sendMessage()`；import 他模块源码；读他模块私有表。
+跨模块：manifest 声明 + `service` / `tx`。消息用 `Msg.*`。
 
-## 测试要点
+## 测试与发布
 
-- 默认门禁：`npm test`（`createSandbox`，对齐宿主分相；沙箱内含 chat → `Command.trigger`）。
-- 未实现的 `@minecraft/*` API 会 **硬失败**（非静默 noop）→ 进服仍是终检。
-- 改 SDK mc-fake 生成物后：在 SDK 包执行 `npm run gen:mc-fake` 并提交 `testing/engine/generated/`。
-
-## 发布
-
-1. `npm publish --access public`（或扩展 Publish）
-2. 向 `sfmc-modules` 仓库 `index.json` 开 PR
-3. 服主：`sfmc mod install <id>`（默认走 npm）
-
-官方 scope `@sfmc-bds/*` 不对外部作者开放社区包命名空间。
+- 门禁：`npm test`（`createSandbox`；未实现的 `@minecraft/*` API 会硬失败）
+- 进服：Watch / 日志终检
+- 发布：`npm publish --access public` → `sfmc-modules` 的 `index.json` PR
+- 社区包用 `@<user>/sfmc-module-*`；官方包用 `@sfmc-bds/module-*`
 
 ## 相关
 
-- 平台进仓 / 三根路径 → `sfmc-onboarding`
-- 约定全文 → `docs/zh/dev/conventions.md`
-- 测试 → `docs/zh/dev/testing.md`
-- 发布 → `docs/zh/dev/publish.md`
+- 三根路径 → `sfmc-onboarding`
+- `docs/zh/dev/conventions.md` · `testing.md` · `publish.md`
