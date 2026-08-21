@@ -112,14 +112,18 @@ describe("listPublishableBuildOrder / Deps (DRY/OCP)", () => {
     assert.deepEqual([...order].sort(), [...keys].sort());
     assert.ok(order.indexOf("@sfmc-bds/sdk") < order.indexOf("@sfmc-bds/bds-tools"));
     assert.ok(order.indexOf("@sfmc-bds/bds-tools") < order.indexOf("@sfmc-bds/cli"));
-    assert.ok(order.indexOf("@sfmc-bds/bds-tools") < order.indexOf("@sfmc-bds/tools"));
+    assert.ok(order.indexOf("@sfmc-bds/cli") < order.indexOf("@sfmc-bds/devkit"));
   });
 
   it("listPublishableBuildDeps walks publishable dependency closure", () => {
     assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/sdk"), []);
     assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/db-server"), ["@sfmc-bds/sdk"]);
     assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/cli"), ["@sfmc-bds/sdk", "@sfmc-bds/bds-tools"]);
-    assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/tools"), ["@sfmc-bds/sdk", "@sfmc-bds/bds-tools"]);
+    assert.deepEqual(listPublishableBuildDeps("@sfmc-bds/devkit"), [
+      "@sfmc-bds/sdk",
+      "@sfmc-bds/bds-tools",
+      "@sfmc-bds/cli",
+    ]);
   });
 });
 

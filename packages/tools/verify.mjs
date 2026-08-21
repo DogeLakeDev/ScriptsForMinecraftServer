@@ -38,7 +38,7 @@ function printHelp() {
   --skip-isolated   跳过隔离 SFMC_ROOT 模拟
   -h, --help        显示帮助
 
-等价旧命令: check-ootb / smoke-modules / sim-new-user（已合并）`);
+平台集成自检（离线 + db + 隔离 SFMC_ROOT）`);
 }
 
 /**
