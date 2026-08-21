@@ -332,7 +332,14 @@ function createServices(): Record<ServiceName, Service> {
     "db_config",
     { ...DEFAULT_DB_CONFIG } as Record<string, unknown>
   ) as DBConfig;
-  const bdsPath = bdsCfg.bds_path ?? ROOT;
+  const rawBdsPath = String(bdsCfg.bds_path ?? "").trim();
+  if (process.platform !== "win32" && /^[A-Za-z]:[\\/]/.test(rawBdsPath)) {
+    throw new Error(
+      `configs/bds_updater.json 的 bds_path 是 Windows 路径（${rawBdsPath}）。` +
+        `请改成相对 SFMC_ROOT 的路径，例如 "BDS"。`
+    );
+  }
+  const bdsPath = path.resolve(ROOT, rawBdsPath || ".");
   const useLlbotBackend = qqCfg.qq_backend === "llbot";
   const qqEnabled = qqCfg.qq_enabled !== false;
   const llbotEnabled = qqCfg.llbot_enabled !== false;
@@ -342,7 +349,7 @@ function createServices(): Record<ServiceName, Service> {
   const dbPort = dbCfg.db_port ?? 3001;
   dbHealthPort = dbPort;
   qqBackendMode = useLlbotBackend ? "llbot" : "official";
-  const bdsExe = bdsExePath(path.resolve(bdsPath));
+  const bdsExe = bdsExePath(bdsPath);
   const qqTitle = useLlbotBackend ? "QQ (llbot)" : "QQ (official)";
 
   return {
