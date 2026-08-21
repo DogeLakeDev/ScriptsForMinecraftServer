@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/devkit",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "SFMC module authoring toolkit — watch, scaffold, rebuild (for VS Code extension & tooling)",
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "^0.2.0-beta.8",
-    "@sfmc-bds/cli": "^0.2.0-beta.8",
+    "@sfmc-bds/cli": "^0.2.0-beta.10",
     "@sfmc-bds/sdk": "^0.2.0-beta.8"
   },
   "publishConfig": {
