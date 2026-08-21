@@ -75,3 +75,5 @@ ScriptsForMinecraftServer.code-workspace
 # 临时测试文件
 _sm_test.ts
 _sm_test.*.ts
+.narrafork/
+.worktrees/
