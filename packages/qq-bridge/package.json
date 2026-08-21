@@ -3,7 +3,7 @@
   "version": "0.2.0-beta.4",
   "description": "SFMC QQ ↔ MC bridge — official QQ Open Platform Bot and/or LLBot OneBot 11",
   "author": "Shiroha7z",
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/qq-bridge#readme",
   "repository": {

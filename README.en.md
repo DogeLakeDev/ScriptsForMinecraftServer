@@ -191,12 +191,16 @@ CheckNetIsolation LoopbackExempt -is -n=Microsoft.MinecraftUWP_8wekyb3d8bbwe
 
 ## License
 
-[AGPL-3.0](./LICENSE)
+The platform is under [AGPL-3.0](./LICENSE). Per-package SPDX identifiers: [LICENSES.md](./LICENSES.md).
+
+| Kind | License | Examples |
+|------|---------|----------|
+| Author libraries | **ISC** | `@sfmc-bds/sdk`, `@sfmc-bds/eslint-plugin` |
+| Platform & services | **AGPL-3.0-only** | `cli`, `db-server`, `qq-bridge`, `bds-tools`, `@sfmc-bds/sfmc` |
 
 - **Freedom**: You may run, copy, distribute, and modify the program, provided those freedoms are preserved.
-- **Copyleft**: If you distribute a modified version, you must provide the complete Corresponding Source under the same license (AGPL v3).
-- **Source**: Corresponding Source must include all scripts, interface definitions, shared libraries, etc. needed for others to rebuild and modify.
-- **Additional terms**: You may add further permissions, but not further restrictions (section 7).
+- **Copyleft (AGPL parts)**: If you distribute modified **platform/service** builds, you must provide Corresponding Source under the same license.
+- **Module repos**: Business modules in separate repos declare their own license; using the ISC SDK does not automatically AGPL-license your module.
 
 ---
 > ⚠️ AI Assistance Disclaimer

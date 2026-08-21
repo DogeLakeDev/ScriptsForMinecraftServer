@@ -44,7 +44,7 @@
   ],
   "semverGroups": [
     {
-      "label": "根仓 @minecraft/* 锁死 preview 精确版本（与 overrides 一致）",
+      "label": "@minecraft/*  preview",
       "dependencies": ["@minecraft/**"],
       "range": ""
     },

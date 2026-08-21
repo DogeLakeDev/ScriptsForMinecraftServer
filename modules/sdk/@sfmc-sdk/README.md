@@ -89,4 +89,4 @@ node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm tes
 
 ## License
 
-ISC
+ISC — see [LICENSE](./LICENSE). Platform monorepo overview: [LICENSES.md](../../../LICENSES.md).

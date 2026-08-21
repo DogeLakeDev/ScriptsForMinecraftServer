@@ -3,6 +3,7 @@
   "displayName": "SFMC Module",
   "description": "SFMC 模块作者工具：脚手架、Watch、编译与 Reload；依赖官方 ESLint 扩展以消费 @sfmc-bds/eslint-plugin",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "publisher": "sfmc-bds",
   "engines": {
     "vscode": "^1.85.0"

@@ -51,6 +51,9 @@ jobs:
           npm ci
           npm ci --prefix website
 
+      - name: Build workspaces
+        run: npm run build --workspaces --if-present
+
       - name: Build docs (Rspress + TypeDoc)
         run: npm run docs -- build
 

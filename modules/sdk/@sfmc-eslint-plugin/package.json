@@ -3,7 +3,7 @@
   "version": "0.1.1-beta.2",
   "description": "ESLint rules for SFMC SDK / module authoring conventions (Msg API, import paths, ModuleRegistry).",
   "author": "Shiroha7z",
-  "license": "AGPL-3.0-only",
+  "license": "ISC",
   "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/modules/sdk/@sfmc-eslint-plugin#readme",
   "repository": {
@@ -35,6 +35,7 @@
   },
   "files": [
     "dist",
+    "LICENSE",
     "README.md"
   ],
   "scripts": {

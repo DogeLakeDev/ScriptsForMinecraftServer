@@ -3,7 +3,7 @@
   "version": "0.2.0-beta.9",
   "description": "SFMC BDS auto-updater, lifecycle manager, and behavior-pack assembler",
   "author": "Shiroha7z",
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/bds-tools#readme",
   "repository": {

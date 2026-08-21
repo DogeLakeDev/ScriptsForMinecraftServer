@@ -16,7 +16,6 @@
     "changeset": "changeset",
     "check-modules": "node packages/tools/check-modules.mjs",
     "check-ootb": "node packages/tools/verify.mjs",
-    "verify": "node packages/tools/verify.mjs",
     "ci-release-packages": "node packages/tools/run-release.mjs --ci",
     "docs": "node packages/tools/docs.mjs",
     "lint": "npm run build --workspace @sfmc-bds/eslint-plugin && eslint .",
@@ -26,8 +25,8 @@
     "smoke-modules": "node packages/tools/verify.mjs",
     "start": "node packages/cli/dist/main.js",
     "syncpack:fix": "node packages/tools/syncpack-fix.mjs",
-    "syncpack:lint": "syncpack lint",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify": "node packages/tools/verify.mjs",
     "version-packages": "changeset version"
   },
   "devDependencies": {
