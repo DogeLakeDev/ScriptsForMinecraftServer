@@ -3,9 +3,9 @@
 /**
  * tools/run-release.mjs — 一键发版编排（替代根 package.json 里一长串 run-s）
  *
- *   node tools/run-release.mjs --pre      # 本地 beta：assert → … → publish → gh prerelease
- *   node tools/run-release.mjs --stable  # 本地正式：assert → … → publish → gh latest
- *   node tools/run-release.mjs --ci      # CI：仅 publish → tag → push → gh（版本已 bump）
+ *   node packages/tools/run-release.mjs --ci      # CI：publish → tag → push → gh（版本已 bump）
+ *   node packages/tools/run-release.mjs --pre     # 应急本地 beta（日常请走 CI Version PR）
+ *   node packages/tools/run-release.mjs --stable  # 应急本地正式
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -24,9 +24,9 @@ const mode = process.argv.includes("--ci")
 
 if (!mode) {
   console.error(`用法:
-  node packages/tools/run-release.mjs --pre      # beta 本地一键发版
-  node packages/tools/run-release.mjs --stable  # 正式本地一键发版
-  node packages/tools/run-release.mjs --ci      # CI：publish + tag + push + gh release`);
+  node packages/tools/run-release.mjs --ci      # CI / npm run ci-release-packages
+  node packages/tools/run-release.mjs --pre     # 应急本地 beta（日常请走 CI）
+  node packages/tools/run-release.mjs --stable  # 应急本地正式`);
   process.exit(2);
 }
 

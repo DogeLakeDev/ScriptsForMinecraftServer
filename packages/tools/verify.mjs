@@ -3,8 +3,7 @@
 /**
  * tools/verify.mjs — 平台集成自检（主仓唯一 CI 门禁）
  *
- * 主仓默认无业务模块：不测 catalog-sync；已装包时 check-modules 校验 catalog 一致性。
- * 一次 db 生命周期覆盖平台 API + 模块 REST（有模块时才 enable/disable）。
+ * 主仓默认无业务模块（业务装在独立环境）。
  *
  * 用法:
  *   node packages/tools/verify.mjs              # 全量（离线 + db + 隔离 SFMC_ROOT）
@@ -34,7 +33,7 @@ function printHelp() {
   console.log(`用法: node packages/tools/verify.mjs [选项]
 
 选项:
-  --offline         仅离线检查（Node、文件、schema、configs、check-modules、CLI）
+  --offline         仅离线检查（Node、文件、schema、configs、CLI）
   --skip-isolated   跳过隔离 SFMC_ROOT 模拟
   -h, --help        显示帮助
 

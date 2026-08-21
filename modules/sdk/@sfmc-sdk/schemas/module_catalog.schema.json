@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/module_catalog.schema.json",
   "title": "SFMC module catalog",
-  "description": "modules/catalog.json 本地 mirror；权威源为 github:Tanya7z/sfmc-modules。安装/卸载后请用 catalog-sync 或 fetch-module 投影。",
+  "description": "modules/catalog.json 本地 mirror；权威源为 github:Tanya7z/sfmc-modules。安装/卸载后由 fetch-module（sfmc mod install）投影。",
   "type": "object",
   "additionalProperties": false,
   "properties": {

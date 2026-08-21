@@ -1,22 +1,19 @@
 // @ts-check
 /**
- * 离线阶段：Node、仓库文件、schema、configs 播种、已装模块 catalog 一致性
+ * 离线阶段：Node、仓库文件、schema、configs 播种、CLI / fetch-module 冒烟
  *
- * 主仓默认无业务模块 — 不自动 catalog-sync；仅当 packages/ 有目录时校验 catalog。
+ * 主仓默认无业务模块 — 不做 catalog-sync / check-modules。
  */
 import path from "node:path";
 import process from "node:process";
 import { NPM_PUBLISH_PACKAGES, assertPublishPackageInWorkspaces } from "../npm-publish-packages.mjs";
 import { exists } from "../io.mjs";
 import {
-  CONFIGS_DIR,
   FETCH_MODULE,
   ROOT,
   SFMC_DIST,
-  TOOLS_PKG_DIR,
 } from "../paths.mjs";
 import { runSync } from "../proc.mjs";
-import { runCheckModules } from "../../check-modules.mjs";
 import { coreConfigsReady, seedCoreConfigs } from "./seed-configs.mjs";
 
 const SCHEMA_FILES = [
@@ -50,8 +47,6 @@ export function runOfflinePhase(reporter) {
       "modules/catalog.json",
       "packages/tools/verify.mjs",
       "packages/cli/scripts/module-install/fetch-module.mjs",
-      "packages/tools/catalog-sync.mjs",
-      "packages/tools/check-modules.mjs",
       ...Object.values(NPM_PUBLISH_PACKAGES),
     ];
     const missing = required.filter((f) => !exists(path.join(ROOT, f)));
@@ -86,12 +81,6 @@ export function runOfflinePhase(reporter) {
     const ready = coreConfigsReady(ROOT);
     if (ready.ok) reporter.pass("configs/ 核心文件齐全");
     else reporter.fail("configs/ 核心文件齐全", ready.error);
-  }
-
-  {
-    const check = runCheckModules();
-    if (check.ok) reporter.pass(check.summary ?? "check-modules 通过");
-    else reporter.fail("check-modules", check.error ?? "未知错误");
   }
 
   {
