@@ -21,7 +21,6 @@ npm workspaces 单体仓库（根 `package.json` 的 `workspaces`）。
 | `packages/devkit/` | 作者 Watch / scaffold（`@sfmc-bds/devkit`） | Node.js |
 | `packages/sfmc-extension/` | VS Code/Cursor 扩展「SFMC Module」 | — |
 | `packages/tools/` | 自检、fetch、catalog、docs、release 脚本 | Node.js |
-| `packages/remote-controller/` | 远程 agent | Node.js |
 
 **目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块。勿混淆。
 

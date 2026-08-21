@@ -44,11 +44,10 @@ Top-level shortcuts: `install` / `uninstall` / `search` / `verify` ≡ `mod …`
 | `packs bump <id>` | Bump RP version |
 | `packs doctor` / `packs path` | Diagnose / paths |
 
-## Remote control · general
+## General
 
 | Command | Purpose |
 | ------ | ------ |
-| `remote enroll \| status \| disable` | See [Remote control](./remote.md) |
 | `locale` | UI language |
 | `version` | Version |
 | `help` | Help |

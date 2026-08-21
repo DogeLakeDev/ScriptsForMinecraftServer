@@ -8,13 +8,12 @@ import { ensureCoreConfigs, configDir } from "@sfmc-bds/sdk/node/config";
 import { CONFIGS_DIR, ROOT } from "../paths.mjs";
 import { exists } from "../io.mjs";
 
-const CORE_KINDS = ["db_config", "qq_config", "bds_updater", "permissions", "remote"];
+const CORE_KINDS = ["db_config", "qq_config", "bds_updater", "permissions"];
 const CORE_FILES = [
   "db_config.json",
   "qq_config.json",
   "bds_updater.json",
   "permissions.json",
-  "remote.json",
 ];
 
 /**

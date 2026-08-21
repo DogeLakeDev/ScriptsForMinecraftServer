@@ -67,10 +67,6 @@ export const zhCN: Record<MessageKey, string> = {
   "help.send": "向服务发送命令（Tab 切换目标；QQ 提示符区分 official / llbot）",
   "help.section.update": "  BDS 更新 ──────",
   "help.update": "检查BDS 更新",
-  "help.section.remote": "  远程控制 ──────",
-  "help.remote.status": "远程控制注册状态",
-  "help.remote.enroll": "向控制器注册",
-  "help.remote.disable": "断开远程控制",
   "help.section.debug": "  调试 ──────",
   "help.debug.status": "SFMC_DEBUG 状态",
   "help.debug.toggle": "开关 SFMC_DEBUG",
@@ -183,13 +179,6 @@ export const zhCN: Record<MessageKey, string> = {
   "svc.bdsAlreadyRunning": "BDS 已在运行（{kind}，PID {pid}）",
   "svc.stdinUnavailable": "{title} 由外部启动，无法通过 stdin 发送命令",
   "svc.stoppedExternal": "{title} 已停止（外部进程）",
-
-  /* ─── 远程控制 ─── */
-  "remote.enrolled": "已注册远程控制: {id}",
-  "remote.disabled": "远程控制已禁用",
-  "remote.usage": "用法: remote enroll <controller-url> <enrollment-token> [name] | remote status | remote disable",
-  "remote.usageShort":
-    "用法: remote enroll <controller-url> <enrollment-token> [name] | remote status | remote disable",
 
   /* ─── 初始化 ─── */
   "wizard.intro": "初始化",

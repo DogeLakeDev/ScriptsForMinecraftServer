@@ -19,7 +19,6 @@ import {
   type CommandMode,
 } from "./command-surface.js";
 import { cmdRestart, cmdSend, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
-import { cmdRemote } from "./cmd-remote.js";
 import { cmdDebug } from "./debug-command.js";
 import { getHelp as buildHelp } from "./help-text.js";
 import { t } from "./i18n/index.js";
@@ -42,7 +41,6 @@ import {
   listInstalledModuleIdsSync,
 } from "./module-commands.js";
 import { listRegistryModuleIdsSync } from "./registry.js";
-import { stopRemoteAgent } from "./remote-agent.js";
 import {
   createLogsFilterWindow,
   createServiceWindow,
@@ -358,9 +356,6 @@ function getCompletions(parsed: ParsedLine): string[] {
       return [];
     case "update":
       return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
-    case "remote":
-      if (argIndex === 0) return ["status", "enroll", "disable"].filter(sw);
-      return [];
     case "packs":
     case "addon":
       if (argIndex === 0) return [...listVisiblePacksSubs(REPL_MODE)].filter(sw);
@@ -818,7 +813,6 @@ export async function startRepl(): Promise<void> {
   const onSigint = (): void => {
     stdout.write(c.yellow("\n" + t("repl.forceStop") + "\n"));
     forceStopAll();
-    stopRemoteAgent();
     process.exit(130);
   };
   const shutdown = async (): Promise<void> => {
@@ -828,7 +822,6 @@ export async function startRepl(): Promise<void> {
     openLogsWindowHook = null;
     stdout.write(c.dim(t("repl.stopping") + "\n"));
     await stopAll();
-    stopRemoteAgent();
     try {
       setRaw(false);
       stdin.pause();
@@ -1158,9 +1151,6 @@ async function execCmd(parts: string[]): Promise<void> {
       break;
     case "debug":
       stdout.write((await cmdDebug(args)) + "\n");
-      break;
-    case "remote":
-      stdout.write((await cmdRemote(args, { daemonAfterEnroll: false })) + "\n");
       break;
     case "init": {
       const wasRaw = stdin.isRaw ?? false;

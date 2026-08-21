@@ -14,7 +14,6 @@
 | `pack-update.json` | 附加包 CurseForge 更新（用法见 [附加包](./addons.md)） |
 | `log-filter.json` | 日志过滤 |
 | `permissions.json` | 权限表 |
-| `remote.json` | 远程控制代理（见 [远程控制](./remote.md)） |
 | `packs/pack-sources.json` | 附加包更新源绑定 |
 
 ## 模块配置

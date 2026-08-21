@@ -70,10 +70,6 @@ export const en = {
   "help.send": "Send command to a service (Tab cycles targets; QQ prompt shows official / llbot)",
   "help.section.update": "─── BDS Update ───",
   "help.update": "Check / apply BDS update",
-  "help.section.remote": "─── Remote Agent ───",
-  "help.remote.status": "Show enrollment status",
-  "help.remote.enroll": "Enroll with a controller",
-  "help.remote.disable": "Disconnect + disable agent",
   "help.section.debug": "─── BDS debug ───",
   "help.debug.status": "View sfmc_debug / SENTRY_DSN state",
   "help.debug.toggle": "Toggle sfmc_debug",
@@ -186,14 +182,6 @@ export const en = {
   "svc.bdsAlreadyRunning": "BDS already running ({kind}, PID {pid})",
   "svc.stdinUnavailable": "{title} was started externally; stdin commands unavailable",
   "svc.stoppedExternal": "{title} stopped (external process)",
-
-  /* ─── remote ─── */
-  "remote.enrolled": "Enrolled remote agent: {id}",
-  "remote.disabled": "Remote agent disabled",
-  "remote.usage":
-    "Usage: sfmc remote enroll <controller-url> <enrollment-token> [name] | sfmc remote status | sfmc remote disable",
-  "remote.usageShort":
-    "Usage: remote enroll <controller-url> <enrollment-token> [name] | remote status | remote disable",
 
   /* ─── wizard ─── */
   "wizard.intro": "Setup Wizard =D",

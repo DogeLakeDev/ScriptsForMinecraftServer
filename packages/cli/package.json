@@ -55,8 +55,7 @@
     "@clack/prompts": "^1.7.0",
     "@sfmc-bds/bds-tools": "^0.2.0-beta.8",
     "@sfmc-bds/sdk": "^0.2.0-beta.8",
-    "chalk": "^6.0.0",
-    "ws": "^8.21.1"
+    "chalk": "^6.0.0"
   },
   "publishConfig": {
     "access": "public",

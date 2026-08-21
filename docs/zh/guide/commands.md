@@ -44,11 +44,10 @@
 | `packs bump <id>` | RP 抬版 |
 | `packs doctor` / `packs path` | 诊断 / 路径 |
 
-## 远程控制 · 通用
+## 通用
 
 | 命令 | 作用 |
 | ------ | ------ |
-| `remote enroll \| status \| disable` | 见 [远程控制](./remote.md) |
 | `locale` | 界面语言 |
 | `version` | 版本 |
 | `help` | 帮助 |

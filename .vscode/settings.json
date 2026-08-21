@@ -25,10 +25,6 @@
       "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/log_filter.schema.json"
     },
     {
-      "fileMatch": ["**/configs/remote.json"],
-      "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/remote.schema.json"
-    },
-    {
       "fileMatch": ["**/packs/pack-sources.json"],
       "url": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/pack_sources.schema.json"
     },

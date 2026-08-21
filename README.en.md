@@ -125,7 +125,6 @@ ScriptsForMinecraftServer/
 │   ├── qq-bridge/             QQ bridge (LLBot OneBot 11)
 │   ├── cli/                   REPL management CLI (npm @sfmc-bds/cli)
 │   ├── meta/                  @sfmc-bds/sfmc aggregate package
-│   ├── remote-controller/     Remote agent
 │   ├── tools/                 self-check + build + fetch-module.mjs
 │   ├── devkit/                author Watch / scaffold (@sfmc-bds/devkit)
 │   └── sfmc-extension/        VS Code/Cursor extension「SFMC Module」

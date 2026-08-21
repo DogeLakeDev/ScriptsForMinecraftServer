@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { mapPacksSubAlias, parseGlobalArgv } from "./argv-parse.js";
-import { cmdRemote } from "./cmd-remote.js";
 import { cmdRestart, cmdStart, cmdStartAll, cmdStatus, cmdStop, cmdStopAll, cmdUpdate } from "./commands.js";
 import { gateModuleSub, gatePacksSub, gateTopLevel } from "./cli-gate.js";
 import { resolveModuleTopShorthand } from "./command-surface.js";
@@ -9,7 +8,6 @@ import { cmdDebug } from "./debug-command.js";
 import { initLocale, stripLangArgs, t } from "./i18n/index.js";
 import { cmdLocale } from "./locale-command.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
-import { startRemoteAgent } from "./remote-agent.js";
 import { getHelp, playWelcomeAnimation, startRepl } from "./repl.js";
 import { ROOT } from "./runtime.js";
 import { setArgvDaemonize } from "./services.js";
@@ -50,7 +48,6 @@ async function main(): Promise<void> {
     }
     const warn = await scanAndWarnUnknown();
     if (warn) console.log(warn);
-    startRemoteAgent();
     await startRepl();
     return;
   }
@@ -148,9 +145,6 @@ async function main(): Promise<void> {
       await runWizard();
       break;
     }
-    case "remote":
-      console.log(await cmdRemote(rest, { daemonAfterEnroll: true }));
-      break;
     default:
       if (isModuleCommand(cmd)) {
         const [sub, ...subRest] = rest;

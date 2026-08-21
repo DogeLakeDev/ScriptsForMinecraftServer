@@ -14,7 +14,6 @@ The workspace [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsFo
 | `pack-update.json` | CurseForge add-on updates (see [Add-ons](./addons.md)) |
 | `log-filter.json` | Log filtering |
 | `permissions.json` | Permission table |
-| `remote.json` | Remote control agent (see [Remote control](./remote.md)) |
 | `packs/pack-sources.json` | Add-on update source bindings |
 
 ## Module configs

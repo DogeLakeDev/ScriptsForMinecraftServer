@@ -51,4 +51,3 @@ flowchart LR
 | [配置](./config.md) | `configs/` 文件 |
 | [模块](./modules.md) | 启停与行为包装配 |
 | [附加包](./addons.md) | 收件箱与第三方包 |
-| [远程控制](./remote.md) | `remote enroll` |

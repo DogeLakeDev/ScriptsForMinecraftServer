@@ -112,12 +112,6 @@ ${c.bold(t("help.section.update"))}
 ${helpLine(`${p(mode, "update")} [--check-only] [--channel=…]`, t("help.update"))}
 `
       : "";
-    const remote = show("remote")
-      ? `
-${c.bold(t("help.section.remote"))}  ${c.dim("[beta]")}
-${helpLine(`${p(mode, "remote")} status|enroll|disable`, "")}
-`
-      : "";
     const debug = show("debug")
       ? `
 ${c.bold(t("help.section.debug"))}
@@ -139,7 +133,7 @@ ${c.bold("╰──────────────────────�
 ${usage}${options}
 ${c.bold(t("help.section.service"))}
 ${service}
-${update}${remote}${debug}${install}${addon}
+${update}${debug}${install}${addon}
 ${c.bold(t("help.section.general"))}
 ${general}
 `;

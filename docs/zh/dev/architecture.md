@@ -74,7 +74,6 @@ ModuleRegistry.register({
 | `packages/devkit/` | 作者 Watch / scaffold（`@sfmc-bds/devkit`） |
 | `packages/sfmc-extension/` | VS Code/Cursor 扩展 |
 | `packages/tools/` | 自检、fetch、catalog |
-| `packages/remote-controller/` | 远程 agent |
 
 **目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块。
 

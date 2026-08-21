@@ -499,7 +499,7 @@ async function reconcileManagedAlive(service: Service): Promise<boolean> {
 
 /**
  * 统一运行态查询（权威入口）：OS/健康探测 + 回写 Service 内存标志。
- * status / Tab 发送目标 / remote / reload 等均应走此接口，勿直接读 `service.running`。
+ * status / Tab 发送目标 / reload 等均应走此接口，勿直接读 `service.running`。
  */
 export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
   return Promise.all(

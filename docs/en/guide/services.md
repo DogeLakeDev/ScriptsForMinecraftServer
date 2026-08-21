@@ -51,4 +51,3 @@ Manual build: `mod build`. Dev reload: `mod reload`. Details: [Modules](./module
 | [Configuration](./config.md) | `configs/` files |
 | [Modules](./modules.md) | Enable/disable and behavior pack |
 | [Add-ons](./addons.md) | Inbox and third-party packs |
-| [Remote control](./remote.md) | `remote enroll` |

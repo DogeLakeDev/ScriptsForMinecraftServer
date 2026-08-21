@@ -106,15 +106,6 @@ export interface RuntimeConfig {
   [key: string]: unknown;
 }
 
-/** 远程控制代理配置（`configs/remote.json`）。 */
-export interface RemoteConfig {
-  enabled?: boolean;
-  controller_url?: string;
-  agent_id?: string;
-  agent_secret?: string;
-  [key: string]: unknown;
-}
-
 /** 模块启停锁（`modules/module-lock.json`）。 */
 export interface ModuleLock {
   version?: number;
@@ -144,7 +135,6 @@ export type ConfigSchemaId =
   | "bds_updater"
   | "permissions"
   | "pack_update"
-  | "remote"
   | "pack_sources"
   | "module_catalog"
   | "log_filter";
@@ -243,14 +233,6 @@ export const DEFAULT_BDS_UPDATER_CONFIG: BdsUpdaterConfig = {
 /** permissions.json 根为数组；默认空表 */
 export const DEFAULT_PERMISSIONS: PermissionsConfig = [];
 
-/** remote.json 骨架（enroll 前） */
-export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
-  enabled: false,
-  controller_url: "",
-  agent_id: "",
-  agent_secret: "",
-};
-
 /**
  * 仓顶服务读写的所有配置 JSON 文件名。
  * 用字面量 union 防止拼写错误并提供 IDE 补全。
@@ -262,8 +244,7 @@ export type ConfigName =
   | "bds_updater.json"
   | "pack-update.json"
   | "log-filter.json"
-  | "runtime.json"
-  | "remote.json";
+  | "runtime.json";
 
 /**
  * 模块系统文件(不在 configs/ 下,但同属"项目根 + 仓顶服务管理"的范畴)。
@@ -468,7 +449,7 @@ export function loadEnsuredConfig<T extends Record<string, unknown>>(
 }
 
 /** 平台核心配置种子集合（扩展新文件时只改此处 + switch） */
-export type CoreConfigKind = "db_config" | "qq_config" | "bds_updater" | "permissions" | "remote";
+export type CoreConfigKind = "db_config" | "qq_config" | "bds_updater" | "permissions";
 
 /**
  * 按需 ensure 平台核心配置。新种类加到 CoreConfigKind + switch 即可（OCP）。
@@ -494,11 +475,6 @@ export function ensureCoreConfigs(root: string, kinds: readonly CoreConfigKind[]
         break;
       case "permissions":
         ensureJson(configPath(root, "permissions.json"), DEFAULT_PERMISSIONS);
-        break;
-      case "remote":
-        ensureSchemaConfig(root, "remote.json", "remote", {
-          ...DEFAULT_REMOTE_CONFIG,
-        } as Record<string, unknown>);
         break;
       default: {
         const _exhaustive: never = kind;
