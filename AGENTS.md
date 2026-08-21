@@ -169,7 +169,6 @@ npm run start                    # sfmc CLI REPL
 npm run lint                     # 先 build eslint-plugin，再 eslint .
 npm run typecheck
 npm run verify                   # 平台集成自检（CI 默认）
-npm run catalog-sync             # 装模块后投影 catalog（维护命令）
 npm run syncpack:lint
 ```
 
@@ -215,9 +214,7 @@ npm start -- update
 
 ```bash
 node packages/tools/verify.mjs
-node packages/tools/catalog-sync.mjs
-node packages/tools/check-modules.mjs
-sfmc mod install <id>
+sfmc mod install <id>   # 在独立 SFMC 根，非主仓
 ```
 
 ## SAPI debug 与 Sentry

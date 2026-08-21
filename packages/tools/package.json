@@ -1,39 +1,37 @@
-{
-  "name": "@sfmc-bds/tools",
-  "version": "0.2.0-beta.10",
-  "private": true,
-  "description": "SFMC monorepo-only scripts — verify, catalog-sync, release, build bins (not published to npm)",
-  "author": "Shiroha7z",
-  "license": "AGPL-3.0-only",
-  "type": "module",
-  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/tools#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
-    "directory": "packages/tools"
-  },
-  "bugs": {
-    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
-  },
-  "engines": {
-    "node": ">=22.13.0"
-  },
-  "exports": {
-    "./package.json": "./package.json",
-    "./tsc7": "./tsc7.mjs"
-  },
-  "bin": {
-    "sfmc-catalog-sync": "./catalog-sync.mjs",
-    "sfmc-check-modules": "./check-modules.mjs",
-    "sfmc-esbuild-transpile": "./esbuild-transpile.mjs",
-    "sfmc-verify": "./verify.mjs",
-    "tsc7": "./tsc7.mjs"
-  },
-  "scripts": {
-    "build": "node -e \"process.exit(0)\""
-  },
-  "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.9",
-    "@sfmc-bds/sdk": "^0.2.0-beta.9"
-  }
-}
+{
+  "name": "@sfmc-bds/tools",
+  "version": "0.2.0-beta.10",
+  "private": true,
+  "description": "SFMC monorepo-only scripts — verify, docs, release, build bins (not published to npm)",
+  "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "packages/tools"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    "./tsc7": "./tsc7.mjs"
+  },
+  "bin": {
+    "sfmc-esbuild-transpile": "./esbuild-transpile.mjs",
+    "sfmc-verify": "./verify.mjs",
+    "tsc7": "./tsc7.mjs"
+  },
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.9",
+    "@sfmc-bds/sdk": "^0.2.0-beta.9"
+  }
+}

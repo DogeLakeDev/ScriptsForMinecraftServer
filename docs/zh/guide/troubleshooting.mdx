@@ -10,8 +10,6 @@
 
 ```bash
 npm run verify
-npm run check-modules
-npm run catalog-sync
 ```
 
 ### db-server 起不来
@@ -31,7 +29,7 @@ curl http://127.0.0.1:3001/api/health
 
 1. 看控制台装载摘要与 `<SFMC_ROOT>/.sfmc/logs/`
 2. `mod build` 看 esbuild 是否报错
-3. `npm run check-modules`（monorepo）
+3. 独立 SFMC 根下确认模块已 `mod install` 且 lock 为 enabled
 4. 收件箱冲突是否挡住启动前扫描（见 [附加包](./addons.md)）
 
 ### 模块已 enable 但游戏里没效果

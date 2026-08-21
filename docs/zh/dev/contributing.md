@@ -34,8 +34,6 @@ npm run verify
 | 命令 | 说明 |
 | ------ | ------ |
 | `npm run verify` | 平台集成自检 |
-| `npm run catalog-sync` | packages → catalog |
-| `npm run check-modules` | catalog + manifest |
 
 ### 文档
 
@@ -57,11 +55,10 @@ npx syncpack format --check
 
 | 命令 | 说明 |
 | ------ | ------ |
-| `npm run changeset` | 添加 changeset |
-| `npm run prerelease-packages` | 本地 beta 一键 |
-| `npm run pack:verify` | `npm pack` 冒烟 |
+| `npm run changeset` | 添加 changeset；push `main` 后 CI 开 Version PR |
+| `npm run pack:verify` | 可选：`npm pack` 冒烟 |
 
-当前 **beta-only**。模块作者发包见 [发布你的模块](./publish.md) 附录。
+日常发版：**合并 Version PR 即可**，无需本地 `prerelease` / `release`。当前 **beta-only**。模块作者发包见 [发布你的模块](./publish.md)。
 
 ## 仓库规则
 

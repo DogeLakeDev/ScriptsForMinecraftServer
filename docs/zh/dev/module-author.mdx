@@ -185,7 +185,7 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
 
 ### 兼容性与迁移
 
-- **v2 → v3 自动迁移**：沙箱与 `check-modules` 都内置自动 migrate（`migrateV2toV3`）。v2 manifest 加载时直接补 `schemaVersion: 3`、保留所有原有字段，`semantic` 视为空。
+- **v2 → v3 自动迁移**：沙箱与 CLI `check-modules`（`mod install` 后）都内置自动 migrate（`migrateV2toV3`）。v2 manifest 加载时直接补 `schemaVersion: 3`、保留所有原有字段，`semantic` 视为空。
 - **缺省 semantic 合法**：v3 manifest 可以不写 `semantic`，等价于「暂时没声明语义」——后续可逐字段补全。
 - **运行时校验**：保留 v2 的硬校验（id/name/type/configKey/requires/permissions/services 必填）；`semantic` 子字段类型错时给 `errors: string[]`，但不拒绝启动（沙箱会剥掉坏字段、用 v3 顶层继续）。
 
@@ -193,8 +193,8 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
 
 | 工具 | 行为 |
 | --- | --- |
-| `tools/check-modules.mjs` | v2 校验路径不变；v3 manifest 走新校验（`semantic` 字段类型错会报错）。 |
-| `catalog-sync` / CLI `fetch-module` | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入）。 |
+| CLI `scripts/module-install/check-modules.mjs` | `mod install` 后校验；v3 `semantic` 类型错会报错 |
+| CLI `fetch-module` | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入） |
 
 ### 与缺口 1 / 3 的衔接
 
@@ -205,4 +205,4 @@ v3 `semantic` 不是终点，是**数据源**：
 
 `publicApi` 当前只支持单签名；多载/重载留 TODO，等下一轮按真实模块诉求再加。
 
-> v2 manifest 作者请保持现状不动；只有新增模块或主动升级时再写 v3。`fetch-module` 与 `catalog-sync` 不会因为写错 v3 而拒绝模块——错就报在 `check-modules`，不必动 v2 字段。
+> v2 manifest 作者请保持现状不动；只有新增模块或主动升级时再写 v3。`fetch-module` 不会因为写错 v3 而拒绝模块——错就报在 install 后的 check-modules，不必动 v2 字段。

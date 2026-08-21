@@ -16,25 +16,20 @@ npm run changeset
 # 选受影响的包 + patch|minor|major，写中文摘要
 ```
 
-## 本地发版（维护者）
+然后 **push `main`** 即可：CI 会开/更新 Version Packages PR；合并该 PR 后自动 `ci-release-packages`（publish → tag → push → GitHub Release）。
 
-当前在 pre mode，请用 **prerelease**：
+本地一般 **不需要** 手动跑发版命令。
 
-```bash
-npm run prerelease-packages
-```
+## CI 发版入口
 
-入口为 `node tools/run-release.mjs --pre`，内部依次：assert pre → ensure changeset → version → commit → tag → push → publish → GitHub Pre-release。
+根 `package.json`：
 
-退出 pre 且达标后，正式发版：
+| 脚本 | 谁调 |
+|------|------|
+| `version-packages` | changesets/action（Version PR） |
+| `ci-release-packages` | 合并 Version PR 后的 publish 步骤 |
+| `build:publishable` | CI build 可发包拓扑 |
 
-```bash
-npx changeset pre exit
-npm run release-packages   # run-release.mjs --stable → npm latest + GitHub Release
-```
+应急单包：`.github/workflows/npm-publish.yml`（`workflow_dispatch`）。
 
-## CI
-
-`changeset-release.yml` 在 `main` 上开 Version PR；合并后跑 `ci-release-packages`（`run-release.mjs --ci`：publish → tag → push tags → gh release，无交互）。
-
-详情见 [docs/dev/publish.md](../docs/dev/publish.md)（平台包附录）。
+详情见 [docs/zh/dev/publish.md](../docs/zh/dev/publish.md)。
