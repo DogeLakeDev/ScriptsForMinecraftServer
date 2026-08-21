@@ -11,7 +11,7 @@ import path from "node:path";
 import process from "node:process";
 
 /**
- * 镜像 tools/fetch-module.mjs#resolveLocalPath
+ * 镜像 packages/cli/scripts/module-install/fetch-module.mjs#resolveLocalPath
  * @param {string | undefined} tail
  */
 function resolveLocalPath(tail) {

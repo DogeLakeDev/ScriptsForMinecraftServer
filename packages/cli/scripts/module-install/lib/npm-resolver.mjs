@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/npm-resolver.mjs — npm 包名解析（单一权威）
+ * npm 包名解析（单一权威）
  *
  * 规则（DRY，避免重复解析逻辑）：
  *   - 已含 scope（@scope/name）→ 原样

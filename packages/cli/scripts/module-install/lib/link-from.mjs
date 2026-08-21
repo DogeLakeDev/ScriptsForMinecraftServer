@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/link-from.mjs — --from 规范化（裸路径 / local: / dir:）
+ * --from 规范化（裸路径 / local: / dir:）
  */
 import fs from "node:fs";
 import path from "node:path";

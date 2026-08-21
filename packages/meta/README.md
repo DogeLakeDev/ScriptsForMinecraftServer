@@ -45,7 +45,7 @@ sfmc > start -all
 | `@sfmc-bds/db-server` | SQLite HTTP 后端 |
 | `@sfmc-bds/qq-bridge` | QQ 互通桥接服务 |
 | `@sfmc-bds/bds-tools` | BDS 更新与行为包装配 |
-| `@sfmc-bds/tools` | `fetch-module` 等工具 |
+| `@sfmc-bds/cli` | CLI + `fetch-module`（`mod install`） |
 | `@sfmc-bds/sdk` | 共享 SDK |
 
 ## 环境变量

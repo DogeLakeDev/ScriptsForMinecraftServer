@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/packages.mjs — 扫描 packages/<id>/sapi/manifest.json 并投影为 catalog 条目
+ * 扫描 modules/packages/<id>/sapi/manifest.json 并投影为 catalog 条目
  *
  * v3 兼容：若 manifest.schemaVersion === 3，则把 semantic 块原样投影进 catalog 条目；
  *          v2 manifest 不带 semantic，catalog 条目也不带。

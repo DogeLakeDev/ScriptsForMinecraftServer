@@ -331,7 +331,7 @@ export async function cmdModuleVerify(args: string[]): Promise<string> {
 }
 
 /* ─────────────────────────────────────────────────────────────────
- *  install  — shells out to tools/fetch-module.mjs
+ *  install  — shells out to scripts/module-install/fetch-module.mjs
  * ──────────────────────────────────────────────────────────────── */
 /* ───────────────────────────────────────────────────────────────
  *  enable / disable  — 本地写 module-lock.json；db 在线时 best-effort 热同步
@@ -458,7 +458,7 @@ export async function cmdModuleDisable(args: string[]): Promise<CliResult> {
 }
 
 /* ───────────────────────────────────────────────────────────────
- *  install  — shells out to tools/fetch-module.mjs
+ *  install  — shells out to scripts/module-install/fetch-module.mjs
  * ─────────────────────────────────────────────────────────────── */
 
 /**

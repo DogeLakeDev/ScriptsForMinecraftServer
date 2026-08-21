@@ -49,7 +49,7 @@ export function runOfflinePhase(reporter) {
       "README.md",
       "modules/catalog.json",
       "packages/tools/verify.mjs",
-      "packages/tools/fetch-module.mjs",
+      "packages/cli/scripts/module-install/fetch-module.mjs",
       "packages/tools/catalog-sync.mjs",
       "packages/tools/check-modules.mjs",
       ...Object.values(NPM_PUBLISH_PACKAGES),

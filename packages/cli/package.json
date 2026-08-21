@@ -3,7 +3,7 @@
   "version": "0.2.0-beta.9",
   "description": "SFMC management CLI — REPL, service supervisor, module install, behavior-pack build/deploy",
   "author": "Shiroha7z",
-  "license": "AGPL-v3.0-only",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/cli#readme",
   "repository": {
@@ -35,20 +35,24 @@
       "types": "./dist/main.d.ts",
       "import": "./dist/main.js",
       "default": "./dist/main.js"
-    }
+    },
+    "./fetch-module.mjs": "./scripts/module-install/fetch-module.mjs",
+    "./package.json": "./package.json"
   },
   "bin": {
-    "sfmc": "./dist/main.js"
+    "sfmc": "./dist/main.js",
+    "sfmc-fetch-module": "./scripts/module-install/fetch-module.mjs"
   },
   "files": [
     "dist",
+    "scripts",
     "README.md"
   ],
   "scripts": {
     "build": "sfmc-esbuild-transpile --dts",
     "prepublishOnly": "npm run build",
     "start": "node ./dist/main.js",
-    "test": "npm run build && node --test terminal-progress.test.mjs wrap-log-line.test.mjs world-packs-uninstall.test.mjs log-filter.test.mjs debug-command.test.mjs command-surface.test.mjs argv-parse.test.mjs command-palette.test.mjs repl-windows.test.mjs module-toggle.test.mjs llbot-launch.test.mjs",
+    "test": "npm run build && node --test terminal-progress.test.mjs wrap-log-line.test.mjs world-packs-uninstall.test.mjs log-filter.test.mjs debug-command.test.mjs command-surface.test.mjs argv-parse.test.mjs command-palette.test.mjs repl-windows.test.mjs module-toggle.test.mjs llbot-launch.test.mjs scripts/module-install/*.test.mjs",
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {

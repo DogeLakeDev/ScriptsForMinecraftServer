@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/catalog.mjs — modules/catalog.json 读写与同步
+ * modules/catalog.json 读写与同步（权威实现在 @sfmc-bds/cli）
  */
 import { CATALOG_PATH } from "./paths.mjs";
 import { readJson, writeJson } from "./io.mjs";

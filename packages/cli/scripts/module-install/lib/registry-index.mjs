@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/registry-index.mjs — 解析 Tanya7z/sfmc-modules index.json
+ * 解析 Tanya7z/sfmc-modules index.json
  *
  * 契约（与 sfmc/src/registry.ts#parseRegistryIndex 保持一致）:
  *   { modules: { <id>: { npm?, version?, sdk?, repo?, tag? } } }

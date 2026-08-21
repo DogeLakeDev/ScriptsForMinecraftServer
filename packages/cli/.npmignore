@@ -1,1 +1,2 @@
-dist/.sfmc-registry-cache.json
+dist/
+scripts/module-install/.sfmc-registry-cache.json

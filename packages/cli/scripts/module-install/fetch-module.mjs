@@ -1,16 +1,14 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * tools/fetch-module.mjs — 从 npm / GitHub / 本地 artifact 安装模块到 modules/packages/<id>/
+ * @sfmc-bds/cli — 从 npm / GitHub / 本地 artifact 安装模块到 modules/packages/<id>/
  *
  * 安装成功后会把 sapi/manifest.json 投影写入 modules/catalog.json，
  * 并按 enabledByDefault 更新 modules/module-lock.json。
  *
  * Usage:
- *   node tools/fetch-module.mjs search
- *   node tools/fetch-module.mjs list [--from github:owner/repo@tag]
- *   node tools/fetch-module.mjs install <id> [id2 ...] [--from <source>] [--sha256 <hex>] [--link]
- *   node tools/fetch-module.mjs uninstall <id> [id2 ...]
+ *   node packages/cli/scripts/module-install/fetch-module.mjs search
+ *   sfmc mod install <id> …
  *
  * Sources:
  *   npm:@scope/name         registry（默认；install <id> → @sfmc-bds/module-<folder>）
@@ -894,7 +892,7 @@ async function uninstallOne(id) {
 }
 
 function printHelp() {
-  console.log(`tools/fetch-module.mjs — populate ./modules/packages/<id>/
+  console.log(`@sfmc-bds/cli fetch-module — populate ./modules/packages/<id>/
 
 Commands:
   search                              list first-party registry

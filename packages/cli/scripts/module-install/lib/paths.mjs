@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/paths.mjs — 仓库根与模块相关路径
+ * CLI module-install 路径 — modules/packages、catalog、lock（相对 SFMC_ROOT）
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,27 +8,24 @@ import { findMonorepoRoot } from "@sfmc-bds/sdk/node/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** 本包目录（packages/tools/ 或 node_modules/@sfmc-bds/tools/） */
-export const TOOLS_PKG_DIR = path.resolve(__dirname, "..");
+/** @sfmc-bds/cli 包根（packages/cli 或 node_modules/@sfmc-bds/cli） */
+export const CLI_PKG_DIR = path.resolve(__dirname, "..", "..", "..");
 
 /**
- * 主仓根目录。
- * 优先 SFMC_ROOT（与 db-server / 冒烟脚本一致）；否则 walk-up 找 sfmc-monorepo。
- * 从 npm 安装到 node_modules 时务必设置 SFMC_ROOT。
+ * 工作根目录。
+ * 优先 SFMC_ROOT；否则 walk-up 找 sfmc-monorepo；再回退到 cwd。
  */
 export const ROOT = process.env.SFMC_ROOT
   ? path.resolve(process.env.SFMC_ROOT)
-  : findMonorepoRoot(__dirname) ?? path.resolve(__dirname, "..", "..", "..");
+  : findMonorepoRoot(__dirname) ?? process.cwd();
 
 export const MODULES_DIR = path.join(ROOT, "modules");
 export const PACKAGES_DIR = path.join(MODULES_DIR, "packages");
 export const CATALOG_PATH = path.join(MODULES_DIR, "catalog.json");
 export const MODULE_LOCK_PATH = path.join(MODULES_DIR, "module-lock.json");
-export const CONFIGS_DIR = path.join(ROOT, "configs");
-export const DB_SERVER_DIST = path.join(ROOT, "packages", "db-server", "dist", "index.js");
-export const SFMC_DIST = path.join(ROOT, "packages", "cli", "dist", "main.js");
-/** fetch-module 权威入口在 @sfmc-bds/cli（monorepo 相对路径） */
-export const FETCH_MODULE = path.join(ROOT, "packages", "cli", "scripts", "module-install", "fetch-module.mjs");
+
+/** 本包内 fetch-module 入口（npm 安装时勿拼 ROOT） */
+export const FETCH_MODULE = path.join(CLI_PKG_DIR, "scripts", "module-install", "fetch-module.mjs");
 
 /** @param {string} folder  packages/<folder> */
 export function packageDir(folder) {

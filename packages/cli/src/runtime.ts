@@ -137,17 +137,20 @@ export function resolveServiceScript(service: ServiceId): string {
 }
 
 /**
- * 解析 packages/tools/fetch-module.mjs。
- * 优先级: SFMC_FETCH_MODULE > ROOT/packages/tools/ > @sfmc-bds/tools。
+ * 解析 fetch-module（@sfmc-bds/cli/scripts/module-install）。
+ * 优先级: SFMC_FETCH_MODULE > monorepo cli/scripts > @sfmc-bds/cli export。
  */
 export function resolveFetchModule(): string | null {
   const fromEnv = process.env.SFMC_FETCH_MODULE;
   if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
 
-  const mono = path.join(ROOT, "packages", "tools", "fetch-module.mjs");
+  const mono = path.join(ROOT, "packages", "cli", "scripts", "module-install", "fetch-module.mjs");
   if (fs.existsSync(mono)) return mono;
 
-  return tryResolveNpm("@sfmc-bds/tools", { rel: "fetch-module.mjs", exportPath: "@sfmc-bds/tools/fetch-module.mjs" });
+  return tryResolveNpm("@sfmc-bds/cli", {
+    rel: "scripts/module-install/fetch-module.mjs",
+    exportPath: "@sfmc-bds/cli/fetch-module.mjs",
+  });
 }
 
 /**

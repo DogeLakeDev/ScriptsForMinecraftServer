@@ -59,7 +59,7 @@ function writeCache(cache: RegistryCache): void {
 
 /**
  * 解析 first-party index.json。
- * 契约与 tools/lib/registry-index.mjs#parseRegistryIndex 保持一致：
+ * 契约与 scripts/module-install/lib/registry-index.mjs#parseRegistryIndex 保持一致：
  * `{ modules: { <id>: { npm? | repo+tag } } }`。忽略 `_` 前缀元数据键。
  */
 export function parseRegistryIndex(json: unknown): RegistryIndex {

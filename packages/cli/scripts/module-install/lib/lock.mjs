@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tools/lib/lock.mjs — modules/module-lock.json 读写
+ * modules/module-lock.json 读写（权威实现在 @sfmc-bds/cli）
  *
  * 服务类条目(service-* 与 tool-*)保留；业务模块按 manifest.id 启停。
  */

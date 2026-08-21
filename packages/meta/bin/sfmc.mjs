@@ -20,6 +20,6 @@ process.env.SFMC_SERVICE_QQ_ENTRY ??= resolved("@sfmc-bds/qq-bridge");
 process.env.SFMC_SERVICE_UPDATE_ENTRY ??= resolved("@sfmc-bds/bds-tools/check-update");
 process.env.SFMC_SERVICE_MANAGER_ENTRY ??= resolved("@sfmc-bds/bds-tools/bds-manager");
 process.env.SFMC_SERVICE_PACK_MANAGER_ENTRY ??= resolved("@sfmc-bds/bds-tools/pack-manager");
-process.env.SFMC_FETCH_MODULE ??= resolved("@sfmc-bds/tools/fetch-module.mjs");
+process.env.SFMC_FETCH_MODULE ??= resolved("@sfmc-bds/cli/fetch-module.mjs");
 
 await import(import.meta.resolve("@sfmc-bds/cli/cli"));
