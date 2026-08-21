@@ -1,5 +1,29 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.9
+
+### Minor Changes
+
+- 3c07ced: 移除远程控制功能：删除 `sfmc remote` / WebSocket agent、`configs/remote.json` 与对应 schema；不再提供 `@sfmc-bds/remote-controller` 包。
+
+### Patch Changes
+
+- 89ffceb: Linux BDS 宿主：按平台解析可执行文件与下载 URL，启动时设置 LD_LIBRARY_PATH；argv start 在 POSIX 上 daemonize；pgrep 用 -x 避免误匹配
+- 89ffceb: 修复 LLBot 启动：兼容向导把 llbot_path 写成目录导致 spawn ENOENT
+- f3ba416: 游戏聊天互通：MC→QQ 仅转发 `bridge_channel_id` 匹配且非 `qq_` 回环的 messages；QQ 指令「频道」只读提示；扫描 `modules/packages` 时跟随 symlink（修复 `--link` 在 Linux 下被当成非目录）
+- ec728dd: CLI 对外部 db/qq 真正 stop/restart（按入口脚本杀进程，避免双实例）；QQ 主/管理菜单中文编号样式（official+llbot 共用）；频道/自检增强
+- 89ffceb: 群服互通支持 QQ 开放平台官方 Bot（双后端可切回 LLBot）
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [f3ba416]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [3c07ced]
+  - @sfmc-bds/bds-tools@0.2.0-beta.9
+  - @sfmc-bds/sdk@0.2.0-beta.9
+
 ## 0.2.0-beta.8
 
 ### Minor Changes
