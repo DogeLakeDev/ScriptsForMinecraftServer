@@ -34,6 +34,9 @@ packages/tools/.sfmc-registry-cache.json
 BDS/
 backups/
 data/
+# 文档站排障树数据（勿被上面 data/ 规则误伤）
+!website/data/
+!website/data/**
 
 # Proactive-agent credentials (security-audit.sh)
 .credentials/

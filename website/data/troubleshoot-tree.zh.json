@@ -1,0 +1,98 @@
+{
+  "title": "排障向导",
+  "nodes": [
+    {
+      "id": "ootb",
+      "title": "自检（monorepo）",
+      "steps": [
+        {
+          "text": "在仓根运行开箱与模块校验：",
+          "code": "npm run verify\nnpm run check-modules\nnpm run catalog-sync"
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "title": "db-server 起不来",
+      "steps": [
+        { "text": "秒退或 node:sqlite 报错 → 将 Node 升到 22.13+" },
+        { "text": "端口占用 → 改 configs 中 db_port 或环境变量 DB_PORT" },
+        { "text": "模块 API 异常 → 确认 modulesDir 与 SFMC_ROOT" },
+        { "text": "SQLite 损坏 → 停服后从备份恢复" },
+        {
+          "text": "健康检查：",
+          "code": "curl http://127.0.0.1:3001/api/health"
+        }
+      ]
+    },
+    {
+      "id": "bds-gate",
+      "title": "装载闸门 / BDS 未启动",
+      "steps": [
+        { "text": "查看控制台装载摘要与 <SFMC_ROOT>/.sfmc/logs/" },
+        { "text": "运行 mod build，确认 esbuild 无报错" },
+        { "text": "monorepo 下执行 npm run check-modules" },
+        {
+          "text": "确认收件箱冲突未挡住启动前扫描",
+          "href": "./addons",
+          "hrefLabel": "附加包"
+        }
+      ]
+    },
+    {
+      "id": "module-noop",
+      "title": "模块已 enable 但无效果",
+      "steps": [
+        { "text": "是否执行过 mod reload，或重启过 BDS？" },
+        { "text": "modules/module-lock.json 中是否为 enabled: true" },
+        { "text": "GET /api/sfmc/modules/<id> 确认状态" },
+        { "text": "临时 mod disable 该模块，排除单模块问题" },
+        { "text": "依赖模块是否已安装并启用" }
+      ]
+    },
+    {
+      "id": "sandbox",
+      "title": "测试沙箱",
+      "steps": [
+        {
+          "text": "运行测试时须带 minecraft-loader：",
+          "code": "npm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
+        },
+        {
+          "text": "UnimplementedMinecraftApiError → 缩小断言面或等沙箱加深，勿当业务错误"
+        },
+        {
+          "text": "断言失败但 BDS 正常 → 可能是沙箱保真差；用扩展 Watch / 真机复核"
+        },
+        {
+          "text": "作者流程见测试沙箱文档",
+          "href": "/dev/testing",
+          "hrefLabel": "测试沙箱"
+        }
+      ]
+    },
+    {
+      "id": "qq",
+      "title": "QQ 桥",
+      "steps": [
+        { "text": "LLBot 反向 WS 是否为 ws://127.0.0.1:3002" },
+        { "text": "qq_group_id、llbot_* 是否正确" },
+        { "text": "查看 qq / llbot 日志是否已连接" },
+        { "text": "防火墙是否拦截 3002" }
+      ]
+    },
+    {
+      "id": "build",
+      "title": "构建与 import",
+      "steps": [
+        {
+          "text": "先构建 workspaces，再组装模块包：",
+          "code": "npm run build --workspaces --if-present\nsfmc> mod build"
+        },
+        {
+          "text": "旧模块若仍 import \"@sfmc/sdk\"，请用当前 CLI 重装，或确认 SDK 可被解析"
+        }
+      ]
+    }
+  ]
+}
