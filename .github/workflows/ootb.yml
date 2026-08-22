@@ -32,39 +32,43 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           # 默认 CI Node 唯一来源: 仓库根 .node-version（与 npm-publish 共用）。
           # db-server 需 ≥22.13（node:sqlite 无 flag）
           node-version-file: .node-version
-          cache: npm
+          cache: pnpm
 
       - name: Install root deps
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Build all workspaces
-        run: npm run build --workspaces --if-present
+        run: pnpm -r run build
 
       - name: SDK testing sandbox
-        run: npm test -w @sfmc-bds/sdk
+        run: pnpm --filter @sfmc-bds/sdk test
 
       - name: Portable workspace unit tests
         run: |
-          npm test -w @sfmc-bds/db-server
-          npm test -w @sfmc-bds/qq-bridge
-          npm test -w @sfmc-bds/bds-tools
-          npm test -w @sfmc-bds/cli
+          pnpm --filter @sfmc-bds/db-server test
+          pnpm --filter @sfmc-bds/qq-bridge test
+          pnpm --filter @sfmc-bds/bds-tools test
+          pnpm --filter @sfmc-bds/cli test
 
       - name: mc-fake 生成物与仓库一致
         run: |
-          npm run gen:mc-fake -w @sfmc-bds/sdk
+          pnpm --filter @sfmc-bds/sdk run gen:mc-fake
           if ! git diff --ignore-cr-at-eol --exit-code -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"; then
-            echo "::error::generated/ 与 gen:mc-fake 不一致：请本地 npm run gen:mc-fake -w @sfmc-bds/sdk 后提交"
+            echo "::error::generated/ 与 gen:mc-fake 不一致：请本地 pnpm --filter @sfmc-bds/sdk run gen:mc-fake 后提交"
             exit 1
           fi
 
       - name: Run platform verify
         env:
           SFMC_ROOT: ${{ github.workspace }}
-        run: npm run verify
+        run: pnpm run verify

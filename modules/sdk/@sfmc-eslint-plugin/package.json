@@ -49,6 +49,7 @@
     "@typescript-eslint/utils": "^8.64.0"
   },
   "devDependencies": {
+    "@sfmc-bds/tools": "workspace:*",
     "@types/node": "^26.1.1",
     "@typescript-eslint/parser": "^8.64.0",
     "@typescript-eslint/rule-tester": "^8.64.0",

@@ -35,10 +35,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: pnpm
           registry-url: https://registry.npmjs.org
 
       - name: parse + verify package version
@@ -64,12 +68,12 @@ jobs:
         if: steps.meta.outputs.already_published == 'true'
         run: echo "Already on npm — skip"
 
-      - run: npm ci --no-audit --no-fund
+      - run: pnpm install --frozen-lockfile
         if: steps.meta.outputs.already_published != 'true'
 
       - name: Build all workspaces
         if: steps.meta.outputs.already_published != 'true'
-        run: npm run build --workspaces --if-present
+        run: pnpm -r run build
 
       - name: build target + publishable deps
         if: steps.meta.outputs.already_published != 'true'
@@ -81,8 +85,9 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >
-          npm publish
-          --workspace "${{ steps.meta.outputs.workspace }}"
+          pnpm publish
+          --filter "${{ steps.meta.outputs.workspace }}"
           --access public
           --tag "${{ steps.meta.outputs.dist_tag }}"
+          --no-git-checks
           --provenance

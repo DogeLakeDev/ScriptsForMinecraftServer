@@ -12,14 +12,14 @@ import {
   resolvePublishPackage,
 } from "./lib/npm-publish-packages.mjs";
 import { ROOT } from "./changeset-release-lib.mjs";
-import { spawnNpmSync } from "./lib/proc.mjs";
+import { spawnPnpmSync } from "./lib/proc.mjs";
 
 /**
  * @param {string} name
  */
 function buildOne(name) {
-  console.log(`[build-publishable] npm run build --workspace ${name} --if-present`);
-  const r = spawnNpmSync(["run", "build", "--workspace", name, "--if-present"], {
+  console.log(`[build-publishable] pnpm --filter ${name} run build`);
+  const r = spawnPnpmSync(["--filter", name, "run", "build"], {
     cwd: ROOT,
   });
   if (r.error) throw r.error;

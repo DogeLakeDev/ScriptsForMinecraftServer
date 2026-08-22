@@ -30,6 +30,9 @@
     "@sfmc-bds/cli": "^0.2.0-beta.8",
     "@sfmc-bds/sdk": "^0.2.0-beta.8"
   },
+  "devDependencies": {
+    "@sfmc-bds/tools": "workspace:*"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

@@ -11,14 +11,16 @@
     "sfmc": "packages/cli/dist/main.js"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "pnpm -r run build",
     "changeset": "changeset",
+    "ci-release-packages": "node packages/tools/run-release.mjs --ci",
     "docs": "node packages/tools/docs.mjs",
-    "lint": "npm run build --workspace @sfmc-bds/eslint-plugin && eslint .",
+    "lint": "pnpm --filter @sfmc-bds/eslint-plugin run build && eslint .",
     "start": "node packages/cli/dist/main.js",
     "syncpack:fix": "node packages/tools/syncpack-fix.mjs",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "verify": "node packages/tools/verify.mjs"
+    "typecheck": "pnpm -r run typecheck",
+    "verify": "node packages/tools/verify.mjs",
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

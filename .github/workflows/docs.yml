@@ -15,7 +15,8 @@ on:
       - "modules/sdk/@sfmc-sdk/src/**"
       - "modules/sdk/@sfmc-sdk/tsconfig.typedoc.json"
       - "package.json"
-      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -37,25 +38,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            website/package-lock.json
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: |
-          npm ci
-          npm ci --prefix website
+        run: pnpm install --frozen-lockfile
 
       - name: Build workspaces
-        run: npm run build --workspaces --if-present
+        run: pnpm -r run build
 
       - name: Build docs (Rspress + TypeDoc)
-        run: npm run docs -- build
+        run: pnpm run docs -- build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

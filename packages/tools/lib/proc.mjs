@@ -48,6 +48,20 @@ export function spawnNpmSync(args, opts = {}) {
 }
 
 /**
+ * 调用 pnpm CLI。Windows 上 pnpm 为 `.cmd`，需 `shell: true`。
+ * @param {string[]} args pnpm 参数（不含 pnpm 自身）
+ * @param {import("node:child_process").SpawnSyncOptions} [opts]
+ * @returns {import("node:child_process").SpawnSyncReturns<Buffer | string>}
+ */
+export function spawnPnpmSync(args, opts = {}) {
+  return spawnSync("pnpm", args, {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+    ...opts,
+  });
+}
+
+/**
  * @param {string} cmd
  * @param {string[]} args
  * @param {import("node:child_process").SpawnOptions} [opts]

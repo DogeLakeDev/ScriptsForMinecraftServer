@@ -131,7 +131,7 @@ function runRspress(effectiveRoot, args) {
     "rspress.js"
   );
   if (!existsSync(rspressBin)) {
-    console.error("[docs] 请先在 website/ 执行 npm install");
+    console.error("[docs] 请先在仓库根目录执行 pnpm install");
     process.exit(1);
   }
   const r = spawnSync(process.execPath, [rspressBin, ...args], {

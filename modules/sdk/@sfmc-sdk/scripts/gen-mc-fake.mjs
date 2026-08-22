@@ -211,6 +211,26 @@ export function resolveServerUiDtsPath() {
 }
 
 /**
+ * pnpm 会把 require.resolve 指到 .pnpm store；meta 统一写成 node_modules/<pkg>/index.d.ts 供 CI 稳定比对。
+ * @param {string} absPath
+ * @param {string} moduleName 如 @minecraft/server
+ */
+export function normalizeDtsRelForMeta(absPath, moduleName) {
+  const posix = absPath.replace(/\\/g, "/");
+  const suffix = `${moduleName}/index.d.ts`;
+  if (posix.endsWith(suffix) || posix.includes(`/${suffix}`)) {
+    return `node_modules/${suffix}`;
+  }
+  const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  let dtsRel = path.relative(pkgRoot, absPath).replace(/\\/g, "/");
+  if (dtsRel.startsWith("..")) {
+    const repoRoot = path.resolve(pkgRoot, "../../..");
+    dtsRel = path.relative(repoRoot, absPath).replace(/\\/g, "/");
+  }
+  return dtsRel;
+}
+
+/**
  * @param {{ dtsPath: string, outFile: string, metaFile: string, module: string, skip: Set<string> }} cfg
  */
 function generateOne(cfg) {
@@ -223,14 +243,7 @@ function generateOne(cfg) {
   const { code, names } = emitServerL0Module(exports, { skip: cfg.skip });
   fs.mkdirSync(path.dirname(cfg.outFile), { recursive: true });
   fs.writeFileSync(cfg.outFile, code, "utf8");
-  // meta 只保留稳定字段：绝对路径 / 时间戳会让 CI「生成物一致」检查永远失败
-  const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  let dtsRel = path.relative(pkgRoot, cfg.dtsPath).replace(/\\/g, "/");
-  if (dtsRel.startsWith("..")) {
-    // 解析到仓库根 node_modules 时，相对路径从 monorepo 根写
-    const repoRoot = path.resolve(pkgRoot, "../../..");
-    dtsRel = path.relative(repoRoot, cfg.dtsPath).replace(/\\/g, "/");
-  }
+  const dtsRel = normalizeDtsRelForMeta(cfg.dtsPath, cfg.module);
   fs.writeFileSync(
     cfg.metaFile,
     JSON.stringify(

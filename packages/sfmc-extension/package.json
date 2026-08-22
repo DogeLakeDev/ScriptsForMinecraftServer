@@ -217,9 +217,9 @@
     "package": "npx @vscode/vsce package"
   },
   "dependencies": {
-    "@sfmc-bds/create-module": "^0.1.0-beta.0",
-    "@sfmc-bds/devkit": "^0.1.0-beta.1",
-    "@sfmc-bds/sdk": "^0.2.0-beta.9"
+    "@sfmc-bds/create-module": "workspace:*",
+    "@sfmc-bds/devkit": "workspace:*",
+    "@sfmc-bds/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",

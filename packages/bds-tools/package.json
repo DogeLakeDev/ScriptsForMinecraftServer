@@ -68,6 +68,9 @@
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.0"
   },
+  "devDependencies": {
+    "@sfmc-bds/tools": "workspace:*"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

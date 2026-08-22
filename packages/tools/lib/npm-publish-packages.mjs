@@ -140,12 +140,46 @@ export function workspaceIncludesDir(dirPosix, workspaces) {
 }
 
 /**
- * 发包前断言:清单里的包必须在 root workspaces 中,否则
- * `npm run build -w` / `npm publish -w` 会报 No workspaces found
- * (见 @sfmc-bds/tools@v0.1.0 on ba65eb9)。
+ * 读取 monorepo workspace 包路径模式（pnpm-workspace.yaml 优先，回退 package.json#workspaces）。
+ * @param {string} [repoRoot=process.cwd()]
+ * @returns {string[]}
+ */
+export function readWorkspacePackagePatterns(repoRoot = process.cwd()) {
+  const pnpmWsPath = path.join(repoRoot, "pnpm-workspace.yaml");
+  if (fs.existsSync(pnpmWsPath)) {
+    const text = fs.readFileSync(pnpmWsPath, "utf8");
+    /** @type {string[]} */
+    const patterns = [];
+    let inPackages = false;
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed === "packages:") {
+        inPackages = true;
+        continue;
+      }
+      if (!inPackages) continue;
+      const item = trimmed.match(/^- ["']?([^"']+)["']?/);
+      if (item) {
+        patterns.push(item[1]);
+        continue;
+      }
+      if (trimmed && !trimmed.startsWith("#")) {
+        inPackages = false;
+      }
+    }
+    if (patterns.length > 0) return patterns;
+  }
+  const rootPkgPath = path.join(repoRoot, "package.json");
+  const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
+  return Array.isArray(rootPkg.workspaces) ? rootPkg.workspaces : [];
+}
+
+/**
+ * 发包前断言:清单里的包必须在 root workspace 中,否则
+ * `pnpm --filter` / `npm publish -w` 会找不到工作区包。
  * @param {string} pkgName
  * @param {string} [repoRoot=process.cwd()]
- * @returns {{ workspaceDir: string, workspaces: string[] }}
+ * @returns {{ workspaceDir: string, workspaces: string[], version: string }}
  */
 export function assertPublishPackageInWorkspaces(pkgName, repoRoot = process.cwd()) {
   const resolved = resolvePublishPackage(pkgName);
@@ -165,14 +199,12 @@ export function assertPublishPackageInWorkspaces(pkgName, repoRoot = process.cwd
     );
   }
   const workspaceDir = path.posix.dirname(pkgPath.replace(/\\/g, "/"));
-  const rootPkgPath = path.join(repoRoot, "package.json");
-  const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
-  const workspaces = Array.isArray(rootPkg.workspaces) ? rootPkg.workspaces : [];
+  const workspaces = readWorkspacePackagePatterns(repoRoot);
   if (!workspaceIncludesDir(workspaceDir, workspaces)) {
     throw new Error(
-      `${resolved} 路径 ${workspaceDir} 不在 root workspaces 中` +
+      `${resolved} 路径 ${workspaceDir} 不在 workspace 中` +
         ` (当前: ${JSON.stringify(workspaces)});` +
-        ` npm -w 会失败。请把该目录写入 package.json#workspaces(DRY)。`
+        ` 请写入 pnpm-workspace.yaml#packages(DRY)。`
     );
   }
   return { workspaceDir, workspaces, version: pkgJson.version };
