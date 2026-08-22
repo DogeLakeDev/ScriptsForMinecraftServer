@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/devkit",
-  "version": "0.1.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "SFMC module authoring toolkit — watch, rebuild, enable/disable (for VS Code extension & tooling)",
   "type": "module",
   "license": "AGPL-3.0-only",
