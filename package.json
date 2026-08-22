@@ -11,7 +11,7 @@
     "sfmc": "packages/cli/dist/main.js"
   },
   "scripts": {
-    "build": "pnpm -r run build",
+    "build": "pnpm -r --filter '!@sfmc-bds/docs-site' run build",
     "changeset": "changeset",
     "ci-release-packages": "node packages/tools/run-release.mjs --ci",
     "docs": "node packages/tools/docs.mjs",

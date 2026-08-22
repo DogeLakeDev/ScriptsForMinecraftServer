@@ -52,7 +52,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build workspaces
-        run: pnpm -r run build
+        run: pnpm -r --filter '!@sfmc-bds/docs-site' run build
 
       - name: Build docs (Rspress + TypeDoc)
         run: pnpm run docs -- build

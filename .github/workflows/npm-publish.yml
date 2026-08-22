@@ -73,7 +73,7 @@ jobs:
 
       - name: Build all workspaces
         if: steps.meta.outputs.already_published != 'true'
-        run: pnpm -r run build
+        run: pnpm -r --filter '!@sfmc-bds/docs-site' run build
 
       - name: build target + publishable deps
         if: steps.meta.outputs.already_published != 'true'
