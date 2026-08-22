@@ -35,7 +35,6 @@ export function pickDirectoryDialog(title: string, defaultDirectory: string): st
   try {
     const output = execFileSync("powershell.exe", ["-NoProfile", "-STA", "-Command", script], {
       encoding: "utf-8",
-      timeout: 30_000,
       windowsHide: true,
     });
     return output.trim() || null;
