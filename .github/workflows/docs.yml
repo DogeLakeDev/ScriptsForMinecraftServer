@@ -55,7 +55,7 @@ jobs:
         run: pnpm -r --filter '!@sfmc-bds/docs-site' run build
 
       - name: Build docs (Rspress + TypeDoc)
-        run: pnpm run docs -- build
+        run: pnpm run docs build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
