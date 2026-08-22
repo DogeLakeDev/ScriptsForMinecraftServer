@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "bin": {
-    "create-module": "./dist/cli.js"
+    "create-sfmc-module": "./dist/cli.js"
   },
   "exports": {
     ".": {
@@ -37,3 +37,4 @@
     "registry": "https://registry.npmjs.org/"
   }
 }
+

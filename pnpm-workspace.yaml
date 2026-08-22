@@ -1,0 +1,13 @@
+allowBuilds:
+  esbuild: true
+
+onlyBuiltDependencies:
+  - esbuild
+  - esbuild@0.28.2
+
+packages:
+  - "workspaces"
+  - "modules/sdk/@sfmc-sdk"
+  - "modules/sdk/@sfmc-eslint-plugin"
+  - "packages/*"
+

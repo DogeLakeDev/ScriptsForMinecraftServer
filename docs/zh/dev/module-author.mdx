@@ -1,9 +1,5 @@
 ﻿# 模块开发
 
-用 **`npm create @sfmc-bds/module`** 建仓，再用 **VS Code/Cursor 扩展「SFMC Module」** 覆盖 Test → Link → Watch → Publish；运维面仍用 `sfmc`（装模块、启停、对本机 `mod reload`）。
-
-一模块一仓；**不要** clone `sfmc-modules` 写业务。GitHub Template / `sfmc-new-module` / `rename.mjs` 已弃用。
-
 ## 新建模块
 
 ```bash
@@ -23,13 +19,13 @@ npm test
 
 ## 命名规范
 
-| 层 | 规则 | 例 |
-| ------ | ------ | ----- |
-| 文件夹 / install id | 短名 kebab | `my-feature` |
-| npm（社区） | `@<user>/sfmc-module-<id>` | `@alice/sfmc-module-my-feature` |
-| npm（官方） | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` |
-| `manifest.id` | `feature-<id>` 或 `core-<id>` | `feature-my-feature` |
-| `configKey` | `-` → `_` | `my_feature` |
+| 层                  | 规则                          | 例                              |
+| ------------------- | ----------------------------- | ------------------------------- |
+| 文件夹 / install id | 短名 kebab                    | `my-feature`                    |
+| npm（社区）         | `@<user>/sfmc-module-<id>`    | `@alice/sfmc-module-my-feature` |
+| npm（官方）         | `@sfmc-bds/module-<id>`       | `@sfmc-bds/module-economy`      |
+| `manifest.id`       | `feature-<id>` 或 `core-<id>` | `feature-my-feature`            |
+| `configKey`         | `-` → `_`                     | `my_feature`                    |
 
 ## 作者工作流
 
@@ -52,14 +48,14 @@ flowchart LR
 :::tip 全表面 ≠ 假 BDS
 沙箱能 `import` 大范围 `@minecraft/*`，未实现 API 会**硬失败**（不是静默 noop）。进服仍是终检：世界交互与版本 quirk 用 Watch / 日志。
 
-| 入口 | 作用 |
-| ------ | ------ |
-| `npm create @sfmc-bds/module` | 建仓（唯一权威） |
-| `npm test` / 扩展 Run Tests | 模块仓假引擎单测（`createSandbox`） |
-| 扩展 Link | `mod install --from dir:… --link` |
-| 扩展 Start Watch | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
-| `sfmc mod build` / `reload` | **运维**对本机已装模块组装部署 |
-| `sfmc mod install/enable` | **运维**安装与启停 |
+| 入口                          | 作用                                   |
+| ----------------------------- | -------------------------------------- |
+| `npm create @sfmc-bds/module` | 建仓（唯一权威）                       |
+| `npm test` / 扩展 Run Tests   | 模块仓假引擎单测（`createSandbox`）    |
+| 扩展 Link                     | `mod install --from dir:… --link`      |
+| 扩展 Start Watch              | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
+| `sfmc mod build` / `reload`   | **运维**对本机已装模块组装部署         |
+| `sfmc mod install/enable`     | **运维**安装与启停                     |
 
 :::warning 注意
 `sfmc mod test` / `mod watch` / `mod publish` 已移除；建仓只用 `npm create`，联调/发布用扩展全周期。
@@ -68,9 +64,9 @@ flowchart LR
 
 ### 安装源（运维）
 
-| 来源 | 何时用 |
-| ------ | -------- |
-| `npm:@scope/name`（默认） | 已发布 |
+| 来源                         | 何时用                     |
+| ---------------------------- | -------------------------- |
+| `npm:@scope/name`（默认）    | 已发布                     |
 | `dir:` / `local:` + `--link` | 作者仓联调到服务器工作目录 |
 
 ## 作者仓结构
@@ -89,21 +85,21 @@ my-feature/
 
 ## SDK 导入
 
-| 路径 | 用途 |
-| ------ | ------ |
-| `@sfmc-bds/sdk/sapi/runtime` | Msg、命令、权限、菜单 |
-| `@sfmc-bds/sdk/sapi/db` | 表、CRUD、事务 |
-| `@sfmc-bds/sdk/testing` | 测试沙箱 `createSandbox` |
-| `@sfmc-bds/create-module` | 建仓 API（扩展 / CLI） |
-| `@sfmc-bds/devkit` | Watch / rebuild（扩展依赖） |
+| 路径                         | 用途                        |
+| ---------------------------- | --------------------------- |
+| `@sfmc-bds/sdk/sapi/runtime` | Msg、命令、权限、菜单       |
+| `@sfmc-bds/sdk/sapi/db`      | 表、CRUD、事务              |
+| `@sfmc-bds/sdk/testing`      | 测试沙箱 `createSandbox`    |
+| `@sfmc-bds/create-module`    | 建仓 API（扩展 / CLI）      |
+| `@sfmc-bds/devkit`           | Watch / rebuild（扩展依赖） |
 
 ## 接下来
 
-| 章节 | 内容 |
-| ------ | ------ |
-| [测试沙箱](./testing.md) | 假引擎保真、L0/L2、与 Watch 分工 |
-| [ESLint 约定](./eslint.md) | 约定检查 |
-| [发布你的模块](./publish.md) | npm 发布 |
+| 章节                         | 内容                             |
+| ---------------------------- | -------------------------------- |
+| [测试沙箱](./testing.md)     | 假引擎保真、L0/L2、与 Watch 分工 |
+| [ESLint 约定](./eslint.md)   | 约定检查                         |
+| [发布你的模块](./publish.md) | npm 发布                         |
 
 ## manifest v3 语义字段
 
@@ -113,15 +109,15 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
 
 ### 字段一览
 
-| 字段 | 类型 | 用途 |
-| --- | --- | --- |
-| `schemaVersion` | `3` | manifest schema 版本号；旧模块保留 `2` 即可。 |
-| `semantic.configKeys` | `string[]` | 模块读取的配置键：精确名（如 `"land.price"`）或前缀（如 `"economy.*"`）。 |
-| `semantic.dependsOn` | `string[]` | 依赖的其他模块 id。决定启动顺序校验、UI 提示「请先启用 X」。 |
-| `semantic.events.emits` | `string[]` | 模块主动 emit 的自定义事件名（建议 `module:<id>:<event>`）。 |
-| `semantic.events.listens` | `string[]` | 模块监听的事件路径，含 BDS 原生（`world.afterEvents.playerJoin`）与自定义。 |
-| `semantic.dbTables` | `{ name, columns? }[]` | 模块使用的 DB 表与列提示。 |
-| `semantic.publicApi` | `{ symbol, description?, params?, returns? }[]` | 模块对外暴露的 API 签名，供其他模块 import 参考。 |
+| 字段                      | 类型                                            | 用途                                                                        |
+| ------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------- |
+| `schemaVersion`           | `3`                                             | manifest schema 版本号；旧模块保留 `2` 即可。                               |
+| `semantic.configKeys`     | `string[]`                                      | 模块读取的配置键：精确名（如 `"land.price"`）或前缀（如 `"economy.*"`）。   |
+| `semantic.dependsOn`      | `string[]`                                      | 依赖的其他模块 id。决定启动顺序校验、UI 提示「请先启用 X」。                |
+| `semantic.events.emits`   | `string[]`                                      | 模块主动 emit 的自定义事件名（建议 `module:<id>:<event>`）。                |
+| `semantic.events.listens` | `string[]`                                      | 模块监听的事件路径，含 BDS 原生（`world.afterEvents.playerJoin`）与自定义。 |
+| `semantic.dbTables`       | `{ name, columns? }[]`                          | 模块使用的 DB 表与列提示。                                                  |
+| `semantic.publicApi`      | `{ symbol, description?, params?, returns? }[]` | 模块对外暴露的 API 签名，供其他模块 import 参考。                           |
 
 每个 `semantic` 子字段都允许缺失；缺省时等同于「没有声明」，沙箱按 v2 行为推断。
 
@@ -136,11 +132,7 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
   "type": "feature",
   "configKey": "economy",
   "requires": ["feature-land"],
-  "permissions": [
-    "db:read:wallet",
-    "db:write:wallet",
-    "config:read:economy"
-  ],
+  "permissions": ["db:read:wallet", "db:write:wallet", "config:read:economy"],
   "services": {
     "provides": [{ "name": "economy.balance" }],
     "requires": []
@@ -152,10 +144,7 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
       "emits": ["economy:walletChanged"],
       "listens": ["world.afterEvents.playerJoin"]
     },
-    "dbTables": [
-      { "name": "wallet", "columns": ["playerId", "balance"] },
-      { "name": "tx_log" }
-    ],
+    "dbTables": [{ "name": "wallet", "columns": ["playerId", "balance"] }, { "name": "tx_log" }],
     "publicApi": [
       {
         "symbol": "spend",
@@ -179,10 +168,10 @@ v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模
 
 ### 配套工具
 
-| 工具 | 行为 |
-| --- | --- |
-| CLI `scripts/module-install/check-modules.mjs` | `mod install` 后校验；v3 `semantic` 类型错会报错 |
-| CLI `fetch-module` | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入） |
+| 工具                                           | 行为                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| CLI `scripts/module-install/check-modules.mjs` | `mod install` 后校验；v3 `semantic` 类型错会报错             |
+| CLI `fetch-module`                             | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入） |
 
 ### 与缺口 1 / 3 的衔接
 
