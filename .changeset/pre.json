@@ -11,7 +11,9 @@
     "@sfmc-bds/sfmc": "0.1.0",
     "@sfmc-bds/tools": "0.1.1",
     "@sfmc-bds/devkit": "0.1.0-beta.0",
-    "sfmc-extension": "0.1.0"
+    "sfmc-extension": "0.1.0",
+    "@sfmc-bds/create-module": "0.1.0-beta.0",
+    "@sfmc-bds/docs-site": "0.1.0"
   },
   "changesets": [
     "align-release-token-dry",
@@ -36,6 +38,7 @@
     "module-index-only",
     "new-module-template-parity",
     "ninety-showers-call",
+    "npm-create-module-authoring",
     "publish-gh-pr",
     "qq-admin-submenu",
     "qq-approval-flow-p2",

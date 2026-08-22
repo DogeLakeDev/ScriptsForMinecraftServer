@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/create-module",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0-beta.1",
   "description": "Create an SFMC SAPI module — npm create @sfmc-bds/module",
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -40,4 +40,3 @@
     "registry": "https://registry.npmjs.org/"
   }
 }
-
