@@ -42,7 +42,7 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "^0.2.0-beta.9",
+    "@sfmc-bds/sdk": "workspace:*",
     "sql-template-strings": "^2.2.2"
   },
   "devDependencies": {

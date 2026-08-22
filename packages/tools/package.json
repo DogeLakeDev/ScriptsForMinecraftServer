@@ -31,7 +31,7 @@
     "build": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.9",
-    "@sfmc-bds/sdk": "^0.2.0-beta.9"
+    "@sfmc-bds/bds-tools": "workspace:*",
+    "@sfmc-bds/sdk": "workspace:*"
   }
 }

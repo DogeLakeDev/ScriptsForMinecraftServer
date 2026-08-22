@@ -26,9 +26,9 @@
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "^0.2.0-beta.8",
-    "@sfmc-bds/cli": "^0.2.0-beta.8",
-    "@sfmc-bds/sdk": "^0.2.0-beta.8"
+    "@sfmc-bds/bds-tools": "workspace:*",
+    "@sfmc-bds/cli": "workspace:*",
+    "@sfmc-bds/sdk": "workspace:*"
   },
   "devDependencies": {
     "@sfmc-bds/tools": "workspace:*"
