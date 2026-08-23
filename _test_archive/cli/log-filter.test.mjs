@@ -7,7 +7,7 @@ import test from "node:test";
 import {
   compileLogFilterRegex,
   evaluateLogFilter,
-} from "./dist/log-filter.js";
+} from "../../packages/cli/dist/log-filter.js";
 
 const entry = (over = {}) => ({
   text: "Player connected: Steve",

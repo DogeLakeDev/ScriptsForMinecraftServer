@@ -8,7 +8,7 @@ import {
   applyLockEnabled,
   finalizeToggle,
   resolveToggleTarget,
-} from "./dist/module-toggle.js";
+} from "../../packages/cli/dist/module-toggle.js";
 
 const candidates = [
   { logicalId: "feature-afk", folderId: "afk", configKey: "afk", canDisable: true },

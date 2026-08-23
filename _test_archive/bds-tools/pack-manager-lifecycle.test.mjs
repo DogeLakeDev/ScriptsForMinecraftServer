@@ -28,7 +28,7 @@ describe("pack-manager CLI extensions", () => {
   });
 
   it("assemble-rp --modules-json 只用显式 map(不扫整树)", async () => {
-    const { loadModuleResourcePackMap, assembleResourcePack } = await import("./dist/pack-manager.js");
+    const { loadModuleResourcePackMap, assembleResourcePack } = await import("../../packages/bds-tools/dist/pack-manager.js");
     const modA = path.join(tmp, "mod-a", "resource_pack");
     const modB = path.join(tmp, "mod-b", "resource_pack");
     fs.mkdirSync(modA, { recursive: true });
@@ -67,7 +67,7 @@ describe("pack-manager CLI extensions", () => {
   });
 
   it("deploy --clear-rp 删除世界内残留 RP 目录", async () => {
-    const { deployToBDS } = await import("./dist/pack-manager.js");
+    const { deployToBDS } = await import("../../packages/bds-tools/dist/pack-manager.js");
     const bds = path.join(tmp, "bds");
     const level = "Bedrock level";
     const worlds = path.join(bds, "worlds", level);
@@ -92,7 +92,7 @@ describe("pack-manager CLI extensions", () => {
 
   it("read-manifest / has-pack / list-packs CLI 契约", async () => {
     const { assembleBehaviorPack, enablePackInWorld, worldPackListHas, readWorldPackList } =
-      await import("./dist/pack-manager.js");
+      await import("../../packages/bds-tools/dist/pack-manager.js");
     const bpOut = path.join(tmp, "bp-assembled");
     const src = path.join(tmp, "bp-empty-src");
     fs.mkdirSync(path.join(src, "scripts"), { recursive: true });
@@ -146,7 +146,7 @@ describe("pack-manager CLI extensions", () => {
   });
 
   it("readLevelNameSync 与 async 同契约（供 sfmc resolveBdsContext）", async () => {
-    const { readLevelName, readLevelNameSync } = await import("./dist/pack-manager.js");
+    const { readLevelName, readLevelNameSync } = await import("../../packages/bds-tools/dist/pack-manager.js");
     const bds = path.join(tmp, "bds-level");
     fs.mkdirSync(bds, { recursive: true });
     assert.equal(readLevelNameSync(bds), "Bedrock level");
@@ -165,7 +165,7 @@ describe("pack-manager CLI extensions", () => {
       hasConfigPermission,
       serverPropertiesPath,
       ensureConfigPermission,
-    } = await import("./dist/pack-manager.js");
+    } = await import("../../packages/bds-tools/dist/pack-manager.js");
     const bds = path.join(tmp, "bds-paths");
     fs.mkdirSync(bds, { recursive: true });
     assert.equal(bdsWorldsDir(bds), path.join(bds, "worlds"));
@@ -188,7 +188,7 @@ describe("pack-manager CLI extensions", () => {
   });
 
   it("readWorldPackListResult 区分缺失与 JSON 损坏（doctor parseFail）", async () => {
-    const { readWorldPackListResult } = await import("./dist/pack-manager.js");
+    const { readWorldPackListResult } = await import("../../packages/bds-tools/dist/pack-manager.js");
     const worldsDir = path.join(tmp, "worlds-parse");
     const levelDir = path.join(worldsDir, "Lbad");
     fs.mkdirSync(levelDir, { recursive: true });
@@ -217,7 +217,7 @@ describe("pack-manager CLI extensions", () => {
       disablePackInWorld,
       readPackManifestHeader,
       worldPackListHas,
-    } = await import("./dist/pack-manager.js");
+    } = await import("../../packages/bds-tools/dist/pack-manager.js");
 
     const bds = path.join(tmp, "bds-stale");
     const level = "Bedrock level";

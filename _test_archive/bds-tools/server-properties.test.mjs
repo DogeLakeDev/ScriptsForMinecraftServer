@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { ensureEmitServerTelemetry } from "./dist/server-properties.js";
+import { ensureEmitServerTelemetry } from "../../packages/bds-tools/dist/server-properties.js";
 
 test("ensureEmitServerTelemetry appends when missing", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-props-"));

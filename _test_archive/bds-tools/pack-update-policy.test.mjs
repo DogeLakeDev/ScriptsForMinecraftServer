@@ -16,7 +16,7 @@ import {
   normalizePackSearchName,
   packSourceScore,
   toCfSlugCandidate,
-} from "./dist/pack-update/index.js";
+} from "../../packages/bds-tools/dist/pack-update/index.js";
 
 describe("version-policy", () => {
   it("同 major 更新应 bump RP", () => {

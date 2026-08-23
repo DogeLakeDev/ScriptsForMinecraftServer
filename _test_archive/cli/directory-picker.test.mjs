@@ -11,7 +11,7 @@ import {
   escapeAppleScriptString,
   escapePowerShellSingleQuoted,
   resolvePickerStartDir,
-} from "./dist/directory-picker.js";
+} from "../../packages/cli/dist/directory-picker.js";
 
 test("PowerShell 单引号转义", () => {
   assert.equal(escapePowerShellSingleQuoted("a'b"), "a''b");

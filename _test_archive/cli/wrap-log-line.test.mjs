@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { logPrefixWidth, visibleWidth, wrapLogLine } from "./dist/logs.js";
+import { logPrefixWidth, visibleWidth, wrapLogLine } from "../../packages/cli/dist/logs.js";
 
 function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;]*m/g, "");
@@ -81,7 +81,7 @@ test("logPrefixWidth 与常见源标签匹配", () => {
 
 test("resolveDisplayLevel：BDS 行从正文解析，其余用 entry.level", async () => {
   const { resolveDisplayLevel, inferLevel, parseBdsEmbeddedLevel, stripBdsLogPrefix, pushLog, getAllLogs } =
-    await import("./dist/logs.js");
+    await import("../../packages/cli/dist/logs.js");
   assert.equal(
     resolveDisplayLevel({
       time: new Date(),

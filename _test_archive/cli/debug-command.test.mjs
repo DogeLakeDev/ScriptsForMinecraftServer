@@ -19,7 +19,7 @@ function setupSfmcRoot(bdsRoot) {
 }
 
 test("isDebugTruthy 与 SDK 契约一致", async () => {
-  const { isDebugTruthy } = await import("./dist/debug-command.js");
+  const { isDebugTruthy } = await import("../../packages/cli/dist/debug-command.js");
   assert.equal(isDebugTruthy(true), true);
   assert.equal(isDebugTruthy(1), true);
   assert.equal(isDebugTruthy("yes"), true);
@@ -35,7 +35,7 @@ test("debug enable/disable/status 写 BDS variables.json", async () => {
   process.env.SFMC_ROOT = sfmcRoot;
 
   try {
-    const { cmdDebug } = await import("./dist/debug-command.js");
+    const { cmdDebug } = await import("../../packages/cli/dist/debug-command.js");
     const variablesPath = path.join(bdsRoot, "config", "default", "variables.json");
 
     await cmdDebug(["enable"]);
@@ -61,7 +61,7 @@ test("debug sentry on/off 写 BDS secrets.json", async () => {
   process.env.SFMC_ROOT = sfmcRoot;
 
   try {
-    const { cmdDebug } = await import("./dist/debug-command.js");
+    const { cmdDebug } = await import("../../packages/cli/dist/debug-command.js");
     const secretsPath = path.join(bdsRoot, "config", "default", "secrets.json");
     const dsn = "https://example@o123.ingest.sentry.io/456";
 
@@ -85,7 +85,7 @@ test("debug sentry on 缺 --dsn 报错", async () => {
   process.env.SFMC_ROOT = sfmcRoot;
 
   try {
-    const { cmdDebug } = await import("./dist/debug-command.js");
+    const { cmdDebug } = await import("../../packages/cli/dist/debug-command.js");
     const out = await cmdDebug(["sentry", "on"]);
     assert.match(out, /--dsn|required|需要/i);
   } finally {

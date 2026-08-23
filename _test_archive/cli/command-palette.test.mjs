@@ -13,9 +13,9 @@ import {
   parseSlashLine,
   paletteGhost,
   resolvePaletteView,
-} from "./dist/command-palette.js";
-import { visibleWidth } from "./dist/logs.js";
-import { listPaletteRoots } from "./dist/command-surface.js";
+} from "../../packages/cli/dist/command-palette.js";
+import { visibleWidth } from "../../packages/cli/dist/logs.js";
+import { listPaletteRoots } from "../../packages/cli/dist/command-surface.js";
 
 describe("clipPad 等宽", () => {
   it("垫到 PANEL_WIDTH", () => {

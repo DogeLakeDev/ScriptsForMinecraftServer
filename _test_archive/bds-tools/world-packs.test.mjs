@@ -52,7 +52,7 @@ describe("world-packs primitives", () => {
   });
 
   it("formatWorldPackFolderName 去格式码/后缀并加前缀", async () => {
-    const { formatWorldPackFolderName, isGenericPackFolderStem } = await import("./dist/world-packs.js");
+    const { formatWorldPackFolderName, isGenericPackFolderStem } = await import("../../packages/bds-tools/dist/world-packs.js");
     assert.equal(formatWorldPackFolderName("§aCool§l Textures.mcpack", "resource"), "[RP] Cool Textures");
     assert.equal(formatWorldPackFolderName("My BP.zip", "behavior"), "[BP] My BP");
     assert.equal(formatWorldPackFolderName("[RP] Already", "resource"), "[RP] Already");
@@ -62,7 +62,7 @@ describe("world-packs primitives", () => {
   });
 
   it("discoverPackRoots maxDepth=2", async () => {
-    const { discoverPackRoots } = await import("./dist/world-packs.js");
+    const { discoverPackRoots } = await import("../../packages/bds-tools/dist/world-packs.js");
     const root = path.join(tmp, "discover");
     const nested = path.join(root, "outer", "inner-pack");
     writeManifest(nested, {
@@ -76,7 +76,7 @@ describe("world-packs primitives", () => {
   });
 
   it("resolvePackRoots：扁平目录 / 子目录 BP+RP", async () => {
-    const { resolvePackRoots, readPackManifestInfo } = await import("./dist/world-packs.js");
+    const { resolvePackRoots, readPackManifestInfo } = await import("../../packages/bds-tools/dist/world-packs.js");
     const flat = path.join(tmp, "flat-pack");
     writeManifest(flat, {
       name: "FlatBP",
@@ -117,7 +117,7 @@ describe("world-packs primitives", () => {
 
   it("resolvePackRoots：mcaddon 内嵌 mcpack + zip 套娃", async () => {
     const JSZip = (await import("jszip")).default;
-    const { resolvePackRoots, readPackManifestInfo } = await import("./dist/world-packs.js");
+    const { resolvePackRoots, readPackManifestInfo } = await import("../../packages/bds-tools/dist/world-packs.js");
 
     async function zipDirAsArchive(entries, outFile) {
       const zip = new JSZip();
@@ -207,7 +207,7 @@ describe("world-packs primitives", () => {
   });
 
   it("bumpPackPatchVersion 同步 header 与 modules", async () => {
-    const { bumpPackPatchVersion, readPackManifestInfo } = await import("./dist/world-packs.js");
+    const { bumpPackPatchVersion, readPackManifestInfo } = await import("../../packages/bds-tools/dist/world-packs.js");
     const dir = path.join(tmp, "bump-rp");
     writeManifest(dir, {
       name: "BumpMe",
@@ -225,7 +225,7 @@ describe("world-packs primitives", () => {
 
   it("ensureVersionGreaterThan / nextEnabledVersion：bump(max(新包, 旧版))", async () => {
     const { ensureVersionGreaterThan, nextEnabledVersion, readPackManifestInfo } = await import(
-      "./dist/world-packs.js"
+      "../../packages/bds-tools/dist/world-packs.js"
     );
     assert.deepEqual(nextEnabledVersion([1, 0, 0], [1, 21, 100], "patch"), [1, 21, 101]);
     /* 复现：旧 Slash Blade RP=[1,21,100]，远程新包=[1,0,0] */
@@ -242,7 +242,7 @@ describe("world-packs primitives", () => {
   });
 
   it("list-installed CLI + listInstalledWorldPacks", async () => {
-    const { listInstalledWorldPacks } = await import("./dist/world-packs.js");
+    const { listInstalledWorldPacks } = await import("../../packages/bds-tools/dist/world-packs.js");
     const bds = path.join(tmp, "bds");
     const level = "Bedrock level";
     const rpDir = path.join(bds, "worlds", level, "resource_packs", "[RP] Tex");
@@ -285,7 +285,7 @@ describe("world-packs primitives", () => {
 
   it("scanDestOccupancy / readPackDirOccupancy：完整与残缺 manifest", async () => {
     const { scanDestOccupancy, readPackDirOccupancy, formatWorldPackFolderName } = await import(
-      "./dist/world-packs.js"
+      "../../packages/bds-tools/dist/world-packs.js"
     );
     const parent = path.join(tmp, "occupancy-scan");
     const fullName = formatWorldPackFolderName("Full", "resource");
@@ -332,7 +332,7 @@ describe("world-packs primitives", () => {
   });
 
   it("decidePackInstallPlan 表驱动", async () => {
-    const { decidePackInstallPlan, formatWorldPackFolderName } = await import("./dist/world-packs.js");
+    const { decidePackInstallPlan, formatWorldPackFolderName } = await import("../../packages/bds-tools/dist/world-packs.js");
     const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     const mk = (over) => ({
@@ -474,7 +474,7 @@ describe("world-packs primitives", () => {
 
   it("installPackDirectory FS：异 uuid 换名；版本升级静默覆盖；同版需 force", async () => {
     const { installPackDirectory, formatWorldPackFolderName, readPackManifestInfo } = await import(
-      "./dist/world-packs.js"
+      "../../packages/bds-tools/dist/world-packs.js"
     );
     const dest = path.join(tmp, "conflict-parent");
 
@@ -551,7 +551,7 @@ describe("world-packs primitives", () => {
   });
 
   it("installPackDirectory：残缺 manifest 占用目录时换名而非覆盖", async () => {
-    const { installPackDirectory, formatWorldPackFolderName } = await import("./dist/world-packs.js");
+    const { installPackDirectory, formatWorldPackFolderName } = await import("../../packages/bds-tools/dist/world-packs.js");
     const dest = path.join(tmp, "broken-parent");
     const folderName = formatWorldPackFolderName("Broken", "resource");
     const existingDir = path.join(dest, folderName);
@@ -589,7 +589,7 @@ describe("world-packs primitives", () => {
 
   it("installPackDirectory：残缺 manifest 同 uuid → 按版本决策（非旁路新目录）", async () => {
     const { installPackDirectory, formatWorldPackFolderName, readPackManifestInfo } = await import(
-      "./dist/world-packs.js"
+      "../../packages/bds-tools/dist/world-packs.js"
     );
     const dest = path.join(tmp, "broken-same-uuid");
     const folderName = formatWorldPackFolderName("Legacy", "behavior");
@@ -640,7 +640,7 @@ describe("world-packs primitives", () => {
   });
 
   it("uninstallInstalledPack：回收站 / purge / 目录缺失", async () => {
-    const { uninstallInstalledPack, listInstalledWorldPacks } = await import("./dist/world-packs.js");
+    const { uninstallInstalledPack, listInstalledWorldPacks } = await import("../../packages/bds-tools/dist/world-packs.js");
     const bds = path.join(tmp, "uninstall-bds");
     const level = "Bedrock level";
     const folder = "[BP] Gone";
@@ -715,7 +715,7 @@ describe("world-packs primitives", () => {
   });
 
   it("readPackManifestInfo 遇 UTF-8 BOM 仍可读出 uuid/name（剥离兼容）", async () => {
-    const { readPackManifestInfo } = await import("./dist/world-packs.js");
+    const { readPackManifestInfo } = await import("../../packages/bds-tools/dist/world-packs.js");
     const dir = path.join(tmp, "bom-rp");
     fs.mkdirSync(dir, { recursive: true });
     const body = JSON.stringify(

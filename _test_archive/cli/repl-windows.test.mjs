@@ -7,10 +7,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { formatLogDisplay, logDisplayPrefixWidth } from "./dist/repl-windows/format-display.js";
-import { WindowHost, serviceWindowId } from "./dist/repl-windows/host.js";
-import { createLogsFilterWindow } from "./dist/repl-windows/logs-filter-window.js";
-import { createServiceWindow } from "./dist/repl-windows/service-window.js";
+import { formatLogDisplay, logDisplayPrefixWidth } from "../../packages/cli/dist/repl-windows/format-display.js";
+import { WindowHost, serviceWindowId } from "../../packages/cli/dist/repl-windows/host.js";
+import { createLogsFilterWindow } from "../../packages/cli/dist/repl-windows/logs-filter-window.js";
+import { createServiceWindow } from "../../packages/cli/dist/repl-windows/service-window.js";
 import {
   diskFileForSource,
   formatLog,
@@ -18,8 +18,8 @@ import {
   parseDiskLogLine,
   readDiskLogs,
   visibleWidth,
-} from "./dist/logs.js";
-import { plainPrompt } from "./dist/send-target.js";
+} from "../../packages/cli/dist/logs.js";
+import { plainPrompt } from "../../packages/cli/dist/send-target.js";
 
 function makeLog(source, level = "info", text = "hello") {
   return { time: new Date(0), source, level, text };

@@ -15,7 +15,7 @@ import {
   createPackSourceProvider,
   providerShortLabel,
   resolveConfiguredPackProvider,
-} from "./dist/pack-update/index.js";
+} from "../../packages/bds-tools/dist/pack-update/index.js";
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bds-pack-upd-cfg-"));
 const api = createPackUpdateApi(createTestPackUpdateDeps(tmpRoot));

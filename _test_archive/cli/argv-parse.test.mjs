@@ -8,7 +8,7 @@ import {
   isModuleInstallShorthand,
   mapPacksSubAlias,
   parseGlobalArgv,
-} from "./dist/argv-parse.js";
+} from "../../packages/cli/dist/argv-parse.js";
 
 test("parseGlobalArgv 抽出 -p/--packs", () => {
   const a = parseGlobalArgv(["-p", "i", "./x.zip"]);

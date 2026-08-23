@@ -11,7 +11,7 @@ import {
   listVisibleModuleSubs,
   listVisibleTopLevelNames,
   resolveModuleTopShorthand,
-} from "./dist/command-surface.js";
+} from "../../packages/cli/dist/command-surface.js";
 
 const tty = { isTty: true };
 const noTty = { isTty: false };
@@ -78,8 +78,8 @@ test("模块顶层短命令映射", () => {
 });
 
 test("logs 仅 REPL（无参叶命令）", async () => {
-  const { gateTopLevel } = await import("./dist/cli-gate.js");
-  const { listPaletteRoots } = await import("./dist/command-surface.js");
+  const { gateTopLevel } = await import("../../packages/cli/dist/cli-gate.js");
+  const { listPaletteRoots } = await import("../../packages/cli/dist/command-surface.js");
   assert.ok(gateTopLevel("logs", "argv"), "argv 应拒绝 logs");
   assert.equal(gateTopLevel("logs", "repl"), null);
   const logs = listPaletteRoots("repl").find((n) => n.token === "logs");
@@ -89,7 +89,7 @@ test("logs 仅 REPL（无参叶命令）", async () => {
 });
 
 test("命令面板根列不含 module 短命令，统一挂在 /module", async () => {
-  const { listPaletteRoots } = await import("./dist/command-surface.js");
+  const { listPaletteRoots } = await import("../../packages/cli/dist/command-surface.js");
   const roots = listPaletteRoots("repl");
   const tokens = roots.map((n) => n.token);
   for (const shy of ["install", "uninstall", "search", "verify", "link", "create", "dev"]) {

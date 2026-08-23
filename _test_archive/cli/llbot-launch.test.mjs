@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { llbotExeName, resolveLlbotLaunch } from "./dist/llbot-launch.js";
+import { llbotExeName, resolveLlbotLaunch } from "../../packages/cli/dist/llbot-launch.js";
 
 test("llbot_path 为目录时拼平台 exe 名", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-llbot-"));

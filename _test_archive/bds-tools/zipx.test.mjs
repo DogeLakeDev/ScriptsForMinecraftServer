@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import JSZip from "jszip";
-import { extractZipBufferToDir, resolveSafeZipEntryPath } from "./dist/zipx.js";
+import { extractZipBufferToDir, resolveSafeZipEntryPath } from "../../packages/bds-tools/dist/zipx.js";
 
 test("resolveSafeZipEntryPath rejects .. and absolute", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-zipx-"));
