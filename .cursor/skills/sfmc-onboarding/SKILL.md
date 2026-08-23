@@ -32,18 +32,18 @@ description: >-
 ```text
 - [ ] 确认 cwd 是哪一种根
 - [ ] Node ≥ 22.13（.node-version）
-- [ ] monorepo：npm install && npm run build --workspaces --if-present
+- [ ] monorepo：`pnpm install && pnpm run build`（或 `npm install && npm run build --workspaces --if-present`）
 - [ ] 设 SFMC_ROOT 后再启服务（缺 configs 时服务写默认值）
 - [ ] 启动：db-server → qq-bridge（若用）→ BDS
 - [ ] GET http://127.0.0.1:3001/api/health
 ```
 
 ```powershell
-npm run build
-npm run lint          # 先 build eslint-plugin
-npm run typecheck
-npm run verify
-npm start             # sfmc CLI REPL
+pnpm run build          # 或 npm run build --workspaces --if-present
+pnpm run lint           # 或 npm run lint（先 build eslint-plugin）
+pnpm run typecheck      # 或 npm run typecheck
+pnpm run verify         # 或 npm run verify
+pnpm start              # 或 npm start（sfmc CLI REPL）
 ```
 
 ## 包地图

@@ -7,56 +7,57 @@
 ## 环境
 
 - **Node.js ≥ 22.13**
-- **npm workspaces**（本地 `@sfmc-bds/*` 用 `^<version>`，禁止 `workspace:*`）
+- **pnpm workspace**（`pnpm-workspace.yaml`，主仓推荐）或 **npm workspaces**；本地 `@sfmc-bds/*` 用 `^<version>`，禁止 `workspace:*`
 - 可选：Python 3.12 + `pip install -r docs/requirements.txt`
 
 ```bash
-npm install
-npm run build
-npm run verify
+pnpm install && pnpm run build && pnpm run verify
+npm install && npm run build --workspaces --if-present && npm run verify
 ```
 
 ## 根脚本
 
+下文 **pnpm / npm 等价**（单包 filter 写法见第二列）。
+
 ### 日常
 
-| 命令 | 说明 |
-| ------ | ------ |
-| `npm run build` | 各 workspace build |
-| `npm run typecheck` | 各 workspace typecheck |
-| `npm run lint` | build eslint-plugin 后 `eslint .` |
-| `npm start` | CLI |
+| pnpm | npm | 说明 |
+| ------ | ------ | ------ |
+| `pnpm run build` | `npm run build --workspaces --if-present` | 各 workspace build |
+| `pnpm run typecheck` | `npm run typecheck` | 各 workspace typecheck |
+| `pnpm run lint` | `npm run lint` | build eslint-plugin 后 `eslint .` |
+| `pnpm start` | `npm start` | CLI |
 
-单包：`npm run build -w @sfmc-bds/sdk`。
+单包：`pnpm --filter @sfmc-bds/sdk run build` / `npm run build -w @sfmc-bds/sdk`。
 
 ### 自检
 
-| 命令 | 说明 |
-| ------ | ------ |
-| `npm run verify` | 平台集成自检 |
+| pnpm | npm | 说明 |
+| ------ | ------ | ------ |
+| `pnpm run verify` | `npm run verify` | 平台集成自检 |
 
 ### 文档
 
 ```bash
-npm run docs -- api
-npm run docs -- serve
-npm run docs -- build
+pnpm run docs -- api|serve|build
+npm run docs -- api|serve|build
 ```
 
 ### 依赖对齐
 
 ```bash
-npm run syncpack:lint
+pnpm run syncpack:fix
 npm run syncpack:fix
+pnpm exec syncpack format --check
 npx syncpack format --check
 ```
 
 ### 平台发包
 
-| 命令 | 说明 |
-| ------ | ------ |
-| `npm run changeset` | 添加 changeset；push `main` 后 CI 开 Version PR |
-| `npm run pack:verify` | 可选：`npm pack` 冒烟 |
+| pnpm | npm | 说明 |
+| ------ | ------ | ------ |
+| `pnpm run changeset` | `npm run changeset` | 添加 changeset；push `main` 后 CI 开 Version PR |
+| `node packages/tools/pack-verify.mjs` | 同上 | 可选：`pnpm pack` / `npm pack` 冒烟 |
 
 日常发版：**合并 Version PR 即可**，无需本地 `prerelease` / `release`。当前 **beta-only**。模块作者发包见 [发布你的模块](./publish.md)。
 
@@ -77,4 +78,4 @@ npx syncpack format --check
 | [架构](./architecture.md) | 分层 |
 | [平台开发](./platform.md) | SDK / db / CLI |
 | [ESLint 约定](./eslint.md) | 规则 |
-| [文档站维护](../CONTRIBUTING-DOCS.md) | MkDocs / TypeDoc |
+| [文档站维护](../CONTRIBUTING-DOCS.mdx) | Rspress / TypeDoc |

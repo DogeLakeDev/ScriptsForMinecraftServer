@@ -9,6 +9,7 @@ Pick a symptom and work through the steps; the full checklist below remains for 
 ### Self-check (monorepo)
 
 ```bash
+pnpm run verify
 npm run verify
 ```
 
@@ -43,6 +44,7 @@ curl http://127.0.0.1:3001/api/health
 ### Test sandbox
 
 ```bash
+pnpm test
 npm test
 # must include:
 # --import @sfmc-bds/sdk/testing/minecraft-loader
@@ -52,7 +54,7 @@ npm test
 | --- | --- |
 | `UnimplementedMinecraftApiError` / unimplemented Minecraft API | Test hit an unwired API: narrow assertions or wait for sandbox coverage; not a business-logic bug |
 | Assertion fails but BDS works | Sandbox fidelity gap; verify with extension Watch or live BDS |
-| Testing panel finds no tests | Install `nodejs-testing`; check template `.vscode/settings.json` and `npm test` script |
+| Testing panel finds no tests | Install `nodejs-testing`; check template `.vscode/settings.json` and `pnpm test` / `npm test` script |
 
 Author flow: [Test sandbox](../dev/testing.md).
 
@@ -78,10 +80,11 @@ Upgrading without `qq_backend` defaults to official; set `"qq_backend": "llbot"`
 ### Build and imports
 
 ```bash
+pnpm run build
 npm run build --workspaces --if-present
 sfmc> mod build
 ```
 
 Legacy modules still importing `@sfmc/sdk`: reinstall with current CLI, or ensure SDK resolves at build time.
 
-If still stuck, open a GitHub Issue with BDS / sfmc logs, `npm run verify` output, and Node version.
+If still stuck, open a GitHub Issue with BDS / sfmc logs, `pnpm run verify` / `npm run verify` output, and Node version.

@@ -29,7 +29,7 @@ flowchart LR
 | ------ | ------ |
 | 系统 | Windows 10 / 11（当前主要支持） |
 | Node.js | [22.13+](https://nodejs.org/)（`node:sqlite` 需此版本） |
-| 包管理 | **npm** workspaces；勿用 pnpm 的 `workspace:*` |
+| 包管理 | **pnpm** workspace（`pnpm-workspace.yaml`，主仓推荐）或 **npm workspaces**；本地 `@sfmc-bds/*` 禁止 `workspace:*` |
 | 编辑器 | [Cursor](https://cursor.com/) 或 [VS Code](https://code.visualstudio.com/) |
 | CLI | `npm i -g @sfmc-bds/sfmc@beta`（运维）；作者联调优先扩展 |
 
@@ -56,7 +56,7 @@ flowchart LR
 | GitHub CLI `gh` | 向薄 index 开 PR 时可选 |
 
 :::warning 注意
-`sfmc mod test` / `watch` / `publish` 已移除。测试与 Watch 用扩展；发布用 `npm publish`，见 [发布你的模块](./publish.md)。
+`sfmc mod test` / `watch` / `publish` 已移除。测试与 Watch 用扩展；发布用 `pnpm publish` / `npm publish`，见 [发布你的模块](./publish.md)。
 
 :::
 
@@ -73,7 +73,7 @@ flowchart LR
   </Tab>
   <Tab label="改平台 / SDK">
 
-1. 克隆本仓 → `npm i` → `npm run build --workspaces --if-present`  
+1. 克隆本仓 → `pnpm install` / `npm install` → `pnpm run build` / `npm run build --workspaces --if-present`  
 2. [架构](./architecture.md) → [平台开发](./platform.md)  
 3. [贡献指南](./contributing.md) · [代码约定](./conventions.md)
 
@@ -83,7 +83,8 @@ flowchart LR
 ```bash
 # 模块作者最小闭环（作者仓）
 npm create @sfmc-bds/module@latest
-cd <id> && npm i && npm test
+cd <id> && pnpm install && pnpm test
+cd <id> && npm install && npm test
 # 联调：扩展「SFMC Module」→ Link to SFMC Root → Start Watch（设 sfmc.root）
 # 或运维机：
 sfmc mod install my-feature --from dir:<作者仓绝对路径> --link

@@ -1,7 +1,7 @@
 /**
  * test/{{id}}.test.ts — 模块 lifecycle + 命令冒烟（假引擎）
  *
- * 跑法：npm test（SDK minecraft-loader + createSandbox）
+ * 跑法：pnpm test / npm test（SDK minecraft-loader + createSandbox）
  */
 
 import assert from "node:assert/strict";

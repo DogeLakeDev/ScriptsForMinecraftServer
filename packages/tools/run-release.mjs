@@ -24,7 +24,7 @@ const mode = process.argv.includes("--ci")
 
 if (!mode) {
   console.error(`用法:
-  node packages/tools/run-release.mjs --ci      # CI / npm run ci-release-packages
+  node packages/tools/run-release.mjs --ci      # CI / pnpm run ci-release-packages
   node packages/tools/run-release.mjs --pre     # 应急本地 beta（日常请走 CI）
   node packages/tools/run-release.mjs --stable  # 应急本地正式`);
   process.exit(2);

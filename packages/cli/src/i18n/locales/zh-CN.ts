@@ -259,6 +259,7 @@ export const zhCN: Record<MessageKey, string> = {
   "prompt.enterPath": "输入路径",
   "prompt.browse": "浏览…",
   "prompt.browseHint": "打开系统文件夹选择器",
+  "prompt.browseUnavailable": "无法打开系统选择器，请手动输入路径",
 
   "reload.buildOnly": "构建完成。",
   "reload.bdsNotRunning": "BDS 未运行 — 已完成构建。",

@@ -13,8 +13,8 @@ npm create @sfmc-bds/module@latest
 
 ```bash
 cd my-feature
-npm install
-npm test
+pnpm install && pnpm test
+npm install && npm test
 ```
 
 ## 命名规范
@@ -31,7 +31,7 @@ npm test
 
 ```mermaid
 flowchart LR
-  A[Create] --> B[npm test]
+  A[Create] --> B[test]
   B --> C[Link]
   C --> D[Watch]
   D --> E[Publish]
@@ -39,11 +39,11 @@ flowchart LR
 ```
 
 1. **Create**：`npm create @sfmc-bds/module@latest` 或扩展 `SFMC: New Module`
-2. **Test**：`npm test` / 扩展 `SFMC: Run Tests`（假引擎，秒级；不依赖 `sfmc.root`）。详情见 [测试沙箱](./testing.md)
+2. **Test**：`pnpm test` / `npm test` / 扩展 `SFMC: Run Tests`（假引擎，秒级；不依赖 `sfmc.root`）。详情见 [测试沙箱](./testing.md)
 3. **Link**：扩展 `SFMC: Link to SFMC Root`，或  
    `sfmc mod install <id> --from dir:<作者仓绝对路径> --link`
 4. **Watch**：设 `sfmc.root` 为含 `configs/`、`modules/` 的工作目录 → `SFMC: Start Watch` / `Reload to BDS`
-5. **Publish**：扩展 `SFMC: Publish to npm` 或 `npm publish --access public`，再向 `sfmc-modules` 的 `index.json` 开 PR。见 [发布你的模块](./publish.md)
+5. **Publish**：扩展 `SFMC: Publish to npm` 或 `pnpm publish --access public` / `npm publish --access public`，再向 `sfmc-modules` 的 `index.json` 开 PR。见 [发布你的模块](./publish.md)
 
 :::tip 全表面 ≠ 假 BDS
 沙箱能 `import` 大范围 `@minecraft/*`，未实现 API 会**硬失败**（不是静默 noop）。进服仍是终检：世界交互与版本 quirk 用 Watch / 日志。
@@ -51,7 +51,7 @@ flowchart LR
 | 入口                          | 作用                                   |
 | ----------------------------- | -------------------------------------- |
 | `npm create @sfmc-bds/module` | 建仓（唯一权威）                       |
-| `npm test` / 扩展 Run Tests   | 模块仓假引擎单测（`createSandbox`）    |
+| `pnpm test` / `npm test` / 扩展 Run Tests   | 模块仓假引擎单测（`createSandbox`）    |
 | 扩展 Link                     | `mod install --from dir:… --link`      |
 | 扩展 Start Watch              | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
 | `sfmc mod build` / `reload`   | **运维**对本机已装模块组装部署         |

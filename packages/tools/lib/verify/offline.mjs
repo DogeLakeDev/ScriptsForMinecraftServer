@@ -86,7 +86,7 @@ export function runOfflinePhase(reporter) {
   {
     const sdkDist = path.join(ROOT, "modules", "sdk", "@sfmc-sdk", "dist");
     if (exists(sdkDist)) reporter.pass("@sfmc-bds/sdk dist 存在");
-    else reporter.warn("@sfmc-bds/sdk dist 缺失 — 运行 npm run build -w @sfmc-bds/sdk");
+    else reporter.warn("@sfmc-bds/sdk dist 缺失 — 运行 pnpm --filter @sfmc-bds/sdk run build / npm run build -w @sfmc-bds/sdk");
   }
 
   {

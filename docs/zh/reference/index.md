@@ -4,4 +4,4 @@
 
 手写导读见 [接口指南 · SDK](../api/sdk/index.md)。
 
-生成命令：`npm run docs -- api` 或 `npm run docs -- build`。
+生成命令：`pnpm run docs -- api` / `npm run docs -- api` 或 `pnpm run docs -- build` / `npm run docs -- build`。

@@ -9,6 +9,7 @@
 ### 自检（monorepo）
 
 ```bash
+pnpm run verify
 npm run verify
 ```
 
@@ -43,6 +44,7 @@ curl http://127.0.0.1:3001/api/health
 ### 测试沙箱
 
 ```bash
+pnpm test
 npm test
 # 须带：
 # --import @sfmc-bds/sdk/testing/minecraft-loader
@@ -52,7 +54,7 @@ npm test
 | --- | --- |
 | `UnimplementedMinecraftApiError` /「未实现的 Minecraft API」 | 用例碰到尚未接线的 API：缩小断言面，或等沙箱加深；勿当业务逻辑错误 |
 | 断言失败但 BDS 正常 | 可能是沙箱保真差；用扩展 Watch / 真机复核 |
-| Testing 面板发现不了用例 | 装 `nodejs-testing`；核对模板 `.vscode/settings.json` 与 `npm test` 脚本 |
+| Testing 面板发现不了用例 | 装 `nodejs-testing`；核对模板 `.vscode/settings.json` 与 `pnpm test` / `npm test` 脚本 |
 
 作者流程见 [测试沙箱](../dev/testing.md)。
 
@@ -78,10 +80,11 @@ npm test
 ### 构建与 import
 
 ```bash
+pnpm run build
 npm run build --workspaces --if-present
 sfmc> mod build
 ```
 
 旧模块若仍 `import "@sfmc/sdk"`，请用当前 CLI 重装模块，或确认 SDK 可被构建解析。
 
-仍解决不了时，可前往 GitHub Issues 附上 BDS / sfmc 日志、`npm run verify` 输出和 Node 版本。
+仍解决不了时，可前往 GitHub Issues 附上 BDS / sfmc 日志、`pnpm run verify` / `npm run verify` 输出和 Node 版本。

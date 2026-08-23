@@ -2,7 +2,7 @@
 // @ts-check
 /**
  * 本地发布前 pack 冒烟 — 包清单唯一来源 NPM_PUBLISH_PACKAGES（DRY）。
- * 用法: npm run pack:verify  或  node packages/tools/pack-verify.mjs
+ * 用法: node packages/tools/pack-verify.mjs  或  pnpm exec node packages/tools/pack-verify.mjs
  */
 import {
   NPM_PUBLISH_PACKAGES,

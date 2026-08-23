@@ -35,10 +35,10 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "dev": "tsx src/index.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "pnpm run build",
     "start": "node dist/index.js",
     "test": "node --test dist/**/*.test.js dist/*.test.js",
-    "test:api": "npm run build && node scripts/test-db-api.mjs",
+    "test:api": "pnpm run build && node scripts/test-db-api.mjs",
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {

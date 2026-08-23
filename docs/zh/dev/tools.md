@@ -6,7 +6,7 @@
 
 | 命令 | 作用 |
 |------|------|
-| `npm run verify` | 平台集成自检（CI 默认） |
+| `pnpm run verify` / `npm run verify` | 平台集成自检（CI 默认） |
 | `sfmc mod install <id>` | 安装模块（独立 SFMC 根，非主仓） |
 | `npm create @sfmc-bds/module@latest` | 建仓（`@sfmc-bds/create-module`） |
 
@@ -14,7 +14,7 @@
 
 ## 发版
 
-日常：`npx changeset` → push `main` → Version Packages PR → 合并后 CI `ci-release-packages`。
+日常：`pnpm run changeset` / `npm run changeset` → push `main` → Version Packages PR → 合并后 CI `ci-release-packages`。
 
 ## 共享库
 

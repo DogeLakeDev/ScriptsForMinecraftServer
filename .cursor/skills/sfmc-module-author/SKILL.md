@@ -2,7 +2,7 @@
 name: sfmc-module-author
 description: >-
   Current SFMC module authoring path: npm create @sfmc-bds/module, createSandbox
-  tests, link into SFMC_ROOT, extension Watch via @sfmc-bds/devkit, npm publish
+  tests, link into SFMC_ROOT, extension Watch via @sfmc-bds/devkit, pnpm/npm publish
   plus sfmc-modules index. Use when creating or linking modules, authoring
   SAPI packages, or choosing author vs ops tooling.
 ---
@@ -16,11 +16,11 @@ description: >-
 | 动作 | 作者面 | 运维面（SFMC_ROOT） |
 |------|--------|---------------------|
 | 建仓 | `npm create @sfmc-bds/module@latest` 或 `SFMC: New Module` | — |
-| 单测 | `npm test` / `SFMC: Run Tests` | — |
+| 单测 | `pnpm test` / `npm test` / `SFMC: Run Tests` | — |
 | 挂到工作目录 | 扩展 Link，或 `mod install --link` | 同左 |
 | 源码部署 | 扩展 Watch（`@sfmc-bds/devkit`） | `sfmc mod build` / `reload` |
 | 启停 | — | `sfmc mod enable` / `disable` |
-| 发布 / 安装发布物 | 扩展 Publish 或 `npm publish` + index PR | `sfmc mod install <id>` |
+| 发布 / 安装发布物 | 扩展 Publish 或 `pnpm publish` / `npm publish` + index PR | `sfmc mod install <id>` |
 
 建仓引擎：`@sfmc-bds/create-module`（CLI 与扩展共用 `createModule()`）。
 
@@ -28,7 +28,7 @@ description: >-
 
 ```text
 1. npm create @sfmc-bds/module@latest
-2. npm install && npm test
+2. pnpm install && pnpm test（或 npm install && npm test）
 3. Link 到 SFMC_ROOT → enable
 4. Watch 或 mod reload → 进服终检
 5. npm publish → sfmc-modules index.json PR
@@ -91,9 +91,9 @@ my-feature/
 
 ## 测试与发布
 
-- 门禁：`npm test`（`createSandbox`；未实现的 `@minecraft/*` API 会硬失败）
+- 门禁：`pnpm test` / `npm test`（`createSandbox`；未实现的 `@minecraft/*` API 会硬失败）
 - 进服：Watch / 日志终检
-- 发布：`npm publish --access public` → `sfmc-modules` 的 `index.json` PR
+- 发布：`pnpm publish --access public` / `npm publish --access public` → `sfmc-modules` 的 `index.json` PR
 - 社区包用 `@<user>/sfmc-module-*`；官方包用 `@sfmc-bds/module-*`
 
 ## 相关

@@ -9,12 +9,15 @@
 ## 环境
 
 ```bash
-npm install
-npm run build --workspaces --if-present
-npm run verify
+pnpm install && pnpm run build && pnpm run verify
+npm install && npm run build --workspaces --if-present && npm run verify
 ```
 
 ```bash
+pnpm --filter @sfmc-bds/sdk run build
+pnpm --filter @sfmc-bds/db-server run build
+pnpm --filter @sfmc-bds/cli run build
+cd packages/db-server && pnpm run dev
 npm run build -w @sfmc-bds/sdk
 npm run build -w @sfmc-bds/db-server
 npm run build -w @sfmc-bds/cli
@@ -29,7 +32,8 @@ cd packages/db-server && npm run dev
 
 ```bash
 cd packages/db-server
-npm run test
+pnpm test
+npm test
 ```
 
 | 扩展点 | 位置 |
@@ -43,7 +47,7 @@ npm run test
 
 ## sfmc CLI
 
-源码 `packages/cli/src/`（npm `@sfmc-bds/cli`）。改完：`npm run build -w @sfmc-bds/cli`。根入口：`npm start` → `packages/cli/dist/main.js`。
+源码 `packages/cli/src/`（npm `@sfmc-bds/cli`）。改完：`pnpm --filter @sfmc-bds/cli run build` / `npm run build -w @sfmc-bds/cli`。根入口：`pnpm start` / `npm start` → `packages/cli/dist/main.js`。
 
 工作根：monorepo 内为仓根；npm 聚合包安装后为 **cwd**（`SFMC_ROOT` 可覆盖）。首次初始化看 `configs/runtime.json#initialized_at`。
 
@@ -62,12 +66,12 @@ npm run test
 
 新脚本放 `packages/tools/*.mjs`（仓内私有），模块 install 逻辑在 `packages/cli/scripts/module-install/`。见 [工具脚本](./tools.md)。
 
-`ootb.yml`：`npm ci` → build → `npm run verify`。Node ≥ 22.13。
+`ootb.yml`：`pnpm install --frozen-lockfile` / `npm ci` → build → `pnpm run verify` / `npm run verify`。Node ≥ 22.13。
 
 ## PR 前
 
-1. `npm run build --workspaces --if-present`
-2. `npm run verify`
+1. `pnpm run build` / `npm run build --workspaces --if-present`
+2. `pnpm run verify` / `npm run verify`
 3. SDK 导出变更 → 相关 typecheck / TypeDoc
 4. 文档与代码同步改
 

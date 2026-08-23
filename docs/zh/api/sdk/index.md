@@ -1,6 +1,6 @@
 # SDK 导读
 
-包名 `@sfmc-bds/sdk`。本文是**用法导读**；完整签名见 [SDK 类型参考](../reference/index.md)（`npm run docs -- api`）。
+包名 `@sfmc-bds/sdk`。本文是**用法导读**；完整签名见 [SDK 类型参考](../reference/index.md)（`pnpm run docs -- api` / `npm run docs -- api`）。
 
 ## 四抽屉
 

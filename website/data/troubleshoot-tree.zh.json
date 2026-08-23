@@ -6,8 +6,8 @@
       "title": "自检（monorepo）",
       "steps": [
         {
-          "text": "在仓根运行开箱与模块校验：",
-          "code": "npm run verify\nnpm run check-modules\nnpm run catalog-sync"
+          "text": "在仓根运行平台集成自检：",
+          "code": "pnpm run verify\nnpm run verify"
         }
       ]
     },
@@ -31,7 +31,6 @@
       "steps": [
         { "text": "查看控制台装载摘要与 <SFMC_ROOT>/.sfmc/logs/" },
         { "text": "运行 mod build，确认 esbuild 无报错" },
-        { "text": "monorepo 下执行 npm run check-modules" },
         {
           "text": "确认收件箱冲突未挡住启动前扫描",
           "href": "./addons",
@@ -56,7 +55,7 @@
       "steps": [
         {
           "text": "运行测试时须带 minecraft-loader：",
-          "code": "npm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
+          "code": "pnpm test\nnpm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
         },
         {
           "text": "UnimplementedMinecraftApiError → 缩小断言面或等沙箱加深，勿当业务错误"
@@ -86,8 +85,8 @@
       "title": "构建与 import",
       "steps": [
         {
-          "text": "先构建 workspaces，再组装模块包：",
-          "code": "npm run build --workspaces --if-present\nsfmc> mod build"
+          "text": "先构建 monorepo，再组装模块包：",
+          "code": "pnpm run build\nnpm run build --workspaces --if-present\nsfmc> mod build"
         },
         {
           "text": "旧模块若仍 import \"@sfmc/sdk\"，请用当前 CLI 重装，或确认 SDK 可被解析"

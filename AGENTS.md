@@ -139,17 +139,21 @@ ModuleRegistry.register({
 
 ## 命令速查
 
+monorepo 以 **pnpm** 为主（根 `packageManager`）；下列 **pnpm / npm 等价**，任选其一。
+
 ```powershell
 # monorepo
-npm install && npm run build
-npm run lint          # 先 build eslint-plugin
-npm run typecheck
-npm run verify
-npm start             # REPL
+pnpm install && pnpm run build
+npm install && npm run build --workspaces --if-present
+
+pnpm run lint          # 或 npm run lint（先 build eslint-plugin）
+pnpm run typecheck     # 或 npm run typecheck
+pnpm run verify        # 或 npm run verify
+pnpm start             # 或 npm start（REPL）
 
 # 运维（SFMC_ROOT）
-npm start -- status|start|stop|restart|init|update
-# 服务：db|qq|update|manager|bds|-all
+pnpm start -- status|start|stop|restart|init|update
+# 或 npm start -- …
 
 # 作者
 npm create @sfmc-bds/module@latest
@@ -158,7 +162,9 @@ npm create @sfmc-bds/module@latest
 
 ```bash
 # 单包
+cd packages/db-server && pnpm run dev|start|test
 cd packages/db-server && npm run dev|start|test
+cd packages/bds-tools && pnpm run update|start|stop|status
 cd packages/bds-tools && npm run update|start|stop|status
 ```
 
@@ -170,7 +176,7 @@ Debug：`variables.json` → `sfmc_debug`；Sentry：`secrets.json` → `SENTRY_
 | ---------- | ---------------------------------------------------------------------------- |
 | db-server  | `node --test`                                                                |
 | SDK / 模块 | `@sfmc-bds/sdk/testing` + `createSandbox()`                                  |
-| SDK 本地   | `npm test -w @sfmc-bds/sdk`；mc-fake：`npm run gen:mc-fake -w @sfmc-bds/sdk` |
+| SDK 本地   | `pnpm --filter @sfmc-bds/sdk test` / `npm test -w @sfmc-bds/sdk`；mc-fake：`pnpm --filter @sfmc-bds/sdk run gen:mc-fake` / `npm run gen:mc-fake -w @sfmc-bds/sdk` |
 
 | Workflow                | 作用                                                               |
 | ----------------------- | ------------------------------------------------------------------ |
@@ -193,6 +199,7 @@ Node：`engines` ≥22.13；CI 跟 `.node-version`。可发布包 API/行为变�
 ## Cloud（Linux）
 
 ```bash
+pnpm install && pnpm run build
 npm install && npm run build --workspaces --if-present
 SFMC_ROOT=$PWD node packages/db-server/dist/index.js
 # GET http://127.0.0.1:3001/api/health

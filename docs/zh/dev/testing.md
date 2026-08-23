@@ -2,9 +2,9 @@
 
 在 **不启动 BDS** 的情况下，用 `node --test` + `@sfmc-bds/sdk/testing` 跑模块 lifecycle 与游戏 API 断言。
 
-假引擎对齐 pin 版 `@minecraft/server` / `server-ui`（大范围导出 + 未实现硬失败）。作者日常单测用 `npm test`（或扩展 `SFMC: Run Tests`），真机联调用扩展「SFMC Module」的 Watch / Reload。`sfmc mod test|watch` 已移除。
+假引擎对齐 pin 版 `@minecraft/server` / `server-ui`（大范围导出 + 未实现硬失败）。作者日常单测用 `pnpm test` / `npm test`（或扩展 `SFMC: Run Tests`），真机联调用扩展「SFMC Module」的 Watch / Reload。`sfmc mod test|watch` 已移除。
 
-目标：把「类型全绿、进服才翻日志」的故障前移到 `npm test`（堆栈落在模块源码）。
+目标：把「类型全绿、进服才翻日志」的故障前移到 `pnpm test` / `npm test`（堆栈落在模块源码）。
 
 ## 保真层级
 
@@ -15,7 +15,7 @@
 | L2 | 可断言状态机（Player、tick、事件、UI…） |
 | L3 | 高成本世界语义（方块/实体…）专题加深 |
 
-手写 L1–L3 实现放在 `modules/sdk/@sfmc-sdk/src/testing/engine/overrides/`；`overrides/exports.json` 是生成器跳过名单的权威来源（`npm run gen:mc-fake`）。
+手写 L1–L3 实现放在 `modules/sdk/@sfmc-sdk/src/testing/engine/overrides/`；`overrides/exports.json` 是生成器跳过名单的权威来源（`pnpm --filter @sfmc-bds/sdk run gen:mc-fake` / `npm run gen:mc-fake -w @sfmc-bds/sdk`）。
 
 ## Playground 1:1 驱动面
 
@@ -103,14 +103,14 @@ SDK `playground-host` JSON-RPC 可被外部工具消费同一套 API。快捷创
 - 不模拟完整物理 / 红石 / 区块生成。
 - 不把 LeviLamina 等逆向头文件入库；`mc/scripting` 仅作团队只读对照（见规划规格）。
 - 真机手感用扩展 **Start Watch** 或运维 `sfmc mod reload`。
-- `@minecraft/server-gametest` 为预留真机轨，不在 Node 沙箱内（勿在 `npm test` 中依赖）。
+- `@minecraft/server-gametest` 为预留真机轨，不在 Node 沙箱内（勿在 `pnpm test` / `npm test` 中依赖）。
 - 沙箱内 `ModuleRegistry` / `Command` 为进程级单例：`dispose` 后勿与并行用例抢同一进程；模块仓默认串行 `node --test` 即可。
 
 ## 与 BDS 日志分工
 
 | 优先 | 手段 |
 | ------ | ------ |
-| 脚本运行时 / lifecycle / 命令 Msg | `npm test` |
+| 脚本运行时 / lifecycle / 命令 Msg | `pnpm test` / `npm test` |
 | 世界交互与版本 quirk | Watch / 真机日志 |
 
 ## 最小示例

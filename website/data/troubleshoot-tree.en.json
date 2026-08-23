@@ -1,24 +1,24 @@
 {
-  "title": "Troubleshooting wizard",
+  "title": "Troubleshooting",
   "nodes": [
     {
       "id": "ootb",
       "title": "Self-check (monorepo)",
       "steps": [
         {
-          "text": "From the repo root:",
-          "code": "npm run verify\nnpm run check-modules\nnpm run catalog-sync"
+          "text": "Run platform integration verify at repo root:",
+          "code": "pnpm run verify\nnpm run verify"
         }
       ]
     },
     {
       "id": "db",
-      "title": "db-server will not start",
+      "title": "db-server won't start",
       "steps": [
-        { "text": "Immediate exit / node:sqlite errors → upgrade Node to 22.13+" },
-        { "text": "Port in use → change db_port or DB_PORT" },
-        { "text": "Module API errors → verify modulesDir and SFMC_ROOT" },
-        { "text": "Corrupt SQLite → stop services and restore from backup" },
+        { "text": "Instant exit or node:sqlite error → upgrade Node to 22.13+" },
+        { "text": "Port in use → change db_port in configs or DB_PORT env" },
+        { "text": "Module API issues → check modulesDir and SFMC_ROOT" },
+        { "text": "SQLite corruption → restore from backup after stopping services" },
         {
           "text": "Health check:",
           "code": "curl http://127.0.0.1:3001/api/health"
@@ -27,47 +27,46 @@
     },
     {
       "id": "bds-gate",
-      "title": "Load gate / BDS did not start",
+      "title": "Load gate / BDS not starting",
       "steps": [
-        { "text": "Check the load summary and <SFMC_ROOT>/.sfmc/logs/" },
-        { "text": "Run mod build and confirm esbuild succeeds" },
-        { "text": "In the monorepo, run npm run check-modules" },
+        { "text": "Check load summary and <SFMC_ROOT>/.sfmc/logs/" },
+        { "text": "Run mod build; confirm esbuild has no errors" },
         {
-          "text": "Ensure inbox conflicts are not blocking the pre-start scan",
+          "text": "Confirm inbox conflicts are not blocking pre-start scan",
           "href": "./addons",
-          "hrefLabel": "Addons"
+          "hrefLabel": "Add-ons"
         }
       ]
     },
     {
       "id": "module-noop",
-      "title": "Module enabled but no in-game effect",
+      "title": "Module enabled but no effect",
       "steps": [
         { "text": "Did you run mod reload or restart BDS?" },
-        { "text": "Is enabled: true in modules/module-lock.json?" },
+        { "text": "Is modules/module-lock.json enabled: true?" },
         { "text": "GET /api/sfmc/modules/<id> to confirm state" },
-        { "text": "Temporarily mod disable the module to isolate it" },
+        { "text": "Temporarily mod disable to isolate" },
         { "text": "Are dependency modules installed and enabled?" }
       ]
     },
     {
       "id": "sandbox",
-      "title": "Testing sandbox",
+      "title": "Test sandbox",
       "steps": [
         {
-          "text": "Tests must import the minecraft loader:",
-          "code": "npm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
+          "text": "Tests must use minecraft-loader:",
+          "code": "pnpm test\nnpm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
         },
         {
-          "text": "UnimplementedMinecraftApiError → narrow assertions or wait for deeper sandbox coverage"
+          "text": "UnimplementedMinecraftApiError → narrow assertions or wait for sandbox depth; not a business bug"
         },
         {
-          "text": "Assertion fails while BDS works → fidelity gap; verify with Watch / real BDS"
+          "text": "Assertion fails but BDS OK → sandbox fidelity gap; verify with Watch / live server"
         },
         {
-          "text": "Author workflow",
+          "text": "Author flow: testing doc",
           "href": "/dev/testing",
-          "hrefLabel": "Testing sandbox"
+          "hrefLabel": "Test sandbox"
         }
       ]
     },
@@ -75,10 +74,10 @@
       "id": "qq",
       "title": "QQ bridge",
       "steps": [
-        { "text": "LLBot reverse WS should be ws://127.0.0.1:3002" },
-        { "text": "Verify qq_group_id and llbot_* settings" },
-        { "text": "Check qq / llbot logs for a successful connection" },
-        { "text": "Ensure the firewall allows port 3002" }
+        { "text": "LLBot reverse WS ws://127.0.0.1:3002?" },
+        { "text": "qq_group_id, llbot_* correct?" },
+        { "text": "Check qq / llbot logs for connection" },
+        { "text": "Firewall blocking 3002?" }
       ]
     },
     {
@@ -86,11 +85,11 @@
       "title": "Build and imports",
       "steps": [
         {
-          "text": "Build workspaces, then assemble packs:",
-          "code": "npm run build --workspaces --if-present\nsfmc> mod build"
+          "text": "Build monorepo first, then module pack:",
+          "code": "pnpm run build\nnpm run build --workspaces --if-present\nsfmc> mod build"
         },
         {
-          "text": "Legacy import \"@sfmc/sdk\" needs a reinstall via current CLI, or a resolvable SDK"
+          "text": "Legacy modules importing \"@sfmc/sdk\" → reinstall with current CLI or fix SDK resolution"
         }
       ]
     }

@@ -48,8 +48,8 @@ sfmc
 ```bash
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git
 cd ScriptsForMinecraftServer
-npm i
-npm run build --workspaces --if-present
+pnpm install && pnpm run build
+npm install && npm run build --workspaces --if-present
 sfmc
 ```
 
@@ -114,7 +114,8 @@ sfmc> mod reload
 
 ```bash
 npm create @sfmc-bds/module@latest
-cd my-feature && npm i && npm test
+cd my-feature && pnpm install && pnpm test
+cd my-feature && npm install && npm test
 ```
 
 再在 SFMC 工作目录联调（须写明模块短名）；作者侧用扩展 Link / Watch，运维侧：
@@ -142,7 +143,7 @@ sfmc mod reload
 | ------ | ------------ |
 | `/api/health` 不通 | db 是否已启动；Node.js 是否 ≥ 22.13 |
 | 模块命令无响应 | 是否已 `enable`；修改后是否重启过 BDS |
-| `npm test` 报错 / 缺依赖 | 是否按模板跑 `npm test`；见 [测试沙箱](./dev/testing.md) |
+| `pnpm test` / `npm test` 报错 / 缺依赖 | 是否按模板跑 `pnpm test` / `npm test`；见 [测试沙箱](./dev/testing.md) |
 
 更多见 [排障](./guide/troubleshooting.md)。
 

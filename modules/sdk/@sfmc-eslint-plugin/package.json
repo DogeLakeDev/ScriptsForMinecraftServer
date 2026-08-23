@@ -41,8 +41,8 @@
   "scripts": {
     "build": "sfmc-esbuild-transpile --dts",
     "build:test": "tsc7 -p tsconfig.test.json",
-    "prepublishOnly": "npm run build",
-    "test": "npm run build:test && node --test \"dist/**/*.test.js\"",
+    "prepublishOnly": "pnpm run build",
+    "test": "pnpm run build:test && node --test \"dist/**/*.test.js\"",
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {

@@ -266,6 +266,7 @@ export const en = {
   "prompt.enterPath": "Enter path",
   "prompt.browse": "Browse…",
   "prompt.browseHint": "Open system folder picker",
+  "prompt.browseUnavailable": "system picker unavailable; enter path manually",
 
   /* ─── reload ─── */
   "reload.buildOnly": "(deploy done; type reload in BDS/game, or omit --build-only to send automatically)",

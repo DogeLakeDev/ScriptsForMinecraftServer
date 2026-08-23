@@ -214,7 +214,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "package": "npx @vscode/vsce package"
+    "package": "pnpm dlx @vscode/vsce package"
   },
   "dependencies": {
     "@sfmc-bds/create-module": "workspace:*",

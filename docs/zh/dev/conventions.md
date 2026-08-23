@@ -30,7 +30,8 @@
 ## syncpack（主仓）
 
 ```bash
-npm run syncpack:lint
+pnpm run syncpack:fix
+pnpm exec syncpack format --check
 npm run syncpack:fix
 npx syncpack format --check
 ```

@@ -10,10 +10,16 @@
 ## 仓内常用
 
 ```bash
-npm run verify                 # 平台集成自检（CI）
-npx sfmc-esbuild-transpile     # 各包 build
-npx tsc7 --noEmit              # typecheck
-npm run docs -- serve|build
+pnpm run verify
+npm run verify
+pnpm exec sfmc-esbuild-transpile
+npx sfmc-esbuild-transpile
+pnpm exec tsc7 --noEmit
+npx tsc7 --noEmit
+pnpm run docs -- serve
+npm run docs -- serve
+pnpm run docs -- build
+npm run docs -- build
 ```
 
 发版走 Changesets：**push `main` → Version Packages PR → 合并后 CI 自动 `ci-release-packages`**。本地一般不手动发。

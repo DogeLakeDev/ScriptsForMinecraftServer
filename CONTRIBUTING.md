@@ -9,9 +9,8 @@
 快速自检：
 
 ```bash
-npm install
-npm run build
-npm run verify
+pnpm install && pnpm run build && pnpm run verify
+npm install && npm run build --workspaces --if-present && npm run verify
 ```
 
 文档站维护见 [docs/CONTRIBUTING-DOCS.md](./docs/CONTRIBUTING-DOCS.md)。

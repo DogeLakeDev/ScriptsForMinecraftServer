@@ -214,8 +214,8 @@ importers:
   packages/qq-bridge:
     dependencies:
       '@sfmc-bds/sdk':
-        specifier: ^0.2.0-beta.9
-        version: 0.2.0-beta.9(@minecraft/diagnostics@1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24))(@minecraft/server-admin@1.0.0-beta.11940b24)(@minecraft/server-net@1.0.0-beta.11940b24)(@minecraft/server-ui@2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)))(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))
+        specifier: workspace:*
+        version: link:../../modules/sdk/@sfmc-sdk
       ws:
         specifier: ^8.21.1
         version: 8.21.3
@@ -246,11 +246,11 @@ importers:
   packages/tools:
     dependencies:
       '@sfmc-bds/bds-tools':
-        specifier: ^0.2.0-beta.9
-        version: 0.2.0-beta.9(@minecraft/diagnostics@1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24))(@minecraft/server-admin@1.0.0-beta.11940b24)(@minecraft/server-net@1.0.0-beta.11940b24)(@minecraft/server-ui@2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)))(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))
+        specifier: workspace:*
+        version: link:../bds-tools
       '@sfmc-bds/sdk':
-        specifier: ^0.2.0-beta.9
-        version: 0.2.0-beta.9(@minecraft/diagnostics@1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24))(@minecraft/server-admin@1.0.0-beta.11940b24)(@minecraft/server-net@1.0.0-beta.11940b24)(@minecraft/server-ui@2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)))(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))
+        specifier: workspace:*
+        version: link:../../modules/sdk/@sfmc-sdk
 
   website:
     dependencies:
@@ -778,31 +778,6 @@ packages:
 
   '@rspress/shared@2.0.19':
     resolution: {integrity: sha512-INrETllWuR49lksqCz+xeLSO6rKtHA+5Ix2YQWcP9nerCuTSyGYwH8eBC0HrIacJkGHxB8wkkbV99tyzGtY8Wg==}
-
-  '@sfmc-bds/bds-tools@0.2.0-beta.9':
-    resolution: {integrity: sha512-mnRMmJgKScI26cBBUYpbzI9GOtKmlgYHB80zVp2e1iQdrnRjmzNZSA4UpiNOBomKnAHJmb3nOqXzSgWIv3w+sQ==}
-    engines: {node: '>=22.13.0'}
-
-  '@sfmc-bds/sdk@0.2.0-beta.9':
-    resolution: {integrity: sha512-0l6EfyPK1Pl4FQXaJELNiO04tM9SIy0PXYJIIC4dck260lDTDv9iOUbqVFS9LHFSoMry3V4OwMnxiARteNftYQ==}
-    engines: {node: '>=22.13.0'}
-    peerDependencies:
-      '@minecraft/diagnostics': 1.0.0-beta.1.26.40-preview.30
-      '@minecraft/server': 2.10.0-beta.1.26.40-preview.30
-      '@minecraft/server-admin': 1.0.0-beta.11940b24
-      '@minecraft/server-net': 1.0.0-beta.11940b24
-      '@minecraft/server-ui': 2.2.0-beta.1.26.40-preview.30
-    peerDependenciesMeta:
-      '@minecraft/diagnostics':
-        optional: true
-      '@minecraft/server':
-        optional: true
-      '@minecraft/server-admin':
-        optional: true
-      '@minecraft/server-net':
-        optional: true
-      '@minecraft/server-ui':
-        optional: true
 
   '@shikijs/core@4.4.3':
     resolution: {integrity: sha512-QCR4q2ZO/ILJEuwiBMel4wdcTDb1JGwfjKTxPDF6x8ixOaluPrVqIn06C99AcRPhmYlBR56d/Fb+GN58GzExpg==}
@@ -3410,26 +3385,6 @@ snapshots:
       - '@module-federation/runtime-tools'
       - core-js
       - supports-color
-
-  '@sfmc-bds/bds-tools@0.2.0-beta.9(@minecraft/diagnostics@1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24))(@minecraft/server-admin@1.0.0-beta.11940b24)(@minecraft/server-net@1.0.0-beta.11940b24)(@minecraft/server-ui@2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)))(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))':
-    dependencies:
-      '@sfmc-bds/sdk': 0.2.0-beta.9(@minecraft/diagnostics@1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24))(@minecraft/server-admin@1.0.0-beta.11940b24)(@minecraft/server-net@1.0.0-beta.11940b24)(@minecraft/server-ui@2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)))(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))
-      jszip: 3.10.1
-      node-html-parser: 9.0.1
-    transitivePeerDependencies:
-      - '@minecraft/diagnostics'
-      - '@minecraft/server'
-      - '@minecraft/server-admin'
-      - '@minecraft/server-net'
-      - '@minecraft/server-ui'
-
-  '@sfmc-bds/sdk@0.2.0-beta.9(@minecraft/diagnostics@1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24))(@minecraft/server-admin@1.0.0-beta.11940b24)(@minecraft/server-net@1.0.0-beta.11940b24)(@minecraft/server-ui@2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)))(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))':
-    optionalDependencies:
-      '@minecraft/diagnostics': 1.0.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server-admin@1.0.0-beta.11940b24)
-      '@minecraft/server': 2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30)
-      '@minecraft/server-admin': 1.0.0-beta.11940b24
-      '@minecraft/server-net': 1.0.0-beta.11940b24
-      '@minecraft/server-ui': 2.2.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/server@2.10.0-beta.1.26.40-preview.30(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.40-preview.30))
 
   '@shikijs/core@4.4.3':
     dependencies:

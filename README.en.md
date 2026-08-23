@@ -80,17 +80,19 @@ sfmc> behavior-pack build && behavior-pack deploy
 sfmc> start -all
 ```
 
-### ⚙️ npm monorepo (developers — edit BP scripts / write custom modules)
+### ⚙️ Monorepo (developers — edit BP scripts / write custom modules)
 
 ```bash
 # 1. clone + install
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer
 cd ScriptsForMinecraftServer
+pnpm install
 npm install
 
 # 2. Self-check + wizard (fill in BDS / LLBot / backup paths)
+pnpm run verify
 npm run verify
-node packages/cli/dist/main.js              # same as npm start / sfmc
+node packages/cli/dist/main.js              # same as pnpm start / npm start / sfmc
 
 # 3. Install modules (default: first-party sfmc-modules registry)
 sfmc mod search
@@ -99,7 +101,8 @@ sfmc mod install land economy
 # install syncs modules/catalog.json + module-lock.json
 
 # 4. After editing BP / writing a custom module:
-npm run build --workspaces         # rebuild SDK + assembly tooling
+pnpm run build
+npm run build --workspaces --if-present
 sfmc> behavior-pack build && behavior-pack deploy
 
 # 5. Start
@@ -145,8 +148,9 @@ ScriptsForMinecraftServer/
 Full docs (Chinese default, English under `/en/`): [docs/zh/](./docs/zh/index.mdx). Preview with Rspress:
 
 ```bash
-cd website && npm install
-cd ..
+pnpm install
+npm install
+pnpm run docs -- serve
 npm run docs -- serve
 ```
 
@@ -155,7 +159,7 @@ npm run docs -- serve
 | User guide | [docs/zh/guide/](./docs/zh/guide/index.mdx) |
 | Developer guide | [docs/zh/dev/](./docs/zh/dev/index.mdx) |
 | API (HTTP / modules) | [docs/zh/api/](./docs/zh/api/index.mdx) |
-| SDK types (TypeDoc) | [docs/zh/reference/](./docs/zh/reference/index.md) — generated during `npm run docs -- build` |
+| SDK types (TypeDoc) | [docs/zh/reference/](./docs/zh/reference/index.md) — generated during `pnpm run docs -- build` / `npm run docs -- build` |
 
 ## Requirements
 

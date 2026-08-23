@@ -62,7 +62,10 @@ export default [
 ## 开发
 
 ```bash
+pnpm --filter @sfmc-bds/eslint-plugin run build
+pnpm --filter @sfmc-bds/eslint-plugin test
 npm run build -w @sfmc-bds/eslint-plugin
-# 发布 build 不含 *.test.ts / rule-tester；测试走独立 tsconfig
-npm run test -w @sfmc-bds/eslint-plugin
+npm test -w @sfmc-bds/eslint-plugin
 ```
+
+发布 build 不含 `*.test.ts` / rule-tester；测试走独立 tsconfig。

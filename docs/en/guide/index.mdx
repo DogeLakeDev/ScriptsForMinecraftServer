@@ -46,8 +46,8 @@ sfmc
 ```bash
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git
 cd ScriptsForMinecraftServer
-npm i
-npm run build --workspaces --if-present
+pnpm install && pnpm run build
+npm install && npm run build --workspaces --if-present
 sfmc
 ```
 
@@ -121,7 +121,8 @@ Create with `npm create @sfmc-bds/module@latest`:
 
 ```bash
 npm create @sfmc-bds/module@latest
-cd my-feature && npm i && npm test
+cd my-feature && pnpm install && pnpm test
+cd my-feature && npm install && npm test
 ```
 
 Link into your SFMC workspace (module short id required). Authors use extension Link / Watch; on the server:
@@ -149,7 +150,7 @@ Enable/disable, behavior pack assembly, and reload are covered in [Modules](./mo
 | ------ | ------------ |
 | `/api/health` unreachable | Is db running? Node.js ≥ 22.13? |
 | Module commands do nothing | Enabled? Restarted BDS after changes? |
-| `npm test` errors / missing deps | Running `npm test` per template? See [Test sandbox](../dev/testing.md) |
+| `pnpm test` / `npm test` errors / missing deps | Running `pnpm test` / `npm test` per template? See [Test sandbox](../dev/testing.md) |
 
 More in [Troubleshooting](./troubleshooting.md).
 

@@ -12,6 +12,7 @@
 
 ```bash
 # 改完可发包代码后
+pnpm run changeset
 npm run changeset
 # 选受影响的包 + patch|minor|major，写中文摘要
 ```

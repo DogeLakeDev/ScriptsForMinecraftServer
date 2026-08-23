@@ -4,16 +4,16 @@
 
 ## 命令
 
-在 monorepo 根目录执行（勿只在 `website/` 内跑 build）：
+在 monorepo 根目录执行
 
 ```bash
-cd website && npm install          # 文档站依赖（根目录 npm ci 不含 website 子包时需单独装）
-npm run docs -- serve              # TypeDoc + Rspress 开发
-npm run docs -- build              # 构建 → doc_build/
-npm run docs -- api                # 仅 TypeDoc → docs/zh/reference/sdk/
+pnpm install
+pnpm run docs -- serve
+pnpm run docs -- build
+pnpm run docs -- api
 ```
 
-根目录 `npm run docs` 入口：`packages/tools/docs.mjs`。
+根目录 `pnpm run docs` / `npm run docs` 入口：`packages/tools/docs.mjs`。
 
 ## 目录布局
 

@@ -212,8 +212,8 @@ async function main(): Promise<void> {
     p.note(
       [
         `cd ${path.relative(process.cwd(), result.targetDir) || "."}`,
-        "npm install",
-        "npm test",
+        "pnpm install  # 或 npm install",
+        "pnpm test     # 或 npm test",
         "",
         "联调：扩展 SFMC: Link to SFMC Root，或：",
         `sfmc mod install ${result.id} --from dir:${result.targetDir} --link`,
