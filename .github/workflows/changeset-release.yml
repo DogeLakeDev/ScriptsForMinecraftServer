@@ -1,8 +1,5 @@
 name: changeset-release
 
-# Changesets: 在 main 上开/更新 Version Packages PR；
-# 合并该 PR（版本已 bump）后自动 changeset publish。
-
 on:
   push:
     branches:
@@ -21,7 +18,6 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      # fetch-depth:0：tag-packages 需 HEAD~1 做版本 diff；浅克隆时 resolvePackagesNeedingTags 才回退 from-existing
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0

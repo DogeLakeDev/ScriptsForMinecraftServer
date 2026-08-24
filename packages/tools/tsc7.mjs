@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * 调用 TypeScript 7 原生 tsc（权威入口）。
+ * 调用 TypeScript 7 原生 tsc
  *
  * 双轨安装：
- * - `typescript` → `@typescript/typescript6`（供 ESLint / typescript-eslint API，bin 为 tsc6）
- * - `@typescript/native` → `typescript@7`（类型检查 / emit）
+ * - `typescript` → `@typescript/typescript6`
+ * - `@typescript/native` → `typescript@7`
  *
- * 各包 typecheck、.d.ts emit 应走本入口（或 bin `tsc7`），不要依赖 `.bin/tsc` 的链接胜出方。
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

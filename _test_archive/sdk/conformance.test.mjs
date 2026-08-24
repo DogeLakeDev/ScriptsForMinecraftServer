@@ -6,10 +6,10 @@ import assert from "node:assert/strict";
 import {
   createSandbox,
   assertMsg,
-} from "./dist/esm/testing/index.js";
+} from "../../modules/sdk/@sfmc-sdk/dist/esm/testing/index.js";
 import { system, world } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
-import { Command, Msg, Permission } from "./dist/esm/sapi/runtime/index.js";
+import { Command, Msg, Permission } from "../../modules/sdk/@sfmc-sdk/dist/esm/sapi/runtime/index.js";
 
 test("system.runTimeout 在 tick 后触发", async () => {
   const sb = await createSandbox();

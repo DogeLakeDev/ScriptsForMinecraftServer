@@ -8,6 +8,10 @@
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
 
+[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
+
+[English Version →](./README.en.md)
+
 ## Scripts For Minecraft Server
 
 > 一个面向 Minecraft 基岩版服务器的模块化开发框架与管理平台。让开发者可以使用现代化工程流程构建、部署和维护 Minecraft 服务端功能。
@@ -28,10 +32,6 @@ SFMC 希望通过模块化架构补充基岩版的原生开发体验。
 - 提供完整工作流，降低模块开发与维护成本
 - 支持 [LLBOT](https://www.llonebot.com/zh-CN/) / QQ
   开放平台 桥接，实现服务器与线上群组互联
-
-[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
-
-[English Version →](./README.en.md)
 
 ## 快速开始
 

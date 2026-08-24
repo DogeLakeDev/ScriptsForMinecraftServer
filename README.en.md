@@ -8,6 +8,10 @@
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
 
+[Module Repository →](https://github.com/Tanya7z/sfmc-modules)
+
+[中文版本 →](./README.md)
+
 ## Scripts For Minecraft Server
 
 > A modular development framework and management platform for Minecraft Bedrock Edition servers. SFMC enables developers to build, deploy, and maintain Minecraft server features through modern engineering workflows.
@@ -32,10 +36,6 @@ SFMC aims to enhance the native Bedrock development experience through a modular
 - Provides a complete workflow to reduce module development and maintenance costs
 
 - Supports [LLBOT](https://www.llonebot.com/zh-CN/) / QQ Open Platform bridge services, enabling integration between Minecraft servers and online communities
-
-[Module Repository →](https://github.com/Tanya7z/sfmc-modules)
-
-[中文版本 →](./README.md)
 
 ## Quick Start
 

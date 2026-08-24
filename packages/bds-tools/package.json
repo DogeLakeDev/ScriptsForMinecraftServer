@@ -56,7 +56,7 @@
     "start": "node dist/bds-manager.js start",
     "status": "node dist/bds-manager.js status",
     "stop": "node dist/bds-manager.js stop",
-    "test": "pnpm run build && node --test is-main.test.mjs pack-manager-lifecycle.test.mjs pack-update-config.test.mjs pack-update-policy.test.mjs process-probe.test.mjs server-properties.test.mjs world-packs.test.mjs zipx.test.mjs host-platform.test.mjs dist/qq-events-notify.test.js",
+    "test": "pnpm run build:test && node --test \"dist/**/*.test.js\"",
     "typecheck": "tsc7 --noEmit",
     "update": "node dist/check-update.js",
     "update:check": "node dist/check-update.js --check-only",

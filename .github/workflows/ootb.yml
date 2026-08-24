@@ -1,7 +1,5 @@
 name: ootb
 
-# 多平台冒烟：Windows + Linux；macOS 暂不适配。
-
 on:
   push:
     branches: [main, refactor/**]
@@ -39,8 +37,6 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          # 默认 CI Node 唯一来源: 仓库根 .node-version（与 npm-publish 共用）。
-          # db-server 需 ≥22.13（node:sqlite 无 flag）
           node-version-file: .node-version
           cache: pnpm
 
