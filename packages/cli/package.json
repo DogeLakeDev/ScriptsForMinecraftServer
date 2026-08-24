@@ -52,7 +52,7 @@
     "build": "sfmc-esbuild-transpile --dts",
     "prepublishOnly": "pnpm run build",
     "start": "node ./dist/main.js",
-    "test": "pnpm run build:test && node --test \"dist/**/*.test.js\"",
+    "test": "pnpm run build && node --test \"dist/**/*.test.js\" && node --test --import tsx/esm \"scripts/module-install/test/**/*.test.ts\"",
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {

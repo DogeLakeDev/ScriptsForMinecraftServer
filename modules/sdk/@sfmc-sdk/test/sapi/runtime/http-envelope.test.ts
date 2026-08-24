@@ -1,28 +1,28 @@
 import { equal } from "node:assert/strict";
 import test from "node:test";
-import { isSuccessfulHttpEnvelope } from "./http-envelope.ts";
+import { isSuccessfulHttpEnvelope } from "../../../src/sapi/runtime/http-envelope.js";
 
-test("信封:200 + 无 ok/success 字段 → 成功(列表/配置读取)", () => {
+test("??:200 + ? ok/success ?? ? ??(??/????)", () => {
   equal(isSuccessfulHttpEnvelope(200, {}), true);
 });
 
-test("信封:200 + ok:true → 成功", () => {
+test("??:200 + ok:true ? ??", () => {
   equal(isSuccessfulHttpEnvelope(200, { ok: true }), true);
 });
 
-test("信封:200 + success:true → 成功", () => {
+test("??:200 + success:true ? ??", () => {
   equal(isSuccessfulHttpEnvelope(200, { success: true }), true);
 });
 
-test("信封:200 + ok:false → 失败(LSP)", () => {
+test("??:200 + ok:false ? ??(LSP)", () => {
   equal(isSuccessfulHttpEnvelope(200, { ok: false, error: "x" }), false);
 });
 
-test("信封:200 + success:false → 失败(LSP,防误判)", () => {
+test("??:200 + success:false ? ??(LSP,???)", () => {
   equal(isSuccessfulHttpEnvelope(200, { success: false, error: "x" }), false);
 });
 
-test("信封:非 200 → 失败", () => {
+test("??:? 200 ? ??", () => {
   equal(isSuccessfulHttpEnvelope(400, { ok: true }), false);
   equal(isSuccessfulHttpEnvelope(403, { success: false, error: "denied" }), false);
 });

@@ -1,13 +1,12 @@
-// @ts-check
 /**
- * link-local.test.mjs — normalizeLinkFrom 表驱动
+ * link-local normalizeLinkFrom 表驱动
  */
 import assert from "node:assert/strict";
-import test from "node:test";
-import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
-import { normalizeLinkFrom } from "./lib/link-from.mjs";
+import path from "node:path";
+import test from "node:test";
+import { normalizeLinkFrom } from "../lib/link-from.mjs";
 
 const CWD = process.cwd();
 

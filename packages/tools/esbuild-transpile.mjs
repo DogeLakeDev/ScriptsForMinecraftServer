@@ -14,6 +14,7 @@
 import { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
+import { ensureSdkTypes } from "./ensure-sdk-types.mjs";
 import { runTsc7 } from "./tsc7.mjs";
 
 const emitDts = process.argv.includes("--dts");
@@ -66,6 +67,7 @@ await build({
 console.log(`[esbuild-transpile] emitted ${entryPoints.length} files → dist/`);
 
 if (emitDts) {
+  ensureSdkTypes();
   console.log("[esbuild-transpile] emitting .d.ts via tsc7 --emitDeclarationOnly...");
   const code = runTsc7(["-p", "tsconfig.json", "--emitDeclarationOnly", "--declaration", "--declarationMap"]);
   if (code !== 0) process.exit(code);

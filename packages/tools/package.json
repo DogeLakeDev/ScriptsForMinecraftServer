@@ -23,12 +23,14 @@
     "./tsc7": "./tsc7.mjs"
   },
   "bin": {
+    "sfmc-ensure-sdk-types": "./ensure-sdk-types.mjs",
     "sfmc-esbuild-transpile": "./esbuild-transpile.mjs",
     "sfmc-verify": "./verify.mjs",
     "tsc7": "./tsc7.mjs"
   },
   "scripts": {
-    "build": "node -e \"process.exit(0)\""
+    "build": "node -e \"process.exit(0)\"",
+    "test": "node --test --import tsx/esm test/**/*.test.ts"
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "workspace:*",

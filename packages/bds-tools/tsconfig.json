@@ -31,5 +31,5 @@
     "allowJs": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "*.js"]
+  "exclude": ["node_modules", "dist", "*.js", "src/**/*.test.ts"]
 }

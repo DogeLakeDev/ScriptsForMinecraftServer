@@ -1,0 +1,85 @@
+/**
+ * pack-update 配置 / provider 解析契约测试
+ */
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { after, before, describe, it } from "node:test";
+import {
+  DEFAULT_PACK_UNINSTALL,
+  createPackSourceProvider,
+  createPackUpdateApi,
+  createTestPackUpdateDeps,
+  providerShortLabel,
+  resolveConfiguredPackProvider,
+} from "./index.js";
+
+const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bds-pack-upd-cfg-"));
+const api = createPackUpdateApi(createTestPackUpdateDeps(tmpRoot));
+const { loadPackUpdateConfig, getPackMatchConfig, resolveUninstallTrashDir } = api;
+
+describe("pack-update config + provider resolve", () => {
+  before(() => {
+    fs.mkdirSync(path.join(tmpRoot, "configs"), { recursive: true });
+  });
+
+  after(() => {
+    try {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  });
+
+  it("defaultBindingEnabled 默认 false，且出现在类型化配置上", () => {
+    const cfgPath = path.join(tmpRoot, "configs", "pack-update.json");
+    if (fs.existsSync(cfgPath)) fs.unlinkSync(cfgPath);
+    const cfg = loadPackUpdateConfig();
+    assert.equal(cfg.defaultBindingEnabled, false);
+    assert.equal(typeof cfg.match.nameMinScore, "number");
+    assert.equal(cfg.uninstall.recycleBin, true);
+    assert.equal(cfg.uninstall.trashRelativeDir, "packs/_trash");
+
+    assert.equal(cfg.uninstall.trashRelativeDir, DEFAULT_PACK_UNINSTALL.trashRelativeDir);
+    assert.equal(resolveUninstallTrashDir({ purge: true }), null);
+    const trashAbs = String(resolveUninstallTrashDir({})).replace(/\\/g, "/");
+    assert.ok(
+      trashAbs.includes(DEFAULT_PACK_UNINSTALL.trashRelativeDir),
+      `trash dir should contain ${DEFAULT_PACK_UNINSTALL.trashRelativeDir}: ${trashAbs}`
+    );
+  });
+
+  it("旧版 providers.curseforge.match 提升到顶层 match", () => {
+    const cfgPath = path.join(tmpRoot, "configs", "pack-update.json");
+    fs.writeFileSync(
+      cfgPath,
+      JSON.stringify({
+        providers: {
+          curseforge: {
+            enabled: true,
+            apiKey: "",
+            match: { nameMinScore: 0.91, stripFolderTags: false },
+          },
+        },
+      }),
+      "utf8"
+    );
+    const cfg = loadPackUpdateConfig();
+    assert.equal(cfg.match.nameMinScore, 0.91);
+    assert.equal(cfg.match.stripFolderTags, false);
+    assert.equal(getPackMatchConfig(cfg).nameMinScore, 0.91);
+    assert.equal("match" in cfg.providers.curseforge, false);
+  });
+
+  it("providerShortLabel / resolveConfiguredPackProvider 契约", () => {
+    assert.equal(providerShortLabel("curseforge"), "cf");
+    const cfg = loadPackUpdateConfig();
+    assert.equal(resolveConfiguredPackProvider(cfg), null);
+    cfg.providers.curseforge.apiKey = "test-key-not-real";
+    const p = resolveConfiguredPackProvider(cfg);
+    assert.ok(p);
+    assert.equal(p.id, "curseforge");
+    assert.equal(createPackSourceProvider(cfg, "curseforge").id, "curseforge");
+  });
+});

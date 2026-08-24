@@ -1,20 +1,13 @@
-// @ts-check
 /**
- * local-resolver.test.mjs — `--from local` 路径解析表驱动
- *
- * 不直接 import fetch-module.mjs（顶层副作用多）；
- * 走 logic-equivalent 表达式断言 resolveLocalPath 行为。
+ * local-resolver `--from local` 路径解析表驱动
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import path from "node:path";
 import process from "node:process";
+import test from "node:test";
 
-/**
- * 镜像 packages/cli/scripts/module-install/fetch-module.mjs#resolveLocalPath
- * @param {string | undefined} tail
- */
-function resolveLocalPath(tail) {
+/** 镜像 fetch-module.mjs#resolveLocalPath */
+function resolveLocalPath(tail: string | undefined): string {
   const p = String(tail ?? "").trim();
   if (!p || p === "." || p === "./") return path.resolve(process.cwd());
   return path.isAbsolute(p) ? path.resolve(p) : path.resolve(process.cwd(), p);

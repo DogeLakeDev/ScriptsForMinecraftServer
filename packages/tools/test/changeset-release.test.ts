@@ -1,24 +1,27 @@
-// @ts-check
 /**
  * changeset-release 共用库单测（node:test）
  */
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import {
-  packageTagName,
-  extractChangelogNotes,
-  listPendingChangesetFiles,
-  listPackagesWithExistingVersionTags,
-  listUnpushedExistingVersionTags,
-  resolveReleaseTagEntries,
-  RELEASE_TAGS_STATE,
-  PRE_JSON,
-  ROOT,
-} from "./changeset-release-lib.mjs";
-import { listPublishableBuildDeps, listPublishableBuildOrder, NPM_PUBLISH_PACKAGES } from "./lib/npm-publish-packages.mjs";
-import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
+import { describe, it } from "node:test";
+import {
+  PRE_JSON,
+  RELEASE_TAGS_STATE,
+  ROOT,
+  extractChangelogNotes,
+  listPackagesWithExistingVersionTags,
+  listPendingChangesetFiles,
+  listUnpushedExistingVersionTags,
+  packageTagName,
+  resolveReleaseTagEntries,
+} from "../changeset-release-lib.mjs";
+import {
+  NPM_PUBLISH_PACKAGES,
+  listPublishableBuildDeps,
+  listPublishableBuildOrder,
+} from "../lib/npm-publish-packages.mjs";
 
 describe("packageTagName", () => {
   it("matches changeset publish format (no v prefix)", () => {
@@ -71,13 +74,14 @@ describe("resolveReleaseTagEntries (LSP)", () => {
   });
 
   it("returns state.tags when present", () => {
-    const tags = [{ name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" }];
+    const tags = [
+      { name: "@sfmc-bds/tools", version: "0.2.0-beta.1", tag: "@sfmc-bds/tools@0.2.0-beta.1" },
+    ];
     const out = resolveReleaseTagEntries({ tags, createdAt: "t" }, () => []);
     assert.equal(out, tags);
   });
 
   it("gh-release missing-state fallback is listPackagesWithExistingVersionTags (DRY)", () => {
-    /* 契约：changeset-github-release 不得再手写一遍 tag -l 扫描 */
     const out = resolveReleaseTagEntries(null, () => listPackagesWithExistingVersionTags());
     assert.ok(Array.isArray(out));
     for (const e of out) {
@@ -86,10 +90,8 @@ describe("resolveReleaseTagEntries (LSP)", () => {
   });
 
   it("push missing-state fallback is listUnpushedExistingVersionTags (DRY/LSP)", () => {
-    /* 契约：changeset-push 不得再硬编码 @sfmc-bds/* 全量扫描 */
     const allExisting = listPackagesWithExistingVersionTags();
     const existingTags = new Set(allExisting.map((e) => e.tag));
-    /** @type {ReturnType<typeof listUnpushedExistingVersionTags> | undefined} */
     let fb;
     const viaResolver = resolveReleaseTagEntries(null, () => {
       fb = listUnpushedExistingVersionTags();

@@ -1,14 +1,13 @@
-// @ts-check
 /**
- * install-resolver.test.mjs — npm 包名解析表驱动
+ * install-resolver npm 包名解析表驱动
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  resolveNpmPackageName,
   folderFromNpmPackageName,
   normalizeNpmPackageName,
-} from "./lib/npm-resolver.mjs";
+  resolveNpmPackageName,
+} from "../lib/npm-resolver.mjs";
 
 test("短 id → @sfmc-bds/module-<id>", () => {
   assert.equal(resolveNpmPackageName("land"), "@sfmc-bds/module-land");

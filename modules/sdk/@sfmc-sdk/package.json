@@ -118,8 +118,10 @@
     "build": "node build.mjs",
     "build:js": "node build.mjs",
     "build:types": "tsc7 -p tsconfig.types.json",
+    "prepare": "sfmc-ensure-sdk-types",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "pnpm run clean && pnpm run build:types && node build.mjs",
+    "test": "pnpm run build && node --test --import tsx/esm test/**/*.test.ts",
     "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
   },
   "devDependencies": {
