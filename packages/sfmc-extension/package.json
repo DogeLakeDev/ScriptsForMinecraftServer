@@ -201,7 +201,7 @@
         "sfmc.root": {
           "type": "string",
           "default": "",
-          "description": "SFMC 工作目录（运行时根，含 configs/、modules/；不必是源码仓库）。Watch / 编译 / Reload / 启停需要；可用「SFMC: 设置工作目录…」修改，缺失或无效时也会弹出目录选择。"
+          "description": "SFMC 工作目录"
         },
         "sfmc.cliPath": {
           "type": "string",

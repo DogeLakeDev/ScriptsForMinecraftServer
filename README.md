@@ -1,16 +1,4 @@
-# SFMC - **S**cripts**F**or**M**ine**c**raftServer
-
-> 一套 Minecraft Bedrock Script API (SAPI) 行为包 + Node.js 仓顶服务的 monorepo。
-
-- 提供基于[Minecraft Script API](https://learn.microsoft.com/zh-cn/minecraft/creator/scriptapi/?view=minecraft-bedrock-stable)的**原生脚本SDK**
-- 外置可拆卸的**模块化管理**服务，拥有类似插件服的舒适体验；目前已开发[22+实用模块](https://github.com/Tanya7z/sfmc-modules)
-- 为BDS服务器提供的多功能、易用的cli工具，涵盖**自动更新**，**模块管理**，**资源包管理**等功能
-- 为模块提供**Sqlite数据库管理SDK**及其路由服务
-- 自建工作流，使模组/模块开发更轻松
-- 支持 [LLBOT](https://www.llonebot.com/zh-CN/)/QQ开放平台 的QQ桥接服务，轻松实现群服互通
-
-[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)  
-[English version →](./README.en.md)
+# SFMC
 
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
@@ -20,44 +8,80 @@
 [![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
 [![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
 
----
+## Scripts For Minecraft Server
+
+> 一个面向 Minecraft 基岩版服务器的模块化开发框架与管理平台。让开发者可以使用现代化工程流程构建、部署和维护 Minecraft 服务端功能。
+
+SFMC 希望通过模块化架构补充基岩版的原生开发体验。
+
+## 核心特性
+
+- 基于 [Minecraft ScriptAPI](https://learn.microsoft.com/zh-cn/minecraft/creator/scriptapi/?view=minecraft-bedrock-stable) 提供 **原生脚本 SDK**
+- 提供可独立拆卸的
+  **模块化管理服务**
+- 提供面向 BDS 的多功能 CLI 工具，支持：
+  - 自动更新
+  - 模块管理
+  - 资源包管理
+  - 服务端工具链管理
+- 为模块提供统一的 **SQLite 数据库 SDK** 与路由服务
+- 提供完整工作流，降低模块开发与维护成本
+- 支持 [LLBOT](https://www.llonebot.com/zh-CN/) / QQ
+  开放平台 桥接，实现服务器与线上群组互联
+
+[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
+
+[English Version →](./README.en.md)
 
 ## 快速开始
 
-### npm
+### 使用 npm 安装
 
 ```bash
-> node -v   # 需要 v22.13+
-> npm install -g @sfmc-bds/sfmc # 或 beta 版：npm install -g @sfmc-bds/sfmc@beta
-> mkdir my-server && cd my-server
-> sfmc
+# 检查 Node.js 版本（需要 v22.13+）
+node -v
+
+# 安装 SFMC CLI
+npm install -g @sfmc-bds/sfmc
+
+# Beta 版本
+npm install -g @sfmc-bds/sfmc@beta
+
+# 创建服务器目录
+mkdir my-server && cd my-server
+
+# 初始化 SFMC
+sfmc
 ```
 
-开发者可克隆本仓 monorepo，见 [入门](./docs/zh/guide/index.mdx)。
+开发者可以直接克隆本 monorepo，详细内容请查看
+[入门指南](./docs/zh/guide/index.mdx)。
 
-## 入门
+## 文档
 
-| 分类         | 入口                                                                                |
-| ------------ | ----------------------------------------------------------------------------------- |
-| 在线文档站   | <https://dogelakedev.github.io/ScriptsForMinecraftServer/>                          |
-| 使用指南     | [docs/zh/guide/](./docs/zh/guide/index.mdx)                                         |
-| 开发指南     | [docs/zh/dev/](./docs/zh/dev/index.mdx) · [贡献指南](./docs/zh/dev/contributing.md) |
-| 接口指南     | [docs/zh/api/](./docs/zh/api/index.mdx)                                             |
-| SDK 类型参考 | [docs/zh/reference/](./docs/zh/reference/index.md)                                  |     |
+- 在线文档 <https://dogelakedev.github.io/ScriptsForMinecraftServer/>
+
+- 使用指南 [docs/zh/guide](./docs/zh/guide/index.mdx)
+
+- 开发指南 [docs/zh/dev](./docs/zh/dev/index.mdx)
+  - [贡献指南](./docs/zh/dev/contributing.md)
+
+- API 文档 [docs/zh/api](./docs/zh/api/index.mdx)
+
+- SDK 类型参考 [docs/zh/reference](./docs/zh/reference/index.md)
 
 ## 许可证
 
-整体平台遵循 [AGPL-3.0](./LICENSE)（见 [LICENSES.md](./LICENSES.md) 各包对照表）。
+SFMC 整体平台采用 [AGPL-3.0](./LICENSE) 许可证。
 
-| 类型       | 许可证            | 包示例                                                         |
-| ---------- | ----------------- | -------------------------------------------------------------- |
-| 作者向库   | **ISC**           | `@sfmc-bds/sdk`、`@sfmc-bds/eslint-plugin`                     |
-| 平台与服务 | **AGPL-3.0-only** | `cli`、`db-server`、`qq-bridge`、`bds-tools`、`@sfmc-bds/sfmc` |
+各软件包许可证对应关系请参考 [LICENSES.md](./LICENSES.md)。
 
-- **自由**：您可以运行、复制、分发、修改程序，但必须保持这些自由。
-- **Copyleft（AGPL 部分）**：若您分发修改后的**平台/服务**版本，必须以相同许可证提供完整对应源代码。
-- **模块仓**：业务模块在独立仓库发布时，许可证由该仓库自行声明；通过 ISC 的 SDK 开发不自动将模块变为 AGPL。
+- **自由使用**：你可以运行、复制、分发和修改程序，同时保留这些自由。
+- **Copyleft（AGPL
+  部分）**：如果你分发修改后的平台或服务版本，必须以相同许可证提供完整对应源代码。
+- **模块仓库**：独立仓库中的业务模块可以自行选择许可证。通过 ISC 授权
+  SDK 开发模块不会自动使模块受到 AGPL 限制。
 
 ---
 
-[English version →](./README.en.md)
+[English Version →](./README.en.md)
