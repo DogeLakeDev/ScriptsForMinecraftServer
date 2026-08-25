@@ -15,7 +15,6 @@ ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 - **`@sfmc-bds/sdk/node/...`** — Node 进程内 SDK(db-server / qq-bridge / bds-tools / sfmc 自身)
 - **`@sfmc-bds/sdk/behavior-pack-build`** — BP 构建期类型与工具
 - **`@sfmc-bds/sdk/logs`** — 平台统一的日志/格式化/输出器
-- **`@sfmc-bds/sdk/testing`** — 模块 lifecycle 测试 harness：`createFakePlayer` / `createFakeWorld` / `createFakeDb` / `runLifecycle`，让模块在 `node --test` 中跑 register/init/cleanup 而不需真实 BDS
 
 ## 安装
 
@@ -51,30 +50,9 @@ ModuleRegistry.register({
 });
 ```
 
-## 模块测试（无需 BDS）
+## 模块测试
 
-```typescript
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import { createSandbox, assertMsg } from "@sfmc-bds/sdk/testing";
-import { DESCRIPTOR } from "../sapi/src/index.js";
-
-test("命令冒烟", async (t) => {
-  const sb = await createSandbox({ module: DESCRIPTOR });
-  t.after(() => sb.dispose());
-  const player = sb.addPlayer({ name: "tester", op: true });
-  await sb.triggerCommand("hello", player);
-  assert.equal(assertMsg(player, "ok"), true);
-});
-```
-
-运行须加载假引擎 loader：
-
-```bash
-node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm test/**/*.test.ts
-```
-
-> 未实现 API 访问抛 `UnimplementedMinecraftApiError`（全表面 L0，无 allowlist 裁剪）；真机联调用 VS Code 扩展 Watch 或 `sfmc mod reload`。
+模块作者不依赖 Node 假引擎。本地：`typecheck` / `lint` / manifest 静态检查；运行时：VS Code 扩展 **Start Watch**、`Reload to BDS` 或 `sfmc mod reload`。详见仓内 `docs/zh/dev/testing.md`。
 
 ## 平台规则
 

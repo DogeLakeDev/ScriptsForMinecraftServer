@@ -5,13 +5,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug Module Tests",
-      "runtimeArgs": [
-        "--test",
-        "--import",
-        "@sfmc-bds/sdk/testing/minecraft-loader",
-        "--import",
-        "tsx/esm"
-      ],
+      "runtimeArgs": ["--test", "--import", "tsx/esm"],
       "args": ["${workspaceFolder}/test"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",

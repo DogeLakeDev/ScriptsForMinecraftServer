@@ -4,11 +4,11 @@
 
 ## 四抽屉
 
-| 抽屉 | 导入 | 导读 |
-| ------ | ------ | ------ |
+| 抽屉    | 导入                         | 导读                    |
+| ------- | ---------------------------- | ----------------------- |
 | runtime | `@sfmc-bds/sdk/sapi/runtime` | [runtime](./runtime.md) |
-| db | `@sfmc-bds/sdk/sapi/db` | [db](./db.md) |
-| config | `@sfmc-bds/sdk/sapi/config` | [config](./config.md) |
+| db      | `@sfmc-bds/sdk/sapi/db`      | [db](./db.md)           |
+| config  | `@sfmc-bds/sdk/sapi/config`  | [config](./config.md)   |
 | service | `@sfmc-bds/sdk/sapi/service` | [service](./service.md) |
 
 ## 入口注册
@@ -17,28 +17,24 @@
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 ```
 
-## 测试沙箱
+## 模块测试
 
-```ts
-import { createSandbox, assertMsg } from "@sfmc-bds/sdk/testing";
-```
-
-须配合 `--import @sfmc-bds/sdk/testing/minecraft-loader`。宿主分相、L0–L2 与示例见 [开发指南 · 测试沙箱](../dev/testing.md)。
+模块作者以 **Watch / 真机联调** 为主；本地可做 typecheck、lint 与 manifest 静态检查。见 [开发指南 · 测试](../dev/testing.md)。
 
 ## 平台 / 构建用
 
 模块业务一般不直接 import：
 
-| 路径 | 用途 |
-| ------ | ------ |
-| `@sfmc-bds/sdk/module-loader` | ModuleRegistry、ConfigManager |
+| 路径                                  | 用途                                 |
+| ------------------------------------- | ------------------------------------ |
+| `@sfmc-bds/sdk/module-loader`         | ModuleRegistry、ConfigManager        |
 | `@sfmc-bds/sdk/module-loader/install` | `installHostBootstrap`（仅 BP 启动） |
-| `@sfmc-bds/sdk/sapi/host` | 平台 host 适配 |
-| `@sfmc-bds/sdk/contracts` | catalog / lock 类型 |
-| `@sfmc-bds/sdk/node/config` | Node 侧读 configs |
-| `@sfmc-bds/sdk/node/sdk` | Node 服务能力 |
-| `@sfmc-bds/sdk/logs` | 日志 |
-| `@sfmc-bds/sdk/behavior-pack-build` | BP 构建（平台内部） |
+| `@sfmc-bds/sdk/sapi/host`             | 平台 host 适配                       |
+| `@sfmc-bds/sdk/contracts`             | catalog / lock 类型                  |
+| `@sfmc-bds/sdk/node/config`           | Node 侧读 configs                    |
+| `@sfmc-bds/sdk/node/sdk`              | Node 服务能力                        |
+| `@sfmc-bds/sdk/logs`                  | 日志                                 |
+| `@sfmc-bds/sdk/behavior-pack-build`   | BP 构建（平台内部）                  |
 
 ## 原则
 
@@ -48,3 +44,4 @@ import { createSandbox, assertMsg } from "@sfmc-bds/sdk/testing";
 - 业务类型放在模块包内；`contracts` 仅平台 catalog/lock
 
 对外服务：[模块服务目录](../modules/index.md)。HTTP 对照：[接口入门](../index.md)。
+

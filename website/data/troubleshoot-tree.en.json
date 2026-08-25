@@ -50,27 +50,6 @@
       ]
     },
     {
-      "id": "sandbox",
-      "title": "Test sandbox",
-      "steps": [
-        {
-          "text": "Tests must use minecraft-loader:",
-          "code": "pnpm test\nnpm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
-        },
-        {
-          "text": "UnimplementedMinecraftApiError → narrow assertions or wait for sandbox depth; not a business bug"
-        },
-        {
-          "text": "Assertion fails but BDS OK → sandbox fidelity gap; verify with Watch / live server"
-        },
-        {
-          "text": "Author flow: testing doc",
-          "href": "/dev/testing",
-          "hrefLabel": "Test sandbox"
-        }
-      ]
-    },
-    {
       "id": "qq",
       "title": "QQ bridge",
       "steps": [
@@ -95,3 +74,4 @@
     }
   ]
 }
+

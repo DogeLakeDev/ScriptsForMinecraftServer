@@ -7,12 +7,7 @@
   "nodejs-testing.extensions": [
     {
       "extensions": ["ts"],
-      "parameters": [
-        "--import",
-        "@sfmc-bds/sdk/testing/minecraft-loader",
-        "--import",
-        "tsx/esm"
-      ]
+      "parameters": ["--import", "tsx/esm"]
     }
   ]
 }

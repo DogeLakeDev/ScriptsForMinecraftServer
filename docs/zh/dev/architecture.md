@@ -77,6 +77,6 @@ ModuleRegistry.register({
 
 **目录约定：** `packages/*` = 平台包；`modules/packages/*` = 业务模块。
 
-本地无 BDS 时可用 `@sfmc-bds/sdk/testing` 的 `createSandbox` 对齐宿主分相，见 [测试沙箱](./testing.md)。`module-loader` 不在顶层 import `@minecraft/server`，由 BP 启动链注入 host。
+模块作者日常以 Watch / 真机联调验证运行时行为，见 [测试](./testing.md)。
 
 下一章：[平台开发](./platform.md)。

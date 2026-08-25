@@ -172,11 +172,12 @@ Debug：`variables.json` → `sfmc_debug`；Sentry：`secrets.json` → `SENTRY_
 
 ## 测试与 CI
 
-| 层         | 方式                                                                         |
-| ---------- | ---------------------------------------------------------------------------- |
-| db-server  | `node --test`                                                                |
-| SDK / 模块 | `@sfmc-bds/sdk/testing` + `createSandbox()`                                  |
-| SDK 本地   | `pnpm --filter @sfmc-bds/sdk test` / `npm test -w @sfmc-bds/sdk`；mc-fake：`pnpm --filter @sfmc-bds/sdk run gen:mc-fake` / `npm run gen:mc-fake -w @sfmc-bds/sdk` |
+| 层           | 方式                                                                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| db-server    | `node --test`                                                                                                                                                     |
+| 模块作者     | Watch / Reload；`typecheck` /                                                                                                                                     |
+| SDK / 平台包 | `node --test`（manifest-schema、qq-official、db-server、qq-bridge 等）                                                                                            |
+| SDK 本地     | `pnpm --filter @sfmc-bds/sdk test` / `npm test -w @sfmc-bds/sdk`；mc-fake：`pnpm --filter @sfmc-bds/sdk run gen:mc-fake` / `npm run gen:mc-fake -w @sfmc-bds/sdk` |
 
 | Workflow                | 作用                                                               |
 | ----------------------- | ------------------------------------------------------------------ |

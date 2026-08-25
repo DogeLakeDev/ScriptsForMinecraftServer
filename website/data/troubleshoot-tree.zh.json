@@ -50,27 +50,6 @@
       ]
     },
     {
-      "id": "sandbox",
-      "title": "测试沙箱",
-      "steps": [
-        {
-          "text": "运行测试时须带 minecraft-loader：",
-          "code": "pnpm test\nnpm test\n# --import @sfmc-bds/sdk/testing/minecraft-loader"
-        },
-        {
-          "text": "UnimplementedMinecraftApiError → 缩小断言面或等沙箱加深，勿当业务错误"
-        },
-        {
-          "text": "断言失败但 BDS 正常 → 可能是沙箱保真差；用扩展 Watch / 真机复核"
-        },
-        {
-          "text": "作者流程见测试沙箱文档",
-          "href": "/dev/testing",
-          "hrefLabel": "测试沙箱"
-        }
-      ]
-    },
-    {
       "id": "qq",
       "title": "QQ 桥",
       "steps": [
@@ -95,3 +74,4 @@
     }
   ]
 }
+

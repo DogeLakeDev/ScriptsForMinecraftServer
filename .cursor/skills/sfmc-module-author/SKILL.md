@@ -1,8 +1,8 @@
 ---
 name: sfmc-module-author
 description: >-
-  Current SFMC module authoring path: npm create @sfmc-bds/module, createSandbox
-  tests, link into SFMC_ROOT, extension Watch via @sfmc-bds/devkit, pnpm/npm publish
+  Current SFMC module authoring path: npm create @sfmc-bds/module, typecheck/lint,
+  link into SFMC_ROOT, extension Watch via @sfmc-bds/devkit, pnpm/npm publish
   plus sfmc-modules index. Use when creating or linking modules, authoring
   SAPI packages, or choosing author vs ops tooling.
 ---
@@ -13,14 +13,14 @@ description: >-
 
 ## 两面分工
 
-| 动作 | 作者面 | 运维面（SFMC_ROOT） |
-|------|--------|---------------------|
-| 建仓 | `npm create @sfmc-bds/module@latest` 或 `SFMC: New Module` | — |
-| 单测 | `pnpm test` / `npm test` / `SFMC: Run Tests` | — |
-| 挂到工作目录 | 扩展 Link，或 `mod install --link` | 同左 |
-| 源码部署 | 扩展 Watch（`@sfmc-bds/devkit`） | `sfmc mod build` / `reload` |
-| 启停 | — | `sfmc mod enable` / `disable` |
-| 发布 / 安装发布物 | 扩展 Publish 或 `pnpm publish` / `npm publish` + index PR | `sfmc mod install <id>` |
+| 动作              | 作者面                                                         | 运维面（SFMC_ROOT）           |
+| ----------------- | -------------------------------------------------------------- | ----------------------------- |
+| 建仓              | `npm create @sfmc-bds/module@latest` 或 `SFMC: New Module`     | —                             |
+| 静态检查          | `pnpm run typecheck` / lint；可选 `pnpm test`（manifest 静态） | —                             |
+| 挂到工作目录      | 扩展 Link，或 `mod install --link`                             | 同左                          |
+| 源码部署          | 扩展 Watch（`@sfmc-bds/devkit`）                               | `sfmc mod build` / `reload`   |
+| 启停              | —                                                              | `sfmc mod enable` / `disable` |
+| 发布 / 安装发布物 | 扩展 Publish 或 `pnpm publish` / `npm publish` + index PR      | `sfmc mod install <id>`       |
 
 建仓引擎：`@sfmc-bds/create-module`（CLI 与扩展共用 `createModule()`）。
 
@@ -28,7 +28,7 @@ description: >-
 
 ```text
 1. npm create @sfmc-bds/module@latest
-2. pnpm install && pnpm test（或 npm install && npm test）
+2. pnpm install && pnpm run typecheck（或 npm install && npm run typecheck）
 3. Link 到 SFMC_ROOT → enable
 4. Watch 或 mod reload → 进服终检
 5. npm publish → sfmc-modules index.json PR
@@ -45,20 +45,20 @@ sfmc mod enable <id>
 
 ### 部署边界
 
-| 改动 | 生效 |
-|------|------|
-| `sapi/src` | Watch / `mod reload` |
-| `manifest`、平台 `configs` | 重启 BDS |
+| 改动                       | 生效                 |
+| -------------------------- | -------------------- |
+| `sapi/src`                 | Watch / `mod reload` |
+| `manifest`、平台 `configs` | 重启 BDS             |
 
 ## 命名
 
-| 层 | 规则 | 例 |
-|----|------|-----|
-| install id / 文件夹 | kebab | `my-feature` |
-| npm 社区 | `@<user>/sfmc-module-<id>` | `@alice/sfmc-module-my-feature` |
-| npm 官方 | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` |
-| `manifest.id` | `feature-<id>` 或 `core-<id>` | `feature-my-feature` |
-| `configKey` | `-` → `_` | `my_feature` |
+| 层                  | 规则                          | 例                              |
+| ------------------- | ----------------------------- | ------------------------------- |
+| install id / 文件夹 | kebab                         | `my-feature`                    |
+| npm 社区            | `@<user>/sfmc-module-<id>`    | `@alice/sfmc-module-my-feature` |
+| npm 官方            | `@sfmc-bds/module-<id>`       | `@sfmc-bds/module-economy`      |
+| `manifest.id`       | `feature-<id>` 或 `core-<id>` | `feature-my-feature`            |
+| `configKey`         | `-` → `_`                     | `my_feature`                    |
 
 ## 仓结构
 
@@ -78,21 +78,19 @@ my-feature/
 
 ## 模块依赖面
 
-| 路径 | 用途 |
-|------|------|
+| 路径                         | 用途                  |
+| ---------------------------- | --------------------- |
 | `@sfmc-bds/sdk/sapi/runtime` | Msg、命令、权限、菜单 |
-| `@sfmc-bds/sdk/sapi/db` | 表 / CRUD / 事务 |
-| `@sfmc-bds/sdk/sapi/config` | 模块私有配置 |
-| `@sfmc-bds/sdk/sapi/service` | 跨模块服务 |
-| `@sfmc-bds/sdk/testing` | `createSandbox` |
-| `@minecraft/*` | SAPI |
+| `@sfmc-bds/sdk/sapi/db`      | 表 / CRUD / 事务      |
+| `@sfmc-bds/sdk/sapi/config`  | 模块私有配置          |
+| `@sfmc-bds/sdk/sapi/service` | 跨模块服务            |
+| `@minecraft/*`               | SAPI                  |
 
 跨模块：manifest 声明 + `service` / `tx`。消息用 `Msg.*`。
 
 ## 测试与发布
 
-- 门禁：`pnpm test` / `npm test`（`createSandbox`；未实现的 `@minecraft/*` API 会硬失败）
-- 进服：Watch / 日志终检
+- 门禁：`typecheck` / lint；运行时行为用 Watch / BDS 日志终检
 - 发布：`pnpm publish --access public` / `npm publish --access public` → `sfmc-modules` 的 `index.json` PR
 - 社区包用 `@<user>/sfmc-module-*`；官方包用 `@sfmc-bds/module-*`
 
@@ -100,3 +98,4 @@ my-feature/
 
 - 三根路径 → `sfmc-onboarding`
 - `docs/zh/dev/conventions.md` · `testing.md` · `publish.md`
+

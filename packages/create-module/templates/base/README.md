@@ -13,14 +13,13 @@ pnpm run lint         # 或 npm run lint
 
 ## 联调
 
-1. `pnpm test` / `npm test`（假引擎；不依赖 `sfmc.root`）
-2. 扩展 **SFMC: Link to SFMC Root**（或 `sfmc mod install {{id}} --from dir:. --link`）
-3. **SFMC: Start Watch** / `sfmc mod reload`
+1. 扩展 **SFMC: Link to SFMC Root**（或 `sfmc mod install {{id}} --from dir:. --link`）
+2. **SFMC: Start Watch** / `sfmc mod reload`
 
 ## 脚本
 
 | 命令 | 作用 |
 | ------ | ------ |
 | `pnpm run build` / `npm run build` | tsc --noEmit |
-| `pnpm test` / `npm test` | createSandbox + DESCRIPTOR |
+| `pnpm test` / `npm test` | manifest / DESCRIPTOR 静态单测 |
 | `pnpm run lint` / `npm run lint` | ESLint / Prettier |

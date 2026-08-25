@@ -1,11 +1,11 @@
 // @ts-check
 /**
- * npm-publish 可发包清单 — 唯一权威来源(DRY)。
- * workflow / docs / pack:verify 应对齐本表,勿在 yaml 里再抄一份 case/map。
+ * npm-publish 可发包清单
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { ROOT } from "./paths.mjs";
 
 /** npm 包名 → 相对仓库根的 package.json 路径 */
 export const NPM_PUBLISH_PACKAGES = {
@@ -19,7 +19,12 @@ export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/sfmc": "packages/meta/package.json",
 };
 
-/** @returns {keyof typeof NPM_PUBLISH_PACKAGES | null} */
+/**
+ * @description
+ * @export
+ * @param {*} pkg
+ * @returns {keyof typeof NPM_PUBLISH_PACKAGES | null}
+ */
 export function resolvePublishPackage(pkg) {
   if (Object.prototype.hasOwnProperty.call(NPM_PUBLISH_PACKAGES, pkg)) {
     return pkg;
@@ -33,7 +38,7 @@ export function resolvePublishPackage(pkg) {
  * @param {string} [repoRoot]
  * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
  */
-function listDirectPublishableDeps(pkg, repoRoot = process.cwd()) {
+function listDirectPublishableDeps(pkg, repoRoot = ROOT) {
   const pkgPath = path.join(repoRoot, NPM_PUBLISH_PACKAGES[pkg]);
   const pkgJson = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
   const deps = { ...(pkgJson.dependencies || {}), ...(pkgJson.peerDependencies || {}) };
@@ -53,7 +58,7 @@ function listDirectPublishableDeps(pkg, repoRoot = process.cwd()) {
  * @param {string} [repoRoot]
  * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
  */
-export function listPublishableBuildOrder(repoRoot = process.cwd()) {
+export function listPublishableBuildOrder(repoRoot = ROOT) {
   const all = /** @type {(keyof typeof NPM_PUBLISH_PACKAGES)[]} */ (Object.keys(NPM_PUBLISH_PACKAGES));
   /** @type {Map<string, string[]>} */
   const dependents = new Map(all.map((n) => [n, []]));
@@ -94,7 +99,7 @@ export function listPublishableBuildOrder(repoRoot = process.cwd()) {
  * @param {string} [repoRoot]
  * @returns {(keyof typeof NPM_PUBLISH_PACKAGES)[]}
  */
-export function listPublishableBuildDeps(pkg, repoRoot = process.cwd()) {
+export function listPublishableBuildDeps(pkg, repoRoot = ROOT) {
   const resolved = resolvePublishPackage(pkg);
   if (!resolved) {
     throw new Error(`Unknown publish package: ${pkg}`);
@@ -144,7 +149,7 @@ export function workspaceIncludesDir(dirPosix, workspaces) {
  * @param {string} [repoRoot=process.cwd()]
  * @returns {string[]}
  */
-export function readWorkspacePackagePatterns(repoRoot = process.cwd()) {
+export function readWorkspacePackagePatterns(repoRoot = ROOT) {
   const pnpmWsPath = path.join(repoRoot, "pnpm-workspace.yaml");
   if (fs.existsSync(pnpmWsPath)) {
     const text = fs.readFileSync(pnpmWsPath, "utf8");
@@ -181,7 +186,7 @@ export function readWorkspacePackagePatterns(repoRoot = process.cwd()) {
  * @param {string} [repoRoot=process.cwd()]
  * @returns {{ workspaceDir: string, workspaces: string[], version: string }}
  */
-export function assertPublishPackageInWorkspaces(pkgName, repoRoot = process.cwd()) {
+export function assertPublishPackageInWorkspaces(pkgName, repoRoot = ROOT) {
   const resolved = resolvePublishPackage(pkgName);
   if (!resolved) {
     throw new Error(`Unknown publish package: ${pkgName}`);
@@ -194,9 +199,7 @@ export function assertPublishPackageInWorkspaces(pkgName, repoRoot = process.cwd
   }
   const pkgJson = JSON.parse(fs.readFileSync(absPkg, "utf8"));
   if (pkgJson.name !== resolved) {
-    throw new Error(
-      `${resolved} 清单路径 ${pkgPath} 的 name 为 ${JSON.stringify(pkgJson.name)},不一致(DRY)`
-    );
+    throw new Error(`${resolved} 清单路径 ${pkgPath} 的 name 为 ${JSON.stringify(pkgJson.name)},不一致(DRY)`);
   }
   const workspaceDir = path.posix.dirname(pkgPath.replace(/\\/g, "/"));
   const workspaces = readWorkspacePackagePatterns(repoRoot);

@@ -16,7 +16,7 @@
   "scripts": {
     "build": "npm run typecheck",
     "typecheck": "tsc --noEmit -p sapi/tsconfig.json",
-    "test": "node --test --import @sfmc-bds/sdk/testing/minecraft-loader --import tsx/esm test/*.test.ts",
+    "test": "node --test --import tsx/esm test/*.test.ts",
     "lint": "eslint \"sapi/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write ."
   },
