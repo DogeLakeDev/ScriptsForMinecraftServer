@@ -1,8 +1,6 @@
 /**
- * ansi.ts — 纯 ANSI 颜色码工具 (零依赖,不引入 chalk)
+ * ansi.ts — 纯 ANSI 颜色码工具
  *
- * 共享日志包必须零运行时依赖,因此直接用 ANSI 转义码。
- * 颜色码与 sfmc/src/theme.ts 的配色对齐 (One Dark 风格)。
  */
 
 /** ANSI 转义码常量（One Dark 风格配色）。 */

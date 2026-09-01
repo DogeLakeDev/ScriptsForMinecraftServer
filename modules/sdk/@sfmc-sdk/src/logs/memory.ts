@@ -1,7 +1,6 @@
 /**
  * memory.ts — 进程内内存缓冲 (sfmc 主进程用)
  *
- * 替代原 sfmc/src/logs.ts 的 allLogs + subscribers 逻辑。
  * 作为 sink 接入 createLogger,或单独通过 pushDirect 写入。
  */
 

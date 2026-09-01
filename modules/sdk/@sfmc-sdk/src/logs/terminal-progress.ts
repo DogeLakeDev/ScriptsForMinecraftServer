@@ -1,5 +1,5 @@
 /**
- * terminal-progress.ts — 终端进度条与统一日志共存（DRY）
+ * terminal-progress.ts — 终端进度条
  *
  * 进度条本体绕过日志缓冲；日志 sink / REPL 写行前 pauseAll、写完 resumeAll。
  * 供 bds-updater、资源包 updater、未来 mod updater 共用。

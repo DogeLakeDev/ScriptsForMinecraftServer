@@ -6,10 +6,7 @@
  *   IO 通过 `DataAdapter` 注入(由 @sfmc-bds/sdk/sapi/host 数据适配器提供)。
  *   模块开关变化通过 `onModuleEnabledChange(cb)` 订阅,模块自己决定如何响应。
  * - **无热重载**:配置在 SAPI 启动时一次拉取,改 configs/*.json 后重启 BDS 即可。
- *
- * 历史形态:曾硬编码 `_syncRuntimeFlags` 把 CreativeArea.enable / Peace.enable 推下去,
- *          这种反向耦合是旧 @sfmc-bds/sapi-host 时代的产物。本轮迁到 @sfmc-bds/sdk
- *          时彻底切断,改为事件订阅。
+ * 
  */
 
 // DataAdapter 定义在 ../data-adapter.ts；本文件 import type 后 re-export 供调用方使用

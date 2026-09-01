@@ -67,7 +67,7 @@ export function listPublishableBuildOrder(repoRoot = ROOT) {
 
   for (const name of all) {
     for (const d of listDirectPublishableDeps(name, repoRoot)) {
-      dependents.get(d).push(name);
+      (dependents.get(d) || []).push(name);
       indeg.set(name, /** @type {number} */ (indeg.get(name)) + 1);
     }
   }

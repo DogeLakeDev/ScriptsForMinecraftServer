@@ -1,5 +1,5 @@
 /**
- * module-loader/install.ts — 行为包启动入口
+ * module-loader/install.ts
  *
  * 由 BP 构建产物 (scripts/main.js) 顶端调用（esbuild banner）:
  *   import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";
