@@ -23,7 +23,7 @@ export { mergeSemanticV3, migrateV2toV3, validateManifestV2, validateManifestV3 
 // internal
 export type { DataAdapter } from "./data-adapter.js";
 export { ConfigManager } from "./internal/config-manager.js";
-export { ModuleRegistry, announceLoaded, bindModuleAuthHooks, guardEvent } from "./runtime.js";
+export { ModuleRegistry, announceLoaded, bindModuleAuthHooks } from "./runtime.js";
 export type { BdsSystem, ModuleAuthHooks, ModuleDescriptor, ModuleId, ModuleLifecycle } from "./runtime.js";
 
 // @sfmc-bds/sdk/module-loader 子路径 semver 版本号。

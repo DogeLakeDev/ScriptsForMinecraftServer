@@ -5,7 +5,7 @@ import { Msg } from "./msg.js";
 
 let moduleGuard: (moduleId: string) => boolean = () => true;
 
-/** 注入模块守卫：`Command.trigger` 执行前检查所属模块是否启用。 */
+/** 可选扩展点：`Command.trigger` 执行前检查所属模块是否启用。install 冷启动模型下不注入。 */
 export function setModuleGuard(guard: (moduleId: string) => boolean): void {
   moduleGuard = guard;
 }

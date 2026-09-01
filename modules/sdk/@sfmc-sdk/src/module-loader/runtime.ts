@@ -1,8 +1,8 @@
 import { debug } from "../sapi/runtime/debug-log.js";
 import { ConfigManager } from "./internal/config-manager.js";
-import { ModuleId } from "./internal/module-keys.js";
 
-export type { ModuleId };
+/** catalog/manifest 模块 id（如 feature-afk）。 */
+export type ModuleId = string;
 
 /**
  * BDS SAPI host 抽象（由 install.ts 在 BDS 进程里注入）。
@@ -66,7 +66,10 @@ export type ModuleDescriptor = {
 };
 
 const descriptors: ModuleDescriptor[] = [];
+/** 已完成 register* 阶段的模块。 */
 const booted = new Set<string>();
+/** 已执行 init 的模块（与 booted 分离，避免 afterWorldLoad 双 init）。 */
+const initialized = new Set<string>();
 let worldLoaded = false;
 
 /** 启停查询键:catalog id 本身 + 对应 configKey。 */
@@ -121,38 +124,26 @@ export class ModuleRegistry {
     }
   }
 
-  /** 世界加载后：对 `afterWorldLoad` 模块执行 init。 */
+  /** 世界加载后：对已 boot 且未 init 的 afterWorldLoad 模块执行 init。 */
   static bootAfterWorldLoad(): void {
     if (!ConfigManager.isReady()) return;
     worldLoaded = true;
     for (const d of descriptors) {
       if (!d.afterWorldLoad) continue;
       if (!ModuleRegistry.isActive(d.id)) continue;
+      if (!booted.has(d.id)) continue;
+      if (initialized.has(d.id)) continue;
       try {
         applyModuleAuthContext(d.id);
         d.lifecycle.init?.();
+        initialized.add(d.id);
       } catch (e) {
         debug.e("Module", `[${d.id}] init failed`, e);
       }
     }
   }
 
-  /** 对非 afterWorldLoad 模块执行 init（定时任务等）。 */
-  static bootTasks(): void {
-    if (!ConfigManager.isReady()) return;
-    for (const d of descriptors) {
-      if (d.afterWorldLoad) continue;
-      if (!ModuleRegistry.isActive(d.id)) continue;
-      try {
-        applyModuleAuthContext(d.id);
-        d.lifecycle.init?.();
-      } catch (e) {
-        debug.e("Module", `[${d.id}] task start failed`, e);
-      }
-    }
-  }
-
-  /** 启动单个模块（权限/命令/事件/init 按序）。 */
+  /** 启动单个模块（权限/命令/事件；init 按 afterWorldLoad 分相）。 */
   static bootModule(id: ModuleId): void {
     const d = ModuleRegistry.get(id);
     if (!d) return;
@@ -163,10 +154,11 @@ export class ModuleRegistry {
       d.lifecycle.registerPermissions?.();
       d.lifecycle.registerCommands?.();
       d.lifecycle.registerEvents?.();
+      booted.add(id);
       if (!d.afterWorldLoad || worldLoaded) {
         d.lifecycle.init?.();
+        initialized.add(id);
       }
-      booted.add(id);
     } catch (e) {
       debug.e("Module", `[${id}] boot failed`, e);
     }
@@ -182,6 +174,7 @@ export class ModuleRegistry {
       debug.e("Module", `[${id}] cleanup hook failed`, e);
     }
     booted.delete(id);
+    initialized.delete(id);
     _authHooks?.clear(id);
   }
 
@@ -194,7 +187,7 @@ export class ModuleRegistry {
     }
   }
 
-  /** 模块是否已完成 boot。 */
+  /** 模块是否已完成 register* 阶段。 */
   static isBooted(id: ModuleId): boolean {
     return booted.has(id);
   }
@@ -230,13 +223,9 @@ export class ModuleRegistry {
     }
     descriptors.length = 0;
     booted.clear();
+    initialized.clear();
     worldLoaded = false;
   }
-}
-
-/** 事件处理器守卫：ConfigManager 未就绪时跳过。 */
-export function guardEvent(): boolean {
-  return ConfigManager.isReady();
 }
 
 /** 控制台打印当前已启动模块列表。 */
