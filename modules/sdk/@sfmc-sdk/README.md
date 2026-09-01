@@ -13,7 +13,6 @@ ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 - **`@sfmc-bds/sdk/module-loader`** — `ModuleRegistry.register` / `ConfigManager`
 - **`@sfmc-bds/sdk/module-loader/install`** — `installHostBootstrap`（仅 BP 启动）
 - **`@sfmc-bds/sdk/node/...`** — Node 进程内 SDK(db-server / qq-bridge / bds-tools / sfmc 自身)
-- **`@sfmc-bds/sdk/behavior-pack-build`** — BP 构建期类型与工具
 - **`@sfmc-bds/sdk/logs`** — 平台统一的日志/格式化/输出器
 
 ## 安装

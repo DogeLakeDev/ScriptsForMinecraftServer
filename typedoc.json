@@ -13,8 +13,7 @@
     "modules/sdk/@sfmc-sdk/src/node/sdk/index.ts",
     "modules/sdk/@sfmc-sdk/src/node/node/index.ts",
     "modules/sdk/@sfmc-sdk/src/node/config/index.ts",
-    "modules/sdk/@sfmc-sdk/src/module-loader/index.ts",
-    "modules/sdk/@sfmc-sdk/src/behavior-pack-build/index.ts"
+    "modules/sdk/@sfmc-sdk/src/module-loader/index.ts"
   ],
   "entryPointStrategy": "resolve",
   "tsconfig": "modules/sdk/@sfmc-sdk/tsconfig.typedoc.json",

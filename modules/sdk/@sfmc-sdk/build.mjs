@@ -51,7 +51,6 @@ const SUBPATHS = [
   { sub: "node/qq-official", platform: "node" },
   { sub: "module-loader", platform: "node" },
   { sub: "module-loader/install", platform: "node", entry: "src/module-loader/install.ts" },
-  { sub: "behavior-pack-build", platform: "node" },
 ];
 
 const DIST_ESM = "dist/esm";

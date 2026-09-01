@@ -34,7 +34,6 @@ import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 | `@sfmc-bds/sdk/node/config`           | Node 侧读 configs                    |
 | `@sfmc-bds/sdk/node/sdk`              | Node 服务能力                        |
 | `@sfmc-bds/sdk/logs`                  | 日志                                 |
-| `@sfmc-bds/sdk/behavior-pack-build`   | BP 构建（平台内部）                  |
 
 ## 原则
 

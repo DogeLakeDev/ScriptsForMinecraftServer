@@ -23,7 +23,6 @@ const SDK_PUBLIC_EXPORTS_FALLBACK = [
   "node/config",
   "module-loader",
   "module-loader/install",
-  "behavior-pack-build",
   "package.json",
 ] as const;
 

@@ -42,7 +42,7 @@ sfmc> mod reload --build-only
 
 `start bds` 前装载闸门会比对 catalog：不一致则先重编再启动。见 [服务管理](../guide/services.md)。
 
-相关实现：`sfmc` CLI、`bds-tools` pack-manager、`@sfmc-bds/sdk/behavior-pack-build`（平台内部）。
+相关实现：`sfmc` CLI、`bds-tools` pack-manager。
 
 ## 改完后
 
