@@ -2,7 +2,6 @@
  * 公开 barrel:
  *   - ModuleRegistry:模块注册/生命周期
  *   - ConfigManager:配置缓存(由 installHostBootstrap 注入 data adapter)
- *   - onModuleEnabledChange:模块开关变化订阅
  *
  */
 
@@ -25,7 +24,7 @@ export { mergeSemanticV3, migrateV2toV3, validateManifestV2, validateManifestV3 
 export type { DataAdapter } from "./data-adapter.js";
 export { ConfigManager } from "./internal/config-manager.js";
 export { ModuleRegistry, announceLoaded, bindModuleAuthHooks, guardEvent } from "./runtime.js";
-export type { BdsSystem, CleanUpFn, ModuleAuthHooks, ModuleDescriptor, ModuleId, ModuleLifecycle } from "./runtime.js";
+export type { BdsSystem, ModuleAuthHooks, ModuleDescriptor, ModuleId, ModuleLifecycle } from "./runtime.js";
 
 // @sfmc-bds/sdk/module-loader 子路径 semver 版本号。
 export const SFMC_MODULE_LOADER_VERSION = "0.1.0" as const;

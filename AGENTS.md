@@ -72,7 +72,7 @@ sfmc mod reload     # build + deploy + 请求 BDS reload
 
 实现：`module-loader/install.ts`。
 
-1. `startup` → `ConfigManager.init()` → `bootAll()` → `snapshotEnabled()`
+1. `startup` → `ConfigManager.init()` → `bootAll()` → `announceLoaded()`
 2. `worldLoad` → `bootAfterWorldLoad()`（`afterWorldLoad: true` 的 `init`）
 3. `shutdown` → `teardown()`
 
@@ -80,7 +80,7 @@ sfmc mod reload     # build + deploy + 请求 BDS reload
 
 `ConfigManager.init()`：一次 `GET /api/sfmc/configs/all`，缓存 `modules` / `settings` / `permissions` 与 module token。模块私有配置：`@sfmc-bds/sdk/sapi/config`。
 
-运行中启停：`POST /api/sfmc/modules/:id/{enable|disable}` → lock → `refreshModules()` → `reconcile()`。
+模块启停（db-server / AdminGUI / CLI）只写入 lock/catalog；**下次** `start bds` 或装载闸门后按新配置决定装哪些模块。当前 BDS 进程内已 boot 的模块不会自动 teardown。
 
 ```ts
 ModuleRegistry.register({

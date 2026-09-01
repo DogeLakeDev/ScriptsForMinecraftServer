@@ -7,11 +7,10 @@
  *   // 然后 module 包通过 ModuleRegistry.register({...}) 注册自身
  *
  * installHostBootstrap 干了:
- *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll + snapshot
+ *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll
  *   2) world.afterEvents.worldLoad.subscribe:bootAfterWorldLoad
  *   3) system.beforeEvents.shutdown.subscribe:teardown
  *   4) bindDataAdapter():注入 db-server HTTP 适配器(DIP:经 DataAdapter)
- *   5) 注册 setModuleGuard 给 Command.trigger 使用
  */
 
 import { system, world } from "@minecraft/server";
@@ -97,7 +96,6 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
       debug.e("HOST", "ConfigManager.init failed", e);
     }
     ModuleRegistry.bootAll();
-    ModuleRegistry.snapshotEnabled();
     announceLoaded();
   });
 
