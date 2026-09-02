@@ -1,10 +1,10 @@
 /**
- * qqutil.ts — QQ 通知工具（官方 Bot / LLBot 双后端）
+ * qqutil.ts — BDS 运维与更新通知推送工具（支持官方 Bot 与 LLBot 双后端）
  *
- * 改进:
- *  - sendTimeout 提供总超时，避免通知发送挂死主流程
- *  - 静默模式 (失败不抛出)，保证主流程不被通知干扰
- *  - qq_backend=official 时走 SDK 发群；llbot 仍走 OneBot HTTP
+ * 核心机制：
+ * - 双后端适配：根据 `qq_backend` 配置自动分发至官方开放平台发群接口或 LLBot OneBot HTTP 接口
+ * - 故障隔离：通知发送失败仅记录告警日志并不中断主流程，确保主服务运维正常执行
+ * - 发送超时熔断：设置请求超时时间，防止外部网络响应延迟堵塞 BDS 启动与更新
  */
 
 import {
@@ -38,8 +38,13 @@ function getConfig(): QqConfig {
   return cachedCfg;
 }
 
-/** 检查 qq-bridge 模块是否启用 */
+/**
+ * 检查平台中 `qq-bridge` 模块是否处于启用状态。
+ *
+ * @returns 若启用返回 `true`，否则返回 `false`。
+ */
 export function isQqBridgeEnabled(): boolean {
+
   const catalog = readJson<Catalog>(modulePath(ROOT_DIR, "catalog.json"));
   const lock = readJson<ModuleLock>(modulePath(ROOT_DIR, "module-lock.json"));
   if (!catalog || !lock) return true; // 模块目录缺失则保守视为可用

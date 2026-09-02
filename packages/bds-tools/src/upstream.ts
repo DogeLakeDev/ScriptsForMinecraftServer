@@ -1,10 +1,11 @@
 /**
- * upstream.ts — 版本源 / 下载源 / 哈希校验
+ * upstream.ts — BDS 上游版本源、多镜像下载与完整性校验
  *
- * 改进:
- *  - 3 次重试 + 指数退避
- *  - sha1 / sha256 同时校验
- *  - 流式校验 + 边下边校验
+ * 核心机制：
+ * - 多源容灾：官方源与镜像源并行竞争与多轮指数退避重试
+ * - 动态 URL 模板渲染：根据操作系统架构与更新通道计算下载地址
+ * - 流式哈希校验：支持 SHA-1 与 SHA-256 完整性流式计算校验
+ * - 版本白名单兼容门禁：防止自动升级至未验证版本
  */
 
 import crypto from "node:crypto";
@@ -26,8 +27,16 @@ function resolveTemplate(tpl: string, vars: Record<string, string>): string {
   return s;
 }
 
-/** 获取最新版本号 (含 cdn_root)，3 次重试 */
+/**
+ * 获取 BDS 最新可用版本信息（支持重试与指数退避）。
+ *
+ * @param cfg BDS 更新器配置。
+ * @param channel 更新通道（如 "release" 或 "preview"）。
+ * @param hostOs 目标主机操作系统类型。
+ * @returns 包含最新版本号与 CDN 根路径的信息对象。
+ */
 export async function getVersionInfo(
+
   cfg: BdsUpdaterConfig,
   channel: string,
   hostOs: BdsHostOs = bdsHostOs()

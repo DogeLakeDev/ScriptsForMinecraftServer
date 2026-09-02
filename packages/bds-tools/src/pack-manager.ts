@@ -1,62 +1,58 @@
 /**
- * pack-manager.ts — Bedrock 行为包/资源包 装配 + 部署到 BDS 根。
+ * pack-manager.ts — Bedrock 行为包（BP）与资源包（RP）组装及部署引擎
  *
- * 纯函数库,两条消费路径:
+ * 核心设计与调用路径：
+ * - 进程内直连（推荐）：`@sfmc-bds/bds-tools/pack-manager-lib` 供 CLI 编排与生命周期管理直接调用（遵循依赖倒置原则）
+ * - 独立 CLI：由 `cli-pack-manager.ts` 暴露命令行子命令供脚本与手工调试使用
  *
- *   - 同进程(推荐): sfmc/pack-lifecycle 经 `@sfmc-bds/bds-tools/pack-manager-lib`
- *     直连本模块（DIP）；world-packs 等同理。
- *   - CLI: `cli-pack-manager.js` 仍暴露相同动词，供外部脚本/手工调试；
- *     CLI 只是本库的薄适配，不再是 sfmc 主路径。
- *
- * 约束:本文件不引入 esbuild / 重型 npm-only 包，保持可被 Node 子进程直接加载。
- *
- * 已有依赖 (bds-tools/package.json):
- *   - @sfmc-bds/sdk/logs createTerminalProgress: 进度条（BDS 更新等）
- *   - node-html-parser: changelog 抓取 (本文件用不到)
- *   - jszip: zip 解压(模块 zip / BDS server.zip)
+ * 核心能力：
+ * - 行为包组装：将 esbuild 打包后的 `scripts/main.js`、元数据 manifest 与图标封装为 BDS 行为包结构
+ * - 资源包聚合：将各模块私有的 `resource_pack` 目录无冲突递归合并为聚合资源包
+ * - 世界部署与清单激活：将包部署至 BDS `<level>/behavior_packs` 与 `resource_packs`，并同步维护 `world_behavior_packs.json`
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { copyDirAsync, copyFileAsync, readJsonFile } from "./fsx.js";
 
-/* ── 类型 ─────────────────────────────────────────────────────────────── */
+/* ── 类型定义 ─────────────────────────────────────────────────────────────── */
 
 export interface AssembleBehaviorPackOpts {
-  /** Where the bundled scripts/main.js already exists (esbuild output dir) */
+  /** 已完成打包的 `scripts/main.js` 所在源码目录（即 esbuild 输出目录）。 */
   srcDir: string;
-  /** Output behavior pack directory (created if missing) */
+  /** 行为包目标输出目录（若不存在则自动创建）。 */
   outDir: string;
-  /** BP 目录名 — 默认 'sfmc-modules' */
+  /** BP 项目/目录名（默认为 `'sfmc-modules'`）。 */
   projectName: string;
-  /** manifest.json 的 header.version [major, minor, patch]; 默认 [1, 0, 0] */
+  /** `manifest.json` 中的 `header.version` `[major, minor, patch]`（默认为 `[1, 0, 0]`）。 */
   version?: [number, number, number] | undefined;
-  /** manifest.json 的 description */
+  /** `manifest.json` 中的包描述信息。 */
   description?: string | undefined;
-  /** pack_icon.png 源文件 (optional, 不提供则跳过) */
+  /** `pack_icon.png` 图标源文件路径（可选，未提供则跳过）。 */
   iconSrc?: string | undefined;
-  /** 稳定 header.uuid;省略则随机生成(首次装配) */
+  /** 稳定的 `header.uuid`（缺省时将在首次装配时随机生成）。 */
   uuid?: string | undefined;
-  /** 稳定 script module uuid;省略则随机 */
+  /** 稳定的 `script module uuid`（缺省时随机生成）。 */
   moduleUuid?: string | undefined;
 }
 
 export interface AssembleResourcePackOpts {
-  /** Modules whose resource_pack/** should be merged. Map<moduleId, resourcePackDir>. */
+  /** 需合并资源包目录的模块映射字典（`Record<moduleId, resourcePackDir>`）。 */
   moduleResourceDirs: Record<string, string>;
-  /** Output resource pack directory (created if missing) */
+  /** 资源包目标输出目录（若不存在则自动创建）。 */
   outDir: string;
-  /** RP 目录名 */
+  /** RP 项目/目录名。 */
   projectName: string;
-  /** manifest.json 的 header.version [major, minor, patch]; 默认 [1, 0, 0] */
+  /** `manifest.json` 中的 `header.version` `[major, minor, patch]`（默认为 `[1, 0, 0]`）。 */
   version?: [number, number, number] | undefined;
-  /** manifest.json 的 description */
+  /** `manifest.json` 中的包描述信息。 */
   description?: string | undefined;
-  /** 稳定 header.uuid;省略则随机生成(首次装配) */
+  /** 稳定的 `header.uuid`（缺省时随机生成）。 */
   uuid?: string | undefined;
-  /** 稳定 resources module uuid;省略则随机 */
+  /** 稳定的 `resources module uuid`（缺省时随机生成）。 */
   moduleUuid?: string | undefined;
 }
+
 
 export interface AssembleResult {
   uuid: string;

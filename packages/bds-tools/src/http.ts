@@ -1,10 +1,11 @@
 /**
- * http.ts — 稳定 HTTP 工具 (分阶段超时 + 自动重定向 + 流式下载)
+ * http.ts — 针对大文件与外部上游设计的 HTTP 网络请求工具
  *
- * 改进:
- *  - connect timeout vs total timeout 分开
- *  - 下载通过流管道，避免大文件加载到内存
- *  - 失败后已写入的临时文件可被清理
+ * 核心机制：
+ * - 分阶段超时控制：区分连接建立超时（connectTimeout）与全量传输超时（totalTimeout）
+ * - 自动重定向处理：安全跟踪 3xx 跳转（最多 5 次）
+ * - 流式文件下载：通过 pipeline 管道直接落盘，避免大文件一次性加载至内存
+ * - 异常容错清理：下载失败时自动清理残留的临时文件碎片
  */
 
 import http from "node:http";
@@ -27,7 +28,15 @@ const MAX_REDIRECTS = 5;
 const DEFAULT_CONNECT_TIMEOUT = 15_000;
 const DEFAULT_TOTAL_TIMEOUT = 600_000;
 
+/**
+ * 发起底层 HTTP/HTTPS 请求。
+ *
+ * @param url 目标请求地址。
+ * @param opts 请求参数（包含请求方法、请求头、主体、阶段超时时间及重定向次数等）。
+ * @returns 包含状态码、响应体 Buffer 及响应头字典的结果对象。
+ */
 export async function httpRequest(
+
   url: string,
   opts: HttpOptions = {}
 ): Promise<{ statusCode: number; body: Buffer; headers: Record<string, string | string[] | undefined> }> {
@@ -91,6 +100,14 @@ export async function httpRequest(
   });
 }
 
+/**
+ * 发起 GET 请求并自动将响应体解析为 JSON 数据对象。
+ *
+ * @template T 预期的 JSON 数据类型。
+ * @param url 请求目标 URL。
+ * @param opts 请求配置选项。
+ * @returns 解析后的 JSON 对象。
+ */
 export async function httpGetJson<T = unknown>(
   url: string,
   opts: HttpOptions = {}
@@ -103,12 +120,27 @@ export async function httpGetJson<T = unknown>(
   }
 }
 
+/**
+ * 发起 GET 请求并获取 UTF-8 纯文本响应内容。
+ *
+ * @param url 请求目标 URL。
+ * @param opts 请求配置选项。
+ * @returns 响应文本字符串。
+ */
 export async function httpGetText(url: string, opts: HttpOptions = {}): Promise<string> {
   const res = await httpRequest(url, opts);
   return res.body.toString("utf-8");
 }
 
-/** 多个源并发请求，谁先成功返回（每个源都用 JSON 解析，解析失败也失败） */
+/**
+ * 针对多个备选源并发发起请求，由最先成功返回且合法解析 JSON 的源提供数据（Happy Eyeballs 机制）。
+ *
+ * @template T 返回的 JSON 数据类型。
+ * @param sources 候选 URL 列表。
+ * @param timeoutMs 超时时间（毫秒，默认为 15000）。
+ * @returns 最先成功响应的数据。
+ * @throws 当所有备选源均失败时抛出聚合错误。
+ */
 export async function fetchJsonWithFallback<T = unknown>(
   sources: string[],
   timeoutMs = 15_000
@@ -128,15 +160,24 @@ export async function fetchJsonWithFallback<T = unknown>(
   throw new Error(`所有源均不可用: ${errors}`);
 }
 
-/**
- * 流式下载到指定路径，返回字节数。
- * - 失败时自动清理 partial 文件
- * - 支持 progress 回调
- * - 支持 connect/total 阶段超时
- */
+/** 下载配置选项。 */
 export interface DownloadOptions extends HttpOptions {
+  /** 下载进度变化回调函数。 */
   onProgress?: (downloaded: number, total: number) => void;
 }
+
+/**
+ * 流式下载网络资源至本地指定路径。
+ * - 传输失败时自动删除残留的临时文件碎片
+ * - 支持节流的进度通知回调
+ * - 支持连接建立与全量传输双阶段独立超时
+ *
+ * @param url 下载目标地址。
+ * @param destPath 本地落盘目标绝对路径。
+ * @param opts 下载参数选项。
+ * @returns 成功下载的总字节数。
+ */
+
 
 export async function httpDownload(
   url: string,

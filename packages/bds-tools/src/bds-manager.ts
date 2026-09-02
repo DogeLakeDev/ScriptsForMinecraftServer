@@ -1,11 +1,11 @@
 /**
- * bds-manager.ts — BDS 进程管理器
+ * bds-manager.ts — Bedrock Dedicated Server (BDS) 进程生命周期管理器
  *
- * 改进:
- *  - 优雅 stop (发送 stop 命令 → 等待退出 → SIGTERM → SIGKILL)
- *  - watchdog (崩溃自动重启)
- *  - 单例事件发射器
- *  - 完全异步 (fs/promises)
+ * 核心职责：
+ * - 优雅停服：向标准输入发送 `stop` 命令等待自然退出，超时后逐步升级至 SIGTERM 与 SIGKILL
+ * - 守护监视（watch）：监听进程退出事件并在异常退出时自动延时重启恢复
+ * - 生命周期事件广播：分发启动、停止、崩溃等事件，触发运维告警与状态同步
+ * - 管道交互与探活：检测进程存活状态并向 BDS stdin 投递控制台指令
  */
 
 import { spawn } from "node:child_process";
@@ -27,20 +27,31 @@ import {
   writeBdsPidFile,
 } from "./process-probe.js";
 
+/** BDS 进程管理器统一操作接口。 */
 export interface BdsManager {
+  /** 启动 BDS 服务进程。 */
   start(): Promise<void>;
+  /** 优雅停止 BDS 服务进程。 */
   stop(): Promise<void>;
+  /** 查询 BDS 进程当前是否处于运行状态。 */
   status(): Promise<boolean>;
+  /** 向 BDS 控制台管道发送指令。 */
   sendCommand(cmd: string): boolean;
+  /** 开启守护监视模式（异常退出时自动拉起）。 */
   watch(): Promise<void>;
+  /** 进程生命周期事件发射器。 */
   events: EventEmitter;
+  /** 当前是否属于主动调用停服。 */
   isManualStop: boolean;
+  /** 获取当前运行中 BDS 进程的 PID。 */
   getPid(): number;
 }
 
+/** BDS 进程启动选项。 */
 export interface BdsManagerOptions {
   detached?: boolean;
 }
+
 
 interface CachedProc {
   process: ReturnType<typeof spawn> | null;

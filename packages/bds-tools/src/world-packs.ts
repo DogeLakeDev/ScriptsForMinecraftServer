@@ -1,6 +1,13 @@
 /**
- * world-packs.ts — 通用世界 BP/RP 发现 / 安装 / bump（非 SFMC 模块聚合）
+ * world-packs.ts — 通用 Minecraft 基岩版世界行为包（BP）与资源包（RP）管理工具
+ *
+ * 核心能力：
+ * - 格式与命名规范化：过滤 Minecraft 颜色格式码，自动补充 `[BP]` / `[RP]` 前缀及冲突避让
+ * - 压缩包递归解构：支持 `.zip`、`.mcpack`、`.mcaddon` 嵌套包解压并智能识别 BP 与 RP 根目录
+ * - 版本递增与同步：同步升级 manifest 中的版本元数据并对齐世界启用清单版本
+ * - 幂等安装与回滚：按 UUID 精确匹配升级与安装计划，支持删除备份至回收站机制
  */
+
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -413,7 +420,12 @@ export function listInstalledWorldPacks(bdsRoot: string, levelName: string): Ins
   return result;
 }
 
-/** RP/BP 第三位版本 +1，写回 manifest */
+/**
+ * 将目标包 manifest.json 中的 Patch 版本号递增（+1）并持久化写回。
+ *
+ * @param packDir 包根目录路径。
+ * @returns 递增后的版本三元组 `[major, minor, patch]`。
+ */
 export function bumpPackPatchVersion(packDir: string): [number, number, number] {
   const file = path.join(packDir, "manifest.json");
   if (!fs.existsSync(file)) throw new Error(`manifest.json missing: ${packDir}`);
@@ -427,8 +439,15 @@ export function bumpPackPatchVersion(packDir: string): [number, number, number] 
   return writePackHeaderVersion(packDir, next);
 }
 
-/** 写入 header.version（并同步 modules[].version 的 patch） */
+/**
+ * 向目标包的 manifest.json 写入新的版本号，并同步更新内部 modules 的 patch 版本。
+ *
+ * @param packDir 包根目录路径。
+ * @param next 待写入的版本三元组。
+ * @returns 写入确认的版本三元组。
+ */
 export function writePackHeaderVersion(
+
   packDir: string,
   next: [number, number, number]
 ): [number, number, number] {
