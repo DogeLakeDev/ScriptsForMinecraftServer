@@ -1,7 +1,8 @@
-# Development
+# Developer Guide
 
-English developer docs are still catching up. Use the Chinese guides for now:
+Developer documentation and technical references:
 
-- [Module authoring](/dev/module-author)
-- [Testing sandbox](/dev/testing)
-- [Dev index](/dev/)
+- [Core API Cheatsheet](./cheatsheet.mdx) — Quick copy-paste snippets for lifecycle, Msg, DB, and configs.
+- [Module Authoring (ZH)](/zh/dev/module-author)
+- [Testing Sandbox (ZH)](/zh/dev/testing)
+

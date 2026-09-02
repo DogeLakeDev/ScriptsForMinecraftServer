@@ -1,0 +1,207 @@
+import { Tab, Tabs } from 'rspress/theme';
+
+# Core API Cheatsheet
+
+A concise reference guide of the most frequently used SAPI core interfaces and code snippets when developing SFMC modules. Ready to copy and adapt.
+
+---
+
+## 1. Module Lifecycle & Registration (`ModuleRegistry`)
+
+Every module entry point `sapi/src/index.ts` must register via `ModuleRegistry.register`.
+
+```ts
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
+import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+
+ModuleRegistry.register({
+  id: "feature-teleport",
+  afterWorldLoad: false, // Set to true if accessing entity/world APIs during boot
+  lifecycle: {
+    // 1. Register permission nodes
+    registerPermissions() {
+      Permission.register("tp.use", 0); // Any=0, Member=1, OP=2, Admin=3
+      Permission.register("tp.admin", 2);
+    },
+
+    // 2. Register in-game chat commands (! or ！ prefix)
+    registerCommands() {
+      Command.register("tp", "tp.use", (player, args) => {
+        Msg.info(player, `Teleporting to: ${args[0] || "Spawn"}`);
+      });
+    },
+
+    // 3. Register Minecraft native or custom events
+    registerEvents() {
+      // Recommended location for world.afterEvents subscriptions
+    },
+
+    // 4. Async initialization (configs, DB tables, etc.)
+    async init() {
+      console.log("[feature-teleport] Initialization complete");
+    },
+
+    // 5. Cleanup upon disable or server shutdown
+    cleanup() {
+      // Clear timers and transient caches
+    },
+  },
+});
+```
+
+---
+
+## 2. Notification & Message Helpers (`Msg`)
+
+Direct `player.sendMessage()` calls are disallowed by lint rules. Always use the standardized `Msg` helpers.
+
+```ts
+import { Msg } from "@sfmc-bds/sdk/sapi/runtime";
+
+// Common notification levels
+Msg.info(player, "General information notice");
+Msg.success(player, "Transaction completed successfully!");
+Msg.warning(player, "Warning: PvP is disabled in this zone");
+Msg.error(player, "Insufficient funds for this purchase!");
+Msg.tips(player, "Tip: Type !menu to open the quick navigation panel");
+
+// Broadcast to all online players
+Msg.broadcast("Server notice: Scheduled maintenance in 10 minutes");
+```
+
+---
+
+## 3. Standard Form Styling (`ListFormInfo`)
+
+When constructing UI forms via `@minecraft/server-ui`, follow the unified visual layout:
+
+```ts
+import { ActionFormData } from "@minecraft/server-ui";
+import { ListFormInfo } from "@sfmc-bds/sdk/sapi/runtime";
+
+const form = new ActionFormData()
+  .title("Land Management")
+  .body(
+    ListFormInfo([
+      "Current Plot: [Spawn Protected Zone]",
+      "Owner: ServerAdmin",
+      "Permissions: Move Allowed / Break Denied",
+    ])
+  )
+  .button("Buy Land")
+  .button("Permissions")
+  .button("§cGo Back"); // Only Back/Cancel buttons should use color codes
+
+form.show(player).then((response) => {
+  if (response.canceled) return;
+  // Handle actions
+});
+```
+
+---
+
+## 4. Database Persistence & Transactions (`@sfmc-bds/sdk/sapi/db`)
+
+Safely persist data to isolated SQLite storage via `@sfmc-bds/sdk/sapi/db`.
+
+<Tabs>
+  <Tab label="CRUD Operations">
+
+```ts
+import { db, sql } from "@sfmc-bds/sdk/sapi/db";
+
+// 1. Initialize table
+await db.execute(sql`
+  CREATE TABLE IF NOT EXISTS player_stats (
+    player_id TEXT PRIMARY KEY,
+    points INTEGER NOT NULL DEFAULT 0,
+    last_login INTEGER NOT NULL
+  )
+`);
+
+// 2. Upsert
+await db.execute(sql`
+  INSERT INTO player_stats (player_id, points, last_login)
+  VALUES (${player.id}, 100, ${Date.now()})
+  ON CONFLICT(player_id) DO UPDATE SET
+    points = points + 100,
+    last_login = excluded.last_login
+`);
+
+// 3. Query
+const result = await db.queryOne<{ points: number }>(sql`
+  SELECT points FROM player_stats WHERE player_id = ${player.id}
+`);
+console.log(`Player points: ${result?.points ?? 0}`);
+```
+
+  </Tab>
+  <Tab label="ACID Transactions">
+
+```ts
+import { db, sql } from "@sfmc-bds/sdk/sapi/db";
+
+// Multi-step transfer with transactional safety
+await db.transaction(async (tx) => {
+  // 1. Deduct from sender
+  const sender = await tx.queryOne<{ points: number }>(sql`
+    SELECT points FROM player_stats WHERE player_id = ${senderId}
+  `);
+
+  if (!sender || sender.points < amount) {
+    throw new Error("Insufficient balance");
+  }
+
+  await tx.execute(sql`
+    UPDATE player_stats SET points = points - ${amount} WHERE player_id = ${senderId}
+  `);
+
+  // 2. Credit receiver
+  await tx.execute(sql`
+    UPDATE player_stats SET points = points + ${amount} WHERE player_id = ${targetId}
+  `);
+
+  // 3. Audit log
+  await tx.execute(sql`
+    INSERT INTO transfer_logs (sender, target, amount, created_at)
+    VALUES (${senderId}, ${targetId}, ${amount}, ${Date.now()})
+  `);
+});
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## 5. Private Module Configuration (`@sfmc-bds/sdk/sapi/config`)
+
+Read and write isolated configuration in `configs/<configKey>.json`:
+
+```ts
+import { config } from "@sfmc-bds/sdk/sapi/config";
+
+// Read configuration with default fallback
+const spawnPoint = await config.get("spawn_point", { x: 0, y: 64, z: 0 });
+const enableWelcome = await config.get("enable_welcome", true);
+
+// Runtime write (persisted immediately)
+await config.set("spawn_point", { x: 100, y: 70, z: 200 });
+```
+
+---
+
+## 6. Cross-Module RPC & Services (`@sfmc-bds/sdk/sapi/service`)
+
+When module A requires a service declared in module B's manifest:
+
+```ts
+import { service } from "@sfmc-bds/sdk/sapi/service";
+
+// Call balance query service provided by feature-economy
+const res = await service.call<{ balance: number }>("economy.balance", {
+  playerId: player.id,
+});
+
+console.log(`Balance: ${res.balance}`);
+```

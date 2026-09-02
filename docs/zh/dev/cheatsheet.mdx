@@ -1,0 +1,207 @@
+import { Tab, Tabs } from 'rspress/theme';
+
+# 核心 API 速查手册 (Cheatsheet)
+
+本手册整理了开发 SFMC 业务模块时最常用的 SAPI 核心接口与代码片段，支持直接复制集成。
+
+---
+
+## 1. 模块生命周期与注册 (`ModuleRegistry`)
+
+每个模块入口 `sapi/src/index.ts` 必须通过 `ModuleRegistry.register` 进行注册。
+
+```ts
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
+import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+
+ModuleRegistry.register({
+  id: "feature-teleport",
+  afterWorldLoad: false, // 若需在启动阶段访问实体/世界 API，设为 true
+  lifecycle: {
+    // 1. 注册权限节点
+    registerPermissions() {
+      Permission.register("tp.use", 0); // Any=0, Member=1, OP=2, Admin=3
+      Permission.register("tp.admin", 2);
+    },
+
+    // 2. 注册聊天命令 (! 或 ！开头)
+    registerCommands() {
+      Command.register("tp", "tp.use", (player, args) => {
+        Msg.info(player, `传送目标: ${args[0] || "主城"}`);
+      });
+    },
+
+    // 3. 注册 Minecraft 原生或自定义事件
+    registerEvents() {
+      // 推荐在此处订阅 world.afterEvents
+    },
+
+    // 4. 异步初始化（读写配置、建立数据库连接等）
+    async init() {
+      console.log("[feature-teleport] 初始化完成");
+    },
+
+    // 5. 卸载与资源释放
+    cleanup() {
+      // 清理定时器、临时缓存
+    },
+  },
+});
+```
+
+---
+
+## 2. 消息与交互提示 (`Msg`)
+
+严格禁止使用 `player.sendMessage()`，请统一使用规范化的 `Msg` 助手（支持格式码与统一色彩主题）。
+
+```ts
+import { Msg } from "@sfmc-bds/sdk/sapi/runtime";
+
+// 常见通知类型
+Msg.info(player, "这是一条普通通知消息");
+Msg.success(player, "恭喜，交易完成！");
+Msg.warning(player, "注意：此区域禁止 PvP");
+Msg.error(player, "余额不足，无法购买！");
+Msg.tips(player, "小贴士：输入 !menu 可打开快捷菜单");
+
+// 全服广播
+Msg.broadcast("全服公告：服务器将在 10 分钟后例行维护");
+```
+
+---
+
+## 3. 表单正文规范 (`ListFormInfo`)
+
+构建 `ActionFormData` 或 `MessageFormData` 时，正文排版请遵循平台统一视觉风格：
+
+```ts
+import { ActionFormData } from "@minecraft/server-ui";
+import { ListFormInfo } from "@sfmc-bds/sdk/sapi/runtime";
+
+const form = new ActionFormData()
+  .title("领地管理面板")
+  .body(
+    ListFormInfo([
+      "当前领地：[主城保护区]",
+      "领地主人：ServerAdmin",
+      "当前权限：允许移动 / 禁止破坏",
+    ])
+  )
+  .button("购买领地")
+  .button("权限设置")
+  .button("§c返回上一页"); // 仅返回按钮允许带颜色代码
+
+form.show(player).then((response) => {
+  if (response.canceled) return;
+  // 处理点击回调
+});
+```
+
+---
+
+## 4. 数据库 CRUD 与事务 (`@sfmc-bds/sdk/sapi/db`)
+
+使用 `@sfmc-bds/sdk/sapi/db` 进行隔离安全的 SQLite 数据持久化。
+
+<Tabs>
+  <Tab label="基础查询与写入">
+
+```ts
+import { db, sql } from "@sfmc-bds/sdk/sapi/db";
+
+// 1. 初始化创建表（若不存在）
+await db.execute(sql`
+  CREATE TABLE IF NOT EXISTS player_stats (
+    player_id TEXT PRIMARY KEY,
+    points INTEGER NOT NULL DEFAULT 0,
+    last_login INTEGER NOT NULL
+  )
+`);
+
+// 2. 插入或更新
+await db.execute(sql`
+  INSERT INTO player_stats (player_id, points, last_login)
+  VALUES (${player.id}, 100, ${Date.now()})
+  ON CONFLICT(player_id) DO UPDATE SET
+    points = points + 100,
+    last_login = excluded.last_login
+`);
+
+// 3. 结果查询
+const result = await db.queryOne<{ points: number }>(sql`
+  SELECT points FROM player_stats WHERE player_id = ${player.id}
+`);
+console.log(`玩家当前点数: ${result?.points ?? 0}`);
+```
+
+  </Tab>
+  <Tab label="原子事务 (Transaction)">
+
+```ts
+import { db, sql } from "@sfmc-bds/sdk/sapi/db";
+
+// 在事务中执行多步转账/扣款操作，保证 ACID
+await db.transaction(async (tx) => {
+  // 1. 扣除发起者点数
+  const sender = await tx.queryOne<{ points: number }>(sql`
+    SELECT points FROM player_stats WHERE player_id = ${senderId}
+  `);
+
+  if (!sender || sender.points < amount) {
+    throw new Error("余额不足");
+  }
+
+  await tx.execute(sql`
+    UPDATE player_stats SET points = points - ${amount} WHERE player_id = ${senderId}
+  `);
+
+  // 2. 增加接收者点数
+  await tx.execute(sql`
+    UPDATE player_stats SET points = points + ${amount} WHERE player_id = ${targetId}
+  `);
+
+  // 3. 记录交易流水
+  await tx.execute(sql`
+    INSERT INTO transfer_logs (sender, target, amount, created_at)
+    VALUES (${senderId}, ${targetId}, ${amount}, ${Date.now()})
+  `);
+});
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+## 5. 模块私有配置读写 (`@sfmc-bds/sdk/sapi/config`)
+
+模块在 `configs/<configKey>.json` 拥有独立隔离的命名空间：
+
+```ts
+import { config } from "@sfmc-bds/sdk/sapi/config";
+
+// 读取配置（带默认 fallback）
+const spawnPoint = await config.get("spawn_point", { x: 0, y: 64, z: 0 });
+const enableWelcome = await config.get("enable_welcome", true);
+
+// 运行时修改配置（即时持久化）
+await config.set("spawn_point", { x: 100, y: 70, z: 200 });
+```
+
+---
+
+## 6. 跨模块服务依赖与 RPC (`@sfmc-bds/sdk/sapi/service`)
+
+当模块 A 需要调用模块 B 提供的服务时：
+
+```ts
+import { service } from "@sfmc-bds/sdk/sapi/service";
+
+// 调用由 feature-economy 提供的 balance 查询服务
+const res = await service.call<{ balance: number }>("economy.balance", {
+  playerId: player.id,
+});
+
+console.log(`用户余额: ${res.balance}`);
+```
