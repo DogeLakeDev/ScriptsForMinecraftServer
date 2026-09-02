@@ -1,90 +1,102 @@
-﻿# 排障
+# 排障与诊断
 
-先选症状逐步排查；完整清单仍保留在下方，便于检索与 AI 阅读。
+当遇到服务无法启动、模块未生效或连接异常时，可通过下方的交互式排障向导逐步排查；完整排查清单与高频问题汇总亦收录在下方，便于快速检索与定位。
 
 <TroubleshootWizardZh />
 
-## 完整清单
+---
 
-### 自检（monorepo）
+## 常见问题排查清单
+
+### 1. 端口冲突与网络异常 (Port Conflicts)
+
+| 冲突端口 | 涉及服务 | 典型报错 / 现象 | 解决方案 |
+| :--- | :--- | :--- | :--- |
+| **`19132` (UDP)** | BDS 主控程序 | BDS 启动失败、崩溃或提示端口无法绑定 | 检查后台是否有僵死或残留的 `bedrock_server` 进程；Windows 使用任务管理器/netstat 结束对应 PID。 |
+| **`3001` (TCP)** | db-server 数据服务 | 启动日志输出 `EADDRINUSE :::3001` | 在 `configs/db_config.json` 中调整 `db_port`，或通过环境变量 `DB_PORT=3011` 换用其他可用端口。 |
+| **`3002` (TCP)** | qq-bridge (LLBot WS) | LLBot 连接失败，反向 WS 拒绝连接 | 确认防火墙已放行对应端口，并确保未同时运行多个 QQ 桥接实例。 |
 
 ```bash
-pnpm run verify
-npm run verify
+# Windows 查看端口占用 PID
+netstat -ano | findstr 19132
+
+# Linux / macOS 查看端口占用
+lsof -i :3001
 ```
 
-### db-server 起不来
+---
 
-| 现象 | 处理 |
-| --- | --- |
-| 秒退、`node:sqlite` 报错 | Node 升到 **22.13+** |
-| 端口占用 | 改 `db_port` 或环境变量 `DB_PORT` |
-| 模块 API 异常 | 确认 `modulesDir` 与 `SFMC_ROOT` |
-| SQLite 损坏 | 停服后从备份恢复 |
+### 2. 数据库守护服务（db-server）异常
+
+| 异常现象 | 核心根因 | 解决步骤 |
+| :--- | :--- | :--- |
+| 启动瞬间秒退、报 `Cannot find module 'node:sqlite'` | Node.js 版本过低 | 将 Node.js 升级至 **`22.13.0` 或更高版本**（平台依赖 Node 内置的原生 SQLite 模块）。 |
+| 数据持久化写入失败或报 `SQLITE_CORRUPT` | 磁盘异常或非正常断电损坏 | 停止所有服务，从 `<SFMC_ROOT>/data/backups/` 备份文件夹中还原最近的 `.sqlite` 文件。 |
+| SAPI 模块调用数据服务报 `401 Unauthorized` | 模块鉴权 Token 失效 | 确认 SAPI 启动阶段 `ConfigManager.init()` 顺利获取了启动快照，重新执行 `mod reload`。 |
 
 ```bash
+# 测试本地 db-server 健康度状态
 curl http://127.0.0.1:3001/api/health
 ```
 
-### 装载闸门 / BDS 未启动
+---
 
-1. 看控制台装载摘要与 `<SFMC_ROOT>/.sfmc/logs/`
-2. `mod build` 看 esbuild 是否报错
-3. 独立 SFMC 根下确认模块已 `mod install` 且 lock 为 enabled
-4. 收件箱冲突是否挡住启动前扫描（见 [附加包](./addons.md)）
+### 3. BDS 启动与行为包装载闸门
 
-### 模块已 enable 但游戏里没效果
+1. **查看装载摘要**：检查终端控制台的装载输出与 `<SFMC_ROOT>/.sfmc/logs/` 下的各服务独立日志。
+2. **手动编译打包验证**：在 sfmc 终端中执行 `mod build`，确认 esbuild 产物生成无 TypeScript 语法报错。
+3. **确认附加包冲突**：检查 `worlds/<level>/behavior_packs/` 是否存在同名或旧版行为包残留（详见 [附加包管理](./addons.md)）。
 
-- 是否执行过 `mod reload`，或重启过 BDS？
-- `modules/module-lock.json` 里是否为 `enabled: true`
-- `GET /api/sfmc/modules/<id>` 确认状态
-- 临时 `mod disable` 该模块，排除单模块问题
-- 依赖模块是否已安装并启用
+---
 
-### 测试沙箱
+### 4. 模块已启用（Enabled）但在游戏内无响应
+
+- **代码与配置生效边界**：
+  - 若修改了 `sapi/src/` 中的 TypeScript 代码：执行 `sfmc> mod reload` 即可热重载生效。
+  - 若修改了 `configs/*.json` 或 `manifest.json`：必须**重启 BDS** 才能生效。
+- **锁文件状态**：确认 `<SFMC_ROOT>/modules/module-lock.json` 中该模块的 `enabled` 字段为 `true`。
+- **生命周期时序问题**：若模块在初始化阶段操作了实体或维度数据失败，检查 `ModuleRegistry.register` 是否应设置 `afterWorldLoad: true`。
+- **前置依赖模块**：检查 `manifest.json` 中的 `dependencies` 是否均已安装且处于 `enabled` 状态。
+
+---
+
+### 5. QQ 机器人与消息桥接异常
+
+:::tabs
+== 官方开放平台后端 (`official`)
+1. **凭证核对**：检查 `configs/qq_config.json` 中的 `qq_app_id` 与 `qq_app_secret` 是否正确填写。
+2. **IP 白名单配置**：登录 QQ 开放平台开发者后台，确认公网 IP 已添加到调用白名单中。
+3. **事件订阅**：确认在开放平台已开启 `GROUP_AT_MESSAGE_CREATE`（群聊 @ 消息事件）。
+4. **群标识回填**：在群内首次 @ 机器人后，从控制台日志复制生成的 `qq_group_openid` 并填回配置文件，随后重启服务。
+
+== LLBot / OneBot 后端 (`llbot`)
+1. **反向 WebSocket**：确认 LLBot 配置文件中的反向 WebSocket 目标为 `ws://127.0.0.1:3002`。
+2. **目标群号**：检查 `configs/qq_config.json` 中的 `qq_group_id` 是否为有效数字群号。
+3. **防火墙拦截**：确认本机 3002 端口未被本地杀毒软件或安全策略拦截。
+:::
+
+---
+
+### 6. 测试沙箱常见问题
 
 ```bash
 pnpm test
 npm test
-# 须带：
+# 注意：测试须加载 Minecraft 运行时 Mock 引导器：
 # --import @sfmc-bds/sdk/testing/minecraft-loader
 ```
 
-| 现象 | 处理 |
-| --- | --- |
-| `UnimplementedMinecraftApiError` /「未实现的 Minecraft API」 | 用例碰到尚未接线的 API：缩小断言面，或等沙箱加深；勿当业务逻辑错误 |
-| 断言失败但 BDS 正常 | 可能是沙箱保真差；用扩展 Watch / 真机复核 |
-| Testing 面板发现不了用例 | 装 `nodejs-testing`；核对模板 `.vscode/settings.json` 与 `pnpm test` / `npm test` 脚本 |
+| 现象 | 说明与应对 |
+| :--- | :--- |
+| `UnimplementedMinecraftApiError` | 单元测试触碰到了沙箱尚未 Mock 模拟的极冷门 Minecraft SAPI。可通过收窄断言范围或使用真机 BDS 联调，切勿当成业务代码错误。 |
+| 断言失败但 BDS 真机运行正常 | 测试沙箱仿真度差异；推荐使用 VS Code 扩展 Watch 模式在真实 BDS 中联调。 |
 
-作者流程见 [测试沙箱](../dev/testing.md)。
+---
 
-### QQ 桥
+### 7. 提交 Issue 与求助
 
-**官方后端（`qq_backend: official`）**
+如排查后仍未解决问题，欢迎前往 [GitHub Issues](https://github.com/Tanya7z/sfmc-modules/issues) 提交反馈，并请附上：
+- 完整终端报错日志（或 `.sfmc/logs/` 归档）
+- `pnpm run verify` 输出结果
+- `node -v` 与操作系统版本信息
 
-1. `qq_app_id` / `qq_app_secret` 是否正确
-2. 是否已订阅 `GROUP_AT_MESSAGE_CREATE`，群内是否 @ 机器人
-3. `qq_group_openid` 是否已从日志抄入并重启 db / qq
-4. 群主是否允许机器人主动发言（MC→QQ）
-5. 沙箱是否与 `qq_sandbox` 一致；IP 白名单是否包含本机公网 IP
-
-**LLBot 后端（`qq_backend: llbot`）**
-
-1. LLBot 反向 WS 是否为 `ws://127.0.0.1:3002`
-2. `qq_group_id`、`llbot_*` 是否正确
-3. qq / llbot 日志是否连上
-4. 防火墙是否拦截 3002
-
-从旧版升级未写 `qq_backend` 时默认走官方；若仍用 LLBot 请显式设 `"qq_backend": "llbot"`。
-
-### 构建与 import
-
-```bash
-pnpm run build
-npm run build --workspaces --if-present
-sfmc> mod build
-```
-
-旧模块若仍 `import "@sfmc/sdk"`，请用当前 CLI 重装模块，或确认 SDK 可被构建解析。
-
-仍解决不了时，可前往 GitHub Issues 附上 BDS / sfmc 日志、`pnpm run verify` / `npm run verify` 输出和 Node 版本。

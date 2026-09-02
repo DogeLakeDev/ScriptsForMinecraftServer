@@ -1,90 +1,101 @@
-﻿# Troubleshooting
+# Troubleshooting & Diagnostics
 
-Pick a symptom and work through the steps; the full checklist below remains for search and reference.
+When encountering server startup issues, inactive modules, or network errors, use the interactive troubleshooting wizard below for guided diagnosis. The complete checklist is also available below for search and fast reference.
 
 <TroubleshootWizardEn />
 
-## Full checklist
+---
 
-### Self-check (monorepo)
+## Comprehensive Troubleshooting Checklist
+
+### 1. Port Conflicts & Networking (Port Conflicts)
+
+| Conflicted Port | Service Involved | Typical Error / Symptom | Fix & Workaround |
+| :--- | :--- | :--- | :--- |
+| **`19132` (UDP)** | BDS Core Process | BDS fails to boot, crashes, or fails to bind port | Check for orphaned `bedrock_server` processes in the background; kill the PID via Task Manager / netstat. |
+| **`3001` (TCP)** | db-server Data Daemon | Log outputs `EADDRINUSE :::3001` | Update `db_port` in `configs/db_config.json`, or override via `DB_PORT=3011` environment variable. |
+| **`3002` (TCP)** | qq-bridge (LLBot WS) | LLBot connection rejected | Verify firewall rules allow the port, and ensure no duplicate bridge instances are running. |
 
 ```bash
-pnpm run verify
-npm run verify
+# Windows inspect listening PID
+netstat -ano | findstr 19132
+
+# Linux / macOS inspect listening port
+lsof -i :3001
 ```
 
-### db-server won't start
+---
 
-| Symptom | Fix |
-| --- | --- |
-| Exits immediately, `node:sqlite` error | Upgrade Node to **22.13+** |
-| Port in use | Change `db_port` or env `DB_PORT` |
-| Module API oddities | Confirm `modulesDir` and `SFMC_ROOT` |
-| SQLite corruption | Stop services; restore from backup |
+### 2. Database Daemon (db-server) Issues
+
+| Symptom | Root Cause | Action Steps |
+| :--- | :--- | :--- |
+| Exits immediately, `Cannot find module 'node:sqlite'` | Node.js version is too old | Upgrade Node.js to **`22.13.0` or higher** (the platform requires built-in SQLite support). |
+| Write failures or `SQLITE_CORRUPT` | Disk errors or unclean power loss | Stop all services and restore the latest `.sqlite` database from `<SFMC_ROOT>/data/backups/`. |
+| SAPI requests to data service return `401 Unauthorized` | Module token expired or invalid | Ensure SAPI's `ConfigManager.init()` successfully fetched snapshot configs, then run `mod reload`. |
 
 ```bash
+# Test local db-server daemon health
 curl http://127.0.0.1:3001/api/health
 ```
 
-### Load gate / BDS did not start
+---
 
-1. Read the load summary in the console and `<SFMC_ROOT>/.sfmc/logs/`
-2. Run `mod build` and check esbuild errors
-3. In your SFMC root, confirm the module is `mod install`ed and enabled in lock
-4. Inbox conflicts blocking pre-start scan (see [Add-ons](./addons.md))
+### 3. BDS Boot & Behavior Pack Assembly Gate
 
-### Module enabled but no effect in-game
+1. **Inspect Load Summary**: Review terminal load output and individual log files under `<SFMC_ROOT>/.sfmc/logs/`.
+2. **Test Pack Bundling**: Execute `sfmc> mod build` to verify esbuild produces JavaScript bundles without TypeScript syntax errors.
+3. **Check Add-on Conflicts**: Check `worlds/<level>/behavior_packs/` for duplicate or conflicting packs (see [Add-ons Guide](./addons.md)).
 
-- Did you run `mod reload` or restart BDS?
-- Is `enabled: true` in `modules/module-lock.json`?
-- Confirm with `GET /api/sfmc/modules/<id>`
-- Temporarily `mod disable` the module to isolate
-- Are dependency modules installed and enabled?
+---
 
-### Test sandbox
+### 4. Module Enabled in Lock but Inactive In-Game
+
+- **Update Boundaries**:
+  - If you edited TypeScript code in `sapi/src/`: Run `sfmc> mod reload` to hot reload.
+  - If you edited `configs/*.json` or `manifest.json`: You must **restart BDS**.
+- **Lock Status**: Confirm that `enabled: true` is set for this module in `<SFMC_ROOT>/modules/module-lock.json`.
+- **Lifecycle Ordering**: If entity/dimension operations fail during module boot, verify if `ModuleRegistry.register` should specify `afterWorldLoad: true`.
+- **Dependencies**: Check that all modules listed under `dependencies` in `manifest.json` are installed and enabled.
+
+---
+
+### 5. QQ Bridge & Bot Connection Issues
+
+:::tabs
+== Official OpenAPI Backend (`official`)
+1. **Credentials**: Check `qq_app_id` and `qq_app_secret` in `configs/qq_config.json`.
+2. **IP Allowlist**: In the QQ Open Platform developer console, ensure your server's public IP is added to the IP allowlist.
+3. **Event Subscription**: Ensure `GROUP_AT_MESSAGE_CREATE` is subscribed (messages in groups must @ the bot).
+4. **Group OpenID**: Copy the generated `qq_group_openid` from initial trigger logs into `configs/qq_config.json`, then restart services.
+
+== LLBot / OneBot Backend (`llbot`)
+1. **Reverse WebSocket**: Confirm reverse WS target in LLBot is set to `ws://127.0.0.1:3002`.
+2. **Group Number**: Ensure `qq_group_id` in `configs/qq_config.json` is a valid numeric group ID.
+3. **Firewall**: Confirm port 3002 is not blocked by local security software.
+:::
+
+---
+
+### 6. Test Sandbox FAQs
 
 ```bash
 pnpm test
 npm test
-# must include:
+# Note: Tests must import the Minecraft runtime mock loader:
 # --import @sfmc-bds/sdk/testing/minecraft-loader
 ```
 
-| Symptom | Fix |
-| --- | --- |
-| `UnimplementedMinecraftApiError` / unimplemented Minecraft API | Test hit an unwired API: narrow assertions or wait for sandbox coverage; not a business-logic bug |
-| Assertion fails but BDS works | Sandbox fidelity gap; verify with extension Watch or live BDS |
-| Testing panel finds no tests | Install `nodejs-testing`; check template `.vscode/settings.json` and `pnpm test` / `npm test` script |
+| Symptom | Details & Solution |
+| :--- | :--- |
+| `UnimplementedMinecraftApiError` | Test touched an obscure Minecraft SAPI not yet mocked in the sandbox. Narrow test assertions or verify with live BDS; not a business logic flaw. |
+| Assertion fails but works in live BDS | Sandbox fidelity difference; use VS Code extension Watch mode in a real BDS instance for debugging. |
 
-Author flow: [Test sandbox](../dev/testing.md).
+---
 
-### QQ bridge
+### 7. Reporting Issues & Help
 
-**Official (`qq_backend: official`)**
-
-1. `qq_app_id` / `qq_app_secret` correct
-2. Subscribed to `GROUP_AT_MESSAGE_CREATE`; messages must @ the bot
-3. `qq_group_openid` copied from logs; restart db / qq
-4. Group owner allows proactive bot messages (MC→QQ)
-5. Sandbox matches `qq_sandbox`; IP allowlist includes server public IP if enabled
-
-**LLBot (`qq_backend: llbot`)**
-
-1. LLBot reverse WS set to `ws://127.0.0.1:3002`
-2. `qq_group_id`, `llbot_*` correct
-3. qq / llbot logs show connection
-4. Firewall not blocking 3002
-
-Upgrading without `qq_backend` defaults to official; set `"qq_backend": "llbot"` to keep LLBot.
-
-### Build and imports
-
-```bash
-pnpm run build
-npm run build --workspaces --if-present
-sfmc> mod build
-```
-
-Legacy modules still importing `@sfmc/sdk`: reinstall with current CLI, or ensure SDK resolves at build time.
-
-If still stuck, open a GitHub Issue with BDS / sfmc logs, `pnpm run verify` / `npm run verify` output, and Node version.
+If the issue persists after following these steps, please open an issue at [GitHub Issues](https://github.com/Tanya7z/sfmc-modules/issues) and include:
+- Complete terminal log output (or `.sfmc/logs/` archive)
+- `pnpm run verify` output
+- `node -v` and Operating System details

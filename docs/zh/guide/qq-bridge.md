@@ -2,8 +2,10 @@
 
 支持两种后端（`qq_config.json` → `qq_backend`）：
 
-|     |
-| --- |
+| 后端 | 说明 |
+| :--- | :--- |
+| `official` (默认) | [QQ 开放平台](https://q.qq.com/) 官方机器人（Access Token + Gateway） |
+| `llbot` | [LLBot](https://www.llonebot.com/zh-CN/)（OneBot 11 协议） |
 
 ## 消息路径
 

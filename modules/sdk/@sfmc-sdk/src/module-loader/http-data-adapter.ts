@@ -1,6 +1,6 @@
 /**
  * HttpDB → ConfigManager.DataAdapter 适配器(DIP)。
- * install 内部装配点；未进 package.json#exports 公开子路径。
+ * ConfigManager 只依赖 DataAdapter 抽象;本文件是 module-loader 侧唯一 HttpDB 装配点。
  */
 
 import { HttpDB } from "../sapi/runtime/httpdb.js";
@@ -14,6 +14,7 @@ export function createHttpDataAdapter(opts?: { baseUrl?: string }): DataAdapter 
       await HttpDB.checkHealth();
     },
     getAllConfigs: async () => HttpDB.get("/api/sfmc/configs/all"),
+    getModules: async () => HttpDB.get("/api/sfmc/modules"),
     setAuthToken: (token: string) => {
       HttpDB.setAuthToken(token);
     },

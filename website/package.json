@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "rspress dev",
+    "predev": "node ../packages/tools/docs-typedoc.mjs",
+    "dev": "rspress dev --port 3000 --host 0.0.0.0",
+    "prebuild": "node ../packages/tools/docs-typedoc.mjs",
     "build": "rspress build",
-    "preview": "rspress preview"
+    "postbuild": "node -e \"const fs=require('node:fs'), path=require('node:path'); const src=path.resolve('doc_build'), dest=path.resolve('dist'); if(fs.existsSync(src)){fs.mkdirSync(dest, {recursive: true}); fs.cpSync(src, dest, {recursive: true});}\"",
+    "preview": "rspress preview --port 3000 --host 0.0.0.0"
   },
   "dependencies": {
     "@rspress/core": "^2.0.19",

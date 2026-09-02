@@ -1,73 +1,157 @@
-﻿import { Tabs, Tab } from "@rspress/core/theme";
+import { Tab, Tabs } from "rspress/theme";
 
-# 入门
+# 快速上手
 
-本页面向运维人员与模块开发者。读完后，您应能：
+欢迎使用 **ScriptsForMinecraftServer (SFMC)**。SFMC 是专为官方原版 Bedrock Dedicated Server (BDS) 打造的现代化 SAPI 行为包生态与 Node.js 伴生服务架构。
 
-- 完成安装与首次初始化
-- 使用常用命令管理服务与模块
+请根据您的使用角色选择下方的上手路径：
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8 not-prose">
+  <div className="p-6 rounded-xl border border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40 transition-all flex flex-col justify-between">
+    <div>
+      <div className="text-2xl mb-2">🎮</div>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">我是服主 / 运维人员</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        快速安装 CLI 工具、初始化 BDS 服务端、安装官方推荐模块并配置 QQ 互联机器人。
+      </p>
+    </div>
+    <a href="#快速安装与初始化" className="inline-flex items-center text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+      开始部署运维指南 →
+    </a>
+  </div>
+
+  <div className="p-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+    <div>
+      <div className="text-2xl mb-2">💻</div>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">我是插件 / 模块开发者</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        使用脚手架快速创建独立模块、本地热重载调试、编写持久化数据库及发布到模块生态。
+      </p>
+    </div>
+    <a href="../dev/module-author.mdx" className="inline-flex items-center text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+      进入模块开发手册 →
+    </a>
+  </div>
+</div>
+
+---
 
 ## 系统要求
 
-| 项目     | 要求                           |
-| -------- | ------------------------------ |
-| 操作系统 | Windows 10 + / Linux           |
-| Node.js  | [22.13 +](https://nodejs.org/) |
+在开始之前，请确保您的运行环境满足以下要求：
 
-## 快速开始
+| 项目 | 最低要求 | 推荐配置 |
+| :--- | :--- | :--- |
+| **操作系统** | Windows 10 / 11, Linux (Ubuntu 20.04+, Debian 11+) | Linux (云服务器长期运行) / Windows (本地调试) |
+| **Node.js** | `v22.13.0` 或更高版本（需内置 SQLite 支持） | 最新 LTS 版本（Node ≥22.13） |
+| **包管理器** | `npm` 或 `pnpm` | `pnpm` |
+| **磁盘空间** | ≥ 2 GB（用于存放 BDS 核心、行为包、备份与数据存档） | SSD 固态硬盘 |
+
+---
+
+## 快速安装与初始化
+
+SFMC 提供了全局编排 CLI 工具，可实现从 BDS 自动下载配置到模块启停的全流程管理。
+
+### 步骤 1：全局安装 SFMC CLI
 
 <Tabs>
-  <Tab label="pnpm">
+  <Tab label="pnpm (推荐)">
 
 ```bash
-pnpm i -g @sfmc-bds/sfmc@beta
-mkdir my-folder && cd my-folder
-sfmc
+pnpm add -g @sfmc-bds/sfmc@beta
 ```
 
   </Tab>
   <Tab label="npm">
 
 ```bash
-npm i -g @sfmc-bds/sfmc@beta
-mkdir my-folder && cd my-folder
-sfmc
+npm install -g @sfmc-bds/sfmc@beta
 ```
 
   </Tab>
 </Tabs>
 
 :::tip 提示
-目前请使用 `@beta` 安装。  
-可设置`SFMC_ROOT`环境变量来更改工作目录。  
+当前版本处于公测阶段，请务必添加 `@beta` 标签进行安装。如需在特定文件夹持久化数据，也可通过配置 `SFMC_ROOT` 环境变量指定自定义工作目录。
 :::
 
-## 使用
+### 步骤 2：创建服务器工作区并启动向导
 
-首次运行会进入初始化向导。完成后工作目录大致如下：
+创建一个专用的服务器目录，并直接运行 `sfmc`：
+
+```bash
+mkdir my-minecraft-server
+cd my-minecraft-server
+sfmc
+```
+
+首次运行会自动启动交互式初始化向导，完成以下准备工作：
+1. 下载并解压适配当前系统的官方原版 Bedrock Dedicated Server。
+2. 自动生成标准目录结构并注册默认配置文件与 JSON Schema。
+3. 初始化轻量 SQLite 数据持久化守护服务（`db-server`）。
+
+初始化完成后的目录结构如下：
 
 ```text
-{工作目录}/
-├── {BDS}/
-├── configs/
-├── data/
-├── packs/
-└── modules/
+my-minecraft-server/
+├── BedrockDedicatedServer/  # BDS 核心服务端程序
+├── configs/                 # 平台与各功能配置文件（db_config, qq_config 等）
+├── data/                    # SQLite 数据库与运行时状态
+├── packs/                   # 自动组装输出的行为包产物目录
+└── modules/                 # 已下载与启用的功能模块包
 ```
 
-在sfmc交互终端内，键入“/”即可查看命令面板，使用键盘进行操作。
+---
+
+## 常用运维指令
+
+SFMC 内置了现代化的交互式终端面板（REPL），也支持在宿主 Shell 中直接调用子命令：
+
+### 1. 服务控制
+
+在 `sfmc` 终端内输入 `/` 即可唤起交互式命令菜单：
 
 ```bash
-sfmc> /start -all # 启动所有服务
+# 启动全部服务（db-server + qq-bridge + BDS）
+sfmc> /start -all
+
+# 仅启动 BDS 或查看运行状态
+sfmc> /start bds
+sfmc> /status
+
+# 平滑停止所有服务
+sfmc> /stop -all
 ```
 
-键入`TAB`可在不同的日志源中切换。
+:::info 快捷键操作
+在 REPL 交互界面中，直接按下键盘上的 `TAB` 键可以在不同的日志源（BDS 主控、数据库服务、QQ 桥接）之间实时无缝切换。
+:::
 
-## 安装模块
+### 2. 模块发现与安装
+
+SFMC 拥有开箱即用的模块分发生态，可一键安装常用功能模块（如挂机检测、经济系统、传送点管理等）：
 
 ```bash
+# 在官方模块索引中搜索模块
 sfmc> mod search
+
+# 安装指定模块
 sfmc> mod install afk
+
+# 启用并加载模块
 sfmc> mod enable afk
+
+# 热重载行为包代码（无需重启 BDS）
+sfmc> mod reload
 ```
+
+---
+
+## 下一步
+
+- 📖 **深入模块管理**：阅读 [模块与行为包管理指南](./modules.mdx) 了解模块更新与依赖关系。
+- 🤖 **接入 QQ 互通**：阅读 [QQ 桥接配置手册](./qq-bridge.md) 配置官方机器人或 LLBot。
+- 🔍 **遇到问题？**：使用 [交互式排障向导](./troubleshooting.mdx) 快速解决端口冲突与启动错误。
+
 

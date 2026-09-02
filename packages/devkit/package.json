@@ -26,12 +26,12 @@
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "workspace:*",
-    "@sfmc-bds/cli": "workspace:*",
-    "@sfmc-bds/sdk": "workspace:*"
+    "@sfmc-bds/bds-tools": "*",
+    "@sfmc-bds/cli": "*",
+    "@sfmc-bds/sdk": "*"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "workspace:*"
+    "@sfmc-bds/tools": "*"
   },
   "publishConfig": {
     "access": "public",

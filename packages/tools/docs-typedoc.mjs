@@ -76,7 +76,11 @@ if (!existsSync(path.join(zhOut, "index.md"))) {
 }
 
 mkdirSync(path.dirname(enOut), { recursive: true });
-rmSync(enOut, { recursive: true, force: true });
-cpSync(zhOut, enOut, { recursive: true });
+try {
+  rmSync(enOut, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+} catch {
+  // ignore concurrent cleanup errors
+}
+cpSync(zhOut, enOut, { recursive: true, force: true });
 
 console.log("[docs-typedoc] done (+ synced en/reference/sdk)");

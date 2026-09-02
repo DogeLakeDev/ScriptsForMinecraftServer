@@ -11,7 +11,7 @@ import { pluginSyncTypedocEn } from "./plugins/sync-typedoc-en";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.SFMC_DOCS_ROOT || path.join(__dirname, "..");
 const DOCS = path.join(ROOT, "docs");
-const BASE = "/ScriptsForMinecraftServer/";
+const BASE = process.env.DOCS_BASE || "/";
 const OUT_DIR = path.join(ROOT, "doc_build");
 const serveMdOpts = { docsRoot: DOCS, outDir: OUT_DIR, base: BASE };
 
@@ -83,6 +83,12 @@ export default defineConfig({
       },
     },
     server: {
+      cors: true,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization",
+      },
       // TypeDoc 生成物体积大；避免误触碰时拖垮 HMR
       watch: {
         ignored: [
@@ -91,6 +97,10 @@ export default defineConfig({
           "**/doc_build/**",
         ],
       },
+    },
+    dev: {
+      hmr: false,
+      liveReload: false,
     },
   },
   plugins: [

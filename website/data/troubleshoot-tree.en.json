@@ -6,8 +6,21 @@
       "title": "Self-check (monorepo)",
       "steps": [
         {
-          "text": "Run platform integration verify at repo root:",
+          "text": "Run platform integration verify at repo root to validate packages and dependencies:",
           "code": "pnpm run verify\nnpm run verify"
+        }
+      ]
+    },
+    {
+      "id": "ports",
+      "title": "Port Conflicts (19132 / 3001 / 3002)",
+      "steps": [
+        { "text": "BDS crashes or fails to bind UDP 19132 → check for orphaned bedrock_server processes and terminate them." },
+        { "text": "db-server fails with EADDRINUSE:3001 → update db_port in configs/db_config.json or set DB_PORT environment variable." },
+        { "text": "LLBot reports port 3002 conflict → ensure no duplicate qq-bridge instances or competing reverse WS clients." },
+        {
+          "text": "Inspect listening ports (Windows / Linux):",
+          "code": "netstat -ano | findstr 19132\nlsof -i :3001"
         }
       ]
     },
@@ -15,60 +28,69 @@
       "id": "db",
       "title": "db-server won't start",
       "steps": [
-        { "text": "Instant exit or node:sqlite error → upgrade Node to 22.13+" },
-        { "text": "Port in use → change db_port in configs or DB_PORT env" },
-        { "text": "Module API issues → check modulesDir and SFMC_ROOT" },
-        { "text": "SQLite corruption → restore from backup after stopping services" },
+        { "text": "Instant exit or node:sqlite error → upgrade Node.js to 22.13+ (requires native node:sqlite support)" },
+        { "text": "Port in use → change db_port in configs/db_config.json or set DB_PORT env" },
+        { "text": "Module API issues → verify modulesDir and SFMC_ROOT paths" },
+        { "text": "SQLite corruption → stop services and restore database from data/backups" },
         {
-          "text": "Health check:",
+          "text": "Check daemon health:",
           "code": "curl http://127.0.0.1:3001/api/health"
         }
+      ]
+    },
+    {
+      "id": "auth-401",
+      "title": "401 / Module Auth Failure",
+      "steps": [
+        { "text": "Module HTTP requests return 401 Unauthorized → verify SAPI successfully fetched GET /api/sfmc/configs/all and cached the module_token." },
+        { "text": "Manual curl requests fail with 401 → ensure Authorization: Bearer <token> header is included." },
+        { "text": "Admin token mismatch → check http_auth in configs/db_config.json or HTTP_AUTH env." }
       ]
     },
     {
       "id": "bds-gate",
       "title": "Load gate / BDS not starting",
       "steps": [
-        { "text": "Check load summary and <SFMC_ROOT>/.sfmc/logs/" },
-        { "text": "Run mod build; confirm esbuild has no errors" },
+        { "text": "Check load summary and log files under <SFMC_ROOT>/.sfmc/logs/" },
+        { "text": "Run sfmc> mod build to ensure esbuild pack bundling finishes without syntax or missing dependency errors." },
         {
-          "text": "Confirm inbox conflicts are not blocking pre-start scan",
+          "text": "Confirm inbox conflicts are not blocking pre-start scan (see Add-ons guide):",
           "href": "./addons",
-          "hrefLabel": "Add-ons"
+          "hrefLabel": "Add-ons Management Guide"
         }
       ]
     },
     {
       "id": "module-noop",
-      "title": "Module enabled but no effect",
+      "title": "Module enabled but no effect in-game",
       "steps": [
-        { "text": "Did you run mod reload or restart BDS?" },
-        { "text": "Is modules/module-lock.json enabled: true?" },
-        { "text": "GET /api/sfmc/modules/<id> to confirm state" },
-        { "text": "Temporarily mod disable to isolate" },
-        { "text": "Are dependency modules installed and enabled?" }
+        { "text": "Did you run mod reload or restart BDS? (Code changes require reload; config changes require BDS restart)" },
+        { "text": "Is enabled: true present in modules/module-lock.json?" },
+        { "text": "Inspect GET /api/sfmc/modules/<id> to confirm live module state" },
+        { "text": "If entities/world APIs fail during startup → verify if registration should specify afterWorldLoad: true" },
+        { "text": "Ensure all dependency modules defined in manifest.json are installed and enabled" }
       ]
     },
     {
       "id": "qq",
-      "title": "QQ bridge",
+      "title": "QQ Bridge / Bot Issues",
       "steps": [
-        { "text": "LLBot reverse WS ws://127.0.0.1:3002?" },
-        { "text": "qq_group_id, llbot_* correct?" },
-        { "text": "Check qq / llbot logs for connection" },
-        { "text": "Firewall blocking 3002?" }
+        { "text": "[Official] Verify qq_app_id and qq_app_secret; ensure server public IP is added to the QQ Open Platform allowlist." },
+        { "text": "[Official] Ensure GROUP_AT_MESSAGE_CREATE is subscribed; group messages must @ the bot to trigger." },
+        { "text": "[Official] Ensure qq_group_openid has been copied from startup logs into configs/qq_config.json." },
+        { "text": "[LLBot] Verify reverse WS is ws://127.0.0.1:3002 and firewall allows the port." }
       ]
     },
     {
       "id": "build",
-      "title": "Build and imports",
+      "title": "Build & Import Errors",
       "steps": [
         {
-          "text": "Build monorepo first, then module pack:",
+          "text": "Build monorepo first, then pack modules:",
           "code": "pnpm run build\nnpm run build --workspaces --if-present\nsfmc> mod build"
         },
         {
-          "text": "Legacy modules importing \"@sfmc/sdk\" → reinstall with current CLI or fix SDK resolution"
+          "text": "Legacy modules importing \"@sfmc/sdk\" → reinstall using the latest CLI, or verify SDK package resolution"
         }
       ]
     }

@@ -45,6 +45,7 @@ const darkTheme: MermaidConfig["themeVariables"] = {
 };
 
 function isDarkMode() {
+  if (typeof document === "undefined") return false;
   return document.documentElement.classList.contains("dark");
 }
 
@@ -54,6 +55,7 @@ export default function MermaidDiagram({ code }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const render = useCallback(async () => {
+    if (typeof document === "undefined") return;
     const dark = isDarkMode();
     const config: MermaidConfig = {
       securityLevel: "loose",
@@ -77,7 +79,7 @@ export default function MermaidDiagram({ code }: Props) {
 
     try {
       mermaid.initialize(config);
-      const id = `sfmc-mermaid-${reactId.replace(/:/g, "")}`;
+      const id = `sfmc-mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
       const { svg: next } = await mermaid.render(id, code);
       setSvg(next);
       setError(null);
@@ -92,6 +94,7 @@ export default function MermaidDiagram({ code }: Props) {
   }, [render]);
 
   useEffect(() => {
+    if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
     const observer = new MutationObserver(() => {
       void render();
     });

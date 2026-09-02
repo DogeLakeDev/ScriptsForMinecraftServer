@@ -33,7 +33,7 @@
     "test": "node --test --import tsx/esm test/**/*.test.ts"
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "workspace:*",
-    "@sfmc-bds/sdk": "workspace:*"
+    "@sfmc-bds/bds-tools": "*",
+    "@sfmc-bds/sdk": "*"
   }
 }

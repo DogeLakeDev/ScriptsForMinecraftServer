@@ -3,10 +3,13 @@
  *
  * 设计要点:
  * - **零外部耦合**:本文件不知道 HttpDB / CreativeArea / Peace 等具体模块存在。
- *   IO 通过 `DataAdapter` 注入(由 installHostBootstrap 装配)。
- * - **无热重载**:配置在 SAPI 启动时一次拉取,改 configs/*.json 或模块启停后重启 BDS 即可。
+ *   IO 通过 `DataAdapter` 注入(由 @sfmc-bds/sdk/sapi/host 数据适配器提供)。
+ *   模块开关变化通过 `onModuleEnabledChange(cb)` 订阅,模块自己决定如何响应。
+ * - **无热重载**:配置在 SAPI 启动时一次拉取,改 configs/*.json 后重启 BDS 即可。
+ * 
  */
 
+// DataAdapter 定义在 ../data-adapter.ts；本文件 import type 后 re-export 供调用方使用
 import type { DataAdapter } from "../data-adapter.js";
 export type { DataAdapter };
 
@@ -52,10 +55,17 @@ export class ConfigManager {
   private static _initialized = false;
   private static _ready = false;
   private static _data: DataAdapter | null = null;
+  private static _moduleChangeListeners: Set<(key: string, enabled: boolean) => void> = new Set();
 
   /** 由 installHostBootstrap 调用,注入 db-server 数据适配器。 */
   static bindDataAdapter(adapter: DataAdapter): void {
     ConfigManager._data = adapter;
+  }
+
+  /** 订阅模块开关变化。模块启动时注册,启用/禁用态翻转时被回调。 */
+  static onModuleEnabledChange(cb: (key: string, enabled: boolean) => void): () => void {
+    ConfigManager._moduleChangeListeners.add(cb);
+    return () => ConfigManager._moduleChangeListeners.delete(cb);
   }
 
   /** 初始化：健康检查 → 拉全量配置 → 设置 auth token → 标记 ready。 */
@@ -66,6 +76,7 @@ export class ConfigManager {
     await ConfigManager._data.checkHealth();
     await ConfigManager.loadAll();
     ConfigManager._data.setAuthToken(ConfigManager.getSetting("db_auth_token", ""));
+    ConfigManager._notifyModuleChanges(undefined);
     ConfigManager._ready = true;
     console.log("[ConfigManager] 配置已加载");
   }
@@ -87,6 +98,7 @@ export class ConfigManager {
       settings: new Map(),
       permissions: {},
     };
+    ConfigManager._moduleChangeListeners.clear();
   }
 
   /**
@@ -139,6 +151,26 @@ export class ConfigManager {
     }
   }
 
+  /** 仅刷新模块启停缓存（runtime 开关变化后调用）。 */
+  static async refreshModules(): Promise<void> {
+    const body = await ConfigManager._data!.getModules();
+    if (!body) return;
+    try {
+      const previous = new Map(ConfigManager.cache.modules);
+      const { modules } = JSON.parse(body);
+      ConfigManager.cache.modules.clear();
+      ConfigManager.cache.moduleConfigKeys.clear();
+      for (const m of modules) {
+        ConfigManager._indexModuleEntry(m);
+      }
+      ConfigManager._notifyModuleChanges(previous);
+    } catch (e) {
+      console.warn(`[ConfigManager] 模块缓存刷新失败: ${(e as Error).message}`);
+    }
+  }
+
+  // ── Internal ──
+
   private static _indexModuleEntry(m: {
     id?: string;
     module_id?: string;
@@ -179,6 +211,39 @@ export class ConfigManager {
     ConfigManager.cache.permissions = {};
     for (const p of all.permissions || []) {
       ConfigManager.cache.permissions[p.player_name] = p.level;
+    }
+  }
+
+  /**
+   * 广播模块启停变化。
+   * - previous === undefined：init 全量通知当前缓存中每一项
+   * - 否则：只通知相对 previous 有变化的 key（含已消失且曾为 true → false）
+   */
+  private static _notifyModuleChanges(previous: Map<string, boolean> | undefined): void {
+    const emit = (key: string, enabled: boolean): void => {
+      ConfigManager._moduleChangeListeners.forEach((cb) => {
+        try {
+          cb(key, enabled);
+        } catch (e) {
+          console.warn(`[ConfigManager] listener 异常: ${(e as Error).message || e}`);
+        }
+      });
+    };
+
+    if (!previous) {
+      for (const [key, enabled] of ConfigManager.cache.modules.entries()) {
+        emit(key, enabled);
+      }
+      return;
+    }
+
+    const seen = new Set<string>();
+    for (const [key, enabled] of ConfigManager.cache.modules.entries()) {
+      seen.add(key);
+      if (previous.get(key) !== enabled) emit(key, enabled);
+    }
+    for (const [key, wasEnabled] of previous.entries()) {
+      if (!seen.has(key) && wasEnabled) emit(key, false);
     }
   }
 }

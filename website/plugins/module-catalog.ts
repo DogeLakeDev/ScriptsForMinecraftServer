@@ -78,6 +78,16 @@ function toRegistry(data: IndexJson, source: string) {
 export function pluginModuleCatalog(opts: ModuleCatalogOptions): RspressPlugin {
   let registryJson = '{"version":1,"modules":[]}';
 
+  // 确保在任何生命周期调用前已有 fallback 内容
+  ensureFallbackCopied(opts);
+  if (existsSync(opts.outFile)) {
+    try {
+      registryJson = readFileSync(opts.outFile, "utf8");
+    } catch {
+      // ignore
+    }
+  }
+
   return {
     name: "sfmc-module-catalog",
     async beforeBuild() {

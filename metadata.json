@@ -1,0 +1,6 @@
+{
+  "name": "ScriptsForMinecraftServer",
+  "description": "SFMC documentation website, module catalog, troubleshooting tools, and developer reference",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

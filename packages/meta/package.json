@@ -36,11 +36,11 @@
     "prepublishOnly": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@sfmc-bds/bds-tools": "workspace:*",
-    "@sfmc-bds/cli": "workspace:*",
-    "@sfmc-bds/db-server": "workspace:*",
-    "@sfmc-bds/qq-bridge": "workspace:*",
-    "@sfmc-bds/sdk": "workspace:*"
+    "@sfmc-bds/bds-tools": "*",
+    "@sfmc-bds/cli": "*",
+    "@sfmc-bds/db-server": "*",
+    "@sfmc-bds/qq-bridge": "*",
+    "@sfmc-bds/sdk": "*"
   },
   "publishConfig": {
     "access": "public",

@@ -2,11 +2,34 @@
 /**
  * tools/lib/paths.mjs — 仓库根与模块相关路径
  */
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { findMonorepoRoot } from "@sfmc-bds/sdk/node/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * 从 startDir 向上查找 monorepo 根（package.json#name === sfmc-monorepo）。
+ * @param {string} startDir
+ * @returns {string | null}
+ */
+export function findMonorepoRoot(startDir) {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    const pkgPath = path.join(dir, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const name = JSON.parse(fs.readFileSync(pkgPath, "utf8")).name;
+        if (name === "sfmc-monorepo") return dir;
+      } catch {
+        /* 继续向上 */
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
 /** 本包目录（packages/tools/ 或 node_modules/@sfmc-bds/tools/） */
 export const TOOLS_PKG_DIR = path.resolve(__dirname, "..");

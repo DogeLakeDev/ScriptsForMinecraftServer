@@ -1,4 +1,4 @@
-﻿---
+---
 pageType: home
 
 hero:
@@ -7,20 +7,68 @@ hero:
   tagline: Script API behavior packs and Node sidecars for vanilla BDS
   actions:
     - theme: brand
-      text: Get started
+      text: Get Started
       link: /guide/
     - theme: alt
-      text: Module registry
+      text: Author Modules
+      link: /dev/module-author
+    - theme: alt
+      text: Module Registry
       link: https://github.com/Tanya7z/sfmc-modules
 
 features:
-  - title: Run a server
-    details: Install, manage services, modules, addons, and troubleshooting.
+  - title: ⚡ Deep Native SAPI Integration
+    details: Built directly on official Minecraft Script API standards. Lightweight, stable, and zero engine hacks.
     link: /guide/
-  - title: Write a module
-    details: Scaffolding, testing sandbox, Watch, and publishing.
+  - title: 🧩 Modular Hot-Loading Ecosystem
+    details: Isolate and deliver features in modular packages with dynamic toggling and hot reloads via sfmc CLI.
+    link: /guide/modules
+  - title: 🗄️ Inter-Process Storage & Services
+    details: Built-in SQLite HTTP daemon and Loopback IPC bridge providing transactional persistence to SAPI.
+    link: /guide/services
+  - title: 🤖 Multi-Platform Bridge & QQ Bot
+    details: Connect in-game chat and events with QQ Official OpenAPI & LLBot for auto-moderation and whitelist sync.
+    link: /guide/qq-bridge
+  - title: 🛠️ Full-Stack TypeScript DevKit
+    details: Dedicated SDK, custom ESLint static analysis rules, and TypeDoc signatures for seamless developer ergonomics.
     link: /dev/module-author
-  - title: Browse APIs
-    details: HTTP and module service contracts, plus SDK TypeDoc.
-    link: /api/
+  - title: 🔍 Interactive Troubleshooting Wizard
+    details: Step-by-step diagnostic trees to pinpoint port conflicts, authorization errors, and startup failures in seconds.
+    link: /guide/troubleshooting
 ---
+
+<div className="mt-12 max-w-4xl mx-auto px-4">
+  <div className="text-center mb-6">
+    <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+      Build your first SFMC module in 5 minutes
+    </h2>
+    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+      Standardized lifecycle, strict type safety, declarative command & permission registrations.
+    </p>
+  </div>
+
+```ts title="sapi/src/index.ts"
+import { ModuleRegistry } from "@sfmc-bds/sdk/sapi/module-loader";
+import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+
+ModuleRegistry.register({
+  id: "feature-hello",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() {
+      Permission.register("hello.use", "Permission to use hello", 0);
+    },
+    registerCommands() {
+      Command.register("hello", {
+        description: "Send greeting message",
+        permission: "hello.use",
+        handler(player) {
+          Msg.send(player, "§aHello! Welcome to your SFMC-powered Minecraft server!");
+        },
+      });
+    },
+  },
+});
+```
+
+</div>

@@ -6,8 +6,21 @@
       "title": "自检（monorepo）",
       "steps": [
         {
-          "text": "在仓根运行平台集成自检：",
+          "text": "在仓根运行平台集成自检，验证核心包与依赖一致性：",
           "code": "pnpm run verify\nnpm run verify"
+        }
+      ]
+    },
+    {
+      "id": "ports",
+      "title": "端口冲突 (19132 / 3001 / 3002)",
+      "steps": [
+        { "text": "BDS 无法启动或崩溃（19132 UDP 被占用）→ 检查后台是否有残留的 bedrock_server 进程，或使用 netstat 查找并终止占用进程。" },
+        { "text": "db-server 启动报 EADDRINUSE:3001 → 在 configs/db_config.json 修改 db_port 或通过环境变量 DB_PORT 换用其他空闲端口。" },
+        { "text": "LLBot 报 3002 端口冲突 → 检查是否同时启动了多个 qq-bridge 实例或被其他反向 WS 客户端占用。" },
+        {
+          "text": "检查端口占用情况（Windows / Linux）：",
+          "code": "netstat -ano | findstr 19132\nlsof -i :3001"
         }
       ]
     },
@@ -15,26 +28,35 @@
       "id": "db",
       "title": "db-server 起不来",
       "steps": [
-        { "text": "秒退或 node:sqlite 报错 → 将 Node 升到 22.13+" },
-        { "text": "端口占用 → 改 configs 中 db_port 或环境变量 DB_PORT" },
-        { "text": "模块 API 异常 → 确认 modulesDir 与 SFMC_ROOT" },
-        { "text": "SQLite 损坏 → 停服后从备份恢复" },
+        { "text": "秒退或 node:sqlite 报错 → 将 Node 升到 22.13+（需原生支持 node:sqlite）" },
+        { "text": "端口占用 → 改 configs/db_config.json 中 db_port 或环境变量 DB_PORT" },
+        { "text": "模块 API 异常 → 确认 modulesDir 与 SFMC_ROOT 路径配置正确" },
+        { "text": "SQLite 损坏 → 停服后从 data/backups 备份恢复" },
         {
-          "text": "健康检查：",
+          "text": "测试数据服务连通性：",
           "code": "curl http://127.0.0.1:3001/api/health"
         }
+      ]
+    },
+    {
+      "id": "auth-401",
+      "title": "401 / 模块鉴权失败",
+      "steps": [
+        { "text": "模块请求数据库或服务接口返回 401 Unauthorized → 确认 SAPI 启动阶段成功请求了 GET /api/sfmc/configs/all 并拿到有效 module token。" },
+        { "text": "手动使用 curl 测试接口时报 401 → 确认请求头携带了 Authorization: Bearer <token>。" },
+        { "text": "管控 Token 不匹配 → 核对 configs/db_config.json 中的 http_auth 或环境变量 HTTP_AUTH 配置。" }
       ]
     },
     {
       "id": "bds-gate",
       "title": "装载闸门 / BDS 未启动",
       "steps": [
-        { "text": "查看控制台装载摘要与 <SFMC_ROOT>/.sfmc/logs/" },
-        { "text": "运行 mod build，确认 esbuild 无报错" },
+        { "text": "查看控制台装载摘要与 <SFMC_ROOT>/.sfmc/logs/ 下的日志文件。" },
+        { "text": "运行 sfmc> mod build，确认 esbuild 组装过程无语法或缺少依赖报错。" },
         {
-          "text": "确认收件箱冲突未挡住启动前扫描",
+          "text": "确认收件箱冲突未挡住启动前扫描（见附加包管理）：",
           "href": "./addons",
-          "hrefLabel": "附加包"
+          "hrefLabel": "附加包管理指南"
         }
       ]
     },
@@ -42,33 +64,33 @@
       "id": "module-noop",
       "title": "模块已 enable 但无效果",
       "steps": [
-        { "text": "是否执行过 mod reload，或重启过 BDS？" },
-        { "text": "modules/module-lock.json 中是否为 enabled: true" },
-        { "text": "GET /api/sfmc/modules/<id> 确认状态" },
-        { "text": "临时 mod disable 该模块，排除单模块问题" },
-        { "text": "依赖模块是否已安装并启用" }
+        { "text": "是否执行过 mod reload 或重启过 BDS？（代码变更需 reload，配置变更需重启）" },
+        { "text": "检查 modules/module-lock.json 中该模块是否为 enabled: true" },
+        { "text": "GET /api/sfmc/modules/<id> 确认运行时模块快照状态" },
+        { "text": "若在启动阶段操作实体/世界 API 失败 → 检查模块注册是否应指定 afterWorldLoad: true" },
+        { "text": "检查 manifest.json 中声明的依赖模块（dependencies）是否全部已安装并启用" }
       ]
     },
     {
       "id": "qq",
-      "title": "QQ 桥",
+      "title": "QQ 机器人 / QQ 桥异常",
       "steps": [
-        { "text": "LLBot 反向 WS 是否为 ws://127.0.0.1:3002" },
-        { "text": "qq_group_id、llbot_* 是否正确" },
-        { "text": "查看 qq / llbot 日志是否已连接" },
-        { "text": "防火墙是否拦截 3002" }
+        { "text": "【官方后端】检查 qq_app_id 与 qq_app_secret 是否正确，且 QQ 开放平台已配置本机公网 IP 白名单。" },
+        { "text": "【官方后端】确认事件订阅中已启用 GROUP_AT_MESSAGE_CREATE，群内必须 @ 机器人触发。" },
+        { "text": "【官方后端】确认 qq_group_openid 已从首次触发日志中正确复制并填入 configs/qq_config.json。" },
+        { "text": "【LLBot 后端】检查反向 WS 地址是否为 ws://127.0.0.1:3002，确认防火墙未拦截端口。" }
       ]
     },
     {
       "id": "build",
-      "title": "构建与 import",
+      "title": "构建与 import 错误",
       "steps": [
         {
           "text": "先构建 monorepo，再组装模块包：",
           "code": "pnpm run build\nnpm run build --workspaces --if-present\nsfmc> mod build"
         },
         {
-          "text": "旧模块若仍 import \"@sfmc/sdk\"，请用当前 CLI 重装，或确认 SDK 可被解析"
+          "text": "旧模块若仍 import \"@sfmc/sdk\"，请使用当前 CLI 重新安装，或确认 SDK 能够正确解析"
         }
       ]
     }

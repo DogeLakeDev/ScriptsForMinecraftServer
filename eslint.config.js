@@ -1,5 +1,5 @@
 // Main repo ESLint — SDK sources + SFMC plugin
-import sfmc from "@sfmc-bds/eslint-plugin";
+import sfmc from "./modules/sdk/@sfmc-eslint-plugin/dist/index.js";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 
@@ -11,7 +11,10 @@ export default [
       "**/build/**",
       "**/*.d.ts",
       "packages/*/dist/**",
+      "packages/create-module/templates/**",
       "modules/sdk/@sfmc-eslint-plugin/**",
+      "website/**",
+      "doc_build/**",
     ],
   },
   {

@@ -1,4 +1,4 @@
-﻿---
+---
 pageType: home
 
 hero:
@@ -7,10 +7,69 @@ hero:
   tagline: 原生 BDS 上的 Script API 行为包与 Node 仓顶服务
   actions:
     - theme: brand
-      text: 开始安装
+      text: 快速上手
       link: /guide/
+    - theme: alt
+      text: 开发模块
+      link: /dev/module-author
     - theme: alt
       text: 模块仓库
       link: https://github.com/Tanya7z/sfmc-modules
+
+features:
+  - title: ⚡ 原生 SAPI 深度集成
+    details: 基于 Minecraft 官方 Script API 标准，无需魔改客户端或专用加载器，轻量、稳定且性能卓越。
+    link: /guide/
+  - title: 🧩 模块化热装载生态
+    details: 业务逻辑以独立模块包交付，支持使用 sfmc CLI 按需启停、动态加载与隔离运行。
+    link: /guide/modules
+  - title: 🗄️ 跨进程数据与持久化
+    details: 内置轻量 SQLite HTTP 守护进程与 Loopback 通信桥，为 Script API 提供安全的高性能数据读写与事务能力。
+    link: /guide/services
+  - title: 🤖 多端互联与 QQ 机器人
+    details: 内置 QQ 桥接服务，无缝集成官方开放平台与 LLBot，实现群服消息互通、白名单审核与事件告警。
+    link: /guide/qq-bridge
+  - title: 🛠️ 全栈 TypeScript 开发套件
+    details: 提供开箱即用的 SDK、专属 ESLint 静态检查规则与类型定义，从脚手架到调试一气呵成。
+    link: /dev/module-author
+  - title: 🔍 交互式故障排查向导
+    details: 提供结构化自检流程与交互式诊断排障向导，秒级定位端口占用、权限冲突与启动异常。
+    link: /guide/troubleshooting
 ---
+
+<div className="mt-12 max-w-4xl mx-auto px-4">
+  <div className="text-center mb-6">
+    <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+      5 分钟编写你的第一个 SFMC 模块
+    </h2>
+    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+      规范化的生命周期，严格的类型约束，声明式的权限与命令注册。
+    </p>
+  </div>
+
+```ts title="sapi/src/index.ts"
+import { ModuleRegistry } from "@sfmc-bds/sdk/sapi/module-loader";
+import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+
+ModuleRegistry.register({
+  id: "feature-hello",
+  afterWorldLoad: false,
+  lifecycle: {
+    registerPermissions() {
+      Permission.register("hello.use", "使用 hello 命令", 0);
+    },
+    registerCommands() {
+      Command.register("hello", {
+        description: "发送问候消息",
+        permission: "hello.use",
+        handler(player) {
+          Msg.send(player, "§a你好，欢迎来到 SFMC 驱动的 Minecraft 服务器！");
+        },
+      });
+    },
+  },
+});
+```
+
+</div>
 

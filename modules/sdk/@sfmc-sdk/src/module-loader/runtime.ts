@@ -1,8 +1,8 @@
 import { debug } from "../sapi/runtime/debug-log.js";
 import { ConfigManager } from "./internal/config-manager.js";
+import { ModuleId } from "./internal/module-keys.js";
 
-/** catalog/manifest 模块 id（如 feature-afk）。 */
-export type ModuleId = string;
+export type { ModuleId };
 
 /**
  * BDS SAPI host 抽象（由 install.ts 在 BDS 进程里注入）。
@@ -30,6 +30,13 @@ declare global {
   // eslint-disable-next-line no-var
   var __sfmcBdsSystem: BdsSystem | undefined;
 }
+
+// Command 类尚未迁入 @sfmc-bds/sdk (Stage F 之后实装)。本批 (Stage A+B) 把所有
+// Command.unregister / Command.unregisterByModule 调用换成 stub,行为等价 noop;
+// 实际命令注销由 modules 自己在 cleanup() 中调各自的 unregister 接口(已存在)。
+// 完整迁移后这里恢复 import { Command } from "../sapi/host/index.js" + 值调用。
+const _cmdUnregister = (_name: string) => undefined;
+const _cmdUnregisterByModule = (_module: string) => undefined;
 
 let _authHooks: ModuleAuthHooks | null = null;
 
@@ -65,11 +72,13 @@ export type ModuleDescriptor = {
   lifecycle: ModuleLifecycle;
 };
 
+/** 模块 cleanup 回调签名（供模块作者传给 `ModuleRegistry.trackCleanup`）。 */
+export type CleanUpFn = () => void;
+
 const descriptors: ModuleDescriptor[] = [];
-/** 已完成 register* 阶段的模块。 */
+const cleanups = new Map<string, CleanUpFn[]>();
 const booted = new Set<string>();
-/** 已执行 init 的模块（与 booted 分离，避免 afterWorldLoad 双 init）。 */
-const initialized = new Set<string>();
+const lastEnabled = new Map<string, boolean>();
 let worldLoaded = false;
 
 /** 启停查询键:catalog id 本身 + 对应 configKey。 */
@@ -93,7 +102,7 @@ function applyModuleAuthContext(id: ModuleId): void {
   _authHooks?.apply(id, token, configKey);
 }
 
-/** 模块注册表：冷启动生命周期与 shutdown cleanup。 */
+/** 模块注册表：启动、启停对账与 cleanup 追踪。 */
 export class ModuleRegistry {
   /** 注册模块描述符（构建时各模块包调用）。 */
   static register(descriptor: ModuleDescriptor): void {
@@ -110,9 +119,78 @@ export class ModuleRegistry {
     return descriptors.find((d) => d.id === id);
   }
 
-  /** 模块是否处于启用且可启动状态（启动时 ConfigManager 缓存）。 */
+  /** 模块是否处于启用且可启动状态。 */
   static isActive(id: ModuleId): boolean {
+    // 任一索引键启用即视为 active(id / legacy Modules / configKey)
     return enableKeysFor(id).some((k) => ConfigManager.isEnabled(k));
+  }
+
+  /** 登记模块 cleanup 回调（禁用时统一执行）。 */
+  static trackCleanup(modId: ModuleId, fn: CleanUpFn): void {
+    if (!cleanups.has(modId)) cleanups.set(modId, []);
+    cleanups.get(modId)!.push(fn);
+  }
+
+  /** 登记指令 cleanup（模块禁用时注销）。 */
+  static trackCommand(modId: ModuleId, name: string): void {
+    ModuleRegistry.trackCleanup(modId, () => _cmdUnregister(name));
+  }
+
+  /** 登记 system.runInterval/run 的 cleanup。
+   *
+   * DIP：模块 loader 不再顶层 import `@minecraft/server`。`install.ts`
+   * 在 BDS 进程里把 `(await import("@minecraft/server")).system` 写到
+   * `globalThis.__sfmcBdsSystem`；测试环境（无 BDS）由 SDK testing
+   * harness 或调用方注入一个 stub。fallback 为 noop。 */
+  static trackSystemRun(modId: ModuleId, runId: number): void {
+    ModuleRegistry.trackCleanup(modId, () => {
+      try {
+        globalThis.__sfmcBdsSystem?.clearRun(runId);
+      } catch {}
+    });
+  }
+
+  /** 清空启停快照（测试或重建前）。 */
+  static clearLastEnabled(): void {
+    lastEnabled.clear();
+  }
+
+  /** 记录当前各模块启用状态，供后续 reconcile 对比。 */
+  static snapshotEnabled(): void {
+    for (const d of descriptors) {
+      lastEnabled.set(d.id, ModuleRegistry.isActive(d.id));
+    }
+  }
+
+  /**
+   * 对比当前启用态与上次快照，对变化模块执行 cleanup/boot。
+   * @returns 变更列表 `[{ id, action: 'disable'|'enable' }]`
+   */
+  static reconcile(): Array<{ id: ModuleId; action: "disable" | "enable" }> {
+    if (!ConfigManager.isReady()) return [];
+    const changes: Array<{ id: ModuleId; action: "disable" | "enable" }> = [];
+    for (const d of descriptors) {
+      const cur = ModuleRegistry.isActive(d.id);
+      const prev = lastEnabled.has(d.id) ? lastEnabled.get(d.id)! : cur;
+      if (prev === cur) continue;
+      if (prev && !cur) {
+        try {
+          ModuleRegistry.cleanupModule(d.id);
+        } catch (e) {
+          debug.e("Module", `[${d.id}] cleanup failed`, e);
+        }
+        changes.push({ id: d.id, action: "disable" });
+      } else if (!prev && cur) {
+        try {
+          ModuleRegistry.bootModule(d.id);
+        } catch (e) {
+          debug.e("Module", `[${d.id}] boot failed`, e);
+        }
+        changes.push({ id: d.id, action: "enable" });
+      }
+      lastEnabled.set(d.id, cur);
+    }
+    return changes;
   }
 
   /** 启动所有已启用且尚未 boot 的模块。 */
@@ -124,26 +202,38 @@ export class ModuleRegistry {
     }
   }
 
-  /** 世界加载后：对已 boot 且未 init 的 afterWorldLoad 模块执行 init。 */
+  /** 世界加载后：对 `afterWorldLoad` 模块执行 init。 */
   static bootAfterWorldLoad(): void {
     if (!ConfigManager.isReady()) return;
     worldLoaded = true;
     for (const d of descriptors) {
       if (!d.afterWorldLoad) continue;
       if (!ModuleRegistry.isActive(d.id)) continue;
-      if (!booted.has(d.id)) continue;
-      if (initialized.has(d.id)) continue;
       try {
         applyModuleAuthContext(d.id);
         d.lifecycle.init?.();
-        initialized.add(d.id);
       } catch (e) {
         debug.e("Module", `[${d.id}] init failed`, e);
       }
     }
   }
 
-  /** 启动单个模块（权限/命令/事件；init 按 afterWorldLoad 分相）。 */
+  /** 对非 afterWorldLoad 模块执行 init（定时任务等）。 */
+  static bootTasks(): void {
+    if (!ConfigManager.isReady()) return;
+    for (const d of descriptors) {
+      if (d.afterWorldLoad) continue;
+      if (!ModuleRegistry.isActive(d.id)) continue;
+      try {
+        applyModuleAuthContext(d.id);
+        d.lifecycle.init?.();
+      } catch (e) {
+        debug.e("Module", `[${d.id}] task start failed`, e);
+      }
+    }
+  }
+
+  /** 启动单个模块（权限/命令/事件/init 按序）。 */
   static bootModule(id: ModuleId): void {
     const d = ModuleRegistry.get(id);
     if (!d) return;
@@ -154,27 +244,43 @@ export class ModuleRegistry {
       d.lifecycle.registerPermissions?.();
       d.lifecycle.registerCommands?.();
       d.lifecycle.registerEvents?.();
-      booted.add(id);
       if (!d.afterWorldLoad || worldLoaded) {
         d.lifecycle.init?.();
-        initialized.add(id);
       }
+      booted.add(id);
     } catch (e) {
       debug.e("Module", `[${id}] boot failed`, e);
     }
   }
 
-  /** 清理单个模块（lifecycle.cleanup + 身份上下文）。 */
+  /** 清理单个模块（cleanup 钩子、命令注销、身份上下文）。 */
   static cleanupModule(id: ModuleId): void {
     const d = ModuleRegistry.get(id);
     if (!d) return;
+    // 1. 调模块自身 cleanup
     try {
       d.lifecycle.cleanup?.();
     } catch (e) {
       debug.e("Module", `[${id}] cleanup hook failed`, e);
     }
+    // 2. 注销模块持有的命令
+    try {
+      _cmdUnregisterByModule(id);
+    } catch {}
+    // 3. 注销模块注册的事件订阅 / runInterval
+    const fns = cleanups.get(id);
+    if (fns) {
+      for (const fn of fns) {
+        try {
+          fn();
+        } catch (e) {
+          debug.e("Module", `[${id}] cleanup fn failed`, e);
+        }
+      }
+      cleanups.set(id, []);
+    }
     booted.delete(id);
-    initialized.delete(id);
+    // 清身份避免禁用后仍带旧 token 调用(Demeter:只清本模块上下文,勿误清其他模块桶)
     _authHooks?.clear(id);
   }
 
@@ -187,7 +293,7 @@ export class ModuleRegistry {
     }
   }
 
-  /** 模块是否已完成 register* 阶段。 */
+  /** 模块是否已完成 boot。 */
   static isBooted(id: ModuleId): boolean {
     return booted.has(id);
   }
@@ -222,10 +328,16 @@ export class ModuleRegistry {
       }
     }
     descriptors.length = 0;
+    cleanups.clear();
     booted.clear();
-    initialized.clear();
+    lastEnabled.clear();
     worldLoaded = false;
   }
+}
+
+/** 事件处理器守卫：ConfigManager 未就绪时跳过。 */
+export function guardEvent(): boolean {
+  return ConfigManager.isReady();
 }
 
 /** 控制台打印当前已启动模块列表。 */

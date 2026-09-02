@@ -7,10 +7,11 @@
  *   // 然后 module 包通过 ModuleRegistry.register({...}) 注册自身
  *
  * installHostBootstrap 干了:
- *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll + announceLoaded
+ *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll + snapshot
  *   2) world.afterEvents.worldLoad.subscribe:bootAfterWorldLoad
  *   3) system.beforeEvents.shutdown.subscribe:teardown
  *   4) bindDataAdapter():注入 db-server HTTP 适配器(DIP:经 DataAdapter)
+ *   5) 注册 setModuleGuard 给 Command.trigger 使用
  */
 
 import { system, world } from "@minecraft/server";
@@ -22,18 +23,21 @@ import { clearServiceModuleContext, setServiceModuleContext } from "../sapi/serv
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import type { DataAdapter } from "./data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
-import {
-  announceLoaded,
-  bindModuleAuthHooks,
-  ModuleRegistry,
-  type BdsSystem,
-} from "./runtime.js";
+import { bindModuleAuthHooks, ModuleRegistry, type BdsSystem } from "./runtime.js";
 
 export interface HostBackend {
   /** 注入 db-server 数据适配器 */
   bindDataAdapter(adapter: DataAdapter): void;
   /** 关闭 db-server HTTP 客户端 */
   dispose(): void;
+}
+
+/** 模块 surface 元信息（manifest emitter 预留）。 */
+export interface ModuleSurface {
+  /** 当前不在 Stage A+B 内消费,留口子给 manifest emitter */
+  moduleId: string;
+  /** 是否推迟到 worldLoad 后 init。 */
+  afterWorldLoad: boolean;
 }
 
 /** installHostBootstrap 可选参数。 */
@@ -47,6 +51,8 @@ export interface InstallOptions {
    * 高层只依赖 DataAdapter 抽象(DIP),不直接依赖 HttpDB。
    */
   dataAdapter?: DataAdapter;
+  /** 模块 id 列表(默认 undefined = 全部装载,从 catalog 读取) */
+  enabledModuleIds?: readonly string[];
 }
 
 let _installed = false;
@@ -91,6 +97,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
       debug.e("HOST", "ConfigManager.init failed", e);
     }
     ModuleRegistry.bootAll();
+    ModuleRegistry.snapshotEnabled();
     announceLoaded();
   });
 
@@ -116,3 +123,10 @@ function _bootstrapBackend(): HostBackend {
     dispose: () => undefined,
   };
 }
+
+function announceLoaded() {
+  // runtime.ts 内的同名 export;此处仅为了不让 TS 报 unused 警告
+  const _ref = announceLoadedExported;
+  void _ref;
+}
+import { announceLoaded as announceLoadedExported } from "./runtime.js";
