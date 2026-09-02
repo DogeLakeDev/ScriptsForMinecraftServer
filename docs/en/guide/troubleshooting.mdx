@@ -80,21 +80,12 @@ curl http://127.0.0.1:3001/api/health
   </Tab>
 </Tabs>
 
----
-
-### 6. Test Sandbox FAQs
-
-```bash
-pnpm test
-npm test
-# Note: Tests must import the Minecraft runtime mock loader:
-# --import @sfmc-bds/sdk/testing/minecraft-loader
-```
+### 6. Hot Reload & Watch Troubleshooting
 
 | Symptom | Details & Solution |
 | :--- | :--- |
-| `UnimplementedMinecraftApiError` | Test touched an obscure Minecraft SAPI not yet mocked in the sandbox. Narrow test assertions or verify with live BDS; not a business logic flaw. |
-| Assertion fails but works in live BDS | Sandbox fidelity difference; use VS Code extension Watch mode in a real BDS instance for debugging. |
+| Changes in `sapi/src` don't take effect in-game | Verify that VS Code extension **SFMC: Start Watch** is active, or manually execute `sfmc mod reload` in the console. |
+| Reload succeeds but new commands don't respond | Check if command permissions were declared in `registerPermissions`; modifying `manifest.json` permissions or platform configs requires a **BDS restart**. |
 
 ---
 

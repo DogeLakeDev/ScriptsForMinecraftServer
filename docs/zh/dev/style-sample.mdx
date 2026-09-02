@@ -143,7 +143,7 @@ sfmc mod reload
 | ------ | ------------ |
 | `/api/health` 不通 | db 是否已启动；Node.js 是否 ≥ 22.13 |
 | 模块命令无响应 | 是否已 `enable`；修改后是否重启过 BDS |
-| `pnpm test` / `npm test` 报错 / 缺依赖 | 是否按模板跑 `pnpm test` / `npm test`；见 [测试沙箱](./dev/testing.md) |
+| 模块代码报错 / 类型错误 | 运行 `pnpm run typecheck` 或 `pnpm run lint` 静态检查；见 [测试与调试策略](./testing.md) |
 
 更多见 [排障](./guide/troubleshooting.md)。
 

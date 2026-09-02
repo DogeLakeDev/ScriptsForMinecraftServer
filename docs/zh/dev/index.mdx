@@ -7,7 +7,7 @@ SFMC 提供了完备的现代化 TypeScript 开发套件。无论是希望为社
 ```mermaid
 flowchart LR
   A[开发导读] --> B[编写业务模块]
-  B --> C[测试沙箱 / 扩展联调 / 发布]
+  B --> C[类型检查 / 扩展联调 / 发布]
   A --> D[平台架构设计]
   D --> E[SDK / 核心组件开发]
 ```
@@ -18,7 +18,7 @@ flowchart LR
 
 | 角色层次 | 核心职责与真理源 | 严禁与避免的误区 |
 | :--- | :--- | :--- |
-| **作者独立仓（Template）** | **业务逻辑的唯一编码面**。每个模块均为独立的 Git 仓库，拥有自己的 `package.json`、单元测试与构建流程。 | 严禁直接在主仓 `packages/` 目录下添加具体业务逻辑。 |
+| **作者独立仓（Template）** | **业务逻辑的唯一编码面**。每个模块均为独立的 Git 仓库，拥有自己的 `package.json`、构建与测试流程。 | 严禁直接在主仓 `packages/` 目录下添加具体业务逻辑。 |
 | **npm 制品源** | **模块发布的唯一法定渠道**。版本通过 npm Registry 进行语义化分发（`@sfmc-bds/module-<id>` 或社区 scope）。 | 严禁依赖私有 Git 子模块或文件拷贝作为发布分发面。 |
 | **模块索引（sfmc-modules）** | **社区检索的轻量索引**。仅包含 `index.json` 目录，供 CLI 搜索、版本匹配与展示。 | 该仓库并非 Monorepo 工作区，不承载任何实际模块代码。 |
 | **主仓工作区（modules/packages/）** | **服务器运行态的安装目标**。可通过 `--link` 软链接挂接作者本地仓进行热联调。 | 并非日常业务开发的代码仓库。 |
@@ -34,7 +34,7 @@ flowchart LR
 
 ### 必备与推荐 VS Code / Cursor 扩展
 
-- **SFMC Module**（官方专属扩展）：提供一键生成新模块（`New Module`）、假引擎单元测试（`Run Tests`）、实时监听热重载（`Start Watch`）与一键部署。
+- **SFMC Module**（官方专属扩展）：提供一键生成新模块（`New Module`）、软链接挂接（`Link`）、实时监听热重载（`Start Watch`）与一键部署。
 - **ESLint**：启用 `@sfmc-bds/eslint-plugin` 规则，实施消息规范、SDK 导入路径与跨模块契约的静态检查。
 - **Node.js Testing**：在编辑器侧边栏以图形化测试树直接运行与调试 `node --test`。
 

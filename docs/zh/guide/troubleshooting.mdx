@@ -80,21 +80,12 @@ curl http://127.0.0.1:3001/api/health
   </Tab>
 </Tabs>
 
----
+### 6. 模块热重载与 Watch 联调排查
 
-### 6. 测试沙箱常见问题
-
-```bash
-pnpm test
-npm test
-# 注意：测试须加载 Minecraft 运行时 Mock 引导器：
-# --import @sfmc-bds/sdk/testing/minecraft-loader
-```
-
-| 现象 | 说明与应对 |
+| 现象 | 说明与排查应对 |
 | :--- | :--- |
-| `UnimplementedMinecraftApiError` | 单元测试触碰到了沙箱尚未 Mock 模拟的极冷门 Minecraft SAPI。可通过收窄断言范围或使用真机 BDS 联调，切勿当成业务代码错误。 |
-| 断言失败但 BDS 真机运行正常 | 测试沙箱仿真度差异；推荐使用 VS Code 扩展 Watch 模式在真实 BDS 中联调。 |
+| 修改 `sapi/src` 源码后游戏内未生效 | 确认 VS Code 扩展 **SFMC: Start Watch** 处于运行状态；或在控制台手动执行 `sfmc mod reload` 触发重新打包与部署。 |
+| 热重载提示成功，但新增命令无法响应 | 检查新命令的权限节点是否已在 `registerPermissions` 中声明；若修改了 `manifest.json` 权限节点或平台 JSON 配置，必须**重启 BDS** 才能生效。 |
 
 ---
 

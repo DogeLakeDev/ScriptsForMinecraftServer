@@ -81,7 +81,7 @@
 
 ## 4. Manifest v3 语义化元数据扩展（可选）
 
-若将 `schemaVersion` 声明为 `3`，可额外提供 `semantic` 对象，为开发者沙箱、UI 控制面板与可视化调试提供更丰富的语义镜像：
+若将 `schemaVersion` 声明为 `3`，可额外提供 `semantic` 对象，为扩展开发工具、UI 控制面板与可视化调试提供更丰富的语义镜像：
 
 ```json title="sapi/manifest.json (v3 示例)"
 {
