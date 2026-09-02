@@ -1,238 +1,292 @@
-# QQ 互通
+import { Tab, Tabs, Steps } from "@rspress/core/theme";
 
-支持两种后端（`qq_config.json` → `qq_backend`）：
+# QQ 互通与机器人集成
 
-| 后端 | 说明 |
-| :--- | :--- |
-| `official` (默认) | [QQ 开放平台](https://q.qq.com/) 官方机器人（Access Token + Gateway） |
-| `llbot` | [LLBot](https://www.llonebot.com/zh-CN/)（OneBot 11 协议） |
+SFMC 内置了工业级的多端互通网关服务（`qq-bridge`），能够无缝桥接 Minecraft 服务器与 QQ 群聊生态，提供**群服双向聊天互通、全服状态监控、游戏内身份绑定、入服白名单审批与游戏事件批量播报**等核心能力。
 
-## 消息路径
+---
 
-### 官方 Bot（`qq_backend: "official"`）
+## 1. 架构拓扑与双后端模型
 
-```text
-QQ → MC:  开放平台 Gateway ─WS→ qq-bridge ─POST→ db-server
-MC → QQ:  db-server ─HTTPS→ OpenAPI /v2/groups/{group_openid}/messages
+`qq-bridge` 作为独立的伴生守护进程运行，支持两种完全不同的通信协议架构：
+
+```mermaid
+flowchart TD
+  subgraph QQ_Side ["QQ 群聊终端"]
+    Q_User["群成员 / 管理员"]
+  end
+
+  subgraph Bridge_Layer ["SFMC 伴生守护层"]
+    QQ_Svc["qq-bridge 服务 (:3002)<br/>协议适配 & 指令路由"]
+    DB_Svc["db-server 中枢 (:3001)<br/>消息队列 & 审批持久化"]
+  end
+
+  subgraph Game_Layer ["Minecraft BDS 服务端"]
+    SAPI["Script API (qq-link 模块)<br/>聊天轮询 & 原生白名单操作"]
+  end
+
+  Q_User <== 双向路由 ==> QQ_Svc
+  QQ_Svc <== 本地 IPC / REST ==> DB_Svc
+  DB_Svc <== Loopback HTTP (127.0.0.1) ==> SAPI
 ```
 
-- QQ→MC：**仅**转发群内 **@机器人** 的消息（`GROUP_AT_MESSAGE_CREATE`）
-- MC→QQ：**主动推群**（需群主打开「允许机器人主动在群聊内发言」；官方有频控，约 20 条/分钟、1000 条/群/天）
+### 两种后端模式对比
 
-### LLBot（`qq_backend: "llbot"`）
+| 对比维度 | 腾讯官方开放平台（`official`，默认推荐） | LLBot / OneBot 11（`llbot`） |
+| :--- | :--- | :--- |
+| **接入方式** | 官方机器人开发凭证（AppID / Secret / OpenID） | 基于本地 QQ 客户端框架（如 LiteLoaderQQNT + OneBot 11） |
+| **封号风险** | **零风险**。走腾讯官方 OpenAPI 与标准审核通道。 | 存在传统“小号挂机”被风控或冻结的潜在风险。 |
+| **交互能力** | 支持原生 Markdown 格式排版、富文本按钮与指令交互面板。 | 纯文本消息与数字编号快捷交互。 |
+| **入站方式** | 开放平台 WebSocket Gateway（实时推送群 @ 消息）。 | LLBot 反向 WebSocket（监听本地 `3002` 端口）。 |
+| **出站方式** | `db-server` 直调 OpenAPI 发送主动推群消息。 | `db-server` 请求 LLBot HTTP 服务（默认 `3004` 端口）。 |
+| **群频度限制** | 严格遵循官方限制（约 20 条/分钟、1000 条/群/天）。 | 视本地挂机账号本身的风控规则而定。 |
 
-```text
-QQ → MC:  LLBot ─WS:3002→ qq-bridge ─POST→ db-server
-MC → QQ:  db-server ─HTTP:3004→ LLBot
-```
+---
 
-## 配置
+## 2. 配置文件全景详解 (`configs/qq_config.json`)
 
-编辑 `configs/qq_config.json`（首次启动会生成默认值）：
+首次开服拉起服务时，系统会自动在 `configs/qq_config.json` 中填充默认配置与 `$schema` 校验指针：
 
-| 键                                          | 说明                                            |
-| ------------------------------------------- | ----------------------------------------------- |
-| `qq_backend`                                | `official`                                      | `llbot`，默认 `official` |
-| `qq_app_id` / `qq_app_secret`               | 官方 Bot 凭证（勿提交仓库）                     |
-| `qq_sandbox`                                | 官方沙箱，默认 `false`                          |
-| `qq_group_openid`                           | 官方群 openid（**不是**传统群号）               |
-| `qq_group_panel_id`                         | 官方群指令面板 id（sync 后写回；可空）          |
-| `qq_sync_menu_panel`                        | official 启动时同步 C2C 菜单/群面板，默认 `true` |
-| `qq_ws_port`                                | llbot 后端：qq-bridge 监听，默认 3002           |
-| `qq_group_id`                               | llbot 后端：主群号；`0` 表示不转发              |
-| `llbot_enabled`                             | 是否由 sfmc 拉起 LLBot（仅 `qq_backend=llbot`） |
-| `llbot_path` / `llbot_cwd`                  | LLBot 可执行文件/工作目录                       |
-| `llbot_host` / `llbot_port` / `llbot_token` | **MC→QQ**（db-server→LLBot HTTP）；指令回复优先走 reverse-ws，不依赖 3004 |
-| `bridge_channel_id`                         | MC 侧桥接频道 id                                |
-| `mctoqq_prefix`                             | MC 消息前缀，默认 `[MC]`                        |
-| `qq_admin_openids`                          | QQ 管理员 openid 列表（入服审批 / 踢人 / 改入服开关）；空则无法审批 |
-| `qq_events`                                 | 事件推群开关对象（见下节）；默认全开、窗口 60s   |
-
-### 如何拿到 `qq_group_openid`
-
-1. 配好 AppID/Secret，把机器人拉进群，订阅群 @ 事件
-2. 启动 `qq` 服务，在群里 @ 机器人发一条消息
-3. 若尚未配置 openid，qq-bridge 日志会打印收到的 `group_openid`
-4. 抄进 `qq_group_openid` 后**重启 db-server**（出站）与 qq-bridge（入站过滤）
-
-## 官方侧 checklist
-
-1. 管理端订阅 `GROUP_AT_MESSAGE_CREATE`
-2. 机器人已入群
-3. 群主打开「允许机器人主动在群聊内发言」
-4. 沙箱测试：管理端配沙箱群，且 `qq_sandbox: true`
-5. 若启用 IP 白名单，加入服务器公网 IP（仅正式环境）
-
-## LLBot 侧
-
-`qq_backend: "llbot"` 时，设置反向 WebSocket：
-
-```text
-ws://127.0.0.1:3002
-```
-
-指令回复经该连接发 `send_group_msg`，**不要求**开启 LLBot 正向 HTTP（3004）。  
-MC→QQ（游戏聊天转发）仍由 db-server 调 HTTP `llbot_host:llbot_port`；若也要互通，需在 LLBot 打开 HTTP API，或后续再加 WS 代理。
-
-从旧版升级：请显式设置 `"qq_backend": "llbot"`，否则默认走官方后端。
-
-## QQ 侧指令（不依赖游戏）
-
-qq-bridge 在转发到 MC **之前**拦截指令；同一套命令表，两端呈现不同：
-
-| 触发 | 行为 |
-| --- | --- |
-| `菜单` / `help` / `/help` | 常用指令列表；official 为 Markdown + 按钮，llbot 为编号菜单 |
-| `ping` / `/ping` | 连通探测 |
-| `whoami` / `我的绑定` | QQ id；若已绑定则显示 MC 名 |
-| `status` / `状态` | 服务器摘要：在线、世界、主机运行时长、BDS/db 时长、内存/CPU（`GET /api/sfmc/status`） |
-| `online` / `在线` | 在线名单（截断） |
-| `绑定` / `bind` | 申请绑定码（需游戏模块 `qq-link`） |
-| `解绑` / `unbind` | 解除绑定 |
-| `申请入服` / `join` | 申请加入 BDS 白名单（需管理员审批 + 模块生效） |
-| `频道` / `channel` | 聊天互通频道 + db/BDS 轻量自检 |
-| `管理` / `admin` | **管理子菜单**（仅管理员）：自检 / 群信息 / 配置 / 待审 / 通过 / 拒绝 / 踢人 |
-
-管理项不进主「菜单」与官方 C2C 快捷菜单前排；触发词（如「踢人」「待审」）仍可直接发送。
-
-- **official**：群内 **@机器人** 后发上述文本；可点菜单按钮。启动时可将命令同步到 [自定义菜单 / 指令面板](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/)（`sync-menu` 控制台命令可重推）。单聊 `C2C_MESSAGE_CREATE` 同样走指令路由。订阅交互 intent 后可点审批回调按钮（`INTERACTION_CREATE`）。
-- **llbot**：群内发同样触发词；菜单后 **60 秒内**回复数字 `1`/`2`…；**无**官方原生面板 / INTERACTION；审批用「通过/拒绝 \<id\>」。
-- 非指令消息仍走原有 QQ→MC 转发（需 `bridge_channel_id`）。
-- `status`：世界日与难度分行；official 额外附带 QQ 群摘要（见下节白名单）。
-
-## 游戏聊天互通（`bridge_channel_id`）
-
-配置 `configs/qq_config.json` 的 `bridge_channel_id`（任意稳定字符串，如 `main`），然后**重启** db-server、qq-bridge、BDS（游戏模块 `qq-link` 启动时读取该设置）。
-
-| 方向 | 行为 |
-| --- | --- |
-| QQ → 游戏 | 官方仅 **@机器人** 的非指令消息写入库；`qq-link` 轮询后向在线玩家广播 `[QQ] 昵称: 内容` |
-| 游戏 → QQ | 玩家普通聊天（非 `!` 命令、非绑定验证码等待）→ `POST /api/sfmc/messages`；db-server **仅当** `channelId === bridge_channel_id` 时推群（前缀默认 `[MC]`） |
-
-未配置 `bridge_channel_id` 时：qq-bridge QQ→MC warn 跳过；游戏聊天不会误推 QQ；事件推群不受影响。`llbot` 出站聊天仍需 LLBot HTTP（默认 3004）。
-
-验收：配好 channel 并重启 → 群 `@机器人 hello` 进游戏 → 游戏说话出 QQ `[MC] …` → QQ 发 `频道` 可确认是否已配。
-
-## QQ↔MC 绑定
-
-平台 API（db-server，loopback）：
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| `POST` | `/api/sfmc/qq/bind/request` | QQ 侧申请短码 |
-| `POST` | `/api/sfmc/qq/bind/confirm` | 游戏侧确认 |
-| `POST` | `/api/sfmc/qq/bind/unbind` | 解绑 |
-| `GET` | `/api/sfmc/qq/bind/me` | 查询 |
-
-## 入服审批与双管理侧
-
-| 侧 | 能力 | 落点 |
-| --- | --- | --- |
-| **QQ** | 申请/审批/待审、群 info/bot_state、通知 | qq-bridge + OpenAPI；状态在 db-server |
-| **BDS** | `allowList.add`、`kickPlayer` | 仅游戏模块 `qq-link` 调用 `@minecraft/server-admin` |
-
-平台**不**直接改 BDS `allowlist.json`。闭环：
-
-1. QQ「申请入服 \<玩家名\>」→ `sfmc_qq_join_requests` = `pending`
-2. 管理员通过（official 回调按钮 / llbot 编号）→ `approved`
-3. 模块轮询 `GET /api/sfmc/qq/join/apply-queue` → `dedicatedServer.allowList.add` → `POST .../applied`
-4. QQ「踢人」→ `sfmc_qq_admin_actions` → 模块 `kickPlayer`（玩家须在线）
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| `POST` | `/api/sfmc/qq/join/request` | 申请 |
-| `POST` | `/api/sfmc/qq/join/decide` | 通过/拒绝（校验 `qq_admin_openids`） |
-| `GET` | `/api/sfmc/qq/join/pending` | 待审 |
-| `GET` | `/api/sfmc/qq/join/apply-queue` | SAPI 拉已批准未生效 |
-| `POST` | `/api/sfmc/qq/join/applied` | SAPI 回写 |
-| `POST` | `/api/sfmc/qq/admin/kick` | 踢人入队 |
-| `GET` | `/api/sfmc/qq/admin/action-queue` | 动作队列 |
-| `POST` | `/api/sfmc/qq/admin/action-done` | 动作回写 |
-
-**注意**：BDS 未运行时审批可积压；起来后模块自动 `applied`。杀 BDS 不影响「群信息」只读（纯 OpenAPI）。
-
-### 入服开关（模块配置 `configs/qq_link.json`）
-
-属 **qq-link 插件**，不是 SDK / `qq_config`。缺省文件会在首次读写时生成：
-
-| 键 | 默认 | 说明 |
-| --- | --- | --- |
-| `allowlist_enabled` | `true` | 入服白名单总开关；关则不可新申请，也不下发 apply-queue |
-| `require_approval` | `true` | 是否需管理员审批；关则申请直接 `approved` |
-| `treat_group_admins_as_admins` | `false` | 是否将 QQ 群主/群管视作 SFMC 管理员；**仅改本文件**，群聊/API 只读 |
-
-机器人（`qq_admin_openids`，或开启上一项后的群主/群管）：
-
-- `配置` — 打开面板（含群管开关只读状态；official 点按钮切换，llbot 回数字）
-- 亦可文本：`配置 白名单 开|关` / `配置 审批 开|关`
-
-平台 API：`GET/POST /api/sfmc/qq/join/settings`（POST 校验管理员；`treat_group_admins_as_admins` 不可经 POST 改写）。
-
-### 群 OpenAPI 白名单（错误码 11253）
-
-`GET /v2/groups/{group_openid}/info` 与 `bot_state` 可能需在 [QQ 开放平台](https://q.qq.com/) 申请接口白名单。未开通时 `status` / `群信息` 会提示「群信息接口未开通白名单」，不影响互通与审批流。
-
-游戏侧由同一模块 **`qq-link`**（`@sfmc-bds/module-qq-link`）实现：`!bind` + allowList 生效 + kick + 上下线/死亡上报 + 聊天互通轮询。
-
-安装示例：`sfmc mod install qq-link --from dir:<作者仓> --link`，再 `behavior-pack build/deploy` 并重启 BDS。
-
-只读运维：`GET /api/sfmc/status`（公开）供 `status` / `online` 使用。响应含 `host`（主机运行时长/内存/CPU）与 `processes.bds` / `processes.db`（进程运行时长；BDS 来自 `.sfmc/bds.pid` 或 `bedrock_server` 探活）。
-
-## 事件推送（节流）
-
-上下线 / 死亡 / BDS 启停推到 QQ 群，**不依赖** `bridge_channel_id`（与游戏聊天互通无关）。
-
-| 事件 | 来源 | 推送时机 |
-| --- | --- | --- |
-| 上线 / 下线 / 死亡 | 游戏模块 `qq-link`（`playerSpawn` initial / `playerLeave` / `entityDie`） | 约 `window_sec`（默认 60s）聚合成一条 |
-| BDS 意外退出 | `bds-manager`（非手动 stop） | **立即** |
-| BDS 启动成功 | `bds-manager` spawn 成功 | **立即** |
-
-出站仍走 db-server → official OpenAPI / LLBot HTTP（与 MC→QQ 相同；llbot 需 3004）。官方主动推群受频控（约 20 条/分钟、1000 条/群/天），故游戏事件必须聚合。
-
-配置（`qq_config.json` → `qq_events`，改后重启 db-server）：
-
-```json
-"qq_events": {
-  "enabled": true,
-  "window_sec": 60,
-  "join": true,
-  "leave": true,
-  "death": true,
-  "crash": true,
-  "start": true
+```json title="configs/qq_config.json"
+{
+  "$schema": "../modules/sdk/@sfmc-sdk/schemas/qq_config.schema.json",
+  "qq_backend": "official",
+  "qq_app_id": "102030405",
+  "qq_app_secret": "your_app_secret_here",
+  "qq_group_openid": "YOUR_GROUP_OPENID",
+  "qq_sandbox": false,
+  "qq_sync_menu_panel": true,
+  "bridge_channel_id": "main",
+  "mctoqq_prefix": "[MC] ",
+  "qq_admin_openids": [
+    "OPENID_OF_ADMIN_1"
+  ],
+  "qq_ws_port": 3002,
+  "qq_group_id": 0,
+  "llbot_enabled": false,
+  "llbot_host": "127.0.0.1",
+  "llbot_port": 3004,
+  "qq_events": {
+    "enabled": true,
+    "window_sec": 60,
+    "join": true,
+    "leave": true,
+    "death": true,
+    "crash": true,
+    "start": true
+  }
 }
 ```
 
-`enabled: false` 关闭全部。平台 API：`POST /api/sfmc/qq/events`（loopback；单条或 `{ "events": [...] }`，≤100）。
+### 核心参数对照表
 
-示例聚合文案：
+| 配置项 | 适用后端 | 类型 | 默认值 | 作用说明 |
+| :--- | :---: | :---: | :---: | :--- |
+| `qq_backend` | 全局 | `string` | `"official"` | 后端选择：`"official"` 或 `"llbot"`。 |
+| `bridge_channel_id` | 全局 | `string` | `""` | 游戏内双向互通的频道标识符（建议填 `"main"`）。留空则关闭游戏内普通聊天转发。 |
+| `mctoqq_prefix` | 全局 | `string` | `"[MC] "` | 游戏内玩家发言转发至 QQ 群时的文本前缀。 |
+| `qq_admin_openids` | official | `string[]` | `[]` | 具备入服审批、踢人、远程开关白名单权限的管理员 OpenID 列表。 |
+| `qq_events` | 全局 | `object` | 见上 | 进退服、阵亡与服务器崩溃重启等系统事件的聚合广播控制。 |
+| `qq_app_id` / `qq_app_secret` | official | `string` | `""` | 腾讯 QQ 开放平台分配的机器人凭据（**切勿泄露或提交至公开 Git**）。 |
+| `qq_group_openid` | official | `string` | `""` | 机器人所在目标群的唯一 OpenID（注意：**并非传统群号**）。 |
+| `qq_sandbox` | official | `boolean` | `false` | 是否启用官方沙箱测试环境（正式开服请保持 `false`）。 |
+| `qq_sync_menu_panel` | official | `boolean` | `true` | 服务启动时是否自动向官方同步注册群指令快捷面板与单聊菜单。 |
+| `qq_ws_port` | llbot | `number` | `3002` | `qq-bridge` 监听的 WebSocket 端口，供 LLBot 配置反向连接。 |
+| `qq_group_id` | llbot | `number` | `0` | LLBot 模式下的目标 QQ 群号（数字格式）；设为 `0` 表示不转发。 |
+| `llbot_host` / `llbot_port` | llbot | `string/number` | `127.0.0.1:3004` | LLBot 的 HTTP API 地址，供主动推群使用。 |
+
+---
+
+## 3. 接入配置指引
+
+<Tabs>
+  <Tab label="方案 A：接入官方机器人（official，推荐）">
+
+### 第一步：开发者平台准备与凭证获取
+1. 前往 [QQ 开放平台](https://q.qq.com/) 注册并创建机器人应用。
+2. 在应用凭据页面获取 `AppID` 与 `AppSecret`，填入 `configs/qq_config.json`。
+3. 在管理端 **事件订阅** 中，勾选并开启 **`GROUP_AT_MESSAGE_CREATE`（公域/私域群聊 @ 机器人事件）**。
+4. 将机器人邀请加入你的 Minecraft 玩家群，并提醒群主开启 **「允许机器人主动在群聊内发言」** 开关。
+
+### 第二步：捕获并回填目标群 `qq_group_openid`
+
+<Steps>
+### 启动中枢服务
+在终端启动数据库与 QQ 桥接进程：
+```bash
+sfmc> /start db
+sfmc> /start qq
+```
+
+### 在群内触发一次探测
+在 QQ 群中直接发送任意内容并 **@机器人**（例如 `@机器人 ping`）。
+
+### 复制日志中的群 OpenID
+由于初次尚未配置群标识，`qq-bridge` 会在控制台高亮输出捕捉到的群信息：
+```text
+[qq-bridge] [INFO] 收到群 @ 消息，当前群 group_openid 为: 4A7B8C9D0E...
+```
+
+### 回填并重启服务
+将该字符串填入 `configs/qq_config.json` 的 `qq_group_openid`，随后在控制台执行：
+```bash
+sfmc> /restart db
+sfmc> /restart qq
+```
+</Steps>
+
+:::tip 接口白名单提示（错误码 11253）
+官方机器人调用获取群基本资料（`GET /v2/groups/.../info`）时，若控制台出现 `11253` 错误，说明该机器人的开放平台账号尚未申请群资料接口权限。该限制**不影响**正常的群消息转发、审批流与状态查询。
+:::
+
+  </Tab>
+  <Tab label="方案 B：接入 LLBot / OneBot 11（llbot）">
+
+1. 编辑 `configs/qq_config.json`：
+   - 将 `"qq_backend"` 修改为 `"llbot"`。
+   - 填写目标群号 `"qq_group_id": 123456789`。
+2. 打开 LLBot / OneBot 11 客户端设置：
+   - **反向 WebSocket 配置**：新增反向 WS 目标为 `ws://127.0.0.1:3002`。
+   - **HTTP API 配置**：开启 HTTP 服务，监听端口保持默认的 `3004`（`127.0.0.1:3004`）。
+3. 启动服务：
+   ```bash
+   sfmc> /start -all
+   ```
+4. 在群内发送 `/help`，机器人应立即返回纯文本数字指令菜单。
+
+  </Tab>
+</Tabs>
+
+---
+
+## 4. 群内交互指令体系（无需进入游戏）
+
+`qq-bridge` 会在消息入库前进行实时拦截与指令模式匹配。同一套指令在两端呈现出极致契合其平台特性的交互形式：
+
+```mermaid
+flowchart LR
+  Msg[群成员发送消息] --> CheckAt{是否 @机器人 / 发送命令?}
+  CheckAt -->|是指令| CommandRouter[内置指令路由引擎]
+  CheckAt -->|普通闲聊| ChatRelay[写入消息中继队列]
+  
+  CommandRouter -->|official| MD[渲染富文本 Markdown + 交互按钮]
+  CommandRouter -->|llbot| TXT[渲染紧凑纯文本 + 60秒数字编号回调]
+  ChatRelay --> InGame[广播至 Minecraft 游戏内]
+```
+
+### 玩家常用命令
+
+| 指令触发词 | 功能与返回内容 |
+| :--- | :--- |
+| `菜单` / `help` / `/help` | 展示常用交互面板。官方端呈现为精美 Markdown 按钮卡片；LLBot 呈现为序号索引。 |
+| `ping` / `/ping` | 探测网关连通性与服务心跳延迟。 |
+| `status` / `状态` | 查询服务器运行摘要：在线玩家数、世界日与天气、宿主机器内存与 CPU 负载、BDS 运行时长。 |
+| `online` / `在线` | 实时列出当前正在游戏中的玩家 ID 清单。 |
+| `绑定` / `bind` | 向系统申请一个 6 位短验证码，用于在游戏内完成身份认证。 |
+| `我的绑定` / `whoami` | 查询当前 QQ 账号已绑定的 Minecraft 正版/离线角色名称。 |
+| `解绑` / `unbind` | 解除当前账号与游戏角色的映射绑定。 |
+| `申请入服 <游戏名>` | 提交白名单入服申请（直接进入管理员审批工作流）。 |
+| `频道` / `channel` | 诊断当前双向互通频道的连接状态与健康度。 |
+
+### 管理员高级管理指令（仅限 `qq_admin_openids` 成员）
+
+输入 `管理` 或 `admin` 可唤出专属管理子面板：
+- **`待审`**：列出当前待审批的入服申请队列。
+- **`通过 <申请ID>` / `拒绝 <申请ID>`**：审批入服请求（官方端可在卡片上直接点击【批准】/【拒绝】回调按钮）。
+- **`踢人 <玩家名>`**：向 BDS 下发管理员驱逐指令（玩家必须在线）。
+- **`配置`**：远程切换入服白名单与审核开关（支持指令：`配置 白名单 开|关`、`配置 审批 开|关`）。
+
+---
+
+## 5. 游戏聊天双向互通（Chat Bridge）
+
+要开启游戏与 QQ 群的无缝实时互通，需依赖官方游戏侧模块 **`@sfmc-bds/module-qq-link`**（简称 `qq-link`）。
+
+### 数据流动与安全防环
+
+1. **QQ $\to$ 游戏**：
+   - 官方端中，**仅转发群成员 @机器人 后的聊天内容**，避免普通灌水刷屏污染游戏。
+   - `qq-link` 模块轮询获取后，在游戏内向所有在线玩家发送广播：`§b[QQ] 昵称§r: 消息内容`。
+2. **游戏 $\to$ QQ**：
+   - 玩家在游戏内的普通发言（自动过滤以 `!` 或 `！` 开头的指令消息）会被打包发送至 `POST /api/sfmc/messages`。
+   - `db-server` 核验频道一致性（`channelId === bridge_channel_id`）后，带上 `[MC]` 前缀推入 QQ 群。
+3. **防循环与去重机制（Anti-Looping）**：
+   - 严格拦截并丢弃机器人自身发送的消息。
+   - 底层设有 **5 秒滑动窗口消息 ID 去重缓存**，彻底杜绝多端回环与重复轰炸。
+
+---
+
+## 6. 入服白名单与自动化审批工作流
+
+SFMC 颠覆了传统“手动改 `whitelist.json` 然后在控制台重载”的繁琐流程，开创了完全闭环的异步审批流：
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant User as 申请玩家 (QQ 群)
+  participant Admin as 管理员 (QQ 群)
+  participant DB as db-server 持久化
+  participant SAPI as qq-link 模块 (BDS)
+  participant Native as 原生 AllowList
+
+  User->>DB: 发送 "申请入服 Steve" (生成 pending 记录)
+  DB-->>Admin: 推送待审通知 (带批准按钮)
+  Admin->>DB: 点击【批准】或发送 "通过 1"
+  DB->>DB: 状态流转为 approved，进入 apply-queue
+  
+  loop 定期轮询队列
+    SAPI->>DB: GET /api/sfmc/qq/join/apply-queue
+    DB-->>SAPI: 返回待添加玩家清单
+    SAPI->>Native: 调用 @minecraft/server-admin allowList.add()
+    Native-->>SAPI: 成功写入原生白名单
+    SAPI->>DB: POST .../applied 回写确认
+  end
+
+  DB-->>User: QQ 群通知："恭喜 Steve，您的入服申请已通过！"
+```
+
+:::important 为什么不直接物理篡改 allowlist.json？
+若外部 Node 服务直接强制覆盖写入 BDS 正在读写的 `allowlist.json` 文件，极易导致文件锁冲突与存档数据损坏。  
+SFMC 通过官方 `@minecraft/server-admin` 原生安全接口注入白名单，即使 BDS 停机维护，所有审批也能在数据库中安全积压，**待 BDS 再次开机时全自动批量应用生效**。
+:::
+
+---
+
+## 7. 智能事件节流与聚合广播（Event Throttle）
+
+为了遵守腾讯 QQ 开放平台的主动推群频率配额（约 20 条/分钟、1000 条/群/天），SFMC 内置了**窗口时间聚合引擎（Window Aggregator）**：
 
 ```text
-[MC事件]
-上线：Steve、Alex
-下线：Bob
-死亡：Steve（坠落）
+       时间轴 (Timeline) ──────────────────────────────────────────►
+  玩家 Steve 进服 ──┐
+  玩家 Alex 进服  ──┼──► [60 秒聚合窗口] ──► 批量推送单条广播：
+  玩家 Bob 阵亡   ──┘                         "[MC事件] 上线: Steve, Alex \n 死亡: Bob (坠落)"
 ```
 
-立即条：`[MC事件] BDS 意外退出 (code=1)` / `[MC事件] BDS 已启动 (pid=…)`。手动 `stop` 不报 crash；崩溃自动重启会先 crash 再 start。
+### 聚合规则配置
 
-**不做**：成就推送、每条死亡即时推、聊天镜像进事件通道。
+在 `configs/qq_config.json` 的 `qq_events` 字段中配置：
 
-## 启动
+- **聚合广播（缓冲 `window_sec: 60` 秒合并为一条）**：
+  - `join`: 玩家登录上线
+  - `leave`: 玩家退出服务器
+  - `death`: 玩家意外阵亡（包含死因解析）
+- **高优先级直通广播（不等待窗口，立刻告警）**：
+  - `start`: BDS 服务端拉起就绪
+  - `crash`: BDS 非正常意外崩溃退出（附带退出代码，自动重启前先行告警）
 
-```bash
-sfmc> start db
-sfmc> start qq
-# 或
-sfmc> start -all
-```
+:::note 降噪哲学
+为了保障群聊日常交流体验，成就达成通知、每一条高频阵亡以及日常聊天镜像**绝不混入事件通道**，确保推送内容高价值、无噪音。
+:::
 
-建议顺序：先 db，再 qq（llbot 后端且启用时才会拉起 llbot），最后 bds。见 [服务管理](./services.md)。
+---
 
-## 防循环
+## 8. 常见排障清单
 
-- 跳过机器人自己发的消息
-- 约 5 秒内相同消息 id 去重
-
-排障见 [排障](./troubleshooting.md)。
+- **机器人收不到群消息？**：
+  - 检查管理端是否订阅了 `GROUP_AT_MESSAGE_CREATE`。
+  - 官方群机器人仅响应群内 **@机器人** 的消息，直接在群内发字不会触发。
+- **发送消息报 `401 Unauthorized`？**：
+  - 检查 `configs/db_config.json` 是否配置了 `http_auth`，若有配置，需确保环境变量中携带了对应密钥。
+- **无法获取群 OpenID？**：
+  - 先配好 AppID 与 Secret，启动 `qq` 服务；在群里 @ 机器人一次，直接观察控制台打印的抓取日志即可。
