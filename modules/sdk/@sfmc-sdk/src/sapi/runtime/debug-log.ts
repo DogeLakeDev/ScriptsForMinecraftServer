@@ -5,12 +5,12 @@
  * sink 始终收到调用（自行判断是否处理）；控制台另受 enabled + minLevel 约束。
  */
 
-/** 调试级别映射（DEBUG/INFO/WARN/ERROR → 数值）。仅作 `DebugLevel` 类型来源，请勿直接读。 */
+/** 调试级别映射常量（DEBUG / INFO / WARN / ERROR → 数值）。仅作 `DebugLevel` 类型来源，请勿直接引用其内部数值。 */
 export const LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 } as const;
 
 export type DebugLevel = keyof typeof LEVELS;
 
-/** 调试日志扩展出口（OCP：Sentry 等经此挂载，勿改核心 switch）。 */
+/** 调试日志扩展输出目标接口（例如 Sentry 等监控工具可通过此接口接入，无需修改核心分发逻辑）。 */
 export type DebugSink = {
   onLog(level: DebugLevel, module: string, msg: string, args: unknown[]): void;
 };
@@ -19,31 +19,48 @@ let consoleEnabled = false;
 let minLevel = 0;
 const sinks: DebugSink[] = [];
 
-/** 是否输出到控制台（默认 false，保持历史静默行为）。 */
+/**
+ * 设置是否将调试日志输出到控制台（默认关闭以保持静默）。
+ *
+ * @param on 是否开启控制台输出。
+ */
 export function setDebugEnabled(on: boolean): void {
   consoleEnabled = on;
 }
 
-/** 当前控制台是否开启。 */
+/** 查询当前是否已开启控制台调试日志输出。 */
 export function isDebugEnabled(): boolean {
   return consoleEnabled;
 }
 
-/** 设置控制台最低级别（不限制 sink；sink 自行决定）。 */
+/**
+ * 设置控制台输出的最低日志级别（此项仅约束控制台输出，不影响外部 sink 接收日志）。
+ *
+ * @param level 最低日志级别。
+ */
 export function setDebugLevel(level: DebugLevel): void {
   minLevel = LEVELS[level];
 }
 
-/** 注册扩展 sink；同一引用只登记一次。 */
+/**
+ * 注册自定义日志接收器（sink）；同一引用只会注册一次。
+ *
+ * @param sink 实现了 DebugSink 接口的对象。
+ */
 export function addDebugSink(sink: DebugSink): void {
   if (!sinks.includes(sink)) sinks.push(sink);
 }
 
-/** 移除已注册的 sink。 */
+/**
+ * 移除已注册的自定义日志接收器。
+ *
+ * @param sink 待注销的 DebugSink 对象。
+ */
 export function removeDebugSink(sink: DebugSink): void {
   const i = sinks.indexOf(sink);
   if (i >= 0) sinks.splice(i, 1);
 }
+
 
 function ts(): string {
   return new Date().toISOString().slice(11, 23);

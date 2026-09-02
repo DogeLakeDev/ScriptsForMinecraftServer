@@ -11,43 +11,54 @@ import { system } from "@minecraft/server";
 import { http, HttpRequest, HttpRequestMethod } from "@minecraft/server-net";
 import { isSuccessfulHttpEnvelope } from "./http-envelope.js";
 
-/** 默认连本机 db-server;可通过 configure / InstallOptions.dbServerUrl 覆盖(DIP)。 */
+/** 默认连接本地 db-server 服务；可通过 configure 或 InstallOptions.dbServerUrl 覆盖。 */
 let baseUrl = "http://127.0.0.1:3001";
 const TIMEOUT = 3;
 
-/** 单次请求可选覆盖;模块客户端应传自己的 token,勿抢进程级默认值(DIP)。 */
+/** 单次 HTTP 请求鉴权选项；模块客户端应按请求传递各自的 token，避免覆盖进程级默认值。 */
 export type HttpRequestAuthOpts = { authToken?: string };
 
 /**
- * SAPI 端 db-server HTTP 客户端（经 `@minecraft/server-net`）。
- * 默认连本机 3001；模块 db/config/service 客户端按请求注入 token。
+ * SAPI 端 db-server HTTP 客户端门面（底层基于 `@minecraft/server-net`）。
+ * 默认连接本地 3001 端口；各业务模块的 db/config/service 客户端按请求注入各自的私有 token。
  */
 export class HttpDB {
   private static available = true;
   private static _lastErrorLog = 0;
-  /** 仅 ConfigManager / DataAdapter 默认通道;模块 db/config/service 走 per-request。 */
+  /** 进程级默认通道 token（仅供 ConfigManager / DataAdapter 等全局流程使用）。 */
   private static authToken = "";
 
-  /** 注入 db-server 基址(如 http://127.0.0.1:4000),去掉末尾 /。 */
+  /**
+   * 注入 db-server 服务基准地址（例如 `http://127.0.0.1:4000`），会自动去除末尾斜杠。
+   *
+   * @param opts 配置选项。
+   */
   static configure(opts: { baseUrl?: string }): void {
     if (opts.baseUrl) {
       baseUrl = opts.baseUrl.replace(/\/+$/, "");
     }
   }
 
-  /** 返回当前 db-server 基址。 */
+  /** 返回当前使用的 db-server 服务基准地址。 */
   static getBaseUrl(): string {
     return baseUrl;
   }
 
-  /** 设置进程级默认 Bearer token（ConfigManager / DataAdapter 用）。 */
+  /**
+   * 设置进程级默认 Bearer token（供平台 ConfigManager / DataAdapter 内部使用）。
+   *
+   * @param token 平台级鉴权 token。
+   */
   static setAuthToken(token: string): void {
     this.authToken = token.trim();
   }
 
   /**
-   * 解析本次请求 Bearer:请求级非空 token 优先;空串视为未传,回落进程默认(DIP)。
-   * 勿用 `opts?.authToken ?? default` — `""` 会挡住回落。
+   * 解析本次请求生效的 Bearer 鉴权 token。
+   * 优先使用请求级传入的非空 token；若为空串或未指定则回退使用进程级默认 token。
+   *
+   * @param opts 请求级鉴权选项。
+   * @returns 有效的 Bearer token 字符串。
    */
   static resolveAuthToken(opts?: HttpRequestAuthOpts): string {
     const fromOpts = typeof opts?.authToken === "string" ? opts.authToken.trim() : "";
@@ -55,14 +66,19 @@ export class HttpDB {
   }
 
   /**
-   * 给路径附上 ?moduleId= / &moduleId=(db/config/service 客户端共用,DRY)。
-   * verifyModuleAuth 只认 query 上的 moduleId。
+   * 为目标 URL 路径附加 `?moduleId=` 或 `&moduleId=` 查询参数（db/config/service 客户端共享）。
+   * 服务端鉴权中间件通过 URL 查询参数校验模块身份。
+   *
+   * @param path 原始请求相对路径。
+   * @param moduleId 模块唯一标识符。
+   * @returns 附加了模块参数后的完整请求路径。
    */
   static withModuleId(path: string, moduleId: string): string {
     if (!moduleId) return path;
     const sep = path.includes("?") ? "&" : "?";
     return `${path}${sep}moduleId=${encodeURIComponent(moduleId)}`;
   }
+
 
   /** 最近一次健康检查是否成功。 */
   static isAvailable(): boolean {

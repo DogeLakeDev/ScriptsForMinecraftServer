@@ -1,3 +1,13 @@
+/**
+ * menu-navigator.ts — 多页 CustomForm 导航器与响应式控件绑定
+ *
+ * 基于 `@minecraft/server-ui` 的 CustomForm 封装，提供以下能力：
+ * - 多分段（section）动态渲染与可视状态（ObservableBoolean）无缝切换
+ * - 页面路由历史栈（start / rebuild / go / back / replace）
+ * - 异步任务状态提示（FormStatus）与并发互斥保护
+ * - 原生 MessageBox 确认框集成与超时防卡死轮询
+ */
+
 import { Player, system } from "@minecraft/server";
 import {
   ButtonOptions,
@@ -17,23 +27,39 @@ import { Msg } from "./msg.js";
 
 export { ObservableBoolean, ObservableNumber, ObservableString };
 
-/** 创建可写字符串 Observable（`clientWritable: true`）。 */
+/**
+ * 创建客户端可写（`clientWritable: true`）的响应式字符串 Observable 对象。
+ *
+ * @param v 初始字符串值，缺省为空字符串。
+ * @returns 响应式字符串对象。
+ */
 export function obsStr(v = ""): ObservableString {
   return new ObservableString(v, { clientWritable: true } as any);
 }
 
-/** 创建可写数字 Observable（`clientWritable: true`）。 */
+/**
+ * 创建客户端可写（`clientWritable: true`）的响应式数字 Observable 对象。
+ *
+ * @param v 初始数值，缺省为 0。
+ * @returns 响应式数字对象。
+ */
 export function obsNum(v = 0): ObservableNumber {
   return new ObservableNumber(v, { clientWritable: true } as any);
 }
 
-/** 创建可写布尔 Observable（`clientWritable: true`）。 */
+/**
+ * 创建客户端可写（`clientWritable: true`）的响应式布尔 Observable 对象。
+ *
+ * @param v 初始布尔值，缺省为 `false`。
+ * @returns 响应式布尔对象。
+ */
 export function obsBool(v = false): ObservableBoolean {
   return new ObservableBoolean(v, { clientWritable: true } as any);
 }
 
-/** CustomForm 页面构建器接口（链式添加控件）。 */
+/** CustomForm 页面构建器接口（支持链式添加各类表单控件）。 */
 export interface Page {
+
   /** 添加按钮。 */
   button(label: string | ObservableString, onClick: () => void, options?: ButtonOptions): this;
   /** 添加标签文本。 */

@@ -1,16 +1,18 @@
 /**
- * module-loader/install.ts
+ * install.ts — 行为包宿主引导装配器（Host Bootstrap）
  *
- * 由 BP 构建产物 (scripts/main.js) 顶端调用（esbuild banner）:
- *   import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";
- *   installHostBootstrap();
- *   // 然后 module 包通过 ModuleRegistry.register({...}) 注册自身
+ * 作为行为包构建产物（`scripts/main.js`）的入口首部调用（通过 esbuild banner 注入）：
+ * ```ts
+ * import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";
+ * installHostBootstrap();
+ * // 后续各业务模块依次通过 ModuleRegistry.register({...}) 注册自身
+ * ```
  *
- * installHostBootstrap 干了:
- *   1) system.beforeEvents.startup.subscribe:ConfigManager.init() + bootAll + announceLoaded
- *   2) world.afterEvents.worldLoad.subscribe:bootAfterWorldLoad
- *   3) system.beforeEvents.shutdown.subscribe:teardown
- *   4) bindDataAdapter():注入 db-server HTTP 适配器(DIP:经 DataAdapter)
+ * 核心生命周期编排职责：
+ * 1. 订阅 `system.beforeEvents.startup`：初始化 ConfigManager、启动模块并广播就绪状态
+ * 2. 订阅 `world.afterEvents.worldLoad`：触发需在世界加载后初始化的模块（`bootAfterWorldLoad`）
+ * 3. 订阅 `system.beforeEvents.shutdown`：统一触发模块的卸载与资源清理（`teardown`）
+ * 4. 依赖倒置装配：统一绑定 DataAdapter 数据适配器与各子系统的鉴权拦截钩子
  */
 
 import { system, world } from "@minecraft/server";
@@ -29,35 +31,36 @@ import {
   type BdsSystem,
 } from "./runtime.js";
 
+/** 宿主后端抽象接口。 */
 export interface HostBackend {
-  /** 注入 db-server 数据适配器 */
+  /** 注入 db-server 数据适配器。 */
   bindDataAdapter(adapter: DataAdapter): void;
-  /** 关闭 db-server HTTP 客户端 */
+  /** 关闭并释放相关资源。 */
   dispose(): void;
 }
 
-/** installHostBootstrap 可选参数。 */
+/** `installHostBootstrap` 初始化引导选项。 */
 export interface InstallOptions {
-  /** db-server URL(默认 http://127.0.0.1:3001) */
+  /** db-server 服务的基准 URL（默认为 "http://127.0.0.1:3001"）。 */
   dbServerUrl?: string;
-  /** 可选注入自定义 HostBackend(测试用) */
+  /** 可选注入自定义 HostBackend 实现（主要供单元测试使用）。 */
   hostBackend?: HostBackend;
   /**
-   * 测试/离线可注入自定义 DataAdapter;默认走 HttpDB 实现。
-   * 高层只依赖 DataAdapter 抽象(DIP),不直接依赖 HttpDB。
+   * 可选注入自定义 DataAdapter（测试或离线场景使用；默认采用基于 HttpDB 的实现）。
+   * 高层业务仅依赖 DataAdapter 抽象（DIP），不直接耦合 HttpDB 具体实现。
    */
   dataAdapter?: DataAdapter;
 }
 
 let _installed = false;
 
-/** 行为包启动入口：装配 ConfigManager、事件订阅与 DataAdapter。 */
+/** 行为包引导装配入口：装配 ConfigManager、系统事件生命周期订阅与 DataAdapter。 */
 export function installHostBootstrap(options: InstallOptions = {}): HostBackend {
   if (_installed) return _bootstrapBackend();
   _installed = true;
 
-  // DIP:把 BDS SAPI system 注入 module-loader 的 host 抽象。
-  // 模块 loader 只引用 globalThis.__sfmcBdsSystem,不顶层 import @minecraft/server。
+  // 将 BDS SAPI system 注入 module-loader 的 host 抽象（避免模块 loader 顶层硬依赖 @minecraft/server）
+
   globalThis.__sfmcBdsSystem = system as unknown as BdsSystem;
 
   // DIP:db/config/service 身份注入留在 install 侧，避免污染 module-loader barrel

@@ -49,11 +49,15 @@ type MutateView = {
 };
 
 /**
- * 经 service registry 读账户(LSP:已无 /api/sfmc/economy/* REST)。
- * 调用方须已 setServiceModuleContext,且持有 service:economy.account.get。
+ * 通过 service registry 查询玩家经济账户。
+ * 调用方须已调用 `setServiceModuleContext` 并具备 `service:economy.account.get` 权限。
  *
- * 注:跨模块写账本的权威简洁 API 在 @sfmc-bds/module-economy/client;
- * 本 Money 类仅作玩家侧余额缓存助手(get/load/setCached/UNIT),底层同样调 economy.account.*。
+ * 注：跨模块读写账本的权威简洁 API 位于 `@sfmc-bds/module-economy/client`；
+ * 本 `Money` 工具类作为玩家侧余额本地缓存门面（提供 get / load / setCached / UNIT），底层统一调用 `economy.account.*` 服务。
+ *
+ * @param playerId 玩家唯一标识（XUID / UUID）。
+ * @param playerName 玩家名称。
+ * @returns 账户快照或在查询失败时返回 `null`。
  */
 async function getEconomyAccount(playerId: string, playerName: string): Promise<EconomyAccount | null> {
   try {
@@ -70,7 +74,11 @@ async function getEconomyAccount(playerId: string, playerName: string): Promise<
 }
 
 /**
- * credit/debit 走同名 service;保留旧 EconomyTransactionRequest 形状给调用方。
+ * 执行充值或扣款交易请求。
+ * 底层调用对应的 `economy.account.credit` 或 `economy.account.debit` 跨模块服务。
+ *
+ * @param req 经济交易请求结构。
+ * @returns 交易执行结果。
  */
 async function applyEconomyTransaction(req: EconomyTransactionRequest): Promise<EconomyTransactionResult> {
   const playerId =
@@ -94,9 +102,12 @@ async function applyEconomyTransaction(req: EconomyTransactionRequest): Promise<
   }
 }
 
-/** 玩家侧余额缓存助手；底层经 service registry 调 economy.account.*。 */
+/**
+ * 玩家侧余额缓存助手类。
+ * 底层统一通过 service registry 访问 `economy.account.*` 跨模块服务，并在本地维持短期缓存与并发防重。
+ */
 export class Money {
-  /** 货币单位名称。 */
+  /** 默认货币单位显示名称（例如：“节操”）。 */
   static readonly UNIT = "节操";
 
   private static cache = new Map<
@@ -104,24 +115,45 @@ export class Money {
     { balance: number; version: number; loadedAt: number; loading: boolean }
   >();
 
-  /** 读玩家余额；未加载时返回缓存或 0。 */
+  /**
+   * 读取玩家当前余额；若尚未加载完成则返回当前缓存值或 `0`。
+   *
+   * @param player 目标玩家对象。
+   * @returns 玩家余额数值。
+   */
   static get(player: Player): number {
     const b = this.getCached(player) ?? 0;
     debug.d("MNY", `get ${player.name}=${b}`);
     return b;
   }
 
-  /** 读本地缓存余额；未加载返回 null。 */
+  /**
+   * 读取本地缓存的玩家余额；若尚未加载则返回 `null`。
+   *
+   * @param player 目标玩家对象。
+   * @returns 缓存中的余额数值，无缓存时返回 `null`。
+   */
   static getCached(player: Player): number | null {
     return this.cache.get(player.id)?.balance ?? null;
   }
 
-  /** 读本地缓存版本号；未加载返回 null。 */
+  /**
+   * 读取本地缓存的账户版本号；若尚未加载则返回 `null`。
+   *
+   * @param player 目标玩家对象。
+   * @returns 缓存中的乐观锁版本号，无缓存时返回 `null`。
+   */
   static getVersion(player: Player): number | null {
     return this.cache.get(player.id)?.version ?? null;
   }
 
-  /** 写入本地缓存；若传入 version 低于已缓存则跳过（防 stale 覆盖）。 */
+  /**
+   * 写入本地缓存；若传入的 version 低于当前已缓存的版本号则跳过（防止过期的并发响应覆盖较新的数据）。
+   *
+   * @param player 目标玩家对象。
+   * @param balance 最新的余额数值。
+   * @param version 最新的乐观锁版本号。
+   */
   static setCached(player: Player, balance: number, version = 0): void {
     const previous = this.cache.get(player.id);
     if (previous && version > 0 && previous.version > version) {
@@ -137,7 +169,12 @@ export class Money {
     debug.d("MNY", `setCached ${player.name}: bal=${balance} ver=${version}`);
   }
 
-  /** 从 db-server 拉取账户并更新缓存；并发 load 复用进行中的请求。 */
+  /**
+   * 从服务端拉取玩家最新账户数据并更新本地缓存；自动复用进行中的并发请求。
+   *
+   * @param player 目标玩家对象。
+   * @returns 最新的玩家账户余额。
+   */
   static async load(player: Player): Promise<number> {
     const previous = this.cache.get(player.id);
     if (previous?.loading) return previous.balance;
@@ -154,7 +191,13 @@ export class Money {
     return balance;
   }
 
-  /** 增减余额；正数入账、负数扣款，成功后刷新缓存。 */
+  /**
+   * 增减玩家余额。传入正数为充值入账，负数为扣款；交易成功后会自动刷新本地缓存。
+   *
+   * @param player 目标玩家对象。
+   * @param money 变动金额数值（正数入账，负数扣款）。
+   * @returns 交易执行成功返回 `true`，失败返回 `false`。
+   */
   static async add(player: Player, money: number): Promise<boolean> {
     if (!Number.isSafeInteger(money) || money === 0) return money === 0;
     debug.i("MNY", `add ${player.name} ${money > 0 ? "+" : ""}${money}`);
@@ -182,3 +225,4 @@ export class Money {
     return result.ok;
   }
 }
+

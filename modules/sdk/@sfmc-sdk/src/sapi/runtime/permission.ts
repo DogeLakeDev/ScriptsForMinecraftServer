@@ -1,15 +1,15 @@
 import { Player, PlayerPermissionLevel } from "@minecraft/server";
 import { Command } from "./command.js";
 import { ConfigManager } from "../../module-loader/index.js";
-// (DataAdapter 现位于 module-loader/data-adapter.ts — 本文件未引用,无需改)
 import { Msg } from "./msg.js";
 
 /**
- * 权限等级(与原生 PlayerPermissionLevel 对齐)
- *   0 Visitor  访客
- *   1 Member   普通玩家
- *   2 Operator 管理员
- *   3 Custom   自定义(脚本指定)
+ * 权限等级（与 Minecraft 原生 PlayerPermissionLevel 对齐）：
+ * - `Guest = -1`：访客以下（仅作内部占位，不参与常规比较）
+ * - `Any = 0`：任意玩家 / 访客（Visitor）
+ * - `Member = 1`：普通成员（Member）
+ * - `OP = 2`：管理员（Operator）
+ * - `Admin = 3`：自定义 / 脚本高级管理员（Custom）
  */
 export class Permission {
   /** 访客以下（仅内部占位，不参与比较）。 */
@@ -20,29 +20,44 @@ export class Permission {
   static Member = 1;
   /** 管理员 OP（等级 2）。 */
   static OP = 2;
-  /** 自定义/脚本指定（等级 3）。 */
+  /** 自定义 / 脚本指定（等级 3）。 */
   static Admin = 3;
 
   private static registry: Map<string, number> = new Map();
 
-  /** 注册命名权限及其最低等级要求。 */
+  /**
+   * 注册命名权限及其满足所需的最低等级。
+   *
+   * @param name 权限标识名（例如 "home.use"、"teleport.tp"）。
+   * @param level 满足该权限所需的最低等级（参考 Permission 常量）。
+   */
   static register(name: string, level: number) {
     this.registry.set(name, level);
   }
 
-  /** 清空命名权限表（仅测试沙箱 dispose 使用）。 */
+  /** 清空命名权限表（仅供测试沙箱环境清理使用）。 */
   static clearRegistry(): void {
     this.registry.clear();
   }
 
-  /** 只读快照：已注册命名权限（沙箱「已装载」清单用）。 */
+  /**
+   * 获取已注册命名权限的只读快照列表（沙箱装载清单及管理界面使用）。
+   *
+   * @returns 按权限名称字母序排列的权限项列表。
+   */
   static entries(): { name: string; level: number }[] {
     return [...this.registry.entries()]
       .map(([name, level]) => ({ name, level }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  /** 检查玩家是否满足命名权限；未注册权限名一律拒绝。 */
+  /**
+   * 检查玩家是否满足指定的命名权限；未注册的权限默认拒绝。
+   *
+   * @param player 目标玩家对象或玩家名称字符串。
+   * @param permissionName 权限标识名。
+   * @returns 若玩家权限等级大于或等于所需等级则返回 `true`，否则返回 `false`。
+   */
   static check(player: Player | string, permissionName: string): boolean {
     const required = this.registry.get(permissionName);
     if (required === undefined) {
@@ -54,8 +69,14 @@ export class Permission {
     return playerLevel >= required;
   }
 
-  /** 取玩家有效权限等级：配置覆盖优先，否则映射原生 PlayerPermissionLevel。 */
+  /**
+   * 计算玩家的当前有效权限等级。优先读取平台配置文件中的覆盖项，否则映射原生 PlayerPermissionLevel。
+   *
+   * @param player 目标玩家对象。
+   * @returns 玩家当前的有效权限等级数值。
+   */
   static getPermission(player: Player): number {
+
     const perms = ConfigManager.getPermissions();
     const override = perms[player.name];
     if (override !== undefined) return override;

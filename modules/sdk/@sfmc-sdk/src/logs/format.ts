@@ -19,13 +19,18 @@ const BDS_TS_PREFIX_RE = new RegExp(
   `^\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]\\s*`,
   "i"
 );
-/** 正文任意位置的 BDS 时间戳级别（防行首有杂讯时仍能提取） */
+/** 正文任意位置的 BDS 时间戳级别（防行首有杂讯时仍能提取）。 */
 const BDS_TS_LEVEL_ANYWHERE_RE = new RegExp(
   `\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,:]\\d{1,3})?\\s+(${BDS_LEVEL_TOKEN})\\]`,
   "i"
 );
 
-/** 将 BDS 级别词映射为 LogLevel（大小写不敏感） */
+/**
+ * 将 BDS 级别词字符串映射为平台标准的 LogLevel 枚举（大小写不敏感）。
+ *
+ * @param token BDS 输出中的日志级别词。
+ * @returns 标准的 LogLevel 级别。
+ */
 export function mapBdsLevelToken(token: string): LogLevel {
   const u = String(token ?? "").toUpperCase();
   if (u === "ERROR" || u === "FATAL") return "error";
@@ -35,8 +40,11 @@ export function mapBdsLevelToken(token: string): LogLevel {
 }
 
 /**
- * 去掉 BDS 自带的 `[时间 等级]` 前缀，正文从真正消息开始。
- * 幂等：已剥离过的行原样返回。
+ * 去掉 BDS 自带的 `[时间 等级]` 前缀，使正文从真正的有效消息开始。
+ * 具有幂等性：若已剥离过则原样返回。
+ *
+ * @param line 原始日志文本行。
+ * @returns 剥离前缀后的日志正文。
  */
 export function stripBdsLogPrefix(line: string): string {
   return String(line ?? "")
@@ -46,8 +54,11 @@ export function stripBdsLogPrefix(line: string): string {
 }
 
 /**
- * 从一行文本提取 BDS 内嵌级别（优先行首前缀，其次全文首次命中）。
- * 例：`[2026-07-25 18:42:27:626 warn] [Commands] ...` → warn
+ * 从单行文本中提取 BDS 内嵌的日志级别（优先提取行首前缀，未命中时在全文中查找首次出现的标记）。
+ * 例如：`[2026-07-25 18:42:27:626 warn] [Commands] ...` → `"warn"`。
+ *
+ * @param line 日志文本行。
+ * @returns 提取到的级别枚举，未找到时返回 `null`。
  */
 export function parseBdsEmbeddedLevel(line: string): LogLevel | null {
   const s = String(line ?? "");
@@ -58,7 +69,12 @@ export function parseBdsEmbeddedLevel(line: string): LogLevel | null {
   return null;
 }
 
-/** 从原始文本推断日志级别 (BDS 时间戳前缀优先,再关键词匹配) */
+/**
+ * 从原始文本行推断日志级别（BDS 时间戳前缀优先，未命中时按常见关键词推断）。
+ *
+ * @param text 待分析的日志文本。
+ * @returns 推断出的日志级别。
+ */
 export function inferLevel(text: string): LogLevel {
   const embedded = parseBdsEmbeddedLevel(text);
   if (embedded) return embedded;
@@ -71,14 +87,27 @@ export function inferLevel(text: string): LogLevel {
   return "info";
 }
 
-/** source 字段右侧填充到指定宽度 */
+/**
+ * 将 source 来源标识字段右侧填充空格至指定的终端可见宽度。
+ *
+ * @param s 原始来源标识字符串。
+ * @param n 期望对齐的可见字符宽度（默认为 7）。
+ * @returns 对齐填充后的字符串。
+ */
 export function padSource(s: string, n = 7): string {
   const v = visibleLen(s);
   return v >= n ? s : s + " ".repeat(n - v);
 }
 
-/** 紧凑级别标签: [INF] [WRN] [ERR] [OK] [DBG] */
+/**
+ * 生成紧凑形式的级别标签字符串（例如 `[INF]`、`[WRN]`、`[ERR]`、`[OK]`、`[DBG]`）。
+ *
+ * @param lvl 日志级别。
+ * @param color 是否应用 ANSI 颜色样式代码。
+ * @returns 紧凑级别标签。
+ */
 export function levelTag(lvl: LogLevel, color = true): string {
+
   switch (lvl) {
     case "error":
       return color ? wrap("red", "[ERR]") : "[ERR]";
@@ -204,7 +233,13 @@ const LOG_HIGHLIGHT_RULES: HighlightRule[] = [
   },
 ];
 
-/** 高亮文本中的关键词,并 strip Minecraft § 颜色码 */
+/**
+ * 高亮文本中的关键系统词，并剥离 Minecraft 原生的 `§` 样式颜色代码。
+ *
+ * @param raw 原始文本字符串。
+ * @param color 是否应用 ANSI 颜色进行高亮渲染（默认为 `true`）。
+ * @returns 处理后的文本字符串。
+ */
 export function highlightText(raw: string, color = true): string {
   let s = raw.replace(/§[0-9a-fklmnor]/gi, "");
   if (!color) return s;
@@ -230,8 +265,12 @@ export function highlightText(raw: string, color = true): string {
 }
 
 /**
- * formatLogLine — 子进程 stdout / 文件落盘用
- * 格式: <ISO时间> [source] [LEVEL] text
+ * 格式化单行日志（供子进程 stdout 输出及持久化日志文件落盘）。
+ * 输出格式：`<ISO时间> [source] [LEVEL] text`。
+ *
+ * @param entry 日志条目结构。
+ * @param color 是否包含 ANSI 彩色样式代码（默认为 `true`）。
+ * @returns 格式化后的单行日志文本。
  */
 export function formatLogLine(entry: LogEntry, color = true): string {
   const ts = entry.time.toISOString().replace("T", " ").slice(0, 19);
@@ -242,9 +281,12 @@ export function formatLogLine(entry: LogEntry, color = true): string {
 }
 
 /**
- * formatLog — sfmc 主进程展示用 (兼容原 sfmc/src/logs.ts 的 formatLog)
- * 格式: <localTime> <paddedSource> <levelTag> <text>
- * text 原样保留 (子进程 stdout 整行,内含其时间戳/source 由 highlightText 美化)
+ * 格式化日志条目供控制台或 REPL 界面展示。
+ * 输出格式：`<localTime> <paddedSource> <levelTag> <text>`。
+ *
+ * @param entry 日志条目结构。
+ * @param opts 格式化选项（可指定是否开启彩色和来源列对齐宽度）。
+ * @returns 用于终端显示的格式化字符串。
  */
 export function formatLog(entry: LogEntry, opts: FormatOptions = {}): string {
   const color = opts.color ?? true;
@@ -259,3 +301,4 @@ export function formatLog(entry: LogEntry, opts: FormatOptions = {}): string {
   const txt = highlightText(entry.text, color);
   return `${ts} ${src} ${lvl} ${txt}`;
 }
+

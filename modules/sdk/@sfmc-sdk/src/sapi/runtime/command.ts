@@ -41,7 +41,17 @@ export class Command {
   /** 费用扣减回调；由 Economy 模块在启动时注入。 */
   static deductCost: ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null = null;
 
-  /** 注册一条 `!` 指令；`description` 缺省则用 `name`。 */
+  /**
+   * 注册一条游戏内 `!` 指令。
+   *
+   * @param name 指令名称（不含 `!` 前缀）。
+   * @param permission 执行该指令所需的权限等级数值或命名权限字符串。
+   * @param callback 指令执行回调，接收触发指令的玩家对象（若为控制台触发则为 `undefined`）。
+   * @param description 指令功能描述，用于 `!help` 展示；缺省时回退为指令名称。
+   * @param moduleId 所属模块的唯一标识符，供模块禁用拦截机制识别。
+   * @param cost 可选的指令执行扣费规则。
+   * @returns 注册成功始终返回 `true`。
+   */
   static register(
     name: string,
     permission: number | string,
@@ -62,7 +72,12 @@ export class Command {
     return true;
   }
 
-  /** 注销指定指令；存在则删除并返回 true。 */
+  /**
+   * 注销指定的指令。
+   *
+   * @param name 要注销的指令名称。
+   * @returns 若指令存在且成功删除返回 `true`，否则返回 `false`。
+   */
   static unregister(name: string): boolean {
     if (this.list[name] !== undefined) {
       delete this.list[name];
@@ -71,7 +86,12 @@ export class Command {
     return false;
   }
 
-  /** 按模块 id 批量注销指令；返回删除条数。 */
+  /**
+   * 按模块 id 批量注销该模块名下的所有指令。
+   *
+   * @param moduleId 模块唯一标识符。
+   * @returns 实际被注销的指令条数。
+   */
   static unregisterByModule(moduleId: string): number {
     let n = 0;
     for (const k of Object.keys(this.list)) {
@@ -84,17 +104,21 @@ export class Command {
     return n;
   }
 
-  /** 指令是否已注册。 */
+  /**
+   * 判断指定指令是否已注册。
+   *
+   * @param name 指令名称。
+   */
   static has(name: string): boolean {
     return this.list[name] !== undefined;
   }
 
-  /** 返回所有已注册指令名称。 */
+  /** 获取所有已注册指令的名称列表。 */
   static names(): string[] {
     return Object.keys(this.list);
   }
 
-  /** 只读快照：已注册指令（沙箱「已装载」清单用）。 */
+  /** 获取已注册指令的只读快照列表（沙箱装载清单及管理界面使用）。 */
   static entries(): {
     name: string;
     permission: number | string;
@@ -111,7 +135,12 @@ export class Command {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  /** 取指令所属模块 id；无则 undefined。 */
+  /**
+   * 获取指定指令所属的模块 id。
+   *
+   * @param name 指令名称。
+   * @returns 若指定了所属模块则返回其 id，否则返回 `undefined`。
+   */
   static getModuleId(name: string): string | undefined {
     return this.list[name]?.moduleId;
   }
@@ -124,8 +153,14 @@ export class Command {
     return Permission.getPermission(player) >= permission;
   }
 
-  /** 触发指令：校验模块守卫、权限与费用后执行回调。 */
+  /**
+   * 触发指令执行流程：依次校验模块守卫、权限与费用后执行回调。
+   *
+   * @param player 触发指令的玩家对象，控制台触发时为 `undefined`。
+   * @param message 玩家输入的指令字符串（不含前缀）。
+   */
   static trigger(player: Player | undefined, message: string) {
+
     const pname = player?.name || "CONSOLE";
     const pid = player?.id || "N/A";
     debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);

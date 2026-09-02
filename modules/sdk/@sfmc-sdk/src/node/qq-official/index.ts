@@ -1,32 +1,32 @@
 /**
- * QQ 开放平台官方 Bot 薄客户端
+ * index.ts — QQ 开放平台官方机器人客户端门面
  *
- * - Access Token（client_credentials）缓存与提前刷新
- * - 群聊主动文本消息
- * - Gateway URL 查询（供 qq-bridge 入站）
- *
- * 不依赖已弃用的 Bot Token / qq-guild-bot SDK。
+ * 核心能力：
+ * - Access Token（client_credentials）自动获取、内存缓存与到期前主动刷新
+ * - 群聊与单聊消息发送（支持文本、Markdown、回调键盘）
+ * - Gateway WSS 网关地址查询（供 qq-bridge 建立长连接）
+ * - 机器人资料、群资料及群成员权限查询
  */
 
-/** Token 接口（正式/沙箱通用） */
+/** Token 获取接口地址（正式 / 沙箱通用）。 */
 export const QQ_TOKEN_URL = "https://api.bot.qq.com/app/getAppAccessToken";
 
-/** 正式环境 OpenAPI / Gateway */
+/** 正式环境 OpenAPI / Gateway 基准地址。 */
 export const QQ_API_BASE_PROD = "https://api.sgroup.qq.com";
 
-/** 沙箱环境 OpenAPI / Gateway */
+/** 沙箱环境 OpenAPI / Gateway 基准地址。 */
 export const QQ_API_BASE_SANDBOX = "https://sandbox.api.sgroup.qq.com";
 
-/** GROUP_AND_C2C_EVENT：含 GROUP_AT_MESSAGE_CREATE / C2C_MESSAGE_CREATE */
+/** GROUP_AND_C2C_EVENT：包含 GROUP_AT_MESSAGE_CREATE / C2C_MESSAGE_CREATE 等事件。 */
 export const QQ_INTENT_GROUP_AND_C2C = 1 << 25;
 
-/** INTERACTION：含 INTERACTION_CREATE（回调按钮） */
+/** INTERACTION：包含 INTERACTION_CREATE 回调按钮交互事件。 */
 export const QQ_INTENT_INTERACTION = 1 << 26;
 
-/** Identify 常用组合：群/C2C + 交互 */
+/** Gateway Identify 常用组合意图：群聊/单聊 + 按钮交互。 */
 export const QQ_INTENT_GROUP_C2C_INTERACTION = QQ_INTENT_GROUP_AND_C2C | QQ_INTENT_INTERACTION;
 
-/** 提前多少秒刷新 token（官方建议临近 60s 窗口） */
+/** 提前主动刷新 Token 的安全时间裕量（秒，官方建议临近 60s 窗口）。 */
 const TOKEN_REFRESH_MARGIN_SEC = 60;
 
 export type QqOfficialCredentials = {
@@ -37,25 +37,28 @@ export type QqOfficialCredentials = {
 
 export type AccessTokenCache = {
   accessToken: string;
-  /** 过期时刻（epoch ms） */
+  /** 过期时间点（Unix 毫秒时间戳）。 */
   expiresAtMs: number;
 };
 
 export type FetchLike = typeof fetch;
 
+/**
+ * 根据是否沙箱环境解析对应的 OpenAPI 基准地址。
+ *
+ * @param sandbox 是否沙箱环境。
+ * @returns OpenAPI 基准地址。
+ */
 export function resolveApiBase(sandbox?: boolean): string {
   return sandbox ? QQ_API_BASE_SANDBOX : QQ_API_BASE_PROD;
 }
 
 /**
- * Access Token 管理器：进程内缓存，过期前 margin 秒主动刷新。
- * 可注入 fetch 便于单测。
- */
-/**
- * Parameter properties 改为显式赋值，避免 strip-only 测试路径踩坑；
- * 正式构建走 esbuild，两种写法均可。
+ * QQ 机器人 Access Token 管理器。
+ * 支持进程内内存缓存，并在 Token 过期前安全窗口内自动提前触发异步刷新，防止并发击穿。
  */
 export class QqAccessTokenManager {
+
   private cache: AccessTokenCache | null = null;
   private inflight: Promise<string> | null = null;
   private readonly creds: QqOfficialCredentials;

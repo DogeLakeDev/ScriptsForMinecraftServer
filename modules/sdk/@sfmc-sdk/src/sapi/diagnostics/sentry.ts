@@ -72,8 +72,8 @@ const sentryDebugSink: DebugSink = {
 };
 
 /**
- * 从 BDS variables.json 读取 `sfmc_debug`，为真则打开控制台 debug。
- * 不依赖 Sentry；可单独调用。
+ * 从 BDS variables.json 读取 `sfmc_debug` 配置项，若为真值则启用控制台调试日志。
+ * 本函数不依赖 Sentry，支持独立调用。
  */
 export function applyDebugFromVariables(): void {
   try {
@@ -89,8 +89,9 @@ export function applyDebugFromVariables(): void {
 }
 
 /**
- * 若配置了 SENTRY_DSN 则 init Sentry，并注册 debug sink。
- * @returns 是否已启用
+ * 检查并根据配置初始化 Sentry 监控。若成功读取到有效 DSN 则初始化并将 Sentry 挂载为 DebugSink。
+ *
+ * @returns 若 Sentry 已成功启用返回 `true`，否则返回 `false`。
  */
 export function initSentryIfConfigured(): boolean {
   if (enabled) return true;
@@ -124,19 +125,25 @@ export function initSentryIfConfigured(): boolean {
   }
 }
 
-/** 是否已成功 init Sentry。 */
+/** 查询当前是否已成功初始化并启用了 Sentry 监控。 */
 export function isSentryEnabled(): boolean {
   return enabled;
 }
 
+/** 错误上报上下文选项。 */
 export interface ReportErrorContext {
+  /** 附加到 Sentry 事件的自定义标签字典。 */
   tags?: Record<string, string>;
 }
 
 /**
- * 非 debug 路径的薄封装；未 init 时 no-op。
+ * 手动上报异常至 Sentry（非 debug 日志管道的直通封装）；若 Sentry 未初始化则静默跳过。
+ *
+ * @param err 待上报的异常对象或错误消息。
+ * @param context 可选的标签上下文对象。
  */
 export function reportError(err: unknown, context?: ReportErrorContext): void {
+
   if (!enabled) return;
   try {
     if (context?.tags) {

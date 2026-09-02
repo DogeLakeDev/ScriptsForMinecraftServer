@@ -1,64 +1,87 @@
 /**
- * logger.ts — Logger 工厂
+ * logger.ts — 统一 Logger 日志工厂
  *
- * createLogger({ source, sinks, subscribers }) 返回统一接口的 logger 实例。
- * 每个 log 调用:构造 LogEntry → 格式化 → 并行写入所有 sinks + 通知 subscribers。
+ * 提供标准化的日志创建工厂：
+ * 构造统一的 `LogEntry` 结构，格式化后并发分发给配置的所有 `sinks`（如 stdout、落盘文件）以及外部订阅函数。
  */
 
 import type { LogEntry, LogLevel, LogSource, Sink } from "./types.js";
 import { formatLogLine } from "./format.js";
 import { createFileSink, createStdoutSink, type FileSink } from "./sink.js";
 
+/** Logger 构建配置选项。 */
 export interface LoggerOptions {
-  /** 本 logger 的来源标识 (如 "db" / "qq" / "bds-tools" / "updater" / "system") */
+  /** 日志来源标识（例如 "db"、"qq"、"bds-tools"、"updater"、"system"）。 */
   source: LogSource;
-  /** 输出目标列表 (默认 [createStdoutSink()]) */
+  /** 日志输出目标列表（缺省默认为 `[createStdoutSink()]`）。 */
   sinks?: Sink[];
-  /** 订阅者回调 (每个 log 调用都会通知,与 sink 并行) */
+  /** 订阅者回调列表（每次触发日志时同步广播，与 sink 并行分发）。 */
   subscribers?: Array<(entry: LogEntry) => void>;
-  /** 是否带颜色格式化传给 sink (默认 true;sink 内部可能再覆盖) */
+  /** 格式化输出给 sink 时是否启用彩色代码（默认为 `true`）。 */
   color?: boolean;
 }
 
+/** 统一日志记录器接口。 */
 export interface Logger {
-  /** 通用日志,level 默认 info */
+  /**
+   * 写入通用日志。
+   *
+   * @param text 日志内容文本。
+   * @param level 日志级别（默认为 "info"）。
+   */
   log(text: string, level?: LogLevel): void;
+  /** 写入 INFO 级别日志。 */
   info(text: string): void;
+  /** 写入 WARN 级别日志。 */
   warn(text: string): void;
+  /** 写入 ERROR 级别日志。 */
   error(text: string): void;
+  /** 写入 DEBUG 级别日志。 */
   debug(text: string): void;
+  /** 写入 SUCCESS 成功级别日志。 */
   success(text: string): void;
-  /** 便捷:直接传 Error 对象,error 级别,自动提取 message */
+  /**
+   * 便捷记录错误：直接接收 Error 对象或未知异常，自动提取错误消息与堆栈并以 error 级别写入。
+   *
+   * @param e 捕获的异常对象或错误消息。
+   * @param context 可选的上下文描述前缀。
+   */
   err(e: unknown, context?: string): void;
-  /** 当前 logger 的 source */
+  /** 当前 Logger 的来源标识。 */
   readonly source: LogSource;
 }
 
-/** Node 仓顶服务标准 logger:stdout(可 bare) + 文件落盘 */
+/** Node 服务标准 Logger 实例接口：包含标准输出与日志文件落盘。 */
 export interface NodeServiceLogger extends Logger {
   /**
-   * 关闭文件 sink（FileSink 为 sync append 时为空操作；保留统一调用面）。
+   * 关闭底层文件输出流。
    */
   close(): void;
+  /** 底层关联的文件输出 sink。 */
   readonly fileSink: FileSink;
 }
 
+/** Node 进程日志记录器配置选项。 */
 export interface NodeServiceLoggerOptions {
+  /** 服务来源标识。 */
   source: LogSource;
-  /** 绝对路径,通常由 logFile(root, source) 提供 */
+  /** 日志文件落盘绝对路径。 */
   logPath: string;
   /**
-   * stdout 是否只输出纯 text(默认 true)。
-   * 子进程被 sfmc 捕获时须 bare,避免与主进程 formatLog 前缀重复。
+   * 标准输出是否仅输出纯文本正文（默认为 `true`）。
+   * 当子进程输出由主进程 CLI 统一捕获并添加时间戳时，设为 `true` 可避免重复打印前缀。
    */
   bareStdout?: boolean;
 }
 
 /**
- * 仓顶 Node 服务统一接入:stdout + `<ROOT>/.sfmc/logs/<name>.log`。
- * 调用方负责传入 logPath(SDK node/config#logFile),本函数不依赖 config 子路径。
+ * 创建 Node 独立服务的标准 Logger 实例：同时输出至终端与持久化日志文件。
+ *
+ * @param opts 构造选项。
+ * @returns 包含文件流关闭方法的 Logger 实例。
  */
 export function createNodeServiceLogger(opts: NodeServiceLoggerOptions): NodeServiceLogger {
+
   const fileSink = createFileSink(opts.logPath);
   const bareStdout = opts.bareStdout ?? true;
   const logger = createLogger({

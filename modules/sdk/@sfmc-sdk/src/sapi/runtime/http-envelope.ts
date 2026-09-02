@@ -1,20 +1,28 @@
 /**
- * HTTP 业务信封判定(无 Minecraft 依赖,可单测)。
+ * http-envelope.ts — HTTP 业务响应信封校验（无 Minecraft 依赖，支持隔离单元测试）
  *
- * 服务端历史混用 `ok` / `success` 方言;客户端必须以同一契约认失败,
- * 否则 HTTP 200 + `{ success: false }` 会被误判为成功(LSP)。
+ * 统一收敛对服务端响应体中 `ok` 与 `success` 标识的兼容判定，
+ * 避免在 HTTP 200 状态码下服务端返回 `{ success: false }` 时被客户端误判为成功。
  */
 
+/** HTTP 响应信封字段声明。 */
 export type HttpEnvelopeFields = {
   ok?: unknown;
   success?: unknown;
   error?: unknown;
 };
 
-/** status===200 且未显式声明失败时视为成功。 */
+/**
+ * 判断 HTTP 响应是否符合业务成功信封规范。
+ *
+ * @param status HTTP 状态码（必须为 200）。
+ * @param parsed 已解析的 JSON 响应体。
+ * @returns 仅当 HTTP 状态码为 200 且 `ok` 与 `success` 均未显式声明为 `false` 时返回 `true`。
+ */
 export function isSuccessfulHttpEnvelope(status: number, parsed: HttpEnvelopeFields): boolean {
   if (status !== 200) return false;
   if (parsed.ok === false) return false;
   if (parsed.success === false) return false;
   return true;
 }
+

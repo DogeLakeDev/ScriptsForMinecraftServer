@@ -277,15 +277,17 @@ export function findMonorepoRoot(startDir: string): string | null {
 }
 
 /**
- * 解析项目根目录。
+ * 解析运行时根目录（SFMC_ROOT）。
  *
- * 优先级:
- *   1. `process.env.SFMC_ROOT`(由 spawnService 注入到子进程)
- *   2. 从 fallbackRoot 向上找 monorepo 根（name === sfmc-monorepo）
- *   3. `fallbackRoot` 本身（npm 安装且无 SFMC_ROOT 时）
+ * 解析优先级：
+ * 1. 环境变量 `process.env.SFMC_ROOT`（由 spawnService 等编排进程注入）
+ * 2. 从 fallbackRoot 向上检索 monorepo 根（`package.json#name === "sfmc-monorepo"`）
+ * 3. `fallbackRoot` 目录自身（独立 npm 安装环境）
  *
- * 所有仓顶服务(db-server / qq-bridge / bds-tools / cli)统一调用本函数,
- * 不要再自己写固定层数的 `resolve(__dirname, "..", "..")`。
+ * 所有仓顶服务（db-server / qq-bridge / bds-tools / cli）统一调用本函数定位工作根，严禁硬编码相对层级路径。
+ *
+ * @param fallbackRoot 回退起始目录路径。
+ * @returns 解析得到的运行时绝对路径。
  */
 export function resolveRuntimeRoot(fallbackRoot: string): string {
   if (process.env.SFMC_ROOT) return path.resolve(process.env.SFMC_ROOT);
@@ -293,45 +295,72 @@ export function resolveRuntimeRoot(fallbackRoot: string): string {
 }
 
 /**
- * 把配置 JSON 内的相对路径解析为绝对路径。
- * 绝对路径直接返回;相对路径相对 runtimeRoot 解析。
+ * 将配置项中的相对路径解析为基于工作目录的绝对路径。
+ * 若本身已是绝对路径则直接返回；相对路径则相对于 `runtimeRoot` 进行解析。
+ *
+ * @param runtimeRoot 运行时根目录。
+ * @param configuredPath 配置中的路径字符串。
+ * @returns 规范化的绝对路径。
  */
 export function resolveRuntimePath(runtimeRoot: string, configuredPath: string): string {
   return path.isAbsolute(configuredPath) ? configuredPath : path.resolve(runtimeRoot, configuredPath);
 }
 
+/**
+ * 获取配置文件存放目录路径（`<runtimeRoot>/configs`）。
+ *
+ * @param runtimeRoot 运行时根目录。
+ * @returns 配置目录绝对路径。
+ */
 export function configDir(runtimeRoot: string): string {
   return path.join(runtimeRoot, "configs");
 }
 
+/**
+ * 获取指定配置文件的完整绝对路径（`<runtimeRoot>/configs/<name>`）。
+ *
+ * @param runtimeRoot 运行时根目录。
+ * @param name 配置文件名。
+ * @returns 配置文件绝对路径。
+ */
 export function configPath(runtimeRoot: string, name: ConfigName): string {
   return path.join(configDir(runtimeRoot), name);
 }
 
 /**
- * 运行态目录:<ROOT>/.sfmc
- * PID / cache / 回滚标记 / 日志等运行时产物的唯一权威根(勿再写入 package dist)。
+ * 运行态临时状态与缓存目录路径（`<runtimeRoot>/.sfmc`）。
+ * PID 文件、探活缓存与运行时产物的唯一权威存储目录。
+ *
+ * @param runtimeRoot 运行时根目录。
+ * @returns 运行态目录绝对路径。
  */
 export function stateDir(runtimeRoot: string): string {
   return path.join(runtimeRoot, ".sfmc");
 }
 
 /**
- * 日志目录:<ROOT>/.sfmc/logs
- * 各服务落盘日志统一放这里,避免各自拼路径。
+ * 运行态日志输出目录路径（`<runtimeRoot>/.sfmc/logs`）。
+ * 各服务的持久化落盘日志统一存放在此处。
+ *
+ * @param runtimeRoot 运行时根目录。
+ * @returns 日志目录绝对路径。
  */
 export function logsDir(runtimeRoot: string): string {
   return path.join(stateDir(runtimeRoot), "logs");
 }
 
 /**
- * 服务日志文件路径:<ROOT>/.sfmc/logs/<name>.log
- * `name` 可带或不带 `.log` 后缀。
+ * 获取指定服务的持久化日志文件路径（`<runtimeRoot>/.sfmc/logs/<name>.log`）。
+ *
+ * @param runtimeRoot 运行时根目录。
+ * @param name 日志文件名或服务标识（可带或不带 `.log` 后缀）。
+ * @returns 日志文件绝对路径。
  */
 export function logFile(runtimeRoot: string, name: string): string {
   const base = name.endsWith(".log") ? name : `${name}.log`;
   return path.join(logsDir(runtimeRoot), base);
 }
+
 
 /**
  * qq-bridge 运行态心跳文件:<ROOT>/.sfmc/qq.runtime.json

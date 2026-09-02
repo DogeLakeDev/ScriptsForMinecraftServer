@@ -1,6 +1,21 @@
+/**
+ * tools.ts — SAPI 常用空间几何、时间与文本辅助工具
+ */
+
 import { BlockComponentTypes, BlockPermutation, Dimension } from "@minecraft/server";
 
-/** 判断二维点 (x,z) 是否落在矩形区域内（起终点可任意对角） */
+/**
+ * 判断平面二维坐标点 (x, z) 是否落在指定的矩形区域内。
+ * 起点与终点可为矩形的任意对角顶点（无需预先排序）。
+ *
+ * @param x 待测点的 X 坐标。
+ * @param z 待测点的 Z 坐标。
+ * @param areaStart_x 矩形区域顶点 A 的 X 坐标。
+ * @param areaStart_z 矩形区域顶点 A 的 Z 坐标。
+ * @param areaEnd_x 矩形区域对角顶点 B 的 X 坐标。
+ * @param areaEnd_z 矩形区域对角顶点 B 的 Z 坐标。
+ * @returns 若待测点在矩形范围内（含边界）则返回 `true`，否则返回 `false`。
+ */
 export function pointInArea_2D(
   x: number,
   z: number,
@@ -22,14 +37,28 @@ export function pointInArea_2D(
   return true;
 }
 
-/** 闭区间 [min, max] 内随机整数 */
+/**
+ * 生成闭区间 `[min, max]` 内的随机整数。
+ *
+ * @param min 区间下界（默认为 0）。
+ * @param max 区间上界（默认为 1）。
+ * @returns 区间内的随机整数。
+ */
 export function getRandomInteger(min: number = 0, max: number = 1): number {
   return min + Math.floor(Math.random() * (max + 1));
 }
 
 /**
- * 将方向码映射为水平单位向量 `[dx, dz]`。
- * `1` 东 / `-1` 西 / `2` 南 / `-2` 北。
+ * 将方向码映射为二维水平单位向量 `[dx, dz]`。
+ *
+ * 方向映射规则：
+ * - `1`：东（+X）`[1, 0]`
+ * - `-1`：西（-X）`[-1, 0]`
+ * - `2`：南（+Z）`[0, 1]`
+ * - `-2`：北（-Z）`[0, -1]`
+ *
+ * @param direction 方向代号。
+ * @returns 二维平面步进向量。
  */
 export function getBase(direction: number): [number, number] {
   switch (direction) {
@@ -46,7 +75,13 @@ export function getBase(direction: number): [number, number] {
   }
 }
 
-/** 双箱放置用的 cardinal 朝向字符串（east/west/north/south） */
+/**
+ * 计算用于放置箱子的 `cardinal_direction` 朝向属性值（"east" | "west" | "north" | "south"）。
+ *
+ * @param direction 主方向代号。
+ * @param face 相对偏移正负符号。
+ * @returns 方块朝向属性字符串。
+ */
 export function getChestCardinal(direction: number, face: number): string {
   if (direction === -1 || direction === 1) {
     return face > 0 ? "south" : "north";
@@ -54,7 +89,13 @@ export function getChestCardinal(direction: number, face: number): string {
   return face > 0 ? "east" : "west";
 }
 
-/** 墙牌 `facing_direction` 数值（与箱子布局配套） */
+/**
+ * 获取悬挂墙牌所需的 `facing_direction` 数值属性（与箱子布局匹配）。
+ *
+ * @param direction 主方向代号。
+ * @param face 相对偏移正负符号。
+ * @returns 墙牌朝向数值。
+ */
 export function getSignFacing(direction: number, face: number): number {
   if (direction === -1 || direction === 1) {
     return face > 0 ? 3 : 2;
@@ -63,8 +104,15 @@ export function getSignFacing(direction: number, face: number): number {
 }
 
 /**
- * 按主轴方向计算左箱 / 右箱 / 告示牌坐标。
- * 用于商店等「双箱 + 墙牌」布局。
+ * 计算双箱与墙牌布局中的左箱、右箱及告示牌的三维坐标。
+ * 常用于商店柜台、领地箱等「双箱 + 墙牌」的标准布局计算。
+ *
+ * @param start 起始基准坐标 `[x, y, z]`。
+ * @param direction 延伸方向代号。
+ * @param mainAxis 沿主轴排列的序号索引。
+ * @param yOffset Y 轴垂直偏移量。
+ * @param face 朝向正面偏移量。
+ * @returns 包含左箱、右箱与告示牌精确坐标的对象。
  */
 export function getLayout(
   start: [number, number, number],
@@ -96,7 +144,14 @@ export function getLayout(
   return { left, right, sign };
 }
 
-/** 在指定位置确保存在一对朝向正确的双箱（已有箱子则跳过） */
+/**
+ * 确保在指定坐标放置一对朝向正确的大型双箱；若对应位置已存在箱子方块则跳过。
+ *
+ * @param dimension 目标维度对象。
+ * @param pos 基准放置坐标。
+ * @param cardinal 箱子朝向字符串（"north" | "south" | "east" | "west"）。
+ * @param direction 布局主方向代号。
+ */
 export function ensureDoubleChest(
   dimension: Dimension,
   pos: { x: number; y: number; z: number },
@@ -117,7 +172,14 @@ export function ensureDoubleChest(
   }
 }
 
-/** 放置墙牌并写入文本（失败时静默忽略） */
+/**
+ * 在指定坐标放置墙上告示牌并写入说明文本；若写入失败则静默忽略。
+ *
+ * @param dimension 目标维度对象。
+ * @param pos 放置坐标。
+ * @param facing 墙牌朝向数值。
+ * @param text 写入告示牌的文本内容。
+ */
 export function placeSign(
   dimension: Dimension,
   pos: { x: number; y: number; z: number },
@@ -132,7 +194,11 @@ export function placeSign(
   } catch {}
 }
 
-/** 返回东八区（上海）当前日期与时间字符串 */
+/**
+ * 获取当前系统时间的东八区（UTC+8 北京/上海时间）日期与时间字符串。
+ *
+ * @returns 包含 `date` ("YYYY-MM-DD") 与 `time` ("HH:mm:ss") 的对象。
+ */
 export function getShanghaiTime(): { date: string; time: string } {
   const now = new Date();
   const offset = 8 * 60;
@@ -144,7 +210,12 @@ export function getShanghaiTime(): { date: string; time: string } {
   };
 }
 
-/** 将 Unix 毫秒时间戳格式化为东八区 `YYYY-MM-DD HH:mm` */
+/**
+ * 将给定的 Unix 毫秒时间戳格式化为东八区标准的 `YYYY-MM-DD HH:mm` 字符串。
+ *
+ * @param ts Unix 毫秒时间戳。
+ * @returns 格式化后的时间字符串。
+ */
 export function formatTimestamp(ts: number): string {
   const offset = 8 * 60;
   const d = new Date(ts + offset * 60 * 1000);
@@ -152,20 +223,38 @@ export function formatTimestamp(ts: number): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
-/** 业务实体 ID 前缀：CH 宝箱 / M 货币 / RP 领地 / L 日志 / CP 检查点 */
+/** 业务实体 ID 类型前缀：CH 宝箱 / M 货币 / RP 领地 / L 日志 / CP 检查点。 */
 export type IDType = "CH" | "M" | "RP" | "L" | "CP";
 
-/** 生成带前缀的短随机 ID，如 `CH_a1b2c3d4` */
+/**
+ * 生成带有业务类型前缀的随机短 ID（例如 `CH_a1b2c3d4`）。
+ *
+ * @param type 业务实体 ID 类型前缀。
+ * @returns 带前缀的唯一随机字符串。
+ */
 export function generateId(type: IDType): string {
   return `${type}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** 维度 → 数值：主世界 0 / 下界 1 / 末地 2 */
+/**
+ * 将 Minecraft 维度对象转换为紧凑数值代号：
+ * - 主世界（overworld）→ `0`
+ * - 下界（nether）→ `1`
+ * - 末地（the_end）→ `2`
+ *
+ * @param dimension 目标维度对象。
+ * @returns 维度数值代号。
+ */
 export function dimensionId(dimension: Dimension): number {
   return dimension.id === "minecraft:overworld" ? 0 : dimension.id === "minecraft:nether" ? 1 : 2;
 }
 
-/** 将键值对象编码为 `?a=1&b=2`；空对象返回空串 */
+/**
+ * 将键值字典编码为标准 URL 查询字符串（例如 `?a=1&b=2`）；若参数为空则返回空字符串。
+ *
+ * @param params 待序列化的键值对象。
+ * @returns 格式化后的查询字符串（含开头的 `?`）。
+ */
 export function toQueryString(params: Record<string, string | number | undefined>): string {
   const parts: string[] = [];
   for (const [k, v] of Object.entries(params)) {
@@ -175,8 +264,11 @@ export function toQueryString(params: Record<string, string | number | undefined
 }
 
 /**
- * 列表表单体说明文案：首行加 `[*]`，末尾追加「请选择操作」。
- * 空数组仅返回「请选择操作」提示。
+ * 生成列表表单的正文说明文案：首行添加 `[*]` 标头，末尾追加“请选择操作：”提示。
+ * 若传入空数组则直接返回默认的选择操作提示。
+ *
+ * @param str 文本说明行数组。
+ * @returns 拼接后的表单说明正文字符串。
  */
 export function ListFormInfo(str: string[]): string {
   if (str.length === 0) return "§7请选择操作：";
@@ -189,3 +281,4 @@ export function ListFormInfo(str: string[]): string {
   lines.push("§7请选择操作：");
   return lines.join("\n");
 }
+
