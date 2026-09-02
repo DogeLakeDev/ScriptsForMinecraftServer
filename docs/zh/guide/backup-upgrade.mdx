@@ -1,80 +1,156 @@
-import { Tab, Tabs } from '@rspress/core/theme';
+import { Tab, Tabs, Steps } from '@rspress/core/theme';
 
-# 备份与升级
+# 备份与无损升级
 
-## 备份
+数据资产是 Minecraft 服务器的命脉所在。SFMC 在设计之初即贯彻了**高可用与灾备优先**准则，本指南将向运维人员介绍标准化的数据备份流程、全组件升级策略以及紧急故障回滚方案。
 
-建议一并备份：
+---
 
-- `data/`（SQLite）
-- `configs/`
-- `modules/catalog.json`、`modules/module-lock.json`
-- 世界目录（含行为包 / 资源包，若需要完整可回档）
+## 1. 数据安全与冷备份标准
 
-先停 db，再打包，避免 WAL 下文件不一致：
+### 必须纳入备份的核心资产清单
 
-```bash
-sfmc> stop db
-# 打包 data / configs / modules 锁文件等
-sfmc> start db
-```
+| 资产目录 / 文件 | 存储内容 | 丢失影响 |
+| :--- | :--- | :--- |
+| **`data/`** | SQLite 核心数据库文件（`sfmc_data.db` 及日志） | **极高**。包含所有玩家经济余额、签到历史、领地坐标与模块持久化数据。 |
+| **`configs/`** | 平台各服务配置与所有业务模块私有配置 | **高**。丢失后需重新配置机器人凭证、端口与游戏规则。 |
+| **`modules/`** | 模块启停状态锁（`module-lock.json`）与本地代码清单 | **中**。记录哪些模块已被激活，重新开服时需依据此文件装配行为包。 |
+| **`<BDS>/worlds/`** | 游戏主世界存档（包含地形、实体与建筑） | **极高**。Minecraft 游戏层面的全量物理世界数据。 |
 
-:::warning 注意
-不要在 db-server 运行时直接复制 `.db` 文件。
+### 严禁在运行状态下直接拷贝 SQLite
 
+:::caution 严防 WAL 脏数据
+SFMC 的 `db-server` 默认工作在 SQLite **WAL（预写式日志，Write-Ahead Logging）** 高性能并发模式。数据在写入主数据库前会暂存在同级的 `.db-wal` 与 `.db-shm` 文件中。  
+**严禁在 `db-server` 处于运行状态时直接强行拷贝 `.db` 文件**，否则极易导致数据库页损坏（`SQLITE_CORRUPT`）。
 :::
 
-## 升级 CLI / monorepo
+### 标准备份流程操作
 
+推荐在例行维护窗口（或通过计划任务脚本）执行标准化冷备份：
+
+<Steps>
+### 挂起数据库写入并安全停机
+在 `sfmc` 控制台平滑停止数据库与游戏服务：
+```bash
+sfmc> /stop -all
+```
+
+### 执行打包归档
+使用系统原生打包工具将关键资产压缩为时间戳归档文件：
 
 <Tabs>
-  <Tab label="全局 npm">
+  <Tab label="Linux (Bash)">
 
 ```bash
-npm i -g @sfmc-bds/sfmc@beta
+# 生成带时间戳的统一备份压缩包
+tar -czvf "backup-sfmc-$(date +%Y%m%d_%H%M%S).tar.gz" \
+  data/ \
+  configs/ \
+  modules/module-lock.json \
+  modules/catalog.json \
+  BedrockDedicatedServer/worlds/
 ```
 
   </Tab>
-  <Tab label="monorepo">
+  <Tab label="Windows (PowerShell)">
 
-```bash
-git pull
-pnpm install && pnpm run build
-npm install && npm run build --workspaces --if-present
+```powershell
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+Compress-Archive -Path data, configs, modules\module-lock.json, modules\catalog.json, BedrockDedicatedServer\worlds `
+  -DestinationPath "backup-sfmc-$timestamp.zip"
 ```
 
   </Tab>
 </Tabs>
 
-然后重启相关服务。模块行为包可由下次 `start bds` 的装载闸门自动重编，也可手动：
+### 恢复服务拉起
+备份完成确认落盘后，重新唤醒服务：
+```bash
+sfmc> /start -all
+```
+</Steps>
+
+---
+
+## 2. 全组件平滑升级策略
+
+SFMC 平台的各层组件相互解耦，可按需分别升级：
+
+### ① 升级 SFMC CLI 与平台运行时
+
+<Tabs>
+  <Tab label="全局 npm 安装">
 
 ```bash
-sfmc> mod reload
+# 获取最新版官方 CLI
+npm install -g @sfmc-bds/sfmc@beta
+
+# 验证更新后版本
+sfmc version
 ```
 
-## 升级模块
+  </Tab>
+  <Tab label="平台 Monorepo 源码开发者">
 
 ```bash
-sfmc> mod install <id>
-sfmc> mod reload
+git pull origin main
+pnpm install && pnpm run build
 ```
 
-## 升级 BDS
+  </Tab>
+</Tabs>
+
+升级 CLI 后，直接重启后台服务即可无缝对接新版指令能力。
+
+---
+
+### ② 升级 Bedrock Dedicated Server 官方核心
+
+SFMC 内置了官方版本探测与自动升级工具，可精准解析 Mojang 官方分发源：
 
 ```bash
-sfmc> update
-# 或仅检查
+# 检查当前运行版本与远端最新版本
 sfmc> update --check-only
+
+# 一键下载解压并安全升级
+sfmc> update
 ```
 
-db-server 启动时会跑增量 schema 迁移，旧库一般可直接沿用。
+#### 白名单防覆盖机制（Preserve）
+升级过程中，系统会严格依据 `configs/bds_updater.json` 中的 `preserve` 清单，在解压新版覆盖前**自动封存**以下文件，并在覆盖完成后**原样复原**：
+- `server.properties`（服务端网络与基础配置）
+- `whitelist.json` / `permissions.json`（原生白名单与权限表）
+- `worlds/`（所有世界存档与已安装的行为包）
 
-## 回滚
+升级完成后，`db-server` 会在首次握手时自动跑增量 Schema 迁移，旧版本数据表结构完全向下兼容。
 
-| 对象 | 做法 |
-| ------ | ------ |
-| 配置 / lock | 用备份覆盖后重启 |
-| 模块行为包 | 换回上一版模块后 `mod reload` |
-| BDS | 使用 bds-tools 回滚（若启用了备份策略） |
+---
 
-运行态与日志在 `<SFMC_ROOT>/.sfmc/`（含 `logs/` 下的 `db.log`、`qq.log`、`bds.log` 等）。
+### ③ 升级业务功能模块
+
+当上游模块作者在 npm 发布了新版本时：
+
+```bash
+# 重新安装指定模块（自动覆盖拉取最新版源码）
+sfmc> mod install economy
+
+# 重新组装行为包并向游戏发出热重载指令
+sfmc> mod reload
+```
+
+---
+
+## 3. 紧急灾难恢复与回滚方案（Rollback）
+
+如果在升级后发现版本兼容性问题或意外异常，可按以下矩阵实施应急回滚：
+
+| 故障场景 | 回滚与救援步骤 |
+| :--- | :--- |
+| **模块升级后出现逻辑 Bug** | 1. 运行 `sfmc mod install <id>@<旧版本号>` 回退版本。<br/>2. 运行 `sfmc mod reload` 重装世界行为包。若问题紧急，可直接运行 `sfmc mod disable <id>` 快速熔断关闭。 |
+| **BDS 核心升级后无法启动** | 若配置了 `configs/bds_updater.json` 的 `backup_dir`，升级前会自动生成全量镜像；将备份目录中的旧版本二进制解压回覆盖原路径即可。 |
+| **误改配置导致启动崩溃** | 从最近一次生成的冷备份压缩包中，仅将 `configs/` 目录解压还原，随后执行 `sfmc /restart -all`。 |
+| **数据库损坏或脏数据** | 1. 执行 `sfmc /stop -all` 强制停机。<br/>2. 移除当前的 `data/sfmc_data.db*` 全套文件。<br/>3. 解压备份中的历史 `.db` 文件并置于 `data/` 下。<br/>4. 重新启动服务。 |
+
+:::tip 审计追踪
+所有操作细节与异常堆栈均可在 `<SFMC_ROOT>/.sfmc/logs/` 下查阅独立日志（`db.log`、`qq.log`、`bds.log`）。在报告问题前，请附带该目录下的相关诊断信息。
+:::

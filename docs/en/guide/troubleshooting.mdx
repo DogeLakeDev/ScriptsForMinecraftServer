@@ -1,3 +1,5 @@
+import { Tab, Tabs } from "@rspress/core/theme";
+
 # Troubleshooting & Diagnostics
 
 When encountering server startup issues, inactive modules, or network errors, use the interactive troubleshooting wizard below for guided diagnosis. The complete checklist is also available below for search and fast reference.
@@ -62,18 +64,23 @@ curl http://127.0.0.1:3001/api/health
 
 ### 5. QQ Bridge & Bot Connection Issues
 
-:::tabs
-== Official OpenAPI Backend (`official`)
+<Tabs>
+  <Tab label="Official OpenAPI Backend (official)">
+
 1. **Credentials**: Check `qq_app_id` and `qq_app_secret` in `configs/qq_config.json`.
 2. **IP Allowlist**: In the QQ Open Platform developer console, ensure your server's public IP is added to the IP allowlist.
 3. **Event Subscription**: Ensure `GROUP_AT_MESSAGE_CREATE` is subscribed (messages in groups must @ the bot).
 4. **Group OpenID**: Copy the generated `qq_group_openid` from initial trigger logs into `configs/qq_config.json`, then restart services.
 
-== LLBot / OneBot Backend (`llbot`)
+  </Tab>
+  <Tab label="LLBot / OneBot Backend (llbot)">
+
 1. **Reverse WebSocket**: Confirm reverse WS target in LLBot is set to `ws://127.0.0.1:3002`.
 2. **Group Number**: Ensure `qq_group_id` in `configs/qq_config.json` is a valid numeric group ID.
 3. **Firewall**: Confirm port 3002 is not blocked by local security software.
-:::
+
+  </Tab>
+</Tabs>
 
 ---
 

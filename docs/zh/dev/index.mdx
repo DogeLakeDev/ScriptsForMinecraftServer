@@ -1,111 +1,100 @@
 import { Tab, Tabs } from "@rspress/core/theme";
 
-﻿# 入门
+# 开发指南 · 导读
 
-面向模块作者与平台贡献者。读完后，您应能分清作者仓 / 主仓 / 薄 index，选好编辑器与工具，并进入对应开发路径。
-
-运维安装与日常启停见 [使用指南](../guide/index.md)。接口与 HTTP 见 [接口指南](../api/index.md)。
+SFMC 提供了完备的现代化 TypeScript 开发套件。无论是希望为社区生态编写功能模块，还是参与平台核心与 SDK 建设，均可在此找到清晰规范的演进路径。
 
 ```mermaid
 flowchart LR
-  A[入门] --> B[模块开发]
-  B --> C[测试 / lint / 发布]
-  A --> D[架构]
-  D --> E[平台 / 贡献]
+  A[开发导读] --> B[编写业务模块]
+  B --> C[测试沙箱 / 扩展联调 / 发布]
+  A --> D[平台架构设计]
+  D --> E[SDK / 核心组件开发]
 ```
 
-## 三层边界
+---
 
-| 角色 | 是什么 | 不是什么 |
-| ------ | ------ | ------ |
-| **作者仓** | 唯一写码面：template / 扩展脚手架 | 不是在主仓 `packages/` 里写业务 |
-| **npm** | 官方发布源 | 不是用 git 树当分发面 |
-| **`sfmc-modules`** | 薄 index（检索） | 不是工作区、不是 monorepo |
-| **主仓 `modules/packages/`** | install 落点（可 `--link`） | 不是日常业务源码树 |
+## 1. 三层工程边界与真理源
 
-## 推荐环境
+在动手编码之前，理解 SFMC 的三层职责边界至关重要：
 
-| 项目 | 建议 |
-| ------ | ------ |
-| 系统 | Windows 10 / 11（当前主要支持） |
-| Node.js | [22.13+](https://nodejs.org/)（`node:sqlite` 需此版本） |
-| 包管理 | **pnpm** workspace（`pnpm-workspace.yaml`，主仓推荐）或 **npm workspaces**；本地 `@sfmc-bds/*` 禁止 `workspace:*` |
-| 编辑器 | [Cursor](https://cursor.com/) 或 [VS Code](https://code.visualstudio.com/) |
-| CLI | `npm i -g @sfmc-bds/sfmc@beta`（运维）；作者联调优先扩展 |
+| 角色层次 | 核心职责与真理源 | 严禁与避免的误区 |
+| :--- | :--- | :--- |
+| **作者独立仓（Template）** | **业务逻辑的唯一编码面**。每个模块均为独立的 Git 仓库，拥有自己的 `package.json`、单元测试与构建流程。 | 严禁直接在主仓 `packages/` 目录下添加具体业务逻辑。 |
+| **npm 制品源** | **模块发布的唯一法定渠道**。版本通过 npm Registry 进行语义化分发（`@sfmc-bds/module-<id>` 或社区 scope）。 | 严禁依赖私有 Git 子模块或文件拷贝作为发布分发面。 |
+| **模块索引（sfmc-modules）** | **社区检索的轻量索引**。仅包含 `index.json` 目录，供 CLI 搜索、版本匹配与展示。 | 该仓库并非 Monorepo 工作区，不承载任何实际模块代码。 |
+| **主仓工作区（modules/packages/）** | **服务器运行态的安装目标**。可通过 `--link` 软链接挂接作者本地仓进行热联调。 | 并非日常业务开发的代码仓库。 |
 
-### 推荐扩展（Cursor / VS Code）
+---
 
-| 扩展 | 用途 |
-| ------ | ------ |
-| **SFMC Module** | New Module、Run Tests、Start Watch、Reload to BDS |
-| ESLint | `@sfmc-bds/eslint-plugin` 诊断（SFMC Module 会提示依赖安装） |
-| nodejs-testing | Testing 面板跑 `node --test` |
-| Prettier | 与根 / 模板格式对齐 |
+## 2. 推荐开发环境配置
 
-作者仓模板已带 `.vscode/extensions.json`。主仓 [`.vscode/settings.json`](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/.vscode/settings.json) 绑定配置与 manifest 的 JSON Schema。
+| 类别 | 推荐选项 | 说明 |
+| :--- | :--- | :--- |
+| **操作系统** | Windows 10 / 11 或 Linux (Ubuntu 22.04+) | 建议开发机配置好本地 Node.js 与 Git 环境。 |
+| **Node.js** | **`≥ 22.13.0`** (LTS) | 必须满足该版本以获得 Node 原生内置的 `node:sqlite` 支持。 |
+| **包管理** | **`pnpm`** (推荐) 或 `npm` | 主仓采用 pnpm workspaces；本地开发包严禁使用 `workspace:*` 外部依赖。 |
+| **编辑器** | [Cursor](https://cursor.com/) 或 [VS Code](https://code.visualstudio.com/) | 搭配官方专属扩展体验最佳。 |
 
-### 常用工具
+### 必备 VS Code / Cursor 扩展
 
-| 工具 | 用途 |
-| ------ | ------ |
-| 扩展「SFMC Module」 | 脚手架、测试、Watch（作者主路径） |
-| `@sfmc-bds/sdk/testing` | `createSandbox` 假引擎 + 宿主分相 |
-| `@sfmc-bds/devkit` | Watch / scaffold（扩展依赖；一般不必手调） |
-| `sfmc` / `mod` | 安装、启停、build / reload（运维） |
-| `@sfmc-bds/eslint-plugin` | Msg、SDK 导入、跨模块等约定 |
-| GitHub CLI `gh` | 向薄 index 开 PR 时可选 |
+- **SFMC Module**（官方专属扩展）：提供一键生成新模块（`New Module`）、假引擎单元测试（`Run Tests`）、实时监听热重载（`Start Watch`）与一键部署。
+- **ESLint**：启用 `@sfmc-bds/eslint-plugin` 规则，实施消息规范、SDK 导入路径与跨模块契约的静态检查。
+- **Node.js Testing**：在编辑器侧边栏以图形化测试树直接运行与调试 `node --test`。
 
-:::warning 注意
-`sfmc mod test` / `watch` / `publish` 已移除。测试与 Watch 用扩展；发布用 `pnpm publish` / `npm publish`，见 [发布你的模块](./publish.md)。
+---
 
-:::
-
-## 你要走哪条路
-
+## 3. 选择你的开发路线
 
 <Tabs>
-  <Tab label="写业务模块">
+  <Tab label="路径 A：编写业务功能模块（新手与作者）">
 
-1. [模块开发](./module-author.md) — 模板 / 扩展、联调  
-2. [测试沙箱](./testing.md) — `createSandbox`  
-3. [ESLint 约定](./eslint.md) · [发布你的模块](./publish.md)
+适合希望为服务器增添玩法功能的开发者：
 
-  </Tab>
-  <Tab label="改平台 / SDK">
-
-1. 克隆本仓 → `pnpm install` / `npm install` → `pnpm run build` / `npm run build --workspaces --if-present`  
-2. [架构](./architecture.md) → [平台开发](./platform.md)  
-3. [贡献指南](./contributing.md) · [代码约定](./conventions.md)
-
-  </Tab>
-</Tabs>
+1. [模块开发全流程](./module-author.mdx) — 5 分钟脚手架、生命周期契约与 VS Code 扩展联调
+2. [API 速查手册 (Cheatsheet)](./cheatsheet.mdx) — 消息、数据库、配置与服务通信代码范例
+3. [测试与调试指南](./testing.md) — 了解模块作者的 Watch 热联调与平台单测分轨
+4. [ESLint 规则手册](./eslint.md) · [发布你的模块](./publish.md) — 质量核检与 npm 发布
 
 ```bash
-# 模块作者最小闭环（作者仓）
+# 模块作者开发最小闭环
 npm create @sfmc-bds/module@latest
-cd <id> && pnpm install && pnpm test
-cd <id> && npm install && npm test
-# 联调：扩展「SFMC Module」→ Link to SFMC Root → Start Watch（设 sfmc.root）
-# 或运维机：
-sfmc mod install my-feature --from dir:<作者仓绝对路径> --link
+cd my-feature && pnpm install && pnpm test
+
+# 联调：通过 VS Code 扩展点击 "Link to SFMC Root"
+# 或在运维服务器控制台直接挂接：
+sfmc mod install my-feature --from dir:D:/WorkSpace/my-feature --link
 sfmc mod enable my-feature
 sfmc mod reload
 ```
 
-## 章节索引
+  </Tab>
+  <Tab label="路径 B：贡献平台核心与 SDK（架构师与核心贡献者）">
 
-| 章节 | 内容 |
-| ------ | ------ |
-| [模块开发](./module-author.md) | 模板、扩展、命名、联调 |
-| [API 速查手册](./cheatsheet.mdx) | 生命周期、Msg、DB、配置与服务调用 |
-| [测试沙箱](./testing.md) | `createSandbox`、L0–L2 |
-| [manifest 契约](./manifest.md) | v2 字段与权限 |
-| [构建与装载](./build-pipeline.md) | 行为包装配 |
-| [ESLint 约定](./eslint.md) | 插件与规则 |
-| [工具脚本](./tools.md) | `tools/*.mjs`、平台冒烟 |
-| [发布你的模块](./publish.md) | npm 与薄 index |
-| [架构](./architecture.md) | 分层与启动序 |
-| [平台开发](./platform.md) | SDK / db / CLI / devkit |
-| [贡献指南](./contributing.md) | 根脚本与 PR |
-| [代码约定](./conventions.md) | Msg、边界、Prettier |
-| [专题：附加包更新](./pack-update.md) | CurseForge 实现细节 |
+适合参与 SFMC 框架本身演进的贡献者：
+
+1. 克隆主仓：`git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git`
+2. 构建全套平台包：`pnpm install && pnpm run build`
+3. 深入理解 [系统架构设计](./architecture.md) 与 [平台底层组件](./platform.md)
+4. 遵循 [贡献指南](./contributing.md) 与 [代码工程约定](./conventions.md) 提交 PR
+
+  </Tab>
+</Tabs>
+
+---
+
+## 4. 核心章节导航索引
+
+| 章节手册 | 核心指引内容 |
+| :--- | :--- |
+| **[模块开发手册](./module-author.mdx)** | 快速脚手架、扩展联动、命名约定与联调流程 |
+| **[API 速查手册 (Cheatsheet)](./cheatsheet.mdx)** | 生命周期、Msg 消息、SQLite、配置与跨模块服务代码片段 |
+| **[测试与调试策略](./testing.md)** | 模块作者 Watch 热联调、平台包 node:test 与分轨测试 |
+| **[Manifest 契约规格](./manifest.md)** | `manifest.json` v2/v3 字段定义与权限声明标准 |
+| **[构建与打包管线](./build-pipeline.md)** | 行为包自动化装配、esbuild 转译流水线 |
+| **[ESLint 约定与静态检查](./eslint.md)** | 平台专属 ESLint 插件与规约 |
+| **[发布你的模块](./publish.md)** | npm 发布规范与向官方索引仓库提交 PR |
+| **[系统架构设计](./architecture.md)** | 跨进程分层、启动序时序图与通信协议 |
+| **[平台核心开发](./platform.md)** | SDK、db-server、CLI 与 devkit 组件演进 |
+| **[代码工程约定](./conventions.md)** | 统一代码规范、Prettier 规则与安全边界 |
+| **[附加包更新技术专题](./pack-update.md)** | CurseForge 远程源探测与版本算法底层实现 |

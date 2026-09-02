@@ -1,85 +1,149 @@
 import { Steps } from "@rspress/core/theme";
 
-# 模块
+# 模块与行为包管理
 
-本页说明运维侧如何安装、启停模块，以及行为包如何部署到世界。开发、发布见 [模块开发](../dev/module-author.md)。
+在 SFMC 架构中，所有游戏业务逻辑（如经济系统、领地保护、挂机检测、传送菜单等）均以独立的**功能模块（Module）**形式存在。
 
-模块是运行在原生 BDS 上的 SFMC 业务功能包，制品发布在 npm（`@sfmc-bds/module-<id>` 或 `@<author>/sfmc-module-<id>`）。[`sfmc-modules`](https://github.com/Tanya7z/sfmc-modules) 仓库仅提供检索用 index，不含业务源码。
+本页面向服主与运维人员，详细阐释如何在服务器中**搜索、安装、启停模块**，以及系统如何将多个独立模块动态编排组装为原生 BDS 行为包。
 
-## 安装与启停
+:::tip 开发者指引
+如果您希望自行开发、测试并发布新的功能模块，请直接查阅 [模块开发指南](../dev/module-author.mdx)。
+:::
 
-```bash
-sfmc> mod search
-sfmc> mod install afk economy
-sfmc> mod uninstall afk
-sfmc> mod list
-sfmc> mod enable afk
-sfmc> mod disable afk
+---
+
+## 1. 模块生态体系与架构
+
+SFMC 模块具备高度工程化的解耦设计：
+
+- **代码分发面（npm）**：模块源码以标准 npm 包形式发布（如官方包 `@sfmc-bds/module-economy` 或社区包 `@author/sfmc-module-myfeature`），杜绝传统“靠群文件传 zip”的版本混乱问题。
+- **发现索引（Index）**：[`sfmc-modules`](https://github.com/Tanya7z/sfmc-modules) 官方仓库仅作为轻量索引目录，用于驱动 CLI 的搜索与元数据拉取。
+- **本地组装面（Assemble）**：服主勾选启用的所有模块，会在开服前由打包引擎自动编译聚合为单一合法的原生行为包 `sfmc-modules`，直接注入当前世界。
+
+```mermaid
+flowchart LR
+  Index[官方模块索引 index.json] -->|检索元数据| CLI[sfmc mod search]
+  npm[npm 制品仓库] -->|下载安装包| Local[modules/packages/]
+  Local --> Catalog[catalog.json 清单]
+  Lock[module-lock.json 启停锁] --> Assembler[动态装配引擎 esbuild]
+  Catalog --> Assembler
+  Assembler --> BP[BDS 世界行为包 sfmc-modules]
 ```
 
-`mod enable` / `mod disable` 写入 `modules/module-lock.json`，不依赖 db-server。db 在线时会热同步内存态；db 未起时仍成功，下次 `start db` 后再跟上。要让游戏内行为包生效，通常还需 `mod reload` 或重启 BDS。
+---
 
-## 行为包装配
+## 2. 常用管理命令
 
-已启用的模块会打成一份行为包（及配套资源包），部署到当前世界。
+在 `sfmc` 控制台或宿主 Shell 中，可直接通过 `mod`（或全称 `module`）子命令进行全生命周期管理：
+
+### 检索与安装
 
 ```bash
+# 检索官方模块库中的可用模块
+sfmc> mod search
+
+# 查看已下载模块的详细信息
+sfmc> mod info economy
+
+# 一键下载并安装指定模块（支持同时安装多个）
+sfmc> mod install afk economy teleport
+```
+
+安装源说明（`--from`）：
+- 默认为 npm 源：`@sfmc-bds/module-<id>` 或 `@scope/sfmc-module-<id>`。
+- 支持本地目录调试（挂接作者仓）：`sfmc mod install <id> --from dir:<绝对路径> --link`。
+
+### 启停与卸载
+
+```bash
+# 列出本地所有模块及其当前启停状态
+sfmc> mod list
+
+# 启用指定模块
+sfmc> mod enable afk
+
+# 禁用指定模块
+sfmc> mod disable afk
+
+# 卸载模块并清理本地源码
+sfmc> mod uninstall afk
+```
+
+:::important 启停状态与锁文件机制
+`mod enable` 与 `mod disable` 会将状态持久化写入 `<SFMC_ROOT>/modules/module-lock.json`。
+- **离线安全**：即使 `db-server` 处于离线状态，启停修改依然能安全落盘；待下次启动数据库时会自动同步内存态。
+- **游戏生效**：在 BDS 运行期间修改了模块启停状态，**必须执行 `mod reload` 或重启 BDS** 才能在游戏中生效。
+:::
+
+---
+
+## 3. 行为包动态装配机制
+
+传统开服方式中，安装多个 Script API 脚本包极易引发依赖冲突与 `manifest.json` 权限混乱。SFMC 采用**全自动装配管线**解决这一痛点：
+
+```bash
+# 仅执行编译组装，不部署到世界
 sfmc> mod build
+
+# 组装并部署，随后向运行中的 BDS 发出热重载请求（日常调试推荐）
 sfmc> mod reload
+
+# 仅组装并部署文件，不触发游戏内重载（之后需在控制台手动 reload）
 sfmc> mod reload --build-only
 ```
 
-| 命令                      | 作用                                         |
-| ------------------------- | -------------------------------------------- |
-| `mod build`               | 仅构建，不部署                               |
-| `mod reload`              | 构建、部署，并向 BDS 请求 reload（开发常用） |
-| `mod reload --build-only` | 只构建并部署；之后需在游戏内手动 `reload`    |
+### 部署路径一览
 
-`start bds` 前会自动比对装载 catalog（见 [服务管理 · 装载闸门](./services.md#装载闸门)）。不一致时会先整包重编并部署，成功后才启动 BDS。
+| 阶段 / 产物 | 落盘路径 | 作用说明 |
+| :--- | :--- | :--- |
+| **中间产物** | `<SFMC_ROOT>/packs/_build/sfmc-modules/` | 经过打包工具（esbuild）混淆编译后的暂存目录。 |
+| **世界行为包 (BP)** | `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/` | 实际注入当前游戏世界的最终行为包产物。 |
+| **世界资源包 (RP)** | `<BDS>/worlds/<level>/resource_packs/sfmc-modules-rp/` | 若启用的模块包含材质、UI 或音频资源，将自动生成配套 RP。 |
+| **部署清单** | BP 根目录下 `sfmc-deploy-catalog.json` | 记录本次构建所包含的模块版本哈希，供装载闸门快速比对。 |
 
-### 部署路径
-
-| 阶段         | 位置                                                        |
-| ------------ | ----------------------------------------------------------- |
-| 构建中间产物 | `packs/_build/sfmc-modules/`（及配套 RP）                   |
-| 部署目标 BP  | `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/`         |
-| 部署目标 RP  | `<BDS>/worlds/<level>/resource_packs/sfmc-modules-rp/`    |
-| 装载 catalog | BP 内 `sfmc-deploy-catalog.json`                            |
-
-第三方附加包走 `packs` 收件箱，见 [附加包](./addons.md)。模块自带、经 `packs` 分发的世界 BP/RP 与 `sfmc-modules` 组装包是两条线。
+### 装配流水线四步走
 
 <Steps>
-### 扫描 `modules/packages/*/sapi`
-### 仅打包 lock 中已启用的模块
-### esbuild 构建并组装 BP/RP
-### 复制到世界目录并写入启用清单
+### 收集模块契约
+扫描 `modules/packages/*/sapi` 下的所有子模块，读取其 `manifest.json` 声明的依赖项与所需权限。
+
+### 过滤启停白名单
+严格依照 `modules/module-lock.json` 中标记为 `"enabled": true` 的项进行过滤。未启用的模块绝对不会被打入行为包。
+
+### 统一转译与聚合打包
+以 `installHostBootstrap()` 宿主脚本为入口，通过现代化打包引擎将各模块的生命周期、事件侦听器与指令注册代码编译整合为一个高内聚的 `scripts/main.js`。
+
+### 部署到世界并更新清单
+将生成产物同步至当前世界的 `behavior_packs` 目录，并原子化更新 `world_behavior_packs.json` 启用声明。
 </Steps>
 
-未启用任何模块时，仍会生成合法空包。
+:::note 空包保护
+即使服主关闭了所有功能模块，装配引擎仍会生成一个合法的空行为包骨架，确保服务端不会因资源丢失而报错。
+:::
 
-## 开发联调
+---
 
-作者在本地仓用 VS Code / Cursor 扩展「SFMC Module」开发；运维机在 SFMC 根目录执行：
+## 4. 本地开发与联调（--link）
+
+模块开发者无需每次都将未测试的代码发布到 npm。在本地开发时，运维机可通过软链接（Symlink）直连作者的源码仓库：
 
 ```bash
-sfmc mod install <id> --from dir:<作者仓绝对路径> --link
-sfmc mod enable <id>
-sfmc mod reload
+# 通过 dir: 源与 --link 参数挂接本地模块仓
+sfmc> mod install my-feature --from dir:D:/WorkSpace/my-feature --link
+
+# 启用并编译
+sfmc> mod enable my-feature
+sfmc> mod reload
 ```
 
-`mod install` 须带模块短名。模板、Watch、发布流程见 [模块开发](../dev/module-author.md)。
+配合 VS Code / Cursor 专属扩展 **「SFMC Module」** 的 Watch 功能，在作者仓中每次按下保存，代码即可毫秒级热同步并通知 BDS 重新装载！
 
-## 制品来源
+---
 
-| 来源              | 用途                            |
-| ----------------- | ------------------------------- |
-| `npm:@scope/name` | 默认（index 的 `npm` 字段优先） |
-| `dir:` / `local:` | 本地目录或归档；联调用 `--link` |
+## 5. 官方推荐模块目录
 
-## 官方模块一览
-
-以下列表在构建时从 `sfmc-modules` registry 生成（本地兄弟仓优先，失败则用 fallback）。
+以下列表在构建文档站时自动拉取自官方 `sfmc-modules` 索引库：
 
 <ModuleCatalog />
 
-官方模块的 HTTP 服务见 [模块服务目录](../api/modules/index.md)。
+> 想要调用官方模块暴露的跨模块接口？请查阅 [模块服务调用目录](../api/modules/index.md)。

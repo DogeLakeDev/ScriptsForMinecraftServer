@@ -1,68 +1,78 @@
-﻿import { Tabs, Tab } from '@rspress/core/theme';
+import { Tabs, Tab } from '@rspress/core/theme';
 
-# 入门
+# 接口与通信协议 · 导读
 
-db-server 的 HTTP API、`@sfmc-bds/sdk` 用法，以及各业务模块对外服务。
+SFMC 依托伴生架构，在 Minecraft Script API（SAPI）与宿主 Node.js 数据中枢之间建立了高性能的本地通信桥梁。
 
-本页面向模块作者与需要直调 HTTP 的调试 / Node 侧开发。读完后，您应能：
-
-- 分清「走 SDK」还是「对照 HTTP」
-- 找到鉴权约定、四抽屉 SDK、模块服务与平台 HTTP 各章
-
-完整类型签名见 [SDK 类型参考](../reference/index.md)（`pnpm run docs -- api` / `npm run docs -- api`）。开发流程见 [开发指南](../dev/index.md)。
+本篇文档面向**需要进行跨模块调用的业务开发者**，以及**开发 Node.js 扩展工具或调试底层的架构师**。
 
 ```mermaid
 flowchart LR
-  A[入门] --> B[鉴权与约定]
-  A --> C[SDK 导读]
-  C --> D[模块服务目录]
-  A --> E[HTTP 各章]
+  A[接口导读] --> B[鉴权机制与错误码]
+  A --> C[SDK 导读 (SAPI 首选)]
+  C --> D[模块服务目录 (RPC)]
+  A --> E[平台 HTTP API (底层/调试)]
 ```
 
-## Base URL
+---
 
-默认 `http://127.0.0.1:3001`，仅 loopback。端口见 `configs/db_config.json` 的 `db_port`。
+## 1. 基础端点与网络边界
+
+- **服务基础地址（Base URL）**：`http://127.0.0.1:3001`
+- **监听模式**：仅限本机本地回环接口（Loopback Only）。
+- **端口配置**：定义在 `configs/db_config.json` 的 `db_port` 字段（可通过环境变量 `DB_PORT` 动态覆盖）。
 
 ```bash
+# 本地服务连通性与健康度快速探测
 curl http://127.0.0.1:3001/api/health
 ```
 
-## SDK 与 HTTP
+---
 
-| 场景 | 做法 |
-| ------ | ------ |
-| 写模块业务 | SDK + 对方 typed client；**不要**直连 `127.0.0.1:3001` |
-| 调试 / 写 Node 工具 | 可直调 HTTP（本指南各 HTTP 章） |
-| 查签名 | [类型参考](../reference/index.md) |
+## 2. 交互分轨：走 SDK 还是直连 HTTP？
 
-## 你要走哪条路
+| 业务场景 | 官方标准做法 | 禁忌与原则 |
+| :--- | :--- | :--- |
+| **编写 SAPI 游戏业务模块** | **必须统一使用 `@sfmc-bds/sdk`** 提供的抽象封装。<br/>- 数据库：`@sfmc-bds/sdk/sapi/db`<br/>- 私有配置：`@sfmc-bds/sdk/sapi/config`<br/>- 跨模块调用：`@sfmc-bds/sdk/sapi/service` | **绝对禁止直接通过 SAPI fetch 直连 `127.0.0.1:3001`**。SDK 会自动处理请求签名、身份注入与网络异常重试。 |
+| **Node.js 侧扩展与外部脚本** | 可直接发起 HTTP REST 请求（参考本节各平台 HTTP 子路由）。 | 需在 Request Header 中显式携带 Bearer Token。 |
+| **查阅强类型签名** | 参阅自动生成的 [SDK 类型参考手册](../reference/index.md)。 | — |
 
+---
+
+## 3. 按角色选择查阅路径
 
 <Tabs>
-  <Tab label="模块作者">
+  <Tab label="路径一：SAPI 模块开发者（首选推荐）">
 
-1. [鉴权与约定](./overview.md)（错误码与身份）  
-2. [SDK 导读](./sdk/index.md)  
-3. [模块服务目录](./modules/index.md)（跨模块能力）
+1. [鉴权规范与错误码处理](./overview.md) — 了解微内核隔离、Bearer Token 注入与平台错误响应契约。
+2. [SDK 核心导读](./sdk/index.md) — 学习 `db`、`config`、`runtime`、`service` 四大抽屉的用法。
+3. [官方模块服务目录](./modules/index.md) — 查阅经济（economy）、领地（land）、区域（area）等现成可调用的 RPC 接口。
 
   </Tab>
-  <Tab label="对照 HTTP / 调试">
+  <Tab label="路径二：平台底层调试 / Node.js 开发者">
 
-1. [鉴权与约定](./overview.md)  
-2. [模块控制](./module-control.md) · [配置](./config.md) · [数据库](./db.md) · [服务 RPC](./services.md) · [消息](./messages.md)
+1. [鉴权与网关规范](./overview.md) — 统一请求头格式、状态码映射。
+2. 核心 REST 端点详解：
+   - [模块管控 API](./module-control.md) — 查询已安装 catalog、启停状态切换。
+   - [配置管理 API](./config.md) — 获取全局启动快照（`configs/all`）与命名空间持久化。
+   - [数据库操作 API](./db.md) — 动态表定义、参数化 CRUD 与跨模块原子事务（`tx`）。
+   - [服务发现与 RPC](./services.md) — 跨模块能力注册与分发。
+   - [多端消息路由 API](./messages.md) — 游戏聊天队列与 QQ 桥接出入站。
 
   </Tab>
 </Tabs>
 
-## 章节索引
+---
 
-| 章节 | 内容 |
-| ------ | ------ |
-| [鉴权与约定](./overview.md) | 鉴权、响应、路由索引 |
-| [SDK 导读](./sdk/index.md) | runtime / db / config / service |
-| [模块服务目录](./modules/index.md) | economy、land、area… |
-| [模块控制](./module-control.md) | catalog、enable / disable |
-| [配置](./config.md) | configs/all、configKey、legacy |
-| [数据库](./db.md) | define-table、CRUD、tx |
-| [服务 RPC](./services.md) | `GET /services`、与 tx.call |
-| [消息](./messages.md) | 聊天与 QQ 桥 |
+## 4. 章节导航索引
+
+| 章节文档 | 核心内容介绍 |
+| :--- | :--- |
+| **[鉴权与通信约定](./overview.md)** | 请求鉴权、标准 JSON 响应结构、全局错误码与路由映射 |
+| **[SDK 核心能力导读](./sdk/index.md)** | runtime / db / config / service 四大能力集 |
+| **[模块服务目录 (RPC)](./modules/index.md)** | 官方各模块（economy, land, area 等）对外导出的远程接口 |
+| **[模块管控 API](./module-control.md)** | 获取安装清单、动态启停模块、热重载触发 |
+| **[配置服务 API](./config.md)** | `configs/all` 启动快照接口与单模块配置更新 |
+| **[数据库操作 API](./db.md)** | 参数化 SQL、表定义注册与事务调用链路 |
+| **[远程服务 RPC API](./services.md)** | 服务提供方注册与消费者消费 |
+| **[消息中继 API](./messages.md)** | 游戏与 QQ 桥接消息双向推送机制 |

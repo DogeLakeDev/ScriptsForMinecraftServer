@@ -1,186 +1,197 @@
-# 模块开发
+# 业务模块开发全流程手册
 
-## 新建模块
+本手册面向 SFMC 业务模块开发者。读完本篇，你将掌握从**新建模块仓库、规范化命名、本地假引擎单元测试、真机热重载联调，到最终发布至 npm 与官方索引**的完整工程化闭环。
+
+---
+
+## 1. 快速脚手架：5 分钟初始化模块
+
+推荐通过官方脚手架一键生成标准的作者独立仓库：
 
 ```bash
+# 交互式初始化向导
 npm create @sfmc-bds/module@latest
-# 等价：npx @sfmc-bds/create-module@latest
+# 或使用 npx
+npx @sfmc-bds/create-module@latest
 ```
 
-交互选择：模块 id、显示名、npm scope（或官方包）、可选能力（如 `db`）。
+向导将引导您填写并配置：
+- **模块 ID（kebab-case）**：如 `teleport` 或 `daily-reward`
+- **显示名称（Display Name）**：如 `领地传送` 或 `每日签到`
+- **npm Scope**：社区模块建议使用个人或团队 scope（如 `@alice`）
+- **可选能力选型**：是否开箱包含 SQLite 持久化支持（`db`）
 
-也可在空窗口打开扩展后执行命令面板 → `SFMC: New Module`（与 CLI **同一** `createModule()` 引擎）。
+:::tip 图形化创建
+在 VS Code 或 Cursor 中安装官方扩展 **「SFMC Module」** 后，在命令面板（`Ctrl+Shift+P`）中执行 `SFMC: New Module`，亦可唤起相同脚手架引擎生成工程。
+:::
+
+进入新生成的工程目录并安装依赖运行测试：
 
 ```bash
 cd my-feature
 pnpm install && pnpm test
+# 或使用 npm
 npm install && npm test
 ```
 
-## 命名规范
+---
 
-| 层                  | 规则                          | 例                              |
-| ------------------- | ----------------------------- | ------------------------------- |
-| 文件夹 / install id | 短名 kebab                    | `my-feature`                    |
-| npm（社区）         | `@<user>/sfmc-module-<id>`    | `@alice/sfmc-module-my-feature` |
-| npm（官方）         | `@sfmc-bds/module-<id>`       | `@sfmc-bds/module-economy`      |
-| `manifest.id`       | `feature-<id>` 或 `core-<id>` | `feature-my-feature`            |
-| `configKey`         | `-` → `_`                     | `my_feature`                    |
+## 2. 工程规范与命名矩阵
 
-## 作者工作流
+为确保模块在全生态中的命名唯一性与一致性，请严格遵循以下规范矩阵：
+
+| 层次维度 | 命名规约 | 示例 | 作用与约束 |
+| :--- | :--- | :--- | :--- |
+| **文件夹 / 安装 ID** | 短名，小写连字符（kebab-case） | `teleport`、`economy` | 运维机安装和执行命令的唯一短名（如 `sfmc mod install teleport`）。 |
+| **npm 包名（社区）** | `@<scope>/sfmc-module-<id>` | `@alice/sfmc-module-teleport` | 社区公开发布至 npm Registry 的包名。 |
+| **npm 包名（官方）** | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` | 平台核心团队维护的官方模块。 |
+| **Manifest 模块 ID** | `feature-<id>` 或 `core-<id>` | `feature-teleport` | 在 SAPI 虚拟机内部的唯一模块标识符。 |
+| **配置命名空间** | 下划线命名（snake_case） | `teleport`、`my_feature` | 对应 `<SFMC_ROOT>/configs/<configKey>.json`。 |
+
+---
+
+## 3. 作者开发标准工作流（Developer Workflow）
+
+SFMC 将模块开发划分为 5 个清晰阶段：
 
 ```mermaid
 flowchart LR
-  A[Create] --> B[test]
-  B --> C[Link]
-  C --> D[Watch]
-  D --> E[Publish]
-  E --> F[index PR]
+  A[1. 脚手架建仓<br/>npm create] --> B[2. 类型与语法检查<br/>typecheck & lint]
+  B --> C[3. 挂接工作区<br/>--link 软链接]
+  C --> D[4. 实时监听<br/>Watch & Hot Reload]
+  D --> E[5. 生态发布<br/>npm & 官方索引 PR]
 ```
 
-1. **Create**：`npm create @sfmc-bds/module@latest` 或扩展 `SFMC: New Module`
-2. **Test**：`pnpm test` / `npm test` / 扩展 `SFMC: Run Tests`（假引擎，秒级；不依赖 `sfmc.root`）。详情见 [测试沙箱](./testing.md)
-3. **Link**：扩展 `SFMC: Link to SFMC Root`，或  
-   `sfmc mod install <id> --from dir:<作者仓绝对路径> --link`
-4. **Watch**：设 `sfmc.root` 为含 `configs/`、`modules/` 的工作目录 → `SFMC: Start Watch` / `Reload to BDS`
-5. **Publish**：扩展 `SFMC: Publish to npm` 或 `pnpm publish --access public` / `npm publish --access public`，再向 `sfmc-modules` 的 `index.json` 开 PR。见 [发布你的模块](./publish.md)
+### ① 编写与静态检查（Type Safety & Lint）
+在本地编码阶段，充分利用 TypeScript 强类型与官方 ESLint 规则保障质量：
 
-:::tip 全表面 ≠ 假 BDS
-沙箱能 `import` 大范围 `@minecraft/*`，未实现 API 会**硬失败**（不是静默 noop）。进服仍是终检：世界交互与版本 quirk 用 Watch / 日志。
+```bash
+pnpm run typecheck    # 验证 SAPI 类型约束
+pnpm run lint         # 检查 Msg 消息助手、SDK 导入与权限约定
+```
 
-| 入口                          | 作用                                   |
-| ----------------------------- | -------------------------------------- |
-| `npm create @sfmc-bds/module` | 建仓（唯一权威）                       |
-| `pnpm test` / `npm test` / 扩展 Run Tests   | 模块仓假引擎单测（`createSandbox`）    |
-| 扩展 Link                     | `mod install --from dir:… --link`      |
-| 扩展 Start Watch              | 源码变更 → `@sfmc-bds/devkit` 重建部署 |
-| `sfmc mod build` / `reload`   | **运维**对本机已装模块组装部署         |
-| `sfmc mod install/enable`     | **运维**安装与启停                     |
+### ② 挂接至本地开服目录（Link）
+将作者仓直接软链接到你的本地测试服务器（SFMC_ROOT）：
 
-:::warning 注意
-`sfmc mod test` / `mod watch` / `mod publish` 已移除；建仓只用 `npm create`，联调/发布用扩展全周期。
+```bash
+# 方式 A：在 VS Code 扩展点击 "SFMC: Link to SFMC Root"
+# 方式 B：在服务端执行 CLI 命令
+sfmc mod install my-feature --from dir:D:/WorkSpace/my-feature --link
+sfmc mod enable my-feature
+```
 
-:::
+### ③ 实时监听与热重载（Watch & Reload）
+在 VS Code / Cursor 中点击扩展栏的 **`SFMC: Start Watch`**。  
+每次你在 `sapi/src/` 中保存代码时，`@sfmc-bds/devkit` 会在毫秒内完成转译增量部署，并自动通知 BDS 刷新行为包，游戏内无感热生效！
 
-### 安装源（运维）
+### ④ 发布至 npm 与官方生态
+代码验证完毕后，正式发布上线：
 
-| 来源                         | 何时用                     |
-| ---------------------------- | -------------------------- |
-| `npm:@scope/name`（默认）    | 已发布                     |
-| `dir:` / `local:` + `--link` | 作者仓联调到服务器工作目录 |
+```bash
+# 发布至 npm（要求公共包）
+pnpm publish --access public
 
-## 作者仓结构
+# 向官方索引 sfmc-modules 的 index.json 提交 PR 登记你的模块
+```
+
+---
+
+## 4. 作者仓标准文件结构
 
 ```text
 my-feature/
-├── package.json
-├── .vscode/          # ESLint / SFMC Module / 测试推荐扩展
-├── eslint.config.js
+├── package.json               # 声明依赖与 exports
+├── .vscode/
+│   ├── extensions.json        # 推荐扩展（SFMC Module, ESLint 等）
+│   └── settings.json          # 绑定 JSON Schema
+├── eslint.config.js           # 集成 @sfmc-bds/eslint-plugin
 ├── sapi/
-│   ├── manifest.json
-│   ├── tsconfig.json
-│   └── src/index.ts
-└── test/
+│   ├── manifest.json          # 模块契约声明（v2 / v3）
+│   ├── tsconfig.json          # 面向 SAPI 环境的 TypeScript 配置
+│   └── src/
+│       └── index.ts           # 模块业务逻辑主入口（ModuleRegistry.register）
+└── package.json
 ```
 
-## SDK 导入
+### SDK 模块化导入路径指南
 
-| 路径                         | 用途                        |
-| ---------------------------- | --------------------------- |
-| `@sfmc-bds/sdk/sapi/runtime` | Msg、命令、权限、菜单       |
-| `@sfmc-bds/sdk/sapi/db`      | 表、CRUD、事务              |
-| `@sfmc-bds/sdk/testing`      | 测试沙箱 `createSandbox`    |
-| `@sfmc-bds/create-module`    | 建仓 API（扩展 / CLI）      |
-| `@sfmc-bds/devkit`           | Watch / rebuild（扩展依赖） |
+| 导入路径 | 导出功能 | 使用场景 |
+| :--- | :--- | :--- |
+| **`@sfmc-bds/sdk/module-loader`** | `ModuleRegistry`、`ConfigManager` | 模块根入口注册与生命周期定义。 |
+| **`@sfmc-bds/sdk/sapi/runtime`** | `Command`、`Msg`、`Permission`、`MenuNavigator` | 聊天命令、规范消息展示、权限节点注册与表单菜单。 |
+| **`@sfmc-bds/sdk/sapi/db`** | `db.defineTable`、`db.select`、`db.insert`、`db.tx` | SQLite 透明持久化与多模块分布式事务。 |
+| **`@sfmc-bds/sdk/sapi/config`** | `config.get`、`config.set` | 读取并监听本模块私有配置文件。 |
+| **`@sfmc-bds/sdk/sapi/service`** | `service.provide`、`service.call` | 跨模块暴露远程 RPC 接口或调用其他模块能力。 |
 
-## 接下来
+:::warning 注意：杜绝违规直连
+严禁在 SAPI 模块内使用原生 `fetch` 或 `http` 直接请求 `127.0.0.1:3001`。所有数据库读写与服务通信必须通过 SDK 封装的 `db.*`、`service.*` 接口进行，SDK 会自动完成请求上下文封装与 Bearer Token 鉴权注入。
+:::
 
-| 章节                         | 内容                             |
-| ---------------------------- | -------------------------------- |
-| [API 速查手册](./cheatsheet.mdx) | 常用生命周期、Msg、DB、配置与服务调用代码片段 |
-| [测试沙箱](./testing.md)     | 假引擎保真、L0/L2、与 Watch 分工 |
-| [ESLint 约定](./eslint.md)   | 约定检查                         |
-| [发布你的模块](./publish.md) | npm 发布                         |
+---
 
-## manifest v3 语义字段
+## 5. Manifest v3 语义化元数据契约
 
-v2 manifest 只够 boot 用；v3 在 v2 之上新增可选 `semantic` 块，用来描述模块**「在做什么」**——沙箱、配置面板、场景图据此推断行为来源。
+在 `sapi/manifest.json` 中，除了基础的模块 ID 和依赖外，推荐声明 **v3 语义化元数据（`semantic` 块）**。它能够帮助编辑器、静态沙箱与运维面板深刻理解该模块的行为特征：
 
-v3 是**完全可选**的能力扩展：不写 v3 字段也能 boot；旧 v2 模块一行代码不用改。
-
-### 字段一览
-
-| 字段                      | 类型                                            | 用途                                                                        |
-| ------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------- |
-| `schemaVersion`           | `3`                                             | manifest schema 版本号；旧模块保留 `2` 即可。                               |
-| `semantic.configKeys`     | `string[]`                                      | 模块读取的配置键：精确名（如 `"land.price"`）或前缀（如 `"economy.*"`）。   |
-| `semantic.dependsOn`      | `string[]`                                      | 依赖的其他模块 id。决定启动顺序校验、UI 提示「请先启用 X」。                |
-| `semantic.events.emits`   | `string[]`                                      | 模块主动 emit 的自定义事件名（建议 `module:<id>:<event>`）。                |
-| `semantic.events.listens` | `string[]`                                      | 模块监听的事件路径，含 BDS 原生（`world.afterEvents.playerJoin`）与自定义。 |
-| `semantic.dbTables`       | `{ name, columns? }[]`                          | 模块使用的 DB 表与列提示。                                                  |
-| `semantic.publicApi`      | `{ symbol, description?, params?, returns? }[]` | 模块对外暴露的 API 签名，供其他模块 import 参考。                           |
-
-每个 `semantic` 子字段都允许缺失；缺省时等同于「没有声明」，沙箱按 v2 行为推断。
-
-### 完整示例
-
-```json
+```json title="sapi/manifest.json"
 {
   "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v3.schema.json",
   "schemaVersion": 3,
   "id": "feature-economy",
-  "name": "经济",
+  "name": "核心经济系统",
   "type": "feature",
   "configKey": "economy",
-  "requires": ["feature-land"],
-  "permissions": ["db:read:wallet", "db:write:wallet", "config:read:economy"],
+  "requires": [],
+  "permissions": ["db:read:wallet", "db:write:wallet"],
   "services": {
-    "provides": [{ "name": "economy.balance" }],
+    "provides": [{ "name": "economy.transfer" }],
     "requires": []
   },
   "semantic": {
-    "configKeys": ["economy.*", "land.economy.*"],
-    "dependsOn": ["feature-land"],
+    "configKeys": ["economy.initial_balance", "economy.currency_name"],
+    "dependsOn": [],
     "events": {
-      "emits": ["economy:walletChanged"],
+      "emits": ["economy:balanceChanged"],
       "listens": ["world.afterEvents.playerJoin"]
     },
-    "dbTables": [{ "name": "wallet", "columns": ["playerId", "balance"] }, { "name": "tx_log" }],
+    "dbTables": [
+      {
+        "name": "wallets",
+        "columns": ["player_xuid", "balance", "updated_at"]
+      }
+    ],
     "publicApi": [
       {
-        "symbol": "spend",
-        "description": "扣除余额并写流水",
+        "symbol": "transfer",
+        "description": "跨玩家安全转账（支持事务回滚）",
         "params": [
-          { "name": "playerId", "type": "string", "required": true },
+          { "name": "fromPlayer", "type": "string", "required": true },
+          { "name": "toPlayer", "type": "string", "required": true },
           { "name": "amount", "type": "number", "required": true }
         ],
-        "returns": { "type": "boolean", "description": "成功与否" }
+        "returns": { "type": "boolean", "description": "转账是否成功" }
       }
     ]
   }
 }
 ```
 
-### 兼容性与迁移
+### 语义字段解析
 
-- **v2 → v3 自动迁移**：沙箱与 CLI `check-modules`（`mod install` 后）都内置自动 migrate（`migrateV2toV3`）。v2 manifest 加载时直接补 `schemaVersion: 3`、保留所有原有字段，`semantic` 视为空。
-- **缺省 semantic 合法**：v3 manifest 可以不写 `semantic`，等价于「暂时没声明语义」——后续可逐字段补全。
-- **运行时校验**：保留 v2 的硬校验（id/name/type/configKey/requires/permissions/services 必填）；`semantic` 子字段类型错时给 `errors: string[]`，但不拒绝启动（沙箱会剥掉坏字段、用 v3 顶层继续）。
+- **`configKeys`**：声明该模块会读取或监听的配置键集合。
+- **`events.emits` / `listens`**：声明该模块主动触发的全局事件与监听的原生/跨模块事件路径。
+- **`dbTables`**：描述该模块在 SQLite 中注册的数据表与核心列。
+- **`publicApi`**：对外暴露的强类型 API 接口说明，为下游调用者提供签名参考。
 
-### 配套工具
+### 向下兼容性保障
+- **零破坏性升级**：v3 对 v2 完全向下兼容。旧模块保留 `schemaVersion: 2` 即可平滑运行，系统会自动将其平滑升维为缺省 `semantic` 的 v3 格式。
+- **类型宽容度**：即使在 `semantic` 中声明了可选错误类型，校验引擎仅会在控制台打印警告提示，绝对不会粗暴阻断模块的启动加载。
 
-| 工具                                           | 行为                                                         |
-| ---------------------------------------------- | ------------------------------------------------------------ |
-| CLI `scripts/module-install/check-modules.mjs` | `mod install` 后校验；v3 `semantic` 类型错会报错             |
-| CLI `fetch-module`                             | 投影时把 `semantic` 块原样写入 catalog（仅读取，不主动注入） |
+---
 
-### 与缺口 1 / 3 的衔接
+## 6. 下一步指引
 
-v3 `semantic` 不是终点，是**数据源**：
-
-- 缺口 1（沙箱读语义镜像面板）：v3 字段准备齐后，沙箱能枚举每个模块的 `configKeys / events / dbTables / publicApi`，构建「模块语义镜像」面板，让作者不用读 manifest 也能看到自己模块触达的范围。
-- 缺口 3（场景对象标来源）：场景里每个对象/事件可以标注「由哪个模块的哪个 `publicApi` / `events.emit` 产生」，数据来源就是 v3 的 `publicApi.symbol` 与 `events.emits`。
-
-`publicApi` 当前只支持单签名；多载/重载留 TODO，等下一轮按真实模块诉求再加。
-
-> v2 manifest 作者请保持现状不动；只有新增模块或主动升级时再写 v3。`fetch-module` 不会因为写错 v3 而拒绝模块——错就报在 install 后的 check-modules，不必动 v2 字段。
+- 📚 **核心 API 速查**：查阅 [API 速查手册 (Cheatsheet)](./cheatsheet.mdx) 获取最常用的代码片段。
+- 🧪 **单元测试沙箱**：查阅 [测试沙箱指南](./testing.md) 了解如何编写高质量的 Mock 测试用例。
+- 🛡️ **代码质量规范**：查阅 [ESLint 规则说明](./eslint.md) 消除常见的安全隐患与反模式。
+- 🚀 **发布至 npm**：查阅 [发布你的模块](./publish.md) 了解版本打标与上架规范。

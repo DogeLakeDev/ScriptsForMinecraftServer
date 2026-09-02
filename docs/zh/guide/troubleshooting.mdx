@@ -1,3 +1,5 @@
+import { Tab, Tabs } from "@rspress/core/theme";
+
 # 排障与诊断
 
 当遇到服务无法启动、模块未生效或连接异常时，可通过下方的交互式排障向导逐步排查；完整排查清单与高频问题汇总亦收录在下方，便于快速检索与定位。
@@ -62,18 +64,23 @@ curl http://127.0.0.1:3001/api/health
 
 ### 5. QQ 机器人与消息桥接异常
 
-:::tabs
-== 官方开放平台后端 (`official`)
+<Tabs>
+  <Tab label="官方开放平台后端 (official)">
+
 1. **凭证核对**：检查 `configs/qq_config.json` 中的 `qq_app_id` 与 `qq_app_secret` 是否正确填写。
 2. **IP 白名单配置**：登录 QQ 开放平台开发者后台，确认公网 IP 已添加到调用白名单中。
 3. **事件订阅**：确认在开放平台已开启 `GROUP_AT_MESSAGE_CREATE`（群聊 @ 消息事件）。
 4. **群标识回填**：在群内首次 @ 机器人后，从控制台日志复制生成的 `qq_group_openid` 并填回配置文件，随后重启服务。
 
-== LLBot / OneBot 后端 (`llbot`)
+  </Tab>
+  <Tab label="LLBot / OneBot 后端 (llbot)">
+
 1. **反向 WebSocket**：确认 LLBot 配置文件中的反向 WebSocket 目标为 `ws://127.0.0.1:3002`。
 2. **目标群号**：检查 `configs/qq_config.json` 中的 `qq_group_id` 是否为有效数字群号。
 3. **防火墙拦截**：确认本机 3002 端口未被本地杀毒软件或安全策略拦截。
-:::
+
+  </Tab>
+</Tabs>
 
 ---
 
