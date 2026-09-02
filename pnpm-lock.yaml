@@ -26,6 +26,9 @@ importers:
       '@minecraft/vanilla-data':
         specifier: 1.26.40-preview.30
         version: 1.26.40-preview.30
+      '@sfmc-bds/eslint-plugin':
+        specifier: workspace:*
+        version: link:modules/sdk/@sfmc-eslint-plugin
       '@types/node':
         specifier: ^26.1.1
         version: 26.2.0
