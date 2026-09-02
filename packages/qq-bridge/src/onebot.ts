@@ -1,13 +1,11 @@
 /**
- * onebot.ts — OneBot 11 事件分发
+ * onebot.ts — OneBot 11 协议事件分发与消息解析中心
  *
- * 职责:
- *   1. 维护 botSelfId (从 lifecycle 元事件捕获)
- *   2. 5s 短期 message_id 去重 (防 LLBot 偶发重发)
- *   3. 群消息段 → 纯文本 (text / at / image / face / reply / forward / record / video / file)
- *   4. 命中规则后调用 tryForward 投递
- *
- * 行为与旧 index.js 完全一致; 类型上把 sender/message 都收紧为 narrow 类型。
+ * 核心机制：
+ * - 机器人自身身份捕获：从 OneBot lifecycle 元事件中提取 `botSelfId`，防止自身消息回环
+ * - 消息短期去重：维护 5 秒窗口的高速 Map 幂等缓存，防范外部客户端偶发重复推送
+ * - 复合富文本规整化：将包含 text / at / image / face / reply 等多段复合内容格式化为整洁文本
+ * - 目标群与命令分流：对齐配置的目标群 ID，指令优先交由指令路由器消费，其余消息转发至 MC
  */
 
 import { log } from "./log.js";
@@ -28,6 +26,7 @@ import type {
   OneBotTextSegment,
   OneBotVideoSegment,
 } from "./types.js";
+
 
 // ── 类型守卫 ────────────────────────────────────────────────────
 function isGroupMessageEvent(e: OneBotEvent): e is OneBotGroupMessageEvent {

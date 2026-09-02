@@ -1,14 +1,10 @@
 /**
- * ws-server.ts — WebSocket 服务 (LLBot reverse-ws 入口)
+ * ws-server.ts — WebSocket 服务端（面向 LLBot reverse-ws 反向连接）
  *
- * 端口: 3002 (默认)
- * 行为与旧实现完全一致:
- *   - 优先加载本地 node_modules/ws
- *   - 加载失败时 fallback 到 ../db-server/node_modules/ws
- *   - 每个连接把消息 JSON.parse 后交给 dispatcher
- *
- * fallback 用 createRequire 加载: 避免 TypeScript 在编译期检查
- * ../db-server/node_modules/ws 的相对路径(不在 tsconfig 包含范围)。
+ * 监听端口：默认 3002
+ * 核心机制：
+ * - 依赖加载：优先加载本地 `ws` 模块，缺失时回退至工作区共享依赖
+ * - 消息解包与路由分流：自动将接收到的 WebSocket 帧解析为 JSON，API echo 回包优先消费，其余事件投递至事件分发器
  */
 
 import type { IncomingMessage } from "node:http";
@@ -29,12 +25,19 @@ async function loadWs(): Promise<typeof import("ws")> {
   try {
     return localRequire("ws") as typeof import("ws");
   } catch {
-    // 兜底:复用 db-server 的 ws
+    // 兜底：复用 db-server 的 ws
     return localRequire("../db-server/node_modules/ws") as typeof import("ws");
   }
 }
 
+/**
+ * 启动 WebSocket 服务器并挂接 LLBot 反向连接监听。
+ *
+ * @param opts 包含监听端口与 OneBot 事件分发器的配置项。
+ * @returns 运行中的 WebSocketServer 实例。
+ */
 export async function startWsServer(opts: WsServerOptions): Promise<WebSocketServer> {
+
   const ws = await loadWs();
   const { WebSocketServer: WSS } = ws;
   const wss = new WSS({ port: opts.port });

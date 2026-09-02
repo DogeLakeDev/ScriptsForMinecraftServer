@@ -1,8 +1,9 @@
 /**
- * dbserver.ts — 转发 OneBot 群消息到 db-server /api/sfmc/messages
+ * dbserver.ts — 转发 QQ 消息至 db-server 消息聚合端点（/api/sfmc/messages）
  *
- * 与旧实现保持行为一致: 仅 POST 200 视为成功,否则抛错; 失败不重试 (主流程不阻塞)。
- * 超时: 与 db-server 内部 HTTP 风格一致,使用 req.on("timeout") + req.destroy。
+ * 核心机制：
+ * - 消息标准化：将外部群消息构造为标准 `IncomingChatMessage` 对象（发送者标识统一加上 `qq_` 前缀）
+ * - 快速响应与容错：请求超时（5 秒）后自动熔断；转发失败仅记录告警日志，不阻塞主事件循环
  */
 
 import { request as httpRequest, type RequestOptions } from "node:http";
@@ -43,7 +44,7 @@ function postJSON<T>(url: URL, body: unknown, timeoutMs: number): Promise<T> {
           try {
             resolve(JSON.parse(buf) as T);
           } catch {
-            // 允许返回非 JSON: 仍视为成功,作为 void 抛出
+            // 允许返回非 JSON：仍视为成功
             resolve(buf as unknown as T);
           }
         } else {
@@ -61,8 +62,13 @@ function postJSON<T>(url: URL, body: unknown, timeoutMs: number): Promise<T> {
 }
 
 /**
- * 构造一条 IncomingChatMessage 并 POST 到 db-server。
- * fromid 形如 `qq_<user_id>`,与旧实现保持完全一致。
+ * 构造标准聊天消息结构体并 POST 发送至 db-server 消息端点。
+ *
+ * @param cfg db-server 目标连接与频道配置。
+ * @param fromId 发送方唯一标识符（通常形如 `qq_<user_id>`）。
+ * @param fromName 发送方展示昵称。
+ * @param content 消息纯文本内容。
+ * @param now 消息时间戳（毫秒，默认取当前时间）。
  */
 export async function forwardGroupMessage(
   cfg: DBServerConfig,
@@ -86,7 +92,14 @@ export async function forwardGroupMessage(
   await postJSON<unknown>(url, body, REQUEST_TIMEOUT_MS);
 }
 
-/** 包装 try/catch,失败仅 log (与旧实现一致,不抛给主循环)。 */
+/**
+ * 安全转发消息至 db-server（内部捕获异常并记录日志，避免抛出给主事件循环）。
+ *
+ * @param cfg db-server 连接配置。
+ * @param fromId 发送方唯一标识符。
+ * @param fromName 发送方昵称。
+ * @param content 消息文本内容。
+ */
 export async function tryForward(
   cfg: DBServerConfig,
   fromId: string,
@@ -100,3 +113,4 @@ export async function tryForward(
     log.error(`转发到 db-server 失败: ${(e as Error).message}`);
   }
 }
+

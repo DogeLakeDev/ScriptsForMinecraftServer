@@ -1,10 +1,11 @@
 /**
- * config.ts — 加载 configs/qq_config.json
+ * config.ts — QQ 桥接服务配置加载与热重载管理
  *
- * 行为与旧 index.js 保持完全一致:
- *   - 文件不存在或解析失败: 进程退出 (旧版 process.exit(1))
- *   - 字段缺失: 走默认值
- *   - reload 时仅覆盖原对象 (mutate), 保留运行时引用的同一份对象
+ * 配置源：`configs/qq_config.json`
+ * 核心机制：
+ * - 进程启动时调用 `loadInitialConfig()` 加载并校验配置；若配置文件缺失或损坏则退出
+ * - 缺省字段自动回退至 SDK `DEFAULT_QQ_CONFIG` 权威默认值
+ * - 支持 `reloadInto(cfg)` 就地合并更新运行时对象，保持内存引用一致
  */
 
 import {
@@ -17,7 +18,7 @@ import { log } from "./log.js";
 import { PROJECT_ROOT } from "./project-root.js";
 import type { QQBridgeConfig } from "./types.js";
 
-/** 统一通过 SDK 解析项目根:env SFMC_ROOT > project-root 上溯。 */
+/** 统一通过 SDK 解析项目根目录（SFMC_ROOT 优先于上溯查找）。 */
 export const ROOT_DIR: string = PROJECT_ROOT;
 export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 
@@ -59,7 +60,11 @@ function readFromDisk(): QQBridgeConfig {
   return applyDefaults(raw as Partial<QQBridgeConfig>);
 }
 
-/** 进程启动时加载一次。失败直接退出,与旧实现一致。 */
+/**
+ * 进程启动时加载初始配置。
+ *
+ * @returns 规整化后的 QQ 桥接配置对象。
+ */
 export function loadInitialConfig(): QQBridgeConfig {
   try {
     return readFromDisk();
@@ -70,15 +75,16 @@ export function loadInitialConfig(): QQBridgeConfig {
 }
 
 /**
- * 重新读取配置文件,合并到传入对象上 (mutate)。
- * 旧实现是 Object.assign(cfg, newCfg),保留运行时对原 cfg 对象的引用 — 同样行为。
+ * 重新从磁盘读取配置文件，并就地合并到当前配置对象中（保持运行时对象引用不变）。
+ *
+ * @param cfg 需同步更新的目标配置对象。
  */
 export function reloadInto(cfg: QQBridgeConfig): void {
   try {
     const fresh = readFromDisk();
     Object.assign(cfg, fresh);
   } catch (e) {
-    // reload 失败不抛,旧实现也是只 log
     log.error(`重载配置失败: ${(e as Error).message}`);
   }
 }
+
