@@ -19,7 +19,6 @@ export const ansi = {
 
 /** 移除字符串中所有 ANSI 转义码 */
 export function stripAnsi(s: string): string {
-  // eslint-disable-next-line no-control-regex
   return s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
