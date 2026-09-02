@@ -58,9 +58,14 @@ export const json = sharedJson;
 export const body = sharedBody;
 
 /**
- * v2 失败信封权威形态(DRY + LSP):
- * 一律 `{ ok:false, error, code? }`(+ 可选 extra),勿再混用 `{ success:false }`。
- * service-routes / db / module-config / index 模块鉴权门应走此助手。
+ * 标准失败响应信封生成工具（格式：`{ ok: false, error, code? }` + 可选 extra 字段）。
+ * 路由层与鉴权中间件统一调用此助手，杜绝与 `{ success: false }` 字段混用。
+ *
+ * @param res HTTP 响应对象。
+ * @param error 错误简短描述。
+ * @param status HTTP 状态码。
+ * @param code 可选的精细业务错误码。
+ * @param extra 可选的附加字段字典。
  */
 export function jsonV2Fail(
   res: ServerResponse,
@@ -75,8 +80,12 @@ export function jsonV2Fail(
 }
 
 /**
- * v2 成功信封权威形态(DRY + LSP):
- * 一律 `{ ok:true, ...fields }`,与 jsonV2Fail 对称;客户端已双认 ok/success。
+ * 标准成功响应信封生成工具（格式：`{ ok: true, ...fields }`）。
+ * 与 `jsonV2Fail` 对称统一。
+ *
+ * @param res HTTP 响应对象。
+ * @param fields 响应正文字段字典。
+ * @param status HTTP 状态码（默认为 200）。
  */
 export function jsonV2Ok(
   res: ServerResponse,
@@ -85,6 +94,7 @@ export function jsonV2Ok(
 ): void {
   sharedJson(res, { ...fields, ok: true }, status);
 }
+
 
 export {};
 

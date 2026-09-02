@@ -30,12 +30,13 @@
 
 import type { DatabaseSync } from "node:sqlite";
 
-/** 事务执行器所需的最小接口 (db.exec)，让领域函数能接受 node:sqlite DatabaseSync
- *  或 routes 注入的窄化包装 */
+/** 事务执行器所需的最小接口（`Pick<DatabaseSync, "exec">`），让领域函数能接受 `node:sqlite DatabaseSync` 或路由层注入的窄化包装。 */
 export type Transactional = Pick<DatabaseSync, "exec">;
 
-/** 领域事务统一结果类型：成功携带 data，失败携带 error + HTTP status。
- *  可选 extra 字段用于携带附加上下文（如当前余额）供 route 层透传。 */
+/**
+ * 领域事务统一结果类型：成功携带 `data`，失败携带 `error` + HTTP `status`。
+ * 可选 `extra` 字段用于携带附加上下文（如当前余额）供 route 层透传。
+ */
 export type TxResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; status: number; extra?: Record<string, unknown> };
@@ -48,6 +49,7 @@ export type TxResult<T> =
  *   - throw              → ROLLBACK 后重新抛错
  *   - return Promise     → await 后再 COMMIT / ROLLBACK
  */
+
 export function withTransaction<T>(
   db: Transactional,
   fn: () => T | Promise<T>

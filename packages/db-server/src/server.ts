@@ -15,6 +15,12 @@ interface CheckResult {
   error?: string;
 }
 
+/**
+ * 检测指定端口是否冲突可用。
+ *
+ * @param port 待检测的端口号。
+ * @returns 包含端口可用性状态的检测结果对象。
+ */
 export function checkPortConflict(port: number): Promise<CheckResult> {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -47,6 +53,12 @@ export interface ServerOptions {
   onListening?: (server: http.Server) => void;
 }
 
+/**
+ * 创建并配置 db-server 的原生 HTTP 服务实例（集成请求耗时监控与状态码日志）。
+ *
+ * @param options 服务端启动配置选项。
+ * @returns 原生 http.Server 实例。
+ */
 export function createServer({ handle, env, onListening }: ServerOptions): http.Server {
   const server = http.createServer((req, res) => {
     const startedAt = Date.now();
@@ -76,7 +88,15 @@ export function createServer({ handle, env, onListening }: ServerOptions): http.
   return server;
 }
 
+/**
+ * 启动交互式控制台 REPL 界面，支持在终端输入 `help`、`status`、`stop` 运维管理指令。
+ *
+ * @param server HTTP 服务实例。
+ * @param db 数据库连接实例。
+ * @returns 控制台 Readline 接口对象。
+ */
 export function startConsole(server: http.Server, db: DatabaseSync | null): readline.Interface {
+
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   rl.on("line", (line: string) => {
     const cmd = line.trim().toLowerCase();

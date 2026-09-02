@@ -1,30 +1,29 @@
 /**
- * domain/schema.ts — 数据库 schema 初始化(唯一真源)
+ * domain/schema.ts — 数据库 Schema 初始化定义（平台内嵌表唯一基线）
  *
- * 所有 CREATE TABLE / CREATE INDEX 语句集中于此。
- * 调用方式:initSchema(db) — 在 openDatabase 之后、createQuery 之前执行。
+ * 集中管理平台核心数据表的 `CREATE TABLE IF NOT EXISTS` 与 `CREATE INDEX IF NOT EXISTS` DDL 语句。
+ * 调用方式：`initSchema(db)` —— 在 `openDatabase` 之后、业务查询启动前执行。
  *
- * 事务描述:
- *   - 无业务 Tx(本文件只做 DDL,不涉及业务事务)
- *
- * 业务域(按文件内 db.exec 块编号):
- *   (1) 世界备份        (2) 玩家备份    (3) 计分板
- *   (4) 玩家行为日志    (5) 聊天频道    (6) 聊天消息
- *   (7) 红包            (8) 合作社主体/成员/邀请/账户
- *   (9) 合作社商店项/商店组 (10) 合作社账变流水/审计
- *   (11) 领地主体/成员/权限 (12) 领地邀请/审计/请求幂等
- *   (13) 玩家指令用量   (14) 价格指数
- *   (15) 每日任务/统计  (16) 经济账户/流水/幂等
- *
- *   完整表名以 `sfmc_` 前缀,具体见下方每个 db.exec 块。
- *
- * 备注: ALTER / DROP 不在此处;如需迁移请新建 tools/migrate-*.ts,
- *       保持本文件只做"全新初始化"。
+ * 业务数据域分布：
+ * (1) 世界备份        (2) 玩家备份    (3) 计分板
+ * (4) 玩家行为日志    (5) 聊天频道    (6) 聊天消息
+ * (7) 红包            (8) 合作社主体/成员/邀请/账户
+ * (9) 合作社商店项/组 (10) 合作社流水/审计
+ * (11) 领地主体/成员  (12) 领地邀请/审计/幂等
+ * (13) 指令用量       (14) 价格指数
+ * (15) 每日任务/统计  (16) 经济账户/流水/幂等
+ * (17) QQ 绑定与申请  (18) 模块自声明元数据表
  */
 
 import type { DatabaseSync } from "node:sqlite";
 
+/**
+ * 初始化数据库结构，创建所有平台内嵌表与索引。
+ *
+ * @param db SQLite 数据库连接实例。
+ */
 export function initSchema(db: DatabaseSync): void {
+
   // (1 世界备份数据
   db.exec(/* sql */ `
     CREATE TABLE IF NOT EXISTS sfmc_world (

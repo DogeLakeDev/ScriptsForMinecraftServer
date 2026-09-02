@@ -1,8 +1,8 @@
 /**
- * services/builtin-handlers.ts — 进程内置 service 插件注册表
+ * services/builtin-handlers.ts — 进程内置跨模块服务插件注册表
  *
- * 新增内置 handler 只追加 BUILTIN_SERVICE_PLUGINS(OCP),
- * 勿在 index.ts 再写 if (enabledSet.has(...)) registerXxx 链。
+ * 遵循开闭原则（OCP）：新增内置服务仅需向 `BUILTIN_SERVICE_PLUGINS` 追加配置，
+ * 避免在主入口硬编码 `if (enabledSet.has(...)) registerXxx` 注册链。
  */
 
 import type { DatabaseSync } from "node:sqlite";
@@ -17,12 +17,19 @@ export type BuiltinServicePlugin = {
   register: (registry: ServiceRegistry, deps: BuiltinServiceDeps) => void;
 };
 
-/** 内置 service 插件清单 — 唯一扩展点 */
+/** 内置 service 插件清单 — 扩展注册列表。 */
 export const BUILTIN_SERVICE_PLUGINS: BuiltinServicePlugin[] = [
   { moduleId: "feature-economy", register: registerEconomyHandlers },
 ];
 
-/** 按 enabledSet 注册内置插件,返回已注册插件数 */
+/**
+ * 根据已启用模块集合批量注册内置服务插件。
+ *
+ * @param registry 服务注册表实例。
+ * @param deps 数据库查询与连接依赖。
+ * @param enabledSet 当前处于启用状态的模块 ID 集合。
+ * @returns 成功注册的插件数量。
+ */
 export function registerEnabledBuiltinServices(
   registry: ServiceRegistry,
   deps: BuiltinServiceDeps,
@@ -37,7 +44,14 @@ export function registerEnabledBuiltinServices(
   return n;
 }
 
-/** 热启用:只注册单个内置插件(若尚未注册) — 以 registry.moduleId 为权威,勿硬编码 service 名(DRY) */
+/**
+ * 热启用指定模块的内置服务插件（若尚未注册）。
+ *
+ * @param registry 服务注册表实例。
+ * @param deps 数据库依赖。
+ * @param moduleId 目标模块唯一标识符。
+ * @returns 若成功注册返回 `true`，若插件不存在或已注册则返回 `false`。
+ */
 export function registerBuiltinPluginForModule(
   registry: ServiceRegistry,
   deps: BuiltinServiceDeps,
@@ -51,8 +65,15 @@ export function registerBuiltinPluginForModule(
   return true;
 }
 
-/** 热禁用:按 moduleId 卸掉该模块全部 handler(勿维护 serviceNames 副本 — DRY/OCP) */
+/**
+ * 热禁用指定模块的全部服务处理器。
+ *
+ * @param registry 服务注册表实例。
+ * @param moduleId 待卸载服务的模块 ID。
+ * @returns 成功卸载的服务数量。
+ */
 export function unregisterBuiltinPluginForModule(registry: ServiceRegistry, moduleId: string): number {
+
   let n = 0;
   for (const h of registry.list()) {
     if (h.moduleId !== moduleId) continue;

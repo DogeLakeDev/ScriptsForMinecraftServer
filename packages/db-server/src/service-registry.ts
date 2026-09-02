@@ -1,13 +1,14 @@
 /**
- * service-registry.ts — 跨模块 service.get 后端
+ * service-registry.ts — 跨模块服务注册表与调度中心（Service Registry）
  *
- * 协议:
- *   HTTP GET /api/sfmc/services/<name>?input=<urlencoded-json>
- *   鉴权:Bearer module_token + ?moduleId=<callerId>
+ * 协议规范：
+ * - HTTP GET `/api/sfmc/services/<name>?input=<urlencoded-json>`
+ * - 鉴权机制：Bearer module_token + 查询参数 `?moduleId=<callerId>`
  *
- * 派发:
- *   handler 注册在 db-server 进程内存。外层 db.tx 内的 tx.call 会注入
- *   ctx.tx = { query, db },handler 不得再 BEGIN(方案 A)。
+ * 调度与事务边界：
+ * 服务处理器注册在 db-server 进程内存中。
+ * 在外层 `db.tx` 事务会话内调用 `tx.call` 时，会通过 `ctx.tx = { query, db }` 注入现有事务上下文，
+ * 处理器复用当前事务连接，严禁重复开启嵌套事务。
  */
 
 import type { DatabaseSync } from "node:sqlite";
@@ -27,7 +28,7 @@ export interface ServiceTxContext {
 export interface ServiceDispatchContext {
   callerModuleId: string;
   payload: unknown;
-  /** 外层 db.tx 已打开时注入;handler 复用连接,禁止嵌套 BEGIN */
+  /** 外层 db.tx 已打开时注入；处理器复用此连接，禁止开启嵌套 BEGIN。 */
   tx?: ServiceTxContext;
 }
 
@@ -38,26 +39,56 @@ interface RegisteredHandler {
   handle: ServiceHandler;
 }
 
+/** 跨模块服务注册表管理器。 */
 export class ServiceRegistry {
   private readonly handlers = new Map<string, RegisteredHandler>();
 
-  /** 提供方在 db-server 启动期注册 handler */
+  /**
+   * 注册指定模块提供的跨模块服务处理器。
+   *
+   * @param moduleId 服务提供方模块 ID。
+   * @param name 服务完整名称。
+   * @param handle 业务处理函数。
+   */
   registerHandler(moduleId: string, name: string, handle: ServiceHandler): void {
     if (this.handlers.has(name)) {
-      throw new Error(`[service] "${name}" 已被 ${this.handlers.get(name)?.moduleId} 注册,${moduleId} 抢注`);
+      throw new Error(`[service] "${name}" 已被 ${this.handlers.get(name)?.moduleId} 注册, ${moduleId} 抢注`);
     }
     this.handlers.set(name, { moduleId, handle });
   }
 
+  /**
+   * 注销指定名称的服务处理器。
+   *
+   * @param name 待注销的服务名称。
+   */
   unregisterHandler(name: string): void {
     this.handlers.delete(name);
   }
 
+  /**
+   * 获取当前已注册的全部跨模块服务列表。
+   *
+   * @returns 包含服务名与所属模块 ID 的列表。
+   */
   list(): Array<{ name: string; moduleId: string }> {
     return [...this.handlers.entries()].map(([name, h]) => ({ name, moduleId: h.moduleId }));
   }
 
+  /**
+   * 调度并执行指定的跨模块服务。
+   * 包含调用方与提供方启停状态校验、声明式契约（`services.requires`）匹配及异常分流。
+   *
+   * @param enabled 当前所有已启用的模块清单字典。
+   * @param callerModuleId 发起调用的模块唯一标识符。
+   * @param name 目标服务完整名称。
+   * @param payload 传入调用的参数数据。
+   * @param tx 可选的当前事务上下文。
+   * @returns 服务执行返回结果。
+   * @throws {DispatchError} 服务未找到、未声明依赖或鉴权失败时抛出。
+   */
   async dispatch(
+
     enabled: Map<string, ModuleManifestV2>,
     callerModuleId: string,
     name: string,

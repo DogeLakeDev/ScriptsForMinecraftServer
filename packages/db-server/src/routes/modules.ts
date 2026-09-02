@@ -22,6 +22,12 @@ interface Deps {
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
 }
 
+/**
+ * 创建模块目录检索与启停管控路由处理器。
+ *
+ * @param deps 依赖注入字典。
+ * @returns 异步路由处理函数。
+ */
 function createModuleRoutes({
   loadModuleCatalog,
   buildModuleList,
@@ -30,6 +36,7 @@ function createModuleRoutes({
   body,
   json,
 }: Deps) {
+
   return async function handleModuleRoute({
     path,
     method,

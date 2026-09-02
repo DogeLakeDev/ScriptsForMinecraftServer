@@ -57,7 +57,7 @@ export interface EconomyTransactionRow {
   created_at: number;
   idempotency_key: string;
 
-  /** JS-side alias fields used by domain/economy.ts */
+  /** 兼容 JS 领域模型访问的驼峰别名字段。 */
   actorId?: string;
   type?: string;
   referenceType?: string;
@@ -114,7 +114,7 @@ export interface EconomyTransactionRow {
   created_at: number;
   idempotency_key: string;
 
-  /** JS-side alias fields used by domain/economy.ts */
+  /** 兼容 JS 领域模型访问的驼峰别名字段。 */
   actorId?: string;
   type?: string;
   referenceType?: string;
@@ -122,6 +122,7 @@ export interface EconomyTransactionRow {
   sourcePlayerName?: string;
   targetPlayerName?: string;
 }
+
 
 export interface EconomyAccountView {
   playerId: string;
@@ -388,7 +389,13 @@ export function applyEconomySteps(query: AnyQuery, data: ApplyEconomyInput): App
 }
 
 /**
- * 独立经济事务包装。alreadyInTx=true 时复用外层事务(不再 BEGIN)。
+ * 独立经济事务包装。若指定 `alreadyInTx: true` 则复用外层事务（不再单独开启 BEGIN）。
+ *
+ * @param query 数据库查询执行函数。
+ * @param db 数据库连接实例。
+ * @param data 经济操作输入参数。
+ * @param opts 可选事务参数。
+ * @returns 经济变动结果。
  */
 export function applyEconomyTransaction(
   query: AnyQuery,
@@ -422,7 +429,13 @@ export function applyEconomyTransaction(
   }
 }
 
-/** 列出日常任务(默认仅 active 且未过期) */
+/**
+ * 列出日常任务列表（默认仅查询 active 状态且尚未过期的任务）。
+ *
+ * @param query 数据库查询执行函数。
+ * @param filter 过滤条件（可指定状态或是否包含已过期任务）。
+ * @returns 任务行记录数组。
+ */
 export function listDailyTasks(
   query: AnyQuery,
   filter?: { status?: string; includeExpired?: boolean }
@@ -443,7 +456,13 @@ export interface SubmitDailyTaskInput {
   quantity: number;
 }
 
-/** 日常任务提交核心(无 BEGIN) */
+/**
+ * 日常任务提交核心逻辑（无显式事务控制，供内部或外层事务调用）。
+ *
+ * @param query 数据库查询执行函数。
+ * @param data 任务提交数据（玩家 ID、任务 ID、提交数量）。
+ * @returns 提交结果（含奖励金额、更新后的余额及版本号）。
+ */
 export function submitDailyTaskSteps(
   query: AnyQuery,
   data: SubmitDailyTaskInput
@@ -502,7 +521,15 @@ export function submitDailyTaskSteps(
   };
 }
 
-/** 日常任务提交包装(可独立事务或嵌入外层 tx) */
+/**
+ * 日常任务提交事务包装（可作为独立 IMMEDIATE 事务运行，或嵌入外层现有事务）。
+ *
+ * @param query 数据库查询执行函数。
+ * @param db 数据库连接实例。
+ * @param data 任务提交数据。
+ * @param opts 可选配置项。
+ * @returns 任务提交事务结果。
+ */
 export function submitDailyTaskTx(
   query: AnyQuery,
   db: DatabaseSync,
@@ -540,7 +567,12 @@ export function submitDailyTaskTx(
   }
 }
 
-/** 月度/全局经济白皮书(优先读 sfmc_economy_stats,否则现场聚合) */
+/**
+ * 获取月度或全局经济统计指标白皮书（优先读取 `sfmc_economy_stats` 统计表，无缓存时现场聚合计算）。
+ *
+ * @param query 数据库查询执行函数。
+ * @returns 包含发行总量、销毁总量、现存总量与活跃账户数的统计快照。
+ */
 export function monthlyEconomyStats(query: AnyQuery): {
   id: string;
   total_issued: number;
@@ -548,6 +580,7 @@ export function monthlyEconomyStats(query: AnyQuery): {
   total_supply: number;
   active_accounts: number;
 } {
+
   const now = new Date();
   const id = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 

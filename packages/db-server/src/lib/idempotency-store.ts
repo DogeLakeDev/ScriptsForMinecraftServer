@@ -1,29 +1,36 @@
 /**
- * lib/idempotency.ts — db.idempotent() 后端
+ * lib/idempotency-store.ts — 幂等操作底层持久化存储
  *
- * 表:sfmc__idempotent  (db-tables.ts 创建)
- * key: (module_id, action, key) → cached value?
+ * 底层表：`sfmc__idempotent`
+ * 主键复合维度：`module_id` + `action` + `key`
  *
- * probe(module_id, action, key):
- *   - 命中 → {replayed:true, cached}
- *   - 不命中 → {replayed:false}
+ * 探针机制：
+ * - `probe(moduleId, action, key)`：探测是否已执行过；命中则返回 `{ replayed: true, cached }`，未命中返回 `{ replayed: false }`
+ * - `commit(moduleId, action, key, value?)`：写入成功执行记录与缓存结果
  *
- * commit(module_id, action, key, value?):
- *   - INSERT … (replace) — 即使没 probe 也允许直接 commit
- *
- * 事务内调用一律走 tx-runner 不行(commit 必须在事务外完成,跨事务持久化);
- * 这里单独端点 POST /api/sfmc/db/idempotent/{probe,commit},不走 tx。
+ * 事务与持久化边界：
+ * 幂等提交独立于单次业务事务，确保跨事务持久化去重。
  */
 
 import type { DatabaseSync } from "node:sqlite";
 import { isValidIdempotencyKey } from "./idempotency.js";
 
+/** 幂等存储器接口。 */
 export interface IdempotencyStore {
+  /** 探测指定的动作与幂等键是否已经执行过。 */
   probe(moduleId: string, action: string, key: string): Promise<{ replayed: boolean; cached?: unknown }>;
+  /** 提交并持久化已执行的幂等动作与结果数据。 */
   commit(moduleId: string, action: string, key: string, value?: unknown): Promise<{ ok: boolean }>;
 }
 
+/**
+ * 创建基于 SQLite 的幂等存储操作实例。
+ *
+ * @param db SQLite 数据库连接。
+ * @returns 幂等存储器对象。
+ */
 export function createIdempotencyStore(db: DatabaseSync): IdempotencyStore {
+
   const probeStmt = db.prepare(
     "SELECT value FROM sfmc__idempotent WHERE module_id=? AND action=? AND key=?"
   );

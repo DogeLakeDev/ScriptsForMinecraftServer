@@ -1,8 +1,9 @@
 /**
- * domain/qq-events.ts — MC 事件推群聚合（节流）
+ * domain/qq-events.ts — Minecraft 服务器事件群推送聚合节流器
  *
- * join/leave/death → 窗口内聚合一条；crash/start → 先 flush 再立即推。
- * 出站走 sendGroupOutbound（正文含 [MC事件] 头）。
+ * 聚合策略：
+ * - 玩家进退与死亡（join / leave / death）：在时间窗口内收集缓冲，合并为单条消息发送，避免刷屏
+ * - 关键运行态事件（crash / start）：先立即冲刷（flush）当前窗口内的待发送事件，随后立即单独推送
  */
 
 import {
@@ -27,10 +28,10 @@ export type ResolvedQqEventsConfig = Required<QqEventsConfig>;
 const WINDOW_TYPES = new Set<QqEventType>(["join", "leave", "death"]);
 const IMMEDIATE_TYPES = new Set<QqEventType>(["crash", "start"]);
 
-/** 窗口内条数上限：提前 flush，避免一次堆太多 */
+/** 窗口内条数上限：达到上限时提前触发 flush，避免单次积压过多内容。 */
 export const MAX_WINDOW_EVENTS = 20;
 
-/** SAPI damageSource.cause → 中文（未知保留原文） */
+/** SAPI damageSource.cause → 中文映射字典（未收录时保留原英文标识）。 */
 const CAUSE_ZH: Record<string, string> = {
   anvil: "铁砧",
   blockExplosion: "方块爆炸",
@@ -60,13 +61,19 @@ const CAUSE_ZH: Record<string, string> = {
   thorns: "荆棘",
   void: "虚空",
   wither: "凋零",
-  // 常见生物名（若上层把实体名塞进 cause）
+  // 常见生物名（若上层将实体名填充至 cause 字段）
   zombie: "僵尸",
   skeleton: "骷髅",
   creeper: "苦力怕",
   player: "玩家",
 };
 
+/**
+ * 解析并填充 QQ 事件推送配置的默认值。
+ *
+ * @param raw 原始配置对象。
+ * @returns 规范化的完整配置对象。
+ */
 export function resolveQqEventsConfig(raw: unknown): ResolvedQqEventsConfig {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const windowSec = Number(o.window_sec ?? DEFAULT_QQ_EVENTS.window_sec);
@@ -84,6 +91,12 @@ export function resolveQqEventsConfig(raw: unknown): ResolvedQqEventsConfig {
   };
 }
 
+/**
+ * 将 SAPI 原生伤害来源代码（damageSource.cause）转换为易读的中文文本。
+ *
+ * @param cause 伤害来源标识。
+ * @returns 中文伤害描述（未收录时保留原英文代码）。
+ */
 export function localizeCause(cause: string | undefined): string {
   if (!cause) return "";
   const key = cause.trim();
@@ -105,14 +118,17 @@ type Buffered = {
 export type QqEventsAggregatorDeps = {
   getConfig: () => ResolvedQqEventsConfig;
   getOutbound: () => OutboundConfig;
-  /** 可注入：单测用假时钟 / 假定时器 */
+  /** 可选注入：供单元测试模拟时钟与定时器。 */
   setTimeoutFn?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
   clearTimeoutFn?: (id: ReturnType<typeof setTimeout>) => void;
   send?: (text: string) => void;
 };
 
 /**
- * 格式化窗口内聚合正文（不含头，或含头由调用方拼）。
+ * 格式化时间窗口内的聚合事件文本。
+ *
+ * @param events 缓冲区内的事件列表。
+ * @returns 格式化后的多行消息字符串。
  */
 export function formatWindowBody(events: Buffered[]): string {
   const joins: string[] = [];
@@ -133,6 +149,12 @@ export function formatWindowBody(events: Buffered[]): string {
   return lines.join("\n");
 }
 
+/**
+ * 格式化高优先级的非聚合即时事件文本（如 BDS 崩溃或启动就绪）。
+ *
+ * @param ev 即时事件载荷。
+ * @returns 格式化后的事件通知文本。
+ */
 export function formatImmediateBody(ev: QqEventPayload): string {
   if (ev.type === "crash") {
     const d = String(ev.detail ?? "").trim();
@@ -166,7 +188,14 @@ export function normalizeEventPayload(raw: unknown): QqEventPayload | null {
   return out;
 }
 
+/**
+ * 创建 QQ 服务器事件聚合节流器实例。
+ *
+ * @param deps 依赖注入对象（包含配置获取、出站发送及定时器实现）。
+ * @returns 包含 push, flush, cancel, getPendingCount 等方法的聚合器控制器。
+ */
 export function createQqEventsAggregator(deps: QqEventsAggregatorDeps) {
+
   const setTimeoutFn = deps.setTimeoutFn ?? setTimeout;
   const clearTimeoutFn = deps.clearTimeoutFn ?? clearTimeout;
   const send =

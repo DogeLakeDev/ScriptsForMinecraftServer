@@ -34,6 +34,12 @@ export interface DbRoutesDeps {
   json?: typeof defaultJson;
 }
 
+/**
+ * 创建 `/api/sfmc/db/*` 数据库路由请求处理器。
+ *
+ * @param depsIn 依赖注入项（包含 schemaRegistry、txRunner、idempotent 等）。
+ * @returns 异步路由处理函数。
+ */
 export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
   const deps = depsIn as Partial<DbRoutesDeps>;
   if (!deps.schemaRegistry || !deps.txRunner || !deps.idempotent) {
@@ -77,13 +83,12 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
     if (path === "/api/sfmc/db/tx") {
       try {
         const txReq = body as unknown as TxRequest;
-        // 强制以「鉴权身份」执行事务:忽略 body 里自带的 moduleId,
-        // 既防止持 A 的 token 冒用 B 的权限越权,也修复客户端只发 {steps} 时
-        // moduleId 缺失导致的事务恒被拒。
+        // 强制以鉴权身份执行事务：忽略请求体中自带的 moduleId，
+        // 既杜绝跨模块越权假借身份，也兼容客户端仅提交 steps 数据的调用场景。
         const steps = Array.isArray(txReq.steps) ? txReq.steps : [];
         const result = await deps.txRunner!.run({ moduleId, steps });
         const status = result.ok ? 200 : 400;
-        // TxResponse/TxError 自身已带 ok 字段;原样回传保持契约
+        // TxResponse 与 TxError 自身已包含 ok 字段，原样回传保持协议契约
         json(res, result as unknown as Record<string, unknown>, status);
       } catch (e) {
         jsonV2Fail(res, (e as Error).message, 500);
@@ -91,8 +96,8 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
       return true;
     }
 
-    // 交互式事务会话 — 供 SDK 在回调内读回 query/get/call 结果
-    // OCP/DRY:新会话动词只往表里加一项,勿再复制 try/catch 四份
+    // 交互式事务会话 — 供客户端在事务回调执行过程中读回实时 query/get/call 结果
+
     type SessionReply = { ok: boolean } & Record<string, unknown>;
     const sessionOps: Array<{
       path: string;

@@ -203,9 +203,12 @@ export class TxRunner {
   }
 
   /**
-   * 交互式事务:begin → step* → commit|rollback。
-   * 供 SDK db.tx 在回调内 await query/get/call 真实结果(PR #31 未完成项)。
-   * 单连接模型:新会话会先清掉残留会话(避免 BEGIN 锁死)。
+   * 开启交互式事务会话（协议流程：begin → step* → commit | rollback）。
+   * 供客户端 `db.tx` 在回调内部异步执行并实时读回 query / get / call 的服务端执行结果。
+   * 单连接保护：新会话开启时自动清理历史残留会话，避免事务锁冲突。
+   *
+   * @param moduleId 请求模块唯一标识符。
+   * @returns 成功返回分配的会话 txId，失败返回错误响应。
    */
   beginSession(moduleId: string): { ok: true; txId: string } | TxError {
     const manifest = this.deps.enabled.get(moduleId);
@@ -231,6 +234,14 @@ export class TxRunner {
     return { ok: true, txId };
   }
 
+  /**
+   * 在当前交互式事务会话中顺序执行单个步骤。
+   *
+   * @param txId 会话唯一标识符。
+   * @param moduleId 调用模块标识。
+   * @param step 待执行的操作步骤对象。
+   * @returns 步骤执行结果或错误响应。
+   */
   async stepSession(
     txId: string,
     moduleId: string,
@@ -261,6 +272,13 @@ export class TxRunner {
     }
   }
 
+  /**
+   * 提交当前交互式事务会话，将所有步骤的修改持久化并释放连接。
+   *
+   * @param txId 会话唯一标识符。
+   * @param moduleId 调用模块标识。
+   * @returns 提交结果响应。
+   */
   commitSession(txId: string, moduleId: string): TxResponse | TxError {
     const session = this.sessions.get(txId);
     if (!session) {
@@ -281,10 +299,18 @@ export class TxRunner {
     return { ok: true, results };
   }
 
+  /**
+   * 回滚当前交互式事务会话，撤销所有未提交的数据库变更。
+   * 具有幂等性：会话已结束或已回滚时同样返回成功。
+   *
+   * @param txId 会话唯一标识符。
+   * @param moduleId 调用模块标识。
+   * @returns 回滚确认结果。
+   */
   rollbackSession(txId: string, moduleId: string): { ok: true } | TxError {
     const session = this.sessions.get(txId);
     if (!session) {
-      // 幂等:已结束视为成功回滚
+      // 幂等：已结束视为成功回滚
       return { ok: true };
     }
     if (session.moduleId !== moduleId) {
@@ -293,6 +319,7 @@ export class TxRunner {
     this.abortSession(txId);
     return { ok: true };
   }
+
 
   private abortSession(txId: string): void {
     this.sessions.delete(txId);

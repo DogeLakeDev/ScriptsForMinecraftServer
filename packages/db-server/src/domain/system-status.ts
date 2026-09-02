@@ -51,7 +51,12 @@ export type SystemStatusSnapshot = {
   bds: BdsStatus;
 };
 
-/** 人类可读运行时长 */
+/**
+ * 将秒数格式化为人类可读的运行时长字符串（如 "2天 3小时 15分"）。
+ *
+ * @param sec 运行时长秒数。
+ * @returns 人类友好的时长描述字符串。
+ */
 export function formatUptimeSec(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
   const d = Math.floor(s / 86400);
@@ -64,6 +69,12 @@ export function formatUptimeSec(sec: number): string {
   return `${r}秒`;
 }
 
+/**
+ * 采集主机硬件与操作系统运行状态快照。
+ *
+ * @param nowSec 当前系统运行秒数（默认为 `os.uptime()`）。
+ * @returns 主机状态对象。
+ */
 export function collectHostStatus(nowSec = os.uptime()): HostStatus {
   const cpus = os.cpus();
   const total = os.totalmem();
@@ -136,7 +147,7 @@ async function isPidAlive(pid: number): Promise<boolean> {
   }
 }
 
-/** 查询进程已运行秒数；失败返回 null */
+/** 查询进程已运行秒数；失败返回 null。 */
 async function getProcessUptimeSec(pid: number): Promise<number | null> {
   if (!pid) return null;
   try {
@@ -190,6 +201,13 @@ async function findBedrockServerPid(): Promise<number> {
   }
 }
 
+/**
+ * 采集 BDS（Bedrock Dedicated Server）服务进程的运行状态。
+ * 先尝试根据 `.sfmc/bds.pid` 进行探活，若未命中则通过系统进程快照匹配 `bedrock_server`。
+ *
+ * @param projectRoot SFMC 工作根目录。
+ * @returns BDS 运行状态与运行时长快照。
+ */
 export async function collectBdsStatus(projectRoot: string): Promise<BdsStatus> {
   let pid = readBdsPidFile(projectRoot);
   const alive = pid > 0 ? await withTimeout(isPidAlive(pid), PROBE_TIMEOUT_MS) : false;
@@ -213,6 +231,11 @@ export async function collectBdsStatus(projectRoot: string): Promise<BdsStatus> 
   };
 }
 
+/**
+ * 采集当前 db-server 进程自身的运行状态与已运行时间。
+ *
+ * @returns db-server 进程状态快照。
+ */
 export function collectDbStatus(): ProcessUptime {
   const uptimeSec = Math.floor(process.uptime());
   return {
@@ -223,7 +246,12 @@ export function collectDbStatus(): ProcessUptime {
   };
 }
 
-/** 组装完整系统快照（host 同步；bds 异步探活） */
+/**
+ * 组装完整的系统状态快照（包含主机系统、db-server 与 BDS 进程状态）。
+ *
+ * @param projectRoot SFMC 工作根目录。
+ * @returns 完整的系统状态快照。
+ */
 export async function collectSystemStatus(projectRoot: string): Promise<SystemStatusSnapshot> {
   return {
     host: collectHostStatus(),
@@ -231,3 +259,4 @@ export async function collectSystemStatus(projectRoot: string): Promise<SystemSt
     bds: await collectBdsStatus(projectRoot),
   };
 }
+

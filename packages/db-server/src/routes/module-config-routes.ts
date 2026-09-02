@@ -1,15 +1,13 @@
 /**
- * routes/module-config-routes.ts — 模块配置文件管理
+ * routes/module-config-routes.ts — 模块私有配置文件读写路由
  *
- * 端点:
- *   GET  /api/sfmc/configs/:configKey                 → { config: <configs/<configKey>.json> }
- *   POST /api/sfmc/configs/:configKey/set             → 写一个 key
- *   GET  /api/sfmc/configs/:configKey/notify           (SSE:onChange 推送)
+ * REST 端点：
+ * - GET  /api/sfmc/configs/:configKey       读取对应 `configs/<configKey>.json` 配置文件
+ * - POST /api/sfmc/configs/:configKey/set   修改并持久化指定配置键值对
+ * - GET  /api/sfmc/configs/:configKey/notify 通过 SSE 推送配置实时变更通知
  *
- * 鉴权:模块身份来自 ctx.moduleAuth;Permission = config:read:configKey / config:write:configKey。
- *
- * 设计:文件 = configs/<configKey>.json;整文件 read-modify-write(lock by
- * 简单 mutex),不是细粒度 lock — 模块 config 文件本来就小;并发冲突概率极低。
+ * 鉴权控制：
+ * 模块身份经 `ctx.moduleAuth` 验证；必须具备 `config:read:<configKey>` 或 `config:write:<configKey>` 权限。
  */
 
 import { join } from "node:path";
@@ -55,7 +53,14 @@ function notify(configKey: string, key: string, value: unknown): void {
   for (const cb of set) cb({ key, value });
 }
 
+/**
+ * 创建模块私有配置路由请求处理器。
+ *
+ * @param depsIn 依赖注入项（包含工作根目录与已启用模块字典）。
+ * @returns 异步路由处理函数。
+ */
 export function createModuleConfigRoutes(depsIn: Partial<ModuleConfigRoutesDeps>) {
+
   const deps = depsIn as Partial<ModuleConfigRoutesDeps>;
   if (!deps.projectRoot || !deps.enabled) {
     throw new Error("createModuleConfigRoutes: 缺少 projectRoot / enabled map");

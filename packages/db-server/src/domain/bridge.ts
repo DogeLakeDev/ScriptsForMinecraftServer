@@ -43,8 +43,10 @@ export type LlbotOutboundConfig = {
 export type OutboundConfig = OfficialOutboundConfig | LlbotOutboundConfig;
 
 /**
- * 构造 LLBotConfig。允许显式传入(测试),默认从 env 推不出,
- * 所以调用方需自己把 env 里读到的值传进来。
+ * 构造 LLBot 桥接配置对象。
+ *
+ * @param env 环境变量或配置字典。
+ * @returns 规范化的 LLBotConfig 配置。
  */
 export function makeLLBotConfig(env: {
   LLBOT_HOST: string;
@@ -62,6 +64,12 @@ export function makeLLBotConfig(env: {
   };
 }
 
+/**
+ * 根据环境变量与配置组装出站配置（支持 official 官方开放平台与 llbot 双后端）。
+ *
+ * @param env 环境变量与配置字典。
+ * @returns 规范化的 OutboundConfig 出站配置。
+ */
 export function makeOutboundConfig(env: {
   QQ_BACKEND: QQBackend;
   LLBOT_HOST: string;
@@ -74,6 +82,7 @@ export function makeOutboundConfig(env: {
   QQ_GROUP_OPENID: string;
   MCTOQQ_PREFIX: string;
 }): OutboundConfig {
+
   if (env.QQ_BACKEND === "llbot") {
     return {
       backend: "llbot",
@@ -159,7 +168,10 @@ function sendViaOfficial(config: OfficialOutboundConfig, text: string, logCtx: s
 }
 
 /**
- * 将正文原样发到 QQ 群（事件推送用；不加聊天前缀）。
+ * 将文本内容直接发送至目标 QQ 群（供服务器事件通知使用，不附加玩家聊天前缀）。
+ *
+ * @param config 出站配置对象。
+ * @param text 待发送的文本内容。
  */
 export function sendGroupOutbound(config: OutboundConfig | LLBotConfig, text: string): void {
   const logCtx = "outbound";
@@ -197,7 +209,13 @@ function forwardViaOfficial(
 }
 
 /**
- * @description 按 OutboundConfig 转发单条 MC 消息到 QQ
+ * 将游戏内玩家聊天消息附加前缀后转发至 QQ 群。
+ *
+ * @param config 出站配置对象。
+ * @param channelId 来源频道 ID。
+ * @param fromName 消息发送者玩家名称。
+ * @param content 聊天消息正文。
+ * @param fromId 发送者唯一标识（如 XUID）。
  */
 export function forwardToQQBridge(
   config: OutboundConfig | LLBotConfig,
@@ -206,6 +224,7 @@ export function forwardToQQBridge(
   content: string,
   fromId: string
 ): void {
+
   // 兼容旧调用：直接传 LLBotConfig
   if (!("backend" in config)) {
     forwardViaLlbot(config, channelId, fromName, content, fromId);

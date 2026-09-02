@@ -9,12 +9,18 @@ export type QueryFn = (
 ) => unknown[] | { changes: number | bigint };
 
 /**
- * 统一 SQL 查询接口 — 支持三种调用格式：
- *   1. query("SELECT * FROM t WHERE id=?", [1])
- *   2. query({ sql: "SELECT * FROM t WHERE id=?", values: [1] })
- *   3. query(SQL`SELECT * FROM t WHERE id=${1}`)   ← sql-template-strings
+ * 创建统一的 SQL 查询接口（内置 LRU 预编译语句缓存机制）。
+ * 支持三种调用形态：
+ * 1. `query("SELECT * FROM t WHERE id = ?", [1])`
+ * 2. `query({ sql: "SELECT * FROM t WHERE id = ?", values: [1] })`
+ * 3. `query(SQL`SELECT * FROM t WHERE id = ${1}`)`（sql-template-strings）
+ *
+ * @param db SQLite 数据库连接实例。
+ * @param maxStatements 预编译语句缓存上限（默认为 200）。
+ * @returns 统一查询执行函数。
  */
 export function createQuery(db: DatabaseSync, maxStatements: number = 200): QueryFn {
+
   const stmts = new Map<string, StatementSync>();
 
   function getStmt(sql: string): StatementSync {
@@ -56,7 +62,11 @@ export function createQuery(db: DatabaseSync, maxStatements: number = 200): Quer
 }
 
 /**
- * 打开 SQLite 数据库（同步模式），启用外键、WAL、busy_timeout
+ * 打开 SQLite 数据库文件（基于 Node.js 原生 DatabaseSync 同步模块）。
+ * 自动递归创建所在父级目录，并初始化配置外键约束（`foreign_keys = ON`）、预写日志（`journal_mode = WAL`）与忙等待超时（`busy_timeout = 5000`）。
+ *
+ * @param filePath 数据库文件绝对路径。
+ * @returns SQLite DatabaseSync 连接实例。
  */
 export function openDatabase(filePath: string): DatabaseSync {
   mkdirSync(dirname(filePath), { recursive: true });
@@ -66,3 +76,4 @@ export function openDatabase(filePath: string): DatabaseSync {
   db.exec("PRAGMA busy_timeout = 5000");
   return db;
 }
+

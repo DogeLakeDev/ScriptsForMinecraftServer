@@ -19,6 +19,12 @@ export interface ServiceRoutesDeps {
   json?: typeof defaultJson;
 }
 
+/**
+ * 创建 `/api/sfmc/services/*` 跨模块服务路由请求处理器。
+ *
+ * @param depsIn 依赖注入项（包含 serviceRegistry、enabled 模块字典等）。
+ * @returns 异步路由处理函数。
+ */
 export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
   const deps = depsIn as Partial<ServiceRoutesDeps>;
   if (!deps.serviceRegistry || !deps.enabled) {
@@ -40,7 +46,6 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
 
     const auth = ctx.moduleAuth ?? null;
     if (!auth) {
-      // LSP: 与成功路径同一 ok 方言(文档约定 { ok:false, error, code })
       jsonV2Fail(res, "unauthorized: module identity missing", 401, "unauthorized");
       return true;
     }
@@ -64,8 +69,7 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
         }
       }
       try {
-        // 与 tx-runner.doService 对齐(LSP):HTTP service.get 与 tx.call 必须同契约 —
-        // 既要在 services.requires 里(由 dispatch 校验),也要有 service:<name> 权限。
+        // 与 tx-runner 保持契约一致：HTTP GET 与 tx.call 均须声明在 services.requires 中且具备对应权限
         assertModulePermission(auth.id, auth.permissions, Perm.service(name));
         const out = await deps.serviceRegistry!.dispatch(
           deps.enabled!,
@@ -73,6 +77,7 @@ export function createServiceRoutes(depsIn: Partial<ServiceRoutesDeps>) {
           name,
           payload
         );
+
         json(res, { ok: true, result: out.result });
       } catch (e) {
         if (e instanceof PermissionDeniedError) {
