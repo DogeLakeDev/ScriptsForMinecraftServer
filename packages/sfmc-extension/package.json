@@ -217,9 +217,9 @@
     "package": "pnpm dlx @vscode/vsce package"
   },
   "dependencies": {
-    "@sfmc-bds/create-module": "*",
-    "@sfmc-bds/devkit": "*",
-    "@sfmc-bds/sdk": "*"
+    "@sfmc-bds/create-module": "workspace:*",
+    "@sfmc-bds/devkit": "workspace:*",
+    "@sfmc-bds/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",

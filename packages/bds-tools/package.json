@@ -64,12 +64,12 @@
     "watch": "node dist/bds-manager.js watch"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "*",
+    "@sfmc-bds/sdk": "workspace:*",
     "jszip": "^3.10.1",
     "node-html-parser": "^9.0.0"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "*"
+    "@sfmc-bds/tools": "workspace:*"
   },
   "publishConfig": {
     "access": "public",

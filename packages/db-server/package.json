@@ -42,11 +42,11 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "*",
+    "@sfmc-bds/sdk": "workspace:*",
     "sql-template-strings": "^2.2.2"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "*"
+    "@sfmc-bds/tools": "workspace:*"
   },
   "publishConfig": {
     "access": "public",

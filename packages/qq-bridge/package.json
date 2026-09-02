@@ -41,11 +41,11 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
-    "@sfmc-bds/sdk": "*",
+    "@sfmc-bds/sdk": "workspace:*",
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "*"
+    "@sfmc-bds/tools": "workspace:*"
   },
   "publishConfig": {
     "access": "public",

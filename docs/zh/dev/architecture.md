@@ -23,13 +23,13 @@ SFMC 如何把「作者仓 → npm / index → 主仓装载 → BDS」串起来�
 ## SAPI 启动顺序
 
 1. `system.beforeEvents.startup`  
-   `ConfigManager.init()` → `ModuleRegistry.bootAll()` → `snapshotEnabled()`
+   `ConfigManager.init()` → `ModuleRegistry.bootAll()` → `announceLoaded()`
 2. `world.afterEvents.worldLoad`  
    `ModuleRegistry.bootAfterWorldLoad()`（`afterWorldLoad: true`）
 3. `system.beforeEvents.shutdown`  
    `ModuleRegistry.teardown()`
 
-`ConfigManager` 启动时拉一次 `GET /api/sfmc/configs/all`，只缓存 `modules` / `settings` / `permissions`（及 token 表），之后不轮询。模块私有 `configs/<configKey>.json` 走 `@sfmc-bds/sdk/sapi/config`。
+`ConfigManager` 启动时拉一次 `GET /api/sfmc/configs/all`，只缓存 `modules` / `settings` / `permissions`（及 token 表），之后不轮询。改 configs 或模块启停后需重启 BDS。模块私有 `configs/<configKey>.json` 走 `@sfmc-bds/sdk/sapi/config`。
 
 ## 模块生命周期
 

@@ -1,0 +1,46 @@
+---
+description: >-
+  SFMC standing contracts: three roots, author vs ops, decided behavior,
+  residual scrub, ownership, Chinese UTF-8. Always apply in this repo.
+alwaysApply: true
+---
+
+# SFMC：现行契约
+
+细节剧本见 skills `sfmc-onboarding` / `sfmc-module-author` / `sfmc-code-review`。
+
+## 三根路径
+
+| 名 | 用途 |
+|----|------|
+| **monorepo** | 平台源码 |
+| **SFMC_ROOT** | 工作目录（`configs/`、`modules/`、日志）；扩展 `sfmc.root` 指向这里 |
+| **作者仓** | 单模块独立仓；经 `mod install --link` 挂到 SFMC_ROOT |
+
+文案用「SFMC **工作目录**」。路径含 `#` 时参数加引号。
+
+## 作者面与运维面
+
+| 面 | 工具 | 职责 |
+|----|------|------|
+| 运维 | `sfmc` CLI / REPL（在 SFMC_ROOT） | install、enable、build、reload、启停服务 |
+| 作者 | `npm create @sfmc-bds/module` + 扩展「SFMC Module」+ `devkit` | 建仓、单测、link、watch、publish |
+
+能力在 `bds-tools` / `db-server` / `qq-bridge` / SDK；CLI 只编排。
+
+## 已拍板行为
+
+- 用户已定的命令语义、交互、删除项：后续清理/重构保持一致；拿不准先问一句。
+- 仍在用的正确逻辑：在其上改。废弃路径按用户当前要求删干净（未要求双轨则单轨）。
+
+## 改完对齐文案
+
+触及 CLI / 扩展 / 文档时，帮助串、README、AGENTS、提示与现行命令和路径一致。用户可见文案短而直接。
+
+## 能力归属
+
+改前确认归属：**扩展 / 服务包 / SDK / 模块**。SFMC 自有概念（如 ConfigManager）按平台 SAPI 设计，与原生 BDS 流程区分。
+
+## 中文与编码
+
+沟通与注释：简体中文、UTF-8；若出现乱码，修好再继续。

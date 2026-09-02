@@ -57,12 +57,12 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.7.0",
-    "@sfmc-bds/bds-tools": "*",
-    "@sfmc-bds/sdk": "*",
+    "@sfmc-bds/bds-tools": "workspace:*",
+    "@sfmc-bds/sdk": "workspace:*",
     "chalk": "^6.0.0"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "*"
+    "@sfmc-bds/tools": "workspace:*"
   },
   "publishConfig": {
     "access": "public",
