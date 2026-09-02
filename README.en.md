@@ -1,81 +1,169 @@
-# SFMC
+# Scripts For Minecraft Server (SFMC)
 
-[![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
-[![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
-[![node](https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
-[![typescript](https://img.shields.io/badge/TypeScript-6.0.2-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![npm](https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@sfmc-bds/sfmc)
-[![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
-[![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
+<p align="center">
+  <strong>Microkernel Companion Architecture & Modern Server Engineering Toolkit for Minecraft Bedrock (BDS)</strong>
+</p>
 
-[Module Repository →](https://github.com/Tanya7z/sfmc-modules)
+<p align="center">
+  <a href="https://github.com/DogeLakeDev/ScriptsForMinecraftServer/actions/workflows/ootb.yml"><img src="https://img.shields.io/github/actions/workflow/status/DogeLakeDev/ScriptsForMinecraftServer/ootb.yml?style=flat-square&label=CI%20Build" alt="CI Status" /></a>
+  <a href="https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags"><img src="https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version" alt="version" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square" alt="license" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white" alt="node" /></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-7.0%20Native%20%2F%206.0-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="typescript" /></a>
+  <a href="https://www.npmjs.com/package/@sfmc-bds/sfmc"><img src="https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white" alt="npm" /></a>
+  <a href="https://github.com/Tanya7z/sfmc-modules"><img src="https://img.shields.io/badge/modules-25%2B-7B68EE?style=flat-square&logo=cube&logoColor=white" alt="modules" /></a>
+  <a href="https://www.minecraft.net/en-us/download/server/bedrock"><img src="https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft" alt="bds" /></a>
+</p>
 
-[中文版本 →](./README.md)
+<p align="center">
+  <a href="https://dogelakedev.github.io/ScriptsForMinecraftServer/">📚 Online Documentation</a> ·
+  <a href="https://github.com/Tanya7z/sfmc-modules">📦 Module Index</a> ·
+  <a href="./docs/en/guide/index.mdx">🚀 Quick Start Guide</a> ·
+  <a href="./README.md">中文版本</a>
+</p>
 
-## Scripts For Minecraft Server
+---
 
-> A modular development framework and management platform for Minecraft Bedrock Edition servers. SFMC enables developers to build, deploy, and maintain Minecraft server features through modern engineering workflows.
+## 💡 What is SFMC?
 
-SFMC aims to enhance the native Bedrock development experience through a modular architecture.
+**Scripts For Minecraft Server (SFMC)** is a modern development framework and multi-process companion architecture engineered specifically for the official **Minecraft Bedrock Dedicated Server (BDS)**.
 
-## Features
+Combining Minecraft's native **Script API (SAPI)** with a high-performance local **Node.js companion supervisor**, SFMC delivers a true production-grade engineering workflow to Bedrock server operations. It decisively resolves traditional ecosystem pain points: plugin fragmentation, data loss/corruption, lack of sandbox isolation, and frequent downtime caused by restarts.
 
-- Provides a **native Script SDK** based on the [Minecraft Script API](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/?view=minecraft-bedrock-stable)
+```mermaid
+flowchart TD
+  subgraph Client_Layer ["Client & Tooling Layer"]
+    CLI["sfmc CLI Console<br/>Multi-Process Supervision / REPL"]
+    IDE["VS Code / Cursor Extension<br/>Incremental Watch / Hot-Reload"]
+    QQ_Client["Community Ecosystem<br/>QQ Official Bot / OneBot 11"]
+  end
 
-- Provides a detachable  
-  **modular management service**
+  subgraph Companion_Layer ["Node.js Companion Supervisor (127.0.0.1 Loopback)"]
+    DB_Svc["db-server (:3001)<br/>Native SQLite Persistence / ACID Tx / Token Sandbox"]
+    QQ_Svc["qq-bridge (:3002)<br/>Two-Way Chat Relay / Throttled Events / Allowlist Approval"]
+    BDS_Tools["bds-tools<br/>BDS Auto-Updater / Add-on Inbox Pipeline"]
+  end
 
-- Provides a powerful CLI toolkit for BDS servers, supporting:
-  - Automatic updates
-  - Module management
-  - Resource pack management
-  - Server tooling management
+  subgraph Game_Layer ["Minecraft BDS Instance"]
+    Bootstrap["Host Bootstrap Injector"]
+    subgraph SAPI_Bundle ["Dynamically Assembled Behavior Pack (sfmc-modules)"]
+      ModA["Business Module A (e.g. economy)"]
+      ModB["Business Module B (e.g. land)"]
+      ModC["Business Module C (e.g. qq-link)"]
+    end
+  end
 
-- Provides a unified **SQLite database SDK** and routing services for modules
+  Client_Layer <==> Companion_Layer
+  Companion_Layer <== Authenticated REST / IPC ==> Game_Layer
+```
 
-- Provides a complete workflow to reduce module development and maintenance costs
+---
 
-- Supports [LLBOT](https://www.llonebot.com/zh-CN/) / QQ Open Platform bridge services, enabling integration between Minecraft servers and online communities
+## ✨ Key Features & Architectural Highlights
 
-## Quick Start
+- 🗄️ **Industrial-Grade Data Persistence (ACID SQLite)**  
+  Say goodbye to fragile Dynamic Properties with storage limits and world-corruption risks. The local `db-server` provides transaction-protected (ACID) SQLite storage with WAL high-concurrency writing and reliable cold backup workflows.
+- 🧩 **Dynamic Behavior Pack Assembly Pipeline**  
+  At server startup or reload, the platform inspects `module-lock.json` and uses esbuild to compile all enabled TypeScript modules into a **single, unified native behavior pack**, eradicating UUID collisions and dependency chaos.
+- 🛡️ **Microkernel Sandbox & Strongly-Typed RPC Contracts**  
+  Modules explicitly declare database tables and required service dependencies in `manifest.json`. The platform issues scope-restricted Bearer Tokens to enforce data isolation, while cross-module communication relies on typed RPC services rather than global namespace pollution.
+- ⚡ **Sub-Second Hot-Reload Development Workflow**  
+  With the official "SFMC Module" VS Code extension, editing module source code immediately triggers incremental bundling and in-game `/reload`, eliminating tedious server restarts and player disconnections.
+- 🤖 **Turnkey Multi-Platform Social Bridge (QQ Bridge)**  
+  Native support for Tencent QQ Open Platform official bots and OneBot 11 (LLBot), featuring in-group server status queries, rich interactive card actions, bi-directional chat relay, intelligent event throttling, and asynchronous allowlist approval.
+- 📦 **Add-on Inbox Pipeline**  
+  Drop `.mcpack` or `.mcaddon` files into the `packs/` inbox for automated parsing and deployment, complete with version conflict detection, CurseForge remote updates, and resource pack cache busting (`packs bump`).
 
-### Install via npm
+---
+
+## 🚀 Quick Start
+
+### Track A: Server Operators (Ready in 3 Minutes)
+
+Ensure **Node.js ≥ 22.13.0** is installed (required for native `node:sqlite` support).
 
 ```bash
-# Check Node.js version (requires v22.13+)
-node -v
-
-# Install SFMC CLI
+# 1. Install SFMC CLI globally
 npm install -g @sfmc-bds/sfmc
 
-# Beta version
-npm install -g @sfmc-bds/sfmc@beta
+# 2. Create and enter your server workspace
+mkdir my-bedrock-server && cd my-bedrock-server
 
-# Create server directory
-mkdir my-server && cd my-server
-
-# Initialize SFMC
+# 3. Launch the interactive REPL console
 sfmc
 
-Developers can clone this monorepo directly.
-For more details, see the Getting Started Guide.
+# 4. Start all companion services and BDS in one command
+sfmc> start -all
 
-Documentation
-Online Documentation https://dogelakedev.github.io/ScriptsForMinecraftServer/
-User Guide docs/zh/guide
-Developer Guide docs/zh/dev
-Contribution Guide
-API Documentation docs/zh/api
-SDK Type Reference docs/zh/reference
-License
-
-The SFMC platform is licensed under AGPL-3.0.
-
-See LICENSES.md for package-specific license details.
-
-Freedom: You are free to run, copy, distribute, and modify the software while preserving these freedoms.
-Copyleft (AGPL section): If you distribute modified versions of the platform or services, you must provide the complete corresponding source code under the same license.
-Module Repository: Business modules published in independent repositories may choose their own licenses. Modules developed using the ISC-licensed SDK are not automatically subject to AGPL restrictions.
-
-中文版 →
+# 5. Search and install gameplay modules from the official index
+sfmc> mod install economy land teleport
 ```
+
+### Track B: Module Authors (Build in 5 Minutes)
+
+You don't need to clone this monorepo! Scaffold your standalone module repository directly:
+
+```bash
+# 1. Interactively scaffold your author repository
+npm create @sfmc-bds/module@latest
+
+# 2. Open the created project in VS Code or Cursor
+# 3. Install the official "SFMC Module" extension
+# 4. Press Ctrl + Shift + P to execute:
+#    - SFMC: Link to SFMC Root   (mount directly into your local testing server)
+#    - SFMC: Start Watch         (enable real-time incremental watch & hot-reload)
+```
+
+---
+
+## 🗺️ Monorepo Package Map
+
+This repository houses the SFMC core platform and tooling packages, organized with strict microkernel separation:
+
+| Package Path | npm Distribution | Role & Responsibilities |
+| :--- | :--- | :--- |
+| `modules/sdk/@sfmc-sdk` | `@sfmc-bds/sdk` | Core runtime SDK for SAPI & Node services (db / config / service / runtime) |
+| `packages/cli` | `@sfmc-bds/cli` | Server orchestration CLI and interactive REPL console |
+| `packages/db-server` | `@sfmc-bds/db-server` | High-performance SQLite HTTP data hub, transaction engine, and token sandbox |
+| `packages/qq-bridge` | `@sfmc-bds/qq-bridge` | Tencent QQ Official Bot and OneBot 11 two-way communication gateway |
+| `packages/bds-tools` | `@sfmc-bds/bds-tools` | BDS version updater and add-on inbox deployment pipeline |
+| `packages/create-module` | `@sfmc-bds/create-module` | Official module scaffolding engine (`npm create @sfmc-bds/module`) |
+| `packages/devkit` | `@sfmc-bds/devkit` | Incremental transpiler (esbuild), file watcher, and reload core |
+| `packages/sfmc-extension`| `@sfmc-bds/sfmc-extension` | Official VS Code / Cursor IDE extension ("SFMC Module") |
+| `packages/meta` | `@sfmc-bds/sfmc` | Meta-package aggregator distribution |
+| `modules/sdk/@sfmc-eslint-plugin` | `@sfmc-bds/eslint-plugin` | Platform-tailored ESLint rules (Msg helpers, boundary checks) |
+
+---
+
+## 🌟 Featured Module Ecosystem
+
+All official modules are published to npm and curated in the [Official Module Repository](https://github.com/Tanya7z/sfmc-modules):
+
+| Module ID | Display Name | Features & Highlights |
+| :--- | :--- | :--- |
+| `feature-economy` | Economy System | Unified Scoreboard & SQLite currency abstraction with cross-player transfers |
+| `feature-land` | Land Claims | 3D visual selection, granular permission controls (break, interact, container), and transfers |
+| `feature-teleport` | Teleport Hub | Personal homes, public warps, and inter-player TPA requests across dimensions |
+| `feature-auth` | Authentication | Mixed offline/online authentication, auto-login memory, and movement freeze |
+| `feature-qq-link` | QQ Account Link | In-game verification code binding, bi-directional chat, and remote allowlist approval |
+| `feature-afk` | AFK Detection | Smart idle status detection, invulnerability shields, and scheduled rewards |
+
+---
+
+## 📖 Documentation Hub
+
+Comprehensive architecture guides, API signatures, and developer tutorials are published on our [Documentation Site](https://dogelakedev.github.io/ScriptsForMinecraftServer/):
+
+- 📘 **[User Guide](./docs/zh/guide/index.mdx)**: Service orchestration, configuration reference, module management, and backups.
+- 🛠️ **[Developer Guide](./docs/zh/dev/index.mdx)**: Author workflow, architecture design, testing strategy, and Manifest contracts.
+- 🔌 **[API & Protocol Reference](./docs/zh/api/index.mdx)**: HTTP REST endpoints, dual auth model, RPC discovery, and database transactions.
+- 📚 **[SDK Type Reference](./docs/zh/reference/index.md)**: Complete TypeScript API documentation auto-generated via TypeDoc.
+
+---
+
+## 📄 License
+
+The SFMC platform is open-source under the [AGPL-3.0 License](./LICENSE). Package-specific details can be found in [LICENSES.md](./LICENSES.md):
+
+- **Platform & Services (AGPL-3.0)**: Community improvements are welcomed. Distributing modified versions of the platform or backend services requires making corresponding source code available under the same license.
+- **Module Independence (Author Choice)**: Business modules built with the **ISC-licensed** `@sfmc-bds/sdk` are **not subject to AGPL copyleft viral effects**. Module authors retain full freedom to license their works under any open-source or proprietary commercial terms.
