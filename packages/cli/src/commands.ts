@@ -1,3 +1,14 @@
+/**
+ * commands.ts — CLI 核心运维命令实现
+ *
+ * 提供命令行与 REPL 共享的系统级运维指令：
+ * - `status`：查询全部服务（BDS、db-server、qq-bridge、LLBot）运行状态、PID、运行时长与所有权
+ * - `start` / `stop` / `restart`：按依赖顺序或单个控制服务启停
+ * - `startAll` / `stopAll`：批量编排控制所有后台服务
+ * - `logs`：检索并实时追踪指定服务的最近日志流
+ * - `update`：触发 BDS 核心版本更新检查与热升级
+ */
+
 import { killBedrockServerByImage, probeBdsStatus, clearBdsPidFile } from "@sfmc-bds/bds-tools/process-probe";
 import {
   DEFAULT_QQ_CONFIG,
@@ -14,6 +25,7 @@ import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
 import fs from "node:fs";
+
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -65,6 +77,11 @@ function qqBridgeStatusFooter(): string {
   );
 }
 
+/**
+ * 查询并格式化展示所有后台服务的当前运行状态矩阵。
+ *
+ * @returns 格式化后的状态摘要文本表格。
+ */
 export async function cmdStatus(): Promise<string> {
   const rows = await queryServicesRuntime();
   const lines = rows.map((row) => statusLine(row.title, row.running, row.pid, row.uptime, row.ownership));
@@ -86,6 +103,13 @@ export async function cmdStatus(): Promise<string> {
   );
 }
 
+/**
+ * 检索并格式化指定服务的最近历史日志行（支持 `-n <行数>` 及 `-f` 实时追踪）。
+ *
+ * @param args 参数列表。
+ * @param onFollow 可选的跟随模式回调。
+ * @returns 格式化后的日志输出文本。
+ */
 export function cmdLogs(args: string[], onFollow?: (serviceName: ServiceName) => void): string {
   let n = 20;
   let follow = false;
@@ -151,6 +175,12 @@ function clearQqRuntimeFile(): void {
   }
 }
 
+/**
+ * 启动指定的单项后台服务（bds / db / qq / llbot）。
+ *
+ * @param raw 目标服务名称字符串。
+ * @returns 启动结果描述文本。
+ */
 export async function cmdStart(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
@@ -194,7 +224,14 @@ export async function cmdStart(raw: string): Promise<string> {
   }
 }
 
+/**
+ * 停止指定的单项后台服务（支持对外部非托管实例执行精准清理）。
+ *
+ * @param raw 目标服务名称字符串。
+ * @returns 停止操作结果文本。
+ */
 export async function cmdStop(raw: string): Promise<string> {
+
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
@@ -283,6 +320,12 @@ export async function cmdSend(raw: string, message: string): Promise<string> {
   }
 }
 
+/**
+ * 重启指定的单项后台服务（遵循 stop → start 严谨时序）。
+ *
+ * @param raw 目标服务名称字符串。
+ * @returns 重启操作结果文本。
+ */
 export async function cmdRestart(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
@@ -309,6 +352,11 @@ export async function cmdRestart(raw: string): Promise<string> {
   }
 }
 
+/**
+ * 按服务拓扑依赖次序批量启动所有已启用的后台服务。
+ *
+ * @returns 批量启动结果统计报告文本。
+ */
 export async function cmdStartAll(): Promise<string> {
   const { startAll } = await import("./services.js");
   const result = await startAll();
@@ -341,6 +389,11 @@ export async function cmdStartAll(): Promise<string> {
   return parts.join("\n");
 }
 
+/**
+ * 批量停止所有当前处于运行态的后台服务。
+ *
+ * @returns 批量停止确认文本。
+ */
 export async function cmdStopAll(): Promise<string> {
   const { stopAll } = await import("./services.js");
   await stopAll();
@@ -348,13 +401,17 @@ export async function cmdStopAll(): Promise<string> {
 }
 
 /**
- * BDS 更新：子进程始终 --no-start，由 sfmc 监督器接管启停与日志。
- * （updater 内 detached 自启会导致 REPL 丢 PID / 无 stdout）
+ * 触发 BDS 核心版本更新检查与热升级流程。
  *
- * 不停服预操作：真正需要更新时由 updater 停服；已是最新则不影响正在跑的 BDS。
- * 更新成功后若未指定 --no-start，再由监督器 `start bds`（接管 PID + 日志管道）。
+ * 进程管理与编排约束：
+ * - updater 子进程始终附加 `--no-start` 参数，避免由于进程脱离导致 REPL 丢失 PID 跟踪及标准输出
+ * - 若更新前 BDS 处于运行状态，且未显式指定 `--no-start`，在更新落盘部署完成后由监督器重新唤起 BDS
+ *
+ * @param args 传递给更新器的命令行参数。
+ * @returns 更新执行结果摘要文本。
  */
 export async function cmdUpdate(args: string[] = []): Promise<string> {
+
   const userNoStart = args.includes("--no-start");
   const checkOnly = args.includes("--check-only");
   const spawnArgs = userNoStart ? [...args] : [...args, "--no-start"];

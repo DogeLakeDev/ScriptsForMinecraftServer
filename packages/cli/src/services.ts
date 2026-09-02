@@ -1,3 +1,18 @@
+/**
+ * services.ts — CLI 进程编排与服务生命周期管理
+ *
+ * 核心管理对象（ServiceName）：
+ * - `bds`：Minecraft 基岩版服务端（支持 stdin 管道指令交互与优雅停服）
+ * - `db`：db-server SQLite HTTP 服务（端口健康检查与 loopback 探活）
+ * - `qq`：qq-bridge 消息网桥服务（支持官方 Bot 与 LLBot 双后端）
+ * - `llbot`：LLBot 独立机器人进程（条件启动）
+ *
+ * 核心能力：
+ * - 进程生命周期：按依赖次序编排服务启动（db → qq → bds）、优雅停止与异常自动拉起
+ * - 多源探活感知：自动探测托管进程与外部独立进程状态
+ * - 日志流统一聚合：捕获并归一化各服务的 stdout / stderr 数据流
+ */
+
 import type { BdsUpdaterConfig, DBConfig, QQBackend, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
 import {
   ensureCoreConfigs,
@@ -9,6 +24,7 @@ import {
   DEFAULT_QQ_CONFIG,
   type QqRuntimeStatus,
 } from "@sfmc-bds/sdk/node/config";
+
 import {
   clearBdsPidFile,
   isProcessAlive,
