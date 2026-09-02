@@ -4,8 +4,6 @@ import { Tab, Tabs } from "@rspress/core/theme";
 
 A concise reference guide of the most frequently used SAPI core interfaces and code snippets when developing SFMC modules. Ready to copy and adapt.
 
----
-
 ## 1. Module Lifecycle & Registration (`ModuleRegistry`)
 
 Every module entry point `sapi/src/index.ts` must register via `ModuleRegistry.register`.
@@ -49,8 +47,6 @@ ModuleRegistry.register({
 });
 ```
 
----
-
 ## 2. Notification & Message Helpers (`Msg`)
 
 Direct `player.sendMessage()` calls are disallowed by lint rules. Always use the standardized `Msg` helpers.
@@ -68,8 +64,6 @@ Msg.tips(player, "Tip: Type !menu to open the quick navigation panel");
 // Broadcast to all online players
 Msg.broadcast("Server notice: Scheduled maintenance in 10 minutes");
 ```
-
----
 
 ## 3. Standard Form Styling (`ListFormInfo`)
 
@@ -97,8 +91,6 @@ form.show(player).then((response) => {
   // Handle actions
 });
 ```
-
----
 
 ## 4. Database Persistence & Transactions (`@sfmc-bds/sdk/sapi/db`)
 
@@ -172,8 +164,6 @@ await db.transaction(async (tx) => {
   </Tab>
 </Tabs>
 
----
-
 ## 5. Private Module Configuration (`@sfmc-bds/sdk/sapi/config`)
 
 Read and write isolated configuration in `configs/<configKey>.json`:
@@ -188,8 +178,6 @@ const enableWelcome = await config.get("enable_welcome", true);
 // Runtime write (persisted immediately)
 await config.set("spawn_point", { x: 100, y: 70, z: 200 });
 ```
-
----
 
 ## 6. Cross-Module RPC & Services (`@sfmc-bds/sdk/sapi/service`)
 

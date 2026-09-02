@@ -4,15 +4,13 @@ import { Tab, Tabs, Steps } from '@rspress/core/theme';
 
 数据资产是 Minecraft 服务器的命脉所在。SFMC 在设计之初即贯彻了**高可用与灾备优先**准则，本指南将向运维人员介绍标准化的数据备份流程、全组件升级策略以及紧急故障回滚方案。
 
----
-
 ## 1. 数据安全与冷备份标准
 
 ### 必须纳入备份的核心资产清单
 
 | 资产目录 / 文件 | 存储内容 | 丢失影响 |
 | :--- | :--- | :--- |
-| **`data/`** | SQLite 核心数据库文件（`sfmc_data.db` 及日志） | **极高**。包含所有玩家经济余额、签到历史、领地坐标与模块持久化数据。 |
+| **`data/`** | SQLite 核心数据库文件（`sfmc_data.db` 及日志） | **极高**。包含所有玩家数据与模块持久化数据。 |
 | **`configs/`** | 平台各服务配置与所有业务模块私有配置 | **高**。丢失后需重新配置机器人凭证、端口与游戏规则。 |
 | **`modules/`** | 模块启停状态锁（`module-lock.json`）与本地代码清单 | **中**。记录哪些模块已被激活，重新开服时需依据此文件装配行为包。 |
 | **`<BDS>/worlds/`** | 游戏主世界存档（包含地形、实体与建筑） | **极高**。Minecraft 游戏层面的全量物理世界数据。 |
@@ -70,8 +68,6 @@ sfmc> /start -all
 ```
 </Steps>
 
----
-
 ## 2. 全组件平滑升级策略
 
 SFMC 平台的各层组件相互解耦，可按需分别升级：
@@ -104,7 +100,7 @@ pnpm install && pnpm run build
 
 ---
 
-### ② 升级 Bedrock Dedicated Server 官方核心
+### ② 升级 Bedrock Dedicated Server
 
 SFMC 内置了官方版本探测与自动升级工具，可精准解析 Mojang 官方分发源：
 
@@ -118,8 +114,8 @@ sfmc> update
 
 #### 白名单防覆盖机制（Preserve）
 升级过程中，系统会严格依据 `configs/bds_updater.json` 中的 `preserve` 清单，在解压新版覆盖前**自动封存**以下文件，并在覆盖完成后**原样复原**：
-- `server.properties`（服务端网络与基础配置）
-- `whitelist.json` / `permissions.json`（原生白名单与权限表）
+- `server.properties`（服务端配置）
+- `whitelist.json` / `permissions.json`（原生白名单）
 - `worlds/`（所有世界存档与已安装的行为包）
 
 升级完成后，`db-server` 会在首次握手时自动跑增量 Schema 迁移，旧版本数据表结构完全向下兼容。
@@ -137,8 +133,6 @@ sfmc> mod install economy
 # 重新组装行为包并向游戏发出热重载指令
 sfmc> mod reload
 ```
-
----
 
 ## 3. 紧急灾难恢复与回滚方案（Rollback）
 

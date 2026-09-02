@@ -22,7 +22,6 @@ SAPI `ConfigManager.init()` 调用。返回平台域：`modules`、`module_token
 
 需要模块身份。SDK：`config.get` / `set` / `onChange`（`onChange` 为进程内，非 SSE）。
 
-
 ## 文件位置
 
 运行时：`configs/<name>.json`。缺文件时由服务用内置默认值 ensure（含 `$schema`）。Schema：`@sfmc-bds/sdk/schemas/`。

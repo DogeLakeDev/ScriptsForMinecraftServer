@@ -38,8 +38,6 @@ npm publish --tag beta
 
 命名与联调见 [模块开发](./module-author.md)。
 
----
-
 ## 附录：平台包发布（贡献者）
 
 主仓 `@sfmc-bds/*` 走 changesets：`pnpm run changeset` / `npm run changeset` → Version PR → `ci-release-packages`。详见 [贡献指南](./contributing.md)。

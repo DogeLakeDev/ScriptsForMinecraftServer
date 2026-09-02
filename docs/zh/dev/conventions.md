@@ -2,8 +2,6 @@
 
 为了保障 SFMC 生态的稳定性、代码优雅性与长久可维护性，所有平台包与业务模块均需严格遵守以下工程约定。
 
----
-
 ## 1. 交互与消息规范（Interaction & Messaging）
 
 ### 统一使用 `Msg` 助手
@@ -23,8 +21,6 @@
 - 后续每行进行规范缩进与对齐，杜绝杂乱无章的空行。
 - 按钮文字保持干净简洁，**除“§c返回/关闭”外，常规功能按钮禁止包含原版颜色格式码**。
 
----
-
 ## 2. 命令与权限梯度（Commands & Permissions）
 
 ### 聊天命令统一接入
@@ -41,8 +37,6 @@
 | **`2`** | **Admin / OP**（管理员） | 巡查与日常管理命令（如 `!kick`、`!mute`、`!land admin`）。 |
 | **`3`** | **Root / SuperAdmin**（超管） | 底层运维命令（如 `!sfmc reload`、权限分配）。 |
 
----
-
 ## 3. 配置分层与防腐（Configuration Layers）
 
 1. **平台级配置（`configs/*.json`）**：
@@ -53,8 +47,6 @@
    - 每个模块拥有独立的配置命名空间，通过 `@sfmc-bds/sdk/sapi/config` 提供的 `config.get` / `config.set` 进行透明读写。
    - `config.set` 会即时落盘；模块不得绕过 SDK 直接探测或读写文件系统。
 
----
-
 ## 4. 模块边界与架构防腐（Module Boundaries）
 
 - **极简依赖**：业务模块仅允许依赖 `@sfmc-bds/sdk` 与官方 `@minecraft/*` 运行时包，严禁将未打包的外部大体积 Node 模块混入 SAPI 环境。
@@ -63,15 +55,11 @@
   - 严禁读取或修改其它模块声明的私有 SQLite 表。
   - 如需调用其它模块能力，必须在 `manifest.json` 中声明 `requires`，并统一走 `service.call` 或分布式事务 `tx.call`。
 
----
-
 ## 5. 数据库与 SQL 安全规范（Database & SQL）
 
 - **参数化查询防注入**：所有 SQL 查询必须使用 SDK 导出的 `sql` 模板标签（例如 `sql`SELECT * FROM users WHERE id = ${userId}``），底层自动转换为预编译参数绑定，严禁手动通过字符串拼接拼凑 SQL。
 - **动态列名转义**：若涉及动态标识符（表名/列名），必须使用 `sql().append(raw(...))` 显式包裹，严禁将外部不可信输入作为裸 SQL 标识符执行。
 - **短事务原则**：事务（`db.transaction`）内仅执行必要的数据库读写与原子操作，禁止在事务临界区内发起耗时巨大的外部网络 I/O。
-
----
 
 ## 6. 代码工程纪律（Code Quality & Formatting）
 

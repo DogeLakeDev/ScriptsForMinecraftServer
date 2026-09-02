@@ -10,8 +10,6 @@ import { Steps } from "@rspress/core/theme";
 如果您希望自行开发、测试并发布新的功能模块，请直接查阅 [模块开发指南](../dev/module-author.mdx)。
 :::
 
----
-
 ## 1. 模块生态体系与架构
 
 SFMC 模块具备高度工程化的解耦设计：
@@ -29,8 +27,6 @@ flowchart LR
   Catalog --> Assembler
   Assembler --> BP[BDS 世界行为包 sfmc-modules]
 ```
-
----
 
 ## 2. 常用管理命令
 
@@ -50,6 +46,7 @@ sfmc> mod install afk economy teleport
 ```
 
 安装源说明（`--from`）：
+
 - 默认为 npm 源：`@sfmc-bds/module-<id>` 或 `@scope/sfmc-module-<id>`。
 - 支持本地目录调试（挂接作者仓）：`sfmc mod install <id> --from dir:<绝对路径> --link`。
 
@@ -71,11 +68,9 @@ sfmc> mod uninstall afk
 
 :::important 启停状态与锁文件机制
 `mod enable` 与 `mod disable` 会将状态持久化写入 `<SFMC_ROOT>/modules/module-lock.json`。
-- **离线安全**：即使 `db-server` 处于离线状态，启停修改依然能安全落盘；待下次启动数据库时会自动同步内存态。
-- **游戏生效**：在 BDS 运行期间修改了模块启停状态，**必须执行 `mod reload` 或重启 BDS** 才能在游戏中生效。
+**离线安全**：即使 `db-server` 处于离线状态，启停修改依然能安全落盘；待下次启动数据库时会自动同步内存态。  
+**游戏生效**：在 BDS 运行期间修改了模块启停状态，**必须执行 `mod reload` 或重启 BDS** 才能在游戏中生效。
 :::
-
----
 
 ## 3. 行为包动态装配机制
 
@@ -94,12 +89,12 @@ sfmc> mod reload --build-only
 
 ### 部署路径一览
 
-| 阶段 / 产物 | 落盘路径 | 作用说明 |
-| :--- | :--- | :--- |
-| **中间产物** | `<SFMC_ROOT>/packs/_build/sfmc-modules/` | 经过打包工具（esbuild）混淆编译后的暂存目录。 |
-| **世界行为包 (BP)** | `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/` | 实际注入当前游戏世界的最终行为包产物。 |
+| 阶段 / 产物         | 落盘路径                                               | 作用说明                                                 |
+| :------------------ | :----------------------------------------------------- | :------------------------------------------------------- |
+| **中间产物**        | `<SFMC_ROOT>/packs/_build/sfmc-modules/`               | 经过打包工具（esbuild）混淆编译后的暂存目录。            |
+| **世界行为包 (BP)** | `<BDS>/worlds/<level>/behavior_packs/sfmc-modules/`    | 实际注入当前游戏世界的最终行为包产物。                   |
 | **世界资源包 (RP)** | `<BDS>/worlds/<level>/resource_packs/sfmc-modules-rp/` | 若启用的模块包含材质、UI 或音频资源，将自动生成配套 RP。 |
-| **部署清单** | BP 根目录下 `sfmc-deploy-catalog.json` | 记录本次构建所包含的模块版本哈希，供装载闸门快速比对。 |
+| **部署清单**        | BP 根目录下 `sfmc-deploy-catalog.json`                 | 记录本次构建所包含的模块版本哈希，供装载闸门快速比对。   |
 
 ### 装配流水线四步走
 
@@ -108,20 +103,22 @@ sfmc> mod reload --build-only
 扫描 `modules/packages/*/sapi` 下的所有子模块，读取其 `manifest.json` 声明的依赖项与所需权限。
 
 ### 过滤启停白名单
+
 严格依照 `modules/module-lock.json` 中标记为 `"enabled": true` 的项进行过滤。未启用的模块绝对不会被打入行为包。
 
 ### 统一转译与聚合打包
+
 以 `installHostBootstrap()` 宿主脚本为入口，通过现代化打包引擎将各模块的生命周期、事件侦听器与指令注册代码编译整合为一个高内聚的 `scripts/main.js`。
 
 ### 部署到世界并更新清单
+
 将生成产物同步至当前世界的 `behavior_packs` 目录，并原子化更新 `world_behavior_packs.json` 启用声明。
+
 </Steps>
 
 :::note 空包保护
 即使服主关闭了所有功能模块，装配引擎仍会生成一个合法的空行为包骨架，确保服务端不会因资源丢失而报错。
 :::
-
----
 
 ## 4. 本地开发与联调（--link）
 
@@ -138,8 +135,6 @@ sfmc> mod reload
 
 配合 VS Code / Cursor 专属扩展 **「SFMC Module」** 的 Watch 功能，在作者仓中每次按下保存，代码即可毫秒级热同步并通知 BDS 重新装载！
 
----
-
 ## 5. 官方推荐模块目录
 
 以下列表在构建文档站时自动拉取自官方 `sfmc-modules` 索引库：
@@ -147,3 +142,4 @@ sfmc> mod reload
 <ModuleCatalog />
 
 > 想要调用官方模块暴露的跨模块接口？请查阅 [模块服务调用目录](../api/modules/index.md)。
+

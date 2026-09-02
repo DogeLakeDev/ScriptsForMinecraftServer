@@ -2,8 +2,6 @@
 
 本手册面向 SFMC 业务模块开发者。读完本篇，你将掌握从**新建模块仓库、规范化命名、本地假引擎单元测试、真机热重载联调，到最终发布至 npm 与官方索引**的完整工程化闭环。
 
----
-
 ## 1. 快速脚手架：5 分钟初始化模块
 
 推荐通过官方脚手架一键生成标准的作者独立仓库：
@@ -16,8 +14,8 @@ npx @sfmc-bds/create-module@latest
 ```
 
 向导将引导您填写并配置：
-- **模块 ID（kebab-case）**：如 `teleport` 或 `daily-reward`
-- **显示名称（Display Name）**：如 `领地传送` 或 `每日签到`
+- **模块 ID（kebab-case）**
+- **显示名称（Display Name）**
 - **npm Scope**：社区模块建议使用个人或团队 scope（如 `@alice`）
 - **可选能力选型**：是否开箱包含 SQLite 持久化支持（`db`）
 
@@ -34,8 +32,6 @@ pnpm install && pnpm test
 npm install && npm test
 ```
 
----
-
 ## 2. 工程规范与命名矩阵
 
 为确保模块在全生态中的命名唯一性与一致性，请严格遵循以下规范矩阵：
@@ -47,8 +43,6 @@ npm install && npm test
 | **npm 包名（官方）** | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` | 平台核心团队维护的官方模块。 |
 | **Manifest 模块 ID** | `feature-<id>` 或 `core-<id>` | `feature-teleport` | 在 SAPI 虚拟机内部的唯一模块标识符。 |
 | **配置命名空间** | 下划线命名（snake_case） | `teleport`、`my_feature` | 对应 `<SFMC_ROOT>/configs/<configKey>.json`。 |
-
----
 
 ## 3. 作者开发标准工作流（Developer Workflow）
 
@@ -94,8 +88,6 @@ pnpm publish --access public
 # 向官方索引 sfmc-modules 的 index.json 提交 PR 登记你的模块
 ```
 
----
-
 ## 4. 作者仓标准文件结构
 
 ```text
@@ -126,8 +118,6 @@ my-feature/
 :::warning 注意：杜绝违规直连
 严禁在 SAPI 模块内使用原生 `fetch` 或 `http` 直接请求 `127.0.0.1:3001`。所有数据库读写与服务通信必须通过 SDK 封装的 `db.*`、`service.*` 接口进行，SDK 会自动完成请求上下文封装与 Bearer Token 鉴权注入。
 :::
-
----
 
 ## 5. Manifest v3 语义化元数据契约
 
@@ -186,8 +176,6 @@ my-feature/
 ### 向下兼容性保障
 - **零破坏性升级**：v3 对 v2 完全向下兼容。旧模块保留 `schemaVersion: 2` 即可平滑运行，系统会自动将其平滑升维为缺省 `semantic` 的 v3 格式。
 - **类型宽容度**：即使在 `semantic` 中声明了可选错误类型，校验引擎仅会在控制台打印警告提示，绝对不会粗暴阻断模块的启动加载。
-
----
 
 ## 6. 下一步指引
 

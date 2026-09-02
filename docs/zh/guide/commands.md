@@ -5,12 +5,10 @@
 在交互终端中，输入 `help` 可列出当前上下文支持的全部命令；输入 `/` 可激活交互式命令补全菜单。
 
 :::tip 命令别名约定
-- 模块管理：`mod` ≡ `module`（顶层短命令 `install` / `uninstall` / `search` / `list` 等同于 `mod <cmd>`）
-- 附加包管理：`packs` ≡ `addon`
-- 详细执行机制请分别查阅：[服务管理](./services.mdx)、[模块管理](./modules.mdx)、[附加包管理](./addons.md)。
+模块管理：`mod` ≡ `module`（顶层短命令 `install` / `uninstall` / `search` / `list` 等同于 `mod <cmd>`）
+附加包管理：`packs` ≡ `addon`
+详细执行机制请分别查阅：[服务管理](./services.mdx)、[模块管理](./modules.mdx)、[附加包管理](./addons.md)。
 :::
-
----
 
 ## 1. 伴生服务编排（Service Management）
 
@@ -24,8 +22,6 @@
 | `send <svc> <input>` | `sfmc> send bds op Alex` | 向指定服务的子进程标准输入（stdin）注入字符指令（仅在交互式 REPL 中有效）。 |
 | `init` | `sfmc> init` | 重新唤起首次开服交互式初始化向导（需在标准 TTY 终端中运行）。 |
 | `update [--check-only]` | `sfmc> update` | 检查并升级 Bedrock Dedicated Server 官方服务端。使用 `--check-only` 仅查询版本不下载。 |
-
----
 
 ## 2. 功能模块管控（Module Management）
 
@@ -46,8 +42,6 @@
 自新版起，模块作者向的本地单测、文件监视（Watch）与发布已统一收敛至 VS Code / Cursor 专属扩展 **「SFMC Module」**；CLI 不再提供旧版 `mod test`、`mod watch` 与 `mod publish` 命令。详见 [模块开发指南](../dev/module-author.mdx)。
 :::
 
----
-
 ## 3. 第三方附加包（Add-ons & Packs）
 
 | 命令与常用参数 | 典型示例 | 功能与行为说明 |
@@ -67,8 +61,6 @@
 | `packs bump <id>` | `sfmc> packs bump my-addon-rp` | 仅针对资源包（RP）：将其 patch 版本号 +1，强制客户端拉取最新贴图缓存。 |
 | `packs doctor` | `sfmc> packs doctor` | 扫描并排查世界清单中损坏或游离的无效附加包引用。 |
 | `packs path` | `sfmc> packs path` | 打印当前世界行为包与资源包的落盘文件系统路径。 |
-
----
 
 ## 4. 全局通用与诊断命令（General & Diagnostics）
 

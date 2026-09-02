@@ -12,8 +12,6 @@ flowchart LR
   D --> E[SDK / 核心组件开发]
 ```
 
----
-
 ## 1. 三层工程边界与真理源
 
 在动手编码之前，理解 SFMC 的三层职责边界至关重要：
@@ -25,8 +23,6 @@ flowchart LR
 | **模块索引（sfmc-modules）** | **社区检索的轻量索引**。仅包含 `index.json` 目录，供 CLI 搜索、版本匹配与展示。 | 该仓库并非 Monorepo 工作区，不承载任何实际模块代码。 |
 | **主仓工作区（modules/packages/）** | **服务器运行态的安装目标**。可通过 `--link` 软链接挂接作者本地仓进行热联调。 | 并非日常业务开发的代码仓库。 |
 
----
-
 ## 2. 推荐开发环境配置
 
 | 类别 | 推荐选项 | 说明 |
@@ -34,15 +30,13 @@ flowchart LR
 | **操作系统** | Windows 10 / 11 或 Linux (Ubuntu 22.04+) | 建议开发机配置好本地 Node.js 与 Git 环境。 |
 | **Node.js** | **`≥ 22.13.0`** (LTS) | 必须满足该版本以获得 Node 原生内置的 `node:sqlite` 支持。 |
 | **包管理** | **`pnpm`** (推荐) 或 `npm` | 主仓采用 pnpm workspaces；本地开发包严禁使用 `workspace:*` 外部依赖。 |
-| **编辑器** | [Cursor](https://cursor.com/) 或 [VS Code](https://code.visualstudio.com/) | 搭配官方专属扩展体验最佳。 |
+| **编辑器** | [Cursor](https://cursor.com/) 或 [VS Code](https://code.visualstudio.com/) | 搭配专属扩展体验最佳。 |
 
-### 必备 VS Code / Cursor 扩展
+### 必备与推荐 VS Code / Cursor 扩展
 
 - **SFMC Module**（官方专属扩展）：提供一键生成新模块（`New Module`）、假引擎单元测试（`Run Tests`）、实时监听热重载（`Start Watch`）与一键部署。
 - **ESLint**：启用 `@sfmc-bds/eslint-plugin` 规则，实施消息规范、SDK 导入路径与跨模块契约的静态检查。
 - **Node.js Testing**：在编辑器侧边栏以图形化测试树直接运行与调试 `node --test`。
-
----
 
 ## 3. 选择你的开发路线
 
@@ -80,8 +74,6 @@ sfmc mod reload
 
   </Tab>
 </Tabs>
-
----
 
 ## 4. 核心章节导航索引
 

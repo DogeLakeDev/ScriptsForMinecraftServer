@@ -2,8 +2,6 @@
 
 本文档深入剖析 SFMC 的系统拓扑、通信协议、生命周期时序与状态真理源，阐述如何将**作者独立仓、npm 分发生态、伴生数据中枢与原生 Bedrock Dedicated Server**有机串联。
 
----
-
 ## 1. 系统分层与拓扑全景
 
 SFMC 将复杂的开服系统划分为四个清晰解耦的层次：
@@ -39,8 +37,6 @@ flowchart TD
 
   SAPI <== Loopback HTTP (127.0.0.1:3001) ==> DB
 ```
-
----
 
 ## 2. SAPI 生命周期与启动序
 
@@ -94,8 +90,6 @@ sequenceDiagram
 - **不进行运行时轮询**：快照直接固化在 SAPI 内存中，完全避免高频 HTTP 请求拖慢 Minecraft 游戏主刻（Tick）。
 - **Token 透明注入**：`ModuleRegistry.bootModule` 会自动将该模块的专用 Bearer Token 绑定至 `db` 客户端上下文。模块作者编写数据库操作时，无需手动管理任何鉴权密钥。
 
----
-
 ## 3. 模块标准注册描述符
 
 每个模块在 `sapi/src/index.ts` 中声明自身的生命周期钩子：
@@ -143,8 +137,6 @@ ModuleRegistry.register({
 });
 ```
 
----
-
 ## 4. 状态真理源分布矩阵
 
 SFMC 遵循严格的单一事实源（Single Source of Truth）原则：
@@ -157,8 +149,6 @@ SFMC 遵循严格的单一事实源（Single Source of Truth）原则：
 | **模块启停状态** | `<SFMC_ROOT>/modules/module-lock.json` | **唯一决定行为包是否打包该模块的布尔状态锁**。 |
 | **持久化业务数据** | `<SFMC_ROOT>/data/sfmc_data.db` | 由 `db-server` 托管的 SQLite 物理数据库。 |
 | **平台级配置** | `<SFMC_ROOT>/configs/*.json` | 首次启动时自动生成默认值，支持环境变量按需覆盖。 |
-
----
 
 ## 5. Monorepo 工作区架构（Platform Workspace）
 

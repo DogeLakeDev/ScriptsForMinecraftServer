@@ -4,8 +4,6 @@ import { Tab, Tabs } from "@rspress/core/theme";
 
 本手册整理了开发 SFMC 业务模块时最常用的 SAPI 核心接口与代码片段，支持直接复制集成。
 
----
-
 ## 1. 模块生命周期与注册 (`ModuleRegistry`)
 
 每个模块入口 `sapi/src/index.ts` 必须通过 `ModuleRegistry.register` 进行注册。
@@ -49,8 +47,6 @@ ModuleRegistry.register({
 });
 ```
 
----
-
 ## 2. 消息与交互提示 (`Msg`)
 
 严格禁止使用 `player.sendMessage()`，请统一使用规范化的 `Msg` 助手（支持格式码与统一色彩主题）。
@@ -68,8 +64,6 @@ Msg.tips(player, "小贴士：输入 !menu 可打开快捷菜单");
 // 全服广播
 Msg.broadcast("全服公告：服务器将在 10 分钟后例行维护");
 ```
-
----
 
 ## 3. 表单正文规范 (`ListFormInfo`)
 
@@ -97,8 +91,6 @@ form.show(player).then((response) => {
   // 处理点击回调
 });
 ```
-
----
 
 ## 4. 数据库 CRUD 与事务 (`@sfmc-bds/sdk/sapi/db`)
 
@@ -172,8 +164,6 @@ await db.transaction(async (tx) => {
   </Tab>
 </Tabs>
 
----
-
 ## 5. 模块私有配置读写 (`@sfmc-bds/sdk/sapi/config`)
 
 模块在 `configs/<configKey>.json` 拥有独立隔离的命名空间：
@@ -188,8 +178,6 @@ const enableWelcome = await config.get("enable_welcome", true);
 // 运行时修改配置（即时持久化）
 await config.set("spawn_point", { x: 100, y: 70, z: 200 });
 ```
-
----
 
 ## 6. 跨模块服务依赖与 RPC (`@sfmc-bds/sdk/sapi/service`)
 

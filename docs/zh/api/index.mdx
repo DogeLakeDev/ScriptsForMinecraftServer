@@ -14,8 +14,6 @@ flowchart LR
   A --> E[平台 HTTP API (底层/调试)]
 ```
 
----
-
 ## 1. 基础端点与网络边界
 
 - **服务基础地址（Base URL）**：`http://127.0.0.1:3001`
@@ -27,8 +25,6 @@ flowchart LR
 curl http://127.0.0.1:3001/api/health
 ```
 
----
-
 ## 2. 交互分轨：走 SDK 还是直连 HTTP？
 
 | 业务场景 | 官方标准做法 | 禁忌与原则 |
@@ -36,8 +32,6 @@ curl http://127.0.0.1:3001/api/health
 | **编写 SAPI 游戏业务模块** | **必须统一使用 `@sfmc-bds/sdk`** 提供的抽象封装。<br/>- 数据库：`@sfmc-bds/sdk/sapi/db`<br/>- 私有配置：`@sfmc-bds/sdk/sapi/config`<br/>- 跨模块调用：`@sfmc-bds/sdk/sapi/service` | **绝对禁止直接通过 SAPI fetch 直连 `127.0.0.1:3001`**。SDK 会自动处理请求签名、身份注入与网络异常重试。 |
 | **Node.js 侧扩展与外部脚本** | 可直接发起 HTTP REST 请求（参考本节各平台 HTTP 子路由）。 | 需在 Request Header 中显式携带 Bearer Token。 |
 | **查阅强类型签名** | 参阅自动生成的 [SDK 类型参考手册](../reference/index.md)。 | — |
-
----
 
 ## 3. 按角色选择查阅路径
 
@@ -61,8 +55,6 @@ curl http://127.0.0.1:3001/api/health
 
   </Tab>
 </Tabs>
-
----
 
 ## 4. 章节导航索引
 

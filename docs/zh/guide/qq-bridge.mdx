@@ -4,8 +4,6 @@ import { Tab, Tabs, Steps } from "@rspress/core/theme";
 
 SFMC 内置了工业级的多端互通网关服务（`qq-bridge`），能够无缝桥接 Minecraft 服务器与 QQ 群聊生态，提供**群服双向聊天互通、全服状态监控、游戏内身份绑定、入服白名单审批与游戏事件批量播报**等核心能力。
 
----
-
 ## 1. 架构拓扑与双后端模型
 
 `qq-bridge` 作为独立的伴生守护进程运行，支持两种完全不同的通信协议架构：
@@ -32,16 +30,14 @@ flowchart TD
 
 ### 两种后端模式对比
 
-| 对比维度 | 腾讯官方开放平台（`official`，默认推荐） | LLBot / OneBot 11（`llbot`） |
-| :--- | :--- | :--- |
-| **接入方式** | 官方机器人开发凭证（AppID / Secret / OpenID） | 基于本地 QQ 客户端框架（如 LiteLoaderQQNT + OneBot 11） |
-| **封号风险** | **零风险**。走腾讯官方 OpenAPI 与标准审核通道。 | 存在传统“小号挂机”被风控或冻结的潜在风险。 |
-| **交互能力** | 支持原生 Markdown 格式排版、富文本按钮与指令交互面板。 | 纯文本消息与数字编号快捷交互。 |
-| **入站方式** | 开放平台 WebSocket Gateway（实时推送群 @ 消息）。 | LLBot 反向 WebSocket（监听本地 `3002` 端口）。 |
-| **出站方式** | `db-server` 直调 OpenAPI 发送主动推群消息。 | `db-server` 请求 LLBot HTTP 服务（默认 `3004` 端口）。 |
-| **群频度限制** | 严格遵循官方限制（约 20 条/分钟、1000 条/群/天）。 | 视本地挂机账号本身的风控规则而定。 |
-
----
+| 对比维度       | 腾讯官方开放平台（`official`，默认推荐）               | LLBot / OneBot 11（`llbot`）                            |
+| :------------- | :----------------------------------------------------- | :------------------------------------------------------ |
+| **接入方式**   | 官方机器人开发凭证（AppID / Secret / OpenID）          | 基于本地 QQ 客户端框架（如 LiteLoaderQQNT + OneBot 11） |
+| **封号风险**   | **零风险**。走腾讯官方 OpenAPI 与标准审核通道。        | 存在传统“小号挂机”被风控或冻结的潜在风险。              |
+| **交互能力**   | 支持原生 Markdown 格式排版、富文本按钮与指令交互面板。 | 纯文本消息与数字编号快捷交互。                          |
+| **入站方式**   | 开放平台 WebSocket Gateway（实时推送群 @ 消息）。      | LLBot 反向 WebSocket（监听本地 `3002` 端口）。          |
+| **出站方式**   | `db-server` 直调 OpenAPI 发送主动推群消息。            | `db-server` 请求 LLBot HTTP 服务（默认 `3004` 端口）。  |
+| **群频度限制** | 严格遵循官方限制（约 20 条/分钟、1000 条/群/天）。     | 视本地挂机账号本身的风控规则而定。                      |
 
 ## 2. 配置文件全景详解 (`configs/qq_config.json`)
 
@@ -58,9 +54,7 @@ flowchart TD
   "qq_sync_menu_panel": true,
   "bridge_channel_id": "main",
   "mctoqq_prefix": "[MC] ",
-  "qq_admin_openids": [
-    "OPENID_OF_ADMIN_1"
-  ],
+  "qq_admin_openids": ["OPENID_OF_ADMIN_1"],
   "qq_ws_port": 3002,
   "qq_group_id": 0,
   "llbot_enabled": false,
@@ -80,22 +74,20 @@ flowchart TD
 
 ### 核心参数对照表
 
-| 配置项 | 适用后端 | 类型 | 默认值 | 作用说明 |
-| :--- | :---: | :---: | :---: | :--- |
-| `qq_backend` | 全局 | `string` | `"official"` | 后端选择：`"official"` 或 `"llbot"`。 |
-| `bridge_channel_id` | 全局 | `string` | `""` | 游戏内双向互通的频道标识符（建议填 `"main"`）。留空则关闭游戏内普通聊天转发。 |
-| `mctoqq_prefix` | 全局 | `string` | `"[MC] "` | 游戏内玩家发言转发至 QQ 群时的文本前缀。 |
-| `qq_admin_openids` | official | `string[]` | `[]` | 具备入服审批、踢人、远程开关白名单权限的管理员 OpenID 列表。 |
-| `qq_events` | 全局 | `object` | 见上 | 进退服、阵亡与服务器崩溃重启等系统事件的聚合广播控制。 |
-| `qq_app_id` / `qq_app_secret` | official | `string` | `""` | 腾讯 QQ 开放平台分配的机器人凭据（**切勿泄露或提交至公开 Git**）。 |
-| `qq_group_openid` | official | `string` | `""` | 机器人所在目标群的唯一 OpenID（注意：**并非传统群号**）。 |
-| `qq_sandbox` | official | `boolean` | `false` | 是否启用官方沙箱测试环境（正式开服请保持 `false`）。 |
-| `qq_sync_menu_panel` | official | `boolean` | `true` | 服务启动时是否自动向官方同步注册群指令快捷面板与单聊菜单。 |
-| `qq_ws_port` | llbot | `number` | `3002` | `qq-bridge` 监听的 WebSocket 端口，供 LLBot 配置反向连接。 |
-| `qq_group_id` | llbot | `number` | `0` | LLBot 模式下的目标 QQ 群号（数字格式）；设为 `0` 表示不转发。 |
-| `llbot_host` / `llbot_port` | llbot | `string/number` | `127.0.0.1:3004` | LLBot 的 HTTP API 地址，供主动推群使用。 |
-
----
+| 配置项                        | 适用后端 |      类型       |      默认值      | 作用说明                                                                      |
+| :---------------------------- | :------: | :-------------: | :--------------: | :---------------------------------------------------------------------------- |
+| `qq_backend`                  |   全局   |    `string`     |   `"official"`   | 后端选择：`"official"` 或 `"llbot"`。                                         |
+| `bridge_channel_id`           |   全局   |    `string`     |       `""`       | 游戏内双向互通的频道标识符（建议填 `"main"`）。留空则关闭游戏内普通聊天转发。 |
+| `mctoqq_prefix`               |   全局   |    `string`     |    `"[MC] "`     | 游戏内玩家发言转发至 QQ 群时的文本前缀。                                      |
+| `qq_admin_openids`            | official |   `string[]`    |       `[]`       | 具备入服审批、踢人、远程开关白名单权限的管理员 OpenID 列表。                  |
+| `qq_events`                   |   全局   |    `object`     |       见上       | 进退服、阵亡与服务器崩溃重启等系统事件的聚合广播控制。                        |
+| `qq_app_id` / `qq_app_secret` | official |    `string`     |       `""`       | 腾讯 QQ 开放平台分配的机器人凭据（**切勿泄露或提交至公开 Git**）。            |
+| `qq_group_openid`             | official |    `string`     |       `""`       | 机器人所在目标群的唯一 OpenID（注意：**并非传统群号**）。                     |
+| `qq_sandbox`                  | official |    `boolean`    |     `false`      | 是否启用官方沙箱测试环境（正式开服请保持 `false`）。                          |
+| `qq_sync_menu_panel`          | official |    `boolean`    |      `true`      | 服务启动时是否自动向官方同步注册群指令快捷面板与单聊菜单。                    |
+| `qq_ws_port`                  |  llbot   |    `number`     |      `3002`      | `qq-bridge` 监听的 WebSocket 端口，供 LLBot 配置反向连接。                    |
+| `qq_group_id`                 |  llbot   |    `number`     |       `0`        | LLBot 模式下的目标 QQ 群号（数字格式）；设为 `0` 表示不转发。                 |
+| `llbot_host` / `llbot_port`   |  llbot   | `string/number` | `127.0.0.1:3004` | LLBot 的 HTTP API 地址，供主动推群使用。                                      |
 
 ## 3. 接入配置指引
 
@@ -103,6 +95,7 @@ flowchart TD
   <Tab label="方案 A：接入官方机器人（official，推荐）">
 
 ### 第一步：开发者平台准备与凭证获取
+
 1. 前往 [QQ 开放平台](https://q.qq.com/) 注册并创建机器人应用。
 2. 在应用凭据页面获取 `AppID` 与 `AppSecret`，填入 `configs/qq_config.json`。
 3. 在管理端 **事件订阅** 中，勾选并开启 **`GROUP_AT_MESSAGE_CREATE`（公域/私域群聊 @ 机器人事件）**。
@@ -119,20 +112,26 @@ sfmc> /start qq
 ```
 
 ### 在群内触发一次探测
+
 在 QQ 群中直接发送任意内容并 **@机器人**（例如 `@机器人 ping`）。
 
 ### 复制日志中的群 OpenID
+
 由于初次尚未配置群标识，`qq-bridge` 会在控制台高亮输出捕捉到的群信息：
+
 ```text
 [qq-bridge] [INFO] 收到群 @ 消息，当前群 group_openid 为: 4A7B8C9D0E...
 ```
 
 ### 回填并重启服务
+
 将该字符串填入 `configs/qq_config.json` 的 `qq_group_openid`，随后在控制台执行：
+
 ```bash
 sfmc> /restart db
 sfmc> /restart qq
 ```
+
 </Steps>
 
 :::tip 接口白名单提示（错误码 11253）
@@ -157,8 +156,6 @@ sfmc> /restart qq
   </Tab>
 </Tabs>
 
----
-
 ## 4. 群内交互指令体系（无需进入游戏）
 
 `qq-bridge` 会在消息入库前进行实时拦截与指令模式匹配。同一套指令在两端呈现出极致契合其平台特性的交互形式：
@@ -168,7 +165,7 @@ flowchart LR
   Msg[群成员发送消息] --> CheckAt{是否 @机器人 / 发送命令?}
   CheckAt -->|是指令| CommandRouter[内置指令路由引擎]
   CheckAt -->|普通闲聊| ChatRelay[写入消息中继队列]
-  
+
   CommandRouter -->|official| MD[渲染富文本 Markdown + 交互按钮]
   CommandRouter -->|llbot| TXT[渲染紧凑纯文本 + 60秒数字编号回调]
   ChatRelay --> InGame[广播至 Minecraft 游戏内]
@@ -176,27 +173,26 @@ flowchart LR
 
 ### 玩家常用命令
 
-| 指令触发词 | 功能与返回内容 |
-| :--- | :--- |
-| `菜单` / `help` / `/help` | 展示常用交互面板。官方端呈现为精美 Markdown 按钮卡片；LLBot 呈现为序号索引。 |
-| `ping` / `/ping` | 探测网关连通性与服务心跳延迟。 |
-| `status` / `状态` | 查询服务器运行摘要：在线玩家数、世界日与天气、宿主机器内存与 CPU 负载、BDS 运行时长。 |
-| `online` / `在线` | 实时列出当前正在游戏中的玩家 ID 清单。 |
-| `绑定` / `bind` | 向系统申请一个 6 位短验证码，用于在游戏内完成身份认证。 |
-| `我的绑定` / `whoami` | 查询当前 QQ 账号已绑定的 Minecraft 正版/离线角色名称。 |
-| `解绑` / `unbind` | 解除当前账号与游戏角色的映射绑定。 |
-| `申请入服 <游戏名>` | 提交白名单入服申请（直接进入管理员审批工作流）。 |
-| `频道` / `channel` | 诊断当前双向互通频道的连接状态与健康度。 |
+| 指令触发词                | 功能与返回内容                                                                        |
+| :------------------------ | :------------------------------------------------------------------------------------ |
+| `菜单` / `help` / `/help` | 展示常用交互面板。官方端呈现为精美 Markdown 按钮卡片；LLBot 呈现为序号索引。          |
+| `ping` / `/ping`          | 探测网关连通性与服务心跳延迟。                                                        |
+| `status` / `状态`         | 查询服务器运行摘要：在线玩家数、世界日与天气、宿主机器内存与 CPU 负载、BDS 运行时长。 |
+| `online` / `在线`         | 实时列出当前正在游戏中的玩家 ID 清单。                                                |
+| `绑定` / `bind`           | 向系统申请一个 6 位短验证码，用于在游戏内完成身份认证。                               |
+| `我的绑定` / `whoami`     | 查询当前 QQ 账号已绑定的 Minecraft 正版/离线角色名称。                                |
+| `解绑` / `unbind`         | 解除当前账号与游戏角色的映射绑定。                                                    |
+| `申请入服 <游戏名>`       | 提交白名单入服申请（直接进入管理员审批工作流）。                                      |
+| `频道` / `channel`        | 诊断当前双向互通频道的连接状态与健康度。                                              |
 
 ### 管理员高级管理指令（仅限 `qq_admin_openids` 成员）
 
 输入 `管理` 或 `admin` 可唤出专属管理子面板：
+
 - **`待审`**：列出当前待审批的入服申请队列。
 - **`通过 <申请ID>` / `拒绝 <申请ID>`**：审批入服请求（官方端可在卡片上直接点击【批准】/【拒绝】回调按钮）。
 - **`踢人 <玩家名>`**：向 BDS 下发管理员驱逐指令（玩家必须在线）。
 - **`配置`**：远程切换入服白名单与审核开关（支持指令：`配置 白名单 开|关`、`配置 审批 开|关`）。
-
----
 
 ## 5. 游戏聊天双向互通（Chat Bridge）
 
@@ -213,8 +209,6 @@ flowchart LR
 3. **防循环与去重机制（Anti-Looping）**：
    - 严格拦截并丢弃机器人自身发送的消息。
    - 底层设有 **5 秒滑动窗口消息 ID 去重缓存**，彻底杜绝多端回环与重复轰炸。
-
----
 
 ## 6. 入服白名单与自动化审批工作流
 
@@ -233,7 +227,7 @@ sequenceDiagram
   DB-->>Admin: 推送待审通知 (带批准按钮)
   Admin->>DB: 点击【批准】或发送 "通过 1"
   DB->>DB: 状态流转为 approved，进入 apply-queue
-  
+
   loop 定期轮询队列
     SAPI->>DB: GET /api/sfmc/qq/join/apply-queue
     DB-->>SAPI: 返回待添加玩家清单
@@ -249,8 +243,6 @@ sequenceDiagram
 若外部 Node 服务直接强制覆盖写入 BDS 正在读写的 `allowlist.json` 文件，极易导致文件锁冲突与存档数据损坏。  
 SFMC 通过官方 `@minecraft/server-admin` 原生安全接口注入白名单，即使 BDS 停机维护，所有审批也能在数据库中安全积压，**待 BDS 再次开机时全自动批量应用生效**。
 :::
-
----
 
 ## 7. 智能事件节流与聚合广播（Event Throttle）
 
@@ -279,8 +271,6 @@ SFMC 通过官方 `@minecraft/server-admin` 原生安全接口注入白名单，
 为了保障群聊日常交流体验，成就达成通知、每一条高频阵亡以及日常聊天镜像**绝不混入事件通道**，确保推送内容高价值、无噪音。
 :::
 
----
-
 ## 8. 常见排障清单
 
 - **机器人收不到群消息？**：
@@ -290,3 +280,4 @@ SFMC 通过官方 `@minecraft/server-admin` 原生安全接口注入白名单，
   - 检查 `configs/db_config.json` 是否配置了 `http_auth`，若有配置，需确保环境变量中携带了对应密钥。
 - **无法获取群 OpenID？**：
   - 先配好 AppID 与 Secret，启动 `qq` 服务；在群里 @ 机器人一次，直接观察控制台打印的抓取日志即可。
+

@@ -4,8 +4,6 @@
 
 本篇文档向平台开发者与高级运维深入解析动态行为包（BP）与配套资源包（RP）的组装流水线。
 
----
-
 ## 1. 动态流水线时序拓扑
 
 整个构建流程由 CLI 与 `@sfmc-bds/bds-tools` 的 pack-manager 协同编排：
@@ -30,16 +28,12 @@ flowchart TD
 | **目标世界 RP** | `<BDS>/worlds/<level>/resource_packs/sfmc-modules-rp/` | 实际注入当前世界的资源包产物。 |
 | **部署镜像清单** | BP 根目录下 `sfmc-deploy-catalog.json` | 记录本次构建所包含的模块清单及源码哈希。 |
 
----
-
 ## 2. 核心打包规则与边界保护
 
 1. **白名单准入**：仅打包在 `modules/module-lock.json` 中明确标记为 `"enabled": true` 且在本地 `catalog.json` 存在的模块。未启用模块的源码绝不参与打包。
 2. **宿主引导注入**：以 `installHostBootstrap()` 脚本为总入口（Banner），在 `system.beforeEvents.startup` 挂载 `ConfigManager` 初始化，并统一触发各模块的 `ModuleRegistry.register` 注册。
 3. **原生依赖外部化（External）**：所有 `@minecraft/server`、`@minecraft/server-ui`、`@minecraft/server-net` 原生导入均声明为 external，直接由 BDS 内部宿主引擎提供，严禁打包进 bundle。
 4. **空包安全回退**：即使所有业务模块均被禁用，装配引擎仍会生成一个合法的空行为包骨架，确保服务端不会因资源包缺失而启动报错。
-
----
 
 ## 3. 手动控制与热重载命令
 
@@ -60,8 +54,6 @@ sfmc> mod reload --build-only
 - **若检测到模块增删或源码变更**：自动执行全量构建部署，校验通过后才放行开服。
 详情查阅 [服务编排与管理 · 装载闸门](../guide/services.mdx#装载闸门)。
 :::
-
----
 
 ## 4. 变更生效矩阵速查
 

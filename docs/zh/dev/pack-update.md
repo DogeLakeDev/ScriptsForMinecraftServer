@@ -15,8 +15,6 @@
 
 通用收件箱安装见 [附加包](../guide/addons.md)。
 
----
-
 ## 1. 目标与边界
 
 **目标**：为已装进世界目录的第三方 addon（如 OrdinaryWorld 的 Slash Blade BP）找到 CurseForge 更新源，并在启动或手动命令时检查/应用更新。
@@ -28,8 +26,6 @@
 - 下载物仍走既有 `installPackDirectory` / `enableInstalledPack`（DRY，无第二套拷贝逻辑）。
 
 验收样例：本地「Slash Blade v4」BP ↔ CF 项目 slug `slash-blade-addon`。
-
----
 
 ## 2. 总览流程
 
@@ -53,8 +49,6 @@ flowchart TD
   apply --> rpBump[maybe_bump_RP_version]
   rpBump --> enable[refresh_world_enable_lists]
 ```
-
----
 
 ## 3. 配置与播种（DRY）
 
@@ -156,8 +150,6 @@ flowchart TD
 
 检查/应用：**仅在成功写入世界目录后**才更新 `lastAppliedFileId`。同一 fileId 已应用则跳过下载；版本未更高但尚未 apply 过该文件时仍会覆盖安装（同步 CF 内容）。
 
----
-
 ## 4. CurseForge API 鉴权（易踩坑）
 
 CurseForge 存在**两套完全不同**的「API Token」，不可混用。
@@ -174,8 +166,6 @@ CurseForge 存在**两套完全不同**的「API Token」，不可混用。
 本仓库请求官方 API 时只发送 `x-api-key`。若 key 形如 UUID，403 错误信息会提示换 Studios Key。
 
 JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose 环境变量** 时，`$` 可能被展开，需按运行环境转义（常见写法是 `$$`）。
-
----
 
 ## 5. 搜索端点与镜像回退
 
@@ -194,8 +184,6 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 1. 先打官方 `baseUrl` + `/v1/mods/search`。
 2. 若返回 403 → 静默改打 `searchBaseUrl`（默认 `https://api.curse.tools/v1/cf`）的 `/mods/search`。
 3. **getMod / files / download-url / CDN 下载**仍走官方 + Studios Key（下载也带 `x-api-key`，以应对 CDN 鉴权收紧）。
-
----
 
 ## 6. 搜索与匹配（name + slug）
 
@@ -257,8 +245,6 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 - `packs bind <id> <projectId|slug|url>`：手动绑定，不依赖探测分数。
 - 安装成功后的探测：分数达标后写入 `packs/pack-sources.json`（`enabled` 取 `defaultBindingEnabled`，默认关）。TTY 且 `askConfirmOnBind=true` 时先确认；**非 TTY** 自动写入绑定。开启自动更新请把对应条改为 `"enabled": true`。
 
----
-
 ## 7. 版本策略（以 BP 为准）
 
 权威：本地 BP `header.version` vs 远程归档内 BP `header.version`。  
@@ -277,8 +263,6 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 配对 RP：绑定里的 `pairedResourceUuid`，或新 BP `dependencies[].uuid`，或 mcaddon 内与之对齐的 resource 包。
 
 抬版原语（DRY）：`bds-tools` 的 `nextEnabledVersion` / `ensureVersionGreaterThan`（写回 manifest）+ `writePackHeaderVersion`。策略层 `sfmc/pack-update/version-policy` 再导出同一套纯函数，禁止 while 追赶。
-
----
 
 ## 8. 检查 / 应用 / 启动钩子
 
@@ -311,8 +295,6 @@ JSON 中 `$` **无需**加倍；仅当把 key 放进 **shell / docker-compose �
 
 进度条：`createTerminalProgress`（stderr）；日志 sink / REPL 写行前 `pauseAllProgress`、写完 `resumeAllProgress`（与 BDS 更新器共用，DRY）。
 
----
-
 ## 9. 代码结构（OCP / DIP）
 
 ```text
@@ -327,8 +309,6 @@ sfmc/src/pack-update/
 
 新增来源（如 Modrinth）时：实现 `PackSourceProvider`，在配置 `providers` 注册，不必改核心 switch 链。
 
----
-
 ## 10. 排障清单
 
 | 现象 | 排查 |
@@ -341,8 +321,6 @@ sfmc/src/pack-update/
 | 搜不到 Slash Blade | 看 slug 是否 `slash-blade-addon`；用 `packs search "slash blade"` 看 score；或 `packs bind <uuid> slash-blade-addon` |
 | 更新了但客户端 RP 不刷新 | 同 major 路径应抬 RP；确认 `world_resource_packs.json` 版本已变并重启 BDS / 重进服 |
 | 进度条与日志抢行 | 应使用 SDK `createTerminalProgress`；勿直接 `cli-progress` 写 stdout |
-
----
 
 ## 11. 相关命令速查
 

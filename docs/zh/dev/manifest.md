@@ -12,8 +12,6 @@
 如使用支持语义元数据的 v3 版本，可切换为对应的 `sapi-manifest.v3.schema.json`。若第三方 Bedrock 插件误报其不是原版 BP 清单，可安全忽略或将该路径加入其诊断忽略列表。
 :::
 
----
-
 ## 1. 核心契约字段一览（v2 基线）
 
 | 字段名称 | 类型 | 必填 | 规约与说明 |
@@ -29,8 +27,6 @@
 | `services.requires` | `string[]` | **✓** | 该模块需要消费调用的外部服务名称集合。 |
 | `notes` | `string` | ✕ | 模块备注信息、设计说明或作者备忘。 |
 
----
-
 ## 2. 权限声明语法规约（Permissions）
 
 为了实现微内核级的数据安全与邻居隔离，模块不能任意读写整个 SQLite 数据库。`db-server` 会根据此字段为模块下发带受限权限范围的 Bearer Token：
@@ -43,8 +39,6 @@
 | `config:read:<key>` | `config:read:economy` | 允许通过 SDK 读取该配置命名空间。 |
 | `config:write:<key>` | `config:write:economy` | 允许通过 SDK 运行时修改并持久化该配置。 |
 | `service:<name>` | `service:economy.transfer` | 允许发起跨模块 RPC 调用目标服务。 |
-
----
 
 ## 3. 跨模块服务声明（Services RPC）
 
@@ -84,8 +78,6 @@
 
 - **全局唯一性**：所有已启用模块中，`provides` 的服务 `name` 必须全局唯一，出现同名注册将触发装载异常。
 - **依赖自闭合**：所有列在 `requires` 中的服务，必须能够被某个已激活模块的 `provides` 闭环解析；若存在悬空依赖，系统将在开服前报警。
-
----
 
 ## 4. Manifest v3 语义化元数据扩展（可选）
 
@@ -136,16 +128,12 @@
 }
 ```
 
----
-
 ## 5. 废弃的 v1 历史字段禁令
 
 在旧版（v1 实验版）中曾出现的以下字段已被新版架构彻底废弃并禁止使用：
 - ❌ `routes`、`tables`、`migrations`、`seeds`、`handlers`、`events`
 
 一旦在 manifest 中出现上述遗留字段，`sfmc mod verify` 将抛出合规性错误。数据表的创建请统一收敛至模块主入口的 `lifecycle.init()` 阶段，通过 `db.defineTable` 或 `db.execute` 声明式完成。
-
----
 
 ## 6. 开服前自动化校验逻辑
 

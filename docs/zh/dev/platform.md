@@ -6,8 +6,6 @@
 如果您旨在开发具体的 Minecraft 玩法功能（如领地、经济、菜单等），请直接查阅 [业务模块开发全流程手册](./module-author.mdx)，业务模块无需改动平台主仓源码。
 :::
 
----
-
 ## 1. 核心设计原则：包的高内聚与独立性
 
 SFMC 的底层包遵循严格的微内核与单向依赖原则：
@@ -17,8 +15,6 @@ SFMC 的底层包遵循严格的微内核与单向依赖原则：
 - **目录约定**：
   - `packages/*`：平台级基础核心包。
   - `modules/packages/*`：业务模块运行镜像目录（平台核心代码与业务功能物理隔离）。
-
----
 
 ## 2. 平台全套构建与冒烟自检
 
@@ -51,8 +47,6 @@ cd packages/db-server && pnpm run dev
 3. 重新运行 `pnpm run verify` 确保类型定义与 TypeDoc 生成一致
 :::
 
----
-
 ## 3. 核心子系统剖析
 
 ### ① `packages/db-server`（持久化中枢）
@@ -75,8 +69,6 @@ cd packages/db-server && pnpm run dev
 - `@sfmc-bds/devkit`：底层封装了模块脚手架、文件监听（Watch）与 esbuild 增量构建部署逻辑。
 - `sfmc-extension`：VS Code / Cursor 官方开发扩展，通过 IPC 调用 devkit 暴露的原子能力。
 
----
-
 ## 4. 提交 Pull Request 前的质量检查清单
 
 在向主仓推送分支或发起 PR 前，请确保依次通过以下检查：
@@ -94,8 +86,6 @@ pnpm run verify
 ```
 
 GitHub Actions（`ootb.yml`）会在 Ubuntu 与 Windows 双平台上以 Node 22+ 运行上述自动化验证。
-
----
 
 ## 5. SAPI 底层调试与 Sentry 异常上报
 

@@ -4,8 +4,6 @@ import { Steps } from "@rspress/core/theme";
 
 SFMC 采用**解耦的多进程伴生架构**。原生 Bedrock Dedicated Server（BDS）专注于高性能游戏世界模拟，而数据持久化、多端通信与附加包版本管控等重量级操作则由伴生的 Node.js 守护进程承担。
 
----
-
 ## 1. 伴生架构与进程全景
 
 整个平台由以下四个核心子系统分工协作构成：
@@ -20,7 +18,7 @@ flowchart TD
   end
 
   subgraph NativeBDS ["原生游戏层 (C++)"]
-    BDS["Bedrock Dedicated Server (:19132 UDP)"]
+    BDS["Bedrock Dedicated Server "]
     SAPI["Script API 运行时<br/>(sfmc-modules 聚合行为包)"]
   end
 
@@ -33,14 +31,11 @@ flowchart TD
   QQ <== 消息互通 (IPC/REST) ==> DB
 ```
 
-| 组件名称 | 运行时 | 监听端口 / 协议 | 核心职责 |
-| :--- | :--- | :--- | :--- |
-| **db-server** | Node.js | `3001` (TCP, Loopback) | 依托 `node:sqlite` 原生驱动，为 SAPI 模块提供透明数据库读写、跨模块 RPC 转发及平台全局配置（`configs/all`）下发。 |
-| **qq-bridge** | Node.js | `3002` (TCP) / 外联 OpenAPI | 负责与腾讯 QQ 开放平台 WebSocket 网关或本地 LLBot (OneBot 11) 通信，实现群服消息双向路由与入服白名单联动。 |
-| **装载闸门** | Node.js | 阶段性执行，无端口 | 在拉起 BDS 前执行代码哈希校验、附加包更新源探测、多模块行为包动态编译与 `server-net` 权限校验。 |
-| **BDS (SAPI)** | Native C++ | `19132` (UDP, 游戏通信) | Minecraft 官方 Bedrock 服务端核心，内置 Script API 虚拟机，运行由 SFMC 动态编译的业务模块合集。 |
-
----
+| 组件名称      | 运行时  | 监听端口(默认) / 协议       | 核心职责                                                                                                          |
+| :------------ | :------ | :-------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| **db-server** | Node.js | `3001` (TCP, Loopback)      | 依托 `node:sqlite` 原生驱动，为 SAPI 模块提供透明数据库读写、跨模块 RPC 转发及平台全局配置（`configs/all`）下发。 |
+| **qq-bridge** | Node.js | `3002` (TCP) / 外联 OpenAPI | 负责与腾讯 QQ 开放平台 WebSocket 网关或本地 LLBot (OneBot 11) 通信，实现群服消息双向路由与入服白名单联动。        |
+| **装载闸门**  | Node.js | 阶段性执行，无端口          | 在拉起 BDS 前执行代码哈希校验、附加包更新源探测、多模块行为包动态编译与 `server-net` 权限校验。                   |
 
 ## 2. 启动时序与装载闸门（Load Gate）
 
@@ -71,16 +66,18 @@ flowchart LR
 自动扫描 `<SFMC_ROOT>/packs/` 目录中的第三方 `.mcpack`、`.mcaddon` 与压缩归档。核对世界目录中已有的 UUID 与版本，自动安装或增量更新，详情见 [附加包管理](./addons.md)。
 
 ### 指纹比对与一致性核验
+
 读取目标世界行为包内的部署清单 `sfmc-deploy-catalog.json`，与当前本地的 `modules/module-lock.json`（启停状态）及各模块源码的 SHA 指纹进行快速哈希比对。
 
 ### 按需全量编译与权限注入
+
 若检测到模块增删、启停状态改变或 TypeScript 源码变更，系统会自动调用轻量打包器将所有 `enabled` 模块重编整合为 `sfmc-modules` 行为包，并强制写入 BDS 所必需的 `server-net` 原生通信权限。
 
 ### 打印装载摘要与阻断熔断
-在控制台清晰打印本次加载的模块名称、版本号与耗时。若任何环节发生语法编译错误或依赖死锁，**装载闸门将坚决终止 BDS 启动**，避免损坏世界存档。
-</Steps>
 
----
+在控制台清晰打印本次加载的模块名称、版本号与耗时。若任何环节发生语法编译错误或依赖死锁，**装载闸门将坚决终止 BDS 启动**，避免损坏世界存档。
+
+</Steps>
 
 ## 3. 运维控制命令速查
 
@@ -112,8 +109,6 @@ sfmc> /stop -all
   sfmc> send bds say §a[系统公告] 服务器将在 10 分钟后例行重启维护
   sfmc> send bds op Steve
   ```
-
----
 
 ## 4. 生产环境常驻与守护实践（Linux / Windows）
 
@@ -174,8 +169,6 @@ module.exports = {
 };
 ```
 
----
-
 ## 5. 网络拓扑与安全加固规范
 
 为了防止越权访问与恶意网络扫描，生产环境必须严格遵循以下端口隔离策略：
@@ -193,12 +186,12 @@ module.exports = {
           └── TCP: 3004 (LLBot HTTP API)
 ```
 
-| 端口号 | 协议 | 建议暴露范围 | 安全要求与防范建议 |
-| :--- | :---: | :--- | :--- |
-| **`19132`** | UDP | **公网开放** | Minecraft Bedrock 官方游戏客户端连接端口。 |
-| **`3001`** | TCP | **仅本机 (127.0.0.1)** | `db-server` 核心持久化接口。**严禁暴露至公网**。建议在 `db_config.json` 中配置强密钥 `http_auth`。 |
-| **`3002`** | TCP | **仅本机 / 内网** | QQ 桥接 WebSocket 端口，供 LLBot 连接。 |
-| **`3004`** | TCP | **仅本机 (127.0.0.1)** | LLBot OneBot 11 HTTP 监听端口。 |
+| 端口号      | 协议 | 建议暴露范围           | 安全要求与防范建议                                                                                 |
+| :---------- | :--: | :--------------------- | :------------------------------------------------------------------------------------------------- |
+| **`19132`** | UDP  | **公网开放**           | Minecraft Bedrock 官方游戏客户端连接端口。                                                         |
+| **`3001`**  | TCP  | **仅本机 (127.0.0.1)** | `db-server` 核心持久化接口。**严禁暴露至公网**。建议在 `db_config.json` 中配置强密钥 `http_auth`。 |
+| **`3002`**  | TCP  | **仅本机 / 内网**      | QQ 桥接 WebSocket 端口，供 LLBot 连接。                                                            |
+| **`3004`**  | TCP  | **仅本机 (127.0.0.1)** | LLBot OneBot 11 HTTP 监听端口。                                                                    |
 
 在 Linux 云服务器上，可通过 `ufw` 快速巩固安全边界：
 
@@ -211,3 +204,4 @@ sudo ufw deny 3001/tcp
 sudo ufw deny 3002/tcp
 sudo ufw enable
 ```
+

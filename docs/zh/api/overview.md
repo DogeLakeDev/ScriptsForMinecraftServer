@@ -6,8 +6,6 @@
 编写 SAPI 模块业务时，**请务必使用官方 SDK**（如 `db`、`config`、`service`），SDK 会透明完成模块身份与 Token 注入。本页主要用于底层调试、编写独立的外部 Node.js 工具或逆向排查通信问题。
 :::
 
----
-
 ## 1. 双重鉴权体系（Dual Auth Model）
 
 为了在保证数据安全的同时不破坏本地通信性能，SFMC 采用**「平台管控鉴权 + 模块沙盒身份」**的双层鉴权模型：
@@ -40,8 +38,6 @@ flowchart LR
   Authorization: Bearer <module_token>
   ```
 - **权限核验**：`db-server` 会严格比对该模块在 `manifest.json` 中声明的 `permissions` 列表。一旦试图读写未声明的数据表或命名空间，请求将被立刻拒绝（`403 Forbidden`）。
-
----
 
 ## 2. 标准响应与错误状态码规范
 
@@ -81,8 +77,6 @@ flowchart LR
 | `module_cannot_disable` | `400` | 试图禁用标记为 `"type": "core"` 的平台基石模块。 |
 | `service_not_found` | `404` | 请求调用的跨模块服务名称未被任何已启用模块注册。 |
 
----
-
 ## 3. 全局核心路由索引地图
 
 | 路由端点 | HTTP 方法 | 鉴权要求 | 说明与手册链接 |
@@ -95,8 +89,6 @@ flowchart LR
 | `/api/sfmc/db/*` | `POST` | 模块身份 | [数据库操作 API](./db.md)：参数化 SQL、表定义、事务。 |
 | `/api/sfmc/services*` | `GET` / `POST` | 模块身份 | [跨模块服务 RPC API](./services.md)：服务提供与消费调用。 |
 | `/api/sfmc/messages*` | `GET` / `POST` | 平台/模块 | [消息中继 API](./messages.md)：游戏内外聊天消息中继队列。 |
-
----
 
 ## 4. 平台 QQ 身份绑定服务接口（QQ Link API）
 
