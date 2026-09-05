@@ -1,46 +1,46 @@
 ---
 description: >-
-  SFMC standing contracts: three roots, author vs ops, decided behavior,
-  residual scrub, ownership, Chinese UTF-8. Always apply in this repo.
+  SFMC 现行架构契约：三根路径定义、作者面与运维面职责划分、既定交互契约、
+  彻底清理废弃逻辑、能力归属边界与 UTF-8 规范。在当前仓库中始终生效。
 alwaysApply: true
 ---
 
-# SFMC：现行契约
+# SFMC：现行架构契约
 
-细节剧本见 skills `sfmc-onboarding` / `sfmc-module-author` / `sfmc-code-review`。
+具体操作剧本参见 skills：`sfmc-onboarding` / `sfmc-module-author` / `sfmc-module-kickoff` / `sfmc-code-review`。
 
 ## 三根路径
 
-| 名 | 用途 |
-|----|------|
-| **monorepo** | 平台源码 |
-| **SFMC_ROOT** | 工作目录（`configs/`、`modules/`、日志）；扩展 `sfmc.root` 指向这里 |
-| **作者仓** | 单模块独立仓；经 `mod install --link` 挂到 SFMC_ROOT |
+| 路径标识 | 职责与用途 | 说明 |
+|----------|------------|------|
+| **monorepo** | 平台核心源码 | 本工程仓库，承载平台包与核心 SDK |
+| **SFMC_ROOT** | 运行时工作目录 | 存放 `configs/`、`modules/` 与运行时数据；扩展设置项 `sfmc.root` 指向此处 |
+| **作者仓** | 独立业务模块仓库 | 单模块独立 Git 仓库，通过 `mod install --link` 挂载至工作目录进行联调 |
 
-文案用「SFMC **工作目录**」。路径含 `#` 时参数加引号。
+所有文档与交互文案中统一使用「SFMC **工作目录**」。路径包含 `#` 或空格时，参数必须使用引号包裹。
 
 ## 作者面与运维面
 
-| 面 | 工具 | 职责 |
-|----|------|------|
-| 运维 | `sfmc` CLI / REPL（在 SFMC_ROOT） | install、enable、build、reload、启停服务 |
-| 作者 | `npm create @sfmc-bds/module` + 扩展「SFMC Module」+ `devkit` | 建仓、单测、link、watch、publish |
+| 关注面 | 核心工具 | 核心职责 |
+|--------|----------|----------|
+| **运维面** | `sfmc` CLI / REPL（在 SFMC_ROOT 执行） | 模块安装（install）、启用（enable）、打包组装（build）、热重载（reload）与服务启停 |
+| **作者面** | `npm create @sfmc-bds/module` + 扩展「SFMC Module」+ `devkit` | 脚手架建仓、单元测试、本地 link 挂载、实时 watch 构建与模块发布 |
 
-能力在 `bds-tools` / `db-server` / `qq-bridge` / SDK；CLI 只编排。
+核心能力内聚于 `bds-tools` / `db-server` / `qq-bridge` / SDK 中，CLI 仅负责命令编排与交互桥接。
 
-## 已拍板行为
+## 已确认的设计契约
 
-- 用户已定的命令语义、交互、删除项：后续清理/重构保持一致；拿不准先问一句。
-- 仍在用的正确逻辑：在其上改。废弃路径按用户当前要求删干净（未要求双轨则单轨）。
+- **既定语义保持**：用户已确认的命令语义、交互流程与清理决策，在后续重构中严格保持一致；对于边界场景或存在歧义之处，主动向用户确认。
+- **现行逻辑与遗留清理**：基于现行有效逻辑进行增量迭代；对于已确定的废弃分支与旧路径彻底清理，不留失效死代码或兼容残留。
 
-## 改完对齐文案
+## 文案与契约对齐
 
-触及 CLI / 扩展 / 文档时，帮助串、README、AGENTS、提示与现行命令和路径一致。用户可见文案短而直接。
+涉及 CLI、扩展或平台文档变更时，必须同步核验命令帮助串、README、`AGENTS.md` 与终端提示，确保路径与指令绝对一致。面向终端用户的文案保持短小精炼、直截了当。
 
-## 能力归属
+## 能力归属与边界
 
-改前确认归属：**扩展 / 服务包 / SDK / 模块**。SFMC 自有概念（如 ConfigManager）按平台 SAPI 设计，与原生 BDS 流程区分。
+修改前严格界定能力归属：**IDE 扩展 / 独立服务包 / 核心 SDK / 业务模块**。清晰区分 SFMC 平台级抽象（如 `ConfigManager`）与 Minecraft 原生 SAPI / BDS 运行机制。
 
-## 中文与编码
+## 语言与编码规范
 
-沟通与注释：简体中文、UTF-8；若出现乱码，修好再继续。
+沟通与提交说明统一使用 **简体中文**；源码与配置文件强制使用 **UTF-8**。注释由 Gemini 按待写清单补写（见 `sfmc-comment-handoff`），补写后仍用简体中文 UTF-8。

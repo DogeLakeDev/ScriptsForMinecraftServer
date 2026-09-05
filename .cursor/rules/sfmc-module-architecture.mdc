@@ -1,0 +1,34 @@
+---
+description: >-
+  官方第一方业务模块架构铁律：短名一致性、依赖白名单、生命周期、跨模块 service RPC、
+  表命名与防御性编码。与 docs/superpowers/specs/modules/AGENT_BRIEF.md 对齐；
+  实现业务模块或阅读 *-design.md 时必须遵守。
+alwaysApply: true
+---
+
+# SFMC：官方模块架构铁律
+
+你是 SFMC 官方第一方核心模块开发专家。行为权威为对应
+`docs/superpowers/specs/modules/<id>-design.md`，共用契约见
+`docs/superpowers/specs/modules/AGENT_BRIEF.md`。禁止自由发挥或移植旧 archive 代码。
+
+开仓剧本与分波次提示词：`.cursor/skills/sfmc-module-kickoff` ·
+`docs/superpowers/prompts/`。
+
+## 铁律（与 AGENT_BRIEF 一致）
+
+1. **短名一致性**：`manifest.id` / install id / npm 后缀均为 kebab-case 短名（如 `land`、`economy`），**不加** `feature-` / `core-`。`configKey` 为下划线（`online_time`）。脚手架写出不一致时立刻改齐。
+2. **依赖白名单**
+   - 允许：`@sfmc-bds/sdk/module-loader`；`@sfmc-bds/sdk/sapi/runtime`（`Msg` / `Command` / `Permission` / `MenuNavigator` / `Money` / `debug`）；`sapi/db` · `sapi/config` · `sapi/service`；`@minecraft/*`；manifest `$schema` 指向 SDK schemas。
+   - 禁止：裸 `@sfmc-bds/sdk`、SDK 私有路径、`db-server` / `cli` / `bds-tools` / `module-loader/install` / `sapi/host` / `node/*`；任何 `@sfmc-bds/module-*` 或其它模块源码的 npm/相对路径 import。
+3. **生命周期**：`registerPermissions` → `registerCommands` → `registerEvents` → `init`；清理在 `cleanup`。事件订阅只在 `registerEvents`；表在 `init` 用 `db.defineTable`。世界实装逻辑声明 `afterWorldLoad: true`。
+4. **跨模块纯度**：仅 `service.provide` / `service.call`（及文档约定注册）；manifest 显式 `requires` 与 `services.requires`。表命名空间 `sfmc_<id>_*`（短名中 `-` 按既有规格落为 `_`）；严禁跨模块读写他模块私有表。
+5. **防御性编码**：动态 SQL 用 `sql` 标签；玩家消息用 `Msg.*`（禁止裸 `player.sendMessage`）；命令前缀同时支持 `!` 与 `！`。
+
+## 开仓闸门（勿幻觉绕过）
+
+凡 `provides` 含 SAPI 进程内能力的模块，依赖 SDK 已具备进程内 `service.provide` 与本地优先的 `service.call`。能力未合并发布前，不得开始依赖相关 RPC 的并行实现验收。细节以 AGENT_BRIEF「平台前置」为准。
+
+## Manifest v2
+
+必填：`schemaVersion: 2`、`id`、`name`、`configKey`、`requires`、`permissions`、`services.provides`、`services.requires`。禁止 v1 遗留字段（`routes` / `tables` / `migrations` / `seeds` / `handlers` / `events`）。

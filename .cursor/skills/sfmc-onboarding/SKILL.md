@@ -1,96 +1,100 @@
 ---
 name: sfmc-onboarding
 description: >-
-  SFMC (ScriptsForMinecraftServer) current-state onboarding: three roots
-  (monorepo, SFMC_ROOT, author repo), package map, author vs ops surfaces,
-  config/reload model, and doc index. Use when starting work in this repo,
-  running the stack, or clarifying where code and data live.
+  SFMC 平台上手与环境架构指引：三根路径（monorepo、SFMC_ROOT 工作目录、作者仓）、
+  包结构拓扑、作者面与运维面分工、热重载配置模型与标准启动清单。
+  适用于初次接入、运行服务栈或确认代码与数据归属边界时。
 ---
 
-# SFMC Onboarding
+# SFMC 平台上手指引（Onboarding）
 
-先读本 skill；更深事实查精简版 `AGENTS.md`（回复引用要点即可）。
+核心架构速查优先查阅 `AGENTS.md`；本技能聚焦初次介入、工作流切换与环境准备。
 
 ## 三根路径
 
-| 根 | 内容 | 典型路径 |
-|----|------|----------|
-| **monorepo** | 平台源码 | `…/ScriptsForMinecraftServer`（路径含 `#` 时命令加引号） |
-| **SFMC_ROOT** | 工作目录：`configs/`、`modules/`、运行数据 | 本机常 `D:\WorkPlace\SFMC`；远端常 `/root/SFMC` |
-| **作者仓** | 单个业务模块的独立 git 仓 | `mod install --from dir:… --link` → `SFMC_ROOT/modules/packages/` |
+| 路径标识      | 承载内容                                               | 典型路径示例                                                              |
+| ------------- | ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| **monorepo**  | 平台底层源码与核心 SDK                                 | `…/ScriptsForMinecraftServer`（路径包含 `#` 时命令加引号）                |
+| **SFMC_ROOT** | 运行时工作目录：`configs/`、`modules/`、运行日志与数据 | 本地开发如 `D:\WorkPlace\SFMC`；生产部署如 `/root/SFMC`                   |
+| **作者仓**    | 单个业务模块的独立代码仓                               | 经 `mod install --from dir:… --link` 挂载至 `SFMC_ROOT/modules/packages/` |
 
-| 任务 | 在哪做 |
-|------|--------|
-| 改平台 | monorepo |
-| 跑服 / 装模块 / 改平台 JSON | SFMC_ROOT |
-| 写业务模块 | 作者仓 |
+### 任务与环境映射
 
-`modules/packages/` 是 SFMC_ROOT 上的安装目标；主仓默认不带业务模块源码。
+| 任务类型                                            | 执行位置              |
+| --------------------------------------------------- | --------------------- |
+| 修改平台基础能力 / SDK 核心                         | monorepo              |
+| 启动服务 / 运行服务器 / 安装业务模块 / 调整平台配置 | SFMC_ROOT（工作目录） |
+| 开发与调试具体业务功能模块                          | 作者仓                |
+
+`modules/packages/<id>/` 为工作目录（SFMC_ROOT）下的模块安装与软链接挂载目标；平台源码仓专注于核心底座与 SDK 维护。
 
 ## 上手清单
 
 ```text
-- [ ] 确认 cwd 是哪一种根
-- [ ] Node ≥ 22.13（.node-version）
-- [ ] monorepo：`pnpm install && pnpm run build`（或 `npm install && npm run build --workspaces --if-present`）
-- [ ] 设 SFMC_ROOT 后再启服务（缺 configs 时服务写默认值）
-- [ ] 启动：db-server → qq-bridge（若用）→ BDS
-- [ ] GET http://127.0.0.1:3001/api/health
+- [ ] 1. 确认当前终端工作目录所属根（monorepo vs SFMC_ROOT vs 作者仓）
+- [ ] 2. 检查 Node.js 环境（要求 Node ≥ 22.13，参考 .node-version）
+- [ ] 3. monorepo 编译准备：pnpm install && pnpm run build
+- [ ] 4. 设置环境变量 SFMC_ROOT 指向工作目录（服务首次启动将自动补全默认 configs）
+- [ ] 5. 按序启动底层依赖与服务：db-server → qq-bridge（若使用）→ BDS
+- [ ] 6. 健康检查：访问 GET http://127.0.0.1:3001/api/health
 ```
+
+### monorepo 常用命令
 
 ```powershell
-pnpm run build          # 或 npm run build --workspaces --if-present
-pnpm run lint           # 或 npm run lint（先 build eslint-plugin）
-pnpm run typecheck      # 或 npm run typecheck
-pnpm run verify         # 或 npm run verify
-pnpm start              # 或 npm start（sfmc CLI REPL）
+pnpm run build          # 构建所有 workspace 包（或 npm run build --workspaces --if-present）
+pnpm run lint           # 代码规范检查（先编译 eslint-plugin）
+pnpm run typecheck      # 全局 TypeScript 类型检查
+pnpm run verify         # 自动化完整性校验
+pnpm start              # 启动 sfmc CLI REPL
 ```
 
-## 包地图
+## 平台包地图
 
-| 包 | 职责 |
-|----|------|
-| `modules/sdk/@sfmc-sdk` | `@sfmc-bds/sdk` |
-| `packages/db-server` | SQLite HTTP，默认 `:3001` |
-| `packages/qq-bridge` | QQ 桥 |
-| `packages/bds-tools` | BDS 更新 + 行为包组装 |
-| `packages/cli` | 编排与 REPL |
-| `packages/create-module` | `npm create @sfmc-bds/module` |
-| `packages/devkit` | Watch / rebuild |
-| `packages/sfmc-extension` | VS Code/Cursor「SFMC Module」 |
-| `packages/tools` | 仓内自检 / docs / release（私有包） |
+| 包路径                            | 职责与包名                 | 说明                                            |
+| --------------------------------- | -------------------------- | ----------------------------------------------- |
+| `modules/sdk/@sfmc-sdk`           | `@sfmc-bds/sdk`            | 提供 SAPI 运行时与 Node.js 核心能力接口         |
+| `modules/sdk/@sfmc-eslint-plugin` | `@sfmc-bds/eslint-plugin`  | 模块与平台定制 ESLint 规则集                    |
+| `packages/db-server`              | `@sfmc-bds/db-server`      | SQLite HTTP 数据服务，默认监听 `:3001`          |
+| `packages/qq-bridge`              | `@sfmc-bds/qq-bridge`      | 消息网桥服务（支持 official 与 llbot 协议）     |
+| `packages/bds-tools`              | `@sfmc-bds/bds-tools`      | BDS 管理、更新与行为包自动化组装                |
+| `packages/cli`                    | `@sfmc-bds/cli`            | 统一运维编排工具与交互式 REPL                   |
+| `packages/create-module`          | `@sfmc-bds/create-module`  | 模块脚手架引擎（`npm create @sfmc-bds/module`） |
+| `packages/devkit`                 | `@sfmc-bds/devkit`         | 模块开发 Watch 监听与动态重构工具集             |
+| `packages/sfmc-extension`         | `@sfmc-bds/sfmc-extension` | IDE 扩展「SFMC Module」源码                     |
+| `packages/tools`                  | `@sfmc-bds/tools`          | 仓内自动化自检、文档构建与发布私有工具集        |
 
-`bds-tools` / `db-server` / `qq-bridge` / SDK 可独立调用；CLI 只编排。
+`bds-tools`、`db-server`、`qq-bridge` 及 SDK 均具备独立能力；`cli` 仅负责流程编排。
 
-## 作者面与运维面
+## 作者面与运维面分工
 
-| 面 | 工具 | 职责 |
-|----|------|------|
-| **作者** | 扩展 + `create-module` + `devkit` | 建仓、单测、link、watch、publish |
-| **运维** | `sfmc` CLI（在 SFMC_ROOT） | `mod install` / `enable` / `build` / `reload` |
+| 关注面     | 核心工具                              | 核心职责                                                                |
+| ---------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| **作者面** | IDE 扩展 + `create-module` + `devkit` | 脚手架初始化、单测验证、本地 link 挂载、实时 watch 构建、打包发布       |
+| **运维面** | `sfmc` CLI（在 SFMC_ROOT 执行）       | 模块生命周期（`mod install` / `enable` / `build` / `reload`）与服务控制 |
 
-作者流程细节 → `sfmc-module-author`。
+业务模块完整开发流程参见：`sfmc-module-author`。
 
-## 配置与部署
+## 配置模型与生效边界
 
-| 变更 | 生效方式 |
-|------|----------|
-| `configs/*.json`、manifest 语义 | 重启 BDS |
-| 模块 `sapi/src` | `sfmc mod reload`（或扩展 Watch） |
-| 模块启停 | `POST /api/sfmc/modules/:id/{enable\|disable}` 写 lock |
+| 变更范围                              | 生效机制                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| `configs/*.json`、manifest 元数据契约 | 重启 BDS 进程后加载生效                                                   |
+| 业务模块 `sapi/src` 源码变更          | 执行 `sfmc mod reload`（或借助扩展 Watch 自动同步）                       |
+| 模块启停状态                          | 调用 `POST /api/sfmc/modules/:id/{enable\|disable}` 写入 module-lock.json |
 
-## 现行契约（摘要）
+## 现行核心契约摘要
 
-- 模块依赖：`@sfmc-bds/sdk` + `@minecraft/*`；跨模块经 manifest + `service` / `tx`
-- 消息：`Msg.*`（`@sfmc-bds/sdk/sapi/runtime`）
-- 数据/配置/服务客户端：`@sfmc-bds/sdk/sapi/db|config|service`
-- 沟通与注释：简体中文，UTF-8
+- **依赖范围**：业务模块仅依赖 `@sfmc-bds/sdk` 与 `@minecraft/*`；跨模块协作经由 manifest 声明服务与 `service` / `tx` 调用。
+- **消息发送**：统一调用 `@sfmc-bds/sdk/sapi/runtime` 中的 `Msg.*`。
+- **服务调用**：通过 `@sfmc-bds/sdk/sapi/db|config|service` 提供的标准化客户端访问底层能力。
+- **字符编码**：所有源码、注释与文档严格采用 UTF-8 编码，默认使用简体中文。
 
-## 文档索引
+## 关联文档索引
 
-| 主题 | 路径 |
-|------|------|
-| 仓速查 | `AGENTS.md` |
-| 架构 / 约定 | `docs/zh/dev/architecture.md`、`conventions.md` |
-| 模块作者 / 测试 | `docs/zh/dev/module-author.mdx`、`testing.md` |
-| 文档站 | `website/AGENTS.md` |
+| 主题               | 路径                                            |
+| ------------------ | ----------------------------------------------- |
+| 平台速查知识库     | `AGENTS.md`                                     |
+| 架构设计与编码约定 | `docs/zh/dev/architecture.md`、`conventions.md` |
+| 模块开发与测试规范 | `docs/zh/dev/module-author.mdx`、`testing.md`   |
+| 文档站维护规范     | `website/AGENTS.md`                             |
