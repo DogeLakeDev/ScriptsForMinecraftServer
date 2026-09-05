@@ -1,5 +1,12 @@
 # @sfmc-bds/db-server
 
+## 0.2.0-beta.6
+
+### Patch Changes
+
+- Updated dependencies [d9ded8f]
+  - @sfmc-bds/sdk@0.2.0-beta.10
+
 ## 0.2.0-beta.5
 
 ### Minor Changes

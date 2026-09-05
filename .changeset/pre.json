@@ -55,6 +55,7 @@
     "sapi-debug-sentry",
     "scaffold-eslint-vscode",
     "scaffold-redirect",
+    "scoped-sapi-clients",
     "sdk-loader-pin-sdk",
     "sdk-module-loader-dip",
     "sdk-testing-harness",
