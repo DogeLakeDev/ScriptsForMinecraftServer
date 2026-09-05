@@ -106,17 +106,20 @@ export interface RuntimeConfig {
   [key: string]: unknown;
 }
 
-/** 模块启停锁（`modules/module-lock.json`）。 */
-export interface ModuleLock {
-  version?: number;
-  modules?: Record<string, { enabled: boolean; updatedAt: number }>;
-}
+/**
+ * catalog / lock 权威类型来自 `@sfmc-bds/sdk/contracts`（DRY）。
+ * 此处再导出，便于 Node 配置读写与既有 `@sfmc-bds/sdk/node/config` import 共存。
+ */
+export type {
+  ModuleCatalog,
+  ModuleCatalogEntry,
+  ModuleEntryPath,
+  ModuleLock,
+  ModuleRuntimeState,
+} from "../../contracts/index.js";
 
-/** 模块目录投影（`modules/catalog.json`）。 */
-export interface Catalog {
-  modules?: Array<Record<string, unknown>>;
-  [key: string]: unknown;
-}
+/** @deprecated 请改用 `ModuleCatalog`；保留别名以兼容既有 CLI/工具 import。 */
+export type { ModuleCatalog as Catalog } from "../../contracts/index.js";
 
 /** 模块 HMAC token 存储（`.sfmc/module-tokens.json` 等）。 */
 export interface TokenStore {

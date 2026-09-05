@@ -2,24 +2,28 @@
  * 模块 manifest schema — v2 + v3 语义字段。
  *
  * v2 schema 是当前所有已发布模块的契约（详见 schemas/sapi-manifest.v2.schema.json）。
- * v3 在 v2 之上新增 `semantic` 块，全部可选；旧模块不需要改一行代码即可运行。
+ * v3 在 v2 之上新增 `semantic` 块，全部可选；
  *
- * 这里只描述「JS 类型契约」；运行时校验见 manifest.ts。
+ * 运行时校验见 manifest.ts。
  */
 
-/** v2 manifest 的最小骨架（与 sapi-manifest.v2.schema.json 对齐）。 */
 export type ManifestV2 = {
   schemaVersion: 2;
   id: string;
   name: string;
-  type: "core" | "feature";
   configKey: string;
   requires: string[];
   permissions: string[];
-  services?: {
-    provides?: ServiceEntry[];
-    requires?: ServiceEntry[];
-  } | undefined;
+  services?:
+    | {
+        provides?: ServiceEntry[];
+        requires?: ServiceEntry[];
+      }
+    | undefined;
+  /** 安装时是否默认写入启用（缺省 true）。 */
+  enabledByDefault?: boolean | undefined;
+  /** 是否允许 CLI/API 写入禁用（缺省 true；下次冷启动生效）。 */
+  canDisable?: boolean | undefined;
   notes?: string | undefined;
 };
 
@@ -101,7 +105,17 @@ export type ManifestV3 = Omit<ManifestV2, "schemaVersion"> & {
 /** 任意 v2 / v3 manifest。 */
 export type AnyManifest = ManifestV2 | ManifestV3;
 
-/** 校验结果。 */
-export type ValidationResult<T> =
-  | { ok: true; manifest: T }
-  | { ok: false; errors: string[] };
+import type { ShapeIssue } from "../validation/issues.js";
+
+/**
+ * manifest 校验问题种类 / 结构 — 与平台 `@sfmc-bds/sdk/validation` 同源（DRY）。
+ * 新增种类时必须同时扩展 `formatShapeIssue`。
+ */
+export type { ShapeIssue as ManifestIssue, ShapeIssueKind as ManifestIssueKind } from "../validation/issues.js";
+
+/**
+ * 统一校验结果泛型联合体。
+ * 失败时同时提供人类可读 `errors` 与机器可读 `issues`。
+ */
+export type ValidationResult<T> = { ok: true; manifest: T } | { ok: false; errors: string[]; issues: ShapeIssue[] };
+

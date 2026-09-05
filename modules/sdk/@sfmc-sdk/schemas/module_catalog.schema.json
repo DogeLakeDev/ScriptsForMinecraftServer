@@ -24,10 +24,9 @@
           "id": { "type": "string", "description": "模块逻辑 id" },
           "configKey": { "type": "string", "description": "对应 configs/<configKey>.json" },
           "name": { "type": "string", "description": "显示名" },
-          "type": { "type": "string", "description": "core / feature 等" },
           "description": { "type": "string", "description": "简介" },
           "enabledByDefault": { "type": "boolean", "description": "默认是否启用" },
-          "canDisable": { "type": "boolean", "description": "是否允许禁用" },
+          "canDisable": { "type": "boolean", "description": "是否允许通过 CLI/API 写入禁用状态（下次冷启动生效）" },
           "requires": {
             "type": "array",
             "items": { "type": "string" },

@@ -3,6 +3,7 @@
   "name": "@sfmc-bds/sdk",
   "entryPoints": [
     "modules/sdk/@sfmc-sdk/src/contracts/index.ts",
+    "modules/sdk/@sfmc-sdk/src/validation/index.ts",
     "modules/sdk/@sfmc-sdk/src/logs/index.ts",
     "modules/sdk/@sfmc-sdk/src/sapi/runtime/index.ts",
     "modules/sdk/@sfmc-sdk/src/sapi/db/index.ts",

@@ -1,6 +1,6 @@
 /**
  * HttpDB → ConfigManager.DataAdapter 适配器(DIP)。
- * install 内部装配点；未进 package.json#exports 公开子路径。
+ * install 内部装配点
  */
 
 import { HttpDB } from "../sapi/runtime/httpdb.js";

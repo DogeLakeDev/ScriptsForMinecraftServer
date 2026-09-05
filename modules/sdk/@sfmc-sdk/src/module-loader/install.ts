@@ -1,34 +1,47 @@
 /**
- * install.ts — 行为包宿主引导装配器（Host Bootstrap）
+ * install.ts — 行为包宿主引导装配器
  *
- * 作为行为包构建产物（`scripts/main.js`）的入口首部调用（通过 esbuild banner 注入）：
+ * 作为行为包构建产物（`scripts/main.js`）的入口首部调用：
  * ```ts
  * import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";
  * installHostBootstrap();
- * // 后续各业务模块依次通过 ModuleRegistry.register({...}) 注册自身
+ * // 各业务模块依次通过 ModuleRegistry.register({...}) 注册自身
  * ```
  *
- * 核心生命周期编排职责：
- * 1. 订阅 `system.beforeEvents.startup`：初始化 ConfigManager、启动模块并广播就绪状态
- * 2. 订阅 `world.afterEvents.worldLoad`：触发需在世界加载后初始化的模块（`bootAfterWorldLoad`）
- * 3. 订阅 `system.beforeEvents.shutdown`：统一触发模块的卸载与资源清理（`teardown`）
+ * 生命周期：
+ * 1. system.beforeEvents.startup：初始化 ConfigManager、启动模块、广播就绪状态
+ * 2. world.afterEvents.worldLoad：触发需在世界加载后初始化的模块（bootAfterWorldLoad）
+ * 3. system.beforeEvents.shutdown：触发模块的卸载与资源清理（teardown）
  * 4. 依赖倒置装配：统一绑定 DataAdapter 数据适配器与各子系统的鉴权拦截钩子
+ *
+ * 方案 A：apply 装配作用域 db/config/service，经 ModuleServices 注入 lifecycle，
+ * 事务状态与 moduleId 封闭在闭包内；单例门面仍登记以兼容旧模块同步 boot 路径。
  */
 
 import { system, world } from "@minecraft/server";
-import { clearConfigModuleContext, setConfigModuleContext } from "../sapi/config/client.js";
-import { clearDbModuleContext, isDbTxRecording, setDbModuleContext } from "../sapi/db/client.js";
+import {
+  clearConfigModuleContext,
+  createConfigClient,
+  getConfigClient,
+  setConfigModuleContext,
+} from "../sapi/config/client.js";
+import { clearDbModuleContext, getDbClient, setDbModuleContext } from "../sapi/db/client.js";
 import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
 import { debug } from "../sapi/runtime/debug-log.js";
-import { clearServiceModuleContext, setServiceModuleContext } from "../sapi/service/client.js";
-import { createHttpDataAdapter } from "./http-data-adapter.js";
+import {
+  clearServiceModuleContext,
+  getServiceClient,
+  setServiceModuleContext,
+} from "../sapi/service/client.js";
 import type { DataAdapter } from "./data-adapter.js";
+import { createHttpDataAdapter } from "./http-data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
 import {
   announceLoaded,
   bindModuleAuthHooks,
   ModuleRegistry,
   type BdsSystem,
+  type ModuleServices,
 } from "./runtime.js";
 
 /** 宿主后端抽象接口。 */
@@ -63,12 +76,25 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
 
   globalThis.__sfmcBdsSystem = system as unknown as BdsSystem;
 
-  // DIP:db/config/service 身份注入留在 install 侧，避免污染 module-loader barrel
+  // DIP：作用域客户端在 install 侧装配，lifecycle 经 ModuleServices 闭包捕获
   bindModuleAuthHooks({
-    apply(id, token, configKey) {
+    apply(id, token, configKey): ModuleServices {
       setDbModuleContext(id, token);
-      setServiceModuleContext(id, token, isDbTxRecording);
-      if (configKey) setConfigModuleContext(id, configKey, token);
+      const db = getDbClient(id);
+      const inTx = () => db.isTxRecording();
+      setServiceModuleContext(id, token, inTx);
+      const service = getServiceClient(id);
+
+      let config;
+      if (configKey) {
+        setConfigModuleContext(id, configKey, token);
+        config = getConfigClient(configKey);
+      } else {
+        // 无 configKey 时提供占位客户端（与 moduleId 同名键），避免 lifecycle 空引用
+        config = createConfigClient(id, id, token);
+      }
+
+      return { db, config, service };
     },
     clear(id) {
       clearDbModuleContext(id);

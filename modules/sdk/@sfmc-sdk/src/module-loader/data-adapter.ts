@@ -1,5 +1,5 @@
 /**
- * data-adapter.ts — db-server IO 抽象(SDK 公开契约,DIP)。
+ * data-adapter.ts — db-server IO 抽象(SDK 公开契约)。
  *
  * 真实 IO 由 `module-loader/install` 经 `createHttpDataAdapter` 装配。
  * 测试 / 离线场景可注入自定义实现。

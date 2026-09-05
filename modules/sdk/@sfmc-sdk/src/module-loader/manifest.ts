@@ -1,16 +1,22 @@
 /**
  * 模块 manifest 运行时操作：
- *   - validateManifestV3 / validateManifestV2
+ *   - validateManifest / validateManifestV3 / validateManifestV2
  *   - migrateV2toV3
  *   - mergeSemanticV3
  *
- * 设计原则：
- *   - 失败优先 fail-fast：返回 errors 数组而非抛错，便于调用方聚合；
- *   - 字段校验分两层：v2 必备字段严格校验；v3 semantic 全部字段容忍缺失；
- *   - 默认值保守：migrate 函数不臆造语义信息，仅推导明显前缀并留空。
  */
 
+import {
+  failValidation,
+  issueConstMismatch,
+  issueInvalidItem,
+  issueInvalidType,
+  issueRootNotObject,
+  ManifestExpected,
+} from "./manifest-issues.js";
 import type {
+  AnyManifest,
+  ManifestIssue,
   ManifestV2,
   ManifestV3,
   ManifestV3DbTable,
@@ -22,198 +28,219 @@ import type {
 } from "./manifest-schema.js";
 
 /**
- * 校验 v2 manifest。返回结构化结果；errors 为人类可读字符串列表。
- * 与 schemas/sapi-manifest.v2.schema.json 的「required」保持一致：
- * schemaVersion=2 / id / name / type / configKey / requires / permissions / services。
+ * 模块 manifest 校验对外统一总入口。
+ *
+ * 核心调度与设计规范：
+ * - 自动按 `schemaVersion` 分派至 `validateManifestV2` 或 `validateManifestV3` 校验器；
+ * - 遇到未知版本号时统一构造 `const_mismatch` 结构化问题（期望值为 `"2 或 3"`）；
+ * - 外部调用方（如 CLI check-modules、模块安装器、沙箱环境等）必须统一由此入口执行完整校验，禁止在业务层抄写或重复实现字段检查。
+ *
+ * @param input 待校验的原始 manifest 输入对象。
+ * @returns 统一校验结果。若成功返回对应版本的结构化 manifest，失败返回包含 errors 与 issues 的结果对象。
+ */
+export function validateManifest(input: unknown): ValidationResult<AnyManifest> {
+  if (!isPlainObject(input)) {
+    return failValidation([issueRootNotObject()]);
+  }
+  const version = input.schemaVersion;
+  if (version === 2) return validateManifestV2(input);
+  if (version === 3) return validateManifestV3(input);
+  return failValidation([issueConstMismatch("schemaVersion", "2 或 3", describe(version))]);
+}
+
+/**
+ * 针对 schemaVersion = 2 的版本锁定校验函数。
+ * 校验规则与 `schemas/sapi-manifest.v2.schema.json` 规范定义完全对齐。
+ *
+ * @param input 待校验的原始 manifest 输入对象。
+ * @returns v2 版本的结构化校验结果。
  */
 export function validateManifestV2(input: unknown): ValidationResult<ManifestV2> {
-  const errors: string[] = [];
   if (!isPlainObject(input)) {
-    return { ok: false, errors: ["manifest 根必须是 plain object"] };
+    return failValidation([issueRootNotObject()]);
   }
-  const r = input as Record<string, unknown>;
-
-  if (r.schemaVersion !== 2) {
-    errors.push(`schemaVersion 必须为 2，实际为 ${describe(r.schemaVersion)}`);
-  }
-  if (!isNonEmptyString(r.id)) errors.push("id 缺失或类型错（非空字符串）");
-  if (!isNonEmptyString(r.name)) errors.push("name 缺失或类型错（非空字符串）");
-  if (r.type !== "core" && r.type !== "feature") {
-    errors.push(`type 必须是 "core" 或 "feature"，实际为 ${describe(r.type)}`);
-  }
-  if (!isNonEmptyString(r.configKey)) errors.push("configKey 缺失或类型错");
-  if (!Array.isArray(r.requires)) errors.push("requires 必须是数组");
-  else if (r.requires.some((s) => !isNonEmptyString(s))) {
-    errors.push("requires 元素必须为非空字符串");
-  }
-  if (!Array.isArray(r.permissions)) errors.push("permissions 必须是数组");
-  else if (r.permissions.some((s) => !isNonEmptyString(s))) {
-    errors.push("permissions 元素必须为非空字符串");
-  }
-  if (!isPlainObject(r.services)) {
-    errors.push('services 缺失或类型错（需形如 { provides?: [...], requires?: [...] }）');
-  } else {
-    const services = r.services as Record<string, unknown>;
-    if (services.provides !== undefined && !Array.isArray(services.provides)) {
-      errors.push("services.provides 必须是数组（如不需要声明数组请写 []）");
-    }
-    if (services.requires !== undefined && !Array.isArray(services.requires)) {
-      errors.push("services.requires 必须是数组");
-    }
-  }
-
-  if (errors.length > 0) return { ok: false, errors };
+  const issues = collectCoreIssues(input, 2);
+  if (issues.length > 0) return failValidation(issues);
   return { ok: true, manifest: input as ManifestV2 };
 }
 
 /**
- * 校验 v3 manifest：先跑 v2 校验，再确认 schemaVersion=3，最后校正 semantic 形状。
- * 关键：v3 必须能在缺省 semantic 时通过校验（向后兼容 v2 模块）。
+ * 针对 schemaVersion = 3 的版本锁定校验函数。
+ *
+ * 校验时序与兼容性原则：
+ * 1. 复用核心校验器校验所有与 v2 相同的基础顶层字段，并锁定 `schemaVersion` 必须为 3；
+ * 2. 校验可选的 `semantic` 语义块；
+ * 3. 兼容性保证：v3 必须能在缺省 `semantic` 时顺利通过校验，以保证仅声明 v2 字段但升级版本号的传统模块能向后平滑兼容。
+ *
+ * @param input 待校验的原始 manifest 输入对象。
+ * @returns v3 版本的结构化校验结果。
  */
 export function validateManifestV3(input: unknown): ValidationResult<ManifestV3> {
-  const errors: string[] = [];
   if (!isPlainObject(input)) {
-    return { ok: false, errors: ["manifest 根必须是 plain object"] };
+    return failValidation([issueRootNotObject()]);
   }
-  const r = input as Record<string, unknown>;
-
-  if (r.schemaVersion !== 3) {
-    errors.push(`schemaVersion 必须为 3，实际为 ${describe(r.schemaVersion)}`);
-  }
-  if (!isNonEmptyString(r.id)) errors.push("id 缺失或类型错（非空字符串）");
-  if (!isNonEmptyString(r.name)) errors.push("name 缺失或类型错（非空字符串）");
-  if (r.type !== "core" && r.type !== "feature") {
-    errors.push(`type 必须是 "core" 或 "feature"，实际为 ${describe(r.type)}`);
-  }
-  if (!isNonEmptyString(r.configKey)) errors.push("configKey 缺失或类型错");
-  if (!Array.isArray(r.requires)) errors.push("requires 必须是数组");
-  else if (r.requires.some((s) => !isNonEmptyString(s))) {
-    errors.push("requires 元素必须为非空字符串");
-  }
-  if (!Array.isArray(r.permissions)) errors.push("permissions 必须是数组");
-  else if (r.permissions.some((s) => !isNonEmptyString(s))) {
-    errors.push("permissions 元素必须为非空字符串");
-  }
-  if (!isPlainObject(r.services)) {
-    errors.push('services 缺失或类型错（需形如 { provides?: [...], requires?: [...] }）');
-  } else {
-    const services = r.services as Record<string, unknown>;
-    if (services.provides !== undefined && !Array.isArray(services.provides)) {
-      errors.push("services.provides 必须是数组");
-    }
-    if (services.requires !== undefined && !Array.isArray(services.requires)) {
-      errors.push("services.requires 必须是数组");
-    }
-  }
-  if (errors.length > 0) return { ok: false, errors };
-
-  // semantic 是可选块；存在时校正各子字段形状
+  const r = input;
+  const issues = collectCoreIssues(r, 3);
   const semantic = r.semantic;
   if (semantic !== undefined && !isPlainObject(semantic)) {
-    errors.push("semantic 必须是 plain object（缺失合法）");
+    issues.push(issueInvalidType("semantic", ManifestExpected.object));
   } else if (isPlainObject(semantic)) {
-    const sErrors = validateSemanticShape(semantic as Record<string, unknown>);
-    if (sErrors.length > 0) {
-      errors.push(...sErrors);
-    }
+    issues.push(...collectSemanticIssues(semantic));
   }
+  if (issues.length > 0) return failValidation(issues);
 
-  if (errors.length > 0) return { ok: false, errors };
   const normalized = r.semantic !== undefined ? normalizeSemantic(r.semantic) : undefined;
   const manifest: ManifestV3 = {
     schemaVersion: 3,
     id: r.id as string,
     name: r.name as string,
-    type: r.type as "core" | "feature",
     configKey: r.configKey as string,
     requires: r.requires as string[],
     permissions: r.permissions as string[],
-    ...(r.services && typeof r.services === "object"
-      ? { services: r.services as ManifestV2["services"] }
-      : {}),
+    ...(typeof r.enabledByDefault === "boolean" ? { enabledByDefault: r.enabledByDefault } : {}),
+    ...(typeof r.canDisable === "boolean" ? { canDisable: r.canDisable } : {}),
+    ...(r.services && typeof r.services === "object" ? { services: r.services as ManifestV2["services"] } : {}),
     ...(typeof r.notes === "string" ? { notes: r.notes } : {}),
     ...(normalized ? { semantic: normalized } : {}),
   };
   return { ok: true, manifest };
 }
 
-/** 校验 semantic 各子段；返回扁平 errors 数组（带 `[semantic.<field>]` 前缀便于定位）。 */
-function validateSemanticShape(s: Record<string, unknown>): string[] {
-  const errors: string[] = [];
-  if (s.configKeys !== undefined) {
-    if (!Array.isArray(s.configKeys)) {
-      errors.push("[semantic.configKeys] 必须是字符串数组（缺失合法）");
-    } else if (s.configKeys.some((v) => !isNonEmptyString(v))) {
-      errors.push("[semantic.configKeys] 元素必须为非空字符串");
-    }
+/**
+ * 收集 v2 与 v3 共享的核心顶层字段校验问题。
+ * 统一收敛必填字段（id、name、configKey、requires、permissions）与通用配置（enabledByDefault、canDisable、services），
+ * 避免在 v2 与 v3 之间维护两套重复的校验规则与提示文案。
+ *
+ * @param r 原始输入对象字典。
+ * @param expectedVersion 期望的契约版本号（2 或 3）。
+ * @returns 收集到的结构化问题列表。
+ */
+function collectCoreIssues(r: Record<string, unknown>, expectedVersion: 2 | 3): ManifestIssue[] {
+  const issues: ManifestIssue[] = [];
+  if (r.schemaVersion !== expectedVersion) {
+    issues.push(issueConstMismatch("schemaVersion", String(expectedVersion), describe(r.schemaVersion)));
   }
-  if (s.dependsOn !== undefined) {
-    if (!Array.isArray(s.dependsOn)) {
-      errors.push("[semantic.dependsOn] 必须是字符串数组（缺失合法）");
-    } else if (s.dependsOn.some((v) => !isNonEmptyString(v))) {
-      errors.push("[semantic.dependsOn] 元素必须为非空字符串");
-    }
+  requireNonEmptyString(issues, r.id, "id");
+  requireNonEmptyString(issues, r.name, "name");
+  requireNonEmptyString(issues, r.configKey, "configKey");
+  requireStringArray(issues, r.requires, "requires");
+  requireStringArray(issues, r.permissions, "permissions");
+  optionalBoolean(issues, r.enabledByDefault, "enabledByDefault");
+  optionalBoolean(issues, r.canDisable, "canDisable");
+  if (!isPlainObject(r.services)) {
+    issues.push(issueInvalidType("services", ManifestExpected.object));
+  } else {
+    optionalArray(issues, r.services.provides, "services.provides");
+    optionalArray(issues, r.services.requires, "services.requires");
   }
+  return issues;
+}
+
+/**
+ * 校验 v3 专属的 semantic 语义块各子段。
+ *
+ * 设计边界：
+ * semantic 整体是可选的；仅当其实际出现且为普通对象时，才对其各子段（configKeys、dependsOn、events、dbTables、publicApi）进行级联校验。
+ *
+ * @param s semantic 配置对象字典。
+ * @returns 收集到的结构化问题列表。
+ */
+function collectSemanticIssues(s: Record<string, unknown>): ManifestIssue[] {
+
+  const issues: ManifestIssue[] = [];
+  optionalStringArray(issues, s.configKeys, "semantic.configKeys");
+  optionalStringArray(issues, s.dependsOn, "semantic.dependsOn");
   if (s.events !== undefined) {
     if (!isPlainObject(s.events)) {
-      errors.push("[semantic.events] 必须是 plain object（缺失合法）");
+      issues.push(issueInvalidType("semantic.events", ManifestExpected.object));
     } else {
-      const e = s.events as Record<string, unknown>;
-      if (e.emits !== undefined) {
-        if (!Array.isArray(e.emits)) {
-          errors.push("[semantic.events.emits] 必须是字符串数组");
-        } else if (e.emits.some((v) => !isNonEmptyString(v))) {
-          errors.push("[semantic.events.emits] 元素必须为非空字符串");
-        }
-      }
-      if (e.listens !== undefined) {
-        if (!Array.isArray(e.listens)) {
-          errors.push("[semantic.events.listens] 必须是字符串数组");
-        } else if (e.listens.some((v) => !isNonEmptyString(v))) {
-          errors.push("[semantic.events.listens] 元素必须为非空字符串");
-        }
-      }
+      optionalStringArray(issues, s.events.emits, "semantic.events.emits");
+      optionalStringArray(issues, s.events.listens, "semantic.events.listens");
     }
   }
   if (s.dbTables !== undefined) {
     if (!Array.isArray(s.dbTables)) {
-      errors.push("[semantic.dbTables] 必须是数组（缺失合法）");
+      issues.push(issueInvalidType("semantic.dbTables", ManifestExpected.array));
     } else {
       for (const [i, t] of s.dbTables.entries()) {
+        const path = `semantic.dbTables[${i}]`;
         if (!isPlainObject(t)) {
-          errors.push(`[semantic.dbTables[${i}]] 必须是 plain object`);
+          issues.push(issueInvalidType(path, ManifestExpected.object));
           continue;
         }
-        const tn = (t as Record<string, unknown>).name;
-        if (!isNonEmptyString(tn)) {
-          errors.push(`[semantic.dbTables[${i}].name]] 缺失或非字符串`);
-        }
-        const cols = (t as Record<string, unknown>).columns;
-        if (cols !== undefined) {
-          if (!Array.isArray(cols) || cols.some((v) => !isNonEmptyString(v))) {
-            errors.push(`[semantic.dbTables[${i}].columns]] 必须是字符串数组`);
-          }
+        requireNonEmptyString(issues, t.name, `${path}.name`);
+        if (t.columns !== undefined) {
+          optionalStringArray(issues, t.columns, `${path}.columns`);
         }
       }
     }
   }
   if (s.publicApi !== undefined) {
     if (!Array.isArray(s.publicApi)) {
-      errors.push("[semantic.publicApi] 必须是数组（缺失合法）");
+      issues.push(issueInvalidType("semantic.publicApi", ManifestExpected.array));
     } else {
       for (const [i, a] of s.publicApi.entries()) {
+        const path = `semantic.publicApi[${i}]`;
         if (!isPlainObject(a)) {
-          errors.push(`[semantic.publicApi[${i}]] 必须是 plain object`);
+          issues.push(issueInvalidType(path, ManifestExpected.object));
           continue;
         }
-        const sym = (a as Record<string, unknown>).symbol;
-        if (!isNonEmptyString(sym)) {
-          errors.push(`[semantic.publicApi[${i}].symbol]] 缺失或非字符串`);
-        }
+        requireNonEmptyString(issues, a.symbol, `${path}.symbol`);
       }
     }
   }
-  return errors;
+  return issues;
+}
+
+function requireNonEmptyString(issues: ManifestIssue[], value: unknown, path: string): void {
+  if (!isNonEmptyString(value)) {
+    issues.push(issueInvalidType(path, ManifestExpected.nonEmptyString));
+  }
+}
+
+/**
+ * 校验指定字段必须为非空字符串数组。
+ * 针对 requires、permissions 等必须是纯字符串标识列表的字段，期望类型为 ManifestExpected.stringArray。
+ *
+ * @param issues 校验问题收集列表。
+ * @param value 待检查的值。
+ * @param path 字段对应的 JSON 路径。
+ */
+function requireStringArray(issues: ManifestIssue[], value: unknown, path: string): void {
+  if (!Array.isArray(value)) {
+    issues.push(issueInvalidType(path, ManifestExpected.stringArray));
+    return;
+  }
+  if (value.some((s) => !isNonEmptyString(s))) {
+    issues.push(issueInvalidItem(path, ManifestExpected.nonEmptyString));
+  }
+}
+
+function optionalStringArray(issues: ManifestIssue[], value: unknown, path: string): void {
+  if (value === undefined) return;
+  requireStringArray(issues, value, path);
+}
+
+/**
+ * 校验可选字段必须为数组类型（若存在）。
+ * 针对 services.provides 与 services.requires 等对象数组字段，此处仅要求「是数组（ManifestExpected.array）」，
+ * 其内部具体条目为复杂对象结构，不在基础类型层强求为纯字符串数组。
+ *
+ * @param issues 校验问题收集列表。
+ * @param value 待检查的值。
+ * @param path 字段对应的 JSON 路径。
+ */
+function optionalArray(issues: ManifestIssue[], value: unknown, path: string): void {
+  if (value !== undefined && !Array.isArray(value)) {
+    issues.push(issueInvalidType(path, ManifestExpected.array));
+  }
+}
+
+
+function optionalBoolean(issues: ManifestIssue[], value: unknown, path: string): void {
+  if (value !== undefined && typeof value !== "boolean") {
+    issues.push(issueInvalidType(path, ManifestExpected.boolean));
+  }
 }
 
 /**
@@ -229,10 +256,11 @@ export function migrateV2toV3(v2: ManifestV2): ManifestV3 {
     schemaVersion: 3,
     id: v2.id,
     name: v2.name,
-    type: v2.type,
     configKey: v2.configKey,
     requires: Array.isArray(v2.requires) ? [...v2.requires] : [],
     permissions: Array.isArray(v2.permissions) ? [...v2.permissions] : [],
+    ...(typeof v2.enabledByDefault === "boolean" ? { enabledByDefault: v2.enabledByDefault } : {}),
+    ...(typeof v2.canDisable === "boolean" ? { canDisable: v2.canDisable } : {}),
     ...(v2.services ? { services: cloneServices(v2.services) } : {}),
     ...(v2.notes !== undefined ? { notes: v2.notes } : {}),
   };
@@ -266,13 +294,13 @@ export function mergeSemanticV3(
   if (baseEvents || patchEvents) {
     const merged: ManifestV3Events = {};
     const emits = uniquePreserveOrder([
-      ...nonEmptyArray(baseEvents?.emits) ?? [],
-      ...nonEmptyArray(patchEvents?.emits) ?? [],
+      ...(nonEmptyArray(baseEvents?.emits) ?? []),
+      ...(nonEmptyArray(patchEvents?.emits) ?? []),
     ]);
     if (emits.length > 0) merged.emits = emits;
     const listens = uniquePreserveOrder([
-      ...nonEmptyArray(baseEvents?.listens) ?? [],
-      ...nonEmptyArray(patchEvents?.listens) ?? [],
+      ...(nonEmptyArray(baseEvents?.listens) ?? []),
+      ...(nonEmptyArray(patchEvents?.listens) ?? []),
     ]);
     if (listens.length > 0) merged.listens = listens;
     if (merged.emits || merged.listens) out.events = merged;
@@ -292,10 +320,7 @@ export function mergeSemanticV3(
 }
 
 /** dbTables 合并：按 name 去重；重名时合并 columns（patch 覆盖缺失列）。 */
-function mergeDbTables(
-  base: ManifestV3DbTable[],
-  patch: ManifestV3DbTable[]
-): ManifestV3DbTable[] {
+function mergeDbTables(base: ManifestV3DbTable[], patch: ManifestV3DbTable[]): ManifestV3DbTable[] {
   if (base.length === 0) return patch.map(cloneTable);
   const map = new Map<string, ManifestV3DbTable>();
   for (const t of base) {
@@ -309,10 +334,7 @@ function mergeDbTables(
       map.set(t.name, cloneTable(t));
       continue;
     }
-    const cols = uniquePreserveOrder([
-      ...(nonEmptyArray(prev.columns) ?? []),
-      ...(nonEmptyArray(t.columns) ?? []),
-    ]);
+    const cols = uniquePreserveOrder([...(nonEmptyArray(prev.columns) ?? []), ...(nonEmptyArray(t.columns) ?? [])]);
     if (cols.length > 0) prev.columns = cols;
   }
   return [...map.values()];
@@ -438,12 +460,20 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
 }
 
+/**
+ * 生成供 `const_mismatch.actual` 使用的实际值摘要描述。
+ * 针对 undefined、null、带引号字符串以及包含类型的 JSON 序列化形式进行统一渲染。
+ *
+ * @param v 任意待描述的值。
+ * @returns 规范化的值摘要字符串。
+ */
 function describe(v: unknown): string {
   if (v === undefined) return "undefined";
   if (v === null) return "null";
   if (typeof v === "string") return JSON.stringify(v);
   return `${typeof v} ${JSON.stringify(v)}`;
 }
+
 
 /** 返回数组；空数组视为 undefined（去噪）。 */
 function nonEmptyArray(v: unknown): string[] | undefined {

@@ -9,7 +9,6 @@
     "schemaVersion",
     "id",
     "name",
-    "type",
     "configKey",
     "requires",
     "permissions",
@@ -27,7 +26,7 @@
     "id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]+$",
-      "description": "全局唯一逻辑 id，如 feature-land / core-data-backup"
+      "description": "全局唯一逻辑 id（小写 kebab-case，无强制前缀）"
     },
     "name": {
       "type": "string",
@@ -36,12 +35,21 @@
     },
     "type": {
       "type": "string",
-      "enum": ["core", "feature"]
+      "enum": ["core", "feature"],
+      "description": "已废弃：请删除。不可禁用改用 canDisable:false；默认启用改用 enabledByDefault"
     },
     "configKey": {
       "type": "string",
       "minLength": 1,
       "description": "对应 configs/<configKey>.json"
+    },
+    "enabledByDefault": {
+      "type": "boolean",
+      "description": "安装时是否默认写入启用（缺省 true）"
+    },
+    "canDisable": {
+      "type": "boolean",
+      "description": "是否允许通过 CLI/API 写入禁用状态（缺省 true；下次冷启动生效）"
     },
     "requires": {
       "type": "array",

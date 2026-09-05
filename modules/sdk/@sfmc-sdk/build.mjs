@@ -37,6 +37,7 @@ function runTsc7(args) {
 /** @type {SubpathBuild[]} */
 const SUBPATHS = [
   { sub: "contracts", platform: "neutral" },
+  { sub: "validation", platform: "neutral" },
   { sub: "logs", platform: "node" },
   { sub: "sapi/sdk", platform: "neutral" },
   { sub: "sapi/runtime", platform: "neutral" },

@@ -1,4 +1,7 @@
+import type { ConfigClient } from "../sapi/config/client.js";
+import type { DbClient } from "../sapi/db/client.js";
 import { debug } from "../sapi/runtime/debug-log.js";
+import type { ServiceClient } from "../sapi/service/client.js";
 import { ConfigManager } from "./internal/config-manager.js";
 
 /** catalog/manifest 模块 id（如 feature-afk）。 */
@@ -16,11 +19,22 @@ export type BdsSystem = {
 };
 
 /**
+ * 模块作用域运行时客户端（由 installHostBootstrap 在 apply 时装配）。
+ * 生命周期钩子应闭包捕获此处的 db/config/service，避免使用进程级单例串身份。
+ */
+export type ModuleServices = {
+  db: DbClient;
+  config: ConfigClient;
+  service: ServiceClient;
+};
+
+/**
  * 模块身份注入钩子（db/config/service client）。
  * 由 `module-loader/install` 绑定真实实现；测试环境可 noop 或不绑。
+ * apply 可返回 ModuleServices，供 lifecycle 闭包捕获（方案 A）。
  */
 export type ModuleAuthHooks = {
-  apply(id: string, token: string, configKey: string): void;
+  apply(id: string, token: string, configKey: string): ModuleServices | void;
   clear(id: string): void;
 };
 
@@ -38,18 +52,18 @@ export function bindModuleAuthHooks(hooks: ModuleAuthHooks): void {
   _authHooks = hooks;
 }
 
-/** 模块生命周期钩子（各阶段可选）。 */
+/** 模块生命周期钩子（各阶段可选）。services 为作用域客户端，可忽略以兼容旧模块。 */
 export type ModuleLifecycle = {
-  /** 注册 `!` 指令。 */
-  registerCommands?(): void;
+  /** 注册 `!` 指令（请闭包捕获 services.db，勿依赖单例 db）。 */
+  registerCommands?(services?: ModuleServices): void;
   /** 注册命名权限。 */
-  registerPermissions?(): void;
+  registerPermissions?(services?: ModuleServices): void;
   /** 订阅游戏事件。 */
-  registerEvents?(): void;
+  registerEvents?(services?: ModuleServices): void;
   /** 模块初始化（定时任务、世界加载后逻辑等）。 */
-  init?(): void;
+  init?(services?: ModuleServices): void;
   /** 模块清理（注销事件、释放资源）。 */
-  cleanup?(): void;
+  cleanup?(services?: ModuleServices): void;
 };
 
 /** 模块注册描述符（由 `ModuleRegistry.register` 提交）。 */
@@ -81,7 +95,7 @@ function enableKeysFor(id: ModuleId): string[] {
 }
 
 /** 启动前注入 db/config/service 模块身份(DIP:token 来自 configs/all,非 fs)。 */
-function applyModuleAuthContext(id: ModuleId): void {
+function applyModuleAuthContext(id: ModuleId): ModuleServices | undefined {
   const token = ConfigManager.getModuleToken(id);
   const configKey = ConfigManager.getModuleConfigKey(id) || "";
   if (!token) {
@@ -90,7 +104,8 @@ function applyModuleAuthContext(id: ModuleId): void {
         ` v2 db/config/service 调用将 401`
     );
   }
-  _authHooks?.apply(id, token, configKey);
+  const services = _authHooks?.apply(id, token, configKey);
+  return services || undefined;
 }
 
 /** 模块注册表：冷启动生命周期与 shutdown cleanup。 */
@@ -134,8 +149,8 @@ export class ModuleRegistry {
       if (!booted.has(d.id)) continue;
       if (initialized.has(d.id)) continue;
       try {
-        applyModuleAuthContext(d.id);
-        d.lifecycle.init?.();
+        const services = applyModuleAuthContext(d.id);
+        d.lifecycle.init?.(services);
         initialized.add(d.id);
       } catch (e) {
         debug.e("Module", `[${d.id}] init failed`, e);
@@ -150,13 +165,13 @@ export class ModuleRegistry {
     if (!ModuleRegistry.isActive(id)) return;
     if (booted.has(id)) return;
     try {
-      applyModuleAuthContext(id);
-      d.lifecycle.registerPermissions?.();
-      d.lifecycle.registerCommands?.();
-      d.lifecycle.registerEvents?.();
+      const services = applyModuleAuthContext(id);
+      d.lifecycle.registerPermissions?.(services);
+      d.lifecycle.registerCommands?.(services);
+      d.lifecycle.registerEvents?.(services);
       booted.add(id);
       if (!d.afterWorldLoad || worldLoaded) {
-        d.lifecycle.init?.();
+        d.lifecycle.init?.(services);
         initialized.add(id);
       }
     } catch (e) {

@@ -13,13 +13,16 @@ import {
   ButtonOptions,
   CustomForm,
   DataDrivenScreenClosedReason,
+  DividerOptions,
   DropdownItemData,
   DropdownOptions,
+  ImageOptions,
   MessageBox,
   ObservableBoolean,
   ObservableNumber,
   ObservableString,
   SliderOptions,
+  SpacingOptions,
   TextFieldOptions,
   ToggleOptions,
 } from "@minecraft/server-ui";
@@ -84,7 +87,11 @@ export interface Page {
     options?: SliderOptions
   ): this;
   /** 添加分隔线。 */
-  divider(): this;
+  divider(options?: DividerOptions): this;
+  /** 添加间距留白。 */
+  spacer(options?: SpacingOptions): this;
+  /** 添加图像。 */
+  image(src: string | ObservableString, pack: string | ObservableString, options?: ImageOptions): this;
   /** 添加标题行。 */
   header(text: string | ObservableString): this;
 }
@@ -336,8 +343,16 @@ class PageBuilder implements Page {
     this.form.slider(l, v, min, max, { ...o, visible: this.visible });
     return this;
   }
-  divider(): this {
-    this.form.divider({ visible: this.visible });
+  divider(o?: DividerOptions): this {
+    this.form.divider({ ...o, visible: this.visible });
+    return this;
+  }
+  spacer(o?: SpacingOptions): this {
+    this.form.spacer({ ...o, visible: this.visible });
+    return this;
+  }
+  image(src: string | ObservableString, pack: string | ObservableString, o?: ImageOptions): this {
+    this.form.image(src, pack, { ...o, visible: this.visible });
     return this;
   }
   header(t: string | ObservableString): this {

@@ -3,43 +3,14 @@
  *
  * 模块间通过面向接口与服务名称（如 `economy.account.get`）进行松耦合调用，解耦模块代码依赖。
  *
- * 鉴权与调用设计：
- * - 鉴权机制与 db 保持一致：`moduleId` 经 URL Query 传递，`token` 按请求 Bearer 注入
- * - 常规调用：`service.get(name, input)` 向服务端发起 `GET /api/sfmc/services/:name` 请求
- * - 事务内调用：若处于事务上下文中，必须改用 `db.tx` 的 `tx.call(name, input)`，以纳入统一事务边界
+ * 鉴权与调用设计（方案 A：作用域实例）：
+ * - 推荐 `createServiceClient(moduleId, token, inTx)`：身份封闭在闭包；`inTx` 应绑定配对 DbClient.isTxRecording
+ * - `setServiceModuleContext` + 单例 `service` 兼容旧代码，按 moduleId 登记并转发到激活实例
+ * - 进程内 `provide` 注册本地 handler；`get` / `call` 优先走本地总线，未命中再 HTTP fallback
  */
 
 import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 import { HttpRequestMethod } from "@minecraft/server-net";
-
-let _moduleId = "";
-let _authToken = "";
-let _isInTx: () => boolean = () => false;
-
-/**
- * 注入当前模块的 service 访问身份上下文。
- *
- * @param moduleId 模块唯一标识符。
- * @param token 模块专属访问 token。
- * @param inTx 用于检查当前是否处于事务中的探针函数。
- */
-export function setServiceModuleContext(moduleId: string, token: string, inTx: () => boolean): void {
-  _moduleId = moduleId;
-  _authToken = token;
-  _isInTx = inTx;
-}
-
-/**
- * 清理当前模块的 service 身份上下文。
- *
- * @param moduleId 可选的模块 id。若指定，则仅当与当前上下文匹配时才清空（迪米特法则）；若省略则强制全量清空。
- */
-export function clearServiceModuleContext(moduleId?: string): void {
-  if (moduleId && _moduleId !== moduleId) return;
-  _moduleId = "";
-  _authToken = "";
-  _isInTx = () => false;
-}
 
 /** 已注册跨模块服务（service）的元信息。 */
 export interface ServiceInfo {
@@ -48,6 +19,11 @@ export interface ServiceInfo {
   /** 提供此服务的模块 id。 */
   moduleId: string;
 }
+
+/** 进程内服务处理函数（SAPI 同进程注册）。 */
+export type ServiceHandler = (
+  input: Record<string, unknown>
+) => unknown | Promise<unknown>;
 
 /** 跨模块服务调用异常（包含服务端返回的业务 code 与 HTTP status）。 */
 export class ServiceError extends Error {
@@ -62,75 +38,242 @@ export class ServiceError extends Error {
   }
 }
 
-function withModuleId(path: string): string {
-  return HttpDB.withModuleId(path, _moduleId);
+/* ── 进程内本地总线（优先于 HTTP） ── */
+
+type LocalEntry = { moduleId: string; handler: ServiceHandler };
+
+const _localHandlers = new Map<string, LocalEntry>();
+
+/**
+ * 在 SAPI 进程内注册服务处理器。
+ * @returns 注销函数（cleanup 时调用）。
+ */
+export function provide(name: string, handler: ServiceHandler): () => void {
+  if (!name || typeof handler !== "function") {
+    throw new ServiceError("[service.provide] 需要非空 name 与 handler", "invalid_argument", 0);
+  }
+  const moduleId = _activeModuleId || "unknown";
+  _localHandlers.set(name, { moduleId, handler });
+  return () => {
+    const cur = _localHandlers.get(name);
+    if (cur && cur.handler === handler) _localHandlers.delete(name);
+  };
 }
 
-function authOpts(): HttpRequestAuthOpts | undefined {
-  const t = (_authToken || "").trim();
-  return t ? { authToken: t } : undefined;
+/** 按模块 id 批量清除本地处理器（模块 cleanup 用）。 */
+export function clearLocalProvides(moduleId?: string): void {
+  if (!moduleId) {
+    _localHandlers.clear();
+    return;
+  }
+  for (const [name, entry] of _localHandlers) {
+    if (entry.moduleId === moduleId) _localHandlers.delete(name);
+  }
 }
 
-function requireModuleContext(op: string): void {
-  if (!_moduleId) {
+async function tryLocal<T>(name: string, input: Record<string, unknown>): Promise<T | undefined> {
+  const entry = _localHandlers.get(name);
+  if (!entry) return undefined;
+  return (await entry.handler(input ?? {})) as T;
+}
+
+/**
+ * 作用域 service 客户端：moduleId/token 封闭在实例内。
+ * `inTx` 探针应由配对的 DbClient.isTxRecording 提供，避免全局事务误杀。
+ */
+export interface ServiceClient {
+  readonly moduleId: string;
+  setAuthToken(token: string): void;
+  setInTxProbe(inTx: () => boolean): void;
+  get<T = unknown>(name: string, input?: Record<string, unknown>): Promise<T>;
+  /** 与 get 同义；语义上强调跨模块 RPC 调用。 */
+  call<T = unknown>(name: string, input?: Record<string, unknown>): Promise<T>;
+  /** 进程内注册服务；返回注销函数。 */
+  provide(name: string, handler: ServiceHandler): () => void;
+  list(): Promise<ServiceInfo[]>;
+}
+
+/**
+ * 创建绑定到指定模块身份的 service 客户端（推荐路径）。
+ *
+ * @param moduleId 模块唯一标识符。
+ * @param token 模块专属访问 token。
+ * @param inTx 检查配对 DbClient 是否处于事务中的探针（默认恒 false）。
+ */
+export function createServiceClient(
+  moduleId: string,
+  token: string,
+  inTx: () => boolean = () => false
+): ServiceClient {
+  if (!moduleId) {
+    throw new ServiceError("[service] createServiceClient 需要非空 moduleId", "unauthorized", 0);
+  }
+
+  const state = {
+    token: token || "",
+    isInTx: inTx,
+  };
+
+  function authOpts(): HttpRequestAuthOpts | undefined {
+    const t = (state.token || "").trim();
+    return t ? { authToken: t } : undefined;
+  }
+
+  function withModuleId(path: string): string {
+    return HttpDB.withModuleId(path, moduleId);
+  }
+
+  function requireModuleContext(op: string): void {
+    if (!moduleId) {
+      throw new ServiceError(`[service.${op}] 模块上下文未初始化`, "unauthorized", 0);
+    }
+  }
+
+  return {
+    get moduleId() {
+      return moduleId;
+    },
+    setAuthToken(next: string) {
+      state.token = next || "";
+    },
+    setInTxProbe(probe: () => boolean) {
+      state.isInTx = probe;
+    },
+
+    async get(name, input = {}) {
+      requireModuleContext("get");
+      if (state.isInTx()) {
+        throw new ServiceError(
+          "事务内调 service 必须用 db.tx 的 tx.call(name, input),不能用 service.get",
+          "use_tx_call",
+          0
+        );
+      }
+      const local = await tryLocal(name, input);
+      if (local !== undefined) return local as never;
+
+      const qs = new URLSearchParams({ input: JSON.stringify(input) }).toString();
+      const res = await HttpDB.typedRequest<{ ok: true; result: unknown }>(
+        HttpRequestMethod.GET,
+        withModuleId(`/api/sfmc/services/${encodeURIComponent(name)}?${qs}`),
+        undefined,
+        authOpts()
+      );
+      if (!res.ok) {
+        const data = res.data as { error?: string; code?: string } | undefined;
+        throw new ServiceError(data?.error ?? res.error ?? "service_error", data?.code || "internal", res.status);
+      }
+      return (res.data as { ok: true; result: unknown }).result as never;
+    },
+
+    call(name, input = {}) {
+      return this.get(name, input);
+    },
+
+    provide(name, handler) {
+      requireModuleContext("provide");
+      if (!name || typeof handler !== "function") {
+        throw new ServiceError("[service.provide] 需要非空 name 与 handler", "invalid_argument", 0);
+      }
+      _localHandlers.set(name, { moduleId, handler });
+      return () => {
+        const cur = _localHandlers.get(name);
+        if (cur && cur.handler === handler) _localHandlers.delete(name);
+      };
+    },
+
+    async list() {
+      requireModuleContext("list");
+      const res = await HttpDB.typedRequest<{ services: ServiceInfo[] }>(
+        HttpRequestMethod.GET,
+        withModuleId("/api/sfmc/services"),
+        undefined,
+        authOpts()
+      );
+      if (res.ok && res.data) return res.data.services;
+      return [];
+    },
+  };
+}
+
+/* ── 兼容层：按 moduleId 登记 + 单例转发 ── */
+
+const _clients = new Map<string, ServiceClient>();
+let _activeModuleId = "";
+
+/**
+ * 注入/刷新模块的 service 访问身份，并激活为单例 `service` 的转发目标。
+ */
+export function setServiceModuleContext(moduleId: string, token: string, inTx: () => boolean): void {
+  const existing = _clients.get(moduleId);
+  if (existing) {
+    existing.setAuthToken(token);
+    existing.setInTxProbe(inTx);
+    _activeModuleId = moduleId;
+    return;
+  }
+  _clients.set(moduleId, createServiceClient(moduleId, token, inTx));
+  _activeModuleId = moduleId;
+}
+
+/** 按 moduleId 取出已登记的作用域 service 客户端。 */
+export function getServiceClient(moduleId: string): ServiceClient {
+  const c = _clients.get(moduleId);
+  if (!c) {
     throw new ServiceError(
-      `[service.${op}] 模块上下文未初始化: setServiceModuleContext 未调用`,
+      `[service] 未找到 moduleId=${moduleId} 的客户端（须先 setServiceModuleContext）`,
       "unauthorized",
       0
     );
   }
+  return c;
 }
 
-/** 跨模块服务注册表访问门面。 */
-export const service = {
-  /**
-   * 调用指定的跨模块服务。
-   * 注意：若处于 `db.tx` 事务会话内，须改用事务上下文的 `tx.call(name, input)`。
-   *
-   * @template T 服务调用返回结果类型。
-   * @param name 服务完整名称。
-   * @param input 传递给服务的参数字典。
-   * @returns 服务执行返回的结果数据。
-   * @throws {ServiceError} 服务不存在、鉴权失败或执行出错时抛出。
-   */
-  async get<T = unknown>(name: string, input: Record<string, unknown> = {}): Promise<T> {
-    requireModuleContext("get");
-    if (_isInTx()) {
-      throw new ServiceError(
-        "事务内调 service 必须用 db.tx 的 tx.call(name, input),不能用 service.get",
-        "use_tx_call",
-        0
-      );
-    }
-    const qs = new URLSearchParams({ input: JSON.stringify(input) }).toString();
-    const res = await HttpDB.typedRequest<{ ok: true; result: T }>(
-      HttpRequestMethod.GET,
-      withModuleId(`/api/sfmc/services/${encodeURIComponent(name)}?${qs}`),
-      undefined,
-      authOpts()
-    );
-    if (!res.ok) {
-      const data = res.data as { error?: string; code?: string } | undefined;
-      throw new ServiceError(data?.error ?? res.error ?? "service_error", data?.code || "internal", res.status);
-    }
-    return (res.data as { ok: true; result: T }).result;
-  },
+/**
+ * 清理当前模块的 service 身份上下文。
+ * @param moduleId 若指定则仅删除该模块；省略则清空全部。
+ */
+export function clearServiceModuleContext(moduleId?: string): void {
+  if (!moduleId) {
+    _clients.clear();
+    _activeModuleId = "";
+    return;
+  }
+  _clients.delete(moduleId);
+  if (_activeModuleId === moduleId) _activeModuleId = "";
+}
 
-  /**
-   * 获取当前所有处于启用状态的模块所提供的全部服务列表。
-   *
-   * @returns 可用服务信息数组。
-   */
-  async list(): Promise<ServiceInfo[]> {
-    requireModuleContext("list");
-    const res = await HttpDB.typedRequest<{ services: ServiceInfo[] }>(
-      HttpRequestMethod.GET,
-      withModuleId("/api/sfmc/services"),
-      undefined,
-      authOpts()
+function activeClient(): ServiceClient {
+  if (!_activeModuleId) {
+    throw new ServiceError(
+      `[service] 模块上下文未初始化: setServiceModuleContext 未调用`,
+      "unauthorized",
+      0
     );
-    if (res.ok && res.data) return res.data.services;
-    return [];
+  }
+  const c = _clients.get(_activeModuleId);
+  if (!c) {
+    throw new ServiceError(
+      `[service] 找不到已激活 moduleId=${_activeModuleId} 的客户端`,
+      "unauthorized",
+      0
+    );
+  }
+  return c;
+}
+
+/** 跨模块服务注册表访问门面（兼容单例）。 */
+export const service: Omit<ServiceClient, "moduleId" | "setAuthToken" | "setInTxProbe"> = {
+  get(name, input) {
+    return activeClient().get(name, input);
+  },
+  call(name, input) {
+    return activeClient().call(name, input);
+  },
+  provide(name, handler) {
+    return activeClient().provide(name, handler);
+  },
+  list() {
+    return activeClient().list();
   },
 };
-

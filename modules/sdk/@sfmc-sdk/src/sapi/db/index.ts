@@ -1,7 +1,11 @@
 /**
  * db/index.ts — @sfmc-bds/sdk/sapi/db 公开 API
  *
- * 模块作者 import:
+ * 模块作者推荐（作用域实例，多模块安全）:
+ *   import { createDbClient, type DbClient } from "@sfmc-bds/sdk/sapi/db";
+ *   // 或接收 ModuleRegistry 注入的 services.db
+ *
+ * 兼容单例:
  *   import { db, TxContext, DbError } from "@sfmc-bds/sdk/sapi/db";
  *
  * 设计:
@@ -11,8 +15,16 @@
  *   - 模块不能 require("fs");只能走这里
  */
 
-export { db, setDbModuleContext, clearDbModuleContext, isDbTxRecording, DbError } from "./client.js";
-export type { TxContext } from "./client.js";
+export {
+  db,
+  createDbClient,
+  getDbClient,
+  setDbModuleContext,
+  clearDbModuleContext,
+  isDbTxRecording,
+  DbError,
+} from "./client.js";
+export type { DbClient, TxContext } from "./client.js";
 export type {
   ColumnDef,
   ColumnType,

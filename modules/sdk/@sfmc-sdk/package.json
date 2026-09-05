@@ -30,6 +30,11 @@
       "import": "./dist/esm/contracts/index.js",
       "default": "./dist/esm/contracts/index.js"
     },
+    "./validation": {
+      "types": "./dist/types/validation/index.d.ts",
+      "import": "./dist/esm/validation/index.js",
+      "default": "./dist/esm/validation/index.js"
+    },
     "./logs": {
       "types": "./dist/types/logs/index.d.ts",
       "import": "./dist/esm/logs/index.js",
@@ -116,7 +121,7 @@
     "prepare": "sfmc-ensure-sdk-types",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "pnpm run clean && pnpm run build:types && node build.mjs",
-    "test": "pnpm run build && node --test --import tsx/esm test/**/*.test.ts",
+    "test": "pnpm run build && node --test --import ./test/helpers/mc-loader.mjs --import tsx/esm test/**/*.test.ts",
     "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
   },
   "devDependencies": {
