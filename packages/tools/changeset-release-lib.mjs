@@ -227,7 +227,7 @@ export function git(args, opts = {}) {
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
     ...rest,
   });
-  return typeof result === "string" ? result : result.toString("utf8");
+  return result ? (typeof result === "string" ? result : result.toString("utf8")) : "";
 }
 
 /**
