@@ -78,7 +78,14 @@ async function bundleBehaviorPackScript(): Promise<void> {
   const { build } = await import("esbuild");
   const sdkRoot = await resolveSdkRootForEsbuild();
   await build({
-    entryPoints: entries,
+    stdin: {
+      contents: entries
+        .map((e) => `import ${JSON.stringify(path.resolve(e).replace(/\\/g, "/"))};`)
+        .join("\n"),
+      resolveDir: ROOT,
+      sourcefile: "bootstrap.ts",
+      loader: "ts",
+    },
     outfile: outFile,
     bundle: true,
     platform: "neutral",

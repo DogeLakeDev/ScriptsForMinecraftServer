@@ -409,7 +409,14 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
     const sdkRoot = resolveSdkPackageRoot();
     packLog(`SDK root: ${sdkRoot}`);
     await build({
-      entryPoints: entries,
+      stdin: {
+        contents: entries
+          .map((e) => `import ${JSON.stringify(path.resolve(e).replace(/\\/g, "/"))};`)
+          .join("\n"),
+        resolveDir: ROOT,
+        sourcefile: "bootstrap.ts",
+        loader: "ts",
+      },
       outfile: outFile,
       bundle: true,
       platform: "neutral",
