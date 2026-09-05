@@ -6,7 +6,6 @@
  *     "schemaVersion": 2,
  *     "id": "feature-land",
  *     "name": "领地",
- *     "type": "feature",
  *     "configKey": "land",
  *     "requires": ["feature-economy"],
  *     "permissions": ["db:read:lands", "service:economy.account"],
@@ -44,15 +43,15 @@ export interface ModuleManifestV2 {
   schemaVersion: 2;
   id: string;
   name: string;
-  type: "core" | "feature";
   configKey: string;
   requires: string[];
   permissions: string[];
   services: { provides: ServiceEntry[]; requires: ServiceEntry[] };
+  enabledByDefault?: boolean | undefined;
+  canDisable?: boolean | undefined;
   notes?: string | undefined;
 }
 
-const VALID_TYPES = new Set(["core", "feature"]);
 const IDENT = /^[A-Za-z0-9_-]+$/;
 
 /** v1 / 缺 schemaVersion:跳过(直到所有模块迁 v2) */
@@ -75,8 +74,11 @@ function assertModuleObject(modId: string, obj: Record<string, unknown>): void {
   if (typeof obj.name !== "string" || obj.name.length === 0) {
     throw new Error(`[manifest] ${modId}: name 缺失`);
   }
-  if (typeof obj.type !== "string" || !VALID_TYPES.has(obj.type)) {
-    throw new Error(`[manifest] ${modId}: type 必须是 core|feature ("${String(obj.type)}")`);
+  if (obj.enabledByDefault !== undefined && typeof obj.enabledByDefault !== "boolean") {
+    throw new Error(`[manifest] ${modId}: enabledByDefault 必须是 boolean`);
+  }
+  if (obj.canDisable !== undefined && typeof obj.canDisable !== "boolean") {
+    throw new Error(`[manifest] ${modId}: canDisable 必须是 boolean`);
   }
   if (typeof obj.configKey !== "string" || obj.configKey.length === 0) {
     throw new Error(`[manifest] ${modId}: configKey 缺失`);
@@ -145,11 +147,12 @@ function parseMod(modId: string, raw: Record<string, unknown>): ModuleManifestV2
     schemaVersion: 2,
     id: raw.id as string,
     name: raw.name as string,
-    type: raw.type as "core" | "feature",
     configKey: raw.configKey as string,
     requires,
     permissions,
     services: parseServices(modId, raw.services),
+    ...(typeof raw.enabledByDefault === "boolean" ? { enabledByDefault: raw.enabledByDefault } : {}),
+    ...(typeof raw.canDisable === "boolean" ? { canDisable: raw.canDisable } : {}),
     notes: typeof raw.notes === "string" ? raw.notes : undefined,
   };
 }
@@ -162,6 +165,9 @@ export interface LoadedManifests {
 /**
  * 启动期调。throw = 启动失败。
  * 注:不读 v1 manifest。只有 schemaVersion=2 才走。
+ *
+ * 形状校验：核心字段句式可与 `@sfmc-bds/sdk/validation` 对齐；本加载器另有
+ * 弃用字段拒绝、service 冲突、权限门等域规则，故暂未整段委托 validateManifest。
  */
 export function loadManifestV2(packagesDir: string = defaultPackagesDir()): LoadedManifests {
   if (!existsSync(packagesDir)) {

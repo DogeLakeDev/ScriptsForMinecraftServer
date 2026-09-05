@@ -8,8 +8,8 @@ import { MODULE_LOCK_PATH } from "./paths.mjs";
 import { readJson, writeJson } from "./io.mjs";
 
 /**
- * @typedef {{ enabled: boolean, updatedAt?: number }} LockState
- * @typedef {{ version: number, modules: Record<string, LockState> }} ModuleLock
+ * @typedef {import("@sfmc-bds/sdk/contracts").ModuleRuntimeState} LockState
+ * @typedef {import("@sfmc-bds/sdk/contracts").ModuleLock} ModuleLock
  */
 
 const SERVICE_PREFIXES = ["service-", "tool-"];

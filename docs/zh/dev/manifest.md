@@ -17,11 +17,12 @@
 | 字段名称 | 类型 | 必填 | 规约与说明 |
 | :--- | :--- | :---: | :--- |
 | `schemaVersion` | `number` | **✓** | 契约版本号。基线模块为 `2`；包含 `semantic` 语义扩展块时填 `3`。 |
-| `id` | `string` | **✓** | 模块全局唯一标识符。前缀必须为 `feature-` 或 `core-`（如 `feature-land`、`core-auth`）。 |
+| `id` | `string` | **✓** | 模块全局唯一标识符（小写 kebab-case，无强制前缀；如 `land`、`feature-land` 均可）。 |
 | `name` | `string` | **✓** | 模块的用户可读中文名称（如 `领地保护`、`通用经济`）。 |
-| `type` | `string` | **✓** | 模块类型：`"feature"`（常规玩法模块，可自由启停）或 `"core"`（平台关键基石，开服强依赖，禁止随意停用）。 |
 | `configKey` | `string` | **✓** | 模块私有配置键（下划线命名），映射到 `<SFMC_ROOT>/configs/<configKey>.json`。 |
-| `requires` | `string[]` | **✓** | 该模块强依赖的前置模块 ID 列表（如 `["core-auth", "feature-economy"]`）。缺失前置时将被装载闸门阻断。 |
+| `enabledByDefault` | `boolean` | ✕ | 安装时是否默认写入启用（缺省 `true`）。 |
+| `canDisable` | `boolean` | ✕ | 是否允许 CLI/API 写入禁用（缺省 `true`；下次冷启动生效）。平台关键模块可显式设为 `false`。 |
+| `requires` | `string[]` | **✓** | 该模块强依赖的前置模块 ID 列表。缺失前置时将被装载闸门阻断。 |
 | `permissions` | `string[]` | **✓** | 模块向平台声明所需申请的底层资源权限节点列表（见下文语法规则）。 |
 | `services.provides` | `ServiceEntry[]` | **✓** | 该模块向外部其它模块主动开放调用的 RPC 服务接口清单。 |
 | `services.requires` | `string[]` | **✓** | 该模块需要消费调用的外部服务名称集合。 |
@@ -35,7 +36,7 @@
 | :--- | :--- | :--- |
 | `db:read:<table>` | `db:read:wallets` | 允许对指定的 SQLite 数据表执行 `SELECT` 读取。 |
 | `db:write:<table>` | `db:write:wallets` | 允许对指定的数据表执行 `INSERT`、`UPDATE`、`DELETE` 等变更。 |
-| `db:read:*` / `db:write:*` | `db:write:*` | **通配符全局表权限**。仅限高度特权的 `core` 级模块申请，常规业务模块严禁滥用。 |
+| `db:read:*` / `db:write:*` | `db:write:*` | **通配符全局表权限**。仅限高度特权模块申请，常规业务模块严禁滥用。 |
 | `config:read:<key>` | `config:read:economy` | 允许通过 SDK 读取该配置命名空间。 |
 | `config:write:<key>` | `config:write:economy` | 允许通过 SDK 运行时修改并持久化该配置。 |
 | `service:<name>` | `service:economy.transfer` | 允许发起跨模块 RPC 调用目标服务。 |
@@ -89,7 +90,6 @@
   "schemaVersion": 3,
   "id": "feature-economy",
   "name": "经济系统",
-  "type": "feature",
   "configKey": "economy",
   "requires": [],
   "permissions": [

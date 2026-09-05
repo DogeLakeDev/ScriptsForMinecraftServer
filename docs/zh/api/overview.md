@@ -74,7 +74,7 @@ flowchart LR
 | `permission_denied` | `403` | 试图访问未在 `manifest.json` 中声明的表或跨模块服务。 |
 | `module_not_found` | `404` | 请求的模块 ID 在当前 `catalog.json` 中不存在。 |
 | `dependency_unmet` | `400` | 试图启用某个模块，但其依赖的前置模块尚未安装或处于禁用状态。 |
-| `module_cannot_disable` | `400` | 试图禁用标记为 `"type": "core"` 的平台基石模块。 |
+| `module_cannot_disable` | `400` | 试图禁用 `canDisable: false` 的模块。 |
 | `service_not_found` | `404` | 请求调用的跨模块服务名称未被任何已启用模块注册。 |
 
 ## 3. 全局核心路由索引地图

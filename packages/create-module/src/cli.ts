@@ -98,8 +98,7 @@ async function main(): Promise<void> {
         message: "模块 id（kebab-case）",
         placeholder: "my-feature",
         validate: (s) => {
-          if (!s || !isValidModuleId(s)) return "须为小写 kebab-case，且不含 feature-/core- 前缀";
-          if (s.startsWith("feature-") || s.startsWith("core-")) return "不要带 feature-/core- 前缀";
+          if (!s || !isValidModuleId(s)) return "须为小写 kebab-case（如 my-feature）";
         },
       });
       if (p.isCancel(v)) {

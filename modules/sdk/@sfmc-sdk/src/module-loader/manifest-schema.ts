@@ -118,4 +118,3 @@ export type { ShapeIssue as ManifestIssue, ShapeIssueKind as ManifestIssueKind }
  * 失败时同时提供人类可读 `errors` 与机器可读 `issues`。
  */
 export type ValidationResult<T> = { ok: true; manifest: T } | { ok: false; errors: string[]; issues: ShapeIssue[] };
-

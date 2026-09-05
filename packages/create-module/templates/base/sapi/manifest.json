@@ -3,7 +3,6 @@
   "schemaVersion": 2,
   "id": "{{featureId}}",
   "name": "{{name}}",
-  "type": "feature",
   "configKey": "{{configKey}}",
   "requires": [],
   "permissions": [

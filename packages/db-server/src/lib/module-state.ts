@@ -1,11 +1,7 @@
 import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
+import type { ModuleLock, ModuleRuntimeState } from "@sfmc-bds/sdk/contracts";
 
-interface ModuleLock {
-  version: number;
-  modules: Record<string, { enabled?: boolean; updatedAt?: number }>;
-}
-
-type ModuleState = ModuleLock["modules"][string];
+type ModuleState = ModuleRuntimeState;
 
 /**
  * 读取 `module-lock.json` 模块启停锁文件；若文件不存在则初始化空骨架文件并自动落盘。

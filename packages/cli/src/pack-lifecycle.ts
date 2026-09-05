@@ -222,7 +222,7 @@ export async function scanLocalModules(): Promise<
   const dir = packagesDir();
   if (!existsSync(dir)) return [];
   const lock = (readJson<ModuleLock>(lockPath()) ?? { version: 1, modules: {} }) as ModuleLock;
-  const cat = (readJson<Catalog>(catalogPath()) ?? {}) as Catalog;
+  const cat = (readJson<Catalog>(catalogPath()) ?? { version: 1, modules: [] }) as Catalog;
   const defaults = new Map<string, boolean>();
   if (Array.isArray(cat.modules)) {
     for (const m of cat.modules) {

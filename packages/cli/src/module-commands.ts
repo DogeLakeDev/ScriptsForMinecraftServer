@@ -350,18 +350,21 @@ function catalogPathOnDisk(): string {
 
 /** 已装包 + catalog 投影 → 启停候选（canDisable 与 db 同源：省略视为可禁用）。 */
 function buildToggleCandidates(installed: InstalledModule[]): ToggleCandidate[] {
-  const catalog = (readJson<Catalog>(catalogPathOnDisk()) ?? {}) as Catalog;
+  const catalog = (readJson<Catalog>(catalogPathOnDisk()) ?? {
+    version: 1,
+    modules: [],
+  }) as Catalog;
   const rows = Array.isArray(catalog.modules) ? catalog.modules : [];
-  const byLogical = new Map<string, Record<string, unknown>>();
+  const byLogical = new Map<string, (typeof rows)[number]>();
   for (const raw of rows) {
     if (!raw || typeof raw !== "object") continue;
-    const id = String((raw as Record<string, unknown>).id || "").trim();
-    if (id) byLogical.set(id, raw as Record<string, unknown>);
+    const id = String(raw.id || "").trim();
+    if (id) byLogical.set(id, raw);
   }
   return installed.map((m) => {
     const logicalId = typeof m.manifest?.id === "string" && m.manifest.id ? m.manifest.id : m.id;
     const raw = byLogical.get(logicalId);
-    const configKeyRaw = raw ? String(raw.configKey || raw.config_key || "").trim() : "";
+    const configKeyRaw = raw ? String(raw.configKey || "").trim() : "";
     const canDisable = raw ? raw.canDisable !== false : true;
     const out: ToggleCandidate = { logicalId, folderId: m.id, canDisable };
     if (configKeyRaw) out.configKey = configKeyRaw;

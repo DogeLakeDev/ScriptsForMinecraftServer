@@ -33,7 +33,6 @@ export interface ModuleManifestMigration {
 
 export interface ModuleManifestEntry {
   name?: string | undefined;
-  type?: string | undefined;
   configKey?: string | undefined;
   requires?: string[] | undefined;
   handlers?: string[] | undefined;
@@ -108,7 +107,6 @@ export function loadManifest(packagesDir: string = defaultPackagesDir()): Module
     }
     modules[id] = {
       name: parsed.name,
-      type: parsed.type,
       configKey: parsed.configKey,
       requires: Array.isArray(parsed.requires) ? parsed.requires : [],
       handlers: Array.isArray(parsed.handlers) ? parsed.handlers : [],

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * @sfmc-bds/cli — 离线校验 catalog + 已装包
+ * @sfmc-bds/cli — 离线校验 catalog 与已安装模块包的全局一致性
  *
- * - 空 catalog 合法(纯平台仓)
- * - 唯一 id / configKey、requires 闭包、manifest v2/v3
+ * 职责分工边界：
+ * - 全局目录一致性：本文件专注于校验 catalog 唯一性（id / configKey）、requires 依赖闭包、以及 catalog.id 与 manifest.id 的严格对齐；
+ * - 字段形状校验解耦：模块 manifest 的具体字段结构、版本判定与必填规则完全委托给 SDK 的权威总入口 `validateManifest`，不再在本地重复实现字段形状检查。
  *
- * 用法:
+ * 用法：
  *   node packages/cli/scripts/module-install/check-modules.mjs
- *   node …/check-modules.mjs --sync   # 先 sync catalog 再校验
+ *   node …/check-modules.mjs --sync   # 先 sync catalog 再执行校验
  */
+import { validateManifest } from "@sfmc-bds/sdk/module-loader";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -30,77 +32,6 @@ import { ROOT } from "./lib/paths.mjs";
  * @property {string} [error]
  * @property {string} [summary]
  */
-
-/**
- * @param {*} manifest
- * @returns {{ ok: true } | { ok: false; errors: string[] }}
- */
-function validateManifest(manifest) {
-  const v = manifest?.schemaVersion;
-  if (v === 3) {
-    const errors = checkV3(manifest);
-    if (errors.length > 0) return { ok: false, errors };
-    return { ok: true };
-  }
-  if (v === 2) {
-    const errors = checkV2(manifest);
-    if (errors.length > 0) return { ok: false, errors };
-    return { ok: true };
-  }
-  return { ok: false, errors: [`schemaVersion 应为 2 或 3，实际 ${v}`] };
-}
-
-/** @param {*} r */
-function checkV2(r) {
-  const errs = [];
-  if (!r || typeof r !== "object") return ["manifest 根必须是 plain object"];
-  if (r.schemaVersion !== 2) errs.push("schemaVersion 必须为 2");
-  if (!r.id || typeof r.id !== "string") errs.push("id 缺失或类型错");
-  if (!r.name || typeof r.name !== "string") errs.push("name 缺失或类型错");
-  if (r.type !== "core" && r.type !== "feature") errs.push(`type 必须是 "core" 或 "feature"，实际为 ${r.type}`);
-  if (!r.configKey || typeof r.configKey !== "string") errs.push("configKey 缺失");
-  if (!Array.isArray(r.requires)) errs.push("requires 必须是数组");
-  if (!Array.isArray(r.permissions)) errs.push("permissions 必须是数组");
-  if (!r.services || typeof r.services !== "object") errs.push("services 缺失");
-  return errs;
-}
-
-/** @param {*} r */
-function checkV3(r) {
-  if (!r || typeof r !== "object") return ["manifest 根必须是 plain object"];
-  const errs = [];
-  if (r.schemaVersion !== 3) errs.push(`schemaVersion 必须为 3，实际为 ${r.schemaVersion}`);
-  if (!r.id || typeof r.id !== "string") errs.push("id 缺失或类型错");
-  if (!r.name || typeof r.name !== "string") errs.push("name 缺失或类型错");
-  if (r.type !== "core" && r.type !== "feature") errs.push(`type 必须是 "core" 或 "feature"，实际为 ${r.type}`);
-  if (!r.configKey || typeof r.configKey !== "string") errs.push("configKey 缺失");
-  if (!Array.isArray(r.requires)) errs.push("requires 必须是数组");
-  if (!Array.isArray(r.permissions)) errs.push("permissions 必须是数组");
-  if (!r.services || typeof r.services !== "object") errs.push("services 缺失");
-  const s = r.semantic;
-  if (s !== undefined && s !== null && typeof s !== "object") {
-    errs.push("semantic 必须是 plain object（缺失合法）");
-    return errs;
-  }
-  if (s && typeof s === "object") {
-    if (s.configKeys !== undefined && !Array.isArray(s.configKeys)) {
-      errs.push("[semantic.configKeys] 必须是字符串数组");
-    }
-    if (s.dependsOn !== undefined && !Array.isArray(s.dependsOn)) {
-      errs.push("[semantic.dependsOn] 必须是字符串数组");
-    }
-    if (s.events !== undefined && (s.events === null || typeof s.events !== "object")) {
-      errs.push("[semantic.events] 必须是 plain object");
-    }
-    if (s.dbTables !== undefined && !Array.isArray(s.dbTables)) {
-      errs.push("[semantic.dbTables] 必须是数组");
-    }
-    if (s.publicApi !== undefined && !Array.isArray(s.publicApi)) {
-      errs.push("[semantic.publicApi] 必须是数组");
-    }
-  }
-  return errs;
-}
 
 /**
  * @param {CheckModulesOpts} [opts]
@@ -157,14 +88,17 @@ export function runCheckModules(opts = {}) {
         return { ok: false, error: `${m.id}: manifest 解析失败: ${message}` };
       }
 
+      // 单个 manifest 字段形状校验：委托 SDK validateManifest 权威入口，本脚本不重复实现字段检查
       const v = validateManifest(manifest);
       if (!v.ok) {
         return { ok: false, error: `${m.id}: manifest 校验未通过 — ${v.errors.join("; ")}` };
       }
+      // 校验 catalog 条目与 manifest 实际声明的模块身份（id）严格一致
       if (manifest.id !== m.id) {
         return { ok: false, error: `${m.id}: catalog.id 与 manifest.id(${manifest.id}) 不一致` };
       }
     }
+
 
     for (const m of modules) {
       const reqs = Array.isArray(m.requires) ? m.requires : [];

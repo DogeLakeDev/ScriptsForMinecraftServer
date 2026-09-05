@@ -19,7 +19,7 @@ test("createModule minimal 生成可识别骨架", async () => {
     scope: "alice",
   });
   assert.equal(r.pkgName, "@alice/sfmc-module-hello-mod");
-  assert.equal(r.featureId, "feature-hello-mod");
+  assert.equal(r.featureId, "hello-mod");
   assert.ok(fs.existsSync(path.join(target, "package.json")));
   assert.ok(fs.existsSync(path.join(target, "sapi", "manifest.json")));
   assert.ok(fs.existsSync(path.join(target, "sapi", "src", "index.ts")));
@@ -33,7 +33,7 @@ test("createModule minimal 生成可识别骨架", async () => {
     configKey: string;
     permissions: string[];
   };
-  assert.equal(manifest.id, "feature-hello-mod");
+  assert.equal(manifest.id, "hello-mod");
   assert.equal(manifest.configKey, "hello_mod");
   assert.ok(manifest.permissions.includes("config:read:hello_mod"));
   const readme = fs.readFileSync(path.join(target, "README.md"), "utf8");
@@ -62,7 +62,6 @@ test("createModule --official + extra db", async () => {
 
 test("拒绝非法 id / 非空目录", async () => {
   await assert.rejects(() => createModule({ targetDir: mkTmp(), id: "Feature", scope: "a" }));
-  await assert.rejects(() => createModule({ targetDir: mkTmp(), id: "feature-x", scope: "a" }));
   const root = mkTmp();
   fs.writeFileSync(path.join(root, "keep.txt"), "x");
   await assert.rejects(() => createModule({ targetDir: root, id: "ok-mod", scope: "a" }));

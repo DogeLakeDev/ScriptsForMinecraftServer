@@ -21,17 +21,15 @@ export function assertModuleId(id: string): void {
   if (!isValidModuleId(id)) {
     throw new Error(`id 须为小写 kebab-case（如 my-feature），收到: ${id}`);
   }
-  if (id.startsWith("feature-") || id.startsWith("core-")) {
-    throw new Error(`id 须为短名（不含 feature-/core- 前缀），例如 area 而非 feature-area`);
-  }
 }
 
 export function toConfigKey(id: string): string {
   return id.replace(/-/g, "_");
 }
 
+/** manifest.id：与短名相同，无强制 feature-/core- 前缀。 */
 export function toFeatureId(id: string): string {
-  return `feature-${id}`;
+  return id;
 }
 
 export function toPkgName(opts: { id: string; official?: boolean; scope?: string }): string {

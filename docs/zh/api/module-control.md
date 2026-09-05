@@ -35,14 +35,14 @@ curl -X POST http://127.0.0.1:3001/api/sfmc/modules/feature-afk/enable
 curl -X POST http://127.0.0.1:3001/api/sfmc/modules/feature-afk/disable
 ```
 
-`type: core` 禁用会返回 `module_cannot_disable`。
+`canDisable: false` 的模块禁用会返回 `module_cannot_disable`。
 
 ## 错误
 
 | error | 含义 |
 | ------ | ------ |
 | `module_not_found` | key 不存在 |
-| `module_cannot_disable` | core 模块 |
+| `module_cannot_disable` | 模块声明不可禁用 |
 | `dependency_unmet` | 启用时依赖未满足 |
 
 ## 与游戏的关系

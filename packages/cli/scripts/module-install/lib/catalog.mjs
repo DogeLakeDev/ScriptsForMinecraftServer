@@ -16,7 +16,7 @@ const CATALOG_SCHEMA =
 
 /**
  * @typedef {import("./packages.mjs").CatalogEntry} CatalogEntry
- * @typedef {{ $schema?: string, version: number, modules: CatalogEntry[] }} ModuleCatalog
+ * @typedef {import("@sfmc-bds/sdk/contracts").ModuleCatalog} ModuleCatalog
  */
 
 /** @returns {ModuleCatalog} */

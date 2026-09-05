@@ -164,7 +164,6 @@ function buildModuleList() {
         configKey,
         config_key: configKey,
         display_name: String((raw as Record<string, unknown>).name || configKey),
-        type: String((raw as Record<string, unknown>).type || "feature"),
         description: String((raw as Record<string, unknown>).description || ""),
         default_enabled: (raw as Record<string, unknown>).enabledByDefault !== false,
         can_disable: moduleCanDisable(raw as Record<string, unknown>),

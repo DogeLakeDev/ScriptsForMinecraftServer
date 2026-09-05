@@ -222,7 +222,6 @@ function stripUnsafeSemantic(raw: unknown): ManifestV3 {
     schemaVersion: 3,
     id: typeof r.id === "string" ? r.id : "",
     name: typeof r.name === "string" ? r.name : "",
-    type: r.type === "core" || r.type === "feature" ? r.type : "feature",
     configKey: typeof r.configKey === "string" ? r.configKey : "",
     requires: Array.isArray(r.requires) ? r.requires.filter((s): s is string => typeof s === "string") : [],
     permissions: Array.isArray(r.permissions)

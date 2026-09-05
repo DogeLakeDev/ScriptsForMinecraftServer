@@ -300,16 +300,18 @@ export async function runWizard(): Promise<void> {
   note(c.yellow(t("wizard.updaterTip")), t("common.tips"));
 
   // Step 4: Module initialization
-  const catalog = readJson<Catalog>(modulePath(rootDir, "catalog.json")) ?? {};
-  const catalogModules: Array<{ id: string; name?: string; type?: string; description?: string }> = [];
+  const catalog = readJson<Catalog>(modulePath(rootDir, "catalog.json")) ?? {
+    version: 1,
+    modules: [],
+  };
+  const catalogModules: Array<{ id: string; name?: string; description?: string; canDisable?: boolean }> = [];
   if (Array.isArray(catalog.modules)) {
     for (const m of catalog.modules) {
-      const entry = m as Record<string, unknown>;
       catalogModules.push({
-        id: String(entry.id ?? ""),
-        name: String(entry.name ?? entry.id ?? ""),
-        type: String(entry.type ?? "feature"),
-        description: String(entry.description ?? ""),
+        id: String(m.id ?? ""),
+        name: String(m.name ?? m.id ?? ""),
+        description: String(m.description ?? ""),
+        canDisable: m.canDisable !== false,
       });
     }
   }
@@ -324,28 +326,24 @@ export async function runWizard(): Promise<void> {
   );
 
   let selectedModules: string[] = [];
-  const coreMd: any[] = [];
-  const featMd: any[] = [];
+  const lockedMd: any[] = [];
+  const optionalMd: any[] = [];
   catalogModules.forEach((k) => {
-    if (k.type === "core") {
-      coreMd.push({
-        value: k.id,
-        label: `${k.name}  (${k.type})`,
-        hint: String(k.description ?? t("wizard.emptyHint")),
-        disabled: true,
-      });
-    } else if (k.type === "feature") {
-      featMd.push({
-        value: k.id,
-        label: `${k.name}  (${k.type})`,
-        hint: String(k.description ?? t("wizard.emptyHint")),
-      });
+    const option = {
+      value: k.id,
+      label: String(k.name),
+      hint: String(k.description ?? t("wizard.emptyHint")),
+    };
+    if (k.canDisable === false) {
+      lockedMd.push({ ...option, disabled: true });
+    } else {
+      optionalMd.push(option);
     }
   });
   if (catalogModules.length > 0) {
     const r = await multiselect({
       message: t("wizard.enableModules"),
-      options: [...coreMd, ...featMd],
+      options: [...lockedMd, ...optionalMd],
       required: false,
     });
     if (!isCancel(r)) selectedModules = r as string[];

@@ -48,9 +48,7 @@ export function isQqBridgeEnabled(): boolean {
   const catalog = readJson<Catalog>(modulePath(ROOT_DIR, "catalog.json"));
   const lock = readJson<ModuleLock>(modulePath(ROOT_DIR, "module-lock.json"));
   if (!catalog || !lock) return true; // 模块目录缺失则保守视为可用
-  const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge") as
-    | { id?: string }
-    | undefined;
+  const mod = catalog.modules?.find((m) => m.id === "qq-bridge" || m.configKey === "qq_bridge");
   return mod ? lock.modules?.[mod.id ?? ""]?.enabled === true : false;
 }
 
@@ -178,4 +176,4 @@ export async function sendWithImage(text: string, base64Img: string): Promise<vo
   if (segments.length === 0) return;
   await sendMixed(segments);
 }
-
+

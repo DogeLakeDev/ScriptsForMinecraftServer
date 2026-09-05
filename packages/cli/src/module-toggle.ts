@@ -5,7 +5,7 @@
  * 纯函数与 IO 分离，供单测覆盖 resolve / lock patch / 结果判定。
  */
 
-import type { ModuleLock } from "@sfmc-bds/sdk/node/config";
+import type { ModuleLock } from "@sfmc-bds/sdk/contracts";
 
 export type ToggleCandidate = {
   logicalId: string;
