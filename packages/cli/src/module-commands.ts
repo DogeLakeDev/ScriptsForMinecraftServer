@@ -7,7 +7,7 @@
  */
 
 import fs from "node:fs/promises";
-import { existsSync, lstatSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import {
@@ -114,9 +114,13 @@ async function scanInstalled(): Promise<InstalledModule[]> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const out: InstalledModule[] = [];
   for (const e of entries) {
-    if (!e.isDirectory()) continue;
     const id = e.name;
     const modPath = path.join(dir, id);
+    try {
+      if (!statSync(modPath).isDirectory()) continue;
+    } catch {
+      continue;
+    }
     const manifestPath = path.join(modPath, "sapi", "manifest.json");
     let manifest: ModuleManifest | null = null;
     if (existsSync(manifestPath)) {
@@ -652,7 +656,13 @@ export function listInstalledModuleIdsSync(): string[] {
   if (!existsSync(dir)) return [];
   try {
     return readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isDirectory())
+      .filter((e) => {
+        try {
+          return statSync(path.join(dir, e.name)).isDirectory();
+        } catch {
+          return false;
+        }
+      })
       .map((e) => e.name)
       .sort((a, b) => a.localeCompare(b));
   } catch {
