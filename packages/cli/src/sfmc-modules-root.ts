@@ -1,5 +1,5 @@
 import { configPath, patchJson, readJson, type RuntimeConfig } from "@sfmc-bds/sdk/node/config";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { ROOT } from "./runtime.js";
 
@@ -62,9 +62,13 @@ export function listSfmcModulePackages(modulesRoot: string): SfmcModulePackage[]
   if (!existsSync(packagesDir)) return [];
   const out: SfmcModulePackage[] = [];
   for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
     const id = entry.name;
     const pkgPath = path.join(packagesDir, id);
+    try {
+      if (!statSync(pkgPath).isDirectory()) continue;
+    } catch {
+      continue;
+    }
     const manifestPath = path.join(pkgPath, "sapi", "manifest.json");
     let logicalId = `feature-${id}`;
     let name = id;

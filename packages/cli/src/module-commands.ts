@@ -143,6 +143,7 @@ async function dirSize(dir: string): Promise<{ totalBytes: number; fileCount: nu
   let fileCount = 0;
   async function walk(p: string): Promise<void> {
     for (const e of await fs.readdir(p, { withFileTypes: true })) {
+      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "dist") continue;
       const child = path.join(p, e.name);
       if (e.isDirectory()) await walk(child);
       else if (e.isFile()) {
@@ -172,7 +173,7 @@ export async function cmdModuleList(_args: string[]): Promise<string> {
   const ids = installed.map((m) => m.id);
   const unknown = new Set(await findUnknownModules(ids));
   const lines: string[] = [c.bold(`\n${t("mod.list.title")}`), c.dim(`  ${modulesDir()}`)];
-  const header = `    ${"id".padEnd(24)}${"state".padEnd(8)}${"files".padEnd(8)}${"size".padEnd(10)}${"fingerprint"}`;
+  const header = `    ${"id".padEnd(28)}${"state".padEnd(8)}${"files".padEnd(8)}${"size".padEnd(10)}${"fingerprint"}`;
   lines.push(c.dim(header));
   for (const m of installed) {
     const logicalId = typeof m.manifest?.id === "string" && m.manifest.id ? m.manifest.id : m.id;
@@ -188,7 +189,7 @@ export async function cmdModuleList(_args: string[]): Promise<string> {
     }
     const idLabel = logicalId !== m.id ? `${m.id}(${logicalId})` : m.id;
     lines.push(
-      `  ${mark} ${idLabel.padEnd(22)}${stateCol}${String(m.fileCount).padEnd(8)}${fmtBytes(m.totalBytes).padEnd(10)}${shortHash(m.fingerprint)}`
+      `  ${mark} ${idLabel.padEnd(26)} ${stateCol}${String(m.fileCount).padEnd(8)}${fmtBytes(m.totalBytes).padEnd(10)}${shortHash(m.fingerprint)}`
     );
   }
   lines.push(c.dim(`\n  tip: ${MODULE_CMD_NAMES[1] ?? "mod"} enable|disable <logicalId>`));

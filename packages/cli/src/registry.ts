@@ -95,7 +95,10 @@ export function parseRegistryIndex(json: unknown): RegistryIndex {
 }
 
 async function fetchFresh(): Promise<RegistryIndex> {
-  const res = await fetch(INDEX_URL, { headers: { "User-Agent": "sfmc-cli" } });
+  const res = await fetch(INDEX_URL, {
+    headers: { "User-Agent": "sfmc-cli" },
+    signal: AbortSignal.timeout(3000),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${INDEX_URL}`);
   return parseRegistryIndex(await res.json());
 }

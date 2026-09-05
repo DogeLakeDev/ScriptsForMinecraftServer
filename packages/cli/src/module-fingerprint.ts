@@ -16,6 +16,7 @@ export async function dirFingerprint(rootDir: string): Promise<string> {
     const items = await fs.readdir(full, { withFileTypes: true });
     const sorted = items.sort((a, b) => a.name.localeCompare(b.name));
     for (const it of sorted) {
+      if (it.name.startsWith(".") || it.name === "node_modules" || it.name === "dist") continue;
       const child = rel ? `${rel}/${it.name}` : it.name;
       if (it.isDirectory()) await walk(child);
       else if (it.isFile()) entries.push(child);
