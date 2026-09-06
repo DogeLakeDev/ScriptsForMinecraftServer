@@ -38,7 +38,7 @@ function validPermissionKey(k: string): boolean {
   //   service:<name>       (例 service:economy.debit / service:land.byId — 名字可含 .)
   // 不允许 raw "*"(要求明确对象) — 调试时一律 Resource-level
   if (/^service:[A-Za-z0-9_.]+$/.test(k)) return true;
-  return /^[a-z]+:[a-z]+:[A-Za-z0-9_.]+$/.test(k);
+  return /^[a-z]+:[a-z]+:[A-Za-z0-9_.*]+$/.test(k);
 }
 
 /**
@@ -52,7 +52,13 @@ export function validateManifestPermissions(
   const seen = new Set<string>();
   for (const k of permissions) {
     if (!k || typeof k !== "string") throw new Error(`[perm] ${moduleId}: permission 不是字符串 "${k}"`);
-    if (!validPermissionKey(k)) throw new Error(`[perm] ${moduleId}: permission 格式不合法 "${k}"`);
+    if (!validPermissionKey(k)) {
+      throw new Error(
+        `[perm] ${moduleId}: permission 格式不合法 "${k}"。\n` +
+        `  manifest.permissions 仅用于声明平台底层资源权限（db:read:*, db:write:*, config:read:*, config:write:*, service:*）。\n` +
+        `  玩家命令与游戏内权限请在代码中使用 Command.register / Permission.register 登记，不要写入 manifest.json。`
+      );
+    }
     if (seen.has(k)) throw new Error(`[perm] ${moduleId}: permission 重复 "${k}"`);
     seen.add(k);
   }
