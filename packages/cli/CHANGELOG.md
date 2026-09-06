@@ -1,5 +1,14 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.13
+
+### Patch Changes
+
+- e714f86: feat(cli/logs): 新增 BDS 原版日志本地化翻译与友好转换引擎，支持自定义规则正则替换与模式字典
+- Updated dependencies [e714f86]
+  - @sfmc-bds/sdk@0.2.0-beta.11
+  - @sfmc-bds/bds-tools@0.2.0-beta.11
+
 ## 0.2.0-beta.12
 
 ### Patch Changes
