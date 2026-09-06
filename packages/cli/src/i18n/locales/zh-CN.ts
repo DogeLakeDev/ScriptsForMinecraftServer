@@ -381,7 +381,7 @@ export const zhCN: Record<MessageKey, string> = {
   "packs.usage.moduleNote": "模块聚合请用 {cmd}（非本命令）。",
 
   "packUpdate.needKey":
-    "未配置任何 pack 更新源。请编辑 {path} 的 providers.*.apiKey（或对应环境变量）。CurseForge：https://console.curseforge.com/ 申请 Studios Key → providers.curseforge.apiKey / CURSEFORGE_API_KEY（不要用 Upload API 的 UUID Token）",
+    "未配置任何 pack 更新源。请编辑 {path} 的 providers.*.apiKey（或对应环境变量）。CurseForge：https://console.curseforge.com/ 申请 Studios Key → providers.curseforge.apiKey / CURSEFORGE_API_KEY",
   "packUpdate.probeNoName": "无法从 manifest / 文件夹名派生可搜索名称",
   "packUpdate.probeQueries": "探测查询源 header={header} folder={folder}\n  → {queries}",
   "packUpdate.probeFail": "探测更新源失败: {message}",
