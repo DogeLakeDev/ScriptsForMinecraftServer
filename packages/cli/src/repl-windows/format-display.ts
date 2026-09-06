@@ -8,6 +8,7 @@ import {
   type UnifiedLog,
   visibleWidth,
 } from "../logs.js";
+import { getCompiledLogFilter, transformLogEntry } from "../log-filter.js";
 import { c, highlightLogLine } from "../theme.js";
 
 /** 与 logs.ts LEVEL_TAG_TEXT 对齐的无色级别（避免改动落盘路径） */
@@ -49,7 +50,10 @@ export function formatLogDisplay(l: UnifiedLog, opts: FormatDisplayOpts = {}): s
   const ts = c.dim(l.time.toLocaleTimeString());
   const level = resolveDisplayLevel(l);
   const lvl = levelTagDisplay(level);
-  const txt = highlightLogLine(l.source === "bds" ? stripBdsLogPrefix(l.text) : l.text);
+  const body = l.source === "bds" ? stripBdsLogPrefix(l.text) : l.text;
+  const filter = getCompiledLogFilter();
+  const { entry } = transformLogEntry({ text: body, source: l.source, level }, filter);
+  const txt = highlightLogLine(entry.text);
   if (opts.omitSource) {
     return `${ts} ${lvl} ${txt}`;
   }

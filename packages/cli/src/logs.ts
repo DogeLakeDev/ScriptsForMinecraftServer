@@ -31,6 +31,7 @@ import {
   getCompiledLogFilter,
   shouldDropForDisk,
   shouldDropForDisplay,
+  transformLogEntry,
 } from "./log-filter.js";
 import { c, highlightLogLine } from "./theme.js";
 import { ROOT } from "./runtime.js";
@@ -82,7 +83,7 @@ export function pushLog(text: string, source: LogSource, level: LogLevel): void 
     body = stripBdsLogPrefix(text);
   }
 
-  const entry: LogEntry = { time: new Date(), text: body, source, level: lvl };
+  const rawEntry: LogEntry = { time: new Date(), text: body, source, level: lvl };
   const filter = getCompiledLogFilter((src) => {
     /* 避免递归：非法正则只写文件 sink，不经 pushLog */
     try {
@@ -100,18 +101,20 @@ export function pushLog(text: string, source: LogSource, level: LogLevel): void 
     }
   });
 
-  const dropDisplay = shouldDropForDisplay(entry, filter);
-  const dropDisk = shouldDropForDisk(entry, filter);
+  const dropDisplay = shouldDropForDisplay(rawEntry, filter);
+  const dropDisk = shouldDropForDisk(rawEntry, filter);
+  const { entry: transformedEntry } = transformLogEntry(rawEntry, filter);
 
   if (!dropDisplay) {
-    buffer.pushDirect(body, source, lvl);
+    buffer.pushDirect(transformedEntry.text, source, lvl);
   }
 
   if (dropDisk) return;
   const sink = sinkFor(source);
   if (!sink) return;
   try {
-    sink.write(entry, formatLogLine(entry, false));
+    const diskEntry: LogEntry = filter.applyTo === "all" ? { ...rawEntry, text: transformedEntry.text } : rawEntry;
+    sink.write(diskEntry, formatLogLine(diskEntry, false));
   } catch {
     /* 落盘失败不阻断主流程 */
   }
@@ -313,8 +316,11 @@ export function formatLog(l: UnifiedLog): string {
   const level = resolveDisplayLevel(l);
   const lvl = levelTag(level);
   const src = formatSourceTag(l.source);
-  /* BDS：去掉自带时间戳+等级前缀后再高亮正文（push 时多半已剥过，此处幂等） */
-  const txt = highlightLogLine(l.source === "bds" ? stripBdsLogPrefix(l.text) : l.text);
+  /* BDS：去掉自带时间戳+等级前缀后再本地化翻译与高亮正文（push 时多半已转过，此处幂等且覆盖回放） */
+  const body = l.source === "bds" ? stripBdsLogPrefix(l.text) : l.text;
+  const filter = getCompiledLogFilter();
+  const { entry } = transformLogEntry({ text: body, source: l.source, level }, filter);
+  const txt = highlightLogLine(entry.text);
   return `${ts} ${src} ${lvl} ${txt}`;
 }
 

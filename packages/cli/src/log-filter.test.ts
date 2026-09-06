@@ -133,3 +133,69 @@ test("applyTo=display 时仅影响展示", () => {
   assert.equal(r.dropDisplay, true);
   assert.equal(r.dropDisk, false);
 });
+
+test("evaluateLogFilter: 内置 BDS 翻译自动生效", () => {
+  const r = evaluateLogFilter(
+    entry({
+      source: "bds",
+      text: "Server started.",
+    }),
+    baseCfg({
+      enabled: false,
+      translate: true,
+    })
+  );
+  assert.equal(r.transformedEntry.text, "[服务端] BDS 服务端已成功启动，准备就绪。");
+});
+
+test("evaluateLogFilter: 自定义 rule.replace 优先于内置翻译", () => {
+  const r = evaluateLogFilter(
+    entry({
+      source: "bds",
+      text: "Server started.",
+    }),
+    baseCfg({
+      enabled: true,
+      rules: [
+        {
+          sources: ["bds"],
+          contains: "Server started.",
+          replace: ">> 服务器准备完毕 <<",
+        },
+      ],
+    })
+  );
+  assert.equal(r.transformedEntry.text, ">> 服务器准备完毕 <<");
+});
+
+test("evaluateLogFilter: 自定义 rule.replace 支持正则捕获组", () => {
+  const r = evaluateLogFilter(
+    entry({
+      source: "system",
+      text: "Job backup_world completed in 42ms",
+    }),
+    baseCfg({
+      enabled: true,
+      rules: [
+        {
+          regex: "Job (\\w+) completed in (\\d+)ms",
+          replace: "任务 $1 完成 (耗时: $2毫秒)",
+        },
+      ],
+    })
+  );
+  assert.equal(r.transformedEntry.text, "任务 backup_world 完成 (耗时: 42毫秒)");
+});
+
+test("evaluateLogFilter: translate=false 时不触发内置翻译", () => {
+  const r = evaluateLogFilter(
+    entry({
+      source: "bds",
+      text: "Server started.",
+    }),
+    baseCfg({
+      translate: false,
+    })
+  );
+  assert.equal(r.transformedEntry.text, "Server started.");
+});

@@ -6,6 +6,8 @@ import type { LogLevel } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./runtime.js";
+import { applyRuleReplacement, translateBdsLog } from "./log-translator.js";
+import { getLocale } from "./i18n/index.js";
 
 export type LogFilterMode = "drop" | "keep";
 export type LogFilterApplyTo = "display" | "all";
@@ -17,12 +19,16 @@ export interface LogFilterRule {
   contains?: string;
   /** JS RegExp 源；支持前缀 (?i) 表示忽略大小写 */
   regex?: string;
+  /** 命中规则时的替换/翻译文本模板，支持 $1, $2 等正则捕获变量 */
+  replace?: string;
 }
 
 export interface LogFilterConfig {
   enabled: boolean;
   mode: LogFilterMode;
   applyTo: LogFilterApplyTo;
+  /** 是否开启 BDS 原版与常用日志本地化翻译（缺省为 true） */
+  translate?: boolean;
   rules: LogFilterRule[];
 }
 
@@ -36,6 +42,7 @@ const DEFAULTS: LogFilterConfig = {
   enabled: false,
   mode: "drop",
   applyTo: "display",
+  translate: true,
   rules: [],
 };
 
@@ -54,12 +61,14 @@ type CompiledRule = {
   levels?: Set<string>;
   contains?: string;
   regex?: RegExp;
+  replace?: string;
 };
 
-type CompiledFilter = {
+export type CompiledFilter = {
   enabled: boolean;
   mode: LogFilterMode;
   applyTo: LogFilterApplyTo;
+  translate: boolean;
   rules: CompiledRule[];
   mtimeMs: number;
 };
@@ -89,7 +98,8 @@ function compileRules(rules: LogFilterRule[], onBadRegex?: (src: string) => void
       (r.sources && r.sources.length > 0) ||
       (r.levels && r.levels.length > 0) ||
       (typeof r.contains === "string" && r.contains.length > 0) ||
-      (typeof r.regex === "string" && r.regex.length > 0);
+      (typeof r.regex === "string" && r.regex.length > 0) ||
+      (typeof r.replace === "string" && r.replace.length > 0);
     if (!hasAny) continue;
 
     const compiled: CompiledRule = {};
@@ -110,6 +120,9 @@ function compileRules(rules: LogFilterRule[], onBadRegex?: (src: string) => void
       }
       compiled.regex = re;
     }
+    if (typeof r.replace === "string") {
+      compiled.replace = r.replace;
+    }
     out.push(compiled);
   }
   return out;
@@ -119,11 +132,13 @@ function normalizeConfig(raw: Record<string, unknown>): LogFilterConfig {
   const stripped = stripConfigMeta(raw);
   const mode = stripped.mode === "keep" ? "keep" : "drop";
   const applyTo = stripped.applyTo === "all" ? "all" : "display";
+  const translate = stripped.translate !== undefined ? Boolean(stripped.translate) : true;
   const rules = Array.isArray(stripped.rules) ? (stripped.rules as LogFilterRule[]) : [];
   return {
     enabled: Boolean(stripped.enabled),
     mode,
     applyTo,
+    translate,
     rules,
   };
 }
@@ -158,6 +173,7 @@ export function getCompiledLogFilter(onBadRegex?: (src: string) => void): Compil
     enabled: cfg.enabled,
     mode: cfg.mode,
     applyTo: cfg.applyTo,
+    translate: cfg.translate ?? true,
     rules,
     mtimeMs,
   };
@@ -196,6 +212,57 @@ export function shouldDropForDisk(entry: LogFilterEntry, filter: CompiledFilter)
   return shouldDropForDisplay(entry, filter);
 }
 
+/**
+ * 对日志条目应用转换/本地化翻译：
+ * 1. 优先匹配 rules 中带有 replace 的自定义规则（支持 $1, $2 捕获组）
+ * 2. 若未被自定义规则替换且启用了 translate（且 source 为 bds），调用内建 BDS 翻译引擎
+ */
+export function transformLogEntry(
+  entry: LogFilterEntry,
+  filter?: CompiledFilter,
+  locale?: string
+): { entry: LogFilterEntry; transformed: boolean } {
+  // 1. 自定义规则 replace 替换优先
+  if (filter && filter.rules.length > 0) {
+    for (const rule of filter.rules) {
+      if (rule.replace && ruleMatchesEntry(rule, entry)) {
+        let newText = entry.text;
+        if (rule.regex) {
+          newText = applyRuleReplacement(entry.text, rule.regex, rule.replace);
+        } else if (rule.contains) {
+          newText = entry.text.replaceAll(rule.contains, rule.replace);
+        } else {
+          newText = rule.replace;
+        }
+        return {
+          entry: { ...entry, text: newText },
+          transformed: true,
+        };
+      }
+    }
+  }
+
+  // 2. 内置 BDS 原版日志本地化翻译
+  const translateEnabled = filter ? filter.translate : true;
+  if (translateEnabled && entry.source.toLowerCase() === "bds") {
+    let loc: string;
+    try {
+      loc = locale ?? getLocale();
+    } catch {
+      loc = locale ?? "zh-CN";
+    }
+    const res = translateBdsLog(entry.text, loc);
+    if (res.translated) {
+      return {
+        entry: { ...entry, text: res.text },
+        transformed: true,
+      };
+    }
+  }
+
+  return { entry, transformed: false };
+}
+
 /** 测试用：清空缓存 */
 export function resetLogFilterCacheForTests(): void {
   cache = null;
@@ -207,18 +274,27 @@ export function resetLogFilterCacheForTests(): void {
  */
 export function evaluateLogFilter(
   entry: LogFilterEntry,
-  cfg: LogFilterConfig
-): { dropDisplay: boolean; dropDisk: boolean; matched: boolean } {
-  const compiled = {
+  cfg: LogFilterConfig,
+  locale?: string
+): {
+  dropDisplay: boolean;
+  dropDisk: boolean;
+  matched: boolean;
+  transformedEntry: LogFilterEntry;
+} {
+  const compiled: CompiledFilter = {
     enabled: cfg.enabled,
     mode: cfg.mode,
     applyTo: cfg.applyTo,
+    translate: cfg.translate ?? true,
     rules: compileRules(cfg.rules),
     mtimeMs: 0,
   };
+  const transformRes = transformLogEntry(entry, compiled, locale);
   return {
     matched: entryMatchesAnyRule(entry, compiled.rules),
     dropDisplay: shouldDropForDisplay(entry, compiled),
     dropDisk: shouldDropForDisk(entry, compiled),
+    transformedEntry: transformRes.entry,
   };
 }

@@ -47,7 +47,9 @@ export function moduleTokensFile(dbPath: string): string {
 }
 
 export function deriveToken(moduleId: string, secret: string): string {
-  return createHmac("sha256", secret).update(`sfmc-module:${safeId(moduleId)}`).digest("hex");
+  return createHmac("sha256", secret)
+    .update(`sfmc-module:${safeId(moduleId)}`)
+    .digest("hex");
 }
 
 /**
@@ -76,14 +78,9 @@ export function buildModuleAuth(opts: {
     secretGenerated: !opts.envAuthToken,
   });
 
-  log.success(
-    `[auth] 已为 ${opts.enabledModuleIds.length} 个模块派生 HMAC token,写入 ${outFile}`
-  );
+  log.success(`[auth] 已为 ${opts.enabledModuleIds.length} 个模块派生 HMAC token,写入 ${outFile}`);
   if (!opts.envAuthToken) {
-    log.warn(
-      "[auth] 未配置 env.AUTH_TOKEN(冲突 config http_auth),本次启动使用了随机 secret;"
-        + " 重启后 token 会变,host-bootstrap 必须每次重新读 module-tokens.json"
-    );
+    log.warn("[auth] 未配置 env.AUTH_TOKEN,本次启动使用了随机 secret;");
   }
   if (process.env.SFMC_LOG_MODULE_TOKEN === "1") {
     log.info("[auth] module tokens (SFMC_LOG_MODULE_TOKEN=1):");

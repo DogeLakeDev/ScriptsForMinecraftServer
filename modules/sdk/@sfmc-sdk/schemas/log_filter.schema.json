@@ -24,6 +24,10 @@
       "enum": ["display", "all"],
       "description": "display=只过滤展示/内存；all=展示与落盘一并过滤"
     },
+    "translate": {
+      "type": "boolean",
+      "description": "是否开启原版 BDS 日志本地化翻译与友好转换（缺省为 true）"
+    },
     "rules": {
       "type": "array",
       "description": "规则列表；任一规则命中即算匹配（OR）；同条内多条件为 AND",
@@ -55,6 +59,10 @@
           "regex": {
             "type": "string",
             "description": "JS RegExp 源字符串；仅支持前缀 (?i) 表示忽略大小写（引擎无内联 (?i)）"
+          },
+          "replace": {
+            "type": "string",
+            "description": "命中规则时的替换/翻译文本模板，支持 $1, $2 等正则捕获变量"
           }
         }
       }
