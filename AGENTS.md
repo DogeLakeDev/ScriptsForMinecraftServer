@@ -51,6 +51,7 @@ sfmc mod uninstall <id>
 
 - `--from`：缺省默认使用 npm 官方源 `@sfmc-bds/module-<id>`；支持 `github:` / `dir:` / `local:` / `tgz:` / `zip:` 等协议来源。
 - `--link`：挂接本地作者仓源码进行联调。
+- `mod list` 状态标识：`●` 官方启用 / `○` 官方禁用 / `?` 未知发布源（不在官方 `index.json`） / `○` 契约缺失。若文件夹名与 `manifest.id` 不一致显示为 `folderId(logicalId)`。
 - 装载器实现参考：`modules/sdk/@sfmc-sdk/src/module-loader/`。
 
 ## 行为包组装机制

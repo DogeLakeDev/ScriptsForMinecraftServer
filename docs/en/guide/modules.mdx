@@ -1,4 +1,4 @@
-﻿# Modules
+# Modules
 
 Modules are SFMC business feature packages built on vanilla BDS. Artifacts ship on npm (`@sfmc-bds/module-<id>` or `@<author>/sfmc-module-<id>`).  
 [`sfmc-modules`](https://github.com/Tanya7z/sfmc-modules) is a thin search index only; it does not contain business source.
@@ -13,6 +13,20 @@ sfmc> mod list
 sfmc> mod enable afk
 sfmc> mod disable afk
 ```
+
+### `mod list` output and status indicators
+
+Running `mod list` scans modules under `<SFMC_ROOT>/modules/packages/` and displays:
+
+| Symbol | Color | Meaning | Description |
+| :--- | :--- | :--- | :--- |
+| **`●`** | Green | **Official & Enabled** | Listed in first-party registry (`sfmc-modules`), and locked `on` in `module-lock.json`. |
+| **`○`** | Gray | **Official & Disabled** | Listed in first-party registry, but locked `off` in `module-lock.json`. |
+| **`?`** | Yellow | **Unknown publisher** | Installed locally, but **not published in the first-party registry index**. A verification warning is shown at REPL startup. |
+| **`○`** | Yellow | **Manifest issue** | Local `sapi/manifest.json` is missing or unparseable. |
+
+- If folder name differs from manifest logical ID, it appears as `folderId(logicalId)` (e.g. `qq-link(feature-qq-link)`).
+- In the interactive REPL with running services (prompt like `bds> `), prefix commands with `/` (e.g. `/mod list`).
 
 `enable` / `disable` **write** `modules/module-lock.json` first (no db-server required). When db is online, memory state is best-effort synced; without db the write still succeeds, with a note to start db next. For in-game behavior, you usually need `mod reload` or a BDS restart.
 

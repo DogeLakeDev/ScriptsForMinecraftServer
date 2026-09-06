@@ -66,6 +66,41 @@ sfmc> mod disable afk
 sfmc> mod uninstall afk
 ```
 
+#### `mod list` 输出与状态标识
+
+执行 `mod list` 会扫描 `<SFMC_ROOT>/modules/packages/` 下的所有模块，输出格式示例如下：
+
+```text
+已安装模块
+  D:\WorkPlace\SFMC\modules\packages
+    id                          state   files   size      fingerprint
+  ● activity-log               on      11      90.5 KB   93b28894…8a7a0fdb
+  ● afk                        on      12      78.6 KB   ed988a9e…0c01e0d9
+  ● qq-link(feature-qq-link)   on      16      103.5 KB  3ba99a80…43bd9d92
+  ○ clean                      off     13      93.7 KB   b44e4c0e…d58e7409
+
+  tip: mod enable|disable <logicalId>
+```
+
+**前置状态符号含义**：
+
+| 符号 | 颜色 | 状态含义 | 详细说明 |
+| :--- | :--- | :--- | :--- |
+| **`●`** | 绿色 | **官方已启用** | 属于官方中心发现索引（`sfmc-modules`）收录模块，且在 `module-lock.json` 中处于启用状态（`on`）。 |
+| **`○`** | 灰色 | **官方已禁用** | 属于官方收录模块，但在 `module-lock.json` 中处于禁用状态（`off`）。 |
+| **`?`** | 黄色 | **未知发布源** | 模块已安装在本地，但**未在官方中心发现索引库中收录**。CLI 启动时会打印黄色安全校验提醒（`modules installed from unknown publisher`），建议核实发布者来源。 |
+| **`○`** | 黄色 | **契约异常** | 本地 `sapi/manifest.json` 文件缺失或损坏，无法读取模块元数据。 |
+
+**字段与列说明**：
+- **`id`**：显示模块的物理安装目录名。当物理目录名与模块内部 `manifest.json` 中声明的逻辑 ID 不一致时，会自动以 `目录名(逻辑ID)` 形式标注（如 `qq-link(feature-qq-link)`）。执行 `mod enable` / `mod disable` 时支持使用任一标识。
+- **`state`**：当前在 `module-lock.json` 中的启停状态（`on` 表示参与行为包编译，`off` 表示排除）。
+- **`files` / `size`**：模块的有效业务源码文件总数与总体积（已自动忽略 `node_modules`、`.git`、`dist` 等构建/依赖目录）。
+- **`fingerprint`**：模块当前业务代码的 SHA-256 指纹截断，用于装载闸门快速比对世界行为包是否需要重新组装。
+
+:::tip REPL 下的命令模式提示
+在交互式 REPL 中，当后台运行有服务（例如 BDS 或 DB Server）时，命令行提示符会转变为服务透传模式（如 `bds> `）。此时输入未带斜杠的文本会被直接当作控制台指令发送至该服务。执行平台命令请使用斜杠前缀（如 `/mod list`、`/status`）；若当前无服务运行（`sfmc> `），则可直接输入 `mod list`。
+:::
+
 :::important 启停状态与锁文件机制
 `mod enable` 与 `mod disable` 会将状态持久化写入 `<SFMC_ROOT>/modules/module-lock.json`。
 **离线安全**：即使 `db-server` 处于离线状态，启停修改依然能安全落盘；待下次启动数据库时会自动同步内存态。  

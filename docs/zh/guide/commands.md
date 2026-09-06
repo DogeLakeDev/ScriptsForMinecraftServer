@@ -31,7 +31,7 @@
 | `mod info <id>` | `sfmc> mod info afk` | 查看指定模块的作者、版本号、描述与依赖项清单。 |
 | `mod install <id...> [--from <src>] [--link]` | `sfmc> mod install afk`<br/>`sfmc> mod install my-mod --from dir:../my-mod --link` | 下载并安装模块到 `modules/packages/`。支持从本地目录挂接（`--link` 软链调试）。 |
 | `mod uninstall <id...>` | `sfmc> mod uninstall afk` | 卸载指定模块并清理其源码文件。 |
-| `mod list` | `sfmc> mod list` | 列出本地所有已安装模块及其在 `module-lock.json` 中的启停状态。 |
+| `mod list` | `sfmc> mod list` | 列出本地已安装模块、启停状态、文件数、体积、源码指纹与官方认证标识（`●` 官方启用 / `○` 官方禁用 / `?` 未知发布源 / `○` 契约缺失）。 |
 | `mod enable <id...>` | `sfmc> mod enable afk` | 激活指定模块。写入 `module-lock.json`，若 db-server 在线则同步热推内存态。 |
 | `mod disable <id...>` | `sfmc> mod disable afk` | 禁用指定模块。禁用后下次组装行为包时将自动排除该模块。 |
 | `mod verify` | `sfmc> mod verify` | 校验本地所有模块的 `manifest.json` 契约合规性与依赖完整度。 |
