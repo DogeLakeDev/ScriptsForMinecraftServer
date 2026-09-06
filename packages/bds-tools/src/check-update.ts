@@ -19,7 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { createBdsManager } from "./bds-manager.js";
 import { CHANGELOG_BASE, fetchChangelog } from "./changelog.js";
-import { copyDirSync, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
+import { copyDirSync, copyFileSyncSafe, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
 import { bdsExePath, bdsInstallRequiredFiles, ensureBdsExecutable } from "./host-platform.js";
 import { httpDownload } from "./http.js";
 import { isMainModule } from "./is-main.js";
@@ -104,7 +104,7 @@ async function doBackup(
     if (!fs.existsSync(src)) continue;
     fs.mkdirSync(path.dirname(target), { recursive: true });
     if (fs.statSync(src).isDirectory()) copyDirSync(src, target);
-    else fs.copyFileSync(src, target);
+    else copyFileSyncSafe(src, target);
     anyCopied = true;
     log.info(`已备份: ${item}`);
   }
@@ -128,7 +128,7 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
         copyDirSync(src, dest);
       } else {
         fs.mkdirSync(path.dirname(dest), { recursive: true });
-        fs.copyFileSync(src, dest);
+        copyFileSyncSafe(src, dest);
       }
       log.info(`已恢复: ${item}`);
     } catch (e) {

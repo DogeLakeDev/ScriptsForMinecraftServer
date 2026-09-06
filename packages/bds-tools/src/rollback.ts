@@ -12,7 +12,7 @@ import { readJson, writeJson } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import path from "node:path";
 import { ROLLBACK_MARKER } from "./paths.js";
-import { copyDirSync, getDirSize, emptyDirSync } from "./fsx.js";
+import { copyDirSync, copyFileSyncSafe, getDirSize, emptyDirSync } from "./fsx.js";
 import { log } from "./log.js";
 
 export interface RollbackMarker {
@@ -71,7 +71,7 @@ export function rollbackFromBackup(marker: RollbackMarker): { ok: boolean; reaso
         if (fs.existsSync(dest)) emptyDirSync(dest);
         copyDirSync(src, dest);
       } else {
-        fs.copyFileSync(src, dest);
+        copyFileSyncSafe(src, dest);
       }
       log.info(`[回滚] 已恢复: ${item}`);
     } catch (e) {

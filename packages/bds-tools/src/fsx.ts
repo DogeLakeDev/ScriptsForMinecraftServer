@@ -34,35 +34,109 @@ export function hashFileSync(filePath: string, algo: "sha1" | "sha256" = "sha256
   }
 }
 
-/** 同步流式拷贝单文件 (复制中) */
-export async function copyFileAsync(src: string, dest: string): Promise<void> {
-  await pipeline(fs.createReadStream(src), fs.createWriteStream(dest));
+/** 排除无需备份/复制的仓库与系统垃圾元数据 */
+export const DEFAULT_COPY_IGNORE = new Set([
+  ".git",
+  ".svn",
+  ".hg",
+  "node_modules",
+  ".DS_Store",
+  "Thumbs.db",
+  "desktop.ini",
+]);
+
+/**
+ * Windows 兼容的安全单文件拷贝。
+ * 若目标文件已存在且处于只读状态（例如 git objects 属性为只读），先赋写权限并覆写，
+ * 并确保拷贝后的目标文件具有可写权限，避免后续重复备份报错。
+ */
+export function copyFileSyncSafe(src: string, dest: string): void {
+  try {
+    fs.copyFileSync(src, dest);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === "EPERM" || code === "EACCES") {
+      try {
+        if (fs.existsSync(dest)) {
+          fs.chmodSync(dest, 0o666);
+          fs.unlinkSync(dest);
+        }
+        fs.copyFileSync(src, dest);
+      } catch {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
+  try {
+    fs.chmodSync(dest, 0o666);
+  } catch {
+    /* ignore */
+  }
 }
 
-/** 同步目录复制 (递归) */
-export function copyDirSync(src: string, dest: string): void {
+/** 同步流式拷贝单文件，目标只读时自动解除并覆写 */
+export async function copyFileAsync(src: string, dest: string): Promise<void> {
+  try {
+    await pipeline(fs.createReadStream(src), fs.createWriteStream(dest));
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === "EPERM" || code === "EACCES") {
+      try {
+        if (fs.existsSync(dest)) {
+          fs.chmodSync(dest, 0o666);
+          fs.unlinkSync(dest);
+        }
+        await pipeline(fs.createReadStream(src), fs.createWriteStream(dest));
+      } catch {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
+  try {
+    fs.chmodSync(dest, 0o666);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 同步目录复制 (递归)，默认排除 .git / node_modules 等元数据 */
+export function copyDirSync(
+  src: string,
+  dest: string,
+  ignore: Set<string> = DEFAULT_COPY_IGNORE
+): void {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src)) {
+    if (ignore.has(entry)) continue;
     const srcPath = path.join(src, entry);
     const destPath = path.join(dest, entry);
     if (fs.statSync(srcPath).isDirectory()) {
-      copyDirSync(srcPath, destPath);
+      copyDirSync(srcPath, destPath, ignore);
     } else {
-      fs.copyFileSync(srcPath, destPath);
+      copyFileSyncSafe(srcPath, destPath);
     }
   }
 }
 
-/** 异步目录复制 (基于流) */
-export async function copyDirAsync(src: string, dest: string): Promise<void> {
+/** 异步目录复制 (基于流)，默认排除 .git / node_modules 等元数据 */
+export async function copyDirAsync(
+  src: string,
+  dest: string,
+  ignore: Set<string> = DEFAULT_COPY_IGNORE
+): Promise<void> {
   fs.mkdirSync(dest, { recursive: true });
   await Promise.all(
     fs.readdirSync(src).map(async (entry) => {
+      if (ignore.has(entry)) return;
       const srcPath = path.join(src, entry);
       const destPath = path.join(dest, entry);
       const stat = fs.statSync(srcPath);
       if (stat.isDirectory()) {
-        await copyDirAsync(srcPath, destPath);
+        await copyDirAsync(srcPath, destPath, ignore);
       } else {
         await copyFileAsync(srcPath, destPath);
       }
@@ -70,13 +144,14 @@ export async function copyDirAsync(src: string, dest: string): Promise<void> {
   );
 }
 
-/** 计算目录大小 (字节) */
-export function getDirSize(dir: string): number {
+/** 计算目录大小 (字节)，默认排除 .git / node_modules 等元数据 */
+export function getDirSize(dir: string, ignore: Set<string> = DEFAULT_COPY_IGNORE): number {
   let total = 0;
   try {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (ignore.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) total += getDirSize(full);
+      if (entry.isDirectory()) total += getDirSize(full, ignore);
       else if (entry.isFile()) total += fs.statSync(full).size;
     }
   } catch {}
