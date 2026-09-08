@@ -16,20 +16,17 @@ function registerPermissions(): void {
   Permission.register(PERM, Permission.Any);
 }
 
-function registerCommands(services?: ModuleServices): void {
-  // 指令回调若访问 db，请闭包捕获 services?.db（勿依赖单例 import { db }，避免多模块身份串桶）
-  void services;
-  Command.register(
-    "{{cmdName}}",
-    PERM,
-    (player) => {
-      if (!player) return;
-      Msg.info("{{readyMsg}}", player);
-    },
-    "{{name}}",
-    MODULE_ID
-  );
-}
+// 原生自定义命令必须在 startup early-execution 前声明，因此放在模块顶层。
+Command.register(
+  "{{cmdName}}",
+  PERM,
+  (player) => {
+    if (!player) return;
+    Msg.info("{{readyMsg}}", player);
+  },
+  "{{name}}",
+  MODULE_ID
+);
 
 function registerEvents(): void {
   /* 事件订阅放在本阶段，不要放进 init()。 */
@@ -49,7 +46,6 @@ export const DESCRIPTOR: ModuleDescriptor = {
   afterWorldLoad: false,
   lifecycle: {
     registerPermissions,
-    registerCommands,
     registerEvents,
     init,
     cleanup,

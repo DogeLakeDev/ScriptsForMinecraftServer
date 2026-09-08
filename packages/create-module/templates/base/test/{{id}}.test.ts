@@ -1,9 +1,10 @@
 /**
- * test/{{id}}.test.ts — manifest / DESCRIPTOR 
+ * test/{{id}}.test.ts — manifest / DESCRIPTOR
  *
  * pnpm test / npm test
  */
 
+import { Command } from "@sfmc-bds/sdk/sapi/runtime";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -33,7 +34,7 @@ test("descriptor / MODULE_ID 与 sapi/manifest.json 一致", () => {
   assert.equal(MODULE_ID, "{{featureId}}");
   assert.equal(DESCRIPTOR.afterWorldLoad, false);
   assert.equal(typeof DESCRIPTOR.lifecycle.registerPermissions, "function");
-  assert.equal(typeof DESCRIPTOR.lifecycle.registerCommands, "function");
+  assert.equal(Command.has("{{cmdName}}"), true);
   assert.equal(typeof DESCRIPTOR.lifecycle.registerEvents, "function");
   assert.equal(typeof DESCRIPTOR.lifecycle.init, "function");
   assert.equal(typeof DESCRIPTOR.lifecycle.cleanup, "function");
@@ -44,8 +45,7 @@ test("PERM / 命令名与 manifest.configKey 对齐", () => {
   assert.ok(manifest.configKey, "manifest.configKey 必填");
   assert.equal(PERM, `${manifest.configKey}.use`);
   assert.ok(
-    Array.isArray(manifest.permissions) &&
-      manifest.permissions.includes(`config:read:${manifest.configKey}`),
+    Array.isArray(manifest.permissions) && manifest.permissions.includes(`config:read:${manifest.configKey}`),
     `manifest.permissions 应含 config:read:${manifest.configKey}`
   );
 });

@@ -14,6 +14,11 @@ export const system = {
   },
 };
 
+export class Player {}
+
+export const CommandPermissionLevel = { Any: "Any" };
+export const CustomCommandStatus = { Success: 0, Failure: 1 };
+
 export const world = {
   afterEvents: {
     worldLoad: { subscribe() {} },

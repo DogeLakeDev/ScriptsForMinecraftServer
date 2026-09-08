@@ -39,12 +39,12 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 }
 ```
 
-| 字段 | 类型 | 默认值 | 作用说明 |
-| :--- | :--- | :--- | :--- |
-| `db_port` | `number` | `3001` | db-server 监听端口（仅监听 Loopback `127.0.0.1`）。可通过环境变量 `DB_PORT` 覆盖。 |
-| `http_auth` | `string` | `""` | Bearer 鉴权令牌。留空时不启用 HTTP 鉴权；生产环境建议配置长字符串防越权。可通过环境变量 `HTTP_AUTH` 覆盖。 |
-| `dbDir` | `string` | `./data/sfmc_data.db` | SQLite 数据库文件绝对路径或相对 `SFMC_ROOT` 的路径。 |
-| `modulesDir` | `string` | `"modules"` | 模块仓库主目录，存放 `catalog.json`、`module-lock.json` 与已安装模块源码。 |
+| 字段         | 类型     | 默认值                | 作用说明                                                                                                   |
+| :----------- | :------- | :-------------------- | :--------------------------------------------------------------------------------------------------------- |
+| `db_port`    | `number` | `3001`                | db-server 监听端口（仅监听 Loopback `127.0.0.1`）。可通过环境变量 `DB_PORT` 覆盖。                         |
+| `http_auth`  | `string` | `""`                  | Bearer 鉴权令牌。留空时不启用 HTTP 鉴权；生产环境建议配置长字符串防越权。可通过环境变量 `HTTP_AUTH` 覆盖。 |
+| `dbDir`      | `string` | `./data/sfmc_data.db` | SQLite 数据库文件绝对路径或相对 `SFMC_ROOT` 的路径。                                                       |
+| `modulesDir` | `string` | `"modules"`           | 模块仓库主目录，存放 `catalog.json`、`module-lock.json` 与已安装模块源码。                                 |
 
 :::tip 安全提示
 `db-server` 仅在本地回环接口（`127.0.0.1`）提供服务，**严禁将该端口映射或穿透到公网**。如需远程管理，应配置强随机 `http_auth` 并在反向代理层实施 mTLS 或 IP 白名单。
@@ -102,26 +102,21 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
   "auto_check": true,
   "crash_restart": true,
   "crash_restart_delay": 5,
-  "preserve": [
-    "server.properties",
-    "whitelist.json",
-    "permissions.json",
-    "worlds"
-  ],
+  "preserve": ["server.properties", "whitelist.json", "permissions.json", "worlds"],
   "qq_notify": true
 }
 ```
 
-| 字段 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| `bds_path` | `string` | BDS 核心可执行程序所在目录。 |
-| `backup_dir` | `string` | 升级或回滚时的全量备份落盘路径（必须位于 `bds_path` 目录之外）。 |
-| `channel` | `string` | 更新通道：`"release"`（正式稳定版）或 `"preview"`（预览测试版）。 |
-| `auto_check` | `boolean` | 服务启动时是否静默请求 Mojang 官方源检测最新版本。 |
-| `crash_restart` | `boolean` | 当 `bedrock_server` 异常崩溃退出时，是否自动尝试拉起恢复。 |
-| `crash_restart_delay` | `number` | 崩溃重启前的缓冲等待时间（秒），避免因端口未释放引发频繁颠簸。 |
-| `preserve` | `string[]` | 覆盖更新时**绝对予以保留并自动复原**的文件/目录白名单（避免存档或基础配置被冲洗）。 |
-| `qq_notify` | `boolean` | 更新启动、完成或崩溃告警时，是否通过 QQ 群同步广播进度。 |
+| 字段                  | 类型       | 说明                                                                                |
+| :-------------------- | :--------- | :---------------------------------------------------------------------------------- |
+| `bds_path`            | `string`   | BDS 核心可执行程序所在目录。                                                        |
+| `backup_dir`          | `string`   | 升级或回滚时的全量备份落盘路径（必须位于 `bds_path` 目录之外）。                    |
+| `channel`             | `string`   | 更新通道：`"release"`（正式稳定版）或 `"preview"`（预览测试版）。                   |
+| `auto_check`          | `boolean`  | 服务启动时是否静默请求 Mojang 官方源检测最新版本。                                  |
+| `crash_restart`       | `boolean`  | 当 `bedrock_server` 异常崩溃退出时，是否自动尝试拉起恢复。                          |
+| `crash_restart_delay` | `number`   | 崩溃重启前的缓冲等待时间（秒），避免因端口未释放引发频繁颠簸。                      |
+| `preserve`            | `string[]` | 覆盖更新时**绝对予以保留并自动复原**的文件/目录白名单（避免存档或基础配置被冲洗）。 |
+| `qq_notify`           | `boolean`  | 更新启动、完成或崩溃告警时，是否通过 QQ 群同步广播进度。                            |
 
 ---
 
@@ -169,12 +164,12 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 ]
 ```
 
-| 级别数值 | 角色标识 | 权限范围 | 典型适用命令 |
-| :---: | :--- | :--- | :--- |
-| `0` | **Any**（游客） | 所有进服玩家均持有的基础权限 | `!help`、`!ping`、`!menu`、`!tps` |
-| `1` | **Member**（正式成员） | 通过白名单认证或入服审核后的正常玩家 | `!afk`、`!pay`、`!sethome`、`!shop` |
-| `2` | **Admin / OP**（巡查与管理） | 具备游戏管理与秩序维护能力的运维人员 | `!kick`、`!mute`、`!land admin` |
-| `3` | **Root / SuperAdmin**（超管） | 平台级最高权限，通常对应服主自身 | `!sfmc reload`、`!permission set` |
+| 级别数值 | 角色标识                      | 权限范围                             | 典型适用命令                                          |
+| :------: | :---------------------------- | :----------------------------------- | :---------------------------------------------------- |
+|   `0`    | **Any**（游客）               | 所有进服玩家均持有的基础权限         | `/sfmc:help`、`/sfmc:ping`、`/sfmc:menu`、`/sfmc:tps` |
+|   `1`    | **Member**（正式成员）        | 通过白名单认证或入服审核后的正常玩家 | `!afk`、`!pay`、`!sethome`、`!shop`                   |
+|   `2`    | **Admin / OP**（巡查与管理）  | 具备游戏管理与秩序维护能力的运维人员 | `!kick`、`!mute`、`!land admin`                       |
+|   `3`    | **Root / SuperAdmin**（超管） | 平台级最高权限，通常对应服主自身     | `!sfmc reload`、`!permission set`                     |
 
 ---
 
@@ -226,10 +221,10 @@ BDS 控制台或高频实体脚本常常会打印过量无效信息。通过 `lo
 
 位于 `<SFMC_ROOT>/modules/` 目录下，记录当前工作区的模块拓扑状态：
 
-| 文件 | 角色与职责 | 维护者 |
-| :--- | :--- | :--- |
-| `modules/catalog.json` | **本地模块清单**。记录所有已解压安装模块的名称、版本、依赖关系与代码入口路径。作为只读静态索引。 | `sfmc mod install` / `uninstall` 自动维护 |
-| `modules/module-lock.json` | **启停状态锁**。记录每个模块的显式激活状态（`"enabled": true | false`）。**这是 BDS 装载闸门判断是否打包该模块的唯一真理源**。 | `sfmc mod enable` / `disable` 或 Admin GUI 维护 |
+| 文件                       | 角色与职责                                                                                       | 维护者                                                          |
+| :------------------------- | :----------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+| `modules/catalog.json`     | **本地模块清单**。记录所有已解压安装模块的名称、版本、依赖关系与代码入口路径。作为只读静态索引。 | `sfmc mod install` / `uninstall` 自动维护                       |
+| `modules/module-lock.json` | **启停状态锁**。记录每个模块的显式激活状态（`"enabled": true                                     | false`）。**这是 BDS 装载闸门判断是否打包该模块的唯一真理源**。 | `sfmc mod enable` / `disable` 或 Admin GUI 维护 |
 
 :::important 锁文件原则
 切勿手动破坏 `module-lock.json` 的 JSON 格式。启停模块请统一使用命令 `sfmc mod enable <id>` 或 `sfmc mod disable <id>`，确保状态同步与行为包热重载平滑执行。
@@ -248,7 +243,7 @@ BDS 控制台或高频实体脚本常常会打印过量无效信息。通过 `lo
 ```mermaid
 flowchart TD
   Edit[修改配置文件] --> Type{文件类型}
-  
+
   Type -->|configs/db_config.json| R_DB[需重启 db-server 服务]
   Type -->|configs/qq_config.json| R_QQ[需重启 qq-bridge / db-server]
   Type -->|configs/bds_updater.json| R_BDS_CFG[下次检查或重启后自动采用]

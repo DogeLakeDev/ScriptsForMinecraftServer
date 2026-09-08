@@ -18,19 +18,19 @@
 
 ## 包地图
 
-| 包路径                             | 发布包名 / 职责            | 说明                                                              |
-| ---------------------------------- | -------------------------- | ----------------------------------------------------------------- |
-| `modules/sdk/@sfmc-sdk/`           | `@sfmc-bds/sdk`            | 提供 SAPI 运行时与 Node.js 核心接口（Node + SAPI）                |
-| `modules/sdk/@sfmc-eslint-plugin/` | `@sfmc-bds/eslint-plugin`  | 模块与平台定制 ESLint 规则集                                      |
-| `packages/db-server/`              | `@sfmc-bds/db-server`      | SQLite HTTP 数据服务，默认监听 `:3001`（要求 Node ≥ 22.13）       |
-| `packages/qq-bridge/`              | `@sfmc-bds/qq-bridge`      | 消息网桥服务（支持 official 与 llbot 双协议）                     |
+| 包路径                             | 发布包名 / 职责            | 说明                                                                                |
+| ---------------------------------- | -------------------------- | ----------------------------------------------------------------------------------- |
+| `modules/sdk/@sfmc-sdk/`           | `@sfmc-bds/sdk`            | 提供 SAPI 运行时与 Node.js 核心接口（Node + SAPI）                                  |
+| `modules/sdk/@sfmc-eslint-plugin/` | `@sfmc-bds/eslint-plugin`  | 模块与平台定制 ESLint 规则集                                                        |
+| `packages/db-server/`              | `@sfmc-bds/db-server`      | SQLite HTTP 数据服务，默认监听 `:3001`（要求 Node ≥ 22.13）                         |
+| `packages/qq-bridge/`              | `@sfmc-bds/qq-bridge`      | 消息网桥服务（支持 official 与 llbot 双协议）                                       |
 | `packages/bds-tools/`              | `@sfmc-bds/bds-tools`      | BDS 生命周期与版本管理、更新灾备、行为包动态组装构建与 server.properties 智能本地化 |
-| `packages/cli/`                    | `@sfmc-bds/cli`            | 平台运维编排命令行工具与交互式 REPL                               |
-| `packages/meta/`                   | `@sfmc-bds/sfmc`           | 平台元包聚合分发                                                  |
-| `packages/create-module/`          | `@sfmc-bds/create-module`  | 业务模块脚手架初始化引擎（`npm create @sfmc-bds/module`）         |
-| `packages/devkit/`                 | `@sfmc-bds/devkit`         | 模块开发 Watch 监听与增量重构工具集                               |
-| `packages/sfmc-extension/`         | `@sfmc-bds/sfmc-extension` | VS Code / Cursor IDE 扩展「SFMC Module」                          |
-| `packages/tools/`                  | `@sfmc-bds/tools`          | 仓内自动化自检、文档生成与版本发布私有工具集（`"private": true`） |
+| `packages/cli/`                    | `@sfmc-bds/cli`            | 平台运维编排命令行工具与交互式 REPL                                                 |
+| `packages/meta/`                   | `@sfmc-bds/sfmc`           | 平台元包聚合分发                                                                    |
+| `packages/create-module/`          | `@sfmc-bds/create-module`  | 业务模块脚手架初始化引擎（`npm create @sfmc-bds/module`）                           |
+| `packages/devkit/`                 | `@sfmc-bds/devkit`         | 模块开发 Watch 监听与增量重构工具集                                                 |
+| `packages/sfmc-extension/`         | `@sfmc-bds/sfmc-extension` | VS Code / Cursor IDE 扩展「SFMC Module」                                            |
+| `packages/tools/`                  | `@sfmc-bds/tools`          | 仓内自动化自检、文档生成与版本发布私有工具集（`"private": true`）                   |
 
 核心能力内聚在 `bds-tools` / `db-server` / `qq-bridge` / SDK 中，CLI 仅负责调用编排。
 
@@ -81,7 +81,7 @@ sfmc mod reload     # 执行 build + 部署至 BDS + 请求 BDS 重载脚本
 3. `shutdown` 停机阶段：`teardown()` 统一清理资源
 
 模块初始化执行序列（`bootModule`）：
-`registerPermissions` → `registerCommands` → `registerEvents` → `init`。
+模块顶层 `Command.register` 声明命令；启动阶段依次执行 `registerPermissions` → `registerEvents` → `init`。
 
 - `ConfigManager.init()`：向服务端发起一次 `GET /api/sfmc/configs/all`，初始化并缓存 `modules` / `settings` / `permissions` 及各模块对应的鉴权 Token。模块私有配置通过 `@sfmc-bds/sdk/sapi/config` 读写。
 - 模块启停状态变更（通过 db-server、AdminGUI 或 CLI 写入 `module-lock.json` 与 `catalog.json`）在下次启动 BDS 或触发行为包重载闸门时完整生效；当前运行中的 BDS 进程内已激活模块不会在运行期直接注销，保证运行期状态稳定。
@@ -92,7 +92,6 @@ ModuleRegistry.register({
   afterWorldLoad: false,
   lifecycle: {
     registerPermissions() {},
-    registerCommands() {},
     registerEvents() {},
     async init() {},
     cleanup() {},
@@ -120,15 +119,15 @@ ModuleRegistry.register({
 
 ## 平台代码规范
 
-| 规范主题           | 现行落地约定                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| **玩家消息通知**   | 统一采用 `Msg.*`（来自 `@sfmc-bds/sdk/sapi/runtime`）                                       |
-| **表单说明排版**   | `ListFormInfo(string[])`：首行以 `[*]` 开头，正文使用朴素缩进                               |
-| **按钮与标题样式** | 保持纯文本无额外颜色格式代码（「返回」类操作按钮除外）                                      |
-| **经济货币单位**   | 基于计分板系统，符号引用 `Money.UNIT`（默认为 `节操`）                                      |
-| **聊天命令注册**   | 聊天前缀支持半角 `!` 与全角 `！`；权限层级：`Permission.register`（Any=0 至 Admin=3）       |
-| **模块依赖边界**   | 仅依赖 `@sfmc-bds/sdk` 与 `@minecraft/*`；跨模块协作经由 `manifest.json` + `service` / `tx` |
-| **安全 SQL 查询**  | 动态 SQL 必须使用受信任标识：`sql()` / `.append(raw(...))`                                  |
+| 规范主题           | 现行落地约定                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| **玩家消息通知**   | 统一采用 `Msg.*`（来自 `@sfmc-bds/sdk/sapi/runtime`）                                                                          |
+| **表单说明排版**   | `ListFormInfo(string[])`：首行以 `[*]` 开头，正文使用朴素缩进                                                                  |
+| **按钮与标题样式** | 保持纯文本无额外颜色格式代码（「返回」类操作按钮除外）                                                                         |
+| **经济货币单位**   | 基于计分板系统，符号引用 `Money.UNIT`（默认为 `节操`）                                                                         |
+| **游戏命令注册**   | 使用原生自定义命令；平台为 `/sfmc:<命令>`，模块为 `/sfmc:<模块名>_<命令>`；权限层级：`Permission.register`（Any=0 至 Admin=3） |
+| **模块依赖边界**   | 仅依赖 `@sfmc-bds/sdk` 与 `@minecraft/*`；跨模块协作经由 `manifest.json` + `service` / `tx`                                    |
+| **安全 SQL 查询**  | 动态 SQL 必须使用受信任标识：`sql()` / `.append(raw(...))`                                                                     |
 
 ## QQ 消息网桥（QQ Bridge）
 

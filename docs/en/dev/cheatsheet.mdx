@@ -12,6 +12,17 @@ Every module entry point `sapi/src/index.ts` must register via `ModuleRegistry.r
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
+// Exposed as /sfmc:feature-teleport_tp; native commands must be declared before startup.
+Command.register(
+  "tp",
+  "tp.use",
+  (player) => {
+    if (player) Msg.info("Teleporting to: Spawn", player);
+  },
+  "Teleport to spawn",
+  "feature-teleport"
+);
+
 ModuleRegistry.register({
   id: "feature-teleport",
   afterWorldLoad: false, // Set to true if accessing entity/world APIs during boot
@@ -22,24 +33,17 @@ ModuleRegistry.register({
       Permission.register("tp.admin", 2);
     },
 
-    // 2. Register in-game chat commands (! or ！ prefix)
-    registerCommands() {
-      Command.register("tp", "tp.use", (player, args) => {
-        Msg.info(player, `Teleporting to: ${args[0] || "Spawn"}`);
-      });
-    },
-
-    // 3. Register Minecraft native or custom events
+    // 2. Register Minecraft native or custom events
     registerEvents() {
       // Recommended location for world.afterEvents subscriptions
     },
 
-    // 4. Async initialization (configs, DB tables, etc.)
+    // 3. Async initialization (configs, DB tables, etc.)
     async init() {
       console.log("[feature-teleport] Initialization complete");
     },
 
-    // 5. Cleanup upon disable or server shutdown
+    // 4. Cleanup upon disable or server shutdown
     cleanup() {
       // Clear timers and transient caches
     },
@@ -59,7 +63,7 @@ Msg.info(player, "General information notice");
 Msg.success(player, "Transaction completed successfully!");
 Msg.warning(player, "Warning: PvP is disabled in this zone");
 Msg.error(player, "Insufficient funds for this purchase!");
-Msg.tips(player, "Tip: Type !menu to open the quick navigation panel");
+Msg.tips(player, "Tip: Type /sfmc:menu to open the quick navigation panel");
 
 // Broadcast to all online players
 Msg.broadcast("Server notice: Scheduled maintenance in 10 minutes");

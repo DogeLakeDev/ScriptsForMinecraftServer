@@ -12,6 +12,17 @@ import { Tab, Tabs } from "@rspress/core/theme";
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
+// 模块命令公开为 /sfmc:feature-teleport_tp；必须在 startup 前于模块顶层声明。
+Command.register(
+  "tp",
+  "tp.use",
+  (player) => {
+    if (player) Msg.info(`传送目标: 主城`, player);
+  },
+  "传送至主城",
+  "feature-teleport"
+);
+
 ModuleRegistry.register({
   id: "feature-teleport",
   afterWorldLoad: false, // 若需在启动阶段访问实体/世界 API，设为 true
@@ -22,24 +33,17 @@ ModuleRegistry.register({
       Permission.register("tp.admin", 2);
     },
 
-    // 2. 注册聊天命令 (! 或 ！开头)
-    registerCommands() {
-      Command.register("tp", "tp.use", (player, args) => {
-        Msg.info(player, `传送目标: ${args[0] || "主城"}`);
-      });
-    },
-
-    // 3. 注册 Minecraft 原生或自定义事件
+    // 2. 注册 Minecraft 原生或自定义事件
     registerEvents() {
       // 推荐在此处订阅 world.afterEvents
     },
 
-    // 4. 异步初始化（读写配置、建立数据库连接等）
+    // 3. 异步初始化（读写配置、建立数据库连接等）
     async init() {
       console.log("[feature-teleport] 初始化完成");
     },
 
-    // 5. 卸载与资源释放
+    // 4. 卸载与资源释放
     cleanup() {
       // 清理定时器、临时缓存
     },
@@ -59,7 +63,7 @@ Msg.info(player, "这是一条普通通知消息");
 Msg.success(player, "恭喜，交易完成！");
 Msg.warning(player, "注意：此区域禁止 PvP");
 Msg.error(player, "余额不足，无法购买！");
-Msg.tips(player, "小贴士：输入 !menu 可打开快捷菜单");
+Msg.tips(player, "小贴士：输入 /sfmc:menu 可打开快捷菜单");
 
 // 全服广播
 Msg.broadcast("全服公告：服务器将在 10 分钟后例行维护");
@@ -75,13 +79,7 @@ import { ListFormInfo } from "@sfmc-bds/sdk/sapi/runtime";
 
 const form = new ActionFormData()
   .title("领地管理面板")
-  .body(
-    ListFormInfo([
-      "当前领地：[主城保护区]",
-      "领地主人：ServerAdmin",
-      "当前权限：允许移动 / 禁止破坏",
-    ])
-  )
+  .body(ListFormInfo(["当前领地：[主城保护区]", "领地主人：ServerAdmin", "当前权限：允许移动 / 禁止破坏"]))
   .button("购买领地")
   .button("权限设置")
   .button("§c返回上一页"); // 仅返回按钮允许带颜色代码

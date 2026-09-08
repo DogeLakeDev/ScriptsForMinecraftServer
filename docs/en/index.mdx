@@ -51,21 +51,22 @@ features:
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
+Command.register(
+  "hello",
+  "hello.use",
+  (player) => {
+    if (player) Msg.send(player, "§aHello! Welcome to your SFMC-powered Minecraft server!");
+  },
+  "Send greeting message",
+  "feature-hello"
+);
+
 ModuleRegistry.register({
   id: "feature-hello",
   afterWorldLoad: false,
   lifecycle: {
     registerPermissions() {
       Permission.register("hello.use", "Permission to use hello", 0);
-    },
-    registerCommands() {
-      Command.register("hello", {
-        description: "Send greeting message",
-        permission: "hello.use",
-        handler(player) {
-          Msg.send(player, "§aHello! Welcome to your SFMC-powered Minecraft server!");
-        },
-      });
     },
   },
 });

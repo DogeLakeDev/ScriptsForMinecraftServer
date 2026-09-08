@@ -120,9 +120,7 @@ test("jsonV2Ok: 与 Fail 对称 ok 方言(LSP/DRY)", async () => {
 test("normalizeOrderBy: SDK field 与遗留 col / 数组互通(LSP)", async () => {
   const { normalizeOrderBy } = await import("./lib/order-by.js");
   deepEqual(normalizeOrderBy(undefined), []);
-  deepEqual(normalizeOrderBy({ field: "created_at", dir: "desc" }), [
-    { col: "created_at", dir: "desc" },
-  ]);
+  deepEqual(normalizeOrderBy({ field: "created_at", dir: "desc" }), [{ col: "created_at", dir: "desc" }]);
   deepEqual(normalizeOrderBy({ col: "id" }), [{ col: "id", dir: "asc" }]);
   deepEqual(normalizeOrderBy([{ field: "a" }, { col: "b", dir: "desc" }]), [
     { col: "a", dir: "asc" },
@@ -209,9 +207,8 @@ test("module-auth: ensureModuleToken / revoke 复用 secret(DRY)", async () => {
 });
 
 test("builtin-handlers: 热禁用按 moduleId 卸载(DRY/OCP)", async () => {
-  const { unregisterBuiltinPluginForModule, registerBuiltinPluginForModule } = await import(
-    "./services/builtin-handlers.js"
-  );
+  const { unregisterBuiltinPluginForModule, registerBuiltinPluginForModule } =
+    await import("./services/builtin-handlers.js");
 
   const reg = new ServiceRegistry();
   reg.registerHandler("feature-economy", "economy.account.get", async () => ({}));
@@ -267,7 +264,7 @@ test("TxRunner 交互会话: step 中途读回 insert/get(PR #31 leftover)", asy
     enabled,
   });
 
-  const begin = runner.beginSession("feature-demo");
+  const begin = await runner.beginSession("feature-demo");
   equal(begin.ok, true);
   if (!begin.ok) return;
   const { txId } = begin;
@@ -295,5 +292,96 @@ test("TxRunner 交互会话: step 中途读回 insert/get(PR #31 leftover)", asy
 
   const rows = db.prepare("SELECT name FROM demo_items WHERE id = ?").all("a1") as Array<{ name: string }>;
   equal(rows[0]?.name, "alpha");
+  db.close();
+});
+
+test("TxRunner 交互会话: 并发 beginSession 自动排队互斥执行", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createQuery } = await import("./lib/sqlite.js");
+  const { SchemaRegistry } = await import("./schema-registry.js");
+  const { TxRunner } = await import("./tx-runner.js");
+
+  const db = new DatabaseSync(":memory:");
+  const query = createQuery(db);
+  const schema = new SchemaRegistry(db);
+  schema.define("feature-demo", {
+    name: "queue_items",
+    columns: {
+      id: { type: "text", primary: true },
+      val: { type: "text", notNull: true },
+    },
+    softDelete: false,
+  });
+
+  const enabled = new Map([
+    [
+      "feature-demo",
+      {
+        id: "feature-demo",
+        version: "1.0.0",
+        permissions: ["db:read:queue_items", "db:write:queue_items"],
+        services: { provides: [], requires: [] },
+        db: { tables: [] },
+        config: { key: "demo" },
+      } as unknown as import("./manifest-loader.js").ModuleManifestV2,
+    ],
+  ]);
+
+  const runner = new TxRunner({
+    db,
+    query,
+    schema,
+    serviceRegistry: new ServiceRegistry(),
+    enabled,
+  });
+
+  // Session 1 启动
+  const s1 = await runner.beginSession("feature-demo");
+  equal(s1.ok, true);
+  if (!s1.ok) return;
+
+  // Session 2 并发启动（会异步排队等待 Session 1 完成）
+  let s2Started = false;
+  const s2Promise = runner.beginSession("feature-demo").then((res) => {
+    s2Started = true;
+    return res;
+  });
+
+  // 此时 Session 2 应处于等待中，未进入
+  equal(s2Started, false);
+
+  // Session 1 插入步骤
+  const s1Step = await runner.stepSession(s1.txId, "feature-demo", {
+    op: "insert",
+    table: "queue_items",
+    row: { id: "1", val: "one" },
+  });
+  equal(s1Step.ok, true);
+
+  // Session 1 提交
+  const s1Commit = runner.commitSession(s1.txId, "feature-demo");
+  equal(s1Commit.ok, true);
+
+  // Session 1 提交后，Session 2 应该被唤醒并成功获得事务
+  const s2 = await s2Promise;
+  equal(s2.ok, true);
+  equal(s2Started, true);
+  if (!s2.ok) return;
+
+  // Session 2 插入步骤并提交
+  const s2Step = await runner.stepSession(s2.txId, "feature-demo", {
+    op: "insert",
+    table: "queue_items",
+    row: { id: "2", val: "two" },
+  });
+  equal(s2Step.ok, true);
+
+  const s2Commit = runner.commitSession(s2.txId, "feature-demo");
+  equal(s2Commit.ok, true);
+
+  const rows = db.prepare("SELECT val FROM queue_items ORDER BY id ASC").all() as Array<{ val: string }>;
+  equal(rows.length, 2);
+  equal(rows[0]?.val, "one");
+  equal(rows[1]?.val, "two");
   db.close();
 });

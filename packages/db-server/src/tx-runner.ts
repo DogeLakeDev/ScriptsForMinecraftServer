@@ -26,18 +26,14 @@
 
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { log } from "./lib/log.js";
+import { normalizeOrderBy } from "./lib/order-by.js";
+import type { ModuleManifestV2 } from "./manifest-loader.js";
+import { Perm, PermissionDeniedError, assertModulePermission } from "./permission-gate.js";
 import type { SchemaRegistry } from "./schema-registry.js";
+import { DispatchError, type ServiceRegistry } from "./service-registry.js";
 import type { WhereExpr } from "./where.js";
 import { compile } from "./where.js";
-import { log } from "./lib/log.js";
-import { DispatchError, type ServiceRegistry } from "./service-registry.js";
-import type { ModuleManifestV2 } from "./manifest-loader.js";
-import {
-  PermissionDeniedError,
-  Perm,
-  assertModulePermission,
-} from "./permission-gate.js";
-import { normalizeOrderBy } from "./lib/order-by.js";
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -99,14 +95,7 @@ export interface TxStepService {
   input: Record<string, unknown>;
 }
 
-export type TxStep =
-  | TxStepQuery
-  | TxStepGet
-  | TxStepInsert
-  | TxStepUpdate
-  | TxStepDelete
-  | TxStepAudit
-  | TxStepService;
+export type TxStep = TxStepQuery | TxStepGet | TxStepInsert | TxStepUpdate | TxStepDelete | TxStepAudit | TxStepService;
 
 export type TxStepResult =
   | { op: "query"; rows: Record<string, unknown>[] }
@@ -202,27 +191,57 @@ export class TxRunner {
     return { ok: true, results };
   }
 
+  private readonly sessionWaiters: Array<() => void> = [];
+
   /**
    * 开启交互式事务会话（协议流程：begin → step* → commit | rollback）。
    * 供客户端 `db.tx` 在回调内部异步执行并实时读回 query / get / call 的服务端执行结果。
-   * 单连接保护：新会话开启时自动清理历史残留会话，避免事务锁冲突。
+   * 单连接互斥保护：多会话并发时异步排队，并在提交/回滚时顺次唤醒；配置租约超时自动清理残留。
    *
    * @param moduleId 请求模块唯一标识符。
    * @returns 成功返回分配的会话 txId，失败返回错误响应。
    */
-  beginSession(moduleId: string): { ok: true; txId: string } | TxError {
+  async beginSession(moduleId: string): Promise<{ ok: true; txId: string } | TxError> {
     const manifest = this.deps.enabled.get(moduleId);
     if (!manifest) return { ok: false, step: -1, error: "模块未 enabled", code: "forbidden" };
-    // 清残留会话(崩溃/未 commit),再开新事务
-    if (this.sessions.size > 0) {
-      for (const id of [...this.sessions.keys()]) {
-        this.abortSession(id);
+
+    // 互斥排队：若已有会话活跃，等待其 commit/rollback 或租约超时
+    while (this.sessions.size > 0) {
+      const active = [...this.sessions.values()][0];
+      if (active && Date.now() - active.openedAt > 5000) {
+        for (const id of [...this.sessions.keys()]) {
+          this.abortSession(id);
+        }
+        break;
       }
+      await new Promise<void>((resolve) => {
+        let timer: NodeJS.Timeout;
+        const onFree = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        timer = setTimeout(() => {
+          const idx = this.sessionWaiters.indexOf(onFree);
+          if (idx !== -1) this.sessionWaiters.splice(idx, 1);
+          for (const id of [...this.sessions.keys()]) {
+            this.abortSession(id);
+          }
+          resolve();
+        }, 5000);
+        this.sessionWaiters.push(onFree);
+      });
     }
+
     try {
       this.deps.db.exec("BEGIN IMMEDIATE");
     } catch (e) {
-      return { ok: false, step: -1, error: `BEGIN 失败: ${(e as Error).message}`, code: "internal" };
+      // 容错自愈：若因未捕获异常残留在事务中，先行 ROLLBACK 后重试
+      try {
+        this.deps.db.exec("ROLLBACK");
+        this.deps.db.exec("BEGIN IMMEDIATE");
+      } catch (e2) {
+        return { ok: false, step: -1, error: `BEGIN 失败: ${(e2 as Error).message}`, code: "internal" };
+      }
     }
     const txId = randomUUID();
     this.sessions.set(txId, {
@@ -295,6 +314,7 @@ export class TxRunner {
     }
     const results = session.results;
     this.sessions.delete(txId);
+    this.notifyWaiters();
     log.info(`[tx-session ${txId.slice(0, 8)}] commit ${results.length} steps OK`);
     return { ok: true, results };
   }
@@ -320,11 +340,16 @@ export class TxRunner {
     return { ok: true };
   }
 
-
   private abortSession(txId: string): void {
     this.sessions.delete(txId);
     this.rollback();
+    this.notifyWaiters();
     log.info(`[tx-session ${txId.slice(0, 8)}] aborted`);
+  }
+
+  private notifyWaiters(): void {
+    const next = this.sessionWaiters.shift();
+    if (next) next();
   }
 
   private mapErrorCode(err: unknown): TxError["code"] {
@@ -354,11 +379,7 @@ export class TxRunner {
   }
 
   /** 单 step 由对应权限检查 + SQL 路径执行 */
-  private async runOne(
-    moduleId: string,
-    manifest: ModuleManifestV2,
-    step: TxStep
-  ): Promise<TxStepResult> {
+  private async runOne(moduleId: string, manifest: ModuleManifestV2, step: TxStep): Promise<TxStepResult> {
     switch (step.op) {
       case "query":
         return this.doQuery(moduleId, manifest, step);
@@ -513,9 +534,7 @@ export class TxRunner {
     }>;
     const hasDeletedAt = cols.find((c) => c.name === "_deleted_at");
     if (!hasDeletedAt) {
-      throw new Error(
-        `[tx] ${step.table} 没启用 softDelete,删不掉;请 hard=true 或 schema 设 softDelete=true`
-      );
+      throw new Error(`[tx] ${step.table} 没启用 softDelete,删不掉;请 hard=true 或 schema 设 softDelete=true`);
     }
     const sql = `UPDATE "${step.table}" SET "_deleted_at" = ?, "_version" = COALESCE("_version",0)+1 WHERE ${where.clause}`;
     const r = this.deps.db.prepare(sql).run(Date.now() as never, ...(where.values as never[]));
@@ -534,21 +553,14 @@ export class TxRunner {
     return { op: "audit", changes: Number(r.changes) };
   }
 
-  private async doService(
-    _mid: string,
-    mod: ModuleManifestV2,
-    step: TxStepService
-  ): Promise<TxStepResult> {
+  private async doService(_mid: string, mod: ModuleManifestV2, step: TxStepService): Promise<TxStepResult> {
     // requires / 自调用豁免的唯一权威在 ServiceRegistry.dispatch(DRY/LSP);
     // 此处只补 dispatch 不做的 service:<name> 权限门(与 HTTP service-routes 对齐)。
     assertModulePermission(mod.id, mod.permissions, Perm.service(step.name));
-    const result = await this.deps.serviceRegistry.dispatch(
-      this.deps.enabled,
-      mod.id,
-      step.name,
-      step.input,
-      { query: this.deps.query, db: this.deps.db }
-    );
+    const result = await this.deps.serviceRegistry.dispatch(this.deps.enabled, mod.id, step.name, step.input, {
+      query: this.deps.query,
+      db: this.deps.db,
+    });
     return { op: "service", result: result.result };
   }
 }

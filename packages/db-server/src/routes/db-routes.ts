@@ -14,19 +14,12 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
-import { log } from "../lib/log.js";
-import { jsonV2Fail, jsonV2Ok, type ModuleAuth } from "./_shared.js";
-import type {
-  DefineTableRequest,
-  SchemaRegistry,
-} from "../schema-registry.js";
-import type {
-  TxRequest,
-  TxRunner,
-  TxStep,
-} from "../tx-runner.js";
-import { PermissionDeniedError } from "../permission-gate.js";
 import type { IdempotencyStore } from "../lib/idempotency-store.js";
+import { log } from "../lib/log.js";
+import { PermissionDeniedError } from "../permission-gate.js";
+import type { DefineTableRequest, SchemaRegistry } from "../schema-registry.js";
+import type { TxRequest, TxRunner, TxStep } from "../tx-runner.js";
+import { jsonV2Fail, jsonV2Ok, type ModuleAuth } from "./_shared.js";
 
 export interface DbRoutesDeps {
   schemaRegistry: SchemaRegistry;
@@ -109,7 +102,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
     }> = [
       {
         path: "/api/sfmc/db/tx/begin",
-        run: () => deps.txRunner!.beginSession(moduleId) as SessionReply,
+        run: () => deps.txRunner!.beginSession(moduleId) as Promise<SessionReply>,
       },
       {
         path: "/api/sfmc/db/tx/step",
@@ -205,19 +198,10 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
     if (m) {
       try {
         if (m[1] === "probe") {
-          const r = await deps.idempotent!.probe(
-            moduleId,
-            String(body.action),
-            String(body.key)
-          );
+          const r = await deps.idempotent!.probe(moduleId, String(body.action), String(body.key));
           json(res, r as unknown as Record<string, unknown>);
         } else {
-          const r = await deps.idempotent!.commit(
-            moduleId,
-            String(body.action),
-            String(body.key),
-            body.value
-          );
+          const r = await deps.idempotent!.commit(moduleId, String(body.action), String(body.key), body.value);
           jsonV2Ok(res, { committed: r.ok });
         }
       } catch (e) {

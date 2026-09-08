@@ -27,22 +27,13 @@ import {
 } from "../sapi/config/client.js";
 import { clearDbModuleContext, getDbClient, setDbModuleContext } from "../sapi/db/client.js";
 import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
+import { Command } from "../sapi/runtime/command.js";
 import { debug } from "../sapi/runtime/debug-log.js";
-import {
-  clearServiceModuleContext,
-  getServiceClient,
-  setServiceModuleContext,
-} from "../sapi/service/client.js";
+import { clearServiceModuleContext, getServiceClient, setServiceModuleContext } from "../sapi/service/client.js";
 import type { DataAdapter } from "./data-adapter.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
-import {
-  announceLoaded,
-  bindModuleAuthHooks,
-  ModuleRegistry,
-  type BdsSystem,
-  type ModuleServices,
-} from "./runtime.js";
+import { announceLoaded, bindModuleAuthHooks, ModuleRegistry, type BdsSystem, type ModuleServices } from "./runtime.js";
 
 /** 宿主后端抽象接口。 */
 export interface HostBackend {
@@ -149,14 +140,22 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   const sysBefore = (
     system as unknown as {
       beforeEvents?: {
-        startup?: { subscribe: (cb: () => void) => void };
+        startup?: {
+          subscribe: (
+            cb: (event: { customCommandRegistry: Parameters<typeof Command.registerNativeCommands>[0] }) => void
+          ) => void;
+        };
         shutdown?: { subscribe: (cb: () => void) => void };
       };
     }
   )?.beforeEvents;
 
   if (sysBefore?.startup?.subscribe) {
-    sysBefore.startup.subscribe(runStartup);
+    Command.registerHelpCommand();
+    sysBefore.startup.subscribe((event) => {
+      Command.registerNativeCommands(event.customCommandRegistry);
+      void runStartup();
+    });
   } else {
     // 稳定版（如 1.x 无 system.beforeEvents）平稳降级：通过 system.run() 在首 tick 执行启动装配
     system.run(runStartup);

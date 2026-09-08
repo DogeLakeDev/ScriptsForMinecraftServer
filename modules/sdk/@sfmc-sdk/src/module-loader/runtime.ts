@@ -53,7 +53,8 @@ interface GlobalModuleLoaderState {
   authHooks: ModuleAuthHooks | null;
 }
 
-const gModuleState: GlobalModuleLoaderState = (((globalThis as unknown as Record<string, unknown>).__sfmcModuleLoaderState as GlobalModuleLoaderState) ??= {
+const gModuleState: GlobalModuleLoaderState = (((globalThis as unknown as Record<string, unknown>)
+  .__sfmcModuleLoaderState as GlobalModuleLoaderState) ??= {
   descriptors: [],
   booted: new Set<string>(),
   initialized: new Set<string>(),
@@ -66,10 +67,8 @@ export function bindModuleAuthHooks(hooks: ModuleAuthHooks): void {
   gModuleState.authHooks = hooks;
 }
 
-/** 模块生命周期钩子（各阶段可选）。services 为作用域客户端，可忽略以兼容旧模块。 */
+/** 模块生命周期钩子（各阶段可选）。services 为作用域客户端。命令须在模块顶层声明。 */
 export type ModuleLifecycle = {
-  /** 注册 `!` 指令（请闭包捕获 services.db，勿依赖单例 db）。 */
-  registerCommands?(services?: ModuleServices): void;
   /** 注册命名权限。 */
   registerPermissions?(services?: ModuleServices): void;
   /** 订阅游戏事件。 */
@@ -107,8 +106,7 @@ function applyModuleAuthContext(id: ModuleId): ModuleServices | undefined {
   const configKey = ConfigManager.getModuleConfigKey(id) || "";
   if (!token) {
     console.warn(
-      `[Module:${id}] 无 module token(configs/all.module_tokens 缺失);` +
-        ` v2 db/config/service 调用将 401`
+      `[Module:${id}] 无 module token(configs/all.module_tokens 缺失);` + ` v2 db/config/service 调用将 401`
     );
   }
   const services = gModuleState.authHooks?.apply(id, token, configKey);
@@ -159,7 +157,7 @@ export class ModuleRegistry {
     }
   }
 
-  /** 启动单个模块（权限/命令/事件；init 按 afterWorldLoad 分相）。 */
+  /** 启动单个模块（权限/事件；init 按 afterWorldLoad 分相）。 */
   static async bootModule(id: ModuleId): Promise<void> {
     const d = ModuleRegistry.get(id);
     if (!d) return;
@@ -171,11 +169,6 @@ export class ModuleRegistry {
         d.lifecycle.registerPermissions?.(services);
       } catch (e) {
         debug.e("Module", `[${id}] registerPermissions failed`, e);
-      }
-      try {
-        d.lifecycle.registerCommands?.(services);
-      } catch (e) {
-        debug.e("Module", `[${id}] registerCommands failed`, e);
       }
       try {
         d.lifecycle.registerEvents?.(services);

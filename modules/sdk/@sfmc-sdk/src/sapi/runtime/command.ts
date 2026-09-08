@@ -1,7 +1,14 @@
-import { Player, system } from "@minecraft/server";
-import { Permission } from "./permission.js";
+import {
+  CommandPermissionLevel,
+  CustomCommandStatus,
+  Player,
+  system,
+  type CustomCommandOrigin,
+  type CustomCommandRegistry,
+} from "@minecraft/server";
 import { debug } from "./debug-log.js";
 import { Msg } from "./msg.js";
+import { Permission } from "./permission.js";
 
 let moduleGuard: (moduleId: string) => boolean = () => true;
 
@@ -26,7 +33,7 @@ export type CommandEntry = {
   callback: Function;
   /** 所需权限等级（数字）或权限名（字符串）。 */
   permission: number | string;
-  /** 指令说明（`!help` 展示）。 */
+  /** 指令说明（`/sfmc:help` 展示）。 */
   description: string;
   /** 所属模块 id；用于 moduleGuard 拦截已禁用模块。 */
   moduleId?: string;
@@ -34,7 +41,7 @@ export type CommandEntry = {
   cost?: CommandCost;
 };
 
-/** 游戏内 `!` 前缀指令的注册表与触发器。 */
+/** 游戏内原生自定义指令的声明表与触发器。 */
 export class Command {
   /** 已注册指令表（名称 → 条目）。 */
   static list: Record<string, CommandEntry> = {};
@@ -42,13 +49,13 @@ export class Command {
   static deductCost: ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null = null;
 
   /**
-   * 注册一条游戏内 `!` 指令。
+   * 声明一条游戏内原生自定义指令。
    *
-   * @param name 指令名称（不含 `!` 前缀）。
+   * @param name 指令名称（不含 `sfmc:` 命名空间）。
    * @param permission 执行该指令所需的权限等级数值或命名权限字符串。
    * @param callback 指令执行回调，接收触发指令的玩家对象（若为控制台触发则为 `undefined`）。
-   * @param description 指令功能描述，用于 `!help` 展示；缺省时回退为指令名称。
-   * @param moduleId 所属模块的唯一标识符，供模块禁用拦截机制识别。
+   * @param description 指令功能描述，用于 `/sfmc:help` 展示；缺省时回退为指令名称。
+   * @param moduleId 所属模块的唯一标识符；模块命令公开为 `/sfmc:<moduleId>_<name>`。
    * @param cost 可选的指令执行扣费规则。
    * @returns 注册成功始终返回 `true`。
    */
@@ -160,7 +167,6 @@ export class Command {
    * @param message 玩家输入的指令字符串（不含前缀）。
    */
   static trigger(player: Player | undefined, message: string) {
-
     const pname = player?.name || "CONSOLE";
     const pid = player?.id || "N/A";
     debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);
@@ -194,11 +200,12 @@ export class Command {
       return;
     }
     debug.w("CMD", `unknown command "${message}" from ${pname}`);
-    if (player) Msg.error("未知的命令! 发送\'!help\'查询所有指令。", player);
+    if (player) Msg.error("未知的命令！发送 '/sfmc:help' 查询所有指令。", player);
   }
 
-  /** 注册内置 `!help` 指令，列出当前玩家有权限的指令。 */
+  /** 注册内置 `/sfmc:help` 指令，列出当前玩家有权限的指令。 */
   static registerHelpCommand() {
+    Permission.register("help.see", Permission.Any);
     this.register(
       "help",
       "help.see",
@@ -207,7 +214,7 @@ export class Command {
         for (const command in this.list) {
           const entry = this.list[command];
           if (entry && this.canExecute(player, entry.permission)) {
-            result += `  ${command} - ${entry.description}\n`;
+            result += `  /${this.nativeName(command, entry)} - ${entry.description}\n`;
           }
         }
         return result;
@@ -216,15 +223,28 @@ export class Command {
     );
   }
 
-  /** 订阅 `doge:` 命名空间 scriptEvent，将事件 id 转给 `trigger`。 */
-  static registerScriptEvent() {
-    system.afterEvents?.scriptEventReceive?.subscribe?.(
-      (event) => {
-        this.trigger(event.sourceEntity as Player | undefined, event.id.substring(5));
-      },
-      { namespaces: ["doge"] }
-    );
+  /** 生成统一的原生命令名：平台为 `sfmc:name`，模块为 `sfmc:module_name`。 */
+  static nativeName(name: string, entry: Pick<CommandEntry, "moduleId">): string {
+    return `sfmc:${entry.moduleId ? `${entry.moduleId}_` : ""}${name}`;
+  }
+
+  /** 在 startup early-execution 阶段把全部声明提交给原生命令注册表。 */
+  static registerNativeCommands(registry: CustomCommandRegistry): void {
+    for (const [name, entry] of Object.entries(this.list)) {
+      const nativeName = this.nativeName(name, entry);
+      registry.registerCommand(
+        {
+          name: nativeName,
+          description: entry.description,
+          permissionLevel: CommandPermissionLevel.Any,
+          cheatsRequired: false,
+        },
+        (origin: CustomCommandOrigin) => {
+          this.trigger(origin.sourceEntity instanceof Player ? origin.sourceEntity : undefined, name);
+          return { status: CustomCommandStatus.Success };
+        }
+      );
+      debug.i("CMD", `native register "/${nativeName}"`);
+    }
   }
 }
-
-Command.registerScriptEvent();

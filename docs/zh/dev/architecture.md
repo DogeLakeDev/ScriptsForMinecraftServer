@@ -58,10 +58,10 @@ sequenceDiagram
   CM->>DB: GET /api/sfmc/configs/all (获取全局配置与 Token 快照)
   DB-->>CM: 返回 modules, settings, permissions, tokens
   Boot->>Reg: ModuleRegistry.bootAll()
-  
+
   loop 遍历所有处于 active 状态的模块
     Reg->>Mod: registerPermissions() (注册权限节点)
-    Reg->>Mod: registerCommands() (注册聊天命令)
+    Reg->>Mod: 模块顶层 Command.register() 声明原生命令
     Reg->>Mod: registerEvents() (注册系统/游戏事件)
     Reg->>Mod: init() (异步初始化：建表、状态准备)
   end
@@ -98,6 +98,17 @@ sequenceDiagram
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
+// 原生命令必须在 startup 前声明，公开名称为 /sfmc:feature-teleport_tp。
+Command.register(
+  "tp",
+  "tp.use",
+  (player) => {
+    if (player) Msg.info("正在发起传送...", player);
+  },
+  "传送至主城",
+  "feature-teleport"
+);
+
 ModuleRegistry.register({
   id: "feature-teleport",
   afterWorldLoad: false, // 若需在 init 中查询世界实体/维度，设为 true
@@ -108,18 +119,7 @@ ModuleRegistry.register({
       Permission.register("tp.admin", "管理员强行传送", 2);
     },
 
-    // 2. 注册以 ! 或 ！ 开头的聊天命令
-    registerCommands() {
-      Command.register("tp", {
-        description: "传送至主城或指定坐标",
-        permission: "tp.use",
-        handler(player, args) {
-          Msg.info(player, "正在发起传送...");
-        },
-      });
-    },
-
-    // 3. 注册 Minecraft 原生事件监听
+    // 2. 注册 Minecraft 原生事件监听
     registerEvents() {
       // 推荐在此处通过 world.afterEvents 进行订阅
     },
@@ -141,14 +141,14 @@ ModuleRegistry.register({
 
 SFMC 遵循严格的单一事实源（Single Source of Truth）原则：
 
-| 领域数据 | 唯一权威真理源 | 同步与维护机制 |
-| :--- | :--- | :--- |
-| **模块契约** | `modules/packages/<id>/sapi/manifest.json` | 模块作者在模板中声明，定义版本、权限需求与外部依赖。 |
-| **生态检索** | `sfmc-modules/index.json` | 官方轻量索引库，记录模块的 npm 包名与元数据。 |
-| **本地安装清单** | `<SFMC_ROOT>/modules/catalog.json` | 本地已安装模块的静态只读镜像。 |
-| **模块启停状态** | `<SFMC_ROOT>/modules/module-lock.json` | **唯一决定行为包是否打包该模块的布尔状态锁**。 |
-| **持久化业务数据** | `<SFMC_ROOT>/data/sfmc_data.db` | 由 `db-server` 托管的 SQLite 物理数据库。 |
-| **平台级配置** | `<SFMC_ROOT>/configs/*.json` | 首次启动时自动生成默认值，支持环境变量按需覆盖。 |
+| 领域数据           | 唯一权威真理源                             | 同步与维护机制                                       |
+| :----------------- | :----------------------------------------- | :--------------------------------------------------- |
+| **模块契约**       | `modules/packages/<id>/sapi/manifest.json` | 模块作者在模板中声明，定义版本、权限需求与外部依赖。 |
+| **生态检索**       | `sfmc-modules/index.json`                  | 官方轻量索引库，记录模块的 npm 包名与元数据。        |
+| **本地安装清单**   | `<SFMC_ROOT>/modules/catalog.json`         | 本地已安装模块的静态只读镜像。                       |
+| **模块启停状态**   | `<SFMC_ROOT>/modules/module-lock.json`     | **唯一决定行为包是否打包该模块的布尔状态锁**。       |
+| **持久化业务数据** | `<SFMC_ROOT>/data/sfmc_data.db`            | 由 `db-server` 托管的 SQLite 物理数据库。            |
+| **平台级配置**     | `<SFMC_ROOT>/configs/*.json`               | 首次启动时自动生成默认值，支持环境变量按需覆盖。     |
 
 ## 5. Monorepo 工作区架构（Platform Workspace）
 
@@ -175,6 +175,7 @@ ScriptsForMinecraftServer/
 ```
 
 :::note 目录约定
+
 - `packages/*`：平台级基础支撑包与核心工具，均可独立发版。
 - `modules/packages/*`：具体业务模块的运行镜像目录；平台核心代码与业务功能物理隔离。
-:::
+  :::
