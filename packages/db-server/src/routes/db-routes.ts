@@ -14,6 +14,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { json as defaultJson, type Method } from "../lib/http.js";
+import { log } from "../lib/log.js";
 import { jsonV2Fail, jsonV2Ok, type ModuleAuth } from "./_shared.js";
 import type {
   DefineTableRequest,
@@ -75,6 +76,7 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         const result = deps.schemaRegistry!.define(moduleId, req2);
         jsonV2Ok(res, { table: result.table, created: result.created });
       } catch (e) {
+        log.warn(`[define-table failed] ${moduleId} table=${(body as any)?.name}: ${(e as Error).message}`);
         jsonV2Fail(res, (e as Error).message, 400);
       }
       return true;

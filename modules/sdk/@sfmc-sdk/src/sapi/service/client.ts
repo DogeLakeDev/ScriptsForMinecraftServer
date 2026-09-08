@@ -9,8 +9,7 @@
  * - 进程内 `provide` 注册本地 handler；`get` / `call` 优先走本地总线，未命中再 HTTP fallback
  */
 
-import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
-import { HttpRequestMethod } from "@minecraft/server-net";
+import { HttpDB, SafeHttpMethod, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 
 /** 已注册跨模块服务（service）的元信息。 */
 export interface ServiceInfo {
@@ -42,7 +41,19 @@ export class ServiceError extends Error {
 
 type LocalEntry = { moduleId: string; handler: ServiceHandler };
 
-const _localHandlers = new Map<string, LocalEntry>();
+interface GlobalServiceClientState {
+  localHandlers: Map<string, LocalEntry>;
+  clients: Map<string, ServiceClient>;
+  activeModuleId: string;
+}
+
+const gServiceState: GlobalServiceClientState = (((globalThis as unknown as Record<string, unknown>).__sfmcServiceClientState as GlobalServiceClientState) ??= {
+  localHandlers: new Map<string, LocalEntry>(),
+  clients: new Map<string, ServiceClient>(),
+  activeModuleId: "",
+});
+
+const _localHandlers = gServiceState.localHandlers;
 
 /**
  * 在 SAPI 进程内注册服务处理器。
@@ -52,7 +63,7 @@ export function provide(name: string, handler: ServiceHandler): () => void {
   if (!name || typeof handler !== "function") {
     throw new ServiceError("[service.provide] 需要非空 name 与 handler", "invalid_argument", 0);
   }
-  const moduleId = _activeModuleId || "unknown";
+  const moduleId = gServiceState.activeModuleId || "unknown";
   _localHandlers.set(name, { moduleId, handler });
   return () => {
     const cur = _localHandlers.get(name);
@@ -154,7 +165,7 @@ export function createServiceClient(
 
       const qs = new URLSearchParams({ input: JSON.stringify(input) }).toString();
       const res = await HttpDB.typedRequest<{ ok: true; result: unknown }>(
-        HttpRequestMethod.GET,
+        SafeHttpMethod.Get,
         withModuleId(`/api/sfmc/services/${encodeURIComponent(name)}?${qs}`),
         undefined,
         authOpts()
@@ -185,7 +196,7 @@ export function createServiceClient(
     async list() {
       requireModuleContext("list");
       const res = await HttpDB.typedRequest<{ services: ServiceInfo[] }>(
-        HttpRequestMethod.GET,
+        SafeHttpMethod.Get,
         withModuleId("/api/sfmc/services"),
         undefined,
         authOpts()
@@ -198,8 +209,7 @@ export function createServiceClient(
 
 /* ── 兼容层：按 moduleId 登记 + 单例转发 ── */
 
-const _clients = new Map<string, ServiceClient>();
-let _activeModuleId = "";
+const _clients = gServiceState.clients;
 
 /**
  * 注入/刷新模块的 service 访问身份，并激活为单例 `service` 的转发目标。
@@ -209,11 +219,11 @@ export function setServiceModuleContext(moduleId: string, token: string, inTx: (
   if (existing) {
     existing.setAuthToken(token);
     existing.setInTxProbe(inTx);
-    _activeModuleId = moduleId;
+    gServiceState.activeModuleId = moduleId;
     return;
   }
   _clients.set(moduleId, createServiceClient(moduleId, token, inTx));
-  _activeModuleId = moduleId;
+  gServiceState.activeModuleId = moduleId;
 }
 
 /** 按 moduleId 取出已登记的作用域 service 客户端。 */
@@ -236,25 +246,25 @@ export function getServiceClient(moduleId: string): ServiceClient {
 export function clearServiceModuleContext(moduleId?: string): void {
   if (!moduleId) {
     _clients.clear();
-    _activeModuleId = "";
+    gServiceState.activeModuleId = "";
     return;
   }
   _clients.delete(moduleId);
-  if (_activeModuleId === moduleId) _activeModuleId = "";
+  if (gServiceState.activeModuleId === moduleId) gServiceState.activeModuleId = "";
 }
 
 function activeClient(): ServiceClient {
-  if (!_activeModuleId) {
+  if (!gServiceState.activeModuleId) {
     throw new ServiceError(
       `[service] 模块上下文未初始化: setServiceModuleContext 未调用`,
       "unauthorized",
       0
     );
   }
-  const c = _clients.get(_activeModuleId);
+  const c = _clients.get(gServiceState.activeModuleId);
   if (!c) {
     throw new ServiceError(
-      `[service] 找不到已激活 moduleId=${_activeModuleId} 的客户端`,
+      `[service] 找不到已激活 moduleId=${gServiceState.activeModuleId} 的客户端`,
       "unauthorized",
       0
     );

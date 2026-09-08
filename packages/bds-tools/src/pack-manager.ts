@@ -14,6 +14,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { copyDirAsync, copyFileAsync, readJsonFile } from "./fsx.js";
+import {
+  BASELINE_BEDROCK_DEPENDENCIES,
+  type PackManifestDependency,
+} from "./dependency-negotiator.js";
+export * from "./dependency-negotiator.js";
 
 /* ── 类型定义 ─────────────────────────────────────────────────────────────── */
 
@@ -34,6 +39,8 @@ export interface AssembleBehaviorPackOpts {
   uuid?: string | undefined;
   /** 稳定的 `script module uuid`（缺省时随机生成）。 */
   moduleUuid?: string | undefined;
+  /** 自定义/动态协商后的 dependencies（缺省使用 BASELINE_BEDROCK_DEPENDENCIES）。 */
+  dependencies?: PackManifestDependency[] | undefined;
 }
 
 export interface AssembleResourcePackOpts {
@@ -118,6 +125,11 @@ export function bdsWorldLevelDir(bdsRoot: string, levelName: string): string {
   return path.join(bdsWorldsDir(bdsRoot), levelName);
 }
 
+/** `<bdsRoot>/worlds/<level>/level.dat` — 世界存档权威路径 */
+export function levelDatPath(bdsRoot: string, levelName: string): string {
+  return path.join(bdsWorldLevelDir(bdsRoot, levelName), "level.dat");
+}
+
 /** 世界 enable-list JSON 绝对路径（单一权威，供读写两侧） */
 export function worldPackListFile(
   worldsDir: string,
@@ -133,9 +145,14 @@ export function configPermissionPath(bdsRoot: string, bpUuid: string): string {
   return path.join(bdsRoot, "config", bpUuid, "permission.json");
 }
 
-/** 是否已有 Script API permission.json（只读，供 preflight/status） */
+/** `<bdsRoot>/config/<bpUuid>/permissions.json` — BDS 官方规范复数权限文件路径 */
+export function configPermissionsPath(bdsRoot: string, bpUuid: string): string {
+  return path.join(bdsRoot, "config", bpUuid, "permissions.json");
+}
+
+/** 是否已有 Script API permission.json 或 permissions.json（只读，供 preflight/status） */
 export function hasConfigPermission(bdsRoot: string, bpUuid: string): boolean {
-  return fs.existsSync(configPermissionPath(bdsRoot, bpUuid));
+  return fs.existsSync(configPermissionsPath(bdsRoot, bpUuid)) || fs.existsSync(configPermissionPath(bdsRoot, bpUuid));
 }
 
 /** 随机生成 BP/RP manifest.json header.uuid (RFC 4122 v4) */
@@ -165,13 +182,17 @@ export async function assembleBehaviorPack(opts: AssembleBehaviorPackOpts): Prom
     await fs.promises.mkdir(path.join(opts.outDir, "scripts"), { recursive: true });
     await fs.promises.writeFile(path.join(opts.outDir, "scripts", "main.js"), "/* no scripts */\n", "utf8");
   }
-  await writeBehaviorPackManifest(opts.outDir, {
-    name: opts.projectName,
-    uuid: bpUuid,
-    version,
-    description: opts.description,
-    moduleUuid: opts.moduleUuid,
-  });
+  await writeBehaviorPackManifest(
+    opts.outDir,
+    {
+      name: opts.projectName,
+      uuid: bpUuid,
+      version,
+      description: opts.description,
+      moduleUuid: opts.moduleUuid,
+    },
+    opts.dependencies
+  );
   if (opts.iconSrc && fs.existsSync(opts.iconSrc)) {
     await copyFileAsync(opts.iconSrc, path.join(opts.outDir, "pack_icon.png"));
   }
@@ -259,20 +280,57 @@ export async function deployToBDS(opts: DeployOpts): Promise<DeployResult> {
 }
 
 /**
- * 确保 BDS Script API 侧 `<bdsRoot>/config/<bpUuid>/permission.json` 存在。
- * 已存在则跳过(不覆盖用户手工改动)。
- * @returns true = 新写入; false = 已存在跳过
+ * 确保 BDS Script API 侧权限文件存在并包含完整的 SFMC 所需模块权限。
+ * - 自动增量合并现有 allowed_modules，自动补齐新增权限（如 @minecraft/diagnostics）
+ * - 同时维护 BDS 官方规范的 permissions.json 与历史兼容的 permission.json
+ * - 同时更新 moduleUuid（若提供）与 config/default/permissions.json 兜底权限
+ * @returns true = 有新增/更新; false = 已是最新无需修改
  */
-export async function ensureConfigPermission(bdsRoot: string, bpUuid: string): Promise<boolean> {
-  const file = configPermissionPath(bdsRoot, bpUuid);
-  if (fs.existsSync(file)) return false;
-  const dir = path.dirname(file);
-  await fs.promises.mkdir(dir, { recursive: true });
-  const payload = { allowed_modules: [...SFMC_PERMISSIONS] };
-  const tmp = path.join(dir, `.permission.${process.pid}.tmp`);
-  await fs.promises.writeFile(tmp, JSON.stringify(payload, null, 2) + "\n", "utf8");
-  await fs.promises.rename(tmp, file);
-  return true;
+export async function ensureConfigPermission(
+  bdsRoot: string,
+  bpUuid: string,
+  moduleUuid?: string
+): Promise<boolean> {
+  let changed = false;
+
+  const updateFile = async (filePath: string): Promise<boolean> => {
+    let currentModules: string[] = [];
+    let restConfig: Record<string, unknown> = {};
+    if (fs.existsSync(filePath)) {
+      try {
+        const raw = readJsonFile<{ allowed_modules?: string[]; [k: string]: unknown }>(filePath);
+        if (Array.isArray(raw.allowed_modules)) {
+          currentModules = raw.allowed_modules;
+        }
+        const { allowed_modules: _, ...rest } = raw;
+        restConfig = rest;
+      } catch {
+        // 文件损坏则按全新写入
+      }
+    }
+    const merged = Array.from(new Set([...currentModules, ...SFMC_PERMISSIONS]));
+    if (merged.length === currentModules.length && fs.existsSync(filePath)) {
+      return false;
+    }
+    const dir = path.dirname(filePath);
+    await fs.promises.mkdir(dir, { recursive: true });
+    const payload = { allowed_modules: merged, ...restConfig };
+    const tmp = path.join(dir, `.permission.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
+    await fs.promises.writeFile(tmp, JSON.stringify(payload, null, 2) + "\n", "utf8");
+    await fs.promises.rename(tmp, filePath);
+    return true;
+  };
+
+  const uuids = Array.from(new Set([bpUuid, ...(moduleUuid ? [moduleUuid] : [])]));
+  for (const u of uuids) {
+    if (await updateFile(configPermissionsPath(bdsRoot, u))) changed = true;
+    if (await updateFile(configPermissionPath(bdsRoot, u))) changed = true;
+  }
+
+  const defaultFile = path.join(bdsRoot, "config", "default", "permissions.json");
+  if (await updateFile(defaultFile)) changed = true;
+
+  return changed;
 }
 
 /** 从已装配 BP/RP 目录读取 header.uuid + version;失败返回 null。 */
@@ -294,6 +352,19 @@ export function readPackManifestHeader(
     return { uuid, version, ...(typeof moduleUuid === "string" ? { moduleUuid } : {}) };
   } catch {
     return null;
+  }
+}
+
+
+/** 从已装配 BP/RP 目录读取 dependencies 列表；若无或失败返回 []。 */
+export function readPackManifestDependencies(packDir: string): PackManifestDependency[] {
+  const file = path.join(packDir, "manifest.json");
+  if (!fs.existsSync(file)) return [];
+  try {
+    const raw = readJsonFile<{ dependencies?: PackManifestDependency[] }>(file);
+    return Array.isArray(raw.dependencies) ? raw.dependencies : [];
+  } catch {
+    return [];
   }
 }
 
@@ -359,7 +430,8 @@ export async function writeBehaviorPackManifest(
     version: [number, number, number];
     description?: string | undefined;
     moduleUuid?: string | undefined;
-  }
+  },
+  dependencies?: PackManifestDependency[] | undefined
 ): Promise<void> {
   const manifest = {
     format_version: 2,
@@ -379,11 +451,8 @@ export async function writeBehaviorPackManifest(
         version: header.version,
       },
     ],
-    dependencies: [
-      { module_name: "@minecraft/server", version: "1.18.0" },
-      { module_name: "@minecraft/server-admin", version: "1.0.0-beta" },
-      { module_name: "@minecraft/diagnostics", version: "1.0.0-beta" },
-    ],
+    dependencies:
+      dependencies && dependencies.length > 0 ? dependencies : BASELINE_BEDROCK_DEPENDENCIES,
   };
   const file = path.join(outDir, "manifest.json");
   await fs.promises.mkdir(outDir, { recursive: true });

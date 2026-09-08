@@ -10,8 +10,7 @@
  * - 模块冷启动时 ModuleRegistry 将作用域客户端注入 lifecycle（见 ModuleServices）
  */
 
-import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
-import { HttpRequestMethod } from "@minecraft/server-net";
+import { HttpDB, SafeHttpMethod, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 import type {
   ColumnDef,
   DeleteResult,
@@ -136,7 +135,7 @@ export function createDbClient(moduleId: string, token: string): DbClient {
 
   async function post<T>(path: string, body: unknown): Promise<T> {
     const res = await HttpDB.typedRequest<T>(
-      HttpRequestMethod.POST,
+      SafeHttpMethod.Post,
       withModuleId(path),
       body as Record<string, unknown>,
       authOpts()
@@ -305,8 +304,17 @@ export function createDbClient(moduleId: string, token: string): DbClient {
 
 /* ── 兼容层：按 moduleId 登记 + 单例转发到「当前激活」实例 ── */
 
-const _clients = new Map<string, DbClient>();
-let _activeModuleId = "";
+interface GlobalDbClientState {
+  clients: Map<string, DbClient>;
+  activeModuleId: string;
+}
+
+const gDbState: GlobalDbClientState = (((globalThis as unknown as Record<string, unknown>).__sfmcDbClientState as GlobalDbClientState) ??= {
+  clients: new Map<string, DbClient>(),
+  activeModuleId: "",
+});
+
+const _clients = gDbState.clients;
 
 /**
  * 登记/刷新模块数据库身份，并激活为单例 `db` 的转发目标。
@@ -316,11 +324,11 @@ export function setDbModuleContext(moduleId: string, token: string): void {
   const existing = _clients.get(moduleId);
   if (existing) {
     existing.setAuthToken(token);
-    _activeModuleId = moduleId;
+    gDbState.activeModuleId = moduleId;
     return;
   }
   _clients.set(moduleId, createDbClient(moduleId, token));
-  _activeModuleId = moduleId;
+  gDbState.activeModuleId = moduleId;
 }
 
 /**
@@ -346,25 +354,25 @@ export function getDbClient(moduleId: string): DbClient {
 export function clearDbModuleContext(moduleId?: string): void {
   if (!moduleId) {
     _clients.clear();
-    _activeModuleId = "";
+    gDbState.activeModuleId = "";
     return;
   }
   _clients.delete(moduleId);
-  if (_activeModuleId === moduleId) _activeModuleId = "";
+  if (gDbState.activeModuleId === moduleId) gDbState.activeModuleId = "";
 }
 
 function activeClient(): DbClient {
-  if (!_activeModuleId) {
+  if (!gDbState.activeModuleId) {
     throw new DbError(
       `[db] 模块上下文未初始化: setDbModuleContext 未调用（host-bootstrap/ModuleRegistry）`,
       "unauthorized",
       0
     );
   }
-  const c = _clients.get(_activeModuleId);
+  const c = _clients.get(gDbState.activeModuleId);
   if (!c) {
     throw new DbError(
-      `[db] 找不到已激活 moduleId=${_activeModuleId} 的客户端`,
+      `[db] 找不到已激活 moduleId=${gDbState.activeModuleId} 的客户端`,
       "unauthorized",
       0
     );
@@ -377,8 +385,8 @@ function activeClient(): DbClient {
  * 作用域路径应改用配对 DbClient.isTxRecording()，避免跨模块误伤。
  */
 export function isDbTxRecording(): boolean {
-  if (!_activeModuleId) return false;
-  const c = _clients.get(_activeModuleId);
+  if (!gDbState.activeModuleId) return false;
+  const c = _clients.get(gDbState.activeModuleId);
   return c?.isTxRecording() ?? false;
 }
 

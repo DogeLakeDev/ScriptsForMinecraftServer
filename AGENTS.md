@@ -24,7 +24,7 @@
 | `modules/sdk/@sfmc-eslint-plugin/` | `@sfmc-bds/eslint-plugin`  | 模块与平台定制 ESLint 规则集                                      |
 | `packages/db-server/`              | `@sfmc-bds/db-server`      | SQLite HTTP 数据服务，默认监听 `:3001`（要求 Node ≥ 22.13）       |
 | `packages/qq-bridge/`              | `@sfmc-bds/qq-bridge`      | 消息网桥服务（支持 official 与 llbot 双协议）                     |
-| `packages/bds-tools/`              | `@sfmc-bds/bds-tools`      | BDS 版本管理、更新与行为包动态组装构建                            |
+| `packages/bds-tools/`              | `@sfmc-bds/bds-tools`      | BDS 生命周期与版本管理、更新灾备、行为包动态组装构建与 server.properties 智能本地化 |
 | `packages/cli/`                    | `@sfmc-bds/cli`            | 平台运维编排命令行工具与交互式 REPL                               |
 | `packages/meta/`                   | `@sfmc-bds/sfmc`           | 平台元包聚合分发                                                  |
 | `packages/create-module/`          | `@sfmc-bds/create-module`  | 业务模块脚手架初始化引擎（`npm create @sfmc-bds/module`）         |

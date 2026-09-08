@@ -218,7 +218,7 @@ export class Command {
 
   /** 订阅 `doge:` 命名空间 scriptEvent，将事件 id 转给 `trigger`。 */
   static registerScriptEvent() {
-    system.afterEvents.scriptEventReceive.subscribe(
+    system.afterEvents?.scriptEventReceive?.subscribe?.(
       (event) => {
         this.trigger(event.sourceEntity as Player | undefined, event.id.substring(5));
       },

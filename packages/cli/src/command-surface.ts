@@ -244,7 +244,7 @@ function moduleChildNodes(mode: CommandMode): PaletteNode[] {
 }
 
 function packsChildNodes(mode: CommandMode): PaletteNode[] {
-  const noArg = new Set(["list", "doctor", "path", "sources"]);
+  const noArg = new Set(["list", "path", "sources"]);
   return listVisiblePacksSubs(mode).map((sub) => ({
     label: sub,
     token: sub,

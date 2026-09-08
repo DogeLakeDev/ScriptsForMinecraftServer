@@ -13,7 +13,7 @@
  * 直接 import pack-lifecycle 的 cmdPackBuild / deployPacks（确保只有一个 spawn 入口）。
  */
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -33,9 +33,10 @@ import {
   deployedBpDir,
   formatPackLoadInfo,
   scanLocalModules,
+  createSdkResolvePlugin,
   type DeployCatalog,
 } from "./pack-lifecycle.js";
-import { ROOT, resolveServiceScript } from "./runtime.js";
+import { ROOT, getRoot, resolveServiceScript, resolveSdkPackageRoot } from "./runtime.js";
 import { c } from "./theme.js";
 import { t } from "./i18n/index.js";
 import { pushLog } from "./logs.js";
@@ -48,7 +49,7 @@ function spawnPackManager(args: string[]): Promise<SpawnResult> {
     const script = resolveServiceScript("pack-manager");
     const proc = spawn(process.execPath, [script, ...args], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, SFMC_ROOT: ROOT, SFMC_SERVICE: "pack-manager" },
+      env: { ...process.env, SFMC_ROOT: getRoot(), SFMC_SERVICE: "pack-manager" },
     });
     let output = "";
     proc.stdout?.on("data", (d: Buffer) => {
@@ -76,12 +77,13 @@ async function bundleBehaviorPackScript(): Promise<void> {
   }
 
   const { build } = await import("esbuild");
-  const sdkRoot = await resolveSdkRootForEsbuild();
+  const sdkRoot = resolveSdkPackageRoot();
   await build({
     stdin: {
-      contents: entries
-        .map((e) => `import ${JSON.stringify(path.resolve(e).replace(/\\/g, "/"))};`)
-        .join("\n"),
+      contents: [
+        'import "sfmc:host";',
+        ...entries.map((e) => `import ${JSON.stringify(path.resolve(e).replace(/\\/g, "/"))};`),
+      ].join("\n"),
       resolveDir: ROOT,
       sourcefile: "bootstrap.ts",
       loader: "ts",
@@ -92,12 +94,8 @@ async function bundleBehaviorPackScript(): Promise<void> {
     format: "esm",
     target: "es2022",
     logLevel: "warning",
-    sourcemap: false,
+    sourcemap: true,
     external: ["@minecraft/*"],
-    // BDS host 启动：与 module-loader barrel 分离（DIP），须在模块 register 之前执行
-    banner: {
-      js: 'import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";\ninstallHostBootstrap();\n',
-    },
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         module: "ESNext",
@@ -110,50 +108,6 @@ async function bundleBehaviorPackScript(): Promise<void> {
     plugins: [createSdkResolvePlugin(sdkRoot)],
   });
   pushLog(`esbuild bundled ${entries.length} entr(y/ies)`, "pack", "info");
-}
-
-async function resolveSdkRootForEsbuild(): Promise<string> {
-  const { resolveSdkPackageRoot } = await import("./runtime.js");
-  return resolveSdkPackageRoot();
-}
-
-/** esbuild 插件：解析 @sfmc-bds/sdk 的 exports 字段（与 pack-lifecycle.ts 内部实现同步）。 */
-function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
-  const pkg = JSON.parse(readFileSync(path.join(sdkRoot, "package.json"), "utf8")) as {
-    exports?: Record<string, string | { import?: string; default?: string; types?: string }>;
-  };
-  const exportsMap = pkg.exports ?? {};
-
-  function resolveExportSubpath(subpath: string): string | null {
-    const key = subpath === "" ? "." : `./${subpath}`;
-    const entry = exportsMap[key];
-    if (!entry) return null;
-    const rel = typeof entry === "string" ? entry : (entry.import ?? entry.default);
-    if (!rel || typeof rel !== "string") return null;
-    const abs = path.join(sdkRoot, rel);
-    return existsSync(abs) ? abs : null;
-  }
-
-  return {
-    name: "sfmc-sdk-resolve",
-    setup(build) {
-      build.onResolve({ filter: /^@sfmc(?:-bds)?\/sdk(?:\/|$)/ }, (args) => {
-        const normalized = args.path.replace(/^@sfmc\/sdk/, "@sfmc-bds/sdk");
-        const sub = normalized === "@sfmc-bds/sdk" ? "" : normalized.slice("@sfmc-bds/sdk/".length);
-        const resolved = resolveExportSubpath(sub);
-        if (!resolved) {
-          return {
-            errors: [
-              {
-                text: `Cannot resolve ${args.path} under SDK at ${sdkRoot} (export "./${sub || "."}" missing or file absent; run sdk:build?)`,
-              },
-            ],
-          };
-        }
-        return { path: resolved };
-      });
-    },
-  };
 }
 
 /** spawn assemble-bp verb。 */
@@ -172,6 +126,12 @@ async function spawnAssembleBp(catalog: DeployCatalog): Promise<SpawnResult> {
     catalog.bpVersion.join(","),
   ];
   if (catalog.bpModuleUuid) args.push("--module-uuid", catalog.bpModuleUuid);
+  if (catalog.dependencies && catalog.dependencies.length > 0) {
+    const depsFile = path.join(buildRoot(), "bp-dependencies.json");
+    await fs.mkdir(buildRoot(), { recursive: true });
+    await fs.writeFile(depsFile, JSON.stringify(catalog.dependencies), "utf8");
+    args.push("--dependencies-json", depsFile);
+  }
   const r = await spawnPackManager(args);
   if (r.code === 0) {
     pushLog(`assembled BP uuid=${catalog.bpUuid}`, "pack", "info");
@@ -404,18 +364,28 @@ async function spawnEnsurePermission(catalog: DeployCatalog): Promise<SpawnResul
   return r;
 }
 
+export type BuildModulePacksResult = {
+  success: boolean;
+  message: string;
+  catalog?: DeployCatalog;
+};
+
 /**
- * `sfmc mod build` —— 组装 BP + RP（不部署）。
+ * 组装 BP + RP 纯逻辑（不部署）。
  * 仅当 catalog 与世界内已部署不一致时执行；否则直接打"已同步"。
  */
-export async function cmdModuleBuild(_args: string[]): Promise<string> {
+export async function buildModulePacks(force = false): Promise<BuildModulePacksResult> {
   try {
     const { bdsRoot, levelName } = resolveBdsContext();
     const deployed = readDeployedCatalog(bdsRoot, levelName);
     const desired = await computeDesiredCatalog(deployed ? reusePackIds(deployed) : undefined);
 
-    if (deployed && catalogsEqual(desired, deployed)) {
-      return formatPackLoadInfo(desired, false);
+    if (!force && deployed && catalogsEqual(desired, deployed)) {
+      return {
+        success: true,
+        message: formatPackLoadInfo(desired, false),
+        catalog: deployed,
+      };
     }
 
     pushLog(
@@ -433,9 +403,19 @@ export async function cmdModuleBuild(_args: string[]): Promise<string> {
     }
 
     const bpR = await spawnAssembleBp(desired);
-    if (bpR.code !== 0) return c.red(bpR.output.trim() || `assemble-bp exit ${bpR.code}`);
+    if (bpR.code !== 0) {
+      return {
+        success: false,
+        message: c.red(bpR.output.trim() || `assemble-bp exit ${bpR.code}`),
+      };
+    }
     const rpR = await spawnAssembleRp(desired, rpDirs);
-    if (rpR.code !== 0) return c.red(rpR.output.trim() || `assemble-rp exit ${rpR.code}`);
+    if (rpR.code !== 0) {
+      return {
+        success: false,
+        message: c.red(rpR.output.trim() || `assemble-rp exit ${rpR.code}`),
+      };
+    }
 
     desired.generatedAt = Date.now();
     if (Object.keys(rpDirs).length === 0) {
@@ -444,26 +424,45 @@ export async function cmdModuleBuild(_args: string[]): Promise<string> {
     }
     writeJson(path.join(bpOut(), DEPLOY_CATALOG_NAME), desired);
 
-    return c.green(t("pack.built", { path: bpOut() })) + "\n" + formatPackLoadInfo(desired, true);
+    return {
+      success: true,
+      message: formatPackLoadInfo(desired, true),
+      catalog: desired,
+    };
   } catch (e) {
-    return c.red((e as Error).message);
+    return {
+      success: false,
+      message: c.red((e as Error).message),
+    };
   }
 }
 
 /**
- * `sfmc mod reload [--build-only]` —— 组装 + 部署 + 清理过期 + 写权限 + （默认）发 reload 到 BDS。
+ * `sfmc mod build` —— 组装 BP + RP（不部署）。
  */
-export async function cmdModuleReload(args: string[]): Promise<string> {
-  const buildOnly = args.includes("--build-only");
+export async function cmdModuleBuild(args: string[] = []): Promise<string> {
+  const force = args.includes("--force") || args.includes("-f");
+  const res = await buildModulePacks(force);
+  return res.message;
+}
+
+/**
+ * `sfmc mod reload [--build-only] [--force]` —— 组装 + 部署 + 清理过期 + 写权限 + （默认）发 reload 到 BDS。
+ */
+export async function cmdModuleReload(args: string[] = []): Promise<string> {
+  const buildOnly = args?.includes("--build-only") ?? false;
+  const force = args?.includes("--force") || args?.includes("-f");
   const parts: string[] = [];
 
-  const buildMsg = await cmdModuleBuild([]);
-  parts.push(buildMsg.trimEnd());
-  if (buildMsg.startsWith(c.red(""))) return parts.join("\n") + "\n";
+  const buildRes = await buildModulePacks(force);
+  parts.push(buildRes.message.trimEnd());
+  if (!buildRes.success || !buildRes.catalog) {
+    return parts.join("\n") + "\n";
+  }
 
   try {
     const { bdsRoot, levelName } = resolveBdsContext();
-    const desired = await computeDesiredCatalog();
+    const desired = buildRes.catalog;
 
     const depR = await spawnDeploy(desired);
     if (depR.code !== 0) {

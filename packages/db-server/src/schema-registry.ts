@@ -15,7 +15,15 @@
 import type { DatabaseSync } from "node:sqlite";
 import { log } from "./lib/log.js";
 
-export type ColumnType = "text" | "integer" | "real" | "blob";
+export type ColumnType =
+  | "text"
+  | "integer"
+  | "real"
+  | "blob"
+  | "TEXT"
+  | "INTEGER"
+  | "REAL"
+  | "BLOB";
 
 export interface ColumnDef {
   type: ColumnType;
@@ -51,7 +59,16 @@ interface DefinedTable {
 export const PLATFORM_MODULE_ID = "__platform__";
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const VALID_TYPES: Set<ColumnType> = new Set(["text", "integer", "real", "blob"]);
+const VALID_TYPES: Set<string> = new Set([
+  "text",
+  "integer",
+  "real",
+  "blob",
+  "TEXT",
+  "INTEGER",
+  "REAL",
+  "BLOB",
+]);
 
 function assertValid(req: DefineTableRequest, moduleId: string): void {
   if (!IDENT.test(req.name)) throw new Error(`[schema] ${moduleId}: invalid table name "${req.name}"`);
@@ -61,9 +78,11 @@ function assertValid(req: DefineTableRequest, moduleId: string): void {
   let pks = 0;
   for (const [colName, def] of Object.entries(req.columns)) {
     if (!IDENT.test(colName)) throw new Error(`[schema] ${moduleId}: invalid column name "${colName}" in ${req.name}`);
-    if (!VALID_TYPES.has(def.type)) {
+    const rawType = String(def.type || "");
+    if (!VALID_TYPES.has(rawType)) {
       throw new Error(`[schema] ${moduleId}: ${req.name}.${colName} bad type "${def.type}"`);
     }
+    def.type = rawType.toLowerCase() as ColumnType;
     if (def.primary) pks++;
     if (def.ref) {
       const [t, c] = def.ref.split(".");
@@ -173,12 +192,74 @@ export class SchemaRegistry {
 
   /** 幂等地物理建表 + 建索引(供 define / finalize 共用)。 */
   private createPhysical(t: DefinedTable): void {
-    const cols = buildColumnList(t.columns, t.softDelete);
-    this.db.exec(`CREATE TABLE IF NOT EXISTS "${t.name}" (${cols.join(", ")})`);
+    const existingTableInfo = this.db.prepare(`PRAGMA table_info("${t.name}")`).all() as Array<{
+      cid: number;
+      name: string;
+      type: string;
+      notnull: number;
+      dflt_value: unknown;
+      pk: number;
+    }>;
+
+    if (existingTableInfo.length > 0) {
+      let rowCount = 0;
+      try {
+        const countRes = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}"`).get() as { c: number } | undefined;
+        rowCount = countRes?.c ?? 0;
+      } catch {
+        rowCount = 0;
+      }
+      const existingColNames = new Set(existingTableInfo.map((c) => c.name));
+      const requiredCols = Object.keys(t.columns);
+      const hasMissingRequiredCol = requiredCols.some((c) => !existingColNames.has(c));
+      const pkDef = Object.entries(t.columns).find(([_, c]) => c.primary);
+      const pkMatches = !pkDef || existingTableInfo.some((c) => c.pk === 1 && c.name === pkDef[0]);
+
+      if (rowCount === 0 && (hasMissingRequiredCol || !pkMatches)) {
+        // 空表且结构与当前定义不兼容（如旧版本遗留空表）：安全删除并以新结构重建
+        try {
+          this.db.exec(`DROP TABLE "${t.name}"`);
+        } catch {}
+        const cols = buildColumnList(t.columns, t.softDelete);
+        this.db.exec(`CREATE TABLE "${t.name}" (${cols.join(", ")})`);
+      } else {
+        // 表中有数据或结构兼容：通过 ALTER TABLE ADD COLUMN 增量补齐缺失列
+        for (const [colName, colDef] of Object.entries(t.columns)) {
+          if (!existingColNames.has(colName)) {
+            const clause = buildColumnClause(colName, colDef);
+            try {
+              this.db.exec(`ALTER TABLE "${t.name}" ADD COLUMN ${clause};`);
+            } catch (e) {
+              log.warn(`[schema] ${t.moduleId}: ALTER TABLE "${t.name}" ADD COLUMN "${colName}" 异常: ${(e as Error).message}`);
+            }
+          }
+        }
+        if (t.softDelete) {
+          if (!existingColNames.has("_deleted_at")) {
+            try {
+              this.db.exec(`ALTER TABLE "${t.name}" ADD COLUMN "_deleted_at" INTEGER;`);
+            } catch {}
+          }
+          if (!existingColNames.has("_version")) {
+            try {
+              this.db.exec(`ALTER TABLE "${t.name}" ADD COLUMN "_version" INTEGER DEFAULT 0;`);
+            } catch {}
+          }
+        }
+      }
+    } else {
+      const cols = buildColumnList(t.columns, t.softDelete);
+      this.db.exec(`CREATE TABLE IF NOT EXISTS "${t.name}" (${cols.join(", ")})`);
+    }
+
     for (const [n, def] of Object.entries(t.columns)) {
       if (def.index) {
         const idxName = `idx_${t.name}_${n}`.slice(0, 60);
-        this.db.exec(`CREATE INDEX IF NOT EXISTS "${idxName}" ON "${t.name}"("${n}")`);
+        try {
+          this.db.exec(`CREATE INDEX IF NOT EXISTS "${idxName}" ON "${t.name}"("${n}")`);
+        } catch (e) {
+          log.warn(`[schema] ${t.moduleId}: 创建索引 "${idxName}" 失败: ${(e as Error).message}`);
+        }
       }
     }
   }

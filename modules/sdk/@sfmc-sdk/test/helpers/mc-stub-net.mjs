@@ -1,15 +1,17 @@
 /** 测试用 @minecraft/server-net 薄 stub（仅满足 HttpDB / 客户端 import）。 */
 export const HttpRequestMethod = {
-  GET: "GET",
-  POST: "POST",
-  PUT: "PUT",
-  DELETE: "DELETE",
-  HEAD: "HEAD",
   Get: "Get",
   Post: "Post",
   Put: "Put",
   Delete: "Delete",
   Head: "Head",
+  Patch: "Patch",
+  GET: "Get",
+  POST: "Post",
+  PUT: "Put",
+  DELETE: "Delete",
+  HEAD: "Head",
+  PATCH: "Patch",
 };
 
 export class HttpHeader {

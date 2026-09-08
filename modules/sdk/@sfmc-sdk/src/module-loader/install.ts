@@ -109,8 +109,18 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   ConfigManager.bindDataAdapter(adapter);
   if (options.hostBackend) options.hostBackend.bindDataAdapter(adapter);
 
-  // 装配 system.events
-  system.beforeEvents.startup.subscribe(async () => {
+  // 装配系统生命周期事件
+  const worldAfter = (
+    world as unknown as {
+      afterEvents?: {
+        worldLoad?: { subscribe: (cb: () => void) => void };
+      };
+    }
+  )?.afterEvents;
+
+  let worldLoadFired = false;
+
+  const runStartup = async () => {
     // Sentry / 控制台 debug：DSN 与 sfmc_debug 均缺省关闭
     initSentryIfConfigured();
     applyDebugFromVariables();
@@ -119,20 +129,54 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
     } catch (e) {
       debug.e("HOST", "ConfigManager.init failed", e);
     }
-    ModuleRegistry.bootAll();
+    // 预初始化所有已发现模块的上下文客户端（确保 scoped 虚拟代理或单例均立即可用）
+    for (const d of ModuleRegistry.list()) {
+      const token = ConfigManager.getModuleToken(d.id);
+      const configKey = ConfigManager.getModuleConfigKey(d.id) || d.id;
+      setDbModuleContext(d.id, token);
+      setConfigModuleContext(d.id, configKey, token);
+      const db = getDbClient(d.id);
+      setServiceModuleContext(d.id, token, () => db.isTxRecording());
+    }
+    await ModuleRegistry.bootAll();
     announceLoaded();
-  });
+    // 若环境无 worldLoad 事件（如 1.18 稳定版）或事件在 ConfigManager 就绪前已触发，立即执行 bootAfterWorldLoad
+    if (!worldAfter?.worldLoad?.subscribe || worldLoadFired) {
+      await ModuleRegistry.bootAfterWorldLoad();
+    }
+  };
 
-  world.afterEvents.worldLoad.subscribe(() => {
-    if (!ConfigManager.isReady()) return;
-    ModuleRegistry.bootAfterWorldLoad();
-  });
+  const sysBefore = (
+    system as unknown as {
+      beforeEvents?: {
+        startup?: { subscribe: (cb: () => void) => void };
+        shutdown?: { subscribe: (cb: () => void) => void };
+      };
+    }
+  )?.beforeEvents;
 
-  system.beforeEvents.shutdown.subscribe(() => {
-    try {
-      ModuleRegistry.teardown();
-    } catch {}
-  });
+  if (sysBefore?.startup?.subscribe) {
+    sysBefore.startup.subscribe(runStartup);
+  } else {
+    // 稳定版（如 1.x 无 system.beforeEvents）平稳降级：通过 system.run() 在首 tick 执行启动装配
+    system.run(runStartup);
+  }
+
+  if (worldAfter?.worldLoad?.subscribe) {
+    worldAfter.worldLoad.subscribe(() => {
+      worldLoadFired = true;
+      if (!ConfigManager.isReady()) return;
+      ModuleRegistry.bootAfterWorldLoad();
+    });
+  }
+
+  if (sysBefore?.shutdown?.subscribe) {
+    sysBefore.shutdown.subscribe(() => {
+      try {
+        ModuleRegistry.teardown();
+      } catch {}
+    });
+  }
 
   return _bootstrapBackend();
 }

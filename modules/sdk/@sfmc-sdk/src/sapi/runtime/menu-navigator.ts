@@ -9,7 +9,8 @@
  */
 
 import { Player, system } from "@minecraft/server";
-import {
+import * as serverUi from "@minecraft/server-ui";
+import type {
   ButtonOptions,
   CustomForm,
   DataDrivenScreenClosedReason,
@@ -28,7 +29,18 @@ import {
 } from "@minecraft/server-ui";
 import { Msg } from "./msg.js";
 
-export { ObservableBoolean, ObservableNumber, ObservableString };
+const CustomFormCtor = (serverUi as Record<string, any>).CustomForm as typeof CustomForm | undefined;
+const MessageBoxCtor = (serverUi as Record<string, any>).MessageBox as typeof MessageBox | undefined;
+const ObservableBooleanCtor = (serverUi as Record<string, any>).ObservableBoolean as typeof ObservableBoolean | undefined;
+const ObservableNumberCtor = (serverUi as Record<string, any>).ObservableNumber as typeof ObservableNumber | undefined;
+const ObservableStringCtor = (serverUi as Record<string, any>).ObservableString as typeof ObservableString | undefined;
+const DataDrivenScreenClosedReasonEnum = (serverUi as Record<string, any>).DataDrivenScreenClosedReason as typeof DataDrivenScreenClosedReason | undefined;
+
+export {
+  ObservableBooleanCtor as ObservableBoolean,
+  ObservableNumberCtor as ObservableNumber,
+  ObservableStringCtor as ObservableString,
+};
 
 /**
  * 创建客户端可写（`clientWritable: true`）的响应式字符串 Observable 对象。
@@ -37,7 +49,10 @@ export { ObservableBoolean, ObservableNumber, ObservableString };
  * @returns 响应式字符串对象。
  */
 export function obsStr(v = ""): ObservableString {
-  return new ObservableString(v, { clientWritable: true } as any);
+  if (!ObservableStringCtor) {
+    throw new Error("当前环境下的 @minecraft/server-ui 不支持 ObservableString（需 Preview/DDUI 支持）");
+  }
+  return new ObservableStringCtor(v, { clientWritable: true } as any);
 }
 
 /**
@@ -47,7 +62,10 @@ export function obsStr(v = ""): ObservableString {
  * @returns 响应式数字对象。
  */
 export function obsNum(v = 0): ObservableNumber {
-  return new ObservableNumber(v, { clientWritable: true } as any);
+  if (!ObservableNumberCtor) {
+    throw new Error("当前环境下的 @minecraft/server-ui 不支持 ObservableNumber（需 Preview/DDUI 支持）");
+  }
+  return new ObservableNumberCtor(v, { clientWritable: true } as any);
 }
 
 /**
@@ -57,7 +75,10 @@ export function obsNum(v = 0): ObservableNumber {
  * @returns 响应式布尔对象。
  */
 export function obsBool(v = false): ObservableBoolean {
-  return new ObservableBoolean(v, { clientWritable: true } as any);
+  if (!ObservableBooleanCtor) {
+    throw new Error("当前环境下的 @minecraft/server-ui 不支持 ObservableBoolean（需 Preview/DDUI 支持）");
+  }
+  return new ObservableBooleanCtor(v, { clientWritable: true } as any);
 }
 
 /** CustomForm 页面构建器接口（支持链式添加各类表单控件）。 */
@@ -103,8 +124,8 @@ export class MenuNavigator {
   private history: string[] = [];
   private player: Player;
   private form: CustomForm | null = null;
-  private titleObs: ObservableString = new ObservableString("");
-  private backVis: ObservableBoolean = new ObservableBoolean(false);
+  private titleObs: ObservableString | null = null;
+  private backVis: ObservableBoolean | null = null;
   /** 跨页面共享的状态对象。 */
   state: Record<string, any> = {};
   private _confirmIdx = 0;
@@ -113,12 +134,18 @@ export class MenuNavigator {
 
   constructor(player: Player) {
     this.player = player;
+    if (ObservableStringCtor && ObservableBooleanCtor) {
+      this.titleObs = new ObservableStringCtor("");
+      this.backVis = new ObservableBooleanCtor(false);
+    }
   }
 
   /** 注册一个 section（id、标题与构建函数）。 */
   section(id: string, title: string, build: PageBuildFn): this {
     this.sections.set(id, { title, build });
-    this.sectionVis.set(id, new ObservableBoolean(false));
+    if (ObservableBooleanCtor) {
+      this.sectionVis.set(id, new ObservableBooleanCtor(false));
+    }
     return this;
   }
 
@@ -127,7 +154,7 @@ export class MenuNavigator {
     const token = ++this.sessionToken;
     this.history = [sectionId];
     this.applySection(sectionId);
-    this.backVis.setData(false);
+    this.backVis?.setData(false);
     await this.buildAndShow(token);
   }
 
@@ -175,16 +202,19 @@ export class MenuNavigator {
   /** 弹出 MessageBox 确认框；返回是否点击确认。 */
   async confirmMessage(title: string, body: string, confirm = "确认", cancel = "取消"): Promise<boolean> {
     if (this.form?.isShowing()) this.form.close();
-    const box = new MessageBox(this.player, title);
+    if (!MessageBoxCtor) {
+      throw new Error("当前环境下的 @minecraft/server-ui 不支持 MessageBox");
+    }
+    const box = new MessageBoxCtor(this.player, title);
     box.body(body).button1(confirm).button2(cancel);
     for (let i = 0; i < 20; i++) {
       try {
         const result = await box.show();
-        if (result.closeReason === DataDrivenScreenClosedReason.UserBusy) {
+        if (result.closeReason === DataDrivenScreenClosedReasonEnum?.UserBusy) {
           await system.waitTicks(10);
           continue;
         }
-        return result.closeReason === DataDrivenScreenClosedReason.ClientClosed && result.selection === 0;
+        return result.closeReason === DataDrivenScreenClosedReasonEnum?.ClientClosed && result.selection === 0;
       } catch {
         await system.waitTicks(2);
       }
@@ -239,7 +269,10 @@ export class MenuNavigator {
   async message(title: string, body: string): Promise<void> {
     const formWasOpen = this.form?.isShowing() ?? false;
     if (formWasOpen) this.form!.close();
-    const box = new MessageBox(this.player, title);
+    if (!MessageBoxCtor) {
+      throw new Error("当前环境下的 @minecraft/server-ui 不支持 MessageBox");
+    }
+    const box = new MessageBoxCtor(this.player, title);
     box.body(body);
     box.button1("§a确定");
     box.button2("§c关闭");
@@ -261,11 +294,15 @@ export class MenuNavigator {
   private async buildAndShow(token = this.sessionToken): Promise<void> {
     if (token !== this.sessionToken) return;
     if (this.form?.isShowing()) this.form.close();
-    this.form = new CustomForm(this.player, this.titleObs);
+    if (!CustomFormCtor || !this.titleObs || !this.backVis) {
+      throw new Error("当前环境下的 @minecraft/server-ui 不支持 CustomForm (DDUI)，请在支持 DDUI 的 BDS 版本运行");
+    }
+    this.form = new CustomFormCtor(this.player, this.titleObs);
     this.form.button("§l← 回到上一级", () => this.back(), { visible: this.backVis });
     for (const [id, def] of this.sections) {
       if (token !== this.sessionToken) return;
-      const vis = this.sectionVis.get(id)!;
+      const vis = this.sectionVis.get(id);
+      if (!vis) continue;
       const page = new PageBuilder(this.form, vis);
       await def.build(page, this);
     }
@@ -281,7 +318,7 @@ export class MenuNavigator {
       try {
         const reason = await this.form.show();
         if (token !== this.sessionToken) return;
-        if (reason === DataDrivenScreenClosedReason.UserBusy) {
+        if (reason === DataDrivenScreenClosedReasonEnum?.UserBusy) {
           if (!notified) {
             notified = true;
             Msg.info("您有一则菜单处理，请关闭当前界面后显示。§7（超时8秒）", this.player);
@@ -298,13 +335,13 @@ export class MenuNavigator {
 
   private applySection(sectionId: string): void {
     for (const [id, vis] of this.sectionVis) vis.setData(id === sectionId);
-    this.backVis.setData(this.history.length > 1);
+    this.backVis?.setData(this.history.length > 1);
     this.updateTitle();
   }
 
   private updateTitle(): void {
     const parts = this.history.map((id) => this.sections.get(id)?.title ?? id).filter(Boolean);
-    this.titleObs.setData(parts.join(" > "));
+    this.titleObs?.setData(parts.join(" > "));
   }
 }
 

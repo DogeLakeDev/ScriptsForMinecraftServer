@@ -17,11 +17,17 @@ import {
   bdsWorldsDir,
   disablePackInWorld,
   enablePackInWorld,
+  ensureConfigPermission,
+  levelDatPath,
+  readPackManifestDependencies,
   readPackManifestHeader,
   readWorldPackList,
   readWorldPackListResult,
+  isGametestBetaRequired,
+  type PackManifestDependency,
   type WorldPackListReadResult,
 } from "./pack-manager.js";
+import { enableBetaApisInLevelDat, readLevelDatExperiments } from "./level-dat.js";
 import { extractZipFileToDir } from "./zipx.js";
 
 export type WorldPackKind = "behavior" | "resource";
@@ -887,3 +893,242 @@ export function findInstalledPackById(
     ) ?? null
   );
 }
+
+export interface WorldBetaApiDiagnosis {
+  hasBetaApis: boolean;
+  levelDatExists: boolean;
+  levelDatPath: string;
+  requiringPacks: Array<{
+    pack: InstalledWorldPack;
+    betaDependencies: PackManifestDependency[];
+  }>;
+}
+
+export function isBetaApiDependency(dep: PackManifestDependency): boolean {
+  return isGametestBetaRequired(dep);
+}
+
+/**
+ * 诊断指定世界中已启用的行为包对测试版 API（Beta APIs）的依赖与 level.dat 的匹配状况。
+ */
+export function checkWorldBetaApiRequirements(
+  bdsRoot: string,
+  levelName: string,
+  installedPacks?: InstalledWorldPack[]
+): WorldBetaApiDiagnosis {
+  const lPath = levelDatPath(bdsRoot, levelName);
+  const exists = fs.existsSync(lPath);
+  const expInfo = exists ? readLevelDatExperiments(lPath) : null;
+  const hasBetaApis = expInfo?.hasBetaApis ?? false;
+
+  const packs = installedPacks ?? listInstalledWorldPacks(bdsRoot, levelName);
+  const requiringPacks: WorldBetaApiDiagnosis["requiringPacks"] = [];
+
+  for (const p of packs) {
+    if (p.kind !== "behavior" || !p.enabled) continue;
+    const deps = readPackManifestDependencies(p.dir);
+    const betaDeps = deps.filter(isBetaApiDependency);
+    if (betaDeps.length > 0) {
+      requiringPacks.push({
+        pack: p,
+        betaDependencies: betaDeps,
+      });
+    }
+  }
+
+  return {
+    hasBetaApis,
+    levelDatExists: exists,
+    levelDatPath: lPath,
+    requiringPacks,
+  };
+}
+
+export interface WorldPermissionDiagnosis {
+  missingPermissions: Array<{
+    pack: InstalledWorldPack;
+    moduleName: string;
+  }>;
+}
+
+/**
+ * 诊断行为包依赖的原生模块（如 @minecraft/server-net, @minecraft/diagnostics 等）是否已在 BDS config 中授权。
+ */
+export function checkWorldScriptPermissions(
+  bdsRoot: string,
+  levelName: string,
+  installedPacks?: InstalledWorldPack[]
+): WorldPermissionDiagnosis {
+  const packs = installedPacks ?? listInstalledWorldPacks(bdsRoot, levelName);
+  const defaultFile = path.join(bdsRoot, "config", "default", "permissions.json");
+  const defaultModules = new Set<string>();
+  if (fs.existsSync(defaultFile)) {
+    try {
+      const raw = readJsonFile<{ allowed_modules?: string[] }>(defaultFile);
+      if (Array.isArray(raw.allowed_modules)) {
+        for (const m of raw.allowed_modules) defaultModules.add(m);
+      }
+    } catch {}
+  }
+
+  const missingPermissions: WorldPermissionDiagnosis["missingPermissions"] = [];
+
+  for (const p of packs) {
+    if (p.kind !== "behavior" || !p.enabled) continue;
+    const deps = readPackManifestDependencies(p.dir);
+    // 检查受限原生模块
+    const privilegedDeps = deps.filter((d) => {
+      const m = d.module_name ?? "";
+      return m === "@minecraft/server-net" || m === "@minecraft/server-admin" || m === "@minecraft/diagnostics";
+    });
+
+    if (privilegedDeps.length === 0) continue;
+
+    const headerInfo = readPackManifestHeader(p.dir);
+    const uuids = Array.from(new Set([p.uuid, ...(headerInfo?.moduleUuid ? [headerInfo.moduleUuid] : [])]));
+    const packAllowed = new Set<string>();
+    for (const u of uuids) {
+      const f = path.join(bdsRoot, "config", u, "permissions.json");
+      if (fs.existsSync(f)) {
+        try {
+          const raw = readJsonFile<{ allowed_modules?: string[] }>(f);
+          if (Array.isArray(raw.allowed_modules)) {
+            for (const m of raw.allowed_modules) packAllowed.add(m);
+          }
+        } catch {}
+      }
+    }
+
+    for (const dep of privilegedDeps) {
+      const mod = dep.module_name!;
+      if (!defaultModules.has(mod) && !packAllowed.has(mod)) {
+        missingPermissions.push({ pack: p, moduleName: mod });
+      }
+    }
+  }
+
+  return { missingPermissions };
+}
+
+export interface RepairWorldPacksResult {
+  cleanedGhostPacks: Array<{ kind: WorldPackKind; uuid: string }>;
+  syncedVersions: Array<{
+    kind: WorldPackKind;
+    folder: string;
+    listVer: string;
+    diskVer: string;
+  }>;
+  betaApisResult?: {
+    attempted: boolean;
+    changed: boolean;
+    backupPath?: string | undefined;
+    error?: string | undefined;
+  } | undefined;
+  fixedPermissions?: Array<{
+    packName: string;
+    moduleName: string;
+  }> | undefined;
+}
+
+/**
+ * 自愈世界资源包/行为包接线问题：
+ * 1. 清理清单中已不存在于磁盘的幽灵包 UUID 条目
+ * 2. 自动校准清单中与磁盘 manifest 不一致的版本号
+ * 3. 自动补齐缺失的 Script API 原生模块权限（config/default/permissions.json）
+ * 4. 可选：自动为 level.dat 开启 Beta APIs（若 fixBetaApis 为 true）
+ */
+export async function repairWorldPacksWiring(
+  bdsRoot: string,
+  levelName: string,
+  opts?: { fixBetaApis?: boolean }
+): Promise<RepairWorldPacksResult> {
+  const packs = listInstalledWorldPacks(bdsRoot, levelName);
+  const cleanedGhostPacks: RepairWorldPacksResult["cleanedGhostPacks"] = [];
+  const syncedVersions: RepairWorldPacksResult["syncedVersions"] = [];
+
+  for (const kind of ["behavior", "resource"] as const) {
+    const snap = listWorldEnableListResult(bdsRoot, levelName, kind);
+    const byUuid = new Map(packs.filter((p) => p.kind === kind).map((p) => [p.uuid, p]));
+    for (const e of snap.entries) {
+      const p = byUuid.get(e.pack_id);
+      if (!p) {
+        // 幽灵包：从世界清单移除
+        const entryVer: [number, number, number] =
+          Array.isArray(e.version) && e.version.length >= 3
+            ? [Number(e.version[0]), Number(e.version[1]), Number(e.version[2])]
+            : [1, 0, 0];
+        await disablePackInWorld({
+          worldsDir: bdsWorldsDir(bdsRoot),
+          levelName,
+          kind,
+          packUuid: e.pack_id,
+          version: entryVer,
+        });
+        cleanedGhostPacks.push({ kind, uuid: e.pack_id });
+      } else {
+        const ev = e.version;
+        if (
+          Array.isArray(ev) &&
+          ev.length >= 3 &&
+          (ev[0] !== p.version[0] || ev[1] !== p.version[1] || ev[2] !== p.version[2])
+        ) {
+          // 版本错位：按磁盘版本重新激活同步
+          await enablePackInWorld({
+            worldsDir: bdsWorldsDir(bdsRoot),
+            levelName,
+            kind,
+            packUuid: p.uuid,
+            version: p.version,
+          });
+          syncedVersions.push({
+            kind,
+            folder: p.folderName,
+            listVer: ev.join("."),
+            diskVer: p.version.join("."),
+          });
+        }
+      }
+    }
+  }
+
+  let betaApisResult: RepairWorldPacksResult["betaApisResult"] = undefined;
+  if (opts?.fixBetaApis) {
+    const lPath = levelDatPath(bdsRoot, levelName);
+    const mutateRes = await enableBetaApisInLevelDat(lPath);
+    betaApisResult = {
+      attempted: true,
+      changed: mutateRes.changed,
+      ...(mutateRes.backupPath ? { backupPath: mutateRes.backupPath } : {}),
+      ...(mutateRes.error ? { error: mutateRes.error } : {}),
+    };
+  }
+
+  // 修复脚本原生模块权限
+  const permDiag = checkWorldScriptPermissions(bdsRoot, levelName, packs);
+  let fixedPermissions: RepairWorldPacksResult["fixedPermissions"] = undefined;
+  if (permDiag.missingPermissions.length > 0) {
+    fixedPermissions = [];
+    for (const item of permDiag.missingPermissions) {
+      const headerInfo = readPackManifestHeader(item.pack.dir);
+      await ensureConfigPermission(bdsRoot, item.pack.uuid, headerInfo?.moduleUuid);
+      fixedPermissions.push({
+        packName: item.pack.name || item.pack.folderName,
+        moduleName: item.moduleName,
+      });
+    }
+  }
+
+  const result: RepairWorldPacksResult = {
+    cleanedGhostPacks,
+    syncedVersions,
+  };
+  if (betaApisResult) {
+    result.betaApisResult = betaApisResult;
+  }
+  if (fixedPermissions && fixedPermissions.length > 0) {
+    result.fixedPermissions = fixedPermissions;
+  }
+
+  return result;
+}
+

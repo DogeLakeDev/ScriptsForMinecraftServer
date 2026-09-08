@@ -45,11 +45,25 @@ declare global {
   var __sfmcBdsSystem: BdsSystem | undefined;
 }
 
-let _authHooks: ModuleAuthHooks | null = null;
+interface GlobalModuleLoaderState {
+  descriptors: ModuleDescriptor[];
+  booted: Set<string>;
+  initialized: Set<string>;
+  worldLoaded: boolean;
+  authHooks: ModuleAuthHooks | null;
+}
+
+const gModuleState: GlobalModuleLoaderState = (((globalThis as unknown as Record<string, unknown>).__sfmcModuleLoaderState as GlobalModuleLoaderState) ??= {
+  descriptors: [],
+  booted: new Set<string>(),
+  initialized: new Set<string>(),
+  worldLoaded: false,
+  authHooks: null,
+});
 
 /** 由 installHostBootstrap 注入 db/config/service 身份钩子（DIP）。 */
 export function bindModuleAuthHooks(hooks: ModuleAuthHooks): void {
-  _authHooks = hooks;
+  gModuleState.authHooks = hooks;
 }
 
 /** 模块生命周期钩子（各阶段可选）。services 为作用域客户端，可忽略以兼容旧模块。 */
@@ -79,13 +93,6 @@ export type ModuleDescriptor = {
   lifecycle: ModuleLifecycle;
 };
 
-const descriptors: ModuleDescriptor[] = [];
-/** 已完成 register* 阶段的模块。 */
-const booted = new Set<string>();
-/** 已执行 init 的模块（与 booted 分离，避免 afterWorldLoad 双 init）。 */
-const initialized = new Set<string>();
-let worldLoaded = false;
-
 /** 启停查询键:catalog id 本身 + 对应 configKey。 */
 function enableKeysFor(id: ModuleId): string[] {
   const keys = [id];
@@ -104,7 +111,7 @@ function applyModuleAuthContext(id: ModuleId): ModuleServices | undefined {
         ` v2 db/config/service 调用将 401`
     );
   }
-  const services = _authHooks?.apply(id, token, configKey);
+  const services = gModuleState.authHooks?.apply(id, token, configKey);
   return services || undefined;
 }
 
@@ -112,17 +119,17 @@ function applyModuleAuthContext(id: ModuleId): ModuleServices | undefined {
 export class ModuleRegistry {
   /** 注册模块描述符（构建时各模块包调用）。 */
   static register(descriptor: ModuleDescriptor): void {
-    descriptors.push(descriptor);
+    gModuleState.descriptors.push(descriptor);
   }
 
   /** 返回已注册模块列表副本。 */
   static list(): ModuleDescriptor[] {
-    return [...descriptors];
+    return [...gModuleState.descriptors];
   }
 
   /** 按 id 查找模块描述符。 */
   static get(id: ModuleId): ModuleDescriptor | undefined {
-    return descriptors.find((d) => d.id === id);
+    return gModuleState.descriptors.find((d) => d.id === id);
   }
 
   /** 模块是否处于启用且可启动状态（启动时 ConfigManager 缓存）。 */
@@ -130,52 +137,74 @@ export class ModuleRegistry {
     return enableKeysFor(id).some((k) => ConfigManager.isEnabled(k));
   }
 
-  /** 启动所有已启用且尚未 boot 的模块。 */
-  static bootAll(): void {
+  /** 启动所有已启用且尚未 boot 的模块（串行等待以防多模块并发 init 状态污染）。 */
+  static async bootAll(): Promise<void> {
     if (!ConfigManager.isReady()) return;
-    for (const d of descriptors) {
+    for (const d of gModuleState.descriptors) {
       if (!ModuleRegistry.isActive(d.id)) continue;
-      ModuleRegistry.bootModule(d.id);
+      await ModuleRegistry.bootModule(d.id);
     }
   }
 
   /** 世界加载后：对已 boot 且未 init 的 afterWorldLoad 模块执行 init。 */
-  static bootAfterWorldLoad(): void {
+  static async bootAfterWorldLoad(): Promise<void> {
     if (!ConfigManager.isReady()) return;
-    worldLoaded = true;
-    for (const d of descriptors) {
+    gModuleState.worldLoaded = true;
+    for (const d of gModuleState.descriptors) {
       if (!d.afterWorldLoad) continue;
       if (!ModuleRegistry.isActive(d.id)) continue;
-      if (!booted.has(d.id)) continue;
-      if (initialized.has(d.id)) continue;
-      try {
-        const services = applyModuleAuthContext(d.id);
-        d.lifecycle.init?.(services);
-        initialized.add(d.id);
-      } catch (e) {
-        debug.e("Module", `[${d.id}] init failed`, e);
-      }
+      if (!gModuleState.booted.has(d.id)) continue;
+      if (gModuleState.initialized.has(d.id)) continue;
+      await ModuleRegistry.initModule(d.id);
     }
   }
 
   /** 启动单个模块（权限/命令/事件；init 按 afterWorldLoad 分相）。 */
-  static bootModule(id: ModuleId): void {
+  static async bootModule(id: ModuleId): Promise<void> {
     const d = ModuleRegistry.get(id);
     if (!d) return;
     if (!ModuleRegistry.isActive(id)) return;
-    if (booted.has(id)) return;
+    if (gModuleState.booted.has(id)) return;
     try {
       const services = applyModuleAuthContext(id);
-      d.lifecycle.registerPermissions?.(services);
-      d.lifecycle.registerCommands?.(services);
-      d.lifecycle.registerEvents?.(services);
-      booted.add(id);
-      if (!d.afterWorldLoad || worldLoaded) {
-        d.lifecycle.init?.(services);
-        initialized.add(id);
+      try {
+        d.lifecycle.registerPermissions?.(services);
+      } catch (e) {
+        debug.e("Module", `[${id}] registerPermissions failed`, e);
+      }
+      try {
+        d.lifecycle.registerCommands?.(services);
+      } catch (e) {
+        debug.e("Module", `[${id}] registerCommands failed`, e);
+      }
+      try {
+        d.lifecycle.registerEvents?.(services);
+      } catch (e) {
+        debug.e("Module", `[${id}] registerEvents failed`, e);
+      }
+      gModuleState.booted.add(id);
+      if (!d.afterWorldLoad || gModuleState.worldLoaded) {
+        await ModuleRegistry.initModule(id);
       }
     } catch (e) {
       debug.e("Module", `[${id}] boot failed`, e);
+    }
+  }
+
+  /** 执行单个模块的 init 生命周期（串行等待异步就绪并标记 initialized）。 */
+  static async initModule(id: ModuleId): Promise<void> {
+    const d = ModuleRegistry.get(id);
+    if (!d) return;
+    if (gModuleState.initialized.has(id)) return;
+    try {
+      const services = applyModuleAuthContext(id);
+      const res = d.lifecycle.init?.(services);
+      if (res && typeof (res as Promise<void>).then === "function") {
+        await res;
+      }
+      gModuleState.initialized.add(id);
+    } catch (e) {
+      debug.e("Module", `[${id}] init failed`, e);
     }
   }
 
@@ -188,14 +217,14 @@ export class ModuleRegistry {
     } catch (e) {
       debug.e("Module", `[${id}] cleanup hook failed`, e);
     }
-    booted.delete(id);
-    initialized.delete(id);
-    _authHooks?.clear(id);
+    gModuleState.booted.delete(id);
+    gModuleState.initialized.delete(id);
+    gModuleState.authHooks?.clear(id);
   }
 
   /** 清理全部已注册模块（shutdown 时调用）。 */
   static teardown(): void {
-    for (const d of descriptors) {
+    for (const d of gModuleState.descriptors) {
       try {
         ModuleRegistry.cleanupModule(d.id);
       } catch {}
@@ -204,12 +233,12 @@ export class ModuleRegistry {
 
   /** 模块是否已完成 register* 阶段。 */
   static isBooted(id: ModuleId): boolean {
-    return booted.has(id);
+    return gModuleState.booted.has(id);
   }
 
   /** 宿主是否已走过 worldLoad 分相（`bootAfterWorldLoad` 已调用）。 */
   static isWorldLoaded(): boolean {
-    return worldLoaded;
+    return gModuleState.worldLoaded;
   }
 
   /**
@@ -218,7 +247,7 @@ export class ModuleRegistry {
    */
   static getBootPhase(): { startup: boolean; worldLoad: boolean; summary: string } {
     const startup = ConfigManager.isReady();
-    const worldLoad = worldLoaded;
+    const worldLoad = gModuleState.worldLoaded;
     let summary: string;
     if (startup && worldLoad) summary = "已 startup · 已 worldLoad";
     else if (startup) summary = "已 startup · 未 worldLoad";
@@ -229,22 +258,22 @@ export class ModuleRegistry {
 
   /** 测试沙箱复位注册表（勿在 BDS 生产路径调用）。 */
   static resetForTesting(): void {
-    for (const d of [...descriptors]) {
+    for (const d of [...gModuleState.descriptors]) {
       try {
         ModuleRegistry.cleanupModule(d.id);
       } catch {
         /* ignore */
       }
     }
-    descriptors.length = 0;
-    booted.clear();
-    initialized.clear();
-    worldLoaded = false;
+    gModuleState.descriptors.length = 0;
+    gModuleState.booted.clear();
+    gModuleState.initialized.clear();
+    gModuleState.worldLoaded = false;
   }
 }
 
 /** 控制台打印当前已启动模块列表。 */
 export function announceLoaded(): void {
-  const active = descriptors.filter((d) => ModuleRegistry.isActive(d.id)).map((d) => d.id);
+  const active = gModuleState.descriptors.filter((d) => ModuleRegistry.isActive(d.id)).map((d) => d.id);
   console.log(`[ModuleRegistry] 已启动模块: ${active.join(", ") || "无"}`);
 }

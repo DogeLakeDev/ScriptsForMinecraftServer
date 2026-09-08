@@ -39,6 +39,10 @@ import {
   readPackManifestHeader,
   readWorldPackList,
   worldPackListHas as pmWorldPackListHas,
+  BASELINE_BEDROCK_DEPENDENCIES,
+  negotiateBedrockDependencies,
+  NATIVE_BEDROCK_SCRIPT_MODULES,
+  type PackManifestDependency,
 } from "@sfmc-bds/bds-tools/pack-manager-lib";
 import { ROOT, PACKAGES_DIR, resolveSdkPackageRoot, getRoot } from "./runtime.js";
 import { c } from "./theme.js";
@@ -48,8 +52,8 @@ export const RP_NAME = "sfmc-modules-rp";
 export const DEPLOY_CATALOG_NAME = "sfmc-deploy-catalog.json";
 export const DEFAULT_PACK_VERSION: [number, number, number] = [1, 0, 0];
 
-/** 将 @sfmc/sdk 与 @sfmc-bds/sdk 子路径解析到 SDK 包内真实文件 */
-function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
+/** 将 @sfmc/sdk 与 @sfmc-bds/sdk 子路径解析到 SDK 包内真实文件，并注入 sfmc:host 引导入口 */
+export function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
   const pkg = JSON.parse(readFileSync(path.join(sdkRoot, "package.json"), "utf8")) as {
     exports?: Record<string, string | { import?: string; default?: string; types?: string }>;
   };
@@ -68,9 +72,61 @@ function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
   return {
     name: "sfmc-sdk-resolve",
     setup(build) {
+      build.onResolve({ filter: /^sfmc:host$/ }, () => ({
+        path: "sfmc:host",
+        namespace: "sfmc-host",
+      }));
+      build.onLoad({ filter: /.*/, namespace: "sfmc-host" }, () => ({
+        contents: [
+          'import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";',
+          "installHostBootstrap();",
+        ].join("\n"),
+        loader: "ts",
+      }));
+
       build.onResolve({ filter: /^@sfmc(?:-bds)?\/sdk(?:\/|$)/ }, (args) => {
         const normalized = args.path.replace(/^@sfmc\/sdk/, "@sfmc-bds/sdk");
         const sub = normalized === "@sfmc-bds/sdk" ? "" : normalized.slice("@sfmc-bds/sdk/".length);
+
+        const importerNorm = (args.importer || "").replace(/\\/g, "/");
+        const sapiIdx = importerNorm.indexOf("/sapi/");
+        if (sapiIdx !== -1 && !importerNorm.includes("@sfmc-sdk") && !importerNorm.includes("@sfmc/sdk")) {
+          const sapiDir = importerNorm.slice(0, sapiIdx + "/sapi".length);
+          const manifestFile = path.join(sapiDir, "manifest.json");
+          let logicalId = "";
+          let configKey = "";
+          if (existsSync(manifestFile)) {
+            try {
+              const man = JSON.parse(readFileSync(manifestFile, "utf8")) as { id?: string; configKey?: string };
+              if (man.id) logicalId = man.id;
+              if (man.configKey) configKey = man.configKey;
+            } catch {}
+          }
+          if (!logicalId) {
+            const rootDir = importerNorm.slice(0, sapiIdx);
+            logicalId = path.basename(rootDir).replace(/^sfmc-module-/, "");
+            configKey = logicalId;
+          }
+          if (sub === "sapi/db") {
+            return {
+              path: `sfmc-scoped:db?mod=${encodeURIComponent(logicalId)}`,
+              namespace: "sfmc-scoped-db",
+            };
+          }
+          if (sub === "sapi/config") {
+            return {
+              path: `sfmc-scoped:config?cfg=${encodeURIComponent(configKey)}`,
+              namespace: "sfmc-scoped-config",
+            };
+          }
+          if (sub === "sapi/service") {
+            return {
+              path: `sfmc-scoped:service?mod=${encodeURIComponent(logicalId)}`,
+              namespace: "sfmc-scoped-service",
+            };
+          }
+        }
+
         const resolved = resolveExportSubpath(sub);
         if (!resolved) {
           return {
@@ -82,6 +138,66 @@ function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
           };
         }
         return { path: resolved };
+      });
+
+      build.onLoad({ filter: /.*/, namespace: "sfmc-scoped-db" }, (args) => {
+        const u = new URL(args.path);
+        const mod = u.searchParams.get("mod") || "";
+        return {
+          contents: [
+            'import { getDbClient } from "@sfmc-bds/sdk/sapi/db";',
+            'export * from "@sfmc-bds/sdk/sapi/db";',
+            'export const db = new Proxy({}, {',
+            '  get(_t, prop) {',
+            `    const c = getDbClient(${JSON.stringify(mod)});`,
+            '    const val = (c as any)[prop];',
+            '    return typeof val === "function" ? val.bind(c) : val;',
+            '  }',
+            '});',
+          ].join("\n"),
+          loader: "ts",
+          resolveDir: sdkRoot,
+        };
+      });
+
+      build.onLoad({ filter: /.*/, namespace: "sfmc-scoped-config" }, (args) => {
+        const u = new URL(args.path);
+        const cfg = u.searchParams.get("cfg") || "";
+        return {
+          contents: [
+            'import { getConfigClient } from "@sfmc-bds/sdk/sapi/config";',
+            'export * from "@sfmc-bds/sdk/sapi/config";',
+            'export const config = new Proxy({}, {',
+            '  get(_t, prop) {',
+            `    const c = getConfigClient(${JSON.stringify(cfg)});`,
+            '    const val = (c as any)[prop];',
+            '    return typeof val === "function" ? val.bind(c) : val;',
+            '  }',
+            '});',
+          ].join("\n"),
+          loader: "ts",
+          resolveDir: sdkRoot,
+        };
+      });
+
+      build.onLoad({ filter: /.*/, namespace: "sfmc-scoped-service" }, (args) => {
+        const u = new URL(args.path);
+        const mod = u.searchParams.get("mod") || "";
+        return {
+          contents: [
+            'import { getServiceClient } from "@sfmc-bds/sdk/sapi/service";',
+            'export * from "@sfmc-bds/sdk/sapi/service";',
+            'export const service = new Proxy({}, {',
+            '  get(_t, prop) {',
+            `    const c = getServiceClient(${JSON.stringify(mod)});`,
+            '    const val = (c as any)[prop];',
+            '    return typeof val === "function" ? val.bind(c) : val;',
+            '  }',
+            '});',
+          ].join("\n"),
+          loader: "ts",
+          resolveDir: sdkRoot,
+        };
       });
     },
   };
@@ -118,6 +234,8 @@ export interface DeployCatalog {
   bpModuleUuid?: string;
   rpModuleUuid?: string;
   generatedAt: number;
+  sdkVersion?: string;
+  dependencies?: PackManifestDependency[];
   modules: Record<string, DeployCatalogModule>;
 }
 
@@ -157,10 +275,11 @@ function catalogPath(): string {
 /** 读 BDS 路径与 level-name（level 权威：pack-manager-lib.readLevelNameSync，DIP） */
 export function resolveBdsContext(root: string = getRoot()): { bdsRoot: string; levelName: string } {
   const cfg = (readJson<BdsUpdaterConfig>(configPath(root, "bds_updater.json")) ?? {}) as BdsUpdaterConfig;
-  const bdsRoot = cfg.bds_path;
-  if (!bdsRoot) {
+  const rawBds = cfg.bds_path;
+  if (!rawBds) {
     throw new Error("bds_path not configured. Run `sfmc init` first.");
   }
+  const bdsRoot = path.isAbsolute(rawBds) ? rawBds : path.resolve(root, rawBds);
   return { bdsRoot, levelName: readLevelNameSync(bdsRoot) };
 }
 
@@ -204,6 +323,89 @@ function collectDeployedPackUuids(
 }
 
 /**
+ * 从模块目录提取声明的 @minecraft/* 原生依赖。
+ * 优先级：
+ * 1. sapi/manifest.json 的 dependencies（标准基岩数组或键值对映射）与 minecraft 字段；
+ * 2. package.json 的 peerDependencies 与 dependencies（不含 devDependencies，避免类型包误伤）。
+ */
+export async function extractModuleBedrockDependencies(modPath: string): Promise<PackManifestDependency[]> {
+  const deps: PackManifestDependency[] = [];
+  const seen = new Set<string>();
+
+  const manifestPath = path.join(modPath, "sapi", "manifest.json");
+  if (existsSync(manifestPath)) {
+    try {
+      const raw = JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>;
+      if (Array.isArray(raw.dependencies)) {
+        for (const d of raw.dependencies) {
+          if (
+            d &&
+            typeof d === "object" &&
+            typeof (d as { module_name?: unknown }).module_name === "string" &&
+            (d as { module_name: string }).module_name.startsWith("@minecraft/") &&
+            NATIVE_BEDROCK_SCRIPT_MODULES.has((d as { module_name: string }).module_name)
+          ) {
+            const modName = (d as { module_name: string }).module_name;
+            const ver = String((d as { version?: unknown }).version ?? "1.0.0");
+            const uuid = typeof (d as { uuid?: unknown }).uuid === "string" ? (d as { uuid: string }).uuid : undefined;
+            deps.push({ module_name: modName, version: ver, ...(uuid ? { uuid } : {}) });
+            seen.add(modName);
+          }
+        }
+      } else if (raw.dependencies && typeof raw.dependencies === "object") {
+        for (const [modName, ver] of Object.entries(raw.dependencies as Record<string, unknown>)) {
+          if (modName.startsWith("@minecraft/") && !seen.has(modName) && NATIVE_BEDROCK_SCRIPT_MODULES.has(modName)) {
+            deps.push({ module_name: modName, version: String(ver ?? "1.0.0") });
+            seen.add(modName);
+          }
+        }
+      }
+
+      if (raw.minecraft && typeof raw.minecraft === "object") {
+        const mc = raw.minecraft as Record<string, unknown>;
+        const mcDeps = (Array.isArray(mc.dependencies) ? mc.dependencies : mc) as Record<string, unknown>;
+        if (typeof mcDeps === "object" && !Array.isArray(mcDeps)) {
+          for (const [modName, ver] of Object.entries(mcDeps)) {
+            if (modName.startsWith("@minecraft/") && !seen.has(modName) && NATIVE_BEDROCK_SCRIPT_MODULES.has(modName)) {
+              deps.push({ module_name: modName, version: String(ver ?? "1.0.0") });
+              seen.add(modName);
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore parse error */
+    }
+  }
+
+  const pkgPath = path.join(modPath, "package.json");
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8")) as {
+        peerDependencies?: Record<string, string>;
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      const candidateMap = {
+        ...(pkg.devDependencies ?? {}),
+        ...(pkg.dependencies ?? {}),
+        ...(pkg.peerDependencies ?? {}),
+      };
+      for (const [modName, ver] of Object.entries(candidateMap)) {
+        if (modName.startsWith("@minecraft/") && !seen.has(modName) && NATIVE_BEDROCK_SCRIPT_MODULES.has(modName)) {
+          deps.push({ module_name: modName, version: ver });
+          seen.add(modName);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return deps;
+}
+
+/**
  * 枚举本机 packages,返回 folderId → 元数据。
  * 仅含有 sapi/src/index.ts 的模块会进入 BP bundle 候选。
  */
@@ -217,6 +419,7 @@ export async function scanLocalModules(): Promise<
     hasResourcePack: boolean;
     fingerprint: string;
     entryPath: string | null;
+    declaredDependencies: PackManifestDependency[];
   }>
 > {
   const dir = packagesDir();
@@ -243,6 +446,7 @@ export async function scanLocalModules(): Promise<
     hasResourcePack: boolean;
     fingerprint: string;
     entryPath: string | null;
+    declaredDependencies: PackManifestDependency[];
   }> = [];
 
   for (const e of entries) {
@@ -274,6 +478,7 @@ export async function scanLocalModules(): Promise<
     const hasResourcePack = existsSync(path.join(modPath, "resource_pack"));
     const fingerprint = await dirFingerprint(modPath);
     const enabled = isModuleEnabled(logicalId, lock, defaults);
+    const declaredDependencies = await extractModuleBedrockDependencies(modPath);
     out.push({
       folderId,
       logicalId,
@@ -283,6 +488,7 @@ export async function scanLocalModules(): Promise<
       hasResourcePack,
       fingerprint,
       entryPath: hasSapi ? entryPath : null,
+      declaredDependencies,
     });
   }
   out.sort((a, b) => a.folderId.localeCompare(b.folderId));
@@ -329,6 +535,30 @@ export async function computeDesiredCatalog(opts?: {
     rpModuleUuid = opts?.rpModuleUuid ?? localRp?.moduleUuid;
   }
 
+  let sdkVersion: string | undefined;
+  try {
+    const sdkRoot = resolveSdkPackageRoot();
+    const pkg = JSON.parse(readFileSync(path.join(sdkRoot, "package.json"), "utf8")) as { version?: string };
+    sdkVersion = pkg.version;
+  } catch {
+    /* ignore */
+  }
+
+  // 依赖动态协商：收集所有已启用模块的 Minecraft 依赖声明并按版本规则提升
+  const enabledModuleReqs = mods
+    .filter((m) => m.enabled && m.declaredDependencies.length > 0)
+    .map((m) => ({ folderId: m.folderId, dependencies: m.declaredDependencies }));
+  const negotiated = negotiateBedrockDependencies(BASELINE_BEDROCK_DEPENDENCIES, enabledModuleReqs);
+
+  if (negotiated.promotions.length > 0) {
+    for (const p of negotiated.promotions) {
+      packLog(
+        `promoted ${p.moduleName} ${p.from} -> ${p.to} (requested by: ${p.requestedBy.join(", ")})`,
+        "info"
+      );
+    }
+  }
+
   return {
     schemaVersion: 1,
     bpUuid,
@@ -338,6 +568,8 @@ export async function computeDesiredCatalog(opts?: {
     ...(bpModuleUuid ? { bpModuleUuid } : {}),
     ...(rpModuleUuid ? { rpModuleUuid } : {}),
     generatedAt: Date.now(),
+    ...(sdkVersion ? { sdkVersion } : {}),
+    dependencies: negotiated.dependencies,
     modules,
   };
 }
@@ -352,10 +584,22 @@ export function readDeployedCatalog(bdsRoot: string, levelName: string): DeployC
   }
 }
 
-/** 比较键:模块集合 + enabled/version/fingerprint/hasRP + bp/rp uuid */
+/** 比较键:模块集合 + enabled/version/fingerprint/hasRP + bp/rp uuid + sdkVersion + dependencies */
 export function catalogsEqual(a: DeployCatalog, b: DeployCatalog): boolean {
   if (a.bpUuid !== b.bpUuid) return false;
   if ((a.rpUuid ?? null) !== (b.rpUuid ?? null)) return false;
+  if ((a.sdkVersion ?? null) !== (b.sdkVersion ?? null)) return false;
+
+  const depsA = a.dependencies ?? [];
+  const depsB = b.dependencies ?? [];
+  if (depsA.length !== depsB.length) return false;
+  for (let i = 0; i < depsA.length; i++) {
+    const da = depsA[i];
+    const db = depsB[i];
+    if (!da || !db || da.module_name !== db.module_name || da.version !== db.version) {
+      return false;
+    }
+  }
   const aKeys = Object.keys(a.modules).sort();
   const bKeys = Object.keys(b.modules).sort();
   if (aKeys.length !== bKeys.length) return false;
@@ -410,9 +654,10 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
     packLog(`SDK root: ${sdkRoot}`);
     await build({
       stdin: {
-        contents: entries
-          .map((e) => `import ${JSON.stringify(path.resolve(e).replace(/\\/g, "/"))};`)
-          .join("\n"),
+        contents: [
+          'import "sfmc:host";',
+          ...entries.map((e) => `import ${JSON.stringify(path.resolve(e).replace(/\\/g, "/"))};`),
+        ].join("\n"),
         resolveDir: ROOT,
         sourcefile: "bootstrap.ts",
         loader: "ts",
@@ -423,12 +668,8 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
       format: "esm",
       target: "es2022",
       logLevel: "warning",
-      sourcemap: false,
+      sourcemap: true,
       external: ["@minecraft/*"],
-      // BDS host 启动：与 module-loader barrel 分离（DIP），须在模块 register 之前执行
-      banner: {
-        js: 'import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";\ninstallHostBootstrap();\n',
-      },
       // 避免读取模块内残缺的 extends（如 ../../../sdk/@sfmc-sdk/tsconfig.json）
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
@@ -453,6 +694,7 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
       description: "ScriptsForMinecraftServer aggregated behavior pack",
       uuid: catalog.bpUuid,
       ...(catalog.bpModuleUuid ? { moduleUuid: catalog.bpModuleUuid } : {}),
+      ...(catalog.dependencies ? { dependencies: catalog.dependencies } : {}),
     });
   } catch (e) {
     throw new Error(`assemble-bp failed: ${(e as Error).message}`);
@@ -601,6 +843,10 @@ export function formatPackLoadInfo(catalog: DeployCatalog, rebuilt: boolean): st
       : `  RP (none)`,
     `  modules: ${enabled.length} enabled / ${disabled.length} disabled / ${mods.length} installed`,
   ];
+  if (catalog.dependencies && catalog.dependencies.length > 0) {
+    const depStr = catalog.dependencies.map((d) => `${d.module_name}@${d.version}`).join(" ");
+    lines.push(`  dependencies: ${depStr}`);
+  }
   for (const [folderId, m] of enabled.sort((a, b) => a[0].localeCompare(b[0]))) {
     lines.push(`    ● ${folderId} (${m.logicalId}) ${m.version}${m.hasResourcePack ? " +rp" : ""}`);
   }
@@ -661,6 +907,8 @@ export async function ensurePacksReady(): Promise<PackEnsureResult> {
     if (deployed.rpUuid && !worldPackListHas(bdsRoot, levelName, "resource", deployed.rpUuid)) {
       needRebuild = true;
     }
+    const deployedMainJs = path.join(deployedBpDir(bdsRoot, levelName), "scripts", "main.js");
+    if (!existsSync(deployedMainJs)) needRebuild = true;
     if (!hasConfigPermission(bdsRoot, deployed.bpUuid)) {
       /* permission 缺失只补写,不强制整包重编 */
       try {

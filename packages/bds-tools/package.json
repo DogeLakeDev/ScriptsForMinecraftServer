@@ -40,7 +40,10 @@
     },
     "./update-result": "./dist/update-result.js",
     "./world-packs": "./dist/world-packs.js",
+    "./level-dat": "./dist/level-dat.js",
+    "./dependency-negotiator": "./dist/dependency-negotiator.js",
     "./pack-update": "./dist/pack-update/index.js",
+    "./server-properties": "./dist/server-properties.js",
     "./zipx": "./dist/zipx.js"
   },
   "files": [

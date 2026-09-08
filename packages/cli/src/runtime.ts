@@ -123,6 +123,13 @@ export function resolveServiceScript(service: ServiceId): string {
   const mono = path.join(ROOT, SERVICE_SCRIPT[service]);
   if (fs.existsSync(mono)) return mono;
 
+  // SFMC_ROOT 可能是外部数据目录；再从 CLI 位置 walk-up monorepo
+  const monoFromCli = findMonorepoRoot(__dirname);
+  if (monoFromCli) {
+    const monoDev = path.join(monoFromCli, SERVICE_SCRIPT[service]);
+    if (fs.existsSync(monoDev)) return monoDev;
+  }
+
   const { pkg, exportPath, rel } = SERVICE_NPM[service];
   const fromNpm = tryResolveNpm(pkg, {
     ...(exportPath ? { exportPath } : {}),
@@ -146,6 +153,12 @@ export function resolveFetchModule(): string | null {
 
   const mono = path.join(ROOT, "packages", "cli", "scripts", "module-install", "fetch-module.mjs");
   if (fs.existsSync(mono)) return mono;
+
+  const monoFromCli = findMonorepoRoot(__dirname);
+  if (monoFromCli) {
+    const monoDev = path.join(monoFromCli, "packages", "cli", "scripts", "module-install", "fetch-module.mjs");
+    if (fs.existsSync(monoDev)) return monoDev;
+  }
 
   return tryResolveNpm("@sfmc-bds/cli", {
     rel: "scripts/module-install/fetch-module.mjs",

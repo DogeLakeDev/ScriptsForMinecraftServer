@@ -20,9 +20,11 @@
  * and reads JSON flags from argv.
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { readLevelName } from "./pack-manager.js";
+import type { PackManifestDependency } from "./dependency-negotiator.js";
 
 function die(msg: string, code = 1): never {
   process.stderr.write(`[pack-manager] ${msg}\n`);
@@ -79,6 +81,15 @@ async function main(): Promise<void> {
       const out = need(args, "out");
       const name = need(args, "name");
       const icon = args["icon"];
+      let dependencies: PackManifestDependency[] | undefined;
+      if (args["dependencies-json"]) {
+        try {
+          const raw = fs.readFileSync(path.resolve(args["dependencies-json"]), "utf8");
+          dependencies = JSON.parse(raw);
+        } catch {
+          /* ignore */
+        }
+      }
       await mod.assembleBehaviorPack({
         srcDir: path.resolve(src),
         outDir: path.resolve(out),
@@ -88,6 +99,7 @@ async function main(): Promise<void> {
         ...(icon ? { iconSrc: path.resolve(icon) } : {}),
         ...(args["uuid"] ? { uuid: args["uuid"] } : {}),
         ...(args["module-uuid"] ? { moduleUuid: args["module-uuid"] } : {}),
+        ...(dependencies ? { dependencies } : {}),
       });
       process.stdout.write(`[pack-manager] assembled BP at ${out}\n`);
       return;

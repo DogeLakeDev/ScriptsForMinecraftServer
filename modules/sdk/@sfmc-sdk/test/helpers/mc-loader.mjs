@@ -24,8 +24,11 @@ export async function resolve(specifier, context, nextResolve) {
       shortCircuit: true,
     };
   }
-  if (specifier === "@minecraft/common" || specifier.startsWith("@minecraft/common/")) {
-    return { url: "data:text/javascript,export default {};", shortCircuit: true };
+  if (specifier.startsWith("@minecraft/")) {
+    return {
+      url: "data:text/javascript,export default {};export const sentry = {};export const SentryEventLevel = {};export const secrets = {};export const variables = {};",
+      shortCircuit: true,
+    };
   }
   return nextResolve(specifier, context);
 }

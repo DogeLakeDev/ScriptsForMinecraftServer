@@ -5,6 +5,8 @@
 import { confirm, isCancel, multiselect } from "@clack/prompts";
 import {
   bumpPackPatchVersion,
+  checkWorldBetaApiRequirements,
+  checkWorldScriptPermissions,
   disableInstalledPack,
   enableInstalledPack,
   findInstalledPackById,
@@ -14,6 +16,7 @@ import {
   listWorldEnableListResult,
   readPackDependencyUuids,
   readPackManifestInfo,
+  repairWorldPacksWiring,
   resolvePackRoots,
   uninstallInstalledPack,
   worldPackParentDir,
@@ -680,10 +683,80 @@ function hasFlag(args: string[], name: string): boolean {
   return args.includes(name);
 }
 
-async function cmdDoctor(): Promise<string> {
+async function cmdDoctor(args: string[] = []): Promise<string> {
+  const isFix = hasFlag(args, "--fix") || hasFlag(args, "-y") || hasFlag(args, "fix");
   const { bdsRoot, levelName } = resolveBdsContext();
   const packs = listInstalledWorldPacks(bdsRoot, levelName);
+
+  if (isFix) {
+    const betaDiag = checkWorldBetaApiRequirements(bdsRoot, levelName, packs);
+    const shouldFixBeta = !betaDiag.hasBetaApis && betaDiag.requiringPacks.length > 0;
+    const repRes = await repairWorldPacksWiring(bdsRoot, levelName, { fixBetaApis: shouldFixBeta });
+
+    const fixLogs: string[] = [];
+    if (repRes.betaApisResult?.attempted) {
+      if (repRes.betaApisResult.changed) {
+        fixLogs.push(
+          c.green(
+            t("packs.doctor.betaApisFixed", {
+              level: levelName,
+              backup: repRes.betaApisResult.backupPath ?? "level.dat.bak",
+            })
+          )
+        );
+      } else if (repRes.betaApisResult.error) {
+        fixLogs.push(
+          c.red(t("packs.doctor.betaApisFailed", { level: levelName, error: repRes.betaApisResult.error }))
+        );
+      } else {
+        fixLogs.push(c.dim(t("packs.doctor.betaApisAlreadyOn", { level: levelName })));
+      }
+    }
+
+    for (const g of repRes.cleanedGhostPacks) {
+      fixLogs.push(c.green(t("packs.doctor.ghostPackCleaned", { kind: g.kind, uuid: g.uuid })));
+    }
+
+    for (const s of repRes.syncedVersions) {
+      fixLogs.push(
+        c.green(
+          t("packs.doctor.versionSynced", {
+            kind: s.kind,
+            folder: s.folder,
+            listVer: s.listVer,
+            diskVer: s.diskVer,
+          })
+        )
+      );
+    }
+
+    if (repRes.fixedPermissions && repRes.fixedPermissions.length > 0) {
+      fixLogs.push(
+        c.green(
+          t("packs.doctor.permissionsFixed", {
+            perms: repRes.fixedPermissions.map((x) => `${x.packName} (${x.moduleName})`).join(", "),
+          })
+        )
+      );
+    }
+
+    const totalHealed =
+      (repRes.betaApisResult?.changed ? 1 : 0) +
+      repRes.cleanedGhostPacks.length +
+      repRes.syncedVersions.length +
+      (repRes.fixedPermissions?.length ?? 0);
+
+    if (totalHealed > 0) {
+      return (
+        fixLogs.map((x) => `  - ${x}`).join("\n") +
+        "\n" +
+        c.green(t("packs.doctor.fixedSummary", { count: totalHealed }))
+      );
+    }
+  }
+
   const issues: string[] = [];
+  let fixableCount = 0;
 
   for (const kind of ["behavior", "resource"] as const) {
     // 经 listWorldEnableListResult → pack-manager（DRY/Demeter；保留 parseFail 信号 — LSP）
@@ -696,6 +769,7 @@ async function cmdDoctor(): Promise<string> {
       const p = byUuid.get(e.pack_id);
       if (!p) {
         issues.push(t("packs.doctor.missingDir", { kind, uuid: e.pack_id }));
+        fixableCount++;
         continue;
       }
       const ev = e.version;
@@ -712,27 +786,55 @@ async function cmdDoctor(): Promise<string> {
             diskVer: fmtVer(p.version),
           })
         );
+        fixableCount++;
       }
     }
   }
 
-  for (const p of packs) {
-    if (!p.enabled) {
-      issues.push(
-        t("packs.doctor.notEnabled", {
-          kind: p.kind === "resource" ? "RP" : "BP",
-          folder: p.folderName,
-          uuid: p.uuid,
-        })
-      );
-    }
+  // Beta APIs 校验
+  const betaDiag = checkWorldBetaApiRequirements(bdsRoot, levelName, packs);
+  if (betaDiag.requiringPacks.length > 0 && !betaDiag.hasBetaApis) {
+    const packLines = betaDiag.requiringPacks
+      .map((rp) => {
+        const depStr = rp.betaDependencies
+          .map((d) => `${d.module_name ?? d.uuid}@${d.version ?? ""}`)
+          .join(", ");
+        const name =
+          !rp.pack.name || rp.pack.name.startsWith("pack.") || rp.pack.name === "pack"
+            ? rp.pack.folderName
+            : `${rp.pack.name} (${rp.pack.folderName})`;
+        return `      * ${name} (v${fmtVer(rp.pack.version)}) -> 依赖 ${depStr}`;
+      })
+      .join("\n");
+    issues.push(t("packs.doctor.betaApisMissing", { level: levelName, packs: packLines }));
+    fixableCount++;
+  }
+
+  // 原生脚本模块权限校验（如 @minecraft/server-net, @minecraft/diagnostics 等）
+  const permDiag = checkWorldScriptPermissions(bdsRoot, levelName, packs);
+  if (permDiag.missingPermissions.length > 0) {
+    const list = permDiag.missingPermissions
+      .map((m) => {
+        const name =
+          !m.pack.name || m.pack.name.startsWith("pack.") || m.pack.name === "pack"
+            ? m.pack.folderName
+            : `${m.pack.name} (${m.pack.folderName})`;
+        return `      * ${name} -> 依赖模块 ${m.moduleName}`;
+      })
+      .join("\n");
+    issues.push(t("packs.doctor.permissionsMissing", { list }));
+    fixableCount++;
   }
 
   if (issues.length === 0) return c.green(t("packs.doctor.ok"));
-  return t("packs.doctor.found", {
+  let res = t("packs.doctor.found", {
     count: issues.length,
     list: issues.map((x) => `  - ${x}`).join("\n"),
   });
+  if (fixableCount > 0 && !isFix) {
+    res += "\n\n  " + c.cyan(t("packs.doctor.fixPrompt"));
+  }
+  return res;
 }
 
 export async function dispatchPacksCommand(sub: string | undefined, args: string[]): Promise<string> {
@@ -968,7 +1070,7 @@ export async function dispatchPacksCommand(sub: string | undefined, args: string
         );
       }
       case "doctor":
-        return await cmdDoctor();
+        return await cmdDoctor(args);
       case "path": {
         ensureInboxLayout();
         const { bdsRoot, levelName } = resolveBdsContext();

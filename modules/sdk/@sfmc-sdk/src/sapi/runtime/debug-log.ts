@@ -66,20 +66,33 @@ function ts(): string {
   return new Date().toISOString().slice(11, 23);
 }
 
+function formatArg(a: unknown): string {
+  if (a == null) return String(a);
+  if (a instanceof Error) {
+    const name = a.name || "Error";
+    const msg = a.message || "";
+    const header = msg ? `${name}: ${msg}` : name;
+    return a.stack ? `${header}\n${a.stack}` : header;
+  }
+  if (typeof a === "object") {
+    if ("message" in a && typeof (a as { message?: unknown }).message === "string") {
+      const obj = a as { name?: string; message: string; stack?: string };
+      const name = obj.name || "Error";
+      const header = obj.message ? `${name}: ${obj.message}` : name;
+      return obj.stack ? `${header}\n${obj.stack}` : header;
+    }
+    try {
+      return JSON.stringify(a);
+    } catch {
+      return String(a);
+    }
+  }
+  return String(a);
+}
+
 function formatExtra(args: unknown[]): string {
   if (!args.length) return "";
-  return (
-    " | " +
-    args
-      .map((a) => {
-        try {
-          return typeof a === "object" ? JSON.stringify(a) : String(a);
-        } catch {
-          return String(a);
-        }
-      })
-      .join(" ")
-  );
+  return " | " + args.map(formatArg).join(" ");
 }
 
 function notifySinks(level: DebugLevel, module: string, msg: string, args: unknown[]): void {

@@ -11,8 +11,7 @@
  * 模块私有业务配置按命名空间独立隔离，统一经本客户端与服务端的 module-config API 交互。
  */
 
-import { HttpDB, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
-import { HttpRequestMethod } from "@minecraft/server-net";
+import { HttpDB, SafeHttpMethod, type HttpRequestAuthOpts } from "../runtime/httpdb.js";
 
 type ConfigBucket = {
   moduleId: string;
@@ -23,8 +22,21 @@ type ConfigBucket = {
 
 type ChangeHandler = (key: string, value: unknown) => void;
 
-/** configKey → 缓存桶字典；支持多模块配置共存。 */
-const _buckets = new Map<string, ConfigBucket>();
+interface GlobalConfigClientState {
+  buckets: Map<string, ConfigBucket>;
+  clients: Map<string, ConfigClient>;
+  configKeyByModule: Map<string, string>;
+  activeConfigKey: string;
+}
+
+const gConfigClientState: GlobalConfigClientState = (((globalThis as unknown as Record<string, unknown>).__sfmcConfigClientState as GlobalConfigClientState) ??= {
+  buckets: new Map<string, ConfigBucket>(),
+  clients: new Map<string, ConfigClient>(),
+  configKeyByModule: new Map<string, string>(),
+  activeConfigKey: "",
+});
+
+const _buckets = gConfigClientState.buckets;
 
 /**
  * 作用域配置客户端：绑定固定 configKey，onChange 仅接收本客户端 set 触发的事件。
@@ -68,7 +80,7 @@ async function ensureLoaded(bucket: ConfigBucket, configKey: string): Promise<vo
   if (bucket.loadPromise) return bucket.loadPromise;
   bucket.loadPromise = (async () => {
     const res = await HttpDB.typedRequest<{ config: Record<string, unknown> }>(
-      HttpRequestMethod.GET,
+      SafeHttpMethod.Get,
       withModuleId(`/api/sfmc/configs/${encodeURIComponent(configKey)}`, bucket.moduleId),
       undefined,
       authOpts(bucket.authToken)
@@ -124,7 +136,7 @@ export function createConfigClient(moduleId: string, configKey: string, token: s
     async set(key, value) {
       const bucket = ensureBucket(moduleId, configKey, state.token);
       const res = await HttpDB.typedRequest<{ ok: true }>(
-        HttpRequestMethod.POST,
+        SafeHttpMethod.Post,
         withModuleId(`/api/sfmc/configs/${encodeURIComponent(configKey)}/set`, moduleId),
         { key, value },
         authOpts(state.token)
@@ -146,10 +158,9 @@ export function createConfigClient(moduleId: string, configKey: string, token: s
 
 /* ── 兼容层：按 configKey 登记客户端 + 单例转发 ── */
 
-const _clients = new Map<string, ConfigClient>();
+const _clients = gConfigClientState.clients;
 /** moduleId → configKey，供 clear(moduleId) 精确删除。 */
-const _configKeyByModule = new Map<string, string>();
-let _activeConfigKey = "";
+const _configKeyByModule = gConfigClientState.configKeyByModule;
 
 /**
  * 注入模块私有配置上下文（按 configKey 分桶，支持多模块并发访问）。
@@ -158,14 +169,14 @@ export function setConfigModuleContext(moduleId: string, configKey: string, toke
   const existing = _clients.get(configKey);
   if (existing && existing.moduleId === moduleId) {
     existing.setAuthToken(token);
-    _activeConfigKey = configKey;
+    gConfigClientState.activeConfigKey = configKey;
     _configKeyByModule.set(moduleId, configKey);
     return;
   }
   const client = createConfigClient(moduleId, configKey, token);
   _clients.set(configKey, client);
   _configKeyByModule.set(moduleId, configKey);
-  _activeConfigKey = configKey;
+  gConfigClientState.activeConfigKey = configKey;
 }
 
 /** 按 configKey 取出已登记的作用域配置客户端。 */
@@ -186,7 +197,7 @@ export function clearConfigModuleContext(moduleId?: string): void {
     _buckets.clear();
     _clients.clear();
     _configKeyByModule.clear();
-    _activeConfigKey = "";
+    gConfigClientState.activeConfigKey = "";
     return;
   }
   const key = _configKeyByModule.get(moduleId);
@@ -194,24 +205,24 @@ export function clearConfigModuleContext(moduleId?: string): void {
   if (key) {
     _clients.delete(key);
     _buckets.delete(key);
-    if (_activeConfigKey === key) _activeConfigKey = "";
+    if (gConfigClientState.activeConfigKey === key) gConfigClientState.activeConfigKey = "";
   }
   // 兜底：按 bucket.moduleId 扫描（兼容旧调用未走登记表的情况）
   for (const [k, bucket] of [..._buckets.entries()]) {
     if (bucket.moduleId !== moduleId) continue;
     _buckets.delete(k);
     _clients.delete(k);
-    if (_activeConfigKey === k) _activeConfigKey = "";
+    if (gConfigClientState.activeConfigKey === k) gConfigClientState.activeConfigKey = "";
   }
 }
 
 function activeClient(): ConfigClient {
-  if (!_activeConfigKey) {
+  if (!gConfigClientState.activeConfigKey) {
     throw new Error("[config] 模块上下文未初始化, setConfigModuleContext 未调用");
   }
-  const c = _clients.get(_activeConfigKey);
+  const c = _clients.get(gConfigClientState.activeConfigKey);
   if (!c) {
-    throw new Error(`[config] 找不到 configKey=${_activeConfigKey} 的上下文`);
+    throw new Error(`[config] 找不到 configKey=${gConfigClientState.activeConfigKey} 的上下文`);
   }
   return c;
 }

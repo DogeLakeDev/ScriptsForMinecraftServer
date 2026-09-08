@@ -1,7 +1,15 @@
-import { Player, PlayerPermissionLevel } from "@minecraft/server";
+import { Player, type PlayerPermissionLevel } from "@minecraft/server";
 import { Command } from "./command.js";
 import { ConfigManager } from "../../module-loader/index.js";
 import { Msg } from "./msg.js";
+
+/** 原生 PlayerPermissionLevel 对应数值映射（避免作为运行时值导出导致低版本/稳定版缺失符号而加载失败）。 */
+const NativePlayerPermissionLevel = {
+  Visitor: 0,
+  Member: 1,
+  Operator: 2,
+  Custom: 3,
+} as const;
 
 /**
  * 权限等级（与 Minecraft 原生 PlayerPermissionLevel 对齐）：
@@ -80,14 +88,15 @@ export class Permission {
     const perms = ConfigManager.getPermissions();
     const override = perms[player.name];
     if (override !== undefined) return override;
-    switch (player.playerPermissionLevel) {
-      case PlayerPermissionLevel.Visitor:
+    const rawLevel = (player as { playerPermissionLevel?: PlayerPermissionLevel | number }).playerPermissionLevel;
+    switch (rawLevel) {
+      case NativePlayerPermissionLevel.Visitor:
         return this.Any;
-      case PlayerPermissionLevel.Member:
+      case NativePlayerPermissionLevel.Member:
         return this.Member;
-      case PlayerPermissionLevel.Operator:
+      case NativePlayerPermissionLevel.Operator:
         return this.OP;
-      case PlayerPermissionLevel.Custom:
+      case NativePlayerPermissionLevel.Custom:
         return this.Admin;
       default:
         return this.Member;

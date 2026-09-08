@@ -58,14 +58,22 @@ cd packages/db-server && pnpm run dev
 - **职责**：支持腾讯 QQ 开放平台 WebSocket Gateway（官方机器人）与 OneBot 11（LLBot）双后端，实现消息的双向转换与事件推群。
 - **单元测试**：`pnpm --filter @sfmc-bds/qq-bridge test`。
 
-### ③ `packages/cli`（编排主控与 REPL）
+### ③ `packages/bds-tools`（BDS 运维、版本管理与附加包装配）
+- **职责**：
+  - **BDS 生命周期管理**（`bds-manager.ts`）：子进程/外部进程状态探测、标准输入转发、崩溃自愈与优雅停机。
+  - **自动化更新与灾难恢复**（`check-update.ts`、`rollback.ts`）：Mojang 官方发行版自动探测、增量备份、`preserve` 文件白名单保护与失败原子回滚。
+  - **配置合规与多语言辅助**（`server-properties.ts`、`server-properties-i18n.ts`）：基于属性感知 AST 实现 `server.properties` 注释的中文结构化本地化，保障 EULA 遥测合规（`emit-server-telemetry`），绝不破坏服主配置键值。
+  - **世界附加包与依赖仲裁**（`world-packs.ts`、`dependency-negotiator.ts`、`pack-update/`）：行为包与资源包动态组装部署、CurseForge 上游自动升级探测、`level.dat` 实验性开关（GameTest / Beta APIs）自动激活。
+- **单元测试**：`pnpm --filter @sfmc-bds/bds-tools test`。
+
+### ④ `packages/cli`（编排主控与 REPL）
 - **职责**：实现开服交互控制台、多服务进程生命周期监控、命令分发与日志多路复用。
 - **命令通道分类**（`command-surface.ts`）：
   - `both`：既支持交互式 REPL，又可在宿主 Shell 直接作为子命令执行（如 `start`、`stop`、`mod`）。
   - `repl`：仅在进入 `sfmc` 交互界面后可用。
   - `external`：仅限宿主 Shell 执行（如 `debug` 底层诊断命令）。
 
-### ④ `packages/devkit` 与 `packages/sfmc-extension`
+### ⑤ `packages/devkit` 与 `packages/sfmc-extension`
 - `@sfmc-bds/devkit`：底层封装了模块脚手架、文件监听（Watch）与 esbuild 增量构建部署逻辑。
 - `sfmc-extension`：VS Code / Cursor 官方开发扩展，通过 IPC 调用 devkit 暴露的原子能力。
 

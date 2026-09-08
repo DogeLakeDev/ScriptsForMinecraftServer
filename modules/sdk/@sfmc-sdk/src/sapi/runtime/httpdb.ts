@@ -18,6 +18,59 @@ const TIMEOUT = 3;
 /** 单次 HTTP 请求鉴权选项；模块客户端应按请求传递各自的 token，避免覆盖进程级默认值。 */
 export type HttpRequestAuthOpts = { authToken?: string };
 
+/** 跨版本兼容的 HttpRequestMethod（动态桥接 Bedrock 现代 PascalCase 与 npm 历史大写枚举）。 */
+export const SafeHttpMethod = {
+  get Get(): HttpRequestMethod {
+    const native = HttpRequestMethod as unknown as Record<string, HttpRequestMethod>;
+    return native.Get ?? native.GET ?? ("Get" as unknown as HttpRequestMethod);
+  },
+  get Post(): HttpRequestMethod {
+    const native = HttpRequestMethod as unknown as Record<string, HttpRequestMethod>;
+    return native.Post ?? native.POST ?? ("Post" as unknown as HttpRequestMethod);
+  },
+  get Put(): HttpRequestMethod {
+    const native = HttpRequestMethod as unknown as Record<string, HttpRequestMethod>;
+    return native.Put ?? native.PUT ?? ("Put" as unknown as HttpRequestMethod);
+  },
+  get Delete(): HttpRequestMethod {
+    const native = HttpRequestMethod as unknown as Record<string, HttpRequestMethod>;
+    return native.Delete ?? native.DELETE ?? ("Delete" as unknown as HttpRequestMethod);
+  },
+};
+
+/**
+ * 规范化 HttpRequestMethod，防止大小写或 undefined 导致原生 HttpRequest.method setter 崩溃。
+ * 原生 @minecraft/server-net 使用 PascalCase (Get, Post, Put, Delete, Head, Patch)。
+ */
+function normalizeMethod(method: unknown): HttpRequestMethod {
+  const native = HttpRequestMethod as unknown as Record<string, HttpRequestMethod>;
+  if (typeof method === "string") {
+    const capitalized = method.charAt(0).toUpperCase() + method.slice(1).toLowerCase();
+    return (
+      native[capitalized] ??
+      native[method] ??
+      native[method.toUpperCase()] ??
+      (capitalized as unknown as HttpRequestMethod)
+    );
+  }
+  return (method as HttpRequestMethod) ?? native.Get ?? native.GET ?? ("Get" as unknown as HttpRequestMethod);
+}
+
+// 垫片：兼容使用大写 HttpRequestMethod.GET / POST / PUT / DELETE 的模块代码
+try {
+  const m = HttpRequestMethod as unknown as Record<string, unknown>;
+  if (m && typeof m === "object") {
+    if (!m.GET && m.Get) m.GET = m.Get;
+    if (!m.POST && m.Post) m.POST = m.Post;
+    if (!m.PUT && m.Put) m.PUT = m.Put;
+    if (!m.DELETE && m.Delete) m.DELETE = m.Delete;
+    if (!m.HEAD && m.Head) m.HEAD = m.Head;
+    if (!m.PATCH && m.Patch) m.PATCH = m.Patch;
+  }
+} catch {
+  /* ignore non-extensible */
+}
+
 /**
  * SAPI 端 db-server HTTP 客户端门面（底层基于 `@minecraft/server-net`）。
  * 默认连接本地 3001 端口；各业务模块的 db/config/service 客户端按请求注入各自的私有 token。
@@ -137,10 +190,11 @@ export class HttpDB {
     bodyData?: Record<string, unknown>,
     opts?: HttpRequestAuthOpts
   ): Promise<{ status: number; body: string }> {
+    const safeMethod = normalizeMethod(method);
     try {
       const req = new HttpRequest(`${baseUrl}${path}`);
       req.timeout = TIMEOUT;
-      req.method = method;
+      req.method = safeMethod;
 
       if (bodyData) {
         req.body = JSON.stringify(bodyData);
@@ -156,7 +210,7 @@ export class HttpDB {
     } catch (err) {
       this.available = false;
       if (this._shouldLogError()) {
-        console.error(`[HttpDB] ${method} ${path} 网络错误: ${err}`);
+        console.error(`[HttpDB] ${safeMethod} ${path} 网络错误: ${err}`);
       }
       return { status: 0, body: "" };
     }
@@ -195,7 +249,7 @@ export class HttpDB {
 
   /** GET 请求；非 200 返回 null。 */
   static async get(path: string, opts?: HttpRequestAuthOpts): Promise<string | null> {
-    const { status, body } = await this.request(HttpRequestMethod.GET, path, undefined, opts);
+    const { status, body } = await this.request(SafeHttpMethod.Get, path, undefined, opts);
     if (status !== 200) console.info(`[HttpDB] GET ${path} → ${status}`);
     return status === 200 ? body : null;
   }
@@ -206,7 +260,7 @@ export class HttpDB {
     bodyData: Record<string, unknown>,
     opts?: HttpRequestAuthOpts
   ): Promise<boolean> {
-    const { status } = await this.request(HttpRequestMethod.POST, path, bodyData, opts);
+    const { status } = await this.request(SafeHttpMethod.Post, path, bodyData, opts);
     if (status !== 200) console.info(`[HttpDB] POST ${path} → ${status}`);
     return status === 200;
   }
@@ -217,14 +271,14 @@ export class HttpDB {
     bodyData: Record<string, unknown>,
     opts?: HttpRequestAuthOpts
   ): Promise<boolean> {
-    const { status } = await this.request(HttpRequestMethod.PUT, path, bodyData, opts);
+    const { status } = await this.request(SafeHttpMethod.Put, path, bodyData, opts);
     if (status !== 200) console.info(`[HttpDB] PUT ${path} → ${status}`);
     return status === 200;
   }
 
   /** DELETE 请求；返回是否 HTTP 200。 */
   static async del(path: string, opts?: HttpRequestAuthOpts): Promise<boolean> {
-    const { status } = await this.request(HttpRequestMethod.DELETE, path, undefined, opts);
+    const { status } = await this.request(SafeHttpMethod.Delete, path, undefined, opts);
     if (status !== 200) console.info(`[HttpDB] DELETE ${path} → ${status}`);
     return status === 200;
   }

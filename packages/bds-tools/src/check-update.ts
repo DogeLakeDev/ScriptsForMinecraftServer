@@ -23,7 +23,7 @@ import { copyDirSync, copyFileSyncSafe, emptyDirSync, hashFileAsync, rmSafe } fr
 import { bdsExePath, bdsInstallRequiredFiles, ensureBdsExecutable } from "./host-platform.js";
 import { httpDownload } from "./http.js";
 import { isMainModule } from "./is-main.js";
-import { loadConfig, LOG_PATH, resolvePaths } from "./paths.js";
+import { loadConfig, LOG_PATH, resolvePaths, ROOT_DIR } from "./paths.js";
 import { sendText, sendWithImage } from "./qqutil.js";
 import {
   clearRollbackMarker,
@@ -32,7 +32,7 @@ import {
   verifyBdsInstall,
   writeRollbackMarker,
 } from "./rollback.js";
-import { ensureEmitServerTelemetry } from "./server-properties.js";
+import { ensureEmitServerTelemetry, localizeServerProperties } from "./server-properties.js";
 import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
 import { emitUpdateKv, emitUpdateResult } from "./update-result.js";
 import {
@@ -396,8 +396,9 @@ export async function runUpdate(): Promise<number> {
   // 11. 恢复 preserves (zip 解压时这些目录可能被覆盖)
   await restorePreserves(bdsPath, backupInfo.path, preserve);
 
-  // 11b. 安装收尾：因 EULA 已同意，确保遥测开关（已有则跳过）
+  // 11b. 安装收尾：因 EULA 已同意，确保遥测开关；并将 server.properties 注释本地化
   ensureEmitServerTelemetry(bdsPath, log);
+  localizeServerProperties(bdsPath, { logger: log, rootDir: ROOT_DIR });
 
   // 12. 写入版本缓存
   const newExeHash = await hashFileAsync(exePath, "sha256").catch(() => "");

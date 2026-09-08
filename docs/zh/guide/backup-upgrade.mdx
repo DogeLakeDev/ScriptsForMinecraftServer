@@ -112,11 +112,15 @@ sfmc> update --check-only
 sfmc> update
 ```
 
-#### 白名单防覆盖机制（Preserve）
+#### 白名单防覆盖与配置本地化（Preserve & Localize）
 升级过程中，系统会严格依据 `configs/bds_updater.json` 中的 `preserve` 清单，在解压新版覆盖前**自动封存**以下文件，并在覆盖完成后**原样复原**：
 - `server.properties`（服务端配置）
 - `whitelist.json` / `permissions.json`（原生白名单）
 - `worlds/`（所有世界存档与已安装的行为包）
+
+:::tip server.properties 智能增量本地化
+在安全复原 `server.properties` 后，更新引擎会自动对其执行结构化本地化辅助：在**百分之百保留服主既有自定义配置值**的前提下，自动将配置注释升级为结构清晰的简体中文说明，并校验补全 EULA 遥测项（`emit-server-telemetry=true`）。
+:::
 
 升级完成后，`db-server` 会在首次握手时自动跑增量 Schema 迁移，旧版本数据表结构完全向下兼容。
 

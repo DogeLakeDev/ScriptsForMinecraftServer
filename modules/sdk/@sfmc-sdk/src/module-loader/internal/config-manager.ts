@@ -59,12 +59,38 @@ function indexModuleEntry(cache: ConfigCache, m: ModuleListEntry): void {
   if (key) cache.modules.set(key, enabled);
 }
 
+interface GlobalConfigManagerState {
+  cache: ConfigCache;
+  ready: boolean;
+  data: DataAdapter | null;
+}
+
+const gConfigState: GlobalConfigManagerState = (((globalThis as unknown as Record<string, unknown>).__sfmcConfigManagerState as GlobalConfigManagerState) ??= {
+  cache: emptyCache(),
+  ready: false,
+  data: null,
+});
+
 /** BP 启动时一次性拉取并缓存的平台配置（无热重载）。 */
 export class ConfigManager {
-  private static cache: ConfigCache = emptyCache();
-  /** 仅成功 init 后为 true；失败可重试。 */
-  private static _ready = false;
-  private static _data: DataAdapter | null = null;
+  private static get cache(): ConfigCache {
+    return gConfigState.cache;
+  }
+  private static set cache(val: ConfigCache) {
+    gConfigState.cache = val;
+  }
+  private static get _ready(): boolean {
+    return gConfigState.ready;
+  }
+  private static set _ready(val: boolean) {
+    gConfigState.ready = val;
+  }
+  private static get _data(): DataAdapter | null {
+    return gConfigState.data;
+  }
+  private static set _data(val: DataAdapter | null) {
+    gConfigState.data = val;
+  }
 
   /** 由 installHostBootstrap 调用，注入 db-server 数据适配器。 */
   static bindDataAdapter(adapter: DataAdapter): void {
