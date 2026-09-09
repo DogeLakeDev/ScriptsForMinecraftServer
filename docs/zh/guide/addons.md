@@ -61,8 +61,20 @@ sfmc> packs list --kind bp
 sfmc> packs enable <uuid|folder>
 sfmc> packs disable <uuid|folder>
 
-# 健康诊断：检测世界清单中是否存在悬空失效的幽灵包
+# 健康诊断：检测世界清单接线问题，并查看当前存档实验性开关状态
 sfmc> packs doctor
+
+# 仅查看当前存档的实验性开关开启状态
+sfmc> packs doctor --experiments
+
+# 一键修复接线问题并补齐依赖的 Beta APIs
+sfmc> packs doctor --fix
+
+# 一键自愈接线并开启全部已知实验性功能
+sfmc> packs doctor --fix --all-experiments
+
+# 按需开启指定实验性功能（支持逗号分隔，支持别名）
+sfmc> packs doctor --fix --experiments=upcoming,cameras,voxel,villager,drop3,edu
 
 # 打印世界附加包落盘绝对路径
 sfmc> packs path
@@ -73,6 +85,22 @@ sfmc> packs uninstall <id>
 # 彻底清除（直接永久物理删除，不保留在回收站）
 sfmc> packs uninstall <id> --purge
 ```
+
+#### 存档实验性开关（Experiments）诊断与自愈
+
+许多现代基岩版附加包（尤其是使用自定义方块几何、实体相机、原生脚本或最新玩法的包）依赖世界存档 `level.dat` 中的实验性功能。`packs doctor` 提供了对以下当前版本已知实验性玩法的原生安全读写支持：
+
+| 实验性功能                   | NBT 路径 / 特性                            | 常用别名                    | 作用说明                                        |
+| :--------------------------- | :----------------------------------------- | :-------------------------- | :---------------------------------------------- |
+| **测试版 API (Beta APIs)**   | `experiments.gametest`                     | `beta`, `gametest`          | 供 `@minecraft/server` 等脚本模块调用测试期接口 |
+| **即将推出的创作者功能**     | `experiments.upcoming_creator_features`    | `upcoming`                  | 启用多方块 Trait 与扩展模型旋转                 |
+| **创建者照相机的实验性功能** | `experiments.experimental_creator_cameras` | `cameras`                   | 启用自定义机位与 `/camera` 视口控制             |
+| **实验性Voxel形状特征**      | `experiments.voxel_shapes`                 | `voxel`                     | 启用非方块形状的面剔除（Face Culling）与碰撞    |
+| **村民贸易再平衡**           | `experiments.villager_trades_rebalance`    | `villager`, `trades`        | 启用按生物群系区分的图书管理员交易及矿车更新    |
+| **2026年第3次更新**          | `experiments.drop_3_2026`                  | `drop3`, `wilderness_bound` | 提前体验斑驳森林、坐垫、草床等新特性            |
+| **Minecraft Education 功能** | `educationFeaturesEnabled` (根标签)        | `edu`, `education`          | 开启化学工作台、元素周期表与特殊教育方块        |
+
+每次执行修改均会自动创建 `level.dat.bak` 灾备，校准 8 字节小端序文件头部，并通过临时文件原子替换，确保存档安全。
 
 :::warning 游戏生效机制
 由于 Minecraft BDS 资源包清单在进程初始化时读取，**任何附加包的安装、启停或卸载操作，均需重启 BDS 服务端方可生效**。
@@ -125,4 +153,3 @@ sfmc> packs bump <rp-folder-name>
 ```
 
 客户端在下次连接服务器时，检测到 RP 版本号变更，将自动重新下载并应用全新材质缓存。
-

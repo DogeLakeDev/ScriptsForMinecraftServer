@@ -12,23 +12,33 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { copyDirAsync, readJsonFile } from "./fsx.js";
+import { enableExperimentsInLevelDat, readLevelDatExperiments, type LevelDatExperimentsInfo } from "./level-dat.js";
 import {
   bdsWorldLevelDir,
   bdsWorldsDir,
   disablePackInWorld,
   enablePackInWorld,
   ensureConfigPermission,
+  isGametestBetaRequired,
   levelDatPath,
   readPackManifestDependencies,
   readPackManifestHeader,
   readWorldPackList,
   readWorldPackListResult,
-  isGametestBetaRequired,
   type PackManifestDependency,
   type WorldPackListReadResult,
 } from "./pack-manager.js";
-import { enableBetaApisInLevelDat, readLevelDatExperiments } from "./level-dat.js";
 import { extractZipFileToDir } from "./zipx.js";
+export {
+  enableBetaApisInLevelDat,
+  enableExperimentsInLevelDat,
+  KNOWN_EXPERIMENTS,
+  readLevelDatExperiments,
+  resolveExperimentDefinition,
+  type KnownExperimentDefinition,
+  type LevelDatExperimentsInfo,
+  type LevelDatMutateResult,
+} from "./level-dat.js";
 
 export type WorldPackKind = "behavior" | "resource";
 
@@ -136,9 +146,7 @@ export function choosePackInstallFolderName(opts: {
 }
 
 /** 根据 manifest modules[].type 判定 BP / RP */
-export function detectPackKindFromManifest(raw: {
-  modules?: Array<{ type?: string }>;
-}): WorldPackKind | null {
+export function detectPackKindFromManifest(raw: { modules?: Array<{ type?: string }> }): WorldPackKind | null {
   const types = (raw.modules ?? []).map((m) => String(m.type ?? "").toLowerCase());
   if (types.includes("resources")) return "resource";
   if (types.some((t) => t === "script" || t === "data" || t === "javascript")) return "behavior";
@@ -388,10 +396,7 @@ export function listInstalledWorldPacks(bdsRoot: string, levelName: string): Ins
   const result: InstalledWorldPack[] = [];
 
   for (const kind of ["behavior", "resource"] as const) {
-    const parent = path.join(
-      worldRoot,
-      kind === "behavior" ? "behavior_packs" : "resource_packs"
-    );
+    const parent = path.join(worldRoot, kind === "behavior" ? "behavior_packs" : "resource_packs");
     const enabledList = readWorldPackList(worldsDir, levelName, kind);
     const enabledMap = new Map(enabledList.map((e) => [e.pack_id, e.version] as const));
 
@@ -452,11 +457,7 @@ export function bumpPackPatchVersion(packDir: string): [number, number, number] 
  * @param next 待写入的版本三元组。
  * @returns 写入确认的版本三元组。
  */
-export function writePackHeaderVersion(
-
-  packDir: string,
-  next: [number, number, number]
-): [number, number, number] {
+export function writePackHeaderVersion(packDir: string, next: [number, number, number]): [number, number, number] {
   const file = path.join(packDir, "manifest.json");
   if (!fs.existsSync(file)) throw new Error(`manifest.json missing: ${packDir}`);
   const raw = readJsonFile<{
@@ -493,10 +494,7 @@ export function readPackDependencyUuids(packDir: string): string[] {
 }
 
 /** 比较 SemVer 三元组；a>b 正，a<b 负，相等 0 */
-export function compareSemVer3(
-  a: [number, number, number],
-  b: [number, number, number]
-): number {
+export function compareSemVer3(a: [number, number, number], b: [number, number, number]): number {
   for (let i = 0; i < 3; i++) {
     const d = a[i]! - b[i]!;
     if (d !== 0) return d;
@@ -505,18 +503,12 @@ export function compareSemVer3(
 }
 
 /** 取较大的 SemVer 三元组 */
-export function maxSemVer3(
-  a: [number, number, number],
-  b: [number, number, number]
-): [number, number, number] {
+export function maxSemVer3(a: [number, number, number], b: [number, number, number]): [number, number, number] {
   return compareSemVer3(a, b) >= 0 ? a : b;
 }
 
 /** 按 component 抬一级 */
-export function bumpSemVer3(
-  v: [number, number, number],
-  component: "patch" | "minor"
-): [number, number, number] {
+export function bumpSemVer3(v: [number, number, number], component: "patch" | "minor"): [number, number, number] {
   return component === "minor" ? [v[0], v[1] + 1, 0] : [v[0], v[1], v[2] + 1];
 }
 
@@ -797,10 +789,7 @@ export async function disableInstalledPack(opts: {
   });
 }
 
-export type UninstallPackResult =
-  | { action: "trashed"; dest: string }
-  | { action: "deleted" }
-  | { action: "missing" };
+export type UninstallPackResult = { action: "trashed"; dest: string } | { action: "deleted" } | { action: "missing" };
 
 export type UninstallPackAction = UninstallPackResult["action"];
 
@@ -848,15 +837,8 @@ export async function uninstallInstalledPack(opts: {
   return { action: "deleted" };
 }
 
-export function worldPackParentDir(
-  bdsRoot: string,
-  levelName: string,
-  kind: WorldPackKind
-): string {
-  return path.join(
-    bdsWorldLevelDir(bdsRoot, levelName),
-    kind === "behavior" ? "behavior_packs" : "resource_packs"
-  );
+export function worldPackParentDir(bdsRoot: string, levelName: string, kind: WorldPackKind): string {
+  return path.join(bdsWorldLevelDir(bdsRoot, levelName), kind === "behavior" ? "behavior_packs" : "resource_packs");
 }
 
 /** 世界 enable-list 权威读取 — 委托 pack-manager（供 doctor 等，避免硬编码文件名） */
@@ -877,10 +859,7 @@ export function listWorldEnableListResult(
   return readWorldPackListResult(bdsWorldsDir(bdsRoot), levelName, kind);
 }
 
-export function findInstalledPackById(
-  packs: InstalledWorldPack[],
-  id: string
-): InstalledWorldPack | null {
+export function findInstalledPackById(packs: InstalledWorldPack[], id: string): InstalledWorldPack | null {
   const q = id.trim().toLowerCase();
   return (
     packs.find(
@@ -941,6 +920,31 @@ export function checkWorldBetaApiRequirements(
     levelDatExists: exists,
     levelDatPath: lPath,
     requiringPacks,
+  };
+}
+
+export interface WorldExperimentsDiagnosis {
+  levelDatExists: boolean;
+  levelDatPath: string;
+  experimentsInfo: LevelDatExperimentsInfo | null;
+  betaApis: WorldBetaApiDiagnosis;
+}
+
+/**
+ * 诊断指定世界存档的全部实验性玩法开关及与当前已安装行为包的匹配状况。
+ */
+export function checkWorldExperimentsDiagnosis(
+  bdsRoot: string,
+  levelName: string,
+  installedPacks?: InstalledWorldPack[]
+): WorldExperimentsDiagnosis {
+  const betaApis = checkWorldBetaApiRequirements(bdsRoot, levelName, installedPacks);
+  const info = betaApis.levelDatExists ? readLevelDatExperiments(betaApis.levelDatPath) : null;
+  return {
+    levelDatExists: betaApis.levelDatExists,
+    levelDatPath: betaApis.levelDatPath,
+    experimentsInfo: info,
+    betaApis,
   };
 }
 
@@ -1018,16 +1022,29 @@ export interface RepairWorldPacksResult {
     listVer: string;
     diskVer: string;
   }>;
-  betaApisResult?: {
-    attempted: boolean;
-    changed: boolean;
-    backupPath?: string | undefined;
-    error?: string | undefined;
-  } | undefined;
-  fixedPermissions?: Array<{
-    packName: string;
-    moduleName: string;
-  }> | undefined;
+  betaApisResult?:
+    | {
+        attempted: boolean;
+        changed: boolean;
+        backupPath?: string | undefined;
+        error?: string | undefined;
+      }
+    | undefined;
+  experimentsResult?:
+    | {
+        attempted: boolean;
+        changed: boolean;
+        enabled: string[];
+        backupPath?: string | undefined;
+        error?: string | undefined;
+      }
+    | undefined;
+  fixedPermissions?:
+    | Array<{
+        packName: string;
+        moduleName: string;
+      }>
+    | undefined;
 }
 
 /**
@@ -1035,12 +1052,15 @@ export interface RepairWorldPacksResult {
  * 1. 清理清单中已不存在于磁盘的幽灵包 UUID 条目
  * 2. 自动校准清单中与磁盘 manifest 不一致的版本号
  * 3. 自动补齐缺失的 Script API 原生模块权限（config/default/permissions.json）
- * 4. 可选：自动为 level.dat 开启 Beta APIs（若 fixBetaApis 为 true）
+ * 4. 可选：自动为 level.dat 开启 Beta APIs（若 fixBetaApis 为 true）或指定实验性功能（enableExperiments）
  */
 export async function repairWorldPacksWiring(
   bdsRoot: string,
   levelName: string,
-  opts?: { fixBetaApis?: boolean }
+  opts?: {
+    fixBetaApis?: boolean;
+    enableExperiments?: string[] | "all";
+  }
 ): Promise<RepairWorldPacksResult> {
   const packs = listInstalledWorldPacks(bdsRoot, levelName);
   const cleanedGhostPacks: RepairWorldPacksResult["cleanedGhostPacks"] = [];
@@ -1092,15 +1112,30 @@ export async function repairWorldPacksWiring(
   }
 
   let betaApisResult: RepairWorldPacksResult["betaApisResult"] = undefined;
-  if (opts?.fixBetaApis) {
+  let experimentsResult: RepairWorldPacksResult["experimentsResult"] = undefined;
+
+  const shouldMutateExperiments = !!opts?.enableExperiments || !!opts?.fixBetaApis;
+  if (shouldMutateExperiments) {
     const lPath = levelDatPath(bdsRoot, levelName);
-    const mutateRes = await enableBetaApisInLevelDat(lPath);
-    betaApisResult = {
+    const targets: string[] | "all" = opts?.enableExperiments ?? (opts?.fixBetaApis ? ["gametest"] : []);
+    const mutateRes = await enableExperimentsInLevelDat(lPath, targets);
+
+    experimentsResult = {
       attempted: true,
       changed: mutateRes.changed,
+      enabled: mutateRes.enabledExperiments ?? [],
       ...(mutateRes.backupPath ? { backupPath: mutateRes.backupPath } : {}),
       ...(mutateRes.error ? { error: mutateRes.error } : {}),
     };
+
+    if (opts?.fixBetaApis) {
+      betaApisResult = {
+        attempted: true,
+        changed: mutateRes.changed,
+        ...(mutateRes.backupPath ? { backupPath: mutateRes.backupPath } : {}),
+        ...(mutateRes.error ? { error: mutateRes.error } : {}),
+      };
+    }
   }
 
   // 修复脚本原生模块权限
@@ -1125,10 +1160,12 @@ export async function repairWorldPacksWiring(
   if (betaApisResult) {
     result.betaApisResult = betaApisResult;
   }
+  if (experimentsResult) {
+    result.experimentsResult = experimentsResult;
+  }
   if (fixedPermissions && fixedPermissions.length > 0) {
     result.fixedPermissions = fixedPermissions;
   }
 
   return result;
 }
-

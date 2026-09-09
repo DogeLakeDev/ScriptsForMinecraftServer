@@ -4,8 +4,9 @@
  */
 import { confirm, isCancel, multiselect } from "@clack/prompts";
 import {
+  KNOWN_EXPERIMENTS,
   bumpPackPatchVersion,
-  checkWorldBetaApiRequirements,
+  checkWorldExperimentsDiagnosis,
   checkWorldScriptPermissions,
   disableInstalledPack,
   enableInstalledPack,
@@ -26,7 +27,7 @@ import {
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { t } from "./i18n/index.js";
+import { getLocale, t } from "./i18n/index.js";
 import { pushLog, type LogLevel } from "./logs.js";
 import { BP_NAME, RP_NAME, resolveBdsContext } from "./pack-lifecycle.js";
 import {
@@ -683,18 +684,87 @@ function hasFlag(args: string[], name: string): boolean {
   return args.includes(name);
 }
 
+function formatExperimentsStatus(levelName: string, knownExperiments: Record<string, boolean>): string {
+  const isZh = getLocale() === "zh-CN";
+  const lines = [t("packs.doctor.experimentsStatus", { level: levelName })];
+  for (const exp of KNOWN_EXPERIMENTS) {
+    const on = !!knownExperiments[exp.id];
+    const marker = on ? c.green("●") : c.dim("○");
+    const stateText = on ? c.green(isZh ? "已开启" : "enabled") : c.dim(isZh ? "未开启" : "disabled");
+    const nameStr = isZh ? `${exp.nameZh} (${exp.nameEn})` : exp.nameEn;
+    lines.push(`    ${marker} ${nameStr}: ${stateText}`);
+  }
+  return lines.join("\n");
+}
+
 async function cmdDoctor(args: string[] = []): Promise<string> {
   const isFix = hasFlag(args, "--fix") || hasFlag(args, "-y") || hasFlag(args, "fix");
+  const isExperimentsOnly = hasFlag(args, "--experiments") || hasFlag(args, "experiments");
+  const isAllExperiments = hasFlag(args, "--all-experiments") || hasFlag(args, "--all-exp");
+  const expArg = args.find((a) => a.startsWith("--experiments="));
+
   const { bdsRoot, levelName } = resolveBdsContext();
   const packs = listInstalledWorldPacks(bdsRoot, levelName);
+  const expDiag = checkWorldExperimentsDiagnosis(bdsRoot, levelName, packs);
 
-  if (isFix) {
-    const betaDiag = checkWorldBetaApiRequirements(bdsRoot, levelName, packs);
-    const shouldFixBeta = !betaDiag.hasBetaApis && betaDiag.requiringPacks.length > 0;
-    const repRes = await repairWorldPacksWiring(bdsRoot, levelName, { fixBetaApis: shouldFixBeta });
+  // 仅查询实验性玩法状态（例如 packs doctor --experiments）
+  if (isExperimentsOnly && !isFix && !isAllExperiments && !expArg) {
+    if (!expDiag.levelDatExists || !expDiag.experimentsInfo) {
+      return c.yellow(`level.dat not found for world 「${levelName}」: ${expDiag.levelDatPath}`);
+    }
+    const statusText = formatExperimentsStatus(levelName, expDiag.experimentsInfo.knownExperiments);
+    return `${statusText}\n\n  ${c.cyan(t("packs.doctor.experimentsFixPrompt"))}`;
+  }
+
+  // 判定是否需要开启实验性功能
+  let requestedExperiments: string[] | "all" | undefined = undefined;
+  if (isAllExperiments || expArg === "--experiments=all") {
+    requestedExperiments = "all";
+  } else if (expArg) {
+    const rawList = expArg
+      .slice("--experiments=".length)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (rawList.length > 0) {
+      requestedExperiments = rawList;
+    }
+  }
+
+  if (isFix || requestedExperiments !== undefined) {
+    const shouldFixBeta = !expDiag.betaApis.hasBetaApis && expDiag.betaApis.requiringPacks.length > 0;
+    const repRes = await repairWorldPacksWiring(bdsRoot, levelName, {
+      fixBetaApis: shouldFixBeta,
+      ...(requestedExperiments !== undefined ? { enableExperiments: requestedExperiments } : {}),
+    });
 
     const fixLogs: string[] = [];
-    if (repRes.betaApisResult?.attempted) {
+    if (repRes.experimentsResult?.attempted) {
+      if (repRes.experimentsResult.changed) {
+        const isZh = getLocale() === "zh-CN";
+        const enabledNames = repRes.experimentsResult.enabled
+          .map((id) => {
+            const def = KNOWN_EXPERIMENTS.find((x) => x.id === id);
+            return def ? (isZh ? def.nameZh : def.nameEn) : id;
+          })
+          .join(", ");
+        fixLogs.push(
+          c.green(
+            t("packs.doctor.experimentsFixed", {
+              level: levelName,
+              list: enabledNames || "all",
+              backup: repRes.experimentsResult.backupPath ?? "level.dat.bak",
+            })
+          )
+        );
+      } else if (repRes.experimentsResult.error) {
+        fixLogs.push(
+          c.red(t("packs.doctor.experimentsFailed", { level: levelName, error: repRes.experimentsResult.error }))
+        );
+      } else {
+        fixLogs.push(c.dim(t("packs.doctor.experimentsAlreadyOn", { level: levelName })));
+      }
+    } else if (repRes.betaApisResult?.attempted) {
       if (repRes.betaApisResult.changed) {
         fixLogs.push(
           c.green(
@@ -705,9 +775,7 @@ async function cmdDoctor(args: string[] = []): Promise<string> {
           )
         );
       } else if (repRes.betaApisResult.error) {
-        fixLogs.push(
-          c.red(t("packs.doctor.betaApisFailed", { level: levelName, error: repRes.betaApisResult.error }))
-        );
+        fixLogs.push(c.red(t("packs.doctor.betaApisFailed", { level: levelName, error: repRes.betaApisResult.error })));
       } else {
         fixLogs.push(c.dim(t("packs.doctor.betaApisAlreadyOn", { level: levelName })));
       }
@@ -741,7 +809,8 @@ async function cmdDoctor(args: string[] = []): Promise<string> {
     }
 
     const totalHealed =
-      (repRes.betaApisResult?.changed ? 1 : 0) +
+      (repRes.experimentsResult?.changed ? 1 : 0) +
+      (!repRes.experimentsResult && repRes.betaApisResult?.changed ? 1 : 0) +
       repRes.cleanedGhostPacks.length +
       repRes.syncedVersions.length +
       (repRes.fixedPermissions?.length ?? 0);
@@ -752,6 +821,8 @@ async function cmdDoctor(args: string[] = []): Promise<string> {
         "\n" +
         c.green(t("packs.doctor.fixedSummary", { count: totalHealed }))
       );
+    } else if (fixLogs.length > 0) {
+      return fixLogs.map((x) => `  - ${x}`).join("\n");
     }
   }
 
@@ -792,13 +863,10 @@ async function cmdDoctor(args: string[] = []): Promise<string> {
   }
 
   // Beta APIs 校验
-  const betaDiag = checkWorldBetaApiRequirements(bdsRoot, levelName, packs);
-  if (betaDiag.requiringPacks.length > 0 && !betaDiag.hasBetaApis) {
-    const packLines = betaDiag.requiringPacks
+  if (expDiag.betaApis.requiringPacks.length > 0 && !expDiag.betaApis.hasBetaApis) {
+    const packLines = expDiag.betaApis.requiringPacks
       .map((rp) => {
-        const depStr = rp.betaDependencies
-          .map((d) => `${d.module_name ?? d.uuid}@${d.version ?? ""}`)
-          .join(", ");
+        const depStr = rp.betaDependencies.map((d) => `${d.module_name ?? d.uuid}@${d.version ?? ""}`).join(", ");
         const name =
           !rp.pack.name || rp.pack.name.startsWith("pack.") || rp.pack.name === "pack"
             ? rp.pack.folderName
@@ -826,13 +894,24 @@ async function cmdDoctor(args: string[] = []): Promise<string> {
     fixableCount++;
   }
 
-  if (issues.length === 0) return c.green(t("packs.doctor.ok"));
+  // 格式化当前世界的实验性开关状态
+  let expStatusSection = "";
+  if (expDiag.levelDatExists && expDiag.experimentsInfo) {
+    expStatusSection = "\n\n" + formatExperimentsStatus(levelName, expDiag.experimentsInfo.knownExperiments);
+  }
+
+  if (issues.length === 0) {
+    return c.green(t("packs.doctor.ok")) + expStatusSection;
+  }
+
   let res = t("packs.doctor.found", {
     count: issues.length,
     list: issues.map((x) => `  - ${x}`).join("\n"),
   });
+  res += expStatusSection;
   if (fixableCount > 0 && !isFix) {
     res += "\n\n  " + c.cyan(t("packs.doctor.fixPrompt"));
+    res += "\n  " + c.dim(t("packs.doctor.experimentsFixPrompt"));
   }
   return res;
 }
@@ -1108,7 +1187,7 @@ export function packsUsage(): string {
   ${c.green("packs bump")} <id>          ${t("packs.usage.bump")}
   ${c.green("packs install")} [path|--inbox] [--force]
   ${c.green("packs scan")} [--force] [--dry-run]
-  ${c.green("packs doctor")}
+  ${c.green("packs doctor")} [--fix] [--all-experiments] [--experiments]
   ${c.green("packs path")}
 
 ${t("packs.usage.inbox", { path: packsInboxDir() })}

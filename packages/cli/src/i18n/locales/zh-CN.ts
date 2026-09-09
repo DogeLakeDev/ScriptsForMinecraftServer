@@ -167,7 +167,8 @@ export const zhCN: Record<MessageKey, string> = {
   "svc.startAll.skipped": "已跳过: {list}",
   "svc.startAll.failed": "启动失败: {list}",
   "svc.startAll.empty": "没有服务需要启动",
-  "svc.qq.footer.official": "QQ 桥: official · {enabled} · AppID {appId} · group_openid {openid} · {sandbox} · creds={creds}",
+  "svc.qq.footer.official":
+    "QQ 桥: official · {enabled} · AppID {appId} · group_openid {openid} · {sandbox} · creds={creds}",
   "svc.qq.footer.llbot": "QQ 桥: llbot · {enabled} · 群 {group} · path {path}",
   "svc.updateComplete": "更新完成",
   "svc.updateExited": "更新进程退出，代码 {code}",
@@ -287,8 +288,7 @@ export const zhCN: Record<MessageKey, string> = {
     "已写入 module-lock；db-server 未同步（{detail}）。下次 start db 后内存态会跟上；游戏内仍需 mod reload / 重启 BDS。",
   "mod.enable.usage": "用法: mod enable <id>",
   "mod.disable.usage": "用法: mod disable <id>",
-  "mod.install.usage":
-    "用法: mod install <id>\n      mod install <id> --from <scheme> [--link] [--sha256 <hex>]",
+  "mod.install.usage": "用法: mod install <id>\n      mod install <id> --from <scheme> [--link] [--sha256 <hex>]",
   "mod.fromUnknown": "未知的 --from 来源: {value}。可用: npm:|local[:<路径>]|tgz:|zip:|dir:|github:<repo>[@tag]",
   "mod.fetchMissing": "未找到 fetch-module。请安装 @sfmc-bds/sfmc 或在 monorepo 内运行。",
   "mod.uninstall.usage": "用法: mod uninstall <id>",
@@ -334,16 +334,23 @@ export const zhCN: Record<MessageKey, string> = {
   "packs.doctor.missingDir": "清单有 uuid 但目录缺失 ({kind}): {uuid}",
   "packs.doctor.versionMismatch": "版本不一致 ({kind}): {folder} 清单 {listVer} vs 磁盘 {diskVer}",
   "packs.doctor.notEnabled": "已安装未启用: [{kind}] {folder} ({uuid})",
-  "packs.doctor.betaApisMissing": "当前世界「{level}」未开启「测试版 API (Beta APIs / gametest)」，但以下行为包依赖它:\n{packs}\n    这些包的脚本将被 BDS 拒绝加载！运行 packs doctor --fix 可一键开启。",
+  "packs.doctor.betaApisMissing":
+    "当前世界「{level}」未开启「测试版 API (Beta APIs / gametest)」，但以下行为包依赖它:\n{packs}\n    这些包的脚本将被 BDS 拒绝加载！运行 packs doctor --fix 可一键开启。",
   "packs.doctor.betaApisFixed": "已成功为世界「{level}」开启「测试版 API」(gametest = 1b)，原存档已备份至: {backup}",
   "packs.doctor.betaApisAlreadyOn": "世界「{level}」的「测试版 API」已处于开启状态",
   "packs.doctor.betaApisFailed": "为世界「{level}」开启「测试版 API」失败: {error}",
   "packs.doctor.ghostPackCleaned": "已清理失效的旧包条目 ({kind}): {uuid}",
   "packs.doctor.versionSynced": "已同步版本 ({kind}): {folder} 清单 {listVer} → 磁盘 {diskVer}",
-  "packs.doctor.permissionsMissing": "以下行为包依赖的原生模块未在 BDS 权限配置中允许使用:\n{list}\n    未配置权限的模块将在运行时被 BDS 阻断！运行 packs doctor --fix 可一键自动授权。",
+  "packs.doctor.permissionsMissing":
+    "以下行为包依赖的原生模块未在 BDS 权限配置中允许使用:\n{list}\n    未配置权限的模块将在运行时被 BDS 阻断！运行 packs doctor --fix 可一键自动授权。",
   "packs.doctor.permissionsFixed": "已自动补齐行为包的原生模块权限: {perms}",
   "packs.doctor.fixedSummary": "doctor: 自愈完成，共处理 {count} 项问题。",
-  "packs.doctor.fixPrompt": "可运行 \"packs doctor --fix\" 自动修复上述问题。",
+  "packs.doctor.fixPrompt": '可运行 "packs doctor --fix" 自动修复上述问题。',
+  "packs.doctor.experimentsStatus": "存档实验性开关状态 (世界「{level}」):",
+  "packs.doctor.experimentsFixed": "已成功为世界「{level}」开启实验性开关 ({list})，原存档已备份至: {backup}",
+  "packs.doctor.experimentsAlreadyOn": "世界「{level}」请求的实验性开关已处于开启状态",
+  "packs.doctor.experimentsFailed": "为世界「{level}」修改实验性开关失败: {error}",
+  "packs.doctor.experimentsFixPrompt": '可运行 "packs doctor --fix --all-experiments" 一键开启全部已知实验性玩法。',
   "packs.doctor.ok": "doctor: 未发现问题",
   "packs.doctor.found": "doctor 发现 {count} 项:\n{list}",
   "packs.notFound": "未找到包: {id}",
@@ -425,4 +432,3 @@ export const zhCN: Record<MessageKey, string> = {
   "packUpdate.noBinding": "未找到更新源绑定: {id}",
   "packUpdate.startupFail": "启动时检查更新失败: {message}",
 };
-

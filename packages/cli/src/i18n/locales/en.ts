@@ -170,7 +170,8 @@ export const en = {
   "svc.startAll.skipped": "Skipped: {list}",
   "svc.startAll.failed": "Failed: {list}",
   "svc.startAll.empty": "Nothing to start",
-  "svc.qq.footer.official": "QQ bridge: official · {enabled} · AppID {appId} · group_openid {openid} · {sandbox} · creds={creds}",
+  "svc.qq.footer.official":
+    "QQ bridge: official · {enabled} · AppID {appId} · group_openid {openid} · {sandbox} · creds={creds}",
   "svc.qq.footer.llbot": "QQ bridge: llbot · {enabled} · group {group} · path {path}",
   "svc.updateComplete": "update complete",
   "svc.updateExited": "update exited with code {code}",
@@ -297,8 +298,7 @@ export const en = {
     "Wrote module-lock; db-server not synced ({detail}). Memory state updates on next start db; in-game still needs mod reload / BDS restart.",
   "mod.enable.usage": "Usage: mod enable <id>",
   "mod.disable.usage": "Usage: mod disable <id>",
-  "mod.install.usage":
-    "Usage: mod install <id>\n       mod install <id> --from <source> [--link] [--sha256 <hex>]",
+  "mod.install.usage": "Usage: mod install <id>\n       mod install <id> --from <source> [--link] [--sha256 <hex>]",
   "mod.fromUnknown": "unknown --from source: {value}. Use npm:|local[:<path>]|tgz:|zip:|dir:|github:<repo>[@tag]",
   "mod.fetchMissing": "fetch-module not found. Install @sfmc-bds/sfmc or run inside the monorepo.",
   "mod.uninstall.usage": "Usage: mod uninstall <id>",
@@ -346,16 +346,26 @@ export const en = {
   "packs.doctor.missingDir": "List has uuid but directory missing ({kind}): {uuid}",
   "packs.doctor.versionMismatch": "Version mismatch ({kind}): {folder} list {listVer} vs disk {diskVer}",
   "packs.doctor.notEnabled": "Installed but not enabled: [{kind}] {folder} ({uuid})",
-  "packs.doctor.betaApisMissing": "World \"{level}\" has not enabled \"Beta APIs (gametest)\", but required by:\n{packs}\n    These packs will be blocked by BDS! Run packs doctor --fix to enable.",
-  "packs.doctor.betaApisFixed": "Successfully enabled \"Beta APIs\" (gametest = 1b) for world \"{level}\", backup created at: {backup}",
-  "packs.doctor.betaApisAlreadyOn": "Beta APIs is already enabled for world \"{level}\"",
-  "packs.doctor.betaApisFailed": "Failed to enable Beta APIs for world \"{level}\": {error}",
+  "packs.doctor.betaApisMissing":
+    'World "{level}" has not enabled "Beta APIs (gametest)", but required by:\n{packs}\n    These packs will be blocked by BDS! Run packs doctor --fix to enable.',
+  "packs.doctor.betaApisFixed":
+    'Successfully enabled "Beta APIs" (gametest = 1b) for world "{level}", backup created at: {backup}',
+  "packs.doctor.betaApisAlreadyOn": 'Beta APIs is already enabled for world "{level}"',
+  "packs.doctor.betaApisFailed": 'Failed to enable Beta APIs for world "{level}": {error}',
   "packs.doctor.ghostPackCleaned": "Cleaned missing pack entry ({kind}): {uuid}",
   "packs.doctor.versionSynced": "Synced version ({kind}): {folder} list {listVer} → disk {diskVer}",
-  "packs.doctor.permissionsMissing": "The following behavior packs depend on modules not allowed in BDS config:\n{list}\n    Unconfigured modules will be blocked at runtime by BDS! Run packs doctor --fix to allow them.",
+  "packs.doctor.permissionsMissing":
+    "The following behavior packs depend on modules not allowed in BDS config:\n{list}\n    Unconfigured modules will be blocked at runtime by BDS! Run packs doctor --fix to allow them.",
   "packs.doctor.permissionsFixed": "Automatically allowed script modules: {perms}",
   "packs.doctor.fixedSummary": "doctor: auto-healed {count} issue(s).",
-  "packs.doctor.fixPrompt": "Run \"packs doctor --fix\" to automatically heal fixable issues.",
+  "packs.doctor.fixPrompt": 'Run "packs doctor --fix" to automatically heal fixable issues.',
+  "packs.doctor.experimentsStatus": 'World Experiments Status (World "{level}"):',
+  "packs.doctor.experimentsFixed":
+    'Successfully enabled experimental features ({list}) for world "{level}", backup created at: {backup}',
+  "packs.doctor.experimentsAlreadyOn": 'Requested experimental features for world "{level}" are already enabled',
+  "packs.doctor.experimentsFailed": 'Failed to modify experimental features for world "{level}": {error}',
+  "packs.doctor.experimentsFixPrompt":
+    'Run "packs doctor --fix --all-experiments" to enable all known experimental features.',
   "packs.doctor.ok": "doctor: no issues found",
   "packs.doctor.found": "doctor found {count} issue(s):\n{list}",
   "packs.notFound": "Pack not found: {id}",

@@ -5,8 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import {
   enableBetaApisInLevelDat,
+  enableExperimentsInLevelDat,
+  KNOWN_EXPERIMENTS,
   parseBedrockLevelDat,
   readLevelDatExperiments,
+  resolveExperimentDefinition,
   TAG_BYTE,
   TAG_COMPOUND,
   TAG_END,
@@ -89,15 +92,29 @@ test("readLevelDatExperiments: correctly reads experiments status", () => {
     assert.ok(info1);
     assert.equal(info1.hasBetaApis, false);
     assert.equal(info1.experimentsEverUsed, false);
+    assert.equal(info1.knownExperiments.gametest, false);
+    assert.equal(info1.knownExperiments.upcoming_creator_features, false);
 
     // 2. With gametest = 1
     fs.writeFileSync(file, buildMockLevelDat(true, 1));
     const info2 = readLevelDatExperiments(file);
     assert.ok(info2);
     assert.equal(info2.hasBetaApis, true);
+    assert.equal(info2.knownExperiments.gametest, true);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("resolveExperimentDefinition: resolves aliases and canonical ids", () => {
+  assert.equal(resolveExperimentDefinition("upcoming")?.id, "upcoming_creator_features");
+  assert.equal(resolveExperimentDefinition("cameras")?.id, "experimental_creator_cameras");
+  assert.equal(resolveExperimentDefinition("voxel")?.id, "voxel_shapes");
+  assert.equal(resolveExperimentDefinition("trades")?.id, "villager_trades_rebalance");
+  assert.equal(resolveExperimentDefinition("drop3")?.id, "drop_3_2026");
+  assert.equal(resolveExperimentDefinition("wilderness_bound")?.id, "drop_3_2026");
+  assert.equal(resolveExperimentDefinition("edu")?.id, "education");
+  assert.equal(resolveExperimentDefinition("unknown_feature"), null);
 });
 
 test("enableBetaApisInLevelDat: enables gametest and updates header length", async () => {
@@ -132,13 +149,13 @@ test("enableBetaApisInLevelDat: enables gametest and updates header length", asy
   }
 });
 
-test("enableBetaApisInLevelDat: creates experiments compound if completely absent", async () => {
+test("enableExperimentsInLevelDat: enables all known experiments and handles education root tag", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-lvl-test-"));
   try {
     const file = path.join(tmpDir, "level.dat");
-    fs.writeFileSync(file, buildMockLevelDat(false));
+    fs.writeFileSync(file, buildMockLevelDat(true));
 
-    const res = await enableBetaApisInLevelDat(file);
+    const res = await enableExperimentsInLevelDat(file, "all");
     assert.equal(res.success, true);
     assert.equal(res.changed, true);
 
@@ -147,6 +164,47 @@ test("enableBetaApisInLevelDat: creates experiments compound if completely absen
     assert.equal(info.hasBetaApis, true);
     assert.equal(info.experimentsEverUsed, true);
     assert.equal(info.savedWithToggledExperiments, true);
+
+    // All known experiments must be true
+    for (const def of KNOWN_EXPERIMENTS) {
+      assert.equal(info.knownExperiments[def.id], true, `Experiment ${def.id} should be enabled`);
+    }
+
+    // Verify root educationFeaturesEnabled is 1
+    const finalBuf = fs.readFileSync(file);
+    const parsed = parseBedrockLevelDat(finalBuf);
+    assert.equal(parsed.dataLength, finalBuf.length - 8);
+
+    const eduRoot = parsed.rootChildren.get("educationFeaturesEnabled");
+    assert.ok(eduRoot);
+    assert.equal(eduRoot.value, 1);
+
+    // Second run should be idempotent
+    const res2 = await enableExperimentsInLevelDat(file, "all");
+    assert.equal(res2.success, true);
+    assert.equal(res2.changed, false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("enableExperimentsInLevelDat: enables specific subset from scratch (no experiments compound)", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-lvl-test-"));
+  try {
+    const file = path.join(tmpDir, "level.dat");
+    fs.writeFileSync(file, buildMockLevelDat(false));
+
+    const res = await enableExperimentsInLevelDat(file, ["upcoming", "voxel", "edu"]);
+    assert.equal(res.success, true);
+    assert.equal(res.changed, true);
+
+    const info = readLevelDatExperiments(file);
+    assert.ok(info);
+    assert.equal(info.knownExperiments.upcoming_creator_features, true);
+    assert.equal(info.knownExperiments.voxel_shapes, true);
+    assert.equal(info.knownExperiments.education, true);
+    assert.equal(info.knownExperiments.gametest, false);
+    assert.equal(info.knownExperiments.villager_trades_rebalance, false);
 
     const finalBuf = fs.readFileSync(file);
     const parsed = parseBedrockLevelDat(finalBuf);
