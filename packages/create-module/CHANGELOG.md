@@ -1,5 +1,17 @@
 # @sfmc-bds/create-module
 
+## 0.1.0-beta.3
+
+### Patch Changes
+
+- 74a27c7: 将旧版 `!` 聊天前缀命令迁移到 Bedrock 原生自定义命令接口。平台命令统一使用
+  `/sfmc:<command>`，模块命令使用 `/sfmc:<moduleId>_<command>`；同时修复内置
+  `/sfmc:help` 及其访客权限未注册的问题。
+
+  交互式数据库事务改为互斥排队执行，避免并发 `beginSession` 清理仍在使用的会话。
+
+- d933a02: 安装和更新模块时从 `configs-default` 创建并补全模块配置，且不覆盖用户已有值。
+
 ## 0.1.0-beta.2
 
 ### Patch Changes
