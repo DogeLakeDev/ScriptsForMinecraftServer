@@ -12,7 +12,7 @@ import { Tab, Tabs } from "@rspress/core/theme";
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
-// 模块命令公开为 /c:feature-teleport_tp；必须在 startup 前于模块顶层声明。
+// 模块命令公开为 /c:tp；必须在 startup 前于模块顶层声明。
 Command.register(
   "tp",
   "tp.use",

@@ -98,7 +98,7 @@ sequenceDiagram
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
-// 原生命令必须在 startup 前声明，公开名称为 /c:feature-teleport_tp。
+// 原生命令必须在 startup 前声明，公开名称为 /c:tp。
 Command.register(
   "tp",
   "tp.use",

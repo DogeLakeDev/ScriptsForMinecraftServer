@@ -12,7 +12,7 @@ Every module entry point `sapi/src/index.ts` must register via `ModuleRegistry.r
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
-// Exposed as /c:feature-teleport_tp; native commands must be declared before startup.
+// Exposed as /c:tp; native commands must be declared before startup.
 Command.register(
   "tp",
   "tp.use",

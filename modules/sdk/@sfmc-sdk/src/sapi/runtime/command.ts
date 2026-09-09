@@ -76,7 +76,7 @@ export class Command {
    * @param permission 执行该指令所需的权限等级数值或命名权限字符串。
    * @param callback 指令执行回调，接收触发指令的玩家对象（若为控制台触发则为 `undefined`）。
    * @param description 指令功能描述，用于 `/c:help` 展示；缺省时回退为指令名称。
-   * @param moduleId 所属模块的唯一标识符；模块命令公开为 `/c:<moduleId>_<name>`。
+   * @param moduleId 所属模块的唯一标识符；仅用于模块启停守卫和命令说明，不参与公开命令命名。
    * @param cost 可选的指令执行扣费规则。
    * @returns 注册成功始终返回 `true`。
    */
@@ -235,7 +235,7 @@ export class Command {
         for (const command in this.list) {
           const entry = this.list[command];
           if (entry && this.canExecute(player, entry.permission)) {
-            result += `  /${this.nativeName(command, entry)} - ${entry.description}\n`;
+            result += `  /${this.nativeName(command)} - ${entry.description}\n`;
           }
         }
         return result;
@@ -244,15 +244,15 @@ export class Command {
     );
   }
 
-  /** 生成统一的原生命令名：平台为 `c:name`，模块为 `c:module_name`。 */
-  static nativeName(name: string, entry: Pick<CommandEntry, "moduleId">): string {
-    return `c:${entry.moduleId ? `${entry.moduleId}_` : ""}${name}`;
+  /** 生成统一的原生命令名：所有命令均公开为 `c:name`。 */
+  static nativeName(name: string): string {
+    return `c:${name}`;
   }
 
   /** 在 startup early-execution 阶段把全部声明提交给原生命令注册表。 */
   static registerNativeCommands(registry: CustomCommandRegistry): void {
     for (const [name, entry] of Object.entries(this.list)) {
-      const nativeName = this.nativeName(name, entry);
+      const nativeName = this.nativeName(name);
       registry.registerCommand(
         {
           name: nativeName,

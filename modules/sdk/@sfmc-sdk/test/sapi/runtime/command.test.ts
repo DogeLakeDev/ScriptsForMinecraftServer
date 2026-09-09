@@ -13,7 +13,7 @@ test("registerHelpCommand 同时声明 /c:help 命令与访客权限", () => {
   equal(Permission.entries().find((entry) => entry.name === "help.see")?.level, Permission.Any);
 });
 
-test("registerNativeCommands 统一使用 c 命名空间并为模块添加前缀", () => {
+test("registerNativeCommands 统一使用 c 命名空间且不拼接模块名", () => {
   Command.list = {};
   Command.register("status", Permission.Any, () => undefined, "平台状态");
   Command.register("pay", Permission.Any, () => undefined, "转账", "economy");
@@ -25,12 +25,7 @@ test("registerNativeCommands 统一使用 c 命名空间并为模块添加前缀
   }> = [];
 
   Command.registerNativeCommands({
-    registerCommand(command: {
-      name: string;
-      description: string;
-      permissionLevel: string;
-      cheatsRequired: boolean;
-    }) {
+    registerCommand(command: { name: string; description: string; permissionLevel: string; cheatsRequired: boolean }) {
       commands.push(command);
     },
   } as never);
@@ -43,7 +38,7 @@ test("registerNativeCommands 统一使用 c 命名空间并为模块添加前缀
       cheatsRequired: false,
     },
     {
-      name: "c:economy_pay",
+      name: "c:pay",
       description: "转账 - §7economy",
       permissionLevel: "Any",
       cheatsRequired: false,
