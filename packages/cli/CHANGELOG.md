@@ -1,5 +1,18 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.15
+
+### Minor Changes
+
+- d933a02: REPL 在服务运行期间常驻 SFMC 平台日志窗口，展示除活跃运行服务以外的所有来源日志，并支持 Tab 循环切换与指令执行。
+
+### Patch Changes
+
+- d933a02: 安装和更新模块时从 `configs-default` 创建并补全模块配置，且不覆盖用户已有值。
+- Updated dependencies [74a27c7]
+  - @sfmc-bds/sdk@0.2.0-beta.13
+  - @sfmc-bds/bds-tools@0.2.0-beta.13
+
 ## 0.2.0-beta.14
 
 ### Patch Changes

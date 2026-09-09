@@ -1,5 +1,19 @@
 # @sfmc-bds/db-server
 
+## 0.2.0-beta.9
+
+### Patch Changes
+
+- 74a27c7: 将旧版 `!` 聊天前缀命令迁移到 Bedrock 原生自定义命令接口。平台命令统一使用
+  `/sfmc:<command>`，模块命令使用 `/sfmc:<moduleId>_<command>`；同时修复内置
+  `/sfmc:help` 及其访客权限未注册的问题。
+
+  交互式数据库事务改为互斥排队执行，避免并发 `beginSession` 清理仍在使用的会话。
+
+- 349b070: 将 `TxRunner` 的批量事务与交互式事务会话纳入同一个 SQLite 单连接队列，避免并发备份与查询触发嵌套 `BEGIN` 失败。
+- Updated dependencies [74a27c7]
+  - @sfmc-bds/sdk@0.2.0-beta.13
+
 ## 0.2.0-beta.8
 
 ### Patch Changes
