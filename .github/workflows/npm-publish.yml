@@ -45,6 +45,8 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - run: pnpm install --frozen-lockfile
+
       - name: parse + verify package version
         id: meta
         env:
@@ -67,9 +69,6 @@ jobs:
       - name: skip if already published
         if: steps.meta.outputs.already_published == 'true'
         run: echo "Already on npm — skip"
-
-      - run: pnpm install --frozen-lockfile
-        if: steps.meta.outputs.already_published != 'true'
 
       - name: Build all workspaces
         if: steps.meta.outputs.already_published != 'true'
