@@ -3,7 +3,7 @@ import test from "node:test";
 import { Command } from "../../../src/sapi/runtime/command.js";
 import { Permission } from "../../../src/sapi/runtime/permission.js";
 
-test("registerHelpCommand 同时声明 /sfmc:help 命令与访客权限", () => {
+test("registerHelpCommand 同时声明 /c:help 命令与访客权限", () => {
   Command.unregister("help");
   Permission.clearRegistry();
 
@@ -13,7 +13,7 @@ test("registerHelpCommand 同时声明 /sfmc:help 命令与访客权限", () => 
   equal(Permission.entries().find((entry) => entry.name === "help.see")?.level, Permission.Any);
 });
 
-test("registerNativeCommands 统一使用 sfmc 命名空间并为模块添加前缀", () => {
+test("registerNativeCommands 统一使用 c 命名空间并为模块添加前缀", () => {
   Command.list = {};
   Command.register("status", Permission.Any, () => undefined, "平台状态");
   Command.register("pay", Permission.Any, () => undefined, "转账", "economy");
@@ -37,13 +37,13 @@ test("registerNativeCommands 统一使用 sfmc 命名空间并为模块添加前
 
   deepEqual(commands, [
     {
-      name: "sfmc:status",
+      name: "c:status",
       description: "平台状态",
       permissionLevel: "Any",
       cheatsRequired: false,
     },
     {
-      name: "sfmc:economy_pay",
+      name: "c:economy_pay",
       description: "转账 - §7economy",
       permissionLevel: "Any",
       cheatsRequired: false,

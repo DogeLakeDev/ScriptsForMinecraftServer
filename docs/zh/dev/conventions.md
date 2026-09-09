@@ -28,7 +28,7 @@
 
 ### 原生自定义命令统一接入
 
-- 平台命令统一使用 `/sfmc:<命令>`，模块命令统一使用 `/sfmc:<模块名>_<命令>`，例如 `/sfmc:economy_pay`。
+- 平台命令统一使用 `/c:<命令>`，模块命令统一使用 `/c:<模块名>_<命令>`，例如 `/c:economy_pay`。
 - 所有业务命令通过模块顶层的 `Command.register` 声明，以便宿主在 `system.beforeEvents.startup` 的 early-execution 阶段提交原生注册；不要在生命周期钩子内延迟声明。
 - 系统会自动包裹 `moduleGuard` 保护门禁；一旦模块在 `module-lock.json` 中被停用，其关联命令会自动熔断拦截并向玩家返回友好提示，无需模块内部硬编码判断。
 
@@ -38,10 +38,10 @@
 
 | 权限等级 | 角色代号                      | 典型场景                                                                       |
 | :------: | :---------------------------- | :----------------------------------------------------------------------------- |
-| **`0`**  | **Any**（游客）               | 基础交互命令（如 `/sfmc:ping`、`/sfmc:help`、`/sfmc:tps`、`/sfmc:menu`）。     |
-| **`1`**  | **Member**（成员）            | 正常玩家功能（如 `/sfmc:home_set`、`/sfmc:afk_toggle`、`/sfmc:economy_pay`）。 |
-| **`2`**  | **Admin / OP**（管理员）      | 巡查与日常管理命令（如 `/sfmc:admin_kick`、`/sfmc:admin_mute`）。              |
-| **`3`**  | **Root / SuperAdmin**（超管） | 底层运维命令（如 `/sfmc:reload`、权限分配）。                                  |
+| **`0`**  | **Any**（游客）               | 基础交互命令（如 `/c:ping`、`/c:help`、`/c:tps`、`/c:menu`）。     |
+| **`1`**  | **Member**（成员）            | 正常玩家功能（如 `/c:home_set`、`/c:afk_toggle`、`/c:economy_pay`）。 |
+| **`2`**  | **Admin / OP**（管理员）      | 巡查与日常管理命令（如 `/c:admin_kick`、`/c:admin_mute`）。              |
+| **`3`**  | **Root / SuperAdmin**（超管） | 底层运维命令（如 `/c:reload`、权限分配）。                                  |
 
 ## 3. 配置分层与防腐（Configuration Layers）
 

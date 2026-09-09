@@ -12,7 +12,7 @@ Every module entry point `sapi/src/index.ts` must register via `ModuleRegistry.r
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
-// Exposed as /sfmc:feature-teleport_tp; native commands must be declared before startup.
+// Exposed as /c:feature-teleport_tp; native commands must be declared before startup.
 Command.register(
   "tp",
   "tp.use",
@@ -63,7 +63,7 @@ Msg.info(player, "General information notice");
 Msg.success(player, "Transaction completed successfully!");
 Msg.warning(player, "Warning: PvP is disabled in this zone");
 Msg.error(player, "Insufficient funds for this purchase!");
-Msg.tips(player, "Tip: Type /sfmc:menu to open the quick navigation panel");
+Msg.tips(player, "Tip: Type /c:menu to open the quick navigation panel");
 
 // Broadcast to all online players
 Msg.broadcast("Server notice: Scheduled maintenance in 10 minutes");

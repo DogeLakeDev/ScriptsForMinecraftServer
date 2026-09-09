@@ -33,7 +33,7 @@ export type CommandEntry = {
   callback: Function;
   /** 所需权限等级（数字）或权限名（字符串）。 */
   permission: number | string;
-  /** 指令说明（`/sfmc:help` 展示）。 */
+  /** 指令说明（`/c:help` 展示）。 */
   description: string;
   /** 所属模块 id；用于 moduleGuard 拦截已禁用模块。 */
   moduleId?: string;
@@ -51,11 +51,11 @@ export class Command {
   /**
    * 声明一条游戏内原生自定义指令。
    *
-   * @param name 指令名称（不含 `sfmc:` 命名空间）。
+   * @param name 指令名称（不含 `c:` 命名空间）。
    * @param permission 执行该指令所需的权限等级数值或命名权限字符串。
    * @param callback 指令执行回调，接收触发指令的玩家对象（若为控制台触发则为 `undefined`）。
-   * @param description 指令功能描述，用于 `/sfmc:help` 展示；缺省时回退为指令名称。
-   * @param moduleId 所属模块的唯一标识符；模块命令公开为 `/sfmc:<moduleId>_<name>`。
+   * @param description 指令功能描述，用于 `/c:help` 展示；缺省时回退为指令名称。
+   * @param moduleId 所属模块的唯一标识符；模块命令公开为 `/c:<moduleId>_<name>`。
    * @param cost 可选的指令执行扣费规则。
    * @returns 注册成功始终返回 `true`。
    */
@@ -200,10 +200,10 @@ export class Command {
       return;
     }
     debug.w("CMD", `unknown command "${message}" from ${pname}`);
-    if (player) Msg.error("未知的命令！发送 '/sfmc:help' 查询所有指令。", player);
+    if (player) Msg.error("未知的命令！发送 '/c:help' 查询所有指令。", player);
   }
 
-  /** 注册内置 `/sfmc:help` 指令，列出当前玩家有权限的指令。 */
+  /** 注册内置 `/c:help` 指令，列出当前玩家有权限的指令。 */
   static registerHelpCommand() {
     Permission.register("help.see", Permission.Any);
     this.register(
@@ -223,9 +223,9 @@ export class Command {
     );
   }
 
-  /** 生成统一的原生命令名：平台为 `sfmc:name`，模块为 `sfmc:module_name`。 */
+  /** 生成统一的原生命令名：平台为 `c:name`，模块为 `c:module_name`。 */
   static nativeName(name: string, entry: Pick<CommandEntry, "moduleId">): string {
-    return `sfmc:${entry.moduleId ? `${entry.moduleId}_` : ""}${name}`;
+    return `c:${entry.moduleId ? `${entry.moduleId}_` : ""}${name}`;
   }
 
   /** 在 startup early-execution 阶段把全部声明提交给原生命令注册表。 */

@@ -5,7 +5,7 @@
 
 **Goal:** 将所有独立模块仓的命令声明迁移到 Bedrock 原生启动期注册模型，并逐仓提交、推送。
 
-**Architecture:** SDK 在 `system.beforeEvents.startup` 中统一注册 `sfmc:` 命名空间；平台命令暴露为 `/sfmc:<command>`，模块命令暴露为 `/sfmc:<moduleId>_<command>`。模块在文件顶层调用 `Command.register`，SDK 统一把原生命令描述渲染为 `描述 - §7模块名`。
+**Architecture:** SDK 在 `system.beforeEvents.startup` 中统一注册 `c:` 命名空间；平台命令暴露为 `/c:<command>`，模块命令暴露为 `/c:<moduleId>_<command>`。模块在文件顶层调用 `Command.register`，SDK 统一把原生命令描述渲染为 `描述 - §7模块名`。
 
 **Tech Stack:** TypeScript、Minecraft Bedrock Script API、pnpm/npm workspaces、Git
 
@@ -75,4 +75,4 @@
 
 - [ ] **Step 1:** 使用 dev 脚本强制构建并部署：`sfmc-dev.ps1 mod reload --force`。
 - [ ] **Step 2:** 确认构建产物包含 `registerNativeCommands`、`customCommandRegistry` 和模块命令名。
-- [ ] **Step 3:** 完整重启 BDS，并确认 `/sfmc:help` 与至少一个模块命令出现在补全列表中。
+- [ ] **Step 3:** 完整重启 BDS，并确认 `/c:help` 与至少一个模块命令出现在补全列表中。

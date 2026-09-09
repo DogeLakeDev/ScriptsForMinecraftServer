@@ -125,7 +125,7 @@ ModuleRegistry.register({
 | **表单说明排版**   | `ListFormInfo(string[])`：首行以 `[*]` 开头，正文使用朴素缩进                                                                  |
 | **按钮与标题样式** | 保持纯文本无额外颜色格式代码（「返回」类操作按钮除外）                                                                         |
 | **经济货币单位**   | 基于计分板系统，符号引用 `Money.UNIT`（默认为 `节操`）                                                                         |
-| **游戏命令注册**   | 使用原生自定义命令；平台为 `/sfmc:<命令>`，模块为 `/sfmc:<模块名>_<命令>`；权限层级：`Permission.register`（Any=0 至 Admin=3） |
+| **游戏命令注册**   | 使用原生自定义命令；平台为 `/c:<命令>`，模块为 `/c:<模块名>_<命令>`；权限层级：`Permission.register`（Any=0 至 Admin=3） |
 | **模块依赖边界**   | 仅依赖 `@sfmc-bds/sdk` 与 `@minecraft/*`；跨模块协作经由 `manifest.json` + `service` / `tx`                                    |
 | **安全 SQL 查询**  | 动态 SQL 必须使用受信任标识：`sql()` / `.append(raw(...))`                                                                     |
 

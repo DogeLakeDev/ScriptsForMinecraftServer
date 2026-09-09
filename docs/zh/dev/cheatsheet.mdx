@@ -12,7 +12,7 @@ import { Tab, Tabs } from "@rspress/core/theme";
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 
-// 模块命令公开为 /sfmc:feature-teleport_tp；必须在 startup 前于模块顶层声明。
+// 模块命令公开为 /c:feature-teleport_tp；必须在 startup 前于模块顶层声明。
 Command.register(
   "tp",
   "tp.use",
@@ -63,7 +63,7 @@ Msg.info(player, "这是一条普通通知消息");
 Msg.success(player, "恭喜，交易完成！");
 Msg.warning(player, "注意：此区域禁止 PvP");
 Msg.error(player, "余额不足，无法购买！");
-Msg.tips(player, "小贴士：输入 /sfmc:menu 可打开快捷菜单");
+Msg.tips(player, "小贴士：输入 /c:menu 可打开快捷菜单");
 
 // 全服广播
 Msg.broadcast("全服公告：服务器将在 10 分钟后例行维护");
