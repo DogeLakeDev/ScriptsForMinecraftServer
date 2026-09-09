@@ -465,3 +465,84 @@ test("TxRunner 单连接: run 与交互会话共用事务队列", async () => {
 
   db.close();
 });
+
+test("TxRunner 会回收空闲交互事务并释放等待者", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createQuery } = await import("./lib/sqlite.js");
+  const { SchemaRegistry } = await import("./schema-registry.js");
+  const { TxRunner } = await import("./tx-runner.js");
+
+  const db = new DatabaseSync(":memory:");
+  const schema = new SchemaRegistry(db);
+  const enabled = new Map([
+    [
+      "feature-demo",
+      {
+        id: "feature-demo",
+        version: "1.0.0",
+        permissions: [],
+        services: { provides: [], requires: [] },
+        db: { tables: [] },
+        config: { key: "demo" },
+      } as unknown as import("./manifest-loader.js").ModuleManifestV2,
+    ],
+  ]);
+  const runner = new TxRunner(
+    {
+      db,
+      query: createQuery(db),
+      schema,
+      serviceRegistry: new ServiceRegistry(),
+      enabled,
+    },
+    { sessionIdleTimeoutMs: 20, slotWaitTimeoutMs: 200 }
+  );
+
+  const orphan = await runner.beginSession("feature-demo");
+  equal(orphan.ok, true);
+  const recovered = await runner.beginSession("feature-demo");
+  equal(recovered.ok, true);
+  if (recovered.ok) equal(runner.rollbackSession(recovered.txId, "feature-demo").ok, true);
+  db.close();
+});
+
+test("TxRunner 事务槽等待超时返回 transaction_busy", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createQuery } = await import("./lib/sqlite.js");
+  const { SchemaRegistry } = await import("./schema-registry.js");
+  const { TxRunner } = await import("./tx-runner.js");
+
+  const db = new DatabaseSync(":memory:");
+  const schema = new SchemaRegistry(db);
+  const enabled = new Map([
+    [
+      "feature-demo",
+      {
+        id: "feature-demo",
+        version: "1.0.0",
+        permissions: [],
+        services: { provides: [], requires: [] },
+        db: { tables: [] },
+        config: { key: "demo" },
+      } as unknown as import("./manifest-loader.js").ModuleManifestV2,
+    ],
+  ]);
+  const runner = new TxRunner(
+    {
+      db,
+      query: createQuery(db),
+      schema,
+      serviceRegistry: new ServiceRegistry(),
+      enabled,
+    },
+    { sessionIdleTimeoutMs: 200, slotWaitTimeoutMs: 20 }
+  );
+
+  const owner = await runner.beginSession("feature-demo");
+  equal(owner.ok, true);
+  const blocked = await runner.beginSession("feature-demo");
+  equal(blocked.ok, false);
+  if (!blocked.ok) equal(blocked.code, "transaction_busy");
+  if (owner.ok) equal(runner.rollbackSession(owner.txId, "feature-demo").ok, true);
+  db.close();
+});

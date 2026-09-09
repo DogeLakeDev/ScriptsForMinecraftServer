@@ -121,6 +121,7 @@ export type TxError = {
     | "no_such_service"
     | "not_in_requires"
     | "domain_error"
+    | "transaction_busy"
     | "internal"
     | "no_such_table";
 };
@@ -133,6 +134,19 @@ export interface TxRequest {
 interface TxSession {
   moduleId: string;
   results: TxStepResult[];
+  idleTimer: ReturnType<typeof setTimeout>;
+}
+
+interface TransactionWaiter {
+  resolve: (acquired: boolean) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+export interface TxRunnerOptions {
+  /** 等待全局 SQLite 事务槽的最长时间。 */
+  slotWaitTimeoutMs?: number;
+  /** 交互式事务两次请求之间允许空闲的最长时间。 */
+  sessionIdleTimeoutMs?: number;
 }
 
 export interface TxRunnerDeps {
@@ -146,9 +160,17 @@ export interface TxRunnerDeps {
 export class TxRunner {
   private readonly sessions = new Map<string, TxSession>();
   private transactionBusy = false;
-  private readonly transactionWaiters: Array<() => void> = [];
+  private readonly transactionWaiters: TransactionWaiter[] = [];
+  private readonly slotWaitTimeoutMs: number;
+  private readonly sessionIdleTimeoutMs: number;
 
-  constructor(private readonly deps: TxRunnerDeps) {}
+  constructor(
+    private readonly deps: TxRunnerDeps,
+    options: TxRunnerOptions = {}
+  ) {
+    this.slotWaitTimeoutMs = options.slotWaitTimeoutMs ?? 2_000;
+    this.sessionIdleTimeoutMs = options.sessionIdleTimeoutMs ?? 15_000;
+  }
 
   async run(req: TxRequest): Promise<TxResponse | TxError> {
     const { moduleId, steps } = req;
@@ -162,7 +184,9 @@ export class TxRunner {
     const traceId = randomUUID().slice(0, 8);
     const results: TxStepResult[] = [];
 
-    await this.acquireTransactionSlot();
+    if (!(await this.acquireTransactionSlot())) {
+      return { ok: false, step: -1, error: "事务繁忙，请稍后重试", code: "transaction_busy" };
+    }
     try {
       this.deps.db.exec("BEGIN IMMEDIATE");
     } catch (e) {
@@ -210,7 +234,9 @@ export class TxRunner {
     if (!manifest) return { ok: false, step: -1, error: "模块未 enabled", code: "forbidden" };
 
     // run() 与交互式会话共用同一 SQLite 连接，必须共用同一个事务槽。
-    await this.acquireTransactionSlot();
+    if (!(await this.acquireTransactionSlot())) {
+      return { ok: false, step: -1, error: "事务繁忙，请稍后重试", code: "transaction_busy" };
+    }
 
     try {
       this.deps.db.exec("BEGIN IMMEDIATE");
@@ -222,6 +248,7 @@ export class TxRunner {
     this.sessions.set(txId, {
       moduleId,
       results: [],
+      idleTimer: this.createSessionIdleTimer(txId, moduleId),
     });
     log.info(`[tx-session ${txId.slice(0, 8)}] begin module=${moduleId}`);
     return { ok: true, txId };
@@ -247,6 +274,7 @@ export class TxRunner {
     if (session.moduleId !== moduleId) {
       return { ok: false, step: session.results.length, error: "moduleId 与会话不符", code: "forbidden" };
     }
+    clearTimeout(session.idleTimer);
     const manifest = this.deps.enabled.get(moduleId);
     if (!manifest) {
       this.abortSession(txId);
@@ -256,6 +284,7 @@ export class TxRunner {
     try {
       const r = await this.runOne(moduleId, manifest, step);
       session.results.push(r);
+      session.idleTimer = this.createSessionIdleTimer(txId, moduleId);
       return { ok: true, result: r };
     } catch (err) {
       this.abortSession(txId);
@@ -280,6 +309,7 @@ export class TxRunner {
     if (session.moduleId !== moduleId) {
       return { ok: false, step: -1, error: "moduleId 与会话不符", code: "forbidden" };
     }
+    clearTimeout(session.idleTimer);
     try {
       this.deps.db.exec("COMMIT");
     } catch (e) {
@@ -315,27 +345,51 @@ export class TxRunner {
   }
 
   private abortSession(txId: string): void {
+    const session = this.sessions.get(txId);
+    if (!session) return;
+    clearTimeout(session.idleTimer);
     this.sessions.delete(txId);
     this.rollback();
     this.releaseTransactionSlot();
     log.info(`[tx-session ${txId.slice(0, 8)}] aborted`);
   }
 
-  private async acquireTransactionSlot(): Promise<void> {
+  private async acquireTransactionSlot(): Promise<boolean> {
     if (!this.transactionBusy) {
       this.transactionBusy = true;
-      return;
+      return true;
     }
-    await new Promise<void>((resolve) => this.transactionWaiters.push(resolve));
+    return new Promise<boolean>((resolve) => {
+      const waiter: TransactionWaiter = {
+        resolve,
+        timer: setTimeout(() => {
+          const index = this.transactionWaiters.indexOf(waiter);
+          if (index >= 0) this.transactionWaiters.splice(index, 1);
+          resolve(false);
+        }, this.slotWaitTimeoutMs),
+      };
+      this.transactionWaiters.push(waiter);
+    });
   }
 
   private releaseTransactionSlot(): void {
     const next = this.transactionWaiters.shift();
     if (next) {
-      next();
+      clearTimeout(next.timer);
+      next.resolve(true);
       return;
     }
     this.transactionBusy = false;
+  }
+
+  private createSessionIdleTimer(txId: string, moduleId: string): ReturnType<typeof setTimeout> {
+    const timer = setTimeout(() => {
+      if (!this.sessions.has(txId)) return;
+      log.warn(`[tx-session ${txId.slice(0, 8)}] idle timeout module=${moduleId} after ${this.sessionIdleTimeoutMs}ms`);
+      this.abortSession(txId);
+    }, this.sessionIdleTimeoutMs);
+    timer.unref?.();
+    return timer;
   }
 
   private mapErrorCode(err: unknown): TxError["code"] {
