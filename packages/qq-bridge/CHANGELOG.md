@@ -1,5 +1,12 @@
 # @sfmc-bds/qq-bridge
 
+## 0.2.0-beta.9
+
+### Patch Changes
+
+- Updated dependencies [f616527]
+  - @sfmc-bds/sdk@0.2.0-beta.14
+
 ## 0.2.0-beta.8
 
 ### Patch Changes

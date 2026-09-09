@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/sfmc",
-  "version": "0.2.0-beta.10",
+  "version": "0.2.0-beta.11",
   "description": "SFMC all-in-one meta package — CLI + db-server + qq-bridge + bds-tools. One install, then `sfmc` to init and run.",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
