@@ -1,5 +1,13 @@
 # @sfmc-bds/db-server
 
+## 0.2.0-beta.11
+
+### Patch Changes
+
+- 8d71b80: 为交互式数据库事务增加空闲租约回收，并为事务槽排队增加超时和 `transaction_busy` 错误，防止孤儿事务永久阻塞所有模块。
+- Updated dependencies [f616527]
+  - @sfmc-bds/sdk@0.2.0-beta.15
+
 ## 0.2.0-beta.10
 
 ### Patch Changes
