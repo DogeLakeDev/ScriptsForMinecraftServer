@@ -235,7 +235,7 @@ export class Command {
       registry.registerCommand(
         {
           name: nativeName,
-          description: entry.description,
+          description: entry.moduleId ? `${entry.description} - §7${entry.moduleId}` : entry.description,
           permissionLevel: CommandPermissionLevel.Any,
           cheatsRequired: false,
         },

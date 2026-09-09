@@ -17,13 +17,36 @@ test("registerNativeCommands 统一使用 sfmc 命名空间并为模块添加前
   Command.list = {};
   Command.register("status", Permission.Any, () => undefined, "平台状态");
   Command.register("pay", Permission.Any, () => undefined, "转账", "economy");
-  const names: string[] = [];
+  const commands: Array<{
+    name: string;
+    description: string;
+    permissionLevel: string;
+    cheatsRequired: boolean;
+  }> = [];
 
   Command.registerNativeCommands({
-    registerCommand(command: { name: string }) {
-      names.push(command.name);
+    registerCommand(command: {
+      name: string;
+      description: string;
+      permissionLevel: string;
+      cheatsRequired: boolean;
+    }) {
+      commands.push(command);
     },
   } as never);
 
-  deepEqual(names, ["sfmc:status", "sfmc:economy_pay"]);
+  deepEqual(commands, [
+    {
+      name: "sfmc:status",
+      description: "平台状态",
+      permissionLevel: "Any",
+      cheatsRequired: false,
+    },
+    {
+      name: "sfmc:economy_pay",
+      description: "转账 - §7economy",
+      permissionLevel: "Any",
+      cheatsRequired: false,
+    },
+  ]);
 });

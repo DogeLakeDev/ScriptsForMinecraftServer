@@ -12,34 +12,34 @@
  * 唯一权威：本文件 = `sfmc mod build|reload` 的派发入口；其他文件不得再
  * 直接 import pack-lifecycle 的 cmdPackBuild / deployPacks（确保只有一个 spawn 入口）。
  */
+import { writeJson } from "@sfmc-bds/sdk/node/config";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { writeJson } from "@sfmc-bds/sdk/node/config";
-import {
-  BP_NAME,
-  RP_NAME,
-  DEPLOY_CATALOG_NAME,
-  bpOut,
-  bpSrc,
-  rpOut,
-  buildRoot,
-  computeDesiredCatalog,
-  readDeployedCatalog,
-  catalogsEqual,
-  resolveBdsContext,
-  deployedBpDir,
-  formatPackLoadInfo,
-  scanLocalModules,
-  createSdkResolvePlugin,
-  type DeployCatalog,
-} from "./pack-lifecycle.js";
-import { ROOT, getRoot, resolveServiceScript, resolveSdkPackageRoot } from "./runtime.js";
-import { c } from "./theme.js";
 import { t } from "./i18n/index.js";
 import { pushLog } from "./logs.js";
+import {
+  BP_NAME,
+  DEPLOY_CATALOG_NAME,
+  RP_NAME,
+  bpOut,
+  bpSrc,
+  buildRoot,
+  catalogsEqual,
+  computeDesiredCatalog,
+  createSdkResolvePlugin,
+  deployedBpDir,
+  formatPackLoadInfo,
+  readDeployedCatalog,
+  resolveBdsContext,
+  rpOut,
+  scanLocalModules,
+  type DeployCatalog,
+} from "./pack-lifecycle.js";
+import { ROOT, getRoot, resolveSdkPackageRoot, resolveServiceScript } from "./runtime.js";
+import { c } from "./theme.js";
 
 type SpawnResult = { code: number | null; output: string };
 
@@ -140,10 +140,7 @@ async function spawnAssembleBp(catalog: DeployCatalog): Promise<SpawnResult> {
 }
 
 /** spawn assemble-rp verb；无 RP 时清理旧产物。 */
-async function spawnAssembleRp(
-  catalog: DeployCatalog,
-  rpDirs: Record<string, string>
-): Promise<SpawnResult> {
+async function spawnAssembleRp(catalog: DeployCatalog, rpDirs: Record<string, string>): Promise<SpawnResult> {
   if (!catalog.rpUuid || Object.keys(rpDirs).length === 0) {
     await fs.rm(rpOut(), { recursive: true, force: true });
     pushLog("no enabled resource packs — RP skipped", "pack", "info");
@@ -168,11 +165,7 @@ async function spawnAssembleRp(
   if (catalog.rpModuleUuid) args.push("--module-uuid", catalog.rpModuleUuid);
   const r = await spawnPackManager(args);
   if (r.code === 0) {
-    pushLog(
-      `assembled RP uuid=${catalog.rpUuid} (${Object.keys(rpDirs).length} modules)`,
-      "pack",
-      "info"
-    );
+    pushLog(`assembled RP uuid=${catalog.rpUuid} (${Object.keys(rpDirs).length} modules)`, "pack", "info");
   }
   return r;
 }
@@ -226,11 +219,7 @@ async function spawnEnablePacks(catalog: DeployCatalog): Promise<SpawnResult> {
   const bpR = await spawnPackManager(bpArgs);
   output += bpR.output;
   if (bpR.code !== 0) return { code: bpR.code, output };
-  pushLog(
-    `enabled behavior pack ${catalog.bpUuid} in world list`,
-    "pack",
-    "info"
-  );
+  pushLog(`enabled behavior pack ${catalog.bpUuid} in world list`, "pack", "info");
   if (catalog.rpUuid && catalog.rpVersion) {
     const rpArgs = [
       "enable-pack",
@@ -248,21 +237,13 @@ async function spawnEnablePacks(catalog: DeployCatalog): Promise<SpawnResult> {
     const rpR = await spawnPackManager(rpArgs);
     output += rpR.output;
     if (rpR.code !== 0) return { code: rpR.code, output };
-    pushLog(
-      `enabled resource pack ${catalog.rpUuid} in world list`,
-      "pack",
-      "info"
-    );
+    pushLog(`enabled resource pack ${catalog.rpUuid} in world list`, "pack", "info");
   }
   return { code: 0, output };
 }
 
 /** spawn disable-pack verb：清理过期 UUID（uuid 轮换 / 不再提供 RP）。 */
-async function spawnDisableStale(
-  current: DeployCatalog,
-  bdsRoot: string,
-  levelName: string
-): Promise<void> {
+async function spawnDisableStale(current: DeployCatalog, bdsRoot: string, levelName: string): Promise<void> {
   const previous = await collectDeployedPackUuids(bdsRoot, levelName);
   const worldsDir = path.join(bdsRoot, "worlds");
   for (const staleRp of previous.rp) {
@@ -283,11 +264,7 @@ async function spawnDisableStale(
     if (r.code === 0) {
       pushLog(`disabled stale resource pack ${staleRp}`, "pack", "info");
     } else {
-      pushLog(
-        `disable stale RP ${staleRp} failed: ${r.output.trim()}`,
-        "pack",
-        "warn"
-      );
+      pushLog(`disable stale RP ${staleRp} failed: ${r.output.trim()}`, "pack", "warn");
     }
   }
   for (const staleBp of previous.bp) {
@@ -308,11 +285,7 @@ async function spawnDisableStale(
     if (r.code === 0) {
       pushLog(`disabled stale behavior pack ${staleBp}`, "pack", "info");
     } else {
-      pushLog(
-        `disable stale BP ${staleBp} failed: ${r.output.trim()}`,
-        "pack",
-        "warn"
-      );
+      pushLog(`disable stale BP ${staleBp} failed: ${r.output.trim()}`, "pack", "warn");
     }
   }
 }
@@ -354,13 +327,7 @@ async function collectDeployedPackUuids(
 /** spawn ensure-permission verb。 */
 async function spawnEnsurePermission(catalog: DeployCatalog): Promise<SpawnResult> {
   const { bdsRoot } = resolveBdsContext();
-  const r = await spawnPackManager([
-    "ensure-permission",
-    "--bds-root",
-    bdsRoot,
-    "--pack-id",
-    catalog.bpUuid,
-  ]);
+  const r = await spawnPackManager(["ensure-permission", "--bds-root", bdsRoot, "--pack-id", catalog.bpUuid]);
   return r;
 }
 
@@ -388,11 +355,7 @@ export async function buildModulePacks(force = false): Promise<BuildModulePacksR
       };
     }
 
-    pushLog(
-      `building BP/RP (modules=${Object.keys(desired.modules).length})…`,
-      "pack",
-      "info"
-    );
+    pushLog(`building BP/RP (modules=${Object.keys(desired.modules).length})…`, "pack", "info");
     await bundleBehaviorPackScript();
 
     const mods = await scanLocalModules();
@@ -440,9 +403,9 @@ export async function buildModulePacks(force = false): Promise<BuildModulePacksR
 /**
  * `sfmc mod build` —— 组装 BP + RP（不部署）。
  */
-export async function cmdModuleBuild(args: string[] = []): Promise<string> {
-  const force = args.includes("--force") || args.includes("-f");
-  const res = await buildModulePacks(force);
+export async function cmdModuleBuild(_args: string[] = []): Promise<string> {
+  // 显式 `mod build` 必须重建；增量跳过只属于启动自检与非强制 reload。
+  const res = await buildModulePacks(true);
   return res.message;
 }
 
@@ -505,9 +468,7 @@ export async function cmdModuleReload(args: string[] = []): Promise<string> {
   return parts.join("\n") + "\n";
 }
 
-function reusePackIds(
-  deployed: DeployCatalog
-): Parameters<typeof computeDesiredCatalog>[0] {
+function reusePackIds(deployed: DeployCatalog): Parameters<typeof computeDesiredCatalog>[0] {
   return {
     bpUuid: deployed.bpUuid,
     rpUuid: deployed.rpUuid,
