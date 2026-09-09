@@ -47,6 +47,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build SDK for publish metadata resolver
+        run: pnpm --filter @sfmc-bds/sdk run build
+
       - name: parse + verify package version
         id: meta
         env:
