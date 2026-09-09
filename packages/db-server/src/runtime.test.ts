@@ -385,3 +385,83 @@ test("TxRunner 交互会话: 并发 beginSession 自动排队互斥执行", asyn
   equal(rows[1]?.val, "two");
   db.close();
 });
+
+test("TxRunner 单连接: run 与交互会话共用事务队列", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const { createQuery } = await import("./lib/sqlite.js");
+  const { SchemaRegistry } = await import("./schema-registry.js");
+  const { TxRunner } = await import("./tx-runner.js");
+
+  const db = new DatabaseSync(":memory:");
+  const query = createQuery(db);
+  const schema = new SchemaRegistry(db);
+  schema.define("feature-demo", {
+    name: "queue_items",
+    columns: {
+      id: { type: "text", primary: true },
+      val: { type: "text", notNull: true },
+    },
+    softDelete: false,
+  });
+
+  const enabled = new Map([
+    [
+      "feature-demo",
+      {
+        id: "feature-demo",
+        version: "1.0.0",
+        permissions: ["db:read:queue_items", "db:write:queue_items"],
+        services: { provides: [], requires: [] },
+        db: { tables: [] },
+        config: { key: "demo" },
+      } as unknown as import("./manifest-loader.js").ModuleManifestV2,
+    ],
+  ]);
+
+  const runner = new TxRunner({
+    db,
+    query,
+    schema,
+    serviceRegistry: new ServiceRegistry(),
+    enabled,
+  });
+
+  const session = await runner.beginSession("feature-demo");
+  equal(session.ok, true);
+  if (!session.ok) return;
+
+  let runFinished = false;
+  const queuedRun = runner
+    .run({
+      moduleId: "feature-demo",
+      steps: [{ op: "query", table: "queue_items" }],
+    })
+    .then((result) => {
+      runFinished = true;
+      return result;
+    });
+  equal(runFinished, false);
+
+  equal(runner.commitSession(session.txId, "feature-demo").ok, true);
+  equal((await queuedRun).ok, true);
+  equal(runFinished, true);
+
+  const running = runner.run({
+    moduleId: "feature-demo",
+    steps: [{ op: "query", table: "queue_items" }],
+  });
+  let sessionStarted = false;
+  const queuedSession = runner.beginSession("feature-demo").then((result) => {
+    sessionStarted = true;
+    return result;
+  });
+  equal(sessionStarted, false);
+  equal((await running).ok, true);
+
+  const nextSession = await queuedSession;
+  equal(nextSession.ok, true);
+  equal(sessionStarted, true);
+  if (nextSession.ok) equal(runner.rollbackSession(nextSession.txId, "feature-demo").ok, true);
+
+  db.close();
+});

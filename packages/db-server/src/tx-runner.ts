@@ -133,7 +133,6 @@ export interface TxRequest {
 interface TxSession {
   moduleId: string;
   results: TxStepResult[];
-  openedAt: number;
 }
 
 export interface TxRunnerDeps {
@@ -146,6 +145,8 @@ export interface TxRunnerDeps {
 
 export class TxRunner {
   private readonly sessions = new Map<string, TxSession>();
+  private transactionBusy = false;
+  private readonly transactionWaiters: Array<() => void> = [];
 
   constructor(private readonly deps: TxRunnerDeps) {}
 
@@ -161,9 +162,11 @@ export class TxRunner {
     const traceId = randomUUID().slice(0, 8);
     const results: TxStepResult[] = [];
 
+    await this.acquireTransactionSlot();
     try {
       this.deps.db.exec("BEGIN IMMEDIATE");
     } catch (e) {
+      this.releaseTransactionSlot();
       return { ok: false, step: -1, error: `BEGIN 失败: ${(e as Error).message}`, code: "internal" };
     }
 
@@ -174,6 +177,7 @@ export class TxRunner {
         results.push(r);
       } catch (err) {
         this.rollback();
+        this.releaseTransactionSlot();
         const code = this.mapErrorCode(err);
         log.warn(`[tx ${traceId}] step=${i} failed: ${(err as Error).message}`);
         return { ok: false, step: i, error: (err as Error).message, code };
@@ -184,19 +188,19 @@ export class TxRunner {
       this.deps.db.exec("COMMIT");
     } catch (e) {
       this.rollback();
+      this.releaseTransactionSlot();
       return { ok: false, step: -1, error: `COMMIT 失败: ${(e as Error).message}`, code: "internal" };
     }
 
+    this.releaseTransactionSlot();
     log.info(`[tx ${traceId}] module=${moduleId} ${steps.length} steps OK`);
     return { ok: true, results };
   }
 
-  private readonly sessionWaiters: Array<() => void> = [];
-
   /**
    * 开启交互式事务会话（协议流程：begin → step* → commit | rollback）。
    * 供客户端 `db.tx` 在回调内部异步执行并实时读回 query / get / call 的服务端执行结果。
-   * 单连接互斥保护：多会话并发时异步排队，并在提交/回滚时顺次唤醒；配置租约超时自动清理残留。
+   * 单连接互斥保护：与批量 run() 共用事务队列，并在提交/回滚时唤醒下一个等待者。
    *
    * @param moduleId 请求模块唯一标识符。
    * @returns 成功返回分配的会话 txId，失败返回错误响应。
@@ -205,49 +209,19 @@ export class TxRunner {
     const manifest = this.deps.enabled.get(moduleId);
     if (!manifest) return { ok: false, step: -1, error: "模块未 enabled", code: "forbidden" };
 
-    // 互斥排队：若已有会话活跃，等待其 commit/rollback 或租约超时
-    while (this.sessions.size > 0) {
-      const active = [...this.sessions.values()][0];
-      if (active && Date.now() - active.openedAt > 5000) {
-        for (const id of [...this.sessions.keys()]) {
-          this.abortSession(id);
-        }
-        break;
-      }
-      await new Promise<void>((resolve) => {
-        let timer: NodeJS.Timeout;
-        const onFree = () => {
-          clearTimeout(timer);
-          resolve();
-        };
-        timer = setTimeout(() => {
-          const idx = this.sessionWaiters.indexOf(onFree);
-          if (idx !== -1) this.sessionWaiters.splice(idx, 1);
-          for (const id of [...this.sessions.keys()]) {
-            this.abortSession(id);
-          }
-          resolve();
-        }, 5000);
-        this.sessionWaiters.push(onFree);
-      });
-    }
+    // run() 与交互式会话共用同一 SQLite 连接，必须共用同一个事务槽。
+    await this.acquireTransactionSlot();
 
     try {
       this.deps.db.exec("BEGIN IMMEDIATE");
     } catch (e) {
-      // 容错自愈：若因未捕获异常残留在事务中，先行 ROLLBACK 后重试
-      try {
-        this.deps.db.exec("ROLLBACK");
-        this.deps.db.exec("BEGIN IMMEDIATE");
-      } catch (e2) {
-        return { ok: false, step: -1, error: `BEGIN 失败: ${(e2 as Error).message}`, code: "internal" };
-      }
+      this.releaseTransactionSlot();
+      return { ok: false, step: -1, error: `BEGIN 失败: ${(e as Error).message}`, code: "internal" };
     }
     const txId = randomUUID();
     this.sessions.set(txId, {
       moduleId,
       results: [],
-      openedAt: Date.now(),
     });
     log.info(`[tx-session ${txId.slice(0, 8)}] begin module=${moduleId}`);
     return { ok: true, txId };
@@ -314,7 +288,7 @@ export class TxRunner {
     }
     const results = session.results;
     this.sessions.delete(txId);
-    this.notifyWaiters();
+    this.releaseTransactionSlot();
     log.info(`[tx-session ${txId.slice(0, 8)}] commit ${results.length} steps OK`);
     return { ok: true, results };
   }
@@ -343,13 +317,25 @@ export class TxRunner {
   private abortSession(txId: string): void {
     this.sessions.delete(txId);
     this.rollback();
-    this.notifyWaiters();
+    this.releaseTransactionSlot();
     log.info(`[tx-session ${txId.slice(0, 8)}] aborted`);
   }
 
-  private notifyWaiters(): void {
-    const next = this.sessionWaiters.shift();
-    if (next) next();
+  private async acquireTransactionSlot(): Promise<void> {
+    if (!this.transactionBusy) {
+      this.transactionBusy = true;
+      return;
+    }
+    await new Promise<void>((resolve) => this.transactionWaiters.push(resolve));
+  }
+
+  private releaseTransactionSlot(): void {
+    const next = this.transactionWaiters.shift();
+    if (next) {
+      next();
+      return;
+    }
+    this.transactionBusy = false;
   }
 
   private mapErrorCode(err: unknown): TxError["code"] {
