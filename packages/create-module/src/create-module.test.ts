@@ -23,11 +23,15 @@ test("createModule minimal 生成可识别骨架", async () => {
   assert.ok(fs.existsSync(path.join(target, "package.json")));
   assert.ok(fs.existsSync(path.join(target, "sapi", "manifest.json")));
   assert.ok(fs.existsSync(path.join(target, "sapi", "src", "index.ts")));
+  assert.ok(fs.existsSync(path.join(target, "configs-default", "hello_mod.json")));
   assert.ok(fs.existsSync(path.join(target, "test", "hello-mod.test.ts")));
   const pkg = JSON.parse(fs.readFileSync(path.join(target, "package.json"), "utf8")) as {
     name: string;
+    files: string[];
   };
   assert.equal(pkg.name, "@alice/sfmc-module-hello-mod");
+  assert.ok(pkg.files.includes("configs-default"));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(target, "configs-default", "hello_mod.json"), "utf8")), {});
   const manifest = JSON.parse(fs.readFileSync(path.join(target, "sapi", "manifest.json"), "utf8")) as {
     id: string;
     configKey: string;

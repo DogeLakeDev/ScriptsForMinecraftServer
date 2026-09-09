@@ -44,14 +44,16 @@ import { listRegistryModuleIdsSync } from "./registry.js";
 import {
   createLogsFilterWindow,
   createServiceWindow,
+  createSfmcWindow,
   serviceWindowId,
+  SFMC_WINDOW_ID,
   WindowHost,
   type LogsFilterState,
   type WindowChrome,
   type WindowKeyEvent,
   type WindowKeyResult,
 } from "./repl-windows/index.js";
-import { listActiveSendTargets, paintSendPrompt, plainPrompt } from "./send-target.js";
+import { listActiveSendTargets, paintSendPrompt, paintSfmcPrompt, plainPrompt } from "./send-target.js";
 import { forceStopAll, onServiceStateChange, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
 import { c, T } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
@@ -939,11 +941,19 @@ export async function startRepl(): Promise<void> {
   );
 
   function syncServiceWindows(targets: ServiceName[]): void {
+    if (targets.length === 0) {
+      host.setServiceOrder([]);
+      preferredTarget = null;
+      return;
+    }
     for (const name of targets) {
       const id = serviceWindowId(name);
       if (!host.has(id)) host.register(createServiceWindow(name));
     }
-    host.setServiceOrder(targets.map(serviceWindowId));
+    if (!host.has(SFMC_WINDOW_ID)) {
+      host.register(createSfmcWindow({ getActiveTargets: () => activeTargets }));
+    }
+    host.setServiceOrder([...targets.map(serviceWindowId), SFMC_WINDOW_ID]);
     const svc = host.getActive()?.serviceName;
     if (svc) preferredTarget = svc;
   }
@@ -999,6 +1009,7 @@ export async function startRepl(): Promise<void> {
 
   function currentTarget(): ServiceName | null {
     if (activeTargets.length === 0) return null;
+    if (host.getActive()?.id === SFMC_WINDOW_ID) return null;
     const fromWin = host.getActive()?.serviceName;
     if (fromWin && activeTargets.includes(fromWin)) {
       preferredTarget = fromWin;
@@ -1010,6 +1021,9 @@ export async function startRepl(): Promise<void> {
   }
 
   function buildPrompt(): string {
+    if (host.getActive()?.id === SFMC_WINDOW_ID) {
+      return paintSfmcPrompt();
+    }
     const tgt = currentTarget();
     return tgt ? paintSendPrompt(tgt) : plainPrompt();
   }
@@ -1018,8 +1032,8 @@ export async function startRepl(): Promise<void> {
     await refreshTargetsFromRuntime();
     const result = await readLine({
       getPrompt: buildPrompt,
-      /* 无服务时默认加 /（与窗口系统前行为一致）；用 getter 以便进程退出后即时生效 */
-      autoSlash: () => activeTargets.length === 0,
+      /* 无服务或在 SFMC 平台窗时默认加 /（与窗口系统前行为一致）；用 getter 以便进程退出后即时生效 */
+      autoSlash: () => activeTargets.length === 0 || host.getActive()?.id === SFMC_WINDOW_ID,
       getChrome: () => host.getChrome(),
       onWindowKey: (ev) => {
         const r = host.onKey(ev);
@@ -1027,9 +1041,9 @@ export async function startRepl(): Promise<void> {
         return r;
       },
       cycleSendTarget: () => {
-        const name = host.cycleServiceWindows();
-        if (!name) return false;
-        preferredTarget = name;
+        const res = host.cycleServiceWindows();
+        if (!res.switched) return false;
+        preferredTarget = res.serviceName;
         showActiveWindow();
         return true;
       },

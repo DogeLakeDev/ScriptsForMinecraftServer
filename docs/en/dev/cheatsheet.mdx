@@ -171,6 +171,7 @@ await db.transaction(async (tx) => {
 ## 5. Private Module Configuration (`@sfmc-bds/sdk/sapi/config`)
 
 Read and write isolated configuration in `configs/<configKey>.json`:
+Declare defaults in the module package at `configs-default/<configKey>.json`; install and update operations add only missing fields and never overwrite user values.
 
 ```ts
 import { config } from "@sfmc-bds/sdk/sapi/config";

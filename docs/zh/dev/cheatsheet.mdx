@@ -165,6 +165,7 @@ await db.transaction(async (tx) => {
 ## 5. 模块私有配置读写 (`@sfmc-bds/sdk/sapi/config`)
 
 模块在 `configs/<configKey>.json` 拥有独立隔离的命名空间：
+默认值写在模块包的 `configs-default/<configKey>.json`，安装/更新时自动只补缺、不覆盖用户值。
 
 ```ts
 import { config } from "@sfmc-bds/sdk/sapi/config";

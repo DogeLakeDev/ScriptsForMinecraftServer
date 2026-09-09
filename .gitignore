@@ -1,4 +1,5 @@
 # 不上传构建产物
+/dist/
 packages/*/dist/
 panel/dist/
 modules/sdk/@sfmc-sdk/dist/

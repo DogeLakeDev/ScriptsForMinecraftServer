@@ -36,6 +36,11 @@ export function paintSendPrompt(name: ServiceName): string {
   return chalk.bgHex(BG[name]).hex(T.bg)(` ${label} ❯ `) + " ";
 }
 
+/** 平台控制台提示符：` SFMC ❯ ` 青色底块高亮 */
+export function paintSfmcPrompt(): string {
+  return chalk.bgHex(T.cyan).hex(T.bg)(" SFMC ❯ ") + " ";
+}
+
 /** 无发送目标时：纯提示符（命令仍可用 / 或 autoSlash） */
 export function plainPrompt(): string {
   return chalk.hex(T.text)("❯ ");

@@ -36,12 +36,12 @@
 
 权限节点必须在 `ModuleRegistry.register` 的 `registerPermissions()` 阶段集中声明，并映射至四级标准权限数：
 
-| 权限等级 | 角色代号                      | 典型场景                                                                       |
-| :------: | :---------------------------- | :----------------------------------------------------------------------------- |
-| **`0`**  | **Any**（游客）               | 基础交互命令（如 `/c:ping`、`/c:help`、`/c:tps`、`/c:menu`）。     |
+| 权限等级 | 角色代号                      | 典型场景                                                              |
+| :------: | :---------------------------- | :-------------------------------------------------------------------- |
+| **`0`**  | **Any**（游客）               | 基础交互命令（如 `/c:ping`、`/c:help`、`/c:tps`、`/c:menu`）。        |
 | **`1`**  | **Member**（成员）            | 正常玩家功能（如 `/c:home_set`、`/c:afk_toggle`、`/c:economy_pay`）。 |
-| **`2`**  | **Admin / OP**（管理员）      | 巡查与日常管理命令（如 `/c:admin_kick`、`/c:admin_mute`）。              |
-| **`3`**  | **Root / SuperAdmin**（超管） | 底层运维命令（如 `/c:reload`、权限分配）。                                  |
+| **`2`**  | **Admin / OP**（管理员）      | 巡查与日常管理命令（如 `/c:admin_kick`、`/c:admin_mute`）。           |
+| **`3`**  | **Root / SuperAdmin**（超管） | 底层运维命令（如 `/c:reload`、权限分配）。                            |
 
 ## 3. 配置分层与防腐（Configuration Layers）
 
@@ -50,8 +50,10 @@
    - SAPI 端的 `ConfigManager` 在冷启动阶段一次性缓存 `modules` / `settings` / `permissions`，运行时不进行轮询。
    - 变更平台级配置需**重启 BDS** 才能生效。
 2. **模块私有配置（`configs/<configKey>.json`）**：
+   - 模块包在 `configs-default/<configKey>.json` 声明全部默认字段；安装器负责创建并在升级时只补缺、不覆盖用户值。
    - 每个模块拥有独立的配置命名空间，通过 `@sfmc-bds/sdk/sapi/config` 提供的 `config.get` / `config.set` 进行透明读写。
    - `config.set` 会即时落盘；模块不得绕过 SDK 直接探测或读写文件系统。
+   - 不得仅为播种默认值而申请 `config:write` 权限或在启动时调用 `config.set`。
 
 ## 4. 模块边界与架构防腐（Module Boundaries）
 

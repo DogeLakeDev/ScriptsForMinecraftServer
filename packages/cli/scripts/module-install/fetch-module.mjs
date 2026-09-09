@@ -25,22 +25,24 @@
  *         （win32=junction，POSIX=symlink），仍同步 catalog/lock。
  */
 
+import { extractZipFileToDir } from "@sfmc-bds/bds-tools/zipx";
+import { createHash } from "node:crypto";
 import fs, { createReadStream } from "node:fs";
 import fsp from "node:fs/promises";
-import { createHash } from "node:crypto";
-import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import process from "node:process";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
-import { extractZipFileToDir } from "@sfmc-bds/bds-tools/zipx";
 import { runCheckModules } from "./check-modules.mjs";
-import { upsertCatalogEntry, removeCatalogEntry } from "./lib/catalog.mjs";
-import { setModuleLockEnabled, removeModuleLock } from "./lib/lock.mjs";
-import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
+import { removeCatalogEntry, upsertCatalogEntry } from "./lib/catalog.mjs";
+import { seedModuleConfig } from "./lib/config-seeding.mjs";
 import { exists } from "./lib/io.mjs";
-import { parseRegistryIndex } from "./lib/registry-index.mjs";
 import { isSchemeFrom, normalizeBarePathFrom, normalizeLinkFrom } from "./lib/link-from.mjs";
+import { removeModuleLock, setModuleLockEnabled } from "./lib/lock.mjs";
 import { folderFromNpmPackageName } from "./lib/npm-resolver.mjs";
+import { loadPackageCatalogEntry } from "./lib/packages.mjs";
+import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
+import { parseRegistryIndex } from "./lib/registry-index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = PACKAGES_DIR;
@@ -105,9 +107,7 @@ async function resolveRegistryIndex() {
       );
       return { index: cache.index, stale: true };
     }
-    throw new Error(
-      `registry unreachable and no cache: ${message}. Pass --from explicitly to skip the registry.`
-    );
+    throw new Error(`registry unreachable and no cache: ${message}. Pass --from explicitly to skip the registry.`);
   }
 }
 
@@ -126,9 +126,7 @@ async function defaultSourceFor(id) {
       return `npm:${entry.npm}`;
     }
     if (entry?.repo && entry?.tag) {
-      console.log(
-        `[fetch-module] ${id} found in registry (deprecated github) → github:${entry.repo}@${entry.tag}`
-      );
+      console.log(`[fetch-module] ${id} found in registry (deprecated github) → github:${entry.repo}@${entry.tag}`);
       return `github:${entry.repo}@${entry.tag}`;
     }
   } catch {
@@ -284,11 +282,28 @@ function afterInstall(folder, opts = {}) {
     try {
       normalizeInstalledPackage(path.join(TARGET, folder));
     } catch (err) {
-      console.warn(
-        `[fetch-module] normalize warn: ${err instanceof Error ? err.message : String(err)}`
-      );
+      console.warn(`[fetch-module] normalize warn: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+  const moduleRoot = path.join(TARGET, folder);
+  const preview = loadPackageCatalogEntry(folder);
+  if (!preview) throw new Error(`packages/${folder}: 无法读取 sapi/manifest.json`);
+  const seeded = seedModuleConfig({
+    moduleRoot,
+    projectRoot: ROOT,
+    configKey: preview.configKey,
+  });
+  const targetRel = path.relative(ROOT, seeded.target).replaceAll("\\", "/");
+  if (seeded.status === "created") {
+    console.log(`[fetch-module]   config created: ${targetRel}`);
+  } else if (seeded.status === "updated") {
+    console.log(`[fetch-module]   config updated: added ${seeded.addedPaths.join(", ")}`);
+  } else if (seeded.status === "unchanged") {
+    console.log(`[fetch-module]   config unchanged: ${targetRel}`);
+  } else {
+    console.warn(`[fetch-module]   config defaults missing: ${preview.configKey}`);
+  }
+
   const entry = upsertCatalogEntry(folder);
   setModuleLockEnabled(entry.id, entry.enabledByDefault !== false);
   console.log(`[fetch-module]   catalog+lock: ${entry.id} (enabled=${entry.enabledByDefault !== false})`);
@@ -302,6 +317,9 @@ function afterInstall(folder, opts = {}) {
   const check = runCheckModules();
   if (!check.ok) {
     throw new Error(`check-modules 未通过: ${check.error}`);
+  }
+  for (const warning of check.warnings ?? []) {
+    console.warn(`[fetch-module]   check warning: ${warning}`);
   }
   console.log(`[fetch-module]   ${check.summary}`);
   return entry;
@@ -422,7 +440,7 @@ async function fromLocal(id, source, flags) {
 
 /**
  * `sfmc mod install <id>` 走 npm registry 的主路径。
- * 
+ *
  * 入口：`npm install --prefix packages/<id> --omit=dev --no-save --no-package-lock <pkgName>`
  *   - 落地到 packages/<id>，不进主仓根 node_modules（隔离安装）
  *   - 成功后 upsert catalog/lock
@@ -435,32 +453,34 @@ async function fromNpm(id, pkgName, flags) {
   const dir = await ensureTarget(id);
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   const { spawn: spawnChild } = await import("node:child_process");
-  await /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-    const proc = spawnChild(
-      npmCmd,
-      [
-        "install",
-        "--prefix",
-        dir,
-        "--omit=dev",
-        "--no-save",
-        "--no-package-lock",
-        "--no-audit",
-        "--no-fund",
-        pkgName,
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] }
-    );
-    let stderr = "";
-    proc.stderr?.on("data", (d) => {
-      stderr += d.toString();
-    });
-    proc.on("exit", (code) => {
-      if (code === 0) return resolve();
-      reject(new Error(translateNpmInstallError(pkgName, stderr)));
-    });
-    proc.on("error", (e) => reject(new Error(`spawn npm failed: ${e.message}`)));
-  }));
+  await /** @type {Promise<void>} */ (
+    new Promise((resolve, reject) => {
+      const proc = spawnChild(
+        npmCmd,
+        [
+          "install",
+          "--prefix",
+          dir,
+          "--omit=dev",
+          "--no-save",
+          "--no-package-lock",
+          "--no-audit",
+          "--no-fund",
+          pkgName,
+        ],
+        { stdio: ["ignore", "pipe", "pipe"] }
+      );
+      let stderr = "";
+      proc.stderr?.on("data", (d) => {
+        stderr += d.toString();
+      });
+      proc.on("exit", (code) => {
+        if (code === 0) return resolve();
+        reject(new Error(translateNpmInstallError(pkgName, stderr)));
+      });
+      proc.on("error", (e) => reject(new Error(`spawn npm failed: ${e.message}`)));
+    })
+  );
   console.log(`[fetch-module] installed ${id} from npm (${pkgName})`);
   console.log(`[fetch-module]   target: ${dir}`);
   afterInstall(id);
@@ -775,7 +795,9 @@ async function extractTgz(tgzPath, dstDir) {
       stderr += d.toString();
     });
     // @ts-ignore
-    proc.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`npm install tarball exit ${code}: ${stderr}`))));
+    proc.on("exit", (code) =>
+      code === 0 ? resolve() : reject(new Error(`npm install tarball exit ${code}: ${stderr}`))
+    );
     // @ts-ignore
     proc.on("error", reject);
   });
@@ -963,7 +985,9 @@ async function main() {
     const from = flags.from;
     // @ts-ignore
     if (!from || (!from.startsWith("local") && !from.startsWith("dir:"))) {
-      die("usage: install <id> [id2 ...] [--from <source>] [--link]\n或: install --from local|dir:<path> [--link]（从包目录推导 id）");
+      die(
+        "usage: install <id> [id2 ...] [--from <source>] [--link]\n或: install --from local|dir:<path> [--link]（从包目录推导 id）"
+      );
     }
     let absDir;
     // @ts-ignore
@@ -990,7 +1014,7 @@ async function main() {
     // @ts-ignore
     if (!flags.from.startsWith("dir:") && (flags.from === "local" || flags.from.startsWith("local:"))) {
       /* 保持 local；link 时会规范成 dir: */
-    // @ts-ignore
+      // @ts-ignore
     } else if (flags.from.startsWith("dir:")) {
       /* ok */
     } else {

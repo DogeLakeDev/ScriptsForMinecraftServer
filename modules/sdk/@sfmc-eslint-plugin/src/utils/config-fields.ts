@@ -39,6 +39,7 @@ export function loadConfigFieldKeys(filename: string, cwd?: string): Set<string>
   const candidates: string[] = [];
   if (packageRoot) {
     candidates.push(
+      path.join(packageRoot, "configs-default", `${configKey}.json`),
       path.join(packageRoot, "config.default.json"),
       path.join(packageRoot, "configs-default.json"),
       path.join(packageRoot, "sapi", "config.default.json")

@@ -5,6 +5,7 @@
  */
 import { wrapLogLine, type UnifiedLog } from "../logs.js";
 import type { ServiceName } from "../services.js";
+import { SFMC_WINDOW_ID } from "./sfmc-window.js";
 import type { ReplWindow, WindowChrome, WindowKeyEvent, WindowKeyResult } from "./types.js";
 
 export type HostWriteLog = (wrappedLine: string) => void;
@@ -91,17 +92,23 @@ export class WindowHost {
     buf.push(wrappedLine);
   }
 
-  /** 按活跃服务同步 ServiceWindow id 列表（id = svc:<name>） */
+  /** 按活跃服务与平台窗同步轮转 id 列表（id = svc:<name> 或 sfmc） */
   setServiceOrder(ids: string[]): void {
     this.serviceOrder = [...ids];
-    const stale = [...this.windows.keys()].filter((id) => id.startsWith("svc:") && !ids.includes(id));
+    const stale = [...this.windows.keys()].filter(
+      (id) => (id.startsWith("svc:") || id === SFMC_WINDOW_ID) && !ids.includes(id)
+    );
     for (const id of stale) {
       this.windows.delete(id);
       this.buffers.delete(id);
       if (this.activeId === id) this.activeId = null;
       if (this.previousId === id) this.previousId = null;
     }
-    if (this.activeId?.startsWith("svc:") && !ids.includes(this.activeId)) {
+    if (
+      this.activeId &&
+      (this.activeId.startsWith("svc:") || this.activeId === SFMC_WINDOW_ID) &&
+      !ids.includes(this.activeId)
+    ) {
       this.activeId = null;
     }
     if (!this.activeId && ids.length > 0) {
@@ -143,11 +150,11 @@ export class WindowHost {
   }
 
   /**
-   * 在服务窗之间循环；返回新激活窗的 serviceName（供同步发送目标）。
+   * 在服务窗与平台窗之间循环；返回是否成功切换及新激活窗的 serviceName（供同步发送目标）。
    * 若当前在非服务窗，先回到服务环。
    */
-  cycleServiceWindows(): ServiceName | null {
-    if (this.serviceOrder.length === 0) return null;
+  cycleServiceWindows(): { switched: boolean; serviceName: ServiceName | null } {
+    if (this.serviceOrder.length === 0) return { switched: false, serviceName: null };
     const cur = this.activeId;
     const idx = cur ? this.serviceOrder.indexOf(cur) : -1;
     if (idx < 0) {
@@ -156,7 +163,10 @@ export class WindowHost {
       const next = this.serviceOrder[(idx + 1) % this.serviceOrder.length]!;
       this.open(next);
     }
-    return this.getActive()?.serviceName ?? null;
+    return {
+      switched: true,
+      serviceName: this.getActive()?.serviceName ?? null,
+    };
   }
 
   /**

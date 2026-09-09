@@ -31,7 +31,40 @@ import { ROOT } from "./lib/paths.mjs";
  * @property {boolean} ok
  * @property {string} [error]
  * @property {string} [summary]
+ * @property {string[]} [warnings]
  */
+
+/**
+ * @param {string} moduleRoot
+ * @param {string} configKey
+ * @returns {{ ok: true; warning?: string } | { ok: false; error: string }}
+ */
+export function validateDefaultConfig(moduleRoot, configKey) {
+  const defaultsDir = path.join(moduleRoot, "configs-default");
+  const expected = path.join(defaultsDir, `${configKey}.json`);
+  if (!exists(expected)) {
+    const jsonFiles = exists(defaultsDir)
+      ? fs.readdirSync(defaultsDir).filter((name) => name.toLowerCase().endsWith(".json"))
+      : [];
+    if (jsonFiles.length > 0) {
+      return {
+        ok: false,
+        error: `默认配置文件名必须为 configs-default/${configKey}.json，实际为 ${jsonFiles.join(", ")}`,
+      };
+    }
+    return { ok: true, warning: `未提供默认配置 configs-default/${configKey}.json` };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(expected, "utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { ok: false, error: `默认配置 configs-default/${configKey}.json 顶层必须是 JSON 对象` };
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `默认配置 configs-default/${configKey}.json 解析失败: ${message}` };
+  }
+  return { ok: true };
+}
 
 /**
  * @param {CheckModulesOpts} [opts]
@@ -39,6 +72,8 @@ import { ROOT } from "./lib/paths.mjs";
  */
 export function runCheckModules(opts = {}) {
   const doSync = opts.sync ?? false;
+  /** @type {string[]} */
+  const warnings = [];
 
   try {
     if (doSync) {
@@ -97,8 +132,10 @@ export function runCheckModules(opts = {}) {
       if (manifest.id !== m.id) {
         return { ok: false, error: `${m.id}: catalog.id 与 manifest.id(${manifest.id}) 不一致` };
       }
+      const defaultConfig = validateDefaultConfig(path.dirname(path.dirname(manifestPath)), manifest.configKey);
+      if (!defaultConfig.ok) return { ok: false, error: `${m.id}: ${defaultConfig.error}` };
+      if (defaultConfig.warning) warnings.push(`${m.id}: ${defaultConfig.warning}`);
     }
-
 
     for (const m of modules) {
       const reqs = Array.isArray(m.requires) ? m.requires : [];
@@ -115,7 +152,7 @@ export function runCheckModules(opts = {}) {
       }
     }
 
-    return { ok: true, summary: `check-modules OK (${modules.length} modules)` };
+    return { ok: true, summary: `check-modules OK (${modules.length} modules)`, warnings };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return { ok: false, error: message };
@@ -128,6 +165,9 @@ function main() {
   if (!result.ok) {
     console.error(`[check-modules] FAIL: ${result.error}`);
     process.exit(1);
+  }
+  for (const warning of result.warnings ?? []) {
+    console.warn(`[check-modules] WARN: ${warning}`);
   }
   console.log(`[check-modules] ${result.summary}`);
 }

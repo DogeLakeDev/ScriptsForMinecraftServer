@@ -9,6 +9,7 @@
   },
   "files": [
     "sapi",
+    "configs-default",
     "test",
     "README.md",
     "LICENSE"
