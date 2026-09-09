@@ -137,7 +137,8 @@ export function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugi
             ],
           };
         }
-        return { path: resolved };
+        // 虚拟宿主中的 SDK 导入也收敛到标准文件命名空间。
+        return { path: resolved, namespace: "file" };
       });
 
       build.onLoad({ filter: /.*/, namespace: "sfmc-scoped-db" }, (args) => {

@@ -11,6 +11,9 @@ const NativePlayerPermissionLevel = {
   Custom: 3,
 } as const;
 
+const gPermissionRegistry: Map<string, number> = (((globalThis as unknown as Record<string, unknown>)
+  .__sfmcPermissionRegistry as Map<string, number>) ??= new Map<string, number>());
+
 /**
  * 权限等级（与 Minecraft 原生 PlayerPermissionLevel 对齐）：
  * - `Guest = -1`：访客以下（仅作内部占位，不参与常规比较）
@@ -31,7 +34,9 @@ export class Permission {
   /** 自定义 / 脚本指定（等级 3）。 */
   static Admin = 3;
 
-  private static registry: Map<string, number> = new Map();
+  private static get registry(): Map<string, number> {
+    return gPermissionRegistry;
+  }
 
   /**
    * 注册命名权限及其满足所需的最低等级。

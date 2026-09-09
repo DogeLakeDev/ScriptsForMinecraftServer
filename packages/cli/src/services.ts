@@ -52,6 +52,11 @@ export interface LogLine {
   stream: "stdout" | "stderr";
 }
 
+/** 子进程输出分行：过滤空串以及 Windows CRLF 拆分后残留的纯空白行。 */
+export function nonBlankOutputLines(text: string): string[] {
+  return text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+}
+
 export type ServiceName = "bds" | "db" | "qq" | "llbot";
 export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
 
@@ -225,12 +230,12 @@ class Service {
     });
 
     child.stdout?.on("data", (d: Buffer) => {
-      for (const line of d.toString().split("\n").filter(Boolean)) {
+      for (const line of nonBlankOutputLines(d.toString())) {
         this.pushLog(line, "stdout");
       }
     });
     child.stderr?.on("data", (d: Buffer) => {
-      for (const line of d.toString().split("\n").filter(Boolean)) {
+      for (const line of nonBlankOutputLines(d.toString())) {
         this.pushLog(line, "stderr");
       }
     });

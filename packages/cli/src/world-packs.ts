@@ -638,6 +638,11 @@ function filterPacks(packs: InstalledWorldPack[], kind: "bp" | "rp" | "all", sea
   return list;
 }
 
+/** 未绑定来源的占位符只用于内部语义，不应作为重复的列表列展示。 */
+export function shouldDisplayPackSourceLabel(sourceLabel: string): boolean {
+  return sourceLabel !== "src=-";
+}
+
 function formatPackList(packs: InstalledWorldPack[]): string {
   if (packs.length === 0) return c.dim(t("packs.listEmpty"));
   const lines: string[] = [];
@@ -648,7 +653,8 @@ function formatPackList(packs: InstalledWorldPack[]): string {
     for (const p of bp) {
       const en = p.enabled ? c.green(t("packs.list.on")) : c.dim(t("packs.list.off"));
       const src = bindingLabelForUuid(p.uuid);
-      lines.push(`  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}  ${c.dim(src)}`);
+      const sourceColumn = shouldDisplayPackSourceLabel(src) ? `  ${c.dim(src)}` : "";
+      lines.push(`  [${en}] ${p.folderName}  ${p.name}  v${fmtVer(p.version)}  ${c.dim(p.uuid)}${sourceColumn}`);
     }
   }
   if (rp.length) {

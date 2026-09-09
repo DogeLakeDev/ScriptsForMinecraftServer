@@ -50,6 +50,12 @@ const CHILD_OWNED_SOURCES = new Set(["db", "qq", "update"]);
 
 const fileSinks = new Map<string, FileSink>();
 
+/** 剥离 BDS 自带前缀；若前缀后没有正文，则判定为仅用于排版的空行。 */
+export function normalizeBdsLogBody(text: string): string | null {
+  const body = stripBdsLogPrefix(text);
+  return body.trim().length > 0 ? body : null;
+}
+
 /** 解析本条日志应写入的文件名(不含 .log);null 表示跳过(子进程已写) */
 function resolveDiskLogName(source: string): string | null {
   if (CHILD_OWNED_SOURCES.has(source)) return null;
@@ -80,7 +86,9 @@ export function pushLog(text: string, source: LogSource, level: LogLevel): void 
   if (source === "bds") {
     const embedded = parseBdsEmbeddedLevel(text);
     if (embedded) lvl = embedded;
-    body = stripBdsLogPrefix(text);
+    const normalized = normalizeBdsLogBody(text);
+    if (normalized === null) return;
+    body = normalized;
   }
 
   const rawEntry: LogEntry = { time: new Date(), text: body, source, level: lvl };

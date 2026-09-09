@@ -153,6 +153,63 @@ export function detectPackKindFromManifest(raw: { modules?: Array<{ type?: strin
   return null;
 }
 
+/**
+ * 解析 manifest 中的本地化键（例如 pack.name）。
+ *
+ * 语言文件优先遵循 texts/languages.json 的声明顺序；声明缺失或不完整时，
+ * 再扫描 texts 下其余 .lang 文件。找不到对应键时保留 manifest 原值。
+ */
+export function resolvePackLocalizedText(packDir: string, value: string): string {
+  const textsDir = path.join(packDir, "texts");
+  if (!value || !fs.existsSync(textsDir)) return value;
+
+  const languageFiles: string[] = [];
+  const seen = new Set<string>();
+  const addLanguageFile = (fileName: string): void => {
+    const normalized = path.basename(fileName);
+    if (!normalized.toLowerCase().endsWith(".lang") || seen.has(normalized.toLowerCase())) return;
+    seen.add(normalized.toLowerCase());
+    languageFiles.push(path.join(textsDir, normalized));
+  };
+
+  try {
+    const declared = readJsonFile<unknown>(path.join(textsDir, "languages.json"));
+    if (Array.isArray(declared)) {
+      for (const locale of declared) {
+        if (typeof locale === "string" && locale.trim()) addLanguageFile(`${locale.trim()}.lang`);
+      }
+    }
+  } catch {
+    // languages.json 可选且第三方包中偶有损坏，继续回退扫描 .lang 文件。
+  }
+
+  try {
+    for (const entry of fs.readdirSync(textsDir, { withFileTypes: true })) {
+      if (entry.isFile()) addLanguageFile(entry.name);
+    }
+  } catch {
+    return value;
+  }
+
+  for (const file of languageFiles) {
+    if (!fs.existsSync(file)) continue;
+    try {
+      const lines = fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trimStart();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const separator = line.indexOf("=");
+        if (separator < 0 || line.slice(0, separator).trim() !== value) continue;
+        const localized = line.slice(separator + 1).trim();
+        if (localized) return localized;
+      }
+    } catch {
+      // 单个语言文件不可读时继续尝试其他语言，避免整个包失去展示信息。
+    }
+  }
+  return value;
+}
+
 export function readPackManifestInfo(packDir: string): PackManifestInfo | null {
   const file = path.join(packDir, "manifest.json");
   if (!fs.existsSync(file)) return null;
@@ -170,11 +227,13 @@ export function readPackManifestInfo(packDir: string): PackManifestInfo | null {
     const version: [number, number, number] = [Number(ver[0]), Number(ver[1]), Number(ver[2])];
     const description = raw.header?.description;
     return {
-      name,
+      name: resolvePackLocalizedText(packDir, name),
       uuid,
       version,
       kind,
-      ...(typeof description === "string" ? { description } : {}),
+      ...(typeof description === "string"
+        ? { description: resolvePackLocalizedText(packDir, description) }
+        : {}),
     };
   } catch {
     return null;

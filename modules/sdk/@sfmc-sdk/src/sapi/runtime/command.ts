@@ -10,11 +10,22 @@ import { debug } from "./debug-log.js";
 import { Msg } from "./msg.js";
 import { Permission } from "./permission.js";
 
-let moduleGuard: (moduleId: string) => boolean = () => true;
+interface GlobalCommandState {
+  list: Record<string, CommandEntry>;
+  deductCost: ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null;
+  moduleGuard: (moduleId: string) => boolean;
+}
+
+const gCommandState: GlobalCommandState = (((globalThis as unknown as Record<string, unknown>)
+  .__sfmcCommandState as GlobalCommandState) ??= {
+  list: {},
+  deductCost: null,
+  moduleGuard: () => true,
+});
 
 /** 可选扩展点：`Command.trigger` 执行前检查所属模块是否启用。install 冷启动模型下不注入。 */
 export function setModuleGuard(guard: (moduleId: string) => boolean): void {
-  moduleGuard = guard;
+  gCommandState.moduleGuard = guard;
 }
 
 /** 指令执行费用配置。 */
@@ -44,9 +55,19 @@ export type CommandEntry = {
 /** 游戏内原生自定义指令的声明表与触发器。 */
 export class Command {
   /** 已注册指令表（名称 → 条目）。 */
-  static list: Record<string, CommandEntry> = {};
+  static get list(): Record<string, CommandEntry> {
+    return gCommandState.list;
+  }
+  static set list(value: Record<string, CommandEntry>) {
+    gCommandState.list = value;
+  }
   /** 费用扣减回调；由 Economy 模块在启动时注入。 */
-  static deductCost: ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null = null;
+  static get deductCost(): ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null {
+    return gCommandState.deductCost;
+  }
+  static set deductCost(value: ((player: Player, amount: number, commandName: string) => Promise<boolean>) | null) {
+    gCommandState.deductCost = value;
+  }
 
   /**
    * 声明一条游戏内原生自定义指令。
@@ -172,7 +193,7 @@ export class Command {
     debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);
     const commandInfo = this.list[message];
     if (commandInfo !== undefined) {
-      if (commandInfo.moduleId && !moduleGuard(commandInfo.moduleId)) {
+      if (commandInfo.moduleId && !gCommandState.moduleGuard(commandInfo.moduleId)) {
         debug.w("CMD", `blocked: module ${commandInfo.moduleId} disabled for ${pname}`);
         if (player) Msg.error(`该命令所属模块已禁用: ${commandInfo.moduleId}`, player);
         return;

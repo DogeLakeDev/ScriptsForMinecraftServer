@@ -16,7 +16,9 @@ test("pack bundling: sfmc:host bundles installHostBootstrap without unbundled SD
     dummyModFile,
     `
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
+import { Command, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 globalThis.__testEvalOrder = (globalThis.__testEvalOrder || []).concat("module");
+Command.register("dummy", Permission.Any, () => undefined, "dummy", "test-feature");
 ModuleRegistry.register({ id: "test-feature", lifecycle: {} });
 `
   );
@@ -75,6 +77,12 @@ ModuleRegistry.register({ id: "test-feature", lifecycle: {} });
       hostCallIdx < modMarkerIdx,
       `installHostBootstrap() (idx: ${hostCallIdx}) must execute before module evaluation (idx: ${modMarkerIdx})`
     );
+
+    // 5. SDK 子路径会分别预打包，但所有副本必须绑定同一个全局命令/权限状态。
+    const commandStateRefs = code.match(/__sfmcCommandState/g)?.length ?? 0;
+    const permissionStateRefs = code.match(/__sfmcPermissionRegistry/g)?.length ?? 0;
+    assert.ok(commandStateRefs >= 2, "Bundled SDK copies must share __sfmcCommandState");
+    assert.ok(permissionStateRefs >= 2, "Bundled SDK copies must share __sfmcPermissionRegistry");
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

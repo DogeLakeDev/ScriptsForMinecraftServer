@@ -737,4 +737,28 @@ describe("world-packs primitives", () => {
     assert.equal(info.name, "§l§a神金");
     assert.equal(info.kind, "resource");
   });
+
+  it("readPackManifestInfo 将 pack.name 解析为语言包名称，并在列表中保留真实文件夹名", async () => {
+    const { listInstalledWorldPacks, readPackManifestInfo } = await import("./world-packs.js");
+    const bds = path.join(tmp, "localized-bds");
+    const level = "LocalizedWorld";
+    const folderName = "[RP] 原始资源包文件夹";
+    const dir = path.join(bds, "worlds", level, "resource_packs", folderName);
+    const uuid = "ce6a8b4f-f349-47e5-b196-9b4249870a6a";
+    writeManifest(dir, { name: "pack.name", uuid, version: [1, 2, 3], type: "resources" });
+    fs.mkdirSync(path.join(dir, "texts"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "texts", "languages.json"), JSON.stringify(["zh_CN", "en_US"]));
+    fs.writeFileSync(
+      path.join(dir, "texts", "zh_CN.lang"),
+      "\uFEFF# 资源包本地化\npack.name=神奇资源包\npack.description=说明=可以包含等号\n",
+      "utf8"
+    );
+    fs.writeFileSync(path.join(dir, "texts", "en_US.lang"), "pack.name=Amazing Resource Pack\n", "utf8");
+
+    assert.equal(readPackManifestInfo(dir)?.name, "神奇资源包");
+    const listed = listInstalledWorldPacks(bds, level);
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0]?.folderName, folderName);
+    assert.equal(listed[0]?.name, "神奇资源包");
+  });
 });
