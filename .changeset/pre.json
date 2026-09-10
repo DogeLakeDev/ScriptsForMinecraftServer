@@ -79,6 +79,7 @@
     "testing-sandbox-engine",
     "testing-sandbox-fidelity",
     "tidy-transactions-recover",
+    "track-bds-player-xuid",
     "twelve-llamas-talk",
     "unpublish-tools-move-capabilities",
     "verify-module-publish",

@@ -1,5 +1,11 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.17
+
+### Patch Changes
+
+- 0aacac4: 从 BDS 原生日志同步玩家 XUID，并扩展玩家快照字段以支持重生点、位置、游戏模式与内容指纹。
+
 ## 0.2.0-beta.16
 
 ### Minor Changes
