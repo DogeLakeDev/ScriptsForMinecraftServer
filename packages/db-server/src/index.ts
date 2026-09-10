@@ -20,45 +20,43 @@
 
 import http from "node:http";
 
-import { createIdempotencyStore } from "./lib/idempotency-store.js";
+import { createPlatformTables } from "./db-tables.js";
+import { initSchema } from "./domain/schema.js";
+import { syncPlayerSession } from "./domain/player-session.js";
 import { loadEnv } from "./env.js";
-import { buildModuleAuth, verifyModuleAuth } from "./module-auth.js";
-import { loadManifestV2 } from "./manifest-loader.js";
+import { createIdempotencyStore } from "./lib/idempotency-store.js";
 import { log } from "./lib/log.js";
 import { assertNodeVersion } from "./lib/runtime.js";
 import { createQuery, openDatabase } from "./lib/sqlite.js";
-import { createServer, startConsole } from "./server.js";
-import { createPlatformTables } from "./db-tables.js";
-import { initSchema } from "./domain/schema.js";
-import { SchemaRegistry } from "./schema-registry.js";
-import { ServiceRegistry } from "./service-registry.js";
-import { TxRunner } from "./tx-runner.js";
-import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
+import { loadManifestV2 } from "./manifest-loader.js";
+import { buildModuleAuth, verifyModuleAuth } from "./module-auth.js";
 import { syncModuleRuntimeState } from "./module-runtime-sync.js";
+import { SchemaRegistry } from "./schema-registry.js";
+import { createServer, startConsole } from "./server.js";
+import { ServiceRegistry } from "./service-registry.js";
+import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
+import { TxRunner } from "./tx-runner.js";
 
 import { ensureJson, patchJson, readJson } from "@sfmc-bds/sdk/node/config";
 import { join } from "node:path";
 
-import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
-import { createDbRoutes } from "./routes/db-routes.js";
-import { createServiceRoutes } from "./routes/service-routes.js";
 import { jsonV2Fail } from "./routes/_shared.js";
+import { createDbRoutes } from "./routes/db-routes.js";
+import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
+import { createServiceRoutes } from "./routes/service-routes.js";
 
-import { createStatusRoutes } from "./routes/status.js";
-import { createQqBindRoutes } from "./routes/qq-bind.js";
-import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
-import { createQqEventsRoutes } from "./routes/qq-events.js";
-import { createMessagesRoutes } from "./routes/messages.js";
-import { createModuleRoutes } from "./routes/modules.js";
+import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
+import { createQqEventsAggregator, resolveQqEventsConfig } from "./domain/qq-events.js";
+import { body as sharedBody, json as sharedJson } from "./lib/http.js";
+import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createHealthRoutes } from "./routes/health.js";
-import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
-import {
-  createQqEventsAggregator,
-  resolveQqEventsConfig,
-} from "./domain/qq-events.js";
-import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
-import { body as sharedBody, json as sharedJson } from "./lib/http.js";
+import { createMessagesRoutes } from "./routes/messages.js";
+import { createModuleRoutes } from "./routes/modules.js";
+import { createQqBindRoutes } from "./routes/qq-bind.js";
+import { createQqEventsRoutes } from "./routes/qq-events.js";
+import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
+import { createStatusRoutes } from "./routes/status.js";
 
 if (!assertNodeVersion(22, 13)) {
   process.exit(2);
@@ -81,29 +79,23 @@ const lockFile = loadModuleLock(env.MODULE_LOCK_PATH);
 const moduleCatalog = readJson<{ modules?: unknown[] }>(env.MODULE_CATALOG_PATH) ?? { modules: [] };
 const catalogIds = new Set(
   Array.isArray(moduleCatalog.modules)
-    ? (moduleCatalog.modules as Array<{ id?: string }>)
-        .map((m) => String(m.id || ""))
-        .filter((id) => id.length > 0)
+    ? (moduleCatalog.modules as Array<{ id?: string }>).map((m) => String(m.id || "")).filter((id) => id.length > 0)
     : []
 );
 const enabledSet = new Set<string>();
 for (const id of Object.keys(loadedManifest.modules)) {
   if (!catalogIds.has(id)) continue;
-  const catalogEntry = (moduleCatalog.modules as Array<Record<string, unknown>>).find(
-    (m) => String(m.id) === id
-  );
+  const catalogEntry = (moduleCatalog.modules as Array<Record<string, unknown>>).find((m) => String(m.id) === id);
   if (!catalogEntry) continue;
   const defaultEnabled = catalogEntry.enabledByDefault !== false;
   if (isEnabled(lockFile, id, defaultEnabled)) enabledSet.add(id);
 }
-const enabledManifests = new Map<string, NonNullable<typeof loadedManifest.modules[string]>>();
+const enabledManifests = new Map<string, NonNullable<(typeof loadedManifest.modules)[string]>>();
 for (const id of enabledSet) {
   const m = loadedManifest.modules[id];
   if (m) enabledManifests.set(id, m);
 }
-log.info(
-  `[manifest v2] enabled: ${[...enabledSet].sort().join(", ") || "(none)"}`
-);
+log.info(`[manifest v2] enabled: ${[...enabledSet].sort().join(", ") || "(none)"}`);
 
 // ── 模块 HMAC token map(与 DB 同目录 module-tokens.json)────────
 const moduleAuth = buildModuleAuth({
@@ -128,9 +120,7 @@ const txRunner = new TxRunner({
 {
   const plugins = registerEnabledBuiltinServices(serviceRegistry, { query, db }, enabledSet);
   if (plugins > 0) {
-    log.success(
-      `[service] registered ${serviceRegistry.list().length} handlers from ${plugins} builtin plugin(s)`
-    );
+    log.success(`[service] registered ${serviceRegistry.list().length} handlers from ${plugins} builtin plugin(s)`);
   }
 }
 
@@ -360,7 +350,9 @@ const moduleRoutesInstance = createModuleRoutes({
 // ── v2 路由工厂 ───────────────────────────────────────────────
 // 类型断言成 unknown 函数 — v2 routes 的 ctx 类型与 RouteCtx 不兼容,
 // 但调用契约({path, method, params, req, res, body?})是稳定的。
-const dbRoutes = createDbRoutes({ schemaRegistry, txRunner, idempotent, json }) as unknown as (ctx: Record<string, unknown>) => Promise<boolean>;
+const dbRoutes = createDbRoutes({ schemaRegistry, txRunner, idempotent, json }) as unknown as (
+  ctx: Record<string, unknown>
+) => Promise<boolean>;
 const serviceRoutes = createServiceRoutes({
   serviceRegistry,
   enabled: enabledManifests,
@@ -451,8 +443,25 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   }
 
   try {
+    if (path === "/api/sfmc/player-session" && method === "POST") {
+      const data = (await body(req)) as Record<string, unknown>;
+      const playerName = String(data.playerName ?? "").trim();
+      const xuid = String(data.xuid ?? "").trim();
+      if (!playerName || !xuid) {
+        json(res, { success: false, error: "playerName_and_xuid_required" }, 400);
+        return;
+      }
+      syncPlayerSession(query, { playerName, xuid });
+      json(res, { success: true });
+      return;
+    }
     // ── v2 路由(优先匹配) ─────────────────────────────
-    if (moduleAuthCtx && (path.startsWith("/api/sfmc/db/") || path.startsWith("/api/sfmc/services") || (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+/.test(path) && !isLegacyConfigAll))) {
+    if (
+      moduleAuthCtx &&
+      (path.startsWith("/api/sfmc/db/") ||
+        path.startsWith("/api/sfmc/services") ||
+        (/^\/api\/sfmc\/configs\/[A-Za-z0-9_-]+/.test(path) && !isLegacyConfigAll))
+    ) {
       const ctx: Record<string, unknown> = {
         path,
         method,
@@ -474,7 +483,13 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     }
 
     // ── 平台路由 ────────────────────────────────────
-    const ctxBase = { path, method, params, req, res } as { path: string; method: string; params: URLSearchParams; req: http.IncomingMessage; res: http.ServerResponse };
+    const ctxBase = { path, method, params, req, res } as {
+      path: string;
+      method: string;
+      params: URLSearchParams;
+      req: http.IncomingMessage;
+      res: http.ServerResponse;
+    };
     if (await moduleRoutesInstance(ctxBase)) return;
     if (await healthRoutes(ctxBase)) return;
     if (await statusRoutes(ctxBase)) return;
@@ -498,4 +513,4 @@ const server = createServer({
 });
 startConsole(server, db);
 
-export { db, env, query, schemaRegistry, serviceRegistry, txRunner, enabledManifests, moduleAuth };
+export { db, enabledManifests, env, moduleAuth, query, schemaRegistry, serviceRegistry, txRunner };

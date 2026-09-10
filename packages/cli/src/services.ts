@@ -15,16 +15,17 @@
 
 import type { BdsUpdaterConfig, DBConfig, QQBackend, QQBridgeConfig } from "@sfmc-bds/sdk/node/config";
 import {
+  DEFAULT_BDS_UPDATER_CONFIG,
+  DEFAULT_DB_CONFIG,
+  DEFAULT_QQ_CONFIG,
   ensureCoreConfigs,
   loadEnsuredConfig,
   qqRuntimeStatusPath,
   readJson,
-  DEFAULT_BDS_UPDATER_CONFIG,
-  DEFAULT_DB_CONFIG,
-  DEFAULT_QQ_CONFIG,
   type QqRuntimeStatus,
 } from "@sfmc-bds/sdk/node/config";
 
+import { bdsExePath, bdsSpawnEnvExtra, ensureBdsExecutable } from "@sfmc-bds/bds-tools/host-platform";
 import {
   clearBdsPidFile,
   isProcessAlive,
@@ -32,17 +33,17 @@ import {
   readBdsPidFile,
   writeBdsPidFile,
 } from "@sfmc-bds/bds-tools/process-probe";
-import { bdsExePath, bdsSpawnEnvExtra, ensureBdsExecutable } from "@sfmc-bds/bds-tools/host-platform";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
-import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
-import { resolveLlbotLaunch } from "./llbot-launch.js";
-import { findNodeServicePids } from "./node-service-probe.js";
-import { ROOT, spawnService, type ServiceId } from "./runtime.js";
-import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { t } from "./i18n/index.js";
+import { resolveLlbotLaunch } from "./llbot-launch.js";
+import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
+import { findNodeServicePids } from "./node-service-probe.js";
+import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
+import { reportBdsPlayerSession } from "./player-session.js";
+import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 
 export { ROOT } from "./runtime.js";
 
@@ -67,10 +68,7 @@ export function setArgvDaemonize(on: boolean): void {
 }
 
 /** 单服务 start 结果：optional 服务 validate 失败记为 skipped，不抛错 */
-export type StartOutcome =
-  | { status: "started" }
-  | { status: "already" }
-  | { status: "skipped"; reason: string };
+export type StartOutcome = { status: "started" } | { status: "already" } | { status: "skipped"; reason: string };
 
 export interface StartAllResult {
   started: ServiceName[];
@@ -133,6 +131,8 @@ interface ServiceDef {
   validate?: () => string | null;
   /** 启动前钩子(如 BDS 装载一致性校验);失败则禁止 spawn */
   beforeStart?: () => Promise<void>;
+  /** 原始日志行观察器，不得阻塞子进程输出。 */
+  onLogLine?: (line: string) => void;
 }
 
 class Service {
@@ -173,6 +173,7 @@ class Service {
     // BDS 等自带 [LEVEL] 标签的仍可正确推断)
     const level = stream === "stderr" ? "error" : inferLevel(text);
     pushUnifiedLog(text, this.name, level);
+    this.def.onLogLine?.(text);
   }
 
   async start(): Promise<StartOutcome> {
@@ -181,7 +182,10 @@ class Service {
       const probe = await probeBdsStatus({ rootDir: ROOT });
       if (probe.state !== "stopped") {
         throw new Error(
-          t("svc.bdsAlreadyRunning", { pid: String(probe.pid), kind: t(probe.state === "managed" ? "svc.running" : "svc.runningExternal") })
+          t("svc.bdsAlreadyRunning", {
+            pid: String(probe.pid),
+            kind: t(probe.state === "managed" ? "svc.running" : "svc.runningExternal"),
+          })
         );
       }
     }
@@ -335,24 +339,18 @@ function createServices(): Record<ServiceName, Service> {
   /* 各服务/CLI 用 SDK ensureCoreConfigs 播种（含 $schema），不再从 configs-default 拷贝。 */
   ensureCoreConfigs(ROOT, ["bds_updater", "qq_config", "db_config"]);
   ensurePackUpdateConfigFile();
-  const bdsCfg = loadEnsuredConfig(
-    ROOT,
-    "bds_updater.json",
-    "bds_updater",
-    { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>
-  ) as BdsUpdaterConfig;
-  const qqCfg = loadEnsuredConfig(
-    ROOT,
-    "qq_config.json",
-    "qq_config",
-    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
-  ) as QQBridgeConfig;
-  const dbCfg = loadEnsuredConfig(
-    ROOT,
-    "db_config.json",
-    "db_config",
-    { ...DEFAULT_DB_CONFIG } as Record<string, unknown>
-  ) as DBConfig;
+  const bdsCfg = loadEnsuredConfig(ROOT, "bds_updater.json", "bds_updater", { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<
+    string,
+    unknown
+  >) as BdsUpdaterConfig;
+  const qqCfg = loadEnsuredConfig(ROOT, "qq_config.json", "qq_config", { ...DEFAULT_QQ_CONFIG } as Record<
+    string,
+    unknown
+  >) as QQBridgeConfig;
+  const dbCfg = loadEnsuredConfig(ROOT, "db_config.json", "db_config", { ...DEFAULT_DB_CONFIG } as Record<
+    string,
+    unknown
+  >) as DBConfig;
   const bdsPath = bdsCfg.bds_path ?? ROOT;
   const useLlbotBackend = qqCfg.qq_backend === "llbot";
   const qqEnabled = qqCfg.qq_enabled !== false;
@@ -392,6 +390,11 @@ function createServices(): Record<ServiceName, Service> {
         const { ensurePacksReady } = await import("./pack-lifecycle.js");
         await ensurePacksReady();
       },
+      onLogLine: (line) =>
+        reportBdsPlayerSession(line, {
+          port: dbPort,
+          ...(dbCfg.http_auth ? { authToken: dbCfg.http_auth } : {}),
+        }),
     }),
 
     db: new Service({

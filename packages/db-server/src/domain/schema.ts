@@ -48,8 +48,43 @@ export function initSchema(db: DatabaseSync): void {
       level INTEGER DEFAULT 0,
       total_xp INTEGER DEFAULT 0,
       tags TEXT DEFAULT '',
+      spawn_dimension TEXT DEFAULT '',
+      spawn_x REAL,
+      spawn_y REAL,
+      spawn_z REAL,
+      dimension TEXT DEFAULT '',
+      x REAL,
+      y REAL,
+      z REAL,
+      game_mode TEXT DEFAULT '',
+      snapshot_hash TEXT DEFAULT '',
+      active_channel TEXT DEFAULT '',
+      subscribed_channels TEXT DEFAULT '[]',
       updated_at INTEGER DEFAULT 0
     )`);
+  const playerColumns = new Map(
+    (db.prepare(`PRAGMA table_info("sfmc_players")`).all() as Array<{ name: string }>).map((column) => [
+      column.name,
+      true,
+    ])
+  );
+  const missingPlayerColumns: Array<[string, string]> = [
+    ["spawn_dimension", "TEXT DEFAULT ''"],
+    ["spawn_x", "REAL"],
+    ["spawn_y", "REAL"],
+    ["spawn_z", "REAL"],
+    ["dimension", "TEXT DEFAULT ''"],
+    ["x", "REAL"],
+    ["y", "REAL"],
+    ["z", "REAL"],
+    ["game_mode", "TEXT DEFAULT ''"],
+    ["snapshot_hash", "TEXT DEFAULT ''"],
+    ["active_channel", "TEXT DEFAULT ''"],
+    ["subscribed_channels", "TEXT DEFAULT '[]'"],
+  ];
+  for (const [name, definition] of missingPlayerColumns) {
+    if (!playerColumns.has(name)) db.exec(`ALTER TABLE sfmc_players ADD COLUMN "${name}" ${definition}`);
+  }
   db.exec(/* sql */ `
     CREATE INDEX IF NOT EXISTS idx_players_name ON sfmc_players(name)`);
 
