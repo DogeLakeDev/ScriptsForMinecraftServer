@@ -1,5 +1,13 @@
 # @sfmc-bds/sfmc
 
+## 0.2.0-beta.12
+
+### Patch Changes
+
+- Updated dependencies [0aacac4]
+  - @sfmc-bds/cli@0.2.0-beta.17
+  - @sfmc-bds/db-server@0.2.0-beta.11
+
 ## 0.2.0-beta.11
 
 ### Patch Changes
