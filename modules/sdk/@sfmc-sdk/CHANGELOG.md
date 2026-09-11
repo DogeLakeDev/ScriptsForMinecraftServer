@@ -1,5 +1,11 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.16
+
+### Patch Changes
+
+- f312e8b: 将 `/c:help` 与权限列表按完整行连续分段发送，避免命令较多时被客户端截断。
+
 ## 0.2.0-beta.15
 
 ### Minor Changes
