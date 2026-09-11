@@ -2,8 +2,8 @@
 
 ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 
-- **`@sfmc-bds/sdk/contracts`** — 平台级类型契约（模块 catalog / lock）；业务域类型由各模块在 sfmc-modules 内维护
-- **`@sfmc-bds/sdk/validation`** — 结构形状校验诊断内核（issue + 中文句式）；manifest 等通过适配层复用
+- **`@sfmc-bds/sdk/contracts`** — 平台级类型契约（模块 catalog / lock、声明式 UI）；业务域类型由各模块在 sfmc-modules 内维护
+- **`@sfmc-bds/sdk/validation`** — 结构与语义校验（通用 issue、声明式 UI 工程编译）；manifest 等通过适配层复用
 - **`@sfmc-bds/sdk/sapi/runtime`** — SAPI 进程内运行时:`Msg` / `Command` / `Permission` / `MenuNavigator` / `Money` / `debug`
 - **`@sfmc-bds/sdk/sapi/diagnostics`** — BDS Sentry 可选接入（经 `debug` sink；`SENTRY_DSN` 缺省关闭）
 - **`@sfmc-bds/sdk/sapi/db`** — 数据库友好 API:`db.defineTable` / `db.tx` / `db.query` / `db.audit` / `db.idempotent`
@@ -53,6 +53,16 @@ ModuleRegistry.register({
 ## 模块测试
 
 模块作者不依赖 Node 假引擎。本地：`typecheck` / `lint` / manifest 静态检查；运行时：VS Code 扩展 **Start Watch**、`Reload to BDS` 或 `sfmc mod reload`。详见仓内 `docs/zh/dev/testing.md`。
+
+## 声明式 UI 基础契约
+
+`contracts` 导出 `UiFeatureDocument`、`UiScreenDocument` 和组件/动作类型；`validation` 导出 `validateUiFeature`、`validateUiScreen` 与 `compileUiProject`。发布包同时包含：
+
+- `@sfmc-bds/sdk/schemas/ui-feature.v1.schema.json`
+- `@sfmc-bds/sdk/schemas/ui-screen.v1.schema.json`
+- `@sfmc-bds/sdk/schemas/examples/`
+
+完整的 Studio、Runtime 与文件格式设计见仓内 `docs/superpowers/specs/ui-studio-design.md`。
 
 ## 平台规则
 

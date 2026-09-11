@@ -1,0 +1,28 @@
+{
+  "$schema": "../ui-feature.v1.schema.json",
+  "formatVersion": 1,
+  "moduleId": "sfmc-land",
+  "name": "领地系统",
+  "entries": [
+    {
+      "id": "land.entry",
+      "surface": "player",
+      "group": "world",
+      "title": "我的领地",
+      "description": "查看、续期和管理领地",
+      "icon": "textures/ui/icon_recipe_nature",
+      "order": 20,
+      "target": "land.home"
+    }
+  ],
+  "screens": [
+    {
+      "id": "land.home",
+      "file": "screens/land-home.ui.json"
+    },
+    {
+      "id": "land.detail",
+      "file": "screens/land-detail.ui.json"
+    }
+  ]
+}

@@ -1,0 +1,522 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sfmc.dev/schemas/ui-screen.v1.schema.json",
+  "title": "SFMC 声明式 UI 页面 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "id", "presentation", "title", "body"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "formatVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/identifier" },
+    "name": { "type": "string" },
+    "notes": { "type": "string" },
+    "presentation": { "enum": ["auto", "menu", "form", "reactive"] },
+    "title": { "$ref": "#/$defs/templateString" },
+    "params": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/paramDefinition" }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/stateDefinition" }
+    },
+    "load": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/serviceCall" }
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/expression" }
+    },
+    "body": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/action" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*$"
+    },
+    "templateString": { "type": "string", "minLength": 1 },
+    "tone": {
+      "enum": ["default", "muted", "accent", "success", "warning", "danger", "primary"]
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": ["string", "number", "boolean", "null"] },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": { "value": { "type": ["string", "number", "boolean", "null"] } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ref"],
+          "properties": {
+            "ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "args"],
+          "properties": {
+            "op": {
+              "enum": [
+                "equals",
+                "notEquals",
+                "greaterThan",
+                "greaterThanOrEqual",
+                "lessThan",
+                "lessThanOrEqual",
+                "and",
+                "or",
+                "not",
+                "add",
+                "subtract",
+                "multiply",
+                "divide",
+                "coalesce",
+                "contains"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/expression" }
+            }
+          }
+        }
+      ]
+    },
+    "paramDefinition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "string" },
+            "required": { "type": "boolean" },
+            "default": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "number" },
+            "required": { "type": "boolean" },
+            "default": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "boolean" },
+            "required": { "type": "boolean" },
+            "default": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "stateDefinition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "string" },
+            "default": { "type": "string" },
+            "minLength": { "type": "integer", "minimum": 0 },
+            "maxLength": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "number" },
+            "default": { "type": "number" },
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "step": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "boolean" },
+            "default": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "serviceCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service"],
+      "properties": {
+        "service": { "type": "string", "minLength": 1 },
+        "input": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        },
+        "timeoutMs": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "confirm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body"],
+      "properties": {
+        "title": { "$ref": "#/$defs/templateString" },
+        "body": { "$ref": "#/$defs/templateString" },
+        "confirmText": { "type": "string" },
+        "cancelText": { "type": "string" },
+        "danger": { "type": "boolean" }
+      }
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["effect", "text"],
+          "properties": {
+            "effect": { "const": "message" },
+            "text": { "$ref": "#/$defs/templateString" },
+            "tone": { "$ref": "#/$defs/tone" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["effect", "to"],
+          "properties": {
+            "effect": { "enum": ["navigate", "replace"] },
+            "to": { "$ref": "#/$defs/identifier" },
+            "params": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["effect"],
+          "properties": { "effect": { "enum": ["back", "refresh", "close"] } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["effect", "values"],
+          "properties": {
+            "effect": { "const": "setState" },
+            "values": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+            }
+          }
+        }
+      ]
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["call"],
+      "properties": {
+        "confirm": { "$ref": "#/$defs/confirm" },
+        "call": { "$ref": "#/$defs/serviceCall" },
+        "onSuccess": { "type": "array", "items": { "$ref": "#/$defs/effect" } },
+        "onError": { "type": "array", "items": { "$ref": "#/$defs/effect" } }
+      }
+    },
+    "trigger": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "action"],
+          "properties": {
+            "type": { "const": "action" },
+            "action": { "$ref": "#/$defs/identifier" },
+            "input": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "to"],
+          "properties": {
+            "type": { "enum": ["navigate", "replace"] },
+            "to": { "$ref": "#/$defs/identifier" },
+            "params": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "enum": ["back", "refresh", "close"] } }
+        }
+      ]
+    },
+    "nodeBase": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": { "type": "string" },
+        "visibleWhen": { "$ref": "#/$defs/expression" }
+      }
+    },
+    "textualNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["text"],
+          "properties": {
+            "type": { "enum": ["header", "text"] },
+            "text": { "$ref": "#/$defs/templateString" },
+            "tone": { "$ref": "#/$defs/tone" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "infoNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["items"],
+          "properties": {
+            "type": { "const": "info" },
+            "items": { "type": "array", "items": { "$ref": "#/$defs/templateString" } },
+            "tone": { "$ref": "#/$defs/tone" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "imageNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["source", "pack"],
+          "properties": {
+            "type": { "const": "image" },
+            "source": { "$ref": "#/$defs/templateString" },
+            "pack": { "$ref": "#/$defs/templateString" },
+            "alt": { "type": "string" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "dividerNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "type": "object", "properties": { "type": { "const": "divider" } } }
+      ],
+      "unevaluatedProperties": false
+    },
+    "spacerNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "spacer" },
+            "size": { "enum": ["small", "medium", "large"] }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "buttonNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["label", "trigger"],
+          "properties": {
+            "type": { "const": "button" },
+            "label": { "$ref": "#/$defs/templateString" },
+            "description": { "type": "string" },
+            "icon": { "$ref": "#/$defs/templateString" },
+            "iconPack": { "$ref": "#/$defs/templateString" },
+            "tone": { "$ref": "#/$defs/tone" },
+            "disabledWhen": { "$ref": "#/$defs/expression" },
+            "trigger": { "$ref": "#/$defs/trigger" }
+          },
+          "if": { "required": ["icon"] },
+          "then": { "required": ["iconPack"] }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "inputBase": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["label", "bind"],
+          "properties": {
+            "label": { "$ref": "#/$defs/templateString" },
+            "bind": { "type": "string", "pattern": "^state\\.[A-Za-z_][A-Za-z0-9_]*$" },
+            "description": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "textFieldNode": {
+      "allOf": [
+        { "$ref": "#/$defs/inputBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "textField" },
+            "placeholder": { "type": "string" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "toggleNode": {
+      "allOf": [
+        { "$ref": "#/$defs/inputBase" },
+        { "type": "object", "properties": { "type": { "const": "toggle" } } }
+      ],
+      "unevaluatedProperties": false
+    },
+    "dropdownNode": {
+      "allOf": [
+        { "$ref": "#/$defs/inputBase" },
+        {
+          "type": "object",
+          "required": ["options"],
+          "properties": {
+            "type": { "const": "dropdown" },
+            "options": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "value"],
+                "properties": {
+                  "label": { "type": "string", "minLength": 1 },
+                  "value": { "type": ["string", "number"] }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "sliderNode": {
+      "allOf": [
+        { "$ref": "#/$defs/inputBase" },
+        {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "type": { "const": "slider" },
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "step": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "whenNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["condition", "content"],
+          "properties": {
+            "type": { "const": "when" },
+            "condition": { "$ref": "#/$defs/expression" },
+            "content": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "eachNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["source", "as", "template"],
+          "properties": {
+            "type": { "const": "each" },
+            "source": { "type": "string", "minLength": 1 },
+            "as": { "$ref": "#/$defs/identifier" },
+            "template": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+            "empty": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "node": {
+      "oneOf": [
+        { "$ref": "#/$defs/textualNode" },
+        { "$ref": "#/$defs/infoNode" },
+        { "$ref": "#/$defs/imageNode" },
+        { "$ref": "#/$defs/dividerNode" },
+        { "$ref": "#/$defs/spacerNode" },
+        { "$ref": "#/$defs/buttonNode" },
+        { "$ref": "#/$defs/textFieldNode" },
+        { "$ref": "#/$defs/toggleNode" },
+        { "$ref": "#/$defs/dropdownNode" },
+        { "$ref": "#/$defs/sliderNode" },
+        { "$ref": "#/$defs/whenNode" },
+        { "$ref": "#/$defs/eachNode" }
+      ]
+    }
+  }
+}

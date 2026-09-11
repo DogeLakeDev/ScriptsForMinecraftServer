@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sfmc.dev/schemas/ui-feature.v1.schema.json",
+  "title": "SFMC 声明式 UI Feature v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "moduleId", "entries", "screens"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "formatVersion": { "const": 1 },
+    "moduleId": { "$ref": "#/$defs/identifier" },
+    "name": { "type": "string" },
+    "notes": { "type": "string" },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/screenReference" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*$"
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "surface", "group", "title", "target"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "surface": { "enum": ["player", "admin"] },
+        "group": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "order": { "type": "number" },
+        "permission": { "type": "string" },
+        "target": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "screenReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "file"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "file": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z]:)(?![\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+\\.ui\\.json$"
+        }
+      }
+    }
+  }
+}

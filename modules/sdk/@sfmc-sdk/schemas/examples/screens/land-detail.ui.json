@@ -1,0 +1,163 @@
+{
+  "$schema": "../../ui-screen.v1.schema.json",
+  "formatVersion": 1,
+  "id": "land.detail",
+  "name": "领地详情",
+  "presentation": "form",
+  "title": "{{data.land.name}}",
+  "params": {
+    "landId": {
+      "type": "string",
+      "required": true
+    }
+  },
+  "state": {
+    "renewYears": {
+      "type": "number",
+      "default": 1,
+      "min": 1,
+      "max": 5,
+      "step": 1
+    }
+  },
+  "load": {
+    "land": {
+      "service": "land.get",
+      "input": {
+        "landId": "{{params.landId}}"
+      }
+    },
+    "account": {
+      "service": "economy.account.get",
+      "input": {
+        "playerId": "{{player.id}}"
+      }
+    }
+  },
+  "derived": {
+    "renewCost": {
+      "op": "multiply",
+      "args": [
+        { "ref": "state.renewYears" },
+        { "value": 1000 }
+      ]
+    },
+    "canRenew": {
+      "op": "greaterThanOrEqual",
+      "args": [
+        { "ref": "data.account.balance" },
+        { "ref": "derived.renewCost" }
+      ]
+    }
+  },
+  "body": [
+    {
+      "id": "land-meta",
+      "type": "info",
+      "items": [
+        "维度：{{data.land.dimension}}",
+        "范围：{{data.land.area}}",
+        "到期时间：{{data.land.expiresAt}}",
+        "余额：{{data.account.balance}}"
+      ]
+    },
+    {
+      "id": "renew-years",
+      "type": "slider",
+      "label": "续期年数",
+      "bind": "state.renewYears",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "description": "预计费用：{{derived.renewCost}}"
+    },
+    {
+      "id": "renew",
+      "type": "button",
+      "label": "确认续期",
+      "tone": "primary",
+      "disabledWhen": {
+        "op": "not",
+        "args": [{ "ref": "derived.canRenew" }]
+      },
+      "trigger": {
+        "type": "action",
+        "action": "renew"
+      }
+    },
+    {
+      "id": "terminate",
+      "type": "button",
+      "label": "注销领地",
+      "tone": "danger",
+      "trigger": {
+        "type": "action",
+        "action": "terminate"
+      }
+    },
+    {
+      "id": "back",
+      "type": "button",
+      "label": "返回",
+      "trigger": {
+        "type": "back"
+      }
+    }
+  ],
+  "actions": {
+    "renew": {
+      "confirm": {
+        "title": "确认续期",
+        "body": "将支付 {{derived.renewCost}}，续期 {{state.renewYears}} 年",
+        "confirmText": "支付并续期"
+      },
+      "call": {
+        "service": "land.renew",
+        "input": {
+          "landId": "{{params.landId}}",
+          "years": "{{state.renewYears}}"
+        }
+      },
+      "onSuccess": [
+        {
+          "effect": "message",
+          "text": "续期成功，新到期时间：{{result.expiresAt}}",
+          "tone": "success"
+        },
+        { "effect": "refresh" }
+      ],
+      "onError": [
+        {
+          "effect": "message",
+          "text": "续期失败：{{result.message}}",
+          "tone": "danger"
+        }
+      ]
+    },
+    "terminate": {
+      "confirm": {
+        "title": "注销领地",
+        "body": "此操作会注销 {{data.land.name}}，请确认后继续",
+        "confirmText": "确认注销",
+        "danger": true
+      },
+      "call": {
+        "service": "land.terminate",
+        "input": {
+          "landId": "{{params.landId}}"
+        }
+      },
+      "onSuccess": [
+        {
+          "effect": "message",
+          "text": "领地已注销",
+          "tone": "success"
+        },
+        {
+          "effect": "replace",
+          "to": "land.home"
+        }
+      ]
+    }
+  }
+}

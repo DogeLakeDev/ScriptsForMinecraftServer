@@ -1,0 +1,64 @@
+{
+  "$schema": "../../ui-screen.v1.schema.json",
+  "formatVersion": 1,
+  "id": "land.home",
+  "name": "我的领地",
+  "presentation": "menu",
+  "title": "{{player.name}} 的领地",
+  "load": {
+    "lands": {
+      "service": "land.list",
+      "input": {
+        "playerId": "{{player.id}}"
+      }
+    }
+  },
+  "body": [
+    {
+      "id": "summary",
+      "type": "info",
+      "items": [
+        "领地数量：{{data.lands.length}}",
+        "选择一个领地查看详情"
+      ],
+      "tone": "muted"
+    },
+    {
+      "id": "land-list",
+      "type": "each",
+      "source": "data.lands",
+      "as": "land",
+      "template": [
+        {
+          "id": "land-row",
+          "type": "button",
+          "label": "{{land.name}}",
+          "description": "{{land.dimension}} · 到期 {{land.expiresAt}}",
+          "trigger": {
+            "type": "navigate",
+            "to": "land.detail",
+            "params": {
+              "landId": "{{land.id}}"
+            }
+          }
+        }
+      ],
+      "empty": [
+        {
+          "id": "empty-tip",
+          "type": "info",
+          "items": ["你还没有领地"],
+          "tone": "muted"
+        }
+      ]
+    },
+    {
+      "id": "refresh",
+      "type": "button",
+      "label": "刷新",
+      "trigger": {
+        "type": "refresh"
+      }
+    }
+  ]
+}

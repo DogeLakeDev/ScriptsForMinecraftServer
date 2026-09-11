@@ -11,3 +11,10 @@ export {
   issueRootNotObject,
 } from "./issues.js";
 export type { ExpectedLabel, FormatShapeIssueOptions, ShapeIssue, ShapeIssueKind } from "./issues.js";
+export { compileUiProject, validateUiFeature, validateUiScreen } from "./ui-document.js";
+export type {
+  UiProjectInput,
+  UiValidationIssue,
+  UiValidationIssueCode,
+  UiValidationResult,
+} from "./ui-document.js";

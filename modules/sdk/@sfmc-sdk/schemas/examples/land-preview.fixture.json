@@ -1,0 +1,37 @@
+{
+  "player": {
+    "id": "preview-player",
+    "name": "设计器预览玩家"
+  },
+  "screens": {
+    "land.home": {
+      "data": {
+        "lands": [
+          {
+            "id": "spawn",
+            "name": "主城领地",
+            "dimension": "主世界",
+            "expiresAt": "2026-12-31"
+          }
+        ]
+      }
+    },
+    "land.detail": {
+      "params": {
+        "landId": "spawn"
+      },
+      "data": {
+        "land": {
+          "id": "spawn",
+          "name": "主城领地",
+          "dimension": "主世界",
+          "area": "64 × 64",
+          "expiresAt": "2026-12-31"
+        },
+        "account": {
+          "balance": 5200
+        }
+      }
+    }
+  }
+}
