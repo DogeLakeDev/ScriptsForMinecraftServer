@@ -1,6 +1,7 @@
+import { Player } from "@minecraft/server";
 import { deepEqual, equal, match } from "node:assert/strict";
 import test from "node:test";
-import { Command } from "../../../src/sapi/runtime/command.js";
+import { Command, splitHelpMessage } from "../../../src/sapi/runtime/command.js";
 import { Permission } from "../../../src/sapi/runtime/permission.js";
 
 test("registerHelpCommand 声明 /c:help、别名与权限子命令", () => {
@@ -18,6 +19,34 @@ test("registerHelpCommand 声明 /c:help、别名与权限子命令", () => {
     enumParameter: { name: "section", values: ["permissions"], optional: true },
   });
   match(String(Command.list.help?.callback(undefined)), /\/c:help \[permissions\].*\/c:h \[permissions\]/);
+});
+
+test("splitHelpMessage 按完整行连续拆分帮助内容", () => {
+  deepEqual(splitHelpMessage("标题\n第一条命令\n第二条命令", 10), ["标题\n第一条命令", "第二条命令"]);
+  deepEqual(splitHelpMessage("123456789", 4), ["1234", "5678", "9"]);
+});
+
+test("help 内容过长时向玩家连续发送多条消息", () => {
+  Command.list = {};
+  Permission.clearRegistry();
+  Command.registerHelpCommand();
+  for (let index = 0; index < 20; index++) {
+    Command.register(`command-${index}`, Permission.Any, () => undefined, `第 ${index} 条测试命令说明`);
+  }
+  const sent: string[] = [];
+  const player = new Player() as Player & { sendMessage(message: string): void };
+  player.sendMessage = (message) => sent.push(message);
+
+  const result = Command.list.help?.callback(player);
+
+  equal(result, undefined);
+  equal(sent.length > 1, true);
+  equal(
+    sent.every((message) => message.length <= 406),
+    true
+  );
+  match(sent.join("\n"), /\/c:command-0/);
+  match(sent.join("\n"), /\/c:command-19/);
 });
 
 test("registerNativeCommands 统一使用 c 命名空间且不拼接模块名", () => {

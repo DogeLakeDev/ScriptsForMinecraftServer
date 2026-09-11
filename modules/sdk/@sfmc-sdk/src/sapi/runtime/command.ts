@@ -58,6 +58,35 @@ export type CommandOptions = {
   enumParameter?: CommandEnumParameter;
 };
 
+/** 单条帮助消息正文的安全长度，给 Msg 前缀和客户端格式处理留出余量。 */
+const HELP_MESSAGE_MAX_LENGTH = 400;
+
+/** 按完整行拆分帮助文本，避免 Minecraft 客户端截断过长消息。 */
+export function splitHelpMessage(text: string, maxLength = HELP_MESSAGE_MAX_LENGTH): string[] {
+  if (maxLength < 1) throw new RangeError("帮助消息分段长度必须大于 0");
+  const chunks: string[] = [];
+  let current = "";
+  for (const line of text.split("\n")) {
+    const candidate = current ? `${current}\n${line}` : line;
+    if (candidate.length <= maxLength) {
+      current = candidate;
+      continue;
+    }
+    if (current) chunks.push(current);
+    if (line.length <= maxLength) {
+      current = line;
+      continue;
+    }
+    for (let offset = 0; offset < line.length; offset += maxLength) {
+      const part = line.slice(offset, offset + maxLength);
+      if (part.length === maxLength) chunks.push(part);
+      else current = part;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 /** 已注册指令的元数据与回调。 */
 export type CommandEntry = {
   /** 指令执行回调。 */
@@ -267,26 +296,32 @@ export class Command {
       "help",
       "help.see",
       (player: Player | undefined, action?: unknown) => {
+        let result: string;
         if (action === "permissions") {
           if (!player || !Permission.check(player, "permlist.see")) {
             if (player) Msg.error("你没有查看权限列表的权限。", player);
             return;
           }
-          return Permission.formatRegistry();
-        }
-        let result = "当前可用指令列表如下：§r\n";
-        for (const command in this.list) {
-          const entry = this.list[command];
-          if (entry && this.canExecute(player, entry.permission)) {
-            const parameter = entry.options?.enumParameter;
-            const suffix = parameter
-              ? ` ${parameter.optional ? "[" : "<"}${parameter.values.join("|")}${parameter.optional ? "]" : ">"}`
-              : "";
-            const aliases = entry.options?.aliases?.map((alias) => `/${this.nativeName(alias)}${suffix}`).join("、");
-            result += `  /${this.nativeName(command)}${suffix}${aliases ? `（别名 ${aliases}）` : ""} - ${entry.description}\n`;
+          result = Permission.formatRegistry();
+        } else {
+          const lines = ["当前可用指令列表如下：§r"];
+          for (const command in this.list) {
+            const entry = this.list[command];
+            if (entry && this.canExecute(player, entry.permission)) {
+              const parameter = entry.options?.enumParameter;
+              const suffix = parameter
+                ? ` ${parameter.optional ? "[" : "<"}${parameter.values.join("|")}${parameter.optional ? "]" : ">"}`
+                : "";
+              const aliases = entry.options?.aliases?.map((alias) => `/${this.nativeName(alias)}${suffix}`).join("、");
+              lines.push(
+                `  /${this.nativeName(command)}${suffix}${aliases ? `（别名 ${aliases}）` : ""} - ${entry.description}`
+              );
+            }
           }
+          result = lines.join("\n");
         }
-        return result;
+        if (!player) return result;
+        for (const chunk of splitHelpMessage(result)) Msg.info(chunk, player);
       },
       "获取所有指令",
       undefined,
