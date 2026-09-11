@@ -4,6 +4,8 @@ import {
   Player,
   system,
   type CustomCommandOrigin,
+  type CustomCommandParamType,
+  type CustomCommandParameter,
   type CustomCommandRegistry,
 } from "@minecraft/server";
 import { debug } from "./debug-log.js";
@@ -38,6 +40,24 @@ export type CommandCost = {
   dailyFree?: number;
 };
 
+/** 原生命令的单个枚举参数声明。 */
+export type CommandEnumParameter = {
+  /** 参数在命令补全中的名称。 */
+  name: string;
+  /** 可选值；由 Bedrock 原生命令补全展示。 */
+  values: string[];
+  /** 是否允许省略该参数。 */
+  optional?: boolean;
+};
+
+/** 原生命令名称、别名与参数选项。 */
+export type CommandOptions = {
+  /** 与主命令执行同一回调的短别名。 */
+  aliases?: string[];
+  /** 当前支持的枚举参数。 */
+  enumParameter?: CommandEnumParameter;
+};
+
 /** 已注册指令的元数据与回调。 */
 export type CommandEntry = {
   /** 指令执行回调。 */
@@ -50,6 +70,8 @@ export type CommandEntry = {
   moduleId?: string;
   /** 可选执行费用。 */
   cost?: CommandCost;
+  /** 原生命令别名与参数选项。 */
+  options?: CommandOptions;
 };
 
 /** 游戏内原生自定义指令的声明表与触发器。 */
@@ -74,19 +96,21 @@ export class Command {
    *
    * @param name 指令名称（不含 `c:` 命名空间）。
    * @param permission 执行该指令所需的权限等级数值或命名权限字符串。
-   * @param callback 指令执行回调，接收触发指令的玩家对象（若为控制台触发则为 `undefined`）。
+   * @param callback 指令执行回调，接收玩家对象及原生命令参数。
    * @param description 指令功能描述，用于 `/c:help` 展示；缺省时回退为指令名称。
    * @param moduleId 所属模块的唯一标识符；仅用于模块启停守卫和命令说明，不参与公开命令命名。
    * @param cost 可选的指令执行扣费规则。
+   * @param options 可选的原生命令别名与参数声明。
    * @returns 注册成功始终返回 `true`。
    */
   static register(
     name: string,
     permission: number | string,
-    callback: (player: Player | undefined) => any,
+    callback: (player: Player | undefined, ...args: unknown[]) => any,
     description?: string,
     moduleId?: string,
-    cost?: CommandCost
+    cost?: CommandCost,
+    options?: CommandOptions
   ) {
     const entry: CommandEntry = {
       callback,
@@ -95,6 +119,7 @@ export class Command {
     };
     if (moduleId !== undefined) entry.moduleId = moduleId;
     if (cost !== undefined) entry.cost = cost;
+    if (options !== undefined) entry.options = options;
     this.list[name] = entry;
     debug.i("CMD", `register "${name}" perm=${permission} mod=${moduleId || "-"} cost=${cost?.amount || 0}`);
     return true;
@@ -107,8 +132,9 @@ export class Command {
    * @returns 若指令存在且成功删除返回 `true`，否则返回 `false`。
    */
   static unregister(name: string): boolean {
-    if (this.list[name] !== undefined) {
-      delete this.list[name];
+    const canonicalName = this.resolveName(name);
+    if (canonicalName !== undefined) {
+      delete this.list[canonicalName];
       return true;
     }
     return false;
@@ -138,7 +164,7 @@ export class Command {
    * @param name 指令名称。
    */
   static has(name: string): boolean {
-    return this.list[name] !== undefined;
+    return this.resolveName(name) !== undefined;
   }
 
   /** 获取所有已注册指令的名称列表。 */
@@ -152,6 +178,7 @@ export class Command {
     permission: number | string;
     description: string;
     moduleId?: string;
+    aliases?: string[];
   }[] {
     return Object.entries(this.list)
       .map(([name, e]) => ({
@@ -159,6 +186,7 @@ export class Command {
         permission: e.permission,
         description: e.description,
         ...(e.moduleId !== undefined ? { moduleId: e.moduleId } : {}),
+        ...(e.options?.aliases !== undefined ? { aliases: [...e.options.aliases] } : {}),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -170,7 +198,13 @@ export class Command {
    * @returns 若指定了所属模块则返回其 id，否则返回 `undefined`。
    */
   static getModuleId(name: string): string | undefined {
-    return this.list[name]?.moduleId;
+    const canonicalName = this.resolveName(name);
+    return canonicalName === undefined ? undefined : this.list[canonicalName]?.moduleId;
+  }
+
+  private static resolveName(name: string): string | undefined {
+    if (this.list[name] !== undefined) return name;
+    return Object.entries(this.list).find(([, entry]) => entry.options?.aliases?.includes(name))?.[0];
   }
 
   private static canExecute(player: Player | undefined, permission: number | string): boolean {
@@ -187,11 +221,12 @@ export class Command {
    * @param player 触发指令的玩家对象，控制台触发时为 `undefined`。
    * @param message 玩家输入的指令字符串（不含前缀）。
    */
-  static trigger(player: Player | undefined, message: string) {
+  static trigger(player: Player | undefined, message: string, ...args: unknown[]) {
     const pname = player?.name || "CONSOLE";
     const pid = player?.id || "N/A";
     debug.i("CMD", `trigger by ${pname}(${pid}): "${message}"`);
-    const commandInfo = this.list[message];
+    const canonicalName = this.resolveName(message);
+    const commandInfo = canonicalName === undefined ? undefined : this.list[canonicalName];
     if (commandInfo !== undefined) {
       if (commandInfo.moduleId && !gCommandState.moduleGuard(commandInfo.moduleId)) {
         debug.w("CMD", `blocked: module ${commandInfo.moduleId} disabled for ${pname}`);
@@ -205,7 +240,7 @@ export class Command {
       }
       system.run(async () => {
         if (player && commandInfo.cost && this.deductCost) {
-          const ok = await this.deductCost(player, commandInfo.cost.amount, message);
+          const ok = await this.deductCost(player, commandInfo.cost.amount, canonicalName ?? message);
           if (!ok) {
             debug.w("CMD", `cost deduct failed: ${pname} needs ${commandInfo.cost.amount} for "${message}"`);
             Msg.error(`余额不足，无法执行该指令（需要 ${commandInfo.cost.amount}）。`, player);
@@ -214,7 +249,7 @@ export class Command {
           debug.i("CMD", `cost deducted ${commandInfo.cost.amount} from ${pname} for "${message}"`);
         }
         debug.d("CMD", `executing "${message}" for ${pname}`);
-        const result = await (commandInfo.callback as (player: Player | undefined) => any)(player);
+        const result = await commandInfo.callback(player, ...args);
         if (result !== undefined && player) debug.d("CMD", `result for "${message}": ${result}`);
         if (result !== undefined && player) Msg.success(`${result}`, player);
       });
@@ -227,20 +262,39 @@ export class Command {
   /** 注册内置 `/c:help` 指令，列出当前玩家有权限的指令。 */
   static registerHelpCommand() {
     Permission.register("help.see", Permission.Any);
+    Permission.register("permlist.see", Permission.Admin);
     this.register(
       "help",
       "help.see",
-      (player: Player | undefined) => {
+      (player: Player | undefined, action?: unknown) => {
+        if (action === "permissions") {
+          if (!player || !Permission.check(player, "permlist.see")) {
+            if (player) Msg.error("你没有查看权限列表的权限。", player);
+            return;
+          }
+          return Permission.formatRegistry();
+        }
         let result = "当前可用指令列表如下：§r\n";
         for (const command in this.list) {
           const entry = this.list[command];
           if (entry && this.canExecute(player, entry.permission)) {
-            result += `  /${this.nativeName(command)} - ${entry.description}\n`;
+            const parameter = entry.options?.enumParameter;
+            const suffix = parameter
+              ? ` ${parameter.optional ? "[" : "<"}${parameter.values.join("|")}${parameter.optional ? "]" : ">"}`
+              : "";
+            const aliases = entry.options?.aliases?.map((alias) => `/${this.nativeName(alias)}${suffix}`).join("、");
+            result += `  /${this.nativeName(command)}${suffix}${aliases ? `（别名 ${aliases}）` : ""} - ${entry.description}\n`;
           }
         }
         return result;
       },
-      "获取所有指令"
+      "获取所有指令",
+      undefined,
+      undefined,
+      {
+        aliases: ["h"],
+        enumParameter: { name: "section", values: ["permissions"], optional: true },
+      }
     );
   }
 
@@ -252,20 +306,34 @@ export class Command {
   /** 在 startup early-execution 阶段把全部声明提交给原生命令注册表。 */
   static registerNativeCommands(registry: CustomCommandRegistry): void {
     for (const [name, entry] of Object.entries(this.list)) {
-      const nativeName = this.nativeName(name);
-      registry.registerCommand(
-        {
-          name: nativeName,
-          description: entry.moduleId ? `${entry.description} - §7${entry.moduleId}` : entry.description,
-          permissionLevel: CommandPermissionLevel.Any,
-          cheatsRequired: false,
-        },
-        (origin: CustomCommandOrigin) => {
-          this.trigger(origin.sourceEntity instanceof Player ? origin.sourceEntity : undefined, name);
-          return { status: CustomCommandStatus.Success };
-        }
-      );
-      debug.i("CMD", `native register "/${nativeName}"`);
+      const enumParameter = entry.options?.enumParameter;
+      let parameter: CustomCommandParameter | undefined;
+      if (enumParameter) {
+        const enumName = this.nativeName(`${name}_${enumParameter.name}`);
+        registry.registerEnum(enumName, enumParameter.values);
+        parameter = { name: enumParameter.name, type: "Enum" as CustomCommandParamType, enumName };
+      }
+      for (const publicName of [name, ...(entry.options?.aliases ?? [])]) {
+        const nativeName = this.nativeName(publicName);
+        registry.registerCommand(
+          {
+            name: nativeName,
+            description: entry.moduleId ? `${entry.description} - §7${entry.moduleId}` : entry.description,
+            permissionLevel: CommandPermissionLevel.Any,
+            cheatsRequired: false,
+            ...(parameter
+              ? enumParameter?.optional
+                ? { optionalParameters: [parameter] }
+                : { mandatoryParameters: [parameter] }
+              : {}),
+          },
+          (origin: CustomCommandOrigin, ...args: unknown[]) => {
+            this.trigger(origin.sourceEntity instanceof Player ? origin.sourceEntity : undefined, name, ...args);
+            return { status: CustomCommandStatus.Success };
+          }
+        );
+        debug.i("CMD", `native register "/${nativeName}"`);
+      }
     }
   }
 }

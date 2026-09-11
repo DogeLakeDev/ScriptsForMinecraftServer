@@ -1,7 +1,5 @@
 import { Player, type PlayerPermissionLevel } from "@minecraft/server";
-import { Command } from "./command.js";
 import { ConfigManager } from "../../module-loader/index.js";
-import { Msg } from "./msg.js";
 
 /** 原生 PlayerPermissionLevel 对应数值映射（避免作为运行时值导出导致低版本/稳定版缺失符号而加载失败）。 */
 const NativePlayerPermissionLevel = {
@@ -89,7 +87,6 @@ export class Permission {
    * @returns 玩家当前的有效权限等级数值。
    */
   static getPermission(player: Player): number {
-
     const perms = ConfigManager.getPermissions();
     const override = perms[player.name];
     if (override !== undefined) return override;
@@ -108,43 +105,34 @@ export class Permission {
     }
   }
 
-  /** 注册内置 `!permlist` 指令，按等级分组展示已注册权限。 */
-  static registerPermlistCommand() {
-    Command.register(
-      "permlist",
-      "permlist.see",
-      (player: Player | undefined) => {
-        if (!player) return;
-        const lines: string[] = [];
-        lines.push("获取到如下权限项：§r");
-        const byLevel: [number, string[]][] = [
-          [this.Any, []],
-          [this.Member, []],
-          [this.OP, []],
-          [this.Admin, []],
-          [-1, []],
-        ];
-        const levelMap = new Map(byLevel);
-        for (const [name, level] of this.registry) {
-          const bucket = levelMap.get(level);
-          if (bucket) bucket.push(name);
-          else (levelMap.get(-1) ?? []).push(name);
-        }
-        const label: Record<number, string> = {
-          [-1]: "未知",
-          [this.Any]: "§a访客",
-          [this.Member]: "§e成员",
-          [this.OP]: "§6管理",
-          [this.Admin]: "§c自定义",
-        };
-        for (const [level, perms] of byLevel) {
-          if (perms.length === 0) continue;
-          lines.push(`\n${label[level] ?? "§7其他"} (${level}+):`);
-          for (const p of perms) lines.push(`  §f${p}`);
-        }
-        Msg.success(lines.join("\n"), player);
-      },
-      "查看所有权限列表"
-    );
+  /** 按等级分组格式化已注册权限，供 `/c:help permissions` 展示。 */
+  static formatRegistry(): string {
+    const lines = ["获取到如下权限项：§r"];
+    const byLevel: [number, string[]][] = [
+      [this.Any, []],
+      [this.Member, []],
+      [this.OP, []],
+      [this.Admin, []],
+      [-1, []],
+    ];
+    const levelMap = new Map(byLevel);
+    for (const [name, level] of this.registry) {
+      const bucket = levelMap.get(level);
+      if (bucket) bucket.push(name);
+      else (levelMap.get(-1) ?? []).push(name);
+    }
+    const label: Record<number, string> = {
+      [-1]: "未知",
+      [this.Any]: "§a访客",
+      [this.Member]: "§e成员",
+      [this.OP]: "§6管理",
+      [this.Admin]: "§c自定义",
+    };
+    for (const [level, permissions] of byLevel) {
+      if (permissions.length === 0) continue;
+      lines.push(`\n${label[level] ?? "§7其他"} (${level}+):`);
+      for (const permission of permissions) lines.push(`  §f${permission}`);
+    }
+    return lines.join("\n");
   }
 }
