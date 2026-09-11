@@ -1,5 +1,13 @@
 # @sfmc-bds/db-server
 
+## 0.2.0-beta.12
+
+### Patch Changes
+
+- 0da9c98: 为玩家表补充聊天频道和订阅偏好字段，并迁移已有数据库。
+- Updated dependencies [ea1e57e]
+  - @sfmc-bds/sdk@0.2.0-beta.15
+
 ## 0.2.0-beta.11
 
 ### Patch Changes
