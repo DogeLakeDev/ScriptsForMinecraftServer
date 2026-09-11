@@ -382,6 +382,7 @@
             "type": { "const": "button" },
             "label": { "$ref": "#/$defs/templateString" },
             "description": { "type": "string" },
+            "tooltip": { "$ref": "#/$defs/templateString" },
             "icon": { "$ref": "#/$defs/templateString" },
             "iconPack": { "$ref": "#/$defs/templateString" },
             "tone": { "$ref": "#/$defs/tone" },
@@ -403,7 +404,9 @@
           "properties": {
             "label": { "$ref": "#/$defs/templateString" },
             "bind": { "type": "string", "pattern": "^state\\.[A-Za-z_][A-Za-z0-9_]*$" },
-            "description": { "type": "string" }
+            "description": { "type": "string" },
+            "tooltip": { "$ref": "#/$defs/templateString" },
+            "disabledWhen": { "$ref": "#/$defs/expression" }
           }
         }
       ]

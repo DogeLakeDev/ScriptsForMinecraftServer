@@ -142,6 +142,59 @@ test("按钮声明 icon 时必须同时声明 iconPack", () => {
   assert.equal(withPack.ok, true, withPack.ok ? undefined : withPack.errors.join("\n"));
 });
 
+test("输入控件的 disabledWhen 与 tooltip 会参与校验", () => {
+  const base = {
+    formatVersion: 1,
+    id: "test.screen",
+    presentation: "form",
+    title: "测试",
+    state: {
+      name: { type: "string", default: "" },
+      locked: { type: "boolean", default: false },
+    },
+  };
+
+  const unknownRef = validateUiScreen({
+    ...base,
+    body: [
+      {
+        id: "name",
+        type: "textField",
+        label: "名称",
+        bind: "state.name",
+        disabledWhen: { ref: "state.missing" },
+      },
+    ],
+  });
+  assert.equal(unknownRef.ok, false);
+  if (unknownRef.ok) return;
+  assert.ok(unknownRef.issues.some((item) => item.path.startsWith("/body/0/disabledWhen")));
+
+  const valid = validateUiScreen({
+    ...base,
+    body: [
+      {
+        id: "name",
+        type: "textField",
+        label: "名称",
+        bind: "state.name",
+        description: "输入框下方说明",
+        tooltip: "悬停提示",
+        disabledWhen: { ref: "state.locked" },
+      },
+      {
+        id: "flag",
+        type: "toggle",
+        label: "开关",
+        bind: "state.locked",
+        tooltip: "开关提示",
+        disabledWhen: { ref: "state.locked" },
+      },
+    ],
+  });
+  assert.equal(valid.ok, true, valid.ok ? undefined : valid.errors.join("\n"));
+});
+
 test("发布的 JSON Schema 文件至少可被标准 JSON 解析", () => {
   const screenSchema = readJson("../../schemas/ui-screen.v1.schema.json") as Record<string, unknown>;
   const featureSchema = readJson("../../schemas/ui-feature.v1.schema.json") as Record<string, unknown>;

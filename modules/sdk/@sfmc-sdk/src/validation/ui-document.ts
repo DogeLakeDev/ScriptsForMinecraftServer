@@ -388,6 +388,13 @@ function validateNode(
     optionalString(value.description, `${path}/description`, issues);
     if (typeof value.description === "string") validateTemplate(value.description, `${path}/description`, scope, issues);
   };
+  const tooltip = (): void => {
+    optionalString(value.tooltip, `${path}/tooltip`, issues);
+    if (typeof value.tooltip === "string") validateTemplate(value.tooltip, `${path}/tooltip`, scope, issues);
+  };
+  const disabledWhen = (): void => {
+    if (value.disabledWhen !== undefined) validateExpression(value.disabledWhen, `${path}/disabledWhen`, scope, issues);
+  };
   switch (value.type) {
     case "header":
     case "text":
@@ -419,6 +426,7 @@ function validateNode(
     case "button":
       text("label");
       description();
+      tooltip();
       optionalString(value.icon, `${path}/icon`, issues);
       optionalString(value.iconPack, `${path}/iconPack`, issues);
       if (typeof value.icon === "string" && value.icon.length > 0) {
@@ -427,19 +435,23 @@ function validateNode(
         }
         validateTemplate(value.icon, `${path}/icon`, scope, issues);
       }
-      if (value.disabledWhen !== undefined) validateExpression(value.disabledWhen, `${path}/disabledWhen`, scope, issues);
+      disabledWhen();
       validateTrigger(value.trigger, `${path}/trigger`, scope, issues);
       break;
     case "textField":
     case "toggle":
       text("label");
       description();
+      tooltip();
+      disabledWhen();
       validateBind(value.bind, `${path}/bind`, scope, issues);
       if (value.type === "textField") optionalString(value.placeholder, `${path}/placeholder`, issues);
       break;
     case "dropdown":
       text("label");
       description();
+      tooltip();
+      disabledWhen();
       validateBind(value.bind, `${path}/bind`, scope, issues);
       if (!Array.isArray(value.options) || value.options.length === 0) {
         issue(issues, `${path}/options`, "invalid_type", "必须是非空选项数组");
@@ -457,6 +469,8 @@ function validateNode(
     case "slider":
       text("label");
       description();
+      tooltip();
+      disabledWhen();
       validateBind(value.bind, `${path}/bind`, scope, issues);
       for (const field of ["min", "max"] as const) {
         if (typeof value[field] !== "number" || !Number.isFinite(value[field])) {

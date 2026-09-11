@@ -162,6 +162,8 @@ export interface UiButtonNode extends UiNodeBase {
   type: "button";
   label: string;
   description?: string;
+  /** 按钮悬停提示；未声明时回退到 description。 */
+  tooltip?: string;
   /** 按钮图标在资源包内的相对路径，对应 ButtonOptions.imageDetails.imageSrc。 */
   icon?: string;
   /** 提供 icon 的资源包标识，对应 imageDetails.imagePackId；声明 icon 时必填。 */
@@ -177,6 +179,8 @@ export interface UiTextFieldNode extends UiNodeBase {
   bind: string;
   placeholder?: string;
   description?: string;
+  tooltip?: string;
+  disabledWhen?: UiExpression;
 }
 
 export interface UiToggleNode extends UiNodeBase {
@@ -184,6 +188,8 @@ export interface UiToggleNode extends UiNodeBase {
   label: string;
   bind: string;
   description?: string;
+  tooltip?: string;
+  disabledWhen?: UiExpression;
 }
 
 export interface UiDropdownOption {
@@ -197,6 +203,8 @@ export interface UiDropdownNode extends UiNodeBase {
   bind: string;
   options: UiDropdownOption[];
   description?: string;
+  tooltip?: string;
+  disabledWhen?: UiExpression;
 }
 
 export interface UiSliderNode extends UiNodeBase {
@@ -207,6 +215,8 @@ export interface UiSliderNode extends UiNodeBase {
   max: number;
   step?: number;
   description?: string;
+  tooltip?: string;
+  disabledWhen?: UiExpression;
 }
 
 /** 条件组件组。 */
