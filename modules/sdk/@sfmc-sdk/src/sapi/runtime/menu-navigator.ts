@@ -28,6 +28,7 @@ import type {
   ToggleOptions,
 } from "@minecraft/server-ui";
 import { Msg } from "./msg.js";
+import { stripDduiButtonFormatting } from "./ui-text.js";
 
 const CustomFormCtor = (serverUi as Record<string, any>).CustomForm as typeof CustomForm | undefined;
 const MessageBoxCtor = (serverUi as Record<string, any>).MessageBox as typeof MessageBox | undefined;
@@ -84,7 +85,7 @@ export function obsBool(v = false): ObservableBoolean {
 /** CustomForm 页面构建器接口（支持链式添加各类表单控件）。 */
 export interface Page {
 
-  /** 添加按钮。 */
+  /** 添加按钮。DDUI 不支持格式化代码；静态字符串会自动清理，ObservableString 应只写入纯文本。 */
   button(label: string | ObservableString, onClick: () => void, options?: ButtonOptions): this;
   /** 添加标签文本。 */
   label(text: string | ObservableString): this;
@@ -254,11 +255,11 @@ export class MenuNavigator {
     const confirmId = `_cf${this._confirmIdx++}`;
     this.section(confirmId, title, (page) => {
       page.label(body);
-      page.button("§a确认", () => {
+      page.button("确认", () => {
         onConfirm?.();
         afterConfirm?.();
       });
-      page.button("§7取消", () => {
+      page.button("取消", () => {
         onCancel?.();
       });
     });
@@ -274,8 +275,8 @@ export class MenuNavigator {
     }
     const box = new MessageBoxCtor(this.player, title);
     box.body(body);
-    box.button1("§a确定");
-    box.button2("§c关闭");
+    box.button1("确定");
+    box.button2("关闭");
     let result: any;
     for (let i = 0; i < 20; i++) {
       try {
@@ -298,7 +299,7 @@ export class MenuNavigator {
       throw new Error("当前环境下的 @minecraft/server-ui 不支持 CustomForm (DDUI)，请在支持 DDUI 的 BDS 版本运行");
     }
     this.form = new CustomFormCtor(this.player, this.titleObs);
-    this.form.button("§l← 回到上一级", () => this.back(), { visible: this.backVis });
+    this.form.button("← 回到上一级", () => this.back(), { visible: this.backVis });
     for (const [id, def] of this.sections) {
       if (token !== this.sessionToken) return;
       const vis = this.sectionVis.get(id);
@@ -351,7 +352,8 @@ class PageBuilder implements Page {
     private visible: ObservableBoolean
   ) {}
   button(l: string | ObservableString, onClick: () => void, opts?: ButtonOptions): this {
-    this.form.button(l, onClick, { ...opts, visible: this.visible });
+    const label = typeof l === "string" ? stripDduiButtonFormatting(l) : l;
+    this.form.button(label, onClick, { ...opts, visible: this.visible });
     return this;
   }
   label(t: string | ObservableString): this {
