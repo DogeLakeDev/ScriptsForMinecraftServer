@@ -1,5 +1,11 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.15
+
+### Minor Changes
+
+- ea1e57e: 为原生玩家命令增加短别名、枚举子命令与参数透传，并将权限列表合并到 `/c:help permissions`。
+
 ## 0.2.0-beta.14
 
 ### Minor Changes
