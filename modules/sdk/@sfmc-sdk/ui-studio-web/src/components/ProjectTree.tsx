@@ -14,6 +14,7 @@ import {
   Copy,
   Eye,
   FileJson2,
+  FlaskConical,
   Package,
   Pencil,
   Plus,
@@ -26,35 +27,53 @@ import {
   type ProjectView,
   type Selection,
 } from "../model";
-import { screenRefs } from "../store/project";
+import { FIXTURE_DIR, FIXTURE_FILE, screenRefs } from "../store/project";
+import { fixtureLabel } from "./FixtureSwitcher";
 import { ContextMenu, useContextMenu } from "./ContextMenu";
 
 interface ProjectTreeProps {
   view: ProjectView;
   selection: Selection | null;
+  /** 场景 fixture 文件清单（不含基础场景）。 */
+  fixtureScenarios: string[];
+  /** 当前画布使用的 fixture 文件。 */
+  activeFixture: string;
   onSelect(selection: Selection): void;
   onAddScreen(): void;
   onRenameScreen(file: string): void;
   onDuplicateScreen(file: string): void;
   onRemoveScreen(file: string): void;
   onRemoveFile(file: string): void;
+  onAddFixture(): void;
+  onRenameFixture(file: string): void;
 }
 
 export function ProjectTree({
   view,
   selection,
+  fixtureScenarios,
+  activeFixture,
   onSelect,
   onAddScreen,
   onRenameScreen,
   onDuplicateScreen,
   onRemoveScreen,
   onRemoveFile,
+  onAddFixture,
+  onRenameFixture,
 }: ProjectTreeProps) {
   const feature = view.browse.feature;
   const screens = view.browse.screens;
   const declared = new Set(screenRefs(view.files).map((ref) => ref.file));
+  // fixture（基础 + 场景）有独立分区，不再混入「其他文件」。
   const otherFiles = Object.keys(view.files)
-    .filter((file) => file !== FEATURE_FILE && !declared.has(file))
+    .filter(
+      (file) =>
+        file !== FEATURE_FILE &&
+        file !== FIXTURE_FILE &&
+        !file.startsWith(`${FIXTURE_DIR}/`) &&
+        !declared.has(file),
+    )
     .sort();
   // 右键菜单状态：页面行与其他文件行共用。
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
@@ -186,6 +205,87 @@ export function ProjectTree({
                     ))}
                   </ul>
                 ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className="tree-section">
+        <div className="tree-heading tree-heading-row">
+          预览场景
+          <button
+            className="tree-action"
+            onClick={onAddFixture}
+            title="新建场景（复制基础 fixture）"
+          >
+            <Plus size={13} />
+          </button>
+        </div>
+        <ul className="tree-screens">
+          {[FIXTURE_FILE, ...fixtureScenarios].map((file) => {
+            const isBase = file === FIXTURE_FILE;
+            const active = selection?.kind === "file" && selection.file === file;
+            const inUse = file === activeFixture;
+            return (
+              <li key={file}>
+                <div
+                  className={`tree-screen-row${active ? " active" : ""}`}
+                  onContextMenu={(event) =>
+                    openMenu(event, [
+                      {
+                        icon: Eye,
+                        label: "打开",
+                        onClick: () => onSelect({ kind: "file", file }),
+                      },
+                      ...(isBase
+                        ? []
+                        : ([
+                            "separator",
+                            {
+                              icon: Pencil,
+                              label: "重命名/移动…",
+                              onClick: () => onRenameFixture(file),
+                            },
+                            "separator",
+                            {
+                              icon: Trash2,
+                              label: "删除场景…",
+                              danger: true,
+                              onClick: () => onRemoveFile(file),
+                            },
+                          ] as const)),
+                    ])
+                  }
+                >
+                  <button
+                    className="tree-screen tree-file"
+                    onClick={() => onSelect({ kind: "file", file })}
+                    title={file}
+                  >
+                    <FlaskConical size={13} className="tree-icon" />
+                    {fixtureLabel(file)}
+                    {inUse ? <span className="tree-badge tree-badge-player">使用中</span> : null}
+                  </button>
+                  {isBase ? null : (
+                    <span className="tree-row-actions">
+                      <button
+                        className="tree-action"
+                        onClick={() => onRenameFixture(file)}
+                        title="重命名/移动文件"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        className="tree-action tree-action-danger"
+                        onClick={() => onRemoveFile(file)}
+                        title="删除场景"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  )}
+                </div>
               </li>
             );
           })}

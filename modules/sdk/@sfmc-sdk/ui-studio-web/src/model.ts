@@ -103,6 +103,65 @@ export function asFixture(raw: unknown): PreviewFixture {
   return {};
 }
 
+/** 绑定选择器的一组候选路径。 */
+export interface BindGroup {
+  label: string;
+  options: Array<{ value: string; hint?: string }>;
+}
+
+/**
+ * 汇总绑定选择器的候选路径：
+ * 状态/参数/数据源/计算值来自页面声明，玩家来自预览 fixture（对象值再展开一层）。
+ * 注意：输入组件的 bind 契约要求 state.*，由调用方按字段过滤分组。
+ */
+export function collectBindPaths(doc: unknown, fixture: PreviewFixture): BindGroup[] {
+  const groups: BindGroup[] = [];
+  const record = (typeof doc === "object" && doc !== null ? doc : {}) as Record<string, unknown>;
+  const keysOf = (value: unknown): string[] =>
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? Object.keys(value as Record<string, unknown>)
+      : [];
+  const push = (label: string, root: string, keys: string[], hints?: Record<string, string>) => {
+    if (keys.length === 0) return;
+    groups.push({
+      label,
+      options: keys.map((key) => ({ value: `${root}.${key}`, hint: hints?.[key] })),
+    });
+  };
+
+  // 状态：hint 展示声明的值的类型。
+  const stateKeys = keysOf(record.state);
+  const stateHints: Record<string, string> = {};
+  for (const key of stateKeys) {
+    const decl = (record.state as Record<string, unknown>)[key];
+    const type =
+      typeof decl === "object" && decl !== null
+        ? (decl as { type?: unknown }).type
+        : undefined;
+    if (typeof type === "string") stateHints[key] = type;
+  }
+  push("状态 state", "state", stateKeys, stateHints);
+  push("参数 params", "params", keysOf(record.params));
+  push("数据源 data", "data", keysOf(record.load));
+  push("计算值 derived", "derived", keysOf(record.derived));
+
+  // 玩家：fixture.player 的键；对象值展开一层（如 player.location.x）。
+  const player = fixture.player ?? {};
+  const playerOptions: Array<{ value: string; hint?: string }> = [];
+  for (const key of Object.keys(player)) {
+    playerOptions.push({ value: `player.${key}` });
+    const value = player[key];
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      for (const sub of Object.keys(value as Record<string, unknown>)) {
+        playerOptions.push({ value: `player.${key}.${sub}` });
+      }
+    }
+  }
+  if (playerOptions.length > 0) groups.push({ label: "玩家 player", options: playerOptions });
+
+  return groups;
+}
+
 /** 节点的子容器：when → content；each → template/empty。 */
 export function nodeChildSlots(node: UiNode): Array<{ key: string; nodes: UiNode[] }> {
   if (node.type === "when") return [{ key: "content", nodes: node.content }];
@@ -235,6 +294,161 @@ export function nodeDisplayName(node: UiNode): string {
 
 function truncate(value: string, max = 12): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
+}
+
+/**
+ * 插入地址：目标容器（containerPath 为容器节点段路径，空串表示页面 body）
+ * + 槽位（body/content/template/empty）+ 下标。
+ */
+export interface InsertAddress {
+  containerPath: string;
+  slotKey: string;
+  index: number;
+}
+
+/** 把节点段路径解析为其所在的插入地址（自身下标）。 */
+export function parseNodeLocation(path: string): InsertAddress | null {
+  if (!path) return null;
+  const segments = path.split("/");
+  const index = Number(segments.pop());
+  const slotKey = segments.pop();
+  if (!Number.isInteger(index) || !slotKey) return null;
+  if (!["body", "content", "template", "empty"].includes(slotKey)) return null;
+  return { containerPath: segments.join("/"), slotKey, index };
+}
+
+/** 由插入地址反推目标位置的段路径。 */
+export function pathOfAddress(addr: InsertAddress): string {
+  return addr.slotKey === "body"
+    ? `body/${addr.index}`
+    : `${addr.containerPath}/${addr.slotKey}/${addr.index}`;
+}
+
+/** 在原始文档上解析目标容器数组；失败返回 null。直接引用，勿跨文档混用。 */
+function resolveContainer(
+  doc: unknown,
+  containerPath: string,
+  slotKey: string,
+): unknown[] | null {
+  if (slotKey === "body") {
+    const body = (doc as { body?: unknown }).body;
+    return Array.isArray(body) ? body : null;
+  }
+  const parent = nodeAtPath(doc as UiScreenDocument, containerPath);
+  if (!parent) return null;
+  const slot = (parent as unknown as Record<string, unknown>)[slotKey];
+  return Array.isArray(slot) ? (slot as unknown[]) : null;
+}
+
+/**
+ * 在原始文档的指定地址插入节点（原地修改，调用方先 structuredClone）。
+ * 返回新节点的段路径；失败返回 null。
+ */
+export function insertNode(
+  doc: unknown,
+  addr: InsertAddress,
+  node: Record<string, unknown>,
+): string | null {
+  const container = resolveContainer(doc, addr.containerPath, addr.slotKey);
+  if (!container) return null;
+  const index = Math.max(0, Math.min(addr.index, container.length));
+  container.splice(index, 0, node);
+  return pathOfAddress({ ...addr, index });
+}
+
+/** 按段路径移除节点（原地修改），返回被移除的节点；失败返回 null。 */
+export function removeNodeAt(doc: unknown, path: string): Record<string, unknown> | null {
+  const location = parseNodeLocation(path);
+  if (!location) return null;
+  const container = resolveContainer(doc, location.containerPath, location.slotKey);
+  if (!container || location.index >= container.length) return null;
+  const [removed] = container.splice(location.index, 1);
+  return (removed as Record<string, unknown>) ?? null;
+}
+
+/**
+ * 移动节点到新地址（原地修改）。禁止移入自身内部；
+ * 同容器后移时自动修正先删后插的下标偏移。返回新段路径；失败返回 null。
+ */
+export function moveNode(doc: unknown, fromPath: string, addr: InsertAddress): string | null {
+  // 目标容器不能是被移动节点自身或其子孙。
+  if (addr.containerPath === fromPath || addr.containerPath.startsWith(`${fromPath}/`)) {
+    return null;
+  }
+  const from = parseNodeLocation(fromPath);
+  if (!from) return null;
+  const removed = removeNodeAt(doc, fromPath);
+  if (!removed) return null;
+  let index = addr.index;
+  if (
+    from.containerPath === addr.containerPath &&
+    from.slotKey === addr.slotKey &&
+    from.index < addr.index
+  ) {
+    index -= 1;
+  }
+  return insertNode(doc, { ...addr, index }, removed);
+}
+
+/**
+ * 拖入新节点后补齐其引用的声明，避免页面因「未声明引用」立即失验：
+ * - 输入组件的 state.<key>：按节点类型补 string/boolean/number 声明；
+ * - each 的 data.<key>：补 load 条目（service 取项目第一个，无则占位 example.service，
+ *   会在诊断区留下「未知 service」提示，引导用户配置真实数据源）。
+ * 原地修改（调用方先 structuredClone）；已存在的声明不覆盖。
+ */
+export function ensureDeclarations(
+  doc: unknown,
+  node: Record<string, unknown>,
+  services: string[],
+): void {
+  if (typeof doc !== "object" || doc === null) return;
+  const record = doc as Record<string, unknown>;
+  const bindPath = typeof node.bind === "string" ? node.bind : null;
+  if (bindPath?.startsWith("state.")) {
+    const key = bindPath.slice("state.".length);
+    const state = (record.state ??= {}) as Record<string, unknown>;
+    if (!(key in state)) {
+      const type =
+        node.type === "toggle" ? "boolean" : node.type === "slider" ? "number" : "string";
+      const decl: Record<string, unknown> = { type };
+      if (node.type === "slider") {
+        if (typeof node.min === "number") decl.min = node.min;
+        if (typeof node.max === "number") decl.max = node.max;
+      }
+      state[key] = decl;
+    }
+  }
+  const source = typeof node.source === "string" ? node.source : null;
+  if (node.type === "each" && source?.startsWith("data.")) {
+    const key = source.slice("data.".length);
+    const load = (record.load ??= {}) as Record<string, unknown>;
+    if (!(key in load)) {
+      load[key] = { service: services[0] ?? "example.service" };
+    }
+  }
+}
+
+/** 生成文档内唯一的节点 id：base 可用则用 base，否则 base-2 / -3 …。 */
+export function uniqueNodeId(doc: unknown, base: string): string {
+  const ids = new Set<string>();
+  const walk = (nodes: unknown): void => {
+    if (!Array.isArray(nodes)) return;
+    for (const item of nodes) {
+      if (typeof item !== "object" || item === null) continue;
+      const record = item as Record<string, unknown>;
+      if (typeof record.id === "string") ids.add(record.id);
+      walk(record.content);
+      walk(record.template);
+      walk(record.empty);
+    }
+  };
+  walk((doc as { body?: unknown }).body);
+  if (!ids.has(base)) return base;
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base}-${n}`;
+    if (!ids.has(candidate)) return candidate;
+  }
 }
 
 /**

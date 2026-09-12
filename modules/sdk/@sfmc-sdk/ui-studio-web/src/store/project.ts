@@ -11,6 +11,9 @@
 /** 预览 fixture 在项目内的固定路径。 */
 export const FIXTURE_FILE = ".ui-studio/preview.fixture.json";
 
+/** 场景 fixture 目录：.ui-studio/fixtures/<name>.json。 */
+export const FIXTURE_DIR = ".ui-studio/fixtures";
+
 export interface StudioProject {
   id: string;
   name: string;
@@ -203,6 +206,56 @@ export function duplicateScreen(
   if (typeof copy.name === "string") copy.name = `${copy.name} 副本`;
   const refs = [...screenRefs(files), { id, file }];
   return { files: { ...withScreenRefs(files, refs), [file]: copy }, id, file };
+}
+
+/** 列出场景 fixture 文件（.ui-studio/fixtures/*.json，按路径排序）。 */
+export function fixtureScenarios(files: Record<string, unknown>): string[] {
+  const prefix = `${FIXTURE_DIR}/`;
+  return Object.keys(files)
+    .filter((file) => file.startsWith(prefix) && file.endsWith(".json"))
+    .sort();
+}
+
+/**
+ * 新建场景：以基础 fixture 为模板复制到 .ui-studio/fixtures/<name>.json；
+ * 非法字符替换为 -，撞名自动加 -2/-3…。名称为空时返回 null。
+ */
+export function addFixtureScenario(
+  files: Record<string, unknown>,
+  wantedName: string,
+): { files: Record<string, unknown>; file: string } | null {
+  // 允许 Unicode 字母/数字（中文场景名可用），其余字符折叠为 -。
+  const safe = wantedName
+    .trim()
+    .replace(/[^\p{L}\p{N}_.-]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!safe) return null;
+  let file = `${FIXTURE_DIR}/${safe}.json`;
+  for (let n = 2; file in files; n += 1) {
+    file = `${FIXTURE_DIR}/${safe}-${n}.json`;
+  }
+  const base = files[FIXTURE_FILE];
+  const doc = typeof base === "object" && base !== null ? structuredClone(base) : {};
+  return { files: { ...files, [file]: doc }, file };
+}
+
+/**
+ * 重命名/移动普通文件（不触碰 feature 引用；页面文件请用 renameScreenFile）。
+ * 目标路径已存在或源缺失时返回 null。
+ */
+export function renameFile(
+  files: Record<string, unknown>,
+  from: string,
+  to: string,
+): Record<string, unknown> | null {
+  if (from === to) return files;
+  if (to in files) return null;
+  const doc = files[from];
+  if (doc === undefined) return null;
+  const next = { ...files };
+  delete next[from];
+  next[to] = doc;
+  return next;
 }
 
 /** 从 manifest 文档提取 services.provides 名称。 */

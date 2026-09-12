@@ -22,22 +22,35 @@ import type {
   UiActionDefinition,
   UiScreenDocument,
 } from "../../src/contracts/ui-document.js";
-import { asFixture, type Selection } from "./model";
+import {
+  asFixture,
+  ensureDeclarations,
+  fileByScreenId,
+  insertNode,
+  moveNode,
+  type InsertAddress,
+  type Selection,
+} from "./model";
 import { deriveView } from "./derived";
 import { useFileDrafts } from "./draft";
 import { initialSession, type PreviewSession } from "./scope";
 import { getProject, putProject } from "./store/db";
 import {
+  addFixtureScenario,
   addScreen,
   duplicateScreen,
   extractServicesFromManifest,
   FIXTURE_FILE,
+  fixtureScenarios,
   removeScreen,
+  renameFile,
   renameScreenFile,
   type StudioProject,
 } from "./store/project";
 import { downloadBlob, exportProjectZip } from "./zip";
 import { ProjectTree } from "./components/ProjectTree";
+import { Palette } from "./components/Palette";
+import { FixtureSwitcher } from "./components/FixtureSwitcher";
 import { Canvas } from "./components/Canvas";
 import { Inspector } from "./components/Inspector";
 import { Diagnostics } from "./components/Diagnostics";
@@ -117,6 +130,8 @@ function ProjectEditor({
   const [sessions, setSessions] = useState<Record<string, PreviewSession>>({});
   const [actionPreview, setActionPreview] = useState<ActionPreview | null>(null);
   const [closedScreen, setClosedScreen] = useState<string | null>(null);
+  // 当前预览场景（fixture 文件）；缺省为基础场景。
+  const [activeFixture, setActiveFixture] = useState<string>(FIXTURE_FILE);
   const manifestInputRef = useRef<HTMLInputElement>(null);
 
   // 持久化回调：以最新项目对象为基准写回 IndexedDB。
@@ -147,7 +162,28 @@ function ProjectEditor({
   // 工程视图由文件表实时派生：编辑即刻反映到画布与诊断。
   const view = useMemo(() => deriveView(files, project.services), [project, files]);
 
-  const fixture = useMemo(() => asFixture(files[FIXTURE_FILE]), [files]);
+  // 场景清单：基础场景 + .ui-studio/fixtures/*.json。
+  const scenarios = useMemo(() => fixtureScenarios(files), [files]);
+  const fixtureFiles = useMemo(() => [FIXTURE_FILE, ...scenarios], [scenarios]);
+
+  // 当前场景文件被删除/移出场景目录时回退到基础场景。
+  useEffect(() => {
+    if (activeFixture !== FIXTURE_FILE && !fixtureFiles.includes(activeFixture)) {
+      setActiveFixture(FIXTURE_FILE);
+    }
+  }, [activeFixture, fixtureFiles]);
+
+  const fixture = useMemo(
+    () => asFixture(files[activeFixture] ?? files[FIXTURE_FILE]),
+    [files, activeFixture],
+  );
+
+  /** 切换预览场景：fixture 变化，预览会话全部重建。 */
+  const handleSwitchFixture = useCallback((file: string) => {
+    setActiveFixture((prev) => (prev === file ? prev : file));
+    setSessions({});
+    setClosedScreen(null);
+  }, []);
 
   // 树/画布/属性一律走可浏览视图：工程有诊断时仍可浏览定位。
   const screens = view.browse.screens;
@@ -172,15 +208,19 @@ function ProjectEditor({
     }
   }, [selection, currentScreenId]);
 
-  // 当前页面被删除/失效时收回导航栈。
+  // 当前页面被删除时收回导航栈与选中。
+  // 注意：仅校验失败（不在 browse.screens）不算删除——文件还在，
+  // 用户需要留在该页面上借助整文件 JSON 编辑器修复。
   useEffect(() => {
-    if (currentEntry && !(currentEntry.screenId in screens)) {
+    const exists = (screenId: string) =>
+      screenId in screens || fileByScreenId(view, screenId) !== null;
+    if (currentEntry && !exists(currentEntry.screenId)) {
       setNavStack([]);
       setSelection((prev) =>
-        prev?.kind === "screen" && !(prev.screenId in screens) ? null : prev,
+        prev?.kind === "screen" && !exists(prev.screenId) ? null : prev,
       );
     }
-  }, [currentEntry, screens]);
+  }, [currentEntry, screens, view]);
 
   /** 取页面会话；不存在时按默认值 + fixture 初始化。 */
   const sessionFor = useCallback(
@@ -330,12 +370,97 @@ function ProjectEditor({
     [files, replaceFiles],
   );
 
+  /** 新建预览场景：复制基础 fixture 到场景目录，并切换为当前场景。 */
+  const handleAddFixture = useCallback(() => {
+    const name = window.prompt("场景名（字母/数字/._-）：", "scenario");
+    if (name === null) return;
+    const result = addFixtureScenario(files, name);
+    if (!result) {
+      window.alert("场景名无效。");
+      return;
+    }
+    replaceFiles(result.files);
+    handleSwitchFixture(result.file);
+    setSelection({ kind: "file", file: result.file });
+  }, [files, replaceFiles, handleSwitchFixture]);
+
+  /** 重命名/移动场景文件（普通文件操作，不触碰 feature 引用）。 */
+  const handleRenameFixture = useCallback(
+    (file: string) => {
+      const next = window.prompt("新的文件路径（相对工程根）：", file);
+      if (next === null) return;
+      const trimmed = next.trim();
+      if (!trimmed || trimmed === file) return;
+      if (!trimmed.endsWith(".json")) {
+        window.alert("文件路径必须以 .json 结尾。");
+        return;
+      }
+      const result = renameFile(files, file, trimmed);
+      if (!result) {
+        window.alert(`目标路径已存在或源文件缺失：${trimmed}`);
+        return;
+      }
+      replaceFiles(result);
+      setSelection((prev) =>
+        prev?.kind === "file" && prev.file === file ? { kind: "file", file: trimmed } : prev,
+      );
+      setActiveFixture((prev) => (prev === file ? trimmed : prev));
+    },
+    [files, replaceFiles],
+  );
+
   /** 整文件替换（其他文件的 JSON 编辑）。 */
   const handleReplaceFile = useCallback(
     (file: string, doc: unknown) => {
       replaceFiles({ ...files, [file]: doc });
     },
     [files, replaceFiles],
+  );
+
+  // -------------------------------------------------------------------------
+  // 画布拖放（组件库插入 / 画布内移动；均为一步撤销并选中新位置）
+  // -------------------------------------------------------------------------
+
+  /** 当前页面所属文件（拖放编辑的落盘目标）。 */
+  const currentScreenFile = useMemo(() => {
+    if (!currentScreenId || !view.browse.feature) return null;
+    const ref = view.browse.feature.screens.find((item) => item.id === currentScreenId);
+    return ref?.file ?? null;
+  }, [view, currentScreenId]);
+
+  const handleInsertNode = useCallback(
+    (addr: InsertAddress, node: Record<string, unknown>) => {
+      if (!currentScreenFile || !currentScreenId) return;
+      // 先在探针副本上预演以取得新节点路径
+      // （applyEdit 的 mutate 在 setState 更新函数内执行，无法同步取回结果）。
+      const probe = structuredClone(files[currentScreenFile]);
+      const newPath = insertNode(probe, addr, node);
+      if (!newPath) return;
+      const services = projectRef.current?.services ?? [];
+      applyEdit(currentScreenFile, (doc) => {
+        insertNode(doc, addr, node);
+        // 补齐新节点引用的 state/load 声明，避免页面立即失验。
+        ensureDeclarations(doc, node, services);
+        return true;
+      });
+      setSelection({ kind: "screen", screenId: currentScreenId, nodePath: newPath });
+    },
+    [currentScreenFile, currentScreenId, files, applyEdit],
+  );
+
+  const handleMoveNode = useCallback(
+    (fromPath: string, addr: InsertAddress) => {
+      if (!currentScreenFile || !currentScreenId) return;
+      const probe = structuredClone(files[currentScreenFile]);
+      const newPath = moveNode(probe, fromPath, addr);
+      if (!newPath) return;
+      applyEdit(currentScreenFile, (doc) => {
+        moveNode(doc, fromPath, addr);
+        return true;
+      });
+      setSelection({ kind: "screen", screenId: currentScreenId, nodePath: newPath });
+    },
+    [currentScreenFile, currentScreenId, files, applyEdit],
   );
 
   // -------------------------------------------------------------------------
@@ -473,38 +598,59 @@ function ProjectEditor({
           <ProjectTree
             view={view}
             selection={selection}
+            fixtureScenarios={scenarios}
+            activeFixture={activeFixture}
             onSelect={handleSelect}
             onAddScreen={handleAddScreen}
             onRenameScreen={handleRenameScreen}
             onDuplicateScreen={handleDuplicateScreen}
             onRemoveScreen={handleRemoveScreen}
             onRemoveFile={handleRemoveFile}
+            onAddFixture={handleAddFixture}
+            onRenameFixture={handleRenameFixture}
           />
+          <Palette />
         </aside>
         <main className="panel panel-canvas">
-          {currentScreen && session ? (
-            <Canvas
-              screen={currentScreen}
-              fixture={fixture}
-              session={session}
-              selection={selection}
-              closed={closedScreen === currentScreen.id}
-              onSelectNode={(nodePath) => selectNode(currentScreen.id, nodePath)}
-              onUpdateState={(key, value) => updateState(currentScreen.id, key, value)}
-              onNavigate={navigateTo}
-              onBack={goBack}
-              onClose={() => setClosedScreen(currentScreen.id)}
-              onAction={(preview) => setActionPreview(preview)}
-              onReopen={() => setClosedScreen(null)}
-            />
-          ) : (
-            <div className="canvas-empty">工程暂无可预览页面</div>
-          )}
+          <div className="canvas-wrap">
+            <div className="canvas-toolbar">
+              <FixtureSwitcher
+                files={fixtureFiles}
+                active={activeFixture}
+                onSwitch={handleSwitchFixture}
+              />
+            </div>
+            {currentScreen && session ? (
+              <Canvas
+                screen={currentScreen}
+                fixture={fixture}
+                session={session}
+                selection={selection}
+                closed={closedScreen === currentScreen.id}
+                onSelectNode={(nodePath) => selectNode(currentScreen.id, nodePath)}
+                onUpdateState={(key, value) => updateState(currentScreen.id, key, value)}
+                onNavigate={navigateTo}
+                onBack={goBack}
+                onClose={() => setClosedScreen(currentScreen.id)}
+                onAction={(preview) => setActionPreview(preview)}
+                onReopen={() => setClosedScreen(null)}
+                onInsertNode={handleInsertNode}
+                onMoveNode={handleMoveNode}
+              />
+            ) : (
+              <div className="canvas-empty">
+                {currentScreenId
+                  ? "页面未通过校验，请在右侧修复 JSON（详见底部诊断）"
+                  : "工程暂无可预览页面"}
+              </div>
+            )}
+          </div>
         </main>
         <aside className="panel panel-right">
           <Inspector
             view={view}
             selection={selection}
+            fixture={fixture}
             onEdit={applyEdit}
             onReplaceFile={handleReplaceFile}
           />

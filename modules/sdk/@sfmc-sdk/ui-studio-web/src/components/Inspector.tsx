@@ -11,15 +11,20 @@
  */
 
 import { useEffect, useState } from "react";
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "@headlessui/react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import type {
   UiNode,
   UiScreenDocument,
 } from "../../../src/contracts/ui-document.js";
 import {
+  collectBindPaths,
   FEATURE_FILE,
   fileByScreenId,
   mutateNodeAtPath,
   nodeAtPath,
+  type BindGroup,
+  type PreviewFixture,
   type ProjectView,
   type Selection,
 } from "../model";
@@ -27,6 +32,8 @@ import {
 interface InspectorProps {
   view: ProjectView;
   selection: Selection | null;
+  /** 预览 fixture（绑定选择器的 player.* 候选来源）。 */
+  fixture: PreviewFixture;
   /** 应用一步编辑（进入撤销栈）；mutate 返回 false 表示未定位到目标。 */
   onEdit(file: string, mutate: (doc: never) => boolean | void): void;
   /** 整文件替换（其他文件的 JSON 编辑）。 */
@@ -42,7 +49,8 @@ type FieldDef =
   | { kind: "number"; key: string; label: string }
   | { kind: "select"; key: string; label: string; options: Array<{ value: string; label: string }> }
   | { kind: "json"; key: string; label: string }
-  | { kind: "trigger"; key: string; label: string };
+  | { kind: "trigger"; key: string; label: string }
+  | { kind: "bind"; key: string; label: string; required?: boolean; roots?: string[] };
 
 const TONE_OPTIONS = [
   { value: "default", label: "default" },
@@ -75,6 +83,14 @@ const text = (key: string, label: string, extra?: Partial<Extract<FieldDef, { ki
 });
 const num = (key: string, label: string): FieldDef => ({ kind: "number", key, label });
 const json = (key: string, label: string): FieldDef => ({ kind: "json", key, label });
+/** 绑定路径选择器；roots 限定候选根（bind 契约要求 state.*）。 */
+const bind = (key: string, label: string, roots?: string[]): FieldDef => ({
+  kind: "bind",
+  key,
+  label,
+  required: true,
+  roots,
+});
 const tone: FieldDef = { kind: "select", key: "tone", label: "色调 tone", options: TONE_OPTIONS };
 const disabledWhen = json("disabledWhen", "禁用条件 disabledWhen");
 
@@ -105,7 +121,7 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
   ],
   textField: [
     text("label", "标签 label", { required: true }),
-    text("bind", "绑定 bind", { required: true, placeholder: "state.xxx" }),
+    bind("bind", "绑定 bind", ["state"]),
     text("placeholder", "占位 placeholder"),
     text("description", "描述 description"),
     text("tooltip", "悬停提示 tooltip"),
@@ -113,14 +129,14 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
   ],
   toggle: [
     text("label", "标签 label", { required: true }),
-    text("bind", "绑定 bind", { required: true, placeholder: "state.xxx" }),
+    bind("bind", "绑定 bind", ["state"]),
     text("description", "描述 description"),
     text("tooltip", "悬停提示 tooltip"),
     disabledWhen,
   ],
   dropdown: [
     text("label", "标签 label", { required: true }),
-    text("bind", "绑定 bind", { required: true, placeholder: "state.xxx" }),
+    bind("bind", "绑定 bind", ["state"]),
     json("options", "选项 options"),
     text("description", "描述 description"),
     text("tooltip", "悬停提示 tooltip"),
@@ -128,7 +144,7 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
   ],
   slider: [
     text("label", "标签 label", { required: true }),
-    text("bind", "绑定 bind", { required: true, placeholder: "state.xxx" }),
+    bind("bind", "绑定 bind", ["state"]),
     num("min", "最小值 min"),
     num("max", "最大值 max"),
     num("step", "步长 step"),
@@ -139,7 +155,7 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
   ],
   when: [json("condition", "条件 condition")],
   each: [
-    text("source", "数据源 source", { required: true, placeholder: "data.xxx" }),
+    bind("source", "数据源 source"),
     text("as", "条目名 as", { required: true }),
   ],
 };
@@ -161,7 +177,7 @@ const SCREEN_FIELDS: FieldDef[] = [
 // 主组件
 // ---------------------------------------------------------------------------
 
-export function Inspector({ view, selection, onEdit, onReplaceFile }: InspectorProps) {
+export function Inspector({ view, selection, fixture, onEdit, onReplaceFile }: InspectorProps) {
   if (!selection) {
     return <div className="inspector-empty">在左侧选择页面、组件或文件</div>;
   }
@@ -213,25 +229,43 @@ export function Inspector({ view, selection, onEdit, onReplaceFile }: InspectorP
 
   // 页面：节点表单或页面级表单。
   const screen = view.browse.screens[selection.screenId];
-  if (!screen) {
-    return <div className="inspector-empty">页面未通过校验，请先看诊断</div>;
-  }
   const file = fileByScreenId(view, selection.screenId);
   const rawDoc = file ? view.files[file] : null;
-  if (!file || !rawDoc) {
+  if (!file || rawDoc === undefined || rawDoc === null) {
     return <div className="inspector-empty">页面文件不可用，无法编辑</div>;
+  }
+  // 页面未通过校验时画布/表单不可用；退化为整文件 JSON 编辑以便修复。
+  if (!screen) {
+    return (
+      <div className="inspector" key={file}>
+        <div className="inspector-heading">
+          页面 <code>{selection.screenId}</code> 未通过校验
+        </div>
+        <div className="insp-hint">请先修复 JSON（对照底部诊断），通过后恢复表单编辑。</div>
+        <JsonField
+          label="文件内容"
+          value={rawDoc}
+          onCommit={(value) => {
+            if (value !== undefined) onReplaceFile(file, value);
+          }}
+        />
+      </div>
+    );
   }
 
   // 编辑一律作用在原始文档上（保留未知字段）；
   // 结构上与 UiScreenDocument 一致，nodeAtPath 可直接复用。
   const node = nodeAtPath(rawDoc as UiScreenDocument, selection.nodePath);
   const formKey = `${file}#${selection.nodePath}`;
+  // 绑定选择器的候选路径（廉价计算，随渲染刷新即可）。
+  const bindGroups = collectBindPaths(rawDoc, fixture);
 
   return (
     <div className="inspector" key={formKey}>
       {node ? (
         <NodeForm
           node={node}
+          bindGroups={bindGroups}
           commit={(key, value) =>
             onEdit(file, (doc) =>
               mutateNodeAtPath(doc, selection.nodePath, (target) => {
@@ -264,7 +298,15 @@ export function Inspector({ view, selection, onEdit, onReplaceFile }: InspectorP
 
 type Commit = (key: string, value: unknown) => void;
 
-function NodeForm({ node, commit }: { node: UiNode; commit: Commit }) {
+function NodeForm({
+  node,
+  bindGroups,
+  commit,
+}: {
+  node: UiNode;
+  bindGroups: BindGroup[];
+  commit: Commit;
+}) {
   const record = node as unknown as Record<string, unknown>;
   const fields = NODE_FIELDS[node.type] ?? [];
   return (
@@ -274,7 +316,13 @@ function NodeForm({ node, commit }: { node: UiNode; commit: Commit }) {
       </div>
       <TextField label="标识 id" value={record.id} required onCommit={(v) => commit("id", v)} />
       {fields.map((field) => (
-        <FieldControl key={field.key} field={field} value={record[field.key]} commit={commit} />
+        <FieldControl
+          key={field.key}
+          field={field}
+          value={record[field.key]}
+          bindGroups={bindGroups}
+          commit={commit}
+        />
       ))}
       <JsonField
         label="可见条件 visibleWhen"
@@ -321,7 +369,17 @@ function FeatureForm({ doc, commit }: { doc: Record<string, unknown>; commit: Co
   );
 }
 
-function FieldControl({ field, value, commit }: { field: FieldDef; value: unknown; commit: Commit }) {
+function FieldControl({
+  field,
+  value,
+  bindGroups,
+  commit,
+}: {
+  field: FieldDef;
+  value: unknown;
+  bindGroups?: BindGroup[];
+  commit: Commit;
+}) {
   switch (field.kind) {
     case "text":
       return (
@@ -348,6 +406,16 @@ function FieldControl({ field, value, commit }: { field: FieldDef; value: unknow
       return <JsonField label={field.label} value={value} onCommit={(v) => commit(field.key, v)} />;
     case "trigger":
       return <TriggerField label={field.label} value={value} onCommit={(v) => commit(field.key, v)} />;
+    case "bind":
+      return (
+        <BindField
+          label={field.label}
+          value={value}
+          groups={bindGroups ?? []}
+          roots={field.roots}
+          onCommit={(v) => commit(field.key, v)}
+        />
+      );
   }
 }
 
@@ -512,6 +580,90 @@ function JsonField({
       />
       {invalid ? <span className="insp-error">JSON 无法解析，未提交</span> : null}
     </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 绑定路径选择器（Headless UI Listbox，按根分组；支持自定义路径）
+// ---------------------------------------------------------------------------
+
+/** 「自定义路径…」选项的哨兵值（不会与真实路径冲突）。 */
+const BIND_CUSTOM = "__custom__";
+
+function BindField({
+  label,
+  value,
+  groups,
+  roots,
+  onCommit,
+}: {
+  label: string;
+  value: unknown;
+  groups: BindGroup[];
+  /** 限定候选根（如 bind 契约要求 state.*）；空表示不过滤。 */
+  roots?: string[];
+  onCommit(value: unknown): void;
+}) {
+  const current = typeof value === "string" ? value : "";
+  const visible = roots
+    ? groups.filter((group) => group.options.some((o) => roots.includes(o.value.split(".")[0] ?? "")))
+    : groups;
+  const known = visible.some((group) => group.options.some((o) => o.value === current));
+
+  const choose = (next: string) => {
+    if (next === BIND_CUSTOM) {
+      const entered = window.prompt("绑定路径（如 state.keyword）", current);
+      const trimmed = entered?.trim();
+      if (trimmed) onCommit(trimmed);
+      return;
+    }
+    if (next !== current) onCommit(next);
+  };
+
+  return (
+    <div className="insp-field">
+      <span className="insp-label">{label}</span>
+      <Listbox value={current} onChange={choose}>
+        <ListboxButton className="insp-input insp-listbox-btn">
+          <span className={current ? "insp-listbox-value" : "insp-listbox-value empty"}>
+            {current || "（未设置）"}
+          </span>
+          <ChevronsUpDown size={13} />
+        </ListboxButton>
+        <ListboxOptions anchor="bottom start" className="insp-listbox">
+          {current && !known ? (
+            <ListboxOption value={current} className="insp-listbox-option">
+              <span className="insp-listbox-check">
+                <Check size={12} />
+              </span>
+              <span>自定义：{current}</span>
+            </ListboxOption>
+          ) : null}
+          {visible.map((group) => (
+            <div key={group.label}>
+              <div className="insp-listbox-group">{group.label}</div>
+              {group.options.map((option) => (
+                <ListboxOption
+                  key={option.value}
+                  value={option.value}
+                  className="insp-listbox-option"
+                >
+                  <span className="insp-listbox-check">
+                    {option.value === current ? <Check size={12} /> : null}
+                  </span>
+                  <span className="insp-listbox-path">{option.value}</span>
+                  {option.hint ? <span className="insp-listbox-hint">{option.hint}</span> : null}
+                </ListboxOption>
+              ))}
+            </div>
+          ))}
+          <ListboxOption value={BIND_CUSTOM} className="insp-listbox-option insp-listbox-custom">
+            <span className="insp-listbox-check" />
+            <span>自定义路径…</span>
+          </ListboxOption>
+        </ListboxOptions>
+      </Listbox>
+    </div>
   );
 }
 

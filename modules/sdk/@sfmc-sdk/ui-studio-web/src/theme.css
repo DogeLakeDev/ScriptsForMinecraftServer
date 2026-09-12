@@ -34,6 +34,8 @@
 }
 
 :root[data-theme="light"] {
+  /* 让原生控件（滚动条/表单控件/弹出层）默认走浅色系统样式 */
+  color-scheme: light;
   --bg-primary: #ffffff;
   --bg-secondary: #f5f4ed;
   --bg-tertiary: #faf9f5;
@@ -66,6 +68,8 @@
 }
 
 :root[data-theme="dark"] {
+  /* 让原生控件（滚动条/表单控件/弹出层）默认走深色系统样式 */
+  color-scheme: dark;
   --bg-primary: #30302e;
   --bg-secondary: #262624;
   --bg-tertiary: #141413;
