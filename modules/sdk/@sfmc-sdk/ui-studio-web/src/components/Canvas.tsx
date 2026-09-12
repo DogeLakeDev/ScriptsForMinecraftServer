@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState, type MouseEvent } from "react";
+import { RotateCcw } from "lucide-react";
 import type {
   UiNode,
   UiScreenDocument,
@@ -20,7 +21,7 @@ import {
   toDisplayText,
   type UiEvaluateScope,
 } from "../../../src/ui-studio/shared/evaluate.js";
-import type { PreviewFixture } from "../model";
+import type { PreviewFixture, Selection } from "../model";
 import { buildScope, type PreviewSession } from "../scope";
 import type { ActionPreview } from "../App";
 
@@ -28,7 +29,7 @@ interface CanvasProps {
   screen: UiScreenDocument;
   fixture: PreviewFixture;
   session: PreviewSession;
-  selection: { screenId: string; nodePath: string } | null;
+  selection: Selection | null;
   closed: boolean;
   onSelectNode(nodePath: string): void;
   onUpdateState(key: string, value: unknown): void;
@@ -77,7 +78,7 @@ export function Canvas(props: CanvasProps) {
         <div className="canvas-closed">
           <p>页面已关闭（close 触发）</p>
           <button className="btn" onClick={onReopen}>
-            重新打开
+            <RotateCcw size={14} /> 重新打开
           </button>
         </div>
       </div>
@@ -121,7 +122,9 @@ function PreviewNode({ node, path, scope, props }: PreviewNodeProps) {
     return null;
   }
   const selected =
-    selection?.nodePath === path && selection.screenId === props.screen.id;
+    selection?.kind === "screen" &&
+    selection.nodePath === path &&
+    selection.screenId === props.screen.id;
   const className = `pv-node pv-${node.type}${selected ? " pv-selected" : ""}`;
   const select = (event: MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();

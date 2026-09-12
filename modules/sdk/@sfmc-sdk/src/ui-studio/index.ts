@@ -16,6 +16,8 @@ export {
   UiStudioProjectError,
 } from "./project.js";
 export type { UiStudioProjectSnapshot } from "./project.js";
+export { saveUiProjectFile, UiStudioSaveError } from "./save.js";
+export type { SaveUiProjectFileOptions } from "./save.js";
 export {
   evaluateCondition,
   evaluateExpression,

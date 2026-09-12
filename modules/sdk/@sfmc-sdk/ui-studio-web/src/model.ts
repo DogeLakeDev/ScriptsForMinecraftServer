@@ -12,13 +12,65 @@ import type {
   UiScreenDocument,
 } from "../../src/contracts/ui-document.js";
 import type { UiValidationIssue } from "../../src/validation/ui-document.js";
-import type { UiStudioProjectSnapshot } from "../../src/ui-studio/project.js";
+import type { UiStudioBrowseView } from "../../src/ui-studio/project.js";
 
-/** 当前选中位置。 */
-export interface Selection {
-  screenId: string;
-  /** 段路径；空串表示选中页面本身而非某个节点。 */
-  nodePath: string;
+/**
+ * 当前选中位置：
+ * - screen：某个页面（nodePath 为空串表示页面本身，否则为 body/... 段路径）；
+ * - feature：feature.ui.json；
+ * - file：其他文件（如预览 fixture）。
+ */
+export type Selection =
+  | { kind: "screen"; screenId: string; nodePath: string }
+  | { kind: "feature" }
+  | { kind: "file"; file: string };
+
+/** feature 文件在文件表中的固定键（即其相对路径）。 */
+export const FEATURE_FILE = "feature.ui.json";
+
+/**
+ * 工程视图：组件树/画布/诊断/属性面板统一的数据来源。
+ * 由浏览器内文件表实时派生（deriveView），与服务端同一套校验器。
+ */
+export interface ProjectView {
+  /** feature.ui.json 原始内容（保留未知字段）。 */
+  feature: unknown;
+  /** 全部文件原始内容，键为相对路径（含 feature 与其他文件）。 */
+  files: Record<string, unknown>;
+  /** 逐文件独立校验后的可浏览视图。 */
+  browse: UiStudioBrowseView;
+  /** 统一诊断（结构与跨文件语义）。 */
+  issues: UiValidationIssue[];
+  /** 项目内维护的 service 名称（由导入的 manifest 提取）。 */
+  services: string[];
+}
+
+/** 按页面 id 反查其文件相对路径；feature 损坏时退化到扫描页面文档的 id 字段。 */
+export function fileByScreenId(view: ProjectView, screenId: string): string | null {
+  const feature = view.feature;
+  if (typeof feature === "object" && feature !== null) {
+    const screens = (feature as { screens?: unknown }).screens;
+    if (Array.isArray(screens)) {
+      const hit = screens.find(
+        (item) =>
+          typeof item === "object" &&
+          item !== null &&
+          (item as { id?: unknown }).id === screenId &&
+          typeof (item as { file?: unknown }).file === "string",
+      );
+      if (hit) return (hit as { file: string }).file;
+    }
+  }
+  for (const [file, doc] of Object.entries(view.files)) {
+    if (
+      typeof doc === "object" &&
+      doc !== null &&
+      (doc as { id?: unknown }).id === screenId
+    ) {
+      return file;
+    }
+  }
+  return null;
 }
 
 /** 预览 fixture 的宽松形状（.ui-studio/preview.fixture.json）。 */
@@ -68,6 +120,8 @@ export function nodeChildSlots(node: UiNode): Array<{ key: string; nodes: UiNode
 export function nodeAtPath(screen: UiScreenDocument, path: string): UiNode | null {
   if (!path) return null;
   const segments = path.split("/");
+  // 段路径以 body 开头（body/2/content/1），先越过该前缀。
+  if (segments[0] === "body") segments.shift();
   let nodes: UiNode[] = screen.body;
   let current: UiNode | undefined;
   for (let i = 0; i < segments.length; i += 2) {
@@ -85,24 +139,20 @@ export function nodeAtPath(screen: UiScreenDocument, path: string): UiNode | nul
 }
 
 /** 工程内按 file 反查页面 id；优先用校验通过的 feature，损坏时退化到原始 JSON。 */
-export function screenIdByFile(
-  snapshot: UiStudioProjectSnapshot,
-  file: string,
-): string | null {
+export function screenIdByFile(view: ProjectView, file: string): string | null {
   const fromFeature = (
     screens: Array<{ id?: unknown; file?: unknown }> | undefined,
   ): string | null => {
     const hit = (screens ?? []).find((item) => item.file === file);
     return typeof hit?.id === "string" ? hit.id : null;
   };
-  if (snapshot.browse.feature) {
-    return fromFeature(snapshot.browse.feature.screens);
+  if (view.browse.feature) {
+    return fromFeature(view.browse.feature.screens);
   }
   // feature 本身未通过校验时，仍尽力从原始 JSON 建立 file→id 映射。
-  const raw = snapshot.feature;
-  if (typeof raw === "object" && raw !== null) {
+  if (typeof view.feature === "object" && view.feature !== null) {
     return fromFeature(
-      (raw as { screens?: Array<{ id?: unknown; file?: unknown }> }).screens,
+      (view.feature as { screens?: Array<{ id?: unknown; file?: unknown }> }).screens,
     );
   }
   return null;
@@ -115,7 +165,7 @@ export function screenIdByFile(
  * 因此用工程已知的文件清单做最长前缀匹配，而不是按段切分。
  */
 export function locateIssue(
-  snapshot: UiStudioProjectSnapshot,
+  view: ProjectView,
   issue: UiValidationIssue,
 ): Selection | null {
   const segments = issue.path.split("/").filter(Boolean);
@@ -127,11 +177,11 @@ export function locateIssue(
     rest = segments.slice(2);
   } else if (segments[0] === "files") {
     const tail = segments.slice(1).join("/");
-    const file = Object.keys(snapshot.screens)
+    const file = Object.keys(view.files)
       .filter((name) => tail === name || tail.startsWith(`${name}/`))
       .sort((a, b) => b.length - a.length)[0];
     if (!file) return null;
-    screenId = screenIdByFile(snapshot, file);
+    screenId = screenIdByFile(view, file);
     rest = tail.slice(file.length).split("/").filter(Boolean);
   } else {
     return null;
@@ -154,7 +204,7 @@ export function locateIssue(
       break;
     }
   }
-  return { screenId, nodePath: nodeSegments.join("/") };
+  return { kind: "screen", screenId, nodePath: nodeSegments.join("/") };
 }
 
 /** 节点在树/画布中的展示名。 */
@@ -185,4 +235,36 @@ export function nodeDisplayName(node: UiNode): string {
 
 function truncate(value: string, max = 12): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
+}
+
+/**
+ * 在原始（未校验）页面文档上按段路径定位节点并执行修改。
+ * 直接 mutate 传入的 doc——调用方负责先 structuredClone。
+ * 返回是否定位成功；失败时不做任何修改。
+ */
+export function mutateNodeAtPath(
+  doc: unknown,
+  nodePath: string,
+  mutate: (node: Record<string, unknown>) => void,
+): boolean {
+  if (!nodePath || typeof doc !== "object" || doc === null) return false;
+  const segments = nodePath.split("/");
+  // 首段固定为 body。
+  if (segments[0] !== "body") return false;
+  let nodes = (doc as { body?: unknown }).body;
+  if (!Array.isArray(nodes)) return false;
+  let current: unknown;
+  for (let i = 1; i < segments.length; i += 2) {
+    const index = Number(segments[i]);
+    if (!Number.isInteger(index) || !Array.isArray(nodes)) return false;
+    current = nodes[index];
+    if (typeof current !== "object" || current === null) return false;
+    const slotKey = segments[i + 1];
+    if (slotKey === undefined) break;
+    if (!["content", "template", "empty"].includes(slotKey)) return false;
+    nodes = (current as Record<string, unknown>)[slotKey];
+  }
+  if (typeof current !== "object" || current === null) return false;
+  mutate(current as Record<string, unknown>);
+  return true;
 }

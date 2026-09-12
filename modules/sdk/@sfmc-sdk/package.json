@@ -135,10 +135,13 @@
     "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
   },
   "devDependencies": {
+    "@headlessui/react": "^2.2.10",
     "@sfmc-bds/tools": "workspace:*",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "fflate": "^0.8.3",
+    "lucide-react": "^1.45.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "vite": "^7.0.0"

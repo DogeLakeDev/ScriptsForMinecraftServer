@@ -80,6 +80,267 @@ body {
   background: var(--accent-hover);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* 图标与文字混排的按钮：垂直居中对齐 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 纯图标按钮：近似正方形 */
+.btn-icon {
+  padding: 5px 8px;
+}
+
+.btn svg {
+  flex-shrink: 0;
+}
+
+.studio-save-error {
+  font-size: 12px;
+  color: var(--text-danger);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 属性面板（可编辑） ---- */
+
+.insp-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.insp-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.insp-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-tertiary);
+  color: var(--text-tertiary);
+}
+
+.insp-input {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.insp-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.insp-textarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.insp-input.invalid {
+  border-color: var(--text-danger);
+}
+
+.insp-error {
+  font-size: 12px;
+  color: var(--text-danger);
+}
+
+.insp-sub {
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-tertiary);
+}
+
+.tree-dirty {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
+/* ---- 文件操作与项目首页 ---- */
+
+.tree-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tree-screen-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+}
+
+.tree-screen-row.active {
+  background: var(--accent-subtle);
+}
+
+.tree-screen-row .tree-screen {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+
+.tree-row-actions {
+  display: none;
+  gap: 2px;
+  padding-right: var(--space-1);
+}
+
+.tree-screen-row:hover .tree-row-actions {
+  display: inline-flex;
+}
+
+.tree-action {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+}
+
+.tree-action:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.tree-action-danger:hover {
+  color: var(--text-danger);
+}
+
+.tree-file {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.insp-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-tertiary);
+}
+
+.studio-save-status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.btn-danger:hover {
+  color: var(--text-danger);
+  border-color: var(--ring-danger);
+}
+
+.home {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-main {
+  flex: 1;
+  padding: var(--space-5);
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.home-error {
+  color: var(--text-danger);
+  background: var(--bg-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.home-empty {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  padding: var(--space-5);
+  border: 1px dashed var(--border-tertiary);
+  border-radius: var(--radius-lg);
+}
+
+.home-projects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.home-project {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+}
+
+.home-project-open {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.home-project-name {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.home-project-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.home-project-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 /* ---- 三栏布局 ---- */
 
 .studio-main {
@@ -567,4 +828,183 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   overflow: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * 顶栏下拉菜单（Headless UI Menu：data-focus / data-disabled 由组件注入）
+ * ------------------------------------------------------------------------- */
+
+.header-menu {
+  position: relative;
+}
+
+/* 菜单展开时按钮保持 hover 态（data-open 由 Headless UI 注入） */
+.header-menu-button[data-open] {
+  background: var(--bg-secondary);
+  border-color: var(--border-secondary);
+}
+
+.header-menu-items {
+  min-width: 220px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.header-menu-item[data-focus] {
+  background: var(--bg-tertiary);
+}
+
+.header-menu-item[data-disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.header-menu-item.danger {
+  color: var(--text-danger);
+}
+
+.header-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.header-menu-item.danger svg {
+  color: inherit;
+}
+
+.header-menu-icon-blank {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.header-menu-label {
+  flex: 1;
+}
+
+.header-menu-item kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+
+.header-menu-sep {
+  height: 1px;
+  background: var(--border-tertiary);
+  margin: 4px 6px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 右键菜单（自绘 ContextMenu）
+ * ------------------------------------------------------------------------- */
+
+.context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 168px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.context-menu-item.danger {
+  color: var(--text-danger);
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.context-menu-item.danger svg {
+  color: inherit;
+}
+
+.context-menu-sep {
+  height: 1px;
+  background: var(--border-tertiary);
+  margin: 4px 6px;
+}
+
+/* 树行内图标对齐 */
+.tree-icon {
+  flex-shrink: 0;
+  margin-right: 6px;
+  color: var(--text-tertiary);
+  vertical-align: -2px;
+}
+
+.tree-screen {
+  display: flex;
+  align-items: center;
+}
+
+/* 首页项目行图标 */
+.home-project-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-project-icon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+/* 诊断计数图标对齐 */
+.diagnostics-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }

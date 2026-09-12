@@ -1,66 +1,176 @@
 /**
- * ProjectTree.tsx — 左栏：工程 / 页面 / 组件树。
+ * ProjectTree.tsx — 左栏：工程 / 页面 / 组件树与文件操作。
  *
- * Feature 节点展示入口清单；每个页面可展开查看组件树（含 when/each 嵌套）。
- * 点击页面切换画布，点击组件与画布/属性面板联动选中。
+ * 三个分区：
+ * - Feature：feature.ui.json（点击编辑模块级声明）；
+ * - 页面：feature 声明的页面文件，可展开组件树；
+ *   支持新建 / 重命名 / 复制 / 删除（自动同步 feature.screens 引用）；
+ * - 其他文件：未登记为页面的 JSON 文件（如预览 fixture），可查看/删除。
  */
 
 import type { UiNode } from "../../../src/contracts/ui-document.js";
-import type { UiStudioProjectSnapshot } from "../../../src/ui-studio/project.js";
-import { nodeChildSlots, nodeDisplayName, type Selection } from "../model";
+import {
+  AppWindow,
+  Copy,
+  Eye,
+  FileJson2,
+  Package,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import {
+  FEATURE_FILE,
+  nodeChildSlots,
+  nodeDisplayName,
+  type ProjectView,
+  type Selection,
+} from "../model";
+import { screenRefs } from "../store/project";
+import { ContextMenu, useContextMenu } from "./ContextMenu";
 
 interface ProjectTreeProps {
-  snapshot: UiStudioProjectSnapshot;
+  view: ProjectView;
   selection: Selection | null;
-  onSelectScreen(screenId: string): void;
-  onSelectNode(screenId: string, nodePath: string): void;
+  onSelect(selection: Selection): void;
+  onAddScreen(): void;
+  onRenameScreen(file: string): void;
+  onDuplicateScreen(file: string): void;
+  onRemoveScreen(file: string): void;
+  onRemoveFile(file: string): void;
 }
 
 export function ProjectTree({
-  snapshot,
+  view,
   selection,
-  onSelectScreen,
-  onSelectNode,
+  onSelect,
+  onAddScreen,
+  onRenameScreen,
+  onDuplicateScreen,
+  onRemoveScreen,
+  onRemoveFile,
 }: ProjectTreeProps) {
-  const feature = snapshot.browse.feature;
-  const screens = snapshot.browse.screens;
-  if (!feature) {
-    return <div className="tree-empty">feature.ui.json 不可用，请先修复诊断中的问题</div>;
-  }
+  const feature = view.browse.feature;
+  const screens = view.browse.screens;
+  const declared = new Set(screenRefs(view.files).map((ref) => ref.file));
+  const otherFiles = Object.keys(view.files)
+    .filter((file) => file !== FEATURE_FILE && !declared.has(file))
+    .sort();
+  // 右键菜单状态：页面行与其他文件行共用。
+  const { menu, open: openMenu, close: closeMenu } = useContextMenu();
+
   return (
     <div className="tree">
       <div className="tree-section">
         <div className="tree-heading">Feature</div>
-        <div className="tree-feature" title={feature.moduleId}>
-          {feature.name ?? feature.moduleId}
-        </div>
-        <ul className="tree-entries">
-          {feature.entries.map((entry) => (
-            <li key={entry.id} title={`${entry.surface} / ${entry.group}`}>
-              <span className={`tree-badge tree-badge-${entry.surface}`}>
-                {entry.surface === "admin" ? "管理" : "玩家"}
-              </span>
-              {entry.title}
-              <span className="tree-dim"> → {entry.target}</span>
-            </li>
-          ))}
-        </ul>
+        <button
+          className={`tree-screen${selection?.kind === "feature" ? " active" : ""}`}
+          onClick={() => onSelect({ kind: "feature" })}
+          title={FEATURE_FILE}
+        >
+          <Package size={13} className="tree-icon" />
+          {feature?.name ?? feature?.moduleId ?? "feature.ui.json"}
+        </button>
+        {feature ? (
+          <ul className="tree-entries">
+            {feature.entries.map((entry) => (
+              <li key={entry.id} title={`${entry.surface} / ${entry.group}`}>
+                <span className={`tree-badge tree-badge-${entry.surface}`}>
+                  {entry.surface === "admin" ? "管理" : "玩家"}
+                </span>
+                {entry.title}
+                <span className="tree-dim"> → {entry.target}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="tree-empty">feature.ui.json 未通过校验，点击上方条目修复</div>
+        )}
       </div>
+
       <div className="tree-section">
-        <div className="tree-heading">页面</div>
+        <div className="tree-heading tree-heading-row">
+          页面
+          <button className="tree-action" onClick={onAddScreen} title="新建页面">
+            <Plus size={13} />
+          </button>
+        </div>
         <ul className="tree-screens">
-          {feature.screens.map((reference) => {
+          {screenRefs(view.files).map((reference) => {
             const screen = screens[reference.id];
-            const active = selection?.screenId === reference.id;
+            const active =
+              selection?.kind === "screen" && selection.screenId === reference.id;
             return (
               <li key={reference.id}>
-                <button
-                  className={`tree-screen${active ? " active" : ""}`}
-                  onClick={() => onSelectScreen(reference.id)}
-                  title={reference.file}
+                <div
+                  className={`tree-screen-row${active ? " active" : ""}`}
+                  onContextMenu={(event) =>
+                    openMenu(event, [
+                      {
+                        icon: Eye,
+                        label: "打开",
+                        onClick: () =>
+                          onSelect({
+                            kind: "screen",
+                            screenId: reference.id,
+                            nodePath: "",
+                          }),
+                      },
+                      "separator",
+                      {
+                        icon: Pencil,
+                        label: "重命名/移动…",
+                        onClick: () => onRenameScreen(reference.file),
+                      },
+                      {
+                        icon: Copy,
+                        label: "复制副本",
+                        onClick: () => onDuplicateScreen(reference.file),
+                      },
+                      "separator",
+                      {
+                        icon: Trash2,
+                        label: "删除页面…",
+                        danger: true,
+                        onClick: () => onRemoveScreen(reference.file),
+                      },
+                    ])
+                  }
                 >
-                  {screen?.name ?? reference.id}
-                </button>
+                  <button
+                    className="tree-screen"
+                    onClick={() =>
+                      onSelect({ kind: "screen", screenId: reference.id, nodePath: "" })
+                    }
+                    title={reference.file}
+                  >
+                    <AppWindow size={13} className="tree-icon" />
+                    {screen?.name ?? reference.id}
+                  </button>
+                  <span className="tree-row-actions">
+                    <button
+                      className="tree-action"
+                      onClick={() => onRenameScreen(reference.file)}
+                      title="重命名/移动文件"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      className="tree-action"
+                      onClick={() => onDuplicateScreen(reference.file)}
+                      title="复制页面"
+                    >
+                      <Copy size={12} />
+                    </button>
+                    <button
+                      className="tree-action tree-action-danger"
+                      onClick={() => onRemoveScreen(reference.file)}
+                      title="删除页面"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </span>
+                </div>
                 {active && screen ? (
                   <ul className="tree-nodes">
                     {screen.body.map((node, index) => (
@@ -71,7 +181,7 @@ export function ProjectTree({
                         path={`body/${index}`}
                         depth={0}
                         selection={selection}
-                        onSelectNode={onSelectNode}
+                        onSelect={onSelect}
                       />
                     ))}
                   </ul>
@@ -81,6 +191,59 @@ export function ProjectTree({
           })}
         </ul>
       </div>
+
+      {otherFiles.length > 0 ? (
+        <div className="tree-section">
+          <div className="tree-heading">其他文件</div>
+          <ul className="tree-screens">
+            {otherFiles.map((file) => {
+              const active = selection?.kind === "file" && selection.file === file;
+              return (
+                <li key={file}>
+                  <div
+                    className={`tree-screen-row${active ? " active" : ""}`}
+                    onContextMenu={(event) =>
+                      openMenu(event, [
+                        {
+                          icon: Eye,
+                          label: "打开",
+                          onClick: () => onSelect({ kind: "file", file }),
+                        },
+                        "separator",
+                        {
+                          icon: Trash2,
+                          label: "删除文件…",
+                          danger: true,
+                          onClick: () => onRemoveFile(file),
+                        },
+                      ])
+                    }
+                  >
+                    <button
+                      className="tree-screen tree-file"
+                      onClick={() => onSelect({ kind: "file", file })}
+                      title={file}
+                    >
+                      <FileJson2 size={13} className="tree-icon" />
+                      {file}
+                    </button>
+                    <span className="tree-row-actions">
+                      <button
+                        className="tree-action tree-action-danger"
+                        onClick={() => onRemoveFile(file)}
+                        title="删除文件"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {menu ? <ContextMenu state={menu} onClose={closeMenu} /> : null}
     </div>
   );
 }
@@ -91,18 +254,21 @@ interface TreeNodeProps {
   path: string;
   depth: number;
   selection: Selection | null;
-  onSelectNode(screenId: string, nodePath: string): void;
+  onSelect(selection: Selection): void;
 }
 
-function TreeNode({ screenId, node, path, depth, selection, onSelectNode }: TreeNodeProps) {
-  const selected = selection?.screenId === screenId && selection.nodePath === path;
+function TreeNode({ screenId, node, path, depth, selection, onSelect }: TreeNodeProps) {
+  const selected =
+    selection?.kind === "screen" &&
+    selection.screenId === screenId &&
+    selection.nodePath === path;
   const slots = nodeChildSlots(node);
   return (
     <li>
       <button
         className={`tree-node${selected ? " active" : ""}`}
         style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => onSelectNode(screenId, path)}
+        onClick={() => onSelect({ kind: "screen", screenId, nodePath: path })}
         title={`#${node.id}`}
       >
         {nodeDisplayName(node)}
@@ -117,7 +283,7 @@ function TreeNode({ screenId, node, path, depth, selection, onSelectNode }: Tree
               path={`${path}/${slot.key}/${index}`}
               depth={depth + 1}
               selection={selection}
-              onSelectNode={onSelectNode}
+              onSelect={onSelect}
             />
           ))}
         </ul>

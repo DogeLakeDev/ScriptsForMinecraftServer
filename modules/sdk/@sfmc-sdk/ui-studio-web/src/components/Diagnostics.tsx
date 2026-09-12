@@ -5,19 +5,24 @@
  * 点击可定位到对应页面与组件（解析 JSON Pointer 路径）。
  */
 
-import type { UiStudioProjectSnapshot } from "../../../src/ui-studio/project.js";
-import { locateIssue, type Selection } from "../model";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { locateIssue, type ProjectView, type Selection } from "../model";
 
 interface DiagnosticsProps {
-  snapshot: UiStudioProjectSnapshot;
+  view: ProjectView;
   onLocate(selection: Selection): void;
 }
 
-export function Diagnostics({ snapshot, onLocate }: DiagnosticsProps) {
-  const issues = snapshot.issues;
+export function Diagnostics({ view, onLocate }: DiagnosticsProps) {
+  const issues = view.issues;
   return (
     <div className="diagnostics">
       <span className={`diagnostics-count${issues.length > 0 ? " has-issues" : ""}`}>
+        {issues.length > 0 ? (
+          <AlertTriangle size={13} />
+        ) : (
+          <CheckCircle2 size={13} />
+        )}
         问题：{issues.length}
       </span>
       {issues.length === 0 ? (
@@ -25,7 +30,7 @@ export function Diagnostics({ snapshot, onLocate }: DiagnosticsProps) {
       ) : (
         <ul className="diagnostics-list">
           {issues.map((issue, index) => {
-            const target = locateIssue(snapshot, issue);
+            const target = locateIssue(view, issue);
             return (
               <li key={index}>
                 <button

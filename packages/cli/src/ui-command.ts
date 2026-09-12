@@ -1,17 +1,17 @@
 /**
  * ui-command.ts — sfmc ui 命令：UI Studio 声明式界面可视化编辑器。
  *
- * - `sfmc ui studio [模块目录]`：启动本地编辑服务并打开浏览器；
+ * - `sfmc ui studio`：启动本地 Studio 服务并打开浏览器；
  *   argv 模式下进程驻留，Ctrl+C 停止；REPL 模式下后台运行，用 `/ui stop` 停止。
  * - `sfmc ui stop`：停止当前进程内运行的 Studio 服务。
  *
- * 服务实现与安全防护在 @sfmc-bds/sdk/ui-studio，本文件只负责命令行装配。
+ * Studio 是项目化的纯浏览器应用：工程存于浏览器 IndexedDB，
+ * 通过 zip 导入导出，不依赖磁盘上的真实模块目录。
+ * 服务实现为 @sfmc-bds/sdk/ui-studio 的纯静态托管，本文件只负责命令行装配。
  */
-import path from "node:path";
 import { spawn } from "node:child_process";
 import {
   startUiStudioServer,
-  UiStudioProjectError,
   type UiStudioServerHandle,
 } from "@sfmc-bds/sdk/ui-studio";
 import { t } from "./i18n/index.js";
@@ -26,10 +26,10 @@ export interface CmdUiOptions {
 }
 
 export async function cmdUi(args: string[], options: CmdUiOptions): Promise<string> {
-  const [sub, ...rest] = args;
+  const [sub] = args;
   switch (sub) {
     case "studio":
-      return cmdUiStudio(rest[0], options);
+      return cmdUiStudio(options);
     case "stop":
       return cmdUiStop();
     default:
@@ -37,23 +37,21 @@ export async function cmdUi(args: string[], options: CmdUiOptions): Promise<stri
   }
 }
 
-async function cmdUiStudio(dir: string | undefined, options: CmdUiOptions): Promise<string> {
+async function cmdUiStudio(options: CmdUiOptions): Promise<string> {
   if (running) {
     return c.yellow(t("ui.studio.already", { url: running.url }));
   }
-  const projectDir = path.resolve(dir ?? process.cwd());
   let handle: UiStudioServerHandle;
   try {
-    handle = await startUiStudioServer({ projectDir });
+    handle = await startUiStudioServer();
   } catch (error) {
-    if (error instanceof UiStudioProjectError) {
-      return c.yellow(t("ui.studio.failed", { message: error.message }));
-    }
-    throw error;
+    return c.yellow(
+      t("ui.studio.failed", { message: (error as Error).message }),
+    );
   }
   running = handle;
 
-  const started = t("ui.studio.started", { url: handle.url, dir: handle.uiRoot });
+  const started = t("ui.studio.started", { url: handle.url });
   openBrowser(handle.url);
 
   if (!options.block) {
