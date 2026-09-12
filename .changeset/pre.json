@@ -64,6 +64,7 @@
     "scaffold-eslint-vscode",
     "scaffold-redirect",
     "scoped-sapi-clients",
+    "sdk-declarative-ui-host",
     "sdk-loader-pin-sdk",
     "sdk-module-loader-dip",
     "sdk-testing-harness",
@@ -84,6 +85,9 @@
     "tidy-transactions-recover",
     "track-bds-player-xuid",
     "twelve-llamas-talk",
+    "ui-studio-dnd-bindings-fixtures",
+    "ui-studio-project-mode",
+    "ui-studio-readonly-slice",
     "unpublish-tools-move-capabilities",
     "verify-module-publish",
     "wild-owls-appear"
