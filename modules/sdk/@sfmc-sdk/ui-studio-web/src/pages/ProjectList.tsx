@@ -6,14 +6,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FolderOpen, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Download, FolderOpen, FolderUp, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import {
   createProject,
   newProjectId,
   type StudioProject,
 } from "../store/project";
 import { deleteProject, listProjects, putProject } from "../store/db";
-import { downloadBlob, exportProjectZip, importProjectZip } from "../zip";
+import {
+  downloadBlob,
+  exportProjectZip,
+  importProjectFolder,
+  importProjectZip,
+  type ImportedProject,
+} from "../zip";
 
 interface ProjectListProps {
   onOpen(id: string): void;
@@ -23,6 +29,12 @@ export function ProjectList({ onOpen }: ProjectListProps) {
   const [projects, setProjects] = useState<StudioProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // webkitdirectory 非标准属性，React/TS 不识别，挂载后直接设到 DOM 上。
+  useEffect(() => {
+    folderInputRef.current?.setAttribute("webkitdirectory", "");
+  }, []);
 
   const refresh = () => {
     listProjects()
@@ -39,21 +51,36 @@ export function ProjectList({ onOpen }: ProjectListProps) {
     onOpen(project.id);
   };
 
+  /** 导入结果落库并打开（zip 与文件夹共用）。 */
+  const openImported = async (imported: ImportedProject) => {
+    const now = Date.now();
+    const project: StudioProject = {
+      id: newProjectId(),
+      name: imported.name,
+      createdAt: now,
+      updatedAt: now,
+      files: imported.files,
+      services: imported.services,
+    };
+    await putProject(project);
+    onOpen(project.id);
+  };
+
   const importZip = async (file: File) => {
     try {
       const data = new Uint8Array(await file.arrayBuffer());
-      const imported = importProjectZip(data, file.name);
-      const now = Date.now();
-      const project: StudioProject = {
-        id: newProjectId(),
-        name: imported.name,
-        createdAt: now,
-        updatedAt: now,
-        files: imported.files,
-        services: imported.services,
-      };
-      await putProject(project);
-      onOpen(project.id);
+      await openImported(importProjectZip(data, file.name));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const importFolder = async (list: FileList) => {
+    try {
+      // 文件夹名取首个文件的相对路径首段。
+      const first = list[0];
+      const folderName = first?.webkitRelativePath?.split("/")[0] ?? "导入的工程";
+      await openImported(await importProjectFolder(list, folderName));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -80,6 +107,9 @@ export function ProjectList({ onOpen }: ProjectListProps) {
         <button className="btn" onClick={() => importInputRef.current?.click()}>
           <Upload size={14} /> 导入 zip
         </button>
+        <button className="btn" onClick={() => folderInputRef.current?.click()}>
+          <FolderUp size={14} /> 导入文件夹
+        </button>
         <button className="btn btn-primary" onClick={() => void createNew()}>
           <Plus size={14} /> 新建项目
         </button>
@@ -94,6 +124,16 @@ export function ProjectList({ onOpen }: ProjectListProps) {
             event.target.value = "";
           }}
         />
+        <input
+          ref={folderInputRef}
+          type="file"
+          hidden
+          onChange={(event) => {
+            const list = event.target.files;
+            if (list && list.length > 0) void importFolder(list);
+            event.target.value = "";
+          }}
+        />
       </header>
       <main className="home-main">
         {error ? <div className="home-error">{error}</div> : null}
@@ -103,8 +143,9 @@ export function ProjectList({ onOpen }: ProjectListProps) {
           <div className="home-empty">
             <p>还没有项目。</p>
             <p>
-              点击「新建项目」从零开始，或「导入 zip」打开已有的 UI 工程
-              （zip 内需包含 feature.ui.json；根级 manifest.json 会自动提取 service 清单）。
+              点击「新建项目」从零开始；或「导入 zip / 导入文件夹」打开已有的 UI 工程
+              （需包含 feature.ui.json，可位于根目录、ui/ 或 sapi/src/ui/；
+              manifest.json 会自动提取 service 清单）。
             </p>
           </div>
         ) : (

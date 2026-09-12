@@ -1,9 +1,10 @@
 /**
- * zip.ts — Studio 工程的 zip 导入导出（fflate，纯浏览器）。
+ * zip.ts — Studio 工程的导入导出（纯浏览器）。
  *
- * 导出：项目文件表 + services 清单打包为 zip 下载；
- * 导入：解压 zip，取全部 .json 为文件表；根级 manifest.json
- * 自动提取 services.provides 名称（不进入文件表）。
+ * 导出：项目文件表 + services 清单打包为 zip 下载（fflate）；
+ * zip 导入：解压取全部 .json 为文件表，根级 manifest.json 提取 services；
+ * 文件夹导入：读取 <input webkitdirectory> 的 FileList，
+ *   UI 根目录发现口径与 Node 侧一致（根 / ui/ / sapi/src/ui/）。
  */
 
 import { strToU8, strFromU8, unzipSync, zipSync } from "fflate";
@@ -94,6 +95,93 @@ export function importProjectZip(data: Uint8Array, zipName: string): ImportedPro
   if (errors.length > 0) {
     // 非致命问题挂到返回值调用方提示；这里先并入 console 便于排查。
     console.warn("[ui-studio] 导入警告：", errors);
+  }
+  return { name, files, services };
+}
+
+/**
+ * 导入文件夹为项目数据（<input webkitdirectory> 的 FileList）。
+ * UI 根目录发现与 Node 侧 discoverUiRoot 同口径：依次尝试
+ * 根 / ui/ / sapi/src/ui/ 下的 feature.ui.json；仅该前缀内的 .json 进入文件表，
+ * manifest.json 按模块布局候选提取 services（不进入文件表）。
+ */
+export async function importProjectFolder(
+  list: FileList,
+  folderName: string,
+): Promise<ImportedProject> {
+  // 归一化相对路径：剥掉所选根文件夹名（webkitRelativePath 的首段）。
+  const entries: Array<{ path: string; file: File }> = [];
+  for (const file of Array.from(list)) {
+    const rel = (file.webkitRelativePath || file.name).split("/").slice(1).join("/");
+    if (rel) entries.push({ path: rel, file });
+  }
+
+  const prefixes = ["", "ui", "sapi/src/ui"];
+  const prefix = prefixes.find((candidate) =>
+    entries.some((entry) =>
+      entry.path === (candidate ? `${candidate}/feature.ui.json` : "feature.ui.json"),
+    ),
+  );
+  if (prefix === undefined) {
+    throw new Error("文件夹中找不到 feature.ui.json（已尝试根目录、ui/ 与 sapi/src/ui/）");
+  }
+
+  // manifest 候选位置随布局而定（与 Node 侧 collectManifestServices 对应）。
+  const manifestCandidates =
+    prefix === "sapi/src/ui"
+      ? ["sapi/manifest.json", "manifest.json"]
+      : prefix === "ui"
+        ? ["manifest.json", "sapi/manifest.json"]
+        : ["manifest.json"];
+
+  const files: Record<string, unknown> = {};
+  let services: string[] = [];
+  const errors: string[] = [];
+
+  for (const { path, file } of entries) {
+    if (manifestCandidates.includes(path)) {
+      try {
+        const found = extractServicesFromManifest(JSON.parse(await file.text()));
+        if (found.length > 0 && services.length === 0) services = found;
+      } catch {
+        errors.push(`${path} 不是合法 JSON，已跳过 services 提取`);
+      }
+      continue;
+    }
+    // 其余文件必须位于 UI 根前缀内。
+    const rel = prefix
+      ? path.startsWith(`${prefix}/`)
+        ? path.slice(prefix.length + 1)
+        : null
+      : path;
+    if (!rel) continue;
+    if (rel === STUDIO_META_FILE) {
+      try {
+        const meta = JSON.parse(await file.text()) as { services?: unknown };
+        if (Array.isArray(meta.services)) {
+          services = meta.services.filter((s): s is string => typeof s === "string");
+        }
+      } catch {
+        // 元数据损坏不阻塞导入。
+      }
+      continue;
+    }
+    if (!rel.endsWith(".json")) continue;
+    try {
+      files[rel] = JSON.parse(await file.text());
+    } catch {
+      errors.push(`${rel} 不是合法 JSON，已跳过`);
+    }
+  }
+
+  if (!files["feature.ui.json"]) {
+    throw new Error("feature.ui.json 不是合法 JSON");
+  }
+  const feature = files["feature.ui.json"] as { name?: unknown };
+  const name =
+    (typeof feature.name === "string" && feature.name) || folderName || "导入的工程";
+  if (errors.length > 0) {
+    console.warn("[ui-studio] 文件夹导入警告：", errors);
   }
   return { name, files, services };
 }
