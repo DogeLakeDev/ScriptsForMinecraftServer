@@ -1,5 +1,26 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.17
+
+### Minor Changes
+
+- 5a4eff6: 新增 `@sfmc-bds/sdk/sapi/ui` 宿主级声明式 UI 能力面，统一 feature 注册、页面打开、DDUI 渲染与表单重试；页面 service 调用按 feature 所属模块身份执行。
+- 16bba29: UI Studio 切片 3：拖放组件库 + 数据绑定选择器 + 预览场景管理。
+
+  - 拖放：左栏新增组件库面板（12 种节点 + 图标 + 合理默认值），HTML5 DnD 拖入画布任意位置（兄弟前/后插入线、when/each 槽位落点、body 末尾追加），画布内节点可拖动重排或跨容器移动（禁止移入自身后代，同容器后移自动修正下标）；拖入输入组件时自动补齐 state 声明、each 自动补 load 占位，避免页面因未声明引用立即失验。
+  - 数据绑定选择器：bind/source 字段改为 Headless UI Listbox，按 状态/参数/数据源/计算值/玩家 分组展示候选路径（bind 契约限定 state.*），支持自定义路径录入；失验引用仍由诊断区兜底。
+  - 预览场景：基础 fixture 之外支持 `.ui-studio/fixtures/<name>.json` 多场景（新建复制基础 fixture、重命名/移动、删除，中文名可用），画布顶部 Listbox 切换场景并重建预览会话，树中标注「使用中」。
+  - 修复与打磨：页面失验时选中不再被守卫弹走，Inspector 退化为整文件 JSON 编辑器以便修复；画布空态提示区分「失验」与「无页面」；原生控件主题化（color-scheme、WebKit/Firefox 滚动条、select 自定义箭头与弹出项配色、checkbox accent-color）。
+
+- 12b7dfc: UI Studio 切片 2：项目化改造 + 可视化编辑能力。
+
+  - 项目化：`sfmc ui studio` 不再依赖模块目录，服务端简化为纯静态托管（去令牌/API）；项目存于浏览器 IndexedDB，支持多项目新建/打开/重命名/删除，zip 整包导入导出（fflate），导入时自动提取根级 manifest.json 的 services 清单。
+  - 编辑能力：属性面板可直接编辑 feature/页面/组件字段，整表 prev/next 撤销重做栈（Ctrl+Z / Ctrl+Shift+Z），600ms 防抖自动持久化；页面文件支持新建/重命名/复制/删除并自动同步 feature.screens 引用，未知字段原样保留。
+  - 交互层：引入 @headlessui/react（动作预览弹层改造为 Dialog，焦点陷阱 + ESC 关闭）与 lucide-react 图标；新增顶栏「文件/编辑」下拉菜单（Headless UI Menu）与页面树右键菜单。
+  - 修复：编辑器拆分为装载器 + keyed 内层编辑器，杜绝「空文件表初始化草稿后被误持久化覆盖项目数据」的窗口；Inspector 文本/数字字段在外部值变化（撤销/重做）时正确同步。
+
+- cf3293f: 新增 `@sfmc-bds/sdk/ui-studio` 与 `sfmc ui studio` 命令：本地只读可视化设计器（切片 1）。仅监听 127.0.0.1、会话令牌鉴权、Origin 检查与路径限制；提供工程树 / 语义预览画布 / 只读属性面板 / 诊断定位，预览求值语义与 gui 运行时对齐。
+
 ## 0.2.0-beta.16
 
 ### Patch Changes
