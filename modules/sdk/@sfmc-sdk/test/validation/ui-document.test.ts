@@ -195,6 +195,81 @@ test("输入控件的 disabledWhen 与 tooltip 会参与校验", () => {
   assert.equal(valid.ok, true, valid.ok ? undefined : valid.errors.join("\n"));
 });
 
+test("图像 width、下拉项 description、滑块 fixedFormatDigits 会参与校验", () => {
+  const invalidWidth = validateUiScreen(
+    screenWithBody([
+      {
+        id: "banner",
+        type: "image",
+        source: "textures/ui/icon.png",
+        pack: "vanilla",
+        width: -1,
+      },
+    ]),
+  );
+  assert.equal(invalidWidth.ok, false);
+  if (invalidWidth.ok) return;
+  assert.ok(invalidWidth.issues.some((item) => item.path === "/body/0/width"));
+
+  const invalidDigits = validateUiScreen({
+    formatVersion: 1,
+    id: "test.screen",
+    presentation: "form",
+    title: "测试",
+    state: { amount: { type: "number", default: 1 } },
+    body: [
+      {
+        id: "amount",
+        type: "slider",
+        label: "数量",
+        bind: "state.amount",
+        min: 1,
+        max: 10,
+        fixedFormatDigits: -1,
+      },
+    ],
+  });
+  assert.equal(invalidDigits.ok, false);
+  if (invalidDigits.ok) return;
+  assert.ok(invalidDigits.issues.some((item) => item.path === "/body/0/fixedFormatDigits"));
+
+  const valid = validateUiScreen({
+    formatVersion: 1,
+    id: "test.screen",
+    presentation: "form",
+    title: "测试",
+    state: { choice: { type: "string", default: "a" }, amount: { type: "number", default: 1 } },
+    body: [
+      {
+        id: "banner",
+        type: "image",
+        source: "textures/ui/icon.png",
+        pack: "vanilla",
+        width: 48,
+        tooltip: "示例图",
+        trigger: { type: "refresh" },
+      },
+      {
+        id: "choice",
+        type: "dropdown",
+        label: "选项",
+        bind: "state.choice",
+        options: [{ label: "甲", value: "a", description: "第一项" }],
+      },
+      {
+        id: "amount",
+        type: "slider",
+        label: "数量",
+        bind: "state.amount",
+        min: 1,
+        max: 10,
+        fixedFormatDigits: 0,
+      },
+    ],
+  });
+  assert.equal(valid.ok, true, valid.ok ? undefined : valid.errors.join("\n"));
+});
+
 test("发布的 JSON Schema 文件至少可被标准 JSON 解析", () => {
   const screenSchema = readJson("../../schemas/ui-screen.v1.schema.json") as Record<string, unknown>;
   const featureSchema = readJson("../../schemas/ui-feature.v1.schema.json") as Record<string, unknown>;

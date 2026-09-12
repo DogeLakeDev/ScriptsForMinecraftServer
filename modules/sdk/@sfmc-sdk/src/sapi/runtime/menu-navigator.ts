@@ -25,10 +25,14 @@ import type {
   SliderOptions,
   SpacingOptions,
   TextFieldOptions,
+  TextOptions,
   ToggleOptions,
 } from "@minecraft/server-ui";
+import { mergeSectionVisible } from "./form-visible.js";
 import { Msg } from "./msg.js";
 import { stripDduiButtonFormatting } from "./ui-text.js";
+
+export { mergeSectionVisible } from "./form-visible.js";
 
 const CustomFormCtor = (serverUi as Record<string, any>).CustomForm as typeof CustomForm | undefined;
 const MessageBoxCtor = (serverUi as Record<string, any>).MessageBox as typeof MessageBox | undefined;
@@ -88,7 +92,7 @@ export interface Page {
   /** 添加按钮。DDUI 不支持格式化代码；静态字符串会自动清理，ObservableString 应只写入纯文本。 */
   button(label: string | ObservableString, onClick: () => void, options?: ButtonOptions): this;
   /** 添加标签文本。 */
-  label(text: string | ObservableString): this;
+  label(text: string | ObservableString, options?: TextOptions): this;
   /** 添加文本输入框。 */
   textField(label: string | ObservableString, text: ObservableString, options?: TextFieldOptions): this;
   /** 添加开关。 */
@@ -115,7 +119,7 @@ export interface Page {
   /** 添加图像。 */
   image(src: string | ObservableString, pack: string | ObservableString, options?: ImageOptions): this;
   /** 添加标题行。 */
-  header(text: string | ObservableString): this;
+  header(text: string | ObservableString, options?: TextOptions): this;
 }
 
 /** 多页 CustomForm 导航器：section 切换、历史栈与异步任务状态。 */
@@ -353,23 +357,26 @@ class PageBuilder implements Page {
   ) {}
   button(l: string | ObservableString, onClick: () => void, opts?: ButtonOptions): this {
     const label = typeof l === "string" ? stripDduiButtonFormatting(l) : l;
-    this.form.button(label, onClick, { ...opts, visible: this.visible });
+    this.form.button(label, onClick, {
+      ...opts,
+      visible: mergeSectionVisible(this.visible, opts?.visible),
+    });
     return this;
   }
-  label(t: string | ObservableString): this {
-    this.form.label(t, { visible: this.visible });
+  label(t: string | ObservableString, o?: TextOptions): this {
+    this.form.label(t, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   textField(l: string | ObservableString, t: ObservableString, o?: TextFieldOptions): this {
-    this.form.textField(l, t, { ...o, visible: this.visible });
+    this.form.textField(l, t, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   toggle(l: string | ObservableString, t: ObservableBoolean, o?: ToggleOptions): this {
-    this.form.toggle(l, t, { ...o, visible: this.visible });
+    this.form.toggle(l, t, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   dropdown(l: string | ObservableString, v: ObservableNumber, items: DropdownItemData[], o?: DropdownOptions): this {
-    this.form.dropdown(l, v, items, { ...o, visible: this.visible });
+    this.form.dropdown(l, v, items, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   slider(
@@ -379,23 +386,23 @@ class PageBuilder implements Page {
     max: number | ObservableNumber,
     o?: SliderOptions
   ): this {
-    this.form.slider(l, v, min, max, { ...o, visible: this.visible });
+    this.form.slider(l, v, min, max, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   divider(o?: DividerOptions): this {
-    this.form.divider({ ...o, visible: this.visible });
+    this.form.divider({ ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   spacer(o?: SpacingOptions): this {
-    this.form.spacer({ ...o, visible: this.visible });
+    this.form.spacer({ ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
   image(src: string | ObservableString, pack: string | ObservableString, o?: ImageOptions): this {
-    this.form.image(src, pack, { ...o, visible: this.visible });
+    this.form.image(src, pack, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
-  header(t: string | ObservableString): this {
-    this.form.header(t, { visible: this.visible });
+  header(t: string | ObservableString, o?: TextOptions): this {
+    this.form.header(t, { ...o, visible: mergeSectionVisible(this.visible, o?.visible) });
     return this;
   }
 }

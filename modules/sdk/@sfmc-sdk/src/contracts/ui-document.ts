@@ -127,18 +127,21 @@ export interface UiHeaderNode extends UiNodeBase {
   type: "header";
   text: string;
   tone?: UiTone;
+  tooltip?: string;
 }
 
 export interface UiTextNode extends UiNodeBase {
   type: "text";
   text: string;
   tone?: UiTone;
+  tooltip?: string;
 }
 
 export interface UiInfoNode extends UiNodeBase {
   type: "info";
   items: string[];
   tone?: UiTone;
+  tooltip?: string;
 }
 
 export interface UiImageNode extends UiNodeBase {
@@ -147,6 +150,11 @@ export interface UiImageNode extends UiNodeBase {
   /** 提供 source 的资源包标识（CustomForm.image 的 pack 参数）。 */
   pack: string;
   alt?: string;
+  tooltip?: string;
+  /** 对应 ImageOptions.width。 */
+  width?: number;
+  /** 对应 ImageOptions.onClick。 */
+  trigger?: UiTrigger;
 }
 
 export interface UiDividerNode extends UiNodeBase {
@@ -195,6 +203,8 @@ export interface UiToggleNode extends UiNodeBase {
 export interface UiDropdownOption {
   label: string;
   value: string | number;
+  /** 对应 DropdownItemData.description。 */
+  description?: string;
 }
 
 export interface UiDropdownNode extends UiNodeBase {
@@ -214,6 +224,8 @@ export interface UiSliderNode extends UiNodeBase {
   min: number;
   max: number;
   step?: number;
+  /** 对应 SliderOptions.fixedFormatDigits（实验字段）。 */
+  fixedFormatDigits?: number;
   description?: string;
   tooltip?: string;
   disabledWhen?: UiExpression;

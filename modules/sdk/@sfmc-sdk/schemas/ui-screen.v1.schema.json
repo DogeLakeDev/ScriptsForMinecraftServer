@@ -315,7 +315,8 @@
           "properties": {
             "type": { "enum": ["header", "text"] },
             "text": { "$ref": "#/$defs/templateString" },
-            "tone": { "$ref": "#/$defs/tone" }
+            "tone": { "$ref": "#/$defs/tone" },
+            "tooltip": { "$ref": "#/$defs/templateString" }
           }
         }
       ],
@@ -330,7 +331,8 @@
           "properties": {
             "type": { "const": "info" },
             "items": { "type": "array", "items": { "$ref": "#/$defs/templateString" } },
-            "tone": { "$ref": "#/$defs/tone" }
+            "tone": { "$ref": "#/$defs/tone" },
+            "tooltip": { "$ref": "#/$defs/templateString" }
           }
         }
       ],
@@ -346,7 +348,10 @@
             "type": { "const": "image" },
             "source": { "$ref": "#/$defs/templateString" },
             "pack": { "$ref": "#/$defs/templateString" },
-            "alt": { "type": "string" }
+            "alt": { "type": "string" },
+            "tooltip": { "$ref": "#/$defs/templateString" },
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "trigger": { "$ref": "#/$defs/trigger" }
           }
         }
       ],
@@ -448,7 +453,8 @@
                 "required": ["label", "value"],
                 "properties": {
                   "label": { "type": "string", "minLength": 1 },
-                  "value": { "type": ["string", "number"] }
+                  "value": { "type": ["string", "number"] },
+                  "description": { "type": "string" }
                 }
               }
             }
@@ -467,7 +473,8 @@
             "type": { "const": "slider" },
             "min": { "type": "number" },
             "max": { "type": "number" },
-            "step": { "type": "number", "exclusiveMinimum": 0 }
+            "step": { "type": "number", "exclusiveMinimum": 0 },
+            "fixedFormatDigits": { "type": "integer", "minimum": 0 }
           }
         }
       ],

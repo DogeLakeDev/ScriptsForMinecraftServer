@@ -399,6 +399,7 @@ function validateNode(
     case "header":
     case "text":
       text("text");
+      tooltip();
       break;
     case "info":
       if (!Array.isArray(value.items)) {
@@ -410,11 +411,19 @@ function validateNode(
           }
         });
       }
+      tooltip();
       break;
     case "image":
       text("source");
       text("pack");
       optionalString(value.alt, `${path}/alt`, issues);
+      tooltip();
+      if (value.width !== undefined) {
+        if (typeof value.width !== "number" || !Number.isFinite(value.width) || value.width <= 0) {
+          issue(issues, `${path}/width`, "invalid_value", "必须是大于 0 的数字");
+        }
+      }
+      if (value.trigger !== undefined) validateTrigger(value.trigger, `${path}/trigger`, scope, issues);
       break;
     case "divider":
       break;
@@ -463,6 +472,10 @@ function validateNode(
           if (typeof option.value !== "string" && typeof option.value !== "number") {
             issue(issues, `${optionPath}/value`, "invalid_type", "必须是字符串或数字");
           }
+          optionalString(option.description, `${optionPath}/description`, issues);
+          if (typeof option.description === "string") {
+            validateTemplate(option.description, `${optionPath}/description`, scope, issues);
+          }
         });
       }
       break;
@@ -479,6 +492,14 @@ function validateNode(
       }
       if (value.step !== undefined && (typeof value.step !== "number" || value.step <= 0)) {
         issue(issues, `${path}/step`, "invalid_value", "必须是大于 0 的数字");
+      }
+      if (
+        value.fixedFormatDigits !== undefined &&
+        (typeof value.fixedFormatDigits !== "number" ||
+          !Number.isInteger(value.fixedFormatDigits) ||
+          value.fixedFormatDigits < 0)
+      ) {
+        issue(issues, `${path}/fixedFormatDigits`, "invalid_value", "必须是大于或等于 0 的整数");
       }
       break;
     case "when":
