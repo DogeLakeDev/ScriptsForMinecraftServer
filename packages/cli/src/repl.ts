@@ -1166,6 +1166,11 @@ async function execCmd(parts: string[]): Promise<void> {
     case "debug":
       stdout.write((await cmdDebug(args)) + "\n");
       break;
+    case "ui": {
+      const { cmdUi } = await import("./ui-command.js");
+      stdout.write((await cmdUi(args, { block: false })) + "\n");
+      break;
+    }
     case "init": {
       const wasRaw = stdin.isRaw ?? false;
       setRaw(false);

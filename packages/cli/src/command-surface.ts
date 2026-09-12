@@ -184,6 +184,7 @@ const TOP_DESC: Record<string, string> = {
   update: "help.update",
   locale: "help.locale",
   debug: "help.debug.status",
+  ui: "help.ui",
   install: "help.module.install",
   uninstall: "help.module.uninstall",
   search: "help.module.search",
@@ -346,6 +347,7 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { id: "update", name: "update", channel: "both" },
   { id: "locale", name: "locale", channel: "both" },
   { id: "debug", name: "debug", channel: "both", accent: "dev" },
+  { id: "ui", name: "ui", channel: "both", accent: "dev" },
 
   /** 顶层扁平短命令 → module.*（少写一层 module） */
   { id: "install", name: "install", channel: "both" },

@@ -93,6 +93,11 @@ async function main(): Promise<void> {
     case "debug":
       console.log(await cmdDebug(rest));
       break;
+    case "ui": {
+      const { cmdUi } = await import("./ui-command.js");
+      console.log(await cmdUi(rest, { block: true }));
+      break;
+    }
     case "status":
       console.log(await cmdStatus());
       break;

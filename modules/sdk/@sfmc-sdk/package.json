@@ -96,6 +96,11 @@
       "import": "./dist/esm/sapi/runtime/index.js",
       "default": "./dist/esm/sapi/runtime/index.js"
     },
+    "./sapi/ui": {
+      "types": "./dist/types/sapi/ui/index.d.ts",
+      "import": "./dist/esm/sapi/ui/index.js",
+      "default": "./dist/esm/sapi/ui/index.js"
+    },
     "./sapi/sdk": {
       "types": "./dist/types/sapi/sdk/index.d.ts",
       "import": "./dist/esm/sapi/sdk/index.js",
@@ -105,6 +110,11 @@
       "types": "./dist/types/sapi/service/index.d.ts",
       "import": "./dist/esm/sapi/service/index.js",
       "default": "./dist/esm/sapi/service/index.js"
+    },
+    "./ui-studio": {
+      "types": "./dist/types/ui-studio/index.d.ts",
+      "import": "./dist/esm/ui-studio/index.js",
+      "default": "./dist/esm/ui-studio/index.js"
     },
     "./schemas/*": "./schemas/*"
   },
@@ -125,7 +135,13 @@
     "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "workspace:*"
+    "@sfmc-bds/tools": "workspace:*",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vite": "^7.0.0"
   },
   "peerDependencies": {
     "@minecraft/diagnostics": "1.0.0-beta.1.26.40-preview.30",

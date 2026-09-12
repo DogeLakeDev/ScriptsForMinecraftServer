@@ -41,6 +41,7 @@ const SUBPATHS = [
   { sub: "logs", platform: "node" },
   { sub: "sapi/sdk", platform: "neutral" },
   { sub: "sapi/runtime", platform: "neutral" },
+  { sub: "sapi/ui", platform: "neutral" },
   { sub: "sapi/db", platform: "neutral" },
   { sub: "sapi/config", platform: "neutral" },
   { sub: "sapi/diagnostics", platform: "neutral" },
@@ -52,6 +53,8 @@ const SUBPATHS = [
   { sub: "node/qq-official", platform: "node" },
   { sub: "module-loader", platform: "node" },
   { sub: "module-loader/install", platform: "node", entry: "src/module-loader/install.ts" },
+  // UI Studio 本地服务（Node 侧）；浏览器端源码在 ui-studio-web/，由 Vite 单独构建。
+  { sub: "ui-studio", platform: "node" },
 ];
 
 const DIST_ESM = "dist/esm";
@@ -93,5 +96,16 @@ for (const item of SUBPATHS) {
 console.log("[sdk] emitting .d.ts via tsc7...");
 const dtsCode = runTsc7(["-p", "tsconfig.types.json"]);
 if (dtsCode !== 0) process.exit(dtsCode);
+
+// 3) UI Studio 浏览器端 — Vite 构建到 dist/ui-studio-web（供 ui-studio 子路径服务）
+// 注意：vite 7 的 exports 不暴露 ./bin/vite.js，这里直接用其 JS API。
+console.log("[sdk] building ui-studio web via vite...");
+let viteBuild;
+try {
+  ({ build: viteBuild } = await import("vite"));
+} catch {
+  throw new Error("无法 import vite。请在 monorepo 根目录执行 pnpm install");
+}
+await viteBuild({ configFile: "ui-studio-web/vite.config.ts" });
 
 console.log("@sfmc-bds/sdk build done:", SUBPATHS.length, "subpaths");

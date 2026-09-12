@@ -1,0 +1,98 @@
+/**
+ * theme.css — UI Studio 设计令牌。
+ *
+ * 颜色令牌提取自 Figma「MCP Apps for Claude」kit（CC BY 4.0，Anthropic 设计团队），
+ * 含 light / dark 双模式；编辑器默认 dark。
+ * 提取工具与原始数据见 _sfmc-smoke/design-tokens.json（不随包发布）。
+ *
+ * 注意：token 语义名与 kit 保持一致（color-background-primary 等），
+ * 后续如接入官方变量导出，可直接映射替换。
+ */
+
+:root {
+  /* 字体：kit 使用 Anthropic Sans/Serif，由宿主提供；本地回退系统字体栈 */
+  --font-ui: "Anthropic Sans", -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  /* 圆角与描边（Claude 内联应用风格：柔和、低存在感的边界） */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* 间距基线 4px */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* 品牌强调色（Claude coral；kit Color 页未含语义 accent，按公开品牌色补充） */
+  --accent: #d97757;
+  --accent-hover: #c66a4d;
+  --accent-contrast: #faf9f5;
+  --accent-subtle: rgba(217, 119, 87, 0.14);
+}
+
+:root[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f4ed;
+  --bg-tertiary: #faf9f5;
+  --bg-inverse: #141413;
+  --bg-info: #d6e4f6;
+  --bg-danger: #b53333;
+  --bg-success: #e9f1dc;
+  --bg-warning: #f6eedf;
+
+  --text-primary: #141413;
+  --text-secondary: #3d3d3a;
+  --text-tertiary: #73726c;
+  --text-inverse: #ffffff;
+  --text-info: #3266ad;
+  --text-danger: #7f2c28;
+  --text-success: #265b19;
+  --text-warning: #5a4815;
+
+  --border-primary: #1f1e1d66;
+  --border-secondary: #1f1e1d4d;
+  --border-tertiary: #1f1e1d26;
+
+  --ring-primary: #141413b2;
+  --ring-info: #3266ad80;
+  --ring-danger: #a73d3980;
+  --ring-success: #43742680;
+  --ring-warning: #805c1f80;
+
+  --shadow-pop: 0 4px 24px rgba(20, 20, 19, 0.16);
+}
+
+:root[data-theme="dark"] {
+  --bg-primary: #30302e;
+  --bg-secondary: #262624;
+  --bg-tertiary: #141413;
+  --bg-inverse: #faf9f5;
+  --bg-info: #253e5f;
+  --bg-danger: #dd5353;
+  --bg-success: #1b4614;
+  --bg-warning: #483a0f;
+
+  --text-primary: #faf9f5;
+  --text-secondary: #c2c0b6;
+  --text-tertiary: #9c9a92;
+  --text-inverse: #141413;
+  --text-info: #80aadd;
+  --text-danger: #ee8884;
+  --text-success: #7ab948;
+  --text-warning: #d1a041;
+
+  --border-primary: #dedcd166;
+  --border-secondary: #dedcd14d;
+  --border-tertiary: #dedcd126;
+
+  --ring-primary: #faf9f5b2;
+  --ring-info: #80aadd80;
+  --ring-danger: #cd5c5880;
+  --ring-success: #59913080;
+  --ring-warning: #a8782980;
+
+  --shadow-pop: 0 4px 24px rgba(0, 0, 0, 0.5);
+}

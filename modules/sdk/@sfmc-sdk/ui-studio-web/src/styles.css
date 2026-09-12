@@ -1,0 +1,570 @@
+/* styles.css — UI Studio 全局样式
+ * 视觉体系来自 Figma「MCP Apps for Claude」kit 的设计令牌（见 theme.css），
+ * 布局为三栏 + 底部诊断区；预览画布用同一套令牌模拟页面语义。
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.studio {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---- 顶栏 ---- */
+
+.studio-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-tertiary);
+}
+
+.studio-title {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.studio-project {
+  color: var(--text-tertiary);
+}
+
+.studio-spacer {
+  flex: 1;
+}
+
+/* Claude 风格按钮：低存在感边框 + 柔和圆角 */
+.btn {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  padding: 5px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-secondary);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-contrast);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+/* ---- 三栏布局 ---- */
+
+.studio-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 260px 1fr 320px;
+  min-height: 0;
+}
+
+.panel {
+  overflow: auto;
+  min-height: 0;
+}
+
+.panel-left {
+  border-right: 1px solid var(--border-tertiary);
+  background: var(--bg-secondary);
+}
+
+.panel-canvas {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-5);
+  background: var(--bg-tertiary);
+}
+
+.panel-right {
+  border-left: 1px solid var(--border-tertiary);
+  background: var(--bg-secondary);
+}
+
+.panel-bottom {
+  border-top: 1px solid var(--border-tertiary);
+  background: var(--bg-secondary);
+  max-height: 160px;
+  overflow: auto;
+}
+
+.app-loading {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--text-tertiary);
+}
+
+/* ---- 左栏：工程树 ---- */
+
+.tree {
+  padding: var(--space-2);
+}
+
+.tree-heading {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: var(--space-2) var(--space-1) var(--space-1);
+}
+
+.tree-feature {
+  padding: 2px var(--space-2);
+  font-weight: 600;
+}
+
+.tree-entries,
+.tree-screens,
+.tree-nodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-entries li {
+  padding: 3px var(--space-2);
+}
+
+.tree-badge {
+  display: inline-block;
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-right: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-tertiary);
+  color: var(--text-tertiary);
+}
+
+.tree-badge-admin {
+  color: var(--text-warning);
+  border-color: var(--ring-warning);
+}
+
+.tree-dim {
+  color: var(--text-tertiary);
+}
+
+.tree-screen,
+.tree-node {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: background 0.1s ease;
+}
+
+.tree-screen:hover,
+.tree-node:hover {
+  background: var(--bg-primary);
+}
+
+.tree-screen.active,
+.tree-node.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.tree-empty,
+.inspector-empty,
+.canvas-empty {
+  padding: var(--space-4);
+  color: var(--text-tertiary);
+}
+
+/* ---- 中栏：语义预览画布（Claude 内联卡片风格） ---- */
+
+.mc-frame {
+  width: 420px;
+  max-width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+
+.mc-titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px var(--space-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-tertiary);
+  font-weight: 600;
+}
+
+.mc-presentation {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.mc-content {
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pv-node {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  transition: border-color 0.1s ease;
+}
+
+.pv-node:hover {
+  border-color: var(--border-secondary);
+}
+
+.pv-selected {
+  border-color: var(--accent) !important;
+  background: var(--accent-subtle);
+}
+
+.mc-header {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 2px var(--space-1);
+}
+
+.mc-text {
+  padding: 2px var(--space-1);
+}
+
+.mc-info {
+  padding: 2px var(--space-1);
+  line-height: 1.6;
+}
+
+/* 节点 tone 映射到 kit 语义文本色 */
+.tone-default { color: var(--text-primary); }
+.tone-muted { color: var(--text-tertiary); }
+.tone-accent { color: var(--accent); }
+.tone-primary { color: var(--accent); }
+.tone-success { color: var(--text-success); }
+.tone-warning { color: var(--text-warning); }
+.tone-danger { color: var(--text-danger); }
+
+.mc-divider {
+  border: none;
+  border-top: 1px solid var(--border-tertiary);
+  margin: var(--space-2) 0;
+}
+
+.mc-spacer-small { height: 6px; }
+.mc-spacer-medium { height: 14px; }
+.mc-spacer-large { height: 24px; }
+
+.mc-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  border: 1px dashed var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+.mc-image-icon {
+  font-size: 20px;
+}
+
+.mc-image-alt {
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.mc-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 8px var(--space-3);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.mc-button:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+}
+
+.mc-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mc-button-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.mc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 3px var(--space-1);
+}
+
+.mc-field-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.mc-disabled {
+  opacity: 0.45;
+}
+
+.mc-input {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.mc-input:focus {
+  outline: 2px solid var(--ring-info);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.mc-slider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mc-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.mc-slider-value {
+  min-width: 32px;
+  text-align: right;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-each-item {
+  border-left: 2px solid var(--border-tertiary);
+  padding-left: var(--space-2);
+  margin: 2px 0;
+}
+
+.canvas-closed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 40px var(--space-4);
+  color: var(--text-tertiary);
+}
+
+/* ---- 右栏：属性查看 ---- */
+
+.inspector {
+  padding: var(--space-3);
+}
+
+.inspector-heading {
+  font-weight: 600;
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.inspector-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px var(--space-3);
+  margin: 0 0 var(--space-2);
+}
+
+.inspector-meta dt {
+  color: var(--text-tertiary);
+}
+
+.inspector-meta dd {
+  margin: 0;
+}
+
+.inspector-json {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow: auto;
+  max-height: 50vh;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---- 底部：诊断区 ---- */
+
+.diagnostics {
+  padding: var(--space-2) var(--space-3);
+}
+
+.diagnostics-count {
+  font-weight: 600;
+}
+
+.diagnostics-count.has-issues {
+  color: var(--text-warning);
+}
+
+.diagnostics-ok {
+  margin-left: var(--space-3);
+  color: var(--text-success);
+}
+
+.diagnostics-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.diagnostics-item {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 3px var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.diagnostics-item:hover:not(:disabled) {
+  background: var(--bg-primary);
+}
+
+.diagnostics-item:disabled {
+  cursor: default;
+  color: var(--text-tertiary);
+}
+
+.diagnostics-code {
+  color: var(--text-warning);
+  font-family: var(--font-mono);
+}
+
+.diagnostics-path {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* ---- 动作预览弹层 ---- */
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 19, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 440px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-tertiary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  padding: var(--space-4);
+}
+
+.modal h3 {
+  margin-top: 0;
+}
+
+.modal dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px var(--space-3);
+}
+
+.modal dt {
+  color: var(--text-tertiary);
+}
+
+.modal dd {
+  margin: 0;
+}
+
+.modal pre {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: auto;
+}
