@@ -30,9 +30,11 @@ import type {
 } from "@minecraft/server-ui";
 import { mergeSectionVisible } from "./form-visible.js";
 import { Msg } from "./msg.js";
+import { popHistory, pushOrRewind, replaceOrRewind } from "./nav-stack.js";
 import { stripDduiButtonFormatting } from "./ui-text.js";
 
 export { mergeSectionVisible } from "./form-visible.js";
+export { popHistory, pushOrRewind, replaceOrRewind } from "./nav-stack.js";
 
 const CustomFormCtor = (serverUi as Record<string, any>).CustomForm as typeof CustomForm | undefined;
 const MessageBoxCtor = (serverUi as Record<string, any>).MessageBox as typeof MessageBox | undefined;
@@ -136,6 +138,7 @@ export class MenuNavigator {
   private _confirmIdx = 0;
   private taskRunning = false;
   private sessionToken = 0;
+  private onBack: (() => void) | undefined;
 
   constructor(player: Player) {
     this.player = player;
@@ -143,6 +146,17 @@ export class MenuNavigator {
       this.titleObs = new ObservableStringCtor("");
       this.backVis = new ObservableBooleanCtor(false);
     }
+  }
+
+  /** 当前面包屑栈（从根到当前页）。 */
+  stack(): readonly string[] {
+    return this.history;
+  }
+
+  /** 原生「回到上一级」弹栈后回调，供声明式运行时同步 session。 */
+  setOnBack(handler: () => void): this {
+    this.onBack = handler;
+    return this;
   }
 
   /** 注册一个 section（id、标题与构建函数）。 */
@@ -163,12 +177,12 @@ export class MenuNavigator {
     await this.buildAndShow(token);
   }
 
-  /** 重建并显示表单；可选 push 新 section 到历史栈。 */
+  /** 重建并显示表单；传入目标时前进压栈，已在栈中则回退面包屑。 */
   async rebuild(targetSection?: string): Promise<void> {
     const token = ++this.sessionToken;
     if (this.form?.isShowing()) this.form.close();
     if (targetSection) {
-      this.history.push(targetSection);
+      this.history = pushOrRewind(this.history, targetSection);
       this.applySection(targetSection);
     }
     await this.buildAndShow(token);
@@ -182,8 +196,7 @@ export class MenuNavigator {
   /** 替换历史栈顶 section 并重建表单。 */
   async replace(targetSection: string): Promise<void> {
     const token = ++this.sessionToken;
-    if (this.history.length > 0) this.history[this.history.length - 1] = targetSection;
-    else this.history = [targetSection];
+    this.history = replaceOrRewind(this.history, targetSection);
     this.applySection(targetSection);
     await this.buildAndShow(token);
   }
@@ -229,16 +242,17 @@ export class MenuNavigator {
 
   /** 压栈并切换到指定 section（不立即重建，需随后调用 rebuild）。 */
   go(sectionId: string): void {
-    this.history.push(sectionId);
+    this.history = pushOrRewind(this.history, sectionId);
     this.applySection(sectionId);
   }
 
-  /** 返回上一级 section。 */
-  back(): void {
+  /** 返回上一级 section。`notify=false` 时不触发 onBack，避免声明式返回重复 rebuild。 */
+  back(notify = true): void {
     if (this.history.length <= 1) return;
-    this.history.pop();
+    this.history = popHistory(this.history);
     const last = this.history[this.history.length - 1];
     if (last) this.applySection(last);
+    if (notify) this.onBack?.();
   }
 
   /** 关闭当前表单并执行回调（如退出菜单流程）。 */
