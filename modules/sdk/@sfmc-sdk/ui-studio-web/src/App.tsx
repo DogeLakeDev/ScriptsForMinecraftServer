@@ -16,6 +16,7 @@ import {
   FileUp,
   FolderOpen,
   Redo2,
+  Trash2,
   Undo2,
 } from "lucide-react";
 import type {
@@ -28,6 +29,8 @@ import {
   fileByScreenId,
   insertNode,
   moveNode,
+  parentNodePath,
+  removeNodeAt,
   type InsertAddress,
   type Selection,
 } from "./model";
@@ -463,6 +466,25 @@ function ProjectEditor({
     [currentScreenFile, currentScreenId, files, applyEdit],
   );
 
+  /** 删除当前页面上的节点，选中其父级（顶层则回到页面）。 */
+  const handleRemoveNode = useCallback(
+    (path: string) => {
+      if (!currentScreenFile || !currentScreenId || !path) return;
+      const probe = structuredClone(files[currentScreenFile]);
+      if (!removeNodeAt(probe, path)) return;
+      applyEdit(currentScreenFile, (doc) => Boolean(removeNodeAt(doc, path)));
+      setSelection({
+        kind: "screen",
+        screenId: currentScreenId,
+        nodePath: parentNodePath(path),
+      });
+    },
+    [currentScreenFile, currentScreenId, files, applyEdit],
+  );
+
+  const canRemoveNode =
+    selection?.kind === "screen" && Boolean(selection.nodePath);
+
   // -------------------------------------------------------------------------
   // 导入 manifest / 导出 zip
   // -------------------------------------------------------------------------
@@ -492,31 +514,43 @@ function ProjectEditor({
     );
   }, [files]);
 
-  // 快捷键：Ctrl+S 立即落盘；Ctrl+Z 撤销；Ctrl+Shift+Z / Ctrl+Y 重做。
-  // 输入控件聚焦时不拦截撤销键，避免打断文本编辑。
+  // 快捷键：Ctrl+S 落盘；Ctrl+Z 撤销；Ctrl+Shift+Z / Ctrl+Y 重做；
+  // Delete / Backspace 删除当前选中的组件（输入框聚焦时不拦截）。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const inField =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        Boolean(target?.isContentEditable);
       const key = event.key.toLowerCase();
-      if (key === "s") {
+      if ((event.ctrlKey || event.metaKey) && key === "s") {
         event.preventDefault();
         flush();
         return;
       }
-      const target = event.target as HTMLElement | null;
-      const tag = target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (key === "z" && !event.shiftKey) {
+      if (inField) return;
+      if ((event.ctrlKey || event.metaKey) && key === "z" && !event.shiftKey) {
         event.preventDefault();
         undo();
-      } else if ((key === "z" && event.shiftKey) || key === "y") {
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && ((key === "z" && event.shiftKey) || key === "y")) {
         event.preventDefault();
         redo();
+        return;
+      }
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === "Delete" || event.key === "Backspace")) {
+        if (!canRemoveNode || !selection || selection.kind !== "screen" || !selection.nodePath) return;
+        event.preventDefault();
+        handleRemoveNode(selection.nodePath);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [flush, undo, redo]);
+  }, [flush, undo, redo, canRemoveNode, selection, handleRemoveNode]);
 
   // -------------------------------------------------------------------------
 
@@ -568,6 +602,19 @@ function ProjectEditor({
               disabled: !canRedo,
               onClick: redo,
             },
+            "separator",
+            {
+              icon: Trash2,
+              label: "删除组件",
+              shortcut: "Delete",
+              danger: true,
+              disabled: !canRemoveNode,
+              onClick: () => {
+                if (selection?.kind === "screen" && selection.nodePath) {
+                  handleRemoveNode(selection.nodePath);
+                }
+              },
+            },
           ]}
         />
         <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="撤销（Ctrl+Z）">
@@ -608,6 +655,7 @@ function ProjectEditor({
             onRemoveFile={handleRemoveFile}
             onAddFixture={handleAddFixture}
             onRenameFixture={handleRenameFixture}
+            onRemoveNode={handleRemoveNode}
           />
           <Palette />
         </aside>
@@ -636,6 +684,7 @@ function ProjectEditor({
                 onReopen={() => setClosedScreen(null)}
                 onInsertNode={handleInsertNode}
                 onMoveNode={handleMoveNode}
+                onRemoveNode={handleRemoveNode}
               />
             ) : (
               <div className="canvas-empty">

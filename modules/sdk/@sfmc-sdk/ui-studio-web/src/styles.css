@@ -1116,6 +1116,21 @@ select.mc-input option {
   cursor: pointer;
 }
 
+.context-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.context-menu-item kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  margin-left: auto;
+}
+
 .context-menu-item:hover {
   background: var(--bg-tertiary);
 }

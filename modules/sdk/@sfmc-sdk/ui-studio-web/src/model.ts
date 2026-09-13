@@ -362,6 +362,13 @@ export function insertNode(
   return pathOfAddress({ ...addr, index });
 }
 
+/** 段路径的父节点路径；`body/0` 这类顶层节点返回空串（表示回到页面）。 */
+export function parentNodePath(path: string): string {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length <= 2) return "";
+  return parts.slice(0, -2).join("/");
+}
+
 /** 按段路径移除节点（原地修改），返回被移除的节点；失败返回 null。 */
 export function removeNodeAt(doc: unknown, path: string): Record<string, unknown> | null {
   const location = parseNodeLocation(path);

@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useState, type DragEvent, type MouseEvent } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 import type {
   UiNode,
   UiScreenDocument,
@@ -30,6 +30,7 @@ import { parseNodeLocation, uniqueNodeId, type InsertAddress } from "../model";
 import type { PreviewFixture, Selection } from "../model";
 import { buildScope, type PreviewSession } from "../scope";
 import { createPaletteNode, MOVE_MIME, PALETTE_MIME } from "./Palette";
+import { ContextMenu, useContextMenu } from "./ContextMenu";
 import type { ActionPreview } from "../App";
 
 /** 拖放落点：兄弟节点前/后、容器槽位末尾、或页面 body 末尾。 */
@@ -69,6 +70,8 @@ interface CanvasProps {
   onInsertNode(addr: InsertAddress, node: Record<string, unknown>): void;
   /** 拖放移动已有节点。 */
   onMoveNode(fromPath: string, addr: InsertAddress): void;
+  /** 删除画布上的节点（右键菜单 / Delete）。 */
+  onRemoveNode(path: string): void;
   /** refresh 触发时请求画布重挂载（由 Canvas 内部注入，App 无需传入）。 */
   onRefresh?(): void;
 }
@@ -98,7 +101,20 @@ function hasDragMime(event: DragEvent<HTMLElement>): boolean {
 }
 
 export function Canvas(props: CanvasProps) {
-  const { screen, fixture, session, closed, onReopen } = props;
+  const { screen, fixture, session, closed, onReopen, onSelectNode, onRemoveNode } = props;
+  const { menu, open: openMenu, close: closeMenu } = useContextMenu();
+  const openNodeMenu = (event: MouseEvent<HTMLElement>, path: string) => {
+    onSelectNode(path);
+    openMenu(event, [
+      {
+        icon: Trash2,
+        label: "删除",
+        shortcut: "Delete",
+        danger: true,
+        onClick: () => onRemoveNode(path),
+      },
+    ]);
+  };
   // refresh 触发时通过 key 重挂载内容区，模拟运行时的重新求值。
   const [refreshTick, setRefreshTick] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -255,12 +271,14 @@ export function Canvas(props: CanvasProps) {
             scope={scope}
             props={nodeProps}
             drag={drag}
+            onNodeContextMenu={openNodeMenu}
           />
         ))}
         {screen.body.length === 0 ? (
           <div className="canvas-empty">页面 body 为空{dragging ? "，释放以放入组件" : ""}</div>
         ) : null}
       </div>
+      {menu ? <ContextMenu state={menu} onClose={closeMenu} /> : null}
     </div>
   );
 }
@@ -271,9 +289,10 @@ interface PreviewNodeProps {
   scope: UiEvaluateScope;
   props: CanvasProps;
   drag: DragState;
+  onNodeContextMenu(event: MouseEvent<HTMLElement>, path: string): void;
 }
 
-function PreviewNode({ node, path, scope, props, drag }: PreviewNodeProps) {
+function PreviewNode({ node, path, scope, props, drag, onNodeContextMenu }: PreviewNodeProps) {
   const { selection, onSelectNode } = props;
   // 编辑器始终画出节点：条件失败只降透明度，避免 when 收成一条细线无法点选。
   const hiddenByVisibleWhen =
@@ -298,13 +317,21 @@ function PreviewNode({ node, path, scope, props, drag }: PreviewNodeProps) {
     <div
       className={className}
       onClick={select}
+      onContextMenu={(event) => onNodeContextMenu(event, path)}
       title={`#${node.id}`}
       draggable
       onDragStart={(event) => drag.startMove(event, path)}
       onDragOver={(event) => drag.overNode(event, path)}
       onDrop={(event) => drag.dropOnNode(event, path)}
     >
-      <NodeBody node={node} path={path} scope={scope} props={props} drag={drag} />
+      <NodeBody
+        node={node}
+        path={path}
+        scope={scope}
+        props={props}
+        drag={drag}
+        onNodeContextMenu={onNodeContextMenu}
+      />
     </div>
   );
 }
@@ -339,7 +366,7 @@ function SlotDropZone({
   );
 }
 
-function NodeBody({ node, path, scope, props, drag }: PreviewNodeProps) {
+function NodeBody({ node, path, scope, props, drag, onNodeContextMenu }: PreviewNodeProps) {
   switch (node.type) {
     case "header":
       return <div className={`mc-header tone-${node.tone ?? "default"}`}>{resolveTemplateText(node.text, scope)}</div>;
@@ -386,6 +413,7 @@ function NodeBody({ node, path, scope, props, drag }: PreviewNodeProps) {
                 scope={scope}
                 props={props}
                 drag={drag}
+                onNodeContextMenu={onNodeContextMenu}
               />
             ))
           )}
@@ -400,7 +428,16 @@ function NodeBody({ node, path, scope, props, drag }: PreviewNodeProps) {
       );
     }
     case "each":
-      return <EachPreview node={node} path={path} scope={scope} props={props} drag={drag} />;
+      return (
+        <EachPreview
+          node={node}
+          path={path}
+          scope={scope}
+          props={props}
+          drag={drag}
+          onNodeContextMenu={onNodeContextMenu}
+        />
+      );
     default:
       return <div className="mc-text">未知组件 {(node as UiNode).type}</div>;
   }
@@ -568,12 +605,14 @@ function EachPreview({
   scope,
   props,
   drag,
+  onNodeContextMenu,
 }: {
   node: Extract<UiNode, { type: "each" }>;
   path: string;
   scope: UiEvaluateScope;
   props: CanvasProps;
   drag: DragState;
+  onNodeContextMenu(event: MouseEvent<HTMLElement>, path: string): void;
 }) {
   const source = readPath(scope, node.source);
   const items = Array.isArray(source) ? source : [];
@@ -588,6 +627,7 @@ function EachPreview({
             scope={scope}
             props={props}
             drag={drag}
+            onNodeContextMenu={onNodeContextMenu}
           />
         ))}
         <SlotDropZone
@@ -622,6 +662,7 @@ function EachPreview({
                 scope={childScope}
                 props={props}
                 drag={drag}
+                onNodeContextMenu={onNodeContextMenu}
               />
             ))}
           </div>

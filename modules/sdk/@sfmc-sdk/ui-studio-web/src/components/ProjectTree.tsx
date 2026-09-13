@@ -23,7 +23,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { nodeTypeIcon } from "./node-icons";
 import {
   FEATURE_FILE,
@@ -51,6 +51,7 @@ interface ProjectTreeProps {
   onRemoveFile(file: string): void;
   onAddFixture(): void;
   onRenameFixture(file: string): void;
+  onRemoveNode(path: string): void;
 }
 
 export function ProjectTree({
@@ -66,6 +67,7 @@ export function ProjectTree({
   onRemoveFile,
   onAddFixture,
   onRenameFixture,
+  onRemoveNode,
 }: ProjectTreeProps) {
   const feature = view.browse.feature;
   const screens = view.browse.screens;
@@ -242,6 +244,18 @@ export function ProjectTree({
                         collapsed={collapsed}
                         onToggle={toggleNode}
                         onSelect={onSelect}
+                        onNodeMenu={(event, path) => {
+                          onSelect({ kind: "screen", screenId: reference.id, nodePath: path });
+                          openMenu(event, [
+                            {
+                              icon: Trash2,
+                              label: "删除",
+                              shortcut: "Delete",
+                              danger: true,
+                              onClick: () => onRemoveNode(path),
+                            },
+                          ]);
+                        }}
                       />
                     ))}
                   </ul>
@@ -415,9 +429,10 @@ interface TreeNodeProps {
   collapsed: ReadonlySet<string>;
   onToggle(key: string): void;
   onSelect(selection: Selection): void;
+  onNodeMenu(event: ReactMouseEvent, path: string): void;
 }
 
-function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSelect }: TreeNodeProps) {
+function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSelect, onNodeMenu }: TreeNodeProps) {
   const selected =
     selection?.kind === "screen" &&
     selection.screenId === screenId &&
@@ -432,7 +447,10 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
   const showSlotLabels = slots.length > 1;
   return (
     <li>
-      <div className={`tree-node${selected ? " active" : ""}`}>
+      <div
+        className={`tree-node${selected ? " active" : ""}`}
+        onContextMenu={(event) => onNodeMenu(event, path)}
+      >
         {hasChildren ? (
           <button
             type="button"
@@ -479,6 +497,7 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
                   collapsed={collapsed}
                   onToggle={onToggle}
                   onSelect={onSelect}
+                  onNodeMenu={onNodeMenu}
                 />
               ))}
             </ul>

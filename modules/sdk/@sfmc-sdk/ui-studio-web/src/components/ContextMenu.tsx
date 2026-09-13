@@ -14,6 +14,8 @@ import type { LucideIcon } from "lucide-react";
 export interface ContextMenuItem {
   icon?: LucideIcon;
   label: string;
+  /** 右侧快捷键提示（仅展示，绑定在 App 全局键盘处理）。 */
+  shortcut?: string;
   danger?: boolean;
   onClick(): void;
 }
@@ -96,7 +98,8 @@ export function ContextMenu({
             }}
           >
             {entry.icon ? <entry.icon size={14} strokeWidth={1.8} /> : null}
-            {entry.label}
+            <span className="context-menu-label">{entry.label}</span>
+            {entry.shortcut ? <kbd>{entry.shortcut}</kbd> : null}
           </button>
         ),
       )}
