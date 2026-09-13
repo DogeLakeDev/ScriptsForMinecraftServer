@@ -229,7 +229,7 @@ export function Inspector({ view, selection, fixture, onEdit, onReplaceFile }: I
     return (
       <div className="inspector" key={selection.file}>
         <div className="inspector-heading">
-          文件 <code>{selection.file}</code>
+          <code>{selection.file}</code>
         </div>
         <JsonField
           label="文件内容"
@@ -254,7 +254,7 @@ export function Inspector({ view, selection, fixture, onEdit, onReplaceFile }: I
     return (
       <div className="inspector" key={file}>
         <div className="inspector-heading">
-          页面 <code>{selection.screenId}</code> 未通过校验
+          <code>{selection.screenId}</code> <span className="tree-dim">未通过校验</span>
         </div>
         <div className="insp-hint">请先修复 JSON（对照底部诊断），通过后恢复表单编辑。</div>
         <JsonField
@@ -340,7 +340,7 @@ function NodeForm({
   return (
     <>
       <div className="inspector-heading">
-        组件 <code>{node.type}</code>
+        <code>{node.type}</code>
       </div>
       <TextField label="标识 id" value={record.id} required onCommit={(v) => commit("id", v)} />
       {fields.map((field) => (
@@ -381,7 +381,7 @@ function ScreenForm({
   return (
     <>
       <div className="inspector-heading">
-        页面 <code>{String(doc.id ?? "")}</code>
+        <code>{String(doc.id ?? "")}</code>
       </div>
       {SCREEN_FIELDS.map((field) => (
         <FieldControl key={field.key} field={field} value={doc[field.key]} commit={commit} />

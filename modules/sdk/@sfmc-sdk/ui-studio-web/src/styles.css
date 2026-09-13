@@ -450,6 +450,11 @@ select.mc-input option {
   padding: var(--space-2);
 }
 
+/* 分区之间留白，避免挤在一起 */
+.tree-section + .tree-section {
+  margin-top: var(--space-3);
+}
+
 .tree-heading {
   color: var(--text-tertiary);
   font-size: 11px;
@@ -472,8 +477,16 @@ select.mc-input option {
   padding: 0;
 }
 
-.tree-entries li {
-  padding: 3px var(--space-2);
+/* 条目行与行之间留间距，hover 背景块之间留出缝隙 */
+.tree-screens > li + li,
+.tree-entries > li + li,
+.tree-nodes > li + li {
+  margin-top: 3px;
+}
+
+/* 页面行与展开的组件树之间同样留缝 */
+.tree-screen-row + .tree-nodes {
+  margin-top: 3px;
 }
 
 .tree-badge {
@@ -496,14 +509,17 @@ select.mc-input option {
   color: var(--text-tertiary);
 }
 
-/* 组件树节点的内容摘要（类型名之后，弱化显示） */
-.tree-node-hint {
-  margin-left: var(--space-1);
+/* 组件树节点的内容摘要：换行成第二行，弱化显示，行高把整行撑松 */
+.tree-node-hint,
+.tree-entry-target {
+  display: block;
   font-size: 11px;
+  line-height: 1.5;
 }
 
 .tree-screen,
-.tree-node {
+.tree-node,
+.tree-entry {
   display: block;
   width: 100%;
   text-align: left;
@@ -519,8 +535,14 @@ select.mc-input option {
 }
 
 .tree-screen:hover,
-.tree-node:hover {
+.tree-node:hover,
+.tree-entry:hover:not(:disabled) {
   background: var(--bg-primary);
+}
+
+.tree-entry:disabled {
+  cursor: default;
+  color: var(--text-tertiary);
 }
 
 .tree-screen.active,
@@ -755,8 +777,16 @@ select.mc-input option {
 }
 
 .inspector-heading {
+  font-family: var(--font-ui);
+  font-size: 14px;
   font-weight: 600;
   margin: var(--space-1) 0 var(--space-2);
+}
+
+/* 标题内的标识符用等宽字体，与正文区分 */
+.inspector-heading code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
 }
 
 .inspector-meta {
@@ -1045,11 +1075,28 @@ select.mc-input option {
 }
 
 /* 树行内图标对齐 */
+/* 侧栏图标与文字同色（currentColor），随 active/hover 一起变色 */
 .tree-icon {
   flex-shrink: 0;
   margin-right: 6px;
-  color: var(--text-tertiary);
   vertical-align: -2px;
+}
+
+/* 组件树节点与入口项：图标 + 文字列（摘要换行在文字列内） */
+.tree-node,
+.tree-entry {
+  display: flex;
+  align-items: flex-start;
+}
+
+.tree-node .tree-icon,
+.tree-entry .tree-icon {
+  margin-top: 3px;
+}
+
+.tree-node-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .tree-screen {

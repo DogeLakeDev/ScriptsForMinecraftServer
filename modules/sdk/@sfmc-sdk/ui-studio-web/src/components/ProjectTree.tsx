@@ -15,11 +15,13 @@ import {
   Eye,
   FileJson2,
   FlaskConical,
+  LogIn,
   Package,
   Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
+import { nodeTypeIcon } from "./node-icons";
 import {
   FEATURE_FILE,
   nodeChildSlots,
@@ -92,15 +94,26 @@ export function ProjectTree({
         </button>
         {feature ? (
           <ul className="tree-entries">
-            {feature.entries.map((entry) => (
-              <li key={entry.id} title={`${entry.surface} / ${entry.group}`}>
-                <span className={`tree-badge tree-badge-${entry.surface}`}>
-                  {entry.surface === "admin" ? "管理" : "玩家"}
-                </span>
-                {entry.title}
-                <span className="tree-dim"> → {entry.target}</span>
-              </li>
-            ))}
+            {feature.entries.map((entry) => {
+              const exists = Boolean(view.browse.screens[entry.target]);
+              return (
+                <li key={entry.id} title={`${entry.surface} / ${entry.group}`}>
+                  <button
+                    className="tree-entry"
+                    disabled={!exists}
+                    onClick={() =>
+                      onSelect({ kind: "screen", screenId: entry.target, nodePath: "" })
+                    }
+                  >
+                    <LogIn size={13} className="tree-icon" />
+                    <span className="tree-node-text">
+                      {entry.title}
+                      <span className="tree-dim tree-entry-target">{entry.target}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div className="tree-empty">feature.ui.json 未通过校验，点击上方条目修复</div>
@@ -364,6 +377,7 @@ function TreeNode({ screenId, node, path, depth, selection, onSelect }: TreeNode
     selection.nodePath === path;
   const slots = nodeChildSlots(node);
   const display = nodeDisplayParts(node);
+  const Icon = nodeTypeIcon(node.type);
   return (
     <li>
       <button
@@ -372,8 +386,11 @@ function TreeNode({ screenId, node, path, depth, selection, onSelect }: TreeNode
         onClick={() => onSelect({ kind: "screen", screenId, nodePath: path })}
         title={`#${node.id}`}
       >
-        {display.main}
-        {display.hint ? <span className="tree-dim tree-node-hint">{display.hint}</span> : null}
+        <Icon size={13} className="tree-icon" />
+        <span className="tree-node-text">
+          {display.main}
+          {display.hint ? <span className="tree-dim tree-node-hint">{display.hint}</span> : null}
+        </span>
       </button>
       {slots.map((slot) => (
         <ul key={slot.key} className="tree-nodes">
