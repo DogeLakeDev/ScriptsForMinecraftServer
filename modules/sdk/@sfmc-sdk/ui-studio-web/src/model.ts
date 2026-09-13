@@ -266,30 +266,36 @@ export function locateIssue(
   return { kind: "screen", screenId, nodePath: nodeSegments.join("/") };
 }
 
-/** 节点在树/画布中的展示名。 */
-export function nodeDisplayName(node: UiNode): string {
+/** 节点展示名的分段：类型为主名，内容摘要为弱化提示（侧栏以 muted 色区分）。 */
+export function nodeDisplayParts(node: UiNode): { main: string; hint?: string } {
   switch (node.type) {
     case "header":
     case "text":
-      return `${node.type} · ${truncate(node.text)}`;
+      return { main: node.type, hint: truncate(node.text) };
     case "info":
-      return `info · ${node.items.length} 行`;
+      return { main: "info", hint: `${node.items.length} 行` };
     case "image":
-      return `image · ${node.alt ?? node.source}`;
+      return { main: "image", hint: node.alt ?? node.source };
     case "button":
-      return `button · ${truncate(node.label)}`;
+      return { main: "button", hint: truncate(node.label) };
     case "textField":
     case "toggle":
     case "dropdown":
     case "slider":
-      return `${node.type} · ${truncate(node.label)}`;
+      return { main: node.type, hint: truncate(node.label) };
     case "when":
-      return "when 条件块";
+      return { main: "when", hint: "条件块" };
     case "each":
-      return `each · ${node.as}`;
+      return { main: "each", hint: node.as };
     default:
-      return node.type;
+      return { main: node.type };
   }
+}
+
+/** 节点在树/画布中的展示名。 */
+export function nodeDisplayName(node: UiNode): string {
+  const parts = nodeDisplayParts(node);
+  return parts.hint ? `${parts.main} · ${parts.hint}` : parts.main;
 }
 
 function truncate(value: string, max = 12): string {

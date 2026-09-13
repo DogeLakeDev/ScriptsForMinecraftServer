@@ -496,6 +496,12 @@ select.mc-input option {
   color: var(--text-tertiary);
 }
 
+/* 组件树节点的内容摘要（类型名之后，弱化显示） */
+.tree-node-hint {
+  margin-left: var(--space-1);
+  font-size: 11px;
+}
+
 .tree-screen,
 .tree-node {
   display: block;

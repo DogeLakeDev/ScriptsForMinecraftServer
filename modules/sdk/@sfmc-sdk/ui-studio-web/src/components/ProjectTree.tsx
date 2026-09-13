@@ -23,7 +23,7 @@ import {
 import {
   FEATURE_FILE,
   nodeChildSlots,
-  nodeDisplayName,
+  nodeDisplayParts,
   type ProjectView,
   type Selection,
 } from "../model";
@@ -363,6 +363,7 @@ function TreeNode({ screenId, node, path, depth, selection, onSelect }: TreeNode
     selection.screenId === screenId &&
     selection.nodePath === path;
   const slots = nodeChildSlots(node);
+  const display = nodeDisplayParts(node);
   return (
     <li>
       <button
@@ -371,7 +372,8 @@ function TreeNode({ screenId, node, path, depth, selection, onSelect }: TreeNode
         onClick={() => onSelect({ kind: "screen", screenId, nodePath: path })}
         title={`#${node.id}`}
       >
-        {nodeDisplayName(node)}
+        {display.main}
+        {display.hint ? <span className="tree-dim tree-node-hint">{display.hint}</span> : null}
       </button>
       {slots.map((slot) => (
         <ul key={slot.key} className="tree-nodes">
