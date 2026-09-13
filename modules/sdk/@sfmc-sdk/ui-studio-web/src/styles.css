@@ -1281,3 +1281,129 @@ select.mc-input option {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ---------- 结构化编辑器（字典/列表条目） ---------- */
+
+.dict-entry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+
+.dict-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 2px;
+  min-width: 0;
+}
+
+.dict-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dict-toggle:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.dict-key {
+  flex: 0 1 110px;
+  min-width: 60px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.dict-key-label {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dict-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 2px;
+}
+
+.dict-entry-body {
+  padding: 6px 8px 8px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.dict-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 10px;
+  margin-top: 2px;
+}
+
+.tree-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ---------- 表达式编辑器 ---------- */
+
+.expr-box,
+.expr-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.expr-args {
+  margin: 4px 0 2px 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expr-arg {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px 6px;
+}
+
+.expr-arg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+/* ---------- 复选框字段 ---------- */
+
+.insp-field-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.insp-field-check .insp-label {
+  margin: 0;
+}
