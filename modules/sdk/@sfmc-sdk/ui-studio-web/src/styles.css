@@ -665,7 +665,6 @@ select.mc-input option {
   outline-offset: 1px;
 }
 
-.pv-branch-hint,
 .pv-branch-empty {
   font-size: 11px;
   color: var(--text-tertiary);

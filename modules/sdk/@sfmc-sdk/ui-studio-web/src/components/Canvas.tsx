@@ -373,12 +373,8 @@ function NodeBody({ node, path, scope, props, drag }: PreviewNodeProps) {
     case "slider":
       return <InputPreview node={node} scope={scope} props={props} />;
     case "when": {
-      const active = evaluateCondition(node.condition, scope);
       return (
         <>
-          {active ? null : (
-            <div className="pv-branch-hint">条件未满足，编辑时可改，运行时不显示</div>
-          )}
           {node.content.length === 0 ? (
             <div className="pv-branch-empty">空的条件块，从组件库拖入</div>
           ) : (
