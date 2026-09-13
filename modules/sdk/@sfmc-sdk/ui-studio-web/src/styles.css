@@ -806,6 +806,14 @@ select.mc-input option {
   accent-color: var(--accent);
 }
 
+/* 拖放中让控件不抢指针：range 滑过会连发 input，宽跨度滑杆会把页面拖死 */
+.mc-content.is-dnd input,
+.mc-content.is-dnd select,
+.mc-content.is-dnd button,
+.mc-content.is-dnd textarea {
+  pointer-events: none;
+}
+
 /* 开关复选框跟随主题强调色 */
 .mc-field input[type="checkbox"] {
   accent-color: var(--accent);

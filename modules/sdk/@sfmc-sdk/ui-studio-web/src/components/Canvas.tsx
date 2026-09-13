@@ -258,7 +258,7 @@ export function Canvas(props: CanvasProps) {
         <span className="mc-presentation">{presentation}</span>
       </div>
       <div
-        className={`mc-content${hint?.kind === "rootEnd" ? " drop-append" : ""}`}
+        className={`mc-content${hint?.kind === "rootEnd" ? " drop-append" : ""}${dragging ? " is-dnd" : ""}`}
         key={refreshTick}
         onDragOver={drag.overRoot}
         onDrop={drag.dropOnRoot}
@@ -578,24 +578,59 @@ function InputPreview({
         </select>
       ) : null}
       {node.type === "slider" ? (
-        <span className="mc-slider">
-          <input
-            type="range"
-            min={node.min}
-            max={node.max}
-            step={node.step ?? 1}
-            value={Number(value) || node.min}
-            disabled={disabled}
-            onChange={(event) => props.onUpdateState(bindKey, Number(event.target.value))}
-            onClick={(event) => event.stopPropagation()}
-          />
-          <span className="mc-slider-value">
-            {Number(value).toFixed(node.fixedFormatDigits ?? 0)}
-          </span>
-        </span>
+        <SliderPreview
+          node={node}
+          value={value}
+          disabled={disabled}
+          onCommit={(next) => props.onUpdateState(bindKey, next)}
+        />
       ) : null}
       {description ? <span className="mc-field-desc">{description}</span> : null}
     </label>
+  );
+}
+
+/**
+ * 滑杆用本地值跟手，松手再写入预览会话。
+ * 否则 1–10000 这种跨度在拖过/拖动时会对 App 连发 setState，页面会卡死。
+ */
+function SliderPreview({
+  node,
+  value,
+  disabled,
+  onCommit,
+}: {
+  node: Extract<UiNode, { type: "slider" }>;
+  value: unknown;
+  disabled: boolean;
+  onCommit(value: number): void;
+}) {
+  const numeric = Number(value);
+  const fallback = Number.isFinite(numeric) ? numeric : node.min;
+  const [local, setLocal] = useState(fallback);
+  useEffect(() => setLocal(fallback), [fallback]);
+  const commit = () => {
+    if (local !== fallback) onCommit(local);
+  };
+  return (
+    <span className="mc-slider">
+      <input
+        type="range"
+        min={node.min}
+        max={node.max}
+        step={node.step ?? 1}
+        value={local}
+        disabled={disabled}
+        onChange={(event) => setLocal(Number(event.target.value))}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
+        onClick={(event) => event.stopPropagation()}
+      />
+      <span className="mc-slider-value">
+        {local.toFixed(node.fixedFormatDigits ?? 0)}
+      </span>
+    </span>
   );
 }
 
