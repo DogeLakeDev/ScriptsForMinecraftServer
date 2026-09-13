@@ -5,6 +5,7 @@
  * - Feature：feature.ui.json（点击编辑模块级声明）；
  * - 页面：feature 声明的页面文件，可展开组件树；
  *   支持新建 / 重命名 / 复制 / 删除（自动同步 feature.screens 引用）；
+ *   组件树节点可拖放重排（上/下插入，when/each 中部放入容器）；
  * - 其他文件：未登记为页面的 JSON 文件（如预览 fixture），可查看/删除。
  */
 
@@ -23,15 +24,18 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { nodeTypeIcon } from "./node-icons";
 import {
   FEATURE_FILE,
   nodeChildSlots,
   nodeDisplayParts,
+  parseNodeLocation,
+  type InsertAddress,
   type ProjectView,
   type Selection,
 } from "../model";
+import { MOVE_MIME } from "./Palette";
 import { FIXTURE_DIR, FIXTURE_FILE, screenRefs } from "../store/project";
 import { fixtureLabel } from "./FixtureSwitcher";
 import { ContextMenu, useContextMenu } from "./ContextMenu";
@@ -52,6 +56,7 @@ interface ProjectTreeProps {
   onAddFixture(): void;
   onRenameFixture(file: string): void;
   onRemoveNode(path: string): void;
+  onMoveNode(fromPath: string, addr: InsertAddress): void;
 }
 
 export function ProjectTree({
@@ -68,6 +73,7 @@ export function ProjectTree({
   onAddFixture,
   onRenameFixture,
   onRemoveNode,
+  onMoveNode,
 }: ProjectTreeProps) {
   const feature = view.browse.feature;
   const screens = view.browse.screens;
@@ -93,6 +99,53 @@ export function ProjectTree({
       else next.add(key);
       return next;
     });
+  // 组件树拖放：用 ref 记拖起来源（dragover 里读不到 dataTransfer 内容）。
+  const dragPathRef = useRef<string | null>(null);
+  const [dragPath, setDragPath] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<TreeDropHint | null>(null);
+  const treeDrag: TreeDrag = {
+    dragPath,
+    dropHint,
+    start(event, path) {
+      event.dataTransfer.setData(MOVE_MIME, path);
+      event.dataTransfer.effectAllowed = "move";
+      dragPathRef.current = path;
+      setDragPath(path);
+    },
+    over(event, path, node) {
+      if (!event.dataTransfer.types.includes(MOVE_MIME)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const from = dragPathRef.current;
+      const hint = resolveTreeDrop(event, path, node, from);
+      if (!hint) {
+        setDropHint(null);
+        event.dataTransfer.dropEffect = "none";
+        return;
+      }
+      setDropHint((prev) =>
+        prev?.path === hint.path && prev.pos === hint.pos ? prev : hint,
+      );
+      event.dataTransfer.dropEffect = "move";
+    },
+    drop(event, path, node) {
+      event.preventDefault();
+      event.stopPropagation();
+      const from = event.dataTransfer.getData(MOVE_MIME) || dragPathRef.current;
+      const hint = resolveTreeDrop(event, path, node, from);
+      setDragPath(null);
+      setDropHint(null);
+      dragPathRef.current = null;
+      if (!from || !hint) return;
+      const addr = hintToAddress(hint, node);
+      if (addr) onMoveNode(from, addr);
+    },
+    end() {
+      dragPathRef.current = null;
+      setDragPath(null);
+      setDropHint(null);
+    },
+  };
   // 从画布选中嵌套节点时，自动展开其祖先，避免折叠后找不到当前项。
   useEffect(() => {
     if (selection?.kind !== "screen" || !selection.nodePath) return;
@@ -244,6 +297,7 @@ export function ProjectTree({
                         collapsed={collapsed}
                         onToggle={toggleNode}
                         onSelect={onSelect}
+                        treeDrag={treeDrag}
                         onNodeMenu={(event, path) => {
                           onSelect({ kind: "screen", screenId: reference.id, nodePath: path });
                           openMenu(event, [
@@ -403,6 +457,51 @@ export function ProjectTree({
   );
 }
 
+type TreeDropPos = "before" | "after" | "into";
+interface TreeDropHint {
+  path: string;
+  pos: TreeDropPos;
+}
+interface TreeDrag {
+  dragPath: string | null;
+  dropHint: TreeDropHint | null;
+  start(event: DragEvent<HTMLElement>, path: string): void;
+  over(event: DragEvent<HTMLElement>, path: string, node: UiNode): void;
+  drop(event: DragEvent<HTMLElement>, path: string, node: UiNode): void;
+  end(): void;
+}
+
+/** 按指针位置解析树行落点：上半插入前、下半插入后；when/each 中部放入容器。 */
+function resolveTreeDrop(
+  event: DragEvent<HTMLElement>,
+  path: string,
+  node: UiNode,
+  fromPath: string | null,
+): TreeDropHint | null {
+  if (!fromPath || path === fromPath || path.startsWith(`${fromPath}/`)) return null;
+  const rect = event.currentTarget.getBoundingClientRect();
+  const y = (event.clientY - rect.top) / Math.max(rect.height, 1);
+  const canInto = node.type === "when" || node.type === "each";
+  const pos: TreeDropPos =
+    canInto && y > 0.35 && y < 0.65 ? "into" : y < 0.5 ? "before" : "after";
+  return { path, pos };
+}
+
+function hintToAddress(hint: TreeDropHint, node: UiNode): InsertAddress | null {
+  if (hint.pos === "into") {
+    if (node.type === "when") {
+      return { containerPath: hint.path, slotKey: "content", index: node.content.length };
+    }
+    if (node.type === "each") {
+      return { containerPath: hint.path, slotKey: "template", index: node.template.length };
+    }
+    return null;
+  }
+  const location = parseNodeLocation(hint.path);
+  if (!location) return null;
+  return { ...location, index: location.index + (hint.pos === "after" ? 1 : 0) };
+}
+
 /** 子槽位中文名：仅在多槽位（如 each 的 template/empty）时显示。 */
 const SLOT_LABELS: Record<string, string> = {
   content: "内容",
@@ -430,9 +529,10 @@ interface TreeNodeProps {
   onToggle(key: string): void;
   onSelect(selection: Selection): void;
   onNodeMenu(event: ReactMouseEvent, path: string): void;
+  treeDrag: TreeDrag;
 }
 
-function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSelect, onNodeMenu }: TreeNodeProps) {
+function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSelect, onNodeMenu, treeDrag }: TreeNodeProps) {
   const selected =
     selection?.kind === "screen" &&
     selection.screenId === screenId &&
@@ -445,10 +545,20 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
   const display = nodeDisplayParts(node);
   const Icon = nodeTypeIcon(node.type);
   const showSlotLabels = slots.length > 1;
+  const hintHere = treeDrag.dropHint?.path === path ? treeDrag.dropHint.pos : null;
   return (
     <li>
       <div
-        className={`tree-node${selected ? " active" : ""}`}
+        className={
+          `tree-node${selected ? " active" : ""}` +
+          (treeDrag.dragPath === path ? " dragging" : "") +
+          (hintHere ? ` drop-${hintHere}` : "")
+        }
+        draggable
+        onDragStart={(event) => treeDrag.start(event, path)}
+        onDragOver={(event) => treeDrag.over(event, path, node)}
+        onDrop={(event) => treeDrag.drop(event, path, node)}
+        onDragEnd={() => treeDrag.end()}
         onContextMenu={(event) => onNodeMenu(event, path)}
       >
         {hasChildren ? (
@@ -498,6 +608,7 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
                   onToggle={onToggle}
                   onSelect={onSelect}
                   onNodeMenu={onNodeMenu}
+                  treeDrag={treeDrag}
                 />
               ))}
             </ul>

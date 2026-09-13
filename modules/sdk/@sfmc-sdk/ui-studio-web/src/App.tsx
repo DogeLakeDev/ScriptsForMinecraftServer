@@ -656,6 +656,7 @@ function ProjectEditor({
             onAddFixture={handleAddFixture}
             onRenameFixture={handleRenameFixture}
             onRemoveNode={handleRemoveNode}
+            onMoveNode={handleMoveNode}
           />
           <Palette />
         </aside>

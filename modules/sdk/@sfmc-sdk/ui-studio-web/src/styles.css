@@ -1195,6 +1195,27 @@ select.mc-input option {
   min-width: 0;
 }
 
+.tree-node {
+  cursor: grab;
+}
+
+.tree-node.dragging {
+  opacity: 0.4;
+}
+
+.tree-node.drop-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.tree-node.drop-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
+.tree-node.drop-into {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
 .tree-screen {
   display: flex;
   align-items: center;
