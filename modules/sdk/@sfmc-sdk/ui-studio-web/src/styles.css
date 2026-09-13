@@ -489,6 +489,53 @@ select.mc-input option {
   margin-top: 3px;
 }
 
+/* 嵌套层级：左侧引导线 + 缩进，子行相对父行明显退后一级 */
+.tree-nodes .tree-nodes {
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-secondary);
+}
+
+/* each 等多槽位的分区标签（模板 / 空态） */
+.tree-slot-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  padding: 2px 0 1px;
+}
+
+/* 父行与其子级列表之间留缝 */
+.tree-node + .tree-nodes {
+  margin-top: 3px;
+}
+
+/* 折叠控件：有子节点显示 chevron，无子节点用占位保持对齐 */
+.tree-chevron,
+.tree-chevron-spacer {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-chevron {
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  opacity: 0.65;
+}
+
+.tree-chevron:hover {
+  opacity: 1;
+  background: var(--bg-tertiary);
+}
+
 .tree-badge {
   display: inline-block;
   font-size: 11px;
@@ -1092,6 +1139,22 @@ select.mc-input option {
 .tree-node .tree-icon,
 .tree-entry .tree-icon {
   margin-top: 3px;
+}
+
+/* 节点行内的选中热区：吃掉 chevron 以外的剩余宽度 */
+.tree-node-hit {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .tree-node-text {

@@ -11,6 +11,8 @@
 import type { UiNode } from "../../../src/contracts/ui-document.js";
 import {
   AppWindow,
+  ChevronDown,
+  ChevronRight,
   Copy,
   Eye,
   FileJson2,
@@ -21,6 +23,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { nodeTypeIcon } from "./node-icons";
 import {
   FEATURE_FILE,
@@ -79,6 +82,30 @@ export function ProjectTree({
     .sort();
   // 右键菜单状态：页面行与其他文件行共用。
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
+  // 组件树折叠状态：key 为 `${screenId}:${nodePath}`，默认全部展开。
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const toggleNode = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  // 从画布选中嵌套节点时，自动展开其祖先，避免折叠后找不到当前项。
+  useEffect(() => {
+    if (selection?.kind !== "screen" || !selection.nodePath) return;
+    const keys = ancestorNodePaths(selection.nodePath).map(
+      (path) => `${selection.screenId}:${path}`,
+    );
+    setCollapsed((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const key of keys) {
+        if (next.delete(key)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [selection]);
 
   return (
     <div className="tree">
@@ -211,8 +238,9 @@ export function ProjectTree({
                         screenId={reference.id}
                         node={node}
                         path={`body/${index}`}
-                        depth={0}
                         selection={selection}
+                        collapsed={collapsed}
+                        onToggle={toggleNode}
                         onSelect={onSelect}
                       />
                     ))}
@@ -361,52 +389,100 @@ export function ProjectTree({
   );
 }
 
+/** 子槽位中文名：仅在多槽位（如 each 的 template/empty）时显示。 */
+const SLOT_LABELS: Record<string, string> = {
+  content: "内容",
+  template: "模板",
+  empty: "空态",
+};
+
+/** 段路径的祖先节点路径（不含自身）。`body/0/content/1` → `["body/0"]`。 */
+function ancestorNodePaths(path: string): string[] {
+  const parts = path.split("/");
+  const result: string[] = [];
+  for (let i = 2; i < parts.length; i += 2) {
+    result.push(parts.slice(0, i).join("/"));
+  }
+  return result;
+}
+
 interface TreeNodeProps {
   screenId: string;
   node: UiNode;
   path: string;
-  depth: number;
   selection: Selection | null;
+  /** 已折叠节点的 key 集合（`${screenId}:${path}`）。 */
+  collapsed: ReadonlySet<string>;
+  onToggle(key: string): void;
   onSelect(selection: Selection): void;
 }
 
-function TreeNode({ screenId, node, path, depth, selection, onSelect }: TreeNodeProps) {
+function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSelect }: TreeNodeProps) {
   const selected =
     selection?.kind === "screen" &&
     selection.screenId === screenId &&
     selection.nodePath === path;
   const slots = nodeChildSlots(node);
+  const childCount = slots.reduce((sum, slot) => sum + slot.nodes.length, 0);
+  const hasChildren = childCount > 0;
+  const nodeKey = `${screenId}:${path}`;
+  const isCollapsed = collapsed.has(nodeKey);
   const display = nodeDisplayParts(node);
   const Icon = nodeTypeIcon(node.type);
+  const showSlotLabels = slots.length > 1;
   return (
     <li>
-      <button
-        className={`tree-node${selected ? " active" : ""}`}
-        style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => onSelect({ kind: "screen", screenId, nodePath: path })}
-        title={`#${node.id}`}
-      >
-        <Icon size={13} className="tree-icon" />
-        <span className="tree-node-text">
-          {display.main}
-          {display.hint ? <span className="tree-dim tree-node-hint">{display.hint}</span> : null}
-        </span>
-      </button>
-      {slots.map((slot) => (
-        <ul key={slot.key} className="tree-nodes">
-          {slot.nodes.map((child, index) => (
-            <TreeNode
-              key={child.id}
-              screenId={screenId}
-              node={child}
-              path={`${path}/${slot.key}/${index}`}
-              depth={depth + 1}
-              selection={selection}
-              onSelect={onSelect}
-            />
+      <div className={`tree-node${selected ? " active" : ""}`}>
+        {hasChildren ? (
+          <button
+            type="button"
+            className="tree-chevron"
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "展开子节点" : "折叠子节点"}
+            onClick={() => onToggle(nodeKey)}
+          >
+            {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+          </button>
+        ) : (
+          <span className="tree-chevron-spacer" />
+        )}
+        <button
+          type="button"
+          className="tree-node-hit"
+          onClick={() => onSelect({ kind: "screen", screenId, nodePath: path })}
+          title={`#${node.id}`}
+        >
+          <Icon size={13} className="tree-icon" />
+          <span className="tree-node-text">
+            {display.main}
+            {display.hint ? <span className="tree-dim tree-node-hint">{display.hint}</span> : null}
+            {isCollapsed && childCount > 0 ? (
+              <span className="tree-dim tree-node-hint">{childCount} 项</span>
+            ) : null}
+          </span>
+        </button>
+      </div>
+      {isCollapsed
+        ? null
+        : slots.map((slot) => (
+            <ul key={slot.key} className="tree-nodes">
+              {showSlotLabels ? (
+                <li className="tree-slot-label">{SLOT_LABELS[slot.key] ?? slot.key}</li>
+              ) : null}
+              {slot.nodes.map((child, index) => (
+                <TreeNode
+                  key={child.id}
+                  screenId={screenId}
+                  node={child}
+                  path={`${path}/${slot.key}/${index}`}
+                  selection={selection}
+                  collapsed={collapsed}
+                  onToggle={onToggle}
+                  onSelect={onSelect}
+                />
+              ))}
+            </ul>
           ))}
-        </ul>
-      ))}
     </li>
   );
 }
