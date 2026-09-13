@@ -4,6 +4,8 @@
  * 目标是验证信息结构、顺序、条件与数据绑定，不追求与 Minecraft 客户端像素一致。
  * 输入控件在画布内可直接交互（只改预览会话，不写盘），
  * 从而实时看到 visibleWhen / disabledWhen / derived 的联动。
+ * 条件未满足的 when / visibleWhen 在编辑器里仍渲染（半透明 + 提示），
+ * 方便改内容；游戏运行时仍会跳过，行为不变。
  *
  * 画布同时是拖放目标：组件库条目（copy）与画布内节点（move）
  * 通过 HTML5 DnD 插入/重排，落点以插入线或槽位高亮表达。
@@ -273,9 +275,11 @@ interface PreviewNodeProps {
 
 function PreviewNode({ node, path, scope, props, drag }: PreviewNodeProps) {
   const { selection, onSelectNode } = props;
-  if (node.visibleWhen !== undefined && !evaluateCondition(node.visibleWhen, scope)) {
-    return null;
-  }
+  // 编辑器始终画出节点：条件失败只降透明度，避免 when 收成一条细线无法点选。
+  const hiddenByVisibleWhen =
+    node.visibleWhen !== undefined && !evaluateCondition(node.visibleWhen, scope);
+  const whenInactive =
+    node.type === "when" && !evaluateCondition(node.condition, scope);
   const selected =
     selection?.kind === "screen" &&
     selection.nodePath === path &&
@@ -284,6 +288,7 @@ function PreviewNode({ node, path, scope, props, drag }: PreviewNodeProps) {
     drag.hint?.kind === "sibling" && drag.hint.path === path ? drag.hint.pos : null;
   const className =
     `pv-node pv-${node.type}${selected ? " pv-selected" : ""}` +
+    (hiddenByVisibleWhen || whenInactive ? " pv-inactive" : "") +
     (hintHere ? ` drop-${hintHere}` : "");
   const select = (event: MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
@@ -368,21 +373,26 @@ function NodeBody({ node, path, scope, props, drag }: PreviewNodeProps) {
     case "slider":
       return <InputPreview node={node} scope={scope} props={props} />;
     case "when": {
-      const visible = evaluateCondition(node.condition, scope);
+      const active = evaluateCondition(node.condition, scope);
       return (
         <>
-          {visible
-            ? node.content.map((child, index) => (
-                <PreviewNode
-                  key={child.id}
-                  node={child}
-                  path={`${path}/content/${index}`}
-                  scope={scope}
-                  props={props}
-                  drag={drag}
-                />
-              ))
-            : null}
+          {active ? null : (
+            <div className="pv-branch-hint">条件未满足，编辑时可改，运行时不显示</div>
+          )}
+          {node.content.length === 0 ? (
+            <div className="pv-branch-empty">空的条件块，从组件库拖入</div>
+          ) : (
+            node.content.map((child, index) => (
+              <PreviewNode
+                key={child.id}
+                node={child}
+                path={`${path}/content/${index}`}
+                scope={scope}
+                props={props}
+                drag={drag}
+              />
+            ))
+          )}
           <SlotDropZone
             path={path}
             slotKey="content"

@@ -658,6 +658,25 @@ select.mc-input option {
   background: var(--accent-subtle);
 }
 
+/* 条件未满足：编辑器里仍显示，但降透明度并加虚线框，避免收成一条细线 */
+.pv-inactive {
+  opacity: 0.55;
+  outline: 1px dashed var(--border-secondary);
+  outline-offset: 1px;
+}
+
+.pv-branch-hint,
+.pv-branch-empty {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 4px 6px;
+}
+
+.pv-branch-empty {
+  text-align: center;
+  padding: 10px 6px;
+}
+
 .mc-header {
   font-size: 15px;
   font-weight: 700;
