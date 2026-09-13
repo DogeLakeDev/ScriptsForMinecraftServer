@@ -149,8 +149,8 @@ export function BooleanField({
       label={label}
       value={value === true ? "true" : value === false ? "false" : ""}
       options={[
-        { value: "true", label: "true" },
-        { value: "false", label: "false" },
+        { value: "true", label: "是" },
+        { value: "false", label: "否" },
       ]}
       onCommit={(v) => onCommit(v === undefined ? undefined : v === "true")}
     />

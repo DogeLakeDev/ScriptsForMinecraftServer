@@ -107,7 +107,7 @@ const bind = (key: string, label: string, roots?: string[]): FieldDef => ({
   roots,
 });
 const tone: FieldDef = { kind: "select", key: "tone", label: "色调 tone", options: TONE_OPTIONS };
-const disabledWhen = expr("disabledWhen", "禁用条件 disabledWhen");
+const disabledWhen = expr("disabledWhen", "何时禁用");
 
 /** 每种节点类型的可编辑字段（id 与 visibleWhen 对所有节点通用，单独渲染）。 */
 const NODE_FIELDS: Record<string, FieldDef[]> = {
@@ -168,7 +168,7 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
     text("tooltip", "悬停提示 tooltip"),
     disabledWhen,
   ],
-  when: [expr("condition", "条件 condition")],
+  when: [expr("condition", "何时显示里面的内容")],
   each: [
     bind("source", "数据源 source"),
     text("as", "条目名 as", { required: true }),
@@ -355,7 +355,7 @@ function NodeForm({
         />
       ))}
       <ExpressionEditor
-        label="可见条件 visibleWhen"
+        label="何时显示这个组件"
         value={record.visibleWhen}
         bindGroups={bindGroups}
         onCommit={(v) => commit("visibleWhen", v)}

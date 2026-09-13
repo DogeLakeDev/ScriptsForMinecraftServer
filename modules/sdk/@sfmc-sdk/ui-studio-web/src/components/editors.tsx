@@ -270,21 +270,21 @@ export function ListEditor<T>({
 type Expr = Record<string, unknown>;
 
 const OP_OPTIONS = [
-  { value: "equals", label: "equals 等于" },
-  { value: "notEquals", label: "notEquals 不等" },
-  { value: "greaterThan", label: "greaterThan 大于" },
-  { value: "greaterThanOrEqual", label: "greaterThanOrEqual 大于等于" },
-  { value: "lessThan", label: "lessThan 小于" },
-  { value: "lessThanOrEqual", label: "lessThanOrEqual 小于等于" },
-  { value: "and", label: "and 与" },
-  { value: "or", label: "or 或" },
-  { value: "not", label: "not 非" },
-  { value: "add", label: "add 加" },
-  { value: "subtract", label: "subtract 减" },
-  { value: "multiply", label: "multiply 乘" },
-  { value: "divide", label: "divide 除" },
-  { value: "coalesce", label: "coalesce 空值合并" },
-  { value: "contains", label: "contains 包含" },
+  { value: "equals", label: "等于" },
+  { value: "notEquals", label: "不等于" },
+  { value: "greaterThan", label: "大于" },
+  { value: "greaterThanOrEqual", label: "大于等于" },
+  { value: "lessThan", label: "小于" },
+  { value: "lessThanOrEqual", label: "小于等于" },
+  { value: "and", label: "并且（全部成立）" },
+  { value: "or", label: "或者（任一成立）" },
+  { value: "not", label: "取反" },
+  { value: "add", label: "加" },
+  { value: "subtract", label: "减" },
+  { value: "multiply", label: "乘" },
+  { value: "divide", label: "除" },
+  { value: "coalesce", label: "取第一个非空" },
+  { value: "contains", label: "包含" },
 ];
 
 /** 操作符参数个数；variadic 表示可变（至少 1 个）。 */
@@ -312,6 +312,18 @@ function exprKind(expr: Expr | null): "none" | "value" | "ref" | "op" {
   if (typeof expr.ref === "string") return "ref";
   if (typeof expr.op === "string") return "op";
   return "none";
+}
+
+/** 按运算类型给每一项起人话名称（避免一律叫「参数 N」）。 */
+function argLabel(op: string, index: number): string {
+  if (op === "not") return "要取反的条件";
+  if (op === "and" || op === "or") return `条件 ${index + 1}`;
+  if (op === "coalesce") return `候选 ${index + 1}`;
+  if (op === "contains") return index === 0 ? "在哪里找" : "找什么";
+  if (op === "add" || op === "subtract" || op === "multiply" || op === "divide") {
+    return index === 0 ? "左边" : "右边";
+  }
+  return index === 0 ? "比较对象" : "比较值";
 }
 
 /** 操作符切换时按目标 arity 调整 args（保留前缀，不足补常量 null）。 */
@@ -352,12 +364,12 @@ export function ExpressionEditor({
   const body = (
     <>
       <SelectField
-        label="形态"
+        label="这一项是"
         value={kind === "none" ? "" : kind}
         options={[
-          { value: "value", label: "常量 value" },
-          { value: "ref", label: "引用 ref" },
-          { value: "op", label: "操作 op" },
+          { value: "value", label: "固定值" },
+          { value: "ref", label: "读取数据" },
+          { value: "op", label: "运算（比较 / 并且 / 加减）" },
         ]}
         onCommit={(v) => switchKind(typeof v === "string" ? v : "")}
       />
@@ -369,7 +381,7 @@ export function ExpressionEditor({
       ) : null}
       {kind === "ref" ? (
         <BindField
-          label="引用路径 ref"
+          label="从哪读"
           value={expr!.ref}
           groups={bindGroups}
           onCommit={(v) => onCommit({ ref: typeof v === "string" ? v : "" })}
@@ -409,13 +421,13 @@ function ConstValueEditor({
   return (
     <>
       <SelectField
-        label="值类型"
+        label="值的类型"
         value={kind}
         options={[
-          { value: "string", label: "文本" },
+          { value: "string", label: "文字" },
           { value: "number", label: "数字" },
-          { value: "boolean", label: "布尔" },
-          { value: "null", label: "null" },
+          { value: "boolean", label: "是 / 否" },
+          { value: "null", label: "空" },
         ]}
         onCommit={(v) => switchKind(asString(v, "string"))}
       />
@@ -448,7 +460,7 @@ function OpEditor({
   return (
     <>
       <SelectField
-        label="操作符 op"
+        label="怎么算"
         value={op}
         options={OP_OPTIONS}
         onCommit={(v) => {
@@ -460,7 +472,7 @@ function OpEditor({
         {args.map((arg, index) => (
           <div key={index} className="expr-arg">
             <div className="expr-arg-head">
-              <span className="insp-label">参数 {index + 1}</span>
+              <span className="insp-label">{argLabel(op, index)}</span>
               {arity === "variadic" && args.length > 1 ? (
                 <button
                   className="tree-action tree-action-danger"
@@ -482,7 +494,7 @@ function OpEditor({
         ))}
         {arity === "variadic" ? (
           <button className="btn dict-add" onClick={() => commitArgs([...args, { value: null }])}>
-            <Plus size={13} /> 添加参数
+            <Plus size={13} /> 再加一项
           </button>
         ) : null}
       </div>
