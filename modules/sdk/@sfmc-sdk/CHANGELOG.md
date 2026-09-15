@@ -1,5 +1,26 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.18
+
+### Minor Changes
+
+- 1a4ddda: 声明式 UI 的开关可绑定 each 条目字段，并支持值变化时立即跑 trigger，列表行上的即时开关不必再做成固定槽位。
+
+### Patch Changes
+
+- 1a4ddda: dropdown 的 options 支持从 load 数据源注入（source/as/label/value），与 each 对齐。
+- 1a4ddda: 声明式 UI 危险确认支持可选校验文本 challenge（固定字或 {{path}}），未匹配前确认按钮禁用。
+- dc62ffc: UI Studio 画布中 each 改为模板/空态常驻：未生效分支灰色可编辑，模板只画一份原型并标注条数。
+- 1a4ddda: UI Studio 切换按钮 trigger 为 action/navigate 时允许空 id 作为编辑中间态，页面不再被整页踢出结构校验。
+- dc62ffc: 修复 UI Studio 空 body 拖入组件后 Chrome 拖放会话无法结束（光标一直握住、页面像卡住）。
+- dc62ffc: UI Studio 改为固定监听 `127.0.0.1:3003`，避免每次随机端口导致浏览器 IndexedDB 工程丢失。
+- dc62ffc: UI Studio 接上已有 light 令牌：默认跟随系统，顶栏可在浅色 / 深色 / 跟随系统间切换，并记住偏好。
+- dc62ffc: UI Studio 预览将 {{path}} 绑定原样显示并加背景高亮，避免未求值变量变成空白。
+- 1a4ddda: UI Studio 去掉预览「场景」产品面：不再新建/切换 fixture，新工程也不再写入 preview.fixture.json。
+- dc62ffc: UI Studio 侧栏可拖项改为六点抓手发起拖放，点击选中/展开不再与拖动手势打架。
+- dc62ffc: 修复 UI Studio 宽跨度滑杆（如金库 1–100000）点击轨道时因 Chrome 逐步派发 input 而卡死页面。
+- 1a4ddda: textField 的 placeholder 改为模板字符串；空绑定时写入 CustomForm.textField 的 text，作为输入框当前值/占位内容。
+
 ## 0.2.0-beta.17
 
 ### Minor Changes
