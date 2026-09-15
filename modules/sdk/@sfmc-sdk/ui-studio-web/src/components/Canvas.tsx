@@ -4,14 +4,14 @@
  * 目标是验证信息结构、顺序、条件与数据绑定，不追求与 Minecraft 客户端像素一致。
  * 输入控件在画布内可直接交互（只改预览会话，不写盘），
  * 从而实时看到 visibleWhen / disabledWhen / derived 的联动。
- * 条件未满足的 when / visibleWhen 在编辑器里仍渲染（半透明 + 提示），
+ * 条件未满足的 when / visibleWhen、each 未生效的模板/空态在编辑器里仍渲染（半透明），
  * 方便改内容；游戏运行时仍会跳过，行为不变。
  *
  * 画布同时是拖放目标：组件库条目（copy）与画布内节点（move）
  * 通过 HTML5 DnD 插入/重排，落点以插入线或槽位高亮表达。
  */
 
-import { useEffect, useMemo, useState, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import type {
   UiNode,
@@ -22,14 +22,16 @@ import {
   evaluateCondition,
   readPath,
   resolveTemplateJson,
-  resolveTemplateText,
   toDisplayText,
   type UiEvaluateScope,
 } from "../../../src/ui-studio/shared/evaluate.js";
 import { parseNodeLocation, uniqueNodeId, type InsertAddress } from "../model";
 import type { PreviewFixture, Selection } from "../model";
 import { buildScope, type PreviewSession } from "../scope";
+import { afterNativeDrag } from "../after-drag";
+import { createLatestFrameQueue } from "../latest-frame";
 import { createPaletteNode, MOVE_MIME, PALETTE_MIME } from "./Palette";
+import { PreviewText } from "./PreviewText";
 import { ContextMenu, useContextMenu } from "./ContextMenu";
 import type { ActionPreview } from "../App";
 
@@ -125,6 +127,8 @@ export function Canvas(props: CanvasProps) {
   );
 
   // 组件库在画布之外，拖拽开始/结束通过 window 事件同步，用于显隐槽位落点。
+  // dragend 用 capture：performDrop 会 stopPropagation，且空 body 同步改 DOM 时 Chrome 可能吞掉冒泡。
+  // 不用 window drop 清状态——capture 阶段 setDragging(false) 会在 onDrop 前卸掉槽位落点。
   useEffect(() => {
     const start = (event: globalThis.DragEvent) => {
       const types = event.dataTransfer?.types;
@@ -136,13 +140,12 @@ export function Canvas(props: CanvasProps) {
       setDragging(false);
       setHint(null);
     };
+    // dragstart 用冒泡：自定义 MIME 在目标 onDragStart 里写入，capture 阶段 types 还是空的。
     window.addEventListener("dragstart", start);
-    window.addEventListener("dragend", end);
-    window.addEventListener("drop", end);
+    window.addEventListener("dragend", end, true);
     return () => {
       window.removeEventListener("dragstart", start);
-      window.removeEventListener("dragend", end);
-      window.removeEventListener("drop", end);
+      window.removeEventListener("dragend", end, true);
     };
   }, []);
 
@@ -163,14 +166,23 @@ export function Canvas(props: CanvasProps) {
     if (!hasDragMime(event)) return;
     event.preventDefault();
     event.stopPropagation();
+    // 立刻撤掉 is-dnd，避免 dragend 被吞时控件一直 pointer-events:none。
     setHint(null);
+    setDragging(false);
     if (!addr) return;
+    // getData 必须在 drop 里同步读取；改文档推迟到会话结束，见 afterNativeDrag。
     const paletteType = event.dataTransfer.getData(PALETTE_MIME);
     const movePath = event.dataTransfer.getData(MOVE_MIME);
-    if (paletteType) {
-      const node = createPaletteNode(paletteType, uniqueNodeId(screen, paletteType));
-      if (node) props.onInsertNode(addr, node);
-    } else if (movePath) {
+    const screenDoc = screen;
+    const insertNodeAt = props.onInsertNode;
+    const moveNodeTo = props.onMoveNode;
+    afterNativeDrag(() => {
+      if (paletteType) {
+        const node = createPaletteNode(paletteType, uniqueNodeId(screenDoc, paletteType));
+        if (node) insertNodeAt(addr, node);
+        return;
+      }
+      if (!movePath) return;
       // 拖到自身原位置（前/后）属于无效操作，先挡掉（其余守卫在 moveNode）。
       const from = parseNodeLocation(movePath);
       if (
@@ -181,8 +193,8 @@ export function Canvas(props: CanvasProps) {
       ) {
         return;
       }
-      props.onMoveNode(movePath, addr);
-    }
+      moveNodeTo(movePath, addr);
+    });
   };
 
   const drag: DragState = {
@@ -254,7 +266,9 @@ export function Canvas(props: CanvasProps) {
   return (
     <div className={`mc-frame mc-${presentation}`}>
       <div className="mc-titlebar">
-        <span>{resolveTemplateText(screen.title, scope)}</span>
+        <span>
+          <PreviewText value={screen.title} />
+        </span>
         <span className="mc-presentation">{presentation}</span>
       </div>
       <div
@@ -369,14 +383,24 @@ function SlotDropZone({
 function NodeBody({ node, path, scope, props, drag, onNodeContextMenu }: PreviewNodeProps) {
   switch (node.type) {
     case "header":
-      return <div className={`mc-header tone-${node.tone ?? "default"}`}>{resolveTemplateText(node.text, scope)}</div>;
+      return (
+        <div className={`mc-header tone-${node.tone ?? "default"}`}>
+          <PreviewText value={node.text} />
+        </div>
+      );
     case "text":
-      return <div className={`mc-text tone-${node.tone ?? "default"}`}>{resolveTemplateText(node.text, scope)}</div>;
+      return (
+        <div className={`mc-text tone-${node.tone ?? "default"}`}>
+          <PreviewText value={node.text} />
+        </div>
+      );
     case "info":
       return (
         <div className={`mc-info tone-${node.tone ?? "default"}`}>
           {node.items.map((item, index) => (
-            <div key={index}>{resolveTemplateText(item, scope)}</div>
+            <div key={index}>
+              <PreviewText value={item} />
+            </div>
           ))}
         </div>
       );
@@ -385,7 +409,9 @@ function NodeBody({ node, path, scope, props, drag, onNodeContextMenu }: Preview
       return (
         <div className="mc-image" style={{ width: node.width ?? 64 }}>
           <span className="mc-image-icon">🖼</span>
-          <span className="mc-image-alt">{node.alt ?? resolveTemplateText(node.source, scope)}</span>
+          <span className="mc-image-alt">
+            {node.alt ? <PreviewText value={node.alt} /> : <PreviewText value={node.source} />}
+          </span>
         </div>
       );
     case "divider":
@@ -458,15 +484,19 @@ function ButtonPreview({
     <button
       className={`mc-button tone-${node.tone ?? "default"}`}
       disabled={disabled}
-      title={node.tooltip ? resolveTemplateText(node.tooltip, scope) : undefined}
+      title={node.tooltip || undefined}
       onClick={(event) => {
         event.stopPropagation();
         if (!disabled) fireTrigger(node.trigger, scope, props, node);
       }}
     >
-      <span>{resolveTemplateText(node.label, scope)}</span>
+      <span>
+        <PreviewText value={node.label} />
+      </span>
       {node.description ? (
-        <span className="mc-button-desc">{resolveTemplateText(node.description, scope)}</span>
+        <span className="mc-button-desc">
+          <PreviewText value={node.description} />
+        </span>
       ) : null}
     </button>
   );
@@ -531,14 +561,12 @@ function InputPreview({
     node.disabledWhen !== undefined && evaluateCondition(node.disabledWhen, scope);
   const bindKey = node.bind.replace(/^state\./, "");
   const value = readPath(scope, node.bind);
-  const label = resolveTemplateText(node.label, scope);
-  const description = node.description
-    ? resolveTemplateText(node.description, scope)
-    : null;
 
   return (
     <label className={`mc-field${disabled ? " mc-disabled" : ""}`}>
-      <span className="mc-field-label">{label}</span>
+      <span className="mc-field-label">
+        <PreviewText value={node.label} />
+      </span>
       {node.type === "textField" ? (
         <input
           className="mc-input"
@@ -585,14 +613,20 @@ function InputPreview({
           onCommit={(next) => props.onUpdateState(bindKey, next)}
         />
       ) : null}
-      {description ? <span className="mc-field-desc">{description}</span> : null}
+      {node.description ? (
+        <span className="mc-field-desc">
+          <PreviewText value={node.description} />
+        </span>
+      ) : null}
     </label>
   );
 }
 
 /**
- * 滑杆用本地值跟手，松手再写入预览会话。
- * 否则 1–10000 这种跨度在拖过/拖动时会对 App 连发 setState，页面会卡死。
+ * 滑杆非受控：跟手只改 DOM，松手再写入预览会话。
+ *
+ * Chrome 点击宽跨度 range（如金库 1–100000）会按 step 对中间每一步派发 input；
+ * React 的 onChange 就是 native input。受控 setState 会把整页卡死。
  */
 function SliderPreview({
   node,
@@ -607,28 +641,49 @@ function SliderPreview({
 }) {
   const numeric = Number(value);
   const fallback = Number.isFinite(numeric) ? numeric : node.min;
-  const [local, setLocal] = useState(fallback);
-  useEffect(() => setLocal(fallback), [fallback]);
+  const digits = node.fixedFormatDigits ?? 0;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const fallbackRef = useRef(fallback);
+  fallbackRef.current = fallback;
+  const digitsRef = useRef(digits);
+  digitsRef.current = digits;
+  const queue = useMemo(
+    () =>
+      createLatestFrameQueue((next: number) => {
+        if (labelRef.current) labelRef.current.textContent = next.toFixed(digitsRef.current);
+      }),
+    [],
+  );
+  useEffect(() => () => queue.dispose(), [queue]);
+  // 会话值变化时同步非受控滑杆（松手 commit 之后）。
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.value = String(fallback);
+    if (labelRef.current) labelRef.current.textContent = fallback.toFixed(digits);
+  }, [fallback, digits]);
   const commit = () => {
-    if (local !== fallback) onCommit(local);
+    const next = Number(inputRef.current?.value);
+    if (!Number.isFinite(next) || next === fallbackRef.current) return;
+    onCommit(next);
   };
   return (
     <span className="mc-slider">
       <input
+        ref={inputRef}
         type="range"
         min={node.min}
         max={node.max}
         step={node.step ?? 1}
-        value={local}
+        defaultValue={fallback}
         disabled={disabled}
-        onChange={(event) => setLocal(Number(event.target.value))}
+        onInput={(event) => queue.push(Number(event.currentTarget.value))}
         onPointerUp={commit}
         onKeyUp={commit}
         onBlur={commit}
         onClick={(event) => event.stopPropagation()}
       />
-      <span className="mc-slider-value">
-        {local.toFixed(node.fixedFormatDigits ?? 0)}
+      <span ref={labelRef} className="mc-slider-value">
+        {fallback.toFixed(digits)}
       </span>
     </span>
   );
@@ -651,10 +706,48 @@ function EachPreview({
 }) {
   const source = readPath(scope, node.source);
   const items = Array.isArray(source) ? source : [];
-  if (items.length === 0) {
-    return (
-      <>
-        {(node.empty ?? []).map((child, index) => (
+  const hasItems = items.length > 0;
+  // 模板只画一份原型：有数据绑第一条，没数据用空对象，避免 N 份重复无法点选。
+  const prototype = hasItems && items[0] != null ? items[0] : {};
+  const templateScope = { ...scope, [node.as]: prototype };
+  const emptyNodes = node.empty ?? [];
+  return (
+    <div className="pv-each">
+      <EachSlot
+        path={path}
+        slotKey="template"
+        index={node.template.length}
+        inactive={!hasItems}
+        title="模板"
+        badge={hasItems ? `共 ${items.length} 条` : null}
+        emptyHint="空的循环模板，从组件库拖入"
+        isEmpty={node.template.length === 0}
+        drag={drag}
+      >
+        {node.template.map((child, childIndex) => (
+          <PreviewNode
+            key={child.id}
+            node={child}
+            path={`${path}/template/${childIndex}`}
+            scope={templateScope}
+            props={props}
+            drag={drag}
+            onNodeContextMenu={onNodeContextMenu}
+          />
+        ))}
+      </EachSlot>
+      <EachSlot
+        path={path}
+        slotKey="empty"
+        index={emptyNodes.length}
+        inactive={hasItems}
+        title="空态"
+        badge={null}
+        emptyHint="空态分支，从组件库拖入"
+        isEmpty={emptyNodes.length === 0}
+        drag={drag}
+      >
+        {emptyNodes.map((child, index) => (
           <PreviewNode
             key={child.id}
             node={child}
@@ -665,51 +758,53 @@ function EachPreview({
             onNodeContextMenu={onNodeContextMenu}
           />
         ))}
-        <SlotDropZone
-          path={path}
-          slotKey="empty"
-          index={(node.empty ?? []).length}
-          label="放入空态分支"
-          drag={drag}
-        />
-        <SlotDropZone
-          path={path}
-          slotKey="template"
-          index={node.template.length}
-          label="放入循环模板"
-          drag={drag}
-        />
-      </>
-    );
-  }
+      </EachSlot>
+    </div>
+  );
+}
+
+/** each 的一个槽位：整块可投放（追加），未生效时变灰但仍可编辑。 */
+function EachSlot({
+  path,
+  slotKey,
+  index,
+  inactive,
+  title,
+  badge,
+  emptyHint,
+  isEmpty,
+  drag,
+  children,
+}: {
+  path: string;
+  slotKey: string;
+  index: number;
+  inactive: boolean;
+  title: string;
+  badge: string | null;
+  emptyHint: string;
+  isEmpty: boolean;
+  drag: DragState;
+  children: ReactNode;
+}) {
   return (
-    <>
-      {items.map((item, index) => {
-        // each.as 别名仅对模板内可见。
-        const childScope = { ...scope, [node.as]: item };
-        return (
-          <div className="mc-each-item" key={index}>
-            {node.template.map((child, childIndex) => (
-              <PreviewNode
-                key={child.id}
-                node={child}
-                path={`${path}/template/${childIndex}`}
-                scope={childScope}
-                props={props}
-                drag={drag}
-                onNodeContextMenu={onNodeContextMenu}
-              />
-            ))}
-          </div>
-        );
-      })}
+    <div
+      className={`pv-each-slot${inactive ? " pv-inactive" : ""}`}
+      onDragOver={(event) => drag.overSlot(event, path, slotKey, index)}
+      onDrop={(event) => drag.dropOnSlot(event, path, slotKey, index)}
+    >
+      <div className="pv-each-label">
+        <span>{title}</span>
+        {badge ? <span className="pv-each-badge">{badge}</span> : null}
+      </div>
+      {isEmpty ? <div className="pv-branch-empty">{emptyHint}</div> : children}
       <SlotDropZone
         path={path}
-        slotKey="template"
-        index={node.template.length}
-        label="放入循环模板"
+        slotKey={slotKey}
+        index={index}
+        label={slotKey === "template" ? "放入循环模板" : "放入空态分支"}
         drag={drag}
       />
-    </>
+    </div>
   );
 }

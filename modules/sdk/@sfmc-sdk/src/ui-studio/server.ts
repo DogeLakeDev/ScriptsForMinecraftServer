@@ -5,6 +5,7 @@
  * 通过 zip 导入导出，不再读写磁盘上的真实模块目录。
  * 本服务因此只负责把构建产物（dist/ui-studio-web）托管到回环地址：
  * - 仅监听 127.0.0.1，不暴露到局域网；
+ * - 默认固定端口 3003（UI_STUDIO_DEFAULT_PORT），保证浏览器 IndexedDB origin 跨次启动稳定；
  * - 无任何 API 与写操作，不需要会话令牌；
  * - 静态读取限定在 webRoot 内；
  * - 不向任何外部服务发送数据。
@@ -18,8 +19,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+/** Studio 默认监听端口。必须固定：IndexedDB 按 origin（含端口）隔离，随机端口会导致工程「消失」。 */
+export const UI_STUDIO_DEFAULT_PORT = 3003;
+
 export interface UiStudioServerOptions {
-  /** 监听端口；0 表示随机。 */
+  /** 监听端口；缺省为 UI_STUDIO_DEFAULT_PORT。显式传 0 表示随机（仅测试隔离用）。 */
   port?: number;
   /** 前端静态资源目录；默认取构建产物 dist/ui-studio-web。 */
   webRoot?: string;
@@ -70,9 +74,21 @@ export async function startUiStudioServer(
     });
   });
 
+  const requestedPort = options.port ?? UI_STUDIO_DEFAULT_PORT;
   const port = await new Promise<number>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(options.port ?? 0, "127.0.0.1", () => {
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      server.close();
+      if (error.code === "EADDRINUSE") {
+        reject(
+          new Error(
+            `端口 ${requestedPort} 已被占用。UI Studio 使用固定端口以保证浏览器 IndexedDB 工程不因 origin 变化而丢失；请关闭占用该端口的进程后重试。`,
+          ),
+        );
+        return;
+      }
+      reject(error);
+    });
+    server.listen(requestedPort, "127.0.0.1", () => {
       const address = server.address();
       if (address && typeof address === "object") resolve(address.port);
       else reject(new Error("无法确定监听端口"));

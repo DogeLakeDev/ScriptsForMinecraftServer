@@ -10,8 +10,12 @@ import { createRoot } from "react-dom/client";
 import { useCallback, useEffect, useState } from "react";
 import { App } from "./App";
 import { ProjectList } from "./pages/ProjectList";
+import { syncDocumentTheme } from "./theme";
 import "./theme.css";
 import "./styles.css";
+
+// HMR / 无内联脚本时补一次，正常加载由 index.html 抢先设置以免闪屏。
+syncDocumentTheme();
 
 /** 解析 location.hash 为路由。 */
 function parseRoute(): { name: "list" } | { name: "editor"; projectId: string } {

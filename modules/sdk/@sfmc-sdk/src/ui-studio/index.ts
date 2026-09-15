@@ -4,7 +4,7 @@
  * 供 CLI（sfmc ui studio）启动本地编辑服务；
  * 求值器同时被浏览器端预览复用，保持与 Runtime 同一份语义。
  */
-export { startUiStudioServer } from "./server.js";
+export { startUiStudioServer, UI_STUDIO_DEFAULT_PORT } from "./server.js";
 export type {
   UiStudioServerHandle,
   UiStudioServerOptions,
@@ -25,6 +25,7 @@ export {
   resolveTemplate,
   resolveTemplateJson,
   resolveTemplateText,
+  splitTemplateParts,
   toDisplayText,
 } from "./shared/evaluate.js";
-export type { UiEvaluateScope } from "./shared/evaluate.js";
+export type { TemplatePart, UiEvaluateScope } from "./shared/evaluate.js";

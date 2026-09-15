@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, FolderOpen, FolderUp, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ThemeToggle } from "../components/ThemeToggle";
 import {
   createProject,
   newProjectId,
@@ -113,6 +114,7 @@ export function ProjectList({ onOpen }: ProjectListProps) {
         <button className="btn btn-primary" onClick={() => void createNew()}>
           <Plus size={14} /> 新建项目
         </button>
+        <ThemeToggle />
         <input
           ref={importInputRef}
           type="file"

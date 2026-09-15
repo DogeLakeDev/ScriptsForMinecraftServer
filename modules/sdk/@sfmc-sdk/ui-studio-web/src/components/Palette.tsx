@@ -1,4 +1,5 @@
 import { nodeTypeIcon, type NodeIcon } from "./node-icons";
+import { DragHandle } from "./DragHandle";
 
 /** 组件库拖拽的 dataTransfer 类型；画布内移动另用 MOVE_MIME。 */
 export const PALETTE_MIME = "application/x-sfmc-palette";
@@ -43,16 +44,14 @@ export function Palette() {
         {PALETTE_ITEMS.map((item) => {
           const Icon: NodeIcon = nodeTypeIcon(item.type);
           return (
-            <div
-              key={item.type}
-              className="palette-item"
-              draggable
-              title="拖到画布插入"
-              onDragStart={(event) => {
-                event.dataTransfer.setData(PALETTE_MIME, item.type);
-                event.dataTransfer.effectAllowed = "copy";
-              }}
-            >
+            <div key={item.type} className="palette-item" data-drag-ghost>
+              <DragHandle
+                label="拖到画布插入"
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(PALETTE_MIME, item.type);
+                  event.dataTransfer.effectAllowed = "copy";
+                }}
+              />
               <Icon size={14} strokeWidth={1.8} />
               <span>{item.label}</span>
             </div>

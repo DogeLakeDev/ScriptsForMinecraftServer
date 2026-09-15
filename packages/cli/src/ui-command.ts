@@ -7,7 +7,8 @@
  *
  * Studio 是项目化的纯浏览器应用：工程存于浏览器 IndexedDB，
  * 通过 zip 导入导出，不依赖磁盘上的真实模块目录。
- * 服务实现为 @sfmc-bds/sdk/ui-studio 的纯静态托管，本文件只负责命令行装配。
+ * 服务实现为 @sfmc-bds/sdk/ui-studio 的纯静态托管（默认 127.0.0.1:3003），
+ * 本文件只负责命令行装配。
  */
 import { spawn } from "node:child_process";
 import {

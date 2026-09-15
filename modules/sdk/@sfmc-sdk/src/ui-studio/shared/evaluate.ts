@@ -23,6 +23,32 @@ const EXACT_BINDING =
 const BINDING =
   /\{\{\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\}\}/g;
 
+/** 模板拆段：静态文本，或原样保留的 {{path}}（预览高亮用）。 */
+export type TemplatePart =
+  | { kind: "text"; text: string }
+  | { kind: "bind"; raw: string; path: string };
+
+/**
+ * 按 {{path}} 切开模板，绑定片段保留原文（含花括号与空白）。
+ * 不求值；Runtime 仍走 resolveTemplate。Studio 预览用此函数给变量加高亮。
+ */
+export function splitTemplateParts(value: string): TemplatePart[] {
+  const parts: TemplatePart[] = [];
+  const re = new RegExp(BINDING.source, "g");
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(value)) !== null) {
+    if (match.index > last) {
+      parts.push({ kind: "text", text: value.slice(last, match.index) });
+    }
+    parts.push({ kind: "bind", raw: match[0], path: match[1]! });
+    last = match.index + match[0].length;
+  }
+  if (last < value.length) parts.push({ kind: "text", text: value.slice(last) });
+  if (parts.length === 0) parts.push({ kind: "text", text: value });
+  return parts;
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

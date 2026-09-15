@@ -2,7 +2,7 @@
  * theme.css — UI Studio 设计令牌。
  *
  * 颜色令牌提取自 Figma「MCP Apps for Claude」kit（CC BY 4.0，Anthropic 设计团队），
- * 含 light / dark 双模式；编辑器默认 dark。
+ * 含 light / dark 双模式；默认跟随系统，可在顶栏手动覆盖。
  * 提取工具与原始数据见 _sfmc-smoke/design-tokens.json（不随包发布）。
  *
  * 注意：token 语义名与 kit 保持一致（color-background-primary 等），

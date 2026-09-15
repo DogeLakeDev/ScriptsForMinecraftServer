@@ -58,6 +58,7 @@ import { Canvas } from "./components/Canvas";
 import { Inspector } from "./components/Inspector";
 import { Diagnostics } from "./components/Diagnostics";
 import { HeaderMenu } from "./components/HeaderMenu";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 /** 预览导航栈条目：一次跳转产生的页面与参数。 */
 interface NavEntry {
@@ -628,6 +629,7 @@ function ProjectEditor({
         >
           <Redo2 size={15} />
         </button>
+        <ThemeToggle />
         <input
           ref={manifestInputRef}
           type="file"

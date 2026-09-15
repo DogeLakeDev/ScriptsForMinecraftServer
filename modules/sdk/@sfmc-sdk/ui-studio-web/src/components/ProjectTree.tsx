@@ -5,7 +5,7 @@
  * - Feature：feature.ui.json（点击编辑模块级声明）；
  * - 页面：feature 声明的页面文件，可展开组件树；
  *   支持新建 / 重命名 / 复制 / 删除（自动同步 feature.screens 引用）；
- *   组件树节点可拖放重排（上/下插入，when/each 中部放入容器）；
+ *   组件树节点通过行首六点抓手拖放重排（上/下插入，when/each 中部放入容器）；
  * - 其他文件：未登记为页面的 JSON 文件（如预览 fixture），可查看/删除。
  */
 
@@ -24,6 +24,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { DragHandle } from "./DragHandle";
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { nodeTypeIcon } from "./node-icons";
 import {
@@ -554,13 +555,16 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
           (treeDrag.dragPath === path ? " dragging" : "") +
           (hintHere ? ` drop-${hintHere}` : "")
         }
-        draggable
-        onDragStart={(event) => treeDrag.start(event, path)}
+        data-drag-ghost
         onDragOver={(event) => treeDrag.over(event, path, node)}
         onDrop={(event) => treeDrag.drop(event, path, node)}
         onDragEnd={() => treeDrag.end()}
         onContextMenu={(event) => onNodeMenu(event, path)}
       >
+        <DragHandle
+          label="拖动以重排"
+          onDragStart={(event) => treeDrag.start(event, path)}
+        />
         {hasChildren ? (
           <button
             type="button"
