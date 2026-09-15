@@ -32,7 +32,10 @@ import { mergeSectionVisible } from "./form-visible.js";
 import { Msg } from "./msg.js";
 import { popHistory, pushOrRewind, replaceOrRewind } from "./nav-stack.js";
 import { stripDduiButtonFormatting } from "./ui-text.js";
-import { confirmChallengeMatches } from "../../ui-studio/shared/confirm-challenge.js";
+import {
+  confirmChallengeMatches,
+  confirmChallengePrompt,
+} from "../../ui-studio/shared/confirm-challenge.js";
 
 export { mergeSectionVisible } from "./form-visible.js";
 export { popHistory, pushOrRewind, replaceOrRewind } from "./nav-stack.js";
@@ -266,7 +269,7 @@ export class MenuNavigator {
     typed.subscribe(() => syncBlocked());
     const form = new CustomFormCtor(this.player, titleObs);
     form.label(body);
-    form.textField("请输入以确认", typed, { placeholder: challenge } as TextFieldOptions);
+    form.textField(confirmChallengePrompt(challenge), typed);
     let accepted = false;
     form.button(stripDduiButtonFormatting(confirm), () => {
       accepted = true;

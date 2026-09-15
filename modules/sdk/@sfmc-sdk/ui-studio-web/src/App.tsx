@@ -37,7 +37,10 @@ import {
 import { deriveView } from "./derived";
 import { useFileDrafts } from "./draft";
 import { initialSession, type PreviewSession } from "./scope";
-import { confirmChallengeMatches } from "../../src/ui-studio/shared/confirm-challenge.js";
+import {
+  confirmChallengeMatches,
+  confirmChallengePrompt,
+} from "../../src/ui-studio/shared/confirm-challenge.js";
 import { getProject, putProject } from "./store/db";
 import {
   addScreen,
@@ -680,7 +683,7 @@ function ProjectEditor({
             {actionPreview.confirmView.challenge ? (
               <label className="insp-field">
                 <span className="insp-label">
-                  请输入「{actionPreview.confirmView.challenge}」以确认
+                  {confirmChallengePrompt(actionPreview.confirmView.challenge)}
                 </span>
                 <input
                   className="insp-input"

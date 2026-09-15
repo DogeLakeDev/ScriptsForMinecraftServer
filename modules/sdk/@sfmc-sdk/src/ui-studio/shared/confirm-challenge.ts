@@ -20,3 +20,7 @@ export function effectiveConfirmChallenge(resolved: unknown): string | undefined
 export function confirmChallengeMatches(typed: string, expected: string): boolean {
   return typed.trim() === expected.trim();
 }
+
+export function confirmChallengePrompt(challenge: string): string {
+  return `请输入「${challenge}」以确认`;
+}

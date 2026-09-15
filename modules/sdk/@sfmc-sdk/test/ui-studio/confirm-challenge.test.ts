@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   confirmChallengeMatches,
+  confirmChallengePrompt,
   effectiveConfirmChallenge,
 } from "../../src/ui-studio/shared/confirm-challenge.ts";
 
@@ -22,4 +23,11 @@ test("匹配两端 trim，区分大小写", () => {
   assert.equal(confirmChallengeMatches("确认退出", "  确认退出  "), true);
   assert.equal(confirmChallengeMatches("Confirm", "confirm"), false);
   assert.equal(confirmChallengeMatches("确认", "确认退出"), false);
+});
+
+test("提示文案把校验文本放在请输入之后", () => {
+  assert.equal(
+    confirmChallengePrompt("我确认解散该合作社"),
+    "请输入「我确认解散该合作社」以确认",
+  );
 });

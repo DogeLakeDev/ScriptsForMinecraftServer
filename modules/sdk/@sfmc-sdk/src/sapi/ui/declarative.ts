@@ -43,6 +43,11 @@ import {
   customFormImageArgs,
   customFormImageOptions,
 } from "./ddui-widgets.js";
+import {
+  bindNumberTextField,
+  formatNumberFieldText,
+  type NumberFieldLimits,
+} from "./number-text-field.js";
 import { effectiveConfirmChallenge } from "../../ui-studio/shared/confirm-challenge.js";
 import { resolveDropdownOptions } from "../../ui-studio/shared/evaluate.js";
 
@@ -116,6 +121,7 @@ type RuntimeSession = {
   params: Map<string, JsonObject>;
   data: Map<string, JsonObject>;
   bindings: Map<string, StateBinding>;
+  numberTextViews: Map<string, ObservableString>;
   disabledControls: Map<string, ObservableBoolean>;
   toggleWatch: Map<string, ToggleWatch>;
 };
@@ -599,6 +605,50 @@ function bindName(node: JsonObject): string {
   return value.startsWith("state.") ? value.slice("state.".length) : value;
 }
 
+function stateNumberLimits(screen: JsonObject, name: string): NumberFieldLimits {
+  const definitions = isObject(screen.state) ? screen.state : {};
+  const definition = isObject(definitions[name]) ? definitions[name] : {};
+  const limits: NumberFieldLimits = {};
+  if (typeof definition.min === "number") limits.min = definition.min;
+  if (typeof definition.max === "number") limits.max = definition.max;
+  if (typeof definition.step === "number") limits.step = definition.step;
+  return limits;
+}
+
+function ensureNumberTextView(
+  session: RuntimeSession,
+  screen: JsonObject,
+  name: string,
+  binding: Extract<StateBinding, { kind: "number" }>,
+): ObservableString {
+  const key = `${text(screen.id)}:${name}:text`;
+  const existing = session.numberTextViews.get(key);
+  if (existing) return existing;
+  const control = obsStr(formatNumberFieldText(binding.get()));
+  bindNumberTextField(binding.control, control, stateNumberLimits(screen, name));
+  session.numberTextViews.set(key, control);
+  return control;
+}
+
+function textFieldControl(
+  session: RuntimeSession,
+  screen: JsonObject,
+  name: string,
+): ObservableString {
+  const key = `${text(screen.id)}:${name}`;
+  const binding =
+    session.bindings.get(key) ??
+    ensureStateBinding(session, screen, name) ??
+    stringBinding(session, screen, name);
+  if (binding.kind === "number") {
+    return ensureNumberTextView(session, screen, name, binding);
+  }
+  if (binding.kind === "string") {
+    return binding.control;
+  }
+  return obsStr(text(binding.get()));
+}
+
 type NavExt = MenuNavigator & {
   stack?: () => readonly string[];
   setOnBack?: (handler: () => void) => MenuNavigator;
@@ -973,8 +1023,7 @@ function renderNodes(
         page.spacer();
         break;
       case "textField": {
-        const binding = stringBinding(session, screen, bindName(rawNode));
-        const control = binding.control as ObservableString;
+        const control = textFieldControl(session, screen, bindName(rawNode));
         applyCustomFormTextPlaceholder(
           control,
           boundText(rawNode.placeholder, scope),
@@ -1144,6 +1193,7 @@ export async function openDeclarativeScreen(
     params: new Map([[screenId, params]]),
     data: new Map(),
     bindings: new Map(),
+    numberTextViews: new Map(),
     disabledControls: new Map(),
     toggleWatch: new Map(),
   };

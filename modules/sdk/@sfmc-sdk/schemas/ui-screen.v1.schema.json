@@ -430,6 +430,11 @@
           "type": "object",
           "properties": {
             "type": { "const": "textField" },
+            "bind": {
+              "type": "string",
+              "pattern": "^state\\.[A-Za-z_][A-Za-z0-9_]*$",
+              "description": "state.*；string 或 number 均可。number 时与 slider 共用同一数字绑定，运行时投影为输入框字符串"
+            },
             "placeholder": {
               "$ref": "#/$defs/templateString",
               "description": "空绑定时写入 CustomForm.textField 的 text，作为占位内容，支持 {{path}}"
