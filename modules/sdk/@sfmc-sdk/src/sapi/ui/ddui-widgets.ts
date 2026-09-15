@@ -4,7 +4,7 @@
  * 按钮不能用 § 色码（DDUI 会剥掉），tone 改成剥离后仍可见的前缀标记。
  */
 
-import type { ObservableBoolean } from "@minecraft/server-ui";
+import type { ObservableBoolean, ObservableString } from "@minecraft/server-ui";
 
 export type CustomFormImageArgs = {
   src: string;
@@ -73,6 +73,10 @@ export function customFormButtonTooltip(node: {
 
 export type CustomFormDisabled = boolean | ObservableBoolean;
 
+/**
+ * 声明式输入控件映射到 CustomForm 控件 options（description / tooltip / disabled）。
+ * textField 占位走第二参 text，不走 options。
+ */
 export type CustomFormFieldOptions = {
   description?: string;
   tooltip?: string;
@@ -80,7 +84,21 @@ export type CustomFormFieldOptions = {
   fixedFormatDigits?: number;
 };
 
-/** 输入控件：description 与 tooltip 分列；disabled 为 Observable 时原样下传。 */
+/**
+ * CustomForm.textField 的 text 就是输入框当前值。
+ * 绑定为空时写入提示，引擎会把它显示成占位文本。
+ */
+export function applyCustomFormTextPlaceholder(
+  text: ObservableString,
+  placeholder: string | undefined,
+): void {
+  if (!placeholder) return;
+  const current = text.getData();
+  if (current !== undefined && current !== null && String(current) !== "") return;
+  text.setData(placeholder);
+}
+
+/** 输入控件：description / tooltip 分列；disabled 为 Observable 时原样下传。 */
 export function customFormFieldOptions(args: {
   description?: string | undefined;
   tooltip?: string | undefined;

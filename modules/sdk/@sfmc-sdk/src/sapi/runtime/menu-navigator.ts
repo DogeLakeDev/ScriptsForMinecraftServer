@@ -5,7 +5,7 @@
  * - 多分段（section）动态渲染与可视状态（ObservableBoolean）无缝切换
  * - 页面路由历史栈（start / rebuild / go / back / replace）
  * - 异步任务状态提示（FormStatus）与并发互斥保护
- * - 原生 MessageBox 确认框集成与超时防卡死轮询
+ * - 原生 MessageBox 确认框、校验文本 CustomForm 确认与超时防卡死轮询
  */
 
 import { Player, system } from "@minecraft/server";
@@ -32,6 +32,7 @@ import { mergeSectionVisible } from "./form-visible.js";
 import { Msg } from "./msg.js";
 import { popHistory, pushOrRewind, replaceOrRewind } from "./nav-stack.js";
 import { stripDduiButtonFormatting } from "./ui-text.js";
+import { confirmChallengeMatches } from "../../ui-studio/shared/confirm-challenge.js";
 
 export { mergeSectionVisible } from "./form-visible.js";
 export { popHistory, pushOrRewind, replaceOrRewind } from "./nav-stack.js";
@@ -233,6 +234,55 @@ export class MenuNavigator {
           continue;
         }
         return result.closeReason === DataDrivenScreenClosedReasonEnum?.ClientClosed && result.selection === 0;
+      } catch {
+        await system.waitTicks(2);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 弹出带校验文本的确认表单：输入与 challenge 匹配前确认按钮禁用。
+   * 取消、关闭或超时返回 false（与 confirmMessage 一致）。
+   */
+  async confirmChallenge(
+    title: string,
+    body: string,
+    challenge: string,
+    confirm = "确认",
+    cancel = "取消",
+  ): Promise<boolean> {
+    if (this.form?.isShowing()) this.form.close();
+    if (!CustomFormCtor || !ObservableStringCtor || !ObservableBooleanCtor) {
+      throw new Error("当前环境下的 @minecraft/server-ui 不支持 CustomForm (DDUI)，请在支持 DDUI 的 BDS 版本运行");
+    }
+    const titleObs = new ObservableStringCtor(title);
+    const typed = obsStr("");
+    // 禁用标志由服务端根据输入同步，不给客户端写权限。
+    const blocked = new ObservableBooleanCtor(true);
+    const syncBlocked = () => {
+      blocked.setData(!confirmChallengeMatches(typed.getData(), challenge));
+    };
+    typed.subscribe(() => syncBlocked());
+    const form = new CustomFormCtor(this.player, titleObs);
+    form.label(body);
+    form.textField("请输入以确认", typed, { placeholder: challenge } as TextFieldOptions);
+    let accepted = false;
+    form.button(stripDduiButtonFormatting(confirm), () => {
+      accepted = true;
+    }, { disabled: blocked });
+    form.button(stripDduiButtonFormatting(cancel), () => {
+      accepted = false;
+    });
+    form.closeButton();
+    for (let i = 0; i < 20; i++) {
+      try {
+        const reason = await form.show();
+        if (reason === DataDrivenScreenClosedReasonEnum?.UserBusy) {
+          await system.waitTicks(10);
+          continue;
+        }
+        return accepted;
       } catch {
         await system.waitTicks(2);
       }

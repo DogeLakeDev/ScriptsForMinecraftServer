@@ -113,6 +113,17 @@ function requireString(value: unknown, path: string, issues: UiValidationIssue[]
   return false;
 }
 
+/**
+ * 必须是字符串，允许空串。
+ * 用于 trigger.action / trigger.to：Studio 切换类型时会先提交空串作为编辑中间态，
+ * 非空与是否指向已声明动作/页面改由 compileUiProject 的语义检查负责。
+ */
+function requireStringAllowEmpty(value: unknown, path: string, issues: UiValidationIssue[]): value is string {
+  if (typeof value === "string") return true;
+  issue(issues, path, "invalid_type", "必须是字符串");
+  return false;
+}
+
 function optionalString(value: unknown, path: string, issues: UiValidationIssue[]): void {
   if (value !== undefined && typeof value !== "string") {
     issue(issues, path, "invalid_type", "必须是字符串");
@@ -312,6 +323,14 @@ function validateAction(
     if (value.confirm.danger !== undefined && typeof value.confirm.danger !== "boolean") {
       issue(issues, `${path}/confirm/danger`, "invalid_type", "必须是布尔值");
     }
+    // challenge 允许空串（Studio 清空即删键）；非空时按模板校验 {{path}}。
+    if (value.confirm.challenge !== undefined) {
+      if (typeof value.confirm.challenge !== "string") {
+        issue(issues, `${path}/confirm/challenge`, "invalid_type", "必须是字符串");
+      } else if (value.confirm.challenge.trim() !== "") {
+        validateTemplate(value.confirm.challenge, `${path}/confirm/challenge`, scope, issues);
+      }
+    }
   }
   validateServiceCall(value.call, `${path}/call`, scope, issues);
   for (const field of ["onSuccess", "onError"] as const) {
@@ -331,14 +350,14 @@ function validateTrigger(value: unknown, path: string, scope: ReferenceScope, is
   if (!requireString(value.type, `${path}/type`, issues)) return false;
   switch (value.type) {
     case "action":
-      requireString(value.action, `${path}/action`, issues);
+      requireStringAllowEmpty(value.action, `${path}/action`, issues);
       if (value.input !== undefined && requireObject(value.input, `${path}/input`, issues)) {
         validateJsonBindings(value.input, `${path}/input`, scope, issues);
       }
       break;
     case "navigate":
     case "replace":
-      requireString(value.to, `${path}/to`, issues);
+      requireStringAllowEmpty(value.to, `${path}/to`, issues);
       if (value.params !== undefined && requireObject(value.params, `${path}/params`, issues)) {
         validateJsonBindings(value.params, `${path}/params`, scope, issues);
       }
@@ -348,7 +367,7 @@ function validateTrigger(value: unknown, path: string, scope: ReferenceScope, is
     case "close":
       break;
     default:
-      issue(issues, `${path}/type`, "invalid_value", "不是允许的按钮触发器");
+      issue(issues, `${path}/type`, "invalid_value", "不是允许的触发器");
   }
   return true;
 }
@@ -360,6 +379,79 @@ function validateBind(value: unknown, path: string, scope: ReferenceScope, issue
     return;
   }
   validateReference(value, path, scope, issues);
+}
+
+/**
+ * 开关绑定：`state.*`，或当前 each 别名下的字段（如 `channel.subscribed`）。
+ * 使用场景：列表行上的即时订阅开关，避免固定槽位。
+ */
+function validateToggleBind(
+  value: unknown,
+  path: string,
+  scope: ReferenceScope,
+  issues: UiValidationIssue[],
+): void {
+  if (!requireString(value, path, issues)) return;
+  const root = value.split(".")[0] ?? "";
+  if (!root || !value.includes(".")) {
+    issue(issues, path, "invalid_value", "开关绑定必须是点分路径");
+    return;
+  }
+  if (root === "state") {
+    validateReference(value, path, scope, issues);
+    return;
+  }
+  if (scope.aliases.has(root)) {
+    validateReference(value, path, scope, issues);
+    return;
+  }
+  issue(issues, path, "invalid_value", "开关只能绑定 state.* 或 each 条目字段");
+}
+
+/**
+ * 下拉 options：静态非空数组，或 source/as/label/value 数据源（对齐 each）。
+ */
+function validateDropdownOptions(
+  value: unknown,
+  path: string,
+  scope: ReferenceScope,
+  issues: UiValidationIssue[],
+): void {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      issue(issues, path, "invalid_type", "必须是非空选项数组或数据源对象");
+      return;
+    }
+    value.forEach((option, index) => {
+      const optionPath = `${path}/${index}`;
+      if (!requireObject(option, optionPath, issues)) return;
+      requireString(option.label, `${optionPath}/label`, issues);
+      if (typeof option.value !== "string" && typeof option.value !== "number") {
+        issue(issues, `${optionPath}/value`, "invalid_type", "必须是字符串或数字");
+      }
+      optionalString(option.description, `${optionPath}/description`, issues);
+      if (typeof option.description === "string") {
+        validateTemplate(option.description, `${optionPath}/description`, scope, issues);
+      }
+    });
+    return;
+  }
+  if (!requireObject(value, path, issues)) return;
+  if (requireString(value.source, `${path}/source`, issues)) {
+    validateReference(value.source, `${path}/source`, scope, issues);
+  }
+  const alias = validateIdentifier(value.as, `${path}/as`, issues) ? value.as : "item";
+  const nested = childScope(scope, alias);
+  if (requireString(value.label, `${path}/label`, issues)) {
+    validateTemplate(value.label, `${path}/label`, nested, issues);
+  }
+  if (requireString(value.value, `${path}/value`, issues)) {
+    validateTemplate(value.value, `${path}/value`, nested, issues);
+  }
+  optionalString(value.description, `${path}/description`, issues);
+  if (typeof value.description === "string") {
+    validateTemplate(value.description, `${path}/description`, nested, issues);
+  }
 }
 
 function validateNode(
@@ -448,13 +540,25 @@ function validateNode(
       validateTrigger(value.trigger, `${path}/trigger`, scope, issues);
       break;
     case "textField":
-    case "toggle":
       text("label");
       description();
       tooltip();
       disabledWhen();
       validateBind(value.bind, `${path}/bind`, scope, issues);
-      if (value.type === "textField") optionalString(value.placeholder, `${path}/placeholder`, issues);
+      optionalString(value.placeholder, `${path}/placeholder`, issues);
+      if (typeof value.placeholder === "string") {
+        validateTemplate(value.placeholder, `${path}/placeholder`, scope, issues);
+      }
+      break;
+    case "toggle":
+      text("label");
+      description();
+      tooltip();
+      disabledWhen();
+      validateToggleBind(value.bind, `${path}/bind`, scope, issues);
+      if (value.trigger !== undefined) {
+        validateTrigger(value.trigger, `${path}/trigger`, scope, issues);
+      }
       break;
     case "dropdown":
       text("label");
@@ -462,22 +566,7 @@ function validateNode(
       tooltip();
       disabledWhen();
       validateBind(value.bind, `${path}/bind`, scope, issues);
-      if (!Array.isArray(value.options) || value.options.length === 0) {
-        issue(issues, `${path}/options`, "invalid_type", "必须是非空选项数组");
-      } else {
-        value.options.forEach((option, index) => {
-          const optionPath = `${path}/options/${index}`;
-          if (!requireObject(option, optionPath, issues)) return;
-          requireString(option.label, `${optionPath}/label`, issues);
-          if (typeof option.value !== "string" && typeof option.value !== "number") {
-            issue(issues, `${optionPath}/value`, "invalid_type", "必须是字符串或数字");
-          }
-          optionalString(option.description, `${optionPath}/description`, issues);
-          if (typeof option.description === "string") {
-            validateTemplate(option.description, `${optionPath}/description`, scope, issues);
-          }
-        });
-      }
+      validateDropdownOptions(value.options, `${path}/options`, scope, issues);
       break;
     case "slider":
       text("label");
@@ -685,11 +774,19 @@ function collectNodeSemantics(
   nodes.forEach((node, index) => {
     const nodePath = `${path}/${index}`;
     if (node.type === "button") {
-      if (node.trigger.type === "action" && !actions.has(node.trigger.action)) {
-        issue(issues, `${nodePath}/trigger/action`, "unknown_action", `未声明动作 ${node.trigger.action}`);
+      if (node.trigger.type === "action") {
+        if (!node.trigger.action) {
+          issue(issues, `${nodePath}/trigger/action`, "invalid_value", "必须指定动作");
+        } else if (!actions.has(node.trigger.action)) {
+          issue(issues, `${nodePath}/trigger/action`, "unknown_action", `未声明动作 ${node.trigger.action}`);
+        }
       }
-      if ((node.trigger.type === "navigate" || node.trigger.type === "replace") && !screens.has(node.trigger.to)) {
-        issue(issues, `${nodePath}/trigger/to`, "unknown_screen", `未声明页面 ${node.trigger.to}`);
+      if (node.trigger.type === "navigate" || node.trigger.type === "replace") {
+        if (!node.trigger.to) {
+          issue(issues, `${nodePath}/trigger/to`, "invalid_value", "必须指定目标页面");
+        } else if (!screens.has(node.trigger.to)) {
+          issue(issues, `${nodePath}/trigger/to`, "unknown_screen", `未声明页面 ${node.trigger.to}`);
+        }
       }
     }
     if (node.type === "when") collectNodeSemantics(node.content, `${nodePath}/content`, actions, screens, issues);

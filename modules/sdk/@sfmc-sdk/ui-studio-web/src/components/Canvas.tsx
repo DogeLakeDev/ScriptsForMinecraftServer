@@ -21,10 +21,13 @@ import type {
 import {
   evaluateCondition,
   readPath,
+  resolveDropdownOptions,
   resolveTemplateJson,
+  resolveTemplateText,
   toDisplayText,
   type UiEvaluateScope,
 } from "../../../src/ui-studio/shared/evaluate.js";
+import { effectiveConfirmChallenge } from "../../../src/ui-studio/shared/confirm-challenge.js";
 import { parseNodeLocation, uniqueNodeId, type InsertAddress } from "../model";
 import type { PreviewFixture, Selection } from "../model";
 import { buildScope, type PreviewSession } from "../scope";
@@ -487,7 +490,7 @@ function ButtonPreview({
       title={node.tooltip || undefined}
       onClick={(event) => {
         event.stopPropagation();
-        if (!disabled) fireTrigger(node.trigger, scope, props, node);
+        if (!disabled) fireTrigger(node.trigger, scope, props);
       }}
     >
       <span>
@@ -507,7 +510,6 @@ function fireTrigger(
   trigger: UiTrigger,
   scope: UiEvaluateScope,
   props: CanvasProps,
-  node: Extract<UiNode, { type: "button" }>,
 ): void {
   switch (trigger.type) {
     case "navigate":
@@ -529,11 +531,25 @@ function fireTrigger(
     case "action": {
       const action = props.screen.actions?.[trigger.action];
       if (!action) return;
+      const confirm = action.confirm;
+      const confirmView = confirm
+        ? {
+            title: resolveTemplateText(confirm.title, scope) || "确认",
+            body: resolveTemplateText(confirm.body, scope),
+            confirmText: confirm.confirmText?.trim() || "确认",
+            cancelText: confirm.cancelText?.trim() || "取消",
+            challenge: effectiveConfirmChallenge(
+              resolveTemplateText(confirm.challenge ?? "", scope),
+            ),
+            danger: confirm.danger === true,
+          }
+        : undefined;
       props.onAction({
         screenId: props.screen.id,
         actionId: trigger.action,
         action,
         input: resolveTemplateJson(trigger.input ?? {}, scope),
+        confirmView,
       });
       return;
     }
@@ -559,8 +575,15 @@ function InputPreview({
 }) {
   const disabled =
     node.disabledWhen !== undefined && evaluateCondition(node.disabledWhen, scope);
+  const stateBind = node.bind.startsWith("state.");
   const bindKey = node.bind.replace(/^state\./, "");
   const value = readPath(scope, node.bind);
+  const dropdownOptions =
+    node.type === "dropdown" ? resolveDropdownOptions(node.options, scope) : [];
+  const [localChecked, setLocalChecked] = useState(Boolean(value));
+  useEffect(() => {
+    setLocalChecked(Boolean(value));
+  }, [value]);
 
   return (
     <label className={`mc-field${disabled ? " mc-disabled" : ""}`}>
@@ -572,7 +595,11 @@ function InputPreview({
           className="mc-input"
           type="text"
           value={toDisplayText(value)}
-          placeholder={node.placeholder}
+          placeholder={
+            node.placeholder
+              ? resolveTemplateText(node.placeholder, scope)
+              : undefined
+          }
           disabled={disabled}
           onChange={(event) => props.onUpdateState(bindKey, event.target.value)}
           onClick={(event) => event.stopPropagation()}
@@ -581,9 +608,14 @@ function InputPreview({
       {node.type === "toggle" ? (
         <input
           type="checkbox"
-          checked={Boolean(value)}
+          checked={stateBind ? Boolean(value) : localChecked}
           disabled={disabled}
-          onChange={(event) => props.onUpdateState(bindKey, event.target.checked)}
+          onChange={(event) => {
+            const next = event.target.checked;
+            if (stateBind) props.onUpdateState(bindKey, next);
+            else setLocalChecked(next);
+            if (node.trigger) fireTrigger(node.trigger, scope, props);
+          }}
           onClick={(event) => event.stopPropagation()}
         />
       ) : null}
@@ -593,12 +625,12 @@ function InputPreview({
           value={toDisplayText(value)}
           disabled={disabled}
           onChange={(event) => {
-            const option = node.options[Number(event.target.selectedIndex)];
+            const option = dropdownOptions[Number(event.target.selectedIndex)];
             props.onUpdateState(bindKey, option?.value ?? event.target.value);
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          {node.options.map((option) => (
+          {dropdownOptions.map((option) => (
             <option key={String(option.value)} value={String(option.value)}>
               {option.label}
             </option>

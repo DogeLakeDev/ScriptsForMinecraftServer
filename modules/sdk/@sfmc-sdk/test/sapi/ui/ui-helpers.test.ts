@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyCustomFormTextPlaceholder,
   customFormButtonImageDetails,
   customFormButtonLabel,
   customFormButtonTooltip,
@@ -59,8 +60,14 @@ describe("SDK DDUI 字段映射", () => {
 
   it("输入、图像和下拉选项映射为 DDUI 参数", () => {
     assert.deepEqual(
-      customFormFieldOptions({ description: "说明", fixedFormatDigits: 0 }),
-      { description: "说明", fixedFormatDigits: 0 },
+      customFormFieldOptions({
+        description: "说明",
+        fixedFormatDigits: 0,
+      }),
+      {
+        description: "说明",
+        fixedFormatDigits: 0,
+      },
     );
     assert.deepEqual(customFormImageOptions({ width: -1, tooltip: "图标" }), {
       tooltip: "图标",
@@ -69,6 +76,22 @@ describe("SDK DDUI 字段映射", () => {
       customFormDropdownItems([{ label: "甲", description: "第一项" }]),
       [{ label: "甲", value: 0, description: "第一项" }],
     );
+  });
+
+  it("空 text 时把 placeholder 写入当前值，已有值不覆盖", () => {
+    const empty = {
+      value: "",
+      getData() {
+        return this.value;
+      },
+      setData(next: string) {
+        this.value = next;
+      },
+    };
+    applyCustomFormTextPlaceholder(empty as never, "请输入 {{player.name}}");
+    assert.equal(empty.getData(), "请输入 {{player.name}}");
+    applyCustomFormTextPlaceholder(empty as never, "不会覆盖");
+    assert.equal(empty.getData(), "请输入 {{player.name}}");
   });
 });
 

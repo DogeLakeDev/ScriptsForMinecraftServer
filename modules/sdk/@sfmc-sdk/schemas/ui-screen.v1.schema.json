@@ -202,7 +202,8 @@
         "body": { "$ref": "#/$defs/templateString" },
         "confirmText": { "type": "string" },
         "cancelText": { "type": "string" },
-        "danger": { "type": "boolean" }
+        "danger": { "type": "boolean" },
+        "challenge": { "$ref": "#/$defs/templateString" }
       }
     },
     "effect": {
@@ -416,6 +417,12 @@
         }
       ]
     },
+    "toggleBind": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$",
+      "description": "state.* 或 each 条目字段，如 channel.subscribed"
+    },
     "textFieldNode": {
       "allOf": [
         { "$ref": "#/$defs/inputBase" },
@@ -423,7 +430,10 @@
           "type": "object",
           "properties": {
             "type": { "const": "textField" },
-            "placeholder": { "type": "string" }
+            "placeholder": {
+              "$ref": "#/$defs/templateString",
+              "description": "空绑定时写入 CustomForm.textField 的 text，作为占位内容，支持 {{path}}"
+            }
           }
         }
       ],
@@ -431,8 +441,20 @@
     },
     "toggleNode": {
       "allOf": [
-        { "$ref": "#/$defs/inputBase" },
-        { "type": "object", "properties": { "type": { "const": "toggle" } } }
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["label", "bind"],
+          "properties": {
+            "type": { "const": "toggle" },
+            "label": { "$ref": "#/$defs/templateString" },
+            "bind": { "$ref": "#/$defs/toggleBind" },
+            "description": { "type": "string" },
+            "tooltip": { "$ref": "#/$defs/templateString" },
+            "disabledWhen": { "$ref": "#/$defs/expression" },
+            "trigger": { "$ref": "#/$defs/trigger" }
+          }
+        }
       ],
       "unevaluatedProperties": false
     },
@@ -445,18 +467,34 @@
           "properties": {
             "type": { "const": "dropdown" },
             "options": {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["label", "value"],
-                "properties": {
-                  "label": { "type": "string", "minLength": 1 },
-                  "value": { "type": ["string", "number"] },
-                  "description": { "type": "string" }
+              "oneOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "value"],
+                    "properties": {
+                      "label": { "type": "string", "minLength": 1 },
+                      "value": { "type": ["string", "number"] },
+                      "description": { "type": "string" }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["source", "as", "value", "label"],
+                  "properties": {
+                    "source": { "type": "string", "minLength": 1 },
+                    "as": { "$ref": "#/$defs/identifier" },
+                    "value": { "$ref": "#/$defs/templateString" },
+                    "label": { "$ref": "#/$defs/templateString" },
+                    "description": { "$ref": "#/$defs/templateString" }
+                  }
                 }
-              }
+              ]
             }
           }
         }

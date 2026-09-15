@@ -8,8 +8,7 @@
  */
 
 import { strToU8, strFromU8, unzipSync, zipSync } from "fflate";
-import { FIXTURE_FILE, type StudioProject } from "./store/project";
-import { extractServicesFromManifest } from "./store/project";
+import { extractServicesFromManifest, type StudioProject } from "./store/project";
 
 /** 随工程一起打包的 Studio 元数据文件（services 清单）。 */
 const STUDIO_META_FILE = ".ui-studio/studio.json";
@@ -205,5 +204,3 @@ export function stripCommonRoot(paths: string[]): string[] {
   }
   return paths;
 }
-
-export { FIXTURE_FILE };

@@ -18,7 +18,7 @@ import type { UiStudioBrowseView } from "../../src/ui-studio/project.js";
  * 当前选中位置：
  * - screen：某个页面（nodePath 为空串表示页面本身，否则为 body/... 段路径）；
  * - feature：feature.ui.json；
- * - file：其他文件（如预览 fixture）。
+ * - file：其他 JSON 文件（非页面、非 feature）。
  */
 export type Selection =
   | { kind: "screen"; screenId: string; nodePath: string }
@@ -112,7 +112,7 @@ export interface BindGroup {
 /**
  * 汇总绑定选择器的候选路径：
  * 状态/参数/数据源/计算值来自页面声明，玩家来自预览 fixture（对象值再展开一层）。
- * 注意：输入组件的 bind 契约要求 state.*，由调用方按字段过滤分组。
+ * 注意：输入框/下拉/滑杆的 bind 契约要求 state.*；开关还可绑定 each 条目字段。
  */
 export function collectBindPaths(doc: unknown, fixture: PreviewFixture): BindGroup[] {
   const groups: BindGroup[] = [];
@@ -159,7 +159,34 @@ export function collectBindPaths(doc: unknown, fixture: PreviewFixture): BindGro
   }
   if (playerOptions.length > 0) groups.push({ label: "玩家 player", options: playerOptions });
 
+  // each 别名：让开关 bind 能选到 channel.subscribed 这类条目路径。
+  const aliasOptions = collectEachAliasOptions(record.body);
+  if (aliasOptions.length > 0) {
+    groups.push({ label: "循环条目", options: aliasOptions });
+  }
+
   return groups;
+}
+
+/** 收集页面里 each 的 as 别名，生成 id 候选，其余字段可自定义输入。 */
+function collectEachAliasOptions(body: unknown): Array<{ value: string; hint?: string }> {
+  const options: Array<{ value: string; hint?: string }> = [];
+  const seen = new Set<string>();
+  const walk = (nodes: unknown): void => {
+    if (!Array.isArray(nodes)) return;
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") continue;
+      const record = node as Record<string, unknown>;
+      if (record.type === "each" && typeof record.as === "string" && !seen.has(record.as)) {
+        seen.add(record.as);
+        options.push({ value: `${record.as}.id`, hint: "条目 id" });
+        walk(record.template);
+      }
+      if (record.type === "when") walk(record.content);
+    }
+  };
+  walk(body);
+  return options;
 }
 
 /** 节点的子容器：when → content；each → template/empty。 */

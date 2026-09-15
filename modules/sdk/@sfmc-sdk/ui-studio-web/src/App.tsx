@@ -37,23 +37,20 @@ import {
 import { deriveView } from "./derived";
 import { useFileDrafts } from "./draft";
 import { initialSession, type PreviewSession } from "./scope";
+import { confirmChallengeMatches } from "../../src/ui-studio/shared/confirm-challenge.js";
 import { getProject, putProject } from "./store/db";
 import {
-  addFixtureScenario,
   addScreen,
   duplicateScreen,
   extractServicesFromManifest,
   FIXTURE_FILE,
-  fixtureScenarios,
   removeScreen,
-  renameFile,
   renameScreenFile,
   type StudioProject,
 } from "./store/project";
 import { downloadBlob, exportProjectZip } from "./zip";
 import { ProjectTree } from "./components/ProjectTree";
 import { Palette } from "./components/Palette";
-import { FixtureSwitcher } from "./components/FixtureSwitcher";
 import { Canvas } from "./components/Canvas";
 import { Inspector } from "./components/Inspector";
 import { Diagnostics } from "./components/Diagnostics";
@@ -66,12 +63,23 @@ interface NavEntry {
   params?: Record<string, unknown>;
 }
 
+/** action 确认弹层：模板已求值，challenge 为有效校验文本或未设置。 */
+export interface ActionConfirmView {
+  title: string;
+  body: string;
+  confirmText: string;
+  cancelText: string;
+  challenge?: string;
+  danger?: boolean;
+}
+
 /** action 触发时的预览信息（只展示，不调用）。 */
 export interface ActionPreview {
   screenId: string;
   actionId: string;
   action: UiActionDefinition;
   input: unknown;
+  confirmView?: ActionConfirmView;
 }
 
 interface AppProps {
@@ -133,9 +141,9 @@ function ProjectEditor({
   const [navStack, setNavStack] = useState<NavEntry[]>([]);
   const [sessions, setSessions] = useState<Record<string, PreviewSession>>({});
   const [actionPreview, setActionPreview] = useState<ActionPreview | null>(null);
+  const [confirmAcked, setConfirmAcked] = useState(false);
+  const [challengeTyped, setChallengeTyped] = useState("");
   const [closedScreen, setClosedScreen] = useState<string | null>(null);
-  // 当前预览场景（fixture 文件）；缺省为基础场景。
-  const [activeFixture, setActiveFixture] = useState<string>(FIXTURE_FILE);
   const manifestInputRef = useRef<HTMLInputElement>(null);
 
   // 持久化回调：以最新项目对象为基准写回 IndexedDB。
@@ -166,28 +174,8 @@ function ProjectEditor({
   // 工程视图由文件表实时派生：编辑即刻反映到画布与诊断。
   const view = useMemo(() => deriveView(files, project.services), [project, files]);
 
-  // 场景清单：基础场景 + .ui-studio/fixtures/*.json。
-  const scenarios = useMemo(() => fixtureScenarios(files), [files]);
-  const fixtureFiles = useMemo(() => [FIXTURE_FILE, ...scenarios], [scenarios]);
-
-  // 当前场景文件被删除/移出场景目录时回退到基础场景。
-  useEffect(() => {
-    if (activeFixture !== FIXTURE_FILE && !fixtureFiles.includes(activeFixture)) {
-      setActiveFixture(FIXTURE_FILE);
-    }
-  }, [activeFixture, fixtureFiles]);
-
-  const fixture = useMemo(
-    () => asFixture(files[activeFixture] ?? files[FIXTURE_FILE]),
-    [files, activeFixture],
-  );
-
-  /** 切换预览场景：fixture 变化，预览会话全部重建。 */
-  const handleSwitchFixture = useCallback((file: string) => {
-    setActiveFixture((prev) => (prev === file ? prev : file));
-    setSessions({});
-    setClosedScreen(null);
-  }, []);
+  // 旧 zip 若仍带 preview.fixture.json 则静默并入作用域；不再提供场景切换 UI。
+  const fixture = useMemo(() => asFixture(files[FIXTURE_FILE]), [files]);
 
   // 树/画布/属性一律走可浏览视图：工程有诊断时仍可浏览定位。
   const screens = view.browse.screens;
@@ -370,45 +358,6 @@ function ProjectEditor({
       delete next[file];
       replaceFiles(next);
       setSelection((prev) => (prev?.kind === "file" && prev.file === file ? null : prev));
-    },
-    [files, replaceFiles],
-  );
-
-  /** 新建预览场景：复制基础 fixture 到场景目录，并切换为当前场景。 */
-  const handleAddFixture = useCallback(() => {
-    const name = window.prompt("场景名（字母/数字/._-）：", "scenario");
-    if (name === null) return;
-    const result = addFixtureScenario(files, name);
-    if (!result) {
-      window.alert("场景名无效。");
-      return;
-    }
-    replaceFiles(result.files);
-    handleSwitchFixture(result.file);
-    setSelection({ kind: "file", file: result.file });
-  }, [files, replaceFiles, handleSwitchFixture]);
-
-  /** 重命名/移动场景文件（普通文件操作，不触碰 feature 引用）。 */
-  const handleRenameFixture = useCallback(
-    (file: string) => {
-      const next = window.prompt("新的文件路径（相对工程根）：", file);
-      if (next === null) return;
-      const trimmed = next.trim();
-      if (!trimmed || trimmed === file) return;
-      if (!trimmed.endsWith(".json")) {
-        window.alert("文件路径必须以 .json 结尾。");
-        return;
-      }
-      const result = renameFile(files, file, trimmed);
-      if (!result) {
-        window.alert(`目标路径已存在或源文件缺失：${trimmed}`);
-        return;
-      }
-      replaceFiles(result);
-      setSelection((prev) =>
-        prev?.kind === "file" && prev.file === file ? { kind: "file", file: trimmed } : prev,
-      );
-      setActiveFixture((prev) => (prev === file ? trimmed : prev));
     },
     [files, replaceFiles],
   );
@@ -647,16 +596,12 @@ function ProjectEditor({
           <ProjectTree
             view={view}
             selection={selection}
-            fixtureScenarios={scenarios}
-            activeFixture={activeFixture}
             onSelect={handleSelect}
             onAddScreen={handleAddScreen}
             onRenameScreen={handleRenameScreen}
             onDuplicateScreen={handleDuplicateScreen}
             onRemoveScreen={handleRemoveScreen}
             onRemoveFile={handleRemoveFile}
-            onAddFixture={handleAddFixture}
-            onRenameFixture={handleRenameFixture}
             onRemoveNode={handleRemoveNode}
             onMoveNode={handleMoveNode}
           />
@@ -664,13 +609,6 @@ function ProjectEditor({
         </aside>
         <main className="panel panel-canvas">
           <div className="canvas-wrap">
-            <div className="canvas-toolbar">
-              <FixtureSwitcher
-                files={fixtureFiles}
-                active={activeFixture}
-                onSwitch={handleSwitchFixture}
-              />
-            </div>
             {currentScreen && session ? (
               <Canvas
                 screen={currentScreen}
@@ -683,7 +621,11 @@ function ProjectEditor({
                 onNavigate={navigateTo}
                 onBack={goBack}
                 onClose={() => setClosedScreen(currentScreen.id)}
-                onAction={(preview) => setActionPreview(preview)}
+                onAction={(preview) => {
+                  setActionPreview(preview);
+                  setConfirmAcked(!preview.confirmView);
+                  setChallengeTyped("");
+                }}
                 onReopen={() => setClosedScreen(null)}
                 onInsertNode={handleInsertNode}
                 onMoveNode={handleMoveNode}
@@ -721,11 +663,73 @@ function ProjectEditor({
           }}
         />
       </footer>
-      {/* 动作预览弹层：Headless UI Dialog 提供焦点陷阱、ESC 关闭与遮罩点击关闭。 */}
-      {actionPreview ? (
-        <Dialog open={true} onClose={() => setActionPreview(null)} className="modal-mask">
+      {/* 确认弹层（有 confirm 时先走）与动作预览弹层。 */}
+      {actionPreview?.confirmView && !confirmAcked ? (
+        <Dialog
+          open={true}
+          onClose={() => {
+            setActionPreview(null);
+            setConfirmAcked(false);
+            setChallengeTyped("");
+          }}
+          className="modal-mask"
+        >
           <DialogPanel className="modal">
-            <DialogTitle as="h3">动作预览（不会实际调用）</DialogTitle>
+            <DialogTitle as="h3">{actionPreview.confirmView.title}</DialogTitle>
+            <p className="modal-body">{actionPreview.confirmView.body}</p>
+            {actionPreview.confirmView.challenge ? (
+              <label className="insp-field">
+                <span className="insp-label">
+                  请输入「{actionPreview.confirmView.challenge}」以确认
+                </span>
+                <input
+                  className="insp-input"
+                  value={challengeTyped}
+                  placeholder={actionPreview.confirmView.challenge}
+                  onChange={(event) => setChallengeTyped(event.target.value)}
+                />
+              </label>
+            ) : null}
+            <div className="modal-actions">
+              <button
+                className="btn"
+                onClick={() => {
+                  setActionPreview(null);
+                  setConfirmAcked(false);
+                  setChallengeTyped("");
+                }}
+              >
+                {actionPreview.confirmView.cancelText}
+              </button>
+              <button
+                className={`btn${actionPreview.confirmView.danger || actionPreview.confirmView.challenge ? " btn-danger" : " btn-primary"}`}
+                disabled={
+                  actionPreview.confirmView.challenge
+                    ? !confirmChallengeMatches(
+                        challengeTyped,
+                        actionPreview.confirmView.challenge,
+                      )
+                    : false
+                }
+                onClick={() => setConfirmAcked(true)}
+              >
+                {actionPreview.confirmView.confirmText}
+              </button>
+            </div>
+          </DialogPanel>
+        </Dialog>
+      ) : actionPreview ? (
+        <Dialog
+          open={true}
+          onClose={() => {
+            setActionPreview(null);
+            setConfirmAcked(false);
+            setChallengeTyped("");
+          }}
+          className="modal-mask"
+        >
+          <DialogPanel className="modal">
+            <DialogTitle as="h3">动作预览</DialogTitle>
             <dl>
               <dt>动作</dt>
               <dd>{actionPreview.actionId}</dd>
@@ -737,12 +741,6 @@ function ProjectEditor({
               <dd>
                 <pre>{JSON.stringify(actionPreview.input, null, 2) || "（无）"}</pre>
               </dd>
-              {actionPreview.action.confirm ? (
-                <>
-                  <dt>确认步骤</dt>
-                  <dd>{actionPreview.action.confirm.title}</dd>
-                </>
-              ) : null}
               <dt>效果</dt>
               <dd>
                 <pre>
@@ -757,7 +755,16 @@ function ProjectEditor({
                 </pre>
               </dd>
             </dl>
-            <button className="btn" onClick={() => setActionPreview(null)}>关闭</button>
+            <button
+              className="btn"
+              onClick={() => {
+                setActionPreview(null);
+                setConfirmAcked(false);
+                setChallengeTyped("");
+              }}
+            >
+              关闭
+            </button>
           </DialogPanel>
         </Dialog>
       ) : null}

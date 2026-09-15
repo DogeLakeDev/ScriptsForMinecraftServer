@@ -1,25 +1,22 @@
 /**
  * store/project.ts — Studio 项目模型与文件操作。
  *
- * 项目 = 一组 JSON 文件（feature.ui.json + screens/*.ui.json + 可选 fixture）
+ * 项目 = 一组 JSON 文件（feature.ui.json + screens/*.ui.json）
  * + service 清单（由导入的 manifest.json 提取）。
  *
  * 文件操作（新建/重命名/删除/复制页面）会同步维护 feature.screens 引用，
  * 且只触碰已知字段，feature 文档中的未知字段原样保留。
  */
 
-/** 预览 fixture 在项目内的固定路径。 */
+/** 旧工程可能仍带的预览 fixture 路径；不再写入新项目，也不再作为场景 UI。 */
 export const FIXTURE_FILE = ".ui-studio/preview.fixture.json";
-
-/** 场景 fixture 目录：.ui-studio/fixtures/<name>.json。 */
-export const FIXTURE_DIR = ".ui-studio/fixtures";
 
 export interface StudioProject {
   id: string;
   name: string;
   createdAt: number;
   updatedAt: number;
-  /** 文件表：键为相对路径（feature.ui.json / screens/x.ui.json / fixture）。 */
+  /** 文件表：键为相对路径（feature.ui.json / screens/x.ui.json）。 */
   files: Record<string, unknown>;
   /** manifest.services.provides 提取出的 service 名称。 */
   services: string[];
@@ -42,7 +39,7 @@ export function newScreenDocument(id: string, name?: string): unknown {
   };
 }
 
-/** 新建项目的初始文件表：feature + 一个示例页面 + 预览 fixture。 */
+/** 新建项目的初始文件表：feature + 一个示例页面。 */
 function initialFiles(): Record<string, unknown> {
   return {
     "feature.ui.json": {
@@ -62,9 +59,6 @@ function initialFiles(): Record<string, unknown> {
         { type: "header", id: "title", text: "你好，{{player.name}}", tone: "primary" },
         { type: "text", id: "tip", text: "从左侧组件树开始搭建你的界面。" },
       ],
-    },
-    [FIXTURE_FILE]: {
-      player: { id: "preview-player-0000", name: "预览玩家", level: 12 },
     },
   };
 }
@@ -206,37 +200,6 @@ export function duplicateScreen(
   if (typeof copy.name === "string") copy.name = `${copy.name} 副本`;
   const refs = [...screenRefs(files), { id, file }];
   return { files: { ...withScreenRefs(files, refs), [file]: copy }, id, file };
-}
-
-/** 列出场景 fixture 文件（.ui-studio/fixtures/*.json，按路径排序）。 */
-export function fixtureScenarios(files: Record<string, unknown>): string[] {
-  const prefix = `${FIXTURE_DIR}/`;
-  return Object.keys(files)
-    .filter((file) => file.startsWith(prefix) && file.endsWith(".json"))
-    .sort();
-}
-
-/**
- * 新建场景：以基础 fixture 为模板复制到 .ui-studio/fixtures/<name>.json；
- * 非法字符替换为 -，撞名自动加 -2/-3…。名称为空时返回 null。
- */
-export function addFixtureScenario(
-  files: Record<string, unknown>,
-  wantedName: string,
-): { files: Record<string, unknown>; file: string } | null {
-  // 允许 Unicode 字母/数字（中文场景名可用），其余字符折叠为 -。
-  const safe = wantedName
-    .trim()
-    .replace(/[^\p{L}\p{N}_.-]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-  if (!safe) return null;
-  let file = `${FIXTURE_DIR}/${safe}.json`;
-  for (let n = 2; file in files; n += 1) {
-    file = `${FIXTURE_DIR}/${safe}-${n}.json`;
-  }
-  const base = files[FIXTURE_FILE];
-  const doc = typeof base === "object" && base !== null ? structuredClone(base) : {};
-  return { files: { ...files, [file]: doc }, file };
 }
 
 /**

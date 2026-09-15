@@ -88,6 +88,11 @@ export interface UiConfirmDefinition {
   confirmText?: string;
   cancelText?: string;
   danger?: boolean;
+  /**
+   * 玩家必须原样输入的校验文本（模板字符串，可写 {{path}}）。
+   * 求值后非空时确认改为输入匹配；空串视为未设置。
+   */
+  challenge?: string;
 }
 
 /** 页面动作完成后由 UI Host 统一执行的效果。 */
@@ -185,6 +190,10 @@ export interface UiTextFieldNode extends UiNodeBase {
   type: "textField";
   label: string;
   bind: string;
+  /**
+   * 占位提示，支持 `{{path}}`。
+   * CustomForm.textField 的 text 就是当前值；空绑定时写入此提示作为占位内容。
+   */
   placeholder?: string;
   description?: string;
   tooltip?: string;
@@ -194,10 +203,16 @@ export interface UiTextFieldNode extends UiNodeBase {
 export interface UiToggleNode extends UiNodeBase {
   type: "toggle";
   label: string;
+  /**
+   * 绑定路径：`state.*`，或 each 条目字段（如 `channel.subscribed`）。
+   * 条目绑定按「页面 + 节点 + 条目 id」各持一份 Observable。
+   */
   bind: string;
   description?: string;
   tooltip?: string;
   disabledWhen?: UiExpression;
+  /** 开关值变化时立即触发（用于订阅等即时生效操作）。 */
+  trigger?: UiTrigger;
 }
 
 export interface UiDropdownOption {
@@ -207,11 +222,23 @@ export interface UiDropdownOption {
   description?: string;
 }
 
+/**
+ * 从 load 数据生成下拉选项，语义对齐 each：source 数组 + as 别名 + 模板。
+ * 使用场景：私聊目标等运行时才知道的在线玩家列表。
+ */
+export interface UiDropdownOptionsSource {
+  source: string;
+  as: string;
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export interface UiDropdownNode extends UiNodeBase {
   type: "dropdown";
   label: string;
   bind: string;
-  options: UiDropdownOption[];
+  options: UiDropdownOption[] | UiDropdownOptionsSource;
   description?: string;
   tooltip?: string;
   disabledWhen?: UiExpression;

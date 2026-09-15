@@ -141,6 +141,11 @@ select.mc-input option {
   background: var(--accent-hover);
 }
 
+.btn-danger {
+  color: var(--text-danger);
+  border-color: var(--ring-danger);
+}
+
 .btn:disabled {
   opacity: 0.45;
   cursor: default;
@@ -1055,6 +1060,19 @@ select.mc-input option {
   overflow: auto;
 }
 
+.modal-body {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
 /* ---------------------------------------------------------------------------
  * 顶栏下拉菜单（Headless UI Menu：data-focus / data-disabled 由组件注入）
  * ------------------------------------------------------------------------- */
@@ -1499,47 +1517,6 @@ select.mc-input option {
   gap: var(--space-3);
   width: 100%;
   min-height: 100%;
-}
-
-.canvas-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  align-self: stretch;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-tertiary);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-}
-
-.fixture-switcher {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.fixture-switcher-icon {
-  flex-shrink: 0;
-}
-
-.fixture-switcher-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 2px var(--space-2);
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.fixture-switcher-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 /* ---------- 结构化编辑器（字典/列表条目） ---------- */

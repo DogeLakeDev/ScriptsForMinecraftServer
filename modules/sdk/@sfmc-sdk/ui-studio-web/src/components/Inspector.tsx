@@ -98,7 +98,7 @@ const text = (key: string, label: string, extra?: Partial<Extract<FieldDef, { ki
 const num = (key: string, label: string): FieldDef => ({ kind: "number", key, label });
 /** 表达式字段（condition/visibleWhen/disabledWhen）：结构化编辑器。 */
 const expr = (key: string, label: string): FieldDef => ({ kind: "expression", key, label });
-/** 绑定路径选择器；roots 限定候选根（bind 契约要求 state.*）。 */
+/** 绑定路径选择器；roots 限定候选根（输入框等要求 state.*；开关不限）。 */
 const bind = (key: string, label: string, roots?: string[]): FieldDef => ({
   kind: "bind",
   key,
@@ -137,17 +137,18 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
   textField: [
     text("label", "标签 label", { required: true }),
     bind("bind", "绑定 bind", ["state"]),
-    text("placeholder", "占位 placeholder"),
+    text("placeholder", "占位 placeholder", { placeholder: "可写 {{player.name}} 绑定" }),
     text("description", "描述 description"),
     text("tooltip", "悬停提示 tooltip"),
     disabledWhen,
   ],
   toggle: [
     text("label", "标签 label", { required: true }),
-    bind("bind", "绑定 bind", ["state"]),
+    bind("bind", "绑定 bind"),
     text("description", "描述 description"),
     text("tooltip", "悬停提示 tooltip"),
     disabledWhen,
+    { kind: "trigger", key: "trigger", label: "变更时 trigger" },
   ],
   dropdown: [
     text("label", "标签 label", { required: true }),
@@ -220,7 +221,7 @@ export function Inspector({ view, selection, fixture, onEdit, onReplaceFile }: I
     );
   }
 
-  // 其他文件（如预览 fixture）：整文件 JSON 编辑。
+  // 其他 JSON 文件：整文件 JSON 编辑。
   if (selection.kind === "file") {
     const doc = view.files[selection.file];
     if (doc === undefined) {
@@ -512,6 +513,12 @@ function FieldControl({
     case "stringList":
       return <ItemsEditor label={field.label} value={value} onCommit={(v) => commit(field.key, v)} />;
     case "options":
-      return <OptionsEditor value={value} onCommit={(v) => commit(field.key, v)} />;
+      return (
+        <OptionsEditor
+          value={value}
+          bindGroups={bindGroups ?? []}
+          onCommit={(v) => commit(field.key, v)}
+        />
+      );
   }
 }

@@ -34,6 +34,7 @@ import {
 } from "../../validation/ui-document.js";
 import { resolveDisabledControl } from "./disabled-when.js";
 import {
+  applyCustomFormTextPlaceholder,
   customFormButtonImageDetails,
   customFormButtonLabel,
   customFormButtonTooltip,
@@ -42,6 +43,8 @@ import {
   customFormImageArgs,
   customFormImageOptions,
 } from "./ddui-widgets.js";
+import { effectiveConfirmChallenge } from "../../ui-studio/shared/confirm-challenge.js";
+import { resolveDropdownOptions } from "../../ui-studio/shared/evaluate.js";
 
 const ObservableBooleanCtor = (
   serverUi as Record<string, unknown>
@@ -88,9 +91,21 @@ type StateBinding =
   | {
       kind: "dropdown";
       control: ObservableNumber;
+      /** 当前选项列表，刷新时原地更新，供 get/set 闭包读取。 */
+      options: JsonObject[];
       get(): unknown;
       set(value: unknown): void;
     };
+
+/** 开关即时 trigger 的监听上下文；aliases 在每次渲染时更新，避免 each 闭包过期。 */
+type ToggleWatch = {
+  applying: boolean;
+  bind: string;
+  aliases: JsonObject;
+  rawNode: JsonObject;
+  screen: JsonObject;
+  status: FormStatus;
+};
 
 type RuntimeSession = {
   player: Player;
@@ -102,6 +117,7 @@ type RuntimeSession = {
   data: Map<string, JsonObject>;
   bindings: Map<string, StateBinding>;
   disabledControls: Map<string, ObservableBoolean>;
+  toggleWatch: Map<string, ToggleWatch>;
 };
 
 const features = new Map<string, RuntimeFeature>();
@@ -130,6 +146,37 @@ function readPath(scope: JsonObject, reference: string): unknown {
     current = (current as Record<string, unknown>)[part];
   }
   return current;
+}
+
+/**
+ * 把值写回点分路径（用于 each 条目开关把新值写进当前行对象）。
+ * 使用场景：拨动 `channel.subscribed` 后，trigger input 才能读到新布尔值。
+ */
+function writePath(scope: JsonObject, reference: string, value: unknown): void {
+  const parts = reference.split(".");
+  if (parts.length < 2) return;
+  let current: unknown = scope;
+  for (let index = 0; index < parts.length - 1; index++) {
+    const part = parts[index]!;
+    if (current === null || current === undefined) return;
+    if (!isObject(current) && !Array.isArray(current)) return;
+    current = (current as Record<string, unknown>)[part];
+  }
+  const leaf = parts[parts.length - 1]!;
+  if (isObject(current)) current[leaf] = value;
+}
+
+/** 条目身份：优先用 id，否则用 each 下标，保证每行开关各有一份 Observable。 */
+function eachItemKey(item: unknown, index: number): string {
+  if (isObject(item) && item.id !== undefined && item.id !== null) {
+    const id = String(item.id);
+    if (id) return id;
+  }
+  return String(index);
+}
+
+function isStateBind(bind: string): boolean {
+  return bind.startsWith("state.");
 }
 
 function bindString(value: string, scope: JsonObject): unknown {
@@ -423,6 +470,94 @@ function booleanBinding(
   return binding;
 }
 
+/** 开关绑定键：state 用字段名；each 条目用「节点 + 条目 id + 路径」。 */
+function toggleBindingKey(
+  screen: JsonObject,
+  rawNode: JsonObject,
+  bind: string,
+  aliases: JsonObject,
+): string {
+  if (isStateBind(bind)) return `${text(screen.id)}:${bind.slice("state.".length)}`;
+  const root = bind.split(".")[0] ?? "";
+  const identity = eachItemKey(aliases[root], Number(aliases.__eachIndex ?? 0));
+  return `${text(screen.id)}:${text(rawNode.id)}:${identity}:${bind}`;
+}
+
+/**
+ * 解析开关 Observable：state.* 复用页面状态，each 字段按行新建。
+ * 使用场景：频道列表每一行一个订阅开关。
+ */
+function resolveBooleanBinding(
+  session: RuntimeSession,
+  screen: JsonObject,
+  rawNode: JsonObject,
+  aliases: JsonObject,
+  scope: JsonObject,
+): StateBinding {
+  const bind = text(rawNode.bind);
+  if (isStateBind(bind)) {
+    return booleanBinding(session, screen, bind.slice("state.".length));
+  }
+  const key = toggleBindingKey(screen, rawNode, bind, aliases);
+  const existing = session.bindings.get(key);
+  if (existing) return existing;
+  const control = obsBool(Boolean(readPath(scope, bind)));
+  const binding: StateBinding = {
+    kind: "boolean",
+    control,
+    get: () => Boolean(control.getData()),
+    set: (value) => control.setData(Boolean(value)),
+  };
+  session.bindings.set(key, binding);
+  return binding;
+}
+
+/**
+ * 订阅开关变化并在值真正改变时跑 trigger；重建页面时用 applying 避免回写误触发。
+ * 使用场景：reactive 表单里拨动订阅立刻调 service，无需再点按钮。
+ */
+function syncToggleWatch(
+  session: RuntimeSession,
+  screen: JsonObject,
+  rawNode: JsonObject,
+  aliases: JsonObject,
+  status: FormStatus,
+  binding: StateBinding,
+  scope: JsonObject,
+): void {
+  if (binding.kind !== "boolean") return;
+  const bind = text(rawNode.bind);
+  const key = toggleBindingKey(screen, rawNode, bind, aliases);
+  let watch = session.toggleWatch.get(key);
+  if (!watch) {
+    watch = { applying: false, bind, aliases, rawNode, screen, status };
+    session.toggleWatch.set(key, watch);
+    binding.control.subscribe(() => {
+      const ctx = session.toggleWatch.get(key);
+      if (!ctx || ctx.applying) return;
+      const next = Boolean(binding.get());
+      if (!isStateBind(ctx.bind)) writePath(ctx.aliases, ctx.bind, next);
+      if (ctx.rawNode.trigger) {
+        void trigger(ctx.rawNode.trigger, session, ctx.screen, ctx.aliases, ctx.status);
+      }
+    });
+  } else {
+    watch.bind = bind;
+    watch.aliases = aliases;
+    watch.rawNode = rawNode;
+    watch.screen = screen;
+    watch.status = status;
+  }
+  if (!isStateBind(bind)) {
+    const next = Boolean(readPath(scope, bind));
+    if (next !== binding.get()) {
+      watch.applying = true;
+      binding.set(next);
+      watch.applying = false;
+    }
+  }
+}
+
 function dropdownBinding(
   session: RuntimeSession,
   screen: JsonObject,
@@ -431,19 +566,27 @@ function dropdownBinding(
 ): StateBinding {
   const key = `${text(screen.id)}:${name}`;
   const existing = session.bindings.get(key);
-  if (existing) return existing;
+  if (existing?.kind === "dropdown") {
+    existing.options.splice(0, existing.options.length, ...options);
+    const current = existing.get();
+    const keep = options.findIndex((option) => option.value === current);
+    existing.control.setData(keep >= 0 ? keep : 0);
+    return existing;
+  }
+  const stored: JsonObject[] = [...options];
   const initial = defaultState(screen, name);
   const initialIndex = Math.max(
     0,
-    options.findIndex((option) => option.value === initial),
+    stored.findIndex((option) => option.value === initial),
   );
   const control = obsNum(initialIndex);
   const binding: StateBinding = {
     kind: "dropdown",
     control,
-    get: () => options[Math.floor(control.getData())]?.value,
+    options: stored,
+    get: () => stored[Math.floor(control.getData())]?.value,
     set: (value) => {
-      const index = options.findIndex((option) => option.value === value);
+      const index = stored.findIndex((option) => option.value === value);
       control.setData(Math.max(0, index));
     },
   };
@@ -533,6 +676,57 @@ async function loadScreen(
   return errors;
 }
 
+/**
+ * 先创建页面 state 绑定，便于加载后把 data 回填进开关。
+ * 下拉框依赖选项列表，仍在渲染控件时创建。
+ */
+function ensureStateBindings(session: RuntimeSession, screen: JsonObject): void {
+  const definitions = isObject(screen.state) ? screen.state : {};
+  for (const [name, definition] of Object.entries(definitions)) {
+    if (!isObject(definition)) continue;
+    if (definition.type === "boolean") booleanBinding(session, screen, name);
+    else if (definition.type === "number") numberBinding(session, screen, name);
+    else if (definition.type === "string") stringBinding(session, screen, name);
+  }
+}
+
+/** 把 load 结果里的同名布尔字段写进 state，避免开关默认全关。 */
+function coerceLoadedBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === 1 || value === "true" || value === "1") return true;
+  if (value === 0 || value === "false" || value === "0") return false;
+  return undefined;
+}
+
+/**
+ * 用 load 数据回填布尔 state（字段名需一致，如 data.channel.isBroadcast → state.isBroadcast）。
+ * 重建页面时带 applying，避免把回填当成玩家拨动。
+ */
+function hydrateBooleanStateFromLoad(
+  session: RuntimeSession,
+  screen: JsonObject,
+): void {
+  const screenId = text(screen.id);
+  const data = session.data.get(screenId) ?? {};
+  const definitions = isObject(screen.state) ? screen.state : {};
+  for (const source of Object.values(data)) {
+    if (!isObject(source)) continue;
+    for (const [name, definition] of Object.entries(definitions)) {
+      if (!isObject(definition) || definition.type !== "boolean") continue;
+      const next = coerceLoadedBoolean(source[name]);
+      if (next === undefined) continue;
+      const key = `${screenId}:${name}`;
+      const binding = session.bindings.get(key);
+      if (!binding || binding.kind !== "boolean") continue;
+      if (next === binding.get()) continue;
+      const watch = session.toggleWatch.get(key);
+      if (watch) watch.applying = true;
+      binding.set(next);
+      if (watch) watch.applying = false;
+    }
+  }
+}
+
 async function applyEffects(
   effects: unknown,
   session: RuntimeSession,
@@ -608,12 +802,16 @@ async function runAction(
   const call = action.call;
   const beforeScope = makeScope(session, screen, aliases);
   if (isObject(action.confirm)) {
-    const confirmed = await session.nav.confirmMessage(
-      text(bindString(text(action.confirm.title, "确认"), beforeScope), "确认"),
-      text(bindString(text(action.confirm.body), beforeScope)),
-      text(action.confirm.confirmText, "确认"),
-      text(action.confirm.cancelText, "取消"),
+    const title = text(bindString(text(action.confirm.title, "确认"), beforeScope), "确认");
+    const body = text(bindString(text(action.confirm.body), beforeScope));
+    const confirmText = text(action.confirm.confirmText, "确认");
+    const cancelText = text(action.confirm.cancelText, "取消");
+    const challenge = effectiveConfirmChallenge(
+      text(bindString(text(action.confirm.challenge), beforeScope)),
     );
+    const confirmed = challenge
+      ? await session.nav.confirmChallenge(title, body, challenge, confirmText, cancelText)
+      : await session.nav.confirmMessage(title, body, confirmText, cancelText);
     if (!confirmed) {
       await session.nav.refresh();
       return;
@@ -776,15 +974,35 @@ function renderNodes(
         break;
       case "textField": {
         const binding = stringBinding(session, screen, bindName(rawNode));
+        const control = binding.control as ObservableString;
+        applyCustomFormTextPlaceholder(
+          control,
+          boundText(rawNode.placeholder, scope),
+        );
         page.textField(
           boundText(rawNode.label, scope),
-          binding.control as ObservableString,
+          control,
           widgetFieldOptions(rawNode, scope, session, screen, aliases),
         );
         break;
       }
       case "toggle": {
-        const binding = booleanBinding(session, screen, bindName(rawNode));
+        const binding = resolveBooleanBinding(
+          session,
+          screen,
+          rawNode,
+          aliases,
+          scope,
+        );
+        syncToggleWatch(
+          session,
+          screen,
+          rawNode,
+          aliases,
+          status,
+          binding,
+          scope,
+        );
         page.toggle(
           boundText(rawNode.label, scope),
           binding.control as ObservableBoolean,
@@ -806,22 +1024,24 @@ function renderNodes(
         break;
       }
       case "dropdown": {
-        const options = Array.isArray(rawNode.options)
-          ? rawNode.options.filter(isObject)
-          : [];
+        const resolved = resolveDropdownOptions(rawNode.options, scope);
+        const options =
+          resolved.length > 0
+            ? resolved
+            : [{ label: "暂无选项", value: "" }];
         const binding = dropdownBinding(
           session,
           screen,
           bindName(rawNode),
-          options,
+          options as JsonObject[],
         );
         page.dropdown(
           boundText(rawNode.label, scope),
           binding.control as ObservableNumber,
           customFormDropdownItems(
             options.map((option) => ({
-              label: boundText(option.label, scope),
-              description: boundText(option.description, scope),
+              label: option.label,
+              description: option.description,
             })),
           ),
           widgetFieldOptions(rawNode, scope, session, screen, aliases),
@@ -861,12 +1081,14 @@ function renderNodes(
       case "each": {
         const items = readPath(scope, text(rawNode.source));
         if (Array.isArray(items) && items.length > 0) {
-          for (const item of items) {
+          const alias = text(rawNode.as, "item");
+          items.forEach((item, index) => {
             renderNodes(rawNode.template, page, session, screen, status, {
               ...aliases,
-              [text(rawNode.as, "item")]: item,
+              [alias]: item,
+              __eachIndex: index,
             });
-          }
+          });
         } else {
           renderNodes(rawNode.empty, page, session, screen, status, aliases);
         }
@@ -891,6 +1113,8 @@ async function renderScreen(
     return;
   }
   const errors = await loadScreen(session, screen);
+  ensureStateBindings(session, screen);
+  hydrateBooleanStateFromLoad(session, screen);
   const status = new FormStatus(page);
   const scope = makeScope(session, screen);
   const title = text(bindString(text(screen.title), scope));
@@ -921,6 +1145,7 @@ export async function openDeclarativeScreen(
     data: new Map(),
     bindings: new Map(),
     disabledControls: new Map(),
+    toggleWatch: new Map(),
   };
   bindNativeBack(session);
   for (const [id, screen] of feature.screens) {

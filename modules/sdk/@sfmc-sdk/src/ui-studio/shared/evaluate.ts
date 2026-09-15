@@ -153,3 +153,82 @@ export function evaluateExpression(value: unknown, scope: UiEvaluateScope): unkn
 export function evaluateCondition(value: unknown, scope: UiEvaluateScope): boolean {
   return Boolean(evaluateExpression(value, scope));
 }
+
+/** 下拉数据源：source 指向数组，label/value 用 as 别名做模板。 */
+export type DropdownOptionsSource = {
+  source: string;
+  as: string;
+  value: string;
+  label: string;
+  description?: string;
+};
+
+/** 解析后的下拉选项（静态列表与数据源共用）。 */
+export type ResolvedDropdownOption = {
+  label: string;
+  value: string | number;
+  description?: string;
+};
+
+/** 判断 options 是数据源对象而不是静态数组。 */
+export function isDropdownOptionsSource(value: unknown): value is DropdownOptionsSource {
+  return isObject(value) && typeof value.source === "string";
+}
+
+function resolveOptionField(
+  spec: string,
+  item: unknown,
+  alias: string,
+  scope: UiEvaluateScope,
+): unknown {
+  const itemScope: UiEvaluateScope = { ...scope, [alias]: item };
+  if (spec.includes("{{")) return resolveTemplate(spec, itemScope);
+  if (spec.includes(".")) return readPath(itemScope, spec);
+  if (isObject(item) && spec in item) return item[spec];
+  return readPath(itemScope, `${alias}.${spec}`);
+}
+
+/**
+ * 解析下拉 options：静态数组原样求值模板；对象则按 source 数组展开。
+ * 使用场景：chat.compose 用 data.players.items 注入在线玩家。
+ */
+export function resolveDropdownOptions(
+  options: unknown,
+  scope: UiEvaluateScope,
+): ResolvedDropdownOption[] {
+  if (Array.isArray(options)) {
+    return options.filter(isObject).map((option) => {
+      const rawValue = option.value;
+      const value =
+        typeof rawValue === "number"
+          ? rawValue
+          : (resolveTemplate(String(rawValue ?? ""), scope) as string | number);
+      const description = option.description
+        ? resolveTemplateText(String(option.description), scope)
+        : undefined;
+      const resolved: ResolvedDropdownOption = {
+        label: resolveTemplateText(String(option.label ?? ""), scope),
+        value: typeof value === "number" ? value : toDisplayText(value),
+      };
+      if (description) resolved.description = description;
+      return resolved;
+    });
+  }
+  if (!isDropdownOptionsSource(options)) return [];
+  const rows = readPath(scope, options.source);
+  if (!Array.isArray(rows)) return [];
+  const alias = options.as || "item";
+  return rows.map((item) => {
+    const value = resolveOptionField(options.value, item, alias, scope);
+    const label = toDisplayText(resolveOptionField(options.label, item, alias, scope));
+    const description = options.description
+      ? toDisplayText(resolveOptionField(options.description, item, alias, scope))
+      : undefined;
+    const resolved: ResolvedDropdownOption = {
+      label: label || toDisplayText(value),
+      value: typeof value === "number" ? value : toDisplayText(value),
+    };
+    if (description) resolved.description = description;
+    return resolved;
+  });
+}

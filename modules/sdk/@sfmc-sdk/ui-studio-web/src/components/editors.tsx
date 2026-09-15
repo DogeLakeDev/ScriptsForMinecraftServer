@@ -10,19 +10,17 @@
  * 作为一步撤销提交整体字段值（undefined 表示删除该字段）。
  */
 
-import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { BindField, BooleanField, CheckField, JsonField, NumberField, SelectField, TextField } from "./fields";
+import { useEffect, useState, type ReactNode } from "react";
 import type { BindGroup } from "../model";
+import { BindField, BooleanField, CheckField, JsonField, NumberField, SelectField, TextField } from "./fields";
 
 // ---------------------------------------------------------------------------
 // 通用：宽松解析 / 唯一键 / 提交约定
 // ---------------------------------------------------------------------------
 
 function asDict<T>(value: unknown): Record<string, T> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, T>)
-    : {};
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, T>) : {};
 }
 
 function asList<T>(value: unknown): T[] {
@@ -102,25 +100,21 @@ function EntryShell({
             }}
           />
         ) : (
-          <span className="dict-key-label" title={title}>{title}</span>
+          <span className="dict-key-label" title={title}>
+            {title}
+          </span>
         )}
-        {summary ? <span className="dict-summary" title={summary}>{summary}</span> : null}
+        {summary ? (
+          <span className="dict-summary" title={summary}>
+            {summary}
+          </span>
+        ) : null}
         {onMove ? (
           <>
-            <button
-              className="tree-action"
-              disabled={!canMoveUp}
-              onClick={() => onMove(-1)}
-              title="上移"
-            >
+            <button className="tree-action" disabled={!canMoveUp} onClick={() => onMove(-1)} title="上移">
               <ArrowUp size={12} />
             </button>
-            <button
-              className="tree-action"
-              disabled={!canMoveDown}
-              onClick={() => onMove(1)}
-              title="下移"
-            >
+            <button className="tree-action" disabled={!canMoveDown} onClick={() => onMove(1)} title="下移">
               <ArrowDown size={12} />
             </button>
           </>
@@ -155,8 +149,7 @@ export function DictEditor<T>({
   const dict = asDict<T>(value);
   const keys = Object.keys(dict);
   const [addedKey, setAddedKey] = useState<string | null>(null);
-  const commitDict = (next: Record<string, T>) =>
-    onCommit(Object.keys(next).length > 0 ? next : undefined);
+  const commitDict = (next: Record<string, T>) => onCommit(Object.keys(next).length > 0 ? next : undefined);
   return (
     <div className="insp-field insp-field-block">
       <span className="insp-label">
@@ -347,10 +340,7 @@ export function ExpressionEditor({
   bindGroups: BindGroup[];
   onCommit(value: unknown): void;
 }) {
-  const expr =
-    typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as Expr)
-      : null;
+  const expr = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Expr) : null;
   const kind = exprKind(expr);
 
   const switchKind = (next: string) => {
@@ -373,12 +363,7 @@ export function ExpressionEditor({
         ]}
         onCommit={(v) => switchKind(typeof v === "string" ? v : "")}
       />
-      {kind === "value" ? (
-        <ConstValueEditor
-          value={expr!.value}
-          onCommit={(v) => onCommit({ value: v })}
-        />
-      ) : null}
+      {kind === "value" ? <ConstValueEditor value={expr!.value} onCommit={(v) => onCommit({ value: v })} /> : null}
       {kind === "ref" ? (
         <BindField
           label="从哪读"
@@ -387,9 +372,7 @@ export function ExpressionEditor({
           onCommit={(v) => onCommit({ ref: typeof v === "string" ? v : "" })}
         />
       ) : null}
-      {kind === "op" ? (
-        <OpEditor expr={expr!} bindGroups={bindGroups} onCommit={onCommit} />
-      ) : null}
+      {kind === "op" ? <OpEditor expr={expr!} bindGroups={bindGroups} onCommit={onCommit} /> : null}
     </>
   );
 
@@ -403,13 +386,7 @@ export function ExpressionEditor({
 }
 
 /** 常量值编辑器：文本/数字/布尔/null。 */
-function ConstValueEditor({
-  value,
-  onCommit,
-}: {
-  value: unknown;
-  onCommit(value: unknown): void;
-}) {
+function ConstValueEditor({ value, onCommit }: { value: unknown; onCommit(value: unknown): void }) {
   const kind =
     value === null ? "null" : typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string";
   const switchKind = (next: string) => {
@@ -437,9 +414,7 @@ function ConstValueEditor({
       {kind === "number" ? (
         <NumberField label="值" value={value} onCommit={(v) => onCommit(typeof v === "number" ? v : 0)} />
       ) : null}
-      {kind === "boolean" ? (
-        <BooleanField label="值" value={value} onCommit={(v) => onCommit(v === true)} />
-      ) : null}
+      {kind === "boolean" ? <BooleanField label="值" value={value} onCommit={(v) => onCommit(v === true)} /> : null}
     </>
   );
 }
@@ -486,9 +461,7 @@ function OpEditor({
             <ExpressionEditor
               value={arg}
               bindGroups={bindGroups}
-              onCommit={(next) =>
-                commitArgs(args.map((item, i) => (i === index ? (next as Expr) : item)))
-              }
+              onCommit={(next) => commitArgs(args.map((item, i) => (i === index ? (next as Expr) : item)))}
             />
           </div>
         ))}
@@ -584,12 +557,8 @@ export function TemplateJsonEditor({
             {kind === "number" ? (
               <NumberField label="值" value={entry} onCommit={(v) => update(typeof v === "number" ? v : 0)} />
             ) : null}
-            {kind === "boolean" ? (
-              <BooleanField label="值" value={entry} onCommit={(v) => update(v === true)} />
-            ) : null}
-            {kind === "json" ? (
-              <JsonField label="值" value={entry} onCommit={(v) => update(v ?? {})} />
-            ) : null}
+            {kind === "boolean" ? <BooleanField label="值" value={entry} onCommit={(v) => update(v === true)} /> : null}
+            {kind === "json" ? <JsonField label="值" value={entry} onCommit={(v) => update(v ?? {})} /> : null}
           </>
         );
       }}
@@ -676,17 +645,37 @@ export function EffectListEditor({
             {type === "message" ? (
               <>
                 <TextField label="文本 text" value={effect.text} onCommit={(v) => update({ ...effect, text: v })} />
-                <SelectField label="色调 tone" value={effect.tone} options={TONE_OPTIONS} onCommit={(v) => update(compact({ ...effect, tone: v }))} />
+                <SelectField
+                  label="色调 tone"
+                  value={effect.tone}
+                  options={TONE_OPTIONS}
+                  onCommit={(v) => update(compact({ ...effect, tone: v }))}
+                />
               </>
             ) : null}
             {type === "navigate" || type === "replace" ? (
               <>
-                <TextField label="目标页面 to" value={effect.to} datalist={screenIds} onCommit={(v) => update({ ...effect, to: v })} />
-                <TemplateJsonEditor label="参数 params" value={effect.params} bindGroups={bindGroups} onCommit={(v) => update(compact({ ...effect, params: v }))} />
+                <TextField
+                  label="目标页面 to"
+                  value={effect.to}
+                  datalist={screenIds}
+                  onCommit={(v) => update({ ...effect, to: v })}
+                />
+                <TemplateJsonEditor
+                  label="参数 params"
+                  value={effect.params}
+                  bindGroups={bindGroups}
+                  onCommit={(v) => update(compact({ ...effect, params: v }))}
+                />
               </>
             ) : null}
             {type === "setState" ? (
-              <TemplateJsonEditor label="状态值 values" value={effect.values} bindGroups={bindGroups} onCommit={(v) => update(compact({ ...effect, values: v }))} />
+              <TemplateJsonEditor
+                label="状态值 values"
+                value={effect.values}
+                bindGroups={bindGroups}
+                onCommit={(v) => update(compact({ ...effect, values: v }))}
+              />
             ) : null}
           </>
         );
@@ -747,27 +736,13 @@ const PARAM_TYPE_OPTIONS = [
 ];
 
 /** 参数默认值输入：按声明类型选择控件。 */
-function TypedDefault({
-  type,
-  value,
-  onCommit,
-}: {
-  type: string;
-  value: unknown;
-  onCommit(value: unknown): void;
-}) {
+function TypedDefault({ type, value, onCommit }: { type: string; value: unknown; onCommit(value: unknown): void }) {
   if (type === "number") return <NumberField label="默认 default" value={value} onCommit={onCommit} />;
   if (type === "boolean") return <BooleanField label="默认 default" value={value} onCommit={onCommit} />;
   return <TextField label="默认 default" value={value} onCommit={onCommit} />;
 }
 
-export function ParamsEditor({
-  value,
-  onCommit,
-}: {
-  value: unknown;
-  onCommit(value: unknown): void;
-}) {
+export function ParamsEditor({ value, onCommit }: { value: unknown; onCommit(value: unknown): void }) {
   return (
     <DictEditor<Record<string, unknown>>
       label="参数 params"
@@ -786,8 +761,16 @@ export function ParamsEditor({
               options={PARAM_TYPE_OPTIONS}
               onCommit={(v) => update(compact({ type: v ?? "string", required: param.required }))}
             />
-            <CheckField label="必填 required" value={param.required} onCommit={(v) => update({ ...param, required: v })} />
-            <TypedDefault type={type} value={param.default} onCommit={(v) => update(compact({ ...param, default: v }))} />
+            <CheckField
+              label="必填 required"
+              value={param.required}
+              onCommit={(v) => update({ ...param, required: v })}
+            />
+            <TypedDefault
+              type={type}
+              value={param.default}
+              onCommit={(v) => update(compact({ ...param, default: v }))}
+            />
           </>
         );
       }}
@@ -795,13 +778,7 @@ export function ParamsEditor({
   );
 }
 
-export function StateEditor({
-  value,
-  onCommit,
-}: {
-  value: unknown;
-  onCommit(value: unknown): void;
-}) {
+export function StateEditor({ value, onCommit }: { value: unknown; onCommit(value: unknown): void }) {
   return (
     <DictEditor<Record<string, unknown>>
       label="状态 state"
@@ -821,18 +798,42 @@ export function StateEditor({
               // 切换类型时丢弃不兼容的约束字段。
               onCommit={(v) => update({ type: v ?? "string" })}
             />
-            <TypedDefault type={type} value={state.default} onCommit={(v) => update(compact({ ...state, default: v }))} />
+            <TypedDefault
+              type={type}
+              value={state.default}
+              onCommit={(v) => update(compact({ ...state, default: v }))}
+            />
             {type === "string" ? (
               <>
-                <NumberField label="最小长度 minLength" value={state.minLength} onCommit={(v) => update(compact({ ...state, minLength: v }))} />
-                <NumberField label="最大长度 maxLength" value={state.maxLength} onCommit={(v) => update(compact({ ...state, maxLength: v }))} />
+                <NumberField
+                  label="最小长度 minLength"
+                  value={state.minLength}
+                  onCommit={(v) => update(compact({ ...state, minLength: v }))}
+                />
+                <NumberField
+                  label="最大长度 maxLength"
+                  value={state.maxLength}
+                  onCommit={(v) => update(compact({ ...state, maxLength: v }))}
+                />
               </>
             ) : null}
             {type === "number" ? (
               <>
-                <NumberField label="最小值 min" value={state.min} onCommit={(v) => update(compact({ ...state, min: v }))} />
-                <NumberField label="最大值 max" value={state.max} onCommit={(v) => update(compact({ ...state, max: v }))} />
-                <NumberField label="步长 step" value={state.step} onCommit={(v) => update(compact({ ...state, step: v }))} />
+                <NumberField
+                  label="最小值 min"
+                  value={state.min}
+                  onCommit={(v) => update(compact({ ...state, min: v }))}
+                />
+                <NumberField
+                  label="最大值 max"
+                  value={state.max}
+                  onCommit={(v) => update(compact({ ...state, max: v }))}
+                />
+                <NumberField
+                  label="步长 step"
+                  value={state.step}
+                  onCommit={(v) => update(compact({ ...state, step: v }))}
+                />
               </>
             ) : null}
           </>
@@ -888,21 +889,13 @@ export function DerivedEditor({
         return kind === "ref" ? String((entry as Expr).ref) : kind === "op" ? `op:${String((entry as Expr).op)}` : kind;
       }}
       onCommit={onCommit}
-      renderEntry={(expr, update) => (
-        <ExpressionEditor value={expr} bindGroups={bindGroups} onCommit={update} />
-      )}
+      renderEntry={(expr, update) => <ExpressionEditor value={expr} bindGroups={bindGroups} onCommit={update} />}
     />
   );
 }
 
 /** 动作确认步骤编辑器（可开关）。 */
-function ConfirmEditor({
-  value,
-  onCommit,
-}: {
-  value: unknown;
-  onCommit(value: unknown): void;
-}) {
+function ConfirmEditor({ value, onCommit }: { value: unknown; onCommit(value: unknown): void }) {
   const confirm = asDict<Record<string, unknown>>(value);
   const enabled = value !== undefined && value !== null;
   return (
@@ -910,15 +903,53 @@ function ConfirmEditor({
       <CheckField
         label="确认步骤 confirm"
         value={enabled}
-        onCommit={(checked) => onCommit(checked ? { title: "", body: "" } : undefined)}
+        onCommit={(checked) => onCommit(checked ? { title: "确认", body: "请确认此操作" } : undefined)}
       />
       {enabled ? (
         <div className="insp-sub">
-          <TextField label="标题 title" value={confirm.title} required onCommit={(v) => onCommit(compact({ ...confirm, title: v }))} />
-          <TextField label="内容 body" value={confirm.body} required onCommit={(v) => onCommit(compact({ ...confirm, body: v }))} />
-          <TextField label="确认按钮 confirmText" value={confirm.confirmText} onCommit={(v) => onCommit(compact({ ...confirm, confirmText: v }))} />
-          <TextField label="取消按钮 cancelText" value={confirm.cancelText} onCommit={(v) => onCommit(compact({ ...confirm, cancelText: v }))} />
-          <CheckField label="危险操作 danger" value={confirm.danger} onCommit={(v) => onCommit(compact({ ...confirm, danger: v }))} />
+          <TextField
+            label="标题 title"
+            value={confirm.title}
+            required
+            onCommit={(v) => onCommit(compact({ ...confirm, title: v }))}
+          />
+          <TextField
+            label="内容 body"
+            value={confirm.body}
+            required
+            onCommit={(v) => onCommit(compact({ ...confirm, body: v }))}
+          />
+          <TextField
+            label="确认按钮 confirmText"
+            value={confirm.confirmText}
+            onCommit={(v) => onCommit(compact({ ...confirm, confirmText: v }))}
+          />
+          <TextField
+            label="取消按钮 cancelText"
+            value={confirm.cancelText}
+            onCommit={(v) => onCommit(compact({ ...confirm, cancelText: v }))}
+          />
+          <CheckField
+            label="危险操作 danger"
+            value={confirm.danger}
+            onCommit={(checked) =>
+              onCommit(
+                compact({
+                  ...confirm,
+                  danger: checked ? true : undefined,
+                  challenge: checked ? confirm.challenge : undefined,
+                })
+              )
+            }
+          />
+          {confirm.danger ? (
+            <TextField
+              label="校验文本 challenge"
+              value={confirm.challenge}
+              placeholder="可写变量，留空则普通确认"
+              onCommit={(v) => onCommit(compact({ ...confirm, challenge: v }))}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1001,16 +1032,27 @@ export function EntriesEditor({
       newEntry={() => {
         // 基于现有入口 id 生成唯一标识。
         const used = Object.fromEntries(
-          asList<Record<string, unknown>>(value).map((entry) => [String(entry.id ?? ""), true]),
+          asList<Record<string, unknown>>(value).map((entry) => [String(entry.id ?? ""), true])
         );
-        return { id: uniqueKey(used, "entry"), surface: "player", group: "默认", title: "新入口", target: screenIds[0] ?? "" };
+        return {
+          id: uniqueKey(used, "entry"),
+          surface: "player",
+          group: "默认",
+          title: "新入口",
+          target: screenIds[0] ?? "",
+        };
       }}
       summarize={(entry) => `${String(entry.title ?? entry.id ?? "")} → ${String(entry.target ?? "")}`}
       onCommit={onCommit}
       renderEntry={(entry, update) => (
         <>
           <TextField label="标识 id" value={entry.id} required onCommit={(v) => update(compact({ ...entry, id: v }))} />
-          <TextField label="标题 title" value={entry.title} required onCommit={(v) => update(compact({ ...entry, title: v }))} />
+          <TextField
+            label="标题 title"
+            value={entry.title}
+            required
+            onCommit={(v) => update(compact({ ...entry, title: v }))}
+          />
           <SelectField
             label="界面 surface"
             value={entry.surface}
@@ -1020,12 +1062,35 @@ export function EntriesEditor({
             ]}
             onCommit={(v) => update(compact({ ...entry, surface: v }))}
           />
-          <TextField label="分组 group" value={entry.group} required onCommit={(v) => update(compact({ ...entry, group: v }))} />
-          <TextField label="目标页面 target" value={entry.target} required datalist={screenIds} onCommit={(v) => update(compact({ ...entry, target: v }))} />
-          <TextField label="描述 description" value={entry.description} onCommit={(v) => update(compact({ ...entry, description: v }))} />
+          <TextField
+            label="分组 group"
+            value={entry.group}
+            required
+            onCommit={(v) => update(compact({ ...entry, group: v }))}
+          />
+          <TextField
+            label="目标页面 target"
+            value={entry.target}
+            required
+            datalist={screenIds}
+            onCommit={(v) => update(compact({ ...entry, target: v }))}
+          />
+          <TextField
+            label="描述 description"
+            value={entry.description}
+            onCommit={(v) => update(compact({ ...entry, description: v }))}
+          />
           <TextField label="图标 icon" value={entry.icon} onCommit={(v) => update(compact({ ...entry, icon: v }))} />
-          <NumberField label="排序 order" value={entry.order} onCommit={(v) => update(compact({ ...entry, order: v }))} />
-          <TextField label="权限 permission" value={entry.permission} onCommit={(v) => update(compact({ ...entry, permission: v }))} />
+          <NumberField
+            label="排序 order"
+            value={entry.order}
+            onCommit={(v) => update(compact({ ...entry, order: v }))}
+          />
+          <TextField
+            label="权限 permission"
+            value={entry.permission}
+            onCommit={(v) => update(compact({ ...entry, permission: v }))}
+          />
         </>
       )}
     />
@@ -1034,38 +1099,115 @@ export function EntriesEditor({
 
 export function OptionsEditor({
   value,
+  bindGroups = [],
   onCommit,
 }: {
   value: unknown;
+  bindGroups?: BindGroup[];
   onCommit(value: unknown): void;
 }) {
+  const sourceMode =
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as { source?: unknown }).source === "string";
+  const source = sourceMode ? (value as Record<string, unknown>) : undefined;
+
   return (
-    <ListEditor<Record<string, unknown>>
-      label="选项 options"
-      value={value}
-      addLabel="添加选项"
-      newEntry={() => ({ label: "选项", value: "" })}
-      summarize={(entry) => `${String(entry.label ?? "")} = ${String(entry.value ?? "")}`}
-      onCommit={onCommit}
-      renderEntry={(option, update) => (
+    <div className="insp-stack">
+      <SelectField
+        label="选项来源"
+        value={sourceMode ? "source" : "static"}
+        options={[
+          { value: "static", label: "静态列表" },
+          { value: "source", label: "从数据注入" },
+        ]}
+        onCommit={(next) => {
+          if (asString(next, "static") === "source") {
+            onCommit({
+              source: "data.model.items",
+              as: "item",
+              value: "{{item.id}}",
+              label: "{{item.name}}",
+            });
+            return;
+          }
+          onCommit([{ label: "选项", value: "a" }]);
+        }}
+      />
+      {sourceMode && source ? (
         <>
-          <TextField label="文本 label" value={option.label} required onCommit={(v) => update(compact({ ...option, label: v }))} />
-          <TextField
-            label="值 value（纯数字存为 number）"
-            value={typeof option.value === "number" ? String(option.value) : option.value}
-            required
-            onCommit={(v) => {
-              const text = typeof v === "string" ? v : "";
-              const asNumber = Number(text);
-              // 契约允许 string | number：纯数字输入存为 number。
-              const stored = text.trim() !== "" && Number.isFinite(asNumber) ? asNumber : text;
-              update({ ...option, value: stored });
-            }}
+          <BindField
+            label="数据源 source"
+            value={source.source}
+            groups={bindGroups}
+            roots={["data"]}
+            onCommit={(v) => onCommit(compact({ ...source, source: v }))}
           />
-          <TextField label="描述 description" value={option.description} onCommit={(v) => update(compact({ ...option, description: v }))} />
+          <TextField
+            label="条目名 as"
+            value={source.as}
+            required
+            onCommit={(v) => onCommit(compact({ ...source, as: v }))}
+          />
+          <TextField
+            label="选项值 value"
+            value={source.value}
+            required
+            placeholder="{{item.id}}"
+            onCommit={(v) => onCommit(compact({ ...source, value: v }))}
+          />
+          <TextField
+            label="选项文本 label"
+            value={source.label}
+            required
+            placeholder="{{item.name}}"
+            onCommit={(v) => onCommit(compact({ ...source, label: v }))}
+          />
+          <TextField
+            label="描述 description"
+            value={source.description}
+            placeholder="{{item.description}}"
+            onCommit={(v) => onCommit(compact({ ...source, description: v }))}
+          />
         </>
+      ) : (
+        <ListEditor<Record<string, unknown>>
+          label="选项 options"
+          value={value}
+          addLabel="添加选项"
+          newEntry={() => ({ label: "选项", value: "" })}
+          summarize={(entry) => `${String(entry.label ?? "")} = ${String(entry.value ?? "")}`}
+          onCommit={onCommit}
+          renderEntry={(option, update) => (
+            <>
+              <TextField
+                label="文本 label"
+                value={option.label}
+                required
+                onCommit={(v) => update(compact({ ...option, label: v }))}
+              />
+              <TextField
+                label="值 value（纯数字存为 number）"
+                value={typeof option.value === "number" ? String(option.value) : option.value}
+                required
+                onCommit={(v) => {
+                  const text = typeof v === "string" ? v : "";
+                  const asNumber = Number(text);
+                  const stored = text.trim() !== "" && Number.isFinite(asNumber) ? asNumber : text;
+                  update({ ...option, value: stored });
+                }}
+              />
+              <TextField
+                label="描述 description"
+                value={option.description}
+                onCommit={(v) => update(compact({ ...option, description: v }))}
+              />
+            </>
+          )}
+        />
       )}
-    />
+    </div>
   );
 }
 
@@ -1088,7 +1230,12 @@ export function ItemsEditor({
       summarize={(entry) => (entry.length > 24 ? `${entry.slice(0, 24)}…` : entry)}
       onCommit={onCommit}
       renderEntry={(item, update) => (
-        <TextField label="内容" value={item} placeholder="可写 {{player.name}} 绑定" onCommit={(v) => update(typeof v === "string" ? v : "")} />
+        <TextField
+          label="内容"
+          value={item}
+          placeholder="可写 {{player.name}} 绑定"
+          onCommit={(v) => update(typeof v === "string" ? v : "")}
+        />
       )}
     />
   );
@@ -1130,12 +1277,13 @@ export function TriggerField({
       onCommit(undefined);
       return;
     }
-    // 切换类型时保留可复用字段（action/input、to/params）。
+    // 切换类型时保留可复用字段（action/input、to/params）；
+    // 空 action/to 优先回填已有清单第一项，避免无意义的空诊断。
     switch (nextType) {
       case "action":
         onCommit({
           type: "action",
-          action: typeof trigger?.action === "string" ? trigger.action : "",
+          action: typeof trigger?.action === "string" && trigger.action !== "" ? trigger.action : (actionIds[0] ?? ""),
           ...(trigger?.input !== undefined ? { input: trigger.input } : {}),
         });
         return;
@@ -1143,7 +1291,7 @@ export function TriggerField({
       case "replace":
         onCommit({
           type: nextType,
-          to: typeof trigger?.to === "string" ? trigger.to : "",
+          to: typeof trigger?.to === "string" && trigger.to !== "" ? trigger.to : (screenIds[0] ?? ""),
           ...(trigger?.params !== undefined ? { params: trigger.params } : {}),
         });
         return;
@@ -1210,3 +1358,4 @@ export function TriggerField({
     </div>
   );
 }
+
