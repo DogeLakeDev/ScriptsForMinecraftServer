@@ -1,5 +1,26 @@
 # @sfmc-bds/cli
 
+## 0.2.0-beta.21
+
+### Patch Changes
+
+- dc62ffc: UI Studio 改为固定监听 `127.0.0.1:3003`，避免每次随机端口导致浏览器 IndexedDB 工程丢失。
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+  - @sfmc-bds/sdk@0.2.0-beta.18
+  - @sfmc-bds/bds-tools@0.2.0-beta.18
+
 ## 0.2.0-beta.20
 
 ### Minor Changes
