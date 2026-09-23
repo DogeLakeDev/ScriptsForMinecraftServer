@@ -269,7 +269,8 @@ export class MenuNavigator {
     typed.subscribe(() => syncBlocked());
     const form = new CustomFormCtor(this.player, titleObs);
     form.label(body);
-    form.textField(confirmChallengePrompt(challenge), typed);
+    form.label(confirmChallengePrompt(challenge));
+    form.textField("确认文字", typed, { description: challenge });
     let accepted = false;
     form.button(stripDduiButtonFormatting(confirm), () => {
       accepted = true;

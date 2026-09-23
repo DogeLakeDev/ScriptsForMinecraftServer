@@ -48,6 +48,11 @@ import {
   formatNumberFieldText,
   type NumberFieldLimits,
 } from "./number-text-field.js";
+import {
+  formFeedbackRebuildsStatus,
+  formFeedbackRoute,
+  presentFormStatus,
+} from "./form-action-feedback.js";
 import { effectiveConfirmChallenge } from "../../ui-studio/shared/confirm-challenge.js";
 import { resolveDropdownOptions } from "../../ui-studio/shared/evaluate.js";
 
@@ -112,6 +117,9 @@ type ToggleWatch = {
   status: FormStatus;
 };
 
+/** 页面重建后写到新 FormStatus 的动作提示。 */
+type PendingFormMessage = { text: string; tone: unknown };
+
 type RuntimeSession = {
   player: Player;
   feature: RuntimeFeature;
@@ -124,6 +132,7 @@ type RuntimeSession = {
   numberTextViews: Map<string, ObservableString>;
   disabledControls: Map<string, ObservableBoolean>;
   toggleWatch: Map<string, ToggleWatch>;
+  pendingFormMessage?: PendingFormMessage;
 };
 
 const features = new Map<string, RuntimeFeature>();
@@ -777,28 +786,36 @@ function hydrateBooleanStateFromLoad(
   }
 }
 
+/**
+ * 先记下要写到状态行的提示，再导航/关表单，最后才发聊天。
+ * 使用场景：发送失败时表单仍开着，必须替换「正在处理」，不能丢进聊天框。
+ */
 async function applyEffects(
   effects: unknown,
   session: RuntimeSession,
   screen: JsonObject,
   aliases: JsonObject,
   result: unknown,
+  status: FormStatus,
 ): Promise<void> {
   if (!Array.isArray(effects)) return;
+  const route = formFeedbackRoute(effects);
+  const rebuildsStatus = formFeedbackRebuildsStatus(effects);
+  const messages: Array<{ text: string; tone: unknown }> = [];
   for (const rawEffect of effects) {
-    if (!isObject(rawEffect)) continue;
+    if (!isObject(rawEffect) || rawEffect.effect !== "message") continue;
+    const scope = makeScope(session, screen, aliases, result);
+    const message = text(bindString(text(rawEffect.text), scope));
+    if (message) messages.push({ text: message, tone: rawEffect.tone });
+  }
+  if (route === "form" && rebuildsStatus) {
+    const last = messages[messages.length - 1];
+    if (last) session.pendingFormMessage = last;
+  }
+  for (const rawEffect of effects) {
+    if (!isObject(rawEffect) || rawEffect.effect === "message") continue;
     const scope = makeScope(session, screen, aliases, result);
     switch (rawEffect.effect) {
-      case "message": {
-        const message = text(bindString(text(rawEffect.text), scope));
-        if (rawEffect.tone === "danger") Msg.error(message, session.player);
-        else if (rawEffect.tone === "warning")
-          Msg.warning(message, session.player);
-        else if (rawEffect.tone === "success")
-          Msg.success(message, session.player);
-        else Msg.info(message, session.player);
-        break;
-      }
       case "navigate":
       case "replace":
         await goTo(
@@ -829,6 +846,31 @@ async function applyEffects(
         break;
     }
   }
+  if (route === "chat") {
+    for (const item of messages) {
+      presentChatFeedback(session.player, item.text, item.tone);
+    }
+    return;
+  }
+  if (rebuildsStatus) return;
+  for (const item of messages) {
+    presentFormStatus(status, item.text, item.tone);
+  }
+}
+
+/**
+ * 表单已关闭时的动作提示，沿用 Msg 色板。
+ * 使用场景：onSuccess 含 close，玩家已经看不到状态行。
+ */
+function presentChatFeedback(
+  player: Player,
+  message: string,
+  tone: unknown,
+): void {
+  if (tone === "danger") Msg.error(message, player);
+  else if (tone === "warning") Msg.warning(message, player);
+  else if (tone === "success") Msg.success(message, player);
+  else Msg.info(message, player);
 }
 
 async function runAction(
@@ -883,14 +925,28 @@ async function runAction(
           ...extraInput,
         },
       );
-      await applyEffects(action.onSuccess, session, screen, aliases, result);
+      await applyEffects(
+        action.onSuccess,
+        session,
+        screen,
+        aliases,
+        result,
+        status,
+      );
     } catch (error) {
       const result = {
         message:
           error instanceof Error ? error.message : text(error, "操作失败"),
       };
       if (Array.isArray(action.onError)) {
-        await applyEffects(action.onError, session, screen, aliases, result);
+        await applyEffects(
+          action.onError,
+          session,
+          screen,
+          aliases,
+          result,
+          status,
+        );
       } else {
         throw error;
       }
@@ -1165,6 +1221,14 @@ async function renderScreen(
   ensureStateBindings(session, screen);
   hydrateBooleanStateFromLoad(session, screen);
   const status = new FormStatus(page);
+  if (session.pendingFormMessage) {
+    presentFormStatus(
+      status,
+      session.pendingFormMessage.text,
+      session.pendingFormMessage.tone,
+    );
+    delete session.pendingFormMessage;
+  }
   const scope = makeScope(session, screen);
   const title = text(bindString(text(screen.title), scope));
   if (title) page.header(title);

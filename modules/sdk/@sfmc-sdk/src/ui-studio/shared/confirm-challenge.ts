@@ -22,5 +22,5 @@ export function confirmChallengeMatches(typed: string, expected: string): boolea
 }
 
 export function confirmChallengePrompt(challenge: string): string {
-  return `请输入「${challenge}」以确认`;
+  return `请输入 ${challenge} 以确认`;
 }
