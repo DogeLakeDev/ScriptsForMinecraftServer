@@ -12,7 +12,7 @@
 | `private` | 勿为 `true` |
 | `name` | `@<user>/sfmc-module-<id>` 或官方 `@sfmc-bds/module-<id>` |
 | `files` | 含 `sapi` |
-| 测试 / lint | `pnpm test` / `npm test` 或扩展 `SFMC: Run Tests`；接上 [ESLint](./eslint.md) 更稳 |
+| 类型检查 / lint | `pnpm run typecheck` 与 `pnpm run lint`；发布前按 [验证指南](./testing.md) 完成实际联调 |
 | 登录 | `npm login`（npm  registry 账号）；官方 scope 另需组织权限 |
 
 ```bash

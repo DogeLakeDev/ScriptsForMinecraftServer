@@ -7,16 +7,7 @@
 
 // ── OneBot 11 消息段 ─────────────────────────────────────────
 export type OneBotSegmentType =
-  | "text"
-  | "at"
-  | "image"
-  | "face"
-  | "reply"
-  | "forward"
-  | "record"
-  | "video"
-  | "file"
-  | (string & {}); // 允许后续 OneBot 扩展段
+  "text" | "at" | "image" | "face" | "reply" | "forward" | "record" | "video" | "file" | (string & {}); // 允许后续 OneBot 扩展段
 
 export interface OneBotTextSegment {
   type: "text";
@@ -73,6 +64,7 @@ export type OneBotSegment =
 // ── OneBot 11 事件 ────────────────────────────────────────────
 export interface OneBotSender {
   user_id: number;
+  role?: string;
   nickname: string;
   card?: string;
   [k: string]: unknown;
@@ -109,6 +101,9 @@ export type OneBotEvent = OneBotGroupMessageEvent | OneBotLifecycleEvent | { [k:
  *  已经把 optional 字段全部填默认值。本地类型不能放宽 optional,
  *  否则调用点 (index.ts / dispatcher.ts) 都要补 undefined 兜底。 */
 export interface QQBridgeConfig {
+  /** 仅用于向玩家公开展示；version 为实际版本不可用时的备用说明。 */
+  public_server?: { address?: string; port?: number; version?: string };
+  qq_admin_openids: string[];
   qq_enabled: boolean;
   qq_backend: "official" | "llbot";
   qq_app_id: string;

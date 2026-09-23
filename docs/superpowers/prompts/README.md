@@ -18,7 +18,7 @@
 
 1. 确认 AGENT_BRIEF「平台前置 / 开仓闸门」（进程内 `service.provide` + 本地优先 `service.call`）已满足。
 2. Wave A → B → C；同波次可按依赖图并行，但不得跳过本模块 `requires`。
-3. 每个模块：脚手架（`--official`）→ 专属提示词 → Acceptance criteria → `pnpm run typecheck` + `pnpm test` → [self-check.md](./self-check.md)。
+3. 每个模块：脚手架（`--official`）→ 专属提示词 → Acceptance criteria → `pnpm run typecheck` + `pnpm run lint` → 实际联调 → [self-check.md](./self-check.md)。
 
 ## 相关权威
 

@@ -7,6 +7,7 @@
 import { request } from "node:http";
 import { llbotWsApi } from "../llbot-ws-api.js";
 import { log } from "../log.js";
+import { splitMessage } from "./message-text.js";
 import { renderLlbot } from "./render.js";
 import type { CommandResult, InboundMessage, ReplyPort, ReplyTarget } from "./types.js";
 
@@ -25,13 +26,14 @@ export function createLlbotReplyPort(cfg: LlbotReplyConfig): ReplyPort {
       }
       const { text } = renderLlbot(result);
 
-      if (llbotWsApi.connected) {
-        await llbotWsApi.sendGroupMsg(cfg.groupId, text);
-        return;
+      for (const part of splitMessage(text)) {
+        if (llbotWsApi.connected) {
+          await llbotWsApi.sendGroupMsg(cfg.groupId, part);
+        } else {
+          log.warn("LLBot reverse-ws 未连接，回退 HTTP send_group_msg");
+          await sendGroupMsgHttp(cfg, part);
+        }
       }
-
-      log.warn("LLBot reverse-ws 未连接，回退 HTTP send_group_msg");
-      await sendGroupMsgHttp(cfg, text);
     },
   };
 }
@@ -55,6 +57,7 @@ function sendGroupMsgHttp(cfg: LlbotReplyConfig, text: string): Promise<void> {
         port: cfg.port,
         path: "/send_group_msg",
         method: "POST",
+        timeout: 5_000,
         headers,
       },
       (res) => {
@@ -66,10 +69,17 @@ function sendGroupMsgHttp(cfg: LlbotReplyConfig, text: string): Promise<void> {
             reject(new Error(`LLBot HTTP ${res.statusCode}`));
             return;
           }
-          resolve();
+          try {
+            const result = JSON.parse(body) as { status?: string; retcode?: number };
+            if (result.status !== "ok" || result.retcode !== 0) throw new Error("LLBot 发送失败");
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
         });
       }
     );
+    req.on("timeout", () => req.destroy(new Error("LLBot 请求超时")));
     req.on("error", reject);
     req.write(payload);
     req.end();

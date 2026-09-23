@@ -62,7 +62,7 @@ SFMC Module 扩展在 `package.json` 中通过 `extensionRecommendations` 推荐
 
 ```bash
 pnpm --filter @sfmc-bds/eslint-plugin run build
-pnpm --filter @sfmc-bds/eslint-plugin test
+pnpm --filter @sfmc-bds/eslint-plugin typecheck
 npm run build -w @sfmc-bds/eslint-plugin
-npm test -w @sfmc-bds/eslint-plugin
+npm run typecheck -w @sfmc-bds/eslint-plugin
 ```

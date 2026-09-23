@@ -13,7 +13,7 @@ export type ProgressLogFn = (message: string) => void;
 export interface TerminalProgressOptions {
   /** 输出流（默认 process.stderr） */
   stream?: NodeJS.WritableStream;
-  /** 非 TTY 时节流百分比日志 */
+  /** 非 TTY 时节流输出带条形图的进度日志 */
   logger?: ProgressLogFn;
   /** 非 TTY 步进百分比（默认 5） */
   stepPercent?: number;
@@ -311,10 +311,7 @@ export function createTerminalProgress(opts: TerminalProgressOptions = {}): Prog
       return;
     }
     lastLoggedPct = stepped;
-    const speed = payload.speed ? ` ${payload.speed}` : "";
-    opts.logger(
-      `进度 ${Math.min(100, Math.round(pct))}% (${value.toFixed(1)}/${total.toFixed(1)})${speed}`
-    );
+    opts.logger(renderBarLine(value, total, 24, barCompleteChar, barIncompleteChar, payload, format));
   }
 
   return handle;

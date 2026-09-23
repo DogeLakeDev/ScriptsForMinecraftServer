@@ -13,7 +13,6 @@ import {
   cmdClearAndApplyLogFilter,
   pickModuleRoot,
   coerceModRoot,
-  cmdRunTests,
   cmdLinkModule,
   cmdPublishModule,
   cmdOpenPublishGuide,
@@ -57,9 +56,6 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("sfmcModule.newModule", async () => {
       await cmdNewModule();
-    }),
-    vscode.commands.registerCommand("sfmcModule.runTests", async (arg?: unknown) => {
-      await cmdRunTests(arg);
     }),
     vscode.commands.registerCommand("sfmcModule.linkModule", async (arg?: unknown) => {
       await cmdLinkModule(arg);

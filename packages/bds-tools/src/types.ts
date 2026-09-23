@@ -54,6 +54,7 @@ export interface UpdateOutcome {
 export interface ChangelogPayload {
   text: string;
   imageBase64: string | null;
+  url: string;
 }
 
 export type LogLevel = "info" | "warn" | "error";

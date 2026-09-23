@@ -9,21 +9,18 @@
  *   6. Rollback marker 落盘到 <ROOT>/.sfmc/ - 跨进程 / 跨重启可恢复
  */
 
-import {
-  bindByteProgressToBar,
-  createNodeServiceLogger,
-  createTerminalProgress,
-} from "@sfmc-bds/sdk/logs";
+import { bindByteProgressToBar, createNodeServiceLogger, createTerminalProgress } from "@sfmc-bds/sdk/logs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createBdsManager } from "./bds-manager.js";
-import { CHANGELOG_BASE, fetchChangelog } from "./changelog.js";
+import { changelogSectionUrl, fetchChangelog } from "./changelog.js";
 import { copyDirSync, copyFileSyncSafe, emptyDirSync, hashFileAsync, rmSafe } from "./fsx.js";
 import { bdsExePath, bdsInstallRequiredFiles, ensureBdsExecutable } from "./host-platform.js";
 import { httpDownload } from "./http.js";
 import { isMainModule } from "./is-main.js";
 import { loadConfig, LOG_PATH, resolvePaths, ROOT_DIR } from "./paths.js";
+import { probeBdsStatus } from "./process-probe.js";
 import { sendText, sendWithImage } from "./qqutil.js";
 import {
   clearRollbackMarker,
@@ -137,6 +134,19 @@ async function restorePreserves(bdsPath: string, backupDir: string, preserve: st
   }
 }
 
+/** 等待操作系统确认 BDS 退出，避免仍占用可执行文件时覆盖安装目录。 */
+async function waitForBdsStopped(timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let status = await probeBdsStatus({ rootDir: ROOT_DIR });
+  while (status.state !== "stopped" && Date.now() < deadline) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    status = await probeBdsStatus({ rootDir: ROOT_DIR });
+  }
+  if (status.state !== "stopped") {
+    throw new Error(`BDS 进程 ${status.pid} 仍在运行，已取消文件覆盖`);
+  }
+}
+
 /** 把 zip 解压到 destDir (覆盖) — 经 zipx 安全解压 */
 async function extractZipToBds(zipPath: string, destDir: string): Promise<void> {
   // 抽出到临时目录，避免旧内容干扰
@@ -240,13 +250,13 @@ export async function runUpdate(): Promise<number> {
         `频道: ${channel === "preview" ? "预览版" : "正式版"}\n\n` +
         `服务器即将开始更新~ 请耐心等待^(*￣(oo)￣)^`
     );
-    const cl = await fetchChangelog(channel);
+    const cl = await fetchChangelog(channel, latestVer);
     if (cl) {
-      const text = `📋 更新内容概要\n\n${cl.text.slice(0, 1500)}\n\n完整日志: ${CHANGELOG_BASE}`;
+      const text = `📋 ${latestVer} 更新内容概要\n\n${cl.text.slice(0, 1500)}\n\n完整日志: ${cl.url}`;
       if (cl.imageBase64) await sendWithImage(text, cl.imageBase64);
       else await sendText(text);
     } else {
-      await sendText(`📋 更新日志: ${CHANGELOG_BASE}`);
+      await sendText(`📋 ${latestVer} 更新日志目录: ${changelogSectionUrl(channel)}`);
     }
   }
 
@@ -278,9 +288,13 @@ export async function runUpdate(): Promise<number> {
   try {
     log.info("停止 BDS 服务...");
     await bds.stop();
+    await waitForBdsStopped();
     log.info("BDS 已停止");
   } catch (e) {
-    log.warn(`BDS 停止异常: ${(e as Error).message}`);
+    log.error(`BDS 停止失败: ${(e as Error).message}`);
+    await sendText(`❌ BDS 更新失败\n\n停服失败: ${(e as Error).message}\n操作已中止`);
+    clearRollbackMarker();
+    return 1;
   }
 
   // 8. 下载 (全部失败则回滚)
@@ -294,7 +308,7 @@ export async function runUpdate(): Promise<number> {
 
     let lastErr: Error | null = null;
     const downloadTimeoutMs = (cfg.download_timeout ?? 120) * 1000;
-    /* stderr 被 pipe 时不画 bar；用文本进度给 sfmc REPL 等父进程 */
+    /* stderr 被 pipe 时由 logger 输出带条形图的进度行，供 sfmc REPL 展示。 */
     if (isTaskbarSupported() && process.stdout.isTTY) {
       log.info("检测到 Windows Terminal,任务栏进度已启用 (OSC 9;4)");
     }
@@ -302,7 +316,7 @@ export async function runUpdate(): Promise<number> {
       /* 每次尝试新建 bar + binder，避免失败重试时 started 状态残留（LSP） */
       const progressBar = createTerminalProgress({
         stream: process.stderr,
-        logger: (msg) => log.info(msg.startsWith("进度") ? `下载${msg.slice(2)}` : msg),
+        logger: (msg) => log.info(msg),
         format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
       });
       const onByteProgress = bindByteProgressToBar(progressBar, {
@@ -364,6 +378,15 @@ export async function runUpdate(): Promise<number> {
 
   // 9. 解压 + 部署
   try {
+    await waitForBdsStopped();
+  } catch (e) {
+    log.error(`部署已中止: ${(e as Error).message}`);
+    await sendText(`❌ BDS 更新失败\n\n${(e as Error).message}\n尚未覆盖安装目录`);
+    rmSafe(stagingDir);
+    clearRollbackMarker();
+    return 1;
+  }
+  try {
     log.info("解压中...");
     // 先清空 BDS 目录
     emptyDirSync(bdsPath);
@@ -372,6 +395,13 @@ export async function runUpdate(): Promise<number> {
     log.info("解压完成");
   } catch (e) {
     log.error(`解压失败: ${(e as Error).message}`);
+    const status = await probeBdsStatus({ rootDir: ROOT_DIR });
+    if (status.state !== "stopped") {
+      // 外部守护进程可能在部署期间再次拉起 BDS；不能对运行中的目录继续清理。
+      await sendText(`❌ BDS 更新失败\n\n解压失败: ${(e as Error).message}\nBDS 仍在运行，请先停服并手动恢复`);
+      rmSafe(stagingDir);
+      return 1;
+    }
     await sendText(`❌ BDS 更新失败\n\n解压失败: ${(e as Error).message}\nBDS 已停止，请手动恢复`);
     // 回滚: 清空 + 从备份恢复 preserves
     emptyDirSync(bdsPath);

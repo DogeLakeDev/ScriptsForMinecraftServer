@@ -8,12 +8,7 @@
  * - 支持 `reloadInto(cfg)` 就地合并更新运行时对象，保持内存引用一致
  */
 
-import {
-  configPath,
-  DEFAULT_QQ_CONFIG,
-  loadEnsuredConfig,
-  stripConfigMeta,
-} from "@sfmc-bds/sdk/node/config";
+import { configPath, DEFAULT_QQ_CONFIG, loadEnsuredConfig, stripConfigMeta } from "@sfmc-bds/sdk/node/config";
 import { log } from "./log.js";
 import { PROJECT_ROOT } from "./project-root.js";
 import type { QQBridgeConfig } from "./types.js";
@@ -28,8 +23,18 @@ function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
   const stripped = stripConfigMeta(merged);
   const backendRaw = String(stripped.qq_backend ?? DEFAULT_QQ_CONFIG.qq_backend ?? "official");
   const qq_backend = backendRaw === "llbot" ? ("llbot" as const) : ("official" as const);
+  const publicRaw = raw.public_server;
+  const publicServer = publicRaw && typeof publicRaw === "object" ? publicRaw : {};
   return {
     ...stripped,
+    public_server: {
+      address: typeof publicServer.address === "string" ? publicServer.address.trim().slice(0, 253) : "",
+      version: typeof publicServer.version === "string" ? publicServer.version.trim().slice(0, 120) : "",
+      port:
+        Number.isInteger(publicServer.port) && publicServer.port! > 0 && publicServer.port! <= 65535
+          ? publicServer.port!
+          : 19132,
+    },
     qq_enabled: stripped.qq_enabled !== false,
     qq_backend,
     qq_app_id: String(stripped.qq_app_id ?? DEFAULT_QQ_CONFIG.qq_app_id ?? ""),
@@ -51,12 +56,10 @@ function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
 }
 
 function readFromDisk(): QQBridgeConfig {
-  const raw = loadEnsuredConfig(
-    ROOT_DIR,
-    "qq_config.json",
-    "qq_config",
-    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
-  );
+  const raw = loadEnsuredConfig(ROOT_DIR, "qq_config.json", "qq_config", { ...DEFAULT_QQ_CONFIG } as Record<
+    string,
+    unknown
+  >);
   return applyDefaults(raw as Partial<QQBridgeConfig>);
 }
 
@@ -87,4 +90,3 @@ export function reloadInto(cfg: QQBridgeConfig): void {
     log.error(`重载配置失败: ${(e as Error).message}`);
   }
 }
-

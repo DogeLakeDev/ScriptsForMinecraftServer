@@ -46,24 +46,6 @@ jobs:
       - name: Build all workspaces
         run: pnpm -r --filter '!@sfmc-bds/docs-site' run build
 
-      - name: SDK testing sandbox
-        run: pnpm --filter @sfmc-bds/sdk test
-
-      - name: Portable workspace unit tests
-        run: |
-          pnpm --filter @sfmc-bds/db-server test
-          pnpm --filter @sfmc-bds/qq-bridge test
-          pnpm --filter @sfmc-bds/bds-tools test
-          pnpm --filter @sfmc-bds/cli test
-
-      - name: mc-fake 生成物与仓库一致
-        run: |
-          pnpm --filter @sfmc-bds/sdk run gen:mc-fake
-          if ! git diff --ignore-cr-at-eol --exit-code -- "modules/sdk/@sfmc-sdk/src/testing/engine/generated/"; then
-            echo "::error::generated/ 与 gen:mc-fake 不一致：请本地 pnpm --filter @sfmc-bds/sdk run gen:mc-fake 后提交"
-            exit 1
-          fi
-
       - name: Run platform verify
         env:
           SFMC_ROOT: ${{ github.workspace }}

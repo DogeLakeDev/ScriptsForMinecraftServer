@@ -52,11 +52,11 @@ cd packages/db-server && pnpm run dev
 ### ① `packages/db-server`（持久化中枢）
 - **职责**：基于 Node.js 22 内置的 `node:sqlite` 原生驱动，为原生 SAPI 与外部服务提供 HTTP REST 接口、分布式事务（`tx-runner`）与鉴权校验。
 - **入口**：`packages/db-server/src/index.ts`，路由分散在 `routes/` 目录下（`db-routes.ts`、`service-routes.ts`、`config.ts`）。
-- **单元测试**：`pnpm --filter @sfmc-bds/db-server test`。
+- **验证**：运行目标包 `typecheck`，再用平台 `verify` 检查数据库接口。
 
 ### ② `packages/qq-bridge`（多端通信桥）
 - **职责**：支持腾讯 QQ 开放平台 WebSocket Gateway（官方机器人）与 OneBot 11（LLBot）双后端，实现消息的双向转换与事件推群。
-- **单元测试**：`pnpm --filter @sfmc-bds/qq-bridge test`。
+- **验证**：运行目标包 `typecheck` 与 `build`，再检查实际消息链路。
 
 ### ③ `packages/bds-tools`（BDS 运维、版本管理与附加包装配）
 - **职责**：
@@ -64,7 +64,7 @@ cd packages/db-server && pnpm run dev
   - **自动化更新与灾难恢复**（`check-update.ts`、`rollback.ts`）：Mojang 官方发行版自动探测、增量备份、`preserve` 文件白名单保护与失败原子回滚。
   - **配置合规与多语言辅助**（`server-properties.ts`、`server-properties-i18n.ts`）：基于属性感知 AST 实现 `server.properties` 注释的中文结构化本地化，保障 EULA 遥测合规（`emit-server-telemetry`），绝不破坏服主配置键值。
   - **世界附加包与依赖仲裁**（`world-packs.ts`、`dependency-negotiator.ts`、`pack-update/`）：行为包与资源包动态组装部署、CurseForge 上游自动升级探测、`level.dat` 实验性开关（GameTest / Beta APIs）自动激活。
-- **单元测试**：`pnpm --filter @sfmc-bds/bds-tools test`。
+- **验证**：运行目标包 `typecheck` 与 `build`，涉及 BDS 时在测试世界验收。
 
 ### ④ `packages/cli`（编排主控与 REPL）
 - **职责**：实现开服交互控制台、多服务进程生命周期监控、命令分发与日志多路复用。

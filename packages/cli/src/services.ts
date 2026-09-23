@@ -42,6 +42,7 @@ import { resolveLlbotLaunch } from "./llbot-launch.js";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
 import { findNodeServicePids } from "./node-service-probe.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
+import { recordBdsVersion } from "./bds-runtime-version.js";
 import { reportBdsPlayerSession } from "./player-session.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 
@@ -147,6 +148,8 @@ class Service {
 
   private def: ServiceDef;
   private manualStop = false;
+  private updateInProgress = false;
+  private restartTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(def: ServiceDef) {
     this.name = def.name;
@@ -177,6 +180,7 @@ class Service {
   }
 
   async start(): Promise<StartOutcome> {
+    if (this.updateInProgress) throw new Error("BDS 正在更新，暂不可启动");
     if (this.running) return { status: "already" };
     if (this.name === "bds") {
       const probe = await probeBdsStatus({ rootDir: ROOT });
@@ -206,6 +210,8 @@ class Service {
     if (this.def.beforeStart) {
       await this.def.beforeStart();
     }
+    // beforeStart 含异步检查；更新可能在等待期间开始。
+    if (this.updateInProgress) throw new Error("BDS 正在更新，暂不可启动");
     this.manualStop = false;
     const daemonize = argvDaemonize && process.platform !== "win32";
     const spawnOpts = {
@@ -233,7 +239,14 @@ class Service {
       this.cleanup();
     });
 
+    let versionLineBuffer = "";
     child.stdout?.on("data", (d: Buffer) => {
+      if (this.name === "bds" && this.startTime) {
+        versionLineBuffer += d.toString();
+        const versionLines = versionLineBuffer.split(/\r?\n/);
+        versionLineBuffer = (versionLines.pop() ?? "").slice(-4096);
+        for (const versionLine of versionLines) recordBdsVersion(ROOT, versionLine, this.pid, this.startTime.getTime());
+      }
       for (const line of nonBlankOutputLines(d.toString())) {
         this.pushLog(line, "stdout");
       }
@@ -245,15 +258,36 @@ class Service {
     });
 
     child.on("exit", (code) => {
+      if (this.proc && this.proc !== child) return;
       this.events.emit("output", `exited (code: ${code})`, "info");
       this.cleanup();
-      if (!this.manualStop && this.def.autoRestart) {
-        setTimeout(() => {
-          void this.start();
+      if (!this.manualStop && !this.updateInProgress && this.def.autoRestart) {
+        this.restartTimer = setTimeout(() => {
+          this.restartTimer = null;
+          if (!this.updateInProgress && !this.manualStop && !this.running) {
+            void this.start().catch((e: Error) => {
+              this.events.emit("output", `restart failed: ${e.message}`, "error");
+            });
+          }
         }, this.def.restartDelay);
       }
     });
     return { status: "started" };
+  }
+
+  /** 更新器独立进程停服时，禁止将计划内退出当作崩溃并自动拉起。 */
+  beginUpdate(): void {
+    if (this.name !== "bds") return;
+    if (this.updateInProgress) throw new Error("BDS 更新已在进行中");
+    this.updateInProgress = true;
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+  }
+
+  endUpdate(): void {
+    this.updateInProgress = false;
   }
 
   async stop(): Promise<void> {

@@ -39,19 +39,16 @@ export function renderOfficial(result: CommandResult): OfficialRenderPayload {
   return { msgType: 0, content: result.text };
 }
 
-/** llbot：正文已含编号列表时不再重复；否则补编号行 */
+/** LLBot 只输出一份操作列表，菜单说明与操作提示各出现一次。 */
 export function renderLlbot(result: CommandResult): LlbotRenderPayload {
-  if (!result.buttons || result.buttons.length === 0) {
-    return { text: result.text };
-  }
-  // 主/管理菜单正文已带「1. 标签 — 说明」，避免再堆一层 [1] label
-  if (/^\d+\.\s/m.test(result.text)) {
-    return {
-      text: `${result.text}\n\n回复数字执行（60 秒内有效）`,
-    };
-  }
-  const lines = result.buttons.map((b, i) => `[${i + 1}] ${b.label}`);
+  if (!result.buttons?.length) return { text: result.text };
+  const lines = result.buttons.map((button, index) => {
+    const detail = result.menu && button.description ? `\n   ${button.description}` : "";
+    return `${index + 1}. ${button.label}${detail}`;
+  });
   return {
-    text: `${result.text}\n\n${lines.join("\n")}\n\n回复数字执行（60 秒内有效）`,
+    text: [result.text, "", result.menu ? "" : "可选操作", lines.join("\n"), "", "回复编号选择 · 60 秒内有效"]
+      .filter((line, index, all) => line !== "" || all[index - 1] !== "")
+      .join("\n"),
   };
 }

@@ -1,7 +1,7 @@
 /**
  * commands/join-settings-ui.ts — 入服配置面板文案与互动按钮（DRY）
  *
- * official：INTERACTION 回调 data = cfg:allowlist|approval:on|off
+ * official 与 llbot 均使用文字命令，经过统一路由与确认
  * llbot：编号会话 command = 「配置 白名单/审批 开|关」
  */
 
@@ -9,9 +9,9 @@ import type { JoinSettingsResponse } from "./db-api.js";
 import type { CommandButton, CommandResult, QqBackendKind } from "./types.js";
 
 export type JoinSettingsView = {
-  allowlist_enabled?: boolean;
-  require_approval?: boolean;
-  treat_group_admins_as_admins?: boolean;
+  allowlist_enabled?: boolean | undefined;
+  require_approval?: boolean | undefined;
+  treat_group_admins_as_admins?: boolean | undefined;
 };
 
 function onOffLabel(on: boolean): string {
@@ -53,12 +53,12 @@ export function formatJoinSettingsMarkdown(s: JoinSettingsView, prefix?: string)
 
 /**
  * 生成切换按钮：展示「点一下变成的目标状态」。
- * official 用回调；llbot 用文本命令。
+ * 两端使用相同的文本命令。
  */
 export function buildJoinSettingsButtons(
   s: JoinSettingsView,
-  backend: QqBackendKind,
-  adminOpenids: string[] = []
+  _backend: QqBackendKind,
+  _adminOpenids: string[] = []
 ): CommandButton[] {
   const alOn = s.allowlist_enabled !== false;
   const apOn = s.require_approval !== false;
@@ -67,34 +67,6 @@ export function buildJoinSettingsButtons(
   const apTarget = !apOn;
   const alWord = alTarget ? "开" : "关";
   const apWord = apTarget ? "开" : "关";
-
-  const permission =
-    adminOpenids.length > 0
-      ? { type: 0 as const, specify_user_ids: adminOpenids }
-      : { type: 2 as const };
-
-  if (backend === "official") {
-    return [
-      {
-        id: "cfg_al",
-        label: `白名单·${alWord}`,
-        command: `cfg:allowlist:${alTarget ? "on" : "off"}`,
-        actionType: 1,
-        style: alTarget ? 1 : 0,
-        visitedLabel: `白名单·${alWord}`,
-        permission,
-      },
-      {
-        id: "cfg_ap",
-        label: `审批·${apWord}`,
-        command: `cfg:approval:${apTarget ? "on" : "off"}`,
-        actionType: 1,
-        style: apTarget ? 1 : 0,
-        visitedLabel: `审批·${apWord}`,
-        permission,
-      },
-    ];
-  }
 
   return [
     {

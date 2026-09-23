@@ -3,7 +3,7 @@
 ## 基本要求
 
 - 沟通、文档和代码注释使用简体中文；代码标识符沿用项目现有风格。
-- 先查看相关源码、测试和 `package.json`，不要把本文或旧文档当作高于源码的事实。
+- 先查看相关源码和 `package.json`，不要把本文或旧文档当作高于源码的事实。
 - 只修改用户要求范围内的文件，保留工作区中已有的无关改动。
 - 不读取、输出或提交 `configs/`、`data/`、密钥、Token 等运行时敏感内容。
 
@@ -18,12 +18,13 @@
 ## 工作方式
 
 - 修复问题前先追踪真实调用链、注册时机、权限与生命周期，确认根因后再改代码。
-- 优先复用现有实现和测试模式；不要为了“更完整”扩大重构范围。
+- 优先复用现有实现；不要为了“更完整”扩大重构范围。
+- 默认不新增常驻测试脚本；功能完成后清理临时验证脚本，保留必要的构建、类型检查与运行验收记录。
 - 格式遵循仓库 Prettier/ESLint 配置，不在规则文件中重复维护格式参数。
 
 ## 验证
 
-- 运行与改动范围相称的最小检查；优先使用目标包的 `test`、`typecheck` 或 `build`。
+- 运行与改动范围相称的最小检查；优先使用目标包的 `typecheck` 或 `build`，必要时做一次性运行验收。
 - 跨包或架构变更再运行根目录 `pnpm run typecheck`、`pnpm run lint`、`pnpm run verify` 或 `pnpm run build` 中相关项。
 - 未运行或未通过的检查必须明确说明，不得声称修复完成。
 
@@ -31,6 +32,6 @@
 
 - 架构与约定：`docs/zh/dev/architecture.md`、`docs/zh/dev/conventions.md`
 - 模块开发：`docs/zh/dev/module-author.mdx`
-- 测试：`docs/zh/dev/testing.md`
+- 验证与联调：`docs/zh/dev/testing.md`
 - 文档站任务：`website/AGENTS.md`
 - 场景化流程：`.cursor/skills/`

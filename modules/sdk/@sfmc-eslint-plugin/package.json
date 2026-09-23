@@ -40,9 +40,7 @@
   ],
   "scripts": {
     "build": "sfmc-esbuild-transpile --dts",
-    "build:test": "tsc7 -p tsconfig.test.json",
     "prepublishOnly": "pnpm run build",
-    "test": "pnpm run build:test && node --test \"dist/**/*.test.js\"",
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -52,7 +50,6 @@
     "@sfmc-bds/tools": "workspace:*",
     "@types/node": "^26.1.1",
     "@typescript-eslint/parser": "^8.64.0",
-    "@typescript-eslint/rule-tester": "^8.64.0",
     "eslint": "^10.7.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },

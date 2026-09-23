@@ -75,7 +75,7 @@
 ## 8. Acceptance criteria
 
 - [ ] `schemaVersion: 2` manifest；`id` ≡ install id；无 v1 字段
-- [ ] `pnpm run typecheck && pnpm run lint && pnpm test` 通过
+- [ ] `pnpm run typecheck && pnpm run lint` 通过，并完成实际联调
 - [ ] …（模块特有行为）
 
 ## 9. Deferred

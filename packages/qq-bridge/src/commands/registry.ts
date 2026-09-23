@@ -42,7 +42,7 @@ export class CommandRegistry {
 
   /** 主菜单 / 官方快捷菜单：排除管理子菜单项 */
   userMenu(): RegisteredCommand[] {
-    return this.list.filter((c) => !c.adminMenu);
+    return this.list.filter((c) => c.group === "home" && c.permission !== "admin");
   }
 
   /** 管理子菜单 */

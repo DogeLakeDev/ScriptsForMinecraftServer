@@ -7,6 +7,8 @@ export type QqBackendKind = "official" | "llbot";
 export type CommandButton = {
   id: string;
   label: string;
+  /** 菜单内的简短用途说明，不发送给 QQ 键盘接口。 */
+  description?: string;
   /** 点击/编号后触发的指令文本，或 INTERACTION 回调 data（见 actionType） */
   command: string;
   /**
@@ -24,11 +26,18 @@ export type CommandButton = {
 };
 
 export type CommandResult = {
+  /** 菜单统一排版；首页不重复追加返回首页。 */
+  menu?: "home" | "section";
   /** 纯文本正文（llbot 直接用；official 可再包一层 markdown） */
   text: string;
   /** 可选 Markdown（official 优先；无则用 text） */
   markdown?: string;
   buttons?: CommandButton[];
+  /** 仅路由内部使用，不交给后端渲染。 */
+  confirmation?: {
+    summary: string;
+    execute: CommandHandler;
+  };
 };
 
 export type InboundMessage = {
@@ -48,11 +57,14 @@ export type InboundMessage = {
 };
 
 export type CommandContext = {
+  /** 每次执行由路由向 db-server 核验，确认操作时重新查询。 */
+  adminAuthorized?: boolean;
   inbound: InboundMessage;
   /** 进程启动时刻，供 ping 展示 uptime */
   startedAt: number;
   /** 运行摘要（sandbox 等），由入口注入；handler 不读 qq_backend 分支业务 */
   runtimeInfo: {
+    publicServer?: { address?: string; port?: number; version?: string } | undefined;
     sandbox?: boolean;
     appIdHint?: string;
     /** db-server 地址，供 status / bind */
@@ -76,6 +88,8 @@ export type CommandContext = {
 export type CommandHandler = (ctx: CommandContext) => CommandResult | Promise<CommandResult>;
 
 export type RegisteredCommand = {
+  group?: "home" | "server" | "account" | "join" | "help" | "admin";
+  permission?: "player" | "admin";
   /** 主名，如 ping */
   name: string;
   /** 触发词（已小写/规范化匹配前再处理） */

@@ -10,7 +10,7 @@ export type ModuleId = string;
 /**
  * BDS SAPI host 抽象（由 install.ts 在 BDS 进程里注入）。
  * 模块 loader 只调用 stub 接口，不直接 import @minecraft/server——
- * 让模块 entry 在 `node --test` 等非 BDS 环境里也能 import module-loader。
+ * 让模块 entry 在非 BDS 环境里也能 import module-loader。
  */
 export type BdsSystem = {
   clearRun(id: number): void;

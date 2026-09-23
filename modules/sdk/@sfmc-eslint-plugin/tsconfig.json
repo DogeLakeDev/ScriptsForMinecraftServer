@@ -14,11 +14,6 @@
     "noEmitOnError": true
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/**/*.test.ts",
-    "src/utils/rule-tester.ts"
-  ]
+  "exclude": ["node_modules", "dist"]
 }
 

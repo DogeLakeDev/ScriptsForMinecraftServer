@@ -5,9 +5,9 @@
  */
 
 import { SQL } from "sql-template-strings";
+import { collectSystemStatus, type SystemStatusSnapshot } from "../domain/system-status.js";
 import type { QueryFn } from "../lib/sqlite.js";
 import { PROJECT_ROOT } from "../project-root.js";
-import { collectSystemStatus, type SystemStatusSnapshot } from "../domain/system-status.js";
 import { json, type RouteFactory } from "./_shared.js";
 
 /** 玩家行新鲜度阈值：超过则视为离线快照过期 */
@@ -52,7 +52,7 @@ function createStatusRoutes({ query, collectSystem, projectRoot }: Deps): Return
     let players: Array<{ id: string; name: string; updated_at: number }> = [];
     try {
       const rows = query(
-        SQL`SELECT id, name, updated_at FROM sfmc_players ORDER BY updated_at DESC LIMIT 64`
+        SQL`SELECT id, name, updated_at FROM sfmc_players WHERE updated_at >= ${now - FRESH_MS} ORDER BY updated_at DESC`
       ) as Array<{ id: string; name: string; updated_at: number }>;
       players = rows.map((r) => ({
         id: String(r.id ?? ""),
@@ -87,10 +87,7 @@ function createStatusRoutes({ query, collectSystem, projectRoot }: Deps): Return
           }
         : null,
       source: "sfmc_players/sfmc_world+os",
-      note:
-        online.length === 0
-          ? "暂无新鲜在线数据（需 BDS 同步玩家表，或数据超过 5 分钟）"
-          : undefined,
+      note: online.length === 0 ? "暂无新鲜在线数据（需 BDS 同步玩家表，或数据超过 5 分钟）" : undefined,
     });
     return true;
   };

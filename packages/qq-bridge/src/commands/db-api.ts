@@ -40,10 +40,14 @@ function requestJson<T>(
       });
       res.on("end", () => {
         const status = res.statusCode ?? 0;
+        if (status >= 500 || status === 401 || status === 404) {
+          reject(new Error(`db-server HTTP ${status}`));
+          return;
+        }
         try {
           resolve({ status, data: JSON.parse(buf) as T });
         } catch {
-          reject(new Error(`db-server 非 JSON (${status}): ${buf.slice(0, 120)}`));
+          reject(new Error(`db-server 非 JSON (${status})`));
         }
       });
     });
@@ -67,6 +71,7 @@ export type SfmcHostStatus = {
 };
 
 export type SfmcProcessStatus = {
+  version?: string;
   pid?: number;
   running?: boolean;
   uptimeSec?: number | null;
@@ -166,9 +171,8 @@ export async function fetchJoinPending(
   error?: string;
 }> {
   const q =
-    `/api/sfmc/qq/join/pending?openid=${encodeURIComponent(openid)}` +
-    (asGroupAdmin ? "&as_group_admin=true" : "");
-  const { data } = await requestJson(ep, "GET", q);
+    `/api/sfmc/qq/join/pending?openid=${encodeURIComponent(openid)}` + (asGroupAdmin ? "&as_group_admin=true" : "");
+  const { data } = await requestJson<Awaited<ReturnType<typeof fetchJoinPending>>>(ep, "GET", q);
   return data;
 }
 

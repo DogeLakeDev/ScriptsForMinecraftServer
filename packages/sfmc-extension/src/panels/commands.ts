@@ -204,7 +204,7 @@ export async function cmdNewModule(): Promise<void> {
     ExtLog.info("newModule", `已创建 ${r.pkgName} @ ${r.targetDir}`);
     const open = "打开模块仓";
     const choice = await vscode.window.showInformationMessage(
-      `已创建模块 ${id}（${r.pkgName}）\n下一步：pnpm install && pnpm test（或 npm install && npm test），再用 SFMC: Link to SFMC Root。`,
+      `已创建模块 ${id}（${r.pkgName}）\n下一步：安装依赖并运行 typecheck，再用 SFMC: Link to SFMC Root。`,
       open
     );
     if (choice === open) {
@@ -245,7 +245,7 @@ function runPackageManager(
   });
 }
 
-/** 依次尝试 pnpm、npm，执行 package.json 脚本（test / publish 等）。 */
+/** 依次尝试 pnpm、npm，执行 package.json 脚本（如 publish）。 */
 async function runPackageScript(
   cwd: string,
   args: string[]
@@ -266,18 +266,6 @@ export function coerceModRoot(arg?: unknown): string | undefined {
     if (typeof root === "string" && root.trim()) return root.trim();
   }
   return undefined;
-}
-
-export async function cmdRunTests(modRootArg?: unknown): Promise<void> {
-  let modRoot = coerceModRoot(modRootArg);
-  if (!modRoot) modRoot = await pickModuleRoot();
-  if (!modRoot) return;
-  ExtLog.show();
-  ExtLog.info("test", `pnpm test / npm test @ ${modRoot}`);
-  const r = await runPackageScript(modRoot, ["test"]);
-  ExtLog.raw("test", r.output);
-  if (r.ok) vscode.window.showInformationMessage("测试通过（pnpm test / npm test）");
-  else vscode.window.showErrorMessage("测试失败（pnpm test / npm test），见「SFMC 扩展」输出");
 }
 
 export async function cmdLinkModule(modRootArg?: unknown): Promise<void> {

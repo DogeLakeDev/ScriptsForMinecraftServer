@@ -16,11 +16,11 @@
    - 命令是否同时支持半角 `!` 和全角 `！`？
    - 消息是否统一走 `Msg.*`？
    - 数据表是否严格为 `sfmc_<id>_*`？
-6. 立即在终端运行：`pnpm run typecheck` 和 `pnpm test`，向我汇报验证结果。
+6. 立即在终端运行：`pnpm run typecheck` 和 `pnpm run lint`，并完成一次实际联调，向我汇报结果。
 ```
 
 ## 输出期望
 
 - 审查报告格式遵循 `sfmc-code-review` 的 BLOCKER / MAJOR / MINOR 模板，并标注违背的原则。
 - 高置信度、可验证的 BLOCKER/MAJOR 应直接给出最小修复补丁。
-- typecheck / test 结果如实汇报；失败则先修再宣称完成。
+- 类型检查、lint 与联调结果如实汇报；失败则先修再宣称完成。

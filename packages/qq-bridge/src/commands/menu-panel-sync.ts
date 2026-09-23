@@ -7,6 +7,7 @@
  *   PUT  /v2/panels/{id}     body: { panel: { items, remark? } }
  */
 
+import { patchJson } from "@sfmc-bds/sdk/node/config";
 import {
   createPanel,
   putMenu,
@@ -16,9 +17,8 @@ import {
   type QqOfficialCredentials,
   type QqPanelItem,
 } from "@sfmc-bds/sdk/node/qq-official";
-import { patchJson } from "@sfmc-bds/sdk/node/config";
-import { log } from "../log.js";
 import { CFG_PATH } from "../config.js";
+import { log } from "../log.js";
 import { pickDisplayLabel } from "./menu-format.js";
 import type { CommandRegistry } from "./registry.js";
 import type { RegisteredCommand } from "./types.js";
@@ -60,12 +60,11 @@ export function buildMenuItems(registry: CommandRegistry): QqMenuItem[] {
 /**
  * 从 registry 生成群指令面板项。
  * 官方：type=command 时点击后把 name 填入输入框（无独立 command 字段）。
- * 用户向指令优先；剩余名额再补管理项（便于管理员点选）。
+ * 全群共享面板只展示玩家入口；管理入口在个人菜单鉴权后显示。
  */
 export function buildPanelItems(registry: CommandRegistry): QqPanelItem[] {
   const user = registry.userMenu();
-  const admin = registry.adminMenu();
-  const merged = [...user, ...admin].slice(0, MAX_PANEL_ITEMS);
+  const merged = user.slice(0, MAX_PANEL_ITEMS);
   return merged.map((c) => ({
     type: "command" as const,
     // 填入输入框的内容：用 /name 便于 router 命中

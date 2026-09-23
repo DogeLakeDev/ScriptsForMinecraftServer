@@ -23,13 +23,13 @@ npx @sfmc-bds/create-module@latest
 在 VS Code 或 Cursor 中安装官方扩展 **「SFMC Module」** 后，在命令面板（`Ctrl+Shift+P`）中执行 `SFMC: New Module`，亦可唤起相同脚手架引擎生成工程。
 :::
 
-进入新生成的工程目录并安装依赖运行测试：
+进入新生成的工程目录并安装依赖、检查类型：
 
 ```bash
 cd my-feature
-pnpm install && pnpm test
+pnpm install && pnpm run typecheck
 # 或使用 npm
-npm install && npm test
+npm install && npm run typecheck
 ```
 
 ## 2. 工程规范与命名矩阵

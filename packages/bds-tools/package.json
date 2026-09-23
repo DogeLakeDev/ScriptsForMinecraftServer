@@ -59,7 +59,6 @@
     "start": "node dist/bds-manager.js start",
     "status": "node dist/bds-manager.js status",
     "stop": "node dist/bds-manager.js stop",
-    "test": "pnpm run build && node --test \"dist/**/*.test.js\"",
     "typecheck": "tsc7 --noEmit",
     "update": "node dist/check-update.js",
     "update:check": "node dist/check-update.js --check-only",

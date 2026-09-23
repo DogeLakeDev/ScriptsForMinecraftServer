@@ -13,6 +13,16 @@
   "additionalProperties": false,
 
   "properties": {
+    "public_server": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "公开给玩家的连接信息；不得填写内部服务地址或密钥。",
+      "properties": {
+        "address": { "type": "string", "maxLength": 253, "description": "公开游戏地址或域名" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 19132 },
+        "version": { "type": "string", "maxLength": 120, "description": "无法读取实际 BDS 版本时显示的备用入服说明" }
+      }
+    },
 
     "$schema": {
 

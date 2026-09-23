@@ -9,23 +9,22 @@
  * - `update`：触发 BDS 核心版本更新检查与热升级
  */
 
-import { killBedrockServerByImage, probeBdsStatus, clearBdsPidFile } from "@sfmc-bds/bds-tools/process-probe";
+import { clearBdsPidFile, killBedrockServerByImage, probeBdsStatus } from "@sfmc-bds/bds-tools/process-probe";
+import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
+import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
 import {
   DEFAULT_QQ_CONFIG,
   loadEnsuredConfig,
   qqRuntimeStatusPath,
   type QQBridgeConfig,
 } from "@sfmc-bds/sdk/node/config";
-import { findNodeServicePids, killNodeServiceByScript, type NodeServiceName } from "./node-service-probe.js";
-import { pushLog as pushUnifiedLog } from "./logs.js";
-import { t } from "./i18n/index.js";
-import { spawnService } from "./runtime.js";
-import { ROOT, SERVICE_NAMES, queryServicesRuntime, services, type ServiceName } from "./services.js";
-import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
-import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
-import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
 import fs from "node:fs";
-
+import { t } from "./i18n/index.js";
+import { pushLog as pushUnifiedLog } from "./logs.js";
+import { findNodeServicePids, killNodeServiceByScript, type NodeServiceName } from "./node-service-probe.js";
+import { spawnService } from "./runtime.js";
+import { queryServicesRuntime, ROOT, SERVICE_NAMES, services, type ServiceName } from "./services.js";
+import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -52,29 +51,23 @@ function statusLine(
 
 /** status 页脚：QQ 后端与关键摘要（密钥脱敏） */
 function qqBridgeStatusFooter(): string {
-  const qqCfg = loadEnsuredConfig(
-    ROOT,
-    "qq_config.json",
-    "qq_config",
-    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
-  ) as QQBridgeConfig;
+  const qqCfg = loadEnsuredConfig(ROOT, "qq_config.json", "qq_config", { ...DEFAULT_QQ_CONFIG } as Record<
+    string,
+    unknown
+  >) as QQBridgeConfig;
   const backend = qqCfg.qq_backend === "llbot" ? "llbot" : "official";
   const enabled = qqCfg.qq_enabled !== false;
   if (backend === "llbot") {
     const group = qqCfg.qq_group_id || "—";
     const pathHint = qqCfg.llbot_path ? String(qqCfg.llbot_path) : "—";
-    return (
-      `\n${c.dim(t("svc.qq.footer.llbot", { enabled: enabled ? "on" : "off", group, path: pathHint }))}\n`
-    );
+    return `\n${c.dim(t("svc.qq.footer.llbot", { enabled: enabled ? "on" : "off", group, path: pathHint }))}\n`;
   }
   const appId = String(qqCfg.qq_app_id ?? "").trim();
   const appIdHint = appId ? (appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId) : "—";
   const openid = String(qqCfg.qq_group_openid ?? "").trim() || "—";
   const sandbox = qqCfg.qq_sandbox ? "sandbox" : "prod";
   const creds = appId && String(qqCfg.qq_app_secret ?? "").trim() ? "ok" : "missing";
-  return (
-    `\n${c.dim(t("svc.qq.footer.official", { enabled: enabled ? "on" : "off", appId: appIdHint, openid, sandbox, creds }))}\n`
-  );
+  return `\n${c.dim(t("svc.qq.footer.official", { enabled: enabled ? "on" : "off", appId: appIdHint, openid, sandbox, creds }))}\n`;
 }
 
 /**
@@ -90,16 +83,9 @@ export async function cmdStatus(): Promise<string> {
   const ownerH = t("svc.col.owner");
   const pidH = t("svc.col.pid");
   const upH = t("svc.col.uptime");
-  const header =
-    `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
+  const header = `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
   return (
-    `\n${c.bold(t("svc.header"))}\n` +
-    c.dim(header) +
-    "\n" +
-    DIVIDER +
-    "\n" +
-    lines.join("\n") +
-    qqBridgeStatusFooter()
+    `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n") + qqBridgeStatusFooter()
   );
 }
 
@@ -200,9 +186,7 @@ export async function cmdStart(raw: string): Promise<string> {
   if (isNodeSvc(svc)) {
     const external = await findNodeServicePids(svc);
     if (external.length > 0) {
-      return c.yellow(
-        t("svc.alreadyRunning", { title: svcObj.title, pid: String(external.join(",")) })
-      );
+      return c.yellow(t("svc.alreadyRunning", { title: svcObj.title, pid: String(external.join(",")) }));
     }
   }
   if (svcObj.running) return c.yellow(t("svc.alreadyRunning", { title: svcObj.title, pid: svcObj.pid }));
@@ -231,7 +215,6 @@ export async function cmdStart(raw: string): Promise<string> {
  * @returns 停止操作结果文本。
  */
 export async function cmdStop(raw: string): Promise<string> {
-
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
@@ -411,79 +394,85 @@ export async function cmdStopAll(): Promise<string> {
  * @returns 更新执行结果摘要文本。
  */
 export async function cmdUpdate(args: string[] = []): Promise<string> {
-
   const userNoStart = args.includes("--no-start");
   const checkOnly = args.includes("--check-only");
   const spawnArgs = userNoStart ? [...args] : [...args, "--no-start"];
 
   const bds = services.bds;
-  const bdsProbe = await probeBdsStatus({
-    managedPid: bds.pid,
-    hasStdin: Boolean(bds.proc?.stdin),
-    rootDir: ROOT,
-  });
-  const bdsWasRunning = bdsProbe.state !== "stopped";
-
-  const result = await new Promise<{ code: number | null; out: string }>((resolve) => {
-    const proc = spawnService("update", spawnArgs, {
-      cwd: ROOT,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let out = "";
-    const pushChunk = (raw: string, level: "info" | "error"): void => {
-      // 剥离 Windows Terminal 任务栏 OSC，避免 pipe 日志空白行（权威：bds-tools/taskbar）
-      const s = stripTaskbarOsc(raw);
-      out += s;
-      for (const line of s
-        .split(/\r?\n/)
-        .map((l) => l.trimEnd())
-        .filter((l) => l.length > 0)) {
-        pushUnifiedLog(line, "update", level);
-      }
-    };
-    proc.stdout?.on("data", (d: Buffer) => pushChunk(d.toString(), "info"));
-    proc.stderr?.on("data", (d: Buffer) => pushChunk(d.toString(), "error"));
-    proc.on("exit", (code) => {
-      if (code === 0) {
-        pushUnifiedLog(t("svc.updateComplete"), "system", "success");
-        resolve({ code: 0, out: (out ? out + "\n" : "") + t("svc.updateComplete") });
-      } else {
-        resolve({ code, out: out || t("svc.updateExited", { code: String(code) }) });
-      }
-    });
-    proc.on("error", (e) => {
-      pushUnifiedLog(t("svc.updateError", { message: e.message }), "system", "error");
-      resolve({ code: 1, out: t("svc.updateError", { message: e.message }) });
-    });
-  });
-
-  /* 仅在真正完成部署后拉起 BDS；「已是最新」不打扰当前状态。
-   * 以 updater 输出的 SFMC_UPDATE_RESULT=deployed 机器标记为准（勿匹配本地化日志）。 */
-  const didDeploy = didUpdateDeploy(result.out);
-  if (result.code === 0 && didDeploy && !userNoStart && !checkOnly) {
-    const afterProbe = await probeBdsStatus({
+  // 更新器和 CLI 分属不同进程；先暂停 CLI 的崩溃自启，再交给更新器停服。
+  bds.beginUpdate();
+  try {
+    const bdsProbe = await probeBdsStatus({
       managedPid: bds.pid,
       hasStdin: Boolean(bds.proc?.stdin),
       rootDir: ROOT,
     });
-    if (afterProbe.state !== "stopped") {
-      return result.out;
-    }
-    try {
-      pushUnifiedLog(t("svc.updateStartBds"), "system", "info");
-      await bds.start();
-      return result.out + "\n" + c.green(t("svc.bdsStarted"));
-    } catch (e) {
-      return result.out + "\n" + c.red(t("svc.bdsStartFailed", { message: (e as Error).message }));
-    }
-  }
+    const bdsWasRunning = bdsProbe.state !== "stopped";
 
-  if (result.code === 0 && didDeploy && userNoStart && bdsWasRunning) {
-    const afterProbe = await probeBdsStatus({ rootDir: ROOT });
-    if (afterProbe.state === "stopped") {
-      return result.out + "\n" + c.yellow(t("svc.bdsStoppedForUpdate"));
-    }
-  }
+    const result = await new Promise<{ code: number | null; out: string }>((resolve) => {
+      const proc = spawnService("update", spawnArgs, {
+        cwd: ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let out = "";
+      const pushChunk = (raw: string, level: "info" | "error"): void => {
+        // 剥离 Windows Terminal 任务栏 OSC，避免 pipe 日志空白行（权威：bds-tools/taskbar）
+        const s = stripTaskbarOsc(raw);
+        out += s;
+        for (const line of s
+          .split(/\r?\n/)
+          .map((l) => l.trimEnd())
+          .filter((l) => l.length > 0)) {
+          pushUnifiedLog(line, "update", level);
+        }
+      };
+      proc.stdout?.on("data", (d: Buffer) => pushChunk(d.toString(), "info"));
+      proc.stderr?.on("data", (d: Buffer) => pushChunk(d.toString(), "error"));
+      proc.on("exit", (code) => {
+        if (code === 0) {
+          pushUnifiedLog(t("svc.updateComplete"), "system", "success");
+          resolve({ code: 0, out: (out ? out + "\n" : "") + t("svc.updateComplete") });
+        } else {
+          resolve({ code, out: out || t("svc.updateExited", { code: String(code) }) });
+        }
+      });
+      proc.on("error", (e) => {
+        pushUnifiedLog(t("svc.updateError", { message: e.message }), "system", "error");
+        resolve({ code: 1, out: t("svc.updateError", { message: e.message }) });
+      });
+    });
 
-  return result.out;
+    /* 仅在真正完成部署后拉起 BDS；「已是最新」不打扰当前状态。
+     * 以 updater 输出的 SFMC_UPDATE_RESULT=deployed 机器标记为准（勿匹配本地化日志）。 */
+    const didDeploy = didUpdateDeploy(result.out);
+    if (result.code === 0 && didDeploy && !userNoStart && !checkOnly) {
+      const afterProbe = await probeBdsStatus({
+        managedPid: bds.pid,
+        hasStdin: Boolean(bds.proc?.stdin),
+        rootDir: ROOT,
+      });
+      if (afterProbe.state !== "stopped") {
+        return result.out;
+      }
+      try {
+        pushUnifiedLog(t("svc.updateStartBds"), "system", "info");
+        bds.endUpdate();
+        await bds.start();
+        return result.out + "\n" + c.green(t("svc.bdsStarted"));
+      } catch (e) {
+        return result.out + "\n" + c.red(t("svc.bdsStartFailed", { message: (e as Error).message }));
+      }
+    }
+
+    if (result.code === 0 && didDeploy && userNoStart && bdsWasRunning) {
+      const afterProbe = await probeBdsStatus({ rootDir: ROOT });
+      if (afterProbe.state === "stopped") {
+        return result.out + "\n" + c.yellow(t("svc.bdsStoppedForUpdate"));
+      }
+    }
+
+    return result.out;
+  } finally {
+    bds.endUpdate();
+  }
 }

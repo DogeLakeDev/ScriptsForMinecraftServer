@@ -4,12 +4,12 @@
  * 不依赖 bds-tools：仅读 SFMC_ROOT/.sfmc/bds.pid + OS 探活，避免 db-server 拉入重依赖。
  */
 
+import { stateDir } from "@sfmc-bds/sdk/node/config";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { stateDir } from "@sfmc-bds/sdk/node/config";
 
 const execFileAsync = promisify(execFile);
 
@@ -42,6 +42,7 @@ export type ProcessUptime = {
 };
 
 export type BdsStatus = ProcessUptime & {
+  version?: string;
   state: "running" | "stopped";
 };
 
@@ -133,11 +134,10 @@ async function isPidAlive(pid: number): Promise<boolean> {
   if (!pid) return false;
   try {
     if (process.platform === "win32") {
-      const { stdout } = await execFileAsync(
-        "tasklist",
-        ["/fi", `PID eq ${pid}`, "/nh"],
-        { windowsHide: true, timeout: PROBE_TIMEOUT_MS }
-      );
+      const { stdout } = await execFileAsync("tasklist", ["/fi", `PID eq ${pid}`, "/nh"], {
+        windowsHide: true,
+        timeout: PROBE_TIMEOUT_MS,
+      });
       return String(stdout).includes(String(pid));
     }
     process.kill(pid, 0);
@@ -154,11 +154,11 @@ async function getProcessUptimeSec(pid: number): Promise<number | null> {
     if (process.platform === "win32") {
       // 用 etimes 等价：从 StartTime 算到现在（秒）
       const script = `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime | ForEach-Object { [int]((Get-Date) - $_).TotalSeconds }`;
-      const { stdout } = await execFileAsync(
-        "powershell.exe",
-        ["-NoProfile", "-NonInteractive", "-Command", script],
-        { windowsHide: true, timeout: PROBE_TIMEOUT_MS, encoding: "utf8" }
-      );
+      const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+        windowsHide: true,
+        timeout: PROBE_TIMEOUT_MS,
+        encoding: "utf8",
+      });
       const n = parseInt(String(stdout).trim(), 10);
       return Number.isFinite(n) && n >= 0 ? n : null;
     }
@@ -201,6 +201,27 @@ async function findBedrockServerPid(): Promise<number> {
   }
 }
 
+/** 只认当前进程的启动记录，拒绝停服、PID 复用或无法核验的旧版本。 */
+export function readRunningBdsVersion(projectRoot: string, pid: number, uptimeSec: number | null): string | undefined {
+  if (!pid || uptimeSec === null) return undefined;
+  try {
+    const record = JSON.parse(
+      fs.readFileSync(path.join(stateDir(projectRoot), "bds-runtime-version.json"), "utf8")
+    ) as { pid?: number; startedAt?: number; version?: string };
+    if (
+      record.pid !== pid ||
+      typeof record.startedAt !== "number" ||
+      Math.abs(Date.now() - uptimeSec * 1000 - record.startedAt) > 10_000
+    )
+      return undefined;
+    return typeof record.version === "string" && /^\d+\.\d+\.\d+(?:\.\d+)?$/.test(record.version)
+      ? record.version
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * 采集 BDS（Bedrock Dedicated Server）服务进程的运行状态。
  * 先尝试根据 `.sfmc/bds.pid` 进行探活，若未命中则通过系统进程快照匹配 `bedrock_server`。
@@ -222,7 +243,9 @@ export async function collectBdsStatus(projectRoot: string): Promise<BdsStatus> 
     return { state: "stopped", running: false, pid: 0, uptimeSec: null, uptimeText: "未运行" };
   }
   const uptimeSec = await withTimeout(getProcessUptimeSec(pid), PROBE_TIMEOUT_MS);
+  const version = readRunningBdsVersion(projectRoot, pid, uptimeSec);
   return {
+    ...(version ? { version } : {}),
     state: "running",
     running: true,
     pid,
@@ -259,4 +282,3 @@ export async function collectSystemStatus(projectRoot: string): Promise<SystemSt
     bds: await collectBdsStatus(projectRoot),
   };
 }
-

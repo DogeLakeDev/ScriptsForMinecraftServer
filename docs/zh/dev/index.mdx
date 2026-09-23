@@ -36,7 +36,7 @@ flowchart LR
 
 - **SFMC Module**（官方专属扩展）：提供一键生成新模块（`New Module`）、软链接挂接（`Link`）、实时监听热重载（`Start Watch`）与一键部署。
 - **ESLint**：启用 `@sfmc-bds/eslint-plugin` 规则，实施消息规范、SDK 导入路径与跨模块契约的静态检查。
-- **Node.js Testing**：在编辑器侧边栏以图形化测试树直接运行与调试 `node --test`。
+- **终端与调试器**：运行类型检查、构建与平台自检，并查看服务日志。
 
 ## 3. 选择你的开发路线
 
@@ -47,13 +47,13 @@ flowchart LR
 
 1. [模块开发全流程](./module-author.mdx) — 5 分钟脚手架、生命周期契约与 VS Code 扩展联调
 2. [API 速查手册 (Cheatsheet)](./cheatsheet.mdx) — 消息、数据库、配置与服务通信代码范例
-3. [测试与调试指南](./testing.md) — 了解模块作者的 Watch 热联调与平台单测分轨
+3. [验证与调试指南](./testing.md) — 了解静态检查、平台自检与 BDS 联调
 4. [ESLint 规则手册](./eslint.md) · [发布你的模块](./publish.md) — 质量核检与 npm 发布
 
 ```bash
 # 模块作者开发最小闭环
 npm create @sfmc-bds/module@latest
-cd my-feature && pnpm install && pnpm test
+cd my-feature && pnpm install && pnpm run typecheck
 
 # 联调：通过 VS Code 扩展点击 "Link to SFMC Root"
 # 或在运维服务器控制台直接挂接：
@@ -81,7 +81,7 @@ sfmc mod reload
 | :--- | :--- |
 | **[模块开发手册](./module-author.mdx)** | 快速脚手架、扩展联动、命名约定与联调流程 |
 | **[API 速查手册 (Cheatsheet)](./cheatsheet.mdx)** | 生命周期、Msg 消息、SQLite、配置与跨模块服务代码片段 |
-| **[测试与调试策略](./testing.md)** | 模块作者 Watch 热联调、平台包 node:test 与分轨测试 |
+| **[验证与调试策略](./testing.md)** | 模块作者 Watch 热联调、平台自检与真机验收 |
 | **[Manifest 契约规格](./manifest.md)** | `manifest.json` v2/v3 字段定义与权限声明标准 |
 | **[构建与打包管线](./build-pipeline.md)** | 行为包自动化装配、esbuild 转译流水线 |
 | **[ESLint 约定与静态检查](./eslint.md)** | 平台专属 ESLint 插件与规约 |

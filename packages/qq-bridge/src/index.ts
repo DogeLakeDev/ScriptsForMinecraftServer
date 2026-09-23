@@ -16,14 +16,14 @@ import { createLlbotCommandRouter, createOfficialCommandRouter } from "./command
 import { createInteractionRouter } from "./commands/interaction-router.js";
 import { persistPanelIdToConfig, syncMenuAndPanel } from "./commands/menu-panel-sync.js";
 import { loadInitialConfig } from "./config.js";
-import { OneBotDispatcher } from "./onebot.js";
-import { startWsServer } from "./ws-server.js";
 import { startConsole } from "./console.js";
+import { log } from "./log.js";
 import { OfficialAtMessageDispatcher } from "./official/events.js";
 import { startOfficialGateway } from "./official/gateway.js";
+import { OneBotDispatcher } from "./onebot.js";
 import { installQqRuntimeStatusHooks } from "./runtime-status.js";
-import { log } from "./log.js";
 import type { QQBridgeConfig } from "./types.js";
+import { startWsServer } from "./ws-server.js";
 
 async function main(): Promise<void> {
   const cfg: QQBridgeConfig = loadInitialConfig();
@@ -58,6 +58,7 @@ async function main(): Promise<void> {
       {
         sandbox: cfg.qq_sandbox,
         appIdHint: appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId,
+        publicServer: cfg.public_server,
         dbHost: cfg.db_host,
         dbPort: cfg.db_port,
         groupOpenid: cfg.qq_group_openid,
@@ -93,8 +94,8 @@ async function main(): Promise<void> {
 
     const interactionRouter = createInteractionRouter({
       creds,
-      db: { host: cfg.db_host, port: cfg.db_port },
-      adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
+      commandRouter,
+      groupOpenid: cfg.qq_group_openid,
     });
 
     await startOfficialGateway({
@@ -129,6 +130,7 @@ async function main(): Promise<void> {
         groupId: cfg.qq_group_id || "0",
       },
       {
+        publicServer: cfg.public_server,
         dbHost: cfg.db_host,
         dbPort: cfg.db_port,
         adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],

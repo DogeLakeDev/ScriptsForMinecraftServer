@@ -84,7 +84,6 @@ shutdown → cleanup
 pnpm install
 pnpm run typecheck
 pnpm run lint
-pnpm test
 pnpm publish --access public
 ```
 

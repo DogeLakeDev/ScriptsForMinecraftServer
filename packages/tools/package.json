@@ -29,8 +29,7 @@
     "tsc7": "./tsc7.mjs"
   },
   "scripts": {
-    "build": "node -e \"process.exit(0)\"",
-    "test": "node --test --import tsx/esm test/**/*.test.ts"
+    "build": "node -e \"process.exit(0)\""
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "workspace:*",

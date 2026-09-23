@@ -114,8 +114,8 @@ sfmc> mod reload
 
 ```bash
 npm create @sfmc-bds/module@latest
-cd my-feature && pnpm install && pnpm test
-cd my-feature && npm install && npm test
+cd my-feature && pnpm install && pnpm run typecheck
+cd my-feature && npm install && npm run typecheck
 ```
 
 再在 SFMC 工作目录联调（须写明模块短名）；作者侧用扩展 Link / Watch，运维侧：

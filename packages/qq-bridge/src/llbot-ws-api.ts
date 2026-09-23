@@ -57,8 +57,8 @@ export class LlbotWsApi {
   tryHandleResponse(raw: unknown): boolean {
     if (!raw || typeof raw !== "object") return false;
     const obj = raw as Record<string, unknown>;
-    if (obj.post_type != null) return false;
-    const echo = obj.echo;
+    if (obj["post_type"] != null) return false;
+    const echo = obj["echo"];
     if (echo == null || echo === "") return false;
     const key = String(echo);
     const p = this.pending.get(key);

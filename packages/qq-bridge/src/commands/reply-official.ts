@@ -2,12 +2,9 @@
  * commands/reply-official.ts — 官方 ReplyPort（群 / C2C）
  */
 
-import {
-  sendC2cMessage,
-  sendGroupMessage,
-  type QqOfficialCredentials,
-} from "@sfmc-bds/sdk/node/qq-official";
+import { sendC2cMessage, sendGroupMessage, type QqOfficialCredentials } from "@sfmc-bds/sdk/node/qq-official";
 import { log } from "../log.js";
+import { plainReply, splitMessage } from "./message-text.js";
 import { renderOfficial } from "./render.js";
 import type { CommandResult, InboundMessage, ReplyPort, ReplyTarget } from "./types.js";
 
@@ -24,51 +21,61 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
   let msgSeq = 0;
   return {
     async send(target: ReplyTarget, result: CommandResult, inbound: InboundMessage): Promise<void> {
-      const rendered = renderOfficial(result);
-      msgSeq += 1;
-      const c2c = isC2c(inbound);
-      const common = {
-        msgType: rendered.msgType as 0 | 2,
-        ...(rendered.msgType === 2
-          ? { markdown: rendered.markdown ?? result.text }
-          : { content: rendered.content ?? result.text }),
-        ...(rendered.keyboardButtons ? { keyboardButtons: rendered.keyboardButtons } : {}),
-        ...(target.msgId ? { msgId: target.msgId, msgSeq } : {}),
-      };
+      const parts = splitMessage(plainReply(result));
+      for (let index = 0; index < parts.length; index++) {
+        const content = parts[index]!;
+        const rendered =
+          parts.length === 1
+            ? renderOfficial({ ...result, text: content })
+            : renderOfficial({
+                text: content,
+                ...(index === parts.length - 1 && result.buttons ? { buttons: result.buttons } : {}),
+              });
+        msgSeq += 1;
+        const c2c = isC2c(inbound);
+        const common = {
+          msgType: rendered.msgType as 0 | 2,
+          ...(rendered.msgType === 2
+            ? { markdown: rendered.markdown ?? result.text }
+            : { content: rendered.content ?? result.text }),
+          ...(rendered.keyboardButtons ? { keyboardButtons: rendered.keyboardButtons } : {}),
+          ...(target.msgId ? { msgId: target.msgId, msgSeq } : {}),
+        };
 
-      const sendOnce = async (plainFallback: boolean) => {
-        if (c2c) {
-          const userOpenid = c2cUserOpenid(inbound);
+        const sendOnce = async (plainFallback: boolean) => {
+          if (c2c) {
+            const userOpenid = c2cUserOpenid(inbound);
+            if (plainFallback) {
+              return sendC2cMessage(creds, {
+                userOpenid,
+                msgType: 0,
+                content,
+                ...(target.msgId ? { msgId: target.msgId, msgSeq: ++msgSeq } : {}),
+              });
+            }
+            return sendC2cMessage(creds, { userOpenid, ...common });
+          }
           if (plainFallback) {
-            return sendC2cMessage(creds, {
-              userOpenid,
+            return sendGroupMessage(creds, {
+              groupOpenid: target.groupId,
               msgType: 0,
-              content: result.text,
+              content,
               ...(target.msgId ? { msgId: target.msgId, msgSeq: ++msgSeq } : {}),
             });
           }
-          return sendC2cMessage(creds, { userOpenid, ...common });
-        }
-        if (plainFallback) {
-          return sendGroupMessage(creds, {
-            groupOpenid: target.groupId,
-            msgType: 0,
-            content: result.text,
-            ...(target.msgId ? { msgId: target.msgId, msgSeq: ++msgSeq } : {}),
-          });
-        }
-        return sendGroupMessage(creds, { groupOpenid: target.groupId, ...common });
-      };
+          return sendGroupMessage(creds, { groupOpenid: target.groupId, ...common });
+        };
 
-      const res = await sendOnce(false);
-      if (!res.ok) {
-        if (rendered.msgType === 2) {
-          log.warn(`官方 Markdown 发送失败，降级文本: ${res.error}`);
-          const plain = await sendOnce(true);
-          if (!plain.ok) throw new Error(plain.error);
-          return;
+        const res = await sendOnce(false);
+        if (!res.ok) {
+          if (rendered.msgType === 2) {
+            log.warn(`官方 Markdown 发送失败，降级文本: ${res.error}`);
+            const plain = await sendOnce(true);
+            if (!plain.ok) throw new Error(plain.error);
+            continue;
+          }
+          throw new Error(res.error);
         }
-        throw new Error(res.error);
       }
     },
   };

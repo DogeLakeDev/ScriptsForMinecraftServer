@@ -48,6 +48,8 @@ export interface QqEventsConfig {
 
 /** QQ 桥接配置（`configs/qq_config.json`）。 */
 export interface QQBridgeConfig {
+  /** 仅用于向玩家公开展示；version 为实际版本不可用时的备用说明。 */
+  public_server?: { address?: string; port?: number; version?: string };
   qq_enabled?: boolean;
   /** 后端选择；缺省按 DEFAULT_QQ_CONFIG（official） */
   qq_backend?: QQBackend;
@@ -206,6 +208,7 @@ export const DEFAULT_QQ_CONFIG: QQBridgeConfig = {
   qq_group_openid: "",
   qq_group_panel_id: "",
   qq_sync_menu_panel: true,
+  public_server: { address: "", port: 19132, version: "" },
   qq_admin_openids: [],
   qq_ws_port: 3002,
   qq_group_id: "0",
