@@ -1,5 +1,13 @@
 # @sfmc-bds/create-module
 
+## 0.1.0-beta.4
+
+### Patch Changes
+
+- 4a9b066: 模块脚手架不再生成常驻测试目录或测试命令，改以类型检查、构建和实际联调验收。
+- efa6e73: 将 Minecraft Script API 类型与新模块模板更新到 BDS 1.26.51 使用的 server 2.11.0-beta、server-ui 2.3.0-beta，并同步 vanilla-data 版本。
+- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和世界包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
+
 ## 0.1.0-beta.3
 
 ### Patch Changes
