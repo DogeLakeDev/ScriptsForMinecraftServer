@@ -121,11 +121,12 @@ my-feature/
 
 ## 5. Manifest v3 语义化元数据契约
 
+目前没有公开的 v3 JSON Schema；下面的示例不设置 `$schema`。
+
 在 `sapi/manifest.json` 中，除了基础的模块 ID 和依赖外，推荐声明 **v3 语义化元数据（`semantic` 块）**。它能够帮助编辑器、静态分析工具与运维面板深刻理解该模块的行为特征：
 
 ```json title="sapi/manifest.json"
 {
-  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v3.schema.json",
   "schemaVersion": 3,
   "id": "feature-economy",
   "name": "核心经济系统",

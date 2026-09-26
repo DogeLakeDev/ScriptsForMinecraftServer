@@ -1,5 +1,5 @@
 {
-  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/module_catalog.schema.json",
+  "$schema": "https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/module_catalog.schema.json",
   "version": 1,
   "modules": []
 }

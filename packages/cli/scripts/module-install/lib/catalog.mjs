@@ -12,7 +12,7 @@ import {
 } from "./packages.mjs";
 
 const CATALOG_SCHEMA =
-  "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/module_catalog.schema.json";
+  "https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/module_catalog.schema.json";
 
 /**
  * @typedef {import("./packages.mjs").CatalogEntry} CatalogEntry

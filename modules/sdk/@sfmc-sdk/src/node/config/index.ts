@@ -148,13 +148,11 @@ export type ConfigSchemaId =
   | "log_filter";
 
 /**
- * 生成文件内 `$schema` URL（jsDelivr 镜像）。
- * 锁到 `@sfmc-bds/sdk@0.2.0-beta.6`，与 SDK 包发布版本同步；
- * jsDelivr 要求 tag 中的 `@` 用 `%40` 编码。
+ * 生成文件内 `$schema` URL（GitHub 上的公开 Schema）。
  * `from` 仅作调用点语义标注，便于日后若布局分叉再按位置扩展（OCP）。
  */
 export function configSchemaRef(schemaId: ConfigSchemaId, _from: "configs" | "packs" | "modules" = "configs"): string {
-  return `https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/${schemaId}.schema.json`;
+  return `https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/${schemaId}.schema.json`;
 }
 
 /** 在对象根写入 $schema（不覆盖已有）；数组根勿调用。 */

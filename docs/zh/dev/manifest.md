@@ -7,9 +7,9 @@
 :::tip Schema 绑定与智能提示
 在模块的 `sapi/manifest.json` 首行配置 `$schema`，可在编辑器中享受实时的语法补全与合法性校验：
 ```json
-"$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json"
+"$schema": "https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json"
 ```
-如使用支持语义元数据的 v3 版本，可切换为对应的 `sapi-manifest.v3.schema.json`。若第三方 Bedrock 插件误报其不是原版 BP 清单，可安全忽略或将该路径加入其诊断忽略列表。
+v3 语义元数据目前没有公开的 JSON Schema，v3 示例不设置 `$schema`。若第三方 Bedrock 插件误报其不是原版 BP 清单，可安全忽略或将该路径加入其诊断忽略列表。
 :::
 
 ## 1. 核心契约字段一览（v2 基线）
@@ -86,7 +86,6 @@
 
 ```json title="sapi/manifest.json (v3 示例)"
 {
-  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@%40sfmc-bds/sdk@0.2.0-beta.6/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v3.schema.json",
   "schemaVersion": 3,
   "id": "feature-economy",
   "name": "经济系统",
