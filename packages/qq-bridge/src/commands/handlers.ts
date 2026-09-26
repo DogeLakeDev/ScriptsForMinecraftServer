@@ -1,27 +1,23 @@
 /**
- * commands/handlers.ts — 内置 menu / ping / whoami / status / online / bind / join / kick / group
+ * commands/handlers.ts — 内置 menu / ping / whoami / status / online / bind / group
  */
 
-import { getGroupBotState, getGroupInfo, sendC2cMessage, sendGroupMessage } from "@sfmc-bds/sdk/node/qq-official";
+import { getGroupBotState, getGroupInfo } from "@sfmc-bds/sdk/node/qq-official";
 import { log } from "../log.js";
 import {
   fetchBindMe,
-  fetchJoinPending,
-  fetchJoinSettings,
+  fetchContent,
   fetchQqEventSettings,
   fetchSfmcStatus,
-  postAdminKick,
   postBindRequest,
   postBindUnbind,
-  postJoinDecide,
-  postJoinRequest,
-  postJoinSettings,
   postQqEventSettings,
   type DbEndpoint,
   type QqEventSettings,
   type SfmcStatusResponse,
 } from "./db-api.js";
-import { buildJoinSettingsPanel, settingsFromResponse } from "./join-settings-ui.js";
+import { formatAccountCard } from "./account-format.js";
+import { formatModuleLines, formatPackLines, formatPackMarkdown } from "./content-format.js";
 import { formatCard, formatCommandMenu } from "./menu-format.js";
 import type { CommandRegistry } from "./registry.js";
 import type { CommandContext, CommandHandler, CommandResult } from "./types.js";
@@ -105,7 +101,7 @@ export function createAdminMenuHandler(registry: CommandRegistry): CommandHandle
     if (!isAdmin(ctx)) return { text: "当前没有管理权限，请联系管理员。" };
     return formatCommandMenu({
       title: "服务器管理",
-      subtitle: "处理入服申请，管理服务器与群推送。",
+      subtitle: "管理服务器与群推送。",
       cmds: registry.adminMenu(),
       idPrefix: "admin",
       footerMd: "",
@@ -135,7 +131,6 @@ function helpHandler(registry: CommandRegistry): CommandHandler {
     const sections = [
       ["server", "服务器"],
       ["account", "我的账号"],
-      ["join", "入服"],
       ["admin", "管理"],
     ] as const;
     const lines = [trigger];
@@ -197,12 +192,11 @@ export const whoamiHandler: CommandHandler = async (ctx) => {
   const me = await fetchBindMe(ep, ctx.inbound.userId);
   if (me.success === false) return failure("绑定查询失败");
   return {
-    ...formatCard(
-      "我的账号",
-      me.bound
-        ? ["绑定状态：已绑定", `游戏角色：${me.binding?.player_name || "未命名角色"}`]
-        : ["绑定状态：未绑定", "选择「绑定」获取验证码，再在游戏内执行 /c:bind。"]
-    ),
+    ...formatAccountCard({
+      bound: !!me.bound,
+      ...(me.binding?.player_name ? { playerName: me.binding.player_name } : {}),
+      ...(me.profile ? { profile: me.profile } : {}),
+    }),
     buttons: me.bound
       ? [{ id: "unbind", label: "解绑", command: "/unbind" }]
       : [{ id: "bind", label: "绑定", command: "/bind" }],
@@ -279,12 +273,15 @@ export const bindHandler: CommandHandler = async (ctx: CommandContext): Promise<
     if (!data.success || !data.code) {
       return failure(data.error);
     }
+    // 未绑定也能进服，但游戏内会被锁成访客；验证码必须在游戏聊天里核销。
     return formatCard("绑定账号", [
       `绑定码：${data.code}`,
       "",
+      "进入服务器后完成下面两步：",
       "1. 在游戏内执行 /c:bind",
-      "2. 在 60 秒内发送以上纯数字验证码",
+      "2. 在 60 秒内把以上纯数字验证码发到游戏聊天",
       "",
+      "绑定成功后即可自由活动。",
       "超时请重新发送「绑定」获取验证码。",
     ]);
   } catch (e) {
@@ -329,169 +326,27 @@ export const groupInfoHandler: CommandHandler = async (ctx: CommandContext): Pro
   return { text: ["QQ 群信息", ...lines].join("\n") };
 };
 
-export const joinHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  const ep = dbEp(ctx);
-  if (!ep) return failure("db 未配置");
-  let playerName = ctx.inbound.text.replace(/^\/?(申请入服|join)\s*/i, "").trim();
-  if (!playerName) {
-    try {
-      const me = await fetchBindMe(ep, ctx.inbound.userId);
-      if (me.bound && me.binding?.player_name) playerName = String(me.binding.player_name);
-    } catch {
-      /* ignore */
-    }
-  }
-  if (!playerName) {
-    return { text: "用法：申请入服 <玩家名>\n（已绑定可省略名字）" };
-  }
-  try {
-    const { data } = await postJoinRequest(ep, {
-      openid: ctx.inbound.userId,
-      player_name: playerName,
-      qq_backend: ctx.inbound.backend,
-    });
-    if (!data.success || !data.id) {
-      if (data.error === "join_allowlist_disabled") {
-        return { text: "当前未开放入服申请，请联系管理员了解入服方式。" };
-      }
-      return failure(data.error);
-    }
-    if (data.auto_approved || data.status === "approved") {
-      return {
-        text: `「${playerName}」已自动审核通过，等待服务器写入白名单。`,
-      };
-    }
-    const admins = ctx.runtimeInfo.adminOpenids ?? [];
-    const creds = ctx.runtimeInfo.officialCreds;
-    const gid = ctx.runtimeInfo.groupOpenid || (ctx.inbound.scene !== "c2c" ? ctx.inbound.groupId : "");
-    if (creds && gid && admins.length > 0 && ctx.inbound.backend === "official") {
-      void sendGroupMessage(creds, {
-        groupOpenid: gid,
-        msgType: 2,
-        markdown: `## 入服申请\n\n玩家 **${playerName}**\n申请人 \`${ctx.inbound.userId.slice(0, 8)}…\`\n请求 id=\`${data.id}\``,
-        keyboardButtons: [
-          {
-            id: `ap_${data.id}`,
-            label: "通过",
-            data: `join:approve:${data.id}`,
-            actionType: 1,
-            style: 1,
-            permission: { type: 0, specify_user_ids: admins },
-          },
-          {
-            id: `rj_${data.id}`,
-            label: "拒绝",
-            data: `join:reject:${data.id}`,
-            actionType: 1,
-            style: 0,
-            permission: { type: 0, specify_user_ids: admins },
-          },
-        ],
-      })
-        .then((result) => {
-          if (!result.ok) log.warn(`入服申请通知失败: ${result.error}`);
-        })
-        .catch((error) => log.warn(`入服申请通知失败: ${String(error)}`));
-    }
-    const note = "\n请等待管理员审核；审核通过后仍需服务器写入白名单。";
-    return {
-      text: `已提交入服申请「${playerName}」${note}`,
-    };
-  } catch (e) {
-    return failure(e);
-  }
-};
+/**
+ * 「入服」说明页。
+ * 不再走入服申请。玩家直接进服；未绑定为访客且不能移动，绑定写入自有白名单后即可游玩。
+ */
+export const entryGuideHandler: CommandHandler = (): CommandResult =>
+  formatCard("进服说明", [
+    "直接进入服务器即可。",
+    "",
+    "未绑定的角色可以进服，但无法移动，权限为访客。",
+    "聊天栏会提示绑定步骤。",
+    "在 QQ 发送「绑定」获取验证码，进服后执行 /c:bind，再把验证码发到游戏聊天。",
+    "绑定成功后即可正常游玩。",
+  ]);
 
-function parseOnOff(raw: string): boolean | null {
-  const s = raw.trim().toLowerCase();
-  if (["开", "开启", "on", "true", "1", "yes"].includes(s)) return true;
-  if (["关", "关闭", "off", "false", "0", "no"].includes(s)) return false;
-  return null;
-}
-
-/** 管理员查看/切换 qq-link 入服开关（互动按钮面板） */
-export const joinConfigHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可配置入服开关（official.admin_openids / 群管视作管理员）" };
-  const ep = dbEp(ctx);
-  if (!ep) return failure("db 未配置");
-
-  const admins = ctx.runtimeInfo.adminOpenids ?? [];
-  const rest = ctx.inbound.text.replace(/^\/?(配置|config|入服配置)\s*/i, "").trim();
-  if (!rest) {
-    try {
-      const data = await fetchJoinSettings(ep);
-      if (data.success === false) return failure(data.error);
-      return buildJoinSettingsPanel({
-        settings: settingsFromResponse(data),
-        backend: ctx.inbound.backend,
-        adminOpenids: admins,
-      });
-    } catch (e) {
-      return failure(e);
-    }
-  }
-
-  if (/^(群管|群管理员|treat|group.?admin)/i.test(rest)) {
-    return {
-      text: "「群管视作管理员」只能改 configs/qq_link.json 的 treat_group_admins_as_admins，群聊不可改。发「配置」可查看当前值。",
-    };
-  }
-
-  const m = /^(白名单|allowlist|审批|approval)\s+(\S+)/i.exec(rest);
-  if (!m) {
-    return { text: "用法：配置\n　　　或点面板按钮切换白名单/审批" };
-  }
-  const which = m[1]!.toLowerCase();
-  const onOff = parseOnOff(m[2]!);
-  if (onOff === null) return { text: "请使用 开/关（或 on/off）" };
-
-  const body: {
-    openid: string;
-    as_group_admin?: boolean;
-    allowlist_enabled?: boolean;
-    require_approval?: boolean;
-  } = {
-    openid: ctx.inbound.userId,
-    as_group_admin: asGroupAdminField(ctx),
-  };
-  if (which === "白名单" || which === "allowlist") body.allowlist_enabled = onOff;
-  else body.require_approval = onOff;
-
-  const execute: CommandHandler = async (confirmed) => {
-    try {
-      const { data } = await postJoinSettings(ep, { ...body, as_group_admin: asGroupAdminField(confirmed) });
-      if (data.success === false) {
-        if (data.error === "not_admin") {
-          return { text: "无权限（群管需 configs/qq_link.json 中 treat_group_admins_as_admins=true）" };
-        }
-        if (data.error === "immutable_field") {
-          return { text: data.note || "该字段不可经群聊修改" };
-        }
-        return failure(data.error);
-      }
-      return buildJoinSettingsPanel({
-        settings: settingsFromResponse(data),
-        backend: ctx.inbound.backend,
-        adminOpenids: admins,
-        prefix: "已保存",
-      });
-    } catch (e) {
-      return failure(e);
-    }
-  };
-  if (!onOff)
-    return {
-      text: "确认修改入服设置",
-      confirmation: {
-        summary:
-          which === "白名单" || which === "allowlist"
-            ? "即将关闭入服白名单功能，新的入服申请与白名单应用将停止。此操作不会直接修改 BDS 原生白名单。"
-            : "即将关闭人工审批，后续入服申请将自动通过。",
-        execute,
-      },
-    };
-  return execute(ctx);
-};
+/**
+ * 旧的入服申请、审批和白名单开关。
+ * 保留这些触发词，让旧按钮和习惯命令有明确回复；不再创建申请，也不再改审批开关。
+ */
+export const retiredJoinFlowHandler: CommandHandler = (): CommandResult => ({
+  text: "入服申请已关闭。直接进入服务器，在游戏内按聊天提示完成绑定后即可游玩。绑定成功会写入白名单并解除访客限制。",
+});
 
 const EVENT_SWITCHES = [
   ["enabled", "总开关"],
@@ -609,103 +464,6 @@ export const eventSettingsHandler: CommandHandler = async (ctx): Promise<Command
   }
 };
 
-export const pendingHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可查看待审列表（配置 official.admin_openids）" };
-  const ep = dbEp(ctx);
-  if (!ep) return failure("db 未配置");
-  try {
-    const data = await fetchJoinPending(ep, ctx.inbound.userId, asGroupAdminField(ctx));
-    if (data.error) {
-      if (data.error === "not_admin") {
-        return { text: "无权限（群管需 treat_group_admins_as_admins=true）" };
-      }
-      return failure(data.error);
-    }
-    const list = data.pending ?? [];
-    if (list.length === 0) return { text: "暂无待审入服申请" };
-    const lines = list.map((r, i) => `${i + 1}. ${r.player_name || "?"} (${r.id})`);
-    return { text: `待审 ${list.length} 条\n${lines.join("\n")}` };
-  } catch (e) {
-    return failure(e);
-  }
-};
-
-async function notifyApplicant(ctx: CommandContext, applicant: string | undefined, text: string): Promise<void> {
-  if (ctx.inbound.backend !== "official" || !ctx.runtimeInfo.officialCreds || !applicant) return;
-  try {
-    const result = await sendC2cMessage(ctx.runtimeInfo.officialCreds, { userOpenid: applicant, content: text });
-    if (!result.ok) log.warn(`申请结果通知失败: ${result.error}`);
-  } catch (error) {
-    log.warn(`申请结果通知失败: ${String(error)}`);
-  }
-}
-
-export const approveHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可审批" };
-  const ep = dbEp(ctx);
-  if (!ep) return failure("db 未配置");
-  const id = ctx.inbound.text.replace(/^\/?(approve|通过)\s*/i, "").trim();
-  if (!id) return { text: "用法：通过 <申请id>" };
-  try {
-    const { data } = await postJoinDecide(ep, {
-      id,
-      decision: "approve",
-      decided_by: ctx.inbound.userId,
-      as_group_admin: asGroupAdminField(ctx),
-    });
-    if (data.success === false && data.error === "not_admin") {
-      return { text: "无权限（群管需 treat_group_admins_as_admins=true）" };
-    }
-    if (data.success === true)
-      await notifyApplicant(
-        ctx,
-        data.applicant_openid,
-        `你的入服申请「${data.player_name || id}」已审核通过，等待服务器写入白名单。`
-      );
-    return {
-      text:
-        data.success !== true
-          ? "操作未完成，申请可能已被处理，请刷新待审列表。"
-          : `已审核通过「${data.player_name || id}」，等待服务器写入白名单。`,
-    };
-  } catch (e) {
-    return failure(e);
-  }
-};
-
-export const rejectHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可审批" };
-  const ep = dbEp(ctx);
-  if (!ep) return failure("db 未配置");
-  const id = ctx.inbound.text.replace(/^\/?(reject|拒绝)\s*/i, "").trim();
-  if (!id) return { text: "用法：拒绝 <申请id>" };
-  try {
-    const { data } = await postJoinDecide(ep, {
-      id,
-      decision: "reject",
-      decided_by: ctx.inbound.userId,
-      as_group_admin: asGroupAdminField(ctx),
-    });
-    if (data.success === false && data.error === "not_admin") {
-      return { text: "无权限（群管需 treat_group_admins_as_admins=true）" };
-    }
-    if (data.success === true)
-      await notifyApplicant(
-        ctx,
-        data.applicant_openid,
-        `你的入服申请「${data.player_name || id}」已被拒绝，请联系管理员了解原因。`
-      );
-    return {
-      text:
-        data.success !== true
-          ? "操作未完成，申请可能已被处理，请刷新待审列表。"
-          : `已拒绝「${data.player_name || id}」`,
-    };
-  } catch (e) {
-    return failure(e);
-  }
-};
-
 /** 频道 + 轻量自检（人人可用） */
 export const channelHandler: CommandHandler = () => ({
   text: "QQ群消息进入游戏内只读的 QQ 频道。游戏内各频道可分别设置是否转发到 QQ。",
@@ -733,32 +491,43 @@ export const doctorHandler: CommandHandler = async (ctx) => {
   };
 };
 
-export const kickHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可踢人（配置 official.admin_openids）" };
+/** 查询已安装模块。可加关键字，例如「模块 聊天」。 */
+export const modulesHandler: CommandHandler = async (ctx) => {
   const ep = dbEp(ctx);
   if (!ep) return failure("db 未配置");
-  const target = ctx.inbound.text.replace(/^\/?(踢人|kick)\s*/i, "").trim();
-  if (!target) return { text: "用法：踢人 <玩家名>" };
-  const execute: CommandHandler = async (confirmed) => {
-    try {
-      const { data } = await postAdminKick(ep, {
-        openid: ctx.inbound.userId,
-        target_name: target,
-        reason: "QQ 管理员踢出",
-        as_group_admin: asGroupAdminField(confirmed),
-      });
-      if (!data.success) {
-        if (data.error === "not_admin") {
-          return { text: "无权限（群管需 treat_group_admins_as_admins=true）" };
-        }
-        return failure(data.error);
-      }
-      return { text: `已将「${target}」踢人请求入队，等待 BDS 执行。` };
-    } catch (e) {
-      return failure(e);
-    }
-  };
-  return { text: "确认踢人", confirmation: { summary: `即将把「${target}」踢出游戏；对方仍可重新连接。`, execute } };
+  const keyword = ctx.inbound.text.replace(/^\/?(模块|modules)\s*/i, "").trim();
+  try {
+    const data = await fetchContent(ep);
+    if (data.success === false) return failure(data.error);
+    return formatCard("模块", formatModuleLines(data.modules ?? [], keyword));
+  } catch (error) {
+    return failure(error);
+  }
+};
+
+/** 查询世界已安装的行为包和资源包。旧快照没有 packs 时，把已启用资源包当作资源包段。 */
+export const packsHandler: CommandHandler = async (ctx) => {
+  const ep = dbEp(ctx);
+  if (!ep) return failure("db 未配置");
+  try {
+    const data = await fetchContent(ep);
+    if (data.success === false) return failure(data.error);
+    const packs =
+      data.packs ??
+      (data.resource_packs ?? []).map((pack) => ({
+        kind: "resource" as const,
+        enabled: true,
+        ...(pack.name ? { name: pack.name } : {}),
+        ...(pack.pack_id ? { pack_id: pack.pack_id } : {}),
+        ...(pack.version ? { version: pack.version } : {}),
+      }));
+    return {
+      text: ["世界包", "", ...formatPackLines(packs, data.note)].join("\n"),
+      markdown: formatPackMarkdown(packs, data.note),
+    };
+  } catch (error) {
+    return failure(error);
+  }
 };
 
 /** 注册表同时驱动菜单、帮助和权限。 */
@@ -792,17 +561,8 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
   add(
     "entry",
     ["入服"],
-    "了解入服流程并提交申请",
-    () => ({
-      ...formatCard("入服申请", [
-        "发送：申请入服 你的游戏名",
-        "已绑定角色可直接发送「申请入服」。",
-        "",
-        "提交申请 → 审核通过 → 服务器写入白名单",
-        "请按回复提示等待，审核通过不代表已经生效。",
-      ]),
-      buttons: [{ id: "join", label: "申请入服", command: "/join" }],
-    }),
+    "直接进服，游戏内绑定后即可游玩",
+    entryGuideHandler,
     "home"
   );
   add("help", ["帮助"], "查看使用说明和常用命令", helpHandler(registry), "home");
@@ -811,18 +571,21 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
   add("online", ["在线"], "完整在线名单", onlineHandler, "server");
   add("version", ["版本"], "基岩版入服版本", serverVersionHandler, "server");
   add("ip", ["地址"], "公开服务器地址与端口", serverAddressHandler, "server");
+  add("modules", ["模块"], "查看已安装模块", modulesHandler, "server");
+  add("packs", ["资源包", "行为包", "世界包"], "查看世界行为包和资源包", packsHandler, "server");
   add("channel", ["频道"], "聊天互通状态", channelHandler, "server");
   add("ping", [], "机器人连通性", pingHandler, "server");
   add("whoami", ["我的绑定"], "查看绑定角色", whoamiHandler, "account");
   add("bind", ["绑定"], "申请绑定验证码", bindHandler, "account");
   add("unbind", ["解绑"], "确认解除绑定", unbindHandler, "account");
-  add("join", ["申请入服"], "申请入服 <游戏名>", joinHandler, "join");
+  add(
+    "join",
+    ["申请入服", "通过", "拒绝", "待审", "approve", "reject", "pending", "配置", "入服配置", "config"],
+    "入服申请已关闭，请直接进服并绑定",
+    retiredJoinFlowHandler,
+    "help"
+  );
   add("doctor", ["自检"], "连通与运行诊断", doctorHandler, "admin", true);
   add("group", ["群信息"], "官方 QQ 群信息", groupInfoHandler, "admin", true);
-  add("config", ["配置", "入服配置"], "入服白名单与审批设置", joinConfigHandler, "admin", true);
   add("events", ["事件推送", "事件配置"], "服务器事件推送开关", eventSettingsHandler, "admin", true);
-  add("pending", ["待审"], "待审申请列表", pendingHandler, "admin", true);
-  add("approve", ["通过"], "通过 <申请ID>", approveHandler, "admin", true);
-  add("reject", ["拒绝"], "拒绝 <申请ID>", rejectHandler, "admin", true);
-  add("kick", ["踢人"], "踢人 <玩家名>", kickHandler, "admin", true);
 }

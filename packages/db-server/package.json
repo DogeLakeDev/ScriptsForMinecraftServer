@@ -40,6 +40,7 @@
     "typecheck": "tsc7 --noEmit"
   },
   "dependencies": {
+    "@sfmc-bds/bds-tools": "workspace:*",
     "@sfmc-bds/sdk": "workspace:*",
     "sql-template-strings": "^2.2.2"
   },

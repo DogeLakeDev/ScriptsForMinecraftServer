@@ -684,6 +684,15 @@ async function goTo(
   params: JsonObject,
   mode: "navigate" | "replace",
 ): Promise<void> {
+  const previousParams = session.params.get(target);
+  if (previousParams && JSON.stringify(previousParams) !== JSON.stringify(params)) {
+    const state = session.feature.screens.get(target)?.state;
+    for (const name of Object.keys(isObject(state) ? state : {})) {
+      const key = `${target}:${name}`;
+      session.bindings.delete(key);
+      session.toggleWatch.delete(key);
+    }
+  }
   session.params.set(target, params);
   session.history =
     mode === "replace"

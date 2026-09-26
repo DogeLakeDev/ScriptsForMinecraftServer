@@ -20,7 +20,7 @@ export function createServiceWindow(name: ServiceName): ReplWindow {
   return {
     id,
     title: serviceWindowTitle(name),
-    showsInput: name !== "tunnel",
+    showsInput: true,
     footerShortcuts: "",
     serviceName: name,
     acceptLog(log: UnifiedLog): boolean {

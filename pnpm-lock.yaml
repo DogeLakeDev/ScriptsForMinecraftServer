@@ -196,6 +196,9 @@ importers:
 
   packages/db-server:
     dependencies:
+      '@sfmc-bds/bds-tools':
+        specifier: workspace:*
+        version: link:../bds-tools
       '@sfmc-bds/sdk':
         specifier: workspace:*
         version: link:../../modules/sdk/@sfmc-sdk

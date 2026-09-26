@@ -178,6 +178,11 @@ class Service {
     this.name = def.name;
     this.title = def.title;
     this.def = def;
+    if (def.name === "tunnel") {
+      this.events.on("output", (text: string, level: "info" | "error") => {
+        pushUnifiedLog(text, "tunnel", level);
+      });
+    }
   }
 
   get uptime(): string {

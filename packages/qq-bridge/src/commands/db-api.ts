@@ -206,13 +206,6 @@ export async function fetchJoinPending(
   return data;
 }
 
-export async function postAdminKick(
-  ep: DbEndpoint,
-  body: { openid: string; target_name: string; reason?: string; as_group_admin?: boolean }
-): Promise<{ status: number; data: { success?: boolean; id?: string; error?: string } }> {
-  return requestJson(ep, "POST", "/api/sfmc/qq/admin/kick", body);
-}
-
 export type BindMeResponse = {
   success?: boolean;
   bound?: boolean;
@@ -221,6 +214,14 @@ export type BindMeResponse = {
     player_xuid?: string;
     qq_user_openid?: string;
     bound_at?: number;
+  } | null;
+  /** 已绑定时附带经济余额和在线时长。旧 db 没有这个字段。 */
+  profile?: {
+    unit?: string;
+    balance?: number | null;
+    today_text?: string;
+    month_text?: string;
+    total_text?: string;
   } | null;
 };
 
@@ -251,6 +252,38 @@ export type BindUnbindResponse = {
   unbound?: boolean;
   error?: string;
 };
+
+export type ContentSnapshotResponse = {
+  success?: boolean;
+  error?: string;
+  note?: "bds_unconfigured" | "world_unread";
+  modules?: Array<{
+    id: string;
+    display_name?: string;
+    enabled?: boolean;
+    has_resource_pack?: boolean;
+  }>;
+  /** 行为包与资源包。name 已是解析后的显示名。 */
+  packs?: Array<{
+    kind?: "behavior" | "resource";
+    name?: string;
+    folder_name?: string;
+    pack_id?: string;
+    version?: string;
+    enabled?: boolean;
+  }>;
+  resource_packs?: Array<{
+    name?: string;
+    pack_id?: string;
+    version?: string;
+  }>;
+};
+
+/** 查询游戏机上的模块与世界行为包、资源包。当前给 QQ「模块」「世界包」使用。 */
+export async function fetchContent(ep: DbEndpoint): Promise<ContentSnapshotResponse> {
+  const { data } = await requestJson<ContentSnapshotResponse>(ep, "GET", "/api/sfmc/content");
+  return data;
+}
 
 export async function postBindUnbind(
   ep: DbEndpoint,

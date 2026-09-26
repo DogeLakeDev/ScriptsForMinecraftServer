@@ -148,11 +148,11 @@ export type ConfigSchemaId =
   | "log_filter";
 
 /**
- * 生成文件内 `$schema` URL（GitHub 上的公开 Schema）。
+ * 生成文件内 `$schema` URL（jsDelivr 缓存 GitHub 上的公开 Schema）。
  * `from` 仅作调用点语义标注，便于日后若布局分叉再按位置扩展（OCP）。
  */
 export function configSchemaRef(schemaId: ConfigSchemaId, _from: "configs" | "packs" | "modules" = "configs"): string {
-  return `https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/${schemaId}.schema.json`;
+  return `https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@main/modules/sdk/@sfmc-sdk/schemas/${schemaId}.schema.json`;
 }
 
 /** 在对象根写入 $schema（不覆盖已有）；数组根勿调用。 */

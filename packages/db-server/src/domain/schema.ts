@@ -156,4 +156,16 @@ export function initSchema(db: DatabaseSync): void {
     )`);
   db.exec(/* sql */ `
     CREATE INDEX IF NOT EXISTS idx_qq_admin_actions_status ON sfmc_qq_admin_actions(status, created_at)`);
+
+  // QQ 账号页快照：qq-link 调用经济 / 在线时长服务后写入，供「我的账号」读最新数字。
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_qq_account_profile (
+      player_xuid TEXT PRIMARY KEY NOT NULL,
+      player_name TEXT NOT NULL DEFAULT '',
+      balance INTEGER,
+      today_seconds INTEGER,
+      month_seconds INTEGER,
+      total_seconds INTEGER,
+      updated_at INTEGER NOT NULL
+    )`);
 }

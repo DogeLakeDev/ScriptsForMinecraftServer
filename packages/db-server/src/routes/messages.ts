@@ -15,15 +15,21 @@ interface Deps {
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
   forwardToQQBridge: (channelId: string, prefix: string, fromName: string, content: string, fromId: string) => void;
   /** 查询来源频道的前缀和 QQ 转发开关。 */
-  getChannelForQQ: (channelId: string) => { prefix: string; type: string; forward_to_qq: number } | null;
+  getChannelForQQ: (channelId: string) => {
+    prefix: string;
+    forward_to_qq: number;
+    source_game?: number;
+    source_qq?: number;
+    source_system?: number;
+  } | null;
 }
 
 /** 是否应将本条消息推到 QQ 群 */
 export function shouldForwardChatToQQ(
-  channel: { type: string; forward_to_qq: number } | null,
+  channel: { forward_to_qq: number } | null,
   fromId: string
 ): boolean {
-  if (!channel || channel.type === "system" || channel.forward_to_qq !== 1) return false;
+  if (!channel || channel.forward_to_qq !== 1) return false;
   const fid = String(fromId ?? "").trim();
   // 无发送者 id 不出站（避免解析失败时误推）
   if (!fid) return false;
@@ -74,6 +80,20 @@ function createMessagesRoutes({ query, body, json, forwardToQQBridge, getChannel
         if ((messages as unknown[]).length > 100) {
           json(res, { success: false, error: "too many requests" }, 413);
           return true;
+        }
+        // 先检查整个批次，避免前几条已写入后才发现被禁用的来源。
+        for (const m of messages as Array<Record<string, unknown>>) {
+          const channel = getChannelForQQ(String(m.channelId ?? ""));
+          const fromId = String(m.fromid ?? "");
+          const sourceField = fromId.startsWith("qq_")
+            ? "source_qq"
+            : fromId === "system" || fromId === "SYSTEM"
+              ? "source_system"
+              : "source_game";
+          if (channel?.[sourceField] === 0) {
+            json(res, { success: false, error: "channel source disabled" }, 403);
+            return true;
+          }
         }
         // 多行 INSERT 改成循环单条 INSERT OR REPLACE —— 简单优先
         for (const m of messages as Array<Record<string, unknown>>) {

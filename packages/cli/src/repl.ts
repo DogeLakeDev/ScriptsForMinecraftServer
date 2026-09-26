@@ -418,6 +418,8 @@ let currentRedraw: (() => void) | null = null;
 
 type ReadLineOpts = {
   getPrompt: () => string;
+  /** 服务启动后，空输入框内显示的操作提示 */
+  getEmptyHint?: () => string;
   /** 无活跃服务时，普通字符自动前置 /；可为 getter 以便服务退出后即时生效 */
   autoSlash: boolean | (() => boolean);
   /** Tab：在非 / 行上切换发送目标；返回 true 表示已处理 */
@@ -526,6 +528,7 @@ async function readLine(opts: ReadLineOpts): Promise<ReadLineResult> {
     clearOverlay();
     stdout.write(p + line);
     if (suggestion) stdout.write(c.dim(suggestion));
+    else if (!line) stdout.write(c.dim(opts.getEmptyHint?.() ?? ""));
 
     if (slashMode()) {
       const view = paletteView();
@@ -1013,7 +1016,7 @@ export async function startRepl(): Promise<void> {
   function currentTarget(): ServiceName | null {
     if (activeTargets.length === 0) return null;
     if (host.getActive()?.id === SFMC_WINDOW_ID) return null;
-    if (host.getActive()?.showsInput === false) return null;
+    if (host.getActive()?.showsInput === false || host.getActive()?.serviceName === "tunnel") return null;
     const fromWin = host.getActive()?.serviceName;
     if (fromWin && activeTargets.includes(fromWin)) {
       preferredTarget = fromWin;
@@ -1036,8 +1039,9 @@ export async function startRepl(): Promise<void> {
     await refreshTargetsFromRuntime();
     const result = await readLine({
       getPrompt: buildPrompt,
+      getEmptyHint: () => (activeServiceWindows.length > 0 ? "按下 TAB 切换窗口" : ""),
       /* 无服务或在 SFMC 平台窗时默认加 /（与窗口系统前行为一致）；用 getter 以便进程退出后即时生效 */
-      autoSlash: () => activeTargets.length === 0 || host.getActive()?.id === SFMC_WINDOW_ID || host.getActive()?.showsInput === false,
+      autoSlash: () => activeTargets.length === 0 || host.getActive()?.id === SFMC_WINDOW_ID || host.getActive()?.showsInput === false || host.getActive()?.serviceName === "tunnel",
       getChrome: () => host.getChrome(),
       onWindowKey: (ev) => {
         const r = host.onKey(ev);

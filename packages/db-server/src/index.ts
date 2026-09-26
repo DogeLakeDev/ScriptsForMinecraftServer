@@ -38,8 +38,8 @@ import { ServiceRegistry } from "./service-registry.js";
 import { registerEnabledBuiltinServices } from "./services/builtin-handlers.js";
 import { TxRunner } from "./tx-runner.js";
 
-import { ensureJson, patchJson, readJson } from "@sfmc-bds/sdk/node/config";
-import { join } from "node:path";
+import { configPath, ensureJson, patchJson, readJson } from "@sfmc-bds/sdk/node/config";
+import path, { join } from "node:path";
 
 import { jsonV2Fail } from "./routes/_shared.js";
 import { createDbRoutes } from "./routes/db-routes.js";
@@ -50,7 +50,9 @@ import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
 import { createQqEventsAggregator, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
+import { loadContentSnapshot } from "./domain/installed-content.js";
 import { createConfigRoutes } from "./routes/config.js";
+import { createContentRoutes } from "./routes/content.js";
 import { createHealthRoutes } from "./routes/health.js";
 import { createMessagesRoutes } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
@@ -179,6 +181,33 @@ function buildModuleList() {
       };
     })
     .filter(Boolean);
+}
+
+/**
+ * QQ「模块 / 世界包」快照。每次请求现读 catalog 与磁盘，装包后不用重启 db-server。
+ */
+function loadContentSnapshotForRequest() {
+  const modules = (buildModuleList() ?? []).flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const row = raw as { id?: unknown; display_name?: unknown; enabled?: unknown };
+    const id = String(row.id ?? "").trim();
+    if (!id) return [];
+    return [
+      {
+        id,
+        display_name: String(row.display_name || id),
+        enabled: row.enabled !== false,
+      },
+    ];
+  });
+  const cfg = readJson<{ bds_path?: string }>(configPath(env.PROJECT_ROOT, "bds_updater.json"));
+  const rawBds = typeof cfg?.bds_path === "string" ? cfg.bds_path.trim() : "";
+  const bdsRoot = rawBds ? (path.isAbsolute(rawBds) ? rawBds : path.resolve(env.PROJECT_ROOT, rawBds)) : null;
+  return loadContentSnapshot({
+    packagesDir: join(env.MODULES_DIR, "packages"),
+    modules,
+    bdsRoot,
+  });
 }
 
 /** catalog 省略 canDisable 时默认允许禁用(与 buildModuleList.can_disable 同源)。 */
@@ -351,10 +380,10 @@ const messagesRoutes = createMessagesRoutes({
   json,
   getChannelForQQ: (channelId: string) => {
     const rows = query(
-      SQL`SELECT prefix, type, forward_to_qq FROM sfmc_chat_channels WHERE id = ${channelId}`
+      SQL`SELECT * FROM sfmc_chat_channels WHERE id = ${channelId}`
     );
     return Array.isArray(rows)
-      ? (rows[0] as { prefix: string; type: string; forward_to_qq: number } | undefined) ?? null
+      ? (rows[0] as { prefix: string; forward_to_qq: number; source_game?: number; source_qq?: number; source_system?: number } | undefined) ?? null
       : null;
   },
   forwardToQQBridge: (channelId: string, prefix: string, fromName: string, content: string, fromId: string) =>
@@ -366,6 +395,10 @@ const configRoutes = createConfigRoutes({
   // DIP:路由不读 lock/catalog/token 文件,由入口注入与 /modules 同源数据
   listModules: () => buildModuleList() as Array<Record<string, unknown>>,
   getModuleTokens: () => ({ ...moduleAuth.tokens }),
+});
+const contentRoutes = createContentRoutes({
+  json,
+  loadSnapshot: loadContentSnapshotForRequest,
 });
 const moduleRoutesInstance = createModuleRoutes({
   loadModuleCatalog,
@@ -446,7 +479,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       path === "/api/sfmc/qq/join/settings" ||
       path === "/api/sfmc/qq/admin/action-queue" ||
       (method === "GET" &&
-        (path === "/api/sfmc/modules" ||
+        (path === "/api/sfmc/content" ||
+          path === "/api/sfmc/modules" ||
           path === "/api/sfmc/modules/catalog" ||
           path.startsWith("/api/sfmc/modules/") ||
           path === "/api/sfmc/qq/bind/me" ||
@@ -519,6 +553,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       req: http.IncomingMessage;
       res: http.ServerResponse;
     };
+    if (await contentRoutes(ctxBase)) return;
     if (await moduleRoutesInstance(ctxBase)) return;
     if (await healthRoutes(ctxBase)) return;
     if (await statusRoutes(ctxBase)) return;

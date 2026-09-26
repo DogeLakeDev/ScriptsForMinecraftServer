@@ -4,7 +4,7 @@
 
 import { sendC2cMessage, sendGroupMessage, type QqOfficialCredentials } from "@sfmc-bds/sdk/node/qq-official";
 import { log } from "../log.js";
-import { officialPlainFallback, splitMessage } from "./message-text.js";
+import { officialPlainFallback, splitMarkdownMessage, splitMessage } from "./message-text.js";
 import { renderOfficial } from "./render.js";
 import type { CommandResult, InboundMessage, ReplyPort, ReplyTarget } from "./types.js";
 
@@ -21,15 +21,23 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
   let msgSeq = 0;
   return {
     async send(target: ReplyTarget, result: CommandResult, inbound: InboundMessage): Promise<void> {
-      const parts = splitMessage(result.text);
+      const markdown = result.markdown?.trim() ?? "";
+      // 有 Markdown 时按表格边界拆段，避免超长世界包列表被降成纯文本。
+      const parts = markdown ? splitMarkdownMessage(markdown) : splitMessage(result.text);
       for (let index = 0; index < parts.length; index++) {
         const content = parts[index]!;
-        const rendered =
-          parts.length === 1
+        const isLast = index === parts.length - 1;
+        const rendered = markdown
+          ? renderOfficial({
+              text: result.text,
+              markdown: content,
+              ...(isLast && result.buttons ? { buttons: result.buttons } : {}),
+            })
+          : parts.length === 1
             ? renderOfficial({ ...result, text: content })
             : renderOfficial({
                 text: content,
-                ...(index === parts.length - 1 && result.buttons ? { buttons: result.buttons } : {}),
+                ...(isLast && result.buttons ? { buttons: result.buttons } : {}),
               });
         msgSeq += 1;
         const c2c = isC2c(inbound);

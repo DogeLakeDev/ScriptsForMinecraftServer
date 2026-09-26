@@ -5,13 +5,15 @@ export function pickDisplayLabel(cmd: RegisteredCommand, maxChars = 8): string {
   const labels: Record<string, string> = {
     server: "服务器信息",
     account: "我的账号",
-    entry: "申请入服",
+    entry: "进服说明",
     help: "使用帮助",
     admin: "服务器管理",
     online: "在线玩家",
     ip: "连接地址",
     channel: "聊天互通",
     ping: "连接检查",
+    modules: "模块列表",
+    packs: "世界包",
   };
   const label = labels[cmd.name];
   if (label) return label.slice(0, maxChars);

@@ -9,6 +9,7 @@
 
 import { randomInt } from "node:crypto";
 import { SQL } from "sql-template-strings";
+import { loadQqAccountProfile, saveQqAccountProfile } from "../domain/qq-account-profile.js";
 import type { QueryFn } from "../lib/sqlite.js";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
@@ -57,6 +58,8 @@ function createQqBindRoutes({ query, body, json }: Deps) {
             Record<string, unknown>
           >);
       const row = rows[0] ?? null;
+      const playerId = row ? String(row.player_xuid ?? "") : "";
+      const playerName = row ? String(row.player_name ?? "") : "";
       json(res, {
         success: true,
         bound: !!row,
@@ -69,7 +72,33 @@ function createQqBindRoutes({ query, body, json }: Deps) {
               bound_at: row.bound_at,
             }
           : null,
+        ...(row ? { profile: loadQqAccountProfile(query, playerId, playerName) } : {}),
       });
+      return true;
+    }
+
+    if (path === "/api/sfmc/qq/bind/profile" && method === "POST") {
+      const data = await body(req);
+      const playerId = String(data.xuid ?? data.player_xuid ?? "").trim();
+      const playerName = String(data.name ?? data.player_name ?? "").trim();
+      if (!playerId) {
+        json(res, { success: false, error: "xuid_required" }, 400);
+        return true;
+      }
+      const optionalNumber = (value: unknown): number | null => {
+        if (value == null || value === "") return null;
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+      };
+      saveQqAccountProfile(query, {
+        playerId,
+        playerName,
+        balance: optionalNumber(data.balance),
+        todaySeconds: optionalNumber(data.today_seconds),
+        monthSeconds: optionalNumber(data.month_seconds),
+        totalSeconds: optionalNumber(data.total_seconds),
+      });
+      json(res, { success: true });
       return true;
     }
 
@@ -171,6 +200,7 @@ function createQqBindRoutes({ query, body, json }: Deps) {
         return true;
       }
 
+      // 绑定记录就是自有白名单：写入后游戏侧允许移动并恢复成员/操作员权限。
       query(SQL`DELETE FROM sfmc_qq_bindings WHERE qq_user_openid = ${row.qq_user_openid} OR player_xuid = ${xuid}`);
       query(
         SQL`INSERT INTO sfmc_qq_bindings (qq_user_openid, player_xuid, player_name, qq_backend, bound_at)

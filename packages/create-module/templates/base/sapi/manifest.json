@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@main/modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
   "schemaVersion": 2,
   "id": "{{featureId}}",
   "name": "{{name}}",
