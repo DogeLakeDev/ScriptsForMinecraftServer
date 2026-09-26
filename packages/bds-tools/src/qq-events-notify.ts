@@ -14,7 +14,7 @@ import http from "node:http";
 import { log } from "./log.js";
 import { ROOT_DIR } from "./paths.js";
 
-export type BdsLifecycleEventType = "crash" | "start";
+export type BdsLifecycleEventType = "crash" | "start" | "stop";
 
 function resolveDbPort(): number {
   try {

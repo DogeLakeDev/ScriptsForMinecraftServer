@@ -1,72 +1,60 @@
-/**
- * routes/status.ts — 只读运维摘要（供 QQ status/online）
- *
- * GET /api/sfmc/status — 公开，无需 Bearer
- */
+/** GET /api/sfmc/status 与 BDS 实时快照入口。 */
 
-import { SQL } from "sql-template-strings";
 import { collectSystemStatus, type SystemStatusSnapshot } from "../domain/system-status.js";
-import type { QueryFn } from "../lib/sqlite.js";
 import { PROJECT_ROOT } from "../project-root.js";
-import { json, type RouteFactory } from "./_shared.js";
+import { body, json, type RouteFactory } from "./_shared.js";
 
-/** 玩家行新鲜度阈值：超过则视为离线快照过期 */
-const FRESH_MS = 5 * 60 * 1000;
+const FRESH_MS = 60_000;
+
+interface LiveSnapshot {
+  online: Array<{ name: string }>;
+  world: { day: number; difficulty: string };
+  updatedAt: number;
+}
 
 interface Deps {
-  query: QueryFn;
-  /** 测试可注入，避免真实探活 */
   collectSystem?: (projectRoot: string) => Promise<SystemStatusSnapshot>;
   projectRoot?: string;
 }
 
-function createStatusRoutes({ query, collectSystem, projectRoot }: Deps): ReturnType<RouteFactory> {
+function createStatusRoutes({ collectSystem, projectRoot }: Deps): ReturnType<RouteFactory> {
   const root = projectRoot ?? PROJECT_ROOT;
   const collect = collectSystem ?? collectSystemStatus;
+  let live: LiveSnapshot | null = null;
 
-  return async function handle({ path, method, res }): Promise<boolean> {
+  return async function handle({ path, method, req, res }): Promise<boolean> {
+    if (path === "/api/sfmc/status/live") {
+      if (method !== "POST") {
+        json(res, { success: false, error: "not_found" }, 404);
+        return true;
+      }
+      const data = await body(req);
+      const raw = data.players;
+      const day = data.day;
+      const difficulty = data.difficulty;
+      if (
+        !Array.isArray(raw) || raw.length > 1000 ||
+        !raw.every((name) => typeof name === "string" && name.trim().length > 0 && name.length <= 64) ||
+        typeof day !== "number" || !Number.isSafeInteger(day) || day < 0 ||
+        typeof difficulty !== "string" || difficulty.length > 32
+      ) {
+        json(res, { success: false, error: "invalid_live_status" }, 400);
+        return true;
+      }
+      live = {
+        online: raw.map((name: string) => ({ name: name.trim() })),
+        world: { day, difficulty },
+        updatedAt: Date.now(),
+      };
+      json(res, { success: true });
+      return true;
+    }
+
     if (path !== "/api/sfmc/status") return false;
     if (method !== "GET") {
       json(res, { success: false, error: "not_found" }, 404);
       return true;
     }
-
-    const now = Date.now();
-    let world: Record<string, unknown> | null = null;
-    let worldUpdatedAt: string | number | null = null;
-    try {
-      const worlds = query(SQL`SELECT * FROM sfmc_world LIMIT 1`) as Array<Record<string, unknown>>;
-      if (worlds.length > 0 && worlds[0]) {
-        world = {
-          day: worlds[0].day ?? null,
-          difficulty: worlds[0].difficulty ?? null,
-          absolute_time: worlds[0].absolute_time ?? null,
-          moon_phase: worlds[0].moon_phase ?? null,
-        };
-        worldUpdatedAt = (worlds[0].updated_at as string | number | null) ?? null;
-      }
-    } catch {
-      world = null;
-    }
-
-    let players: Array<{ id: string; name: string; updated_at: number }> = [];
-    try {
-      const rows = query(
-        SQL`SELECT id, name, updated_at FROM sfmc_players WHERE updated_at >= ${now - FRESH_MS} ORDER BY updated_at DESC`
-      ) as Array<{ id: string; name: string; updated_at: number }>;
-      players = rows.map((r) => ({
-        id: String(r.id ?? ""),
-        name: String(r.name ?? ""),
-        updated_at: Number(r.updated_at) || 0,
-      }));
-    } catch {
-      players = [];
-    }
-
-    const fresh = players.filter((p) => p.updated_at > 0 && now - p.updated_at <= FRESH_MS);
-    const online = fresh.map((p) => ({ id: p.id, name: p.name }));
-    const newestPlayer = players[0]?.updated_at ?? 0;
-    const updatedAt = Math.max(newestPlayer, typeof worldUpdatedAt === "number" ? worldUpdatedAt : 0) || now;
 
     let system: SystemStatusSnapshot | null = null;
     try {
@@ -75,19 +63,24 @@ function createStatusRoutes({ query, collectSystem, projectRoot }: Deps): Return
       system = null;
     }
 
+    const now = Date.now();
+    const bds = system?.bds;
+    const bdsAgeMs = typeof bds?.uptimeSec === "number" ? bds.uptimeSec * 1000 : null;
+    const snapshot = live;
+    const fresh = snapshot !== null &&
+      bds?.state === "running" &&
+      now - snapshot.updatedAt <= FRESH_MS &&
+      (bdsAgeMs === null || now - snapshot.updatedAt <= bdsAgeMs + 2_000);
+    const current = fresh ? snapshot : null;
+
     json(res, {
-      online,
-      world,
-      updatedAt,
+      online: current?.online ?? [],
+      world: current?.world ?? null,
+      updatedAt: current?.updatedAt ?? null,
       host: system?.host ?? null,
-      processes: system
-        ? {
-            db: system.db,
-            bds: system.bds,
-          }
-        : null,
-      source: "sfmc_players/sfmc_world+os",
-      note: online.length === 0 ? "暂无新鲜在线数据（需 BDS 同步玩家表，或数据超过 5 分钟）" : undefined,
+      processes: system ? { db: system.db, bds: system.bds } : null,
+      source: "bds_script_live",
+      note: fresh ? undefined : bds?.state === "stopped" ? "服务器未运行" : "等待游戏实时状态同步",
     });
     return true;
   };

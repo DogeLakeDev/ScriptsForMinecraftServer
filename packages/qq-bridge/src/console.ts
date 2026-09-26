@@ -40,6 +40,7 @@ function showStatus(opts: ConsoleOptions): void {
   console.log(`  启用:        ${initialEnabled}`);
   console.log(`  后端:        ${backend}`);
   if (backend === "official") {
+    console.log(`  接收方式:    ${cfg.qq_official_transport}`);
     console.log(`  沙箱:        ${cfg.qq_sandbox}`);
     console.log(`  AppID:       ${cfg.qq_app_id || "未配置"}`);
     console.log(`  群 openid:   ${cfg.qq_group_openid || "未配置"}`);

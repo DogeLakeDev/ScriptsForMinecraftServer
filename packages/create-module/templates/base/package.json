@@ -20,10 +20,10 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@minecraft/server": "2.10.0-beta.1.26.40-preview.30",
+    "@minecraft/server": "2.11.0-beta.1.26.51-stable",
     "@minecraft/server-net": "1.0.0-beta.11940b24",
-    "@minecraft/server-ui": "2.2.0-beta.1.26.40-preview.30",
-    "@minecraft/vanilla-data": "1.26.40-preview.30",
+    "@minecraft/server-ui": "2.3.0-beta.1.26.51-stable",
+    "@minecraft/vanilla-data": "1.26.51",
     "@sfmc-bds/eslint-plugin": "^0.1.0",
     "@sfmc-bds/sdk": "^0.2.0-beta.9",
     "@types/node": "^22.13.0",

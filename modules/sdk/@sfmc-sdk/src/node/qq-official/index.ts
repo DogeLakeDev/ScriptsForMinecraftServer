@@ -370,13 +370,10 @@ export async function fetchGatewayUrl(
   return url;
 }
 
-/** 去掉官方事件 content 前导 `<@!botid>` */
+/** 去掉官方群消息 content 前导机器人 @ 标记。 */
 export function stripOfficialAtMention(content: string): string {
   let text = content.trim();
-  if (text.startsWith("<@!")) {
-    const idx = text.indexOf(">");
-    if (idx >= 0) text = text.slice(idx + 1).trim();
-  }
+  text = text.replace(/^(?:<@!?[^>\s]+>|<qqbot-at-user(?:\s[^>]*)?>)\s*/i, "").trim();
   return text;
 }
 

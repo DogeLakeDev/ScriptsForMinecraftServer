@@ -1,7 +1,7 @@
 /**
  * llbot-launch.ts — 解析 LLBot 可执行文件与工作目录
  *
- * 历史向导曾把 llbot_path 写成「目录」；schema 语义是可执行文件。
+ * 历史向导曾把 llbot.path 写成「目录」；schema 语义是可执行文件。
  * 此处兼容二者，避免 spawn 目录导致 ENOENT。
  */
 
@@ -25,8 +25,8 @@ export type LlbotLaunch = {
 };
 
 /**
- * @param pathRaw qq_config.llbot_path（可为 exe 或目录）
- * @param cwdRaw qq_config.llbot_cwd（目录；可空）
+ * @param pathRaw qq_config.llbot.path（可为 exe 或目录）
+ * @param cwdRaw qq_config.llbot.cwd（目录；可空）
  */
 export function resolveLlbotLaunch(pathRaw: unknown, cwdRaw: unknown): LlbotLaunch {
   const exeName = llbotExeName();

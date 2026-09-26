@@ -33,6 +33,7 @@
     "./pack-manager": "./dist/cli-pack-manager.js",
     "./pack-manager-lib": "./dist/pack-manager.js",
     "./process-probe": "./dist/process-probe.js",
+    "./qq-events-notify": "./dist/qq-events-notify.js",
     "./package.json": "./package.json",
     "./taskbar": "./dist/taskbar.js",
     "./types": {

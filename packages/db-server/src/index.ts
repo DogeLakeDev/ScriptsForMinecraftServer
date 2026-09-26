@@ -46,7 +46,7 @@ import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
 
 import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
-import { createQqEventsAggregator, resolveQqEventsConfig } from "./domain/qq-events.js";
+import { createQqEventsAggregator, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
 import { createConfigRoutes } from "./routes/config.js";
@@ -225,7 +225,7 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
 
 // ── 平台路由(非模块业务) ───────────────────────────────────
 const healthRoutes = createHealthRoutes();
-const statusRoutes = createStatusRoutes({ query });
+const statusRoutes = createStatusRoutes({});
 const qqBindRoutes = createQqBindRoutes({ query, body, json });
 
 /** 模块 qq-link 的配置文件（非 SDK qq_config） */
@@ -290,13 +290,26 @@ const qqJoinRoutes = createQqJoinRoutes({
   body,
   json,
   getAdminOpenids: () => {
-    const raw = env.qqconfig["qq_admin_openids"];
+    const raw = (env.qqconfig["official"] as { admin_openids?: unknown } | undefined)?.admin_openids;
     if (!Array.isArray(raw)) return [];
     return raw.map((x) => String(x).trim()).filter(Boolean);
   },
   getJoinFlags: () => readJoinFlags(),
   setJoinFlags: (partial) => writeJoinFlags(partial),
 });
+
+function readQqEventsSettings(): ResolvedQqEventsConfig {
+  const disk = readJson<Record<string, unknown>>(join(env.PROJECT_ROOT, "configs", "qq_config.json"));
+  if (!disk) throw new Error("qq_config.json 无法读取，事件设置未修改");
+  return resolveQqEventsConfig(disk.qq_events);
+}
+
+function writeQqEventsSettings(patch: Partial<ResolvedQqEventsConfig>): ResolvedQqEventsConfig {
+  const file = join(env.PROJECT_ROOT, "configs", "qq_config.json");
+  const settings = { ...readQqEventsSettings(), ...patch };
+  patchJson(file, { qq_events: settings });
+  return settings;
+}
 
 function currentOutbound() {
   return makeOutboundConfig({
@@ -314,13 +327,22 @@ function currentOutbound() {
 }
 
 const qqEventsAggregator = createQqEventsAggregator({
-  getConfig: () => resolveQqEventsConfig(env.qqconfig["qq_events"]),
+  getConfig: readQqEventsSettings,
   getOutbound: () => currentOutbound(),
 });
 const qqEventsRoutes = createQqEventsRoutes({
   body,
   json,
   aggregator: qqEventsAggregator,
+  getSettings: readQqEventsSettings,
+  setSettings: writeQqEventsSettings,
+  isAdmin: (openid, asGroupAdmin) => {
+    const admins = (env.qqconfig["official"] as { admin_openids?: unknown } | undefined)?.admin_openids;
+    return (
+      (Array.isArray(admins) && admins.includes(openid)) ||
+      (asGroupAdmin && readJoinFlags().treatGroupAdminsAsAdmins)
+    );
+  },
 });
 
 const messagesRoutes = createMessagesRoutes({

@@ -96,6 +96,36 @@ export async function fetchSfmcStatus(ep: DbEndpoint): Promise<SfmcStatusRespons
   return data;
 }
 
+export type QqEventSettings = {
+  enabled: boolean;
+  join: boolean;
+  leave: boolean;
+  death: boolean;
+  crash: boolean;
+  start: boolean;
+  stop: boolean;
+  window_sec: number;
+};
+
+export type QqEventSettingsResponse = {
+  success: boolean;
+  settings?: QqEventSettings;
+  error?: string;
+};
+
+export async function fetchQqEventSettings(ep: DbEndpoint): Promise<QqEventSettingsResponse> {
+  const { data } = await requestJson<QqEventSettingsResponse>(ep, "GET", "/api/sfmc/qq/events/settings");
+  return data;
+}
+
+export async function postQqEventSettings(
+  ep: DbEndpoint,
+  body: { openid: string; as_group_admin: boolean; field: keyof QqEventSettings; value: boolean | number }
+): Promise<QqEventSettingsResponse> {
+  const { data } = await requestJson<QqEventSettingsResponse>(ep, "POST", "/api/sfmc/qq/events/settings", body);
+  return data;
+}
+
 export type JoinRequestResponse = {
   success?: boolean;
   id?: string;

@@ -7,9 +7,10 @@
  *   PUT  /v2/panels/{id}     body: { panel: { items, remark? } }
  */
 
-import { patchJson } from "@sfmc-bds/sdk/node/config";
+import { patchJson, readJson } from "@sfmc-bds/sdk/node/config";
 import {
   createPanel,
+  getPanel,
   putMenu,
   updatePanel,
   updatePanelTarget,
@@ -86,6 +87,22 @@ function extractPanelId(json: unknown): string {
   return "";
 }
 
+function panelTargetInfo(raw: unknown): { scope: string; targetType: string; groupOpenids: string[] } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const root = raw as Record<string, unknown>;
+  const data = root["data"];
+  const panel = data && typeof data === "object" ? (data as Record<string, unknown>) : root;
+  const scope = panel["scope"];
+  const targetType = panel["target_type"];
+  if (typeof scope !== "string" || typeof targetType !== "string") return null;
+  const groups = panel["group_openids"];
+  return {
+    scope,
+    targetType,
+    groupOpenids: Array.isArray(groups) ? groups.filter((id): id is string => typeof id === "string") : [],
+  };
+}
+
 /**
  * 同步自定义菜单 + 群指令面板。失败只打日志，不抛给调用方。
  */
@@ -109,10 +126,12 @@ export async function syncMenuAndPanel(opts: MenuPanelSyncOpts): Promise<{ menuO
   };
 
   let panelId = opts.panelId.trim();
+  let updatedExisting = false;
   if (panelId) {
     const upd = await updatePanel(opts.creds, panelId, { panel: panelBody });
     if (upd.ok) {
       panelOk = true;
+      updatedExisting = true;
       log.info(`官方群指令面板已更新 id=${panelId}`);
     } else {
       log.warn(`官方群指令面板更新失败，将尝试新建: ${upd.error}`);
@@ -143,15 +162,26 @@ export async function syncMenuAndPanel(opts: MenuPanelSyncOpts): Promise<{ menuO
     }
   }
 
-  // create 时已带 group_openids；仅当后续更新场景或 create 未带群时再关联
-  if (panelOk && panelId && opts.groupOpenid) {
-    const tgt = await updatePanelTarget(opts.creds, panelId, {
-      op: "add",
-      group_openids: [opts.groupOpenid],
-    });
-    if (!tgt.ok) {
-      // specific 面板重复 add 或 all 面板会失败；降级为 debug 级 warn
-      log.warn(`官方面板关联群跳过/失败: ${tgt.error}`);
+  // 新建 specific 面板已带群；已有面板需先确认类型，不能给 all 面板追加关联对象。
+  if (updatedExisting && panelId && opts.groupOpenid) {
+    const detail = await getPanel(opts.creds, panelId);
+    if (!detail.ok) {
+      log.warn(`官方群指令面板详情查询失败，已跳过关联群: ${detail.error}`);
+    } else {
+      const target = panelTargetInfo(detail.json ?? safeParse(detail.body));
+      if (!target) {
+        log.warn("官方群指令面板详情缺少 scope/target_type，已跳过关联群");
+      } else if (
+        target.scope === "group" &&
+        target.targetType === "specific" &&
+        !target.groupOpenids.includes(opts.groupOpenid)
+      ) {
+        const linked = await updatePanelTarget(opts.creds, panelId, {
+          op: "add",
+          group_openids: [opts.groupOpenid],
+        });
+        if (!linked.ok) log.warn(`官方群指令面板关联群失败: ${linked.error}`);
+      }
     }
   }
 
@@ -166,11 +196,12 @@ function safeParse(body: string): unknown {
   }
 }
 
-/** 默认：把 panel id 浅合并写回 qq_config.json */
+/** 把 panel id 写回 official 分组，同时保留其他官方设置。 */
 export function persistPanelIdToConfig(panelId: string): void {
   try {
-    patchJson(CFG_PATH, { qq_group_panel_id: panelId });
+    const current = readJson<{ official?: Record<string, unknown> }>(CFG_PATH) ?? {};
+    patchJson(CFG_PATH, { official: { ...current.official, group_panel_id: panelId } });
   } catch (e) {
-    log.warn(`写回 qq_group_panel_id 失败: ${(e as Error).message}`);
+    log.warn(`写回 official.group_panel_id 失败: ${(e as Error).message}`);
   }
 }

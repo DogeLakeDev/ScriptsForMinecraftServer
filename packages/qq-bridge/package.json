@@ -28,6 +28,7 @@
   "main": "dist/index.js",
   "files": [
     "dist",
+    "deploy",
     "README.md"
   ],
   "scripts": {

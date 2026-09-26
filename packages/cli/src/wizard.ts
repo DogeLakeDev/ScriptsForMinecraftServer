@@ -10,6 +10,7 @@ import {
   type Catalog,
   type ConfigName,
   type ModuleLock,
+  type QQBridgeConfig,
 } from "@sfmc-bds/sdk/node/config";
 import { bdsExePath } from "@sfmc-bds/bds-tools/host-platform";
 import { execFileSync } from "node:child_process";
@@ -363,17 +364,24 @@ export async function runWizard(): Promise<void> {
         const llbotOn = qqBackend === "llbot" && !!llbotEnabled && !!llbotPath;
         const qqNotify = qqEnabled && (qqBackend === "official" || llbotOn);
         const exeName = llbotExeName();
+        const currentQq = readJson<QQBridgeConfig>(configPath(rootDir, "qq_config.json")) ?? {};
         patchJson(rootDir, "qq_config.json", {
           qq_enabled: qqEnabled,
           qq_backend: qqBackend,
-          qq_app_id: qqAppId,
-          qq_app_secret: qqAppSecret,
-          qq_sandbox: qqSandbox,
-          qq_group_openid: qqGroupOpenid,
-          llbot_enabled: llbotOn,
-          // path = 可执行文件；cwd = 运行目录（向导选的是目录）
-          llbot_path: llbotPath ? slashPath(path.join(llbotPath, exeName)) : "",
-          llbot_cwd: llbotPath ? slashPath(llbotPath) : "",
+          official: {
+            ...currentQq.official,
+            app_id: qqAppId,
+            app_secret: qqAppSecret,
+            sandbox: qqSandbox,
+            group_openid: qqGroupOpenid,
+          },
+          llbot: {
+            ...currentQq.llbot,
+            enabled: llbotOn,
+            // path = 可执行文件；cwd = 运行目录（向导选的是目录）
+            path: llbotPath ? slashPath(path.join(llbotPath, exeName)) : "",
+            cwd: llbotPath ? slashPath(llbotPath) : "",
+          },
         });
         patchJson(rootDir, "bds_updater.json", {
           bds_path: slashPath(bdsResolved),

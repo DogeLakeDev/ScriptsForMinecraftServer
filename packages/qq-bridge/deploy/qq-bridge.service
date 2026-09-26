@@ -1,0 +1,23 @@
+[Unit]
+Description=SFMC official QQ bridge (Webhook)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qqbridge
+Group=qqbridge
+UMask=0027
+WorkingDirectory=/opt/sfmc-qq-bridge
+Environment=SFMC_ROOT=/var/lib/sfmc-qq-bridge
+ExecStart=/usr/bin/node /opt/sfmc-qq-bridge/node_modules/@sfmc-bds/qq-bridge/dist/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sfmc-qq-bridge
+
+[Install]
+WantedBy=multi-user.target

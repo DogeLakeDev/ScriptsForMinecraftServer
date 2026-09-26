@@ -119,10 +119,12 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
         clearBdsPidFile(ROOT_DIR);
         p.process = null;
         log.info("BDS 已停止");
+        void postBdsLifecycleEvent("stop");
         return;
       }
       log.info("BDS 未运行");
       clearBdsPidFile(ROOT_DIR);
+      p.isManualStop = false;
       return;
     }
 
@@ -157,6 +159,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
       // 外部启动的 BDS — fallback 使用 taskkill / pkill
       log.info("BDS 由外部启动，使用 taskkill...");
       await killBedrockServerByImage();
+      void postBdsLifecycleEvent("stop");
     }
 
     clearBdsPidFile(ROOT_DIR);
@@ -183,6 +186,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
     ensureBdsExecutable(p.exePath);
 
     log.info("正在启动 BDS...");
+    p.isManualStop = false;
     const child = spawn(p.exePath, [], {
       cwd: p.bdsPath,
       env: { ...process.env, ...bdsSpawnEnvExtra(p.bdsPath) },
@@ -216,6 +220,8 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
       const wasManual = p.isManualStop;
       if (!wasManual) {
         void postBdsLifecycleEvent("crash", `code=${code ?? "?"}`);
+      } else {
+        void postBdsLifecycleEvent("stop");
       }
       if (!wasManual && p.crashRestart && isMain()) {
         log.info(`BDS 意外退出，${p.crashDelayMs / 1000}s 后自动重启...`);

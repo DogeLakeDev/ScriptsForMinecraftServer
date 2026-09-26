@@ -187,7 +187,7 @@ function createQqJoinRoutes({ query, body, json, getAdminOpenids, getJoinFlags, 
         note: autoApproved
           ? "已关闭审批，申请已自动通过，等待 BDS 写入白名单"
           : admins.length === 0
-            ? "未配置 qq_admin_openids，无法通知管理员"
+            ? "未配置 official.admin_openids，无法通知管理员"
             : undefined,
       });
       return true;

@@ -106,6 +106,9 @@ export interface QQBridgeConfig {
   qq_admin_openids: string[];
   qq_enabled: boolean;
   qq_backend: "official" | "llbot";
+  qq_official_transport: "websocket" | "webhook";
+  qq_webhook_port: number;
+  qq_webhook_path: string;
   qq_app_id: string;
   qq_app_secret: string;
   qq_sandbox: boolean;

@@ -65,16 +65,16 @@ curl http://127.0.0.1:3001/api/health
 <Tabs>
   <Tab label="Official OpenAPI Backend (official)">
 
-1. **Credentials**: Check `qq_app_id` and `qq_app_secret` in `configs/qq_config.json`.
+1. **Credentials**: Check `official.app_id` and `official.app_secret` in `configs/qq_config.json`.
 2. **IP Allowlist**: In the QQ Open Platform developer console, ensure your server's public IP is added to the IP allowlist.
 3. **Event Subscription**: Ensure `GROUP_AT_MESSAGE_CREATE` is subscribed (messages in groups must @ the bot).
-4. **Group OpenID**: Copy the generated `qq_group_openid` from initial trigger logs into `configs/qq_config.json`, then restart services.
+4. **Group OpenID**: Copy the generated `official.group_openid` from initial trigger logs into `configs/qq_config.json`, then restart services.
 
   </Tab>
   <Tab label="LLBot / OneBot Backend (llbot)">
 
 1. **Reverse WebSocket**: Confirm reverse WS target in LLBot is set to `ws://127.0.0.1:3002`.
-2. **Group Number**: Ensure `qq_group_id` in `configs/qq_config.json` is a valid numeric group ID.
+2. **Group Number**: Ensure `llbot.group_id` in `configs/qq_config.json` is a valid numeric group ID.
 3. **Firewall**: Confirm port 3002 is not blocked by local security software.
 
   </Tab>

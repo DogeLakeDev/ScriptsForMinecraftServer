@@ -3,7 +3,7 @@
  *
  * 聚合策略：
  * - 玩家进退与死亡（join / leave / death）：在时间窗口内收集缓冲，合并为单条消息发送，避免刷屏
- * - 关键运行态事件（crash / start）：先立即冲刷（flush）当前窗口内的待发送事件，随后立即单独推送
+ * - 关键运行态事件（crash / start / stop）：先立即冲刷（flush）当前窗口内的待发送事件，随后立即单独推送
  */
 
 import {
@@ -14,7 +14,7 @@ import {
 import type { OutboundConfig } from "./bridge.js";
 import { sendGroupOutbound } from "./bridge.js";
 
-export type QqEventType = "join" | "leave" | "death" | "crash" | "start";
+export type QqEventType = "join" | "leave" | "death" | "crash" | "start" | "stop";
 
 export type QqEventPayload = {
   type: QqEventType;
@@ -26,7 +26,7 @@ export type QqEventPayload = {
 export type ResolvedQqEventsConfig = Required<QqEventsConfig>;
 
 const WINDOW_TYPES = new Set<QqEventType>(["join", "leave", "death"]);
-const IMMEDIATE_TYPES = new Set<QqEventType>(["crash", "start"]);
+const IMMEDIATE_TYPES = new Set<QqEventType>(["crash", "start", "stop"]);
 
 /** 窗口内条数上限：达到上限时提前触发 flush，避免单次积压过多内容。 */
 export const MAX_WINDOW_EVENTS = 20;
@@ -88,6 +88,7 @@ export function resolveQqEventsConfig(raw: unknown): ResolvedQqEventsConfig {
     death: o.death === undefined ? DEFAULT_QQ_EVENTS.death : o.death === true,
     crash: o.crash === undefined ? DEFAULT_QQ_EVENTS.crash : o.crash === true,
     start: o.start === undefined ? DEFAULT_QQ_EVENTS.start : o.start === true,
+    stop: o.stop === undefined ? DEFAULT_QQ_EVENTS.stop : o.stop === true,
   };
 }
 
@@ -164,6 +165,7 @@ export function formatImmediateBody(ev: QqEventPayload): string {
     const d = String(ev.detail ?? "").trim();
     return d ? `[MC事件] BDS 已启动 (${d})` : "[MC事件] BDS 已启动";
   }
+  if (ev.type === "stop") return "[MC事件] BDS 已停止";
   return `[MC事件] ${ev.type}`;
 }
 
@@ -217,7 +219,8 @@ export function createQqEventsAggregator(deps: QqEventsAggregatorDeps) {
   function flushWindow(): void {
     clearTimer();
     if (buffer.length === 0) return;
-    const snapshot = buffer;
+    const cfg = deps.getConfig();
+    const snapshot = buffer.filter((event) => isEventTypeEnabled(cfg, event.type));
     buffer = [];
     const text = formatWindowBody(snapshot);
     if (text.split("\n").length > 1) send(text);

@@ -4,7 +4,7 @@
 
 import { sendC2cMessage, sendGroupMessage, type QqOfficialCredentials } from "@sfmc-bds/sdk/node/qq-official";
 import { log } from "../log.js";
-import { plainReply, splitMessage } from "./message-text.js";
+import { officialPlainFallback, splitMessage } from "./message-text.js";
 import { renderOfficial } from "./render.js";
 import type { CommandResult, InboundMessage, ReplyPort, ReplyTarget } from "./types.js";
 
@@ -21,7 +21,7 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
   let msgSeq = 0;
   return {
     async send(target: ReplyTarget, result: CommandResult, inbound: InboundMessage): Promise<void> {
-      const parts = splitMessage(plainReply(result));
+      const parts = splitMessage(result.text);
       for (let index = 0; index < parts.length; index++) {
         const content = parts[index]!;
         const rendered =
@@ -38,7 +38,13 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
           ...(rendered.msgType === 2
             ? { markdown: rendered.markdown ?? result.text }
             : { content: rendered.content ?? result.text }),
-          ...(rendered.keyboardButtons ? { keyboardButtons: rendered.keyboardButtons } : {}),
+          ...(rendered.keyboardButtons
+            ? {
+                keyboardRows: Array.from({ length: Math.ceil(rendered.keyboardButtons.length / 2) }, (_, index) =>
+                  rendered.keyboardButtons!.slice(index * 2, index * 2 + 2)
+                ),
+              }
+            : {}),
           ...(target.msgId ? { msgId: target.msgId, msgSeq } : {}),
         };
 
@@ -49,7 +55,7 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
               return sendC2cMessage(creds, {
                 userOpenid,
                 msgType: 0,
-                content,
+                content: parts.length === 1 ? officialPlainFallback(result) : content,
                 ...(target.msgId ? { msgId: target.msgId, msgSeq: ++msgSeq } : {}),
               });
             }
@@ -59,7 +65,7 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
             return sendGroupMessage(creds, {
               groupOpenid: target.groupId,
               msgType: 0,
-              content,
+              content: parts.length === 1 ? officialPlainFallback(result) : content,
               ...(target.msgId ? { msgId: target.msgId, msgSeq: ++msgSeq } : {}),
             });
           }

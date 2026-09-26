@@ -103,7 +103,7 @@ export function makeOutboundConfig(env: {
 
 function sendViaLlbot(config: LLBotConfig, text: string, logCtx: string): void {
   if (!config.groupId || config.groupId === "0") {
-    log.warn(`QQ 群未配置 (qq_group_id),跳过 MC→QQ (${logCtx})`);
+    log.warn(`QQ 群未配置 (llbot.group_id),跳过 MC→QQ (${logCtx})`);
     return;
   }
 
@@ -149,7 +149,7 @@ function sendViaLlbot(config: LLBotConfig, text: string, logCtx: string): void {
 
 function sendViaOfficial(config: OfficialOutboundConfig, text: string, logCtx: string): void {
   if (!config.groupOpenid) {
-    log.warn(`官方群 openid 未配置 (qq_group_openid),跳过 MC→QQ (${logCtx})`);
+    log.warn(`官方群 openid 未配置 (official.group_openid),跳过 MC→QQ (${logCtx})`);
     return;
   }
   if (!config.creds.appId || !config.creds.appSecret) {
@@ -162,6 +162,9 @@ function sendViaOfficial(config: OfficialOutboundConfig, text: string, logCtx: s
     content: text,
   }).then((result) => {
     if (!result.ok) {
+      if (result.status === 400 && String(result.error).includes("40034105")) {
+        log.warn("官方群主动发消息无权限：请在 QQ 群机器人设置中开启允许主动发送");
+      }
       log.warn(`官方发群失败: ${result.error} (${logCtx}, status=${result.status})`);
     }
   });

@@ -1,14 +1,15 @@
 import type { CommandResult } from "./types.js";
 
-/** 文本降级必须包含完整命令，不依赖按钮仍可继续操作。 */
-export function plainReply(result: CommandResult): string {
-  const actions = result.buttons
-    ?.map(
-      (b, index) =>
-        `${index + 1}. ${b.label}${result.menu && b.description ? ` · ${b.description}` : ""}\n   发送：${b.command}`
-    )
-    .join("\n");
-  return result.text + (actions ? `\n\n${actions}` : "");
+/** 官方 Markdown 发送失败时，菜单以简洁文本呈现；按钮命令不重复写入正文。 */
+export function officialPlainFallback(result: CommandResult): string {
+  if (!result.menu || !result.buttons?.length) return result.text;
+  const items = result.buttons
+    .filter((button) => button.command !== "/menu")
+    .map((button) => `${button.label}${button.description ? ` · ${button.description}` : ""}`);
+  const home = result.buttons.some((button) => button.command === "/menu")
+    ? ["", "发送「菜单」返回首页。"]
+    : [];
+  return [result.text, "", ...items, ...home].join("\n");
 }
 
 /** 保守的 UTF-8 字节预算；优先按行拆分，超长行按码点拆分。 */

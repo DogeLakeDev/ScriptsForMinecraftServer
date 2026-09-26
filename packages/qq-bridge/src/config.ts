@@ -8,7 +8,7 @@
  * - 支持 `reloadInto(cfg)` 就地合并更新运行时对象，保持内存引用一致
  */
 
-import { configPath, DEFAULT_QQ_CONFIG, loadEnsuredConfig, stripConfigMeta } from "@sfmc-bds/sdk/node/config";
+import { configPath, DEFAULT_QQ_CONFIG, loadEnsuredConfig, stripConfigMeta, type QQBridgeConfig as DiskQQConfig } from "@sfmc-bds/sdk/node/config";
 import { log } from "./log.js";
 import { PROJECT_ROOT } from "./project-root.js";
 import type { QQBridgeConfig } from "./types.js";
@@ -17,16 +17,19 @@ import type { QQBridgeConfig } from "./types.js";
 export const ROOT_DIR: string = PROJECT_ROOT;
 export const CFG_PATH: string = configPath(ROOT_DIR, "qq_config.json");
 
-function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
+function applyDefaults(raw: DiskQQConfig): QQBridgeConfig {
   /* 以 SDK DEFAULT_QQ_CONFIG 为唯一缺省权威（DRY/LSP），再叠运行时派生字段 */
-  const merged = { ...DEFAULT_QQ_CONFIG, ...raw } as Partial<QQBridgeConfig> & Record<string, unknown>;
+  const merged = { ...DEFAULT_QQ_CONFIG, ...raw } as DiskQQConfig & Record<string, unknown>;
   const stripped = stripConfigMeta(merged);
   const backendRaw = String(stripped.qq_backend ?? DEFAULT_QQ_CONFIG.qq_backend ?? "official");
   const qq_backend = backendRaw === "llbot" ? ("llbot" as const) : ("official" as const);
+  const official = raw.official ?? {};
+  const officialDefaults = DEFAULT_QQ_CONFIG.official ?? {};
+  const llbot = raw.llbot ?? {};
+  const llbotDefaults = DEFAULT_QQ_CONFIG.llbot ?? {};
   const publicRaw = raw.public_server;
   const publicServer = publicRaw && typeof publicRaw === "object" ? publicRaw : {};
   return {
-    ...stripped,
     public_server: {
       address: typeof publicServer.address === "string" ? publicServer.address.trim().slice(0, 253) : "",
       version: typeof publicServer.version === "string" ? publicServer.version.trim().slice(0, 120) : "",
@@ -35,23 +38,33 @@ function applyDefaults(raw: Partial<QQBridgeConfig>): QQBridgeConfig {
           ? publicServer.port!
           : 19132,
     },
-    qq_enabled: stripped.qq_enabled !== false,
+    qq_enabled: raw.qq_enabled !== false,
     qq_backend,
-    qq_app_id: String(stripped.qq_app_id ?? DEFAULT_QQ_CONFIG.qq_app_id ?? ""),
-    qq_app_secret: String(stripped.qq_app_secret ?? DEFAULT_QQ_CONFIG.qq_app_secret ?? ""),
-    qq_sandbox: stripped.qq_sandbox === true,
-    qq_group_openid: String(stripped.qq_group_openid ?? DEFAULT_QQ_CONFIG.qq_group_openid ?? ""),
-    qq_group_panel_id: String(stripped.qq_group_panel_id ?? DEFAULT_QQ_CONFIG.qq_group_panel_id ?? ""),
-    qq_sync_menu_panel: stripped.qq_sync_menu_panel !== false,
-    qq_admin_openids: Array.isArray(stripped.qq_admin_openids)
-      ? (stripped.qq_admin_openids as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+    qq_official_transport: official.transport === "webhook" ? "webhook" : "websocket",
+    qq_webhook_port: Number(official.webhook?.port ?? officialDefaults.webhook?.port ?? 3005),
+    qq_webhook_path: String(official.webhook?.path ?? officialDefaults.webhook?.path ?? "/qqbot/webhook"),
+    qq_app_id: String(official.app_id ?? officialDefaults.app_id ?? ""),
+    qq_app_secret: String(official.app_secret ?? officialDefaults.app_secret ?? ""),
+    qq_sandbox: official.sandbox === true,
+    qq_group_openid: String(official.group_openid ?? officialDefaults.group_openid ?? ""),
+    qq_group_panel_id: String(official.group_panel_id ?? officialDefaults.group_panel_id ?? ""),
+    qq_sync_menu_panel: official.sync_menu_panel !== false,
+    qq_admin_openids: Array.isArray(official.admin_openids)
+      ? official.admin_openids.map((x) => String(x).trim()).filter(Boolean)
       : [],
-    qq_ws_port: parseInt(String(stripped.qq_ws_port ?? DEFAULT_QQ_CONFIG.qq_ws_port ?? 3002), 10),
-    qq_group_id: String(stripped.qq_group_id ?? DEFAULT_QQ_CONFIG.qq_group_id ?? "0"),
-    bridge_channel_id: String(stripped.bridge_channel_id ?? DEFAULT_QQ_CONFIG.bridge_channel_id ?? ""),
-    db_host: String(stripped.db_host ?? "127.0.0.1"),
-    db_port: parseInt(String(stripped.db_port ?? "3001"), 10),
-    mctoqq_prefix: String(stripped.mctoqq_prefix ?? DEFAULT_QQ_CONFIG.mctoqq_prefix ?? "[MC]"),
+    qq_ws_port: Number(llbot.ws_port ?? llbotDefaults.ws_port ?? 3002),
+    qq_group_id: String(llbot.group_id ?? llbotDefaults.group_id ?? "0"),
+    llbot_enabled: llbot.enabled ?? llbotDefaults.enabled ?? false,
+    llbot_path: llbot.path ?? llbotDefaults.path ?? "",
+    llbot_cwd: llbot.cwd ?? llbotDefaults.cwd ?? "",
+    llbot_host: llbot.host ?? llbotDefaults.host ?? "127.0.0.1",
+    llbot_port: llbot.port ?? llbotDefaults.port ?? 3004,
+    llbot_token: llbot.token ?? llbotDefaults.token ?? "",
+    llbot_http: llbot.http ?? llbotDefaults.http ?? "",
+    bridge_channel_id: String(raw.bridge_channel_id ?? DEFAULT_QQ_CONFIG.bridge_channel_id ?? ""),
+    db_host: String(raw.db_host ?? "127.0.0.1"),
+    db_port: Number(raw.db_port ?? 3001),
+    mctoqq_prefix: String(raw.mctoqq_prefix ?? DEFAULT_QQ_CONFIG.mctoqq_prefix ?? "[MC]"),
   };
 }
 
@@ -60,7 +73,7 @@ function readFromDisk(): QQBridgeConfig {
     string,
     unknown
   >);
-  return applyDefaults(raw as Partial<QQBridgeConfig>);
+  return applyDefaults(raw as DiskQQConfig);
 }
 
 /**

@@ -54,24 +54,33 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 
 ### `qq_config.json`：多端互通网关
 
-配置 Minecraft 服务器与 QQ 群消息互通。支持 **QQ 官方机器人**（推荐，基于开放平台 WebSocket Gateway）与 **LLBot**（基于 OneBot 11 协议）双后端架构。
+配置 Minecraft 服务器与 QQ 群消息互通。官方机器人可在 `official.transport` 选择 `websocket` 或 `webhook`；LLBot 使用 OneBot 11 协议。
 
 ```json title="configs/qq_config.json"
 {
   "$schema": "../modules/sdk/@sfmc-sdk/schemas/qq_config.schema.json",
+  "qq_enabled": true,
   "qq_backend": "official",
-  "qq_app_id": "102030405",
-  "qq_app_secret": "your_app_secret_here",
-  "qq_group_openid": "YOUR_GROUP_OPENID",
-  "qq_sandbox": false,
+  "official": {
+    "transport": "webhook",
+    "app_id": "102030405",
+    "app_secret": "your_app_secret_here",
+    "group_openid": "YOUR_GROUP_OPENID",
+    "sandbox": false,
+    "admin_openids": [],
+    "webhook": { "port": 3005, "path": "/qqbot/webhook" }
+  },
+  "llbot": { "enabled": false, "ws_port": 3002, "host": "127.0.0.1", "port": 3004 },
   "mctoqq_prefix": "[MC] ",
-  "qq_admin_openids": [],
   "qq_events": {
-    "player_join": true,
-    "player_leave": true,
-    "player_death": true,
-    "server_start": true,
-    "server_stop": true
+    "enabled": true,
+    "window_sec": 60,
+    "join": true,
+    "leave": true,
+    "death": true,
+    "crash": true,
+    "start": true,
+    "stop": true
   }
 }
 ```
@@ -80,9 +89,10 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 
 - **后端选择 (`qq_backend`)**：
   - `"official"`：使用腾讯 QQ 开放平台官方 API。免除本地 QQ 客户端挂机封号风险，支持主动推群与群面板指令交互。
-  - `"llbot"`：使用 LLBot (OneBot 11)。需配合 `qq_ws_port`（默认 3002）与 `llbot_host`/`llbot_port`（默认 3004）。
-- **官方凭据 (`qq_app_id` / `qq_app_secret`)**：开放平台开发者凭证，**请勿提交到公开 Git 仓库**。
-- **群标识 (`qq_group_openid`)**：官方机器人对应的群唯一 OpenID（注意：**并非传统群号**）。首次拉入机器人后在群内 `@机器人`，可在 `qq-bridge` 日志中查看自动捕获并打印的 OpenID。
+  - `"llbot"`：使用 LLBot (OneBot 11)。连接设置放在 `llbot` 对象中。
+- **接收方式 (`official.transport`)**：`"websocket"` 为游戏机本地 Gateway；`"webhook"` 为云端 HTTPS 回调，并启用云端配置自动同步。
+- **官方凭据 (`official.app_id` / `official.app_secret`)**：开放平台开发者凭证，**请勿提交到公开 Git 仓库**。
+- **群标识 (`official.group_openid`)**：官方机器人对应的群唯一 OpenID（注意：**并非传统群号**）。首次拉入机器人后在群内 `@机器人`，可在 `qq-bridge` 日志中查看自动捕获并打印的 OpenID。
 - **事件推群开关 (`qq_events`)**：细粒度控制进服、退服、玩家阵亡、服务器起停等系统广播是否转发至 QQ 群。
 
 > 完整机器人联调步骤与权限申请指引，请参阅 [QQ 互通配置手册](./qq-bridge.md)。

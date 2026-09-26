@@ -9,6 +9,7 @@ import {
   DEFAULT_DB_CONFIG,
   DEFAULT_QQ_CONFIG,
   type QQBackend,
+  type QQBridgeConfig,
 } from "@sfmc-bds/sdk/node/config";
 import { isAbsolute, join, resolve } from "node:path";
 
@@ -85,6 +86,7 @@ export function loadEnv(): EnvConfig {
     log.info(`db_config::${k} -> process.env.${envKey} = ${redactConfigValue(k, v)}`);
   }
   for (const [k, v] of Object.entries(qqconfig)) {
+    if (v !== null && typeof v === "object") continue;
     const envKey = k.replace(/([A-Z])/g, "_$1").toUpperCase();
     if (process.env[envKey] === undefined) {
       process.env[envKey] = String(v);
@@ -111,15 +113,17 @@ export function loadEnv(): EnvConfig {
   const HOST = "127.0.0.1";
   const DB_PATH_RAW = String(pick(dbconfig["dbDir"] as string | undefined, "DB_DIR", "data/sfmc_data.db", "dbDir"));
   const DB_PATH = isAbsolute(DB_PATH_RAW) ? DB_PATH_RAW : resolve(PROJECT_ROOT, DB_PATH_RAW);
+  const official = (qqconfig["official"] ?? {}) as NonNullable<QQBridgeConfig["official"]>;
+  const llbot = (qqconfig["llbot"] ?? {}) as NonNullable<QQBridgeConfig["llbot"]>;
   const LLBOT_HOST = String(
-    pick(qqconfig["llbot_host"] as string | undefined, "LLBOT_HOST", "127.0.0.1", "llbot_host")
+    pick(llbot.host, "LLBOT_HOST", "127.0.0.1", "llbot.host")
   );
   const LLBOT_PORT = parseInt(
-    String(pick(qqconfig["llbot_port"] as number | undefined, "LLBOT_PORT", 3004, "llbot_port")),
+    String(pick(llbot.port, "LLBOT_PORT", 3004, "llbot.port")),
     10
   );
-  const LLBOT_TOKEN = String(pick(qqconfig["llbot_token"] as string | undefined, "LLBOT_TOKEN", "", "llbot_token"));
-  const QQ_GROUP_ID = String(pick(qqconfig["qq_group_id"] as string | undefined, "QQ_GROUP_ID", "", "qq_group_id"));
+  const LLBOT_TOKEN = String(pick(llbot.token, "LLBOT_TOKEN", "", "llbot.token"));
+  const QQ_GROUP_ID = String(pick(llbot.group_id, "QQ_GROUP_ID", "", "llbot.group_id"));
   const QQ_BRIDGE_CHANNEL_ID = String(
     pick(qqconfig["bridge_channel_id"] as string | undefined, "BRIDGE_CHANNEL_ID", "", "bridge_channel_id")
   );
@@ -132,22 +136,20 @@ export function loadEnv(): EnvConfig {
     )
   );
   const QQ_BACKEND: QQBackend = rawBackend === "llbot" ? "llbot" : "official";
-  const QQ_APP_ID = String(
-    pick(qqconfig["qq_app_id"] as string | undefined, "QQ_APP_ID", "", "qq_app_id")
-  );
+  const QQ_APP_ID = String(pick(official.app_id, "QQ_APP_ID", "", "official.app_id"));
   const QQ_APP_SECRET = String(
-    pick(qqconfig["qq_app_secret"] as string | undefined, "QQ_APP_SECRET", "", "qq_app_secret")
+    pick(official.app_secret, "QQ_APP_SECRET", "", "official.app_secret")
   );
   const sandboxRaw = pick(
-    qqconfig["qq_sandbox"] as boolean | string | undefined,
+    official.sandbox as boolean | string | undefined,
     "QQ_SANDBOX",
     false as boolean | string,
-    "qq_sandbox"
+    "official.sandbox"
   );
   const QQ_SANDBOX =
     sandboxRaw === true || sandboxRaw === "true" || sandboxRaw === "1";
   const QQ_GROUP_OPENID = String(
-    pick(qqconfig["qq_group_openid"] as string | undefined, "QQ_GROUP_OPENID", "", "qq_group_openid")
+    pick(official.group_openid, "QQ_GROUP_OPENID", "", "official.group_openid")
   );
   const MCTOQQ_PREFIX = String(
     pick(

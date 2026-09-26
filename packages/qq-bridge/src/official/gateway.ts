@@ -2,7 +2,7 @@
  * official/gateway.ts — QQ 开放平台 Gateway（WebSocket）客户端
  *
  * 流程: getAccessToken → GET /gateway/bot → Hello → Identify → 心跳 / Resume
- * 仅订阅 GROUP_AND_C2C_EVENT，处理 GROUP_AT_MESSAGE_CREATE。
+ * 订阅 GROUP_AND_C2C_EVENT，处理群全量消息、群 @ 消息与单聊。
  */
 
 import {
@@ -65,6 +65,7 @@ export async function startOfficialGateway(opts: OfficialGatewayOptions): Promis
   let lastSeq: number | null = null;
   let reconnectAttempt = 0;
   let botSelfId: string | null = null;
+  let fullGroupMessageSeen = false;
 
   const clearHeartbeat = (): void => {
     if (heartbeatTimer) {
@@ -88,8 +89,12 @@ export async function startOfficialGateway(opts: OfficialGatewayOptions): Promis
 
   const handleDispatch = async (t: string | undefined, d: unknown, s: number | null | undefined): Promise<void> => {
     if (typeof s === "number") lastSeq = s;
-    // 诊断：任何 Dispatch 都打一行（排障「@了但没日志」）
-    if (t && t !== "READY" && t !== "RESUMED") {
+    // 全量模式可能下发群内每条消息，只记录首次到达，避免日志写入普通聊天。
+    if (t === "GROUP_MESSAGE_CREATE" && !fullGroupMessageSeen) {
+      fullGroupMessageSeen = true;
+      log.info("官方 Gateway 已收到群全量消息事件，可处理无需 @ 的指令");
+    }
+    if (t && t !== "READY" && t !== "RESUMED" && t !== "GROUP_MESSAGE_CREATE") {
       const preview =
         t === "GROUP_AT_MESSAGE_CREATE" || t === "C2C_MESSAGE_CREATE"
           ? (() => {
@@ -116,6 +121,10 @@ export async function startOfficialGateway(opts: OfficialGatewayOptions): Promis
     }
     if (t === "GROUP_AT_MESSAGE_CREATE") {
       await opts.dispatcher.handleGroupAtMessage(d as OfficialGroupAtMessage);
+      return;
+    }
+    if (t === "GROUP_MESSAGE_CREATE") {
+      await opts.dispatcher.handleGroupMessage(d as OfficialGroupAtMessage);
       return;
     }
     if (t === "C2C_MESSAGE_CREATE") {

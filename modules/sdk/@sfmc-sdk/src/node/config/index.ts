@@ -44,6 +44,8 @@ export interface QqEventsConfig {
   crash?: boolean;
   /** BDS 启动成功（立即推） */
   start?: boolean;
+  /** BDS 正常停止（立即推） */
+  stop?: boolean;
 }
 
 /** QQ 桥接配置（`configs/qq_config.json`）。 */
@@ -53,35 +55,36 @@ export interface QQBridgeConfig {
   qq_enabled?: boolean;
   /** 后端选择；缺省按 DEFAULT_QQ_CONFIG（official） */
   qq_backend?: QQBackend;
-  /** 官方 Bot AppID */
-  qq_app_id?: string;
-  /** 官方 Bot AppSecret（勿入库） */
-  qq_app_secret?: string;
-  /** 官方沙箱环境 */
-  qq_sandbox?: boolean;
-  /** 官方群 openid（非传统群号） */
-  qq_group_openid?: string;
-  /** 官方群指令面板 id（sync 后写回） */
-  qq_group_panel_id?: string;
-  /** 启动时是否同步自定义菜单/指令面板（仅 official；默认 true） */
-  qq_sync_menu_panel?: boolean;
-  /** QQ 侧管理员 openid 列表（审批/踢人等） */
-  qq_admin_openids?: string[];
-  qq_ws_port?: number;
-  qq_group_id?: string;
+  /** QQ 开放平台 Bot 设置；Webhook 模式由云端 bridge 接收。 */
+  official?: {
+    transport?: "websocket" | "webhook";
+    app_id?: string;
+    app_secret?: string;
+    sandbox?: boolean;
+    group_openid?: string;
+    group_panel_id?: string;
+    sync_menu_panel?: boolean;
+    admin_openids?: string[];
+    webhook?: { port?: number; path?: string };
+  };
+  /** LLBot OneBot 设置。 */
+  llbot?: {
+    enabled?: boolean;
+    path?: string;
+    cwd?: string;
+    host?: string;
+    port?: number;
+    token?: string;
+    http?: string;
+    ws_port?: number;
+    group_id?: string;
+  };
   bridge_channel_id?: string;
   db_host?: string;
   db_port?: number;
   mctoqq_prefix?: string;
   /** 上下线/死亡/BDS 启停推群（节流） */
   qq_events?: QqEventsConfig;
-  llbot_enabled?: boolean;
-  llbot_path?: string;
-  llbot_cwd?: string;
-  llbot_host?: string;
-  llbot_port?: number;
-  llbot_token?: string;
-  llbot_http?: string;
   [key: string]: unknown;
 }
 
@@ -197,27 +200,35 @@ export const DEFAULT_QQ_EVENTS: Required<QqEventsConfig> = {
   death: true,
   crash: true,
   start: true,
+  stop: true,
 };
 
 /** qq-bridge / db-server 共用种子 */
 export const DEFAULT_QQ_CONFIG: QQBridgeConfig = {
   qq_backend: "official",
-  qq_app_id: "",
-  qq_app_secret: "",
-  qq_sandbox: false,
-  qq_group_openid: "",
-  qq_group_panel_id: "",
-  qq_sync_menu_panel: true,
+  official: {
+    transport: "websocket",
+    app_id: "",
+    app_secret: "",
+    sandbox: false,
+    group_openid: "",
+    group_panel_id: "",
+    sync_menu_panel: true,
+    admin_openids: [],
+    webhook: { port: 3005, path: "/qqbot/webhook" },
+  },
   public_server: { address: "", port: 19132, version: "" },
-  qq_admin_openids: [],
-  qq_ws_port: 3002,
-  qq_group_id: "0",
-  llbot_enabled: false,
-  llbot_path: "",
-  llbot_cwd: "",
-  llbot_host: "127.0.0.1",
-  llbot_port: 3004,
-  llbot_token: "",
+  llbot: {
+    enabled: false,
+    path: "",
+    cwd: "",
+    host: "127.0.0.1",
+    port: 3004,
+    token: "",
+    http: "",
+    ws_port: 3002,
+    group_id: "0",
+  },
   bridge_channel_id: "",
   mctoqq_prefix: "[MC]",
   qq_events: { ...DEFAULT_QQ_EVENTS },

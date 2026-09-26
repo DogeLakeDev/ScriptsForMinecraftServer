@@ -20,16 +20,7 @@ import http from "node:http";
 import { log } from "./log.js";
 import { ROOT_DIR } from "./paths.js";
 
-type QqConfig = Pick<
-  QQBridgeConfig,
-  | "llbot_http"
-  | "qq_group_id"
-  | "qq_backend"
-  | "qq_app_id"
-  | "qq_app_secret"
-  | "qq_sandbox"
-  | "qq_group_openid"
->;
+type QqConfig = Pick<QQBridgeConfig, "qq_backend" | "official" | "llbot">;
 
 let cachedCfg: QqConfig | null = null;
 function getConfig(): QqConfig {
@@ -58,7 +49,7 @@ function isOfficialBackend(cfg: QqConfig): boolean {
 
 function sendToLLBot(payload: unknown, timeoutMs = 5_000): Promise<void> {
   const cfg = getConfig();
-  const url = new URL(cfg.llbot_http || "http://127.0.0.1:3004");
+  const url = new URL(cfg.llbot?.http || `http://${cfg.llbot?.host || "127.0.0.1"}:${cfg.llbot?.port || 3004}`);
   const data = JSON.stringify(payload);
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -101,14 +92,14 @@ async function safeSend(label: string, fn: () => Promise<void>): Promise<void> {
 
 async function sendOfficialText(text: string): Promise<void> {
   const cfg = getConfig();
-  const appId = String(cfg.qq_app_id ?? "");
-  const appSecret = String(cfg.qq_app_secret ?? "");
-  const groupOpenid = String(cfg.qq_group_openid ?? "");
+  const appId = String(cfg.official?.app_id ?? "");
+  const appSecret = String(cfg.official?.app_secret ?? "");
+  const groupOpenid = String(cfg.official?.group_openid ?? "");
   if (!appId || !appSecret || !groupOpenid) {
-    throw new Error("官方后端缺少 qq_app_id / qq_app_secret / qq_group_openid");
+    throw new Error("官方后端缺少 official.app_id / official.app_secret / official.group_openid");
   }
   const result = await sendGroupTextMessage(
-    { appId, appSecret, sandbox: cfg.qq_sandbox === true },
+    { appId, appSecret, sandbox: cfg.official?.sandbox === true },
     { groupOpenid, content: text }
   );
   if (!result.ok) throw new Error(result.error);
@@ -124,13 +115,14 @@ export async function sendText(text: string): Promise<void> {
     await safeSend("sendText(official)", () => sendOfficialText(text));
     return;
   }
-  if (!cfg.qq_group_id) {
-    log.warn("[QQ] qq_group_id 缺失");
+  const groupId = cfg.llbot?.group_id;
+  if (!groupId) {
+    log.warn("[QQ] llbot.group_id 缺失");
     return;
   }
   await safeSend("sendText(llbot)", () =>
     sendToLLBot({
-      group_id: parseInt(cfg.qq_group_id ?? "0", 10),
+      group_id: parseInt(groupId, 10),
       message: [{ type: "text", data: { text } }],
     })
   );
@@ -157,13 +149,14 @@ export async function sendMixed(segments: unknown[]): Promise<void> {
     await safeSend("sendMixed(official)", () => sendOfficialText(text));
     return;
   }
-  if (!cfg.qq_group_id) {
-    log.warn("[QQ] qq_group_id 缺失");
+  const groupId = cfg.llbot?.group_id;
+  if (!groupId) {
+    log.warn("[QQ] llbot.group_id 缺失");
     return;
   }
   await safeSend("sendMixed(llbot)", () =>
     sendToLLBot({
-      group_id: parseInt(cfg.qq_group_id ?? "0", 10),
+      group_id: parseInt(groupId, 10),
       message: segments,
     })
   );

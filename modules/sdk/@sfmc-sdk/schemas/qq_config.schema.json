@@ -1,267 +1,231 @@
 {
-
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-
   "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/qq_config.schema.json",
-
   "title": "SFMC qq_config",
-
   "description": "QQ 桥接配置。qq-bridge（入站）与 db-server（MC→QQ 出站）共同读取。支持官方开放平台 Bot 与 LLBot（OneBot 11）双后端。",
-
   "type": "object",
-
   "additionalProperties": false,
-
   "properties": {
     "public_server": {
       "type": "object",
       "additionalProperties": false,
       "description": "公开给玩家的连接信息；不得填写内部服务地址或密钥。",
       "properties": {
-        "address": { "type": "string", "maxLength": 253, "description": "公开游戏地址或域名" },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 19132 },
-        "version": { "type": "string", "maxLength": 120, "description": "无法读取实际 BDS 版本时显示的备用入服说明" }
-      }
-    },
-
-    "$schema": {
-
-      "type": "string",
-
-      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
-
-    },
-
-    "qq_enabled": {
-
-      "type": "boolean",
-
-      "description": "是否启用 QQ 桥接相关能力（兼容旧字段）"
-
-    },
-
-    "qq_backend": {
-
-      "type": "string",
-
-      "enum": ["official", "llbot"],
-
-      "description": "QQ 后端：official=开放平台官方 Bot；llbot=LLBot OneBot 11（默认 official）"
-
-    },
-
-    "qq_app_id": {
-
-      "type": "string",
-
-      "description": "官方 Bot AppID（开放平台管理端）"
-
-    },
-
-    "qq_app_secret": {
-
-      "type": "string",
-
-      "description": "官方 Bot AppSecret（勿提交仓库；仅本机配置）"
-
-    },
-
-    "qq_sandbox": {
-
-      "type": "boolean",
-
-      "description": "是否使用官方沙箱 API（默认 false）"
-
-    },
-
-    "qq_group_openid": {
-
-      "type": "string",
-
-      "description": "官方群 openid；空则入站只打日志、出站跳过。可从 qq-bridge 收到首条 @ 消息的日志抄写"
-
-    },
-
-    "qq_group_panel_id": {
-
-      "type": "string",
-
-      "description": "官方群指令面板 id；menu/panel sync 成功后写回，下次启动幂等 PUT"
-
-    },
-
-    "qq_sync_menu_panel": {
-
-      "type": "boolean",
-
-      "description": "official 后端启动时是否同步 C2C 自定义菜单与群指令面板（默认 true）"
-
-    },
-
-    "qq_admin_openids": {
-
-      "type": "array",
-
-      "items": { "type": "string" },
-
-      "description": "QQ 侧管理员 member openid 列表；入服审批通过/拒绝与踢人命令校验"
-
-    },
-
-    "qq_ws_port": {
-
-      "type": "integer",
-
-      "minimum": 1,
-
-      "maximum": 65535,
-
-      "description": "qq-bridge WebSocket 端口，仅 llbot 后端使用（默认 3002）。LLBot HTTP 由 db-server 直连"
-
-    },
-
-    "qq_group_id": {
-
-      "description": "LLBot 主群群号；机器人只转发此群消息到 MC。设为 0 或空禁用",
-
-      "oneOf": [{ "type": "integer" }, { "type": "string" }]
-
-    },
-
-    "llbot_enabled": {
-
-      "type": "boolean",
-
-      "description": "是否由 sfmc CLI 拉起 LLBot 二进制（仅 qq_backend=llbot 时生效）"
-
-    },
-
-    "llbot_path": {
-
-      "type": "string",
-
-      "description": "LLBot 可执行文件路径；若写成目录则自动拼接 llbot.exe（兼容旧向导）"
-
-    },
-
-    "llbot_cwd": {
-
-      "type": "string",
-
-      "description": "启动 LLBot 时的工作目录；空则沿用进程默认"
-
-    },
-
-    "llbot_host": {
-
-      "type": "string",
-
-      "description": "LLBot HTTP 主机；db-server 用于 MC→QQ 发送（默认 127.0.0.1）"
-
-    },
-
-    "llbot_port": {
-
-      "description": "LLBot HTTP 端口（默认 3004）",
-
-      "oneOf": [{ "type": "integer" }, { "type": "string" }]
-
-    },
-
-    "llbot_token": {
-
-      "type": "string",
-
-      "description": "LLBot HTTP 鉴权 token（若 LLBot 启用鉴权）"
-
-    },
-
-    "llbot_http": {
-
-      "type": "string",
-
-      "description": "可选：完整 LLBot HTTP base URL，覆盖 host/port 拼接"
-
-    },
-
-    "bridge_channel_id": {
-
-      "type": "string",
-
-      "description": "转发到 MC 侧的聊天频道 id"
-
-    },
-
-    "mctoqq_prefix": {
-
-      "type": "string",
-
-      "description": "MC → QQ 消息前缀（默认 [MC]）"
-
-    },
-
-    "qq_events": {
-
-      "type": "object",
-
-      "additionalProperties": false,
-
-      "description": "MC 事件推群（节流）。join/leave/death 约 window_sec 聚合；crash/start 立即推。不依赖 bridge_channel_id。改配置需重启。",
-
-      "properties": {
-
-        "enabled": {
-
-          "type": "boolean",
-
-          "description": "总开关；false 丢弃全部事件（默认 true）"
-
+        "address": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "公开游戏地址或域名"
         },
-
-        "window_sec": {
-
+        "port": {
           "type": "integer",
-
-          "minimum": 5,
-
-          "maximum": 600,
-
-          "description": "join/leave/death 聚合窗口秒数（默认 60）"
-
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 19132
         },
-
-        "join": { "type": "boolean", "description": "玩家上线（默认 true）" },
-
-        "leave": { "type": "boolean", "description": "玩家下线（默认 true）" },
-
-        "death": { "type": "boolean", "description": "玩家死亡（默认 true）" },
-
-        "crash": { "type": "boolean", "description": "BDS 意外退出立即推（默认 true）" },
-
-        "start": { "type": "boolean", "description": "BDS 启动成功立即推（默认 true）" }
-
+        "version": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "无法读取实际 BDS 版本时显示的备用入服说明"
+        }
       }
-
     },
-
-    "db_host": {
-
+    "$schema": {
       "type": "string",
-
-      "description": "qq-bridge 连接 db-server 的主机（可选）"
-
+      "description": "指向本 schema 的相对路径（IDE 用，运行时忽略）"
     },
-
+    "qq_enabled": {
+      "type": "boolean",
+      "description": "是否启用 QQ 桥接相关能力（兼容旧字段）"
+    },
+    "qq_backend": {
+      "type": "string",
+      "enum": [
+        "official",
+        "llbot"
+      ],
+      "description": "QQ 后端：official=开放平台官方 Bot；llbot=LLBot OneBot 11（默认 official）"
+    },
+    "official": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "QQ 开放平台官方机器人配置。transport=webhook 时由云端桥接服务接收回调。",
+      "properties": {
+        "transport": {
+          "type": "string",
+          "enum": [
+            "websocket",
+            "webhook"
+          ],
+          "default": "websocket",
+          "description": "事件接收方式；webhook 启用云端配置自动同步"
+        },
+        "app_id": {
+          "type": "string",
+          "description": "官方 Bot AppID（开放平台管理端）"
+        },
+        "app_secret": {
+          "type": "string",
+          "description": "官方 Bot AppSecret（勿提交仓库；仅本机配置）"
+        },
+        "sandbox": {
+          "type": "boolean",
+          "description": "是否使用官方沙箱 API（默认 false）"
+        },
+        "group_openid": {
+          "type": "string",
+          "description": "官方群 openid；空则入站只打日志、出站跳过。可从 qq-bridge 收到首条 @ 消息的日志抄写"
+        },
+        "group_panel_id": {
+          "type": "string",
+          "description": "官方群指令面板 id；menu/panel sync 成功后写回，下次启动幂等 PUT"
+        },
+        "sync_menu_panel": {
+          "type": "boolean",
+          "description": "official 后端启动时是否同步 C2C 自定义菜单与群指令面板（默认 true）"
+        },
+        "admin_openids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "QQ 侧管理员 member openid 列表；入服审批通过/拒绝与踢人命令校验"
+        },
+        "webhook": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 3005,
+              "description": "Webhook 本机 HTTP 监听端口；由同机 HTTPS 反向代理对外提供"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/[A-Za-z0-9/_-]+$",
+              "default": "/qqbot/webhook",
+              "description": "Webhook 回调路径，须与 QQ 开放平台配置的 HTTPS URL 路径一致"
+            }
+          }
+        }
+      }
+    },
+    "llbot": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "LLBot OneBot 11 配置。",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否由 sfmc CLI 拉起 LLBot 二进制（仅 qq_backend=llbot 时生效）"
+        },
+        "path": {
+          "type": "string",
+          "description": "LLBot 可执行文件路径；若写成目录则自动拼接 llbot.exe（兼容旧向导）"
+        },
+        "cwd": {
+          "type": "string",
+          "description": "启动 LLBot 时的工作目录；空则沿用进程默认"
+        },
+        "host": {
+          "type": "string",
+          "description": "LLBot HTTP 主机；db-server 用于 MC→QQ 发送（默认 127.0.0.1）"
+        },
+        "port": {
+          "description": "LLBot HTTP 端口（默认 3004）",
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "token": {
+          "type": "string",
+          "description": "LLBot HTTP 鉴权 token（若 LLBot 启用鉴权）"
+        },
+        "http": {
+          "type": "string",
+          "description": "可选：完整 LLBot HTTP base URL，覆盖 host/port 拼接"
+        },
+        "ws_port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "qq-bridge WebSocket 端口，仅 llbot 后端使用（默认 3002）。LLBot HTTP 由 db-server 直连"
+        },
+        "group_id": {
+          "description": "LLBot 主群群号；机器人只转发此群消息到 MC。设为 0 或空禁用",
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "bridge_channel_id": {
+      "type": "string",
+      "description": "转发到 MC 侧的聊天频道 id"
+    },
+    "mctoqq_prefix": {
+      "type": "string",
+      "description": "MC → QQ 消息前缀（默认 [MC]）"
+    },
+    "qq_events": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "MC 事件推群（节流）。join/leave/death 按 window_sec 聚合；crash/start/stop 立即推。不依赖 bridge_channel_id。可通过 QQ 管理菜单配置。",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "总开关；false 丢弃全部事件（默认 true）"
+        },
+        "window_sec": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 600,
+          "description": "join/leave/death 聚合窗口秒数（默认 60）"
+        },
+        "join": {
+          "type": "boolean",
+          "description": "玩家上线（默认 true）"
+        },
+        "leave": {
+          "type": "boolean",
+          "description": "玩家下线（默认 true）"
+        },
+        "death": {
+          "type": "boolean",
+          "description": "玩家死亡（默认 true）"
+        },
+        "crash": {
+          "type": "boolean",
+          "description": "BDS 意外退出立即推（默认 true）"
+        },
+        "start": {
+          "type": "boolean",
+          "description": "BDS 启动成功立即推（默认 true）"
+        },
+        "stop": {
+          "type": "boolean",
+          "description": "BDS 正常停止立即推（默认 true）"
+        }
+      }
+    },
+    "db_host": {
+      "type": "string",
+      "description": "qq-bridge 连接 db-server 的主机（可选）"
+    },
     "db_port": {
-
       "type": "integer",
-
       "description": "qq-bridge 连接 db-server 的端口（可选，通常与 db_config.db_port 一致）"
-
     }
-
   }
-
 }
-
-

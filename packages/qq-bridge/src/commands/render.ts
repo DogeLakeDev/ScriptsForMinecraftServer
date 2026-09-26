@@ -47,7 +47,7 @@ export function renderLlbot(result: CommandResult): LlbotRenderPayload {
     return `${index + 1}. ${button.label}${detail}`;
   });
   return {
-    text: [result.text, "", result.menu ? "" : "可选操作", lines.join("\n"), "", "回复编号选择 · 60 秒内有效"]
+    text: [result.text, "", result.menu ? "" : "可选操作", lines.join("\n"), "", "请在 60 秒内回复编号选择"]
       .filter((line, index, all) => line !== "" || all[index - 1] !== "")
       .join("\n"),
   };

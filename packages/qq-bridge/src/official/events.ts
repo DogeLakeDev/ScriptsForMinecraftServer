@@ -1,5 +1,5 @@
 /**
- * official/events.ts — 官方 GROUP_AT / C2C 解析与转发
+ * official/events.ts — 官方群消息 / C2C 解析与转发
  */
 
 import { stripOfficialAtMention } from "@sfmc-bds/sdk/node/qq-official";
@@ -33,6 +33,7 @@ export type OfficialGroupAtMessage = {
     role?: unknown;
   };
   attachments?: OfficialAttachment[];
+  mentions?: Array<{ is_you?: boolean; username?: string }>;
 };
 
 /** 从官方事件可选字段推断群主/群管（无可靠字段则 false） */
@@ -113,8 +114,11 @@ export function attachmentsPlaceholder(attachments: OfficialAttachment[] | undef
 export function extractOfficialText(msg: {
   content?: string;
   attachments?: OfficialAttachment[];
+  mentions?: Array<{ is_you?: boolean; username?: string }>;
 }): string {
-  const base = stripOfficialAtMention(String(msg.content ?? ""));
+  let base = stripOfficialAtMention(String(msg.content ?? ""));
+  const botName = msg.mentions?.find((mention) => mention.is_you)?.username;
+  if (botName && base.startsWith(`@${botName}`)) base = base.slice(botName.length + 1).trim();
   const suffix = attachmentsPlaceholder(msg.attachments);
   return `${base}${suffix ? (base ? " " : "") + suffix : ""}`.trim();
 }
@@ -130,6 +134,40 @@ export class OfficialAtMessageDispatcher {
     this.forward = opts.forward ?? tryForward;
   }
 
+  /** 全量群消息只处理指令；普通聊天仍需 @机器人 才转发到游戏。 */
+  async handleGroupMessage(msg: OfficialGroupAtMessage): Promise<void> {
+    if (!msg || typeof msg !== "object" || msg.author?.bot) return;
+    const groupOpenid = String(msg.group_openid ?? "");
+    if (!groupOpenid || !this.opts.groupOpenid || groupOpenid !== this.opts.groupOpenid) return;
+    if (
+      /^<@!?/.test(String(msg.content ?? "").trim()) &&
+      msg.mentions?.length &&
+      !msg.mentions.some((mention) => mention.is_you)
+    ) return;
+    const router = this.opts.commandRouter;
+    if (!router) return;
+    const text = extractOfficialText(msg);
+    if (!text) return;
+    const normalized = text.replace(/^[/／]+/, "").trim();
+    const isConfirmation = /^(confirm|确认|cancel|取消)(?:\s+\S+)?$/i.test(normalized);
+    if (!router.registry.resolve(normalized) && !isConfirmation && !/^[/／]/.test(text)) return;
+    // 全量与 @ 事件可能同时到达；先占用消息 ID，再执行异步指令。
+    if (this.dedup.seen(msg.id)) return;
+
+    const memberId = String(msg.author?.member_openid || msg.author?.id || "unknown");
+    const fromName = String(msg.author?.username || `QQ_${memberId.slice(0, 8)}`);
+    await router.handle({
+      backend: "official",
+      scene: "group",
+      groupId: groupOpenid,
+      userId: memberId,
+      userName: fromName,
+      text,
+      isGroupAdmin: detectOfficialGroupAdmin(msg),
+      ...(msg.id ? { msgId: String(msg.id) } : {}),
+    });
+  }
+
   async handleGroupAtMessage(msg: OfficialGroupAtMessage): Promise<void> {
     if (!msg || typeof msg !== "object") return;
     if (msg.author?.bot) return;
@@ -143,11 +181,11 @@ export class OfficialAtMessageDispatcher {
     if (!this.opts.groupOpenid) {
       if (!this.loggedMissingOpenid) {
         log.warn(
-          `qq_group_openid 未配置。收到群 openid=${groupOpenid}，请写入 configs/qq_config.json 后重启（本条不转发）`
+          `official.group_openid 未配置。收到群 openid=${groupOpenid}，请写入 configs/qq_config.json 后重启（本条不转发）`
         );
         this.loggedMissingOpenid = true;
       } else {
-        log.info(`qq_group_openid 未配置，丢弃群消息 openid=${groupOpenid}`);
+        log.info(`official.group_openid 未配置，丢弃群消息 openid=${groupOpenid}`);
       }
       return;
     }

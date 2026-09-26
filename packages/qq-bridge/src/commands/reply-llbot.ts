@@ -1,7 +1,7 @@
 /**
  * commands/reply-llbot.ts — LLBot ReplyPort
  *
- * 优先经 reverse-WS 调 send_group_msg；WS 不可用时再回退 HTTP(llbot_port)。
+ * 优先经 reverse-WS 调 send_group_msg；WS 不可用时再回退 HTTP(llbot.port)。
  */
 
 import { request } from "node:http";
@@ -22,7 +22,7 @@ export function createLlbotReplyPort(cfg: LlbotReplyConfig): ReplyPort {
   return {
     async send(_target: ReplyTarget, result: CommandResult, _inbound: InboundMessage): Promise<void> {
       if (!cfg.groupId || cfg.groupId === "0") {
-        throw new Error("llbot qq_group_id 未配置");
+        throw new Error("llbot llbot.group_id 未配置");
       }
       const { text } = renderLlbot(result);
 

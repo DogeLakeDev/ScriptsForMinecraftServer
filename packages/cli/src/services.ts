@@ -33,6 +33,7 @@ import {
   readBdsPidFile,
   writeBdsPidFile,
 } from "@sfmc-bds/bds-tools/process-probe";
+import { postBdsLifecycleEvent } from "@sfmc-bds/bds-tools/qq-events-notify";
 import { spawn, type ChildProcess, type IOType } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
@@ -234,8 +235,24 @@ class Service {
     this.events.emit("output", `started (PID ${this.pid})`, "info");
     this.events.emit("state", { name: this.name, running: true, pid: this.pid });
 
+    let lifecycleReported = false;
+    const reportExit = (code?: number | null) => {
+      if (this.name !== "bds" || lifecycleReported) return;
+      lifecycleReported = true;
+      const planned = this.manualStop || this.updateInProgress;
+      void postBdsLifecycleEvent(planned ? "stop" : "crash", planned ? undefined : `code=${code ?? "?"}`, {
+        port: dbHealthPort,
+      });
+    };
+    if (this.name === "bds") {
+      child.once("spawn", () => {
+        void postBdsLifecycleEvent("start", undefined, { port: dbHealthPort });
+      });
+    }
+
     child.on("error", (e) => {
       this.events.emit("output", `process error: ${e.message}`, "error");
+      reportExit();
       this.cleanup();
     });
 
@@ -260,6 +277,7 @@ class Service {
     child.on("exit", (code) => {
       if (this.proc && this.proc !== child) return;
       this.events.emit("output", `exited (code: ${code})`, "info");
+      reportExit(code);
       this.cleanup();
       if (!this.manualStop && !this.updateInProgress && this.def.autoRestart) {
         this.restartTimer = setTimeout(() => {
@@ -388,8 +406,10 @@ function createServices(): Record<ServiceName, Service> {
   const bdsPath = bdsCfg.bds_path ?? ROOT;
   const useLlbotBackend = qqCfg.qq_backend === "llbot";
   const qqEnabled = qqCfg.qq_enabled !== false;
-  const llbotEnabled = qqCfg.llbot_enabled !== false;
-  const llbotLaunch = resolveLlbotLaunch(qqCfg.llbot_path, qqCfg.llbot_cwd);
+  // 官方 Webhook 由云端接收；仅切换传输方式即可避免本机再启动一个桥。
+  const qqExternal = !useLlbotBackend && qqCfg.official?.transport === "webhook";
+  const llbotEnabled = qqCfg.llbot?.enabled !== false;
+  const llbotLaunch = resolveLlbotLaunch(qqCfg.llbot?.path, qqCfg.llbot?.cwd);
   const llbotPath = llbotLaunch.exe;
   const llbotCwd = llbotLaunch.cwd;
   const dbPort = dbCfg.db_port ?? 3001;
@@ -451,12 +471,13 @@ function createServices(): Record<ServiceName, Service> {
       // 缺凭据时 validate 拦下，不会 spawn→exit(1)→autoRestart 死循环
       autoRestart: true,
       restartDelay: 3000,
-      optional: !qqEnabled,
+      optional: !qqEnabled || qqExternal,
       validate: () => {
         if (!qqEnabled) return "QQ bridge disabled (qq_enabled=false)";
+        if (qqExternal) return "QQ bridge runs externally (official.transport=webhook)";
         if (!useLlbotBackend) {
-          if (!String(qqCfg.qq_app_id ?? "").trim() || !String(qqCfg.qq_app_secret ?? "").trim()) {
-            return "missing qq_app_id / qq_app_secret (official backend)";
+          if (!String(qqCfg.official?.app_id ?? "").trim() || !String(qqCfg.official?.app_secret ?? "").trim()) {
+            return "missing official.app_id / official.app_secret";
           }
         }
         return null;
@@ -476,7 +497,7 @@ function createServices(): Record<ServiceName, Service> {
       optional: !useLlbotBackend || !llbotEnabled,
       validate: () => {
         if (!useLlbotBackend) return "LLBot skipped (qq_backend!=llbot)";
-        if (!llbotEnabled) return "LLBot disabled (llbot_enabled=false)";
+        if (!llbotEnabled) return "LLBot disabled (llbot.enabled=false)";
         if (!fs.existsSync(llbotPath)) return `not found: ${llbotPath}`;
         return null;
       },

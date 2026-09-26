@@ -35,34 +35,35 @@ Edit `configs/qq_config.json` (defaults are created on first start):
 | Key | Description |
 | --- | --- |
 | `qq_backend` | `official` \| `llbot`; default `official` |
-| `qq_app_id` / `qq_app_secret` | Official bot credentials (do not commit secrets) |
-| `qq_sandbox` | Official sandbox; default `false` |
-| `qq_group_openid` | Official group openid (not the numeric group id) |
-| `qq_group_panel_id` | Official group command-panel id (written back after sync) |
-| `qq_sync_menu_panel` | Sync C2C menu + group panel on official startup; default `true` |
-| `qq_ws_port` | llbot: qq-bridge listen port; default 3002 |
-| `qq_group_id` | llbot: primary group id; `0` disables |
-| `llbot_enabled` | Whether sfmc starts LLBot (only when `qq_backend=llbot`) |
-| `llbot_path` / `llbot_cwd` | LLBot executable / working directory |
-| `llbot_host` / `llbot_port` / `llbot_token` | db-server MC→QQ (llbot) |
+| `official.transport` | `websocket` or `webhook`; Webhook enables cloud configuration sync |
+| `official.app_id` / `official.app_secret` | Official bot credentials (do not commit secrets) |
+| `official.sandbox` | Official sandbox; default `false` |
+| `official.group_openid` | Official group openid (not the numeric group id) |
+| `official.group_panel_id` | Official group command-panel id (written back after sync) |
+| `official.sync_menu_panel` | Sync C2C menu + group panel on official startup; default `true` |
+| `llbot.ws_port` | llbot: qq-bridge listen port; default 3002 |
+| `llbot.group_id` | llbot: primary group id; `0` disables |
+| `llbot.enabled` | Whether sfmc starts LLBot (only when `qq_backend=llbot`) |
+| `llbot.path` / `llbot.cwd` | LLBot executable / working directory |
+| `llbot.host` / `llbot.port` / `llbot.token` | db-server MC→QQ (llbot) |
 | `bridge_channel_id` | In-game bridge channel id |
 | `mctoqq_prefix` | MC message prefix; default `[MC]` |
-| `qq_admin_openids` | QQ admin openids (join approval / kick / join settings); empty = cannot approve |
+| `official.admin_openids` | QQ admin openids (join approval / kick / join settings); empty = cannot approve |
 | `qq_events` | Event-to-group switches (see below); default all on, 60s window |
 
-### Obtaining `qq_group_openid`
+### Obtaining `official.group_openid`
 
 1. Configure AppID/Secret, add the bot to the group, subscribe to group @ events
 2. Start the `qq` service and @ the bot in the group
 3. If openid is unset, qq-bridge logs the received `group_openid`
-4. Copy it into `qq_group_openid`, then restart db-server and qq-bridge
+4. Copy it into `official.group_openid`, then restart db-server and qq-bridge
 
 ## Official checklist
 
 1. Subscribe to `GROUP_AT_MESSAGE_CREATE` in the console
 2. Bot is in the target group
 3. Group owner enables proactive bot messages
-4. Sandbox: configure a sandbox group and set `qq_sandbox: true`
+4. Sandbox: configure a sandbox group and set `official.sandbox: true`
 5. If IP allowlist is on, add the server public IP (production only)
 
 ## LLBot setup
@@ -128,7 +129,7 @@ The platform never writes BDS `allowlist.json` directly. Flow: QQ request → DB
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/sfmc/qq/join/request` | Apply |
-| `POST` | `/api/sfmc/qq/join/decide` | Approve/reject (`qq_admin_openids`) |
+| `POST` | `/api/sfmc/qq/join/decide` | Approve/reject (`official.admin_openids`) |
 | `GET` | `/api/sfmc/qq/join/pending` | Pending |
 | `GET` | `/api/sfmc/qq/join/apply-queue` | SAPI pulls approved-not-applied |
 | `POST` | `/api/sfmc/qq/join/applied` | SAPI ack |
@@ -148,7 +149,7 @@ Owned by the **qq-link plugin**, not the SDK / `qq_config`. Defaults are created
 | `require_approval` | `true` | Off = auto-`approved` into the apply queue |
 | `treat_group_admins_as_admins` | `false` | Treat QQ group owner/admins as SFMC admins; **file-only write**, readable via bot/API |
 
-Bot (`qq_admin_openids`, or group admins when the flag above is on): `配置` opens a button panel (official INTERACTION / llbot numbers); text `配置 白名单|审批 开|关` still works. API: `GET/POST /api/sfmc/qq/join/settings` (POST cannot change `treat_group_admins_as_admins`).
+Bot (`official.admin_openids`, or group admins when the flag above is on): `配置` opens a button panel (official INTERACTION / llbot numbers); text `配置 白名单|审批 开|关` still works. API: `GET/POST /api/sfmc/qq/join/settings` (POST cannot change `treat_group_admins_as_admins`).
 
 ### Group OpenAPI allowlist (error **11253**)
 
@@ -205,4 +206,3 @@ Recommended order: db, then qq (llbot is started only for the llbot backend when
 - Dedupe identical message ids within ~5 seconds
 
 Troubleshooting: [Troubleshooting](./troubleshooting.md).
-

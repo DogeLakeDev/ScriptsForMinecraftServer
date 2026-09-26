@@ -8,6 +8,7 @@ import {
   fetchBindMe,
   fetchJoinPending,
   fetchJoinSettings,
+  fetchQqEventSettings,
   fetchSfmcStatus,
   postAdminKick,
   postBindRequest,
@@ -15,7 +16,10 @@ import {
   postJoinDecide,
   postJoinRequest,
   postJoinSettings,
+  postQqEventSettings,
   type DbEndpoint,
+  type QqEventSettings,
+  type SfmcStatusResponse,
 } from "./db-api.js";
 import { buildJoinSettingsPanel, settingsFromResponse } from "./join-settings-ui.js";
 import { formatCard, formatCommandMenu } from "./menu-format.js";
@@ -84,9 +88,9 @@ async function fetchQqGroupLines(ctx: CommandContext): Promise<string[]> {
 export function createMenuHandler(registry: CommandRegistry): CommandHandler {
   return (ctx) =>
     formatCommandMenu({
-      title: "玩家服务",
+      title: "东方犬明湖",
       home: true,
-      subtitle: "从这里查看服务器、管理账号或申请入服。",
+      subtitle: "欢迎回来，今天也一起玩吧 (≧∇≦)ﾉ\n\n查询服务器信息，或管理你的游戏账号。",
       cmds: registry
         .all()
         .filter((c) => c.group === "home" && c.name !== "menu" && (c.permission !== "admin" || isAdmin(ctx))),
@@ -101,7 +105,7 @@ export function createAdminMenuHandler(registry: CommandRegistry): CommandHandle
     if (!isAdmin(ctx)) return { text: "当前没有管理权限，请联系管理员。" };
     return formatCommandMenu({
       title: "服务器管理",
-      subtitle: "选择管理操作：",
+      subtitle: "处理入服申请，管理服务器与群推送。",
       cmds: registry.adminMenu(),
       idPrefix: "admin",
       footerMd: "",
@@ -114,7 +118,7 @@ function sectionHandler(registry: CommandRegistry, group: "server", title: strin
   return () =>
     formatCommandMenu({
       title,
-      subtitle: "也可以直接发送以下命令。",
+      subtitle: "查看运行状态、在线玩家和连接方式。",
       cmds: registry.all().filter((c) => c.group === group),
       idPrefix: group,
       footerMd: "",
@@ -126,7 +130,7 @@ function helpHandler(registry: CommandRegistry): CommandHandler {
   return (ctx) => {
     const trigger =
       ctx.inbound.backend === "official"
-        ? "群内 @机器人 后发送命令，或点击按钮；单聊直接发送命令。"
+        ? "群内开启「接收所有消息」后可直接发送指令；否则请 @机器人。单聊直接发送。"
         : "直接发送命令，或在菜单打开后 60 秒内回复编号。";
     const sections = [
       ["server", "服务器"],
@@ -141,10 +145,10 @@ function helpHandler(registry: CommandRegistry): CommandHandler {
       lines.push(
         "",
         `【${title}】`,
-        ...commands.map((c) => `${c.name === "ip" ? "ip" : c.aliases[0] || c.name} · ${c.description}`)
+        ...commands.map((c) => `${c.name === "ip" ? "ip" : c.aliases[0] || c.name}：${c.description}`)
       );
     }
-    lines.push("", "发送「菜单」返回首页，发送「取消」取消待确认操作。", "原有英文命令及 /命令 方式仍可使用。");
+    lines.push("", "发送 菜单 返回首页，发送 取消 取消待确认操作。", "原有英文命令及 /命令 方式仍可使用。");
     return formatCard("使用帮助", lines);
   };
 }
@@ -184,7 +188,7 @@ export const serverAddressHandler: CommandHandler = (ctx) => {
 };
 
 export const pingHandler: CommandHandler = (ctx) => ({
-  text: `机器人连接正常 · 已运行 ${formatUptime(ctx.startedAt)}`,
+  text: `机器人连接正常，已运行 ${formatUptime(ctx.startedAt)}`,
 });
 
 export const whoamiHandler: CommandHandler = async (ctx) => {
@@ -208,25 +212,37 @@ export const whoamiHandler: CommandHandler = async (ctx) => {
 export const statusHandler: CommandHandler = async (ctx) => {
   const ep = dbEp(ctx);
   if (!ep) return failure("db 未配置");
-  const st = await fetchSfmcStatus(ep);
+  let st: SfmcStatusResponse;
+  try {
+    st = await fetchSfmcStatus(ep);
+  } catch (error) {
+    log.warn(`查服状态接口不可用: ${String(error)}`);
+    return formatCard("服务器状态", ["暂时无法连接状态服务，无法确认游戏服务器是否运行。", "请稍后重试或联系管理员。"]);
+  }
   const state = st.processes?.bds;
   const running = state?.state === "running" || state?.running === true;
   const stopped = state?.state === "stopped" || state?.running === false;
+  const onlineText = stopped
+    ? "0 人"
+    : st.note || !Array.isArray(st.online)
+      ? "数据暂不可确认"
+      : `${st.online.length} 人`;
   const age =
     typeof st.updatedAt === "number" ? `${Math.max(0, Math.floor((Date.now() - st.updatedAt) / 1000))} 秒前` : "未知";
   return {
-    ...formatCard("查服", [
-      `运行：${running ? "运行中" : stopped ? "未运行" : "暂时无法确认"}`,
-      `在线：${st.note || !Array.isArray(st.online) ? "数据暂不可确认" : `${st.online.length} 人`}`,
+    ...formatCard("服务器状态", [
+      `运行状态：${running ? "运行中" : stopped ? "未运行" : "暂时无法确认"}`,
+      `在线玩家：${onlineText}`,
       `世界日：${st.world?.day ?? "未知"}`,
       `难度：${st.world?.difficulty ?? "未知"}`,
       `数据更新：${age}`,
-      ...(st.note ? ["在线数据暂不可确认，请稍后重试。"] : []),
+      ...(st.note && running ? ["在线数据暂不可确认，请稍后重试。"] : []),
     ]),
     buttons: [
       { id: "online", label: "在线玩家", command: "/online" },
       { id: "version", label: "版本", command: "/version" },
-      { id: "ip", label: "ip", command: "/ip" },
+      { id: "ip", label: "连接地址", command: "/ip" },
+      { id: "refresh_status", label: "刷新状态", command: "/status" },
     ],
   };
 };
@@ -235,6 +251,7 @@ export const onlineHandler: CommandHandler = async (ctx) => {
   const ep = dbEp(ctx);
   if (!ep) return failure("db 未配置");
   const st = await fetchSfmcStatus(ep);
+  if (st.processes?.bds?.state === "stopped") return formatCard("在线玩家", ["服务器未运行，当前没有在线玩家。"]);
   if (!Array.isArray(st.online) || st.note) return { text: "在线数据暂不可确认，请稍后重试。" };
   if (!st.online.length) return formatCard("在线玩家", ["当前没有在线玩家。"]);
   return {
@@ -307,7 +324,7 @@ export const unbindHandler: CommandHandler = async (ctx) => {
 export const groupInfoHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
   const lines = await fetchQqGroupLines(ctx);
   if (lines.length === 0) {
-    return { text: "群信息仅官方后端可用，且需配置 qq_group_openid / 凭证。" };
+    return { text: "群信息仅官方后端可用，且需配置 official.group_openid / 凭证。" };
   }
   return { text: ["QQ 群信息", ...lines].join("\n") };
 };
@@ -394,7 +411,7 @@ function parseOnOff(raw: string): boolean | null {
 
 /** 管理员查看/切换 qq-link 入服开关（互动按钮面板） */
 export const joinConfigHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可配置入服开关（qq_admin_openids / 群管视作管理员）" };
+  if (!isAdmin(ctx)) return { text: "仅管理员可配置入服开关（official.admin_openids / 群管视作管理员）" };
   const ep = dbEp(ctx);
   if (!ep) return failure("db 未配置");
 
@@ -476,8 +493,124 @@ export const joinConfigHandler: CommandHandler = async (ctx: CommandContext): Pr
   return execute(ctx);
 };
 
+const EVENT_SWITCHES = [
+  ["enabled", "总开关"],
+  ["start", "启动"],
+  ["stop", "停服"],
+  ["crash", "异常退出"],
+  ["join", "上线"],
+  ["leave", "下线"],
+  ["death", "死亡"],
+] as const;
+
+function eventSettingsPanel(settings: QqEventSettings, prefix = ""): CommandResult {
+  const rows: Array<[string, string]> = [
+    ...EVENT_SWITCHES.map(([field, label]): [string, string] => [label, settings[field] ? "开" : "关"]),
+    ["聚合间隔", `${settings.window_sec} 秒`],
+  ];
+  const textRows = rows.map(([label, value]) => `│ ${label}${"　".repeat(4 - label.length)} │ ${value} │`);
+  const buttons = EVENT_SWITCHES.map(([field, label]) => ({
+    id: `events_${field}`,
+    label: `${label} ${settings[field] ? "关" : "开"}`,
+    command: `/events ${label} ${settings[field] ? "关" : "开"}`,
+  }));
+  buttons.push({ id: "events_window", label: "聚合间隔", command: "/events 间隔" });
+  return {
+    text: [
+      "推送设置",
+      ...(prefix ? [prefix] : []),
+      "┌──────────┬────────┐",
+      "│ 项目　　 │ 状态　 │",
+      "├──────────┼────────┤",
+      ...textRows,
+      "└──────────┴────────┘",
+      `玩家事件约 ${settings.window_sec} 秒合并发送；启停与异常退出即时发送。`,
+    ].join("\n"),
+    markdown: [
+      "## 推送设置",
+      ...(prefix ? ["", prefix] : []),
+      "",
+      "| 项目 | 状态 |",
+      "| --- | --- |",
+      ...rows.map(([label, value]) => `| ${label} | **${value}** |`),
+      "",
+      `_玩家事件约 ${settings.window_sec} 秒合并发送；启停与异常退出即时发送_`,
+    ].join("\n"),
+    buttons,
+  };
+}
+
+export const eventSettingsHandler: CommandHandler = async (ctx): Promise<CommandResult> => {
+  if (!isAdmin(ctx)) return { text: "当前没有管理权限，请联系管理员。" };
+  const ep = dbEp(ctx);
+  if (!ep) return failure("db 未配置");
+  const rest = ctx.inbound.text.replace(/^\/?(?:events|事件推送|事件配置)\s*/i, "").trim();
+  try {
+    if (!rest) {
+      const data = await fetchQqEventSettings(ep);
+      return data.success && data.settings ? eventSettingsPanel(data.settings) : failure(data.error);
+    }
+    if (rest === "间隔") {
+      const data = await fetchQqEventSettings(ep);
+      if (!data.success || !data.settings) return failure(data.error);
+      return {
+        ...formatCard("聚合间隔", [
+          `当前：${data.settings.window_sec} 秒`,
+          "玩家进出及死亡通知会在这段时间内合并。",
+          "也可发送「事件推送 间隔 秒数」，范围 5–600 秒。",
+        ]),
+        buttons: [30, 60, 120].map((seconds) => ({
+          id: `events_window_${seconds}`,
+          label: `${seconds} 秒`,
+          command: `/events 间隔 ${seconds}`,
+        })),
+      };
+    }
+    const interval = /^间隔\s+(\d+)$/.exec(rest);
+    if (interval) {
+      const seconds = Number(interval[1]);
+      if (!Number.isInteger(seconds) || seconds < 5 || seconds > 600) return { text: "聚合间隔需为 5–600 秒的整数。" };
+      const data = await postQqEventSettings(ep, {
+        openid: ctx.inbound.userId,
+        as_group_admin: asGroupAdminField(ctx),
+        field: "window_sec",
+        value: seconds,
+      });
+      return data.success && data.settings ? eventSettingsPanel(data.settings, "已保存") : failure(data.error);
+    }
+    const match = /^(总开关|启动|停服|异常退出|上线|下线|死亡)\s+(开|关)$/.exec(rest);
+    if (!match) return { text: "发送「事件推送」打开开关面板，或选择面板中的操作。" };
+    const item = EVENT_SWITCHES.find(([, label]) => label === match[1]);
+    if (!item) return { text: "没有这个事件开关。" };
+    const [field] = item;
+    const value = match[2] === "开";
+    const execute: CommandHandler = async (confirmed) => {
+      try {
+        const data = await postQqEventSettings(ep, {
+          openid: confirmed.inbound.userId,
+          as_group_admin: asGroupAdminField(confirmed),
+          field,
+          value,
+        });
+        return data.success && data.settings ? eventSettingsPanel(data.settings, "已保存") : failure(data.error);
+      } catch (error) {
+        return failure(error);
+      }
+    };
+    if (field === "enabled" && !value) {
+      return {
+        text: "确认关闭事件推送",
+        confirmation: { summary: "即将关闭全部服务器事件群推送。", execute },
+      };
+    }
+    return execute(ctx);
+  } catch (error) {
+    return failure(error);
+  }
+};
+
 export const pendingHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可查看待审列表（配置 qq_admin_openids）" };
+  if (!isAdmin(ctx)) return { text: "仅管理员可查看待审列表（配置 official.admin_openids）" };
   const ep = dbEp(ctx);
   if (!ep) return failure("db 未配置");
   try {
@@ -603,7 +736,7 @@ export const doctorHandler: CommandHandler = async (ctx) => {
 };
 
 export const kickHandler: CommandHandler = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!isAdmin(ctx)) return { text: "仅管理员可踢人（配置 qq_admin_openids）" };
+  if (!isAdmin(ctx)) return { text: "仅管理员可踢人（配置 official.admin_openids）" };
   const ep = dbEp(ctx);
   if (!ep) return failure("db 未配置");
   const target = ctx.inbound.text.replace(/^\/?(踢人|kick)\s*/i, "").trim();
@@ -650,14 +783,20 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
       adminMenu: group === "admin",
     });
   add("menu", ["菜单"], "返回首页", createMenuHandler(registry), "home");
-  add("server", ["服务器"], "查服 · 在线 · 版本 · IP", sectionHandler(registry, "server", "服务器"), "home");
-  add("account", ["我的账号"], "查看绑定 · 绑定账号 · 解绑", whoamiHandler, "home");
+  add(
+    "server",
+    ["服务器"],
+    "查看运行状态、在线玩家和连接方式",
+    sectionHandler(registry, "server", "服务器信息"),
+    "home"
+  );
+  add("account", ["我的账号"], "查看与管理游戏角色绑定", whoamiHandler, "home");
   add(
     "entry",
     ["入服"],
-    "申请方式 · 提交入服申请",
+    "了解入服流程并提交申请",
     () => ({
-      ...formatCard("入服", [
+      ...formatCard("入服申请", [
         "发送：申请入服 你的游戏名",
         "已绑定角色可直接发送「申请入服」。",
         "",
@@ -668,7 +807,7 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
     }),
     "home"
   );
-  add("help", ["帮助"], "使用说明 · 常用命令", helpHandler(registry), "home");
+  add("help", ["帮助"], "查看使用说明和常用命令", helpHandler(registry), "home");
   add("admin", ["管理"], "管理菜单", createAdminMenuHandler(registry), "home", true);
   add("status", ["查服", "状态"], "服务器运行状态", statusHandler, "server");
   add("online", ["在线"], "完整在线名单", onlineHandler, "server");
@@ -683,6 +822,7 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
   add("doctor", ["自检"], "连通与运行诊断", doctorHandler, "admin", true);
   add("group", ["群信息"], "官方 QQ 群信息", groupInfoHandler, "admin", true);
   add("config", ["配置", "入服配置"], "入服白名单与审批设置", joinConfigHandler, "admin", true);
+  add("events", ["事件推送", "事件配置"], "服务器事件推送开关", eventSettingsHandler, "admin", true);
   add("pending", ["待审"], "待审申请列表", pendingHandler, "admin", true);
   add("approve", ["通过"], "通过 <申请ID>", approveHandler, "admin", true);
   add("reject", ["拒绝"], "拒绝 <申请ID>", rejectHandler, "admin", true);

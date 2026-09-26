@@ -58,15 +58,15 @@ function qqBridgeStatusFooter(): string {
   const backend = qqCfg.qq_backend === "llbot" ? "llbot" : "official";
   const enabled = qqCfg.qq_enabled !== false;
   if (backend === "llbot") {
-    const group = qqCfg.qq_group_id || "—";
-    const pathHint = qqCfg.llbot_path ? String(qqCfg.llbot_path) : "—";
+    const group = qqCfg.llbot?.group_id || "—";
+    const pathHint = qqCfg.llbot?.path ? String(qqCfg.llbot.path) : "—";
     return `\n${c.dim(t("svc.qq.footer.llbot", { enabled: enabled ? "on" : "off", group, path: pathHint }))}\n`;
   }
-  const appId = String(qqCfg.qq_app_id ?? "").trim();
+  const appId = String(qqCfg.official?.app_id ?? "").trim();
   const appIdHint = appId ? (appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId) : "—";
-  const openid = String(qqCfg.qq_group_openid ?? "").trim() || "—";
-  const sandbox = qqCfg.qq_sandbox ? "sandbox" : "prod";
-  const creds = appId && String(qqCfg.qq_app_secret ?? "").trim() ? "ok" : "missing";
+  const openid = String(qqCfg.official?.group_openid ?? "").trim() || "—";
+  const sandbox = qqCfg.official?.sandbox ? "sandbox" : "prod";
+  const creds = appId && String(qqCfg.official?.app_secret ?? "").trim() ? "ok" : "missing";
   return `\n${c.dim(t("svc.qq.footer.official", { enabled: enabled ? "on" : "off", appId: appIdHint, openid, sandbox, creds }))}\n`;
 }
 

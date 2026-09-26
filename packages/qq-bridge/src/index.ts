@@ -3,7 +3,7 @@
  * index.ts — QQ ↔ MC 桥接进程入口
  *
  * 双后端:
- *   official — 连接 QQ 开放平台 Gateway，只转发 GROUP_AT_MESSAGE_CREATE；C2C 走指令
+ *   official — 群全量消息只处理指令；群 @ 消息可转发游戏；C2C 走指令
  *   llbot    — 监听 WS:3002 接 LLBot reverse-ws（OneBot 11）
  *
  * 共同出站信封: POST db-server:3001/api/sfmc/messages
@@ -20,6 +20,7 @@ import { startConsole } from "./console.js";
 import { log } from "./log.js";
 import { OfficialAtMessageDispatcher } from "./official/events.js";
 import { startOfficialGateway } from "./official/gateway.js";
+import { startOfficialWebhook } from "./official/webhook.js";
 import { OneBotDispatcher } from "./onebot.js";
 import { installQqRuntimeStatusHooks } from "./runtime-status.js";
 import type { QQBridgeConfig } from "./types.js";
@@ -43,7 +44,7 @@ async function main(): Promise<void> {
 
   if (cfg.qq_backend === "official") {
     if (!cfg.qq_app_id || !cfg.qq_app_secret) {
-      log.error("官方后端需要配置 qq_app_id 与 qq_app_secret");
+      log.error("官方后端需要配置 official.app_id 与 official.app_secret");
       process.exit(1);
     }
 
@@ -98,11 +99,22 @@ async function main(): Promise<void> {
       groupOpenid: cfg.qq_group_openid,
     });
 
-    await startOfficialGateway({
-      creds,
-      dispatcher,
-      interactionRouter,
-    });
+    if (cfg.qq_official_transport === "webhook") {
+      await startOfficialWebhook({
+        appId: creds.appId,
+        appSecret: creds.appSecret,
+        port: cfg.qq_webhook_port,
+        path: cfg.qq_webhook_path,
+        dispatcher,
+        interactionRouter,
+      });
+    } else {
+      await startOfficialGateway({
+        creds,
+        dispatcher,
+        interactionRouter,
+      });
+    }
 
     // 不阻断 Gateway：失败只 warn
     void runSyncMenu().catch((e) => log.warn(`menu/panel sync 异常: ${(e as Error).message}`));
@@ -110,7 +122,7 @@ async function main(): Promise<void> {
     installQqRuntimeStatusHooks("official");
 
     log.info(
-      `官方后端已启动 (sandbox=${cfg.qq_sandbox}, group_openid=${cfg.qq_group_openid || "未配置"}, channel=${cfg.bridge_channel_id || "未配置"}, db=${cfg.db_host}:${cfg.db_port})`
+      `官方后端已启动 (transport=${cfg.qq_official_transport}, sandbox=${cfg.qq_sandbox}, group_openid=${cfg.qq_group_openid || "未配置"}, channel=${cfg.bridge_channel_id || "未配置"}, db=${cfg.db_host}:${cfg.db_port})`
     );
 
     startConsole({
