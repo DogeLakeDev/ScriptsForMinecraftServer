@@ -1,5 +1,37 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0-beta.18
+
+### Patch Changes
+
+- 4a9b066: 修复 BDS 更新日志的版本匹配与官方文章链接，并在管道日志中保留下载条形进度。
+- 4a9b066: 修复运行中的 BDS 更新时被 CLI 崩溃自启提前拉起的问题，并在覆盖安装目录前确认服务已停止。
+- efa6e73: QQ 查服改用游戏实时在线玩家及世界信息，CLI 托管的 BDS 启停和异常退出现在上报事件。
+- efa6e73: 官方 QQ 机器人可选择 Webhook 接收事件；官方与 LLBot 配置改为分组对象。Webhook 模式自动跳过游戏机的桥进程，并安全同步共享配置到云端。群全量事件中的 `<@…>` 机器人提及也能正确触发指令面板命令。官方回复不再附带 LLBot 风格的编号和“发送：”列表。
+- efa6e73: 为 QQ 管理菜单增加可即时生效的服务器事件推送开关，并补充 BDS 正常停服通知。
+- Updated dependencies [4a9b066]
+- Updated dependencies [aadd2de]
+- Updated dependencies [efa6e73]
+- Updated dependencies [aadd2de]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3465c7e]
+- Updated dependencies [4a9b066]
+- Updated dependencies [efa6e73]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+  - @sfmc-bds/sdk@0.2.0-beta.18
+
 ## 0.2.0-beta.17
 
 ### Patch Changes

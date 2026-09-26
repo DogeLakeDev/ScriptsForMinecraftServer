@@ -1,5 +1,46 @@
 # @sfmc-bds/qq-bridge
 
+## 0.2.0-beta.13
+
+### Minor Changes
+
+- efa6e73: 官方 QQ 机器人可选择 Webhook 接收事件；官方与 LLBot 配置改为分组对象。Webhook 模式自动跳过游戏机的桥进程，并安全同步共享配置到云端。群全量事件中的 `<@…>` 机器人提及也能正确触发指令面板命令。官方回复不再附带 LLBot 风格的编号和“发送：”列表。
+- 4a9b066: 统一 QQ 双后端玩家服务菜单、权限核验、敏感操作确认及错误反馈，修复编号菜单与长名单发送，保留查服、版本和 ip 指令习惯。
+
+  新增 public_server 公开连接配置；版本优先使用 CLI 捕获并经状态接口核验的当前 BDS 启动版本。移除在线状态接口的 64 人上限，不改变入服业务状态与审批策略。
+
+### Patch Changes
+
+- aadd2de: Use each chat channel's prefix and QQ forwarding switch for MC messages. Route QQ group messages into the read-only game channel and remove the former bridge channel and MC prefix configuration fields.
+- efa6e73: 优化 QQ 玩家菜单和信息卡：简化标题与说明，移除 Markdown 正文中重复的按钮列表，统一操作名称并增加状态刷新入口，保留原有命令和纯文本编号操作。
+- efa6e73: 修正官方群指令面板同步：全局面板不再请求关联群，指定群面板仅在缺少目标群时追加关联。
+- efa6e73: QQ 查服改用游戏实时在线玩家及世界信息，CLI 托管的 BDS 启停和异常退出现在上报事件。
+- efa6e73: 官方 QQ 机器人接收群全量消息时，可直接识别无需 @ 的指令，并避免与群 @ 事件重复处理。
+- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和世界包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
+- efa6e73: 为 QQ 管理菜单增加可即时生效的服务器事件推送开关，并补充 BDS 正常停服通知。
+- Updated dependencies [4a9b066]
+- Updated dependencies [aadd2de]
+- Updated dependencies [efa6e73]
+- Updated dependencies [aadd2de]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3465c7e]
+- Updated dependencies [4a9b066]
+- Updated dependencies [efa6e73]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+  - @sfmc-bds/sdk@0.2.0-beta.18
+
 ## 0.2.0-beta.12
 
 ### Patch Changes

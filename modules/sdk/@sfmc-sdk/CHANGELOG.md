@@ -1,5 +1,37 @@
 # @sfmc-bds/sdk
 
+## 0.2.0-beta.18
+
+### Minor Changes
+
+- 4a9b066: 统一 QQ 双后端玩家服务菜单、权限核验、敏感操作确认及错误反馈，修复编号菜单与长名单发送，保留查服、版本和 ip 指令习惯。
+
+  新增 public_server 公开连接配置；版本优先使用 CLI 捕获并经状态接口核验的当前 BDS 启动版本。移除在线状态接口的 64 人上限，不改变入服业务状态与审批策略。
+
+- 1a4ddda: 声明式 UI 的开关可绑定 each 条目字段，并支持值变化时立即跑 trigger，列表行上的即时开关不必再做成固定槽位。
+
+### Patch Changes
+
+- 4a9b066: 修复 BDS 更新日志的版本匹配与官方文章链接，并在管道日志中保留下载条形进度。
+- aadd2de: Use each chat channel's prefix and QQ forwarding switch for MC messages. Route QQ group messages into the read-only game channel and remove the former bridge channel and MC prefix configuration fields.
+- efa6e73: 将 Minecraft Script API 类型与新模块模板更新到 BDS 1.26.51 使用的 server 2.11.0-beta、server-ui 2.3.0-beta，并同步 vanilla-data 版本。
+- aadd2de: 将官方 QQ Webhook 的 SSH 反向隧道纳入 SFMC CLI 服务编排，提供配置、启停、断线重试、状态和日志。
+- efa6e73: 官方 QQ 机器人可选择 Webhook 接收事件；官方与 LLBot 配置改为分组对象。Webhook 模式自动跳过游戏机的桥进程，并安全同步共享配置到云端。群全量事件中的 `<@…>` 机器人提及也能正确触发指令面板命令。官方回复不再附带 LLBot 风格的编号和“发送：”列表。
+- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和世界包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
+- efa6e73: 为 QQ 管理菜单增加可即时生效的服务器事件推送开关，并补充 BDS 正常停服通知。
+- 1a4ddda: dropdown 的 options 支持从 load 数据源注入（source/as/label/value），与 each 对齐。
+- 1a4ddda: 声明式 UI 危险确认支持可选校验文本 challenge（固定字或 {{path}}），未匹配前确认按钮禁用。
+- dc62ffc: UI Studio 画布中 each 改为模板/空态常驻：未生效分支灰色可编辑，模板只画一份原型并标注条数。
+- 1a4ddda: UI Studio 切换按钮 trigger 为 action/navigate 时允许空 id 作为编辑中间态，页面不再被整页踢出结构校验。
+- dc62ffc: 修复 UI Studio 空 body 拖入组件后 Chrome 拖放会话无法结束（光标一直握住、页面像卡住）。
+- dc62ffc: UI Studio 改为固定监听 `127.0.0.1:3003`，避免每次随机端口导致浏览器 IndexedDB 工程丢失。
+- dc62ffc: UI Studio 接上已有 light 令牌：默认跟随系统，顶栏可在浅色 / 深色 / 跟随系统间切换，并记住偏好。
+- dc62ffc: UI Studio 预览将 {{path}} 绑定原样显示并加背景高亮，避免未求值变量变成空白。
+- 1a4ddda: UI Studio 去掉预览「场景」产品面：不再新建/切换 fixture，新工程也不再写入 preview.fixture.json。
+- dc62ffc: UI Studio 侧栏可拖项改为六点抓手发起拖放，点击选中/展开不再与拖动手势打架。
+- dc62ffc: 修复 UI Studio 宽跨度滑杆（如金库 1–100000）点击轨道时因 Chrome 逐步派发 input 而卡死页面。
+- 1a4ddda: textField 的 placeholder 改为模板字符串；空绑定时写入 CustomForm.textField 的 text，作为输入框当前值/占位内容。
+
 ## 0.2.0-beta.17
 
 ### Minor Changes

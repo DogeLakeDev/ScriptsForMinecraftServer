@@ -1,5 +1,36 @@
 # @sfmc-bds/devkit
 
+## 1.0.0-beta.12
+
+### Patch Changes
+
+- Updated dependencies [4a9b066]
+- Updated dependencies [4a9b066]
+- Updated dependencies [aadd2de]
+- Updated dependencies [efa6e73]
+- Updated dependencies [efa6e73]
+- Updated dependencies [aadd2de]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3465c7e]
+- Updated dependencies [4a9b066]
+- Updated dependencies [efa6e73]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+  - @sfmc-bds/bds-tools@0.2.0-beta.18
+  - @sfmc-bds/sdk@0.2.0-beta.18
+  - @sfmc-bds/cli@0.2.0-beta.21
+
 ## 1.0.0-beta.11
 
 ### Patch Changes
