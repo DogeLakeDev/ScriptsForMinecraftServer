@@ -4,7 +4,7 @@
  * 路由列表：
  *   GET /api/sfmc/configs/all          — SAPI ConfigManager 启动快照（仅平台域）
  *   GET /api/sfmc/settings             — 平铺 settings.json（legacy）
- *   GET /api/sfmc/settings/:key        — 含 land:* / bridge_channel_id 等 fallback
+ *   GET /api/sfmc/settings/:key        — 含 land:* 等 fallback
  *   GET /api/sfmc/areas|permissions|…  — legacy 只读 JSON（文件名对 db-server 为黑箱）
  *
  * DIP：模块/legacy JSON 不进 SDK ConfigName；本路由用 configDir + 文件名拼接路径。
@@ -92,10 +92,6 @@ function createConfigRoutes({ json, projectRoot, listModules, getModuleTokens }:
     const settings = (readOpaque("settings.json") as Record<string, unknown> | null) ?? {};
     if (Object.prototype.hasOwnProperty.call(settings, key) && !isMetaKey(key)) {
       return { value: settings[key], source: "settings.json" };
-    }
-    if (key === "bridge_channel_id") {
-      const qq = (readPlatform("qq_config.json") as Record<string, unknown> | null) ?? {};
-      if (qq.bridge_channel_id) return { value: qq.bridge_channel_id, source: "qq_config.json" };
     }
     if (key.startsWith("land:")) {
       const land = (readOpaque("land.json") as Record<string, unknown> | null) ?? {};

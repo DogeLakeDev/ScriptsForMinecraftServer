@@ -707,10 +707,8 @@ export const rejectHandler: CommandHandler = async (ctx: CommandContext): Promis
 };
 
 /** 频道 + 轻量自检（人人可用） */
-export const channelHandler: CommandHandler = (ctx) => ({
-  text: ctx.runtimeInfo.bridgeChannelId
-    ? "聊天互通已配置。群内普通聊天按当前互通规则发送到游戏。"
-    : "聊天互通尚未开启，请联系管理员。",
+export const channelHandler: CommandHandler = () => ({
+  text: "QQ群消息进入游戏内只读的 QQ 频道。游戏内各频道可分别设置是否转发到 QQ。",
 });
 
 export const doctorHandler: CommandHandler = async (ctx) => {
@@ -723,7 +721,7 @@ export const doctorHandler: CommandHandler = async (ctx) => {
     text: [
       "管理自检",
       `后端：${ctx.inbound.backend}`,
-      `互通频道：${ctx.runtimeInfo.bridgeChannelId || "未配置"}`,
+      `QQ 入站频道：${ctx.runtimeInfo.bridgeChannelId || "qq"}`,
       `主机：${st.host?.hostname || "未知"} · ${st.host?.platform || "未知"}`,
       `CPU：${st.host?.cpu?.model || "未知"} · ${st.host?.cpu?.cores ?? "未知"} 核`,
       `内存：${st.host?.memory?.usedMb ?? "未知"}/${st.host?.memory?.totalMb ?? "未知"} MB`,

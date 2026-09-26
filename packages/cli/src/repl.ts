@@ -53,8 +53,8 @@ import {
   type WindowKeyEvent,
   type WindowKeyResult,
 } from "./repl-windows/index.js";
-import { listActiveSendTargets, paintSendPrompt, paintSfmcPrompt, plainPrompt } from "./send-target.js";
-import { forceStopAll, onServiceStateChange, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
+import { SEND_TARGET_ORDER, paintSendPrompt, paintSfmcPrompt, plainPrompt } from "./send-target.js";
+import { forceStopAll, onServiceStateChange, queryServicesRuntime, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
 import { c, T } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
@@ -861,6 +861,7 @@ export async function startRepl(): Promise<void> {
   let logsFilterState: LogsFilterState = { levels: [], sources: [] };
   let preferredTarget: ServiceName | null = null;
   let activeTargets: ServiceName[] = [];
+  let activeServiceWindows: ServiceName[] = [];
   let pendingInput = "";
 
   const host = new WindowHost({
@@ -940,22 +941,22 @@ export async function startRepl(): Promise<void> {
     })
   );
 
-  function syncServiceWindows(targets: ServiceName[]): void {
-    if (targets.length === 0) {
+  function syncServiceWindows(windows: ServiceName[]): void {
+    if (windows.length === 0) {
       host.setServiceOrder([]);
       preferredTarget = null;
       return;
     }
-    for (const name of targets) {
+    for (const name of windows) {
       const id = serviceWindowId(name);
       if (!host.has(id)) host.register(createServiceWindow(name));
     }
     if (!host.has(SFMC_WINDOW_ID)) {
-      host.register(createSfmcWindow({ getActiveTargets: () => activeTargets }));
+      host.register(createSfmcWindow({ getActiveTargets: () => activeServiceWindows }));
     }
-    host.setServiceOrder([...targets.map(serviceWindowId), SFMC_WINDOW_ID]);
+    host.setServiceOrder([...windows.map(serviceWindowId), SFMC_WINDOW_ID]);
     const svc = host.getActive()?.serviceName;
-    if (svc) preferredTarget = svc;
+    if (svc && activeTargets.includes(svc)) preferredTarget = svc;
   }
 
   function openLogsWindow(): void {
@@ -977,8 +978,10 @@ export async function startRepl(): Promise<void> {
 
   async function refreshTargetsFromRuntime(): Promise<void> {
     const prevId = host.getActiveId();
-    activeTargets = await listActiveSendTargets();
-    syncServiceWindows(activeTargets);
+    const running = new Set((await queryServicesRuntime()).filter((row) => row.running).map((row) => row.name));
+    activeTargets = SEND_TARGET_ORDER.filter((name) => running.has(name));
+    activeServiceWindows = SERVICE_NAMES.filter((name) => running.has(name));
+    syncServiceWindows(activeServiceWindows);
     if (preferredTarget && !activeTargets.includes(preferredTarget)) {
       preferredTarget = activeTargets[0] ?? null;
     }
@@ -1010,6 +1013,7 @@ export async function startRepl(): Promise<void> {
   function currentTarget(): ServiceName | null {
     if (activeTargets.length === 0) return null;
     if (host.getActive()?.id === SFMC_WINDOW_ID) return null;
+    if (host.getActive()?.showsInput === false) return null;
     const fromWin = host.getActive()?.serviceName;
     if (fromWin && activeTargets.includes(fromWin)) {
       preferredTarget = fromWin;
@@ -1033,7 +1037,7 @@ export async function startRepl(): Promise<void> {
     const result = await readLine({
       getPrompt: buildPrompt,
       /* 无服务或在 SFMC 平台窗时默认加 /（与窗口系统前行为一致）；用 getter 以便进程退出后即时生效 */
-      autoSlash: () => activeTargets.length === 0 || host.getActive()?.id === SFMC_WINDOW_ID,
+      autoSlash: () => activeTargets.length === 0 || host.getActive()?.id === SFMC_WINDOW_ID || host.getActive()?.showsInput === false,
       getChrome: () => host.getChrome(),
       onWindowKey: (ev) => {
         const r = host.onKey(ev);
@@ -1043,7 +1047,7 @@ export async function startRepl(): Promise<void> {
       cycleSendTarget: () => {
         const res = host.cycleServiceWindows();
         if (!res.switched) return false;
-        preferredTarget = res.serviceName;
+        if (res.serviceName && activeTargets.includes(res.serviceName)) preferredTarget = res.serviceName;
         showActiveWindow();
         return true;
       },

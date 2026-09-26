@@ -12,6 +12,10 @@ export interface ServerPropertyDoc {
 }
 
 export const SERVER_PROPERTIES_DOCS_ZH_CN: Record<string, ServerPropertyDoc> = {
+  "transport": {
+    desc: "玩家与服务器连接所用的网络传输方式",
+    values: "nethernet（当前 BDS 版本支持的传输方式）",
+  },
   "server-name": {
     desc: "服务器名称（显示在客户端局域网/好友列表中）",
     values: "任意字符串（请勿包含分号 ;）",

@@ -136,7 +136,6 @@ function sharedFields(payload) {
       admin_openids: official.admin_openids,
       sync_menu_panel: official.sync_menu_panel,
     },
-    bridge_channel_id: expectString(source.bridge_channel_id, "bridge_channel_id"),
     public_server: { address: publicAddress, port: publicPort, version: publicVersion },
   };
 }
@@ -165,7 +164,6 @@ async function main() {
   const current = readConfig();
   const next = {
     ...current,
-    bridge_channel_id: shared.bridge_channel_id,
     public_server: shared.public_server,
     qq_enabled: true,
     qq_backend: "official",
@@ -180,6 +178,8 @@ async function main() {
     db_host: "127.0.0.1",
     db_port: 13001,
   };
+  delete next.bridge_channel_id;
+  delete next.mctoqq_prefix;
   if (JSON.stringify(next) === JSON.stringify(current)) {
     try {
       service("is-active");

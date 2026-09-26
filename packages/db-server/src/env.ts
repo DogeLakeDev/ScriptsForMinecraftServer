@@ -44,14 +44,12 @@ export interface EnvConfig {
   LLBOT_TOKEN: string;
   // QQ 群 / channel(从 qq_config.json 透出,给 bridge / messages 路由用)
   QQ_GROUP_ID: string;
-  QQ_BRIDGE_CHANNEL_ID: string;
   // 官方 Bot
   QQ_BACKEND: QQBackend;
   QQ_APP_ID: string;
   QQ_APP_SECRET: string;
   QQ_SANDBOX: boolean;
   QQ_GROUP_OPENID: string;
-  MCTOQQ_PREFIX: string;
   MODULES_DIR: string;
   MODULE_CATALOG_PATH: string;
   MODULE_LOCK_PATH: string;
@@ -124,9 +122,6 @@ export function loadEnv(): EnvConfig {
   );
   const LLBOT_TOKEN = String(pick(llbot.token, "LLBOT_TOKEN", "", "llbot.token"));
   const QQ_GROUP_ID = String(pick(llbot.group_id, "QQ_GROUP_ID", "", "llbot.group_id"));
-  const QQ_BRIDGE_CHANNEL_ID = String(
-    pick(qqconfig["bridge_channel_id"] as string | undefined, "BRIDGE_CHANNEL_ID", "", "bridge_channel_id")
-  );
   const rawBackend = String(
     pick(
       qqconfig["qq_backend"] as string | undefined,
@@ -151,14 +146,6 @@ export function loadEnv(): EnvConfig {
   const QQ_GROUP_OPENID = String(
     pick(official.group_openid, "QQ_GROUP_OPENID", "", "official.group_openid")
   );
-  const MCTOQQ_PREFIX = String(
-    pick(
-      qqconfig["mctoqq_prefix"] as string | undefined,
-      "MCTOQQ_PREFIX",
-      DEFAULT_QQ_CONFIG.mctoqq_prefix ?? "[MC]",
-      "mctoqq_prefix"
-    )
-  );
   const AUTH_TOKEN = String(pick(dbconfig["http_auth"] as string | undefined, "HTTP_AUTH", "", "http_auth"));
   const MODULES_DIR = dbconfig["modulesDir"]
     ? resolve(PROJECT_ROOT, String(dbconfig["modulesDir"]))
@@ -176,13 +163,11 @@ export function loadEnv(): EnvConfig {
     LLBOT_PORT,
     LLBOT_TOKEN,
     QQ_GROUP_ID,
-    QQ_BRIDGE_CHANNEL_ID,
     QQ_BACKEND,
     QQ_APP_ID,
     QQ_APP_SECRET,
     QQ_SANDBOX,
     QQ_GROUP_OPENID,
-    MCTOQQ_PREFIX,
     MODULES_DIR,
     MODULE_CATALOG_PATH,
     MODULE_LOCK_PATH,

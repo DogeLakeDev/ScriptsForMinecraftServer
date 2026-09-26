@@ -59,7 +59,7 @@ export function normalizeBdsLogBody(text: string): string | null {
 /** 解析本条日志应写入的文件名(不含 .log);null 表示跳过(子进程已写) */
 function resolveDiskLogName(source: string): string | null {
   if (CHILD_OWNED_SOURCES.has(source)) return null;
-  if (source === "bds" || source === "llbot") return source;
+  if (source === "bds" || source === "llbot" || source === "tunnel") return source;
   return "sfmc";
 }
 
@@ -150,12 +150,12 @@ export function getAllLogs(): UnifiedLog[] {
  * ================================================================== */
 
 /** 与落盘策略对应的文件基名（不含 .log） */
-const DISK_LOG_FILES = ["bds", "llbot", "db", "qq", "bds-update", "sfmc"] as const;
+const DISK_LOG_FILES = ["bds", "llbot", "tunnel", "db", "qq", "bds-update", "sfmc"] as const;
 
 /** source → 落盘文件名（含子进程自写） */
 export function diskFileForSource(source: string): string {
   if (source === "update") return "bds-update";
-  if (source === "bds" || source === "llbot" || source === "db" || source === "qq") return source;
+  if (source === "bds" || source === "llbot" || source === "tunnel" || source === "db" || source === "qq") return source;
   return "sfmc";
 }
 

@@ -61,10 +61,8 @@ function applyDefaults(raw: DiskQQConfig): QQBridgeConfig {
     llbot_port: llbot.port ?? llbotDefaults.port ?? 3004,
     llbot_token: llbot.token ?? llbotDefaults.token ?? "",
     llbot_http: llbot.http ?? llbotDefaults.http ?? "",
-    bridge_channel_id: String(raw.bridge_channel_id ?? DEFAULT_QQ_CONFIG.bridge_channel_id ?? ""),
     db_host: String(raw.db_host ?? "127.0.0.1"),
     db_port: Number(raw.db_port ?? 3001),
-    mctoqq_prefix: String(raw.mctoqq_prefix ?? DEFAULT_QQ_CONFIG.mctoqq_prefix ?? "[MC]"),
   };
 }
 

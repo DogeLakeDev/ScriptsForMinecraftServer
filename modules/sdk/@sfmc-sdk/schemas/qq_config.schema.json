@@ -90,6 +90,16 @@
           },
           "description": "QQ 侧管理员 member openid 列表；入服审批通过/拒绝与踢人命令校验"
         },
+        "tunnel": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "官方 Webhook 模式的 SSH 反向隧道，由 SFMC CLI 托管。",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false, "description": "启用平台托管隧道" },
+            "host": { "type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$", "description": "SSH 主机名或 ~/.ssh/config 中的别名" },
+            "remotePort": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 13001, "description": "云端回环监听端口" }
+          }
+        },
         "webhook": {
           "type": "object",
           "additionalProperties": false,
@@ -170,18 +180,10 @@
         }
       }
     },
-    "bridge_channel_id": {
-      "type": "string",
-      "description": "转发到 MC 侧的聊天频道 id"
-    },
-    "mctoqq_prefix": {
-      "type": "string",
-      "description": "MC → QQ 消息前缀（默认 [MC]）"
-    },
     "qq_events": {
       "type": "object",
       "additionalProperties": false,
-      "description": "MC 事件推群（节流）。join/leave/death 按 window_sec 聚合；crash/start/stop 立即推。不依赖 bridge_channel_id。可通过 QQ 管理菜单配置。",
+      "description": "MC 事件推群（节流）。join/leave/death 按 window_sec 聚合；crash/start/stop 立即推。可通过 QQ 管理菜单配置。",
       "properties": {
         "enabled": {
           "type": "boolean",

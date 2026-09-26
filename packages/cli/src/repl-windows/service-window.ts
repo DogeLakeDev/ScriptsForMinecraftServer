@@ -8,6 +8,7 @@ import { serviceWindowId } from "./host.js";
 import type { ReplWindow } from "./types.js";
 
 function serviceWindowTitle(name: ServiceName): string {
+  if (name === "tunnel") return "QQ·T";
   if (name === "qq") {
     return getQqBackendMode() === "llbot" ? "QQ·LLBOT" : "QQ·OFFICIAL";
   }
@@ -19,7 +20,7 @@ export function createServiceWindow(name: ServiceName): ReplWindow {
   return {
     id,
     title: serviceWindowTitle(name),
-    showsInput: true,
+    showsInput: name !== "tunnel",
     footerShortcuts: "",
     serviceName: name,
     acceptLog(log: UnifiedLog): boolean {

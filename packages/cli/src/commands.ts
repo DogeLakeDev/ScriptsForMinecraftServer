@@ -264,7 +264,10 @@ export async function cmdStop(raw: string): Promise<string> {
     }
   }
 
-  if (!svcObj.running) return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
+  if (!svcObj.running) {
+    if (svc === "tunnel") await svcObj.stop(); // 取消等待中的断线重试
+    return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
+  }
   if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
   STOPPING.add(svc);
   try {
@@ -280,6 +283,7 @@ export async function cmdStop(raw: string): Promise<string> {
 export async function cmdSend(raw: string, message: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
+  if (svc === "tunnel") return c.yellow(t("svc.stdinUnavailable", { title: services[svc].title }));
   if (!message) return c.yellow(t("svc.send.usage"));
   const svcObj = services[svc];
   /* 先统一探测，避免内存 running 与真实进程脱节 */

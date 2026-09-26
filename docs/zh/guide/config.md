@@ -71,7 +71,6 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
     "webhook": { "port": 3005, "path": "/qqbot/webhook" }
   },
   "llbot": { "enabled": false, "ws_port": 3002, "host": "127.0.0.1", "port": 3004 },
-  "mctoqq_prefix": "[MC] ",
   "qq_events": {
     "enabled": true,
     "window_sec": 60,

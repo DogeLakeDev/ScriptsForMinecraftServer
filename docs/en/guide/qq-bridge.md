@@ -46,8 +46,6 @@ Edit `configs/qq_config.json` (defaults are created on first start):
 | `llbot.enabled` | Whether sfmc starts LLBot (only when `qq_backend=llbot`) |
 | `llbot.path` / `llbot.cwd` | LLBot executable / working directory |
 | `llbot.host` / `llbot.port` / `llbot.token` | db-server MC→QQ (llbot) |
-| `bridge_channel_id` | In-game bridge channel id |
-| `mctoqq_prefix` | MC message prefix; default `[MC]` |
 | `official.admin_openids` | QQ admin openids (join approval / kick / join settings); empty = cannot approve |
 | `qq_events` | Event-to-group switches (see below); default all on, 60s window |
 
@@ -97,19 +95,19 @@ Admin commands are hidden from the main menu and official C2C quick menu; trigge
 
 - **official**: @bot then send the trigger; optional sync to [custom menu / command panel](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/) (`sync-menu` console command). C2C messages also hit the command router. With interaction intent, approval uses callback buttons (`INTERACTION_CREATE`).
 - **llbot**: same triggers; numbered replies within **60s**; **no** native panel / INTERACTION — use `通过/拒绝 <id>`.
-- Non-command messages still use the QQ→MC forward path (needs `bridge_channel_id`).
+- Non-command group messages enter the game's read-only `qq` channel.
 - `status`: world day and difficulty on separate lines; official adds a QQ group summary when APIs allow.
 
-## In-game chat bridge (`bridge_channel_id`)
+## In-game chat bridge
 
-Set `bridge_channel_id` in `configs/qq_config.json` (any stable id, e.g. `main`), then **restart** db-server, qq-bridge, and BDS (`qq-link` reads it at boot).
+The chat module creates a read-only `qq` channel for incoming group messages. Players, including administrators, cannot speak in it.
 
 | Direction | Behavior |
 | --- | --- |
-| QQ → game | Official: only **@bot** non-command messages are stored; `qq-link` polls and broadcasts `[QQ] name: text` |
-| Game → QQ | Normal chat (not `!` commands / not bind-code wait) → `POST /api/sfmc/messages`; db-server forwards to the group **only if** `channelId === bridge_channel_id` (prefix default `[MC]`) |
+| QQ → game | Official: only **@bot** non-command messages are stored in the `qq` channel; the chat module displays them to subscribers |
+| Game → QQ | The source channel's “Forward to QQ” switch controls forwarding; enabled channels use their own channel prefix |
 
-If unset: QQ→MC is skipped with a warning; game chat is not forwarded; event push is unchanged. LLBot outbound chat still needs HTTP (default 3004).
+LLBot outbound chat still needs HTTP (default 3004).
 
 Check: configure + restart → `@bot hello` appears in game → game chat appears in QQ → `频道` / `channel` shows whether set.
 
@@ -161,7 +159,7 @@ Read-only ops: public `GET /api/sfmc/status` backs `status` / `online`. Payload 
 
 ## Event push (throttled)
 
-Join / leave / death / BDS lifecycle posts to the QQ group and does **not** require `bridge_channel_id` (separate from chat bridging).
+Join / leave / death / BDS lifecycle posts to the QQ group independently of chat forwarding.
 
 | Event | Source | When |
 | --- | --- | --- |

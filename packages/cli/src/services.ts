@@ -4,6 +4,7 @@
  * 核心管理对象（ServiceName）：
  * - `bds`：Minecraft 基岩版服务端（支持 stdin 管道指令交互与优雅停服）
  * - `db`：db-server SQLite HTTP 服务（端口健康检查与 loopback 探活）
+ * - `tunnel`：云端 QQ Webhook 到本机 db-server 的 SSH 反向隧道
  * - `qq`：qq-bridge 消息网桥服务（支持官方 Bot 与 LLBot 双后端）
  * - `llbot`：LLBot 独立机器人进程（条件启动）
  *
@@ -60,8 +61,8 @@ export function nonBlankOutputLines(text: string): string[] {
   return text.split(/\r?\n/).filter((line) => line.trim().length > 0);
 }
 
-export type ServiceName = "bds" | "db" | "qq" | "llbot";
-export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "qq", "llbot"];
+export type ServiceName = "bds" | "db" | "tunnel" | "qq" | "llbot";
+export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "tunnel", "qq", "llbot"];
 
 /** argv 一次性 start 在 POSIX 上须 daemonize，否则父进程退出会带走子进程（Windows 不需要） */
 let argvDaemonize = false;
@@ -111,6 +112,27 @@ async function probeQqRuntime(): Promise<{ alive: boolean; pid: number }> {
   if (!status?.pid || status.pid <= 0) return { alive: false, pid: 0 };
   if (!(await isProcessAlive(status.pid))) return { alive: false, pid: 0 };
   return { alive: true, pid: status.pid };
+}
+
+const tunnelRuntimePath = path.join(ROOT, ".sfmc", "tunnel.runtime.json");
+
+async function probeTunnelRuntime(): Promise<number> {
+  const pid = readJson<{ pid?: number }>(tunnelRuntimePath)?.pid;
+  return typeof pid === "number" && pid > 0 && (await isProcessAlive(pid)) ? pid : 0;
+}
+
+function writeTunnelRuntime(pid: number): void {
+  fs.mkdirSync(path.dirname(tunnelRuntimePath), { recursive: true });
+  fs.writeFileSync(tunnelRuntimePath, JSON.stringify({ pid, startedAt: Date.now() }) + "\n");
+}
+
+function clearTunnelRuntime(pid: number): void {
+  if (readJson<{ pid?: number }>(tunnelRuntimePath)?.pid !== pid) return;
+  try {
+    fs.unlinkSync(tunnelRuntimePath);
+  } catch {
+    /* 进程退出时允许文件已被移除 */
+  }
 }
 
 interface ServiceDef {
@@ -200,6 +222,7 @@ class Service {
         return { status: "already" };
       }
     }
+    if (this.name === "tunnel" && (await probeTunnelRuntime())) return { status: "already" };
     if (this.def.validate) {
       const v = this.def.validate();
       if (v) {
@@ -232,6 +255,7 @@ class Service {
     if (this.name === "bds" && this.pid > 0) {
       writeBdsPidFile(this.pid, ROOT);
     }
+    if (this.name === "tunnel" && this.pid > 0) writeTunnelRuntime(this.pid);
     this.events.emit("output", `started (PID ${this.pid})`, "info");
     this.events.emit("state", { name: this.name, running: true, pid: this.pid });
 
@@ -254,6 +278,7 @@ class Service {
       this.events.emit("output", `process error: ${e.message}`, "error");
       reportExit();
       this.cleanup();
+      this.scheduleRestart();
     });
 
     let versionLineBuffer = "";
@@ -279,18 +304,21 @@ class Service {
       this.events.emit("output", `exited (code: ${code})`, "info");
       reportExit(code);
       this.cleanup();
-      if (!this.manualStop && !this.updateInProgress && this.def.autoRestart) {
-        this.restartTimer = setTimeout(() => {
-          this.restartTimer = null;
-          if (!this.updateInProgress && !this.manualStop && !this.running) {
-            void this.start().catch((e: Error) => {
-              this.events.emit("output", `restart failed: ${e.message}`, "error");
-            });
-          }
-        }, this.def.restartDelay);
-      }
+      this.scheduleRestart();
     });
     return { status: "started" };
+  }
+
+  private scheduleRestart(): void {
+    if (this.manualStop || this.updateInProgress || !this.def.autoRestart || this.restartTimer) return;
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = null;
+      if (!this.updateInProgress && !this.manualStop && !this.running) {
+        void this.start().catch((e: Error) => {
+          this.events.emit("output", `restart failed: ${e.message}`, "error");
+        });
+      }
+    }, this.def.restartDelay);
   }
 
   /** 更新器独立进程停服时，禁止将计划内退出当作崩溃并自动拉起。 */
@@ -309,8 +337,12 @@ class Service {
   }
 
   async stop(): Promise<void> {
-    if (!this.proc || !this.running) return;
     this.manualStop = true;
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+    if (!this.proc || !this.running) return;
     this.events.emit("output", "stopping...", "info");
 
     if (this.def.stopCommand && this.proc.stdin) {
@@ -342,6 +374,10 @@ class Service {
   forceStop(): void {
     const child = this.proc;
     this.manualStop = true;
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     this.cleanup();
     if (!child) return;
     try {
@@ -381,6 +417,7 @@ class Service {
         clearBdsPidFile(ROOT);
       }
     }
+    if (this.name === "tunnel" && exitingPid > 0) clearTunnelRuntime(exitingPid);
     if (wasRunning) {
       this.events.emit("state", { name: this.name, running: false, pid: 0 });
     }
@@ -408,6 +445,10 @@ function createServices(): Record<ServiceName, Service> {
   const qqEnabled = qqCfg.qq_enabled !== false;
   // 官方 Webhook 由云端接收；仅切换传输方式即可避免本机再启动一个桥。
   const qqExternal = !useLlbotBackend && qqCfg.official?.transport === "webhook";
+  const tunnelCfg = qqCfg.official?.tunnel;
+  const tunnelEnabled = qqEnabled && qqExternal && tunnelCfg?.enabled === true;
+  const tunnelHost = String(tunnelCfg?.host ?? "").trim();
+  const tunnelRemotePort = tunnelCfg?.remotePort ?? 13001;
   const llbotEnabled = qqCfg.llbot?.enabled !== false;
   const llbotLaunch = resolveLlbotLaunch(qqCfg.llbot?.path, qqCfg.llbot?.cwd);
   const llbotPath = llbotLaunch.exe;
@@ -462,6 +503,32 @@ function createServices(): Record<ServiceName, Service> {
       env: { DB_PORT: String(dbPort) },
     }),
 
+    tunnel: new Service({
+      name: "tunnel",
+      title: "QQ SSH Tunnel",
+      cmd: "ssh",
+      args: [
+        "-N", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+        "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30",
+        "-o", "ServerAliveCountMax=3",
+        "-R", `127.0.0.1:${tunnelRemotePort}:127.0.0.1:${dbPort}`,
+        tunnelHost,
+      ],
+      cwd: ROOT,
+      stopTimeout: 10000,
+      autoRestart: true,
+      restartDelay: 5000,
+      optional: !tunnelEnabled,
+      validate: () => {
+        if (!tunnelEnabled) return "QQ tunnel disabled (official webhook tunnel.enabled=false)";
+        if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(tunnelHost)) return "invalid official.tunnel.host";
+        if (!Number.isInteger(tunnelRemotePort) || tunnelRemotePort < 1 || tunnelRemotePort > 65535) {
+          return "invalid official.tunnel.remotePort";
+        }
+        return null;
+      },
+    }),
+
     qq: new Service({
       name: "qq",
       title: qqTitle,
@@ -512,7 +579,7 @@ export function refreshServices(): void {
   services = createServices();
 }
 
-export const START_ORDER: ServiceName[] = ["db", "qq", "llbot", "bds"];
+export const START_ORDER: ServiceName[] = ["db", "tunnel", "qq", "llbot", "bds"];
 
 export async function startAll(): Promise<StartAllResult> {
   const result: StartAllResult = { started: [], skipped: [], failed: [] };
@@ -540,7 +607,7 @@ export async function stopAll(): Promise<void> {
   const pending = [...START_ORDER]
     .reverse()
     .map((name) => services[name])
-    .filter((service): service is Service => Boolean(service?.running))
+    .filter((service): service is Service => Boolean(service))
     .map((service) => service.stop());
   await Promise.allSettled(pending);
 }
@@ -651,6 +718,18 @@ export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
               ownership = "external";
             }
           }
+        }
+      } else if (name === "tunnel") {
+        const managed = await reconcileManagedAlive(service);
+        if (managed) {
+          running = true;
+          pid = service.pid;
+          uptime = service.uptime;
+          ownership = "managed";
+        } else {
+          pid = await probeTunnelRuntime();
+          running = pid > 0;
+          if (running) ownership = "external";
         }
       } else {
         const managed = await reconcileManagedAlive(service);

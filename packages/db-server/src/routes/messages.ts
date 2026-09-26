@@ -3,7 +3,7 @@
  *
  * 路由列表：
  *   GET  /api/sfmc/messages — 模糊/过滤查询消息
- *   POST /api/sfmc/messages — 批量 INSERT OR REPLACE 消息（匹配 bridge 频道时转发至 QQ）
+ *   POST /api/sfmc/messages — 批量 INSERT OR REPLACE 消息（按频道开关转发至 QQ）
  */
 
 import { SQL } from "sql-template-strings";
@@ -13,20 +13,17 @@ interface Deps {
   query: QueryFn;
   body: (req: import("http").IncomingMessage) => Promise<Record<string, unknown>>;
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
-  forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) => void;
-  /** 当前桥接频道；空则不做 MC→QQ 聊天出站（事件通道不受影响） */
-  getBridgeChannelId: () => string;
+  forwardToQQBridge: (channelId: string, prefix: string, fromName: string, content: string, fromId: string) => void;
+  /** 查询来源频道的前缀和 QQ 转发开关。 */
+  getChannelForQQ: (channelId: string) => { prefix: string; type: string; forward_to_qq: number } | null;
 }
 
 /** 是否应将本条消息推到 QQ 群 */
 export function shouldForwardChatToQQ(
-  bridgeChannelId: string,
-  channelId: string,
+  channel: { type: string; forward_to_qq: number } | null,
   fromId: string
 ): boolean {
-  const bridge = String(bridgeChannelId ?? "").trim();
-  if (!bridge) return false;
-  if (String(channelId ?? "").trim() !== bridge) return false;
+  if (!channel || channel.type === "system" || channel.forward_to_qq !== 1) return false;
   const fid = String(fromId ?? "").trim();
   // 无发送者 id 不出站（避免解析失败时误推）
   if (!fid) return false;
@@ -35,7 +32,7 @@ export function shouldForwardChatToQQ(
   return true;
 }
 
-function createMessagesRoutes({ query, body, json, forwardToQQBridge, getBridgeChannelId }: Deps) {
+function createMessagesRoutes({ query, body, json, forwardToQQBridge, getChannelForQQ }: Deps) {
   return async function handle({
     path,
     method,
@@ -90,12 +87,19 @@ function createMessagesRoutes({ query, body, json, forwardToQQBridge, getBridgeC
               )`
           );
         }
-        const bridgeId = getBridgeChannelId();
         for (const m of messages as Array<Record<string, unknown>>) {
           const channelId = String(m.channelId ?? "");
           const fromId = String(m.fromid ?? "");
-          if (!shouldForwardChatToQQ(bridgeId, channelId, fromId)) continue;
-          forwardToQQBridge(channelId, String(m.fromName ?? ""), String(m.content ?? ""), fromId);
+          if (!fromId.trim() || fromId.startsWith("qq_")) continue;
+          const channel = getChannelForQQ(channelId);
+          if (!shouldForwardChatToQQ(channel, fromId)) continue;
+          forwardToQQBridge(
+            channelId,
+            channel!.prefix || channelId,
+            String(m.fromName ?? ""),
+            String(m.content ?? ""),
+            fromId
+          );
         }
         json(res, { success: true });
       } else {

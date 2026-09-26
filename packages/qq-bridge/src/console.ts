@@ -51,9 +51,8 @@ function showStatus(opts: ConsoleOptions): void {
     console.log(`  QQ 群号:     ${cfg.qq_group_id || "未配置"}`);
     console.log(`  Bot self_id: ${botSelfIdRef.value || "未捕获"}`);
   }
-  console.log(`  Channel:     ${cfg.bridge_channel_id || "未配置"}`);
+  console.log("  Channel:     qq");
   console.log(`  db-server:   ${cfg.db_host}:${cfg.db_port}`);
-  console.log(`  MC→QQ 前缀:  ${cfg.mctoqq_prefix}`);
   console.log(`  MC→QQ 出站:  (由 db-server 按 qq_backend 直连)`);
 }
 
@@ -66,7 +65,7 @@ function handleCommand(line: string, opts: ConsoleOptions, rl: RLInterface): boo
     case "reload": {
       reloadInto(opts.config);
       log.info(
-        `配置已重载 (backend=${opts.config.qq_backend}, channel=${opts.config.bridge_channel_id}, db=${opts.config.db_host}:${opts.config.db_port})`
+        `配置已重载 (backend=${opts.config.qq_backend}, channel=qq, db=${opts.config.db_host}:${opts.config.db_port})`
       );
       log.warn("reload 只更新内存配置引用；切换 backend / AppID 需重启进程");
       return false;

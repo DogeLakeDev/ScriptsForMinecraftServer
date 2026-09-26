@@ -11,6 +11,7 @@ export const SEND_TARGET_ORDER: readonly ServiceName[] = ["bds", "db", "qq", "ll
 const SHORT: Record<ServiceName, string> = {
   bds: "BDS",
   db: "DB",
+  tunnel: "TUNNEL",
   qq: "QQ",
   llbot: "LLBOT",
 };
@@ -19,6 +20,7 @@ const SHORT: Record<ServiceName, string> = {
 const BG: Record<ServiceName, string> = {
   bds: T.green,
   db: T.blue,
+  tunnel: T.cyan,
   qq: T.purple,
   llbot: T.yellow,
 };
@@ -52,4 +54,4 @@ export async function listActiveSendTargets(): Promise<ServiceName[]> {
   const running = new Set(rows.filter((r) => r.running).map((r) => r.name));
   return SEND_TARGET_ORDER.filter((n) => running.has(n));
 }
-
+

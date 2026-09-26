@@ -218,11 +218,6 @@ export class OfficialAtMessageDispatcher {
       if (await this.opts.commandRouter.handle(inbound)) return;
     }
 
-    if (!this.opts.db.channelId) {
-      log.warn("bridge_channel_id 未配置，跳过");
-      return;
-    }
-
     await this.forward(this.opts.db, fromId, fromName, text);
   }
 

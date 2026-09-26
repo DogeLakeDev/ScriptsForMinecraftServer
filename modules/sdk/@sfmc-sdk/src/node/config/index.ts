@@ -66,6 +66,8 @@ export interface QQBridgeConfig {
     sync_menu_panel?: boolean;
     admin_openids?: string[];
     webhook?: { port?: number; path?: string };
+    /** 云端 Webhook 回连本机 db-server 的 SSH 反向隧道，由 SFMC CLI 托管。 */
+    tunnel?: { enabled?: boolean; host?: string; remotePort?: number };
   };
   /** LLBot OneBot 设置。 */
   llbot?: {
@@ -79,10 +81,8 @@ export interface QQBridgeConfig {
     ws_port?: number;
     group_id?: string;
   };
-  bridge_channel_id?: string;
   db_host?: string;
   db_port?: number;
-  mctoqq_prefix?: string;
   /** 上下线/死亡/BDS 启停推群（节流） */
   qq_events?: QqEventsConfig;
   [key: string]: unknown;
@@ -227,8 +227,6 @@ export const DEFAULT_QQ_CONFIG: QQBridgeConfig = {
     ws_port: 3002,
     group_id: "0",
   },
-  bridge_channel_id: "",
-  mctoqq_prefix: "[MC]",
   qq_events: { ...DEFAULT_QQ_EVENTS },
 };
 

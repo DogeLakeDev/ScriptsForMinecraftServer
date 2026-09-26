@@ -25,14 +25,12 @@ type LLBotConfig = {
   port: number;
   token: string;
   groupId: string;
-  prefix: string;
 };
 
 export type OfficialOutboundConfig = {
   backend: "official";
   creds: QqOfficialCredentials;
   groupOpenid: string;
-  prefix: string;
 };
 
 export type LlbotOutboundConfig = {
@@ -53,14 +51,12 @@ export function makeLLBotConfig(env: {
   LLBOT_PORT: number;
   LLBOT_TOKEN: string;
   QQ_GROUP_ID: string;
-  MCTOQQ_PREFIX?: string;
 }): LLBotConfig {
   return {
     host: env.LLBOT_HOST,
     port: env.LLBOT_PORT,
     token: env.LLBOT_TOKEN,
     groupId: env.QQ_GROUP_ID,
-    prefix: env.MCTOQQ_PREFIX ?? "[MC]",
   };
 }
 
@@ -80,7 +76,6 @@ export function makeOutboundConfig(env: {
   QQ_APP_SECRET: string;
   QQ_SANDBOX: boolean;
   QQ_GROUP_OPENID: string;
-  MCTOQQ_PREFIX: string;
 }): OutboundConfig {
 
   if (env.QQ_BACKEND === "llbot") {
@@ -97,7 +92,6 @@ export function makeOutboundConfig(env: {
       sandbox: env.QQ_SANDBOX,
     },
     groupOpenid: env.QQ_GROUP_OPENID,
-    prefix: env.MCTOQQ_PREFIX || "[MC]",
   };
 }
 
@@ -192,22 +186,24 @@ export function sendGroupOutbound(config: OutboundConfig | LLBotConfig, text: st
 function forwardViaLlbot(
   config: LLBotConfig,
   channelId: string,
+  prefix: string,
   fromName: string,
   content: string,
   fromId: string
 ): void {
-  const text = `${config.prefix} ${fromName}: ${content}`;
+  const text = `[${prefix}] ${fromName}: ${content}`;
   sendViaLlbot(config, text, `from=${fromId}, channel=${channelId}`);
 }
 
 function forwardViaOfficial(
   config: OfficialOutboundConfig,
   channelId: string,
+  prefix: string,
   fromName: string,
   content: string,
   fromId: string
 ): void {
-  const text = `${config.prefix} ${fromName}: ${content}`;
+  const text = `[${prefix}] ${fromName}: ${content}`;
   sendViaOfficial(config, text, `from=${fromId}, channel=${channelId}`);
 }
 
@@ -223,6 +219,7 @@ function forwardViaOfficial(
 export function forwardToQQBridge(
   config: OutboundConfig | LLBotConfig,
   channelId: string,
+  prefix: string,
   fromName: string,
   content: string,
   fromId: string
@@ -230,12 +227,12 @@ export function forwardToQQBridge(
 
   // 兼容旧调用：直接传 LLBotConfig
   if (!("backend" in config)) {
-    forwardViaLlbot(config, channelId, fromName, content, fromId);
+    forwardViaLlbot(config, channelId, prefix, fromName, content, fromId);
     return;
   }
   if (config.backend === "llbot") {
-    forwardViaLlbot(config.llbot, channelId, fromName, content, fromId);
+    forwardViaLlbot(config.llbot, channelId, prefix, fromName, content, fromId);
     return;
   }
-  forwardViaOfficial(config, channelId, fromName, content, fromId);
+  forwardViaOfficial(config, channelId, prefix, fromName, content, fromId);
 }

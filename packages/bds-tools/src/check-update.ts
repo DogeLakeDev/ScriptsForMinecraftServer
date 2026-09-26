@@ -29,7 +29,7 @@ import {
   verifyBdsInstall,
   writeRollbackMarker,
 } from "./rollback.js";
-import { ensureEmitServerTelemetry, localizeServerProperties } from "./server-properties.js";
+import { ensureEmitServerTelemetry, ensureNetherNetTransport, localizeServerProperties } from "./server-properties.js";
 import { clearTaskbarProgress, isTaskbarSupported, setTaskbarProgress } from "./taskbar.js";
 import { emitUpdateKv, emitUpdateResult } from "./update-result.js";
 import {
@@ -426,8 +426,9 @@ export async function runUpdate(): Promise<number> {
   // 11. 恢复 preserves (zip 解压时这些目录可能被覆盖)
   await restorePreserves(bdsPath, backupInfo.path, preserve);
 
-  // 11b. 安装收尾：因 EULA 已同意，确保遥测开关；并将 server.properties 注释本地化
+  // 11b. 安装收尾：补齐必要配置，并将 server.properties 注释本地化
   ensureEmitServerTelemetry(bdsPath, log);
+  ensureNetherNetTransport(bdsPath, log);
   localizeServerProperties(bdsPath, { logger: log, rootDir: ROOT_DIR });
 
   // 12. 写入版本缓存

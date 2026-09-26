@@ -17,7 +17,7 @@ import { isMainModule } from "./is-main.js";
 import { loadConfig, ROOT_DIR } from "./paths.js";
 import { log } from "./log.js";
 import { postBdsLifecycleEvent } from "./qq-events-notify.js";
-import { ensureEmitServerTelemetry, localizeServerProperties } from "./server-properties.js";
+import { ensureEmitServerTelemetry, ensureNetherNetTransport, localizeServerProperties } from "./server-properties.js";
 import {
   clearBdsPidFile,
   findBedrockServerPids,
@@ -180,8 +180,9 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
       throw new Error(`BDS 可执行文件不存在: ${p.exePath}`);
     }
 
-    // 启动前幂等确保遥测开关与配置注释本地化（安装阶段也会写；旧目录首次启动时补上）
+    // 启动前补齐必要配置并本地化注释（安装阶段也会写；旧目录首次启动时补上）
     ensureEmitServerTelemetry(p.bdsPath, log);
+    ensureNetherNetTransport(p.bdsPath, log);
     localizeServerProperties(p.bdsPath, { logger: log, rootDir: ROOT_DIR });
     ensureBdsExecutable(p.exePath);
 

@@ -65,8 +65,6 @@ flowchart TD
     "ws_port": 3002,
     "group_id": "0"
   },
-  "bridge_channel_id": "main",
-  "mctoqq_prefix": "[MC] ",
   "qq_events": {
     "enabled": true,
     "window_sec": 60,
@@ -85,8 +83,6 @@ flowchart TD
 | 配置项                        | 适用后端 |      类型       |      默认值      | 作用说明                                                                      |
 | :---------------------------- | :------: | :-------------: | :--------------: | :---------------------------------------------------------------------------- |
 | `qq_backend`                  |   全局   |    `string`     |   `"official"`   | 后端选择：`"official"` 或 `"llbot"`。                                         |
-| `bridge_channel_id`           |   全局   |    `string`     |       `""`       | 游戏内双向互通的频道标识符（建议填 `"main"`）。留空则关闭游戏内普通聊天转发。 |
-| `mctoqq_prefix`               |   全局   |    `string`     |    `"[MC] "`     | 游戏内玩家发言转发至 QQ 群时的文本前缀。                                      |
 | `official.admin_openids`       | official |   `string[]`    |       `[]`       | 具备入服审批、踢人、远程开关白名单权限的管理员 OpenID 列表。                  |
 | `qq_events`                   |   全局   |    `object`     |       见上       | 进退服、阵亡与服务器崩溃重启等系统事件的聚合广播控制。                        |
 | `official.transport`          | official |    `string`     |  `"websocket"`   | `webhook` 时由云端接收事件并自动同步配置。                                    |
@@ -235,10 +231,10 @@ flowchart LR
 
 1. **QQ $\to$ 游戏**：
    - 官方端中，**仅转发群成员 @机器人 后的聊天内容**，避免普通灌水刷屏污染游戏。
-   - `qq-link` 模块轮询获取后，在游戏内向所有在线玩家发送广播：`§b[QQ] 昵称§r: 消息内容`。
+   - 聊天模块轮询内置的 `qq` 频道并向订阅玩家展示消息。该频道默认向全体玩家订阅，且所有玩家都不能在其中发言。
 2. **游戏 $\to$ QQ**：
    - 玩家在游戏内的普通发言（自动过滤以 `!` 或 `！` 开头的指令消息）会被打包发送至 `POST /api/sfmc/messages`。
-   - `db-server` 核验频道一致性（`channelId === bridge_channel_id`）后，带上 `[MC]` 前缀推入 QQ 群。
+   - `db-server` 读取来源频道的「转发到 QQ」开关，开启时使用该频道前缀推入 QQ 群。新频道默认开启，可在频道设置中关闭。
 3. **防循环与去重机制（Anti-Looping）**：
    - 严格拦截并丢弃机器人自身发送的消息。
    - 底层设有 **5 秒滑动窗口消息 ID 去重缓存**，彻底杜绝多端回环与重复轰炸。

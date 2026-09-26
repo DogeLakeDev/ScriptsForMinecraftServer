@@ -117,10 +117,8 @@ export interface QQBridgeConfig {
   qq_sync_menu_panel: boolean;
   qq_ws_port: number;
   qq_group_id: string;
-  bridge_channel_id: string;
   db_host: string;
   db_port: number;
-  mctoqq_prefix: string;
   /** LLBot 字段(由 config.ts#applyDefaults 之外的 raw 透传补齐)。 */
   llbot_enabled?: boolean;
   llbot_path?: string;

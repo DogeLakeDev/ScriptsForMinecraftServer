@@ -19,6 +19,7 @@
  */
 
 import http from "node:http";
+import { SQL } from "sql-template-strings";
 
 import { createPlatformTables } from "./db-tables.js";
 import { initSchema } from "./domain/schema.js";
@@ -322,7 +323,6 @@ function currentOutbound() {
     QQ_APP_SECRET: env.QQ_APP_SECRET,
     QQ_SANDBOX: env.QQ_SANDBOX,
     QQ_GROUP_OPENID: env.QQ_GROUP_OPENID,
-    MCTOQQ_PREFIX: env.MCTOQQ_PREFIX,
   });
 }
 
@@ -349,9 +349,16 @@ const messagesRoutes = createMessagesRoutes({
   query,
   body,
   json,
-  getBridgeChannelId: () => String(env.QQ_BRIDGE_CHANNEL_ID ?? "").trim(),
-  forwardToQQBridge: (channelId: string, fromName: string, content: string, fromId: string) =>
-    forwardToQQBridge(currentOutbound(), channelId, fromName, content, fromId),
+  getChannelForQQ: (channelId: string) => {
+    const rows = query(
+      SQL`SELECT prefix, type, forward_to_qq FROM sfmc_chat_channels WHERE id = ${channelId}`
+    );
+    return Array.isArray(rows)
+      ? (rows[0] as { prefix: string; type: string; forward_to_qq: number } | undefined) ?? null
+      : null;
+  },
+  forwardToQQBridge: (channelId: string, prefix: string, fromName: string, content: string, fromId: string) =>
+    forwardToQQBridge(currentOutbound(), channelId, prefix, fromName, content, fromId),
 });
 const configRoutes = createConfigRoutes({
   json,

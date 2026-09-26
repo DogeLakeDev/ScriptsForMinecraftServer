@@ -2,7 +2,7 @@
  * server-properties.ts — BDS server.properties 辅助工具集
  *
  * 职责：
- * 1. 安装/启动时确保 emit-server-telemetry=true
+ * 1. 安装/启动时确保 emit-server-telemetry=true 与 transport=nethernet
  * 2. 安装/更新/启动时支持将配置注释结构化本地化（如翻译为简体中文 zh-CN），
  *    严格保留所有配置键（Key）与用户配置值（Value）。
  */
@@ -14,6 +14,7 @@ import { getServerPropertyDoc } from "./server-properties-i18n.js";
 
 export const EMIT_SERVER_TELEMETRY_KEY = "emit-server-telemetry";
 export const EMIT_SERVER_TELEMETRY_LINE = "emit-server-telemetry=true";
+export const NETHERNET_TRANSPORT_LINE = "transport=nethernet";
 
 export type ServerPropertiesLogger = {
   info: (msg: string) => void;
@@ -45,6 +46,24 @@ export function ensureEmitServerTelemetry(
   logger?.info(
     "已向 server.properties 追加 emit-server-telemetry=true（因您已同意 Mojang EULA，按协议启用服务器遥测）"
   );
+  return true;
+}
+
+/** 缺少传输方式时补上当前 BDS 所需的 NetherNet，保留服主已有设置。 */
+export function ensureNetherNetTransport(
+  bdsRoot: string,
+  logger?: ServerPropertiesLogger
+): boolean {
+  const file = serverPropertiesPath(bdsRoot);
+  if (!fs.existsSync(file)) return false;
+
+  let text = fs.readFileSync(file, "utf8");
+  if (/^\s*transport\s*=/im.test(text)) return false;
+
+  if (text.length > 0 && !text.endsWith("\n")) text += "\n";
+  text += `${NETHERNET_TRANSPORT_LINE}\n`;
+  fs.writeFileSync(file, text, "utf8");
+  logger?.info("已向 server.properties 追加 transport=nethernet");
   return true;
 }
 

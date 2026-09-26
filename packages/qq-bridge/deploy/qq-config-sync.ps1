@@ -57,7 +57,6 @@ function New-SyncPayload($config) {
       admin_openids = @($config.official.admin_openids | Where-Object { $null -ne $_ })
       sync_menu_panel = ($config.official.sync_menu_panel -ne $false)
     }
-    bridge_channel_id = [string]$config.bridge_channel_id
     public_server = [ordered]@{
       address = [string]$publicServer.address
       port = $publicPort
