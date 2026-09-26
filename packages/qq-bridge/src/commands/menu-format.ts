@@ -13,7 +13,8 @@ export function pickDisplayLabel(cmd: RegisteredCommand, maxChars = 8): string {
     channel: "聊天互通",
     ping: "连接检查",
   };
-  if (labels[cmd.name]) return labels[cmd.name].slice(0, maxChars);
+  const label = labels[cmd.name];
+  if (label) return label.slice(0, maxChars);
   const candidates = [cmd.name, ...cmd.aliases].map((name) => name.replace(/^[/／]+/, "").trim()).filter(Boolean);
   return (candidates.find((name) => /[\u4e00-\u9fff]/.test(name)) ?? candidates[0] ?? cmd.name).slice(0, maxChars);
 }
