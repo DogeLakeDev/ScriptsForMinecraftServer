@@ -84,3 +84,7 @@
 - 发布鉴权采用 GitHub Actions；本机 `pnpm login` / `pnpm whoami` 不是必要发布门禁。GitHub Secrets 清单已核实主仓有 `NPM_TOKEN` 和 `SFMC_GITHUB_TOKEN`（仅确认名称，未读取值）。主仓 Changesets workflow 可使用这些 secret 创建 Version PR 与发布平台包。
 - 19 个独立模块仓的 GitHub Secrets 清单均无 `NPM_TOKEN`，而各仓当前 release workflow 在发布前要求它；因此模块独立发布通道尚不能使用。需在模块仓配置发布凭据，或完成并验证由主仓集中发布的工作流。现有 `id-token: write` 尚未接入 npm Trusted Publishing，不能当作已配置的无 token 发布通道。
 - 主仓新增手动 `module-publish` 工作流：只接受 19 个已知模块、模块仓 `main` 上的完整提交 SHA 和与 `package.json` 一致的正式版本；默认只运行凭据、pnpm 检查与打包。dry run 会用主仓的 `NPM_TOKEN` 查询 npm 登录态，并核对 `SFMC_GITHUB_TOKEN` 对模块仓的推送权限；实际发布时再用它们发布 npm 包、创建标签与 Release。此流程尚待推送后的 dry run 和首包发布复验；各模块仓原有独立发布 workflow 仍依赖本仓未配置的 secret，应在集中发布路径验证后统一收敛。
+- GitHub CLI 已完成 `workflow` scope 补充授权。主仓准备 PR #109 通过 Ubuntu/Windows CI 后合并，主仓 `module-publish` 工作流已在默认分支启用。`activity-log` 模块主分支提交 `35c33e4` 的集中发布 dry run 成功：npm 凭据、跨仓推送权限、pnpm 安装、类型检查、lint、既有测试与打包均通过；发布步骤按预期跳过。
+- 18 个模块仓的 pnpm/CI 准备 PR 均通过各自 CI 并已合并。`qq-link` 暂未纳入：旧主分支使用当前 `@minecraft/server-admin` 已移除的 `dedicatedServer` 与 `kickPlayer`，类型检查失败；工作区中的新实现还需真实 BDS 验收。隔离检出的本机测试还遇到 Node 26 的 `uv_os_get_passwd ENOMEM`，不能把测试启动失败当作功能结果。
+- 主仓隔离候选检出已退出 Changesets beta pre 模式，生成正式版候选：SDK/CLI/BDS 工具/db-server/QQ 桥接/聚合包/tools 为 `0.2.0`，eslint-plugin 为 `0.1.1`，create-module 为 `0.1.0`，devkit 为 `1.0.0`。同时修复 VS Code 扩展创建模块菜单的类型字段冲突。候选的 pnpm 安装、构建、整仓类型检查、lint（0 error）、平台 verify（12/12）与 9 包打包检查通过；聚合包 tgz 内部依赖均解析为 `0.2.0`。
+- 正式版候选作为 Draft PR #111 提交，等待 CI 和运行验收。自动创建的 beta Version PR #110 不应合并；合并 #111 可能直接触发正式包发布，在部署、升级、回退与 BDS/客户端验收完成前保持 Draft。
