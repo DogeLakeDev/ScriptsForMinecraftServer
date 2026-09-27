@@ -93,3 +93,5 @@
 - 模块索引仓已通过 [Tanya7z/sfmc-modules#1](https://github.com/Tanya7z/sfmc-modules/pull/1) 切换 pnpm 并合并；合并后的索引发布工作流成功。索引本地校验、26 项既有测试和 19 项构建成功；公共 registry 网络校验显示 19 个索引记录的精确版本全部为 HTTP 404，需先发布模块包再更新索引。
 - 索引当前有 3 处版本差异：`activity-log` 和 `data-backup` 的索引为 `0.2.0`、候选包为 `0.2.1`；`qq-link` 的索引为 `0.2.0`、候选包为 `0.1.0`。正式发布模块后应按实际已发布版本修正，不能预先把未发布版本写成可安装。
 - 当前公共 npm registry 尚无平台候选的精确正式版本；`@sfmc-bds/sfmc` 与 SDK 的 `latest` 仍为 `0.1.0`。平台发布、npm `latest`、全新公共安装和客户端验收仍未完成。
+- 19 个模块的 `peerDependencies` 均接受候选 SDK `0.2.0`，未发现模块之间的直接 npm 依赖；模块发布顺序仍应排在 SDK 正式发布之后。模块开发依赖还锁在已存在的 SDK beta 区间，发布后可再逐仓切到正式 SDK 进行构建复验。
+- VS Code 扩展的模块发布按钮已去掉 npm 回退，仅调用 pnpm；QQ 桥接入口的安装者提示也改为 pnpm。扩展类型检查和 QQ 桥接构建通过。
