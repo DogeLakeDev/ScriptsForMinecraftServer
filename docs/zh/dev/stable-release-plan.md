@@ -105,3 +105,4 @@
 - 在隔离服务关闭后，将测试数据、配置、模块目录及测试世界冷备份并解压至另一测试目录；54 个文件逐项 SHA256 相同，恢复数据库 `PRAGMA integrity_check` 为 `ok`。从恢复目录启动候选 db-server 后，健康检查与 QQ 管理队列均返回成功，再正常停止。这只验证隔离样本的备份/恢复，不代表正式服历史数据迁移已经验收。
 - 平台正式版 PR #111 合并后，Changesets 工作流成功发布 9 个公开包，并建立对应 Git tag 和 GitHub Release；公共 registry 的精确版本与 `latest` 已逐项核对。隔离空目录以 pnpm 从公共 registry 安装 `@sfmc-bds/sfmc@0.2.0` 成功，直接运行其 CLI 的 `--version` 输出 `0.2.0`。升级文档中的旧 `sfmc version` 命令已改正。
 - 首个模块 `activity-log@0.2.1` 的集中工作流完成 npm 发布，但标签步骤误把 GitHub API 的 404 当作已有标签而失败；公共 registry 已返回该版本，缺失的 `v0.2.1` 标签和 GitHub Release 已补到发布提交 `35c33e4`。工作流正在修复后再发布其余模块。`qq-link` 主分支的集中 dry run 已成功。
+- `activity-log` 的标签缺失判断已在 PR #112 修复并合并。第二个模块 `afk@0.2.0` 完成 npm 发布后，GitHub 返回 403，证明主仓 `SFMC_GITHUB_TOKEN` 仍缺少模块仓创建标签所需的 Contents 写权限；它的标签和 Release 已由维护者登录态补齐。集中工作流改为默认只完成 npm 发布并明确提示维护者补齐跨仓元数据，待 token 权限补齐后可启用自动创建。
