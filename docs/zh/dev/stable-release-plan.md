@@ -102,3 +102,4 @@
 - 模块 manifest 的运行依赖应按拓扑顺序安装：基础模块 `activity-log`、`area`、`chat`、`economy`、`inventory-switcher` 等先到位，再安装依赖它们的 `coop`、`land`、`qa`、`chat-sounds`、`clean`、`fly-area`、`gamemode-area`、`peace-area`。这是运行时 `requires` 关系；npm 包本身没有跨模块依赖。
 - 旧 beta Version PR #110 已改为 Draft，避免候选验收期间误合并。
 - 隔离 BDS 和独立 db-server 再次启动，日志确认 `activity-log`、`feature-qq-link` 启动，且 HttpDB 连接独立端口 `30131`。本机客户端暂时无法连接测试服；用户要求跳过这次客户端实测，因此未绑定入服、绑定放行、踢人和重新进服仍是未验证的运行项，不记为通过。隔离服务已正常关闭，正式服未重启。
+- 在隔离服务关闭后，将测试数据、配置、模块目录及测试世界冷备份并解压至另一测试目录；54 个文件逐项 SHA256 相同，恢复数据库 `PRAGMA integrity_check` 为 `ok`。从恢复目录启动候选 db-server 后，健康检查与 QQ 管理队列均返回成功，再正常停止。这只验证隔离样本的备份/恢复，不代表正式服历史数据迁移已经验收。
