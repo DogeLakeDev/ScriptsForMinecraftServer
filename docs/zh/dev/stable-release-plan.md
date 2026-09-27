@@ -100,3 +100,5 @@
 - `qq-link` Draft PR #1 复核发现一条玩家可见的绑定错误文案被终端提示污染，现已修正；安装包也补齐 `configs-default/qq_link.json`，全新隔离安装能播种配置且 `check-modules OK`。候选包与 `activity-log` 一起在隔离 BDS 中完成启动，日志确认两个模块均已启用；没有玩家连接，因此绑定门槛、踢人和 QQ 实际投递仍待客户端与平台联调。`qq-link` 类型检查、lint（0 error）通过；原有 3 项测试在绕过本机 Node `os.userInfo()` 故障后通过，远程 Node 22 CI 成功。
 - 对 19 个模块的 `configKey` 与 tarball 文件清单做了逐项检查：`coop` 是唯一缺少 `configs-default/<configKey>.json` 的模块。其空配置文件已通过 [Tanya7z/sfmc-module-coop#2](https://github.com/Tanya7z/sfmc-module-coop/pull/2) 合并；pnpm pack 确认文件进入 tarball，CI 成功。修复在隔离 worktree 中完成，未覆盖合作社仓库原工作区的界面改动。
 - 模块 manifest 的运行依赖应按拓扑顺序安装：基础模块 `activity-log`、`area`、`chat`、`economy`、`inventory-switcher` 等先到位，再安装依赖它们的 `coop`、`land`、`qa`、`chat-sounds`、`clean`、`fly-area`、`gamemode-area`、`peace-area`。这是运行时 `requires` 关系；npm 包本身没有跨模块依赖。
+- 旧 beta Version PR #110 已改为 Draft，避免候选验收期间误合并。
+- 隔离 BDS 和独立 db-server 再次启动，日志确认 `activity-log`、`feature-qq-link` 启动，且 HttpDB 连接独立端口 `30131`。本机客户端暂时无法连接测试服；用户要求跳过这次客户端实测，因此未绑定入服、绑定放行、踢人和重新进服仍是未验证的运行项，不记为通过。隔离服务已正常关闭，正式服未重启。

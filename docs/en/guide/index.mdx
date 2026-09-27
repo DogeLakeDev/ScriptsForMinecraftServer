@@ -32,10 +32,10 @@ flowchart LR
 
 
 <Tabs>
-  <Tab label="npm (recommended)">
+  <Tab label="Global pnpm">
 
 ```bash
-pnpm add -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc
 mkdir my-server && cd my-server
 sfmc
 ```
@@ -54,7 +54,7 @@ sfmc
 </Tabs>
 
 :::tip Note
-Only **beta** is published today; install with `@beta`.  
+This installs the stable `latest` release. Add `@beta` only when you want a prerelease.
 Data defaults to the current directory; set `SFMC_ROOT` to use another root.  
 Build the monorepo once before first use.  
 Type `help` in the console for available commands.  

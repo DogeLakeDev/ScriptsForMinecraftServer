@@ -24,7 +24,7 @@ pnpm publish --tag beta
 向薄 index 开 PR：在 `sfmc-modules` 仓库的 `index.json` 增加条目（`id` / `npm` / 版本说明）。可用 GitHub CLI 自行开 PR。
 
 :::tip 提示
-当前生态以 **beta** 为主时，安装侧请写 `@beta` 或按你包上的 dist-tag 说明。
+正式版默认使用 npm `latest`；只有预发布包才在安装命令中显式指定对应的 dist-tag（例如 `@beta`）。
 
 :::
 
