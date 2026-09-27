@@ -88,3 +88,8 @@
 - 18 个模块仓的 pnpm/CI 准备 PR 均通过各自 CI 并已合并。`qq-link` 暂未纳入：旧主分支使用当前 `@minecraft/server-admin` 已移除的 `dedicatedServer` 与 `kickPlayer`，类型检查失败；工作区中的新实现还需真实 BDS 验收。隔离检出的本机测试还遇到 Node 26 的 `uv_os_get_passwd ENOMEM`，不能把测试启动失败当作功能结果。
 - 主仓隔离候选检出已退出 Changesets beta pre 模式，生成正式版候选：SDK/CLI/BDS 工具/db-server/QQ 桥接/聚合包/tools 为 `0.2.0`，eslint-plugin 为 `0.1.1`，create-module 为 `0.1.0`，devkit 为 `1.0.0`。同时修复 VS Code 扩展创建模块菜单的类型字段冲突。候选的 pnpm 安装、构建、整仓类型检查、lint（0 error）、平台 verify（12/12）与 9 包打包检查通过；聚合包 tgz 内部依赖均解析为 `0.2.0`。
 - 正式版候选作为 Draft PR #111 提交，等待 CI 和运行验收。自动创建的 beta Version PR #110 不应合并；合并 #111 可能直接触发正式包发布，在部署、升级、回退与 BDS/客户端验收完成前保持 Draft。
+- GitHub device login 过期后已重新授权；`gh auth status` 再次确认 `Tanya7z` 登录有效。Draft PR #111 的 Ubuntu、Windows smoke CI 均成功，保持 Draft 等待运行验收。
+- `qq-link` 功能修复和 pnpm 发布准备已作为 Draft PR [Tanya7z/sfmc-module-qq-link#1](https://github.com/Tanya7z/sfmc-module-qq-link/pull/1) 提交，CI 成功，仍需真实 BDS 验收后合并。
+- 模块索引仓已通过 [Tanya7z/sfmc-modules#1](https://github.com/Tanya7z/sfmc-modules/pull/1) 切换 pnpm 并合并；合并后的索引发布工作流成功。索引本地校验、26 项既有测试和 19 项构建成功；公共 registry 网络校验显示 19 个索引记录的精确版本全部为 HTTP 404，需先发布模块包再更新索引。
+- 索引当前有 3 处版本差异：`activity-log` 和 `data-backup` 的索引为 `0.2.0`、候选包为 `0.2.1`；`qq-link` 的索引为 `0.2.0`、候选包为 `0.1.0`。正式发布模块后应按实际已发布版本修正，不能预先把未发布版本写成可安装。
+- 当前公共 npm registry 尚无平台候选的精确正式版本；`@sfmc-bds/sfmc` 与 SDK 的 `latest` 仍为 `0.1.0`。平台发布、npm `latest`、全新公共安装和客户端验收仍未完成。
