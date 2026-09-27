@@ -136,7 +136,9 @@ jobs:
             echo "::error::主仓 SFMC_GITHUB_TOKEN 未配置"
             exit 1
           fi
-          existing="$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq .object.sha 2>/dev/null || true)"
+          if ! existing="$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq .object.sha 2>/dev/null)"; then
+            existing=""
+          fi
           if [ -n "${existing}" ] && [ "${existing}" != "${COMMIT}" ]; then
             echo "::error::${tag} 已指向其他提交"
             exit 1
