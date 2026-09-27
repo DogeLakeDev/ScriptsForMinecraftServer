@@ -7,7 +7,7 @@
 主仓 workspace 已包含。作者仓：
 
 ```bash
-npm i -D @sfmc-bds/eslint-plugin eslint @typescript-eslint/parser
+pnpm add -D @sfmc-bds/eslint-plugin eslint @typescript-eslint/parser
 ```
 
 ## Flat config
@@ -27,7 +27,7 @@ export default [
 
 更严：改用 `sfmc.configs.all`（部分 warn 升为 error）。
 
-主仓根 `eslint.config.js` 已接入；`pnpm run lint` / `npm run lint` 会先 build 插件再跑。
+主仓根 `eslint.config.js` 已接入；`pnpm run lint` 会先 build 插件再跑。
 
 ## 规则（recommended）
 
@@ -63,6 +63,4 @@ SFMC Module 扩展在 `package.json` 中通过 `extensionRecommendations` 推荐
 ```bash
 pnpm --filter @sfmc-bds/eslint-plugin run build
 pnpm --filter @sfmc-bds/eslint-plugin typecheck
-npm run build -w @sfmc-bds/eslint-plugin
-npm run typecheck -w @sfmc-bds/eslint-plugin
 ```

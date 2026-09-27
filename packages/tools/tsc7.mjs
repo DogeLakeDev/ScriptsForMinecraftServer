@@ -33,7 +33,7 @@ export function resolveNativeTsc() {
   try {
     pkgJson = require.resolve("@typescript/native/package.json");
   } catch {
-    throw new Error("未找到 @typescript/native（TypeScript 7）。请在仓库根目录执行 npm install。");
+    throw new Error("未找到 @typescript/native（TypeScript 7）。请在仓库根目录执行 pnpm install。");
   }
   return path.join(path.dirname(pkgJson), "bin", "tsc");
 }

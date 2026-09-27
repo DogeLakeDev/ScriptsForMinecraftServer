@@ -60,7 +60,7 @@ export async function runVerify(argv = process.argv.slice(2)) {
 
   if (reporter.ok) {
     try {
-      await withDbServer({ dataRoot: ROOT }, async (port) => {
+      await withDbServer({}, async (port) => {
         const platform = await assertPlatformDbApi(port);
         reporter.pass(`db-server 平台 API (modules=${platform.moduleCount})`);
 

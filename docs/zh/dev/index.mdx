@@ -29,7 +29,7 @@ flowchart LR
 | :--- | :--- | :--- |
 | **操作系统** | Windows 10 / 11 或 Linux (Ubuntu 22.04+) | 建议开发机配置好本地 Node.js 与 Git 环境。 |
 | **Node.js** | **`≥ 22.13.0`** (LTS) | 必须满足该版本以获得 Node 原生内置的 `node:sqlite` 支持。 |
-| **包管理** | **`pnpm`** (推荐) 或 `npm` | 主仓采用 pnpm workspaces；本地开发包严禁使用 `workspace:*` 外部依赖。 |
+| **包管理** | **`pnpm`** | 主仓采用 pnpm workspaces；本地开发包严禁使用 `workspace:*` 外部依赖。 |
 | **编辑器** | [Cursor](https://cursor.com/) 或 [VS Code](https://code.visualstudio.com/) | 搭配专属扩展体验最佳。 |
 
 ### 必备与推荐 VS Code / Cursor 扩展
@@ -52,7 +52,7 @@ flowchart LR
 
 ```bash
 # 模块作者开发最小闭环
-npm create @sfmc-bds/module@latest
+pnpm dlx @sfmc-bds/create-module@latest
 cd my-feature && pnpm install && pnpm run typecheck
 
 # 联调：通过 VS Code 扩展点击 "Link to SFMC Root"

@@ -439,74 +439,61 @@ async function fromLocal(id, source, flags) {
 }
 
 /**
- * `sfmc mod install <id>` 走 npm registry 的主路径。
+ * `sfmc mod install <id>` 走包 registry 的主路径，由 pnpm 下载。
  *
- * 入口：`npm install --prefix packages/<id> --omit=dev --no-save --no-package-lock <pkgName>`
+ * 入口：临时项目中执行 `pnpm add --prod --ignore-scripts <pkgName>`，再复制包文件。
  *   - 落地到 packages/<id>，不进主仓根 node_modules（隔离安装）
  *   - 成功后 upsert catalog/lock
- *   - 失败时把常见 npm 错误翻译成中文可读提示
+ *   - 失败时把常见 registry 错误翻译成中文可读提示
  * @param {string} id
  * @param {string} pkgName
  * @param {any} flags
  */
-async function fromNpm(id, pkgName, flags) {
+async function fromRegistry(id, pkgName) {
   const dir = await ensureTarget(id);
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  const { spawn: spawnChild } = await import("node:child_process");
-  await /** @type {Promise<void>} */ (
-    new Promise((resolve, reject) => {
-      const proc = spawnChild(
-        npmCmd,
-        [
-          "install",
-          "--prefix",
-          dir,
-          "--omit=dev",
-          "--no-save",
-          "--no-package-lock",
-          "--no-audit",
-          "--no-fund",
-          pkgName,
-        ],
-        { stdio: ["ignore", "pipe", "pipe"] }
-      );
-      let stderr = "";
-      proc.stderr?.on("data", (d) => {
-        stderr += d.toString();
-      });
-      proc.on("exit", (code) => {
-        if (code === 0) return resolve();
-        reject(new Error(translateNpmInstallError(pkgName, stderr)));
-      });
-      proc.on("error", (e) => reject(new Error(`spawn npm failed: ${e.message}`)));
-    })
-  );
-  console.log(`[fetch-module] installed ${id} from npm (${pkgName})`);
+  const os = await import("node:os");
+  const tmpPrefix = await fsp.mkdtemp(path.join(os.tmpdir(), "sfmc-pnpm-install-"));
+  try {
+    await installWithPnpm(tmpPrefix, pkgName);
+    const installed = findInstalledModule(tmpPrefix, id, pkgName);
+    if (!installed) throw new Error(`pnpm add 完成，但 ${pkgName} 中未找到模块 ${id}`);
+    await copyDir(installed, dir);
+  } catch (error) {
+    await removePackageTarget(dir);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(translatePnpmInstallError(pkgName, message));
+  } finally {
+    try {
+      await fsp.rm(tmpPrefix, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
+  }
+  console.log(`[fetch-module] installed ${id} from registry (${pkgName})`);
   console.log(`[fetch-module]   target: ${dir}`);
   afterInstall(id);
 }
 
 /**
- * 翻译常见 npm install 错误为中文可读 + 下一步动作。
+ * 翻译常见 pnpm registry 错误为中文可读 + 下一步动作。
  * @param {string} pkgName
  * @param {string} stderr
  */
-function translateNpmInstallError(pkgName, stderr) {
+function translatePnpmInstallError(pkgName, stderr) {
   const text = String(stderr || "");
-  if (/404 Not Found/i.test(text) || /not found/i.test(text)) {
-    return `npm 包未找到: ${pkgName}。请检查 manifest id / scope 拼写，或换 --from local:./<path>。`;
+  if (/ERR_PNPM_FETCH_404|404 Not Found|not found/i.test(text)) {
+    return `registry 中未找到包: ${pkgName}。请检查 manifest id / scope 拼写，或换 --from local:./<path>。`;
   }
-  if (/EACCES|permission/i.test(text)) {
-    return `npm 权限错误: ${pkgName}。检查 npm registry 登录态或 token 权限。`;
+  if (/ERR_PNPM_FETCH_401|ERR_PNPM_FETCH_403|EACCES|permission/i.test(text)) {
+    return `registry 权限错误: ${pkgName}。检查 pnpm registry 登录态或 token 权限。`;
   }
-  if (/ERESOLVE/i.test(text)) {
-    return `npm 依赖冲突: ${pkgName}。提示: 用 --legacy-peer-deps 重试，或先确认 SDK/宿主版本兼容。`;
+  if (/ERR_PNPM_PEER_DEP_ISSUES|ERESOLVE/i.test(text)) {
+    return `依赖冲突: ${pkgName}。请先确认 SDK/宿主版本兼容。`;
   }
-  if (/ETIMEDOUT|ECONNRESET|ENOTFOUND/i.test(text)) {
-    return `npm 网络错误: ${pkgName}。检查代理 / 网络；或离线用 --from local:<tgz|dir>。`;
+  if (/ETIMEDOUT|ECONNRESET|ENOTFOUND|ERR_PNPM_FETCH/i.test(text)) {
+    return `registry 网络错误: ${pkgName}。检查代理 / 网络；或离线用 --from local:<tgz|dir>。`;
   }
-  /* 默认透传原始 stderr（保留 npm 提示的修复建议） */
-  return `npm install ${pkgName} 失败:\n${text.trim()}`;
+  return `pnpm add ${pkgName} 失败:\n${text.trim()}`;
 }
 
 /**
@@ -585,7 +572,7 @@ async function installLocalArtifact(id, absPath, flags, opts = {}) {
 
   const dir = await ensureTarget(id);
   if (isTgz) {
-    await extractTgz(absPath, dir);
+    await extractTgz(absPath, dir, id);
   } else {
     await unzip(absPath, dir);
   }
@@ -773,69 +760,134 @@ async function unzip(zipPath, dstDir) {
 }
 
 /**
- * 解 npm tarball（.tgz）到 packages/<id>。
- * 委托 `npm` 本身（DRY；不重新发明 tar）：`npm install <tarball>` 落临时 prefix，
- * 再拷贝到 packages/<id>。npm 已内置 tar-slip 防护。
+ * 解 package tarball（.tgz）到 packages/<id>。
+ * 委托 pnpm 在临时项目中安装并安全解包，再将包文件复制到模块目录。
  * @param {fs.PathLike} tgzPath
  * @param {string} dstDir
+ * @param {string} id
  */
-async function extractTgz(tgzPath, dstDir) {
+async function extractTgz(tgzPath, dstDir, id) {
   const os = await import("node:os");
-  const { spawn: spawnChild } = await import("node:child_process");
   const tmpPrefix = await fsp.mkdtemp(path.join(os.tmpdir(), "sfmc-tgz-"));
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  await new Promise((resolve, reject) => {
-    // @ts-ignore
-    const proc = spawnChild(npmCmd, ["install", "--prefix", tmpPrefix, "--omit=dev", "--no-save", tgzPath], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let stderr = "";
-    // @ts-ignore
-    proc.stderr?.on("data", (d) => {
-      stderr += d.toString();
-    });
-    // @ts-ignore
-    proc.on("exit", (code) =>
-      code === 0 ? resolve() : reject(new Error(`npm install tarball exit ${code}: ${stderr}`))
-    );
-    // @ts-ignore
-    proc.on("error", reject);
-  });
-  /* npm install <tarball> 把 package.json#name 当作目录名：
-   *   @scope/module-foo   → node_modules/@scope/module-foo
-   *   @scope/sfmc-module-foo → node_modules/@scope/sfmc-module-foo
-   * 我们从 tmpPrefix/node_modules 找出唯一的一个包目录，整体拷贝到 dstDir。
-   */
-  const installed = path.join(tmpPrefix, "node_modules");
-  if (!exists(installed)) {
-    throw new Error(`npm install tarball produced no node_modules: ${tmpPrefix}`);
-  }
-  let found = null;
-  for (const e of fs.readdirSync(installed, { withFileTypes: true })) {
-    if (e.isDirectory()) {
-      if (e.name.startsWith("@")) {
-        for (const sub of fs.readdirSync(path.join(installed, e.name), { withFileTypes: true })) {
-          if (sub.isDirectory()) {
-            found = path.join(installed, e.name, sub.name);
-            break;
-          }
-        }
-      } else if (e.isDirectory()) {
-        found = path.join(installed, e.name);
-      }
-    }
-    if (found) break;
-  }
-  if (!found) {
-    throw new Error(`npm install tarball: no package directory under ${installed}`);
-  }
-  await copyDir(found, dstDir);
-  /* 清理临时 prefix */
   try {
-    await fsp.rm(tmpPrefix, { recursive: true, force: true });
-  } catch {
-    /* best-effort */
+    await installWithPnpm(tmpPrefix, tgzPath);
+    const found = findInstalledModule(tmpPrefix, id);
+    if (!found) throw new Error(`pnpm add 已解包，但 tarball 中未找到模块 ${id}`);
+    await copyDir(found, dstDir);
+  } finally {
+    try {
+      await fsp.rm(tmpPrefix, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
+}
+
+/**
+ * 在临时项目中安装包，只读取 registry/tarball 内容，不执行包的生命周期脚本。
+ * @param {string} projectDir
+ * @param {string | fs.PathLike} packageSpec
+ */
+async function installWithPnpm(projectDir, packageSpec) {
+  await fsp.writeFile(
+    path.join(projectDir, "package.json"),
+    '{"name":"sfmc-module-install-tmp","version":"0.0.0","private":true}\n'
+  );
+  // @ts-ignore - cross-spawn resolves pnpm.cmd safely on Windows.
+  const spawnChild = (await import("cross-spawn")).default;
+  await new Promise((resolve, reject) => {
+    const proc = spawnChild(
+      "pnpm",
+      [
+        "--dir",
+        projectDir,
+        "add",
+        "--ignore-workspace",
+        "--config.auto-install-peers=false",
+        "--prod",
+        "--ignore-scripts",
+        String(packageSpec),
+      ],
+      { stdio: ["ignore", "ignore", "pipe"] }
+    );
+    let stderr = "";
+    proc.stderr?.on("data", (data) => {
+      stderr += data.toString();
+    });
+    proc.on("close", (code, signal) => {
+      if (code === 0) return resolve();
+      reject(
+        new Error(
+          code === null
+            ? `pnpm add terminated by ${signal || "unknown signal"}: ${stderr.trim()}`
+            : `pnpm add failed (${code}): ${stderr.trim()}`
+        )
+      );
+    });
+    proc.on("error", (error) => reject(new Error(`无法启动 pnpm: ${error.message}`)));
+  });
+}
+
+/**
+ * 从 pnpm 临时项目的 node_modules 中解析模块包真实目录。
+ * @param {string} projectDir
+ * @param {string} id
+ * @param {string} [packageSpec]
+ */
+function findInstalledModule(projectDir, id, packageSpec) {
+  const nodeModules = path.join(projectDir, "node_modules");
+  if (!exists(nodeModules)) return null;
+  /** @type {string[]} */
+  const candidates = [];
+  if (packageSpec) {
+    const packageName = packageNameFromSpec(String(packageSpec));
+    if (packageName) candidates.push(path.join(nodeModules, ...packageName.split("/")));
+  }
+  for (const entry of fs.readdirSync(nodeModules, { withFileTypes: true })) {
+    if (entry.name === ".bin" || entry.name === ".pnpm" || entry.name.startsWith(".")) continue;
+    const entryPath = path.join(nodeModules, entry.name);
+    if (entry.name.startsWith("@")) {
+      for (const scoped of fs.readdirSync(entryPath, { withFileTypes: true })) {
+        candidates.push(path.join(entryPath, scoped.name));
+      }
+    } else {
+      candidates.push(entryPath);
+    }
+  }
+  const seen = new Set();
+  for (const candidate of candidates) {
+    let real;
+    try {
+      real = fs.realpathSync(candidate);
+    } catch {
+      continue;
+    }
+    if (seen.has(real)) continue;
+    seen.add(real);
+    try {
+      const manifestPath = path.join(real, "sapi", "manifest.json");
+      const moduleId = exists(manifestPath)
+        ? String(JSON.parse(fs.readFileSync(manifestPath, "utf8")).id || "").replace(/^(feature|core)-/, "")
+        : "";
+      const pkgName = String(JSON.parse(fs.readFileSync(path.join(real, "package.json"), "utf8")).name || "");
+      if (moduleId === id || folderFromNpmPackageName(pkgName) === id) return real;
+    } catch {
+      /* ignore package entries without module metadata */
+    }
+  }
+  return null;
+}
+
+/** @param {string} spec */
+function packageNameFromSpec(spec) {
+  if (spec.startsWith("@")) {
+    const slash = spec.indexOf("/");
+    if (slash < 0) return null;
+    const versionSeparator = spec.indexOf("@", slash + 1);
+    return versionSeparator < 0 ? spec : spec.slice(0, versionSeparator);
+  }
+  const versionSeparator = spec.indexOf("@");
+  return versionSeparator < 0 ? spec : spec.slice(0, versionSeparator);
 }
 
 /**
@@ -880,7 +932,7 @@ async function installOne(id, flags) {
   if (from.startsWith("local:") || from === "local") return fromLocal(id, from, perFlags);
   if (from.startsWith("tgz:")) return fromTgz(id, from, perFlags);
   if (from.startsWith("zip:")) return fromZip(id, from, perFlags);
-  if (from.startsWith("npm:")) return fromNpm(id, from.slice("npm:".length), perFlags);
+  if (from.startsWith("npm:")) return fromRegistry(id, from.slice("npm:".length));
   if (from.startsWith("dir:")) {
     const base = from.slice("dir:".length);
     const candidate = path.join(base, id);

@@ -5,7 +5,7 @@ SFMC SQLite HTTP REST 后端：配置快照、模块启停、游戏数据路由�
 ## 安装
 
 ```bash
-npm install @sfmc-bds/db-server
+pnpm add @sfmc-bds/db-server
 node node_modules/@sfmc-bds/db-server/dist/index.js
 ```
 

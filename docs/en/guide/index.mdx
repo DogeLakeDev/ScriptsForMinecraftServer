@@ -35,7 +35,7 @@ flowchart LR
   <Tab label="npm (recommended)">
 
 ```bash
-npm i -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc@beta
 mkdir my-server && cd my-server
 sfmc
 ```
@@ -47,7 +47,6 @@ sfmc
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git
 cd ScriptsForMinecraftServer
 pnpm install && pnpm run build
-npm install && npm run build --workspaces --if-present
 sfmc
 ```
 
@@ -117,12 +116,10 @@ sfmc> mod reload
   </Tab>
   <Tab label="Develop your own module">
 
-Create with `npm create @sfmc-bds/module@latest`:
+Create with `pnpm dlx @sfmc-bds/create-module@latest`:
 
 ```bash
-npm create @sfmc-bds/module@latest
 cd my-feature && pnpm install && pnpm run typecheck
-cd my-feature && npm install && npm run typecheck
 ```
 
 Link into your SFMC workspace (module short id required). Authors use extension Link / Watch; on the server:

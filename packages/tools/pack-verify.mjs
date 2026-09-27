@@ -9,21 +9,29 @@ import {
   assertPublishPackageInWorkspaces,
 } from "./lib/npm-publish-packages.mjs";
 import { ROOT } from "./lib/paths.mjs";
-import { spawnNpmSync } from "./lib/proc.mjs";
+import { spawnPnpmSync } from "./lib/proc.mjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 /** @param {string[]} args */
-function runNpm(args) {
-  const r = spawnNpmSync(args, { cwd: ROOT });
+function runPnpm(args, cwd = ROOT) {
+  const r = spawnPnpmSync(args, { cwd });
   if (r.error) throw r.error;
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-runNpm(["run", "build", "--workspaces", "--if-present"]);
+runPnpm(["run", "build"]);
 
-for (const name of Object.keys(NPM_PUBLISH_PACKAGES)) {
-  assertPublishPackageInWorkspaces(name, ROOT);
-  console.log(`\n[pack:verify] npm pack -w ${name}`);
-  runNpm(["pack", "-w", name]);
+const packDir = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-pack-verify-"));
+try {
+  for (const [name, rel] of Object.entries(NPM_PUBLISH_PACKAGES)) {
+    assertPublishPackageInWorkspaces(name, ROOT);
+    console.log(`\n[pack:verify] pnpm pack ${name}`);
+    runPnpm(["pack", "--pack-destination", packDir], path.dirname(path.join(ROOT, rel)));
+  }
+} finally {
+  fs.rmSync(packDir, { recursive: true, force: true });
 }
 
 console.log(`\n[pack:verify] ok — ${Object.keys(NPM_PUBLISH_PACKAGES).length} packages`);

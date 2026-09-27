@@ -15,7 +15,7 @@ if (pending.length > 0) {
 }
 
 console.log("[changeset] 无待消费 changeset，启动交互式 changeset …");
-run("npx", ["changeset"]);
+run("pnpm", ["exec", "changeset"]);
 
 const after = listPendingChangesetFiles();
 if (after.length === 0) {

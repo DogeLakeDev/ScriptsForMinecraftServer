@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * npm create @sfmc-bds/module → npx @sfmc-bds/create-module
+ * pnpm dlx @sfmc-bds/create-module
  */
 
 import * as p from "@clack/prompts";
@@ -54,13 +54,12 @@ function parseArgs(argv: string[]) {
 
 function printHelp(): void {
   console.log(`用法:
-  npm create @sfmc-bds/module@latest
-  npx @sfmc-bds/create-module@latest [id] [dir]
+  pnpm dlx @sfmc-bds/create-module@latest [id] [dir]
 
 选项:
   --id <id>           模块短 id（kebab-case）
   --name <name>       显示名
-  --scope <scope>     社区 npm scope（不含 @）
+  --scope <scope>     社区包 scope（不含 @）
   --official          官方包 @sfmc-bds/module-<id>
   --extra db          附加 db 权限占位
   --out <dir>         输出目录（默认 ./<id>）
@@ -123,7 +122,7 @@ async function main(): Promise<void> {
 
     if (!official && !scope) {
       const kind = await p.select({
-        message: "npm 包范围",
+        message: "包范围",
         options: [
           { value: "community", label: "社区", hint: "@<scope>/sfmc-module-<id>" },
           { value: "official", label: "官方", hint: "@sfmc-bds/module-<id>" },
@@ -136,7 +135,7 @@ async function main(): Promise<void> {
       if (kind === "official") official = true;
       else {
         const s = await p.text({
-          message: "npm scope（不含 @）",
+          message: "scope（不含 @）",
           placeholder: "alice",
           validate: (x) => (!x?.trim() ? "必填" : undefined),
         });
@@ -211,8 +210,8 @@ async function main(): Promise<void> {
     p.note(
       [
         `cd ${path.relative(process.cwd(), result.targetDir) || "."}`,
-        "pnpm install  # 或 npm install",
-        "pnpm run typecheck  # 或 npm run typecheck",
+        "pnpm install",
+        "pnpm run typecheck",
         "",
         "联调：扩展 SFMC: Link to SFMC Root，或：",
         `sfmc mod install ${result.id} --from dir:${result.targetDir} --link`,

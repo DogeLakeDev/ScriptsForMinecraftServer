@@ -34,17 +34,14 @@ SFMC 希望通过模块化架构补充基岩版的原生开发体验。
 
 ## 快速开始
 
-### 使用 npm 安装
+### 使用 pnpm 安装
 
 ```bash
 # 检查 Node.js 版本（需要 v22.13+）
 node -v
 
-# 安装 SFMC CLI
-npm install -g @sfmc-bds/sfmc
-
-# Beta 版本
-npm install -g @sfmc-bds/sfmc@beta
+# 安装当前公测版 SFMC CLI
+pnpm add -g @sfmc-bds/sfmc@beta
 
 # 创建服务器目录
 mkdir my-server && cd my-server

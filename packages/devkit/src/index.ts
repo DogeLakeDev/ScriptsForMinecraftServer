@@ -1,6 +1,6 @@
 /**
  * @sfmc-bds/devkit — 模块作者工具核心（扩展 / CI 共用）
- * Watch / rebuild / 启停；建仓请用 @sfmc-bds/create-module（npm create @sfmc-bds/module）。
+ * Watch / rebuild / 启停；建仓请用 pnpm dlx @sfmc-bds/create-module。
  */
 
 export { resolveLocalModuleRoot } from "./paths.js";

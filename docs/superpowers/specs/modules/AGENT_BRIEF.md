@@ -5,8 +5,7 @@
 ## 1. 脚手架
 
 ```bash
-npm create @sfmc-bds/module@latest -- --official
-# 或: npx @sfmc-bds/create-module@latest --official
+pnpm dlx @sfmc-bds/create-module@latest --official
 ```
 
 - install id = 规格中的短名（kebab-case）

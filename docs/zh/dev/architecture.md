@@ -168,7 +168,7 @@ ScriptsForMinecraftServer/
 │   ├── devkit/                    # 模块文件监听（Watch）与脚手架转译引擎
 │   ├── cli/                       # @sfmc-bds/cli 终端交互与进程 Supervisor
 │   ├── meta/                      # @sfmc-bds/sfmc 全局命令行入口包装
-│   ├── create-module/             # npm create @sfmc-bds/module 脚手架生成器
+│   ├── create-module/             # pnpm dlx @sfmc-bds/create-module 脚手架生成器
 │   ├── sfmc-extension/            # VS Code / Cursor 官方开发专属扩展
 │   └── tools/                     # 仓内专用测试、验证与文档生成工具集
 └── docs/                          # 基于 Rspress 2 的多语言文档站源码

@@ -5,7 +5,7 @@
 建仓请用：
 
 ```bash
-npm create @sfmc-bds/module@latest
+pnpm dlx @sfmc-bds/create-module@latest
 ```
 
 ```ts

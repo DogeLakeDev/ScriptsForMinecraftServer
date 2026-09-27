@@ -19,7 +19,7 @@ ScriptsForMinecraftServer 平台 SDK。SAPI/Node umbrella,统一导出:
 ## 安装
 
 ```bash
-npm install @sfmc-bds/sdk
+pnpm add @sfmc-bds/sdk
 ```
 
 ## 模块作者使用

@@ -198,7 +198,7 @@ export const en = {
   "wizard.skipped": "Setup skipped",
   "wizard.step1": "Step 1 - Runtime Environment",
   "wizard.runtimeRoot": "Runtime root: {root}",
-  "wizard.npmMissing": "npm runtime is missing required directories: {list}",
+  "wizard.runtimeMissingAssets": "Runtime is missing required directories: {list}",
   "wizard.prepFailed": "Runtime preparation failed: {message}",
   "wizard.step2": "Step 2 - External Runtimes",
   "wizard.step2Note": "Select paths for BDS, Database, and QQ bridge backend",
