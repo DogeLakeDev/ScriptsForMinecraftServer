@@ -64,7 +64,7 @@ function spawnPackManager(args: string[]): Promise<SpawnResult> {
 }
 
 /* esbuild bundle —— JS bundler 是 in-process 库，不走 spawn。 */
-async function bundleBehaviorPackScript(): Promise<void> {
+async function bundleBehaviorPackScript(dbPort: number): Promise<void> {
   const mods = await scanLocalModules();
   const entries = mods.filter((m) => m.enabled && m.entryPath).map((m) => m.entryPath!);
   const outFile = path.join(bpSrc(), "scripts", "main.js");
@@ -105,7 +105,7 @@ async function bundleBehaviorPackScript(): Promise<void> {
         skipLibCheck: true,
       },
     }),
-    plugins: [createSdkResolvePlugin(sdkRoot)],
+    plugins: [createSdkResolvePlugin(sdkRoot, dbPort)],
   });
   pushLog(`esbuild bundled ${entries.length} entr(y/ies)`, "pack", "info");
 }
@@ -356,7 +356,7 @@ export async function buildModulePacks(force = false): Promise<BuildModulePacksR
     }
 
     pushLog(`building BP/RP (modules=${Object.keys(desired.modules).length})…`, "pack", "info");
-    await bundleBehaviorPackScript();
+    await bundleBehaviorPackScript(desired.dbPort);
 
     const mods = await scanLocalModules();
     const rpDirs: Record<string, string> = {};

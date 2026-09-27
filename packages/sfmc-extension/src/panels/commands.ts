@@ -155,8 +155,8 @@ export async function cmdNewModule(): Promise<void> {
 
   const kind = await vscode.window.showQuickPick(
     [
-      { label: "社区包", description: "@<scope>/sfmc-module-<id>", kind: "community" as const },
-      { label: "官方包", description: "@sfmc-bds/module-<id>", kind: "official" as const },
+      { label: "社区包", description: "@<scope>/sfmc-module-<id>", moduleKind: "community" as const },
+      { label: "官方包", description: "@sfmc-bds/module-<id>", moduleKind: "official" as const },
     ],
     { placeHolder: "npm 包范围" }
   );
@@ -164,7 +164,7 @@ export async function cmdNewModule(): Promise<void> {
 
   let scope: string | undefined;
   let official = false;
-  if (kind.kind === "official") {
+  if (kind.moduleKind === "official") {
     official = true;
   } else {
     scope = await vscode.window.showInputBox({
@@ -219,11 +219,10 @@ export async function cmdNewModule(): Promise<void> {
 
 function runPackageManager(
   cwd: string,
-  manager: "pnpm" | "npm",
   args: string[]
 ): Promise<{ ok: boolean; output: string; unavailable: boolean }> {
   return new Promise((resolve) => {
-    const cmd = process.platform === "win32" ? `${manager}.cmd` : manager;
+    const cmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
     const proc = spawn(cmd, args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -243,19 +242,6 @@ function runPackageManager(
       resolve({ ok: false, output: e.message, unavailable });
     });
   });
-}
-
-/** 依次尝试 pnpm、npm，执行 package.json 脚本（如 publish）。 */
-async function runPackageScript(
-  cwd: string,
-  args: string[]
-): Promise<{ ok: boolean; output: string; manager: "pnpm" | "npm" | null }> {
-  for (const manager of ["pnpm", "npm"] as const) {
-    const result = await runPackageManager(cwd, manager, args);
-    if (result.unavailable) continue;
-    return { ok: result.ok, output: result.output, manager };
-  }
-  return { ok: false, output: "未找到 pnpm 或 npm", manager: null };
 }
 
 /** Tree / 命令面板传入的模块根：字符串或带 modRoot 的节点。 */
@@ -302,26 +288,26 @@ export async function cmdPublishModule(modRootArg?: unknown): Promise<void> {
   if (!modRoot) modRoot = await pickModuleRoot();
   if (!modRoot) return;
   const confirm = await vscode.window.showWarningMessage(
-    `将在 ${modRoot} 执行 pnpm publish --access public（或 npm publish --access public）？`,
+    `将在 ${modRoot} 执行 pnpm publish --access public？`,
     { modal: true },
     "发布"
   );
   if (confirm !== "发布") return;
   ExtLog.show();
-  ExtLog.info("publish", `pnpm publish / npm publish --access public @ ${modRoot}`);
-  const r = await runPackageScript(modRoot, ["publish", "--access", "public"]);
-  ExtLog.raw("publish", r.output);
+  ExtLog.info("publish", `pnpm publish --access public @ ${modRoot}`);
+  const r = await runPackageManager(modRoot, ["publish", "--access", "public"]);
+  ExtLog.raw("publish", r.unavailable ? "未找到 pnpm" : r.output);
   if (r.ok) {
     const openDocs = "打开发布指南";
     const choice = await vscode.window.showInformationMessage(
-      "发布成功（pnpm publish / npm publish）。请向 sfmc-modules 的 index.json 开 PR。",
+      "发布成功（pnpm publish）。请向 sfmc-modules 的 index.json 开 PR。",
       openDocs
     );
     if (choice === openDocs) {
       await cmdOpenPublishGuide();
     }
   } else {
-    vscode.window.showErrorMessage("发布失败（pnpm publish / npm publish），见「SFMC 扩展」输出");
+    vscode.window.showErrorMessage("发布失败（pnpm publish），见「SFMC 扩展」输出");
   }
 }
 

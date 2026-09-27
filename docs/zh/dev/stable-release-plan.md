@@ -84,3 +84,22 @@
 - 发布鉴权采用 GitHub Actions；本机 `pnpm login` / `pnpm whoami` 不是必要发布门禁。GitHub Secrets 清单已核实主仓有 `NPM_TOKEN` 和 `SFMC_GITHUB_TOKEN`（仅确认名称，未读取值）。主仓 Changesets workflow 可使用这些 secret 创建 Version PR 与发布平台包。
 - 19 个独立模块仓的 GitHub Secrets 清单均无 `NPM_TOKEN`，而各仓当前 release workflow 在发布前要求它；因此模块独立发布通道尚不能使用。需在模块仓配置发布凭据，或完成并验证由主仓集中发布的工作流。现有 `id-token: write` 尚未接入 npm Trusted Publishing，不能当作已配置的无 token 发布通道。
 - 主仓新增手动 `module-publish` 工作流：只接受 19 个已知模块、模块仓 `main` 上的完整提交 SHA 和与 `package.json` 一致的正式版本；默认只运行凭据、pnpm 检查与打包。dry run 会用主仓的 `NPM_TOKEN` 查询 npm 登录态，并核对 `SFMC_GITHUB_TOKEN` 对模块仓的推送权限；实际发布时再用它们发布 npm 包、创建标签与 Release。此流程尚待推送后的 dry run 和首包发布复验；各模块仓原有独立发布 workflow 仍依赖本仓未配置的 secret，应在集中发布路径验证后统一收敛。
+- GitHub CLI 已完成 `workflow` scope 补充授权。主仓准备 PR #109 通过 Ubuntu/Windows CI 后合并，主仓 `module-publish` 工作流已在默认分支启用。`activity-log` 模块主分支提交 `35c33e4` 的集中发布 dry run 成功：npm 凭据、跨仓推送权限、pnpm 安装、类型检查、lint、既有测试与打包均通过；发布步骤按预期跳过。
+- 18 个模块仓的 pnpm/CI 准备 PR 均通过各自 CI 并已合并。`qq-link` 暂未纳入：旧主分支使用当前 `@minecraft/server-admin` 已移除的 `dedicatedServer` 与 `kickPlayer`，类型检查失败；工作区中的新实现还需真实 BDS 验收。隔离检出的本机测试还遇到 Node 26 的 `uv_os_get_passwd ENOMEM`，不能把测试启动失败当作功能结果。
+- 主仓隔离候选检出已退出 Changesets beta pre 模式，生成正式版候选：SDK/CLI/BDS 工具/db-server/QQ 桥接/聚合包/tools 为 `0.2.0`，eslint-plugin 为 `0.1.1`，create-module 为 `0.1.0`，devkit 为 `1.0.0`。同时修复 VS Code 扩展创建模块菜单的类型字段冲突。候选的 pnpm 安装、构建、整仓类型检查、lint（0 error）、平台 verify（12/12）与 9 包打包检查通过；聚合包 tgz 内部依赖均解析为 `0.2.0`。
+- 正式版候选作为 Draft PR #111 提交，等待 CI 和运行验收。自动创建的 beta Version PR #110 不应合并；合并 #111 可能直接触发正式包发布，在部署、升级、回退与 BDS/客户端验收完成前保持 Draft。
+- GitHub device login 过期后已重新授权；`gh auth status` 再次确认 `Tanya7z` 登录有效。Draft PR #111 的 Ubuntu、Windows smoke CI 均成功，保持 Draft 等待运行验收。
+- `qq-link` 功能修复和 pnpm 发布准备已作为 Draft PR [Tanya7z/sfmc-module-qq-link#1](https://github.com/Tanya7z/sfmc-module-qq-link/pull/1) 提交，CI 成功，仍需真实 BDS 验收后合并。
+- 模块索引仓已通过 [Tanya7z/sfmc-modules#1](https://github.com/Tanya7z/sfmc-modules/pull/1) 切换 pnpm 并合并；合并后的索引发布工作流成功。索引本地校验、26 项既有测试和 19 项构建成功；公共 registry 网络校验显示 19 个索引记录的精确版本全部为 HTTP 404，需先发布模块包再更新索引。
+- 索引当前有 3 处版本差异：`activity-log` 和 `data-backup` 的索引为 `0.2.0`、候选包为 `0.2.1`；`qq-link` 的索引为 `0.2.0`、候选包为 `0.1.0`。正式发布模块后应按实际已发布版本修正，不能预先把未发布版本写成可安装。
+- 当前公共 npm registry 尚无平台候选的精确正式版本；`@sfmc-bds/sfmc` 与 SDK 的 `latest` 仍为 `0.1.0`。平台发布、npm `latest`、全新公共安装和客户端验收仍未完成。
+- 19 个模块的 `peerDependencies` 均接受候选 SDK `0.2.0`，未发现模块之间的直接 npm 依赖；模块发布顺序仍应排在 SDK 正式发布之后。模块开发依赖还锁在已存在的 SDK beta 区间，发布后可再逐仓切到正式 SDK 进行构建复验。
+- VS Code 扩展的模块发布按钮已去掉 npm 回退，仅调用 pnpm；QQ 桥接入口的安装者提示也改为 pnpm。扩展类型检查和 QQ 桥接构建通过。
+- 新建了与现有世界分离的 BDS `1.26.51.1` 测试目录和 SFMC_ROOT；用 `activity-log` 0.2.1 的本地 tarball 安装、构建并部署聚合包。新世界经 `packs doctor --fix` 开启 Beta APIs 后，BDS 日志确认行为包加载、模块启动和数据库请求成功。测试环境使用独立端口与数据文件；为绕过测试机的微软在线服务连接失败使用离线模式，因此此结果不覆盖正式服在线鉴权或客户端验收。
+- 隔离运行首次发现：聚合行为包的 HttpDB 默认固定连接数据库端口 3001，未跟随 `configs/db_config.json#db_port`，导致测试包曾短暂连到本机已有数据库服务；测试服已立即关闭。候选已修复打包时注入配置端口并把端口纳入部署 catalog 比较，配置变更会触发重建。改用独立数据库后复验，BDS 日志确认连接到新端口并启动 `activity-log`；测试服务均已关闭。CLI 类型检查、构建和平台自检 12/12 通过。
+- `qq-link` Draft PR #1 复核发现一条玩家可见的绑定错误文案被终端提示污染，现已修正；安装包也补齐 `configs-default/qq_link.json`，全新隔离安装能播种配置且 `check-modules OK`。候选包与 `activity-log` 一起在隔离 BDS 中完成启动，日志确认两个模块均已启用；没有玩家连接，因此绑定门槛、踢人和 QQ 实际投递仍待客户端与平台联调。`qq-link` 类型检查、lint（0 error）通过；原有 3 项测试在绕过本机 Node `os.userInfo()` 故障后通过，远程 Node 22 CI 成功。
+- 对 19 个模块的 `configKey` 与 tarball 文件清单做了逐项检查：`coop` 是唯一缺少 `configs-default/<configKey>.json` 的模块。其空配置文件已通过 [Tanya7z/sfmc-module-coop#2](https://github.com/Tanya7z/sfmc-module-coop/pull/2) 合并；pnpm pack 确认文件进入 tarball，CI 成功。修复在隔离 worktree 中完成，未覆盖合作社仓库原工作区的界面改动。
+- 模块 manifest 的运行依赖应按拓扑顺序安装：基础模块 `activity-log`、`area`、`chat`、`economy`、`inventory-switcher` 等先到位，再安装依赖它们的 `coop`、`land`、`qa`、`chat-sounds`、`clean`、`fly-area`、`gamemode-area`、`peace-area`。这是运行时 `requires` 关系；npm 包本身没有跨模块依赖。
+- 旧 beta Version PR #110 已改为 Draft，避免候选验收期间误合并。
+- 隔离 BDS 和独立 db-server 再次启动，日志确认 `activity-log`、`feature-qq-link` 启动，且 HttpDB 连接独立端口 `30131`。本机客户端暂时无法连接测试服；用户要求跳过这次客户端实测，因此未绑定入服、绑定放行、踢人和重新进服仍是未验证的运行项，不记为通过。隔离服务已正常关闭，正式服未重启。
+- 在隔离服务关闭后，将测试数据、配置、模块目录及测试世界冷备份并解压至另一测试目录；54 个文件逐项 SHA256 相同，恢复数据库 `PRAGMA integrity_check` 为 `ok`。从恢复目录启动候选 db-server 后，健康检查与 QQ 管理队列均返回成功，再正常停止。这只验证隔离样本的备份/恢复，不代表正式服历史数据迁移已经验收。
