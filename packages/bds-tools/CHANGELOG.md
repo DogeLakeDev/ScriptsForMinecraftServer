@@ -1,5 +1,125 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.0
+
+### Minor Changes
+
+- c890a95: feat(bds-tools): 将 pack-update 域逻辑迁入 `@sfmc-bds/bds-tools/pack-update`
+
+  - 新增 `createPackUpdateApi(deps)` 依赖注入入口；版本策略 / CurseForge / 默认配置语义不变
+  - sfmc 保留薄封装注入 ROOT、i18n、theme、clack、logs
+
+- 8552772: chore: 删除已无仓内调用的公开兼容导出
+
+  破坏性（外部若仍 import 需改用替代）：
+
+  - `@sfmc-bds/cli`：移除 `serviceStatus`（用 `queryServicesRuntime`）、`HELP`（用 `getHelp`）、
+    `resolveDefaultsDir` / `seedMissingConfigsFromDefaults`、`CommandChannel: "external"` /
+    `PaletteEntry` / `listPaletteEntries` 等遗留表面。
+  - `@sfmc-bds/bds-tools`：移除已不抛出的 `Utf8BomError` 类及 re-export（读 JSON 仍自动剥 BOM）。
+
+- 06e0f19: \# feat/reactor：为CLI命令添加命令界面和帮助文本
+
+  \- 实现了command-surface.ts文件，用于定义CLI命令的规范、通道及可见性规则。
+
+  \- 创建了help-text.ts文件，根据命令在argv和REPL模式下的可见性提供帮助文档。
+
+  \- 引入了pack-update/index.ts文件，封装了包含必要依赖项和日志记录的包更新功能。
+
+  \- 添加了send-target.ts文件，用于在REPL中管理发送目标，包括服务状态和提示符样式。
+
+- 89ffceb: Linux BDS 宿主：按平台解析可执行文件与下载 URL，启动时设置 LD_LIBRARY_PATH；argv start 在 POSIX 上 daemonize；pgrep 用 -x 避免误匹配
+- cc6a12b: feat(bds-tools,cli): 增强 packs doctor 存档实验性玩法开关诊断与自愈配置
+
+  - `@sfmc-bds/bds-tools`: 支持检测与修改当前版本已知的全部实验性功能（测试版 API、创作者功能、创作者相机、Voxel形状、村民贸易再平衡、2026年第3次更新、Minecraft Education 功能），提供智能别名解析与安全的原子化 level.dat 修改与灾备。
+  - `@sfmc-bds/cli`: `packs doctor` 命令支持 `--experiments`、`--all-experiments`、`--experiments=<list>` 开关；在诊断视图中高亮直观展示当前存档的各实验性玩法启用状态。
+
+- 89ffceb: QQ 事件推群（节流）：join/leave/death 约 1 分钟聚合；BDS 启停立即推；配置 `qq_events`；出站复用现有 MC→QQ 通道
+- c890a95: feat(sfmc/bds-tools): CLI UX 分层、pack-update 迁出、OS 进程探活
+
+  - REPL：`/` + Ctrl+P 命令面板、左右光标、quit 干净退出
+  - argv：`sfmc i|install`、`sfmc -p …`；help 按通道标准化
+  - pack-update 迁入 `@sfmc-bds/bds-tools/pack-update`（CLI 薄封装）
+  - process-probe：外部 BDS 可识别；status 区分 managed/external
+
+### Patch Changes
+
+- 4a9b066: 修复 BDS 更新日志的版本匹配与官方文章链接，并在管道日志中保留下载条形进度。
+- 4a9b066: 修复运行中的 BDS 更新时被 CLI 崩溃自启提前拉起的问题，并在覆盖安装目录前确认服务已停止。
+- 050da7f: fix: BDS 原生依赖过滤与协商、模块作用域代理及数据库表结构解耦与自愈
+
+  - **bds-tools**: 引入 Bedrock 原生脚本模块白名单机制，过滤 npm 纯数据包；支持自动识别并启用 level.dat 中的 gametest beta 实验性玩法；增强 server.properties 中文本地化与幂等更新。
+  - **cli**: 行为包打包期与各模块原生依赖严格协商，协商提升 Bedrock 原生依赖至兼容最高版本；重构 esbuild SDK resolve 插件，为所有包含 `/sapi/` 的业务模块（含跨仓 symlink/junction）自动注入专属作用域虚拟代理，杜绝全局单例状态覆盖与越权。
+  - **db-server**: 精简 `initSchema`，移除非底座的业务模块表定义，实现平台核心底座表与业务模组私有表契约解耦；增强 `SchemaRegistry.createPhysical`，自动探测并安全清理历史旧版空表，支持存量表平滑自愈追加缺失列。
+  - **sdk**: 优化调试日志门面，显式格式化错误名称、信息与堆栈追踪；确保 SAPI 客户端安全注入请求头；修复 host bootstrap 导出边界以保证 Node 环境引用纯净。
+
+- 3714053: 发版：build-publishable 拓扑 + listPublishableBuildDeps（npm-publish 应急补发不再硬编码只 build SDK）；push 缺失态 DRY 对齐 listUnpushedExistingVersionTags。世界包：readPackDirOccupancy DRY，去掉死不变式，occupancy 保留真实 kind（LSP）。
+- 5ada90e: 修复 #80/#81 合并后 `scanDestOccupancy` 未赋值 `facts`、引用未声明标识符导致 tsc 构建失败；恢复经 `readPackDirOccupancy` 的 DRY 占用扫描。
+- 847bfcb: feat(sapi): 增强调试日志功能，支持 Sentry 接入，更新相关模块和文档
+- efa6e73: QQ 查服改用游戏实时在线玩家及世界信息，CLI 托管的 BDS 启停和异常退出现在上报事件。
+- f3ba416: 游戏聊天互通：MC→QQ 仅转发 `bridge_channel_id` 匹配且非 `qq_` 回环的 messages；QQ 指令「频道」只读提示；扫描 `modules/packages` 时跟随 symlink（修复 `--link` 在 Linux 下被当成非目录）
+- 89ffceb: 群服互通支持 QQ 开放平台官方 Bot（双后端可切回 LLBot）
+- efa6e73: 官方 QQ 机器人可选择 Webhook 接收事件；官方与 LLBot 配置改为分组对象。Webhook 模式自动跳过游戏机的桥进程，并安全同步共享配置到云端。群全量事件中的 `<@…>` 机器人提及也能正确触发指令面板命令。官方回复不再附带 LLBot 风格的编号和“发送：”列表。
+- efa6e73: 为 QQ 管理菜单增加可即时生效的服务器事件推送开关，并补充 BDS 正常停服通知。
+- c1de2a8: none
+- 847bfcb: feat(sapi): 增强 debug 门面（运行时开关 + DebugSink），经 @minecraft/diagnostics 可选接入 Sentry；BP manifest 声明 diagnostics/server-admin
+- f8cbe3b: none
+- b6f8adc: none
+- Updated dependencies [a5ccbd3]
+- Updated dependencies [e714f86]
+- Updated dependencies [4a9b066]
+- Updated dependencies [050da7f]
+- Updated dependencies [aadd2de]
+- Updated dependencies [8552772]
+- Updated dependencies [efa6e73]
+- Updated dependencies [74a27c7]
+- Updated dependencies [847bfcb]
+- Updated dependencies [aadd2de]
+- Updated dependencies [ea1e57e]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3465c7e]
+- Updated dependencies [4a9b066]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3c07ced]
+- Updated dependencies [c1de2a8]
+- Updated dependencies [847bfcb]
+- Updated dependencies [c72fdc8]
+- Updated dependencies [d9ded8f]
+- Updated dependencies [5a4eff6]
+- Updated dependencies [e175ed9]
+- Updated dependencies [29d6deb]
+- Updated dependencies [0992ab9]
+- Updated dependencies [f616527]
+- Updated dependencies [b81327a]
+- Updated dependencies [f312e8b]
+- Updated dependencies [f8cbe3b]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [b6f8adc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [16bba29]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [12b7dfc]
+- Updated dependencies [cf3293f]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+  - @sfmc-bds/sdk@0.2.0
+
 ## 0.2.0-beta.18
 
 ### Patch Changes
