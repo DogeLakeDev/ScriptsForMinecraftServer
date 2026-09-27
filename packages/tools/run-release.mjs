@@ -10,7 +10,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { ROOT, TOOLS_PKG_DIR } from "./lib/paths.mjs";
-import { spawnNpmSync } from "./lib/proc.mjs";
+import { spawnPnpmSync } from "./lib/proc.mjs";
 
 const TOOLS = TOOLS_PKG_DIR;
 
@@ -46,10 +46,10 @@ function runNode(rel, args = []) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-/** @param {string[]} args npm 参数（不含 npm 自身） */
-function runNpm(args) {
-  console.log(`\n[run-release] npm ${args.join(" ")}`);
-  const r = spawnNpmSync(args, { cwd: ROOT, env: process.env });
+/** @param {string[]} args pnpm 参数（不含 pnpm 自身） */
+function runPnpm(args) {
+  console.log(`\n[run-release] pnpm ${args.join(" ")}`);
+  const r = spawnPnpmSync(args, { cwd: ROOT, env: process.env });
   if (r.error) throw r.error;
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
@@ -71,7 +71,7 @@ if (mode === "pre") {
 }
 
 runNode("changeset-ensure.mjs");
-runNpm(["run", "version-packages"]);
+runPnpm(["run", "version-packages"]);
 runNode("changeset-commit-version.mjs");
 runNode("changeset-tag.mjs");
 runNode("changeset-push.mjs");

@@ -33,21 +33,6 @@ function quote(s) {
 }
 
 /**
- * 调用 npm CLI。Windows 上 npm 为 `.cmd`，`spawnSync("npm", …)` 无 shell 会 ENOENT；
- * 需 `shell: true`（参数由本仓固定传入，非用户拼接）。
- * @param {string[]} args npm 参数（不含 npm 自身）
- * @param {import("node:child_process").SpawnSyncOptions} [opts]
- * @returns {import("node:child_process").SpawnSyncReturns<Buffer | string>}
- */
-export function spawnNpmSync(args, opts = {}) {
-  return spawnSync("npm", args, {
-    stdio: "inherit",
-    shell: process.platform === "win32",
-    ...opts,
-  });
-}
-
-/**
  * 调用 pnpm CLI。Windows 上 pnpm 为 `.cmd`，需 `shell: true`。
  * @param {string[]} args pnpm 参数（不含 pnpm 自身）
  * @param {import("node:child_process").SpawnSyncOptions} [opts]

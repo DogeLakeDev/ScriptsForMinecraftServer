@@ -9,9 +9,9 @@ SAPI 模块 `{{id}}`。
 ## 开发
 
 ```bash
-pnpm install          # 或 npm install
-pnpm run typecheck    # 或 npm run typecheck
-pnpm run lint         # 或 npm run lint
+pnpm install
+pnpm run typecheck
+pnpm run lint
 ```
 
 ## 联调
@@ -23,5 +23,5 @@ pnpm run lint         # 或 npm run lint
 
 | 命令                               | 作用                           |
 | ---------------------------------- | ------------------------------ |
-| `pnpm run build` / `npm run build` | tsc --noEmit                   |
-| `pnpm run lint` / `npm run lint`   | ESLint / Prettier              |
+| `pnpm run build` | tsc --noEmit      |
+| `pnpm run lint`  | ESLint / Prettier |

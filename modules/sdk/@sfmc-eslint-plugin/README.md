@@ -7,7 +7,7 @@ SFMC 模块 / SDK 约定的 ESLint 插件，形态对齐 [`eslint-plugin-minecra
 主仓 workspace 已包含；sfmc-modules 通过 `file:` 依赖主仓路径。
 
 ```bash
-npm install -D @sfmc-bds/eslint-plugin
+pnpm add -D @sfmc-bds/eslint-plugin
 ```
 
 ## Flat config
@@ -63,7 +63,7 @@ export default [
 
 ```bash
 pnpm --filter @sfmc-bds/eslint-plugin run build
-npm run build -w @sfmc-bds/eslint-plugin
+pnpm --filter @sfmc-bds/eslint-plugin run build
 ```
 
 发布构建只包含插件源码；变更后运行构建、类型检查与 lint 验证。

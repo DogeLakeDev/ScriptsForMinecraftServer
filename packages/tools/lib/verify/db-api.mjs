@@ -8,7 +8,6 @@ const MODULE_FIELDS = [
   "id",
   "name",
   "config_key",
-  "type",
   "description",
   "default_enabled",
   "can_disable",

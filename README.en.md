@@ -84,7 +84,7 @@ Ensure **Node.js ≥ 22.13.0** is installed (required for native `node:sqlite` s
 
 ```bash
 # 1. Install SFMC CLI globally
-npm install -g @sfmc-bds/sfmc
+pnpm add -g @sfmc-bds/sfmc@beta
 
 # 2. Create and enter your server workspace
 mkdir my-bedrock-server && cd my-bedrock-server
@@ -105,7 +105,7 @@ You don't need to clone this monorepo! Scaffold your standalone module repositor
 
 ```bash
 # 1. Interactively scaffold your author repository
-npm create @sfmc-bds/module@latest
+pnpm dlx @sfmc-bds/create-module@latest
 
 # 2. Open the created project in VS Code or Cursor
 # 3. Install the official "SFMC Module" extension
@@ -127,7 +127,7 @@ This repository houses the SFMC core platform and tooling packages, organized wi
 | `packages/db-server` | `@sfmc-bds/db-server` | High-performance SQLite HTTP data hub, transaction engine, and token sandbox |
 | `packages/qq-bridge` | `@sfmc-bds/qq-bridge` | Tencent QQ Official Bot and OneBot 11 two-way communication gateway |
 | `packages/bds-tools` | `@sfmc-bds/bds-tools` | BDS version updater and add-on inbox deployment pipeline |
-| `packages/create-module` | `@sfmc-bds/create-module` | Official module scaffolding engine (`npm create @sfmc-bds/module`) |
+| `packages/create-module` | `@sfmc-bds/create-module` | Official module scaffolding engine (`pnpm dlx @sfmc-bds/create-module`) |
 | `packages/devkit` | `@sfmc-bds/devkit` | Incremental transpiler (esbuild), file watcher, and reload core |
 | `packages/sfmc-extension`| `@sfmc-bds/sfmc-extension` | Official VS Code / Cursor IDE extension ("SFMC Module") |
 | `packages/meta` | `@sfmc-bds/sfmc` | Meta-package aggregator distribution |

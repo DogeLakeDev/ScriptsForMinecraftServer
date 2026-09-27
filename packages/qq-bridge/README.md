@@ -14,7 +14,7 @@ QQ 侧指令（`菜单` / `ping` / `whoami`）在桥内拦截，不依赖 MC；o
 ## 安装
 
 ```bash
-npm install @sfmc-bds/qq-bridge
+pnpm add @sfmc-bds/qq-bridge
 node node_modules/@sfmc-bds/qq-bridge/dist/index.js
 ```
 

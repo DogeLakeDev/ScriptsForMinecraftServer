@@ -195,7 +195,7 @@ export const zhCN: Record<MessageKey, string> = {
   "wizard.skipped": "已跳过初始化",
   "wizard.step1": "步骤 1 - 运行环境",
   "wizard.runtimeRoot": "运行根目录: {root}",
-  "wizard.npmMissing": "npm 运行时缺少必需目录: {list}",
+  "wizard.runtimeMissingAssets": "运行环境缺少必需目录: {list}",
   "wizard.prepFailed": "运行环境准备失败: {message}",
   "wizard.step2": "步骤 2 - 外部运行时",
   "wizard.step2Note": "选择 BDS、数据库与 QQ 桥接后端",

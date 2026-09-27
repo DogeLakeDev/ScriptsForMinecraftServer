@@ -34,10 +34,10 @@ flowchart LR
 
 
 <Tabs>
-  <Tab label="npm（推荐）">
+  <Tab label="pnpm（推荐）">
 
 ```bash
-npm i -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc@beta
 mkdir my-server && cd my-server
 sfmc
 ```
@@ -49,7 +49,6 @@ sfmc
 git clone https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git
 cd ScriptsForMinecraftServer
 pnpm install && pnpm run build
-npm install && npm run build --workspaces --if-present
 sfmc
 ```
 
@@ -110,12 +109,10 @@ sfmc> mod reload
   </Tab>
   <Tab label="开发自己的模块">
 
-用 `npm create @sfmc-bds/module@latest` 建仓：
+用 `pnpm dlx @sfmc-bds/create-module@latest` 建仓：
 
 ```bash
-npm create @sfmc-bds/module@latest
 cd my-feature && pnpm install && pnpm run typecheck
-cd my-feature && npm install && npm run typecheck
 ```
 
 再在 SFMC 工作目录联调（须写明模块短名）；作者侧用扩展 Link / Watch，运维侧：

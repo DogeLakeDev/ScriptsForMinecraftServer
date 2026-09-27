@@ -29,11 +29,8 @@ i18n.json
 
 ```bash
 pnpm install
-npm install
-pnpm run docs -- serve
-npm run docs -- serve
-pnpm run docs -- build
-npm run docs -- build
+pnpm run docs serve
+pnpm run docs build
 ```
 
 ## 配置入口
@@ -52,4 +49,3 @@ npm run docs -- build
 ## 扩展 TypeDoc 入口
 
 在 `website/rspress.config.ts` 的 `pluginTypeDoc({ entryPoints })` 与根目录 `typedoc.json` 同步追加 SDK 公开入口。
-

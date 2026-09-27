@@ -8,9 +8,7 @@
 
 ```bash
 # 交互式初始化向导
-npm create @sfmc-bds/module@latest
-# 或使用 npx
-npx @sfmc-bds/create-module@latest
+pnpm dlx @sfmc-bds/create-module@latest
 ```
 
 向导将引导您填写并配置：
@@ -28,8 +26,6 @@ npx @sfmc-bds/create-module@latest
 ```bash
 cd my-feature
 pnpm install && pnpm run typecheck
-# 或使用 npm
-npm install && npm run typecheck
 ```
 
 ## 2. 工程规范与命名矩阵
@@ -50,10 +46,10 @@ SFMC 将模块开发划分为 5 个清晰阶段：
 
 ```mermaid
 flowchart LR
-  A[1. 脚手架建仓<br/>npm create] --> B[2. 类型与语法检查<br/>typecheck & lint]
+  A[1. 脚手架建仓<br/>pnpm dlx] --> B[2. 类型与语法检查<br/>typecheck & lint]
   B --> C[3. 挂接工作区<br/>--link 软链接]
   C --> D[4. 实时监听<br/>Watch & Hot Reload]
-  D --> E[5. 生态发布<br/>npm & 官方索引 PR]
+  D --> E[5. 生态发布<br/>pnpm publish & 官方索引 PR]
 ```
 
 ### ① 编写与静态检查（Type Safety & Lint）

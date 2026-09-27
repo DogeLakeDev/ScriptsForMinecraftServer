@@ -74,11 +74,11 @@ async function runBdsUpdate(rootDir: string, channel: string): Promise<{ code: n
 }
 
 async function prepareRuntimeAssets(rootDir: string): Promise<void> {
-  /* monorepo 布局：configs/ modules/ 应由 npm 工作区已提供 */
+  /* monorepo 布局：configs/ modules/ 应由 pnpm workspace 提供 */
   if (isMonorepoLayout(rootDir)) {
     const missing = missingRuntimeAssets(rootDir);
     if (missing.length > 0) {
-      throw new Error(t("wizard.npmMissing", { list: missing.join(", ") }));
+      throw new Error(t("wizard.runtimeMissingAssets", { list: missing.join(", ") }));
     }
     return;
   }

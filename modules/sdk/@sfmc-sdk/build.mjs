@@ -16,7 +16,7 @@ function runTsc7(args) {
   try {
     tsc7Entry = require.resolve("@sfmc-bds/tools/tsc7");
   } catch {
-    throw new Error("无法 resolve @sfmc-bds/tools/tsc7。请在 monorepo 根目录执行 npm install");
+    throw new Error("无法 resolve @sfmc-bds/tools/tsc7。请在 monorepo 根目录执行 pnpm install");
   }
   const result = spawnSync(process.execPath, [tsc7Entry, ...args], {
     stdio: "inherit",

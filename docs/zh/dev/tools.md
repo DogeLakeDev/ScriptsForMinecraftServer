@@ -6,15 +6,15 @@
 
 | 命令 | 作用 |
 |------|------|
-| `pnpm run verify` / `npm run verify` | 平台集成自检（CI 默认） |
+| `pnpm run verify` | 平台集成自检（CI 默认） |
 | `sfmc mod install <id>` | 安装模块（独立 SFMC 根，非主仓） |
-| `npm create @sfmc-bds/module@latest` | 建仓（`@sfmc-bds/create-module`） |
+| `pnpm dlx @sfmc-bds/create-module@latest` | 建仓（`@sfmc-bds/create-module`） |
 
 主仓默认 **不装业务模块**；catalog / lock 由用户环境里的 `mod install` 维护，主仓不再提供 `catalog-sync` / `check-modules` 入口。
 
 ## 发版
 
-日常：`pnpm run changeset` / `npm run changeset` → push `main` → Version Packages PR → 合并后 CI `ci-release-packages`。
+日常：`pnpm run changeset` → push `main` → Version Packages PR → 合并后 CI `ci-release-packages`。
 
 ## 共享库
 

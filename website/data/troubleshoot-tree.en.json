@@ -7,7 +7,7 @@
       "steps": [
         {
           "text": "Run platform integration verify at repo root to validate packages and dependencies:",
-          "code": "pnpm run verify\nnpm run verify"
+          "code": "pnpm run verify"
         }
       ]
     },
@@ -87,7 +87,7 @@
       "steps": [
         {
           "text": "Build monorepo first, then pack modules:",
-          "code": "pnpm run build\nnpm run build --workspaces --if-present\nsfmc> mod build"
+          "code": "pnpm run build\nsfmc> mod build"
         },
         {
           "text": "Legacy modules importing \"@sfmc/sdk\" → reinstall using the latest CLI, or verify SDK package resolution"

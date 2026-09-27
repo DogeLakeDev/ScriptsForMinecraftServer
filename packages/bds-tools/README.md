@@ -5,7 +5,7 @@ SFMC BDS 工具集：自动更新、进程管理、行为包装配（pack-manage
 ## 安装
 
 ```bash
-npm install @sfmc-bds/bds-tools
+pnpm add @sfmc-bds/bds-tools
 ```
 
 ## 依赖

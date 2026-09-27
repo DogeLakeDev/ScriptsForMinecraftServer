@@ -1,21 +1,21 @@
 # @sfmc-bds/sfmc
 
 SFMC 聚合包：  
-✨ 一次性安装 CLI + db-server + qq-bridge + bds-tools + tools + sdk，装完即可在工作目录里初始化并管理全部服务。
+✨ 一次性安装 CLI + db-server + qq-bridge + bds-tools + sdk，装完即可在工作目录里初始化并管理全部服务。
 
 ## 安装
 
 ```bash
-npm install -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc@beta
 ```
 
 或在项目目录本地安装：
 
 ```bash
 mkdir my-server && cd my-server
-npm init -y
-npm install @sfmc-bds/sfmc@beta
-npx sfmc
+pnpm init
+pnpm add @sfmc-bds/sfmc@beta
+pnpm exec sfmc
 ```
 
 > 当前仅开放 **beta** 通道。稳定 `latest` 未开放前请始终带 `@beta`。

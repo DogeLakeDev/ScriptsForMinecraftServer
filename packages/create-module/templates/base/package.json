@@ -1,8 +1,10 @@
 {
   "name": "{{pkgName}}",
   "version": "0.1.0",
+  "packageManager": "pnpm@10.8.0",
   "type": "module",
   "description": "SAPI module: {{id}}",
+  "license": "ISC",
   "main": "sapi/src/index.ts",
   "exports": {
     ".": "./sapi/src/index.ts"
@@ -14,7 +16,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run typecheck",
+    "build": "pnpm run typecheck",
     "typecheck": "tsc --noEmit -p sapi/tsconfig.json",
     "lint": "eslint \"sapi/**/*.ts\"",
     "format": "prettier --write ."
@@ -36,6 +38,10 @@
   },
   "peerDependencies": {
     "@sfmc-bds/sdk": ">=0.2.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "engines": {
     "node": ">=22.13.0"

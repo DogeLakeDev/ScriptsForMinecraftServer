@@ -17,7 +17,7 @@ try {
 } catch (e) {
   const err = /** @type {NodeJS.ErrnoException} */ (e);
   if (err && (err.code === "ERR_MODULE_NOT_FOUND" || err.code === "MODULE_NOT_FOUND")) {
-    console.error("[BDSRecovery] dist/ 未找到，请先运行 `npm run build`");
+    console.error("[BDSRecovery] dist/ 未找到，请先运行 `pnpm run build`");
     process.exit(2);
   }
   throw e;

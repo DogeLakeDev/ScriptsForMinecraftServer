@@ -644,7 +644,7 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
     case "watch":
     case "publish":
       return c.yellow(
-        `[mod ${sub}] 已移至扩展「SFMC Module」全周期（Create/Test/Link/Watch/Publish）；建仓请用 npm create @sfmc-bds/module@latest；运维请用 mod build|reload|install。`
+        `[mod ${sub}] 已移至扩展「SFMC Module」全周期（Create/Test/Link/Watch/Publish）；建仓请用 pnpm dlx @sfmc-bds/create-module@latest；运维请用 mod build|reload|install。`
       );
     default:
       return c.yellow(moduleUsage());

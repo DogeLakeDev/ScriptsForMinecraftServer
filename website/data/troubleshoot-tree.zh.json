@@ -7,7 +7,7 @@
       "steps": [
         {
           "text": "在仓根运行平台集成自检，验证核心包与依赖一致性：",
-          "code": "pnpm run verify\nnpm run verify"
+          "code": "pnpm run verify"
         }
       ]
     },
@@ -87,7 +87,7 @@
       "steps": [
         {
           "text": "先构建 monorepo，再组装模块包：",
-          "code": "pnpm run build\nnpm run build --workspaces --if-present\nsfmc> mod build"
+          "code": "pnpm run build\nsfmc> mod build"
         },
         {
           "text": "旧模块若仍 import \"@sfmc/sdk\"，请使用当前 CLI 重新安装，或确认 SDK 能够正确解析"

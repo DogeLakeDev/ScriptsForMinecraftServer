@@ -1,0 +1,148 @@
+name: module-publish
+
+# 从主仓发布独立模块。NPM_TOKEN 只配置在主仓；源代码必须是模块仓 main 上的指定提交。
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 模块仓后缀
+        required: true
+        type: choice
+        options:
+          - activity-log
+          - afk
+          - area
+          - chat
+          - chat-sounds
+          - clean
+          - coop
+          - data-backup
+          - economy
+          - fly-area
+          - gamemode-area
+          - inventory-switcher
+          - land
+          - monitor
+          - online-time
+          - peace-area
+          - qa
+          - qq-link
+          - spawn-protect
+      commit:
+        description: 模块仓 main 上的完整提交 SHA
+        required: true
+        type: string
+      version:
+        description: 与 package.json 一致的正式版本
+        required: true
+        type: string
+      dry_run:
+        description: 仅检查并上传打包产物
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-publish-${{ inputs.module }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Tanya7z/sfmc-module-${{ inputs.module }}
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14"
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: 校验来源与版本
+        env:
+          MODULE: ${{ inputs.module }}
+          COMMIT: ${{ inputs.commit }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          git fetch origin main
+          node -e 'const fs=require("node:fs");const p=JSON.parse(fs.readFileSync("package.json","utf8"));const m=process.env.MODULE;const v=process.env.VERSION;const c=process.env.COMMIT;if(!/^[0-9a-f]{40}$/.test(c)||!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(v)||p.name!==`@sfmc-bds/module-${m}`||p.version!==v||p.private===true){throw new Error("模块名称、提交或正式版本与输入不符")}';
+          test "$(git rev-parse HEAD)" = "${COMMIT}"
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: 校验主仓发布凭据
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ secrets.SFMC_GITHUB_TOKEN }}
+          MODULE: ${{ inputs.module }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ] || [ -z "${GH_TOKEN}" ]; then
+            echo "::error::主仓发布凭据未配置"
+            exit 1
+          fi
+          pnpm whoami >/dev/null
+          can_push="$(gh api "repos/Tanya7z/sfmc-module-${MODULE}" --jq '.permissions.push')"
+          if [ "${can_push}" != "true" ]; then
+            echo "::error::SFMC_GITHUB_TOKEN 无法写入模块仓"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run test
+      - name: 打包候选产物
+        run: mkdir -p artifacts && pnpm pack --pack-destination artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module-${{ inputs.module }}-${{ inputs.version }}
+          path: artifacts/*.tgz
+          retention-days: 14
+
+      - name: 发布到 npm
+        if: inputs.dry_run == false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::主仓 NPM_TOKEN 未配置"
+            exit 1
+          fi
+          pnpm publish --access public --tag latest --no-git-checks
+
+      - name: 创建模块版本标签与 GitHub Release
+        if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.SFMC_GITHUB_TOKEN }}
+          MODULE: ${{ inputs.module }}
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          repo="Tanya7z/sfmc-module-${MODULE}"
+          tag="v${VERSION}"
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::主仓 SFMC_GITHUB_TOKEN 未配置"
+            exit 1
+          fi
+          existing="$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq .object.sha 2>/dev/null || true)"
+          if [ -n "${existing}" ] && [ "${existing}" != "${COMMIT}" ]; then
+            echo "::error::${tag} 已指向其他提交"
+            exit 1
+          fi
+          if [ -z "${existing}" ]; then
+            gh api -X POST "repos/${repo}/git/refs" -f ref="refs/tags/${tag}" -f sha="${COMMIT}"
+          fi
+          gh release view "${tag}" --repo "${repo}" >/dev/null 2>&1 || \
+            gh release create "${tag}" --repo "${repo}" --target "${COMMIT}" --title "${tag}" --generate-notes

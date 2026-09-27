@@ -3,7 +3,7 @@
 把作者仓发到 npm，并登记到 [`sfmc-modules`](https://github.com/Tanya7z/sfmc-modules) 薄 index，供 `mod search` / `mod install` 发现。
 
 业务模块 **不走** 主仓 changesets。平台 `@sfmc-bds/*` 发包见文末。  
-`sfmc mod publish` 已移除；请用扩展 `SFMC: Publish to npm`，或直接 `pnpm publish` / `npm publish`（及可选 `gh` 开 index PR）。
+`sfmc mod publish` 已移除；请用扩展 `SFMC: Publish to npm`，或直接 `pnpm publish`（及可选 `gh` 开 index PR）。
 
 ## 发布前
 
@@ -13,14 +13,12 @@
 | `name` | `@<user>/sfmc-module-<id>` 或官方 `@sfmc-bds/module-<id>` |
 | `files` | 含 `sapi` |
 | 类型检查 / lint | `pnpm run typecheck` 与 `pnpm run lint`；发布前按 [验证指南](./testing.md) 完成实际联调 |
-| 登录 | `npm login`（npm  registry 账号）；官方 scope 另需组织权限 |
+| 发布权限 | npm registry 账号或 CI 发布凭据；官方 scope 另需组织权限 |
 
 ```bash
 pnpm publish --access public
-npm publish --access public
 # 或按包上的 dist-tag：
 pnpm publish --tag beta
-npm publish --tag beta
 ```
 
 向薄 index 开 PR：在 `sfmc-modules` 仓库的 `index.json` 增加条目（`id` / `npm` / 版本说明）。可用 GitHub CLI 自行开 PR。
@@ -40,4 +38,4 @@ npm publish --tag beta
 
 ## 附录：平台包发布（贡献者）
 
-主仓 `@sfmc-bds/*` 走 changesets：`pnpm run changeset` / `npm run changeset` → Version PR → `ci-release-packages`。详见 [贡献指南](./contributing.md)。
+主仓 `@sfmc-bds/*` 走 changesets：`pnpm run changeset` → Version PR → `ci-release-packages`。详见 [贡献指南](./contributing.md)。
