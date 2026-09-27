@@ -10,11 +10,13 @@
 
 import {
   configPath,
+  DEFAULT_DB_CONFIG,
   modulePath,
   readJson,
   writeJson,
   type BdsUpdaterConfig,
   type Catalog,
+  type DBConfig,
   type ModuleLock,
 } from "@sfmc-bds/sdk/node/config";
 import { existsSync, readFileSync } from "node:fs";
@@ -53,7 +55,7 @@ export const DEPLOY_CATALOG_NAME = "sfmc-deploy-catalog.json";
 export const DEFAULT_PACK_VERSION: [number, number, number] = [1, 0, 0];
 
 /** 将 @sfmc/sdk 与 @sfmc-bds/sdk 子路径解析到 SDK 包内真实文件，并注入 sfmc:host 引导入口 */
-export function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugin {
+export function createSdkResolvePlugin(sdkRoot: string, dbPort: number): import("esbuild").Plugin {
   const pkg = JSON.parse(readFileSync(path.join(sdkRoot, "package.json"), "utf8")) as {
     exports?: Record<string, string | { import?: string; default?: string; types?: string }>;
   };
@@ -79,7 +81,7 @@ export function createSdkResolvePlugin(sdkRoot: string): import("esbuild").Plugi
       build.onLoad({ filter: /.*/, namespace: "sfmc-host" }, () => ({
         contents: [
           'import { installHostBootstrap } from "@sfmc-bds/sdk/module-loader/install";',
-          "installHostBootstrap();",
+          `installHostBootstrap({ dbServerUrl: ${JSON.stringify(`http://127.0.0.1:${dbPort}`)} });`,
         ].join("\n"),
         loader: "ts",
       }));
@@ -228,6 +230,7 @@ export interface DeployCatalogModule {
 
 export interface DeployCatalog {
   schemaVersion: 1;
+  dbPort: number;
   bpUuid: string;
   rpUuid: string | null;
   bpVersion: [number, number, number];
@@ -271,6 +274,15 @@ function lockPath(): string {
 
 function catalogPath(): string {
   return modulePath(path.join(ROOT, "modules"), "catalog.json");
+}
+
+function configuredDbPort(root: string): number {
+  const configured = readJson<DBConfig>(configPath(root, "db_config.json"));
+  const port = configured?.db_port ?? DEFAULT_DB_CONFIG.db_port ?? 3001;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`configs/db_config.json: db_port 必须是 1–65535 的整数 (当前 ${port})`);
+  }
+  return port;
 }
 
 /** 读 BDS 路径与 level-name（level 权威：pack-manager-lib.readLevelNameSync，DIP） */
@@ -562,6 +574,7 @@ export async function computeDesiredCatalog(opts?: {
 
   return {
     schemaVersion: 1,
+    dbPort: configuredDbPort(getRoot()),
     bpUuid,
     rpUuid,
     bpVersion,
@@ -587,6 +600,7 @@ export function readDeployedCatalog(bdsRoot: string, levelName: string): DeployC
 
 /** 比较键:模块集合 + enabled/version/fingerprint/hasRP + bp/rp uuid + sdkVersion + dependencies */
 export function catalogsEqual(a: DeployCatalog, b: DeployCatalog): boolean {
+  if (a.dbPort !== b.dbPort) return false;
   if (a.bpUuid !== b.bpUuid) return false;
   if ((a.rpUuid ?? null) !== (b.rpUuid ?? null)) return false;
   if ((a.sdkVersion ?? null) !== (b.sdkVersion ?? null)) return false;
@@ -681,7 +695,7 @@ export async function buildPacks(desired?: DeployCatalog): Promise<DeployCatalog
           skipLibCheck: true,
         },
       }),
-      plugins: [createSdkResolvePlugin(sdkRoot)],
+      plugins: [createSdkResolvePlugin(sdkRoot, catalog.dbPort)],
     });
     packLog(`esbuild bundled ${entries.length} entr(y/ies)`, "success");
   }
