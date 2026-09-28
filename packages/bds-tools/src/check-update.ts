@@ -316,12 +316,12 @@ export async function runUpdate(): Promise<number> {
       /* 每次尝试新建 bar + binder，避免失败重试时 started 状态残留（LSP） */
       const progressBar = createTerminalProgress({
         stream: process.stderr,
-        logger: (msg) => log.info(msg),
+        logger: (msg: string) => log.info(msg),
         format: "下载进度 | {bar} | {percentage}% | {value}/{total} MB | 速度: {speed}",
       });
       const onByteProgress = bindByteProgressToBar(progressBar, {
         speedSampleMs: 0,
-        onProgress: (dl, total) => {
+        onProgress: (dl: number, total: number) => {
           const pct = total > 0 ? (dl / total) * 100 : 0;
           setTaskbarProgress(pct);
         },
