@@ -12,8 +12,10 @@ let _systemMsgHandler: ((player: Player, text: string) => void) | null = null;
  *
  * @param handler 接收目标玩家与消息文本的转发回调函数。
  */
-export function registerSystemMsgHandler(handler: (player: Player, text: string) => void): void {
+export function registerSystemMsgHandler(handler: (player: Player, text: string) => void): () => void {
   _systemMsgHandler = handler;
+  const registered = handler;
+  return () => { if (_systemMsgHandler === registered) _systemMsgHandler = null; };
 }
 
 /**
