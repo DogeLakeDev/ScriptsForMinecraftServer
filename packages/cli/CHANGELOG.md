@@ -1,5 +1,11 @@
 # @sfmc-bds/cli
 
+## 0.2.1
+
+### Patch Changes
+
+- b55d845: 修正官方模块索引的 npm 来源显示，并按索引的精确版本安装模块。
+
 ## 0.2.0
 
 ### Minor Changes
