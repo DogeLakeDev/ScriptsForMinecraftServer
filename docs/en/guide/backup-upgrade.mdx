@@ -13,6 +13,8 @@ Back up together:
 
 Schedule a maintenance window. Stop BDS and db-server, verify both processes have exited, and then archive the assets above to a location outside the instance. Include the actual database path if it is outside `data/`; do not assume the BDS directory is named `BedrockDedicatedServer`.
 
+Check `modules/packages/` for symlinks or Windows junctions first. Archiving `modules/` alone may omit their targets: an isolated `Compress-Archive` check on Windows included ordinary files but skipped the junction's contents. Record each link and target, archive the actual source directories separately, and verify that both content and links can be restored. A dangling link is not a backed-up module. The simple archive examples in the Chinese guide apply only when the module directory has no links.
+
 Do not copy a live SQLite database while it may have uncheckpointed WAL data:
 
 ```bash

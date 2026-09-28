@@ -37,22 +37,28 @@ sfmc> /stop -all
 ### 执行打包归档
 使用系统原生打包工具将关键资产压缩为带时间戳的归档。下面的 `BDS_DIR` / `$bdsDir` 必须先替换为当前实例实际的 BDS 目录；不要假定目录名为 `BedrockDedicatedServer`。归档须放在被备份目录之外，且空间足够。若数据库位于 `data/` 之外，应另行纳入。
 
+**先检查 `modules/packages/` 是否含符号链接或 Windows junction。** 归档 `modules/` 不等于备份链接目标：本机用 `Compress-Archive` 对 junction 的隔离验证中，归档只包含普通文件，漏掉了链接模块的内容。若存在链接，应逐个记录模块名与目标路径，确认目标可访问，并将实际源码目录另行归档；恢复演练时要连同链接关系一起验证。目标已丢失的链接应先查明原因，不能把它记作已备份。下面的简例仅适用于模块目录内没有链接的实例。
+
 <Tabs>
   <Tab label="Linux (Bash)">
 
 ```bash
 BDS_DIR=/path/to/your/BDS
 BACKUP_DIR=/path/outside/SFMC_ROOT
-mkdir -p "$BACKUP_DIR"
-# 在 SFMC_ROOT 下运行
-tar -czvf "$BACKUP_DIR/backup-sfmc-$(date +%Y%m%d_%H%M%S).tar.gz" \
-  data/ \
-  configs/ \
-  modules/ \
-  packs/ \
-  "$BDS_DIR/worlds" \
-  "$BDS_DIR/behavior_packs" \
-  "$BDS_DIR/resource_packs"
+if [ -n "$(find modules/packages -mindepth 1 -maxdepth 1 -type l -print -quit)" ]; then
+  echo "modules/packages contains links; back up each target separately" >&2
+else
+  mkdir -p "$BACKUP_DIR"
+  # 在 SFMC_ROOT 下运行
+  tar -czvf "$BACKUP_DIR/backup-sfmc-$(date +%Y%m%d_%H%M%S).tar.gz" \
+    data/ \
+    configs/ \
+    modules/ \
+    packs/ \
+    "$BDS_DIR/worlds" \
+    "$BDS_DIR/behavior_packs" \
+    "$BDS_DIR/resource_packs"
+fi
 ```
 
   </Tab>
@@ -61,6 +67,10 @@ tar -czvf "$BACKUP_DIR/backup-sfmc-$(date +%Y%m%d_%H%M%S).tar.gz" \
 ```powershell
 $bdsDir = "D:\path\to\your\BDS" # 改为实际目录
 $backupDir = "D:\path\outside\SFMC_ROOT" # 改为实际备份目录
+$linkedModules = @(Get-ChildItem -LiteralPath modules\packages -Force | Where-Object { $_.LinkType })
+if ($linkedModules.Count -gt 0) {
+  throw "modules/packages 包含链接；请先逐个备份目标目录并验证恢复，不能只压缩 modules/"
+}
 New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 Compress-Archive -LiteralPath data, configs, modules, packs, `
