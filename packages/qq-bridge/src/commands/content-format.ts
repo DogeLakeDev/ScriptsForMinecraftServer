@@ -1,8 +1,8 @@
 /**
- * content-format.ts — 把模块 / 世界包快照排成 QQ 信息卡正文。
+ * content-format.ts — 把模块 / 资源包快照排成 QQ 信息卡正文。
  *
  * 「模块」列出启停和是否自带资源包。
- * 「世界包」的 Markdown 用表格分列行为包和资源包；纯文本仍保留原来的逐行列表，供 Markdown 发送失败时降级。
+ * 「资源包」的 Markdown 用表格分列行为包和资源包；纯文本仍保留原来的逐行列表，供 Markdown 发送失败时降级。
  */
 
 export type ContentModuleView = {
@@ -12,7 +12,7 @@ export type ContentModuleView = {
   has_resource_pack?: boolean;
 };
 
-/** 一条世界包。kind 缺省时按资源包处理，兼容还没分开返回的旧快照。 */
+/** 一条资源包。kind 缺省时按资源包处理，兼容还没分开返回的旧快照。 */
 export type WorldPackView = {
   kind?: "behavior" | "resource";
   name?: string;
@@ -27,7 +27,12 @@ export function moduleMatches(mod: ContentModuleView, keyword: string): boolean 
   const q = keyword.trim().toLowerCase();
   if (!q) return true;
   const name = String(mod.display_name || mod.id || "").toLowerCase();
-  return name.includes(q) || String(mod.id || "").toLowerCase().includes(q);
+  return (
+    name.includes(q) ||
+    String(mod.id || "")
+      .toLowerCase()
+      .includes(q)
+  );
 }
 
 /** 模块查询正文。已启用排在前面，便于在群里扫一眼当前在跑什么。 */
@@ -54,14 +59,12 @@ export function formatModuleLines(modules: ContentModuleView[], keyword = ""): s
   return lines;
 }
 
-/** 单条世界包：真实名称优先，语言键残留时退回文件夹名。 */
+/** 单条资源包：真实名称优先，语言键残留时退回文件夹名。 */
 function formatWorldPackLine(pack: WorldPackView): string {
   const resolved = String(pack.name || "").trim();
   const folder = String(pack.folder_name || "").trim();
   const name =
-    !resolved || resolved.startsWith("pack.") || resolved === "pack"
-      ? folder || pack.pack_id || "未命名"
-      : resolved;
+    !resolved || resolved.startsWith("pack.") || resolved === "pack" ? folder || pack.pack_id || "未命名" : resolved;
   const folderBit = folder && folder !== name ? `${folder} · ` : "";
   const version = pack.version ? ` v${pack.version}` : "";
   const state = pack.enabled === false ? "关" : "开";
@@ -70,7 +73,11 @@ function formatWorldPackLine(pack: WorldPackView): string {
 
 /** 表格单元格：去掉基岩版颜色码，并转义会拆列的竖线。 */
 function markdownCell(value: string): string {
-  const text = value.replace(/§[0-9a-zA-Z]/g, "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+  const text = value
+    .replace(/§[0-9a-zA-Z]/g, "")
+    .replace(/\|/g, "\\|")
+    .replace(/\r?\n/g, " ")
+    .trim();
   return text || "—";
 }
 
@@ -79,9 +86,7 @@ function packFields(pack: WorldPackView): { state: string; name: string; version
   const resolved = String(pack.name || "").trim();
   const folder = String(pack.folder_name || "").trim();
   const name =
-    !resolved || resolved.startsWith("pack.") || resolved === "pack"
-      ? folder || pack.pack_id || "未命名"
-      : resolved;
+    !resolved || resolved.startsWith("pack.") || resolved === "pack" ? folder || pack.pack_id || "未命名" : resolved;
   return {
     state: pack.enabled === false ? "关" : "开",
     name: markdownCell(name),
@@ -98,21 +103,21 @@ function markdownTable(rows: Array<{ state: string; name: string; version: strin
 }
 
 /**
- * 世界包的 Markdown 正文。行为包、资源包各一张表，已启用排在前面。
+ * 资源包的 Markdown 正文。行为包、资源包各一张表，已启用排在前面。
  * 读不到世界时只给说明，不输出空表。
  */
 export function formatPackMarkdown(packs: WorldPackView[], worldNote?: string): string {
   if (worldNote === "bds_unconfigured") {
-    return ["## 世界包", "", "未配置 BDS 路径，暂时无法读取世界行为包和资源包。"].join("\n");
+    return ["## 资源包", "", "未配置 BDS 路径，暂时无法读取世界行为包和资源包。"].join("\n");
   }
   if (worldNote === "world_unread") {
-    return ["## 世界包", "", "世界行为包和资源包暂时读不出来。"].join("\n");
+    return ["## 资源包", "", "世界行为包和资源包暂时读不出来。"].join("\n");
   }
   const sections: Array<{ kind: "behavior" | "resource"; title: string; empty: string }> = [
     { kind: "behavior", title: "行为包", empty: "世界里没有行为包。" },
     { kind: "resource", title: "资源包", empty: "世界里没有资源包。" },
   ];
-  const lines = ["## 世界包", ""];
+  const lines = ["## 资源包", ""];
   for (const section of sections) {
     const group = packs.filter((pack) => (pack.kind ?? "resource") === section.kind);
     const enabled = group.filter((pack) => pack.enabled !== false);
@@ -129,7 +134,7 @@ export function formatPackMarkdown(packs: WorldPackView[], worldNote?: string): 
 }
 
 /**
- * 世界包查询正文。行为包和资源包分开展示，已启用排在前面。
+ * 资源包查询正文。行为包和资源包分开展示，已启用排在前面。
  * worldNote 来自 db-server：未配置 BDS 或世界目录读失败时只说明原因。
  */
 export function formatPackLines(packs: WorldPackView[], worldNote?: string): string[] {
@@ -155,3 +160,4 @@ export function formatPackLines(packs: WorldPackView[], worldNote?: string): str
   }
   return lines;
 }
+

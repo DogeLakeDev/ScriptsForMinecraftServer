@@ -13,7 +13,11 @@ import type { IncomingChatMessage, PostMessagesBody } from "./types.js";
 export interface DBServerConfig {
   host: string;
   port: number;
-  channelId: string;
+  /**
+   * 已不再作为入站目标。QQ 消息由 db-server 写入消息来源为 QQ 的频道。
+   * 保留字段只为兼容旧调用方，转发时不会带上。
+   */
+  channelId?: string;
 }
 
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -76,10 +80,9 @@ export async function forwardGroupMessage(
   fromName: string,
   content: string,
   now: number = Date.now()
-): Promise<void> {
+): Promise<{ qqChannels?: number }> {
   const message: IncomingChatMessage = {
     id: `${fromId}_${now}`,
-    channelId: cfg.channelId,
     fromid: fromId,
     fromName,
     type: "text",
@@ -89,7 +92,7 @@ export async function forwardGroupMessage(
   };
   const body: PostMessagesBody = { messages: [message] };
   const url = new URL(`http://${cfg.host}:${cfg.port}/api/sfmc/messages`);
-  await postJSON<unknown>(url, body, REQUEST_TIMEOUT_MS);
+  return postJSON<{ qqChannels?: number }>(url, body, REQUEST_TIMEOUT_MS);
 }
 
 /**
@@ -107,7 +110,11 @@ export async function tryForward(
   content: string
 ): Promise<void> {
   try {
-    await forwardGroupMessage(cfg, fromId, fromName, content);
+    const result = await forwardGroupMessage(cfg, fromId, fromName, content);
+    if (result && typeof result === "object" && result.qqChannels === 0) {
+      log.warn("没有消息来源为 QQ 的游戏频道，本条未投递");
+      return;
+    }
     log.info(`QQ → MC: ${fromName}: ${content.slice(0, 60)}`);
   } catch (e) {
     log.error(`转发到 db-server 失败: ${(e as Error).message}`);

@@ -10,6 +10,8 @@
  *   - bds / llbot → `.sfmc/logs/{bds,llbot}.log`(外部进程无自带 file sink)
  *   - 其余(system / pack / …) → `.sfmc/logs/sfmc.log`
  *
+ * CLI 重连后历史回放以落盘为准（readDiskLogs）；内存缓冲只服务本进程实时订阅。
+ *
  * formatLog 保留 theme.ts (chalk) 配色,比共享包的纯 ANSI 版本视觉更丰富。
  */
 
@@ -128,6 +130,15 @@ export function pushLog(text: string, source: LogSource, level: LogLevel): void 
   }
 }
 
+/**
+ * 摄入守护进程转发的远程日志：只写入本进程内存缓冲并通知订阅者，不再落盘。
+ * 使用场景：CLI 客户端 subscribe 后把 daemon 推送的 log 事件灌入本地，供 REPL 主面板实时展示；
+ * 落盘已由守护进程完成，此处跳过避免重复写 `.sfmc/logs/*`。
+ */
+export function ingestRemoteLog(text: string, source: LogSource, level: LogLevel): void {
+  buffer.pushDirect(text, source, level);
+}
+
 /** 订阅新日志事件,返回取消订阅函数 */
 export function onLog(fn: (log: UnifiedLog) => void): () => void {
   return buffer.subscribe(fn);
@@ -197,11 +208,13 @@ export type ReadDiskLogsOpts = {
   sources?: LogSource[];
   /** 覆盖日志目录（测试用）；默认 `<ROOT>/.sfmc/logs` */
   dir?: string;
+  /** 仅保留时间序最后 N 条；省略则返回全部解析结果 */
+  limit?: number;
 };
 
 /**
  * 从 `.sfmc/logs/*.log` 读取并解析为 UnifiedLog（按时间升序）。
- * 供 /logs 筛选窗回放；与内存缓冲无关。
+ * CLI 重连后主面板 /logs 的历史权威来源；内存缓冲仅承载本进程订阅到的实时增量。
  */
 export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
   const levels = opts.levels ?? [];
@@ -233,6 +246,10 @@ export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
     }
   }
   out.sort((a, b) => a.time.getTime() - b.time.getTime());
+  const limit = opts.limit;
+  if (limit !== undefined && limit > 0 && out.length > limit) {
+    return out.slice(out.length - limit);
+  }
   return out;
 }
 

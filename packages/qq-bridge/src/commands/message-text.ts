@@ -6,9 +6,7 @@ export function officialPlainFallback(result: CommandResult): string {
   const items = result.buttons
     .filter((button) => button.command !== "/menu")
     .map((button) => `${button.label}${button.description ? ` · ${button.description}` : ""}`);
-  const home = result.buttons.some((button) => button.command === "/menu")
-    ? ["", "发送「菜单」返回首页。"]
-    : [];
+  const home = result.buttons.some((button) => button.command === "/menu") ? ["", "发送「菜单」返回首页。"] : [];
   return [result.text, "", ...items, ...home].join("\n");
 }
 
@@ -31,7 +29,7 @@ function byteLength(lines: string[]): number {
 /**
  * 按行拆分 Markdown，并保证每一段里的表格仍然完整。
  * 一张表超长时，下一段重复表头，并在小节标题后标明「续」。
- * 当前给 QQ 世界包表格使用：官方消息按段发送，半张表无法渲染。
+ * 当前给 QQ 资源包表格使用：官方消息按段发送，半张表无法渲染。
  */
 export function splitMarkdownMessage(markdown: string, maxBytes = 3000): string[] {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");

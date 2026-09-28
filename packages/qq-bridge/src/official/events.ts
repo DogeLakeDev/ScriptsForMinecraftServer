@@ -134,7 +134,7 @@ export class OfficialAtMessageDispatcher {
     this.forward = opts.forward ?? tryForward;
   }
 
-  /** 全量群消息只处理指令；普通聊天仍需 @机器人 才转发到游戏。 */
+  /** 全量群消息处理指令和普通聊天；与 @ 事件共用消息 ID 去重。 */
   async handleGroupMessage(msg: OfficialGroupAtMessage): Promise<void> {
     if (!msg || typeof msg !== "object" || msg.author?.bot) return;
     const groupOpenid = String(msg.group_openid ?? "");
@@ -144,28 +144,29 @@ export class OfficialAtMessageDispatcher {
       msg.mentions?.length &&
       !msg.mentions.some((mention) => mention.is_you)
     ) return;
-    const router = this.opts.commandRouter;
-    if (!router) return;
     const text = extractOfficialText(msg);
     if (!text) return;
+    if (this.dedup.seen(msg.id)) return;
+    const router = this.opts.commandRouter;
     const normalized = text.replace(/^[/／]+/, "").trim();
     const isConfirmation = /^(confirm|确认|cancel|取消)(?:\s+\S+)?$/i.test(normalized);
-    if (!router.registry.resolve(normalized) && !isConfirmation && !/^[/／]/.test(text)) return;
-    // 全量与 @ 事件可能同时到达；先占用消息 ID，再执行异步指令。
-    if (this.dedup.seen(msg.id)) return;
-
     const memberId = String(msg.author?.member_openid || msg.author?.id || "unknown");
     const fromName = String(msg.author?.username || `QQ_${memberId.slice(0, 8)}`);
-    await router.handle({
-      backend: "official",
-      scene: "group",
-      groupId: groupOpenid,
-      userId: memberId,
-      userName: fromName,
-      text,
-      isGroupAdmin: detectOfficialGroupAdmin(msg),
-      ...(msg.id ? { msgId: String(msg.id) } : {}),
-    });
+    if (
+      router &&
+      (router.registry.resolve(normalized) || isConfirmation || /^[/／]/.test(text)) &&
+      await router.handle({
+        backend: "official",
+        scene: "group",
+        groupId: groupOpenid,
+        userId: memberId,
+        userName: fromName,
+        text,
+        isGroupAdmin: detectOfficialGroupAdmin(msg),
+        ...(msg.id ? { msgId: String(msg.id) } : {}),
+      })
+    ) return;
+    await this.forward(this.opts.db, `qq_${memberId}`, fromName, text);
   }
 
   async handleGroupAtMessage(msg: OfficialGroupAtMessage): Promise<void> {

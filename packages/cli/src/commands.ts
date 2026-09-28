@@ -12,19 +12,30 @@
 import { clearBdsPidFile, killBedrockServerByImage, probeBdsStatus } from "@sfmc-bds/bds-tools/process-probe";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
-import {
-  DEFAULT_QQ_CONFIG,
-  loadEnsuredConfig,
-  qqRuntimeStatusPath,
-  type QQBridgeConfig,
-} from "@sfmc-bds/sdk/node/config";
+import { qqRuntimeStatusPath } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
+import { isDaemonServer } from "./daemon/role.js";
 import { t } from "./i18n/index.js";
 import { pushLog as pushUnifiedLog } from "./logs.js";
 import { findNodeServicePids, killNodeServiceByScript, type NodeServiceName } from "./node-service-probe.js";
 import { spawnService } from "./runtime.js";
 import { queryServicesRuntime, ROOT, SERVICE_NAMES, services, type ServiceName } from "./services.js";
 import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
+
+/**
+ * CLI 侧经守护进程执行并取回 text；守护进程内直接跑 localFn。
+ * 使用场景：status/start/stop/send/update 等运维命令的统一分流，避免 CLI 进程持有子进程。
+ */
+async function viaDaemonText(
+  method: "status" | "start" | "stop" | "restart" | "startAll" | "stopAll" | "send" | "update",
+  localFn: () => Promise<string>,
+  params?: { name?: string; message?: string; args?: string[] }
+): Promise<string> {
+  if (isDaemonServer()) return localFn();
+  const { textViaDaemon, statusTextViaDaemon } = await import("./daemon/client.js");
+  if (method === "status") return statusTextViaDaemon();
+  return textViaDaemon(method, params);
+}
 
 function parseService(raw: string): ServiceName | null {
   const s = raw.toLowerCase() as ServiceName;
@@ -49,44 +60,25 @@ function statusLine(
   return `  ${dot} ${c.bold(padRight(name, 14))} ${padRight(state, 8)} ${padRight(owner, 6)} ${padRight(pidStr, 8)} ${upStr}`;
 }
 
-/** status 页脚：QQ 后端与关键摘要（密钥脱敏） */
-function qqBridgeStatusFooter(): string {
-  const qqCfg = loadEnsuredConfig(ROOT, "qq_config.json", "qq_config", { ...DEFAULT_QQ_CONFIG } as Record<
-    string,
-    unknown
-  >) as QQBridgeConfig;
-  const backend = qqCfg.qq_backend === "llbot" ? "llbot" : "official";
-  const enabled = qqCfg.qq_enabled !== false;
-  if (backend === "llbot") {
-    const group = qqCfg.llbot?.group_id || "—";
-    const pathHint = qqCfg.llbot?.path ? String(qqCfg.llbot.path) : "—";
-    return `\n${c.dim(t("svc.qq.footer.llbot", { enabled: enabled ? "on" : "off", group, path: pathHint }))}\n`;
-  }
-  const appId = String(qqCfg.official?.app_id ?? "").trim();
-  const appIdHint = appId ? (appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId) : "—";
-  const openid = String(qqCfg.official?.group_openid ?? "").trim() || "—";
-  const sandbox = qqCfg.official?.sandbox ? "sandbox" : "prod";
-  const creds = appId && String(qqCfg.official?.app_secret ?? "").trim() ? "ok" : "missing";
-  return `\n${c.dim(t("svc.qq.footer.official", { enabled: enabled ? "on" : "off", appId: appIdHint, openid, sandbox, creds }))}\n`;
-}
-
 /**
  * 查询并格式化展示所有后台服务的当前运行状态矩阵。
  *
  * @returns 格式化后的状态摘要文本表格。
  */
 export async function cmdStatus(): Promise<string> {
-  const rows = await queryServicesRuntime();
-  const lines = rows.map((row) => statusLine(row.title, row.running, row.pid, row.uptime, row.ownership));
-  const nameH = t("svc.col.name");
-  const statusH = t("svc.col.status");
-  const ownerH = t("svc.col.owner");
-  const pidH = t("svc.col.pid");
-  const upH = t("svc.col.uptime");
-  const header = `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
-  return (
-    `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n") + qqBridgeStatusFooter()
-  );
+  return viaDaemonText("status", async () => {
+    const rows = await queryServicesRuntime();
+    const lines = rows.map((row) => statusLine(row.title, row.running, row.pid, row.uptime, row.ownership));
+    const nameH = t("svc.col.name");
+    const statusH = t("svc.col.status");
+    const ownerH = t("svc.col.owner");
+    const pidH = t("svc.col.pid");
+    const upH = t("svc.col.uptime");
+    const header = `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
+    return (
+      `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n")
+    );
+  });
 }
 
 /**
@@ -168,6 +160,11 @@ function clearQqRuntimeFile(): void {
  * @returns 启动结果描述文本。
  */
 export async function cmdStart(raw: string): Promise<string> {
+  return viaDaemonText("start", () => cmdStartLocal(raw), { name: raw });
+}
+
+/** 守护进程内启动单服务（含外部探活防双开） */
+async function cmdStartLocal(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
@@ -215,6 +212,11 @@ export async function cmdStart(raw: string): Promise<string> {
  * @returns 停止操作结果文本。
  */
 export async function cmdStop(raw: string): Promise<string> {
+  return viaDaemonText("stop", () => cmdStopLocal(raw), { name: raw });
+}
+
+/** 守护进程内停止单服务（含外部实例清理） */
+async function cmdStopLocal(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
@@ -281,6 +283,11 @@ export async function cmdStop(raw: string): Promise<string> {
 }
 
 export async function cmdSend(raw: string, message: string): Promise<string> {
+  return viaDaemonText("send", () => cmdSendLocal(raw, message), { name: raw, message });
+}
+
+/** 守护进程内向服务 stdin 写入一行 */
+async function cmdSendLocal(raw: string, message: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   if (svc === "tunnel") return c.yellow(t("svc.stdinUnavailable", { title: services[svc].title }));
@@ -314,12 +321,17 @@ export async function cmdSend(raw: string, message: string): Promise<string> {
  * @returns 重启操作结果文本。
  */
 export async function cmdRestart(raw: string): Promise<string> {
+  return viaDaemonText("restart", () => cmdRestartLocal(raw), { name: raw });
+}
+
+/** 守护进程内重启单服务 */
+async function cmdRestartLocal(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   // bds / db / qq：统一走 stop→start，确保外部实例也被清掉
   if (svc === "bds" || isNodeSvc(svc)) {
-    const stopMsg = await cmdStop(svc);
-    const startMsg = await cmdStart(svc);
+    const stopMsg = await cmdStopLocal(svc);
+    const startMsg = await cmdStartLocal(svc);
     // 若 stop 已报错文案含「失败」，原样带回
     if (/失败|failed/i.test(stopMsg) && !/已停止|stopped|already/i.test(stopMsg)) {
       return stopMsg;
@@ -345,6 +357,11 @@ export async function cmdRestart(raw: string): Promise<string> {
  * @returns 批量启动结果统计报告文本。
  */
 export async function cmdStartAll(): Promise<string> {
+  return viaDaemonText("startAll", cmdStartAllLocal);
+}
+
+/** 守护进程内批量启动 */
+async function cmdStartAllLocal(): Promise<string> {
   const { startAll } = await import("./services.js");
   const result = await startAll();
   const parts: string[] = [];
@@ -382,6 +399,11 @@ export async function cmdStartAll(): Promise<string> {
  * @returns 批量停止确认文本。
  */
 export async function cmdStopAll(): Promise<string> {
+  return viaDaemonText("stopAll", cmdStopAllLocal);
+}
+
+/** 守护进程内批量停止 */
+async function cmdStopAllLocal(): Promise<string> {
   const { stopAll } = await import("./services.js");
   await stopAll();
   return c.dim(t("svc.allStopped"));
@@ -398,6 +420,11 @@ export async function cmdStopAll(): Promise<string> {
  * @returns 更新执行结果摘要文本。
  */
 export async function cmdUpdate(args: string[] = []): Promise<string> {
+  return viaDaemonText("update", () => cmdUpdateLocal(args), { args });
+}
+
+/** 守护进程内执行 BDS 更新（需持有 bds Service 句柄以 beginUpdate/endUpdate） */
+async function cmdUpdateLocal(args: string[] = []): Promise<string> {
   const userNoStart = args.includes("--no-start");
   const checkOnly = args.includes("--check-only");
   const spawnArgs = userNoStart ? [...args] : [...args, "--no-start"];
@@ -417,6 +444,7 @@ export async function cmdUpdate(args: string[] = []): Promise<string> {
       const proc = spawnService("update", spawnArgs, {
         cwd: ROOT,
         stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
       });
       let out = "";
       const pushChunk = (raw: string, level: "info" | "error"): void => {

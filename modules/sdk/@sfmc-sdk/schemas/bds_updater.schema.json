@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/bds_updater.schema.json",
   "title": "SFMC bds_updater",
-  "description": "BDS 自动更新与进程管理配置。由 bds-tools（check-update / bds-manager）读取；路径请用双反斜杠或正斜杠。",
+  "description": "BDS 自动更新配置。由 bds-tools（check-update）读取；崩溃拉起由 sfmc daemon 负责。路径请用双反斜杠或正斜杠。",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -38,18 +38,6 @@
     "auto_check": {
       "type": "boolean",
       "description": "启动时是否自动检查 BDS 更新"
-    },
-    "crash_restart": {
-      "type": "boolean",
-      "description": "BDS 异常退出时是否自动拉起"
-    },
-    "crash_restart_delay": {
-      "type": "number",
-      "description": "崩溃重启前等待秒数（可选）"
-    },
-    "auto_restart": {
-      "type": "boolean",
-      "description": "旧字段：兼容保留，用于推断是否启用 QQ 等相关自动行为"
     },
     "version_mode": {
       "type": "string",

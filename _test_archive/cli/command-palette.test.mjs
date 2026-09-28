@@ -15,7 +15,7 @@ import {
   resolvePaletteView,
 } from "../../packages/cli/dist/command-palette.js";
 import { visibleWidth } from "../../packages/cli/dist/logs.js";
-import { listPaletteRoots } from "../../packages/cli/dist/command-surface.js";
+import { listNextPaletteTokens, listPaletteRoots } from "../../packages/cli/dist/command-surface.js";
 
 describe("clipPad 等宽", () => {
   it("垫到 PANEL_WIDTH", () => {
@@ -79,6 +79,46 @@ describe("resolvePaletteView", () => {
   });
   it("叶命令 /start bds 到末尾立即关闭", () => {
     assert.equal(resolvePaletteView("/start bds", [0], [0]).hidden, true);
+  });
+  it("/ui 展开 studio 与 stop", () => {
+    const v = resolvePaletteView("/ui ", [0], [0]);
+    assert.equal(v.hidden, false);
+    const tokens = v.columns.at(-1).items.map((n) => n.token);
+    assert.deepEqual(tokens, ["studio", "stop"]);
+  });
+  it("/packs doctor 展开实验性开关", () => {
+    const v = resolvePaletteView("/packs doctor ", [0], [0]);
+    assert.equal(v.hidden, false);
+    const tokens = v.columns.at(-1).items.map((n) => n.token);
+    assert.ok(tokens.includes("--fix"));
+    assert.ok(tokens.includes("--all-experiments"));
+    assert.ok(tokens.includes("--experiments="));
+    assert.ok(tokens.includes(""));
+  });
+  it("doctor 直接运行提交无参命令", () => {
+    const v = resolvePaletteView("/packs doctor ", [0], [0]);
+    const col = v.columns.at(-1);
+    const idx = col.items.findIndex((n) => n.token === "");
+    const view = resolvePaletteView("/packs doctor ", [0, 0, idx], [0, 0, 0]);
+    const acc = commitSelection("/packs doctor ", view);
+    assert.equal(acc.line, "/packs doctor");
+    assert.equal(acc.submit, true);
+  });
+  it("--experiments= 粘在同一 token 上且随后收起面板", () => {
+    const v0 = resolvePaletteView("/packs doctor ", [0], [0]);
+    const idx = v0.columns.at(-1).items.findIndex((n) => n.token === "--experiments=");
+    const view = resolvePaletteView("/packs doctor ", [0, 0, idx], [0, 0, 0]);
+    const acc = commitSelection("/packs doctor ", view);
+    assert.equal(acc.line, "/packs doctor --experiments=");
+    assert.equal(acc.submit, false);
+    assert.equal(resolvePaletteView("/packs doctor --experiments=beta,upcoming", [0], [0]).hidden, true);
+  });
+  it("灰字补全与面板共用 ui / doctor 的下一参", () => {
+    assert.deepEqual(listNextPaletteTokens(["ui"]), ["studio", "stop"]);
+    const doctor = listNextPaletteTokens(["packs", "doctor"]);
+    assert.ok(doctor?.includes("--all-experiments"));
+    assert.ok(doctor?.includes("--fix"));
+    assert.equal(doctor?.includes(""), false);
   });
   it("未到末尾 /start 仍显示", () => {
     assert.equal(resolvePaletteView("/start", [0], [0]).hidden, false);

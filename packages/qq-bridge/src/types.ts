@@ -133,7 +133,8 @@ export interface QQBridgeConfig {
 // ── POST 到 db-server 的消息载荷 ──────────────────────────────
 export interface IncomingChatMessage {
   id: string;
-  channelId: string;
+  /** 游戏侧写入时使用。QQ 入站不带此字段，由 db-server 按消息来源投递。 */
+  channelId?: string;
   fromid: string;
   fromName: string;
   type: "text";

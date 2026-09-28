@@ -28,7 +28,7 @@ import { failResult, okResult, type CliResult } from "./cli-result.js";
 import { t } from "./i18n/index.js";
 import { c } from "./theme.js";
 import { ROOT, resolveFetchModule } from "./runtime.js";
-import { dirFingerprint } from "./module-fingerprint.js";
+import { dirFingerprint, shouldSkipModuleEntry } from "./module-fingerprint.js";
 import {
   applyLockEnabled,
   finalizeToggle,
@@ -130,9 +130,14 @@ async function scanInstalled(): Promise<InstalledModule[]> {
         /* corrupt manifest is not fatal — just skip its fields */
       }
     }
-    const { totalBytes, fileCount } = await dirSize(modPath);
-    const fingerprint = await dirFingerprint(modPath);
-    out.push({ id, path: modPath, manifest, totalBytes, fileCount, fingerprint });
+    try {
+      const { totalBytes, fileCount } = await dirSize(modPath);
+      const fingerprint = await dirFingerprint(modPath);
+      out.push({ id, path: modPath, manifest, totalBytes, fileCount, fingerprint });
+    } catch {
+      // 坏链接或目录已消失时跳过，不让 CLI 起不来
+      continue;
+    }
   }
   out.sort((a, b) => a.id.localeCompare(b.id));
   return out;
@@ -143,7 +148,7 @@ async function dirSize(dir: string): Promise<{ totalBytes: number; fileCount: nu
   let fileCount = 0;
   async function walk(p: string): Promise<void> {
     for (const e of await fs.readdir(p, { withFileTypes: true })) {
-      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "dist") continue;
+      if (shouldSkipModuleEntry(path.basename(p), e.name)) continue;
       const child = path.join(p, e.name);
       if (e.isDirectory()) await walk(child);
       else if (e.isFile()) {

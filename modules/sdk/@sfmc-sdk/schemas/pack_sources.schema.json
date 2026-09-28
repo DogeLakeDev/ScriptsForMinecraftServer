@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/pack_sources.schema.json",
   "title": "SFMC pack-sources",
-  "description": "世界包远端源绑定清单，位于 packs/pack-sources.json（非 configs/）。键为行为包 UUID（小写）；由探测安装 / `packs bind` / 更新流程写入。",
+  "description": "资源包远端源绑定清单，位于 packs/pack-sources.json（非 configs/）。键为行为包 UUID（小写）；由探测安装 / `packs bind` / 更新流程写入。",
   "type": "object",
   "additionalProperties": false,
   "properties": {

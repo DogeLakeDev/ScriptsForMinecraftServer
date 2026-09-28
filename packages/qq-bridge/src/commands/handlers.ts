@@ -4,6 +4,8 @@
 
 import { getGroupBotState, getGroupInfo } from "@sfmc-bds/sdk/node/qq-official";
 import { log } from "../log.js";
+import { formatAccountCard } from "./account-format.js";
+import { formatModuleLines, formatPackLines, formatPackMarkdown } from "./content-format.js";
 import {
   fetchBindMe,
   fetchContent,
@@ -16,8 +18,6 @@ import {
   type QqEventSettings,
   type SfmcStatusResponse,
 } from "./db-api.js";
-import { formatAccountCard } from "./account-format.js";
-import { formatModuleLines, formatPackLines, formatPackMarkdown } from "./content-format.js";
 import { formatCard, formatCommandMenu } from "./menu-format.js";
 import type { CommandRegistry } from "./registry.js";
 import type { CommandContext, CommandHandler, CommandResult } from "./types.js";
@@ -466,7 +466,7 @@ export const eventSettingsHandler: CommandHandler = async (ctx): Promise<Command
 
 /** 频道 + 轻量自检（人人可用） */
 export const channelHandler: CommandHandler = () => ({
-  text: "QQ群消息进入游戏内只读的 QQ 频道。游戏内各频道可分别设置是否转发到 QQ。",
+  text: "QQ群消息进入游戏内已开启「QQ」消息来源的频道。游戏内各频道可分别设置是否转发到 QQ。",
 });
 
 export const doctorHandler: CommandHandler = async (ctx) => {
@@ -479,7 +479,7 @@ export const doctorHandler: CommandHandler = async (ctx) => {
     text: [
       "管理自检",
       `后端：${ctx.inbound.backend}`,
-      `QQ 入站频道：${ctx.runtimeInfo.bridgeChannelId || "qq"}`,
+      "QQ 入站：写入消息来源为 QQ 的游戏频道",
       `主机：${st.host?.hostname || "未知"} · ${st.host?.platform || "未知"}`,
       `CPU：${st.host?.cpu?.model || "未知"} · ${st.host?.cpu?.cores ?? "未知"} 核`,
       `内存：${st.host?.memory?.usedMb ?? "未知"}/${st.host?.memory?.totalMb ?? "未知"} MB`,
@@ -522,7 +522,7 @@ export const packsHandler: CommandHandler = async (ctx) => {
         ...(pack.version ? { version: pack.version } : {}),
       }));
     return {
-      text: ["世界包", "", ...formatPackLines(packs, data.note)].join("\n"),
+      text: ["资源包", "", ...formatPackLines(packs, data.note)].join("\n"),
       markdown: formatPackMarkdown(packs, data.note),
     };
   } catch (error) {
@@ -558,13 +558,7 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
     "home"
   );
   add("account", ["我的账号"], "查看与管理游戏角色绑定", whoamiHandler, "home");
-  add(
-    "entry",
-    ["入服"],
-    "直接进服，游戏内绑定后即可游玩",
-    entryGuideHandler,
-    "home"
-  );
+  add("entry", ["入服"], "直接进服，游戏内绑定后即可游玩", entryGuideHandler, "home");
   add("help", ["帮助"], "查看使用说明和常用命令", helpHandler(registry), "home");
   add("admin", ["管理"], "管理菜单", createAdminMenuHandler(registry), "home", true);
   add("status", ["查服", "状态"], "服务器运行状态", statusHandler, "server");
@@ -572,7 +566,7 @@ export function registerBuiltinCommands(registry: CommandRegistry): void {
   add("version", ["版本"], "基岩版入服版本", serverVersionHandler, "server");
   add("ip", ["地址"], "公开服务器地址与端口", serverAddressHandler, "server");
   add("modules", ["模块"], "查看已安装模块", modulesHandler, "server");
-  add("packs", ["资源包", "行为包", "世界包"], "查看世界行为包和资源包", packsHandler, "server");
+  add("packs", ["资源包", "行为包", "资源包"], "查看世界行为包和资源包", packsHandler, "server");
   add("channel", ["频道"], "聊天互通状态", channelHandler, "server");
   add("ping", [], "机器人连通性", pingHandler, "server");
   add("whoami", ["我的绑定"], "查看绑定角色", whoamiHandler, "account");

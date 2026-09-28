@@ -256,6 +256,15 @@ function findChild(parent: PaletteNode | undefined, token: string): PaletteNode 
 }
 
 /**
+ * 当前 token 是否落在「`=` 结尾」的自由参数上（如 `--experiments=beta,upcoming`）。
+ * 这类值与前缀是同一个 token，面板应在写完前缀后收起。
+ */
+function matchesGluedFreeArg(parent: PaletteNode | undefined, token: string): boolean {
+  if (!parent?.children?.length || !token) return false;
+  return parent.children.some((n) => n.freeArgs && n.token.endsWith("=") && token.startsWith(n.token));
+}
+
+/**
  * 是否已进入自由参数尾部（如 /send bds …）。
  * 路径落在 freeArgs 叶上，或叶之后还有无法匹配的多余 token，均视为自由输入。
  */
@@ -284,7 +293,7 @@ export function isCommandAtEnd(committed: string[], partial: string, trailingSpa
   let node: PaletteNode | undefined;
   for (let i = 0; i < path.length; i++) {
     const next = i === 0 ? findRoot(path[i]!) : findChild(node, path[i]!);
-    if (!next) return false;
+    if (!next) return matchesGluedFreeArg(node, path[i]!);
     node = next;
   }
   if (!node || (node.children?.length ?? 0) > 0) return false;
@@ -444,6 +453,12 @@ export function commitSelection(line: string, view: PaletteView): { line: string
 
   const { committed, partial, trailingSpace, active } = view;
 
+  /* 空 token = 直接运行父命令，不把占位标签写进命令行 */
+  if (node.token === "") {
+    const base = committed.slice(0, active);
+    return { line: base.length ? `/${base.join(" ")}` : "/", submit: true };
+  }
+
   /* 叶节点且输入已完整匹配 → 提交执行 */
   const isLeaf = !node.children?.length && !node.freeArgs;
   if (isLeaf && !trailingSpace) {
@@ -458,7 +473,9 @@ export function commitSelection(line: string, view: PaletteView): { line: string
   const tokens = committed.slice(0, active);
   tokens.push(node.token);
   let next = "/" + tokens.join(" ");
-  if (node.children?.length || node.freeArgs) next += " ";
+  /* `=` 结尾的自由参数不补空格，避免把 `--experiments=beta` 拆成两个 token */
+  const glue = node.freeArgs && node.token.endsWith("=");
+  if ((node.children?.length || node.freeArgs) && !glue) next += " ";
   return { line: next, submit: false };
 }
 

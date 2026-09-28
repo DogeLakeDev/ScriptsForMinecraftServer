@@ -35,10 +35,12 @@ import {
   writeBdsPidFile,
 } from "@sfmc-bds/bds-tools/process-probe";
 import { postBdsLifecycleEvent } from "@sfmc-bds/bds-tools/qq-events-notify";
-import { spawn, type ChildProcess, type IOType } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
+import { isDaemonServer } from "./daemon/role.js";
+import { onRemoteServiceStateChange } from "./daemon/client.js";
 import { t } from "./i18n/index.js";
 import { resolveLlbotLaunch } from "./llbot-launch.js";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
@@ -46,6 +48,7 @@ import { findNodeServicePids } from "./node-service-probe.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { recordBdsVersion } from "./bds-runtime-version.js";
 import { reportBdsPlayerSession } from "./player-session.js";
+import { startModuleSidecars, stopModuleSidecars } from "./module-sidecars.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 
 export { ROOT } from "./runtime.js";
@@ -63,12 +66,6 @@ export function nonBlankOutputLines(text: string): string[] {
 
 export type ServiceName = "bds" | "db" | "tunnel" | "qq" | "llbot";
 export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "tunnel", "qq", "llbot"];
-
-/** argv 一次性 start 在 POSIX 上须 daemonize，否则父进程退出会带走子进程（Windows 不需要） */
-let argvDaemonize = false;
-export function setArgvDaemonize(on: boolean): void {
-  argvDaemonize = on;
-}
 
 /** 单服务 start 结果：optional 服务 validate 失败记为 skipped，不抛错 */
 export type StartOutcome = { status: "started" } | { status: "already" } | { status: "skipped"; reason: string };
@@ -239,20 +236,24 @@ class Service {
     if (this.def.beforeStart) {
       await this.def.beforeStart();
     }
+    if (this.name === "bds") {
+      await startModuleSidecars(ROOT, (line, stream) => this.pushLog(line, stream));
+    }
     // beforeStart 含异步检查；更新可能在等待期间开始。
     if (this.updateInProgress) throw new Error("BDS 正在更新，暂不可启动");
     this.manualStop = false;
-    const daemonize = argvDaemonize && process.platform !== "win32";
+    /* 子进程始终由守护进程用管道持有（stdin 发 stop、stdout 日志、autoRestart）；
+     * 不再对子服务做 detached/unref——脱离终端由 daemon 进程自身负责。
+     * windowsHide：Windows 上避免为每个服务弹出空白控制台（stdout 已 pipe，窗内无输出）。 */
     const spawnOpts = {
       cwd: this.def.cwd,
-      stdio: (daemonize ? "ignore" : ["pipe", "pipe", "pipe"]) as "ignore" | Array<IOType>,
+      stdio: ["pipe", "pipe", "pipe"] as Array<"pipe">,
       env: this.def.env ? { ...process.env, ...this.def.env } : process.env,
-      detached: daemonize,
+      windowsHide: true,
     };
     const child = this.def.service
       ? spawnService(this.def.service, this.def.args ?? [], spawnOpts)
       : spawn(this.def.cmd as string, this.def.args ?? [], spawnOpts);
-    if (daemonize) child.unref();
     this.proc = child;
     this.pid = child.pid ?? 0;
     this.running = true;
@@ -421,6 +422,7 @@ class Service {
       if (filePid === exitingPid) {
         clearBdsPidFile(ROOT);
       }
+      stopModuleSidecars();
     }
     if (this.name === "tunnel" && exitingPid > 0) clearTunnelRuntime(exitingPid);
     if (wasRunning) {
@@ -474,7 +476,8 @@ function createServices(): Record<ServiceName, Service> {
       env: bdsSpawnEnvExtra(bdsPath),
       stopCommand: "stop",
       stopTimeout: 30000,
-      autoRestart: bdsCfg.crash_restart !== false,
+      /* 崩溃拉起由 sfmc daemon 固定开启；不再读 bds_updater.crash_restart */
+      autoRestart: true,
       restartDelay: 5000,
       validate: () => {
         if (!fs.existsSync(bdsExe)) return `not found: ${bdsExe}`;
@@ -625,6 +628,10 @@ export type ServiceStateEvent = { name: ServiceName; running: boolean; pid: numb
 
 /** 订阅任意服务启停（含探测回写）；返回取消函数 */
 export function onServiceStateChange(fn: (ev: ServiceStateEvent) => void): () => void {
+  /* CLI 进程不持有 Service 子进程：改订守护进程推送的远程状态事件 */
+  if (!isDaemonServer()) {
+    return onRemoteServiceStateChange(fn);
+  }
   const handler = (ev: ServiceStateEvent): void => {
     fn(ev);
   };
@@ -651,8 +658,18 @@ async function reconcileManagedAlive(service: Service): Promise<boolean> {
 /**
  * 统一运行态查询（权威入口）：OS/健康探测 + 回写 Service 内存标志。
  * status / Tab 发送目标 / reload 等均应走此接口，勿直接读 `service.running`。
+ * CLI 进程经守护进程 RPC 获取；守护进程内走本地探活。
  */
 export async function queryServicesRuntime(): Promise<ServiceStatus[]> {
+  if (!isDaemonServer()) {
+    const { queryRuntimeViaDaemon } = await import("./daemon/client.js");
+    return queryRuntimeViaDaemon();
+  }
+  return queryServicesRuntimeLocal();
+}
+
+/** 守护进程内本地探活实现（亦供 server status 组装 rows） */
+export async function queryServicesRuntimeLocal(): Promise<ServiceStatus[]> {
   return Promise.all(
     SERVICE_NAMES.map(async (name) => {
       const service = services[name];

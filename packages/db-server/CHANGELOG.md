@@ -7,7 +7,7 @@
 - aadd2de: Use each chat channel's prefix and QQ forwarding switch for MC messages. Route QQ group messages into the read-only game channel and remove the former bridge channel and MC prefix configuration fields.
 - efa6e73: QQ 查服改用游戏实时在线玩家及世界信息，CLI 托管的 BDS 启停和异常退出现在上报事件。
 - efa6e73: 官方 QQ 机器人可选择 Webhook 接收事件；官方与 LLBot 配置改为分组对象。Webhook 模式自动跳过游戏机的桥进程，并安全同步共享配置到云端。群全量事件中的 `<@…>` 机器人提及也能正确触发指令面板命令。官方回复不再附带 LLBot 风格的编号和“发送：”列表。
-- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和世界包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
+- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和资源包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
 - 4a9b066: 统一 QQ 双后端玩家服务菜单、权限核验、敏感操作确认及错误反馈，修复编号菜单与长名单发送，保留查服、版本和 ip 指令习惯。
 
   新增 public_server 公开连接配置；版本优先使用 CLI 捕获并经状态接口核验的当前 BDS 启动版本。移除在线状态接口的 64 人上限，不改变入服业务状态与审批策略。

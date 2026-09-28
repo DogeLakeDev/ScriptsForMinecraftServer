@@ -258,16 +258,17 @@ function serviceChildEnv(service: ServiceId, optsEnv?: NodeJS.ProcessEnv | null)
  *
  * 透传给子进程的 env:
  *   - SFMC_SERVICE / SFMC_ROOT / SFMC_PACKAGES_DIR
+ * 默认 windowsHide：Windows 上隐藏子进程控制台，避免守护进程拉起 db/qq/bds 时弹出空白窗口。
  */
 export function spawnService(service: ServiceId, args: string[] = [], opts: SpawnOptions = {}) {
   const env = serviceChildEnv(service, opts.env as NodeJS.ProcessEnv | undefined);
   const script = resolveServiceScript(service);
-  return spawn(nodeBinary(), [script, ...args], { ...opts, env });
+  return spawn(nodeBinary(), [script, ...args], { windowsHide: true, ...opts, env });
 }
 
 /** spawnService 的同步版本 */
 export function spawnServiceSync(service: ServiceId, args: string[] = [], opts: SpawnSyncOptions = {}) {
   const env = serviceChildEnv(service, opts.env as NodeJS.ProcessEnv | undefined);
   const script = resolveServiceScript(service);
-  return spawnSync(nodeBinary(), [script, ...args], { ...opts, env });
+  return spawnSync(nodeBinary(), [script, ...args], { windowsHide: true, ...opts, env });
 }

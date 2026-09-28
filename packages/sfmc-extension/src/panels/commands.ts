@@ -155,8 +155,8 @@ export async function cmdNewModule(): Promise<void> {
 
   const kind = await vscode.window.showQuickPick(
     [
-      { label: "社区包", description: "@<scope>/sfmc-module-<id>", kind: "community" as const },
-      { label: "官方包", description: "@sfmc-bds/module-<id>", kind: "official" as const },
+      { label: "社区包", description: "@<scope>/sfmc-module-<id>", moduleKind: "community" as const },
+      { label: "官方包", description: "@sfmc-bds/module-<id>", moduleKind: "official" as const },
     ],
     { placeHolder: "npm 包范围" }
   );
@@ -164,7 +164,7 @@ export async function cmdNewModule(): Promise<void> {
 
   let scope: string | undefined;
   let official = false;
-  if (kind.kind === "official") {
+  if (kind.moduleKind === "official") {
     official = true;
   } else {
     scope = await vscode.window.showInputBox({

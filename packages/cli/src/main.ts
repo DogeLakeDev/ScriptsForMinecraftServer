@@ -10,7 +10,6 @@ import { cmdLocale } from "./locale-command.js";
 import { dispatchModuleCommand, isModuleCommand, scanAndWarnUnknown } from "./module-commands.js";
 import { getHelp, playWelcomeAnimation, startRepl } from "./repl.js";
 import { ROOT } from "./runtime.js";
-import { setArgvDaemonize } from "./services.js";
 import { c } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
@@ -32,11 +31,17 @@ function deny(msg: string): never {
 async function main(): Promise<void> {
   const stripped = stripLangArgs(process.argv.slice(2));
   initLocale({ root: ROOT, flag: stripped.lang });
-  const { packsMode, args } = parseGlobalArgv(stripped.args);
+  let args = stripped.args;
 
-  if (args.length > 0 || packsMode) {
-    setArgvDaemonize(true);
+  /* 内部入口：后台守护进程（不解析用户命令） */
+  if (args[0] === "--daemon") {
+    const { runDaemonServer } = await import("./daemon/server.js");
+    await runDaemonServer();
+    return;
   }
+
+  const { packsMode, args: parsedArgs } = parseGlobalArgv(args);
+  args = parsedArgs;
 
   if (args.length === 0 && !packsMode) {
     const { isRuntimeInitialized } = await import("./runtime.js");
@@ -96,6 +101,26 @@ async function main(): Promise<void> {
     case "ui": {
       const { cmdUi } = await import("./ui-command.js");
       console.log(await cmdUi(rest, { block: true }));
+      break;
+    }
+    case "daemon": {
+      const sub = rest[0];
+      if (sub === "stop") {
+        const { shutdownDaemon } = await import("./daemon/client.js");
+        const err = await shutdownDaemon();
+        console.log(err ? c.red(err) : c.dim(t("daemon.stopped")));
+      } else if (sub === "status" || !sub) {
+        const { readDaemonMeta } = await import("./daemon/paths.js");
+        const { isProcessAlive } = await import("@sfmc-bds/bds-tools/process-probe");
+        const meta = readDaemonMeta();
+        if (!meta || !(await isProcessAlive(meta.pid))) {
+          console.log(c.dim(t("daemon.notRunning")));
+        } else {
+          console.log(c.green(t("daemon.running", { pid: String(meta.pid) })));
+        }
+      } else {
+        console.log(c.yellow(t("daemon.usage")));
+      }
       break;
     }
     case "status":

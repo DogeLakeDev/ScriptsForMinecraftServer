@@ -11,14 +11,14 @@
  * 启动方式:
  *   - `npm start`           -> `node dist/index.js` (直接走编译产物)
  *   - `node index.js`       -> 经本 shim 委托到 dist/index.js
- *   - `npm run dev`         -> `tsx src/index.ts`   (开发态,不走 dist)
- *   - `npm run build`       -> `tsc -p tsconfig.json` 生成 dist/
+ *   - `pnpm run dev`        -> `tsx src/index.ts`   (开发态,不走 dist)
+ *   - `pnpm run build`      -> `tsc -p tsconfig.json` 生成 dist/
  */
 
 import("./dist/index.js").catch((e) => {
   const msg = e instanceof Error ? e.message : String(e);
   if (/MODULE_NOT_FOUND|Cannot find module/.test(msg)) {
-    console.error("[QQBridge] dist/ 未找到，请先运行 `npm run build`");
+    console.error("[QQBridge] dist/ 未找到，请先运行 `pnpm run build`");
     process.exit(2);
   }
   console.error("[QQBridge] 启动失败:", msg);

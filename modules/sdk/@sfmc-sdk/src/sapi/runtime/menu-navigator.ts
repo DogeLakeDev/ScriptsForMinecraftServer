@@ -136,7 +136,6 @@ export class MenuNavigator {
   private player: Player;
   private form: CustomForm | null = null;
   private titleObs: ObservableString | null = null;
-  private backVis: ObservableBoolean | null = null;
   /** 跨页面共享的状态对象。 */
   state: Record<string, any> = {};
   private _confirmIdx = 0;
@@ -146,9 +145,8 @@ export class MenuNavigator {
 
   constructor(player: Player) {
     this.player = player;
-    if (ObservableStringCtor && ObservableBooleanCtor) {
+    if (ObservableStringCtor) {
       this.titleObs = new ObservableStringCtor("");
-      this.backVis = new ObservableBooleanCtor(false);
     }
   }
 
@@ -157,7 +155,7 @@ export class MenuNavigator {
     return this.history;
   }
 
-  /** 原生「回到上一级」弹栈后回调，供声明式运行时同步 session。 */
+  /** `back()` 弹栈后回调，供声明式运行时同步 session。 */
   setOnBack(handler: () => void): this {
     this.onBack = handler;
     return this;
@@ -177,7 +175,6 @@ export class MenuNavigator {
     const token = ++this.sessionToken;
     this.history = [sectionId];
     this.applySection(sectionId);
-    this.backVis?.setData(false);
     await this.buildAndShow(token);
   }
 
@@ -367,11 +364,10 @@ export class MenuNavigator {
   private async buildAndShow(token = this.sessionToken): Promise<void> {
     if (token !== this.sessionToken) return;
     if (this.form?.isShowing()) this.form.close();
-    if (!CustomFormCtor || !this.titleObs || !this.backVis) {
+    if (!CustomFormCtor || !this.titleObs || !ObservableBooleanCtor) {
       throw new Error("当前环境下的 @minecraft/server-ui 不支持 CustomForm (DDUI)，请在支持 DDUI 的 BDS 版本运行");
     }
     this.form = new CustomFormCtor(this.player, this.titleObs);
-    this.form.button("← 回到上一级", () => this.back(), { visible: this.backVis });
     for (const [id, def] of this.sections) {
       if (token !== this.sessionToken) return;
       const vis = this.sectionVis.get(id);
@@ -408,7 +404,6 @@ export class MenuNavigator {
 
   private applySection(sectionId: string): void {
     for (const [id, vis] of this.sectionVis) vis.setData(id === sectionId);
-    this.backVis?.setData(this.history.length > 1);
     this.updateTitle();
   }
 

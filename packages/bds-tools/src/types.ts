@@ -6,10 +6,7 @@ export interface BdsUpdaterConfig {
   bds_path?: string;
   backup_dir?: string;
   channel?: "release" | "preview" | string;
-  auto_restart?: boolean;
   auto_check?: boolean;
-  crash_restart?: boolean;
-  crash_restart_delay?: number;
   qq_notify?: boolean;
   qq_config?: string;
   preserve?: string[];

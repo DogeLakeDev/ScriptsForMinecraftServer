@@ -1,5 +1,5 @@
 /**
- * packs/pack-sources.json — 世界包远程源绑定
+ * packs/pack-sources.json — 资源包远程源绑定
  */
 import { withConfigSchema } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";

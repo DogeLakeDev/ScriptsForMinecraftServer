@@ -9,6 +9,7 @@
  * 业务实现不在本文件 / 面板内：分发到 commands、module-commands、world-packs 等。
  */
 import { stdin } from "node:process";
+import { t } from "./i18n/index.js";
 
 export type CommandChannel = "repl" | "both";
 export type CommandMode = "argv" | "repl";
@@ -157,14 +158,20 @@ export function listVisiblePacksSubs(mode: CommandMode): string[] {
 export type PaletteNode = {
   /** 面板内显示的标签 */
   label: string;
-  /** 追加到命令行的 token（根节点含或不含前导逻辑由组装负责） */
+  /**
+   * 追加到命令行的 token。
+   * 空字符串表示「直接运行」：不追加参数，回车提交已经写好的父命令。
+   */
   token: string;
   /** i18n 描述键 */
   descKey?: string;
   accent?: CommandAccent;
   /** 固定下一参选项；回车后在右侧展开 */
   children?: PaletteNode[];
-  /** 无 children 时仍需自由输入（回车后填入空格继续打字） */
+  /**
+   * 无 children 时仍需自由输入（回车后填入空格继续打字）。
+   * token 以 `=` 结尾时不补空格，后续字符粘在同一 token 上（如 `--experiments=beta,upcoming`）。
+   */
   freeArgs?: boolean;
 };
 
@@ -185,6 +192,7 @@ const TOP_DESC: Record<string, string> = {
   locale: "help.locale",
   debug: "help.debug.status",
   ui: "help.ui",
+  daemon: "help.daemon",
   install: "help.module.install",
   uninstall: "help.module.uninstall",
   search: "help.module.search",
@@ -244,14 +252,120 @@ function moduleChildNodes(mode: CommandMode): PaletteNode[] {
   });
 }
 
+/**
+ * 「直接运行」项：token 为空，回车提交已经写好的父命令。
+ * 用在无参本身就是合法命令、同时还要展开可选开关的节点上。
+ */
+function asIsNode(descKey: string, labelKey: "palette.asIs" | "palette.fixOnly" | "palette.localeCurrent" = "palette.asIs"): PaletteNode {
+  return { label: t(labelKey), token: "", descKey };
+}
+
+/** `/ui` 的固定子命令（studio 启动编辑器，stop 停掉当前进程内的服务）。 */
+function uiChildNodes(): PaletteNode[] {
+  return [
+    { label: "studio", token: "studio", descKey: "help.ui.studio" },
+    { label: "stop", token: "stop", descKey: "help.ui.stop" },
+  ];
+}
+
+/** `/debug` 的固定子命令；sentry on 之后还要粘上 `--dsn=`。 */
+function debugChildNodes(): PaletteNode[] {
+  return [
+    { label: "status", token: "status", descKey: "help.debug.status" },
+    { label: "enable", token: "enable", descKey: "help.debug.toggle" },
+    { label: "disable", token: "disable", descKey: "help.debug.toggle" },
+    {
+      label: "sentry",
+      token: "sentry",
+      descKey: "help.debug.sentry",
+      children: [
+        {
+          label: "on",
+          token: "on",
+          descKey: "help.debug.sentry.on",
+          children: [{ label: "--dsn=", token: "--dsn=", descKey: "help.debug.sentry.on", freeArgs: true }],
+        },
+        { label: "off", token: "off", descKey: "help.debug.sentry.off" },
+      ],
+    },
+  ];
+}
+
+/** `/daemon` 的固定子命令。无参等价于 status，面板里仍单列出来。 */
+function daemonChildNodes(): PaletteNode[] {
+  return [
+    { label: "status", token: "status", descKey: "help.daemon.status" },
+    { label: "stop", token: "stop", descKey: "help.daemon.stop" },
+  ];
+}
+
+/** `/locale` 的可选语言；第一项不带参数，只打印当前语言。 */
+function localeChildNodes(): PaletteNode[] {
+  return [
+    asIsNode("help.locale", "palette.localeCurrent"),
+    { label: "zh-CN", token: "zh-CN", descKey: "locale.opt.zh" },
+    { label: "en", token: "en", descKey: "locale.opt.en" },
+  ];
+}
+
+/** `/update` 的已知开关。无参就是检查并更新。 */
+function updateChildNodes(): PaletteNode[] {
+  return [
+    asIsNode("help.update"),
+    { label: "--check-only", token: "--check-only", descKey: "help.update.checkOnly" },
+    { label: "--force", token: "--force", descKey: "help.update.force" },
+    { label: "--no-start", token: "--no-start", descKey: "help.update.noStart" },
+    { label: "--channel=release", token: "--channel=release", descKey: "help.update.channelRelease" },
+    { label: "--channel=preview", token: "--channel=preview", descKey: "help.update.channelPreview" },
+  ];
+}
+
+/**
+ * `packs doctor` 的开关。
+ * 无参只诊断；`--experiments=` 后面的别名粘在同一个 token 上。
+ */
+function doctorNode(): PaletteNode {
+  const experimentList: PaletteNode = {
+    label: "--experiments=",
+    token: "--experiments=",
+    descKey: "help.packs.doctor.experimentsList",
+    freeArgs: true,
+  };
+  const allExperiments: PaletteNode = {
+    label: "--all-experiments",
+    token: "--all-experiments",
+    descKey: "help.packs.doctor.allExperiments",
+  };
+  return {
+    label: "doctor",
+    token: "doctor",
+    descKey: "help.packs.doctor",
+    children: [
+      asIsNode("help.packs.doctor"),
+      {
+        label: "--fix",
+        token: "--fix",
+        descKey: "help.packs.doctor.fix",
+        children: [asIsNode("help.packs.doctor.fix", "palette.fixOnly"), allExperiments, experimentList],
+      },
+      allExperiments,
+      { label: "--experiments", token: "--experiments", descKey: "help.packs.doctor.experiments" },
+      experimentList,
+    ],
+  };
+}
+
 function packsChildNodes(mode: CommandMode): PaletteNode[] {
   const noArg = new Set(["list", "path", "sources"]);
-  return listVisiblePacksSubs(mode).map((sub) => ({
-    label: sub,
-    token: sub,
-    descKey: PACKS_DESC[sub] ?? "help.addon",
-    freeArgs: !noArg.has(sub),
-  }));
+  return listVisiblePacksSubs(mode).map((sub) => {
+    if (sub === "doctor") return doctorNode();
+    return {
+      label: sub,
+      token: sub,
+      descKey: PACKS_DESC[sub] ?? "help.addon",
+      freeArgs: !noArg.has(sub),
+    };
+  });
 }
 
 /** 层级命令树（REPL 面板主列） */
@@ -284,6 +398,16 @@ export function listPaletteRoots(mode: CommandMode = "repl"): PaletteNode[] {
         token: n,
         freeArgs: true,
       }));
+    } else if (s.name === "ui") {
+      node.children = uiChildNodes();
+    } else if (s.name === "debug") {
+      node.children = debugChildNodes();
+    } else if (s.name === "daemon") {
+      node.children = daemonChildNodes();
+    } else if (s.name === "locale") {
+      node.children = localeChildNodes();
+    } else if (s.name === "update") {
+      node.children = updateChildNodes();
     } else if (!NO_ARG_TOP.has(s.name)) {
       node.freeArgs = true;
     }
@@ -312,6 +436,26 @@ export function listPaletteRoots(mode: CommandMode = "repl"): PaletteNode[] {
   }
 
   return out;
+}
+
+/**
+ * 已提交路径的下一参 token，供非 `/` 灰字补全与面板共用同一棵树。
+ * 没有对应节点时返回 null；节点存在但没有子项时返回空数组。
+ * 「直接运行」的空 token 不出现在补全里。
+ */
+export function listNextPaletteTokens(path: readonly string[], mode: CommandMode = "repl"): string[] | null {
+  if (path.length === 0) return null;
+  let current: PaletteNode | undefined = listPaletteRoots(mode).find((n) => n.token === path[0]);
+  if (!current) return null;
+  for (let i = 1; i < path.length; i++) {
+    const token = path[i] ?? "";
+    const children: readonly PaletteNode[] = current.children ?? [];
+    current = children.find((child) => child.token === token);
+    if (!current) return null;
+  }
+  const kids = current.children;
+  if (!kids?.length) return [];
+  return kids.map((child) => child.token).filter((token) => token.length > 0);
 }
 
 export function isDevAccent(spec: CommandSpec | undefined): boolean {
@@ -346,6 +490,7 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { id: "init", name: "init", channel: "both", needsTty: true },
   { id: "update", name: "update", channel: "both" },
   { id: "locale", name: "locale", channel: "both" },
+  { id: "daemon", name: "daemon", channel: "both" },
   { id: "debug", name: "debug", channel: "both", accent: "dev" },
   { id: "ui", name: "ui", channel: "both", accent: "dev" },
 

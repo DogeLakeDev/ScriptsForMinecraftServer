@@ -194,7 +194,10 @@ export function resolvePackLocalizedText(packDir: string, value: string): string
   for (const file of languageFiles) {
     if (!fs.existsSync(file)) continue;
     try {
-      const lines = fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/);
+      const lines = fs
+        .readFileSync(file, "utf8")
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/);
       for (const line of lines) {
         const trimmed = line.trimStart();
         if (!trimmed || trimmed.startsWith("#")) continue;
@@ -231,9 +234,7 @@ export function readPackManifestInfo(packDir: string): PackManifestInfo | null {
       uuid,
       version,
       kind,
-      ...(typeof description === "string"
-        ? { description: resolvePackLocalizedText(packDir, description) }
-        : {}),
+      ...(typeof description === "string" ? { description: resolvePackLocalizedText(packDir, description) } : {}),
     };
   } catch {
     return null;
@@ -853,7 +854,7 @@ export type UninstallPackResult = { action: "trashed"; dest: string } | { action
 export type UninstallPackAction = UninstallPackResult["action"];
 
 /**
- * 卸载已安装世界包：先 disable enable-list，再移入 trashDir 或直接删除目录。
+ * 卸载已安装资源包：先 disable enable-list，再移入 trashDir 或直接删除目录。
  * trashDir 跨盘符时 fallback 为 copy + rm。
  */
 export async function uninstallInstalledPack(opts: {
