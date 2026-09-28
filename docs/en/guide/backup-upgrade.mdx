@@ -1,6 +1,6 @@
 ﻿import { Tabs, Tab } from '@rspress/core/theme';
 
-# Backup and upgrade
+# Backup, upgrade, and rollback
 
 ## Backup
 
@@ -8,15 +8,16 @@ Back up together:
 
 - `data/` (SQLite)
 - `configs/`
-- `modules/catalog.json`, `modules/module-lock.json`
-- World directory (behavior / resource packs if you need a full restore)
+- `modules/` (installed packages, catalog, and lock)
+- `packs/` and the BDS world, behavior packs, resource packs, and world pack references
 
-Stop db before archiving to avoid inconsistent files under WAL:
+Schedule a maintenance window. Stop BDS and db-server, verify both processes have exited, and then archive the assets above to a location outside the instance. Include the actual database path if it is outside `data/`; do not assume the BDS directory is named `BedrockDedicatedServer`.
+
+Do not copy a live SQLite database while it may have uncheckpointed WAL data:
 
 ```bash
-sfmc> stop db
-# archive data / configs / module lock files, etc.
-sfmc> start db
+sfmc> /stop -all
+# archive and check the backup; keep services stopped if upgrading
 ```
 
 :::warning Important
@@ -45,17 +46,17 @@ pnpm install && pnpm run build
   </Tab>
 </Tabs>
 
-Then restart affected services. The module behavior pack can be rebuilt by the next `start bds` load gate, or manually:
+Confirm `SFMC_ROOT` and the CLI version before changing the instance. Upgrading the CLI does not replace installed modules or the deployed behavior pack. In a maintenance window, install the intended module versions, then build and deploy before starting BDS:
 
 ```bash
-sfmc> mod reload
+sfmc> mod reload --build-only
 ```
 
 ## Upgrade modules
 
 ```bash
 sfmc> mod install <id>
-sfmc> mod reload
+sfmc> mod reload --build-only
 ```
 
 ## Upgrade BDS
@@ -66,14 +67,15 @@ sfmc> update
 sfmc> update --check-only
 ```
 
-db-server runs incremental schema migrations on startup; older databases usually work as-is.
+If the upgrade includes schema migrations, rehearse them on an isolated copy and keep the pre-migration cold backup. Do not assume an older version can read data written by a newer version.
 
 ## Rollback
 
 | Target | Approach |
 | ------ | ------ |
-| Config / lock | Restore from backup and restart |
-| Module behavior pack | Reinstall previous module version, then `mod reload` |
+| Config / lock | Stop affected services, restore the matching cold backup, then start and inspect fresh logs |
+| Module behavior pack | Stop BDS; restore the previous modules, catalog, lock, and deployed pack, or install an exact prior package with `mod install <id> --from npm:@sfmc-bds/module-<id>@<version>`; rebuild and start BDS |
 | BDS | bds-tools rollback (if backup policy enabled) |
+| Database | Stop all writers, preserve a copy of the failed state, restore a verified cold backup, and run SQLite integrity checks before starting |
 
 Runtime state and logs: `<SFMC_ROOT>/.sfmc/` (including `db.log`, `qq.log`, `bds.log` under `logs/`).
