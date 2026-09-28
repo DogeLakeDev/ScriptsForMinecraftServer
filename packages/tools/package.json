@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/tools",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "SFMC monorepo-only scripts — verify, docs, release, build bins (not published to npm)",
   "author": "Shiroha7z",
