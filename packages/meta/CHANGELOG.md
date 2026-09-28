@@ -1,5 +1,13 @@
 # @sfmc-bds/sfmc
 
+## 0.2.2
+
+### Patch Changes
+
+- a4f6857: 修正正式版包内安装说明，并明确 pnpm 新发布版本的默认等待期和精确版本安装方式。
+- Updated dependencies [a4f6857]
+  - @sfmc-bds/cli@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes
