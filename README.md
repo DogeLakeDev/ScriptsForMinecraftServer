@@ -41,7 +41,7 @@ SFMC 希望通过模块化架构补充基岩版的原生开发体验。
 node -v
 
 # 安装 SFMC CLI 正式版
-pnpm add -g @sfmc-bds/sfmc
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 
 # 创建服务器目录
 mkdir my-server && cd my-server
@@ -49,6 +49,8 @@ mkdir my-server && cd my-server
 # 初始化 SFMC
 sfmc
 ```
+
+pnpm v11 起默认会等待新版本发布满 24 小时。发布当天若省略版本号，可能装到上一正式版；可用 `pnpm view @sfmc-bds/sfmc version` 查看当前 `latest`，再指定该精确版本安装。
 
 开发者可以直接克隆本 monorepo，详细内容请查看
 [入门指南](./docs/zh/guide/index.mdx)。
