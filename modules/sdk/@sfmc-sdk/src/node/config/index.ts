@@ -6,10 +6,7 @@ export interface BdsUpdaterConfig {
   bds_path?: string;
   backup_dir?: string;
   channel?: "release" | "preview" | string;
-  auto_restart?: boolean;
   auto_check?: boolean;
-  crash_restart?: boolean;
-  crash_restart_delay?: number;
   qq_notify?: boolean;
   qq_config?: string;
   preserve?: string[];
@@ -239,8 +236,6 @@ export const DEFAULT_BDS_UPDATER_CONFIG: BdsUpdaterConfig = {
   qq_notify: false,
   qq_config: "../configs/qq_config.json",
   auto_check: true,
-  crash_restart: true,
-  auto_restart: true,
 };
 
 /** permissions.json 根为数组；默认空表 */

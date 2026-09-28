@@ -106,7 +106,7 @@ export const en = {
   "help.locale": "Show / set CLI language",
   "help.version": "Show version",
   "help.help": "Show this help",
-  "help.quit": "Exit",
+  "help.quit": "Exit CLI (services keep running)",
   "help.shortcuts": "Shortcuts:",
   "help.shortcut.tab": "Send target / list select",
   "help.shortcut.right": "Accept suggestion",
@@ -115,6 +115,7 @@ export const en = {
 
   /* ─── repl ─── */
   "repl.stopping": "stopping services...",
+  "repl.detach": "CLI detached (services keep running; use stop / daemon stop to halt)",
   "repl.bye": "bye",
   "repl.forceStop": "force stopping services...",
   "repl.nonInteractive": " Non-interactive mode (pipe detected)\n",
@@ -132,6 +133,14 @@ export const en = {
   "repl.history.last15min": "last 15 min",
   "repl.history.last1hour": "last 1 hour",
   "repl.history.all": "all buffered",
+
+  /* ─── daemon ─── */
+  "daemon.stopped": "daemon stopped",
+  "daemon.notRunning": "daemon is not running",
+  "daemon.running": "daemon running (PID {pid})",
+  "daemon.usage": "usage: daemon [status|stop]",
+  "daemon.connectFailed": "failed to connect daemon: {message}",
+  "help.daemon": "Show/stop background daemon",
 
   /* ─── services / commands ─── */
   "svc.header": "Services",

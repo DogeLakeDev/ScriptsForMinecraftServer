@@ -98,9 +98,10 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 
 ---
 
-### `bds_updater.json`：BDS 核心与进程守护
+### `bds_updater.json`：BDS 核心更新
 
-管理 Bedrock Dedicated Server 的自动版本检测、热补丁下载、升级前安全备份与进程崩溃自启。
+管理 Bedrock Dedicated Server 的自动版本检测、热补丁下载与升级前安全备份。
+进程崩溃拉起由 `sfmc` 后台守护进程负责，不再在此配置开关。
 
 ```json title="configs/bds_updater.json"
 {
@@ -109,23 +110,19 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
   "backup_dir": "./backups",
   "channel": "release",
   "auto_check": true,
-  "crash_restart": true,
-  "crash_restart_delay": 5,
   "preserve": ["server.properties", "whitelist.json", "permissions.json", "worlds"],
   "qq_notify": true
 }
 ```
 
-| 字段                  | 类型       | 说明                                                                                |
-| :-------------------- | :--------- | :---------------------------------------------------------------------------------- |
-| `bds_path`            | `string`   | BDS 核心可执行程序所在目录。                                                        |
-| `backup_dir`          | `string`   | 升级或回滚时的全量备份落盘路径（必须位于 `bds_path` 目录之外）。                    |
-| `channel`             | `string`   | 更新通道：`"release"`（正式稳定版）或 `"preview"`（预览测试版）。                   |
-| `auto_check`          | `boolean`  | 服务启动时是否静默请求 Mojang 官方源检测最新版本。                                  |
-| `crash_restart`       | `boolean`  | 当 `bedrock_server` 异常崩溃退出时，是否自动尝试拉起恢复。                          |
-| `crash_restart_delay` | `number`   | 崩溃重启前的缓冲等待时间（秒），避免因端口未释放引发频繁颠簸。                      |
-| `preserve`            | `string[]` | 覆盖更新时**绝对予以保留并自动复原**的文件/目录白名单（避免存档或基础配置被冲洗）。 |
-| `qq_notify`           | `boolean`  | 更新启动、完成或崩溃告警时，是否通过 QQ 群同步广播进度。                            |
+| 字段         | 类型       | 说明                                                                                |
+| :----------- | :--------- | :---------------------------------------------------------------------------------- |
+| `bds_path`   | `string`   | BDS 核心可执行程序所在目录。                                                        |
+| `backup_dir` | `string`   | 升级或回滚时的全量备份落盘路径（必须位于 `bds_path` 目录之外）。                    |
+| `channel`    | `string`   | 更新通道：`"release"`（正式稳定版）或 `"preview"`（预览测试版）。                   |
+| `auto_check` | `boolean`  | 服务启动时是否静默请求 Mojang 官方源检测最新版本。                                  |
+| `preserve`   | `string[]` | 覆盖更新时**绝对予以保留并自动复原**的文件/目录白名单（避免存档或基础配置被冲洗）。 |
+| `qq_notify`  | `boolean`  | 更新启动、完成或崩溃告警时，是否通过 QQ 群同步广播进度。                            |
 
 ---
 
