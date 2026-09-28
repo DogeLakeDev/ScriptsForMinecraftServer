@@ -25,7 +25,6 @@ import { t } from "./i18n/index.js";
 import { cmdLocale } from "./locale-command.js";
 import {
   formatLog,
-  getAllLogs,
   logPrefixWidth,
   onLog,
   readDiskLogs,
@@ -54,7 +53,7 @@ import {
   type WindowKeyResult,
 } from "./repl-windows/index.js";
 import { SEND_TARGET_ORDER, paintSendPrompt, paintSfmcPrompt, plainPrompt } from "./send-target.js";
-import { forceStopAll, onServiceStateChange, queryServicesRuntime, SERVICE_NAMES, stopAll, type ServiceName } from "./services.js";
+import { onServiceStateChange, queryServicesRuntime, SERVICE_NAMES, type ServiceName } from "./services.js";
 import { c, T } from "./theme.js";
 import { dispatchPacksCommand, isPacksCommand } from "./world-packs.js";
 
@@ -815,9 +814,13 @@ function writeLogLineToTty(wrapped: string): void {
 
 export async function startRepl(): Promise<void> {
   let stopping = false;
+  /** 断开与守护进程的订阅（不停服） */
+  let disconnectDaemon: (() => void) | null = null;
+
   const onSigint = (): void => {
-    stdout.write(c.yellow("\n" + t("repl.forceStop") + "\n"));
-    forceStopAll();
+    stdout.write(c.yellow("\n" + t("repl.detach") + "\n"));
+    disconnectDaemon?.();
+    disconnectDaemon = null;
     process.exit(130);
   };
   const shutdown = async (): Promise<void> => {
@@ -825,8 +828,9 @@ export async function startRepl(): Promise<void> {
     stopping = true;
     process.off("SIGINT", onSigint);
     openLogsWindowHook = null;
-    stdout.write(c.dim(t("repl.stopping") + "\n"));
-    await stopAll();
+    stdout.write(c.dim(t("repl.detach") + "\n"));
+    disconnectDaemon?.();
+    disconnectDaemon = null;
     try {
       setRaw(false);
       stdin.pause();
@@ -837,6 +841,15 @@ export async function startRepl(): Promise<void> {
     process.exit(0);
   };
   process.on("SIGINT", onSigint);
+
+  /* 连接（或拉起）守护进程并订阅远程日志/状态 */
+  try {
+    const { ensureDaemonSubscription } = await import("./daemon/client.js");
+    disconnectDaemon = await ensureDaemonSubscription();
+  } catch (e) {
+    stdout.write(c.red(t("daemon.connectFailed", { message: (e as Error).message })) + "\n");
+    process.exit(1);
+  }
 
   if (!stdin.isTTY) {
     console.log(c.dim(t("repl.nonInteractive")));
@@ -878,31 +891,25 @@ export async function startRepl(): Promise<void> {
     stdout.write("\x1B[3J");
   }
 
-  /** 首次进入窗口：从内存/落盘拉一次作为种子缓存 */
+  /** 首次进入窗口：从落盘拉历史作为种子（CLI 重连后内存为空，权威在 `.sfmc/logs/*.log`） */
   function seedWindowBuffer(w: {
     id: string;
     acceptLog: (l: UnifiedLog) => boolean;
     formatLogLine: (l: UnifiedLog) => { text: string; indent: number };
     getReplayFilter?: () => { levels: string[]; sources: string[] };
   }): string[] {
+    const f = w.getReplayFilter?.() ?? { levels: [], sources: [] };
+    /* 与旧内存环大小对齐，避免超大 log 文件拖垮清屏回放 */
+    const disk = readDiskLogs({
+      levels: f.levels as LogLevel[],
+      sources: f.sources,
+      limit: 5000,
+    });
     const lines: string[] = [];
-    if (w.id === "logs") {
-      const f = w.getReplayFilter?.() ?? { levels: [], sources: [] };
-      const disk = readDiskLogs({
-        levels: f.levels as LogLevel[],
-        sources: f.sources,
-      });
-      for (const log of disk) {
-        if (!w.acceptLog(log)) continue;
-        const { text, indent } = w.formatLogLine(log);
-        lines.push(wrapLogLine(text, indent));
-      }
-    } else {
-      for (const log of getAllLogs()) {
-        if (!w.acceptLog(log)) continue;
-        const { text, indent } = w.formatLogLine(log);
-        lines.push(wrapLogLine(text, indent));
-      }
+    for (const log of disk) {
+      if (!w.acceptLog(log)) continue;
+      const { text, indent } = w.formatLogLine(log);
+      lines.push(wrapLogLine(text, indent));
     }
     host.setBuffer(w.id, lines);
     return lines;
@@ -910,8 +917,8 @@ export async function startRepl(): Promise<void> {
 
   /**
    * 展示活动窗：先清屏，再恢复/seed。
-   * - /logs：用落盘种子缓存（改筛选才 reseed），避免重复读文件
-   * - 服务主面板：每次从内存重 seed，保证离开 /logs 或 Tab 回来时内容实时
+   * 历史一律落盘 seed；实时行由 onLog → routeLog 追加进各窗缓存。
+   * 改筛选时传 reseed 强制重读盘。
    */
   function showActiveWindow(opts?: { reseed?: boolean }): void {
     clearTerminal();
@@ -920,15 +927,8 @@ export async function startRepl(): Promise<void> {
       currentRedraw?.();
       return;
     }
-    let lines: readonly string[];
-    if (w.id === "logs") {
-      if (opts?.reseed) host.invalidateBuffer(w.id);
-      lines = host.hasBuffer(w.id) ? host.getBuffer(w.id) : seedWindowBuffer(w);
-    } else {
-      /* 主面板实时：不作废也无妨，直接重拉内存缓冲 */
-      host.invalidateBuffer(w.id);
-      lines = seedWindowBuffer(w);
-    }
+    if (opts?.reseed) host.invalidateBuffer(w.id);
+    const lines = host.hasBuffer(w.id) ? host.getBuffer(w.id) : seedWindowBuffer(w);
     for (const l of lines) stdout.write(l + "\n");
     currentRedraw?.();
   }
@@ -963,7 +963,7 @@ export async function startRepl(): Promise<void> {
   }
 
   function openLogsWindow(): void {
-    /* 离开主面板：其缓存可留着，但展示上先清屏再进 /logs；Esc 回来会按实时重 seed 主面板 */
+    /* 离开主面板：缓存保留；Esc 回来若主面板已有缓存则直接恢复（含期间 routeLog 追加） */
     host.open("logs");
     showActiveWindow();
   }
@@ -1177,6 +1177,26 @@ async function execCmd(parts: string[]): Promise<void> {
     case "ui": {
       const { cmdUi } = await import("./ui-command.js");
       stdout.write((await cmdUi(args, { block: false })) + "\n");
+      break;
+    }
+    case "daemon": {
+      const sub = args[0];
+      if (sub === "stop") {
+        const { shutdownDaemon } = await import("./daemon/client.js");
+        const err = await shutdownDaemon();
+        stdout.write((err ? c.red(err) : c.dim(t("daemon.stopped"))) + "\n");
+      } else if (sub === "status" || !sub) {
+        const { readDaemonMeta } = await import("./daemon/paths.js");
+        const { isProcessAlive } = await import("@sfmc-bds/bds-tools/process-probe");
+        const meta = readDaemonMeta();
+        if (!meta || !(await isProcessAlive(meta.pid))) {
+          stdout.write(c.dim(t("daemon.notRunning")) + "\n");
+        } else {
+          stdout.write(c.green(t("daemon.running", { pid: String(meta.pid) })) + "\n");
+        }
+      } else {
+        stdout.write(c.yellow(t("daemon.usage") + "\n"));
+      }
       break;
     }
     case "init": {

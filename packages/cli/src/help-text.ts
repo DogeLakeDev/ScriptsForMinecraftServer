@@ -121,6 +121,7 @@ ${helpLine(`${c.blue("sfmc debug")} status|enable|disable|sentry …`, "")}
     const general = [
       show("init") ? helpLine(p(mode, "init"), t("help.init")) : "",
       show("locale") ? helpLine(pArgs(mode, "locale", " [zh|en]"), t("help.locale")) : "",
+      show("daemon") ? helpLine(pArgs(mode, "daemon", " [status|stop]"), t("help.daemon")) : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -165,6 +166,7 @@ ${packsLines}
       : "";
 
   const general = [
+    show("daemon") ? helpLine(pArgs(mode, "daemon", " [status|stop]"), t("help.daemon")) : "",
     show("version") ? helpLine(p(mode, "version"), t("help.version")) : "",
     show("help") ? helpLine(p(mode, "help"), t("help.help")) : "",
     show("quit") ? helpLine(p(mode, "quit"), t("help.quit")) : "",

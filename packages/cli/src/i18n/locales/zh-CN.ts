@@ -103,7 +103,7 @@ export const zhCN: Record<MessageKey, string> = {
   "help.locale": "设置 CLI 语言",
   "help.version": "显示版本",
   "help.help": "显示帮助",
-  "help.quit": "退出",
+  "help.quit": "退出 CLI（后台服务继续运行）",
   "help.shortcuts": "快捷键:",
   "help.shortcut.tab": "切换发送目标 / 命令列表选择",
   "help.shortcut.right": "接受建议",
@@ -112,9 +112,18 @@ export const zhCN: Record<MessageKey, string> = {
 
   /* ─── REPL ─── */
   "repl.stopping": "正在停止服务...",
+  "repl.detach": "已断开 CLI（后台服务继续运行；停服用 stop / daemon stop）",
   "repl.bye": "bye...",
   "repl.forceStop": "正在强制停止服务...",
   "repl.nonInteractive": " 非交互模式（检测到管道）\n",
+
+  /* ─── 守护进程 ─── */
+  "daemon.stopped": "守护进程已停止",
+  "daemon.notRunning": "守护进程未运行",
+  "daemon.running": "守护进程运行中 (PID {pid})",
+  "daemon.usage": "用法: daemon [status|stop]",
+  "daemon.connectFailed": "无法连接守护进程: {message}",
+  "help.daemon": "查看/停止后台守护进程",
   "repl.historyHeader": "── 历史 {count} 行 ──",
   "repl.filter": "过滤: {level} / {source} / {history}",
   "repl.followRequiresTty": "跟踪模式需要 TTY",

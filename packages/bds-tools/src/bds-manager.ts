@@ -57,13 +57,16 @@ export interface BdsManagerOptions {
 interface CachedProc {
   process: ReturnType<typeof spawn> | null;
   isManualStop: boolean;
-  crashRestart: boolean;
+  /** 独立运行 bds-manager 时的崩溃拉起延迟（秒）；守护由 sfmc daemon 负责时不读配置 */
   crashDelayMs: number;
   exePath: string;
   bdsPath: string;
 }
 
 let cached: CachedProc | null = null;
+
+/** 独立入口崩溃拉起默认等待（毫秒）；配置项已移除，固定值避免与 daemon 监管重复暴露开关 */
+const STANDALONE_CRASH_DELAY_MS = 5_000;
 
 function ensureProc(): CachedProc {
   if (cached) return cached;
@@ -74,8 +77,7 @@ function ensureProc(): CachedProc {
   cached = {
     process: null,
     isManualStop: false,
-    crashRestart: cfg.crash_restart !== false,
-    crashDelayMs: (cfg.crash_restart_delay ?? 5) * 1000,
+    crashDelayMs: STANDALONE_CRASH_DELAY_MS,
     exePath,
     bdsPath: bds_path,
   };
@@ -224,7 +226,7 @@ export function createBdsManager(options: BdsManagerOptions = {}): BdsManager {
       } else {
         void postBdsLifecycleEvent("stop");
       }
-      if (!wasManual && p.crashRestart && isMain()) {
+      if (!wasManual && isMain()) {
         log.info(`BDS 意外退出，${p.crashDelayMs / 1000}s 后自动重启...`);
         setTimeout(() => {
           start().catch((e) => log.error(`自动重启失败: ${e.message}`));

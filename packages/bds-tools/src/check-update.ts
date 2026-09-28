@@ -80,7 +80,7 @@ function buildContext(): UpdateContext {
     bdsPath: bds_path,
     backupDir: backup_dir,
     preserve,
-    autoRestart: !args["no-start"] && cfg.auto_restart !== false,
+    autoRestart: !args["no-start"],
     qqNotify: !!cfg.qq_notify,
   };
 }
