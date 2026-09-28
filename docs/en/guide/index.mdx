@@ -35,7 +35,7 @@ flowchart LR
   <Tab label="Global pnpm">
 
 ```bash
-pnpm add -g @sfmc-bds/sfmc
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 mkdir my-server && cd my-server
 sfmc
 ```
@@ -52,6 +52,8 @@ sfmc
 
   </Tab>
 </Tabs>
+
+pnpm v11+ waits 24 hours by default before selecting a newly published version from an unversioned package name. On release day, use `pnpm view @sfmc-bds/sfmc version` and install that exact version as shown above. Use `@beta` only to opt into prereleases.
 
 :::tip Note
 This installs the stable `latest` release. Add `@beta` only when you want a prerelease.

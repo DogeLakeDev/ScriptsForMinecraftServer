@@ -34,7 +34,7 @@ Do not copy `.db` files while db-server is running.
   <Tab label="Global pnpm">
 
 ```bash
-pnpm add -g @sfmc-bds/sfmc
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 ```
 
   </Tab>
@@ -47,6 +47,8 @@ pnpm install && pnpm run build
 
   </Tab>
 </Tabs>
+
+pnpm v11+ waits 24 hours by default before selecting a newly published version from an unversioned package name. For a release-day upgrade, check `pnpm view @sfmc-bds/sfmc version` and install that exact version.
 
 Confirm `SFMC_ROOT` and the CLI version before changing the instance. Upgrading the CLI does not replace installed modules or the deployed behavior pack. In a maintenance window, install the intended module versions, then build and deploy before starting BDS:
 

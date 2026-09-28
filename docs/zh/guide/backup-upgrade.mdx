@@ -101,11 +101,13 @@ SFMC 平台的各层组件相互解耦，可按需分别升级：
 
 ```bash
 # 获取最新版官方 CLI
-pnpm add -g @sfmc-bds/sfmc
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 
 # 验证更新后版本
 sfmc --version
 ```
+
+pnpm v11 起默认要求新版本发布满 24 小时才参与无版本号解析。升级当天请先运行 `pnpm view @sfmc-bds/sfmc version`，然后安装该精确版本。
 
   </Tab>
   <Tab label="平台 Monorepo 源码开发者">
