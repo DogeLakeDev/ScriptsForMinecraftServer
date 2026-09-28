@@ -2,18 +2,15 @@
 
 本仓用 [changesets](https://github.com/changesets/changesets) 管理 `@sfmc-bds/*` 的独立 semver。
 
-## 当前阶段：beta-only（pre mode）
+## 正式版发布
 
-见 `pre.json`：`mode: pre`, `tag: beta`。版本形如 `0.2.0-beta.0`，npm dist-tag 为 **`beta`**。
-
-未达 release 门槛前 **禁止** `changeset pre exit` / 发到 `latest`。
+正式版通过 npm `latest` 安装。需要预发布版本时再进入 Changesets pre mode，使用 `beta` dist-tag；切换前核对 `.changeset/pre.json` 和版本 PR。
 
 ## 日常开发
 
 ```bash
 # 改完可发包代码后
 pnpm run changeset
-npm run changeset
 # 选受影响的包 + patch|minor|major，写中文摘要
 ```
 

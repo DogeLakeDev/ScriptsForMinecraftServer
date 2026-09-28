@@ -24,7 +24,7 @@ pnpm publish --tag beta
 向薄 index 开 PR：在 `sfmc-modules` 仓库的 `index.json` 增加条目（`id` / `npm` / 版本说明）。可用 GitHub CLI 自行开 PR。
 
 :::tip 提示
-当前生态以 **beta** 为主时，安装侧请写 `@beta` 或按你包上的 dist-tag 说明。
+正式版默认使用 npm `latest`；只有预发布包才在安装命令中显式指定对应的 dist-tag（例如 `@beta`）。
 
 :::
 
@@ -33,6 +33,8 @@ pnpm publish --tag beta
 1. 确认 index 出现该模块的 `npm` 字段  
 2. 在 SFMC 工作目录：`sfmc mod install <id>`  
 3. `mod enable` → `mod reload`
+
+官方模块可从主仓手动运行 `module-publish` 工作流。主仓现有 `SFMC_GITHUB_TOKEN` 没有模块仓创建 Git tag 的权限，因此正式发布时保持 `create_github_release=false`；npm 发布成功后，由有模块仓写权限的维护者在对应模块仓为指定 `commit` 创建 `v<version>` 标签和 GitHub Release。补齐后再更新 `sfmc-modules` 索引。若以后为工作流配置了模块仓 Contents 写权限，可将 `create_github_release` 设为 `true`。
 
 命名与联调见 [模块开发](./module-author.md)。
 

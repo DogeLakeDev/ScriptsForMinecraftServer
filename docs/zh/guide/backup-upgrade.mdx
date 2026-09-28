@@ -1,8 +1,8 @@
 import { Tab, Tabs, Steps } from '@rspress/core/theme';
 
-# 备份与无损升级
+# 备份、升级与回退
 
-数据资产是 Minecraft 服务器的命脉所在。SFMC 在设计之初即贯彻了**高可用与灾备优先**准则，本指南将向运维人员介绍标准化的数据备份流程、全组件升级策略以及紧急故障回滚方案。
+升级前先确认当前服务由哪个 SFMC 安装和工作目录管理，并为数据与世界制作可恢复的冷备份。本指南给出操作顺序；实际路径以本机配置为准。
 
 ## 1. 数据安全与冷备份标准
 
@@ -12,8 +12,9 @@ import { Tab, Tabs, Steps } from '@rspress/core/theme';
 | :--- | :--- | :--- |
 | **`data/`** | SQLite 核心数据库文件（`sfmc_data.db` 及日志） | **极高**。包含所有玩家数据与模块持久化数据。 |
 | **`configs/`** | 平台各服务配置与所有业务模块私有配置 | **高**。丢失后需重新配置机器人凭证、端口与游戏规则。 |
-| **`modules/`** | 模块启停状态锁（`module-lock.json`）与本地代码清单 | **中**。记录哪些模块已被激活，重新开服时需依据此文件装配行为包。 |
+| **`modules/`** | 模块包、`module-lock.json` 与 `catalog.json` | **高**。保存已安装的模块版本、代码与启停状态。 |
 | **`<BDS>/worlds/`** | 游戏主世界存档（包含地形、实体与建筑） | **极高**。Minecraft 游戏层面的全量物理世界数据。 |
+| **`<BDS>/behavior_packs/`、`<BDS>/resource_packs/` 与世界包引用文件** | 已部署的行为包、资源包及启用关系 | **高**。回退时需与世界和模块版本一致。 |
 
 ### 严禁在运行状态下直接拷贝 SQLite
 
@@ -28,41 +29,62 @@ SFMC 的 `db-server` 默认工作在 SQLite **WAL（预写式日志，Write-Ahea
 
 <Steps>
 ### 挂起数据库写入并安全停机
-在 `sfmc` 控制台平滑停止数据库与游戏服务：
+安排维护窗口，在管理该实例的 `sfmc` 控制台停止服务，并确认 BDS 与 db-server 进程均已退出：
 ```bash
 sfmc> /stop -all
 ```
 
 ### 执行打包归档
-使用系统原生打包工具将关键资产压缩为时间戳归档文件：
+使用系统原生打包工具将关键资产压缩为带时间戳的归档。下面的 `BDS_DIR` / `$bdsDir` 必须先替换为当前实例实际的 BDS 目录；不要假定目录名为 `BedrockDedicatedServer`。归档须放在被备份目录之外，且空间足够。若数据库位于 `data/` 之外，应另行纳入。
+
+**先检查 `modules/packages/` 是否含符号链接或 Windows junction。** 归档 `modules/` 不等于备份链接目标：本机用 `Compress-Archive` 对 junction 的隔离验证中，归档只包含普通文件，漏掉了链接模块的内容。若存在链接，应逐个记录模块名与目标路径，确认目标可访问，并将实际源码目录另行归档；恢复演练时要连同链接关系一起验证。目标已丢失的链接应先查明原因，不能把它记作已备份。下面的简例仅适用于模块目录内没有链接的实例。
 
 <Tabs>
   <Tab label="Linux (Bash)">
 
 ```bash
-# 生成带时间戳的统一备份压缩包
-tar -czvf "backup-sfmc-$(date +%Y%m%d_%H%M%S).tar.gz" \
-  data/ \
-  configs/ \
-  modules/module-lock.json \
-  modules/catalog.json \
-  BedrockDedicatedServer/worlds/
+BDS_DIR=/path/to/your/BDS
+BACKUP_DIR=/path/outside/SFMC_ROOT
+if [ -n "$(find modules/packages -mindepth 1 -maxdepth 1 -type l -print -quit)" ]; then
+  echo "modules/packages contains links; back up each target separately" >&2
+else
+  mkdir -p "$BACKUP_DIR"
+  # 在 SFMC_ROOT 下运行
+  tar -czvf "$BACKUP_DIR/backup-sfmc-$(date +%Y%m%d_%H%M%S).tar.gz" \
+    data/ \
+    configs/ \
+    modules/ \
+    packs/ \
+    "$BDS_DIR/worlds" \
+    "$BDS_DIR/behavior_packs" \
+    "$BDS_DIR/resource_packs"
+fi
 ```
 
   </Tab>
   <Tab label="Windows (PowerShell)">
 
 ```powershell
+$bdsDir = "D:\path\to\your\BDS" # 改为实际目录
+$backupDir = "D:\path\outside\SFMC_ROOT" # 改为实际备份目录
+$linkedModules = @(Get-ChildItem -LiteralPath modules\packages -Force | Where-Object { $_.LinkType })
+if ($linkedModules.Count -gt 0) {
+  throw "modules/packages 包含链接；请先逐个备份目标目录并验证恢复，不能只压缩 modules/"
+}
+New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-Compress-Archive -Path data, configs, modules\module-lock.json, modules\catalog.json, BedrockDedicatedServer\worlds `
-  -DestinationPath "backup-sfmc-$timestamp.zip"
+Compress-Archive -LiteralPath data, configs, modules, packs, `
+  (Join-Path $bdsDir "worlds"), `
+  (Join-Path $bdsDir "behavior_packs"), `
+  (Join-Path $bdsDir "resource_packs") `
+  -DestinationPath (Join-Path $backupDir "backup-sfmc-$timestamp.zip")
 ```
 
   </Tab>
 </Tabs>
 
 ### 恢复服务拉起
-备份完成确认落盘后，重新唤醒服务：
+检查归档可打开、关键文件齐全，并记录归档路径与哈希。若此次只做例行备份，可重新启动服务；若准备升级，保持停机直至升级与部署完成：
 ```bash
 sfmc> /start -all
 ```
@@ -79,11 +101,13 @@ SFMC 平台的各层组件相互解耦，可按需分别升级：
 
 ```bash
 # 获取最新版官方 CLI
-pnpm add -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 
 # 验证更新后版本
-sfmc version
+sfmc --version
 ```
+
+pnpm v11 起默认要求新版本发布满 24 小时才参与无版本号解析。升级当天请先运行 `pnpm view @sfmc-bds/sfmc version`，然后安装该精确版本。
 
   </Tab>
   <Tab label="平台 Monorepo 源码开发者">
@@ -96,7 +120,7 @@ pnpm install && pnpm run build
   </Tab>
 </Tabs>
 
-升级 CLI 后，直接重启后台服务即可无缝对接新版指令能力。
+升级 CLI 不会自动升级已安装模块或已部署的行为包。先确认 `SFMC_ROOT` 指向目标实例，再按下文更新模块并重新构建、部署，最后启动服务验收。
 
 ---
 
@@ -122,7 +146,7 @@ sfmc> update
 在安全复原 `server.properties` 后，更新引擎会自动对其执行结构化本地化辅助：在**百分之百保留服主既有自定义配置值**的前提下，自动将配置注释升级为结构清晰的简体中文说明，并校验补全 EULA 遥测项（`emit-server-telemetry=true`）。
 :::
 
-升级完成后，`db-server` 会在首次握手时自动跑增量 Schema 迁移，旧版本数据表结构完全向下兼容。
+涉及数据库 Schema 迁移时，先在隔离副本上演练，并保留迁移前冷备份。不要假定新版本写入的数据可由旧版直接读取。
 
 ---
 
@@ -131,11 +155,11 @@ sfmc> update
 当上游模块作者在 npm 发布了新版本时：
 
 ```bash
-# 重新安装指定模块（自动覆盖拉取最新版源码）
+# 从官方索引安装其记录的精确版本；升级前记录原版本
 sfmc> mod install economy
 
-# 重新组装行为包并向游戏发出热重载指令
-sfmc> mod reload
+# 在停服维护时重新组装并部署行为包，不向 BDS 发送 reload
+sfmc> mod reload --build-only
 ```
 
 ## 3. 紧急灾难恢复与回滚方案（Rollback）
@@ -144,10 +168,10 @@ sfmc> mod reload
 
 | 故障场景 | 回滚与救援步骤 |
 | :--- | :--- |
-| **模块升级后出现逻辑 Bug** | 1. 运行 `sfmc mod install <id>@<旧版本号>` 回退版本。<br/>2. 运行 `sfmc mod reload` 重装世界行为包。若问题紧急，可直接运行 `sfmc mod disable <id>` 快速熔断关闭。 |
+| **模块升级后出现逻辑 Bug** | 停机后从冷备份恢复模块目录、锁文件和 catalog，或运行 `sfmc mod install <id> --from npm:@sfmc-bds/module-<id>@<旧版本号>` 安装精确旧版；重新构建部署，再启动 BDS 验收。仅 `mod disable` 也需要重新部署并重启或重载 BDS 才能生效。 |
 | **BDS 核心升级后无法启动** | 若配置了 `configs/bds_updater.json` 的 `backup_dir`，升级前会自动生成全量镜像；将备份目录中的旧版本二进制解压回覆盖原路径即可。 |
-| **误改配置导致启动崩溃** | 从最近一次生成的冷备份压缩包中，仅将 `configs/` 目录解压还原，随后执行 `sfmc /restart -all`。 |
-| **数据库损坏或脏数据** | 1. 执行 `sfmc /stop -all` 强制停机。<br/>2. 移除当前的 `data/sfmc_data.db*` 全套文件。<br/>3. 解压备份中的历史 `.db` 文件并置于 `data/` 下。<br/>4. 重新启动服务。 |
+| **误改配置导致启动崩溃** | 停止相关服务，从对应版本的冷备份恢复配置，然后启动并检查新日志。 |
+| **数据库损坏或脏数据** | 停止全部写入，保留故障现场副本，再从经校验的冷备份恢复数据库及对应 WAL 文件；启动前检查 SQLite 完整性。不要直接删除当前数据库。 |
 
 :::tip 审计追踪
 所有操作细节与异常堆栈均可在 `<SFMC_ROOT>/.sfmc/logs/` 下查阅独立日志（`db.log`、`qq.log`、`bds.log`）。在报告问题前，请附带该目录下的相关诊断信息。

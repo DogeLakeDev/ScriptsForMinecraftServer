@@ -76,7 +76,7 @@ export async function cmdStatus(): Promise<string> {
     const upH = t("svc.col.uptime");
     const header = `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
     return (
-      `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n")
+      `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n") + qqBridgeStatusFooter()
     );
   });
 }

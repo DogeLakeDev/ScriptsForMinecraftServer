@@ -50,11 +50,11 @@ SFMC 提供了全局编排 CLI 工具，可实现从 BDS 自动下载配置到�
 ### 步骤 1：全局安装 SFMC CLI
 
 ```bash
-pnpm add -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 ```
 
 :::tip 提示
-当前版本处于公测阶段，请务必添加 `@beta` 标签进行安装。如需在特定文件夹持久化数据，也可通过配置 `SFMC_ROOT` 环境变量指定自定义工作目录。
+pnpm v11 起默认要求新版本发布满 24 小时才参与无版本号解析。发布当天安装请指定上面的精确版本；可先用 `pnpm view @sfmc-bds/sfmc version` 查询当前 `latest`。只有试用预发布版本时才使用 `@beta`。如需在特定文件夹持久化数据，可通过配置 `SFMC_ROOT` 环境变量指定自定义工作目录。
 :::
 
 ### 步骤 2：创建服务器工作区并启动向导

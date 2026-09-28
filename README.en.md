@@ -84,7 +84,7 @@ Ensure **Node.js ≥ 22.13.0** is installed (required for native `node:sqlite` s
 
 ```bash
 # 1. Install SFMC CLI globally
-pnpm add -g @sfmc-bds/sfmc@beta
+pnpm add -g @sfmc-bds/sfmc@0.2.2
 
 # 2. Create and enter your server workspace
 mkdir my-bedrock-server && cd my-bedrock-server
@@ -96,8 +96,10 @@ sfmc
 sfmc> start -all
 
 # 5. Search and install gameplay modules from the official index
-sfmc> mod install economy land teleport
+sfmc> mod install afk
 ```
+
+pnpm v11+ waits 24 hours by default before selecting a newly published version from an unversioned package name. To install on release day, check `pnpm view @sfmc-bds/sfmc version` and pin that exact version as above.
 
 ### Track B: Module Authors (Build in 5 Minutes)
 

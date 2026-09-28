@@ -248,7 +248,9 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
     lines.push(c.dim(`    ${"id".padEnd(28)}${"source".padEnd(40)}local`));
     for (const id of ids) {
       const e = index[id]!;
-      const src = `${e.repo}@${e.tag}`;
+      const src = e.npm
+        ? `npm:${e.npm}${e.version ? `@${e.version}` : ""}`
+        : `github:${e.repo}@${e.tag}`;
       const local = installed.has(id) ? c.green("●") : c.dim("○");
       lines.push(`  ${local} ${id.padEnd(26)}${src.padEnd(40)}${installed.has(id) ? "installed" : ""}`);
     }
@@ -273,10 +275,17 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
   const lines: string[] = [c.bold(`\n${query}`)];
   if (staleNote) lines.push(staleNote.trimEnd());
   lines.push(`  registry   : ${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}`);
-  lines.push(`  repo       : ${entry.repo}`);
-  lines.push(`  tag        : ${entry.tag}`);
-  lines.push(`  source     : github:${entry.repo}@${entry.tag}`);
-  lines.push(`  github     : https://github.com/${entry.repo}/tree/${entry.tag}`);
+  if (entry.npm) {
+    lines.push(`  npm        : ${entry.npm}`);
+    if (entry.version) lines.push(`  version    : ${entry.version}`);
+    lines.push(`  source     : npm:${entry.npm}${entry.version ? `@${entry.version}` : ""}`);
+    if (entry.sdk) lines.push(`  sdk        : ${entry.sdk}`);
+  } else {
+    lines.push(`  repo       : ${entry.repo}`);
+    lines.push(`  tag        : ${entry.tag}`);
+    lines.push(`  source     : github:${entry.repo}@${entry.tag}`);
+    lines.push(`  github     : https://github.com/${entry.repo}/tree/${entry.tag}`);
+  }
   lines.push(
     `  local      : ${isInstalled ? c.green(`installed @ ${installedPath}`) : c.dim("not installed")}`
   );

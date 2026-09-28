@@ -9,7 +9,7 @@
  *   3. tools/check-ootb.mjs 自检要求该文件存在
  *
  * 启动方式:
- *   - `npm start`           -> `node dist/index.js` (直接走编译产物)
+ *   - `pnpm start`          -> `node dist/index.js` (直接走编译产物)
  *   - `node index.js`       -> 经本 shim 委托到 dist/index.js
  *   - `pnpm run dev`        -> `tsx src/index.ts`   (开发态,不走 dist)
  *   - `pnpm run build`      -> `tsc -p tsconfig.json` 生成 dist/

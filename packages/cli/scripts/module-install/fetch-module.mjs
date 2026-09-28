@@ -122,8 +122,9 @@ async function defaultSourceFor(id) {
     const { index } = await resolveRegistryIndex();
     const entry = index[id];
     if (entry?.npm) {
-      console.log(`[fetch-module] ${id} found in registry → npm:${entry.npm}`);
-      return `npm:${entry.npm}`;
+      const spec = `${entry.npm}${entry.version ? `@${entry.version}` : ""}`;
+      console.log(`[fetch-module] ${id} found in registry → npm:${spec}`);
+      return `npm:${spec}`;
     }
     if (entry?.repo && entry?.tag) {
       console.log(`[fetch-module] ${id} found in registry (deprecated github) → github:${entry.repo}@${entry.tag}`);
@@ -1003,7 +1004,11 @@ async function main() {
     console.log(`Registry (${DEFAULT_REGISTRY_REPO}@${DEFAULT_REGISTRY_TAG}) — ${ids.length} modules:`);
     for (const id of ids) {
       const e = index[id];
-      const src = e.npm ? `npm:${e.npm}` : e.repo ? `github:${e.repo}@${e.tag}` : "?";
+      const src = e.npm
+        ? `npm:${e.npm}${e.version ? `@${e.version}` : ""}`
+        : e.repo
+          ? `github:${e.repo}@${e.tag}`
+          : "?";
       console.log(`  ${id.padEnd(28)} ${src}`);
     }
     return;

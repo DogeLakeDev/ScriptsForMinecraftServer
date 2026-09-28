@@ -1,5 +1,100 @@
 # @sfmc-bds/tools
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [5a25300]
+  - @sfmc-bds/sdk@0.2.1
+  - @sfmc-bds/bds-tools@0.2.1
+
+## 0.2.0
+
+### Patch Changes
+
+- 61379c7: 发版编排：GitHub Release 缺失态回退复用 listPackagesWithExistingVersionTags；文档/workflow 对齐 SFMC_GITHUB_TOKEN（兼容旧名）
+- 3714053: 发版：build-publishable 拓扑 + listPublishableBuildDeps（npm-publish 应急补发不再硬编码只 build SDK）；push 缺失态 DRY 对齐 listUnpushedExistingVersionTags。世界包：readPackDirOccupancy DRY，去掉死不变式，occupancy 保留真实 kind（LSP）。
+- d1331e3: fix:typecheck
+- 4dd2d16: feat(devkit): 新增模块作者工具包（watch / scaffold / rebuild）
+
+  供 VS Code 扩展直接依赖；tools 导出 new-module.mjs。
+
+- b55557b: 纯 index 契约：`--link` 支持 `local:`；index map 支持 `npm`；拆除旁路 sfmc-modules monorepo DX；`mod publish` 写 map 并拒绝 private/非官方 `@sfmc-bds`。
+- 2326e6d: chore(tools): new-module 与 sfmc-module-template 同构（DESCRIPTOR、测试、prettier、.vscode）
+- e7e7e61: // @ts-check：添加到 23 个 tools/_.mjs 脚本 + 11 个 tools/lib/_.mjs 库 + 5 个 tools/_.test.mjs + 11 个 sfmc/_.test.mjs + 5 个 changeset 系列
+- c1de2a8: none
+- b252a35: chore(tools): new-module 脚手架写入 eslint.config 与 .vscode（推荐 ESLint 扩展）
+- e175ed9: fix(sdk/testing): minecraft-loader 钉死同一 `@sfmc-bds/sdk` 实例，避免模块仓 node_modules 与宿主双包导致 Command/Permission 空清单；脚手架 Command.register 传入 MODULE_ID。
+- b81327a: sdk:移除对旧版type的支持 tools,cli:杂项
+- f8cbe3b: none
+- b6f8adc: none
+- Updated dependencies [a5ccbd3]
+- Updated dependencies [e714f86]
+- Updated dependencies [c890a95]
+- Updated dependencies [4a9b066]
+- Updated dependencies [4a9b066]
+- Updated dependencies [050da7f]
+- Updated dependencies [3714053]
+- Updated dependencies [aadd2de]
+- Updated dependencies [8552772]
+- Updated dependencies [efa6e73]
+- Updated dependencies [8552772]
+- Updated dependencies [74a27c7]
+- Updated dependencies [5ada90e]
+- Updated dependencies [06e0f19]
+- Updated dependencies [847bfcb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [efa6e73]
+- Updated dependencies [aadd2de]
+- Updated dependencies [ea1e57e]
+- Updated dependencies [cc6a12b]
+- Updated dependencies [89ffceb]
+- Updated dependencies [f3ba416]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3465c7e]
+- Updated dependencies [4a9b066]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3c07ced]
+- Updated dependencies [c1de2a8]
+- Updated dependencies [847bfcb]
+- Updated dependencies [c72fdc8]
+- Updated dependencies [d9ded8f]
+- Updated dependencies [5a4eff6]
+- Updated dependencies [e175ed9]
+- Updated dependencies [29d6deb]
+- Updated dependencies [0992ab9]
+- Updated dependencies [c890a95]
+- Updated dependencies [f616527]
+- Updated dependencies [b81327a]
+- Updated dependencies [f312e8b]
+- Updated dependencies [f8cbe3b]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [b6f8adc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [16bba29]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [12b7dfc]
+- Updated dependencies [cf3293f]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+  - @sfmc-bds/sdk@0.2.0
+  - @sfmc-bds/bds-tools@0.2.0
+
 ## 0.2.0-beta.19
 
 ### Patch Changes

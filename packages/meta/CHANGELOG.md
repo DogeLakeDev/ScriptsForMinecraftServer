@@ -1,5 +1,146 @@
 # @sfmc-bds/sfmc
 
+## 0.2.3
+
+### Patch Changes
+
+- 5a25300: 新增 CLI 守护进程监管：退出 CLI 不停服，经命名管道 RPC 连接；移除 bds_updater 崩溃自启配置项，改由 daemon 固定拉起。正式版补丁 0.2.3。
+- Updated dependencies [5a25300]
+  - @sfmc-bds/cli@0.2.3
+  - @sfmc-bds/sdk@0.2.1
+  - @sfmc-bds/bds-tools@0.2.1
+  - @sfmc-bds/db-server@0.2.1
+  - @sfmc-bds/qq-bridge@0.2.1
+
+## 0.2.2
+
+### Patch Changes
+
+- a4f6857: 修正正式版包内安装说明，并明确 pnpm 新发布版本的默认等待期和精确版本安装方式。
+- Updated dependencies [a4f6857]
+  - @sfmc-bds/cli@0.2.2
+
+## 0.2.1
+
+### Patch Changes
+
+- b55d845: 修正官方模块索引的 npm 来源显示，并按索引的精确版本安装模块。
+- Updated dependencies [b55d845]
+  - @sfmc-bds/cli@0.2.1
+
+## 0.2.0
+
+### Patch Changes
+
+- c1de2a8: none
+- f8cbe3b: none
+- b6f8adc: none
+- 9dd77b4: 停发 `@sfmc-bds/tools`：`fetch-module` 迁入 `@sfmc-bds/cli`，`new-module` 迁入 `@sfmc-bds/devkit`；tools 改为 monorepo private（verify/build bins）。meta 不再依赖 tools。发版后请对已发布 beta 执行：
+
+  `npm deprecate @sfmc-bds/tools@"*" "Moved: use @sfmc-bds/cli (mod install) and @sfmc-bds/devkit (scaffold)."`
+
+- Updated dependencies [a5ccbd3]
+- Updated dependencies [e714f86]
+- Updated dependencies [c890a95]
+- Updated dependencies [4a9b066]
+- Updated dependencies [4a9b066]
+- Updated dependencies [050da7f]
+- Updated dependencies [3714053]
+- Updated dependencies [aadd2de]
+- Updated dependencies [8552772]
+- Updated dependencies [8552772]
+- Updated dependencies [efa6e73]
+- Updated dependencies [8552772]
+- Updated dependencies [b81327a]
+- Updated dependencies [74a27c7]
+- Updated dependencies [5ada90e]
+- Updated dependencies [06e0f19]
+- Updated dependencies [efa6e73]
+- Updated dependencies [efa6e73]
+- Updated dependencies [847bfcb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [efa6e73]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [aadd2de]
+- Updated dependencies [466d214]
+- Updated dependencies [53d7119]
+- Updated dependencies [8552772]
+- Updated dependencies [b55557b]
+- Updated dependencies [ea1e57e]
+- Updated dependencies [e7e7e61]
+- Updated dependencies [e5b9142]
+- Updated dependencies [cc6a12b]
+- Updated dependencies [0da9c98]
+- Updated dependencies [533716d]
+- Updated dependencies [2a5b502]
+- Updated dependencies [5712b87]
+- Updated dependencies [89ffceb]
+- Updated dependencies [f3ba416]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [efa6e73]
+- Updated dependencies [89ffceb]
+- Updated dependencies [ec728dd]
+- Updated dependencies [89ffceb]
+- Updated dependencies [89ffceb]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3465c7e]
+- Updated dependencies [4a9b066]
+- Updated dependencies [349b070]
+- Updated dependencies [efa6e73]
+- Updated dependencies [3c07ced]
+- Updated dependencies [d933a02]
+- Updated dependencies [c1de2a8]
+- Updated dependencies [847bfcb]
+- Updated dependencies [c72fdc8]
+- Updated dependencies [d9ded8f]
+- Updated dependencies [5a4eff6]
+- Updated dependencies [e175ed9]
+- Updated dependencies [29d6deb]
+- Updated dependencies [0992ab9]
+- Updated dependencies [d933a02]
+- Updated dependencies [c890a95]
+- Updated dependencies [c890a95]
+- Updated dependencies [1f7b2c7]
+- Updated dependencies [2580488]
+- Updated dependencies [2c91645]
+- Updated dependencies [f616527]
+- Updated dependencies [b81327a]
+- Updated dependencies [89ffceb]
+- Updated dependencies [f312e8b]
+- Updated dependencies [f8cbe3b]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [8568388]
+- Updated dependencies [8d71b80]
+- Updated dependencies [0aacac4]
+- Updated dependencies [b6f8adc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [16bba29]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [12b7dfc]
+- Updated dependencies [cf3293f]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [dc62ffc]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [1a4ddda]
+- Updated dependencies [9dd77b4]
+- Updated dependencies [af175bc]
+- Updated dependencies [5567073]
+  - @sfmc-bds/sdk@0.2.0
+  - @sfmc-bds/cli@0.2.0
+  - @sfmc-bds/bds-tools@0.2.0
+  - @sfmc-bds/db-server@0.2.0
+  - @sfmc-bds/qq-bridge@0.2.0
+
 ## 0.2.0-beta.16
 
 ### Patch Changes
