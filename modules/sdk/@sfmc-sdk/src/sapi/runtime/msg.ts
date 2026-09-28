@@ -15,7 +15,9 @@ let _systemMsgHandler: ((player: Player, text: string) => void) | null = null;
 export function registerSystemMsgHandler(handler: (player: Player, text: string) => void): () => void {
   _systemMsgHandler = handler;
   const registered = handler;
-  return () => { if (_systemMsgHandler === registered) _systemMsgHandler = null; };
+  return () => {
+    if (_systemMsgHandler === registered) _systemMsgHandler = null;
+  };
 }
 
 /**
@@ -84,4 +86,3 @@ export const Msg = {
     _systemMsgHandler?.(player, msg);
   },
 };
-
