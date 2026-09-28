@@ -65,7 +65,7 @@ function handleCommand(line: string, opts: ConsoleOptions, rl: RLInterface): boo
     case "reload": {
       reloadInto(opts.config);
       log.info(
-        `配置已重载 (backend=${opts.config.qq_backend}, channel=qq, db=${opts.config.db_host}:${opts.config.db_port})`
+        `配置已重载 (backend=${opts.config.qq_backend}, db=${opts.config.db_host}:${opts.config.db_port})`
       );
       log.warn("reload 只更新内存配置引用；切换 backend / AppID 需重启进程");
       return false;

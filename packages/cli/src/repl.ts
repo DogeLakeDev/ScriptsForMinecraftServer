@@ -13,6 +13,7 @@ import {
   resolvePaletteView,
 } from "./command-palette.js";
 import {
+  listNextPaletteTokens,
   listVisiblePacksSubs,
   listVisibleTopLevelNames,
   resolveModuleTopShorthand,
@@ -343,6 +344,9 @@ function getCompletions(parsed: ParsedLine): string[] {
     const cmds = getCommands().map((n) => (n.startsWith("/") ? n : n));
     return ["/", ...cmds].filter(sw);
   }
+  /* 面板树里已经有固定下一参时，灰字与面板共用同一份选项 */
+  const paletteNext = listNextPaletteTokens([cmd, ...words.slice(0, argIndex)], REPL_MODE);
+  if (paletteNext && paletteNext.length > 0) return paletteNext.filter(sw);
   switch (cmd) {
     case "logs":
     case "log":
@@ -356,7 +360,7 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex === 0) return SERVICE_NAMES.filter(sw);
       return [];
     case "update":
-      return ["--check-only", "--force", "--channel=release", "--channel=preview"].filter(sw);
+      return ["--check-only", "--force", "--no-start", "--channel=release", "--channel=preview"].filter(sw);
     case "packs":
     case "addon":
       if (argIndex === 0) return [...listVisiblePacksSubs(REPL_MODE)].filter(sw);

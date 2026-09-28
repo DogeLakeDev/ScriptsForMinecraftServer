@@ -39,7 +39,6 @@ async function main(): Promise<void> {
   const db = {
     host: cfg.db_host,
     port: cfg.db_port,
-    channelId: "qq",
   };
 
   if (cfg.qq_backend === "official") {
@@ -64,7 +63,6 @@ async function main(): Promise<void> {
         dbPort: cfg.db_port,
         groupOpenid: cfg.qq_group_openid,
         adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
-        bridgeChannelId: "qq",
         officialCreds: creds,
       },
       startedAt
@@ -122,7 +120,7 @@ async function main(): Promise<void> {
     installQqRuntimeStatusHooks("official");
 
     log.info(
-      `官方后端已启动 (transport=${cfg.qq_official_transport}, sandbox=${cfg.qq_sandbox}, group_openid=${cfg.qq_group_openid || "未配置"}, channel=qq, db=${cfg.db_host}:${cfg.db_port})`
+      `官方后端已启动 (transport=${cfg.qq_official_transport}, sandbox=${cfg.qq_sandbox}, group_openid=${cfg.qq_group_openid || "未配置"}, db=${cfg.db_host}:${cfg.db_port})`
     );
 
     startConsole({
@@ -146,7 +144,6 @@ async function main(): Promise<void> {
         dbHost: cfg.db_host,
         dbPort: cfg.db_port,
         adminOpenids: Array.isArray(cfg.qq_admin_openids) ? cfg.qq_admin_openids : [],
-        bridgeChannelId: "qq",
       },
       startedAt
     );
@@ -166,7 +163,7 @@ async function main(): Promise<void> {
     installQqRuntimeStatusHooks("llbot");
 
     log.info(
-      `LLBot 后端等待连接 (主群: ${cfg.qq_group_id || "未配置"}, channel: qq, db: ${cfg.db_host}:${cfg.db_port})`
+      `LLBot 后端等待连接 (主群: ${cfg.qq_group_id || "未配置"}, db: ${cfg.db_host}:${cfg.db_port})`
     );
 
     startConsole({

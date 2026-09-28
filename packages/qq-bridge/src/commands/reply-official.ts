@@ -22,7 +22,7 @@ export function createOfficialReplyPort(creds: QqOfficialCredentials): ReplyPort
   return {
     async send(target: ReplyTarget, result: CommandResult, inbound: InboundMessage): Promise<void> {
       const markdown = result.markdown?.trim() ?? "";
-      // 有 Markdown 时按表格边界拆段，避免超长世界包列表被降成纯文本。
+      // 有 Markdown 时按表格边界拆段，避免超长资源包列表被降成纯文本。
       const parts = markdown ? splitMarkdownMessage(markdown) : splitMessage(result.text);
       for (let index = 0; index < parts.length; index++) {
         const content = parts[index]!;

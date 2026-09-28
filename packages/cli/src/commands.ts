@@ -12,12 +12,7 @@
 import { clearBdsPidFile, killBedrockServerByImage, probeBdsStatus } from "@sfmc-bds/bds-tools/process-probe";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
-import {
-  DEFAULT_QQ_CONFIG,
-  loadEnsuredConfig,
-  qqRuntimeStatusPath,
-  type QQBridgeConfig,
-} from "@sfmc-bds/sdk/node/config";
+import { qqRuntimeStatusPath } from "@sfmc-bds/sdk/node/config";
 import fs from "node:fs";
 import { isDaemonServer } from "./daemon/role.js";
 import { t } from "./i18n/index.js";
@@ -65,27 +60,6 @@ function statusLine(
   return `  ${dot} ${c.bold(padRight(name, 14))} ${padRight(state, 8)} ${padRight(owner, 6)} ${padRight(pidStr, 8)} ${upStr}`;
 }
 
-/** status 页脚：QQ 后端与关键摘要（密钥脱敏） */
-function qqBridgeStatusFooter(): string {
-  const qqCfg = loadEnsuredConfig(ROOT, "qq_config.json", "qq_config", { ...DEFAULT_QQ_CONFIG } as Record<
-    string,
-    unknown
-  >) as QQBridgeConfig;
-  const backend = qqCfg.qq_backend === "llbot" ? "llbot" : "official";
-  const enabled = qqCfg.qq_enabled !== false;
-  if (backend === "llbot") {
-    const group = qqCfg.llbot?.group_id || "—";
-    const pathHint = qqCfg.llbot?.path ? String(qqCfg.llbot.path) : "—";
-    return `\n${c.dim(t("svc.qq.footer.llbot", { enabled: enabled ? "on" : "off", group, path: pathHint }))}\n`;
-  }
-  const appId = String(qqCfg.official?.app_id ?? "").trim();
-  const appIdHint = appId ? (appId.length > 8 ? `${appId.slice(0, 4)}…${appId.slice(-4)}` : appId) : "—";
-  const openid = String(qqCfg.official?.group_openid ?? "").trim() || "—";
-  const sandbox = qqCfg.official?.sandbox ? "sandbox" : "prod";
-  const creds = appId && String(qqCfg.official?.app_secret ?? "").trim() ? "ok" : "missing";
-  return `\n${c.dim(t("svc.qq.footer.official", { enabled: enabled ? "on" : "off", appId: appIdHint, openid, sandbox, creds }))}\n`;
-}
-
 /**
  * 查询并格式化展示所有后台服务的当前运行状态矩阵。
  *
@@ -101,9 +75,7 @@ export async function cmdStatus(): Promise<string> {
     const pidH = t("svc.col.pid");
     const upH = t("svc.col.uptime");
     const header = `  ${padRight(nameH, 16)}${padRight(statusH, 8)}${padRight(ownerH, 6)}${padRight(pidH, 8)}${upH}`;
-    return (
-      `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n") + qqBridgeStatusFooter()
-    );
+    return `\n${c.bold(t("svc.header"))}\n` + c.dim(header) + "\n" + DIVIDER + "\n" + lines.join("\n");
   });
 }
 

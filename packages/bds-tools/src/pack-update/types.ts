@@ -50,7 +50,7 @@ export interface StartupUpdateConfig {
   failMode: "continue" | "abort";
 }
 
-/** 世界包卸载策略（与 CF 更新同属 packs 生命周期配置） */
+/** 资源包卸载策略（与 CF 更新同属 packs 生命周期配置） */
 export interface PackUninstallConfig {
   /** true：移入回收站；false：直接删除目录 */
   recycleBin: boolean;

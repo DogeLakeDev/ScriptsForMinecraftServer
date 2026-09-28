@@ -1,13 +1,13 @@
 /**
  * domain/installed-content.ts — 只读汇总已装模块与世界行为包、资源包。
  *
- * 供 QQ「模块 / 世界包」查询。模块启停仍以 catalog + lock 为准；
- * 世界包名单与显示名跟 CLI 同一条路径：listInstalledWorldPacks 会解析 pack.name 这类语言键。
+ * 供 QQ「模块 / 资源包」查询。模块启停仍以 catalog + lock 为准；
+ * 资源包名单与显示名跟 CLI 同一条路径：listInstalledWorldPacks 会解析 pack.name 这类语言键。
  */
 
+import { listInstalledWorldPacks } from "@sfmc-bds/bds-tools/world-packs";
 import fs from "node:fs";
 import path from "node:path";
-import { listInstalledWorldPacks } from "@sfmc-bds/bds-tools/world-packs";
 
 /** 一条已安装模块。has_resource_pack 表示该模块目录下有 resource_pack。 */
 export type ContentModule = {
@@ -232,3 +232,4 @@ export function loadContentSnapshot(opts: {
     resource_packs: readEnabledWorldResourcePacks(opts.bdsRoot, levelName, packs),
   };
 }
+

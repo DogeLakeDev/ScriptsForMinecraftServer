@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/pack_update.schema.json",
   "title": "SFMC pack-update",
-  "description": "世界包（addons）自动检查/更新。apiKey 来自 https://console.curseforge.com/（x-api-key）；也可用环境变量 CURSEFORGE_API_KEY。Bedrock gameId=78022，Addons classId=4984。官方 /mods/search 若 403 会改用 searchBaseUrl。match 为源无关策略，置于顶层。defaultBindingEnabled=false 时新建绑定默认关闭。",
+  "description": "资源包（addons）自动检查/更新。apiKey 来自 https://console.curseforge.com/（x-api-key）；也可用环境变量 CURSEFORGE_API_KEY。Bedrock gameId=78022，Addons classId=4984。官方 /mods/search 若 403 会改用 searchBaseUrl。match 为源无关策略，置于顶层。defaultBindingEnabled=false 时新建绑定默认关闭。",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -28,7 +28,7 @@
     },
     "probeSourceAfterInstall": {
       "type": "boolean",
-      "description": "安装世界包成功后是否探测 CurseForge 等远端源并尝试绑定"
+      "description": "安装资源包成功后是否探测 CurseForge 等远端源并尝试绑定"
     },
     "defaultBindingEnabled": {
       "type": "boolean",
@@ -160,7 +160,7 @@
       "properties": {
         "recycleBin": {
           "type": "boolean",
-          "description": "true=移入 trashRelativeDir；false=直接删除世界包目录。可用 CLI --purge 强制删除"
+          "description": "true=移入 trashRelativeDir；false=直接删除资源包目录。可用 CLI --purge 强制删除"
         },
         "trashRelativeDir": {
           "type": "string",

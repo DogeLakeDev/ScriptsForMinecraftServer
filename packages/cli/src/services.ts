@@ -48,6 +48,7 @@ import { findNodeServicePids } from "./node-service-probe.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { recordBdsVersion } from "./bds-runtime-version.js";
 import { reportBdsPlayerSession } from "./player-session.js";
+import { startModuleSidecars, stopModuleSidecars } from "./module-sidecars.js";
 import { ROOT, spawnService, type ServiceId } from "./runtime.js";
 
 export { ROOT } from "./runtime.js";
@@ -235,6 +236,9 @@ class Service {
     if (this.def.beforeStart) {
       await this.def.beforeStart();
     }
+    if (this.name === "bds") {
+      await startModuleSidecars(ROOT, (line, stream) => this.pushLog(line, stream));
+    }
     // beforeStart 含异步检查；更新可能在等待期间开始。
     if (this.updateInProgress) throw new Error("BDS 正在更新，暂不可启动");
     this.manualStop = false;
@@ -418,6 +422,7 @@ class Service {
       if (filePid === exitingPid) {
         clearBdsPidFile(ROOT);
       }
+      stopModuleSidecars();
     }
     if (this.name === "tunnel" && exitingPid > 0) clearTunnelRuntime(exitingPid);
     if (wasRunning) {

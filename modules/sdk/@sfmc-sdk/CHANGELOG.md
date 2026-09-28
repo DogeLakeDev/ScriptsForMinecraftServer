@@ -164,7 +164,7 @@
 - efa6e73: 将 Minecraft Script API 类型与新模块模板更新到 BDS 1.26.51 使用的 server 2.11.0-beta、server-ui 2.3.0-beta，并同步 vanilla-data 版本。
 - aadd2de: 将官方 QQ Webhook 的 SSH 反向隧道纳入 SFMC CLI 服务编排，提供配置、启停、断线重试、状态和日志。
 - efa6e73: 官方 QQ 机器人可选择 Webhook 接收事件；官方与 LLBot 配置改为分组对象。Webhook 模式自动跳过游戏机的桥进程，并安全同步共享配置到云端。群全量事件中的 `<@…>` 机器人提及也能正确触发指令面板命令。官方回复不再附带 LLBot 风格的编号和“发送：”列表。
-- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和世界包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
+- 3465c7e: 更新 QQ 账号和服务器信息面板、频道来源控制及模块和资源包查询；移除 QQ 踢人指令，完善 CLI 服务窗口提示与模块配置行为。
 - efa6e73: 为 QQ 管理菜单增加可即时生效的服务器事件推送开关，并补充 BDS 正常停服通知。
 - 1a4ddda: dropdown 的 options 支持从 load 数据源注入（source/as/label/value），与 each 对齐。
 - 1a4ddda: 声明式 UI 危险确认支持可选校验文本 challenge（固定字或 {{path}}），未匹配前确认按钮禁用。

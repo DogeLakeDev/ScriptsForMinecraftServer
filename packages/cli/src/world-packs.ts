@@ -72,7 +72,7 @@ function rejoinHint(): string {
   return t("packs.rejoinHint");
 }
 
-/** 世界包编排日志：统一走 sfmc 聚合层（source=pack） */
+/** 资源包编排日志：统一走 sfmc 聚合层（source=pack） */
 function logPack(text: string, level: LogLevel = "info"): void {
   pushLog(text, "pack", level);
 }
@@ -185,7 +185,7 @@ function formatUninstallOutcome(r: UninstallOneOutcome): string {
 }
 
 /**
- * 卸载单个已装世界包（disable + 移回收站/删除）。
+ * 卸载单个已装资源包（disable + 移回收站/删除）。
  * 不负责配对 RP / 绑定 —— 由上层编排。返回结构化结果（DIP：展示与策略分离）。
  */
 async function uninstallOneInstalledPack(

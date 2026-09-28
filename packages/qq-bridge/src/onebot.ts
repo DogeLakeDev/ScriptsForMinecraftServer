@@ -135,7 +135,7 @@ export class RecentMessageDedup {
 export interface DispatcherOptions {
   /** 群 ID 字符串,空 = 接收所有群(旧行为:空时不匹配任何群,不会触发) */
   qqGroupId: string;
-  /** db-server 配置 + 目标 channelId */
+  /** db-server 连接。入站频道由消息来源为 QQ 的游戏频道决定。 */
   db: DBServerConfig;
   /** QQ 侧指令路由；命中则不转发 MC */
   commandRouter?: CommandRouter;

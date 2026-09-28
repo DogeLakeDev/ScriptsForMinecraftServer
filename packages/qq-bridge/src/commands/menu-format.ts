@@ -13,7 +13,7 @@ export function pickDisplayLabel(cmd: RegisteredCommand, maxChars = 8): string {
     channel: "聊天互通",
     ping: "连接检查",
     modules: "模块列表",
-    packs: "世界包",
+    packs: "资源包",
   };
   const label = labels[cmd.name];
   if (label) return label.slice(0, maxChars);

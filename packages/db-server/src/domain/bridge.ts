@@ -2,8 +2,8 @@
  * domain/bridge.ts — MC → QQ 桥接（双后端）
  *
  * 数据流:
- *   SAPI ──POST──→ db-server:3001/api/sfmc/messages
- *                   └─ 写库 + forwardToQQBridge()
+ *   游戏发言 ──db.tx 插入──→ afterCommit 按频道 forward_to_qq 调用 forwardToQQBridge()
+ *   QQ 入站 ──POST──→ /api/sfmc/messages，写入消息来源为 QQ 的频道（不回推群）
  *                        ├─ llbot    → LLBot:3004/send_group_msg
  *                        └─ official → OpenAPI /v2/groups/{openid}/messages
  *

@@ -131,8 +131,16 @@ export interface TxRequest {
   steps: TxStep[];
 }
 
+/** 事务提交成功后的插入行。聊天消息据此决定是否转发到 QQ。 */
+export interface CommittedInsert {
+  table: string;
+  row: Record<string, unknown>;
+}
+
 interface TxSession {
   moduleId: string;
+  /** 已成功执行的步骤，提交后用于 afterCommit，不进入响应体。 */
+  steps: TxStep[];
   results: TxStepResult[];
   idleTimer: ReturnType<typeof setTimeout>;
 }
@@ -163,6 +171,11 @@ export class TxRunner {
   private readonly transactionWaiters: TransactionWaiter[] = [];
   private readonly slotWaitTimeoutMs: number;
   private readonly sessionIdleTimeoutMs: number;
+  /**
+   * 提交成功后的插入通知。游戏聊天经 db.tx 落库，不走 /api/sfmc/messages，
+   * 因此 MC→QQ 要在这里挂钩。钩子不得抛错影响已提交结果。
+   */
+  private afterCommit?: (inserts: CommittedInsert[]) => void;
 
   constructor(
     private readonly deps: TxRunnerDeps,
@@ -170,6 +183,14 @@ export class TxRunner {
   ) {
     this.slotWaitTimeoutMs = options.slotWaitTimeoutMs ?? 2_000;
     this.sessionIdleTimeoutMs = options.sessionIdleTimeoutMs ?? 15_000;
+  }
+
+  /**
+   * 注册提交成功后的插入回调。
+   * 使用场景：db-server 启动后把聊天行转发给 QQ，避免事务层依赖具体桥接实现。
+   */
+  setAfterCommit(hook: (inserts: CommittedInsert[]) => void): void {
+    this.afterCommit = hook;
   }
 
   async run(req: TxRequest): Promise<TxResponse | TxError> {
@@ -217,6 +238,7 @@ export class TxRunner {
     }
 
     this.releaseTransactionSlot();
+    this.emitAfterCommit(steps);
     log.info(`[tx ${traceId}] module=${moduleId} ${steps.length} steps OK`);
     return { ok: true, results };
   }
@@ -247,6 +269,7 @@ export class TxRunner {
     const txId = randomUUID();
     this.sessions.set(txId, {
       moduleId,
+      steps: [],
       results: [],
       idleTimer: this.createSessionIdleTimer(txId, moduleId),
     });
@@ -283,6 +306,7 @@ export class TxRunner {
     const stepIndex = session.results.length;
     try {
       const r = await this.runOne(moduleId, manifest, step);
+      session.steps.push(step);
       session.results.push(r);
       session.idleTimer = this.createSessionIdleTimer(txId, moduleId);
       return { ok: true, result: r };
@@ -317,10 +341,28 @@ export class TxRunner {
       return { ok: false, step: -1, error: `COMMIT 失败: ${(e as Error).message}`, code: "internal" };
     }
     const results = session.results;
+    const steps = session.steps;
     this.sessions.delete(txId);
     this.releaseTransactionSlot();
+    this.emitAfterCommit(steps);
     log.info(`[tx-session ${txId.slice(0, 8)}] commit ${results.length} steps OK`);
     return { ok: true, results };
+  }
+
+  /** 只通知插入行。回调失败只记日志，事务已经提交。 */
+  private emitAfterCommit(steps: TxStep[]): void {
+    const hook = this.afterCommit;
+    if (!hook) return;
+    const inserts: CommittedInsert[] = [];
+    for (const step of steps) {
+      if (step.op === "insert") inserts.push({ table: step.table, row: step.row });
+    }
+    if (inserts.length === 0) return;
+    try {
+      hook(inserts);
+    } catch (err) {
+      log.warn(`[tx] afterCommit: ${(err as Error).message}`);
+    }
   }
 
   /**

@@ -279,7 +279,7 @@ export type ContentSnapshotResponse = {
   }>;
 };
 
-/** 查询游戏机上的模块与世界行为包、资源包。当前给 QQ「模块」「世界包」使用。 */
+/** 查询游戏机上的模块与世界行为包、资源包。当前给 QQ「模块」「资源包」使用。 */
 export async function fetchContent(ep: DbEndpoint): Promise<ContentSnapshotResponse> {
   const { data } = await requestJson<ContentSnapshotResponse>(ep, "GET", "/api/sfmc/content");
   return data;

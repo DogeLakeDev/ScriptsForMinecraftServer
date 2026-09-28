@@ -22,8 +22,8 @@ import http from "node:http";
 import { SQL } from "sql-template-strings";
 
 import { createPlatformTables } from "./db-tables.js";
-import { initSchema } from "./domain/schema.js";
 import { syncPlayerSession } from "./domain/player-session.js";
+import { initSchema } from "./domain/schema.js";
 import { loadEnv } from "./env.js";
 import { createIdempotencyStore } from "./lib/idempotency-store.js";
 import { log } from "./lib/log.js";
@@ -47,14 +47,14 @@ import { createModuleConfigRoutes } from "./routes/module-config-routes.js";
 import { createServiceRoutes } from "./routes/service-routes.js";
 
 import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
+import { loadContentSnapshot } from "./domain/installed-content.js";
 import { createQqEventsAggregator, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
-import { loadContentSnapshot } from "./domain/installed-content.js";
 import { createConfigRoutes } from "./routes/config.js";
 import { createContentRoutes } from "./routes/content.js";
 import { createHealthRoutes } from "./routes/health.js";
-import { createMessagesRoutes } from "./routes/messages.js";
+import { createMessagesRoutes, gameChatForwardPayload, type ChatChannelQQFlags } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
 import { createQqBindRoutes } from "./routes/qq-bind.js";
 import { createQqEventsRoutes } from "./routes/qq-events.js";
@@ -184,7 +184,7 @@ function buildModuleList() {
 }
 
 /**
- * QQ「模块 / 世界包」快照。每次请求现读 catalog 与磁盘，装包后不用重启 db-server。
+ * QQ「模块 / 资源包」快照。每次请求现读 catalog 与磁盘，装包后不用重启 db-server。
  */
 function loadContentSnapshotForRequest() {
   const modules = (buildModuleList() ?? []).flatMap((raw) => {
@@ -368,26 +368,59 @@ const qqEventsRoutes = createQqEventsRoutes({
   isAdmin: (openid, asGroupAdmin) => {
     const admins = (env.qqconfig["official"] as { admin_openids?: unknown } | undefined)?.admin_openids;
     return (
-      (Array.isArray(admins) && admins.includes(openid)) ||
-      (asGroupAdmin && readJoinFlags().treatGroupAdminsAsAdmins)
+      (Array.isArray(admins) && admins.includes(openid)) || (asGroupAdmin && readJoinFlags().treatGroupAdminsAsAdmins)
     );
   },
 });
+
+/** 读取单个聊天频道。表尚未由聊天模块建出时返回 null，不让请求 500。 */
+function readChatChannel(channelId: string): ChatChannelQQFlags | null {
+  try {
+    const rows = query(SQL`SELECT * FROM sfmc_chat_channels WHERE id = ${channelId}`);
+    return Array.isArray(rows) ? ((rows[0] as ChatChannelQQFlags | undefined) ?? null) : null;
+  } catch (err) {
+    log.warn(`读取聊天频道失败: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+/** 消息来源为 QQ 的频道。QQ 入站只投到这些频道。 */
+function listQQSourceChannels(): ChatChannelQQFlags[] {
+  try {
+    const rows = query(SQL`SELECT * FROM sfmc_chat_channels`);
+    if (!Array.isArray(rows)) return [];
+    return (rows as ChatChannelQQFlags[]).filter((row) => row.source_qq === 1);
+  } catch (err) {
+    log.warn(`读取 QQ 来源频道失败: ${(err as Error).message}`);
+    return [];
+  }
+}
 
 const messagesRoutes = createMessagesRoutes({
   query,
   body,
   json,
-  getChannelForQQ: (channelId: string) => {
-    const rows = query(
-      SQL`SELECT * FROM sfmc_chat_channels WHERE id = ${channelId}`
-    );
-    return Array.isArray(rows)
-      ? (rows[0] as { prefix: string; forward_to_qq: number; source_game?: number; source_qq?: number; source_system?: number } | undefined) ?? null
-      : null;
-  },
+  getChannelForQQ: readChatChannel,
+  listQQSourceChannels,
   forwardToQQBridge: (channelId: string, prefix: string, fromName: string, content: string, fromId: string) =>
     forwardToQQBridge(currentOutbound(), channelId, prefix, fromName, content, fromId),
+});
+
+// 游戏发言走 db.tx 插入，不经过 /api/sfmc/messages。提交后再按频道开关转发到 QQ。
+txRunner.setAfterCommit((inserts) => {
+  for (const item of inserts) {
+    if (item.table !== "sfmc_chat_messages") continue;
+    const payload = gameChatForwardPayload(item.row, readChatChannel(String(item.row.channel_id ?? "")));
+    if (!payload) continue;
+    forwardToQQBridge(
+      currentOutbound(),
+      payload.channelId,
+      payload.prefix,
+      payload.fromName,
+      payload.content,
+      payload.fromId,
+    );
+  }
 });
 const configRoutes = createConfigRoutes({
   json,
