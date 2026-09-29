@@ -16,12 +16,15 @@ pnpm exec sfmc-esbuild-transpile
 pnpm exec tsc7 --noEmit
 pnpm run docs serve
 pnpm run docs build
+<<<<<<< HEAD
 =======
 npm run verify                 # 平台集成自检（CI）
 npx sfmc-esbuild-transpile     # 各包 build
 npx tsc7 --noEmit              # typecheck
 npm run docs -- serve|build
 >>>>>>> chore/tools-drop-unused-scripts
+=======
+>>>>>>> chore/pnpm-stable-release-prep
 ```
 
 发版走 Changesets：**push `main` → Version Packages PR → 合并后 CI 自动 `ci-release-packages`**。本地一般不手动发。

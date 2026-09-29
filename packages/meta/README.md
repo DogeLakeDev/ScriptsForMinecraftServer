@@ -6,7 +6,11 @@ SFMC 聚合包：
 ## 安装
 
 ```bash
+<<<<<<< HEAD
 pnpm add -g @sfmc-bds/sfmc@0.2.2
+=======
+pnpm add -g @sfmc-bds/sfmc@beta
+>>>>>>> chore/pnpm-stable-release-prep
 ```
 
 或在项目目录本地安装：
@@ -14,7 +18,11 @@ pnpm add -g @sfmc-bds/sfmc@0.2.2
 ```bash
 mkdir my-server && cd my-server
 pnpm init
+<<<<<<< HEAD
 pnpm add @sfmc-bds/sfmc@0.2.2
+=======
+pnpm add @sfmc-bds/sfmc@beta
+>>>>>>> chore/pnpm-stable-release-prep
 pnpm exec sfmc
 ```
 

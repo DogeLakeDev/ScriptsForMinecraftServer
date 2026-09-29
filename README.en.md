@@ -84,7 +84,11 @@ Ensure **Node.js ≥ 22.13.0** is installed (required for native `node:sqlite` s
 
 ```bash
 # 1. Install SFMC CLI globally
+<<<<<<< HEAD
 pnpm add -g @sfmc-bds/sfmc@0.2.2
+=======
+pnpm add -g @sfmc-bds/sfmc@beta
+>>>>>>> chore/pnpm-stable-release-prep
 
 # 2. Create and enter your server workspace
 mkdir my-bedrock-server && cd my-bedrock-server

@@ -1,6 +1,10 @@
 {
   "name": "@sfmc-bds/create-module",
+<<<<<<< HEAD
   "version": "0.1.0",
+=======
+  "version": "0.1.0-beta.4",
+>>>>>>> chore/pnpm-stable-release-prep
   "description": "Create an SFMC SAPI module with pnpm",
   "repository": {
     "type": "git",

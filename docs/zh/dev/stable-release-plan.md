@@ -1,6 +1,10 @@
 # SFMC 正式版行动计划
 
+<<<<<<< HEAD
 状态：npm/GitHub 正式版已发布；生产运行与客户端验收待补。本文记录发布门槛与证据；版本、运行状态和线上结果以执行当天的检查为准。
+=======
+状态：执行中。本文记录发布门槛与证据；版本、运行状态和线上结果以执行当天的检查为准。
+>>>>>>> chore/pnpm-stable-release-prep
 
 ## 范围与顺序
 
@@ -21,30 +25,53 @@
 
 ## 阶段二：标准项目与发布链检查
 
+<<<<<<< HEAD
 - [x] 核对公开包的名称、版本、入口与 exports、files、许可、README、仓库与问题反馈地址、运行环境要求、依赖和 peerDependencies。
 - [x] 核对 pnpm 锁文件与可重复安装；CI 不隐式改锁或混用包管理器。
 - [x] 核对 pack 内容：源码与声明文件、可执行入口、默认配置和必要资源齐全，不含运行数据或凭据。
 - [x] 核对平台与模块的 CI、发布权限、Git tag、npm dist-tag、GitHub Release 和模块索引流程。
 - [x] 更新中英文安装、升级、发布和回退文档，移除过时的 beta-only 说明。
+=======
+- [ ] 核对公开包的名称、版本、入口与 exports、files、许可、README、仓库与问题反馈地址、运行环境要求、依赖和 peerDependencies。
+- [ ] 核对 pnpm 锁文件与可重复安装；CI 不隐式改锁或混用包管理器。
+- [ ] 核对 pack 内容：源码与声明文件、可执行入口、默认配置和必要资源齐全，不含运行数据或凭据。
+- [ ] 核对平台与模块的 CI、发布权限、Git tag、npm dist-tag、GitHub Release 和模块索引流程。
+- [ ] 更新中英文安装、升级、发布和回退文档，移除过时的 beta-only 说明。
+>>>>>>> chore/pnpm-stable-release-prep
 
 完成证据：在干净检出中用 pnpm 安装、构建、检查并验证打包内容；发布流程能生成可审查的候选版本。
 
 ## 阶段三：功能、升级与运行验收
 
+<<<<<<< HEAD
 - [x] 对受影响包运行类型检查、构建、平台自检和相称的静态检查；确认 Windows 与 Ubuntu CI 通过。
 - [ ] 用候选包在隔离的 SFMC_ROOT 中完成安装、初始化、模块安装、构建与加载演练。
 - [ ] 对现有数据做备份、升级、恢复和回退演练，检查数据库迁移及配置兼容。
 - [ ] 在目标 BDS 版本上检查部署包、重启后的新日志和客户端关键路径；运行中 BDS 的重启须先确认影响窗口。
 - [x] 记录所有未通过项及修复后的复验结果，不以静态构建代替运行验收。
+=======
+- [ ] 对受影响包运行类型检查、构建、平台自检和相称的静态检查；确认 Windows 与 Ubuntu CI 通过。
+- [ ] 用候选包在隔离的 SFMC_ROOT 中完成安装、初始化、模块安装、构建与加载演练。
+- [ ] 对现有数据做备份、升级、恢复和回退演练，检查数据库迁移及配置兼容。
+- [ ] 在目标 BDS 版本上检查部署包、重启后的新日志和客户端关键路径；运行中 BDS 的重启须先确认影响窗口。
+- [ ] 记录所有未通过项及修复后的复验结果，不以静态构建代替运行验收。
+>>>>>>> chore/pnpm-stable-release-prep
 
 完成证据：候选包、部署包和实际运行的版本可追溯；升级与回退均有成功记录。
 
 ## 阶段四：发布与复核
 
+<<<<<<< HEAD
 - [x] 退出 Changesets `beta` 预发布模式，审查正式 Version PR 的版本与包间依赖。公开包已发布；阶段三的生产运行门槛仍单独保留。
 - [x] 按依赖顺序发布平台、聚合包和选定模块；核对 npm `latest`、Git tag、GitHub Release 和模块索引。
 - [x] 从公共 registry 进行全新 pnpm 安装，复验 CLI、模块安装和基本功能。
 - [x] 发布正式版公告，列明兼容范围、升级步骤、已知限制和回退版本。
+=======
+- [ ] 通过前三阶段后退出 Changesets `beta` 预发布模式，审查 Version PR 的版本与包间依赖。
+- [ ] 按依赖顺序发布平台、聚合包和选定模块；核对 npm `latest`、Git tag、GitHub Release 和模块索引。
+- [ ] 从公共 registry 进行全新 pnpm 安装，复验 CLI、模块安装和基本功能。
+- [ ] 发布正式版公告，列明兼容范围、升级步骤、已知限制和回退版本。
+>>>>>>> chore/pnpm-stable-release-prep
 
 完成证据：公共渠道可安装正式版，版本与产物一致，且发布后的最小验收通过。
 
@@ -84,6 +111,7 @@
 - 发布鉴权采用 GitHub Actions；本机 `pnpm login` / `pnpm whoami` 不是必要发布门禁。GitHub Secrets 清单已核实主仓有 `NPM_TOKEN` 和 `SFMC_GITHUB_TOKEN`（仅确认名称，未读取值）。主仓 Changesets workflow 可使用这些 secret 创建 Version PR 与发布平台包。
 - 19 个独立模块仓的 GitHub Secrets 清单均无 `NPM_TOKEN`，而各仓当前 release workflow 在发布前要求它；因此模块独立发布通道尚不能使用。需在模块仓配置发布凭据，或完成并验证由主仓集中发布的工作流。现有 `id-token: write` 尚未接入 npm Trusted Publishing，不能当作已配置的无 token 发布通道。
 - 主仓新增手动 `module-publish` 工作流：只接受 19 个已知模块、模块仓 `main` 上的完整提交 SHA 和与 `package.json` 一致的正式版本；默认只运行凭据、pnpm 检查与打包。dry run 会用主仓的 `NPM_TOKEN` 查询 npm 登录态，并核对 `SFMC_GITHUB_TOKEN` 对模块仓的推送权限；实际发布时再用它们发布 npm 包、创建标签与 Release。此流程尚待推送后的 dry run 和首包发布复验；各模块仓原有独立发布 workflow 仍依赖本仓未配置的 secret，应在集中发布路径验证后统一收敛。
+<<<<<<< HEAD
 - GitHub CLI 已完成 `workflow` scope 补充授权。主仓准备 PR #109 通过 Ubuntu/Windows CI 后合并，主仓 `module-publish` 工作流已在默认分支启用。`activity-log` 模块主分支提交 `35c33e4` 的集中发布 dry run 成功：npm 凭据、跨仓推送权限、pnpm 安装、类型检查、lint、既有测试与打包均通过；发布步骤按预期跳过。
 - 18 个模块仓的 pnpm/CI 准备 PR 均通过各自 CI 并已合并。`qq-link` 暂未纳入：旧主分支使用当前 `@minecraft/server-admin` 已移除的 `dedicatedServer` 与 `kickPlayer`，类型检查失败；工作区中的新实现还需真实 BDS 验收。隔离检出的本机测试还遇到 Node 26 的 `uv_os_get_passwd ENOMEM`，不能把测试启动失败当作功能结果。
 - 主仓隔离候选检出已退出 Changesets beta pre 模式，生成正式版候选：SDK/CLI/BDS 工具/db-server/QQ 桥接/聚合包/tools 为 `0.2.0`，eslint-plugin 为 `0.1.1`，create-module 为 `0.1.0`，devkit 为 `1.0.0`。同时修复 VS Code 扩展创建模块菜单的类型字段冲突。候选的 pnpm 安装、构建、整仓类型检查、lint（0 error）、平台 verify（12/12）与 9 包打包检查通过；聚合包 tgz 内部依赖均解析为 `0.2.0`。
@@ -131,3 +159,5 @@
 - 正式服 BDS `1.26.51.1` 仍在运行，未执行停机或部署。`modules/packages/` 下 21 个目录均为指向源码的 junction，其中 19 个官方模块的 `package.json` 版本号与已发布版本一致，但版本号不能证明源码内容与 npm tarball 相同；另有两个本地模块，须保留其源码与链接关系。
 - 一个本地模块 junction 的目标不存在，`modules/sdk` 的目标也不存在。正式服当前运行的已部署包不能证明这些源码链接可用于下一次构建。维护窗口内升级前必须核实并处理这些链接，不能直接批量 `mod install` 覆盖或删除链接。
 - 对隔离目录中的 junction 做备份验证：`Compress-Archive` 的归档保留普通 `catalog.json`，却没有收录 junction 指向的 `marker.txt`。因此仅压缩 `modules/` 不能作为此正式服的完整冷备份；需要显式归档各链接目标并做恢复演练，备份指南已加阻断检查。
+=======
+>>>>>>> chore/pnpm-stable-release-prep

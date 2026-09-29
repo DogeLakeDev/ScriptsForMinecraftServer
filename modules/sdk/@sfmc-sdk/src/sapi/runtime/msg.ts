@@ -15,9 +15,13 @@ let _systemMsgHandler: ((player: Player, text: string) => void) | null = null;
 export function registerSystemMsgHandler(handler: (player: Player, text: string) => void): () => void {
   _systemMsgHandler = handler;
   const registered = handler;
+<<<<<<< HEAD
   return () => {
     if (_systemMsgHandler === registered) _systemMsgHandler = null;
   };
+=======
+  return () => { if (_systemMsgHandler === registered) _systemMsgHandler = null; };
+>>>>>>> chore/pnpm-stable-release-prep
 }
 
 /**
