@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { compareSemver, isMajorBump, satisfiesSdk } from "../lib/semver.mjs";
+import { DEFAULT_MODULE_UPDATE_CONFIG } from "../lib/module-update-config.mjs";
 import { decideModuleUpdate, orderUpgrades, applyModuleUpgrades, planModuleUpdates } from "../lib/module-update.mjs";
 import {
   inferPinDraft,
@@ -53,6 +54,13 @@ test("decideModuleUpdate 按来源和版本取舍", () => {
     decideModuleUpdate({ ...base, sdkRange: ">=0.3.0", hostSdk: "0.2.5" }).reason,
     "sdk"
   );
+  const unknownHost = decideModuleUpdate({ ...base, sdkRange: ">=0.3.0", hostSdk: null });
+  assert.equal(unknownHost.action, "skip");
+  assert.equal(unknownHost.reason, "sdk");
+  assert.match(unknownHost.detail, /未知/);
+  assert.equal(decideModuleUpdate({ ...base, sdkRange: null, hostSdk: null }).action, "upgrade");
+  assert.equal(decideModuleUpdate({ ...base, sdkRange: "", hostSdk: null }).action, "upgrade");
+  assert.equal(decideModuleUpdate({ ...base, sdkRange: "*", hostSdk: null }).action, "upgrade");
 });
 
 test("升级顺序让被依赖的模块先走", () => {
@@ -179,4 +187,345 @@ test("本地 pin 不能打开自动更新", () => {
   assert.equal(locked.code, "locked");
   const off = setModulePinAuto(root, "demo", false);
   assert.equal(off.ok, true);
+});
+
+/** 写一份已安装的 chat 目录，版本固定为 1.0.0。使用场景：计划测试需要磁盘上的包和 manifest。 */
+function writeInstalledChat(root) {
+  const pkg = path.join(root, "modules", "packages", "chat");
+  fs.mkdirSync(path.join(pkg, "sapi"), { recursive: true });
+  fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@sfmc-bds/module-chat", version: "1.0.0" }));
+  fs.writeFileSync(
+    path.join(pkg, "sapi", "manifest.json"),
+    JSON.stringify({ id: "chat", configKey: "chat", requires: [] })
+  );
+}
+
+test("auto 关闭时不升级，但跳过记录带上索引版本", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-auto-off-"));
+  writeInstalledChat(root);
+  writePins(root, {
+    version: 1,
+    modules: {
+      chat: {
+        source: "npm",
+        channel: "index",
+        spec: "npm:@sfmc-bds/module-chat@1.0.0",
+        installedVersion: "1.0.0",
+        manifestId: "chat",
+        auto: false,
+        autoLocked: false,
+        autoSetBy: "user",
+        lastCheckedAt: null,
+        lastAppliedAt: null,
+        lastError: null,
+      },
+    },
+  });
+  let distTagCalls = 0;
+  const plan = await planModuleUpdates({
+    root,
+    hostSdk: "0.2.5",
+    ids: ["chat"],
+    fetchIndex: async () => ({
+      index: { chat: { npm: "@sfmc-bds/module-chat", version: "1.2.0", sdk: ">=0.2.2" } },
+      offline: false,
+    }),
+    fetchDistTag: async () => {
+      distTagCalls += 1;
+      return "9.9.9";
+    },
+  });
+  assert.equal(plan.upgrades.length, 0);
+  const skipped = plan.skipped.find((item) => item.id === "chat");
+  assert.ok(skipped);
+  assert.equal(skipped.reason, "auto-off");
+  assert.equal(skipped.toVersion, "1.2.0");
+  assert.equal(skipped.fromVersion, "1.0.0");
+  assert.equal(distTagCalls, 0);
+});
+
+test("本地链接不为查版本请求 dist-tag", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-local-"));
+  writeInstalledChat(root);
+  writePins(root, {
+    version: 1,
+    modules: {
+      chat: {
+        source: "link",
+        channel: "none",
+        spec: "",
+        installedVersion: "1.0.0",
+        manifestId: "chat",
+        auto: false,
+        autoLocked: true,
+        autoSetBy: "default",
+        lastCheckedAt: null,
+        lastAppliedAt: null,
+        lastError: null,
+      },
+    },
+  });
+  let distTagCalls = 0;
+  const plan = await planModuleUpdates({
+    root,
+    hostSdk: "0.2.5",
+    fetchIndex: async () => ({
+      index: { chat: { npm: "@sfmc-bds/module-chat", version: "1.2.0", sdk: ">=0.2.2" } },
+      offline: false,
+    }),
+    fetchDistTag: async () => {
+      distTagCalls += 1;
+      return "9.9.9";
+    },
+  });
+  assert.equal(plan.upgrades.length, 0);
+  assert.equal(distTagCalls, 0);
+  const skipped = plan.skipped.find((item) => item.id === "chat");
+  assert.equal(skipped?.reason, "local-source");
+});
+
+test("升级成功后删除这次备份", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-backup-ok-"));
+  const pkg = path.join(root, "modules", "packages", "demo");
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.writeFileSync(path.join(pkg, "marker.txt"), "old");
+  const result = await applyModuleUpgrades(
+    [{ id: "demo", fromVersion: "1.0.0", toVersion: "1.1.0", spec: "npm:x@1.1.0", requires: [] }],
+    {
+      root,
+      failMode: "continue",
+      install: async (id) => {
+        const dir = path.join(root, "modules", "packages", id);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, "marker.txt"), "new");
+      },
+    }
+  );
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.applied.length, 1);
+  assert.equal(fs.readFileSync(path.join(pkg, "marker.txt"), "utf8"), "new");
+  const trash = path.join(root, "modules", "_trash");
+  const leftovers = fs.existsSync(trash) ? fs.readdirSync(trash) : [];
+  assert.deepEqual(leftovers, []);
+});
+
+test("还原失败时错误信息带上备份路径", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-restore-fail-"));
+  const pkg = path.join(root, "modules", "packages", "demo");
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.writeFileSync(path.join(pkg, "marker.txt"), "old");
+  const result = await applyModuleUpgrades(
+    [{ id: "demo", fromVersion: "1.0.0", toVersion: "1.1.0", spec: "npm:x@1.1.0", requires: [] }],
+    {
+      root,
+      failMode: "continue",
+      install: async () => {
+        fs.rmSync(path.join(root, "modules", "_trash"), { recursive: true, force: true });
+        throw new Error("boom");
+      },
+    }
+  );
+  assert.equal(result.failed.length, 1);
+  assert.match(result.failed[0].message, /boom/);
+  assert.ok(result.failed[0].message.includes(path.join(root, "modules", "_trash")));
+});
+
+test("GitHub pin 不能打开自动更新，关闭仍然允许", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-pin-gh-"));
+  fs.mkdirSync(path.join(root, "modules", "packages", "demo"), { recursive: true });
+  writePins(root, {
+    version: 1,
+    modules: {
+      demo: {
+        source: "github",
+        channel: "none",
+        spec: "github:owner/repo",
+        installedVersion: "1.0.0",
+        manifestId: "demo",
+        auto: false,
+        autoLocked: false,
+        autoSetBy: "default",
+        lastCheckedAt: null,
+        lastAppliedAt: null,
+        lastError: null,
+      },
+    },
+  });
+  const locked = setModulePinAuto(root, "demo", true);
+  assert.equal(locked.ok, false);
+  assert.equal(locked.code, "locked");
+  assert.equal(locked.id, "demo");
+  const off = setModulePinAuto(root, "demo", false);
+  assert.equal(off.ok, true);
+  if (off.ok) assert.equal(off.auto, false);
+});
+
+/**
+ * 允许自动更新的 npm pin。
+ * 使用场景：目录实际是开发链接时，pin 仍写成可升级，确认计划以目录类型为准。
+ * @param {string} pkgName
+ * @param {string} version
+ * @param {string} manifestId
+ * @param {"index" | "dist-tag"} channel
+ */
+function openNpmPin(pkgName, version, manifestId, channel) {
+  return {
+    source: "npm",
+    channel,
+    spec: channel === "index" ? `npm:${pkgName}@${version}` : `npm:${pkgName}`,
+    installedVersion: version,
+    manifestId,
+    auto: true,
+    autoLocked: false,
+    autoSetBy: "user",
+    lastCheckedAt: null,
+    lastAppliedAt: null,
+    lastError: null,
+  };
+}
+
+/**
+ * 把独立源目录链到 packages/<id>。
+ * 使用场景：在临时目录里造 junction / symlink，避免动仓库外的服务器。
+ * @param {string} root
+ * @param {string} id
+ * @param {"junction" | "dir"} type
+ */
+function linkModulePackage(root, id, type) {
+  const source = fs.mkdtempSync(path.join(os.tmpdir(), `sfmc-mod-src-${id}-`));
+  fs.mkdirSync(path.join(source, "sapi"), { recursive: true });
+  fs.writeFileSync(
+    path.join(source, "package.json"),
+    JSON.stringify({ name: `@sfmc-bds/module-${id}`, version: "1.0.0" })
+  );
+  fs.writeFileSync(
+    path.join(source, "sapi", "manifest.json"),
+    JSON.stringify({ id, configKey: id, requires: [] })
+  );
+  fs.writeFileSync(path.join(source, "marker.txt"), "source");
+  const dest = path.join(root, "modules", "packages", id);
+  fs.symlinkSync(source, dest, type);
+  return dest;
+}
+
+test("开发链接跳过且 apply 不调用 install，普通目录仍可升级", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-devlink-"));
+  writeInstalledChat(root);
+  /** @type {{ id: string, channel: "index" | "dist-tag" }[]} */
+  const links = [{ id: "via-symlink", channel: "dist-tag" }];
+  if (process.platform === "win32") links.unshift({ id: "via-junction", channel: "index" });
+  for (const link of links) {
+    const type = link.id === "via-junction" ? "junction" : "dir";
+    linkModulePackage(root, link.id, type);
+  }
+  writePins(root, {
+    version: 1,
+    modules: {
+      chat: openNpmPin("@sfmc-bds/module-chat", "1.0.0", "chat", "index"),
+      ...Object.fromEntries(
+        links.map((link) => [
+          link.id,
+          openNpmPin(`@sfmc-bds/module-${link.id}`, "1.0.0", link.id, link.channel),
+        ])
+      ),
+    },
+  });
+  let distTagCalls = 0;
+  const plan = await planModuleUpdates({
+    root,
+    hostSdk: "0.2.5",
+    fetchIndex: async () => ({
+      index: {
+        chat: { npm: "@sfmc-bds/module-chat", version: "1.1.0", sdk: ">=0.2.2" },
+        "via-junction": { npm: "@sfmc-bds/module-via-junction", version: "1.1.0", sdk: ">=0.2.2" },
+      },
+      offline: false,
+    }),
+    fetchDistTag: async () => {
+      distTagCalls += 1;
+      return "9.9.9";
+    },
+  });
+  assert.equal(plan.upgrades.some((item) => item.id === "chat"), true);
+  assert.equal(plan.upgrades.some((item) => item.spec.startsWith("npm:@sfmc-bds/module-chat@")), true);
+  assert.equal(distTagCalls, 0);
+  for (const link of links) {
+    assert.equal(plan.upgrades.some((item) => item.id === link.id), false);
+    const skipped = plan.skipped.find((item) => item.id === link.id);
+    assert.equal(skipped?.reason, "local-source");
+  }
+
+  let installCalls = 0;
+  const applied = await applyModuleUpgrades(
+    links.map((link) => ({
+      id: link.id,
+      fromVersion: "1.0.0",
+      toVersion: "1.1.0",
+      spec: `npm:@sfmc-bds/module-${link.id}@1.1.0`,
+      requires: [],
+    })),
+    {
+      root,
+      failMode: "abort",
+      install: async () => {
+        installCalls += 1;
+        throw new Error("must not install over a dev link");
+      },
+    }
+  );
+  assert.equal(installCalls, 0);
+  assert.equal(applied.applied.length, 0);
+  assert.equal(applied.failed.length, 0);
+  const trash = path.join(root, "modules", "_trash");
+  assert.equal(fs.existsSync(trash) ? fs.readdirSync(trash).length : 0, 0);
+  for (const link of links) {
+    assert.equal(applied.skipped.find((item) => item.id === link.id)?.reason, "local-source");
+    const dest = path.join(root, "modules", "packages", link.id);
+    assert.equal(fs.lstatSync(dest).isSymbolicLink(), true);
+    assert.equal(fs.readFileSync(path.join(dest, "marker.txt"), "utf8"), "source");
+  }
+});
+
+test("新播种的更新配置在开服时不自动应用，已有文件保持原值", async () => {
+  assert.equal(DEFAULT_MODULE_UPDATE_CONFIG.applyOnBdsStart, false);
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-seed-"));
+  writeInstalledChat(fresh);
+  const seeded = await planModuleUpdates({
+    root: fresh,
+    startup: true,
+    hostSdk: "0.2.5",
+    fetchIndex: async () => ({ index: null, offline: true }),
+    fetchDistTag: async () => {
+      throw new Error("seeded plan should not query dist-tag");
+    },
+  });
+  assert.equal(seeded.applyOnStart, false);
+  const seededFile = path.join(fresh, "configs", "module-update.json");
+  const seededBody = JSON.parse(fs.readFileSync(seededFile, "utf8"));
+  assert.equal(seededBody.applyOnBdsStart, false);
+
+  const kept = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-keep-"));
+  const keptFile = path.join(kept, "configs", "module-update.json");
+  fs.mkdirSync(path.dirname(keptFile), { recursive: true });
+  const existing = {
+    enabled: true,
+    checkOnBdsStart: true,
+    applyOnBdsStart: true,
+    allowMajor: false,
+    failMode: "continue",
+    distTag: "latest",
+  };
+  fs.writeFileSync(keptFile, `${JSON.stringify(existing, null, 2)}\n`);
+  const before = fs.readFileSync(keptFile, "utf8");
+  const keptPlan = await planModuleUpdates({
+    root: kept,
+    startup: true,
+    hostSdk: "0.2.5",
+    fetchIndex: async () => ({ index: null, offline: true }),
+    fetchDistTag: async () => {
+      throw new Error("existing config plan should not query dist-tag");
+    },
+  });
+  assert.equal(keptPlan.applyOnStart, true);
+  assert.equal(fs.readFileSync(keptFile, "utf8"), before);
 });

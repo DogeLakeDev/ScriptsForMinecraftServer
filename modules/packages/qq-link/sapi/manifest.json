@@ -1,0 +1,13 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@main/modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
+  "schemaVersion": 2,
+  "id": "feature-qq-link",
+  "name": "QQLink",
+  "configKey": "qq_link",
+  "requires": [],
+  "permissions": ["config:read:qq_link"],
+  "services": {
+    "provides": [],
+    "requires": []
+  }
+}

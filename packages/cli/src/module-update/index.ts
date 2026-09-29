@@ -1,7 +1,7 @@
 /**
- * 模块自动更新的 CLI 入口。
+ * 模块更新的 CLI 入口。
  * 计划与换包在 scripts/module-install/lib/module-update.mjs；
- * 这里负责确认、文案，以及开服前调用。
+ * 这里负责确认与文案。开服路径已废弃，更新只能走显式命令。
  */
 import { confirm, isCancel } from "@clack/prompts";
 import { stdin } from "node:process";
@@ -52,7 +52,7 @@ interface FetchModuleApi {
   installPreservingLock: (id: string, spec: string) => Promise<void>;
 }
 
-/** module-update.mjs 导出面。当前命令与开服钩子都只依赖这一层。 */
+/** module-update.mjs 导出面。显式更新命令依赖这一层。 */
 interface ModuleUpdateApi {
   ensureModuleUpdateConfigFile: (root?: string) => string;
   planModuleUpdates: (options: {
@@ -158,7 +158,9 @@ function versionText(value: string | null): string {
 }
 
 /**
- * 把计划格式化成多行。startup 或非 --check 时隐藏“已关闭 / 已最新”这类安静跳过。
+ * 把计划格式化成多行。
+ * 没点名模块、也没 --check 时，隐藏 auto-off / local-source / up-to-date。
+ * 点名了 id 或 --check 时展开这些原因和版本。quietEmpty 为 true 时不输出空结果。
  */
 function formatPlan(
   plan: ModuleUpdatePlan,
@@ -171,7 +173,10 @@ function formatPlan(
   const lines: string[] = [];
   for (const item of plan.skipped) {
     if (!showAll && quiet.has(item.reason)) continue;
-    lines.push(c.dim(`  ${item.id}  ${reasonText(item.reason, item.detail)}`));
+    /** 跳过行上的版本对照。有索引目标时让服主看到 1.0.0 -> 1.2.0，而不是只看到原因。 */
+    const versions =
+      item.fromVersion || item.toVersion ? `  ${versionText(item.fromVersion)} -> ${versionText(item.toVersion)}` : "";
+    lines.push(c.dim(`  ${item.id}${versions}  ${reasonText(item.reason, item.detail)}`));
   }
   for (const item of plan.upgrades) {
     lines.push(
@@ -233,7 +238,7 @@ function parseUpdateFlags(args: string[]): UpdateFlags | null {
 
 /**
  * mod update：先出计划，交互确认后再换包。
- * --check 只报告。开服路径走 runModuleUpdatesOnBdsStart，不经过确认。
+ * --check 只报告。模块更新只在执行本命令时进行。
  */
 export async function cmdModuleUpdate(args: string[]): Promise<string> {
   const flags = parseUpdateFlags(args);
@@ -245,7 +250,9 @@ export async function cmdModuleUpdate(args: string[]): Promise<string> {
     allowMajor: flags.allowMajor,
     ids: flags.ids,
   });
-  const lines = formatPlan(plan, api.QUIET_SKIP_REASONS, flags.check);
+  /** 点名了模块或显式 --check 时展开安静跳过；没点名时仍可收成「没有可更新的模块」。 */
+  const revealQuietSkips = flags.check || flags.ids.length > 0;
+  const lines = formatPlan(plan, api.QUIET_SKIP_REASONS, revealQuietSkips);
   if (flags.check || plan.configSkipped || plan.upgrades.length === 0) return lines.join("\n");
   if (!flags.yes) {
     if (!isCliTty()) return [...lines, c.yellow(t("mod.update.needYes"))].join("\n");
@@ -268,40 +275,9 @@ export async function cmdModuleUpdate(args: string[]): Promise<string> {
   return [...lines, ...formatApply(result, true)].join("\n");
 }
 
-/**
- * BDS beforeStart：按配置检查，并在 applyOnBdsStart 时直接换包。
- * 失败只记日志，不阻止随后的行为包装配。
- */
+/** 开服路径已废弃，更新只能走显式命令。 */
 export async function runModuleUpdatesOnBdsStart(): Promise<void> {
-  try {
-    const api = await loadUpdateApi();
-    if (!api) return;
-    const plan = await api.planModuleUpdates({ root: ROOT, startup: true, ids: [] });
-    for (const line of formatPlan(plan, api.QUIET_SKIP_REASONS, false, true)) {
-      pushLog(stripColor(line), "module", "info");
-    }
-    if (!plan.applyOnStart || plan.upgrades.length === 0) return;
-    const fetchApi = await loadFetchApi();
-    if (!fetchApi) return;
-    const result = await api.applyModuleUpgrades(plan.upgrades, {
-      root: ROOT,
-      failMode: plan.failMode,
-      install: fetchApi.installPreservingLock,
-      resync: api.resyncInstalledCatalog,
-    });
-    const level = result.failed.length > 0 ? "warn" : "info";
-    for (const line of formatApply(result, false)) {
-      pushLog(stripColor(line), "module", level);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    pushLog(message, "module", "warn");
-  }
-}
-
-/** 去掉主题色，避免日志文件里留下 ANSI。 */
-function stripColor(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
+  return;
 }
 
 /**

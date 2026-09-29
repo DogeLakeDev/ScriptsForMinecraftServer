@@ -147,7 +147,7 @@ All official modules are published to npm and curated in the [Official Module Re
 | `feature-land` | Land Claims | 3D visual selection, granular permission controls (break, interact, container), and transfers |
 | `feature-teleport` | Teleport Hub | Personal homes, public warps, and inter-player TPA requests across dimensions |
 | `feature-auth` | Authentication | Mixed offline/online authentication, auto-login memory, and movement freeze |
-| `feature-qq-link` | QQ Account Link | In-game verification code binding, bi-directional chat, and remote allowlist approval |
+| `feature-qq-link` | QQ Account Link | In-game verification-code binding and join gate; shipped with the platform, not the module index |
 | `feature-afk` | AFK Detection | Smart idle status detection, invulnerability shields, and scheduled rewards |
 
 ---

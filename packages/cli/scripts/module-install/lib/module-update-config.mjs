@@ -23,11 +23,11 @@ export const MODULE_UPDATE_SCHEMA =
  * }} ModuleUpdateConfig
  */
 
-/** 内置默认策略：官方索引模块可在开服前升级，major 默认跳过。 */
+/** 内置默认策略：开服可检查，但不自动换包；major 默认跳过。只在缺文件时播种，不覆盖已有配置。 */
 export const DEFAULT_MODULE_UPDATE_CONFIG = {
   enabled: true,
   checkOnBdsStart: true,
-  applyOnBdsStart: true,
+  applyOnBdsStart: false,
   allowMajor: false,
   failMode: "continue",
   distTag: "latest",

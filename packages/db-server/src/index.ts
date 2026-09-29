@@ -510,7 +510,6 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       path === "/api/sfmc/status" ||
       path === "/api/sfmc/qq/join/apply-queue" ||
       path === "/api/sfmc/qq/join/settings" ||
-      path === "/api/sfmc/qq/admin/action-queue" ||
       (method === "GET" &&
         (path === "/api/sfmc/content" ||
           path === "/api/sfmc/modules" ||
@@ -525,7 +524,6 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
       !(
         path.startsWith("/api/sfmc/qq/bind/") ||
         path.startsWith("/api/sfmc/qq/join/") ||
-        path.startsWith("/api/sfmc/qq/admin/") ||
         path.startsWith("/api/sfmc/qq/events")
       );
     if (env.AUTH_TOKEN && NEEDS_AUTH) {

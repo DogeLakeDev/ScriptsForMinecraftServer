@@ -126,7 +126,7 @@ export function initSchema(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_qq_bind_pending_openid ON sfmc_qq_bind_pending(qq_user_openid);
     CREATE INDEX IF NOT EXISTS idx_qq_bindings_xuid ON sfmc_qq_bindings(player_xuid)`);
 
-  // (5) QQ 入服审批 + 管理动作队列（平台表；BDS 生效由 SAPI + server-admin）
+  // (5) QQ 入服审批。旧踢人队列表保留，避免已有库缺表；平台不再写入或消费。
   db.exec(/* sql */ `
     CREATE TABLE IF NOT EXISTS sfmc_qq_join_requests (
       id TEXT PRIMARY KEY NOT NULL,

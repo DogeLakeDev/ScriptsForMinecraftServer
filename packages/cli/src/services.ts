@@ -74,10 +74,10 @@ export type StartOutcome = { status: "started" } | { status: "already" } | { sta
 
 /**
  * 单服务 stop 结果，供 CLI 区分文案。
- * 使用场景：`stop` / `restart` / `stop all` 共用 Service.stop。
+ * 使用场景：`stop <name>` / `restart <name>` 与 `stop all` 都走 Service.stop，但只有前者会得到 external。
  * - managed：停的是本进程拉起的子进程
- * - external：没有托管句柄，但清掉了外部实例
- * - idle：本来就没在跑
+ * - external：没有托管句柄，但清掉了外部实例（仅 external=true 时）
+ * - idle：本来就没在跑，或批量停止时故意不动外部实例
  */
 export type StopKind = "managed" | "external" | "idle";
 
@@ -155,7 +155,8 @@ function clearQqRuntimeFile(): void {
 
 /**
  * 按镜像名结束外部 BDS，并等到进程从进程表消失。
- * 使用场景：单服务 stop、restart、stop all 都要能停掉非本进程拉起的 bedrock。
+ * 使用场景：仅单服务 stop / restart（Service.stop 的 external=true）清掉非本进程拉起的 bedrock。
+ * stop all 与守护进程 shutdown 不调用这里，避免 taskkill 误杀同机其他 Bedrock。
  * taskkill 返回后进程表可能仍短暂可见，restart 会立刻探活，因此这里等到消失再返回。
  */
 async function killExternalBedrock(): Promise<void> {
@@ -381,19 +382,23 @@ class Service {
   }
 
   /**
-   * 停止本服务。托管子进程仍走原来的优雅停止；没有可管句柄时清掉外部实例。
-   * 使用场景：`stop <name>`、`restart`、`stop all` 和守护进程退出都走这里，
-   * 避免只有单服务 stop 能停外部来源的进程。
+   * 停止本服务。托管子进程始终走原来的优雅停止（stdin stop / SIGTERM）。
+   * @param external 是否额外清掉非本进程拉起的外部实例。默认 false，只停托管子进程。
+   * 两种调用场景：
+   * - true：单服务 `stop <name>` / `restart <name>`（cmdStopLocal，以及仍存在的 Service.restart）。
+   *   BDS 外部走 killExternalBedrock；db/qq 外部走 killNodeServiceByScript。
+   * - false 或不传：`stop all`、`restart -all`、守护进程 shutdown / SIGTERM（经 stopAll）。
+   *   不按镜像名或脚本名杀外部进程，避免误杀同机其他 Bedrock、db、qq。
    */
-  async stop(): Promise<StopKind> {
+  async stop(external = false): Promise<StopKind> {
     this.manualStop = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
 
-    /* 与原先 cmdStop 一致：BDS 被判定为外部时直接按镜像结束，不走 stdin stop */
-    if (this.name === "bds") {
+    /* 与原先 cmdStop 一致：仅单服务停止时，BDS 被判定为外部才按镜像结束，不走 stdin stop */
+    if (external && this.name === "bds") {
       const probe = await probeBdsStatus({
         managedPid: this.pid,
         hasStdin: Boolean(this.proc?.stdin),
@@ -409,8 +414,8 @@ class Service {
     const managed = Boolean(this.proc && this.running);
     if (managed) await this.stopManagedChild();
 
-    /* db / qq：托管停完后仍按脚本再扫一遍，清掉同机上的外部实例（与原 stop 相同） */
-    if (this.name === "db" || this.name === "qq") {
+    /* db / qq：仅单服务停止时，托管停完后仍按脚本再扫一遍，清掉同机上的外部实例 */
+    if (external && (this.name === "db" || this.name === "qq")) {
       const killed = await killNodeServiceByScript(this.name);
       if (this.name === "qq") clearQqRuntimeFile();
       if (managed) return "managed";
@@ -492,8 +497,13 @@ class Service {
     }
   }
 
+  /**
+   * 单服务重启：先停再起。
+   * 使用场景：若仍有调用方直接走 Service.restart（不经 cmdStopLocal），与单服务 stop 一样清外部实例（external true）。
+   * 批量 `restart -all` 和守护进程 shutdown 不走这里，它们经 stopAll 调用 stop(false)，只停托管子进程。
+   */
   async restart(): Promise<StartOutcome> {
-    await this.stop();
+    await this.stop(true);
     return this.start();
   }
 
@@ -597,13 +607,12 @@ function createServices(): Record<ServiceName, Service> {
       },
       beforeStart: async () => {
         ensureBdsExecutable(bdsExe);
-        /* 先装收件箱第三方包，再检查 CF 更新，再升级业务模块，再跑模块聚合闸门 */
+        /* 先装收件箱第三方包，再检查 CF 更新，再跑模块聚合闸门 */
+        /* 业务模块更新只走显式命令，不进开服钩子。 */
         const { scanAndInstallInbox } = await import("./world-packs.js");
         await scanAndInstallInbox({ interactive: false });
         const { runPackUpdatesOnBdsStart } = await import("./pack-update/index.js");
         await runPackUpdatesOnBdsStart();
-        const { runModuleUpdatesOnBdsStart } = await import("./module-update/index.js");
-        await runModuleUpdatesOnBdsStart();
         const { ensurePacksReady } = await import("./pack-lifecycle.js");
         await ensurePacksReady();
       },
@@ -726,16 +735,16 @@ export async function startAll(): Promise<StartAllResult> {
 }
 
 /**
- * 按启动逆序停止全部服务，包含 status 里标成「外部」的实例。
- * 使用场景：`stop all`、`restart -all`、守护进程 shutdown。
- * 具体停外部进程的规则在 Service.stop，与单服务 `stop` 相同。
+ * 按启动逆序停止本进程拉起的托管子进程（优雅 stop / stdin stop）。
+ * 使用场景：`stop all`、`restart -all`、守护进程 shutdown / SIGTERM。
+ * 显式传 external false：不按镜像名或脚本名杀外部 BDS / db / qq。
  */
 export async function stopAll(): Promise<void> {
   const pending = [...START_ORDER]
     .reverse()
     .map((name) => services[name])
     .filter((service): service is Service => Boolean(service))
-    .map((service) => service.stop());
+    .map((service) => service.stop(false));
   await Promise.allSettled(pending);
 }
 

@@ -88,7 +88,7 @@
           "items": {
             "type": "string"
           },
-          "description": "QQ 侧管理员 member openid 列表；入服审批通过/拒绝与踢人命令校验"
+          "description": "QQ 侧管理员 member openid 列表；入服审批通过/拒绝与入服配置校验"
         },
         "tunnel": {
           "type": "object",

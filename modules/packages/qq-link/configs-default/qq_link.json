@@ -1,0 +1,5 @@
+{
+  "allowlist_enabled": true,
+  "require_approval": true,
+  "treat_group_admins_as_admins": false
+}

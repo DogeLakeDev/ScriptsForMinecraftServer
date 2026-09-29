@@ -1031,9 +1031,11 @@ async function runUpdateCommand(args) {
     console.log("[module-update] check skipped");
     return;
   }
-  const showAll = flags.check && !flags.startup;
+  /* 点名了模块 id 时展示 auto-off / local-source / up-to-date 和版本；开服 --startup 仍隐藏。 */
+  const namedModule = positional.length > 0;
+  const showQuietSkips = !flags.startup && (flags.check || namedModule);
   for (const item of plan.skipped) {
-    if (!showAll && QUIET_SKIP_REASONS.has(item.reason)) continue;
+    if (!showQuietSkips && QUIET_SKIP_REASONS.has(item.reason)) continue;
     console.log(formatSkip(item));
   }
   for (const item of plan.upgrades) {

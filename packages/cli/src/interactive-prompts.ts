@@ -4,16 +4,18 @@ import path from "node:path";
 import { pickDirectoryDialog as runNativeDirectoryPicker } from "./directory-picker.js";
 import { t } from "./i18n/index.js";
 
-/** 与 init 向导一致：文本输入或系统文件夹选择器。 */
+/** 与 init 向导一致：默认接受建议路径，也可以手输或打开系统文件夹选择器。 */
 export async function pickDirectory(message: string, defaultDirectory: string): Promise<string> {
   const method = await select({
     message,
     options: [
+      { value: "default", label: t("prompt.useDefault"), hint: defaultDirectory },
       { value: "text", label: t("prompt.enterPath"), hint: defaultDirectory },
       { value: "browse", label: t("prompt.browse"), hint: t("prompt.browseHint") },
     ],
+    initialValue: "default",
   });
-  if (isCancel(method)) return defaultDirectory;
+  if (isCancel(method) || method === "default") return defaultDirectory;
 
   if (method === "browse") {
     const result = runNativeDirectoryPicker(message, defaultDirectory);

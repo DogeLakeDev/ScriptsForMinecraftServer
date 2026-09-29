@@ -1,6 +1,7 @@
 // @ts-check
 /**
  * 模块更新编排：根据 pin、索引和本机 SDK 决定升级候选，并按依赖顺序换包。
+ * 安装目录若是 symlink / junction，只记 local-source 跳过，不换包。
  * 下载与落盘由调用方注入的 install，本文件不复制第二套安装逻辑。
  */
 import fs from "node:fs";
@@ -13,6 +14,7 @@ import { readJson } from "./io.mjs";
 import { loadModuleUpdateConfig } from "./module-update-config.mjs";
 import {
   findPinKey,
+  isLinkedPackageDir,
   markPinError,
   normalizeModuleId,
   packageDirOf,
@@ -141,10 +143,39 @@ export function decideModuleUpdate(input) {
   if (isMajorBump(input.installedVersion, input.targetVersion) && !input.allowMajor) {
     return { action: "skip", reason: "major", detail: "" };
   }
+  /* 范围明确但本机 SDK 读不到时不要升级。空范围和 * 仍走下面的原判断。 */
+  if (sdkRangeConstrainsHost(input.sdkRange) && !input.hostSdk) {
+    return { action: "skip", reason: "sdk", detail: "本机 SDK 版本未知" };
+  }
   if (input.sdkRange && input.hostSdk && !satisfiesSdk(input.hostSdk, input.sdkRange)) {
     return { action: "skip", reason: "sdk", detail: `${input.hostSdk} / ${input.sdkRange}` };
   }
   return { action: "upgrade", reason: "newer", detail: "" };
+}
+
+/**
+ * 这个 SDK 范围是否要求对照本机版本。
+ * 使用场景：decideModuleUpdate 在 hostSdk 为空时，只有非空且不是 * 的范围才跳过。
+ * @param {string | null | undefined} sdkRange
+ */
+function sdkRangeConstrainsHost(sdkRange) {
+  if (typeof sdkRange !== "string") return false;
+  const text = sdkRange.trim();
+  return text.length > 0 && text !== "*";
+}
+
+/**
+ * 安装目录是 symlink 或 Windows junction 时返回 local-source 跳过项，否则返回 null。
+ * 使用场景：规划阶段不把开发链接放进 upgrades；apply 阶段即使候选被强行传入，也不调用 install 覆盖链接。
+ * @param {string} id
+ * @param {string} dir
+ * @param {string | null} fromVersion
+ * @param {string | null} toVersion
+ * @returns {ModuleSkip | null}
+ */
+function skipWhenDevLink(id, dir, fromVersion, toVersion) {
+  if (!isLinkedPackageDir(dir)) return null;
+  return { id, reason: "local-source", fromVersion, toVersion, detail: "" };
 }
 
 /**
@@ -215,6 +246,24 @@ function npmNameFromPin(spec, packageName) {
 }
 
 /**
+ * 索引已经在手里时，只记下目标版本供跳过记录展示，不生成安装 spec。
+ * 使用场景：自动更新关闭，以及本地链接 / local / autoLocked，都不能为此去打 npm dist-tag。
+ * @param {{ npm?: string, version?: string, sdk?: string } | null | undefined} indexEntry
+ */
+function desiredVersionFromHeldIndex(indexEntry) {
+  if (indexEntry?.version) {
+    return {
+      version: indexEntry.version,
+      spec: null,
+      sdk: indexEntry.sdk || null,
+      offline: false,
+      reason: null,
+    };
+  }
+  return { version: null, spec: null, sdk: indexEntry?.sdk || null, offline: false, reason: null };
+}
+
+/**
  * @param {import("./pins.mjs").ModulePin} pin
  * @param {{ npm?: string, version?: string, sdk?: string } | null | undefined} indexEntry
  * @param {(name: string, tag: string) => Promise<string | null>} fetchDistTag
@@ -223,8 +272,9 @@ function npmNameFromPin(spec, packageName) {
  * @param {string | null} packageName
  */
 async function resolveDesired(pin, indexEntry, fetchDistTag, distTag, indexOffline, packageName) {
-  if (!pin.auto || pin.autoLocked || pin.source === "link" || pin.source === "local") {
-    return { version: null, spec: null, sdk: null, offline: false, reason: null };
+  /* 本地链接、目录和锁定来源不查 dist-tag；索引已在手里时仍把目标版本交给跳过记录。 */
+  if (pin.autoLocked || pin.source === "link" || pin.source === "local") {
+    return desiredVersionFromHeldIndex(indexEntry);
   }
   if (pin.source === "github") {
     return { version: null, spec: null, sdk: null, offline: false, reason: "github-manual" };
@@ -232,12 +282,15 @@ async function resolveDesired(pin, indexEntry, fetchDistTag, distTag, indexOffli
   if (pin.source === "npm" && indexEntry?.npm && indexEntry.version) {
     return {
       version: indexEntry.version,
-      spec: `npm:${indexEntry.npm}@${indexEntry.version}`,
+      /* auto 关闭只展示版本，不给出可安装 spec，避免被当成升级。 */
+      spec: pin.auto ? `npm:${indexEntry.npm}@${indexEntry.version}` : null,
       sdk: indexEntry.sdk || null,
       offline: false,
       reason: null,
     };
   }
+  /* 自动更新关闭且索引里没有目标版本时，不要改去打 dist-tag。 */
+  if (!pin.auto) return desiredVersionFromHeldIndex(indexEntry);
   /* 默认跟随索引的包在索引不可用时不改去拉 npm latest。服主显式打开的包仍走 dist-tag。 */
   const expectsIndex = pin.channel === "index" && pin.autoSetBy !== "user";
   if (expectsIndex && (indexOffline || !indexEntry?.version)) {
@@ -336,9 +389,20 @@ export async function planModuleUpdates(options = {}) {
     const keys = [normalizeModuleId(folder), normalizeModuleId(manifestId)];
     if (wanted.size > 0 && !keys.some((key) => wanted.has(key))) continue;
     const dir = packageDirOf(root, folder);
-    if (!fs.existsSync(dir)) continue;
     const installedVersion = readPackageVersion(dir) ?? pin.installedVersion;
     const indexEntry = index ? index[folder] || index[normalizeModuleId(manifestId || "")] || null : null;
+    /* 目录本身是开发链接时先跳过，避免 pin 写成 npm 后仍去查 dist-tag 并换包。 */
+    const linkSkip = skipWhenDevLink(
+      folder,
+      dir,
+      installedVersion,
+      desiredVersionFromHeldIndex(indexEntry).version,
+    );
+    if (linkSkip) {
+      skipped.push(linkSkip);
+      continue;
+    }
+    if (!fs.existsSync(dir)) continue;
     const packageName = readPackageName(dir);
     const desired = await resolveDesired(pin, indexEntry, fetchDistTag, cfg.distTag, indexOffline, packageName);
     const requires = readRequires(root, folder);
@@ -428,6 +492,20 @@ export async function restorePackageDir(root, id, backup) {
 }
 
 /**
+ * 删掉 backupPackageDir 这次留下的备份目录。
+ * 使用场景：applyModuleUpgrades 在 install 成功后调用；删除失败必须忽略，不能把成功升级记成失败。
+ * @param {string | null} backup
+ */
+async function discardUpgradeBackup(backup) {
+  if (!backup) return;
+  try {
+    await fsp.rm(backup, { recursive: true, force: true });
+  } catch {
+    /* 回收站删不掉时保留目录，不回滚已经装好的包 */
+  }
+}
+
+/**
  * 还原后按磁盘上的 manifest 重写 catalog 里这一条。
  * @param {string} folder
  */
@@ -441,6 +519,7 @@ export function resyncInstalledCatalog(folder) {
 
 /**
  * 按计划换包。单个失败时还原该模块，并根据 failMode 决定是否继续。
+ * 安装目录若是 symlink / junction，记 local-source 并跳过，不调用 install。
  * @param {ModuleUpgrade[]} upgrades
  * @param {{
  *   root: string,
@@ -459,6 +538,11 @@ export async function applyModuleUpgrades(upgrades, deps) {
   /** @type {{ id: string, message: string }[]} */
   const failed = [];
   for (const item of upgrades) {
+    const linkSkip = skipWhenDevLink(item.id, packageDirOf(deps.root, item.id), item.fromVersion, item.toVersion);
+    if (linkSkip) {
+      skipped.push(linkSkip);
+      continue;
+    }
     const blocked = (item.requires || []).some((req) => failedNorm.has(req));
     if (blocked) {
       skipped.push({
@@ -478,13 +562,17 @@ export async function applyModuleUpgrades(upgrades, deps) {
       backup = await backupPackageDir(deps.root, item.id);
       await deps.install(item.id, item.spec);
       applied.push(item);
+      /* 这次升级已经落盘，删掉刚才移进 _trash 的那一份备份。 */
+      await discardUpgradeBackup(backup);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const installError = error instanceof Error ? error.message : String(error);
+      /** 失败说明。还原失败时在安装错误后面附上备份绝对路径。 */
+      let message = installError;
       if (backup) {
         try {
           await restorePackageDir(deps.root, item.id, backup);
         } catch {
-          /* 还原失败时保留回收站里的备份路径在错误信息中 */
+          message = `${installError}；还原失败，备份仍在 ${path.resolve(backup)}`;
         }
       }
       if (deps.resync) {

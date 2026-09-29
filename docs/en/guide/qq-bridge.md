@@ -46,7 +46,7 @@ Edit `configs/qq_config.json` (defaults are created on first start):
 | `llbot.enabled` | Whether sfmc starts LLBot (only when `qq_backend=llbot`) |
 | `llbot.path` / `llbot.cwd` | LLBot executable / working directory |
 | `llbot.host` / `llbot.port` / `llbot.token` | db-server MC→QQ (llbot) |
-| `official.admin_openids` | QQ admin openids (join approval / kick / join settings); empty = cannot approve |
+| `official.admin_openids` | QQ admin openids (join approval / join settings); empty = cannot approve |
 | `qq_events` | Event-to-group switches (see below); default all on, 60s window |
 
 ### Obtaining `official.group_openid`
@@ -85,13 +85,13 @@ qq-bridge intercepts commands **before** forwarding to MC. Same command registry
 | `whoami` / `我的绑定` | QQ id; shows MC name if bound |
 | `status` / `状态` | Server summary: online, world, host uptime, BDS/db uptime, memory/CPU (`GET /api/sfmc/status`) |
 | `online` / `在线` | Online roster (truncated) |
-| `绑定` / `bind` | Request bind code (needs game module `qq-link`) |
+| `绑定` / `bind` | Request bind code (needs the platform `qq-link` package) |
 | `解绑` / `unbind` | Unbind |
 | `申请入服` / `join` | Request BDS allowlist entry (admin approve + module apply) |
 | `频道` / `channel` | Chat-bridge channel + light db/BDS self-check |
-| `管理` / `admin` | **Admin submenu** (admins only): doctor / group / config / pending / approve / reject / kick |
+| `管理` / `admin` | **Admin submenu** (admins only): doctor / group / events |
 
-Admin commands are hidden from the main menu and official C2C quick menu; triggers like `踢人` / `待审` still work when typed directly.
+Admin commands are hidden from the main menu and official C2C quick menu. The bot no longer kicks players.
 
 - **official**: @bot then send the trigger; optional sync to [custom menu / command panel](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/menu-panel/) (`sync-menu` console command). C2C messages also hit the command router. With interaction intent, approval uses callback buttons (`INTERACTION_CREATE`).
 - **llbot**: same triggers; numbered replies within **60s**; **no** native panel / INTERACTION — use `通过/拒绝 <id>`.
@@ -120,9 +120,9 @@ Platform APIs on db-server (loopback): `POST /api/sfmc/qq/bind/{request,confirm,
 | Side | Capability | Where |
 | --- | --- | --- |
 | **QQ** | Request/approve/pending, group info/bot_state, notify | qq-bridge + OpenAPI; state in db-server |
-| **BDS** | `allowList.add`, `kickPlayer` | Only game module `qq-link` via `@minecraft/server-admin` |
+| **BDS** | Bind gate, join/leave/death reports | Platform package `modules/packages/qq-link` |
 
-The platform never writes BDS `allowlist.json` directly. Flow: QQ request → DB `pending` → admin approve → `approved` → module polls `apply-queue` → `allowList.add` → `applied`. Kick uses `admin/action-queue` → `kickPlayer` (player must be online).
+The platform never writes BDS `allowlist.json` directly. QQ bot management does not enqueue kicks. Chat between the game and QQ is owned by the chat module (`forward_to_qq` and QQ-sourced channels), not a removed `bridge_channel_id` setting.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -131,9 +131,6 @@ The platform never writes BDS `allowlist.json` directly. Flow: QQ request → DB
 | `GET` | `/api/sfmc/qq/join/pending` | Pending |
 | `GET` | `/api/sfmc/qq/join/apply-queue` | SAPI pulls approved-not-applied |
 | `POST` | `/api/sfmc/qq/join/applied` | SAPI ack |
-| `POST` | `/api/sfmc/qq/admin/kick` | Enqueue kick |
-| `GET` | `/api/sfmc/qq/admin/action-queue` | Action queue |
-| `POST` | `/api/sfmc/qq/admin/action-done` | Action ack |
 
 If BDS is down, approvals can queue and apply after restart. Stopping BDS does not block read-only `群信息` (OpenAPI only).
 
@@ -153,7 +150,7 @@ Bot (`official.admin_openids`, or group admins when the flag above is on): `配�
 
 `GET /v2/groups/{group_openid}/info` and `bot_state` may require a platform allowlist. When blocked, `status` / `群信息` show a clear tip; chat bridge and join flow still work.
 
-Game side is the same module **`qq-link`** (`@sfmc-bds/module-qq-link`): `!bind` + allowList apply + kick + join/leave/death reporting + chat-bridge poll. Install with `sfmc mod install qq-link --from dir:<repo> --link`, then behavior-pack build/deploy and restart BDS.
+Game side ships with the platform as **`modules/packages/qq-link`**: `/c:bind`, the unbound visitor gate, and join/leave/death reporting. It is no longer an installable registry module.
 
 Read-only ops: public `GET /api/sfmc/status` backs `status` / `online`. Payload includes `host` (uptime/memory/CPU) and `processes.bds` / `processes.db` (process uptime; BDS from `.sfmc/bds.pid` or `bedrock_server` probe).
 
@@ -163,7 +160,7 @@ Join / leave / death / BDS lifecycle posts to the QQ group independently of chat
 
 | Event | Source | When |
 | --- | --- | --- |
-| Join / leave / death | Game module `qq-link` | Aggregated about every `window_sec` (default 60s) |
+| Join / leave / death | Platform package `qq-link` | Aggregated about every `window_sec` (default 60s) |
 | BDS unexpected exit | `bds-manager` (not manual stop) | Immediate |
 | BDS start success | `bds-manager` after spawn | Immediate |
 

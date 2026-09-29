@@ -1,4 +1,4 @@
-import { confirm, intro, isCancel, multiselect, note, outro, password, select, tasks, text } from "@clack/prompts";
+import { confirm, intro, isCancel, multiselect, note, outro, password, select, spinner, tasks, text } from "@clack/prompts";
 import {
   configPath,
   ensureCoreConfigs,
@@ -21,6 +21,7 @@ import { persistLocale, t, type Locale } from "./i18n/index.js";
 import { llbotExeName } from "./llbot-launch.js";
 import { ROOT, isMonorepoLayout, isRuntimeInitialized, resolveFetchModule, spawnService } from "./runtime.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
+import { resolveRegistryIndex } from "./registry.js";
 import { c } from "./theme.js";
 
 /** Shallow-merge write for top-level configs. Delegates to SDK; do not mkdir+writeFileSync here. */
@@ -116,6 +117,246 @@ function seedNpmRuntimeLayout(rootDir: string): void {
   }
 }
 
+/** 更新时默认保留的 BDS 文件，与逐项询问时的初始勾选相同。 */
+const DEFAULT_PRESERVE = [
+  "server.properties",
+  "whitelist.json",
+  "permissions.json",
+  "allowlist.json",
+  "worlds",
+  "config",
+] as const;
+
+/** 向导写进 db / bds_updater 的路径与端口。 */
+interface RuntimeLayout {
+  dbDir: string;
+  dbPort: number;
+  backupDir: string;
+  preserve: string[];
+}
+
+/** 向导收集的 QQ 桥选择。取消选择时不产生该对象。 */
+interface QqWizardChoice {
+  qqEnabled: boolean;
+  qqBackend: "official" | "llbot";
+  qqAppId: string;
+  qqAppSecret: string;
+  qqSandbox: boolean;
+  qqGroupOpenid: string;
+  llbotPath?: string;
+  llbotEnabled: boolean;
+}
+
+/**
+ * 数据库、备份目录和更新保留项。
+ * 接受默认值时不再逐项提问；拒绝后仍询问目录、端口和保留项。取消单项时沿用该项默认。
+ */
+async function askRuntimeLayout(rootDir: string, bdsResolved: string): Promise<RuntimeLayout> {
+  const defaultDbDir = path.join(rootDir, "data");
+  const defaultBackup = path.join(path.dirname(bdsResolved), "backups");
+  const useDefaults = await confirm({
+    message: t("wizard.useDefaults"),
+    initialValue: true,
+  });
+  if (isCancel(useDefaults) || useDefaults) {
+    ensureDirectory(defaultDbDir);
+    note(
+      c.text(
+        t("wizard.defaultsApplied", {
+          db: defaultDbDir,
+          port: "3001",
+          backup: defaultBackup,
+        })
+      ),
+      t("common.tips")
+    );
+    note(c.yellow(t("wizard.updaterTip")), t("common.tips"));
+    return {
+      dbDir: defaultDbDir,
+      dbPort: 3001,
+      backupDir: defaultBackup,
+      preserve: [...DEFAULT_PRESERVE],
+    };
+  }
+
+  const dbDirInput = await pickDirectory(t("wizard.dbDir"), defaultDbDir);
+  const dbDir = ensureDirectory(dbDirInput) ? dbDirInput : defaultDbDir;
+  if (dbDir !== dbDirInput) {
+    note(c.text(t("wizard.usingDefault", { path: dbDir })), t("common.tips"));
+  }
+  const dbPortRaw = await text({
+    message: t("wizard.dbPort"),
+    initialValue: "3001",
+    validate: (v: any): any => {
+      const n = parseInt(v, 10);
+      if (isNaN(n) || n < 1024 || n > 65535) return t("wizard.portRange");
+      if (v.length === 0) return t("wizard.valueRequired");
+    },
+  });
+  const dbPort = isCancel(dbPortRaw) ? 3001 : parseInt(dbPortRaw as string, 10);
+  const backupDir = await pickDirectory(t("wizard.backupDir"), defaultBackup);
+  const preserveOptions = [
+    { value: "server.properties", label: "server.properties", hint: t("wizard.preserve.serverProps") },
+    { value: "whitelist.json", label: "whitelist.json" },
+    { value: "permissions.json", label: "permissions.json" },
+    { value: "allowlist.json", label: "allowlist.json" },
+    { value: "worlds", label: "worlds/", hint: t("wizard.preserve.worlds") },
+    { value: "config", label: "config/", hint: t("wizard.preserve.config") },
+  ] as const;
+  const pr = await multiselect({
+    message: t("wizard.preserve"),
+    options: [...preserveOptions],
+    initialValues: [...DEFAULT_PRESERVE],
+    required: false,
+  });
+  note(c.yellow(t("wizard.updaterTip")), t("common.tips"));
+  return {
+    dbDir,
+    dbPort,
+    backupDir,
+    preserve: isCancel(pr) ? [] : (pr as string[]),
+  };
+}
+
+/**
+ * 选择 QQ 桥后端。默认不启用。
+ * 取消时返回 null，调用方结束向导且不写入 initialized_at。
+ */
+async function askQqBridge(rootDir: string): Promise<QqWizardChoice | null> {
+  const qqBackendPick = await select({
+    message: t("wizard.qqBackend"),
+    options: [
+      { value: "disabled", label: t("wizard.qqBackend.disabled"), hint: t("wizard.qqBackend.disabledHint") },
+      { value: "official", label: t("wizard.qqBackend.official"), hint: t("wizard.qqBackend.officialHint") },
+      { value: "llbot", label: t("wizard.qqBackend.llbot"), hint: t("wizard.qqBackend.llbotHint") },
+    ],
+    initialValue: "disabled",
+  });
+  if (isCancel(qqBackendPick)) return null;
+
+  const qqBackendChoice = String(qqBackendPick || "disabled");
+  if (qqBackendChoice === "disabled") {
+    return {
+      qqEnabled: false,
+      qqBackend: "official",
+      qqAppId: "",
+      qqAppSecret: "",
+      qqSandbox: false,
+      qqGroupOpenid: "",
+      llbotEnabled: false,
+    };
+  }
+  if (qqBackendChoice === "llbot") {
+    const picked = await pickDirectory(t("wizard.llbotDir"), path.join(rootDir, "LLBOT"));
+    let llbotPath = picked;
+    if (!ensureDirectory(picked)) {
+      llbotPath = path.join(rootDir, "LLBOT");
+      note(c.text(t("wizard.usingDefault", { path: llbotPath })), t("common.tips"));
+    }
+    return {
+      qqEnabled: true,
+      qqBackend: "llbot",
+      qqAppId: "",
+      qqAppSecret: "",
+      qqSandbox: false,
+      qqGroupOpenid: "",
+      llbotPath,
+      llbotEnabled: true,
+    };
+  }
+
+  const appIdRaw = await text({
+    message: t("wizard.qqAppId"),
+    placeholder: "102xxxxx",
+    validate: (v: any): any => {
+      if (!String(v ?? "").trim()) return t("wizard.valueRequired");
+    },
+  });
+  const secretRaw = await password({
+    message: t("wizard.qqAppSecret"),
+    validate: (v: any): any => {
+      if (!String(v ?? "").trim()) return t("wizard.valueRequired");
+    },
+  });
+  const sandboxPick = await confirm({
+    message: t("wizard.qqSandbox"),
+    initialValue: false,
+  });
+  const openidRaw = await text({
+    message: t("wizard.qqGroupOpenid"),
+    placeholder: t("wizard.qqGroupOpenidHint"),
+  });
+  return {
+    qqEnabled: true,
+    qqBackend: "official",
+    qqAppId: isCancel(appIdRaw) ? "" : String(appIdRaw).trim(),
+    qqAppSecret: isCancel(secretRaw) ? "" : String(secretRaw).trim(),
+    qqSandbox: isCancel(sandboxPick) ? false : !!sandboxPick,
+    qqGroupOpenid: isCancel(openidRaw) ? "" : String(openidRaw).trim(),
+    llbotEnabled: false,
+  };
+}
+
+/**
+ * 选择要启用或安装的模块。
+ * 目录里已有模块时只问启停；空目录才读官方索引，避免把启用和安装混成同一次选择。
+ */
+async function askModules(rootDir: string): Promise<string[]> {
+  const catalog = readJson<Catalog>(modulePath(rootDir, "catalog.json")) ?? {
+    version: 1,
+    modules: [],
+  };
+  const catalogModules: Array<{ id: string; name?: string; description?: string; canDisable?: boolean }> = [];
+  if (Array.isArray(catalog.modules)) {
+    for (const m of catalog.modules) {
+      catalogModules.push({
+        id: String(m.id ?? ""),
+        name: String(m.name ?? m.id ?? ""),
+        description: String(m.description ?? ""),
+        canDisable: m.canDisable !== false,
+      });
+    }
+  }
+
+  if (catalogModules.length > 0) {
+    note(c.text(t("wizard.modulesFound", { count: catalogModules.length })), t("wizard.step4"));
+    const lockedMd: Array<{ value: string; label: string; hint: string; disabled?: boolean }> = [];
+    const optionalMd: Array<{ value: string; label: string; hint: string }> = [];
+    for (const k of catalogModules) {
+      const option = {
+        value: k.id,
+        label: String(k.name),
+        hint: String(k.description ?? t("wizard.emptyHint")),
+      };
+      if (k.canDisable === false) lockedMd.push({ ...option, disabled: true });
+      else optionalMd.push(option);
+    }
+    const picked = await multiselect({
+      message: t("wizard.enableModules"),
+      options: [...lockedMd, ...optionalMd],
+      required: false,
+    });
+    return isCancel(picked) ? [] : (picked as string[]);
+  }
+
+  note(c.text(t("wizard.modulesNone")), t("wizard.step4"));
+  const spin = spinner();
+  spin.start(t("wizard.registryLoading"));
+  const { index } = await resolveRegistryIndex();
+  const ids = Object.keys(index).sort((a, b) => a.localeCompare(b));
+  if (ids.length === 0) {
+    spin.stop(t("wizard.registryOffline"));
+    return [];
+  }
+  spin.stop(t("wizard.modulesFound", { count: String(ids.length) }));
+  const picked = await multiselect({
+    message: t("wizard.installFromRegistry"),
+    options: ids.map((id) => ({ value: id, label: id })),
+    required: false,
+  });
+  return isCancel(picked) ? [] : (picked as string[]);
+}
+
 export async function runWizard(): Promise<void> {
   intro(c.bold(t("wizard.intro")));
 
@@ -150,7 +391,7 @@ export async function runWizard(): Promise<void> {
     return;
   }
 
-  // Step 2: External runtime paths
+  // Step 2: BDS 目录。数据库和 QQ 放到后面，能用默认值就不再逐项问。
   note(c.text(t("wizard.step2Note")), t("wizard.step2"));
 
   const bdsResolved = await pickDirectory(t("wizard.bdsDir"), path.join(rootDir, "BDS"));
@@ -159,89 +400,7 @@ export async function runWizard(): Promise<void> {
     return;
   }
 
-  /* QQ 桥：选后端 → official 凭据 / llbot 路径；禁用则 qq_enabled=false */
-  const qqBackendPick = await select({
-    message: t("wizard.qqBackend"),
-    options: [
-      { value: "official", label: t("wizard.qqBackend.official"), hint: t("wizard.qqBackend.officialHint") },
-      { value: "llbot", label: t("wizard.qqBackend.llbot"), hint: t("wizard.qqBackend.llbotHint") },
-      { value: "disabled", label: t("wizard.qqBackend.disabled"), hint: t("wizard.qqBackend.disabledHint") },
-    ],
-    initialValue: "official",
-  });
-  const qqBackendChoice =
-    isCancel(qqBackendPick) || !qqBackendPick ? "official" : String(qqBackendPick);
-
-  let qqEnabled = true;
-  let qqBackend: "official" | "llbot" = "official";
-  let qqAppId = "";
-  let qqAppSecret = "";
-  let qqSandbox = false;
-  let qqGroupOpenid = "";
-  let llbotPath: string | undefined;
-  let llbotEnabled = false;
-
-  if (qqBackendChoice === "disabled") {
-    qqEnabled = false;
-  } else if (qqBackendChoice === "llbot") {
-    qqBackend = "llbot";
-    llbotEnabled = true;
-    const picked = await pickDirectory(t("wizard.llbotDir"), path.join(rootDir, "LLBOT"));
-    if (ensureDirectory(picked)) {
-      llbotPath = picked;
-    } else {
-      llbotPath = path.join(rootDir, "LLBOT");
-      note(c.text(t("wizard.usingDefault", { path: llbotPath })), t("common.tips"));
-    }
-  } else {
-    qqBackend = "official";
-    const appIdRaw = await text({
-      message: t("wizard.qqAppId"),
-      placeholder: "102xxxxx",
-      validate: (v: any): any => {
-        if (!String(v ?? "").trim()) return t("wizard.valueRequired");
-      },
-    });
-    if (!isCancel(appIdRaw)) qqAppId = String(appIdRaw).trim();
-
-    const secretRaw = await password({
-      message: t("wizard.qqAppSecret"),
-      validate: (v: any): any => {
-        if (!String(v ?? "").trim()) return t("wizard.valueRequired");
-      },
-    });
-    if (!isCancel(secretRaw)) qqAppSecret = String(secretRaw).trim();
-
-    const sandboxPick = await confirm({
-      message: t("wizard.qqSandbox"),
-      initialValue: false,
-    });
-    if (!isCancel(sandboxPick)) qqSandbox = !!sandboxPick;
-
-    const openidRaw = await text({
-      message: t("wizard.qqGroupOpenid"),
-      placeholder: t("wizard.qqGroupOpenidHint"),
-    });
-    if (!isCancel(openidRaw)) qqGroupOpenid = String(openidRaw).trim();
-  }
-
-  const dbDirInput = await pickDirectory(t("wizard.dbDir"), path.join(rootDir, "data"));
-  const dbDir = ensureDirectory(dbDirInput) ? dbDirInput : path.join(rootDir, "data");
-  if (dbDir !== dbDirInput) {
-    note(c.text(t("wizard.usingDefault", { path: dbDir })), t("common.tips"));
-  }
-  const dbPortRaw = await text({
-    message: t("wizard.dbPort"),
-    initialValue: "3001",
-    validate: (v: any): any => {
-      const n = parseInt(v, 10);
-      if (isNaN(n) || n < 1024 || n > 65535) return t("wizard.portRange");
-      if (v.length === 0) return t("wizard.valueRequired");
-    },
-  });
-  const dbPort = isCancel(dbPortRaw) ? 3001 : parseInt(dbPortRaw as string, 10);
-
-  // Step 3: BDS environment
+  // Step 3: 先确认可执行文件和 EULA，再决定要不要下载。
   const bdsExe = bdsExePath(bdsResolved);
   const bdsExists = fs.existsSync(bdsExe);
 
@@ -263,8 +422,6 @@ export async function runWizard(): Promise<void> {
 
   let downloadBds = false;
   let bdsChannel = "release";
-  let backupDir = path.join(path.dirname(bdsResolved), "backups");
-  let preserve: string[] = [];
 
   if (!bdsExists) {
     const d = await confirm({ message: t("wizard.downloadBds"), initialValue: true });
@@ -275,85 +432,29 @@ export async function runWizard(): Promise<void> {
           { value: "release", label: t("wizard.channel.release"), hint: t("wizard.channel.releaseHint") },
           { value: "preview", label: t("wizard.channel.preview"), hint: t("wizard.channel.previewHint") },
         ],
+        initialValue: "release",
       });
       if (!isCancel(ch)) {
         bdsChannel = ch as string;
         downloadBds = true;
       }
-      if (!ensureDirectory(backupDir)) {
-        outro(c.red(t("wizard.cannotCreateBackup", { dir: backupDir })));
-        return;
-      }
     }
   }
 
-  backupDir = await pickDirectory(t("wizard.backupDir"), backupDir);
-  const preserveOptions = [
-    { value: "server.properties", label: "server.properties", hint: t("wizard.preserve.serverProps") },
-    { value: "whitelist.json", label: "whitelist.json" },
-    { value: "permissions.json", label: "permissions.json" },
-    { value: "allowlist.json", label: "allowlist.json" },
-    { value: "worlds", label: "worlds/", hint: t("wizard.preserve.worlds") },
-    { value: "config", label: "config/", hint: t("wizard.preserve.config") },
-  ] as const;
-  const pr = await multiselect({
-    message: t("wizard.preserve"),
-    options: [...preserveOptions],
-    initialValues: preserveOptions.map((o) => o.value),
-    required: false,
-  });
-  if (!isCancel(pr)) preserve = pr as string[];
-  note(c.yellow(t("wizard.updaterTip")), t("common.tips"));
-
-  // Step 4: Module initialization
-  const catalog = readJson<Catalog>(modulePath(rootDir, "catalog.json")) ?? {
-    version: 1,
-    modules: [],
-  };
-  const catalogModules: Array<{ id: string; name?: string; description?: string; canDisable?: boolean }> = [];
-  if (Array.isArray(catalog.modules)) {
-    for (const m of catalog.modules) {
-      catalogModules.push({
-        id: String(m.id ?? ""),
-        name: String(m.name ?? m.id ?? ""),
-        description: String(m.description ?? ""),
-        canDisable: m.canDisable !== false,
-      });
-    }
+  const { dbDir, dbPort, backupDir, preserve } = await askRuntimeLayout(rootDir, bdsResolved);
+  if (downloadBds && !ensureDirectory(backupDir)) {
+    outro(c.red(t("wizard.cannotCreateBackup", { dir: backupDir })));
+    return;
   }
 
-  note(
-    c.text(
-      catalogModules.length > 0
-        ? t("wizard.modulesFound", { count: catalogModules.length })
-        : t("wizard.modulesNone")
-    ),
-    t("wizard.step4")
-  );
-
-  let selectedModules: string[] = [];
-  const lockedMd: any[] = [];
-  const optionalMd: any[] = [];
-  catalogModules.forEach((k) => {
-    const option = {
-      value: k.id,
-      label: String(k.name),
-      hint: String(k.description ?? t("wizard.emptyHint")),
-    };
-    if (k.canDisable === false) {
-      lockedMd.push({ ...option, disabled: true });
-    } else {
-      optionalMd.push(option);
-    }
-  });
-  if (catalogModules.length > 0) {
-    const r = await multiselect({
-      message: t("wizard.enableModules"),
-      options: [...lockedMd, ...optionalMd],
-      required: false,
-    });
-    if (!isCancel(r)) selectedModules = r as string[];
+  const qq = await askQqBridge(rootDir);
+  if (!qq) {
+    outro(c.dim(t("wizard.skipped")));
+    return;
   }
+  const { qqEnabled, qqBackend, qqAppId, qqAppSecret, qqSandbox, qqGroupOpenid, llbotPath, llbotEnabled } = qq;
+
+  const selectedModules = await askModules(rootDir);
 
   const wizardTasks = [
     {
@@ -431,7 +532,7 @@ export async function runWizard(): Promise<void> {
           return t("wizard.dbTimeout");
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        /* /api/health 在 listen 之后才返回，而建表发生在 listen 之前，不必再空等。 */
         child.kill("SIGTERM");
         setTimeout(() => child.kill("SIGKILL"), 3000).unref();
         return t("wizard.dbOk");
@@ -471,7 +572,8 @@ async function runInstallBuildDeploy(rootDir: string, selectedModules: string[],
         {
           title: t("wizard.installing", { count: selectedModules.length }),
           task: async (): Promise<string> => {
-            execFileSync(process.execPath, [fetchScript, "install", ...selectedModules], {
+            /* 向导里勾选的启停已经写入 lock，安装时保留，不用清单里的默认值覆盖。 */
+            execFileSync(process.execPath, [fetchScript, "install", ...selectedModules, "--preserve-lock"], {
               cwd: rootDir,
               stdio: ["ignore", "pipe", "pipe"],
               env: { ...process.env, SFMC_ROOT: rootDir },

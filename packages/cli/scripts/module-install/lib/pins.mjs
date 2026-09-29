@@ -79,12 +79,21 @@ export function writePins(root, file) {
 }
 
 /**
- * 目录是 junction / symlink 时视为本地开发链接。
+ * 目录是 symlink 或 Windows junction 时视为本地开发链接。
+ * 使用场景：回填 pin，以及更新器在规划和应用前拒绝覆盖开发链接。
  * @param {string} dir
  */
 export function isLinkedPackageDir(dir) {
   try {
-    return fs.lstatSync(dir).isSymbolicLink();
+    if (fs.lstatSync(dir).isSymbolicLink()) return true;
+  } catch {
+    return false;
+  }
+  /* 个别 Windows junction 的 lstat 不标成 symlink，能读到链接目标也算链接。 */
+  if (process.platform !== "win32") return false;
+  try {
+    fs.readlinkSync(dir);
+    return true;
   } catch {
     return false;
   }
@@ -415,7 +424,9 @@ export function markPinError(root, id, message) {
 }
 
 /**
- * 打开或关闭某个模块的自动更新。链接和本地目录不能打开。
+ * 打开或关闭某个模块的自动更新。
+ * 链接、本地目录（autoLocked）以及 GitHub 来源不能打开；关闭仍然允许。
+ * GitHub 的 autoLocked 保持 false，计划更新仍走 github-manual。
  * @param {string} root
  * @param {string} id
  * @param {boolean} auto
@@ -427,7 +438,7 @@ export function setModulePinAuto(root, id, auto) {
   const key = findPinKey(file, id);
   if (!key || !file.modules[key]) return { ok: false, code: "missing" };
   const pin = file.modules[key];
-  if (pin.autoLocked && auto) return { ok: false, code: "locked", id: key };
+  if (auto && (pin.autoLocked || pin.source === "github")) return { ok: false, code: "locked", id: key };
   pin.auto = !!auto;
   pin.autoSetBy = "user";
   pin.lastError = null;

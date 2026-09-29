@@ -204,7 +204,7 @@ export async function cmdStop(raw: string): Promise<string> {
 
 /**
  * 把 Service.stop 的结果翻成原来的文案。
- * 外部进程是否被清掉由 Service.stop 决定，这里只负责展示，避免和 stop all / restart 各写一套。
+ * 单服务停止会传 external true，外部进程是否被清掉由该次 stop 决定；这里只负责展示。
  */
 function formatStopKind(title: string, kind: "managed" | "external" | "idle"): string {
   if (kind === "external") return c.dim(t("svc.stoppedExternal", { title }));
@@ -212,7 +212,11 @@ function formatStopKind(title: string, kind: "managed" | "external" | "idle"): s
   return c.dim(t("svc.stoppedMsg", { title }));
 }
 
-/** 守护进程内停止单服务（含外部实例清理） */
+/**
+ * 守护进程内停止单服务。
+ * 传 external true：BDS 外部走 killExternalBedrock，db/qq 外部走 killNodeServiceByScript。
+ * 使用场景：`stop <name>`，以及 `restart <name>`（cmdRestartLocal 复用本函数）。
+ */
 async function cmdStopLocal(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
@@ -220,7 +224,7 @@ async function cmdStopLocal(raw: string): Promise<string> {
   if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
   STOPPING.add(svc);
   try {
-    const kind = await svcObj.stop();
+    const kind = await svcObj.stop(true);
     return formatStopKind(svcObj.title, kind);
   } catch (e) {
     return c.red(t("svc.stopFailed", { title: svcObj.title, message: (e as Error).message }));
@@ -349,7 +353,10 @@ export async function cmdStopAll(): Promise<string> {
   return viaDaemonText("stopAll", cmdStopAllLocal);
 }
 
-/** 守护进程内批量停止 */
+/**
+ * 守护进程内批量停止。
+ * 使用场景：`stop all`、`restart -all`。只调 stopAll()，由其传 external false，不杀外部进程。
+ */
 async function cmdStopAllLocal(): Promise<string> {
   const { stopAll } = await import("./services.js");
   await stopAll();

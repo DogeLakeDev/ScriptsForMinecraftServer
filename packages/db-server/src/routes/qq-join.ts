@@ -8,9 +8,6 @@
  *   GET  /api/sfmc/qq/join/pending
  *   GET  /api/sfmc/qq/join/apply-queue
  *   POST /api/sfmc/qq/join/applied
- *   POST /api/sfmc/qq/admin/kick
- *   GET  /api/sfmc/qq/admin/action-queue
- *   POST /api/sfmc/qq/admin/action-done
  */
 
 import { randomBytes } from "node:crypto";
@@ -82,8 +79,7 @@ function createQqJoinRoutes({ query, body, json, getAdminOpenids, getJoinFlags, 
     res: import("http").ServerResponse;
   }): Promise<boolean> {
     const isJoin = path.startsWith("/api/sfmc/qq/join");
-    const isAdminPath = path.startsWith("/api/sfmc/qq/admin");
-    if (!isJoin && !isAdminPath) return false;
+    if (!isJoin) return false;
 
     // ── 入服开关（文件 + 机器人可改白名单/审批；群管开关只读）──
     if (path === "/api/sfmc/qq/join/settings" && method === "GET") {
@@ -292,61 +288,6 @@ function createQqJoinRoutes({ query, body, json, getAdminOpenids, getJoinFlags, 
           WHERE id = ${id} AND status = 'approved'
         `);
       }
-      json(res, { success: true });
-      return true;
-    }
-
-    // ── 踢人队列 ──────────────────────────────────────────
-    if (path === "/api/sfmc/qq/admin/kick" && method === "POST") {
-      const data = await body(req);
-      const openid = String(data.openid ?? data.requested_by ?? "").trim();
-      const target = String(data.target_name ?? data.name ?? "").trim();
-      const reason = String(data.reason ?? "QQ 管理员踢出").trim().slice(0, 80);
-      if (!authorizeAdmin(getAdminOpenids, getJoinFlags, openid, data)) {
-        json(res, { success: false, error: "not_admin" }, 403);
-        return true;
-      }
-      if (!target) {
-        json(res, { success: false, error: "target_name_required" }, 400);
-        return true;
-      }
-      const id = newId("act");
-      const now = Date.now();
-      query(SQL`
-        INSERT INTO sfmc_qq_admin_actions
-          (id, kind, target_name, reason, requested_by, status, created_at)
-        VALUES (${id}, 'kick', ${target}, ${reason}, ${openid}, 'pending', ${now})
-      `);
-      json(res, { success: true, id });
-      return true;
-    }
-
-    if (path === "/api/sfmc/qq/admin/action-queue" && method === "GET") {
-      const rows = query(
-        SQL`SELECT id, kind, target_name, reason, created_at
-            FROM sfmc_qq_admin_actions WHERE status = 'pending'
-            ORDER BY created_at ASC LIMIT 32`
-      ) as Array<Record<string, unknown>>;
-      json(res, { success: true, queue: rows });
-      return true;
-    }
-
-    if (path === "/api/sfmc/qq/admin/action-done" && method === "POST") {
-      const data = await body(req);
-      const id = String(data.id ?? "").trim();
-      const ok = data.ok !== false && data.error == null;
-      const err = String(data.error ?? "").slice(0, 200);
-      if (!id) {
-        json(res, { success: false, error: "id_required" }, 400);
-        return true;
-      }
-      const now = Date.now();
-      const status = ok ? "done" : "failed";
-      query(SQL`
-        UPDATE sfmc_qq_admin_actions
-        SET status = ${status}, applied_at = ${now}, apply_error = ${ok ? "" : err}
-        WHERE id = ${id} AND status = 'pending'
-      `);
       json(res, { success: true });
       return true;
     }

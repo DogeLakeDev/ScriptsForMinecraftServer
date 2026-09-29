@@ -45,7 +45,11 @@ function writeCache(cache) {
 }
 
 async function fetchRegistryIndexFresh() {
-  const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, { headers: { "User-Agent": "sfmc-fetch-module" } });
+  // BDS beforeStart 会等这次索引请求。8 秒超时与 dist-tag 同量级，超时或失败后仍由 resolveRegistryIndex 的 catch 回退缓存。
+  const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, {
+    headers: { "User-Agent": "sfmc-fetch-module" },
+    signal: AbortSignal.timeout(8000),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
   return parseRegistryIndex(await res.json());
 }
