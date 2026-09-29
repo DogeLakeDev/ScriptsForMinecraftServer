@@ -44,6 +44,6 @@
     "typescript": "^5.6.0"
   },
   "peerDependencies": {
-    "@sfmc-bds/sdk": ">=0.2.2"
+    "@sfmc-bds/sdk": ">=0.2.4"
   }
 }
