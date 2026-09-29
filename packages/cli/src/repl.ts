@@ -384,6 +384,17 @@ function getCompletions(parsed: ParsedLine): string[] {
       if (argIndex >= 1 && verb === "install") {
         return ["--from", "--sha256", "--link"].filter(sw);
       }
+      if (argIndex >= 1 && verb === "update") {
+        const flags = ["--check", "--yes", "--allow-major"].filter(sw);
+        if (flags.length > 0 && current.startsWith("--")) return flags;
+        return listInstalledModuleIdsSync().filter(sw);
+      }
+      if (argIndex === 1 && verb === "pin") {
+        return listInstalledModuleIdsSync().filter(sw);
+      }
+      if (argIndex >= 2 && verb === "pin") {
+        return ["--auto", "on", "off"].filter(sw);
+      }
       if (argIndex >= 1 && verb === "list") {
         return ["--from", "--sha256"].filter(sw);
       }

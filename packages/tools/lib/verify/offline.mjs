@@ -21,6 +21,7 @@ const SCHEMA_FILES = [
   "qq_config.schema.json",
   "bds_updater.schema.json",
   "pack_update.schema.json",
+  "module_update.schema.json",
   "pack_sources.schema.json",
   "permissions.schema.json",
   "module_catalog.schema.json",

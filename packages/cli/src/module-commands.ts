@@ -654,6 +654,14 @@ export async function dispatchModuleCommand(sub: string | undefined, args: strin
       const { cmdModuleReload } = await import("./module-pack-build.js");
       return cmdModuleReload(args);
     }
+    case "update": {
+      const { cmdModuleUpdate } = await import("./module-update/index.js");
+      return cmdModuleUpdate(args);
+    }
+    case "pin": {
+      const { cmdModulePin } = await import("./module-update/index.js");
+      return cmdModulePin(args);
+    }
     case "test":
     case "watch":
     case "publish":

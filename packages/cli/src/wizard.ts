@@ -92,6 +92,11 @@ function seedNpmRuntimeLayout(rootDir: string): void {
   /* pack-update 的 ensure 使用 runtime ROOT；npm 布局下应与 rootDir 一致 */
   if (path.resolve(rootDir) === path.resolve(ROOT)) {
     ensurePackUpdateConfigFile();
+    void import("./module-update/index.js")
+      .then((mod) => mod.ensureModuleUpdateConfigFile())
+      .catch(() => {
+        /* 策略文件稍后在 mod update / 开服时还会再确保一次 */
+      });
   }
 
   const modulesRoot = path.join(rootDir, "modules");

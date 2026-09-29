@@ -5,6 +5,8 @@
  *
  * 安装成功后会把 sapi/manifest.json 投影写入 modules/catalog.json，
  * 并按 enabledByDefault 更新 modules/module-lock.json。
+ * --preserve-lock 时，若 lock 里已有该模块，则保留当前启停。
+ * 成功后写入 modules/module-pins.json。
  *
  * Usage:
  *   node packages/cli/scripts/module-install/fetch-module.mjs search
@@ -38,76 +40,29 @@ import { removeCatalogEntry, upsertCatalogEntry } from "./lib/catalog.mjs";
 import { seedModuleConfig } from "./lib/config-seeding.mjs";
 import { exists } from "./lib/io.mjs";
 import { isSchemeFrom, normalizeBarePathFrom, normalizeLinkFrom } from "./lib/link-from.mjs";
-import { removeModuleLock, setModuleLockEnabled } from "./lib/lock.mjs";
+import { readLock, removeModuleLock, setModuleLockEnabled } from "./lib/lock.mjs";
+import { QUIET_SKIP_REASONS, applyModuleUpgrades, planModuleUpdates, resyncInstalledCatalog } from "./lib/module-update.mjs";
 import { folderFromNpmPackageName } from "./lib/npm-resolver.mjs";
 import { loadPackageCatalogEntry } from "./lib/packages.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
-import { parseRegistryIndex } from "./lib/registry-index.mjs";
+import { recordInstallPin, removePin, shouldPreserveLock } from "./lib/pins.mjs";
+import { DEFAULT_REGISTRY_REPO, DEFAULT_REGISTRY_TAG, resolveRegistryIndex } from "./lib/registry-cache.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = PACKAGES_DIR;
 
-const DEFAULT_REGISTRY_REPO = "Tanya7z/sfmc-modules";
-const DEFAULT_REGISTRY_TAG = "main";
-const DEFAULT_REGISTRY_INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
-const REGISTRY_CACHE_PATH = path.join(__dirname, ".sfmc-registry-cache.json");
-const REGISTRY_CACHE_TTL_MS = 60 * 60 * 1000;
-
 /**
- * @typedef {{ repo: string, tag: string }} RegistryEntry
- * @typedef {Record<string, RegistryEntry>} RegistryIndex
- * @typedef {{ fetchedAt: number, index: RegistryIndex }} RegistryCache
+ * 仅在直接执行本文件时跑 main。被 mod update 动态 import 时不要再解析命令行。
  */
-
-function readCache() {
+function isFetchModuleEntry() {
+  const entry = process.argv[1];
+  if (!entry) return false;
   try {
-    return JSON.parse(fs.readFileSync(REGISTRY_CACHE_PATH, "utf8"));
+    const thisFile = fs.realpathSync.native(fileURLToPath(import.meta.url));
+    const entryFile = fs.realpathSync.native(path.resolve(entry));
+    const norm = (value) => (process.platform === "win32" ? value.toLowerCase() : value);
+    return norm(thisFile) === norm(entryFile);
   } catch {
-    return null;
-  }
-}
-
-/**
- * @param {{ fetchedAt: number; index: Record<string, import("./lib/registry-index.mjs").RegistryEntry>; }} cache
- */
-function writeCache(cache) {
-  try {
-    fs.writeFileSync(REGISTRY_CACHE_PATH, JSON.stringify(cache, null, 2));
-  } catch {
-    /* best-effort */
-  }
-}
-
-async function fetchRegistryIndexFresh() {
-  const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, { headers: { "User-Agent": "sfmc-fetch-module" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
-  return parseRegistryIndex(await res.json());
-}
-
-async function resolveRegistryIndex() {
-  const cache = readCache();
-  if (cache && Date.now() - cache.fetchedAt < REGISTRY_CACHE_TTL_MS) {
-    try {
-      const fresh = await fetchRegistryIndexFresh();
-      writeCache({ fetchedAt: Date.now(), index: fresh });
-      return { index: fresh, stale: false };
-    } catch {
-      return { index: cache.index, stale: false };
-    }
-  }
-  try {
-    const fresh = await fetchRegistryIndexFresh();
-    writeCache({ fetchedAt: Date.now(), index: fresh });
-    return { index: fresh, stale: false };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    if (cache) {
-      console.warn(
-        `[fetch-module] registry offline (${message}); using cached index from ${new Date(cache.fetchedAt).toISOString()}`
-      );
-      return { index: cache.index, stale: true };
-    }
-    throw new Error(`registry unreachable and no cache: ${message}. Pass --from explicitly to skip the registry.`);
+    return false;
   }
 }
 
@@ -177,7 +132,7 @@ function die(msg, code = 1) {
  * @param {string | any[]} args
  */
 function parseArgs(args) {
-  const flags = { from: null, sha256: null, link: false };
+  const flags = { from: null, sha256: null, link: false, preserveLock: false };
   /** @type {string[]} */
   const positional = [];
   for (let i = 0; i < args.length; i++) {
@@ -185,6 +140,7 @@ function parseArgs(args) {
     if (a === "--from") flags.from = args[++i];
     else if (a === "--sha256") flags.sha256 = args[++i];
     else if (a === "--link") flags.link = true;
+    else if (a === "--preserve-lock") flags.preserveLock = true;
     else if (a.startsWith("--from=")) flags.from = a.slice("--from=".length);
     else if (a.startsWith("--")) die(`unknown flag: ${a}`);
     else positional.push(a);
@@ -274,7 +230,22 @@ async function fetchToBuffer(url) {
 }
 
 /**
- * 安装落盘后同步 catalog + lock；并对 copy/zip 产物做路径/命名规范化
+ * 把安装旗标收成 afterInstall 能看懂的来源信息。
+ * @param {{ from?: string, link?: boolean, preserveLock?: boolean } | undefined} flags
+ * @param {{ skipNormalize?: boolean }} [extra]
+ */
+function installOpts(flags, extra = {}) {
+  return {
+    preserveLock: !!flags?.preserveLock,
+    from: flags?.from || "",
+    link: !!flags?.link,
+    ...extra,
+  };
+}
+
+/**
+ * 安装落盘后同步 catalog + lock；并对 copy/zip 产物做路径/命名规范化。
+ * preserveLock 时保留服主已经写入的启停状态。
  * @param {string} folder
  */
 function afterInstall(folder, opts = {}) {
@@ -306,8 +277,13 @@ function afterInstall(folder, opts = {}) {
   }
 
   const entry = upsertCatalogEntry(folder);
-  setModuleLockEnabled(entry.id, entry.enabledByDefault !== false);
-  console.log(`[fetch-module]   catalog+lock: ${entry.id} (enabled=${entry.enabledByDefault !== false})`);
+  const keepLock = shouldPreserveLock(!!opts.preserveLock, Object.prototype.hasOwnProperty.call(readLock().modules, entry.id));
+  if (keepLock) {
+    console.log(`[fetch-module]   lock preserved: ${entry.id}`);
+  } else {
+    setModuleLockEnabled(entry.id, entry.enabledByDefault !== false);
+    console.log(`[fetch-module]   catalog+lock: ${entry.id} (enabled=${entry.enabledByDefault !== false})`);
+  }
   /* v3 状态透传：只读 semantic 字段已通过 projectCatalogEntry 投影到 catalog。
    * 模块作者想用 v3 时只需在 sapi/manifest.json 写 `"schemaVersion": 3` 与 semantic 块；
    * fetch-module 不会再追问也不会主动注入。 */
@@ -323,6 +299,11 @@ function afterInstall(folder, opts = {}) {
     console.warn(`[fetch-module]   check warning: ${warning}`);
   }
   console.log(`[fetch-module]   ${check.summary}`);
+  try {
+    recordInstallPin(ROOT, folder, { from: opts.from || "", link: !!opts.link });
+  } catch (err) {
+    console.warn(`[fetch-module]   pin warn: ${err instanceof Error ? err.message : String(err)}`);
+  }
   return entry;
 }
 
@@ -450,7 +431,7 @@ async function fromLocal(id, source, flags) {
  * @param {string} pkgName
  * @param {any} flags
  */
-async function fromRegistry(id, pkgName) {
+async function fromRegistry(id, pkgName, flags = {}) {
   const dir = await ensureTarget(id);
   const os = await import("node:os");
   const tmpPrefix = await fsp.mkdtemp(path.join(os.tmpdir(), "sfmc-pnpm-install-"));
@@ -472,7 +453,7 @@ async function fromRegistry(id, pkgName) {
   }
   console.log(`[fetch-module] installed ${id} from registry (${pkgName})`);
   console.log(`[fetch-module]   target: ${dir}`);
-  afterInstall(id);
+  afterInstall(id, installOpts(flags));
 }
 
 /**
@@ -585,7 +566,7 @@ async function installLocalArtifact(id, absPath, flags, opts = {}) {
   console.log(`[fetch-module] installed ${id} from ${absPath}`);
   console.log(`[fetch-module]   sha256: ${actual}`);
   console.log(`[fetch-module]   target: ${dir}`);
-  afterInstall(id);
+  afterInstall(id, installOpts(flags));
 }
 
 /**
@@ -629,13 +610,13 @@ async function fromDir(id, source, flags = {}) {
     console.log(`[fetch-module] linked ${id} → ${srcDir}`);
     console.log(`[fetch-module]   mode: ${process.platform === "win32" ? "junction" : "symlink"}`);
     console.log(`[fetch-module]   target: ${dest}`);
-    afterInstall(id, { skipNormalize: true });
+    afterInstall(id, installOpts(flags, { skipNormalize: true }));
   } else {
     const dir = await ensureTarget(id);
     await copyDir(srcDir, dir);
     console.log(`[fetch-module] installed ${id} from dir ${srcDir}`);
     console.log(`[fetch-module]   target: ${dir}`);
-    afterInstall(id);
+    afterInstall(id, installOpts(flags));
   }
 }
 
@@ -711,7 +692,7 @@ async function fromGithub(id, source, flags) {
   console.log(`[fetch-module] installed ${id} v${version} from ${owner}/${repo}@${rel.tag_name ?? tag}`);
   console.log(`[fetch-module]   sha256: ${actual}`);
   console.log(`[fetch-module]   target: ${dir}`);
-  afterInstall(id);
+  afterInstall(id, installOpts(flags));
 }
 
 /**
@@ -933,7 +914,7 @@ async function installOne(id, flags) {
   if (from.startsWith("local:") || from === "local") return fromLocal(id, from, perFlags);
   if (from.startsWith("tgz:")) return fromTgz(id, from, perFlags);
   if (from.startsWith("zip:")) return fromZip(id, from, perFlags);
-  if (from.startsWith("npm:")) return fromRegistry(id, from.slice("npm:".length));
+  if (from.startsWith("npm:")) return fromRegistry(id, from.slice("npm:".length), perFlags);
   if (from.startsWith("dir:")) {
     const base = from.slice("dir:".length);
     const candidate = path.join(base, id);
@@ -964,6 +945,9 @@ async function uninstallOne(id) {
     console.log(`[fetch-module] uninstalled ${id} (no package dir; catalog/lock cleaned)`);
   }
   if (removed) console.log(`[fetch-module]   catalog removed: ${removed.id}`);
+  if (removePin(ROOT, removed?.id || id)) {
+    console.log(`[fetch-module]   pin removed: ${removed?.id || id}`);
+  }
 }
 
 function printHelp() {
@@ -972,9 +956,11 @@ function printHelp() {
 Commands:
   search                              list first-party registry
   list [--from github:owner/repo@tag] list release assets (default: first-party)
-  install <id> [id2 ...] [--from ...] [--link]
+  install <id> [id2 ...] [--from ...] [--link] [--preserve-lock]
                                       install one or more modules + sync catalog/lock
-  uninstall <id> [id2 ...]            remove package dir + catalog/lock entries
+  update [id ...] [--check] [--yes] [--allow-major] [--startup]
+                                      plan or apply module updates
+  uninstall <id> [id2 ...]            remove package dir + catalog/lock/pin entries
 
 Sources (按优先级):
   npm:@scope/name                npm registry（默认；install <id> → @sfmc-bds/module-<id>）
@@ -985,9 +971,104 @@ Sources (按优先级):
   github:owner/repo[@tag]        GitHub Release（兼容旧 first-party）
 
 Flags:
-  --link   with dir: or local:<dir> — junction (Windows) / symlink (POSIX) into
-           modules/packages/<id> instead of copying. Still syncs catalog/lock.
+  --link            with dir: or local:<dir> — junction (Windows) / symlink (POSIX)
+  --preserve-lock   keep the current module-lock enabled bit
 `);
+}
+
+/**
+ * 升级时保留启停锁。供 mod update 调用，不走全新安装的默认启用。
+ * @param {string} id
+ * @param {string} spec
+ */
+export async function installPreservingLock(id, spec) {
+  await installOne(id, { from: spec, sha256: null, link: false, preserveLock: true });
+}
+
+/**
+ * @param {string[]} args
+ */
+function parseUpdateArgs(args) {
+  const flags = { check: false, yes: false, allowMajor: false, startup: false };
+  /** @type {string[]} */
+  const positional = [];
+  for (const a of args) {
+    if (a === "--check") flags.check = true;
+    else if (a === "--yes") flags.yes = true;
+    else if (a === "--allow-major") flags.allowMajor = true;
+    else if (a === "--startup") flags.startup = true;
+    else if (a.startsWith("--")) die(`unknown flag: ${a}`);
+    else positional.push(a);
+  }
+  return { flags, positional };
+}
+
+/**
+ * @param {import("./lib/module-update.mjs").ModuleSkip} item
+ */
+function formatSkip(item) {
+  const versions = item.fromVersion || item.toVersion ? ` ${item.fromVersion || "?"} -> ${item.toVersion || "?"}` : "";
+  const detail = item.detail ? ` (${item.detail})` : "";
+  return `  skip ${item.id}${versions}  ${item.reason}${detail}`;
+}
+
+/**
+ * @param {string[]} args
+ */
+async function runUpdateCommand(args) {
+  const { flags, positional } = parseUpdateArgs(args);
+  const plan = await planModuleUpdates({
+    root: ROOT,
+    startup: flags.startup,
+    allowMajor: flags.allowMajor,
+    ids: positional,
+  });
+  if (plan.configSkipped === "disabled") {
+    console.log("[module-update] disabled");
+    return;
+  }
+  if (plan.configSkipped === "check-off") {
+    console.log("[module-update] check skipped");
+    return;
+  }
+  const showAll = flags.check && !flags.startup;
+  for (const item of plan.skipped) {
+    if (!showAll && QUIET_SKIP_REASONS.has(item.reason)) continue;
+    console.log(formatSkip(item));
+  }
+  for (const item of plan.upgrades) {
+    console.log(`  upgrade ${item.id}  ${item.fromVersion || "?"} -> ${item.toVersion}`);
+  }
+  if (plan.upgrades.length === 0) console.log("[module-update] nothing to apply");
+  const apply = flags.startup ? plan.applyOnStart : !flags.check;
+  if (!apply || plan.upgrades.length === 0) return;
+  if (!flags.yes && !flags.startup) {
+    if (!process.stdin.isTTY) die("non-interactive update needs --yes");
+    const ok = await new Promise((resolve) => {
+      process.stdout.write("Apply module updates? [y/N] ");
+      process.stdin.setEncoding("utf8");
+      process.stdin.once("data", (buf) => {
+        const answer = String(buf).trim().toLowerCase();
+        resolve(answer === "y" || answer === "yes");
+      });
+    });
+    if (!ok) {
+      console.log("[module-update] cancelled");
+      return;
+    }
+  }
+  const result = await applyModuleUpgrades(plan.upgrades, {
+    root: ROOT,
+    failMode: plan.failMode,
+    install: installPreservingLock,
+    resync: resyncInstalledCatalog,
+  });
+  for (const item of result.applied) {
+    console.log(`[module-update] applied ${item.id} ${item.fromVersion || "?"} -> ${item.toVersion}`);
+  }
+  for (const item of result.skipped) console.log(formatSkip(item));
+  for (const item of result.failed) console.log(`[module-update] failed ${item.id}: ${item.message}`);
+  if (result.failed.length > 0 && plan.failMode === "abort") process.exitCode = 1;
 }
 
 async function main() {
@@ -1031,6 +1112,11 @@ async function main() {
     const { positional } = parseArgs(rest);
     if (positional.length === 0) die("usage: uninstall <id> [id2 ...]");
     for (const id of positional) await uninstallOne(id);
+    return;
+  }
+
+  if (verb === "update") {
+    await runUpdateCommand(rest);
     return;
   }
 
@@ -1085,4 +1171,6 @@ async function main() {
   }
 }
 
-main().catch((e) => die(e?.message ?? String(e)));
+if (isFetchModuleEntry()) {
+  main().catch((e) => die(e?.message ?? String(e)));
+}

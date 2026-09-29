@@ -31,6 +31,8 @@ packages/tools/.sfmc-registry-cache.json
 .sfmc/
 /configs/
 /modules/module-lock.json
+/modules/module-pins.json
+/modules/_trash/
 /packs/
 BDS/
 backups/

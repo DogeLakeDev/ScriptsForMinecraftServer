@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/schemas/module_update.schema.json",
+  "title": "SFMC module-update",
+  "description": "业务模块自动更新策略。官方索引模块默认跟随索引精确版本；社区包与本地链接默认不自动升级。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "指向本 schema 的地址（IDE 用，运行时忽略）"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "模块自动更新总开关"
+    },
+    "checkOnBdsStart": {
+      "type": "boolean",
+      "description": "BDS 启动前是否检查已安装模块的新版本"
+    },
+    "applyOnBdsStart": {
+      "type": "boolean",
+      "description": "检查到可升级版本时是否在启动行为包装配前直接更换"
+    },
+    "allowMajor": {
+      "type": "boolean",
+      "description": "是否允许主版本号升高。默认 false，需 mod update --allow-major 或改为 true"
+    },
+    "failMode": {
+      "type": "string",
+      "enum": ["continue", "abort"],
+      "description": "单个模块升级失败后继续下一个，或停止本轮后续升级。都不阻止 BDS 启动"
+    },
+    "distTag": {
+      "type": "string",
+      "description": "未进索引、但已打开自动更新的 npm 包所跟随的 dist-tag"
+    }
+  },
+  "required": ["enabled", "checkOnBdsStart", "applyOnBdsStart", "allowMajor", "failMode", "distTag"]
+}

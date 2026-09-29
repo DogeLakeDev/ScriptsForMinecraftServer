@@ -29,7 +29,9 @@ import {
 import { bdsExePath, bdsSpawnEnvExtra, ensureBdsExecutable } from "@sfmc-bds/bds-tools/host-platform";
 import {
   clearBdsPidFile,
+  findBedrockServerPids,
   isProcessAlive,
+  killBedrockServerByImage,
   probeBdsStatus,
   readBdsPidFile,
   writeBdsPidFile,
@@ -44,7 +46,7 @@ import { onRemoteServiceStateChange } from "./daemon/client.js";
 import { t } from "./i18n/index.js";
 import { resolveLlbotLaunch } from "./llbot-launch.js";
 import { inferLevel, pushLog as pushUnifiedLog } from "./logs.js";
-import { findNodeServicePids } from "./node-service-probe.js";
+import { findNodeServicePids, killNodeServiceByScript } from "./node-service-probe.js";
 import { ensurePackUpdateConfigFile } from "./pack-update/index.js";
 import { recordBdsVersion } from "./bds-runtime-version.js";
 import { reportBdsPlayerSession } from "./player-session.js";
@@ -69,6 +71,15 @@ export const SERVICE_NAMES: ServiceName[] = ["bds", "db", "tunnel", "qq", "llbot
 
 /** 单服务 start 结果：optional 服务 validate 失败记为 skipped，不抛错 */
 export type StartOutcome = { status: "started" } | { status: "already" } | { status: "skipped"; reason: string };
+
+/**
+ * 单服务 stop 结果，供 CLI 区分文案。
+ * 使用场景：`stop` / `restart` / `stop all` 共用 Service.stop。
+ * - managed：停的是本进程拉起的子进程
+ * - external：没有托管句柄，但清掉了外部实例
+ * - idle：本来就没在跑
+ */
+export type StopKind = "managed" | "external" | "idle";
 
 export interface StartAllResult {
   started: ServiceName[];
@@ -130,6 +141,33 @@ function clearTunnelRuntime(pid: number): void {
   } catch {
     /* 进程退出时允许文件已被移除 */
   }
+}
+
+/** 清掉 qq-bridge 运行时文件，避免 status 仍把已退出的外部进程当成存活。 */
+function clearQqRuntimeFile(): void {
+  try {
+    const file = qqRuntimeStatusPath(ROOT);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  } catch {
+    /* 运行时文件可能已被进程自己删掉 */
+  }
+}
+
+/**
+ * 按镜像名结束外部 BDS，并等到进程从进程表消失。
+ * 使用场景：单服务 stop、restart、stop all 都要能停掉非本进程拉起的 bedrock。
+ * taskkill 返回后进程表可能仍短暂可见，restart 会立刻探活，因此这里等到消失再返回。
+ */
+async function killExternalBedrock(): Promise<void> {
+  await killBedrockServerByImage();
+  clearBdsPidFile(ROOT);
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    if ((await findBedrockServerPids()).length === 0) return;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  await killBedrockServerByImage();
+  clearBdsPidFile(ROOT);
 }
 
 interface ServiceDef {
@@ -342,12 +380,52 @@ class Service {
     this.updateInProgress = false;
   }
 
-  async stop(): Promise<void> {
+  /**
+   * 停止本服务。托管子进程仍走原来的优雅停止；没有可管句柄时清掉外部实例。
+   * 使用场景：`stop <name>`、`restart`、`stop all` 和守护进程退出都走这里，
+   * 避免只有单服务 stop 能停外部来源的进程。
+   */
+  async stop(): Promise<StopKind> {
     this.manualStop = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
+
+    /* 与原先 cmdStop 一致：BDS 被判定为外部时直接按镜像结束，不走 stdin stop */
+    if (this.name === "bds") {
+      const probe = await probeBdsStatus({
+        managedPid: this.pid,
+        hasStdin: Boolean(this.proc?.stdin),
+        rootDir: ROOT,
+      });
+      if (probe.state === "external") {
+        await killExternalBedrock();
+        this.dropStaleHandle();
+        return "external";
+      }
+    }
+
+    const managed = Boolean(this.proc && this.running);
+    if (managed) await this.stopManagedChild();
+
+    /* db / qq：托管停完后仍按脚本再扫一遍，清掉同机上的外部实例（与原 stop 相同） */
+    if (this.name === "db" || this.name === "qq") {
+      const killed = await killNodeServiceByScript(this.name);
+      if (this.name === "qq") clearQqRuntimeFile();
+      if (managed) return "managed";
+      return killed.length > 0 ? "external" : "idle";
+    }
+
+    if (managed) return "managed";
+    return "idle";
+  }
+
+  /**
+   * 优雅停止当前托管子进程（stdin stop 或 SIGTERM，超时后 SIGKILL）。
+   * 使用场景：Service.stop 确认本进程仍持有子进程时调用；逻辑与原先 stop 主体相同。
+   */
+  private async stopManagedChild(): Promise<void> {
     if (!this.proc || !this.running) return;
     this.events.emit("output", "stopping...", "info");
 
@@ -375,6 +453,27 @@ class Service {
         resolve();
       });
     });
+  }
+
+  /**
+   * 外部停服后丢掉失效的托管句柄，避免紧接着的 start/restart 误判「已在运行」。
+   * 不走 cleanup：那会连带停掉模块附属进程，而原先的外部 BDS stop 并不这么做。
+   */
+  private dropStaleHandle(): void {
+    if (!this.running && !this.proc) return;
+    const stale = this.proc;
+    this.proc = null;
+    this.running = false;
+    this.pid = 0;
+    this.startTime = null;
+    this.events.emit("state", { name: this.name, running: false, pid: 0 });
+    if (stale && stale.exitCode === null) {
+      try {
+        stale.kill("SIGKILL");
+      } catch {
+        /* 外部镜像结束时这个句柄可能已经退出 */
+      }
+    }
   }
 
   forceStop(): void {
@@ -435,6 +534,12 @@ function createServices(): Record<ServiceName, Service> {
   /* 各服务/CLI 用 SDK ensureCoreConfigs 播种（含 $schema），不再从 configs-default 拷贝。 */
   ensureCoreConfigs(ROOT, ["bds_updater", "qq_config", "db_config"]);
   ensurePackUpdateConfigFile();
+  void import("./module-update/index.js")
+    .then((mod) => mod.ensureModuleUpdateConfigFile())
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      pushUnifiedLog(message, "module", "warn");
+    });
   const bdsCfg = loadEnsuredConfig(ROOT, "bds_updater.json", "bds_updater", { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<
     string,
     unknown
@@ -492,11 +597,13 @@ function createServices(): Record<ServiceName, Service> {
       },
       beforeStart: async () => {
         ensureBdsExecutable(bdsExe);
-        /* 先装收件箱第三方包，再检查 CF 更新，再跑模块聚合闸门 */
+        /* 先装收件箱第三方包，再检查 CF 更新，再升级业务模块，再跑模块聚合闸门 */
         const { scanAndInstallInbox } = await import("./world-packs.js");
         await scanAndInstallInbox({ interactive: false });
         const { runPackUpdatesOnBdsStart } = await import("./pack-update/index.js");
         await runPackUpdatesOnBdsStart();
+        const { runModuleUpdatesOnBdsStart } = await import("./module-update/index.js");
+        await runModuleUpdatesOnBdsStart();
         const { ensurePacksReady } = await import("./pack-lifecycle.js");
         await ensurePacksReady();
       },
@@ -618,6 +725,11 @@ export async function startAll(): Promise<StartAllResult> {
   return result;
 }
 
+/**
+ * 按启动逆序停止全部服务，包含 status 里标成「外部」的实例。
+ * 使用场景：`stop all`、`restart -all`、守护进程 shutdown。
+ * 具体停外部进程的规则在 Service.stop，与单服务 `stop` 相同。
+ */
 export async function stopAll(): Promise<void> {
   const pending = [...START_ORDER]
     .reverse()

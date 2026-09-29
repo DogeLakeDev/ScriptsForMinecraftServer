@@ -210,6 +210,8 @@ const MODULE_DESC: Record<string, string> = {
   verify: "help.module.verify",
   enable: "help.module.toggle",
   disable: "help.module.toggle",
+  update: "help.module.update",
+  pin: "help.module.pin",
 };
 
 const PACKS_DESC: Record<string, string> = {
@@ -516,6 +518,8 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { id: "module.verify", name: "module", sub: "verify", channel: "both" },
   { id: "module.enable", name: "module", sub: "enable", channel: "both" },
   { id: "module.disable", name: "module", sub: "disable", channel: "both" },
+  { id: "module.update", name: "module", sub: "update", channel: "both" },
+  { id: "module.pin", name: "module", sub: "pin", channel: "both" },
 
   { id: "packs.list", name: "packs", sub: "list", channel: "both" },
   { id: "packs.search", name: "packs", sub: "search", channel: "both" },

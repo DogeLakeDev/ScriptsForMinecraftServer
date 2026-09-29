@@ -17,6 +17,8 @@ const MODULE_HELP_ENTRIES: ReadonlyArray<{ sub: string; suffix: string; key: str
   { sub: "verify", suffix: " [id]", key: "help.module.verify" },
   { sub: "info", suffix: " <id>", key: "help.module.info" },
   { sub: "enable", suffix: "|disable <id>", key: "help.module.toggle" },
+  { sub: "update", suffix: " [id...] [--check] [--yes]", key: "help.module.update" },
+  { sub: "pin", suffix: " <id> --auto on|off", key: "help.module.pin" },
   { sub: "build", suffix: "", key: "help.module.build" },
   { sub: "reload", suffix: " [--build-only]", key: "help.module.reload" },
 ];

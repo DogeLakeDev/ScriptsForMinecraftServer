@@ -9,15 +9,13 @@
  * - `update`：触发 BDS 核心版本更新检查与热升级
  */
 
-import { clearBdsPidFile, killBedrockServerByImage, probeBdsStatus } from "@sfmc-bds/bds-tools/process-probe";
+import { probeBdsStatus } from "@sfmc-bds/bds-tools/process-probe";
 import { stripTaskbarOsc } from "@sfmc-bds/bds-tools/taskbar";
 import { didUpdateDeploy } from "@sfmc-bds/bds-tools/update-result";
-import { qqRuntimeStatusPath } from "@sfmc-bds/sdk/node/config";
-import fs from "node:fs";
 import { isDaemonServer } from "./daemon/role.js";
 import { t } from "./i18n/index.js";
 import { pushLog as pushUnifiedLog } from "./logs.js";
-import { findNodeServicePids, killNodeServiceByScript, type NodeServiceName } from "./node-service-probe.js";
+import { findNodeServicePids, type NodeServiceName } from "./node-service-probe.js";
 import { spawnService } from "./runtime.js";
 import { queryServicesRuntime, ROOT, SERVICE_NAMES, services, type ServiceName } from "./services.js";
 import { c, DIVIDER, highlightLogLine, padRight } from "./theme.js";
@@ -142,15 +140,6 @@ function isNodeSvc(name: ServiceName): name is NodeServiceName {
   return name === "db" || name === "qq";
 }
 
-function clearQqRuntimeFile(): void {
-  try {
-    const file = qqRuntimeStatusPath(ROOT);
-    if (fs.existsSync(file)) fs.unlinkSync(file);
-  } catch {
-    /* ignore */
-  }
-}
-
 /**
  * 启动指定的单项后台服务（bds / db / qq / llbot）。
  *
@@ -213,66 +202,26 @@ export async function cmdStop(raw: string): Promise<string> {
   return viaDaemonText("stop", () => cmdStopLocal(raw), { name: raw });
 }
 
+/**
+ * 把 Service.stop 的结果翻成原来的文案。
+ * 外部进程是否被清掉由 Service.stop 决定，这里只负责展示，避免和 stop all / restart 各写一套。
+ */
+function formatStopKind(title: string, kind: "managed" | "external" | "idle"): string {
+  if (kind === "external") return c.dim(t("svc.stoppedExternal", { title }));
+  if (kind === "idle") return c.yellow(t("svc.alreadyStopped", { title }));
+  return c.dim(t("svc.stoppedMsg", { title }));
+}
+
 /** 守护进程内停止单服务（含外部实例清理） */
 async function cmdStopLocal(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
   const svcObj = services[svc];
-  if (svc === "bds") {
-    const probe = await probeBdsStatus({
-      managedPid: svcObj.pid,
-      hasStdin: Boolean(svcObj.proc?.stdin),
-      rootDir: ROOT,
-    });
-    if (probe.state === "external") {
-      if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
-      STOPPING.add(svc);
-      try {
-        await killBedrockServerByImage();
-        clearBdsPidFile(ROOT);
-        return c.dim(t("svc.stoppedExternal", { title: svcObj.title }));
-      } catch (e) {
-        return c.red(t("svc.stopFailed", { title: svcObj.title, message: (e as Error).message }));
-      } finally {
-        STOPPING.delete(svc);
-      }
-    }
-  }
-
-  // db / qq：托管或外部都要能停干净
-  if (isNodeSvc(svc)) {
-    if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
-    STOPPING.add(svc);
-    try {
-      const managed = svcObj.running;
-      if (managed) {
-        await svcObj.stop();
-      }
-      const killed = await killNodeServiceByScript(svc);
-      if (svc === "qq") clearQqRuntimeFile();
-      if (!managed && killed.length === 0) {
-        return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
-      }
-      if (!managed && killed.length > 0) {
-        return c.dim(t("svc.stoppedExternal", { title: svcObj.title }));
-      }
-      return c.dim(t("svc.stoppedMsg", { title: svcObj.title }));
-    } catch (e) {
-      return c.red(t("svc.stopFailed", { title: svcObj.title, message: (e as Error).message }));
-    } finally {
-      STOPPING.delete(svc);
-    }
-  }
-
-  if (!svcObj.running) {
-    if (svc === "tunnel") await svcObj.stop(); // 取消等待中的断线重试
-    return c.yellow(t("svc.alreadyStopped", { title: svcObj.title }));
-  }
   if (STOPPING.has(svc)) return c.dim(t("svc.alreadyStopping", { title: svcObj.title }));
   STOPPING.add(svc);
   try {
-    await svcObj.stop();
-    return c.dim(t("svc.stoppedMsg", { title: svcObj.title }));
+    const kind = await svcObj.stop();
+    return formatStopKind(svcObj.title, kind);
   } catch (e) {
     return c.red(t("svc.stopFailed", { title: svcObj.title, message: (e as Error).message }));
   } finally {
@@ -322,31 +271,31 @@ export async function cmdRestart(raw: string): Promise<string> {
   return viaDaemonText("restart", () => cmdRestartLocal(raw), { name: raw });
 }
 
-/** 守护进程内重启单服务 */
+/**
+ * 停止结果是不是真正的失败。
+ * 「已停止 / already stopped」里也可能带有 failed 字样的翻译残留，那种不算失败。
+ */
+function isStopFailure(msg: string): boolean {
+  return /失败|failed/i.test(msg) && !/已停止|stopped|already/i.test(msg);
+}
+
+/**
+ * 启动没有真正拉起进程：失败、仍被外部实例占用，或按配置跳过。
+ * 使用场景：restart 不能在这种情况下报「已重启」。
+ */
+function isStartNotLaunched(msg: string): boolean {
+  return /失败|failed|已在运行|already running|已跳过|skipped/i.test(msg);
+}
+
+/** 守护进程内重启单服务（先按与 stop 相同的规则清掉外部实例，再启动） */
 async function cmdRestartLocal(raw: string): Promise<string> {
   const svc = parseService(raw);
   if (!svc) return c.red(t("svc.unknown", { name: raw, list: SERVICE_NAMES.join(", ") }));
-  // bds / db / qq：统一走 stop→start，确保外部实例也被清掉
-  if (svc === "bds" || isNodeSvc(svc)) {
-    const stopMsg = await cmdStopLocal(svc);
-    const startMsg = await cmdStartLocal(svc);
-    // 若 stop 已报错文案含「失败」，原样带回
-    if (/失败|failed/i.test(stopMsg) && !/已停止|stopped|already/i.test(stopMsg)) {
-      return stopMsg;
-    }
-    if (/失败|failed/i.test(startMsg)) return startMsg;
-    return c.green(t("svc.restarted", { title: services[svc].title }));
-  }
-  const svcObj = services[svc];
-  try {
-    const outcome = await svcObj.restart();
-    if (outcome.status === "skipped") {
-      return c.yellow(t("svc.skipped", { title: svcObj.title, reason: outcome.reason }));
-    }
-    return c.green(t("svc.restarted", { title: svcObj.title }));
-  } catch (e) {
-    return c.red(t("svc.restartFailed", { title: svcObj.title, message: (e as Error).message }));
-  }
+  const stopMsg = await cmdStopLocal(svc);
+  if (isStopFailure(stopMsg)) return stopMsg;
+  const startMsg = await cmdStartLocal(svc);
+  if (isStartNotLaunched(startMsg)) return startMsg;
+  return c.green(t("svc.restarted", { title: services[svc].title }));
 }
 
 /**
