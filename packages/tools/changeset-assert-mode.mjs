@@ -23,8 +23,13 @@ const state = readPreState();
 
 if (mode === "pre" && !pre) {
   console.error(
+<<<<<<< HEAD
     "[changeset] 当前不在 pre mode。正式通道请先 `pnpm exec changeset pre exit`；" +
       "日常发版走 CI（push main → Version PR）。若要重新进入 beta: `pnpm exec changeset pre enter beta`"
+=======
+    "[changeset] 当前不在 pre mode。正式通道请先 `npx changeset pre exit`；" +
+      "日常发版走 CI（push main → Version PR）。若要重新进入 beta: npx changeset pre enter beta"
+>>>>>>> chore/tools-drop-unused-scripts
   );
   process.exit(1);
 }
@@ -32,7 +37,11 @@ if (mode === "pre" && !pre) {
 if (mode === "stable" && pre) {
   console.error(
     `[changeset] 仓库仍处于 pre mode (tag=${state?.tag ?? "beta"})。` +
+<<<<<<< HEAD
       `达标后执行 pnpm exec changeset pre exit；日常发版走 CI Version PR。`
+=======
+      `达标后执行 npx changeset pre exit；日常发版走 CI Version PR。`
+>>>>>>> chore/tools-drop-unused-scripts
   );
   process.exit(1);
 }

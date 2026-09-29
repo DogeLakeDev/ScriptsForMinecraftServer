@@ -17,11 +17,15 @@ import { Tab, Tabs } from "@rspress/core/theme";
 | **`3002` (TCP)** | qq-bridge (LLBot WS) | LLBot 连接失败，反向 WS 拒绝连接 | 确认防火墙已放行对应端口，并确保未同时运行多个 QQ 桥接实例。 |
 
 ```bash
+<<<<<<< HEAD
 # Windows 查看端口占用 PID
 netstat -ano | findstr 19132
 
 # Linux / macOS 查看端口占用
 lsof -i :3001
+=======
+npm run verify
+>>>>>>> chore/tools-drop-unused-scripts
 ```
 
 ---
@@ -41,7 +45,14 @@ curl http://127.0.0.1:3001/api/health
 
 ---
 
+<<<<<<< HEAD
 ### 3. BDS 启动与行为包装载闸门
+=======
+1. 看控制台装载摘要与 `<SFMC_ROOT>/.sfmc/logs/`
+2. `mod build` 看 esbuild 是否报错
+3. 独立 SFMC 根下确认模块已 `mod install` 且 lock 为 enabled
+4. 收件箱冲突是否挡住启动前扫描（见 [附加包](./addons.md)）
+>>>>>>> chore/tools-drop-unused-scripts
 
 1. **查看装载摘要**：检查终端控制台的装载输出与 `<SFMC_ROOT>/.sfmc/logs/` 下的各服务独立日志。
 2. **手动编译打包验证**：在 sfmc 终端中执行 `mod build`，确认 esbuild 产物生成无 TypeScript 语法报错。

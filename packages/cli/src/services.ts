@@ -435,6 +435,7 @@ function createServices(): Record<ServiceName, Service> {
   /* 各服务/CLI 用 SDK ensureCoreConfigs 播种（含 $schema），不再从 configs-default 拷贝。 */
   ensureCoreConfigs(ROOT, ["bds_updater", "qq_config", "db_config"]);
   ensurePackUpdateConfigFile();
+<<<<<<< HEAD
   const bdsCfg = loadEnsuredConfig(ROOT, "bds_updater.json", "bds_updater", { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<
     string,
     unknown
@@ -448,6 +449,34 @@ function createServices(): Record<ServiceName, Service> {
     unknown
   >) as DBConfig;
   const bdsPath = bdsCfg.bds_path ?? ROOT;
+=======
+  const bdsCfg = loadEnsuredConfig(
+    ROOT,
+    "bds_updater.json",
+    "bds_updater",
+    { ...DEFAULT_BDS_UPDATER_CONFIG } as Record<string, unknown>
+  ) as BdsUpdaterConfig;
+  const qqCfg = loadEnsuredConfig(
+    ROOT,
+    "qq_config.json",
+    "qq_config",
+    { ...DEFAULT_QQ_CONFIG } as Record<string, unknown>
+  ) as QQBridgeConfig;
+  const dbCfg = loadEnsuredConfig(
+    ROOT,
+    "db_config.json",
+    "db_config",
+    { ...DEFAULT_DB_CONFIG } as Record<string, unknown>
+  ) as DBConfig;
+  const rawBdsPath = String(bdsCfg.bds_path ?? "").trim();
+  if (process.platform !== "win32" && /^[A-Za-z]:[\\/]/.test(rawBdsPath)) {
+    throw new Error(
+      `configs/bds_updater.json 的 bds_path 是 Windows 路径（${rawBdsPath}）。` +
+        `请改成相对 SFMC_ROOT 的路径，例如 "BDS"。`
+    );
+  }
+  const bdsPath = path.resolve(ROOT, rawBdsPath || ".");
+>>>>>>> chore/tools-drop-unused-scripts
   const useLlbotBackend = qqCfg.qq_backend === "llbot";
   const qqEnabled = qqCfg.qq_enabled !== false;
   // 官方 Webhook 由云端接收；仅切换传输方式即可避免本机再启动一个桥。
@@ -463,7 +492,7 @@ function createServices(): Record<ServiceName, Service> {
   const dbPort = dbCfg.db_port ?? 3001;
   dbHealthPort = dbPort;
   qqBackendMode = useLlbotBackend ? "llbot" : "official";
-  const bdsExe = bdsExePath(path.resolve(bdsPath));
+  const bdsExe = bdsExePath(bdsPath);
   const qqTitle = useLlbotBackend ? "QQ (llbot)" : "QQ (official)";
 
   return {

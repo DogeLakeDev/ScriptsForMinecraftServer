@@ -11,11 +11,21 @@
     "sfmc": "packages/cli/dist/main.js"
   },
   "scripts": {
+<<<<<<< HEAD
     "build": "pnpm -r --filter !@sfmc-bds/docs-site run build",
     "changeset": "changeset",
     "ci-release-packages": "node packages/tools/run-release.mjs --ci",
     "docs": "node packages/tools/docs.mjs",
     "lint": "pnpm --filter @sfmc-bds/eslint-plugin run build && eslint .",
+=======
+    "build": "npm run build --workspaces --if-present",
+    "build:publishable": "node packages/tools/build-publishable.mjs",
+    "changeset": "changeset",
+    "ci-release-packages": "node packages/tools/run-release.mjs --ci",
+    "docs": "node packages/tools/docs.mjs",
+    "lint": "npm run build --workspace @sfmc-bds/eslint-plugin && eslint .",
+    "pack:verify": "node packages/tools/pack-verify.mjs",
+>>>>>>> chore/tools-drop-unused-scripts
     "start": "node packages/cli/dist/main.js",
     "syncpack:fix": "node packages/tools/syncpack-fix.mjs",
     "typecheck": "pnpm -r run typecheck",

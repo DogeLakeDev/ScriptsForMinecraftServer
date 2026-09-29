@@ -1,4 +1,22 @@
+<<<<<<< HEAD
 # SFMC
+=======
+# SFMC - **S**cripts**F**or**M**ine**c**raftServer
+
+> 一套 Minecraft Bedrock Script API (SAPI) 行为包 + Node.js 仓顶服务的 monorepo。
+>
+> 在**原生BDS**即可获得类似插件服的**高效、安全、扩展丰富**的体验
+
+- 提供基于[Minecraft Script API](https://learn.microsoft.com/zh-cn/minecraft/creator/scriptapi/?view=minecraft-bedrock-stable)的**原生脚本SDK**
+- 外置可拆卸的**模块化管理**服务，拥有类似插件服的舒适体验；目前已开发[22+实用模块](https://github.com/Tanya7z/sfmc-modules)
+- 为BDS服务器提供的多功能、易用的cli工具，涵盖**自动更新**，**模块管理**，**资源包管理**等功能
+- 为模块提供**Sqlite数据库管理SDK**及其路由服务
+- 自建工作流，使模组/模块开发更轻松
+- 依赖于[LLBOT](https://www.llonebot.com/zh-CN/)的QQ桥接服务，轻松实现群服互通
+
+[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)  
+[English version →](./README.en.md)
+>>>>>>> chore/tools-drop-unused-scripts
 
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
@@ -10,6 +28,7 @@
 
 [模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
 
+<<<<<<< HEAD
 [English Version →](./README.en.md)
 ## Scripts For Minecraft Server
 
@@ -35,6 +54,11 @@ SFMC 希望通过模块化架构补充基岩版的原生开发体验。
 ## 快速开始
 
 ### 使用 pnpm 安装
+=======
+## 快速开始
+
+### npm
+>>>>>>> chore/tools-drop-unused-scripts
 
 ```bash
 # 检查 Node.js 版本（需要 v22.13+）
@@ -50,16 +74,28 @@ mkdir my-server && cd my-server
 sfmc
 ```
 
+<<<<<<< HEAD
 pnpm v11 起默认会等待新版本发布满 24 小时。发布当天若省略版本号，可能装到上一正式版；可用 `pnpm view @sfmc-bds/sfmc version` 查看当前 `latest`，再指定该精确版本安装。
+=======
+> 当前阶段仅发 **beta**；请带 `@beta` 安装。
+>>>>>>> chore/tools-drop-unused-scripts
 
 开发者可以直接克隆本 monorepo，详细内容请查看
 [入门指南](./docs/zh/guide/index.mdx)。
 
+<<<<<<< HEAD
 ## 文档
+=======
+## 快速入门
+>>>>>>> chore/tools-drop-unused-scripts
 
 - 在线文档 <https://dogelakedev.github.io/ScriptsForMinecraftServer/>
 
+<<<<<<< HEAD
 - 使用指南 [docs/zh/guide](./docs/zh/guide/index.mdx)
+=======
+## 许可证
+>>>>>>> chore/tools-drop-unused-scripts
 
 - 开发指南 [docs/zh/dev](./docs/zh/dev/index.mdx)
   - [贡献指南](./docs/zh/dev/contributing.md)
@@ -82,4 +118,8 @@ SFMC 整体平台采用 [AGPL-3.0](./LICENSE) 许可证。
 
 ---
 
+<<<<<<< HEAD
 [English Version →](./README.en.md)
+=======
+[English version →](./README.en.md)
+>>>>>>> chore/tools-drop-unused-scripts

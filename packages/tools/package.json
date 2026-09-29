@@ -1,6 +1,10 @@
 {
   "name": "@sfmc-bds/tools",
+<<<<<<< HEAD
   "version": "0.2.2",
+=======
+  "version": "0.2.0-beta.10",
+>>>>>>> chore/tools-drop-unused-scripts
   "private": true,
   "description": "SFMC monorepo-only scripts — verify, docs, release, build bins (not published to npm)",
   "author": "Shiroha7z",
@@ -23,7 +27,10 @@
     "./tsc7": "./tsc7.mjs"
   },
   "bin": {
+<<<<<<< HEAD
     "sfmc-ensure-sdk-types": "./ensure-sdk-types.mjs",
+=======
+>>>>>>> chore/tools-drop-unused-scripts
     "sfmc-esbuild-transpile": "./esbuild-transpile.mjs",
     "sfmc-verify": "./verify.mjs",
     "tsc7": "./tsc7.mjs"
@@ -32,7 +39,12 @@
     "build": "node -e \"process.exit(0)\""
   },
   "dependencies": {
+<<<<<<< HEAD
     "@sfmc-bds/bds-tools": "workspace:*",
     "@sfmc-bds/sdk": "workspace:*"
+=======
+    "@sfmc-bds/bds-tools": "^0.2.0-beta.9",
+    "@sfmc-bds/sdk": "^0.2.0-beta.9"
+>>>>>>> chore/tools-drop-unused-scripts
   }
 }

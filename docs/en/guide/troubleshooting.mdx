@@ -17,11 +17,15 @@ When encountering server startup issues, inactive modules, or network errors, us
 | **`3002` (TCP)** | qq-bridge (LLBot WS) | LLBot connection rejected | Verify firewall rules allow the port, and ensure no duplicate bridge instances are running. |
 
 ```bash
+<<<<<<< HEAD
 # Windows inspect listening PID
 netstat -ano | findstr 19132
 
 # Linux / macOS inspect listening port
 lsof -i :3001
+=======
+npm run verify
+>>>>>>> chore/tools-drop-unused-scripts
 ```
 
 ---
@@ -41,7 +45,14 @@ curl http://127.0.0.1:3001/api/health
 
 ---
 
+<<<<<<< HEAD
 ### 3. BDS Boot & Behavior Pack Assembly Gate
+=======
+1. Read the load summary in the console and `<SFMC_ROOT>/.sfmc/logs/`
+2. Run `mod build` and check esbuild errors
+3. In your SFMC root, confirm the module is `mod install`ed and enabled in lock
+4. Inbox conflicts blocking pre-start scan (see [Add-ons](./addons.md))
+>>>>>>> chore/tools-drop-unused-scripts
 
 1. **Inspect Load Summary**: Review terminal load output and individual log files under `<SFMC_ROOT>/.sfmc/logs/`.
 2. **Test Pack Bundling**: Execute `sfmc> mod build` to verify esbuild produces JavaScript bundles without TypeScript syntax errors.
