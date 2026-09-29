@@ -1,10 +1,14 @@
 # SFMC 正式版行动计划
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 状态：npm/GitHub 正式版已发布；生产运行与客户端验收待补。本文记录发布门槛与证据；版本、运行状态和线上结果以执行当天的检查为准。
 =======
 状态：执行中。本文记录发布门槛与证据；版本、运行状态和线上结果以执行当天的检查为准。
 >>>>>>> chore/pnpm-stable-release-prep
+=======
+状态：npm/GitHub 正式版已发布；生产运行与客户端验收待补。本文记录发布门槛与证据；版本、运行状态和线上结果以执行当天的检查为准。
+>>>>>>> docs/stable-release-result
 
 ## 范围与顺序
 
@@ -26,11 +30,15 @@
 ## 阶段二：标准项目与发布链检查
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> docs/stable-release-result
 - [x] 核对公开包的名称、版本、入口与 exports、files、许可、README、仓库与问题反馈地址、运行环境要求、依赖和 peerDependencies。
 - [x] 核对 pnpm 锁文件与可重复安装；CI 不隐式改锁或混用包管理器。
 - [x] 核对 pack 内容：源码与声明文件、可执行入口、默认配置和必要资源齐全，不含运行数据或凭据。
 - [x] 核对平台与模块的 CI、发布权限、Git tag、npm dist-tag、GitHub Release 和模块索引流程。
 - [x] 更新中英文安装、升级、发布和回退文档，移除过时的 beta-only 说明。
+<<<<<<< HEAD
 =======
 - [ ] 核对公开包的名称、版本、入口与 exports、files、许可、README、仓库与问题反馈地址、运行环境要求、依赖和 peerDependencies。
 - [ ] 核对 pnpm 锁文件与可重复安装；CI 不隐式改锁或混用包管理器。
@@ -38,11 +46,14 @@
 - [ ] 核对平台与模块的 CI、发布权限、Git tag、npm dist-tag、GitHub Release 和模块索引流程。
 - [ ] 更新中英文安装、升级、发布和回退文档，移除过时的 beta-only 说明。
 >>>>>>> chore/pnpm-stable-release-prep
+=======
+>>>>>>> docs/stable-release-result
 
 完成证据：在干净检出中用 pnpm 安装、构建、检查并验证打包内容；发布流程能生成可审查的候选版本。
 
 ## 阶段三：功能、升级与运行验收
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 - [x] 对受影响包运行类型检查、构建、平台自检和相称的静态检查；确认 Windows 与 Ubuntu CI 通过。
 - [ ] 用候选包在隔离的 SFMC_ROOT 中完成安装、初始化、模块安装、构建与加载演练。
@@ -56,6 +67,13 @@
 - [ ] 在目标 BDS 版本上检查部署包、重启后的新日志和客户端关键路径；运行中 BDS 的重启须先确认影响窗口。
 - [ ] 记录所有未通过项及修复后的复验结果，不以静态构建代替运行验收。
 >>>>>>> chore/pnpm-stable-release-prep
+=======
+- [x] 对受影响包运行类型检查、构建、平台自检和相称的静态检查；确认 Windows 与 Ubuntu CI 通过。
+- [ ] 用候选包在隔离的 SFMC_ROOT 中完成安装、初始化、模块安装、构建与加载演练。
+- [ ] 对现有数据做备份、升级、恢复和回退演练，检查数据库迁移及配置兼容。
+- [ ] 在目标 BDS 版本上检查部署包、重启后的新日志和客户端关键路径；运行中 BDS 的重启须先确认影响窗口。
+- [x] 记录所有未通过项及修复后的复验结果，不以静态构建代替运行验收。
+>>>>>>> docs/stable-release-result
 
 完成证据：候选包、部署包和实际运行的版本可追溯；升级与回退均有成功记录。
 
@@ -68,10 +86,16 @@
 - [x] 发布正式版公告，列明兼容范围、升级步骤、已知限制和回退版本。
 =======
 - [ ] 通过前三阶段后退出 Changesets `beta` 预发布模式，审查 Version PR 的版本与包间依赖。
+<<<<<<< HEAD
 - [ ] 按依赖顺序发布平台、聚合包和选定模块；核对 npm `latest`、Git tag、GitHub Release 和模块索引。
 - [ ] 从公共 registry 进行全新 pnpm 安装，复验 CLI、模块安装和基本功能。
 - [ ] 发布正式版公告，列明兼容范围、升级步骤、已知限制和回退版本。
 >>>>>>> chore/pnpm-stable-release-prep
+=======
+- [x] 按依赖顺序发布平台、聚合包和选定模块；核对 npm `latest`、Git tag、GitHub Release 和模块索引。
+- [x] 从公共 registry 进行全新 pnpm 安装，复验 CLI、模块安装和基本功能。
+- [x] 发布正式版公告，列明兼容范围、升级步骤、已知限制和回退版本。
+>>>>>>> docs/stable-release-result
 
 完成证据：公共渠道可安装正式版，版本与产物一致，且发布后的最小验收通过。
 
@@ -142,6 +166,7 @@
 - [模块索引 PR #2](https://github.com/Tanya7z/sfmc-modules/pull/2) 合并后自动构建成功；公开 `index.json` 包含 19 个模块，`activity-log=0.2.1`、`data-backup=0.2.1`、`qq-link=0.1.0`。索引对 19/19 个公开 npm 精确版本的联网校验通过。
 - 公共版 CLI `0.2.0` 的 `mod search` 曾把薄索引的 npm 条目显示为 `undefined`，默认安装也未采用索引版本。补丁 PR #114 与正式 Version PR #110 均已合并，Windows/Ubuntu CI 通过，发布 `0.2.1`。全新隔离目录用 pnpm 安装公共 `@sfmc-bds/sfmc@0.2.1` 后，`sfmc --version`、`mod search qq-link` 与从索引安装精确的 `@sfmc-bds/module-qq-link@0.1.0` 均通过，`check-modules OK`。
 - [SFMC 0.2.1 正式版公告](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/%40sfmc-bds/sfmc%400.2.1) 已发布，列出 pnpm 安装、兼容范围、升级前冷备份、未验收项与回退步骤。
+<<<<<<< HEAD
 - 生产服未在本轮重启或升级。本机客户端无法连接隔离测试服，维护者要求跳过本次客户端实测；现有服务器历史数据的升级/回退演练、`qq-link` 的客户端绑定/踢人和 QQ 实际投递仍未验收，不能将公开包发布等同于生产运行通过。因此阶段三相关运行门槛保留未勾选。
 
 ## 待维护窗口执行的生产验收
@@ -161,3 +186,6 @@
 - 对隔离目录中的 junction 做备份验证：`Compress-Archive` 的归档保留普通 `catalog.json`，却没有收录 junction 指向的 `marker.txt`。因此仅压缩 `modules/` 不能作为此正式服的完整冷备份；需要显式归档各链接目标并做恢复演练，备份指南已加阻断检查。
 =======
 >>>>>>> chore/pnpm-stable-release-prep
+=======
+- 生产服未在本轮重启或升级。本机客户端无法连接隔离测试服，维护者要求跳过本次客户端实测；现有服务器历史数据的升级/回退演练、`qq-link` 的客户端绑定/踢人和 QQ 实际投递仍未验收，不能将公开包发布等同于生产运行通过。因此阶段三相关项及阶段四的前置门槛保留未勾选。
+>>>>>>> docs/stable-release-result
