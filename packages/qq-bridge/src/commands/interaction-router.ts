@@ -1,7 +1,46 @@
-import { ackInteraction, type QqOfficialCredentials } from "@sfmc-bds/sdk/node/qq-official";
+import { ackInteraction, getGroupMember, type QqOfficialCredentials } from "@sfmc-bds/sdk/node/qq-official";
 import { log } from "../log.js";
+import { cachedGroupAdmin, isPrivilegedGroupRole, rememberGroupRole } from "../official/group-role.js";
 import { parseCfgInteractionData } from "./join-settings-ui.js";
 import type { CommandRouter } from "./router.js";
+
+/** 成员接口无权限时只提示一次，避免每次点按钮都刷日志。 */
+let memberLookupWarned = false;
+
+/**
+ * 按钮回调没有 member_role，先用最近群消息缓存，再查成员接口。
+ * 使用场景：群管点管理菜单时补齐 isGroupAdmin，供 db-server 按群管授权。
+ */
+async function resolveInteractionGroupAdmin(
+  creds: QqOfficialCredentials,
+  groupOpenid: string,
+  memberOpenid: string,
+  raw: Record<string, unknown>
+): Promise<boolean> {
+  const author = (raw["author"] ?? {}) as Record<string, unknown>;
+  const direct = raw["member_role"] ?? author["member_role"];
+  if (direct != null) {
+    const admin = isPrivilegedGroupRole(direct);
+    rememberGroupRole(memberOpenid, admin);
+    return admin;
+  }
+  const cached = cachedGroupAdmin(memberOpenid);
+  if (cached !== undefined) return cached;
+  const res = await getGroupMember(creds, groupOpenid, memberOpenid);
+  if (!res.ok) {
+    if (!memberLookupWarned) {
+      memberLookupWarned = true;
+      log.warn(`查询群成员角色失败，按钮回调暂无法按群管授权: ${res.error}`);
+    }
+    return false;
+  }
+  const role =
+    res.json && typeof res.json === "object" ? (res.json as { member_role?: unknown }).member_role : undefined;
+  if (role == null) return false;
+  const admin = isPrivilegedGroupRole(role);
+  rememberGroupRole(memberOpenid, admin);
+  return admin;
+}
 
 export type InteractionRouterOpts = { creds: QqOfficialCredentials; commandRouter: CommandRouter; groupOpenid: string };
 export function createInteractionRouter(opts: InteractionRouterOpts) {
@@ -22,7 +61,13 @@ export function createInteractionRouter(opts: InteractionRouterOpts) {
       }
       const author = (d["author"] ?? {}) as Record<string, unknown>;
       const user = String(
-        d["user_openid"] || d["member_openid"] || author["member_openid"] || author["user_openid"] || author["id"] || ""
+        d["group_member_openid"] ||
+          d["user_openid"] ||
+          d["member_openid"] ||
+          author["member_openid"] ||
+          author["user_openid"] ||
+          author["id"] ||
+          ""
       );
       const group = String(d["group_openid"] ?? "");
       if (!user || !group || group !== opts.groupOpenid) return;
@@ -45,13 +90,14 @@ export function createInteractionRouter(opts: InteractionRouterOpts) {
         : join
           ? `/${join[1]} ${join[2]}`
           : "/help";
-      // 旧回调没有可靠群角色信息，服务端仅按明确管理员身份授权。
+      const isGroupAdmin = await resolveInteractionGroupAdmin(opts.creds, group, user, d);
       await opts.commandRouter.handle({
         backend: "official",
         groupId: group,
         userId: user,
         userName: "群成员",
         text: command,
+        isGroupAdmin,
       });
     },
   };

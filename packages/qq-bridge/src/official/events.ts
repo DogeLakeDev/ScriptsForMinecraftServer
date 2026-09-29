@@ -7,6 +7,7 @@ import type { CommandRouter } from "../commands/index.js";
 import { RecentMessageDedup } from "../onebot.js";
 import { tryForward, type DBServerConfig } from "../dbserver.js";
 import { log } from "../log.js";
+import { isPrivilegedGroupRole, rememberGroupRole } from "./group-role.js";
 
 export type OfficialAttachment = {
   url?: string;
@@ -24,7 +25,7 @@ export type OfficialGroupAtMessage = {
     member_openid?: string;
     username?: string;
     bot?: boolean;
-    /** 若平台下发则解析；无则无法判定群管 */
+    /** 官方取值 member / admin / owner；无此字段时无法从本条事件判定群管 */
     roles?: unknown;
     member_role?: unknown;
   };
@@ -36,7 +37,7 @@ export type OfficialGroupAtMessage = {
   mentions?: Array<{ is_you?: boolean; username?: string }>;
 };
 
-/** 从官方事件可选字段推断群主/群管（无可靠字段则 false） */
+/** 从官方事件可选字段推断群主/群管（无可靠字段则 false），并写入按钮回调用的角色缓存 */
 function detectOfficialGroupAdmin(msg: OfficialGroupAtMessage): boolean {
   const candidates: unknown[] = [
     msg.author?.member_role,
@@ -44,17 +45,16 @@ function detectOfficialGroupAdmin(msg: OfficialGroupAtMessage): boolean {
     msg.member?.role,
     msg.member?.roles,
   ];
-  for (const c of candidates) {
-    if (c == null) continue;
-    if (Array.isArray(c)) {
-      const joined = c.map((x) => String(x).toLowerCase()).join(",");
-      if (/\b(owner|admin|2|3)\b/.test(joined)) return true;
-      continue;
-    }
-    const s = String(c).toLowerCase();
-    if (s === "owner" || s === "admin" || s === "2" || s === "3") return true;
+  let seen = false;
+  let admin = false;
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    seen = true;
+    if (isPrivilegedGroupRole(candidate)) admin = true;
   }
-  return false;
+  const memberId = String(msg.author?.member_openid || msg.author?.id || "").trim();
+  if (seen && memberId) rememberGroupRole(memberId, admin);
+  return admin;
 }
 
 /** C2C 单聊事件体 */

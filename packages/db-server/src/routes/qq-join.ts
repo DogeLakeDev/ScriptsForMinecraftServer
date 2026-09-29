@@ -23,7 +23,7 @@ export type JoinFeatureFlags = {
   /** 是否需要管理员审批 */
   requireApproval: boolean;
   /**
-   * 是否将 QQ 群主/群管理员视作 SFMC 管理员。
+   * 是否将 QQ 群主/群管理员视作 SFMC 管理员。缺省开启。
    * 仅 configs/qq_link.json 可改，API/群聊不可写。
    */
   treatGroupAdminsAsAdmins: boolean;

@@ -263,8 +263,8 @@ const QQ_LINK_CONFIG_KEY = "qq_link";
 const QQ_LINK_DEFAULTS = {
   allowlist_enabled: true,
   require_approval: true,
-  /** 是否将 QQ 群主/群管视作 SFMC 管理员；仅改本文件，API/群聊不可写 */
-  treat_group_admins_as_admins: false,
+  /** 是否将 QQ 群主/群管视作 SFMC 管理员；缺省开启，仅改本文件可关闭，API/群聊不可写 */
+  treat_group_admins_as_admins: true,
 } as const;
 
 function asConfigBool(v: unknown, fallback: boolean): boolean {

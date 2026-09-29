@@ -50,8 +50,8 @@ export type InboundMessage = {
   /** 官方群聊或单聊；缺省按 group */
   scene?: "group" | "c2c";
   /**
-   * 是否为 QQ 群主/群管理员（llbot: sender.role；官方：事件里若有 roles 则解析）。
-   * 是否视为 SFMC 管理员由 configs/qq_link.json 的 treat_group_admins_as_admins 决定。
+   * 是否为 QQ 群主/群管理员（llbot: sender.role；官方：author.member_role 为 admin/owner）。
+   * 是否视为 SFMC 管理员由 configs/qq_link.json 的 treat_group_admins_as_admins 决定，缺省为是。
    */
   isGroupAdmin?: boolean;
 };

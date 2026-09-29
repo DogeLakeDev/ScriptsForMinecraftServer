@@ -145,7 +145,7 @@ Owned by the **qq-link plugin**, not the SDK / `qq_config`. Defaults are created
 | --- | --- | --- |
 | `allowlist_enabled` | `true` | Master switch; off = no new requests and empty apply-queue |
 | `require_approval` | `true` | Off = auto-`approved` into the apply queue |
-| `treat_group_admins_as_admins` | `false` | Treat QQ group owner/admins as SFMC admins; **file-only write**, readable via bot/API |
+| `treat_group_admins_as_admins` | `true` | Treat QQ group owner/admins as SFMC admins; **file-only write**, readable via bot/API |
 
 Bot (`official.admin_openids`, or group admins when the flag above is on): `配置` opens a button panel (official INTERACTION / llbot numbers); text `配置 白名单|审批 开|关` still works. API: `GET/POST /api/sfmc/qq/join/settings` (POST cannot change `treat_group_admins_as_admins`).
 

@@ -675,6 +675,26 @@ export async function getGroupInfo(
   );
 }
 
+/**
+ * GET /v2/groups/{group_openid}/members/{member_openid} — 群成员角色。
+ * 使用场景：按钮回调没有 member_role 时确认是否群主/群管。可能需平台白名单（11253）。
+ */
+export async function getGroupMember(
+  creds: QqOfficialCredentials,
+  groupOpenid: string,
+  memberOpenid: string,
+  deps?: { tokenManager?: QqAccessTokenManager; fetchImpl?: FetchLike }
+): Promise<QqApiResult> {
+  return authorizedApiRequest(
+    creds,
+    {
+      method: "GET",
+      path: `/v2/groups/${encodeURIComponent(groupOpenid)}/members/${encodeURIComponent(memberOpenid)}`,
+    },
+    deps
+  );
+}
+
 /** GET /v2/groups/{group_openid}/bot_state — 机器人群内状态 */
 export async function getGroupBotState(
   creds: QqOfficialCredentials,
