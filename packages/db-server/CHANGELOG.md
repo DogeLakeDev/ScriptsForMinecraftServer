@@ -1,5 +1,14 @@
 # @sfmc-bds/db-server
 
+## 0.2.3
+
+### Patch Changes
+
+- 70cf2f9: 群主和群管理员默认拥有 SFMC 管理权限。官方按钮回调会补齐群角色后再鉴权。
+- Updated dependencies [70cf2f9]
+  - @sfmc-bds/sdk@0.2.3
+  - @sfmc-bds/bds-tools@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @sfmc-bds/sfmc
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies [70cf2f9]
+  - @sfmc-bds/sdk@0.2.3
+  - @sfmc-bds/db-server@0.2.3
+  - @sfmc-bds/qq-bridge@0.2.3
+  - @sfmc-bds/bds-tools@0.2.3
+  - @sfmc-bds/cli@0.3.1
+
 ## 0.2.6
 
 ### Patch Changes
