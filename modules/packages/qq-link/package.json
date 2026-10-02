@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/module-qq-link",
-  "version": "1.0.0-preview.1",
+  "version": "1.0.0-preview.2",
   "private": true,
   "description": "平台内置 QQ↔MC 绑定、游玩门槛、事件上报与账号快照。聊天互通由聊天模块负责。",
   "license": "ISC",
