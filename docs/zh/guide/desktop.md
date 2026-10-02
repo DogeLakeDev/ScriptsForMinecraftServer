@@ -26,7 +26,7 @@ Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.2-x64.exe' -Algorithm SH
 2. 选择 **SFMC 部署根目录**，例如 `D:\WorkPlace\SFMC`。不要选择源码仓库、`BDS` 子目录或世界目录。
 3. 保存后点击 **接入实例**。查看接入计划，再选择 **仅查看** 或完成接入。
 
-已有部署保留自己的活动平台版本，客户端不会仅因为连接就替换它。旧平台可能只能查看，或者缺少新指标与管理接口。完整预览建议使用独立测试目录（例如 `D:\WorkPlace\SFMC-Desktop-Preview`），按引导初始化并确认 Minecraft EULA，再添加测试 BDS；不要直接把正式世界搬进去。
+已有部署保留自己的活动平台版本，客户端不会仅因为连接就替换它。旧平台可能只能查看，或者缺少新指标与管理接口。完整预览建议使用独立测试目录（例如 `D:\WorkPlace\SFMC-Desktop-Preview`），按引导确认 Minecraft EULA 并初始化；向导会下载 BDS 并尝试启动服务；不要直接把正式世界搬进去。
 
 ## 添加 SSH 实例
 
