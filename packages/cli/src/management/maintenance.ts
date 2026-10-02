@@ -39,7 +39,12 @@ export async function attachmentPlan(): Promise<AttachmentPlan> {
     if (!response.ok) throw new Error(`平台版本检查失败 (${response.status})`);
     const metadata = await response.json() as { version?: string };
     if (!metadata.version || !/^\d+\.\d+\.\d+$/.test(metadata.version)) throw new Error("latest 没有指向有效的稳定平台版本");
-    targetVersion = metadata.version;
+    // 独立预览包可能比 npm latest 更新；接入不能把它降级到旧稳定版。
+    const currentBase = /^(\d+)\.(\d+)\.(\d+)(?:-[\w.-]+)?$/.exec(currentVersion);
+    const latest = metadata.version.split(".").map(Number);
+    const current = currentBase?.slice(1).map(Number);
+    const difference = current && latest.map((value, index) => value - current[index]!).find(value => value !== 0);
+    if (!current || difference === undefined || difference >= 0) targetVersion = metadata.version;
   }
   const rows = await runtimeRows();
   return { currentVersion, targetVersion, development, upgradeRequired: !development && targetVersion !== currentVersion, externalServices: rows.filter(row => row.running && row.ownership === "external").map(row => row.name), steps: development ? ["保留源码工作区，连接当前开发部署"] : ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] };

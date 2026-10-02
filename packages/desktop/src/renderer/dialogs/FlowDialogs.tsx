@@ -201,13 +201,13 @@ function AttachDialog({ flow }: { flow: Extract<Flow, { kind: "attach" }> }) {
   );
 }
 
-/** 版本对比：当前版本 → 最新稳定版 */
+/** 版本对比：当前版本 → 目标版本 */
 function PlanVersions({ plan }: { plan: AttachmentPlan }) {
   return (
     <div className="plan-versions">
       <div><span className="muted">当前版本</span><b className="mono">{plan.currentVersion || "—"}</b></div>
       <Icon name="arrowRight" size={16} className="muted" />
-      <div><span className="muted">最新稳定版</span><b className="mono">{plan.targetVersion}</b></div>
+      <div><span className="muted">目标版本</span><b className="mono">{plan.targetVersion}</b></div>
     </div>
   );
 }

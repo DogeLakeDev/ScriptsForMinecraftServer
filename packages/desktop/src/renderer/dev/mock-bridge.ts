@@ -256,7 +256,7 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations"],
+    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -275,6 +275,12 @@ export function installMockBridge() {
       }
     };
     switch (method) {
+      case "metrics.read": {
+        // 仅开发预览使用的演示采样；生产运行从管理协议读取真实指标。
+        const now = Date.now();
+        const history = Array.from({ length: 91 }, (_, index) => ({ recordedAt: now - (90 - index) * 10_000, bootId: "demo", tps: 19.7 + Math.sin(index / 8) * 0.25, onlineCount: 3, entities: { "minecraft:overworld": 286, "minecraft:nether": 42, "minecraft:the_end": 12 }, entitiesUpdatedAt: now, chunkEstimate: 768 }));
+        return { fresh: true, updatedAt: now, current: history.at(-1), history, host: { memory: { totalMb: 16384, usedMb: 6144, usedPercent: 37.5 }, cpu: { cores: 8, model: "演示处理器" } }, processes: { bds: { pid: 18244, running: true, memoryMb: 2048, cpuSeconds: 1856.4 }, db: { pid: 17728, running: true, memoryMb: 128, cpuSeconds: 42.1 } }, resourcesUpdatedAt: now };
+      }
       case "services.list": return { rows: structuredClone(instance.services) };
       case "operations.list": return { operations: structuredClone(instance.tasks) };
       case "operations.get": return { operation: structuredClone(instance.tasks.find((row) => row.id === params.operationId)) };

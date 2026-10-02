@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 
 const base = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const root = path.resolve(base, '../..');
@@ -118,10 +118,11 @@ await fs.cp(path.join(work, `node-v${manifest.node}-win-x64`), path.join(materia
 const winswHash = await download('https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe', path.join(material, 'WinSW-x64.exe'), '05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da');
 const materials = [];
 for (const name of ['platform.tar', 'pnpm.tar', 'WinSW-x64.exe']) materials.push({ name, sha256: createHash('sha256').update(await fs.readFile(path.join(material, name))).digest('hex') });
-await fs.writeFile(path.join(material, 'release-manifest.json'), JSON.stringify({ desktopVersion: desktop.version, platformVersion: platformPackage.version, node: { version: manifest.node, sha256: nodeHash }, pnpm: manifest.pnpm, winsw: { version: '2.12.0', sha256: winswHash }, protocolVersion: manifest.protocolVersion, packages: [...ledger.values()].sort((a, b) => a.name.localeCompare(b.name)), materials }, null, 2));
+const sourceCommit = process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
+await fs.writeFile(path.join(material, 'release-manifest.json'), JSON.stringify({ sourceCommit, desktopVersion: desktop.version, platformVersion: platformPackage.version, node: { version: manifest.node, sha256: nodeHash }, pnpm: manifest.pnpm, winsw: { version: '2.12.0', sha256: winswHash }, protocolVersion: manifest.protocolVersion, packages: [...ledger.values()].sort((a, b) => a.name.localeCompare(b.name)), materials }, null, 2));
 await fs.cp(path.join(material, 'release-manifest.json'), path.join(staging, 'release-manifest.json'));
 if (!process.argv.includes('--prepare-only')) {
   const signed = process.argv.includes('--signed');
   if (signed && (!process.env.CSC_LINK || !process.env.CSC_KEY_PASSWORD || !process.env.SFMC_SIGNING_PUBLISHER)) throw new Error('签名发行需要 CSC_LINK、CSC_KEY_PASSWORD 和 SFMC_SIGNING_PUBLISHER；不会生成伪签名发行包');
-  await command(process.execPath, [path.join(base, 'node_modules/electron-builder/out/cli/cli.js'), '--config', path.join(base, 'electron-builder.yml'), '--win', '--x64', '--publish', 'never', ...(signed ? ['--config.forceCodeSigning=true', `--config.win.publisherName=${process.env.SFMC_SIGNING_PUBLISHER}`] : ['--config.win.signAndEditExecutable=false'])], base);
+  await command(process.execPath, [path.join(base, 'node_modules/electron-builder/out/cli/cli.js'), '--config', path.join(base, 'electron-builder.yml'), '--win', '--x64', '--publish', 'never', ...(signed ? ['--config.forceCodeSigning=true', `--config.win.publisherName=${process.env.SFMC_SIGNING_PUBLISHER}`] : ['--config.win.signExecutable=false'])], base);
 }

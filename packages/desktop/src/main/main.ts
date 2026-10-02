@@ -95,6 +95,7 @@ void app.whenReady().then(async () => {
     return shell.openExternal(urls[kind as keyof typeof urls]);
   });
   handle("update", async action => {
+    if (app.getVersion().includes("-")) return { portable: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
     if (app.isPackaged && !fs.existsSync(path.join(path.dirname(process.execPath), "installed.json"))) return { portable: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
     if (!app.isPackaged) return { development: true };
     if (action === "check") {
