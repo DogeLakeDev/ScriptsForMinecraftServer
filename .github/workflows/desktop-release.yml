@@ -1,6 +1,15 @@
 name: SFMC Desktop release
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/desktop/**"
+      - "packages/management/**"
+      - "packages/cli/**"
+      - "modules/sdk/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/desktop-release.yml"
   push:
     tags: ["desktop-v*"]
   workflow_dispatch:
@@ -21,6 +30,17 @@ jobs:
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
     steps:
       - uses: actions/checkout@v4
+      - name: 核对正式签名配置
+        if: startsWith(github.ref, 'refs/tags/') || inputs.signed
+        shell: pwsh
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          SFMC_SIGNING_PUBLISHER: ${{ vars.SFMC_SIGNING_PUBLISHER }}
+        run: |
+          if (!$env:CSC_LINK -or !$env:CSC_KEY_PASSWORD -or !$env:SFMC_SIGNING_PUBLISHER) {
+            throw "正式签名配置不完整：需要 CSC_LINK、CSC_KEY_PASSWORD 和 SFMC_SIGNING_PUBLISHER"
+          }
       - uses: pnpm/action-setup@v4
         with:
           version: 10.8.0
@@ -44,9 +64,9 @@ jobs:
       - name: 打包
         shell: pwsh
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          SFMC_SIGNING_PUBLISHER: ${{ vars.SFMC_SIGNING_PUBLISHER }}
+          CSC_LINK: ${{ github.event_name != 'pull_request' && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.CSC_KEY_PASSWORD || '' }}
+          SFMC_SIGNING_PUBLISHER: ${{ github.event_name != 'pull_request' && vars.SFMC_SIGNING_PUBLISHER || '' }}
         run: |
           if ($env:GITHUB_REF -like 'refs/tags/*' -or '${{ inputs.signed }}' -eq 'true') {
             pnpm desktop:package --signed

@@ -9,13 +9,14 @@ import { useDesktop } from "../app/desktop.js";
 import { Button, SearchInput, Segmented, Switch } from "../components/controls.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, CopyText, EmptyState, IconTile, PageHeader, Surface } from "../components/ui.js";
+import { plainMinecraft } from "../lib/format.js";
 
 export function PacksPage() {
   const { model, editable, submit, guarded, current } = useDesktop();
   const [kind, setKind] = useState<"all" | "behavior" | "resource">("all");
   const [query, setQuery] = useState("");
   const behavior = model.packs.filter((row) => row.kind === "behavior").length;
-  const rows = model.packs.filter((row) => (kind === "all" || row.kind === kind) && `${row.name} ${row.id}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const rows = model.packs.filter((row) => (kind === "all" || row.kind === kind) && `${plainMinecraft(row.name)} ${row.id}`.toLowerCase().includes(query.trim().toLowerCase()));
   const importPack = () =>
     void guarded(async () => {
       const uploaded = await window.sfmc.uploadPack(current);
@@ -49,14 +50,14 @@ export function PacksPage() {
                 <IconTile icon={row.kind === "behavior" ? "cube" : "image"} tone={row.kind === "behavior" ? "pastel-2" : "pastel-1"} size={32} />
                 <div className="row-main">
                   <div className="row-title">
-                    <b title={row.name}>{row.name}</b>
+                    <b title={plainMinecraft(row.name)}>{plainMinecraft(row.name)}</b>
                     <Badge tone={row.kind === "behavior" ? "accent" : "info"}>{row.kind === "behavior" ? "行为包" : "资源包"}</Badge>
                   </div>
                   <CopyText text={row.id} className="row-sub" />
                 </div>
                 <span className="row-version mono">v{row.version}</span>
                 <Tooltip content={editable ? (row.enabled ? "停用并重启 BDS" : "启用并重启 BDS") : "完成接入后可修改"} wrap>
-                  <Switch size="sm" label={`${row.enabled ? "停用" : "启用"} ${row.name}`} checked={row.enabled} disabled={!editable} onChange={(enabled) => void submit("packs.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"} ${row.name}`, { description: "应用世界包状态并重启 BDS。" })} />
+                  <Switch size="sm" label={`${row.enabled ? "停用" : "启用"} ${plainMinecraft(row.name)}`} checked={row.enabled} disabled={!editable} onChange={(enabled) => void submit("packs.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"} ${plainMinecraft(row.name)}`, { description: "应用世界包状态并重启 BDS。" })} />
                 </Tooltip>
               </li>
             ))}

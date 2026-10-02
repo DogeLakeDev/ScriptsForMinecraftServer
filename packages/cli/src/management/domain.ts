@@ -9,8 +9,15 @@ import { listInstalledWorldPacks, resolvePackRoots, readPackManifestInfo, instal
 import { atomicJson } from "./tasks.js";
 import { isRetiredPlatformModule } from "@sfmc-bds/sdk/contracts";
 
+/**
+ * 去掉 UTF-8 BOM。
+ * 使用场景：编辑器或 BDS 写出的 JSON（例如 configs/permissions.json）常带 BOM，直接 JSON.parse 会失败。
+ */
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
 export function readJson<T>(file: string, fallback: T): T {
-  try { return JSON.parse(fs.readFileSync(file, "utf8")) as T; }
+  try { return JSON.parse(stripBom(fs.readFileSync(file, "utf8"))) as T; }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return fallback; throw error; }
 }
 export function identifier(value: unknown): string {
@@ -19,7 +26,10 @@ export function identifier(value: unknown): string {
 }
 export async function listModules() {
   const rows = (await scanLocalModules()).filter(row => !isRetiredPlatformModule(row.logicalId));
-  return { modules: rows.map(row => ({ id: row.logicalId, folder: row.folderId, name: row.logicalId, version: row.version ?? "unknown", enabled: row.enabled, linked: fs.lstatSync(path.join(ROOT, "modules", "packages", row.folderId)).isSymbolicLink() })) };
+  // 目录里的展示名来自 modules/catalog.json；没有中文名时仍用逻辑 id，避免界面只剩文件夹名。
+  const catalog = readJson<{ modules?: { id?: string; name?: string }[] }>(path.join(ROOT, "modules", "catalog.json"), {});
+  const titles = new Map((catalog.modules ?? []).filter(row => row.id && row.name).map(row => [row.id!, row.name!]));
+  return { modules: rows.map(row => ({ id: row.logicalId, folder: row.folderId, name: titles.get(row.logicalId) || row.logicalId, version: row.version ?? "unknown", enabled: row.enabled, linked: fs.lstatSync(path.join(ROOT, "modules", "packages", row.folderId)).isSymbolicLink() })) };
 }
 function fetchEntry() { const entry = resolveFetchModule(); if (!entry) throw new Error("找不到模块安装器"); return entry; }
 export async function searchModules(query: string) {

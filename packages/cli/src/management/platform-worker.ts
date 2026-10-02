@@ -63,8 +63,10 @@ async function main() {
           fs.mkdirSync(release, { recursive: true });
           atomicJson(path.join(release, "package.json"), { private: true, dependencies: {} });
           await runPnpm(["add", "--ignore-workspace", "--prod", "--ignore-scripts", "--save-exact", `@sfmc-bds/sfmc@${request.target}`], release);
-          const entry = path.join(release, "node_modules", "@sfmc-bds", "sfmc", "bin", "sfmc.mjs");
-          if (!fs.existsSync(entry)) throw new Error("平台入口不存在");
+          const linked = path.join(release, "node_modules", "@sfmc-bds", "sfmc", "bin", "sfmc.mjs");
+          if (!fs.existsSync(linked)) throw new Error("平台入口不存在");
+          // pnpm 的依赖链接在真实包目录旁。从 junction 路径 createRequire 会找不到 @sfmc-bds/cli。
+          const entry = fs.realpathSync(linked);
           // 发布的平台必须包含本次桌面所需管理协议。
           const resolver = createRequire(entry);
           const cli = path.join(path.dirname(resolver.resolve("@sfmc-bds/cli/package.json")), "dist", "management", "stdio.js");

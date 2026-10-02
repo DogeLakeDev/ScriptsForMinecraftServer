@@ -27,6 +27,16 @@ export function isMonorepoLayout(root: string): boolean {
   );
 }
 
+/**
+ * 当前 CLI 是否来自源码仓。
+ * 使用场景：sfmc-dev 把数据放在仓外的 SFMC_ROOT。此时数据根本身不是 monorepo，
+ * 接入应继续使用源码部署，而不是把该目录升级成 npm 发行包。
+ */
+export function isSourceCheckout(): boolean {
+  const found = findMonorepoRoot(__dirname);
+  return Boolean(found && isMonorepoLayout(found));
+}
+
 function detectFallbackRoot(): string {
   const found = findMonorepoRoot(__dirname);
   if (found && isMonorepoLayout(found)) return found;

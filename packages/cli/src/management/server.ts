@@ -135,9 +135,18 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     case "players.list": return players();
     case "metrics.read": {
       const cfg = readJson<{ db_port?: number; http_auth?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
-      const response = await fetch(`http://127.0.0.1:${cfg.db_port ?? 3001}/api/sfmc/metrics`, { headers: cfg.http_auth ? { authorization: `Bearer ${cfg.http_auth}` } : {}, signal: AbortSignal.timeout(10_000) });
-      if (!response.ok) throw new Error(`运行指标读取失败 (${response.status})`);
-      return response.json();
+      try {
+        const response = await fetch(`http://127.0.0.1:${cfg.db_port ?? 3001}/api/sfmc/metrics`, { headers: cfg.http_auth ? { authorization: `Bearer ${cfg.http_auth}` } : {}, signal: AbortSignal.timeout(10_000) });
+        if (!response.ok) throw new Error(`运行指标读取失败 (${response.status})`);
+        return response.json();
+      } catch (error) {
+        const detail = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : String(error);
+        // 数据服务没开时 fetch 会抛网络错误；界面用 note 展示，而不是整页失败。
+        if (/fetch failed|ECONNREFUSED|ENOTFOUND|AbortError|TimeoutError|timed out/i.test(detail)) {
+          return { fresh: false, updatedAt: null, current: null, history: [], host: null, processes: null, resourcesUpdatedAt: null, note: "数据服务未运行，暂时没有运行指标" };
+        }
+        throw error;
+      }
     }
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));
     case "attachment.plan": return attachmentPlan();

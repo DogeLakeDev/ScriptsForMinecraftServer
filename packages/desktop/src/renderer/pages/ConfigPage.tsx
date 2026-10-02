@@ -25,18 +25,26 @@ const CORE_NAMES: Record<string, string> = {
   "qq_config.json": "QQ 互通",
   "bds_updater.json": "BDS 更新",
   "permissions.json": "权限",
-  "log_filter.json": "日志过滤",
-  "module_update.json": "模块更新",
+  "log-filter.json": "日志过滤",
+  "module-update.json": "模块更新",
+  "pack-update.json": "世界包更新",
   "server.properties": "BDS配置",
 };
 
-/** 配置键的分组与展示信息 */
-function describeKey(key: string): { group: string; title: string; file: string; icon: IconName } {
+/**
+ * 配置键的分组与展示信息。
+ * names：模块逻辑 id → 目录中的展示名。使用场景：真实实例的模块配置按 configKey 分组，侧栏显示「经济系统」而不是 economy。
+ */
+function describeKey(key: string, names?: Map<string, string>): { group: string; title: string; file: string; icon: IconName } {
   const parts = key.split("/");
   const file = parts.at(-1) ?? key;
   if (parts[0] === "core") return { group: "核心配置", title: CORE_NAMES[file] ?? file, file, icon: "settings" };
   if (parts[0] === "bds") return { group: "BDS", title: CORE_NAMES[file] ?? file, file, icon: "cube" };
-  if (parts[0] === "module") return { group: `模块 ${parts[1]}`, title: file, file: parts.slice(1).join("/"), icon: "modules" };
+  if (parts[0] === "module") {
+    const id = parts[1] ?? "";
+    const label = names?.get(id);
+    return { group: label && label !== id ? label : `模块 ${id}`, title: file, file: parts.slice(1).join("/"), icon: "modules" };
+  }
   return { group: "其他", title: file, file: key, icon: "fileCode" };
 }
 
@@ -170,26 +178,27 @@ export function ConfigPage() {
     if (document?.key === pendingSave.key) void load(pendingSave.key);
   }, [model.tasks, pendingSave]);
 
+  const moduleNames = useMemo(() => new Map(model.modules.map((row) => [row.id, row.name])), [model.modules]);
   const groups = useMemo(() => {
     const map = new Map<string, { key: string; title: string; file: string; icon: IconName }[]>();
     for (const key of model.configKeys) {
-      const info = describeKey(key);
-      if (filter && !`${key} ${info.title}`.toLowerCase().includes(filter.toLowerCase())) continue;
+      const info = describeKey(key, moduleNames);
+      if (filter && !`${key} ${info.title} ${info.group}`.toLowerCase().includes(filter.toLowerCase())) continue;
       map.set(info.group, [...(map.get(info.group) ?? []), { key, ...info }]);
     }
     return [...map.entries()];
-  }, [model.configKeys, filter]);
+  }, [model.configKeys, filter, moduleNames]);
 
   const syntaxError = document && document.format !== "properties" && !parseJsonText(text);
   const save = () => {
     if (!document) return;
-    void submit("config.apply", { key: document.key, text, revision: document.revision }, `保存并应用 ${describeKey(document.key).title}`, {
+    void submit("config.apply", { key: document.key, text, revision: document.revision }, `保存并应用 ${describeKey(document.key, moduleNames).title}`, {
       description: (<>将停止服务、备份后写入 <span className="mono">{document.key}</span>，并重启服务：{document.affectedServices.join(" ")}。</>) as ReactNode,
       okText: "保存并应用",
     }).then((operationId) => operationId && setPendingSave({ operationId, key: document.key }));
   };
 
-  const info = document ? describeKey(document.key) : undefined;
+  const info = document ? describeKey(document.key, moduleNames) : undefined;
   return (
     <div className="page page-fill">
       <PageHeader title="配置" />

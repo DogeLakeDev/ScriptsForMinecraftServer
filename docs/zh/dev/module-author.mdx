@@ -118,6 +118,8 @@ SAPI 模块内禁止直接使用原生 `fetch` 请求 `127.0.0.1:3001`。所有�
 
 :::tip 启停控制说明
 模块 manifest 不再支持 `canDisable` 与 `enabledByDefault` 字段（若存在会导致校验报错）。新安装的模块默认启用，服主通过 `sfmc mod enable <id>` 与 `sfmc mod disable <id>` 管理启停，在下次 BDS 冷启动时生效；升级时会自动保留已有的启停状态。
+
+升级已有部署前，先检查 `modules/packages/**/manifest.json`。旧模块如果仍包含上述两个字段，应备份 manifest，再只删除这两个顶层字段；保留 `modules/module-lock.json` 和业务数据。迁移后重新构建、部署世界包，并启动数据服务与 BDS 验证加载结果。尚未迁移的旧声明会阻止数据服务启动。
 :::
 
 目前 v3 尚无独立公开的 JSON Schema，示例中不设置 `$schema`：

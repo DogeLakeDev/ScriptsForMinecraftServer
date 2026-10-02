@@ -45,7 +45,6 @@ export function runOfflinePhase(reporter) {
       ".gitignore",
       "AGENTS.md",
       "README.md",
-      "modules/catalog.json",
       "packages/tools/verify.mjs",
       "packages/cli/scripts/module-install/fetch-module.mjs",
       ...Object.values(NPM_PUBLISH_PACKAGES),

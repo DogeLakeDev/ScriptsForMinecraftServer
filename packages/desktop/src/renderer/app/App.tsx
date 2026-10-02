@@ -119,7 +119,7 @@ function Workspace() {
 
 /** 外壳：三栏布局、快捷键与全局对话框 */
 function Shell() {
-  const { selected, setPage, appInfo } = useDesktop();
+  const { selected, model, page, setPage, appInfo } = useDesktop();
   const [layout, setLayout] = useState(readLayout);
   const narrow = useMediaQuery(NARROW_QUERY);
   /** 窄窗口下右侧栏以浮层打开（不持久化） */
@@ -127,6 +127,16 @@ function Shell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   useEffect(() => localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)), [layout]);
+  // 旧版平台没有模块/配置等能力时，停在这些页面只会看到空列表。切到第一个仍可用的页面。
+  useEffect(() => {
+    const handshake = model.handshake;
+    if (!handshake) return;
+    const item = NAV.find((row) => row.key === page);
+    if (item && !handshake.capabilities.includes(item.capability)) {
+      const fallback = NAV.find((row) => handshake.capabilities.includes(row.capability));
+      if (fallback) setPage(fallback.key);
+    }
+  }, [model.handshake, page, setPage]);
   useEffect(() => setRailOverlay(false), [narrow]);
 
   const railOpen = narrow ? railOverlay : layout.rail;

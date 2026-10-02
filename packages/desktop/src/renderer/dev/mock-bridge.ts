@@ -97,11 +97,11 @@ function createInstance(variant: "local" | "ssh"): MockInstance {
   });
   const configs = new Map<string, ConfigDocument>([
     ["core/db_config.json", doc("core/db_config.json", JSON.stringify({ db_port: 3001, http_auth: "s3cr3t-token", dbDir: "data/sfmc_data.db", modulesDir: "modules" }, null, 2), "json", dbSchema)],
-    ["core/module_update.json", doc("core/module_update.json", JSON.stringify({ enabled: true, checkOnBdsStart: true, applyOnBdsStart: false, allowMajor: false, failMode: "continue", distTag: "latest" }, null, 2), "json", moduleUpdateSchema)],
+    ["core/module-update.json", doc("core/module-update.json", JSON.stringify({ enabled: true, checkOnBdsStart: true, applyOnBdsStart: false, allowMajor: false, failMode: "continue", distTag: "latest" }, null, 2), "json", moduleUpdateSchema)],
     ["core/qq_config.json", doc("core/qq_config.json", JSON.stringify({ qq_enabled: true, qq_backend: "llbot", groups: [123456789] }, null, 2), "json")],
     ["core/runtime.json", doc("core/runtime.json", JSON.stringify({ initialized_at: "2026-09-12T08:00:00.000Z" }, null, 2), "json")],
     ["core/bds_updater.json", doc("core/bds_updater.json", JSON.stringify({ bds_path: "BDS", backup_dir: "backups", channel: "stable" }, null, 2), "json")],
-    ["core/log_filter.json", doc("core/log_filter.json", "{\n  \"rules\": []\n}", "json")],
+    ["core/log-filter.json", doc("core/log-filter.json", "{\n  \"rules\": []\n}", "json")],
     ["bds/server.properties", doc("bds/server.properties", serverProperties, "properties")],
     ["module/land/land.jsonc", doc("module/land/land.jsonc", "{\n  // 每位玩家可拥有的领地数量\n  \"maxLands\": 3,\n  \"pricePerBlock\": 2,\n  \"allowFly\": false\n}", "jsonc")],
     ["module/economy/economy.json", doc("module/economy/economy.json", JSON.stringify({ currency: "狗币", initialBalance: 500, transferFee: 0.02 }, null, 2), "json")],

@@ -13,6 +13,14 @@ export type Tone = "neutral" | "accent" | "success" | "warning" | "danger" | "in
  * 把任意异常规整为面向用户的单行文案。
  * Electron 跨进程抛出的错误会带上 "Error invoking remote method 'sfmc:xxx': Error: " 前缀，这里统一剥离。
  */
+/**
+ * 去掉 Minecraft 格式化代码（§ 加一个字符）。
+ * 使用场景：世界包清单里的名称常带颜色码，直接显示会在界面上留下乱码符号。
+ */
+export function plainMinecraft(text: string): string {
+  return text.replace(/§./gu, "");
+}
+
 export function errorText(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   return raw.replace(/^Error invoking remote method '[^']+':\s*/, "").replace(/^(?:[A-Z]\w*)?Error:\s*/, "");

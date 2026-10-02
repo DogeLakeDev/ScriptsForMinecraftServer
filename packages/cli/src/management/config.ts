@@ -6,8 +6,15 @@ import { parse, type ParseError } from "jsonc-parser";
 import type { ConfigDocument } from "@sfmc-bds/management";
 import { resolveSdkPackageRoot, ROOT } from "../runtime.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
+import { readJson, stripBom } from "./domain.js";
 
-const CORE_FILES = ["runtime.json", "db_config.json", "qq_config.json", "bds_updater.json", "permissions.json", "log_filter.json", "module_update.json"];
+/** 磁盘上的真实文件名。schema 文件仍用下划线（log_filter.schema.json）。 */
+const CORE_FILES = ["runtime.json", "db_config.json", "qq_config.json", "bds_updater.json", "permissions.json", "log-filter.json", "module-update.json", "pack-update.json"];
+const SCHEMA_STEM: Record<string, string> = {
+  "log-filter.json": "log_filter",
+  "module-update.json": "module_update",
+  "pack-update.json": "pack_update",
+};
 const ajv = new Ajv2020.default({ allErrors: true, strict: false });
 const validators = new Map<string, ReturnType<typeof ajv.compile>>();
 export function configFiles(): Map<string, string> {
@@ -20,6 +27,17 @@ export function configFiles(): Map<string, string> {
     if (!fs.existsSync(configDir)) continue;
     for (const filename of fs.readdirSync(configDir)) if (/^[\w.-]+\.jsonc?$/.test(filename)) files.set(`module/${entry.name}/${filename}`, path.join(configDir, filename));
   }
+  // 真实实例的模块配置写在 <SFMC_ROOT>/configs/<configKey>.json，目录名来自 catalog.configKey。
+  const catalog = readJson<{ modules?: { id?: string; configKey?: string }[] }>(path.join(ROOT, "modules", "catalog.json"), {});
+  const taken = new Set([...files.values()].map(file => path.resolve(file)));
+  for (const row of catalog.modules ?? []) {
+    if (!row.id || !row.configKey || !/^[\w.-]+$/.test(row.id) || !/^[\w.-]+$/.test(row.configKey)) continue;
+    const filename = `${row.configKey}.json`;
+    const file = path.join(ROOT, "configs", filename);
+    if (!fs.existsSync(file) || taken.has(path.resolve(file))) continue;
+    files.set(`module/${row.id}/${filename}`, file);
+    taken.add(path.resolve(file));
+  }
   return files;
 }
 export function configPath(key: string): string {
@@ -31,10 +49,10 @@ export function configPath(key: string): string {
 export function revision(text: string) { return createHash("sha256").update(text).digest("hex"); }
 export function readDocument(key: string): ConfigDocument {
   const file = configPath(key);
-  const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  const text = fs.existsSync(file) ? stripBom(fs.readFileSync(file, "utf8")) : "";
   let schema: object | undefined;
   if (key.startsWith("core/")) {
-    const name = path.basename(file, ".json");
+    const name = SCHEMA_STEM[path.basename(file)] ?? path.basename(file, ".json");
     const schemaFile = path.join(resolveSdkPackageRoot(), "schemas", `${name}.schema.json`);
     if (fs.existsSync(schemaFile)) schema = JSON.parse(fs.readFileSync(schemaFile, "utf8")) as object;
   } else if (key.startsWith("module/")) {

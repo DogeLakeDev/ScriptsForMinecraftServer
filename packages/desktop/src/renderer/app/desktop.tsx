@@ -191,13 +191,16 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     []
   );
   const refresh = useCallback(
-    async (id: string) => {
+    async (id: string, capabilities?: readonly string[]) => {
+      // 旧版平台没有模块/配置/世界包入口。不发这些请求，避免每 5 秒都在主进程里记一条失败。
+      const caps = new Set(capabilities ?? modelsRef.current[id]?.handshake?.capabilities ?? []);
+      const allow = (name: string) => caps.size === 0 || caps.has(name);
       const results = await Promise.allSettled([
-        window.sfmc.request(id, "services.list"),
-        window.sfmc.request(id, "operations.list"),
-        window.sfmc.request(id, "modules.list"),
-        window.sfmc.request(id, "config.list"),
-        window.sfmc.request(id, "packs.list"),
+        allow("services") ? window.sfmc.request(id, "services.list") : Promise.reject(new Error("skip")),
+        allow("operations") ? window.sfmc.request(id, "operations.list") : Promise.reject(new Error("skip")),
+        allow("modules") ? window.sfmc.request(id, "modules.list") : Promise.reject(new Error("skip")),
+        allow("config") ? window.sfmc.request(id, "config.list") : Promise.reject(new Error("skip")),
+        allow("packs") ? window.sfmc.request(id, "packs.list") : Promise.reject(new Error("skip")),
       ]);
       const values: Partial<Model> = {};
       if (results[0]?.status === "fulfilled") values.services = results[0].value.rows;
@@ -400,7 +403,8 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(
     async (profile: InstanceProfile, reconnect = false, secret?: Credentials) => {
       setCurrent(profile.id);
-      if (profile.kind === "ssh" && !profile.hasCredential && !secret) {
+      // 已配置私钥时直接尝试连接；没有密钥也没有已存凭据时才先弹出登录框。
+      if (profile.kind === "ssh" && !profile.hasCredential && !secret && !profile.privateKeyPath) {
         setFlow({ kind: "login", profile, reconnect });
         return;
       }
@@ -412,7 +416,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
           const wasAttached = modelsRef.current[profile.id]?.attached || modelsRef.current[profile.id]?.approved;
           if (handshake.host.arch !== "x64" || !["windows", "linux"].includes(handshake.host.os)) throw new Error("v1 仅支持 Windows／Linux x64 宿主");
           patch(profile.id, { handshake, disconnected: false, connectionMessage: "", attached: reconnect && Boolean(wasAttached) && !handshake.legacy });
-          await refresh(profile.id);
+          await refresh(profile.id, handshake.capabilities);
           const history = await window.sfmc.request(profile.id, "logs.tail", { limit: 1000 });
           patch(profile.id, { logs: history.entries });
           if (reconnect) return;
@@ -422,7 +426,11 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
           }
           await startAttach(profile);
         } catch (error) {
-          patch(profile.id, { connectError: errorText(error) });
+          const message = errorText(error);
+          patch(profile.id, { connectError: message });
+          if (profile.kind === "ssh" && /authentication methods failed|All configured authentication|passphrase|私钥/i.test(message)) {
+            setFlow({ kind: "login", profile, reconnect });
+          }
           throw error;
         } finally {
           patch(profile.id, { connecting: false });

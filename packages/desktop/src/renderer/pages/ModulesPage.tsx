@@ -33,7 +33,7 @@ function InstalledModules() {
   const rows = model.modules.filter(
     (row) =>
       (status === "all" || (status === "enabled" ? row.enabled : !row.enabled)) &&
-      `${row.id} ${row.folder}`.toLowerCase().includes(query.trim().toLowerCase())
+      `${row.id} ${row.folder} ${row.name}`.toLowerCase().includes(query.trim().toLowerCase())
   );
   return (
     <Surface flush>
@@ -53,15 +53,17 @@ function InstalledModules() {
       </div>
       {rows.length ? (
         <ul className="row-list">
-          {rows.map((row: ModuleRow) => (
+          {rows.map((row: ModuleRow) => {
+            const title = row.name && row.name !== row.id ? row.name : row.id;
+            return (
             <li key={row.folder} className={`row-item${row.enabled ? "" : " muted-row"}`}>
               <IconTile icon="modules" tone={row.enabled ? "pastel-2" : "neutral"} size={32} />
               <div className="row-main">
                 <div className="row-title">
-                  <b title={row.id}>{row.id}</b>
+                  <b title={row.id}>{title}</b>
                   {row.linked && <Badge tone="info" icon="link">本地链接</Badge>}
                 </div>
-                <div className="row-sub mono">{row.folder}</div>
+                <div className="row-sub mono">{title === row.id ? row.folder : row.id}</div>
               </div>
               <span className="row-version mono">{row.version}</span>
               <Tooltip content={editable ? (row.enabled ? "停用模块" : "启用模块") : "完成接入后可修改"} wrap>
@@ -72,7 +74,8 @@ function InstalledModules() {
                 items={[{ key: "uninstall", danger: true, disabled: !editable || row.linked, icon: "trash", label: row.linked ? "本地链接模块不可卸载" : "卸载模块", onSelect: () => void submit("modules.uninstall", { id: row.folder }, `卸载 ${row.id}`, { danger: true, okText: "卸载", description: "将移除模块文件并重建行为包；模块写入的数据保留在数据库中。" }) }]}
               />
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <EmptyState icon="modules" title={model.modules.length ? "没有匹配的模块" : "尚未安装模块"} action={model.modules.length ? <Button size="sm" onClick={() => { setQuery(""); setStatus("all"); }}>清除筛选</Button> : undefined} />

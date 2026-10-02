@@ -22,7 +22,10 @@ async function command(bin, args, cwd = root) {
     child.on('error', reject); child.on('close', code => code === 0 ? resolve() : reject(new Error(`${path.basename(bin)} 失败 (${code})`)));
   });
 }
-const pnpm = args => command(process.execPath, [pnpmEntry, ...args]);
+// pnpm 自管理可能提供原生可执行文件，不能把 PE 文件作为 Node 脚本加载。
+const pnpm = args => /\.exe$/i.test(pnpmEntry)
+  ? command(pnpmEntry, args)
+  : command(process.execPath, [pnpmEntry, ...args]);
 async function reset(directory) {
   if (path.dirname(directory) !== base) throw new Error('构建目录超出桌面包范围');
   await fs.rm(directory, { recursive: true, force: true }); await fs.mkdir(directory, { recursive: true });
@@ -102,7 +105,7 @@ for (const name of Object.keys(runtimeDeps)) await copyPackage(await resolveDepe
 const pnpmTar = path.join(work, 'pnpm.tgz');
 await download(`https://registry.npmjs.org/pnpm/-/pnpm-${manifest.pnpm}.tgz`, pnpmTar);
 await command('tar', ['-xf', pnpmTar, '-C', work]);
-await fs.rename(path.join(work, 'package'), path.join(material, 'pnpm'));
+await fs.cp(path.join(work, 'package'), path.join(material, 'pnpm'), { recursive: true });
 await command('tar', ['-cf', path.join(material, 'pnpm.tar'), '-C', material, 'pnpm']);
 const archiveName = `node-v${manifest.node}-win-x64.zip`;
 const sums = await (await fetch(`https://nodejs.org/dist/v${manifest.node}/SHASUMS256.txt`)).text();
@@ -111,7 +114,7 @@ if (!nodeHash) throw new Error('缺少固定 Node 版本的校验值');
 const nodeZip = path.join(work, archiveName);
 await download(`https://nodejs.org/dist/v${manifest.node}/${archiveName}`, nodeZip, nodeHash);
 await command('tar', ['-xf', nodeZip, '-C', work]);
-await fs.rename(path.join(work, `node-v${manifest.node}-win-x64`), path.join(material, 'node'));
+await fs.cp(path.join(work, `node-v${manifest.node}-win-x64`), path.join(material, 'node'), { recursive: true });
 const winswHash = await download('https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe', path.join(material, 'WinSW-x64.exe'), '05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da');
 const materials = [];
 for (const name of ['platform.tar', 'pnpm.tar', 'WinSW-x64.exe']) materials.push({ name, sha256: createHash('sha256').update(await fs.readFile(path.join(material, name))).digest('hex') });

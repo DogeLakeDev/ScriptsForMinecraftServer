@@ -3,7 +3,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { ROOT, isMonorepoLayout } from "../runtime.js";
+import { ROOT, isMonorepoLayout, isSourceCheckout } from "../runtime.js";
 import { queryServicesRuntimeLocal, services, START_ORDER, type ServiceName } from "../services.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { atomicJson, type TaskContext, type TaskStore } from "./tasks.js";
@@ -31,7 +31,7 @@ export function platformVersion(): string {
   catch { return (readJson<{ version: string }>(path.join(fileURLToPath(new URL("../../..", import.meta.url)), "package.json"), { version: "unknown" })).version; }
 }
 export async function attachmentPlan(): Promise<AttachmentPlan> {
-  const development = isMonorepoLayout(ROOT);
+  const development = isMonorepoLayout(ROOT) || isSourceCheckout();
   const currentVersion = platformVersion();
   let targetVersion = currentVersion;
   if (!development) {

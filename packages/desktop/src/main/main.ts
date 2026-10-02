@@ -128,6 +128,8 @@ void app.whenReady().then(async () => {
   const dev = !app.isPackaged ? process.env.SFMC_DESKTOP_DEV_URL : undefined;
   if (dev && /^http:\/\/127\.0\.0\.1:\d+$/.test(dev)) await window.loadURL(dev);
   else await window.loadFile(path.join(__dirname, "renderer", "index.html"));
+  // 部分 Windows 环境未触发 ready-to-show；页面加载完成后仍应显示主窗口。
+  if (!window.isVisible()) window.show();
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => { for (const session of sessions.values()) session.disconnect(); });
