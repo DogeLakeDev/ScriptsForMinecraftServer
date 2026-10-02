@@ -1,0 +1,45 @@
+{
+  "name": "@sfmc-bds/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SFMC 桌面管理客户端",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "dist/main.cjs",
+  "files": [
+    "dist",
+    "runtime-manifest.json"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc7 --noEmit -p tsconfig.json",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.8.0",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/noto-sans-sc": "5.3.0",
+    "@monaco-editor/react": "4.7.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@sfmc-bds/management": "workspace:*",
+    "echarts": "6.1.0",
+    "electron-updater": "6.8.9",
+    "jsonc-parser": "3.3.1",
+    "monaco-editor": "0.57.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "ssh2": "1.17.0"
+  },
+  "devDependencies": {
+    "@sfmc-bds/sfmc": "workspace:*",
+    "@sfmc-bds/tools": "workspace:*",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/ssh2": "1.15.6",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "vite": "8.3.1"
+  }
+}

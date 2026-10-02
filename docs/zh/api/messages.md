@@ -1,6 +1,6 @@
 # 消息
 
-表 `sfmc_chat_messages`，用于游戏内频道与 QQ 桥。运维见 [使用指南 · QQ](../guide/qq-bridge.md)。
+表 `sfmc_chat_messages`，用于游戏内频道与 QQ 桥。运维见 [使用指南 · QQ](../guide/qq-bridge.mdx)。
 
 ## GET /api/sfmc/messages
 

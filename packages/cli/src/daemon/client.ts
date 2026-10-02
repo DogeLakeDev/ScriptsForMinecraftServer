@@ -10,6 +10,7 @@ import { logsDir } from "@sfmc-bds/sdk/node/config";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import net from "node:net";
 import process from "node:process";
 import { EventEmitter } from "node:events";
@@ -33,6 +34,15 @@ import type {
 } from "./protocol.js";
 import { isLogPayload } from "./protocol.js";
 import { isDaemonServer } from "./role.js";
+import { fileURLToPath } from "node:url";
+import type { ManagementEvent } from "@sfmc-bds/management";
+import { maintenanceToken } from "@sfmc-bds/management/node";
+
+export function onDaemonManagementEvent(callback: (event: ManagementEvent) => void): () => void {
+  remoteStateBus.on("management", callback);
+  return () => { remoteStateBus.off("management", callback); };
+}
+export function disconnectDaemonClient(): void { shared?.disconnect(); shared = null; }
 
 /** 单次 RPC 默认超时（毫秒） */
 const CALL_TIMEOUT_MS = 120_000;
@@ -108,6 +118,7 @@ class DaemonConnection {
   }
 
   private handleEvent(ev: DaemonEvent): void {
+    if (ev.event === "management") { remoteStateBus.emit("management", ev.payload); return; }
     if (ev.event === "log" && isLogPayload(ev.payload)) {
       ingestRemoteLog(ev.payload.text, ev.payload.source, ev.payload.level);
       return;
@@ -197,7 +208,6 @@ async function tryConnectExisting(): Promise<DaemonConnection | null> {
   const meta = readDaemonMeta();
   if (!meta) return null;
   if (!(await isProcessAlive(meta.pid))) {
-    clearDaemonMeta();
     return null;
   }
   try {
@@ -215,11 +225,16 @@ async function tryConnectExisting(): Promise<DaemonConnection | null> {
  * 入口脚本复用当前 CLI 的 argv[1]（即 sfmc 主入口）。
  */
 function spawnDaemonProcess(): void {
-  const entry = process.argv[1];
+  const lockFile = path.join(ROOT, ".sfmc", "maintenance.lock");
+  if (fs.existsSync(lockFile)) {
+    const owner = JSON.parse(fs.readFileSync(lockFile, "utf8")) as { nonce: string };
+    if ((maintenanceToken(ROOT) ?? process.env.SFMC_MAINTENANCE_TOKEN) !== owner.nonce) throw new Error("实例正在维护；后台切换完成前不会创建另一个守护进程");
+  }
+  const entry = process.env.SFMC_DAEMON_ENTRY ?? fileURLToPath(new URL("../main.js", import.meta.url));
   if (!entry) throw new Error("cannot resolve sfmc entry for daemon spawn");
   fs.mkdirSync(logsDir(ROOT), { recursive: true });
   const logFd = fs.openSync(daemonLogPath(), "a");
-  const child = spawn(process.execPath, [entry, "--daemon"], {
+  const child = spawn(process.env.SFMC_NODE_BINARY ?? process.execPath, [entry, "--daemon"], {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd],
@@ -265,7 +280,6 @@ export async function ensureDaemon(): Promise<DaemonConnection> {
     throw new Error(`daemon pid ${existing.pid} is alive but pipe is unreachable`);
   }
 
-  clearDaemonMeta();
   spawnDaemonProcess();
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -286,7 +300,8 @@ export async function ensureDaemon(): Promise<DaemonConnection> {
  */
 export async function callDaemon(method: DaemonMethod, params?: DaemonParams): Promise<DaemonResult> {
   const conn = await ensureDaemon();
-  return conn.call(method, params);
+  const token = maintenanceToken(ROOT) ?? process.env.SFMC_MAINTENANCE_TOKEN;
+  return conn.call(method, token ? { ...params, maintenanceToken: token } : params);
 }
 
 /**
@@ -307,12 +322,13 @@ export async function ensureDaemonSubscription(): Promise<() => void> {
 export async function shutdownDaemon(): Promise<string> {
   try {
     const conn = await ensureDaemon();
-    await conn.call("shutdown");
+    const token = maintenanceToken(ROOT) ?? process.env.SFMC_MAINTENANCE_TOKEN;
+    await conn.call("shutdown", token ? { maintenanceToken: token } : undefined);
     conn.disconnect();
   } catch (e) {
-    /* 守护进程可能已不在 */
-    clearDaemonMeta();
-    return e instanceof Error ? e.message : String(e);
+    const meta = readDaemonMeta();
+    if (!meta || !await isProcessAlive(meta.pid)) { clearDaemonMeta(); return "守护进程已停止"; }
+    throw e;
   }
   /* 短暂等待 meta 清理 */
   const deadline = Date.now() + 5000;
@@ -320,6 +336,8 @@ export async function shutdownDaemon(): Promise<string> {
     if (!readDaemonMeta()) break;
     await new Promise((r) => setTimeout(r, 100));
   }
+  const remaining = readDaemonMeta();
+  if (remaining && await isProcessAlive(remaining.pid)) throw new Error("守护进程尚未退出，保留连接信息");
   clearDaemonMeta();
   return "";
 }

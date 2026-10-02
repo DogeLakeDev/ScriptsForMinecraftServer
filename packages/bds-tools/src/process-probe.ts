@@ -4,7 +4,7 @@
  * 供 bds-manager / sfmc 共用，避免重复 tasklist / taskkill 逻辑。
  */
 
-import { exec, execSync } from "node:child_process";
+import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
@@ -89,14 +89,10 @@ export async function isProcessAlive(pid: number): Promise<boolean> {
   if (!pid) return false;
   if (aliveOverride) return aliveOverride(pid);
   try {
-    if (process.platform === "win32") {
-      const { stdout } = await execImpl(`tasklist /fi "PID eq ${pid}" /nh`, { windowsHide: true });
-      return stdout.includes(String(pid));
-    }
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
 
@@ -105,17 +101,10 @@ export function isProcessAliveSync(pid: number): boolean {
   if (!pid) return false;
   if (aliveOverride) return aliveOverride(pid);
   try {
-    if (process.platform === "win32") {
-      const stdout = execSync(`tasklist /fi "PID eq ${pid}" /nh`, {
-        windowsHide: true,
-        encoding: "utf8",
-      });
-      return String(stdout).includes(String(pid));
-    }
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
 

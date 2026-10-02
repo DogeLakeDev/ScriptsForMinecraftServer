@@ -90,7 +90,7 @@ sfmc> /start -all
 ```
 </Steps>
 
-## 2. 全组件平滑升级策略
+## 2. 组件升级指引
 
 SFMC 平台的各层组件相互解耦，可按需分别升级：
 
@@ -126,7 +126,7 @@ pnpm install && pnpm run build
 
 ### ② 升级 Bedrock Dedicated Server
 
-SFMC 内置了官方版本探测与自动升级工具，可精准解析 Mojang 官方分发源：
+SFMC 内置了版本检测与升级命令，支持直接从 Mojang 官方源下载：
 
 ```bash
 # 检查当前运行版本与远端最新版本
@@ -136,14 +136,14 @@ sfmc> update --check-only
 sfmc> update
 ```
 
-#### 白名单防覆盖与配置本地化（Preserve & Localize）
-升级过程中，系统会严格依据 `configs/bds_updater.json` 中的 `preserve` 清单，在解压新版覆盖前**自动封存**以下文件，并在覆盖完成后**原样复原**：
+#### 文件保留与配置处理
+升级过程中，系统会依据 `configs/bds_updater.json` 中的 `preserve` 清单，在覆盖前保留以下文件/目录，覆盖完成后自动恢复：
 - `server.properties`（服务端配置）
 - `whitelist.json` / `permissions.json`（原生白名单）
 - `worlds/`（所有世界存档与已安装的行为包）
 
-:::tip server.properties 智能增量本地化
-在安全复原 `server.properties` 后，更新引擎会自动对其执行结构化本地化辅助：在**百分之百保留服主既有自定义配置值**的前提下，自动将配置注释升级为结构清晰的简体中文说明，并校验补全 EULA 遥测项（`emit-server-telemetry=true`）。
+:::tip server.properties 本地化注释
+恢复 `server.properties` 后，平台会自动将常用配置注释翻译为简体中文说明，并在保留服主既有配置值的前提下补全 EULA 遥测项（`emit-server-telemetry=true`）。
 :::
 
 涉及数据库 Schema 迁移时，先在隔离副本上演练，并保留迁移前冷备份。不要假定新版本写入的数据可由旧版直接读取。
@@ -162,17 +162,17 @@ sfmc> mod install economy
 sfmc> mod reload --build-only
 ```
 
-## 3. 紧急灾难恢复与回滚方案（Rollback）
+## 3. 灾难恢复与回滚方案（Rollback）
 
-如果在升级后发现版本兼容性问题或意外异常，可按以下矩阵实施应急回滚：
+如果在升级后发现版本兼容性问题或异常，可按以下方式实施应急回滚：
 
 | 故障场景 | 回滚与救援步骤 |
 | :--- | :--- |
 | **模块升级后出现逻辑 Bug** | 停机后从冷备份恢复模块目录、锁文件和 catalog，或运行 `sfmc mod install <id> --from npm:@sfmc-bds/module-<id>@<旧版本号>` 安装精确旧版；重新构建部署，再启动 BDS 验收。仅 `mod disable` 也需要重新部署并重启或重载 BDS 才能生效。 |
-| **BDS 核心升级后无法启动** | 若配置了 `configs/bds_updater.json` 的 `backup_dir`，升级前会自动生成全量镜像；将备份目录中的旧版本二进制解压回覆盖原路径即可。 |
+| **BDS 核心升级后无法启动** | 若配置了 `configs/bds_updater.json` 的 `backup_dir`，升级前会自动生成全量镜像；将备份目录中的旧版本二进制解压覆盖回原路径即可。 |
 | **误改配置导致启动崩溃** | 停止相关服务，从对应版本的冷备份恢复配置，然后启动并检查新日志。 |
 | **数据库损坏或脏数据** | 停止全部写入，保留故障现场副本，再从经校验的冷备份恢复数据库及对应 WAL 文件；启动前检查 SQLite 完整性。不要直接删除当前数据库。 |
 
-:::tip 审计追踪
-所有操作细节与异常堆栈均可在 `<SFMC_ROOT>/.sfmc/logs/` 下查阅独立日志（`db.log`、`qq.log`、`bds.log`）。在报告问题前，请附带该目录下的相关诊断信息。
+:::tip 诊断日志
+服务日志与异常堆栈保存在 `<SFMC_ROOT>/.sfmc/logs/` 目录下（`db.log`、`qq.log`、`bds.log`）。在排查或反馈问题时，请附带该目录下的相关诊断日志。
 :::

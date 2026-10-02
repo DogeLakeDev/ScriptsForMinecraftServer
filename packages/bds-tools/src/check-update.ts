@@ -81,7 +81,7 @@ function buildContext(): UpdateContext {
     backupDir: backup_dir,
     preserve,
     autoRestart: !args["no-start"],
-    qqNotify: !!cfg.qq_notify,
+    qqNotify: !!cfg.qq_notify && !args["no-notify"],
   };
 }
 

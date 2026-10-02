@@ -103,6 +103,11 @@
           "command": "sfmcModule.setRoot",
           "when": "view == sfmcModules && viewItem == sfmcModule",
           "group": "sfmc@6"
+        },
+        {
+          "command": "sfmcModule.submitRegistry",
+          "when": "view == sfmcModules && viewItem == sfmcModule",
+          "group": "sfmc@7"
         }
       ]
     },
@@ -118,6 +123,10 @@
       {
         "command": "sfmcModule.publishModule",
         "title": "SFMC: Publish to npm"
+      },
+      {
+        "command": "sfmcModule.submitRegistry",
+        "title": "SFMC: 提交到官方模块索引"
       },
       {
         "command": "sfmcModule.openPublishGuide",
@@ -209,6 +218,7 @@
   },
   "dependencies": {
     "@sfmc-bds/create-module": "workspace:*",
+    "@sfmc-bds/cli": "workspace:*",
     "@sfmc-bds/devkit": "workspace:*",
     "@sfmc-bds/sdk": "workspace:*"
   },

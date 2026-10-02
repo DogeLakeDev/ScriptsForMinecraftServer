@@ -1,14 +1,14 @@
 # 鉴权机制与通信约定
 
-本文档系统阐释 SFMC 数据中枢（`db-server`）的请求鉴权模型、微内核沙盒隔离、标准响应结构与全局路由总览。
+本文档介绍 SFMC 数据服务（`db-server`）的鉴权模型、权限校验、标准响应结构与全局路由总览。
 
 :::tip 模块业务首选 SDK
-编写 SAPI 模块业务时，**请务必使用官方 SDK**（如 `db`、`config`、`service`），SDK 会透明完成模块身份与 Token 注入。本页主要用于底层调试、编写独立的外部 Node.js 工具或逆向排查通信问题。
+编写 SAPI 模块业务时，**请使用官方 SDK**（如 `db`、`config`、`service`），SDK 会自动处理模块身份与 Token 注入。本页主要用于底层调试、编写外部 Node.js 工具或排查通信问题。
 :::
 
 ## 1. 双重鉴权体系（Dual Auth Model）
 
-为了在保证数据安全的同时不破坏本地通信性能，SFMC 采用**「平台管控鉴权 + 模块沙盒身份」**的双层鉴权模型：
+为了在保证数据安全的同时兼顾本地通信效率，SFMC 采用**「平台管控鉴权 + 模块身份鉴权」**的双层鉴权模型：
 
 ```mermaid
 flowchart LR
@@ -23,21 +23,21 @@ flowchart LR
 
 ### ① 平台级管控鉴权（Platform Bearer Token）
 - **配置源**：`configs/db_config.json` 的 `http_auth` 字段，或宿主环境变量 `HTTP_AUTH`。
-- **生效范围**：主要保护关键写操作（如修改系统配置、敏感运维命令）。
+- **生效范围**：保护关键写操作（如修改系统配置、敏感运维命令）。
 - **传递方式**：在 HTTP 请求头中添加：
   ```http
   Authorization: Bearer <your_token_here>
   ```
-- **缺省行为**：若 `http_auth` 为空字符串，则平台级鉴权处于开放状态（因仅限 Loopback 回环监听）。
+- **缺省行为**：若 `http_auth` 为空字符串，则平台级鉴权处于开放状态（仅限本地 Loopback 回环监听）。
 
-### ② 模块沙盒身份注入（Module Sandbox Identity）
-- **工作机制**：每个模块在冷启动阶段通过 `ConfigManager.init()` 获取平台自动颁发的专属 `module_token`。
+### ② 模块身份注入（Module Identity）
+- **工作机制**：每个模块在冷启动阶段通过 `ConfigManager.init()` 获取平台颁发的专属 `module_token`。
 - **鉴权参数**：所有涉及数据库（`/api/sfmc/db/*`）、模块私有配置（`/api/sfmc/configs/*`）以及跨模块 RPC（`/api/sfmc/services*`）的请求，必须携带模块身份：
   ```http
   POST /api/sfmc/db/query?moduleId=feature-economy
   Authorization: Bearer <module_token>
   ```
-- **权限核验**：`db-server` 会严格比对该模块在 `manifest.json` 中声明的 `permissions` 列表。一旦试图读写未声明的数据表或命名空间，请求将被立刻拒绝（`403 Forbidden`）。
+- **权限核验**：`db-server` 会比对该模块在 `manifest.json` 中声明的 `permissions` 列表。若试图读写未声明的数据表或命名空间，请求将被拒绝（`403 Forbidden`）。
 
 ## 2. 标准响应与错误状态码规范
 
@@ -74,7 +74,7 @@ flowchart LR
 | `permission_denied` | `403` | 试图访问未在 `manifest.json` 中声明的表或跨模块服务。 |
 | `module_not_found` | `404` | 请求的模块 ID 在当前 `catalog.json` 中不存在。 |
 | `dependency_unmet` | `400` | 试图启用某个模块，但其依赖的前置模块尚未安装或处于禁用状态。 |
-| `module_cannot_disable` | `400` | 试图禁用 `canDisable: false` 的模块。 |
+| `module_cannot_disable` | `400` | 试图禁用受保护的内置模块。 |
 | `service_not_found` | `404` | 请求调用的跨模块服务名称未被任何已启用模块注册。 |
 
 ## 3. 全局核心路由索引地图

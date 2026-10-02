@@ -19,6 +19,7 @@
  */
 
 import http from "node:http";
+import { PLATFORM_MONITORING_SERVICES, PLATFORM_SERVICE_OWNER } from "@sfmc-bds/sdk/contracts";
 import { SQL } from "sql-template-strings";
 
 import { createPlatformTables } from "./db-tables.js";
@@ -255,7 +256,19 @@ function setModuleEnabled(mod: { id: string; canDisable: boolean }, enabled: boo
 
 // ── 平台路由(非模块业务) ───────────────────────────────────
 const healthRoutes = createHealthRoutes();
-const statusRoutes = createStatusRoutes({});
+// 指标独立落库，避免写入业务模块正在持有的跨请求事务。
+const metricsDb = openDatabase(path.join(path.dirname(env.DB_PATH), "runtime-metrics.sqlite"));
+const statusRoutes = createStatusRoutes({ query: createQuery(metricsDb) });
+for (const name of PLATFORM_MONITORING_SERVICES) serviceRegistry.registerHandler(PLATFORM_SERVICE_OWNER, name, async () => {
+  const response = await fetch(`http://127.0.0.1:${env.PORT}/api/sfmc/metrics`, { signal: AbortSignal.timeout(10_000) });
+  if (!response.ok) throw new Error("平台运行指标读取失败");
+  const result = await response.json() as { current: { tps: number | null; chunkEstimate: number | null } | null };
+  const tps = result.current?.tps ?? null;
+  const grade = tps === null ? "unknown" : tps >= 19.5 ? "green" : tps >= 15 ? "yellow" : tps >= 10 ? "gold" : "red";
+  if (name === "tps.current") return tps;
+  if (name === "tps.status") return { tps, grade, text: `§7[TPS] §f${tps?.toFixed(2) ?? "未知"} §7/ 20.00` };
+  return result.current ? { ...result.current, grade, totalLoadedChunks: result.current.chunkEstimate } : null;
+});
 const qqBindRoutes = createQqBindRoutes({ query, body, json });
 
 /** 模块 qq-link 的配置文件（非 SDK qq_config） */

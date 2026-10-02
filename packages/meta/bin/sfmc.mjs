@@ -4,6 +4,9 @@
  * dependency tree, set SFMC_ROOT to cwd, then hand off to @sfmc-bds/cli.
  */
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+
+process.env.SFMC_PLATFORM_VERSION = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 function resolved(specifier) {
   return fileURLToPath(import.meta.resolve(specifier));

@@ -1,0 +1,208 @@
+:root {
+  font-family:
+    Segoe UI,
+    Microsoft YaHei,
+    sans-serif;
+  color-scheme: light dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+.desktop-shell {
+  min-height: 100vh;
+}
+.sidebar {
+  background: #101c2b !important;
+  position: relative;
+}
+.brand {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px;
+  color: #f5f8fc;
+}
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  background: #159c91;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  border-radius: 10px;
+}
+.brand b {
+  font-size: 23px;
+  letter-spacing: 2px;
+}
+.brand small {
+  display: block;
+  font-size: 10px;
+  color: #92a9bf;
+  margin-top: 3px;
+}
+.sidebar-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px 10px;
+  color: #8fa6ba;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.sidebar-caption .ant-btn {
+  color: #b8d7d4;
+}
+.instance-list {
+  padding: 0 10px 12px;
+}
+.instance {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #cfdae5;
+  width: 100%;
+  padding: 12px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.instance.selected {
+  border-color: #315367;
+  background: #1a3040;
+}
+.instance b {
+  font-weight: 500;
+  font-size: 13px;
+}
+.instance small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #7f9aac;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  background: #667a89;
+  border-radius: 50%;
+}
+.status-dot.online {
+  background: #45c49d;
+}
+.sidebar .ant-menu {
+  background: transparent;
+}
+.sidebar .ant-menu-item {
+  font-size: 13px;
+}
+.sidebar .ant-menu-item-selected {
+  background: #19423e !important;
+}
+.sidebar-footer {
+  padding: 24px 18px;
+  color: #7f99ae;
+  font-size: 11px;
+  line-height: 2;
+  margin-top: 45px;
+}
+.sidebar-footer .ant-btn {
+  color: #afd1ce;
+}
+.topbar {
+  height: 88px !important;
+  line-height: normal !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ant-color-bg-container, #fff) !important;
+  border-bottom: 1px solid rgba(130, 145, 160, 0.15);
+  padding: 0 32px !important;
+}
+.topbar h4 {
+  margin: 5px 0 0 !important;
+}
+.topbar .ant-typography-secondary {
+  font-size: 11px;
+}
+.workspace {
+  padding: 28px 32px 36px;
+  overflow: auto;
+  height: calc(100vh - 88px);
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.page-heading h3 {
+  margin: 0 0 8px;
+}
+.root-path {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+}
+.section-gap {
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+.ownership {
+  margin: 14px 0 20px !important;
+}
+.log-text {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.welcome {
+  padding: 55px 28px;
+}
+.welcome h1 {
+  font-size: 32px;
+  margin: 22px 0 16px;
+}
+.welcome .ant-typography {
+  line-height: 1.9;
+}
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 48px;
+  max-width: 900px;
+}
+.busy-indicator {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  padding: 12px 20px;
+  border: 1px solid #307f76;
+  border-radius: 8px;
+  background: #15332d;
+  color: #dfefeb;
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ant-card .ant-card-head-title {
+  font-size: 14px;
+}

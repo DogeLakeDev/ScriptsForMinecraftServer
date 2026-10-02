@@ -1,96 +1,92 @@
 # 代码与工程约定
 
-为了保障 SFMC 生态的稳定性、代码优雅性与长久可维护性，所有平台包与业务模块均需严格遵守以下工程约定。
+本文汇总 SFMC 平台包与业务模块的代码规范与工程约定。
 
-## 1. 交互与消息规范（Interaction & Messaging）
+## 1. 交互与消息规范
 
 ### 统一使用 `Msg` 助手
 
-- **绝对禁止在业务代码中直接调用 `player.sendMessage()`**（ESLint 规则：`@sfmc-bds/no-player-send-message`）。
-- 必须统一通过 `@sfmc-bds/sdk/sapi/runtime` 中的 `Msg` 助手输出提示。
-- 遵循色彩与语义对齐：
-  - `Msg.info`：常规中立信息（默认浅灰/亮白）
-  - `Msg.success`：操作成功、交易达成（绿色系）
-  - `Msg.warning`：权限警示、边界告警（黄色系）
-  - `Msg.error`：严重故障、参数校验失败（红色系）
-  - `Msg.tips`：玩法建议、命令说明（浅青/浅紫系）
-  - `Msg.broadcast`：全服广播
+- **业务模块中避免直接调用 `player.sendMessage()`**（对应 ESLint 规则：`@sfmc-bds/no-player-send-message`）。
+- 统一通过 `@sfmc-bds/sdk/sapi/runtime` 中的 `Msg` 助手向玩家发送提示，保持前缀格式与色彩一致：
+  - `Msg.info(msg, player)`：常规提示（前缀 `§f[*]`）
+  - `Msg.success(msg, player)`：操作成功（前缀 `§a[√]`）
+  - `Msg.warning(msg, player)`：告警与提示（前缀 `§e[!]`）
+  - `Msg.error(msg, player)`：错误提示（前缀 `§c[x]`）
+  - `Msg.tips(msg, player)`：玩法帮助与小贴士（前缀 `§7[!]`）
+- 若需向全服广播消息，使用 `@minecraft/server` 的 `world.sendMessage()`。
 
-### 表单 UI 正文规范（`ListFormInfo`）
+### 表单 UI 排版规范（`ListFormInfo`）
 
-使用 `ActionFormData` 或 `ModalFormData` 展示复杂信息时，正文必须通过 `ListFormInfo(string[])` 助手格式化：
+使用 `ActionFormData` 或 `ModalFormData` 展示多行详情时，推荐使用 `ListFormInfo(string[])` 助手格式化正文行：
 
-- 第一行以 `[*]` 标头引出主体。
-- 后续每行进行规范缩进与对齐，杜绝杂乱无章的空行。
-- 按钮文字保持干净简洁，**除“§c返回/关闭”外，常规功能按钮禁止包含原版颜色格式码**。
+- 首行使用 `[*]` 标头引出主题。
+- 列表项保持统一缩进，避免多余空行。
+- 功能按钮文本建议简洁明了，仅返回/取消类按钮可使用颜色前缀（如 `§c返回`）。
 
-## 2. 命令与权限梯度（Commands & Permissions）
+## 2. 命令与权限设计
 
-### 原生自定义命令统一接入
+### 玩家命令规范
 
-- 所有玩家命令统一使用 `/c:<命令>`，模块名不参与公开命名，例如 `/c:pay`、`/c:afk`。
-- 高频入口可以声明短别名；同一功能域的低频动作优先使用原生枚举子命令，例如 `/c:afk exempt`。
-- 所有业务命令通过模块顶层的 `Command.register` 声明，以便宿主在 `system.beforeEvents.startup` 的 early-execution 阶段提交原生注册；不要在生命周期钩子内延迟声明。
-- 系统会自动包裹 `moduleGuard` 保护门禁；一旦模块在 `module-lock.json` 中被停用，其关联命令会自动熔断拦截并向玩家返回友好提示，无需模块内部硬编码判断。
+- 所有玩家命令统一使用 `/c:<命令>` 形式注册，命令名称建议保持简短易记（如 `/c:pay`、`/c:afk`）。
+- 同一功能模块的子操作优先使用原生枚举子命令（如 `/c:afk exempt`），避免占用过多顶层命令。
+- 所有业务命令应在模块顶层通过 `Command.register` 注册，以便在启动期完成原生命令挂载。
+- 平台会自动为命令附加 `moduleGuard` 保护：当模块在 `module-lock.json` 中被禁用时，其关联命令会自动拦截并提示玩家，无需在模块内手动编写启停判断。
 
-### 四级权限阶梯定义
+### 权限等级定义
 
-权限节点必须在 `ModuleRegistry.register` 的 `registerPermissions()` 阶段集中声明，并映射至四级标准权限数：
+权限节点在 `ModuleRegistry.register` 的 `registerPermissions()` 阶段集中声明，遵循 4 级权限分级：
 
-| 权限等级 | 角色代号                      | 典型场景                                                          |
-| :------: | :---------------------------- | :---------------------------------------------------------------- |
-| **`0`**  | **Any**（游客）               | 基础交互命令（如 `/c:ping`、`/c:help`、`/c:online`、`/c:menu`）。 |
-| **`1`**  | **Member**（成员）            | 正常玩家功能（如 `/c:home`、`/c:afk`、`/c:pay`）。                |
-| **`2`**  | **Admin / OP**（管理员）      | 巡查与日常管理命令（如 `/c:admin_kick`、`/c:admin_mute`）。       |
-| **`3`**  | **Root / SuperAdmin**（超管） | 底层运维命令（如 `/c:reload`、权限分配）。                        |
+| 权限等级 | 级别名称 | 典型场景 |
+| :---: | :--- | :--- |
+| **`0`** | **Any**（所有人） | 基础查询与通用交互命令（如 `/c:ping`、`/c:help`、`/c:menu`）。 |
+| **`1`** | **Member**（玩家） | 普通玩家日常功能（如 `/c:home`、`/c:afk`、`/c:pay`）。 |
+| **`2`** | **Admin / OP**（管理员） | 管理与巡查命令（如 `/c:admin_kick`、`/c:admin_mute`）。 |
+| **`3`** | **Root / SuperAdmin**（控制台/服主） | 底层运维命令（如 `/c:reload`、权限分发）。 |
 
-## 3. 配置分层与防腐（Configuration Layers）
+## 3. 配置管理规范
 
-1. **平台级配置（`configs/*.json`）**：
-   - 包含 `db_config.json`、`qq_config.json`、`bds_updater.json` 等。
-   - SAPI 端的 `ConfigManager` 在冷启动阶段一次性缓存 `modules` / `settings` / `permissions`，运行时不进行轮询。
-   - 变更平台级配置需**重启 BDS** 才能生效。
-2. **模块私有配置（`configs/<configKey>.json`）**：
-   - 模块包在 `configs-default/<configKey>.json` 声明全部默认字段；安装器负责创建并在升级时只补缺、不覆盖用户值。
-   - 每个模块拥有独立的配置命名空间，通过 `@sfmc-bds/sdk/sapi/config` 提供的 `config.get` / `config.set` 进行透明读写。
-   - `config.set` 会即时落盘；模块不得绕过 SDK 直接探测或读写文件系统。
-   - 不得仅为播种默认值而申请 `config:write` 权限或在启动时调用 `config.set`。
+1. **平台全局配置（`<SFMC_ROOT>/configs/*.json`）**：
+   - 包括 `db_config.json`、`qq_config.json`、`bds_updater.json` 等。
+   - SAPI 端 `ConfigManager` 在冷启动阶段一次性加载快照，修改后需**重启 BDS** 生效。
+2. **模块专属配置（`<SFMC_ROOT>/configs/<configKey>.json`）**：
+   - 模块在作者仓 `configs-default/<configKey>.json` 中声明默认配置。安装器首次安装时创建，升级时仅补充缺失字段，不会覆盖服主已有值。
+   - 业务模块通过 `@sfmc-bds/sdk/sapi/config` 提供的 `config.get` / `config.set` 进行读写。
+   - 不要在启动阶段仅为写入默认值而调用 `config.set`。
 
-## 4. 模块边界与架构防腐（Module Boundaries）
+## 4. 模块依赖与隔离边界
 
-- **极简依赖**：业务模块仅允许依赖 `@sfmc-bds/sdk` 与官方 `@minecraft/*` 运行时包，严禁将未打包的外部大体积 Node 模块混入 SAPI 环境。
-- **跨模块调用标准**：
-  - 严禁通过相对路径直接 `import` 其它模块的内部源文件（ESLint 规则：`no-cross-module-source-import`）。
-  - 严禁读取或修改其它模块声明的私有 SQLite 表。
-  - 如需调用其它模块能力，必须在 `manifest.json` 中声明 `requires`，并统一走 `service.call` 或分布式事务 `tx.call`。
+- **依赖约束**：业务模块仅允许依赖 `@sfmc-bds/sdk` 与官方 `@minecraft/*` 运行时包，避免引入体积过大或带有 Node 原生依赖的第三方 npm 包。
+- **跨模块调用规则**：
+   - 禁止通过相对路径直接 import 其他模块内部源码（ESLint 规则：`no-cross-module-source-import`）。
+   - 禁止直接查询或修改其他模块创建的专属 SQLite 表。
+   - 跨模块通信需在 `manifest.json` 中声明 `requires`，通过 `service.call` 或事务内的 `tx.call` 完成。
 
-## 5. 数据库与 SQL 安全规范（Database & SQL）
+## 5. 数据库与 SQL 安全规范
 
-- **参数化查询防注入**：所有 SQL 查询必须使用 SDK 导出的 `sql` 模板标签（例如 `sql`SELECT * FROM users WHERE id = ${userId}``），底层自动转换为预编译参数绑定，严禁手动通过字符串拼接拼凑 SQL。
-- **动态列名转义**：若涉及动态标识符（表名/列名），必须使用 `sql().append(raw(...))` 显式包裹，严禁将外部不可信输入作为裸 SQL 标识符执行。
-- **短事务原则**：事务（`db.transaction`）内仅执行必要的数据库读写与原子操作，禁止在事务临界区内发起耗时巨大的外部网络 I/O。
+- **使用参数化查询**：所有 SQL 查询必须使用 SDK 导出的 `sql` 模板标签（如 `sql`SELECT * FROM users WHERE id = ${userId}``），参数会自动绑定，禁止手动拼接字符串 SQL。
+- **动态标识符转义**：若表名或列名由变量决定，需使用 `raw(...)` 包裹，避免外部不可信输入被作为 SQL 语法执行。
+- **事务范围最小化**：事务（`db.transaction`）内仅执行必要的数据库原子读写，避免在事务内部包含耗时过长的网络请求或异步等待。
 
-## 6. 代码工程纪律（Code Quality & Formatting）
+## 6. 代码格式与工程规范
 
-### 统一格式化标准（Prettier）
+### 统一代码格式（Prettier）
 
-- 双引号（`"`）、结尾逗号使用 ES5 规则（`trailingComma: "es5"`）。
+- 双引号（`"`），结尾逗号使用 ES5 规则（`trailingComma: "es5"`）。
 - 单行最大字符数：`printWidth: 120`，缩进：`tabWidth: 2`。
-- Windows 仓库对齐换行符：`endOfLine: "crlf"`。
+- Windows 仓库统一样式：`endOfLine: "crlf"`。
 
-### 依赖规范（Syncpack）
+### 依赖一致性（Syncpack）
 
-在平台 Monorepo 根目录下，依赖必须保持严格一致：
+主仓 Monorepo 根目录下依赖保持统一：
 
 ```bash
 pnpm run syncpack:fix
 pnpm exec syncpack format --check
 ```
 
-- 本地 `@sfmc-bds/*` 互引必须对齐真实版本号并使用 `^`，**严禁使用 `workspace:*`**，保障发版到 npm 后的独立可用性。
-- SDK 中对 `@minecraft/*` 的 Peer 依赖保持宽松兼容范围（`^1.x.x`）。
+- 本地 `@sfmc-bds/*` 互引使用具体的版本范围（`^<version>`），**禁止使用 `workspace:*`**，以保证单独发布至 npm 后依赖有效。
+- 对 `@minecraft/*` 的 Peer 依赖保持宽松兼容范围（`^1.x.x`）。
 
-### 注释与编码
+### 注释规范
 
-- 代码注释统一采用**简体中文 UTF-8**，言简意赅，阐明核心设计意图而非复述语法。
-- 遵循经典架构设计原则：**DRY**（不重复）、**OCP**（开闭原则）、**DIP**（依赖倒置）、**迪米特法则**（最少知识原则）。
+- 代码注释统一使用简体中文，注重说明设计原因与边界条件，避免重复描述语法。

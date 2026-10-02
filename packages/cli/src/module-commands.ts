@@ -6,10 +6,6 @@
  * 子命令通道门禁见 command-surface.ts（dispatch 前由 main/repl 判定）。
  */
 
-import fs from "node:fs/promises";
-import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
-import path from "node:path";
-import { spawn } from "node:child_process";
 import {
   configPath,
   modulePath,
@@ -19,15 +15,13 @@ import {
   type DBConfig,
   type ModuleLock,
 } from "@sfmc-bds/sdk/node/config";
-import {
-  isDevAccentModuleSub,
-  listVisibleModuleSubs,
-  type CommandMode,
-} from "./command-surface.js";
+import { spawn } from "node:child_process";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { failResult, okResult, type CliResult } from "./cli-result.js";
+import { isDevAccentModuleSub, listVisibleModuleSubs, type CommandMode } from "./command-surface.js";
 import { t } from "./i18n/index.js";
-import { c } from "./theme.js";
-import { ROOT, resolveFetchModule } from "./runtime.js";
 import { dirFingerprint, shouldSkipModuleEntry } from "./module-fingerprint.js";
 import {
   applyLockEnabled,
@@ -36,12 +30,10 @@ import {
   type ToggleCandidate,
   type ToggleNotify,
 } from "./module-toggle.js";
-import {
-  DEFAULT_REGISTRY_REPO,
-  DEFAULT_REGISTRY_TAG,
-  findUnknownModules,
-  resolveRegistryIndex,
-} from "./registry.js";
+import { DEFAULT_REGISTRY_REPO, DEFAULT_REGISTRY_TAG, findUnknownModules, resolveRegistryIndex } from "./registry.js";
+import { ROOT, resolveFetchModule } from "./runtime.js";
+import { c } from "./theme.js";
+import { isRetiredPlatformModule } from "@sfmc-bds/sdk/contracts";
 
 /** 顶层命令名(主名 + 短别名),供帮助 / 补全 / 分发共用。 */
 export const MODULE_CMD_NAMES = ["module", "mod"] as const;
@@ -54,7 +46,7 @@ export function isModuleCommand(cmd: string | undefined): cmd is ModuleCmdName {
 }
 
 /** 开发者样式子命令（蓝标，非门禁）。 */
-export const DEV_ACCENT_MODULE_SUBCOMMANDS = ["build", "reload"] as const;
+export const DEV_ACCENT_MODULE_SUBCOMMANDS = ["build", "reload", "submit"] as const;
 
 /** 当前通道下可见的 module 子命令（自动补全 / usage）。 */
 export function getVisibleModuleSubcommands(mode: CommandMode): readonly string[] {
@@ -170,11 +162,10 @@ export async function cmdModuleList(_args: string[]): Promise<string> {
   if (installed.length === 0) {
     return c.dim(t("mod.noneInstalled", { dir: modulesDir() }));
   }
-  const lock =
-    (readJson<ModuleLock>(modulePath(path.join(ROOT, "modules"), "module-lock.json")) ?? {
-      version: 1,
-      modules: {},
-    }) as ModuleLock;
+  const lock = (readJson<ModuleLock>(modulePath(path.join(ROOT, "modules"), "module-lock.json")) ?? {
+    version: 1,
+    modules: {},
+  }) as ModuleLock;
   const ids = installed.map((m) => m.id);
   const unknown = new Set(await findUnknownModules(ids));
   const lines: string[] = [c.bold(`\n${t("mod.list.title")}`), c.dim(`  ${modulesDir()}`)];
@@ -248,9 +239,7 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
     lines.push(c.dim(`    ${"id".padEnd(28)}${"source".padEnd(40)}local`));
     for (const id of ids) {
       const e = index[id]!;
-      const src = e.npm
-        ? `npm:${e.npm}${e.version ? `@${e.version}` : ""}`
-        : `github:${e.repo}@${e.tag}`;
+      const src = e.npm ? `npm:${e.npm}${e.version ? `@${e.version}` : ""}` : `github:${e.repo}@${e.tag}`;
       const local = installed.has(id) ? c.green("●") : c.dim("○");
       lines.push(`  ${local} ${id.padEnd(26)}${src.padEnd(40)}${installed.has(id) ? "installed" : ""}`);
     }
@@ -286,9 +275,7 @@ export async function cmdModuleSearch(args: string[]): Promise<string> {
     lines.push(`  source     : github:${entry.repo}@${entry.tag}`);
     lines.push(`  github     : https://github.com/${entry.repo}/tree/${entry.tag}`);
   }
-  lines.push(
-    `  local      : ${isInstalled ? c.green(`installed @ ${installedPath}`) : c.dim("not installed")}`
-  );
+  lines.push(`  local      : ${isInstalled ? c.green(`installed @ ${installedPath}`) : c.dim("not installed")}`);
 
   if (!isInstalled) {
     lines.push(c.dim(`\n  install: sfmc mod install ${query}`));
@@ -316,7 +303,8 @@ export async function cmdModuleInfo(args: string[]): Promise<string> {
     lines.push(`  schemaVer   : ${m.manifest.schemaVersion ?? "(none)"}`);
     lines.push(`  routes      : ${m.manifest.routes?.length ?? 0}`);
     if (m.manifest.routes?.length) {
-      for (const r of m.manifest.routes) lines.push(c.dim(`    ${r.method.padEnd(7)} ${r.path.padEnd(36)} ${r.handler}`));
+      for (const r of m.manifest.routes)
+        lines.push(c.dim(`    ${r.method.padEnd(7)} ${r.path.padEnd(36)} ${r.handler}`));
     }
     lines.push(`  migrations  : ${m.manifest.migrations?.length ?? 0}`);
     if (m.manifest.migrations?.length) {
@@ -393,11 +381,10 @@ function buildToggleCandidates(installed: InstalledModule[]): ToggleCandidate[] 
 
 function writeLocalModuleEnabled(logicalId: string, enabled: boolean): void {
   const lockPath = moduleLockPath();
-  const lock =
-    (readJson<ModuleLock>(lockPath) ?? {
-      version: 1,
-      modules: {},
-    }) as ModuleLock;
+  const lock = (readJson<ModuleLock>(lockPath) ?? {
+    version: 1,
+    modules: {},
+  }) as ModuleLock;
   applyLockEnabled(lock, logicalId, enabled);
   writeJson(lockPath, lock);
 }
@@ -439,6 +426,8 @@ async function notifyDbToggle(logicalId: string, action: "enable" | "disable"): 
 async function cmdModuleToggle(query: string, action: "enable" | "disable"): Promise<CliResult> {
   const installed = await scanInstalled();
   const target = resolveToggleTarget(query, buildToggleCandidates(installed));
+  if (action === "enable" && target && isRetiredPlatformModule(target.logicalId)) return failResult("monitor 已收编至平台，无需启用；请更新平台行为包。");
+  if (action === "enable" && target && isRetiredPlatformModule(target.logicalId)) return failResult("monitor 已收编至平台，无需启用；请更新平台行为包。");
   if (!target) {
     return failResult(c.red(t("mod.notInstalled", { id: query })));
   }
@@ -450,9 +439,7 @@ async function cmdModuleToggle(query: string, action: "enable" | "disable"): Pro
   try {
     writeLocalModuleEnabled(target.logicalId, enabled);
   } catch (err) {
-    return failResult(
-      c.red(t("mod.toggleLockFailed", { id: target.logicalId, message: (err as Error).message }))
-    );
+    return failResult(c.red(t("mod.toggleLockFailed", { id: target.logicalId, message: (err as Error).message })));
   }
 
   const notify = await notifyDbToggle(target.logicalId, action);
@@ -469,6 +456,7 @@ async function cmdModuleToggle(query: string, action: "enable" | "disable"): Pro
 
 export async function cmdModuleEnable(args: string[]): Promise<CliResult> {
   const id = args[0];
+  if (id && isRetiredPlatformModule(id)) return failResult("monitor 已收编至平台，无需安装或启用；请更新平台行为包。");
   if (!id) return failResult(c.yellow(t("mod.enable.usage")));
   return cmdModuleToggle(id, "enable");
 }
@@ -628,11 +616,22 @@ function parseFlags(args: string[]): InstallFlags {
  * 作者向 test/watch/publish 已迁至 VS Code 扩展与 @sfmc-bds/devkit。
  */
 export async function dispatchModuleCommand(sub: string | undefined, args: string[]): Promise<string> {
+  if (sub && ["install", "uninstall", "remove", "enable", "disable", "update", "pin", "build", "reload"].includes(sub) && !args.includes("--check")) {
+    const { withMaintenanceLock } = await import("@sfmc-bds/management/node");
+    return withMaintenanceLock(ROOT, () => dispatchModuleCommandUnlocked(sub, args));
+  }
+  return dispatchModuleCommandUnlocked(sub, args);
+}
+async function dispatchModuleCommandUnlocked(sub: string | undefined, args: string[]): Promise<string> {
   switch (sub) {
     case "list":
       return cmdModuleList(args);
     case "search":
       return cmdModuleSearch(args);
+    case "submit": {
+      const { runRegistrySubmitCommand } = await import("@sfmc-bds/devkit");
+      return runRegistrySubmitCommand(args);
+    }
     case "install":
       return cmdModuleInstall(args);
     case "uninstall":

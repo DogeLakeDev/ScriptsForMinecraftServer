@@ -10,7 +10,14 @@ await build({
   format: "cjs",
   platform: "node",
   outfile: "dist/extension.js",
-  external: ["vscode", "@sfmc-bds/devkit", "@sfmc-bds/create-module", "@sfmc-bds/sdk", "@sfmc-bds/sdk/logs"],
+  external: [
+    "vscode",
+    "@sfmc-bds/cli",
+    "@sfmc-bds/devkit",
+    "@sfmc-bds/create-module",
+    "@sfmc-bds/sdk",
+    "@sfmc-bds/sdk/logs",
+  ],
   sourcemap: true,
 });
 

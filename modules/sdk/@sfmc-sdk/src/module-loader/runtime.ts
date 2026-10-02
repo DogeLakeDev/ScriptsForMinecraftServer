@@ -1,3 +1,4 @@
+import { isRetiredPlatformModule } from "../contracts/platform-capabilities.js";
 import type { ConfigClient } from "../sapi/config/client.js";
 import type { DbClient } from "../sapi/db/client.js";
 import { debug } from "../sapi/runtime/debug-log.js";
@@ -117,6 +118,7 @@ function applyModuleAuthContext(id: ModuleId): ModuleServices | undefined {
 export class ModuleRegistry {
   /** 注册模块描述符（构建时各模块包调用）。 */
   static register(descriptor: ModuleDescriptor): void {
+    if (isRetiredPlatformModule(descriptor.id)) return;
     gModuleState.descriptors.push(descriptor);
   }
 

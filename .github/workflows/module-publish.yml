@@ -57,6 +57,8 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      npm_published: ${{ steps.npm-publish.outputs.published }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -124,6 +126,7 @@ jobs:
           retention-days: 14
 
       - name: 发布到 npm
+        id: npm-publish
         if: inputs.dry_run == false
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -133,6 +136,7 @@ jobs:
             exit 1
           fi
           pnpm publish --access public --tag latest --no-git-checks
+          echo 'published=true' >> "$GITHUB_OUTPUT"
 
       - name: 创建模块版本标签与 GitHub Release
         if: inputs.dry_run == false && inputs.create_github_release == true
@@ -168,3 +172,13 @@ jobs:
           VERSION: ${{ inputs.version }}
           COMMIT: ${{ inputs.commit }}
         run: echo "::notice::npm 发布完成；请用有模块仓写权限的维护者凭据，为 ${MODULE} 的 ${COMMIT} 创建 v${VERSION} 标签与 GitHub Release"
+
+  submit-index:
+    needs: publish
+    if: always() && !cancelled() && inputs.dry_run == false && needs.publish.outputs.npm_published == 'true'
+    uses: ./.github/workflows/module-index-submit.yml
+    with:
+      module_repository: DogeLakeDev/sfmc-module-${{ inputs.module }}
+      module_ref: ${{ inputs.commit }}
+    secrets:
+      REGISTRY_SUBMIT_TOKEN: ${{ secrets.REGISTRY_SUBMIT_TOKEN }}

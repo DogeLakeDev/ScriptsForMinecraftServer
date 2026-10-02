@@ -2,23 +2,24 @@
  * SFMC Module — VS Code/Cursor 扩展入口
  */
 
+import { rebuildAndDeploy, startModuleWatch } from "@sfmc-bds/devkit";
 import * as vscode from "vscode";
-import { startModuleWatch, rebuildAndDeploy } from "@sfmc-bds/devkit";
+import { ExtLog } from "./log.js";
 import {
+  cmdClearAndApplyLogFilter,
+  cmdConfigureLogFilter,
+  cmdLinkModule,
+  cmdNewModule,
+  cmdOpenPublishGuide,
+  cmdPublishModule,
+  cmdSetSfmcRoot,
+  cmdSubmitRegistry,
+  coerceModRoot,
   ensureSfmcRoot,
   getSfmcCliPathConfigured,
-  cmdNewModule,
-  cmdSetSfmcRoot,
-  cmdConfigureLogFilter,
-  cmdClearAndApplyLogFilter,
   pickModuleRoot,
-  coerceModRoot,
-  cmdLinkModule,
-  cmdPublishModule,
-  cmdOpenPublishGuide,
 } from "./panels/commands.js";
 import { registerTreeView } from "./panels/ModuleTreeProvider.js";
-import { ExtLog } from "./log.js";
 
 const WATCH_STATE_KEY = "sfmc:watchActive";
 
@@ -62,6 +63,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("sfmcModule.publishModule", async (arg?: unknown) => {
       await cmdPublishModule(arg);
+    }),
+    vscode.commands.registerCommand("sfmcModule.submitRegistry", async (arg?: unknown) => {
+      await cmdSubmitRegistry(arg);
     }),
     vscode.commands.registerCommand("sfmcModule.openPublishGuide", async () => {
       await cmdOpenPublishGuide();

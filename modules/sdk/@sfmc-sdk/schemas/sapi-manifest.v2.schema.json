@@ -36,20 +36,12 @@
     "type": {
       "type": "string",
       "enum": ["core", "feature"],
-      "description": "已废弃：请删除。不可禁用改用 canDisable:false；默认启用改用 enabledByDefault"
+      "description": "已废弃：请删除。模块启停由服主通过 CLI/API 管理"
     },
     "configKey": {
       "type": "string",
       "minLength": 1,
       "description": "对应 configs/<configKey>.json"
-    },
-    "enabledByDefault": {
-      "type": "boolean",
-      "description": "安装时是否默认写入启用（缺省 true）"
-    },
-    "canDisable": {
-      "type": "boolean",
-      "description": "是否允许通过 CLI/API 写入禁用状态（缺省 true；下次冷启动生效）"
     },
     "requires": {
       "type": "array",

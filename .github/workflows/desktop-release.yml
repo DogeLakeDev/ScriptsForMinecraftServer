@@ -1,0 +1,99 @@
+name: SFMC Desktop release
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+    inputs:
+      signed:
+        description: "生成签名发行包（需要配置 PFX Secrets 与发布者变量）"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}\.cache\electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: 准备 Electron
+        run: node packages/desktop/node_modules/electron/install.js
+      - run: pnpm --filter @sfmc-bds/sfmc... build
+      - run: pnpm --filter @sfmc-bds/management typecheck
+      - run: pnpm --filter @sfmc-bds/cli typecheck
+      - run: pnpm --filter @sfmc-bds/desktop typecheck
+      - name: 核对桌面标签版本
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $version = (Get-Content packages/desktop/package.json | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "desktop-v$version") { throw "桌面标签与 package.json 版本不一致" }
+      - name: 打包
+        shell: pwsh
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          SFMC_SIGNING_PUBLISHER: ${{ vars.SFMC_SIGNING_PUBLISHER }}
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*' -or '${{ inputs.signed }}' -eq 'true') {
+            pnpm desktop:package --signed
+          } else {
+            pnpm desktop:package
+          }
+          if ($LASTEXITCODE -ne 0) { throw "桌面打包失败" }
+      - name: 验证签名身份
+        if: startsWith(github.ref, 'refs/tags/') || inputs.signed
+        shell: pwsh
+        env:
+          SFMC_SIGNING_PUBLISHER: ${{ vars.SFMC_SIGNING_PUBLISHER }}
+        run: |
+          $files = @(Get-ChildItem packages/desktop/release -Filter '*.exe')
+          $files += Get-Item 'packages/desktop/release/win-unpacked/SFMC Desktop.exe'
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
+            if ($signature.Status -ne 'Valid') { throw "签名无效：$($file.Name)" }
+            if ($signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) -ne $env:SFMC_SIGNING_PUBLISHER) { throw "签名发布者不匹配" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sfmc-desktop-windows-x64
+          path: |
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.yml
+            packages/desktop/release/*.blockmap
+            packages/desktop/payload/release-manifest.json
+          if-no-files-found: error
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: windows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sfmc-desktop-windows-x64
+          path: artifacts
+      - name: 发布独立桌面版本
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mapfile -t assets < <(find artifacts -type f)
+          gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-v}" --generate-notes --latest=false
+

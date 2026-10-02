@@ -23,6 +23,7 @@ import { existsSync, readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pushLog } from "./logs.js";
+import { isRetiredPlatformModule } from "@sfmc-bds/sdk/contracts";
 import { dirFingerprint } from "./module-fingerprint.js";
 import { failResult, okResult, type CliResult } from "./cli-result.js";
 import { t } from "./i18n/index.js";
@@ -310,6 +311,7 @@ export function deployedCatalogPath(bdsRoot: string, levelName: string): string 
 
 /** 解析启用状态:lock 优先,否则 catalog.enabledByDefault(缺省 true↔!==false),未收录模块 false */
 function isModuleEnabled(logicalId: string, lock: ModuleLock, catalogDefaults: Map<string, boolean>): boolean {
+  if (isRetiredPlatformModule(logicalId)) return false;
   const st = lock.modules?.[logicalId];
   if (st && typeof st.enabled === "boolean") return st.enabled;
   return catalogDefaults.get(logicalId) ?? false;

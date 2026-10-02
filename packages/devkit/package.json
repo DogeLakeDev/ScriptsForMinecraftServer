@@ -14,6 +14,9 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "sfmc-module-submit": "./dist/registry-cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,6 +27,7 @@
   },
   "files": [
     "dist",
+    "schemas",
     "README.md"
   ],
   "scripts": {
@@ -32,11 +36,13 @@
   },
   "dependencies": {
     "@sfmc-bds/bds-tools": "workspace:*",
-    "@sfmc-bds/cli": "workspace:*",
-    "@sfmc-bds/sdk": "workspace:*"
+    "@sfmc-bds/sdk": "workspace:*",
+    "ajv": "8.17.1",
+    "semver": "7.7.2"
   },
   "devDependencies": {
-    "@sfmc-bds/tools": "workspace:*"
+    "@sfmc-bds/tools": "workspace:*",
+    "@types/semver": "7.7.1"
   },
   "publishConfig": {
     "access": "public",

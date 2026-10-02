@@ -4,9 +4,9 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 
 ## 1. 核心机制与设计原则
 
-- **冷启动自愈（Zero-Config Bootstrap）**：首次启动任何服务（`sfmc`、`db-server`、`qq-bridge`）时，系统会自动探测并生成缺失的标准配置文件，填入安全的默认参数。
-- **静态强校验（JSON Schema）**：每个自动生成的 JSON 文件首行均预注入 `$schema` 契约指针。在 VS Code 或 Cursor 中编辑时，可享受即时的字段悬停解释、代码补全与语法检查。
-- **无感环境覆盖（Environment Overrides）**：生产环境（如 Docker、CI/CD 或云服务器守护进程）下，可通过环境变量覆盖敏感凭证与关键路径，无需侵入文件。
+- **自动生成初始配置**：首次启动任何服务（`sfmc`、`db-server`、`qq-bridge`）时，系统会自动探测并生成缺失的标准配置文件，填入安全的默认参数。
+- **静态强校验（JSON Schema）**：自动生成的 JSON 文件首行均预注入 `$schema` 契约指针。在编辑器中可提供字段悬停解释、代码补全与语法检查。
+- **环境变量覆盖（Environment Overrides）**：生产环境（如 Docker、CI/CD 或云服务器守护进程）下，可通过环境变量覆盖敏感凭证与关键路径。
 
 ```text
 <SFMC_ROOT>/
@@ -94,7 +94,7 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 - **群标识 (`official.group_openid`)**：官方机器人对应的群唯一 OpenID（注意：**并非传统群号**）。首次拉入机器人后在群内 `@机器人`，可在 `qq-bridge` 日志中查看自动捕获并打印的 OpenID。
 - **事件推群开关 (`qq_events`)**：细粒度控制进服、退服、玩家阵亡、服务器起停等系统广播是否转发至 QQ 群。
 
-> 完整机器人联调步骤与权限申请指引，请参阅 [QQ 互通配置手册](./qq-bridge.md)。
+> 完整机器人联调步骤与权限申请指引，请参阅 [QQ 互通配置手册](./qq-bridge.mdx)。
 
 ---
 
@@ -205,35 +205,35 @@ BDS 控制台或高频实体脚本常常会打印过量无效信息。通过 `lo
 
 ---
 
-### `server.properties`：BDS 原生配置与智能本地化辅助
+### `server.properties`：BDS 原生配置与本地化辅助
 
 位于 `<bds_path>/server.properties`，是 Minecraft 基岩版官方独立服务端（BDS）的核心配置文件，控制网络端口、视距、正版验证、默认游戏模式与世界难度等关键底层参数。
 
-为了降低服主理解门槛与排错成本，SFMC 平台内置了 **`server.properties` 智能本地化与合规辅助引擎**（由 `@sfmc-bds/bds-tools` 提供驱动）：
+SFMC 平台提供了 **`server.properties` 本地化与配置辅助功能**（由 `@sfmc-bds/bds-tools` 提供）：
 
 1. **自动本地化注释（多语言翻译）**：
    - **生效时机**：执行 `sfmc update`（安装或版本更新解压后）、或日常通过 `sfmc start` 启动 BDS 进程前自动执行。
-   - **零破坏原则**：严格基于属性感知 AST 解析，**绝对不修改任何配置 Key**，**百分之百保留服主自定义修改的 Value**（如端口、地图名、最大人数等），未来未知新增项与自定义注释原样完整保留。
-   - **结构化中文说明**：涵盖官方约 40 个常用配置项，提供清晰的功能概述、合法取值枚举与避坑建议（如 Xbox 成就影响、SAPI 脚本报错控制台输出等）。
-   - **语言环境联动**：根据 `configs/runtime.json#locale`、`--lang` 参数或系统语言自动判定；非中文环境（如 `en`）保持原版英文不变。
+   - **保留自定义配置**：基于属性解析，不修改配置键名，保留服主自定义修改的配置值（如端口、地图名、最大人数等），未知新增项与自定义注释原样保留。
+   - **结构化中文说明**：涵盖官方约 40 个常用配置项，提供功能概述、合法取值枚举与注意事项。
+   - **语言环境联动**：根据 `configs/runtime.json#locale`、`--lang` 参数或系统语言自动判定；非中文环境（如 `en`）保持原版英文。
 2. **EULA 遥测合规补丁（`emit-server-telemetry=true`）**：
-   - 根据 Mojang EULA 协议约定，当服主在初始化向导同意 EULA 后，平台会在启动和升级收尾阶段自动确保 `emit-server-telemetry=true` 写入并附带中文说明，避免控制台反复出现协议未确认警告。
+   - 根据 Mojang EULA 协议约定，当服主在初始化向导同意 EULA 后，平台会在启动和升级阶段自动确保 `emit-server-telemetry=true` 写入并附带中文说明。
 3. **幂等性与安全编码**：
-   - 保证幂等写入（多次启动或更新不会导致注释重复追加或排版混乱），强制采用无 BOM 的标准 UTF-8 编码，彻底杜绝乱码与解析异常。
+   - 保证幂等写入（多次启动或更新不会导致注释重复追加），采用无 BOM 的标准 UTF-8 编码。
 
 ## 3. 模块状态与私有配置
 
 ### 模块运行时状态文件
 
-位于 `<SFMC_ROOT>/modules/` 目录下，记录当前工作区的模块拓扑状态：
+位于 `<SFMC_ROOT>/modules/` 目录下，记录当前工作区的模块状态：
 
 | 文件                       | 角色与职责                                                                                       | 维护者                                                          |
 | :------------------------- | :----------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
 | `modules/catalog.json`     | **本地模块清单**。记录所有已解压安装模块的名称、版本、依赖关系与代码入口路径。作为只读静态索引。 | `sfmc mod install` / `uninstall` 自动维护                       |
-| `modules/module-lock.json` | **启停状态锁**。记录每个模块的显式激活状态（`"enabled": true                                     | false`）。**这是 BDS 装载闸门判断是否打包该模块的唯一真理源**。 | `sfmc mod enable` / `disable` 或 Admin GUI 维护 |
+| `modules/module-lock.json` | **启停状态锁**。记录每个模块的显式激活状态（`"enabled": true` / `false`）。这是构建与装载阶段判断是否打包该模块的依据。 | `sfmc mod enable` / `disable` 维护 |
 
-:::important 锁文件原则
-切勿手动破坏 `module-lock.json` 的 JSON 格式。启停模块请统一使用命令 `sfmc mod enable <id>` 或 `sfmc mod disable <id>`，确保状态同步与行为包热重载平滑执行。
+:::important 锁文件说明
+不要随意手动修改 `module-lock.json` 的 JSON 格式。启停模块请统一使用命令 `sfmc mod enable <id>` 或 `sfmc mod disable <id>`，以确保状态同步与行为包热重载正常进行。
 :::
 
 ### 模块私有配置（`<configKey>.json`）

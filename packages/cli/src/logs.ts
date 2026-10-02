@@ -232,7 +232,17 @@ export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
     const fp = path.join(dir, name.endsWith(".log") ? name : `${name}.log`);
     let text: string;
     try {
-      text = fs.readFileSync(fp, "utf8");
+      if (opts.limit) {
+        const fd = fs.openSync(fp, "r");
+        try {
+          const size = fs.fstatSync(fd).size;
+          const start = Math.max(0, size - 4 * 1024 * 1024);
+          const bytes = Buffer.alloc(size - start);
+          fs.readSync(fd, bytes, 0, bytes.length, start);
+          text = bytes.toString("utf8");
+          if (start > 0) text = text.slice(text.indexOf("\n") + 1);
+        } finally { fs.closeSync(fd); }
+      } else text = fs.readFileSync(fp, "utf8");
     } catch {
       continue;
     }

@@ -240,7 +240,7 @@ export function resolveSdkPackageRoot(): string {
 }
 
 function nodeBinary(): string {
-  return process.execPath;
+  return process.env.SFMC_NODE_BINARY ?? process.execPath;
 }
 
 function serviceChildEnv(service: ServiceId, optsEnv?: NodeJS.ProcessEnv | null) {

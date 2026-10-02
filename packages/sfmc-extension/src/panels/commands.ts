@@ -2,19 +2,21 @@
  * panels/commands.ts — QuickPick / InputBox 命令实现（供 TreeView 调用）
  */
 
-import * as vscode from "vscode";
-import fs from "node:fs";
-import path from "node:path";
-import { spawn } from "node:child_process";
+import { createModule, isValidModuleId } from "@sfmc-bds/create-module";
 import {
+  findModuleRootFromFile,
   isValidModuleRoot,
   isValidSfmcRoot,
-  findModuleRootFromFile,
   readModuleRootInfo,
-  setModuleEnabled,
   runSfmcCli,
+  setModuleEnabled,
+  submitModuleToRegistry,
 } from "@sfmc-bds/devkit";
-import { createModule, isValidModuleId } from "@sfmc-bds/create-module";
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import * as vscode from "vscode";
 import { ExtLog } from "../log.js";
 
 /** 读取 sfmc.root；未配置返回空字符串（不猜工作区）。 */
@@ -24,7 +26,47 @@ export function getSfmcRootConfigured(): string {
 
 /** 可选：显式 sfmc CLI 入口（.js/.mjs）；空则由 devkit 从安装树 / PATH / SFMC_CLI 解析。 */
 export function getSfmcCliPathConfigured(): string {
-  return (vscode.workspace.getConfiguration("sfmc").get<string>("cliPath") || "").trim();
+  const configured = (
+    vscode.workspace.getConfiguration("sfmc").get<string>("cliPath") ||
+    process.env.SFMC_CLI ||
+    ""
+  ).trim();
+  if (configured) return configured;
+  try {
+    return createRequire(__filename).resolve("@sfmc-bds/cli/cli");
+  } catch {
+    return "";
+  }
+}
+
+/** 索引提交不依赖运行目录；展示校验结果后，由作者选择创建 PR。 */
+export async function cmdSubmitRegistry(arg?: unknown): Promise<void> {
+  const moduleRoot = coerceModRoot(arg) || (await pickModuleRoot());
+  if (!moduleRoot) return;
+  try {
+    const preview = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "校验模块索引信息" },
+      () => submitModuleToRegistry({ moduleRoot, dryRun: true })
+    );
+    const doc = await vscode.workspace.openTextDocument({
+      language: "json",
+      content: JSON.stringify({ previous: preview.previous, proposed: preview.entry }, null, 2),
+    });
+    await vscode.window.showTextDocument(doc, { preview: true });
+    const choice = await vscode.window.showInformationMessage(
+      `提交 ${preview.entry.id}@${preview.entry.version} 到 ${preview.registryRepo}？`,
+      "创建或更新 PR"
+    );
+    if (!choice) return;
+    const result = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "提交模块索引 PR" },
+      () => submitModuleToRegistry({ moduleRoot })
+    );
+    if (result.prUrl) await vscode.env.openExternal(vscode.Uri.parse(result.prUrl));
+    else vscode.window.showInformationMessage("索引内容相同，无需提交");
+  } catch (error) {
+    vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+  }
 }
 
 /**
@@ -43,15 +85,11 @@ export async function pickAndWriteSfmcRoot(): Promise<string | null> {
   if (!picked?.[0]) return null;
   const root = picked[0].fsPath;
   if (!isValidSfmcRoot(root)) {
-    vscode.window.showErrorMessage(
-      `所选目录不是有效 SFMC 工作目录（需含 configs/ 与 modules/）：${root}`
-    );
+    vscode.window.showErrorMessage(`所选目录不是有效 SFMC 工作目录（需含 configs/ 与 modules/）：${root}`);
     ExtLog.error("sfmc.root", `无效工作目录 ${root}（需含 configs/ 与 modules/）`);
     return null;
   }
-  await vscode.workspace
-    .getConfiguration("sfmc")
-    .update("root", root, vscode.ConfigurationTarget.Workspace);
+  await vscode.workspace.getConfiguration("sfmc").update("root", root, vscode.ConfigurationTarget.Workspace);
   ExtLog.info("sfmc.root", `工作目录已设为 ${root}`);
   return root;
 }
@@ -269,11 +307,9 @@ export async function cmdLinkModule(modRootArg?: unknown): Promise<void> {
   if (!sfmcRoot) return;
   ExtLog.show();
   ExtLog.info("link", `mod install ${moduleId} --from dir:${modRoot} --link（manifest id=${info?.id ?? "?"}）`);
-  const r = await runSfmcCli(
-    sfmcRoot,
-    ["mod", "install", moduleId, "--from", `dir:${modRoot}`, "--link"],
-    { cliPath: getSfmcCliPathConfigured() || undefined }
-  );
+  const r = await runSfmcCli(sfmcRoot, ["mod", "install", moduleId, "--from", `dir:${modRoot}`, "--link"], {
+    cliPath: getSfmcCliPathConfigured() || undefined,
+  });
   ExtLog.raw("link", r.output);
   if (r.ok) {
     vscode.window.showInformationMessage(`已 link ${moduleId} → ${sfmcRoot}`);
@@ -313,9 +349,7 @@ export async function cmdPublishModule(modRootArg?: unknown): Promise<void> {
 
 export async function cmdOpenPublishGuide(): Promise<void> {
   await vscode.env.openExternal(
-    vscode.Uri.parse(
-      "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/docs/zh/dev/publish.md"
-    )
+    vscode.Uri.parse("https://github.com/DogeLakeDev/ScriptsForMinecraftServer/blob/main/docs/zh/dev/publish.md")
   );
 }
 

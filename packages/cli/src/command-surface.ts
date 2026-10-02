@@ -127,17 +127,13 @@ export function findTopLevelSpec(cmd: string | undefined): CommandSpec | undefin
 /** 查找 module 子命令 spec。 */
 export function findModuleSubSpec(sub: string | undefined): CommandSpec | undefined {
   if (!sub) return undefined;
-  return COMMAND_SPECS.find(
-    (s) => s.name === "module" && (s.sub === sub || (s.aliases ?? []).includes(sub))
-  );
+  return COMMAND_SPECS.find((s) => s.name === "module" && (s.sub === sub || (s.aliases ?? []).includes(sub)));
 }
 
 /** 查找 packs 子命令 spec。 */
 export function findPacksSubSpec(sub: string | undefined): CommandSpec | undefined {
   if (!sub) return undefined;
-  return COMMAND_SPECS.find(
-    (s) => s.name === "packs" && (s.sub === sub || (s.aliases ?? []).includes(sub))
-  );
+  return COMMAND_SPECS.find((s) => s.name === "packs" && (s.sub === sub || (s.aliases ?? []).includes(sub)));
 }
 
 /** 当前 mode 下可见的 module 子命令名（规范名，不含 remove 别名）。 */
@@ -196,10 +192,12 @@ const TOP_DESC: Record<string, string> = {
   install: "help.module.install",
   uninstall: "help.module.uninstall",
   search: "help.module.search",
+  submit: "help.module.submit",
   verify: "help.module.verify",
 };
 
 const MODULE_DESC: Record<string, string> = {
+  submit: "help.module.submit",
   list: "help.module.list",
   info: "help.module.info",
   build: "help.module.build",
@@ -258,7 +256,10 @@ function moduleChildNodes(mode: CommandMode): PaletteNode[] {
  * 「直接运行」项：token 为空，回车提交已经写好的父命令。
  * 用在无参本身就是合法命令、同时还要展开可选开关的节点上。
  */
-function asIsNode(descKey: string, labelKey: "palette.asIs" | "palette.fixOnly" | "palette.localeCurrent" = "palette.asIs"): PaletteNode {
+function asIsNode(
+  descKey: string,
+  labelKey: "palette.asIs" | "palette.fixOnly" | "palette.localeCurrent" = "palette.asIs"
+): PaletteNode {
   return { label: t(labelKey), token: "", descKey };
 }
 
@@ -515,6 +516,7 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
     aliases: ["remove"],
   },
   { id: "module.search", name: "module", sub: "search", channel: "both" },
+  { id: "module.submit", name: "module", sub: "submit", channel: "both", accent: "dev" },
   { id: "module.verify", name: "module", sub: "verify", channel: "both" },
   { id: "module.enable", name: "module", sub: "enable", channel: "both" },
   { id: "module.disable", name: "module", sub: "disable", channel: "both" },

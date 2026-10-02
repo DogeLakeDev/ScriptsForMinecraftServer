@@ -1,0 +1,8 @@
+{
+  "node": "24.21.0",
+  "pnpm": "10.8.0",
+  "protocolVersion": 1,
+  "platformPackage": "@sfmc-bds/sfmc",
+  "hostArchitectures": ["x64"],
+  "hostSystems": ["win32", "linux"]
+}

@@ -390,7 +390,7 @@ class Service {
    * - false 或不传：`stop all`、`restart -all`、守护进程 shutdown / SIGTERM（经 stopAll）。
    *   不按镜像名或脚本名杀外部进程，避免误杀同机其他 Bedrock、db、qq。
    */
-  async stop(external = false): Promise<StopKind> {
+  async stop(external = false, forceOnTimeout = true): Promise<StopKind> {
     this.manualStop = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
@@ -412,7 +412,7 @@ class Service {
     }
 
     const managed = Boolean(this.proc && this.running);
-    if (managed) await this.stopManagedChild();
+    if (managed) await this.stopManagedChild(forceOnTimeout);
 
     /* db / qq：仅单服务停止时，托管停完后仍按脚本再扫一遍，清掉同机上的外部实例 */
     if (external && (this.name === "db" || this.name === "qq")) {
@@ -430,7 +430,7 @@ class Service {
    * 优雅停止当前托管子进程（stdin stop 或 SIGTERM，超时后 SIGKILL）。
    * 使用场景：Service.stop 确认本进程仍持有子进程时调用；逻辑与原先 stop 主体相同。
    */
-  private async stopManagedChild(): Promise<void> {
+  private async stopManagedChild(forceOnTimeout = true): Promise<void> {
     if (!this.proc || !this.running) return;
     this.events.emit("output", "stopping...", "info");
 
@@ -440,8 +440,12 @@ class Service {
       this.proc.kill("SIGTERM");
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        if (!forceOnTimeout && this.proc) {
+          reject(new Error(`${this.name} 未在超时内优雅退出；已中止维护，不强制结束进程`));
+          return;
+        }
         if (this.proc) {
           this.events.emit("output", "force kill", "error");
           try {

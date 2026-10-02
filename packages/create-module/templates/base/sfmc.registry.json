@@ -1,0 +1,5 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@main/packages/devkit/schemas/registry-author.schema.json",
+  "category": "utility",
+  "tags": []
+}

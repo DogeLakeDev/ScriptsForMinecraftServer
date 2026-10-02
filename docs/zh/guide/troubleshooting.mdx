@@ -26,11 +26,11 @@ lsof -i :3001
 
 ---
 
-### 2. 数据库守护服务（db-server）异常
+### 2. 数据库服务（db-server）异常
 
-| 异常现象 | 核心根因 | 解决步骤 |
+| 异常现象 | 可能原因 | 解决步骤 |
 | :--- | :--- | :--- |
-| 启动瞬间秒退、报 `Cannot find module 'node:sqlite'` | Node.js 版本过低 | 将 Node.js 升级至 **`22.13.0` 或更高版本**（平台依赖 Node 内置的原生 SQLite 模块）。 |
+| 启动报错 `Cannot find module 'node:sqlite'` | Node.js 版本过低 | 将 Node.js 升级至 **`22.13.0` 或更高版本**（平台依赖 Node 内置的原生 SQLite 模块）。 |
 | 数据持久化写入失败或报 `SQLITE_CORRUPT` | 磁盘异常或非正常断电损坏 | 停止所有服务，从 `<SFMC_ROOT>/data/backups/` 备份文件夹中还原最近的 `.sqlite` 文件。 |
 | SAPI 模块调用数据服务报 `401 Unauthorized` | 模块鉴权 Token 失效 | 确认 SAPI 启动阶段 `ConfigManager.init()` 顺利获取了启动快照，重新执行 `mod reload`。 |
 
@@ -41,9 +41,9 @@ curl http://127.0.0.1:3001/api/health
 
 ---
 
-### 3. BDS 启动与行为包装载闸门
+### 3. BDS 启动与行为包装载
 
-1. **查看装载摘要**：检查终端控制台的装载输出与 `<SFMC_ROOT>/.sfmc/logs/` 下的各服务独立日志。
+1. **查看装载日志**：检查控制台输出与 `<SFMC_ROOT>/.sfmc/logs/` 下的各服务独立日志。
 2. **手动编译打包验证**：在 sfmc 终端中执行 `mod build`，确认 esbuild 产物生成无 TypeScript 语法报错。
 3. **确认附加包冲突**：检查 `worlds/<level>/behavior_packs/` 是否存在同名或旧版行为包残留（详见 [附加包管理](./addons.md)）。
 
@@ -51,11 +51,11 @@ curl http://127.0.0.1:3001/api/health
 
 ### 4. 模块已启用（Enabled）但在游戏内无响应
 
-- **代码与配置生效边界**：
+- **代码与配置生效机制**：
   - 若修改了 `sapi/src/` 中的 TypeScript 代码：执行 `sfmc> mod reload` 即可热重载生效。
   - 若修改了 `configs/*.json` 或 `manifest.json`：必须**重启 BDS** 才能生效。
 - **锁文件状态**：确认 `<SFMC_ROOT>/modules/module-lock.json` 中该模块的 `enabled` 字段为 `true`。
-- **生命周期时序问题**：若模块在初始化阶段操作了实体或维度数据失败，检查 `ModuleRegistry.register` 是否应设置 `afterWorldLoad: true`。
+- **生命周期时序**：若模块在初始化阶段操作了实体或维度数据失败，检查 `ModuleRegistry.register` 是否应设置 `afterWorldLoad: true`。
 - **前置依赖模块**：检查 `manifest.json` 中的 `dependencies` 是否均已安装且处于 `enabled` 状态。
 
 ---

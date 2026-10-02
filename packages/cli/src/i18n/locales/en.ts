@@ -94,6 +94,7 @@ export const en = {
   "help.section.module": "─── Module Management ───",
   "help.module.list": "List installed modules",
   "help.module.search": "Search registry / show module info",
+  "help.module.submit": "Preview or submit a module registry PR",
   "help.module.install": "Install a module",
   "help.module.uninstall": "Remove installed module",
   "help.module.verify": "Verify SHA-256 integrity",

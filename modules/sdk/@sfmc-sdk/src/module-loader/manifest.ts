@@ -97,8 +97,6 @@ export function validateManifestV3(input: unknown): ValidationResult<ManifestV3>
     configKey: r.configKey as string,
     requires: r.requires as string[],
     permissions: r.permissions as string[],
-    ...(typeof r.enabledByDefault === "boolean" ? { enabledByDefault: r.enabledByDefault } : {}),
-    ...(typeof r.canDisable === "boolean" ? { canDisable: r.canDisable } : {}),
     ...(r.services && typeof r.services === "object" ? { services: r.services as ManifestV2["services"] } : {}),
     ...(typeof r.notes === "string" ? { notes: r.notes } : {}),
     ...(normalized ? { semantic: normalized } : {}),
@@ -108,7 +106,7 @@ export function validateManifestV3(input: unknown): ValidationResult<ManifestV3>
 
 /**
  * 收集 v2 与 v3 共享的核心顶层字段校验问题。
- * 统一收敛必填字段（id、name、configKey、requires、permissions）与通用配置（enabledByDefault、canDisable、services），
+ * 统一收敛必填字段（id、name、configKey、requires、permissions）、services 与停用字段检查，
  * 避免在 v2 与 v3 之间维护两套重复的校验规则与提示文案。
  *
  * @param r 原始输入对象字典。
@@ -125,8 +123,11 @@ function collectCoreIssues(r: Record<string, unknown>, expectedVersion: 2 | 3): 
   requireNonEmptyString(issues, r.configKey, "configKey");
   requireStringArray(issues, r.requires, "requires");
   requireStringArray(issues, r.permissions, "permissions");
-  optionalBoolean(issues, r.enabledByDefault, "enabledByDefault");
-  optionalBoolean(issues, r.canDisable, "canDisable");
+  for (const field of ["enabledByDefault", "canDisable"]) {
+    if (Object.prototype.hasOwnProperty.call(r, field)) {
+      issues.push(issueConstMismatch(field, "省略（字段已停用，请删除）", describe(r[field])));
+    }
+  }
   if (!isPlainObject(r.services)) {
     issues.push(issueInvalidType("services", ManifestExpected.object));
   } else {
@@ -237,12 +238,6 @@ function optionalArray(issues: ManifestIssue[], value: unknown, path: string): v
 }
 
 
-function optionalBoolean(issues: ManifestIssue[], value: unknown, path: string): void {
-  if (value !== undefined && typeof value !== "boolean") {
-    issues.push(issueInvalidType(path, ManifestExpected.boolean));
-  }
-}
-
 /**
  * v2 → v3 迁移。保守策略：
  *   - 所有 v2 必需字段原样复制；
@@ -259,8 +254,6 @@ export function migrateV2toV3(v2: ManifestV2): ManifestV3 {
     configKey: v2.configKey,
     requires: Array.isArray(v2.requires) ? [...v2.requires] : [],
     permissions: Array.isArray(v2.permissions) ? [...v2.permissions] : [],
-    ...(typeof v2.enabledByDefault === "boolean" ? { enabledByDefault: v2.enabledByDefault } : {}),
-    ...(typeof v2.canDisable === "boolean" ? { canDisable: v2.canDisable } : {}),
     ...(v2.services ? { services: cloneServices(v2.services) } : {}),
     ...(v2.notes !== undefined ? { notes: v2.notes } : {}),
   };

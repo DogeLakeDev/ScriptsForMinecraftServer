@@ -19,6 +19,7 @@ import {
 } from "../commands.js";
 import { onLog } from "../logs.js";
 import { onServiceStateChange, queryServicesRuntimeLocal, stopAll } from "../services.js";
+import { startAll } from "../services.js";
 import {
   clearDaemonMeta,
   createDaemonToken,
@@ -29,6 +30,17 @@ import {
 import type { DaemonEvent, DaemonRequest, DaemonResponse, DaemonResult } from "./protocol.js";
 import { toLogPayload } from "./protocol.js";
 import { markDaemonServer } from "./role.js";
+import { dispatchManagement, onManagementEvent } from "../management/server.js";
+import { toManagementError } from "@sfmc-bds/management";
+import { withMaintenanceLock } from "@sfmc-bds/management/node";
+import { ROOT } from "../runtime.js";
+import fs from "node:fs";
+import path from "node:path";
+import { stopForMaintenance } from "../management/maintenance.js";
+import { START_ORDER } from "../services.js";
+import { readDaemonMeta } from "./paths.js";
+import { isProcessAlive } from "@sfmc-bds/bds-tools/process-probe";
+import { randomUUID } from "node:crypto";
 
 /** 当前已订阅事件推送的 socket 集合 */
 const subscribers = new Set<net.Socket>();
@@ -47,6 +59,7 @@ function broadcast(event: DaemonEvent): void {
       subscribers.delete(sock);
       continue;
     }
+    if (sock.writableLength > 4 * 1024 * 1024) { sock.destroy(); subscribers.delete(sock); continue; }
     try {
       sock.write(line);
     } catch {
@@ -68,7 +81,27 @@ function writeRes(sock: net.Socket, res: DaemonResponse): void {
  * 分发单条 RPC 到现有 cmd* / services API（本进程已是 daemon，cmd* 走本地实现）。
  */
 async function dispatch(req: DaemonRequest): Promise<DaemonResult> {
+  const mutable = ["start", "stop", "restart", "startAll", "stopAll", "send", "update", "shutdown", "maintenanceStop"].includes(req.method);
+  if (mutable) {
+    const owner = fs.existsSync(path.join(ROOT, ".sfmc", "maintenance.lock")) ? JSON.parse(fs.readFileSync(path.join(ROOT, ".sfmc", "maintenance.lock"), "utf8")) as { nonce?: string } : null;
+    if (!req.params?.maintenanceToken || req.params.maintenanceToken !== owner?.nonce) {
+      return withMaintenanceLock(ROOT, () => dispatchUnlocked(req));
+    }
+  }
+  return dispatchUnlocked(req);
+}
+async function dispatchUnlocked(req: DaemonRequest): Promise<DaemonResult> {
   switch (req.method) {
+    case "maintenanceStop": {
+      await stopForMaintenance([...START_ORDER], () => {});
+      return { kind: "status", text: "", rows: await queryServicesRuntimeLocal() };
+    }
+    case "management": {
+      const request = req.params?.request;
+      if (!request || typeof request.id !== "string" || typeof request.method !== "string") throw new Error("invalid management request");
+      try { return { kind: "management", response: { type: "res", id: request.id, ok: true, result: await dispatchManagement(request) } }; }
+      catch (error) { return { kind: "management", response: { type: "res", id: request.id, ok: false, error: toManagementError(error) } }; }
+    }
     case "ping":
       return { kind: "pong" };
     case "status": {
@@ -118,7 +151,8 @@ async function dispatch(req: DaemonRequest): Promise<DaemonResult> {
     case "shutdown": {
       if (!shuttingDown) {
         shuttingDown = true;
-        await stopAll();
+        try { await stopForMaintenance([...START_ORDER], () => {}); }
+        catch (error) { shuttingDown = false; throw error; }
         setTimeout(() => {
           clearDaemonMeta();
           process.exit(0);
@@ -177,8 +211,20 @@ async function handleLine(sock: net.Socket, line: string, expectedToken: string)
  * 本函数在成功 listen 后永不返回（进程常驻）。
  */
 export async function runDaemonServer(): Promise<void> {
+  const startLock = path.join(ROOT, ".sfmc", "daemon-start.lock");
+  fs.mkdirSync(path.dirname(startLock), { recursive: true });
+  const nonce = randomUUID();
+  let handle: number;
+  try { handle = fs.openSync(startLock, "wx", 0o600); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("守护进程正在启动或启动锁遗留；不会创建第二套后台，请检查 daemon-start.lock"); throw error; }
+  fs.writeFileSync(handle, JSON.stringify({ pid: process.pid, nonce })); fs.closeSync(handle);
+  const releaseStartup = () => { try { const owner = JSON.parse(fs.readFileSync(startLock, "utf8")) as { nonce: string }; if (owner.nonce === nonce) fs.unlinkSync(startLock); } catch { /* 已释放 */ } };
+  process.once("exit", releaseStartup);
+  const previous = readDaemonMeta();
+  if (previous && await isProcessAlive(previous.pid)) { releaseStartup(); process.exit(0); }
+  if (previous) clearDaemonMeta();
   markDaemonServer();
-  clearDaemonMeta();
+  const unsubManagement = onManagementEvent(event => broadcast({ type: "event", event: "management", payload: event }));
 
   const token = createDaemonToken();
   const pipe = daemonPipePath();
@@ -201,6 +247,7 @@ export async function runDaemonServer(): Promise<void> {
     sock.setEncoding("utf8");
     sock.on("data", (chunk: string) => {
       buf += chunk;
+      if (Buffer.byteLength(buf) > 8 * 1024 * 1024) { sock.destroy(); return; }
       let idx: number;
       while ((idx = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, idx).trim();
@@ -233,8 +280,11 @@ export async function runDaemonServer(): Promise<void> {
   });
 
   writeDaemonMeta(meta);
+  releaseStartup();
+  if (process.argv.includes("--autostart") && !fs.existsSync(path.join(ROOT, ".sfmc", "maintenance.lock"))) await startAll();
 
   const cleanup = (): void => {
+    unsubManagement();
     unsubLog();
     unsubState();
     try {

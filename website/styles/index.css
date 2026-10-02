@@ -1,24 +1,104 @@
 :root {
-  --rp-c-brand: #2f6fed;
+  --rp-c-brand: #2563eb;
   --rp-c-brand-dark: #1d4ed8;
   --rp-c-brand-darker: #1e3a8a;
-  --rp-c-brand-light: #60a5fa;
-  --rp-c-brand-lighter: #93c5fd;
+  --rp-c-brand-light: #3b82f6;
+  --rp-c-brand-lighter: #60a5fa;
+
+  --sfmc-code-font: ui-monospace, SFMono-Regular, "Cascadia Code", "Fira Code", Menlo, Consolas, monospace;
 }
 
-/* Mermaid：卡片容器 + 与正文对齐的图面 */
+/* ==========================================================================
+   全局排版与细节优化
+   ========================================================================== */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 代码块字体与内联代码样式微调 */
+code, kbd, samp, pre {
+  font-family: var(--sfmc-code-font) !important;
+}
+
+:not(pre) > code {
+  font-size: 0.875em;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  background-color: var(--rp-c-bg-mute, rgba(0, 0, 0, 0.04));
+}
+
+.dark :not(pre) > code {
+  background-color: var(--rp-c-bg-mute, rgba(255, 255, 255, 0.08));
+}
+
+/* Markdown 表格视觉增强 */
+.rspress-doc table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1.25rem 0;
+  border: 1px solid var(--rp-c-divider-light, #e2e8f0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dark .rspress-doc table {
+  border-color: var(--rp-c-divider, #334155);
+}
+
+.rspress-doc th {
+  background-color: var(--rp-c-bg-soft, #f8fafc);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--rp-c-divider-light, #e2e8f0);
+}
+
+.dark .rspress-doc th {
+  background-color: var(--rp-c-bg-soft, #1e293b);
+  border-bottom-color: var(--rp-c-divider, #334155);
+}
+
+.rspress-doc td {
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--rp-c-divider-light, #e2e8f0);
+}
+
+.dark .rspress-doc td {
+  border-bottom-color: var(--rp-c-divider, #334155);
+}
+
+.rspress-doc tr:last-child td {
+  border-bottom: none;
+}
+
+.rspress-doc tbody tr:hover {
+  background-color: var(--rp-c-bg-soft, rgba(0, 0, 0, 0.015));
+}
+
+.dark .rspress-doc tbody tr:hover {
+  background-color: var(--rp-c-bg-soft, rgba(255, 255, 255, 0.02));
+}
+
+/* ==========================================================================
+   Mermaid 架构时序图卡片
+   ========================================================================== */
+
 .sfmc-mermaid {
-  margin: 1.25rem 0 1.75rem;
-  padding: 1.25rem 1rem;
+  margin: 1.5rem 0 2rem;
+  padding: 1.5rem 1rem;
   border: 1px solid var(--rp-c-divider-light, #e2e8f0);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--rp-c-bg, #fff) 92%, var(--rp-c-brand) 8%);
+  background: var(--rp-c-bg-soft, #f8fafc);
   overflow-x: auto;
   text-align: center;
+  transition: border-color 0.2s ease;
 }
 
 .dark .sfmc-mermaid {
-  background: color-mix(in srgb, var(--rp-c-bg, #0b1220) 88%, #60a5fa 12%);
+  background: color-mix(in srgb, var(--rp-c-bg, #0b1220) 90%, #3b82f6 10%);
   border-color: var(--rp-c-divider, #334155);
 }
 
@@ -54,46 +134,86 @@
   font-size: 0.85rem;
 }
 
+/* ==========================================================================
+   路径导航卡片（Path Cards）
+   ========================================================================== */
+
 .sfmc-path-cards {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   margin: 1.5rem 0 2rem;
 }
 
 .sfmc-path-card {
-  border: 1px solid var(--rp-c-divider-light);
-  border-radius: 8px;
-  padding: 1rem 1.1rem;
+  border: 1px solid var(--rp-c-divider-light, #e2e8f0);
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s ease;
+  background-color: var(--rp-c-bg, #fff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+
+.dark .sfmc-path-card {
+  background-color: var(--rp-c-bg-soft, #1e293b);
+  border-color: var(--rp-c-divider, #334155);
 }
 
 .sfmc-path-card:hover {
   border-color: var(--rp-c-brand);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.dark .sfmc-path-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .sfmc-path-card h3 {
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.35rem;
   font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .sfmc-path-card p {
   margin: 0;
-  opacity: 0.8;
-  font-size: 0.92rem;
+  opacity: 0.75;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   模块目录检索（Module Catalog）
+   ========================================================================== */
+
+.sfmc-module-catalog {
+  margin: 1.25rem 0;
 }
 
 .sfmc-module-catalog input {
   width: 100%;
   max-width: 28rem;
-  padding: 0.45rem 0.7rem;
-  margin-bottom: 0.75rem;
-  border: 1px solid var(--rp-c-divider);
-  border-radius: 6px;
-  background: var(--rp-c-bg);
+  padding: 0.5rem 0.85rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--rp-c-divider, #cbd5e1);
+  border-radius: 8px;
+  background: var(--rp-c-bg, #fff);
   color: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dark .sfmc-module-catalog input {
+  border-color: var(--rp-c-divider, #334155);
+  background: var(--rp-c-bg-soft, #1e293b);
+}
+
+.sfmc-module-catalog input:focus {
+  outline: none;
+  border-color: var(--rp-c-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rp-c-brand) 15%, transparent);
 }
 
 .sfmc-module-catalog table {
@@ -103,42 +223,71 @@
 
 .sfmc-module-catalog th,
 .sfmc-module-catalog td {
-  border-bottom: 1px solid var(--rp-c-divider-light);
-  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--rp-c-divider-light, #e2e8f0);
+  padding: 0.6rem 0.75rem;
   text-align: left;
   font-size: 0.92rem;
 }
 
+.dark .sfmc-module-catalog th,
+.dark .sfmc-module-catalog td {
+  border-bottom-color: var(--rp-c-divider, #334155);
+}
+
+/* ==========================================================================
+   排障向导组件（Troubleshoot Wizard）
+   ========================================================================== */
+
 .sfmc-troubleshoot {
-  margin: 1rem 0 1.5rem;
+  margin: 1.25rem 0 1.75rem;
 }
 
 .sfmc-troubleshoot__choices {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .sfmc-troubleshoot__choices button {
-  border: 1px solid var(--rp-c-divider);
-  background: var(--rp-c-bg);
+  border: 1px solid var(--rp-c-divider, #cbd5e1);
+  background: var(--rp-c-bg, #fff);
   color: inherit;
   border-radius: 999px;
-  padding: 0.35rem 0.85rem;
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dark .sfmc-troubleshoot__choices button {
+  border-color: var(--rp-c-divider, #334155);
+  background: var(--rp-c-bg-soft, #1e293b);
+}
+
+.sfmc-troubleshoot__choices button:hover {
+  border-color: var(--rp-c-brand);
+  background: var(--rp-c-bg-soft, #f8fafc);
+}
+
+.dark .sfmc-troubleshoot__choices button:hover {
+  background: color-mix(in srgb, var(--rp-c-bg-soft, #1e293b) 80%, white 20%);
 }
 
 .sfmc-troubleshoot__choices button[aria-pressed="true"] {
   border-color: var(--rp-c-brand);
+  color: var(--rp-c-brand);
+  font-weight: 600;
   background: color-mix(in srgb, var(--rp-c-brand) 12%, transparent);
 }
 
 .sfmc-troubleshoot__steps {
   border-left: 3px solid var(--rp-c-brand);
-  padding-left: 1rem;
+  padding-left: 1.25rem;
+  margin-top: 0.75rem;
 }
 
 .sfmc-troubleshoot__steps li {
-  margin: 0.4rem 0;
+  margin: 0.5rem 0;
+  line-height: 1.6;
 }
