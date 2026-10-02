@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/management",
-  "version": "0.1.0",
+  "version": "0.2.0-preview.1",
   "description": "SFMC management protocol — shared types, handshake/capability discovery and client connection interface (used by CLI and the desktop app)",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
