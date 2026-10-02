@@ -2,14 +2,14 @@
 
 SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，也可以通过 SSH 连接 Linux 或 Windows 服务器。服务启停、控制台、模块、资源包、配置、玩家与维护任务都集中在同一个工作区。
 
-当前提供 **0.1.0-preview.1 未签名预发布版**。内置平台为 `0.2.9-preview.1`，独立于 npm 正式版；预览版通过发行页手动下载安装更新。
+当前提供 **0.1.0-preview.2 未签名预发布版**。内置平台为 `0.2.9-preview.2`，独立于 npm 正式版；预览版通过发行页手动下载安装更新。
 
 ## 下载与启动
 
-从 [桌面版预发布页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-preview-v0.1.0-preview.1) 下载：
+从 [桌面版预发布页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-preview-v0.1.0-preview.2) 下载：
 
-- `SFMC-Desktop-0.1.0-preview.1-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.1.0-preview.1-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
+- `SFMC-Desktop-0.1.0-preview.2-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.1.0-preview.2-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
 
 客户端已经包含 Node.js、pnpm 和平台代码，本机无需额外安装这些工具。首次初始化、BDS 下载及联网更新仍需要网络。
@@ -17,7 +17,7 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 签名申请正在审核，因此 Windows 可能显示“未知发布者”或 SmartScreen 提示。先确认下载来自上面的官方仓库，并核对校验值；是否继续运行由你决定，不需要关闭系统安全功能。
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.1-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.2-x64.exe' -Algorithm SHA256
 ```
 
 ## 添加本机实例

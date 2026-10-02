@@ -31,7 +31,7 @@ SFMC 希望通过模块化架构补充基岩版的原生开发体验。
 
 ### 桌面版（Windows x64）
 
-[下载未签名预发布版](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-preview-v0.1.0-preview.1) · [使用文档](./docs/zh/guide/desktop.md)
+[下载未签名预发布版](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-preview-v0.1.0-preview.2) · [使用文档](./docs/zh/guide/desktop.md)
 
 SFMC Desktop 支持本机与 SSH 实例，提供服务启停、日志控制台、模块与资源包、配置编辑、玩家管理和运行指标。下载 `.exe` 安装，或完整解压 `.zip` 后启动；内置 Node.js、pnpm 与预览平台。
 

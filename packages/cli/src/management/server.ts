@@ -19,6 +19,13 @@ import { deploymentPreflight, deploymentPort } from "./deployment.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 
 const events = new EventEmitter();
+/** 空目录也要能完成握手，供桌面初始化向导继续；旧部署仍识别已有 BDS。 */
+function deploymentInitialized(): boolean {
+  if (isRuntimeInitialized()) return true;
+  const config = readJson<{ bds_path?: string }>(path.join(ROOT, "configs", "bds_updater.json"), {});
+  if (!config.bds_path) return false;
+  return fs.existsSync(path.join(resolveBdsContext().bdsRoot, process.platform === "win32" ? "bedrock_server.exe" : "bedrock_server"));
+}
 let tasks: TaskStore | undefined;
 export function managementTasks() {
   if (!tasks) {
@@ -67,7 +74,7 @@ async function bdsUpdate(context: TaskContext, checkOnly = false) {
 export async function dispatchManagement(request: ManagementRequest): Promise<unknown> {
   const p = params(request); const store = managementTasks();
   switch (request.method) {
-    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: isRuntimeInitialized() || fs.existsSync(path.join(resolveBdsContext().bdsRoot, process.platform === "win32" ? "bedrock_server.exe" : "bedrock_server")) };
+    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
     case "events.subscribe": return { subscribed: true };
     case "services.list": return { rows: await queryServicesRuntimeLocal() };
     case "services.start": case "services.stop": case "services.restart": {
