@@ -33,8 +33,8 @@ export async function runManagementStdio() {
         try {
           const result = await client.callDaemon("management", { request });
           if (result.kind !== "management") throw new Error("旧守护进程没有管理入口");
+          if (request.method === "events.subscribe" && result.response.ok && !dispose) dispose = await client.ensureDaemonSubscription();
           output(JSON.stringify(result.response) + "\n");
-          if (request.method === "events.subscribe" && !dispose) dispose = await client.ensureDaemonSubscription();
           return;
         } catch (error) {
           if (request.method !== "handshake" || !/unknown method|管理入口/.test(error instanceof Error ? error.message : String(error))) throw error;

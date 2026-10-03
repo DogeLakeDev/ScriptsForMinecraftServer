@@ -14,6 +14,7 @@ import { Icon, type IconName } from "../components/icons.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, CopyText, EmptyState, IconTile, PageHeader, Surface } from "../components/ui.js";
 import { errorText, fullTime, relativeTime, taskLabel, type Tone } from "../lib/format.js";
+import { ReleaseNotes } from "../components/ReleaseNotes.js";
 
 /** 检查失败时守护进程返回的形状 */
 type Failed = { error: string };
@@ -106,7 +107,10 @@ export function UpdatesPage() {
     void request("backups.list").then((value) => setBackups(value.backups)).catch(() => {});
   }, [model.tasks.length]);
 
-  const run = (kind: "platform" | "modules" | "bds", name: string) => void submit("updates.run", { kind }, `更新 ${name}`, { description: "将停服备份，更新后恢复运行。失败时回退程序；世界和数据库需从备份手动恢复。", okText: "开始更新" });
+  const run = (kind: "platform" | "modules" | "bds", name: string) => {
+    const plan = kind === "platform" && result?.platform && !failed(result.platform) ? result.platform : undefined;
+    return void submit("updates.run", { kind, ...(plan ? { targetVersion: plan.targetVersion } : {}) }, `更新 ${name}`, { description: <div className="form-stack"><p>将停服备份，更新后恢复运行。失败时回退程序；世界和数据库需从备份手动恢复。</p>{plan && <ReleaseNotes notes={plan.releaseNotes} version={plan.targetVersion} />}</div>, okText: "开始更新" });
+  };
   const runButton = (kind: "platform" | "modules" | "bds", name: string, available: boolean, label: string) => (
     <Tooltip content={editable ? undefined : "完成接入后可更新"} wrap>
       <Button size="sm" variant={available ? "primary" : "secondary"} disabled={!editable || result === undefined} onClick={() => run(kind, name)} icon={available ? "download" : "refresh"}>
@@ -143,6 +147,7 @@ export function UpdatesPage() {
             action={platform.upgradeRequired && runButton("platform", "SFMC 平台", true, `升级到 ${platform.targetVersion}`)}
           >
             <VersionShift from={platform.currentVersion} to={platform.upgradeRequired ? platform.targetVersion : undefined} />
+            {!platform.development && <ReleaseNotes notes={platform.releaseNotes} version={platform.targetVersion} collapsible />}
             {platform.externalServices.length > 0 && <p className="update-note"><Icon name="warning" size={13} /> 外部进程 {platform.externalServices.join("、")} 需先通过原管理器停止</p>}
           </UpdateCard>
         )}

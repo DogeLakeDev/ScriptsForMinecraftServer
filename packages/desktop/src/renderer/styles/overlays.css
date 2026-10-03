@@ -325,7 +325,7 @@
 
 .sheet-viewport {
   position: fixed;
-  inset: 0;
+  inset: var(--sheet-top) 0 0;
   z-index: 91;
   display: flex;
   justify-content: flex-end;
@@ -494,7 +494,7 @@
   line-height: 16px;
 }
 
-.toast-progress {
+.toast-progress-bar {
   position: relative;
   height: 3px;
   margin-top: 8px;
@@ -503,7 +503,7 @@
   overflow: hidden;
 }
 
-.toast-progress span {
+.toast-progress-bar > span {
   position: absolute;
   inset: 0 auto 0 0;
   width: 40%;

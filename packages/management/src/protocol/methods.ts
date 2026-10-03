@@ -15,6 +15,16 @@ export interface ConfigDocument {
 export interface ModuleRow { id: string; folder: string; name: string; version: string; enabled: boolean; linked: boolean }
 export interface PackRow { id: string; name: string; kind: "behavior" | "resource"; enabled: boolean; version: string }
 export interface PlayerRow { name: string; xuid: string; online: boolean | null }
+export interface ReleaseNotes {
+  version: string;
+  title: string;
+  body: string;
+  url: string;
+  status: "available" | "empty" | "unavailable";
+  publishedAt?: string;
+  prerelease?: boolean;
+  message?: string;
+}
 export interface AttachmentPlan {
   currentVersion: string;
   targetVersion: string;
@@ -22,6 +32,7 @@ export interface AttachmentPlan {
   upgradeRequired: boolean;
   externalServices: string[];
   steps: string[];
+  releaseNotes?: ReleaseNotes;
 }
 export interface ManagementMethodMap {
   handshake: Handshake;

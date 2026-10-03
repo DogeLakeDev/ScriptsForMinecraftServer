@@ -1,4 +1,4 @@
-import type { ManagementEvent, ManagementMethod, ManagementMethodMap, Handshake } from "@sfmc-bds/management";
+import type { ManagementEvent, ManagementMethod, ManagementMethodMap, Handshake, ReleaseNotes } from "@sfmc-bds/management";
 export interface InstanceProfile {
   id: string; name: string; kind: "local" | "ssh"; root: string;
   host?: string; port?: number; username?: string; os?: "linux" | "windows";
@@ -16,6 +16,7 @@ export type AppearanceMode = "system" | "light" | "dark";
  * 使用场景：侧边栏页脚版本号、"关于与更新"对话框中展示客户端版本与运行形态。
  */
 export interface AppInfo { version: string; platform: string; packaged: boolean }
+export interface DesktopUpdateInfo { portable?: boolean; manual?: boolean; development?: boolean; available?: boolean; noRelease?: boolean; version?: string; releaseNotes?: ReleaseNotes }
 export interface DesktopApi {
   profiles(): Promise<InstanceProfile[]>;
   saveProfile(profile: InstanceProfile, credentials: Credentials): Promise<InstanceProfile[]>;
@@ -27,7 +28,7 @@ export interface DesktopApi {
   choose(kind: "directory" | "privateKey" | "pack"): Promise<string | null>;
   uploadPack(id: string): Promise<{ filename: string } | null>;
   update(action: "check" | "download" | "install"): Promise<unknown>;
-  openLink(kind: "eula" | "desktop-release"): Promise<void>;
+  openLink(kind: "eula" | "desktop-release" | "release", url?: string): Promise<void>;
   /** 设置外观模式并同步窗口原生部分（标题栏按钮区、窗口底色） */
   appearance(mode: AppearanceMode): Promise<void>;
   /** 读取客户端版本与运行形态 */

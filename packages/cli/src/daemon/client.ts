@@ -42,7 +42,7 @@ export function onDaemonManagementEvent(callback: (event: ManagementEvent) => vo
   remoteStateBus.on("management", callback);
   return () => { remoteStateBus.off("management", callback); };
 }
-export function disconnectDaemonClient(): void { shared?.disconnect(); shared = null; }
+export function disconnectDaemonClient(): void { subscriptionCount = 0; shared?.disconnect(); shared = null; }
 
 /** 单次 RPC 默认超时（毫秒） */
 const CALL_TIMEOUT_MS = 120_000;
@@ -53,6 +53,10 @@ const READY_POLL_MS = 150;
 
 /** 共享连接（同一 CLI 进程复用） */
 let shared: DaemonConnection | null = null;
+/** 重连期间复用同一次建连，避免并行状态查询覆盖已订阅的连接。 */
+let connecting: Promise<DaemonConnection> | null = null;
+/** 订阅意图属于客户端会话，不能随着旧 socket 关闭而丢失。 */
+let subscriptionCount = 0;
 
 /** 本地状态事件总线：把 daemon 推送的 state 转给 CLI 侧 onServiceStateChange 订阅者 */
 const remoteStateBus = new EventEmitter();
@@ -78,6 +82,7 @@ class DaemonConnection {
     { resolve: (r: DaemonResult) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
   >();
   private subscribed = false;
+  private subscribing: Promise<void> | undefined;
   closed = false;
 
   constructor(sock: net.Socket, meta: DaemonMeta) {
@@ -167,8 +172,12 @@ class DaemonConnection {
   /** 订阅日志与状态事件（同一连接上继续发 RPC） */
   async subscribe(): Promise<void> {
     if (this.subscribed) return;
-    await this.call("subscribe");
-    this.subscribed = true;
+    if (!this.subscribing) {
+      this.subscribing = this.call("subscribe").then(() => {
+        this.subscribed = true;
+      }).finally(() => { this.subscribing = undefined; });
+    }
+    await this.subscribing;
   }
 
   /** 断开连接（不停守护进程） */
@@ -254,6 +263,18 @@ function spawnDaemonProcess(): void {
  * 守护进程进程内调用会抛错（应直接走本地 cmd*）。
  */
 export async function ensureDaemon(): Promise<DaemonConnection> {
+  if (isDaemonServer()) throw new Error("ensureDaemon must not run inside daemon server");
+  let conn = shared && !shared.closed ? shared : null;
+  if (!conn) {
+    connecting ??= connectDaemon().finally(() => { connecting = null; });
+    conn = await connecting;
+  }
+  // 管理请求重连成功后，先恢复日志/状态订阅，再返回新连接。
+  if (subscriptionCount > 0) await conn.subscribe();
+  return conn;
+}
+
+async function connectDaemon(): Promise<DaemonConnection> {
   if (isDaemonServer()) {
     throw new Error("ensureDaemon must not run inside daemon server");
   }
@@ -309,10 +330,15 @@ export async function callDaemon(method: DaemonMethod, params?: DaemonParams): P
  * 使用场景：REPL 启动时挂上实时日志流，退出时只 disconnect。
  */
 export async function ensureDaemonSubscription(): Promise<() => void> {
-  const conn = await ensureDaemon();
-  await conn.subscribe();
+  subscriptionCount++;
+  try { await ensureDaemon(); }
+  catch (error) { subscriptionCount = Math.max(0, subscriptionCount - 1); throw error; }
+  let disposed = false;
   return () => {
-    conn.disconnect();
+    if (disposed) return;
+    disposed = true;
+    subscriptionCount = Math.max(0, subscriptionCount - 1);
+    if (subscriptionCount === 0) shared?.disconnect();
   };
 }
 

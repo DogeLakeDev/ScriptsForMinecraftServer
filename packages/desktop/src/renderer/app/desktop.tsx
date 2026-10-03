@@ -22,6 +22,7 @@ import type { AppInfo, Credentials, InstanceProfile } from "../../shared/api.js"
 import { toast, useConfirm } from "../components/feedback.js";
 import { errorText, isTaskDone, phaseLabel } from "../lib/format.js";
 import type { PageKey } from "./nav.js";
+import { useDesktopUpdate, type DesktopUpdateState } from "./desktop-update.js";
 
 /** 单个实例在客户端内的完整视图模型（与原实现字段一致，新增 connecting / connectError 供连接门展示） */
 export interface Model {
@@ -108,6 +109,7 @@ interface DesktopValue {
   saveProfile: (values: InstanceProfile & Credentials, editing: InstanceProfile | null) => Promise<void>;
   removeProfile: (profile: InstanceProfile) => Promise<void>;
   appInfo: AppInfo | undefined;
+  desktopUpdate: DesktopUpdateState;
 }
 
 /** 实例设置对话框状态：editing 为空表示新建 */
@@ -151,6 +153,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const [flow, setFlow] = useState<Flow | null>(null);
   const [profileDialog, setProfileDialog] = useState<ProfileDialogState>({ open: false, editing: null });
   const [appInfo, setAppInfo] = useState<AppInfo>();
+  const desktopUpdate = useDesktopUpdate();
   const modelsRef = useRef(models);
   modelsRef.current = models;
   const profilesRef = useRef(profiles);
@@ -462,7 +465,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
 
   const applyAttachment = useCallback(
     async (profile: InstanceProfile, plan: AttachmentPlan) => {
-      const accepted = await window.sfmc.request(profile.id, "attachment.apply");
+      const accepted = await window.sfmc.request(profile.id, "attachment.apply", { targetVersion: plan.targetVersion });
       if (plan.upgradeRequired) {
         toast.info("升级任务已提交", "完成后重新连接查看结果");
         track(profile.id, accepted.operationId, `升级平台至 ${plan.targetVersion}`);
@@ -544,8 +547,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       saveProfile,
       removeProfile,
       appInfo,
+      desktopUpdate,
     }),
-    [ready, profiles, current, setCurrent, selected, models, model, page, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, startAttach, createDeployment, applyAttachment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo]
+    [ready, profiles, current, setCurrent, selected, models, model, page, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, startAttach, createDeployment, applyAttachment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
   );
   return <DesktopContext.Provider value={value}>{children}</DesktopContext.Provider>;
 }

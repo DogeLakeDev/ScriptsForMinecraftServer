@@ -15,6 +15,9 @@
   --sidebar-w: 212px;
   --rail-w: 280px;
   --header-h: 68px;
+  /* 抽屉通过 Portal 挂在根节点，仍需避开 Electron 原生窗口按钮。 */
+  --window-controls-h: env(titlebar-area-height, 0px);
+  --sheet-top: max(36px, var(--window-controls-h));
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-1: 120ms;

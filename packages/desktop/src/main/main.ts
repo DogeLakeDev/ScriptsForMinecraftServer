@@ -8,6 +8,7 @@ import { Session } from "./sessions.js";
 import { profiles, profile, saveProfile, removeProfile, credentials, rememberSession } from "./profiles.js";
 import type { AppearanceMode, Credentials, InstanceProfile } from "../shared/api.js";
 import type { ManagementMethod } from "@sfmc-bds/management";
+import { desktopReleaseNotes } from "@sfmc-bds/management/node";
 
 const sessions = new Map<string, Session>();
 const changedHosts = new Map<string, NonNullable<Session["changedFingerprint"]>>();
@@ -90,28 +91,31 @@ void app.whenReady().then(async () => {
   handle("uploadPack", async id => { const session = sessions.get(String(id)); if (!session) throw new Error("实例尚未连接"); const result = await dialog.showOpenDialog(window, { properties: ["openFile"], filters: [{ name: "Minecraft 世界包", extensions: ["mcpack", "mcaddon", "zip"] }] }); if (result.canceled || !result.filePaths[0]) return null; return session.uploadPack(result.filePaths[0]); });
   autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.channel = "desktop";
   autoUpdater.on("error", error => { if (!window.isDestroyed()) window.webContents.send("sfmc:connection", "", `客户端更新失败: ${error.message}`); });
-  handle("openLink", kind => {
+  handle("openLink", (kind, target) => {
+    if (kind === "release") {
+      const url = new URL(String(target));
+      if (url.origin !== "https://github.com" || !url.pathname.startsWith("/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/")) throw new Error("非法发行页面");
+      return shell.openExternal(url.href);
+    }
     const urls = { eula: "https://www.minecraft.net/eula", "desktop-release": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
     if (!(String(kind) in urls)) throw new Error("未知外部链接");
     return shell.openExternal(urls[kind as keyof typeof urls]);
   });
   handle("update", async action => {
-    if (app.getVersion().includes("-") || (app.isPackaged && releaseManifest().windowsCodeSigned !== true)) return { manual: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
-    if (app.isPackaged && !fs.existsSync(path.join(path.dirname(process.execPath), "installed.json"))) return { portable: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
     if (!app.isPackaged) return { development: true };
+    const portable = !fs.existsSync(path.join(path.dirname(process.execPath), "installed.json"));
+    const preview = app.getVersion().includes("-");
+    const manual = portable || preview || releaseManifest().windowsCodeSigned !== true;
     if (action === "check") {
-      let release: { tag_name: string; body: string } | undefined;
-      for (let page = 1; page <= 5 && !release; page++) {
-        const response = await fetch(`https://api.github.com/repos/DogeLakeDev/ScriptsForMinecraftServer/releases?per_page=100&page=${page}`, { signal: AbortSignal.timeout(20_000) });
-        if (!response.ok) throw new Error(`桌面发行检查失败 (${response.status})`);
-        const rows = await response.json() as { tag_name: string; body: string; draft: boolean; prerelease: boolean }[];
-        release = rows.find(row => !row.draft && !row.prerelease && /^desktop-v\d+\.\d+\.\d+$/.test(row.tag_name));
-        if (rows.length < 100) break;
-      }
-      if (!release) throw new Error("尚无稳定桌面发行版");
-      autoUpdater.setFeedURL({ provider: "generic", url: `https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/download/${release.tag_name}`, channel: "desktop" });
-      const result = await autoUpdater.checkForUpdates(); return { ...result?.updateInfo, releaseNotes: release.body, available: Boolean(result?.isUpdateAvailable) };
+      const notes = await desktopReleaseNotes(preview);
+      if (!notes) return { portable, manual: true, available: false, noRelease: true };
+      const info = { portable, manual: manual || Boolean(notes.prerelease), available: autoUpdater.currentVersion.compare(notes.version) < 0, version: notes.version, releaseNotes: notes };
+      if (info.manual || !info.available) return info;
+      const tag = decodeURIComponent(new URL(notes.url).pathname.split("/").at(-1)!);
+      autoUpdater.setFeedURL({ provider: "generic", url: `https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/download/${tag}`, channel: "desktop" });
+      const result = await autoUpdater.checkForUpdates(); return { ...info, available: Boolean(result?.isUpdateAvailable) };
     }
+    if (manual) return { portable, manual: true };
     if (action === "download") return autoUpdater.downloadUpdate();
     if (action === "install") { autoUpdater.quitAndInstall(); return { installing: true }; }
     throw new Error("未知更新操作");
