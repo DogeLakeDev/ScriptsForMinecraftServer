@@ -1,5 +1,12 @@
 # @sfmc-bds/sdk
 
+## 0.3.0
+
+### Minor Changes
+
+- a065cc4: 停用模块 manifest 的 `canDisable` 与 `enabledByDefault`：从 JSON Schema 和 TypeScript 契约移除，SDK v2/v3 校验及 DB 加载器拒绝包含这些字段的声明。模块作者需删除旧字段；安装目录投影统一默认启用、允许服主禁用，已有启停状态仍由 module-lock 管理，升级继续保留。
+- a065cc4: 将 TPS、在线人数、维度实体数量与视距区块估算加入平台宿主的基础运行监控，提供受控指标读取、72 小时有界历史和主机内存、进程资源信息。桌面总览使用实际采样并区分断采、过期与未知状态。
+
 ## 0.2.4
 
 ### Patch Changes

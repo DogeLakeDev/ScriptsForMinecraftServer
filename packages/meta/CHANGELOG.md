@@ -1,5 +1,22 @@
 # @sfmc-bds/sfmc
 
+## 0.2.9
+
+### Patch Changes
+
+- a065cc4: 增加版本化桌面管理协议、非交互 stdio 入口、持久化任务和跨进程维护锁；守护进程可由独立 Node 与显式 CLI 入口启动，保持原 CLI 协议兼容。
+- Updated dependencies [7aa43b0]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+  - @sfmc-bds/cli@0.4.0
+  - @sfmc-bds/sdk@0.3.0
+  - @sfmc-bds/db-server@0.3.0
+  - @sfmc-bds/bds-tools@0.2.5
+  - @sfmc-bds/qq-bridge@0.2.5
+
 ## 0.2.8
 
 ### Patch Changes
