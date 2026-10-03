@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       signed:
-        description: "生成签名发行包（需要配置 PFX Secrets 与发布者变量）"
+        description: "使用已配置证书生成 Windows 签名包"
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -28,19 +28,18 @@ jobs:
     env:
       ELECTRON_CACHE: ${{ github.workspace }}\.cache\electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\.cache\electron-builder
+      SFMC_RELEASE_SIGNED: ${{ inputs.signed || (startsWith(github.ref, 'refs/tags/desktop-v') && vars.SFMC_DESKTOP_SIGNING_ENABLED == 'true') }}
     steps:
       - uses: actions/checkout@v4
-      - name: 核对正式签名配置
-        if: startsWith(github.ref, 'refs/tags/desktop-v') || inputs.signed
+      - name: 核对签名配置
+        if: inputs.signed || (startsWith(github.ref, 'refs/tags/desktop-v') && vars.SFMC_DESKTOP_SIGNING_ENABLED == 'true')
         shell: pwsh
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           SFMC_SIGNING_PUBLISHER: ${{ vars.SFMC_SIGNING_PUBLISHER }}
         run: |
-          if (!$env:CSC_LINK -or !$env:CSC_KEY_PASSWORD -or !$env:SFMC_SIGNING_PUBLISHER) {
-            throw "正式签名配置不完整：需要 CSC_LINK、CSC_KEY_PASSWORD 和 SFMC_SIGNING_PUBLISHER"
-          }
+          if (!$env:CSC_LINK -or !$env:CSC_KEY_PASSWORD -or !$env:SFMC_SIGNING_PUBLISHER) { throw 'Windows 签名配置不完整' }
       - uses: pnpm/action-setup@v4
         with:
           version: 10.8.0
@@ -55,78 +54,114 @@ jobs:
       - run: pnpm --filter @sfmc-bds/management typecheck
       - run: pnpm --filter @sfmc-bds/cli typecheck
       - run: pnpm --filter @sfmc-bds/desktop typecheck
-      - name: 核对桌面标签版本
+      - name: 核对桌面标签与平台版本
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
           $version = (Get-Content packages/desktop/package.json | ConvertFrom-Json).version
-          $prefix = if ($env:GITHUB_REF_NAME.StartsWith('desktop-preview-v')) { 'desktop-preview-v' } else { 'desktop-v' }
-          if ($prefix -eq 'desktop-preview-v' -and $version -notmatch '-preview\.\d+$') { throw "预览标签必须使用 preview 版本号" }
-          if ($env:GITHUB_REF_NAME -ne "$prefix$version") { throw "桌面标签与 package.json 版本不一致" }
+          $platform = (Get-Content packages/meta/package.json | ConvertFrom-Json).version
+          $preview = $env:GITHUB_REF_NAME.StartsWith('desktop-preview-v')
+          $prefix = if ($preview) { 'desktop-preview-v' } else { 'desktop-v' }
+          if ($env:GITHUB_REF_NAME -ne "$prefix$version") { throw '桌面标签与源码版本不一致' }
+          if ($preview -and $version -notmatch '-preview\.\d+$') { throw '预览标签必须使用 preview 版本号' }
+          if (!$preview) {
+            if ($version -notmatch '^\d+\.\d+\.\d+$' -or $platform -notmatch '^\d+\.\d+\.\d+$') { throw '正式桌面与内置平台必须使用稳定版本号' }
+            $published = pnpm view "@sfmc-bds/sfmc@$platform" version --json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $published -ne $platform) { throw '匹配的平台版本尚未发布到 npm' }
+          }
       - name: 打包
         shell: pwsh
         env:
-          CSC_LINK: ${{ (startsWith(github.ref, 'refs/tags/desktop-v') || inputs.signed) && secrets.CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ (startsWith(github.ref, 'refs/tags/desktop-v') || inputs.signed) && secrets.CSC_KEY_PASSWORD || '' }}
-          SFMC_SIGNING_PUBLISHER: ${{ (startsWith(github.ref, 'refs/tags/desktop-v') || inputs.signed) && vars.SFMC_SIGNING_PUBLISHER || '' }}
+          CSC_LINK: ${{ (inputs.signed || (startsWith(github.ref, 'refs/tags/desktop-v') && vars.SFMC_DESKTOP_SIGNING_ENABLED == 'true')) && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ (inputs.signed || (startsWith(github.ref, 'refs/tags/desktop-v') && vars.SFMC_DESKTOP_SIGNING_ENABLED == 'true')) && secrets.CSC_KEY_PASSWORD || '' }}
+          SFMC_SIGNING_PUBLISHER: ${{ (inputs.signed || (startsWith(github.ref, 'refs/tags/desktop-v') && vars.SFMC_DESKTOP_SIGNING_ENABLED == 'true')) && vars.SFMC_SIGNING_PUBLISHER || '' }}
         run: |
-          if ($env:GITHUB_REF -like 'refs/tags/desktop-v*' -or '${{ inputs.signed }}' -eq 'true') {
-            pnpm desktop:package --signed
-          } else {
-            pnpm desktop:package
-          }
-          if ($LASTEXITCODE -ne 0) { throw "桌面打包失败" }
-      - name: 验证签名身份
-        if: startsWith(github.ref, 'refs/tags/desktop-v') || inputs.signed
+          if ($env:SFMC_RELEASE_SIGNED -eq 'true') { pnpm desktop:package --signed } else { pnpm desktop:package }
+          if ($LASTEXITCODE -ne 0) { throw '桌面打包失败' }
+      - name: 验证实际签名状态并整理发行材料
         shell: pwsh
         env:
           SFMC_SIGNING_PUBLISHER: ${{ vars.SFMC_SIGNING_PUBLISHER }}
         run: |
+          $manifest = Get-Content packages/desktop/payload/release-manifest.json | ConvertFrom-Json
+          $signed = $env:SFMC_RELEASE_SIGNED -eq 'true'
+          if ($manifest.windowsCodeSigned -ne $signed -or $manifest.sourceCommit -ne $env:GITHUB_SHA) { throw '发行清单与实际构建不一致' }
           $files = @(Get-ChildItem packages/desktop/release -Filter '*.exe')
           $files += Get-Item 'packages/desktop/release/win-unpacked/SFMC Desktop.exe'
           foreach ($file in $files) {
             $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-            if ($signature.Status -ne 'Valid') { throw "签名无效：$($file.Name)" }
-            if ($signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) -ne $env:SFMC_SIGNING_PUBLISHER) { throw "签名发布者不匹配" }
+            if ($signed) {
+              if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) -ne $env:SFMC_SIGNING_PUBLISHER) { throw "签名身份验证失败：$($file.Name)" }
+            } elseif ($signature.Status -ne 'NotSigned') { throw "未签名发行出现意外签名：$($file.Name)" }
           }
-      - name: 生成下载校验文件
-        shell: pwsh
-        run: |
-          Get-ChildItem packages/desktop/release -File | Where-Object { $_.Extension -in '.exe', '.zip' } | Sort-Object Name | ForEach-Object { "$(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256 | Select-Object -ExpandProperty Hash)  $($_.Name)" } | Set-Content packages/desktop/release/SHA256SUMS.txt -Encoding utf8
+          New-Item -ItemType Directory -Path packages/desktop/distribution -Force | Out-Null
+          Get-ChildItem packages/desktop/release -File | Where-Object { $_.Extension -in '.exe', '.zip' -or ($signed -and $_.Extension -in '.yml', '.blockmap') } | Copy-Item -Destination packages/desktop/distribution
+          Copy-Item packages/desktop/payload/release-manifest.json packages/desktop/distribution
+          $lines = Get-ChildItem packages/desktop/distribution -File | Sort-Object Name | ForEach-Object { "$( (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" }
+          [IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE 'packages/desktop/distribution/SHA256SUMS.txt'), ($lines -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
       - uses: actions/upload-artifact@v4
         with:
           name: sfmc-desktop-windows-x64
-          path: |
-            packages/desktop/release/*.exe
-            packages/desktop/release/*.zip
-            packages/desktop/release/*.yml
-            packages/desktop/release/*.blockmap
-            packages/desktop/release/SHA256SUMS.txt
-            packages/desktop/payload/release-manifest.json
+          path: packages/desktop/distribution/*
           if-no-files-found: error
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
     needs: windows
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: sfmc-desktop-windows-x64
           path: artifacts
+      - name: 核对 Windows 构建材料
+        working-directory: artifacts
+        run: sha256sum --check SHA256SUMS.txt
+      - name: 生成 GitHub 构建证明
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            artifacts/*.exe
+            artifacts/*.zip
+            artifacts/release-manifest.json
+            artifacts/*.yml
+            artifacts/*.blockmap
+      - name: 公示 SHA256 和构建证明
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          ATTESTATION_URL: ${{ steps.provenance.outputs.attestation-url }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cp "$ATTESTATION_BUNDLE" artifacts/artifact-attestation.sigstore.json
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          directory = Path('artifacts')
+          manifest = json.loads((directory / 'release-manifest.json').read_text())
+          rows = [(file.name, hashlib.sha256(file.read_bytes()).hexdigest()) for file in sorted(directory.iterdir()) if file.is_file() and file.name != 'SHA256SUMS.txt']
+          (directory / 'SHA256SUMS.txt').write_text(''.join(f'{digest}  {name}\n' for name, digest in rows))
+          preview = os.environ['RELEASE_TAG'].startswith('desktop-preview-v')
+          notes = Path('docs/releases/desktop-preview.md' if preview else 'docs/releases/desktop.md').read_text()
+          notes += f'\n\n源码提交：`{manifest["sourceCommit"]}`。\n\n[GitHub 构建证明]({os.environ["ATTESTATION_URL"]})\n\n### SHA256 公示\n\n| 文件 | SHA256 |\n| --- | --- |\n'
+          notes += ''.join(f'| `{name}` | `{digest}` |\n' for name, digest in rows)
+          Path('release-notes.md').write_text(notes)
+          PY
       - name: 发布独立桌面版本
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          mapfile -t assets < <(find artifacts -type f)
           if [[ "$RELEASE_TAG" == desktop-preview-v* ]]; then
-            mapfile -t assets < <(find artifacts -type f \( -name '*.exe' -o -name '*.zip' -o -name 'release-manifest.json' -o -name 'SHA256SUMS.txt' \))
-            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-preview-v}（未签名预览）" --notes-file docs/releases/desktop-preview.md --prerelease --latest=false
+            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-preview-v}" --notes-file release-notes.md --prerelease --latest=false
           else
-            mapfile -t assets < <(find artifacts -type f)
-            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-v}" --generate-notes --latest=false
+            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-v}" --notes-file release-notes.md --latest=false
           fi
-
