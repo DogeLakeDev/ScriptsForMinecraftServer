@@ -83,10 +83,12 @@ export function createRegistryEntry(
   if (pkg.private === true) throw new Error("private 模块不能提交公共索引");
   if (manifest.schemaVersion !== 2) throw new Error("需要 schemaVersion=2 的模块清单");
   const peers = object(pkg.peerDependencies ?? {}, "peerDependencies");
+  const description = metadata.description ?? pkg.description ?? "";
+  if (typeof description !== "string") throw new Error("功能介绍（description）须为字符串，可留空");
   const entry: RegistryModule = {
     id: text(manifest.id, "manifest.id"),
     name: text(metadata.name ?? manifest.name, "展示名称（name）"),
-    description: text(metadata.description ?? pkg.description, "功能介绍（description）"),
+    description: description.trim(),
     npm: text(pkg.name, "package.name"),
     version: text(pkg.version, "package.version"),
     sdk: text(peers["@sfmc-bds/sdk"], "peerDependencies.@sfmc-bds/sdk"),

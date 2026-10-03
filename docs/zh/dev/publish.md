@@ -40,7 +40,7 @@ sfmc mod submit ./my-module --dry-run
 ```
 
 没有 CLI 时可安装 `@sfmc-bds/devkit`，使用 `sfmc-module-submit`；扩展提供 **SFMC: 提交到官方模块索引**，先打开 JSON 预览，再由作者选择提交。
-提交需要 `gh auth login` 或 `GH_TOKEN`。有索引仓写权限时自动在索引仓建 PR 分支；其他作者自动 fork、创建分支并开 PR。相同内容不重复提交，新版本复用已有待审 PR。
+提交需要 `gh auth login` 或 `GH_TOKEN`。有索引仓写权限时自动在索引仓建 PR 分支；其他作者自动 fork、创建分支并开 PR。相同内容不重复提交；首次收录及元数据调整使用 PR，后续版本由索引仓从 npm 自动同步。
 `--no-fork` 可显式选择在目标索引仓建分支，需要该仓 Contents 和 Pull requests 写权限。提交路径不受账号名、仓库 owner 或模块 `official` 字段影响。
 
 工具从 `package.json` 与 `sapi/manifest.json` 生成条目。SDK 范围来自 `peerDependencies.@sfmc-bds/sdk`，不能用开发依赖版本推断兼容性。
@@ -65,27 +65,13 @@ sfmc mod submit ./my-module --dry-run
 PR 只修改索引仓的 `modules/<id>.json`。**不要手改或提交生成的 `index.json`**；合并后索引仓 Actions 自动构建聚合索引。
 不使用命令行的作者可填写索引仓的 **申请收录或更新模块** Issue 表单，机器人读取公共 npm 元数据并生成审核 PR。
 
-### 发布后自动提交
+### 发布后自动同步版本
 
-官方主仓 `module-publish` 在实际 npm 发布成功后调用 `module-index-submit.yml`，dry-run 不提交。
-请在主仓配置 `REGISTRY_SUBMIT_TOKEN`，授予索引仓 Contents / Pull requests 写权限；建议使用 GitHub App 或专用维护者凭据。
-普通 `GITHUB_TOKEN` 的权限仅覆盖当前仓库，且它创建的 PR 通常不会触发后续 PR 工作流，因此这里使用独立凭据。
+首次收录和展示信息调整通过元数据 PR 完成。模块录入后，索引仓 **Publish registry index** 每小时从公共 npm 的 `latest` 读取版本与 `peerDependencies.@sfmc-bds/sdk`，并同步 `modules/<id>.json` 和 `index.json`；也可在索引仓手动运行该工作流。
 
-已获维护者授权的仓库可在发布 job 成功后复用入口：
+平台和模块仓的发布 CI 只负责 npm 与模块自身的 tag / Release，无需索引仓写权限，也不再上传版本 PR。预发布版本使用 `beta` 等独立 dist-tag；同步拒绝已发布版本的降版、预发布 `latest`、已弃用版本及无效 SDK 范围。请求失败时不会发布不完整的索引。
 
-```yaml
-submit-index:
-  needs: publish
-  uses: DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/module-index-submit.yml@main
-  with:
-    module_repository: ${{ github.repository }}
-    module_ref: ${{ github.sha }}
-  secrets:
-    REGISTRY_SUBMIT_TOKEN: ${{ secrets.REGISTRY_SUBMIT_TOKEN }}
-```
-
-一般第三方作者使用一键命令或表单，无需官方仓写权限。
-提交工具只读取模块 JSON，不运行模块仓脚本。索引提交失败不会撤回已发布的 npm 版本；可手动运行 **Submit module registry PR** 重试，无需重新发布 npm。
+若旧索引登记的版本高于 npm latest，仅当 npm 明确返回该旧版本不存在（404）时，自动纠正为实际发布版本；网络错误或权限错误不能触发纠正。
 
 PR 合并后，服主即可通过 CLI 检索并安装该模块：
 

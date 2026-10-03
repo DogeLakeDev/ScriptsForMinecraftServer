@@ -30,7 +30,7 @@ sfmc mod submit --dry-run
 sfmc mod submit
 ```
 
-提交需要 `gh auth login` 或 `GH_TOKEN`；只提交 `modules/<id>.json`，合并后由索引仓生成 `index.json`。
+提交需要 `gh auth login` 或 `GH_TOKEN`；只提交 `modules/<id>.json`，合并后由索引仓生成 `index.json`。首次收录后，新版本只需发布 npm，索引仓每小时自动同步 `latest`，无需重复提交版本 PR。
 
 ## 脚本列表
 
