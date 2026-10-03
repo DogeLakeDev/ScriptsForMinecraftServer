@@ -2,23 +2,32 @@
 
 SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，也可以通过 SSH 连接 Linux 或 Windows 服务器。服务启停、控制台、模块、资源包、配置、玩家与维护任务都集中在同一个工作区。
 
-当前提供 **0.1.0-preview.2 未签名预发布版**。内置平台为 `0.2.9-preview.2`，独立于 npm 正式版；预览版通过发行页手动下载安装更新。
+当前提供 **0.1.1 正式版**，内置平台 `0.2.9`。客户端通过发行页手动下载安装更新。
 
 ## 下载与启动
 
-从 [桌面版预发布页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-preview-v0.1.0-preview.2) 下载：
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.1.1) 下载：
 
-- `SFMC-Desktop-0.1.0-preview.2-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.1.0-preview.2-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
+- `SFMC-Desktop-0.1.1-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.1.1-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
+- `artifact-attestation.sigstore.json`：GitHub Artifact Attestations 构建证明。
 
 客户端已经包含 Node.js、pnpm 和平台代码，本机无需额外安装这些工具。首次初始化、BDS 下载及联网更新仍需要网络。
 
-签名申请正在审核，因此 Windows 可能显示“未知发布者”或 SmartScreen 提示。先确认下载来自上面的官方仓库，并核对校验值；是否继续运行由你决定，不需要关闭系统安全功能。
+发行页同时公示 SHA256。下载后核对文件摘要：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.2-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.1-x64.exe' -Algorithm SHA256
 ```
+
+安装 [GitHub CLI](https://cli.github.com/) 后，可核对构建证明、源码仓库、工作流和标签：
+
+```powershell
+gh attestation verify '.\SFMC-Desktop-0.1.1-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.1.1 --deny-self-hosted-runners
+```
+
+验证 ZIP 时替换文件名即可；添加 `--bundle '.\artifact-attestation.sigstore.json'` 可以验证下载的证明文件。需要固定到具体提交时，再加入 `--source-digest` 和 `release-manifest.json` 中的 `sourceCommit`。构建证明用于核对文件来源与摘要，不是 Windows 发布者证书。
 
 ## 添加本机实例
 
@@ -26,7 +35,7 @@ Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.2-x64.exe' -Algorithm SH
 2. 选择 **SFMC 部署根目录**，例如 `D:\WorkPlace\SFMC`。不要选择源码仓库、`BDS` 子目录或世界目录。
 3. 保存后点击 **接入实例**。查看接入计划，再选择 **仅查看** 或完成接入。
 
-已有部署保留自己的活动平台版本，客户端不会仅因为连接就替换它。旧平台可能只能查看，或者缺少新指标与管理接口。完整预览建议使用独立测试目录（例如 `D:\WorkPlace\SFMC-Desktop-Preview`），按引导确认 Minecraft EULA 并初始化；向导会下载 BDS 并尝试启动服务；不要直接把正式世界搬进去。
+已有部署保留自己的活动平台版本，客户端不会仅因为连接就替换它。旧平台可能只能查看，或者缺少新指标与管理接口。首次验收建议使用独立测试目录（例如 `D:\WorkPlace\SFMC-Desktop-Test`），按引导确认 Minecraft EULA 并初始化；向导会下载 BDS 并尝试启动服务。
 
 ## 添加 SSH 实例
 
@@ -54,7 +63,7 @@ Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.2-x64.exe' -Algorithm SH
 
 ![模块管理：模块列表和详情](../../public/desktop/modules.jpg)
 
-**模块** 查看来源、版本和启用状态。修改后根据任务提示重启 BDS，才会应用需要重新打包的变更。预览版不代表所有独立业务模块都已适配。
+**模块** 查看来源、版本和启用状态。修改后根据任务提示重启 BDS，才会应用需要重新打包的变更。平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`，旧模块需移除这些字段；已有启停状态仍由 module-lock 保存。
 
 ![配置编辑：配置列表与编辑器](../../public/desktop/config.jpg)
 
@@ -67,11 +76,10 @@ Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-preview.2-x64.exe' -Algorithm SH
 3. 查看模块与配置，尝试一项可撤销的修改，并确认任务完成。
 4. 关闭客户端后重新打开，确认能连接原守护进程。关闭窗口不会停止服务器；需要停止时在概览明确停止 BDS 和数据服务。
 
-预览版本暂不接入稳定版自动更新。后续版本从发行页下载，安装到原客户端目录即可；部署根目录和服务器数据独立于客户端安装目录。
+本版本通过发行页手动更新。后续版本从发行页下载，退出客户端后安装到原客户端目录，或完整替换 ZIP 内容；部署根目录和服务器数据独立于客户端安装目录。
 
 ## 当前边界
 
-- 安装包尚未签名，正式签名版将在证书批准和工作流接入后另行发布。
 - 本机 Windows 与 SSH Windows 的数据服务/BDS、实际指标和断线重连已经验收；其他环境仍需自行验证。
-- 旧活动平台不会自动切换到预览平台。npm 的稳定版号也不能证明它已具备这次预览的全部接口。
+- 接入时不会自动切换旧活动平台。需要新版接口时，按接入计划核对兼容性并升级。
 - 游戏内表单点击与独立模块的全部业务流程仍需要 Minecraft 客户端验收。

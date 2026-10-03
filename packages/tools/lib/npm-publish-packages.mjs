@@ -12,6 +12,7 @@ export const NPM_PUBLISH_PACKAGES = {
   "@sfmc-bds/sdk": "modules/sdk/@sfmc-sdk/package.json",
   "@sfmc-bds/eslint-plugin": "modules/sdk/@sfmc-eslint-plugin/package.json",
   "@sfmc-bds/cli": "packages/cli/package.json",
+  "@sfmc-bds/management": "packages/management/package.json",
   "@sfmc-bds/db-server": "packages/db-server/package.json",
   "@sfmc-bds/qq-bridge": "packages/qq-bridge/package.json",
   "@sfmc-bds/bds-tools": "packages/bds-tools/package.json",

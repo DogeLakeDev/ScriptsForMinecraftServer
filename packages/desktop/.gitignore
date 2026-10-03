@@ -1,5 +1,6 @@
 staging/
 payload/
 release/
+distribution/
 .pack-work/
 .pack-cache/
