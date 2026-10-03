@@ -1,0 +1,58 @@
+{
+  "name": "@sfmc-bds/management",
+  "version": "0.1.0",
+  "description": "SFMC management protocol — shared types, handshake/capability discovery and client connection interface (used by CLI and the desktop app)",
+  "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "homepage": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tree/main/packages/management#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogeLakeDev/ScriptsForMinecraftServer.git",
+    "directory": "packages/management"
+  },
+  "bugs": {
+    "url": "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/issues"
+  },
+  "keywords": [
+    "cli",
+    "management",
+    "minecraft-bedrock",
+    "scriptsforminecraftserver",
+    "sfmc"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js",
+      "default": "./dist/node/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "sfmc-esbuild-transpile --dts",
+    "prepublishOnly": "pnpm run build",
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@sfmc-bds/tools": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

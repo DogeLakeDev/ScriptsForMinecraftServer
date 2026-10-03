@@ -4,7 +4,7 @@
 
 与 [模块服务目录](./modules/index.md) 不同：本页是**平台管模块**；服务目录是**模块对外业务 RPC**。
 
-日常启停优先 CLI：`sfmc mod enable|disable`（**本地写 lock**，db 在线时再 best-effort 热同步）。HTTP 下列路由由 **db-server** 提供，适合自动化与已起 db 的环境。运维说明见 [使用指南 · 模块](../guide/modules.md)。
+日常启停优先 CLI：`sfmc mod enable|disable`（**本地写 lock**，db 在线时再 best-effort 热同步）。HTTP 下列路由由 **db-server** 提供，适合自动化与已起 db 的环境。运维说明见 [使用指南 · 模块](../guide/modules.mdx)。
 
 ## GET /api/sfmc/modules
 
@@ -35,14 +35,14 @@ curl -X POST http://127.0.0.1:3001/api/sfmc/modules/feature-afk/enable
 curl -X POST http://127.0.0.1:3001/api/sfmc/modules/feature-afk/disable
 ```
 
-`canDisable: false` 的模块禁用会返回 `module_cannot_disable`。
+注：Manifest v2 中已废除 `canDisable` 字段，模块启停统一由 `module-lock.json` 管理；若服务端对特定保留模块限制禁用，将返回 `module_cannot_disable`。
 
 ## 错误
 
 | error | 含义 |
 | ------ | ------ |
 | `module_not_found` | key 不存在 |
-| `module_cannot_disable` | 模块声明不可禁用 |
+| `module_cannot_disable` | 该模块不可被禁用 |
 | `dependency_unmet` | 启用时依赖未满足 |
 
 ## 与游戏的关系

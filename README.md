@@ -2,15 +2,10 @@
 
 [![version](https://img.shields.io/github/v/tag/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square&label=version)](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/tags)
 [![license](https://img.shields.io/github/license/DogeLakeDev/ScriptsForMinecraftServer?style=flat-square)](./LICENSE)
-[![node](https://img.shields.io/badge/node-22.13%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![typescript](https://img.shields.io/badge/TypeScript-6.0.2-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![npm](https://img.shields.io/badge/npm-@sfmc--bds%2Fsfmc-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@sfmc-bds/sfmc)
-[![modules](https://img.shields.io/badge/modules-25-7B68EE?style=flat-square&logo=cube&logoColor=white)](./modules/catalog.json)
-[![bd](https://img.shields.io/badge/BDS-1.26.x-00BC8C?style=flat-square&logo=minecraft)](https://www.minecraft.net/en-us/download/server/bedrock)
 
-[模块仓库 →](https://github.com/Tanya7z/sfmc-modules)
-
-[English Version →](./README.en.md)
+[模块仓库](https://github.com/Tanya7z/sfmc-modules)  [English Version](./README.en.md)
 ## Scripts For Minecraft Server
 
 > 一个面向 Minecraft 基岩版服务器的模块化开发框架与管理平台。让开发者可以使用现代化工程流程构建、部署和维护 Minecraft 服务端功能。
@@ -53,32 +48,18 @@ SFMC Desktop 支持本机与 SSH 实例，提供服务启停、日志控制台�
 node -v
 
 # 安装 SFMC CLI 正式版
-pnpm add -g @sfmc-bds/sfmc@0.2.2
-
-# 创建服务器目录
-mkdir my-server && cd my-server
+pnpm add -g @sfmc-bds/sfmc
 
 # 初始化 SFMC
 sfmc
 ```
-
-pnpm v11 起默认会等待新版本发布满 24 小时。发布当天若省略版本号，可能装到上一正式版；可用 `pnpm view @sfmc-bds/sfmc version` 查看当前 `latest`，再指定该精确版本安装。
 
 开发者可以直接克隆本 monorepo，详细内容请查看
 [入门指南](./docs/zh/guide/index.mdx)。
 
 ## 文档
 
-- 在线文档 <https://dogelakedev.github.io/ScriptsForMinecraftServer/>
-
-- 使用指南 [docs/zh/guide](./docs/zh/guide/index.mdx)
-
-- 开发指南 [docs/zh/dev](./docs/zh/dev/index.mdx)
-  - [贡献指南](./docs/zh/dev/contributing.md)
-
-- API 文档 [docs/zh/api](./docs/zh/api/index.mdx)
-
-- SDK 类型参考 [docs/zh/reference](./docs/zh/reference/index.md)
+- 在线文档 <https://sfmc.dogelake.cn/>
 
 ## 许可证
 
@@ -89,9 +70,4 @@ SFMC 整体平台采用 [AGPL-3.0](./LICENSE) 许可证。
 - **自由使用**：你可以运行、复制、分发和修改程序，同时保留这些自由。
 - **Copyleft（AGPL
   部分）**：如果你分发修改后的平台或服务版本，必须以相同许可证提供完整对应源代码。
-- **模块仓库**：独立仓库中的业务模块可以自行选择许可证。通过 ISC 授权
-  SDK 开发模块不会自动使模块受到 AGPL 限制。
-
----
-
-[English Version →](./README.en.md)
+- **模块仓库**：独立仓库中的业务模块可以自行选择许可证。

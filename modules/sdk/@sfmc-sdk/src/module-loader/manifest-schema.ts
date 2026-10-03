@@ -20,10 +20,6 @@ export type ManifestV2 = {
         requires?: ServiceEntry[];
       }
     | undefined;
-  /** 安装时是否默认写入启用（缺省 true）。 */
-  enabledByDefault?: boolean | undefined;
-  /** 是否允许 CLI/API 写入禁用（缺省 true；下次冷启动生效）。 */
-  canDisable?: boolean | undefined;
   notes?: string | undefined;
 };
 

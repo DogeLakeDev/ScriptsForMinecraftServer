@@ -6,8 +6,6 @@
 
 **[docs/dev/contributing.md](./docs/dev/contributing.md)**
 
-快速自检：
-
 ```bash
 pnpm install && pnpm run build && pnpm run verify
 ```

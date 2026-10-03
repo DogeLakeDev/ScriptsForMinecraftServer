@@ -27,6 +27,7 @@ import {
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { getLocale, t } from "./i18n/index.js";
 import { pushLog, type LogLevel } from "./logs.js";
 import { BP_NAME, RP_NAME, resolveBdsContext } from "./pack-lifecycle.js";
@@ -923,6 +924,12 @@ async function cmdDoctor(args: string[] = []): Promise<string> {
 }
 
 export async function dispatchPacksCommand(sub: string | undefined, args: string[]): Promise<string> {
+  if (["bind", "unbind", "update", "enable", "disable", "install", "uninstall", "import", "repair", "bump"].includes(sub ?? "") && !args.includes("--dry-run")) {
+    return withMaintenanceLock(ROOT, () => dispatchPacksCommandUnlocked(sub, args));
+  }
+  return dispatchPacksCommandUnlocked(sub, args);
+}
+async function dispatchPacksCommandUnlocked(sub: string | undefined, args: string[]): Promise<string> {
   const verb = (sub ?? "").toLowerCase();
   if (!verb || verb === "help" || verb === "-h" || verb === "--help") {
     return packsUsage();

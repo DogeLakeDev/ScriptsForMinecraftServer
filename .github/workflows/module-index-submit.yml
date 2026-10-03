@@ -1,0 +1,91 @@
+name: Submit module registry PR
+
+on:
+  workflow_call:
+    inputs:
+      module_repository:
+        required: true
+        type: string
+      module_ref:
+        required: true
+        type: string
+      module_path:
+        default: "."
+        type: string
+    secrets:
+      REGISTRY_SUBMIT_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      module_repository:
+        description: 模块源码仓 owner/repo
+        required: true
+        type: string
+      module_ref:
+        description: 已发布版本对应的提交 SHA
+        required: true
+        type: string
+      module_path:
+        description: 模块在仓库中的相对路径
+        default: "."
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-index-${{ inputs.module_repository }}-${{ inputs.module_path }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: DogeLakeDev/ScriptsForMinecraftServer
+          ref: main
+          path: platform
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.module_repository }}
+          ref: ${{ inputs.module_ref }}
+          path: author
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 构建提交工具（不执行模块仓脚本）
+        working-directory: platform
+        run: |
+          pnpm install --frozen-lockfile --filter '@sfmc-bds/devkit...'
+          node packages/tools/build-publishable.mjs --workspace @sfmc-bds/devkit
+      - name: 校验模块路径
+        env:
+          MODULE_PATH: ${{ inputs.module_path }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const root = fs.realpathSync('author');
+          const target = fs.realpathSync(path.resolve(root, process.env.MODULE_PATH));
+          const relative = path.relative(root, target);
+          if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('模块路径须位于 author 内');
+          if (/[\r\n]/.test(target)) throw new Error('模块路径不能包含换行');
+          fs.appendFileSync(process.env.GITHUB_ENV, `SUBMIT_MODULE_ROOT=${target}\n`);
+          JS
+      - name: 创建或更新索引 PR
+        env:
+          GH_TOKEN: ${{ secrets.REGISTRY_SUBMIT_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo '::error::配置 REGISTRY_SUBMIT_TOKEN（索引仓 Contents / Pull requests 写权限）后重跑索引提交；npm 已发布版本无需重发'
+            exit 1
+          fi
+          node platform/packages/devkit/dist/registry-cli.js "$SUBMIT_MODULE_ROOT" --no-fork --wait-for-publish

@@ -14,6 +14,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { ModuleManifestV2 } from "./manifest-loader.js";
 import type { QueryFn } from "./lib/sqlite.js";
+import { PLATFORM_MONITORING_SERVICES, PLATFORM_SERVICE_OWNER } from "@sfmc-bds/sdk/contracts";
 
 export interface ServiceCallResult {
   ok: true;
@@ -99,7 +100,8 @@ export class ServiceRegistry {
     if (!handler) {
       throw new DispatchError(`service "${name}" 未注册`, "no_such_service", 404);
     }
-    if (!enabled.has(handler.moduleId)) {
+    const platformService = handler.moduleId === PLATFORM_SERVICE_OWNER && PLATFORM_MONITORING_SERVICES.some(value => value === name);
+    if (!platformService && !enabled.has(handler.moduleId)) {
       throw new DispatchError(`service "${name}" 提供方 ${handler.moduleId} 未 enabled`, "forbidden", 403);
     }
     const caller = enabled.get(callerModuleId);

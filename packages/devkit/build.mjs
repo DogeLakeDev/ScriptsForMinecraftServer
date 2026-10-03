@@ -1,16 +1,16 @@
 import { build } from "esbuild";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 fs.rmSync("dist", { recursive: true, force: true });
 
 await build({
-  entryPoints: ["src/index.ts"],
+  entryPoints: ["src/index.ts", "src/registry-cli.ts"],
   bundle: true,
   format: "esm",
-  outfile: "dist/index.js",
+  outdir: "dist",
   platform: "node",
   target: "node18",
   sourcemap: true,

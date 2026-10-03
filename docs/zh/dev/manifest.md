@@ -1,49 +1,49 @@
 # Manifest 契约规范
 
-在 SFMC 模块化架构中，位于 `sapi/manifest.json` 的清单文件是模块的**核心契约（Contract）**。它向系统声明了该模块的唯一标识、依赖拓扑、数据库访问权限与跨模块服务（RPC）接口。
-
-无论是平台编排引擎、`db-server` 鉴权中心，还是 VS Code 开发扩展，均严格以该契约作为静态校验与运行时隔离的依据。
+模块的 `sapi/manifest.json` 文件用于声明模块的基本信息、依赖关系、权限以及对外提供的 RPC 服务。平台 CLI、`db-server` 与开发扩展均基于该清单进行模块校验与加载。
 
 :::tip Schema 绑定与智能提示
-在模块的 `sapi/manifest.json` 首行配置 `$schema`，可在编辑器中享受实时的语法补全与合法性校验：
+在模块的 `sapi/manifest.json` 首行配置 `$schema`，可在编辑器中获取字段补全与校验：
 ```json
 "$schema": "https://raw.githubusercontent.com/DogeLakeDev/ScriptsForMinecraftServer/main/modules/sdk/@sfmc-sdk/schemas/sapi-manifest.v2.schema.json"
 ```
-v3 语义元数据目前没有公开的 JSON Schema，v3 示例不设置 `$schema`。若第三方 Bedrock 插件误报其不是原版 BP 清单，可安全忽略或将该路径加入其诊断忽略列表。
+v3 语义元数据目前没有公开的 JSON Schema，使用 v3 时可不设置 `$schema`。若第三方基岩版开发插件误将其识别为原版行为包 manifest 报错，可将该路径加入忽略列表。
 :::
 
-## 1. 核心契约字段一览（v2 基线）
+## 1. 核心字段说明（v2 基线）
 
-| 字段名称 | 类型 | 必填 | 规约与说明 |
+| 字段名称 | 类型 | 必填 | 说明 |
 | :--- | :--- | :---: | :--- |
-| `schemaVersion` | `number` | **✓** | 契约版本号。基线模块为 `2`；包含 `semantic` 语义扩展块时填 `3`。 |
-| `id` | `string` | **✓** | 模块全局唯一标识符（小写 kebab-case，无强制前缀；如 `land`、`feature-land` 均可）。 |
-| `name` | `string` | **✓** | 模块的用户可读中文名称（如 `领地保护`、`通用经济`）。 |
-| `configKey` | `string` | **✓** | 模块私有配置键（下划线命名），映射到 `<SFMC_ROOT>/configs/<configKey>.json`。 |
-| `enabledByDefault` | `boolean` | ✕ | 安装时是否默认写入启用（缺省 `true`）。 |
-| `canDisable` | `boolean` | ✕ | 是否允许 CLI/API 写入禁用（缺省 `true`；下次冷启动生效）。平台关键模块可显式设为 `false`。 |
-| `requires` | `string[]` | **✓** | 该模块强依赖的前置模块 ID 列表。缺失前置时将被装载闸门阻断。 |
-| `permissions` | `string[]` | **✓** | 模块向平台声明所需申请的底层资源权限节点列表（见下文语法规则）。 |
-| `services.provides` | `ServiceEntry[]` | **✓** | 该模块向外部其它模块主动开放调用的 RPC 服务接口清单。 |
-| `services.requires` | `string[]` | **✓** | 该模块需要消费调用的外部服务名称集合。 |
-| `notes` | `string` | ✕ | 模块备注信息、设计说明或作者备忘。 |
+| `schemaVersion` | `number` | **✓** | 契约版本号。基线模块为 `2`；包含 `semantic` 扩展块时填 `3`。 |
+| `id` | `string` | **✓** | 模块唯一标识符（小写 kebab-case，如 `teleport`、`feature-teleport` 均可）。 |
+| `name` | `string` | **✓** | 模块显示名称（如 `领地保护`、`通用经济`）。 |
+| `configKey` | `string` | **✓** | 模块专属配置键（下划线命名），映射到 `<SFMC_ROOT>/configs/<configKey>.json`。 |
+| `requires` | `string[]` | **✓** | 该模块强依赖的前置模块 ID 列表。缺失前置依赖时将阻断加载。 |
+| `permissions` | `string[]` | **✓** | 模块申请的资源权限列表（如数据库表读写权限，见下文）。 |
+| `services.provides` | `ServiceEntry[]` | **✓** | 模块对外开放调用的 RPC 服务接口列表。 |
+| `services.requires` | `string[]` | **✓** | 模块需要调用的外部服务名称集合。 |
+| `notes` | `string` | ✕ | 模块备注或说明。 |
 
-## 2. 权限声明语法规约（Permissions）
+:::tip 模块启停策略
+模块清单不再支持声明 `canDisable` 与 `enabledByDefault`。新安装的模块默认启用并允许服主禁用，启停由服主通过 `sfmc mod enable` 与 `sfmc mod disable` 控制并记录在 `module-lock.json` 中。
+:::
 
-为了实现微内核级的数据安全与邻居隔离，模块不能任意读写整个 SQLite 数据库。`db-server` 会根据此字段为模块下发带受限权限范围的 Bearer Token：
+## 2. 权限声明语法（Permissions）
 
-| 权限语法模式 | 范例 | 权限授予范围说明 |
+为保证数据安全，模块无法随意读写全部 SQLite 数据。`db-server` 会根据声明的权限生成带受限范围的访问 Token：
+
+| 权限模式 | 示例 | 授权范围说明 |
 | :--- | :--- | :--- |
-| `db:read:<table>` | `db:read:wallets` | 允许对指定的 SQLite 数据表执行 `SELECT` 读取。 |
-| `db:write:<table>` | `db:write:wallets` | 允许对指定的数据表执行 `INSERT`、`UPDATE`、`DELETE` 等变更。 |
-| `db:read:*` / `db:write:*` | `db:write:*` | **通配符全局表权限**。仅限高度特权模块申请，常规业务模块严禁滥用。 |
-| `config:read:<key>` | `config:read:economy` | 允许通过 SDK 读取该配置命名空间。 |
+| `db:read:<table>` | `db:read:wallets` | 允许对指定的 SQLite 表执行 `SELECT` 查询。 |
+| `db:write:<table>` | `db:write:wallets` | 允许对指定的 SQLite 表执行 `INSERT`、`UPDATE`、`DELETE`。 |
+| `db:read:*` / `db:write:*` | `db:write:*` | **通配符全局表权限**。仅限高度特权核心模块申请，常规业务模块禁止滥用。 |
+| `config:read:<key>` | `config:read:economy` | 允许通过 SDK 读取该配置。 |
 | `config:write:<key>` | `config:write:economy` | 允许通过 SDK 运行时修改并持久化该配置。 |
 | `service:<name>` | `service:economy.transfer` | 允许发起跨模块 RPC 调用目标服务。 |
 
 ## 3. 跨模块服务声明（Services RPC）
 
-模块间不得直接通过全局对象或相对路径导入调用，必须通过强契约的 RPC 机制解耦：
+模块之间禁止直接通过相对路径相互导入，需通过 RPC 机制调用：
 
 ```json title="sapi/manifest.json 中的 services 片段"
 {
@@ -77,12 +77,12 @@ v3 语义元数据目前没有公开的 JSON Schema，v3 示例不设置 `$schem
 }
 ```
 
-- **全局唯一性**：所有已启用模块中，`provides` 的服务 `name` 必须全局唯一，出现同名注册将触发装载异常。
-- **依赖自闭合**：所有列在 `requires` 中的服务，必须能够被某个已激活模块的 `provides` 闭环解析；若存在悬空依赖，系统将在开服前报警。
+- **服务名称唯一**：所有已启用模块中，`provides` 的服务 `name` 必须全局唯一，出现同名会报错。
+- **依赖完整性**：所有声明在 `requires` 中的服务，必须存在已启用的提供方模块，否则启动时报错。
 
-## 4. Manifest v3 语义化元数据扩展（可选）
+## 4. Manifest v3 语义元数据（可选）
 
-若将 `schemaVersion` 声明为 `3`，可额外提供 `semantic` 对象，为扩展开发工具、UI 控制面板与可视化调试提供更丰富的语义镜像：
+将 `schemaVersion` 设为 `3` 时，可额外配置 `semantic` 对象，为开发扩展、控制面板提供模块行为描述：
 
 ```json title="sapi/manifest.json (v3 示例)"
 {
@@ -127,17 +127,25 @@ v3 语义元数据目前没有公开的 JSON Schema，v3 示例不设置 `$schem
 }
 ```
 
-## 5. 废弃的 v1 历史字段禁令
+## 5. 已废弃与停用字段
 
-在旧版（v1 实验版）中曾出现的以下字段已被新版架构彻底废弃并禁止使用：
+以下字段已被严格禁用，如果在 `manifest.json` 中声明会导致校验失败并阻断加载：
+
+### 启停控制字段（已停用）
+- ❌ `canDisable`
+- ❌ `enabledByDefault`
+
+**说明**：模块启停完全由服主通过 CLI 或管理接口控制，写入 `module-lock.json`。模块作者无需也不能在清单中强制指定启停策略。如果清单中包含这两个字段，SDK 校验和 `db-server` 均会报错并拒绝启动，升级或新建模块时请直接删除。
+
+### v1 历史字段（已废弃）
 - ❌ `routes`、`tables`、`migrations`、`seeds`、`handlers`、`events`
 
-一旦在 manifest 中出现上述遗留字段，`sfmc mod verify` 将抛出合规性错误。数据表的创建请统一收敛至模块主入口的 `lifecycle.init()` 阶段，通过 `db.defineTable` 或 `db.execute` 声明式完成。
+**说明**：数据表的创建已统一收敛至模块主入口 `lifecycle.init()` 阶段，通过 `db.defineTable` 声明式完成。
 
-## 6. 开服前自动化校验逻辑
+## 6. 启动前校验规则
 
-在拉起 BDS 前，`db-server` 与装载闸门会遍历已安装模块的 manifest 实施严格拓扑校验：
-1. **重复 ID 检测**：确保无任何模块标识冲突。
-2. **循环依赖拓扑排序（Cycle Detection）**：通过拓扑排序算法检测是否存在循环前置依赖（如 A 依赖 B，B 依赖 A）。
-3. **未满足的服务接口（Dangling Services）**：扫描所有声明在 `services.requires` 中的条目，确保其提供方模块已处于启用状态。
-4. **越权请求核查**：根据模块类型限制通配符权限，确保各模块在受限沙盒内安全运行。
+在启动 BDS 之前，平台会自动校验已安装模块的 manifest：
+1. **模块 ID 唯一性**：检查是否存在重复的模块 ID。
+2. **依赖拓扑检查**：解析模块依赖关系，检查是否存在循环依赖。
+3. **服务提供方检查**：检查 `services.requires` 中声明的服务是否有对应的启用模块提供。
+4. **权限范围检查**：检查通配符权限是否合规。

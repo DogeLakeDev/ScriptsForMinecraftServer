@@ -26,6 +26,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { defaultPackagesDir } from "./manifest.js";
 import { validateManifestPermissions } from "./permission-gate.js";
+import { isRetiredPlatformModule, PLATFORM_MONITORING_SERVICES, PLATFORM_SERVICE_OWNER } from "@sfmc-bds/sdk/contracts";
 
 export interface ManifestServiceIO {
   type: "object" | "array" | "string" | "number" | "boolean" | "null";
@@ -47,8 +48,6 @@ export interface ModuleManifestV2 {
   requires: string[];
   permissions: string[];
   services: { provides: ServiceEntry[]; requires: ServiceEntry[] };
-  enabledByDefault?: boolean | undefined;
-  canDisable?: boolean | undefined;
   notes?: string | undefined;
 }
 
@@ -74,11 +73,10 @@ function assertModuleObject(modId: string, obj: Record<string, unknown>): void {
   if (typeof obj.name !== "string" || obj.name.length === 0) {
     throw new Error(`[manifest] ${modId}: name 缺失`);
   }
-  if (obj.enabledByDefault !== undefined && typeof obj.enabledByDefault !== "boolean") {
-    throw new Error(`[manifest] ${modId}: enabledByDefault 必须是 boolean`);
-  }
-  if (obj.canDisable !== undefined && typeof obj.canDisable !== "boolean") {
-    throw new Error(`[manifest] ${modId}: canDisable 必须是 boolean`);
+  for (const field of ["enabledByDefault", "canDisable"]) {
+    if (Object.prototype.hasOwnProperty.call(obj, field)) {
+      throw new Error(`[manifest] ${modId}: ${field} 已停用，请删除；模块启停由服主通过 CLI/API 管理`);
+    }
   }
   if (typeof obj.configKey !== "string" || obj.configKey.length === 0) {
     throw new Error(`[manifest] ${modId}: configKey 缺失`);
@@ -151,8 +149,6 @@ function parseMod(modId: string, raw: Record<string, unknown>): ModuleManifestV2
     requires,
     permissions,
     services: parseServices(modId, raw.services),
-    ...(typeof raw.enabledByDefault === "boolean" ? { enabledByDefault: raw.enabledByDefault } : {}),
-    ...(typeof raw.canDisable === "boolean" ? { canDisable: raw.canDisable } : {}),
     notes: typeof raw.notes === "string" ? raw.notes : undefined,
   };
 }
@@ -184,7 +180,7 @@ export function loadManifestV2(packagesDir: string = defaultPackagesDir()): Load
     })
     .map((e) => e.name);
   const modules: Record<string, ModuleManifestV2> = {};
-  const providesMap = new Map<string, string>();
+  const providesMap = new Map<string, string>(PLATFORM_MONITORING_SERVICES.map(name => [name, PLATFORM_SERVICE_OWNER]));
 
   for (const id of ids) {
     const p = resolve(packagesDir, id, "sapi", "manifest.json");
@@ -202,7 +198,9 @@ export function loadManifestV2(packagesDir: string = defaultPackagesDir()): Load
       throw new Error(`[manifest] ${id}: ${p} 非合法 JSON: ${(e as Error).message}`);
     }
     try {
+      if (typeof parsed.id === "string" && isRetiredPlatformModule(parsed.id)) continue;
       const m = parseMod(id, parsed);
+      if (m.id === PLATFORM_SERVICE_OWNER) throw new Error("_platform 是保留的平台身份，不能由模块声明");
       modules[m.id] = m;
       for (const s of m.services.provides) {
         const prev = providesMap.get(s.name);
@@ -231,7 +229,7 @@ export function loadManifestV2(packagesDir: string = defaultPackagesDir()): Load
     }
     // requires 模块依赖也要么 enabled 要么本身 installed (启动期不强求 enabled;运行时再查)
     for (const dep of m.requires) {
-      if (!modules[dep]) {
+      if (!modules[dep] && !isRetiredPlatformModule(dep)) {
         throw new Error(`[manifest] ${m.id}.requires.${dep} 没找到对应模块`);
       }
     }

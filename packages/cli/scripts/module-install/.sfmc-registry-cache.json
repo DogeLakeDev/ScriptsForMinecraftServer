@@ -1,0 +1,95 @@
+{
+  "fetchedAt": 1790867366873,
+  "index": {
+    "activity-log": {
+      "npm": "@sfmc-bds/module-activity-log",
+      "version": "0.2.2",
+      "sdk": ">=0.2.0"
+    },
+    "afk": {
+      "npm": "@sfmc-bds/module-afk",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "area": {
+      "npm": "@sfmc-bds/module-area",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "chat": {
+      "npm": "@sfmc-bds/module-chat",
+      "version": "0.2.2",
+      "sdk": ">=0.2.2"
+    },
+    "chat-sounds": {
+      "npm": "@sfmc-bds/module-chat-sounds",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "clean": {
+      "npm": "@sfmc-bds/module-clean",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "coop": {
+      "npm": "@sfmc-bds/module-coop",
+      "version": "0.2.2",
+      "sdk": ">=0.2.0"
+    },
+    "data-backup": {
+      "npm": "@sfmc-bds/module-data-backup",
+      "version": "0.2.2",
+      "sdk": ">=0.2.0"
+    },
+    "economy": {
+      "npm": "@sfmc-bds/module-economy",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "fly-area": {
+      "npm": "@sfmc-bds/module-fly-area",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "gamemode-area": {
+      "npm": "@sfmc-bds/module-gamemode-area",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "inventory-switcher": {
+      "npm": "@sfmc-bds/module-inventory-switcher",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "land": {
+      "npm": "@sfmc-bds/module-land",
+      "version": "0.2.2",
+      "sdk": ">=0.2.0"
+    },
+    "monitor": {
+      "npm": "@sfmc-bds/module-monitor",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "online-time": {
+      "npm": "@sfmc-bds/module-online-time",
+      "version": "0.2.2",
+      "sdk": ">=0.2.0"
+    },
+    "peace-area": {
+      "npm": "@sfmc-bds/module-peace-area",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "qa": {
+      "npm": "@sfmc-bds/module-qa",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    },
+    "spawn-protect": {
+      "npm": "@sfmc-bds/module-spawn-protect",
+      "version": "0.2.1",
+      "sdk": ">=0.2.0"
+    }
+  }
+}

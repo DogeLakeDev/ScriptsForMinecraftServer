@@ -19,9 +19,22 @@ pnpm run lint
 1. 扩展 **SFMC: Link to SFMC Root**（或 `sfmc mod install {{id}} --from dir:. --link`）
 2. **SFMC: Start Watch** / `sfmc mod reload`
 
-## 脚本
+## 发布与收录
 
-| 命令                               | 作用                           |
-| ---------------------------------- | ------------------------------ |
+先填写 `package.json` 中真实的功能介绍、HTTPS 源码仓地址和 SDK peerDependencies；
+展示名称默认读取清单的 `name`，可在 `sfmc.registry.json` 中补充名称、介绍、分类、标签和公开作者署名。
+
+```bash
+pnpm publish --access public
+sfmc mod submit --dry-run
+sfmc mod submit
+```
+
+提交需要 `gh auth login` 或 `GH_TOKEN`；只提交 `modules/<id>.json`，合并后由索引仓生成 `index.json`。
+
+## 脚本列表
+
+| 命令             | 作用              |
+| ---------------- | ----------------- |
 | `pnpm run build` | tsc --noEmit      |
 | `pnpm run lint`  | ESLint / Prettier |

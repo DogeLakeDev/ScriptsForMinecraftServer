@@ -2,6 +2,7 @@
  * contracts/index.ts — 平台级共享类型
  */
 export type { ModuleCatalog, ModuleCatalogEntry, ModuleEntryPath, ModuleLock, ModuleRuntimeState } from "./module.js";
+export { isRetiredPlatformModule, PLATFORM_MONITORING_SERVICES, PLATFORM_SERVICE_OWNER, RETIRED_PLATFORM_MODULES } from "./platform-capabilities.js";
 export { UI_DOCUMENT_FORMAT_VERSION } from "./ui-document.js";
 export type {
   UiActionDefinition,

@@ -20,4 +20,5 @@ export * from "./permission.js";
 export * from "./command.js";
 export * from "./httpdb.js";
 export * from "./economy.js";
+export { getRuntimeMetrics, getRuntimeTpsStatus, type RuntimeMetrics } from "./monitoring.js";
 export { SFMC_SAPI_RUNTIME_VERSION } from "./version.js";

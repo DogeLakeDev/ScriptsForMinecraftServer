@@ -37,7 +37,10 @@ export async function runIsolatedRootSimulation(opts = {}) {
   fs.writeFileSync(path.join(simDir, "LLBot", llbotBin), "");
 
   fs.mkdirSync(path.join(simDir, "modules", "packages"), { recursive: true });
-  fs.copyFileSync(path.join(ROOT, "modules", "catalog.json"), path.join(simDir, "modules", "catalog.json"));
+  const catalog = path.join(ROOT, "modules", "catalog.json");
+  const simulatedCatalog = path.join(simDir, "modules", "catalog.json");
+  if (exists(catalog)) fs.copyFileSync(catalog, simulatedCatalog);
+  else fs.writeFileSync(simulatedCatalog, JSON.stringify({ version: 1, modules: [] }));
   fs.writeFileSync(
     path.join(simDir, "modules", "module-lock.json"),
     `${JSON.stringify({ version: 1, modules: {} }, null, 2)}\n`

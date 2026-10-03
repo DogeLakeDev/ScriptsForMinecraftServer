@@ -42,5 +42,5 @@ import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 - 不 import 其它模块源码；跨模块用 service / client
 - 业务类型放在模块包内；`contracts` 仅平台 catalog/lock
 
-对外服务：[模块服务目录](../modules/index.md)。HTTP 对照：[接口入门](../index.md)。
+对外服务：[模块服务目录](../modules/index.md)。HTTP 对照：[接口入门](../index.mdx)。
 

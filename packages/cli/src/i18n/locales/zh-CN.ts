@@ -91,6 +91,7 @@ export const zhCN: Record<MessageKey, string> = {
   "help.section.module": "  模块管理 ──────",
   "help.module.list": "列出已安装模块",
   "help.module.search": "在线搜索模块",
+  "help.module.submit": "预览或提交模块到官方索引仓",
   "help.module.install": "安装模块",
   "help.module.uninstall": "卸载已安装模块",
   "help.module.verify": "校验模块 SHA-256 完整性",
@@ -110,8 +111,7 @@ export const zhCN: Record<MessageKey, string> = {
   "help.packs.doctor.fix": "修复接线并补齐缺失的测试版 API",
   "help.packs.doctor.allExperiments": "开启全部已知实验性玩法",
   "help.packs.doctor.experiments": "仅查看实验性开关状态",
-  "help.packs.doctor.experimentsList":
-    "按别名开启，逗号分隔：beta, upcoming, cameras, voxel, villager, drop3, edu",
+  "help.packs.doctor.experimentsList": "按别名开启，逗号分隔：beta, upcoming, cameras, voxel, villager, drop3, edu",
   "help.packs.path": "显示资源包路径",
   "help.section.general": "  通用 ──────",
   "help.init": "初始化向导",

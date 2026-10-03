@@ -29,7 +29,10 @@ import { clearDbModuleContext, getDbClient, setDbModuleContext } from "../sapi/d
 import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnostics/sentry.js";
 import { Command } from "../sapi/runtime/command.js";
 import { debug } from "../sapi/runtime/debug-log.js";
-import { clearServiceModuleContext, getServiceClient, setServiceModuleContext } from "../sapi/service/client.js";
+import { getRuntimeMetrics, getRuntimeTpsStatus, startRuntimeMonitoring, stopRuntimeMonitoring } from "../sapi/runtime/monitoring.js";
+import { Msg } from "../sapi/runtime/msg.js";
+import { Permission } from "../sapi/runtime/permission.js";
+import { clearServiceModuleContext, createServiceClient, getServiceClient, setServiceModuleContext } from "../sapi/service/client.js";
 import type { DataAdapter } from "./data-adapter.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
 import { ConfigManager } from "./internal/config-manager.js";
@@ -62,6 +65,22 @@ let _installed = false;
 export function installHostBootstrap(options: InstallOptions = {}): HostBackend {
   if (_installed) return _bootstrapBackend();
   _installed = true;
+  const platformServices = createServiceClient("_platform", "");
+  platformServices.provide("tps.current", () => getRuntimeTpsStatus().tps);
+  platformServices.provide("tps.status", () => getRuntimeTpsStatus());
+  platformServices.provide("monitor.metrics", () => {
+    const metrics = getRuntimeMetrics();
+    return metrics ? { ...metrics, grade: getRuntimeTpsStatus().grade, totalLoadedChunks: metrics.chunkEstimate } : null;
+  });
+  // 保留 /c:status 习惯；已有 monitor 的命令声明仍可覆盖，避免重复注册原生命令。
+  if (!Command.list.status) Command.register("status", Permission.Admin, player => {
+    const metrics = getRuntimeMetrics();
+    const text = ["§e===== 服务器监控 =====", `§7TPS: §f${metrics?.tps?.toFixed(2) ?? "未知"} §7/ 20.00`,
+      `§7在线人数: §f${metrics?.onlineCount ?? "未知"}`,
+      ...[["minecraft:overworld", "主世界"], ["minecraft:nether", "下界"], ["minecraft:the_end", "末地"]].map(([id, label]) => `§7${label}实体: §f${metrics?.entities[id!] ?? "未知"}`),
+      `§7视距区块估算: §f${metrics?.chunkEstimate ?? "未知"}`].join("\n");
+    if (player) Msg.info(text, player); else debug.i("SFMC", text);
+  }, "查看服务器综合负载");
 
   // 将 BDS SAPI system 注入 module-loader 的 host 抽象（避免模块 loader 顶层硬依赖 @minecraft/server）
 
@@ -110,6 +129,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   )?.afterEvents;
 
   let worldLoadFired = false;
+  let stopMonitoring: (() => void) | undefined;
 
   const runStartup = async () => {
     // Sentry / 控制台 debug：DSN 与 sfmc_debug 均缺省关闭
@@ -133,6 +153,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
     announceLoaded();
     // 若环境无 worldLoad 事件（如 1.18 稳定版）或事件在 ConfigManager 就绪前已触发，立即执行 bootAfterWorldLoad
     if (!worldAfter?.worldLoad?.subscribe || worldLoadFired) {
+      stopMonitoring ??= startRuntimeMonitoring();
       await ModuleRegistry.bootAfterWorldLoad();
     }
   };
@@ -164,6 +185,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   if (worldAfter?.worldLoad?.subscribe) {
     worldAfter.worldLoad.subscribe(() => {
       worldLoadFired = true;
+      stopMonitoring ??= startRuntimeMonitoring();
       if (!ConfigManager.isReady()) return;
       ModuleRegistry.bootAfterWorldLoad();
     });
@@ -172,6 +194,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   if (sysBefore?.shutdown?.subscribe) {
     sysBefore.shutdown.subscribe(() => {
       try {
+        stopMonitoring?.();
         ModuleRegistry.teardown();
       } catch {}
     });
@@ -185,6 +208,6 @@ function _bootstrapBackend(): HostBackend {
     bindDataAdapter: (adapter: DataAdapter) => {
       ConfigManager.bindDataAdapter(adapter);
     },
-    dispose: () => undefined,
+    dispose: () => stopRuntimeMonitoring(),
   };
 }

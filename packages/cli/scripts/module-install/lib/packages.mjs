@@ -82,18 +82,15 @@ export function projectCatalogEntry(folder, manifest) {
   if (!id) throw new Error(`packages/${folder}: manifest.id 缺失`);
   if (!configKey) throw new Error(`packages/${folder}: manifest.configKey 缺失`);
 
-  /* 缺省：默认启用、允许禁用；不可禁用须在 manifest 显式 canDisable:false */
-  const enabledByDefault = typeof manifest.enabledByDefault === "boolean" ? manifest.enabledByDefault : true;
-  const canDisable = typeof manifest.canDisable === "boolean" ? manifest.canDisable : true;
-
   /** @type {CatalogEntry} */
   const entry = {
     id,
     configKey,
     name: String(manifest.name || configKey),
     description: String(manifest.description || ""),
-    enabledByDefault,
-    canDisable,
+    /* manifest 不再声明启停策略；安装默认启用，允许服主禁用。 */
+    enabledByDefault: true,
+    canDisable: true,
     requires: Array.isArray(manifest.requires) ? manifest.requires.map(String) : [],
     entry: {
       kind: "sapi",

@@ -1,0 +1,38 @@
+appId: cn.dogelake.sfmc.desktop
+productName: SFMC Desktop
+electronVersion: 44.5.1
+electronDist: node_modules/electron/dist
+npmRebuild: false
+directories:
+  app: staging
+  output: release
+files:
+  - dist/**
+  - node_modules/**
+  - package.json
+  - runtime-manifest.json
+  - release-manifest.json
+extraResources:
+  - from: payload
+    to: payload
+asar: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  verifyUpdateCodeSignature: true
+nsis:
+  include: scripts/installer.nsh
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+publish:
+  provider: github
+  owner: DogeLakeDev
+  repo: ScriptsForMinecraftServer
+  releaseType: release
+  channel: desktop
+artifactName: SFMC-Desktop-${version}-${arch}.${ext}

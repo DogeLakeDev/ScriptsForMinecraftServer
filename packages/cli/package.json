@@ -57,10 +57,14 @@
   "dependencies": {
     "@clack/prompts": "^1.7.0",
     "@sfmc-bds/bds-tools": "workspace:*",
+    "@sfmc-bds/devkit": "workspace:*",
     "@sfmc-bds/sdk": "workspace:*",
     "chalk": "^6.0.0",
     "cross-spawn": "7.0.6",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "@sfmc-bds/management": "workspace:*",
+    "ajv": "8.20.0",
+    "jsonc-parser": "3.3.1"
   },
   "devDependencies": {
     "@sfmc-bds/tools": "workspace:*"

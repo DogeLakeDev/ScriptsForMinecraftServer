@@ -29,7 +29,7 @@ curl http://127.0.0.1:3001/api/health
 
 | 业务场景 | 官方标准做法 | 禁忌与原则 |
 | :--- | :--- | :--- |
-| **编写 SAPI 游戏业务模块** | **必须统一使用 `@sfmc-bds/sdk`** 提供的抽象封装。<br/>- 数据库：`@sfmc-bds/sdk/sapi/db`<br/>- 私有配置：`@sfmc-bds/sdk/sapi/config`<br/>- 跨模块调用：`@sfmc-bds/sdk/sapi/service` | **绝对禁止直接通过 SAPI fetch 直连 `127.0.0.1:3001`**。SDK 会自动处理请求签名、身份注入与网络异常重试。 |
+| **编写 SAPI 游戏业务模块** | **统一使用 `@sfmc-bds/sdk`** 提供的抽象封装。<br/>- 数据库：`@sfmc-bds/sdk/sapi/db`<br/>- 私有配置：`@sfmc-bds/sdk/sapi/config`<br/>- 跨模块调用：`@sfmc-bds/sdk/sapi/service` | SDK 会自动处理身份注入与网络异常重试，不建议在业务模块中手写 fetch 直连 `127.0.0.1:3001`。 |
 | **Node.js 侧扩展与外部脚本** | 可直接发起 HTTP REST 请求（参考本节各平台 HTTP 子路由）。 | 需在 Request Header 中显式携带 Bearer Token。 |
 | **查阅强类型签名** | 参阅自动生成的 [SDK 类型参考手册](../reference/index.md)。 | — |
 
@@ -38,14 +38,14 @@ curl http://127.0.0.1:3001/api/health
 <Tabs>
   <Tab label="路径一：SAPI 模块开发者（首选推荐）">
 
-1. [鉴权规范与错误码处理](./overview.md) — 了解微内核隔离、Bearer Token 注入与平台错误响应契约。
+1. [鉴权规范与错误码处理](./overview.md) — 了解身份鉴权、Bearer Token 注入与平台错误响应契约。
 2. [SDK 核心导读](./sdk/index.md) — 学习 `db`、`config`、`runtime`、`service` 四大抽屉的用法。
 3. [官方模块服务目录](./modules/index.md) — 查阅经济（economy）、领地（land）、区域（area）等现成可调用的 RPC 接口。
 
   </Tab>
   <Tab label="路径二：平台底层调试 / Node.js 开发者">
 
-1. [鉴权与网关规范](./overview.md) — 统一请求头格式、状态码映射。
+1. [鉴权与通信约定](./overview.md) — 统一请求头格式、状态码映射。
 2. 核心 REST 端点详解：
    - [模块管控 API](./module-control.md) — 查询已安装 catalog、启停状态切换。
    - [配置管理 API](./config.md) — 获取全局启动快照（`configs/all`）与命名空间持久化。

@@ -28,6 +28,7 @@
  */
 
 import { extractZipFileToDir } from "@sfmc-bds/bds-tools/zipx";
+import { isRetiredPlatformModule } from "@sfmc-bds/sdk/contracts";
 import { createHash } from "node:crypto";
 import fs, { createReadStream } from "node:fs";
 import fsp from "node:fs/promises";
@@ -260,6 +261,7 @@ function afterInstall(folder, opts = {}) {
   const moduleRoot = path.join(TARGET, folder);
   const preview = loadPackageCatalogEntry(folder);
   if (!preview) throw new Error(`packages/${folder}: 无法读取 sapi/manifest.json`);
+  if (isRetiredPlatformModule(preview.id)) throw new Error("monitor 已收编至平台，无需安装；请更新平台行为包。");
   const seeded = seedModuleConfig({
     moduleRoot,
     projectRoot: ROOT,
@@ -779,8 +781,9 @@ async function installWithPnpm(projectDir, packageSpec) {
   const spawnChild = (await import("cross-spawn")).default;
   await new Promise((resolve, reject) => {
     const proc = spawnChild(
-      "pnpm",
+      process.env.SFMC_PNPM_ENTRY ? (process.env.SFMC_NODE_BINARY || process.execPath) : "pnpm",
       [
+        ...(process.env.SFMC_PNPM_ENTRY ? [process.env.SFMC_PNPM_ENTRY] : []),
         "--dir",
         projectDir,
         "add",
@@ -893,6 +896,7 @@ async function copyDir(src, dst) {
  * @param {{ from: any; sha256?: null; link: any; }} flags
  */
 async function installOne(id, flags) {
+  if (isRetiredPlatformModule(id)) throw new Error("monitor 已收编至平台，无需安装；请更新平台行为包。");
   let from = flags.from;
   if (!from) {
     from = await defaultSourceFor(id);

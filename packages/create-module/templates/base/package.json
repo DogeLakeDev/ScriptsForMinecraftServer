@@ -12,6 +12,7 @@
   "files": [
     "sapi",
     "configs-default",
+    "sfmc.registry.json",
     "README.md",
     "LICENSE"
   ],

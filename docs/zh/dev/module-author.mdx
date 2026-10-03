@@ -1,125 +1,128 @@
-# 业务模块开发全流程手册
+# 业务模块开发指南
 
-本手册面向 SFMC 业务模块开发者。读完本篇，你将掌握从**新建模块仓库、规范化命名、静态检查与真机热重载联调，到最终发布至 npm 与官方索引**的完整工程化闭环。
+本文介绍如何开发 SFMC 业务模块，涵盖脚手架初始化、目录结构、命名规范、本地联调、Manifest 配置以及发布流程。
 
-## 1. 快速脚手架：5 分钟初始化模块
+## 1. 快速开始
 
-推荐通过官方脚手架一键生成标准的作者独立仓库：
+使用官方脚手架初始化模块仓库：
 
 ```bash
-# 交互式初始化向导
 pnpm dlx @sfmc-bds/create-module@latest
 ```
 
-向导将引导您填写并配置：
-- **模块 ID（kebab-case）**
-- **显示名称（Display Name）**
-- **npm Scope**：社区模块建议使用个人或团队 scope（如 `@alice`）
-- **可选能力选型**：是否开箱包含 SQLite 持久化支持（`db`）
+向导将提示配置以下内容：
+- **模块 ID（kebab-case）**：如 `teleport`、`economy`
+- **显示名称（Display Name）**：如 `通用经济`
+- **npm Scope**：个人或团队 scope（如 `@alice`）
+- **功能选型**：是否包含 SQLite 数据库支持
 
-:::tip 图形化创建
-在 VS Code 或 Cursor 中安装官方扩展 **「SFMC Module」** 后，在命令面板（`Ctrl+Shift+P`）中执行 `SFMC: New Module`，亦可唤起相同脚手架引擎生成工程。
+:::tip 编辑器支持
+在 VS Code 或 Cursor 中安装扩展 **SFMC Module** 后，也可以通过命令面板（`Ctrl+Shift+P`）执行 `SFMC: New Module` 生成工程。
 :::
 
-进入新生成的工程目录并安装依赖、检查类型：
+进入模块目录并安装依赖、执行类型检查：
 
 ```bash
 cd my-feature
 pnpm install && pnpm run typecheck
 ```
 
-## 2. 工程规范与命名矩阵
+## 2. 命名规范
 
-为确保模块在全生态中的命名唯一性与一致性，请严格遵循以下规范矩阵：
+为避免模块冲突，模块各位置的命名约定如下：
 
-| 层次维度 | 命名规约 | 示例 | 作用与约束 |
+| 场景 | 命名格式 | 示例 | 说明 |
 | :--- | :--- | :--- | :--- |
-| **文件夹 / 安装 ID** | 短名，小写连字符（kebab-case） | `teleport`、`economy` | 运维机安装和执行命令的唯一短名（如 `sfmc mod install teleport`）。 |
-| **npm 包名（社区）** | `@<scope>/sfmc-module-<id>` | `@alice/sfmc-module-teleport` | 社区公开发布至 npm Registry 的包名。 |
-| **npm 包名（官方）** | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` | 平台核心团队维护的官方模块。 |
-| **Manifest 模块 ID** | `feature-<id>` 或 `core-<id>` | `feature-teleport` | 在 SAPI 虚拟机内部的唯一模块标识符。 |
+| **安装短名 / 文件夹** | 小写连字符（kebab-case） | `teleport`、`economy` | CLI 安装与管理时使用的短名称（如 `sfmc mod install teleport`）。 |
+| **社区 npm 包名** | `@<scope>/sfmc-module-<id>` | `@alice/sfmc-module-teleport` | 发布至 npm 官方源的包名。 |
+| **官方 npm 包名** | `@sfmc-bds/module-<id>` | `@sfmc-bds/module-economy` | 官方维护的核心业务模块。 |
+| **Manifest 模块 ID** | `feature-<id>` 或 `core-<id>` | `feature-teleport` | SAPI 运行时中的唯一模块标识。 |
 | **配置命名空间** | 下划线命名（snake_case） | `teleport`、`my_feature` | 对应 `<SFMC_ROOT>/configs/<configKey>.json`。 |
 
-## 3. 作者开发标准工作流（Developer Workflow）
+## 3. 开发工作流
 
-SFMC 将模块开发划分为 5 个清晰阶段：
+开发业务模块的常规流程如下：
 
 ```mermaid
 flowchart LR
-  A[1. 脚手架建仓<br/>pnpm dlx] --> B[2. 类型与语法检查<br/>typecheck & lint]
-  B --> C[3. 挂接工作区<br/>--link 软链接]
+  A[1. 初始化模块<br/>pnpm dlx] --> B[2. 类型与语法检查<br/>typecheck & lint]
+  B --> C[3. 挂接到测试服<br/>--link 软链接]
   C --> D[4. 实时监听<br/>Watch & Hot Reload]
-  D --> E[5. 生态发布<br/>pnpm publish & 官方索引 PR]
+  D --> E[5. 发布上线<br/>pnpm publish & 索引登记]
 ```
 
-### ① 编写与静态检查（Type Safety & Lint）
-在本地编码阶段，充分利用 TypeScript 强类型与官方 ESLint 规则保障质量：
+### 1. 编写与静态检查
+编码过程中通过 TypeScript 与 ESLint 保障代码质量：
 
 ```bash
-pnpm run typecheck    # 验证 SAPI 类型约束
-pnpm run lint         # 检查 Msg 消息助手、SDK 导入与权限约定
+pnpm run typecheck    # 检查 SAPI 类型与 SDK 契约
+pnpm run lint         # 检查消息规范、导入路径与权限规则
 ```
 
-### ② 挂接至本地开服目录（Link）
-将作者仓直接软链接到你的本地测试服务器（SFMC_ROOT）：
+### 2. 挂接到本地测试服务器（Link）
+将本地模块软链接到测试服务器（SFMC_ROOT）进行联调：
 
 ```bash
-# 方式 A：在 VS Code 扩展点击 "SFMC: Link to SFMC Root"
-# 方式 B：在服务端执行 CLI 命令
+# 方式 A：在 VS Code 扩展中点击 "SFMC: Link to SFMC Root"
+# 方式 B：在服务端终端执行命令
 sfmc mod install my-feature --from dir:D:/WorkSpace/my-feature --link
 sfmc mod enable my-feature
 ```
 
-### ③ 实时监听与热重载（Watch & Reload）
-在 VS Code / Cursor 中点击扩展栏的 **`SFMC: Start Watch`**。  
-每次你在 `sapi/src/` 中保存代码时，`@sfmc-bds/devkit` 会在毫秒内完成转译增量部署，并自动通知 BDS 刷新行为包，游戏内无感热生效！
+### 3. 实时监听与热重载（Watch & Reload）
+在 VS Code / Cursor 中点击扩展侧边栏的 **`SFMC: Start Watch`**。每次保存 `sapi/src/` 中的代码，扩展会自动增量编译并通知 BDS 热重载。
 
-### ④ 发布至 npm 与官方生态
-代码验证完毕后，正式发布上线：
+### 4. 发布到 npm 与社区索引
+测试验证完成后，即可发布上线：
 
 ```bash
-# 发布至 npm（要求公共包）
+# 发布到 npm（需公开访问）
 pnpm publish --access public
 
-# 向官方索引 sfmc-modules 的 index.json 提交 PR 登记你的模块
+# 向 sfmc-modules 仓库的 index.json 提交 PR 登记模块
 ```
 
-## 4. 作者仓标准文件结构
+## 4. 模块目录结构
 
 ```text
 my-feature/
-├── package.json               # 声明依赖与 exports
+├── package.json               # 依赖声明与 npm exports
 ├── .vscode/
 │   ├── extensions.json        # 推荐扩展（SFMC Module, ESLint 等）
-│   └── settings.json          # 绑定 JSON Schema
+│   └── settings.json          # 编辑器配置
 ├── eslint.config.js           # 集成 @sfmc-bds/eslint-plugin
 ├── sapi/
-│   ├── manifest.json          # 模块契约声明（v2 / v3）
+│   ├── manifest.json          # 模块契约声明
 │   ├── tsconfig.json          # 面向 SAPI 环境的 TypeScript 配置
 │   └── src/
-│       └── index.ts           # 模块业务逻辑主入口（ModuleRegistry.register）
-└── package.json
+│       └── index.ts           # 模块入口（ModuleRegistry.register）
 ```
 
-### SDK 模块化导入路径指南
+### SDK 常用导入路径
 
-| 导入路径 | 导出功能 | 使用场景 |
+| 导入路径 | 导出内容 | 使用场景 |
 | :--- | :--- | :--- |
-| **`@sfmc-bds/sdk/module-loader`** | `ModuleRegistry`、`ConfigManager` | 模块根入口注册与生命周期定义。 |
-| **`@sfmc-bds/sdk/sapi/runtime`** | `Command`、`Msg`、`Permission`、`MenuNavigator` | 聊天命令、规范消息展示、权限节点注册与表单菜单。 |
-| **`@sfmc-bds/sdk/sapi/db`** | `db.defineTable`、`db.select`、`db.insert`、`db.tx` | SQLite 透明持久化与多模块分布式事务。 |
-| **`@sfmc-bds/sdk/sapi/config`** | `config.get`、`config.set` | 读取并监听本模块私有配置文件。 |
-| **`@sfmc-bds/sdk/sapi/service`** | `service.provide`、`service.call` | 跨模块暴露远程 RPC 接口或调用其他模块能力。 |
+| **`@sfmc-bds/sdk/module-loader`** | `ModuleRegistry`、`ConfigManager` | 模块入口注册与生命周期定义。 |
+| **`@sfmc-bds/sdk/sapi/runtime`** | `Command`、`Msg`、`Permission`、`MenuNavigator` | 聊天命令、规范消息输出、权限节点与表单导航。 |
+| **`@sfmc-bds/sdk/sapi/db`** | `db.defineTable`、`db.select`、`db.insert`、`db.tx` | SQLite 数据读写与跨模块事务。 |
+| **`@sfmc-bds/sdk/sapi/config`** | `config.get`、`config.set` | 读取并监听模块专属配置文件。 |
+| **`@sfmc-bds/sdk/sapi/service`** | `service.provide`、`service.call` | 跨模块暴露或调用 RPC 服务。 |
 
-:::warning 注意：杜绝违规直连
-严禁在 SAPI 模块内使用原生 `fetch` 或 `http` 直接请求 `127.0.0.1:3001`。所有数据库读写与服务通信必须通过 SDK 封装的 `db.*`、`service.*` 接口进行，SDK 会自动完成请求上下文封装与 Bearer Token 鉴权注入。
+:::warning 注意
+SAPI 模块内禁止直接使用原生 `fetch` 请求 `127.0.0.1:3001`。所有数据库操作与跨模块通信必须通过 SDK 提供的 `db.*` 和 `service.*` 进行，SDK 会自动处理请求封装与 Bearer Token 鉴权。
 :::
 
-## 5. Manifest v3 语义化元数据契约
+## 5. Manifest 配置与语义元数据
 
-目前没有公开的 v3 JSON Schema；下面的示例不设置 `$schema`。
+在 `sapi/manifest.json` 中声明模块的基础标识、权限和依赖。推荐声明 **v3 语义元数据（`semantic` 字段）**，便于工具和控制面板识别模块行为：
 
-在 `sapi/manifest.json` 中，除了基础的模块 ID 和依赖外，推荐声明 **v3 语义化元数据（`semantic` 块）**。它能够帮助编辑器、静态分析工具与运维面板深刻理解该模块的行为特征：
+:::tip 启停控制说明
+模块 manifest 不再支持 `canDisable` 与 `enabledByDefault` 字段（若存在会导致校验报错）。新安装的模块默认启用，服主通过 `sfmc mod enable <id>` 与 `sfmc mod disable <id>` 管理启停，在下次 BDS 冷启动时生效；升级时会自动保留已有的启停状态。
+
+升级已有部署前，先检查 `modules/packages/**/manifest.json`。旧模块如果仍包含上述两个字段，应备份 manifest，再只删除这两个顶层字段；保留 `modules/module-lock.json` 和业务数据。迁移后重新构建、部署世界包，并启动数据服务与 BDS 验证加载结果。尚未迁移的旧声明会阻止数据服务启动。
+:::
+
+目前 v3 尚无独立公开的 JSON Schema，示例中不设置 `$schema`：
 
 ```json title="sapi/manifest.json"
 {
@@ -149,7 +152,7 @@ my-feature/
     "publicApi": [
       {
         "symbol": "transfer",
-        "description": "跨玩家安全转账（支持事务回滚）",
+        "description": "跨玩家转账接口",
         "params": [
           { "name": "fromPlayer", "type": "string", "required": true },
           { "name": "toPlayer", "type": "string", "required": true },
@@ -162,20 +165,23 @@ my-feature/
 }
 ```
 
-### 语义字段解析
+### 语义字段说明
 
-- **`configKeys`**：声明该模块会读取或监听的配置键集合。
-- **`events.emits` / `listens`**：声明该模块主动触发的全局事件与监听的原生/跨模块事件路径。
-- **`dbTables`**：描述该模块在 SQLite 中注册的数据表与核心列。
-- **`publicApi`**：对外暴露的强类型 API 接口说明，为下游调用者提供签名参考。
+- **`configKeys`**：该模块读取或监听的配置键列表。
+- **`events.emits` / `listens`**：该模块触发或监听的事件名。
+- **`dbTables`**：该模块创建和使用的 SQLite 数据表与核心字段。
+- **`publicApi`**：对外暴露的公共 API 接口描述，供下游调用者参考。
 
-### 向下兼容性保障
-- **零破坏性升级**：v3 对 v2 完全向下兼容。旧模块保留 `schemaVersion: 2` 即可平滑运行，系统会自动将其平滑升维为缺省 `semantic` 的 v3 格式。
-- **类型宽容度**：即使在 `semantic` 中声明了可选错误类型，校验引擎仅会在控制台打印警告提示，绝对不会粗暴阻断模块的启动加载。
+### 版本兼容说明
 
-## 6. 下一步指引
+- **兼容 v2**：`schemaVersion: 2` 的模块仍可正常运行，系统加载时会自动填充缺省的 `semantic` 结构。
+- **容错处理**：若 `semantic` 中可选字段格式不规范，系统仅在控制台输出警告，不会阻断模块加载。
+- 更多字段规则与权限语法请参考 [Manifest 契约规范](./manifest.md)。
 
-- 📚 **核心 API 速查**：查阅 [API 速查手册 (Cheatsheet)](./cheatsheet.mdx) 获取最常用的代码片段。
-- 🧪 **测试与调试策略**：查阅 [测试与调试策略](./testing.md) 掌握本地类型校验与真机 Watch 热重载的最佳实践。
-- 🛡️ **代码质量规范**：查阅 [ESLint 规则说明](./eslint.md) 消除常见的安全隐患与反模式。
-- 🚀 **发布至 npm**：查阅 [发布你的模块](./publish.md) 了解版本打标与上架规范。
+## 6. 相关文档
+
+- [API 速查手册 (Cheatsheet)](./cheatsheet.mdx) — 常用 API 接口与代码范例
+- [Manifest 契约规范](./manifest.md) — 清单字段完整定义与权限语法
+- [验证与调试策略](./testing.md) — 静态检查、本地联调与 BDS 运行验收
+- [ESLint 规则说明](./eslint.md) — 代码风格与边界约束
+- [发布你的模块](./publish.md) — 版本打标与 npm 发布指南

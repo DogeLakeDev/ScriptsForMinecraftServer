@@ -7,9 +7,12 @@
 
 import type { UnifiedLog, LogLevel, LogSource } from "../logs.js";
 import type { ServiceName, ServiceStateEvent, ServiceStatus } from "../services.js";
+import type { ManagementRequest, ManagementResponse, ManagementEvent } from "@sfmc-bds/management";
 
 /** 协议方法名（固定集合，OCP：新增能力加此处与 server 分发） */
 export type DaemonMethod =
+  | "management"
+  | "maintenanceStop"
   | "ping"
   | "status"
   | "start"
@@ -32,6 +35,8 @@ export interface DaemonRequest {
 
 /** 各方法参数（按 method 选用） */
 export type DaemonParams = {
+  request?: ManagementRequest;
+  maintenanceToken?: string;
   name?: string;
   message?: string;
   args?: string[];
@@ -49,8 +54,8 @@ export interface DaemonResponse {
 /** 服务端推送事件（subscribe 之后） */
 export interface DaemonEvent {
   type: "event";
-  event: "log" | "state";
-  payload: DaemonLogPayload | ServiceStateEvent;
+  event: "log" | "state" | "management";
+  payload: DaemonLogPayload | ServiceStateEvent | ManagementEvent;
 }
 
 /** 日志事件载荷（与 UnifiedLog 对齐，便于 CLI 侧 pushLog） */
@@ -63,6 +68,7 @@ export interface DaemonLogPayload {
 
 /** status 等方法的结构化结果 */
 export type DaemonResult =
+  | { kind: "management"; response: ManagementResponse }
   | { kind: "pong" }
   | { kind: "text"; text: string }
   | { kind: "status"; text: string; rows: ServiceStatus[] }
