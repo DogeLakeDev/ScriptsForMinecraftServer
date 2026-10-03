@@ -1,5 +1,11 @@
 # @sfmc-bds/sfmc
 
+## 0.2.10
+
+### Patch Changes
+
+- @sfmc-bds/cli@0.4.1
+
 ## 0.2.9
 
 ### Patch Changes

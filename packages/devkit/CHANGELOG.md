@@ -1,5 +1,11 @@
 # @sfmc-bds/devkit
 
+## 2.0.1
+
+### Patch Changes
+
+- c3bc9d2: 允许模块索引描述为空，作者配置与提交工具保持一致；已收录模块的版本由索引仓从 npm 自动同步。
+
 ## 2.0.0
 
 ### Major Changes
