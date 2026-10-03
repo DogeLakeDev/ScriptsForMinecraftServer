@@ -1,4 +1,4 @@
-SFMC Desktop **0.1.0**，首个 Windows x64 正式版。
+SFMC Desktop **0.1.1**，首个 Windows x64 正式版。
 
 支持本机与 SSH 实例、服务启停、控制台、模块与资源包、配置、玩家、维护任务和运行指标。内置平台 **0.2.9**、Node.js 与 pnpm。本机 Windows 与 SSH Windows 的数据服务/BDS、真实指标和守护进程重连已验收。
 
@@ -16,13 +16,13 @@ SFMC Desktop **0.1.0**，首个 Windows x64 正式版。
 发行页下方公示各文件 SHA256，`SHA256SUMS.txt` 提供可下载的校验清单。下载后在 PowerShell 核对：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.0-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.1-x64.exe' -Algorithm SHA256
 ```
 
 使用 GitHub CLI 验证构建证明及来源标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.1.0-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.1.0 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.1.1-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.1.1 --deny-self-hosted-runners
 ```
 
 ZIP 使用相同命令替换文件名即可。`artifact-attestation.sigstore.json` 是可下载的证明材料，`release-manifest.json` 记录源码提交、平台版本和内置运行时信息。
