@@ -160,6 +160,17 @@ export function OverviewPage() {
               trigger={<IconButton icon="more" label="更多操作" variant="secondary" />}
               items={[
                 {
+                  key: "restart",
+                  disabled: !editable,
+                  icon: "restart",
+                  label: "重启全部服务",
+                  onSelect: () =>
+                    void submit("services.restart", { name: "all" }, "重启全部服务", {
+                      okText: "重启",
+                      description: "将按依赖顺序停止所有托管服务，再依次启动。玩家连接会暂时中断。",
+                    }),
+                },
+                {
                   key: "stop",
                   danger: true,
                   disabled: !editable,

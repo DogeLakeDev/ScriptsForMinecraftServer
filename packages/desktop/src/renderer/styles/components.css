@@ -602,21 +602,31 @@
 }
 
 .feed-timeline {
+  --feed-padding: 8px;
+  --feed-icon-size: 24px;
+  --feed-connector-gap: 4px;
+}
+
+.feed-timeline > li {
   position: relative;
 }
 
-.feed-timeline::before {
+/* 只连接相邻图标之间的空隙，避开半透明色块；末项不绘制延长线。 */
+.feed-timeline > li:not(:last-child)::after {
   content: "";
   position: absolute;
-  left: 19px;
-  top: 20px;
-  bottom: 20px;
+  left: calc(var(--feed-padding) + var(--feed-icon-size) / 2 - 0.5px);
+  top: calc(var(--feed-padding) + var(--feed-icon-size) + var(--feed-connector-gap));
+  bottom: calc(var(--feed-connector-gap) - var(--feed-padding));
   width: 1px;
   background: var(--c-line);
+  z-index: 1;
+  pointer-events: none;
 }
 
 .feed-timeline .feed-item {
   position: relative;
+  padding: var(--feed-padding);
 }
 
 .mini-foot {

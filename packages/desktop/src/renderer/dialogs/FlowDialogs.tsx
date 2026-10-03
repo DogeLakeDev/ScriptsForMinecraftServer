@@ -18,6 +18,7 @@ import { OperationSteps } from "../components/OperationSteps.js";
 import { Modal } from "../components/overlays.js";
 import { Callout } from "../components/ui.js";
 import { errorText } from "../lib/format.js";
+import { ReleaseNotes } from "../components/ReleaseNotes.js";
 
 /** SSH 登录：凭据仅用于本次连接（是否记住由实例设置中的选项决定） */
 function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
@@ -185,6 +186,7 @@ function AttachDialog({ flow }: { flow: Extract<Flow, { kind: "attach" }> }) {
     >
       <div className="form-stack">
         <PlanVersions plan={plan} />
+        {plan.upgradeRequired && <ReleaseNotes notes={plan.releaseNotes} version={plan.targetVersion} />}
         {plan.steps.length > 0 && (
           <ol className="plan-steps">
             {plan.steps.map((step, index) => (
@@ -201,13 +203,13 @@ function AttachDialog({ flow }: { flow: Extract<Flow, { kind: "attach" }> }) {
   );
 }
 
-/** 版本对比：当前版本 → 目标版本 */
+/** 版本对比：当前版本 → 最新稳定版 */
 function PlanVersions({ plan }: { plan: AttachmentPlan }) {
   return (
     <div className="plan-versions">
       <div><span className="muted">当前版本</span><b className="mono">{plan.currentVersion || "—"}</b></div>
       <Icon name="arrowRight" size={16} className="muted" />
-      <div><span className="muted">目标版本</span><b className="mono">{plan.targetVersion}</b></div>
+      <div><span className="muted">最新稳定版</span><b className="mono">{plan.targetVersion}</b></div>
     </div>
   );
 }

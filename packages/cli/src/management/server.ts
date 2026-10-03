@@ -158,7 +158,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));
     case "attachment.plan": return attachmentPlan();
     case "attachment.apply": return store.submit(request.method, async context => {
-      const plan = await attachmentPlan();
+      const plan = await attachmentPlan(false);
+      if (p.targetVersion !== undefined && p.targetVersion !== plan.targetVersion) throw Object.assign(new Error("目标版本已变更，请重新检查更新日志后确认"), { code: "conflict" });
       if (plan.externalServices.length) throw new Error("无法可靠迁移外部进程；请先通过原管理器优雅停服");
       if (plan.upgradeRequired) return launchPlatformUpdate(store, context, plan.targetVersion);
       return { attached: true, version: plan.currentVersion, development: plan.development };
@@ -168,7 +169,7 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       return Object.fromEntries(results.map((result, index) => [["platform", "modules", "bds"][index], result.status === "fulfilled" ? result.value : { error: String(result.reason) }]));
     }
     case "updates.run": {
-      if (p.kind === "platform") return store.submit(request.method, async context => { const plan = await attachmentPlan(); return plan.upgradeRequired ? launchPlatformUpdate(store, context, plan.targetVersion) : { upToDate: true, version: plan.currentVersion }; });
+      if (p.kind === "platform") return store.submit(request.method, async context => { const plan = await attachmentPlan(false); if (p.targetVersion !== undefined && p.targetVersion !== plan.targetVersion) throw Object.assign(new Error("目标版本已变更，请重新检查更新日志后确认"), { code: "conflict" }); return plan.upgradeRequired ? launchPlatformUpdate(store, context, plan.targetVersion) : { upToDate: true, version: plan.currentVersion }; });
       if (p.kind === "modules") return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => { const result = await applyModulePlan(Array.isArray(p.ids) ? p.ids.map(identifier) : []); await rebuildModules(); return result; }, true, "modules"));
       if (p.kind === "bds") return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => bdsUpdate(context), true, "bds"));
       throw new Error("未知更新类型");

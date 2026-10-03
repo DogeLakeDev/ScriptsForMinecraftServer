@@ -60,7 +60,8 @@ function InstanceList({ collapsed }: { collapsed: boolean }) {
 
 /** 左侧栏 */
 export function Sidebar({ collapsed, onToggleSidebar, onOpenAbout }: { collapsed: boolean; onToggleSidebar: () => void; onOpenAbout: () => void }) {
-  const { model, page, setPage } = useDesktop();
+  const { model, page, setPage, desktopUpdate } = useDesktop();
+  const hasDesktopUpdate = desktopUpdate.info?.available === true;
   const running = activeTasks(model).length;
   const groups = [...new Set(NAV.map((item) => item.group))];
   const disabled = (item: NavItem) => Boolean(model.handshake && !model.handshake.capabilities.includes(item.capability));
@@ -97,9 +98,10 @@ export function Sidebar({ collapsed, onToggleSidebar, onOpenAbout }: { collapsed
               })}
               {group === "维护" && (
                 <Tooltip content={collapsed ? "关于" : undefined} side="right">
-                  <button type="button" className="sb-item sb-about" aria-label="关于" onClick={onOpenAbout}>
+                  <button type="button" className="sb-item sb-about" aria-label={hasDesktopUpdate ? "关于，有桌面更新" : "关于"} onClick={onOpenAbout}>
                     <Icon name="info" size={20} weight="duotone" />
                     <span className="sb-item-label">关于</span>
+                    {hasDesktopUpdate && <span className="sb-update-dot" aria-hidden="true" />}
                   </button>
                 </Tooltip>
               )}

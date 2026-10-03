@@ -82,7 +82,7 @@ function ToastList() {
             <Toast.Title className="toast-title" />
             {item.data?.meta && <div className="toast-meta">{item.data.meta}</div>}
             <Toast.Description className="toast-desc" />
-            {tone === "progress" && <div className="toast-progress" aria-hidden="true"><span /></div>}
+            {tone === "progress" && <div className="toast-progress-bar" aria-hidden="true"><span /></div>}
           </div>
           {item.actionProps && <Toast.Action className="btn btn-secondary btn-sm toast-action" />}
           <Toast.Close className="icon-btn icon-btn-sm icon-btn-ghost toast-close" aria-label="关闭通知"><Icon name="x" size={14} /></Toast.Close>

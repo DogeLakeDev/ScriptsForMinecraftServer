@@ -11,7 +11,7 @@ const api: DesktopApi = {
   choose: kind => ipcRenderer.invoke("sfmc:choose", kind),
   uploadPack: id => ipcRenderer.invoke("sfmc:uploadPack", id),
   update: action => ipcRenderer.invoke("sfmc:update", action),
-  openLink: kind => ipcRenderer.invoke("sfmc:openLink", kind),
+  openLink: (kind, url) => ipcRenderer.invoke("sfmc:openLink", kind, url),
   appearance: mode => ipcRenderer.invoke("sfmc:appearance", mode),
   appInfo: () => ipcRenderer.invoke("sfmc:appInfo"),
   onEvent: callback => { const listener = (_event: unknown, id: string, event: Parameters<Parameters<DesktopApi["onEvent"]>[0]>[1]) => callback(id, event); ipcRenderer.on("sfmc:event", listener); return () => ipcRenderer.removeListener("sfmc:event", listener); },

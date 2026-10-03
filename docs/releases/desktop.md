@@ -1,6 +1,17 @@
-SFMC Desktop **0.1.1**，首个 Windows x64 正式版。
+SFMC Desktop **0.1.2**，Windows x64 正式版。
 
-支持本机与 SSH 实例、服务启停、控制台、模块与资源包、配置、玩家、维护任务和运行指标。内置平台 **0.2.9**、Node.js 与 pnpm。本机 Windows 与 SSH Windows 的数据服务/BDS、真实指标和守护进程重连已验收。
+内置平台 **0.2.11**、Node.js 与 pnpm。
+
+### 本次更新
+
+- 关于页显示桌面端更新日志；检测到新桌面版本时，侧栏关于入口显示红点。
+- 平台更新页与接入升级确认框显示目标版本的发行日志。执行时核对已确认的版本，版本变化后要求重新检查。
+- 服务总览右上角菜单增加“重启全部服务”。确认后按依赖顺序停止与启动托管服务。
+- 右侧抽屉避开系统标题栏，复制与关闭按钮完整显示。
+- 修复后台重连后实时日志订阅丢失，以及任务通知进度条、最近任务时间线的显示。
+- 保留 pnpm 真实路径解析修复，避免远程接入升级准备时找不到 CLI 依赖。
+
+本发行使用 GitHub 构建证明和 SHA256 校验，Windows 程序未做 Authenticode 签名。客户端仍通过发行页手动下载安装更新。
 
 ### 下载与使用
 
@@ -16,13 +27,13 @@ SFMC Desktop **0.1.1**，首个 Windows x64 正式版。
 发行页下方公示各文件 SHA256，`SHA256SUMS.txt` 提供可下载的校验清单。下载后在 PowerShell 核对：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.1-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.2-x64.exe' -Algorithm SHA256
 ```
 
 使用 GitHub CLI 验证构建证明及来源标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.1.1-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.1.1 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.1.2-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.1.2 --deny-self-hosted-runners
 ```
 
 ZIP 使用相同命令替换文件名即可。`artifact-attestation.sigstore.json` 是可下载的证明材料，`release-manifest.json` 记录源码提交、平台版本和内置运行时信息。

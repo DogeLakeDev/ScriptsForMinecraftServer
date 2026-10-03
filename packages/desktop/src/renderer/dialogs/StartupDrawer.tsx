@@ -52,7 +52,6 @@ export function StartupDrawer({ open, onClose }: { open: boolean; onClose: () =>
           {windows
             ? "在宿主机上以管理员身份打开 PowerShell，粘贴并运行此脚本，将 SFMC 注册为 Windows 系统服务。"
             : "在宿主机上以 root 运行此脚本，将 SFMC 注册为 systemd 服务。"}
-          管理员权限不足时，将此脚本交给管理员安装。
         </Callout>
         {error && <Callout tone="danger" title="无法生成安装脚本">{error}</Callout>}
         {!plan && !error && <div className="sheet-loading"><Spinner label="正在生成脚本…" /></div>}

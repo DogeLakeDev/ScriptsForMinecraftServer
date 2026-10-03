@@ -250,13 +250,19 @@ export function installMockBridge() {
     return { operationId: record.id };
   };
   const maintenance = ["stop-services", "backup", "execute", "verify", "restore"];
+  const platformNotes = {
+    version: "0.2.4", title: "SFMC 0.2.4", status: "available" as const,
+    body: "## 新增\n- 平台更新前可查看该版本的发行日志。\n\n## 修复\n- 重连后台时恢复实时日志订阅。",
+    url: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/%40sfmc-bds%2Fsfmc%400.2.4",
+    publishedAt: "2026-10-03T03:00:00.000Z",
+  };
 
   const handshake = (id: string): Handshake => ({
     protocolVersion: 1,
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"],
+    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -275,12 +281,6 @@ export function installMockBridge() {
       }
     };
     switch (method) {
-      case "metrics.read": {
-        // 仅开发预览使用的演示采样；生产运行从管理协议读取真实指标。
-        const now = Date.now();
-        const history = Array.from({ length: 91 }, (_, index) => ({ recordedAt: now - (90 - index) * 10_000, bootId: "demo", tps: 19.7 + Math.sin(index / 8) * 0.25, onlineCount: 3, entities: { "minecraft:overworld": 286, "minecraft:nether": 42, "minecraft:the_end": 12 }, entitiesUpdatedAt: now, chunkEstimate: 768 }));
-        return { fresh: true, updatedAt: now, current: history.at(-1), history, host: { memory: { totalMb: 16384, usedMb: 6144, usedPercent: 37.5 }, cpu: { cores: 8, model: "演示处理器" } }, processes: { bds: { pid: 18244, running: true, memoryMb: 2048, cpuSeconds: 1856.4 }, db: { pid: 17728, running: true, memoryMb: 128, cpuSeconds: 42.1 } }, resourcesUpdatedAt: now };
-      }
       case "services.list": return { rows: structuredClone(instance.services) };
       case "operations.list": return { operations: structuredClone(instance.tasks) };
       case "operations.get": return { operation: structuredClone(instance.tasks.find((row) => row.id === params.operationId)) };
@@ -290,8 +290,8 @@ export function installMockBridge() {
       case "logs.tail": return { entries: instance.logs.slice(-Number(params.limit ?? 1000)) };
       case "attachment.plan":
         return id === "local-main"
-          ? { currentVersion: "0.2.4", targetVersion: "0.2.4", development: false, upgradeRequired: false, externalServices: ["llbot"], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] }
-          : { currentVersion: "0.2.3", targetVersion: "0.2.4", development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] };
+          ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] }
+          : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] };
       case "attachment.apply": return runTask(id, "attachment.apply", ["prepare", "verify"]);
       case "services.start": return runTask(id, method, ["execute", "verify"], () => setService(String(params.name), true));
       case "services.stop": return runTask(id, method, ["execute"], () => setService(String(params.name), false));
@@ -347,8 +347,8 @@ export function installMockBridge() {
         await sleep(700);
         return {
           platform: id === "local-main"
-            ? { currentVersion: "0.2.4", targetVersion: "0.2.4", development: false, upgradeRequired: false, externalServices: ["llbot"], steps: [] }
-            : { currentVersion: "0.2.3", targetVersion: "0.2.4", development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] },
+            ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: [] }
+            : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] },
           modules: { failMode: "continue", applyOnStart: false, upgrades: [{ id: "sfmc-module-land", fromVersion: "1.4.2", toVersion: "1.5.0", spec: "npm:@sfmc-bds/module-land@1.5.0", requires: [] }], skipped: [{ id: "sfmc-module-activity-log", reason: "dev-link", fromVersion: "0.2.0-dev", toVersion: null, detail: "" }, { id: "sfmc-module-economy", reason: "up-to-date", fromVersion: "2.0.1", toVersion: "2.0.1", detail: "" }] },
           bds: { checked: true, updated: false, currentVersion: "1.26.51.01", latestVersion: "1.26.60.02", result: "check-only" },
         };
@@ -391,7 +391,7 @@ export function installMockBridge() {
     request: (id, method, params) => request(id, method, (params ?? {}) as Record<string, unknown>) as never,
     choose: async (kind) => (kind === "directory" ? "D:\\SFMC\\new-server" : "C:\\Users\\shiro\\.ssh\\id_ed25519"),
     uploadPack: async () => ({ filename: `${Date.now()}-Lucky_Blocks.mcaddon` }),
-    update: async () => ({ development: true }),
+    update: async () => ({ portable: true, manual: true, available: true, version: "0.1.1", releaseNotes: { version: "0.1.1", title: "SFMC Desktop 0.1.1", status: "available", url: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.1.1", publishedAt: "2026-10-03T03:00:00Z", body: "### 新增\n\n- 平台与桌面端更新前展示发行日志。\n- 关于入口显示桌面更新提醒。\n\n### 修复\n\n- 后台重连后自动恢复实时日志订阅。" } }),
     openLink: async (kind) => { console.info("[mock] openLink", kind); },
     appearance: async (mode: AppearanceMode) => { console.info("[mock] appearance", mode); },
     appInfo: async () => ({ version: "0.1.0", platform: "win32", packaged: false }),

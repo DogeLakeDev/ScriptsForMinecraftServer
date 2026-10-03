@@ -207,6 +207,21 @@
   min-width: 0;
 }
 
+.sb-update-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-danger-text);
+}
+
+.sidebar-collapsed .sb-update-dot {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  box-shadow: 0 0 0 2px var(--c-bg);
+}
+
 .sb-count {
   min-width: 18px;
   height: 16px;
