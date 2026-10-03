@@ -1,5 +1,31 @@
 # @sfmc-bds/cli
 
+## 0.4.0
+
+### Minor Changes
+
+- a065cc4: 停用模块 manifest 的 `canDisable` 与 `enabledByDefault`：从 JSON Schema 和 TypeScript 契约移除，SDK v2/v3 校验及 DB 加载器拒绝包含这些字段的声明。模块作者需删除旧字段；安装目录投影统一默认启用、允许服主禁用，已有启停状态仍由 module-lock 管理，升级继续保留。
+- a065cc4: 增加模块索引预览和一键 PR 提交，共用 npm、Schema、来源与依赖校验，支持重复提交更新及发布后 CI 接入；脚手架提供索引展示配置。
+
+  为避免 CLI 与 devkit 循环依赖，devkit 不再隐式安装 CLI。使用重建部署功能的独立 devkit 消费者需另行安装 @sfmc-bds/cli，或配置 SFMC_CLI / cliPath；官方扩展继续自带 CLI。
+
+- a065cc4: 将 TPS、在线人数、维度实体数量与视距区块估算加入平台宿主的基础运行监控，提供受控指标读取、72 小时有界历史和主机内存、进程资源信息。桌面总览使用实际采样并区分断采、过期与未知状态。
+- a065cc4: 增加版本化桌面管理协议、非交互 stdio 入口、持久化任务和跨进程维护锁；守护进程可由独立 Node 与显式 CLI 入口启动，保持原 CLI 协议兼容。
+
+### Patch Changes
+
+- 7aa43b0: 桌面正式发行提供 GitHub 构建证明和公开 SHA256，客户端通过发行页手动更新。将管理协议包纳入发行材料与版本验证清单。
+- a065cc4: 桌面接入计划保留高于 npm latest 的平台版本，避免把独立预览部署降级到旧稳定版。未配置 BDS 路径的空目录可以完成管理握手并进入初始化向导。
+- Updated dependencies [7aa43b0]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+- Updated dependencies [a065cc4]
+  - @sfmc-bds/management@0.2.0
+  - @sfmc-bds/sdk@0.3.0
+  - @sfmc-bds/devkit@2.0.0
+  - @sfmc-bds/bds-tools@0.2.5
+
 ## 0.3.2
 
 ### Patch Changes
