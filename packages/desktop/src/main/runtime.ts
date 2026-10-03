@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { app } from "electron";
 
 export function payload() { return app.isPackaged ? path.join(process.resourcesPath, "payload") : path.join(app.getAppPath(), "payload"); }
-export function releaseManifest(): { platformVersion: string; node: { version: string }; pnpm: string; materials: { name: string; sha256: string }[] } {
+export function releaseManifest(): { platformVersion: string; windowsCodeSigned?: boolean; node: { version: string }; pnpm: string; materials: { name: string; sha256: string }[] } {
   return JSON.parse(fs.readFileSync(path.join(payload(), "release-manifest.json"), "utf8"));
 }
 export function verifyMaterial(name: string) {

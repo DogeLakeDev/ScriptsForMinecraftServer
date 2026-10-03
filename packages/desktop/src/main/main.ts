@@ -3,6 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { trustHost } from "./hosts.js";
 import { autoUpdater } from "electron-updater";
+import { releaseManifest } from "./runtime.js";
 import { Session } from "./sessions.js";
 import { profiles, profile, saveProfile, removeProfile, credentials, rememberSession } from "./profiles.js";
 import type { AppearanceMode, Credentials, InstanceProfile } from "../shared/api.js";
@@ -95,7 +96,7 @@ void app.whenReady().then(async () => {
     return shell.openExternal(urls[kind as keyof typeof urls]);
   });
   handle("update", async action => {
-    if (app.getVersion().includes("-")) return { portable: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
+    if (app.getVersion().includes("-") || (app.isPackaged && releaseManifest().windowsCodeSigned !== true)) return { manual: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
     if (app.isPackaged && !fs.existsSync(path.join(path.dirname(process.execPath), "installed.json"))) return { portable: true, downloadUrl: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases" };
     if (!app.isPackaged) return { development: true };
     if (action === "check") {

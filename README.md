@@ -31,11 +31,11 @@ SFMC 希望通过模块化架构补充基岩版的原生开发体验。
 
 ### 桌面版（Windows x64）
 
-[下载未签名预发布版](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-preview-v0.1.0-preview.2) · [使用文档](./docs/zh/guide/desktop.md)
+[下载桌面正式版](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.1.0) · [使用文档](./docs/zh/guide/desktop.md)
 
-SFMC Desktop 支持本机与 SSH 实例，提供服务启停、日志控制台、模块与资源包、配置编辑、玩家管理和运行指标。下载 `.exe` 安装，或完整解压 `.zip` 后启动；内置 Node.js、pnpm 与预览平台。
+SFMC Desktop 支持本机与 SSH 实例，提供服务启停、日志控制台、模块与资源包、配置编辑、玩家管理和运行指标。下载 `.exe` 安装，或完整解压 `.zip` 后启动；内置 Node.js、pnpm 与平台代码。
 
-添加实例时选择 **SFMC 部署根目录**（例如 `D:\WorkPlace\SFMC`）。已有正式部署建议先选择“仅查看”，完整预览使用独立测试目录。当前安装包尚未签名，请核对发行页与校验值；预览版通过发行页手动更新。
+添加实例时选择 **SFMC 部署根目录**（例如 `D:\WorkPlace\SFMC`）。已有部署建议先选择“仅查看”，首次验收使用独立测试目录。发行页公示 SHA256，并提供 GitHub Artifact Attestations 构建证明；客户端通过发行页手动更新。
 
 ![SFMC Desktop 概览](./docs/public/desktop/overview.jpg)
 
