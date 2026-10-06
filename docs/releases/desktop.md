@@ -1,15 +1,14 @@
-SFMC Desktop **0.1.2**，Windows x64 正式版。
+SFMC Desktop **0.2.0**，Windows x64 正式版。
 
-内置平台 **0.2.11**、Node.js 与 pnpm。
+内置平台 **0.2.12**、Node.js 与 pnpm。
 
 ### 本次更新
 
-- 关于页显示桌面端更新日志；检测到新桌面版本时，侧栏关于入口显示红点。
-- 平台更新页与接入升级确认框显示目标版本的发行日志。执行时核对已确认的版本，版本变化后要求重新检查。
-- 服务总览右上角菜单增加“重启全部服务”。确认后按依赖顺序停止与启动托管服务。
-- 右侧抽屉避开系统标题栏，复制与关闭按钮完整显示。
-- 修复后台重连后实时日志订阅丢失，以及任务通知进度条、最近任务时间线的显示。
-- 保留 pnpm 真实路径解析修复，避免远程接入升级准备时找不到 CLI 依赖。
+- 左侧「开发工具 → UI Studio」内置界面编辑器，也可用 `Ctrl+9` 或命令面板打开。无需添加或连接实例，编辑器随客户端打包，可离线使用。
+- 切换页面或实例后，当前工程、选中项与撤销记录仍然保留。
+- 新建工程、重命名页面和自定义绑定改为编辑器内弹窗，修复 Electron 中无法输入和确认的问题。
+- 桌面与 UI Studio 共用同一套颜色、字体、图标和控件；编辑器外观跟随桌面的浅色、深色或跟随系统。
+- 浏览器里已有的 Studio 工程需先导出 ZIP，再导入桌面编辑器。编辑器不会自动改写服务器上的模块文件。
 
 本发行使用 GitHub 构建证明和 SHA256 校验，Windows 程序未做 Authenticode 签名。客户端仍通过发行页手动下载安装更新。
 
@@ -27,13 +26,13 @@ SFMC Desktop **0.1.2**，Windows x64 正式版。
 发行页下方公示各文件 SHA256，`SHA256SUMS.txt` 提供可下载的校验清单。下载后在 PowerShell 核对：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.1.2-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.2.0-x64.exe' -Algorithm SHA256
 ```
 
 使用 GitHub CLI 验证构建证明及来源标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.1.2-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.1.2 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.2.0-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.2.0 --deny-self-hosted-runners
 ```
 
 ZIP 使用相同命令替换文件名即可。`artifact-attestation.sigstore.json` 是可下载的证明材料，`release-manifest.json` 记录源码提交、平台版本和内置运行时信息。
