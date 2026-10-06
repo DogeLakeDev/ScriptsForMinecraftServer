@@ -14,6 +14,8 @@ const api: DesktopApi = {
   openLink: (kind, url) => ipcRenderer.invoke("sfmc:openLink", kind, url),
   appearance: mode => ipcRenderer.invoke("sfmc:appearance", mode),
   appInfo: () => ipcRenderer.invoke("sfmc:appInfo"),
+  preferences: () => ipcRenderer.invoke("sfmc:preferences"),
+  setPreferences: patch => ipcRenderer.invoke("sfmc:setPreferences", patch),
   onEvent: callback => { const listener = (_event: unknown, id: string, event: Parameters<Parameters<DesktopApi["onEvent"]>[0]>[1]) => callback(id, event); ipcRenderer.on("sfmc:event", listener); return () => ipcRenderer.removeListener("sfmc:event", listener); },
   onConnection: callback => { const listener = (_event: unknown, id: string, message: string) => callback(id, message); ipcRenderer.on("sfmc:connection", listener); return () => ipcRenderer.removeListener("sfmc:connection", listener); },
 };

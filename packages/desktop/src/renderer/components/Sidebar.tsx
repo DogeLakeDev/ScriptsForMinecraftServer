@@ -94,10 +94,12 @@ export function Sidebar({
   collapsed,
   onToggleSidebar,
   onOpenAbout,
+  onOpenSettings,
 }: {
   collapsed: boolean;
   onToggleSidebar: () => void;
   onOpenAbout: () => void;
+  onOpenSettings: () => void;
 }) {
   const { model, page, setPage, desktopUpdate } = useDesktop();
   const hasDesktopUpdate = desktopUpdate.info?.available === true;
@@ -143,6 +145,14 @@ export function Sidebar({
                   </Tooltip>
                 );
               })}
+              {group === "维护" && (
+                <Tooltip content={collapsed ? "设置" : undefined} side="right">
+                  <button type="button" className="sb-item" aria-label="设置" onClick={onOpenSettings}>
+                    <Icon name="settings" size={20} weight="duotone" />
+                    <span className="sb-item-label">设置</span>
+                  </button>
+                </Tooltip>
+              )}
               {group === "维护" && (
                 <Tooltip content={collapsed ? "关于" : undefined} side="right">
                   <button
