@@ -19,6 +19,7 @@ import { TitleBar } from "../components/TitleBar.js";
 import { TooltipProvider } from "../components/tooltip.js";
 import { Callout } from "../components/ui.js";
 import { AboutDialog } from "../dialogs/AboutDialog.js";
+import { ClientSettingsDialog } from "../dialogs/ClientSettingsDialog.js";
 import { FlowDialogs } from "../dialogs/FlowDialogs.js";
 import { ProfileDialog } from "../dialogs/ProfileDialog.js";
 import { cx } from "../lib/cx.js";
@@ -146,6 +147,7 @@ function Shell() {
   const [railOverlay, setRailOverlay] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [studioOpened, setStudioOpened] = useState(page === "studio");
   // 编辑器首次打开后保留挂载，切换页面或实例不会丢失当前草稿、选中项与撤销记录。
   useEffect(() => {
@@ -171,6 +173,7 @@ function Shell() {
     else setLayout((value) => ({ ...value, rail: !value.rail }));
   }, [narrow]);
   const openAbout = useCallback(() => setAboutOpen(true), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
@@ -208,7 +211,12 @@ function Shell() {
       )}
       data-platform={appInfo?.platform}
     >
-      <Sidebar collapsed={!layout.sidebar} onToggleSidebar={toggleSidebar} onOpenAbout={openAbout} />
+      <Sidebar
+        collapsed={!layout.sidebar}
+        onToggleSidebar={toggleSidebar}
+        onOpenAbout={openAbout}
+        onOpenSettings={openSettings}
+      />
       <div className="main">
         <TitleBar onOpenPalette={() => setPaletteOpen(true)} railOpen={railOpen} onToggleRail={toggleRail} />
         <main className="content" id="content">
@@ -230,12 +238,14 @@ function Shell() {
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         onOpenAbout={openAbout}
+        onOpenSettings={openSettings}
         onToggleSidebar={toggleSidebar}
         onToggleRail={toggleRail}
       />
       <ProfileDialog />
       <FlowDialogs />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <ClientSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

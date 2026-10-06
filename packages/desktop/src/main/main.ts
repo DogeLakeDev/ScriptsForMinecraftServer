@@ -6,9 +6,11 @@ import { autoUpdater } from "electron-updater";
 import { releaseManifest } from "./runtime.js";
 import { Session } from "./sessions.js";
 import { profiles, profile, saveProfile, removeProfile, credentials, rememberSession } from "./profiles.js";
-import type { AppearanceMode, Credentials, InstanceProfile } from "../shared/api.js";
+import type { AppearanceMode, Credentials, DesktopPreferences, InstanceProfile } from "../shared/api.js";
 import type { ManagementMethod } from "@sfmc-bds/management";
 import { desktopReleaseNotes } from "@sfmc-bds/management/node";
+import { applyLoginItem, readPreferences, shouldStartHidden, writePreferences } from "./preferences.js";
+import { bindWindow, markQuitting, showWindow, syncTray } from "./tray.js";
 
 const sessions = new Map<string, Session>();
 const changedHosts = new Map<string, NonNullable<Session["changedFingerprint"]>>();
@@ -16,7 +18,7 @@ let window: BrowserWindow;
 app.setName("SFMC Desktop");
 if (!app.isPackaged && process.env.SFMC_DESKTOP_USER_DATA) app.setPath("userData", process.env.SFMC_DESKTOP_USER_DATA);
 if (!app.requestSingleInstanceLock()) process.exit(0);
-app.on("second-instance", () => { window?.show(); window?.focus(); });
+app.on("second-instance", () => { if (window && !window.isDestroyed()) showWindow(window); });
 
 /** SnowUI 窗口底色：浅色 Background/1、深色 Background/1 */
 const THEME_CHROME = {
@@ -44,6 +46,9 @@ function applyChrome(mode: AppearanceMode) {
 
 void app.whenReady().then(async () => {
   if (app.isPackaged) Menu.setApplicationMenu(null);
+  const launchPrefs = readPreferences();
+  applyLoginItem(launchPrefs);
+  const launchHidden = shouldStartHidden(launchPrefs);
   const initialDark = nativeTheme.shouldUseDarkColors;
   const chrome = THEME_CHROME[initialDark ? "dark" : "light"];
   window = new BrowserWindow({
@@ -59,7 +64,10 @@ void app.whenReady().then(async () => {
   });
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", event => event.preventDefault());
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => { if (!launchHidden) window.show(); });
+  bindWindow(window);
+  const hasTray = syncTray(window);
+  if (launchHidden && !hasTray) window.show();
   const handle = (channel: string, action: (...args: unknown[]) => unknown) => ipcMain.handle(`sfmc:${channel}`, (event, ...args: unknown[]) => { if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error("非法调用来源"); return action(...args); });
   handle("profiles", () => profiles());
   handle("saveProfile", (input, secret) => saveProfile(input as InstanceProfile, secret as Credentials));
@@ -128,14 +136,26 @@ void app.whenReady().then(async () => {
   });
   /** 客户端版本与运行形态（关于对话框、侧栏页脚） */
   handle("appInfo", () => ({ version: app.getVersion(), platform: process.platform, packaged: app.isPackaged }));
+  handle("preferences", () => readPreferences());
+  handle("setPreferences", patch => {
+    const next = writePreferences(patch as Partial<DesktopPreferences>);
+    applyLoginItem(next);
+    syncTray(window);
+    return next;
+  });
   nativeTheme.on("updated", () => {
     if (nativeTheme.themeSource === "system") applyChrome("system");
+    syncTray(window);
   });
   const dev = !app.isPackaged ? process.env.SFMC_DESKTOP_DEV_URL : undefined;
   if (dev && /^http:\/\/127\.0\.0\.1:\d+$/.test(dev)) await window.loadURL(dev);
   else await window.loadFile(path.join(__dirname, "renderer", "index.html"));
   // 部分 Windows 环境未触发 ready-to-show；页面加载完成后仍应显示主窗口。
-  if (!window.isVisible()) window.show();
+  if (!launchHidden && !window.isVisible()) window.show();
 });
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => { for (const session of sessions.values()) session.disconnect(); });
+app.on("activate", () => { if (window && !window.isDestroyed()) showWindow(window); });
+app.on("before-quit", () => {
+  markQuitting();
+  for (const session of sessions.values()) session.disconnect();
+});
