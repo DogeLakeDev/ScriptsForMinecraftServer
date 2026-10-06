@@ -11,9 +11,11 @@
   padding: 20px 28px 32px;
 }
 
+/* 占满提示条以下的剩余高度，由页面内部滚动 */
 .page-fill {
-  height: 100%;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
   padding-bottom: 16px;
 }
 
