@@ -1,3 +1,4 @@
+import { Button } from "@sfmc-bds/ui/controls";
 /**
  * Canvas.tsx — 语义预览画布。
  *
@@ -12,12 +13,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
-import { RotateCcw, Trash2 } from "lucide-react";
-import type {
-  UiNode,
-  UiScreenDocument,
-  UiTrigger,
-} from "../../../src/contracts/ui-document.js";
+import type { UiNode, UiScreenDocument, UiTrigger } from "../../../src/contracts/ui-document.js";
+import { effectiveConfirmChallenge } from "../../../src/ui-studio/shared/confirm-challenge.js";
 import {
   evaluateCondition,
   readPath,
@@ -27,16 +24,16 @@ import {
   toDisplayText,
   type UiEvaluateScope,
 } from "../../../src/ui-studio/shared/evaluate.js";
-import { effectiveConfirmChallenge } from "../../../src/ui-studio/shared/confirm-challenge.js";
-import { parseNodeLocation, uniqueNodeId, type InsertAddress } from "../model";
-import type { PreviewFixture, Selection } from "../model";
-import { buildScope, type PreviewSession } from "../scope";
-import { afterNativeDrag } from "../after-drag";
-import { createLatestFrameQueue } from "../latest-frame";
+import { afterNativeDrag } from "../lib/after-drag";
+import { createLatestFrameQueue } from "../lib/latest-frame";
+import type { PreviewFixture, Selection } from "../lib/model";
+import { parseNodeLocation, uniqueNodeId, type InsertAddress } from "../lib/model";
+import { buildScope, type PreviewSession } from "../lib/scope";
+import type { ActionPreview } from "../pages/EditorPage";
+import { ContextMenu, useContextMenu } from "./ContextMenu";
+import { RotateCcw, Trash2 } from "./icons";
 import { createPaletteNode, MOVE_MIME, PALETTE_MIME } from "./Palette";
 import { PreviewText } from "./PreviewText";
-import { ContextMenu, useContextMenu } from "./ContextMenu";
-import type { ActionPreview } from "../App";
 
 /** 拖放落点：兄弟节点前/后、容器槽位末尾、或页面 body 末尾。 */
 type DropHint =
@@ -124,10 +121,7 @@ export function Canvas(props: CanvasProps) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [hint, setHint] = useState<DropHint | null>(null);
-  const scope = useMemo(
-    () => buildScope(screen, fixture, session),
-    [screen, fixture, session],
-  );
+  const scope = useMemo(() => buildScope(screen, fixture, session), [screen, fixture, session]);
 
   // 组件库在画布之外，拖拽开始/结束通过 window 事件同步，用于显隐槽位落点。
   // dragend 用 capture：performDrop 会 stopPropagation，且空 body 同步改 DOM 时 Chrome 可能吞掉冒泡。
@@ -210,9 +204,7 @@ export function Canvas(props: CanvasProps) {
       const rect = event.currentTarget.getBoundingClientRect();
       const pos = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
       setHint((prev) =>
-        prev?.kind === "sibling" && prev.path === path && prev.pos === pos
-          ? prev
-          : { kind: "sibling", path, pos },
+        prev?.kind === "sibling" && prev.path === path && prev.pos === pos ? prev : { kind: "sibling", path, pos }
       );
       event.dataTransfer.dropEffect = event.dataTransfer.types.includes(MOVE_MIME) ? "move" : "copy";
     },
@@ -226,7 +218,7 @@ export function Canvas(props: CanvasProps) {
         prev.slotKey === slotKey &&
         prev.index === index
           ? prev
-          : { kind: "slot", containerPath, slotKey, index },
+          : { kind: "slot", containerPath, slotKey, index }
       );
       event.dataTransfer.dropEffect = event.dataTransfer.types.includes(MOVE_MIME) ? "move" : "copy";
     },
@@ -258,9 +250,9 @@ export function Canvas(props: CanvasProps) {
       <div className="mc-frame">
         <div className="canvas-closed">
           <p>页面已关闭（close 触发）</p>
-          <button className="btn" onClick={onReopen}>
+          <Button onClick={onReopen}>
             <RotateCcw size={14} /> 重新打开
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -312,16 +304,11 @@ interface PreviewNodeProps {
 function PreviewNode({ node, path, scope, props, drag, onNodeContextMenu }: PreviewNodeProps) {
   const { selection, onSelectNode } = props;
   // 编辑器始终画出节点：条件失败只降透明度，避免 when 收成一条细线无法点选。
-  const hiddenByVisibleWhen =
-    node.visibleWhen !== undefined && !evaluateCondition(node.visibleWhen, scope);
-  const whenInactive =
-    node.type === "when" && !evaluateCondition(node.condition, scope);
+  const hiddenByVisibleWhen = node.visibleWhen !== undefined && !evaluateCondition(node.visibleWhen, scope);
+  const whenInactive = node.type === "when" && !evaluateCondition(node.condition, scope);
   const selected =
-    selection?.kind === "screen" &&
-    selection.nodePath === path &&
-    selection.screenId === props.screen.id;
-  const hintHere =
-    drag.hint?.kind === "sibling" && drag.hint.path === path ? drag.hint.pos : null;
+    selection?.kind === "screen" && selection.nodePath === path && selection.screenId === props.screen.id;
+  const hintHere = drag.hint?.kind === "sibling" && drag.hint.path === path ? drag.hint.pos : null;
   const className =
     `pv-node pv-${node.type}${selected ? " pv-selected" : ""}` +
     (hiddenByVisibleWhen || whenInactive ? " pv-inactive" : "") +
@@ -341,14 +328,7 @@ function PreviewNode({ node, path, scope, props, drag, onNodeContextMenu }: Prev
       onDragOver={(event) => drag.overNode(event, path)}
       onDrop={(event) => drag.dropOnNode(event, path)}
     >
-      <NodeBody
-        node={node}
-        path={path}
-        scope={scope}
-        props={props}
-        drag={drag}
-        onNodeContextMenu={onNodeContextMenu}
-      />
+      <NodeBody node={node} path={path} scope={scope} props={props} drag={drag} onNodeContextMenu={onNodeContextMenu} />
     </div>
   );
 }
@@ -368,10 +348,7 @@ function SlotDropZone({
   drag: DragState;
 }) {
   if (!drag.dragging) return null;
-  const hover =
-    drag.hint?.kind === "slot" &&
-    drag.hint.containerPath === path &&
-    drag.hint.slotKey === slotKey;
+  const hover = drag.hint?.kind === "slot" && drag.hint.containerPath === path && drag.hint.slotKey === slotKey;
   return (
     <div
       className={`pv-slot-drop${hover ? " drop-hover" : ""}`}
@@ -446,13 +423,7 @@ function NodeBody({ node, path, scope, props, drag, onNodeContextMenu }: Preview
               />
             ))
           )}
-          <SlotDropZone
-            path={path}
-            slotKey="content"
-            index={node.content.length}
-            label="放入条件分支"
-            drag={drag}
-          />
+          <SlotDropZone path={path} slotKey="content" index={node.content.length} label="放入条件分支" drag={drag} />
         </>
       );
     }
@@ -481,8 +452,7 @@ function ButtonPreview({
   scope: UiEvaluateScope;
   props: CanvasProps;
 }) {
-  const disabled =
-    node.disabledWhen !== undefined && evaluateCondition(node.disabledWhen, scope);
+  const disabled = node.disabledWhen !== undefined && evaluateCondition(node.disabledWhen, scope);
   return (
     <button
       className={`mc-button tone-${node.tone ?? "default"}`}
@@ -506,11 +476,7 @@ function ButtonPreview({
 }
 
 /** 执行触发器的预览语义：导航换页、action 仅展示、close 显示已关闭。 */
-function fireTrigger(
-  trigger: UiTrigger,
-  scope: UiEvaluateScope,
-  props: CanvasProps,
-): void {
+function fireTrigger(trigger: UiTrigger, scope: UiEvaluateScope, props: CanvasProps): void {
   switch (trigger.type) {
     case "navigate":
       props.onNavigate(trigger.to, resolveParams(trigger.params, scope), false);
@@ -538,9 +504,7 @@ function fireTrigger(
             body: resolveTemplateText(confirm.body, scope),
             confirmText: confirm.confirmText?.trim() || "确认",
             cancelText: confirm.cancelText?.trim() || "取消",
-            challenge: effectiveConfirmChallenge(
-              resolveTemplateText(confirm.challenge ?? "", scope),
-            ),
+            challenge: effectiveConfirmChallenge(resolveTemplateText(confirm.challenge ?? "", scope)),
             danger: confirm.danger === true,
           }
         : undefined;
@@ -558,7 +522,7 @@ function fireTrigger(
 
 function resolveParams(
   params: Record<string, unknown> | undefined,
-  scope: UiEvaluateScope,
+  scope: UiEvaluateScope
 ): Record<string, unknown> | undefined {
   if (!params) return undefined;
   return resolveTemplateJson(params, scope) as Record<string, unknown>;
@@ -573,13 +537,11 @@ function InputPreview({
   scope: UiEvaluateScope;
   props: CanvasProps;
 }) {
-  const disabled =
-    node.disabledWhen !== undefined && evaluateCondition(node.disabledWhen, scope);
+  const disabled = node.disabledWhen !== undefined && evaluateCondition(node.disabledWhen, scope);
   const stateBind = node.bind.startsWith("state.");
   const bindKey = node.bind.replace(/^state\./, "");
   const value = readPath(scope, node.bind);
-  const dropdownOptions =
-    node.type === "dropdown" ? resolveDropdownOptions(node.options, scope) : [];
+  const dropdownOptions = node.type === "dropdown" ? resolveDropdownOptions(node.options, scope) : [];
   const [localChecked, setLocalChecked] = useState(Boolean(value));
   useEffect(() => {
     setLocalChecked(Boolean(value));
@@ -595,11 +557,7 @@ function InputPreview({
           className="mc-input"
           type="text"
           value={toDisplayText(value)}
-          placeholder={
-            node.placeholder
-              ? resolveTemplateText(node.placeholder, scope)
-              : undefined
-          }
+          placeholder={node.placeholder ? resolveTemplateText(node.placeholder, scope) : undefined}
           disabled={disabled}
           onChange={(event) => props.onUpdateState(bindKey, event.target.value)}
           onClick={(event) => event.stopPropagation()}
@@ -685,7 +643,7 @@ function SliderPreview({
       createLatestFrameQueue((next: number) => {
         if (labelRef.current) labelRef.current.textContent = next.toFixed(digitsRef.current);
       }),
-    [],
+    []
   );
   useEffect(() => () => queue.dispose(), [queue]);
   // 会话值变化时同步非受控滑杆（松手 commit 之后）。

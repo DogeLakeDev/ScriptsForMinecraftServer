@@ -58,6 +58,19 @@
   height: 100%;
 }
 
+/* 内置编辑器占满内容区；切页时隐藏文档并保留编辑状态。 */
+.studio-workspace {
+  height: 100%;
+  min-height: 0;
+}
+
+.ui-studio-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 /* ---------- Sidebar ---------- */
 
 .sidebar {

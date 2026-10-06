@@ -20,10 +20,10 @@ import {
   Split,
   ToggleLeft,
   Type,
-  type LucideIcon,
-} from "lucide-react";
+  type UiIcon,
+} from "./icons";
 
-export type NodeIcon = LucideIcon;
+export type NodeIcon = UiIcon;
 
 const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   header: Type,

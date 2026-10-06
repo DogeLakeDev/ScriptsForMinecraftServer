@@ -6,8 +6,8 @@
  * 当前用于组件库条目与组件树节点。
  */
 
-import { GripVertical } from "lucide-react";
 import type { DragEvent } from "react";
+import { GripVertical } from "./icons";
 
 /** 侧栏六点抓手：仅此元素发起 HTML5 拖放。 */
 export function DragHandle({
@@ -34,12 +34,12 @@ export function DragHandle({
           event.dataTransfer.setDragImage(
             ghost,
             Math.max(0, event.clientX - rect.left),
-            Math.max(0, event.clientY - rect.top),
+            Math.max(0, event.clientY - rect.top)
           );
         }
       }}
     >
-      <GripVertical size={12} strokeWidth={1.8} />
+      <GripVertical size={12} />
     </span>
   );
 }

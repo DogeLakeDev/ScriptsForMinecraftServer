@@ -10,20 +10,13 @@
  *   即使 feature 损坏或漏登记，也能先修复再挂回。
  */
 
-import {
-  compileUiProject,
-  validateUiFeature,
-  validateUiScreen,
-} from "../../src/validation/ui-document.js";
-import type { UiStudioBrowseView } from "../../src/ui-studio/project.js";
+import type { UiStudioBrowseView } from "../../../src/ui-studio/project.js";
+import { compileUiProject, validateUiFeature, validateUiScreen } from "../../../src/validation/ui-document.js";
+import { screenRefs } from "../store/project";
 import { FEATURE_FILE, type ProjectView } from "./model";
-import { screenRefs } from "./store/project";
 
 /** 由项目文件表派生工程视图。 */
-export function deriveView(
-  files: Record<string, unknown>,
-  services: string[],
-): ProjectView {
+export function deriveView(files: Record<string, unknown>, services: string[]): ProjectView {
   const feature = files[FEATURE_FILE] ?? null;
 
   // 统一诊断：编译输入为 feature 声明的页面文件（与服务端口径一致）。

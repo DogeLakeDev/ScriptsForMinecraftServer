@@ -5,11 +5,8 @@
  * 优先级：页面默认值 < fixture < 预览会话（用户在画布中的输入与跳转参数）。
  */
 
-import type { UiScreenDocument } from "../../src/contracts/ui-document.js";
-import {
-  evaluateExpression,
-  type UiEvaluateScope,
-} from "../../src/ui-studio/shared/evaluate.js";
+import type { UiScreenDocument } from "../../../src/contracts/ui-document.js";
+import { evaluateExpression, type UiEvaluateScope } from "../../../src/ui-studio/shared/evaluate.js";
 import { DEFAULT_PLAYER, type PreviewFixture } from "./model";
 
 /** 预览会话：画布输入产生的 state 与跳转带来的 params。 */
@@ -21,7 +18,7 @@ export interface PreviewSession {
 export function initialSession(
   screen: UiScreenDocument,
   fixture: PreviewFixture,
-  overrideParams?: Record<string, unknown>,
+  overrideParams?: Record<string, unknown>
 ): PreviewSession {
   const screenFixture = fixture.screens?.[screen.id] ?? {};
   return {
@@ -43,7 +40,7 @@ function paramDefaults(screen: UiScreenDocument): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(screen.params ?? {})
       .filter(([, definition]) => definition.default !== undefined)
-      .map(([key, definition]) => [key, definition.default]),
+      .map(([key, definition]) => [key, definition.default])
   );
 }
 
@@ -52,7 +49,7 @@ function stateDefaults(screen: UiScreenDocument): Record<string, unknown> {
     Object.entries(screen.state ?? {}).map(([key, definition]) => [
       key,
       definition.default ?? defaultForType(definition.type),
-    ]),
+    ])
   );
 }
 
@@ -66,7 +63,7 @@ function defaultForType(type: "string" | "number" | "boolean"): unknown {
 export function buildScope(
   screen: UiScreenDocument,
   fixture: PreviewFixture,
-  session: PreviewSession,
+  session: PreviewSession
 ): UiEvaluateScope {
   const screenFixture = fixture.screens?.[screen.id] ?? {};
   const scope: UiEvaluateScope = {

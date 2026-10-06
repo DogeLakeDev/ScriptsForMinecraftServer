@@ -7,12 +7,9 @@
 
 // 类型一律从 contracts / validation 直取（type-only，构建期擦除）；
 // 运行时代码只允许从 ui-studio/shared/evaluate.js 引入，避免把 Node 侧模块打进浏览器包。
-import type {
-  UiNode,
-  UiScreenDocument,
-} from "../../src/contracts/ui-document.js";
-import type { UiValidationIssue } from "../../src/validation/ui-document.js";
-import type { UiStudioBrowseView } from "../../src/ui-studio/project.js";
+import type { UiNode, UiScreenDocument } from "../../../src/contracts/ui-document.js";
+import type { UiStudioBrowseView } from "../../../src/ui-studio/project.js";
+import type { UiValidationIssue } from "../../../src/validation/ui-document.js";
 
 /**
  * 当前选中位置：
@@ -21,9 +18,7 @@ import type { UiStudioBrowseView } from "../../src/ui-studio/project.js";
  * - file：其他 JSON 文件（非页面、非 feature）。
  */
 export type Selection =
-  | { kind: "screen"; screenId: string; nodePath: string }
-  | { kind: "feature" }
-  | { kind: "file"; file: string };
+  { kind: "screen"; screenId: string; nodePath: string } | { kind: "feature" } | { kind: "file"; file: string };
 
 /** feature 文件在文件表中的固定键（即其相对路径）。 */
 export const FEATURE_FILE = "feature.ui.json";
@@ -56,17 +51,13 @@ export function fileByScreenId(view: ProjectView, screenId: string): string | nu
           typeof item === "object" &&
           item !== null &&
           (item as { id?: unknown }).id === screenId &&
-          typeof (item as { file?: unknown }).file === "string",
+          typeof (item as { file?: unknown }).file === "string"
       );
       if (hit) return (hit as { file: string }).file;
     }
   }
   for (const [file, doc] of Object.entries(view.files)) {
-    if (
-      typeof doc === "object" &&
-      doc !== null &&
-      (doc as { id?: unknown }).id === screenId
-    ) {
+    if (typeof doc === "object" && doc !== null && (doc as { id?: unknown }).id === screenId) {
       return file;
     }
   }
@@ -134,10 +125,7 @@ export function collectBindPaths(doc: unknown, fixture: PreviewFixture): BindGro
   const stateHints: Record<string, string> = {};
   for (const key of stateKeys) {
     const decl = (record.state as Record<string, unknown>)[key];
-    const type =
-      typeof decl === "object" && decl !== null
-        ? (decl as { type?: unknown }).type
-        : undefined;
+    const type = typeof decl === "object" && decl !== null ? (decl as { type?: unknown }).type : undefined;
     if (typeof type === "string") stateHints[key] = type;
   }
   push("状态 state", "state", stateKeys, stateHints);
@@ -193,9 +181,7 @@ function collectEachAliasOptions(body: unknown): Array<{ value: string; hint?: s
 export function nodeChildSlots(node: UiNode): Array<{ key: string; nodes: UiNode[] }> {
   if (node.type === "when") return [{ key: "content", nodes: node.content }];
   if (node.type === "each") {
-    const slots: Array<{ key: string; nodes: UiNode[] }> = [
-      { key: "template", nodes: node.template },
-    ];
+    const slots: Array<{ key: string; nodes: UiNode[] }> = [{ key: "template", nodes: node.template }];
     if (node.empty) slots.push({ key: "empty", nodes: node.empty });
     return slots;
   }
@@ -226,9 +212,7 @@ export function nodeAtPath(screen: UiScreenDocument, path: string): UiNode | nul
 
 /** 工程内按 file 反查页面 id；优先用校验通过的 feature，损坏时退化到原始 JSON。 */
 export function screenIdByFile(view: ProjectView, file: string): string | null {
-  const fromFeature = (
-    screens: Array<{ id?: unknown; file?: unknown }> | undefined,
-  ): string | null => {
+  const fromFeature = (screens: Array<{ id?: unknown; file?: unknown }> | undefined): string | null => {
     const hit = (screens ?? []).find((item) => item.file === file);
     return typeof hit?.id === "string" ? hit.id : null;
   };
@@ -237,9 +221,7 @@ export function screenIdByFile(view: ProjectView, file: string): string | null {
   }
   // feature 本身未通过校验时，仍尽力从原始 JSON 建立 file→id 映射。
   if (typeof view.feature === "object" && view.feature !== null) {
-    return fromFeature(
-      (view.feature as { screens?: Array<{ id?: unknown; file?: unknown }> }).screens,
-    );
+    return fromFeature((view.feature as { screens?: Array<{ id?: unknown; file?: unknown }> }).screens);
   }
   return null;
 }
@@ -250,10 +232,7 @@ export function screenIdByFile(view: ProjectView, file: string): string | null {
  * 注意 <file> 本身可能含路径分隔符（如 screens/home.ui.json），
  * 因此用工程已知的文件清单做最长前缀匹配，而不是按段切分。
  */
-export function locateIssue(
-  view: ProjectView,
-  issue: UiValidationIssue,
-): Selection | null {
+export function locateIssue(view: ProjectView, issue: UiValidationIssue): Selection | null {
   const segments = issue.path.split("/").filter(Boolean);
   if (segments.length < 2) return null;
   let screenId: string | null = null;
@@ -352,17 +331,11 @@ export function parseNodeLocation(path: string): InsertAddress | null {
 
 /** 由插入地址反推目标位置的段路径。 */
 export function pathOfAddress(addr: InsertAddress): string {
-  return addr.slotKey === "body"
-    ? `body/${addr.index}`
-    : `${addr.containerPath}/${addr.slotKey}/${addr.index}`;
+  return addr.slotKey === "body" ? `body/${addr.index}` : `${addr.containerPath}/${addr.slotKey}/${addr.index}`;
 }
 
 /** 在原始文档上解析目标容器数组；失败返回 null。直接引用，勿跨文档混用。 */
-function resolveContainer(
-  doc: unknown,
-  containerPath: string,
-  slotKey: string,
-): unknown[] | null {
+function resolveContainer(doc: unknown, containerPath: string, slotKey: string): unknown[] | null {
   if (slotKey === "body") {
     const body = (doc as { body?: unknown }).body;
     return Array.isArray(body) ? body : null;
@@ -377,11 +350,7 @@ function resolveContainer(
  * 在原始文档的指定地址插入节点（原地修改，调用方先 structuredClone）。
  * 返回新节点的段路径；失败返回 null。
  */
-export function insertNode(
-  doc: unknown,
-  addr: InsertAddress,
-  node: Record<string, unknown>,
-): string | null {
+export function insertNode(doc: unknown, addr: InsertAddress, node: Record<string, unknown>): string | null {
   const container = resolveContainer(doc, addr.containerPath, addr.slotKey);
   if (!container) return null;
   const index = Math.max(0, Math.min(addr.index, container.length));
@@ -420,11 +389,7 @@ export function moveNode(doc: unknown, fromPath: string, addr: InsertAddress): s
   const removed = removeNodeAt(doc, fromPath);
   if (!removed) return null;
   let index = addr.index;
-  if (
-    from.containerPath === addr.containerPath &&
-    from.slotKey === addr.slotKey &&
-    from.index < addr.index
-  ) {
+  if (from.containerPath === addr.containerPath && from.slotKey === addr.slotKey && from.index < addr.index) {
     index -= 1;
   }
   return insertNode(doc, { ...addr, index }, removed);
@@ -437,11 +402,7 @@ export function moveNode(doc: unknown, fromPath: string, addr: InsertAddress): s
  *   会在诊断区留下「未知 service」提示，引导用户配置真实数据源）。
  * 原地修改（调用方先 structuredClone）；已存在的声明不覆盖。
  */
-export function ensureDeclarations(
-  doc: unknown,
-  node: Record<string, unknown>,
-  services: string[],
-): void {
+export function ensureDeclarations(doc: unknown, node: Record<string, unknown>, services: string[]): void {
   if (typeof doc !== "object" || doc === null) return;
   const record = doc as Record<string, unknown>;
   const bindPath = typeof node.bind === "string" ? node.bind : null;
@@ -449,8 +410,7 @@ export function ensureDeclarations(
     const key = bindPath.slice("state.".length);
     const state = (record.state ??= {}) as Record<string, unknown>;
     if (!(key in state)) {
-      const type =
-        node.type === "toggle" ? "boolean" : node.type === "slider" ? "number" : "string";
+      const type = node.type === "toggle" ? "boolean" : node.type === "slider" ? "number" : "string";
       const decl: Record<string, unknown> = { type };
       if (node.type === "slider") {
         if (typeof node.min === "number") decl.min = node.min;
@@ -499,7 +459,7 @@ export function uniqueNodeId(doc: unknown, base: string): string {
 export function mutateNodeAtPath(
   doc: unknown,
   nodePath: string,
-  mutate: (node: Record<string, unknown>) => void,
+  mutate: (node: Record<string, unknown>) => void
 ): boolean {
   if (!nodePath || typeof doc !== "object" || doc === null) return false;
   const segments = nodePath.split("/");

@@ -7,10 +7,10 @@
  * 供 Inspector 与结构化编辑器（editors.tsx）共用。
  */
 
+import { Checkbox, Select, TextInput, type SelectOption } from "@sfmc-bds/ui/controls";
 import { useEffect, useId, useState } from "react";
-import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "@headlessui/react";
-import { Check, ChevronsUpDown } from "lucide-react";
-import type { BindGroup } from "../model";
+import type { BindGroup } from "../lib/model";
+import { promptText } from "./StudioDialogs";
 
 export function TextField({
   label,
@@ -41,12 +41,11 @@ export function TextField({
   return (
     <label className="insp-field">
       <span className="insp-label">{label}</span>
-      <input
-        className="insp-input"
+      <TextInput
         value={text}
         placeholder={placeholder}
         list={datalist ? listId : undefined}
-        onChange={(event) => setText(event.target.value)}
+        onChange={setText}
         onBlur={commit}
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
@@ -89,11 +88,10 @@ export function NumberField({
   return (
     <label className="insp-field">
       <span className="insp-label">{label}</span>
-      <input
-        className="insp-input"
+      <TextInput
         inputMode="decimal"
         value={text}
-        onChange={(event) => setText(event.target.value)}
+        onChange={setText}
         onBlur={commit}
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
@@ -118,18 +116,12 @@ export function SelectField({
   return (
     <label className="insp-field">
       <span className="insp-label">{label}</span>
-      <select
-        className="insp-input"
+      <Select
+        label={label}
         value={current}
-        onChange={(event) => onCommit(event.target.value === "" ? undefined : event.target.value)}
-      >
-        <option value="">（未设置）</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        options={[{ value: "", label: "（未设置）" }, ...options]}
+        onChange={(next) => onCommit(next === "" ? undefined : next)}
+      />
     </label>
   );
 }
@@ -168,14 +160,11 @@ export function CheckField({
   onCommit(value: unknown): void;
 }) {
   return (
-    <label className="insp-field insp-field-check">
-      <input
-        type="checkbox"
-        checked={Boolean(value)}
-        onChange={(event) => onCommit(event.target.checked)}
-      />
-      <span className="insp-label">{label}</span>
-    </label>
+    <div className="insp-field insp-field-check">
+      <Checkbox checked={Boolean(value)} onChange={onCommit}>
+        {label}
+      </Checkbox>
+    </div>
   );
 }
 
@@ -230,7 +219,7 @@ export function JsonField({
 }
 
 // ---------------------------------------------------------------------------
-// 绑定路径选择器（Headless UI Listbox，按根分组；支持自定义路径）
+// 绑定路径选择器（公共 Base UI Select，按根分组；支持自定义路径）
 // ---------------------------------------------------------------------------
 
 /** 「自定义路径…」选项的哨兵值（不会与真实路径冲突）。 */
@@ -256,9 +245,21 @@ export function BindField({
     : groups;
   const known = visible.some((group) => group.options.some((o) => o.value === current));
 
-  const choose = (next: string) => {
+  const choices: SelectOption<string>[] = [
+    ...(current && !known ? [{ value: current, label: `自定义：${current}` }] : []),
+    ...visible.flatMap((group) =>
+      group.options.map((option) => ({
+        value: option.value,
+        label: option.value,
+        description: [group.label, option.hint].filter(Boolean).join(" · "),
+      }))
+    ),
+    { value: BIND_CUSTOM, label: "自定义路径…" },
+  ];
+
+  const choose = async (next: string) => {
     if (next === BIND_CUSTOM) {
-      const entered = window.prompt("绑定路径（如 state.keyword）", current);
+      const entered = await promptText("绑定路径（如 state.keyword）", current);
       const trimmed = entered?.trim();
       if (trimmed) onCommit(trimmed);
       return;
@@ -269,46 +270,13 @@ export function BindField({
   return (
     <div className="insp-field">
       <span className="insp-label">{label}</span>
-      <Listbox value={current} onChange={choose}>
-        <ListboxButton className="insp-input insp-listbox-btn">
-          <span className={current ? "insp-listbox-value" : "insp-listbox-value empty"}>
-            {current || "（未设置）"}
-          </span>
-          <ChevronsUpDown size={13} />
-        </ListboxButton>
-        <ListboxOptions anchor="bottom start" className="insp-listbox">
-          {current && !known ? (
-            <ListboxOption value={current} className="insp-listbox-option">
-              <span className="insp-listbox-check">
-                <Check size={12} />
-              </span>
-              <span>自定义：{current}</span>
-            </ListboxOption>
-          ) : null}
-          {visible.map((group) => (
-            <div key={group.label}>
-              <div className="insp-listbox-group">{group.label}</div>
-              {group.options.map((option) => (
-                <ListboxOption
-                  key={option.value}
-                  value={option.value}
-                  className="insp-listbox-option"
-                >
-                  <span className="insp-listbox-check">
-                    {option.value === current ? <Check size={12} /> : null}
-                  </span>
-                  <span className="insp-listbox-path">{option.value}</span>
-                  {option.hint ? <span className="insp-listbox-hint">{option.hint}</span> : null}
-                </ListboxOption>
-              ))}
-            </div>
-          ))}
-          <ListboxOption value={BIND_CUSTOM} className="insp-listbox-option insp-listbox-custom">
-            <span className="insp-listbox-check" />
-            <span>自定义路径…</span>
-          </ListboxOption>
-        </ListboxOptions>
-      </Listbox>
+      <Select
+        label={label}
+        value={current}
+        placeholder="（未设置）"
+        options={choices}
+        onChange={(next) => void choose(next)}
+      />
     </div>
   );
 }

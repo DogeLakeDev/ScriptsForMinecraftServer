@@ -1,3 +1,4 @@
+import { Button } from "@sfmc-bds/ui/controls";
 /**
  * App.tsx — UI Studio 项目编辑器：三栏布局与预览会话管理。
  *
@@ -7,22 +8,21 @@
  * 预览完全在浏览器内进行：action 只展示将调用的 service 与参数，不实际调用。
  */
 
+import { Modal } from "@sfmc-bds/ui/overlays";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-import {
-  ArrowLeft,
-  Download,
-  FilePlus2,
-  FileUp,
-  FolderOpen,
-  Redo2,
-  Trash2,
-  Undo2,
-} from "lucide-react";
-import type {
-  UiActionDefinition,
-  UiScreenDocument,
-} from "../../src/contracts/ui-document.js";
+import type { UiActionDefinition, UiScreenDocument } from "../../../src/contracts/ui-document.js";
+import { confirmChallengeMatches, confirmChallengePrompt } from "../../../src/ui-studio/shared/confirm-challenge.js";
+import { Canvas } from "../components/Canvas";
+import { Diagnostics } from "../components/Diagnostics";
+import { HeaderMenu } from "../components/HeaderMenu";
+import { ArrowLeft, Download, FilePlus2, FileUp, FolderOpen, Redo2, Trash2, Undo2 } from "../components/icons";
+import { Inspector } from "../components/Inspector";
+import { Palette } from "../components/Palette";
+import { ProjectTree } from "../components/ProjectTree";
+import { alertDialog, confirmDialog, promptText } from "../components/StudioDialogs";
+import { ThemeToggle } from "../components/ThemeToggle";
+import { deriveView } from "../lib/derived";
+import { useFileDrafts } from "../lib/draft";
 import {
   asFixture,
   ensureDeclarations,
@@ -33,15 +33,10 @@ import {
   removeNodeAt,
   type InsertAddress,
   type Selection,
-} from "./model";
-import { deriveView } from "./derived";
-import { useFileDrafts } from "./draft";
-import { initialSession, type PreviewSession } from "./scope";
-import {
-  confirmChallengeMatches,
-  confirmChallengePrompt,
-} from "../../src/ui-studio/shared/confirm-challenge.js";
-import { getProject, putProject } from "./store/db";
+} from "../lib/model";
+import { initialSession, type PreviewSession } from "../lib/scope";
+import { downloadBlob, exportProjectZip } from "../lib/zip";
+import { getProject, putProject } from "../store/db";
 import {
   addScreen,
   duplicateScreen,
@@ -50,15 +45,7 @@ import {
   removeScreen,
   renameScreenFile,
   type StudioProject,
-} from "./store/project";
-import { downloadBlob, exportProjectZip } from "./zip";
-import { ProjectTree } from "./components/ProjectTree";
-import { Palette } from "./components/Palette";
-import { Canvas } from "./components/Canvas";
-import { Inspector } from "./components/Inspector";
-import { Diagnostics } from "./components/Diagnostics";
-import { HeaderMenu } from "./components/HeaderMenu";
-import { ThemeToggle } from "./components/ThemeToggle";
+} from "../store/project";
 
 /** 预览导航栈条目：一次跳转产生的页面与参数。 */
 interface NavEntry {
@@ -102,16 +89,14 @@ export function App({ projectId, onExit }: AppProps) {
         if (found) setProject(found);
         else setNotFound(true);
       })
-      .catch((err: unknown) =>
-        setLoadError(err instanceof Error ? err.message : String(err)),
-      );
+      .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : String(err)));
   }, [projectId]);
 
   if (notFound) {
     return (
       <div className="app-loading">
         <p>项目不存在或已被删除。</p>
-        <button className="btn" onClick={onExit}>返回项目列表</button>
+        <Button onClick={onExit}>返回项目列表</Button>
       </div>
     );
   }
@@ -119,7 +104,7 @@ export function App({ projectId, onExit }: AppProps) {
     return (
       <div className="app-loading">
         <p>项目读取失败：{loadError}</p>
-        <button className="btn" onClick={onExit}>返回项目列表</button>
+        <Button onClick={onExit}>返回项目列表</Button>
       </div>
     );
   }
@@ -132,13 +117,7 @@ export function App({ projectId, onExit }: AppProps) {
 }
 
 /** 项目编辑器本体：仅在项目装载完成后挂载。 */
-function ProjectEditor({
-  initialProject,
-  onExit,
-}: {
-  initialProject: StudioProject;
-  onExit(): void;
-}) {
+function ProjectEditor({ initialProject, onExit }: { initialProject: StudioProject; onExit(): void }) {
   const [project, setProject] = useState(initialProject);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [navStack, setNavStack] = useState<NavEntry[]>([]);
@@ -160,19 +139,10 @@ function ProjectEditor({
     await putProject(next);
   }, []);
 
-  const {
-    files,
-    dirty,
-    saving,
-    savedAt,
-    canUndo,
-    canRedo,
-    applyEdit,
-    replaceFiles,
-    undo,
-    redo,
-    flush,
-  } = useFileDrafts(project.files, persist);
+  const { files, dirty, saving, savedAt, canUndo, canRedo, applyEdit, replaceFiles, undo, redo, flush } = useFileDrafts(
+    project.files,
+    persist
+  );
 
   // 工程视图由文件表实时派生：编辑即刻反映到画布与诊断。
   const view = useMemo(() => deriveView(files, project.services), [project, files]);
@@ -183,18 +153,14 @@ function ProjectEditor({
   // 树/画布/属性一律走可浏览视图：工程有诊断时仍可浏览定位。
   const screens = view.browse.screens;
   const screenIds = useMemo(
-    () =>
-      view.browse.feature?.screens
-        .map((item) => item.id)
-        .filter((id) => id in screens) ?? [],
-    [view, screens],
+    () => view.browse.feature?.screens.map((item) => item.id).filter((id) => id in screens) ?? [],
+    [view, screens]
   );
 
   // 当前预览页面：导航栈顶；缺省为第一个页面。
   const currentEntry = navStack[navStack.length - 1] ?? null;
   const currentScreenId = currentEntry?.screenId ?? screenIds[0] ?? null;
-  const currentScreen: UiScreenDocument | null =
-    (currentScreenId ? screens[currentScreenId] : null) ?? null;
+  const currentScreen: UiScreenDocument | null = (currentScreenId ? screens[currentScreenId] : null) ?? null;
 
   // 数据就绪后默认选中第一个页面。
   useEffect(() => {
@@ -207,13 +173,10 @@ function ProjectEditor({
   // 注意：仅校验失败（不在 browse.screens）不算删除——文件还在，
   // 用户需要留在该页面上借助整文件 JSON 编辑器修复。
   useEffect(() => {
-    const exists = (screenId: string) =>
-      screenId in screens || fileByScreenId(view, screenId) !== null;
+    const exists = (screenId: string) => screenId in screens || fileByScreenId(view, screenId) !== null;
     if (currentEntry && !exists(currentEntry.screenId)) {
       setNavStack([]);
-      setSelection((prev) =>
-        prev?.kind === "screen" && !exists(prev.screenId) ? null : prev,
-      );
+      setSelection((prev) => (prev?.kind === "screen" && !exists(prev.screenId) ? null : prev));
     }
   }, [currentEntry, screens, view]);
 
@@ -226,22 +189,19 @@ function ProjectEditor({
       setSessions((prev) => ({ ...prev, [screen.id]: created }));
       return created;
     },
-    [sessions, fixture],
+    [sessions, fixture]
   );
 
-  const updateState = useCallback(
-    (screenId: string, key: string, value: unknown) => {
-      setSessions((prev) => {
-        const session = prev[screenId];
-        if (!session) return prev;
-        return {
-          ...prev,
-          [screenId]: { ...session, state: { ...session.state, [key]: value } },
-        };
-      });
-    },
-    [],
-  );
+  const updateState = useCallback((screenId: string, key: string, value: unknown) => {
+    setSessions((prev) => {
+      const session = prev[screenId];
+      if (!session) return prev;
+      return {
+        ...prev,
+        [screenId]: { ...session, state: { ...session.state, [key]: value } },
+      };
+    });
+  }, []);
 
   /** 统一选择入口（树/诊断定位）。 */
   const handleSelect = useCallback(
@@ -260,7 +220,7 @@ function ProjectEditor({
         }
       }
     },
-    [screens, fixture],
+    [screens, fixture]
   );
 
   const selectNode = useCallback((screenId: string, nodePath: string) => {
@@ -278,11 +238,11 @@ function ProjectEditor({
         [target]: initialSession(screen, fixture, params),
       }));
       setNavStack((prev) =>
-        replace ? [...prev.slice(0, -1), { screenId: target, params }] : [...prev, { screenId: target, params }],
+        replace ? [...prev.slice(0, -1), { screenId: target, params }] : [...prev, { screenId: target, params }]
       );
       setSelection({ kind: "screen", screenId: target, nodePath: "" });
     },
-    [screens, fixture],
+    [screens, fixture]
   );
 
   const goBack = useCallback(() => {
@@ -301,12 +261,12 @@ function ProjectEditor({
   // 文件操作（自动同步 feature.screens 引用；均为一步撤销）
   // -------------------------------------------------------------------------
 
-  const handleAddScreen = useCallback(() => {
-    const id = window.prompt("新页面 id（字母/数字/._-）：", "page");
+  const handleAddScreen = useCallback(async () => {
+    const id = await promptText("新页面 id（字母/数字/._-）：", "page");
     if (id === null) return;
     const trimmed = id.trim();
     if (!/^[a-z0-9_.-]+$/i.test(trimmed)) {
-      window.alert("页面 id 只能包含字母、数字、点、下划线与连字符。");
+      void alertDialog("页面 id 只能包含字母、数字、点、下划线与连字符。");
       return;
     }
     const result = addScreen(files, trimmed);
@@ -316,23 +276,23 @@ function ProjectEditor({
   }, [files, replaceFiles]);
 
   const handleRenameScreen = useCallback(
-    (file: string) => {
-      const next = window.prompt("新的文件路径（相对工程根）：", file);
+    async (file: string) => {
+      const next = await promptText("新的文件路径（相对工程根）：", file);
       if (next === null) return;
       const trimmed = next.trim();
       if (!trimmed || trimmed === file) return;
       if (!trimmed.endsWith(".json")) {
-        window.alert("文件路径必须以 .json 结尾。");
+        void alertDialog("文件路径必须以 .json 结尾。");
         return;
       }
       const result = renameScreenFile(files, file, trimmed);
       if (!result) {
-        window.alert(`目标路径已存在或源文件缺失：${trimmed}`);
+        void alertDialog(`目标路径已存在或源文件缺失：${trimmed}`);
         return;
       }
       replaceFiles(result);
     },
-    [files, replaceFiles],
+    [files, replaceFiles]
   );
 
   const handleDuplicateScreen = useCallback(
@@ -343,26 +303,26 @@ function ProjectEditor({
       setSelection({ kind: "screen", screenId: result.id, nodePath: "" });
       setNavStack([{ screenId: result.id }]);
     },
-    [files, replaceFiles],
+    [files, replaceFiles]
   );
 
   const handleRemoveScreen = useCallback(
-    (file: string) => {
-      if (!window.confirm(`确定删除页面文件 ${file}？（可用撤销恢复）`)) return;
+    async (file: string) => {
+      if (!(await confirmDialog(`确定删除页面文件 ${file}？（可用撤销恢复）`))) return;
       replaceFiles(removeScreen(files, file));
     },
-    [files, replaceFiles],
+    [files, replaceFiles]
   );
 
   const handleRemoveFile = useCallback(
-    (file: string) => {
-      if (!window.confirm(`确定删除文件 ${file}？（可用撤销恢复）`)) return;
+    async (file: string) => {
+      if (!(await confirmDialog(`确定删除文件 ${file}？（可用撤销恢复）`))) return;
       const next = { ...files };
       delete next[file];
       replaceFiles(next);
       setSelection((prev) => (prev?.kind === "file" && prev.file === file ? null : prev));
     },
-    [files, replaceFiles],
+    [files, replaceFiles]
   );
 
   /** 整文件替换（其他文件的 JSON 编辑）。 */
@@ -370,7 +330,7 @@ function ProjectEditor({
     (file: string, doc: unknown) => {
       replaceFiles({ ...files, [file]: doc });
     },
-    [files, replaceFiles],
+    [files, replaceFiles]
   );
 
   // -------------------------------------------------------------------------
@@ -401,7 +361,7 @@ function ProjectEditor({
       });
       setSelection({ kind: "screen", screenId: currentScreenId, nodePath: newPath });
     },
-    [currentScreenFile, currentScreenId, files, applyEdit],
+    [currentScreenFile, currentScreenId, files, applyEdit]
   );
 
   const handleMoveNode = useCallback(
@@ -416,7 +376,7 @@ function ProjectEditor({
       });
       setSelection({ kind: "screen", screenId: currentScreenId, nodePath: newPath });
     },
-    [currentScreenFile, currentScreenId, files, applyEdit],
+    [currentScreenFile, currentScreenId, files, applyEdit]
   );
 
   /** 删除当前页面上的节点，选中其父级（顶层则回到页面）。 */
@@ -432,11 +392,10 @@ function ProjectEditor({
         nodePath: parentNodePath(path),
       });
     },
-    [currentScreenFile, currentScreenId, files, applyEdit],
+    [currentScreenFile, currentScreenId, files, applyEdit]
   );
 
-  const canRemoveNode =
-    selection?.kind === "screen" && Boolean(selection.nodePath);
+  const canRemoveNode = selection?.kind === "screen" && Boolean(selection.nodePath);
 
   // -------------------------------------------------------------------------
   // 导入 manifest / 导出 zip
@@ -453,7 +412,7 @@ function ProjectEditor({
       setProject(nextProject);
       await putProject(nextProject);
     } catch (err) {
-      window.alert(`manifest 解析失败：${err instanceof Error ? err.message : String(err)}`);
+      void alertDialog(`manifest 解析失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }, []);
 
@@ -461,10 +420,7 @@ function ProjectEditor({
     const current = projectRef.current;
     if (!current) return;
     // 导出以当前草稿为准（含未落盘的编辑）。
-    downloadBlob(
-      exportProjectZip({ ...current, files }),
-      `${current.name}.zip`,
-    );
+    downloadBlob(exportProjectZip({ ...current, files }), `${current.name}.zip`);
   }, [files]);
 
   // 快捷键：Ctrl+S 落盘；Ctrl+Z 撤销；Ctrl+Shift+Z / Ctrl+Y 重做；
@@ -473,11 +429,7 @@ function ProjectEditor({
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName;
-      const inField =
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        tag === "SELECT" ||
-        Boolean(target?.isContentEditable);
+      const inField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || Boolean(target?.isContentEditable);
       const key = event.key.toLowerCase();
       if ((event.ctrlKey || event.metaKey) && key === "s") {
         event.preventDefault();
@@ -520,9 +472,9 @@ function ProjectEditor({
   return (
     <div className="studio">
       <header className="studio-header">
-        <button className="btn btn-icon" onClick={onExit} title="返回项目列表">
+        <Button className="btn-icon" onClick={onExit} title="返回项目列表">
           <ArrowLeft size={15} />
-        </button>
+        </Button>
         <span className="studio-project" title={project.id}>
           {project.name}
         </span>
@@ -570,17 +522,12 @@ function ProjectEditor({
             },
           ]}
         />
-        <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="撤销（Ctrl+Z）">
+        <Button className="btn-icon" onClick={undo} disabled={!canUndo} title="撤销（Ctrl+Z）">
           <Undo2 size={15} />
-        </button>
-        <button
-          className="btn btn-icon"
-          onClick={redo}
-          disabled={!canRedo}
-          title="重做（Ctrl+Shift+Z）"
-        >
+        </Button>
+        <Button className="btn-icon" onClick={redo} disabled={!canRedo} title="重做（Ctrl+Shift+Z）">
           <Redo2 size={15} />
-        </button>
+        </Button>
         <ThemeToggle />
         <input
           ref={manifestInputRef}
@@ -636,9 +583,7 @@ function ProjectEditor({
               />
             ) : (
               <div className="canvas-empty">
-                {currentScreenId
-                  ? "页面未通过校验，请在右侧修复 JSON（详见底部诊断）"
-                  : "工程暂无可预览页面"}
+                {currentScreenId ? "页面未通过校验，请在右侧修复 JSON（详见底部诊断）" : "工程暂无可预览页面"}
               </div>
             )}
           </div>
@@ -668,108 +613,97 @@ function ProjectEditor({
       </footer>
       {/* 确认弹层（有 confirm 时先走）与动作预览弹层。 */}
       {actionPreview?.confirmView && !confirmAcked ? (
-        <Dialog
+        <Modal
+          title={actionPreview.confirmView.title}
           open={true}
           onClose={() => {
             setActionPreview(null);
             setConfirmAcked(false);
             setChallengeTyped("");
           }}
-          className="modal-mask"
+          className="studio-modal"
         >
-          <DialogPanel className="modal">
-            <DialogTitle as="h3">{actionPreview.confirmView.title}</DialogTitle>
-            <p className="modal-body">{actionPreview.confirmView.body}</p>
-            {actionPreview.confirmView.challenge ? (
-              <label className="insp-field">
-                <span className="insp-label">
-                  {confirmChallengePrompt(actionPreview.confirmView.challenge)}
-                </span>
-                <input
-                  className="insp-input"
-                  value={challengeTyped}
-                  placeholder={actionPreview.confirmView.challenge}
-                  onChange={(event) => setChallengeTyped(event.target.value)}
-                />
-              </label>
-            ) : null}
-            <div className="modal-actions">
-              <button
-                className="btn"
-                onClick={() => {
-                  setActionPreview(null);
-                  setConfirmAcked(false);
-                  setChallengeTyped("");
-                }}
-              >
-                {actionPreview.confirmView.cancelText}
-              </button>
-              <button
-                className={`btn${actionPreview.confirmView.danger || actionPreview.confirmView.challenge ? " btn-danger" : " btn-primary"}`}
-                disabled={
-                  actionPreview.confirmView.challenge
-                    ? !confirmChallengeMatches(
-                        challengeTyped,
-                        actionPreview.confirmView.challenge,
-                      )
-                    : false
-                }
-                onClick={() => setConfirmAcked(true)}
-              >
-                {actionPreview.confirmView.confirmText}
-              </button>
-            </div>
-          </DialogPanel>
-        </Dialog>
-      ) : actionPreview ? (
-        <Dialog
-          open={true}
-          onClose={() => {
-            setActionPreview(null);
-            setConfirmAcked(false);
-            setChallengeTyped("");
-          }}
-          className="modal-mask"
-        >
-          <DialogPanel className="modal">
-            <DialogTitle as="h3">动作预览</DialogTitle>
-            <dl>
-              <dt>动作</dt>
-              <dd>{actionPreview.actionId}</dd>
-              <dt>service</dt>
-              <dd>
-                <code>{actionPreview.action.call.service}</code>
-              </dd>
-              <dt>解析后的 input</dt>
-              <dd>
-                <pre>{JSON.stringify(actionPreview.input, null, 2) || "（无）"}</pre>
-              </dd>
-              <dt>效果</dt>
-              <dd>
-                <pre>
-                  {JSON.stringify(
-                    {
-                      onSuccess: actionPreview.action.onSuccess ?? [],
-                      onError: actionPreview.action.onError ?? [],
-                    },
-                    null,
-                    2,
-                  )}
-                </pre>
-              </dd>
-            </dl>
-            <button
-              className="btn"
+          <p className="modal-body">{actionPreview.confirmView.body}</p>
+          {actionPreview.confirmView.challenge ? (
+            <label className="insp-field">
+              <span className="insp-label">{confirmChallengePrompt(actionPreview.confirmView.challenge)}</span>
+              <input
+                className="insp-input"
+                value={challengeTyped}
+                placeholder={actionPreview.confirmView.challenge}
+                onChange={(event) => setChallengeTyped(event.target.value)}
+              />
+            </label>
+          ) : null}
+          <div className="modal-actions">
+            <Button
               onClick={() => {
                 setActionPreview(null);
                 setConfirmAcked(false);
                 setChallengeTyped("");
               }}
             >
-              关闭
-            </button>
-          </DialogPanel>
-        </Dialog>
+              {actionPreview.confirmView.cancelText}
+            </Button>
+            <Button
+              variant={actionPreview.confirmView.danger || actionPreview.confirmView.challenge ? "danger" : "primary"}
+              disabled={
+                actionPreview.confirmView.challenge
+                  ? !confirmChallengeMatches(challengeTyped, actionPreview.confirmView.challenge)
+                  : false
+              }
+              onClick={() => setConfirmAcked(true)}
+            >
+              {actionPreview.confirmView.confirmText}
+            </Button>
+          </div>
+        </Modal>
+      ) : actionPreview ? (
+        <Modal
+          title="动作预览"
+          open={true}
+          onClose={() => {
+            setActionPreview(null);
+            setConfirmAcked(false);
+            setChallengeTyped("");
+          }}
+          className="studio-modal"
+        >
+          <dl>
+            <dt>动作</dt>
+            <dd>{actionPreview.actionId}</dd>
+            <dt>service</dt>
+            <dd>
+              <code>{actionPreview.action.call.service}</code>
+            </dd>
+            <dt>解析后的 input</dt>
+            <dd>
+              <pre>{JSON.stringify(actionPreview.input, null, 2) || "（无）"}</pre>
+            </dd>
+            <dt>效果</dt>
+            <dd>
+              <pre>
+                {JSON.stringify(
+                  {
+                    onSuccess: actionPreview.action.onSuccess ?? [],
+                    onError: actionPreview.action.onError ?? [],
+                  },
+                  null,
+                  2
+                )}
+              </pre>
+            </dd>
+          </dl>
+          <Button
+            onClick={() => {
+              setActionPreview(null);
+              setConfirmAcked(false);
+              setChallengeTyped("");
+            }}
+          >
+            关闭
+          </Button>
+        </Modal>
       ) : null}
     </div>
   );

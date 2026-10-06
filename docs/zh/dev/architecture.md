@@ -176,3 +176,9 @@ ScriptsForMinecraftServer/
 - `packages/*`：平台基础包与核心工具，均独立发布至 npm。
 - `modules/packages/*`：运行时的业务模块目录，与平台核心代码相互独立。
 :::
+
+## 桌面端与 UI Studio 的界面分层
+
+`packages/ui` 提供共享的 SnowUI 令牌与字体、Phosphor 图标和 Base UI 控件/浮层。Desktop 的外观提供者负责 Monaco 与原生窗口配色；Studio 独立运行时保存自己的外观偏好，内嵌时跟随 Desktop。基础视觉和交互只维护一份，领域逻辑由各应用承担。
+
+UI Studio 浏览器源码按 `app`（路由与宿主）、`pages`（工程列表与编辑器）、`components`（工程树、属性面板与画布）、`lib`（草稿/导入导出/预览派生）、`store`（工程格式与 IndexedDB）、`styles`（编辑器布局）组织。Desktop 复用 SDK 的 Vite 配置打包 Studio，内置入口在「开发工具」；切页隐藏文档并保留编辑状态，不依赖实例握手或 CLI 服务。

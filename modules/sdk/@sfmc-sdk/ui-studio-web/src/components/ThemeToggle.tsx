@@ -1,9 +1,10 @@
+import { Button } from "@sfmc-bds/ui/controls";
 /**
  * ThemeToggle.tsx — 顶栏外观切换：跟随系统 / 浅色 / 深色循环。
  */
 
 import { useEffect, useState } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { embedded } from "../app/host";
 import {
   cycleThemePref,
   readThemePref,
@@ -11,7 +12,8 @@ import {
   syncDocumentTheme,
   THEME_PREF_LABEL,
   type ThemePref,
-} from "../theme";
+} from "../app/theme";
+import { Monitor, Moon, Sun } from "./icons";
 
 const ICONS = {
   system: Monitor,
@@ -34,11 +36,12 @@ export function ThemeToggle() {
 
   const Icon = ICONS[pref];
   const label = THEME_PREF_LABEL[pref];
+  if (embedded) return null;
 
   return (
-    <button
+    <Button
       type="button"
-      className="btn btn-icon"
+      className="btn-icon"
       title={`外观：${label}（点击切换）`}
       aria-label={`外观：${label}，点击切换`}
       onClick={() => {
@@ -48,6 +51,6 @@ export function ThemeToggle() {
       }}
     >
       <Icon size={15} />
-    </button>
+    </Button>
   );
 }

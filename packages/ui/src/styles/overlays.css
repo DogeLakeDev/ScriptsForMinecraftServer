@@ -1,0 +1,370 @@
+/*
+ * overlays.css — 浮层：Tooltip、菜单、弹出卡片、对话框、抽屉、通知、命令面板
+ *
+ * 对应 components/tooltip.tsx、overlays.tsx、feedback.tsx、CommandPalette.tsx。
+ * SnowUI：毛玻璃底 + blur(40px)、16–20px 圆角、0.5px 发丝线、柔和阴影；进出场用 data-starting-style / data-ending-style。
+ */
+
+/* ---------- Tooltip ---------- */
+
+.tooltip-wrap {
+  display: inline-flex;
+}
+
+.tooltip-positioner {
+  z-index: 80;
+}
+
+.tooltip {
+  max-width: 280px;
+  padding: 6px 10px;
+  border-radius: var(--r-8);
+  background: var(--c-inverse);
+  color: var(--c-on-inverse);
+  font-size: 12px;
+  line-height: 16px;
+  box-shadow: var(--c-shadow-pop);
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--dur-1),
+    transform var(--dur-1) var(--ease-out);
+}
+
+.tooltip kbd {
+  margin-left: 4px;
+  border-color: color-mix(in srgb, var(--c-on-inverse) 28%, transparent);
+  color: var(--c-on-inverse);
+}
+
+.tooltip[data-starting-style],
+.tooltip[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+/* ---------- 通用弹出层（菜单 / 选择器 / 弹出卡片） ---------- */
+
+.pop-positioner {
+  z-index: 70;
+}
+
+.pop {
+  border-radius: var(--r-16);
+  background: var(--c-glass);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow: var(--c-shadow-pop);
+  color: var(--c-text);
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
+}
+
+.pop[data-starting-style],
+.pop[data-ending-style] {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.pop[data-side="top"][data-starting-style],
+.pop[data-side="top"][data-ending-style] {
+  transform: translateY(4px) scale(0.98);
+}
+
+.menu {
+  min-width: 160px;
+  padding: 6px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: var(--r-12);
+  cursor: default;
+  outline: none;
+}
+
+.menu-item[data-highlighted] {
+  background: var(--c-fill);
+}
+
+.menu-item[data-disabled] {
+  opacity: 0.4;
+}
+
+.menu-item.danger {
+  color: var(--c-danger-text);
+}
+
+.menu-item.danger[data-highlighted] {
+  background: var(--c-danger-soft);
+}
+
+.menu-item-icon {
+  color: var(--c-text-2);
+}
+
+.menu-item.danger .menu-item-icon {
+  color: var(--c-danger-text);
+}
+
+.menu-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.menu-item-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-item-desc {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.menu-item-hint {
+  margin-left: auto;
+  color: var(--c-text-3);
+  font-size: 12px;
+}
+
+.menu-item-check {
+  margin-left: auto;
+  color: var(--c-text);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--c-line);
+}
+
+.menu-label {
+  padding: 8px 8px 4px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.popover {
+  padding: 12px;
+}
+
+.pop-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 12px;
+}
+
+.pop-head b {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.pop-head .muted {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ---------- Dialog / AlertDialog ---------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--c-scrim);
+  transition: opacity var(--dur-3) var(--ease);
+}
+
+.dialog-backdrop[data-starting-style],
+.dialog-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.dialog-viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 91;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(var(--dialog-w, 520px), 100%);
+  max-height: min(86dvh, 820px);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--r-20);
+  background: var(--c-bg);
+  box-shadow: var(--c-shadow-pop);
+  outline: none;
+  transition:
+    opacity var(--dur-3) var(--ease-out),
+    transform var(--dur-3) var(--ease-out);
+}
+
+.dialog-sm {
+  --dialog-w: 420px;
+}
+
+.dialog-md {
+  --dialog-w: 520px;
+}
+
+.dialog-lg {
+  --dialog-w: 640px;
+}
+
+.dialog[data-starting-style],
+.dialog[data-ending-style] {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+
+.dialog-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 0;
+}
+
+.dialog-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-12);
+}
+
+.dialog-head-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 6px;
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.dialog-desc {
+  margin: 4px 0 0;
+  color: var(--c-text-2);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.dialog-close {
+  margin: -4px -4px 0 auto;
+}
+
+/* 表单需在弹窗剩余高度内收缩，滚动只发生在内容区。 */
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
+  padding: 16px 24px 8px;
+  overflow: auto;
+}
+
+.dialog-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px 20px;
+}
+
+.dialog-foot-spacer {
+  flex: 1;
+}
+
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirm-note {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.confirm-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--c-danger-text);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* ---------- Sheet（右侧抽屉，复用 Dialog） ---------- */
+
+.sheet-viewport {
+  position: fixed;
+  inset: var(--sheet-top) 0 0;
+  z-index: 91;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sheet {
+  --dialog-w: var(--sheet-width, 640px);
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  border-left: var(--hair) solid var(--c-line);
+}
+
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateX(24px);
+}
+
+.sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sheet-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sheet-loading {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+}

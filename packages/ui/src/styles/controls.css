@@ -1,0 +1,825 @@
+/*
+ * controls.css — 操作与表单控件（对应 components/controls.tsx）
+ *
+ * SnowUI：控件高 24 / 32 / 40，圆角 6 / 8 / 12；主按钮为单色实心（浅色近黑、深色纯白），次级按钮为 4% 浅填充；
+ * 输入框默认浅填充，聚焦时转为底色并显示柔和焦点环。Base UI 通过 data-* 属性暴露状态，这里据此着色。
+ */
+
+/* ---------- Button ---------- */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  white-space: nowrap;
+  border-radius: var(--r-8);
+  font-weight: 400;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1),
+    box-shadow var(--dur-1),
+    opacity var(--dur-1),
+    transform var(--dur-1);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+}
+
+.btn.is-loading {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+.btn-sm {
+  height: 24px;
+  padding: 0 8px;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  border-radius: var(--r-6);
+}
+
+.btn-md {
+  height: 32px;
+  padding: 0 12px;
+}
+
+.btn-lg {
+  height: 40px;
+  padding: 0 18px;
+  gap: 8px;
+  border-radius: var(--r-12);
+}
+
+.btn-square.btn-sm {
+  width: 24px;
+  padding: 0;
+}
+
+.btn-square.btn-md {
+  width: 32px;
+  padding: 0;
+}
+
+.btn-square.btn-lg {
+  width: 40px;
+  padding: 0;
+}
+
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+
+.btn-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-primary {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--c-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--c-fill);
+  color: var(--c-text);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--c-fill-2);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--c-text);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--c-fill);
+}
+
+.btn-danger {
+  background: var(--c-danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.btn-danger-soft {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+
+.btn-danger-soft:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c-danger) 18%, transparent);
+}
+
+/* ---------- IconButton ---------- */
+
+.icon-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--c-text);
+  border-radius: var(--r-8);
+  transition:
+    background var(--dur-1),
+    color var(--dur-1),
+    opacity var(--dur-1);
+}
+
+.icon-btn-sm {
+  width: 28px;
+  height: 28px;
+}
+
+.icon-btn-sm .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.icon-btn-md {
+  width: 32px;
+  height: 32px;
+}
+
+.icon-btn-ghost:hover:not(:disabled),
+.icon-btn-ghost[data-popup-open] {
+  background: var(--c-fill);
+}
+
+.icon-btn-secondary {
+  background: var(--c-fill);
+}
+
+.icon-btn-secondary:hover:not(:disabled),
+.icon-btn-secondary[data-popup-open] {
+  background: var(--c-fill-2);
+}
+
+.icon-btn.active {
+  background: var(--c-fill-2);
+}
+
+.icon-btn.danger:hover:not(:disabled) {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+}
+
+.icon-btn-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--c-danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--c-bg);
+  transform: translate(25%, -15%);
+  pointer-events: none;
+}
+
+.icon-btn-badge.dot {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  transform: translate(-20%, 20%);
+}
+
+/* ---------- 文本输入 ---------- */
+
+.input {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border-radius: var(--r-8);
+  color: var(--c-text);
+  transition:
+    background var(--dur-1),
+    box-shadow var(--dur-1);
+}
+
+.input-sm {
+  height: 28px;
+  padding: 0 8px;
+  gap: 6px;
+}
+
+.input-md {
+  height: 32px;
+  padding: 0 10px;
+}
+
+.input-lg {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-12);
+}
+
+.input-filled {
+  background: var(--c-fill);
+}
+
+.input-filled:hover:not(.disabled) {
+  background: var(--c-fill-2);
+}
+
+.input-outline {
+  background: var(--c-bg);
+  box-shadow: inset 0 0 0 var(--hair) var(--c-text-4);
+}
+
+.input-outline:hover:not(.disabled) {
+  box-shadow: inset 0 0 0 var(--hair) var(--c-text-3);
+}
+
+.input-ghost {
+  background: transparent;
+}
+
+.input-ghost:hover:not(.disabled) {
+  background: var(--c-fill);
+}
+
+.input:focus-within,
+.select-trigger[data-popup-open] {
+  background: var(--c-bg);
+  box-shadow:
+    inset 0 0 0 var(--hair) var(--c-text-3),
+    0 0 0 3px var(--c-ring);
+}
+
+.input.invalid,
+.input.invalid:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--c-danger),
+    0 0 0 3px var(--c-danger-soft);
+}
+
+.input.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-field {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: var(--c-text-3);
+}
+
+.input-field::-webkit-search-cancel-button,
+.input-field::-webkit-search-decoration {
+  display: none;
+  -webkit-appearance: none;
+}
+
+.input-field:disabled {
+  cursor: not-allowed;
+}
+
+.input-icon {
+  color: var(--c-text-3);
+}
+
+.input-suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  color: var(--c-text-3);
+}
+
+.input-clear {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-6);
+  color: var(--c-text-3);
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+
+.input-clear:hover {
+  background: var(--c-fill-2);
+  color: var(--c-text);
+}
+
+.input-keys {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.input-action {
+  height: 22px;
+  padding: 0 8px;
+  margin-right: -4px;
+  border-radius: var(--r-6);
+  background: var(--c-fill);
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+
+.input-action:hover {
+  background: var(--c-fill-2);
+  color: var(--c-text);
+}
+
+/* ---------- NumberInput ---------- */
+
+.number-field {
+  display: inline-flex;
+}
+
+.number-field .input {
+  padding-right: 4px;
+}
+
+.number-steps {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.number-step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-6);
+  color: var(--c-text-2);
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+
+.number-step:hover:not([data-disabled]) {
+  background: var(--c-fill-2);
+  color: var(--c-text);
+}
+
+.number-step[data-disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------- Select ---------- */
+
+.select-trigger {
+  justify-content: space-between;
+  min-width: 120px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-value[data-placeholder] {
+  color: var(--c-text-3);
+}
+
+.select-icon {
+  display: inline-flex;
+  color: var(--c-text-3);
+  transition: transform var(--dur-2) var(--ease);
+}
+
+.select-trigger[data-popup-open] .select-icon {
+  transform: rotate(180deg);
+}
+
+.select-popup {
+  min-width: var(--anchor-width);
+  max-height: min(360px, var(--available-height));
+  overflow-y: auto;
+}
+
+/* ---------- Switch ---------- */
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--c-text-4);
+  transition: background var(--dur-2) var(--ease);
+}
+
+.switch-md {
+  width: 36px;
+  height: 20px;
+}
+
+.switch-sm {
+  width: 28px;
+  height: 16px;
+}
+
+.switch[data-checked] {
+  background: var(--c-primary);
+}
+
+.switch[data-disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.switch-thumb {
+  display: block;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    background var(--dur-2);
+}
+
+.switch-md .switch-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+.switch-sm .switch-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+.switch-md[data-checked] .switch-thumb {
+  transform: translateX(16px);
+}
+
+.switch-sm[data-checked] .switch-thumb {
+  transform: translateX(12px);
+}
+
+.switch[data-checked] .switch-thumb {
+  background: var(--c-on-primary);
+}
+
+/* ---------- Checkbox ---------- */
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  line-height: 20px;
+}
+
+.checkbox-row.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--c-text-4);
+  background: var(--c-bg);
+  color: var(--c-on-primary);
+  transition:
+    background var(--dur-1),
+    box-shadow var(--dur-1);
+}
+
+.checkbox-row:hover .checkbox:not([data-checked]) {
+  box-shadow: inset 0 0 0 1px var(--c-text-3);
+}
+
+.checkbox[data-checked] {
+  background: var(--c-primary);
+  box-shadow: none;
+}
+
+.checkbox-indicator {
+  display: grid;
+  place-items: center;
+}
+
+.checkbox-indicator[data-unchecked] {
+  display: none;
+}
+
+.checkbox-label {
+  color: var(--c-text);
+}
+
+/* ---------- Segmented（Tabs） ---------- */
+
+.segmented {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.segmented-list {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  isolation: isolate;
+}
+
+.segmented-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--c-text-2);
+  transition: color var(--dur-1);
+}
+
+.segmented-tab:hover:not([data-disabled]) {
+  color: var(--c-text);
+}
+
+.segmented-tab[data-active] {
+  color: var(--c-text);
+}
+
+.segmented-tab[data-disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented-count {
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--c-fill-2);
+  color: var(--c-text-2);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.segmented-count.danger {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+
+/* pill：浅填充轨道 + 浮起的滑块 */
+.segmented-pill .segmented-list {
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--r-8);
+  background: var(--c-fill);
+}
+
+.segmented-pill.segmented-md .segmented-tab {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--r-6);
+}
+
+.segmented-pill.segmented-sm .segmented-tab {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.segmented-pill .segmented-indicator {
+  position: absolute;
+  z-index: 0;
+  left: var(--active-tab-left);
+  top: var(--active-tab-top);
+  width: var(--active-tab-width);
+  height: var(--active-tab-height);
+  border-radius: var(--r-6);
+  background: var(--c-block);
+  box-shadow:
+    0 0 0 var(--hair) var(--c-line),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+  transition:
+    left var(--dur-2) var(--ease-out),
+    width var(--dur-2) var(--ease-out);
+}
+
+[data-theme="dark"] .segmented-pill .segmented-indicator {
+  background: var(--c-fill-2);
+  box-shadow: inset 0 0 0 var(--hair) var(--c-line);
+}
+
+/* text：SnowUI 文字标签页（选中 100%，其余 40%，以竖线分隔） */
+.segmented-text .segmented-list {
+  gap: 0;
+}
+
+.segmented-text .segmented-tab {
+  height: 28px;
+  padding: 0 12px;
+  color: var(--c-text-3);
+}
+
+.segmented-text .segmented-tab:first-child {
+  padding-left: 0;
+}
+
+.segmented-text .segmented-tab + .segmented-tab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--c-line);
+}
+
+.segmented-text .segmented-tab[data-active] {
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+.segmented-text .segmented-indicator {
+  display: none;
+}
+
+/* ---------- Field ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field > .input,
+.field > .select-trigger,
+.field > .number-field {
+  width: 100%;
+}
+
+.field > .number-field .input {
+  width: 100%;
+}
+
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.field-required {
+  color: var(--c-danger);
+}
+
+.field-desc {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.field-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-danger-text);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.field-inline .field-label {
+  color: var(--c-text);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.form-row > .grow {
+  flex: 1;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--r-16);
+  background: var(--c-block);
+}
+
+.form-section > legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: -4px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.form-section .input-filled {
+  background: var(--c-bg);
+  box-shadow: inset 0 0 0 var(--hair) var(--c-line);
+}
+
+.form-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* 深色表单保持可辨认的轮廓，焦点使用主题强调色。 */
+[data-theme="dark"] .input-filled:not(.invalid):not(:focus-within) {
+  box-shadow: inset 0 0 0 var(--hair) var(--c-line);
+}
+
+[data-theme="dark"] :is(.input:focus-within, .select-trigger[data-popup-open]):not(.invalid) {
+  background: var(--c-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--c-accent),
+    0 0 0 3px var(--c-ring);
+}
