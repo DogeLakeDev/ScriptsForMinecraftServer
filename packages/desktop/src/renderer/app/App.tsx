@@ -139,7 +139,7 @@ function Workspace() {
 
 /** 外壳：三栏布局、快捷键与全局对话框 */
 function Shell() {
-  const { selected, model, page, setPage, appInfo } = useDesktop();
+  const { selected, model, page, setPage, appInfo, logFocus } = useDesktop();
   const [layout, setLayout] = useState(readLayout);
   const narrow = useMediaQuery(NARROW_QUERY);
   /** 窄窗口下右侧栏以浮层打开（不持久化） */
@@ -163,6 +163,9 @@ function Shell() {
     }
   }, [model.handshake, page, setPage]);
   useEffect(() => setRailOverlay(false), [narrow]);
+  useEffect(() => {
+    if (logFocus) setRailOverlay(false);
+  }, [logFocus]);
 
   const railOpen = narrow ? railOverlay : layout.rail;
   const toggleSidebar = useCallback(() => setLayout((value) => ({ ...value, sidebar: !value.sidebar })), []);
