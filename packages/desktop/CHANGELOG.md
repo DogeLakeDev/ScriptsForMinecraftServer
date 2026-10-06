@@ -1,5 +1,11 @@
 # @sfmc-bds/desktop
 
+## 0.3.0
+
+### Minor Changes
+
+- faa4d6d: 桌面端增加托盘与开机启动，可在客户端设置中开关。
+
 ## 0.2.0
 
 ### Minor Changes
