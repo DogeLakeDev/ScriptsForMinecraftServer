@@ -30,6 +30,8 @@
 }
 
 .content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -60,7 +62,7 @@
 
 /* 内置编辑器占满内容区；切页时隐藏文档并保留编辑状态。 */
 .studio-workspace {
-  height: 100%;
+  flex: 1;
   min-height: 0;
 }
 
