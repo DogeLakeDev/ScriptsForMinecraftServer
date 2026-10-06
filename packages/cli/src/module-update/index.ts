@@ -94,6 +94,7 @@ const REASON_KEYS: Record<string, MessageKey> = {
   "missing-module": "mod.update.reason.missingModule",
   "missing-dependency": "mod.update.reason.missingDependency",
   "bad-version": "mod.update.reason.badVersion",
+  retired: "mod.update.reason.retired",
 };
 
 /** 定位 fetch-module.mjs。找不到时返回 null，调用方给出安装提示。 */

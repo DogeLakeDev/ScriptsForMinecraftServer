@@ -359,6 +359,7 @@ export const zhCN: Record<MessageKey, string> = {
   "mod.update.reason.missingModule": "未安装",
   "mod.update.reason.missingDependency": "依赖模块未安装",
   "mod.update.reason.badVersion": "版本号不是 semver",
+  "mod.update.reason.retired": "已收编至平台",
   "mod.pin.usage": "用法: mod pin <id> --auto on|off",
   "mod.pin.ok": "{id} 自动更新{state}",
   "mod.pin.on": "已打开",

@@ -42,6 +42,7 @@ const SKIP_REASONS: Record<string, string> = {
   "dependency-failed": "依赖更新失败",
   "github-manual": "需手动更新",
   "no-target": "无目标版本",
+  retired: "已收编至平台",
 };
 
 const failed = (value: unknown): value is Failed => Boolean(value && typeof value === "object" && "error" in value);
