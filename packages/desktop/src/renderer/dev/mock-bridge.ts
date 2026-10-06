@@ -17,7 +17,7 @@ import type {
   PackRow,
   ServiceStatusRow,
 } from "@sfmc-bds/management";
-import type { AppearanceMode, DesktopApi, InstanceProfile } from "../../shared/api.js";
+import type { AppearanceMode, DesktopApi, DesktopPreferences, InstanceProfile } from "../../shared/api.js";
 
 /** 单个模拟实例的可变状态（服务、任务、模块等），按实例 id 隔离 */
 interface MockInstance {
@@ -262,12 +262,59 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations"],
+    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
   });
 
+  const mockMetrics = () => {
+    const now = Date.now();
+    const history = [];
+    const resourceHistory = [];
+    for (let i = 240; i >= 0; i--) {
+      const recordedAt = now - i * 15_000;
+      const wave = Math.sin(i / 8);
+      history.push({
+        recordedAt,
+        bootId: i > 40 ? "boot-a" : "boot-b",
+        tps: i > 40 && i < 44 ? null : Math.round((19.4 + wave * 0.4) * 100) / 100,
+        onlineCount: 8 + (i % 6),
+        entities: {
+          "minecraft:overworld": 760 + Math.round(wave * 50),
+          "minecraft:nether": 180 + (i % 5) * 4,
+          "minecraft:the_end": i !== 0 && i % 40 === 0 ? null : 36 + (i % 7),
+        },
+        entitiesUpdatedAt: recordedAt,
+        chunkEstimate: 96,
+      });
+      resourceHistory.push({
+        recordedAt,
+        hostUsedMb: 3100 + Math.round(wave * 280),
+        dbMb: 170 + (i % 4) * 6,
+        bdsMb: i > 70 && i < 76 ? null : 1280 + Math.round(Math.cos(i / 6) * 160),
+      });
+    }
+    const current = history[history.length - 1]!;
+    const latest = resourceHistory[resourceHistory.length - 1]!;
+    return {
+      fresh: true,
+      updatedAt: now,
+      current,
+      history,
+      resourceHistory,
+      host: {
+        memory: { totalMb: 16384, usedMb: latest.hostUsedMb ?? 0, usedPercent: Math.round(((latest.hostUsedMb ?? 0) / 16384) * 100) },
+        cpu: { cores: 8, model: "Mock CPU" },
+      },
+      processes: {
+        db: { pid: 17920, running: true, memoryMb: latest.dbMb, cpuSeconds: 88.2 },
+        bds: { pid: 18244, running: true, memoryMb: latest.bdsMb, cpuSeconds: 640.5 },
+      },
+      resourcesUpdatedAt: now,
+    };
+  };
+  let preferences: DesktopPreferences = { tray: true, closeToTray: true, minimizeToTray: false, openAtLogin: false, startHidden: false };
   const request = async (id: string, method: ManagementMethod, params: Record<string, unknown> = {}): Promise<unknown> => {
     const instance = get(id);
     if (!instance.connected) throw new Error("实例尚未连接");
@@ -360,6 +407,7 @@ export function installMockBridge() {
           ? { filename: "install-sfmc-service.ps1", script: "#Requires -RunAsAdministrator\n$ErrorActionPreference = 'Stop'\n$wrapper = 'D:\\SFMC\\survival\\.sfmc\\runtime\\sfmc3f2a9c1b.exe'\nif (Get-Service -Name 'sfmc3f2a9c1b' -ErrorAction SilentlyContinue) { throw '系统服务已存在，不重复安装' }\nCopy-Item -LiteralPath 'D:\\SFMC\\survival\\.sfmc\\runtime\\WinSW-x64.exe' -Destination $wrapper\n$credential = Get-Credential -UserName 'shiro' -Message '输入原 Windows 部署账号'\nNew-Service -Name 'sfmc3f2a9c1b' -BinaryPathName ('\"' + $wrapper + '\"') -Credential $credential -StartupType Automatic\nStart-Service -Name 'sfmc3f2a9c1b'\n" }
           : { filename: "install-sfmc-service.sh", script: "#!/bin/sh\nset -eu\n[ \"$(id -u)\" = 0 ] || { echo '请以管理员运行此一次性安装脚本'; exit 1; }\nunit=/etc/systemd/system/sfmc-3f2a9c1b.service\nsystemctl daemon-reload\nsystemctl enable --now sfmc-3f2a9c1b.service\n" };
       case "deployment.create": return runTask(id, method, ["preflight", "prepare", "download", "start"]);
+      case "metrics.read": return mockMetrics();
       default: throw new Error(`模拟桥未实现: ${method}`);
     }
   };
@@ -395,6 +443,8 @@ export function installMockBridge() {
     openLink: async (kind) => { console.info("[mock] openLink", kind); },
     appearance: async (mode: AppearanceMode) => { console.info("[mock] appearance", mode); },
     appInfo: async () => ({ version: "0.1.0", platform: "win32", packaged: false }),
+    preferences: async () => preferences,
+    setPreferences: async patch => { preferences = { ...preferences, ...patch }; return preferences; },
     onEvent: (callback) => { eventListeners.add(callback); return () => eventListeners.delete(callback); },
     onConnection: (callback) => { connectionListeners.add(callback); return () => connectionListeners.delete(callback); },
   };

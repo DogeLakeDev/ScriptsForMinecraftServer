@@ -111,7 +111,7 @@ function ConnectionDetails() {
 
 /** 告警按钮：角标为"上次打开后新增"的警告/错误数，打开弹层即视为已读（按实例分别记录） */
 function AlertsButton() {
-  const { model, current, setPage } = useDesktop();
+  const { model, current, openLog } = useDesktop();
   const [seen, setSeen] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
   const seenAt = seen[current] ?? 0;
@@ -143,9 +143,9 @@ function AlertsButton() {
         logs={model.logs}
         now={Date.now()}
         limit={8}
-        onSelect={() => {
+        onSelect={(log) => {
           setOpen(false);
-          setPage("logs");
+          openLog(log);
         }}
       />
     </Popover>

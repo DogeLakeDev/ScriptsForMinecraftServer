@@ -33,14 +33,14 @@ export function serviceState(row: ServiceStatusRow): { tone: Tone; label: string
 }
 
 /** 告警列表：错误用红色色块、警告用琥珀色块，正文取日志首行 */
-export function AlertFeed({ logs, now, limit = 6, onSelect, emptyText = "已加载日志中没有警告或错误" }: { logs: LogEntryWire[]; now: number; limit?: number; onSelect?: () => void; emptyText?: string }) {
+export function AlertFeed({ logs, now, limit = 6, onSelect, emptyText = "已加载日志中没有警告或错误" }: { logs: LogEntryWire[]; now: number; limit?: number; onSelect?: (log: LogEntryWire) => void; emptyText?: string }) {
   const alerts = groupAlerts(logs, limit);
   if (!alerts.length) return <EmptyState compact icon="bell" title="暂无告警" description={emptyText} />;
   return (
     <ul className="feed">
       {alerts.map(({ log, count, firstTime }, index) => (
         <li key={`${log.time}-${index}`}>
-          <button type="button" className="feed-item" onClick={onSelect} disabled={!onSelect}>
+          <button type="button" className="feed-item" onClick={() => onSelect?.(log)} disabled={!onSelect}>
             <IconTile icon={log.level === "error" ? "bug" : "warning"} tone={log.level === "error" ? "danger" : "warning"} />
             <span className="feed-text">
               <span className="feed-title truncate" title={log.text}>{log.text.split("\n")[0]}</span>

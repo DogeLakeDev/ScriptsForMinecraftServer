@@ -1,8 +1,10 @@
 /** 首页指标：服务端有界历史绘图，不补造采样；断采和重启分段展示。 */
-import type { MetricsResult } from "@sfmc-bds/management";
+import type { MetricsResult, ResourceSample } from "@sfmc-bds/management";
 import { useEffect, useState } from "react";
 import { useDesktop } from "../app/desktop.js";
+import { PALETTES, useAppearance } from "../app/theme.js";
 import { fullTime } from "../lib/format.js";
+import { entityLines, memoryLines, scalarLine } from "../lib/metric-series.js";
 import { MetricChart } from "./MetricChart.js";
 import { Segmented } from "./controls.js";
 import { EmptyState, Surface } from "./ui.js";
@@ -12,11 +14,13 @@ export function useRuntimeMetrics() {
   const { model, request } = useDesktop();
   const supported = Boolean(model.handshake?.capabilities.includes("metrics"));
   const [data, setData] = useState<MetricsResult>();
+  const [localResources, setLocalResources] = useState<ResourceSample[]>([]);
   const [receivedAt, setReceivedAt] = useState(0);
   const [failed, setFailed] = useState(false);
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     setData(undefined);
+    setLocalResources([]);
     setReceivedAt(0);
     setFailed(false);
     if (!supported || model.disconnected) return;
@@ -29,6 +33,20 @@ export function useRuntimeMetrics() {
           setData(value);
           setReceivedAt(Date.now());
           setFailed(false);
+          if (!Array.isArray(value.resourceHistory) && value.host && typeof value.resourcesUpdatedAt === "number") {
+            const point: ResourceSample = {
+              recordedAt: value.resourcesUpdatedAt,
+              hostUsedMb: value.host.memory.usedMb,
+              dbMb: value.processes?.db.memoryMb ?? null,
+              bdsMb: value.processes?.bds?.memoryMb ?? null,
+            };
+            setLocalResources((current) => {
+              const last = current.at(-1);
+              if (last && point.recordedAt - last.recordedAt < 8_000) return current;
+              const cutoff = point.recordedAt - 3_600_000;
+              return [...current.filter((row) => row.recordedAt >= cutoff), point];
+            });
+          }
         }
       } catch {
         if (!disposed) setFailed(true);
@@ -53,6 +71,7 @@ export function useRuntimeMetrics() {
     reachable,
     fresh: reachable && Boolean(data?.fresh),
     loading: !receivedAt && !failed && !model.disconnected,
+    resources: Array.isArray(data?.resourceHistory) ? data.resourceHistory : localResources,
   };
 }
 
@@ -63,12 +82,25 @@ const memory = (value: number | null | undefined) =>
       ? `${(value / 1024).toFixed(1)} GB`
       : `${Math.round(value)} MB`;
 
+type MetricView = "tps" | "onlineCount" | "memory" | "entities";
+
 export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntimeMetrics> }) {
-  const [field, setField] = useState<"tps" | "onlineCount">("tps");
+  const [field, setField] = useState<MetricView>("tps");
   const [minutes, setMinutes] = useState<"15" | "60">("15");
-  const { data, supported, reachable, fresh, loading } = metrics;
+  const { dark } = useAppearance();
+  const { data, supported, reachable, fresh, loading, resources } = metrics;
   const sample = fresh ? data?.current : null;
   const host = reachable ? data?.host : null;
+  const windowMinutes = Number(minutes);
+  const end = Math.max(data?.resourcesUpdatedAt ?? 0, data?.history.at(-1)?.recordedAt ?? 0, resources.at(-1)?.recordedAt ?? 0) || Date.now();
+  const from = end - windowMinutes * 60_000;
+  const lines = !data
+    ? []
+    : field === "memory"
+      ? memoryLines(resources, from, end)
+      : field === "entities"
+        ? entityLines(data.history, from, end)
+        : scalarLine(data.history, field, field === "tps" ? "TPS" : "在线人数", (dark ? PALETTES.dark : PALETTES.light).progress, from, end);
   return (
     <Surface
       title="运行指标"
@@ -96,18 +128,31 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
               options={[
                 { value: "tps", label: "TPS" },
                 { value: "onlineCount", label: "在线人数" },
+                { value: "memory", label: "内存" },
+                { value: "entities", label: "维度实体" },
               ]}
             />
             <span className="muted">
-              {sample?.tps !== null && sample?.tps !== undefined ? (
+              {field === "onlineCount" && sample ? (
+                `在线 ${sample.onlineCount}`
+              ) : field === "memory" && host ? (
+                `总占用 ${memory(host.memory.usedMb)}`
+              ) : sample?.tps !== null && sample?.tps !== undefined ? (
                 <span className={sample.tps < 19.5 ? "tone-text-warning" : ""}>TPS {sample.tps.toFixed(2)} / 20</span>
               ) : (
                 ""
               )}
             </span>
           </div>
-          {data?.history.length ? (
-            <MetricChart data={data} field={field} minutes={Number(minutes)} />
+          {data?.history.length || resources.length ? (
+            <MetricChart
+              lines={lines}
+              from={from}
+              end={end}
+              minutes={windowMinutes}
+              label={field === "memory" ? "内存" : field === "entities" ? "维度实体" : field === "tps" ? "TPS" : "在线人数"}
+              y={field === "memory" ? "memory" : field === "tps" ? "tps" : "count"}
+            />
           ) : (
             <EmptyState
               compact
