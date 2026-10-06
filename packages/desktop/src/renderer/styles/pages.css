@@ -243,6 +243,17 @@
   contain-intrinsic-size: auto 22px;
 }
 
+.log-row.log-focus {
+  background: var(--c-warning-soft);
+  box-shadow: inset 3px 0 0 var(--c-warning);
+  content-visibility: visible;
+}
+
+.log-row.level-error.log-focus {
+  background: var(--c-danger-soft);
+  box-shadow: inset 3px 0 0 var(--c-danger);
+}
+
 .console-viewport:not(.wrap) .log-text {
   white-space: pre;
 }

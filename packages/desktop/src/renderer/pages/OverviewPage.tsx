@@ -93,7 +93,7 @@ function ServiceRow({ row }: { row: ServiceStatusRow }) {
 }
 
 export function OverviewPage() {
-  const { model, editable, submit, setPage, request } = useDesktop();
+  const { model, editable, submit, setPage, request, openLog } = useDesktop();
   const [startupOpen, setStartupOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const metrics = useRuntimeMetrics();
@@ -277,7 +277,7 @@ export function OverviewPage() {
             </button>
           }
         >
-          <AlertFeed logs={model.logs} now={now} limit={5} onSelect={() => setPage("logs")} />
+          <AlertFeed logs={model.logs} now={now} limit={5} onSelect={openLog} />
         </Surface>
         <Surface
           title="最近任务"

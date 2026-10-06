@@ -24,7 +24,7 @@ function RailSection({ title, action, onAction, children }: { title: string; act
 
 /** 右侧动态栏 */
 export function RightRail() {
-  const { model, selected, setPage, page } = useDesktop();
+  const { model, selected, setPage, page, openLog } = useDesktop();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -42,7 +42,7 @@ export function RightRail() {
         ) : (
           <>
             <RailSection title="告警" action="控制台" onAction={() => setPage("logs")}>
-              <AlertFeed logs={model.logs} now={now} limit={4} onSelect={() => setPage("logs")} />
+              <AlertFeed logs={model.logs} now={now} limit={4} onSelect={openLog} />
             </RailSection>
             <RailSection title="任务动态" action="全部" onAction={() => setPage("tasks")}>
               <TaskFeed tasks={model.tasks} now={now} limit={6} onSelect={() => setPage("tasks")} />
