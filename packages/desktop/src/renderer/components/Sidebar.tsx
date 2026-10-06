@@ -20,7 +20,7 @@ export function profileSubtitle(profile: InstanceProfile): string {
     : `${profile.username ? `${profile.username}@` : ""}${profile.host}${profile.port && profile.port !== 22 ? `:${profile.port}` : ""} ${profile.os === "windows" ? "Windows" : "Linux"}`;
 }
 
-/** 实例列表：每行一个实例（状态点 + 名称），当前实例高亮，悬停显示设置按钮 */
+/** 实例列表：每行一个实例，名称在左、状态点在右。当前实例高亮，悬停显示设置按钮 */
 function InstanceList({ collapsed }: { collapsed: boolean }) {
   const { profiles, current, setCurrent, models, openProfileDialog } = useDesktop();
   return (
@@ -55,9 +55,9 @@ function InstanceList({ collapsed }: { collapsed: boolean }) {
                     aria-current={active ? "true" : undefined}
                     onClick={() => setCurrent(profile.id)}
                   >
-                    <StatusDot tone={state.tone} pulse={state.tone === "info"} />
                     <span className="truncate">{profile.name}</span>
                     <Icon name={profile.kind === "ssh" ? "server" : "monitor"} size={14} className="sb-instance-kind" />
+                    <StatusDot tone={state.tone} pulse={state.tone === "info"} />
                   </button>
                 </Tooltip>
                 <IconButton
