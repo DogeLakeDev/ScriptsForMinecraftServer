@@ -1,5 +1,16 @@
 # @sfmc-bds/desktop
 
+## 0.3.2
+
+### Patch Changes
+
+- a88942f: 点击告警后打开日志控制台，并定位到对应行高亮。
+- 734d87d: 日志控制台按剩余高度排版，整页不再滚动。
+- 7b601f6: 运行指标增加内存与维度实体曲线。内存按主机总占用、BDS 和数据服务分色；维度实体按维度分色。
+- 1946e4c: 模块更新跳过已收编至平台的模块，例如 monitor。
+- Updated dependencies [7b601f6]
+  - @sfmc-bds/management@0.3.1
+
 ## 0.3.1
 
 ### Minor Changes

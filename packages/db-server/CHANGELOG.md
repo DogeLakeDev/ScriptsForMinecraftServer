@@ -1,5 +1,11 @@
 # @sfmc-bds/db-server
 
+## 0.3.2
+
+### Patch Changes
+
+- 7b601f6: 运行指标增加内存与维度实体曲线。内存按主机总占用、BDS 和数据服务分色；维度实体按维度分色。
+
 ## 0.3.1
 
 ### Patch Changes

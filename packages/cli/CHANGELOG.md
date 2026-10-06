@@ -1,5 +1,13 @@
 # @sfmc-bds/cli
 
+## 0.4.4
+
+### Patch Changes
+
+- 1946e4c: 模块更新跳过已收编至平台的模块，例如 monitor。
+- Updated dependencies [7b601f6]
+  - @sfmc-bds/management@0.3.1
+
 ## 0.4.3
 
 ### Patch Changes
