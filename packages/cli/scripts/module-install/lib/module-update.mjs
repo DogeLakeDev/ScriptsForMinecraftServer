@@ -4,11 +4,12 @@
  * 安装目录若是 symlink / junction，只记 local-source 跳过，不换包。
  * 下载与落盘由调用方注入的 install，本文件不复制第二套安装逻辑。
  */
+import { isRetiredPlatformModule, RETIRED_PLATFORM_MODULES } from "@sfmc-bds/sdk/contracts";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import path from "node:path";
-import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { upsertCatalogEntry } from "./catalog.mjs";
 import { readJson } from "./io.mjs";
 import { loadModuleUpdateConfig } from "./module-update-config.mjs";
@@ -53,6 +54,15 @@ import { compareSemver, isMajorBump, satisfiesSdk } from "./semver.mjs";
 
 /** 这些跳过原因在开服日志里不展开，避免每轮刷屏。 */
 export const QUIET_SKIP_REASONS = new Set(["auto-off", "local-source", "up-to-date"]);
+
+/**
+ * 目录名或 manifest.id 是否已收编至平台。
+ * @param {string | null | undefined} id
+ */
+function isRetiredModuleId(id) {
+  const raw = String(id ?? "");
+  return isRetiredPlatformModule(raw) || isRetiredPlatformModule(normalizeModuleId(raw));
+}
 
 /**
  * 读取本机 @sfmc-bds/sdk 版本，用来对照索引里的 sdk 范围。
@@ -368,6 +378,7 @@ export async function planModuleUpdates(options = {}) {
     installedNorm.add(normalizeModuleId(folder));
     if (pin.manifestId) installedNorm.add(normalizeModuleId(pin.manifestId));
   }
+  for (const id of RETIRED_PLATFORM_MODULES) installedNorm.add(normalizeModuleId(id));
 
   /** @type {ModuleUpgrade[]} */
   const upgrades = [];
@@ -390,6 +401,10 @@ export async function planModuleUpdates(options = {}) {
     if (wanted.size > 0 && !keys.some((key) => wanted.has(key))) continue;
     const dir = packageDirOf(root, folder);
     const installedVersion = readPackageVersion(dir) ?? pin.installedVersion;
+    if ([folder, manifestId].some((id) => isRetiredModuleId(id))) {
+      skipped.push({ id: folder, reason: "retired", fromVersion: installedVersion, toVersion: null, detail: "" });
+      continue;
+    }
     const indexEntry = index ? index[folder] || index[normalizeModuleId(manifestId || "")] || null : null;
     /* 目录本身是开发链接时先跳过，避免 pin 写成 npm 后仍去查 dist-tag 并换包。 */
     const linkSkip = skipWhenDevLink(
@@ -538,6 +553,10 @@ export async function applyModuleUpgrades(upgrades, deps) {
   /** @type {{ id: string, message: string }[]} */
   const failed = [];
   for (const item of upgrades) {
+    if (isRetiredModuleId(item.id)) {
+      skipped.push({ id: item.id, reason: "retired", fromVersion: item.fromVersion, toVersion: item.toVersion, detail: "" });
+      continue;
+    }
     const linkSkip = skipWhenDevLink(item.id, packageDirOf(deps.root, item.id), item.fromVersion, item.toVersion);
     if (linkSkip) {
       skipped.push(linkSkip);

@@ -30,7 +30,7 @@ SDK 的 `@sfmc-bds/sdk/sapi/runtime` 导出 `getRuntimeMetrics()` 和 `getRuntim
 
 ## monitor 弃用与兼容
 
-`monitor` 已收编至平台。新行为包构建和 SDK 生命周期跳过旧模块；CLI 不再允许安装或启用，桌面与模块索引移除安装入口。无需手动删除旧包目录、`monitor.json`、启用记录或 `sfmc_monitor_*` 历史表。
+`monitor` 已收编至平台。新行为包构建、SDK 生命周期和模块更新跳过旧模块；CLI 不再允许安装、启用或更新，桌面与模块索引移除安装入口。无需手动删除旧包目录、`monitor.json`、启用记录或 `sfmc_monitor_*` 历史表。
 
 平台保留 `/c:status`（高级管理员权限）、`tps.current`、`tps.status` 和 `monitor.metrics`。跨模块服务仍要求有效调用方及 `services.requires` 声明。既有 `requires: ["monitor"]` 视为已由平台满足，不能让任意模块声明 `_platform` 身份或抢占平台服务。
 

@@ -529,3 +529,97 @@ test("新播种的更新配置在开服时不自动应用，已有文件保持�
   assert.equal(keptPlan.applyOnStart, true);
   assert.equal(fs.readFileSync(keptFile, "utf8"), before);
 });
+
+test("弃用模块不进入升级，依赖它的模块仍可更新", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-retired-"));
+  const monitor = path.join(root, "modules", "packages", "monitor");
+  fs.mkdirSync(path.join(monitor, "sapi"), { recursive: true });
+  fs.writeFileSync(path.join(monitor, "package.json"), JSON.stringify({ name: "@sfmc-bds/module-monitor", version: "0.2.1" }));
+  fs.writeFileSync(path.join(monitor, "sapi", "manifest.json"), JSON.stringify({ id: "monitor", configKey: "monitor", requires: [] }));
+  const chat = path.join(root, "modules", "packages", "chat");
+  fs.mkdirSync(path.join(chat, "sapi"), { recursive: true });
+  fs.writeFileSync(path.join(chat, "package.json"), JSON.stringify({ name: "@sfmc-bds/module-chat", version: "1.0.0" }));
+  fs.writeFileSync(
+    path.join(chat, "sapi", "manifest.json"),
+    JSON.stringify({ id: "chat", configKey: "chat", requires: ["monitor"] })
+  );
+  const plan = await planModuleUpdates({
+    root,
+    hostSdk: "0.2.5",
+    ids: ["monitor"],
+    fetchIndex: async () => ({
+      index: {
+        monitor: { npm: "@sfmc-bds/module-monitor", version: "0.5.0", sdk: ">=0.2.0" },
+        chat: { npm: "@sfmc-bds/module-chat", version: "1.1.0", sdk: ">=0.2.2" },
+      },
+      offline: false,
+    }),
+    fetchDistTag: async () => {
+      throw new Error("retired module should not query dist-tag");
+    },
+  });
+  assert.equal(plan.upgrades.length, 0);
+  const skipped = plan.skipped.find((item) => item.id === "monitor");
+  assert.equal(skipped?.reason, "retired");
+  assert.equal(skipped?.fromVersion, "0.2.1");
+  assert.equal(skipped?.toVersion, null);
+
+  const withChat = await planModuleUpdates({
+    root,
+    hostSdk: "0.2.5",
+    fetchIndex: async () => ({
+      index: {
+        monitor: { npm: "@sfmc-bds/module-monitor", version: "0.5.0", sdk: ">=0.2.0" },
+        chat: { npm: "@sfmc-bds/module-chat", version: "1.1.0", sdk: ">=0.2.2" },
+      },
+      offline: false,
+    }),
+    fetchDistTag: async () => {
+      throw new Error("indexed modules should not query dist-tag");
+    },
+  });
+  assert.deepEqual(withChat.upgrades.map((item) => item.id), ["chat"]);
+  assert.equal(withChat.skipped.some((item) => item.reason === "missing-dependency"), false);
+  assert.equal(withChat.skipped.find((item) => item.id === "monitor")?.reason, "retired");
+
+  const dependent = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-retired-dep-"));
+  const onlyChat = path.join(dependent, "modules", "packages", "chat");
+  fs.mkdirSync(path.join(onlyChat, "sapi"), { recursive: true });
+  fs.writeFileSync(path.join(onlyChat, "package.json"), JSON.stringify({ name: "@sfmc-bds/module-chat", version: "1.0.0" }));
+  fs.writeFileSync(
+    path.join(onlyChat, "sapi", "manifest.json"),
+    JSON.stringify({ id: "chat", configKey: "chat", requires: ["monitor"] })
+  );
+  const dependentPlan = await planModuleUpdates({
+    root: dependent,
+    hostSdk: "0.2.5",
+    fetchIndex: async () => ({
+      index: { chat: { npm: "@sfmc-bds/module-chat", version: "1.1.0", sdk: ">=0.2.2" } },
+      offline: false,
+    }),
+    fetchDistTag: async () => null,
+  });
+  assert.deepEqual(dependentPlan.upgrades.map((item) => item.id), ["chat"]);
+  assert.equal(dependentPlan.skipped.some((item) => item.reason === "missing-dependency"), false);
+});
+
+test("换包阶段仍拒绝弃用模块", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sfmc-mod-retired-apply-"));
+  const pkg = path.join(root, "modules", "packages", "monitor");
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.writeFileSync(path.join(pkg, "marker.txt"), "old");
+  const result = await applyModuleUpgrades(
+    [{ id: "monitor", fromVersion: "0.2.1", toVersion: "0.5.0", spec: "npm:@sfmc-bds/module-monitor@0.5.0", requires: [] }],
+    {
+      root,
+      failMode: "continue",
+      install: async () => {
+        throw new Error("retired module must not be installed");
+      },
+    }
+  );
+  assert.equal(result.applied.length, 0);
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.skipped[0]?.reason, "retired");
+  assert.equal(fs.readFileSync(path.join(pkg, "marker.txt"), "utf8"), "old");
+});

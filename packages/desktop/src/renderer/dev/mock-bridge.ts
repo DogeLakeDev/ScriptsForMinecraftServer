@@ -349,7 +349,7 @@ export function installMockBridge() {
           platform: id === "local-main"
             ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: [] }
             : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] },
-          modules: { failMode: "continue", applyOnStart: false, upgrades: [{ id: "sfmc-module-land", fromVersion: "1.4.2", toVersion: "1.5.0", spec: "npm:@sfmc-bds/module-land@1.5.0", requires: [] }], skipped: [{ id: "sfmc-module-activity-log", reason: "dev-link", fromVersion: "0.2.0-dev", toVersion: null, detail: "" }, { id: "sfmc-module-economy", reason: "up-to-date", fromVersion: "2.0.1", toVersion: "2.0.1", detail: "" }] },
+          modules: { failMode: "continue", applyOnStart: false, upgrades: [{ id: "sfmc-module-land", fromVersion: "1.4.2", toVersion: "1.5.0", spec: "npm:@sfmc-bds/module-land@1.5.0", requires: [] }], skipped: [{ id: "monitor", reason: "retired", fromVersion: "0.5.3", toVersion: null, detail: "" }, { id: "sfmc-module-activity-log", reason: "dev-link", fromVersion: "0.2.0-dev", toVersion: null, detail: "" }, { id: "sfmc-module-economy", reason: "up-to-date", fromVersion: "2.0.1", toVersion: "2.0.1", detail: "" }] },
           bds: { checked: true, updated: false, currentVersion: "1.26.51.01", latestVersion: "1.26.60.02", result: "check-only" },
         };
       case "updates.run": return runTask(id, method, maintenance);

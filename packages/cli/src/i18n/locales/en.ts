@@ -370,6 +370,7 @@ export const en = {
   "mod.update.reason.missingModule": "not installed",
   "mod.update.reason.missingDependency": "required module is not installed",
   "mod.update.reason.badVersion": "version is not semver",
+  "mod.update.reason.retired": "included in the platform",
   "mod.pin.usage": "Usage: mod pin <id> --auto on|off",
   "mod.pin.ok": "{id} auto-update {state}",
   "mod.pin.on": "on",
