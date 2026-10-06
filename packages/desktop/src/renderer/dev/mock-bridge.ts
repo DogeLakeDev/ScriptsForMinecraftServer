@@ -17,7 +17,7 @@ import type {
   PackRow,
   ServiceStatusRow,
 } from "@sfmc-bds/management";
-import type { AppearanceMode, DesktopApi, InstanceProfile } from "../../shared/api.js";
+import type { AppearanceMode, DesktopApi, DesktopPreferences, InstanceProfile } from "../../shared/api.js";
 
 /** 单个模拟实例的可变状态（服务、任务、模块等），按实例 id 隔离 */
 interface MockInstance {
@@ -314,6 +314,7 @@ export function installMockBridge() {
       resourcesUpdatedAt: now,
     };
   };
+  let preferences: DesktopPreferences = { tray: true, closeToTray: true, minimizeToTray: false, openAtLogin: false, startHidden: false };
   const request = async (id: string, method: ManagementMethod, params: Record<string, unknown> = {}): Promise<unknown> => {
     const instance = get(id);
     if (!instance.connected) throw new Error("实例尚未连接");
@@ -442,6 +443,8 @@ export function installMockBridge() {
     openLink: async (kind) => { console.info("[mock] openLink", kind); },
     appearance: async (mode: AppearanceMode) => { console.info("[mock] appearance", mode); },
     appInfo: async () => ({ version: "0.1.0", platform: "win32", packaged: false }),
+    preferences: async () => preferences,
+    setPreferences: async patch => { preferences = { ...preferences, ...patch }; return preferences; },
     onEvent: (callback) => { eventListeners.add(callback); return () => eventListeners.delete(callback); },
     onConnection: (callback) => { connectionListeners.add(callback); return () => connectionListeners.delete(callback); },
   };

@@ -12,6 +12,7 @@ import { Button, IconButton, SearchInput, Select } from "../components/controls.
 import { toast } from "../components/feedback.js";
 import { Icon } from "../components/icons.js";
 import { Chip, Kbd } from "../components/ui.js";
+import { findLogIndex } from "../lib/alerts.js";
 import { hashHue, type Tone } from "../lib/format.js";
 
 /** 单次渲染的最大日志行数 */
@@ -59,7 +60,7 @@ function toggle<T>(set: Set<T>, value: T): Set<T> {
 }
 
 export function ConsolePage() {
-  const { model, editable, request, guarded } = useDesktop();
+  const { model, editable, request, guarded, logFocus, clearLogFocus } = useDesktop();
   const logs = model.logs;
   const [query, setQuery] = useState("");
   const [sources, setSources] = useState<Set<string>>(new Set());
@@ -74,6 +75,18 @@ export function ConsolePage() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const viewport = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const focusRow = useRef<HTMLDivElement>(null);
+  const missingFocus = useRef(0);
+  const focusNonce = logFocus?.nonce ?? 0;
+  const [seenFocus, setSeenFocus] = useState(0);
+  if (logFocus && focusNonce !== seenFocus) {
+    setSeenFocus(focusNonce);
+    setQuery("");
+    setSources(new Set());
+    setLevels(new Set());
+    setClearedAt("");
+    setFollow(false);
+  }
 
   const visibleLogs = useMemo(() => (clearedAt ? logs.filter((log) => log.time > clearedAt) : logs), [logs, clearedAt]);
   const sourceCounts = useMemo(() => {
@@ -95,11 +108,25 @@ export function ConsolePage() {
         (!needle || log.text.toLowerCase().includes(needle))
     );
   }, [visibleLogs, sources, levels, query]);
-  const rendered = filtered.slice(-RENDER_LIMIT);
+  const focusIndex = logFocus ? findLogIndex(filtered, logFocus.entry) : -1;
+  const renderStart = focusIndex >= 0
+    ? Math.max(0, Math.min(Math.max(0, focusIndex - 80), Math.max(0, filtered.length - RENDER_LIMIT)))
+    : Math.max(0, filtered.length - RENDER_LIMIT);
+  const rendered = filtered.slice(renderStart, renderStart + RENDER_LIMIT);
 
   useLayoutEffect(() => {
-    if (follow && viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
-  }, [rendered.length, follow, logs]);
+    if (logFocus || !follow || !viewport.current) return;
+    viewport.current.scrollTop = viewport.current.scrollHeight;
+  }, [rendered.length, follow, logs, logFocus]);
+  useLayoutEffect(() => {
+    focusRow.current?.scrollIntoView({ block: "center", inline: "nearest" });
+  }, [logFocus, focusIndex]);
+  useEffect(() => {
+    if (!logFocus || missingFocus.current === logFocus.nonce) return;
+    if (findLogIndex(logs, logFocus.entry) >= 0) return;
+    missingFocus.current = logFocus.nonce;
+    toast.warning("这条日志已不在当前记录中");
+  }, [logFocus, logs]);
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
@@ -180,13 +207,16 @@ export function ConsolePage() {
           aria-live="off"
         >
           {rendered.length ? (
-            rendered.map((log, index) => (
-              <div key={`${log.time}-${index}`} className={`log-row level-${log.level}`}>
-                <span className="log-time">{clock(log.time)}</span>
-                <span className="log-src" style={{ color: `hsl(${hashHue(log.source)} 58% var(--log-src-l))` }}>{log.source}</span>
-                <span className="log-text">{highlight(log.text, query.trim())}</span>
-              </div>
-            ))
+            rendered.map((log, index) => {
+              const focused = renderStart + index === focusIndex;
+              return (
+                <div key={`${log.time}-${renderStart + index}`} ref={focused ? focusRow : undefined} className={`log-row level-${log.level}${focused ? " log-focus" : ""}`}>
+                  <span className="log-time">{clock(log.time)}</span>
+                  <span className="log-src" style={{ color: `hsl(${hashHue(log.source)} 58% var(--log-src-l))` }}>{log.source}</span>
+                  <span className="log-text">{highlight(log.text, query.trim())}</span>
+                </div>
+              );
+            })
           ) : (
             <div className="console-empty">
               <Icon name="terminal" size={20} />
@@ -200,6 +230,7 @@ export function ConsolePage() {
             className="console-jump"
             onClick={() => {
               setFollow(true);
+              clearLogFocus();
               if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
             }}
           >

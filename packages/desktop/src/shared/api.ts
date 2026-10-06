@@ -11,6 +11,13 @@ export interface Credentials { password?: string; passphrase?: string }
  * 主进程据此设置 nativeTheme.themeSource 并同步标题栏覆盖层（窗口按钮区）配色。
  */
 export type AppearanceMode = "system" | "light" | "dark";
+export interface DesktopPreferences {
+  tray: boolean;
+  closeToTray: boolean;
+  minimizeToTray: boolean;
+  openAtLogin: boolean;
+  startHidden: boolean;
+}
 /**
  * 客户端自身信息。
  * 使用场景：侧边栏页脚版本号、"关于与更新"对话框中展示客户端版本与运行形态。
@@ -33,6 +40,8 @@ export interface DesktopApi {
   appearance(mode: AppearanceMode): Promise<void>;
   /** 读取客户端版本与运行形态 */
   appInfo(): Promise<AppInfo>;
+  preferences(): Promise<DesktopPreferences>;
+  setPreferences(patch: Partial<DesktopPreferences>): Promise<DesktopPreferences>;
   onEvent(callback: (id: string, event: ManagementEvent) => void): () => void;
   onConnection(callback: (id: string, message: string) => void): () => void;
 }

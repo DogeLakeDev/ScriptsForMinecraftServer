@@ -82,6 +82,10 @@ interface DesktopValue {
   model: Model;
   page: PageKey;
   setPage: (page: PageKey) => void;
+  /** 打开日志控制台并定位到这一条 */
+  logFocus: { entry: LogEntryWire; nonce: number } | null;
+  openLog: (entry: LogEntryWire) => void;
+  clearLogFocus: () => void;
   busy: boolean;
   /** 包裹异步操作：显示全局进度、捕获错误并提示 */
   guarded: <T>(action: () => Promise<T>) => Promise<T | undefined>;
@@ -148,7 +152,17 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<InstanceProfile[]>([]);
   const [current, setCurrentState] = useState("");
   const [models, setModels] = useState<Record<string, Model>>({});
-  const [page, setPage] = useState<PageKey>("overview");
+  const [page, setPageState] = useState<PageKey>("overview");
+  const [logFocus, setLogFocus] = useState<{ entry: LogEntryWire; nonce: number } | null>(null);
+  const setPage = useCallback((next: PageKey) => {
+    if (next !== "logs") setLogFocus(null);
+    setPageState(next);
+  }, []);
+  const openLog = useCallback((entry: LogEntryWire) => {
+    setLogFocus({ entry, nonce: Date.now() });
+    setPageState("logs");
+  }, []);
+  const clearLogFocus = useCallback(() => setLogFocus(null), []);
   const [busyCount, setBusyCount] = useState(0);
   const [flow, setFlow] = useState<Flow | null>(null);
   const [profileDialog, setProfileDialog] = useState<ProfileDialogState>({ open: false, editing: null });
@@ -167,6 +181,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const model = models[current] ?? blank();
   const setCurrent = useCallback((id: string) => {
     setCurrentState(id);
+    setLogFocus(null);
     if (id) localStorage.setItem(LAST_INSTANCE_KEY, id);
   }, []);
 
@@ -526,6 +541,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       model,
       page,
       setPage,
+      logFocus,
+      openLog,
+      clearLogFocus,
       busy: busyCount > 0,
       guarded,
       patch,
@@ -549,7 +567,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       appInfo,
       desktopUpdate,
     }),
-    [ready, profiles, current, setCurrent, selected, models, model, page, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, startAttach, createDeployment, applyAttachment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
+    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, logFocus, openLog, clearLogFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, startAttach, createDeployment, applyAttachment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
   );
   return <DesktopContext.Provider value={value}>{children}</DesktopContext.Provider>;
 }
