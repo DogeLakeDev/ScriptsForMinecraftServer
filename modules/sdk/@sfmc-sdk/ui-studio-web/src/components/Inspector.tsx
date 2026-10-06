@@ -11,10 +11,7 @@
  * 所有编辑通过 onEdit 进入草稿与撤销栈；未知字段不展示但随文档保留。
  */
 
-import type {
-  UiNode,
-  UiScreenDocument,
-} from "../../../src/contracts/ui-document.js";
+import type { UiNode, UiScreenDocument } from "../../../src/contracts/ui-document.js";
 import {
   collectBindPaths,
   FEATURE_FILE,
@@ -25,9 +22,8 @@ import {
   type PreviewFixture,
   type ProjectView,
   type Selection,
-} from "../model";
+} from "../lib/model";
 // 基础字段控件与结构化编辑器分别收敛在 fields.tsx / editors.tsx。
-import { BindField, JsonField, NumberField, SelectField, TextField } from "./fields";
 import {
   ActionsEditor,
   DerivedEditor,
@@ -40,6 +36,7 @@ import {
   StateEditor,
   TriggerField,
 } from "./editors";
+import { BindField, JsonField, NumberField, SelectField, TextField } from "./fields";
 
 interface InspectorProps {
   view: ProjectView;
@@ -170,10 +167,7 @@ const NODE_FIELDS: Record<string, FieldDef[]> = {
     disabledWhen,
   ],
   when: [expr("condition", "何时显示里面的内容")],
-  each: [
-    bind("source", "数据源 source"),
-    text("as", "条目名 as", { required: true }),
-  ],
+  each: [bind("source", "数据源 source"), text("as", "条目名 as", { required: true })],
 };
 
 /** 页面级可编辑字段（params/state/load/derived/actions 为结构化编辑器，单独渲染）。 */
@@ -190,8 +184,7 @@ const SCREEN_FIELDS: FieldDef[] = [
 
 export function Inspector({ view, selection, fixture, onEdit, onReplaceFile }: InspectorProps) {
   // 页面 id 清单（navigate/replace 的 to、entries 的 target 自动补全来源）。
-  const screenIds =
-    view.browse.feature?.screens.map((screen) => screen.id) ?? Object.keys(view.browse.screens);
+  const screenIds = view.browse.feature?.screens.map((screen) => screen.id) ?? Object.keys(view.browse.screens);
 
   if (!selection) {
     return <div className="inspector-empty">在左侧选择页面、组件或文件</div>;
@@ -291,7 +284,7 @@ export function Inspector({ view, selection, fixture, onEdit, onReplaceFile }: I
               mutateNodeAtPath(doc, selection.nodePath, (target) => {
                 if (value === undefined) delete target[key];
                 else target[key] = value;
-              }),
+              })
             )
           }
         />
@@ -389,17 +382,8 @@ function ScreenForm({
       ))}
       <ParamsEditor value={doc.params} onCommit={(v) => commit("params", v)} />
       <StateEditor value={doc.state} onCommit={(v) => commit("state", v)} />
-      <LoadEditor
-        value={doc.load}
-        services={services}
-        bindGroups={bindGroups}
-        onCommit={(v) => commit("load", v)}
-      />
-      <DerivedEditor
-        value={doc.derived}
-        bindGroups={bindGroups}
-        onCommit={(v) => commit("derived", v)}
-      />
+      <LoadEditor value={doc.load} services={services} bindGroups={bindGroups} onCommit={(v) => commit("load", v)} />
+      <DerivedEditor value={doc.derived} bindGroups={bindGroups} onCommit={(v) => commit("derived", v)} />
       <ActionsEditor
         value={doc.actions}
         services={services}
@@ -435,9 +419,7 @@ function FeatureForm({
         <FieldControl key={field.key} field={field} value={doc[field.key]} commit={commit} />
       ))}
       <EntriesEditor value={doc.entries} screenIds={screenIds} onCommit={(v) => commit("entries", v)} />
-      <div className="insp-hint">
-        页面清单（screens）由左侧「页面」分区的文件操作自动维护，当前 {screens} 个。
-      </div>
+      <div className="insp-hint">页面清单（screens）由左侧「页面」分区的文件操作自动维护，当前 {screens} 个。</div>
     </>
   );
 }
@@ -473,12 +455,7 @@ function FieldControl({
       return <NumberField label={field.label} value={value} onCommit={(v) => commit(field.key, v)} />;
     case "select":
       return (
-        <SelectField
-          label={field.label}
-          value={value}
-          options={field.options}
-          onCommit={(v) => commit(field.key, v)}
-        />
+        <SelectField label={field.label} value={value} options={field.options} onCommit={(v) => commit(field.key, v)} />
       );
     case "trigger":
       return (
@@ -513,12 +490,6 @@ function FieldControl({
     case "stringList":
       return <ItemsEditor label={field.label} value={value} onCommit={(v) => commit(field.key, v)} />;
     case "options":
-      return (
-        <OptionsEditor
-          value={value}
-          bindGroups={bindGroups ?? []}
-          onCommit={(v) => commit(field.key, v)}
-        />
-      );
+      return <OptionsEditor value={value} bindGroups={bindGroups ?? []} onCommit={(v) => commit(field.key, v)} />;
   }
 }

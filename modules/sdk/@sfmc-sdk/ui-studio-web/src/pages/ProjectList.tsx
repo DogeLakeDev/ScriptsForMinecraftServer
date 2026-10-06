@@ -1,3 +1,4 @@
+import { Button } from "@sfmc-bds/ui/controls";
 /**
  * ProjectList.tsx — Studio 首页：项目列表。
  *
@@ -6,21 +7,18 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FolderOpen, FolderUp, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Download, FolderOpen, FolderUp, Pencil, Plus, Trash2, Upload } from "../components/icons";
+import { confirmDialog, promptText } from "../components/StudioDialogs";
 import { ThemeToggle } from "../components/ThemeToggle";
-import {
-  createProject,
-  newProjectId,
-  type StudioProject,
-} from "../store/project";
-import { deleteProject, listProjects, putProject } from "../store/db";
 import {
   downloadBlob,
   exportProjectZip,
   importProjectFolder,
   importProjectZip,
   type ImportedProject,
-} from "../zip";
+} from "../lib/zip";
+import { deleteProject, listProjects, putProject } from "../store/db";
+import { createProject, newProjectId, type StudioProject } from "../store/project";
 
 interface ProjectListProps {
   onOpen(id: string): void;
@@ -45,7 +43,7 @@ export function ProjectList({ onOpen }: ProjectListProps) {
   useEffect(refresh, []);
 
   const createNew = async () => {
-    const name = window.prompt("新项目名称：", "未命名 UI 工程");
+    const name = await promptText("新项目名称：", "未命名 UI 工程");
     if (name === null) return;
     const project = createProject(name.trim() || "未命名 UI 工程");
     await putProject(project);
@@ -88,14 +86,14 @@ export function ProjectList({ onOpen }: ProjectListProps) {
   };
 
   const rename = async (project: StudioProject) => {
-    const name = window.prompt("项目名称：", project.name);
+    const name = await promptText("项目名称：", project.name);
     if (name === null || name.trim() === "") return;
     await putProject({ ...project, name: name.trim(), updatedAt: Date.now() });
     refresh();
   };
 
   const remove = async (project: StudioProject) => {
-    if (!window.confirm(`确定删除项目「${project.name}」？此操作不可恢复（可先导出 zip 备份）。`)) return;
+    if (!(await confirmDialog(`确定删除项目「${project.name}」？此操作不可恢复（可先导出 zip 备份）。`))) return;
     await deleteProject(project.id);
     refresh();
   };
@@ -105,15 +103,15 @@ export function ProjectList({ onOpen }: ProjectListProps) {
       <header className="studio-header">
         <span className="studio-title">SFMC UI Studio</span>
         <span className="studio-spacer" />
-        <button className="btn" onClick={() => importInputRef.current?.click()}>
+        <Button onClick={() => importInputRef.current?.click()}>
           <Upload size={14} /> 导入 zip
-        </button>
-        <button className="btn" onClick={() => folderInputRef.current?.click()}>
+        </Button>
+        <Button onClick={() => folderInputRef.current?.click()}>
           <FolderUp size={14} /> 导入文件夹
-        </button>
-        <button className="btn btn-primary" onClick={() => void createNew()}>
+        </Button>
+        <Button variant="primary" onClick={() => void createNew()}>
           <Plus size={14} /> 新建项目
-        </button>
+        </Button>
         <ThemeToggle />
         <input
           ref={importInputRef}
@@ -138,6 +136,10 @@ export function ProjectList({ onOpen }: ProjectListProps) {
         />
       </header>
       <main className="home-main">
+        <div className="home-heading">
+          <h1>界面工程</h1>
+          <p>设计、预览和导出 Minecraft 声明式界面。工程自动保存在本机。</p>
+        </div>
         {error ? <div className="home-error">{error}</div> : null}
         {projects === null ? (
           <div className="app-loading">正在读取项目…</div>
@@ -145,9 +147,8 @@ export function ProjectList({ onOpen }: ProjectListProps) {
           <div className="home-empty">
             <p>还没有项目。</p>
             <p>
-              点击「新建项目」从零开始；或「导入 zip / 导入文件夹」打开已有的 UI 工程
-              （需包含 feature.ui.json，可位于根目录、ui/ 或 sapi/src/ui/；
-              manifest.json 会自动提取 service 清单）。
+              点击「新建项目」从零开始；或「导入 zip / 导入文件夹」打开已有的 UI 工程 （需包含
+              feature.ui.json，可位于根目录、ui/ 或 sapi/src/ui/； manifest.json 会自动提取 service 清单）。
             </p>
           </div>
         ) : (
@@ -160,25 +161,20 @@ export function ProjectList({ onOpen }: ProjectListProps) {
                     <span className="home-project-name">{project.name}</span>
                   </span>
                   <span className="home-project-meta">
-                    {Object.keys(project.files).length} 个文件 · {project.services.length} 个
-                    service · 更新于 {new Date(project.updatedAt).toLocaleString()}
+                    {Object.keys(project.files).length} 个文件 · {project.services.length} 个 service · 更新于{" "}
+                    {new Date(project.updatedAt).toLocaleString()}
                   </span>
                 </button>
                 <span className="home-project-actions">
-                  <button
-                    className="btn"
-                    onClick={() =>
-                      downloadBlob(exportProjectZip(project), `${project.name}.zip`)
-                    }
-                  >
+                  <Button onClick={() => downloadBlob(exportProjectZip(project), `${project.name}.zip`)}>
                     <Download size={14} /> 导出
-                  </button>
-                  <button className="btn" onClick={() => void rename(project)}>
+                  </Button>
+                  <Button onClick={() => void rename(project)}>
                     <Pencil size={14} /> 重命名
-                  </button>
-                  <button className="btn btn-danger" onClick={() => void remove(project)}>
+                  </Button>
+                  <Button variant="danger-soft" onClick={() => void remove(project)}>
                     <Trash2 size={14} /> 删除
-                  </button>
+                  </Button>
                 </span>
               </li>
             ))}

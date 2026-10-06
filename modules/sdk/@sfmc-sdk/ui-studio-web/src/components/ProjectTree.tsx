@@ -9,7 +9,20 @@
  * - 其他文件：未登记为页面的 JSON（隐藏 .ui-studio/ 元数据）。
  */
 
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import type { UiNode } from "../../../src/contracts/ui-document.js";
+import {
+  FEATURE_FILE,
+  nodeChildSlots,
+  nodeDisplayParts,
+  parseNodeLocation,
+  type InsertAddress,
+  type ProjectView,
+  type Selection,
+} from "../lib/model";
+import { screenRefs } from "../store/project";
+import { ContextMenu, useContextMenu } from "./ContextMenu";
+import { DragHandle } from "./DragHandle";
 import {
   AppWindow,
   ChevronDown,
@@ -22,22 +35,9 @@ import {
   Pencil,
   Plus,
   Trash2,
-} from "lucide-react";
-import { DragHandle } from "./DragHandle";
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from "react";
+} from "./icons";
 import { nodeTypeIcon } from "./node-icons";
-import {
-  FEATURE_FILE,
-  nodeChildSlots,
-  nodeDisplayParts,
-  parseNodeLocation,
-  type InsertAddress,
-  type ProjectView,
-  type Selection,
-} from "../model";
 import { MOVE_MIME } from "./Palette";
-import { screenRefs } from "../store/project";
-import { ContextMenu, useContextMenu } from "./ContextMenu";
 
 interface ProjectTreeProps {
   view: ProjectView;
@@ -69,12 +69,7 @@ export function ProjectTree({
   const declared = new Set(screenRefs(view.files).map((ref) => ref.file));
   // .ui-studio/ 为 Studio 元数据（含旧场景 fixture），不在树里展示。
   const otherFiles = Object.keys(view.files)
-    .filter(
-      (file) =>
-        file !== FEATURE_FILE &&
-        !file.startsWith(".ui-studio/") &&
-        !declared.has(file),
-    )
+    .filter((file) => file !== FEATURE_FILE && !file.startsWith(".ui-studio/") && !declared.has(file))
     .sort();
   // 右键菜单状态：页面行与其他文件行共用。
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
@@ -111,9 +106,7 @@ export function ProjectTree({
         event.dataTransfer.dropEffect = "none";
         return;
       }
-      setDropHint((prev) =>
-        prev?.path === hint.path && prev.pos === hint.pos ? prev : hint,
-      );
+      setDropHint((prev) => (prev?.path === hint.path && prev.pos === hint.pos ? prev : hint));
       event.dataTransfer.dropEffect = "move";
     },
     drop(event, path, node) {
@@ -137,9 +130,7 @@ export function ProjectTree({
   // 从画布选中嵌套节点时，自动展开其祖先，避免折叠后找不到当前项。
   useEffect(() => {
     if (selection?.kind !== "screen" || !selection.nodePath) return;
-    const keys = ancestorNodePaths(selection.nodePath).map(
-      (path) => `${selection.screenId}:${path}`,
-    );
+    const keys = ancestorNodePaths(selection.nodePath).map((path) => `${selection.screenId}:${path}`);
     setCollapsed((prev) => {
       let changed = false;
       const next = new Set(prev);
@@ -171,9 +162,7 @@ export function ProjectTree({
                   <button
                     className="tree-entry"
                     disabled={!exists}
-                    onClick={() =>
-                      onSelect({ kind: "screen", screenId: entry.target, nodePath: "" })
-                    }
+                    onClick={() => onSelect({ kind: "screen", screenId: entry.target, nodePath: "" })}
                   >
                     <LogIn size={13} className="tree-icon" />
                     <span className="tree-node-text">
@@ -200,8 +189,7 @@ export function ProjectTree({
         <ul className="tree-screens">
           {screenRefs(view.files).map((reference) => {
             const screen = screens[reference.id];
-            const active =
-              selection?.kind === "screen" && selection.screenId === reference.id;
+            const active = selection?.kind === "screen" && selection.screenId === reference.id;
             return (
               <li key={reference.id}>
                 <div
@@ -241,9 +229,7 @@ export function ProjectTree({
                 >
                   <button
                     className="tree-screen"
-                    onClick={() =>
-                      onSelect({ kind: "screen", screenId: reference.id, nodePath: "" })
-                    }
+                    onClick={() => onSelect({ kind: "screen", screenId: reference.id, nodePath: "" })}
                     title={reference.file}
                   >
                     <AppWindow size={13} className="tree-icon" />
@@ -257,11 +243,7 @@ export function ProjectTree({
                     >
                       <Pencil size={12} />
                     </button>
-                    <button
-                      className="tree-action"
-                      onClick={() => onDuplicateScreen(reference.file)}
-                      title="复制页面"
-                    >
+                    <button className="tree-action" onClick={() => onDuplicateScreen(reference.file)} title="复制页面">
                       <Copy size={12} />
                     </button>
                     <button
@@ -383,14 +365,13 @@ function resolveTreeDrop(
   event: DragEvent<HTMLElement>,
   path: string,
   node: UiNode,
-  fromPath: string | null,
+  fromPath: string | null
 ): TreeDropHint | null {
   if (!fromPath || path === fromPath || path.startsWith(`${fromPath}/`)) return null;
   const rect = event.currentTarget.getBoundingClientRect();
   const y = (event.clientY - rect.top) / Math.max(rect.height, 1);
   const canInto = node.type === "when" || node.type === "each";
-  const pos: TreeDropPos =
-    canInto && y > 0.35 && y < 0.65 ? "into" : y < 0.5 ? "before" : "after";
+  const pos: TreeDropPos = canInto && y > 0.35 && y < 0.65 ? "into" : y < 0.5 ? "before" : "after";
   return { path, pos };
 }
 
@@ -439,11 +420,18 @@ interface TreeNodeProps {
   treeDrag: TreeDrag;
 }
 
-function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSelect, onNodeMenu, treeDrag }: TreeNodeProps) {
-  const selected =
-    selection?.kind === "screen" &&
-    selection.screenId === screenId &&
-    selection.nodePath === path;
+function TreeNode({
+  screenId,
+  node,
+  path,
+  selection,
+  collapsed,
+  onToggle,
+  onSelect,
+  onNodeMenu,
+  treeDrag,
+}: TreeNodeProps) {
+  const selected = selection?.kind === "screen" && selection.screenId === screenId && selection.nodePath === path;
   const slots = nodeChildSlots(node);
   const childCount = slots.reduce((sum, slot) => sum + slot.nodes.length, 0);
   const hasChildren = childCount > 0;
@@ -467,10 +455,7 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
         onDragEnd={() => treeDrag.end()}
         onContextMenu={(event) => onNodeMenu(event, path)}
       >
-        <DragHandle
-          label="拖动以重排"
-          onDragStart={(event) => treeDrag.start(event, path)}
-        />
+        <DragHandle label="拖动以重排" onDragStart={(event) => treeDrag.start(event, path)} />
         {hasChildren ? (
           <button
             type="button"
@@ -494,9 +479,7 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
           <span className="tree-node-text">
             {display.main}
             {display.hint ? <span className="tree-dim tree-node-hint">{display.hint}</span> : null}
-            {isCollapsed && childCount > 0 ? (
-              <span className="tree-dim tree-node-hint">{childCount} 项</span>
-            ) : null}
+            {isCollapsed && childCount > 0 ? <span className="tree-dim tree-node-hint">{childCount} 项</span> : null}
           </span>
         </button>
       </div>
@@ -504,9 +487,7 @@ function TreeNode({ screenId, node, path, selection, collapsed, onToggle, onSele
         ? null
         : slots.map((slot) => (
             <ul key={slot.key} className="tree-nodes">
-              {showSlotLabels ? (
-                <li className="tree-slot-label">{SLOT_LABELS[slot.key] ?? slot.key}</li>
-              ) : null}
+              {showSlotLabels ? <li className="tree-slot-label">{SLOT_LABELS[slot.key] ?? slot.key}</li> : null}
               {slot.nodes.map((child, index) => (
                 <TreeNode
                   key={child.id}

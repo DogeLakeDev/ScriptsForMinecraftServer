@@ -1,61 +1,6 @@
-/* styles.css — UI Studio 全局样式
- * 视觉体系来自 Figma「MCP Apps for Claude」kit 的设计令牌（见 theme.css），
- * 布局为三栏 + 底部诊断区；预览画布用同一套令牌模拟页面语义。
+/* editor.css — Studio 专用布局、工程树、画布与属性面板。
+ * 字体、颜色、基础控件与浮层来自公共 SnowUI 层，不在编辑器重复定义。
  */
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-}
-
-body {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ---- 原生控件主题化：滚动条 / 下拉框 ---- */
-
-/* Firefox 滚动条：细 + 主题色滑块 */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-secondary) transparent;
-}
-
-/* WebKit 滚动条：低存在感，悬停加深 */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border-secondary);
-  border: 2px solid transparent;
-  border-radius: 6px;
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border-primary);
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
 
 /* 原生 select：隐藏系统箭头，换主题化 chevron（随 data-theme 换描边色） */
 select.insp-input,
@@ -96,7 +41,7 @@ select.mc-input option {
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-tertiary);
+  border-bottom: var(--hair) solid var(--border-tertiary);
 }
 
 .studio-title {
@@ -110,62 +55,6 @@ select.mc-input option {
 
 .studio-spacer {
   flex: 1;
-}
-
-/* Claude 风格按钮：低存在感边框 + 柔和圆角 */
-.btn {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-tertiary);
-  border-radius: var(--radius-md);
-  padding: 5px 14px;
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-
-.btn:hover {
-  background: var(--bg-secondary);
-  border-color: var(--border-secondary);
-}
-
-.btn-primary {
-  background: var(--accent);
-  border-color: transparent;
-  color: var(--accent-contrast);
-}
-
-.btn-primary:hover {
-  background: var(--accent-hover);
-}
-
-.btn-danger {
-  color: var(--text-danger);
-  border-color: var(--ring-danger);
-}
-
-.btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-  pointer-events: none;
-}
-
-/* 图标与文字混排的按钮：垂直居中对齐 */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* 纯图标按钮：近似正方形 */
-.btn-icon {
-  padding: 5px 8px;
-}
-
-.btn svg {
-  flex-shrink: 0;
 }
 
 .studio-save-error {
@@ -199,20 +88,22 @@ select.mc-input option {
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   color: var(--text-tertiary);
 }
 
 .insp-input {
   background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-md);
   padding: 6px 10px;
   font-family: inherit;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .insp-input:focus {
@@ -316,17 +207,12 @@ select.mc-input option {
   font-size: 12px;
   color: var(--text-tertiary);
   padding: var(--space-2) 0;
-  border-top: 1px solid var(--border-tertiary);
+  border-top: var(--hair) solid var(--border-tertiary);
 }
 
 .studio-save-status {
   font-size: 12px;
   color: var(--text-tertiary);
-}
-
-.btn-danger:hover {
-  color: var(--text-danger);
-  border-color: var(--ring-danger);
 }
 
 .home {
@@ -373,7 +259,7 @@ select.mc-input option {
   align-items: center;
   gap: var(--space-3);
   background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
 }
@@ -422,7 +308,7 @@ select.mc-input option {
 }
 
 .panel-left {
-  border-right: 1px solid var(--border-tertiary);
+  border-right: var(--hair) solid var(--border-tertiary);
   background: var(--bg-secondary);
 }
 
@@ -435,12 +321,12 @@ select.mc-input option {
 }
 
 .panel-right {
-  border-left: 1px solid var(--border-tertiary);
+  border-left: var(--hair) solid var(--border-tertiary);
   background: var(--bg-secondary);
 }
 
 .panel-bottom {
-  border-top: 1px solid var(--border-tertiary);
+  border-top: var(--hair) solid var(--border-tertiary);
   background: var(--bg-secondary);
   max-height: 160px;
   overflow: auto;
@@ -469,7 +355,7 @@ select.mc-input option {
 .tree-heading {
   color: var(--text-tertiary);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin: var(--space-2) var(--space-1) var(--space-1);
@@ -554,7 +440,7 @@ select.mc-input option {
   padding: 1px 8px;
   margin-right: 6px;
   background: var(--bg-primary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   color: var(--text-tertiary);
 }
 
@@ -616,13 +502,13 @@ select.mc-input option {
   color: var(--text-tertiary);
 }
 
-/* ---- 中栏：语义预览画布（Claude 内联卡片风格） ---- */
+/* ---- 中栏：语义预览画布 ---- */
 
 .mc-frame {
   width: 420px;
   max-width: 100%;
   background: var(--bg-primary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
@@ -634,14 +520,14 @@ select.mc-input option {
   align-items: center;
   padding: 10px var(--space-4);
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-tertiary);
+  border-bottom: var(--hair) solid var(--border-tertiary);
   font-weight: 600;
 }
 
 .mc-presentation {
   font-size: 11px;
   color: var(--text-tertiary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: 999px;
   padding: 1px 8px;
 }
@@ -689,7 +575,7 @@ select.mc-input option {
 
 .mc-header {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 2px var(--space-1);
 }
 
@@ -717,23 +603,43 @@ select.mc-input option {
 }
 
 /* 节点 tone 映射到 kit 语义文本色 */
-.tone-default { color: var(--text-primary); }
-.tone-muted { color: var(--text-tertiary); }
-.tone-accent { color: var(--accent); }
-.tone-primary { color: var(--accent); }
-.tone-success { color: var(--text-success); }
-.tone-warning { color: var(--text-warning); }
-.tone-danger { color: var(--text-danger); }
+.tone-default {
+  color: var(--text-primary);
+}
+.tone-muted {
+  color: var(--text-tertiary);
+}
+.tone-accent {
+  color: var(--accent);
+}
+.tone-primary {
+  color: var(--accent);
+}
+.tone-success {
+  color: var(--text-success);
+}
+.tone-warning {
+  color: var(--text-warning);
+}
+.tone-danger {
+  color: var(--text-danger);
+}
 
 .mc-divider {
   border: none;
-  border-top: 1px solid var(--border-tertiary);
+  border-top: var(--hair) solid var(--border-tertiary);
   margin: var(--space-2) 0;
 }
 
-.mc-spacer-small { height: 6px; }
-.mc-spacer-medium { height: 14px; }
-.mc-spacer-large { height: 24px; }
+.mc-spacer-small {
+  height: 6px;
+}
+.mc-spacer-medium {
+  height: 14px;
+}
+.mc-spacer-large {
+  height: 24px;
+}
 
 .mc-image {
   display: flex;
@@ -765,12 +671,14 @@ select.mc-input option {
   padding: 8px var(--space-3);
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .mc-button:hover:not(:disabled) {
@@ -807,7 +715,7 @@ select.mc-input option {
 .mc-input {
   background: var(--bg-tertiary);
   color: var(--text-primary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-md);
   padding: 6px 10px;
   font-family: inherit;
@@ -887,7 +795,7 @@ select.mc-input option {
   font-size: 10px;
   color: var(--text-secondary);
   background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: 999px;
   padding: 0 6px;
   letter-spacing: 0;
@@ -938,7 +846,7 @@ select.mc-input option {
 
 .inspector-json {
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-md);
   padding: var(--space-2);
   font-family: var(--font-mono);
@@ -1011,47 +919,21 @@ select.mc-input option {
 
 /* ---- 动作预览弹层 ---- */
 
-.modal-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 20, 19, 0.45);
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal {
-  width: 440px;
-  max-width: 92vw;
-  max-height: 80vh;
-  overflow: auto;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-tertiary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-pop);
-  padding: var(--space-4);
-}
-
-.modal h3 {
-  margin-top: 0;
-}
-
-.modal dl {
+.studio-modal dl {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 6px var(--space-3);
 }
 
-.modal dt {
+.studio-modal dt {
   color: var(--text-tertiary);
 }
 
-.modal dd {
+.studio-modal dd {
   margin: 0;
 }
 
-.modal pre {
+.studio-modal pre {
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
@@ -1071,170 +953,7 @@ select.mc-input option {
   justify-content: flex-end;
   gap: var(--space-2);
   margin-top: var(--space-3);
-}
-
-/* ---------------------------------------------------------------------------
- * 顶栏下拉菜单（Headless UI Menu：data-focus / data-disabled 由组件注入）
- * ------------------------------------------------------------------------- */
-
-.header-menu {
-  position: relative;
-}
-
-/* 菜单展开时按钮保持 hover 态（data-open 由 Headless UI 注入） */
-.header-menu-button[data-open] {
-  background: var(--bg-secondary);
-  border-color: var(--border-secondary);
-}
-
-.header-menu-items {
-  min-width: 220px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-tertiary);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-pop);
-  padding: 4px;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.header-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.header-menu-item[data-focus] {
-  background: var(--bg-tertiary);
-}
-
-.header-menu-item[data-disabled] {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.header-menu-item.danger {
-  color: var(--text-danger);
-}
-
-.header-menu-item svg {
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-}
-
-.header-menu-item.danger svg {
-  color: inherit;
-}
-
-.header-menu-icon-blank {
-  width: 14px;
-  flex-shrink: 0;
-}
-
-.header-menu-label {
-  flex: 1;
-}
-
-.header-menu-item kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
-  padding: 1px 5px;
-}
-
-.header-menu-sep {
-  height: 1px;
-  background: var(--border-tertiary);
-  margin: 4px 6px;
-}
-
-/* ---------------------------------------------------------------------------
- * 右键菜单（自绘 ContextMenu）
- * ------------------------------------------------------------------------- */
-
-.context-menu {
-  position: fixed;
-  z-index: 70;
-  min-width: 168px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-tertiary);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-pop);
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.context-menu-label {
-  flex: 1;
-  min-width: 0;
-}
-
-.context-menu-item kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
-  padding: 1px 5px;
-  margin-left: auto;
-}
-
-.context-menu-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.context-menu-item.danger {
-  color: var(--text-danger);
-}
-
-.context-menu-item svg {
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-}
-
-.context-menu-item.danger svg {
-  color: inherit;
-}
-
-.context-menu-sep {
-  height: 1px;
-  background: var(--border-tertiary);
-  margin: 4px 6px;
-}
-
-/* 树行内图标对齐 */
+} /* 树行内图标对齐 */
 /* 侧栏图标与文字同色（currentColor），随 active/hover 一起变色 */
 .tree-icon {
   flex-shrink: 0;
@@ -1349,7 +1068,7 @@ select.mc-input option {
 /* ---- 左栏：组件库（拖放源） ---- */
 
 .palette {
-  border-top: 1px solid var(--border-tertiary);
+  border-top: var(--hair) solid var(--border-tertiary);
   padding: var(--space-2);
 }
 
@@ -1366,7 +1085,7 @@ select.mc-input option {
   align-items: center;
   gap: 3px;
   padding: 16px 2px var(--space-2);
-  border: 1px solid var(--border-tertiary);
+  border: var(--hair) solid var(--border-tertiary);
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
@@ -1421,94 +1140,7 @@ select.mc-input option {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-subtle);
-}
-
-/* ---- 属性面板：绑定路径选择器（Headless UI Listbox） ---- */
-
-.insp-listbox-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-}
-
-.insp-listbox-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.insp-listbox-value.empty {
-  color: var(--text-tertiary);
-}
-
-/* anchor 定位后由 floating-ui 挂到 body，需自带层叠与底色 */
-.insp-listbox {
-  z-index: 60;
-  min-width: 220px;
-  max-height: 320px;
-  overflow: auto;
-  padding: var(--space-1);
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-pop);
-  font-size: 12px;
-}
-
-.insp-listbox-group {
-  padding: var(--space-2) var(--space-2) 2px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.insp-listbox-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 4px var(--space-2);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.insp-listbox-option[data-focus] {
-  background: var(--accent-subtle);
-  color: var(--accent);
-}
-
-.insp-listbox-check {
-  width: 14px;
-  flex-shrink: 0;
-  display: inline-flex;
-  color: var(--accent);
-}
-
-.insp-listbox-path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.insp-listbox-hint {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: 11px;
-}
-
-.insp-listbox-custom {
-  border-top: 1px solid var(--border-tertiary);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  margin-top: var(--space-1);
-}
-
-/* ---- 画布工具栏：预览场景切换 ---- */
+} /* ---- 画布工具栏：预览场景切换 ---- */
 
 .canvas-wrap {
   display: flex;
@@ -1643,4 +1275,110 @@ select.mc-input option {
 
 .insp-field-check .insp-label {
   margin: 0;
+}
+
+/* ---------- 桌面一致的编辑器外壳 ---------- */
+.studio-header {
+  min-height: 52px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background: var(--c-chrome);
+}
+.btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-icon {
+  width: 32px;
+  padding: 0;
+}
+.home {
+  height: 100%;
+  min-height: 0;
+}
+.home-main {
+  overflow: auto;
+  max-width: 1040px;
+  padding: 28px;
+}
+.home-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.home-heading h1 {
+  font-size: 24px;
+  line-height: 36px;
+  font-weight: 600;
+}
+.home-heading p {
+  color: var(--c-text-2);
+}
+.home-project {
+  background: var(--c-block);
+  border: 0;
+  border-radius: var(--r-16);
+  padding: 20px 24px;
+}
+.home-project-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.home-project-title {
+  margin-bottom: 4px;
+}
+.home-project-open:hover .home-project-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home-empty {
+  background: var(--c-block);
+  padding: 32px;
+  border-radius: var(--r-20);
+}
+.home-empty p + p {
+  margin-top: 8px;
+}
+.panel-left,
+.panel-right,
+.panel-bottom {
+  background: var(--c-chrome);
+}
+.panel-canvas {
+  background: var(--c-bg);
+}
+.studio-main {
+  grid-template-columns: 224px minmax(0, 1fr) 280px;
+}
+.tree-heading {
+  font-size: 12px;
+  line-height: 16px;
+}
+.tree-node.selected,
+.tree-file.active,
+.tree-screen.active {
+  background: var(--c-fill);
+}
+.studio-modal {
+  background: var(--c-elevated);
+}
+[data-embedded="true"] .studio-title {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .studio-main {
+    grid-template-columns: 196px minmax(0, 1fr) 248px;
+  }
+  .studio-header {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .panel-canvas {
+    padding: 16px;
+  }
+  .home-project {
+    flex-wrap: wrap;
+  }
 }

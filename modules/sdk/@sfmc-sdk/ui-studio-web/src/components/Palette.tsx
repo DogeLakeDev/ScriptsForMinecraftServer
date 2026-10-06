@@ -1,5 +1,5 @@
-import { nodeTypeIcon, type NodeIcon } from "./node-icons";
 import { DragHandle } from "./DragHandle";
+import { nodeTypeIcon, type NodeIcon } from "./node-icons";
 
 /** 组件库拖拽的 dataTransfer 类型；画布内移动另用 MOVE_MIME。 */
 export const PALETTE_MIME = "application/x-sfmc-palette";
@@ -22,7 +22,18 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { type: "button", label: "按钮", defaults: { label: "按钮", trigger: { type: "refresh" } } },
   { type: "textField", label: "输入框", defaults: { label: "输入框", bind: "state.input", placeholder: "请输入…" } },
   { type: "toggle", label: "开关", defaults: { label: "开关", bind: "state.enabled" } },
-  { type: "dropdown", label: "下拉", defaults: { label: "下拉", bind: "state.choice", options: [{ value: "a", label: "选项 A" }, { value: "b", label: "选项 B" }] } },
+  {
+    type: "dropdown",
+    label: "下拉",
+    defaults: {
+      label: "下拉",
+      bind: "state.choice",
+      options: [
+        { value: "a", label: "选项 A" },
+        { value: "b", label: "选项 B" },
+      ],
+    },
+  },
   { type: "slider", label: "滑杆", defaults: { label: "滑杆", bind: "state.level", min: 0, max: 100 } },
   // when 默认用常量条件：引用未声明的 state 会让页面立即失验而从画布消失。
   { type: "when", label: "条件", defaults: { condition: { value: true }, content: [] } },
@@ -52,7 +63,7 @@ export function Palette() {
                   event.dataTransfer.effectAllowed = "copy";
                 }}
               />
-              <Icon size={14} strokeWidth={1.8} />
+              <Icon size={14} />
               <span>{item.label}</span>
             </div>
           );

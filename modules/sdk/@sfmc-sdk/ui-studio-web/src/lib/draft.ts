@@ -48,7 +48,7 @@ const AUTOSAVE_MS = 600;
 
 export function useFileDrafts(
   initialFiles: Record<string, unknown>,
-  persist: (files: Record<string, unknown>) => Promise<void>,
+  persist: (files: Record<string, unknown>) => Promise<void>
 ): FileDraftsApi {
   const [state, setState] = useState<DraftState>(() => ({
     files: initialFiles,
@@ -71,7 +71,7 @@ export function useFileDrafts(
       setSavedAt(Date.now());
       setState((prev) =>
         // 仅当期间没有新编辑才推进基线，避免覆盖更新的草稿。
-        prev.files === files ? { ...prev, persisted: files } : prev,
+        prev.files === files ? { ...prev, persisted: files } : prev
       );
     } catch (error) {
       console.error("[ui-studio] 自动保存失败：", error);
@@ -91,24 +91,21 @@ export function useFileDrafts(
     };
   }, [state.files, state.persisted, doPersist]);
 
-  const applyEdit = useCallback(
-    (file: string, mutate: (doc: never) => boolean | void) => {
-      setState((prev) => {
-        if (!(file in prev.files)) return prev;
-        const next_doc = structuredClone(prev.files[file]);
-        const applied = mutate(next_doc as never);
-        if (applied === false) return prev;
-        const next = { ...prev.files, [file]: next_doc };
-        return {
-          ...prev,
-          files: next,
-          undoStack: [...prev.undoStack, { prev: prev.files, next }],
-          redoStack: [],
-        };
-      });
-    },
-    [],
-  );
+  const applyEdit = useCallback((file: string, mutate: (doc: never) => boolean | void) => {
+    setState((prev) => {
+      if (!(file in prev.files)) return prev;
+      const next_doc = structuredClone(prev.files[file]);
+      const applied = mutate(next_doc as never);
+      if (applied === false) return prev;
+      const next = { ...prev.files, [file]: next_doc };
+      return {
+        ...prev,
+        files: next,
+        undoStack: [...prev.undoStack, { prev: prev.files, next }],
+        redoStack: [],
+      };
+    });
+  }, []);
 
   const replaceFiles = useCallback((next: Record<string, unknown>) => {
     setState((prev) => {

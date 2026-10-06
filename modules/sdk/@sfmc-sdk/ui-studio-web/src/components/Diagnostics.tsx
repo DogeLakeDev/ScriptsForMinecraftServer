@@ -5,8 +5,8 @@
  * 点击可定位到对应页面与组件（解析 JSON Pointer 路径）。
  */
 
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
-import { locateIssue, type ProjectView, type Selection } from "../model";
+import { locateIssue, type ProjectView, type Selection } from "../lib/model";
+import { AlertTriangle, CheckCircle2 } from "./icons";
 
 interface DiagnosticsProps {
   view: ProjectView;
@@ -18,11 +18,7 @@ export function Diagnostics({ view, onLocate }: DiagnosticsProps) {
   return (
     <div className="diagnostics">
       <span className={`diagnostics-count${issues.length > 0 ? " has-issues" : ""}`}>
-        {issues.length > 0 ? (
-          <AlertTriangle size={13} />
-        ) : (
-          <CheckCircle2 size={13} />
-        )}
+        {issues.length > 0 ? <AlertTriangle size={13} /> : <CheckCircle2 size={13} />}
         问题：{issues.length}
       </span>
       {issues.length === 0 ? (

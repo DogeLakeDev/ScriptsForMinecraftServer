@@ -4,7 +4,7 @@
  * 使用场景：main.tsx 渲染 <App />。负责：
  *  - 组合全局 Provider：外观 → 提示 → 确认框 → 实例状态，以及全局通知出口；
  *  - 外壳布局与可折叠的侧栏、右侧动态栏（偏好持久化在 localStorage）；
- *  - 全局快捷键：Ctrl+K 命令面板、Ctrl+B 侧栏、Ctrl+1…8 切换页面；
+ *  - 全局快捷键：Ctrl+K 命令面板、Ctrl+B 侧栏、Ctrl+1…9 切换页面；
  *  - 根据实例状态选择欢迎页 / 连接门 / 工作区页面，并挂载实例设置、接入流程与关于对话框。
  * 页面由 PAGES 注册表按 PageKey 查找（OCP：新增页面只需在 nav.ts 与此表各加一项）。
  */
@@ -29,13 +29,14 @@ import { OverviewPage } from "../pages/OverviewPage.js";
 import { PacksPage } from "../pages/PacksPage.js";
 import { PlayersPage } from "../pages/PlayersPage.js";
 import { TasksPage } from "../pages/TasksPage.js";
+import { UiStudioPage } from "../pages/UiStudioPage.js";
 import { UpdatesPage } from "../pages/UpdatesPage.js";
 import { DesktopProvider, useDesktop } from "./desktop.js";
 import { NAV, type PageKey } from "./nav.js";
 import { AppearanceProvider } from "./theme.js";
 
 /** 页面注册表：PageKey → 页面组件 */
-const PAGES: Record<PageKey, ComponentType> = {
+const PAGES: Record<Exclude<PageKey, "studio">, ComponentType> = {
   overview: OverviewPage,
   logs: ConsolePage,
   tasks: TasksPage,
@@ -84,7 +85,19 @@ function WorkspaceBanners() {
         <Callout
           tone={model.disconnected ? "warning" : "info"}
           title={model.disconnected ? "连接已断开" : undefined}
-          action={model.disconnected && <Button size="sm" variant="primary" icon="plug" loading={model.connecting} onClick={() => void connect(selected, true)}>恢复连接</Button>}
+          action={
+            model.disconnected && (
+              <Button
+                size="sm"
+                variant="primary"
+                icon="plug"
+                loading={model.connecting}
+                onClick={() => void connect(selected, true)}
+              >
+                恢复连接
+              </Button>
+            )
+          }
         >
           {model.connectionMessage}
         </Callout>
@@ -93,7 +106,13 @@ function WorkspaceBanners() {
         <Callout
           tone="info"
           icon="eye"
-          action={!model.handshake.legacy && <Button size="sm" icon="shield" onClick={() => void guarded(() => startAttach(selected))}>完成接入</Button>}
+          action={
+            !model.handshake.legacy && (
+              <Button size="sm" icon="shield" onClick={() => void guarded(() => startAttach(selected))}>
+                完成接入
+              </Button>
+            )
+          }
         >
           {model.handshake.legacy ? "旧版平台，仅支持查看。升级后可执行管理操作。" : "只读连接。接入后可修改此实例。"}
         </Callout>
@@ -106,6 +125,7 @@ function WorkspaceBanners() {
 function Workspace() {
   const { ready, profiles, selected, model, page, current } = useDesktop();
   if (!ready) return <div className="workspace-loading" />;
+  if (page === "studio") return null;
   if (!profiles.length || !selected) return <Welcome />;
   if (!model.handshake) return <ConnectGate />;
   const Page = PAGES[page];
@@ -126,14 +146,19 @@ function Shell() {
   const [railOverlay, setRailOverlay] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [studioOpened, setStudioOpened] = useState(page === "studio");
+  // 编辑器首次打开后保留挂载，切换页面或实例不会丢失当前草稿、选中项与撤销记录。
+  useEffect(() => {
+    if (page === "studio") setStudioOpened(true);
+  }, [page]);
   useEffect(() => localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)), [layout]);
   // 旧版平台没有模块/配置等能力时，停在这些页面只会看到空列表。切到第一个仍可用的页面。
   useEffect(() => {
     const handshake = model.handshake;
     if (!handshake) return;
     const item = NAV.find((row) => row.key === page);
-    if (item && !handshake.capabilities.includes(item.capability)) {
-      const fallback = NAV.find((row) => handshake.capabilities.includes(row.capability));
+    if (item?.capability && !handshake.capabilities.includes(item.capability)) {
+      const fallback = NAV.find((row) => row.capability && handshake.capabilities.includes(row.capability));
       if (fallback) setPage(fallback.key);
     }
   }, [model.handshake, page, setPage]);
@@ -157,9 +182,13 @@ function Shell() {
       } else if (key === "b" && !event.shiftKey) {
         event.preventDefault();
         toggleSidebar();
-      } else if (/^[1-9]$/.test(key) && selected) {
+      } else if (/^[1-9]$/.test(key)) {
         const item = NAV[Number(key) - 1];
-        if (item) {
+        if (
+          item &&
+          (!item.capability ||
+            (selected && (!model.handshake || model.handshake.capabilities.includes(item.capability))))
+        ) {
           event.preventDefault();
           setPage(item.key);
         }
@@ -167,15 +196,28 @@ function Shell() {
     };
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [selected, setPage, toggleSidebar]);
+  }, [selected, model.handshake, setPage, toggleSidebar]);
 
   return (
-    <div className={cx("app", layout.sidebar ? "sidebar-open" : "sidebar-collapsed", railOpen && "rail-open", narrow && "narrow")} data-platform={appInfo?.platform}>
+    <div
+      className={cx(
+        "app",
+        layout.sidebar ? "sidebar-open" : "sidebar-collapsed",
+        railOpen && "rail-open",
+        narrow && "narrow"
+      )}
+      data-platform={appInfo?.platform}
+    >
       <Sidebar collapsed={!layout.sidebar} onToggleSidebar={toggleSidebar} onOpenAbout={openAbout} />
       <div className="main">
         <TitleBar onOpenPalette={() => setPaletteOpen(true)} railOpen={railOpen} onToggleRail={toggleRail} />
         <main className="content" id="content">
           <Workspace />
+          {studioOpened && (
+            <div className="studio-workspace" hidden={page !== "studio"}>
+              <UiStudioPage />
+            </div>
+          )}
         </main>
       </div>
       {railOpen && (
@@ -184,7 +226,13 @@ function Shell() {
           <RightRail />
         </>
       )}
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenAbout={openAbout} onToggleSidebar={toggleSidebar} onToggleRail={toggleRail} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenAbout={openAbout}
+        onToggleSidebar={toggleSidebar}
+        onToggleRail={toggleRail}
+      />
       <ProfileDialog />
       <FlowDialogs />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

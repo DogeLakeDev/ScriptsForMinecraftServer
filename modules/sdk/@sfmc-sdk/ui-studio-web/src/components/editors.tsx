@@ -1,3 +1,4 @@
+import { Button } from "@sfmc-bds/ui/controls";
 /**
  * editors.tsx — 结构化属性编辑器（替代手打 JSON）。
  *
@@ -10,10 +11,11 @@
  * 作为一步撤销提交整体字段值（undefined 表示删除该字段）。
  */
 
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import type { BindGroup } from "../model";
+import type { BindGroup } from "../lib/model";
 import { BindField, BooleanField, CheckField, JsonField, NumberField, SelectField, TextField } from "./fields";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2 } from "./icons";
+import { alertDialog } from "./StudioDialogs";
 
 // ---------------------------------------------------------------------------
 // 通用：宽松解析 / 唯一键 / 提交约定
@@ -164,7 +166,7 @@ export function DictEditor<T>({
           defaultOpen={key === addedKey}
           onRename={(next) => {
             if (next in dict) {
-              window.alert(`键名已存在：${next}`);
+              void alertDialog(`键名已存在：${next}`);
               return;
             }
             // 保持键顺序重建。
@@ -183,8 +185,8 @@ export function DictEditor<T>({
           {renderEntry(dict[key]!, (next) => commitDict({ ...dict, [key]: next }))}
         </EntryShell>
       ))}
-      <button
-        className="btn dict-add"
+      <Button
+        className="dict-add"
         onClick={() => {
           const key = uniqueKey(dict, "item");
           commitDict({ ...dict, [key]: newEntry() });
@@ -192,7 +194,7 @@ export function DictEditor<T>({
         }}
       >
         <Plus size={13} /> {addLabel}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -243,15 +245,15 @@ export function ListEditor<T>({
           {renderEntry(entry, (next) => commitList(list.map((item, i) => (i === index ? next : item))), index)}
         </EntryShell>
       ))}
-      <button
-        className="btn dict-add"
+      <Button
+        className="dict-add"
         onClick={() => {
           commitList([...list, newEntry()]);
           setAddedIndex(list.length);
         }}
       >
         <Plus size={13} /> {addLabel}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -466,9 +468,9 @@ function OpEditor({
           </div>
         ))}
         {arity === "variadic" ? (
-          <button className="btn dict-add" onClick={() => commitArgs([...args, { value: null }])}>
+          <Button className="dict-add" onClick={() => commitArgs([...args, { value: null }])}>
             <Plus size={13} /> 再加一项
-          </button>
+          </Button>
         ) : null}
       </div>
     </>
@@ -1358,4 +1360,3 @@ export function TriggerField({
     </div>
   );
 }
-

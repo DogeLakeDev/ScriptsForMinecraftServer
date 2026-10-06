@@ -1,0 +1,38 @@
+{
+  "name": "@sfmc-bds/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop 与 UI Studio 共用的 SnowUI 界面基础层",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./theme": "./src/theme.ts",
+    "./controls": "./src/components/controls.tsx",
+    "./overlays": "./src/components/overlays.tsx",
+    "./tooltip": "./src/components/tooltip.tsx",
+    "./icons": "./src/components/icons.tsx",
+    "./styles/*": "./src/styles/*"
+  },
+  "scripts": {
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.8.0",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/noto-sans-sc": "5.3.0",
+    "@phosphor-icons/react": "2.1.10"
+  },
+  "peerDependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@sfmc-bds/tools": "workspace:*",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "vite": "8.3.1"
+  }
+}

@@ -7,8 +7,8 @@
  *   UI 根目录发现口径与 Node 侧一致（根 / ui/ / sapi/src/ui/）。
  */
 
-import { strToU8, strFromU8, unzipSync, zipSync } from "fflate";
-import { extractServicesFromManifest, type StudioProject } from "./store/project";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { extractServicesFromManifest, type StudioProject } from "../store/project";
 
 /** 随工程一起打包的 Studio 元数据文件（services 清单）。 */
 const STUDIO_META_FILE = ".ui-studio/studio.json";
@@ -19,9 +19,7 @@ export function exportProjectZip(project: StudioProject): Blob {
   for (const [file, doc] of Object.entries(project.files)) {
     entries[file] = strToU8(`${JSON.stringify(doc, null, 2)}\n`);
   }
-  entries[STUDIO_META_FILE] = strToU8(
-    `${JSON.stringify({ services: project.services }, null, 2)}\n`,
-  );
+  entries[STUDIO_META_FILE] = strToU8(`${JSON.stringify({ services: project.services }, null, 2)}\n`);
   const zipped = zipSync(entries, { level: 6 });
   return new Blob([zipped.buffer as ArrayBuffer], { type: "application/zip" });
 }
@@ -87,10 +85,7 @@ export function importProjectZip(data: Uint8Array, zipName: string): ImportedPro
   }
 
   const feature = files["feature.ui.json"] as { name?: unknown };
-  const name =
-    (typeof feature.name === "string" && feature.name) ||
-    zipName.replace(/\.zip$/i, "") ||
-    "导入的工程";
+  const name = (typeof feature.name === "string" && feature.name) || zipName.replace(/\.zip$/i, "") || "导入的工程";
   if (errors.length > 0) {
     // 非致命问题挂到返回值调用方提示；这里先并入 console 便于排查。
     console.warn("[ui-studio] 导入警告：", errors);
@@ -104,10 +99,7 @@ export function importProjectZip(data: Uint8Array, zipName: string): ImportedPro
  * 根 / ui/ / sapi/src/ui/ 下的 feature.ui.json；仅该前缀内的 .json 进入文件表，
  * manifest.json 按模块布局候选提取 services（不进入文件表）。
  */
-export async function importProjectFolder(
-  list: FileList,
-  folderName: string,
-): Promise<ImportedProject> {
+export async function importProjectFolder(list: FileList, folderName: string): Promise<ImportedProject> {
   // 归一化相对路径：剥掉所选根文件夹名（webkitRelativePath 的首段）。
   const entries: Array<{ path: string; file: File }> = [];
   for (const file of Array.from(list)) {
@@ -117,9 +109,7 @@ export async function importProjectFolder(
 
   const prefixes = ["", "ui", "sapi/src/ui"];
   const prefix = prefixes.find((candidate) =>
-    entries.some((entry) =>
-      entry.path === (candidate ? `${candidate}/feature.ui.json` : "feature.ui.json"),
-    ),
+    entries.some((entry) => entry.path === (candidate ? `${candidate}/feature.ui.json` : "feature.ui.json"))
   );
   if (prefix === undefined) {
     throw new Error("文件夹中找不到 feature.ui.json（已尝试根目录、ui/ 与 sapi/src/ui/）");
@@ -148,11 +138,7 @@ export async function importProjectFolder(
       continue;
     }
     // 其余文件必须位于 UI 根前缀内。
-    const rel = prefix
-      ? path.startsWith(`${prefix}/`)
-        ? path.slice(prefix.length + 1)
-        : null
-      : path;
+    const rel = prefix ? (path.startsWith(`${prefix}/`) ? path.slice(prefix.length + 1) : null) : path;
     if (!rel) continue;
     if (rel === STUDIO_META_FILE) {
       try {
@@ -177,8 +163,7 @@ export async function importProjectFolder(
     throw new Error("feature.ui.json 不是合法 JSON");
   }
   const feature = files["feature.ui.json"] as { name?: unknown };
-  const name =
-    (typeof feature.name === "string" && feature.name) || folderName || "导入的工程";
+  const name = (typeof feature.name === "string" && feature.name) || folderName || "导入的工程";
   if (errors.length > 0) {
     console.warn("[ui-studio] 文件夹导入警告：", errors);
   }

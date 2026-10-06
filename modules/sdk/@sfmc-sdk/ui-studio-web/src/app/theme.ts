@@ -5,6 +5,7 @@
  * 偏好写入 localStorage，与 IndexedDB 一样绑在固定 origin（127.0.0.1:3003）。
  * index.html 内联脚本用同一 STORAGE_KEY，避免首屏闪深色。
  */
+import { PALETTES, applyCssVariables, registerPunctuationFont } from "@sfmc-bds/ui/theme";
 
 export type ThemePref = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
@@ -44,7 +45,10 @@ export function systemPrefersDark(): boolean {
 
 /** 把解析结果写到 <html data-theme>。 */
 export function applyResolvedTheme(theme: ResolvedTheme): void {
+  registerPunctuationFont();
+  applyCssVariables(PALETTES[theme]);
   document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.style.colorScheme = theme;
 }
 
 /** 按偏好解析并应用到文档。 */

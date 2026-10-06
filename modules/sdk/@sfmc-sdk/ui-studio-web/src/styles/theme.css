@@ -1,0 +1,41 @@
+/** Studio 布局与预览使用的语义别名，实际颜色和字体统一来自 @sfmc-bds/ui/theme。 */
+:root {
+  --font-ui: var(--font-sans);
+  --radius-sm: var(--r-6);
+  --radius-md: var(--r-8);
+  --radius-lg: var(--r-12);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --accent: var(--c-accent);
+  --accent-hover: var(--c-primary-hover);
+  --accent-contrast: var(--c-on-primary);
+  --accent-subtle: var(--c-progress-soft);
+  --bg-primary: var(--c-block);
+  --bg-secondary: var(--c-bg);
+  --bg-tertiary: var(--c-fill);
+  --bg-inverse: var(--c-inverse);
+  --bg-info: var(--c-info-soft);
+  --bg-danger: var(--c-danger-soft);
+  --bg-success: var(--c-success-soft);
+  --bg-warning: var(--c-warning-soft);
+  --text-primary: var(--c-text);
+  --text-secondary: var(--c-text-2);
+  --text-tertiary: var(--c-text-3);
+  --text-inverse: var(--c-on-inverse);
+  --text-info: var(--c-info-text);
+  --text-danger: var(--c-danger-text);
+  --text-success: var(--c-success-text);
+  --text-warning: var(--c-warning-text);
+  --border-primary: var(--c-text-4);
+  --border-secondary: var(--c-fill-2);
+  --border-tertiary: var(--c-line);
+  --ring-primary: var(--c-ring);
+  --ring-info: var(--c-info-soft);
+  --ring-danger: var(--c-danger-soft);
+  --ring-success: var(--c-success-soft);
+  --ring-warning: var(--c-warning-soft);
+  --shadow-pop: var(--c-shadow-pop);
+}

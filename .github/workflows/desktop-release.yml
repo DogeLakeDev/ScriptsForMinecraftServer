@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/desktop/**"
+      - "packages/ui/**"
       - "packages/management/**"
       - "packages/cli/**"
       - "modules/sdk/**"
@@ -54,6 +55,8 @@ jobs:
       - run: pnpm --filter @sfmc-bds/management typecheck
       - run: pnpm --filter @sfmc-bds/cli typecheck
       - run: pnpm --filter @sfmc-bds/desktop typecheck
+      - run: pnpm --filter @sfmc-bds/ui typecheck
+      - run: node packages/tools/tsc7.mjs --noEmit -p modules/sdk/@sfmc-sdk/ui-studio-web/tsconfig.json
       - name: 核对桌面标签与平台版本
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh

@@ -22,11 +22,14 @@
 | `@sfmc-bds/qq-bridge` | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `@sfmc-bds/bds-tools` | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `@sfmc-bds/tools` | AGPL-3.0-only（**不发 npm**，仓内脚本） | 见仓库根 `LICENSE` |
+| `@sfmc-bds/ui`（内部公共界面包） | AGPL-3.0-only（**不发 npm**） | 见仓库根 `LICENSE` |
 | `@sfmc-bds/sfmc`（meta） | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `@sfmc-bds/devkit` | AGPL-3.0-only | 见仓库根 `LICENSE` |
 | `sfmc-extension`（VS Code） | AGPL-3.0-only | 见仓库根 `LICENSE` |
 
 ## 变更记录
+
+UI Studio 的浏览器应用复用桌面公共 UI，界面应用随静态产物附带 AGPL 许可证与源码入口。SDK 的模块运行时、契约、校验器和作者向 API 仍按 ISC 分发；使用这些 API 开发模块的许可边界保持一致。
 
 - 统一 `cli` 的 SPDX 拼写为 `AGPL-3.0-only`（原 `AGPL-v3.0-only` 无效）
 - `meta` 由 `GPL-3.0-only` 改为 `AGPL-3.0-only`（与聚合的 AGPL 服务一致）
