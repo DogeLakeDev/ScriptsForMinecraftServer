@@ -8,7 +8,7 @@
 - 在线玩家：通过 SAPI `world.getAllPlayers()` 采集，同时向现有状态接口提供玩家与世界快照。
 - 实体数量：约每 30 秒查询三个维度中的可访问实体，查询失败返回 `null`，并保留采集时间。
 - 视距区块估算：累加玩家客户端视距对应的面积，不扣除玩家间重叠，不代表真实已加载区块数量。
-- 主机内存、进程内存和累计 CPU 秒数：由数据服务读取宿主系统。进程资源只认当前实例的 BDS PID；权限不足或无法确认归属时返回未知。累计 CPU 时间不能按百分比展示。
+- 主机内存、进程内存和累计 CPU 秒数：由数据服务读取宿主系统。进程资源只认当前实例的 BDS PID；权限不足或无法确认归属时返回未知。累计 CPU 时间不能按百分比展示。主机已用内存、BDS 和数据服务内存会另外记入最近一小时，供曲线使用。
 
 正常速度下，每 100 tick 上报一次指标。低 TPS 时墙钟上报间隔会变长；桌面不会补造中间点。
 
@@ -16,7 +16,7 @@
 
 SDK 的 `@sfmc-bds/sdk/sapi/runtime` 导出 `getRuntimeMetrics()` 和 `getRuntimeTpsStatus()`，允许模块直接读取平台采样。初始化前快照为 `undefined`，TPS 为 `null`。不要修改返回值来控制采集。
 
-管理协议握手新增 `metrics` 能力。支持该能力时，`metrics.read` 返回 `current`、`history`、`fresh`、`updatedAt`、`host`、`processes` 和 `resourcesUpdatedAt`。旧平台缺少能力时，客户端展示升级提示。
+管理协议握手新增 `metrics` 能力。支持该能力时，`metrics.read` 返回 `current`、`history`、`fresh`、`updatedAt`、`host`、`processes`、`resourcesUpdatedAt` 和 `resourceHistory`。旧平台缺少能力时，客户端展示升级提示；旧数据服务没有 `resourceHistory` 时，桌面只保留本次打开后的内存采样。
 
 数据服务提供以下入口：
 

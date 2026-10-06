@@ -51,12 +51,14 @@ export function CommandPalette({
   open,
   onClose,
   onOpenAbout,
+  onOpenSettings,
   onToggleSidebar,
   onToggleRail,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenAbout: () => void;
+  onOpenSettings: () => void;
   onToggleSidebar?: () => void;
   onToggleRail?: () => void;
 }) {
@@ -224,6 +226,14 @@ export function CommandPalette({
         run: onToggleRail,
       });
     rows.push({
+      id: "app:settings",
+      group: "客户端",
+      label: "客户端设置",
+      icon: "settings",
+      keywords: "settings tray 托盘 开机启动 设置",
+      run: onOpenSettings,
+    });
+    rows.push({
       id: "app:about",
       group: "客户端",
       label: "关于与检查更新",
@@ -232,7 +242,7 @@ export function CommandPalette({
       run: onOpenAbout,
     });
     return rows;
-  }, [desktop, setMode, onOpenAbout, onToggleSidebar, onToggleRail]);
+  }, [desktop, setMode, onOpenAbout, onOpenSettings, onToggleSidebar, onToggleRail]);
 
   const visible = useMemo(
     () => commands.filter((command) => !query.trim() || matches(command, query.trim())),
