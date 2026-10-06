@@ -15,6 +15,12 @@ export interface ProcessResources {
   /** 累计 CPU 秒数；不是 CPU 百分比。 */
   cpuSeconds: number | null;
 }
+export interface ResourceSample {
+  recordedAt: number;
+  hostUsedMb: number | null;
+  dbMb: number | null;
+  bdsMb: number | null;
+}
 export interface MetricsResult {
   fresh: boolean;
   updatedAt: number | null;
@@ -26,5 +32,7 @@ export interface MetricsResult {
   } | null;
   processes: { db: ProcessResources; bds: ProcessResources | null } | null;
   resourcesUpdatedAt: number | null;
+  /** 最近一小时的主机已用内存与托管进程内存。旧数据服务没有该字段。 */
+  resourceHistory?: ResourceSample[];
   note?: string;
 }

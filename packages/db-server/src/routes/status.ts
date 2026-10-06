@@ -2,7 +2,7 @@
 
 import { collectSystemStatus, type SystemStatusSnapshot } from "../domain/system-status.js";
 import { PROJECT_ROOT } from "../project-root.js";
-import { MetricsHistory, parseMetrics, type MetricsSample } from "../domain/metrics.js";
+import { MetricsHistory, ResourceHistory, parseMetrics, type MetricsSample } from "../domain/metrics.js";
 import { collectProcessResources } from "../domain/process-resources.js";
 import type { QueryFn } from "../lib/sqlite.js";
 import fs from "node:fs";
@@ -30,6 +30,26 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
   let live: LiveSnapshot | null = null;
   let metrics: MetricsSample | null = null;
   const history = query ? new MetricsHistory(query) : undefined;
+  const resources = query ? new ResourceHistory(query) : undefined;
+  let lastCapture = 0;
+  const captureResources = async (system: SystemStatusSnapshot | null) => {
+    if (!system) return null;
+    let ownedPid = 0;
+    try { ownedPid = Number(fs.readFileSync(pathModule.join(stateDir(root), "bds.pid"), "utf8").trim()); } catch { /* 未托管实例不猜测进程归属。 */ }
+    const owned = Number.isSafeInteger(ownedPid) && ownedPid > 0 && system.bds.pid === ownedPid;
+    const processes = {
+      db: await collectProcessResources(system.db.pid, system.db.running),
+      bds: owned ? await collectProcessResources(system.bds.pid, system.bds.running) : null,
+    };
+    resources?.append({
+      recordedAt: Date.now(),
+      hostUsedMb: system.host.memory.usedMb,
+      dbMb: processes.db.memoryMb,
+      bdsMb: processes.bds?.memoryMb ?? null,
+    });
+    lastCapture = Date.now();
+    return processes;
+  };
   let systemCache: { data: SystemStatusSnapshot; at: number } | undefined;
   let collecting: Promise<SystemStatusSnapshot> | undefined;
   const getSystem = async () => {
@@ -37,6 +57,13 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
     collecting ??= collect(root).then(data => { systemCache = { data, at: Date.now() }; return data; }).finally(() => { collecting = undefined; });
     return collecting;
   };
+  if (resources) {
+    const timer = setInterval(() => {
+      if (Date.now() - lastCapture < 12_000) return;
+      void getSystem().then(system => captureResources(system)).catch(() => undefined);
+    }, 15_000);
+    timer.unref();
+  }
 
   return async function handle({ path, method, req, res }): Promise<boolean> {
     if (path === "/api/sfmc/status/live" || path === "/api/sfmc/metrics/live") {
@@ -102,9 +129,10 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
       const owned = Number.isSafeInteger(ownedPid) && ownedPid > 0 && bds?.pid === ownedPid;
       const metricFresh = owned && metrics !== null && bds?.state === "running" && now - metrics.recordedAt <= 60_000 &&
         (bdsAgeMs === null || now - metrics.recordedAt <= bdsAgeMs + 2000);
-      const processes = system ? { db: await collectProcessResources(system.db.pid, system.db.running), bds: owned ? await collectProcessResources(system.bds.pid, system.bds.running) : null } : null;
+      const processes = await captureResources(system);
       json(res, { fresh: metricFresh, current: metricFresh ? metrics : null, updatedAt: metrics?.recordedAt ?? null,
         history: history?.read(now) ?? [], host: system?.host ?? null, processes, resourcesUpdatedAt: system ? Date.now() : null,
+        resourceHistory: resources?.read(now) ?? [],
         note: metricFresh ? undefined : bds?.state === "stopped" ? "服务器未运行" : "等待平台指标同步" });
       return true;
     }

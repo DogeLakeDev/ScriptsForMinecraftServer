@@ -52,6 +52,55 @@ export function parseMetrics(data: Record<string, unknown>, now: number): Metric
   };
 }
 
+export interface ResourceSample {
+  recordedAt: number;
+  hostUsedMb: number | null;
+  dbMb: number | null;
+  bdsMb: number | null;
+}
+const memoryMb = (value: unknown) =>
+  value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 8_388_608);
+
+export class ResourceHistory {
+  private lastWrite = 0;
+  private lastPrune = 0;
+  constructor(private query: QueryFn) {
+    query("CREATE TABLE IF NOT EXISTS sfmc_resource_metrics (recorded_at INTEGER PRIMARY KEY, sample TEXT NOT NULL)");
+  }
+  append(sample: ResourceSample): void {
+    if (sample.recordedAt - this.lastWrite < 8_000) return;
+    if (sample.hostUsedMb === null && sample.dbMb === null && sample.bdsMb === null) return;
+    if (!memoryMb(sample.hostUsedMb) || !memoryMb(sample.dbMb) || !memoryMb(sample.bdsMb)) return;
+    this.query("INSERT OR REPLACE INTO sfmc_resource_metrics (recorded_at, sample) VALUES (?, ?)", [
+      sample.recordedAt,
+      JSON.stringify(sample),
+    ]);
+    if (sample.recordedAt - this.lastPrune > 60_000) {
+      this.query("DELETE FROM sfmc_resource_metrics WHERE recorded_at < ?", [sample.recordedAt - 72 * 3600_000]);
+      this.query(
+        "DELETE FROM sfmc_resource_metrics WHERE recorded_at NOT IN (SELECT recorded_at FROM sfmc_resource_metrics ORDER BY recorded_at DESC LIMIT 60000)"
+      );
+      this.lastPrune = sample.recordedAt;
+    }
+    this.lastWrite = sample.recordedAt;
+  }
+  read(now = Date.now()): ResourceSample[] {
+    const rows = this.query(
+      "SELECT sample FROM sfmc_resource_metrics WHERE recorded_at >= ? ORDER BY recorded_at DESC LIMIT 720",
+      [now - 3600_000]
+    ) as { sample: string }[];
+    return rows.reverse().flatMap((row) => {
+      try {
+        const sample = JSON.parse(row.sample) as ResourceSample;
+        if (!memoryMb(sample.hostUsedMb) || !memoryMb(sample.dbMb) || !memoryMb(sample.bdsMb)) return [];
+        return [sample];
+      } catch {
+        return [];
+      }
+    });
+  }
+}
+
 export class MetricsHistory {
   private lastWrite = 0;
   private lastPrune = 0;
