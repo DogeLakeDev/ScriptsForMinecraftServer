@@ -59,7 +59,7 @@ gh attestation verify '.\SFMC-Desktop-0.2.0-x64.exe' --repo DogeLakeDev/ScriptsF
 
 ![实例概览：服务状态、TPS 和资源指标](../../public/desktop/overview.jpg)
 
-**概览** 查看服务状态、TPS、在线人数与主机/服务资源。停止状态、零在线人数和缺少采样都可能是正常情况；指标是否新鲜需要结合采样状态判断。
+**概览** 查看服务状态、TPS、在线人数、内存和维度实体。内存曲线包含主机总占用、BDS 和数据服务；维度实体按主世界、下界、末地分色。停止状态、零在线人数和缺少采样都可能是正常情况；指标是否新鲜需要结合采样状态判断。
 
 ![模块管理：模块列表和详情](../../public/desktop/modules.jpg)
 

@@ -1,6 +1,6 @@
-/** ECharts 时间序列：按真实采样分段，断采、未知值和重启之间不连线。 */
-import type { MetricsResult, MetricsSample } from "@sfmc-bds/management";
-import { LineChart, type LineSeriesOption } from "echarts/charts";
+/** ECharts 时间序列：断采和未知值不连线。内存图左侧是主机已用，右侧是进程。 */
+import type { LineSeriesOption } from "echarts/charts";
+import { LineChart } from "echarts/charts";
 import {
   GridComponent,
   TooltipComponent,
@@ -12,30 +12,42 @@ import { SVGRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 import { PALETTES, useAppearance } from "../app/theme.js";
 import { fullTime } from "../lib/format.js";
-import { metricSegments } from "../lib/metric-segments.js";
+import type { ChartLine } from "../lib/metric-series.js";
 import { EmptyState } from "./ui.js";
 
 use([LineChart, GridComponent, TooltipComponent, SVGRenderer]);
 type ChartOption = ComposeOption<LineSeriesOption | GridComponentOption | TooltipComponentOption>;
-type MetricField = "tps" | "onlineCount";
+
+function axisMb(value: number) {
+  if (value === 0) return "0";
+  const gb = value / 1024;
+  return `${gb >= 10 ? Math.round(gb) : gb.toFixed(1)}G`;
+}
+
+function formatValue(y: "tps" | "count" | "memory", value: number) {
+  if (y === "tps") return value.toFixed(2);
+  if (y === "memory") return value >= 1024 ? `${(value / 1024).toFixed(1)} GB` : `${Math.round(value)} MB`;
+  return String(Math.round(value));
+}
 
 function TrendPlot({
-  groups,
-  field,
+  lines,
   from,
   end,
   minutes,
+  label,
+  y,
 }: {
-  groups: MetricsSample[][];
-  field: MetricField;
+  lines: ChartLine[];
   from: number;
   end: number;
   minutes: number;
+  label: string;
+  y: "tps" | "count" | "memory";
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<EChartsType>(undefined);
   const { dark } = useAppearance();
-  const label = field === "tps" ? "TPS" : "在线人数";
   useEffect(() => {
     if (!container.current) return;
     const instance = init(container.current, undefined, { renderer: "svg" });
@@ -51,10 +63,11 @@ function TrendPlot({
   useEffect(() => {
     const palette = dark ? PALETTES.dark : PALETTES.light;
     const font = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim();
+    const memory = y === "memory";
     const option: ChartOption = {
       animation: false,
       textStyle: { fontFamily: font, fontSize: 11, color: palette.text3 },
-      grid: { left: 36, right: 12, top: 20, bottom: 28 },
+      grid: { left: 40, right: memory ? 40 : 12, top: 16, bottom: 28 },
       xAxis: {
         type: "time",
         min: from,
@@ -70,15 +83,25 @@ function TrendPlot({
             new Date(time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }),
         },
       },
-      yAxis: {
-        type: "value",
-        min: 0,
-        ...(field === "tps" ? { max: 20, interval: 5 } : { minInterval: 1, splitNumber: 4 }),
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: palette.text3 },
-        splitLine: { lineStyle: { color: palette.line, width: 0.5 } },
-      },
+      yAxis: memory
+        ? [0, 1].map((index) => ({
+            type: "value" as const,
+            min: 0,
+            position: index === 0 ? ("left" as const) : ("right" as const),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { color: palette.text3, formatter: axisMb },
+            splitLine: { show: index === 0, lineStyle: { color: palette.line, width: 0.5 } },
+          }))
+        : {
+            type: "value",
+            min: 0,
+            ...(y === "tps" ? { max: 20, interval: 5 } : { minInterval: 1, splitNumber: 4 }),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { color: palette.text3 },
+            splitLine: { lineStyle: { color: palette.line, width: 0.5 } },
+          },
       tooltip: {
         trigger: "axis",
         renderMode: "richText",
@@ -90,47 +113,74 @@ function TrendPlot({
         textStyle: { color: palette.text, fontFamily: font, fontSize: 12 },
         axisPointer: { type: "line", snap: true, lineStyle: { color: palette.text4, type: "dashed" } },
         formatter: (params) => {
-          const row = Array.isArray(params) ? params[0] : params;
-          if (!row || !Array.isArray(row.value)) return "";
-          const [time, value] = row.value;
-          if (typeof time !== "number" || typeof value !== "number") return "";
-          return `${fullTime(time)}\n${label}  ${field === "tps" ? value.toFixed(2) : value}`;
+          const rows = (Array.isArray(params) ? params : [params]).flatMap((row) => {
+            if (!row || !Array.isArray(row.value)) return [];
+            const [time, value] = row.value;
+            if (typeof time !== "number" || typeof value !== "number") return [];
+            return [{ time, text: `${row.seriesName}  ${formatValue(y, value)}` }];
+          });
+          const first = rows[0];
+          if (!first) return "";
+          return [fullTime(first.time), ...rows.map((row) => row.text)].join("\n");
         },
       },
-      series: groups.map((group, index) => ({
-        id: `segment-${index}`,
-        name: label,
-        type: "line",
+      series: lines.map((line) => ({
+        id: line.name,
+        name: line.name,
+        type: "line" as const,
+        yAxisIndex: memory ? line.axis : 0,
         connectNulls: false,
         smooth: false,
-        showSymbol: group.length === 1,
+        showSymbol: line.points.filter((point) => typeof point[1] === "number").length < 2,
         symbol: "circle",
         symbolSize: 5,
-        lineStyle: { color: palette.progress, width: 1.8 },
-        itemStyle: { color: palette.progress },
+        lineStyle: { color: line.color, width: 1.8 },
+        itemStyle: { color: line.color },
         emphasis: { disabled: true },
-        data: group.map((sample) => [sample.recordedAt, sample[field]!]),
+        data: line.points,
       })),
     };
     chart.current?.setOption(option, { notMerge: true });
-  }, [dark, end, field, from, groups, label, minutes]);
+  }, [dark, end, from, label, lines, minutes, y]);
   return (
     <div
       ref={container}
       className="metric-chart"
       role="img"
-      aria-label={`${label}，最近 ${minutes} 分钟，${groups.flat().length} 个采样点`}
+      aria-label={`${label}，最近 ${minutes} 分钟`}
     />
   );
 }
 
-export function MetricChart({ data, field, minutes }: { data: MetricsResult; field: MetricField; minutes: number }) {
-  const end = data.resourcesUpdatedAt ?? data.history.at(-1)?.recordedAt ?? Date.now();
-  const from = end - minutes * 60_000;
-  const groups = metricSegments(data.history, field, from, end);
-  if (!groups.length)
-    return (
-      <EmptyState compact icon="activity" title="暂无采样" />
-    );
-  return <TrendPlot groups={groups} field={field} from={from} end={end} minutes={minutes} />;
+export function MetricChart({
+  lines,
+  from,
+  end,
+  minutes,
+  label,
+  y,
+}: {
+  lines: ChartLine[];
+  from: number;
+  end: number;
+  minutes: number;
+  label: string;
+  y: "tps" | "count" | "memory";
+}) {
+  if (!lines.length) return <EmptyState compact icon="activity" title="暂无采样" />;
+  return (
+    <>
+      {lines.length > 1 && (
+        <div className="metric-legend">
+          {lines.map((line) => (
+            <span key={line.name}>
+              <i style={{ background: line.color }} />
+              {line.name}
+            </span>
+          ))}
+        </div>
+      )}
+      <TrendPlot lines={lines} from={from} end={end} minutes={minutes} label={label} y={y} />
+    </>
+  );
 }
