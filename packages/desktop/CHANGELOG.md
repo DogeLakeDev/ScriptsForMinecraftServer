@@ -1,5 +1,11 @@
 # @sfmc-bds/desktop
 
+## 0.4.0
+
+### Minor Changes
+
+- 0335a5f: 点击告警后打开日志控制台，并定位到对应行高亮。
+
 ## 0.3.1
 
 ### Minor Changes
