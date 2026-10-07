@@ -20,7 +20,7 @@ flowchart TD
   end
 
   subgraph Game_Layer ["Minecraft BDS 服务端"]
-    SAPI["平台 qq-link<br/>绑定门槛与事件上报"]
+    SAPI["平台宿主 QQ 绑定<br/>门槛与事件上报"]
   end
 
   Q_User <== 双向路由 ==> QQ_Svc
@@ -225,7 +225,7 @@ flowchart LR
 
 ## 5. 游戏聊天双向互通（Chat Bridge）
 
-游戏与 QQ 群的聊天互通由**聊天模块**负责，不依赖已删除的 `bridge_channel_id`。频道设置里可以分别打开「转发到 QQ」；QQ 入站写入消息来源为 QQ 的频道。身份绑定、游玩门槛和进退服事件由平台内置的 `modules/packages/qq-link` 提供，不再从模块索引单独安装。
+游戏与 QQ 群的聊天互通由**聊天模块**负责，不依赖已删除的 `bridge_channel_id`。频道设置里可以分别打开「转发到 QQ」；QQ 入站写入消息来源为 QQ 的频道。身份绑定、游玩门槛和进退服事件由**平台行为包宿主**（`installHostBootstrap`，与运行监控同级）提供；升级 SDK 后须重建并部署平台行为包。`qq-link` / `feature-qq-link` 已收编退役，CLI 拒绝再安装或启用。
 
 ### 数据流动与安全防环
 
@@ -249,7 +249,7 @@ sequenceDiagram
   participant User as 申请玩家 (QQ 群)
   participant Admin as 管理员 (QQ 群)
   participant DB as db-server 持久化
-  participant SAPI as qq-link 模块 (BDS)
+  participant SAPI as 平台宿主 QQ 绑定 (BDS)
   participant Native as 原生 AllowList
 
   User->>DB: 发送 "申请入服 Steve" (生成 pending 记录)

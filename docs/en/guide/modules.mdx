@@ -25,7 +25,7 @@ Running `mod list` scans modules under `<SFMC_ROOT>/modules/packages/` and displ
 | **`?`** | Yellow | **Unknown publisher** | Installed locally, but **not published in the first-party registry index**. A verification warning is shown at REPL startup. |
 | **`○`** | Yellow | **Manifest issue** | Local `sapi/manifest.json` is missing or unparseable. |
 
-- If folder name differs from manifest logical ID, it appears as `folderId(logicalId)` (e.g. `qq-link(feature-qq-link)`).
+- If folder name differs from manifest logical ID, it appears as `folderId(logicalId)` (e.g. `my-mod(feature-my-mod)`).
 - In the interactive REPL with running services (prompt like `bds> `), prefix commands with `/` (e.g. `/mod list`).
 
 `enable` / `disable` **write** `modules/module-lock.json` first (no db-server required). When db is online, memory state is best-effort synced; without db the write still succeeds, with a note to start db next. For in-game behavior, you usually need `mod reload` or a BDS restart.

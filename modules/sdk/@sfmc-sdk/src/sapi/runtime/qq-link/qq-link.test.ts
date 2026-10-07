@@ -1,11 +1,11 @@
 /**
- * test/qq-link.test.ts — qq-link 纯逻辑与元数据校验
+ * qq-link.test.ts — 平台 QQ 绑定纯逻辑单测
+ *
+ * 原 modules/packages/qq-link/test 迁入；不依赖 @minecraft/server。
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
 import {
   BIND_GATE_PROMPT,
@@ -13,29 +13,16 @@ import {
   movedTooFar,
   permissionCommand,
   shouldPrompt,
-} from "../sapi/src/play-gate-policy.ts";
-import { formatConfirmError } from "../sapi/src/util.ts";
+} from "./play-gate-policy.js";
+import { formatConfirmError } from "./util.js";
+import { isRetiredPlatformModule } from "../../../contracts/platform-capabilities.js";
 
-const MANIFEST_PATH = fileURLToPath(new URL("../sapi/manifest.json", import.meta.url));
-
-function readManifest(): {
-  id: string;
-  configKey: string;
-  permissions?: string[];
-} {
-  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as {
-    id: string;
-    configKey: string;
-    permissions?: string[];
-  };
-}
-
-describe("qq-link metadata & logic", () => {
-  it("manifest 契约声明校验", () => {
-    const manifest = readManifest();
-    assert.equal(manifest.id, "feature-qq-link");
-    assert.equal(manifest.configKey, "qq_link");
-    assert.match(manifest.id, /^feature-[a-z][a-z0-9]*(-[a-z0-9]+)*$/);
+describe("platform qq-link logic", () => {
+  it("qq-link / feature-qq-link 已列入退役清单", () => {
+    assert.equal(isRetiredPlatformModule("qq-link"), true);
+    assert.equal(isRetiredPlatformModule("feature-qq-link"), true);
+    assert.equal(isRetiredPlatformModule("monitor"), true);
+    assert.equal(isRetiredPlatformModule("afk"), false);
   });
 
   it("formatConfirmError 覆盖常见码", () => {

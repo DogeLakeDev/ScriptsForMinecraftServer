@@ -1,7 +1,7 @@
 /**
- * 平台内置 QQ 绑定模块 — 游戏内绑定、游玩门槛、事件上报与账号快照。
+ * qq-link/index.ts — 平台内置 QQ 绑定、游玩门槛、事件上报与账号快照
  *
- * 使用场景：随平台 `modules/packages/qq-link` 安装，不再作为独立市场模块分发。
+ * 使用场景：随行为包宿主 `installHostBootstrap` 启动，不再作为 modules/packages 模块。
  *
  * 流程（绑定）：
  *   1. QQ 侧发「绑定」取得短码
@@ -9,27 +9,27 @@
  *
  * 流程（游玩门槛）：
  *   关闭原版 allow-list。未绑定可进服，但是访客且不能移动，聊天栏提示绑定。
- *   QQ 绑定成功写入绑定表后解除限制。
  *
  * 流程（事件）：
  *   join/leave/death → POST /api/sfmc/qq/events（db-server 实时推群）
- *
- * 聊天互通由聊天模块按频道的「转发到 QQ」和 QQ 消息来源处理，本模块不再读取已删除的 bridge_channel_id。
  */
 
 import { Player, system, world } from "@minecraft/server";
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { ModuleRegistry, type ModuleDescriptor } from "@sfmc-bds/sdk/module-loader";
-import { Command, HttpDB, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+import { PLATFORM_SERVICE_OWNER } from "../../../contracts/platform-capabilities.js";
+import { setDbModuleContext } from "../../db/client.js";
+import { ConfigManager } from "../../../module-loader/internal/config-manager.js";
+import { setServiceModuleContext } from "../../service/client.js";
+import { Command } from "../command.js";
+import { HttpDB } from "../httpdb.js";
+import { Msg } from "../msg.js";
+import { Permission } from "../permission.js";
 import { startAccountProfileReporter } from "./account-profile.js";
 import { registerGameEventReporters, startLiveStatusReporter } from "./events.js";
 import { markBoundAndRelease, startPlayGate, stopPlayGate } from "./play-gate.js";
 import { formatConfirmError } from "./util.js";
 
-/** 与 sapi/manifest.json 的 id 一致 */
-export const MODULE_ID = "feature-qq-link";
-
-/** 命令权限名 */
+/** 命令权限名（兼容旧模块声明习惯） */
 export const PERM = "qq_link.use";
 
 /** 等待绑定码超时（tick；20 tick ≈ 1s） */
@@ -46,6 +46,10 @@ const intervalIds: number[] = [];
 let onChatSend: ((ev: { sender?: Player; message?: string; cancel?: boolean }) => void) | null = null;
 /** 游戏事件上报的取消函数 */
 let unsubGameEvents: (() => void) | null = null;
+/** 命令/权限是否已注册（宿主只装一次） */
+let commandsRegistered = false;
+/** 世界侧能力是否已启动 */
+let runtimeStarted = false;
 
 function clearPending(playerId: string): void {
   const p = pendingByPlayer.get(playerId);
@@ -81,7 +85,6 @@ export async function postBindConfirm(
 function beginWait(player: Player): void {
   const id = player.id;
   clearPending(id);
-  // 跨包 @minecraft/server 类型身份不一致（file: SDK vs 本仓），运行时同一 stub
   Msg.info("请在 60 秒内发送绑定码", player as never);
   const timeoutId = system.runTimeout(() => {
     if (!pendingByPlayer.has(id)) return;
@@ -96,11 +99,14 @@ function beginWait(player: Player): void {
   pendingByPlayer.set(id, { timeoutId });
 }
 
-function registerPermissions(): void {
+/**
+ * 注册 /c:bind 与权限；在宿主 install 阶段调用一次。
+ * 当前场景：installHostBootstrap 与 status 命令对称注册。
+ */
+export function registerPlatformQqLinkCommands(): void {
+  if (commandsRegistered) return;
+  commandsRegistered = true;
   Permission.register(PERM, Permission.Any);
-}
-
-function registerCommands(): void {
   Command.register(
     "bind",
     PERM,
@@ -108,12 +114,17 @@ function registerCommands(): void {
       if (!player) return;
       beginWait(player as Player);
     },
-    "绑定 QQ（随后发送验证码）",
-    MODULE_ID
+    "绑定 QQ（随后发送验证码）"
   );
 }
 
-function registerEvents(): void {
+function bindPlatformIdentity(): void {
+  const token = ConfigManager.getModuleToken(PLATFORM_SERVICE_OWNER);
+  setDbModuleContext(PLATFORM_SERVICE_OWNER, token);
+  setServiceModuleContext(PLATFORM_SERVICE_OWNER, token, () => false);
+}
+
+function registerChatBindHandler(): void {
   onChatSend = (ev) => {
     const player = ev.sender;
     if (!player) return;
@@ -134,7 +145,6 @@ function registerEvents(): void {
     system.run(() => {
       void (async () => {
         const result = await postBindConfirm(player, code);
-        // await 之后回到脚本线程再改权限和发消息。
         system.run(() => {
           if (result.ok) {
             markBoundAndRelease(player);
@@ -147,18 +157,27 @@ function registerEvents(): void {
     });
   };
   world.beforeEvents.chatSend.subscribe(onChatSend as never);
-
-  // 上下线 / 死亡 → db-server 实时推群
   unsubGameEvents = registerGameEventReporters();
 }
 
-function init(): void {
+/**
+ * 世界加载后启动门禁、事件上报与定时同步。
+ * @returns 停止函数，供 shutdown 调用。
+ */
+export function startPlatformQqLink(): () => void {
+  if (runtimeStarted) return stopPlatformQqLink;
+  runtimeStarted = true;
+  bindPlatformIdentity();
+  registerChatBindHandler();
   startPlayGate();
   intervalIds.push(startLiveStatusReporter());
   intervalIds.push(startAccountProfileReporter());
+  return stopPlatformQqLink;
 }
 
-function cleanup(): void {
+/** 关闭平台 QQ 绑定运行时（定时器、订阅、门禁）。 */
+export function stopPlatformQqLink(): void {
+  if (!runtimeStarted && pendingByPlayer.size === 0 && intervalIds.length === 0) return;
   stopPlayGate();
   for (const id of [...pendingByPlayer.keys()]) {
     clearPending(id);
@@ -187,19 +206,5 @@ function cleanup(): void {
     }
     unsubGameEvents = null;
   }
+  runtimeStarted = false;
 }
-
-registerCommands();
-
-export const DESCRIPTOR: ModuleDescriptor = {
-  id: MODULE_ID,
-  afterWorldLoad: false,
-  lifecycle: {
-    registerPermissions,
-    registerEvents,
-    init,
-    cleanup,
-  },
-};
-
-ModuleRegistry.register(DESCRIPTOR);

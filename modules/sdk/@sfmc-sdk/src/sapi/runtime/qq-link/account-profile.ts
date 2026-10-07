@@ -3,12 +3,13 @@
  *
  * 走这两个模块自己注册的服务，不读它们的私有表。
  * 玩家在线时约每 30 秒推一次；离线后的数字仍以插件已经落库的记录为准。
+ * 当前由平台宿主以 `_platform` 身份调用（可选依赖，失败降级）。
  */
 
 import { system, world, type Player } from "@minecraft/server";
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { HttpDB } from "@sfmc-bds/sdk/sapi/runtime";
-import { service } from "@sfmc-bds/sdk/sapi/service";
+import { service } from "../../service/client.js";
+import { HttpDB } from "../httpdb.js";
 
 type EconomyGet = { balance?: number };
 type OnlineByPlayer = {

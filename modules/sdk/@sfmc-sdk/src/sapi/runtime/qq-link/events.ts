@@ -1,13 +1,13 @@
 /**
- * events.ts — 游戏事件上报到 db-server（join/leave/death）
+ * events.ts — 游戏事件上报到 db-server（join/leave/death）与实时状态
  *
  * 由 db-server /api/sfmc/qq/events 负责按开关过滤并实时推群。
- * fire-and-forget：网络失败忽略。
+ * 当前由平台宿主 qq-link 在世界加载后注册，fire-and-forget。
  */
 
 import { system, world, type Player } from "@minecraft/server";
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { HttpDB } from "@sfmc-bds/sdk/sapi/runtime";
+import { HttpDB } from "../httpdb.js";
 
 export type QqGameEvent = {
   type: "join" | "leave" | "death";
@@ -20,11 +20,9 @@ export type QqEventReporter = (ev: QqGameEvent) => void;
 /** 默认：POST /api/sfmc/qq/events */
 export async function postQqEvent(ev: QqGameEvent): Promise<void> {
   try {
-    const result = await HttpDB.typedRequest(HttpRequestMethod.POST, "/api/sfmc/qq/events", {
-      type: ev.type,
-      player: ev.player,
-      cause: ev.cause,
-    });
+    const body: Record<string, unknown> = { type: ev.type, player: ev.player };
+    if (ev.cause) body.cause = ev.cause;
+    const result = await HttpDB.typedRequest(HttpRequestMethod.POST, "/api/sfmc/qq/events", body);
     if (!result.ok) warnReportFailure(`事件 HTTP ${result.status}`);
   } catch {
     warnReportFailure("事件请求异常");
@@ -36,7 +34,7 @@ function warnReportFailure(reason: string): void {
   const now = Date.now();
   if (now - lastReportWarning < 60_000) return;
   lastReportWarning = now;
-  console.warn(`[qq-link] ${reason}，请检查 db-server 连接与鉴权`);
+  console.warn(`[SFMC] QQ 事件上报失败: ${reason}，请检查数据服务连接与鉴权`);
 }
 
 /** 实时玩家列表与世界信息每 20 秒同步，供 QQ 查服使用。 */
@@ -56,11 +54,17 @@ export function startLiveStatusReporter(): number {
     }
     busy = true;
     void HttpDB.typedRequest(HttpRequestMethod.POST, "/api/sfmc/status/live", {
-      players, day, difficulty,
-    }).then((result) => {
-      if (!result.ok) warnReportFailure(`实时状态 HTTP ${result.status}`);
-    }).catch(() => warnReportFailure("实时状态请求异常"))
-      .finally(() => { busy = false; });
+      players,
+      day,
+      difficulty,
+    })
+      .then((result) => {
+        if (!result.ok) warnReportFailure(`实时状态 HTTP ${result.status}`);
+      })
+      .catch(() => warnReportFailure("实时状态请求异常"))
+      .finally(() => {
+        busy = false;
+      });
   };
   system.run(report);
   return system.runInterval(report, 400);
@@ -104,7 +108,7 @@ let onDie:
 
 /**
  * 订阅世界事件；返回取消订阅函数。
- * 由 index.registerEvents / cleanup 调用。
+ * 由平台宿主 startPlatformQqLink / stopPlatformQqLink 调用。
  */
 export function registerGameEventReporters(): () => void {
   onSpawn = (ev) => {
@@ -124,14 +128,14 @@ export function registerGameEventReporters(): () => void {
     const name = String(dead?.name ?? "").trim();
     if (!name) return;
     const causeRaw = String(ev.damageSource?.cause ?? "").trim();
-    // 若 cause 笼统，附带攻击者名供群文案参考（db 侧仍做中文映射）
     const attacker = ev.damageSource?.damagingEntity;
     let cause = causeRaw;
     if (attacker && (causeRaw === "entityAttack" || causeRaw === "projectile")) {
       const an = String(attacker.name ?? attacker.typeId ?? "").trim();
       if (an) cause = an;
     }
-    report({ type: "death", player: name, cause: cause || undefined });
+    if (cause) report({ type: "death", player: name, cause });
+    else report({ type: "death", player: name });
   };
 
   world.afterEvents.playerSpawn.subscribe(onSpawn as never);

@@ -249,7 +249,8 @@ export type ConfigName =
   | "bds_updater.json"
   | "pack-update.json"
   | "log-filter.json"
-  | "runtime.json";
+  | "runtime.json"
+  | "qq_link.json";
 
 /**
  * 模块系统文件(不在 configs/ 下,但同属"项目根 + 仓顶服务管理"的范畴)。
@@ -482,8 +483,18 @@ export function loadEnsuredConfig<T extends Record<string, unknown>>(
   return stripConfigMeta(ensureSchemaConfig(root, name, schemaId, defaults, from) as Record<string, unknown>) as T;
 }
 
+/**
+ * 平台 QQ 绑定相关配置默认值（configs/qq_link.json）。
+ * 当前由向导 / db-server 播种；原 qq-link 模块 configs-default 已收编至此。
+ */
+export const DEFAULT_QQ_LINK_CONFIG = {
+  allowlist_enabled: true,
+  require_approval: true,
+  treat_group_admins_as_admins: true,
+} as const;
+
 /** 平台核心配置种子集合（扩展新文件时只改此处 + switch） */
-export type CoreConfigKind = "db_config" | "qq_config" | "bds_updater" | "permissions";
+export type CoreConfigKind = "db_config" | "qq_config" | "bds_updater" | "permissions" | "qq_link";
 
 /**
  * 按需 ensure 平台核心配置。新种类加到 CoreConfigKind + switch 即可（OCP）。
@@ -509,6 +520,9 @@ export function ensureCoreConfigs(root: string, kinds: readonly CoreConfigKind[]
         break;
       case "permissions":
         ensureJson(configPath(root, "permissions.json"), DEFAULT_PERMISSIONS);
+        break;
+      case "qq_link":
+        ensureJson(configPath(root, "qq_link.json"), { ...DEFAULT_QQ_LINK_CONFIG });
         break;
       default: {
         const _exhaustive: never = kind;

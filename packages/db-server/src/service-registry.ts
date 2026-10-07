@@ -104,18 +104,22 @@ export class ServiceRegistry {
     if (!platformService && !enabled.has(handler.moduleId)) {
       throw new DispatchError(`service "${name}" 提供方 ${handler.moduleId} 未 enabled`, "forbidden", 403);
     }
+    // 平台宿主可调用任意已注册服务（QQ 账号快照等可选依赖）；其它调用方仍走 enabled + requires
+    const platformCaller = callerModuleId === PLATFORM_SERVICE_OWNER;
     const caller = enabled.get(callerModuleId);
-    if (!caller) {
+    if (!platformCaller && !caller) {
       throw new DispatchError(`调用方 ${callerModuleId} 未 enabled`, "forbidden", 403);
     }
-    const declared = caller.services.requires.find((r) => r.name === name);
-    // 提供方调自己的 service 免 requires(例如 economy 白皮书调 stats.monthly)
-    if (!declared && callerModuleId !== handler.moduleId) {
-      throw new DispatchError(
-        `${callerModuleId} 的 manifest.services.requires 未声明 "${name}"`,
-        "not_in_requires",
-        403
-      );
+    if (!platformCaller) {
+      const declared = caller!.services.requires.find((r) => r.name === name);
+      // 提供方调自己的 service 免 requires(例如 economy 白皮书调 stats.monthly)
+      if (!declared && callerModuleId !== handler.moduleId) {
+        throw new DispatchError(
+          `${callerModuleId} 的 manifest.services.requires 未声明 "${name}"`,
+          "not_in_requires",
+          403
+        );
+      }
     }
     try {
       const result = await handler.handle({

@@ -85,7 +85,7 @@ qq-bridge intercepts commands **before** forwarding to MC. Same command registry
 | `whoami` / `我的绑定` | QQ id; shows MC name if bound |
 | `status` / `状态` | Server summary: online, world, host uptime, BDS/db uptime, memory/CPU (`GET /api/sfmc/status`) |
 | `online` / `在线` | Online roster (truncated) |
-| `绑定` / `bind` | Request bind code (needs the platform `qq-link` package) |
+| `绑定` / `bind` | Request bind code (needs platform BP host with QQ bind) |
 | `解绑` / `unbind` | Unbind |
 | `申请入服` / `join` | Request BDS allowlist entry (admin approve + module apply) |
 | `频道` / `channel` | Chat-bridge channel + light db/BDS self-check |
@@ -120,7 +120,7 @@ Platform APIs on db-server (loopback): `POST /api/sfmc/qq/bind/{request,confirm,
 | Side | Capability | Where |
 | --- | --- | --- |
 | **QQ** | Request/approve/pending, group info/bot_state, notify | qq-bridge + OpenAPI; state in db-server |
-| **BDS** | Bind gate, join/leave/death reports | Platform package `modules/packages/qq-link` |
+| **BDS** | Bind gate, join/leave/death reports | Platform behavior-pack host (`installHostBootstrap`) |
 
 The platform never writes BDS `allowlist.json` directly. QQ bot management does not enqueue kicks. Chat between the game and QQ is owned by the chat module (`forward_to_qq` and QQ-sourced channels), not a removed `bridge_channel_id` setting.
 
@@ -134,9 +134,9 @@ The platform never writes BDS `allowlist.json` directly. QQ bot management does 
 
 If BDS is down, approvals can queue and apply after restart. Stopping BDS does not block read-only `群信息` (OpenAPI only).
 
-### Join switches (module config `configs/qq_link.json`)
+### Join switches (platform config `configs/qq_link.json`)
 
-Owned by the **qq-link plugin**, not the SDK / `qq_config`. Defaults are created on first read/write:
+Owned by the **platform QQ bind host**, not the SDK / `qq_config`. Defaults are created on first read/write (wizard / db-server seed):
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -150,7 +150,7 @@ Bot (`official.admin_openids`, or group admins when the flag above is on): `配�
 
 `GET /v2/groups/{group_openid}/info` and `bot_state` may require a platform allowlist. When blocked, `status` / `群信息` show a clear tip; chat bridge and join flow still work.
 
-Game side ships with the platform as **`modules/packages/qq-link`**: `/c:bind`, the unbound visitor gate, and join/leave/death reporting. It is no longer an installable registry module.
+Game side is built into the **platform behavior-pack host** (same pattern as runtime monitoring): `/c:bind`, the unbound visitor gate, and join/leave/death reporting. Rebuild/deploy the platform BP after SDK upgrades. `qq-link` / `feature-qq-link` are retired modules — CLI refuses install/enable.
 
 Read-only ops: public `GET /api/sfmc/status` backs `status` / `online`. Payload includes `host` (uptime/memory/CPU) and `processes.bds` / `processes.db` (process uptime; BDS from `.sfmc/bds.pid` or `bedrock_server` probe).
 
@@ -160,7 +160,7 @@ Join / leave / death / BDS lifecycle posts to the QQ group independently of chat
 
 | Event | Source | When |
 | --- | --- | --- |
-| Join / leave / death | Platform package `qq-link` | Immediate |
+| Join / leave / death | Platform BP host (SAPI) | Immediate |
 | BDS unexpected exit | `bds-manager` (not manual stop) | Immediate |
 | BDS start success | `bds-manager` after spawn | Immediate |
 

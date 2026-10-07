@@ -546,7 +546,7 @@ class Service {
 
 function createServices(): Record<ServiceName, Service> {
   /* 各服务/CLI 用 SDK ensureCoreConfigs 播种（含 $schema），不再从 configs-default 拷贝。 */
-  ensureCoreConfigs(ROOT, ["bds_updater", "qq_config", "db_config"]);
+  ensureCoreConfigs(ROOT, ["bds_updater", "qq_config", "db_config", "qq_link"]);
   ensurePackUpdateConfigFile();
   void import("./module-update/index.js")
     .then((mod) => mod.ensureModuleUpdateConfigFile())

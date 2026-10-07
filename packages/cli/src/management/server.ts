@@ -180,7 +180,7 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
         if (isRuntimeInitialized()) throw new Error("目录已经初始化，不覆盖已有部署");
         const ports = { db: deploymentPort(p.dbPort, 3001), bds: deploymentPort(p.bdsPort, 19132), bds6: deploymentPort(p.bdsPort6, 19133) };
         context.phase("preflight", "检查目录、磁盘空间和 TCP／UDP 端口"); await deploymentPreflight(ports);
-        context.phase("prepare"); ensureCoreConfigs(ROOT, ["db_config", "qq_config", "bds_updater", "permissions"]);
+        context.phase("prepare"); ensureCoreConfigs(ROOT, ["db_config", "qq_config", "bds_updater", "permissions", "qq_link"]);
         const updater = path.join(ROOT, "configs", "bds_updater.json");
         atomicJson(updater, { ...readJson(updater, {}), bds_path: "BDS", backup_dir: "backups" });
         const dbFile = path.join(ROOT, "configs", "db_config.json"); atomicJson(dbFile, { ...readJson(dbFile, {}), db_port: ports.db });
