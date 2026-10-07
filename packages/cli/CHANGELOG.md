@@ -1,5 +1,19 @@
 # @sfmc-bds/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- d538524: 将 qq-link 收编进平台行为包宿主（对齐 monitor）：绑定门禁、进退服/死亡上报随 SDK 宿主启动；退役模块 id；平台 `_platform` 可调用跨模块服务；播种 `configs/qq_link.json`。
+
+### Patch Changes
+
+- Updated dependencies [d538524]
+  - @sfmc-bds/sdk@0.4.0
+  - @sfmc-bds/bds-tools@0.2.8
+  - @sfmc-bds/devkit@2.0.4
+  - @sfmc-bds/management@0.3.2
+
 ## 0.4.5
 
 ### Patch Changes
