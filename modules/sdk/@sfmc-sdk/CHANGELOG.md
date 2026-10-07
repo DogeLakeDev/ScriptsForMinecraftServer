@@ -1,5 +1,11 @@
 # @sfmc-bds/sdk
 
+## 0.3.2
+
+### Patch Changes
+
+- fe9ab2e: QQ 服务器事件推送改为实时单条发送，移除 join/leave/death 的时间窗口合并与聚合间隔配置。
+
 ## 0.3.1
 
 ### Patch Changes

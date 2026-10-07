@@ -1,5 +1,17 @@
 # @sfmc-bds/db-server
 
+## 0.4.0
+
+### Minor Changes
+
+- fe9ab2e: QQ 服务器事件推送改为实时单条发送，移除 join/leave/death 的时间窗口合并与聚合间隔配置。
+
+### Patch Changes
+
+- Updated dependencies [fe9ab2e]
+  - @sfmc-bds/sdk@0.3.2
+  - @sfmc-bds/bds-tools@0.2.7
+
 ## 0.3.2
 
 ### Patch Changes
