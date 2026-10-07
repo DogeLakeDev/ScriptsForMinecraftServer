@@ -167,10 +167,10 @@ export async function launchPlatformUpdate(store: TaskStore, context: TaskContex
   const previous = readJson(path.join(ROOT, ".sfmc", "runtime", "active.json"), { entry: fs.existsSync(path.join(ROOT, "node_modules", "@sfmc-bds", "sfmc", "bin", "sfmc.mjs")) ? path.join(ROOT, "node_modules", "@sfmc-bds", "sfmc", "bin", "sfmc.mjs") : process.env.SFMC_DAEMON_ENTRY, version: platformVersion() });
   atomicJson(request, { root: ROOT, id: context.id, target, running: rows.filter(row => row.running).map(row => row.name), previous });
   const entry = fileURLToPath(new URL("./platform-worker.js", import.meta.url));
-  fs.mkdirSync(path.join(ROOT, ".sfmc", "logs"), { recursive: true });
-  const fd = fs.openSync(path.join(ROOT, ".sfmc", "logs", "maintenance.log"), "a");
-  const child = spawn(process.execPath, [entry, request], { cwd: ROOT, env: { ...process.env, SFMC_ROOT: ROOT }, detached: true, windowsHide: true, stdio: ["ignore", fd, fd] });
-  fs.closeSync(fd);
+  const log = path.join(ROOT, ".sfmc", "logs", "maintenance.log");
+  fs.mkdirSync(path.dirname(log), { recursive: true });
+  // 不把父进程的日志句柄交给子进程。Windows 上继承句柄时，守护进程退出会结束尚未脱离的维护进程，备份会停在半截且锁无人释放。
+  const child = spawn(process.execPath, [entry, request], { cwd: ROOT, env: { ...process.env, SFMC_ROOT: ROOT, SFMC_MAINTENANCE_LOG: log }, detached: true, windowsHide: true, stdio: "ignore" });
   await new Promise<void>((resolve, reject) => { child.once("spawn", resolve); child.once("error", reject); });
   child.unref();
   const record = store.get(context.id) as ReturnType<TaskStore["get"]> & { workerPid?: number };

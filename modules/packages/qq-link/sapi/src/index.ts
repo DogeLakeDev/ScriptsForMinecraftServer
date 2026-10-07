@@ -12,7 +12,7 @@
  *   QQ 绑定成功写入绑定表后解除限制。
  *
  * 流程（事件）：
- *   join/leave/death → POST /api/sfmc/qq/events（db-server 聚合推群）
+ *   join/leave/death → POST /api/sfmc/qq/events（db-server 实时推群）
  *
  * 聊天互通由聊天模块按频道的「转发到 QQ」和 QQ 消息来源处理，本模块不再读取已删除的 bridge_channel_id。
  */
@@ -148,7 +148,7 @@ function registerEvents(): void {
   };
   world.beforeEvents.chatSend.subscribe(onChatSend as never);
 
-  // 上下线 / 死亡 → db-server 聚合推群
+  // 上下线 / 死亡 → db-server 实时推群
   unsubGameEvents = registerGameEventReporters();
 }
 

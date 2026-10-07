@@ -114,7 +114,6 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
               </li>
             ))}
           </ul>
-          <p className="about-foot">SFMC 以独立后台运行，关闭客户端不会停止服务与已提交的任务。</p>
         </section>
       </div>
     </Modal>

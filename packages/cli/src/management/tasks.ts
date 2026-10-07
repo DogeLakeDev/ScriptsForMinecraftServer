@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { withMaintenanceLock } from "@sfmc-bds/management/node";
+import { lockOwnerAlive, withMaintenanceLock } from "@sfmc-bds/management/node";
 import { toManagementError, type OperationRecord } from "@sfmc-bds/management";
 
 export function atomicJson(file: string, value: unknown) {
@@ -24,8 +24,8 @@ export class TaskStore extends EventEmitter {
     for (const record of this.list()) {
       if (record.status === "queued" || record.status === "running") {
         const pid = (record as OperationRecord & { workerPid?: number }).workerPid;
-        let active = false;
-        if (pid) { try { process.kill(pid, 0); active = true; } catch { /* 已退出 */ } }
+        // 与维护锁同一套探活：权限不足不算退出，避免把还在跑的维护进程标成中断。
+        const active = typeof pid === "number" && lockOwnerAlive(pid);
         if (!active) { record.status = "interrupted"; record.error = { code: "unavailable", message: "执行进程异常退出；请检查备份与实际状态，任务不会自动重发" }; this.save(record); }
       }
     }

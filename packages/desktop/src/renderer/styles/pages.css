@@ -256,6 +256,13 @@
   box-shadow: inset 3px 0 0 var(--c-danger);
 }
 
+/* 关闭自动换行时，行盒至少要跟内容一样宽。
+   log-row 使用 content-visibility，布局包含会把超出的文字当成墨水溢出，
+   不计入视口的 scrollWidth，只改 white-space 无法左右滑动。 */
+.console-viewport:not(.wrap) .log-row {
+  min-width: max-content;
+}
+
 .console-viewport:not(.wrap) .log-text {
   white-space: pre;
 }

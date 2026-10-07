@@ -1,7 +1,7 @@
 /**
  * events.ts — 游戏事件上报到 db-server（join/leave/death）
  *
- * 不在此做聚合；db-server /api/sfmc/qq/events 负责节流。
+ * 由 db-server /api/sfmc/qq/events 负责按开关过滤并实时推群。
  * fire-and-forget：网络失败忽略。
  */
 

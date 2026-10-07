@@ -36,7 +36,7 @@ import { isLogPayload } from "./protocol.js";
 import { isDaemonServer } from "./role.js";
 import { fileURLToPath } from "node:url";
 import type { ManagementEvent } from "@sfmc-bds/management";
-import { maintenanceToken } from "@sfmc-bds/management/node";
+import { lockOwnerAlive, maintenanceToken } from "@sfmc-bds/management/node";
 
 export function onDaemonManagementEvent(callback: (event: ManagementEvent) => void): () => void {
   remoteStateBus.on("management", callback);
@@ -236,8 +236,13 @@ async function tryConnectExisting(): Promise<DaemonConnection | null> {
 function spawnDaemonProcess(): void {
   const lockFile = path.join(ROOT, ".sfmc", "maintenance.lock");
   if (fs.existsSync(lockFile)) {
-    const owner = JSON.parse(fs.readFileSync(lockFile, "utf8")) as { nonce: string };
-    if ((maintenanceToken(ROOT) ?? process.env.SFMC_MAINTENANCE_TOKEN) !== owner.nonce) throw new Error("实例正在维护；后台切换完成前不会创建另一个守护进程");
+    const owner = JSON.parse(fs.readFileSync(lockFile, "utf8")) as { pid?: number; nonce?: string };
+    const token = maintenanceToken(ROOT) ?? process.env.SFMC_MAINTENANCE_TOKEN;
+    const holder = token === owner.nonce;
+    const pidKnown = Number.isSafeInteger(owner.pid) && (owner.pid ?? 0) > 0;
+    // 当前维护进程自己拉起替换用的守护进程时 token 相同，允许启动。
+    // 持有者已退出则不再挡住：否则界面无法重连，任务会永远停在「进行中」。
+    if (!holder && (!pidKnown || lockOwnerAlive(owner.pid ?? 0))) throw new Error("实例正在维护；后台切换完成前不会创建另一个守护进程");
   }
   const entry = process.env.SFMC_DAEMON_ENTRY ?? fileURLToPath(new URL("../main.js", import.meta.url));
   if (!entry) throw new Error("cannot resolve sfmc entry for daemon spawn");

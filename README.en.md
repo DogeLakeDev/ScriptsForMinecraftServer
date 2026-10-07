@@ -70,7 +70,7 @@ flowchart TD
 - ⚡ **Sub-Second Hot-Reload Development Workflow**  
   With the official "SFMC Module" VS Code extension, editing module source code immediately triggers incremental bundling and in-game `/reload`, eliminating tedious server restarts and player disconnections.
 - 🤖 **Turnkey Multi-Platform Social Bridge (QQ Bridge)**  
-  Native support for Tencent QQ Open Platform official bots and OneBot 11 (LLBot), featuring in-group server status queries, rich interactive card actions, bi-directional chat relay, intelligent event throttling, and asynchronous allowlist approval.
+  Native support for Tencent QQ Open Platform official bots and OneBot 11 (LLBot), featuring in-group server status queries, rich interactive card actions, bi-directional chat relay, real-time event push, and asynchronous allowlist approval.
 - 📦 **Add-on Inbox Pipeline**  
   Drop `.mcpack` or `.mcaddon` files into the `packs/` inbox for automated parsing and deployment, complete with version conflict detection, CurseForge remote updates, and resource pack cache busting (`packs bump`).
 

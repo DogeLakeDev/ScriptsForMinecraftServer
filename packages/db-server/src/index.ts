@@ -49,7 +49,7 @@ import { createServiceRoutes } from "./routes/service-routes.js";
 
 import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
 import { loadContentSnapshot } from "./domain/installed-content.js";
-import { createQqEventsAggregator, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
+import { createQqEventsDispatcher, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
 import { createConfigRoutes } from "./routes/config.js";
@@ -368,14 +368,14 @@ function currentOutbound() {
   });
 }
 
-const qqEventsAggregator = createQqEventsAggregator({
+const qqEventsDispatcher = createQqEventsDispatcher({
   getConfig: readQqEventsSettings,
   getOutbound: () => currentOutbound(),
 });
 const qqEventsRoutes = createQqEventsRoutes({
   body,
   json,
-  aggregator: qqEventsAggregator,
+  dispatcher: qqEventsDispatcher,
   getSettings: readQqEventsSettings,
   setSettings: writeQqEventsSettings,
   isAdmin: (openid, asGroupAdmin) => {

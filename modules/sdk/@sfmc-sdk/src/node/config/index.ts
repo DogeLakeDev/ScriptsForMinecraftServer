@@ -32,8 +32,6 @@ export type QQBackend = "official" | "llbot";
 export interface QqEventsConfig {
   /** 总开关；false 时丢弃全部事件 */
   enabled?: boolean;
-  /** join/leave/death 聚合窗口（秒），默认 60 */
-  window_sec?: number;
   join?: boolean;
   leave?: boolean;
   death?: boolean;
@@ -80,7 +78,7 @@ export interface QQBridgeConfig {
   };
   db_host?: string;
   db_port?: number;
-  /** 上下线/死亡/BDS 启停推群（节流） */
+  /** 上下线/死亡/BDS 启停推群（实时） */
   qq_events?: QqEventsConfig;
   [key: string]: unknown;
 }
@@ -189,7 +187,6 @@ export const DEFAULT_DB_CONFIG: DBConfig = {
 /** 事件推群默认（改配置需重启） */
 export const DEFAULT_QQ_EVENTS: Required<QqEventsConfig> = {
   enabled: true,
-  window_sec: 60,
   join: true,
   leave: true,
   death: true,

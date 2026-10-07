@@ -38,7 +38,7 @@ export function RightRail() {
       </div>
       <div className="rail-scroll">
         {!selected || !connected ? (
-          <EmptyState compact icon="broadcast" title="尚未连接" description="连接实例后显示动态" />
+          <EmptyState compact icon="broadcast" title="尚未连接实例"/>
         ) : (
           <>
             <RailSection title="告警" action="控制台" onAction={() => setPage("logs")}>

@@ -154,24 +154,23 @@ Game side ships with the platform as **`modules/packages/qq-link`**: `/c:bind`, 
 
 Read-only ops: public `GET /api/sfmc/status` backs `status` / `online`. Payload includes `host` (uptime/memory/CPU) and `processes.bds` / `processes.db` (process uptime; BDS from `.sfmc/bds.pid` or `bedrock_server` probe).
 
-## Event push (throttled)
+## Event push
 
-Join / leave / death / BDS lifecycle posts to the QQ group independently of chat forwarding.
+Join / leave / death / BDS lifecycle posts to the QQ group independently of chat forwarding. Every event is sent immediately as its own message; nothing is batched.
 
 | Event | Source | When |
 | --- | --- | --- |
-| Join / leave / death | Platform package `qq-link` | Aggregated about every `window_sec` (default 60s) |
+| Join / leave / death | Platform package `qq-link` | Immediate |
 | BDS unexpected exit | `bds-manager` (not manual stop) | Immediate |
 | BDS start success | `bds-manager` after spawn | Immediate |
 
-Outbound still goes db-server → official OpenAPI / LLBot HTTP (same as MC→QQ; llbot needs port 3004). Official proactive group messages are rate-limited, so game events must be batched.
+Outbound still goes db-server → official OpenAPI / LLBot HTTP (same as MC→QQ; llbot needs port 3004). Official proactive group messages are rate-limited by QQ; turn off noisy event types if the group gets throttled.
 
-Config (`qq_config.json` → `qq_events`; restart db-server after edits):
+Config (`qq_config.json` → `qq_events`; restart db-server after edits). The legacy `window_sec` field is deprecated and ignored:
 
 ```json
 "qq_events": {
   "enabled": true,
-  "window_sec": 60,
   "join": true,
   "leave": true,
   "death": true,
@@ -182,7 +181,7 @@ Config (`qq_config.json` → `qq_events`; restart db-server after edits):
 
 `enabled: false` disables all. API: `POST /api/sfmc/qq/events` (loopback; one object or `{ "events": [...] }`, max 100).
 
-Manual `stop` does not emit crash; crash auto-restart emits crash then start. Not in scope: achievements, per-death instant push, chat mirroring via this path.
+Manual `stop` does not emit crash; crash auto-restart emits crash then start. Not in scope: achievements, chat mirroring via this path.
 
 ## Start
 

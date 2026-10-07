@@ -30,9 +30,9 @@ import {
 import type { DaemonEvent, DaemonRequest, DaemonResponse, DaemonResult } from "./protocol.js";
 import { toLogPayload } from "./protocol.js";
 import { markDaemonServer } from "./role.js";
-import { dispatchManagement, onManagementEvent } from "../management/server.js";
+import { dispatchManagement, managementTasks, onManagementEvent } from "../management/server.js";
 import { toManagementError } from "@sfmc-bds/management";
-import { withMaintenanceLock } from "@sfmc-bds/management/node";
+import { isMaintenanceLocked, withMaintenanceLock } from "@sfmc-bds/management/node";
 import { ROOT } from "../runtime.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -281,7 +281,9 @@ export async function runDaemonServer(): Promise<void> {
 
   writeDaemonMeta(meta);
   releaseStartup();
-  if (process.argv.includes("--autostart") && !fs.existsSync(path.join(ROOT, ".sfmc", "maintenance.lock"))) await startAll();
+  // 启动时就核对遗留任务。维护进程被杀掉后，桌面不用先发请求也能看到「已中断」。
+  managementTasks();
+  if (process.argv.includes("--autostart") && !isMaintenanceLocked(ROOT)) await startAll();
 
   const cleanup = (): void => {
     unsubManagement();

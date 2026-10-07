@@ -104,7 +104,6 @@ export type QqEventSettings = {
   crash: boolean;
   start: boolean;
   stop: boolean;
-  window_sec: number;
 };
 
 export type QqEventSettingsResponse = {
@@ -120,7 +119,7 @@ export async function fetchQqEventSettings(ep: DbEndpoint): Promise<QqEventSetti
 
 export async function postQqEventSettings(
   ep: DbEndpoint,
-  body: { openid: string; as_group_admin: boolean; field: keyof QqEventSettings; value: boolean | number }
+  body: { openid: string; as_group_admin: boolean; field: keyof QqEventSettings; value: boolean }
 ): Promise<QqEventSettingsResponse> {
   const { data } = await requestJson<QqEventSettingsResponse>(ep, "POST", "/api/sfmc/qq/events/settings", body);
   return data;
