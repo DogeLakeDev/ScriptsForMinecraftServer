@@ -66,7 +66,7 @@ function InstalledModules() {
                 <div className="row-sub mono">{title === row.id ? row.folder : row.id}</div>
               </div>
               <span className="row-version mono">{row.version}</span>
-              <Tooltip content={editable ? (row.enabled ? "停用模块" : "启用模块") : "完成接入后可修改"} wrap>
+              <Tooltip content={editable ? (row.enabled ? "停用模块" : "启用模块") : "当前为只读"} wrap>
                 <Switch size="sm" label={`${row.enabled ? "停用" : "启用"}模块 ${row.id}`} disabled={!editable} checked={row.enabled} onChange={(enabled) => void submit("modules.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"}模块 ${row.id}`, { description: "将停服、备份并重建行为包后恢复运行。" })} />
               </Tooltip>
               <Menu

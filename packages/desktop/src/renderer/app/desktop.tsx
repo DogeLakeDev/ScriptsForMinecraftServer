@@ -6,7 +6,6 @@
  * 仅把原先内嵌在 modal.confirm 中的界面拆成独立对话框（通过 flow 状态驱动）。
  */
 import type {
-  AttachmentPlan,
   Handshake,
   LogEntryWire,
   ManagementMethod,
@@ -26,7 +25,6 @@ import { useDesktopUpdate, type DesktopUpdateState } from "./desktop-update.js";
 
 /** 单个实例在客户端内的完整视图模型（与原实现字段一致，新增 connecting / connectError 供连接门展示） */
 export interface Model {
-  approved?: boolean;
   handshake?: Handshake;
   services: ServiceStatusRow[];
   logs: LogEntryWire[];
@@ -34,7 +32,6 @@ export interface Model {
   packs: PackRow[];
   tasks: OperationRecord[];
   configKeys: string[];
-  attached?: boolean;
   disconnected?: boolean;
   connectionMessage?: string;
   /** 正在建立连接（连接门按钮的加载态） */
@@ -46,13 +43,13 @@ export interface Model {
 export const blank = (): Model => ({ services: [], logs: [], modules: [], packs: [], tasks: [], configKeys: [] });
 
 /**
- * 需要用户参与的接入流程：SSH 登录、初始化新部署、接入/升级计划。
+ * 需要用户参与的连接流程：SSH 登录，或空目录的第一次初始化。
  * 使用场景：connect() 根据握手结果设置 flow，App 根据 flow 渲染对应对话框。
+ * 已有部署连上即可管理，不再单独确认接入。
  */
 export type Flow =
   | { kind: "login"; profile: InstanceProfile; reconnect: boolean }
-  | { kind: "deploy"; profile: InstanceProfile }
-  | { kind: "attach"; profile: InstanceProfile; plan: AttachmentPlan };
+  | { kind: "deploy"; profile: InstanceProfile };
 
 /** 提交后台任务时的确认选项 */
 export interface SubmitOptions {
@@ -93,16 +90,12 @@ interface DesktopValue {
   refresh: (id: string) => Promise<void>;
   request: RequestFn;
   submit: SubmitFn;
-  /** 是否允许写操作：已接入、未断开、非旧版协议 */
+  /** 是否允许写操作：已连接、目录已初始化、非旧版协议 */
   editable: boolean;
   connect: (profile: InstanceProfile, reconnect?: boolean, secret?: Credentials) => Promise<void>;
   disconnect: (profile: InstanceProfile) => Promise<void>;
-  /** 重新读取接入计划并打开接入对话框（用于"仅查看"后继续接入） */
-  startAttach: (profile: InstanceProfile) => Promise<void>;
   /** 初始化新部署（接受条款 + 端口）：任务受理后回调 onAccepted 供界面展示进度，随后等待任务完成 */
   createDeployment: (profile: InstanceProfile, ports: { dbPort: number; bdsPort: number; bdsPort6: number }, onAccepted?: (operationId: string) => void) => Promise<void>;
-  /** 执行接入计划（升级时转入任务页，否则等待完成并标记已接入） */
-  applyAttachment: (profile: InstanceProfile, plan: AttachmentPlan) => Promise<void>;
   confirmHost: (profile: InstanceProfile) => Promise<void>;
   flow: Flow | null;
   setFlow: (flow: Flow | null) => void;
@@ -126,6 +119,12 @@ export interface ProfileDialogState {
 const DesktopContext = createContext<DesktopValue | null>(null);
 /** 上次选中实例的本地持久化键 */
 const LAST_INSTANCE_KEY = "sfmc.desktop.lastInstance";
+
+/** 打开或切换实例时，本机以及已保存凭据的 SSH 可以直接连，不必再点一次连接。 */
+function canAutoConnect(profile: InstanceProfile): boolean {
+  if (profile.kind === "local") return true;
+  return Boolean(profile.hasCredential || profile.privateKeyPath);
+}
 
 /** 读取桌面上下文（必须位于 DesktopProvider 内） */
 export function useDesktop(): DesktopValue {
@@ -172,6 +171,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   modelsRef.current = models;
   const profilesRef = useRef(profiles);
   profilesRef.current = profiles;
+  /** 正在连接的实例，避免打开时的自动连接和手动点击叠在一起 */
+  const connectingIds = useRef(new Set<string>());
+  const connectRef = useRef<(profile: InstanceProfile, reconnect?: boolean, secret?: Credentials) => Promise<void>>(async () => {});
   const tracked = useRef(new Map<string, TrackedOperation>());
   /** 待合并的实时日志（按实例），每 120ms 批量写入一次，避免高频日志导致整树重渲染 */
   const pendingLogs = useRef(new Map<string, LogEntryWire[]>());
@@ -183,6 +185,12 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     setCurrentState(id);
     setLogFocus(null);
     if (id) localStorage.setItem(LAST_INSTANCE_KEY, id);
+    const profile = profilesRef.current.find((row) => row.id === id);
+    const currentModel = modelsRef.current[id];
+    // 已连上或用户刚断开时不重复连接；断开后 handshake 还在，恢复连接由用户点。
+    if (profile && !currentModel?.handshake && !currentModel?.connecting && !connectingIds.current.has(id) && canAutoConnect(profile)) {
+      void connectRef.current(profile);
+    }
   }, []);
 
   const patch = useCallback(
@@ -236,10 +244,11 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     void window.sfmc
       .profiles()
       .then((rows) => {
+        profilesRef.current = rows;
         setProfiles(rows);
         const last = localStorage.getItem(LAST_INSTANCE_KEY);
         const initial = rows.find((row) => row.id === last) ?? rows[0];
-        if (initial) setCurrentState(initial.id);
+        if (initial) setCurrent(initial.id);
       })
       .finally(() => setReady(true));
     void window.sfmc.appInfo().then(setAppInfo).catch(() => {});
@@ -283,7 +292,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       id
         ? patch(id, {
             connectionMessage,
-            ...(/断开|结束|关闭/.test(connectionMessage) ? { disconnected: true, attached: false } : {}),
+            ...(/断开|结束|关闭/.test(connectionMessage) ? { disconnected: true } : {}),
           })
         : void toast.error(connectionMessage)
     );
@@ -297,7 +306,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       clearInterval(timer);
       if (flushTimer.current) clearTimeout(flushTimer.current);
     };
-  }, [patch, refresh]);
+  }, [patch, refresh, setCurrent]);
 
   const waitOperation = useCallback(
     async (id: string, operationId: string) => {
@@ -406,63 +415,59 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     [current, confirm, refresh, track]
   );
 
-  const startAttach = useCallback(
-    async (profile: InstanceProfile) => {
-      const plan = await window.sfmc.request(profile.id, "attachment.plan");
-      if (plan.development) {
-        patch(profile.id, { attached: true, approved: true });
-        return;
-      }
-      setFlow({ kind: "attach", profile, plan });
-    },
-    [patch]
-  );
-
   const connect = useCallback(
     async (profile: InstanceProfile, reconnect = false, secret?: Credentials) => {
-      setCurrent(profile.id);
-      // 已配置私钥时直接尝试连接；没有密钥也没有已存凭据时才先弹出登录框。
-      if (profile.kind === "ssh" && !profile.hasCredential && !secret && !profile.privateKeyPath) {
-        setFlow({ kind: "login", profile, reconnect });
-        return;
-      }
-      patch(profile.id, { connecting: true, connectError: "" });
-      await guarded(async () => {
-        try {
-          const handshake = await window.sfmc.connect(profile.id, secret);
-          if (secret) setProfiles(await window.sfmc.profiles());
-          const wasAttached = modelsRef.current[profile.id]?.attached || modelsRef.current[profile.id]?.approved;
-          if (handshake.host.arch !== "x64" || !["windows", "linux"].includes(handshake.host.os)) throw new Error("v1 仅支持 Windows／Linux x64 宿主");
-          patch(profile.id, { handshake, disconnected: false, connectionMessage: "", attached: reconnect && Boolean(wasAttached) && !handshake.legacy });
-          await refresh(profile.id, handshake.capabilities);
-          const history = await window.sfmc.request(profile.id, "logs.tail", { limit: 1000 });
-          patch(profile.id, { logs: history.entries });
-          if (reconnect) return;
-          if (!handshake.initialized) {
-            setFlow({ kind: "deploy", profile });
-            return;
-          }
-          await startAttach(profile);
-        } catch (error) {
-          const message = errorText(error);
-          patch(profile.id, { connectError: message });
-          if (profile.kind === "ssh" && /authentication methods failed|All configured authentication|passphrase|私钥/i.test(message)) {
-            setFlow({ kind: "login", profile, reconnect });
-          }
-          throw error;
-        } finally {
-          patch(profile.id, { connecting: false });
+      if (connectingIds.current.has(profile.id)) return;
+      connectingIds.current.add(profile.id);
+      try {
+        // 不走 setCurrent：setCurrent 会在尚未握手时再次调用 connect。
+        setCurrentState(profile.id);
+        setLogFocus(null);
+        localStorage.setItem(LAST_INSTANCE_KEY, profile.id);
+        // 已配置私钥时直接尝试连接；没有密钥也没有已存凭据时才先弹出登录框。
+        if (profile.kind === "ssh" && !profile.hasCredential && !secret && !profile.privateKeyPath) {
+          setFlow({ kind: "login", profile, reconnect });
+          return;
         }
-      });
+        patch(profile.id, { connecting: true, connectError: "" });
+        await guarded(async () => {
+          try {
+            const handshake = await window.sfmc.connect(profile.id, secret);
+            if (secret) {
+              const rows = await window.sfmc.profiles();
+              profilesRef.current = rows;
+              setProfiles(rows);
+            }
+            if (handshake.host.arch !== "x64" || !["windows", "linux"].includes(handshake.host.os)) throw new Error("v1 仅支持 Windows／Linux x64 宿主");
+            patch(profile.id, { handshake, disconnected: false, connectionMessage: "" });
+            await refresh(profile.id, handshake.capabilities);
+            const history = await window.sfmc.request(profile.id, "logs.tail", { limit: 1000 });
+            patch(profile.id, { logs: history.entries });
+            if (!handshake.initialized) setFlow({ kind: "deploy", profile });
+          } catch (error) {
+            const message = errorText(error);
+            patch(profile.id, { connectError: message });
+            if (profile.kind === "ssh" && /authentication methods failed|All configured authentication|passphrase|私钥/i.test(message)) {
+              setFlow({ kind: "login", profile, reconnect });
+            }
+            throw error;
+          } finally {
+            patch(profile.id, { connecting: false });
+          }
+        });
+      } finally {
+        connectingIds.current.delete(profile.id);
+      }
     },
-    [guarded, patch, refresh, setCurrent, startAttach]
+    [guarded, patch, refresh]
   );
+  connectRef.current = connect;
 
   const disconnect = useCallback(
     async (profile: InstanceProfile) => {
       await guarded(async () => {
         await window.sfmc.disconnect(profile.id);
-        patch(profile.id, { disconnected: true, attached: false, connectionMessage: "已手动断开连接；服务器和后台任务继续运行" });
+        patch(profile.id, { disconnected: true, connectionMessage: "已手动断开连接；服务器和后台任务继续运行" });
       });
     },
     [guarded, patch]
@@ -473,30 +478,16 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       const accepted = await window.sfmc.request(profile.id, "deployment.create", { acceptEula: true, ...ports });
       onAccepted?.(accepted.operationId);
       await waitOperation(profile.id, accepted.operationId);
-      patch(profile.id, { attached: true, approved: true });
+      const handshake = modelsRef.current[profile.id]?.handshake;
+      if (handshake) patch(profile.id, { handshake: { ...handshake, initialized: true } });
     },
     [patch, waitOperation]
-  );
-
-  const applyAttachment = useCallback(
-    async (profile: InstanceProfile, plan: AttachmentPlan) => {
-      const accepted = await window.sfmc.request(profile.id, "attachment.apply", { targetVersion: plan.targetVersion });
-      if (plan.upgradeRequired) {
-        toast.info("升级任务已提交", "完成后重新连接查看结果");
-        track(profile.id, accepted.operationId, `升级平台至 ${plan.targetVersion}`);
-        setPage("tasks");
-      } else {
-        await waitOperation(profile.id, accepted.operationId);
-        patch(profile.id, { attached: true, approved: true });
-      }
-    },
-    [patch, track, waitOperation]
   );
 
   const confirmHost = useCallback(
     async (profile: InstanceProfile) => {
       await guarded(async () => {
-        if (await window.sfmc.confirmHost(profile.id)) toast.success("已确认新身份", "请重新接入实例");
+        if (await window.sfmc.confirmHost(profile.id)) toast.success("已确认新身份", "请重新连接实例");
       });
     },
     [guarded]
@@ -506,6 +497,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     async (values: InstanceProfile & Credentials, editing: InstanceProfile | null) => {
       const { password, passphrase, ...valuesWithoutSecrets } = values;
       const rows = await window.sfmc.saveProfile({ ...valuesWithoutSecrets, id: editing?.id ?? "" }, { password, passphrase });
+      profilesRef.current = rows;
       setProfiles(rows);
       const row = rows.at(-1)!;
       setCurrent(row.id);
@@ -517,6 +509,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const removeProfile = useCallback(
     async (profile: InstanceProfile) => {
       const rows = await window.sfmc.removeProfile(profile.id);
+      profilesRef.current = rows;
       setProfiles(rows);
       setModels((previous) => {
         const next = { ...previous };
@@ -529,7 +522,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     [setCurrent]
   );
 
-  const editable = Boolean(model.attached && !model.disconnected && !model.handshake?.legacy);
+  const editable = Boolean(model.handshake && !model.disconnected && !model.handshake.legacy && model.handshake.initialized);
   const value = useMemo<DesktopValue>(
     () => ({
       ready,
@@ -553,9 +546,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       editable,
       connect,
       disconnect,
-      startAttach,
       createDeployment,
-      applyAttachment,
       confirmHost,
       flow,
       setFlow,
@@ -567,7 +558,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       appInfo,
       desktopUpdate,
     }),
-    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, logFocus, openLog, clearLogFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, startAttach, createDeployment, applyAttachment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
+    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, logFocus, openLog, clearLogFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, createDeployment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
   );
   return <DesktopContext.Provider value={value}>{children}</DesktopContext.Provider>;
 }
@@ -578,7 +569,11 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
  */
 export function connectionState(model: Model | undefined): { tone: "success" | "warning" | "info" | "neutral"; label: string; online: boolean } {
   if (model?.connecting) return { tone: "info", label: "连接中", online: false };
-  if (model?.handshake && !model.disconnected) return { tone: "success", label: model.attached ? "已接入" : "已连接（只读）", online: true };
+  if (model?.handshake && !model.disconnected) {
+    if (model.handshake.legacy) return { tone: "warning", label: "已连接（只读）", online: true };
+    if (!model.handshake.initialized) return { tone: "info", label: "待初始化", online: true };
+    return { tone: "success", label: "已连接", online: true };
+  }
   if (model?.handshake && model.disconnected) return { tone: "warning", label: "连接已断开", online: false };
   return { tone: "neutral", label: "未连接", online: false };
 }

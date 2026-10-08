@@ -1,14 +1,11 @@
 /**
- * FlowDialogs.tsx — 接入流程对话框：SSH 登录、初始化新部署、接入/升级计划
+ * FlowDialogs.tsx — 连接流程对话框：SSH 登录、空目录的第一次初始化
  *
  * 使用场景：desktop.connect() 根据握手结果设置 flow，App 渲染 <FlowDialogs />，按 flow.kind 从注册表中取对应对话框（OCP）。
- * 每个对话框的请求顺序与原实现 modal.confirm 内的逻辑一致：
  *  - 登录：收集密码/私钥口令后调用 connect(profile, reconnect, secret)；
- *  - 初始化：接受 EULA + 端口 → deployment.create → 等待任务完成 → 标记已接入；
- *  - 接入计划：attachment.apply → 升级时转入任务页，否则等待完成并标记已接入。
- * "仅查看"关闭对话框后实例保持只读，可在命令面板或连接门中继续接入。
+ *  - 初始化：接受 EULA + 端口 → deployment.create → 等待任务完成。
+ * 已有部署连上即可管理，平台升级留在更新页。
  */
-import type { AttachmentPlan } from "@sfmc-bds/management";
 import { useState, type ComponentType } from "react";
 import { useDesktop, type Flow } from "../app/desktop.js";
 import { Button, Field, NumberInput, PasswordInput } from "../components/controls.js";
@@ -18,7 +15,6 @@ import { OperationSteps } from "../components/OperationSteps.js";
 import { Modal } from "../components/overlays.js";
 import { Callout } from "../components/ui.js";
 import { errorText } from "../lib/format.js";
-import { ReleaseNotes } from "../components/ReleaseNotes.js";
 
 /** SSH 登录：凭据仅用于本次连接（是否记住由实例设置中的选项决定） */
 function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
@@ -101,7 +97,7 @@ function DeployDialog({ flow }: { flow: Extract<Flow, { kind: "deploy" }> }) {
     try {
       await createDeployment(profile, { dbPort: ports.dbPort!, bdsPort: ports.bdsPort!, bdsPort6: ports.bdsPort6! }, setOperationId);
       setFlow(null);
-      toast.success("部署已初始化", `${profile.name} 已就绪，可以开始管理`);
+      toast.success("服务器已准备好", `${profile.name} 可以开始管理`);
     } catch (reason) {
       setError(errorText(reason));
     } finally {
@@ -149,79 +145,13 @@ function DeployDialog({ flow }: { flow: Extract<Flow, { kind: "deploy" }> }) {
   );
 }
 
-/** 接入计划：展示版本差异、执行步骤与外部服务提醒 */
-function AttachDialog({ flow }: { flow: Extract<Flow, { kind: "attach" }> }) {
-  const { applyAttachment, setFlow } = useDesktop();
-  const { profile, plan } = flow;
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
-  const submit = async () => {
-    setRunning(true);
-    setError("");
-    try {
-      await applyAttachment(profile, plan);
-      setFlow(null);
-      if (!plan.upgradeRequired) toast.success("已接入部署");
-    } catch (reason) {
-      setError(errorText(reason));
-    } finally {
-      setRunning(false);
-    }
-  };
-  return (
-    <Modal
-      open
-      onClose={() => setFlow(null)}
-      dismissible={!running}
-      size="md"
-      icon={plan.upgradeRequired ? "rocket" : "shield"}
-      title={plan.upgradeRequired ? `接入并升级至 ${plan.targetVersion}` : "接入部署"}
-      onSubmit={() => void submit()}
-      footer={
-        <>
-          <Button variant="ghost" disabled={running} onClick={() => setFlow(null)}>仅查看</Button>
-          <Button variant="primary" type="submit" loading={running}>{plan.upgradeRequired ? "接入并升级" : "接入部署"}</Button>
-        </>
-      }
-    >
-      <div className="form-stack">
-        <PlanVersions plan={plan} />
-        {plan.upgradeRequired && <ReleaseNotes notes={plan.releaseNotes} version={plan.targetVersion} />}
-        {plan.steps.length > 0 && (
-          <ol className="plan-steps">
-            {plan.steps.map((step, index) => (
-              <li key={index}><span className="plan-step-index">{index + 1}</span><span>{step}</span></li>
-            ))}
-          </ol>
-        )}
-        {plan.externalServices.length > 0 && (
-          <Callout tone="warning" title="外部服务">{plan.externalServices.join("、")}。无法可靠停止时迁移将中止。</Callout>
-        )}
-        {error && <Callout tone="danger" title="接入失败">{error}</Callout>}
-      </div>
-    </Modal>
-  );
-}
-
-/** 版本对比：当前版本 → 最新稳定版 */
-function PlanVersions({ plan }: { plan: AttachmentPlan }) {
-  return (
-    <div className="plan-versions">
-      <div><span className="muted">当前版本</span><b className="mono">{plan.currentVersion || "—"}</b></div>
-      <Icon name="arrowRight" size={16} className="muted" />
-      <div><span className="muted">最新稳定版</span><b className="mono">{plan.targetVersion}</b></div>
-    </div>
-  );
-}
-
-/** flow.kind → 对话框组件的注册表：新增接入步骤只需追加一项 */
+/** flow.kind → 对话框组件的注册表：新增连接步骤只需追加一项 */
 const FLOW_DIALOGS: { [K in Flow["kind"]]: ComponentType<{ flow: Extract<Flow, { kind: K }> }> } = {
   login: LoginDialog,
   deploy: DeployDialog,
-  attach: AttachDialog,
 };
 
-/** 接入流程对话框出口：同一时间最多一个；切换实例或流程时以 kind + profile.id 重新挂载，避免沿用上一流程的表单状态 */
+/** 连接流程对话框出口：同一时间最多一个；切换实例或流程时以 kind + profile.id 重新挂载，避免沿用上一流程的表单状态 */
 export function FlowDialogs() {
   const { flow } = useDesktop();
   if (!flow) return null;

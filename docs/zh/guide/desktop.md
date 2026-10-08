@@ -2,14 +2,14 @@
 
 SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，也可以通过 SSH 连接 Linux 或 Windows 服务器。服务启停、控制台、模块、资源包、配置、玩家与维护任务都集中在同一个工作区。
 
-当前提供 **0.3.3 正式版**，内置平台 `0.2.13`。客户端通过发行页手动下载安装更新。
+当前提供 **0.3.5 正式版**，内置平台 `0.2.16`。客户端通过发行页手动下载安装更新。
 
 ## 下载与启动
 
-从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.3) 下载：
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.5) 下载：
 
-- `SFMC-Desktop-0.3.3-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.3.3-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
+- `SFMC-Desktop-0.3.5-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.3.5-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
 - `artifact-attestation.sigstore.json`：GitHub Artifact Attestations 构建证明。
 
@@ -18,13 +18,13 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 发行页同时公示 SHA256。下载后核对文件摘要：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.3-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.5-x64.exe' -Algorithm SHA256
 ```
 
 安装 [GitHub CLI](https://cli.github.com/) 后，可核对构建证明、源码仓库、工作流和标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.3-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.3 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.3.5-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.5 --deny-self-hosted-runners
 ```
 
 验证 ZIP 时替换文件名即可；添加 `--bundle '.\artifact-attestation.sigstore.json'` 可以验证下载的证明文件。需要固定到具体提交时，再加入 `--source-digest` 和 `release-manifest.json` 中的 `sourceCommit`。构建证明用于核对文件来源与摘要，不是 Windows 发布者证书。
@@ -33,9 +33,9 @@ gh attestation verify '.\SFMC-Desktop-0.3.3-x64.exe' --repo DogeLakeDev/ScriptsF
 
 1. 在欢迎页选择 **本机**，填写便于辨认的实例名称。
 2. 选择 **SFMC 部署根目录**，例如 `D:\WorkPlace\SFMC`。不要选择源码仓库、`BDS` 子目录或世界目录。
-3. 保存后点击 **接入实例**。查看接入计划，再选择 **仅查看** 或完成接入。
+3. 保存后即可管理该实例。空目录会进入初始化，确认 Minecraft EULA 并设置端口。
 
-已有部署保留自己的活动平台版本，客户端不会仅因为连接就替换它。旧平台可能只能查看，或者缺少新指标与管理接口。首次验收建议使用独立测试目录（例如 `D:\WorkPlace\SFMC-Desktop-Test`），按引导确认 Minecraft EULA 并初始化；向导会下载 BDS 并尝试启动服务。
+已有部署保留自己的活动平台版本，客户端不会仅因为连接就替换它。升级在 **更新** 页进行。旧平台可能缺少新指标、绑定名单或断开连接后继续运行的能力。首次验收建议使用独立测试目录（例如 `D:\WorkPlace\SFMC-Desktop-Test`），按引导确认 Minecraft EULA 并初始化；向导会下载 BDS 并尝试启动服务。
 
 ## 添加 SSH 实例
 
@@ -59,7 +59,7 @@ gh attestation verify '.\SFMC-Desktop-0.3.3-x64.exe' --repo DogeLakeDev/ScriptsF
 
 ![实例概览：服务状态、TPS 和资源指标](../../public/desktop/overview.jpg)
 
-**概览** 查看服务状态、TPS、在线人数、内存和维度实体。内存曲线包含主机总占用、BDS 和数据服务；维度实体按主世界、下界、末地分色。停止状态、零在线人数和缺少采样都可能是正常情况；指标是否新鲜需要结合采样状态判断。
+**概览** 查看服务状态、TPS、在线人数、内存和维度实体。内存曲线包含主机总占用、BDS 和数据服务；维度实体按主世界、下界、末地分色。曲线可选 15 分钟、1 小时或一天。平台 0.2.16 起，采样写入数据库，服务未运行时仍可查看已有曲线。停止状态、零在线人数和缺少采样都可能是正常情况；指标是否新鲜需要结合采样状态判断。
 
 ![模块管理：模块列表和详情](../../public/desktop/modules.jpg)
 
@@ -67,7 +67,7 @@ gh attestation verify '.\SFMC-Desktop-0.3.3-x64.exe' --repo DogeLakeDev/ScriptsF
 
 ![配置编辑：配置列表与编辑器](../../public/desktop/config.jpg)
 
-**配置** 编辑服务和模块配置，保存后根据提示重载或重启相关服务。**控制台** 查看不同服务日志、发送 BDS 命令；**任务** 查看操作进度、失败原因与备份编号。
+**配置** 编辑服务和模块配置，保存后根据提示重载或重启相关服务。**控制台** 查看不同服务日志、发送 BDS 命令，关键词着色与命令行一致。**玩家** 的允许名单展示已绑定的玩家，包括玩家名、XUID、QQ 通道和绑定时间。**任务** 查看操作进度、失败原因与备份编号。
 
 ## 内置 UI Studio
 
@@ -89,7 +89,7 @@ gh attestation verify '.\SFMC-Desktop-0.3.3-x64.exe' --repo DogeLakeDev/ScriptsF
 
 ## 建议的首次验收
 
-1. 先在独立测试目录完成接入；已有正式部署优先选择 **仅查看**。
+1. 先在独立测试目录完成初始化；已有正式部署直接打开即可管理。
 2. 在概览先启动数据服务，再启动 BDS。确认日志没有初始化错误，指标有新采样。
 3. 查看模块与配置，尝试一项可撤销的修改，并确认任务完成。
 4. 从托盘退出客户端后重新打开，确认能连接原守护进程。关闭窗口默认只是留在托盘，不会停止服务器；需要停止时在概览明确停止 BDS 和数据服务。
@@ -99,5 +99,5 @@ gh attestation verify '.\SFMC-Desktop-0.3.3-x64.exe' --repo DogeLakeDev/ScriptsF
 ## 当前边界
 
 - 本机 Windows 与 SSH Windows 的数据服务/BDS、实际指标和断线重连已经验收；其他环境仍需自行验证。
-- 接入时不会自动切换旧活动平台。需要新版接口时，按接入计划核对兼容性并升级。
+- 打开已有部署不会自动切换活动平台。需要新版接口时，在更新页升级。平台 0.2.16 起，断开桌面或 SSH 管理连接不会停止服务器进程。
 - 游戏内表单点击与独立模块的全部业务流程仍需要 Minecraft 客户端验收。

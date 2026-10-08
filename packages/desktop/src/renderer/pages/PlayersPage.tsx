@@ -1,9 +1,9 @@
 /**
  * PlayersPage.tsx — 玩家与权限
  *
- * 使用场景：查看在线玩家快照（5 秒轮询，与原实现一致），编辑 BDS 允许名单、BDS 权限与 SFMC 权限。
- * 编辑先在本地暂存（JSON 文本为唯一草稿来源），点击"保存并应用"后提交 players.apply 任务；
- * 任务完成后重新读取服务器上的最新名单。
+ * 使用场景：查看在线玩家快照（5 秒轮询，与原实现一致）。
+ * 「允许名单」列出业务库 sfmc_qq_bindings 的绑定记录，只读。
+ * BDS 权限与 SFMC 权限仍在本地暂存，点击「保存并应用」后提交 players.apply。
  */
 import Editor from "@monaco-editor/react";
 import type { ManagementMethodMap } from "@sfmc-bds/management";
@@ -16,7 +16,7 @@ import { Icon } from "../components/icons.js";
 import { Modal } from "../components/overlays.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Avatar, Badge, EmptyState, PageHeader, Surface } from "../components/ui.js";
-import { errorText, hashHue, isTaskDone, relativeTime } from "../lib/format.js";
+import { errorText, fullTime, hashHue, isTaskDone, relativeTime } from "../lib/format.js";
 
 /** 权限名单种类（与 players.apply 的 kind 参数一致） */
 type Kind = "allowlist" | "permissions" | "sfmcPermissions";
@@ -30,6 +30,11 @@ const KINDS: { value: Kind; label: string }[] = [
 ];
 const BDS_LEVELS: Record<string, string> = { visitor: "访客", member: "成员", operator: "管理员" };
 const SFMC_LEVELS = ["游客", "成员", "管理员", "Admin"];
+/** QQ 通道在绑定表里的取值，与向导里的 qq_backend 一致。 */
+const QQ_BACKENDS: Record<string, string> = { official: "官方 Bot", llbot: "LLBot" };
+
+/** 允许名单这一栏展示的是绑定记录，不是原版 allowlist.json。 */
+const bindingRows = (data: PlayersData | undefined) => data?.bindings ?? [];
 
 /** 解析草稿 JSON 为条目数组；语法错误返回 undefined */
 function parseEntries(text: string): Entry[] | undefined {
@@ -195,7 +200,9 @@ export function PlayersPage() {
   const fresh = Boolean(connected && data?.fresh && clock - Date.parse(data.updatedAt) < 60_000);
   const entries = useMemo(() => parseEntries(text), [text]);
   const dirty = text !== baseline;
-  const counts = data ? { allowlist: data.allowlist.length, permissions: data.permissions.length, sfmcPermissions: data.sfmcPermissions.length } : undefined;
+  const counts = data ? { allowlist: bindingRows(data).length, permissions: data.permissions.length, sfmcPermissions: data.sfmcPermissions.length } : undefined;
+  const bindings = bindingRows(data);
+  const showingBindings = kind === "allowlist";
 
   const switchKind = (next: Kind) => {
     const apply = () => {
@@ -274,9 +281,38 @@ export function PlayersPage() {
             options={KINDS.map((row) => ({ value: row.value, label: row.label, count: counts?.[row.value] }))}
           />
           <span className="toolbar-spacer" />
-          <Button size="sm" disabled={!editable || !entries} icon="plus" onClick={() => setEditing("new")}>添加玩家</Button>
+          {!showingBindings && <Button size="sm" disabled={!editable || !entries} icon="plus" onClick={() => setEditing("new")}>添加玩家</Button>}
         </div>
-        {view === "json" ? (
+        {showingBindings && <p className="list-note">来自绑定记录，显示玩家名、XUID、QQ 通道和绑定时间。</p>}
+        {showingBindings ? (
+          view === "json" ? (
+            <div className="json-pane">
+              <Editor height="340px" theme={editorTheme} language="json" value={JSON.stringify(bindings, null, 2)} options={{ readOnly: true, minimap: { enabled: false }, fontSize: 12.5, fontFamily: FONT_MONO, scrollBeyondLastLine: false, padding: { top: 12, bottom: 12 }, lineNumbersMinChars: 3, tabSize: 2 }} />
+            </div>
+          ) : bindings.length ? (
+            <ul className="row-list">
+              {bindings.map((row) => {
+                const name = row.playerName || "未记录玩家名";
+                return (
+                  <li key={row.playerXuid || row.qqUserOpenid} className="row-item">
+                    <Avatar name={name} hue={hashHue(name)} size={32} />
+                    <div className="row-main">
+                      <div className="row-title"><b>{name}</b></div>
+                      <div className="row-sub mono">XUID {row.playerXuid}</div>
+                      <div className="row-sub mono">{QQ_BACKENDS[row.qqBackend] ?? (row.qqBackend || "未知通道")} · {row.qqUserOpenid || "未记录 QQ"}</div>
+                    </div>
+                    <span className="perm-cell">
+                      <Badge tone="success">已绑定</Badge>
+                      <span className="muted" title={fullTime(row.boundAt)}>{relativeTime(row.boundAt, clock)}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <EmptyState icon="users" title="还没有绑定的玩家" description="玩家在游戏内完成绑定后会出现在这里" />
+          )
+        ) : view === "json" ? (
           <div className="json-pane">
             <Editor height="340px" theme={editorTheme} language="json" value={text} onChange={(next) => setText(next ?? "[]")} options={{ readOnly: !editable, minimap: { enabled: false }, fontSize: 12.5, fontFamily: FONT_MONO, scrollBeyondLastLine: false, padding: { top: 12, bottom: 12 }, lineNumbersMinChars: 3, tabSize: 2 }} />
           </div>
@@ -305,13 +341,13 @@ export function PlayersPage() {
         ) : (
           <EmptyState icon="users" title="名单为空" />
         )}
-        {(dirty || pendingSave) && (
+        {!showingBindings && (dirty || pendingSave) && (
           <div className="save-bar">
             <Icon name={pendingSave ? "loader" : "pencil"} size={14} spin={Boolean(pendingSave)} />
             <span>{pendingSave ? "正在应用名单…" : "名单有未保存的更改"}</span>
             <span className="toolbar-spacer" />
             <Button size="sm" variant="ghost" disabled={Boolean(pendingSave)} onClick={() => setText(baseline)}>放弃</Button>
-            <Tooltip content={editable ? undefined : "完成接入后可保存"} wrap>
+            <Tooltip content={editable ? undefined : "当前为只读"} wrap>
               <Button size="sm" variant="primary" disabled={!editable || !entries || Boolean(pendingSave)} onClick={save}>保存并应用</Button>
             </Tooltip>
           </div>

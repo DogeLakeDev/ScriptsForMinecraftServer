@@ -1,8 +1,8 @@
 /**
  * Gates.tsx — 工作区之前的两个整页状态
  *
- * Welcome：尚无任何实例时的首启引导（选择本机或 SSH 两种接入方式）。
- * ConnectGate：已选实例但尚未建立管理连接时的接入页，内联展示连接错误与主机指纹核实入口。
+ * Welcome：尚无任何实例时的首启引导（选择本机或 SSH）。
+ * ConnectGate：已选实例但还没连上时的页面。有保存的凭据时打开应用会自动连接，这里只处理失败和需要输入密码的情况。
  */
 import { useDesktop } from "../app/desktop.js";
 import { Button } from "./controls.js";
@@ -21,7 +21,7 @@ export function Welcome() {
     <div className="welcome">
       <div className="welcome-hero">
         <h1>添加实例</h1>
-        <p>接入已有部署，或创建新服务器。</p>
+        <p>选择本机或远程服务器。保存之后，打开即可管理。</p>
       </div>
       <div className="welcome-choices">
         {choices.map((choice) => (
@@ -39,7 +39,7 @@ export function Welcome() {
   );
 }
 
-/** 未连接实例的接入页 */
+/** 尚未连上的实例：自动连接失败，或 SSH 还没有可用凭据 */
 export function ConnectGate() {
   const { selected, model, connect, openProfileDialog, confirmHost } = useDesktop();
   if (!selected) return null;
@@ -65,7 +65,7 @@ export function ConnectGate() {
         )}
         <div className="gate-actions">
           <Button variant="primary" size="lg" loading={model.connecting} icon="plug" onClick={() => void connect(selected, false)}>
-            {model.connecting ? "正在接入…" : "接入实例"}
+            {model.connecting ? "正在连接…" : "连接"}
           </Button>
           <Button size="lg" icon="settings" onClick={() => openProfileDialog(selected)}>连接设置</Button>
         </div>

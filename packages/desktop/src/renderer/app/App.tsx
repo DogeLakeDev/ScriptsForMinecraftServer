@@ -5,7 +5,7 @@
  *  - 组合全局 Provider：外观 → 提示 → 确认框 → 实例状态，以及全局通知出口；
  *  - 外壳布局与可折叠的侧栏、右侧动态栏（偏好持久化在 localStorage）；
  *  - 全局快捷键：Ctrl+K 命令面板、Ctrl+B 侧栏、Ctrl+1…9 切换页面；
- *  - 根据实例状态选择欢迎页 / 连接门 / 工作区页面，并挂载实例设置、接入流程与关于对话框。
+ *  - 根据实例状态选择欢迎页 / 连接门 / 工作区页面，并挂载实例设置、初始化流程与关于对话框。
  * 页面由 PAGES 注册表按 PageKey 查找（OCP：新增页面只需在 nav.ts 与此表各加一项）。
  */
 import { useCallback, useEffect, useState, type ComponentType } from "react";
@@ -75,11 +75,10 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
-/** 工作区顶部提示：连接消息与只读状态（与原实现的两条 Alert 一致，并补充直接可执行的操作） */
+/** 工作区顶部提示：连接消息、旧版只读，以及尚未初始化的目录 */
 function WorkspaceBanners() {
-  const { model, selected, editable, connect, startAttach, guarded } = useDesktop();
+  const { model, selected, connect, setFlow } = useDesktop();
   if (!selected || !model.handshake) return null;
-  const readonly = !editable;
   return (
     <div className="workspace-banners">
       {model.connectionMessage && (
@@ -103,19 +102,19 @@ function WorkspaceBanners() {
           {model.connectionMessage}
         </Callout>
       )}
-      {readonly && !model.disconnected && (
+      {model.handshake.legacy && !model.disconnected && (
+        <Callout tone="info" icon="eye">
+          旧版平台只支持查看。请在更新页升级平台后再进行管理。
+        </Callout>
+      )}
+      {!model.handshake.initialized && !model.handshake.legacy && !model.disconnected && (
         <Callout
           tone="info"
-          icon="eye"
-          action={
-            !model.handshake.legacy && (
-              <Button size="sm" icon="shield" onClick={() => void guarded(() => startAttach(selected))}>
-                完成接入
-              </Button>
-            )
-          }
+          icon="rocket"
+          title="目录尚未初始化"
+          action={<Button size="sm" icon="rocket" onClick={() => setFlow({ kind: "deploy", profile: selected })}>初始化</Button>}
         >
-          {model.handshake.legacy ? "旧版平台，仅支持查看。升级后可执行管理操作。" : "只读连接。接入后可修改此实例。"}
+          接受使用条款并准备服务端之后，就可以管理这台服务器。
         </Callout>
       )}
     </div>
@@ -128,7 +127,7 @@ function Workspace() {
   if (!ready) return <div className="workspace-loading" />;
   if (page === "studio") return null;
   if (!profiles.length || !selected) return <Welcome />;
-  if (!model.handshake) return <ConnectGate />;
+  if (!model.handshake) return model.connecting ? <div className="workspace-loading" /> : <ConnectGate />;
   const Page = PAGES[page];
   return (
     <>

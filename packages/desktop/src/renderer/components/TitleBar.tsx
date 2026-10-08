@@ -24,7 +24,7 @@ export const APPEARANCE_OPTIONS: { value: AppearanceMode; icon: IconName; label:
   { value: "dark", icon: "moon", label: "深色" },
 ];
 
-/** 连接详情弹层内容（逻辑与原实现一致：重新连接 / 断开 / 恢复连接 / 接入实例） */
+/** 连接详情弹层内容：重新连接 / 断开 / 恢复连接 / 连接 */
 function ConnectionDetails() {
   const { selected, model, connect, disconnect, setPage } = useDesktop();
   const [now, setNow] = useState(Date.now());
@@ -101,7 +101,7 @@ function ConnectionDetails() {
               void connect(selected, false);
             }}
           >
-            接入实例
+            连接
           </Button>
         )}
       </div>
@@ -184,7 +184,7 @@ export function TitleBar({
           <Popover
             trigger={
               <button type="button" className={`tb-conn no-drag tone-${state.tone}`}>
-                <StatusDot tone={state.tone} pulse={state.tone === "info" || (state.online && !model.attached)} />
+                <StatusDot tone={state.tone} pulse={state.tone === "info"} />
                 <span>{state.label}</span>
                 <Icon name="chevronDown" size={12} />
               </button>

@@ -14,6 +14,7 @@ import { Icon } from "../components/icons.js";
 import { Chip, Kbd } from "../components/ui.js";
 import { findLogIndex } from "../lib/alerts.js";
 import { hashHue, type Tone } from "../lib/format.js";
+import { highlightLogSpans } from "../lib/log-highlight.js";
 
 /** 单次渲染的最大日志行数 */
 const RENDER_LIMIT = 1500;
@@ -36,19 +37,36 @@ function clock(iso: string): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 }
 
-/** 在文本中高亮关键字（不区分大小写） */
-function highlight(text: string, query: string): ReactNode {
-  if (!query) return text;
+/** 在一段已经着过色的文本里标出搜索词（不区分大小写） */
+function markNeedle(text: string, needle: string, keyBase: number): ReactNode {
   const lower = text.toLowerCase();
-  const needle = query.toLowerCase();
   const parts: ReactNode[] = [];
   let cursor = 0;
   for (let index = lower.indexOf(needle); index !== -1; index = lower.indexOf(needle, cursor)) {
-    parts.push(text.slice(cursor, index), <mark key={index}>{text.slice(index, index + needle.length)}</mark>);
+    parts.push(text.slice(cursor, index), <mark key={`${keyBase}-${index}`}>{text.slice(index, index + needle.length)}</mark>);
     cursor = index + needle.length;
   }
+  if (!parts.length) return text;
   parts.push(text.slice(cursor));
-  return parts.map((part, index) => <Fragment key={index}>{part}</Fragment>);
+  return parts;
+}
+
+/**
+ * 日志正文：关键词着色与 REPL 相同，搜索词仍用 mark 标出。
+ * 使用场景：日志控制台每一行的正文。
+ */
+function highlight(text: string, query: string): ReactNode {
+  const needle = query.toLowerCase();
+  return highlightLogSpans(text).map((span, index) => {
+    const body = needle ? markNeedle(span.text, needle, index) : span.text;
+    if (!span.tone && !span.bold) return <Fragment key={index}>{body}</Fragment>;
+    const className = [span.tone ? `log-hl-${span.tone}` : "", span.bold ? "log-hl-bold" : ""].filter(Boolean).join(" ");
+    return (
+      <span key={index} className={className}>
+        {body}
+      </span>
+    );
+  });
 }
 
 /** 切换集合中的一个值（返回新集合） */
@@ -234,12 +252,9 @@ export function ConsolePage() {
               if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
             }}
           >
-            <Icon name="arrowDown" size={13} /> 跳到最新
+            <Icon name="arrowDown" size={13} />
           </button>
         )}
-        <div className="console-status">
-          <span className={`console-follow${follow ? " on" : ""}`}>{follow ? "● 实时跟随" : "已暂停跟随"}</span>
-        </div>
       </div>
       <div className={`console-input${editable ? "" : " disabled"}`}>
         <Select
