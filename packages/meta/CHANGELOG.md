@@ -1,5 +1,16 @@
 # @sfmc-bds/sfmc
 
+## 0.2.16
+
+### Patch Changes
+
+- Updated dependencies [d18e066]
+- Updated dependencies [d18e066]
+- Updated dependencies [d18e066]
+- Updated dependencies [d18e066]
+  - @sfmc-bds/cli@0.5.1
+  - @sfmc-bds/db-server@0.5.1
+
 ## 0.2.15
 
 ### Patch Changes
