@@ -56,7 +56,7 @@ export function PacksPage() {
                   <CopyText text={row.id} className="row-sub" />
                 </div>
                 <span className="row-version mono">v{row.version}</span>
-                <Tooltip content={editable ? (row.enabled ? "停用并重启 BDS" : "启用并重启 BDS") : "完成接入后可修改"} wrap>
+                <Tooltip content={editable ? (row.enabled ? "停用并重启 BDS" : "启用并重启 BDS") : "当前为只读"} wrap>
                   <Switch size="sm" label={`${row.enabled ? "停用" : "启用"} ${plainMinecraft(row.name)}`} checked={row.enabled} disabled={!editable} onChange={(enabled) => void submit("packs.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"} ${plainMinecraft(row.name)}`, { description: "应用世界包状态并重启 BDS。" })} />
                 </Tooltip>
               </li>

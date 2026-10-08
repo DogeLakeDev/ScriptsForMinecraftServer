@@ -306,8 +306,11 @@ export async function runDaemonServer(): Promise<void> {
       process.exit(0);
     });
   });
-  /* 守护进程忽略 SIGINT：脱离终端后不应因信号停服；显式 shutdown 退出 */
+  /* 守护进程忽略 SIGINT / SIGHUP：管理连接或终端挂起不表示停服。停服只走显式 shutdown，或服务管理器发来的 SIGTERM。 */
   process.on("SIGINT", () => {
+    /* no-op */
+  });
+  process.on("SIGHUP", () => {
     /* no-op */
   });
 

@@ -303,6 +303,17 @@
   color: var(--c-text-3);
 }
 
+/* 日志关键词色相与 REPL 的 highlightLogLine 对应，盖过按级别给整行上的字色 */
+.log-text .log-hl-red { color: var(--c-danger-text); }
+.log-text .log-hl-green { color: var(--c-success-text); }
+.log-text .log-hl-yellow { color: var(--c-warning-text); }
+.log-text .log-hl-blue { color: var(--c-info-text); }
+.log-text .log-hl-cyan { color: var(--c-info); }
+.log-text .log-hl-purple { color: var(--c-progress-text); }
+.log-text .log-hl-orange { color: var(--chart-8); }
+.log-text .log-hl-dim { color: var(--c-text-3); }
+.log-text .log-hl-bold { font-weight: 650; }
+
 .console-empty {
   display: flex;
   flex-direction: column;

@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { EventEmitter } from "node:events";
 import { MANAGEMENT_PROTOCOL_VERSION, type ManagementRequest, type ManagementEvent } from "@sfmc-bds/management";
+import { readQqBindings } from "@sfmc-bds/db-server/qq-bindings";
 import { ROOT, isRuntimeInitialized, spawnService } from "../runtime.js";
 import { queryServicesRuntimeLocal, services, START_ORDER, SERVICE_NAMES, refreshServices, onServiceStateChange, type ServiceName } from "../services.js";
 import { readDiskLogs, onLog } from "../logs.js";
@@ -17,6 +18,7 @@ import { cmdPackBuild, cmdPackDeploy } from "../pack-lifecycle.js";
 import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { deploymentPreflight, deploymentPort } from "./deployment.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
+import { readRuntimeMetrics } from "./metrics-read.js";
 
 const events = new EventEmitter();
 /** 空目录也要能完成握手，供桌面初始化向导继续；旧部署仍识别已有 BDS。 */
@@ -51,14 +53,15 @@ async function rebuildModules() {
 }
 async function players() {
   const files = playerFiles(); const allowlist = readJson<unknown[]>(files.allowlist, []);
-  const cfg = readJson<{ db_port?: number; http_auth?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
+  const cfg = readJson<{ db_port?: number; http_auth?: string; dbDir?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
+  const database = path.resolve(ROOT, typeof cfg.dbDir === "string" && cfg.dbDir.trim() ? cfg.dbDir : "data/sfmc_data.db");
   let data: { online?: { name: string }[]; updatedAt?: number } = {};
   try {
     const response = await fetch(`http://127.0.0.1:${cfg.db_port ?? 3001}/api/sfmc/status`, { headers: cfg.http_auth ? { authorization: `Bearer ${cfg.http_auth}` } : {}, signal: AbortSignal.timeout(5000) });
     if (response.ok) data = await response.json() as typeof data;
   } catch { /* 未连接时使用未知状态 */ }
   const fresh = typeof data.updatedAt === "number" && Date.now() - data.updatedAt < 60_000;
-  return { players: (data.online ?? []).map(row => ({ name: row.name, xuid: "", online: fresh ? true : null })), updatedAt: data.updatedAt ? new Date(data.updatedAt).toISOString() : "", fresh, allowlist, permissions: readJson<unknown[]>(files.permissions, []), sfmcPermissions: readJson<unknown[]>(files.sfmcPermissions, []) };
+  return { players: (data.online ?? []).map(row => ({ name: row.name, xuid: "", online: fresh ? true : null })), updatedAt: data.updatedAt ? new Date(data.updatedAt).toISOString() : "", fresh, allowlist, permissions: readJson<unknown[]>(files.permissions, []), sfmcPermissions: readJson<unknown[]>(files.sfmcPermissions, []), bindings: readQqBindings(database) };
 }
 async function bdsUpdate(context: TaskContext, checkOnly = false) {
   context.phase("download", checkOnly ? "检查 BDS 更新" : "更新 BDS");
@@ -140,21 +143,7 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     case "packs.import": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => importPack(identifier(p.filename))));
     case "packs.toggle": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => togglePack(identifier(p.id), p.enabled === true)));
     case "players.list": return players();
-    case "metrics.read": {
-      const cfg = readJson<{ db_port?: number; http_auth?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
-      try {
-        const response = await fetch(`http://127.0.0.1:${cfg.db_port ?? 3001}/api/sfmc/metrics`, { headers: cfg.http_auth ? { authorization: `Bearer ${cfg.http_auth}` } : {}, signal: AbortSignal.timeout(10_000) });
-        if (!response.ok) throw new Error(`运行指标读取失败 (${response.status})`);
-        return response.json();
-      } catch (error) {
-        const detail = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : String(error);
-        // 数据服务没开时 fetch 会抛网络错误；界面用 note 展示，而不是整页失败。
-        if (/fetch failed|ECONNREFUSED|ENOTFOUND|AbortError|TimeoutError|timed out/i.test(detail)) {
-          return { fresh: false, updatedAt: null, current: null, history: [], host: null, processes: null, resourcesUpdatedAt: null, note: "数据服务未运行，暂时没有运行指标" };
-        }
-        throw error;
-      }
-    }
+    case "metrics.read": return readRuntimeMetrics(request.params);
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));
     case "attachment.plan": return attachmentPlan();
     case "attachment.apply": return store.submit(request.method, async context => {

@@ -9,10 +9,14 @@ import { MetricChart } from "./MetricChart.js";
 import { Segmented } from "./controls.js";
 import { EmptyState, Surface } from "./ui.js";
 
+/** 图表档位。1440 分钟就是一天，服务端按同样的毫秒窗口返回已落盘的采样。 */
+export type MetricMinutes = "15" | "60" | "1440";
+
 /** 对不同实例隔离轮询；失败后保留历史但不继续呈现实时数值。 */
 export function useRuntimeMetrics() {
   const { model, request } = useDesktop();
   const supported = Boolean(model.handshake?.capabilities.includes("metrics"));
+  const [minutes, setMinutes] = useState<MetricMinutes>("15");
   const [data, setData] = useState<MetricsResult>();
   const [localResources, setLocalResources] = useState<ResourceSample[]>([]);
   const [receivedAt, setReceivedAt] = useState(0);
@@ -23,12 +27,16 @@ export function useRuntimeMetrics() {
     setLocalResources([]);
     setReceivedAt(0);
     setFailed(false);
+    setMinutes("15");
+  }, [request, supported, model.disconnected]);
+  useEffect(() => {
     if (!supported || model.disconnected) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
+    const spanMs = Number(minutes) * 60_000;
     const poll = async () => {
       try {
-        const value = await request("metrics.read");
+        const value = await request("metrics.read", { spanMs });
         if (!disposed) {
           setData(value);
           setReceivedAt(Date.now());
@@ -43,7 +51,7 @@ export function useRuntimeMetrics() {
             setLocalResources((current) => {
               const last = current.at(-1);
               if (last && point.recordedAt - last.recordedAt < 8_000) return current;
-              const cutoff = point.recordedAt - 3_600_000;
+              const cutoff = point.recordedAt - spanMs;
               return [...current.filter((row) => row.recordedAt >= cutoff), point];
             });
           }
@@ -59,7 +67,7 @@ export function useRuntimeMetrics() {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [request, supported, model.disconnected]);
+  }, [request, supported, model.disconnected, minutes]);
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), 5000);
     return () => clearInterval(timer);
@@ -72,6 +80,8 @@ export function useRuntimeMetrics() {
     fresh: reachable && Boolean(data?.fresh),
     loading: !receivedAt && !failed && !model.disconnected,
     resources: Array.isArray(data?.resourceHistory) ? data.resourceHistory : localResources,
+    minutes,
+    setMinutes,
   };
 }
 
@@ -86,9 +96,8 @@ type MetricView = "tps" | "onlineCount" | "memory" | "entities";
 
 export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntimeMetrics> }) {
   const [field, setField] = useState<MetricView>("tps");
-  const [minutes, setMinutes] = useState<"15" | "60">("15");
   const { dark } = useAppearance();
-  const { data, supported, reachable, fresh, loading, resources } = metrics;
+  const { data, supported, reachable, fresh, loading, resources, minutes, setMinutes } = metrics;
   const sample = fresh ? data?.current : null;
   const host = reachable ? data?.host : null;
   const windowMinutes = Number(minutes);
@@ -113,6 +122,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
           options={[
             { value: "15", label: "15 分钟" },
             { value: "60", label: "1 小时" },
+            { value: "1440", label: "一天" },
           ]}
         />
       }
@@ -129,7 +139,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
                 { value: "tps", label: "TPS" },
                 { value: "onlineCount", label: "在线人数" },
                 { value: "memory", label: "内存" },
-                { value: "entities", label: "维度实体" },
+                { value: "entities", label: "实体" },
               ]}
             />
             <span className="muted">
@@ -150,7 +160,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
               from={from}
               end={end}
               minutes={windowMinutes}
-              label={field === "memory" ? "内存" : field === "entities" ? "维度实体" : field === "tps" ? "TPS" : "在线人数"}
+              label={field === "memory" ? "内存" : field === "entities" ? "实体" : field === "tps" ? "TPS" : "在线人数"}
               y={field === "memory" ? "memory" : field === "tps" ? "tps" : "count"}
             />
           ) : (
@@ -201,7 +211,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
             );
           })}
           <div className="resource-entities">
-            <span className="muted">维度实体</span>
+            <span className="muted">实体</span>
             {[
               ["minecraft:overworld", "主世界"],
               ["minecraft:nether", "下界"],

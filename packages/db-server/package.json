@@ -26,6 +26,24 @@
   },
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./metrics-store": {
+      "types": "./dist/domain/metrics.d.ts",
+      "import": "./dist/domain/metrics.js",
+      "default": "./dist/domain/metrics.js"
+    },
+    "./qq-bindings": {
+      "types": "./dist/domain/qq-bindings.d.ts",
+      "import": "./dist/domain/qq-bindings.js",
+      "default": "./dist/domain/qq-bindings.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "README.md"

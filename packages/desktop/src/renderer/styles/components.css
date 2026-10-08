@@ -648,6 +648,13 @@
   padding: 4px 8px 12px 12px;
 }
 
+.list-note {
+  margin: 0 16px 8px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .toolbar-search {
   width: 220px;
   max-width: 100%;

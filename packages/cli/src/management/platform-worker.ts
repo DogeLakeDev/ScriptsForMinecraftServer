@@ -10,7 +10,7 @@ import { createSnapshot, runPnpm } from "./maintenance.js";
 import { callDaemon, disconnectDaemonClient } from "../daemon/client.js";
 import { ROOT } from "../runtime.js";
 import { START_ORDER } from "../services.js";
-import { readDaemonMeta } from "../daemon/paths.js";
+import { daemonLogPath, readDaemonMeta } from "../daemon/paths.js";
 
 /**
  * 维护进程自己写日志。
@@ -43,13 +43,36 @@ async function main() {
   const activeFile = path.join(runtime, "active.json");
   let switched = false;
   let preparedEntry = "";
+  /** 旧进程退出，以及它的日志句柄松开，共用这一段等待。 */
+  const daemonTeardownMs = 30_000;
   const waitExit = async (pid: number) => {
-    const deadline = Date.now() + 30_000;
+    const deadline = Date.now() + daemonTeardownMs;
     for (;;) {
       let alive = true; try { process.kill(pid, 0); } catch (error) { alive = (error as NodeJS.ErrnoException).code !== "ESRCH"; }
       if (!alive) return;
       if (Date.now() > deadline) throw new Error("守护进程尚未退出，禁止切换平台");
       await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  };
+  /**
+   * 等到 daemon.log 可以再次追加。
+   * 使用场景：平台校验会拉起下一版守护进程，它一启动就追加这个文件。
+   * 旧日志泵要等 Node 进程退出后才关闭句柄，中间会让打开失败。
+   */
+  const waitDaemonLogAppendable = async () => {
+    const log = daemonLogPath();
+    const deadline = Date.now() + daemonTeardownMs;
+    for (;;) {
+      try {
+        const fd = fs.openSync(log, "a");
+        fs.closeSync(fd);
+        return;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "EBUSY") throw error;
+        if (Date.now() > deadline) throw new Error("守护进程日志仍被占用，已停止切换平台");
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
   };
   /** 只停服务，不退出守护进程。备份必须发生在守护进程还活着的时候。 */
@@ -113,6 +136,7 @@ async function main() {
           for (const key of Object.keys(process.env)) if (key.startsWith("SFMC_SERVICE_") && key.endsWith("_ENTRY") || ["SFMC_FETCH_MODULE", "SFMC_PLATFORM_VERSION"].includes(key)) delete process.env[key];
           process.env.SFMC_DAEMON_ENTRY = launcher;
           phase("verify");
+          await waitDaemonLogAppendable();
           await runProcess(process.execPath, [launcher, "status"], ROOT);
           const handshake = await callDaemon("management", { request: { id: request.id, method: "handshake" } });
           if (handshake.kind !== "management" || !handshake.response.ok || (handshake.response.result as { platformVersion?: string }).platformVersion !== request.target) throw new Error("目标平台握手验证失败");

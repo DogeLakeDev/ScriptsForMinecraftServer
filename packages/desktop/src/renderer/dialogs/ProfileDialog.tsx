@@ -188,7 +188,7 @@ export function ProfileDialog() {
             <Checkbox checked={Boolean(draft.remember)} onChange={(checked) => set("remember", checked)}>使用系统加密记住密码与口令</Checkbox>
           </fieldset>
         )}
-        <Field label="部署绝对目录" required error={errors.root} description={ssh ? "远程服务器上的目录" : "新目录将引导初始化；已有部署会检查版本后接入"}>
+        <Field label="部署绝对目录" required error={errors.root} description={ssh ? "远程服务器上的目录" : "空目录会在连接后初始化；已有服务器连接后直接管理"}>
           <TextInput
             mono
             value={draft.root}

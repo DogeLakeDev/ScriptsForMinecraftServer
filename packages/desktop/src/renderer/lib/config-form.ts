@@ -96,7 +96,7 @@ export const PROPERTY_FIELDS: FieldSpec[] = [
   { group: "基本", key: "allow-cheats", label: "允许作弊", kind: "boolean", description: "允许使用命令等作弊功能" },
   { group: "玩家", key: "max-players", label: "最大玩家数", kind: "number", integer: true, min: 1 },
   { group: "玩家", key: "online-mode", label: "正版验证", kind: "boolean", description: "要求玩家通过 Xbox Live 验证" },
-  { group: "玩家", key: "allow-list", label: "启用允许名单", kind: "boolean", description: "仅允许名单中的玩家加入（名单在“玩家与权限”中管理）" },
+  { group: "玩家", key: "allow-list", label: "启用允许名单", kind: "boolean", description: "平台用绑定记录决定能否游玩，并会关闭原版允许名单" },
   { group: "玩家", key: "default-player-permission-level", label: "新玩家默认权限", kind: "enum", options: [{ value: "visitor", label: "访客" }, { value: "member", label: "成员" }, { value: "operator", label: "管理员" }] },
   { group: "玩家", key: "player-idle-timeout", label: "挂机踢出（分钟）", kind: "number", integer: true, min: 0, description: "0 表示不踢出" },
   { group: "玩家", key: "texturepack-required", label: "强制资源包", kind: "boolean" },

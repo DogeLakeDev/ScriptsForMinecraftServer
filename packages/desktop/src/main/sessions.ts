@@ -140,5 +140,6 @@ export class Session {
     }
     return { filename };
   }
+  /** 只关闭这条管理通道。守护进程在登录会话之外，结束 SSH 或本地 stdio 不会停止服务器进程。 */
   disconnect() { this.client?.disconnect(); this.ssh?.end(); this.child?.stdin?.end(); this.credentials = {}; }
 }

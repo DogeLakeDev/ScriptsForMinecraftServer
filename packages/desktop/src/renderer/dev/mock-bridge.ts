@@ -268,12 +268,15 @@ export function installMockBridge() {
     initialized: true,
   });
 
-  const mockMetrics = () => {
+  const mockMetrics = (spanMs: number) => {
     const now = Date.now();
+    const span = Number.isFinite(spanMs) && spanMs > 0 ? spanMs : 3_600_000;
+    const step = span > 3_600_000 ? 72_000 : 15_000;
+    const count = Math.ceil(span / step);
     const history = [];
     const resourceHistory = [];
-    for (let i = 240; i >= 0; i--) {
-      const recordedAt = now - i * 15_000;
+    for (let i = count; i >= 0; i--) {
+      const recordedAt = now - i * step;
       const wave = Math.sin(i / 8);
       history.push({
         recordedAt,
@@ -388,6 +391,10 @@ export function installMockBridge() {
           allowlist: structuredClone(instance.allowlist),
           permissions: structuredClone(instance.permissions),
           sfmcPermissions: structuredClone(instance.sfmcPermissions),
+          bindings: [
+            { playerName: "Steve", playerXuid: "2535412345678901", qqUserOpenid: "openid-steve", qqBackend: "official", boundAt: Date.now() - 3_600_000 },
+            { playerName: "Alex", playerXuid: "2535412345678902", qqUserOpenid: "openid-alex", qqBackend: "llbot", boundAt: Date.now() - 86_400_000 },
+          ],
         };
       case "players.apply": return runTask(id, method, maintenance, () => { (instance as unknown as Record<string, unknown>)[String(params.kind)] = params.entries; });
       case "updates.check":
@@ -407,7 +414,7 @@ export function installMockBridge() {
           ? { filename: "install-sfmc-service.ps1", script: "#Requires -RunAsAdministrator\n$ErrorActionPreference = 'Stop'\n$wrapper = 'D:\\SFMC\\survival\\.sfmc\\runtime\\sfmc3f2a9c1b.exe'\nif (Get-Service -Name 'sfmc3f2a9c1b' -ErrorAction SilentlyContinue) { throw '系统服务已存在，不重复安装' }\nCopy-Item -LiteralPath 'D:\\SFMC\\survival\\.sfmc\\runtime\\WinSW-x64.exe' -Destination $wrapper\n$credential = Get-Credential -UserName 'shiro' -Message '输入原 Windows 部署账号'\nNew-Service -Name 'sfmc3f2a9c1b' -BinaryPathName ('\"' + $wrapper + '\"') -Credential $credential -StartupType Automatic\nStart-Service -Name 'sfmc3f2a9c1b'\n" }
           : { filename: "install-sfmc-service.sh", script: "#!/bin/sh\nset -eu\n[ \"$(id -u)\" = 0 ] || { echo '请以管理员运行此一次性安装脚本'; exit 1; }\nunit=/etc/systemd/system/sfmc-3f2a9c1b.service\nsystemctl daemon-reload\nsystemctl enable --now sfmc-3f2a9c1b.service\n" };
       case "deployment.create": return runTask(id, method, ["preflight", "prepare", "download", "start"]);
-      case "metrics.read": return mockMetrics();
+      case "metrics.read": return mockMetrics(Number(params.spanMs ?? 3_600_000));
       default: throw new Error(`模拟桥未实现: ${method}`);
     }
   };

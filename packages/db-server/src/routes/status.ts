@@ -2,7 +2,7 @@
 
 import { collectSystemStatus, type SystemStatusSnapshot } from "../domain/system-status.js";
 import { PROJECT_ROOT } from "../project-root.js";
-import { MetricsHistory, ResourceHistory, parseMetrics, type MetricsSample } from "../domain/metrics.js";
+import { METRICS_RAW_WINDOW_MS, MetricsHistory, ResourceHistory, clampMetricsSpan, parseMetrics, type MetricsSample } from "../domain/metrics.js";
 import { collectProcessResources } from "../domain/process-resources.js";
 import type { QueryFn } from "../lib/sqlite.js";
 import fs from "node:fs";
@@ -65,7 +65,7 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
     timer.unref();
   }
 
-  return async function handle({ path, method, req, res }): Promise<boolean> {
+  return async function handle({ path, method, params, req, res }): Promise<boolean> {
     if (path === "/api/sfmc/status/live" || path === "/api/sfmc/metrics/live") {
       if (method !== "POST") {
         json(res, { success: false, error: "not_found" }, 404);
@@ -130,9 +130,17 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
       const metricFresh = owned && metrics !== null && bds?.state === "running" && now - metrics.recordedAt <= 60_000 &&
         (bdsAgeMs === null || now - metrics.recordedAt <= bdsAgeMs + 2000);
       const processes = await captureResources(system);
+      let span = METRICS_RAW_WINDOW_MS;
+      const rawSpan = params.get("spanMs");
+      if (rawSpan) {
+        try { span = clampMetricsSpan(Number(rawSpan)); } catch {
+          json(res, { success: false, error: "invalid_span" }, 400);
+          return true;
+        }
+      }
       json(res, { fresh: metricFresh, current: metricFresh ? metrics : null, updatedAt: metrics?.recordedAt ?? null,
-        history: history?.read(now) ?? [], host: system?.host ?? null, processes, resourcesUpdatedAt: system ? Date.now() : null,
-        resourceHistory: resources?.read(now) ?? [],
+        history: history?.read(now, span) ?? [], host: system?.host ?? null, processes, resourcesUpdatedAt: system ? Date.now() : null,
+        resourceHistory: resources?.read(now, span) ?? [],
         note: metricFresh ? undefined : bds?.state === "stopped" ? "服务器未运行" : "等待平台指标同步" });
       return true;
     }

@@ -63,6 +63,7 @@
     "cross-spawn": "7.0.6",
     "esbuild": "^0.28.1",
     "@sfmc-bds/management": "workspace:*",
+    "@sfmc-bds/db-server": "workspace:*",
     "ajv": "8.20.0",
     "jsonc-parser": "3.3.1"
   },

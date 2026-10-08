@@ -1,13 +1,11 @@
 /**
  * client.ts — CLI 侧守护进程客户端：ensureDaemon + RPC + 日志订阅
  *
- * 若 `.sfmc/daemon.json` 对应进程不在或管道不可连，则 spawn `sfmc --daemon`
- *（detached + windowsHide），再轮询直到 ping 成功。
+ * 若 `.sfmc/daemon.json` 对应进程不在或管道不可连，则在登录会话之外启动 `sfmc --daemon`，
+ * 再轮询直到 ping 成功。管理连接退出只断开管道，不停止守护进程。
  */
 
 import { isProcessAlive } from "@sfmc-bds/bds-tools/process-probe";
-import { logsDir } from "@sfmc-bds/sdk/node/config";
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -34,6 +32,7 @@ import type {
 } from "./protocol.js";
 import { isLogPayload } from "./protocol.js";
 import { isDaemonServer } from "./role.js";
+import { launchDaemonHost } from "./host.js";
 import { fileURLToPath } from "node:url";
 import type { ManagementEvent } from "@sfmc-bds/management";
 import { lockOwnerAlive, maintenanceToken } from "@sfmc-bds/management/node";
@@ -230,8 +229,8 @@ async function tryConnectExisting(): Promise<DaemonConnection | null> {
 }
 
 /**
- * 拉起守护进程子进程（detached，日志写入 daemon.log）。
- * 入口脚本复用当前 CLI 的 argv[1]（即 sfmc 主入口）。
+ * 拉起守护进程。入口脚本复用当前 CLI 的 argv[1]（即 sfmc 主入口）。
+ * 实际启动交给 host：SSH 会话里不会把守护进程留在这次登录中。
  */
 function spawnDaemonProcess(): void {
   const lockFile = path.join(ROOT, ".sfmc", "maintenance.lock");
@@ -246,21 +245,13 @@ function spawnDaemonProcess(): void {
   }
   const entry = process.env.SFMC_DAEMON_ENTRY ?? fileURLToPath(new URL("../main.js", import.meta.url));
   if (!entry) throw new Error("cannot resolve sfmc entry for daemon spawn");
-  fs.mkdirSync(logsDir(ROOT), { recursive: true });
-  const logFd = fs.openSync(daemonLogPath(), "a");
-  const child = spawn(process.env.SFMC_NODE_BINARY ?? process.execPath, [entry, "--daemon"], {
-    detached: true,
-    windowsHide: true,
-    stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, SFMC_ROOT: ROOT },
-    cwd: ROOT,
+  launchDaemonHost({
+    node: process.env.SFMC_NODE_BINARY ?? process.execPath,
+    entry,
+    root: ROOT,
+    logPath: daemonLogPath(),
+    ...(process.env.SFMC_PNPM_ENTRY ? { pnpm: process.env.SFMC_PNPM_ENTRY } : {}),
   });
-  child.unref();
-  try {
-    fs.closeSync(logFd);
-  } catch {
-    /* ignore */
-  }
 }
 
 /**

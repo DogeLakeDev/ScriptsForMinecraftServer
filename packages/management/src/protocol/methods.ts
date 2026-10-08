@@ -15,6 +15,14 @@ export interface ConfigDocument {
 export interface ModuleRow { id: string; folder: string; name: string; version: string; enabled: boolean; linked: boolean }
 export interface PackRow { id: string; name: string; kind: "behavior" | "resource"; enabled: boolean; version: string }
 export interface PlayerRow { name: string; xuid: string; online: boolean | null }
+/** 绑定白名单的一行，对应业务库 sfmc_qq_bindings。 */
+export interface QqBinding {
+  playerName: string;
+  playerXuid: string;
+  qqUserOpenid: string;
+  qqBackend: string;
+  boundAt: number;
+}
 export interface ReleaseNotes {
   version: string;
   title: string;
@@ -54,7 +62,7 @@ export interface ManagementMethodMap {
   "packs.list": { packs: PackRow[] };
   "packs.import": OperationAccepted;
   "packs.toggle": OperationAccepted;
-  "players.list": { players: PlayerRow[]; updatedAt: string; fresh: boolean; allowlist: unknown[]; permissions: unknown[]; sfmcPermissions: unknown[] };
+  "players.list": { players: PlayerRow[]; updatedAt: string; fresh: boolean; allowlist: unknown[]; permissions: unknown[]; sfmcPermissions: unknown[]; bindings: QqBinding[] };
   "players.apply": OperationAccepted;
   "metrics.read": MetricsResult;
   "updates.check": unknown;

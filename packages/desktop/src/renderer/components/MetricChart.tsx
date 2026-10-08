@@ -79,8 +79,12 @@ function TrendPlot({
         axisLabel: {
           color: palette.text3,
           hideOverlap: true,
-          formatter: (time: number) =>
-            new Date(time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          formatter: (time: number) => {
+            const date = new Date(time);
+            const clock = date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+            if (minutes < 24 * 60) return clock;
+            return `${date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} ${clock}`;
+          },
         },
       },
       yAxis: memory
@@ -147,7 +151,7 @@ function TrendPlot({
       ref={container}
       className="metric-chart"
       role="img"
-      aria-label={`${label}，最近 ${minutes} 分钟`}
+      aria-label={`${label}，最近 ${minutes >= 24 * 60 ? "1 天" : `${minutes} 分钟`}`}
     />
   );
 }

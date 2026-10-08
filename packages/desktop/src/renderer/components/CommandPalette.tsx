@@ -1,7 +1,7 @@
 /**
  * CommandPalette.tsx — 命令面板（Ctrl+K）
  *
- * 使用场景：键盘优先的全局入口，可跳转页面、切换/接入实例、批量启停服务、切换外观与布局、检查客户端更新。
+ * 使用场景：键盘优先的全局入口，可跳转页面、切换/连接实例、批量启停服务、切换外观与布局、检查客户端更新。
  * 命令列表统一在 commands 中生成，新增命令只需追加一项（OCP）；执行逻辑全部委托给 useDesktop 的操作。
  * 外层使用 Base UI Dialog 提供焦点陷阱、Esc 关闭、滚动锁定与进出场动画。
  */
@@ -90,12 +90,11 @@ export function CommandPalette({
       run: () => desktop.setPage(item.key),
     }));
     if (selected) {
-      const state = connectionState(model);
       if (!model.handshake || model.disconnected) {
         rows.push({
           id: "conn:connect",
           group: "实例",
-          label: model.handshake ? `恢复连接 ${selected.name}` : `接入 ${selected.name}`,
+          label: model.handshake ? `恢复连接 ${selected.name}` : `连接 ${selected.name}`,
           icon: "plug",
           keywords: "connect 连接 接入",
           run: () => void desktop.connect(selected, Boolean(model.handshake)),
@@ -117,15 +116,6 @@ export function CommandPalette({
           keywords: "disconnect 断开",
           run: () => void desktop.disconnect(selected),
         });
-        if (!model.attached && state.online)
-          rows.push({
-            id: "conn:attach",
-            group: "实例",
-            label: "完成接入以启用维护操作",
-            icon: "shield",
-            keywords: "attach 接入 维护",
-            run: () => void desktop.guarded(() => desktop.startAttach(selected)),
-          });
       }
       rows.push({
         id: "conn:settings",

@@ -14,6 +14,25 @@ const DIMENSIONS: [string, string, string][] = [
   ["minecraft:the_end", "末地", CHART_COLORS[3]],
 ];
 
+/**
+ * 断线阈值。密采样仍用原来的 20 秒 / 45 秒；抽稀后的间隔更大时，按真实点距的 3 倍断开，
+ * 正常相邻的桶不会被拆成碎线，中间缺了采样仍然断开。不补造点。
+ */
+function connectGap(samples: { recordedAt: number }[], baseGap: number): number {
+  const deltas: number[] = [];
+  for (let index = 1; index < samples.length; index++) {
+    const current = samples[index];
+    const previous = samples[index - 1];
+    if (!current || !previous) continue;
+    const delta = current.recordedAt - previous.recordedAt;
+    if (delta > 0) deltas.push(delta);
+  }
+  if (deltas.length === 0) return baseGap;
+  deltas.sort((left, right) => left - right);
+  const step = deltas[Math.floor((deltas.length - 1) / 2)];
+  return step === undefined ? baseGap : Math.max(baseGap, step * 3);
+}
+
 export function trendPoints<T extends { recordedAt: number; bootId?: string }>(
   samples: T[],
   pick: (sample: T) => number | null | undefined,
@@ -21,14 +40,15 @@ export function trendPoints<T extends { recordedAt: number; bootId?: string }>(
   end: number,
   gapMs: number
 ): [number, number | null][] {
+  const window = samples.filter((sample) => sample.recordedAt >= from && sample.recordedAt <= end);
+  const gap = connectGap(window, gapMs);
   const points: [number, number | null][] = [];
   let previous: T | undefined;
-  for (const sample of samples) {
-    if (sample.recordedAt < from || sample.recordedAt > end) continue;
+  for (const sample of window) {
     const value = pick(sample);
     const numeric = typeof value === "number" && Number.isFinite(value) ? value : null;
     const restarted = Boolean(previous?.bootId && sample.bootId && previous.bootId !== sample.bootId);
-    if (previous && (restarted || sample.recordedAt - previous.recordedAt > gapMs)) points.push([sample.recordedAt - 1, null]);
+    if (previous && (restarted || sample.recordedAt - previous.recordedAt > gap)) points.push([sample.recordedAt - 1, null]);
     points.push([sample.recordedAt, numeric]);
     previous = sample;
   }

@@ -113,7 +113,7 @@ export function UpdatesPage() {
     return void submit("updates.run", { kind, ...(plan ? { targetVersion: plan.targetVersion } : {}) }, `更新 ${name}`, { description: <div className="form-stack"><p>将停服备份，更新后恢复运行。失败时回退程序；世界和数据库需从备份手动恢复。</p>{plan && <ReleaseNotes notes={plan.releaseNotes} version={plan.targetVersion} />}</div>, okText: "开始更新" });
   };
   const runButton = (kind: "platform" | "modules" | "bds", name: string, available: boolean, label: string) => (
-    <Tooltip content={editable ? undefined : "完成接入后可更新"} wrap>
+    <Tooltip content={editable ? undefined : "当前为只读"} wrap>
       <Button size="sm" variant={available ? "primary" : "secondary"} disabled={!editable || result === undefined} onClick={() => run(kind, name)} icon={available ? "download" : "refresh"}>
         {label}
       </Button>

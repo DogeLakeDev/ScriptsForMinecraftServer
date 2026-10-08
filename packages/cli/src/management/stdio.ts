@@ -29,6 +29,17 @@ export async function runManagementStdio() {
       }
       const client = await import("../daemon/client.js");
       if (!forwarding) forwarding = client.onDaemonManagementEvent(event => output(JSON.stringify(event) + "\n"));
+      // 指标和玩家名单读当前磁盘上的代码与数据库。管理通道每次连接都会加载新文件，不必为此重启仍在托管服务的守护进程。
+      if (ready && request.method === "metrics.read") {
+        const metrics = await import("./metrics-read.js");
+        output(JSON.stringify({ type: "res", id: request.id, ok: true, result: await metrics.readRuntimeMetrics(request.params) }) + "\n");
+        return;
+      }
+      if (ready && request.method === "players.list") {
+        const backend = await import("./server.js");
+        output(JSON.stringify({ type: "res", id: request.id, ok: true, result: await backend.dispatchManagement(request) }) + "\n");
+        return;
+      }
       if (!legacy) {
         try {
           const result = await client.callDaemon("management", { request });
@@ -68,6 +79,7 @@ export async function runManagementStdio() {
     const action = processLine(line).catch(error => { process.stderr.write(String(error) + "\n"); });
     pending.add(action); void action.finally(() => pending.delete(action));
   });
+  // 标准输入关闭表示管理端离开。只断开与守护进程的管道，不停止服务。
   await new Promise<void>(resolve => lines.once("close", resolve));
   await Promise.allSettled(pending); dispose?.(); forwarding?.();
   if (ready) (await import("../daemon/client.js")).disconnectDaemonClient();

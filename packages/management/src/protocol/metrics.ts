@@ -32,7 +32,7 @@ export interface MetricsResult {
   } | null;
   processes: { db: ProcessResources; bds: ProcessResources | null } | null;
   resourcesUpdatedAt: number | null;
-  /** 最近一小时的主机已用内存与托管进程内存。旧数据服务没有该字段。 */
+  /** 请求窗口内已落盘的主机与进程内存。缺省一小时；旧数据服务没有该字段。 */
   resourceHistory?: ResourceSample[];
   note?: string;
 }
