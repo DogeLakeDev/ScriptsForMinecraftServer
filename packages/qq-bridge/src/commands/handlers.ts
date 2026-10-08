@@ -359,17 +359,16 @@ const EVENT_SWITCHES = [
 ] as const;
 
 function eventSettingsPanel(settings: QqEventSettings, prefix = ""): CommandResult {
-  const rows: Array<[string, string]> = [
-    ...EVENT_SWITCHES.map(([field, label]): [string, string] => [label, settings[field] ? "开" : "关"]),
-    ["聚合间隔", `${settings.window_sec} 秒`],
-  ];
+  const rows: Array<[string, string]> = EVENT_SWITCHES.map(([field, label]): [string, string] => [
+    label,
+    settings[field] ? "开" : "关",
+  ]);
   const textRows = rows.map(([label, value]) => `│ ${label}${"　".repeat(4 - label.length)} │ ${value} │`);
   const buttons = EVENT_SWITCHES.map(([field, label]) => ({
     id: `events_${field}`,
     label: `${label} ${settings[field] ? "关" : "开"}`,
     command: `/events ${label} ${settings[field] ? "关" : "开"}`,
   }));
-  buttons.push({ id: "events_window", label: "聚合间隔", command: "/events 间隔" });
   return {
     text: [
       "推送设置",
@@ -379,7 +378,7 @@ function eventSettingsPanel(settings: QqEventSettings, prefix = ""): CommandResu
       "├──────────┼────────┤",
       ...textRows,
       "└──────────┴────────┘",
-      `玩家事件约 ${settings.window_sec} 秒合并发送；启停与异常退出即时发送。`,
+      "所有事件实时发送。",
     ].join("\n"),
     markdown: [
       "## 推送设置",
@@ -389,7 +388,7 @@ function eventSettingsPanel(settings: QqEventSettings, prefix = ""): CommandResu
       "| --- | --- |",
       ...rows.map(([label, value]) => `| ${label} | **${value}** |`),
       "",
-      `_玩家事件约 ${settings.window_sec} 秒合并发送；启停与异常退出即时发送_`,
+      "_所有事件实时发送_",
     ].join("\n"),
     buttons,
   };
@@ -405,34 +404,8 @@ export const eventSettingsHandler: CommandHandler = async (ctx): Promise<Command
       const data = await fetchQqEventSettings(ep);
       return data.success && data.settings ? eventSettingsPanel(data.settings) : failure(data.error);
     }
-    if (rest === "间隔") {
-      const data = await fetchQqEventSettings(ep);
-      if (!data.success || !data.settings) return failure(data.error);
-      return {
-        ...formatCard("聚合间隔", [
-          `当前：${data.settings.window_sec} 秒`,
-          "玩家进出及死亡通知会在这段时间内合并。",
-          "也可发送「事件推送 间隔 秒数」，范围 5–600 秒。",
-        ]),
-        buttons: [30, 60, 120].map((seconds) => ({
-          id: `events_window_${seconds}`,
-          label: `${seconds} 秒`,
-          command: `/events 间隔 ${seconds}`,
-        })),
-      };
-    }
-    const interval = /^间隔\s+(\d+)$/.exec(rest);
-    if (interval) {
-      const seconds = Number(interval[1]);
-      if (!Number.isInteger(seconds) || seconds < 5 || seconds > 600) return { text: "聚合间隔需为 5–600 秒的整数。" };
-      const data = await postQqEventSettings(ep, {
-        openid: ctx.inbound.userId,
-        as_group_admin: asGroupAdminField(ctx),
-        field: "window_sec",
-        value: seconds,
-      });
-      return data.success && data.settings ? eventSettingsPanel(data.settings, "已保存") : failure(data.error);
-    }
+    // 旧面板的「聚合间隔」按钮或习惯命令仍可能发来，给出明确回复
+    if (/^间隔(\s+\d+)?$/.test(rest)) return { text: "事件推送已改为实时发送，不再有聚合间隔。" };
     const match = /^(总开关|启动|停服|异常退出|上线|下线|死亡)\s+(开|关)$/.exec(rest);
     if (!match) return { text: "发送「事件推送」打开开关面板，或选择面板中的操作。" };
     const item = EVENT_SWITCHES.find(([, label]) => label === match[1]);

@@ -22,6 +22,7 @@
  *   - 校验调用方 moduleId 在 enabled 列表(否则 403)
  */
 
+import { PLATFORM_SERVICE_OWNER } from "@sfmc-bds/sdk/contracts";
 import { readJson, writeJson, type TokenStore } from "@sfmc-bds/sdk/node/config";
 import { createHmac, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
@@ -135,7 +136,7 @@ export function revokeModuleToken(auth: ModuleAuthMap, moduleId: string): boolea
  * 校验请求方身份:
  *   - Bearer 头 / X-Module-Token 二选一
  *   - ?moduleId=<id> 必须存在
- *   - 模块必须在 enabledModuleIds 集合中
+ *   - 模块必须在 enabledModuleIds 集合中（平台宿主 `_platform` 除外）
  *   - token 必须 = deriveToken(moduleId, secret)
  * 返回模块 ID 或 null。
  */
@@ -146,7 +147,9 @@ export function verifyModuleAuth(opts: {
   enabledModuleIds: Set<string>;
 }): string | null {
   const moduleId = opts.params.get("moduleId") || "";
-  if (!moduleId || !opts.enabledModuleIds.has(moduleId)) return null;
+  if (!moduleId) return null;
+  // 平台宿主不在模块 lock 的 enabled 列表里，但仍需有效 token
+  if (moduleId !== PLATFORM_SERVICE_OWNER && !opts.enabledModuleIds.has(moduleId)) return null;
 
   let provided = "";
   const auth = opts.headers["authorization"];

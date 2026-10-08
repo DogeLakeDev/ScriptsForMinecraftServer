@@ -31,7 +31,7 @@ import { log } from "./lib/log.js";
 import { assertNodeVersion } from "./lib/runtime.js";
 import { createQuery, openDatabase } from "./lib/sqlite.js";
 import { loadManifestV2 } from "./manifest-loader.js";
-import { buildModuleAuth, verifyModuleAuth } from "./module-auth.js";
+import { buildModuleAuth, ensureModuleToken, persistModuleAuth, verifyModuleAuth } from "./module-auth.js";
 import { syncModuleRuntimeState } from "./module-runtime-sync.js";
 import { SchemaRegistry } from "./schema-registry.js";
 import { createServer, startConsole } from "./server.js";
@@ -49,7 +49,7 @@ import { createServiceRoutes } from "./routes/service-routes.js";
 
 import { forwardToQQBridge, makeOutboundConfig } from "./domain/bridge.js";
 import { loadContentSnapshot } from "./domain/installed-content.js";
-import { createQqEventsAggregator, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
+import { createQqEventsDispatcher, resolveQqEventsConfig, type ResolvedQqEventsConfig } from "./domain/qq-events.js";
 import { body as sharedBody, json as sharedJson } from "./lib/http.js";
 import { isEnabled, loadModuleLock, saveModuleLock, updateModuleState } from "./lib/module-state.js";
 import { createConfigRoutes } from "./routes/config.js";
@@ -107,6 +107,11 @@ const moduleAuth = buildModuleAuth({
   envAuthToken: env.AUTH_TOKEN,
   enabledModuleIds: [...enabledSet],
 });
+// 平台宿主（QQ 绑定/账号快照）需要稳定 token，经 configs/all.module_tokens 下发到 BDS
+if (ensureModuleToken(moduleAuth, PLATFORM_SERVICE_OWNER)) {
+  persistModuleAuth(env.DB_PATH, moduleAuth, env.AUTH_TOKEN);
+  log.info(`[auth] 已派生平台宿主 token: ${PLATFORM_SERVICE_OWNER}`);
+}
 
 // ── 三件套 + 路由工厂 ─────────────────────────────────────
 const schemaRegistry = new SchemaRegistry(db);
@@ -271,7 +276,7 @@ for (const name of PLATFORM_MONITORING_SERVICES) serviceRegistry.registerHandler
 });
 const qqBindRoutes = createQqBindRoutes({ query, body, json });
 
-/** 模块 qq-link 的配置文件（非 SDK qq_config） */
+/** 平台 QQ 绑定相关配置（非 SDK qq_config；原 qq-link 模块配置键） */
 const QQ_LINK_CONFIG_KEY = "qq_link";
 const QQ_LINK_DEFAULTS = {
   allowlist_enabled: true,
@@ -294,7 +299,7 @@ function qqLinkConfigFile(): string {
 }
 
 function readJoinFlags(): JoinFeatureFlags {
-  // 模块配置 configs/qq_link.json（非 SDK qq_config）
+  // 平台配置 configs/qq_link.json（非 SDK qq_config）
   const disk = ensureJson<Record<string, unknown>>(qqLinkConfigFile(), { ...QQ_LINK_DEFAULTS });
   return {
     allowlistEnabled: asConfigBool(disk.allowlist_enabled, QQ_LINK_DEFAULTS.allowlist_enabled),
@@ -319,12 +324,12 @@ function writeJoinFlags(partial: Partial<JoinFeatureFlags>): JoinFeatureFlags {
   return readJoinFlags();
 }
 
-// 启动即落盘模块默认配置，避免「从未点过配置/申请」时 configs/qq_link.json 不存在
+// 启动即落盘平台默认配置，避免「从未点过配置/申请」时 configs/qq_link.json 不存在
 {
   const created = !readJson(qqLinkConfigFile());
   ensureJson<Record<string, unknown>>(qqLinkConfigFile(), { ...QQ_LINK_DEFAULTS });
   if (created) {
-    log.info(`已写入模块配置骨架: configs/${QQ_LINK_CONFIG_KEY}.json`);
+    log.info(`已写入平台配置骨架: configs/${QQ_LINK_CONFIG_KEY}.json`);
   }
 }
 
@@ -368,14 +373,14 @@ function currentOutbound() {
   });
 }
 
-const qqEventsAggregator = createQqEventsAggregator({
+const qqEventsDispatcher = createQqEventsDispatcher({
   getConfig: readQqEventsSettings,
   getOutbound: () => currentOutbound(),
 });
 const qqEventsRoutes = createQqEventsRoutes({
   body,
   json,
-  aggregator: qqEventsAggregator,
+  dispatcher: qqEventsDispatcher,
   getSettings: readQqEventsSettings,
   setSettings: writeQqEventsSettings,
   isAdmin: (openid, asGroupAdmin) => {

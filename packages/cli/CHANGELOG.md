@@ -1,5 +1,31 @@
 # @sfmc-bds/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- d538524: 将 qq-link 收编进平台行为包宿主（对齐 monitor）：绑定门禁、进退服/死亡上报随 SDK 宿主启动；退役模块 id；平台 `_platform` 可调用跨模块服务；播种 `configs/qq_link.json`。
+
+### Patch Changes
+
+- Updated dependencies [d538524]
+  - @sfmc-bds/sdk@0.4.0
+  - @sfmc-bds/bds-tools@0.2.8
+  - @sfmc-bds/devkit@2.0.4
+  - @sfmc-bds/management@0.3.2
+
+## 0.4.5
+
+### Patch Changes
+
+- fe9ab2e: 维护锁在持有进程已退出时自动失效并允许接管，避免界面卡在「进行中」；平台升级时先停服务再备份、最后再退出守护进程，并改为由维护进程自行写日志，防止 Windows 上父进程退出带走尚未脱离的子进程。
+- Updated dependencies [fe9ab2e]
+- Updated dependencies [fe9ab2e]
+  - @sfmc-bds/management@0.3.2
+  - @sfmc-bds/sdk@0.3.2
+  - @sfmc-bds/bds-tools@0.2.7
+  - @sfmc-bds/devkit@2.0.3
+
 ## 0.4.4
 
 ### Patch Changes

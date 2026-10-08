@@ -1,5 +1,15 @@
 # @sfmc-bds/desktop
 
+## 0.3.4
+
+### Patch Changes
+
+- fe9ab2e: 控制台关闭自动换行时按内容宽度滚动，避免长行被 content-visibility 裁切后无法横向拖动。
+- 56aa99e: 实例状态灯移到侧栏右侧，实例名称与侧栏其余文字左对齐。
+- Updated dependencies [fe9ab2e]
+  - @sfmc-bds/management@0.3.2
+  - @sfmc-bds/ui@0.1.0
+
 ## 0.3.3
 
 ### Patch Changes

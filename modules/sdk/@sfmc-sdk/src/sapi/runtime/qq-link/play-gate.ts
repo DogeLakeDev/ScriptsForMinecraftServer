@@ -2,7 +2,7 @@
  * play-gate.ts — 自有白名单门禁
  *
  * 白名单即 QQ 绑定（GET /api/sfmc/qq/bind/me?xuid=）。
- * 模块加载后关闭原版 allow-list，未绑定玩家可以连接，但：
+ * 平台宿主启动后关闭原版 allow-list，未绑定玩家可以连接，但：
  * - 权限降为访客
  * - 关闭移动输入，并在偏离锚点时拉回
  * - 取消破坏、放置与交互
@@ -22,7 +22,8 @@ import {
   type PlayerPlaceBlockBeforeEvent,
 } from "@minecraft/server";
 import { HttpRequestMethod } from "@minecraft/server-net";
-import { HttpDB, Msg } from "@sfmc-bds/sdk/sapi/runtime";
+import { HttpDB } from "../httpdb.js";
+import { Msg } from "../msg.js";
 import {
   BIND_GATE_PROMPT,
   BIND_GATE_UNVERIFIED_PROMPT,
@@ -305,7 +306,7 @@ export function startPlayGate(): void {
   system.run(() => refreshOnline());
 }
 
-/** 卸模块时清掉定时器、订阅和内存中的锁定状态。 */
+/** 卸宿主时清掉定时器、订阅和内存中的锁定状态。 */
 export function stopPlayGate(): void {
   for (const id of runIds) {
     try {

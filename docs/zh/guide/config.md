@@ -73,7 +73,6 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
   "llbot": { "enabled": false, "ws_port": 3002, "host": "127.0.0.1", "port": 3004 },
   "qq_events": {
     "enabled": true,
-    "window_sec": 60,
     "join": true,
     "leave": true,
     "death": true,

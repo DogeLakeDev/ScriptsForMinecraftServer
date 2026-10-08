@@ -32,6 +32,11 @@ import { debug } from "../sapi/runtime/debug-log.js";
 import { getRuntimeMetrics, getRuntimeTpsStatus, startRuntimeMonitoring, stopRuntimeMonitoring } from "../sapi/runtime/monitoring.js";
 import { Msg } from "../sapi/runtime/msg.js";
 import { Permission } from "../sapi/runtime/permission.js";
+import {
+  registerPlatformQqLinkCommands,
+  startPlatformQqLink,
+  stopPlatformQqLink,
+} from "../sapi/runtime/qq-link/index.js";
 import { clearServiceModuleContext, createServiceClient, getServiceClient, setServiceModuleContext } from "../sapi/service/client.js";
 import type { DataAdapter } from "./data-adapter.js";
 import { createHttpDataAdapter } from "./http-data-adapter.js";
@@ -81,6 +86,8 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
       `§7视距区块估算: §f${metrics?.chunkEstimate ?? "未知"}`].join("\n");
     if (player) Msg.info(text, player); else debug.i("SFMC", text);
   }, "查看服务器综合负载");
+  // QQ 绑定命令随宿主注册，不依赖 modules/packages/qq-link
+  registerPlatformQqLinkCommands();
 
   // 将 BDS SAPI system 注入 module-loader 的 host 抽象（避免模块 loader 顶层硬依赖 @minecraft/server）
 
@@ -130,6 +137,14 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
 
   let worldLoadFired = false;
   let stopMonitoring: (() => void) | undefined;
+  let stopQqLink: (() => void) | undefined;
+
+  /** 世界就绪后启动平台监控与 QQ 绑定（与模块 bootAfterWorldLoad 对称）。 */
+  const startPlatformWorldRuntime = async () => {
+    stopMonitoring ??= startRuntimeMonitoring();
+    stopQqLink ??= startPlatformQqLink();
+    await ModuleRegistry.bootAfterWorldLoad();
+  };
 
   const runStartup = async () => {
     // Sentry / 控制台 debug：DSN 与 sfmc_debug 均缺省关闭
@@ -153,8 +168,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
     announceLoaded();
     // 若环境无 worldLoad 事件（如 1.18 稳定版）或事件在 ConfigManager 就绪前已触发，立即执行 bootAfterWorldLoad
     if (!worldAfter?.worldLoad?.subscribe || worldLoadFired) {
-      stopMonitoring ??= startRuntimeMonitoring();
-      await ModuleRegistry.bootAfterWorldLoad();
+      await startPlatformWorldRuntime();
     }
   };
 
@@ -185,15 +199,15 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   if (worldAfter?.worldLoad?.subscribe) {
     worldAfter.worldLoad.subscribe(() => {
       worldLoadFired = true;
-      stopMonitoring ??= startRuntimeMonitoring();
       if (!ConfigManager.isReady()) return;
-      ModuleRegistry.bootAfterWorldLoad();
+      void startPlatformWorldRuntime();
     });
   }
 
   if (sysBefore?.shutdown?.subscribe) {
     sysBefore.shutdown.subscribe(() => {
       try {
+        stopQqLink?.();
         stopMonitoring?.();
         ModuleRegistry.teardown();
       } catch {}
@@ -208,6 +222,9 @@ function _bootstrapBackend(): HostBackend {
     bindDataAdapter: (adapter: DataAdapter) => {
       ConfigManager.bindDataAdapter(adapter);
     },
-    dispose: () => stopRuntimeMonitoring(),
+    dispose: () => {
+      stopPlatformQqLink();
+      stopRuntimeMonitoring();
+    },
   };
 }

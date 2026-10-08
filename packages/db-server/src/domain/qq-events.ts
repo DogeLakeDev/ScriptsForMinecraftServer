@@ -1,9 +1,7 @@
 /**
- * domain/qq-events.ts — Minecraft 服务器事件群推送聚合节流器
+ * domain/qq-events.ts — Minecraft 服务器事件群推送
  *
- * 聚合策略：
- * - 玩家进退与死亡（join / leave / death）：在时间窗口内收集缓冲，合并为单条消息发送，避免刷屏
- * - 关键运行态事件（crash / start / stop）：先立即冲刷（flush）当前窗口内的待发送事件，随后立即单独推送
+ * 推送策略：所有事件（join / leave / death / crash / start / stop）收到即单条实时发送，不做窗口缓冲与合并。
  */
 
 import {
@@ -25,11 +23,10 @@ export type QqEventPayload = {
 
 export type ResolvedQqEventsConfig = Required<QqEventsConfig>;
 
-const WINDOW_TYPES = new Set<QqEventType>(["join", "leave", "death"]);
-const IMMEDIATE_TYPES = new Set<QqEventType>(["crash", "start", "stop"]);
-
-/** 窗口内条数上限：达到上限时提前触发 flush，避免单次积压过多内容。 */
-export const MAX_WINDOW_EVENTS = 20;
+/** 玩家类事件：必须携带 player 字段。 */
+const PLAYER_TYPES = new Set<QqEventType>(["join", "leave", "death"]);
+/** BDS 运行态事件：无需 player 字段。 */
+const LIFECYCLE_TYPES = new Set<QqEventType>(["crash", "start", "stop"]);
 
 /** SAPI damageSource.cause → 中文映射字典（未收录时保留原英文标识）。 */
 const CAUSE_ZH: Record<string, string> = {
@@ -70,19 +67,15 @@ const CAUSE_ZH: Record<string, string> = {
 
 /**
  * 解析并填充 QQ 事件推送配置的默认值。
+ * 旧配置中遗留的 window_sec 不再读取；写回时随 qq_events 整体覆盖而被移除。
  *
  * @param raw 原始配置对象。
  * @returns 规范化的完整配置对象。
  */
 export function resolveQqEventsConfig(raw: unknown): ResolvedQqEventsConfig {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const windowSec = Number(o.window_sec ?? DEFAULT_QQ_EVENTS.window_sec);
   return {
     enabled: o.enabled === undefined ? DEFAULT_QQ_EVENTS.enabled : o.enabled === true,
-    window_sec:
-      Number.isFinite(windowSec) && windowSec >= 5
-        ? Math.min(600, Math.floor(windowSec))
-        : DEFAULT_QQ_EVENTS.window_sec,
     join: o.join === undefined ? DEFAULT_QQ_EVENTS.join : o.join === true,
     leave: o.leave === undefined ? DEFAULT_QQ_EVENTS.leave : o.leave === true,
     death: o.death === undefined ? DEFAULT_QQ_EVENTS.death : o.death === true,
@@ -110,50 +103,35 @@ export function isEventTypeEnabled(cfg: ResolvedQqEventsConfig, type: QqEventTyp
   return cfg[type] === true;
 }
 
-type Buffered = {
-  type: "join" | "leave" | "death";
-  player: string;
-  cause?: string;
-};
-
-export type QqEventsAggregatorDeps = {
+/**
+ * 事件推送器的依赖注入。
+ * 当前由 db-server index.ts 注入配置读取与出站配置；单元测试可注入 send 拦截发送。
+ */
+export type QqEventsDispatcherDeps = {
   getConfig: () => ResolvedQqEventsConfig;
   getOutbound: () => OutboundConfig;
-  /** 可选注入：供单元测试模拟时钟与定时器。 */
-  setTimeoutFn?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
-  clearTimeoutFn?: (id: ReturnType<typeof setTimeout>) => void;
   send?: (text: string) => void;
 };
 
 /**
- * 格式化时间窗口内的聚合事件文本。
+ * 格式化单条玩家事件文本（上线 / 下线 / 死亡），每个事件独立成一条消息。
  *
- * @param events 缓冲区内的事件列表。
- * @returns 格式化后的多行消息字符串。
+ * @param type 玩家事件类型。
+ * @param player 玩家名。
+ * @param cause 死亡原因（仅 death 使用，可为空）。
+ * @returns 单行通知文本，如「[MC事件] Steve 上线」「[MC事件] Bob 死亡（坠落）」。
  */
-export function formatWindowBody(events: Buffered[]): string {
-  const joins: string[] = [];
-  const leaves: string[] = [];
-  const deaths: string[] = [];
-  for (const e of events) {
-    if (e.type === "join") joins.push(e.player);
-    else if (e.type === "leave") leaves.push(e.player);
-    else {
-      const c = localizeCause(e.cause);
-      deaths.push(c ? `${e.player}（${c}）` : e.player);
-    }
-  }
-  const lines: string[] = ["[MC事件]"];
-  if (joins.length) lines.push(`上线：${joins.join("、")}`);
-  if (leaves.length) lines.push(`下线：${leaves.join("、")}`);
-  if (deaths.length) lines.push(`死亡：${deaths.join("、")}`);
-  return lines.join("\n");
+export function formatPlayerBody(type: "join" | "leave" | "death", player: string, cause?: string): string {
+  if (type === "join") return `[MC事件] ${player} 上线`;
+  if (type === "leave") return `[MC事件] ${player} 下线`;
+  const c = localizeCause(cause);
+  return c ? `[MC事件] ${player} 死亡（${c}）` : `[MC事件] ${player} 死亡`;
 }
 
 /**
- * 格式化高优先级的非聚合即时事件文本（如 BDS 崩溃或启动就绪）。
+ * 格式化 BDS 运行态事件文本（如 BDS 崩溃或启动就绪）。
  *
- * @param ev 即时事件载荷。
+ * @param ev 运行态事件载荷。
  * @returns 格式化后的事件通知文本。
  */
 export function formatImmediateBody(ev: QqEventPayload): string {
@@ -173,7 +151,7 @@ export function normalizeEventPayload(raw: unknown): QqEventPayload | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const type = String(o.type ?? "").trim() as QqEventType;
-  if (!WINDOW_TYPES.has(type) && !IMMEDIATE_TYPES.has(type)) return null;
+  if (!PLAYER_TYPES.has(type) && !LIFECYCLE_TYPES.has(type)) return null;
   const out: QqEventPayload = { type };
   if (o.player !== undefined) {
     const player = String(o.player).trim();
@@ -191,48 +169,18 @@ export function normalizeEventPayload(raw: unknown): QqEventPayload | null {
 }
 
 /**
- * 创建 QQ 服务器事件聚合节流器实例。
+ * 创建 QQ 服务器事件推送器：每个事件收到后立即单条发送到群。
+ * 当前由 routes/qq-events.ts 的 POST /api/sfmc/qq/events 调用。
  *
- * @param deps 依赖注入对象（包含配置获取、出站发送及定时器实现）。
- * @returns 包含 push, flush, cancel, getPendingCount 等方法的聚合器控制器。
+ * @param deps 依赖注入对象（配置获取、出站配置及可选的发送实现）。
+ * @returns 包含 ingestOne / ingestMany 的推送器。
  */
-export function createQqEventsAggregator(deps: QqEventsAggregatorDeps) {
-
-  const setTimeoutFn = deps.setTimeoutFn ?? setTimeout;
-  const clearTimeoutFn = deps.clearTimeoutFn ?? clearTimeout;
+export function createQqEventsDispatcher(deps: QqEventsDispatcherDeps) {
   const send =
     deps.send ??
     ((text: string) => {
       sendGroupOutbound(deps.getOutbound(), text);
     });
-
-  let buffer: Buffered[] = [];
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  function clearTimer(): void {
-    if (timer != null) {
-      clearTimeoutFn(timer);
-      timer = null;
-    }
-  }
-
-  function flushWindow(): void {
-    clearTimer();
-    if (buffer.length === 0) return;
-    const cfg = deps.getConfig();
-    const snapshot = buffer.filter((event) => isEventTypeEnabled(cfg, event.type));
-    buffer = [];
-    const text = formatWindowBody(snapshot);
-    if (text.split("\n").length > 1) send(text);
-  }
-
-  function scheduleFlush(windowSec: number): void {
-    if (timer != null) return;
-    timer = setTimeoutFn(() => {
-      timer = null;
-      flushWindow();
-    }, windowSec * 1000);
-  }
 
   function ingestOne(ev: QqEventPayload): { accepted: boolean; reason?: string } {
     const cfg = deps.getConfig();
@@ -240,8 +188,7 @@ export function createQqEventsAggregator(deps: QqEventsAggregatorDeps) {
       return { accepted: false, reason: "disabled" };
     }
 
-    if (IMMEDIATE_TYPES.has(ev.type)) {
-      flushWindow();
+    if (LIFECYCLE_TYPES.has(ev.type)) {
       send(formatImmediateBody(ev));
       return { accepted: true };
     }
@@ -249,13 +196,7 @@ export function createQqEventsAggregator(deps: QqEventsAggregatorDeps) {
     const player = String(ev.player ?? "").trim();
     if (!player) return { accepted: false, reason: "missing_player" };
 
-    buffer.push({
-      type: ev.type as "join" | "leave" | "death",
-      player,
-      ...(ev.cause ? { cause: ev.cause } : {}),
-    });
-    scheduleFlush(cfg.window_sec);
-    if (buffer.length >= MAX_WINDOW_EVENTS) flushWindow();
+    send(formatPlayerBody(ev.type as "join" | "leave" | "death", player, ev.cause));
     return { accepted: true };
   }
 
@@ -273,17 +214,7 @@ export function createQqEventsAggregator(deps: QqEventsAggregatorDeps) {
     return { accepted, rejected };
   }
 
-  /** 测试 / 关停：冲刷并清定时器 */
-  function dispose(): void {
-    flushWindow();
-  }
-
-  /** 仅测用：当前缓冲长度 */
-  function pendingCount(): number {
-    return buffer.length;
-  }
-
-  return { ingestOne, ingestMany, flushWindow, dispose, pendingCount };
+  return { ingestOne, ingestMany };
 }
 
-export type QqEventsAggregator = ReturnType<typeof createQqEventsAggregator>;
+export type QqEventsDispatcher = ReturnType<typeof createQqEventsDispatcher>;

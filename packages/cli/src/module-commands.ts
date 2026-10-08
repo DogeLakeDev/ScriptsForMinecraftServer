@@ -426,8 +426,9 @@ async function notifyDbToggle(logicalId: string, action: "enable" | "disable"): 
 async function cmdModuleToggle(query: string, action: "enable" | "disable"): Promise<CliResult> {
   const installed = await scanInstalled();
   const target = resolveToggleTarget(query, buildToggleCandidates(installed));
-  if (action === "enable" && target && isRetiredPlatformModule(target.logicalId)) return failResult("monitor 已收编至平台，无需启用；请更新平台行为包。");
-  if (action === "enable" && target && isRetiredPlatformModule(target.logicalId)) return failResult("monitor 已收编至平台，无需启用；请更新平台行为包。");
+  if (action === "enable" && target && isRetiredPlatformModule(target.logicalId)) {
+    return failResult(`${target.logicalId} 已收编至平台，无需启用；请更新平台行为包。`);
+  }
   if (!target) {
     return failResult(c.red(t("mod.notInstalled", { id: query })));
   }
@@ -456,7 +457,7 @@ async function cmdModuleToggle(query: string, action: "enable" | "disable"): Pro
 
 export async function cmdModuleEnable(args: string[]): Promise<CliResult> {
   const id = args[0];
-  if (id && isRetiredPlatformModule(id)) return failResult("monitor 已收编至平台，无需安装或启用；请更新平台行为包。");
+  if (id && isRetiredPlatformModule(id)) return failResult(`${id} 已收编至平台，无需安装或启用；请更新平台行为包。`);
   if (!id) return failResult(c.yellow(t("mod.enable.usage")));
   return cmdModuleToggle(id, "enable");
 }
@@ -517,6 +518,11 @@ export async function cmdModuleInstall(args: string[]): Promise<string> {
   }
   if (positional.length === 0) {
     return c.yellow(t("mod.install.usage"));
+  }
+  for (const id of positional) {
+    if (isRetiredPlatformModule(id)) {
+      return c.red(`${id} 已收编至平台，无需安装；请更新平台行为包。`);
+    }
   }
 
   /* scheme 预检：避免拼写错误延迟到子进程报错 */

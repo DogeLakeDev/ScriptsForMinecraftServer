@@ -12,6 +12,18 @@ import { ROOT } from "../runtime.js";
 import { START_ORDER } from "../services.js";
 import { readDaemonMeta } from "../daemon/paths.js";
 
+/**
+ * 维护进程自己写日志。
+ * 使用场景：父进程把标准输出接到自己的文件句柄时，守护进程退出会导致这段输出丢失；这里直接追加到日志文件。
+ */
+function maintenanceLog(message: string) {
+  const file = process.env.SFMC_MAINTENANCE_LOG || path.join(ROOT, ".sfmc", "logs", "maintenance.log");
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, `${new Date().toISOString()} ${message}\n`);
+  } catch { /* 日志写失败时仍以任务记录为准 */ }
+}
+
 /** 本进程在独立 Node 中常驻，平台换包不会删除其当前版本目录。 */
 async function main() {
   const requestFile = process.argv[2];
@@ -24,6 +36,7 @@ async function main() {
     record = readJson<OperationRecord>(recordFile, record);
     const previous = record.phases.at(-1); if (previous?.status === "running") previous.status = "done";
     record.phases.push({ name, status: "running", ...(message ? { message } : {}) }); record.status = "running"; record.updatedAt = new Date().toISOString(); atomicJson(recordFile, record);
+    maintenanceLog(`phase ${name}${message ? ` ${message}` : ""}`);
   };
   const runtime = path.join(ROOT, ".sfmc", "runtime");
   const release = path.join(runtime, "releases", `${request.target}-${request.id}`);
@@ -39,17 +52,24 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   };
-  const shutdown = async () => {
+  /** 只停服务，不退出守护进程。备份必须发生在守护进程还活着的时候。 */
+  const stopServices = async () => {
     const meta = readDaemonMeta();
-    if (!meta) return;
+    if (!meta) return meta;
     const status = await callDaemon("status");
     if (status.kind !== "status") throw new Error("无法确认当前服务状态");
     if (status.rows.some(row => row.running)) {
       const stopped = await callDaemon("maintenanceStop");
       if (stopped.kind !== "status" || stopped.rows.some(row => row.running)) throw new Error("服务没有优雅退出");
     }
+    return meta;
+  };
+  /** 文件备份完成后再让旧守护进程退出，避免退出时把本维护进程一起带走、备份停在半截。 */
+  const exitDaemon = async (meta: { pid: number } | null) => {
+    if (!meta) return;
     await callDaemon("shutdown"); disconnectDaemonClient(); await waitExit(meta.pid);
   };
+  const shutdown = async () => { await exitDaemon(await stopServices()); };
   try {
     // 提交进程保存 workerPid 后才释放锁；等待接管，禁止竞态覆盖记录。
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -84,8 +104,9 @@ async function main() {
           phase("stop-services");
           const lock = readJson<{ nonce: string }>(path.join(ROOT, ".sfmc", "maintenance.lock"), { nonce: "" });
           process.env.SFMC_MAINTENANCE_TOKEN = lock.nonce;
-          await shutdown();
+          const daemon = await stopServices();
           await createSnapshot(request.id, phase);
+          await exitDaemon(daemon);
           phase("execute"); atomicJson(activeFile, { entry, version: request.target, pnpm: process.env.SFMC_PNPM_ENTRY }); switched = true;
           const launcher = path.join(runtime, "launcher.mjs");
           fs.writeFileSync(launcher, "import fs from 'node:fs'; import path from 'node:path'; import {pathToFileURL,fileURLToPath} from 'node:url'; const base=path.dirname(fileURLToPath(import.meta.url)); const active=JSON.parse(fs.readFileSync(path.join(base,'active.json'),'utf8')); process.env.SFMC_DAEMON_ENTRY=fileURLToPath(import.meta.url); process.env.SFMC_NODE_BINARY=process.execPath; if(active.pnpm) process.env.SFMC_PNPM_ENTRY=active.pnpm; await import(pathToFileURL(active.entry).href);\n");
@@ -121,6 +142,7 @@ async function main() {
   } catch (error) {
     record.status = "failed"; record.error = toManagementError(error);
     record.result ??= { programRolledBack: false, backupId: request.id, dataRestoreRequired: switched, preparedEntry };
+    maintenanceLog(`failed ${record.error.message}`);
   } finally {
     record.updatedAt = new Date().toISOString(); const last = record.phases.at(-1); if (last) last.status = record.status === "succeeded" ? "done" : "failed";
     atomicJson(recordFile, record);

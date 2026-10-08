@@ -183,7 +183,7 @@
     "qq_events": {
       "type": "object",
       "additionalProperties": false,
-      "description": "MC 事件推群（节流）。join/leave/death 按 window_sec 聚合；crash/start/stop 立即推。可通过 QQ 管理菜单配置。",
+      "description": "MC 事件推群。所有事件收到即单条实时推送。可通过 QQ 管理菜单配置。",
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -191,9 +191,8 @@
         },
         "window_sec": {
           "type": "integer",
-          "minimum": 5,
-          "maximum": 600,
-          "description": "join/leave/death 聚合窗口秒数（默认 60）"
+          "deprecated": true,
+          "description": "已废弃：事件改为实时推送，此字段被忽略；仅为兼容旧配置保留，下次在 QQ 中修改事件开关时会自动移除"
         },
         "join": {
           "type": "boolean",

@@ -49,7 +49,7 @@ flowchart TD
     subgraph SAPI_Bundle ["Dynamically Assembled Behavior Pack (sfmc-modules)"]
       ModA["Business Module A (e.g. economy)"]
       ModB["Business Module B (e.g. land)"]
-      ModC["Business Module C (e.g. qq-link)"]
+      ModC["Business Module C (e.g. afk)"]
     end
   end
 
@@ -70,7 +70,7 @@ flowchart TD
 - ⚡ **Sub-Second Hot-Reload Development Workflow**  
   With the official "SFMC Module" VS Code extension, editing module source code immediately triggers incremental bundling and in-game `/reload`, eliminating tedious server restarts and player disconnections.
 - 🤖 **Turnkey Multi-Platform Social Bridge (QQ Bridge)**  
-  Native support for Tencent QQ Open Platform official bots and OneBot 11 (LLBot), featuring in-group server status queries, rich interactive card actions, bi-directional chat relay, intelligent event throttling, and asynchronous allowlist approval.
+  Native support for Tencent QQ Open Platform official bots and OneBot 11 (LLBot), featuring in-group server status queries, rich interactive card actions, bi-directional chat relay, real-time event push, and asynchronous allowlist approval.
 - 📦 **Add-on Inbox Pipeline**  
   Drop `.mcpack` or `.mcaddon` files into the `packs/` inbox for automated parsing and deployment, complete with version conflict detection, CurseForge remote updates, and resource pack cache busting (`packs bump`).
 
@@ -147,7 +147,7 @@ All official modules are published to npm and curated in the [Official Module Re
 | `feature-land` | Land Claims | 3D visual selection, granular permission controls (break, interact, container), and transfers |
 | `feature-teleport` | Teleport Hub | Personal homes, public warps, and inter-player TPA requests across dimensions |
 | `feature-auth` | Authentication | Mixed offline/online authentication, auto-login memory, and movement freeze |
-| `feature-qq-link` | QQ Account Link | In-game verification-code binding and join gate; shipped with the platform, not the module index |
+| _(platform host)_ | QQ Account Link | `/c:bind`, visitor play-gate, join/leave/death → QQ; absorbed into SDK host like monitoring; retired module ids `qq-link` / `feature-qq-link` |
 | `feature-afk` | AFK Detection | Smart idle status detection, invulnerability shields, and scheduled rewards |
 
 ---

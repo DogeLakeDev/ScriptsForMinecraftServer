@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/sdk",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "ScriptsForMinecraftServer unified SDK — SAPI/Node umbrella covering contracts, runtime, module-loader, and db/config/service capabilities.",
   "author": "Shiroha7z",
   "license": "ISC",
@@ -131,7 +131,8 @@
     "prepare": "sfmc-ensure-sdk-types",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "pnpm run clean && pnpm run build:types && node build.mjs",
-    "typecheck": "tsc7 --noEmit -p tsconfig.types.json"
+    "typecheck": "tsc7 --noEmit -p tsconfig.types.json",
+    "test": "node --test --import tsx/esm src/sapi/runtime/qq-link/qq-link.test.ts"
   },
   "devDependencies": {
     "@sfmc-bds/tools": "workspace:*",

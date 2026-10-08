@@ -2,16 +2,16 @@
  * routes/qq-events.ts — MC 事件入站
  *
  *   POST /api/sfmc/qq/events — 单条或 { events: [...] }（≤100）
- *   GET/POST /api/sfmc/qq/events/settings — 查询或修改推送开关和聚合间隔
+ *   GET/POST /api/sfmc/qq/events/settings — 查询或修改推送开关
  */
 
-import type { QqEventsAggregator, QqEventPayload, ResolvedQqEventsConfig } from "../domain/qq-events.js";
+import type { QqEventsDispatcher, QqEventPayload, ResolvedQqEventsConfig } from "../domain/qq-events.js";
 import { normalizeEventPayload } from "../domain/qq-events.js";
 
 interface Deps {
   body: (req: import("http").IncomingMessage) => Promise<Record<string, unknown>>;
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
-  aggregator: QqEventsAggregator;
+  dispatcher: QqEventsDispatcher;
   getSettings: () => ResolvedQqEventsConfig;
   setSettings: (patch: Partial<ResolvedQqEventsConfig>) => ResolvedQqEventsConfig;
   isAdmin: (openid: string, asGroupAdmin: boolean) => boolean;
@@ -30,7 +30,7 @@ function collectPayloads(data: Record<string, unknown>): QqEventPayload[] {
   return one ? [one] : [];
 }
 
-function createQqEventsRoutes({ body, json, aggregator, getSettings, setSettings, isAdmin }: Deps) {
+function createQqEventsRoutes({ body, json, dispatcher, getSettings, setSettings, isAdmin }: Deps) {
   return async function handle({
     path,
     method,
@@ -56,15 +56,6 @@ function createQqEventsRoutes({ body, json, aggregator, getSettings, setSettings
           return true;
         }
         const field = data.field;
-        if (field === "window_sec") {
-          const seconds = data.value;
-          if (typeof seconds !== "number" || !Number.isInteger(seconds) || seconds < 5 || seconds > 600) {
-            json(res, { success: false, error: "invalid_setting" }, 400);
-            return true;
-          }
-          json(res, { success: true, settings: setSettings({ window_sec: seconds }) });
-          return true;
-        }
         if (!SWITCHES.some((key) => key === field) || typeof data.value !== "boolean") {
           json(res, { success: false, error: "invalid_setting" }, 400);
           return true;
@@ -95,7 +86,7 @@ function createQqEventsRoutes({ body, json, aggregator, getSettings, setSettings
       return true;
     }
 
-    const result = aggregator.ingestMany(payloads);
+    const result = dispatcher.ingestMany(payloads);
     json(res, { success: true, ...result });
     return true;
   };
