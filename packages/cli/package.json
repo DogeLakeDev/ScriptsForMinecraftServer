@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/cli",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "SFMC management CLI — REPL, service supervisor, module install, behavior-pack build/deploy",
   "author": "Shiroha7z",
   "license": "AGPL-3.0-only",
