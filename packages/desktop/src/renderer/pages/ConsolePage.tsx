@@ -88,6 +88,8 @@ export function ConsolePage() {
   /** 清屏时间点：只隐藏此前的日志，不删除缓存 */
   const [clearedAt, setClearedAt] = useState("");
   const [command, setCommand] = useState("");
+  const sendingRef = useRef(false);
+  const [sending, setSending] = useState(false);
   const [target, setTarget] = useState("bds");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -160,13 +162,19 @@ export function ConsolePage() {
 
   const send = () => {
     const line = command.trim();
-    if (!line || !editable) return;
+    if (!line || !editable || sendingRef.current) return;
+    const submitted = command;
+    sendingRef.current = true;
+    setSending(true);
     void guarded(() => request("services.send", { name: target, message: command })).then((result) => {
       if (!result) return;
       setHistory((previous) => [line, ...previous.filter((item) => item !== line)].slice(0, 50));
       setHistoryIndex(-1);
-      setCommand("");
+      setCommand((draft) => draft === submitted ? "" : draft);
       setFollow(true);
+    }).finally(() => {
+      sendingRef.current = false;
+      setSending(false);
     });
   };
 
@@ -288,7 +296,7 @@ export function ConsolePage() {
           }}
         />
         <span className="console-input-hint"><Kbd>↑</Kbd> 历史</span>
-        <Button variant="primary" size="sm" disabled={!editable || !command.trim()} onClick={send} iconEnd="arrowRight">发送</Button>
+        <Button variant="primary" size="sm" loading={sending} disabled={!editable || !command.trim()} onClick={send} iconEnd="arrowRight">发送</Button>
       </div>
     </div>
   );

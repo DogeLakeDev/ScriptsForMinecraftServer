@@ -75,7 +75,7 @@ void app.whenReady().then(async () => {
   handle("connect", async (id, supplied) => {
     const key = String(id); sessions.get(key)?.disconnect(); sessions.delete(key);
     rememberSession(key, supplied as Credentials | undefined);
-    const session = new Session(profile(key), { ...credentials(key), ...(supplied as Credentials ?? {}) }, message => { if (!window.isDestroyed() && sessions.get(key) === session) window.webContents.send("sfmc:connection", key, message); });
+    const session = new Session(profile(key), { ...credentials(key), ...(supplied as Credentials ?? {}) }, (message, progress) => { if (!window.isDestroyed() && sessions.get(key) === session) window.webContents.send("sfmc:connection", key, message, progress ?? null); });
     sessions.set(key, session);
     try {
       const handshake = await session.connect();
@@ -98,7 +98,7 @@ void app.whenReady().then(async () => {
   handle("choose", async kind => { const result = await dialog.showOpenDialog(window, kind === "directory" ? { properties: ["openDirectory", "createDirectory"] } : { properties: ["openFile"], ...(kind === "pack" ? { filters: [{ name: "Minecraft 世界包", extensions: ["mcpack", "mcaddon", "zip"] }] } : {}) }); return result.canceled ? null : result.filePaths[0] ?? null; });
   handle("uploadPack", async id => { const session = sessions.get(String(id)); if (!session) throw new Error("实例尚未连接"); const result = await dialog.showOpenDialog(window, { properties: ["openFile"], filters: [{ name: "Minecraft 世界包", extensions: ["mcpack", "mcaddon", "zip"] }] }); if (result.canceled || !result.filePaths[0]) return null; return session.uploadPack(result.filePaths[0]); });
   autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.channel = "desktop";
-  autoUpdater.on("error", error => { if (!window.isDestroyed()) window.webContents.send("sfmc:connection", "", `客户端更新失败: ${error.message}`); });
+  autoUpdater.on("error", error => { if (!window.isDestroyed()) window.webContents.send("sfmc:connection", "", `客户端更新失败: ${error.message}`, null); });
   handle("openLink", (kind, target) => {
     if (kind === "release") {
       const url = new URL(String(target));

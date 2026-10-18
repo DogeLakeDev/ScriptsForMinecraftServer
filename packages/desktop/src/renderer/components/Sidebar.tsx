@@ -20,7 +20,7 @@ export function profileSubtitle(profile: InstanceProfile): string {
     : `${profile.username ? `${profile.username}@` : ""}${profile.host}${profile.port && profile.port !== 22 ? `:${profile.port}` : ""} ${profile.os === "windows" ? "Windows" : "Linux"}`;
 }
 
-/** 实例列表：图标与名称对齐导航项，状态点在行尾。当前实例高亮，悬停显示设置按钮 */
+/** 实例列表：图标、名称与导航项同一行高，状态点和设置都在圆角行内。当前实例高亮，悬停显示设置按钮 */
 function InstanceList({ collapsed }: { collapsed: boolean }) {
   const { profiles, current, setCurrent, models, openProfileDialog } = useDesktop();
   return (

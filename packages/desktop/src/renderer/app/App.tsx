@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { CommandPalette } from "../components/CommandPalette.js";
 import { Button } from "../components/controls.js";
-import { ConfirmProvider, ToastHost } from "../components/feedback.js";
+import { ConfirmProvider, ProgressLine, ToastHost } from "../components/feedback.js";
 import { ConnectGate, Welcome } from "../components/Gates.js";
 import { RightRail } from "../components/RightRail.js";
 import { Sidebar } from "../components/Sidebar.js";
@@ -121,13 +121,32 @@ function WorkspaceBanners() {
   );
 }
 
+/** 连接尚未握手时的说明和进度。上传平台时用已传输字节，解包时没有总长。 */
+function ConnectProgress() {
+  const { model } = useDesktop();
+  const progress = model.connectionProgress;
+  const message = model.connectionMessage || "正在连接";
+  return (
+    <div className="connect-wait">
+      <p>{message}</p>
+      {typeof progress === "number" ? (
+        <div className="connect-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label={message}>
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      ) : (
+        <ProgressLine className="connect-progress-line" />
+      )}
+    </div>
+  );
+}
+
 /** 内容区：按实例状态选择欢迎页 / 连接门 / 页面 */
 function Workspace() {
   const { ready, profiles, selected, model, page, current } = useDesktop();
   if (!ready) return <div className="workspace-loading" />;
   if (page === "studio") return null;
   if (!profiles.length || !selected) return <Welcome />;
-  if (!model.handshake) return model.connecting ? <div className="workspace-loading" /> : <ConnectGate />;
+  if (!model.handshake) return model.connecting ? <ConnectProgress /> : <ConnectGate />;
   const Page = PAGES[page];
   return (
     <>

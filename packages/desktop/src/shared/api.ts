@@ -43,6 +43,7 @@ export interface DesktopApi {
   preferences(): Promise<DesktopPreferences>;
   setPreferences(patch: Partial<DesktopPreferences>): Promise<DesktopPreferences>;
   onEvent(callback: (id: string, event: ManagementEvent) => void): () => void;
-  onConnection(callback: (id: string, message: string) => void): () => void;
+  /** progress 为 0–100 的已传输比例；没有字节进度时为 null。 */
+  onConnection(callback: (id: string, message: string, progress: number | null) => void): () => void;
 }
 declare global { interface Window { sfmc: DesktopApi } }

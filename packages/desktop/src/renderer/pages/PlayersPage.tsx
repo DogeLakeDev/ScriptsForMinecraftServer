@@ -7,8 +7,8 @@
  */
 import Editor from "@monaco-editor/react";
 import type { ManagementMethodMap } from "@sfmc-bds/management";
-import { useEffect, useMemo, useState } from "react";
-import { useDesktop } from "../app/desktop.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDesktop, useUnsavedChanges } from "../app/desktop.js";
 import { FONT_MONO, useAppearance } from "../app/theme.js";
 import { Button, Field, IconButton, Segmented, Select, Switch, TextInput } from "../components/controls.js";
 import { toast, useConfirm } from "../components/feedback.js";
@@ -163,7 +163,12 @@ export function PlayersPage() {
   const [view, setView] = useState<"list" | "json">("list");
   const [clock, setClock] = useState(Date.now());
   const [editing, setEditing] = useState<number | "new" | null>(null);
-  const [pendingSave, setPendingSave] = useState<string>();
+  const [pendingSave, setPendingSave] = useState<{ operationId: string; kind: Kind; text: string }>();
+  const kindRef = useRef(kind);
+  kindRef.current = kind;
+  const completedSave = useRef("");
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const reset = (value: PlayersData, next: Kind) => {
     const json = JSON.stringify(value[next] ?? [], null, 2);
@@ -188,18 +193,27 @@ export function PlayersPage() {
   // 保存任务结束后重新读取名单
   useEffect(() => {
     if (!pendingSave) return;
-    const record = model.tasks.find((row) => row.id === pendingSave);
-    if (!record || !isTaskDone(record.status)) return;
-    setPendingSave(undefined);
+    const record = model.tasks.find((row) => row.id === pendingSave.operationId);
+    if (!record || !isTaskDone(record.status) || completedSave.current === record.id) return;
+    completedSave.current = record.id;
+    if (record.status !== "succeeded") { setPendingSave(undefined); return; }
     void request("players.list").then((value) => {
+      if (!mounted.current) return;
       setData(value);
-      if (record.status === "succeeded") reset(value, kind);
-    });
-  }, [model.tasks, pendingSave]);
+      if (kindRef.current === pendingSave.kind) {
+        const accepted = JSON.stringify(value[pendingSave.kind] ?? [], null, 2);
+        setBaseline(accepted);
+        setText((draft) => draft === pendingSave.text ? accepted : draft);
+      }
+    }).catch((error) => {
+      if (mounted.current) toast.error("读取应用后的权限失败，草稿已保留", errorText(error));
+    }).finally(() => { if (mounted.current) setPendingSave(undefined); });
+  }, [model.tasks, pendingSave, request]);
 
   const fresh = Boolean(connected && data?.fresh && clock - Date.parse(data.updatedAt) < 60_000);
   const entries = useMemo(() => parseEntries(text), [text]);
   const dirty = text !== baseline;
+  useUnsavedChanges(dirty, "当前玩家权限有尚未保存的修改，离开后将丢失。");
   const counts = data ? { allowlist: bindingRows(data).length, permissions: data.permissions.length, sfmcPermissions: data.sfmcPermissions.length } : undefined;
   const bindings = bindingRows(data);
   const showingBindings = kind === "allowlist";
@@ -224,6 +238,8 @@ export function PlayersPage() {
     setEditing(null);
   };
   const save = () => {
+    const submittedText = text;
+    const submittedKind = kind;
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
@@ -231,7 +247,7 @@ export function PlayersPage() {
       toast.error("权限 JSON 语法错误");
       return;
     }
-    void submit("players.apply", { kind, entries: parsed }, "保存玩家权限并应用", { description: `将写入${KINDS.find((row) => row.value === kind)!.label}（${Array.isArray(parsed) ? parsed.length : 0} 项）并在维护任务中应用。`, okText: "保存并应用" }).then((operationId) => operationId && setPendingSave(operationId));
+    void submit("players.apply", { kind, entries: parsed }, "保存玩家权限并应用", { description: `将写入${KINDS.find((row) => row.value === kind)!.label}（${Array.isArray(parsed) ? parsed.length : 0} 项）并在维护任务中应用。`, okText: "保存并应用" }).then((operationId) => operationId && setPendingSave({ operationId, kind: submittedKind, text: submittedText }));
   };
   const active = KINDS.find((row) => row.value === kind)!;
   return (

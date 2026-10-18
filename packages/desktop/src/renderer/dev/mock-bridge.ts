@@ -118,7 +118,7 @@ function createInstance(variant: "local" | "ssh"): MockInstance {
     ],
     tasks: [
       task("updates.run", "succeeded", 95, ["stop-services", "backup", "execute", "verify", "restore"]),
-      task("modules.install", "succeeded", 260, ["stop-services", "backup", "execute", "verify", "restore"]),
+      task("modules.install", "succeeded", 260, ["download", "execute", "reload"]),
       task("config.apply", "failed", 1440, ["stop-services", "backup", "execute"], "配置不符合 Schema: /db_port must be integer"),
       task("services.restart", "succeeded", 2900, ["execute"]),
     ],
@@ -193,7 +193,7 @@ export function installMockBridge() {
     ["ssh-hd", createInstance("ssh")],
   ]);
   const eventListeners = new Set<(id: string, event: ManagementEvent) => void>();
-  const connectionListeners = new Set<(id: string, message: string) => void>();
+  const connectionListeners = new Set<(id: string, message: string, progress: number | null) => void>();
   const emit = (id: string, event: ManagementEvent["event"], payload: ManagementEvent["payload"]) => {
     for (const listener of eventListeners) listener(id, { instanceId: id, type: "event", event, payload });
   };
@@ -364,7 +364,7 @@ export function installMockBridge() {
           { id: "monitor", npm: "@sfmc-bds/module-monitor", version: "0.5.3", sdk: "^0.2.0" },
           { id: "qa", npm: "@sfmc-bds/module-qa", version: "0.1.0", sdk: "^0.2.0" },
         ].filter((row) => row.id.includes(String(params.query ?? ""))) };
-      case "modules.install": return runTask(id, method, maintenance, () => instance.modules.push({ id: String(params.id), folder: `sfmc-module-${String(params.id)}`, name: String(params.id), version: "0.1.0", enabled: true, linked: false }));
+      case "modules.install": return runTask(id, method, ["download", "execute", "reload"], () => instance.modules.push({ id: String(params.id), folder: `sfmc-module-${String(params.id)}`, name: String(params.id), version: "0.1.0", enabled: true, linked: false }));
       case "modules.uninstall": return runTask(id, method, maintenance, () => { instance.modules = instance.modules.filter((row) => row.folder !== params.id); });
       case "modules.toggle": return runTask(id, method, maintenance, () => { const row = instance.modules.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
       case "config.read": {
@@ -440,7 +440,7 @@ export function installMockBridge() {
     },
     disconnect: async (id) => {
       get(id).connected = false;
-      for (const listener of connectionListeners) listener(id, "管理连接已断开: 客户端已断开");
+      for (const listener of connectionListeners) listener(id, "管理连接已断开: 客户端已断开", null);
     },
     confirmHost: async () => true,
     request: (id, method, params) => request(id, method, (params ?? {}) as Record<string, unknown>) as never,

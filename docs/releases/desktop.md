@@ -1,16 +1,15 @@
-SFMC Desktop **0.3.5**，Windows x64 正式版。
+SFMC Desktop **0.3.6**，Windows x64 正式版。
 
-内置平台 **0.2.16**、Node.js 与 pnpm。
+内置平台 **0.2.17**、Node.js 与 pnpm。
 
 ### 本次更新
 
-- 打开实例后直接管理，不再要求确认接入。空目录仍进入一次初始化。
-- 平台 0.2.16 起，断开桌面或 SSH 管理连接不会停止服务器进程。
-- 运行指标写入数据库。服务未运行时仍可查看已有曲线，并增加「一天」范围。
-- 玩家页的允许名单展示绑定记录：玩家名、XUID、QQ 通道和绑定时间。名单只读。
-- 日志控制台按与命令行相同的规则高亮关键词。
-- 平台更新在日志文件可以继续写入后再验证，避免 Windows 上文件仍被占用时回滚。
-- 控制台关闭自动换行时可以横向滚动。实例状态灯移到侧栏右侧。
+- 安装模块不再停止服务器。模块下载后重建行为包，BDS 仍在运行时发送 reload。
+- 模块列表显示各模块 package.json 里的发布版本，不再把清单格式号显示成 schema-2。
+- 远程连接上传平台运行时显示进度。
+- 配置和玩家权限有未保存修改时，离开页面前需要确认。
+- 控制台发送命令时显示进行中，避免连发。更新页可以刷新备份列表。
+- 实例设置按钮留在圆角行内。
 
 本发行使用 GitHub 构建证明和 SHA256 校验，Windows 程序未做 Authenticode 签名。客户端仍通过发行页手动下载安装更新。
 
@@ -28,13 +27,13 @@ SFMC Desktop **0.3.5**，Windows x64 正式版。
 发行页下方公示各文件 SHA256，`SHA256SUMS.txt` 提供可下载的校验清单。下载后在 PowerShell 核对：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.5-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6-x64.exe' -Algorithm SHA256
 ```
 
 使用 GitHub CLI 验证构建证明及来源标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.5-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.5 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.3.6-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6 --deny-self-hosted-runners
 ```
 
 ZIP 使用相同命令替换文件名即可。`artifact-attestation.sigstore.json` 是可下载的证明材料，`release-manifest.json` 记录源码提交、平台版本和内置运行时信息。
@@ -45,6 +44,7 @@ ZIP 使用相同命令替换文件名即可。`artifact-attestation.sigstore.jso
 - 从 0.3.1 升级后，关闭窗口仍默认留在托盘。需要退出时使用托盘菜单中的「退出」。
 - 内存曲线在平台 0.2.16 起写入数据库，服务停止后仍可查看。尚未升级的服务器，只在打开概览期间累积本次采样。
 - 绑定名单和「断开连接后服务器继续运行」需要把实例平台升到 0.2.16。只更换桌面客户端不会改服务器上已安装的平台。
+- 安装模块不停服、以及模块版本读取 package.json，需要把实例平台升到 0.2.17。
 - 模块更新会跳过 monitor 等已收编模块，并在界面显示「已收编至平台」。
 - 打开已有部署不会自动切换活动平台。升级前在更新页核对兼容性。
 - 平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`；旧模块需移除这些字段。已有启停状态继续由 module-lock 保存。

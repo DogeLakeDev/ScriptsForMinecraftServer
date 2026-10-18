@@ -103,6 +103,7 @@ const PHASE_LABELS: Record<string, string> = {
   start: "启动服务",
   "restore-data": "恢复数据",
   "rollback-program": "回退程序",
+  reload: "热重载",
 };
 export function phaseLabel(name: string): string {
   return PHASE_LABELS[name] ?? name;

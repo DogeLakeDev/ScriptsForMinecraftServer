@@ -1,5 +1,11 @@
 # @sfmc-bds/cli
 
+## 0.5.2
+
+### Patch Changes
+
+- 安装模块不再停止服务器，装完后重建行为包并热重载。模块列表的版本改为读取各模块 package.json。
+
 ## 0.5.1
 
 ### Patch Changes

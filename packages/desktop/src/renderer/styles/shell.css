@@ -60,6 +60,44 @@
   height: 100%;
 }
 
+.connect-wait {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  color: var(--c-text-2);
+  text-align: center;
+}
+
+.connect-wait p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.connect-progress {
+  width: min(420px, 100%);
+  height: 6px;
+  border-radius: 999px;
+  background: var(--c-fill-2);
+  overflow: hidden;
+}
+
+.connect-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--c-progress);
+}
+
+.connect-progress-line {
+  width: min(420px, 100%);
+}
+
 /* 内置编辑器占满内容区；切页时隐藏文档并保留编辑状态。 */
 .studio-workspace {
   flex: 1;
@@ -137,32 +175,47 @@
   position: relative;
   display: flex;
   align-items: center;
+  border-radius: var(--r-12);
 }
 
-.sb-instance-main {
+/* 按下时元素同时处于 :hover 和 :active。悬停高亮排除按下，避免和选中底叠成两层边。 */
+.sb-instance:hover:not(:active) {
+  background: var(--c-fill);
+}
+
+.sb-instance.active {
+  background: var(--c-fill);
+}
+
+/* 圆角和底色只画在整行上。内层按钮不再单独铺底，也不能 width:100% 把设置按钮挤出圆角。 */
+.sb-instance .sb-instance-main {
   flex: 1;
   min-width: 0;
+  width: auto;
+  background: transparent;
+  border-radius: 0;
+}
+
+.sb-instance .sb-instance-main:hover,
+.sb-instance .sb-instance-main:active,
+.sb-instance .sb-instance-main.active {
+  background: transparent;
+}
+
+.sb-instance-kind {
+  color: var(--c-text-2);
 }
 
 .sb-instance-edit {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex: none;
+  margin-right: 4px;
   opacity: 0;
-  pointer-events: none;
 }
 
-.sb-instance:hover .sb-instance-edit,
-.sb-instance.active .sb-instance-edit,
+.sb-instance:hover:not(:active) .sb-instance-edit,
 .sb-instance-edit:focus-visible {
   opacity: 1;
   pointer-events: auto;
-}
-
-.sidebar-open .sb-instance:hover .sb-instance-main,
-.sidebar-open .sb-instance.active .sb-instance-main {
-  padding-right: 36px;
 }
 
 .sb-item.sb-instance-empty {
@@ -193,7 +246,7 @@
   text-align: left;
 }
 
-.sb-item:hover:not(:disabled) {
+.sb-item:hover:not(:disabled):not(:active) {
   background: var(--c-fill);
 }
 
@@ -785,6 +838,10 @@
 
 [data-theme="dark"] :is(.sb-item.active, .sb-instance.active) {
   background: var(--c-fill-2);
+}
+
+[data-theme="dark"] .sb-instance.active .sb-instance-main {
+  background: transparent;
 }
 
 [data-theme="dark"] .sb-item.active > .icon {

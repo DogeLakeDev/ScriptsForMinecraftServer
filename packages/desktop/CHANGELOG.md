@@ -1,5 +1,14 @@
 # @sfmc-bds/desktop
 
+## 0.3.6
+
+### Patch Changes
+
+- 远程连接上传平台时显示进度。配置和玩家权限有未保存修改时，离开前需要确认。控制台发送中避免连发，更新页可以刷新备份列表。实例设置按钮留在圆角行内。
+- 安装模块不再停止服务器，装完后重建行为包并热重载。模块列表的版本改为读取各模块 package.json。
+- Updated dependencies
+  - @sfmc-bds/ui@0.1.1
+
 ## 0.3.5
 
 ### Patch Changes

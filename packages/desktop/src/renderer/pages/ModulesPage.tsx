@@ -2,8 +2,8 @@
  * ModulesPage.tsx — 模块管理
  *
  * 使用场景："已安装"列出本地模块并切换启用/卸载；"发现"浏览官方模块索引并安装。
- * 所有写操作沿用原实现的方法与参数（modules.toggle / modules.uninstall / modules.install），
- * 在后台维护任务中停服、备份并重建行为包。
+ * 启用、停用和卸载仍在后台维护任务中停服、备份并重建行为包。
+ * 安装只下载模块并热重载行为包，不停止服务器。
  */
 import type { ModuleRow } from "@sfmc-bds/management";
 import { useEffect, useMemo, useState } from "react";
@@ -149,7 +149,7 @@ function DiscoverModules() {
                   {local ? (
                     <span className="registry-installed"><span className="mono">本地 {local.version}</span>{differentVersion && <span className="tone-text-info"> 版本不同</span>}</span>
                   ) : <span />}
-                  <Button size="sm" variant={local ? "secondary" : "primary"} disabled={!editable || Boolean(local)} onClick={() => void submit("modules.install", { id: row.id }, `安装模块 ${row.id}`, { description: "将下载模块、停服备份并重建行为包后恢复运行。" })} icon={local ? "check" : "download"}>
+                  <Button size="sm" variant={local ? "secondary" : "primary"} disabled={!editable || Boolean(local)} onClick={() => void submit("modules.install", { id: row.id }, `安装模块 ${row.id}`, { description: "将下载模块并热重载行为包，不会停止服务器。" })} icon={local ? "check" : "download"}>
                     {local ? "已安装" : "安装"}
                   </Button>
                 </div>

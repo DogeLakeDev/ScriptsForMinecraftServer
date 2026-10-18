@@ -6,14 +6,14 @@
  * 检查逻辑与原实现一致：进入页面检查一次，之后每 15 分钟自动复查，也可手动检查。
  */
 import type { AttachmentPlan } from "@sfmc-bds/management";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { Button } from "../components/controls.js";
 import { toast } from "../components/feedback.js";
 import { Icon, type IconName } from "../components/icons.js";
 import { Tooltip } from "../components/tooltip.js";
-import { Badge, CopyText, EmptyState, IconTile, PageHeader, Surface } from "../components/ui.js";
-import { errorText, fullTime, relativeTime, taskLabel, type Tone } from "../lib/format.js";
+import { Badge, Callout, CopyText, EmptyState, IconTile, PageHeader, Surface } from "../components/ui.js";
+import { errorText, fullTime, isTaskDone, relativeTime, taskLabel, type Tone } from "../lib/format.js";
 import { ReleaseNotes } from "../components/ReleaseNotes.js";
 
 /** 检查失败时守护进程返回的形状 */
@@ -80,7 +80,32 @@ export function UpdatesPage() {
   const [checkedAt, setCheckedAt] = useState<number>();
   const [checking, setChecking] = useState(false);
   const [backups, setBackups] = useState<string[]>([]);
+  const [backupsLoading, setBackupsLoading] = useState(false);
+  const [backupsError, setBackupsError] = useState("");
+  const backupsPending = useRef(false);
+  const backupsAgain = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [showRaw, setShowRaw] = useState(false);
+  const refreshBackups = useCallback(async () => {
+    if (backupsPending.current) { backupsAgain.current = true; return; }
+    backupsPending.current = true;
+    setBackupsLoading(true);
+    try {
+      do {
+        backupsAgain.current = false;
+        try {
+          const value = await request("backups.list");
+          if (mounted.current) { setBackups(value.backups); setBackupsError(""); }
+        } catch (error) {
+          if (mounted.current) setBackupsError(errorText(error));
+        }
+      } while (mounted.current && backupsAgain.current);
+    } finally {
+      backupsPending.current = false;
+      if (mounted.current) setBackupsLoading(false);
+    }
+  }, [request]);
 
   const check = useCallback(
     (silent: boolean) => {
@@ -96,17 +121,18 @@ export function UpdatesPage() {
     [request]
   );
   useEffect(() => {
-    void request("backups.list")
-      .then((value) => setBackups(value.backups))
-      .catch((error) => toast.error("读取备份列表失败", errorText(error)));
     void check(false);
     const timer = setInterval(() => void check(true), 15 * 60_000);
     return () => clearInterval(timer);
   }, [request]);
-  // 任务列表变化（例如更新任务产生了新备份）时同步备份列表
+  // 数量不变时也识别备份完成与终态；不因日志或无关阶段刷新。
+  const backupFingerprint = model.tasks.map((task) => {
+    const phase = task.phases.find((row) => row.name === "backup");
+    return phase || isTaskDone(task.status) ? `${task.id}:${phase?.status ?? ""}:${isTaskDone(task.status) ? task.status : ""}` : "";
+  }).filter(Boolean).sort().join("|");
   useEffect(() => {
-    void request("backups.list").then((value) => setBackups(value.backups)).catch(() => {});
-  }, [model.tasks.length]);
+    void refreshBackups();
+  }, [backupFingerprint, refreshBackups]);
 
   const run = (kind: "platform" | "modules" | "bds", name: string) => {
     const plan = kind === "platform" && result?.platform && !failed(result.platform) ? result.platform : undefined;
@@ -204,7 +230,8 @@ export function UpdatesPage() {
           {showRaw && <pre className="code-block">{JSON.stringify(result, null, 2)}</pre>}
         </div>
       )}
-      <Surface title="可恢复备份" extra={backups.length > 0 && <Badge>{backups.length} 份</Badge>} flush>
+      <Surface title="可恢复备份" extra={<>{backups.length > 0 && <Badge>{backups.length} 份</Badge>}<Button size="sm" icon="refresh" loading={backupsLoading} onClick={() => void refreshBackups()}>刷新备份</Button></>} flush>
+        {backupsError && <div className="surface-pad"><Callout tone="danger" title="读取备份失败">{backupsError}</Callout></div>}
         {backups.length ? (
           <ul className="row-list">
             {[...backups].reverse().map((id) => {

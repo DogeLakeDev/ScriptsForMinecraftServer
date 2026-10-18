@@ -51,6 +51,27 @@ async function rebuildModules() {
   const deploy = await cmdPackDeploy([]); if (!deploy.ok) throw new Error(deploy.message);
   return { changed: true };
 }
+
+/**
+ * 模块文件已经落盘后重建行为包，并在 BDS 仍运行时发送 reload。
+ * 使用场景：桌面端安装模块。安装只写入 modules/packages，不停止服务；
+ * 运行中的 BDS 用 reload 载入新包，未运行则等下次启动。
+ */
+async function applyInstalledModule(phase: TaskContext["phase"]) {
+  phase("execute", "重建行为包");
+  const rebuilt = await rebuildModules();
+  phase("reload", "向运行中的 BDS 发送 reload，不停止服务器");
+  await queryServicesRuntimeLocal();
+  const bds = services.bds;
+  if (!bds.running || !bds.proc?.stdin) return { ...rebuilt, reloaded: false };
+  try {
+    bds.proc.stdin.write("reload\n");
+  } catch (error) {
+    throw new Error(`模块已安装，但热重载失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return { ...rebuilt, reloaded: true };
+}
+
 async function players() {
   const files = playerFiles(); const allowlist = readJson<unknown[]>(files.allowlist, []);
   const cfg = readJson<{ db_port?: number; http_auth?: string; dbDir?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
@@ -107,7 +128,19 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     case "operations.get": return { operation: store.get(string(p.operationId, "任务编号")) };
     case "modules.list": return listModules();
     case "modules.search": return searchModules(typeof p.query === "string" ? p.query : "");
-    case "modules.install": case "modules.uninstall": case "modules.toggle": {
+    case "modules.install": {
+      const id = identifier(p.id);
+      const linked = (await listModules()).modules.find(row => row.id === id || row.folder === id)?.linked;
+      if (linked) throw new Error("保留本地链接模块，不通过包安装或卸载覆盖开发目录");
+      return store.submit(request.method, async context => {
+        context.phase("download", "下载并安装模块，服务器保持运行");
+        const args = ["install", id];
+        if (typeof p.source === "string" && p.source) args.push("--from", p.source);
+        await runFetch(args);
+        return applyInstalledModule(context.phase);
+      });
+    }
+    case "modules.uninstall": case "modules.toggle": {
       const id = identifier(p.id);
       if (request.method !== "modules.toggle") {
         const linked = (await listModules()).modules.find(row => row.id === id || row.folder === id)?.linked;
@@ -117,9 +150,7 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
         if (request.method === "modules.toggle") {
           const result = await (p.enabled === true ? cmdModuleEnable([id]) : cmdModuleDisable([id])); if (!result.ok) throw new Error(result.message);
         } else {
-          const args = [request.method === "modules.install" ? "install" : "uninstall", id];
-          if (request.method === "modules.install" && typeof p.source === "string" && p.source) args.push("--from", p.source);
-          await runFetch(args);
+          await runFetch(["uninstall", id]);
         }
         return rebuildModules();
       }, true, "modules"));

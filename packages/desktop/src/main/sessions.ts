@@ -18,7 +18,7 @@ export class Session {
   ssh?: Client;
   child?: ChildProcess;
   private sftp?: SFTPWrapper;
-  constructor(readonly profile: InstanceProfile, private credentials: Credentials, private notify: (message: string) => void) {
+  constructor(readonly profile: InstanceProfile, private credentials: Credentials, private notify: (message: string, progress?: number) => void) {
     this.credentials = { ...(typeof credentials.password === "string" ? { password: credentials.password } : {}), ...(typeof credentials.passphrase === "string" ? { passphrase: credentials.passphrase } : {}) };
   }
   async connect() {
@@ -67,7 +67,24 @@ export class Session {
     const stream = await this.execStream(command);
     return new Promise<void>((resolve, reject) => { let errorText = ""; stream.stderr.on("data", chunk => { errorText = (errorText + String(chunk)).slice(-4000); }); stream.on("data", () => {}); stream.on("close", (code: number) => code === 0 ? resolve() : reject(new Error(`远程准备失败 (${code}): ${errorText}`))); });
   }
-  private async upload(local: string, remote: string) { await new Promise<void>((resolve, reject) => this.sftp!.fastPut(local, remote.replace(/\\/g, "/"), error => error ? reject(error) : resolve())); }
+  /** 上传文件。onProgress 收到已传输字节和总字节，供连接页显示进度，不改变传完后的处理。 */
+  private async upload(local: string, remote: string, onProgress?: (transferred: number, total: number) => void) {
+    await new Promise<void>((resolve, reject) => this.sftp!.fastPut(local, remote.replace(/\\/g, "/"), {
+      step: (transferred, _chunk, total) => onProgress?.(transferred, total),
+    }, error => error ? reject(error) : resolve()));
+  }
+  /** 按真实传输比例提示。百分比没变时不重复发送。 */
+  private async uploadWithProgress(local: string, remote: string, label: string) {
+    let reported = -1;
+    this.notify(label, 0);
+    await this.upload(local, remote, (transferred, total) => {
+      if (total <= 0) return;
+      const percent = Math.min(100, Math.round((transferred / total) * 100));
+      if (percent === reported) return;
+      reported = percent;
+      this.notify(`${label} ${percent}%`, percent);
+    });
+  }
   private async prepareRemote() {
     const root = this.profile.root;
     const windows = this.profile.os === "windows";
@@ -107,7 +124,10 @@ export class Session {
       await this.execRemote(windows ? powershell(`$ErrorActionPreference='Stop'; ${extractNode}`) : `set -eu; ${extractNode}`);
     }
     if (!await this.remoteExists(bootstrapEntry)) {
-      await this.upload(materials, archive);
+      const updating = await this.remoteExists(join(directory, "active.json"));
+      const label = updating ? "远程平台与桌面端不一致，正在上传平台运行时" : "正在上传平台运行时";
+      await this.uploadWithProgress(materials, archive, label);
+      this.notify(updating ? "平台运行时已上传，正在解包" : "正在解包平台运行时");
       await this.execRemote(windows
         ? powershell(`$ErrorActionPreference='Stop'; New-Item -ItemType Directory -Force (${psValue(bootstrap)}) | Out-Null; tar -xf (${psValue(archive)}) -C (${psValue(bootstrap)}); if ($LASTEXITCODE -ne 0) { throw '平台解包失败' }`)
         : `set -eu; mkdir -p ${shellQuote(bootstrap)}; tar -xf ${shellQuote(archive)} -C ${shellQuote(bootstrap)}; find ${shellQuote(bootstrap)} -type f -path '*/@esbuild/linux-x64/bin/esbuild' -exec chmod +x '{}' +`);

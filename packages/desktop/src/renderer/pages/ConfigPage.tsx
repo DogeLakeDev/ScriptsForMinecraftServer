@@ -8,8 +8,8 @@
 import Editor from "@monaco-editor/react";
 import type { ConfigDocument } from "@sfmc-bds/management";
 import * as monaco from "monaco-editor";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useDesktop } from "../app/desktop.js";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDesktop, useUnsavedChanges } from "../app/desktop.js";
 import { FONT_MONO, useAppearance } from "../app/theme.js";
 import { Button, NumberInput, PasswordInput, SearchInput, Segmented, Select, Switch, TextInput } from "../components/controls.js";
 import { Spinner, useConfirm } from "../components/feedback.js";
@@ -57,6 +57,7 @@ function FieldControl({ field, value, disabled, onChange }: { field: FieldSpec; 
   if (field.kind === "number")
     return (
       <NumberInput
+        label={label}
         value={value === undefined || value === "" ? null : Number(value)}
         disabled={disabled}
         min={field.min}
@@ -129,19 +130,28 @@ export function ConfigPage() {
   const [view, setView] = useState<"form" | "source">("form");
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState("");
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState<{ key: string; message: string }>();
+  const [saveError, setSaveError] = useState("");
   const [problems, setProblems] = useState(0);
   /** 已提交、待完成后重新读取的保存任务 */
-  const [pendingSave, setPendingSave] = useState<{ operationId: string; key: string }>();
+  const [pendingSave, setPendingSave] = useState<{ operationId: string; key: string; text: string }>();
+  const documentRef = useRef(document);
+  documentRef.current = document;
+  const readSequence = useRef(0);
+  const completedSave = useRef("");
   const dirty = Boolean(document && text !== document.text);
+  useUnsavedChanges(dirty, `${document?.key ?? "配置"} 有尚未保存的修改，离开后将丢失。`);
+  useEffect(() => () => { readSequence.current++; }, []);
 
-  const load = (key: string) => {
+  const load = useCallback((key: string, submittedText?: string) => {
+    const sequence = ++readSequence.current;
     setLoading(key);
-    setLoadError("");
+    setLoadError(undefined);
     return request("config.read", { key })
       .then((value) => {
+        if (sequence !== readSequence.current) return;
         setDocument(value);
-        setText(value.text);
+        setText((draft) => submittedText !== undefined && draft !== submittedText ? draft : value.text);
         setProblems(0);
         monaco.json.jsonDefaults.setDiagnosticsOptions({
           validate: true,
@@ -151,9 +161,13 @@ export function ConfigPage() {
           schemas: value.schema ? [{ uri: `sfmc://${key}/schema`, fileMatch: ["*"], schema: value.schema }] : [],
         });
       })
-      .catch((error) => setLoadError(errorText(error)))
-      .finally(() => setLoading(""));
-  };
+      .catch((error) => {
+        if (sequence === readSequence.current) setLoadError({ key, message: errorText(error) });
+      })
+      .finally(() => {
+        if (sequence === readSequence.current) setLoading("");
+      });
+  }, [request]);
   const select = (key: string) => {
     if (key === document?.key) return;
     if (!dirty) return void load(key);
@@ -165,7 +179,7 @@ export function ConfigPage() {
       danger: true,
       icon: "warning",
     }).then((ok) => {
-      if (ok) void load(key);
+      if (ok) { setSaveError(""); void load(key); }
     });
   };
 
@@ -173,10 +187,15 @@ export function ConfigPage() {
   useEffect(() => {
     if (!pendingSave) return;
     const record = model.tasks.find((row) => row.id === pendingSave.operationId);
-    if (!record || !isTaskDone(record.status)) return;
+    if (!record || !isTaskDone(record.status) || completedSave.current === record.id) return;
+    completedSave.current = record.id;
     setPendingSave(undefined);
-    if (document?.key === pendingSave.key) void load(pendingSave.key);
-  }, [model.tasks, pendingSave]);
+    if (record.status !== "succeeded") setSaveError(record.error?.message ?? "配置应用已中断，未保存的修改已保留");
+    const saved = record.status === "succeeded" || (record.error?.details as { saved?: boolean } | undefined)?.saved === true;
+    if (saved && documentRef.current?.key === pendingSave.key && (!loading || loading === pendingSave.key)) {
+      void load(pendingSave.key, pendingSave.text);
+    }
+  }, [model.tasks, pendingSave, loading, load]);
 
   const moduleNames = useMemo(() => new Map(model.modules.map((row) => [row.id, row.name])), [model.modules]);
   const groups = useMemo(() => {
@@ -192,16 +211,23 @@ export function ConfigPage() {
   const syntaxError = document && document.format !== "properties" && !parseJsonText(text);
   const save = () => {
     if (!document) return;
+    const submittedText = text;
+    setSaveError("");
     void submit("config.apply", { key: document.key, text, revision: document.revision }, `保存并应用 ${describeKey(document.key, moduleNames).title}`, {
       description: (<>将停止服务、备份后写入 <span className="mono">{document.key}</span>，并重启服务：{document.affectedServices.join(" ")}。</>) as ReactNode,
       okText: "保存并应用",
-    }).then((operationId) => operationId && setPendingSave({ operationId, key: document.key }));
+    }).then((operationId) => operationId && setPendingSave({ operationId, key: document.key, text: submittedText }));
   };
 
   const info = document ? describeKey(document.key, moduleNames) : undefined;
   return (
     <div className="page page-fill">
       <PageHeader title="配置" />
+      {loadError && <Callout tone="danger" title={`读取 ${loadError.key} 失败`} action={<Button size="sm" onClick={() => {
+        if (loadError.key === document?.key) void load(loadError.key, document.text);
+        else select(loadError.key);
+      }}>重试</Button>}>{loadError.message}</Callout>}
+      {saveError && <Callout tone="danger" title="配置应用未完成">{saveError}</Callout>}
       <div className="config-layout surface">
         <aside className="config-list">
           <div className="config-filter">
@@ -254,7 +280,7 @@ export function ConfigPage() {
               </div>
               <div className={`config-body${view === "source" ? " source" : ""}`}>
                 {view === "form" ? (
-                  <ConfigForm document={document} text={text} setText={setText} editable={editable} />
+                  <ConfigForm document={document} text={text} setText={setText} editable={editable && !loading} />
                 ) : (
                   <Editor
                     key={document.key}
@@ -265,7 +291,7 @@ export function ConfigPage() {
                     value={text}
                     onChange={(next) => setText(next ?? "")}
                     onValidate={(markers) => setProblems(markers.filter((marker) => marker.severity === monaco.MarkerSeverity.Error).length)}
-                    options={{ readOnly: !editable, minimap: { enabled: false }, wordWrap: "on", automaticLayout: true, fontSize: 12.5, fontFamily: FONT_MONO, scrollBeyondLastLine: false, padding: { top: 14, bottom: 14 }, lineNumbersMinChars: 3, tabSize: 2 }}
+                    options={{ readOnly: !editable || Boolean(loading), minimap: { enabled: false }, wordWrap: "on", automaticLayout: true, fontSize: 12.5, fontFamily: FONT_MONO, scrollBeyondLastLine: false, padding: { top: 14, bottom: 14 }, lineNumbersMinChars: 3, tabSize: 2 }}
                   />
                 )}
               </div>
@@ -274,15 +300,15 @@ export function ConfigPage() {
                   <Icon name="info" size={13} />
                   {syntaxError ? <span className="tone-text-danger">存在语法错误，修复后才能保存</span> : <>保存后将重启：{document.affectedServices.join("、")}</>}
                 </span>
-                <Button variant="ghost" disabled={!dirty} onClick={() => setText(document.text)}>放弃更改</Button>
-                <Button variant="primary" disabled={!editable || !dirty || Boolean(syntaxError) || problems > 0 || Boolean(pendingSave)} onClick={save} icon="check">保存并应用</Button>
+                <Button variant="ghost" disabled={!dirty || Boolean(loading) || Boolean(pendingSave)} onClick={() => setText(document.text)}>放弃更改</Button>
+                <Button variant="primary" disabled={!editable || !dirty || Boolean(loading) || Boolean(syntaxError) || problems > 0 || Boolean(pendingSave)} onClick={save} icon="check">保存并应用</Button>
               </div>
             </>
           ) : loading ? (
             <div className="config-placeholder"><Spinner label="正在读取配置…" /></div>
           ) : (
             <div className="config-placeholder">
-              {loadError ? <Callout tone="danger" title="读取配置失败">{loadError}</Callout> : <EmptyState icon="sliders" title="选择一个配置文件" />}
+              <EmptyState icon="sliders" title="选择一个配置文件" />
             </div>
           )}
         </div>

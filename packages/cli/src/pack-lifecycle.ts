@@ -421,8 +421,27 @@ export async function extractModuleBedrockDependencies(modPath: string): Promise
 }
 
 /**
+ * 读取已安装模块目录的发布版本。
+ * 使用场景：模块清单和桌面列表展示本机版本；与索引提交时的 package.version 同一字段
+ * （modules/packages/<id>/package.json）。没有该字段时返回 null，由扫描逻辑回退清单里的 version。
+ */
+function readInstalledPackageVersion(modPath: string): string | null {
+  const pkgPath = path.join(modPath, "package.json");
+  if (!existsSync(pkgPath)) return null;
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: unknown };
+    if (typeof pkg.version !== "string") return null;
+    const version = pkg.version.trim();
+    return version || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 枚举本机 packages,返回 folderId → 元数据。
  * 仅含有 sapi/src/index.ts 的模块会进入 BP bundle 候选。
+ * 版本优先取 package.json，没有发布号时才回退 sapi/manifest.json 的 version / schemaVersion。
  */
 export async function scanLocalModules(): Promise<
   Array<{
@@ -478,17 +497,21 @@ export async function scanLocalModules(): Promise<
     const manifestPath = path.join(modPath, "sapi", "manifest.json");
     const entryPath = path.join(modPath, "sapi", "src", "index.ts");
     let logicalId = folderId;
-    let version = "0.0.0";
+    // 发布版本以包为准；清单的 schemaVersion 只描述格式，不能当成模块版本。
+    let version = readInstalledPackageVersion(modPath);
     if (existsSync(manifestPath)) {
       try {
         const man = JSON.parse(await fs.readFile(manifestPath, "utf8")) as PackManifestLite;
         if (typeof man.id === "string" && man.id) logicalId = man.id;
-        if (typeof man.version === "string" && man.version) version = man.version;
-        else if (typeof man.schemaVersion === "number") version = `schema-${man.schemaVersion}`;
+        if (!version) {
+          if (typeof man.version === "string" && man.version) version = man.version;
+          else if (typeof man.schemaVersion === "number") version = `schema-${man.schemaVersion}`;
+        }
       } catch {
         /* keep defaults */
       }
     }
+    if (!version) version = "0.0.0";
     const hasSapi = existsSync(entryPath);
     const hasResourcePack = existsSync(path.join(modPath, "resource_pack"));
     const fingerprint = await dirFingerprint(modPath);

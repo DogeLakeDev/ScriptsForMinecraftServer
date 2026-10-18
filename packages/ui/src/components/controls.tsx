@@ -274,6 +274,7 @@ export function PasswordInput(props: Omit<TextInputProps, "type" | "suffix">) {
 
 /** 数字输入：Base UI NumberField，支持键盘上下键、范围约束与步进按钮；端口等编号默认不分组（19132 而非 19,132） */
 export function NumberInput({
+  label,
   value,
   onChange,
   min,
@@ -286,6 +287,7 @@ export function NumberInput({
   invalid,
   id,
 }: {
+  label?: string;
   value: number | null;
   onChange: (value: number | null) => void;
   min?: number;
@@ -314,7 +316,7 @@ export function NumberInput({
         className={cx("input", `input-${size}`, "input-filled", invalid && "invalid", disabled && "disabled")}
         style={width ? { width } : undefined}
       >
-        <NumberField.Input className="input-field mono" />
+        <NumberField.Input className="input-field mono" aria-label={label} aria-invalid={invalid || undefined} />
         <span className="number-steps">
           <NumberField.Decrement className="number-step" aria-label="减少">
             <Icon name="minus" size={12} />

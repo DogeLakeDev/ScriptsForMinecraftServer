@@ -16,7 +16,7 @@ import type {
   ServiceStateChanged,
   ServiceStatusRow,
 } from "@sfmc-bds/management";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppInfo, Credentials, InstanceProfile } from "../../shared/api.js";
 import { toast, useConfirm } from "../components/feedback.js";
 import { errorText, isTaskDone, phaseLabel } from "../lib/format.js";
@@ -34,6 +34,8 @@ export interface Model {
   configKeys: string[];
   disconnected?: boolean;
   connectionMessage?: string;
+  /** 连接准备的传输进度，0–100。没有字节进度时不显示确定进度条。 */
+  connectionProgress?: number;
   /** 正在建立连接（连接门按钮的加载态） */
   connecting?: boolean;
   /** 最近一次连接失败的原因（连接门内联展示） */
@@ -79,6 +81,7 @@ interface DesktopValue {
   model: Model;
   page: PageKey;
   setPage: (page: PageKey) => void;
+  registerLeaveGuard: (guard: () => Promise<boolean>) => () => void;
   /** 打开日志控制台并定位到这一条 */
   logFocus: { entry: LogEntryWire; nonce: number } | null;
   openLog: (entry: LogEntryWire) => void;
@@ -133,6 +136,23 @@ export function useDesktop(): DesktopValue {
   return value;
 }
 
+/** 编辑页统一保护菜单、快捷键、日志跳转和实例切换；草稿不写入本地存储。 */
+export function useUnsavedChanges(dirty: boolean, description: string) {
+  const { registerLeaveGuard } = useDesktop();
+  const confirm = useConfirm();
+  useLayoutEffect(() => {
+    if (!dirty) return;
+    return registerLeaveGuard(() => confirm({
+      title: "放弃未保存的更改？",
+      description,
+      okText: "放弃并离开",
+      cancelText: "继续编辑",
+      danger: true,
+      icon: "warning",
+    }));
+  }, [dirty, description, registerLeaveGuard, confirm]);
+}
+
 /** 正在被通知面板跟踪的任务：记录所属实例、标题与上次渲染的进度指纹 */
 interface TrackedOperation {
   instanceId: string;
@@ -152,15 +172,43 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const [current, setCurrentState] = useState("");
   const [models, setModels] = useState<Record<string, Model>>({});
   const [page, setPageState] = useState<PageKey>("overview");
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const leaveGuard = useRef<(() => Promise<boolean>) | undefined>(undefined);
+  const navigationPending = useRef(false);
+  const registerLeaveGuard = useCallback((guard: () => Promise<boolean>) => {
+    leaveGuard.current = guard;
+    return () => { if (leaveGuard.current === guard) leaveGuard.current = undefined; };
+  }, []);
+  const navigate = useCallback(async (action: () => void) => {
+    if (navigationPending.current) return false;
+    navigationPending.current = true;
+    try {
+      if (leaveGuard.current && !(await leaveGuard.current())) return false;
+      action();
+      return true;
+    } finally {
+      navigationPending.current = false;
+    }
+  }, []);
   const [logFocus, setLogFocus] = useState<{ entry: LogEntryWire; nonce: number } | null>(null);
   const setPage = useCallback((next: PageKey) => {
-    if (next !== "logs") setLogFocus(null);
-    setPageState(next);
-  }, []);
+    if (next === pageRef.current) return;
+    void navigate(() => {
+      if (next !== "logs") setLogFocus(null);
+      pageRef.current = next;
+      setPageState(next);
+    });
+  }, [navigate]);
   const openLog = useCallback((entry: LogEntryWire) => {
-    setLogFocus({ entry, nonce: Date.now() });
-    setPageState("logs");
-  }, []);
+    void navigate(() => {
+      setLogFocus({ entry, nonce: Date.now() });
+      pageRef.current = "logs";
+      setPageState("logs");
+    });
+  }, [navigate]);
   const clearLogFocus = useCallback(() => setLogFocus(null), []);
   const [busyCount, setBusyCount] = useState(0);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -181,17 +229,22 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
 
   const selected = profiles.find((profile) => profile.id === current);
   const model = models[current] ?? blank();
-  const setCurrent = useCallback((id: string) => {
-    setCurrentState(id);
-    setLogFocus(null);
-    if (id) localStorage.setItem(LAST_INSTANCE_KEY, id);
-    const profile = profilesRef.current.find((row) => row.id === id);
-    const currentModel = modelsRef.current[id];
-    // 已连上或用户刚断开时不重复连接；断开后 handshake 还在，恢复连接由用户点。
-    if (profile && !currentModel?.handshake && !currentModel?.connecting && !connectingIds.current.has(id) && canAutoConnect(profile)) {
-      void connectRef.current(profile);
-    }
+  const selectCurrent = useCallback((id: string, autoConnect = true) => {
+      currentRef.current = id;
+      setCurrentState(id);
+      setLogFocus(null);
+      if (id) localStorage.setItem(LAST_INSTANCE_KEY, id);
+      const profile = profilesRef.current.find((row) => row.id === id);
+      const currentModel = modelsRef.current[id];
+      // 已连上或用户刚断开时不重复连接；恢复连接由用户点。
+      if (autoConnect && profile && !currentModel?.handshake && !currentModel?.connecting && !connectingIds.current.has(id) && canAutoConnect(profile)) {
+        void connectRef.current(profile);
+      }
   }, []);
+  const setCurrent = useCallback((id: string) => {
+    if (id === currentRef.current) return;
+    void navigate(() => selectCurrent(id));
+  }, [navigate, selectCurrent]);
 
   const patch = useCallback(
     (id: string, values: Partial<Model>) =>
@@ -288,10 +341,11 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         return { ...previous, [id]: value };
       });
     });
-    const removeConnection = window.sfmc.onConnection((id, connectionMessage) =>
+    const removeConnection = window.sfmc.onConnection((id, connectionMessage, progress) =>
       id
         ? patch(id, {
             connectionMessage,
+            connectionProgress: progress ?? undefined,
             ...(/断开|结束|关闭/.test(connectionMessage) ? { disconnected: true } : {}),
           })
         : void toast.error(connectionMessage)
@@ -345,9 +399,13 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       const view = {
         label: "查看任务",
         onClick: () => {
-          setCurrent(entry.instanceId);
-          setPage("tasks");
-          toast.close(operationId);
+          void navigate(() => {
+            selectCurrent(entry.instanceId);
+            pageRef.current = "tasks";
+            setPageState("tasks");
+            setLogFocus(null);
+            toast.close(operationId);
+          });
         },
       };
       if (!done) {
@@ -382,7 +440,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         });
       }
     }
-  }, [models, setCurrent]);
+  }, [models, navigate, selectCurrent]);
 
   /**
    * 提交后台任务：确认影响 → 提交 → 通知卡片跟踪进度（不强制跳转任务页）。
@@ -418,6 +476,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(
     async (profile: InstanceProfile, reconnect = false, secret?: Credentials) => {
       if (connectingIds.current.has(profile.id)) return;
+      if (profile.id !== currentRef.current && !(await navigate(() => selectCurrent(profile.id, false)))) return;
       connectingIds.current.add(profile.id);
       try {
         // 不走 setCurrent：setCurrent 会在尚未握手时再次调用 connect。
@@ -429,7 +488,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
           setFlow({ kind: "login", profile, reconnect });
           return;
         }
-        patch(profile.id, { connecting: true, connectError: "" });
+        patch(profile.id, { connecting: true, connectError: "", connectionMessage: "", connectionProgress: undefined });
         await guarded(async () => {
           try {
             const handshake = await window.sfmc.connect(profile.id, secret);
@@ -459,7 +518,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         connectingIds.current.delete(profile.id);
       }
     },
-    [guarded, patch, refresh]
+    [guarded, patch, refresh, navigate, selectCurrent]
   );
   connectRef.current = connect;
 
@@ -508,6 +567,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
 
   const removeProfile = useCallback(
     async (profile: InstanceProfile) => {
+      if (profile.id === currentRef.current && !(await navigate(() => {}))) return;
       const rows = await window.sfmc.removeProfile(profile.id);
       profilesRef.current = rows;
       setProfiles(rows);
@@ -517,9 +577,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         return next;
       });
       setProfileDialog({ open: false, editing: null });
-      setCurrent(rows[0]?.id ?? "");
+      if (profile.id === currentRef.current) selectCurrent(rows[0]?.id ?? "");
     },
-    [setCurrent]
+    [navigate, selectCurrent]
   );
 
   const editable = Boolean(model.handshake && !model.disconnected && !model.handshake.legacy && model.handshake.initialized);
@@ -534,6 +594,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       model,
       page,
       setPage,
+      registerLeaveGuard,
       logFocus,
       openLog,
       clearLogFocus,
@@ -558,7 +619,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       appInfo,
       desktopUpdate,
     }),
-    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, logFocus, openLog, clearLogFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, createDeployment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
+    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, registerLeaveGuard, logFocus, openLog, clearLogFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, createDeployment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
   );
   return <DesktopContext.Provider value={value}>{children}</DesktopContext.Provider>;
 }
