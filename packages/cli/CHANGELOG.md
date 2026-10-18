@@ -1,5 +1,18 @@
 # @sfmc-bds/cli
 
+## 0.5.1
+
+### Patch Changes
+
+- d18e066: 玩家页的允许名单改为展示绑定记录，包括玩家名、XUID、QQ 通道和绑定时间。名单只读，不写回原版允许名单。
+- d18e066: 运行指标写入数据库。服务未运行时仍可查看已有曲线，并增加「一天」范围。
+- d18e066: 管理通道断开不再停止服务器。Windows 在登录会话之外启动守护进程，Linux 使用用户服务；管理连接只收发指令。
+- d18e066: 平台更新在守护进程日志可以继续写入后再验证，避免 Windows 上日志文件仍被占用时把已完成的更新回滚。
+- Updated dependencies [d18e066]
+- Updated dependencies [d18e066]
+  - @sfmc-bds/db-server@0.5.1
+  - @sfmc-bds/management@0.3.3
+
 ## 0.5.0
 
 ### Minor Changes
