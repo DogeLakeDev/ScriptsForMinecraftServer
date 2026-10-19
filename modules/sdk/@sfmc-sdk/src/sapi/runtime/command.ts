@@ -1,10 +1,10 @@
 import {
   CommandPermissionLevel,
+  CustomCommandParamType,
   CustomCommandStatus,
   Player,
   system,
   type CustomCommandOrigin,
-  type CustomCommandParamType,
   type CustomCommandParameter,
   type CustomCommandRegistry,
 } from "@minecraft/server";
@@ -40,7 +40,7 @@ export type CommandCost = {
   dailyFree?: number;
 };
 
-/** 原生命令的单个枚举参数声明。 */
+/** 原生命令的单个枚举参数声明。新代码优先使用 `parameters`。 */
 export type CommandEnumParameter = {
   /** 参数在命令补全中的名称。 */
   name: string;
@@ -50,13 +50,45 @@ export type CommandEnumParameter = {
   optional?: boolean;
 };
 
+/** 自定义命令参数类型。枚举之外的类型由原生命令直接解析。 */
+export type CommandParameterType = "string" | "integer" | "float" | "boolean" | "enum";
+
+/**
+ * 一条原生命令参数。
+ * 可选参数必须排在必填参数之后，和 Bedrock 自定义命令的规则一致。
+ */
+export type CommandParameter = {
+  /** 参数名，用于补全和帮助文本。 */
+  name: string;
+  /** 参数类型。 */
+  type: CommandParameterType;
+  /** 是否可以省略。省略时回调收到 `undefined`。 */
+  optional?: boolean;
+  /** `type` 为 `enum` 时的可选值。 */
+  values?: string[];
+};
+
 /** 原生命令名称、别名与参数选项。 */
 export type CommandOptions = {
   /** 与主命令执行同一回调的短别名。 */
   aliases?: string[];
-  /** 当前支持的枚举参数。 */
+  /**
+   * 单个可选或必填枚举参数。
+   * 与 `parameters` 互斥；保留给已经发布的简单命令。
+   */
   enumParameter?: CommandEnumParameter;
+  /**
+   * 有序参数列表，支持字符串、整数、浮点、布尔和多个枚举。
+   * 使用场景：需要名称、数量或玩家名的模块命令。
+   */
+  parameters?: CommandParameter[];
 };
+
+/** 自定义命令参数上限。再多时客户端补全和帮助行都难以使用。 */
+const MAX_COMMAND_PARAMETERS = 8;
+
+/** 帮助行里直接展开枚举值的长度上限，超出后只显示参数名。 */
+const HELP_ENUM_PREVIEW_MAX = 48;
 
 /** 单条帮助消息正文的安全长度，给 Msg 前缀和客户端格式处理留出余量。 */
 const HELP_MESSAGE_MAX_LENGTH = 400;
@@ -149,6 +181,7 @@ export class Command {
     if (moduleId !== undefined) entry.moduleId = moduleId;
     if (cost !== undefined) entry.cost = cost;
     if (options !== undefined) entry.options = options;
+    assertCommandParameters(name, declaredParameters(options));
     this.list[name] = entry;
     debug.i("CMD", `register "${name}" perm=${permission} mod=${moduleId || "-"} cost=${cost?.amount || 0}`);
     return true;
@@ -308,10 +341,7 @@ export class Command {
           for (const command in this.list) {
             const entry = this.list[command];
             if (entry && this.canExecute(player, entry.permission)) {
-              const parameter = entry.options?.enumParameter;
-              const suffix = parameter
-                ? ` ${parameter.optional ? "[" : "<"}${parameter.values.join("|")}${parameter.optional ? "]" : ">"}`
-                : "";
+              const suffix = formatParameterSuffix(declaredParameters(entry.options));
               const aliases = entry.options?.aliases?.map((alias) => `/${this.nativeName(alias)}${suffix}`).join("、");
               lines.push(
                 `  /${this.nativeName(command)}${suffix}${aliases ? `（别名 ${aliases}）` : ""} - ${entry.description}`
@@ -341,13 +371,7 @@ export class Command {
   /** 在 startup early-execution 阶段把全部声明提交给原生命令注册表。 */
   static registerNativeCommands(registry: CustomCommandRegistry): void {
     for (const [name, entry] of Object.entries(this.list)) {
-      const enumParameter = entry.options?.enumParameter;
-      let parameter: CustomCommandParameter | undefined;
-      if (enumParameter) {
-        const enumName = this.nativeName(`${name}_${enumParameter.name}`);
-        registry.registerEnum(enumName, enumParameter.values);
-        parameter = { name: enumParameter.name, type: "Enum" as CustomCommandParamType, enumName };
-      }
+      const { mandatoryParameters, optionalParameters } = nativeParameters(name, declaredParameters(entry.options), registry);
       for (const publicName of [name, ...(entry.options?.aliases ?? [])]) {
         const nativeName = this.nativeName(publicName);
         registry.registerCommand(
@@ -356,11 +380,8 @@ export class Command {
             description: entry.moduleId ? `${entry.description} - §7${entry.moduleId}` : entry.description,
             permissionLevel: CommandPermissionLevel.Any,
             cheatsRequired: false,
-            ...(parameter
-              ? enumParameter?.optional
-                ? { optionalParameters: [parameter] }
-                : { mandatoryParameters: [parameter] }
-              : {}),
+            ...(mandatoryParameters.length > 0 ? { mandatoryParameters } : {}),
+            ...(optionalParameters.length > 0 ? { optionalParameters } : {}),
           },
           (origin: CustomCommandOrigin, ...args: unknown[]) => {
             this.trigger(origin.sourceEntity instanceof Player ? origin.sourceEntity : undefined, name, ...args);
@@ -371,4 +392,86 @@ export class Command {
       }
     }
   }
+}
+
+/** 把旧的单枚举声明和新的参数列表收成同一种结构。 */
+function declaredParameters(options?: CommandOptions): CommandParameter[] {
+  if (!options) return [];
+  if (options.parameters && options.enumParameter) {
+    throw new Error("命令不能同时声明 parameters 和 enumParameter");
+  }
+  if (options.parameters) return options.parameters;
+  if (!options.enumParameter) return [];
+  const legacy: CommandParameter = {
+    name: options.enumParameter.name,
+    type: "enum",
+    values: options.enumParameter.values,
+  };
+  if (options.enumParameter.optional === true) legacy.optional = true;
+  return [legacy];
+}
+
+/** 在注册时拒绝客户端无法表达的参数顺序。 */
+function assertCommandParameters(commandName: string, parameters: CommandParameter[]): void {
+  if (parameters.length > MAX_COMMAND_PARAMETERS) {
+    throw new Error(`命令 ${commandName} 最多 ${MAX_COMMAND_PARAMETERS} 个参数`);
+  }
+  let optionalSeen = false;
+  const names = new Set<string>();
+  for (const parameter of parameters) {
+    if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(parameter.name)) {
+      throw new Error(`命令 ${commandName} 的参数名无效: ${parameter.name}`);
+    }
+    if (names.has(parameter.name)) throw new Error(`命令 ${commandName} 的参数重名: ${parameter.name}`);
+    names.add(parameter.name);
+    if (parameter.optional) optionalSeen = true;
+    else if (optionalSeen) throw new Error(`命令 ${commandName} 的可选参数必须放在必填参数之后`);
+    if (parameter.type === "enum" && (!parameter.values || parameter.values.length === 0)) {
+      throw new Error(`命令 ${commandName} 的枚举参数 ${parameter.name} 没有可选值`);
+    }
+  }
+}
+
+/** 帮助列表里的参数摘要。长枚举只显示参数名，避免一条帮助被截断。 */
+function formatParameterSuffix(parameters: CommandParameter[]): string {
+  if (parameters.length === 0) return "";
+  const parts = parameters.map((parameter) => {
+    const label =
+      parameter.type === "enum" && parameter.values && parameter.values.join("|").length <= HELP_ENUM_PREVIEW_MAX
+        ? parameter.values.join("|")
+        : parameter.name;
+    return parameter.optional ? `[${label}]` : `<${label}>`;
+  });
+  return ` ${parts.join(" ")}`;
+}
+
+/** 转成原生命令参数。枚举要先在同一个注册表里声明。 */
+function nativeParameters(
+  commandName: string,
+  parameters: CommandParameter[],
+  registry: CustomCommandRegistry
+): { mandatoryParameters: CustomCommandParameter[]; optionalParameters: CustomCommandParameter[] } {
+  const mandatoryParameters: CustomCommandParameter[] = [];
+  const optionalParameters: CustomCommandParameter[] = [];
+  for (const parameter of parameters) {
+    let native: CustomCommandParameter;
+    if (parameter.type === "enum") {
+      const enumName = `c:${commandName}_${parameter.name}`;
+      registry.registerEnum(enumName, parameter.values ?? []);
+      native = { name: parameter.name, type: CustomCommandParamType.Enum, enumName };
+    } else {
+      const type =
+        parameter.type === "integer"
+          ? CustomCommandParamType.Integer
+          : parameter.type === "float"
+            ? CustomCommandParamType.Float
+            : parameter.type === "boolean"
+              ? CustomCommandParamType.Boolean
+              : CustomCommandParamType.String;
+      native = { name: parameter.name, type };
+    }
+    if (parameter.optional) optionalParameters.push(native);
+    else mandatoryParameters.push(native);
+  }
+  return { mandatoryParameters, optionalParameters };
 }

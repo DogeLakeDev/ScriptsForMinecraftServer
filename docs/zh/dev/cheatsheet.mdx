@@ -23,6 +23,24 @@ Command.register(
   "feature-teleport"
 );
 
+// 需要名称或数量时声明 parameters。可选参数必须放在最后，回调按声明顺序接收。
+Command.register(
+  "pay",
+  "pay.use",
+  (player, target, amount) => {
+    if (player) Msg.info(`准备向 ${String(target)} 支付 ${String(amount)}`, player);
+  },
+  "向玩家付款",
+  "feature-pay",
+  undefined,
+  {
+    parameters: [
+      { name: "target", type: "string" },
+      { name: "amount", type: "integer" },
+    ],
+  }
+);
+
 ModuleRegistry.register({
   id: "feature-teleport",
   afterWorldLoad: false, // 是否需要等待世界完全加载后再执行 init
