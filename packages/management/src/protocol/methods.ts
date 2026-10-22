@@ -58,6 +58,8 @@ export interface ManagementMethodMap {
   "modules.toggle": OperationAccepted;
   "config.list": { keys: string[] };
   "config.read": ConfigDocument;
+  /** 仅校验并保存文件，不改变服务运行状态。 */
+  "config.save": OperationAccepted;
   "config.apply": OperationAccepted;
   "packs.list": { packs: PackRow[] };
   "packs.import": OperationAccepted;

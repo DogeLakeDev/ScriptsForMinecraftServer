@@ -2,14 +2,16 @@
 
 SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，也可以通过 SSH 连接 Linux 或 Windows 服务器。服务启停、控制台、模块、资源包、配置、玩家与维护任务都集中在同一个工作区。
 
-当前提供 **0.3.6 正式版**，内置平台 `0.2.17`。客户端通过发行页手动下载安装更新。
+当前提供 **0.3.6(1) 正式版**，内置平台 `0.2.19`。客户端通过发行页手动下载安装更新。
+
+桌面端的小修复保留产品版本，仅递增括号中的构建号，例如 `0.3.6(1)`、`0.3.6(2)`。已有服务器需在更新页升级平台到 `0.2.19`，再重新连接，才能使用本次保存后手动重启的行为；旧平台在对应页面只允许查看。
 
 ## 下载与启动
 
-从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.6) 下载：
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.6+build.1) 下载：
 
-- `SFMC-Desktop-0.3.6-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.3.6-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
+- `SFMC-Desktop-0.3.6(1)-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.3.6(1)-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
 - `artifact-attestation.sigstore.json`：GitHub Artifact Attestations 构建证明。
 
@@ -18,13 +20,13 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 发行页同时公示 SHA256。下载后核对文件摘要：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6(1)-x64.exe' -Algorithm SHA256
 ```
 
 安装 [GitHub CLI](https://cli.github.com/) 后，可核对构建证明、源码仓库、工作流和标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.6-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.3.6(1)-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6+build.1 --deny-self-hosted-runners
 ```
 
 验证 ZIP 时替换文件名即可；添加 `--bundle '.\artifact-attestation.sigstore.json'` 可以验证下载的证明文件。需要固定到具体提交时，再加入 `--source-digest` 和 `release-manifest.json` 中的 `sourceCommit`。构建证明用于核对文件来源与摘要，不是 Windows 发布者证书。
@@ -63,11 +65,13 @@ gh attestation verify '.\SFMC-Desktop-0.3.6-x64.exe' --repo DogeLakeDev/ScriptsF
 
 ![模块管理：模块列表和详情](../../public/desktop/modules.jpg)
 
-**模块** 查看来源、版本和启用状态。修改后根据任务提示重启 BDS，才会应用需要重新打包的变更。平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`，旧模块需移除这些字段；已有启停状态仍由 module-lock 保存。
+**模块** 查看来源、版本和启用状态。安装、启用、停用和卸载模块不会自动停服或重启；任务完成后，可使用页面上的 **重启 BDS** 按钮加载需要重新打包的变更。**世界包** 的导入和启停也只保存更改，通过独立的 **重启 BDS** 按钮手动生效。平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`，旧模块需移除这些字段；已有启停状态仍由 module-lock 保存。
 
 ![配置编辑：配置列表与编辑器](../../public/desktop/config.jpg)
 
-**配置** 编辑服务和模块配置，保存后根据提示重载或重启相关服务。**控制台** 查看不同服务日志、发送 BDS 命令，关键词着色与命令行一致。**玩家** 的允许名单展示已绑定的玩家，包括玩家名、XUID、QQ 通道和绑定时间。**任务** 查看操作进度、失败原因与备份编号。
+**配置** 编辑服务和模块配置，**保存** 只写入文件；需要应用到运行中的服务时，点击旁边的 **重启服务**。页面上的独立重启按钮只重启当前运行的服务，已经停止的服务保持停止。左侧文件名和路径单行显示，过长时以省略号截断，悬停可查看完整路径。
+
+**控制台** 查看不同服务日志、发送 BDS 命令，关键词着色与命令行一致。**玩家** 的允许名单展示已绑定的玩家，包括玩家名、XUID、QQ 通道和绑定时间。**任务** 查看操作进度、失败原因与备份编号。
 
 ## 内置 UI Studio
 

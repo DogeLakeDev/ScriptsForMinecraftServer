@@ -1,5 +1,13 @@
 # @sfmc-bds/sfmc
 
+## 0.2.19
+
+### Patch Changes
+
+- Updated dependencies
+  - @sfmc-bds/cli@0.6.0
+  - @sfmc-bds/sdk@0.5.0
+
 ## 0.2.18
 
 ### Patch Changes

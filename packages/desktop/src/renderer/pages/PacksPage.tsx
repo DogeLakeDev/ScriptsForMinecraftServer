@@ -7,12 +7,15 @@
 import { useState } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { Button, SearchInput, Segmented, Switch } from "../components/controls.js";
+import { ManualRestartNotice, RestartServicesButton, useManualRestartSupport } from "../components/RestartServicesButton.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, CopyText, EmptyState, IconTile, PageHeader, Surface } from "../components/ui.js";
 import { plainMinecraft } from "../lib/format.js";
 
 export function PacksPage() {
-  const { model, editable, submit, guarded, current } = useDesktop();
+  const { model, editable: connectedEditable, submit, guarded, current } = useDesktop();
+  const supportsManualRestart = useManualRestartSupport();
+  const editable = connectedEditable && supportsManualRestart;
   const [kind, setKind] = useState<"all" | "behavior" | "resource">("all");
   const [query, setQuery] = useState("");
   const behavior = model.packs.filter((row) => row.kind === "behavior").length;
@@ -20,14 +23,15 @@ export function PacksPage() {
   const importPack = () =>
     void guarded(async () => {
       const uploaded = await window.sfmc.uploadPack(current);
-      if (uploaded) await submit("packs.import", uploaded, "导入世界包并应用", { description: `已上传 ${uploaded.filename.replace(/^\d+-/, "")}。将停服备份后安装到当前世界并启用，随后重启 BDS。` });
+      if (uploaded) await submit("packs.import", uploaded, "导入世界包", { description: `已上传 ${uploaded.filename.replace(/^\d+-/, "")}。将安装到当前世界并启用，可在导入完成后手动重启 BDS。` });
     });
   return (
     <div className="page">
       <PageHeader
         title="世界包"
-        actions={<Button variant="primary" disabled={!editable} icon="upload" onClick={importPack}>导入世界包</Button>}
+        actions={<><RestartServicesButton /><Button variant="primary" disabled={!editable} icon="upload" onClick={importPack}>导入世界包</Button></>}
       />
+      <ManualRestartNotice />
       <Surface flush>
         <div className="list-toolbar">
           <SearchInput size="sm" placeholder="按名称或 UUID 筛选" aria-label="筛选世界包" value={query} onChange={setQuery} className="toolbar-search" />
@@ -56,8 +60,8 @@ export function PacksPage() {
                   <CopyText text={row.id} className="row-sub" />
                 </div>
                 <span className="row-version mono">v{row.version}</span>
-                <Tooltip content={editable ? (row.enabled ? "停用并重启 BDS" : "启用并重启 BDS") : "当前为只读"} wrap>
-                  <Switch size="sm" label={`${row.enabled ? "停用" : "启用"} ${plainMinecraft(row.name)}`} checked={row.enabled} disabled={!editable} onChange={(enabled) => void submit("packs.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"} ${plainMinecraft(row.name)}`, { description: "应用世界包状态并重启 BDS。" })} />
+                <Tooltip content={editable ? (row.enabled ? "停用世界包" : "启用世界包") : "当前为只读"} wrap>
+                  <Switch size="sm" label={`${row.enabled ? "停用" : "启用"} ${plainMinecraft(row.name)}`} checked={row.enabled} disabled={!editable} onChange={(enabled) => void submit("packs.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"} ${plainMinecraft(row.name)}`, { description: "将保存世界包状态，可在操作完成后手动重启 BDS 使更改生效。" })} />
                 </Tooltip>
               </li>
             ))}

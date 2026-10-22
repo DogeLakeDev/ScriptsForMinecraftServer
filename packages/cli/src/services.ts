@@ -707,11 +707,24 @@ function createServices(): Record<ServiceName, Service> {
   };
 }
 
+/** 配置刷新后，将已有订阅重新绑定到新服务对象。 */
+const serviceStateListeners = new Set<(event: ServiceStateEvent) => void>();
 export let services: Record<ServiceName, Service> = createServices();
 
-export function refreshServices(): void {
-  forceStopAll();
-  services = createServices();
+/** 可只刷新即将启动的服务定义，保留其他运行中的服务及其探活参数。 */
+export function refreshServices(names: readonly ServiceName[] = SERVICE_NAMES): void {
+  const previousDbPort = dbHealthPort;
+  const previousQqBackend = qqBackendMode;
+  const latest = createServices();
+  if (!names.includes("db")) dbHealthPort = previousDbPort;
+  if (!names.includes("qq")) qqBackendMode = previousQqBackend;
+  for (const name of names) {
+    const previous = services[name];
+    previous.forceStop();
+    for (const listener of serviceStateListeners) previous.events.off("state", listener);
+    services[name] = latest[name];
+    for (const listener of serviceStateListeners) services[name].events.on("state", listener);
+  }
 }
 
 export const START_ORDER: ServiceName[] = ["db", "tunnel", "qq", "llbot", "bds"];
@@ -767,10 +780,12 @@ export function onServiceStateChange(fn: (ev: ServiceStateEvent) => void): () =>
   const handler = (ev: ServiceStateEvent): void => {
     fn(ev);
   };
+  serviceStateListeners.add(handler);
   for (const service of Object.values(services)) {
     service.events.on("state", handler);
   }
   return () => {
+    serviceStateListeners.delete(handler);
     for (const service of Object.values(services)) {
       service.events.off("state", handler);
     }

@@ -1,4 +1,5 @@
 import type { ReleaseNotes } from "../protocol/methods.js";
+import { compareDesktopVersions, parseDesktopVersion } from "../protocol/desktop-version.js";
 
 const REPOSITORY = "DogeLakeDev/ScriptsForMinecraftServer";
 const API = `https://api.github.com/repos/${REPOSITORY}/releases`;
@@ -41,24 +42,12 @@ export async function desktopReleaseNotes(includePreview: boolean): Promise<Rele
     const rows = await response.json() as GithubRelease[];
     for (const row of rows) {
       if (row.draft || (!includePreview && row.prerelease)) continue;
-      const stable = /^desktop-v(\d+\.\d+\.\d+)$/.exec(row.tag_name);
-      const preview = includePreview ? /^desktop-preview-v(\d+\.\d+\.\d+-preview\.\d+)$/.exec(row.tag_name) : null;
+      const stable = /^desktop-v(\d+\.\d+\.\d+(?:\+build\.[1-9]\d*)?)$/.exec(row.tag_name);
+      const preview = includePreview ? /^desktop-preview-v(\d+\.\d+\.\d+-preview\.\d+(?:\+build\.[1-9]\d*)?)$/.exec(row.tag_name) : null;
       const version = stable?.[1] ?? preview?.[1];
-      if (version) candidates.push(notesFor(row, version));
+      if (version && parseDesktopVersion(version)) candidates.push(notesFor(row, version));
     }
     if (rows.length < 100) break;
   }
-  return candidates.sort((a, b) => compareReleaseVersions(b.version, a.version))[0];
-}
-
-/** 此处只比较上述正式标签与 preview.N 标签。 */
-function compareReleaseVersions(a: string, b: string): number {
-  const parts = (version: string) => version.split(/\.|-preview\./).map(Number);
-  const left = parts(a); const right = parts(b);
-  for (let index = 0; index < 3; index++) {
-    const difference = left[index]! - right[index]!;
-    if (difference) return difference;
-  }
-  if (left.length !== right.length) return left.length === 3 ? 1 : -1;
-  return (left[3] ?? 0) - (right[3] ?? 0);
+  return candidates.sort((a, b) => compareDesktopVersions(b.version, a.version))[0];
 }

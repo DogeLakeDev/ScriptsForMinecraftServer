@@ -1,51 +1,35 @@
-SFMC Desktop **0.3.6**，Windows x64 正式版。
+SFMC Desktop **0.3.6(1)**，Windows x64 正式构建。
 
-内置平台 **0.2.17**、Node.js 与 pnpm。
+本次保留产品版本 0.3.6，构建号为 1。内置平台 **0.2.19**、Node.js 与 pnpm。今后同类小修复仅递增构建号。
 
-### 本次更新
+### 本次修复
 
-- 安装模块不再停止服务器。模块下载后重建行为包，BDS 仍在运行时发送 reload。
-- 模块列表显示各模块 package.json 里的发布版本，不再把清单格式号显示成 schema-2。
-- 远程连接上传平台运行时显示进度。
-- 配置和玩家权限有未保存修改时，离开页面前需要确认。
-- 控制台发送命令时显示进行中，避免连发。更新页可以刷新备份列表。
-- 实例设置按钮留在圆角行内。
+- 配置列表的文件名与路径单行省略，悬停可查看完整路径，修复异常换行、越界和横向滚动。
+- 配置保存只写入文件，不自动停止或重启服务；旁边提供独立的重启服务按钮。
+- 模块安装、启停、卸载及世界包导入、启停不自动停服或重启，页面提供独立的重启 BDS 按钮。
+- 手动重启只处理当前运行的服务；下次启动也会读取最新配置，并保留服务状态订阅。
+- 修复弹窗表单的下拉选项被遮挡、不可点击的问题。
+- 构建号纳入客户端更新检查，关于与更新日志显示 0.3.6(1)。
 
-本发行使用 GitHub 构建证明和 SHA256 校验，Windows 程序未做 Authenticode 签名。客户端仍通过发行页手动下载安装更新。
+### 下载与更新
 
-### 下载与使用
+1. 下载 `SFMC-Desktop-0.3.6(1)-x64.exe` 安装，或完整解压同名 `.zip` 后运行 `SFMC Desktop.exe`。
+2. 从托盘退出旧客户端后覆盖安装或替换完整 ZIP；服务器目录与数据保留。关闭客户端不停止服务器。
+3. **已有服务器请在「更新与备份」页升级平台到 0.2.19，再重新连接。** 仅替换客户端不会更新已经运行的后台。平台更新属于显式维护操作，会按页面提示停止并恢复服务。
+4. 旧平台在配置、模块和世界包页面只允许查看，避免旧后台仍自动停服；更新平台后开放编辑与手动重启。
+5. 新客户端支持同一产品版本内的构建更新检查。旧版客户端可能无法识别构建标签，可直接从本发行页下载安装。
 
-1. 下载 `.exe` 安装，或完整解压 `.zip` 后运行 `SFMC Desktop.exe`。
-2. 添加本机实例，选择 SFMC 部署根目录；SSH 实例填写主机、端口、用户、身份验证及远程根目录。
-3. 已有部署保存后直接管理；首次验收可在独立目录按引导初始化。升级平台在更新页进行。
-4. 在概览启动数据服务和 BDS，通过控制台与任务查看结果。关闭窗口默认留在托盘；退出请用托盘菜单。关闭客户端不停止服务器。
+本发行提供 GitHub 构建证明与 SHA256 校验；Windows 程序未做 Authenticode 签名，通过发行页手动更新。
 
-[完整使用文档与截图](https://sfmc.dogelake.cn/guide/desktop)
+[完整使用文档](https://sfmc.dogelake.cn/guide/desktop)
 
 ### 下载验证
 
-发行页下方公示各文件 SHA256，`SHA256SUMS.txt` 提供可下载的校验清单。下载后在 PowerShell 核对：
+发行页公示各文件 SHA256，`SHA256SUMS.txt` 提供校验清单。在 PowerShell 核对：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6(1)-x64.exe' -Algorithm SHA256
+gh attestation verify '.\SFMC-Desktop-0.3.6(1)-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref 'refs/tags/desktop-v0.3.6+build.1' --deny-self-hosted-runners
 ```
 
-使用 GitHub CLI 验证构建证明及来源标签：
-
-```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.6-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6 --deny-self-hosted-runners
-```
-
-ZIP 使用相同命令替换文件名即可。`artifact-attestation.sigstore.json` 是可下载的证明材料，`release-manifest.json` 记录源码提交、平台版本和内置运行时信息。
-
-### 更新与兼容
-
-- 本版本通过发行页手动更新：从托盘退出客户端后覆盖安装，或替换完整 ZIP 内容。服务器部署与数据独立于客户端目录。
-- 从 0.3.1 升级后，关闭窗口仍默认留在托盘。需要退出时使用托盘菜单中的「退出」。
-- 内存曲线在平台 0.2.16 起写入数据库，服务停止后仍可查看。尚未升级的服务器，只在打开概览期间累积本次采样。
-- 绑定名单和「断开连接后服务器继续运行」需要把实例平台升到 0.2.16。只更换桌面客户端不会改服务器上已安装的平台。
-- 安装模块不停服、以及模块版本读取 package.json，需要把实例平台升到 0.2.17。
-- 模块更新会跳过 monitor 等已收编模块，并在界面显示「已收编至平台」。
-- 打开已有部署不会自动切换活动平台。升级前在更新页核对兼容性。
-- 平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`；旧模块需移除这些字段。已有启停状态继续由 module-lock 保存。
-- Linux 远程环境、游戏内表单与独立业务模块的完整流程仍需按实际环境验收。
+ZIP 替换文件名后使用相同命令。`release-manifest.json` 记录源码提交、产品版本、构建号与内置平台版本。

@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["sfmc-extension"]
+  "ignore": ["sfmc-extension", "@sfmc-bds/desktop"]
 }

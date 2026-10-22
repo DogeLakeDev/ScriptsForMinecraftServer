@@ -76,6 +76,7 @@ const TASK_LABELS: Record<string, string> = {
   "modules.uninstall": "卸载模块",
   "modules.toggle": "切换模块状态",
   "config.apply": "保存并应用配置",
+  "config.save": "保存配置",
   "packs.import": "导入世界包",
   "packs.toggle": "切换世界包状态",
   "players.apply": "保存玩家权限",

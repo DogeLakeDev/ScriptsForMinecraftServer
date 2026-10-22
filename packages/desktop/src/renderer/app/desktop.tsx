@@ -163,7 +163,7 @@ interface TrackedOperation {
 }
 
 /** 提交任务确认框中的固定提示（与原实现文案一致） */
-const SUBMIT_NOTE = "后台执行期间可能重载或重启受影响服务；任务提交后关闭客户端不会取消执行。";
+const SUBMIT_NOTE = "任务提交后在后台执行，关闭客户端不会取消任务。";
 
 export function DesktopProvider({ children }: { children: ReactNode }) {
   const confirm = useConfirm();

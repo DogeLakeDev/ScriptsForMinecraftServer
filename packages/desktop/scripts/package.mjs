@@ -3,11 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
+import { desktopBuildInfo } from './version.mjs';
 
 const base = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const root = path.resolve(base, '../..');
 const manifest = JSON.parse(await fs.readFile(path.join(base, 'runtime-manifest.json'), 'utf8'));
 const desktop = JSON.parse(await fs.readFile(path.join(base, 'package.json'), 'utf8'));
+const desktopBuild = desktopBuildInfo(desktop.version);
 const signed = process.argv.includes('--signed');
 const material = path.join(base, 'payload');
 const work = path.join(base, '.pack-work');
@@ -120,9 +122,9 @@ const winswHash = await download('https://github.com/winsw/winsw/releases/downlo
 const materials = [];
 for (const name of ['platform.tar', 'pnpm.tar', 'WinSW-x64.exe']) materials.push({ name, sha256: createHash('sha256').update(await fs.readFile(path.join(material, name))).digest('hex') });
 const sourceCommit = process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
-await fs.writeFile(path.join(material, 'release-manifest.json'), JSON.stringify({ sourceCommit, desktopVersion: desktop.version, platformVersion: platformPackage.version, windowsCodeSigned: signed, node: { version: manifest.node, sha256: nodeHash }, pnpm: manifest.pnpm, winsw: { version: '2.12.0', sha256: winswHash }, protocolVersion: manifest.protocolVersion, packages: [...ledger.values()].sort((a, b) => a.name.localeCompare(b.name)), materials }, null, 2));
+await fs.writeFile(path.join(material, 'release-manifest.json'), JSON.stringify({ sourceCommit, desktopVersion: desktop.version, desktopDisplayVersion: desktopBuild.displayVersion, desktopBuildNumber: desktopBuild.buildNumber, platformVersion: platformPackage.version, windowsCodeSigned: signed, node: { version: manifest.node, sha256: nodeHash }, pnpm: manifest.pnpm, winsw: { version: '2.12.0', sha256: winswHash }, protocolVersion: manifest.protocolVersion, packages: [...ledger.values()].sort((a, b) => a.name.localeCompare(b.name)), materials }, null, 2));
 await fs.cp(path.join(material, 'release-manifest.json'), path.join(staging, 'release-manifest.json'));
 if (!process.argv.includes('--prepare-only')) {
   if (signed && (!process.env.CSC_LINK || !process.env.CSC_KEY_PASSWORD || !process.env.SFMC_SIGNING_PUBLISHER)) throw new Error('签名发行需要 CSC_LINK、CSC_KEY_PASSWORD 和 SFMC_SIGNING_PUBLISHER；不会生成伪签名发行包');
-  await command(process.execPath, [path.join(base, 'node_modules/electron-builder/out/cli/cli.js'), '--config', path.join(base, 'electron-builder.yml'), '--win', '--x64', '--publish', 'never', ...(signed ? ['--config.forceCodeSigning=true', `--config.win.publisherName=${process.env.SFMC_SIGNING_PUBLISHER}`] : ['--config.win.signExecutable=false'])], base);
+  await command(process.execPath, [path.join(base, 'node_modules/electron-builder/out/cli/cli.js'), '--config', path.join(base, 'electron-builder.yml'), '--win', '--x64', '--publish', 'never', `--config.buildNumber=${desktopBuild.buildNumber}`, `--config.buildVersion=${desktopBuild.windowsVersion}`, '--config.artifactName=SFMC-Desktop-' + desktopBuild.displayVersion + '-${arch}.${ext}', ...(signed ? ['--config.forceCodeSigning=true', `--config.win.publisherName=${process.env.SFMC_SIGNING_PUBLISHER}`] : ['--config.win.signExecutable=false'])], base);
 }

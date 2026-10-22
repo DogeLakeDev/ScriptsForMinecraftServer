@@ -8,6 +8,7 @@
  *  - 安装版：有新版本时可"下载更新"，下载完成后才可"安装并重启客户端"。
  * 同时列出界面所用的设计资源与开源字体/图标/组件的许可声明。
  */
+import { formatDesktopVersion } from "@sfmc-bds/management";
 import { useEffect, useState } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { Button } from "../components/controls.js";
@@ -71,7 +72,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
           <LogoMark size={48} />
           <div>
             <b>SFMC Desktop</b>
-            <span className="mono">v{appInfo?.version ?? "—"}</span>
+            <span className="mono">v{formatDesktopVersion(appInfo?.version ?? "—")}</span>
           </div>
           <span className="toolbar-spacer" />
           <Badge>{appInfo?.packaged ? appInfo.version.includes("-") ? "预览版" : "正式版" : "开发版"}</Badge>
@@ -91,7 +92,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
           ) : info ? (
             <>
               <p className="about-text">
-                {info.noRelease ? <Badge>暂无桌面发行版本</Badge> : info.available ? <Badge tone="info" dot>有新的桌面版本 · {info.version}</Badge> : <Badge tone="success" dot>已是最新桌面版本</Badge>}
+                {info.noRelease ? <Badge>暂无桌面发行版本</Badge> : info.available ? <Badge tone="info" dot>有新的桌面版本 · {formatDesktopVersion(info.version ?? "—")}</Badge> : <Badge tone="success" dot>已是最新桌面版本</Badge>}
               </p>
               {!info.noRelease && <ReleaseNotes notes={info.releaseNotes} version={info.version ?? appInfo?.version ?? "—"} title="桌面端更新日志" />}
               <div className="about-actions">

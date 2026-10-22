@@ -262,7 +262,7 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"],
+    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -345,7 +345,10 @@ export function installMockBridge() {
       case "attachment.apply": return runTask(id, "attachment.apply", ["prepare", "verify"]);
       case "services.start": return runTask(id, method, ["execute", "verify"], () => setService(String(params.name), true));
       case "services.stop": return runTask(id, method, ["execute"], () => setService(String(params.name), false));
-      case "services.restart": return runTask(id, method, ["execute", "verify"], () => { setService(String(params.name), false); setService(String(params.name), true); });
+      case "services.restart": return runTask(id, method, ["execute", "verify"], () => {
+        const names = instance.services.filter(row => (params.name === "all" || row.name === params.name) && (params.runningOnly !== true || row.running)).map(row => row.name);
+        for (const name of names) { setService(name, false); setService(name, true); }
+      });
       case "services.send": {
         const entry: LogEntryWire = { time: new Date().toISOString(), source: String(params.name), level: "info", text: `> ${String(params.message)}` };
         instance.logs.push(entry); emit(id, "log", entry);
@@ -364,25 +367,26 @@ export function installMockBridge() {
           { id: "monitor", npm: "@sfmc-bds/module-monitor", version: "0.5.3", sdk: "^0.2.0" },
           { id: "qa", npm: "@sfmc-bds/module-qa", version: "0.1.0", sdk: "^0.2.0" },
         ].filter((row) => row.id.includes(String(params.query ?? ""))) };
-      case "modules.install": return runTask(id, method, ["download", "execute", "reload"], () => instance.modules.push({ id: String(params.id), folder: `sfmc-module-${String(params.id)}`, name: String(params.id), version: "0.1.0", enabled: true, linked: false }));
-      case "modules.uninstall": return runTask(id, method, maintenance, () => { instance.modules = instance.modules.filter((row) => row.folder !== params.id); });
-      case "modules.toggle": return runTask(id, method, maintenance, () => { const row = instance.modules.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
+      case "modules.install": return runTask(id, method, ["download", "execute"], () => instance.modules.push({ id: String(params.id), folder: `sfmc-module-${String(params.id)}`, name: String(params.id), version: "0.1.0", enabled: true, linked: false }));
+      case "modules.uninstall": return runTask(id, method, ["execute"], () => { instance.modules = instance.modules.filter((row) => row.folder !== params.id); });
+      case "modules.toggle": return runTask(id, method, ["execute"], () => { const row = instance.modules.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
       case "config.read": {
         const document = instance.configs.get(String(params.key));
         if (!document) throw new Error("配置不在允许编辑的列表中");
         return structuredClone(document);
       }
+      case "config.save":
       case "config.apply": {
         const document = instance.configs.get(String(params.key));
         if (!document) throw new Error("配置不在允许编辑的列表中");
         if (document.revision !== params.revision) throw new Error("配置已变更，请重新读取");
-        return runTask(id, method, ["stop-services", "backup", "execute", "apply", "verify", "restore"], () => {
+        return runTask(id, method, method === "config.save" ? ["execute"] : ["stop-services", "backup", "execute", "apply", "verify", "restore"], () => {
           document.text = String(params.text);
           document.revision = `${document.key}-${document.text.length}-${Date.now()}`;
         });
       }
-      case "packs.import": return runTask(id, method, maintenance, () => instance.packs.push({ id: uuid(), name: String(params.filename).replace(/^\d+-/, "").replace(/\.\w+$/, ""), kind: "behavior", enabled: true, version: "1.0.0" }));
-      case "packs.toggle": return runTask(id, method, maintenance, () => { const row = instance.packs.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
+      case "packs.import": return runTask(id, method, ["execute"], () => instance.packs.push({ id: uuid(), name: String(params.filename).replace(/^\d+-/, "").replace(/\.\w+$/, ""), kind: "behavior", enabled: true, version: "1.0.0" }));
+      case "packs.toggle": return runTask(id, method, ["execute"], () => { const row = instance.packs.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
       case "players.list":
         return {
           players: [{ name: "Steve", xuid: "", online: true }, { name: "Alex", xuid: "", online: true }, { name: "Notch_CN", xuid: "", online: true }],

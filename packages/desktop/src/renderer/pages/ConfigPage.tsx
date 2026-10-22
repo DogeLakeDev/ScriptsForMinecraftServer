@@ -3,7 +3,7 @@
  *
  * 使用场景：左侧按"核心 / BDS / 模块"分组列出可编辑配置，右侧提供表单与源码两种视图。
  * 表单视图由 JSON Schema（或 server.properties 常用字段）生成，修改始终回写到原文以保留注释与未知字段；
- * 保存沿用 config.apply（携带读取时的 revision 防止覆盖他人修改），任务完成后自动重新读取最新版本。
+ * config.save 只保存文件（携带读取时的 revision 防止覆盖他人修改），需要时由独立按钮重启服务。
  */
 import Editor from "@monaco-editor/react";
 import type { ConfigDocument } from "@sfmc-bds/management";
@@ -14,6 +14,8 @@ import { FONT_MONO, useAppearance } from "../app/theme.js";
 import { Button, NumberInput, PasswordInput, SearchInput, Segmented, Select, Switch, TextInput } from "../components/controls.js";
 import { Spinner, useConfirm } from "../components/feedback.js";
 import { Icon, type IconName } from "../components/icons.js";
+import { ManualRestartNotice, RestartServicesButton, useManualRestartSupport } from "../components/RestartServicesButton.js";
+import { Tooltip } from "../components/tooltip.js";
 import { Badge, Callout, EmptyState, PageHeader, SettingRow } from "../components/ui.js";
 import { fieldsFromSchema, fieldsFromValue, parseJsonText, parseProperties, PROPERTY_FIELDS, setJsonField, setProperty, type FieldSpec } from "../lib/config-form.js";
 import { errorText, isTaskDone } from "../lib/format.js";
@@ -122,7 +124,9 @@ function ConfigForm({ document, text, setText, editable }: { document: ConfigDoc
 }
 
 export function ConfigPage() {
-  const { model, editable, request, submit } = useDesktop();
+  const { model, editable: connectedEditable, request, submit } = useDesktop();
+  const supportsManualRestart = useManualRestartSupport();
+  const editable = connectedEditable && supportsManualRestart;
   const confirm = useConfirm();
   const { editorTheme } = useAppearance();
   const [document, setDocument] = useState<ConfigDocument>();
@@ -190,7 +194,7 @@ export function ConfigPage() {
     if (!record || !isTaskDone(record.status) || completedSave.current === record.id) return;
     completedSave.current = record.id;
     setPendingSave(undefined);
-    if (record.status !== "succeeded") setSaveError(record.error?.message ?? "配置应用已中断，未保存的修改已保留");
+    if (record.status !== "succeeded") setSaveError(record.error?.message ?? "配置保存已中断，未保存的修改已保留");
     const saved = record.status === "succeeded" || (record.error?.details as { saved?: boolean } | undefined)?.saved === true;
     if (saved && documentRef.current?.key === pendingSave.key && (!loading || loading === pendingSave.key)) {
       void load(pendingSave.key, pendingSave.text);
@@ -213,9 +217,9 @@ export function ConfigPage() {
     if (!document) return;
     const submittedText = text;
     setSaveError("");
-    void submit("config.apply", { key: document.key, text, revision: document.revision }, `保存并应用 ${describeKey(document.key, moduleNames).title}`, {
-      description: (<>将停止服务、备份后写入 <span className="mono">{document.key}</span>，并重启服务：{document.affectedServices.join(" ")}。</>) as ReactNode,
-      okText: "保存并应用",
+    void submit("config.save", { key: document.key, text, revision: document.revision }, `保存 ${describeKey(document.key, moduleNames).title}`, {
+      description: (<>将写入 <span className="mono">{document.key}</span>。保存后可手动重启服务使配置生效。</>) as ReactNode,
+      okText: "保存",
     }).then((operationId) => operationId && setPendingSave({ operationId, key: document.key, text: submittedText }));
   };
 
@@ -223,11 +227,12 @@ export function ConfigPage() {
   return (
     <div className="page page-fill">
       <PageHeader title="配置" />
+      <ManualRestartNotice />
       {loadError && <Callout tone="danger" title={`读取 ${loadError.key} 失败`} action={<Button size="sm" onClick={() => {
         if (loadError.key === document?.key) void load(loadError.key, document.text);
         else select(loadError.key);
       }}>重试</Button>}>{loadError.message}</Callout>}
-      {saveError && <Callout tone="danger" title="配置应用未完成">{saveError}</Callout>}
+      {saveError && <Callout tone="danger" title="配置保存未完成">{saveError}</Callout>}
       <div className="config-layout surface">
         <aside className="config-list">
           <div className="config-filter">
@@ -236,17 +241,19 @@ export function ConfigPage() {
           <div className="config-groups">
             {groups.map(([group, rows]) => (
               <div key={group} className="config-group">
-                <div className="config-group-label">{group}</div>
+                <div className="config-group-label truncate" title={group}>{group}</div>
                 {rows.map((row) => (
-                  <button key={row.key} type="button" className={`config-item${document?.key === row.key ? " active" : ""}`} onClick={() => select(row.key)}>
-                    <Icon name={row.icon} size={14} />
-                    <span className="config-item-text">
-                      <b>{row.title}</b>
-                      <small className="mono">{row.file}</small>
-                    </span>
-                    {loading === row.key && <Icon name="loader" spin size={13} />}
-                    {document?.key === row.key && dirty && <span className="dirty-dot" title="未保存" />}
-                  </button>
+                  <Tooltip key={row.key} content={row.file} side="right">
+                    <button type="button" className={`config-item${document?.key === row.key ? " active" : ""}`} onClick={() => select(row.key)}>
+                      <Icon name={row.icon} size={14} />
+                      <span className="config-item-text">
+                        <b className="truncate">{row.title}</b>
+                        <small className="mono truncate">{row.file}</small>
+                      </span>
+                      {loading === row.key && <Icon name="loader" spin size={13} />}
+                      {document?.key === row.key && dirty && <span className="dirty-dot" title="未保存" />}
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
             ))}
@@ -263,7 +270,7 @@ export function ConfigPage() {
                     <Badge className="mono">{document.format}</Badge>
                     {document.schema && <Badge tone="accent" icon="shield">Schema 校验</Badge>}
                     {dirty && <Badge tone="warning" dot>未保存</Badge>}
-                    {pendingSave && <Badge tone="info" icon="loader">应用中</Badge>}
+                    {pendingSave && <Badge tone="info" icon="loader">保存中</Badge>}
                   </div>
                   <span className="mono muted">{document.key}</span>
                 </div>
@@ -298,10 +305,11 @@ export function ConfigPage() {
               <div className="config-foot">
                 <span className="config-foot-note">
                   <Icon name="info" size={13} />
-                  {syntaxError ? <span className="tone-text-danger">存在语法错误，修复后才能保存</span> : <>保存后将重启：{document.affectedServices.join("、")}</>}
+                  {syntaxError ? <span className="tone-text-danger">存在语法错误，修复后才能保存</span> : "保存后可手动重启服务使配置生效"}
                 </span>
                 <Button variant="ghost" disabled={!dirty || Boolean(loading) || Boolean(pendingSave)} onClick={() => setText(document.text)}>放弃更改</Button>
-                <Button variant="primary" disabled={!editable || !dirty || Boolean(loading) || Boolean(syntaxError) || problems > 0 || Boolean(pendingSave)} onClick={save} icon="check">保存并应用</Button>
+                <RestartServicesButton target="all" disabled={dirty || Boolean(loading) || Boolean(pendingSave)} />
+                <Button variant="primary" disabled={!editable || !dirty || Boolean(loading) || Boolean(syntaxError) || problems > 0 || Boolean(pendingSave)} onClick={save} icon="check">保存</Button>
               </div>
             </>
           ) : loading ? (

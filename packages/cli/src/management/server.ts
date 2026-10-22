@@ -10,7 +10,7 @@ import { readDiskLogs, onLog } from "../logs.js";
 import { cmdModuleEnable, cmdModuleDisable } from "../module-commands.js";
 import { ensureCoreConfigs } from "@sfmc-bds/sdk/node/config";
 import { TaskStore, atomicJson, type TaskContext } from "./tasks.js";
-import { configFiles, readDocument, saveDocument, validateDocument } from "./config.js";
+import { configFiles, readDocument, revision, saveDocument, validateDocument } from "./config.js";
 import { listModules, searchModules, identifier, runFetch, readJson, listPacks, togglePack, importPack, playerFiles, savePlayerPermissions, modulePlan, applyModulePlan } from "./domain.js";
 import { attachmentPlan, platformVersion, withStoppedServices, launchPlatformUpdate, restoreSnapshot, verifyRunning } from "./maintenance.js";
 import { startupPlan } from "./startup.js";
@@ -52,26 +52,6 @@ async function rebuildModules() {
   return { changed: true };
 }
 
-/**
- * 模块文件已经落盘后重建行为包，并在 BDS 仍运行时发送 reload。
- * 使用场景：桌面端安装模块。安装只写入 modules/packages，不停止服务；
- * 运行中的 BDS 用 reload 载入新包，未运行则等下次启动。
- */
-async function applyInstalledModule(phase: TaskContext["phase"]) {
-  phase("execute", "重建行为包");
-  const rebuilt = await rebuildModules();
-  phase("reload", "向运行中的 BDS 发送 reload，不停止服务器");
-  await queryServicesRuntimeLocal();
-  const bds = services.bds;
-  if (!bds.running || !bds.proc?.stdin) return { ...rebuilt, reloaded: false };
-  try {
-    bds.proc.stdin.write("reload\n");
-  } catch (error) {
-    throw new Error(`模块已安装，但热重载失败: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  return { ...rebuilt, reloaded: true };
-}
-
 async function players() {
   const files = playerFiles(); const allowlist = readJson<unknown[]>(files.allowlist, []);
   const cfg = readJson<{ db_port?: number; http_auth?: string; dbDir?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
@@ -98,17 +78,33 @@ async function bdsUpdate(context: TaskContext, checkOnly = false) {
 export async function dispatchManagement(request: ManagementRequest): Promise<unknown> {
   const p = params(request); const store = managementTasks();
   switch (request.method) {
-    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
+    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
     case "events.subscribe": return { subscribed: true };
     case "services.list": return { rows: await queryServicesRuntimeLocal() };
     case "services.start": case "services.stop": case "services.restart": {
-      const names = p.name === "all" ? [...START_ORDER] : [service(p.name)];
+      const requestedNames = p.name === "all" ? [...START_ORDER] : [service(p.name)];
+      const reloadConfig = p.reloadConfig === true;
+      if (reloadConfig && (p.name !== "all" || request.method !== "services.restart")) throw new Error("重新读取配置需要重启全部服务");
       return store.submit(request.method, async context => {
         context.phase("execute");
         const rows = await queryServicesRuntimeLocal();
+        const names = p.runningOnly === true
+          ? requestedNames.filter(name => rows.some(row => row.name === name && row.running))
+          : requestedNames;
         if (rows.some(row => names.includes(row.name) && row.running && row.ownership === "external") && request.method !== "services.start") throw new Error("外部进程无法安全停止，请通过原管理器操作");
         if (request.method !== "services.start") for (const name of [...names].reverse()) await services[name].stop(false, false);
+        if (reloadConfig) {
+          const after = await queryServicesRuntimeLocal();
+          if (after.some(row => requestedNames.includes(row.name) && row.running)) throw new Error("服务未完全退出，已中止配置刷新");
+          refreshServices();
+        }
         if (request.method !== "services.stop") {
+          if (!reloadConfig) {
+            const after = await queryServicesRuntimeLocal();
+            if (request.method === "services.restart" && after.some(row => names.includes(row.name) && row.running)) throw new Error("服务未完全退出，已中止重启");
+            const stopped = names.filter(name => !after.some(row => row.name === name && row.running));
+            if (stopped.length) refreshServices(stopped);
+          }
           const outcomes = [];
           for (const name of names) outcomes.push({ name, ...(await services[name].start()) });
           await verifyRunning(outcomes.filter(row => row.status !== "skipped").map(row => row.name));
@@ -137,7 +133,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
         const args = ["install", id];
         if (typeof p.source === "string" && p.source) args.push("--from", p.source);
         await runFetch(args);
-        return applyInstalledModule(context.phase);
+        context.phase("execute", "重建行为包，等待手动重启 BDS");
+        return { ...(await rebuildModules()), restartRequired: true };
       });
     }
     case "modules.uninstall": case "modules.toggle": {
@@ -146,17 +143,28 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
         const linked = (await listModules()).modules.find(row => row.id === id || row.folder === id)?.linked;
         if (linked) throw new Error("保留本地链接模块，不通过包安装或卸载覆盖开发目录");
       }
-      return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => {
+      return store.submit(request.method, async context => {
+        context.phase("execute", "更新模块并重建行为包，等待手动重启 BDS");
         if (request.method === "modules.toggle") {
           const result = await (p.enabled === true ? cmdModuleEnable([id]) : cmdModuleDisable([id])); if (!result.ok) throw new Error(result.message);
         } else {
           await runFetch(["uninstall", id]);
         }
-        return rebuildModules();
-      }, true, "modules"));
+        return { ...(await rebuildModules()), restartRequired: true };
+      });
     }
     case "config.list": return { keys: [...configFiles().keys()] };
     case "config.read": return readDocument(string(p.key, "配置名称"));
+    case "config.save": {
+      const key = string(p.key, "配置名称"); const text = string(p.text, "配置内容"); const expected = string(p.revision, "配置版本");
+      const document = readDocument(key); validateDocument(document, text);
+      if (document.revision !== expected) throw Object.assign(new Error("配置已变更，请重新读取"), { code: "conflict" });
+      return store.submit(request.method, async context => {
+        context.phase("execute", "保存配置文件，不重启服务");
+        saveDocument(key, expected, text);
+        return { saved: true, revision: revision(text), restartRequired: true };
+      });
+    }
     case "config.apply": {
       const key = string(p.key, "配置名称"); const text = string(p.text, "配置内容"); const expected = string(p.revision, "配置版本");
       const document = readDocument(key); validateDocument(document, text);
@@ -171,8 +179,14 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       });
     }
     case "packs.list": return listPacks();
-    case "packs.import": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => importPack(identifier(p.filename))));
-    case "packs.toggle": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => togglePack(identifier(p.id), p.enabled === true)));
+    case "packs.import": return store.submit(request.method, async context => {
+      context.phase("execute", "导入世界包，等待手动重启 BDS");
+      return importPack(identifier(p.filename));
+    });
+    case "packs.toggle": return store.submit(request.method, async context => {
+      context.phase("execute", "保存世界包状态，等待手动重启 BDS");
+      return togglePack(identifier(p.id), p.enabled === true);
+    });
     case "players.list": return players();
     case "metrics.read": return readRuntimeMetrics(request.params);
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));

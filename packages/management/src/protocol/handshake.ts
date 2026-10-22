@@ -18,7 +18,8 @@ export type ManagementCapability =
   | "players"
   | "updates"
   | "operations"
-  | "metrics";
+  | "metrics"
+  | "manual-restart";
 
 /** handshake 方法结果 */
 export interface Handshake {

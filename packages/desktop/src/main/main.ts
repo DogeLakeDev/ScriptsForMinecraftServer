@@ -7,7 +7,7 @@ import { releaseManifest } from "./runtime.js";
 import { Session } from "./sessions.js";
 import { profiles, profile, saveProfile, removeProfile, credentials, rememberSession } from "./profiles.js";
 import type { AppearanceMode, Credentials, DesktopPreferences, InstanceProfile } from "../shared/api.js";
-import type { ManagementMethod } from "@sfmc-bds/management";
+import { compareDesktopVersions, parseDesktopVersion, type ManagementMethod } from "@sfmc-bds/management";
 import { desktopReleaseNotes } from "@sfmc-bds/management/node";
 import { applyLoginItem, readPreferences, shouldStartHidden, writePreferences } from "./preferences.js";
 import { bindWindow, markQuitting, showWindow, syncTray } from "./tray.js";
@@ -112,12 +112,14 @@ void app.whenReady().then(async () => {
   handle("update", async action => {
     if (!app.isPackaged) return { development: true };
     const portable = !fs.existsSync(path.join(path.dirname(process.execPath), "installed.json"));
-    const preview = app.getVersion().includes("-");
-    const manual = portable || preview || releaseManifest().windowsCodeSigned !== true;
+    const currentVersion = releaseManifest().desktopVersion ?? app.getVersion();
+    const parsed = parseDesktopVersion(currentVersion);
+    const preview = parsed?.preview !== undefined;
+    const manual = portable || preview || Boolean(parsed?.build) || releaseManifest().windowsCodeSigned !== true;
     if (action === "check") {
       const notes = await desktopReleaseNotes(preview);
       if (!notes) return { portable, manual: true, available: false, noRelease: true };
-      const info = { portable, manual: manual || Boolean(notes.prerelease), available: autoUpdater.currentVersion.compare(notes.version) < 0, version: notes.version, releaseNotes: notes };
+      const info = { portable, manual: manual || Boolean(notes.prerelease) || Boolean(parseDesktopVersion(notes.version)?.build), available: compareDesktopVersions(currentVersion, notes.version) < 0, version: notes.version, releaseNotes: notes };
       if (info.manual || !info.available) return info;
       const tag = decodeURIComponent(new URL(notes.url).pathname.split("/").at(-1)!);
       autoUpdater.setFeedURL({ provider: "generic", url: `https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/download/${tag}`, channel: "desktop" });
@@ -135,7 +137,7 @@ void app.whenReady().then(async () => {
     applyChrome(next);
   });
   /** 客户端版本与运行形态（关于对话框、侧栏页脚） */
-  handle("appInfo", () => ({ version: app.getVersion(), platform: process.platform, packaged: app.isPackaged }));
+  handle("appInfo", () => ({ version: app.isPackaged ? releaseManifest().desktopVersion ?? app.getVersion() : app.getVersion(), platform: process.platform, packaged: app.isPackaged }));
   handle("preferences", () => readPreferences());
   handle("setPreferences", patch => {
     const next = writePreferences(patch as Partial<DesktopPreferences>);

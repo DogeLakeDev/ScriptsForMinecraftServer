@@ -63,12 +63,11 @@ jobs:
         run: |
           $version = (Get-Content packages/desktop/package.json | ConvertFrom-Json).version
           $platform = (Get-Content packages/meta/package.json | ConvertFrom-Json).version
+          node packages/desktop/scripts/version.mjs --check-tag $env:GITHUB_REF_NAME
+          if ($LASTEXITCODE -ne 0) { throw '桌面标签、产品版本或构建号不一致' }
           $preview = $env:GITHUB_REF_NAME.StartsWith('desktop-preview-v')
-          $prefix = if ($preview) { 'desktop-preview-v' } else { 'desktop-v' }
-          if ($env:GITHUB_REF_NAME -ne "$prefix$version") { throw '桌面标签与源码版本不一致' }
-          if ($preview -and $version -notmatch '-preview\.\d+$') { throw '预览标签必须使用 preview 版本号' }
           if (!$preview) {
-            if ($version -notmatch '^\d+\.\d+\.\d+$' -or $platform -notmatch '^\d+\.\d+\.\d+$') { throw '正式桌面与内置平台必须使用稳定版本号' }
+            if ($version -notmatch '^\d+\.\d+\.\d+(?:\+build\.[1-9]\d*)?$' -or $platform -notmatch '^\d+\.\d+\.\d+$') { throw '正式桌面与内置平台必须使用稳定版本号' }
             $published = pnpm view "@sfmc-bds/sfmc@$platform" version --json | ConvertFrom-Json
             if ($LASTEXITCODE -ne 0 -or $published -ne $platform) { throw '匹配的平台版本尚未发布到 npm' }
           }
@@ -163,8 +162,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           mapfile -t assets < <(find artifacts -type f)
+          version=$(python3 -c 'import json; m=json.load(open("artifacts/release-manifest.json")); print(m.get("desktopDisplayVersion", m["desktopVersion"]))')
           if [[ "$RELEASE_TAG" == desktop-preview-v* ]]; then
-            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-preview-v}" --notes-file release-notes.md --prerelease --latest=false
+            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop $version" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop ${RELEASE_TAG#desktop-v}" --notes-file release-notes.md --latest=false
+            gh release create "$RELEASE_TAG" "${assets[@]}" --title "SFMC Desktop $version" --notes-file release-notes.md --latest=false
           fi

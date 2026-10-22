@@ -1,4 +1,4 @@
-import type { ReleaseNotes as ReleaseNotesInfo } from "@sfmc-bds/management";
+import { formatDesktopVersion, type ReleaseNotes as ReleaseNotesInfo } from "@sfmc-bds/management";
 import { Fragment, type ReactNode } from "react";
 import { Button } from "./controls.js";
 import { fullTime } from "../lib/format.js";
@@ -44,12 +44,13 @@ function Body({ text }: { text: string }) {
 }
 
 export function ReleaseNotes({ notes, version, collapsible = false, title = "更新日志" }: { notes?: ReleaseNotesInfo; version: string; collapsible?: boolean; title?: string }) {
+  const displayVersion = formatDesktopVersion(version);
   const content = <>
-    <div className="release-notes-meta"><span className="mono">v{version}</span>{notes?.publishedAt && <span>{fullTime(notes.publishedAt)}</span>}</div>
+    <div className="release-notes-meta"><span className="mono">v{displayVersion}</span>{notes?.publishedAt && <span>{fullTime(notes.publishedAt)}</span>}</div>
     <div className="release-notes-body" tabIndex={0} role="region" aria-label={`版本 ${version} 更新日志`}>
       {notes?.status === "available" ? <Body text={notes.body} /> : <p className="muted">{notes?.status === "empty" ? "此版本暂无更新日志" : notes?.message || "暂未获取到此版本的更新日志"}</p>}
     </div>
     {notes && <Button size="sm" variant="ghost" iconEnd="external" onClick={() => void window.sfmc.openLink("release", notes.url)}>查看发行原文</Button>}
   </>;
-  return collapsible ? <details className="release-notes"><summary>{title} <span className="mono">v{version}</span></summary>{content}</details> : <section className="release-notes"><h3>{title}</h3>{content}</section>;
+  return collapsible ? <details className="release-notes"><summary>{title} <span className="mono">v{displayVersion}</span></summary>{content}</details> : <section className="release-notes"><h3>{title}</h3>{content}</section>;
 }

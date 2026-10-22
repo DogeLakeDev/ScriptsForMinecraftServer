@@ -2,14 +2,14 @@
  * ModulesPage.tsx — 模块管理
  *
  * 使用场景："已安装"列出本地模块并切换启用/卸载；"发现"浏览官方模块索引并安装。
- * 启用、停用和卸载仍在后台维护任务中停服、备份并重建行为包。
- * 安装只下载模块并热重载行为包，不停止服务器。
+ * 安装、启用、停用和卸载不停止或重启服务，由独立按钮手动重启 BDS。
  */
 import type { ModuleRow } from "@sfmc-bds/management";
 import { useEffect, useMemo, useState } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { Button, IconButton, SearchInput, Segmented, Switch } from "../components/controls.js";
 import { Menu } from "../components/overlays.js";
+import { ManualRestartNotice, RestartServicesButton, useManualRestartSupport } from "../components/RestartServicesButton.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, Callout, EmptyState, IconTile, PageHeader, Surface } from "../components/ui.js";
 import { errorText } from "../lib/format.js";
@@ -26,7 +26,9 @@ interface RegistryModule {
 
 /** 已安装模块列表 */
 function InstalledModules() {
-  const { model, editable, submit } = useDesktop();
+  const { model, editable: connectedEditable, submit } = useDesktop();
+  const supportsManualRestart = useManualRestartSupport();
+  const editable = connectedEditable && supportsManualRestart;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "enabled" | "disabled">("all");
   const enabledCount = model.modules.filter((row) => row.enabled).length;
@@ -67,11 +69,11 @@ function InstalledModules() {
               </div>
               <span className="row-version mono">{row.version}</span>
               <Tooltip content={editable ? (row.enabled ? "停用模块" : "启用模块") : "当前为只读"} wrap>
-                <Switch size="sm" label={`${row.enabled ? "停用" : "启用"}模块 ${row.id}`} disabled={!editable} checked={row.enabled} onChange={(enabled) => void submit("modules.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"}模块 ${row.id}`, { description: "将停服、备份并重建行为包后恢复运行。" })} />
+                <Switch size="sm" label={`${row.enabled ? "停用" : "启用"}模块 ${row.id}`} disabled={!editable} checked={row.enabled} onChange={(enabled) => void submit("modules.toggle", { id: row.id, enabled }, `${enabled ? "启用" : "停用"}模块 ${row.id}`, { description: "将更新模块状态并重建行为包，可在操作完成后手动重启 BDS。" })} />
               </Tooltip>
               <Menu
                 trigger={<IconButton icon="more" label="更多" size="sm" />}
-                items={[{ key: "uninstall", danger: true, disabled: !editable || row.linked, icon: "trash", label: row.linked ? "本地链接模块不可卸载" : "卸载模块", onSelect: () => void submit("modules.uninstall", { id: row.folder }, `卸载 ${row.id}`, { danger: true, okText: "卸载", description: "将移除模块文件并重建行为包；模块写入的数据保留在数据库中。" }) }]}
+                items={[{ key: "uninstall", danger: true, disabled: !editable || row.linked, icon: "trash", label: row.linked ? "本地链接模块不可卸载" : "卸载模块", onSelect: () => void submit("modules.uninstall", { id: row.folder }, `卸载 ${row.id}`, { danger: true, okText: "卸载", description: "将移除模块文件并重建行为包；模块写入的数据保留在数据库中。操作完成后可手动重启 BDS。" }) }]}
               />
             </li>
             );
@@ -86,7 +88,9 @@ function InstalledModules() {
 
 /** 模块索引浏览与安装 */
 function DiscoverModules() {
-  const { model, editable, submit, request } = useDesktop();
+  const { model, editable: connectedEditable, submit, request } = useDesktop();
+  const supportsManualRestart = useManualRestartSupport();
+  const editable = connectedEditable && supportsManualRestart;
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RegistryModule[]>();
   const [stale, setStale] = useState(false);
@@ -149,7 +153,7 @@ function DiscoverModules() {
                   {local ? (
                     <span className="registry-installed"><span className="mono">本地 {local.version}</span>{differentVersion && <span className="tone-text-info"> 版本不同</span>}</span>
                   ) : <span />}
-                  <Button size="sm" variant={local ? "secondary" : "primary"} disabled={!editable || Boolean(local)} onClick={() => void submit("modules.install", { id: row.id }, `安装模块 ${row.id}`, { description: "将下载模块并热重载行为包，不会停止服务器。" })} icon={local ? "check" : "download"}>
+                  <Button size="sm" variant={local ? "secondary" : "primary"} disabled={!editable || Boolean(local)} onClick={() => void submit("modules.install", { id: row.id }, `安装模块 ${row.id}`, { description: "将下载模块并重建行为包，可在安装完成后手动重启 BDS。" })} icon={local ? "check" : "download"}>
                     {local ? "已安装" : "安装"}
                   </Button>
                 </div>
@@ -171,19 +175,22 @@ export function ModulesPage() {
     <div className="page">
       <PageHeader
         title="模块管理"
-        
         actions={
-          <Segmented
-            value={tab}
-            onChange={setTab}
-            label="视图"
-            options={[
-              { value: "installed", label: "已安装", icon: "list", count: model.modules.length },
-              { value: "discover", label: "可安装", icon: "search" },
-            ]}
-          />
+          <>
+            <RestartServicesButton />
+            <Segmented
+              value={tab}
+              onChange={setTab}
+              label="视图"
+              options={[
+                { value: "installed", label: "已安装", icon: "list", count: model.modules.length },
+                { value: "discover", label: "可安装", icon: "search" },
+              ]}
+            />
+          </>
         }
       />
+      <ManualRestartNotice />
       {tab === "installed" ? <InstalledModules /> : <DiscoverModules />}
     </div>
   );
