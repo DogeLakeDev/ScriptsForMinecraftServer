@@ -12,6 +12,8 @@ export type HostOs = "windows" | "linux" | (string & {});
 export type ManagementCapability =
   | "services"
   | "logs"
+  /** logs.tail 接受 since/until，并可调用 logs.delete 删除该时间范围内的落盘日志 */
+  | "logs-range"
   | "modules"
   | "config"
   | "packs"
@@ -20,7 +22,18 @@ export type ManagementCapability =
   | "operations"
   | "metrics"
   | "manual-restart"
-  | "manual-backup";
+  | "manual-backup"
+  | "pack-import-plan"
+  /** 世界包名单带 iconStamp，并可调用 packs.icon 读取 pack_icon.png */
+  | "pack-icons"
+  /** 可调用 packs.uninstall 卸载世界包（平台聚合包除外） */
+  | "pack-uninstall"
+  /** 可调用 backups.delete 删除一份已有备份 */
+  | "backup-delete"
+  /** packs.import 接受 filenames，一次任务导入多个收件箱文件 */
+  | "pack-import-batch"
+  /** 可调用 packs.version 修改资源包清单版本 */
+  | "pack-version";
 
 /** handshake 方法结果 */
 export interface Handshake {

@@ -210,6 +210,20 @@ export type ReadDiskLogsOpts = {
   dir?: string;
   /** 仅保留时间序最后 N 条；省略则返回全部解析结果 */
   limit?: number;
+  /** 含此时间。设置后读取整个日志文件，不再只取文件末尾 */
+  since?: Date;
+  /** 含此时间 */
+  until?: Date;
+};
+
+/** 删除落盘日志时的筛选。使用场景：桌面 logs.delete。 */
+export type DeleteDiskLogsOpts = {
+  since: Date;
+  until: Date;
+  source?: string;
+  text?: string;
+  /** 覆盖日志目录（测试用） */
+  dir?: string;
 };
 
 /**
@@ -220,6 +234,9 @@ export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
   const levels = opts.levels ?? [];
   const sources = opts.sources ?? [];
   const dir = opts.dir ?? logsDir(ROOT);
+  const sinceMs = opts.since?.getTime();
+  const untilMs = opts.until?.getTime();
+  const ranged = sinceMs !== undefined || untilMs !== undefined;
   const fileNames = new Set<string>();
   if (sources.length === 0) {
     for (const n of DISK_LOG_FILES) fileNames.add(n);
@@ -232,7 +249,7 @@ export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
     const fp = path.join(dir, name.endsWith(".log") ? name : `${name}.log`);
     let text: string;
     try {
-      if (opts.limit) {
+      if (opts.limit && !ranged) {
         const fd = fs.openSync(fp, "r");
         try {
           const size = fs.fstatSync(fd).size;
@@ -250,6 +267,9 @@ export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
       if (!raw) continue;
       const entry = parseDiskLogLine(raw);
       if (!entry) continue;
+      const time = entry.time.getTime();
+      if (sinceMs !== undefined && time < sinceMs) continue;
+      if (untilMs !== undefined && time > untilMs) continue;
       if (sources.length && !sources.includes(entry.source)) continue;
       if (levels.length && !levels.includes(entry.level)) continue;
       out.push(entry);
@@ -261,6 +281,80 @@ export function readDiskLogs(opts: ReadDiskLogsOpts = {}): UnifiedLog[] {
     return out.slice(out.length - limit);
   }
   return out;
+}
+
+/** 这一行是否落在删除条件里。解析失败的行不删。 */
+function diskLineMatchesRemoval(entry: UnifiedLog, opts: DeleteDiskLogsOpts): boolean {
+  const time = entry.time.getTime();
+  if (time < opts.since.getTime() || time > opts.until.getTime()) return false;
+  if (opts.source !== undefined && entry.source !== opts.source) return false;
+  if (opts.text !== undefined && entry.text !== opts.text) return false;
+  return true;
+}
+
+/**
+ * 从一段日志文本里去掉命中的行，保留无法解析的行和原来的换行风格。
+ * 使用场景：改写 `.sfmc/logs/*.log` 时不把坏行一起丢掉。
+ */
+function filterLogText(text: string, opts: DeleteDiskLogsOpts): { text: string; removed: number } {
+  if (!text) return { text: "", removed: 0 };
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  const ended = text.endsWith("\n");
+  const lines = text.split(/\r?\n/);
+  if (ended) lines.pop();
+  let removed = 0;
+  const kept: string[] = [];
+  for (const raw of lines) {
+    const entry = raw ? parseDiskLogLine(raw) : null;
+    if (entry && diskLineMatchesRemoval(entry, opts)) {
+      removed++;
+      continue;
+    }
+    kept.push(raw);
+  }
+  if (!kept.length) return { text: "", removed };
+  return { text: kept.join(newline) + (ended ? newline : ""), removed };
+}
+
+/**
+ * 按时间范围删除已知日志文件中的行。
+ * 使用场景：桌面 logs.delete。符号链接和非文件直接拒绝。
+ * 写入前会再读一次期间追加的内容；替换文件的瞬间新写入的行可能留下来。
+ */
+export function deleteStoredLogs(opts: DeleteDiskLogsOpts): { removed: number } {
+  if (opts.until.getTime() < opts.since.getTime()) throw new Error("结束时间不能早于开始时间");
+  const dir = opts.dir ?? logsDir(ROOT);
+  let removed = 0;
+  for (const name of DISK_LOG_FILES) {
+    const file = path.join(dir, `${name}.log`);
+    removed += rewriteLogFile(file, opts);
+  }
+  return { removed };
+}
+
+/** 改写一个日志文件。文件不存在则跳过。 */
+function rewriteLogFile(file: string, opts: DeleteDiskLogsOpts): number {
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(file);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
+  }
+  if (stat.isSymbolicLink()) throw new Error(`拒绝改写符号链接日志 ${path.basename(file)}`);
+  if (!stat.isFile()) throw new Error(`拒绝改写非文件日志 ${path.basename(file)}`);
+  let text = fs.readFileSync(file, "utf8");
+  if (fs.statSync(file).size > Buffer.byteLength(text)) text = fs.readFileSync(file, "utf8");
+  const filtered = filterLogText(text, opts);
+  if (!filtered.removed) return 0;
+  const temp = `${file}.${process.pid}.filtering`;
+  fs.writeFileSync(temp, filtered.text, "utf8");
+  try {
+    fs.copyFileSync(temp, file);
+  } finally {
+    fs.rmSync(temp, { force: true });
+  }
+  return filtered.removed;
 }
 
 /* ==================================================================

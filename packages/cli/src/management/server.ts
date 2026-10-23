@@ -2,23 +2,25 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { EventEmitter } from "node:events";
-import { MANAGEMENT_PROTOCOL_VERSION, type ManagementRequest, type ManagementEvent } from "@sfmc-bds/management";
+import { LOG_TAIL_MAX, MANAGEMENT_PROTOCOL_VERSION, type ManagementRequest, type ManagementEvent } from "@sfmc-bds/management";
 import { readQqBindings } from "@sfmc-bds/db-server/qq-bindings";
 import { ROOT, isRuntimeInitialized, spawnService } from "../runtime.js";
 import { queryServicesRuntimeLocal, services, START_ORDER, SERVICE_NAMES, refreshServices, onServiceStateChange, type ServiceName } from "../services.js";
-import { readDiskLogs, onLog } from "../logs.js";
+import { readDiskLogs, deleteStoredLogs, onLog } from "../logs.js";
 import { cmdModuleEnable, cmdModuleDisable } from "../module-commands.js";
 import { ensureCoreConfigs } from "@sfmc-bds/sdk/node/config";
 import { TaskStore, atomicJson, type TaskContext } from "./tasks.js";
 import { configFiles, readDocument, revision, saveDocument, validateDocument } from "./config.js";
-import { listModules, searchModules, identifier, runFetch, readJson, listPacks, togglePack, importPack, playerFiles, savePlayerPermissions, modulePlan, applyModulePlan } from "./domain.js";
-import { attachmentPlan, platformVersion, withStoppedServices, launchPlatformUpdate, createBackup, restoreSnapshot, verifyRunning } from "./maintenance.js";
+import { listModules, searchModules, identifier, runFetch, readJson, listPacks, togglePack, readPackIcon, uninstallPack, setPackVersion, playerFiles, savePlayerPermissions, modulePlan, applyModulePlan, moduleInstallBlock } from "./domain.js";
+import { attachmentPlan, platformVersion, withStoppedServices, launchPlatformUpdate, createBackup, restoreSnapshot, deleteSnapshot, verifyRunning } from "./maintenance.js";
 import { startupPlan } from "./startup.js";
 import { cmdPackBuild, cmdPackDeploy } from "../pack-lifecycle.js";
 import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { deploymentPreflight, deploymentPort } from "./deployment.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { readRuntimeMetrics } from "./metrics-read.js";
+
+import { importPacks, planPackImport, readImportFilenames } from "./pack-import.js";
 
 const events = new EventEmitter();
 /** 空目录也要能完成握手，供桌面初始化向导继续；旧部署仍识别已有 BDS。 */
@@ -45,6 +47,13 @@ function params(request: ManagementRequest): Record<string, unknown> {
   return request.params as Record<string, unknown>;
 }
 function string(value: unknown, label: string) { if (typeof value !== "string" || value.length > 2 * 1024 * 1024) throw new Error(`非法 ${label}`); return value; }
+/** 解析日志查询用的 ISO 时间。缺省返回 undefined。 */
+function timeBound(value: unknown, label: string): Date | undefined {
+  if (value === undefined) return undefined;
+  const date = new Date(string(value, label));
+  if (Number.isNaN(date.getTime())) throw new Error(`非法 ${label}`);
+  return date;
+}
 function service(value: unknown): ServiceName { if (!SERVICE_NAMES.includes(value as ServiceName)) throw new Error("未知服务"); return value as ServiceName; }
 async function rebuildModules() {
   const build = await cmdPackBuild([]); if (!build.ok) throw new Error(build.message);
@@ -78,7 +87,7 @@ async function bdsUpdate(context: TaskContext, checkOnly = false) {
 export async function dispatchManagement(request: ManagementRequest): Promise<unknown> {
   const p = params(request); const store = managementTasks();
   switch (request.method) {
-    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
+    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
     case "events.subscribe": return { subscribed: true };
     case "services.list": return { rows: await queryServicesRuntimeLocal() };
     case "services.start": case "services.stop": case "services.restart": {
@@ -119,7 +128,32 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       const target = services[name]; if (!target.proc?.stdin || !target.running) throw new Error("服务未托管或没有命令输入通道");
       return withMaintenanceLock(ROOT, async () => { target.proc!.stdin!.write(message + "\n"); return { delivered: true }; });
     }
-    case "logs.tail": return { entries: readDiskLogs({ limit: Math.min(5000, Math.max(1, Number(p.limit) || 1000)), ...(Array.isArray(p.sources) ? { sources: p.sources.map(value => string(value, "日志来源")) } : {}), ...(Array.isArray(p.levels) ? { levels: p.levels as ("info" | "warn" | "error")[] } : {}) }).map(log => ({ ...log, time: log.time.toISOString() })) };
+    case "logs.tail": {
+      const since = timeBound(p.since, "开始时间");
+      const until = timeBound(p.until, "结束时间");
+      if (since && until && until < since) throw new Error("结束时间不能早于开始时间");
+      const limit = Math.min(LOG_TAIL_MAX, Math.max(1, Number(p.limit) || 1000));
+      const ranged = Boolean(since || until);
+      const entries = readDiskLogs({
+        ...(ranged ? {} : { limit }),
+        ...(since ? { since } : {}),
+        ...(until ? { until } : {}),
+        ...(Array.isArray(p.sources) ? { sources: p.sources.map(value => string(value, "日志来源")) } : {}),
+        ...(Array.isArray(p.levels) ? { levels: p.levels as ("info" | "warn" | "error")[] } : {}),
+      });
+      const truncated = entries.length > limit;
+      return { entries: (truncated ? entries.slice(entries.length - limit) : entries).map(log => ({ ...log, time: log.time.toISOString() })), ...(truncated ? { truncated: true } : {}) };
+    }
+    case "logs.delete": {
+      const since = timeBound(p.since, "开始时间");
+      const until = timeBound(p.until, "结束时间");
+      if (!since || !until) throw new Error("删除日志需要开始和结束时间");
+      if (until < since) throw new Error("结束时间不能早于开始时间");
+      const source = p.source === undefined ? undefined : string(p.source, "日志来源");
+      if (source !== undefined && (source.length > 128 || /[\r\n]/.test(source))) throw new Error("非法日志来源");
+      const text = p.text === undefined ? undefined : string(p.text, "日志正文");
+      return deleteStoredLogs({ since, until, ...(source === undefined ? {} : { source }), ...(text === undefined ? {} : { text }) });
+    }
     case "operations.list": return { operations: store.list().filter(row => !Array.isArray(p.statuses) || p.statuses.includes(row.status)).slice(0, Math.min(Number(p.limit) || 100, 200)) };
     case "operations.get": return { operation: store.get(string(p.operationId, "任务编号")) };
     case "modules.list": return listModules();
@@ -128,6 +162,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       const id = identifier(p.id);
       const linked = (await listModules()).modules.find(row => row.id === id || row.folder === id)?.linked;
       if (linked) throw new Error("保留本地链接模块，不通过包安装或卸载覆盖开发目录");
+      const block = await moduleInstallBlock(id);
+      if (block) throw new Error(block);
       return store.submit(request.method, async context => {
         context.phase("download", "下载并安装模块，服务器保持运行");
         const args = ["install", id];
@@ -179,14 +215,31 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       });
     }
     case "packs.list": return listPacks();
-    case "packs.import": return store.submit(request.method, async context => {
-      context.phase("execute", "导入世界包，等待手动重启 BDS");
-      return importPack(identifier(p.filename));
-    });
+    case "packs.icon": return readPackIcon(identifier(p.id));
+    case "packs.import.plan": return planPackImport(identifier(p.filename));
+    case "packs.import": {
+      const names = readImportFilenames(p);
+      return store.submit(request.method, async context => {
+        context.phase("execute", names.length > 1 ? `导入 ${names.length} 个世界包，等待手动重启 BDS` : "导入世界包，等待手动重启 BDS");
+        return importPacks(names, { force: p.force === true, ...(p.revision === undefined ? {} : { revision: string(p.revision, "导入计划版本") }) });
+      });
+    }
     case "packs.toggle": return store.submit(request.method, async context => {
       context.phase("execute", "保存世界包状态，等待手动重启 BDS");
       return togglePack(identifier(p.id), p.enabled === true);
     });
+    case "packs.uninstall": return store.submit(request.method, async context => {
+      context.phase("execute", "卸载世界包并移入回收站，等待手动重启 BDS");
+      return uninstallPack(identifier(p.id));
+    });
+    case "packs.version": {
+      const id = identifier(p.id);
+      const version = p.version;
+      return store.submit(request.method, async context => {
+        context.phase("execute", "写入资源包版本，等待手动重启 BDS");
+        return setPackVersion(id, version);
+      });
+    }
     case "players.list": return players();
     case "metrics.read": return readRuntimeMetrics(request.params);
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));
@@ -239,6 +292,10 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       if (p.confirmDataLoss !== true) throw new Error("恢复数据需要明确确认丢弃备份之后的变更");
       return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => restoreSnapshot(identifier(p.id), context.phase)));
     }
+    case "backups.delete": return store.submit(request.method, async context => {
+      context.phase("execute", "删除备份目录");
+      return deleteSnapshot(identifier(p.id));
+    });
     case "startup.plan": return startupPlan();
     default: throw Object.assign(new Error(`不支持的管理方法: ${request.method}`), { code: "unsupported" });
   }

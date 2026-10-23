@@ -31,6 +31,17 @@ export interface RegistryEntry {
   sdk?: string;
   repo?: string;
   tag?: string;
+  /** 索引里的展示名。旧缓存可能没有。 */
+  name?: string;
+  description?: string;
+  category?: string;
+  license?: string;
+  official?: boolean;
+  /**
+   * 安装前必须已经启用的模块 id。
+   * 字段缺失表示这份索引没有声明依赖，调用方应拒绝安装。
+   */
+  requires?: string[];
 }
 export type RegistryIndex = Record<string, RegistryEntry>;
 
@@ -60,8 +71,24 @@ function writeCache(cache: RegistryCache): void {
 /**
  * 解析 first-party index.json。
  * 契约与 scripts/module-install/lib/registry-index.mjs#parseRegistryIndex 保持一致：
- * `{ modules: { <id>: { npm? | repo+tag } } }`。忽略 `_` 前缀元数据键。
+ * `{ modules: { <id>: { npm? | repo+tag, name?, description?, requires? } } }`。忽略 `_` 前缀元数据键。
+ * requires 只有在全部是非空字符串时才保留；缺了这个字段就表示索引没有给出依赖声明。
  */
+function optionalText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** 索引 requires。格式不对时返回 undefined，让安装方拒绝，而不是当成没有依赖。 */
+function optionalRequires(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !item.trim()) return undefined;
+    items.push(item.trim());
+  }
+  return items;
+}
+
 export function parseRegistryIndex(json: unknown): RegistryIndex {
   if (typeof json !== "object" || json === null || Array.isArray(json)) {
     throw new Error("registry index must be a JSON object with a 'modules' field");
@@ -76,19 +103,32 @@ export function parseRegistryIndex(json: unknown): RegistryIndex {
     if (k.startsWith("_")) continue;
     if (typeof v !== "object" || v === null || Array.isArray(v)) continue;
     const entry = v as Record<string, unknown>;
-    const hasNpm = typeof entry.npm === "string" && entry.npm.length > 0;
-    const hasGh = typeof entry.repo === "string" && typeof entry.tag === "string";
+    const npm = optionalText(entry.npm);
+    const repo = optionalText(entry.repo);
+    const tag = optionalText(entry.tag);
+    const hasNpm = Boolean(npm);
+    const hasGh = Boolean(repo && tag);
     if (!hasNpm && !hasGh) continue;
     const out: RegistryEntry = {};
-    if (hasNpm) {
-      out.npm = entry.npm as string;
-      if (typeof entry.version === "string") out.version = entry.version;
-      if (typeof entry.sdk === "string") out.sdk = entry.sdk;
-    }
-    if (hasGh) {
-      out.repo = entry.repo as string;
-      out.tag = entry.tag as string;
-    }
+    if (npm) out.npm = npm;
+    const version = optionalText(entry.version);
+    const sdk = optionalText(entry.sdk);
+    const name = optionalText(entry.name);
+    const description = optionalText(entry.description);
+    const category = optionalText(entry.category);
+    const license = optionalText(entry.license);
+    const requires = optionalRequires(entry.requires);
+    if (version) out.version = version;
+    if (sdk) out.sdk = sdk;
+    if (repo) out.repo = repo;
+    if (repo && tag) out.tag = tag;
+    if (name) out.name = name;
+    if (description) out.description = description;
+    if (category) out.category = category;
+    if (license) out.license = license;
+    if (typeof entry.official === "boolean") out.official = entry.official;
+    // 空数组表示没有额外依赖，必须保留；缺字段才表示索引没声明。
+    if (requires !== undefined) out.requires = requires;
     filtered[k] = out;
   }
   return filtered;

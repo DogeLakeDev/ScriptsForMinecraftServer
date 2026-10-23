@@ -511,13 +511,23 @@ export function bumpPackPatchVersion(packDir: string): [number, number, number] 
 }
 
 /**
- * 向目标包的 manifest.json 写入新的版本号，并同步更新内部 modules 的 patch 版本。
+ * 向目标包的 manifest.json 写入新的版本号。
+ *
+ * moduleVersions 默认 patch：只把 modules 的修订号改成 header 的修订号。
+ * packs bump 与更新抬版继续走这条路径。
+ * full：已有三段版本的模块改成与 header 相同的完整版本。
+ * 使用场景：桌面端按用户填写的版本改资源包，避免 header 与模块版本不一致。
  *
  * @param packDir 包根目录路径。
  * @param next 待写入的版本三元组。
+ * @param moduleVersions 模块版本的同步方式。
  * @returns 写入确认的版本三元组。
  */
-export function writePackHeaderVersion(packDir: string, next: [number, number, number]): [number, number, number] {
+export function writePackHeaderVersion(
+  packDir: string,
+  next: [number, number, number],
+  moduleVersions: "patch" | "full" = "patch",
+): [number, number, number] {
   const file = path.join(packDir, "manifest.json");
   if (!fs.existsSync(file)) throw new Error(`manifest.json missing: ${packDir}`);
   const raw = readJsonFile<{
@@ -529,7 +539,9 @@ export function writePackHeaderVersion(packDir: string, next: [number, number, n
   if (Array.isArray(raw.modules)) {
     for (const m of raw.modules) {
       if (Array.isArray(m.version) && m.version.length >= 3) {
-        m.version = [Number(m.version[0]), Number(m.version[1]), next[2]];
+        m.version = moduleVersions === "full"
+          ? [next[0], next[1], next[2]]
+          : [Number(m.version[0]), Number(m.version[1]), next[2]];
       }
     }
   }

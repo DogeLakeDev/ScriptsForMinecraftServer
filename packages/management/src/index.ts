@@ -6,5 +6,6 @@ export * from "./protocol/logs.js";
 export * from "./protocol/operations.js";
 export * from "./protocol/services.js";
 export * from "./protocol/methods.js";
+export * from "./protocol/module-dependencies.js";
 export * from "./protocol/metrics.js";
 export * from "./protocol/desktop-version.js";

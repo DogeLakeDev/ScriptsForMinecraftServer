@@ -137,6 +137,24 @@ export async function restoreSnapshot(id: string, phase: TaskContext["phase"]) {
   }
   return { restored: id };
 }
+/**
+ * 删除一份已完成的备份目录。
+ * 使用场景：桌面 backups.delete。只删除 `.sfmc/backups/<id>` 这一层，且必须带 manifest.json。
+ * 不跟随符号链接，避免编号被解析到备份目录之外。
+ */
+export async function deleteSnapshot(id: string) {
+  if (!/^[a-zA-Z0-9-]{1,80}$/.test(id)) throw new Error("非法备份编号");
+  const directory = path.resolve(ROOT, ".sfmc", "backups");
+  const target = path.resolve(directory, id);
+  if (path.dirname(target) !== directory) throw new Error("非法备份路径");
+  let stat: fs.Stats;
+  try { stat = fs.lstatSync(target); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error("找不到备份"); throw error; }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error("拒绝删除非备份目录");
+  if (!fs.existsSync(path.join(target, "manifest.json"))) throw new Error("备份不完整，已拒绝删除");
+  await fs.promises.rm(target, { recursive: true, force: true });
+  return { deleted: id };
+}
 /** 普通维护只负责停服与恢复；全量快照仅由手动备份任务创建。 */
 export async function withStoppedServices<T>(context: TaskContext, names: ServiceName[], action: () => Promise<T>): Promise<T> {
   const running = await stopForMaintenance(names, context.phase);
