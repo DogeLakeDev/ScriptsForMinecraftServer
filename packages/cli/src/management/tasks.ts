@@ -26,7 +26,7 @@ export class TaskStore extends EventEmitter {
         const pid = (record as OperationRecord & { workerPid?: number }).workerPid;
         // 与维护锁同一套探活：权限不足不算退出，避免把还在跑的维护进程标成中断。
         const active = typeof pid === "number" && lockOwnerAlive(pid);
-        if (!active) { record.status = "interrupted"; record.error = { code: "unavailable", message: "执行进程异常退出；请检查备份与实际状态，任务不会自动重发" }; this.save(record); }
+        if (!active) { record.status = "interrupted"; record.error = { code: "unavailable", message: "执行进程异常退出；请检查实例实际状态，任务不会自动重发" }; this.save(record); }
       }
     }
   }

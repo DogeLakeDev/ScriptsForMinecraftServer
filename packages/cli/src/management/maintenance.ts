@@ -43,7 +43,7 @@ export async function attachmentPlan(includeReleaseNotes = true): Promise<Attach
     targetVersion = metadata.version;
   }
   const [rows, releaseNotes] = await Promise.all([runtimeRows(), includeReleaseNotes && !development ? platformReleaseNotes(targetVersion) : undefined]);
-  return { currentVersion, targetVersion, development, upgradeRequired: !development && targetVersion !== currentVersion, externalServices: rows.filter(row => row.running && row.ownership === "external").map(row => row.name), steps: development ? ["保留源码工作区，连接当前开发部署"] : ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"], ...(releaseNotes ? { releaseNotes } : {}) };
+  return { currentVersion, targetVersion, development, upgradeRequired: !development && targetVersion !== currentVersion, externalServices: rows.filter(row => row.running && row.ownership === "external").map(row => row.name), steps: development ? ["保留源码工作区，连接当前开发部署"] : ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "切换平台并验证", "恢复此前运行的服务"], ...(releaseNotes ? { releaseNotes } : {}) };
 }
 export async function stopForMaintenance(names: ServiceName[], phase: TaskContext["phase"]): Promise<ServiceName[]> {
   const before = await queryServicesRuntimeLocal();
@@ -82,19 +82,42 @@ function snapshotTargets() {
   return { configs: path.join(ROOT, "configs"), modules: path.join(ROOT, "modules"), data: path.dirname(path.resolve(ROOT, db.dbDir ?? "data/sfmc_data.db")), bds };
 }
 export async function createSnapshot(id: string, phase: TaskContext["phase"]) {
+  if (!/^[a-zA-Z0-9-]{1,80}$/.test(id)) throw new Error("非法备份编号");
   phase("backup", "创建已停服的一致备份");
   const destination = path.join(ROOT, ".sfmc", "backups", id);
-  fs.mkdirSync(destination, { recursive: true });
   const targets = snapshotTargets();
   for (const target of Object.values(targets)) {
     const absolute = path.resolve(target);
     if (absolute === path.parse(absolute).root || absolute === path.resolve(ROOT) || destination.startsWith(absolute + path.sep)) throw new Error("备份目标包含实例根目录或备份目录，已中止");
   }
-  for (const [key, target] of Object.entries(targets)) {
-    if (fs.existsSync(target)) await fs.promises.cp(target, path.join(destination, key), { recursive: true, dereference: false });
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.mkdirSync(destination);
+  try {
+    for (const [key, target] of Object.entries(targets)) {
+      if (fs.existsSync(target)) await fs.promises.cp(target, path.join(destination, key), { recursive: true, dereference: false });
+    }
+    atomicJson(path.join(destination, "manifest.json"), { createdAt: new Date().toISOString(), targets, complete: true });
+  } catch (error) {
+    // 只清理本次创建的不完整快照，避免备份失败后继续占用空间。
+    await fs.promises.rm(destination, { recursive: true, force: true });
+    throw error;
   }
-  atomicJson(path.join(destination, "manifest.json"), { createdAt: new Date().toISOString(), targets, complete: true });
   return destination;
+}
+/** 备份只读取实例文件，即使复制失败也恢复原先运行的服务。 */
+export async function createBackup(context: TaskContext) {
+  const running = await stopForMaintenance([...START_ORDER], context.phase);
+  let completed = false;
+  try {
+    await createSnapshot(context.id, context.phase);
+    completed = true;
+  } finally {
+    try { await restoreRunning(running, context.phase); }
+    catch (error) {
+      throw Object.assign(new Error(`备份${completed ? "已完成" : "未完成"}，恢复服务运行失败: ${error instanceof Error ? error.message : String(error)}`), { code: "io", details: completed ? { backupId: context.id } : undefined });
+    }
+  }
+  return { backupId: context.id };
 }
 export async function restoreSnapshot(id: string, phase: TaskContext["phase"]) {
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(id)) throw new Error("非法备份编号");
@@ -114,32 +137,10 @@ export async function restoreSnapshot(id: string, phase: TaskContext["phase"]) {
   }
   return { restored: id };
 }
-/** 只回退程序内容，世界、玩家权限和数据库始终保留在当前状态。 */
-async function restoreProgramSnapshot(id: string, kind: "modules" | "bds") {
-  const source = path.join(ROOT, ".sfmc", "backups", id);
-  const manifest = readJson<{ complete: boolean; targets: Record<string, string> }>(path.join(source, "manifest.json"), { complete: false, targets: {} });
-  const targets = snapshotTargets();
-  if (!manifest.complete || path.resolve(manifest.targets[kind] ?? "") !== path.resolve(targets[kind])) throw new Error("程序备份不完整或目标不匹配");
-  const saved = path.join(source, kind);
-  if (kind === "modules") {
-    if (!fs.existsSync(saved)) return;
-    await fs.promises.rm(targets.modules, { recursive: true, force: true });
-    await fs.promises.cp(saved, targets.modules, { recursive: true, dereference: false });
-    return;
-  }
-  const cfg = readJson<{ preserve?: string[] }>(path.join(ROOT, "configs", "bds_updater.json"), {});
-  const preserved = new Set(["worlds", "config", "server.properties", "allowlist.json", "whitelist.json", "permissions.json", ...(cfg.preserve ?? []).map(name => name.split(/[\\/]/)[0]!)]);
-  if (!fs.existsSync(saved)) throw new Error("缺少原 BDS 程序备份");
-  const target = path.resolve(targets.bds);
-  if (target === path.parse(target).root || target === path.resolve(ROOT)) throw new Error("不安全的程序回退目标");
-  fs.mkdirSync(target, { recursive: true });
-  for (const entry of fs.readdirSync(target)) if (!preserved.has(entry)) await fs.promises.rm(path.join(target, entry), { recursive: true, force: true });
-  for (const entry of fs.readdirSync(saved)) if (!preserved.has(entry)) await fs.promises.cp(path.join(saved, entry), path.join(target, entry), { recursive: true, dereference: false });
-}
-export async function withStoppedServices<T>(context: TaskContext, names: ServiceName[], action: () => Promise<T>, backup = true, rollbackPrograms?: "modules" | "bds"): Promise<T> {
+/** 普通维护只负责停服与恢复；全量快照仅由手动备份任务创建。 */
+export async function withStoppedServices<T>(context: TaskContext, names: ServiceName[], action: () => Promise<T>): Promise<T> {
   const running = await stopForMaintenance(names, context.phase);
   try {
-    if (backup) await createSnapshot(context.id, context.phase);
     context.phase("execute");
     const result = await action();
     context.phase("verify");
@@ -148,14 +149,7 @@ export async function withStoppedServices<T>(context: TaskContext, names: Servic
   } catch (error) {
     // 失败后保持停服，不猜测未知数据迁移是否可以安全恢复运行。
     for (const name of [...START_ORDER].reverse().filter(name => running.includes(name))) await services[name].stop(false, false).catch(() => {});
-    let programRolledBack = false;
-    let rollbackError: string | undefined;
-    if (rollbackPrograms) {
-      context.phase("rollback-program", "回退程序版本，保留当前玩家数据");
-      try { await restoreProgramSnapshot(context.id, rollbackPrograms); programRolledBack = true; }
-      catch (failure) { rollbackError = String(failure); }
-    }
-    throw Object.assign(new Error(`维护失败，服务保持停止；备份编号 ${context.id}: ${error instanceof Error ? error.message : String(error)}`), { code: "io", details: { backupId: context.id, programRolledBack, dataRestoreRequired: Boolean(rollbackPrograms), ...(rollbackError ? { rollbackError } : {}), ...((error as { details?: object }).details ?? {}) } });
+    throw Object.assign(new Error(`维护失败，服务保持停止: ${error instanceof Error ? error.message : String(error)}`), { code: "io", details: (error as { details?: object }).details });
   }
 }
 export async function launchPlatformUpdate(store: TaskStore, context: TaskContext, target: string) {
@@ -169,7 +163,7 @@ export async function launchPlatformUpdate(store: TaskStore, context: TaskContex
   const entry = fileURLToPath(new URL("./platform-worker.js", import.meta.url));
   const log = path.join(ROOT, ".sfmc", "logs", "maintenance.log");
   fs.mkdirSync(path.dirname(log), { recursive: true });
-  // 不把父进程的日志句柄交给子进程。Windows 上继承句柄时，守护进程退出会结束尚未脱离的维护进程，备份会停在半截且锁无人释放。
+  // 不把父进程的日志句柄交给子进程，避免守护进程退出时中断维护进程。
   const child = spawn(process.execPath, [entry, request], { cwd: ROOT, env: { ...process.env, SFMC_ROOT: ROOT, SFMC_MAINTENANCE_LOG: log }, detached: true, windowsHide: true, stdio: "ignore" });
   await new Promise<void>((resolve, reject) => { child.once("spawn", resolve); child.once("error", reject); });
   child.unref();

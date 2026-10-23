@@ -1,5 +1,11 @@
 # @sfmc-bds/management
 
+## 0.5.0
+
+### Minor Changes
+
+- 取消普通维护任务和平台升级前的自动全量快照，新增 `backups.create` 手动备份接口与 `manual-backup` 能力标识。桌面端在“更新与备份”中提供手动备份按钮，保留历史备份的恢复能力。
+
 ## 0.4.0
 
 ### Minor Changes

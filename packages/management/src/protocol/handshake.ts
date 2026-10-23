@@ -19,7 +19,8 @@ export type ManagementCapability =
   | "updates"
   | "operations"
   | "metrics"
-  | "manual-restart";
+  | "manual-restart"
+  | "manual-backup";
 
 /** handshake 方法结果 */
 export interface Handshake {

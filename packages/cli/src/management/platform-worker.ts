@@ -6,7 +6,7 @@ import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { toManagementError, type OperationRecord } from "@sfmc-bds/management";
 import { atomicJson } from "./tasks.js";
 import { readJson, runProcess } from "./domain.js";
-import { createSnapshot, runPnpm } from "./maintenance.js";
+import { runPnpm } from "./maintenance.js";
 import { callDaemon, disconnectDaemonClient } from "../daemon/client.js";
 import { ROOT } from "../runtime.js";
 import { START_ORDER } from "../services.js";
@@ -75,7 +75,7 @@ async function main() {
       }
     }
   };
-  /** 只停服务，不退出守护进程。备份必须发生在守护进程还活着的时候。 */
+  /** 确认服务全部停止后，才允许退出守护进程并切换平台入口。 */
   const stopServices = async () => {
     const meta = readDaemonMeta();
     if (!meta) return meta;
@@ -87,7 +87,7 @@ async function main() {
     }
     return meta;
   };
-  /** 文件备份完成后再让旧守护进程退出，避免退出时把本维护进程一起带走、备份停在半截。 */
+  /** 退出旧守护进程并等待它释放日志句柄。 */
   const exitDaemon = async (meta: { pid: number } | null) => {
     if (!meta) return;
     await callDaemon("shutdown"); disconnectDaemonClient(); await waitExit(meta.pid);
@@ -128,7 +128,6 @@ async function main() {
           const lock = readJson<{ nonce: string }>(path.join(ROOT, ".sfmc", "maintenance.lock"), { nonce: "" });
           process.env.SFMC_MAINTENANCE_TOKEN = lock.nonce;
           const daemon = await stopServices();
-          await createSnapshot(request.id, phase);
           await exitDaemon(daemon);
           phase("execute"); atomicJson(activeFile, { entry, version: request.target, pnpm: process.env.SFMC_PNPM_ENTRY }); switched = true;
           const launcher = path.join(runtime, "launcher.mjs");
@@ -145,15 +144,15 @@ async function main() {
           await new Promise(resolve => setTimeout(resolve, 3000));
           const status = await callDaemon("status");
           if (status.kind !== "status" || request.running.some(name => !status.rows.some(row => row.name === name && row.running))) throw new Error("此前运行的服务未全部恢复");
-          record.result = { version: request.target, backupId: request.id }; record.status = "succeeded";
+          record.result = { version: request.target }; record.status = "succeeded";
           } catch (error) {
             // 回退也必须在同一把锁内完成，防止其他客户端在入口切换期间写入。
             let rolledBack = false;
             if (switched && request.previous) {
               try { await shutdown(); atomicJson(activeFile, request.previous); rolledBack = true; }
-              catch (rollbackError) { phase("rollback-blocked", `无法安全停止目标版本；保留入口和备份，不覆盖玩家数据: ${String(rollbackError)}`); }
+              catch (rollbackError) { phase("rollback-blocked", `无法安全停止目标版本；保留当前入口，不覆盖玩家数据: ${String(rollbackError)}`); }
             }
-            record.result = { programRolledBack: rolledBack, backupId: request.id, dataRestoreRequired: switched, preparedEntry };
+            record.result = { programRolledBack: rolledBack, dataRestoreRequired: switched, preparedEntry };
             throw error;
           }
         });
@@ -165,7 +164,7 @@ async function main() {
     if (!acquired) throw new Error("无法接管维护锁");
   } catch (error) {
     record.status = "failed"; record.error = toManagementError(error);
-    record.result ??= { programRolledBack: false, backupId: request.id, dataRestoreRequired: switched, preparedEntry };
+    record.result ??= { programRolledBack: false, dataRestoreRequired: switched, preparedEntry };
     maintenanceLog(`failed ${record.error.message}`);
   } finally {
     record.updatedAt = new Date().toISOString(); const last = record.phases.at(-1); if (last) last.status = record.status === "succeeded" ? "done" : "failed";

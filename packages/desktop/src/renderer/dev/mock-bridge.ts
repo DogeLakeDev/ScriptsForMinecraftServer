@@ -173,7 +173,7 @@ const samples: [LogEntryWire["source"], LogEntryWire["level"], string][] = [
   ["qq", "info", "群 123456789 Alex：今晚开团吗？"],
   ["qq", "info", "转发到游戏：[QQ] Alex：今晚开团吗？"],
   ["qq", "warn", "llbot 心跳延迟 1.8s"],
-  ["system", "success", "自动备份完成：backups/2026-10-01_17-00"],
+  ["system", "success", "手动备份完成：.sfmc/backups/2026-10-01_17-00"],
   ["bds", "error", "[Scripting] TypeError: cannot read property 'owner' of undefined\n    at onPlayerInteract (land/index.js:120:18)"],
 ];
 
@@ -238,7 +238,7 @@ export function installMockBridge() {
       if (fail) {
         if (last) last.status = "failed";
         record.status = "failed";
-        record.error = { code: "io", message: fail, details: { backupId: record.id } };
+        record.error = { code: "io", message: fail };
       } else {
         if (last) { last.status = "done"; last.finishedAt = new Date().toISOString(); }
         effect?.();
@@ -249,7 +249,7 @@ export function installMockBridge() {
     })();
     return { operationId: record.id };
   };
-  const maintenance = ["stop-services", "backup", "execute", "verify", "restore"];
+  const maintenance = ["stop-services", "execute", "verify", "restore"];
   const platformNotes = {
     version: "0.2.4", title: "SFMC 0.2.4", status: "available" as const,
     body: "## 新增\n- 平台更新前可查看该版本的发行日志。\n\n## 修复\n- 重连后台时恢复实时日志订阅。",
@@ -262,7 +262,7 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart"],
+    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -340,8 +340,8 @@ export function installMockBridge() {
       case "logs.tail": return { entries: instance.logs.slice(-Number(params.limit ?? 1000)) };
       case "attachment.plan":
         return id === "local-main"
-          ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] }
-          : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] };
+          ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "切换平台并验证", "恢复此前运行的服务"] }
+          : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "切换平台并验证", "恢复此前运行的服务"] };
       case "attachment.apply": return runTask(id, "attachment.apply", ["prepare", "verify"]);
       case "services.start": return runTask(id, method, ["execute", "verify"], () => setService(String(params.name), true));
       case "services.stop": return runTask(id, method, ["execute"], () => setService(String(params.name), false));
@@ -380,7 +380,7 @@ export function installMockBridge() {
         const document = instance.configs.get(String(params.key));
         if (!document) throw new Error("配置不在允许编辑的列表中");
         if (document.revision !== params.revision) throw new Error("配置已变更，请重新读取");
-        return runTask(id, method, method === "config.save" ? ["execute"] : ["stop-services", "backup", "execute", "apply", "verify", "restore"], () => {
+        return runTask(id, method, method === "config.save" ? ["execute"] : ["stop-services", "execute", "apply", "verify", "restore"], () => {
           document.text = String(params.text);
           document.revision = `${document.key}-${document.text.length}-${Date.now()}`;
         });
@@ -406,12 +406,13 @@ export function installMockBridge() {
         return {
           platform: id === "local-main"
             ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: [] }
-            : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "备份配置、模块、数据库与世界", "切换平台并验证", "恢复此前运行的服务"] },
+            : { currentVersion: "0.2.3", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: true, externalServices: [], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "切换平台并验证", "恢复此前运行的服务"] },
           modules: { failMode: "continue", applyOnStart: false, upgrades: [{ id: "sfmc-module-land", fromVersion: "1.4.2", toVersion: "1.5.0", spec: "npm:@sfmc-bds/module-land@1.5.0", requires: [] }], skipped: [{ id: "monitor", reason: "retired", fromVersion: "0.5.3", toVersion: null, detail: "" }, { id: "sfmc-module-activity-log", reason: "dev-link", fromVersion: "0.2.0-dev", toVersion: null, detail: "" }, { id: "sfmc-module-economy", reason: "up-to-date", fromVersion: "2.0.1", toVersion: "2.0.1", detail: "" }] },
           bds: { checked: true, updated: false, currentVersion: "1.26.51.01", latestVersion: "1.26.60.02", result: "check-only" },
         };
       case "updates.run": return runTask(id, method, maintenance);
-      case "backups.list": return { backups: instance.tasks.filter((row) => row.phases.some((phase) => phase.name === "backup")).map((row) => row.id) };
+      case "backups.create": return runTask(id, method, ["stop-services", "backup", "verify", "restore"]);
+      case "backups.list": return { backups: instance.tasks.filter((row) => row.status === "succeeded" && row.phases.some((phase) => phase.name === "backup")).map((row) => row.id) };
       case "backups.restore": return runTask(id, method, ["stop-services", "restore-data", "verify", "restore"]);
       case "startup.plan":
         return id === "local-main"

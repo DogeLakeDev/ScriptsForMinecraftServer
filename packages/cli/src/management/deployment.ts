@@ -12,7 +12,7 @@ export async function deploymentPreflight(ports: { db: number; bds: number; bds6
   if (path.resolve(ROOT) === path.parse(ROOT).root) throw new Error("不能在磁盘根目录创建部署");
   for (const file of ["BDS/bedrock_server.exe", "BDS/bedrock_server", "data/sfmc_data.db"]) if (fs.existsSync(path.join(ROOT, file))) throw new Error("已有 BDS 或数据库，请接入现有部署，不覆盖数据");
   const space = fs.statfsSync(ROOT);
-  if (space.bavail * space.bsize < 1024 ** 3) throw new Error("可用空间不足 1 GiB，无法准备运行时、BDS 和维护备份");
+  if (space.bavail * space.bsize < 1024 ** 3) throw new Error("可用空间不足 1 GiB，无法准备运行时和 BDS");
   await new Promise<void>((resolve, reject) => {
     const server = net.createServer(); server.once("error", error => reject(new Error(`DB 端口 ${ports.db} 不可用: ${error.message}`)));
     server.listen(ports.db, "0.0.0.0", () => server.close(error => error ? reject(error) : resolve()));

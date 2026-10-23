@@ -83,6 +83,7 @@ const TASK_LABELS: Record<string, string> = {
   "updates.run": "执行更新",
   "attachment.apply": "接入部署",
   "deployment.create": "初始化部署",
+  "backups.create": "手动备份",
   "backups.restore": "恢复备份",
 };
 /** 任务的展示名称：优先使用可读映射，未知种类回退到服务端 title */

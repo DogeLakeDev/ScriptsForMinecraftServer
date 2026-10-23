@@ -75,6 +75,8 @@ export interface ManagementMethodMap {
   "operations.list": OperationsListResult;
   "operations.get": OperationsGetResult;
   "backups.list": { backups: string[] };
+  /** 手动停服创建全量快照，完成后恢复此前运行的服务。 */
+  "backups.create": OperationAccepted;
   "backups.restore": OperationAccepted;
   "startup.plan": { script: string; filename: string };
 }

@@ -12,7 +12,7 @@ import { ensureCoreConfigs } from "@sfmc-bds/sdk/node/config";
 import { TaskStore, atomicJson, type TaskContext } from "./tasks.js";
 import { configFiles, readDocument, revision, saveDocument, validateDocument } from "./config.js";
 import { listModules, searchModules, identifier, runFetch, readJson, listPacks, togglePack, importPack, playerFiles, savePlayerPermissions, modulePlan, applyModulePlan } from "./domain.js";
-import { attachmentPlan, platformVersion, withStoppedServices, launchPlatformUpdate, restoreSnapshot, verifyRunning } from "./maintenance.js";
+import { attachmentPlan, platformVersion, withStoppedServices, launchPlatformUpdate, createBackup, restoreSnapshot, verifyRunning } from "./maintenance.js";
 import { startupPlan } from "./startup.js";
 import { cmdPackBuild, cmdPackDeploy } from "../pack-lifecycle.js";
 import { withMaintenanceLock } from "@sfmc-bds/management/node";
@@ -78,7 +78,7 @@ async function bdsUpdate(context: TaskContext, checkOnly = false) {
 export async function dispatchManagement(request: ManagementRequest): Promise<unknown> {
   const p = params(request); const store = managementTasks();
   switch (request.method) {
-    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
+    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
     case "events.subscribe": return { subscribed: true };
     case "services.list": return { rows: await queryServicesRuntimeLocal() };
     case "services.start": case "services.stop": case "services.restart": {
@@ -175,7 +175,7 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
         saveDocument(key, expected, text); context.phase("apply", "文件已保存，正在应用运行配置");
         saved = true;
         refreshServices(); return { saved: true, revision: readDocument(key).revision, applied: true };
-        }); } catch (error) { throw Object.assign(new Error(`${saved ? "文件已保存，运行时应用失败" : "配置未保存"}: ${error instanceof Error ? error.message : String(error)}`), { code: "io", details: { saved, applied: false, backupId: context.id } }); }
+        }); } catch (error) { throw Object.assign(new Error(`${saved ? "文件已保存，运行时应用失败" : "配置未保存"}: ${error instanceof Error ? error.message : String(error)}`), { code: "io", details: { saved, applied: false } }); }
       });
     }
     case "packs.list": return listPacks();
@@ -204,8 +204,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     }
     case "updates.run": {
       if (p.kind === "platform") return store.submit(request.method, async context => { const plan = await attachmentPlan(false); if (p.targetVersion !== undefined && p.targetVersion !== plan.targetVersion) throw Object.assign(new Error("目标版本已变更，请重新检查更新日志后确认"), { code: "conflict" }); return plan.upgradeRequired ? launchPlatformUpdate(store, context, plan.targetVersion) : { upToDate: true, version: plan.currentVersion }; });
-      if (p.kind === "modules") return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => { const result = await applyModulePlan(Array.isArray(p.ids) ? p.ids.map(identifier) : []); await rebuildModules(); return result; }, true, "modules"));
-      if (p.kind === "bds") return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => bdsUpdate(context), true, "bds"));
+      if (p.kind === "modules") return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => { const result = await applyModulePlan(Array.isArray(p.ids) ? p.ids.map(identifier) : []); await rebuildModules(); return result; }));
+      if (p.kind === "bds") return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => bdsUpdate(context)));
       throw new Error("未知更新类型");
     }
     case "deployment.create": {
@@ -234,6 +234,7 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       });
     }
     case "backups.list": { const directory = path.join(ROOT, ".sfmc", "backups"); return { backups: fs.existsSync(directory) ? fs.readdirSync(directory).filter(id => fs.existsSync(path.join(directory, id, "manifest.json"))) : [] }; }
+    case "backups.create": return store.submit(request.method, context => createBackup(context));
     case "backups.restore": {
       if (p.confirmDataLoss !== true) throw new Error("恢复数据需要明确确认丢弃备份之后的变更");
       return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], () => restoreSnapshot(identifier(p.id), context.phase)));

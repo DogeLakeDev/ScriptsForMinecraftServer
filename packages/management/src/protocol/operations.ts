@@ -17,7 +17,7 @@ export type OperationStatus =
   | "failed"
   | "interrupted";
 
-/** 任务阶段（维护顺序：准备→停服→备份→执行→验证→恢复，由执行器按场景裁剪） */
+/** 任务阶段（普通维护：准备→停服→执行→验证→恢复；仅手动备份任务包含备份阶段） */
 export interface OperationPhase {
   /** 阶段标识（机器可读，如 "prepare" / "stop-services" / "backup" / "execute" / "verify" / "restore"） */
   name: string;

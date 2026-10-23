@@ -2,7 +2,7 @@
  * UpdatesPage.tsx — 更新与备份
  *
  * 使用场景：展示 updates.check 的三类结果（SFMC 平台 / 模块 / BDS）并提交 updates.run；
- * 列出可恢复备份（备份编号即创建它的任务编号，借此关联任务名称与时间），恢复前强确认数据丢失。
+ * 手动创建和恢复全量备份（备份编号即任务编号），恢复前强确认数据丢失。
  * 检查逻辑与原实现一致：进入页面检查一次，之后每 15 分钟自动复查，也可手动检查。
  */
 import type { AttachmentPlan } from "@sfmc-bds/management";
@@ -76,6 +76,8 @@ function VersionShift({ from, to }: { from?: string | null; to?: string | null }
 
 export function UpdatesPage() {
   const { model, editable, request, submit } = useDesktop();
+  const manualBackup = model.handshake?.capabilities.includes("manual-backup") ?? false;
+  const backupRunning = model.tasks.some((task) => task.kind === "backups.create" && !isTaskDone(task.status));
   const [result, setResult] = useState<CheckResult>();
   const [checkedAt, setCheckedAt] = useState<number>();
   const [checking, setChecking] = useState(false);
@@ -128,7 +130,7 @@ export function UpdatesPage() {
   // 数量不变时也识别备份完成与终态；不因日志或无关阶段刷新。
   const backupFingerprint = model.tasks.map((task) => {
     const phase = task.phases.find((row) => row.name === "backup");
-    return phase || isTaskDone(task.status) ? `${task.id}:${phase?.status ?? ""}:${isTaskDone(task.status) ? task.status : ""}` : "";
+    return phase || task.kind === "backups.create" ? `${task.id}:${phase?.status ?? ""}:${task.status}` : "";
   }).filter(Boolean).sort().join("|");
   useEffect(() => {
     void refreshBackups();
@@ -136,7 +138,7 @@ export function UpdatesPage() {
 
   const run = (kind: "platform" | "modules" | "bds", name: string) => {
     const plan = kind === "platform" && result?.platform && !failed(result.platform) ? result.platform : undefined;
-    return void submit("updates.run", { kind, ...(plan ? { targetVersion: plan.targetVersion } : {}) }, `更新 ${name}`, { description: <div className="form-stack"><p>将停服备份，更新后恢复运行。失败时回退程序；世界和数据库需从备份手动恢复。</p>{plan && <ReleaseNotes notes={plan.releaseNotes} version={plan.targetVersion} />}</div>, okText: "开始更新" });
+    return void submit("updates.run", { kind, ...(plan ? { targetVersion: plan.targetVersion } : {}) }, `更新 ${name}`, { description: <div className="form-stack"><p>{manualBackup ? "将停服更新，完成后恢复此前运行的服务。此任务不创建全量备份；如需保留当前状态，请先点击“手动备份”。" : "当前平台仍会在维护任务前自动创建全量备份；升级平台并重新连接后，改用手动备份。"}</p>{plan && <ReleaseNotes notes={plan.releaseNotes} version={plan.targetVersion} />}</div>, okText: "开始更新" });
   };
   const runButton = (kind: "platform" | "modules" | "bds", name: string, available: boolean, label: string) => (
     <Tooltip content={editable ? undefined : "当前为只读"} wrap>
@@ -230,7 +232,17 @@ export function UpdatesPage() {
           {showRaw && <pre className="code-block">{JSON.stringify(result, null, 2)}</pre>}
         </div>
       )}
-      <Surface title="可恢复备份" extra={<>{backups.length > 0 && <Badge>{backups.length} 份</Badge>}<Button size="sm" icon="refresh" loading={backupsLoading} onClick={() => void refreshBackups()}>刷新备份</Button></>} flush>
+      <Surface title="可恢复备份" extra={<>
+        {backups.length > 0 && <Badge>{backups.length} 份</Badge>}
+        <Tooltip content={!manualBackup ? "升级实例平台并重新连接后可用" : !editable ? "当前为只读" : undefined} wrap>
+          <Button size="sm" icon="archive" disabled={!editable || !manualBackup || backupRunning} loading={backupRunning} onClick={() => void submit("backups.create", {}, "手动备份", {
+            description: "将短暂停止服务，完整备份配置、模块、数据库和 BDS（含世界数据），完成后恢复此前运行的服务。备份会占用与这些文件相近的磁盘空间。",
+            okText: "开始备份",
+          })}>手动备份</Button>
+        </Tooltip>
+        <Button size="sm" icon="refresh" loading={backupsLoading} onClick={() => void refreshBackups()}>刷新备份</Button>
+      </>} flush>
+        {model.handshake && !manualBackup && <div className="surface-pad"><Callout tone="warning" title="当前平台仍使用自动备份">升级实例平台并重新连接后，维护任务将不再创建全量备份，可在此手动创建。</Callout></div>}
         {backupsError && <div className="surface-pad"><Callout tone="danger" title="读取备份失败">{backupsError}</Callout></div>}
         {backups.length ? (
           <ul className="row-list">
@@ -240,7 +252,7 @@ export function UpdatesPage() {
                 <li key={id} className="row-item">
                   <IconTile icon="archive" tone="pastel-1" size={32} />
                   <div className="row-main">
-                    <div className="row-title"><b>{task ? `${taskLabel(task)}前的备份` : "维护备份"}</b></div>
+                    <div className="row-title"><b>{task?.kind === "backups.create" ? "手动备份" : task ? `${taskLabel(task)}前的备份` : "备份"}</b></div>
                     <CopyText text={id} className="row-sub" />
                   </div>
                   {task && <span className="row-version" title={fullTime(task.createdAt)}>{relativeTime(task.createdAt)}</span>}
@@ -265,7 +277,7 @@ export function UpdatesPage() {
             })}
           </ul>
         ) : (
-          <EmptyState compact icon="archive" title="暂无可恢复备份" description="维护任务会自动创建备份" />
+          <EmptyState compact icon="archive" title="暂无可恢复备份" description={manualBackup ? "需要保留当前状态时，点击“手动备份”" : "升级实例平台后可手动创建备份"} />
         )}
       </Surface>
     </div>
