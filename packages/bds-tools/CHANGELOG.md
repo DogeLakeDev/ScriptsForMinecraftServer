@@ -1,5 +1,12 @@
 # @sfmc-bds/bds-tools
 
+## 0.2.10
+
+### Patch Changes
+
+- 4b60bb4: 写入世界包清单版本时，可以选择把模块版本同步成与 header 相同的完整版本。未指定时仍只同步修订号。
+  - @sfmc-bds/sdk@0.5.0
+
 ## 0.2.9
 
 ### Patch Changes

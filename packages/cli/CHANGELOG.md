@@ -1,5 +1,21 @@
 # @sfmc-bds/cli
 
+## 0.7.0
+
+### Minor Changes
+
+- 4b60bb4: 日志可以按时间范围读取和删除。世界包可以读取图标、卸载、一次导入多个文件，并修改资源包清单版本。备份可以删除。模块索引会带上依赖名单；名单里的依赖必须已安装并启用后才能安装，索引没有该模块时仍按原来的方式安装。
+
+### Patch Changes
+
+- Updated dependencies [4b60bb4]
+- Updated dependencies [4b60bb4]
+  - @sfmc-bds/bds-tools@0.2.10
+  - @sfmc-bds/management@0.6.0
+  - @sfmc-bds/db-server@0.5.3
+  - @sfmc-bds/devkit@2.0.6
+  - @sfmc-bds/sdk@0.5.0
+
 ## 0.6.1
 
 ### Patch Changes
