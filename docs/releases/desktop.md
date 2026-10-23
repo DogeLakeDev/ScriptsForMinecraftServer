@@ -15,7 +15,7 @@ SFMC Desktop **0.3.6(1)**，Windows x64 正式构建。
 
 ### 下载与更新
 
-1. 下载 `SFMC-Desktop-0.3.6(1)-x64.exe` 安装，或完整解压同名 `.zip` 后运行 `SFMC Desktop.exe`。
+1. 下载 `SFMC-Desktop-0.3.6-build.1-x64.exe` 安装，或完整解压同名 `.zip` 后运行 `SFMC Desktop.exe`。
 2. 从托盘退出旧客户端后覆盖安装或替换完整 ZIP；服务器目录与数据保留。关闭客户端不停止服务器。
 3. **已有服务器请在「更新与备份」页升级平台到 0.2.20，再重新连接。** 仅替换客户端不会更新已经运行的后台。平台更新属于显式维护操作，会按页面提示停止并恢复服务。
 4. 旧平台在配置、模块和世界包页面只允许查看，避免旧后台仍自动停服；更新平台后开放编辑与手动重启。
@@ -30,8 +30,8 @@ SFMC Desktop **0.3.6(1)**，Windows x64 正式构建。
 发行页公示各文件 SHA256，`SHA256SUMS.txt` 提供校验清单。在 PowerShell 核对：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6(1)-x64.exe' -Algorithm SHA256
-gh attestation verify '.\SFMC-Desktop-0.3.6(1)-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref 'refs/tags/desktop-v0.3.6+build.1' --deny-self-hosted-runners
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6-build.1-x64.exe' -Algorithm SHA256
+gh attestation verify '.\SFMC-Desktop-0.3.6-build.1-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref 'refs/tags/desktop-v0.3.6+build.1' --deny-self-hosted-runners
 ```
 
 ZIP 替换文件名后使用相同命令。`release-manifest.json` 记录源码提交、产品版本、构建号与内置平台版本。

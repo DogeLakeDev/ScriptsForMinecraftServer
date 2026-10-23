@@ -10,8 +10,8 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 
 从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.6+build.1) 下载：
 
-- `SFMC-Desktop-0.3.6(1)-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.3.6(1)-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
+- `SFMC-Desktop-0.3.6-build.1-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.3.6-build.1-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
 - `artifact-attestation.sigstore.json`：GitHub Artifact Attestations 构建证明。
 
@@ -20,13 +20,13 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 发行页同时公示 SHA256。下载后核对文件摘要：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6(1)-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6-build.1-x64.exe' -Algorithm SHA256
 ```
 
 安装 [GitHub CLI](https://cli.github.com/) 后，可核对构建证明、源码仓库、工作流和标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.6(1)-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6+build.1 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.3.6-build.1-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6+build.1 --deny-self-hosted-runners
 ```
 
 验证 ZIP 时替换文件名即可；添加 `--bundle '.\artifact-attestation.sigstore.json'` 可以验证下载的证明文件。需要固定到具体提交时，再加入 `--source-digest` 和 `release-manifest.json` 中的 `sourceCommit`。构建证明用于核对文件来源与摘要，不是 Windows 发布者证书。
