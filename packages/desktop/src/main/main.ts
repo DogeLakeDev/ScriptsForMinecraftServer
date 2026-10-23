@@ -13,6 +13,22 @@ import { applyLoginItem, readPreferences, shouldStartHidden, writePreferences } 
 import { bindWindow, markQuitting, showWindow, syncTray } from "./tray.js";
 
 const sessions = new Map<string, Session>();
+/** 桌面导入接受的世界包后缀。使用场景：多选对话框和拖入文件在复制前都走这里。 */
+const PACK_EXTENSIONS = new Set([".mcpack", ".mcaddon", ".zip"]);
+
+/** 只接受用户选中的绝对路径上的包文件，避免把任意路径交给上传。 */
+function assertPackFile(file: string) {
+  if (!path.isAbsolute(file)) throw new Error("需要世界包的绝对路径");
+  const extension = path.extname(file).toLowerCase();
+  if (!PACK_EXTENSIONS.has(extension)) throw new Error(`不支持的世界包类型：${path.basename(file)}`);
+  let stat: fs.Stats;
+  try { stat = fs.statSync(file); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error(`找不到文件：${path.basename(file)}`);
+    throw error;
+  }
+  if (!stat.isFile()) throw new Error(`不是文件：${path.basename(file)}`);
+}
 const changedHosts = new Map<string, NonNullable<Session["changedFingerprint"]>>();
 let window: BrowserWindow;
 app.setName("SFMC Desktop");
@@ -96,7 +112,22 @@ void app.whenReady().then(async () => {
     return session.client.call(method as ManagementMethod, params);
   });
   handle("choose", async kind => { const result = await dialog.showOpenDialog(window, kind === "directory" ? { properties: ["openDirectory", "createDirectory"] } : { properties: ["openFile"], ...(kind === "pack" ? { filters: [{ name: "Minecraft 世界包", extensions: ["mcpack", "mcaddon", "zip"] }] } : {}) }); return result.canceled ? null : result.filePaths[0] ?? null; });
-  handle("uploadPack", async id => { const session = sessions.get(String(id)); if (!session) throw new Error("实例尚未连接"); const result = await dialog.showOpenDialog(window, { properties: ["openFile"], filters: [{ name: "Minecraft 世界包", extensions: ["mcpack", "mcaddon", "zip"] }] }); if (result.canceled || !result.filePaths[0]) return null; return session.uploadPack(result.filePaths[0]); });
+  handle("uploadPack", async (id, paths) => {
+    const session = sessions.get(String(id));
+    if (!session) throw new Error("实例尚未连接");
+    let files: string[];
+    if (paths === undefined) {
+      const result = await dialog.showOpenDialog(window, { properties: ["openFile", "multiSelections"], filters: [{ name: "Minecraft 世界包", extensions: ["mcpack", "mcaddon", "zip"] }] });
+      if (result.canceled || !result.filePaths.length) return null;
+      files = result.filePaths;
+    } else {
+      if (!Array.isArray(paths) || paths.some(item => typeof item !== "string")) throw new Error("世界包路径无效");
+      files = paths;
+      if (!files.length) return [];
+    }
+    for (const file of files) assertPackFile(file);
+    return session.uploadPacks(files);
+  });
   autoUpdater.autoDownload = false; autoUpdater.autoInstallOnAppQuit = false; autoUpdater.channel = "desktop";
   autoUpdater.on("error", error => { if (!window.isDestroyed()) window.webContents.send("sfmc:connection", "", `客户端更新失败: ${error.message}`, null); });
   handle("openLink", (kind, target) => {

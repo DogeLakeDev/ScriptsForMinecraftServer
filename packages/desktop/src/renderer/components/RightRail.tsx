@@ -6,6 +6,8 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { useDesktop } from "../app/desktop.js";
+import { toAlertGroup } from "../lib/alert-archive.js";
+import { useAlerts } from "./AlertsSheet.js";
 import { AlertFeed, ServiceFeed, TaskFeed } from "./feeds.js";
 import { EmptyState } from "./ui.js";
 
@@ -25,6 +27,7 @@ function RailSection({ title, action, onAction, children }: { title: string; act
 /** 右侧动态栏 */
 export function RightRail() {
   const { model, selected, setPage, page, openLog } = useDesktop();
+  const { alerts, openAlerts } = useAlerts();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -41,8 +44,8 @@ export function RightRail() {
           <EmptyState compact icon="broadcast" title="尚未连接实例"/>
         ) : (
           <>
-            <RailSection title="告警" action="控制台" onAction={() => setPage("logs")}>
-              <AlertFeed logs={model.logs} now={now} limit={4} onSelect={openLog} />
+            <RailSection title="告警" action="全部" onAction={openAlerts}>
+              <AlertFeed groups={alerts.map(toAlertGroup)} now={now} limit={4} onSelect={openLog} emptyText="还没有保存的警告或错误" />
             </RailSection>
             <RailSection title="任务动态" action="全部" onAction={() => setPage("tasks")}>
               <TaskFeed tasks={model.tasks} now={now} limit={6} onSelect={() => setPage("tasks")} />

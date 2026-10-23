@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopApi } from "../shared/api.js";
 const api: DesktopApi = {
   profiles: () => ipcRenderer.invoke("sfmc:profiles"),
@@ -9,7 +9,8 @@ const api: DesktopApi = {
   confirmHost: id => ipcRenderer.invoke("sfmc:confirmHost", id),
   request: (id, method, params) => ipcRenderer.invoke("sfmc:request", id, method, params),
   choose: kind => ipcRenderer.invoke("sfmc:choose", kind),
-  uploadPack: id => ipcRenderer.invoke("sfmc:uploadPack", id),
+  uploadPack: (id, paths) => ipcRenderer.invoke("sfmc:uploadPack", id, paths),
+  packFilePath: file => webUtils.getPathForFile(file),
   update: action => ipcRenderer.invoke("sfmc:update", action),
   openLink: (kind, url) => ipcRenderer.invoke("sfmc:openLink", kind, url),
   appearance: mode => ipcRenderer.invoke("sfmc:appearance", mode),

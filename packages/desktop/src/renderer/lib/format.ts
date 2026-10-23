@@ -79,12 +79,14 @@ const TASK_LABELS: Record<string, string> = {
   "config.save": "保存配置",
   "packs.import": "导入世界包",
   "packs.toggle": "切换世界包状态",
+  "packs.uninstall": "卸载世界包",
   "players.apply": "保存玩家权限",
   "updates.run": "执行更新",
   "attachment.apply": "接入部署",
   "deployment.create": "初始化部署",
   "backups.create": "手动备份",
   "backups.restore": "恢复备份",
+  "backups.delete": "删除备份",
 };
 /** 任务的展示名称：优先使用可读映射，未知种类回退到服务端 title */
 export function taskLabel(task: Pick<OperationRecord, "kind" | "title">): string {

@@ -4,15 +4,15 @@
  * 使用场景：窗口使用 titleBarStyle: "hidden" + 原生按钮覆盖层，本组件即窗口可拖拽区（高 68px）；
  * 右侧栏收起时通过 --wco-right（由 env(titlebar-area-*) 推导）为系统最小化/最大化/关闭按钮留位。
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppearanceMode } from "../../shared/api.js";
 import { activeTasks, connectionState, useDesktop } from "../app/desktop.js";
 import { navItem } from "../app/nav.js";
 import { useAppearance } from "../app/theme.js";
 import { duration, hostLabel, phaseLabel, taskLabel } from "../lib/format.js";
+import { useAlerts } from "./AlertsSheet.js";
 import { Button, IconButton } from "./controls.js";
 import { ProgressLine } from "./feedback.js";
-import { AlertFeed } from "./feeds.js";
 import { Icon, type IconName } from "./icons.js";
 import { Menu, Popover } from "./overlays.js";
 import { Kbd, StatusDot } from "./ui.js";
@@ -109,46 +109,18 @@ function ConnectionDetails() {
   );
 }
 
-/** 告警按钮：角标为"上次打开后新增"的警告/错误数，打开弹层即视为已读（按实例分别记录） */
+/** 告警按钮：角标是尚未标为已读的告警种类数，点击打开完整列表。 */
 function AlertsButton() {
-  const { model, current, openLog } = useDesktop();
-  const [seen, setSeen] = useState<Record<string, number>>({});
-  const [open, setOpen] = useState(false);
-  const seenAt = seen[current] ?? 0;
-  const unread = useMemo(
-    () =>
-      model.logs.reduce(
-        (count, log) =>
-          (log.level === "error" || log.level === "warn") && Date.parse(log.time) > seenAt ? count + 1 : count,
-        0
-      ),
-    [model.logs, seenAt]
-  );
+  const { openAlerts, unread } = useAlerts();
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setSeen((rows) => ({ ...rows, [current]: Date.now() }));
-      }}
-      width={340}
-      className="alerts-pop"
-      trigger={<IconButton icon="bell" label="告警" size="sm" badge={unread || undefined} tooltip={false} />}
-    >
-      <div className="pop-head">
-        <b>告警</b>
-        <span className="muted">最近的警告与错误日志</span>
-      </div>
-      <AlertFeed
-        logs={model.logs}
-        now={Date.now()}
-        limit={8}
-        onSelect={(log) => {
-          setOpen(false);
-          openLog(log);
-        }}
-      />
-    </Popover>
+    <IconButton
+      icon="bell"
+      label="告警"
+      size="sm"
+      badge={unread || undefined}
+      tooltip={false}
+      onClick={openAlerts}
+    />
   );
 }
 

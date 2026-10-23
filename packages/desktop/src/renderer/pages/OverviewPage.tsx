@@ -7,12 +7,14 @@ import type { ManagementMethodMap, ServiceStatusRow } from "@sfmc-bds/management
 import { useEffect, useState } from "react";
 import { activeTasks, useDesktop } from "../app/desktop.js";
 import { Button, IconButton } from "../components/controls.js";
+import { useAlerts } from "../components/AlertsSheet.js";
 import { AlertFeed, serviceMeta, serviceState, TaskFeed } from "../components/feeds.js";
 import { MetricsPanel, useRuntimeMetrics } from "../components/MetricsPanel.js";
 import { Menu } from "../components/overlays.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, CopyText, EmptyState, IconTile, PageHeader, Stat, StatusDot, Surface } from "../components/ui.js";
 import { StartupDrawer } from "../dialogs/StartupDrawer.js";
+import { toAlertGroup } from "../lib/alert-archive.js";
 import { duration, hostLabel, relativeTime } from "../lib/format.js";
 
 /** 服务表中的一行：图标 + 名称说明、状态、归属、PID、运行时长、操作 */
@@ -94,6 +96,7 @@ function ServiceRow({ row }: { row: ServiceStatusRow }) {
 
 export function OverviewPage() {
   const { model, editable, submit, setPage, request, openLog } = useDesktop();
+  const { alerts, unread, openAlerts } = useAlerts();
   const [startupOpen, setStartupOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const metrics = useRuntimeMetrics();
@@ -136,12 +139,6 @@ export function OverviewPage() {
     ? metrics.fresh
     : Boolean(!stale && players?.fresh && now - Date.parse(players.updatedAt) < 60_000);
   const onlineCount = metrics.supported ? metrics.data?.current?.onlineCount : players?.players.length;
-  const recentAlerts = model.logs.filter(
-    (log) =>
-      (log.level === "warn" || log.level === "error") &&
-      now - Date.parse(log.time) >= 0 &&
-      now - Date.parse(log.time) < 15 * 60_000
-  );
   return (
     <div className="page">
       <PageHeader
@@ -223,11 +220,11 @@ export function OverviewPage() {
           onClick={() => setPage("players")}
         />
         <Stat
-          label="近 15 分钟告警"
+          label="已保存告警"
           icon="bell"
-          value={stale ? "—" : recentAlerts.length}
-          hint={stale ? "连接已断开" : ""}
-          onClick={() => setPage("logs")}
+          value={alerts.length}
+          hint={stale ? "连接已断开，列表仍保留" : unread ? `${unread} 条未读` : "警告和错误都会留下"}
+          onClick={openAlerts}
         />
         <Stat
           label="进行中任务"
@@ -272,12 +269,12 @@ export function OverviewPage() {
         <Surface
           title="最近告警"
           extra={
-            <button type="button" className="link-btn" onClick={() => setPage("logs")}>
-              打开控制台
+            <button type="button" className="link-btn" onClick={openAlerts}>
+              全部告警
             </button>
           }
         >
-          <AlertFeed logs={model.logs} now={now} limit={5} onSelect={openLog} />
+          <AlertFeed groups={alerts.map(toAlertGroup)} now={now} limit={5} onSelect={openLog} emptyText="还没有保存的警告或错误" />
         </Surface>
         <Surface
           title="最近任务"

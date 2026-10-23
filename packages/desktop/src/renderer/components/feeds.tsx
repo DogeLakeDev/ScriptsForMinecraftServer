@@ -6,7 +6,7 @@
  * 组件只接收数据与回调，不读取全局状态（迪米特法则），由调用方决定数据来源与跳转行为。
  */
 import type { LogEntryWire, OperationRecord, ServiceStatusRow } from "@sfmc-bds/management";
-import { groupAlerts } from "../lib/alerts.js";
+import { groupAlerts, type AlertGroup } from "../lib/alerts.js";
 import { cx } from "../lib/cx.js";
 import { fullTime, phaseLabel, relativeTime, taskLabel, TASK_STATUS, type Tone } from "../lib/format.js";
 import type { IconName } from "./icons.js";
@@ -32,9 +32,12 @@ export function serviceState(row: ServiceStatusRow): { tone: Tone; label: string
   return { tone: "success", label: "运行中" };
 }
 
-/** 告警列表：错误用红色色块、警告用琥珀色块，正文取日志首行 */
-export function AlertFeed({ logs, now, limit = 6, onSelect, emptyText = "已加载日志中没有警告或错误" }: { logs: LogEntryWire[]; now: number; limit?: number; onSelect?: (log: LogEntryWire) => void; emptyText?: string }) {
-  const alerts = groupAlerts(logs, limit);
+/**
+ * 告警列表：错误用红色色块、警告用琥珀色块，正文取日志首行。
+ * groups 传入时直接展示已保存的分组（仍按 limit 截断），避免紧凑预览把累计次数重新算没。
+ */
+export function AlertFeed({ logs = [], groups, now, limit = 6, onSelect, emptyText = "已加载日志中没有警告或错误" }: { logs?: LogEntryWire[]; groups?: AlertGroup[]; now: number; limit?: number; onSelect?: (log: LogEntryWire) => void; emptyText?: string }) {
+  const alerts = (groups ?? groupAlerts(logs, limit)).slice(0, limit);
   if (!alerts.length) return <EmptyState compact icon="bell" title="暂无告警" description={emptyText} />;
   return (
     <ul className="feed">

@@ -2,12 +2,13 @@
  * UpdatesPage.tsx — 更新与备份
  *
  * 使用场景：展示 updates.check 的三类结果（SFMC 平台 / 模块 / BDS）并提交 updates.run；
- * 手动创建和恢复全量备份（备份编号即任务编号），恢复前强确认数据丢失。
+ * 手动创建、恢复和删除全量备份（备份编号即任务编号）。恢复前强确认数据丢失，删除前确认备份不可恢复。
  * 检查逻辑与原实现一致：进入页面检查一次，之后每 15 分钟自动复查，也可手动检查。
  */
 import type { AttachmentPlan } from "@sfmc-bds/management";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useDesktop } from "../app/desktop.js";
+import { hasCapability } from "../../shared/platform-next.js";
 import { Button } from "../components/controls.js";
 import { toast } from "../components/feedback.js";
 import { Icon, type IconName } from "../components/icons.js";
@@ -77,6 +78,7 @@ function VersionShift({ from, to }: { from?: string | null; to?: string | null }
 export function UpdatesPage() {
   const { model, editable, request, submit } = useDesktop();
   const manualBackup = model.handshake?.capabilities.includes("manual-backup") ?? false;
+  const canDeleteBackup = hasCapability(model.handshake?.capabilities, "backup-delete");
   const backupRunning = model.tasks.some((task) => task.kind === "backups.create" && !isTaskDone(task.status));
   const [result, setResult] = useState<CheckResult>();
   const [checkedAt, setCheckedAt] = useState<number>();
@@ -130,7 +132,8 @@ export function UpdatesPage() {
   // 数量不变时也识别备份完成与终态；不因日志或无关阶段刷新。
   const backupFingerprint = model.tasks.map((task) => {
     const phase = task.phases.find((row) => row.name === "backup");
-    return phase || task.kind === "backups.create" ? `${task.id}:${phase?.status ?? ""}:${task.status}` : "";
+    const tracked = phase || task.kind === "backups.create" || task.kind === "backups.delete";
+    return tracked ? `${task.id}:${phase?.status ?? ""}:${task.status}` : "";
   }).filter(Boolean).sort().join("|");
   useEffect(() => {
     void refreshBackups();
@@ -256,22 +259,42 @@ export function UpdatesPage() {
                     <CopyText text={id} className="row-sub" />
                   </div>
                   {task && <span className="row-version" title={fullTime(task.createdAt)}>{relativeTime(task.createdAt)}</span>}
-                  <Button
-                    size="sm"
-                    variant="danger-soft"
-                    disabled={!editable}
-                    icon="archiveRestore"
-                    onClick={() =>
-                      void submit("backups.restore", { id, confirmDataLoss: true }, "停止服务并恢复备份", {
-                        danger: true,
-                        okText: "恢复数据",
-                        description: <>将停止全部服务并恢复备份 <span className="mono">{id.slice(0, 8)}</span>{task ? `（${relativeTime(task.createdAt)}，${taskLabel(task)}）` : ""}。</>,
-                        acknowledge: "我了解此操作会丢弃备份之后的配置和玩家数据变化",
-                      })
-                    }
-                  >
-                    恢复
-                  </Button>
+                  <div className="row-actions">
+                    <Button
+                      size="sm"
+                      variant="danger-soft"
+                      disabled={!editable}
+                      icon="archiveRestore"
+                      onClick={() =>
+                        void submit("backups.restore", { id, confirmDataLoss: true }, "停止服务并恢复备份", {
+                          danger: true,
+                          okText: "恢复数据",
+                          description: <>将停止全部服务并恢复备份 <span className="mono">{id.slice(0, 8)}</span>{task ? `（${relativeTime(task.createdAt)}，${taskLabel(task)}）` : ""}。</>,
+                          acknowledge: "我了解此操作会丢弃备份之后的配置和玩家数据变化",
+                        })
+                      }
+                    >
+                      恢复
+                    </Button>
+                    {canDeleteBackup && (
+                      <Button
+                        size="sm"
+                        variant="danger-soft"
+                        disabled={!editable}
+                        icon="trash"
+                        onClick={() =>
+                          void submit("backups.delete", { id }, "删除备份", {
+                            danger: true,
+                            okText: "删除备份",
+                            description: <>将永久删除备份 <span className="mono">{id.slice(0, 8)}</span>{task ? `（${relativeTime(task.createdAt)}）` : ""}。此操作不停止服务，也不改动当前世界。</>,
+                            acknowledge: "我了解此备份删除后无法恢复",
+                          })
+                        }
+                      >
+                        删除
+                      </Button>
+                    )}
+                  </div>
                 </li>
               );
             })}

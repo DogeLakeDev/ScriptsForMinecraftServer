@@ -17,6 +17,7 @@ import type {
   PackRow,
   ServiceStatusRow,
 } from "@sfmc-bds/management";
+import { moduleRequireBlockMessage } from "../lib/module-dependencies.js";
 import type { AppearanceMode, DesktopApi, DesktopPreferences, InstanceProfile } from "../../shared/api.js";
 
 /** 单个模拟实例的可变状态（服务、任务、模块等），按实例 id 隔离 */
@@ -25,6 +26,8 @@ interface MockInstance {
   tasks: OperationRecord[];
   modules: ModuleRow[];
   packs: PackRow[];
+  /** 已从列表中移除的备份编号。备份列表由历史任务推导，删除时记在这里。 */
+  deletedBackups: Set<string>;
   configs: Map<string, ConfigDocument>;
   allowlist: unknown[];
   permissions: unknown[];
@@ -132,17 +135,18 @@ function createInstance(variant: "local" | "ssh"): MockInstance {
       { id: "online-time", folder: "sfmc-module-online-time", name: "online-time", version: "1.0.4", enabled: true, linked: false },
     ],
     packs: [
-      { id: "6b1f4a52-3c1e-4b8e-9b0b-2f3d1c9a7e01", name: "SFMC Runtime", kind: "behavior", enabled: true, version: "0.2.4" },
-      { id: "c7d2a913-88f0-4f7e-a1b5-0e6a4d2c3b11", name: "DogeLake 资源", kind: "resource", enabled: true, version: "1.3.0" },
-      { id: "0aa3e6f1-5d7c-4a8b-b2c9-7f1e3d5a9c22", name: "Farmer's Delight BE", kind: "behavior", enabled: true, version: "1.2.7" },
-      { id: "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c33", name: "Farmer's Delight BE 资源", kind: "resource", enabled: true, version: "1.2.7" },
+      { id: "6b1f4a52-3c1e-4b8e-9b0b-2f3d1c9a7e01", name: "SFMC Runtime", kind: "behavior", enabled: true, version: "0.2.4", iconStamp: "mock:runtime", protected: true },
+      { id: "c7d2a913-88f0-4f7e-a1b5-0e6a4d2c3b11", name: "DogeLake 资源", kind: "resource", enabled: true, version: "1.3.0", iconStamp: "mock:dogelake" },
+      { id: "0aa3e6f1-5d7c-4a8b-b2c9-7f1e3d5a9c22", name: "Farmer's Delight BE", kind: "behavior", enabled: true, version: "1.2.7", iconStamp: "mock:farmer" },
+      { id: "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c33", name: "Farmer's Delight BE 资源", kind: "resource", enabled: true, version: "1.2.7", iconStamp: "mock:farmer-rp" },
       { id: "4f3e2d1c-0b9a-4876-9543-210fedcba944", name: "Touhou Little Maid", kind: "behavior", enabled: false, version: "0.8.1" },
     ],
+    deletedBackups: new Set<string>(),
     configs,
     allowlist: [{ name: "Steve", ignoresPlayerLimit: false }, { name: "Alex", ignoresPlayerLimit: true }, { name: "Shiroha7z", ignoresPlayerLimit: true }],
     permissions: [{ permission: "operator", xuid: "2535412345678901" }],
     sfmcPermissions: [{ player_name: "Shiroha7z", level: 3 }, { player_name: "Alex", level: 2 }, { player_name: "Steve", level: 1 }],
-    logs: Array.from({ length: 260 }, (_, index) => randomLog(now - (260 - index) * 9000)),
+    logs: Array.from({ length: 260 }, (_, index) => randomLog(now - (260 - index) * 12 * 60 * 1000)),
   };
 }
 
@@ -166,6 +170,19 @@ const samples: [LogEntryWire["source"], LogEntryWire["level"], string][] = [
   ["bds", "info", "Running AutoCompaction..."],
   ["bds", "info", "[Scripting] [land] 玩家 Alex 进入领地「樱花小镇」"],
   ["bds", "warn", "[Scripting] watchdog: slow tick 62ms in sfmc-module-land"],
+  ["bds", "warn", "[Scripting] [land] 领地「樱花小镇」存档写入超过 200ms"],
+  ["db", "warn", "sqlite busy: economy.balance 等待锁 40ms"],
+  ["qq", "warn", "群 123456789 消息发送失败，将重试"],
+  ["system", "warn", "日志文件 sfmc.log 超过轮转阈值，旧行仍保留在告警列表"],
+  ["bds", "warn", "[Scripting] [economy] 转账余额不足，已拒绝"],
+  ["bds", "warn", "Packet violation from 127.0.0.1: timeout"],
+  ["db", "warn", "GET /api/sfmc/players 耗时 820ms"],
+  ["qq", "warn", "群 123456789 图片下载失败"],
+  ["tunnel", "warn", "穿透隧道重连，中断 3s"],
+  ["system", "warn", "备份目录剩余空间不足 1GB"],
+  ["bds", "error", "[Scripting] RangeError: chunk 12,-4 超出已加载区域"],
+  ["db", "error", "POST /api/sfmc/kv/land 500 database is locked"],
+  ["qq", "error", "llbot 连接被关闭：heartbeat timeout"],
   ["bds", "info", "Player disconnected: Alex, xuid: 2535498765432109"],
   ["db", "info", "GET /api/sfmc/status 200 3ms"],
   ["db", "info", "POST /api/sfmc/kv/economy.balance 200 5ms"],
@@ -175,6 +192,62 @@ const samples: [LogEntryWire["source"], LogEntryWire["level"], string][] = [
   ["qq", "warn", "llbot 心跳延迟 1.8s"],
   ["system", "success", "手动备份完成：.sfmc/backups/2026-10-01_17-00"],
   ["bds", "error", "[Scripting] TypeError: cannot read property 'owner' of undefined\n    at onPlayerInteract (land/index.js:120:18)"],
+];
+
+/**
+ * 浏览器预览用的简易世界包图标。
+ * 使用场景：模拟 packs.icon，让世界包列表能看到不同颜色的包图标。
+ * 返回不含 data: 前缀的 PNG base64；非浏览器环境返回 null。
+ */
+function mockPackPng(stamp: string, name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  const hue = Array.from(stamp).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+  context.fillStyle = `hsl(${hue} 42% 42%)`;
+  context.fillRect(0, 0, 64, 64);
+  context.fillStyle = "#f7f4ee";
+  context.font = "600 28px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(Array.from(name)[0] ?? "包", 32, 34);
+  const data = canvas.toDataURL("image/png").split(",")[1];
+  return data || null;
+}
+
+/**
+ * 预览用的模块索引。
+ * 使用场景：浏览器里走查安装详情。requires 缺失表示没有依赖声明，安装会被拒绝。
+ */
+const mockRegistry: Array<{
+  id: string;
+  name: string;
+  description: string;
+  npm?: string;
+  version?: string;
+  sdk?: string;
+  repo?: string;
+  tag?: string;
+  category?: string;
+  license?: string;
+  official?: boolean;
+  requires?: string[];
+}> = [
+  { id: "land", name: "领地", description: "划分并保护玩家领地。", npm: "@sfmc-bds/module-land", version: "1.5.0", sdk: "^0.2.0", category: "gameplay", license: "AGPL-3.0-only", official: true, requires: ["economy", "activity-log"] },
+  { id: "economy", name: "经济", description: "玩家余额、转账和价格。", npm: "@sfmc-bds/module-economy", version: "2.0.1", sdk: "^0.2.0", category: "economy", official: true, requires: [] },
+  { id: "chat", name: "聊天", description: "游戏内聊天和跨端转发。", npm: "@sfmc-bds/module-chat", version: "1.0.0", sdk: "^0.2.0", category: "social", official: true, requires: [] },
+  { id: "chat-sounds", name: "聊天音效", description: "收到聊天时播放提示音。", npm: "@sfmc-bds/module-chat-sounds", version: "0.1.2", sdk: "^0.2.0", category: "social", official: true, requires: ["chat"] },
+  { id: "coop", name: "合作", description: "让玩家一起经营同一块区域。", repo: "https://github.com/DogeLakeDev/sfmc-module-coop", tag: "v0.4.0", category: "gameplay", requires: ["economy", "activity-log"] },
+  { id: "data-backup", name: "数据备份", description: "按计划备份模块数据。", npm: "@sfmc-bds/module-data-backup", version: "0.6.0", sdk: "^0.2.0", category: "system", official: true, requires: [] },
+  { id: "area", name: "区域", description: "划定可供其他模块使用的区域。", npm: "@sfmc-bds/module-area", version: "0.4.0", sdk: "^0.2.0", category: "gameplay", official: true, requires: [] },
+  { id: "fly-area", name: "飞行区域", description: "只允许在指定区域里飞行。", npm: "@sfmc-bds/module-fly-area", version: "0.3.1", sdk: "^0.2.0", category: "gameplay", official: true, requires: ["area"] },
+  { id: "inventory-switcher", name: "背包切换", description: "在多套物品栏之间切换。", npm: "@sfmc-bds/module-inventory-switcher", version: "0.2.0", sdk: "^0.2.0", category: "utility", official: true, requires: [] },
+  { id: "monitor", name: "监控", description: "查看服务器运行状况。", npm: "@sfmc-bds/module-monitor", version: "0.5.3", sdk: "^0.2.0", category: "system", official: true },
+  { id: "qa", name: "问答", description: "玩家之间的悬赏问答。", npm: "@sfmc-bds/module-qa", version: "0.1.0", sdk: "^0.2.0", category: "social", official: true, requires: ["economy", "chat"] },
+  { id: "afk-return", name: "回归提示", description: "玩家从挂机回来时发送提示。", npm: "@sfmc-bds/module-afk-return", version: "0.1.0", sdk: "^0.2.0", category: "utility", official: true, requires: ["afk"] },
 ];
 
 /** 随机生成一条日志 */
@@ -262,7 +335,7 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup"],
+    capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version"] as Handshake["capabilities"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -337,7 +410,35 @@ export function installMockBridge() {
       case "modules.list": return { modules: structuredClone(instance.modules) };
       case "config.list": return { keys: [...instance.configs.keys()] };
       case "packs.list": return { packs: structuredClone(instance.packs) };
-      case "logs.tail": return { entries: instance.logs.slice(-Number(params.limit ?? 1000)) };
+      case "logs.tail": {
+        let rows = instance.logs;
+        const since = typeof params.since === "string" ? params.since : "";
+        const until = typeof params.until === "string" ? params.until : "";
+        if (since) rows = rows.filter((row) => row.time >= since);
+        if (until) rows = rows.filter((row) => row.time <= until);
+        if (Array.isArray(params.levels)) {
+          const levels = new Set(params.levels.map(String));
+          rows = rows.filter((row) => levels.has(row.level));
+        }
+        const limit = Number(params.limit ?? 1000);
+        const truncated = rows.length > limit;
+        return { entries: rows.slice(-limit), ...(truncated ? { truncated: true } : {}) };
+      }
+      case "logs.delete": {
+        const since = String(params.since ?? "");
+        const until = String(params.until ?? "");
+        if (!since || !until || until < since) throw new Error("结束时间不能早于开始时间");
+        const source = params.source === undefined ? undefined : String(params.source);
+        const text = params.text === undefined ? undefined : String(params.text);
+        const before = instance.logs.length;
+        instance.logs = instance.logs.filter((row) => {
+          if (row.time < since || row.time > until) return true;
+          if (source !== undefined && row.source !== source) return true;
+          if (text !== undefined && row.text !== text) return true;
+          return false;
+        });
+        return { removed: before - instance.logs.length };
+      }
       case "attachment.plan":
         return id === "local-main"
           ? { currentVersion: "0.2.4", targetVersion: "0.2.4", releaseNotes: platformNotes, development: false, upgradeRequired: false, externalServices: ["llbot"], steps: ["下载固定版本的平台依赖组合", "停止受影响服务并确认进程退出", "切换平台并验证", "恢复此前运行的服务"] }
@@ -354,20 +455,22 @@ export function installMockBridge() {
         instance.logs.push(entry); emit(id, "log", entry);
         return { delivered: true };
       }
-      case "modules.search":
-        return { stale: false, modules: [
-          { id: "land", npm: "@sfmc-bds/module-land", version: "1.5.0", sdk: "^0.2.0" },
-          { id: "economy", npm: "@sfmc-bds/module-economy", version: "2.0.1", sdk: "^0.2.0" },
-          { id: "chat", npm: "@sfmc-bds/module-chat", version: "1.0.0", sdk: "^0.2.0" },
-          { id: "chat-sounds", npm: "@sfmc-bds/module-chat-sounds", version: "0.1.2", sdk: "^0.2.0" },
-          { id: "coop", repo: "DogeLakeDev/sfmc-module-coop", tag: "v0.4.0" },
-          { id: "data-backup", npm: "@sfmc-bds/module-data-backup", version: "0.6.0", sdk: "^0.2.0" },
-          { id: "fly-area", npm: "@sfmc-bds/module-fly-area", version: "0.3.1", sdk: "^0.2.0" },
-          { id: "inventory-switcher", npm: "@sfmc-bds/module-inventory-switcher", version: "0.2.0", sdk: "^0.2.0" },
-          { id: "monitor", npm: "@sfmc-bds/module-monitor", version: "0.5.3", sdk: "^0.2.0" },
-          { id: "qa", npm: "@sfmc-bds/module-qa", version: "0.1.0", sdk: "^0.2.0" },
-        ].filter((row) => row.id.includes(String(params.query ?? ""))) };
-      case "modules.install": return runTask(id, method, ["download", "execute"], () => instance.modules.push({ id: String(params.id), folder: `sfmc-module-${String(params.id)}`, name: String(params.id), version: "0.1.0", enabled: true, linked: false }));
+      case "modules.search": {
+        const needle = String(params.query ?? "").trim().toLowerCase();
+        return {
+          stale: false,
+          modules: mockRegistry.filter((row) => !needle || [row.id, row.name, row.description, row.npm].some((value) => value?.toLowerCase().includes(needle))),
+        };
+      }
+      case "modules.install": {
+        const moduleId = String(params.id);
+        const entry = mockRegistry.find((row) => row.id === moduleId);
+        if (entry) {
+          const block = moduleRequireBlockMessage(moduleId, entry.requires, instance.modules);
+          if (block) throw new Error(block);
+        }
+        return runTask(id, method, ["download", "execute"], () => instance.modules.push({ id: moduleId, folder: `sfmc-module-${moduleId}`, name: entry?.name ?? moduleId, version: entry?.version ?? "0.1.0", enabled: true, linked: false }));
+      }
       case "modules.uninstall": return runTask(id, method, ["execute"], () => { instance.modules = instance.modules.filter((row) => row.folder !== params.id); });
       case "modules.toggle": return runTask(id, method, ["execute"], () => { const row = instance.modules.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
       case "config.read": {
@@ -385,8 +488,23 @@ export function installMockBridge() {
           document.revision = `${document.key}-${document.text.length}-${Date.now()}`;
         });
       }
-      case "packs.import": return runTask(id, method, ["execute"], () => instance.packs.push({ id: uuid(), name: String(params.filename).replace(/^\d+-/, "").replace(/\.\w+$/, ""), kind: "behavior", enabled: true, version: "1.0.0" }));
+      case "packs.import": return runTask(id, method, ["execute"], () => {
+        const names = Array.isArray(params.filenames) ? params.filenames.map(String) : [String(params.filename ?? "")];
+        for (const name of names.filter(Boolean)) {
+          instance.packs.push({ id: uuid(), name: name.replace(/^\d+-/, "").replace(/\.(mcpack|mcaddon|zip)$/i, ""), kind: "behavior", enabled: true, version: "1.0.0", iconStamp: "mock:imported" });
+        }
+      });
       case "packs.toggle": return runTask(id, method, ["execute"], () => { const row = instance.packs.find((item) => item.id === params.id); if (row) row.enabled = params.enabled === true; });
+      case "packs.icon": {
+        const row = instance.packs.find((item) => item.id === params.id);
+        const data = row?.iconStamp ? mockPackPng(row.iconStamp, row.name) : null;
+        return data ? { id: String(params.id), mime: "image/png", data } : { id: String(params.id), mime: null, data: null };
+      }
+      case "packs.uninstall": return runTask(id, method, ["execute"], () => {
+        const row = instance.packs.find((item) => item.id === params.id);
+        if (!row || row.protected) return;
+        instance.packs = instance.packs.filter((item) => item.id !== params.id);
+      });
       case "players.list":
         return {
           players: [{ name: "Steve", xuid: "", online: true }, { name: "Alex", xuid: "", online: true }, { name: "Notch_CN", xuid: "", online: true }],
@@ -412,8 +530,9 @@ export function installMockBridge() {
         };
       case "updates.run": return runTask(id, method, maintenance);
       case "backups.create": return runTask(id, method, ["stop-services", "backup", "verify", "restore"]);
-      case "backups.list": return { backups: instance.tasks.filter((row) => row.status === "succeeded" && row.phases.some((phase) => phase.name === "backup")).map((row) => row.id) };
+      case "backups.list": return { backups: instance.tasks.filter((row) => row.status === "succeeded" && row.phases.some((phase) => phase.name === "backup") && !instance.deletedBackups.has(row.id)).map((row) => row.id) };
       case "backups.restore": return runTask(id, method, ["stop-services", "restore-data", "verify", "restore"]);
+      case "backups.delete": return runTask(id, method, ["execute"], () => { instance.deletedBackups.add(String(params.id)); });
       case "startup.plan":
         return id === "local-main"
           ? { filename: "install-sfmc-service.ps1", script: "#Requires -RunAsAdministrator\n$ErrorActionPreference = 'Stop'\n$wrapper = 'D:\\SFMC\\survival\\.sfmc\\runtime\\sfmc3f2a9c1b.exe'\nif (Get-Service -Name 'sfmc3f2a9c1b' -ErrorAction SilentlyContinue) { throw '系统服务已存在，不重复安装' }\nCopy-Item -LiteralPath 'D:\\SFMC\\survival\\.sfmc\\runtime\\WinSW-x64.exe' -Destination $wrapper\n$credential = Get-Credential -UserName 'shiro' -Message '输入原 Windows 部署账号'\nNew-Service -Name 'sfmc3f2a9c1b' -BinaryPathName ('\"' + $wrapper + '\"') -Credential $credential -StartupType Automatic\nStart-Service -Name 'sfmc3f2a9c1b'\n" }
@@ -450,7 +569,15 @@ export function installMockBridge() {
     confirmHost: async () => true,
     request: (id, method, params) => request(id, method, (params ?? {}) as Record<string, unknown>) as never,
     choose: async (kind) => (kind === "directory" ? "D:\\SFMC\\new-server" : "C:\\Users\\shiro\\.ssh\\id_ed25519"),
-    uploadPack: async () => ({ filename: `${Date.now()}-Lucky_Blocks.mcaddon` }),
+    uploadPack: async (_id, paths) => {
+      if (paths && !paths.length) return [];
+      const source = paths ?? ["Lucky_Blocks.mcaddon"];
+      return source.map((item, index) => {
+        const base = item.split(/[\\/]/).pop() || "pack.mcpack";
+        return { filename: `${Date.now() + index}-${base.replace(/[^a-zA-Z0-9_.-]/g, "_")}` };
+      });
+    },
+    packFilePath: (file) => file.name,
     update: async () => ({ portable: true, manual: true, available: true, version: "0.1.1", releaseNotes: { version: "0.1.1", title: "SFMC Desktop 0.1.1", status: "available", url: "https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.1.1", publishedAt: "2026-10-03T03:00:00Z", body: "### 新增\n\n- 平台与桌面端更新前展示发行日志。\n- 关于入口显示桌面更新提醒。\n\n### 修复\n\n- 后台重连后自动恢复实时日志订阅。" } }),
     openLink: async (kind) => { console.info("[mock] openLink", kind); },
     appearance: async (mode: AppearanceMode) => { console.info("[mock] appearance", mode); },

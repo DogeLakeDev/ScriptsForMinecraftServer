@@ -2,19 +2,24 @@
  * ConsolePage.tsx — 日志控制台
  *
  * 使用场景：查看本次连接缓存的历史与实时日志（最多 5000 条），按来源/级别/关键字筛选，
- * 并向受管服务的标准输入发送一行命令（与原实现相同调用 services.send）。
+ * 也可用日历按本地日期和时间段向服务端重读。删除会改写 `.sfmc/logs` 里对应的行。
+ * 清屏仍然只隐藏当前视图，不删除文件。
  * 渲染只保留最近 RENDER_LIMIT 条匹配项，配合 content-visibility 保证大量日志时滚动流畅。
  */
-import type { LogEntryWire } from "@sfmc-bds/management";
+import type { LogEntryWire, LogsTailResult } from "@sfmc-bds/management";
+import { hasCapability } from "../../shared/platform-next.js";
+import { LOG_TAIL_MAX } from "../lib/log-range.js";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { Button, IconButton, SearchInput, Select } from "../components/controls.js";
-import { toast } from "../components/feedback.js";
+import { toast, useConfirm } from "../components/feedback.js";
 import { Icon } from "../components/icons.js";
+import { LogRangePicker } from "../components/LogRangePicker.js";
 import { Chip, Kbd } from "../components/ui.js";
 import { findLogIndex } from "../lib/alerts.js";
-import { hashHue, type Tone } from "../lib/format.js";
+import { errorText, hashHue, type Tone } from "../lib/format.js";
 import { highlightLogSpans } from "../lib/log-highlight.js";
+import { dayKey, logInBounds, rangeBounds, rangeLabel, secondWindow, type LogRangeValue } from "../lib/log-range.js";
 
 /** 单次渲染的最大日志行数 */
 const RENDER_LIMIT = 1500;
@@ -29,12 +34,20 @@ const LEVELS: { value: LogEntryWire["level"]; label: string; tone: Tone }[] = [
 /** 可接收命令的服务（与原实现一致） */
 const COMMAND_TARGETS = ["bds", "db", "qq", "llbot"];
 
-/** 格式化日志时间为 HH:mm:ss.SSS */
-function clock(iso: string): string {
+/** 格式化日志时间。跨日或正在按日期筛选时带上月-日。 */
+function clock(iso: string, withDate: boolean): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "--:--:--";
   const pad = (value: number, length = 2) => String(value).padStart(length, "0");
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+  return withDate ? `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${time}` : time;
+}
+
+/** 合并按日期读回的历史和连接期间新到的、落在同一范围内的日志。 */
+function mergeRanged(remote: LogEntryWire[], live: LogEntryWire[], since: string, until: string): LogEntryWire[] {
+  const seen = new Set(remote.map((log) => `${log.time}\0${log.source}\0${log.level}\0${log.text}`));
+  const extra = live.filter((log) => logInBounds(log, since, until) && !seen.has(`${log.time}\0${log.source}\0${log.level}\0${log.text}`));
+  return extra.length ? [...remote, ...extra].sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0) : remote;
 }
 
 /** 在一段已经着过色的文本里标出搜索词（不区分大小写） */
@@ -78,8 +91,12 @@ function toggle<T>(set: Set<T>, value: T): Set<T> {
 }
 
 export function ConsolePage() {
-  const { model, editable, request, guarded, logFocus, clearLogFocus } = useDesktop();
+  const { model, editable, request, guarded, logFocus, clearLogFocus, patch, current } = useDesktop();
+  const confirm = useConfirm();
   const logs = model.logs;
+  const logsRef = useRef(logs);
+  logsRef.current = logs;
+  const canRange = hasCapability(model.handshake?.capabilities, "logs-range");
   const [query, setQuery] = useState("");
   const [sources, setSources] = useState<Set<string>>(new Set());
   const [levels, setLevels] = useState<Set<string>>(new Set());
@@ -87,6 +104,13 @@ export function ConsolePage() {
   const [follow, setFollow] = useState(true);
   /** 清屏时间点：只隐藏此前的日志，不删除缓存 */
   const [clearedAt, setClearedAt] = useState("");
+  /** 日历选出的本地时间范围。为空表示不限时间。 */
+  const [range, setRange] = useState<LogRangeValue | null>(null);
+  /** 按范围从日志文件读回的历史。旧平台没有该能力时保持 null，只筛已加载的行。 */
+  const [rangedLogs, setRangedLogs] = useState<LogEntryWire[] | null>(null);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeTruncated, setRangeTruncated] = useState(false);
+  const [rangeEpoch, setRangeEpoch] = useState(0);
   const [command, setCommand] = useState("");
   const sendingRef = useRef(false);
   const [sending, setSending] = useState(false);
@@ -105,10 +129,54 @@ export function ConsolePage() {
     setSources(new Set());
     setLevels(new Set());
     setClearedAt("");
+    // 缓冲里已经没有这条报错时，按它所在的本地日重新读取日志文件。
+    const stamp = new Date(logFocus.entry.time);
+    const inBuffer = findLogIndex(logs, logFocus.entry) >= 0;
+    if (!inBuffer && canRange && !Number.isNaN(stamp.getTime())) {
+      const day = dayKey(stamp);
+      setRange({ startDay: day, endDay: day, startTime: "00:00", endTime: "23:59" });
+    } else {
+      setRange(null);
+    }
     setFollow(false);
   }
 
-  const visibleLogs = useMemo(() => (clearedAt ? logs.filter((log) => log.time > clearedAt) : logs), [logs, clearedAt]);
+  const bounds = range ? rangeBounds(range) : null;
+  const since = bounds?.since ?? "";
+  const until = bounds?.until ?? "";
+  useEffect(() => {
+    if (!range || !canRange || !since || !until || since > until) {
+      setRangedLogs(null);
+      setRangeTruncated(false);
+      setRangeLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRangedLogs(null);
+    setRangeTruncated(false);
+    setRangeLoading(true);
+    request("logs.tail", { limit: LOG_TAIL_MAX, since, until })
+      .then((result: LogsTailResult) => {
+        if (cancelled) return;
+        setRangedLogs(result.entries);
+        setRangeTruncated(result.truncated === true);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setRangedLogs([]);
+        setRangeTruncated(false);
+        toast.error("无法按日期读取日志", errorText(error));
+      })
+      .finally(() => { if (!cancelled) setRangeLoading(false); });
+    return () => { cancelled = true; };
+  }, [canRange, request, range, rangeEpoch, since, until]);
+
+  const pool = useMemo(() => {
+    if (!bounds) return logs;
+    if (!canRange || !rangedLogs) return logs.filter((log) => logInBounds(log, bounds.since, bounds.until));
+    return mergeRanged(rangedLogs, logs, bounds.since, bounds.until);
+  }, [bounds, canRange, logs, rangedLogs]);
+  const visibleLogs = useMemo(() => (clearedAt ? pool.filter((log) => log.time > clearedAt) : pool), [pool, clearedAt]);
   const sourceCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const log of visibleLogs) counts.set(log.source, (counts.get(log.source) ?? 0) + 1);
@@ -128,6 +196,8 @@ export function ConsolePage() {
         (!needle || log.text.toLowerCase().includes(needle))
     );
   }, [visibleLogs, sources, levels, query]);
+  const today = dayKey(new Date());
+  const showDate = Boolean(range) || filtered.some((log) => dayKey(new Date(log.time)) !== today);
   const focusIndex = logFocus ? findLogIndex(filtered, logFocus.entry) : -1;
   const renderStart = focusIndex >= 0
     ? Math.max(0, Math.min(Math.max(0, focusIndex - 80), Math.max(0, filtered.length - RENDER_LIMIT)))
@@ -143,10 +213,15 @@ export function ConsolePage() {
   }, [logFocus, focusIndex]);
   useEffect(() => {
     if (!logFocus || missingFocus.current === logFocus.nonce) return;
-    if (findLogIndex(logs, logFocus.entry) >= 0) return;
+    if (findLogIndex(pool, logFocus.entry) >= 0) {
+      missingFocus.current = logFocus.nonce;
+      return;
+    }
+    if (rangeLoading) return;
+    if (canRange && bounds && rangedLogs === null) return;
     missingFocus.current = logFocus.nonce;
     toast.warning("这条日志已不在当前记录中");
-  }, [logFocus, logs]);
+  }, [bounds, canRange, logFocus, pool, rangeLoading, rangedLogs]);
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
@@ -183,6 +258,46 @@ export function ConsolePage() {
     void navigator.clipboard.writeText(text).then(() => toast.success(`已复制 ${filtered.length} 条日志`));
   };
 
+  /** 从当前连接缓存里去掉已删除的行。实时推送不会重放这些历史。 */
+  const dropLoaded = (match: (log: LogEntryWire) => boolean) => {
+    patch(current, { logs: logsRef.current.filter((log) => !match(log)) });
+    setRangedLogs((rows) => rows?.filter((log) => !match(log)) ?? rows);
+    setRangeEpoch((value) => value + 1);
+  };
+  const deleteRange = () => {
+    if (!bounds || !editable) return;
+    const label = rangeLabel(range);
+    void confirm({
+      title: "删除这段时间的日志",
+      description: `将从日志文件中删除 ${label} 的记录。来源、级别和关键字筛选不会缩小删除范围。无法识别的行会保留。`,
+      acknowledge: "我了解这些日志删除后无法恢复",
+      danger: true,
+      okText: "删除",
+      icon: "trash",
+      onConfirm: async () => {
+        const result = await request("logs.delete", { since: bounds.since, until: bounds.until });
+        dropLoaded((log) => logInBounds(log, bounds.since, bounds.until));
+        toast.success(`已删除 ${result.removed} 条日志`);
+      },
+    });
+  };
+  const deleteLine = (log: LogEntryWire) => {
+    const window = secondWindow(log.time);
+    if (!window || !editable) return;
+    void confirm({
+      title: "删除这条日志",
+      description: "将从日志文件中删除这一秒内来源和正文相同的记录。",
+      danger: true,
+      okText: "删除",
+      icon: "trash",
+      onConfirm: async () => {
+        const result = await request("logs.delete", { ...window, source: log.source, text: log.text });
+        dropLoaded((row) => row.source === log.source && row.text === log.text && logInBounds(row, window.since, window.until));
+        toast.success(result.removed ? `已删除 ${result.removed} 条日志` : "日志文件中没有对应的行");
+      },
+    });
+  };
+
   return (
     <div className="page page-fill console-page">
       <div className="console-toolbar">
@@ -204,9 +319,13 @@ export function ConsolePage() {
           ))}
         </div>
         <span className="toolbar-spacer" />
+        <LogRangePicker value={range} onChange={(next) => { setRange(next); setClearedAt(""); }} />
+        {canRange && (
+          <IconButton icon="trash" label="删除此时间范围" size="sm" danger tooltip={!editable ? "当前为只读" : range ? "从日志文件删除这个时间范围" : "先用日历选一段时间"} disabled={!editable || !range} onClick={deleteRange} />
+        )}
         <IconButton icon="wrap" label={wrap ? "关闭自动换行" : "自动换行"} size="sm" active={wrap} onClick={() => setWrap(!wrap)} />
         <IconButton icon="copy" label="复制当前筛选结果" size="sm" onClick={copyVisible} disabled={!filtered.length} />
-        <IconButton icon="eraser" label="清屏" size="sm" onClick={() => setClearedAt(logs.at(-1)?.time ?? "")} disabled={!visibleLogs.length} />
+        <IconButton icon="eraser" label="清屏" size="sm" onClick={() => setClearedAt(pool.at(-1)?.time ?? "")} disabled={!visibleLogs.length} />
       </div>
       <div className="chip-row console-sources" role="group" aria-label="来源">
         <Chip active={!sources.size} onClick={() => setSources(new Set())} count={visibleLogs.length}>全部来源</Chip>
@@ -217,13 +336,14 @@ export function ConsolePage() {
           </Chip>
         ))}
         {clearedAt && (
-          <button type="button" className="link-btn console-restore" onClick={() => setClearedAt("")}>恢复已清屏的 {logs.length - visibleLogs.length} 条</button>
+          <button type="button" className="link-btn console-restore" onClick={() => setClearedAt("")}>恢复已清屏的 {pool.length - visibleLogs.length} 条</button>
         )}
+        {rangeTruncated && <span className="log-range-note">这个时间段只载入了最新 {LOG_TAIL_MAX} 条，更早的记录可以缩小范围后再查</span>}
       </div>
       <div className="console-frame">
         <div
           ref={viewport}
-          className={`console-viewport${wrap ? " wrap" : ""}`}
+          className={`console-viewport${wrap ? " wrap" : ""}${showDate ? " with-date" : ""}`}
           onScroll={(event) => {
             const element = event.currentTarget;
             const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 40;
@@ -237,16 +357,19 @@ export function ConsolePage() {
               const focused = renderStart + index === focusIndex;
               return (
                 <div key={`${log.time}-${renderStart + index}`} ref={focused ? focusRow : undefined} className={`log-row level-${log.level}${focused ? " log-focus" : ""}`}>
-                  <span className="log-time">{clock(log.time)}</span>
+                  <span className="log-time">{clock(log.time, showDate)}</span>
                   <span className="log-src" style={{ color: `hsl(${hashHue(log.source)} 58% var(--log-src-l))` }}>{log.source}</span>
                   <span className="log-text">{highlight(log.text, query.trim())}</span>
+                  {canRange && (
+                    <IconButton className="log-row-delete" icon="trash" label={`删除 ${clock(log.time, true)} 的日志`} size="sm" tooltip={false} disabled={!editable} onClick={() => deleteLine(log)} />
+                  )}
                 </div>
               );
             })
           ) : (
             <div className="console-empty">
               <Icon name="terminal" size={20} />
-              <span>{logs.length ? "没有符合筛选条件的日志" : "等待日志输出…"}</span>
+              <span>{rangeLoading ? "正在读取该时间段的日志…" : pool.length ? "没有符合筛选条件的日志" : logs.length && range ? "这个时间段没有日志" : "等待日志输出…"}</span>
             </div>
           )}
         </div>

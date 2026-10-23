@@ -33,7 +33,14 @@ export interface DesktopApi {
   confirmHost(id: string): Promise<boolean>;
   request<K extends ManagementMethod>(id: string, method: K, params?: unknown): Promise<ManagementMethodMap[K]>;
   choose(kind: "directory" | "privateKey" | "pack"): Promise<string | null>;
-  uploadPack(id: string): Promise<{ filename: string } | null>;
+  /**
+   * 把世界包复制到实例收件箱。
+   * 不传 paths 时打开可多选的文件框，取消返回 null。
+   * 传入路径时用于拖入的文件，返回已上传的收件箱文件名。
+   */
+  uploadPack(id: string, paths?: string[]): Promise<{ filename: string }[] | null>;
+  /** 拖入的 File 在 Electron 里对应的本机绝对路径。 */
+  packFilePath(file: File): string;
   update(action: "check" | "download" | "install"): Promise<unknown>;
   openLink(kind: "eula" | "desktop-release" | "release", url?: string): Promise<void>;
   /** 设置外观模式并同步窗口原生部分（标题栏按钮区、窗口底色） */

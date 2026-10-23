@@ -6,6 +6,14 @@ export interface AlertGroup {
   firstTime: string;
 }
 
+/**
+ * 不截断地合并全部警告和错误。
+ * 使用场景：告警档案要留下每一种报错，而不是只保留最近几组。
+ */
+export function groupAllAlerts(logs: LogEntryWire[]): AlertGroup[] {
+  return groupAlerts(logs, Number.POSITIVE_INFINITY);
+}
+
 /** 同一来源、级别和完整正文才合并；按最后出现时间排序，原始日志不变。 */
 export function groupAlerts(logs: LogEntryWire[], limit = 6): AlertGroup[] {
   if (limit <= 0) return [];

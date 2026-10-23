@@ -9,6 +9,7 @@
  * 页面由 PAGES 注册表按 PageKey 查找（OCP：新增页面只需在 nav.ts 与此表各加一项）。
  */
 import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { AlertsProvider } from "../components/AlertsSheet.js";
 import { CommandPalette } from "../components/CommandPalette.js";
 import { Button } from "../components/controls.js";
 import { ConfirmProvider, ProgressLine, ToastHost } from "../components/feedback.js";
@@ -278,7 +279,9 @@ export function App() {
       <TooltipProvider>
         <ConfirmProvider>
           <DesktopProvider>
-            <Shell />
+            <AlertsProvider>
+              <Shell />
+            </AlertsProvider>
           </DesktopProvider>
         </ConfirmProvider>
         <ToastHost />

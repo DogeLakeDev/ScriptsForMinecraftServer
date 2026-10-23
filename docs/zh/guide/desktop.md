@@ -2,16 +2,19 @@
 
 SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，也可以通过 SSH 连接 Linux 或 Windows 服务器。服务启停、控制台、模块、资源包、配置、玩家与维护任务都集中在同一个工作区。
 
-当前提供 **0.3.6(1) 正式版**，内置平台 `0.2.20`。客户端通过发行页手动下载安装更新。
+当前提供 **0.3.7 正式版**，内置平台 `0.2.20`。客户端通过发行页手动下载安装更新。
 
-桌面端的小修复保留产品版本，仅递增括号中的构建号，例如 `0.3.6(1)`、`0.3.6(2)`。已有服务器需在更新页升级平台到 `0.2.20`，再重新连接，才能使用本次保存后手动重启的行为；旧平台在对应页面只允许查看。
+桌面端的小修复保留产品版本，仅递增括号中的构建号，例如 `0.3.7(1)`、`0.3.7(2)`。本版内置的平台仍是已发布的 `0.2.20`，已有服务器不需要为了安装这个客户端而升级平台。日志按日期筛选、世界包图标与卸载、备份删除、模块依赖检查，会在所连守护进程提供对应能力后出现。
+
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.7) 下载：
+
+- `SFMC-Desktop-0.3.7-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.3.7-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 
 ## 下载与启动
 
-从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.6+build.1) 下载：
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.7) 下载上面的安装包，以及：
 
-- `SFMC-Desktop-0.3.6-build.1-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.3.6-build.1-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
 - `artifact-attestation.sigstore.json`：GitHub Artifact Attestations 构建证明。
 
@@ -20,13 +23,13 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 发行页同时公示 SHA256。下载后核对文件摘要：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.6-build.1-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.7-x64.exe' -Algorithm SHA256
 ```
 
 安装 [GitHub CLI](https://cli.github.com/) 后，可核对构建证明、源码仓库、工作流和标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.6-build.1-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.6+build.1 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.3.7-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.7 --deny-self-hosted-runners
 ```
 
 验证 ZIP 时替换文件名即可；添加 `--bundle '.\artifact-attestation.sigstore.json'` 可以验证下载的证明文件。需要固定到具体提交时，再加入 `--source-digest` 和 `release-manifest.json` 中的 `sourceCommit`。构建证明用于核对文件来源与摘要，不是 Windows 发布者证书。

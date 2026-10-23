@@ -21,6 +21,7 @@ import { ArrowsVerticalIcon } from "@phosphor-icons/react/ArrowsVertical";
 import { BellIcon } from "@phosphor-icons/react/Bell";
 import { BroadcastIcon } from "@phosphor-icons/react/Broadcast";
 import { BugIcon } from "@phosphor-icons/react/Bug";
+import { CalendarBlankIcon } from "@phosphor-icons/react/CalendarBlank";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { CaretUpDownIcon } from "@phosphor-icons/react/CaretUpDown";
@@ -157,6 +158,7 @@ const ICONS = {
   circle: CircleIcon,
   loader: CircleNotchIcon,
   clock: ClockIcon,
+  calendar: CalendarBlankIcon,
   copy: CopyIcon,
   download: DownloadSimpleIcon,
   upload: UploadSimpleIcon,

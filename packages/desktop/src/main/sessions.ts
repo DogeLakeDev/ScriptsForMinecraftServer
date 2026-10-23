@@ -149,8 +149,16 @@ export class Session {
   private async remoteExists(file: string) {
     return new Promise<boolean>((resolve, reject) => this.sftp!.stat(file.replace(/\\/g, "/"), (error, stat) => { if (!error) resolve(stat.isFile()); else if (Number((error as NodeJS.ErrnoException).code) === 2) resolve(false); else reject(error); }));
   }
-  async uploadPack(local: string) {
-    const filename = `${Date.now()}-${path.basename(local).replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
+  /**
+   * 把本机世界包复制到实例收件箱。
+   * 使用场景：单个导入，以及批量导入时由 uploadPacks 逐个调用。stamp 用来区分同一次选择里的多个文件。
+   */
+  async uploadPack(local: string, stamp = String(Date.now())) {
+    const safe = path.basename(local).replace(/[^a-zA-Z0-9_.-]/g, "_") || "pack";
+    const prefix = `${stamp}-`;
+    const room = 128 - prefix.length;
+    if (room < 1) throw new Error("世界包文件名过长");
+    const filename = `${prefix}${safe.slice(0, room)}`;
     const join = this.profile.kind === "ssh" && this.profile.os === "linux" ? path.posix.join : path.win32.join;
     const directory = join(this.profile.root, "packs", "_desktop-inbox");
     if (this.profile.kind === "local") { fs.mkdirSync(directory, { recursive: true }); await fs.promises.copyFile(local, join(directory, filename)); }
@@ -159,6 +167,17 @@ export class Session {
       await this.upload(local, join(directory, filename));
     }
     return { filename };
+  }
+  /** 按选择顺序把多个世界包复制到收件箱。使用场景：多选对话框和拖入文件。 */
+  async uploadPacks(locals: string[]) {
+    const start = Date.now();
+    const uploaded: { filename: string }[] = [];
+    for (let index = 0; index < locals.length; index += 1) {
+      const local = locals[index];
+      if (!local) continue;
+      uploaded.push(await this.uploadPack(local, String(start + index)));
+    }
+    return uploaded;
   }
   /** 只关闭这条管理通道。守护进程在登录会话之外，结束 SSH 或本地 stdio 不会停止服务器进程。 */
   disconnect() { this.client?.disconnect(); this.ssh?.end(); this.child?.stdin?.end(); this.credentials = {}; }
