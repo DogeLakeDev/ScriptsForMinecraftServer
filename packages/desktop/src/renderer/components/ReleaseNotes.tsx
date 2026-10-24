@@ -48,7 +48,7 @@ export function ReleaseNotes({ notes, version, collapsible = false, title = "更
   const content = <>
     <div className="release-notes-meta"><span className="mono">v{displayVersion}</span>{notes?.publishedAt && <span>{fullTime(notes.publishedAt)}</span>}</div>
     <div className="release-notes-body" tabIndex={0} role="region" aria-label={`版本 ${version} 更新日志`}>
-      {notes?.status === "available" ? <Body text={notes.body} /> : <p className="muted">{notes?.status === "empty" ? "此版本暂无更新日志" : notes?.message || "暂未获取到此版本的更新日志"}</p>}
+      {notes?.status === "available" ? <Body text={notes.body} /> : <p className="muted">{notes?.status === "empty" ? "暂无更新日志" : notes?.message || "暂未更新日志"}</p>}
     </div>
     {notes && <Button size="sm" variant="ghost" iconEnd="external" onClick={() => void window.sfmc.openLink("release", notes.url)}>查看发行原文</Button>}
   </>;

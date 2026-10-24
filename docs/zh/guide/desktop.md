@@ -2,18 +2,18 @@
 
 SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，也可以通过 SSH 连接 Linux 或 Windows 服务器。服务启停、控制台、模块、资源包、配置、玩家与维护任务都集中在同一个工作区。
 
-当前提供 **0.3.7 正式版**，内置平台 `0.2.20`。客户端通过发行页手动下载安装更新。
+当前提供 **0.3.8 正式版**，内置平台 `0.2.20`。客户端通过发行页手动下载安装更新。
 
-桌面端的小修复保留产品版本，仅递增括号中的构建号，例如 `0.3.7(1)`、`0.3.7(2)`。本版内置的平台仍是已发布的 `0.2.20`，已有服务器不需要为了安装这个客户端而升级平台。日志按日期筛选、世界包图标与卸载、备份删除、模块依赖检查，会在所连守护进程提供对应能力后出现。
+桌面端的小修复保留产品版本，仅递增括号中的构建号，例如 `0.3.8(1)`、`0.3.8(2)`。本版内置的平台仍是已发布的 `0.2.20`，已有服务器不需要为了安装这个客户端而升级平台。日志按日期筛选、资源包图标与卸载、备份删除、模块依赖检查，会在所连守护进程提供对应能力后出现。
 
-从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.7) 下载：
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.8) 下载：
 
-- `SFMC-Desktop-0.3.7-x64.exe`：安装向导，可以选择安装目录。
-- `SFMC-Desktop-0.3.7-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
+- `SFMC-Desktop-0.3.8-x64.exe`：安装向导，可以选择安装目录。
+- `SFMC-Desktop-0.3.8-x64.zip`：完整解压到一个目录，再运行 `SFMC Desktop.exe`。保留全部文件。
 
 ## 下载与启动
 
-从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.7) 下载上面的安装包，以及：
+从 [桌面版发行页](https://github.com/DogeLakeDev/ScriptsForMinecraftServer/releases/tag/desktop-v0.3.8) 下载上面的安装包，以及：
 
 - `SHA256SUMS.txt`：下载校验值；`release-manifest.json`：源代码提交与内置运行时版本。
 - `artifact-attestation.sigstore.json`：GitHub Artifact Attestations 构建证明。
@@ -23,13 +23,13 @@ SFMC Desktop 是 Windows x64 桌面客户端，可以管理本机 SFMC 部署，
 发行页同时公示 SHA256。下载后核对文件摘要：
 
 ```powershell
-Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.7-x64.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\SFMC-Desktop-0.3.8-x64.exe' -Algorithm SHA256
 ```
 
 安装 [GitHub CLI](https://cli.github.com/) 后，可核对构建证明、源码仓库、工作流和标签：
 
 ```powershell
-gh attestation verify '.\SFMC-Desktop-0.3.7-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.7 --deny-self-hosted-runners
+gh attestation verify '.\SFMC-Desktop-0.3.8-x64.exe' --repo DogeLakeDev/ScriptsForMinecraftServer --signer-workflow DogeLakeDev/ScriptsForMinecraftServer/.github/workflows/desktop-release.yml --source-ref refs/tags/desktop-v0.3.8 --deny-self-hosted-runners
 ```
 
 验证 ZIP 时替换文件名即可；添加 `--bundle '.\artifact-attestation.sigstore.json'` 可以验证下载的证明文件。需要固定到具体提交时，再加入 `--source-digest` 和 `release-manifest.json` 中的 `sourceCommit`。构建证明用于核对文件来源与摘要，不是 Windows 发布者证书。
@@ -64,11 +64,11 @@ gh attestation verify '.\SFMC-Desktop-0.3.7-x64.exe' --repo DogeLakeDev/ScriptsF
 
 ![实例概览：服务状态、TPS 和资源指标](../../public/desktop/overview.jpg)
 
-**概览** 查看服务状态、TPS、在线人数、内存和维度实体。内存曲线包含主机总占用、BDS 和数据服务；维度实体按主世界、下界、末地分色。曲线可选 15 分钟、1 小时或一天。平台 0.2.16 起，采样写入数据库，服务未运行时仍可查看已有曲线。停止状态、零在线人数和缺少采样都可能是正常情况；指标是否新鲜需要结合采样状态判断。
+**实例状态** 是连接后的首页。顶部一行显示运行服务、在线玩家、TPS 和主机内存，TPS 偏低时标黄；下面左侧是服务表，可以直接启动、重启和停止服务，底部附实例详情；右侧「需要关注」列出最近告警和任务。再往下是运行曲线，可查看 TPS、在线人数、内存和维度实体。内存曲线包含主机总占用、BDS 和数据服务；维度实体按主世界、下界、末地分色。曲线可选 15 分钟、1 小时或一天。平台 0.2.16 起，采样写入数据库，服务未运行时仍可查看已有曲线。停止状态、零在线人数和缺少采样都可能是正常情况；指标是否新鲜需要结合采样状态判断。
 
 ![模块管理：模块列表和详情](../../public/desktop/modules.jpg)
 
-**模块** 查看来源、版本和启用状态。安装、启用、停用和卸载模块不会自动停服或重启；任务完成后，可使用页面上的 **重启 BDS** 按钮加载需要重新打包的变更。**世界包** 的导入和启停也只保存更改，通过独立的 **重启 BDS** 按钮手动生效。平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`，旧模块需移除这些字段；已有启停状态仍由 module-lock 保存。
+**模块** 查看来源、版本和启用状态。安装、启用、停用和卸载模块不会自动停服或重启；任务完成后，可使用页面上的 **重启 BDS** 按钮加载需要重新打包的变更。**资源包** 的导入和启停也只保存更改，通过独立的 **重启 BDS** 按钮手动生效。平台 0.2.9 停用模块声明中的 `canDisable` 与 `enabledByDefault`，旧模块需移除这些字段；已有启停状态仍由 module-lock 保存。
 
 ![配置编辑：配置列表与编辑器](../../public/desktop/config.jpg)
 
@@ -99,9 +99,9 @@ gh attestation verify '.\SFMC-Desktop-0.3.7-x64.exe' --repo DogeLakeDev/ScriptsF
 ## 建议的首次验收
 
 1. 先在独立测试目录完成初始化；已有正式部署直接打开即可管理。
-2. 在概览先启动数据服务，再启动 BDS。确认日志没有初始化错误，指标有新采样。
+2. 在实例状态页先启动数据服务，再启动 BDS。确认日志没有初始化错误，指标有新采样。
 3. 查看模块与配置，尝试一项可撤销的修改，并确认任务完成。
-4. 从托盘退出客户端后重新打开，确认能连接原守护进程。关闭窗口默认只是留在托盘，不会停止服务器；需要停止时在概览明确停止 BDS 和数据服务。
+4. 从托盘退出客户端后重新打开，确认能连接原守护进程。关闭窗口默认只是留在托盘，不会停止服务器；需要停止时在实例状态页明确停止 BDS 和数据服务。
 
 本版本通过发行页手动更新。后续版本从发行页下载，退出客户端后安装到原客户端目录，或完整替换 ZIP 内容；部署根目录和服务器数据独立于客户端安装目录。
 

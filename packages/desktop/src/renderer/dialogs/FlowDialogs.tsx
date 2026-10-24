@@ -51,7 +51,6 @@ function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
             <PasswordInput value={passphrase} onChange={setPassphrase} />
           </Field>
         )}
-        <p className="form-hint"><Icon name="info" size={12} /> 如需免输入，可在“连接设置”中勾选“使用系统加密记住密码与口令”。</p>
       </div>
     </Modal>
   );
@@ -59,9 +58,9 @@ function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
 
 /** 初始化端口字段（与原实现一致） */
 const PORT_FIELDS = [
-  { key: "dbPort", label: "DB TCP 端口", description: "数据与 HTTP 接口服务" },
-  { key: "bdsPort", label: "BDS UDP 端口", description: "玩家连接端口（IPv4）" },
-  { key: "bdsPort6", label: "BDS IPv6 UDP 端口", description: "玩家连接端口（IPv6）" },
+  { key: "dbPort", label: "DB TCP 端口", description: "数据API服务" },
+  { key: "bdsPort", label: "BDS UDP 端口" },
+  { key: "bdsPort6", label: "BDS IPv6 UDP 端口" },
 ] as const;
 type Ports = Record<(typeof PORT_FIELDS)[number]["key"], number | null>;
 
@@ -72,7 +71,7 @@ function portErrors(ports: Ports): Partial<Record<keyof Ports, string>> {
   for (const { key } of PORT_FIELDS) {
     const value = ports[key];
     if (value === null || !Number.isInteger(value) || value < 1 || value > 65535) errors[key] = "请输入 1–65535 的端口";
-    else if (seen.has(value)) errors[key] = "端口不能与其他服务重复";
+    else if (seen.has(value)) errors[key] = "端口与其他服务重复";
     else seen.set(value, key);
   }
   return errors;
@@ -111,8 +110,7 @@ function DeployDialog({ flow }: { flow: Extract<Flow, { kind: "deploy" }> }) {
       dismissible={!running}
       size="md"
       icon="rocket"
-      title="初始化新部署"
-      description={<>将在 <span className="mono">{profile.root}</span> 准备 BDS、核心配置和模块目录，并启动服务。</>}
+      title="初始化"
       onSubmit={() => void submit()}
       footer={
         <>
@@ -123,7 +121,7 @@ function DeployDialog({ flow }: { flow: Extract<Flow, { kind: "deploy" }> }) {
     >
       {operationId ? (
         <div className="form-stack">
-          <OperationSteps phases={task?.phases ?? []} pendingLabel="等待部署任务开始" />
+          <OperationSteps phases={task?.phases ?? []} pendingLabel="等待任务开始" />
           {error && <Callout tone="danger" title="初始化失败">{error}</Callout>}
         </div>
       ) : (
@@ -133,7 +131,7 @@ function DeployDialog({ flow }: { flow: Extract<Flow, { kind: "deploy" }> }) {
           </Callout>
           <div className="form-grid-3">
             {PORT_FIELDS.map((row) => (
-              <Field key={row.key} label={row.label} required error={errors[row.key]} description={row.description}>
+              <Field key={row.key} label={row.label} required error={errors[row.key]}>
                 <NumberInput value={ports[row.key]} onChange={(value) => setPorts((previous) => ({ ...previous, [row.key]: value }))} min={1} max={65535} integer invalid={Boolean(errors[row.key])} />
               </Field>
             ))}

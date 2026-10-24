@@ -1,8 +1,8 @@
 /**
- * TitleBar.tsx — 顶栏（SnowUI Header）：面包屑、连接状态、搜索、外观、任务、告警、右侧栏开关
+ * TitleBar.tsx — 顶栏（SnowUI Header）：面包屑、连接状态、搜索、外观、任务、告警
  *
  * 使用场景：窗口使用 titleBarStyle: "hidden" + 原生按钮覆盖层，本组件即窗口可拖拽区（高 68px）；
- * 右侧栏收起时通过 --wco-right（由 env(titlebar-area-*) 推导）为系统最小化/最大化/关闭按钮留位。
+ * 通过 --wco-right（由 env(titlebar-area-*) 推导）为系统最小化/最大化/关闭按钮留位。
  */
 import { useEffect, useState } from "react";
 import type { AppearanceMode } from "../../shared/api.js";
@@ -125,15 +125,7 @@ function AlertsButton() {
 }
 
 /** 顶栏 */
-export function TitleBar({
-  onOpenPalette,
-  railOpen,
-  onToggleRail,
-}: {
-  onOpenPalette: () => void;
-  railOpen: boolean;
-  onToggleRail: () => void;
-}) {
+export function TitleBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { selected, page, model, busy, setPage } = useDesktop();
   const { mode, dark, setMode } = useAppearance();
   const item = navItem(page);
@@ -169,7 +161,7 @@ export function TitleBar({
         )}
       </div>
       <div className="tb-right no-drag">
-        {latest && !railOpen && (
+        {latest && (
           <button type="button" className="tb-task" onClick={() => setPage("tasks")} title="查看任务">
             <Icon name="loader" size={14} spin />
             <span className="truncate">
@@ -206,13 +198,6 @@ export function TitleBar({
           onClick={() => setPage("tasks")}
         />
         <AlertsButton />
-        <IconButton
-          icon="panel"
-          mirrored
-          label={railOpen ? "收起动态栏" : "展开动态栏"}
-          size="sm"
-          onClick={onToggleRail}
-        />
       </div>
       {busy && <ProgressLine className="tb-progress" />}
     </header>

@@ -145,8 +145,8 @@ export function useUnsavedChanges(dirty: boolean, description: string) {
     return registerLeaveGuard(() => confirm({
       title: "放弃未保存的更改？",
       description,
-      okText: "放弃并离开",
-      cancelText: "继续编辑",
+      okText: "确定",
+      cancelText: "返回",
       danger: true,
       icon: "warning",
     }));
@@ -162,8 +162,6 @@ interface TrackedOperation {
   silenced?: boolean;
 }
 
-/** 提交任务确认框中的固定提示（与原实现文案一致） */
-const SUBMIT_NOTE = "任务提交后在后台执行，关闭客户端不会取消任务。";
 
 export function DesktopProvider({ children }: { children: ReactNode }) {
   const confirm = useConfirm();
@@ -453,7 +451,6 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       const confirmed = await confirm({
         title,
         description: options.description,
-        note: SUBMIT_NOTE,
         okText: options.okText ?? "执行",
         cancelText: "取消",
         danger: options.danger,
@@ -497,7 +494,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
               profilesRef.current = rows;
               setProfiles(rows);
             }
-            if (handshake.host.arch !== "x64" || !["windows", "linux"].includes(handshake.host.os)) throw new Error("v1 仅支持 Windows／Linux x64 宿主");
+            if (handshake.host.arch !== "x64" || !["windows", "linux"].includes(handshake.host.os)) throw new Error("此版本仅支持 Windows／Linux x64");
             patch(profile.id, { handshake, disconnected: false, connectionMessage: "" });
             await refresh(profile.id, handshake.capabilities);
             const history = await window.sfmc.request(profile.id, "logs.tail", { limit: 1000 });

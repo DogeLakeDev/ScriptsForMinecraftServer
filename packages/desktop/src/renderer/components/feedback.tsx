@@ -85,7 +85,7 @@ function ToastList() {
             {tone === "progress" && <div className="toast-progress-bar" aria-hidden="true"><span /></div>}
           </div>
           {item.actionProps && <Toast.Action className="btn btn-secondary btn-sm toast-action" />}
-          <Toast.Close className="icon-btn icon-btn-sm icon-btn-ghost toast-close" aria-label="关闭通知"><Icon name="x" size={14} /></Toast.Close>
+          <Toast.Close className="icon-btn icon-btn-sm icon-btn-ghost toast-close" aria-label="关闭"><Icon name="x" size={14} /></Toast.Close>
         </Toast.Content>
       </Toast.Root>
     );

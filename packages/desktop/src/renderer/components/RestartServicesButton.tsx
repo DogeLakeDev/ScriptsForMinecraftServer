@@ -25,7 +25,6 @@ export function ManualRestartNotice() {
         </Button>
       }
     >
-      当前平台尚不支持保存后手动重启，更新前可查看内容。
     </Callout>
   );
 }
@@ -52,8 +51,10 @@ export function RestartServicesButton({
         : busy
           ? "请等待当前任务完成"
           : !running
-            ? "服务尚未运行，下次启动时将读取已保存的更改"
+            ? ""
             : undefined;
+  // 是否禁用与提示文案分开判断：服务未运行时不显示提示（reason 为空串），但按钮仍需禁用。
+  const blocked = reason !== undefined;
   const restart = async () => {
     setSubmitting(true);
     try {
@@ -62,11 +63,7 @@ export function RestartServicesButton({
         { name: target, runningOnly: true, ...(target === "all" ? { reloadConfig: true } : {}) },
         label,
         {
-          okText: "重启",
-          description:
-            target === "all"
-              ? "将重新读取已保存的配置，并按依赖顺序重启当前运行的服务。玩家连接会暂时中断。"
-              : "将重启 BDS，加载已保存的模块与世界包更改。玩家连接会暂时中断。",
+          okText: "重启"
         }
       );
     } finally {
@@ -75,7 +72,7 @@ export function RestartServicesButton({
   };
   return (
     <Tooltip content={reason} wrap>
-      <Button icon="restart" disabled={Boolean(reason) || submitting} onClick={() => void restart()}>
+      <Button icon="restart" disabled={blocked || submitting} onClick={() => void restart()}>
         {label}
       </Button>
     </Tooltip>

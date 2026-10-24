@@ -48,20 +48,20 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
       .update("download")
       .then(() => {
         setDownloadedVersion(info?.version);
-        toast.success("更新已下载", "可安装并重启客户端");
+        toast.success("更新已下载", "可安装");
       })
-      .catch((error) => toast.error("下载更新失败", errorText(error)))
+      .catch((error) => toast.error("更新失败", errorText(error)))
       .finally(() => setDownloading(false));
   };
   const install = () => {
     if (!downloaded) {
-      toast.info("请先下载更新");
+      toast.info("请先更新");
       return;
     }
     setInstalling(true);
     window.sfmc.update("install").catch((error) => {
       setInstalling(false);
-      toast.error("安装更新失败", errorText(error));
+      toast.error("更新失败", errorText(error));
     });
   };
 
@@ -88,17 +88,17 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
           ) : checkError ? (
             <Callout tone="danger" title="检查失败">{checkError}</Callout>
           ) : info?.development ? (
-            <p className="about-text">开发模式不执行客户端安装升级。</p>
+            <p className="about-text">开发模式不支持升级。</p>
           ) : info ? (
             <>
               <p className="about-text">
-                {info.noRelease ? <Badge>暂无桌面发行版本</Badge> : info.available ? <Badge tone="info" dot>有新的桌面版本 · {formatDesktopVersion(info.version ?? "—")}</Badge> : <Badge tone="success" dot>已是最新桌面版本</Badge>}
+                {info.noRelease ? <Badge>暂无桌面发行版本</Badge> : info.available ? <Badge tone="info" dot>有新的版本 {formatDesktopVersion(info.version ?? "—")}</Badge> : <Badge tone="success" dot>已是最新版本</Badge>}
               </p>
               {!info.noRelease && <ReleaseNotes notes={info.releaseNotes} version={info.version ?? appInfo?.version ?? "—"} title="桌面端更新日志" />}
               <div className="about-actions">
-                {info.manual || info.portable || info.noRelease ? <Button iconEnd="external" onClick={() => void window.sfmc.openLink("desktop-release")}>打开发行页面</Button> : <>
-                <Button icon={downloaded ? "check" : "download"} disabled={!info.available || downloaded} loading={downloading} onClick={download}>{downloaded ? "已下载" : "下载更新"}</Button>
-                <Button variant="primary" icon="restart" disabled={!info.available || !downloaded} loading={installing} onClick={install}>安装并重启客户端</Button>
+                {info.manual || info.portable || info.noRelease ? <Button iconEnd="external" onClick={() => void window.sfmc.openLink("desktop-release")}>Github</Button> : <>
+                <Button icon={downloaded ? "check" : "download"} disabled={!info.available || downloaded} loading={downloading} onClick={download}>{downloaded ? "已下载" : "下载"}</Button>
+                <Button variant="primary" icon="restart" disabled={!info.available || !downloaded} loading={installing} onClick={install}>安装</Button>
                 </>}
               </div>
             </>

@@ -26,7 +26,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   {
     key: "overview",
-    label: "服务总览",
+    label: "实例状态",
     icon: "overview",
     group: "运行",
     capability: "services",
@@ -34,7 +34,7 @@ export const NAV: NavItem[] = [
   },
   {
     key: "logs",
-    label: "日志控制台",
+    label: "控制台",
     icon: "terminal",
     group: "运行",
     capability: "logs",
@@ -42,7 +42,7 @@ export const NAV: NavItem[] = [
   },
   {
     key: "tasks",
-    label: "任务记录",
+    label: "任务",
     icon: "history",
     group: "运行",
     capability: "operations",
@@ -50,7 +50,7 @@ export const NAV: NavItem[] = [
   },
   {
     key: "modules",
-    label: "模块管理",
+    label: "模块",
     icon: "modules",
     group: "内容",
     capability: "modules",
@@ -58,7 +58,7 @@ export const NAV: NavItem[] = [
   },
   {
     key: "packs",
-    label: "世界包",
+    label: "资源包",
     icon: "package",
     group: "内容",
     capability: "packs",

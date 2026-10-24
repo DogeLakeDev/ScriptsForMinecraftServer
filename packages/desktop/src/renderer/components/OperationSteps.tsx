@@ -27,7 +27,7 @@ function PhaseIcon({ phase }: { phase: OperationPhase }) {
 }
 
 /** 阶段时间线 */
-export function OperationSteps({ phases, pendingLabel = "等待维护锁并开始执行" }: { phases: OperationPhase[]; pendingLabel?: string }) {
+export function OperationSteps({ phases, pendingLabel = "等待进程队列..." }: { phases: OperationPhase[]; pendingLabel?: string }) {
   if (!phases.length) {
     return (
       <ol className="op-steps">

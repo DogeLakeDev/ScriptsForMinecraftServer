@@ -85,16 +85,35 @@ export function useRuntimeMetrics() {
   };
 }
 
-const memory = (value: number | null | undefined) =>
+/**
+ * TPS 低于该值时以警告色显示。
+ * 使用场景：MetricsPanel 工具栏的实时 TPS、总览页顶部状态条的 TPS 格；两处共用同一判定。
+ */
+export const TPS_WARN_THRESHOLD = 19.5;
+
+/**
+ * 把 MB 数值格式化为 "1.3 GB" / "73 MB"，缺失时显示 "—"。
+ * 使用场景：MetricsPanel 资源侧栏、总览页顶部状态条的主机内存格。
+ */
+export const formatMemoryMb = (value: number | null | undefined) =>
   value === null || value === undefined
     ? "—"
     : value >= 1024
       ? `${(value / 1024).toFixed(1)} GB`
       : `${Math.round(value)} MB`;
 
+const memory = formatMemoryMb;
+
 type MetricView = "tps" | "onlineCount" | "memory" | "entities";
 
-export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntimeMetrics> }) {
+export function MetricsPanel({
+  metrics,
+  className,
+}: {
+  metrics: ReturnType<typeof useRuntimeMetrics>;
+  /** 页面网格定位用，总览里放在服务区下方并横跨整行 */
+  className?: string;
+}) {
   const [field, setField] = useState<MetricView>("tps");
   const { dark } = useAppearance();
   const { data, supported, reachable, fresh, loading, resources, minutes, setMinutes } = metrics;
@@ -112,7 +131,8 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
         : scalarLine(data.history, field, field === "tps" ? "TPS" : "在线人数", (dark ? PALETTES.dark : PALETTES.light).progress, from, end);
   return (
     <Surface
-      title="运行指标"
+      className={className}
+      title="实例状态"
       extra={
         <Segmented
           size="sm"
@@ -148,7 +168,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
               ) : field === "memory" && host ? (
                 `总占用 ${memory(host.memory.usedMb)}`
               ) : sample?.tps !== null && sample?.tps !== undefined ? (
-                <span className={sample.tps < 19.5 ? "tone-text-warning" : ""}>TPS {sample.tps.toFixed(2)} / 20</span>
+                <span className={sample.tps < TPS_WARN_THRESHOLD ? "tone-text-warning" : ""}>TPS {sample.tps.toFixed(2)} / 20</span>
               ) : (
                 ""
               )}
@@ -168,13 +188,13 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
               compact
               icon="activity"
               title={
-                !supported ? "此平台暂不支持运行指标" : loading ? "正在读取指标…" : (data?.note ?? "暂时无法读取指标")
+                !supported ? "暂不支持运行指标" : loading ? "正在读取指标…" : (data?.note ?? "暂时无法读取指标")
               }
             />
           )}
           <div className="metrics-meta">
-            {data?.updatedAt ? `最后采样 ${fullTime(data.updatedAt)}` : ""}
-            {!fresh && data?.updatedAt ? "（实时状态未知）" : ""}
+            {data?.updatedAt ? `更新于 ${fullTime(data.updatedAt)}` : ""}
+            {!fresh && data?.updatedAt ? "" : ""}
           </div>
         </div>
         <div className="metrics-resources">
@@ -187,7 +207,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
           <div
             className="memory-meter"
             role="meter"
-            aria-label="主机内存使用率"
+            aria-label="内存使用率"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={host?.memory.usedPercent}
@@ -203,7 +223,7 @@ export function MetricsPanel({ metrics }: { metrics: ReturnType<typeof useRuntim
                 <span className="muted">
                   {process
                     ? process.running
-                      ? `累计 CPU ${process.cpuSeconds === null ? "未知" : `${process.cpuSeconds.toFixed(1)} 秒`}`
+                      ? `累计 CPU ${process.cpuSeconds === null ? "未知" : `${process.cpuSeconds.toFixed(1)} s`}`
                       : "已停止"
                     : "资源未知"}
                 </span>

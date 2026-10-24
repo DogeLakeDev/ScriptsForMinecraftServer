@@ -144,7 +144,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
         const state = archiveRef.current;
         if (state.id === current) markCoveredLines(state.alerts, logsRef.current, appliedRef.current.keys);
         setScan({ id: current, ready: true, truncated: false, legacy: false });
-        toast.error("没能从日志文件补齐更早的报错", errorText(error));
+        toast.error("无更早的报错", errorText(error));
       });
     return () => { cancelled = true; };
   }, [canRange, capabilitiesKnown, current, request]);
@@ -255,14 +255,14 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
   const copyOne = (alert: SavedAlert) => {
     const text = `${alert.lastTime} [${alert.source}] [${alert.level}] ×${alert.count}\n${alert.text}`;
     void navigator.clipboard.writeText(text).then(
-      () => toast.success("已复制这条告警"),
+      () => toast.success("已复制"),
       () => toast.error("无法写入剪贴板"),
     );
   };
   const copyVisible = () => {
     const text = filtered.map((alert) => `${alert.lastTime} [${alert.source}] [${alert.level}] ×${alert.count} ${alert.text}`).join("\n");
     void navigator.clipboard.writeText(text).then(
-      () => toast.success(`已复制 ${filtered.length} 条告警`),
+      () => toast.success(`已复制 ${filtered.length} 条`),
       () => toast.error("无法写入剪贴板"),
     );
   };
@@ -277,7 +277,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
       onClose={onClose}
       width={640}
       title="告警"
-      description={alerts.length ? `已保存 ${alerts.length} 条，错误 ${counts.errors}，警告 ${counts.warnings}` : "警告和错误都会留在这里"}
+      description={alerts.length ? `已保存 ${alerts.length} 条，错误 ${counts.errors}，警告 ${counts.warnings}` : "警告和错误"}
       actions={
         <>
           <Button size="sm" variant="ghost" icon="copy" disabled={!filtered.length} onClick={copyVisible}>复制</Button>
@@ -287,7 +287,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
     >
       <div className="alert-archive">
         <div className="alert-archive-tools">
-          <SearchInput value={query} onChange={setQuery} placeholder="搜索报错正文或来源" aria-label="搜索告警" />
+          <SearchInput value={query} onChange={setQuery} placeholder="搜索报错" aria-label="搜索告警" />
           <div className="chip-row">
             <Chip active={level === "all" && !unreadOnly} onClick={() => { setLevel("all"); setUnreadOnly(false); }}>全部</Chip>
             <Chip active={level === "error"} tone="danger" count={counts.errors} onClick={() => setLevel("error")}>错误</Chip>
@@ -296,7 +296,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
           </div>
           {counts.sources.length > 1 && (
             <div className="chip-row">
-              <Chip active={!source} onClick={() => setSource("")}>全部来源</Chip>
+              <Chip active={!source} onClick={() => setSource("")}>all</Chip>
               {counts.sources.map(([name, count]) => (
                 <Chip key={name} active={source === name} count={count} onClick={() => setSource(name)}>
                   <span className="mono">{name}</span>
@@ -304,11 +304,9 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
               ))}
             </div>
           )}
-          {truncated && <p className="alert-archive-note">日志文件里还有更早的报错没有载入。已经保存过的记录仍会留在列表里。</p>}
-          {legacy && <p className="alert-archive-note">当前只保存本次连接已载入的报错。重启守护进程后可以从日志文件补齐更早的记录。</p>}
           {hiddenCount > 0 && (
             <p className="alert-archive-note">
-              已忽略 {hiddenCount} 条。
+              已忽略 {hiddenCount} 条
               <button type="button" className="link-btn" onClick={restoreHidden}>恢复已忽略</button>
             </p>
           )}
@@ -326,16 +324,14 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
                       <span className="feed-meta alert-archive-meta">
                         <span className="mono">{alert.source}</span>
                         <span>{alert.level === "error" ? "错误" : "警告"}</span>
-                        <span title={`出现 ${alert.count} 次；首次 ${fullTime(alert.firstTime)}，最近 ${fullTime(alert.lastTime)}`}>×{alert.count}</span>
-                        <span>首次 {relativeTime(alert.firstTime, now)}</span>
-                        <span>最近 {relativeTime(alert.lastTime, now)}</span>
+                        <span title={`${fullTime(alert.lastTime)}`}>×{alert.count}</span>
                       </span>
                     </span>
                   </button>
                   <span className="alert-archive-actions">
                     <IconButton icon="terminal" label="在控制台查看" size="sm" onClick={() => jump(alert)} />
-                    <IconButton icon="copy" label="复制这条" size="sm" onClick={() => copyOne(alert)} />
-                    <IconButton icon="x" label="忽略这条" size="sm" onClick={() => hideAlert(alert)} />
+                    <IconButton icon="copy" label="复制" size="sm" onClick={() => copyOne(alert)} />
+                    <IconButton icon="x" label="忽略" size="sm" onClick={() => hideAlert(alert)} />
                   </span>
                 </li>
               );
@@ -346,7 +342,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
             compact
             icon="bell"
             title={scanning ? "正在读取报错" : alerts.length ? "没有符合筛选的告警" : "暂无告警"}
-            description={scanning ? "正在从日志文件整理警告和错误。" : alerts.length ? "换一个筛选条件，或清除搜索。" : "连接之后，警告和错误会按种类留在这里。"}
+            description={scanning ? "正在从日志文件整理警告和错误。" : alerts.length ? "换一个筛选条件，或清除搜索。" : ""}
           />
         )}
       </div>

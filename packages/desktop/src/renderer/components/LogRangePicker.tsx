@@ -122,7 +122,7 @@ export function LogRangePicker({
           <input type="time" value={draft.endTime} onChange={(event) => { setError(""); setDraft((current) => ({ ...current, endTime: event.target.value || "23:59" })); }} />
         </label>
       </div>
-      <p className="log-range-hint">{awaitingEnd ? "再点一天，选定结束日期" : "先点开始日期，再点结束日期"}</p>
+      <p className="log-range-hint">{awaitingEnd ? "选定结束日期" : "选定开始日期"}</p>
       {error && <p className="log-range-error" role="alert">{error}</p>}
       <div className="log-range-actions">
         <Button size="sm" variant="ghost" onClick={() => { onChange(null); setOpen(false); }}>清除</Button>

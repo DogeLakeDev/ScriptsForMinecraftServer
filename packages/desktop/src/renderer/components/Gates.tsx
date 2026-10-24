@@ -21,7 +21,6 @@ export function Welcome() {
     <div className="welcome">
       <div className="welcome-hero">
         <h1>添加实例</h1>
-        <p>选择本机或远程服务器。保存之后，打开即可管理。</p>
       </div>
       <div className="welcome-choices">
         {choices.map((choice) => (

@@ -21,10 +21,163 @@
 
 /* ---------- 总览 ---------- */
 
-.overview-grid {
+/*
+ * 总览自上而下：
+ * 1. .overview-strip   一行紧凑状态条（运行服务 / 在线玩家 / TPS / 主机内存）；
+ * 2. .overview-main    左侧服务表、右侧“需要关注”（告警 + 任务）；
+ * 3. .overview-metrics 实例状态曲线横跨整行，资源数字沿用 MetricsPanel 默认的右侧栏布局。
+ */
+
+/* 状态条：四格等宽、中性底色；只有数值异常时由 tone-text-* 着色。 */
+.overview-strip {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--c-block);
+  border-radius: var(--r-20);
+  overflow: hidden;
+}
+
+.overview-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 20px;
+  text-align: left;
+  transition: background var(--dur-1);
+}
+
+.overview-strip-item + .overview-strip-item {
+  border-left: var(--hair) solid var(--c-line);
+}
+
+.overview-strip-item:hover {
+  background: var(--c-fill);
+}
+
+.overview-strip-label {
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.overview-strip-value {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  font-feature-settings:
+    "ss01" 1,
+    "cv01" 1,
+    "cv11" 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-strip-total {
+  color: var(--c-text-3);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+/*
+ * 主操作区：服务表占剩余宽度，“需要关注”固定在较窄的右列。
+ * 两张卡拉伸到同一行高；服务卡内容较少时，底部的实例详情贴底，避免卡片下方出现空洞。
+ */
+.overview-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
   gap: 16px;
+  align-items: stretch;
+}
+
+.overview-services .surface-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/*
+ * 总览服务表：去掉行间分割线；卡片被拉伸时各行平均分摊多出的高度（不低于 .svc-row 的 min-height），
+ * 让列表铺满卡片。单列布局卡片不拉伸，行高保持原样。
+ */
+.overview-services .svc-table {
+  flex: 1;
+}
+
+.overview-services .svc-row {
+  flex: 1 0 auto;
+}
+
+.overview-services .svc-row + .svc-row {
+  border-top: 0;
+}
+
+/* 服务卡底部的实例详情：一行紧凑的次要信息，空间不足时换行。 */
+.overview-instance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: auto;
+  padding: 12px 12px 0;
+  border-top: var(--hair) solid var(--c-line);
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.overview-instance .link-btn {
+  margin-left: auto;
+}
+
+.overview-attention-tasks {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: var(--hair) solid var(--c-line);
+}
+
+.overview-attention-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.overview-attention-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/*
+ * 两列布局时服务表宽度有限：隐藏 PID 列（改为运行时长的悬停提示）；
+ * 工作区再窄一些时连归属列也隐藏。单列（≤980px）沿用 .svc-row 的通用列定义。
+ */
+@container (min-width: 981px) {
+  .overview-services .svc-row {
+    grid-template-columns: minmax(0, 1fr) 80px 96px 176px;
+  }
+
+  .overview-services .svc-row > :nth-child(3),
+  .overview-services .svc-row > :nth-child(4) {
+    display: none;
+  }
+}
+
+@container (min-width: 1181px) {
+  .overview-services .svc-row {
+    grid-template-columns: minmax(0, 1fr) 80px 88px 96px 176px;
+  }
+
+  .overview-services .svc-row > :nth-child(3) {
+    display: revert;
+  }
 }
 
 .svc-table {
@@ -57,33 +210,27 @@
   border-top: var(--hair) solid var(--c-line);
 }
 
-.app.rail-open .overview-grid {
-  display: none;
-}
-
-.instance-details {
-  color: var(--c-text-2);
-  font-size: 12px;
-  padding: 0 4px;
-}
-
-.instance-details summary {
-  cursor: pointer;
-}
-
-.instance-details summary span {
-  margin-left: 8px;
-}
-
-.instance-details .kv {
-  margin: 12px 0 4px;
+@container (max-width: 980px) {
+  /* 单列：状态条 → 服务表 → 需要关注 → 曲线 */
+  .overview-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @container (max-width: 840px) {
   .stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .overview-grid,
+  /* 状态条改为两行两列，第二行补上分隔线 */
+  .overview-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .overview-strip-item:nth-child(3) {
+    border-left: 0;
+  }
+  .overview-strip-item:nth-child(n + 3) {
+    border-top: var(--hair) solid var(--c-line);
+  }
   .update-grid {
     grid-template-columns: minmax(0, 1fr);
   }

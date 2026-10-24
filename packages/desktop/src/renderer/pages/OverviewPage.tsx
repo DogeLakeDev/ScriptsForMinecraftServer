@@ -2,20 +2,36 @@
  * OverviewPage.tsx — 服务总览
  *
  * 使用场景：接入实例后的默认页，以服务状态、玩家快照、近期告警和维护任务帮助排查异常。
+ * 布局自上而下：状态条（有没有问题）→ 服务表（底部附实例详情）+ 需要关注（要操作什么）→ 实例状态曲线（趋势）。
  */
 import type { ManagementMethodMap, ServiceStatusRow } from "@sfmc-bds/management";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { activeTasks, useDesktop } from "../app/desktop.js";
 import { Button, IconButton } from "../components/controls.js";
 import { useAlerts } from "../components/AlertsSheet.js";
 import { AlertFeed, serviceMeta, serviceState, TaskFeed } from "../components/feeds.js";
-import { MetricsPanel, useRuntimeMetrics } from "../components/MetricsPanel.js";
+import { formatMemoryMb, MetricsPanel, TPS_WARN_THRESHOLD, useRuntimeMetrics } from "../components/MetricsPanel.js";
 import { Menu } from "../components/overlays.js";
 import { Tooltip } from "../components/tooltip.js";
-import { Badge, CopyText, EmptyState, IconTile, PageHeader, Stat, StatusDot, Surface } from "../components/ui.js";
+import { Badge, CopyText, EmptyState, IconTile, PageHeader, StatusDot, Surface } from "../components/ui.js";
 import { StartupDrawer } from "../dialogs/StartupDrawer.js";
 import { toAlertGroup } from "../lib/alert-archive.js";
-import { duration, hostLabel, relativeTime } from "../lib/format.js";
+import { cx } from "../lib/cx.js";
+import { duration, hostLabel, type Tone } from "../lib/format.js";
+
+/**
+ * 顶部状态条中的一格：标题 + 数值，点击跳到对应区域或页面。
+ * 使用场景：OverviewPage 顶部的运行服务、在线玩家、TPS、主机内存四项。
+ * tone 只在数值有明确异常判定时传入（如 TPS 低于 TPS_WARN_THRESHOLD），正常时保持中性色。
+ */
+function StripItem({ label, value, tone, onClick }: { label: string; value: ReactNode; tone?: Tone; onClick?: () => void }) {
+  return (
+    <button type="button" className="overview-strip-item" onClick={onClick}>
+      <span className="overview-strip-label">{label}</span>
+      <span className={cx("overview-strip-value", tone && `tone-text-${tone}`)}>{value}</span>
+    </button>
+  );
+}
 
 /** 服务表中的一行：图标 + 名称说明、状态、归属、PID、运行时长、操作 */
 function ServiceRow({ row }: { row: ServiceStatusRow }) {
@@ -52,7 +68,8 @@ function ServiceRow({ row }: { row: ServiceStatusRow }) {
       <div role="cell" className="mono num">
         {stale ? "—" : row.pid || "—"}
       </div>
-      <div role="cell" className="mono num">
+      {/* 总览宽布局隐藏 PID 列，改由运行时长单元格的悬停提示展示 */}
+      <div role="cell" className="mono num" title={!stale && row.pid ? `PID ${row.pid}` : undefined}>
         {!stale && row.running ? row.uptime : "—"}
       </div>
       <div role="cell" className="svc-actions">
@@ -96,7 +113,7 @@ function ServiceRow({ row }: { row: ServiceStatusRow }) {
 
 export function OverviewPage() {
   const { model, editable, submit, setPage, request, openLog } = useDesktop();
-  const { alerts, unread, openAlerts } = useAlerts();
+  const { alerts, openAlerts } = useAlerts();
   const [startupOpen, setStartupOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const metrics = useRuntimeMetrics();
@@ -139,10 +156,15 @@ export function OverviewPage() {
     ? metrics.fresh
     : Boolean(!stale && players?.fresh && now - Date.parse(players.updatedAt) < 60_000);
   const onlineCount = metrics.supported ? metrics.data?.current?.onlineCount : players?.players.length;
+  // 状态条的 TPS / 内存与 MetricsPanel 同源：采样新鲜才显示 TPS，连接可达才显示主机内存。
+  const tps = metrics.fresh ? metrics.data?.current?.tps : null;
+  const hostMemory = metrics.reachable ? metrics.data?.host?.memory : null;
+  // 有进行中任务时只列进行中的；否则回退到最近任务，保留原“最近任务”区块的信息。
+  const shownTasks = active.length ? active : model.tasks;
   return (
     <div className="page">
       <PageHeader
-        title="服务总览"
+        title="实例状态"
         description={<CopyText text={handshake.root} />}
         actions={
           <>
@@ -188,131 +210,106 @@ export function OverviewPage() {
           </>
         }
       />
-      <div className="stat-grid">
-        <Stat
+      <div className="overview-strip" role="group" aria-label="实例概况">
+        <StripItem
           label="运行服务"
-          icon="server"
           value={
             stale ? (
               "—"
             ) : (
               <>
                 {running}
-                <span className="stat-total"> / {model.services.length}</span>
+                <span className="overview-strip-total"> / {model.services.length}</span>
               </>
             )
           }
-          hint={stale ? "连接已断开" : `${model.services.length - running} 项已停止`}
           onClick={() => document.querySelector(".svc-table")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}
         />
-        <Stat
-          label="在线玩家"
-          variant="graphite"
-          icon="users"
-          value={playersFresh ? (onlineCount ?? "—") : "—"}
-          hint={
-            playersFresh
-              ? metrics.supported
-                ? "实时监测"
-                : `更新于 ${relativeTime(players!.updatedAt, now)}`
-              : "在线状态未知"
+        <StripItem label="在线玩家" value={playersFresh ? (onlineCount ?? "—") : "—"} onClick={() => setPage("players")} />
+        <StripItem
+          label="TPS"
+          value={tps === null || tps === undefined ? "—" : tps.toFixed(2)}
+          tone={tps !== null && tps !== undefined && tps < TPS_WARN_THRESHOLD ? "warning" : undefined}
+          onClick={() => document.querySelector(".overview-metrics")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}
+        />
+        <StripItem
+          label="主机内存"
+          value={
+            hostMemory ? (
+              <>
+                {formatMemoryMb(hostMemory.usedMb)}
+                <span className="overview-strip-total"> / {formatMemoryMb(hostMemory.totalMb)}</span>
+              </>
+            ) : (
+              "—"
+            )
           }
-          onClick={() => setPage("players")}
-        />
-        <Stat
-          label="已保存告警"
-          icon="bell"
-          value={alerts.length}
-          hint={stale ? "连接已断开，列表仍保留" : unread ? `${unread} 条未读` : "警告和错误都会留下"}
-          onClick={openAlerts}
-        />
-        <Stat
-          label="进行中任务"
-          variant="graphite"
-          icon="history"
-          value={stale ? "—" : active.length}
-          hint={stale ? "任务状态未知" : active.length ? "查看执行进度" : "暂无维护任务"}
-          onClick={() => setPage("tasks")}
+          onClick={() => document.querySelector(".overview-metrics")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}
         />
       </div>
-      <MetricsPanel metrics={metrics} />
-      <Surface
-        title="服务"
-        extra={
-          <button type="button" className="link-btn" onClick={() => setPage("logs")}>
-            打开控制台
-          </button>
-        }
-        flush
-      >
-        {model.services.length ? (
-          <div className="svc-table" role="table" aria-label="运行服务">
-            <div className="svc-row svc-row-head" role="row">
-              <div role="columnheader">服务</div>
-              <div role="columnheader">状态</div>
-              <div role="columnheader">归属</div>
-              <div role="columnheader">PID</div>
-              <div role="columnheader">运行时长</div>
-              <div role="columnheader" className="svc-actions-head">
-                操作
-              </div>
+      <div className="overview-main">
+        <Surface className="overview-services" title="服务" flush>
+          {model.services.length ? (
+            <div className="svc-table" role="table" aria-label="运行服务">
+              {model.services.map((row) => (
+                <ServiceRow key={row.name} row={row} />
+              ))}
             </div>
-            {model.services.map((row) => (
-              <ServiceRow key={row.name} row={row} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState icon="server" title="暂无服务信息" />
-        )}
-      </Surface>
-      <div className="overview-grid">
+          ) : (
+            <EmptyState icon="server" title="暂无服务信息" />
+          )}
+          {/*
+            实例详情：原页面底部折叠的 <details>，内容不变，移到服务卡底部。
+            两列布局时服务卡与“需要关注”等高，详情贴底，填补服务较少时的空白。
+          */}
+          <footer className="overview-instance" aria-label="实例详情">
+            <span>
+              SFMC {handshake.platformVersion} {hostLabel(handshake.host.os, handshake.host.arch)}
+            </span>
+            <span>系统版本 {handshake.host.release}</span>
+            <span>
+              守护进程{" "}
+              {stale
+                ? "状态未知"
+                : `PID ${handshake.daemonPid} 运行 ${duration(now - Date.parse(handshake.daemonStartedAt))}`}
+            </span>
+            <button type="button" className="link-btn" onClick={() => setPage("updates")}>
+              查看更新与备份
+            </button>
+          </footer>
+        </Surface>
+        {/* 需要关注：合并原“最近告警”“最近任务”两个区块，放在服务表旁边保证首屏可见 */}
         <Surface
-          title="最近告警"
+          className="overview-attention"
+          title="需要关注"
+          flush
           extra={
             <button type="button" className="link-btn" onClick={openAlerts}>
-              全部告警
+              全部告警 {alerts.length}
             </button>
           }
         >
-          <AlertFeed groups={alerts.map(toAlertGroup)} now={now} limit={5} onSelect={openLog} emptyText="还没有保存的警告或错误" />
-        </Surface>
-        <Surface
-          title="最近任务"
-          extra={
-            <button type="button" className="link-btn" onClick={() => setPage("tasks")}>
-              全部任务
-            </button>
-          }
-        >
-          <TaskFeed tasks={model.tasks} now={now} limit={5} onSelect={() => setPage("tasks")} />
-          {active.length > 0 && (
-            <div className="mini-foot">
-              <StatusDot tone="info" pulse /> {active.length} 个任务正在进行
+          <AlertFeed groups={alerts.map(toAlertGroup)} now={now} limit={3} onSelect={openLog} emptyText="还没有保存的警告或错误" />
+          <div className="overview-attention-tasks">
+            <div className="overview-attention-head">
+              <span>
+                {active.length > 0 ? (
+                  <>
+                    <StatusDot tone="info" pulse /> {active.length} 个任务正在进行
+                  </>
+                ) : (
+                  "最近任务"
+                )}
+              </span>
+              <button type="button" className="link-btn" onClick={() => setPage("tasks")}>
+                全部任务
+              </button>
             </div>
-          )}
+            <TaskFeed tasks={shownTasks} now={now} limit={3} onSelect={() => setPage("tasks")} />
+          </div>
         </Surface>
       </div>
-      <details className="instance-details">
-        <summary>
-          实例详情{" "}
-          <span className="muted">
-            SFMC {handshake.platformVersion} {hostLabel(handshake.host.os, handshake.host.arch)}
-          </span>
-        </summary>
-        <dl className="kv">
-          <dt>系统版本</dt>
-          <dd>{handshake.host.release}</dd>
-          <dt>守护进程</dt>
-          <dd>
-            {stale
-              ? "状态未知"
-              : `PID ${handshake.daemonPid} 运行 ${duration(now - Date.parse(handshake.daemonStartedAt))}`}
-          </dd>
-        </dl>
-        <button type="button" className="link-btn" onClick={() => setPage("updates")}>
-          查看更新与备份
-        </button>
-      </details>
+      <MetricsPanel className="overview-metrics" metrics={metrics} />
       <StartupDrawer open={startupOpen} onClose={() => setStartupOpen(false)} />
     </div>
   );

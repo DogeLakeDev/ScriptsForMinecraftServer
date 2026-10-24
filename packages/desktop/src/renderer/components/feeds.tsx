@@ -13,16 +13,16 @@ import type { IconName } from "./icons.js";
 import { EmptyState, IconTile, StatusDot } from "./ui.js";
 
 /** 服务名 → 图标与一句话说明（总览页服务列表、右侧栏服务状态共用） */
-const SERVICE_META: Record<string, { icon: IconName; text: string }> = {
-  bds: { icon: "cube", text: "基岩版服务端" },
-  db: { icon: "database", text: "数据库与 HTTP 接口" },
-  qq: { icon: "message", text: "QQ 群消息互通桥" },
-  llbot: { icon: "bot", text: "QQ 机器人后端" },
-  tunnel: { icon: "globe", text: "内网穿透隧道" },
+const SERVICE_META: Record<string, { icon: IconName; text?: string }> = {
+  bds: { icon: "cube"},
+  db: { icon: "database"},
+  qq: { icon: "message"},
+  llbot: { icon: "bot"},
+  tunnel: { icon: "globe" },
 };
 /** 读取服务的展示信息，未知服务回退为通用图标 */
-export function serviceMeta(name: string): { icon: IconName; text: string } {
-  return SERVICE_META[name] ?? { icon: "server", text: "受管服务" };
+export function serviceMeta(name: string): { icon: IconName; text?: string } {
+  return SERVICE_META[name] ?? { icon: "server" };
 }
 
 /** 服务的状态语义（运行中 / 外部进程 / 已停止） */
@@ -94,7 +94,7 @@ export function TaskFeed({ tasks, now, limit = 6, onSelect }: { tasks: Operation
 
 /** 服务状态列表（SnowUI Contacts 样式：色块图标 + 名称 + 右侧状态） */
 export function ServiceFeed({ services, onSelect, stale = false }: { services: ServiceStatusRow[]; onSelect?: (row: ServiceStatusRow) => void; stale?: boolean }) {
-  if (!services.length) return <EmptyState compact icon="server" title="暂无服务信息" />;
+  if (!services.length) return <EmptyState compact icon="server" title="暂无信息" />;
   return (
     <ul className="feed">
       {services.map((row) => {
