@@ -9,6 +9,7 @@
  */
 import type { ActivityFilterParams, ActivityLevel, ActivityQueryResult, ActivityRecord, ActivityStatsResult } from "@sfmc-bds/management";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { hasCapability } from "../../shared/platform-next.js";
 import { useDesktop, type ActivityFocus } from "../app/desktop.js";
 import { Button, IconButton, SearchInput, Segmented, Select } from "../components/controls.js";
 import { toast } from "../components/feedback.js";
@@ -178,7 +179,13 @@ function StatsPanel({ stats, rangeText, onEventType, onActor }: { stats: Activit
 }
 
 export function ActivityPage() {
-  const { request, setPage, activityFocus, clearActivityFocus } = useDesktop();
+  const { model, request, setPage, activityFocus, clearActivityFocus } = useDesktop();
+  /**
+   * 当前实例的握手是否声明了 activity 能力。
+   * 使用场景：切换实例时本页会先于握手结果保持挂载，此时不发查询，避免请求落到没有该能力的旧平台而弹出「不支持的管理方法」；
+   * 握手到达后若仍不支持，由 App 的能力回退切走本页。
+   */
+  const supported = hasCapability(model.handshake?.capabilities, "activity");
   // 从玩家页跳转时直接带上玩家筛选，并放宽到全部时间，避免首屏只看今天而误以为没有记录
   const [filters, setFilters] = useState<Filters>(() => ({
     category: ALL,
@@ -217,18 +224,24 @@ export function ActivityPage() {
   }, []);
   useEffect(() => {
     const seq = ++querySeq.current;
+    // 递增序号后再判断能力：不支持时同时丢弃上一个实例尚未返回的结果
+    if (!supported) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     void request("activity.query", { ...params, limit: PAGE_SIZE, offset: pageIndex * PAGE_SIZE })
       .then((value) => { if (seq === querySeq.current) setResult(value); })
       .catch((error) => { if (seq === querySeq.current) toast.error("读取行为日志失败", errorText(error)); })
       .finally(() => { if (seq === querySeq.current) setLoading(false); });
-  }, [request, filterKey, pageIndex, reload]);
+  }, [request, supported, filterKey, pageIndex, reload]);
   useEffect(() => {
     const seq = ++statsSeq.current;
+    if (!supported) return;
     void request("activity.stats", params)
       .then((value) => { if (seq === statsSeq.current) setStats(value); })
       .catch(() => { if (seq === statsSeq.current) setStats(undefined); });
-  }, [request, filterKey, reload]);
+  }, [request, supported, filterKey, reload]);
 
   const patch = (values: Partial<Filters>) => setFilters((previous) => ({ ...previous, ...values }));
   const focusActor = (actor: ActivityFocus) => patch({ actor });
@@ -296,8 +309,8 @@ export function ActivityPage() {
         title="行为日志"
         actions={
           <>
-            <Button icon="refresh" loading={loading} onClick={() => setReload((value) => value + 1)}>刷新</Button>
-            <Button icon="download" loading={exporting} disabled={!total} onClick={() => void exportCsv()}>导出 CSV</Button>
+            <Button icon="refresh" loading={loading} disabled={!supported} onClick={() => setReload((value) => value + 1)}>刷新</Button>
+            <Button icon="download" loading={exporting} disabled={!total || !supported} onClick={() => void exportCsv()}>导出 CSV</Button>
           </>
         }
       />
