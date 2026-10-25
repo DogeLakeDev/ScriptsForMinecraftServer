@@ -1,5 +1,12 @@
 # @sfmc-bds/management
 
+## 0.7.0
+
+### Minor Changes
+
+- e31e602: 配置页的「BDS配置」（server.properties）表单覆盖平台收录的全部属性，按基本、玩家、网络、性能、反作弊、脚本调试、诊断分组，并显示中文名称、说明、可选值与取值范围。平台读取 server.properties 时随 config.read 下发字段清单，桌面端和小程序使用同一份清单；旧平台没有字段清单时仍显示原来的常用字段。属性当前值不符合字段类型时，表单改用文本框或保留原值选项，不会改写原值。
+- e31e602: 支持小程序微信登录与微信绑定。db-server 新增微信绑定表与 `/api/sfmc/wechat/bind/*` 接口，可按 openid 查询绑定、账号资料与 SFMC 有效等级；游戏内 `/c:bind` 改走统一入口 `/api/sfmc/bind/confirm`，按绑定码所属渠道确认 QQ 或微信绑定，旧接口 `/api/sfmc/qq/bind/confirm` 保留。SDK 的绑定确认优先调用统一入口，平台未升级时回退旧接口，并导出有效权限等级的计算函数。management 新增桌面端扫码登录链接的编码与解析（`sfmc://device-login`）。
+
 ## 0.6.0
 
 ### Minor Changes
