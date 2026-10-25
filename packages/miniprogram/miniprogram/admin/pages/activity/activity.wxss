@@ -1,0 +1,62 @@
+@import "../../../templates/activity.wxss";
+
+.activity-filters {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.activity-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.activity-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.activity-stat-value {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.activity-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border-radius: 8px;
+}
+.activity-bar.hover,
+.activity-bar.active {
+  background: var(--c-fill);
+}
+.activity-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.activity-bar-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--c-fill-2);
+  overflow: hidden;
+}
+.activity-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--c-primary);
+}
+.activity-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

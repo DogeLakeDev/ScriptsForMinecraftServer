@@ -28,6 +28,7 @@ node packages/mp-gateway/dist/main.js --root /srv/sfmc
 | `GET …/player/me` | 玩家会话：绑定的游戏账号、SFMC 等级、是否管理员、账号资料 |
 | `POST …/player/bind/request` | 玩家会话：申请 6 位绑定码，玩家在游戏内输入 `/c:bind` 后发送该码 |
 | `POST …/player/unbind` | 玩家会话：解除微信绑定 |
+| `GET …/player/activity` | 玩家会话：本人的行为日志记录（`limit` / `offset` / `eventType` / `eventTypePrefix` / `from` / `to` / `keyword` 等筛选），只返回微信绑定账号的记录；未绑定时 `bound` 为 false |
 | `POST …/auth/device/start` / `poll` | 桌面端“用小程序登录”：发起并轮询（公开，限流） |
 | `POST …/auth/device/describe` / `approve` / `deny` | 管理员在小程序扫码或输入短码后查看、批准、拒绝 |
 | `GET …/auth/devices`、`POST …/auth/devices/revoke` | 管理员查看与撤销已授权的桌面设备 |

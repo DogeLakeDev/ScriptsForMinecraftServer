@@ -44,6 +44,20 @@
     </view>
   </view>
 
+  <!-- 行为记录 -->
+  <view wx:if="{{bound}}" class="surface">
+    <view class="surface-list">
+      <view class="list-item" hover-class="hover" bindtap="openActivity">
+        <view class="tile tile-pink"><text class="i i-activity"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">我的行为记录</text></view>
+          <view class="list-sub">加入、聊天、方块、实体等游戏内记录</view>
+        </view>
+        <text class="i i-sm i-chevron-right muted"></text>
+      </view>
+    </view>
+  </view>
+
   <!-- 绑定 -->
   <view wx:if="{{configured && !error && !loading && !bound}}" class="surface">
     <view class="surface-head"><text class="surface-title">绑定游戏账号</text></view>

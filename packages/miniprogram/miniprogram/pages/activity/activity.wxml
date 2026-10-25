@@ -1,0 +1,27 @@
+<import src="/templates/activity.wxml" />
+<view class="page">
+  <view wx:if="{{!configured}}" class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-title">尚未配置服务器地址</view>
+      <view class="callout-text">请在 core/server.ts 的 HOME_SERVER.endpoint 填写 mp-gateway 地址后重新编译。</view>
+    </view>
+  </view>
+
+  <!-- 未绑定 -->
+  <view wx:elif="{{!bound}}" class="surface">
+    <empty-state icon="link" title="尚未绑定游戏账号" desc="在「我的」页绑定游戏角色后，即可查看自己的行为记录">
+      <view class="btn btn-sm" hover-class="hover" bindtap="openMe">去绑定</view>
+    </empty-state>
+  </view>
+
+  <!-- 服务器未安装行为日志模块 -->
+  <view wx:elif="{{!installed}}" class="surface">
+    <empty-state icon="activity" title="服务器暂未开启行为记录" desc="服务器安装行为日志模块后，这里会显示你的加入、聊天、方块等记录" />
+  </view>
+
+  <block wx:else>
+    <template is="activity-filters" data="{{ keyword, ranges, categories, hint: '搜索目标或聊天内容' }}" />
+    <template is="activity-records" data="{{ items, loaded, loading, hasMore, total, error, errorTitle: '读取行为记录失败', emptyTitle: '这段时间没有记录' }}" />
+  </block>
+</view>

@@ -19,6 +19,7 @@ import { TitleBar } from "../components/TitleBar.js";
 import { TooltipProvider } from "../components/tooltip.js";
 import { Callout } from "../components/ui.js";
 import { AboutDialog } from "../dialogs/AboutDialog.js";
+import { ActivityPage } from "../pages/ActivityPage.js";
 import { ClientSettingsDialog } from "../dialogs/ClientSettingsDialog.js";
 import { FlowDialogs } from "../dialogs/FlowDialogs.js";
 import { ProfileDialog } from "../dialogs/ProfileDialog.js";
@@ -45,6 +46,7 @@ const PAGES: Record<Exclude<PageKey, "studio">, ComponentType> = {
   packs: PacksPage,
   config: ConfigPage,
   players: PlayersPage,
+  activity: ActivityPage,
   updates: UpdatesPage,
 };
 

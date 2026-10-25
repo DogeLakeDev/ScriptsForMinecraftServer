@@ -1,0 +1,26 @@
+<!-- 行为记录列表：图标 + 标题 + 摘要 + 位置时间；点按展开键值明细与附加数据 -->
+<view class="activity-list">
+  <view wx:for="{{items}}" wx:key="id" class="activity-item {{openId === item.id ? 'open' : ''}}">
+    <view class="activity-row" hover-class="hover" data-id="{{item.id}}" bindtap="toggle">
+      <view class="tile tile-{{item.tone}}"><text class="i i-{{item.icon}}"></text></view>
+      <view class="activity-main">
+        <view class="activity-title">
+          <text class="truncate">{{item.title}}</text>
+          <text wx:if="{{item.levelLabel}}" class="badge tone-{{item.levelTone}}">{{item.levelLabel}}</text>
+        </view>
+        <view wx:if="{{item.detail}}" class="activity-detail">{{item.detail}}</view>
+        <view class="activity-meta">{{item.meta}}</view>
+      </view>
+      <text class="i i-sm {{openId === item.id ? 'i-chevron-down' : 'i-chevron-right'}} muted"></text>
+    </view>
+    <view wx:if="{{openId === item.id}}" class="activity-extra">
+      <view class="kv">
+        <block wx:for="{{item.fields}}" wx:for-item="field" wx:key="key">
+          <text class="kv-key">{{field.key}}</text>
+          <text class="kv-value" user-select>{{field.value}}</text>
+        </block>
+      </view>
+      <text wx:if="{{item.payload}}" class="code" user-select>{{item.payload}}</text>
+    </view>
+  </view>
+</view>

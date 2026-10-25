@@ -24,6 +24,15 @@ export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * 今天全天（00:00–23:59）。
+ * 使用场景：日历弹层打开时的默认选区；行为日志页的默认时间范围。
+ */
+export function todayRange(): LogRangeValue {
+  const today = dayKey(new Date());
+  return { startDay: today, endDay: today, startTime: "00:00", endTime: "23:59" };
+}
+
 /** 把本地日期和钟点合成 ISO。结束时间含到该分钟的最后一毫秒。 */
 export function localStamp(day: string, time: string, end: boolean): string {
   const [year, month, date] = day.split("-").map(Number);

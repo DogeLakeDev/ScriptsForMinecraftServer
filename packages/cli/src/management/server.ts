@@ -4,6 +4,7 @@ import os from "node:os";
 import { EventEmitter } from "node:events";
 import { LOG_TAIL_MAX, MANAGEMENT_PROTOCOL_VERSION, type ManagementRequest, type ManagementEvent } from "@sfmc-bds/management";
 import { readQqBindings } from "@sfmc-bds/db-server/qq-bindings";
+import { parseActivityFilter, parseActivityPaging, readActivityPage, readActivityStats } from "@sfmc-bds/db-server/activity-log";
 import { ROOT, isRuntimeInitialized, spawnService } from "../runtime.js";
 import { queryServicesRuntimeLocal, services, START_ORDER, SERVICE_NAMES, refreshServices, onServiceStateChange, type ServiceName } from "../services.js";
 import { readDiskLogs, deleteStoredLogs, onLog } from "../logs.js";
@@ -19,6 +20,7 @@ import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { deploymentPreflight, deploymentPort } from "./deployment.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { readRuntimeMetrics } from "./metrics-read.js";
+import { LOCAL_CAPABILITIES } from "./local-methods.js";
 
 import { importPacks, planPackImport, readImportFilenames } from "./pack-import.js";
 
@@ -61,10 +63,20 @@ async function rebuildModules() {
   return { changed: true };
 }
 
+/** configs/db_config.json 中管理通道用到的字段 */
+type DbConfig = { db_port?: number; http_auth?: string; dbDir?: string };
+/** 读取业务库配置。使用场景：players.list 查在线快照与绑定，activity.* 定位业务库文件。 */
+function dbConfig(): DbConfig {
+  return readJson<DbConfig>(path.join(ROOT, "configs", "db_config.json"), {});
+}
+/** 业务库 SQLite 文件路径（dbDir 缺省为 data/sfmc_data.db，与 db-server 一致）。 */
+function businessDatabase(cfg: DbConfig = dbConfig()): string {
+  return path.resolve(ROOT, typeof cfg.dbDir === "string" && cfg.dbDir.trim() ? cfg.dbDir : "data/sfmc_data.db");
+}
 async function players() {
   const files = playerFiles(); const allowlist = readJson<unknown[]>(files.allowlist, []);
-  const cfg = readJson<{ db_port?: number; http_auth?: string; dbDir?: string }>(path.join(ROOT, "configs", "db_config.json"), {});
-  const database = path.resolve(ROOT, typeof cfg.dbDir === "string" && cfg.dbDir.trim() ? cfg.dbDir : "data/sfmc_data.db");
+  const cfg = dbConfig();
+  const database = businessDatabase(cfg);
   let data: { online?: { name: string }[]; updatedAt?: number } = {};
   try {
     const response = await fetch(`http://127.0.0.1:${cfg.db_port ?? 3001}/api/sfmc/status`, { headers: cfg.http_auth ? { authorization: `Bearer ${cfg.http_auth}` } : {}, signal: AbortSignal.timeout(5000) });
@@ -87,7 +99,7 @@ async function bdsUpdate(context: TaskContext, checkOnly = false) {
 export async function dispatchManagement(request: ManagementRequest): Promise<unknown> {
   const p = params(request); const store = managementTasks();
   switch (request.method) {
-    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version"], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
+    case "handshake": return { protocolVersion: MANAGEMENT_PROTOCOL_VERSION, platformVersion: platformVersion(), host: { os: process.platform === "win32" ? "windows" : process.platform, arch: process.arch, release: os.release() }, root: ROOT, capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version", ...LOCAL_CAPABILITIES], daemonPid: process.pid, daemonStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(), initialized: deploymentInitialized() };
     case "events.subscribe": return { subscribed: true };
     case "services.list": return { rows: await queryServicesRuntimeLocal() };
     case "services.start": case "services.stop": case "services.restart": {
@@ -242,6 +254,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     }
     case "players.list": return players();
     case "metrics.read": return readRuntimeMetrics(request.params);
+    case "activity.query": return readActivityPage(businessDatabase(), parseActivityFilter(p), parseActivityPaging(p));
+    case "activity.stats": return readActivityStats(businessDatabase(), parseActivityFilter(p));
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));
     case "attachment.plan": return attachmentPlan();
     case "attachment.apply": return store.submit(request.method, async context => {

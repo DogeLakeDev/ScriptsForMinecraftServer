@@ -1,0 +1,44 @@
+<!--
+  行为记录页共用模板：管理端「行为日志」与玩家端「我的行为记录」。
+  事件处理函数（pickRange / pickCategory / onKeyword / search / clearKeyword / reload）由引用页面实现；
+  样式见同目录 activity.wxss，引用页面需在自己的 wxss 中 @import。
+-->
+
+<!-- 筛选：关键词 + 时间范围 + 分类。数据：keyword、hint（搜索框占位）、ranges、categories -->
+<template name="activity-filters">
+  <view class="search">
+    <text class="i i-search"></text>
+    <input value="{{keyword}}" placeholder="{{hint}}" placeholder-class="placeholder" confirm-type="search" bindinput="onKeyword" bindconfirm="search" />
+    <text wx:if="{{keyword}}" class="i i-x" bindtap="clearKeyword"></text>
+  </view>
+  <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="activity-chip-scroll">
+    <view class="chips">
+      <view wx:for="{{ranges}}" wx:key="value" class="chip {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickRange">{{item.label}}</view>
+    </view>
+  </scroll-view>
+  <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="activity-chip-scroll">
+    <view class="chips">
+      <view wx:for="{{categories}}" wx:key="value" class="chip {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickCategory">{{item.label}}</view>
+    </view>
+  </scroll-view>
+</template>
+
+<!-- 记录列表 + 空状态 + 分页提示。数据：items、loaded、loading、hasMore、total、error、errorTitle、emptyTitle -->
+<template name="activity-records">
+  <view class="surface">
+    <view wx:if="{{error && !items.length}}" class="surface-body">
+      <empty-state icon="alert" title="{{errorTitle}}" desc="{{error}}" compact>
+        <view class="btn btn-sm" hover-class="hover" bindtap="reload">重试</view>
+      </empty-state>
+    </view>
+    <block wx:else>
+      <activity-list items="{{items}}" />
+      <empty-state wx:if="{{loaded && !loading && !items.length}}" icon="activity" title="{{emptyTitle}}" desc="可以换个时间范围或分类再看看" compact />
+      <view wx:if="{{items.length || loading}}" class="small muted activity-footer">
+        <text wx:if="{{loading}}">加载中…</text>
+        <text wx:elif="{{hasMore}}">上拉加载更多 · 已显示 {{items.length}} / {{total}}</text>
+        <text wx:else>共 {{total}} 条</text>
+      </view>
+    </block>
+  </view>
+</template>

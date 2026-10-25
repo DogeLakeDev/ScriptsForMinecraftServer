@@ -5,7 +5,7 @@
  * 确定后交给控制台去查询；清除则回到不限时间。
  */
 import { useMemo, useState } from "react";
-import { dayKey, type LogRangeValue, rangeLabel } from "../lib/log-range.js";
+import { dayKey, type LogRangeValue, rangeLabel, todayRange } from "../lib/log-range.js";
 import { Button, IconButton } from "./controls.js";
 import { Popover } from "./overlays.js";
 
@@ -25,11 +25,6 @@ function monthCells(anchor: Date): string[] {
     cursor.setDate(cursor.getDate() + 1);
   }
   return cells;
-}
-
-function todayRange(): LogRangeValue {
-  const today = dayKey(new Date());
-  return { startDay: today, endDay: today, startTime: "00:00", endTime: "23:59" };
 }
 
 export function LogRangePicker({

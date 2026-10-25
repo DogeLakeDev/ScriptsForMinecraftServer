@@ -11,6 +11,7 @@ import path from "node:path";
 import { after, before, test } from "node:test";
 import WebSocket from "ws";
 import { encodeDeviceLoginLink, parseDeviceLoginLink } from "@sfmc-bds/management";
+import { createDbActivitySource, type PlayerActivityPage, type PlayerActivitySource } from "../src/activity-client.js";
 import { authenticateChain, deviceAuthenticator, playerSessionAuthenticator, staticTokenAuthenticator } from "../src/authenticators.js";
 import type { GatewayConfig } from "../src/config.js";
 import type { PlayerAccount, PlayerDirectory } from "../src/db-client.js";
@@ -84,8 +85,8 @@ const fakeWechat: WechatIdentity = {
   },
 };
 
-/** 启动一个测试网关，返回基础地址与依赖 */
-async function launch(options: { wechat?: WechatIdentity | null } = {}) {
+/** 启动一个测试网关，返回基础地址与依赖；activity 缺省时使用指向不可达地址的 db-server 实现 */
+async function launch(options: { wechat?: WechatIdentity | null; activity?: PlayerActivitySource } = {}) {
   const directory = memoryDirectory();
   const config: GatewayConfig = {
     root: workDir,
@@ -109,6 +110,7 @@ async function launch(options: { wechat?: WechatIdentity | null } = {}) {
     directory,
     grantStore: memoryStore(),
     log: () => undefined,
+    ...(options.activity ? { activity: options.activity } : {}),
   });
   const address = gateway.server.address();
   assert.ok(address && typeof address === "object");
@@ -209,11 +211,54 @@ test("HTTP：微信登录、读取账号、申请绑定码、解绑；无效 cod
   }
 });
 
+test("HTTP：玩家行为记录按会话 openid 读取并转发查询参数；无会话为 401", async () => {
+  const calls: { openid: string; params: string }[] = [];
+  const page: PlayerActivityPage = { bound: true, installed: true, records: [], total: 0, limit: 5, offset: 0 };
+  const activity: PlayerActivitySource = {
+    async page(openid, params) {
+      calls.push({ openid, params: params.toString() });
+      return page;
+    },
+  };
+  const { gateway, base } = await launch({ activity });
+  try {
+    assert.equal((await call(`${base}/player/activity`)).status, 401);
+    const token = await login(base, "a");
+    const result = await call(`${base}/player/activity?limit=5&eventTypePrefix=block.`, { token });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.data, page);
+    assert.deepEqual(calls, [{ openid: "openid-a", params: "limit=5&eventTypePrefix=block." }]);
+  } finally {
+    await gateway.close();
+  }
+});
+
+test("db-server 行为记录数据源：只转发白名单参数（不含 actorId），失败映射为 503 / 400", async () => {
+  const urls: string[] = [];
+  const respond = (status: number, body: unknown) =>
+    (async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify(body), { status });
+    }) as typeof fetch;
+  const ok = createDbActivitySource("http://db", respond(200, { success: true, bound: true, installed: true, records: [], total: 3, limit: 50, offset: 0 }));
+  const result = await ok.page("wx-a", new URLSearchParams("actorId=p-alex&actorName=Alex&keyword=hi&limit=10"));
+  assert.deepEqual(result, { bound: true, installed: true, records: [], total: 3, limit: 50, offset: 0 });
+  assert.equal(urls[0], "http://db/api/sfmc/wechat/activity?openid=wx-a&keyword=hi&limit=10");
+
+  const invalid = createDbActivitySource("http://db", respond(400, { success: false, error: "invalid_params", message: "非法 级别" }));
+  await assert.rejects(invalid.page("wx-a", new URLSearchParams("level=x")), (error: unknown) => error instanceof HttpError && error.status === 400);
+  const down = createDbActivitySource("http://db", (async () => {
+    throw new Error("ECONNREFUSED");
+  }) as typeof fetch);
+  await assert.rejects(down.page("wx-a", new URLSearchParams()), (error: unknown) => error instanceof HttpError && error.status === 503);
+});
+
 test("HTTP：未启用微信登录时玩家与设备接口为 503", async () => {
   const { gateway, base } = await launch({ wechat: null });
   try {
     assert.equal((await call(`${base}/auth/wx-login`, { body: { code: "a" } })).status, 503);
     assert.equal((await call(`${base}/auth/device/start`, { body: { name: "pc" } })).status, 503);
+    assert.equal((await call(`${base}/player/activity`)).status, 503);
   } finally {
     await gateway.close();
   }

@@ -42,6 +42,11 @@
       "import": "./dist/domain/qq-bindings.js",
       "default": "./dist/domain/qq-bindings.js"
     },
+    "./activity-log": {
+      "types": "./dist/domain/activity-log.d.ts",
+      "import": "./dist/domain/activity-log.js",
+      "default": "./dist/domain/activity-log.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

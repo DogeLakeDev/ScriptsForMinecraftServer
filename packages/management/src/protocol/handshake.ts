@@ -33,7 +33,9 @@ export type ManagementCapability =
   /** packs.import 接受 filenames，一次任务导入多个收件箱文件 */
   | "pack-import-batch"
   /** 可调用 packs.version 修改资源包清单版本 */
-  | "pack-version";
+  | "pack-version"
+  /** 可调用 activity.query / activity.stats 只读查询行为日志模块的记录 */
+  | "activity";
 
 /** handshake 方法结果 */
 export interface Handshake {

@@ -51,7 +51,15 @@
         <text class="code" user-select>{{bindingsJson}}</text>
       </view>
       <view wx:else class="surface-list">
-        <view wx:for="{{bindings}}" wx:key="key" class="list-item">
+        <view
+          wx:for="{{bindings}}"
+          wx:key="key"
+          class="list-item"
+          hover-class="{{activityEnabled && item.xuid ? 'hover' : 'none'}}"
+          data-xuid="{{item.xuid}}"
+          data-name="{{item.name}}"
+          bindtap="openActivity"
+        >
           <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
           <view class="list-main">
             <view class="list-title"><text class="truncate">{{item.name}}</text></view>
@@ -62,6 +70,7 @@
             <text class="badge tone-success">已绑定</text>
             <text class="small muted">{{item.time}}</text>
           </view>
+          <text wx:if="{{activityEnabled && item.xuid}}" class="i i-sm i-chevron-right muted"></text>
         </view>
         <empty-state wx:if="{{loaded && !bindings.length}}" icon="users" title="还没有绑定的玩家" desc="玩家在游戏内完成绑定后会出现在这里" />
       </view>

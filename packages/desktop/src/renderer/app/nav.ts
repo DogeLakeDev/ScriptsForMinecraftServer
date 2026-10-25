@@ -8,7 +8,7 @@ import type { ManagementCapability } from "@sfmc-bds/management";
 import type { IconName } from "../components/icons.js";
 
 /** 页面标识（与原实现的 NAV key 保持一致） */
-export type PageKey = "overview" | "logs" | "modules" | "config" | "packs" | "players" | "updates" | "tasks" | "studio";
+export type PageKey = "overview" | "logs" | "modules" | "config" | "packs" | "players" | "activity" | "updates" | "tasks" | "studio";
 
 /** 单个导航项 */
 export interface NavItem {
@@ -94,6 +94,15 @@ export const NAV: NavItem[] = [
     icon: "pencil",
     group: "开发工具",
     keywords: "ui studio editor 界面 表单 编辑器 可视化 设计",
+  },
+  // 追加在末尾：Ctrl+1…9 按数组下标分配，文档约定 UI Studio 为 Ctrl+9；侧栏按 group 分组，仍显示在「维护」中
+  {
+    key: "activity",
+    label: "行为日志",
+    icon: "activity",
+    group: "维护",
+    capability: "activity",
+    keywords: "activity 行为 日志 审计 记录 破坏 放置 聊天 导出",
   },
 ];
 

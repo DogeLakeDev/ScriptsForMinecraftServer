@@ -4,6 +4,7 @@
  * 使用场景：查看在线玩家快照（5 秒轮询）；「允许名单」展示绑定记录（只读）；
  * 「BDS 权限」「SFMC 权限」在本地草稿中增删改，点「保存并应用」后提交 players.apply（同桌面端 PlayersPage）。
  * 支持列表与 JSON 两种视图，JSON 视图为纯文本编辑。
+ * 平台带 activity 能力时，点按绑定记录进入「行为日志」并只看该玩家。
  */
 import { ask, submit } from "../../../core/actions";
 import { errorText, fullTime, hashHue, isTaskDone, relativeTime } from "../../../core/format";
@@ -106,6 +107,8 @@ function render(state: SessionState) {
     })),
     json: view.json,
     showingBindings,
+    /** 握手带 activity 能力时，点按绑定记录可查看该玩家的行为日志 */
+    activityEnabled: Boolean(state.handshake?.capabilities.includes("activity")),
     bindings: (data?.bindings ?? []).map((row) => {
       const name = row.playerName || "未记录玩家名";
       return {
@@ -201,6 +204,13 @@ Page({
     const json = JSON.stringify(view.data?.[kind] ?? [], null, 2);
     view.text = view.baseline = json;
     this.setData({ text: json });
+  },
+
+  /** 点按绑定记录：进入行为日志页并只看该玩家（对应桌面端玩家页的「查看行为记录」） */
+  openActivity(event: WechatMiniprogram.TouchEvent) {
+    const { xuid, name } = event.currentTarget.dataset as { xuid?: string; name?: string };
+    if (!this.data.activityEnabled || !xuid) return;
+    wx.navigateTo({ url: `/admin/pages/activity/activity?actorId=${encodeURIComponent(xuid)}&name=${encodeURIComponent(name ?? "")}` });
   },
 
   async switchKind(event: WechatMiniprogram.TouchEvent) {

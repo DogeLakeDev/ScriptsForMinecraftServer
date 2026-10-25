@@ -2,7 +2,8 @@
   "pages": [
     "pages/home/home",
     "pages/rank/rank",
-    "pages/me/me"
+    "pages/me/me",
+    "pages/activity/activity"
   ],
   "subPackages": [
     {
@@ -20,6 +21,7 @@
         "pages/config/config",
         "pages/config-edit/config-edit",
         "pages/players/players",
+        "pages/activity/activity",
         "pages/updates/updates",
         "pages/devices/devices"
       ]
@@ -52,6 +54,7 @@
     ]
   },
   "usingComponents": {
+    "activity-list": "/components/activity-list/index",
     "confirm-sheet": "/components/confirm-sheet/index",
     "conn-banner": "/components/conn-banner/index",
     "empty-state": "/components/empty-state/index",

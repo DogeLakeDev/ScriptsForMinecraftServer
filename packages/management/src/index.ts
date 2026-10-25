@@ -10,3 +10,4 @@ export * from "./protocol/module-dependencies.js";
 export * from "./protocol/metrics.js";
 export * from "./protocol/desktop-version.js";
 export * from "./protocol/device-login.js";
+export * from "./protocol/activity.js";

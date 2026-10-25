@@ -55,6 +55,11 @@ const VENDOR_BUNDLES = {
     [path.join(desktopLib, "alerts.ts"), ["groupAlerts"]],
     // 配置表单：字段推断、server.properties 字段清单（平台下发 / 内置回退）与保留注释的回写，与桌面端「表单」视图同一份规则。
     [path.join(desktopLib, "config-form.ts"), ["parseJsonText", "fieldsFromSchema", "fieldsFromValue", "setJsonField", "PROPERTY_FIELDS", "propertyFormFields", "parseProperties", "setProperty"]],
+    // 行为日志：事件文案、分类、图标、详情摘要与快捷时间范围，与桌面端「行为日志」页同一份规则。
+    [
+      path.join(desktopLib, "activity.ts"),
+      ["ACTIVITY_CATEGORIES", "ACTIVITY_LEVELS", "ACTIVITY_RANGE_PRESETS", "activityLabel", "activityIcon", "activityActor", "activityDetail", "activityPosition", "activityTime", "activityRange"],
+    ],
   ],
 };
 

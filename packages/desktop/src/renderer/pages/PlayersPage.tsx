@@ -4,6 +4,7 @@
  * 使用场景：查看在线玩家快照（5 秒轮询，与原实现一致）。
  * 「允许名单」列出业务库 sfmc_qq_bindings 的绑定记录，只读。
  * BDS 权限与 SFMC 权限仍在本地暂存，点击「保存并应用」后提交 players.apply。
+ * 平台支持行为日志（activity 能力）时，绑定玩家与在线玩家可直接跳到「行为日志」查看其记录。
  */
 import Editor from "@monaco-editor/react";
 import type { ManagementMethodMap } from "@sfmc-bds/management";
@@ -151,7 +152,9 @@ function EntryDialog({ kind, label, initial, mode, onClose, onCommit }: { kind: 
 }
 
 export function PlayersPage() {
-  const { model, editable, request, submit } = useDesktop();
+  const { model, editable, request, submit, openActivity } = useDesktop();
+  /** 平台提供 activity.query 时才显示「行为记录」入口 */
+  const activityEnabled = Boolean(model.handshake?.capabilities.includes("activity"));
   const confirm = useConfirm();
   const { editorTheme } = useAppearance();
   const connected = !model.disconnected;
@@ -260,13 +263,23 @@ export function PlayersPage() {
       >
         {data?.players.length ? (
           <div className="player-chips">
-            {data.players.map((player) => (
-              <span key={player.name} className={`player-chip${fresh ? "" : " stale"}`}>
-                <Avatar name={player.name} hue={hashHue(player.name)} size={24} />
-                <span>{player.name}</span>
-                {fresh && <span className="player-online" />}
-              </span>
-            ))}
+            {data.players.map((player) =>
+              activityEnabled ? (
+                <Tooltip key={player.name} content="查看行为记录">
+                  <button type="button" className={`player-chip is-link${fresh ? "" : " stale"}`} onClick={() => openActivity({ actorName: player.name, label: player.name })}>
+                    <Avatar name={player.name} hue={hashHue(player.name)} size={24} />
+                    <span>{player.name}</span>
+                    {fresh && <span className="player-online" />}
+                  </button>
+                </Tooltip>
+              ) : (
+                <span key={player.name} className={`player-chip${fresh ? "" : " stale"}`}>
+                  <Avatar name={player.name} hue={hashHue(player.name)} size={24} />
+                  <span>{player.name}</span>
+                  {fresh && <span className="player-online" />}
+                </span>
+              )
+            )}
           </div>
         ) : (
           <p className="muted inline-empty">{fresh ? "当前没有玩家在线" : "暂无有效在线快照"}</p>
@@ -321,6 +334,11 @@ export function PlayersPage() {
                       <Badge tone="success">已绑定</Badge>
                       <span className="muted" title={fullTime(row.boundAt)}>{relativeTime(row.boundAt, clock)}</span>
                     </span>
+                    {activityEnabled && row.playerXuid && (
+                      <div className="row-actions">
+                        <IconButton icon="activity" label="查看行为记录" size="sm" onClick={() => openActivity({ actorId: row.playerXuid, label: name })} />
+                      </div>
+                    )}
                   </li>
                 );
               })}

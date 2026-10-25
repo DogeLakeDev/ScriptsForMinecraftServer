@@ -3,6 +3,7 @@ import type { OperationAccepted, OperationsGetResult, OperationsListResult } fro
 import type { LogsDeleteResult, LogsTailResult } from "./logs.js";
 import type { ServicesListResult } from "./services.js";
 import type { MetricsResult } from "./metrics.js";
+import type { ActivityQueryResult, ActivityStatsResult } from "./activity.js";
 
 /**
  * 配置表单的单个字段描述。
@@ -137,6 +138,10 @@ export interface ManagementMethodMap {
   "players.list": { players: PlayerRow[]; updatedAt: string; fresh: boolean; allowlist: unknown[]; permissions: unknown[]; sfmcPermissions: unknown[]; bindings: QqBinding[] };
   "players.apply": OperationAccepted;
   "metrics.read": MetricsResult;
+  /** 分页查询行为日志模块的记录（只读）。参数见 ActivityQueryParams。 */
+  "activity.query": ActivityQueryResult;
+  /** 按筛选条件统计行为日志（事件类型、级别、活跃玩家）。参数见 ActivityFilterParams。 */
+  "activity.stats": ActivityStatsResult;
   "updates.check": unknown;
   "updates.run": OperationAccepted;
   "attachment.plan": AttachmentPlan;

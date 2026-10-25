@@ -1,12 +1,14 @@
 /**
  * player-api.ts — mp-gateway 的玩家端与设备授权接口
  *
- * 使用场景：「我的」页读取绑定信息、申请绑定码、解绑、批准桌面端登录；管理端「已授权设备」页列出与撤销设备。
+ * 使用场景：「我的」页读取绑定信息、申请绑定码、解绑、批准桌面端登录；「我的行为记录」页读取本人记录；
+ * 管理端「已授权设备」页列出与撤销设备。
  * 页面只依赖 PlayerApi 接口，不接触 URL 与令牌细节（DIP）。会话令牌失效（401）时自动重新登录并重试一次。
  */
 import { clearPlayerToken, ensurePlayerToken } from "./auth";
 import { requestJson, type HttpRequestError } from "./http";
 import { homeEndpoint } from "./server";
+import type { ActivityQueryParams, ActivityQueryResult } from "./types";
 
 /** 账号资料（db-server 的 QQ/微信「我的账号」同一份数据） */
 export interface PlayerProfile {
@@ -57,10 +59,17 @@ export interface DeviceGrant {
   lastUsedAt: number;
 }
 
+/** 当前微信绑定账号的一页行为记录（GET /player/activity）；bound 为 false 表示尚未绑定 */
+export interface PlayerActivityPage extends ActivityQueryResult {
+  bound: boolean;
+}
+
 /** 玩家端接口 */
 export interface PlayerApi {
   readonly endpoint: string;
   me(): Promise<PlayerMe>;
+  /** 读取本人的行为记录；执行者由网关按绑定关系限定，传 actorId 无效 */
+  activity(params: ActivityQueryParams): Promise<PlayerActivityPage>;
   requestBind(): Promise<BindCode>;
   unbind(): Promise<boolean>;
   describeDevice(ref: DeviceRef): Promise<PendingDevice>;
@@ -88,6 +97,8 @@ export function createPlayerApi(endpoint: string): PlayerApi {
   return {
     endpoint,
     me: () => call<PlayerMe>("GET", "/player/me"),
+    // GET 的 data 由 wx.request 拼成查询串；去掉未设置的字段，免得序列化成 "undefined"
+    activity: (params) => call<PlayerActivityPage>("GET", "/player/activity", JSON.parse(JSON.stringify(params)) as Record<string, unknown>),
     requestBind: () => call<BindCode>("POST", "/player/bind/request", {}),
     unbind: async () => (await call<{ unbound: boolean }>("POST", "/player/unbind", {})).unbound,
     describeDevice: (ref) => call<PendingDevice>("POST", "/auth/device/describe", ref),

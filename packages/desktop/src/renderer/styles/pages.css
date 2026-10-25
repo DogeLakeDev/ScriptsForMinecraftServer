@@ -999,6 +999,10 @@
   opacity: 0.55;
 }
 
+.player-chip.is-link:hover {
+  background: var(--c-fill-2);
+}
+
 .player-online {
   width: 6px;
   height: 6px;
@@ -1193,6 +1197,190 @@
 .task-result-label {
   margin-bottom: 6px;
   color: var(--c-text-3);
+  font-size: 12px;
+}
+
+/* ---------- 行为日志 ---------- */
+
+.activity-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.activity-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--r-12);
+  background: var(--c-fill);
+}
+
+.activity-stat span {
+  color: var(--c-text-3);
+  font-size: 12px;
+}
+
+.activity-stat b {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.activity-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.activity-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-bar {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 7em) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: var(--r-8);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.activity-bar:hover {
+  background: var(--c-fill);
+}
+
+.activity-bar-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--c-fill);
+}
+
+.activity-bar-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--c-progress-text);
+  opacity: 0.6;
+}
+
+.activity-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 8px;
+}
+
+.activity-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 4px 0 4px;
+  border-radius: 999px;
+  background: var(--c-fill);
+  font-size: 12.5px;
+}
+
+.activity-filter-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  color: var(--c-text-3);
+}
+
+.activity-filter-chip button:hover {
+  background: var(--c-fill-2);
+  color: var(--c-text);
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-item.open {
+  background: var(--c-fill);
+  border-radius: var(--r-16);
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.activity-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-8);
+}
+
+.activity-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.activity-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.activity-title > span:not(.badge) {
+  flex: none;
+  color: var(--c-text-2);
+}
+
+.activity-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-text-3);
+  font-size: 12px;
+}
+
+.activity-pos,
+.activity-time {
+  color: var(--c-text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.activity-item.open .task-chevron {
+  transform: rotate(180deg);
+}
+
+.activity-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 4px 16px 16px 56px;
+}
+
+.activity-pager {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px 12px;
   font-size: 12px;
 }
 

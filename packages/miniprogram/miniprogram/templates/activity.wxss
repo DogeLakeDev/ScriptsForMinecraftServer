@@ -1,0 +1,9 @@
+/* templates/activity.wxml 的样式；由引用模板的页面 @import */
+.activity-chip-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+.activity-footer {
+  padding: 10px 12px 12px;
+  text-align: center;
+}

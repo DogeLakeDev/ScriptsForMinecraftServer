@@ -64,6 +64,7 @@ import { createWechatBindProvider } from "./domain/wechat-bind.js";
 import { createBindConfirmRoutes } from "./routes/bind-confirm.js";
 import { createQqBindRoutes } from "./routes/qq-bind.js";
 import { createWechatBindRoutes } from "./routes/wechat-bind.js";
+import { createWechatActivityRoutes } from "./routes/wechat-activity.js";
 import { createQqEventsRoutes } from "./routes/qq-events.js";
 import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
 import { createStatusRoutes } from "./routes/status.js";
@@ -313,6 +314,7 @@ const wechatBindRoutes = createWechatBindRoutes({
       player
     ),
 });
+const wechatActivityRoutes = createWechatActivityRoutes({ query, json });
 
 /** 平台 QQ 绑定相关配置（非 SDK qq_config；原 qq-link 模块配置键） */
 const QQ_LINK_CONFIG_KEY = "qq_link";
@@ -651,6 +653,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     if (await qqBindRoutes(ctxBase)) return;
     if (await bindConfirmRoutes(ctxBase)) return;
     if (await wechatBindRoutes(ctxBase)) return;
+    if (await wechatActivityRoutes(ctxBase)) return;
     if (await qqJoinRoutes(ctxBase)) return;
     if (await qqEventsRoutes(ctxBase)) return;
     if (await messagesRoutes(ctxBase)) return;

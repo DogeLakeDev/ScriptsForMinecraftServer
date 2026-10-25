@@ -1,0 +1,74 @@
+<import src="/templates/activity.wxml" />
+<view class="page">
+  <conn-banner />
+
+  <!-- 模块未安装 -->
+  <view wx:if="{{!installed}}" class="surface">
+    <empty-state icon="activity" title="未安装行为日志模块" desc="安装并启用 activity-log 模块后，玩家的加入、聊天、方块、实体等行为会记录在这里">
+      <view class="btn btn-sm" hover-class="hover" bindtap="openModules">前往模块</view>
+    </empty-state>
+  </view>
+
+  <block wx:else>
+    <template is="activity-filters" data="{{ keyword, ranges, categories, hint: '搜索玩家名、目标或聊天内容' }}" />
+    <!-- 来自统计卡片或玩家页的附加筛选，点按取消 -->
+    <view wx:if="{{typeFilter || actorFilter}}" class="row activity-filters">
+      <view wx:if="{{actorFilter}}" class="badge tone-info" bindtap="clearActor">
+        <text class="i i-sm i-user"></text>
+        <text>{{actorFilter}}</text>
+        <text class="i i-sm i-x"></text>
+      </view>
+      <view wx:if="{{typeFilter}}" class="badge tone-info" bindtap="clearType">
+        <text>{{typeFilter}}</text>
+        <text class="i i-sm i-x"></text>
+      </view>
+    </view>
+
+    <!-- 统计 -->
+    <view wx:if="{{stats}}" class="surface">
+      <view class="surface-body">
+        <view class="activity-stats">
+          <view class="activity-stat"><text class="small muted">记录</text><text class="activity-stat-value num">{{stats.total}}</text></view>
+          <view class="activity-stat"><text class="small muted">玩家</text><text class="activity-stat-value num">{{stats.actors}}</text></view>
+          <view class="activity-stat"><text class="small muted">警告</text><text class="activity-stat-value num {{stats.warn ? 'text-warning' : ''}}">{{stats.warn}}</text></view>
+          <view class="activity-stat"><text class="small muted">错误</text><text class="activity-stat-value num {{stats.error ? 'text-danger' : ''}}">{{stats.error}}</text></view>
+        </view>
+      </view>
+      <view wx:if="{{stats.types.length}}" class="surface-body activity-section">
+        <view class="small muted">事件分布</view>
+        <view
+          wx:for="{{stats.types}}"
+          wx:key="value"
+          class="activity-bar {{item.active ? 'active' : ''}}"
+          hover-class="hover"
+          data-value="{{item.value}}"
+          bindtap="pickType"
+        >
+          <view class="activity-bar-head">
+            <text class="truncate">{{item.label}}</text>
+            <text class="num muted">{{item.count}}</text>
+          </view>
+          <view class="activity-bar-track"><view class="activity-bar-fill" style="width: {{item.width}}%"></view></view>
+        </view>
+      </view>
+      <view wx:if="{{stats.players.length}}" class="surface-body activity-section">
+        <view class="small muted">活跃玩家</view>
+        <view class="activity-players">
+          <view
+            wx:for="{{stats.players}}"
+            wx:key="id"
+            class="chip {{item.active ? 'active' : ''}}"
+            data-id="{{item.id}}"
+            data-name="{{item.name}}"
+            bindtap="pickActor"
+          >
+            <text>{{item.name}}</text>
+            <text class="chip-count num">{{item.count}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <template is="activity-records" data="{{ items, loaded, loading, hasMore, total, error, errorTitle: '读取行为日志失败', emptyTitle: '没有符合条件的记录' }}" />
+  </block>
+</view>

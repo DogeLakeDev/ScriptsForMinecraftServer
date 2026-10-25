@@ -2,6 +2,18 @@ import readline from "node:readline";
 import path from "node:path";
 import fs from "node:fs";
 import { toManagementError, type ManagementRequest } from "@sfmc-bds/management";
+import { LOCAL_CAPABILITIES, LOCAL_METHODS } from "./local-methods.js";
+
+/**
+ * 守护进程可能仍在运行升级前的代码，握手结果里缺少本地方法的能力。
+ * 本进程会直接处理这些方法，所以把能力补进成功的握手响应；失败响应原样返回。
+ */
+function withLocalCapabilities<T extends { ok: boolean; result?: unknown }>(response: T): T {
+  const result = response.result as { capabilities?: unknown } | undefined;
+  if (!response.ok || !result || !Array.isArray(result.capabilities)) return response;
+  const capabilities = [...new Set([...(result.capabilities as string[]), ...LOCAL_CAPABILITIES])];
+  return { ...response, result: { ...result, capabilities } };
+}
 
 /** 首帧确定实例目录，之后才加载含 ROOT 单例的 CLI 代码。 */
 export async function runManagementStdio() {
@@ -35,7 +47,7 @@ export async function runManagementStdio() {
         output(JSON.stringify({ type: "res", id: request.id, ok: true, result: await metrics.readRuntimeMetrics(request.params) }) + "\n");
         return;
       }
-      if (ready && request.method === "players.list") {
+      if (ready && LOCAL_METHODS.has(request.method)) {
         const backend = await import("./server.js");
         output(JSON.stringify({ type: "res", id: request.id, ok: true, result: await backend.dispatchManagement(request) }) + "\n");
         return;
@@ -45,7 +57,7 @@ export async function runManagementStdio() {
           const result = await client.callDaemon("management", { request });
           if (result.kind !== "management") throw new Error("旧守护进程没有管理入口");
           if (request.method === "events.subscribe" && result.response.ok && !dispose) dispose = await client.ensureDaemonSubscription();
-          output(JSON.stringify(result.response) + "\n");
+          output(JSON.stringify(request.method === "handshake" ? withLocalCapabilities(result.response) : result.response) + "\n");
           return;
         } catch (error) {
           if (request.method !== "handshake" || !/unknown method|管理入口/.test(error instanceof Error ? error.message : String(error))) throw error;

@@ -5,6 +5,11 @@
  * 另外定义小程序特有的实例档案与界面语气。
  */
 export type {
+  ActivityFilterParams,
+  ActivityQueryParams,
+  ActivityQueryResult,
+  ActivityRecord,
+  ActivityStatsResult,
   AttachmentPlan,
   ConfigDocument,
   Handshake,

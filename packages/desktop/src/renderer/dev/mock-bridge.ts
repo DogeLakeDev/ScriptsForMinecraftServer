@@ -6,6 +6,7 @@
  * 供设计走查、截图与交互调试使用。入口由 import.meta.env.DEV 守卫，生产构建不会包含本文件。
  */
 import type {
+  ActivityRecord,
   ConfigDocument,
   Handshake,
   LogEntryWire,
@@ -46,6 +47,67 @@ const profiles: InstanceProfile[] = [
   { id: "local-main", name: "生存服主线", kind: "local", root: "D:\\SFMC\\survival", hasCredential: false },
   { id: "ssh-hd", name: "创造服华东", kind: "ssh", root: "/srv/sfmc/creative", host: "10.0.8.12", port: 22, username: "mc", os: "linux", hasCredential: true, remember: true },
 ];
+
+/**
+ * 模拟的行为日志记录：近 3 天、三名玩家加一个苦力怕爆炸来源，按时间倒序。
+ * 使用场景：浏览器预览「行为日志」页与玩家页跳转；玩家 ID 与 players.list 的绑定记录一致。
+ */
+const mockActivity: ActivityRecord[] = (() => {
+  const actors = [
+    { actorId: "2535412345678901", actorName: "Steve" },
+    { actorId: "2535412345678902", actorName: "Alex" },
+    { actorId: "-4294967295", actorName: "Notch_CN" },
+  ];
+  const samples: Array<Pick<ActivityRecord, "eventType" | "targetId" | "level" | "payload">> = [
+    { eventType: "player.join", targetId: "", level: "info", payload: {} },
+    { eventType: "player.chat", targetId: "", level: "info", payload: { message: "有人一起去下界吗？" } },
+    { eventType: "block.break", targetId: "minecraft:diamond_ore", level: "info", payload: {} },
+    { eventType: "block.place", targetId: "minecraft:oak_planks", level: "info", payload: {} },
+    { eventType: "container.open", targetId: "minecraft:chest", level: "info", payload: {} },
+    { eventType: "item.pickup", targetId: "", level: "info", payload: { items: ["minecraft:cobblestone", "minecraft:cobblestone", "minecraft:coal"] } },
+    { eventType: "entity.kill", targetId: "minecraft:zombie", level: "info", payload: { cause: "entityAttack", victimType: "minecraft:zombie" } },
+    { eventType: "entity.hurt", targetId: "minecraft:skeleton", level: "info", payload: { damage: 3.5, cause: "projectile", damagingEntity: "minecraft:skeleton" } },
+    { eventType: "player.dimension", targetId: "", level: "info", payload: { from: "minecraft:overworld", to: "minecraft:nether" } },
+    { eventType: "world.explosion", targetId: "", level: "warn", payload: { impactedBlocks: 42 } },
+    { eventType: "player.leave", targetId: "", level: "info", payload: {} },
+  ];
+  const now = Date.now();
+  return Array.from({ length: 360 }, (_, index) => {
+    const sample = samples[index % samples.length]!;
+    const actor = actors[index % actors.length]!;
+    const creeper = sample.eventType === "world.explosion" && index % 2 === 0;
+    return {
+      id: `${now - index * 720_000}_mock${index}`,
+      timestamp: now - index * 720_000,
+      eventType: sample.eventType,
+      actorId: creeper ? "minecraft:creeper" : actor.actorId,
+      actorName: creeper ? "minecraft:creeper" : actor.actorName,
+      targetId: sample.targetId,
+      dimension: sample.eventType === "player.dimension" ? "minecraft:nether" : "minecraft:overworld",
+      x: 120 + (index % 37),
+      y: 64 - (index % 9),
+      z: -340 + (index % 53),
+      level: sample.level,
+      payload: sample.payload,
+    };
+  });
+})();
+
+/** 按 activity.query / activity.stats 的筛选参数过滤模拟记录（与 db-server 的规则一致的简化版） */
+function filterMockActivity(params: Record<string, unknown>): ActivityRecord[] {
+  const text = (key: string) => (typeof params[key] === "string" ? (params[key] as string) : "");
+  const keyword = text("keyword").toLowerCase();
+  return mockActivity.filter((row) =>
+    (!text("eventType") || row.eventType === text("eventType")) &&
+    (text("eventType") || !text("eventTypePrefix") || row.eventType.startsWith(text("eventTypePrefix"))) &&
+    (!text("actorId") || row.actorId === text("actorId")) &&
+    (!text("actorName") || row.actorName === text("actorName")) &&
+    (!text("level") || row.level === text("level")) &&
+    (typeof params.from !== "number" || row.timestamp >= params.from) &&
+    (typeof params.to !== "number" || row.timestamp <= params.to) &&
+    (!keyword || `${row.actorName} ${row.targetId} ${JSON.stringify(row.payload)}`.toLowerCase().includes(keyword))
+  );
+}
 
 /** db_config 的示例 Schema：与 SDK 中 schemas/db_config.schema.json 结构一致 */
 const dbSchema = {
@@ -335,7 +397,7 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version"] as Handshake["capabilities"],
+    capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version", "activity"] as Handshake["capabilities"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -551,6 +613,25 @@ export function installMockBridge() {
           : { filename: "install-sfmc-service.sh", script: "#!/bin/sh\nset -eu\n[ \"$(id -u)\" = 0 ] || { echo '请以管理员运行此一次性安装脚本'; exit 1; }\nunit=/etc/systemd/system/sfmc-3f2a9c1b.service\nsystemctl daemon-reload\nsystemctl enable --now sfmc-3f2a9c1b.service\n" };
       case "deployment.create": return runTask(id, method, ["preflight", "prepare", "download", "start"]);
       case "metrics.read": return mockMetrics(Number(params.spanMs ?? 3_600_000));
+      case "activity.query": {
+        const rows = filterMockActivity(params);
+        const limit = Math.min(500, Math.max(1, Number(params.limit) || 50));
+        const offset = Math.max(0, Number(params.offset) || 0);
+        return { installed: true, records: rows.slice(offset, offset + limit), total: rows.length, limit, offset };
+      }
+      case "activity.stats": {
+        const rows = filterMockActivity(params);
+        const tally = (key: (row: ActivityRecord) => string) => [...rows.reduce((map, row) => map.set(key(row), (map.get(key(row)) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]);
+        const players = rows.filter((row) => /^-?\d+$/.test(row.actorId));
+        return {
+          installed: true,
+          total: rows.length,
+          actors: new Set(players.map((row) => row.actorId)).size,
+          byType: tally((row) => row.eventType).map(([eventType, count]) => ({ eventType, count })),
+          byLevel: tally((row) => row.level).map(([level, count]) => ({ level: level as ActivityRecord["level"], count })),
+          topActors: tally((row) => row.actorId).filter(([actorId]) => players.some((row) => row.actorId === actorId)).slice(0, 10).map(([actorId, count]) => ({ actorId, actorName: players.find((row) => row.actorId === actorId)?.actorName ?? "", count })),
+        };
+      }
       default: throw new Error(`模拟桥未实现: ${method}`);
     }
   };

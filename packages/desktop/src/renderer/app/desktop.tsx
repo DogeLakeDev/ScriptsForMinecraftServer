@@ -53,6 +53,19 @@ export type Flow =
   | { kind: "login"; profile: InstanceProfile; reconnect: boolean }
   | { kind: "deploy"; profile: InstanceProfile };
 
+/**
+ * 跳转到行为日志页时预设的玩家筛选。
+ * 使用场景：「玩家与权限」页点击绑定玩家（按 actorId）或在线玩家（按 actorName）查看其行为记录。
+ */
+export interface ActivityFocus {
+  /** 游戏内 player.id（绑定记录的 playerXuid） */
+  actorId?: string;
+  /** 玩家名；在线快照没有 ID 时按名称筛选 */
+  actorName?: string;
+  /** 筛选标签上显示的名称 */
+  label: string;
+}
+
 /** 提交后台任务时的确认选项 */
 export interface SubmitOptions {
   /** 确认框中的补充说明（替换默认影响说明的首段） */
@@ -86,6 +99,10 @@ interface DesktopValue {
   logFocus: { entry: LogEntryWire; nonce: number } | null;
   openLog: (entry: LogEntryWire) => void;
   clearLogFocus: () => void;
+  /** 打开行为日志页并预设玩家筛选；页面读取后调用 clearActivityFocus */
+  activityFocus: (ActivityFocus & { nonce: number }) | null;
+  openActivity: (focus: ActivityFocus) => void;
+  clearActivityFocus: () => void;
   busy: boolean;
   /** 包裹异步操作：显示全局进度、捕获错误并提示 */
   guarded: <T>(action: () => Promise<T>) => Promise<T | undefined>;
@@ -208,6 +225,15 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     });
   }, [navigate]);
   const clearLogFocus = useCallback(() => setLogFocus(null), []);
+  const [activityFocus, setActivityFocus] = useState<(ActivityFocus & { nonce: number }) | null>(null);
+  const openActivity = useCallback((focus: ActivityFocus) => {
+    void navigate(() => {
+      setActivityFocus({ ...focus, nonce: Date.now() });
+      pageRef.current = "activity";
+      setPageState("activity");
+    });
+  }, [navigate]);
+  const clearActivityFocus = useCallback(() => setActivityFocus(null), []);
   const [busyCount, setBusyCount] = useState(0);
   const [flow, setFlow] = useState<Flow | null>(null);
   const [profileDialog, setProfileDialog] = useState<ProfileDialogState>({ open: false, editing: null });
@@ -602,6 +628,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       logFocus,
       openLog,
       clearLogFocus,
+      activityFocus,
+      openActivity,
+      clearActivityFocus,
       busy: busyCount > 0,
       guarded,
       patch,
@@ -623,7 +652,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       appInfo,
       desktopUpdate,
     }),
-    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, registerLeaveGuard, logFocus, openLog, clearLogFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, createDeployment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
+    [ready, profiles, current, setCurrent, selected, models, model, page, setPage, registerLeaveGuard, logFocus, openLog, clearLogFocus, activityFocus, openActivity, clearActivityFocus, busyCount, guarded, patch, refresh, request, submit, editable, connect, disconnect, createDeployment, confirmHost, flow, profileDialog, saveProfile, removeProfile, appInfo, desktopUpdate]
   );
   return <DesktopContext.Provider value={value}>{children}</DesktopContext.Provider>;
 }
