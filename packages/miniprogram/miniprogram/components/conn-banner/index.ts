@@ -35,10 +35,10 @@ Component({
       void session.reconnect();
     },
     openInstances() {
-      wx.navigateTo({ url: "/pages/instances/instances" });
+      wx.navigateTo({ url: "/admin/pages/instances/instances" });
     },
     addInstance() {
-      wx.navigateTo({ url: "/pages/instance-edit/instance-edit" });
+      wx.navigateTo({ url: "/admin/pages/instance-edit/instance-edit" });
     },
   },
 });

@@ -18,6 +18,10 @@
 .page.with-tabbar {
   padding-bottom: 24px;
 }
+/* 管理端一级页面：底部导航 admin-nav 固定在页面之上，需要预留导航高度与底部安全区 */
+.page.with-admin-nav {
+  padding-bottom: calc(24px + var(--admin-nav-height) + env(safe-area-inset-bottom));
+}
 .page-head {
   display: flex;
   align-items: center;

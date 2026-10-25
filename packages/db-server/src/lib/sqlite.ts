@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync, StatementSync } from "node:sqlite";
 import type { SQLStatement } from "sql-template-strings";
@@ -75,5 +75,26 @@ export function openDatabase(filePath: string): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 5000");
   return db;
+}
+
+/**
+ * 以只读连接打开业务库，执行一次查询后立即关闭。
+ * 使用场景：db-server 进程之外（CLI 管理通道）读取模块表，例如 activity.query / activity.stats。
+ * 文件不存在时调用 missing() 返回兜底结果，不创建数据库；查询本身的异常原样抛出，交给调用方提示。
+ *
+ * @param filePath 业务库绝对路径。
+ * @param missing 数据库文件不存在时的兜底结果。
+ * @param run 使用只读 QueryFn 执行的查询。
+ */
+export function withReadonlyQuery<T>(filePath: string, missing: () => T, run: (query: QueryFn) => T): T {
+  if (!existsSync(filePath)) return missing();
+  const db = new DatabaseSync(filePath, { readOnly: true });
+  try {
+    db.exec("PRAGMA query_only = ON");
+    db.exec("PRAGMA busy_timeout = 5000");
+    return run(createQuery(db, 16));
+  } finally {
+    try { db.close(); } catch { /* 只读连接关闭失败不影响已取得的结果 */ }
+  }
 }
 

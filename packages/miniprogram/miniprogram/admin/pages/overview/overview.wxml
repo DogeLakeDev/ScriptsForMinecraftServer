@@ -1,0 +1,201 @@
+<view class="page with-admin-nav">
+  <!-- 实例切换头：点击进入实例列表。连接中、断开、只读等状态由下方 conn-banner 提示，这里只显示实例名 -->
+  <view wx:if="{{hasProfile}}" class="instance-head" hover-class="hover" bindtap="openInstances">
+    <view class="page-head-text">
+      <view class="row">
+        <text class="page-title truncate">{{instanceName}}</text>
+        <text class="i i-sm i-chevron-down muted"></text>
+      </view>
+    </view>
+  </view>
+
+  <conn-banner />
+
+  <block wx:if="{{ready}}">
+    <!-- 状态条 -->
+    <view class="strip">
+      <view class="strip-item">
+        <text class="strip-label">运行服务</text>
+        <view class="strip-value num">{{strip.running}}<text class="strip-total">{{strip.total}}</text></view>
+      </view>
+      <view class="strip-item" hover-class="hover" bindtap="openPlayers">
+        <text class="strip-label">在线玩家</text>
+        <view class="strip-value num">{{strip.players}}</view>
+      </view>
+      <view class="strip-item">
+        <text class="strip-label">TPS</text>
+        <view class="strip-value num {{strip.tpsWarn ? 'text-warning' : ''}}">{{strip.tps}}</view>
+      </view>
+      <view class="strip-item">
+        <text class="strip-label">主机内存</text>
+        <view class="strip-value num">{{strip.memory}}<text class="strip-total">{{strip.memoryTotal}}</text></view>
+      </view>
+    </view>
+
+    <!-- 服务 -->
+    <view class="surface">
+      <view class="surface-head">
+        <text class="surface-title">服务</text>
+        <view class="btn btn-sm {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="startAll">
+          <text class="i i-sm i-play"></text>
+          <text>启动全部</text>
+        </view>
+        <view class="btn btn-sm btn-icon {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="moreActions">
+          <text class="i i-sm i-more"></text>
+        </view>
+      </view>
+      <view class="surface-list">
+        <view
+          wx:for="{{services}}"
+          wx:key="name"
+          class="list-item"
+          hover-class="hover"
+          data-name="{{item.name}}"
+          bindtap="serviceMenu"
+        >
+          <view class="tile"><text class="i i-{{item.icon}}"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">{{item.title}}</text></view>
+            <view class="list-sub truncate mono">{{item.detail}}</view>
+          </view>
+          <view class="list-end">
+            <text class="badge tone-{{item.tone}}"><text class="dot tone-{{item.tone}}"></text>{{item.label}}</text>
+            <text class="i i-sm i-chevron-right muted"></text>
+          </view>
+        </view>
+        <empty-state wx:if="{{!services.length}}" icon="server" title="暂无服务信息" compact />
+      </view>
+    </view>
+
+    <!-- 需要关注：告警 + 任务 -->
+    <view class="surface">
+      <view class="surface-head">
+        <text class="surface-title">需要关注</text>
+        <text class="link" bindtap="openConsole">查看日志</text>
+      </view>
+      <view class="surface-list">
+        <view
+          wx:for="{{alerts}}"
+          wx:key="key"
+          class="feed-item"
+          hover-class="hover"
+          data-at="{{item.at}}"
+          bindtap="openConsole"
+        >
+          <view class="tile tile-sm {{item.error ? 'tile-danger' : 'tile-warning'}}">
+            <text class="i i-sm {{item.error ? 'i-bug' : 'i-warning'}}"></text>
+          </view>
+          <view class="feed-text">
+            <view class="truncate">{{item.text}}</view>
+            <view class="feed-meta"><text class="mono">{{item.source}}</text> {{item.time}}</view>
+          </view>
+          <text wx:if="{{item.count > 1}}" class="badge">×{{item.count}}</text>
+        </view>
+        <empty-state wx:if="{{!alerts.length}}" icon="bell" title="暂无告警" desc="已加载日志中没有警告或错误" compact />
+      </view>
+      <view class="attention-head">
+        <view class="row small">
+          <block wx:if="{{activeCount > 0}}">
+            <text class="dot tone-info pulse"></text>
+            <text>{{activeCount}} 个任务正在进行</text>
+          </block>
+          <text wx:else class="muted">最近任务</text>
+        </view>
+        <text class="link" bindtap="openTasks">全部任务</text>
+      </view>
+      <view class="surface-list">
+        <view wx:for="{{tasks}}" wx:key="id" class="feed-item" hover-class="hover" bindtap="openTasks">
+          <view class="tile tile-sm tile-{{item.tone}}">
+            <text class="i i-sm i-{{item.icon}} {{item.spin ? 'spin' : ''}}"></text>
+          </view>
+          <view class="feed-text">
+            <view class="truncate">{{item.label}}</view>
+            <!-- 结束状态已由左侧图标表达，这里只在进行中时补充当前阶段 -->
+            <view class="feed-meta">
+              <text wx:if="{{item.spin}}" class="text-{{item.tone}}">{{item.phase}} </text>{{item.time}}
+            </view>
+          </view>
+        </view>
+        <empty-state wx:if="{{!tasks.length}}" icon="history" title="暂无任务" compact />
+      </view>
+    </view>
+
+    <!-- 运行趋势 -->
+    <view class="surface">
+      <view class="surface-head">
+        <text class="surface-title">运行趋势</text>
+      </view>
+      <view class="surface-body">
+        <view wx:if="{{metricsNote}}" class="small muted chart-note">{{metricsNote}}</view>
+        <block wx:if="{{metricsSupported}}">
+          <view class="segmented chart-span">
+            <view class="segmented-item {{span === '15' ? 'active' : ''}}" data-value="15" bindtap="setSpan">15 分钟</view>
+            <view class="segmented-item {{span === '60' ? 'active' : ''}}" data-value="60" bindtap="setSpan">1 小时</view>
+            <view class="segmented-item {{span === '1440' ? 'active' : ''}}" data-value="1440" bindtap="setSpan">一天</view>
+          </view>
+          <view class="chart-label"><text class="dot" style="background:#7dbbff"></text><text>TPS</text></view>
+          <line-chart series="{{charts.tps}}" min="{{0}}" max="{{20}}" unit="tps" begin="{{charts.begin}}" end="{{charts.end}}" />
+          <view class="chart-label"><text class="dot" style="background:#71dd8c"></text><text>在线玩家</text></view>
+          <line-chart series="{{charts.players}}" unit="count" begin="{{charts.begin}}" end="{{charts.end}}" />
+          <view wx:if="{{memoryPanel.show}}" class="memory-panel">
+            <view class="memory-row">
+              <text>主机内存</text>
+              <text class="num">{{memoryPanel.host}}</text>
+            </view>
+            <view class="memory-meter">
+              <view style="width: {{memoryPanel.usedPercent}}%;"></view>
+            </view>
+            <view wx:if="{{memoryPanel.hostNote}}" class="memory-note">整机已用，含系统和其他程序</view>
+            <view wx:if="{{memoryPanel.total}}" class="memory-process">
+              <view class="memory-row">
+                <text>SFMC 合计</text>
+                <text class="num">{{memoryPanel.total}}</text>
+              </view>
+              <view class="memory-note">下列进程的工作集相加</view>
+            </view>
+            <view wx:for="{{memoryPanel.rows}}" wx:key="key" class="memory-process">
+              <view class="memory-row">
+                <text>{{item.label}}</text>
+                <text class="num">{{item.value}}</text>
+              </view>
+              <view class="memory-note">{{item.detail}}</view>
+            </view>
+          </view>
+          <block wx:if="{{charts.memory.length}}">
+            <view class="chart-label">
+              <block wx:for="{{charts.memory}}" wx:key="name">
+                <text class="dot" style="background:{{item.color}}"></text><text>{{item.name}}</text>
+              </block>
+            </view>
+            <line-chart series="{{charts.memory}}" min="{{0}}" max="{{charts.memoryMax}}" unit="memory" begin="{{charts.begin}}" end="{{charts.end}}" />
+          </block>
+          <block wx:if="{{charts.entities.length}}">
+            <view class="chart-label">
+              <block wx:for="{{charts.entities}}" wx:key="name">
+                <text class="dot" style="background:{{item.color}}"></text><text>{{item.name}}</text>
+              </block>
+            </view>
+            <line-chart series="{{charts.entities}}" unit="count" begin="{{charts.begin}}" end="{{charts.end}}" />
+          </block>
+        </block>
+      </view>
+    </view>
+
+    <!-- 实例详情 -->
+    <view wx:if="{{detail}}" class="instance-detail">
+      <view class="kv">
+        <text class="kv-key">部署目录</text>
+        <text class="kv-value mono" bindlongpress="copyRoot">{{root}}</text>
+        <text class="kv-key">平台</text>
+        <text class="kv-value">{{detail.platform}}</text>
+        <text class="kv-key">系统版本</text>
+        <text class="kv-value">{{detail.release}}</text>
+        <text class="kv-key">守护进程</text>
+        <text class="kv-value">{{detail.daemon}}</text>
+      </view>
+      <view class="link detail-link" bindtap="openUpdates">查看更新与备份</view>
+    </view>
+  </block>
+</view>
+<confirm-sheet id="confirm" />
+<admin-nav current="overview" />

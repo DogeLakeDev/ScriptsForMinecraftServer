@@ -1,0 +1,119 @@
+<view class="console">
+  <view class="console-top">
+    <conn-banner />
+    <!-- 搜索 + 日期 + 工具 -->
+    <view class="row">
+      <view class="search flex1">
+        <text class="i i-search"></text>
+        <input value="{{query}}" placeholder="搜索日志正文" placeholder-class="placeholder" confirm-type="search" bindinput="onQuery" />
+        <text wx:if="{{query}}" class="i i-x" bindtap="clearFilters"></text>
+      </view>
+      <picker wx:if="{{canRange}}" mode="date" value="{{day}}" bindchange="onPickDay">
+        <view class="btn btn-icon {{day ? 'btn-primary' : ''}}" hover-class="hover">
+          <text class="i {{rangeLoading ? 'i-loader spin' : 'i-calendar'}}"></text>
+        </view>
+      </picker>
+      <view class="btn btn-icon" hover-class="hover" bindtap="toggleWrap">
+        <text class="i i-wrap {{wrap ? '' : 'muted'}}"></text>
+      </view>
+      <view class="btn btn-icon" hover-class="hover" bindtap="clearScreen" bindlongpress="restoreScreen">
+        <text class="i i-eraser"></text>
+      </view>
+    </view>
+    <!-- 级别 + 来源筛选 -->
+    <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="chip-scroll">
+      <view class="chips">
+        <view
+          wx:for="{{levels}}"
+          wx:key="value"
+          class="chip {{item.active ? 'active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="toggleLevel"
+        >
+          <text class="dot tone-{{item.tone}}"></text>
+          <text>{{item.label}}</text>
+          <text class="chip-count">{{item.count}}</text>
+        </view>
+        <view class="chip-sep"></view>
+        <view
+          wx:for="{{sources}}"
+          wx:key="name"
+          class="chip {{item.active ? 'active' : ''}}"
+          data-name="{{item.name}}"
+          bindtap="toggleSource"
+        >
+          <text class="mono">{{item.name}}</text>
+          <text class="chip-count">{{item.count}}</text>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:if="{{day || filtering || truncated}}" class="row small muted console-meta">
+      <block wx:if="{{day}}">
+        <text class="badge tone-info">{{day}}</text>
+        <text class="link" bindtap="resetDay">回到实时</text>
+      </block>
+      <text wx:if="{{truncated}}" class="text-warning">当日日志过多，仅显示最近 5000 条</text>
+      <text wx:if="{{filtering}}">匹配 {{matched}} / {{total}}</text>
+      <text wx:if="{{filtering}}" class="link" bindtap="clearFilters">清除筛选</text>
+    </view>
+  </view>
+
+  <!-- 日志视图。不换行时同时允许横向滚动；行放在 inline-block 表里，宽度才能超过视口 -->
+  <scroll-view
+    scroll-y
+    scroll-x="{{!wrap}}"
+    enhanced
+    class="log-view {{wrap ? 'wrap' : ''}}"
+    scroll-top="{{scrollTop}}"
+    scroll-into-view="{{focusId}}"
+    lower-threshold="40"
+    bindscroll="onScroll"
+    bindscrolltolower="onReachBottom"
+  >
+    <view wx:if="{{hiddenCount > 0}}" class="log-hint">较早的 {{hiddenCount}} 条未显示，可用筛选或日期缩小范围</view>
+    <view class="log-sheet">
+      <view
+        wx:for="{{rows}}"
+        wx:key="id"
+        id="{{item.id}}"
+        class="log-row lv-{{item.level}} {{item.focus ? 'focus' : ''}}"
+        data-text="{{item.text}}"
+        bindlongpress="copyRow"
+      >
+        <text class="log-time">{{item.time}}</text>
+        <text class="log-src" style="color: hsl({{item.hue}}, 45%, var(--log-src-l))">{{item.source}}</text>
+        <text class="log-text" user-select="{{wrap}}">{{item.text}}</text>
+      </view>
+    </view>
+    <view wx:if="{{!rows.length}}" class="log-hint">{{online ? (total ? '没有匹配的日志' : '暂无日志') : '连接实例后显示日志'}}</view>
+  </scroll-view>
+  <view wx:if="{{!follow}}" class="follow-btn" hover-class="hover" bindtap="followLatest">
+    <text class="i i-sm i-arrow-down"></text>
+  </view>
+
+  <!-- 命令输入 -->
+  <view class="command-bar">
+    <view class="btn btn-sm mono" hover-class="hover" bindtap="pickTarget">
+      <text>{{target}}</text>
+      <text class="i i-sm i-chevron-down"></text>
+    </view>
+    <input
+      class="command-input mono"
+      value="{{command}}"
+      placeholder="{{editable ? '输入命令，例如 list' : '当前不可发送命令'}}"
+      placeholder-class="placeholder"
+      disabled="{{!editable}}"
+      confirm-type="send"
+      confirm-hold
+      bindinput="onCommand"
+      bindconfirm="send"
+    />
+    <view class="btn btn-sm btn-icon" hover-class="hover" bindtap="pickHistory">
+      <text class="i i-sm i-history"></text>
+    </view>
+    <view class="btn btn-sm btn-icon btn-primary {{command && editable ? '' : 'disabled'}}" hover-class="hover" bindtap="send">
+      <text class="i i-sm {{sending ? 'i-loader spin' : 'i-arrow-up'}}"></text>
+    </view>
+  </view>
+</view>
+<admin-nav current="console" />

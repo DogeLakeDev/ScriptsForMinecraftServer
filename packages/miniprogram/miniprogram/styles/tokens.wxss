@@ -9,6 +9,8 @@
 page {
   --log-src-l: 42%;
   --font-mono: "JetBrains Mono", Menlo, Consolas, monospace;
+  /* 管理端底部导航（components/admin-nav）的高度，不含底部安全区；页面用 .with-admin-nav 预留同样高度 */
+  --admin-nav-height: 52px;
 
   --weui-BG-0: var(--c-bg);
   --weui-BG-1: var(--c-bg);

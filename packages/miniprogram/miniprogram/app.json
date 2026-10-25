@@ -1,20 +1,38 @@
 {
   "pages": [
-    "pages/overview/overview",
-    "pages/console/console",
-    "pages/tasks/tasks",
-    "pages/manage/manage",
-    "pages/instances/instances",
-    "pages/instance-edit/instance-edit",
-    "pages/modules/modules",
-    "pages/packs/packs",
-    "pages/config/config",
-    "pages/config-edit/config-edit",
-    "pages/players/players",
-    "pages/updates/updates"
+    "pages/home/home",
+    "pages/rank/rank",
+    "pages/me/me"
   ],
+  "subPackages": [
+    {
+      "root": "admin",
+      "name": "admin",
+      "pages": [
+        "pages/overview/overview",
+        "pages/console/console",
+        "pages/tasks/tasks",
+        "pages/manage/manage",
+        "pages/instances/instances",
+        "pages/instance-edit/instance-edit",
+        "pages/modules/modules",
+        "pages/packs/packs",
+        "pages/config/config",
+        "pages/config-edit/config-edit",
+        "pages/players/players",
+        "pages/updates/updates",
+        "pages/devices/devices"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/me/me": {
+      "network": "all",
+      "packages": ["admin"]
+    }
+  },
   "window": {
-    "navigationBarTitleText": "SFMC",
+    "navigationBarTitleText": "东方犬明湖",
     "navigationBarBackgroundColor": "@navBg",
     "navigationBarTextStyle": "@navText",
     "backgroundColor": "@pageBg",
@@ -28,10 +46,9 @@
     "backgroundColor": "@tabBg",
     "borderStyle": "@tabBorder",
     "list": [
-      { "pagePath": "pages/overview/overview", "text": "实例", "iconPath": "@tabOverview", "selectedIconPath": "@tabOverviewActive" },
-      { "pagePath": "pages/console/console", "text": "控制台", "iconPath": "@tabTerminal", "selectedIconPath": "@tabTerminalActive" },
-      { "pagePath": "pages/tasks/tasks", "text": "任务", "iconPath": "@tabTasks", "selectedIconPath": "@tabTasksActive" },
-      { "pagePath": "pages/manage/manage", "text": "管理", "iconPath": "@tabSettings", "selectedIconPath": "@tabSettingsActive" }
+      { "pagePath": "pages/home/home", "text": "首页", "iconPath": "@tabHome", "selectedIconPath": "@tabHomeActive" },
+      { "pagePath": "pages/rank/rank", "text": "排行", "iconPath": "@tabRank", "selectedIconPath": "@tabRankActive" },
+      { "pagePath": "pages/me/me", "text": "我的", "iconPath": "@tabMe", "selectedIconPath": "@tabMeActive" }
     ]
   },
   "usingComponents": {

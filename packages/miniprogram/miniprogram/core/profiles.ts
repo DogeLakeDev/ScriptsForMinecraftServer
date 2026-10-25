@@ -25,6 +25,8 @@ export function saveProfile(input: Omit<InstanceProfile, "id"> & { id?: string }
   const rows = listProfiles();
   const id = input.id || `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const profile: InstanceProfile = { id, name: input.name.trim(), endpoint: normalizeEndpoint(input.endpoint), token: input.token.trim() };
+  // 微信身份档案不保存令牌；令牌档案保持旧数据格式（不写 auth 字段）
+  if (input.auth === "wechat") Object.assign(profile, { auth: "wechat", token: "" });
   const index = rows.findIndex((row) => row.id === id);
   if (index >= 0) rows[index] = profile;
   else rows.push(profile);
@@ -64,6 +66,11 @@ export function normalizeEndpoint(input: string): string {
   const secure = scheme === "https" || scheme === "wss";
   const pathPart = (match[3] ?? "").replace(/\/+$/, "").replace(/\/(manage|health)$/, "");
   return `${secure ? "https" : "http"}://${match[2]}${pathPart}`;
+}
+
+/** 是否为微信身份档案（连接凭证来自微信登录，编辑页隐藏令牌输入框） */
+export function isWechatProfile(profile: InstanceProfile): boolean {
+  return profile.auth === "wechat";
 }
 
 /** 管理通道 WebSocket 地址 */

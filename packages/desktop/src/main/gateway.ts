@@ -11,6 +11,7 @@ import { normalizeEndpoint, socketUrl } from "../shared/gateway-url.js";
 /** 网关自定义关闭码，与 mp-gateway server.ts 一致 */
 const CLOSE_REASONS: Record<number, string> = {
   4401: "访问令牌无效",
+  4403: "没有管理权限（授权人已不是游戏内 3 级管理员，请重新用小程序登录）",
   4429: "鉴权失败次数过多，请稍后再试",
   4503: "管理会话已满，请关闭其他设备上的连接",
 };

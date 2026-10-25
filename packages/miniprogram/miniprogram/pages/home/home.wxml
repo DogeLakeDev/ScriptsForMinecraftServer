@@ -1,0 +1,33 @@
+<view class="page with-tabbar">
+  <view class="page-head">
+    <view class="page-head-text">
+      <view class="page-title">{{serverName}}</view>
+      <view class="page-desc">Minecraft 基岩版服务器</view>
+    </view>
+  </view>
+
+  <view wx:if="{{!configured}}" class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-title">尚未配置服务器地址</view>
+      <view class="callout-text">请在 core/server.ts 的 HOME_SERVER.endpoint 填写 mp-gateway 地址后重新编译。</view>
+    </view>
+  </view>
+
+  <view class="surface">
+    <empty-state icon="globe" title="服务器状态与加入方式" desc="功能设计中，敬请期待" />
+  </view>
+
+  <view class="surface">
+    <view class="surface-list">
+      <view class="list-item" hover-class="hover" bindtap="openMe">
+        <view class="tile tile-blue"><text class="i i-user"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">绑定游戏账号</text></view>
+          <view class="list-sub">在「我的」中用微信绑定游戏角色，查看余额与在线时长</view>
+        </view>
+        <text class="i i-sm i-chevron-right muted"></text>
+      </view>
+    </view>
+  </view>
+</view>

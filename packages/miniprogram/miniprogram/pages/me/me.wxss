@@ -1,0 +1,21 @@
+/* 绑定码：大号等宽数字，便于对照输入 */
+.me-code {
+  margin-top: 4px;
+  font-size: 36px;
+  line-height: 48px;
+  font-weight: 600;
+  letter-spacing: 8px;
+  text-align: center;
+}
+.me-center {
+  text-align: center;
+}
+.me-steps {
+  margin-top: 12px;
+}
+.me-action {
+  margin-top: 12px;
+}
+.me-retry {
+  margin-top: 6px;
+}

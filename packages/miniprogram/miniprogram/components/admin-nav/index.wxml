@@ -1,0 +1,16 @@
+<!-- 管理端底部导航：固定在页面底部，页面根节点需带 with-admin-nav 预留高度 -->
+<view class="admin-nav">
+  <view
+    wx:for="{{tabs}}"
+    wx:key="key"
+    class="admin-nav-item {{item.key === current ? 'active' : ''}}"
+    data-key="{{item.key}}"
+    bindtap="open"
+  >
+    <view class="admin-nav-icon">
+      <text class="i i-lg i-{{item.icon}}"></text>
+      <text wx:if="{{item.key === 'tasks' && taskBadge}}" class="admin-nav-badge num">{{taskBadge}}</text>
+    </view>
+    <text class="admin-nav-text">{{item.text}}</text>
+  </view>
+</view>

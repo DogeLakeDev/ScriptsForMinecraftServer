@@ -19,6 +19,7 @@
   "scripts": {
     "build": "sfmc-esbuild-transpile",
     "start": "node ./dist/main.js",
+    "test": "node --test --import tsx/esm test/*.test.ts",
     "typecheck": "tsc7 --noEmit -p tsconfig.json"
   },
   "dependencies": {

@@ -123,7 +123,7 @@ export function ModuleDetailSheet({
           )}
           {module && check.declared && !check.ok && (
             <Callout tone="warning" title="先处理依赖再安装">
-              下面列出的模块要先安装并启用。尚未安装的可以打开它的详情继续；已停用的要到「已安装」里打开开关。依赖没通过时不会开始下载。
+              请先安装缺失的依赖。
             </Callout>
           )}
           {module && check.declared && check.ok && check.items.length > 0 && (

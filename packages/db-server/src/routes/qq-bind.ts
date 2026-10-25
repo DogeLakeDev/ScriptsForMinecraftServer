@@ -7,27 +7,23 @@
  *   GET  /api/sfmc/qq/bind/me       — 查询
  */
 
-import { randomInt } from "node:crypto";
 import { SQL } from "sql-template-strings";
+import { BIND_CODE_TTL_MS, generateBindCode } from "../domain/bind-providers.js";
 import { loadQqAccountProfile, saveQqAccountProfile } from "../domain/qq-account-profile.js";
+import { confirmQqBind, hasQqPendingCode } from "../domain/qq-bind.js";
 import type { QueryFn } from "../lib/sqlite.js";
 
-const CODE_TTL_MS = 5 * 60 * 1000;
-const CODE_LEN = 6;
+const CODE_TTL_MS = BIND_CODE_TTL_MS;
 
 interface Deps {
   query: QueryFn;
   body: (req: import("http").IncomingMessage) => Promise<Record<string, unknown>>;
   json: (res: import("http").ServerResponse, data: Record<string, unknown>, status?: number) => void;
+  /** 短码是否已被任一绑定渠道占用；缺省只查 QQ 待确认表（与原行为一致） */
+  isCodeTaken?: (code: string) => boolean;
 }
 
-function genCode(): string {
-  let s = "";
-  for (let i = 0; i < CODE_LEN; i++) s += String(randomInt(0, 10));
-  return s;
-}
-
-function createQqBindRoutes({ query, body, json }: Deps) {
+function createQqBindRoutes({ query, body, json, isCodeTaken = (code) => hasQqPendingCode(query, code) }: Deps) {
   return async function handle({
     path,
     method,
@@ -130,17 +126,8 @@ function createQqBindRoutes({ query, body, json }: Deps) {
       const now = Date.now();
       query(SQL`DELETE FROM sfmc_qq_bind_pending WHERE qq_user_openid = ${openid} OR expires_at < ${now}`);
 
-      let code = "";
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const candidate = genCode();
-        const clash = query(
-          SQL`SELECT 1 AS ok FROM sfmc_qq_bind_pending WHERE code = ${candidate} LIMIT 1`
-        ) as unknown[];
-        if (clash.length === 0) {
-          code = candidate;
-          break;
-        }
-      }
+      // 查重范围由入口注入（QQ + 微信待确认表），保证统一确认入口按短码能唯一定位渠道
+      const code = generateBindCode(isCodeTaken);
       if (!code) {
         json(res, { success: false, error: "code_gen_failed" }, 500);
         return true;
@@ -165,58 +152,10 @@ function createQqBindRoutes({ query, body, json }: Deps) {
         return true;
       }
 
-      const now = Date.now();
-      const pending = query(
-        SQL`SELECT * FROM sfmc_qq_bind_pending WHERE code = ${code} LIMIT 1`
-      ) as Array<{
-        code: string;
-        qq_user_openid: string;
-        qq_backend: string;
-        expires_at: number;
-      }>;
-      const row = pending[0];
-      if (!row) {
-        json(res, { success: false, error: "invalid_code" }, 400);
-        return true;
-      }
-      if (Number(row.expires_at) < now) {
-        query(SQL`DELETE FROM sfmc_qq_bind_pending WHERE code = ${code}`);
-        json(res, { success: false, error: "code_expired" }, 400);
-        return true;
-      }
-
-      const byOpenid = query(
-        SQL`SELECT player_xuid FROM sfmc_qq_bindings WHERE qq_user_openid = ${row.qq_user_openid} LIMIT 1`
-      ) as Array<{ player_xuid: string }>;
-      if (byOpenid[0] && byOpenid[0].player_xuid !== xuid) {
-        json(res, { success: false, error: "qq_already_bound", hint: "请先在 QQ 侧解绑" }, 409);
-        return true;
-      }
-      const byXuid = query(
-        SQL`SELECT qq_user_openid FROM sfmc_qq_bindings WHERE player_xuid = ${xuid} LIMIT 1`
-      ) as Array<{ qq_user_openid: string }>;
-      if (byXuid[0] && byXuid[0].qq_user_openid !== row.qq_user_openid) {
-        json(res, { success: false, error: "player_already_bound", hint: "请先解绑当前 QQ" }, 409);
-        return true;
-      }
-
-      // 绑定记录就是自有白名单：写入后游戏侧允许移动并恢复成员/操作员权限。
-      query(SQL`DELETE FROM sfmc_qq_bindings WHERE qq_user_openid = ${row.qq_user_openid} OR player_xuid = ${xuid}`);
-      query(
-        SQL`INSERT INTO sfmc_qq_bindings (qq_user_openid, player_xuid, player_name, qq_backend, bound_at)
-            VALUES (${row.qq_user_openid}, ${xuid}, ${name}, ${row.qq_backend}, ${now})`
-      );
-      query(SQL`DELETE FROM sfmc_qq_bind_pending WHERE code = ${code}`);
-      json(res, {
-        success: true,
-        binding: {
-          qq_user_openid: row.qq_user_openid,
-          player_xuid: xuid,
-          player_name: name,
-          qq_backend: row.qq_backend,
-          bound_at: now,
-        },
-      });
+      // 确认逻辑与统一入口 /api/sfmc/bind/confirm 共用 domain/qq-bind.ts（DRY），响应结构保持不变
+      const result = confirmQqBind(query, { code, xuid, name, now: Date.now() });
+      if (result.ok) json(res, { success: true, binding: result.binding });
+      else json(res, { success: false, error: result.error, ...(result.hint ? { hint: result.hint } : {}) }, result.status);
       return true;
     }
 

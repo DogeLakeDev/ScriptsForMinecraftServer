@@ -1,0 +1,51 @@
+<view class="page with-admin-nav">
+  <conn-banner />
+  <view wx:if="{{entries.length}}" class="surface">
+    <view class="surface-list">
+      <view wx:for="{{entries}}" wx:key="key" class="list-item" hover-class="hover" data-url="{{item.url}}" bindtap="open">
+        <view class="tile tile-{{item.tone}}"><text class="i i-{{item.icon}}"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">{{item.title}}</text></view>
+          <view wx:if="{{item.meta}}" class="list-sub">{{item.meta}}</view>
+        </view>
+        <text class="i i-sm i-chevron-right muted"></text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{hasProfile}}" class="surface">
+    <view class="surface-head"><text class="surface-title">连接</text></view>
+    <view class="surface-list">
+      <view class="list-item" hover-class="hover" bindtap="openInstances">
+        <view class="tile tile-pink"><text class="i i-server"></text></view>
+        <view class="list-main">
+          <view class="list-title">
+            <text class="truncate">{{instanceName}}</text>
+            <text class="badge tone-{{connTone}}"><text class="dot tone-{{connTone}}"></text>{{connLabel}}</text>
+          </view>
+          <view class="list-sub truncate mono">{{endpoint}}</view>
+        </view>
+        <text class="small muted">切换</text>
+        <text class="i i-sm i-chevron-right muted"></text>
+      </view>
+      <view class="list-item" hover-class="hover" bindtap="disconnect">
+        <view class="tile {{online ? 'tile-danger' : 'tile-success'}}">
+          <text class="i {{online ? 'i-unplug' : 'i-plug'}}"></text>
+        </view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate {{online ? 'text-danger' : ''}}">{{online ? '断开连接' : '重新连接'}}</text></view>
+          <view class="list-sub">{{online ? '服务器和后台任务继续运行' : (wechat ? '使用微信管理员身份连接' : '使用已保存的访问令牌连接')}}</view>
+        </view>
+      </view>
+      <view wx:if="{{wechat}}" class="list-item" hover-class="hover" bindtap="openDevices">
+        <view class="tile tile-teal"><text class="i i-monitor"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">已授权设备</text></view>
+          <view class="list-sub">通过小程序登录的桌面端</view>
+        </view>
+        <text class="i i-sm i-chevron-right muted"></text>
+      </view>
+    </view>
+  </view>
+</view>
+<admin-nav current="manage" />

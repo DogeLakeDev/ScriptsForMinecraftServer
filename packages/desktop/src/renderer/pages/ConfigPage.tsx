@@ -2,7 +2,7 @@
  * ConfigPage.tsx — 配置编辑
  *
  * 使用场景：左侧按"核心 / BDS / 模块"分组列出可编辑配置，右侧提供表单与源码两种视图。
- * 表单视图由 JSON Schema（或 server.properties 常用字段）生成，修改始终回写到原文以保留注释与未知字段；
+ * 表单视图由 JSON Schema（或平台下发的 server.properties 字段清单，旧平台回退常用字段）生成，修改始终回写到原文以保留注释与未知字段；
  * config.save 只保存文件（携带读取时的 revision 防止覆盖他人修改），需要时由独立按钮重启服务。
  */
 import Editor from "@monaco-editor/react";
@@ -17,7 +17,7 @@ import { Icon, type IconName } from "../components/icons.js";
 import { ManualRestartNotice, RestartServicesButton, useManualRestartSupport } from "../components/RestartServicesButton.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, Callout, EmptyState, PageHeader, SettingRow } from "../components/ui.js";
-import { fieldsFromSchema, fieldsFromValue, parseJsonText, parseProperties, PROPERTY_FIELDS, setJsonField, setProperty, type FieldSpec } from "../lib/config-form.js";
+import { fieldsFromSchema, fieldsFromValue, parseJsonText, parseProperties, propertyFormFields, setJsonField, setProperty, type FieldSpec } from "../lib/config-form.js";
 import { errorText, isTaskDone } from "../lib/format.js";
 
 /** 核心配置文件的友好名称 */
@@ -77,8 +77,7 @@ function FieldControl({ field, value, disabled, onChange }: { field: FieldSpec; 
 function ConfigForm({ document, text, setText, editable }: { document: ConfigDocument; text: string; setText: (text: string) => void; editable: boolean }) {
   if (document.format === "properties") {
     const values = parseProperties(text);
-    const fields = PROPERTY_FIELDS.filter((field) => values.has(field.key));
-    const others = [...values.keys()].filter((key) => !PROPERTY_FIELDS.some((field) => field.key === key)).length;
+    const [fields, others] = propertyFormFields(text, document.fields);
     if (!fields.length) return <EmptyState compact icon="fileCode" title="没有可识别的常用字段" description="请切换到“源码”视图编辑此文件" />;
     const groups = [...new Set(fields.map((field) => field.group ?? ""))];
     return (
@@ -96,7 +95,7 @@ function ConfigForm({ document, text, setText, editable }: { document: ConfigDoc
             ))}
           </section>
         ))}
-        {others > 0 && <p className="form-foot">另有 {others} 项较少使用的属性，可在“源码”视图中编辑。</p>}
+        {others > 0 && <p className="form-foot">另有 {others} 项属性未列入表单，可在“源码”视图中编辑。</p>}
       </div>
     );
   }

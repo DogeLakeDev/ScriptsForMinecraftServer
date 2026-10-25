@@ -11,6 +11,7 @@ import type { ManagementEvent, ManagementMethod, ManagementMethodMap, Management
 /** 网关自定义关闭码 → 用户可读原因（网关通常也会带上 reason，这里作为兜底） */
 const CLOSE_REASONS: Record<number, string> = {
   4401: "访问令牌无效",
+  4403: "没有管理权限（需要游戏内 3 级权限）",
   4429: "鉴权失败次数过多，请稍后再试",
   4503: "管理会话已满，请关闭其他设备上的连接",
   1011: "管理通道已退出",
@@ -38,6 +39,11 @@ export class GatewayClient {
   onEvent: ((event: ManagementEvent) => void) | null = null;
   /** 连接结束回调，参数为可读原因；主动 close() 时不触发 */
   onClose: ((reason: string) => void) | null = null;
+  /**
+   * 网关关闭连接时给出的关闭码（未关闭或网络层失败时为 null）。
+   * 使用场景：会话层以微信身份连接被 4401 拒绝时，据此丢弃本机缓存的玩家会话，下次连接重新登录。
+   */
+  closeCode: number | null = null;
 
   constructor(
     private readonly url: string,
@@ -62,7 +68,7 @@ export class GatewayClient {
       });
       this.task = task;
       task.onOpen(() => {
-        // 网关在完成升级后才校验令牌，令牌错误时会紧接着以 4401 关闭；
+        // 网关在完成升级后才校验令牌，令牌错误时会紧接着以 4401 关闭（微信登录但权限不足为 4403）；
         // 此时紧随其后的 handshake 请求会带着关闭原因被拒绝，由调用方展示。
         opened = true;
         resolve();
@@ -72,6 +78,7 @@ export class GatewayClient {
       });
       task.onError((error) => fail(this.describeFailure(error.errMsg)));
       task.onClose(({ code, reason }) => {
+        this.closeCode = code;
         const text = reason || CLOSE_REASONS[code] || `连接已关闭 (${code})`;
         if (!opened) {
           fail(text);

@@ -34,6 +34,11 @@ if (config.tokenSource === "generated") {
 } else {
   console.log(`  访问令牌  来自${config.tokenSource === "argument" ? "命令行参数" : "环境变量"}`);
 }
+if (config.wechat) {
+  console.log(`  微信登录  已启用（AppId ${config.wechat.appId}，db-server ${config.dbUrl}）`);
+} else {
+  console.log("  微信登录  未启用（设置 SFMC_MP_WX_APPID 与 SFMC_MP_WX_SECRET 后，玩家端与按角色授权管理端才可用）");
+}
 if (config.host !== "127.0.0.1" && config.host !== "localhost" && config.host !== "::1") {
   console.log("  注意：网关直接监听非本机地址。小程序正式版只能访问 https/wss，请在前面配置 TLS 反向代理。");
 }

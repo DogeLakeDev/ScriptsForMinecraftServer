@@ -12,6 +12,7 @@
  * 1. 世界与玩家运行期状态快照（sfmc_world, sfmc_players）
  * 2. 跨进程聊天消息聚合（sfmc_chat_messages）
  * 3. QQ 身份绑定与审批队列（sfmc_qq_*）
+ * 4. 微信身份绑定（sfmc_wechat_*，小程序玩家端使用）
  */
 
 import type { DatabaseSync } from "node:sqlite";
@@ -156,6 +157,26 @@ export function initSchema(db: DatabaseSync): void {
     )`);
   db.exec(/* sql */ `
     CREATE INDEX IF NOT EXISTS idx_qq_admin_actions_status ON sfmc_qq_admin_actions(status, created_at)`);
+
+  // (6) 微信↔MC 身份绑定（小程序玩家端经 mp-gateway 申请短码，游戏内 /c:bind 确认）。
+  // 与 QQ 绑定独立：同一游戏账号可同时绑定 QQ 与微信，QQ 表与流程不受影响。
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_wechat_bind_pending (
+      code TEXT PRIMARY KEY NOT NULL,
+      wechat_openid TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`);
+  db.exec(/* sql */ `
+    CREATE TABLE IF NOT EXISTS sfmc_wechat_bindings (
+      wechat_openid TEXT PRIMARY KEY NOT NULL,
+      player_xuid TEXT NOT NULL UNIQUE,
+      player_name TEXT NOT NULL DEFAULT '',
+      bound_at INTEGER NOT NULL
+    )`);
+  db.exec(/* sql */ `
+    CREATE INDEX IF NOT EXISTS idx_wechat_bind_pending_openid ON sfmc_wechat_bind_pending(wechat_openid);
+    CREATE INDEX IF NOT EXISTS idx_wechat_bindings_xuid ON sfmc_wechat_bindings(player_xuid)`);
 
   // QQ 账号页快照：qq-link 调用经济 / 在线时长服务后写入，供「我的账号」读最新数字。
   db.exec(/* sql */ `

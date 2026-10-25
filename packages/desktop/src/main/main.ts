@@ -11,6 +11,7 @@ import { compareDesktopVersions, parseDesktopVersion, type ManagementMethod } fr
 import { desktopReleaseNotes } from "@sfmc-bds/management/node";
 import { applyLoginItem, readPreferences, shouldStartHidden, writePreferences } from "./preferences.js";
 import { bindWindow, markQuitting, showWindow, syncTray } from "./tray.js";
+import { cancelDeviceLogin, pollDeviceLogin, startDeviceLogin } from "./device-login.js";
 
 const sessions = new Map<string, Session>();
 /** 桌面导入接受的世界包后缀。使用场景：多选对话框和拖入文件在复制前都走这里。 */
@@ -169,6 +170,10 @@ void app.whenReady().then(async () => {
   });
   /** 客户端版本与运行形态（关于对话框、侧栏页脚） */
   handle("appInfo", () => ({ version: app.isPackaged ? releaseManifest().desktopVersion ?? app.getVersion() : app.getVersion(), platform: process.platform, packaged: app.isPackaged }));
+  /** 用小程序登录管理网关：发起 / 轮询 / 放弃（pollSecret 不离开主进程） */
+  handle("deviceLoginStart", endpoint => startDeviceLogin(String(endpoint ?? "")));
+  handle("deviceLoginPoll", deviceId => pollDeviceLogin(String(deviceId ?? "")));
+  handle("deviceLoginCancel", deviceId => cancelDeviceLogin(String(deviceId ?? "")));
   handle("preferences", () => readPreferences());
   handle("setPreferences", patch => {
     const next = writePreferences(patch as Partial<DesktopPreferences>);

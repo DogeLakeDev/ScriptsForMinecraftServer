@@ -4,6 +4,24 @@ import type { LogsDeleteResult, LogsTailResult } from "./logs.js";
 import type { ServicesListResult } from "./services.js";
 import type { MetricsResult } from "./metrics.js";
 
+/**
+ * 配置表单的单个字段描述。
+ * 使用场景：平台随 config.read 下发（目前用于 server.properties 的完整字段清单），
+ * 桌面端与小程序据此渲染表单控件；桌面端 config-form 的 FieldSpec 即此类型。
+ */
+export interface ConfigFormField {
+  key: string;
+  /** 展示名称（缺省用 key） */
+  label?: string;
+  description?: string;
+  kind: "boolean" | "number" | "string" | "enum" | "secret";
+  options?: { value: string; label: string }[];
+  min?: number;
+  max?: number;
+  integer?: boolean;
+  /** 字段分组标题 */
+  group?: string;
+}
 export interface ConfigDocument {
   key: string;
   text: string;
@@ -11,6 +29,11 @@ export interface ConfigDocument {
   schema?: object;
   format: "json" | "jsonc" | "properties";
   affectedServices: string[];
+  /**
+   * 平台提供的表单字段清单（按展示顺序）。目前只有 server.properties 提供。
+   * 旧平台没有该字段；界面应回退到内置的常用字段清单。
+   */
+  fields?: ConfigFormField[];
 }
 export interface ModuleRow { id: string; folder: string; name: string; version: string; enabled: boolean; linked: boolean }
 export interface PackRow {

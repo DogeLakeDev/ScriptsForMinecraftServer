@@ -2275,7 +2275,7 @@ var require_websocket = __commonJS({
     var http2 = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes3, createHash: createHash2 } = __require("crypto");
+    var { randomBytes: randomBytes4, createHash: createHash3 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2813,7 +2813,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes3(16).toString("base64");
+      const key = randomBytes4(16).toString("base64");
       const request = isSecure ? https.request : http2.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -2943,7 +2943,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash2("sha1").update(key + GUID).digest("base64");
+        const digest = createHash3("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -3312,7 +3312,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http2 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash2 } = __require("crypto");
+    var { createHash: createHash3 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3619,7 +3619,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash2("sha1").update(key + GUID).digest("base64");
+        const digest = createHash3("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -3723,8 +3723,11 @@ var HELP_TEXT = `\u7528\u6CD5: sfmc-mp-gateway --root <\u5B9E\u4F8B\u76EE\u5F55>
   --max-sessions <n>    \u540C\u65F6\u5728\u7EBF\u7684\u7BA1\u7406\u4F1A\u8BDD\u4E0A\u9650\uFF0C\u9ED8\u8BA4 4
   --max-upload-mb <n>   \u5355\u4E2A\u4E16\u754C\u5305\u4E0A\u4F20\u4E0A\u9650\uFF08MB\uFF09\uFF0C\u9ED8\u8BA4 256
   --trust-proxy         \u4FE1\u4EFB\u53CD\u5411\u4EE3\u7406\u7684 X-Forwarded-For
+  --wx-appid <id>       \u5FAE\u4FE1\u5C0F\u7A0B\u5E8F AppId\uFF08SFMC_MP_WX_APPID\uFF09\uFF1BAppSecret \u53EA\u8BFB\u73AF\u5883\u53D8\u91CF SFMC_MP_WX_SECRET
+  --db-url <url>        \u672C\u673A db-server \u5730\u5740\uFF08SFMC_MP_DB_URL\uFF09\uFF0C\u9ED8\u8BA4\u8BFB\u53D6 configs/db_config.json \u7684 db_port
   -h, --help            \u663E\u793A\u5E2E\u52A9
 `;
+var DEFAULT_DB_PORT = 3001;
 var MIN_TOKEN_LENGTH = 24;
 function positiveInt(value, fallback, label) {
   if (value === void 0 || value === "") return fallback;
@@ -3750,6 +3753,25 @@ function loadOrCreateToken(file) {
   fs.writeFileSync(file, JSON.stringify({ token, createdAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n", { encoding: "utf8", mode: 384 });
   return { token, generated: true };
 }
+function loadOrCreateSessionSecret(file) {
+  const existing = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+  if (typeof existing.sessionSecret === "string" && existing.sessionSecret.length >= MIN_TOKEN_LENGTH) return existing.sessionSecret;
+  const sessionSecret = randomBytes(32).toString("base64url");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ ...existing, sessionSecret }, null, 2) + "\n", { encoding: "utf8", mode: 384 });
+  return sessionSecret;
+}
+function resolveDbUrl(root) {
+  let port = DEFAULT_DB_PORT;
+  try {
+    let text = fs.readFileSync(path.join(root, "configs", "db_config.json"), "utf8");
+    if (text.charCodeAt(0) === 65279) text = text.slice(1);
+    const parsed = Number(JSON.parse(text).db_port);
+    if (Number.isInteger(parsed) && parsed > 0) port = parsed;
+  } catch {
+  }
+  return `http://127.0.0.1:${port}`;
+}
 function parseGatewayConfig(argv, env) {
   const { values } = parseArgs({
     args: argv,
@@ -3763,6 +3785,8 @@ function parseGatewayConfig(argv, env) {
       "max-sessions": { type: "string" },
       "max-upload-mb": { type: "string" },
       "trust-proxy": { type: "boolean" },
+      "wx-appid": { type: "string" },
+      "db-url": { type: "string" },
       help: { type: "boolean", short: "h" }
     },
     strict: true
@@ -3791,6 +3815,10 @@ function parseGatewayConfig(argv, env) {
     tokenSource = loaded.generated ? "generated" : "file";
   }
   if (token.length < MIN_TOKEN_LENGTH) throw new Error(`\u8BBF\u95EE\u4EE4\u724C\u81F3\u5C11\u9700\u8981 ${MIN_TOKEN_LENGTH} \u4E2A\u5B57\u7B26`);
+  const wxAppId = (values["wx-appid"] ?? env.SFMC_MP_WX_APPID ?? "").trim();
+  const wxAppSecret = (env.SFMC_MP_WX_SECRET ?? "").trim();
+  if (Boolean(wxAppId) !== Boolean(wxAppSecret)) throw new Error("\u5FAE\u4FE1\u767B\u5F55\u9700\u8981\u540C\u65F6\u914D\u7F6E AppId\uFF08--wx-appid / SFMC_MP_WX_APPID\uFF09\u4E0E AppSecret\uFF08SFMC_MP_WX_SECRET\uFF09");
+  const dbUrl = (values["db-url"] ?? env.SFMC_MP_DB_URL ?? "").trim().replace(/\/+$/, "") || resolveDbUrl(root);
   return {
     root,
     host: values.host ?? env.SFMC_MP_GATEWAY_HOST ?? "127.0.0.1",
@@ -3802,7 +3830,11 @@ function parseGatewayConfig(argv, env) {
     entry,
     maxSessions: positiveInt(values["max-sessions"], 4, "--max-sessions"),
     maxUploadBytes: positiveInt(values["max-upload-mb"], 256, "--max-upload-mb") * 1024 * 1024,
-    trustProxy: values["trust-proxy"] === true
+    trustProxy: values["trust-proxy"] === true,
+    wechat: wxAppId ? { appId: wxAppId, appSecret: wxAppSecret } : null,
+    sessionSecret: loadOrCreateSessionSecret(tokenFile),
+    dbUrl,
+    devicesFile: path.join(root, ".sfmc", "mp-gateway-devices.json")
   };
 }
 
@@ -3876,6 +3908,163 @@ var AuthThrottle = class {
   }
 };
 
+// packages/mp-gateway/src/routes.ts
+function findRoute(routes, method, pathname) {
+  let best;
+  for (const route of routes) {
+    if (route.method !== method || !pathname.endsWith(route.suffix)) continue;
+    if (!best || route.suffix.length > best.suffix.length) best = route;
+  }
+  return best;
+}
+var MAX_JSON_BYTES = 16 * 1024;
+var HttpError = class extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+  status;
+};
+async function readJsonBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = chunk;
+    size += buffer.length;
+    if (size > MAX_JSON_BYTES) throw new HttpError(413, "\u8BF7\u6C42\u4F53\u8FC7\u5927");
+    chunks.push(buffer);
+  }
+  const text = Buffer.concat(chunks).toString("utf8").trim();
+  if (!text) return {};
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {
+  }
+  throw new HttpError(400, "\u8BF7\u6C42\u4F53\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
+}
+function stringField(body, key) {
+  const value = body[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+// packages/mp-gateway/src/db-client.ts
+var ADMIN_LEVEL = 3;
+function isAdminAccount(account) {
+  return account.bound && account.level >= ADMIN_LEVEL;
+}
+function createDbPlayerDirectory(baseUrl, fetchImpl = fetch) {
+  const call = async (path4, init) => {
+    try {
+      const response = await fetchImpl(`${baseUrl}${path4}`, {
+        ...init,
+        headers: { "content-type": "application/json" },
+        signal: AbortSignal.timeout(1e4)
+      });
+      return { status: response.status, data: await response.json() };
+    } catch {
+      throw new HttpError(503, "\u6E38\u620F\u670D\u52A1\u5668\u6570\u636E\u670D\u52A1\u6682\u4E0D\u53EF\u7528\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+    }
+  };
+  const post = (path4, body) => call(path4, { method: "POST", body: JSON.stringify(body) });
+  return {
+    async account(openid) {
+      const { data } = await call(`/api/sfmc/wechat/bind/me?openid=${encodeURIComponent(openid)}`);
+      if (data.success === false) throw new HttpError(502, "\u8BFB\u53D6\u7ED1\u5B9A\u4FE1\u606F\u5931\u8D25");
+      const binding = data.binding ?? null;
+      if (!data.bound || !binding) return { bound: false, xuid: "", name: "", boundAt: 0, level: 0, profile: null };
+      return {
+        bound: true,
+        xuid: String(binding.player_xuid ?? ""),
+        name: String(binding.player_name ?? ""),
+        boundAt: Number(binding.bound_at) || 0,
+        level: Number(data.level) || 0,
+        profile: data.profile ?? null
+      };
+    },
+    async requestBindCode(openid) {
+      const { status, data } = await post("/api/sfmc/wechat/bind/request", { openid });
+      if (data.success && typeof data.code === "string") {
+        return { code: data.code, expiresAt: Number(data.expires_at) || 0, ttlMs: Number(data.ttl_ms) || 0 };
+      }
+      if (data.error === "already_bound") throw new HttpError(409, `\u5DF2\u7ED1\u5B9A\u6E38\u620F\u8D26\u53F7 ${String(data.player_name ?? "")}\uFF0C\u8BF7\u5148\u89E3\u7ED1`);
+      throw new HttpError(status >= 400 ? status : 502, "\u7533\u8BF7\u7ED1\u5B9A\u7801\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+    },
+    async unbind(openid) {
+      const { data } = await post("/api/sfmc/wechat/bind/unbind", { openid });
+      if (data.success === false) throw new HttpError(502, "\u89E3\u7ED1\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+      return data.unbound === true;
+    }
+  };
+}
+
+// packages/mp-gateway/src/session-token.ts
+import { createHmac, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+var PLAYER_TOKEN_PREFIX = "sfmcp1.";
+var PLAYER_SESSION_TTL_MS = 7 * 24 * 3600 * 1e3;
+function sign(secret, body) {
+  return createHmac("sha256", secret).update(body).digest("base64url");
+}
+function signPlayerSession(secret, openid, now = Date.now()) {
+  const exp = now + PLAYER_SESSION_TTL_MS;
+  const body = Buffer.from(JSON.stringify({ openid, exp })).toString("base64url");
+  return { token: `${PLAYER_TOKEN_PREFIX}${body}.${sign(secret, body)}`, expiresAt: exp };
+}
+function verifyPlayerSession(secret, token, now = Date.now()) {
+  if (!token.startsWith(PLAYER_TOKEN_PREFIX)) return null;
+  const [body, signature] = token.slice(PLAYER_TOKEN_PREFIX.length).split(".");
+  if (!body || !signature) return null;
+  const expected = Buffer.from(sign(secret, body));
+  const given = Buffer.from(signature);
+  if (expected.length !== given.length || !timingSafeEqual2(expected, given)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (typeof payload.openid !== "string" || !payload.openid || typeof payload.exp !== "number" || payload.exp <= now) return null;
+    return { openid: payload.openid, exp: payload.exp };
+  } catch {
+    return null;
+  }
+}
+
+// packages/mp-gateway/src/authenticators.ts
+var NOT_ADMIN = "\u5F53\u524D\u5FAE\u4FE1\u7ED1\u5B9A\u7684\u6E38\u620F\u8D26\u53F7\u6CA1\u6709\u7BA1\u7406\u6743\u9650\uFF08\u9700\u8981 SFMC \u7B49\u7EA7 3\uFF09";
+function staticTokenAuthenticator(expected) {
+  return {
+    async authenticate(token) {
+      return tokenMatches(expected, token) ? { ok: true, principal: "token" } : null;
+    }
+  };
+}
+function playerSessionAuthenticator(secret, directory) {
+  return {
+    async authenticate(token) {
+      const session = verifyPlayerSession(secret, token);
+      if (!session) return null;
+      const account = await directory.account(session.openid);
+      return isAdminAccount(account) ? { ok: true, principal: `wechat:${account.name}` } : { ok: false, status: 403, message: NOT_ADMIN };
+    }
+  };
+}
+function deviceAuthenticator(devices, directory) {
+  return {
+    async authenticate(token) {
+      const grant = devices.verify(token);
+      if (!grant) return null;
+      const account = await directory.account(grant.approvedBy);
+      return isAdminAccount(account) ? { ok: true, principal: `device:${grant.name}(${account.name})` } : { ok: false, status: 403, message: "\u6388\u6743\u6B64\u8BBE\u5907\u7684\u7BA1\u7406\u5458\u5DF2\u5931\u53BB\u7BA1\u7406\u6743\u9650\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55" };
+    }
+  };
+}
+async function authenticateChain(chain, token) {
+  if (token) {
+    for (const authenticator of chain) {
+      const outcome = await authenticator.authenticate(token);
+      if (outcome) return outcome;
+    }
+  }
+  return { ok: false, status: 401, message: "\u8BBF\u95EE\u4EE4\u724C\u65E0\u6548" };
+}
+
 // packages/mp-gateway/src/bridge.ts
 import { spawn } from "node:child_process";
 
@@ -3938,10 +4127,10 @@ var STDOUT_BUFFER_LIMIT = 8 * 1024 * 1024;
 var SEND_BUFFER_LIMIT = 16 * 1024 * 1024;
 var EXIT_GRACE_MS = 5e3;
 var ManagementBridge = class {
-  constructor(socket, config2, log2, onEnd) {
+  constructor(socket, config2, log, onEnd) {
     this.socket = socket;
     this.config = config2;
-    this.log = log2;
+    this.log = log;
     this.onEnd = onEnd;
   }
   socket;
@@ -4048,16 +4237,175 @@ var ManagementBridge = class {
   }
 };
 
-// packages/mp-gateway/src/upload.ts
-import { randomBytes as randomBytes2 } from "node:crypto";
+// packages/mp-gateway/src/device-login.ts
+import { createHash as createHash2, randomBytes as randomBytes2, randomInt, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
 import fs2 from "node:fs";
 import path2 from "node:path";
+var DEVICE_TOKEN_PREFIX = "sfmcd1.";
+var DEVICE_PENDING_TTL_MS = 5 * 60 * 1e3;
+var CLAIM_GRACE_MS = 2 * 60 * 1e3;
+var DEVICE_GRANT_TTL_MS = 30 * 24 * 3600 * 1e3;
+var DEVICE_POLL_INTERVAL_MS = 2e3;
+var MAX_PENDING = 64;
+var MAX_NAME_LENGTH = 48;
+function sha256(text) {
+  return createHash2("sha256").update(text).digest();
+}
+function createFileGrantStore(file) {
+  return {
+    load() {
+      try {
+        const parsed = JSON.parse(fs2.readFileSync(file, "utf8"));
+        return Array.isArray(parsed.grants) ? parsed.grants : [];
+      } catch {
+        return [];
+      }
+    },
+    save(grants) {
+      fs2.mkdirSync(path2.dirname(file), { recursive: true });
+      const temp = `${file}.${randomBytes2(4).toString("hex")}.tmp`;
+      fs2.writeFileSync(temp, JSON.stringify({ grants }, null, 2) + "\n", { encoding: "utf8", mode: 384 });
+      fs2.renameSync(temp, file);
+    }
+  };
+}
+var DeviceLogin = class {
+  constructor(store, now = Date.now) {
+    this.store = store;
+    this.now = now;
+  }
+  store;
+  now;
+  pending = /* @__PURE__ */ new Map();
+  /** 桌面端发起登录 */
+  start(name) {
+    this.prune();
+    if (this.pending.size >= MAX_PENDING) throw new HttpError(503, "\u767B\u5F55\u8BF7\u6C42\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+    const deviceId = randomBytes2(16).toString("base64url");
+    const pollSecret = randomBytes2(24).toString("base64url");
+    let userCode = "";
+    for (let attempt = 0; attempt < 16 && !userCode; attempt++) {
+      const candidate = String(randomInt(0, 1e6)).padStart(6, "0");
+      if (![...this.pending.values()].some((row) => row.userCode === candidate)) userCode = candidate;
+    }
+    if (!userCode) throw new HttpError(503, "\u767B\u5F55\u8BF7\u6C42\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+    const expiresAt = this.now() + DEVICE_PENDING_TTL_MS;
+    const cleanName = name.replace(/[\r\n\t\0]/g, " ").trim().slice(0, MAX_NAME_LENGTH) || "\u684C\u9762\u7AEF";
+    this.pending.set(deviceId, { deviceId, userCode, pollSecretHash: sha256(pollSecret), name: cleanName, expiresAt, status: "pending" });
+    return { deviceId, userCode, pollSecret, expiresAt, intervalMs: DEVICE_POLL_INTERVAL_MS };
+  }
+  /** 查找仍在等待授权的请求（小程序确认前展示设备名）；找不到抛 404 */
+  describe(ref) {
+    const row = this.findWaiting(ref);
+    return { deviceId: row.deviceId, name: row.name, expiresAt: row.expiresAt };
+  }
+  /** 管理员批准：生成设备凭证并持久化授权记录。调用方须已确认 approver 为 Admin。 */
+  approve(ref, approver) {
+    const row = this.findWaiting(ref);
+    const now = this.now();
+    const grantId = randomBytes2(9).toString("base64url");
+    const secret = randomBytes2(32).toString("base64url");
+    const grant = {
+      id: grantId,
+      name: row.name,
+      approvedBy: approver.openid,
+      approvedByName: approver.name,
+      createdAt: now,
+      expiresAt: now + DEVICE_GRANT_TTL_MS,
+      lastUsedAt: 0,
+      secretHash: sha256(secret).toString("hex")
+    };
+    this.store.save([...this.activeGrants(), grant]);
+    row.status = "approved";
+    row.approved = { credential: `${DEVICE_TOKEN_PREFIX}${grantId}.${secret}`, grantId, approvedByName: approver.name, expiresAt: grant.expiresAt };
+    row.expiresAt = Math.max(row.expiresAt, now + CLAIM_GRACE_MS);
+    return { deviceId: row.deviceId, name: row.name, expiresAt: row.expiresAt };
+  }
+  /** 管理员拒绝 */
+  deny(ref) {
+    this.findWaiting(ref).status = "denied";
+  }
+  /** 桌面端轮询；pollSecret 不符按“已过期”处理，不泄露请求是否存在 */
+  poll(deviceId, pollSecret) {
+    this.prune();
+    const row = this.pending.get(deviceId);
+    if (!row) return { status: "expired" };
+    const given = sha256(pollSecret);
+    if (!timingSafeEqual3(given, row.pollSecretHash)) return { status: "expired" };
+    if (row.status === "pending") return { status: "pending" };
+    this.pending.delete(deviceId);
+    if (row.status === "denied" || !row.approved) return { status: "denied" };
+    return { status: "approved", ...row.approved };
+  }
+  /** 校验设备凭证，返回授权记录；无效、过期或已撤销返回 null。成功时记录最近使用时间。 */
+  verify(credential) {
+    if (!credential.startsWith(DEVICE_TOKEN_PREFIX)) return null;
+    const [grantId, secret] = credential.slice(DEVICE_TOKEN_PREFIX.length).split(".");
+    if (!grantId || !secret) return null;
+    const grants = this.activeGrants();
+    const grant = grants.find((row) => row.id === grantId);
+    if (!grant) return null;
+    const expected = Buffer.from(grant.secretHash, "hex");
+    const given = sha256(secret);
+    if (expected.length !== given.length || !timingSafeEqual3(expected, given)) return null;
+    grant.lastUsedAt = this.now();
+    this.store.save(grants);
+    return grant;
+  }
+  /** 列出有效的授权设备 */
+  list() {
+    return this.activeGrants().map(({ secretHash: _hash, approvedBy: _openid, ...view }) => view);
+  }
+  /** 撤销一台设备，返回是否存在 */
+  revoke(grantId) {
+    const grants = this.activeGrants();
+    const next = grants.filter((row) => row.id !== grantId);
+    if (next.length === grants.length) return false;
+    this.store.save(next);
+    return true;
+  }
+  /** 未过期的授权记录 */
+  activeGrants() {
+    const now = this.now();
+    return this.store.load().filter((row) => row && typeof row.id === "string" && row.expiresAt > now);
+  }
+  /** 找到仍在等待授权的请求 */
+  findWaiting(ref) {
+    this.prune();
+    const row = ref.deviceId ? this.pending.get(ref.deviceId) : ref.userCode ? [...this.pending.values()].find((item) => item.userCode === ref.userCode) : void 0;
+    if (!row || row.status !== "pending") throw new HttpError(404, "\u767B\u5F55\u8BF7\u6C42\u4E0D\u5B58\u5728\u6216\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u5728\u684C\u9762\u7AEF\u91CD\u65B0\u53D1\u8D77");
+    return row;
+  }
+  /** 清理过期的待授权请求 */
+  prune() {
+    const now = this.now();
+    for (const [id, row] of this.pending) if (row.expiresAt <= now) this.pending.delete(id);
+  }
+};
+
+// packages/mp-gateway/src/player-auth.ts
+function requirePlayer(deps, context) {
+  const session = verifyPlayerSession(deps.sessionSecret, bearerToken(context.request));
+  if (!session) throw new HttpError(401, "\u767B\u5F55\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55");
+  return { openid: session.openid };
+}
+async function requireAdmin(deps, context) {
+  const player = requirePlayer(deps, context);
+  const account = await deps.directory.account(player.openid);
+  if (!isAdminAccount(account)) throw new HttpError(403, "\u5F53\u524D\u5FAE\u4FE1\u7ED1\u5B9A\u7684\u6E38\u620F\u8D26\u53F7\u6CA1\u6709\u7BA1\u7406\u6743\u9650\uFF08\u9700\u8981 SFMC \u7B49\u7EA7 3\uFF09");
+  return { ...player, account };
+}
+
+// packages/mp-gateway/src/upload.ts
+import { randomBytes as randomBytes3 } from "node:crypto";
+import fs3 from "node:fs";
+import path3 from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
 var PACK_FILE = /\.(mcpack|mcaddon|zip)$/i;
 var IDENTIFIER = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
 function inboxDirectory(root) {
-  return path2.join(root, "packs", "_desktop-inbox");
+  return path3.join(root, "packs", "_desktop-inbox");
 }
 function inboxFilename(original, stamp) {
   const base = original.split(/[\\/]/).at(-1) ?? "";
@@ -4085,8 +4433,8 @@ async function receivePack(request, response, url, config2) {
     return;
   }
   const directory = inboxDirectory(config2.root);
-  fs2.mkdirSync(directory, { recursive: true });
-  const temp = path2.join(directory, `.upload-${randomBytes2(6).toString("hex")}`);
+  fs3.mkdirSync(directory, { recursive: true });
+  const temp = path3.join(directory, `.upload-${randomBytes3(6).toString("hex")}`);
   let received = 0;
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
@@ -4096,61 +4444,274 @@ async function receivePack(request, response, url, config2) {
     }
   });
   try {
-    await pipeline(request, limiter, fs2.createWriteStream(temp, { mode: 384 }));
+    await pipeline(request, limiter, fs3.createWriteStream(temp, { mode: 384 }));
     if (received === 0) throw Object.assign(new Error("\u4E0A\u4F20\u5185\u5BB9\u4E3A\u7A7A"), { status: 400 });
-    fs2.renameSync(temp, path2.join(directory, filename));
+    fs3.renameSync(temp, path3.join(directory, filename));
     sendJson(response, 200, { filename, size: received });
   } catch (error) {
-    fs2.rmSync(temp, { force: true });
+    fs3.rmSync(temp, { force: true });
     const status = error.status ?? 500;
     if (!response.headersSent) sendJson(response, status, { error: error instanceof Error ? error.message : String(error) });
     else response.destroy();
   }
 }
 
+// packages/mp-gateway/src/player-routes.ts
+var WECHAT_DISABLED = new HttpError(503, "\u670D\u52A1\u5668\u672A\u542F\u7528\u5FAE\u4FE1\u767B\u5F55");
+function createPlayerRoutes(deps) {
+  const enabled = () => {
+    if (!deps.wechat) throw WECHAT_DISABLED;
+    return deps.wechat;
+  };
+  return [
+    {
+      method: "POST",
+      suffix: "/auth/wx-login",
+      async handle(context) {
+        const wechat = enabled();
+        if (deps.loginThrottle.blocked(context.address)) throw new HttpError(429, "\u767B\u5F55\u5C1D\u8BD5\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+        const code = stringField(await readJsonBody(context.request), "code");
+        let openid;
+        try {
+          openid = await wechat.openidFromCode(code);
+        } catch (error) {
+          deps.loginThrottle.fail(context.address);
+          throw error;
+        }
+        deps.loginThrottle.succeed(context.address);
+        sendJson(context.response, 200, signPlayerSession(deps.sessionSecret, openid));
+      }
+    },
+    {
+      method: "GET",
+      suffix: "/player/me",
+      async handle(context) {
+        enabled();
+        const { openid } = requirePlayer(deps, context);
+        const account = await deps.directory.account(openid);
+        sendJson(context.response, 200, {
+          bound: account.bound,
+          player: account.bound ? { name: account.name, xuid: account.xuid, boundAt: account.boundAt } : null,
+          level: account.bound ? account.level : 0,
+          isAdmin: isAdminAccount(account),
+          profile: account.profile
+        });
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/player/bind/request",
+      async handle(context) {
+        enabled();
+        const { openid } = requirePlayer(deps, context);
+        sendJson(context.response, 200, await deps.directory.requestBindCode(openid));
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/player/unbind",
+      async handle(context) {
+        enabled();
+        const { openid } = requirePlayer(deps, context);
+        const unbound = await deps.directory.unbind(openid);
+        if (unbound) deps.log(`\u5FAE\u4FE1\u7528\u6237\u89E3\u9664\u7ED1\u5B9A (${context.address})`);
+        sendJson(context.response, 200, { unbound });
+      }
+    }
+  ];
+}
+
+// packages/mp-gateway/src/device-routes.ts
+function pendingRef(body) {
+  const deviceId = stringField(body, "deviceId");
+  const userCode = stringField(body, "userCode");
+  if (deviceId) return { deviceId };
+  if (/^\d{6}$/.test(userCode)) return { userCode };
+  throw new HttpError(400, "\u8BF7\u63D0\u4F9B\u4E8C\u7EF4\u7801\u6216 6 \u4F4D\u767B\u5F55\u7801");
+}
+function createDeviceRoutes(deps) {
+  const enabled = () => {
+    if (!deps.wechatEnabled) throw WECHAT_DISABLED;
+  };
+  return [
+    {
+      method: "POST",
+      suffix: "/auth/device/start",
+      async handle(context) {
+        enabled();
+        if (deps.startThrottle.blocked(context.address)) throw new HttpError(429, "\u767B\u5F55\u8BF7\u6C42\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+        deps.startThrottle.fail(context.address);
+        const body = await readJsonBody(context.request);
+        sendJson(context.response, 200, deps.devices.start(stringField(body, "name")));
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/auth/device/poll",
+      async handle(context) {
+        enabled();
+        const body = await readJsonBody(context.request);
+        const result = deps.devices.poll(stringField(body, "deviceId"), stringField(body, "pollSecret"));
+        if (result.status === "approved") deps.log(`\u684C\u9762\u8BBE\u5907\u5DF2\u9886\u53D6\u767B\u5F55\u51ED\u8BC1 (${context.address})`);
+        sendJson(context.response, 200, result);
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/auth/device/describe",
+      async handle(context) {
+        enabled();
+        await requireAdmin(deps, context);
+        sendJson(context.response, 200, deps.devices.describe(pendingRef(await readJsonBody(context.request))));
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/auth/device/approve",
+      async handle(context) {
+        enabled();
+        const admin = await requireAdmin(deps, context);
+        const view = deps.devices.approve(pendingRef(await readJsonBody(context.request)), { openid: admin.openid, name: admin.account.name });
+        deps.log(`\u7BA1\u7406\u5458 ${admin.account.name} \u6279\u51C6\u684C\u9762\u8BBE\u5907\u767B\u5F55: ${view.name}`);
+        sendJson(context.response, 200, view);
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/auth/device/deny",
+      async handle(context) {
+        enabled();
+        await requireAdmin(deps, context);
+        deps.devices.deny(pendingRef(await readJsonBody(context.request)));
+        sendJson(context.response, 200, { denied: true });
+      }
+    },
+    {
+      method: "GET",
+      suffix: "/auth/devices",
+      async handle(context) {
+        enabled();
+        await requireAdmin(deps, context);
+        sendJson(context.response, 200, { devices: deps.devices.list() });
+      }
+    },
+    {
+      method: "POST",
+      suffix: "/auth/devices/revoke",
+      async handle(context) {
+        enabled();
+        const admin = await requireAdmin(deps, context);
+        const id = stringField(await readJsonBody(context.request), "id");
+        const revoked = deps.devices.revoke(id);
+        if (revoked) deps.log(`\u7BA1\u7406\u5458 ${admin.account.name} \u64A4\u9500\u684C\u9762\u8BBE\u5907\u6388\u6743: ${id}`);
+        sendJson(context.response, 200, { revoked });
+      }
+    }
+  ];
+}
+
+// packages/mp-gateway/src/wechat.ts
+var CODE2SESSION_URL = "https://api.weixin.qq.com/sns/jscode2session";
+function createWechatIdentity(config2, fetchImpl = fetch) {
+  return {
+    async openidFromCode(code) {
+      if (!/^[\w-]{1,128}$/.test(code)) throw new HttpError(400, "\u767B\u5F55\u51ED\u8BC1\u683C\u5F0F\u4E0D\u6B63\u786E");
+      const url = new URL(CODE2SESSION_URL);
+      url.searchParams.set("appid", config2.appId);
+      url.searchParams.set("secret", config2.appSecret);
+      url.searchParams.set("js_code", code);
+      url.searchParams.set("grant_type", "authorization_code");
+      let result;
+      try {
+        const response = await fetchImpl(url, { signal: AbortSignal.timeout(1e4) });
+        result = await response.json();
+      } catch {
+        throw new HttpError(502, "\u65E0\u6CD5\u8FDE\u63A5\u5FAE\u4FE1\u670D\u52A1\u5668\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+      }
+      if (!result.openid) {
+        throw new HttpError(result.errcode === 45011 ? 429 : 401, `\u5FAE\u4FE1\u767B\u5F55\u5931\u8D25\uFF08${result.errcode ?? "\u672A\u77E5\u9519\u8BEF"}\uFF09`);
+      }
+      return result.openid;
+    }
+  };
+}
+
 // packages/mp-gateway/src/server.ts
 var CLOSE_UNAUTHORIZED = 4401;
+var CLOSE_FORBIDDEN = 4403;
 var CLOSE_THROTTLED = 4429;
 var CLOSE_BUSY = 4503;
+var CLOSE_TRY_AGAIN = 1013;
 var MAX_FRAME_BYTES = 4 * 1024 * 1024;
 var HEARTBEAT_MS = 3e4;
-function log(message) {
+function defaultLog(message) {
   console.log(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${message}`);
 }
-function startGateway(config2) {
+function startGateway(config2, deps = {}) {
+  const log = deps.log ?? defaultLog;
   const throttle = new AuthThrottle();
   const bridges = /* @__PURE__ */ new Set();
   const alive = /* @__PURE__ */ new WeakMap();
-  const authorize = (request) => {
+  const wechat = deps.wechat !== void 0 ? deps.wechat : config2.wechat ? createWechatIdentity(config2.wechat) : null;
+  const directory = deps.directory ?? createDbPlayerDirectory(config2.dbUrl);
+  const devices = new DeviceLogin(deps.grantStore ?? createFileGrantStore(config2.devicesFile));
+  const playerAuth = { sessionSecret: config2.sessionSecret, directory };
+  const chain = [staticTokenAuthenticator(config2.token)];
+  if (wechat) chain.push(playerSessionAuthenticator(config2.sessionSecret, directory), deviceAuthenticator(devices, directory));
+  const authorize = async (request) => {
     const address = clientAddress(request, config2.trustProxy);
     if (throttle.blocked(address)) return { status: 429, message: "\u9274\u6743\u5931\u8D25\u6B21\u6570\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5" };
-    if (!tokenMatches(config2.token, bearerToken(request))) {
+    let outcome;
+    try {
+      outcome = await authenticateChain(chain, bearerToken(request));
+    } catch (error) {
+      return { status: 503, message: error instanceof Error ? error.message : "\u9274\u6743\u670D\u52A1\u6682\u4E0D\u53EF\u7528" };
+    }
+    if (outcome.ok) {
+      throttle.succeed(address);
+      return null;
+    }
+    if (outcome.status === 401) {
       throttle.fail(address);
       log(`\u9274\u6743\u5931\u8D25: ${address}`);
-      return { status: 401, message: "\u8BBF\u95EE\u4EE4\u724C\u65E0\u6548" };
     }
-    throttle.succeed(address);
-    return null;
+    return outcome;
   };
-  const server = http.createServer((request, response) => {
-    const url = new URL(request.url ?? "/", "http://gateway.local");
-    if (request.method === "GET" && url.pathname.endsWith("/health")) {
-      sendJson(response, 200, { ok: true, service: "sfmc-mp-gateway" });
-      return;
-    }
-    if (request.method === "PUT" && url.pathname.endsWith("/packs/inbox")) {
-      const denied = authorize(request);
+  const uploadRoute = {
+    method: "PUT",
+    suffix: "/packs/inbox",
+    async handle({ request, response, url, address }) {
+      const denied = await authorize(request);
       if (denied) {
         sendJson(response, denied.status, { error: denied.message });
         request.resume();
         return;
       }
-      void receivePack(request, response, url, config2).then(() => {
-        if (response.statusCode === 200) log(`\u5DF2\u63A5\u6536\u4E16\u754C\u5305\u4E0A\u4F20 (${clientAddress(request, config2.trustProxy)})`);
-      });
+      await receivePack(request, response, url, config2);
+      if (response.statusCode === 200) log(`\u5DF2\u63A5\u6536\u4E16\u754C\u5305\u4E0A\u4F20 (${address})`);
+    }
+  };
+  const routes = [
+    { method: "GET", suffix: "/health", handle: ({ response }) => sendJson(response, 200, { ok: true, service: "sfmc-mp-gateway" }) },
+    uploadRoute,
+    ...createPlayerRoutes({ ...playerAuth, wechat, loginThrottle: new AuthThrottle(), log }),
+    ...createDeviceRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), devices, startThrottle: new AuthThrottle(10, 6e4), log })
+  ];
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://gateway.local");
+    const route = findRoute(routes, request.method ?? "GET", url.pathname);
+    if (!route) {
+      sendJson(response, 404, { error: "not found" });
       return;
     }
-    sendJson(response, 404, { error: "not found" });
+    const address = clientAddress(request, config2.trustProxy);
+    void Promise.resolve().then(() => route.handle({ request, response, url, address })).catch((error) => {
+      const status = error instanceof HttpError ? error.status : 500;
+      if (status === 500) log(`\u8BF7\u6C42\u5904\u7406\u5931\u8D25 ${url.pathname}: ${error instanceof Error ? error.message : String(error)}`);
+      if (!response.headersSent) sendJson(response, status, { error: error instanceof Error ? error.message : "\u5185\u90E8\u9519\u8BEF" });
+      else response.destroy();
+      request.resume();
+    });
   });
   const wss = new import_websocket_server.default({ noServer: true, maxPayload: MAX_FRAME_BYTES });
   server.on("upgrade", (request, socket, head) => {
@@ -4160,24 +4721,32 @@ function startGateway(config2) {
       return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => {
-      const denied = authorize(request);
-      if (denied) {
-        ws.close(denied.status === 429 ? CLOSE_THROTTLED : CLOSE_UNAUTHORIZED, denied.message);
-        return;
-      }
-      if (bridges.size >= config2.maxSessions) {
-        ws.close(CLOSE_BUSY, "\u7BA1\u7406\u4F1A\u8BDD\u5DF2\u6EE1\uFF0C\u8BF7\u5173\u95ED\u5176\u4ED6\u8BBE\u5907\u4E0A\u7684\u8FDE\u63A5");
-        return;
-      }
-      alive.set(ws, true);
-      ws.on("pong", () => alive.set(ws, true));
-      const address = clientAddress(request, config2.trustProxy);
-      const bridge = new ManagementBridge(ws, config2, log, () => {
-        if (bridges.delete(bridge)) log(`\u7BA1\u7406\u4F1A\u8BDD\u7ED3\u675F: ${address}\uFF08\u5728\u7EBF ${bridges.size}\uFF09`);
+      const early = [];
+      const hold = (data, isBinary) => early.push([data, isBinary]);
+      ws.on("message", hold);
+      void authorize(request).then((denied) => {
+        ws.off("message", hold);
+        if (denied) {
+          const code = denied.status === 429 ? CLOSE_THROTTLED : denied.status === 403 ? CLOSE_FORBIDDEN : denied.status === 503 ? CLOSE_TRY_AGAIN : CLOSE_UNAUTHORIZED;
+          ws.close(code, denied.message);
+          return;
+        }
+        if (ws.readyState !== ws.OPEN) return;
+        if (bridges.size >= config2.maxSessions) {
+          ws.close(CLOSE_BUSY, "\u7BA1\u7406\u4F1A\u8BDD\u5DF2\u6EE1\uFF0C\u8BF7\u5173\u95ED\u5176\u4ED6\u8BBE\u5907\u4E0A\u7684\u8FDE\u63A5");
+          return;
+        }
+        alive.set(ws, true);
+        ws.on("pong", () => alive.set(ws, true));
+        const address = clientAddress(request, config2.trustProxy);
+        const bridge = new ManagementBridge(ws, config2, log, () => {
+          if (bridges.delete(bridge)) log(`\u7BA1\u7406\u4F1A\u8BDD\u7ED3\u675F: ${address}\uFF08\u5728\u7EBF ${bridges.size}\uFF09`);
+        });
+        bridges.add(bridge);
+        bridge.start();
+        for (const [data, isBinary] of early) ws.emit("message", data, isBinary);
+        log(`\u7BA1\u7406\u4F1A\u8BDD\u5EFA\u7ACB: ${address}\uFF08\u5728\u7EBF ${bridges.size}\uFF09`);
       });
-      bridges.add(bridge);
-      bridge.start();
-      log(`\u7BA1\u7406\u4F1A\u8BDD\u5EFA\u7ACB: ${address}\uFF08\u5728\u7EBF ${bridges.size}\uFF09`);
     });
   });
   const heartbeat = setInterval(() => {
@@ -4233,6 +4802,11 @@ if (config.tokenSource === "generated") {
   console.log(`  \u8BBF\u95EE\u4EE4\u724C  \u89C1 ${config.tokenFile}`);
 } else {
   console.log(`  \u8BBF\u95EE\u4EE4\u724C  \u6765\u81EA${config.tokenSource === "argument" ? "\u547D\u4EE4\u884C\u53C2\u6570" : "\u73AF\u5883\u53D8\u91CF"}`);
+}
+if (config.wechat) {
+  console.log(`  \u5FAE\u4FE1\u767B\u5F55  \u5DF2\u542F\u7528\uFF08AppId ${config.wechat.appId}\uFF0Cdb-server ${config.dbUrl}\uFF09`);
+} else {
+  console.log("  \u5FAE\u4FE1\u767B\u5F55  \u672A\u542F\u7528\uFF08\u8BBE\u7F6E SFMC_MP_WX_APPID \u4E0E SFMC_MP_WX_SECRET \u540E\uFF0C\u73A9\u5BB6\u7AEF\u4E0E\u6309\u89D2\u8272\u6388\u6743\u7BA1\u7406\u7AEF\u624D\u53EF\u7528\uFF09");
 }
 if (config.host !== "127.0.0.1" && config.host !== "localhost" && config.host !== "::1") {
   console.log("  \u6CE8\u610F\uFF1A\u7F51\u5173\u76F4\u63A5\u76D1\u542C\u975E\u672C\u673A\u5730\u5740\u3002\u5C0F\u7A0B\u5E8F\u6B63\u5F0F\u7248\u53EA\u80FD\u8BBF\u95EE https/wss\uFF0C\u8BF7\u5728\u524D\u9762\u914D\u7F6E TLS \u53CD\u5411\u4EE3\u7406\u3002");

@@ -8,14 +8,12 @@
     "tabText": "#8e8e8e",
     "tabSelected": "#1c1c1c",
     "tabBorder": "black",
-    "tabOverview": "assets/tabbar/light/overview.png",
-    "tabOverviewActive": "assets/tabbar/light/overview-active.png",
-    "tabTerminal": "assets/tabbar/light/terminal.png",
-    "tabTerminalActive": "assets/tabbar/light/terminal-active.png",
-    "tabTasks": "assets/tabbar/light/tasks.png",
-    "tabTasksActive": "assets/tabbar/light/tasks-active.png",
-    "tabSettings": "assets/tabbar/light/settings.png",
-    "tabSettingsActive": "assets/tabbar/light/settings-active.png"
+    "tabHome": "assets/tabbar/light/home.png",
+    "tabHomeActive": "assets/tabbar/light/home-active.png",
+    "tabRank": "assets/tabbar/light/rank.png",
+    "tabRankActive": "assets/tabbar/light/rank-active.png",
+    "tabMe": "assets/tabbar/light/me.png",
+    "tabMeActive": "assets/tabbar/light/me-active.png"
   },
   "dark": {
     "navBg": "#1d1d1d",
@@ -26,13 +24,11 @@
     "tabText": "#919191",
     "tabSelected": "#e2e2e2",
     "tabBorder": "white",
-    "tabOverview": "assets/tabbar/dark/overview.png",
-    "tabOverviewActive": "assets/tabbar/dark/overview-active.png",
-    "tabTerminal": "assets/tabbar/dark/terminal.png",
-    "tabTerminalActive": "assets/tabbar/dark/terminal-active.png",
-    "tabTasks": "assets/tabbar/dark/tasks.png",
-    "tabTasksActive": "assets/tabbar/dark/tasks-active.png",
-    "tabSettings": "assets/tabbar/dark/settings.png",
-    "tabSettingsActive": "assets/tabbar/dark/settings-active.png"
+    "tabHome": "assets/tabbar/dark/home.png",
+    "tabHomeActive": "assets/tabbar/dark/home-active.png",
+    "tabRank": "assets/tabbar/dark/rank.png",
+    "tabRankActive": "assets/tabbar/dark/rank-active.png",
+    "tabMe": "assets/tabbar/dark/me.png",
+    "tabMeActive": "assets/tabbar/dark/me-active.png"
   }
 }

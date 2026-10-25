@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "控制台",
+  "disableScroll": true,
+  "usingComponents": {
+    "admin-nav": "/components/admin-nav/index"
+  }
+}

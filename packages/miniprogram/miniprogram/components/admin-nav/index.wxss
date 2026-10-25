@@ -1,0 +1,52 @@
+/* 外观对齐原生标签栏：同样的底色、发丝线与文字颜色（theme.json 的 tabBg / tabText / tabSelected 对应色板变量） */
+.admin-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  height: calc(var(--admin-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box;
+  background: var(--c-block);
+  border-top: 0.5px solid var(--c-line);
+}
+.admin-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--c-text-3);
+}
+.admin-nav-item.active {
+  color: var(--c-text);
+}
+.admin-nav-icon {
+  position: relative;
+  display: flex;
+}
+.admin-nav-badge {
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  box-sizing: border-box;
+  background: var(--c-danger);
+  color: var(--c-on-danger);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+.admin-nav-text {
+  font-size: 10px;
+  line-height: 14px;
+}
+.admin-nav-item.active .admin-nav-text {
+  font-weight: 600;
+}

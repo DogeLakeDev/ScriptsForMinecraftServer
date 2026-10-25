@@ -27,7 +27,7 @@ import { Permission } from "../permission.js";
 import { startAccountProfileReporter } from "./account-profile.js";
 import { registerGameEventReporters, startLiveStatusReporter } from "./events.js";
 import { markBoundAndRelease, startPlayGate, stopPlayGate } from "./play-gate.js";
-import { formatConfirmError } from "./util.js";
+import { confirmBindWithFallback, formatConfirmError, type BindConfirmOutcome } from "./util.js";
 
 /** 命令权限名（兼容旧模块声明习惯） */
 export const PERM = "qq_link.use";
@@ -64,22 +64,21 @@ function clearPending(playerId: string): void {
 
 export { formatConfirmError };
 
-/** 调用平台 confirm（单测可 mock HttpDB） */
+/**
+ * 调用平台 confirm：优先统一入口（QQ / 微信短码都能确认），旧版 db-server 回退到 QQ 接口。
+ * 返回值的 provider 表示绑定到的渠道。
+ */
 export async function postBindConfirm(
   player: { id: string; name: string },
   code: string
-): Promise<{ ok: boolean; error?: string }> {
-  const result = await HttpDB.typedRequest<{ success?: boolean; error?: string }>(
-    HttpRequestMethod.POST,
-    "/api/sfmc/qq/bind/confirm",
-    {
+): Promise<BindConfirmOutcome> {
+  return confirmBindWithFallback((path) =>
+    HttpDB.typedRequest<{ success?: boolean; error?: string; provider?: string }>(HttpRequestMethod.POST, path, {
       code,
       xuid: player.id,
       name: player.name,
-    }
+    })
   );
-  if (result.ok) return { ok: true };
-  return { ok: false, error: result.error || "request_failed" };
 }
 
 function beginWait(player: Player): void {
@@ -114,7 +113,7 @@ export function registerPlatformQqLinkCommands(): void {
       if (!player) return;
       beginWait(player as Player);
     },
-    "绑定 QQ（随后发送验证码）"
+    "绑定 QQ / 微信（随后发送验证码）"
   );
 }
 
@@ -146,7 +145,10 @@ function registerChatBindHandler(): void {
       void (async () => {
         const result = await postBindConfirm(player, code);
         system.run(() => {
-          if (result.ok) {
+          if (result.ok && result.provider === "wechat") {
+            // 微信绑定暂不充当白名单（是否解除访客限制待定），只提示结果
+            Msg.success("微信绑定成功，可在小程序查看账号信息", player as never);
+          } else if (result.ok) {
             markBoundAndRelease(player);
             Msg.success("QQ 绑定成功，已加入白名单，可以自由活动", player as never);
           } else {

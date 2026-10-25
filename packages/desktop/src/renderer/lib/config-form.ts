@@ -2,25 +2,15 @@
  * config-form.ts — 配置文件的"表单视图"模型
  *
  * 使用场景：配置页"表单"标签。JSON 配置优先按 JSON Schema 生成字段（类型、枚举、范围、说明），
- * 没有 Schema 时按现有值的顶层基础类型推断；server.properties 使用内置的常用字段清单。
+ * 没有 Schema 时按现有值的顶层基础类型推断；server.properties 优先使用平台随 config.read 下发的完整字段清单，
+ * 旧平台没有下发时使用内置的常用字段清单。
  * 所有修改都回写到原文（jsonc-parser modify / 按行替换），保证注释与未知字段原样保留。
  */
+import type { ConfigFormField } from "@sfmc-bds/management";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 
-/** 单个表单字段的描述 */
-export interface FieldSpec {
-  key: string;
-  /** 展示名称（缺省用 key） */
-  label?: string;
-  description?: string;
-  kind: "boolean" | "number" | "string" | "enum" | "secret";
-  options?: { value: string; label: string }[];
-  min?: number;
-  max?: number;
-  integer?: boolean;
-  /** 字段分组（server.properties 使用） */
-  group?: string;
-}
+/** 单个表单字段的描述（与管理协议的 ConfigFormField 同一类型，平台下发的字段可直接使用） */
+export type FieldSpec = ConfigFormField;
 
 /** 名称看起来像凭据的字段统一按密码框渲染 */
 const SECRET_KEY = /(auth|token|secret|password|passwd|credential)/i;
@@ -86,7 +76,7 @@ export function setJsonField(text: string, key: string, value: unknown): string 
   return applyEdits(text, modify(text || "{}", [key], value, { formattingOptions: { insertSpaces: true, tabSize: 2 } }));
 }
 
-/** server.properties 的常用字段清单（BDS 官方默认文件中均存在） */
+/** server.properties 的常用字段清单（BDS 官方默认文件中均存在）；平台未下发 ConfigDocument.fields 时使用 */
 export const PROPERTY_FIELDS: FieldSpec[] = [
   { group: "基本", key: "server-name", label: "服务器名称", kind: "string", description: "显示在玩家服务器列表中的名称" },
   { group: "基本", key: "level-name", label: "世界名称", kind: "string", description: "worlds 目录下的世界文件夹名" },
@@ -118,6 +108,35 @@ export function parseProperties(text: string): Map<string, string> {
     if (index > 0) values.set(line.slice(0, index).trim(), line.slice(index + 1));
   }
   return values;
+}
+
+/**
+ * 当前取值不符合字段约束时调整控件，避免表单把原值改坏：
+ * 开关的值不是 true/false、数字的值不是数字时退化为文本框；枚举值不在清单里时把当前值追加为选项。
+ */
+function fitPropertyValue(field: FieldSpec, raw: string): FieldSpec {
+  const value = raw.trim();
+  if (field.kind === "boolean" && value !== "true" && value !== "false") return { ...field, kind: "string" };
+  if (field.kind === "number" && (value === "" || !Number.isFinite(Number(value)))) return { ...field, kind: "string" };
+  if (field.kind === "enum" && !(field.options ?? []).some((option) => option.value === value)) {
+    return { ...field, options: [...(field.options ?? []), { value, label: value }] };
+  }
+  return field;
+}
+
+/**
+ * server.properties 的表单字段：从字段清单中取文件里已有的键（不替文件新增键），按清单顺序返回。
+ * fields 为平台下发的 ConfigDocument.fields；旧平台没有时回退到 PROPERTY_FIELDS。
+ * 使用场景：桌面端 ConfigPage 与小程序 config-edit 的表单视图。
+ * 返回 [字段, 清单外的属性数]。
+ */
+export function propertyFormFields(text: string, fields?: FieldSpec[]): [FieldSpec[], number] {
+  const values = parseProperties(text);
+  const catalog = fields?.length ? fields : PROPERTY_FIELDS;
+  const known = new Set(catalog.map((field) => field.key));
+  const shown = catalog.filter((field) => values.has(field.key)).map((field) => fitPropertyValue(field, values.get(field.key) ?? ""));
+  const others = [...values.keys()].filter((key) => !known.has(key)).length;
+  return [shown, others];
 }
 
 /** 修改 server.properties 中的一个键：存在则原位替换该行，不存在则追加到末尾；保留换行风格 */

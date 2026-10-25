@@ -57,7 +57,13 @@ import { createContentRoutes } from "./routes/content.js";
 import { createHealthRoutes } from "./routes/health.js";
 import { createMessagesRoutes, gameChatForwardPayload, type ChatChannelQQFlags } from "./routes/messages.js";
 import { createModuleRoutes } from "./routes/modules.js";
+import { codeTakenBy, type BindProvider } from "./domain/bind-providers.js";
+import { resolvePlayerLevel } from "./domain/player-level.js";
+import { createQqBindProvider } from "./domain/qq-bind.js";
+import { createWechatBindProvider } from "./domain/wechat-bind.js";
+import { createBindConfirmRoutes } from "./routes/bind-confirm.js";
 import { createQqBindRoutes } from "./routes/qq-bind.js";
+import { createWechatBindRoutes } from "./routes/wechat-bind.js";
 import { createQqEventsRoutes } from "./routes/qq-events.js";
 import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
 import { createStatusRoutes } from "./routes/status.js";
@@ -206,14 +212,21 @@ function loadContentSnapshotForRequest() {
       },
     ];
   });
-  const cfg = readJson<{ bds_path?: string }>(configPath(env.PROJECT_ROOT, "bds_updater.json"));
-  const rawBds = typeof cfg?.bds_path === "string" ? cfg.bds_path.trim() : "";
-  const bdsRoot = rawBds ? (path.isAbsolute(rawBds) ? rawBds : path.resolve(env.PROJECT_ROOT, rawBds)) : null;
   return loadContentSnapshot({
     packagesDir: join(env.MODULES_DIR, "packages"),
     modules,
-    bdsRoot,
+    bdsRoot: currentBdsRoot(),
   });
+}
+
+/**
+ * BDS 根目录（configs/bds_updater.json 的 bds_path，相对路径按项目根解析）；未配置时为 null。
+ * 使用场景：内容快照读取已装包，微信绑定查询读取 BDS permissions.json 计算玩家原生等级（DRY：同一处解析）。
+ */
+function currentBdsRoot(): string | null {
+  const cfg = readJson<{ bds_path?: string }>(configPath(env.PROJECT_ROOT, "bds_updater.json"));
+  const rawBds = typeof cfg?.bds_path === "string" ? cfg.bds_path.trim() : "";
+  return rawBds ? (path.isAbsolute(rawBds) ? rawBds : path.resolve(env.PROJECT_ROOT, rawBds)) : null;
 }
 
 /** catalog 省略 canDisable 时默认允许禁用(与 buildModuleList.can_disable 同源)。 */
@@ -274,7 +287,32 @@ for (const name of PLATFORM_MONITORING_SERVICES) serviceRegistry.registerHandler
   if (name === "tps.status") return { tps, grade, text: `§7[TPS] §f${tps?.toFixed(2) ?? "未知"} §7/ 20.00` };
   return result.current ? { ...result.current, grade, totalLoadedChunks: result.current.chunkEstimate } : null;
 });
-const qqBindRoutes = createQqBindRoutes({ query, body, json });
+/**
+ * 已注册的外部账号绑定渠道（QQ、微信）。
+ * 使用场景：统一确认入口按顺序询问；两个渠道申请短码时共用 isBindCodeTaken 跨渠道查重。新增渠道在此追加（OCP）。
+ */
+const bindProviders: readonly BindProvider[] = [createQqBindProvider(query), createWechatBindProvider(query)];
+const isBindCodeTaken = codeTakenBy(() => bindProviders);
+const qqBindRoutes = createQqBindRoutes({ query, body, json, isCodeTaken: isBindCodeTaken });
+const bindConfirmRoutes = createBindConfirmRoutes({ body, json, providers: () => bindProviders });
+const wechatBindRoutes = createWechatBindRoutes({
+  query,
+  body,
+  json,
+  isCodeTaken: isBindCodeTaken,
+  // 每次现读两份权限文件：管理员调整权限后，小程序管理端授权立即随之变化
+  resolveLevel: (player) =>
+    resolvePlayerLevel(
+      {
+        readSfmcPermissions: () => readJson(configPath(env.PROJECT_ROOT, "permissions.json")),
+        readBdsPermissions: () => {
+          const bdsRoot = currentBdsRoot();
+          return bdsRoot ? readJson(join(bdsRoot, "permissions.json")) : null;
+        },
+      },
+      player
+    ),
+});
 
 /** 平台 QQ 绑定相关配置（非 SDK qq_config；原 qq-link 模块配置键） */
 const QQ_LINK_CONFIG_KEY = "qq_link";
@@ -534,15 +572,19 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
           path === "/api/sfmc/modules/catalog" ||
           path.startsWith("/api/sfmc/modules/") ||
           path === "/api/sfmc/qq/bind/me" ||
+          path === "/api/sfmc/wechat/bind/me" ||
           path === "/api/sfmc/qq/join/pending"));
     // bind/join/events POST 与 messages 一样走旧 AUTH_TOKEN（若配置）；游戏/桥同为 loopback
+    // 微信绑定（mp-gateway 调用）与统一确认入口（游戏调用）与 QQ 绑定同一信任边界：仅本机
     const NEEDS_AUTH =
       !PUBLIC_GET &&
       method !== "GET" &&
       !(
         path.startsWith("/api/sfmc/qq/bind/") ||
         path.startsWith("/api/sfmc/qq/join/") ||
-        path.startsWith("/api/sfmc/qq/events")
+        path.startsWith("/api/sfmc/qq/events") ||
+        path.startsWith("/api/sfmc/wechat/bind/") ||
+        path === "/api/sfmc/bind/confirm"
       );
     if (env.AUTH_TOKEN && NEEDS_AUTH) {
       const auth = req.headers["authorization"] || "";
@@ -607,6 +649,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     if (await healthRoutes(ctxBase)) return;
     if (await statusRoutes(ctxBase)) return;
     if (await qqBindRoutes(ctxBase)) return;
+    if (await bindConfirmRoutes(ctxBase)) return;
+    if (await wechatBindRoutes(ctxBase)) return;
     if (await qqJoinRoutes(ctxBase)) return;
     if (await qqEventsRoutes(ctxBase)) return;
     if (await messagesRoutes(ctxBase)) return;

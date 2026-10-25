@@ -1,0 +1,5 @@
+<view class="page with-tabbar">
+  <view class="surface">
+    <empty-state icon="activity" title="排行榜" desc="功能设计中，敬请期待" />
+  </view>
+</view>

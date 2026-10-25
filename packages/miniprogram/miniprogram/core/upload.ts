@@ -4,6 +4,7 @@
  * 使用场景：世界包页的「导入」。小程序只能从微信聊天中选文件（wx.chooseMessageFile），
  * 选好后逐个以原始字节 PUT 到网关的 /packs/inbox，返回收件箱文件名，随后由页面提交 packs.import。
  */
+import { resolveCredential } from "./auth";
 import { uploadUrl } from "./profiles";
 import { session } from "./session";
 
@@ -54,12 +55,13 @@ async function uploadOne(file: WechatMiniprogram.ChooseFile): Promise<UploadedPa
   const profile = session.state.profile;
   if (!profile) throw new Error("实例未连接");
   const data = await readFile(file.path);
+  const token = await resolveCredential(profile);
   return new Promise((resolve, reject) => {
     wx.request({
       url: uploadUrl(profile.endpoint, file.name),
       method: "PUT",
       data,
-      header: { Authorization: `Bearer ${profile.token}`, "Content-Type": "application/octet-stream" },
+      header: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
       timeout: 600_000,
       success: ({ statusCode, data: body }) => {
         const result = body as { filename?: string; size?: number; error?: string };

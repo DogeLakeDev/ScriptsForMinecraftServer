@@ -311,3 +311,48 @@
 [data-theme="dark"] .dialog {
   background: var(--c-elevated);
 }
+
+/* ---------- 用小程序登录（DeviceLoginPanel，实例设置对话框的网关区块） ---------- */
+
+.device-login {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* 二维码保持白底，深色模式下也能被手机识别 */
+.device-login-qr {
+  flex: none;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.device-login-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.device-login-title {
+  font-weight: 600;
+}
+
+.device-login-text {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.device-login-text.tone-warning {
+  color: var(--c-warning-text);
+}
+
+.device-login-code {
+  font-family: var(--font-mono, Consolas, monospace);
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+  letter-spacing: 6px;
+}

@@ -8,6 +8,26 @@ export interface InstanceProfile {
 }
 export interface Credentials { password?: string; passphrase?: string; token?: string }
 /**
+ * 一次“用小程序登录”的待授权请求（pollSecret 留在主进程，不交给渲染层）。
+ * 使用场景：实例设置对话框的网关区块展示二维码与 6 位登录码，并据 deviceId 轮询结果。
+ */
+export interface DeviceLoginTicket {
+  deviceId: string;
+  /** 小程序手动输入用的 6 位登录码 */
+  userCode: string;
+  expiresAt: number;
+  /** 建议轮询间隔（毫秒） */
+  intervalMs: number;
+  /** 二维码图片（PNG data URL），内容为 @sfmc-bds/management 的 encodeDeviceLoginLink */
+  qrDataUrl: string;
+}
+/** 设备登录轮询结果；approved 时 credential 作为该网关实例的访问令牌保存 */
+export type DeviceLoginStatus =
+  | { status: "pending" }
+  | { status: "approved"; credential: string; approvedByName: string; expiresAt: number }
+  | { status: "denied" }
+  | { status: "expired" };
+/**
  * 外观模式：跟随系统 / 浅色 / 深色。
  * 使用场景：渲染层主题切换后通过 appearance() 通知主进程，
  * 主进程据此设置 nativeTheme.themeSource 并同步标题栏覆盖层（窗口按钮区）配色。
@@ -51,6 +71,12 @@ export interface DesktopApi {
   appInfo(): Promise<AppInfo>;
   preferences(): Promise<DesktopPreferences>;
   setPreferences(patch: Partial<DesktopPreferences>): Promise<DesktopPreferences>;
+  /** 向网关发起“用小程序登录”，返回二维码与登录码 */
+  deviceLoginStart(endpoint: string): Promise<DeviceLoginTicket>;
+  /** 轮询登录结果；非 pending 时主进程即丢弃该请求 */
+  deviceLoginPoll(deviceId: string): Promise<DeviceLoginStatus>;
+  /** 放弃等待（关闭对话框或重新发起） */
+  deviceLoginCancel(deviceId: string): Promise<void>;
   onEvent(callback: (id: string, event: ManagementEvent) => void): () => void;
   /** progress 为 0–100 的已传输比例；没有字节进度时为 null。 */
   onConnection(callback: (id: string, message: string, progress: number | null) => void): () => void;

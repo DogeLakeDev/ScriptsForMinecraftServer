@@ -4,6 +4,7 @@
  * 使用场景：侧栏"添加实例"、欢迎页入口卡片（预选连接方式）、连接门与命令面板的"连接设置"。
  * 字段：名称、连接方式（本机 / SSH / 管理网关）、SSH 主机与凭据、网关地址与访问令牌、部署绝对目录。
  * 网关不填目录，目录由服务器上的网关决定。提交字段与原先一样只包含当前连接方式用到的项。
+ * 网关的访问令牌也可以“用小程序登录”获得（DeviceLoginPanel），获批的设备凭证按令牌保存。
  * 编辑已有实例时可从客户端移除（服务器目录与运行中的服务保留）。
  */
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ import { useConfirm } from "../components/feedback.js";
 import { Modal } from "../components/overlays.js";
 import { errorText } from "../lib/format.js";
 import { Callout } from "../components/ui.js";
+import { DeviceLoginPanel } from "./DeviceLoginPanel.js";
 
 /** 表单草稿：实例字段 + 一次性凭据 */
 type Draft = Omit<InstanceProfile, "id" | "hasCredential"> & Credentials;
@@ -212,6 +214,12 @@ export function ProfileDialog() {
             <Field label="访问令牌" required={!editing?.hasCredential} error={errors.token} description={editing?.hasCredential ? "已保存令牌；留空表示保持不变" : "网关启动时打印的访问令牌"}>
               <PasswordInput value={draft.token ?? ""} onChange={(value) => set("token", value)} invalid={Boolean(errors.token)} />
             </Field>
+            {/* 也可由游戏内 3 级管理员用小程序批准：拿到的设备凭证填入访问令牌，并默认用系统加密记住（30 天有效，免得重启后重新扫码） */}
+            <DeviceLoginPanel
+              key={open ? editing?.id ?? "new" : "closed"}
+              endpoint={draft.endpoint ?? ""}
+              onCredential={(credential) => setDraft((previous) => ({ ...previous, token: credential, remember: true }))}
+            />
             <Checkbox checked={Boolean(draft.remember)} onChange={(checked) => set("remember", checked)}>使用系统加密记住访问令牌</Checkbox>
           </fieldset>
         )}

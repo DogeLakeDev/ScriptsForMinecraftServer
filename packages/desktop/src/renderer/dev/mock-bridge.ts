@@ -401,6 +401,8 @@ export function installMockBridge() {
     };
   };
   let preferences: DesktopPreferences = { tray: true, closeToTray: true, minimizeToTray: false, openAtLogin: false, startHidden: false };
+  /** 模拟设备登录的轮询次数（用于浏览器预览“用小程序登录”流程） */
+  let mockDevicePolls = 0;
   const request = async (id: string, method: ManagementMethod, params: Record<string, unknown> = {}): Promise<unknown> => {
     const instance = get(id);
     if (!instance.connected) throw new Error("实例尚未连接");
@@ -594,6 +596,13 @@ export function installMockBridge() {
     appInfo: async () => ({ version: "0.1.0", platform: "win32", packaged: false }),
     preferences: async () => preferences,
     setPreferences: async patch => { preferences = { ...preferences, ...patch }; return preferences; },
+    // 浏览器预览：设备登录模拟为第三次轮询时获批（二维码用 1×1 透明图占位）
+    deviceLoginStart: async () => {
+      mockDevicePolls = 0;
+      return { deviceId: "mock-device", userCode: "123456", expiresAt: Date.now() + 300_000, intervalMs: 2000, qrDataUrl: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" };
+    },
+    deviceLoginPoll: async () => (++mockDevicePolls >= 3 ? { status: "approved", credential: "sfmcd1.mock.secret", approvedByName: "Steve", expiresAt: Date.now() + 30 * 86400_000 } : { status: "pending" }),
+    deviceLoginCancel: async () => { mockDevicePolls = 0; },
     onEvent: (callback) => { eventListeners.add(callback); return () => eventListeners.delete(callback); },
     onConnection: (callback) => { connectionListeners.add(callback); return () => connectionListeners.delete(callback); },
   };

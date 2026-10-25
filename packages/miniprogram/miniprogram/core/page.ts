@@ -66,46 +66,12 @@ export function connectionView(state: SessionState) {
  */
 export const consoleFocus = { at: "" };
 
-/** 「任务」在 app.json tabBar.list 中的下标，调整标签顺序时需同步修改 */
-const TASKS_TAB_INDEX = 2;
-
-/** 任务标签角标的当前文字（进行中任务数），空串表示不显示 */
-let taskBadge = "";
-/** 是否已订阅会话的任务变化（首次进入标签页时开始，之后常驻） */
-let taskBadgeWatching = false;
-
-/** 由会话状态计算角标文字：离线时不显示，超过 99 显示 99+ */
-function taskBadgeText(state: SessionState): string {
+/**
+ * 「任务」入口的角标文字（进行中任务数，对应桌面端侧边栏的任务计数）：离线时不显示，超过 99 显示 99+。
+ * 使用场景：管理端底部导航 admin-nav 订阅会话后据此渲染。原生标签栏已归玩家端，管理端不再写原生角标。
+ */
+export function taskBadgeText(state: SessionState): string {
   const count = state.status === "online" ? activeTasks(state).length : 0;
   if (!count) return "";
   return count > 99 ? "99+" : String(count);
-}
-
-/**
- * 把角标写到原生标签栏。
- * 当前页不是标签页时微信会返回失败，忽略即可：回到任意标签页时 syncTabBar 会再写一次。
- */
-function applyTaskBadge(): void {
-  const ignore = () => {};
-  if (taskBadge) wx.setTabBarBadge({ index: TASKS_TAB_INDEX, text: taskBadge, fail: ignore });
-  else wx.removeTabBarBadge({ index: TASKS_TAB_INDEX, fail: ignore });
-}
-
-/**
- * 同步原生标签栏的任务角标（对应桌面端侧边栏的任务计数）。
- * 使用场景：四个标签页在 onShow 中调用；首次调用时订阅会话的任务与连接变化，之后数量变化即时更新。
- */
-export function syncTabBar(): void {
-  if (!taskBadgeWatching) {
-    taskBadgeWatching = true;
-    taskBadge = taskBadgeText(session.state);
-    session.subscribe((state, changed) => {
-      if (!changed.has("tasks") && !changed.has("connection")) return;
-      const text = taskBadgeText(state);
-      if (text === taskBadge) return;
-      taskBadge = text;
-      applyTaskBadge();
-    });
-  }
-  applyTaskBadge();
 }

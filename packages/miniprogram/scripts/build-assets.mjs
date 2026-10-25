@@ -37,6 +37,7 @@ const MANAGEMENT_EXPORTS = [
   "assessModuleRequires",
   "moduleIdentity",
   "moduleRequireBlockMessage",
+  "parseDeviceLoginLink",
 ];
 
 /** 桌面端渲染层的纯函数源码目录（只引用不依赖 React / DOM 的 lib 文件） */
@@ -52,8 +53,8 @@ const VENDOR_BUNDLES = {
   "desktop-lib": [
     [path.join(desktopLib, "format.ts"), ["taskLabel", "phaseLabel", "TASK_STATUS", "isTaskDone", "taskElapsed", "duration", "hashHue", "hostLabel", "plainMinecraft"]],
     [path.join(desktopLib, "alerts.ts"), ["groupAlerts"]],
-    // 配置表单：字段推断、server.properties 常用字段与保留注释的回写，与桌面端「表单」视图同一份规则。
-    [path.join(desktopLib, "config-form.ts"), ["parseJsonText", "fieldsFromSchema", "fieldsFromValue", "setJsonField", "PROPERTY_FIELDS", "parseProperties", "setProperty"]],
+    // 配置表单：字段推断、server.properties 字段清单（平台下发 / 内置回退）与保留注释的回写，与桌面端「表单」视图同一份规则。
+    [path.join(desktopLib, "config-form.ts"), ["parseJsonText", "fieldsFromSchema", "fieldsFromValue", "setJsonField", "PROPERTY_FIELDS", "propertyFormFields", "parseProperties", "setProperty"]],
   ],
 };
 
@@ -65,7 +66,7 @@ const ICON_NAMES = [
   "unplug", "warning", "alert", "info", "checkCircle", "xCircle", "loader", "clock", "calendar", "copy",
   "download", "upload", "trash", "pencil", "more", "settings", "wrap", "eraser", "archive", "archiveRestore",
   "layers", "link", "zap", "code", "list", "bell", "bug", "activity", "image", "key", "shield", "lock",
-  "filter", "hardDrive", "external", "cpu", "fileCode", "eye",
+  "filter", "hardDrive", "external", "cpu", "fileCode", "eye", "monitor",
 ];
 
 /** 按 VENDOR_BUNDLES 打包运行时导出（CommonJS），并写出对应的类型声明 */
@@ -190,10 +191,10 @@ function tablerSvg(table, outlines, iconsBlock, name) {
  * theme.json 里新增标签图标时在这里登记。
  */
 const TAB_ICONS = {
-  overview: "squares-four",
-  terminal: "terminal-window",
-  tasks: "list-checks",
-  settings: "gear-six",
+  // 原生标签栏归玩家端：首页 / 排行 / 我的。管理端的底部导航是 components/admin-nav，用遮罩图标，不在这里。
+  home: "house",
+  rank: "trophy",
+  me: "user-circle",
 };
 
 /**

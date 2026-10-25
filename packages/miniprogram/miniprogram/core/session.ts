@@ -1,13 +1,14 @@
 /**
  * session.ts — 当前实例的状态与管理操作的唯一权威来源（对应桌面端 DesktopProvider）
  *
- * 使用场景：app.ts 启动时 restore；各页面通过 watchSession（core/page.ts）订阅所需的状态片段，
+ * 使用场景：进入管理端时由 admin-nav 调用 ensureRestored；各页面通过 watchSession（core/page.ts）订阅所需的状态片段，
  * 通过 session.request / submit（core/actions.ts）发起请求，页面不直接接触 WebSocket（DIP）。
  * 连接顺序、5 秒轮询、任务跟踪与桌面端一致；小程序一次只连接一个实例，切换实例时断开旧连接。
  */
+import { clearPlayerToken, resolveCredential } from "./auth";
 import { GatewayClient } from "./client";
 import { errorText, isTaskDone, taskLabel } from "./format";
-import { findProfile, lastProfileId, setLastProfile, socketUrl } from "./profiles";
+import { findProfile, isWechatProfile, lastProfileId, setLastProfile, socketUrl } from "./profiles";
 import type {
   Handshake,
   InstanceProfile,
@@ -105,10 +106,19 @@ class Session {
     return () => this.listeners.delete(listener);
   }
 
-  /** 启动时恢复上次的实例并自动连接 */
+  /** 恢复上次的实例并自动连接 */
   restore(): void {
     const profile = findProfile(lastProfileId());
     if (profile) void this.connect(profile);
+  }
+
+  /**
+   * 进入管理端时按需恢复：还没有选中实例（从未连接过）才 restore，已连接 / 已手动断开的保持原状。
+   * 使用场景：管理端一级页面的底部导航 admin-nav 挂载时调用。玩家端是小程序首页，
+   * 启动时不再自动连接管理通道，避免普通玩家打开小程序就去连管理网关。
+   */
+  ensureRestored(): void {
+    if (this.state.status === "idle" && !this.state.profile) this.restore();
   }
 
   /** 回到前台：恢复轮询；连接在后台被系统断开且不是用户主动断开时自动重连 */
@@ -146,7 +156,19 @@ class Session {
       ...(sameInstance ? {} : { handshake: null, services: [], logs: [], modules: [], packs: [], tasks: [], configKeys: [] }),
     });
     this.emit(["connection", "services", "logs", "modules", "packs", "tasks", "config"]);
-    const client = new GatewayClient(socketUrl(profile.endpoint), profile.token);
+    // 令牌档案直接用填写的令牌；微信身份档案先取玩家会话（可能触发 wx.login）
+    let token: string;
+    try {
+      token = await resolveCredential(profile);
+    } catch (error) {
+      if (generation !== this.generation) return;
+      this.state.status = "offline";
+      this.state.message = errorText(error);
+      this.emit(["connection"]);
+      return;
+    }
+    if (generation !== this.generation) return;
+    const client = new GatewayClient(socketUrl(profile.endpoint), token);
     this.client = client;
     client.onEvent = (event) => {
       if (generation === this.generation) this.onEvent(event);
@@ -178,6 +200,8 @@ class Session {
       if (!this.hidden) this.startPolling();
     } catch (error) {
       if (generation !== this.generation) return;
+      // 玩家会话被网关判定无效（例如服务器更换了会话密钥）：丢弃缓存，下次连接重新微信登录
+      if (client.closeCode === 4401 && isWechatProfile(profile)) clearPlayerToken(profile.endpoint);
       client.close();
       this.client = null;
       this.state.status = "offline";

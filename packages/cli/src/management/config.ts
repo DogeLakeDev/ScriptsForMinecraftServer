@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import Ajv2020 from "ajv/dist/2020.js";
 import { parse, type ParseError } from "jsonc-parser";
 import type { ConfigDocument } from "@sfmc-bds/management";
+import { serverPropertyFormFields } from "@sfmc-bds/bds-tools/server-properties-fields";
 import { resolveSdkPackageRoot, ROOT } from "../runtime.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { readJson, stripBom } from "./domain.js";
@@ -15,6 +16,8 @@ const SCHEMA_STEM: Record<string, string> = {
   "module-update.json": "module_update",
   "pack-update.json": "pack_update",
 };
+/** 管理界面（桌面端、小程序）的语言；server.properties 表单字段的名称与说明按此生成。界面目前只有简体中文。 */
+const MANAGEMENT_UI_LOCALE = "zh-CN";
 const ajv = new Ajv2020.default({ allErrors: true, strict: false });
 const validators = new Map<string, ReturnType<typeof ajv.compile>>();
 export function configFiles(): Map<string, string> {
@@ -59,7 +62,10 @@ export function readDocument(key: string): ConfigDocument {
     const schemaFile = path.join(path.dirname(file), `${path.basename(file).replace(/\.jsonc?$/, "")}.schema.json`);
     if (fs.existsSync(schemaFile)) schema = JSON.parse(fs.readFileSync(schemaFile, "utf8")) as object;
   }
-  return { key, text, revision: revision(text), ...(schema ? { schema } : {}), format: file.endsWith(".properties") ? "properties" : file.endsWith(".jsonc") ? "jsonc" : "json", affectedServices: ["db", "tunnel", "qq", "llbot", "bds"] };
+  const format = file.endsWith(".properties") ? "properties" : file.endsWith(".jsonc") ? "jsonc" : "json";
+  // server.properties 没有 Schema，附带 bds-tools 维护的完整字段清单供表单视图使用
+  const fields = format === "properties" ? serverPropertyFormFields(MANAGEMENT_UI_LOCALE) : undefined;
+  return { key, text, revision: revision(text), ...(schema ? { schema } : {}), format, affectedServices: ["db", "tunnel", "qq", "llbot", "bds"], ...(fields ? { fields } : {}) };
 }
 export function validateDocument(document: ConfigDocument, text: string) {
   if (Buffer.byteLength(text) > 2 * 1024 * 1024) throw new Error("配置文件过大");

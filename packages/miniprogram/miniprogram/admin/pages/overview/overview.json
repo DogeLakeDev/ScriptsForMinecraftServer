@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "实例状态",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "line-chart": "/components/line-chart/index",
+    "admin-nav": "/components/admin-nav/index"
+  }
+}

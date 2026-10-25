@@ -45,6 +45,7 @@
     "./dependency-negotiator": "./dist/dependency-negotiator.js",
     "./pack-update": "./dist/pack-update/index.js",
     "./server-properties": "./dist/server-properties.js",
+    "./server-properties-fields": "./dist/server-properties-fields.js",
     "./zipx": "./dist/zipx.js"
   },
   "files": [

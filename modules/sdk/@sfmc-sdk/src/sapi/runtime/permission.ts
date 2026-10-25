@@ -1,13 +1,6 @@
 import { Player, type PlayerPermissionLevel } from "@minecraft/server";
+import { effectivePermissionLevel } from "../../contracts/permission-level.js";
 import { ConfigManager } from "../../module-loader/index.js";
-
-/** 原生 PlayerPermissionLevel 对应数值映射（避免作为运行时值导出导致低版本/稳定版缺失符号而加载失败）。 */
-const NativePlayerPermissionLevel = {
-  Visitor: 0,
-  Member: 1,
-  Operator: 2,
-  Custom: 3,
-} as const;
 
 const gPermissionRegistry: Map<string, number> = (((globalThis as unknown as Record<string, unknown>)
   .__sfmcPermissionRegistry as Map<string, number>) ??= new Map<string, number>());
@@ -89,20 +82,9 @@ export class Permission {
   static getPermission(player: Player): number {
     const perms = ConfigManager.getPermissions();
     const override = perms[player.name];
-    if (override !== undefined) return override;
     const rawLevel = (player as { playerPermissionLevel?: PlayerPermissionLevel | number }).playerPermissionLevel;
-    switch (rawLevel) {
-      case NativePlayerPermissionLevel.Visitor:
-        return this.Any;
-      case NativePlayerPermissionLevel.Member:
-        return this.Member;
-      case NativePlayerPermissionLevel.Operator:
-        return this.OP;
-      case NativePlayerPermissionLevel.Custom:
-        return this.Admin;
-      default:
-        return this.Member;
-    }
+    // 合成规则与宿主侧（db-server 判断小程序管理员）共用 contracts/permission-level.ts（DRY）
+    return effectivePermissionLevel(override, typeof rawLevel === "number" ? rawLevel : undefined);
   }
 
   /** 按等级分组格式化已注册权限，供 `/c:help permissions` 展示。 */

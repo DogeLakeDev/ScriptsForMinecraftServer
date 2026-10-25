@@ -1,0 +1,27 @@
+<view class="page">
+  <view wx:if="{{error}}" class="callout tone-danger">
+    <text class="i i-alert"></text>
+    <view class="callout-body">
+      <view class="callout-title">无法读取设备列表</view>
+      <view class="callout-text">{{error}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{rows.length}}" class="surface">
+    <view class="surface-list">
+      <view wx:for="{{rows}}" wx:key="id" class="list-item">
+        <view class="tile tile-teal"><text class="i i-monitor"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">{{item.name}}</text></view>
+          <view class="list-sub">{{item.meta}}</view>
+          <view class="list-sub">{{item.expires}}</view>
+        </view>
+        <view class="btn btn-sm btn-danger-soft" hover-class="hover" data-id="{{item.id}}" bindtap="revoke">撤销</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:elif="{{!loading && !error}}" class="surface">
+    <empty-state icon="monitor" title="没有已授权的设备" desc="在桌面端选择“用小程序登录”，再到「我的 → 登录桌面端」扫码批准" />
+  </view>
+</view>
