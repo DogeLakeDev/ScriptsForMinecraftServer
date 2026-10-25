@@ -5,8 +5,8 @@
  * 总览、任务、更新等页面共用这里的映射，保证同一概念在各页面文案和语气一致（DRY）。
  * 语义与桌面端 components/feeds.tsx（serviceMeta / serviceState / taskIcon）一致；那份在 React 组件文件中，无法直接打包复用。
  */
-import { fullTime, groupAlerts, phaseLabel, relativeTime, taskElapsed, taskLabel, TASK_STATUS, duration } from "./format";
-import type { LogEntryWire, OperationRecord, ServiceStatusRow, Tone } from "./types";
+import { fullTime, groupAlerts, phaseLabel, relativeTime, taskElapsed, taskLabel, TASK_STATUS, duration } from "../../core/format";
+import type { LogEntryWire, OperationRecord, ServiceStatusRow, Tone } from "../../core/types";
 
 /** 服务名 → 图标（连字符语义名） */
 const SERVICE_ICONS: Record<string, string> = {

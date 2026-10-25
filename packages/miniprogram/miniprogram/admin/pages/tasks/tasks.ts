@@ -8,7 +8,7 @@ import { copy, guard } from "../../../core/actions";
 import { isTaskDone } from "../../../core/format";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
 import { session, type SessionState } from "../../../core/session";
-import { taskDetailView, taskView } from "../../../core/views";
+import { taskDetailView, taskView } from "../../core/views";
 
 /** 列表筛选 */
 type Filter = "all" | "active" | "failed";

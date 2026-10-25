@@ -1,27 +1,14 @@
 /**
  * admin-entry.ts — 玩家端进入管理端（admin 分包）的入口规则
  *
- * 使用场景：「我的」页决定是否显示「进入管理端」，点击后建立 / 选中实例档案并打开管理端首页。
+ * 使用场景：「我的」页始终显示「进入管理端」，点击后建立 / 选中实例档案并打开管理端首页。
  * - 微信绑定的游戏账号为 3 级管理员：自动建立“微信身份”档案（不需要输入令牌，网关每次连接现查等级）；
- * - 本机已有令牌档案的老用户：保留入口，按原来的令牌方式管理，不因改造失去访问。
+ * - 其他用户：按令牌方式管理本机保存的实例；还没有实例时，管理端首页的连接提示引导「添加实例」。
  */
 import { ADMIN_HOME_URL } from "./admin-nav";
 import { isWechatProfile, lastProfileId, listProfiles, saveProfile, setLastProfile } from "./profiles";
 import { HOME_SERVER, hasHomeServer, homeEndpoint } from "./server";
 import type { InstanceProfile } from "./types";
-
-/** 本机是否保存了令牌方式的实例档案 */
-export function hasTokenProfiles(): boolean {
-  return listProfiles().some((profile) => !isWechatProfile(profile));
-}
-
-/**
- * 是否显示「进入管理端」。
- * @param isAdmin 网关 /player/me 返回的 isAdmin（未登录或读取失败时传 false）
- */
-export function canEnterAdmin(isAdmin: boolean): boolean {
-  return isAdmin || hasTokenProfiles();
-}
 
 /** 找到或建立玩家端服务器的微信身份档案 */
 function ensureHomeWechatProfile(): InstanceProfile {

@@ -8,7 +8,7 @@ import { confirmSheet, copy, guard, restartBlockReason, restartServices, submit 
 import { plainMinecraft } from "../../../core/format";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
 import { session, type SessionState } from "../../../core/session";
-import { choosePacks, uploadPacks } from "../../../core/upload";
+import { choosePacks, uploadPacks } from "../../core/upload";
 
 /** 已拉取的世界包图标：键为「实例:包 id:iconStamp」，名单刷新时不重复下载 */
 const iconCache = new Map<string, string>();

@@ -5,7 +5,7 @@
  * 断线规则与桌面端 renderer/lib/metric-series.ts 的 trendPoints 相同（重启、采样间隔过大不连线，不补造点）。
  * 桌面端那份会引用主题模块，不能整文件打进小程序 vendor，因此算法在这里保持一份同步实现。
  */
-import type { MetricsResult, MetricsSample, ResourceSample } from "./types";
+import type { MetricsResult, MetricsSample, ResourceSample } from "../../core/types";
 
 /** 可选的时间范围，与桌面端 MetricMinutes 相同。默认仍是 1 小时。 */
 export const METRIC_SPANS = ["15", "60", "1440"] as const;

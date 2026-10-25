@@ -10,9 +10,9 @@ import { switchAdminTab } from "../../../core/admin-nav";
 import { duration, formatMemoryMb, hostLabel } from "../../../core/format";
 import { connectionView, consoleFocus, unwatchSession, watchSession } from "../../../core/page";
 import { activeTasks, session, type SessionState } from "../../../core/session";
-import { asMetricSpan, buildTrend, emptyTrend, type MetricSpan } from "../../../core/trend";
+import { asMetricSpan, buildTrend, emptyTrend, type MetricSpan } from "../../core/trend";
 import type { MetricsResult, ProcessResources } from "../../../core/types";
-import { alertViews, serviceView, taskView } from "../../../core/views";
+import { alertViews, serviceView, taskView } from "../../core/views";
 
 /** TPS 告警阈值（与桌面端 TPS_WARN_THRESHOLD 相同） */
 const TPS_WARN = 19.5;

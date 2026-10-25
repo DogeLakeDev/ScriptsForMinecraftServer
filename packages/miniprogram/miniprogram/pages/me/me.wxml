@@ -71,14 +71,14 @@
   </view>
 
   <!-- 管理 -->
-  <view wx:if="{{showAdmin}}" class="surface">
+  <view class="surface">
     <view class="surface-head"><text class="surface-title">服务器管理</text></view>
     <view class="surface-list">
       <view class="list-item" hover-class="hover" bindtap="openAdmin">
         <view class="tile tile-violet"><text class="i i-shield"></text></view>
         <view class="list-main">
           <view class="list-title"><text class="truncate">进入管理端</text></view>
-          <view class="list-sub">{{isAdmin ? '以游戏内管理员身份管理实例' : '使用本机保存的实例与访问令牌'}}</view>
+          <view class="list-sub">{{isAdmin ? '以游戏内管理员身份管理实例' : '用访问令牌添加或管理实例'}}</view>
         </view>
         <text class="i i-sm i-chevron-right muted"></text>
       </view>

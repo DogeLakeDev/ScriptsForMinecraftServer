@@ -4,10 +4,11 @@
  * 使用场景：
  * - 微信静默登录（wx.login → 网关换会话），展示绑定的游戏角色、SFMC 等级、余额与在线时长；
  * - 未绑定时申请 6 位绑定码，玩家在游戏内 /c:bind 后在聊天框发送；页面轮询直到绑定完成；
- * - 3 级管理员（或本机已有令牌档案的老用户）显示「进入管理端」；管理员还可扫码 / 输入登录码批准桌面端登录。
+ * - 始终显示「进入管理端」：3 级管理员以微信身份管理，其他用户用访问令牌添加 / 管理实例；
+ *   管理员还可扫码 / 输入登录码批准桌面端登录。
  */
 import { ask, guard } from "../../core/actions";
-import { canEnterAdmin, enterAdmin } from "../../core/admin-entry";
+import { enterAdmin } from "../../core/admin-entry";
 import { errorText } from "../../core/format";
 import { homePlayerApi, type BindCode, type DeviceRef, type PlayerMe } from "../../core/player-api";
 import { HOME_SERVER, hasHomeServer, homeEndpoint } from "../../core/server";
@@ -32,7 +33,6 @@ function accountView(me: PlayerMe | null) {
     playerName: me?.player?.name ?? "",
     levelLabel: me?.bound ? (LEVEL_LABELS[me.level] ?? `等级 ${me.level}`) : "",
     isAdmin: Boolean(me?.isAdmin),
-    showAdmin: canEnterAdmin(Boolean(me?.isAdmin)),
     balanceText: profile ? (profile.balance === null ? "暂时读不到" : `${profile.balance} ${profile.unit}`) : "",
     todayText: profile?.today_text ?? "",
     monthText: profile?.month_text ?? "",

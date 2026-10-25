@@ -4,9 +4,9 @@
  * 使用场景：世界包页的「导入」。小程序只能从微信聊天中选文件（wx.chooseMessageFile），
  * 选好后逐个以原始字节 PUT 到网关的 /packs/inbox，返回收件箱文件名，随后由页面提交 packs.import。
  */
-import { resolveCredential } from "./auth";
-import { uploadUrl } from "./profiles";
-import { session } from "./session";
+import { resolveCredential } from "../../core/auth";
+import { uploadUrl } from "../../core/profiles";
+import { session } from "../../core/session";
 
 /** 可导入的世界包后缀（网关会再校验一次） */
 const PACK_FILE = /\.(mcpack|mcaddon|zip)$/i;

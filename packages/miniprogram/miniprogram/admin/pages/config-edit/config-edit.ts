@@ -8,7 +8,7 @@
  * JSON 语法错误时禁止保存（json 严格解析；jsonc 允许注释与尾逗号，规则来自桌面端 parseJsonText）。
  */
 import { restartBlockReason, restartServices, submit } from "../../../core/actions";
-import { describeKey } from "../../../core/config-keys";
+import { describeKey } from "../../core/config-keys";
 import { errorText, isTaskDone } from "../../../core/format";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
 import { session, type SessionState } from "../../../core/session";

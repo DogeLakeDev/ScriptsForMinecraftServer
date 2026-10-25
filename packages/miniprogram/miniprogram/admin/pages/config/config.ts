@@ -5,7 +5,7 @@
  * 配置修改后由「重启服务」按钮手动生效（同桌面端 ConfigPage）。
  */
 import { guard, restartBlockReason, restartServices } from "../../../core/actions";
-import { describeKey } from "../../../core/config-keys";
+import { describeKey } from "../../core/config-keys";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
 import { session, type SessionState } from "../../../core/session";
 
